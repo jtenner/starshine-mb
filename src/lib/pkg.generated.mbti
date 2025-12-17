@@ -1,0 +1,1119 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "username/starshine/lib"
+
+import(
+  "moonbitlang/core/buffer"
+  "moonbitlang/core/list"
+  "moonbitlang/core/quickcheck"
+  "moonbitlang/core/quickcheck/splitmix"
+)
+
+// Values
+
+// Errors
+
+// Types and methods
+pub enum AbsHeapType {
+  ExnAbsHeapType
+  ArrayAbsHeapType
+  StructAbsHeapType
+  I31AbsHeapType
+  EqAbsHeapType
+  AnyAbsHeapType
+  ExternAbsHeapType
+  FuncAbsHeapType
+  NoneAbsHeapType
+  NoExternAbsHeapType
+  NoFuncAbsHeapType
+  NoExnAbsHeapType
+}
+pub impl Eq for AbsHeapType
+pub impl @quickcheck.Arbitrary for AbsHeapType
+pub impl Decode for AbsHeapType
+pub impl Encode for AbsHeapType
+
+pub enum BlockType {
+  EmptyBlockType
+  ValTypeBlockType(ValType)
+  TypeIdxBlockType(TypeIdx)
+}
+pub impl Eq for BlockType
+pub impl @quickcheck.Arbitrary for BlockType
+pub impl Decode for BlockType
+pub impl Encode for BlockType
+
+pub struct CastOp(Bool, Bool)
+
+
+pub impl Eq for CastOp
+pub impl @quickcheck.Arbitrary for CastOp
+pub impl Decode for CastOp
+pub impl Encode for CastOp
+
+pub enum Catch {
+  Catch(TagIdx, LabelIdx)
+  CatchRef(TagIdx, LabelIdx)
+  CatchAll(LabelIdx)
+  CatchAllRef(LabelIdx)
+}
+pub impl Eq for Catch
+pub impl @quickcheck.Arbitrary for Catch
+pub impl Decode for Catch
+pub impl Encode for Catch
+
+pub struct CodeSec(@list.List[Func])
+#deprecated
+pub fn CodeSec::inner(Self) -> @list.List[Func]
+pub impl Eq for CodeSec
+pub impl @quickcheck.Arbitrary for CodeSec
+pub impl Decode for CodeSec
+pub impl Encode for CodeSec
+
+pub enum CompType {
+  ArrayCompType(FieldType)
+  StructCompType(@list.List[FieldType])
+  FuncCompType(Array[ValType], Array[ValType])
+}
+pub impl Eq for CompType
+pub impl @quickcheck.Arbitrary for CompType
+pub impl Decode for CompType
+pub impl Encode for CompType
+
+pub struct CustomSec(Name, Bytes)
+
+
+pub impl Eq for CustomSec
+pub impl @quickcheck.Arbitrary for CustomSec
+pub impl Decode for CustomSec
+pub impl Encode for CustomSec
+
+pub struct Data(DataMode, Bytes)
+
+
+pub impl Eq for Data
+pub impl @quickcheck.Arbitrary for Data
+pub impl Decode for Data
+pub impl Encode for Data
+
+pub struct DataCntSec(U32)
+#deprecated
+pub fn DataCntSec::inner(Self) -> U32
+pub impl Eq for DataCntSec
+pub impl @quickcheck.Arbitrary for DataCntSec
+pub impl Decode for DataCntSec
+pub impl Encode for DataCntSec
+
+pub struct DataIdx(UInt)
+#deprecated
+pub fn DataIdx::inner(Self) -> UInt
+pub impl Eq for DataIdx
+pub impl @quickcheck.Arbitrary for DataIdx
+pub impl Decode for DataIdx
+pub impl Encode for DataIdx
+
+pub enum DataMode {
+  Active(MemIdx, Expr)
+  Passive
+}
+pub impl Eq for DataMode
+pub impl @quickcheck.Arbitrary for DataMode
+
+pub struct DataSec(@list.List[Data])
+#deprecated
+pub fn DataSec::inner(Self) -> @list.List[Data]
+pub impl Eq for DataSec
+pub impl @quickcheck.Arbitrary for DataSec
+pub impl Decode for DataSec
+pub impl Encode for DataSec
+
+pub struct Elem(ElemMode, ElemKind)
+
+
+pub impl Eq for Elem
+pub impl @quickcheck.Arbitrary for Elem
+pub impl Decode for Elem
+pub impl Encode for Elem
+
+pub struct ElemIdx(UInt)
+#deprecated
+pub fn ElemIdx::inner(Self) -> UInt
+pub impl Eq for ElemIdx
+pub impl @quickcheck.Arbitrary for ElemIdx
+pub impl Decode for ElemIdx
+pub impl Encode for ElemIdx
+
+pub enum ElemKind {
+  FuncsElemKind(@list.List[FuncIdx])
+  FuncExprsElemKind(@list.List[Expr])
+  TypedExprsElemKind(RefType, @list.List[Expr])
+}
+pub impl Eq for ElemKind
+pub impl @quickcheck.Arbitrary for ElemKind
+
+pub enum ElemMode {
+  Passive
+  Active(TableIdx, Expr)
+  Declarative
+}
+pub impl Eq for ElemMode
+pub impl @quickcheck.Arbitrary for ElemMode
+
+pub struct ElemSec(@list.List[Elem])
+#deprecated
+pub fn ElemSec::inner(Self) -> @list.List[Elem]
+pub impl Eq for ElemSec
+pub impl @quickcheck.Arbitrary for ElemSec
+pub impl Decode for ElemSec
+pub impl Encode for ElemSec
+
+pub struct Export(Name, ExternIdx)
+
+
+pub impl Eq for Export
+pub impl @quickcheck.Arbitrary for Export
+pub impl Decode for Export
+pub impl Encode for Export
+
+pub struct ExportSec(@list.List[Export])
+#deprecated
+pub fn ExportSec::inner(Self) -> @list.List[Export]
+pub impl Eq for ExportSec
+pub impl @quickcheck.Arbitrary for ExportSec
+pub impl Decode for ExportSec
+pub impl Encode for ExportSec
+
+pub struct Expr(@list.List[Instruction])
+#deprecated
+pub fn Expr::inner(Self) -> @list.List[Instruction]
+pub impl Eq for Expr
+pub impl @quickcheck.Arbitrary for Expr
+pub impl Decode for Expr
+pub impl Encode for Expr
+
+pub enum ExternIdx {
+  FuncExternIdx(FuncIdx)
+  TableExternIdx(TableIdx)
+  MemExternIdx(MemIdx)
+  GlobalExternIdx(GlobalIdx)
+  TagExternIdx(TagIdx)
+}
+pub impl Eq for ExternIdx
+pub impl @quickcheck.Arbitrary for ExternIdx
+pub impl Decode for ExternIdx
+pub impl Encode for ExternIdx
+
+pub enum ExternType {
+  FuncExternType(TypeIdx)
+  TableExternType(TableType)
+  MemExternType(MemType)
+  GlobalExternType(GlobalType)
+  TagExternType(TagType)
+}
+pub impl Eq for ExternType
+pub impl @quickcheck.Arbitrary for ExternType
+pub impl Decode for ExternType
+pub impl Encode for ExternType
+
+pub struct F32(Float)
+#deprecated
+pub fn F32::inner(Self) -> Float
+pub impl Eq for F32
+pub impl @quickcheck.Arbitrary for F32
+pub impl Decode for F32
+pub impl Encode for F32
+
+pub struct F64(Double)
+#deprecated
+pub fn F64::inner(Self) -> Double
+pub impl Eq for F64
+pub impl @quickcheck.Arbitrary for F64
+pub impl Decode for F64
+pub impl Encode for F64
+
+pub struct FieldType(StorageType, Bool?)
+
+
+pub impl Eq for FieldType
+pub impl @quickcheck.Arbitrary for FieldType
+pub impl Decode for FieldType
+pub impl Encode for FieldType
+
+pub struct Func(@list.List[Locals], Expr)
+
+
+pub impl Eq for Func
+pub impl @quickcheck.Arbitrary for Func
+pub impl Decode for Func
+pub impl Encode for Func
+
+pub struct FuncIdx(UInt)
+#deprecated
+pub fn FuncIdx::inner(Self) -> UInt
+pub impl Eq for FuncIdx
+pub impl @quickcheck.Arbitrary for FuncIdx
+pub impl Decode for FuncIdx
+pub impl Encode for FuncIdx
+
+pub struct FuncSec(@list.List[TypeIdx])
+#deprecated
+pub fn FuncSec::inner(Self) -> @list.List[TypeIdx]
+pub impl Eq for FuncSec
+pub impl @quickcheck.Arbitrary for FuncSec
+pub impl Decode for FuncSec
+pub impl Encode for FuncSec
+
+pub struct Global(GlobalType, Expr)
+
+
+pub impl Eq for Global
+pub impl @quickcheck.Arbitrary for Global
+pub impl Decode for Global
+pub impl Encode for Global
+
+pub struct GlobalIdx(UInt)
+#deprecated
+pub fn GlobalIdx::inner(Self) -> UInt
+pub impl Eq for GlobalIdx
+pub impl @quickcheck.Arbitrary for GlobalIdx
+pub impl Decode for GlobalIdx
+pub impl Encode for GlobalIdx
+
+pub struct GlobalSec(@list.List[Global])
+#deprecated
+pub fn GlobalSec::inner(Self) -> @list.List[Global]
+pub impl Eq for GlobalSec
+pub impl @quickcheck.Arbitrary for GlobalSec
+pub impl Decode for GlobalSec
+pub impl Encode for GlobalSec
+
+pub struct GlobalType(ValType, Bool)
+
+
+pub impl Eq for GlobalType
+pub impl @quickcheck.Arbitrary for GlobalType
+pub impl Decode for GlobalType
+pub impl Encode for GlobalType
+
+pub enum HeapType {
+  AbsHeapTypeHeapType(AbsHeapType)
+  HeapType(S33)
+}
+pub impl Eq for HeapType
+pub impl @quickcheck.Arbitrary for HeapType
+pub impl Decode for HeapType
+pub impl Encode for HeapType
+
+pub struct I32(Int)
+#deprecated
+pub fn I32::inner(Self) -> Int
+pub impl Eq for I32
+pub impl @quickcheck.Arbitrary for I32
+pub impl Decode for I32
+pub impl Encode for I32
+
+pub struct I64(Int64)
+#deprecated
+pub fn I64::inner(Self) -> Int64
+pub impl Eq for I64
+pub impl @quickcheck.Arbitrary for I64
+pub impl Decode for I64
+pub impl Encode for I64
+
+pub struct Import(Name, Name, ExternType)
+
+
+pub impl Eq for Import
+pub impl @quickcheck.Arbitrary for Import
+pub impl Decode for Import
+pub impl Encode for Import
+
+pub struct ImportSec(@list.List[Import])
+#deprecated
+pub fn ImportSec::inner(Self) -> @list.List[Import]
+pub impl Eq for ImportSec
+pub impl @quickcheck.Arbitrary for ImportSec
+pub impl Decode for ImportSec
+pub impl Encode for ImportSec
+
+pub enum Instruction {
+  Unreachable
+  Nop
+  Block(BlockType, Expr)
+  Loop(BlockType, Expr)
+  If(BlockType, Array[Instruction], Array[Instruction]?)
+  Throw(TagIdx)
+  ThrowRef
+  Br(LabelIdx)
+  BrIf(LabelIdx)
+  BrTable(@list.List[LabelIdx], LabelIdx)
+  Return
+  Call(FuncIdx)
+  CallIndirect(TypeIdx, TableIdx)
+  ReturnCall(FuncIdx)
+  ReturnCallIndirect(TypeIdx, TableIdx)
+  CallRef(TypeIdx)
+  ReturnCallRef(TypeIdx)
+  Drop
+  Select(@list.List[ValType]?)
+  TryTable(BlockType, @list.List[Catch], Expr)
+  LocalGet(LocalIdx)
+  LocalSet(LocalIdx)
+  LocalTee(LocalIdx)
+  GlobalGet(GlobalIdx)
+  GlobalSet(GlobalIdx)
+  TableGet(TableIdx)
+  TableSet(TableIdx)
+  I32Load(MemArg)
+  I64Load(MemArg)
+  F32Load(MemArg)
+  F64Load(MemArg)
+  I32Load8S(MemArg)
+  I32Load8U(MemArg)
+  I32Load16S(MemArg)
+  I32Load16U(MemArg)
+  I64Load8S(MemArg)
+  I64Load8U(MemArg)
+  I64Load16S(MemArg)
+  I64Load16U(MemArg)
+  I64Load32S(MemArg)
+  I64Load32U(MemArg)
+  I32Store(MemArg)
+  I64Store(MemArg)
+  F32Store(MemArg)
+  F64Store(MemArg)
+  I32Store8(MemArg)
+  I32Store16(MemArg)
+  I64Store8(MemArg)
+  I64Store16(MemArg)
+  I64Store32(MemArg)
+  MemorySize(MemIdx)
+  MemoryGrow(MemIdx)
+  I32Const(I32)
+  I64Const(I64)
+  F32Const(F32)
+  F64Const(F64)
+  I32Eqz
+  I32Eq
+  I32Ne
+  I32LtS
+  I32LtU
+  I32GtS
+  I32GtU
+  I32LeS
+  I32LeU
+  I32GeS
+  I32GeU
+  I64Eqz
+  I64Eq
+  I64Ne
+  I64LtS
+  I64LtU
+  I64GtS
+  I64GtU
+  I64LeS
+  I64LeU
+  I64GeS
+  I64GeU
+  F32Eq
+  F32Ne
+  F32Lt
+  F32Gt
+  F32Le
+  F32Ge
+  F64Eq
+  F64Ne
+  F64Lt
+  F64Gt
+  F64Le
+  F64Ge
+  I32Clz
+  I32Ctz
+  I32Popcnt
+  I32Add
+  I32Sub
+  I32Mul
+  I32DivS
+  I32DivU
+  I32RemS
+  I32RemU
+  I32And
+  I32Or
+  I32Xor
+  I32Shl
+  I32ShrS
+  I32ShrU
+  I32Rotl
+  I32Rotr
+  I64Clz
+  I64Ctz
+  I64Popcnt
+  I64Add
+  I64Sub
+  I64Mul
+  I64DivS
+  I64DivU
+  I64RemS
+  I64RemU
+  I64And
+  I64Or
+  I64Xor
+  I64Shl
+  I64ShrS
+  I64ShrU
+  I64Rotl
+  I64Rotr
+  F32Abs
+  F32Neg
+  F32Ceil
+  F32Floor
+  F32Trunc
+  F32Nearest
+  F32Sqrt
+  F32Add
+  F32Sub
+  F32Mul
+  F32Div
+  F32Min
+  F32Max
+  F32Copysign
+  F64Abs
+  F64Neg
+  F64Ceil
+  F64Floor
+  F64Trunc
+  F64Nearest
+  F64Sqrt
+  F64Add
+  F64Sub
+  F64Mul
+  F64Div
+  F64Min
+  F64Max
+  F64Copysign
+  I32WrapI64
+  I32TruncF32S
+  I32TruncF32U
+  I32TruncF64S
+  I32TruncF64U
+  I64ExtendI32S
+  I64ExtendI32U
+  I64TruncF32S
+  I64TruncF32U
+  I64TruncF64S
+  I64TruncF64U
+  F32ConvertI32S
+  F32ConvertI32U
+  F32ConvertI64S
+  F32ConvertI64U
+  F32DemoteF64
+  F64ConvertI32S
+  F64ConvertI32U
+  F64ConvertI64S
+  F64ConvertI64U
+  F64PromoteF32
+  I32ReinterpretF32
+  I64ReinterpretF64
+  F32ReinterpretI32
+  F64ReinterpretI64
+  I32Extend8S
+  I32Extend16S
+  I64Extend8S
+  I64Extend16S
+  I64Extend32S
+  RefNull(HeapType)
+  RefIsNull
+  RefFunc(FuncIdx)
+  RefEq
+  RefAsNonNull
+  BrOnNull(LabelIdx)
+  BrOnNonNull(LabelIdx)
+  StructNew(TypeIdx)
+  StructNewDefault(TypeIdx)
+  StructGet(TypeIdx, U32)
+  StructGetS(TypeIdx, U32)
+  StructGetU(TypeIdx, U32)
+  StructSet(TypeIdx, U32)
+  ArrayNew(TypeIdx)
+  ArrayNewDefault(TypeIdx)
+  ArrayNewFixed(TypeIdx, U32)
+  ArrayNewData(TypeIdx, DataIdx)
+  ArrayNewElem(TypeIdx, ElemIdx)
+  ArrayGet(TypeIdx)
+  ArrayGetS(TypeIdx)
+  ArrayGetU(TypeIdx)
+  ArraySet(TypeIdx)
+  ArrayLen
+  ArrayFill(TypeIdx)
+  ArrayCopy(TypeIdx, TypeIdx)
+  ArrayInitData(TypeIdx, DataIdx)
+  ArrayInitElem(TypeIdx, ElemIdx)
+  RefTest(Bool, HeapType)
+  RefCast(Bool, HeapType)
+  BrOnCast(LabelIdx, CastOp, HeapType, HeapType)
+  BrOnCastFail(LabelIdx, CastOp, HeapType, HeapType)
+  AnyConvertExtern
+  ExternConvertAny
+  RefI31
+  I31GetS
+  I31GetU
+  I32TruncSatF32S
+  I32TruncSatF32U
+  I32TruncSatF64S
+  I32TruncSatF64U
+  I64TruncSatF32S
+  I64TruncSatF32U
+  I64TruncSatF64S
+  I64TruncSatF64U
+  MemoryInit(DataIdx, MemIdx)
+  DataDrop(DataIdx)
+  MemoryCopy(MemIdx, MemIdx)
+  MemoryFill(MemIdx)
+  TableInit(ElemIdx, TableIdx)
+  ElemDrop(ElemIdx)
+  TableCopy(TableIdx, TableIdx)
+  TableGrow(TableIdx)
+  TableSize(TableIdx)
+  TableFill(TableIdx)
+  V128Load(MemArg)
+  V128Load8x8S(MemArg)
+  V128Load8x8U(MemArg)
+  V128Load16x4S(MemArg)
+  V128Load16x4U(MemArg)
+  V128Load32x2S(MemArg)
+  V128Load32x2U(MemArg)
+  V128Load8Splat(MemArg)
+  V128Load16Splat(MemArg)
+  V128Load32Splat(MemArg)
+  V128Load64Splat(MemArg)
+  V128Store(MemArg)
+  V128Const(Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte)
+  I8x16Shuffle(LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx)
+  I8x16Swizzle
+  I8x16Splat
+  I16x8Splat
+  I32x4Splat
+  I64x2Splat
+  F32x4Splat
+  F64x2Splat
+  I8x16ExtractLaneS(LaneIdx)
+  I8x16ExtractLaneU(LaneIdx)
+  I8x16ReplaceLane(LaneIdx)
+  I16x8ExtractLaneS(LaneIdx)
+  I16x8ExtractLaneU(LaneIdx)
+  I16x8ReplaceLane(LaneIdx)
+  I32x4ExtractLane(LaneIdx)
+  I32x4ReplaceLane(LaneIdx)
+  I64x2ExtractLane(LaneIdx)
+  I64x2ReplaceLane(LaneIdx)
+  F32x4ExtractLane(LaneIdx)
+  F32x4ReplaceLane(LaneIdx)
+  F64x2ExtractLane(LaneIdx)
+  F64x2ReplaceLane(LaneIdx)
+  I8x16Eq
+  I8x16Ne
+  I8x16LtS
+  I8x16LtU
+  I8x16GtS
+  I8x16GtU
+  I8x16LeS
+  I8x16LeU
+  I8x16GeS
+  I8x16GeU
+  I16x8Eq
+  I16x8Ne
+  I16x8LtS
+  I16x8LtU
+  I16x8GtS
+  I16x8GtU
+  I16x8LeS
+  I16x8LeU
+  I16x8GeS
+  I16x8GeU
+  I32x4Eq
+  I32x4Ne
+  I32x4LtS
+  I32x4LtU
+  I32x4GtS
+  I32x4GtU
+  I32x4LeS
+  I32x4LeU
+  I32x4GeS
+  I32x4GeU
+  F32x4Eq
+  F32x4Ne
+  F32x4Lt
+  F32x4Gt
+  F32x4Le
+  F32x4Ge
+  F64x2Eq
+  F64x2Ne
+  F64x2Lt
+  F64x2Gt
+  F64x2Le
+  F64x2Ge
+  V128Not
+  V128And
+  V128Andnot
+  V128Or
+  V128Xor
+  V128Bitselect
+  V128AnyTrue
+  V128Load8Lane(MemArg, LaneIdx)
+  V128Load16Lane(MemArg, LaneIdx)
+  V128Load32Lane(MemArg, LaneIdx)
+  V128Load64Lane(MemArg, LaneIdx)
+  V128Store8Lane(MemArg, LaneIdx)
+  V128Store16Lane(MemArg, LaneIdx)
+  V128Store32Lane(MemArg, LaneIdx)
+  V128Store64Lane(MemArg, LaneIdx)
+  V128Load32Zero(MemArg)
+  V128Load64Zero(MemArg)
+  F32x4DemoteF64x2Zero
+  F64x2PromoteLowF32x4
+  I8x16Abs
+  I8x16Neg
+  I8x16Popcnt
+  I8x16AllTrue
+  I8x16Bitmask
+  I8x16NarrowI16x8S
+  I8x16NarrowI16x8U
+  F32x4Ceil
+  F32x4Floor
+  F32x4Trunc
+  F32x4Nearest
+  I8x16Shl
+  I8x16ShrS
+  I8x16ShrU
+  I8x16Add
+  I8x16AddSatS
+  I8x16AddSatU
+  I8x16Sub
+  I8x16SubSatS
+  I8x16SubSatU
+  F64x2Ceil
+  F64x2Floor
+  I8x16MinS
+  I8x16MinU
+  I8x16MaxS
+  I8x16MaxU
+  F64x2Trunc
+  I8x16AvgrU
+  I16x8ExtaddPairwiseI8x16S
+  I16x8ExtaddPairwiseI8x16U
+  I32x4ExtaddPairwiseI16x8S
+  I32x4ExtaddPairwiseI16x8U
+  I16x8Abs
+  I16x8Neg
+  I16x8Q15mulrSatS
+  I16x8AllTrue
+  I16x8Bitmask
+  I16x8NarrowI32x4S
+  I16x8NarrowI32x4U
+  I16x8ExtendLowI8x16S
+  I16x8ExtendHighI8x16S
+  I16x8ExtendLowI8x16U
+  I16x8ExtendHighI8x16U
+  I16x8Shl
+  I16x8ShrS
+  I16x8ShrU
+  I16x8Add
+  I16x8AddSatS
+  I16x8AddSatU
+  I16x8Sub
+  I16x8SubSatS
+  I16x8SubSatU
+  F64x2Nearest
+  I16x8Mul
+  I16x8MinS
+  I16x8MinU
+  I16x8MaxS
+  I16x8MaxU
+  I16x8AvgrU
+  I16x8ExtmulLowI8x16S
+  I16x8ExtmulHighI8x16S
+  I16x8ExtmulLowI8x16U
+  I16x8ExtmulHighI8x16U
+  I32x4Abs
+  I32x4Neg
+  I32x4AllTrue
+  I32x4Bitmask
+  I32x4ExtendLowI16x8S
+  I32x4ExtendHighI16x8S
+  I32x4ExtendLowI16x8U
+  I32x4ExtendHighI16x8U
+  I32x4Shl
+  I32x4ShrS
+  I32x4ShrU
+  I32x4Add
+  I32x4Sub
+  I32x4Mul
+  I32x4MinS
+  I32x4MinU
+  I32x4MaxS
+  I32x4MaxU
+  I32x4DotI16x8S
+  I32x4ExtmulLowI16x8S
+  I32x4ExtmulHighI16x8S
+  I32x4ExtmulLowI16x8U
+  I32x4ExtmulHighI16x8U
+  I64x2Abs
+  I64x2Neg
+  I64x2AllTrue
+  I64x2Bitmask
+  I64x2ExtendLowI32x4S
+  I64x2ExtendHighI32x4S
+  I64x2ExtendLowI32x4U
+  I64x2ExtendHighI32x4U
+  I64x2Shl
+  I64x2ShrS
+  I64x2ShrU
+  I64x2Add
+  I64x2Sub
+  I64x2Mul
+  I64x2Eq
+  I64x2Ne
+  I64x2LtS
+  I64x2GtS
+  I64x2LeS
+  I64x2GeS
+  I64x2ExtmulLowI32x4S
+  I64x2ExtmulHighI32x4S
+  I64x2ExtmulLowI32x4U
+  I64x2ExtmulHighI32x4U
+  F32x4Abs
+  F32x4Neg
+  F32x4Sqrt
+  F32x4Add
+  F32x4Sub
+  F32x4Mul
+  F32x4Div
+  F32x4Min
+  F32x4Max
+  F32x4Pmin
+  F32x4Pmax
+  F64x2Abs
+  F64x2Neg
+  F64x2Sqrt
+  F64x2Add
+  F64x2Sub
+  F64x2Mul
+  F64x2Div
+  F64x2Min
+  F64x2Max
+  F64x2Pmin
+  F64x2Pmax
+  I32x4TruncSatF32x4S
+  I32x4TruncSatF32x4U
+  F32x4ConvertI32x4S
+  F32x4ConvertI32x4U
+  I32x4TruncSatF64x2SZero
+  I32x4TruncSatF64x2UZero
+  F64x2ConvertLowI32x4S
+  F64x2ConvertLowI32x4U
+  I8x16RelaxedSwizzle
+  I32x4RelaxedTruncF32x4S
+  I32x4RelaxedTruncF32x4U
+  I32x4RelaxedTruncZeroF64x2S
+  I32x4RelaxedTruncZeroF64x2U
+  F32x4RelaxedMadd
+  F32x4RelaxedNmadd
+  F64x2RelaxedMadd
+  F64x2RelaxedNmadd
+  I8x16RelaxedLaneselect
+  I16x8RelaxedLaneselect
+  I32x4RelaxedLaneselect
+  I64x2RelaxedLaneselect
+  F32x4RelaxedMin
+  F32x4RelaxedMax
+  F64x2RelaxedMin
+  F64x2RelaxedMax
+  I16x8RelaxedQ15mulrS
+  I16x8RelaxedDotI8x16I7x16S
+  I32x4RelaxedDotI8x16I7x16AddS
+}
+pub impl Eq for Instruction
+pub impl @quickcheck.Arbitrary for Instruction
+pub impl Decode for Instruction
+pub impl Encode for Instruction
+
+pub struct LabelIdx(UInt)
+#deprecated
+pub fn LabelIdx::inner(Self) -> UInt
+pub impl Eq for LabelIdx
+pub impl @quickcheck.Arbitrary for LabelIdx
+pub impl Decode for LabelIdx
+pub impl Encode for LabelIdx
+
+pub struct LaneIdx(Byte)
+#deprecated
+pub fn LaneIdx::inner(Self) -> Byte
+pub impl Eq for LaneIdx
+pub impl @quickcheck.Arbitrary for LaneIdx
+pub impl Decode for LaneIdx
+pub impl Encode for LaneIdx
+
+pub enum Limits {
+  I32Limits(UInt, UInt?)
+  I64Limits(UInt64, UInt64?)
+}
+pub impl Eq for Limits
+pub impl @quickcheck.Arbitrary for Limits
+pub impl Decode for Limits
+pub impl Encode for Limits
+
+pub struct LocalIdx(UInt)
+#deprecated
+pub fn LocalIdx::inner(Self) -> UInt
+pub impl Eq for LocalIdx
+pub impl @quickcheck.Arbitrary for LocalIdx
+pub impl Decode for LocalIdx
+pub impl Encode for LocalIdx
+
+pub struct Locals(U32, ValType)
+
+
+pub impl Eq for Locals
+pub impl @quickcheck.Arbitrary for Locals
+pub impl Decode for Locals
+pub impl Encode for Locals
+
+pub struct MemArg(U32, MemIdx?, U64)
+
+
+pub impl Eq for MemArg
+pub impl @quickcheck.Arbitrary for MemArg
+pub impl Decode for MemArg
+pub impl Encode for MemArg
+
+pub struct MemIdx(UInt)
+#deprecated
+pub fn MemIdx::inner(Self) -> UInt
+pub impl Eq for MemIdx
+pub impl @quickcheck.Arbitrary for MemIdx
+pub impl Decode for MemIdx
+pub impl Encode for MemIdx
+
+pub struct MemSec(@list.List[MemType])
+#deprecated
+pub fn MemSec::inner(Self) -> @list.List[MemType]
+pub impl Eq for MemSec
+pub impl @quickcheck.Arbitrary for MemSec
+pub impl Decode for MemSec
+pub impl Encode for MemSec
+
+pub struct MemType(Limits)
+#deprecated
+pub fn MemType::inner(Self) -> Limits
+pub impl Eq for MemType
+pub impl @quickcheck.Arbitrary for MemType
+pub impl Decode for MemType
+pub impl Encode for MemType
+
+pub struct Module(Array[CustomSec], TypeSec?, ImportSec?, FuncSec?, TableSec?, MemSec?, TagSec?, GlobalSec?, ExportSec?, StartSec?, ElemSec?, DataCntSec?, CodeSec?, DataSec?)
+
+
+pub impl Eq for Module
+pub impl @quickcheck.Arbitrary for Module
+pub impl Decode for Module
+pub impl Encode for Module
+
+pub struct Name(StringView)
+#deprecated
+pub fn Name::inner(Self) -> StringView
+pub impl Eq for Name
+pub impl @quickcheck.Arbitrary for Name
+pub impl Decode for Name
+pub impl Encode for Name
+
+pub enum NumType {
+  F32NumType
+  F64NumType
+  I32NumType
+  I64NumType
+}
+pub impl Eq for NumType
+pub impl @quickcheck.Arbitrary for NumType
+pub impl Decode for NumType
+pub impl Encode for NumType
+
+pub enum PackType {
+  I16PackType
+  I8PackType
+}
+pub impl Eq for PackType
+pub impl @quickcheck.Arbitrary for PackType
+pub impl Decode for PackType
+pub impl Encode for PackType
+
+pub enum RecType {
+  RecType(SubType)
+  RecTypeSubTypes(@list.List[SubType])
+}
+pub impl Eq for RecType
+pub impl @quickcheck.Arbitrary for RecType
+pub impl Decode for RecType
+pub impl Encode for RecType
+
+pub enum RefType {
+  HeapTypeRefType(Bool, HeapType)
+  AbsHeapTypeRefType(AbsHeapType)
+}
+pub impl Eq for RefType
+pub impl @quickcheck.Arbitrary for RefType
+pub impl Decode for RefType
+pub impl Encode for RefType
+
+pub struct S33(UInt64)
+#deprecated
+pub fn S33::inner(Self) -> UInt64
+pub impl Eq for S33
+pub impl @quickcheck.Arbitrary for S33
+pub impl Decode for S33
+pub impl Encode for S33
+
+pub struct StartSec(FuncIdx)
+#deprecated
+pub fn StartSec::inner(Self) -> FuncIdx
+pub impl Eq for StartSec
+pub impl @quickcheck.Arbitrary for StartSec
+pub impl Decode for StartSec
+pub impl Encode for StartSec
+
+pub enum StorageType {
+  ValTypeStorageType(ValType)
+  PackTypeStorageType(PackType)
+}
+pub impl Eq for StorageType
+pub impl @quickcheck.Arbitrary for StorageType
+pub impl Decode for StorageType
+pub impl Encode for StorageType
+
+pub enum SubType {
+  SubType(Bool, @list.List[TypeIdx], CompType)
+  CompTypeSubType(CompType)
+}
+pub impl Eq for SubType
+pub impl @quickcheck.Arbitrary for SubType
+pub impl Decode for SubType
+pub impl Encode for SubType
+
+pub struct Table(TableType, Expr?)
+
+
+pub impl Eq for Table
+pub impl @quickcheck.Arbitrary for Table
+pub impl Decode for Table
+pub impl Encode for Table
+
+pub struct TableIdx(UInt)
+#deprecated
+pub fn TableIdx::inner(Self) -> UInt
+pub impl Eq for TableIdx
+pub impl @quickcheck.Arbitrary for TableIdx
+pub impl Decode for TableIdx
+pub impl Encode for TableIdx
+
+pub struct TableSec(@list.List[Table])
+#deprecated
+pub fn TableSec::inner(Self) -> @list.List[Table]
+pub impl Eq for TableSec
+pub impl @quickcheck.Arbitrary for TableSec
+pub impl Decode for TableSec
+pub impl Encode for TableSec
+
+pub struct TableType(RefType, Limits)
+
+
+pub impl Eq for TableType
+pub impl @quickcheck.Arbitrary for TableType
+pub impl Decode for TableType
+pub impl Encode for TableType
+
+pub struct TagIdx(UInt)
+#deprecated
+pub fn TagIdx::inner(Self) -> UInt
+pub impl Eq for TagIdx
+pub impl @quickcheck.Arbitrary for TagIdx
+pub impl Decode for TagIdx
+pub impl Encode for TagIdx
+
+pub struct TagSec(@list.List[TagType])
+#deprecated
+pub fn TagSec::inner(Self) -> @list.List[TagType]
+pub impl Eq for TagSec
+pub impl @quickcheck.Arbitrary for TagSec
+pub impl Decode for TagSec
+pub impl Encode for TagSec
+
+pub struct TagType(TypeIdx)
+#deprecated
+pub fn TagType::inner(Self) -> TypeIdx
+pub impl Eq for TagType
+pub impl @quickcheck.Arbitrary for TagType
+pub impl Decode for TagType
+pub impl Encode for TagType
+
+pub struct TypeIdx(UInt)
+#deprecated
+pub fn TypeIdx::inner(Self) -> UInt
+pub impl Eq for TypeIdx
+pub impl @quickcheck.Arbitrary for TypeIdx
+pub impl Decode for TypeIdx
+pub impl Encode for TypeIdx
+
+pub struct TypeSec(@list.List[RecType])
+#deprecated
+pub fn TypeSec::inner(Self) -> @list.List[RecType]
+pub impl Eq for TypeSec
+pub impl @quickcheck.Arbitrary for TypeSec
+pub impl Decode for TypeSec
+pub impl Encode for TypeSec
+
+pub struct U32(UInt)
+#deprecated
+pub fn U32::inner(Self) -> UInt
+pub impl Eq for U32
+pub impl @quickcheck.Arbitrary for U32
+pub impl Decode for U32
+pub impl Encode for U32
+
+pub struct U64(UInt64)
+#deprecated
+pub fn U64::inner(Self) -> UInt64
+pub impl Eq for U64
+pub impl @quickcheck.Arbitrary for U64
+pub impl Decode for U64
+pub impl Encode for U64
+
+pub enum ValType {
+  NumTypeValType(NumType)
+  VecTypeValType
+  RefTypeValType(RefType)
+}
+pub impl Eq for ValType
+pub impl @quickcheck.Arbitrary for ValType
+pub impl Decode for ValType
+pub impl Encode for ValType
+
+// Type aliases
+pub type ResultType = Array[ValType]
+
+// Traits
+pub trait Decode {
+  decode(Bytes, Int) -> Result[(Self, Int), String]
+}
+pub impl Decode for Bool
+pub impl[T : Decode] Decode for T?
+pub impl Decode for Bytes
+pub impl[T : Decode] Decode for Array[T]
+pub impl[T : Decode] Decode for @list.List[T]
+
+pub trait Encode {
+  encode(Self, @buffer.Buffer) -> Result[Unit, String]
+}
+pub impl Encode for Bool
+pub impl[T : Encode] Encode for T?
+pub impl Encode for Bytes
+pub impl[T : Encode] Encode for Array[T]
+pub impl[T : Encode] Encode for @list.List[T]
+
