@@ -35,7 +35,9 @@ pub impl Decode for NumType with decode(buf, idx) {
 pub impl Encode for HeapType with encode(val, buf) {
   match val {
     AbsHeapTypeHeapType(ht) => ht.encode(buf)
-    HeapType(i) => i.encode(buf)
+    HeapType(TypeIdx(i)) => S33(i).encode(buf)
+    HeapType(RecIdx(_)) => Err("Cannot encode recursive indexes")
+    DefTypeHeapType(_) => Err("Cannot encode deftypes")
   }
 }
 
@@ -64,7 +66,7 @@ pub impl Decode for HeapType with decode(bytes, i) {
     Ok((abs, i)) => Ok((AbsHeapTypeHeapType(abs), i))
     Err(_) =>
       match S33::decode(bytes, i) {
-        Ok((s, i)) => Ok((HeapType(s), i))
+        Ok((S33(s), i)) => Ok((HeapType(TypeIdx(s)), i))
         Err(err) => Err(err)
       }
   }
@@ -136,6 +138,7 @@ pub impl Encode for ValType with encode(val, buf) {
     }
     NumTypeValType(num) => num.encode(buf)
     RefTypeValType(rt) => rt.encode(buf)
+    BotValType => Err("Cannot encode bottom type.")
   }
 }
 
@@ -310,8 +313,8 @@ pub impl Decode for PackType with decode(bytes, i) {
 ///|
 pub impl Encode for RecType with encode(val, buf) {
   match val {
-    RecType(st) => st.encode(buf)
-    RecTypeSubTypes(sts) => {
+    SingleRecType(st) => st.encode(buf)
+    GroupRecType(sts) => {
       buf.write_byte(0x4E)
       Encode::encode(sts, buf)
     }
@@ -324,12 +327,12 @@ pub impl Decode for RecType with decode(buf, i) {
     None => Err("Index out of bounds")
     Some(0x4E) =>
       match Decode::decode(buf, i) {
-        Ok((sts, i)) => Ok((RecTypeSubTypes(sts), i))
+        Ok((sts, i)) => Ok((GroupRecType(sts), i))
         Err(err) => Err(err)
       }
     Some(_) =>
       match Decode::decode(buf, i) {
-        Ok((st, i)) => Ok((RecType(st), i))
+        Ok((st, i)) => Ok((SingleRecType(st), i))
         Err(err) => Err(err)
       }
   }
@@ -552,7 +555,7 @@ fn decode_signed(
 ///|
 pub impl Encode for S33 with encode(val, buf) {
   let S33(val) = val
-  encode_signed(val.reinterpret_as_int64(), buf, 33)
+  encode_signed(val.to_int64(), buf, 33)
 }
 
 ///|
@@ -597,7 +600,7 @@ pub impl Encode for F64 with encode(val, buf) {
 pub impl Decode for S33 with decode(bytes, i) {
   match decode_signed(bytes, i, 33) {
     Err(err) => Err(err)
-    Ok((val, i)) if val >= 0 => Ok((S33(val.reinterpret_as_uint64()), i))
+    Ok((val, i)) if val >= 0 && val < 4294967295 => Ok((S33(val.to_int().reinterpret_as_uint()), i))
     Ok(_) => Err("Invalid S33 Range")
   }
 }
@@ -694,9 +697,13 @@ pub impl[T : Encode] Encode for T? with encode(val, buf) {
 
 ///|
 pub impl Encode for TypeIdx with encode(val, buf) {
-  let TypeIdx(id) = val
-  buf.write_uint_le(id)
-  Ok(())
+  match val {
+    TypeIdx(id) => {
+      buf.write_uint_le(id)
+      Ok(())
+    }
+    _ => Err("Cannot encode non standard type index ")
+  }
 }
 
 ///|
@@ -1238,7 +1245,7 @@ pub impl Encode for Data with encode(val, buf) {
 ///|
 pub impl Encode for Locals with encode(val, buf) {
   let Locals(count, vt) = val
-  match count.encode(buf) {
+  match U32(count).encode(buf) {
     Err(err) => return Err(err)
     Ok(_) => ()
   }
@@ -2011,7 +2018,7 @@ pub impl Decode for BlockType with decode(bytes, i) {
     return Ok((ValTypeBlockType(vt), i))
   }
   if S33::decode(bytes, i) is Ok((S33(idx), i)) {
-    return Ok((TypeIdxBlockType(TypeIdx(idx.to_uint())), i))
+    return Ok((TypeIdxBlockType(TypeIdx(idx)), i))
   }
   Err("Invalid block type")
 }
@@ -2030,7 +2037,7 @@ pub impl Decode for Expr with decode(bytes, i) {
         Err(t) => return Err(t)
       }
   }
-  Ok((Expr(@list.from_array(a)), i))
+  Ok((Expr(a), i))
 }
 
 ///|
@@ -2208,7 +2215,8 @@ pub impl Encode for BlockType with encode(val, buf) {
       Ok(())
     }
     ValTypeBlockType(vt) => vt.encode(buf)
-    TypeIdxBlockType(TypeIdx(idx)) => S33(idx.to_uint64()).encode(buf)
+    TypeIdxBlockType(TypeIdx(idx)) => S33(idx).encode(buf)
+    _ => Err("Cannot encode recursive indexes")
   }
 }
 

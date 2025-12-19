@@ -1,5 +1,5 @@
 ///|
-pub struct S33(UInt64) derive(Arbitrary)
+pub struct S33(UInt) derive(Arbitrary)
 
 ///|
 pub struct I32(Int) derive(Arbitrary)
@@ -46,8 +46,23 @@ pub enum AbsHeapType {
 ///|
 pub enum HeapType {
   AbsHeapTypeHeapType(AbsHeapType)
-  HeapType(S33)
+  HeapType(TypeIdx)
+  DefTypeHeapType(DefType)
 } derive(Arbitrary)
+
+pub fn RefType::is_nullable(rt: RefType) -> Bool {
+  match rt {
+    HeapTypeRefType(b, _) => b
+    AbsHeapTypeRefType(_) => true
+  }
+}
+
+pub fn RefType::get_heap_type(rt: RefType) -> HeapType {
+  match rt {
+    HeapTypeRefType(_, ht) => ht
+    AbsHeapTypeRefType(ahs) => AbsHeapTypeHeapType(ahs)
+  }
+}
 
 ///|
 pub enum RefType {
@@ -60,6 +75,7 @@ pub enum ValType {
   NumTypeValType(NumType)
   VecTypeValType
   RefTypeValType(RefType)
+  BotValType
 } derive(Arbitrary)
 
 ///|
@@ -81,7 +97,10 @@ pub enum StorageType {
 pub struct FieldType(StorageType, Bool?) derive(Arbitrary)
 
 ///|
-pub struct TypeIdx(UInt) derive(Arbitrary)
+pub enum TypeIdx {
+  TypeIdx(UInt)
+  RecIdx(UInt)
+} derive(Arbitrary)
 
 ///|
 pub struct FuncIdx(UInt) derive(Arbitrary)
@@ -116,21 +135,64 @@ pub struct LaneIdx(Byte) derive(Arbitrary)
 ///|
 pub enum CompType {
   ArrayCompType(FieldType)
-  StructCompType(@list.List[FieldType])
+  StructCompType(Array[FieldType])
   FuncCompType(ResultType, ResultType)
 } derive(Arbitrary)
 
 ///|
 pub enum SubType {
-  SubType(Bool, @list.List[TypeIdx], CompType)
+  SubType(Bool, Array[TypeIdx], CompType)
   CompTypeSubType(CompType)
 } derive(Arbitrary)
 
+pub fn SubType::super_types(self: SubType) -> Array[TypeIdx] {
+  match self {
+    SubType(_, sts, _) => sts
+    CompTypeSubType(_) => []
+  }
+}
+
+pub fn SubType::get_comptype(self: SubType) -> CompType {
+  match self {
+    SubType(_, _, ct) => ct
+    CompTypeSubType(ct) => ct
+  }
+}
+
 ///|
 pub enum RecType {
-  RecType(SubType)
-  RecTypeSubTypes(@list.List[SubType])
+  SingleRecType(SubType)
+  GroupRecType(Array[SubType])
 } derive(Arbitrary)
+
+pub fn RecType::get_subtype(self: RecType, idx: UInt) -> Option[SubType] {
+  match (self, idx) {
+    (SingleRecType(st), 0) => Some(st)
+    (GroupRecType(sts), i) => sts.get(i.reinterpret_as_int())
+    _ => None
+  }
+}
+
+pub struct DefType(RecType, UInt)
+
+pub fn DefType::project(self: DefType) -> Option[SubType] {
+  let DefType(rt, n) = self
+  match rt {
+    SingleRecType(st) => if n == 0 { Some(st) } else { None }
+    GroupRecType(sts) => sts.get(n.reinterpret_as_int())
+  }
+}
+
+pub impl @quickcheck.Arbitrary for DefType with arbitrary(t, state) {
+  let s = @quickcheck.Arbitrary::arbitrary(t, state)
+  match s {
+    SingleRecType(_) => DefType(s, 0)
+    GroupRecType(g) => {
+      let idx = @quickcheck.Arbitrary::arbitrary(t, state) % g.length().reinterpret_as_uint()
+      DefType(s, idx)
+    }
+  }
+}
 
 ///|
 pub enum Limits {
@@ -177,16 +239,16 @@ pub enum ElemMode {
 
 ///|
 pub enum ElemKind {
-  FuncsElemKind(@list.List[FuncIdx])
-  FuncExprsElemKind(@list.List[Expr])
-  TypedExprsElemKind(RefType, @list.List[Expr])
+  FuncsElemKind(Array[FuncIdx])
+  FuncExprsElemKind(Array[Expr])
+  TypedExprsElemKind(RefType, Array[Expr])
 } derive(Arbitrary)
 
 ///|
 pub struct Elem(ElemMode, ElemKind) derive(Arbitrary)
 
 ///|
-pub struct Expr(@list.List[Instruction]) derive(Arbitrary)
+pub struct Expr(Array[Instruction]) derive(Arbitrary)
 
 ///|
 pub struct Import(Name, Name, ExternType) derive(Arbitrary)
@@ -201,10 +263,10 @@ pub struct Global(GlobalType, Expr) derive(Arbitrary)
 pub struct Export(Name, ExternIdx) derive(Arbitrary)
 
 ///|
-pub struct Locals(U32, ValType) derive(Arbitrary)
+pub struct Locals(UInt, ValType) derive(Arbitrary)
 
 ///|
-pub struct Func(@list.List[Locals], Expr) derive(Arbitrary)
+pub struct Func(Array[Locals], Expr) derive(Arbitrary)
 
 ///|
 pub enum DataMode {
@@ -976,43 +1038,43 @@ pub impl @quickcheck.Arbitrary for Name with arbitrary(_, state) {
 pub struct CustomSec(Name, Bytes) derive(Arbitrary)
 
 ///|
-pub struct TypeSec(@list.List[RecType]) derive(Arbitrary)
+pub struct TypeSec(Array[RecType]) derive(Arbitrary)
 
 ///|
-pub struct ImportSec(@list.List[Import]) derive(Arbitrary)
+pub struct ImportSec(Array[Import]) derive(Arbitrary)
 
 ///|
-pub struct FuncSec(@list.List[TypeIdx]) derive(Arbitrary)
+pub struct FuncSec(Array[TypeIdx]) derive(Arbitrary)
 
 ///|
-pub struct TableSec(@list.List[Table]) derive(Arbitrary)
+pub struct TableSec(Array[Table]) derive(Arbitrary)
 
 ///|
-pub struct MemSec(@list.List[MemType]) derive(Arbitrary)
+pub struct MemSec(Array[MemType]) derive(Arbitrary)
 
 ///|
-pub struct GlobalSec(@list.List[Global]) derive(Arbitrary)
+pub struct GlobalSec(Array[Global]) derive(Arbitrary)
 
 ///|
-pub struct ExportSec(@list.List[Export]) derive(Arbitrary)
+pub struct ExportSec(Array[Export]) derive(Arbitrary)
 
 ///|
 pub struct StartSec(FuncIdx) derive(Arbitrary)
 
 ///|
-pub struct ElemSec(@list.List[Elem]) derive(Arbitrary)
+pub struct ElemSec(Array[Elem]) derive(Arbitrary)
 
 ///|
-pub struct CodeSec(@list.List[Func]) derive(Arbitrary)
+pub struct CodeSec(Array[Func]) derive(Arbitrary)
 
 ///|
-pub struct DataSec(@list.List[Data]) derive(Arbitrary)
+pub struct DataSec(Array[Data]) derive(Arbitrary)
 
 ///|
 pub struct DataCntSec(U32) derive(Arbitrary)
 
 ///|
-pub struct TagSec(@list.List[TagType]) derive(Arbitrary)
+pub struct TagSec(Array[TagType]) derive(Arbitrary)
 
 ///|
 pub enum BlockType {
@@ -1046,7 +1108,7 @@ pub enum Instruction {
   ThrowRef
   Br(LabelIdx)
   BrIf(LabelIdx)
-  BrTable(@list.List[LabelIdx], LabelIdx)
+  BrTable(Array[LabelIdx], LabelIdx)
   Return
   Call(FuncIdx)
   CallIndirect(TypeIdx, TableIdx)
@@ -1055,8 +1117,8 @@ pub enum Instruction {
   CallRef(TypeIdx)
   ReturnCallRef(TypeIdx)
   Drop
-  Select(@list.List[ValType]?)
-  TryTable(BlockType, @list.List[Catch], Expr)
+  Select(Array[ValType]?)
+  TryTable(BlockType, Array[Catch], Expr)
   LocalGet(LocalIdx)
   LocalSet(LocalIdx)
   LocalTee(LocalIdx)
@@ -1681,12 +1743,10 @@ pub impl Eq for Name with equal(l, r) {
 ///|
 pub impl Eq for RecType with equal(l, r) {
   match (l, r) {
-    (RecType(stl), RecTypeSubTypes(More(str, tail~))) if tail == @list.empty() =>
-      stl == str
-    (RecTypeSubTypes(More(stl, tail~)), RecType(str)) if tail == @list.empty() =>
-      stl == str
-    (RecType(stl), RecType(str)) => stl == str
-    (RecTypeSubTypes(stl), RecTypeSubTypes(str)) => stl == str
+    (SingleRecType(stl), GroupRecType([str])) => stl == str
+    (GroupRecType([stl]), SingleRecType(str)) => stl == str
+    (SingleRecType(stl), SingleRecType(str)) => stl == str
+    (GroupRecType(stl), GroupRecType(str)) => stl == str
     _ => false
   }
 }
@@ -1698,7 +1758,11 @@ pub impl Eq for Import with equal(l, r) {
 
 ///|
 pub impl Eq for TypeIdx with equal(l, r) {
-  l.0 == r.0
+  match (l, r) {
+    (TypeIdx(l), TypeIdx(r)) => l == r
+    (RecIdx(l), RecIdx(r)) => l == r
+    _ => false
+  }
 }
 
 ///|
@@ -2666,4 +2730,178 @@ pub impl Eq for Instruction with equal(l, r) {
     (I32x4RelaxedDotI8x16I7x16AddS, I32x4RelaxedDotI8x16I7x16AddS) => true
     _ => false
   }
+}
+
+type Stack[T] = Array[T]
+
+pub struct FuncType(Array[ValType], Array[ValType])
+
+pub struct Env {
+  global_types: Array[SubType]
+  rec_stack: Stack[Array[SubType]]
+  funcs: Array[FuncType]
+  tables: Array[TableType]
+  mems: Array[MemType]
+  globals: Array[GlobalType]
+  tags: Array[TagType]
+  locals: Array[ValType]
+  labels: Stack[Array[ValType]]
+  return_type: Option[Array[ValType]]
+}
+
+pub fn Env::resolve_subtype(env: Env, idx: TypeIdx) -> Option[SubType] {
+  match idx {
+    TypeIdx(i) => env.global_types.get(i.reinterpret_as_int())
+
+    RecIdx(j) => {
+      let n = env.rec_stack.length()
+      if n == 0 { return None }
+
+      match env.rec_stack.get(n - 1) {
+        None => None
+        Some(group) => group.get(j.reinterpret_as_int())
+      }
+    }
+  }
+}
+
+pub fn Env::resolve_heaptype_subtype(env: Env, ht: HeapType) -> Option[SubType] {
+  match ht {
+    AbsHeapTypeHeapType(_) => None
+    HeapType(ti) => env.resolve_subtype(ti)
+    DefTypeHeapType(dt) => dt.project()
+  }
+}
+
+
+pub fn Env::get_label(env: Env, idx: LabelIdx) -> Option[Array[ValType]] {
+  let LabelIdx(i) = idx
+  env.labels.get(i.reinterpret_as_int())
+}
+
+pub fn Env::get_tag(env: Env, idx: TagIdx) -> Option[TagType] {
+  let TagIdx(i) = idx
+  env.tags.get(i.reinterpret_as_int())
+}
+
+pub fn Env::resolve_comptype(env: Env, idx: TypeIdx) -> Option[CompType] {
+  match env.resolve_subtype(idx) {
+    None => None
+    Some(st) => Some(st.get_comptype())
+  }
+}
+
+pub fn Env::resolve_functype(env: Env, idx: TypeIdx) -> Option[FuncType] {
+  match env.resolve_comptype(idx) {
+    Some(FuncCompType(ps, rs)) => Some(FuncType(ps, rs))
+    _ => None
+  }
+}
+
+pub fn Env::resolve_tag_functype(env: Env, tagidx: TagIdx) -> Option[FuncType] {
+  match env.get_tag(tagidx) {
+    None => None
+    Some(TagType(tidx)) => env.resolve_functype(tidx)
+  }
+}
+
+pub fn Env::resolve_typeidx_subtype(env: Env, tidx: TypeIdx) -> Option[SubType] {
+  match tidx {
+    TypeIdx(i) => env.global_types.get(i.reinterpret_as_int())
+    RecIdx(j) => {
+      let n = env.rec_stack.length()
+      if n == 0 { return None }
+      match env.rec_stack.get(n - 1) {
+        None => None
+        Some(group) => group.get(j.reinterpret_as_int())
+      }
+    }
+  }
+}
+
+fn Env::get_local_type(env: Env, idx: LocalIdx) -> Option[ValType] {
+  let LocalIdx(i) = idx
+  env.locals.get(i.reinterpret_as_int())
+}
+
+fn Env::get_global_type(env: Env, idx: GlobalIdx) -> Option[GlobalType] {
+  let GlobalIdx(i) = idx
+  env.globals.get(i.reinterpret_as_int())
+}
+
+pub impl Eq for DefType with equal(l, r) {
+  l.0 == r.0 && l.1 == r.1
+}
+
+fn i32_valtype() -> ValType {
+  NumTypeValType(I32NumType)
+}
+
+fn ref_valtype(rt: RefType) -> ValType {
+  RefTypeValType(rt)
+}
+
+fn Env::get_table_type(env: Env, idx: TableIdx) -> Option[TableType] {
+  let TableIdx(i) = idx
+  env.tables.get(i.reinterpret_as_int())
+}
+
+fn Env::with_label(env: Env, ts: Array[ValType]) -> Env {
+  let ls = env.labels.copy()
+  ls.push(ts)
+  Env::{
+    global_types: env.global_types,
+    rec_stack: env.rec_stack,
+    funcs: env.funcs,
+    tables: env.tables,
+    mems: env.mems,
+    globals: env.globals,
+    tags: env.tags,
+    locals: env.locals,
+    labels: ls,
+    return_type: env.return_type,
+  }
+}
+
+fn Env::get_label_types(env: Env, idx: LabelIdx) -> Option[Array[ValType]] {
+  let LabelIdx(i) = idx
+
+  let n = env.labels.length() // Int
+  let ii = n - 1 - i.reinterpret_as_int()
+
+  if ii < 0 { return None }
+  env.labels.get(ii)
+}
+
+fn Env::expand_blocktype(env: Env, bt: BlockType) -> Result[(Array[ValType], Array[ValType]), String] {
+  match bt {
+    EmptyBlockType => Ok(([], []))
+
+    ValTypeBlockType(vt) => Ok(([], [vt]))
+
+    TypeIdxBlockType(tidx) =>
+      match env.resolve_functype(tidx) {
+        None => Err("blocktype type index is not a function type")
+        Some(FuncType(params, results)) => Ok((params, results))
+      }
+  }
+}
+
+fn Env::get_functype_by_funcidx(env: Env, idx: FuncIdx) -> Option[FuncType] {
+  let FuncIdx(i) = idx
+  env.funcs.get(i.reinterpret_as_int())
+}
+
+fn funcref_valtype() -> ValType {
+  // In core Wasm, call_indirect uses funcref.
+  // Your encoding: AbsHeapTypeRefType(_) is nullable; funcref is (ref null func).
+  RefTypeValType(AbsHeapTypeRefType(FuncAbsHeapType))
+}
+
+pub fn[T : Eq] equals(a: Array[T], b: Array[T]) -> Bool {
+  if a.length() != b.length() { return false }
+  for i in 0..<a.length() {
+    if a[i] != b[i] { return false }
+  }
+  true
 }
