@@ -978,6 +978,291 @@ fn typecheck_br_on_cast_fail(
   Ok(st1.push1(RefTypeValType(rt2)))
 }
 
+fn typecheck_throw(st: TcState, idx: TagIdx) -> TcResult {
+  let payload =
+    match st.env.get_tag_payload(idx) {
+      Err(e) => return Err(e)
+      Ok(ts) => ts
+    }
+
+  // Pop payload values (in reverse order via pop_types)
+  let st1 =
+    match st.pop_types(payload) {
+      Err(e) => return Err(e)
+      Ok(s) => s
+    }
+
+  // throw is stack-polymorphic: continuation is unreachable
+  Ok(st1.set_unreachable())
+}
+
+fn typecheck_throw_ref(st: TcState) -> TcResult {
+  let st1 =
+    match st.pop_expect(ref_null_exn_valtype()) {
+      Err(e) => return Err(e)
+      Ok(s) => s
+    }
+
+  Ok(st1.set_unreachable())
+}
+
+fn typecheck_catch_clause(st: TcState, c: Catch) -> Result[Unit, String] {
+  match c {
+    // catch x l: payload t* matches label
+    Catch(tag, lab) => {
+      let payload =
+        match st.env.get_tag_payload(tag) {
+          Err(e) => return Err(e)
+          Ok(ts) => ts
+        }
+
+      let label_ts =
+        match st.env.get_label_types(lab) {
+          None => return Err("invalid label index in catch")
+          Some(ts) => ts
+        }
+
+      if !Match::matches(payload, label_ts, st.env) {
+        return Err("catch payload types do not match label types")
+      }
+
+      Ok(())
+    }
+
+    // catch_ref x l: payload t* plus (ref exn) matches label
+    CatchRef(tag, lab) => {
+      let payload =
+        match st.env.get_tag_payload(tag) {
+          Err(e) => return Err(e)
+          Ok(ts) => ts
+        }
+
+      let want = append_valtype(payload, ref_exn_valtype())
+
+      let label_ts =
+        match st.env.get_label_types(lab) {
+          None => return Err("invalid label index in catch_ref")
+          Some(ts) => ts
+        }
+
+      if !Match::matches(want, label_ts, st.env) {
+        return Err("catch_ref types (payload + ref exn) do not match label types")
+      }
+
+      Ok(())
+    }
+
+    // catch_all l: ε matches label  (i.e. empty vector ≤ label)
+    CatchAll(lab) => {
+      let label_ts =
+        match st.env.get_label_types(lab) {
+          None => return Err("invalid label index in catch_all")
+          Some(ts) => ts
+        }
+
+      if !Match::matches([], label_ts, st.env) {
+        return Err("catch_all requires empty result type to match label")
+      }
+
+      Ok(())
+    }
+
+    // catch_all_ref l: (ref exn) matches label
+    CatchAllRef(lab) => {
+      let label_ts =
+        match st.env.get_label_types(lab) {
+          None => return Err("invalid label index in catch_all_ref")
+          Some(ts) => ts
+        }
+
+      let want = [ref_exn_valtype()]
+      if !Match::matches(want, label_ts, st.env) {
+        return Err("catch_all_ref requires (ref exn) to match label")
+      }
+
+      Ok(())
+    }
+  }
+}
+
+fn typecheck_try_table(st: TcState, bt: BlockType, catches: Array[Catch], body: Expr) -> TcResult {
+  let (params, results) =
+    match st.env.expand_blocktype(bt) { // assuming you made it a method
+      Err(e) => return Err(e)
+      Ok(x) => x
+    }
+
+  // consume params
+  let st1 =
+    match st.pop_types(params) {
+      Err(e) => return Err(e)
+      Ok(s) => s
+    }
+  let base_len = st1.stack.length()
+
+  // extend context with innermost label = results
+  let env2 = st1.env.with_label(results)
+  let st_body0 = TcState::{ env: env2, stack: st1.stack, reachable: st1.reachable }
+
+  // body must typecheck under extended env
+  let st_body =
+    match body.typecheck(st_body0) {
+      Err(e) => return Err(e)
+      Ok(s) => s
+    }
+
+  // validate all catch clauses under the SAME extended env (spec: C')
+  let st_catch_ctx = TcState::{ env: env2, stack: st1.stack, reachable: st1.reachable }
+  for c in catches {
+    match typecheck_catch_clause(st_catch_ctx, c) {
+      Err(e) => return Err(e)
+      Ok(_) => ()
+    }
+  }
+
+  // if reachable, enforce results on stack top
+  let st2 =
+    if st_body.reachable {
+      match st_body.pop_types(results) {
+        Err(e) => return Err(e)
+        Ok(s) => s
+      }
+    } else {
+      st_body
+    }
+
+  // truncate back to base_len
+  let stack2 = st2.stack.copy()
+  while stack2.length() > base_len {
+    ignore(stack2.pop())
+  }
+
+  // restore outer env (pop the try_table label scope)
+  let out = TcState::{ env: st.env, stack: stack2, reachable: st2.reachable }
+  Ok(out.push_types(results))
+}
+
+fn typecheck_table_copy(st: TcState, x: TableIdx, y: TableIdx) -> TcResult {
+  let TableType(rt1, l1) =
+    match st.env.get_table_type(x) {
+      None => return Err("invalid dest table index")
+      Some(tt) => tt
+    }
+
+  let TableType(rt2, l2) =
+    match st.env.get_table_type(y) {
+      None => return Err("invalid src table index")
+      Some(tt) => tt
+    }
+
+  // require rt2 <: rt1
+  if !Match::matches(rt2, rt1, st.env) {
+    return Err("table.copy source elem type does not match dest elem type")
+  }
+
+  let at_len = min_addr(l1, l2)
+
+  // Pop len, src, dst (LIFO), with types at_len, at2, at1
+  let st1 =
+    match st.pop_expect(addr_valtype(at_len)) {
+      Err(e) => return Err(e)
+      Ok(s) => s
+    }
+
+  let st2 =
+    match st1.pop_expect(addr_valtype(l2)) {
+      Err(e) => return Err(e)
+      Ok(s) => s
+    }
+
+  let st3 =
+    match st2.pop_expect(addr_valtype(l1)) {
+      Err(e) => return Err(e)
+      Ok(s) => s
+    }
+
+  Ok(st3)
+}
+
+fn typecheck_table_init(st: TcState, y: ElemIdx, x: TableIdx) -> TcResult {
+  let TableType(rt1, l) =
+    match st.env.get_table_type(x) {
+      None => return Err("invalid table index")
+      Some(tt) => tt
+    }
+
+  let elem =
+    match st.env.get_elem(y) {
+      None => return Err("invalid elem segment index")
+      Some(e) => e
+    }
+
+  let rt2 = elem_reftype(elem)
+
+  if !Match::matches(rt2, rt1, st.env) {
+    return Err("table.init elem segment type does not match table element type")
+  }
+
+  // Pop: len:i32, src:i32, dst:at  (LIFO order)
+  let st1 =
+    match st.pop_expect(NumTypeValType(I32NumType)) {
+      Err(e) => return Err(e)
+      Ok(s) => s
+    }
+
+  let st2 =
+    match st1.pop_expect(NumTypeValType(I32NumType)) {
+      Err(e) => return Err(e)
+      Ok(s) => s
+    }
+
+  let st3 =
+    match st2.pop_expect(addr_valtype(l)) {
+      Err(e) => return Err(e)
+      Ok(s) => s
+    }
+
+  Ok(st3)
+}
+
+fn typecheck_table_fill(st: TcState, x: TableIdx) -> TcResult {
+  let TableType(rt, lim) =
+    match st.env.get_table_type(x) {
+      None => return Err("invalid table index")
+      Some(tt) => tt
+    }
+
+  // pop len : i32
+  let st1 =
+    match st.pop_expect(NumTypeValType(I32NumType)) {
+      Err(e) => return Err(e)
+      Ok(s) => s
+    }
+
+  // pop val : rt
+  let st2 =
+    match st1.pop_expect(RefTypeValType(rt)) {
+      Err(e) => return Err(e)
+      Ok(s) => s
+    }
+
+  // pop start : at (derived from limits)
+  let st3 =
+    match st2.pop_expect(addr_valtype(lim)) {
+      Err(e) => return Err(e)
+      Ok(s) => s
+    }
+
+  Ok(st3)
+}
+
+fn typecheck_elem_drop(st: TcState, y: ElemIdx) -> TcResult {
+  match st.env.get_elem(y) {
+    None => Err("invalid elem segment index")
+    Some(_) => Ok(st)
+  }
+}
+
 pub impl Typecheck for Instruction with typecheck(self, st) {
   match self {
     Unreachable => Ok(TcState::{ env: st.env, stack: st.stack, reachable: false })
@@ -1005,7 +1290,11 @@ pub impl Typecheck for Instruction with typecheck(self, st) {
     TableSet(i) => typecheck_table_set(st, i)
     TableSize(i) => typecheck_table_size(st, i)
     TableGrow(i) => typecheck_table_grow(st, i)
-
+    TableCopy(i0, i1) => typecheck_table_copy(st, i0, i1)
+    TableInit(x, y) => typecheck_table_init(st, x, y)
+    TableFill(x) => typecheck_table_fill(st, x)
+    ElemDrop(y) => typecheck_elem_drop(st, y)
+    
     Br(l) => typecheck_br(st, l)
     Block(bt, e) => typecheck_block(st, bt, e)
     If(bt, th, el) => typecheck_if(st, bt, th, el)
@@ -1024,6 +1313,9 @@ pub impl Typecheck for Instruction with typecheck(self, st) {
     ReturnCallIndirect(tidx, t) => typecheck_return_call_indirect(st, tidx, t)
     ReturnCallRef(tidx) => typecheck_return_call_ref(st, tidx)
 
+    Throw(t) => typecheck_throw(st, t)
+    ThrowRef => typecheck_throw_ref(st)
+    TryTable(bt, cs, e) => typecheck_try_table(st, bt, cs, e)
 
     _ => Err("unimplemented")
   }

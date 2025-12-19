@@ -2743,6 +2743,7 @@ pub struct Env {
   tables: Array[TableType]
   mems: Array[MemType]
   globals: Array[GlobalType]
+  elems: Array[Elem]
   tags: Array[TagType]
   locals: Array[ValType]
   labels: Stack[Array[ValType]]
@@ -2855,6 +2856,7 @@ fn Env::with_label(env: Env, ts: Array[ValType]) -> Env {
     funcs: env.funcs,
     tables: env.tables,
     mems: env.mems,
+    elems: env.elems,
     globals: env.globals,
     tags: env.tags,
     locals: env.locals,
@@ -2892,10 +2894,41 @@ fn Env::get_functype_by_funcidx(env: Env, idx: FuncIdx) -> Option[FuncType] {
   env.funcs.get(i.reinterpret_as_int())
 }
 
+fn Env::get_tag_payload(env: Env, idx: TagIdx) -> Result[Array[ValType], String] {
+  match env.resolve_tag_functype(idx) {
+    None => Err("invalid tag index or tag is not a function type")
+    Some(FuncType(params, results)) => {
+      if results.length() != 0 {
+        return Err("tag type must have empty result list")
+      }
+      Ok(params)
+    }
+  }
+}
+
+fn Env::get_elem(env: Env, i: ElemIdx) -> Option[Elem] {
+  let ElemIdx(i) = i
+  env.elems.get(i.reinterpret_as_int())
+} 
+
+fn ref_null_exn_valtype() -> ValType {
+  RefTypeValType(HeapTypeRefType(true, AbsHeapTypeHeapType(ExnAbsHeapType)))
+}
+
 fn funcref_valtype() -> ValType {
   // In core Wasm, call_indirect uses funcref.
   // Your encoding: AbsHeapTypeRefType(_) is nullable; funcref is (ref null func).
   RefTypeValType(AbsHeapTypeRefType(FuncAbsHeapType))
+}
+
+fn ref_exn_valtype() -> ValType {
+  RefTypeValType(HeapTypeRefType(false, AbsHeapTypeHeapType(ExnAbsHeapType)))
+}
+
+fn append_valtype(ts: Array[ValType], vt: ValType) -> Array[ValType] {
+  let out = ts.copy()
+  out.push(vt)
+  out
 }
 
 pub fn[T : Eq] equals(a: Array[T], b: Array[T]) -> Bool {
@@ -2904,4 +2937,30 @@ pub fn[T : Eq] equals(a: Array[T], b: Array[T]) -> Bool {
     if a[i] != b[i] { return false }
   }
   true
+}
+
+fn addr_valtype(at: Limits) -> ValType {
+  match at {
+    I32Limits(_) => NumTypeValType(I32NumType)
+    I64Limits(_) => NumTypeValType(I64NumType)
+  }
+}
+
+fn min_addr(a: Limits, b: Limits) -> Limits {
+  match (a, b) {
+    (I32Limits(_), _) => a
+    (_, I32Limits(_)) => b
+    _ => a
+  }
+}
+
+fn elem_reftype(e: Elem) -> RefType {
+  match e {
+    Elem(_, kind) =>
+      match kind {
+        FuncsElemKind(_) => AbsHeapTypeRefType(FuncAbsHeapType) // funcref
+        FuncExprsElemKind(_) => AbsHeapTypeRefType(FuncAbsHeapType) // funcref
+        TypedExprsElemKind(rt, _) => rt
+      }
+  }
 }

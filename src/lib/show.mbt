@@ -371,6 +371,7 @@ pub impl Show for MemType with output(self, logger) {
   
 }
 
+
 pub impl Show for TableType with output(self, logger) {
   let TableType(rt, l) = self
   logger.write_string("(TableType ")

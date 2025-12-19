@@ -9,6 +9,9 @@ import(
 )
 
 // Values
+pub fn diff(RefType, RefType) -> Result[RefType, String]
+
+pub fn[T : Eq] equals(Array[T], Array[T]) -> Bool
 
 // Errors
 
@@ -28,9 +31,12 @@ pub enum AbsHeapType {
   NoExnAbsHeapType
 }
 pub impl Eq for AbsHeapType
+pub impl Show for AbsHeapType
 pub impl @quickcheck.Arbitrary for AbsHeapType
 pub impl Decode for AbsHeapType
 pub impl Encode for AbsHeapType
+pub impl Match for AbsHeapType
+pub impl Validate for AbsHeapType
 
 pub enum BlockType {
   EmptyBlockType
@@ -38,9 +44,11 @@ pub enum BlockType {
   TypeIdxBlockType(TypeIdx)
 }
 pub impl Eq for BlockType
+pub impl Show for BlockType
 pub impl @quickcheck.Arbitrary for BlockType
 pub impl Decode for BlockType
 pub impl Encode for BlockType
+pub impl Validate for BlockType
 
 pub struct CastOp(Bool, Bool)
 
@@ -57,13 +65,15 @@ pub enum Catch {
   CatchAllRef(LabelIdx)
 }
 pub impl Eq for Catch
+pub impl Show for Catch
 pub impl @quickcheck.Arbitrary for Catch
 pub impl Decode for Catch
 pub impl Encode for Catch
+pub impl Validate for Catch
 
-pub struct CodeSec(@list.List[Func])
+pub struct CodeSec(Array[Func])
 #deprecated
-pub fn CodeSec::inner(Self) -> @list.List[Func]
+pub fn CodeSec::inner(Self) -> Array[Func]
 pub impl Eq for CodeSec
 pub impl @quickcheck.Arbitrary for CodeSec
 pub impl Decode for CodeSec
@@ -71,13 +81,16 @@ pub impl Encode for CodeSec
 
 pub enum CompType {
   ArrayCompType(FieldType)
-  StructCompType(@list.List[FieldType])
+  StructCompType(Array[FieldType])
   FuncCompType(Array[ValType], Array[ValType])
 }
 pub impl Eq for CompType
+pub impl Show for CompType
 pub impl @quickcheck.Arbitrary for CompType
 pub impl Decode for CompType
 pub impl Encode for CompType
+pub impl Match for CompType
+pub impl Validate for CompType
 
 pub struct CustomSec(Name, Bytes)
 
@@ -91,6 +104,7 @@ pub struct Data(DataMode, Bytes)
 
 
 pub impl Eq for Data
+pub impl Show for Data
 pub impl @quickcheck.Arbitrary for Data
 pub impl Decode for Data
 pub impl Encode for Data
@@ -107,6 +121,7 @@ pub struct DataIdx(UInt)
 #deprecated
 pub fn DataIdx::inner(Self) -> UInt
 pub impl Eq for DataIdx
+pub impl Show for DataIdx
 pub impl @quickcheck.Arbitrary for DataIdx
 pub impl Decode for DataIdx
 pub impl Encode for DataIdx
@@ -116,20 +131,32 @@ pub enum DataMode {
   Passive
 }
 pub impl Eq for DataMode
+pub impl Show for DataMode
 pub impl @quickcheck.Arbitrary for DataMode
 
-pub struct DataSec(@list.List[Data])
+pub struct DataSec(Array[Data])
 #deprecated
-pub fn DataSec::inner(Self) -> @list.List[Data]
+pub fn DataSec::inner(Self) -> Array[Data]
 pub impl Eq for DataSec
 pub impl @quickcheck.Arbitrary for DataSec
 pub impl Decode for DataSec
 pub impl Encode for DataSec
 
+pub struct DefType(RecType, UInt)
+
+
+pub fn DefType::project(Self) -> SubType?
+pub impl Eq for DefType
+pub impl Show for DefType
+pub impl @quickcheck.Arbitrary for DefType
+pub impl Match for DefType
+pub impl Validate for DefType
+
 pub struct Elem(ElemMode, ElemKind)
 
 
 pub impl Eq for Elem
+pub impl Show for Elem
 pub impl @quickcheck.Arbitrary for Elem
 pub impl Decode for Elem
 pub impl Encode for Elem
@@ -138,16 +165,18 @@ pub struct ElemIdx(UInt)
 #deprecated
 pub fn ElemIdx::inner(Self) -> UInt
 pub impl Eq for ElemIdx
+pub impl Show for ElemIdx
 pub impl @quickcheck.Arbitrary for ElemIdx
 pub impl Decode for ElemIdx
 pub impl Encode for ElemIdx
 
 pub enum ElemKind {
-  FuncsElemKind(@list.List[FuncIdx])
-  FuncExprsElemKind(@list.List[Expr])
-  TypedExprsElemKind(RefType, @list.List[Expr])
+  FuncsElemKind(Array[FuncIdx])
+  FuncExprsElemKind(Array[Expr])
+  TypedExprsElemKind(RefType, Array[Expr])
 }
 pub impl Eq for ElemKind
+pub impl Show for ElemKind
 pub impl @quickcheck.Arbitrary for ElemKind
 
 pub enum ElemMode {
@@ -156,39 +185,65 @@ pub enum ElemMode {
   Declarative
 }
 pub impl Eq for ElemMode
+pub impl Show for ElemMode
 pub impl @quickcheck.Arbitrary for ElemMode
 
-pub struct ElemSec(@list.List[Elem])
+pub struct ElemSec(Array[Elem])
 #deprecated
-pub fn ElemSec::inner(Self) -> @list.List[Elem]
+pub fn ElemSec::inner(Self) -> Array[Elem]
 pub impl Eq for ElemSec
 pub impl @quickcheck.Arbitrary for ElemSec
 pub impl Decode for ElemSec
 pub impl Encode for ElemSec
 
+pub struct Env {
+  global_types : Array[SubType]
+  rec_stack : Array[Array[SubType]]
+  funcs : Array[FuncType]
+  tables : Array[TableType]
+  mems : Array[MemType]
+  globals : Array[GlobalType]
+  elems : Array[Elem]
+  tags : Array[TagType]
+  locals : Array[ValType]
+  labels : Array[Array[ValType]]
+  return_type : Array[ValType]?
+}
+pub fn Env::get_label(Self, LabelIdx) -> Array[ValType]?
+pub fn Env::get_tag(Self, TagIdx) -> TagType?
+pub fn Env::resolve_comptype(Self, TypeIdx) -> CompType?
+pub fn Env::resolve_functype(Self, TypeIdx) -> FuncType?
+pub fn Env::resolve_heaptype_subtype(Self, HeapType) -> SubType?
+pub fn Env::resolve_subtype(Self, TypeIdx) -> SubType?
+pub fn Env::resolve_tag_functype(Self, TagIdx) -> FuncType?
+pub fn Env::resolve_typeidx_subtype(Self, TypeIdx) -> SubType?
+
 pub struct Export(Name, ExternIdx)
 
 
 pub impl Eq for Export
+pub impl Show for Export
 pub impl @quickcheck.Arbitrary for Export
 pub impl Decode for Export
 pub impl Encode for Export
 
-pub struct ExportSec(@list.List[Export])
+pub struct ExportSec(Array[Export])
 #deprecated
-pub fn ExportSec::inner(Self) -> @list.List[Export]
+pub fn ExportSec::inner(Self) -> Array[Export]
 pub impl Eq for ExportSec
 pub impl @quickcheck.Arbitrary for ExportSec
 pub impl Decode for ExportSec
 pub impl Encode for ExportSec
 
-pub struct Expr(@list.List[Instruction])
+pub struct Expr(Array[Instruction])
 #deprecated
-pub fn Expr::inner(Self) -> @list.List[Instruction]
+pub fn Expr::inner(Self) -> Array[Instruction]
 pub impl Eq for Expr
+pub impl Show for Expr
 pub impl @quickcheck.Arbitrary for Expr
 pub impl Decode for Expr
 pub impl Encode for Expr
+pub impl Typecheck for Expr
 
 pub enum ExternIdx {
   FuncExternIdx(FuncIdx)
@@ -198,6 +253,7 @@ pub enum ExternIdx {
   TagExternIdx(TagIdx)
 }
 pub impl Eq for ExternIdx
+pub impl Show for ExternIdx
 pub impl @quickcheck.Arbitrary for ExternIdx
 pub impl Decode for ExternIdx
 pub impl Encode for ExternIdx
@@ -210,14 +266,18 @@ pub enum ExternType {
   TagExternType(TagType)
 }
 pub impl Eq for ExternType
+pub impl Show for ExternType
 pub impl @quickcheck.Arbitrary for ExternType
 pub impl Decode for ExternType
 pub impl Encode for ExternType
+pub impl Match for ExternType
+pub impl Validate for ExternType
 
 pub struct F32(Float)
 #deprecated
 pub fn F32::inner(Self) -> Float
 pub impl Eq for F32
+pub impl Show for F32
 pub impl @quickcheck.Arbitrary for F32
 pub impl Decode for F32
 pub impl Encode for F32
@@ -226,6 +286,7 @@ pub struct F64(Double)
 #deprecated
 pub fn F64::inner(Self) -> Double
 pub impl Eq for F64
+pub impl Show for F64
 pub impl @quickcheck.Arbitrary for F64
 pub impl Decode for F64
 pub impl Encode for F64
@@ -234,14 +295,18 @@ pub struct FieldType(StorageType, Bool?)
 
 
 pub impl Eq for FieldType
+pub impl Show for FieldType
 pub impl @quickcheck.Arbitrary for FieldType
 pub impl Decode for FieldType
 pub impl Encode for FieldType
+pub impl Match for FieldType
+pub impl Validate for FieldType
 
-pub struct Func(@list.List[Locals], Expr)
+pub struct Func(Array[Locals], Expr)
 
 
 pub impl Eq for Func
+pub impl Show for Func
 pub impl @quickcheck.Arbitrary for Func
 pub impl Decode for Func
 pub impl Encode for Func
@@ -250,22 +315,29 @@ pub struct FuncIdx(UInt)
 #deprecated
 pub fn FuncIdx::inner(Self) -> UInt
 pub impl Eq for FuncIdx
+pub impl Show for FuncIdx
 pub impl @quickcheck.Arbitrary for FuncIdx
 pub impl Decode for FuncIdx
 pub impl Encode for FuncIdx
 
-pub struct FuncSec(@list.List[TypeIdx])
+pub struct FuncSec(Array[TypeIdx])
 #deprecated
-pub fn FuncSec::inner(Self) -> @list.List[TypeIdx]
+pub fn FuncSec::inner(Self) -> Array[TypeIdx]
 pub impl Eq for FuncSec
 pub impl @quickcheck.Arbitrary for FuncSec
 pub impl Decode for FuncSec
 pub impl Encode for FuncSec
 
+pub struct FuncType(Array[ValType], Array[ValType])
+
+
+pub impl Validate for FuncType
+
 pub struct Global(GlobalType, Expr)
 
 
 pub impl Eq for Global
+pub impl Show for Global
 pub impl @quickcheck.Arbitrary for Global
 pub impl Decode for Global
 pub impl Encode for Global
@@ -274,13 +346,14 @@ pub struct GlobalIdx(UInt)
 #deprecated
 pub fn GlobalIdx::inner(Self) -> UInt
 pub impl Eq for GlobalIdx
+pub impl Show for GlobalIdx
 pub impl @quickcheck.Arbitrary for GlobalIdx
 pub impl Decode for GlobalIdx
 pub impl Encode for GlobalIdx
 
-pub struct GlobalSec(@list.List[Global])
+pub struct GlobalSec(Array[Global])
 #deprecated
-pub fn GlobalSec::inner(Self) -> @list.List[Global]
+pub fn GlobalSec::inner(Self) -> Array[Global]
 pub impl Eq for GlobalSec
 pub impl @quickcheck.Arbitrary for GlobalSec
 pub impl Decode for GlobalSec
@@ -290,23 +363,31 @@ pub struct GlobalType(ValType, Bool)
 
 
 pub impl Eq for GlobalType
+pub impl Show for GlobalType
 pub impl @quickcheck.Arbitrary for GlobalType
 pub impl Decode for GlobalType
 pub impl Encode for GlobalType
+pub impl Match for GlobalType
+pub impl Validate for GlobalType
 
 pub enum HeapType {
   AbsHeapTypeHeapType(AbsHeapType)
-  HeapType(S33)
+  HeapType(TypeIdx)
+  DefTypeHeapType(DefType)
 }
 pub impl Eq for HeapType
+pub impl Show for HeapType
 pub impl @quickcheck.Arbitrary for HeapType
 pub impl Decode for HeapType
 pub impl Encode for HeapType
+pub impl Match for HeapType
+pub impl Validate for HeapType
 
 pub struct I32(Int)
 #deprecated
 pub fn I32::inner(Self) -> Int
 pub impl Eq for I32
+pub impl Show for I32
 pub impl @quickcheck.Arbitrary for I32
 pub impl Decode for I32
 pub impl Encode for I32
@@ -315,6 +396,7 @@ pub struct I64(Int64)
 #deprecated
 pub fn I64::inner(Self) -> Int64
 pub impl Eq for I64
+pub impl Show for I64
 pub impl @quickcheck.Arbitrary for I64
 pub impl Decode for I64
 pub impl Encode for I64
@@ -323,13 +405,14 @@ pub struct Import(Name, Name, ExternType)
 
 
 pub impl Eq for Import
+pub impl Show for Import
 pub impl @quickcheck.Arbitrary for Import
 pub impl Decode for Import
 pub impl Encode for Import
 
-pub struct ImportSec(@list.List[Import])
+pub struct ImportSec(Array[Import])
 #deprecated
-pub fn ImportSec::inner(Self) -> @list.List[Import]
+pub fn ImportSec::inner(Self) -> Array[Import]
 pub impl Eq for ImportSec
 pub impl @quickcheck.Arbitrary for ImportSec
 pub impl Decode for ImportSec
@@ -345,7 +428,7 @@ pub enum Instruction {
   ThrowRef
   Br(LabelIdx)
   BrIf(LabelIdx)
-  BrTable(@list.List[LabelIdx], LabelIdx)
+  BrTable(Array[LabelIdx], LabelIdx)
   Return
   Call(FuncIdx)
   CallIndirect(TypeIdx, TableIdx)
@@ -354,8 +437,8 @@ pub enum Instruction {
   CallRef(TypeIdx)
   ReturnCallRef(TypeIdx)
   Drop
-  Select(@list.List[ValType]?)
-  TryTable(BlockType, @list.List[Catch], Expr)
+  Select(Array[ValType]?)
+  TryTable(BlockType, Array[Catch], Expr)
   LocalGet(LocalIdx)
   LocalSet(LocalIdx)
   LocalTee(LocalIdx)
@@ -832,22 +915,27 @@ pub enum Instruction {
   I32x4RelaxedDotI8x16I7x16AddS
 }
 pub impl Eq for Instruction
+pub impl Show for Instruction
 pub impl @quickcheck.Arbitrary for Instruction
 pub impl Decode for Instruction
 pub impl Encode for Instruction
+pub impl Typecheck for Instruction
 
 pub struct LabelIdx(UInt)
 #deprecated
 pub fn LabelIdx::inner(Self) -> UInt
 pub impl Eq for LabelIdx
+pub impl Show for LabelIdx
 pub impl @quickcheck.Arbitrary for LabelIdx
 pub impl Decode for LabelIdx
 pub impl Encode for LabelIdx
+pub impl Validate for LabelIdx
 
 pub struct LaneIdx(Byte)
 #deprecated
 pub fn LaneIdx::inner(Self) -> Byte
 pub impl Eq for LaneIdx
+pub impl Show for LaneIdx
 pub impl @quickcheck.Arbitrary for LaneIdx
 pub impl Decode for LaneIdx
 pub impl Encode for LaneIdx
@@ -857,22 +945,27 @@ pub enum Limits {
   I64Limits(UInt64, UInt64?)
 }
 pub impl Eq for Limits
+pub impl Show for Limits
 pub impl @quickcheck.Arbitrary for Limits
 pub impl Decode for Limits
 pub impl Encode for Limits
+pub impl Match for Limits
+pub impl ValidateMax for Limits
 
 pub struct LocalIdx(UInt)
 #deprecated
 pub fn LocalIdx::inner(Self) -> UInt
 pub impl Eq for LocalIdx
+pub impl Show for LocalIdx
 pub impl @quickcheck.Arbitrary for LocalIdx
 pub impl Decode for LocalIdx
 pub impl Encode for LocalIdx
 
-pub struct Locals(U32, ValType)
+pub struct Locals(UInt, ValType)
 
 
 pub impl Eq for Locals
+pub impl Show for Locals
 pub impl @quickcheck.Arbitrary for Locals
 pub impl Decode for Locals
 pub impl Encode for Locals
@@ -881,6 +974,7 @@ pub struct MemArg(U32, MemIdx?, U64)
 
 
 pub impl Eq for MemArg
+pub impl Show for MemArg
 pub impl @quickcheck.Arbitrary for MemArg
 pub impl Decode for MemArg
 pub impl Encode for MemArg
@@ -889,13 +983,14 @@ pub struct MemIdx(UInt)
 #deprecated
 pub fn MemIdx::inner(Self) -> UInt
 pub impl Eq for MemIdx
+pub impl Show for MemIdx
 pub impl @quickcheck.Arbitrary for MemIdx
 pub impl Decode for MemIdx
 pub impl Encode for MemIdx
 
-pub struct MemSec(@list.List[MemType])
+pub struct MemSec(Array[MemType])
 #deprecated
-pub fn MemSec::inner(Self) -> @list.List[MemType]
+pub fn MemSec::inner(Self) -> Array[MemType]
 pub impl Eq for MemSec
 pub impl @quickcheck.Arbitrary for MemSec
 pub impl Decode for MemSec
@@ -905,9 +1000,12 @@ pub struct MemType(Limits)
 #deprecated
 pub fn MemType::inner(Self) -> Limits
 pub impl Eq for MemType
+pub impl Show for MemType
 pub impl @quickcheck.Arbitrary for MemType
 pub impl Decode for MemType
 pub impl Encode for MemType
+pub impl Match for MemType
+pub impl Validate for MemType
 
 pub struct Module(Array[CustomSec], TypeSec?, ImportSec?, FuncSec?, TableSec?, MemSec?, TagSec?, GlobalSec?, ExportSec?, StartSec?, ElemSec?, DataCntSec?, CodeSec?, DataSec?)
 
@@ -921,6 +1019,7 @@ pub struct Name(StringView)
 #deprecated
 pub fn Name::inner(Self) -> StringView
 pub impl Eq for Name
+pub impl Show for Name
 pub impl @quickcheck.Arbitrary for Name
 pub impl Decode for Name
 pub impl Encode for Name
@@ -932,41 +1031,53 @@ pub enum NumType {
   I64NumType
 }
 pub impl Eq for NumType
+pub impl Show for NumType
 pub impl @quickcheck.Arbitrary for NumType
 pub impl Decode for NumType
 pub impl Encode for NumType
+pub impl Validate for NumType
 
 pub enum PackType {
   I16PackType
   I8PackType
 }
 pub impl Eq for PackType
+pub impl Show for PackType
 pub impl @quickcheck.Arbitrary for PackType
 pub impl Decode for PackType
 pub impl Encode for PackType
 
 pub enum RecType {
-  RecType(SubType)
-  RecTypeSubTypes(@list.List[SubType])
+  SingleRecType(SubType)
+  GroupRecType(Array[SubType])
 }
+pub fn RecType::get_subtype(Self, UInt) -> SubType?
 pub impl Eq for RecType
+pub impl Show for RecType
 pub impl @quickcheck.Arbitrary for RecType
 pub impl Decode for RecType
 pub impl Encode for RecType
+pub impl Validate for RecType
 
 pub enum RefType {
   HeapTypeRefType(Bool, HeapType)
   AbsHeapTypeRefType(AbsHeapType)
 }
+pub fn RefType::get_heap_type(Self) -> HeapType
+pub fn RefType::is_nullable(Self) -> Bool
 pub impl Eq for RefType
+pub impl Show for RefType
 pub impl @quickcheck.Arbitrary for RefType
 pub impl Decode for RefType
 pub impl Encode for RefType
+pub impl Match for RefType
+pub impl Validate for RefType
 
-pub struct S33(UInt64)
+pub struct S33(UInt)
 #deprecated
-pub fn S33::inner(Self) -> UInt64
+pub fn S33::inner(Self) -> UInt
 pub impl Eq for S33
+pub impl Show for S33
 pub impl @quickcheck.Arbitrary for S33
 pub impl Decode for S33
 pub impl Encode for S33
@@ -984,23 +1095,31 @@ pub enum StorageType {
   PackTypeStorageType(PackType)
 }
 pub impl Eq for StorageType
+pub impl Show for StorageType
 pub impl @quickcheck.Arbitrary for StorageType
 pub impl Decode for StorageType
 pub impl Encode for StorageType
+pub impl Match for StorageType
+pub impl Validate for StorageType
 
 pub enum SubType {
-  SubType(Bool, @list.List[TypeIdx], CompType)
+  SubType(Bool, Array[TypeIdx], CompType)
   CompTypeSubType(CompType)
 }
+pub fn SubType::get_comptype(Self) -> CompType
+pub fn SubType::super_types(Self) -> Array[TypeIdx]
 pub impl Eq for SubType
+pub impl Show for SubType
 pub impl @quickcheck.Arbitrary for SubType
 pub impl Decode for SubType
 pub impl Encode for SubType
+pub impl Validate for SubType
 
 pub struct Table(TableType, Expr?)
 
 
 pub impl Eq for Table
+pub impl Show for Table
 pub impl @quickcheck.Arbitrary for Table
 pub impl Decode for Table
 pub impl Encode for Table
@@ -1009,13 +1128,14 @@ pub struct TableIdx(UInt)
 #deprecated
 pub fn TableIdx::inner(Self) -> UInt
 pub impl Eq for TableIdx
+pub impl Show for TableIdx
 pub impl @quickcheck.Arbitrary for TableIdx
 pub impl Decode for TableIdx
 pub impl Encode for TableIdx
 
-pub struct TableSec(@list.List[Table])
+pub struct TableSec(Array[Table])
 #deprecated
-pub fn TableSec::inner(Self) -> @list.List[Table]
+pub fn TableSec::inner(Self) -> Array[Table]
 pub impl Eq for TableSec
 pub impl @quickcheck.Arbitrary for TableSec
 pub impl Decode for TableSec
@@ -1025,45 +1145,63 @@ pub struct TableType(RefType, Limits)
 
 
 pub impl Eq for TableType
+pub impl Show for TableType
 pub impl @quickcheck.Arbitrary for TableType
 pub impl Decode for TableType
 pub impl Encode for TableType
+pub impl Match for TableType
+pub impl Validate for TableType
 
 pub struct TagIdx(UInt)
 #deprecated
 pub fn TagIdx::inner(Self) -> UInt
 pub impl Eq for TagIdx
+pub impl Show for TagIdx
 pub impl @quickcheck.Arbitrary for TagIdx
 pub impl Decode for TagIdx
 pub impl Encode for TagIdx
+pub impl Validate for TagIdx
 
-pub struct TagSec(@list.List[TagType])
+pub struct TagSec(Array[TagType])
 #deprecated
-pub fn TagSec::inner(Self) -> @list.List[TagType]
+pub fn TagSec::inner(Self) -> Array[TagType]
 pub impl Eq for TagSec
 pub impl @quickcheck.Arbitrary for TagSec
 pub impl Decode for TagSec
 pub impl Encode for TagSec
+pub impl Validate for TagSec
 
 pub struct TagType(TypeIdx)
 #deprecated
 pub fn TagType::inner(Self) -> TypeIdx
 pub impl Eq for TagType
+pub impl Show for TagType
 pub impl @quickcheck.Arbitrary for TagType
 pub impl Decode for TagType
 pub impl Encode for TagType
+pub impl Match for TagType
+pub impl Validate for TagType
 
-pub struct TypeIdx(UInt)
-#deprecated
-pub fn TypeIdx::inner(Self) -> UInt
+pub struct TcState {
+  env : Env
+  stack : Array[ValType]
+  reachable : Bool
+}
+
+pub enum TypeIdx {
+  TypeIdx(UInt)
+  RecIdx(UInt)
+}
 pub impl Eq for TypeIdx
+pub impl Show for TypeIdx
 pub impl @quickcheck.Arbitrary for TypeIdx
 pub impl Decode for TypeIdx
 pub impl Encode for TypeIdx
+pub impl Validate for TypeIdx
 
-pub struct TypeSec(@list.List[RecType])
+pub struct TypeSec(Array[RecType])
 #deprecated
-pub fn TypeSec::inner(Self) -> @list.List[RecType]
+pub fn TypeSec::inner(Self) -> Array[RecType]
 pub impl Eq for TypeSec
 pub impl @quickcheck.Arbitrary for TypeSec
 pub impl Decode for TypeSec
@@ -1073,6 +1211,7 @@ pub struct U32(UInt)
 #deprecated
 pub fn U32::inner(Self) -> UInt
 pub impl Eq for U32
+pub impl Show for U32
 pub impl @quickcheck.Arbitrary for U32
 pub impl Decode for U32
 pub impl Encode for U32
@@ -1081,6 +1220,7 @@ pub struct U64(UInt64)
 #deprecated
 pub fn U64::inner(Self) -> UInt64
 pub impl Eq for U64
+pub impl Show for U64
 pub impl @quickcheck.Arbitrary for U64
 pub impl Decode for U64
 pub impl Encode for U64
@@ -1089,14 +1229,20 @@ pub enum ValType {
   NumTypeValType(NumType)
   VecTypeValType
   RefTypeValType(RefType)
+  BotValType
 }
 pub impl Eq for ValType
+pub impl Show for ValType
 pub impl @quickcheck.Arbitrary for ValType
 pub impl Decode for ValType
 pub impl Encode for ValType
+pub impl Match for ValType
+pub impl Validate for ValType
 
 // Type aliases
 pub type ResultType = Array[ValType]
+
+pub type TcResult = Result[TcState, String]
 
 // Traits
 pub trait Decode {
@@ -1116,4 +1262,22 @@ pub impl[T : Encode] Encode for T?
 pub impl Encode for Bytes
 pub impl[T : Encode] Encode for Array[T]
 pub impl[T : Encode] Encode for @list.List[T]
+
+pub trait Match {
+  matches(Self, Self, Env) -> Bool
+}
+pub impl[T : Match] Match for Array[T]
+
+pub trait Typecheck {
+  typecheck(Self, TcState) -> Result[TcState, String]
+}
+
+pub trait Validate {
+  validate(Self, Env) -> Bool
+}
+pub impl[T : Validate] Validate for Array[T]
+
+pub trait ValidateMax {
+  validate_max(Self, Env, UInt64) -> Bool
+}
 
