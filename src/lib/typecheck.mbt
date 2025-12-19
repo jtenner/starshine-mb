@@ -89,6 +89,19 @@ fn TcState::pop_types(st: TcState, ts: Array[ValType]) -> TcResult {
   Ok(cur)
 }
 
+fn expect_ref_null_heaptype(v: ValType) -> Result[HeapType, String] {
+  match v {
+    RefTypeValType(rt) =>
+      match rt {
+        HeapTypeRefType(true, ht) => Ok(ht)
+        HeapTypeRefType(false, _) => Err("expected (ref null ht), got non-null ref")
+        AbsHeapTypeRefType(_) => Err("expected (ref null ht), got abstract ref type")
+      }
+
+    _ => Err("expected reference type")
+  }
+}
+
 fn pop_types_rev(st: TcState, ts: Array[ValType]) -> TcResult {
   let n = ts.length()
   if n == 0 { return Ok(st) }
@@ -768,27 +781,24 @@ fn typecheck_br_on_null(st: TcState, l: LabelIdx) -> TcResult {
       Some(x) => x
     }
 
-  // pop the reference value (must be nullable ref)
+  // Pop operand: must be exactly (ref null ht)
   let (st1, v) =
     match st.pop1() {
       Err(e) => return Err(e)
       Ok(pair) => pair
     }
 
-  let (ht, _rt_in) =
-    match expect_nullable_ref(v) {
+  let ht =
+    match expect_ref_null_heaptype(v) {
       Err(e) => return Err(e)
       Ok(x) => x
     }
 
-  // Spec side condition: ht valid
   if !ht.validate(st.env) {
     return Err("invalid heap type in br_on_null operand")
   }
 
-  // If reachable, check branch args are present:
-  // br_on_null l has type t* (ref null ht) -> t* (ref ht),
-  // and the label is t* (per your screenshot).
+  // Branch target label has type t*
   if st.reachable {
     let _ =
       match st1.pop_types(ts) {
@@ -797,9 +807,10 @@ fn typecheck_br_on_null(st: TcState, l: LabelIdx) -> TcResult {
       }
   }
 
-  // Not-taken path pushes non-null ref with same heap type
+  // Fallthrough refines to non-null (ref ht)
   Ok(st1.push1(RefTypeValType(HeapTypeRefType(false, ht))))
 }
+
 fn typecheck_br_on_non_null(st: TcState, l: LabelIdx) -> TcResult {
   let label_ts =
     match st.env.get_label_types(l) {
