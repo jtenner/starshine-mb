@@ -1,12 +1,17 @@
 
-
-pub fn diff(rt0: RefType, rt1: RefType) -> Result[RefType, String] {
-  let ht0 = rt0.get_heap_type()
+///|
+pub fn diff(rt1 : RefType, rt2 : RefType) -> Result[RefType, String] {
   let ht1 = rt1.get_heap_type()
-  if ht0 != ht1 { return Err("Heap Types differ") }
-  match (rt0.is_nullable(), rt1.is_nullable()) {
-    (_, true) => Ok(HeapTypeRefType(false, ht0))
-    (b, false) => Ok(HeapTypeRefType(b, ht0))
+  let ht2 = rt2.get_heap_type()
+  if ht1 != ht2 {
+    return Err("Heap Types differ")
+  }
+  if rt2.is_nullable() {
+    // (ref null? ht) \ (ref null ht) = (ref ht)
+    Ok(HeapTypeRefType(false, ht1))
+  } else {
+    // (ref null? ht) \ (ref ht) = (ref null? ht)
+    Ok(HeapTypeRefType(rt1.is_nullable(), ht1))
   }
 }
 
@@ -35,8 +40,10 @@ pub impl Validate for HeapType with validate(self, env) {
 }
 
 pub impl Validate for DefType with validate(self, env) {
+  let DefType(rt, _) = self
+  let env2 = env_with_rectype(env, rt)
   match self.project() {
-    Some(st) => st.validate(env)
+    Some(st) => st.validate(env2)
     None => false
   }
 }
@@ -97,8 +104,11 @@ pub impl Validate for FieldType with validate(self, env) {
   st.validate(env)
 }
 
-pub impl Validate for StorageType with validate(_, _) {
-  true
+pub impl Validate for StorageType with validate(self, env) {
+  match self {
+    ValTypeStorageType(vt) => vt.validate(env)
+    PackTypeStorageType(_) => true
+  }
 }
 
 pub impl Validate for RecType with validate(self, env) {

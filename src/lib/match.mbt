@@ -252,6 +252,7 @@ fn env_add_rec_group(env: Env, group: Array[SubType]) -> Env {
     mems: env.mems,
     globals: env.globals,
     elems: env.elems,
+    datas: env.datas,
     tags: env.tags,
     locals: env.locals,
     labels: env.labels,

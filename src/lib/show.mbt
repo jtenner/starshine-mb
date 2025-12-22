@@ -157,9 +157,17 @@ pub impl Show for StorageType with output(self, logger) {
 pub impl Show for FieldType with output(self, logger) {
   let FieldType(st, m) = self
   logger.write_string("(Field ")
-  if (m.unwrap_or(false)) { logger.write_string("Mut ") }
+  m.output(logger)
+  logger.write_char(' ')
   st.output(logger)
   logger.write_char(')')
+}
+
+pub impl Show for Mut with output(self, logger) {
+  match self {
+    Var => logger.write_string("Mut")
+    Const => logger.write_string("Const")
+  }
 }
 
 pub impl Show for TypeIdx with output(self, logger) {
