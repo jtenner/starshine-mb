@@ -258,15 +258,15 @@ pub impl Encode for FieldType with encode(val, buf) {
 pub impl Decode for FieldType with decode(bytes, i) {
   match StorageType::decode(bytes, i) {
     Err(err) => Err(err)
-    Ok((st, i)) => {
+    Ok((st, i)) =>
       match Decode::decode(bytes, i) {
         Ok((m, i)) => Ok((FieldType(st, m), i))
         Err(err) => Err(err)
       }
-    }
   }
 }
 
+///|
 pub impl Encode for Mut with encode(val, buf) {
   match val {
     Const => buf.write_byte(0x00)
@@ -275,8 +275,11 @@ pub impl Encode for Mut with encode(val, buf) {
   Ok(())
 }
 
+///|
 pub impl Decode for Mut with decode(bytes, i) {
-  if i >= bytes.length() { return Err("unexpected EOF decoding mut") }
+  if i >= bytes.length() {
+    return Err("unexpected EOF decoding mut")
+  }
   let b = bytes[i]
   match b {
     0x00 => Ok((Const, i + 1))
@@ -436,140 +439,138 @@ pub impl Encode for ExternIdx with encode(val, buf) {
   }
 }
 
+///|
 fn encode_unsigned(
-  val: UInt64,
-  buf: @buffer.Buffer,
-  nbits: Int,
+  val : UInt64,
+  buf : @buffer.Buffer,
+  nbits : Int,
 ) -> Result[Unit, String] {
-  if nbits <= 0 || nbits > 64 { return Err("invalid nbits for uleb") }
-  if nbits < 64 {
-    let max = ((1UL) << nbits) - 1UL
-    if val > max { return Err("uleb value out of range") }
+  if nbits <= 0 || nbits > 64 {
+    return Err("invalid nbits for uleb")
   }
-
+  if nbits < 64 {
+    let max = (1UL << nbits) - 1UL
+    if val > max {
+      return Err("uleb value out of range")
+    }
+  }
   let max_bytes = max_leb_bytes(nbits)
   let rem = nbits % 7
   let limit = if rem == 0 { 0UL } else { 1UL << rem } // payload must be < limit
-
   let mut x = val
   let mut count = 0
-
   while true {
-    if count >= max_bytes { return Err("uleb encode exceeds max bytes") }
-
+    if count >= max_bytes {
+      return Err("uleb encode exceeds max bytes")
+    }
     let payload = x & 0x7fUL
     x = x >> 7
 
     // Can we stop here?
     // If rem != 0, terminal payload must be < 2^rem
-    let can_terminate =
-      x == 0UL && (rem == 0 || payload < limit)
-
+    let can_terminate = x == 0UL && (rem == 0 || payload < limit)
     let out = if can_terminate { payload } else { payload | 0x80UL }
     buf.write_byte(out.to_byte())
     count += 1
-
-    if can_terminate { break }
+    if can_terminate {
+      break
+    }
   }
-
   Ok(())
 }
 
 ///|
 fn encode_signed(
-  val: Int64,
-  buf: @buffer.Buffer,
-  nbits: Int,
+  val : Int64,
+  buf : @buffer.Buffer,
+  nbits : Int,
 ) -> Result[Unit, String] {
-  if nbits <= 0 || nbits > 64 { return Err("invalid nbits for sleb") }
-  if nbits < 64 {
-    let min = (-1L) << (nbits - 1)
-    let max = (1L << (nbits - 1)) - 1
-    if val < min || val > max { return Err("sleb value out of range") }
+  if nbits <= 0 || nbits > 64 {
+    return Err("invalid nbits for sleb")
   }
-
+  if nbits < 64 {
+    let min = -1L << (nbits - 1)
+    let max = (1L << (nbits - 1)) - 1
+    if val < min || val > max {
+      return Err("sleb value out of range")
+    }
+  }
   let max_bytes = max_leb_bytes(nbits)
   let rem = nbits % 7
   let used_mask = if rem == 0 { 0UL } else { (1UL << rem) - 1UL }
   let inv_used7 = UInt64::lnot(used_mask) & 0x7fUL
-
   let mut x = val
   let mut count = 0
-
   while true {
-    if count >= max_bytes { return Err("sleb encode exceeds max bytes") }
-
+    if count >= max_bytes {
+      return Err("sleb encode exceeds max bytes")
+    }
     let payload_u = (x & 0x7f).reinterpret_as_uint64()
     let sign_bit = (payload_u & 0x40UL) != 0UL
     x = x >> 7
-
-    let done_std =
-      (x == 0 && !sign_bit) ||
-      (x == -1 && sign_bit)
-
-    let done_bits_ok =
-      if rem == 0 {
-        true
-      } else if val >= 0 {
-        (payload_u & inv_used7) == 0UL
-      } else {
-        (payload_u & inv_used7) == inv_used7
-      }
-
+    let done_std = (x == 0 && !sign_bit) || (x == -1 && sign_bit)
+    let done_bits_ok = if rem == 0 {
+      true
+    } else if val >= 0 {
+      (payload_u & inv_used7) == 0UL
+    } else {
+      (payload_u & inv_used7) == inv_used7
+    }
     let done = done_std && done_bits_ok
-
     let out = if done { payload_u } else { payload_u | 0x80UL }
     buf.write_byte(out.to_byte())
     count += 1
-
-    if done { break }
+    if done {
+      break
+    }
   }
-
   Ok(())
 }
 
-fn ceil_div(a: Int, b: Int) -> Int {
+///|
+fn ceil_div(a : Int, b : Int) -> Int {
   (a + b - 1) / b
 }
 
-fn max_leb_bytes(nbits: Int) -> Int {
+///|
+fn max_leb_bytes(nbits : Int) -> Int {
   ceil_div(nbits, 7)
 }
 
 ///|
+
 ///|
 fn decode_unsigned(
-  bytes: Bytes,
-  index: Int,
-  nbits: Int,
+  bytes : Bytes,
+  index : Int,
+  nbits : Int,
 ) -> Result[(UInt64, Int), String] {
-  if nbits <= 0 || nbits > 64 { return Err("invalid nbits for uleb") }
-
+  if nbits <= 0 || nbits > 64 {
+    return Err("invalid nbits for uleb")
+  }
   let max_bytes = max_leb_bytes(nbits)
   let mut i = index
   let mut shift = 0
-  let mut acc: UInt64 = 0UL
+  let mut acc : UInt64 = 0UL
   let mut count = 0
-
   while true {
-    if i >= bytes.length() { return Err("unexpected EOF in uleb") }
-    if count >= max_bytes { return Err("uleb too many bytes") }
-
-    let byte_u: UInt64 = bytes[i].to_uint64()
+    if i >= bytes.length() {
+      return Err("unexpected EOF in uleb")
+    }
+    if count >= max_bytes {
+      return Err("uleb too many bytes")
+    }
+    let byte_u : UInt64 = bytes[i].to_uint64()
     i += 1
     count += 1
-
-    let payload: UInt64 = byte_u & 0x7fUL
+    let payload : UInt64 = byte_u & 0x7fUL
     acc = acc | (payload << shift)
     let cont = (byte_u & 0x80UL) != 0UL
-
     shift = shift + 7
-
     if !cont {
       // range check
       if nbits < 64 {
         let max_val = (1UL << nbits) - 1UL
-
         if acc > max_val {
           return Err("uleb out of range for bit width")
         }
@@ -583,7 +584,6 @@ fn decode_unsigned(
           return Err("uleb terminal byte has non-zero unused bits")
         }
       }
-
       return Ok((acc, i))
     }
   }
@@ -596,30 +596,30 @@ fn decode_signed(
   index : Int,
   nbits : Int,
 ) -> Result[(Int64, Int), String] {
-  if nbits <= 0 || nbits > 64 { return Err("invalid nbits for sleb") }
-
+  if nbits <= 0 || nbits > 64 {
+    return Err("invalid nbits for sleb")
+  }
   let max_bytes = max_leb_bytes(nbits)
   let mut i = index
   let mut shift = 0
-  let mut acc: Int64 = 0
+  let mut acc : Int64 = 0
   let mut count = 0
-  let mut last_byte: UInt64 = 0
-
+  let mut last_byte : UInt64 = 0
   while true {
-    if i >= bytes.length() { return Err("unexpected EOF in sleb") }
-    if count >= max_bytes { return Err("sleb too many bytes") }
-
+    if i >= bytes.length() {
+      return Err("unexpected EOF in sleb")
+    }
+    if count >= max_bytes {
+      return Err("sleb too many bytes")
+    }
     let byte_u = bytes[i].to_uint64()
     last_byte = byte_u
     i += 1
     count += 1
-
     let payload = (byte_u & 0x7f).reinterpret_as_int64()
     acc = acc | (payload << shift)
-
     let cont = (byte_u & 0x80) != 0
     shift += 7
-
     if !cont {
       break
     }
@@ -646,17 +646,19 @@ fn decode_signed(
     let used_mask = (1UL << rem) - 1UL
     let inv_used = UInt64::lnot(used_mask) & 0x7fUL
     let unused = payload_u & inv_used
-
     if acc >= 0 {
-      if unused != 0 { return Err("sleb terminal byte has non-zero unused bits for positive") }
+      if unused != 0 {
+        return Err("sleb terminal byte has non-zero unused bits for positive")
+      }
     } else {
       // for negative, unused bits should be 1s (within the 7-bit payload)
       // i.e., unused == (~used_mask) & 0x7f
       let want = inv_used
-      if unused != want { return Err("sleb terminal byte has wrong sign-extension bits") }
+      if unused != want {
+        return Err("sleb terminal byte has wrong sign-extension bits")
+      }
     }
   }
-
   Ok((acc, i))
 }
 
@@ -708,7 +710,8 @@ pub impl Encode for F64 with encode(val, buf) {
 pub impl Decode for S33 with decode(bytes, i) {
   match decode_signed(bytes, i, 33) {
     Err(err) => Err(err)
-    Ok((val, i)) if val >= 0 && val < 4294967295 => Ok((S33(val.to_int().reinterpret_as_uint()), i))
+    Ok((val, i)) if val >= 0 && val < 4294967295 =>
+      Ok((S33(val.to_int().reinterpret_as_uint()), i))
     Ok(_) => Err("Invalid S33 Range")
   }
 }
@@ -841,7 +844,7 @@ pub impl Encode for TableIdx with encode(val, buf) {
 
 ///|
 pub impl Decode for TableIdx with decode(bytes, i) {
-    match decode_unsigned(bytes, i, 32) {
+  match decode_unsigned(bytes, i, 32) {
     Err(t) => Err(t)
     Ok((n, i)) => Ok((TableIdx(n.to_uint()), i))
   }
@@ -855,7 +858,7 @@ pub impl Encode for MemIdx with encode(val, buf) {
 
 ///|
 pub impl Decode for MemIdx with decode(bytes, i) {
-    match decode_unsigned(bytes, i, 32) {
+  match decode_unsigned(bytes, i, 32) {
     Err(t) => Err(t)
     Ok((n, i)) => Ok((MemIdx(n.to_uint()), i))
   }
@@ -869,7 +872,7 @@ pub impl Encode for GlobalIdx with encode(val, buf) {
 
 ///|
 pub impl Decode for GlobalIdx with decode(bytes, i) {
-    match decode_unsigned(bytes, i, 32) {
+  match decode_unsigned(bytes, i, 32) {
     Err(t) => Err(t)
     Ok((n, i)) => Ok((GlobalIdx(n.to_uint()), i))
   }
@@ -883,7 +886,7 @@ pub impl Encode for TagIdx with encode(val, buf) {
 
 ///|
 pub impl Decode for TagIdx with decode(bytes, i) {
-    match decode_unsigned(bytes, i, 32) {
+  match decode_unsigned(bytes, i, 32) {
     Err(t) => Err(t)
     Ok((n, i)) => Ok((TagIdx(n.to_uint()), i))
   }
@@ -897,7 +900,7 @@ pub impl Encode for ElemIdx with encode(val, buf) {
 
 ///|
 pub impl Decode for ElemIdx with decode(bytes, i) {
-    match decode_unsigned(bytes, i, 32) {
+  match decode_unsigned(bytes, i, 32) {
     Err(t) => Err(t)
     Ok((n, i)) => Ok((ElemIdx(n.to_uint()), i))
   }
@@ -911,7 +914,7 @@ pub impl Encode for DataIdx with encode(val, buf) {
 
 ///|
 pub impl Decode for DataIdx with decode(bytes, i) {
-    match decode_unsigned(bytes, i, 32) {
+  match decode_unsigned(bytes, i, 32) {
     Err(t) => Err(t)
     Ok((n, i)) => Ok((DataIdx(n.to_uint()), i))
   }
@@ -925,7 +928,7 @@ pub impl Encode for LocalIdx with encode(val, buf) {
 
 ///|
 pub impl Decode for LocalIdx with decode(bytes, i) {
-    match decode_unsigned(bytes, i, 32) {
+  match decode_unsigned(bytes, i, 32) {
     Err(t) => Err(t)
     Ok((n, i)) => Ok((LocalIdx(n.to_uint()), i))
   }
@@ -5421,15 +5424,17 @@ pub impl[T : Decode] Decode for Array[T] with decode(bytes, i) {
   }
 }
 
-
-
 // For tests:
+
+///|
 priv suberror EncodingFailed
+
+///|
 priv suberror DecodingFailed
-fn [T: Encode + Decode + Eq + Show] roundtrip(x: T) -> Unit raise {
+
+///|
+fn[T : Encode + Decode + Eq + Show] roundtrip(x : T) -> Unit raise {
   let buf = @buffer.new()
-
-
   match Encode::encode(x, buf) {
     Ok(_) => ()
     Err(t) => {
@@ -5438,7 +5443,6 @@ fn [T: Encode + Decode + Eq + Show] roundtrip(x: T) -> Unit raise {
     }
   }
   let bytes = buf.to_bytes()
-
   let (y, i2) = match Decode::decode(bytes, 0) {
     Ok(t) => t
     Err(t) => {
@@ -5446,7 +5450,6 @@ fn [T: Encode + Decode + Eq + Show] roundtrip(x: T) -> Unit raise {
       raise DecodingFailed
     }
   }
-
   if bytes.length() != i2 {
     println(("Failed: Byte Length Mismatch", bytes.length(), i2))
   }
@@ -5459,7 +5462,10 @@ fn [T: Encode + Decode + Eq + Show] roundtrip(x: T) -> Unit raise {
   assert_eq(y, x)
 }
 
-fn [T: Encode + Decode + Eq + Show + @quickcheck.Arbitrary] roundtrip_arbitrary(count: Int) -> Array[T] raise {
+///|
+fn[T : Encode + Decode + Eq + Show + @quickcheck.Arbitrary] roundtrip_arbitrary(
+  count : Int,
+) -> Array[T] raise {
   let st = @quickcheck/splitmix.new()
   let a = Array::new(capacity=count)
   loop count {
@@ -5473,9 +5479,9 @@ fn [T: Encode + Decode + Eq + Show + @quickcheck.Arbitrary] roundtrip_arbitrary(
   }
 }
 
-
+///|
 test "uleb roundtrip u33" {
-  let vals: Array[UInt64] = [0,1, 127, 128, 129, 0xffff, 0xffffffff]
+  let vals : Array[UInt64] = [0, 1, 127, 128, 129, 0xffff, 0xffffffff]
   for v in vals {
     let buf = @buffer.new()
     encode_unsigned(v, buf, 33).unwrap()
@@ -5486,17 +5492,10 @@ test "uleb roundtrip u33" {
   }
 }
 
+///|
 test "sleb roundtrip s33 boundary" {
-  let vals: Array[Int64] = [
-    0,
-    1,
-    -1,
-    63,
-    -64,
-    64,
-    -65,
-    2147483647,
-    -2147483648,
+  let vals : Array[Int64] = [
+    0, 1, -1, 63, -64, 64, -65, 2147483647, -2147483648,
   ]
   for v in vals {
     let buf = @buffer.new()
@@ -5508,14 +5507,16 @@ test "sleb roundtrip s33 boundary" {
   }
 }
 
+///|
 test "uleb u33 rejects terminal unused bits" {
-  let bytes: Bytes = [0x80, 0x80, 0x80, 0x80, 0x20]
+  let bytes : Bytes = [0x80, 0x80, 0x80, 0x80, 0x20]
   match decode_unsigned(bytes, 0, 33) {
     Ok(_) => fail("expected error")
     Err(_) => ()
   }
 }
 
+///|
 test "sleb s33 rejects 0x3f" {
   match decode_signed(b"\x3f", 0, 33) {
     Ok(_) => fail("expected error")
@@ -5523,23 +5524,26 @@ test "sleb s33 rejects 0x3f" {
   }
 }
 
+///|
 test "uleb u33 rejects too many bytes" {
-  let bytes: Bytes = [0x80, 0x80, 0x80, 0x80, 0x80, 0x00]
+  let bytes : Bytes = [0x80, 0x80, 0x80, 0x80, 0x80, 0x00]
   match decode_unsigned(bytes, 0, 33) {
     Ok(_) => fail("expected error")
     Err(_) => ()
   }
 }
 
+///|
 test "uleb allows trailing zeros within max bytes" {
-  let bytes: Bytes = [0x83, 0x00]
+  let bytes : Bytes = [0x83, 0x00]
   let (v, i) = decode_unsigned(bytes, 0, 8).unwrap()
   assert_eq(v, 3)
   assert_eq(i, 2)
 }
 
+///|
 test "uleb u33 boundaries roundtrip" {
-  let vals: Array[UInt64] = [
+  let vals : Array[UInt64] = [
     0UL,
     1UL,
     31UL,
@@ -5559,16 +5563,30 @@ test "uleb u33 boundaries roundtrip" {
   }
 }
 
+///|
 test "uleb allows trailing zeros within bound" {
   let (v, i) = decode_unsigned(b"\x83\x00", 0, 8).unwrap()
   assert_eq(v, 3UL)
   assert_eq(i, 2)
 }
 
+///|
 test "sleb s33 boundaries roundtrip" {
-  let min = (-1L) << 32
+  let min = -1L << 32
   let max = (1L << 32) - 1L
-  let vals: Array[Int64] = [min, min + 1, -1, 0, 1, 31, 32, 63, 64, max - 1, max]
+  let vals : Array[Int64] = [
+    min,
+    min + 1,
+    -1,
+    0,
+    1,
+    31,
+    32,
+    63,
+    64,
+    max - 1,
+    max,
+  ]
   for v in vals {
     let buf = @buffer.new()
     encode_signed(v, buf, 33).unwrap()
@@ -5579,6 +5597,7 @@ test "sleb s33 boundaries roundtrip" {
   }
 }
 
+///|
 test "sleb s33 rejects 0x3f (unused bits positive)" {
   match decode_signed(b"\x3f", 0, 33) {
     Ok(_) => fail("expected error")
@@ -5586,6 +5605,7 @@ test "sleb s33 rejects 0x3f (unused bits positive)" {
   }
 }
 
+///|
 test "sleb s33 rejects too many bytes" {
   match decode_signed(b"\x80\x80\x80\x80\x80\x00", 0, 33) {
     Ok(_) => fail("expected error")
@@ -5593,18 +5613,21 @@ test "sleb s33 rejects too many bytes" {
   }
 }
 
+///|
 test "sleb allows extra sign extension within bound" {
   let (v, i) = decode_signed(b"\xff\x7f", 0, 8).unwrap()
   assert_eq(v, -1)
   assert_eq(i, 2)
 }
 
+///|
 test "uleb encoder never exceeds ceil(nbits/7)" {
   let buf = @buffer.new()
   encode_unsigned((1UL << 33) - 1UL, buf, 33).unwrap()
   assert_true(buf.to_bytes().length() <= max_leb_bytes(33))
 }
 
+///|
 test "numtype valtype" {
   roundtrip(F32NumType)
   roundtrip(F64NumType)
@@ -5612,12 +5635,13 @@ test "numtype valtype" {
   roundtrip(I64NumType)
 }
 
+///|
 test "Heap Types" {
   roundtrip(AbsHeapTypeHeapType(ExnAbsHeapType))
   roundtrip(AbsHeapTypeHeapType(ArrayAbsHeapType))
   roundtrip(AbsHeapTypeHeapType(StructAbsHeapType))
   roundtrip(AbsHeapTypeHeapType(I31AbsHeapType))
-  roundtrip(AbsHeapTypeHeapType(EqAbsHeapType)) 
+  roundtrip(AbsHeapTypeHeapType(EqAbsHeapType))
   roundtrip(AbsHeapTypeHeapType(AnyAbsHeapType))
   roundtrip(AbsHeapTypeHeapType(ExternAbsHeapType))
   roundtrip(AbsHeapTypeHeapType(FuncAbsHeapType))
@@ -5628,12 +5652,16 @@ test "Heap Types" {
   roundtrip(HeapType(TypeIdx(23)))
 }
 
+///|
 test "Type Indexes" {
   let _ : Array[TypeIdx] = roundtrip_arbitrary(50)
+
 }
 
+///|
 test "Ref Types" {
   let _ : Array[RefType] = roundtrip_arbitrary(20)
+
 }
 
 ///|
@@ -5656,30 +5684,39 @@ test "Comp Types" {
     ]),
   )
   roundtrip(
-    FuncCompType(
-      [i32_valtype(), i64_valtype()],
-      [i64_valtype(), i32_valtype()]
-    )
+    FuncCompType([i32_valtype(), i64_valtype()], [i64_valtype(), i32_valtype()]),
   )
-
   let _ : Array[CompType] = roundtrip_arbitrary(30)
+
 }
 
+///|
 test "Storage Type" {
   let _ : Array[StorageType] = roundtrip_arbitrary(30)
+
 }
 
+///|
 test "Packed Type" {
   roundtrip(I8PackType)
   roundtrip(I16PackType)
 }
 
+///|
 test "SubTypes" {
-  roundtrip(CompTypeSubType(ArrayCompType(FieldType(ValTypeStorageType(i32_valtype()), Var))))
-  roundtrip(SubType(false, [TypeIdx(0), TypeIdx(2), TypeIdx(4)], FuncCompType([], [])))
+  roundtrip(
+    CompTypeSubType(
+      ArrayCompType(FieldType(ValTypeStorageType(i32_valtype()), Var)),
+    ),
+  )
+  roundtrip(
+    SubType(false, [TypeIdx(0), TypeIdx(2), TypeIdx(4)], FuncCompType([], [])),
+  )
   // let _ : Array[SubType] = roundtrip_arbitrary(30)
 }
 
+///|
 test "RecTypes" {
   let _ : Array[RecType] = roundtrip_arbitrary(80)
+
 }

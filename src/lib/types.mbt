@@ -50,6 +50,7 @@ pub enum HeapType {
   DefTypeHeapType(DefType)
 }
 
+///|
 pub impl @quickcheck.Arbitrary for HeapType with arbitrary(size, st) {
   if @quickcheck.Arbitrary::arbitrary(size, st) {
     AbsHeapTypeHeapType(@quickcheck.Arbitrary::arbitrary(size, st))
@@ -59,14 +60,16 @@ pub impl @quickcheck.Arbitrary for HeapType with arbitrary(size, st) {
   // Def types are not arbitrary
 }
 
-pub fn RefType::is_nullable(rt: RefType) -> Bool {
+///|
+pub fn RefType::is_nullable(rt : RefType) -> Bool {
   match rt {
     HeapTypeRefType(b, _) => b
     AbsHeapTypeRefType(_) => true
   }
 }
 
-pub fn RefType::get_heap_type(rt: RefType) -> HeapType {
+///|
+pub fn RefType::get_heap_type(rt : RefType) -> HeapType {
   match rt {
     HeapTypeRefType(_, ht) => ht
     AbsHeapTypeRefType(ahs) => AbsHeapTypeHeapType(ahs)
@@ -87,6 +90,7 @@ pub enum ValType {
   BotValType
 }
 
+///|
 pub impl @quickcheck.Arbitrary for ValType with arbitrary(size, st) {
   match st.next_uint() % 3 {
     0 => NumTypeValType(@quickcheck.Arbitrary::arbitrary(size, st))
@@ -95,7 +99,6 @@ pub impl @quickcheck.Arbitrary for ValType with arbitrary(size, st) {
     _ => VecTypeValType
   }
 }
-
 
 ///|
 pub type ResultType = Array[ValType]
@@ -115,6 +118,7 @@ pub enum StorageType {
 ///|
 pub struct FieldType(StorageType, Mut) derive(Arbitrary)
 
+///|
 pub enum Mut {
   Const
   Var
@@ -126,6 +130,7 @@ pub enum TypeIdx {
   RecIdx(UInt)
 }
 
+///|
 pub impl @quickcheck.Arbitrary for TypeIdx with arbitrary(size, st) {
   TypeIdx(@quickcheck.Arbitrary::arbitrary(size, st))
   // recursive indexes are not arbitrary
@@ -174,14 +179,16 @@ pub enum SubType {
   CompTypeSubType(CompType)
 } derive(Arbitrary)
 
-pub fn SubType::super_types(self: SubType) -> Array[TypeIdx] {
+///|
+pub fn SubType::super_types(self : SubType) -> Array[TypeIdx] {
   match self {
     SubType(_, sts, _) => sts
     CompTypeSubType(_) => []
   }
 }
 
-pub fn SubType::get_comptype(self: SubType) -> CompType {
+///|
+pub fn SubType::get_comptype(self : SubType) -> CompType {
   match self {
     SubType(_, _, ct) => ct
     CompTypeSubType(ct) => ct
@@ -194,7 +201,8 @@ pub enum RecType {
   GroupRecType(Array[SubType])
 } derive(Arbitrary)
 
-pub fn RecType::get_subtype(self: RecType, idx: UInt) -> Option[SubType] {
+///|
+pub fn RecType::get_subtype(self : RecType, idx : UInt) -> SubType? {
   match (self, idx) {
     (SingleRecType(st), 0) => Some(st)
     (GroupRecType(sts), i) => sts.get(i.reinterpret_as_int())
@@ -202,9 +210,11 @@ pub fn RecType::get_subtype(self: RecType, idx: UInt) -> Option[SubType] {
   }
 }
 
+///|
 pub struct DefType(RecType, UInt)
 
-pub fn DefType::project(self: DefType) -> Option[SubType] {
+///|
+pub fn DefType::project(self : DefType) -> SubType? {
   let DefType(rt, n) = self
   match rt {
     SingleRecType(st) => if n == 0 { Some(st) } else { None }
@@ -212,12 +222,14 @@ pub fn DefType::project(self: DefType) -> Option[SubType] {
   }
 }
 
+///|
 pub impl @quickcheck.Arbitrary for DefType with arbitrary(t, state) {
   let s = @quickcheck.Arbitrary::arbitrary(t, state)
   match s {
     SingleRecType(_) => DefType(s, 0)
     GroupRecType(g) => {
-      let idx = @quickcheck.Arbitrary::arbitrary(t, state) % g.length().reinterpret_as_uint()
+      let idx = @quickcheck.Arbitrary::arbitrary(t, state) %
+        g.length().reinterpret_as_uint()
       DefType(s, idx)
     }
   }
@@ -229,7 +241,8 @@ pub enum Limits {
   I64Limits(UInt64, UInt64?)
 } derive(Arbitrary)
 
-fn Limits::mem_addr_bits(lim: Limits) -> Int {
+///|
+fn Limits::mem_addr_bits(lim : Limits) -> Int {
   match lim {
     I32Limits(_, _) => 32
     I64Limits(_, _) => 64
@@ -2760,33 +2773,37 @@ pub impl Eq for Instruction with equal(l, r) {
   }
 }
 
+///|
 type Stack[T] = Array[T]
 
+///|
 pub struct FuncType(Array[ValType], Array[ValType])
 
+///|
 pub struct Env {
-  global_types: Array[SubType]
-  rec_stack: Stack[Array[SubType]]
-  funcs: Array[FuncType]
-  tables: Array[TableType]
-  mems: Array[MemType]
-  globals: Array[GlobalType]
-  elems: Array[Elem]
-  datas: Array[Data]
-  tags: Array[TagType]
-  locals: Array[ValType]
-  labels: Stack[Array[ValType]]
-  return_type: Option[Array[ValType]]
+  global_types : Array[SubType]
+  rec_stack : Stack[Array[SubType]]
+  funcs : Array[FuncType]
+  tables : Array[TableType]
+  mems : Array[MemType]
+  globals : Array[GlobalType]
+  elems : Array[Elem]
+  datas : Array[Data]
+  tags : Array[TagType]
+  locals : Array[ValType]
+  labels : Stack[Array[ValType]]
+  return_type : Array[ValType]?
 }
 
-pub fn Env::resolve_subtype(env: Env, idx: TypeIdx) -> Option[SubType] {
+///|
+pub fn Env::resolve_subtype(env : Env, idx : TypeIdx) -> SubType? {
   match idx {
     TypeIdx(i) => env.global_types.get(i.reinterpret_as_int())
-
     RecIdx(j) => {
       let n = env.rec_stack.length()
-      if n == 0 { return None }
-
+      if n == 0 {
+        return None
+      }
       match env.rec_stack.get(n - 1) {
         None => None
         Some(group) => group.get(j.reinterpret_as_int())
@@ -2795,7 +2812,8 @@ pub fn Env::resolve_subtype(env: Env, idx: TypeIdx) -> Option[SubType] {
   }
 }
 
-pub fn Env::resolve_heaptype_subtype(env: Env, ht: HeapType) -> Option[SubType] {
+///|
+pub fn Env::resolve_heaptype_subtype(env : Env, ht : HeapType) -> SubType? {
   match ht {
     AbsHeapTypeHeapType(_) => None
     HeapType(ti) => env.resolve_subtype(ti)
@@ -2803,44 +2821,51 @@ pub fn Env::resolve_heaptype_subtype(env: Env, ht: HeapType) -> Option[SubType] 
   }
 }
 
-
-pub fn Env::get_label(env: Env, idx: LabelIdx) -> Option[Array[ValType]] {
+///|
+pub fn Env::get_label(env : Env, idx : LabelIdx) -> Array[ValType]? {
   let LabelIdx(i) = idx
   env.labels.get(i.reinterpret_as_int())
 }
 
-pub fn Env::get_tag(env: Env, idx: TagIdx) -> Option[TagType] {
+///|
+pub fn Env::get_tag(env : Env, idx : TagIdx) -> TagType? {
   let TagIdx(i) = idx
   env.tags.get(i.reinterpret_as_int())
 }
 
-pub fn Env::resolve_comptype(env: Env, idx: TypeIdx) -> Option[CompType] {
+///|
+pub fn Env::resolve_comptype(env : Env, idx : TypeIdx) -> CompType? {
   match env.resolve_subtype(idx) {
     None => None
     Some(st) => Some(st.get_comptype())
   }
 }
 
-pub fn Env::resolve_functype(env: Env, idx: TypeIdx) -> Option[FuncType] {
+///|
+pub fn Env::resolve_functype(env : Env, idx : TypeIdx) -> FuncType? {
   match env.resolve_comptype(idx) {
     Some(FuncCompType(ps, rs)) => Some(FuncType(ps, rs))
     _ => None
   }
 }
 
-pub fn Env::resolve_tag_functype(env: Env, tagidx: TagIdx) -> Option[FuncType] {
+///|
+pub fn Env::resolve_tag_functype(env : Env, tagidx : TagIdx) -> FuncType? {
   match env.get_tag(tagidx) {
     None => None
     Some(TagType(tidx)) => env.resolve_functype(tidx)
   }
 }
 
-pub fn Env::resolve_typeidx_subtype(env: Env, tidx: TypeIdx) -> Option[SubType] {
+///|
+pub fn Env::resolve_typeidx_subtype(env : Env, tidx : TypeIdx) -> SubType? {
   match tidx {
     TypeIdx(i) => env.global_types.get(i.reinterpret_as_int())
     RecIdx(j) => {
       let n = env.rec_stack.length()
-      if n == 0 { return None }
+      if n == 0 {
+        return None
+      }
       match env.rec_stack.get(n - 1) {
         None => None
         Some(group) => group.get(j.reinterpret_as_int())
@@ -2849,37 +2874,46 @@ pub fn Env::resolve_typeidx_subtype(env: Env, tidx: TypeIdx) -> Option[SubType] 
   }
 }
 
-fn Env::get_local_type(env: Env, idx: LocalIdx) -> Option[ValType] {
+///|
+fn Env::get_local_type(env : Env, idx : LocalIdx) -> ValType? {
   let LocalIdx(i) = idx
   env.locals.get(i.reinterpret_as_int())
 }
 
-fn Env::get_global_type(env: Env, idx: GlobalIdx) -> Option[GlobalType] {
+///|
+fn Env::get_global_type(env : Env, idx : GlobalIdx) -> GlobalType? {
   let GlobalIdx(i) = idx
   env.globals.get(i.reinterpret_as_int())
 }
 
+///|
 pub impl Eq for DefType with equal(l, r) {
   l.0 == r.0 && l.1 == r.1
 }
 
+///|
 fn i32_valtype() -> ValType {
   NumTypeValType(I32NumType)
 }
+
+///|
 fn i64_valtype() -> ValType {
   NumTypeValType(I64NumType)
 }
 
-fn ref_valtype(rt: RefType) -> ValType {
+///|
+fn ref_valtype(rt : RefType) -> ValType {
   RefTypeValType(rt)
 }
 
-fn Env::get_table_type(env: Env, idx: TableIdx) -> Option[TableType] {
+///|
+fn Env::get_table_type(env : Env, idx : TableIdx) -> TableType? {
   let TableIdx(i) = idx
   env.tables.get(i.reinterpret_as_int())
 }
 
-fn Env::with_label(env: Env, ts: Array[ValType]) -> Env {
+///|
+fn Env::with_label(env : Env, ts : Array[ValType]) -> Env {
   let ls = env.labels.copy()
   ls.push(ts)
   Env::{
@@ -2898,22 +2932,25 @@ fn Env::with_label(env: Env, ts: Array[ValType]) -> Env {
   }
 }
 
-fn Env::get_label_types(env: Env, idx: LabelIdx) -> Option[Array[ValType]] {
+///|
+fn Env::get_label_types(env : Env, idx : LabelIdx) -> Array[ValType]? {
   let LabelIdx(i) = idx
-
   let n = env.labels.length() // Int
   let ii = n - 1 - i.reinterpret_as_int()
-
-  if ii < 0 { return None }
+  if ii < 0 {
+    return None
+  }
   env.labels.get(ii)
 }
 
-fn Env::expand_blocktype(env: Env, bt: BlockType) -> Result[(Array[ValType], Array[ValType]), String] {
+///|
+fn Env::expand_blocktype(
+  env : Env,
+  bt : BlockType,
+) -> Result[(Array[ValType], Array[ValType]), String] {
   match bt {
     EmptyBlockType => Ok(([], []))
-
     ValTypeBlockType(vt) => Ok(([], [vt]))
-
     TypeIdxBlockType(tidx) =>
       match env.resolve_functype(tidx) {
         None => Err("blocktype type index is not a function type")
@@ -2922,12 +2959,17 @@ fn Env::expand_blocktype(env: Env, bt: BlockType) -> Result[(Array[ValType], Arr
   }
 }
 
-fn Env::get_functype_by_funcidx(env: Env, idx: FuncIdx) -> Option[FuncType] {
+///|
+fn Env::get_functype_by_funcidx(env : Env, idx : FuncIdx) -> FuncType? {
   let FuncIdx(i) = idx
   env.funcs.get(i.reinterpret_as_int())
 }
 
-fn Env::get_tag_payload(env: Env, idx: TagIdx) -> Result[Array[ValType], String] {
+///|
+fn Env::get_tag_payload(
+  env : Env,
+  idx : TagIdx,
+) -> Result[Array[ValType], String] {
   match env.resolve_tag_functype(idx) {
     None => Err("invalid tag index or tag is not a function type")
     Some(FuncType(params, results)) => {
@@ -2939,52 +2981,65 @@ fn Env::get_tag_payload(env: Env, idx: TagIdx) -> Result[Array[ValType], String]
   }
 }
 
-fn Env::get_elem(env: Env, i: ElemIdx) -> Option[Elem] {
+///|
+fn Env::get_elem(env : Env, i : ElemIdx) -> Elem? {
   let ElemIdx(i) = i
   env.elems.get(i.reinterpret_as_int())
 }
 
-fn Env::get_memtype(env: Env, idx: MemIdx) -> Option[MemType] {
+///|
+fn Env::get_memtype(env : Env, idx : MemIdx) -> MemType? {
   let MemIdx(i) = idx
   env.mems.get(i.reinterpret_as_int())
 }
 
+///|
 fn ref_null_exn_valtype() -> ValType {
   RefTypeValType(HeapTypeRefType(true, AbsHeapTypeHeapType(ExnAbsHeapType)))
 }
 
+///|
 fn funcref_valtype() -> ValType {
   // In core Wasm, call_indirect uses funcref.
   // Your encoding: AbsHeapTypeRefType(_) is nullable; funcref is (ref null func).
   RefTypeValType(AbsHeapTypeRefType(FuncAbsHeapType))
 }
 
+///|
 fn ref_exn_valtype() -> ValType {
   RefTypeValType(HeapTypeRefType(false, AbsHeapTypeHeapType(ExnAbsHeapType)))
 }
 
-fn append_valtype(ts: Array[ValType], vt: ValType) -> Array[ValType] {
+///|
+fn append_valtype(ts : Array[ValType], vt : ValType) -> Array[ValType] {
   let out = ts.copy()
   out.push(vt)
   out
 }
 
-pub fn[T : Eq] equals(a: Array[T], b: Array[T]) -> Bool {
-  if a.length() != b.length() { return false }
+///|
+pub fn[T : Eq] equals(a : Array[T], b : Array[T]) -> Bool {
+  if a.length() != b.length() {
+    return false
+  }
   for i in 0..<a.length() {
-    if a[i] != b[i] { return false }
+    if a[i] != b[i] {
+      return false
+    }
   }
   true
 }
 
-fn Limits::addr_valtype(at: Limits) -> ValType {
+///|
+fn Limits::addr_valtype(at : Limits) -> ValType {
   match at {
     I32Limits(_) => NumTypeValType(I32NumType)
     I64Limits(_) => NumTypeValType(I64NumType)
   }
 }
 
-fn min_addr(a: Limits, b: Limits) -> Limits {
+///|
+fn min_addr(a : Limits, b : Limits) -> Limits {
   match (a, b) {
     (I32Limits(_), _) => a
     (_, I32Limits(_)) => b
@@ -2992,7 +3047,8 @@ fn min_addr(a: Limits, b: Limits) -> Limits {
   }
 }
 
-fn elem_reftype(e: Elem) -> RefType {
+///|
+fn elem_reftype(e : Elem) -> RefType {
   match e {
     Elem(_, kind) =>
       match kind {
@@ -3003,20 +3059,27 @@ fn elem_reftype(e: Elem) -> RefType {
   }
 }
 
-fn ref_null_valtype(ht: HeapType) -> ValType {
+///|
+fn ref_null_valtype(ht : HeapType) -> ValType {
   RefTypeValType(HeapTypeRefType(true, ht))
 }
 
-fn Env::has_func(env: Env, idx: FuncIdx) -> Bool {
+///|
+fn Env::has_func(env : Env, idx : FuncIdx) -> Bool {
   let FuncIdx(i) = idx
   i < env.funcs.length().reinterpret_as_uint()
 }
 
+///|
 fn eqref_null_valtype() -> ValType {
   RefTypeValType(HeapTypeRefType(true, AbsHeapTypeHeapType(EqAbsHeapType)))
 }
 
-fn Env::resolve_struct_fields(env: Env, x: TypeIdx) -> Result[Array[FieldType], String] {
+///|
+fn Env::resolve_struct_fields(
+  env : Env,
+  x : TypeIdx,
+) -> Result[Array[FieldType], String] {
   match env.resolve_comptype(x) {
     None => Err("unknown type index")
     Some(ct) =>
@@ -3027,26 +3090,30 @@ fn Env::resolve_struct_fields(env: Env, x: TypeIdx) -> Result[Array[FieldType], 
   }
 }
 
-fn unpack_storage(st: StorageType) -> ValType {
+///|
+fn unpack_storage(st : StorageType) -> ValType {
   match st {
     ValTypeStorageType(vt) => vt
     PackTypeStorageType(_) => NumTypeValType(I32NumType)
   }
 }
 
-fn is_packed(st: StorageType) -> Bool {
+///|
+fn is_packed(st : StorageType) -> Bool {
   match st {
     PackTypeStorageType(_) => true
     _ => false
   }
 }
 
-fn u32_to_int(u: U32) -> Int {
+///|
+fn u32_to_int(u : U32) -> Int {
   let U32(i) = u
   i.reinterpret_as_int()
 }
 
-fn has_default(vt: ValType) -> Bool {
+///|
+fn has_default(vt : ValType) -> Bool {
   match vt {
     NumTypeValType(_) => true
     VecTypeValType => true
@@ -3055,7 +3122,11 @@ fn has_default(vt: ValType) -> Bool {
   }
 }
 
-fn get_struct_field(fields: Array[FieldType], i: U32) -> Result[FieldType, String] {
+///|
+fn get_struct_field(
+  fields : Array[FieldType],
+  i : U32,
+) -> Result[FieldType, String] {
   let idx = u32_to_int(i)
   match fields.get(idx) {
     None => Err("struct field index out of range")
@@ -3063,52 +3134,81 @@ fn get_struct_field(fields: Array[FieldType], i: U32) -> Result[FieldType, Strin
   }
 }
 
-fn field_is_mutable(ft: FieldType) -> Bool {
+///|
+fn field_is_mutable(ft : FieldType) -> Bool {
   match ft {
     FieldType(_, Var) => true
     _ => false
   }
 }
 
-fn vt_i32() -> ValType { NumTypeValType(I32NumType) }
-fn vt_i64() -> ValType { NumTypeValType(I64NumType) }
-fn vt_f32() -> ValType { NumTypeValType(F32NumType) }
-fn vt_f64() -> ValType { NumTypeValType(F64NumType) }
+///|
+fn vt_i32() -> ValType {
+  NumTypeValType(I32NumType)
+}
 
-fn vt_v128() -> ValType { VecTypeValType }
+///|
+fn vt_i64() -> ValType {
+  NumTypeValType(I64NumType)
+}
 
-fn Env::has_data(env: Env, idx: DataIdx) -> Bool {
+///|
+fn vt_f32() -> ValType {
+  NumTypeValType(F32NumType)
+}
+
+///|
+fn vt_f64() -> ValType {
+  NumTypeValType(F64NumType)
+}
+
+///|
+fn vt_v128() -> ValType {
+  VecTypeValType
+}
+
+///|
+fn Env::has_data(env : Env, idx : DataIdx) -> Bool {
   let DataIdx(i) = idx
   i < env.datas.length().reinterpret_as_uint()
 }
 
-fn min_addr_valtype(l1: Limits, l2: Limits) -> ValType {
+///|
+fn min_addr_valtype(l1 : Limits, l2 : Limits) -> ValType {
   match (l1, l2) {
     (I64Limits(_, _), I64Limits(_, _)) => NumTypeValType(I64NumType)
     _ => NumTypeValType(I32NumType)
   }
 }
 
+///|
 fn anyref_valtype() -> ValType {
   // (ref null any)
   RefTypeValType(HeapTypeRefType(true, AbsHeapTypeHeapType(AnyAbsHeapType)))
 }
 
+///|
 fn externref_valtype() -> ValType {
   // (ref null extern)
   RefTypeValType(HeapTypeRefType(true, AbsHeapTypeHeapType(ExternAbsHeapType)))
 }
 
+///|
 fn i31ref_valtype() -> ValType {
   // (ref i31) (non-null)
   RefTypeValType(HeapTypeRefType(false, AbsHeapTypeHeapType(I31AbsHeapType)))
 }
 
+///|
 fn i31ref_nullable_valtype() -> ValType {
   RefTypeValType(HeapTypeRefType(true, AbsHeapTypeHeapType(I31AbsHeapType)))
 }
 
-fn Env::resolve_array_field(env: Env, x: TypeIdx) -> Result[FieldType, String] {
+///|
+fn Env::resolve_array_field(
+  env : Env,
+  x : TypeIdx,
+) -> Result[FieldType, String] {
   match env.resolve_comptype(x) {
     None => Err("unknown type index")
     Some(ct) =>
@@ -3119,14 +3219,17 @@ fn Env::resolve_array_field(env: Env, x: TypeIdx) -> Result[FieldType, String] {
   }
 }
 
-fn ref_array_nonnull(x: TypeIdx) -> ValType {
+///|
+fn ref_array_nonnull(x : TypeIdx) -> ValType {
   RefTypeValType(HeapTypeRefType(false, HeapType(x)))
 }
 
-fn ref_array_nullable(x: TypeIdx) -> ValType {
+///|
+fn ref_array_nullable(x : TypeIdx) -> ValType {
   RefTypeValType(HeapTypeRefType(true, HeapType(x)))
 }
 
-fn ref_null_array_of(x: TypeIdx) -> ValType {
+///|
+fn ref_null_array_of(x : TypeIdx) -> ValType {
   RefTypeValType(HeapTypeRefType(true, HeapType(x)))
 }

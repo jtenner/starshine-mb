@@ -1,3 +1,4 @@
+///|
 pub impl Show for S33 with output(self, logger) {
   let S33(t) = self
   logger.write_string("S33(")
@@ -5,6 +6,7 @@ pub impl Show for S33 with output(self, logger) {
   logger.write_char(')')
 }
 
+///|
 pub impl Show for I32 with output(self, logger) {
   let I32(t) = self
   logger.write_string("I32(")
@@ -12,43 +14,47 @@ pub impl Show for I32 with output(self, logger) {
   logger.write_char(')')
 }
 
+///|
 pub impl Show for I64 with output(self, logger) {
   let I64(t) = self
   logger.write_string("I64(")
   t.output(logger)
-  logger.write_char(')') 
+  logger.write_char(')')
 }
 
+///|
 pub impl Show for F32 with output(self, logger) {
   let F32(t) = self
   logger.write_string("F32(")
   t.output(logger)
-  logger.write_char(')') 
+  logger.write_char(')')
 }
 
+///|
 pub impl Show for F64 with output(self, logger) {
   let F64(t) = self
   logger.write_string("F64(")
   t.output(logger)
-  logger.write_char(')') 
+  logger.write_char(')')
 }
 
+///|
 pub impl Show for U32 with output(self, logger) {
   let U32(t) = self
   logger.write_string("U32(")
   t.output(logger)
-  logger.write_char(')') 
-  
+  logger.write_char(')')
 }
 
+///|
 pub impl Show for U64 with output(self, logger) {
   let U64(t) = self
   logger.write_string("U64(")
   t.output(logger)
-  logger.write_char(')') 
-  
+  logger.write_char(')')
 }
 
+///|
 pub impl Show for NumType with output(self, logger) {
   match self {
     F32NumType => logger.write_string("(NumType F32)")
@@ -56,9 +62,9 @@ pub impl Show for NumType with output(self, logger) {
     I32NumType => logger.write_string("(NumType I32)")
     I64NumType => logger.write_string("(NumType I64)")
   }
-  
 }
 
+///|
 pub impl Show for AbsHeapType with output(self, logger) {
   match self {
     ExnAbsHeapType => logger.write_string("(AbsHeapType Exn)")
@@ -74,9 +80,9 @@ pub impl Show for AbsHeapType with output(self, logger) {
     NoFuncAbsHeapType => logger.write_string("(AbsHeapType NoFunc)")
     NoExnAbsHeapType => logger.write_string("(AbsHeapType NoExn)")
   }
-  
 }
 
+///|
 pub impl Show for HeapType with output(self, logger) {
   match self {
     AbsHeapTypeHeapType(ht) => {
@@ -102,7 +108,8 @@ pub impl Show for HeapType with output(self, logger) {
   }
 }
 
-pub impl Show for DefType with output(self,logger) {
+///|
+pub impl Show for DefType with output(self, logger) {
   logger.write_string("(DefType ")
   self.0.output(logger)
   logger.write_char(' ')
@@ -110,11 +117,14 @@ pub impl Show for DefType with output(self,logger) {
   logger.write_char(')')
 }
 
+///|
 pub impl Show for RefType with output(self, logger) {
   match self {
     HeapTypeRefType(n, ht) => {
       logger.write_string("(RefType ")
-      if (!n) { logger.write_string("Not ") }
+      if !n {
+        logger.write_string("Not ")
+      }
       logger.write_string("Null ")
       ht.output(logger)
       logger.write_char(')')
@@ -125,9 +135,9 @@ pub impl Show for RefType with output(self, logger) {
       logger.write_char(')')
     }
   }
-  
 }
 
+///|
 pub impl Show for ValType with output(self, logger) {
   match self {
     VecTypeValType => logger.write_string("(V128)")
@@ -135,25 +145,25 @@ pub impl Show for ValType with output(self, logger) {
     RefTypeValType(rt) => rt.output(logger)
     BotValType => logger.write_string("(Bot)")
   }
-  
 }
 
+///|
 pub impl Show for PackType with output(self, logger) {
   match self {
     I16PackType => logger.write_string("(I16)")
     I8PackType => logger.write_string("(I8)")
   }
-  
 }
 
+///|
 pub impl Show for StorageType with output(self, logger) {
   match self {
     ValTypeStorageType(vt) => vt.output(logger)
     PackTypeStorageType(pt) => pt.output(logger)
   }
-  
 }
 
+///|
 pub impl Show for FieldType with output(self, logger) {
   let FieldType(st, m) = self
   logger.write_string("(Field ")
@@ -163,6 +173,7 @@ pub impl Show for FieldType with output(self, logger) {
   logger.write_char(')')
 }
 
+///|
 pub impl Show for Mut with output(self, logger) {
   match self {
     Var => logger.write_string("Mut")
@@ -170,6 +181,7 @@ pub impl Show for Mut with output(self, logger) {
   }
 }
 
+///|
 pub impl Show for TypeIdx with output(self, logger) {
   match self {
     TypeIdx(val) => {
@@ -185,6 +197,7 @@ pub impl Show for TypeIdx with output(self, logger) {
   }
 }
 
+///|
 pub impl Show for FuncIdx with output(self, logger) {
   let FuncIdx(val) = self
   logger.write_string("(Func ")
@@ -192,6 +205,7 @@ pub impl Show for FuncIdx with output(self, logger) {
   logger.write_char(')')
 }
 
+///|
 pub impl Show for TableIdx with output(self, logger) {
   let TableIdx(val) = self
   logger.write_string("(Table ")
@@ -199,6 +213,7 @@ pub impl Show for TableIdx with output(self, logger) {
   logger.write_char(')')
 }
 
+///|
 pub impl Show for MemIdx with output(self, logger) {
   let MemIdx(val) = self
   logger.write_string("(Mem ")
@@ -206,6 +221,7 @@ pub impl Show for MemIdx with output(self, logger) {
   logger.write_char(')')
 }
 
+///|
 pub impl Show for GlobalIdx with output(self, logger) {
   let GlobalIdx(val) = self
   logger.write_string("(Global ")
@@ -213,6 +229,7 @@ pub impl Show for GlobalIdx with output(self, logger) {
   logger.write_char(')')
 }
 
+///|
 pub impl Show for TagIdx with output(self, logger) {
   let TagIdx(val) = self
   logger.write_string("(Tag ")
@@ -220,6 +237,7 @@ pub impl Show for TagIdx with output(self, logger) {
   logger.write_char(')')
 }
 
+///|
 pub impl Show for ElemIdx with output(self, logger) {
   let ElemIdx(val) = self
   logger.write_string("(Elem ")
@@ -227,6 +245,7 @@ pub impl Show for ElemIdx with output(self, logger) {
   logger.write_char(')')
 }
 
+///|
 pub impl Show for DataIdx with output(self, logger) {
   let DataIdx(val) = self
   logger.write_string("(Data ")
@@ -234,6 +253,7 @@ pub impl Show for DataIdx with output(self, logger) {
   logger.write_char(')')
 }
 
+///|
 pub impl Show for LocalIdx with output(self, logger) {
   let LocalIdx(val) = self
   logger.write_string("(Local ")
@@ -241,6 +261,7 @@ pub impl Show for LocalIdx with output(self, logger) {
   logger.write_char(')')
 }
 
+///|
 pub impl Show for LabelIdx with output(self, logger) {
   let LabelIdx(val) = self
   logger.write_string("(Label ")
@@ -248,6 +269,7 @@ pub impl Show for LabelIdx with output(self, logger) {
   logger.write_char(')')
 }
 
+///|
 pub impl Show for LaneIdx with output(self, logger) {
   let LaneIdx(val) = self
   logger.write_string("(Lane ")
@@ -255,6 +277,7 @@ pub impl Show for LaneIdx with output(self, logger) {
   logger.write_char(')')
 }
 
+///|
 pub impl Show for CompType with output(self, logger) {
   match self {
     StructCompType(st) => {
@@ -274,30 +297,34 @@ pub impl Show for CompType with output(self, logger) {
       logger.write_string("(Func (Props ")
       match p {
         [] => logger.write_string("(Void)")
-        _ => for pm in p {
-          pm.output(logger)
-          logger.write_char(' ')
-        }
+        _ =>
+          for pm in p {
+            pm.output(logger)
+            logger.write_char(' ')
+          }
       }
       logger.write_string(") (Ret ")
       match r {
         [] => logger.write_string("(Void)")
-        _ => for pm in r {
-          pm.output(logger)
-          logger.write_char(' ')
-        }
+        _ =>
+          for pm in r {
+            pm.output(logger)
+            logger.write_char(' ')
+          }
       }
       logger.write_char(')')
     }
   }
-  
 }
 
+///|
 pub impl Show for SubType with output(self, logger) {
   match self {
     SubType(f, sts, ct) => {
       logger.write_string("(Sub ")
-      if (f) { logger.write_string("Final ") }
+      if f {
+        logger.write_string("Final ")
+      }
       for st in sts {
         st.output(logger)
         logger.write_char(' ')
@@ -313,6 +340,7 @@ pub impl Show for SubType with output(self, logger) {
   }
 }
 
+///|
 pub impl Show for RecType with output(self, logger) {
   match self {
     SingleRecType(st) => {
@@ -329,57 +357,56 @@ pub impl Show for RecType with output(self, logger) {
       logger.write_char(')')
     }
   }
-  
 }
 
+///|
 pub impl Show for Limits with output(self, logger) {
   match self {
     I32Limits(min, max) => {
       logger.write_string("(Lim I32 ")
       min.output(logger)
-
       if max is Some(max) {
         logger.write_char(' ')
         max.output(logger)
       }
-
       logger.write_char(')')
     }
     I64Limits(min, max) => {
       logger.write_string("(Lim I64 ")
       min.output(logger)
-
       if max is Some(max) {
         logger.write_char(' ')
         max.output(logger)
       }
-
       logger.write_char(')')
     }
   }
-  
 }
 
+///|
 pub impl Show for TagType with output(self, logger) {
   let TagType(t) = self
   t.output(logger)
 }
 
+///|
 pub impl Show for GlobalType with output(self, logger) {
   let GlobalType(vt, m) = self
   logger.write_string("(GlobalType ")
-  if m { logger.write_string("Mut ") }
+  if m {
+    logger.write_string("Mut ")
+  }
   vt.output(logger)
   logger.write_char(')')
 }
 
+///|
 pub impl Show for MemType with output(self, logger) {
   let MemType(l) = self
   l.output(logger)
-  
 }
 
-
+///|
 pub impl Show for TableType with output(self, logger) {
   let TableType(rt, l) = self
   logger.write_string("(TableType ")
@@ -389,6 +416,7 @@ pub impl Show for TableType with output(self, logger) {
   logger.write_char(')')
 }
 
+///|
 pub impl Show for ExternType with output(self, logger) {
   match self {
     GlobalExternType(gt) => gt.output(logger)
@@ -397,9 +425,9 @@ pub impl Show for ExternType with output(self, logger) {
     FuncExternType(t) => t.output(logger)
     TagExternType(t) => t.output(logger)
   }
-  
 }
 
+///|
 pub impl Show for ExternIdx with output(self, logger) {
   match self {
     GlobalExternIdx(g) => g.output(logger)
@@ -408,9 +436,9 @@ pub impl Show for ExternIdx with output(self, logger) {
     FuncExternIdx(f) => f.output(logger)
     TagExternIdx(t) => t.output(logger)
   }
-  
 }
 
+///|
 pub impl Show for ElemMode with output(self, logger) {
   match self {
     Active(t, e) => {
@@ -423,9 +451,9 @@ pub impl Show for ElemMode with output(self, logger) {
     Passive => logger.write_string("Passive")
     Declarative => logger.write_string("Declarative")
   }
-  
 }
 
+///|
 pub impl Show for ElemKind with output(self, logger) {
   match self {
     FuncExprsElemKind(exprs) => {
@@ -454,9 +482,9 @@ pub impl Show for ElemKind with output(self, logger) {
       logger.write_char(')')
     }
   }
-  
 }
 
+///|
 pub impl Show for Elem with output(self, logger) {
   let Elem(m, k) = self
   logger.write_string("(Elem ")
@@ -466,16 +494,16 @@ pub impl Show for Elem with output(self, logger) {
   logger.write_char(')')
 }
 
+///|
 pub impl Show for Expr with output(self, logger) {
   let Expr(insts) = self
-
   for inst in insts {
     inst.output(logger)
   }
   logger.write_string("(end)")
-  
 }
 
+///|
 pub impl Show for Import with output(self, logger) {
   let Import(ns, n, et) = self
   logger.write_char('(')
@@ -487,9 +515,9 @@ pub impl Show for Import with output(self, logger) {
   logger.write_char(')')
 }
 
+///|
 pub impl Show for Table with output(self, logger) {
   let Table(tt, e) = self
-
   logger.write_string("(Table ")
   tt.output(logger)
   if e is Some(e) {
@@ -499,6 +527,7 @@ pub impl Show for Table with output(self, logger) {
   logger.write_char(')')
 }
 
+///|
 pub impl Show for Global with output(self, logger) {
   let Global(gt, e) = self
   logger.write_string("(Global ")
@@ -508,9 +537,9 @@ pub impl Show for Global with output(self, logger) {
   logger.write_char(')')
 }
 
+///|
 pub impl Show for Export with output(self, logger) {
   let Export(n, idx) = self
-
   logger.write_string("(Export ")
   n.output(logger)
   logger.write_char(' ')
@@ -518,6 +547,7 @@ pub impl Show for Export with output(self, logger) {
   logger.write_char(')')
 }
 
+///|
 pub impl Show for Locals with output(self, logger) {
   let Locals(i, vt) = self
   loop i {
@@ -530,6 +560,7 @@ pub impl Show for Locals with output(self, logger) {
   }
 }
 
+///|
 pub impl Show for Func with output(self, logger) {
   let Func(ls, expr) = self
   logger.write_string("(Func ")
@@ -539,6 +570,7 @@ pub impl Show for Func with output(self, logger) {
   logger.write_char(')')
 }
 
+///|
 pub impl Show for DataMode with output(self, logger) {
   match self {
     Active(m, e) => {
@@ -550,9 +582,9 @@ pub impl Show for DataMode with output(self, logger) {
     }
     Passive => logger.write_string("Passive")
   }
-  
 }
 
+///|
 pub impl Show for Data with output(self, logger) {
   let Data(dm, b) = self
   logger.write_string("(Data ")
@@ -562,6 +594,7 @@ pub impl Show for Data with output(self, logger) {
   logger.write_char(')')
 }
 
+///|
 pub impl Show for Name with output(self, logger) {
   let Name(sv) = self
   logger.write_char('"')
@@ -569,6 +602,7 @@ pub impl Show for Name with output(self, logger) {
   logger.write_char('"')
 }
 
+///|
 pub impl Show for BlockType with output(self, logger) {
   match self {
     ValTypeBlockType(vt) => vt.output(logger)
@@ -577,6 +611,7 @@ pub impl Show for BlockType with output(self, logger) {
   }
 }
 
+///|
 pub impl Show for Catch with output(self, logger) {
   match self {
     CatchAll(l) => {
@@ -606,6 +641,7 @@ pub impl Show for Catch with output(self, logger) {
   }
 }
 
+///|
 pub impl Show for MemArg with output(self, logger) {
   let MemArg(a, m, o) = self
   logger.write_string("align=")
@@ -618,6 +654,7 @@ pub impl Show for MemArg with output(self, logger) {
   o.output(logger)
 }
 
+///|
 pub impl Show for Instruction with output(self, logger) {
   match self {
     Unreachable => logger.write_string("unreachable")
@@ -667,7 +704,7 @@ pub impl Show for Instruction with output(self, logger) {
     BrIf(l) => {
       logger.write_string("(br_if ")
       l.output(logger)
-      logger.write_char(')') 
+      logger.write_char(')')
     }
     BrTable(ls, l) => {
       logger.write_string("(br_table ")
@@ -1339,42 +1376,42 @@ pub impl Show for Instruction with output(self, logger) {
       logger.write_char(')')
     }
     V128Const(
-        l0,
-        l1,
-        l2,
-        l3,
-        l4,
-        l5,
-        l6,
-        l7,
-        l8,
-        l9,
-        l10,
-        l11,
-        l12,
-        l13,
-        l14,
-        l15
-      ) => {
-        logger.write_string("(v128.const ")
-        l0.to_hex().pad_start(2, '0').output(logger)
-        l1.to_hex().pad_start(2, '0').output(logger)
-        l2.to_hex().pad_start(2, '0').output(logger)
-        l3.to_hex().pad_start(2, '0').output(logger)
-        l4.to_hex().pad_start(2, '0').output(logger)
-        l5.to_hex().pad_start(2, '0').output(logger)
-        l6.to_hex().pad_start(2, '0').output(logger)
-        l7.to_hex().pad_start(2, '0').output(logger)
-        l8.to_hex().pad_start(2, '0').output(logger)
-        l9.to_hex().pad_start(2, '0').output(logger)
-        l10.to_hex().pad_start(2, '0').output(logger)
-        l11.to_hex().pad_start(2, '0').output(logger)
-        l12.to_hex().pad_start(2, '0').output(logger)
-        l13.to_hex().pad_start(2, '0').output(logger)
-        l14.to_hex().pad_start(2, '0').output(logger)
-        l15.to_hex().pad_start(2, '0').output(logger)
-        logger.write_char(')')
-      }
+      l0,
+      l1,
+      l2,
+      l3,
+      l4,
+      l5,
+      l6,
+      l7,
+      l8,
+      l9,
+      l10,
+      l11,
+      l12,
+      l13,
+      l14,
+      l15
+    ) => {
+      logger.write_string("(v128.const ")
+      l0.to_hex().pad_start(2, '0').output(logger)
+      l1.to_hex().pad_start(2, '0').output(logger)
+      l2.to_hex().pad_start(2, '0').output(logger)
+      l3.to_hex().pad_start(2, '0').output(logger)
+      l4.to_hex().pad_start(2, '0').output(logger)
+      l5.to_hex().pad_start(2, '0').output(logger)
+      l6.to_hex().pad_start(2, '0').output(logger)
+      l7.to_hex().pad_start(2, '0').output(logger)
+      l8.to_hex().pad_start(2, '0').output(logger)
+      l9.to_hex().pad_start(2, '0').output(logger)
+      l10.to_hex().pad_start(2, '0').output(logger)
+      l11.to_hex().pad_start(2, '0').output(logger)
+      l12.to_hex().pad_start(2, '0').output(logger)
+      l13.to_hex().pad_start(2, '0').output(logger)
+      l14.to_hex().pad_start(2, '0').output(logger)
+      l15.to_hex().pad_start(2, '0').output(logger)
+      logger.write_char(')')
+    }
     I8x16Shuffle(
       l0,
       l1,
@@ -1649,10 +1686,14 @@ pub impl Show for Instruction with output(self, logger) {
     I8x16MaxU => logger.write_string("i8x16.max_u")
     F64x2Trunc => logger.write_string("f64x2.trunc")
     I8x16AvgrU => logger.write_string("i8x16.avgr_u")
-    I16x8ExtaddPairwiseI8x16S => logger.write_string("i16x8.extadd_pairwise_i8x16s")
-    I16x8ExtaddPairwiseI8x16U => logger.write_string("i16x8.extadd_pairwise_i8x16u")
-    I32x4ExtaddPairwiseI16x8S => logger.write_string("i32x4.extadd_pairwise_i16x8s")
-    I32x4ExtaddPairwiseI16x8U => logger.write_string("i32x4.extadd_pairwise_i16x8u")
+    I16x8ExtaddPairwiseI8x16S =>
+      logger.write_string("i16x8.extadd_pairwise_i8x16s")
+    I16x8ExtaddPairwiseI8x16U =>
+      logger.write_string("i16x8.extadd_pairwise_i8x16u")
+    I32x4ExtaddPairwiseI16x8S =>
+      logger.write_string("i32x4.extadd_pairwise_i16x8s")
+    I32x4ExtaddPairwiseI16x8U =>
+      logger.write_string("i32x4.extadd_pairwise_i16x8u")
     I16x8Abs => logger.write_string("i16x8.abs")
     I16x8Neg => logger.write_string("i16x8.neg")
     I16x8Q15mulrSatS => logger.write_string("i16x8.15mulr_sat_s")
@@ -1757,15 +1798,19 @@ pub impl Show for Instruction with output(self, logger) {
     I32x4TruncSatF32x4U => logger.write_string("i32x4.trunc_sat_f32x4u")
     F32x4ConvertI32x4S => logger.write_string("f32x4.convert_i32x4s")
     F32x4ConvertI32x4U => logger.write_string("f32x4.convert_i32x4u")
-    I32x4TruncSatF64x2SZero => logger.write_string("i32x4.trunc_sat_f64x2s_zero")
-    I32x4TruncSatF64x2UZero => logger.write_string("i32x4.trunc_sat_f64x2u_zero")
+    I32x4TruncSatF64x2SZero =>
+      logger.write_string("i32x4.trunc_sat_f64x2s_zero")
+    I32x4TruncSatF64x2UZero =>
+      logger.write_string("i32x4.trunc_sat_f64x2u_zero")
     F64x2ConvertLowI32x4S => logger.write_string("f64x2.convert_low_i32x4s")
     F64x2ConvertLowI32x4U => logger.write_string("f64x2.convert_low_i32x4u")
     I8x16RelaxedSwizzle => logger.write_string("i8x16.relaxed_swizzle")
     I32x4RelaxedTruncF32x4S => logger.write_string("i32x4.relaxed_trunc_f32x4s")
     I32x4RelaxedTruncF32x4U => logger.write_string("i32x4.relaxed_trunc_f32x4u")
-    I32x4RelaxedTruncZeroF64x2S => logger.write_string("i32x4.relaxed_trunc_zero_f64x2s")
-    I32x4RelaxedTruncZeroF64x2U => logger.write_string("i32x4.relaxed_trunc_zero_f64x2u")
+    I32x4RelaxedTruncZeroF64x2S =>
+      logger.write_string("i32x4.relaxed_trunc_zero_f64x2s")
+    I32x4RelaxedTruncZeroF64x2U =>
+      logger.write_string("i32x4.relaxed_trunc_zero_f64x2u")
     F32x4RelaxedMadd => logger.write_string("f32x4.relaxed_madd")
     F32x4RelaxedNmadd => logger.write_string("f32x4.relaxed_nmadd")
     F64x2RelaxedMadd => logger.write_string("f64x2.relaxed_madd")
@@ -1779,7 +1824,9 @@ pub impl Show for Instruction with output(self, logger) {
     F64x2RelaxedMin => logger.write_string("f64x2.relaxed_min")
     F64x2RelaxedMax => logger.write_string("f64x2.relaxed_max")
     I16x8RelaxedQ15mulrS => logger.write_string("i16x8.relaxed_q15mulr_s")
-    I16x8RelaxedDotI8x16I7x16S => logger.write_string("i16x8.relaxed_dot_i8x16i7x16s")
-    I32x4RelaxedDotI8x16I7x16AddS => logger.write_string("i32x4.relaxed_dot_i8x16i7x16_add_s")
+    I16x8RelaxedDotI8x16I7x16S =>
+      logger.write_string("i16x8.relaxed_dot_i8x16i7x16s")
+    I32x4RelaxedDotI8x16I7x16AddS =>
+      logger.write_string("i32x4.relaxed_dot_i8x16i7x16_add_s")
   }
 }
