@@ -385,25 +385,35 @@ pub impl Decode for SubType with decode(buf, i) {
   match buf.get(i) {
     // Final
     Some(0x4F) =>
-      match Decode::decode(buf, i) {
-        Ok((idxs, i)) =>
+      match Decode::decode(buf, i + 1) {
+        Ok((idxs, i)) => {
+          println(("Index is", i))
           match Decode::decode(buf, i) {
-            Ok((ct, i)) => Ok((SubType(true, idxs, ct), i))
+            Ok((ct, i)) => {
+              println(("Index is", i))
+              Ok((SubType(true, idxs, ct), i))
+            }
             Err(err) => Err(err)
           }
+        }
         Err(err) => Err(err)
       }
     // Subtypes
     Some(0x50) =>
-      match Decode::decode(buf, i) {
-        Ok((idxs, i)) =>
+      match Decode::decode(buf, i + 1) {
+        Ok((idxs, i)) => {
+          println(("Index is", i))
           match Decode::decode(buf, i) {
-            Ok((ct, i)) => Ok((SubType(true, idxs, ct), i))
+            Ok((ct, i)) => {
+              println(("Index is", i))
+              Ok((SubType(false, idxs, ct), i))
+            }
             Err(err) => Err(err)
           }
+        }
         Err(err) => Err(err)
       }
-    // CompType
+    // CompType, don't consume the character
     Some(_) =>
       match Decode::decode(buf, i) {
         Ok((ct, i)) => Ok((CompTypeSubType(ct), i))
@@ -581,6 +591,7 @@ fn decode_unsigned(
       if rem != 0 {
         let limit = 1UL << rem
         if payload >= limit {
+          println(("Index is", index))
           return Err("uleb terminal byte has non-zero unused bits")
         }
       }
@@ -5412,7 +5423,8 @@ pub impl[T : Decode] Decode for Array[T] with decode(bytes, i) {
     Ok((U32(count), i)) =>
       loop (count, [], i) {
         (0, result, i) => break Ok((result, i))
-        (n, result, i) =>
+        (n, result, i) => {
+
           match T::decode(bytes, i) {
             Ok((t, i)) => {
               result.push(t)
@@ -5420,6 +5432,7 @@ pub impl[T : Decode] Decode for Array[T] with decode(bytes, i) {
             }
             Err(t) => break Err(t)
           }
+        }
       }
   }
 }
@@ -5446,7 +5459,8 @@ fn[T : Encode + Decode + Eq + Show] roundtrip(x : T) -> Unit raise {
   let (y, i2) = match Decode::decode(bytes, 0) {
     Ok(t) => t
     Err(t) => {
-      println(("Decoding failed", t))
+      println(("Decoding failed", t, "for", x))
+      println(("Bytes", bytes.to_array()))
       raise DecodingFailed
     }
   }
@@ -5712,9 +5726,11 @@ test "SubTypes" {
   roundtrip(
     SubType(false, [TypeIdx(0), TypeIdx(2), TypeIdx(4)], FuncCompType([], [])),
   )
-  // let _ : Array[SubType] = roundtrip_arbitrary(30)
 }
 
+test "SubTypes arbitrary" {
+  let _ : Array[SubType] = roundtrip_arbitrary(30)
+}
 ///|
 test "RecTypes" {
   let _ : Array[RecType] = roundtrip_arbitrary(80)
