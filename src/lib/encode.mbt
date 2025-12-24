@@ -284,10 +284,7 @@ pub impl Decode for Mut with decode(bytes, i) {
   match b {
     0x00 => Ok((Const, i + 1))
     0x01 => Ok((Var, i + 1))
-    n => {
-      println(n)
-      Err("invalid mut byte")
-    }
+    n => Err("invalid mut byte")
   }
 }
 
@@ -351,7 +348,7 @@ pub impl Decode for RecType with decode(buf, i) {
   match buf.get(i) {
     None => Err("Index out of bounds")
     Some(0x4E) =>
-      match Decode::decode(buf, i) {
+      match Decode::decode(buf, i + 1) {
         Ok((sts, i)) => Ok((GroupRecType(sts), i))
         Err(err) => Err(err)
       }
@@ -387,10 +384,8 @@ pub impl Decode for SubType with decode(buf, i) {
     Some(0x4F) =>
       match Decode::decode(buf, i + 1) {
         Ok((idxs, i)) => {
-          println(("Index is", i))
           match Decode::decode(buf, i) {
             Ok((ct, i)) => {
-              println(("Index is", i))
               Ok((SubType(true, idxs, ct), i))
             }
             Err(err) => Err(err)
@@ -402,12 +397,8 @@ pub impl Decode for SubType with decode(buf, i) {
     Some(0x50) =>
       match Decode::decode(buf, i + 1) {
         Ok((idxs, i)) => {
-          println(("Index is", i))
           match Decode::decode(buf, i) {
-            Ok((ct, i)) => {
-              println(("Index is", i))
-              Ok((SubType(false, idxs, ct), i))
-            }
+            Ok((ct, i)) => Ok((SubType(false, idxs, ct), i))
             Err(err) => Err(err)
           }
         }
@@ -519,13 +510,15 @@ fn encode_signed(
     let sign_bit = (payload_u & 0x40UL) != 0UL
     x = x >> 7
     let done_std = (x == 0 && !sign_bit) || (x == -1 && sign_bit)
-    let done_bits_ok = if rem == 0 {
-      true
-    } else if val >= 0 {
-      (payload_u & inv_used7) == 0UL
-    } else {
-      (payload_u & inv_used7) == inv_used7
-    }
+    let done_bits_ok =
+      if nbits == 64 || rem == 0 {
+        true
+      } else if val >= 0 {
+        (payload_u & inv_used7) == 0UL
+      } else {
+        (payload_u & inv_used7) == inv_used7
+      }
+
     let done = done_std && done_bits_ok
     let out = if done { payload_u } else { payload_u | 0x80UL }
     buf.write_byte(out.to_byte())
@@ -591,7 +584,6 @@ fn decode_unsigned(
       if rem != 0 {
         let limit = 1UL << rem
         if payload >= limit {
-          println(("Index is", index))
           return Err("uleb terminal byte has non-zero unused bits")
         }
       }
@@ -652,7 +644,7 @@ fn decode_signed(
 
   // terminal-byte unused bits constraint
   let rem = nbits % 7
-  if rem != 0 {
+  if nbits != 64 && rem != 0 {
     let payload_u = last_byte & 0x7f
     let used_mask = (1UL << rem) - 1UL
     let inv_used = UInt64::lnot(used_mask) & 0x7fUL
@@ -745,7 +737,7 @@ pub impl Decode for U32 with decode(bytes, i) {
 
 ///|
 pub impl Decode for I64 with decode(bytes, i) {
-  match decode_signed(bytes, i, 32) {
+  match decode_signed(bytes, i, 64) {
     Err(err) => Err(err)
     Ok((val, i)) => Ok((I64(val), i))
   }
@@ -761,11 +753,12 @@ pub impl Decode for U64 with decode(bytes, i) {
 
 ///|
 pub impl Decode for F32 with decode(bytes, i) {
-  if bytes.length() <= i + 4 {
-    let value = Float::reinterpret_from_int(
-      bytes.unsafe_extract_uint_le(i, 4).reinterpret_as_int(),
-    )
-    Ok((F32(value), i + 4))
+  if bytes.length() >= i + 4 {
+    let value: Int = (bytes.unsafe_get(i + 3).to_int() << 24) |
+      (bytes.unsafe_get(i + 2).to_int() << 16) |
+      (bytes.unsafe_get(i + 1).to_int() << 8) |
+      bytes.unsafe_get(i).to_int()
+    Ok((F32(Float::reinterpret_from_int(value)), i + 4))
   } else {
     Err("Index out of bounds")
   }
@@ -773,9 +766,17 @@ pub impl Decode for F32 with decode(bytes, i) {
 
 ///|
 pub impl Decode for F64 with decode(bytes, i) {
-  if bytes.length() <= i + 8 {
-    let value = bytes.unsafe_extract_uint64_le(i, 4).reinterpret_as_double()
-    Ok((F64(value), i + 8))
+  if bytes.length() >= i + 8 {
+    let value: Int64 = 
+      (bytes.unsafe_get(i + 7).to_int64() << 56) |
+      (bytes.unsafe_get(i + 6).to_int64() << 48) |
+      (bytes.unsafe_get(i + 5).to_int64() << 40) |
+      (bytes.unsafe_get(i + 4).to_int64() << 32) |
+      (bytes.unsafe_get(i + 3).to_int64() << 24) |
+      (bytes.unsafe_get(i + 2).to_int64() << 16) |
+      (bytes.unsafe_get(i + 1).to_int64() << 8) |
+      bytes.unsafe_get(i).to_int64()
+    Ok((F64(value.reinterpret_as_double()), i + 8))
   } else {
     Err("Index out of bounds")
   }
@@ -1083,22 +1084,22 @@ pub impl Encode for Limits with encode(val, buf) {
   match val {
     I32Limits(min, None) => {
       buf.write_byte(0x00)
-      U32(min).encode(buf)
+      U64(min.to_uint64()).encode(buf)
     }
     I32Limits(min, Some(max)) => {
       buf.write_byte(0x01)
-      match U32(min).encode(buf) {
+      match U64(min.to_uint64()).encode(buf) {
         Err(err) => return Err(err)
         _ => ()
       }
-      U32(max).encode(buf)
+      U64(max.to_uint64()).encode(buf)
     }
     I64Limits(min, None) => {
-      buf.write_byte(0x00)
+      buf.write_byte(0x04)
       U64(min).encode(buf)
     }
     I64Limits(min, Some(max)) => {
-      buf.write_byte(0x01)
+      buf.write_byte(0x05)
       match U64(min).encode(buf) {
         Err(err) => return Err(err)
         _ => ()
@@ -2372,7 +2373,7 @@ pub impl Encode for Catch with encode(val, buf) {
 pub impl Encode for MemArg with encode(val, buf) {
   match val {
     MemArg(U32(n), Some(i), m) if n < 64 => {
-      if U32(n | 64).encode(buf) is Err(t) {
+      if U32(n + 64).encode(buf) is Err(t) {
         return Err(t)
       }
       if i.encode(buf) is Err(t) {
@@ -2457,7 +2458,7 @@ pub impl Decode for MemArg with decode(bytes, i) {
       match MemIdx::decode(bytes, i) {
         Ok((x, i)) =>
           match U64::decode(bytes, i) {
-            Ok((U64(m), i)) => Ok((MemArg(n, Some(x), m), i))
+            Ok((U64(m), i)) => Ok((MemArg(n - 64, Some(x), m), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
@@ -2506,21 +2507,27 @@ pub impl Decode for Instruction with decode(bytes, i) {
       match BlockType::decode(bytes, i + 1) {
         Ok((bt, i)) => {
           let (if_inst, i) = loop (i, [], None) {
-            (i, if_insts, Some(else_insts)) if bytes.get(i) is Some(0x0B) =>
-              break (If(bt, if_insts, Some(else_insts)), i)
-            (i, if_insts, None) if bytes.get(i) is Some(0x05) =>
-              continue (i + 1, if_insts, Some([]))
-            (i, if_insts, None) if Instruction::decode(bytes, i)
-              is Ok((inst, i)) => {
-              if_insts.push(inst)
-              continue (i, if_insts, None)
+            (i, if_insts, Some(else_insts)) => match bytes.get(i) {
+              Some(0x0B) => break (If(bt, if_insts, Some(else_insts)), i + 1)
+              _ => match Instruction::decode(bytes, i) {
+                Ok((inst, i)) => {
+                  else_insts.push(inst)
+                  continue (i, if_insts, Some(else_insts))
+                }
+                Err(t) => return Err(t)
+              }
             }
-            (i, if_insts, Some(else_insts)) if Instruction::decode(bytes, i)
-              is Ok((inst, i)) => {
-              else_insts.push(inst)
-              continue (i, if_insts, Some(else_insts))
+            (i, if_insts, None) => match bytes.get(i) {
+              Some(0x05) => continue (i + 1, if_insts, Some([]))
+              Some(0x0B) => break (If(bt, if_insts, None), i + 1)
+              _ => match Instruction::decode(bytes, i) {
+                Ok((inst, i)) => {
+                  if_insts.push(inst)
+                  continue (i, if_insts, None)
+                }
+                Err(t) => return Err(t)
+              }
             }
-            _ => return Err("Invalid state, cannot write if inst")
           }
           Ok((if_inst, i))
         }
@@ -2924,11 +2931,12 @@ pub impl Decode for Instruction with decode(bytes, i) {
         Ok((n, i)) => Ok((I64Const(n), i))
         Err(t) => Err(t)
       }
-    Some(0x43) =>
+    Some(0x43) => {
       match F32::decode(bytes, i + 1) {
         Ok((n, i)) => Ok((F32Const(n), i))
         Err(t) => Err(t)
       }
+    }
     Some(0x44) =>
       match F64::decode(bytes, i + 1) {
         Ok((n, i)) => Ok((F64Const(n), i))
@@ -4567,7 +4575,7 @@ pub impl Encode for Instruction with encode(val, buf) {
     }
     BrOnCastFail(l, castop, ht0, ht1) => {
       buf.write_byte(0xFB)
-      if U32(24).encode(buf) is Err(t) {
+      if U32(25).encode(buf) is Err(t) {
         return Err(t)
       }
       if castop.encode(buf) is Err(t) {
@@ -5259,8 +5267,8 @@ pub impl Encode for Instruction with encode(val, buf) {
     I8x16Sub => return simd_inst(113, buf)
     I8x16SubSatS => return simd_inst(114, buf)
     I8x16SubSatU => return simd_inst(115, buf)
-    F64x2Ceil => return simd_inst(103, buf)
-    F64x2Floor => return simd_inst(104, buf)
+    F64x2Ceil => return simd_inst(116, buf)
+    F64x2Floor => return simd_inst(117, buf)
     I8x16MinS => return simd_inst(118, buf)
     I8x16MinU => return simd_inst(119, buf)
     I8x16MaxS => return simd_inst(120, buf)
@@ -5474,6 +5482,7 @@ fn[T : Encode + Decode + Eq + Show] roundtrip(x : T) -> Unit raise {
   }
   assert_eq(i2, bytes.length())
   assert_eq(y, x)
+  
 }
 
 ///|
@@ -5729,10 +5738,65 @@ test "SubTypes" {
 }
 
 test "SubTypes arbitrary" {
-  let _ : Array[SubType] = roundtrip_arbitrary(30)
+  let _ : Array[SubType] = roundtrip_arbitrary(100)
 }
 ///|
-test "RecTypes" {
-  let _ : Array[RecType] = roundtrip_arbitrary(80)
+test "RecTypes arbitrary" {
+  let _ : Array[RecType] = roundtrip_arbitrary(100)
+}
 
+test "TagTypes arbitrary" {
+  let _ : Array[TagType] = roundtrip_arbitrary(100)
+}
+
+test "MemTypes arbitrary" {
+  let _ : Array[MemType] = roundtrip_arbitrary(100)
+}
+
+test "TableTypes arbitrary" {
+  let _ : Array[TableType] = roundtrip_arbitrary(100)
+}
+
+test "ExternTypes arbitrary" {
+  let _ : Array[TableType] = roundtrip_arbitrary(100)
+}
+
+test "MemArg arbitrary" {
+  let _ : Array[MemArg] = roundtrip_arbitrary(100)
+}
+
+test "LaneIdx" {
+  let _ : Array[LaneIdx] = roundtrip_arbitrary(100)
+}
+
+test "Float specific edge case?" {
+  roundtrip(F32Const(F32(0.011397957801818848)))
+}
+
+test "Floats arbitrary" {
+  let _ : Array[F32] = roundtrip_arbitrary(10000)
+}
+
+test "Doubles arbitrary" {
+  let _ : Array[F64] = roundtrip_arbitrary(10000)
+}
+
+test "Signed integers" {
+  let _ : Array[I64] = roundtrip_arbitrary(100000)
+}
+
+test "Block Types" {
+  let _ : Array[BlockType] = roundtrip_arbitrary(1000)
+}
+
+test "Instructions arbitrary" {
+  let st = @quickcheck/splitmix.new()
+  loop 1000000 {
+    0 => break ()
+    n => {
+      let val = Instruction::arbitrary(n, st)
+      roundtrip(val)
+      continue n - 1
+    }
+  }
 }

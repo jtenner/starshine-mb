@@ -132,7 +132,6 @@ fn heaptype_matches_fuel(
 
     // abs vs deftype: conservative (generally false in subtype direction)
     (AbsHeapTypeHeapType(_), DefTypeHeapType(_)) => false
-    _ => false
   }
 }
 

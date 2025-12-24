@@ -1,23 +1,42 @@
 ///|
-pub struct S33(UInt) derive(Arbitrary)
+pub struct S33(UInt)
+pub impl @quickcheck.Arbitrary for S33 with arbitrary(_, state) {
+  S33(state.next_uint())
+}
 
 ///|
-pub struct I32(Int) derive(Arbitrary)
+pub struct I32(Int)
+pub impl @quickcheck.Arbitrary for I32 with arbitrary(_, state) {
+  I32(state.next_int())
+}
+///|
+pub struct I64(Int64)
+pub impl @quickcheck.Arbitrary for I64 with arbitrary(_, state) {
+  I64(state.next_int64())
+}
+///|
+pub struct F32(Float)
+pub impl @quickcheck.Arbitrary for F32 with arbitrary(_, state) {
+  F32(state.next_float())
+}
 
 ///|
-pub struct I64(Int64) derive(Arbitrary)
+pub struct F64(Double)
+pub impl @quickcheck.Arbitrary for F64 with arbitrary(_, state) {
+  F64(state.next_double())
+}
 
 ///|
-pub struct F32(Float) derive(Arbitrary)
+pub struct U32(UInt)
+pub impl @quickcheck.Arbitrary for U32 with arbitrary(_, state) {
+  U32(state.next_uint())
+}
 
 ///|
-pub struct F64(Double) derive(Arbitrary)
-
-///|
-pub struct U32(UInt) derive(Arbitrary)
-
-///|
-pub struct U64(UInt64) derive(Arbitrary)
+pub struct U64(UInt64)
+pub impl @quickcheck.Arbitrary for U64 with arbitrary(_, state) {
+  U64(state.next_uint64())
+}
 
 ///|
 pub enum NumType {
@@ -52,7 +71,7 @@ pub enum HeapType {
 
 ///|
 pub impl @quickcheck.Arbitrary for HeapType with arbitrary(size, st) {
-  if @quickcheck.Arbitrary::arbitrary(size, st) {
+  if (st.next_uint() & 1) == 1 {
     AbsHeapTypeHeapType(@quickcheck.Arbitrary::arbitrary(size, st))
   } else {
     HeapType(@quickcheck.Arbitrary::arbitrary(size, st))
@@ -131,8 +150,8 @@ pub enum TypeIdx {
 }
 
 ///|
-pub impl @quickcheck.Arbitrary for TypeIdx with arbitrary(size, st) {
-  TypeIdx(@quickcheck.Arbitrary::arbitrary(size, st))
+pub impl @quickcheck.Arbitrary for TypeIdx with arbitrary(_, st) {
+  TypeIdx(st.next_uint())
   // recursive indexes are not arbitrary
 }
 
@@ -164,20 +183,41 @@ pub struct LocalIdx(UInt) derive(Arbitrary)
 pub struct LabelIdx(UInt) derive(Arbitrary)
 
 ///|
-pub struct LaneIdx(Byte) derive(Arbitrary)
+pub struct LaneIdx(Byte)
+
+pub impl @quickcheck.Arbitrary for LaneIdx with arbitrary(_, state) {
+  let b : Byte = (state.next_uint() % 16).to_byte()
+  LaneIdx(b)
+}
 
 ///|
 pub enum CompType {
   ArrayCompType(FieldType)
   StructCompType(Array[FieldType])
   FuncCompType(ResultType, ResultType)
-} derive(Arbitrary)
+}
+
+pub impl @quickcheck.Arbitrary for CompType with arbitrary(t, state) {
+  match state.next_uint() % 3 {
+    1 => StructCompType(array_of_arbitrary(5, t, state))
+    2 => FuncCompType(array_of_arbitrary(5, t, state), array_of_arbitrary(5, t, state))
+    _ => ArrayCompType(@quickcheck.Arbitrary::arbitrary(t, state))
+  }
+}
 
 ///|
 pub enum SubType {
   SubType(Bool, Array[TypeIdx], CompType)
   CompTypeSubType(CompType)
-} derive(Arbitrary)
+}
+
+pub impl @quickcheck.Arbitrary for SubType with arbitrary(t, st) {
+  if (st.next_uint() % 2) == 1 {
+    SubType((st.next_uint() % 2) == 1, array_of_arbitrary(1, t, st), @quickcheck.Arbitrary::arbitrary(t, st))
+  } else {
+    CompTypeSubType(@quickcheck.Arbitrary::arbitrary(t, st))
+  }
+}
 
 ///|
 pub fn SubType::super_types(self : SubType) -> Array[TypeIdx] {
@@ -199,7 +239,15 @@ pub fn SubType::get_comptype(self : SubType) -> CompType {
 pub enum RecType {
   SingleRecType(SubType)
   GroupRecType(Array[SubType])
-} derive(Arbitrary)
+}
+
+pub impl @quickcheck.Arbitrary for RecType with arbitrary(t, state) {
+  if (state.next_uint() & 1) == 1 {
+    SingleRecType(@quickcheck.Arbitrary::arbitrary(t, state))
+  } else {
+    GroupRecType(array_of_arbitrary(5, t, state))
+  }
+}
 
 ///|
 pub fn RecType::get_subtype(self : RecType, idx : UInt) -> SubType? {
@@ -228,7 +276,7 @@ pub impl @quickcheck.Arbitrary for DefType with arbitrary(t, state) {
   match s {
     SingleRecType(_) => DefType(s, 0)
     GroupRecType(g) => {
-      let idx = @quickcheck.Arbitrary::arbitrary(t, state) %
+      let idx = state.next_uint() %
         g.length().reinterpret_as_uint()
       DefType(s, idx)
     }
@@ -239,7 +287,31 @@ pub impl @quickcheck.Arbitrary for DefType with arbitrary(t, state) {
 pub enum Limits {
   I32Limits(UInt, UInt?)
   I64Limits(UInt64, UInt64?)
-} derive(Arbitrary)
+}
+
+pub impl @quickcheck.Arbitrary for Limits with arbitrary(_, state) {
+  if (state.next_uint() & 1) == 1 {
+    if (state.next_uint() & 1) == 1 {
+      I32Limits(state.next_uint(), None)
+    } else {
+      let a: UInt = state.next_uint()
+      let b: UInt = state.next_uint()
+      let min = if a > b { b } else { a }
+      let max = if a > b { a } else { b }
+      I32Limits(min, Some(max))
+    }
+  } else {
+    if (state.next_uint() & 1) == 1 {
+      I64Limits(state.next_uint64(), None)
+    } else {
+      let a: UInt64 = state.next_uint64()
+      let b: UInt64 = state.next_uint64()
+      let min = if a > b { b } else { a }
+      let max = if a > b { a } else { b }
+      I64Limits(min, Some(max))
+    }
+  }
+}
 
 ///|
 fn Limits::mem_addr_bits(lim : Limits) -> Int {
@@ -297,7 +369,15 @@ pub enum ElemKind {
 pub struct Elem(ElemMode, ElemKind) derive(Arbitrary)
 
 ///|
-pub struct Expr(Array[Instruction]) derive(Arbitrary)
+pub struct Expr(Array[Instruction])
+
+pub impl @quickcheck.Arbitrary for Expr with arbitrary(t, state) {
+  Expr([
+    @quickcheck.Arbitrary::arbitrary(t, state),
+    @quickcheck.Arbitrary::arbitrary(t, state),
+    @quickcheck.Arbitrary::arbitrary(t, state),
+  ])
+}
 
 ///|
 pub struct Import(Name, Name, ExternType) derive(Arbitrary)
@@ -1141,7 +1221,15 @@ pub enum Catch {
 } derive(Arbitrary)
 
 ///|
-pub struct MemArg(U32, MemIdx?, U64) derive(Arbitrary)
+pub struct MemArg(U32, MemIdx?, U64)
+
+pub impl @quickcheck.Arbitrary for MemArg with arbitrary(t, state) {
+  MemArg(
+    U32(state.next_uint() % 64),
+    @quickcheck.Arbitrary::arbitrary(t, state),
+    @quickcheck.Arbitrary::arbitrary(t, state)
+  )
+}
 
 ///|
 pub struct CastOp(Bool, Bool) derive(Arbitrary)
@@ -1676,7 +1764,705 @@ pub enum Instruction {
   I16x8RelaxedQ15mulrS
   I16x8RelaxedDotI8x16I7x16S
   I32x4RelaxedDotI8x16I7x16AddS
-} derive(Arbitrary)
+}
+
+pub fn [T : @quickcheck.Arbitrary] array_of_arbitrary(max: UInt, t: Int, state: @quickcheck/splitmix.RandomState) -> Array[T] {
+  let count = (state.next_uint() % max) + 1
+  let a = []
+  loop count {
+    0 => break a
+    n => {
+      a.push(@quickcheck.Arbitrary::arbitrary(t, state))
+      continue n - 1
+    }
+  }
+}
+
+///|
+pub impl @quickcheck.Arbitrary for Instruction with arbitrary(t, state) {
+  match state.next_uint() % 494 {
+    0 => Unreachable
+    1 => Nop
+    2 =>
+      Block(
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+      )
+    3 =>
+      Loop(
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+      )
+    4 =>
+      If(
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        array_of_arbitrary(5, t, state),
+        if (state.next_uint() & 1) == 1 {
+          Some(array_of_arbitrary(5, t, state))
+        } else {
+          None
+        },
+      )
+    5 => Throw(@quickcheck.Arbitrary::arbitrary(t, state))
+    6 => ThrowRef
+    7 => Br(@quickcheck.Arbitrary::arbitrary(t, state))
+    8 => BrIf(@quickcheck.Arbitrary::arbitrary(t, state))
+    9 =>
+      BrTable(
+        array_of_arbitrary(3, t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+      )
+    10 => Return
+    11 => Call(@quickcheck.Arbitrary::arbitrary(t, state))
+    12 =>
+      CallIndirect(
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+      )
+    13 => ReturnCall(@quickcheck.Arbitrary::arbitrary(t, state))
+    14 =>
+      ReturnCallIndirect(
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+      )
+    15 => CallRef(@quickcheck.Arbitrary::arbitrary(t, state))
+    16 => ReturnCallRef(@quickcheck.Arbitrary::arbitrary(t, state))
+    17 => Drop
+    18 =>
+      TryTable(
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        array_of_arbitrary(4, t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+      )
+    19 =>
+      Select(
+        if @quickcheck.Arbitrary::arbitrary(t, state) {
+          Some(array_of_arbitrary(4, t, state))
+        } else {
+          None
+        },
+      )
+    20 => LocalGet(@quickcheck.Arbitrary::arbitrary(t, state))
+    21 => LocalSet(@quickcheck.Arbitrary::arbitrary(t, state))
+    22 => LocalTee(@quickcheck.Arbitrary::arbitrary(t, state))
+    23 => GlobalGet(@quickcheck.Arbitrary::arbitrary(t, state))
+    24 => GlobalSet(@quickcheck.Arbitrary::arbitrary(t, state))
+    25 => TableGet(@quickcheck.Arbitrary::arbitrary(t, state))
+    26 => TableSet(@quickcheck.Arbitrary::arbitrary(t, state))
+    27 => I32Load(@quickcheck.Arbitrary::arbitrary(t, state))
+    28 => I64Load(@quickcheck.Arbitrary::arbitrary(t, state))
+    29 => F32Load(@quickcheck.Arbitrary::arbitrary(t, state))
+    30 => F64Load(@quickcheck.Arbitrary::arbitrary(t, state))
+    31 => I32Load8S(@quickcheck.Arbitrary::arbitrary(t, state))
+    32 => I32Load8U(@quickcheck.Arbitrary::arbitrary(t, state))
+    33 => I32Load16S(@quickcheck.Arbitrary::arbitrary(t, state))
+    34 => I32Load16U(@quickcheck.Arbitrary::arbitrary(t, state))
+    35 => I64Load8S(@quickcheck.Arbitrary::arbitrary(t, state))
+    36 => I64Load8U(@quickcheck.Arbitrary::arbitrary(t, state))
+    37 => I64Load16S(@quickcheck.Arbitrary::arbitrary(t, state))
+    38 => I64Load16U(@quickcheck.Arbitrary::arbitrary(t, state))
+    39 => I64Load32S(@quickcheck.Arbitrary::arbitrary(t, state))
+    40 => I64Load32U(@quickcheck.Arbitrary::arbitrary(t, state))
+    41 => I32Store(@quickcheck.Arbitrary::arbitrary(t, state))
+    42 => I64Store(@quickcheck.Arbitrary::arbitrary(t, state))
+    43 => F32Store(@quickcheck.Arbitrary::arbitrary(t, state))
+    44 => F64Store(@quickcheck.Arbitrary::arbitrary(t, state))
+    45 => I32Store8(@quickcheck.Arbitrary::arbitrary(t, state))
+    46 => I32Store16(@quickcheck.Arbitrary::arbitrary(t, state))
+    47 => I64Store8(@quickcheck.Arbitrary::arbitrary(t, state))
+    48 => I64Store16(@quickcheck.Arbitrary::arbitrary(t, state))
+    49 => I64Store32(@quickcheck.Arbitrary::arbitrary(t, state))
+    50 => MemorySize(@quickcheck.Arbitrary::arbitrary(t, state))
+    51 => MemoryGrow(@quickcheck.Arbitrary::arbitrary(t, state))
+    52 => I32Const(@quickcheck.Arbitrary::arbitrary(t, state))
+    53 => I64Const(@quickcheck.Arbitrary::arbitrary(t, state))
+    54 => F32Const(@quickcheck.Arbitrary::arbitrary(t, state))
+    55 => F64Const(@quickcheck.Arbitrary::arbitrary(t, state))
+    56 => I32Eqz
+    57 => I32Eq
+    58 => I32Ne
+    59 => I32LtS
+    60 => I32LtU
+    61 => I32GtS
+    62 => I32GtU
+    63 => I32LeS
+    64 => I32LeU
+    65 => I32GeS
+    66 => I32GeU
+    67 => I64Eqz
+    68 => I64Eq
+    69 => I64Ne
+    70 => I64LtS
+    71 => I64LtU
+    72 => I64GtS
+    73 => I64GtU
+    74 => I64LeS
+    75 => I64LeU
+    76 => I64GeS
+    77 => I64GeU
+    78 => F32Eq
+    79 => F32Ne
+    80 => F32Lt
+    81 => F32Gt
+    82 => F32Le
+    83 => F32Ge
+    84 => F64Eq
+    85 => F64Ne
+    86 => F64Lt
+    87 => F64Gt
+    88 => F64Le
+    89 => F64Ge
+    90 => I32Clz
+    91 => I32Ctz
+    92 => I32Popcnt
+    93 => I32Add
+    94 => I32Sub
+    95 => I32Mul
+    96 => I32DivS
+    97 => I32DivU
+    98 => I32RemS
+    99 => I32RemU
+    100 => I32And
+    101 => I32Or
+    102 => I32Xor
+    103 => I32Shl
+    104 => I32ShrS
+    105 => I32ShrU
+    106 => I32Rotl
+    107 => I32Rotr
+    108 => I64Clz
+    109 => I64Ctz
+    110 => I64Popcnt
+    111 => I64Add
+    112 => I64Sub
+    113 => I64Mul
+    114 => I64DivS
+    115 => I64DivU
+    116 => I64RemS
+    117 => I64RemU
+    118 => I64And
+    119 => I64Or
+    120 => I64Xor
+    121 => I64Shl
+    122 => I64ShrS
+    123 => I64ShrU
+    124 => I64Rotl
+    125 => I64Rotr
+    126 => F32Abs
+    127 => F32Neg
+    128 => F32Ceil
+    129 => F32Floor
+    130 => F32Trunc
+    131 => F32Nearest
+    132 => F32Sqrt
+    133 => F32Add
+    134 => F32Sub
+    135 => F32Mul
+    136 => F32Div
+    137 => F32Min
+    138 => F32Max
+    139 => F32Copysign
+    140 => F64Abs
+    141 => F64Neg
+    142 => F64Ceil
+    143 => F64Floor
+    144 => F64Trunc
+    145 => F64Nearest
+    146 => F64Sqrt
+    147 => F64Add
+    148 => F64Sub
+    149 => F64Mul
+    150 => F64Div
+    151 => F64Min
+    152 => F64Max
+    153 => F64Copysign
+    154 => I32WrapI64
+    155 => I32TruncF32S
+    156 => I32TruncF32U
+    157 => I32TruncF64S
+    158 => I32TruncF64U
+    159 => I64ExtendI32S
+    160 => I64ExtendI32U
+    161 => I64TruncF32S
+    162 => I64TruncF32U
+    163 => I64TruncF64S
+    164 => I64TruncF64U
+    165 => F32ConvertI32S
+    166 => F32ConvertI32U
+    167 => F32ConvertI64S
+    168 => F32ConvertI64U
+    169 => F32DemoteF64
+    170 => F64ConvertI32S
+    171 => F64ConvertI32U
+    172 => F64ConvertI64S
+    173 => F64ConvertI64U
+    174 => F64PromoteF32
+    175 => I32ReinterpretF32
+    176 => I64ReinterpretF64
+    177 => F32ReinterpretI32
+    178 => F64ReinterpretI64
+    179 => I32Extend8S
+    180 => I32Extend16S
+    181 => I64Extend8S
+    182 => I64Extend16S
+    183 => I64Extend32S
+    184 => RefNull(@quickcheck.Arbitrary::arbitrary(t, state))
+    185 => RefIsNull
+    186 => RefFunc(@quickcheck.Arbitrary::arbitrary(t, state))
+    187 => RefEq
+    188 => RefAsNonNull
+    189 => BrOnNull(@quickcheck.Arbitrary::arbitrary(t, state))
+    190 => BrOnNonNull(@quickcheck.Arbitrary::arbitrary(t, state))
+    191 => StructNew(@quickcheck.Arbitrary::arbitrary(t, state))
+    192 => StructNewDefault(@quickcheck.Arbitrary::arbitrary(t, state))
+    193 =>
+      StructGet(
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+      )
+    194 =>
+      StructGetS(
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+      )
+    195 =>
+      StructGetU(
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+      )
+    196 =>
+      StructSet(
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+      )
+    197 => ArrayNew(@quickcheck.Arbitrary::arbitrary(t, state))
+    198 => ArrayNewDefault(@quickcheck.Arbitrary::arbitrary(t, state))
+    199 =>
+      ArrayNewFixed(
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+      )
+    200 =>
+      ArrayNewData(
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+      )
+    201 =>
+      ArrayNewElem(
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+      )
+    202 => ArrayGet(@quickcheck.Arbitrary::arbitrary(t, state))
+    203 => ArrayGetS(@quickcheck.Arbitrary::arbitrary(t, state))
+    204 => ArrayGetU(@quickcheck.Arbitrary::arbitrary(t, state))
+    205 => ArraySet(@quickcheck.Arbitrary::arbitrary(t, state))
+    206 => ArrayLen
+    207 => ArrayFill(@quickcheck.Arbitrary::arbitrary(t, state))
+    208 =>
+      ArrayCopy(
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+      )
+    209 =>
+      ArrayInitData(
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+      )
+    210 =>
+      ArrayInitElem(
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+      )
+    211 =>
+      RefTest(
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+      )
+    212 =>
+      RefCast(
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+      )
+    213 =>
+      BrOnCast(
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+      )
+    214 =>
+      BrOnCastFail(
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+      )
+    215 => AnyConvertExtern
+    216 => ExternConvertAny
+    217 => RefI31
+    218 => I31GetS
+    219 => I31GetU
+    220 => I32TruncSatF32S
+    221 => I32TruncSatF32U
+    222 => I32TruncSatF64S
+    223 => I32TruncSatF64U
+    224 => I64TruncSatF32S
+    225 => I64TruncSatF32U
+    226 => I64TruncSatF64S
+    227 => I64TruncSatF64U
+    228 =>
+      MemoryInit(
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+      )
+    229 => DataDrop(@quickcheck.Arbitrary::arbitrary(t, state))
+    230 =>
+      MemoryCopy(
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+      )
+    231 => MemoryFill(@quickcheck.Arbitrary::arbitrary(t, state))
+    232 =>
+      TableInit(
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+      )
+    233 => ElemDrop(@quickcheck.Arbitrary::arbitrary(t, state))
+    234 =>
+      TableCopy(
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+      )
+    235 => TableGrow(@quickcheck.Arbitrary::arbitrary(t, state))
+    236 => TableSize(@quickcheck.Arbitrary::arbitrary(t, state))
+    237 => TableFill(@quickcheck.Arbitrary::arbitrary(t, state))
+    238 => V128Load(@quickcheck.Arbitrary::arbitrary(t, state))
+    239 => V128Load8x8S(@quickcheck.Arbitrary::arbitrary(t, state))
+    240 => V128Load8x8U(@quickcheck.Arbitrary::arbitrary(t, state))
+    241 => V128Load16x4S(@quickcheck.Arbitrary::arbitrary(t, state))
+    242 => V128Load16x4U(@quickcheck.Arbitrary::arbitrary(t, state))
+    243 => V128Load32x2S(@quickcheck.Arbitrary::arbitrary(t, state))
+    244 => V128Load32x2U(@quickcheck.Arbitrary::arbitrary(t, state))
+    245 => V128Load8Splat(@quickcheck.Arbitrary::arbitrary(t, state))
+    246 => V128Load16Splat(@quickcheck.Arbitrary::arbitrary(t, state))
+    247 => V128Load32Splat(@quickcheck.Arbitrary::arbitrary(t, state))
+    248 => V128Load64Splat(@quickcheck.Arbitrary::arbitrary(t, state))
+    249 => V128Store(@quickcheck.Arbitrary::arbitrary(t, state))
+    250 =>
+      V128Const(
+        (state.next_uint() % 256).to_byte(),
+        (state.next_uint() % 256).to_byte(),
+        (state.next_uint() % 256).to_byte(),
+        (state.next_uint() % 256).to_byte(),
+        (state.next_uint() % 256).to_byte(),
+        (state.next_uint() % 256).to_byte(),
+        (state.next_uint() % 256).to_byte(),
+        (state.next_uint() % 256).to_byte(),
+        (state.next_uint() % 256).to_byte(),
+        (state.next_uint() % 256).to_byte(),
+        (state.next_uint() % 256).to_byte(),
+        (state.next_uint() % 256).to_byte(),
+        (state.next_uint() % 256).to_byte(),
+        (state.next_uint() % 256).to_byte(),
+        (state.next_uint() % 256).to_byte(),
+        (state.next_uint() % 256).to_byte(),
+      )
+    251 =>
+      I8x16Shuffle(
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+      )
+    252 => I8x16Swizzle
+    253 => I8x16Splat
+    254 => I16x8Splat
+    255 => I32x4Splat
+    256 => I64x2Splat
+    257 => F32x4Splat
+    258 => F64x2Splat
+    259 => I8x16ExtractLaneS(@quickcheck.Arbitrary::arbitrary(t, state))
+    260 => I8x16ExtractLaneU(@quickcheck.Arbitrary::arbitrary(t, state))
+    261 => I8x16ReplaceLane(@quickcheck.Arbitrary::arbitrary(t, state))
+    262 => I16x8ExtractLaneS(@quickcheck.Arbitrary::arbitrary(t, state))
+    263 => I16x8ExtractLaneU(@quickcheck.Arbitrary::arbitrary(t, state))
+    264 => I16x8ReplaceLane(@quickcheck.Arbitrary::arbitrary(t, state))
+    265 => I32x4ExtractLane(@quickcheck.Arbitrary::arbitrary(t, state))
+    266 => I32x4ReplaceLane(@quickcheck.Arbitrary::arbitrary(t, state))
+    267 => I64x2ExtractLane(@quickcheck.Arbitrary::arbitrary(t, state))
+    268 => I64x2ReplaceLane(@quickcheck.Arbitrary::arbitrary(t, state))
+    269 => F32x4ExtractLane(@quickcheck.Arbitrary::arbitrary(t, state))
+    270 => F32x4ReplaceLane(@quickcheck.Arbitrary::arbitrary(t, state))
+    271 => F64x2ExtractLane(@quickcheck.Arbitrary::arbitrary(t, state))
+    272 => F64x2ReplaceLane(@quickcheck.Arbitrary::arbitrary(t, state))
+    273 => I8x16Eq
+    274 => I8x16Ne
+    275 => I8x16LtS
+    276 => I8x16LtU
+    277 => I8x16GtS
+    278 => I8x16GtU
+    279 => I8x16LeS
+    280 => I8x16LeU
+    281 => I8x16GeS
+    282 => I8x16GeU
+    283 => I16x8Eq
+    284 => I16x8Ne
+    285 => I16x8LtS
+    286 => I16x8LtU
+    287 => I16x8GtS
+    288 => I16x8GtU
+    289 => I16x8LeS
+    290 => I16x8LeU
+    291 => I16x8GeS
+    292 => I16x8GeU
+    293 => I32x4Eq
+    294 => I32x4Ne
+    295 => I32x4LtS
+    296 => I32x4LtU
+    297 => I32x4GtS
+    298 => I32x4GtU
+    299 => I32x4LeS
+    300 => I32x4LeU
+    301 => I32x4GeS
+    302 => I32x4GeU
+    303 => F32x4Eq
+    304 => F32x4Ne
+    305 => F32x4Lt
+    306 => F32x4Gt
+    307 => F32x4Le
+    308 => F32x4Ge
+    309 => F64x2Eq
+    310 => F64x2Ne
+    311 => F64x2Lt
+    312 => F64x2Gt
+    313 => F64x2Le
+    314 => F64x2Ge
+    315 => V128Not
+    316 => V128And
+    317 => V128Andnot
+    318 => V128Or
+    319 => V128Xor
+    320 => V128Bitselect
+    321 => V128AnyTrue
+    322 =>
+      V128Load8Lane(
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+      )
+    323 =>
+      V128Load16Lane(
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+      )
+    324 =>
+      V128Load32Lane(
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+      )
+    325 =>
+      V128Load64Lane(
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+      )
+    326 =>
+      V128Store8Lane(
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+      )
+    327 =>
+      V128Store16Lane(
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+      )
+    328 =>
+      V128Store32Lane(
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+      )
+    329 =>
+      V128Store64Lane(
+        @quickcheck.Arbitrary::arbitrary(t, state),
+        @quickcheck.Arbitrary::arbitrary(t, state),
+      )
+    330 => V128Load32Zero(@quickcheck.Arbitrary::arbitrary(t, state))
+    331 => V128Load64Zero(@quickcheck.Arbitrary::arbitrary(t, state))
+    332 => F32x4DemoteF64x2Zero
+    333 => F64x2PromoteLowF32x4
+    334 => I8x16Abs
+    335 => I8x16Neg
+    336 => I8x16Popcnt
+    337 => I8x16AllTrue
+    338 => I8x16Bitmask
+    339 => I8x16NarrowI16x8S
+    340 => I8x16NarrowI16x8U
+    341 => F32x4Ceil
+    342 => F32x4Floor
+    343 => F32x4Trunc
+    344 => F32x4Nearest
+    345 => I8x16Shl
+    346 => I8x16ShrS
+    347 => I8x16ShrU
+    348 => I8x16Add
+    349 => I8x16AddSatS
+    350 => I8x16AddSatU
+    351 => I8x16Sub
+    352 => I8x16SubSatS
+    353 => I8x16SubSatU
+    354 => F64x2Ceil
+    355 => F64x2Floor
+    356 => I8x16MinS
+    357 => I8x16MinU
+    358 => I8x16MaxS
+    359 => I8x16MaxU
+    360 => F64x2Trunc
+    361 => I8x16AvgrU
+    362 => I16x8ExtaddPairwiseI8x16S
+    363 => I16x8ExtaddPairwiseI8x16U
+    364 => I32x4ExtaddPairwiseI16x8S
+    365 => I32x4ExtaddPairwiseI16x8U
+    366 => I16x8Abs
+    367 => I16x8Neg
+    368 => I16x8Q15mulrSatS
+    369 => I16x8AllTrue
+    370 => I16x8Bitmask
+    371 => I16x8NarrowI32x4S
+    372 => I16x8NarrowI32x4U
+    373 => I16x8ExtendLowI8x16S
+    374 => I16x8ExtendHighI8x16S
+    375 => I16x8ExtendLowI8x16U
+    376 => I16x8ExtendHighI8x16U
+    377 => I16x8Shl
+    378 => I16x8ShrS
+    379 => I16x8ShrU
+    380 => I16x8Add
+    381 => I16x8AddSatS
+    382 => I16x8AddSatU
+    383 => I16x8Sub
+    384 => I16x8SubSatS
+    385 => I16x8SubSatU
+    386 => F64x2Nearest
+    387 => I16x8Mul
+    388 => I16x8MinS
+    389 => I16x8MinU
+    390 => I16x8MaxS
+    391 => I16x8MaxU
+    392 => I16x8AvgrU
+    393 => I16x8ExtmulLowI8x16S
+    394 => I16x8ExtmulHighI8x16S
+    395 => I16x8ExtmulLowI8x16U
+    396 => I16x8ExtmulHighI8x16U
+    397 => I32x4Abs
+    398 => I32x4Neg
+    399 => I32x4AllTrue
+    400 => I32x4Bitmask
+    401 => I32x4ExtendLowI16x8S
+    402 => I32x4ExtendHighI16x8S
+    403 => I32x4ExtendLowI16x8U
+    404 => I32x4ExtendHighI16x8U
+    405 => I32x4Shl
+    406 => I32x4ShrS
+    407 => I32x4ShrU
+    408 => I32x4Add
+    409 => I32x4Sub
+    410 => I32x4Mul
+    411 => I32x4MinS
+    412 => I32x4MinU
+    413 => I32x4MaxS
+    414 => I32x4MaxU
+    415 => I32x4DotI16x8S
+    416 => I32x4ExtmulLowI16x8S
+    417 => I32x4ExtmulHighI16x8S
+    418 => I32x4ExtmulLowI16x8U
+    419 => I32x4ExtmulHighI16x8U
+    420 => I64x2Abs
+    421 => I64x2Neg
+    422 => I64x2AllTrue
+    423 => I64x2Bitmask
+    424 => I64x2ExtendLowI32x4S
+    425 => I64x2ExtendHighI32x4S
+    426 => I64x2ExtendLowI32x4U
+    427 => I64x2ExtendHighI32x4U
+    428 => I64x2Shl
+    429 => I64x2ShrS
+    430 => I64x2ShrU
+    431 => I64x2Add
+    432 => I64x2Sub
+    433 => I64x2Mul
+    434 => I64x2Eq
+    435 => I64x2Ne
+    436 => I64x2LtS
+    437 => I64x2GtS
+    438 => I64x2LeS
+    439 => I64x2GeS
+    440 => I64x2ExtmulLowI32x4S
+    441 => I64x2ExtmulHighI32x4S
+    442 => I64x2ExtmulLowI32x4U
+    443 => I64x2ExtmulHighI32x4U
+    444 => F32x4Abs
+    445 => F32x4Neg
+    446 => F32x4Sqrt
+    447 => F32x4Add
+    448 => F32x4Sub
+    449 => F32x4Mul
+    450 => F32x4Div
+    451 => F32x4Min
+    452 => F32x4Max
+    453 => F32x4Pmin
+    454 => F32x4Pmax
+    455 => F64x2Abs
+    456 => F64x2Neg
+    457 => F64x2Sqrt
+    458 => F64x2Add
+    459 => F64x2Sub
+    460 => F64x2Mul
+    461 => F64x2Div
+    462 => F64x2Min
+    463 => F64x2Max
+    464 => F64x2Pmin
+    465 => F64x2Pmax
+    466 => I32x4TruncSatF32x4S
+    467 => I32x4TruncSatF32x4U
+    468 => F32x4ConvertI32x4S
+    469 => F32x4ConvertI32x4U
+    470 => I32x4TruncSatF64x2SZero
+    471 => I32x4TruncSatF64x2UZero
+    472 => F64x2ConvertLowI32x4S
+    473 => F64x2ConvertLowI32x4U
+    474 => I8x16RelaxedSwizzle
+    475 => I32x4RelaxedTruncF32x4S
+    476 => I32x4RelaxedTruncF32x4U
+    477 => I32x4RelaxedTruncZeroF64x2S
+    478 => I32x4RelaxedTruncZeroF64x2U
+    479 => F32x4RelaxedMadd
+    480 => F32x4RelaxedNmadd
+    481 => F64x2RelaxedMadd
+    482 => F64x2RelaxedNmadd
+    483 => I8x16RelaxedLaneselect
+    484 => I16x8RelaxedLaneselect
+    485 => I32x4RelaxedLaneselect
+    486 => I64x2RelaxedLaneselect
+    487 => F32x4RelaxedMin
+    488 => F32x4RelaxedMax
+    489 => F64x2RelaxedMin
+    490 => F64x2RelaxedMax
+    491 => I16x8RelaxedQ15mulrS
+    492 => I16x8RelaxedDotI8x16I7x16S
+    493 => I32x4RelaxedDotI8x16I7x16AddS
+    _ => Nop
+  }
+}
 
 ///|
 pub struct Module(
