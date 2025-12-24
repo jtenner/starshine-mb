@@ -284,7 +284,7 @@ pub impl Decode for Mut with decode(bytes, i) {
   match b {
     0x00 => Ok((Const, i + 1))
     0x01 => Ok((Var, i + 1))
-    n => Err("invalid mut byte")
+    _ => Err("invalid mut byte")
   }
 }
 
