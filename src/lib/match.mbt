@@ -4,6 +4,11 @@ pub trait Match {
 }
 
 ///|
+pub trait DeclMatch {
+  matches_decl(Self, Self, Env) -> Bool
+}
+
+///|
 pub impl[T : Match] Match for Array[T] with matches(self, other, env) {
   if self.length() != other.length() {
     return false
@@ -19,8 +24,11 @@ pub impl[T : Match] Match for Array[T] with matches(self, other, env) {
 ///|
 pub impl Match for CompType with matches(self, other, env) {
   match (self, other) {
-    (FuncCompType(p0, r0), FuncCompType(p1, r1)) =>
-      Match::matches(p0, p1, env) && Match::matches(r0, r1, env)
+    // self <: other
+    (FuncCompType(p_self, r_self), FuncCompType(p_other, r_other)) =>
+      // contravariant in params, covariant in results
+      Match::matches(p_other, p_self, env) &&
+      Match::matches(r_self, r_other, env)
     (StructCompType(fs0), StructCompType(fs1)) => Match::matches(fs0, fs1, env)
     (ArrayCompType(f0), ArrayCompType(f1)) => Match::matches(f0, f1, env)
     _ => false
@@ -30,8 +38,6 @@ pub impl Match for CompType with matches(self, other, env) {
 ///|
 pub impl Match for ValType with matches(self, other, env) {
   match (self, other) {
-    (BotValType, _) => true
-    (_, BotValType) => true
     (RefTypeValType(r0), RefTypeValType(r1)) => r0.matches(r1, env)
     _ => self == other
   }
@@ -55,9 +61,13 @@ pub impl Match for RefType with matches(self, other, env) {
 
 ///|
 pub impl Match for FieldType with matches(self, other, env) {
-  let FieldType(st0, mut0) = self
-  let FieldType(st1, mut1) = other
-  st0.matches(st1, env) && mut0 == mut1
+  let FieldType(st0, m0) = self
+  let FieldType(st1, m1) = other
+  match (m0, m1) {
+    (Const, Const) => st0.matches(st1, env) // covariant
+    (Var, Var) => st0.matches(st1, env) && st1.matches(st0, env) // invariant
+    _ => false
+  }
 }
 
 ///|

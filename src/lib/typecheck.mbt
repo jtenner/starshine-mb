@@ -173,8 +173,8 @@ pub impl Typecheck for Expr with typecheck(self, st0) {
 
 ///|
 fn typecheck_select_typed(st : TcState, ts : Array[ValType]) -> TcResult {
-  if !Validate::validate(ts, st.env) {
-    return Err("invalid select type annotation")
+  if Validate::validate(ts, st.env) is Err(t) {
+    return Err("invalid select type annotation: " + t)
   }
 
   // condition
@@ -806,8 +806,8 @@ fn typecheck_br_on_null(st : TcState, l : LabelIdx) -> TcResult {
     Err(e) => return Err(e)
     Ok(x) => x
   }
-  if !ht.validate(st.env) {
-    return Err("invalid heap type in br_on_null operand")
+  if ht.validate(st.env) is Err(t) {
+    return Err("Invalid heap type in br_on_null operand: " + t)
   }
 
   // Branch target label has type t*
@@ -839,8 +839,8 @@ fn typecheck_br_on_non_null(st : TcState, l : LabelIdx) -> TcResult {
     Err(e) => return Err(e)
     Ok(x) => x
   }
-  if !ht.validate(st.env) {
-    return Err("invalid heap type in br_on_non_null operand")
+  if ht.validate(st.env) is Err(t) {
+    return Err("Invalid heap type in br_on_non_null operand: " + t)
   }
 
   // Spec side condition: label has form t* (ref null? ht).
@@ -878,11 +878,11 @@ fn typecheck_br_on_cast(
   let CastOp(n1, n2) = op
   let rt1 = HeapTypeRefType(n1, ht1)
   let rt2 = HeapTypeRefType(n2, ht2)
-  if !rt1.validate(st.env) {
-    return Err("invalid rt1")
+  if rt1.validate(st.env) is Err(t) {
+    return Err("Invalid BrOnCast: " + t)
   }
-  if !rt2.validate(st.env) {
-    return Err("invalid rt2")
+  if rt2.validate(st.env) is Err(t) {
+    return Err("Invalid BrOnCast: " + t)
   }
   let label_ts = match st.check_branch_args_present(l) {
     Err(e) => return Err(e)
@@ -939,11 +939,11 @@ fn typecheck_br_on_cast_fail(
   let CastOp(n1, n2) = op
   let rt1 = HeapTypeRefType(n1, ht1)
   let rt2 = HeapTypeRefType(n2, ht2)
-  if !rt1.validate(st.env) {
-    return Err("invalid rt1")
+  if rt1.validate(st.env) is Err(t) {
+    return Err("Invalid RefType on BrOnCastFail: " + t)
   }
-  if !rt2.validate(st.env) {
-    return Err("invalid rt2")
+  if rt2.validate(st.env) is Err(t) {
+    return Err("Invalid RefType on BrOnCastFail: " + t)
   }
   let label_ts = match st.check_branch_args_present(l) {
     Err(e) => return Err(e)
@@ -1384,8 +1384,8 @@ fn typecheck_loop(st : TcState, bt : BlockType, body : Expr) -> TcResult {
 
 ///|
 fn typecheck_ref_null(st : TcState, ht : HeapType) -> TcResult {
-  if !ht.validate(st.env) {
-    return Err("invalid heap type")
+  if ht.validate(st.env) is Err(t) {
+    return Err(t)
   }
   Ok(st.push1(ref_null_valtype(ht)))
 }
@@ -1454,8 +1454,8 @@ fn typecheck_ref_eq(st : TcState) -> TcResult {
 ///|
 fn typecheck_ref_test(st : TcState, nullable : Bool, ht : HeapType) -> TcResult {
   let rt = HeapTypeRefType(nullable, ht)
-  if !rt.validate(st.env) {
-    return Err("invalid ref.test target reftype")
+  if rt.validate(st.env) is Err(t) {
+    return Err("invalid ref.test target reftype: " + t)
   }
 
   // pop an input ref value
@@ -1478,8 +1478,8 @@ fn typecheck_ref_test(st : TcState, nullable : Bool, ht : HeapType) -> TcResult 
 ///|
 fn typecheck_ref_cast(st : TcState, nullable : Bool, ht : HeapType) -> TcResult {
   let rt = HeapTypeRefType(nullable, ht)
-  if !rt.validate(st.env) {
-    return Err("invalid ref.cast target reftype")
+  if rt.validate(st.env) is Err(t) {
+    return Err("invalid ref.cast target reftype: " + t)
   }
   let (st1, rt_in_opt) = match st.pop_ref_or_bot() {
     Err(e) => return Err(e)

@@ -598,7 +598,7 @@ pub impl Show for Data with output(self, logger) {
 pub impl Show for Name with output(self, logger) {
   let Name(sv) = self
   logger.write_char('"')
-  sv.output(logger)
+  sv.to_string().output(logger)
   logger.write_char('"')
 }
 
@@ -1829,4 +1829,264 @@ pub impl Show for Instruction with output(self, logger) {
     I32x4RelaxedDotI8x16I7x16AddS =>
       logger.write_string("i32x4.relaxed_dot_i8x16i7x16_add_s")
   }
+}
+
+pub impl Show for CustomSec with output(self, logger) {
+  let CustomSec(name, _) = self
+  logger.write_string("[Custom: ")
+  name.output(logger)
+  logger.write_char(']')
+}
+
+pub impl Show for TypeSec with output(self, logger) {
+  let TypeSec(tys) = self
+  logger.write_string("[Types")
+  if tys.length() == 0 {
+    logger.write_char(']')
+    return
+  }
+  logger.write_string(":\n")
+  for ty in tys {
+    logger.write_string("  - ")
+    ty.output(logger)
+    logger.write_char('\n')
+  }
+  logger.write_char(']')
+}
+
+pub impl Show for ImportSec with output(self, logger) {
+  let ImportSec(imports) = self
+  logger.write_string("[Imports")
+  if imports.length() == 0 {
+    logger.write_char(']')
+    return
+  }
+  logger.write_string(": \n")
+  for i in imports {
+    logger.write_string("  - ")
+    i.output(logger)
+    logger.write_char('\n')
+  }
+  logger.write_char(']')
+}
+
+pub impl Show for FuncSec with output(self, logger) {
+  let FuncSec(fns) = self
+  logger.write_string("[Funcs")
+  if fns.length() == 0 {
+    logger.write_char(']')
+    return
+  }
+  logger.write_string(": \n")
+  for i in fns {
+    logger.write_string("  - ")
+    i.output(logger)
+    logger.write_char('\n')
+  }
+  logger.write_char(']')
+}
+
+pub impl Show for TableSec with output(self, logger) {
+  let TableSec(tbls) = self
+  logger.write_string("[Tables")
+  if tbls.length() == 0 {
+    logger.write_char(']')
+    return
+  }
+  logger.write_string(": \n")
+  for i in tbls {
+    logger.write_string("  - ")
+    i.output(logger)
+    logger.write_char('\n')
+  }
+  logger.write_char(']')
+}
+
+pub impl Show for MemSec with output(self, logger) {
+  let MemSec(mems) = self
+  logger.write_string("[Memory")
+  if mems.length() == 0 {
+    logger.write_char(']')
+    return
+  }
+  logger.write_string(": \n")
+  for i in mems {
+    logger.write_string("  - ")
+    i.output(logger)
+    logger.write_char('\n')
+  }
+  logger.write_char(']')
+}
+
+pub impl Show for TagSec with output(self, logger) {
+  let TagSec(mems) = self
+  logger.write_string("[Tags")
+  if mems.length() == 0 {
+    logger.write_char(']')
+    return
+  }
+  logger.write_string(": \n")
+  for i in mems {
+    logger.write_string("  - ")
+    i.output(logger)
+    logger.write_char('\n')
+  }
+  logger.write_char(']')
+}
+
+pub impl Show for GlobalSec with output(self, logger) {
+  let GlobalSec(globals) = self
+  logger.write_string("[Globals")
+  if globals.length() == 0 {
+    logger.write_char(']')
+    return
+  }
+  logger.write_string(": \n")
+  for i in globals {
+    logger.write_string("  - ")
+    i.output(logger)
+    logger.write_char('\n')
+  }
+  logger.write_char(']')
+}
+
+
+pub impl Show for ExportSec with output(self, logger) {
+  let ExportSec(exports) = self
+  logger.write_string("[Globals")
+  if exports.length() == 0 {
+    logger.write_char(']')
+    return
+  }
+  logger.write_string(": \n")
+  for i in exports {
+    logger.write_string("  - ")
+    i.output(logger)
+    logger.write_char('\n')
+  }
+  logger.write_char(']')
+}
+
+pub impl Show for StartSec with output(self, logger) {
+  let StartSec(start) = self
+  logger.write_string("[Start ")
+  start.output(logger)
+  logger.write_char(']')
+}
+
+pub impl Show for ElemSec with output(self, logger) {
+  let ElemSec(elems) = self
+  logger.write_string("[Elems")
+  if elems.length() == 0 {
+    logger.write_char(']')
+    return
+  }
+  logger.write_string(": \n")
+  for i in elems {
+    logger.write_string("  - ")
+    i.output(logger)
+    logger.write_char('\n')
+  }
+  logger.write_char(']')
+}
+
+pub impl Show for DataCntSec with output(self, logger) {
+  let DataCntSec(start) = self
+  logger.write_string("[DataCount ")
+  start.output(logger)
+  logger.write_char(']')
+}
+
+pub impl Show for CodeSec with output(self, logger) {
+  let CodeSec(codes) = self
+  logger.write_string("[Code")
+  if codes.length() == 0 {
+    logger.write_char(']')
+    return
+  }
+  logger.write_string(": \n")
+  for i in codes {
+    logger.write_string("  - ")
+    i.output(logger)
+    logger.write_char('\n')
+  }
+  logger.write_char(']')
+}
+
+pub impl Show for DataSec with output(self, logger) {
+  let DataSec(datas) = self
+  logger.write_string("[Elems")
+  if datas.length() == 0 {
+    logger.write_char(']')
+    return
+  }
+  logger.write_string(": \n")
+  for i in datas {
+    logger.write_string("  - ")
+    i.output(logger)
+    logger.write_char('\n')
+  }
+  logger.write_char(']')
+}
+
+pub impl Show for Module with output(self, logger) {
+  let Module(
+    customs,
+    type_sec,
+    import_sec,
+    func_sec,
+    table_sec,
+    mem_sec,
+    tag_sec,
+    global_sec,
+    export_sec,
+    start_sec,
+    elem_sec,
+    data_cnt_sec,
+    code_sec,
+    data_sec
+  ) = self
+  logger.write_string("Module[\n")
+  logger.write_string("customs: ")
+  customs.output(logger)
+  logger.write_char('\n')
+  logger.write_string("type_sec: ")
+  type_sec.output(logger)
+  logger.write_char('\n')
+  logger.write_string("import_sec: ")
+  import_sec.output(logger)
+  logger.write_char('\n')
+  logger.write_string("func_sec: ")
+  func_sec.output(logger)
+  logger.write_char('\n')
+  logger.write_string("table_sec: ")
+  table_sec.output(logger)
+  logger.write_char('\n')
+  logger.write_string("mem_sec: ")
+  mem_sec.output(logger)
+  logger.write_char('\n')
+  logger.write_string("tag_sec: ")
+  tag_sec.output(logger)
+  logger.write_char('\n')
+  logger.write_string("global_sec: ")
+  global_sec.output(logger)
+  logger.write_char('\n')
+  logger.write_string("export_sec: ")
+  export_sec.output(logger)
+  logger.write_char('\n')
+  logger.write_string("start_sec: ")
+  start_sec.output(logger)
+  logger.write_char('\n')
+  logger.write_string("elem_sec: ")
+  elem_sec.output(logger)
+  logger.write_char('\n')
+  logger.write_string("data_cnt_sec: ")
+  data_cnt_sec.output(logger)
+  logger.write_char('\n')
+  logger.write_string("code_sec: ")
+  code_sec.output(logger)
+  logger.write_char('\n')
+  logger.write_string("data_sec: ")
+  data_sec.output(logger)
+  logger.write_string("]")
 }

@@ -9,9 +9,49 @@ import(
 )
 
 // Values
+pub fn[T : @quickcheck.Arbitrary] array_of_arbitrary(UInt, Int, @splitmix.RandomState) -> Array[T]
+
 pub fn diff(RefType, RefType) -> Result[RefType, String]
 
+pub fn empty_env() -> Env
+
 pub fn[T : Eq] equals(Array[T], Array[T]) -> Bool
+
+pub fn gen_ctx_new(Int) -> GenCtx
+
+pub fn gen_expr_valid(GenCtx, TcState, Array[ValType]) -> Result[Expr, String]
+
+pub fn gen_module_valid(GenCtx) -> Result[(GenCtx, Module), String]
+
+pub fn gen_typesec_valid(GenCtx) -> Result[(GenCtx, TypeSec), String]
+
+pub fn validate_codesec(CodeSec?, FuncSec?, Env) -> Result[Unit, String]
+
+pub fn validate_datacnt(DataCntSec?, DataSec?) -> Result[Unit, String]
+
+pub fn validate_datasec(DataSec?, Env) -> Result[Env, String]
+
+pub fn validate_elemsec(ElemSec?, Env) -> Result[Env, String]
+
+pub fn validate_exportsec(ExportSec?, Env) -> Result[Unit, String]
+
+pub fn validate_funcsec(FuncSec?, Env) -> Result[Env, String]
+
+pub fn validate_globalsec(GlobalSec?, Env) -> Result[Env, String]
+
+pub fn validate_importsec(ImportSec?, Env) -> Result[Env, String]
+
+pub fn validate_memsec(MemSec?, Env) -> Result[Env, String]
+
+pub fn validate_module(Module) -> Result[Unit, String]
+
+pub fn validate_startsec(StartSec?, Env) -> Result[Unit, String]
+
+pub fn validate_tablesec(TableSec?, Env) -> Result[Env, String]
+
+pub fn validate_tagsec(TagSec?, Env) -> Result[Env, String]
+
+pub fn validate_typesec(TypeSec?, Env) -> Result[Env, String]
 
 // Errors
 
@@ -75,6 +115,7 @@ pub struct CodeSec(Array[Func])
 #deprecated
 pub fn CodeSec::inner(Self) -> Array[Func]
 pub impl Eq for CodeSec
+pub impl Show for CodeSec
 pub impl @quickcheck.Arbitrary for CodeSec
 pub impl Decode for CodeSec
 pub impl Encode for CodeSec
@@ -96,6 +137,7 @@ pub struct CustomSec(Name, Bytes)
 
 
 pub impl Eq for CustomSec
+pub impl Show for CustomSec
 pub impl @quickcheck.Arbitrary for CustomSec
 pub impl Decode for CustomSec
 pub impl Encode for CustomSec
@@ -108,11 +150,13 @@ pub impl Show for Data
 pub impl @quickcheck.Arbitrary for Data
 pub impl Decode for Data
 pub impl Encode for Data
+pub impl Validate for Data
 
 pub struct DataCntSec(U32)
 #deprecated
 pub fn DataCntSec::inner(Self) -> U32
 pub impl Eq for DataCntSec
+pub impl Show for DataCntSec
 pub impl @quickcheck.Arbitrary for DataCntSec
 pub impl Decode for DataCntSec
 pub impl Encode for DataCntSec
@@ -133,11 +177,13 @@ pub enum DataMode {
 pub impl Eq for DataMode
 pub impl Show for DataMode
 pub impl @quickcheck.Arbitrary for DataMode
+pub impl Validate for DataMode
 
 pub struct DataSec(Array[Data])
 #deprecated
 pub fn DataSec::inner(Self) -> Array[Data]
 pub impl Eq for DataSec
+pub impl Show for DataSec
 pub impl @quickcheck.Arbitrary for DataSec
 pub impl Decode for DataSec
 pub impl Encode for DataSec
@@ -160,6 +206,7 @@ pub impl Show for Elem
 pub impl @quickcheck.Arbitrary for Elem
 pub impl Decode for Elem
 pub impl Encode for Elem
+pub impl Validate for Elem
 
 pub struct ElemIdx(UInt)
 #deprecated
@@ -178,6 +225,7 @@ pub enum ElemKind {
 pub impl Eq for ElemKind
 pub impl Show for ElemKind
 pub impl @quickcheck.Arbitrary for ElemKind
+pub impl Validate for ElemKind
 
 pub enum ElemMode {
   Passive
@@ -192,6 +240,7 @@ pub struct ElemSec(Array[Elem])
 #deprecated
 pub fn ElemSec::inner(Self) -> Array[Elem]
 pub impl Eq for ElemSec
+pub impl Show for ElemSec
 pub impl @quickcheck.Arbitrary for ElemSec
 pub impl Decode for ElemSec
 pub impl Encode for ElemSec
@@ -204,6 +253,7 @@ pub struct Env {
   mems : Array[MemType]
   globals : Array[GlobalType]
   elems : Array[Elem]
+  datas : Array[Data]
   tags : Array[TagType]
   locals : Array[ValType]
   labels : Array[Array[ValType]]
@@ -211,12 +261,22 @@ pub struct Env {
 }
 pub fn Env::get_label(Self, LabelIdx) -> Array[ValType]?
 pub fn Env::get_tag(Self, TagIdx) -> TagType?
+pub fn Env::push_data(Self, Data) -> Self
+pub fn Env::push_elem(Self, Elem) -> Self
+pub fn Env::push_func(Self, FuncType) -> Self
+pub fn Env::push_global(Self, GlobalType) -> Self
+pub fn Env::push_mem(Self, MemType) -> Self
+pub fn Env::push_table(Self, TableType) -> Self
+pub fn Env::push_tag(Self, TagType) -> Self
 pub fn Env::resolve_comptype(Self, TypeIdx) -> CompType?
 pub fn Env::resolve_functype(Self, TypeIdx) -> FuncType?
 pub fn Env::resolve_heaptype_subtype(Self, HeapType) -> SubType?
 pub fn Env::resolve_subtype(Self, TypeIdx) -> SubType?
 pub fn Env::resolve_tag_functype(Self, TagIdx) -> FuncType?
 pub fn Env::resolve_typeidx_subtype(Self, TypeIdx) -> SubType?
+pub fn Env::with_labels(Self, Array[Array[ValType]]) -> Self
+pub fn Env::with_rectype(Self, RecType) -> Self
+pub fn Env::with_return_type(Self, Array[ValType]?) -> Self
 
 pub struct Export(Name, ExternIdx)
 
@@ -226,11 +286,13 @@ pub impl Show for Export
 pub impl @quickcheck.Arbitrary for Export
 pub impl Decode for Export
 pub impl Encode for Export
+pub impl Validate for Export
 
 pub struct ExportSec(Array[Export])
 #deprecated
 pub fn ExportSec::inner(Self) -> Array[Export]
 pub impl Eq for ExportSec
+pub impl Show for ExportSec
 pub impl @quickcheck.Arbitrary for ExportSec
 pub impl Decode for ExportSec
 pub impl Encode for ExportSec
@@ -257,6 +319,7 @@ pub impl Show for ExternIdx
 pub impl @quickcheck.Arbitrary for ExternIdx
 pub impl Decode for ExternIdx
 pub impl Encode for ExternIdx
+pub impl Validate for ExternIdx
 
 pub enum ExternType {
   FuncExternType(TypeIdx)
@@ -291,7 +354,7 @@ pub impl @quickcheck.Arbitrary for F64
 pub impl Decode for F64
 pub impl Encode for F64
 
-pub struct FieldType(StorageType, Bool?)
+pub struct FieldType(StorageType, Mut)
 
 
 pub impl Eq for FieldType
@@ -319,11 +382,13 @@ pub impl Show for FuncIdx
 pub impl @quickcheck.Arbitrary for FuncIdx
 pub impl Decode for FuncIdx
 pub impl Encode for FuncIdx
+pub impl Validate for FuncIdx
 
 pub struct FuncSec(Array[TypeIdx])
 #deprecated
 pub fn FuncSec::inner(Self) -> Array[TypeIdx]
 pub impl Eq for FuncSec
+pub impl Show for FuncSec
 pub impl @quickcheck.Arbitrary for FuncSec
 pub impl Decode for FuncSec
 pub impl Encode for FuncSec
@@ -332,6 +397,15 @@ pub struct FuncType(Array[ValType], Array[ValType])
 
 
 pub impl Validate for FuncType
+
+pub struct GenCtx {
+  rnd : @splitmix.RandomState
+  fuel : Int
+  env : Env
+}
+pub fn GenCtx::dec_fuel(Self, Int) -> Self
+pub fn GenCtx::with_env(Self, Env) -> Self
+pub fn GenCtx::with_fuel_only(Self, Int) -> Self
 
 pub struct Global(GlobalType, Expr)
 
@@ -350,11 +424,13 @@ pub impl Show for GlobalIdx
 pub impl @quickcheck.Arbitrary for GlobalIdx
 pub impl Decode for GlobalIdx
 pub impl Encode for GlobalIdx
+pub impl Validate for GlobalIdx
 
 pub struct GlobalSec(Array[Global])
 #deprecated
 pub fn GlobalSec::inner(Self) -> Array[Global]
 pub impl Eq for GlobalSec
+pub impl Show for GlobalSec
 pub impl @quickcheck.Arbitrary for GlobalSec
 pub impl Decode for GlobalSec
 pub impl Encode for GlobalSec
@@ -409,11 +485,13 @@ pub impl Show for Import
 pub impl @quickcheck.Arbitrary for Import
 pub impl Decode for Import
 pub impl Encode for Import
+pub impl Validate for Import
 
 pub struct ImportSec(Array[Import])
 #deprecated
 pub fn ImportSec::inner(Self) -> Array[Import]
 pub impl Eq for ImportSec
+pub impl Show for ImportSec
 pub impl @quickcheck.Arbitrary for ImportSec
 pub impl Decode for ImportSec
 pub impl Encode for ImportSec
@@ -987,11 +1065,13 @@ pub impl Show for MemIdx
 pub impl @quickcheck.Arbitrary for MemIdx
 pub impl Decode for MemIdx
 pub impl Encode for MemIdx
+pub impl Validate for MemIdx
 
 pub struct MemSec(Array[MemType])
 #deprecated
 pub fn MemSec::inner(Self) -> Array[MemType]
 pub impl Eq for MemSec
+pub impl Show for MemSec
 pub impl @quickcheck.Arbitrary for MemSec
 pub impl Decode for MemSec
 pub impl Encode for MemSec
@@ -1011,9 +1091,20 @@ pub struct Module(Array[CustomSec], TypeSec?, ImportSec?, FuncSec?, TableSec?, M
 
 
 pub impl Eq for Module
+pub impl Show for Module
 pub impl @quickcheck.Arbitrary for Module
 pub impl Decode for Module
 pub impl Encode for Module
+
+pub enum Mut {
+  Const
+  Var
+}
+pub impl Eq for Mut
+pub impl Show for Mut
+pub impl @quickcheck.Arbitrary for Mut
+pub impl Decode for Mut
+pub impl Encode for Mut
 
 pub struct Name(StringView)
 #deprecated
@@ -1086,6 +1177,7 @@ pub struct StartSec(FuncIdx)
 #deprecated
 pub fn StartSec::inner(Self) -> FuncIdx
 pub impl Eq for StartSec
+pub impl Show for StartSec
 pub impl @quickcheck.Arbitrary for StartSec
 pub impl Decode for StartSec
 pub impl Encode for StartSec
@@ -1132,11 +1224,13 @@ pub impl Show for TableIdx
 pub impl @quickcheck.Arbitrary for TableIdx
 pub impl Decode for TableIdx
 pub impl Encode for TableIdx
+pub impl Validate for TableIdx
 
 pub struct TableSec(Array[Table])
 #deprecated
 pub fn TableSec::inner(Self) -> Array[Table]
 pub impl Eq for TableSec
+pub impl Show for TableSec
 pub impl @quickcheck.Arbitrary for TableSec
 pub impl Decode for TableSec
 pub impl Encode for TableSec
@@ -1166,6 +1260,7 @@ pub struct TagSec(Array[TagType])
 #deprecated
 pub fn TagSec::inner(Self) -> Array[TagType]
 pub impl Eq for TagSec
+pub impl Show for TagSec
 pub impl @quickcheck.Arbitrary for TagSec
 pub impl Decode for TagSec
 pub impl Encode for TagSec
@@ -1203,6 +1298,7 @@ pub struct TypeSec(Array[RecType])
 #deprecated
 pub fn TypeSec::inner(Self) -> Array[RecType]
 pub impl Eq for TypeSec
+pub impl Show for TypeSec
 pub impl @quickcheck.Arbitrary for TypeSec
 pub impl Decode for TypeSec
 pub impl Encode for TypeSec
@@ -1245,6 +1341,10 @@ pub type ResultType = Array[ValType]
 pub type TcResult = Result[TcState, String]
 
 // Traits
+pub trait DeclMatch {
+  matches_decl(Self, Self, Env) -> Bool
+}
+
 pub trait Decode {
   decode(Bytes, Int) -> Result[(Self, Int), String]
 }
@@ -1263,6 +1363,10 @@ pub impl Encode for Bytes
 pub impl[T : Encode] Encode for Array[T]
 pub impl[T : Encode] Encode for @list.List[T]
 
+pub trait GenValid {
+  gen_valid(Self, GenCtx) -> Result[Self, String]
+}
+
 pub trait Match {
   matches(Self, Self, Env) -> Bool
 }
@@ -1273,11 +1377,11 @@ pub trait Typecheck {
 }
 
 pub trait Validate {
-  validate(Self, Env) -> Bool
+  validate(Self, Env) -> Result[Unit, String]
 }
 pub impl[T : Validate] Validate for Array[T]
 
 pub trait ValidateMax {
-  validate_max(Self, Env, UInt64) -> Bool
+  validate_max(Self, Env, UInt64) -> Result[Unit, String]
 }
 

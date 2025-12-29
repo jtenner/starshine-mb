@@ -1,39 +1,55 @@
 ///|
 pub struct S33(UInt)
+
+///|
 pub impl @quickcheck.Arbitrary for S33 with arbitrary(_, state) {
   S33(state.next_uint())
 }
 
 ///|
 pub struct I32(Int)
+
+///|
 pub impl @quickcheck.Arbitrary for I32 with arbitrary(_, state) {
   I32(state.next_int())
 }
+
 ///|
 pub struct I64(Int64)
+
+///|
 pub impl @quickcheck.Arbitrary for I64 with arbitrary(_, state) {
   I64(state.next_int64())
 }
+
 ///|
 pub struct F32(Float)
+
+///|
 pub impl @quickcheck.Arbitrary for F32 with arbitrary(_, state) {
   F32(state.next_float())
 }
 
 ///|
 pub struct F64(Double)
+
+///|
 pub impl @quickcheck.Arbitrary for F64 with arbitrary(_, state) {
   F64(state.next_double())
 }
 
 ///|
 pub struct U32(UInt)
+
+///|
 pub impl @quickcheck.Arbitrary for U32 with arbitrary(_, state) {
   U32(state.next_uint())
 }
 
 ///|
 pub struct U64(UInt64)
+
+///|
 pub impl @quickcheck.Arbitrary for U64 with arbitrary(_, state) {
   U64(state.next_uint64())
 }
@@ -185,6 +201,7 @@ pub struct LabelIdx(UInt) derive(Arbitrary)
 ///|
 pub struct LaneIdx(Byte)
 
+///|
 pub impl @quickcheck.Arbitrary for LaneIdx with arbitrary(_, state) {
   let b : Byte = (state.next_uint() % 16).to_byte()
   LaneIdx(b)
@@ -197,10 +214,15 @@ pub enum CompType {
   FuncCompType(ResultType, ResultType)
 }
 
+///|
 pub impl @quickcheck.Arbitrary for CompType with arbitrary(t, state) {
   match state.next_uint() % 3 {
     1 => StructCompType(array_of_arbitrary(5, t, state))
-    2 => FuncCompType(array_of_arbitrary(5, t, state), array_of_arbitrary(5, t, state))
+    2 =>
+      FuncCompType(
+        array_of_arbitrary(5, t, state),
+        array_of_arbitrary(5, t, state),
+      )
     _ => ArrayCompType(@quickcheck.Arbitrary::arbitrary(t, state))
   }
 }
@@ -211,9 +233,14 @@ pub enum SubType {
   CompTypeSubType(CompType)
 }
 
+///|
 pub impl @quickcheck.Arbitrary for SubType with arbitrary(t, st) {
-  if (st.next_uint() % 2) == 1 {
-    SubType((st.next_uint() % 2) == 1, array_of_arbitrary(1, t, st), @quickcheck.Arbitrary::arbitrary(t, st))
+  if st.next_uint() % 2 == 1 {
+    SubType(
+      st.next_uint() % 2 == 1,
+      array_of_arbitrary(1, t, st),
+      @quickcheck.Arbitrary::arbitrary(t, st),
+    )
   } else {
     CompTypeSubType(@quickcheck.Arbitrary::arbitrary(t, st))
   }
@@ -241,6 +268,7 @@ pub enum RecType {
   GroupRecType(Array[SubType])
 }
 
+///|
 pub impl @quickcheck.Arbitrary for RecType with arbitrary(t, state) {
   if (state.next_uint() & 1) == 1 {
     SingleRecType(@quickcheck.Arbitrary::arbitrary(t, state))
@@ -276,8 +304,7 @@ pub impl @quickcheck.Arbitrary for DefType with arbitrary(t, state) {
   match s {
     SingleRecType(_) => DefType(s, 0)
     GroupRecType(g) => {
-      let idx = state.next_uint() %
-        g.length().reinterpret_as_uint()
+      let idx = state.next_uint() % g.length().reinterpret_as_uint()
       DefType(s, idx)
     }
   }
@@ -289,27 +316,26 @@ pub enum Limits {
   I64Limits(UInt64, UInt64?)
 }
 
+///|
 pub impl @quickcheck.Arbitrary for Limits with arbitrary(_, state) {
   if (state.next_uint() & 1) == 1 {
     if (state.next_uint() & 1) == 1 {
       I32Limits(state.next_uint(), None)
     } else {
-      let a: UInt = state.next_uint()
-      let b: UInt = state.next_uint()
+      let a : UInt = state.next_uint()
+      let b : UInt = state.next_uint()
       let min = if a > b { b } else { a }
       let max = if a > b { a } else { b }
       I32Limits(min, Some(max))
     }
+  } else if (state.next_uint() & 1) == 1 {
+    I64Limits(state.next_uint64(), None)
   } else {
-    if (state.next_uint() & 1) == 1 {
-      I64Limits(state.next_uint64(), None)
-    } else {
-      let a: UInt64 = state.next_uint64()
-      let b: UInt64 = state.next_uint64()
-      let min = if a > b { b } else { a }
-      let max = if a > b { a } else { b }
-      I64Limits(min, Some(max))
-    }
+    let a : UInt64 = state.next_uint64()
+    let b : UInt64 = state.next_uint64()
+    let min = if a > b { b } else { a }
+    let max = if a > b { a } else { b }
+    I64Limits(min, Some(max))
   }
 }
 
@@ -366,11 +392,66 @@ pub enum ElemKind {
 } derive(Arbitrary)
 
 ///|
-pub struct Elem(ElemMode, ElemKind) derive(Arbitrary)
+pub struct Elem(ElemMode, ElemKind)
+
+///|
+pub impl @quickcheck.Arbitrary for Elem with arbitrary(size, state) {
+  match state.next_uint() % 8 {
+    // 0x00: Active(table 0) + FuncsElemKind
+    0 => {
+      let expr = @quickcheck.Arbitrary::arbitrary(size, state)
+      let funcs = array_of_arbitrary(5, size, state)
+      Elem(Active(TableIdx(0), expr), FuncsElemKind(funcs))
+    }
+    // 0x01: Passive + FuncsElemKind
+    1 => {
+      let funcs = array_of_arbitrary(5, size, state)
+      Elem(Passive, FuncsElemKind(funcs))
+    }
+    // 0x02: Active(any table) + FuncsElemKind
+    2 => {
+      let ti : TableIdx = @quickcheck.Arbitrary::arbitrary(size, state)
+      let expr = @quickcheck.Arbitrary::arbitrary(size, state)
+      let funcs = array_of_arbitrary(5, size, state)
+      Elem(Active(ti, expr), FuncsElemKind(funcs))
+    }
+    // 0x03: Declarative + FuncsElemKind
+    3 => {
+      let funcs = array_of_arbitrary(5, size, state)
+      Elem(Declarative, FuncsElemKind(funcs))
+    }
+    // 0x04: Active(table 0) + FuncExprsElemKind
+    4 => {
+      let expr = @quickcheck.Arbitrary::arbitrary(size, state)
+      let exprs = array_of_arbitrary(3, size, state)
+      Elem(Active(TableIdx(0), expr), FuncExprsElemKind(exprs))
+    }
+    // 0x05: Passive + TypedExprsElemKind (covers FuncExprsElemKind too)
+    5 => {
+      let rt : RefType = @quickcheck.Arbitrary::arbitrary(size, state)
+      let exprs = array_of_arbitrary(3, size, state)
+      Elem(Passive, TypedExprsElemKind(rt, exprs))
+    }
+    // 0x06: Active(any table) + FuncExprsElemKind
+    6 => {
+      let ti : TableIdx = @quickcheck.Arbitrary::arbitrary(size, state)
+      let expr = @quickcheck.Arbitrary::arbitrary(size, state)
+      let exprs = array_of_arbitrary(3, size, state)
+      Elem(Active(ti, expr), FuncExprsElemKind(exprs))
+    }
+    // 0x07: Declarative + TypedExprsElemKind
+    _ => {
+      let rt : RefType = @quickcheck.Arbitrary::arbitrary(size, state)
+      let exprs = array_of_arbitrary(3, size, state)
+      Elem(Declarative, TypedExprsElemKind(rt, exprs))
+    }
+  }
+}
 
 ///|
 pub struct Expr(Array[Instruction])
 
+///|
 pub impl @quickcheck.Arbitrary for Expr with arbitrary(t, state) {
   Expr([
     @quickcheck.Arbitrary::arbitrary(t, state),
@@ -392,10 +473,28 @@ pub struct Global(GlobalType, Expr) derive(Arbitrary)
 pub struct Export(Name, ExternIdx) derive(Arbitrary)
 
 ///|
-pub struct Locals(UInt, ValType) derive(Arbitrary)
+pub struct Locals(UInt, ValType)
+
+pub impl @quickcheck.Arbitrary for Locals with arbitrary(t, state) {
+  let count = state.next_positive_int() % 3 + 1
+  Locals(count.reinterpret_as_uint(), @quickcheck.Arbitrary::arbitrary(t, state))
+}
 
 ///|
-pub struct Func(Array[Locals], Expr) derive(Arbitrary)
+pub struct Func(Array[Locals], Expr)
+
+pub impl @quickcheck.Arbitrary for Func with arbitrary(t, state) {
+  let elems = []
+  let count = state.next_positive_int() % 4 + 1
+  loop count {
+    0 => break()
+    n => {
+      elems.push(@quickcheck.Arbitrary::arbitrary(t, state))
+      continue n - 1
+    }
+  }
+  Func(elems, @quickcheck.Arbitrary::arbitrary(t, state))
+}
 
 ///|
 pub enum DataMode {
@@ -404,14 +503,19 @@ pub enum DataMode {
 } derive(Arbitrary)
 
 ///|
-pub struct Data(DataMode, Bytes) derive(Arbitrary)
+pub struct Data(DataMode, Bytes)
+
+pub impl @quickcheck.Arbitrary for Data with arbitrary(t, state) {
+  let size = state.next_positive_int() % 10 + 1
+  Data(@quickcheck.Arbitrary::arbitrary(t, state), @quickcheck.Arbitrary::arbitrary(size, state))
+}
 
 ///|
 pub struct Name(StringView)
 
 ///|
 pub impl @quickcheck.Arbitrary for Name with arbitrary(_, state) {
-  let count = state.next_positive_int() % 100
+  let count = state.next_positive_int() % 5
   let sb = StringBuilder::new(size_hint=count)
   loop (count, state.next_positive_int() % 91799) {
     (0, _) => break
@@ -1164,7 +1268,23 @@ pub impl @quickcheck.Arbitrary for Name with arbitrary(_, state) {
 }
 
 ///|
-pub struct CustomSec(Name, Bytes) derive(Arbitrary)
+pub struct CustomSec(Name, Bytes)
+
+pub impl @quickcheck.Arbitrary for CustomSec with arbitrary(size, st) {
+  let name = @quickcheck.Arbitrary::arbitrary(size, st)
+  let length = st.next_positive_int() % 19 + 1
+
+  let buf = @buffer.new()
+
+  let bytes = loop length {
+    0 => buf.to_bytes()
+    n => {
+      buf.write_byte((st.next_positive_int() % 256).to_byte())
+      continue n - 1
+    } 
+  }
+  CustomSec(name, bytes)
+}
 
 ///|
 pub struct TypeSec(Array[RecType]) derive(Arbitrary)
@@ -1191,13 +1311,53 @@ pub struct ExportSec(Array[Export]) derive(Arbitrary)
 pub struct StartSec(FuncIdx) derive(Arbitrary)
 
 ///|
-pub struct ElemSec(Array[Elem]) derive(Arbitrary)
+pub struct ElemSec(Array[Elem])
+
+pub impl @quickcheck.Arbitrary for ElemSec with arbitrary(t, state) {
+  let elems = []
+  let count = state.next_positive_int() % 4 + 1
+  loop count {
+    0 => break()
+    n => {
+      elems.push(@quickcheck.Arbitrary::arbitrary(t, state))
+      continue n - 1
+    }
+  }
+  ElemSec(elems)
+}
 
 ///|
-pub struct CodeSec(Array[Func]) derive(Arbitrary)
+pub struct CodeSec(Array[Func])
+
+pub impl @quickcheck.Arbitrary for CodeSec with arbitrary(t, state) {
+  let elems = []
+  let count = state.next_positive_int() % 4 + 1
+  loop count {
+    0 => break()
+    n => {
+      elems.push(@quickcheck.Arbitrary::arbitrary(t, state))
+      continue n - 1
+    }
+  }
+  CodeSec(elems)
+}
 
 ///|
-pub struct DataSec(Array[Data]) derive(Arbitrary)
+pub struct DataSec(Array[Data])
+
+pub impl @quickcheck.Arbitrary for DataSec with arbitrary(t, state) {
+  let elems = []
+  let count = state.next_positive_int() % 4 + 1
+  loop count {
+    0 => break()
+    n => {
+      elems.push(@quickcheck.Arbitrary::arbitrary(t, state))
+      continue n - 1
+    }
+  }
+  DataSec(elems)
+}
+
 
 ///|
 pub struct DataCntSec(U32) derive(Arbitrary)
@@ -1223,11 +1383,12 @@ pub enum Catch {
 ///|
 pub struct MemArg(U32, MemIdx?, U64)
 
+///|
 pub impl @quickcheck.Arbitrary for MemArg with arbitrary(t, state) {
   MemArg(
     U32(state.next_uint() % 64),
     @quickcheck.Arbitrary::arbitrary(t, state),
-    @quickcheck.Arbitrary::arbitrary(t, state)
+    @quickcheck.Arbitrary::arbitrary(t, state),
   )
 }
 
@@ -1766,8 +1927,13 @@ pub enum Instruction {
   I32x4RelaxedDotI8x16I7x16AddS
 }
 
-pub fn [T : @quickcheck.Arbitrary] array_of_arbitrary(max: UInt, t: Int, state: @quickcheck/splitmix.RandomState) -> Array[T] {
-  let count = (state.next_uint() % max) + 1
+///|
+pub fn[T : @quickcheck.Arbitrary] array_of_arbitrary(
+  max : UInt,
+  t : Int,
+  state : @quickcheck/splitmix.RandomState,
+) -> Array[T] {
+  let count = state.next_uint() % max + 1
   let a = []
   loop count {
     0 => break a
@@ -3719,6 +3885,109 @@ fn Env::with_label(env : Env, ts : Array[ValType]) -> Env {
 }
 
 ///|
+pub fn Env::with_labels(env : Env, labels : Stack[Array[ValType]]) -> Env {
+  Env::{
+    global_types: env.global_types,
+    rec_stack: env.rec_stack,
+    funcs: env.funcs,
+    tables: env.tables,
+    mems: env.mems,
+    globals: env.globals,
+    elems: env.elems,
+    datas: env.datas,
+    tags: env.tags,
+    locals: env.locals,
+    labels,
+    return_type: env.return_type,
+  }
+}
+
+///|
+pub fn Env::with_return_type(env : Env, rt : Array[ValType]?) -> Env {
+  Env::{
+    global_types: env.global_types,
+    rec_stack: env.rec_stack,
+    funcs: env.funcs,
+    tables: env.tables,
+    mems: env.mems,
+    globals: env.globals,
+    elems: env.elems,
+    datas: env.datas,
+    tags: env.tags,
+    locals: env.locals,
+    labels: env.labels,
+    return_type: rt,
+  }
+}
+
+///|
+pub fn Env::with_rectype(env : Env, rt : RecType) -> Env {
+  let rs = env.rec_stack.copy()
+  match rt {
+    SingleRecType(st) => rs.push([st])
+    GroupRecType(sts) => rs.push(sts)
+  }
+  Env::{
+    global_types: env.global_types,
+    rec_stack: rs,
+    funcs: env.funcs,
+    tables: env.tables,
+    mems: env.mems,
+    globals: env.globals,
+    elems: env.elems,
+    datas: env.datas,
+    tags: env.tags,
+    locals: env.locals,
+    labels: env.labels,
+    return_type: env.return_type,
+  }
+}
+
+///|
+fn Env::append_rectype_types(env : Env, rt : RecType) -> Env {
+  let gts = env.global_types.copy()
+  match rt {
+    SingleRecType(st) => gts.push(st)
+    GroupRecType(sts) =>
+      for st in sts {
+        gts.push(st)
+      }
+  }
+  Env::{
+    global_types: gts,
+    rec_stack: env.rec_stack,
+    funcs: env.funcs,
+    tables: env.tables,
+    mems: env.mems,
+    globals: env.globals,
+    elems: env.elems,
+    datas: env.datas,
+    tags: env.tags,
+    locals: env.locals,
+    labels: env.labels,
+    return_type: env.return_type,
+  }
+}
+
+///|
+pub fn empty_env() -> Env {
+  Env::{
+    global_types: [],
+    rec_stack: [],
+    funcs: [],
+    tables: [],
+    mems: [],
+    globals: [],
+    elems: [],
+    datas: [],
+    tags: [],
+    locals: [],
+    labels: [],
+    return_type: None,
+  }
+}
+
+///|
 fn Env::get_label_types(env : Env, idx : LabelIdx) -> Array[ValType]? {
   let LabelIdx(i) = idx
   let n = env.labels.length() // Int
@@ -4018,4 +4287,162 @@ fn ref_array_nullable(x : TypeIdx) -> ValType {
 ///|
 fn ref_null_array_of(x : TypeIdx) -> ValType {
   RefTypeValType(HeapTypeRefType(true, HeapType(x)))
+}
+
+///|
+pub fn Env::push_tag(env : Env, t : TagType) -> Env {
+  let tags = env.tags.copy()
+  tags.push(t)
+  Env::{
+    global_types: env.global_types,
+    rec_stack: env.rec_stack,
+    funcs: env.funcs,
+    tables: env.tables,
+    mems: env.mems,
+    globals: env.globals,
+    elems: env.elems,
+    datas: env.datas,
+    tags,
+    locals: env.locals,
+    labels: env.labels,
+    return_type: env.return_type,
+  }
+}
+
+///|
+pub fn Env::push_global(env : Env, gt : GlobalType) -> Env {
+  let globals = env.globals.copy()
+  globals.push(gt)
+  Env::{
+    global_types: env.global_types,
+    rec_stack: env.rec_stack,
+    funcs: env.funcs,
+    tables: env.tables,
+    mems: env.mems,
+    globals,
+    elems: env.elems,
+    datas: env.datas,
+    tags: env.tags,
+    locals: env.locals,
+    labels: env.labels,
+    return_type: env.return_type,
+  }
+}
+
+///|
+pub fn Env::push_func(env : Env, ft : FuncType) -> Env {
+  let funcs = env.funcs.copy()
+  funcs.push(ft)
+  Env::{
+    global_types: env.global_types,
+    rec_stack: env.rec_stack,
+    funcs,
+    tables: env.tables,
+    mems: env.mems,
+    globals: env.globals,
+    elems: env.elems,
+    datas: env.datas,
+    tags: env.tags,
+    locals: env.locals,
+    labels: env.labels,
+    return_type: env.return_type,
+  }
+}
+
+///|
+pub fn Env::push_mem(env : Env, mt : MemType) -> Env {
+  let mems = env.mems.copy()
+  mems.push(mt)
+  Env::{
+    global_types: env.global_types,
+    rec_stack: env.rec_stack,
+    funcs: env.funcs,
+    tables: env.tables,
+    mems,
+    globals: env.globals,
+    elems: env.elems,
+    datas: env.datas,
+    tags: env.tags,
+    locals: env.locals,
+    labels: env.labels,
+    return_type: env.return_type,
+  }
+}
+
+///|
+pub fn Env::push_table(env : Env, tt : TableType) -> Env {
+  let tables = env.tables.copy()
+  tables.push(tt)
+  Env::{
+    global_types: env.global_types,
+    rec_stack: env.rec_stack,
+    funcs: env.funcs,
+    tables,
+    mems: env.mems,
+    globals: env.globals,
+    elems: env.elems,
+    datas: env.datas,
+    tags: env.tags,
+    locals: env.locals,
+    labels: env.labels,
+    return_type: env.return_type,
+  }
+}
+
+///|
+fn Env::with_locals(env : Env, locals : Array[ValType]) -> Env {
+  Env::{
+    global_types: env.global_types,
+    rec_stack: env.rec_stack,
+    funcs: env.funcs,
+    tables: env.tables,
+    mems: env.mems,
+    globals: env.globals,
+    elems: env.elems,
+    datas: env.datas,
+    tags: env.tags,
+    locals,
+    labels: env.labels,
+    return_type: env.return_type,
+  }
+}
+
+///|
+pub fn Env::push_data(env : Env, d : Data) -> Env {
+  let datas = env.datas.copy()
+  datas.push(d)
+  Env::{
+    global_types: env.global_types,
+    rec_stack: env.rec_stack,
+    funcs: env.funcs,
+    tables: env.tables,
+    mems: env.mems,
+    globals: env.globals,
+    elems: env.elems,
+    datas,
+    tags: env.tags,
+    locals: env.locals,
+    labels: env.labels,
+    return_type: env.return_type,
+  }
+}
+
+///|
+pub fn Env::push_elem(env : Env, e : Elem) -> Env {
+  let elems = env.elems.copy()
+  elems.push(e)
+  Env::{
+    global_types: env.global_types,
+    rec_stack: env.rec_stack,
+    funcs: env.funcs,
+    tables: env.tables,
+    mems: env.mems,
+    globals: env.globals,
+    elems,
+    datas: env.datas,
+    tags: env.tags,
+    locals: env.locals,
+    labels: env.labels,
+    return_type: env.return_type,
+  }
 }
