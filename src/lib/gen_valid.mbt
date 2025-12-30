@@ -626,8 +626,6 @@ test "Sanity check" {
   let encoded = @buffer.new()
   mod.encode(encoded).unwrap()
   let result = Module::decode(encoded.to_bytes(), 0)
-  println(mod)
-  println(result)
-  let (m2, _) = result.unwrap()
+  let _ = result.unwrap()
   // assert_eq(mod, m2, msg="Modules not equal")
 }

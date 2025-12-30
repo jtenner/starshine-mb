@@ -1831,6 +1831,7 @@ pub impl Show for Instruction with output(self, logger) {
   }
 }
 
+///|
 pub impl Show for CustomSec with output(self, logger) {
   let CustomSec(name, _) = self
   logger.write_string("[Custom: ")
@@ -1838,6 +1839,7 @@ pub impl Show for CustomSec with output(self, logger) {
   logger.write_char(']')
 }
 
+///|
 pub impl Show for TypeSec with output(self, logger) {
   let TypeSec(tys) = self
   logger.write_string("[Types")
@@ -1854,6 +1856,7 @@ pub impl Show for TypeSec with output(self, logger) {
   logger.write_char(']')
 }
 
+///|
 pub impl Show for ImportSec with output(self, logger) {
   let ImportSec(imports) = self
   logger.write_string("[Imports")
@@ -1870,6 +1873,7 @@ pub impl Show for ImportSec with output(self, logger) {
   logger.write_char(']')
 }
 
+///|
 pub impl Show for FuncSec with output(self, logger) {
   let FuncSec(fns) = self
   logger.write_string("[Funcs")
@@ -1886,6 +1890,7 @@ pub impl Show for FuncSec with output(self, logger) {
   logger.write_char(']')
 }
 
+///|
 pub impl Show for TableSec with output(self, logger) {
   let TableSec(tbls) = self
   logger.write_string("[Tables")
@@ -1902,6 +1907,7 @@ pub impl Show for TableSec with output(self, logger) {
   logger.write_char(']')
 }
 
+///|
 pub impl Show for MemSec with output(self, logger) {
   let MemSec(mems) = self
   logger.write_string("[Memory")
@@ -1918,6 +1924,7 @@ pub impl Show for MemSec with output(self, logger) {
   logger.write_char(']')
 }
 
+///|
 pub impl Show for TagSec with output(self, logger) {
   let TagSec(mems) = self
   logger.write_string("[Tags")
@@ -1934,6 +1941,7 @@ pub impl Show for TagSec with output(self, logger) {
   logger.write_char(']')
 }
 
+///|
 pub impl Show for GlobalSec with output(self, logger) {
   let GlobalSec(globals) = self
   logger.write_string("[Globals")
@@ -1950,7 +1958,7 @@ pub impl Show for GlobalSec with output(self, logger) {
   logger.write_char(']')
 }
 
-
+///|
 pub impl Show for ExportSec with output(self, logger) {
   let ExportSec(exports) = self
   logger.write_string("[Globals")
@@ -1967,6 +1975,7 @@ pub impl Show for ExportSec with output(self, logger) {
   logger.write_char(']')
 }
 
+///|
 pub impl Show for StartSec with output(self, logger) {
   let StartSec(start) = self
   logger.write_string("[Start ")
@@ -1974,6 +1983,7 @@ pub impl Show for StartSec with output(self, logger) {
   logger.write_char(']')
 }
 
+///|
 pub impl Show for ElemSec with output(self, logger) {
   let ElemSec(elems) = self
   logger.write_string("[Elems")
@@ -1990,6 +2000,7 @@ pub impl Show for ElemSec with output(self, logger) {
   logger.write_char(']')
 }
 
+///|
 pub impl Show for DataCntSec with output(self, logger) {
   let DataCntSec(start) = self
   logger.write_string("[DataCount ")
@@ -1997,6 +2008,7 @@ pub impl Show for DataCntSec with output(self, logger) {
   logger.write_char(']')
 }
 
+///|
 pub impl Show for CodeSec with output(self, logger) {
   let CodeSec(codes) = self
   logger.write_string("[Code")
@@ -2013,6 +2025,7 @@ pub impl Show for CodeSec with output(self, logger) {
   logger.write_char(']')
 }
 
+///|
 pub impl Show for DataSec with output(self, logger) {
   let DataSec(datas) = self
   logger.write_string("[Elems")
@@ -2029,6 +2042,7 @@ pub impl Show for DataSec with output(self, logger) {
   logger.write_char(']')
 }
 
+///|
 pub impl Show for Module with output(self, logger) {
   let Module(
     customs,

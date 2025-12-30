@@ -475,19 +475,24 @@ pub struct Export(Name, ExternIdx) derive(Arbitrary)
 ///|
 pub struct Locals(UInt, ValType)
 
+///|
 pub impl @quickcheck.Arbitrary for Locals with arbitrary(t, state) {
   let count = state.next_positive_int() % 3 + 1
-  Locals(count.reinterpret_as_uint(), @quickcheck.Arbitrary::arbitrary(t, state))
+  Locals(
+    count.reinterpret_as_uint(),
+    @quickcheck.Arbitrary::arbitrary(t, state),
+  )
 }
 
 ///|
 pub struct Func(Array[Locals], Expr)
 
+///|
 pub impl @quickcheck.Arbitrary for Func with arbitrary(t, state) {
   let elems = []
   let count = state.next_positive_int() % 4 + 1
   loop count {
-    0 => break()
+    0 => break ()
     n => {
       elems.push(@quickcheck.Arbitrary::arbitrary(t, state))
       continue n - 1
@@ -505,9 +510,13 @@ pub enum DataMode {
 ///|
 pub struct Data(DataMode, Bytes)
 
+///|
 pub impl @quickcheck.Arbitrary for Data with arbitrary(t, state) {
   let size = state.next_positive_int() % 10 + 1
-  Data(@quickcheck.Arbitrary::arbitrary(t, state), @quickcheck.Arbitrary::arbitrary(size, state))
+  Data(
+    @quickcheck.Arbitrary::arbitrary(t, state),
+    @quickcheck.Arbitrary::arbitrary(size, state),
+  )
 }
 
 ///|
@@ -1270,18 +1279,17 @@ pub impl @quickcheck.Arbitrary for Name with arbitrary(_, state) {
 ///|
 pub struct CustomSec(Name, Bytes)
 
+///|
 pub impl @quickcheck.Arbitrary for CustomSec with arbitrary(size, st) {
   let name = @quickcheck.Arbitrary::arbitrary(size, st)
   let length = st.next_positive_int() % 19 + 1
-
   let buf = @buffer.new()
-
   let bytes = loop length {
     0 => buf.to_bytes()
     n => {
       buf.write_byte((st.next_positive_int() % 256).to_byte())
       continue n - 1
-    } 
+    }
   }
   CustomSec(name, bytes)
 }
@@ -1313,11 +1321,12 @@ pub struct StartSec(FuncIdx) derive(Arbitrary)
 ///|
 pub struct ElemSec(Array[Elem])
 
+///|
 pub impl @quickcheck.Arbitrary for ElemSec with arbitrary(t, state) {
   let elems = []
   let count = state.next_positive_int() % 4 + 1
   loop count {
-    0 => break()
+    0 => break ()
     n => {
       elems.push(@quickcheck.Arbitrary::arbitrary(t, state))
       continue n - 1
@@ -1329,11 +1338,12 @@ pub impl @quickcheck.Arbitrary for ElemSec with arbitrary(t, state) {
 ///|
 pub struct CodeSec(Array[Func])
 
+///|
 pub impl @quickcheck.Arbitrary for CodeSec with arbitrary(t, state) {
   let elems = []
   let count = state.next_positive_int() % 4 + 1
   loop count {
-    0 => break()
+    0 => break ()
     n => {
       elems.push(@quickcheck.Arbitrary::arbitrary(t, state))
       continue n - 1
@@ -1345,11 +1355,12 @@ pub impl @quickcheck.Arbitrary for CodeSec with arbitrary(t, state) {
 ///|
 pub struct DataSec(Array[Data])
 
+///|
 pub impl @quickcheck.Arbitrary for DataSec with arbitrary(t, state) {
   let elems = []
   let count = state.next_positive_int() % 4 + 1
   loop count {
-    0 => break()
+    0 => break ()
     n => {
       elems.push(@quickcheck.Arbitrary::arbitrary(t, state))
       continue n - 1
@@ -1357,7 +1368,6 @@ pub impl @quickcheck.Arbitrary for DataSec with arbitrary(t, state) {
   }
   DataSec(elems)
 }
-
 
 ///|
 pub struct DataCntSec(U32) derive(Arbitrary)
@@ -2646,7 +2656,79 @@ pub struct Module(
   DataCntSec?,
   CodeSec?,
   DataSec?
-) derive(Arbitrary)
+)
+
+///|
+pub impl @quickcheck.Arbitrary for Module with arbitrary(t, state) {
+  Module(
+    array_of_arbitrary(5, t, state),
+    if state.next_positive_int() % 2 == 0 {
+      Some(@quickcheck.Arbitrary::arbitrary(t, state))
+    } else {
+      None
+    },
+    if state.next_positive_int() % 2 == 0 {
+      Some(@quickcheck.Arbitrary::arbitrary(t, state))
+    } else {
+      None
+    },
+    if state.next_positive_int() % 2 == 0 {
+      Some(@quickcheck.Arbitrary::arbitrary(t, state))
+    } else {
+      None
+    },
+    if state.next_positive_int() % 2 == 0 {
+      Some(@quickcheck.Arbitrary::arbitrary(t, state))
+    } else {
+      None
+    },
+    if state.next_positive_int() % 2 == 0 {
+      Some(@quickcheck.Arbitrary::arbitrary(t, state))
+    } else {
+      None
+    },
+    if state.next_positive_int() % 2 == 0 {
+      Some(@quickcheck.Arbitrary::arbitrary(t, state))
+    } else {
+      None
+    },
+    if state.next_positive_int() % 2 == 0 {
+      Some(@quickcheck.Arbitrary::arbitrary(t, state))
+    } else {
+      None
+    },
+    if state.next_positive_int() % 2 == 0 {
+      Some(@quickcheck.Arbitrary::arbitrary(t, state))
+    } else {
+      None
+    },
+    if state.next_positive_int() % 2 == 0 {
+      Some(@quickcheck.Arbitrary::arbitrary(t, state))
+    } else {
+      None
+    },
+    if state.next_positive_int() % 2 == 0 {
+      Some(@quickcheck.Arbitrary::arbitrary(t, state))
+    } else {
+      None
+    },
+    if state.next_positive_int() % 2 == 0 {
+      Some(@quickcheck.Arbitrary::arbitrary(t, state))
+    } else {
+      None
+    },
+    if state.next_positive_int() % 2 == 0 {
+      Some(@quickcheck.Arbitrary::arbitrary(t, state))
+    } else {
+      None
+    },
+    if state.next_positive_int() % 2 == 0 {
+      Some(@quickcheck.Arbitrary::arbitrary(t, state))
+    } else {
+      None
+    },
+  )
+}
 
 ///|
 pub impl Eq for Module with equal(l, r) {

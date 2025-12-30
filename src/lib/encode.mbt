@@ -982,21 +982,15 @@ pub impl Decode for Name with decode(bytes, i) {
     Err(err) => return Err(err)
     Ok(t) => t
   }
-
   let len = len_u.reinterpret_as_int()
   if len < 0 {
     return Err("negative name length")
   }
-
   let end = j + len
   if end > bytes.length() {
     return Err("Index out of bounds")
   }
-
-  let name =
-    @encoding/utf8.decode_lossy(bytes[j:end])
-      .to_string_view()
-
+  let name = @encoding/utf8.decode_lossy(bytes[j:end]).to_string_view()
   Ok((Name(name), end))
 }
 
@@ -1004,15 +998,11 @@ pub impl Decode for Name with decode(bytes, i) {
 pub impl Encode for CustomSec with encode(val, buf) {
   let CustomSec(name, bytes) = val
   buf.write_byte(0)
-
   let payload_buff = @buffer.new()
-
   if name.encode(payload_buff) is Err(t) {
     return Err(t)
   }
-
   payload_buff.write_bytes(bytes)
-  
   let payload_bytes = payload_buff.to_bytes()
   if U32(payload_bytes.length().reinterpret_as_uint()).encode(buf) is Err(t) {
     return Err(t)
@@ -1024,7 +1014,6 @@ pub impl Encode for CustomSec with encode(val, buf) {
 ///|
 pub impl Encode for TypeSec with encode(val, buf) {
   buf.write_byte(1)
-
   let payload = @buffer.new()
   if Encode::encode(val.0, payload) is Err(t) {
     return Err(t)
@@ -1040,7 +1029,6 @@ pub impl Encode for TypeSec with encode(val, buf) {
 ///|
 pub impl Encode for ImportSec with encode(val, buf) {
   buf.write_byte(2)
-
   let payload = @buffer.new()
   if Encode::encode(val.0, payload) is Err(t) {
     return Err(t)
@@ -1157,7 +1145,6 @@ pub impl Encode for TagType with encode(val, buf) {
 ///|
 pub impl Encode for FuncSec with encode(val, buf) {
   buf.write_byte(3)
-
   let payload = @buffer.new()
   if Encode::encode(val.0, payload) is Err(t) {
     return Err(t)
@@ -1170,11 +1157,9 @@ pub impl Encode for FuncSec with encode(val, buf) {
   Ok(())
 }
 
-
 ///|
 pub impl Encode for TableSec with encode(val, buf) {
   buf.write_byte(4)
-
   let payload = @buffer.new()
   if Encode::encode(val.0, payload) is Err(t) {
     return Err(t)
@@ -1204,7 +1189,6 @@ pub impl Encode for Table with encode(val, buf) {
 ///|
 pub impl Encode for MemSec with encode(val, buf) {
   buf.write_byte(5)
-
   let payload = @buffer.new()
   if Encode::encode(val.0, payload) is Err(t) {
     return Err(t)
@@ -1220,7 +1204,6 @@ pub impl Encode for MemSec with encode(val, buf) {
 ///|
 pub impl Encode for GlobalSec with encode(val, buf) {
   buf.write_byte(6)
-
   let payload = @buffer.new()
   if Encode::encode(val.0, payload) is Err(t) {
     return Err(t)
@@ -1246,7 +1229,6 @@ pub impl Encode for Global with encode(val, buf) {
 ///|
 pub impl Encode for ExportSec with encode(val, buf) {
   buf.write_byte(7)
-
   let payload = @buffer.new()
   if Encode::encode(val.0, payload) is Err(t) {
     return Err(t)
@@ -1278,7 +1260,6 @@ pub impl Encode for StartSec with encode(val, buf) {
 ///|
 pub impl Encode for ElemSec with encode(val, buf) {
   buf.write_byte(9)
-
   let payload = @buffer.new()
   if Encode::encode(val.0, payload) is Err(t) {
     return Err(t)
@@ -1399,14 +1380,13 @@ pub impl Encode for Func with encode(val, buf) {
   if U32(fn_bytes.length().reinterpret_as_uint()).encode(buf) is Err(t) {
     return Err(t)
   }
-  buf.write_bytes(fn_bytes)  // Don't use Encode::encode here - just write raw bytes
+  buf.write_bytes(fn_bytes) // Don't use Encode::encode here - just write raw bytes
   Ok(())
 }
 
 ///|
 pub impl Encode for DataSec with encode(val, buf) {
   buf.write_byte(11)
-
   let payload = @buffer.new()
   if Encode::encode(val.0, payload) is Err(t) {
     return Err(t)
@@ -1463,14 +1443,12 @@ pub impl Encode for DataCntSec with encode(val, buf) {
   if count.encode(buf) is Err(t) {
     return Err(t)
   }
-
   Ok(())
 }
 
 ///|
 pub impl Encode for TagSec with encode(val, buf) {
   buf.write_byte(13)
-
   let payload = @buffer.new()
   if Encode::encode(val.0, payload) is Err(t) {
     return Err(t)
@@ -1547,6 +1525,7 @@ pub impl Encode for Module with encode(val, buf) {
 
 ///|
 pub impl Decode for Module with decode(bytes, i) {
+  let mut i = i
   let custom = Array::new()
   let mut type_sec = None
   let mut import_sec = None
@@ -1561,253 +1540,115 @@ pub impl Decode for Module with decode(bytes, i) {
   let mut data_cnt_sec = None
   let mut code_sec = None
   let mut data_sec = None
-  let mut i = loop i {
-    i =>
-      match bytes.get(i) {
-        Some(0) =>
-          match CustomSec::decode(bytes, i) {
-            Ok((sec, i)) => {
-              custom.push(sec)
-              continue i
-            }
-            Err(t) => return Err(t)
-          }
-        _ => break i
-      }
+  for b in [0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00] {
+    if bytes.get(i) != Some(b.to_byte()) {
+      return Err("Invalid magic header")
+    }
+    i = i + 1
   }
-  if TypeSec::decode(bytes, i) is Ok((sec, n)) {
-    i = n
+  while CustomSec::decode(bytes, i) is Ok((sec, next)) {
+    custom.push(sec)
+    i = next
+  }
+  if TypeSec::decode(bytes, i) is Ok((sec, next)) {
     type_sec = Some(sec)
+    i = next
   }
-  i = loop i {
-    i =>
-      match bytes.get(i) {
-        Some(0) =>
-          match CustomSec::decode(bytes, i) {
-            Ok((sec, i)) => {
-              custom.push(sec)
-              continue i
-            }
-            Err(t) => return Err(t)
-          }
-        _ => break i
-      }
+  while CustomSec::decode(bytes, i) is Ok((sec, next)) {
+    custom.push(sec)
+    i = next
   }
-  if ImportSec::decode(bytes, i) is Ok((sec, n)) {
-    i = n
+  if ImportSec::decode(bytes, i) is Ok((sec, next)) {
     import_sec = Some(sec)
+    i = next
   }
-  i = loop i {
-    i =>
-      match bytes.get(i) {
-        Some(0) =>
-          match CustomSec::decode(bytes, i) {
-            Ok((sec, i)) => {
-              custom.push(sec)
-              continue i
-            }
-            Err(t) => return Err(t)
-          }
-        _ => break i
-      }
+  while CustomSec::decode(bytes, i) is Ok((sec, next)) {
+    custom.push(sec)
+    i = next
   }
-  if FuncSec::decode(bytes, i) is Ok((sec, n)) {
-    i = n
+  if FuncSec::decode(bytes, i) is Ok((sec, next)) {
     func_sec = Some(sec)
+    i = next
   }
-  i = loop i {
-    i =>
-      match bytes.get(i) {
-        Some(0) =>
-          match CustomSec::decode(bytes, i) {
-            Ok((sec, i)) => {
-              custom.push(sec)
-              continue i
-            }
-            Err(t) => return Err(t)
-          }
-        _ => break i
-      }
+  while CustomSec::decode(bytes, i) is Ok((sec, next)) {
+    custom.push(sec)
+    i = next
   }
-  if TableSec::decode(bytes, i) is Ok((sec, n)) {
-    i = n
+  if TableSec::decode(bytes, i) is Ok((sec, next)) {
     table_sec = Some(sec)
+    i = next
   }
-  i = loop i {
-    i =>
-      match bytes.get(i) {
-        Some(0) =>
-          match CustomSec::decode(bytes, i) {
-            Ok((sec, i)) => {
-              custom.push(sec)
-              continue i
-            }
-            Err(t) => return Err(t)
-          }
-        _ => break i
-      }
+  while CustomSec::decode(bytes, i) is Ok((sec, next)) {
+    custom.push(sec)
+    i = next
   }
-  if MemSec::decode(bytes, i) is Ok((sec, n)) {
-    i = n
+  if MemSec::decode(bytes, i) is Ok((sec, next)) {
     mem_sec = Some(sec)
+    i = next
   }
-  i = loop i {
-    i =>
-      match bytes.get(i) {
-        Some(0) =>
-          match CustomSec::decode(bytes, i) {
-            Ok((sec, i)) => {
-              custom.push(sec)
-              continue i
-            }
-            Err(t) => return Err(t)
-          }
-        _ => break i
-      }
+  while CustomSec::decode(bytes, i) is Ok((sec, next)) {
+    custom.push(sec)
+    i = next
   }
-  if TagSec::decode(bytes, i) is Ok((sec, n)) {
-    i = n
+  if TagSec::decode(bytes, i) is Ok((sec, next)) {
     tag_sec = Some(sec)
+    i = next
   }
-  i = loop i {
-    i =>
-      match bytes.get(i) {
-        Some(0) =>
-          match CustomSec::decode(bytes, i) {
-            Ok((sec, i)) => {
-              custom.push(sec)
-              continue i
-            }
-            Err(t) => return Err(t)
-          }
-        _ => break i
-      }
+  while CustomSec::decode(bytes, i) is Ok((sec, next)) {
+    custom.push(sec)
+    i = next
   }
-  if GlobalSec::decode(bytes, i) is Ok((sec, n)) {
-    i = n
+  if GlobalSec::decode(bytes, i) is Ok((sec, next)) {
     global_sec = Some(sec)
+    i = next
   }
-  i = loop i {
-    i =>
-      match bytes.get(i) {
-        Some(0) =>
-          match CustomSec::decode(bytes, i) {
-            Ok((sec, i)) => {
-              custom.push(sec)
-              continue i
-            }
-            Err(t) => return Err(t)
-          }
-        _ => break i
-      }
+  while CustomSec::decode(bytes, i) is Ok((sec, next)) {
+    custom.push(sec)
+    i = next
   }
-  if ExportSec::decode(bytes, i) is Ok((sec, n)) {
-    i = n
+  if ExportSec::decode(bytes, i) is Ok((sec, next)) {
     export_sec = Some(sec)
+    i = next
   }
-  i = loop i {
-    i =>
-      match bytes.get(i) {
-        Some(0) =>
-          match CustomSec::decode(bytes, i) {
-            Ok((sec, i)) => {
-              custom.push(sec)
-              continue i
-            }
-            Err(t) => return Err(t)
-          }
-        _ => break i
-      }
+  while CustomSec::decode(bytes, i) is Ok((sec, next)) {
+    custom.push(sec)
+    i = next
   }
-  if StartSec::decode(bytes, i) is Ok((sec, n)) {
-    i = n
+  if StartSec::decode(bytes, i) is Ok((sec, next)) {
     start_sec = Some(sec)
+    i = next
   }
-  i = loop i {
-    i =>
-      match bytes.get(i) {
-        Some(0) =>
-          match CustomSec::decode(bytes, i) {
-            Ok((sec, i)) => {
-              custom.push(sec)
-              continue i
-            }
-            Err(t) => return Err(t)
-          }
-        _ => break i
-      }
+  while CustomSec::decode(bytes, i) is Ok((sec, next)) {
+    custom.push(sec)
+    i = next
   }
-  if ElemSec::decode(bytes, i) is Ok((sec, n)) {
-    i = n
+  if ElemSec::decode(bytes, i) is Ok((sec, next)) {
     elem_sec = Some(sec)
+    i = next
   }
-  i = loop i {
-    i =>
-      match bytes.get(i) {
-        Some(0) =>
-          match CustomSec::decode(bytes, i) {
-            Ok((sec, i)) => {
-              custom.push(sec)
-              continue i
-            }
-            Err(t) => return Err(t)
-          }
-        _ => break i
-      }
+  while CustomSec::decode(bytes, i) is Ok((sec, next)) {
+    custom.push(sec)
+    i = next
   }
-  if DataCntSec::decode(bytes, i) is Ok((sec, n)) {
-    i = n
+  if DataCntSec::decode(bytes, i) is Ok((sec, next)) {
     data_cnt_sec = Some(sec)
+    i = next
   }
-  i = loop i {
-    i =>
-      match bytes.get(i) {
-        Some(0) =>
-          match CustomSec::decode(bytes, i) {
-            Ok((sec, i)) => {
-              custom.push(sec)
-              continue i
-            }
-            Err(t) => return Err(t)
-          }
-        _ => break i
-      }
+  while CustomSec::decode(bytes, i) is Ok((sec, next)) {
+    custom.push(sec)
+    i = next
   }
-  if CodeSec::decode(bytes, i) is Ok((sec, n)) {
-    i = n
+  if CodeSec::decode(bytes, i) is Ok((sec, next)) {
     code_sec = Some(sec)
+    i = next
   }
-  i = loop i {
-    i =>
-      match bytes.get(i) {
-        Some(0) =>
-          match CustomSec::decode(bytes, i) {
-            Ok((sec, i)) => {
-              custom.push(sec)
-              continue i
-            }
-            Err(t) => return Err(t)
-          }
-        _ => break i
-      }
+  while CustomSec::decode(bytes, i) is Ok((sec, next)) {
+    custom.push(sec)
+    i = next
   }
-  if DataSec::decode(bytes, i) is Ok((sec, n)) {
-    i = n
+  if DataSec::decode(bytes, i) is Ok((sec, next)) {
     data_sec = Some(sec)
-  }
-  i = loop i {
-    i =>
-      match bytes.get(i) {
-        Some(0) =>
-          match CustomSec::decode(bytes, i) {
-            Ok((sec, i)) => {
-              custom.push(sec)
-              continue i
-            }
-            Err(t) => return Err(t)
-          }
-        _ => break i
-      }
+    i = next
   }
   if i == bytes.length() {
     Ok(
@@ -1916,7 +1757,15 @@ pub impl Decode for Elem with decode(bytes, i) {
             Ok((expr, i)) =>
               match Decode::decode(bytes, i) {
                 Ok((exprs, i)) =>
-                  Ok((Elem(ElemMode::Active(idx, expr), FuncExprsElemKind(exprs)), i))
+                  Ok(
+                    (
+                      Elem(
+                        ElemMode::Active(idx, expr),
+                        FuncExprsElemKind(exprs),
+                      ),
+                      i,
+                    ),
+                  )
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
@@ -1949,13 +1798,13 @@ pub impl Decode for ElemSec with decode(bytes, i) {
   }
   let len = len.reinterpret_as_int()
   let payload_end = payload_start + len
-  
+
   // Decode from the payload slice (or directly with bounds checking)
-  let (content, j) = match Decode::decode(bytes[payload_start:payload_end].to_bytes(), 0) {
+  let (content, j) = match
+    Decode::decode(bytes[payload_start:payload_end].to_bytes(), 0) {
     Ok(t) => t
     Err(t) => return Err(t)
   }
-  
   if j == len {
     Ok((ElemSec(content), payload_end))
   } else {
@@ -1989,7 +1838,7 @@ pub impl Decode for Locals with decode(bytes, i) {
 ///|
 pub impl Decode for Func with decode(bytes, i) {
   match U32::decode(bytes, i) {
-    Ok((U32(_size), i)) =>  // Read the length prefix first
+    Ok((U32(_size), i)) => // Read the length prefix first
       match Decode::decode(bytes, i) {
         Ok((locals, i)) =>
           match Expr::decode(bytes, i) {
@@ -2001,7 +1850,6 @@ pub impl Decode for Func with decode(bytes, i) {
     Err(t) => Err(t)
   }
 }
-
 
 ///|
 pub impl Decode for CodeSec with decode(bytes, i) {
@@ -2053,7 +1901,7 @@ pub impl Decode for Data with decode(bytes, i) {
 
 ///|
 pub impl Decode for DataSec with decode(bytes, i) {
-if bytes.get(i) != Some(11) {
+  if bytes.get(i) != Some(11) {
     return Err("Invalid section header")
   }
   let (U32(len), payload_start) = match U32::decode(bytes, i + 1) {
@@ -2062,13 +1910,13 @@ if bytes.get(i) != Some(11) {
   }
   let len = len.reinterpret_as_int()
   let payload_end = payload_start + len
-  
+
   // Decode from the payload slice (or directly with bounds checking)
-  let (content, j) = match Decode::decode(bytes[payload_start:payload_end].to_bytes(), 0) {
+  let (content, j) = match
+    Decode::decode(bytes[payload_start:payload_end].to_bytes(), 0) {
     Ok(t) => t
     Err(t) => return Err(t)
   }
-  
   if j == len {
     Ok((DataSec(content), payload_end))
   } else {
@@ -2076,11 +1924,11 @@ if bytes.get(i) != Some(11) {
   }
 }
 
+///|
 pub impl Decode for CustomSec with decode(bytes, i) {
   if bytes.get(i) != Some(0) {
     return Err("Invalid section header")
   }
-
   let (U32(len), i1) = match U32::decode(bytes, i + 1) {
     Ok(t) => t
     Err(t) => return Err(t)
@@ -2090,16 +1938,13 @@ pub impl Decode for CustomSec with decode(bytes, i) {
   if end > bytes.length() {
     return Err("Custom section payload length out of range")
   }
-
   let view = bytes[i1:end].to_bytes()
-
   let (name, j) = match Name::decode(view, 0) {
     Ok(t) => t
     Err(t) => return Err(t)
   }
-
   let bytes = view[j:].to_bytes()
-  Ok((CustomSec(name, bytes), end))  
+  Ok((CustomSec(name, bytes), end))
 }
 
 ///|
@@ -2113,13 +1958,13 @@ pub impl Decode for TypeSec with decode(bytes, i) {
   }
   let len = len.reinterpret_as_int()
   let payload_end = payload_start + len
-  
+
   // Decode from the payload slice (or directly with bounds checking)
-  let (content, j) = match Decode::decode(bytes[payload_start:payload_end].to_bytes(), 0) {
+  let (content, j) = match
+    Decode::decode(bytes[payload_start:payload_end].to_bytes(), 0) {
     Ok(t) => t
     Err(t) => return Err(t)
   }
-  
   if j == len {
     Ok((TypeSec(content), payload_end))
   } else {
@@ -2257,6 +2102,8 @@ pub impl Decode for ExternType with decode(bytes, i) {
 }
 
 // General pattern for section decoding
+
+///|
 pub impl Decode for ImportSec with decode(bytes, i) {
   if bytes.get(i) != Some(2) {
     return Err("Invalid section header")
@@ -2267,13 +2114,13 @@ pub impl Decode for ImportSec with decode(bytes, i) {
   }
   let len = len.reinterpret_as_int()
   let payload_end = payload_start + len
-  
+
   // Decode from the payload slice (or directly with bounds checking)
-  let (content, j) = match Decode::decode(bytes[payload_start:payload_end].to_bytes(), 0) {
+  let (content, j) = match
+    Decode::decode(bytes[payload_start:payload_end].to_bytes(), 0) {
     Ok(t) => t
     Err(t) => return Err(t)
   }
-  
   if j == len {
     Ok((ImportSec(content), payload_end))
   } else {
@@ -2292,13 +2139,13 @@ pub impl Decode for FuncSec with decode(bytes, i) {
   }
   let len = len.reinterpret_as_int()
   let payload_end = payload_start + len
-  
+
   // Decode from the payload slice (or directly with bounds checking)
-  let (content, j) = match Decode::decode(bytes[payload_start:payload_end].to_bytes(), 0) {
+  let (content, j) = match
+    Decode::decode(bytes[payload_start:payload_end].to_bytes(), 0) {
     Ok(t) => t
     Err(t) => return Err(t)
   }
-  
   if j == len {
     Ok((FuncSec(content), payload_end))
   } else {
@@ -2425,13 +2272,13 @@ pub impl Decode for TableSec with decode(bytes, i) {
   }
   let len = len.reinterpret_as_int()
   let payload_end = payload_start + len
-  
+
   // Decode from the payload slice (or directly with bounds checking)
-  let (content, j) = match Decode::decode(bytes[payload_start:payload_end].to_bytes(), 0) {
+  let (content, j) = match
+    Decode::decode(bytes[payload_start:payload_end].to_bytes(), 0) {
     Ok(t) => t
     Err(t) => return Err(t)
   }
-  
   if j == len {
     Ok((TableSec(content), payload_end))
   } else {
@@ -2450,13 +2297,13 @@ pub impl Decode for MemSec with decode(bytes, i) {
   }
   let len = len.reinterpret_as_int()
   let payload_end = payload_start + len
-  
+
   // Decode from the payload slice (or directly with bounds checking)
-  let (content, j) = match Decode::decode(bytes[payload_start:payload_end].to_bytes(), 0) {
+  let (content, j) = match
+    Decode::decode(bytes[payload_start:payload_end].to_bytes(), 0) {
     Ok(t) => t
     Err(t) => return Err(t)
   }
-  
   if j == len {
     Ok((MemSec(content), payload_end))
   } else {
@@ -2466,7 +2313,7 @@ pub impl Decode for MemSec with decode(bytes, i) {
 
 ///|
 pub impl Decode for TagSec with decode(bytes, i) {
- if bytes.get(i) != Some(13) {
+  if bytes.get(i) != Some(13) {
     return Err("Invalid section header")
   }
   let (U32(len), payload_start) = match U32::decode(bytes, i + 1) {
@@ -2475,13 +2322,13 @@ pub impl Decode for TagSec with decode(bytes, i) {
   }
   let len = len.reinterpret_as_int()
   let payload_end = payload_start + len
-  
+
   // Decode from the payload slice (or directly with bounds checking)
-  let (content, j) = match Decode::decode(bytes[payload_start:payload_end].to_bytes(), 0) {
+  let (content, j) = match
+    Decode::decode(bytes[payload_start:payload_end].to_bytes(), 0) {
     Ok(t) => t
     Err(t) => return Err(t)
   }
-  
   if j == len {
     Ok((TagSec(content), payload_end))
   } else {
@@ -2500,13 +2347,13 @@ pub impl Decode for GlobalSec with decode(bytes, i) {
   }
   let len = len.reinterpret_as_int()
   let payload_end = payload_start + len
-  
+
   // Decode from the payload slice (or directly with bounds checking)
-  let (content, j) = match Decode::decode(bytes[payload_start:payload_end].to_bytes(), 0) {
+  let (content, j) = match
+    Decode::decode(bytes[payload_start:payload_end].to_bytes(), 0) {
     Ok(t) => t
     Err(t) => return Err(t)
   }
-  
   if j == len {
     Ok((GlobalSec(content), payload_end))
   } else {
@@ -2525,13 +2372,13 @@ pub impl Decode for ExportSec with decode(bytes, i) {
   }
   let len = len.reinterpret_as_int()
   let payload_end = payload_start + len
-  
+
   // Decode from the payload slice (or directly with bounds checking)
-  let (content, j) = match Decode::decode(bytes[payload_start:payload_end].to_bytes(), 0) {
+  let (content, j) = match
+    Decode::decode(bytes[payload_start:payload_end].to_bytes(), 0) {
     Ok(t) => t
     Err(t) => return Err(t)
   }
-  
   if j == len {
     Ok((ExportSec(content), payload_end))
   } else {
@@ -5747,7 +5594,8 @@ fn[T : Encode + Decode + Eq + Show] roundtrip(x : T) -> Unit raise {
     println(("Byte Representation", bytes.to_array()))
     let compare = @buffer.new()
     match Encode::encode(y, compare) {
-      Ok(_) => println(("Decoded byte representation", compare.to_bytes().to_array()))
+      Ok(_) =>
+        println(("Decoded byte representation", compare.to_bytes().to_array()))
       Err(_) => println("Could not re-encode actual value")
     }
     println(("Decoded", y))
@@ -5813,7 +5661,7 @@ test "uleb u33 rejects terminal unused bits" {
 ///|
 test "sleb s33 accepts 0x3f" {
   match decode_signed(b"\x3f", 0, 33) {
-    Ok((value, _)) => assert_eq!(value, 63L)
+    Ok((value, _)) => assert_eq(value, 63L)
     Err(e) => fail("unexpected error: \{e}")
   }
 }
@@ -6074,6 +5922,7 @@ test "Signed integers" {
 ///|
 test "Block Types" {
   let _ : Array[BlockType] = roundtrip_arbitrary(1000)
+
 }
 
 ///|
@@ -6088,7 +5937,6 @@ test "Instructions arbitrary" {
     }
   }
 }
-
 
 ///|
 test "Arbitrary CustomSec" {
@@ -6207,6 +6055,7 @@ test "Arbitrary StartSec" {
   }
 }
 
+///|
 test "Arbitrary Elem" {
   let st = @quickcheck/splitmix.new()
   loop 1000 {
@@ -6310,6 +6159,20 @@ test "Arbitrary TagSec" {
   }
 }
 
+///|
+test "Arbitrary Module" {
+  let st = @quickcheck/splitmix.new()
+  loop 1000 {
+    0 => break ()
+    n => {
+      let val = Module::arbitrary(n, st)
+      roundtrip(val)
+      continue n - 1
+    }
+  }
+}
+
+///|
 test "Names" {
   let st = @quickcheck/splitmix.new()
   loop 1000 {
