@@ -983,20 +983,26 @@ fn typecheck_br_on_cast_fail(
   Ok(st1.push1(RefTypeValType(rt2)))
 }
 
-///|
-fn typecheck_throw(st : TcState, idx : TagIdx) -> TcResult {
-  let payload = match st.env.get_tag_payload(idx) {
-    Err(e) => return Err(e)
-    Ok(ts) => ts
+fn typecheck_throw(st : TcState, tag : TagIdx) -> TcResult {
+  // validate tag index
+  if tag.validate(st.env) is Err(e) {
+    return Err(e)
   }
 
-  // Pop payload values (in reverse order via pop_types)
-  let st1 = match st.pop_types(payload) {
-    Err(e) => return Err(e)
+  // get payload params
+  let TagType(tidx) = st.env.tags[tag.0.reinterpret_as_int()]
+  let params = match st.env.resolve_functype(tidx) {
+    Some(FuncType(ps, _)) => ps
+    None => return Err("throw: invalid tag type")
+  }
+
+  // pop payload
+  let st1 = match st.pop_types(params) {
     Ok(s) => s
+    Err(e) => return Err(e)
   }
 
-  // throw is stack-polymorphic: continuation is unreachable
+  // throw always makes execution unreachable
   Ok(st1.set_unreachable())
 }
 
@@ -1009,71 +1015,58 @@ fn typecheck_throw_ref(st : TcState) -> TcResult {
   Ok(st1.set_unreachable())
 }
 
-///|
-fn typecheck_catch_clause(st : TcState, c : Catch) -> Result[Unit, String] {
+fn typecheck_catch_clause(
+  st : TcState,
+  c : Catch,
+) -> TcResult {
   match c {
-    // catch x l: payload t* matches label
-    Catch(tag, lab) => {
-      let payload = match st.env.get_tag_payload(tag) {
-        Err(e) => return Err(e)
-        Ok(ts) => ts
+    Catch(tag, lbl) => {
+      // label must expect tag's payload types
+      let label_types = st.env.labels[lbl.0.reinterpret_as_int()]
+      let payload = tag_payload_types(st.env, tag)
+      if not(Match::matches(payload, label_types, st.env)) {
+        return Err("catch types (payload) do not match label types")
       }
-      let label_ts = match st.env.get_label_types(lab) {
-        None => return Err("invalid label index in catch")
-        Some(ts) => ts
-      }
-      if !Match::matches(payload, label_ts, st.env) {
-        return Err("catch payload types do not match label types")
-      }
-      Ok(())
+      Ok(st)
     }
-
-    // catch_ref x l: payload t* plus (ref exn) matches label
-    CatchRef(tag, lab) => {
-      let payload = match st.env.get_tag_payload(tag) {
-        Err(e) => return Err(e)
-        Ok(ts) => ts
+    CatchRef(tag, lbl) => {
+      // label must expect tag's payload types + exnref
+      let label_types = st.env.labels[lbl.0.reinterpret_as_int()]
+      let payload = tag_payload_types(st.env, tag)
+      let expected = payload.copy()
+      expected.push(
+        RefTypeValType(
+          HeapTypeRefType(false, AbsHeapTypeHeapType(ExnAbsHeapType)),
+        ),
+      )
+      if not(Match::matches(payload, label_types, st.env)) {
+        return Err("catch_ref types (payload + exnref) do not match label types")
       }
-      let want = append_valtype(payload, ref_exn_valtype())
-      let label_ts = match st.env.get_label_types(lab) {
-        None => return Err("invalid label index in catch_ref")
-        Some(ts) => ts
-      }
-      if !Match::matches(want, label_ts, st.env) {
-        return Err(
-          "catch_ref types (payload + ref exn) do not match label types",
-        )
-      }
-      Ok(())
+      Ok(st)
     }
-
-    // catch_all l: ε matches label  (i.e. empty vector ≤ label)
-    CatchAll(lab) => {
-      let label_ts = match st.env.get_label_types(lab) {
-        None => return Err("invalid label index in catch_all")
-        Some(ts) => ts
+    CatchAll(lbl) => {
+      // label must expect empty
+      let label_types = st.env.labels[lbl.0.reinterpret_as_int()]
+      if label_types.length() != 0 {
+        return Err("catch_all label must expect no values")
       }
-      if !Match::matches([], label_ts, st.env) {
-        return Err("catch_all requires empty result type to match label")
-      }
-      Ok(())
+      Ok(st)
     }
-
-    // catch_all_ref l: (ref exn) matches label
-    CatchAllRef(lab) => {
-      let label_ts = match st.env.get_label_types(lab) {
-        None => return Err("invalid label index in catch_all_ref")
-        Some(ts) => ts
+    CatchAllRef(lbl) => {
+      // label must expect just exnref
+      let label_types = st.env.labels[lbl.0.reinterpret_as_int()]
+      let expected = [
+        RefTypeValType(
+          HeapTypeRefType(false, AbsHeapTypeHeapType(ExnAbsHeapType)),
+        ),
+      ]
+      if not(Match::matches(expected, label_types, st.env)) {
+        return Err("catch_all_ref label must expect exnref")
       }
-      let want = [ref_exn_valtype()]
-      if !Match::matches(want, label_ts, st.env) {
-        return Err("catch_all_ref requires (ref exn) to match label")
-      }
-      Ok(())
+      Ok(st)
     }
   }
 }
-
 ///|
 fn typecheck_try_table(
   st : TcState,

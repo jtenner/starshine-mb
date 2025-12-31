@@ -220,12 +220,13 @@ pub impl Validate for TagType with validate(self, env) {
     return Err(t)
   }
   match env.resolve_comptype(tidx) {
-    Some(FuncCompType(params, results)) =>
-      match Validate::validate(params, env) {
-        Ok(_) => Validate::validate(results, env)
-        Err(t) => Err(t)
+    Some(FuncCompType(params, results)) => {
+      if results.length() != 0 {
+        return Err("Tag type must have empty result list")
       }
-    _ => Err("TagType not found")
+      Validate::validate(params, env)
+    }
+    _ => Err("TagType not found or not a function type")
   }
 }
 
@@ -1001,6 +1002,35 @@ pub fn validate_datacnt(
 }
 
 ///|
+/// Validates exports including name uniqueness requirement.
+fn validate_exportsec_unique(
+  exportsec : ExportSec?,
+  env : Env,
+) -> Result[Unit, String] {
+  match exportsec {
+    None => Ok(())
+    Some(ExportSec(es)) => {
+      // First validate all exports
+      if Validate::validate(es, env) is Err(t) {
+        return Err(t)
+      }
+      // Check for duplicate export names
+      let names : Array[Name] = []
+      for e in es {
+        let Export(name, _) = e
+        for existing in names {
+          if existing == name {
+            return Err("duplicate export name: " + name.0.to_string())
+          }
+        }
+        names.push(name)
+      }
+      Ok(())
+    }
+  }
+}
+
+///|
 /// Validates a whole module from an empty context, building its Env incrementally.
 pub fn validate_module(m : Module) -> Result[Unit, String] {
   let Module(
@@ -1015,9 +1045,9 @@ pub fn validate_module(m : Module) -> Result[Unit, String] {
     exportsec_opt,
     startsec_opt,
     elemsec_opt,
-    _datacntsec_opt,
+    datacntsec_opt,
     codesec_opt,
-    datasec_opt
+    datasec_opt,
   ) = m
 
   // Start from empty env (module validation does not take an external env)
@@ -1069,23 +1099,52 @@ pub fn validate_module(m : Module) -> Result[Unit, String] {
     Err(t) => return Err(t)
   }
 
-  // (6) Start + Exports (just checks; does not extend env)
-  match validate_startsec(startsec_opt, env) {
-    Ok(_) => ()
-    Err(t) => return Err(t)
-  }
-  match validate_exportsec(exportsec_opt, env) {
+  // (6) DataCount section cross-check
+  match validate_datacnt(datacntsec_opt, datasec_opt) {
     Ok(_) => ()
     Err(t) => return Err(t)
   }
 
-  // (7) Code: typecheck each function body against env.funcs
+  // (7) Start function validation
+  match validate_startsec(startsec_opt, env) {
+    Ok(_) => ()
+    Err(t) => return Err(t)
+  }
+
+  // (8) Exports: validate indices and check name uniqueness
+  match validate_exportsec_unique(exportsec_opt, env) {
+    Ok(_) => ()
+    Err(t) => return Err(t)
+  }
+
+  // (9) Code: typecheck each function body against env.funcs
   match validate_codesec(codesec_opt, funcsec_opt, env) {
     Ok(_) => ()
     Err(t) => return Err(t)
   }
 
-  // TODO: DataCount section cross-check can be added later.
-
   Ok(())
+}
+
+test "Fuzz Modules" {
+  let rnd = @quickcheck/splitmix.new()
+  loop 100000 {
+    0 => break ()
+    n => {
+      let ctx = gen_ctx_new(1000, rnd = Some(rnd))
+      let mod = gen_module_valid_full(ctx)
+
+      if mod is Err(t) {
+        assert_true(false, msg=t)
+      }
+      let (_, mod) = mod.unwrap()
+      let result = validate_module(mod)
+
+      if result is Err(t) {
+        assert_true(false, msg=t)
+      }
+      
+      continue n - 1
+    }
+  }
 }

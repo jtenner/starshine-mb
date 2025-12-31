@@ -4103,22 +4103,6 @@ fn Env::get_functype_by_funcidx(env : Env, idx : FuncIdx) -> FuncType? {
 }
 
 ///|
-fn Env::get_tag_payload(
-  env : Env,
-  idx : TagIdx,
-) -> Result[Array[ValType], String] {
-  match env.resolve_tag_functype(idx) {
-    None => Err("invalid tag index or tag is not a function type")
-    Some(FuncType(params, results)) => {
-      if results.length() != 0 {
-        return Err("tag type must have empty result list")
-      }
-      Ok(params)
-    }
-  }
-}
-
-///|
 fn Env::get_elem(env : Env, i : ElemIdx) -> Elem? {
   let ElemIdx(i) = i
   env.elems.get(i.reinterpret_as_int())
@@ -4140,18 +4124,6 @@ fn funcref_valtype() -> ValType {
   // In core Wasm, call_indirect uses funcref.
   // Your encoding: AbsHeapTypeRefType(_) is nullable; funcref is (ref null func).
   RefTypeValType(AbsHeapTypeRefType(FuncAbsHeapType))
-}
-
-///|
-fn ref_exn_valtype() -> ValType {
-  RefTypeValType(HeapTypeRefType(false, AbsHeapTypeHeapType(ExnAbsHeapType)))
-}
-
-///|
-fn append_valtype(ts : Array[ValType], vt : ValType) -> Array[ValType] {
-  let out = ts.copy()
-  out.push(vt)
-  out
 }
 
 ///|
