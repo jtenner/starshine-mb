@@ -51,16 +51,6 @@ pub enum HeapType {
 } derive(Eq)
 
 ///|
-pub impl @quickcheck.Arbitrary for HeapType with arbitrary(size, st) {
-  if (st.next_uint() & 1) == 1 {
-    AbsHeapTypeHeapType(@quickcheck.Arbitrary::arbitrary(size, st))
-  } else {
-    HeapType(@quickcheck.Arbitrary::arbitrary(size, st))
-  }
-  // Def types are not arbitrary
-}
-
-///|
 pub enum RefType {
   HeapTypeRefType(Bool, HeapType)
   AbsHeapTypeRefType(AbsHeapType)
@@ -73,16 +63,6 @@ pub enum ValType {
   RefTypeValType(RefType)
   BotValType
 } derive(Eq)
-
-///|
-pub impl @quickcheck.Arbitrary for ValType with arbitrary(size, st) {
-  match st.next_uint() % 3 {
-    0 => NumTypeValType(@quickcheck.Arbitrary::arbitrary(size, st))
-    1 => VecTypeValType
-    2 => RefTypeValType(@quickcheck.Arbitrary::arbitrary(size, st))
-    _ => VecTypeValType
-  }
-}
 
 ///|
 pub type ResultType = Array[ValType]
@@ -115,12 +95,6 @@ pub enum TypeIdx {
 } derive(Eq)
 
 ///|
-pub impl @quickcheck.Arbitrary for TypeIdx with arbitrary(_, st) {
-  TypeIdx(st.next_uint())
-  // recursive indexes are not arbitrary
-}
-
-///|
 pub struct FuncIdx(UInt) derive(Eq, Arbitrary)
 
 ///|
@@ -151,30 +125,11 @@ pub struct LabelIdx(UInt) derive(Eq, Arbitrary)
 pub struct LaneIdx(Byte) derive(Eq)
 
 ///|
-pub impl @quickcheck.Arbitrary for LaneIdx with arbitrary(_, state) {
-  let b : Byte = (state.next_uint() % 16).to_byte()
-  LaneIdx(b)
-}
-
-///|
 pub enum CompType {
   ArrayCompType(FieldType)
   StructCompType(Array[FieldType])
   FuncCompType(ResultType, ResultType)
 } derive(Eq)
-
-///|
-pub impl @quickcheck.Arbitrary for CompType with arbitrary(t, state) {
-  match state.next_uint() % 3 {
-    1 => StructCompType(array_of_arbitrary(5, t, state))
-    2 =>
-      FuncCompType(
-        array_of_arbitrary(5, t, state),
-        array_of_arbitrary(5, t, state),
-      )
-    _ => ArrayCompType(@quickcheck.Arbitrary::arbitrary(t, state))
-  }
-}
 
 ///|
 pub enum SubType {
@@ -183,76 +138,19 @@ pub enum SubType {
 } derive(Eq)
 
 ///|
-pub impl @quickcheck.Arbitrary for SubType with arbitrary(t, st) {
-  if st.next_uint() % 2 == 1 {
-    SubType(
-      st.next_uint() % 2 == 1,
-      array_of_arbitrary(1, t, st),
-      @quickcheck.Arbitrary::arbitrary(t, st),
-    )
-  } else {
-    CompTypeSubType(@quickcheck.Arbitrary::arbitrary(t, st))
-  }
-}
-
-///|
 pub enum RecType {
   SingleRecType(SubType)
   GroupRecType(Array[SubType])
 }
 
 ///|
-pub impl @quickcheck.Arbitrary for RecType with arbitrary(t, state) {
-  if (state.next_uint() & 1) == 1 {
-    SingleRecType(@quickcheck.Arbitrary::arbitrary(t, state))
-  } else {
-    GroupRecType(array_of_arbitrary(5, t, state))
-  }
-}
-
-///|
 pub struct DefType(RecType, UInt) derive(Eq)
-
-///|
-pub impl @quickcheck.Arbitrary for DefType with arbitrary(t, state) {
-  let s = @quickcheck.Arbitrary::arbitrary(t, state)
-  match s {
-    SingleRecType(_) => DefType(s, 0)
-    GroupRecType(g) => {
-      let idx = state.next_uint() % g.length().reinterpret_as_uint()
-      DefType(s, idx)
-    }
-  }
-}
 
 ///|
 pub enum Limits {
   I32Limits(UInt, UInt?)
   I64Limits(UInt64, UInt64?)
 } derive(Eq)
-
-///|
-pub impl @quickcheck.Arbitrary for Limits with arbitrary(_, state) {
-  if (state.next_uint() & 1) == 1 {
-    if (state.next_uint() & 1) == 1 {
-      I32Limits(state.next_uint(), None)
-    } else {
-      let a : UInt = state.next_uint()
-      let b : UInt = state.next_uint()
-      let min = if a > b { b } else { a }
-      let max = if a > b { a } else { b }
-      I32Limits(min, Some(max))
-    }
-  } else if (state.next_uint() & 1) == 1 {
-    I64Limits(state.next_uint64(), None)
-  } else {
-    let a : UInt64 = state.next_uint64()
-    let b : UInt64 = state.next_uint64()
-    let min = if a > b { b } else { a }
-    let max = if a > b { a } else { b }
-    I64Limits(min, Some(max))
-  }
-}
 
 ///|
 pub struct TagType(TypeIdx) derive(Eq, Arbitrary)
@@ -300,6 +198,178 @@ pub enum ElemKind {
 
 ///|
 pub struct Elem(ElemMode, ElemKind) derive(Eq)
+
+///|
+pub struct Expr(Array[Instruction]) derive(Eq)
+
+///|
+pub struct Import(Name, Name, ExternType) derive(Eq, Arbitrary)
+
+///|
+pub struct Table(TableType, Expr?) derive(Eq, Arbitrary)
+
+///|
+pub struct Global(GlobalType, Expr) derive(Eq, Arbitrary)
+
+///|
+pub struct Export(Name, ExternIdx) derive(Eq, Arbitrary)
+
+///|
+pub struct Locals(UInt, ValType) derive(Eq)
+
+///|
+pub enum DataMode {
+  Active(MemIdx, Expr)
+  Passive
+} derive(Eq, Arbitrary)
+
+///|
+pub struct Data(DataMode, Bytes) derive(Eq)
+
+///|
+pub struct Name(StringView) derive(Eq)
+
+///|
+pub struct Module(
+  Array[CustomSec],
+  TypeSec?,
+  ImportSec?,
+  FuncSec?,
+  TableSec?,
+  MemSec?,
+  TagSec?,
+  GlobalSec?,
+  ExportSec?,
+  StartSec?,
+  ElemSec?,
+  DataCntSec?,
+  CodeSec?,
+  DataSec?
+)
+
+///|
+pub struct FuncType(Array[ValType], Array[ValType])
+
+///|
+pub struct Env {
+  global_types : Array[SubType]
+  rec_stack : Stack[Array[SubType]]
+  funcs : Array[FuncType]
+  tables : Array[TableType]
+  mems : Array[MemType]
+  globals : Array[GlobalType]
+  elems : Array[Elem]
+  datas : Array[Data]
+  tags : Array[TagType]
+  locals : Array[ValType]
+  labels : Stack[Array[ValType]]
+  return_type : Array[ValType]?
+}
+
+///|
+pub struct Func(Array[Locals], Expr) derive(Eq)
+
+///|
+pub impl @quickcheck.Arbitrary for CompType with arbitrary(t, state) {
+  match state.next_uint() % 3 {
+    1 => StructCompType(array_of_arbitrary(5, t, state))
+    2 =>
+      FuncCompType(
+        array_of_arbitrary(5, t, state),
+        array_of_arbitrary(5, t, state),
+      )
+    _ => ArrayCompType(@quickcheck.Arbitrary::arbitrary(t, state))
+  }
+}
+
+///|
+pub impl @quickcheck.Arbitrary for RecType with arbitrary(t, state) {
+  if (state.next_uint() & 1) == 1 {
+    SingleRecType(@quickcheck.Arbitrary::arbitrary(t, state))
+  } else {
+    GroupRecType(array_of_arbitrary(5, t, state))
+  }
+}
+
+///|
+pub impl @quickcheck.Arbitrary for HeapType with arbitrary(size, st) {
+  if (st.next_uint() & 1) == 1 {
+    AbsHeapTypeHeapType(@quickcheck.Arbitrary::arbitrary(size, st))
+  } else {
+    HeapType(@quickcheck.Arbitrary::arbitrary(size, st))
+  }
+  // Def types are not arbitrary
+}
+
+///|
+pub impl @quickcheck.Arbitrary for ValType with arbitrary(size, st) {
+  match st.next_uint() % 3 {
+    0 => NumTypeValType(@quickcheck.Arbitrary::arbitrary(size, st))
+    1 => VecTypeValType
+    2 => RefTypeValType(@quickcheck.Arbitrary::arbitrary(size, st))
+    _ => VecTypeValType
+  }
+}
+
+///|
+pub impl @quickcheck.Arbitrary for TypeIdx with arbitrary(_, st) {
+  TypeIdx(st.next_uint())
+  // recursive indexes are not arbitrary
+}
+
+///|
+pub impl @quickcheck.Arbitrary for LaneIdx with arbitrary(_, state) {
+  let b : Byte = (state.next_uint() % 16).to_byte()
+  LaneIdx(b)
+}
+
+///|
+pub impl @quickcheck.Arbitrary for SubType with arbitrary(t, st) {
+  if st.next_uint() % 2 == 1 {
+    SubType(
+      st.next_uint() % 2 == 1,
+      array_of_arbitrary(1, t, st),
+      @quickcheck.Arbitrary::arbitrary(t, st),
+    )
+  } else {
+    CompTypeSubType(@quickcheck.Arbitrary::arbitrary(t, st))
+  }
+}
+
+///|
+pub impl @quickcheck.Arbitrary for DefType with arbitrary(t, state) {
+  let s = @quickcheck.Arbitrary::arbitrary(t, state)
+  match s {
+    SingleRecType(_) => DefType(s, 0)
+    GroupRecType(g) => {
+      let idx = state.next_uint() % g.length().reinterpret_as_uint()
+      DefType(s, idx)
+    }
+  }
+}
+
+///|
+pub impl @quickcheck.Arbitrary for Limits with arbitrary(_, state) {
+  if (state.next_uint() & 1) == 1 {
+    if (state.next_uint() & 1) == 1 {
+      I32Limits(state.next_uint(), None)
+    } else {
+      let a : UInt = state.next_uint()
+      let b : UInt = state.next_uint()
+      let min = if a > b { b } else { a }
+      let max = if a > b { a } else { b }
+      I32Limits(min, Some(max))
+    }
+  } else if (state.next_uint() & 1) == 1 {
+    I64Limits(state.next_uint64(), None)
+  } else {
+    let a : UInt64 = state.next_uint64()
+    let b : UInt64 = state.next_uint64()
+    let min = if a > b { b } else { a }
+    let max = if a > b { a } else { b }
+    I64Limits(min, Some(max))
+  }
+}
 
 ///|
 pub impl @quickcheck.Arbitrary for Elem with arbitrary(size, state) {
@@ -356,9 +426,6 @@ pub impl @quickcheck.Arbitrary for Elem with arbitrary(size, state) {
 }
 
 ///|
-pub struct Expr(Array[Instruction]) derive(Eq)
-
-///|
 pub impl @quickcheck.Arbitrary for Expr with arbitrary(t, state) {
   Expr([
     @quickcheck.Arbitrary::arbitrary(t, state),
@@ -368,21 +435,6 @@ pub impl @quickcheck.Arbitrary for Expr with arbitrary(t, state) {
 }
 
 ///|
-pub struct Import(Name, Name, ExternType) derive(Eq, Arbitrary)
-
-///|
-pub struct Table(TableType, Expr?) derive(Eq, Arbitrary)
-
-///|
-pub struct Global(GlobalType, Expr) derive(Eq, Arbitrary)
-
-///|
-pub struct Export(Name, ExternIdx) derive(Eq, Arbitrary)
-
-///|
-pub struct Locals(UInt, ValType) derive(Eq)
-
-///|
 pub impl @quickcheck.Arbitrary for Locals with arbitrary(t, state) {
   let count = state.next_positive_int() % 3 + 1
   Locals(
@@ -390,9 +442,6 @@ pub impl @quickcheck.Arbitrary for Locals with arbitrary(t, state) {
     @quickcheck.Arbitrary::arbitrary(t, state),
   )
 }
-
-///|
-pub struct Func(Array[Locals], Expr) derive(Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for Func with arbitrary(t, state) {
@@ -409,15 +458,6 @@ pub impl @quickcheck.Arbitrary for Func with arbitrary(t, state) {
 }
 
 ///|
-pub enum DataMode {
-  Active(MemIdx, Expr)
-  Passive
-} derive(Eq, Arbitrary)
-
-///|
-pub struct Data(DataMode, Bytes) derive(Eq)
-
-///|
 pub impl @quickcheck.Arbitrary for Data with arbitrary(t, state) {
   let size = state.next_positive_int() % 10 + 1
   Data(
@@ -425,9 +465,6 @@ pub impl @quickcheck.Arbitrary for Data with arbitrary(t, state) {
     @quickcheck.Arbitrary::arbitrary(size, state),
   )
 }
-
-///|
-pub struct Name(StringView) derive(Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for Name with arbitrary(_, state) {
@@ -1187,21 +1224,6 @@ pub impl @quickcheck.Arbitrary for Name with arbitrary(_, state) {
 pub struct CustomSec(Name, Bytes) derive(Eq)
 
 ///|
-pub impl @quickcheck.Arbitrary for CustomSec with arbitrary(size, st) {
-  let name = @quickcheck.Arbitrary::arbitrary(size, st)
-  let length = st.next_positive_int() % 19 + 1
-  let buf = @buffer.new()
-  let bytes = loop length {
-    0 => buf.to_bytes()
-    n => {
-      buf.write_byte((st.next_positive_int() % 256).to_byte())
-      continue n - 1
-    }
-  }
-  CustomSec(name, bytes)
-}
-
-///|
 pub struct TypeSec(Array[RecType]) derive(Eq, Arbitrary)
 
 ///|
@@ -1229,58 +1251,13 @@ pub struct StartSec(FuncIdx) derive(Eq, Arbitrary)
 pub struct ElemSec(Array[Elem]) derive(Eq)
 
 ///|
-pub impl @quickcheck.Arbitrary for ElemSec with arbitrary(t, state) {
-  let elems = []
-  let count = state.next_positive_int() % 4 + 1
-  loop count {
-    0 => break ()
-    n => {
-      elems.push(@quickcheck.Arbitrary::arbitrary(t, state))
-      continue n - 1
-    }
-  }
-  ElemSec(elems)
-}
-
-///|
-pub struct CodeSec(Array[Func]) derive(Eq)
-
-///|
-pub impl @quickcheck.Arbitrary for CodeSec with arbitrary(t, state) {
-  let elems = []
-  let count = state.next_positive_int() % 4 + 1
-  loop count {
-    0 => break ()
-    n => {
-      elems.push(@quickcheck.Arbitrary::arbitrary(t, state))
-      continue n - 1
-    }
-  }
-  CodeSec(elems)
-}
-
-///|
-pub struct DataSec(Array[Data]) derive(Eq)
-
-///|
-pub impl @quickcheck.Arbitrary for DataSec with arbitrary(t, state) {
-  let elems = []
-  let count = state.next_positive_int() % 4 + 1
-  loop count {
-    0 => break ()
-    n => {
-      elems.push(@quickcheck.Arbitrary::arbitrary(t, state))
-      continue n - 1
-    }
-  }
-  DataSec(elems)
-}
-
-///|
 pub struct DataCntSec(U32) derive(Eq, Arbitrary)
 
 ///|
 pub struct TagSec(Array[TagType]) derive(Eq, Arbitrary)
+
+///|
+pub struct MemArg(U32, MemIdx?, U64)
 
 ///|
 pub enum BlockType {
@@ -1298,16 +1275,10 @@ pub enum Catch {
 } derive(Eq, Arbitrary)
 
 ///|
-pub struct MemArg(U32, MemIdx?, U64)
+pub struct CodeSec(Array[Func]) derive(Eq)
 
 ///|
-pub impl @quickcheck.Arbitrary for MemArg with arbitrary(t, state) {
-  MemArg(
-    U32(state.next_uint() % 64),
-    @quickcheck.Arbitrary::arbitrary(t, state),
-    @quickcheck.Arbitrary::arbitrary(t, state),
-  )
-}
+pub struct DataSec(Array[Data]) derive(Eq)
 
 ///|
 pub struct CastOp(Bool, Bool) derive(Eq, Arbitrary)
@@ -1843,6 +1814,15 @@ pub enum Instruction {
   I16x8RelaxedDotI8x16I7x16S
   I32x4RelaxedDotI8x16I7x16AddS
 } derive(Eq)
+
+///|
+pub impl @quickcheck.Arbitrary for MemArg with arbitrary(t, state) {
+  MemArg(
+    U32(state.next_uint() % 64),
+    @quickcheck.Arbitrary::arbitrary(t, state),
+    @quickcheck.Arbitrary::arbitrary(t, state),
+  )
+}
 
 ///|
 pub impl @quickcheck.Arbitrary for Instruction with arbitrary(t, state) {
@@ -2531,22 +2511,61 @@ pub impl @quickcheck.Arbitrary for Instruction with arbitrary(t, state) {
 }
 
 ///|
-pub struct Module(
-  Array[CustomSec],
-  TypeSec?,
-  ImportSec?,
-  FuncSec?,
-  TableSec?,
-  MemSec?,
-  TagSec?,
-  GlobalSec?,
-  ExportSec?,
-  StartSec?,
-  ElemSec?,
-  DataCntSec?,
-  CodeSec?,
-  DataSec?
-)
+pub impl @quickcheck.Arbitrary for ElemSec with arbitrary(t, state) {
+  let elems = []
+  let count = state.next_positive_int() % 4 + 1
+  loop count {
+    0 => break ()
+    n => {
+      elems.push(@quickcheck.Arbitrary::arbitrary(t, state))
+      continue n - 1
+    }
+  }
+  ElemSec(elems)
+}
+
+///|
+pub impl @quickcheck.Arbitrary for CodeSec with arbitrary(t, state) {
+  let elems = []
+  let count = state.next_positive_int() % 4 + 1
+  loop count {
+    0 => break ()
+    n => {
+      elems.push(@quickcheck.Arbitrary::arbitrary(t, state))
+      continue n - 1
+    }
+  }
+  CodeSec(elems)
+}
+
+///|
+pub impl @quickcheck.Arbitrary for DataSec with arbitrary(t, state) {
+  let elems = []
+  let count = state.next_positive_int() % 4 + 1
+  loop count {
+    0 => break ()
+    n => {
+      elems.push(@quickcheck.Arbitrary::arbitrary(t, state))
+      continue n - 1
+    }
+  }
+  DataSec(elems)
+}
+
+///|
+pub impl @quickcheck.Arbitrary for CustomSec with arbitrary(size, st) {
+  let name = @quickcheck.Arbitrary::arbitrary(size, st)
+  let length = st.next_positive_int() % 19 + 1
+  let buf = @buffer.new()
+  let bytes = loop length {
+    0 => buf.to_bytes()
+    n => {
+      buf.write_byte((st.next_positive_int() % 256).to_byte())
+      continue n - 1
+    }
+  }
+  CustomSec(name, bytes)
+}
 
 ///|
 pub impl @quickcheck.Arbitrary for Module with arbitrary(t, state) {
@@ -2685,25 +2704,6 @@ pub impl Eq for MemArg with equal(l, r) {
 
 ///|
 type Stack[T] = Array[T]
-
-///|
-pub struct FuncType(Array[ValType], Array[ValType])
-
-///|
-pub struct Env {
-  global_types : Array[SubType]
-  rec_stack : Stack[Array[SubType]]
-  funcs : Array[FuncType]
-  tables : Array[TableType]
-  mems : Array[MemType]
-  globals : Array[GlobalType]
-  elems : Array[Elem]
-  datas : Array[Data]
-  tags : Array[TagType]
-  locals : Array[ValType]
-  labels : Stack[Array[ValType]]
-  return_type : Array[ValType]?
-}
 
 ///|
 fn Limits::mem_addr_bits(lim : Limits) -> Int {
