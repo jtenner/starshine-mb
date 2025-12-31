@@ -1047,7 +1047,7 @@ pub fn validate_module(m : Module) -> Result[Unit, String] {
     elemsec_opt,
     datacntsec_opt,
     codesec_opt,
-    datasec_opt,
+    datasec_opt
   ) = m
 
   // Start from empty env (module validation does not take an external env)
@@ -1122,28 +1122,25 @@ pub fn validate_module(m : Module) -> Result[Unit, String] {
     Ok(_) => ()
     Err(t) => return Err(t)
   }
-
   Ok(())
 }
 
+///|
 test "Fuzz Modules" {
   let rnd = @quickcheck/splitmix.new()
   loop 100000 {
     0 => break ()
     n => {
-      let ctx = gen_ctx_new(1000, rnd = Some(rnd))
+      let ctx = gen_ctx_new(1000, rnd=Some(rnd))
       let mod = gen_module_valid_full(ctx)
-
       if mod is Err(t) {
         assert_true(false, msg=t)
       }
       let (_, mod) = mod.unwrap()
       let result = validate_module(mod)
-
       if result is Err(t) {
         assert_true(false, msg=t)
       }
-      
       continue n - 1
     }
   }

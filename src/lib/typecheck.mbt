@@ -983,6 +983,7 @@ fn typecheck_br_on_cast_fail(
   Ok(st1.push1(RefTypeValType(rt2)))
 }
 
+///|
 fn typecheck_throw(st : TcState, tag : TagIdx) -> TcResult {
   // validate tag index
   if tag.validate(st.env) is Err(e) {
@@ -1015,10 +1016,8 @@ fn typecheck_throw_ref(st : TcState) -> TcResult {
   Ok(st1.set_unreachable())
 }
 
-fn typecheck_catch_clause(
-  st : TcState,
-  c : Catch,
-) -> TcResult {
+///|
+fn typecheck_catch_clause(st : TcState, c : Catch) -> TcResult {
   match c {
     Catch(tag, lbl) => {
       // label must expect tag's payload types
@@ -1040,7 +1039,9 @@ fn typecheck_catch_clause(
         ),
       )
       if not(Match::matches(payload, label_types, st.env)) {
-        return Err("catch_ref types (payload + exnref) do not match label types")
+        return Err(
+          "catch_ref types (payload + exnref) do not match label types",
+        )
       }
       Ok(st)
     }
@@ -1067,6 +1068,7 @@ fn typecheck_catch_clause(
     }
   }
 }
+
 ///|
 fn typecheck_try_table(
   st : TcState,

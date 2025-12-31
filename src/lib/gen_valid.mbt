@@ -16,7 +16,10 @@ fn out_of_fuel(ctx : GenCtx) -> Bool {
 }
 
 ///|
-pub fn gen_ctx_new(fuel : Int, rnd~ : @quickcheck/splitmix.RandomState? = None) -> GenCtx {
+pub fn gen_ctx_new(
+  fuel : Int,
+  rnd? : @quickcheck/splitmix.RandomState? = None,
+) -> GenCtx {
   let rnd = rnd.unwrap_or(@quickcheck/splitmix.new())
   GenCtx::{ rnd, fuel, env: empty_env() }
 }
@@ -775,13 +778,13 @@ fn gen_globaltype(rnd : @quickcheck/splitmix.RandomState) -> GlobalType {
   GlobalType(vt, m)
 }
 
+///|
 fn collect_tag_functype_typeidxs(env : Env) -> Array[TypeIdx] {
   let out : Array[TypeIdx] = []
   for i in 0..<env.global_types.length() {
     let tidx = TypeIdx(i.reinterpret_as_uint())
     match env.resolve_functype(tidx) {
-      Some(FuncType(_, results)) if results.length() == 0 =>
-        out.push(tidx)
+      Some(FuncType(_, results)) if results.length() == 0 => out.push(tidx)
       _ => ()
     }
   }
@@ -1761,7 +1764,6 @@ fn gen_try_table_robust(
 
   // Choose strategy
   let strategy = rnd.next_uint() % 4
-
   match strategy {
     0 => gen_try_catch_all(ctx, st, rnd)
     1 => gen_try_catch_all_ref(ctx, st, rnd)
@@ -1779,12 +1781,11 @@ fn gen_try_catch_all(
 ) -> Result[(GenCtx, TcState, Array[Instruction]), String] {
   // Structure: block (result) { try_table { catch_all 0; <body> } }
   // catch_all branches with empty values, outer block has empty result
-  
+
   let try_body = gen_simple_try_body(rnd, st.env)
   let catch_clause = CatchAll(LabelIdx(0))
   let try_table = TryTable(EmptyBlockType, [catch_clause], try_body)
   let block_ins = Block(EmptyBlockType, [try_table])
-  
   match block_ins.typecheck(st) {
     Ok(st2) => Ok((ctx.dec_fuel(3), st2, [block_ins]))
     Err(e) => Err(e)
@@ -1800,20 +1801,18 @@ fn gen_try_catch_all_ref(
   // catch_all_ref branches with [exnref]
   // After try_table completes normally, we need to produce an exnref
   // Since we can't easily produce a non-null exnref, use nullable
-  
+
   let exnref_nullable = RefTypeValType(
     HeapTypeRefType(true, AbsHeapTypeHeapType(ExnAbsHeapType)),
   )
   let outer_bt = ValTypeBlockType(exnref_nullable)
-  
   let try_body = gen_simple_try_body(rnd, st.env)
   let catch_clause = CatchAllRef(LabelIdx(0))
   let try_table = TryTable(EmptyBlockType, [catch_clause], try_body)
-  
+
   // After try_table, produce null exnref for fallthrough
   let fallthrough = RefNull(AbsHeapTypeHeapType(ExnAbsHeapType))
   let block_ins = Block(outer_bt, [try_table, fallthrough])
-  
   match block_ins.typecheck(st) {
     Ok(st2) => Ok((ctx.dec_fuel(4), st2, [block_ins]))
     Err(e) => Err(e)
@@ -1828,34 +1827,31 @@ fn gen_try_catch(
 ) -> Result[(GenCtx, TcState, Array[Instruction]), String] {
   // catch tag L branches with tag's payload types
   // Outer block result = payload types
-  
+
   let tag_idx = TagIdx(
     rnd.next_uint() % st.env.tags.length().reinterpret_as_uint(),
   )
   let payload = tag_payload_types(st.env, tag_idx)
-  
+
   // Build block type - only support empty or single-value for simplicity
   let outer_bt = match payload.length() {
     0 => EmptyBlockType
     1 => ValTypeBlockType(payload[0])
     _ => return Err("multi-value catch payload not supported yet")
   }
-  
+
   // Generate fallthrough values for when try completes normally
   let fallthrough = match gen_fallthrough_values(rnd, payload) {
     Ok(ins) => ins
     Err(e) => return Err(e)
   }
-  
   let try_body = gen_simple_try_body(rnd, st.env)
   let catch_clause = Catch(tag_idx, LabelIdx(0))
   let try_table = TryTable(EmptyBlockType, [catch_clause], try_body)
-  
   let block_body : Array[Instruction] = [try_table]
   for ins in fallthrough {
     block_body.push(ins)
   }
-  
   let block_ins = Block(outer_bt, block_body)
   match block_ins.typecheck(st) {
     Ok(st2) => Ok((ctx.dec_fuel(4 + fallthrough.length()), st2, [block_ins]))
@@ -1871,18 +1867,18 @@ fn gen_try_catch_ref(
 ) -> Result[(GenCtx, TcState, Array[Instruction]), String] {
   // catch_ref tag L branches with payload + exnref
   // For simplicity, only handle tags with empty payload
-  
+
   let tag_idx = TagIdx(
     rnd.next_uint() % st.env.tags.length().reinterpret_as_uint(),
   )
   let payload = tag_payload_types(st.env, tag_idx)
-  
+
   // Only support empty payload for catch_ref (result is just exnref)
   if payload.length() != 0 {
     // Fall back to catch_all
     return gen_try_catch_all(ctx, st, rnd)
   }
-  
+
   // catch_ref with empty payload produces non-null exnref
   // We use nullable outer block since fallthrough can only produce ref.null
   // (non-null exnref from catch is subtype of nullable)
@@ -1890,15 +1886,13 @@ fn gen_try_catch_ref(
     HeapTypeRefType(true, AbsHeapTypeHeapType(ExnAbsHeapType)),
   )
   let outer_bt = ValTypeBlockType(exnref_nullable)
-  
   let try_body = gen_simple_try_body(rnd, st.env)
   let catch_clause = CatchRef(tag_idx, LabelIdx(0))
   let try_table = TryTable(EmptyBlockType, [catch_clause], try_body)
-  
+
   // Fallthrough: produce null exnref
   let fallthrough = RefNull(AbsHeapTypeHeapType(ExnAbsHeapType))
   let block_ins = Block(outer_bt, [try_table, fallthrough])
-  
   match block_ins.typecheck(st) {
     Ok(st2) => Ok((ctx.dec_fuel(4), st2, [block_ins]))
     Err(e) => Err(e)
@@ -1911,32 +1905,33 @@ fn gen_simple_try_body(
   env : Env,
 ) -> Array[Instruction] {
   let body : Array[Instruction] = []
-  
+
   // Sometimes just nop
   if rnd.next_uint() % 3 == 0 {
     body.push(Nop)
     return body
   }
-  
+
   // Sometimes throw
   if env.tags.length() > 0 && rnd.next_uint() % 2 == 0 {
     let tag_idx = TagIdx(
       rnd.next_uint() % env.tags.length().reinterpret_as_uint(),
     )
     let payload = tag_payload_types(env, tag_idx)
-    
+
     // Push values for throw payload
     for p in payload {
       match p {
         NumTypeValType(I32NumType) => body.push(I32Const(I32(rnd.next_int())))
         NumTypeValType(I64NumType) => body.push(I64Const(I64(rnd.next_int64())))
         NumTypeValType(F32NumType) => body.push(F32Const(F32(rnd.next_float())))
-        NumTypeValType(F64NumType) => body.push(F64Const(F64(rnd.next_double())))
+        NumTypeValType(F64NumType) =>
+          body.push(F64Const(F64(rnd.next_double())))
         VecTypeValType =>
           body.push(
             V128Const(
-              0b0, 0b0, 0b0, 0b0, 0b0, 0b0, 0b0, 0b0,
-              0b0, 0b0, 0b0, 0b0, 0b0, 0b0, 0b0, 0b0,
+              0b0, 0b0, 0b0, 0b0, 0b0, 0b0, 0b0, 0b0, 0b0, 0b0, 0b0, 0b0, 0b0, 0b0,
+              0b0, 0b0,
             ),
           )
         RefTypeValType(rt) =>
@@ -1954,7 +1949,6 @@ fn gen_simple_try_body(
   } else {
     body.push(Nop)
   }
-  
   body
 }
 
@@ -1973,8 +1967,8 @@ fn gen_fallthrough_values(
       VecTypeValType =>
         out.push(
           V128Const(
-            0b0, 0b0, 0b0, 0b0, 0b0, 0b0, 0b0, 0b0,
-            0b0, 0b0, 0b0, 0b0, 0b0, 0b0, 0b0, 0b0,
+            0b0, 0b0, 0b0, 0b0, 0b0, 0b0, 0b0, 0b0, 0b0, 0b0, 0b0, 0b0, 0b0, 0b0,
+            0b0, 0b0,
           ),
         )
       RefTypeValType(rt) =>
@@ -1989,6 +1983,7 @@ fn gen_fallthrough_values(
   Ok(out)
 }
 
+///|
 fn tag_payload_types(env : Env, tag : TagIdx) -> Array[ValType] {
   let TagType(tidx) = env.tags[tag.0.reinterpret_as_int()]
   match env.resolve_functype(tidx) {
@@ -2028,7 +2023,6 @@ pub fn gen_expr_valid_with_blocks(
         Err(_) => ()
       }
     }
-    
     let mut accepted = false
 
     // Try multiple candidates; accept the first that typechecks

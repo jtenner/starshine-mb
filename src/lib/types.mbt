@@ -1,5 +1,5 @@
 ///|
-pub struct S33(UInt) derive (Eq)
+pub struct S33(UInt) derive(Eq)
 
 ///|
 pub struct I32(Int) derive(Eq, Arbitrary)
@@ -17,7 +17,7 @@ pub struct F64(Double) derive(Eq, Arbitrary)
 pub struct U32(UInt) derive(Eq, Arbitrary)
 
 ///|
-pub struct U64(UInt64) derive (Eq, Arbitrary)
+pub struct U64(UInt64) derive(Eq, Arbitrary)
 
 ///|
 pub enum NumType {
@@ -48,7 +48,7 @@ pub enum HeapType {
   AbsHeapTypeHeapType(AbsHeapType)
   HeapType(TypeIdx)
   DefTypeHeapType(DefType)
-} derive (Eq)
+} derive(Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for HeapType with arbitrary(size, st) {
@@ -72,7 +72,7 @@ pub enum ValType {
   VecTypeValType
   RefTypeValType(RefType)
   BotValType
-} derive (Eq)
+} derive(Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for ValType with arbitrary(size, st) {
@@ -112,7 +112,7 @@ pub enum Mut {
 pub enum TypeIdx {
   TypeIdx(UInt)
   RecIdx(UInt)
-} derive (Eq)
+} derive(Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for TypeIdx with arbitrary(_, st) {
@@ -161,7 +161,7 @@ pub enum CompType {
   ArrayCompType(FieldType)
   StructCompType(Array[FieldType])
   FuncCompType(ResultType, ResultType)
-} derive (Eq)
+} derive(Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for CompType with arbitrary(t, state) {
@@ -180,7 +180,7 @@ pub impl @quickcheck.Arbitrary for CompType with arbitrary(t, state) {
 pub enum SubType {
   SubType(Bool, Array[TypeIdx], CompType)
   CompTypeSubType(CompType)
-} derive (Eq)
+} derive(Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for SubType with arbitrary(t, st) {
@@ -299,7 +299,7 @@ pub enum ElemKind {
 } derive(Eq, Arbitrary)
 
 ///|
-pub struct Elem(ElemMode, ElemKind) derive (Eq)
+pub struct Elem(ElemMode, ElemKind) derive(Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for Elem with arbitrary(size, state) {
@@ -356,7 +356,7 @@ pub impl @quickcheck.Arbitrary for Elem with arbitrary(size, state) {
 }
 
 ///|
-pub struct Expr(Array[Instruction]) derive (Eq)
+pub struct Expr(Array[Instruction]) derive(Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for Expr with arbitrary(t, state) {
@@ -427,7 +427,7 @@ pub impl @quickcheck.Arbitrary for Data with arbitrary(t, state) {
 }
 
 ///|
-pub struct Name(StringView) derive (Eq)
+pub struct Name(StringView) derive(Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for Name with arbitrary(_, state) {
@@ -1184,7 +1184,7 @@ pub impl @quickcheck.Arbitrary for Name with arbitrary(_, state) {
 }
 
 ///|
-pub struct CustomSec(Name, Bytes) derive (Eq)
+pub struct CustomSec(Name, Bytes) derive(Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for CustomSec with arbitrary(size, st) {
@@ -1226,7 +1226,7 @@ pub struct ExportSec(Array[Export]) derive(Eq, Arbitrary)
 pub struct StartSec(FuncIdx) derive(Eq, Arbitrary)
 
 ///|
-pub struct ElemSec(Array[Elem]) derive (Eq)
+pub struct ElemSec(Array[Elem]) derive(Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for ElemSec with arbitrary(t, state) {
@@ -1243,7 +1243,7 @@ pub impl @quickcheck.Arbitrary for ElemSec with arbitrary(t, state) {
 }
 
 ///|
-pub struct CodeSec(Array[Func]) derive (Eq)
+pub struct CodeSec(Array[Func]) derive(Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for CodeSec with arbitrary(t, state) {
@@ -1260,7 +1260,7 @@ pub impl @quickcheck.Arbitrary for CodeSec with arbitrary(t, state) {
 }
 
 ///|
-pub struct DataSec(Array[Data]) derive (Eq)
+pub struct DataSec(Array[Data]) derive(Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for DataSec with arbitrary(t, state) {
@@ -1842,7 +1842,7 @@ pub enum Instruction {
   I16x8RelaxedQ15mulrS
   I16x8RelaxedDotI8x16I7x16S
   I32x4RelaxedDotI8x16I7x16AddS
-} derive (Eq)
+} derive(Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for Instruction with arbitrary(t, state) {
@@ -2622,7 +2622,21 @@ pub impl @quickcheck.Arbitrary for Module with arbitrary(t, state) {
 
 ///|
 pub impl Eq for Module with equal(l, r) {
-  l.0 == r.0 && // TODO: check all the custom sections against each other, cross product
+  let l_custom = l.0
+  let r_custom = r.0
+  if l_custom.length() != r_custom.length() {
+    return false
+  }
+  for lc in l_custom {
+    if !r_custom.contains(lc) {
+      return false
+    }
+  }
+  for rc in r_custom {
+    if !l_custom.contains(rc) {
+      return false
+    }
+  }
   l.1 == r.1 &&
   l.2 == r.2 &&
   l.3 == r.3 &&
@@ -2765,7 +2779,6 @@ pub fn DefType::project(self : DefType) -> SubType? {
     GroupRecType(sts) => sts.get(n.reinterpret_as_int())
   }
 }
-
 
 ///|
 pub fn Env::resolve_subtype(env : Env, idx : TypeIdx) -> SubType? {
