@@ -1,58 +1,23 @@
 ///|
-pub struct S33(UInt)
+pub struct S33(UInt) derive (Eq)
 
 ///|
-pub impl @quickcheck.Arbitrary for S33 with arbitrary(_, state) {
-  S33(state.next_uint())
-}
+pub struct I32(Int) derive(Eq, Arbitrary)
 
 ///|
-pub struct I32(Int)
+pub struct I64(Int64) derive(Eq, Arbitrary)
 
 ///|
-pub impl @quickcheck.Arbitrary for I32 with arbitrary(_, state) {
-  I32(state.next_int())
-}
+pub struct F32(Float) derive(Eq, Arbitrary)
 
 ///|
-pub struct I64(Int64)
+pub struct F64(Double) derive(Eq, Arbitrary)
 
 ///|
-pub impl @quickcheck.Arbitrary for I64 with arbitrary(_, state) {
-  I64(state.next_int64())
-}
+pub struct U32(UInt) derive(Eq, Arbitrary)
 
 ///|
-pub struct F32(Float)
-
-///|
-pub impl @quickcheck.Arbitrary for F32 with arbitrary(_, state) {
-  F32(state.next_float())
-}
-
-///|
-pub struct F64(Double)
-
-///|
-pub impl @quickcheck.Arbitrary for F64 with arbitrary(_, state) {
-  F64(state.next_double())
-}
-
-///|
-pub struct U32(UInt)
-
-///|
-pub impl @quickcheck.Arbitrary for U32 with arbitrary(_, state) {
-  U32(state.next_uint())
-}
-
-///|
-pub struct U64(UInt64)
-
-///|
-pub impl @quickcheck.Arbitrary for U64 with arbitrary(_, state) {
-  U64(state.next_uint64())
-}
+pub struct U64(UInt64) derive (Eq, Arbitrary)
 
 ///|
 pub enum NumType {
@@ -60,7 +25,7 @@ pub enum NumType {
   F64NumType
   I32NumType
   I64NumType
-} derive(Arbitrary)
+} derive(Eq, Arbitrary)
 
 ///|
 pub enum AbsHeapType {
@@ -76,14 +41,14 @@ pub enum AbsHeapType {
   NoExternAbsHeapType
   NoFuncAbsHeapType
   NoExnAbsHeapType
-} derive(Arbitrary)
+} derive(Eq, Arbitrary)
 
 ///|
 pub enum HeapType {
   AbsHeapTypeHeapType(AbsHeapType)
   HeapType(TypeIdx)
   DefTypeHeapType(DefType)
-}
+} derive (Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for HeapType with arbitrary(size, st) {
@@ -93,22 +58,6 @@ pub impl @quickcheck.Arbitrary for HeapType with arbitrary(size, st) {
     HeapType(@quickcheck.Arbitrary::arbitrary(size, st))
   }
   // Def types are not arbitrary
-}
-
-///|
-pub fn RefType::is_nullable(rt : RefType) -> Bool {
-  match rt {
-    HeapTypeRefType(b, _) => b
-    AbsHeapTypeRefType(_) => true
-  }
-}
-
-///|
-pub fn RefType::get_heap_type(rt : RefType) -> HeapType {
-  match rt {
-    HeapTypeRefType(_, ht) => ht
-    AbsHeapTypeRefType(ahs) => AbsHeapTypeHeapType(ahs)
-  }
 }
 
 ///|
@@ -123,7 +72,7 @@ pub enum ValType {
   VecTypeValType
   RefTypeValType(RefType)
   BotValType
-}
+} derive (Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for ValType with arbitrary(size, st) {
@@ -142,16 +91,16 @@ pub type ResultType = Array[ValType]
 pub enum PackType {
   I16PackType
   I8PackType
-} derive(Arbitrary)
+} derive(Eq, Arbitrary)
 
 ///|
 pub enum StorageType {
   ValTypeStorageType(ValType)
   PackTypeStorageType(PackType)
-} derive(Arbitrary)
+} derive(Eq, Arbitrary)
 
 ///|
-pub struct FieldType(StorageType, Mut) derive(Arbitrary)
+pub struct FieldType(StorageType, Mut) derive(Eq, Arbitrary)
 
 ///|
 pub enum Mut {
@@ -163,7 +112,7 @@ pub enum Mut {
 pub enum TypeIdx {
   TypeIdx(UInt)
   RecIdx(UInt)
-}
+} derive (Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for TypeIdx with arbitrary(_, st) {
@@ -172,34 +121,34 @@ pub impl @quickcheck.Arbitrary for TypeIdx with arbitrary(_, st) {
 }
 
 ///|
-pub struct FuncIdx(UInt) derive(Arbitrary)
+pub struct FuncIdx(UInt) derive(Eq, Arbitrary)
 
 ///|
-pub struct TableIdx(UInt) derive(Arbitrary)
+pub struct TableIdx(UInt) derive(Eq, Arbitrary)
 
 ///|
-pub struct MemIdx(UInt) derive(Arbitrary)
+pub struct MemIdx(UInt) derive(Eq, Arbitrary)
 
 ///|
-pub struct GlobalIdx(UInt) derive(Arbitrary)
+pub struct GlobalIdx(UInt) derive(Eq, Arbitrary)
 
 ///|
-pub struct TagIdx(UInt) derive(Arbitrary)
+pub struct TagIdx(UInt) derive(Eq, Arbitrary)
 
 ///|
-pub struct ElemIdx(UInt) derive(Arbitrary)
+pub struct ElemIdx(UInt) derive(Eq, Arbitrary)
 
 ///|
-pub struct DataIdx(UInt) derive(Arbitrary)
+pub struct DataIdx(UInt) derive(Eq, Arbitrary)
 
 ///|
-pub struct LocalIdx(UInt) derive(Arbitrary)
+pub struct LocalIdx(UInt) derive(Eq, Arbitrary)
 
 ///|
-pub struct LabelIdx(UInt) derive(Arbitrary)
+pub struct LabelIdx(UInt) derive(Eq, Arbitrary)
 
 ///|
-pub struct LaneIdx(Byte)
+pub struct LaneIdx(Byte) derive(Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for LaneIdx with arbitrary(_, state) {
@@ -212,7 +161,7 @@ pub enum CompType {
   ArrayCompType(FieldType)
   StructCompType(Array[FieldType])
   FuncCompType(ResultType, ResultType)
-}
+} derive (Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for CompType with arbitrary(t, state) {
@@ -231,7 +180,7 @@ pub impl @quickcheck.Arbitrary for CompType with arbitrary(t, state) {
 pub enum SubType {
   SubType(Bool, Array[TypeIdx], CompType)
   CompTypeSubType(CompType)
-}
+} derive (Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for SubType with arbitrary(t, st) {
@@ -243,22 +192,6 @@ pub impl @quickcheck.Arbitrary for SubType with arbitrary(t, st) {
     )
   } else {
     CompTypeSubType(@quickcheck.Arbitrary::arbitrary(t, st))
-  }
-}
-
-///|
-pub fn SubType::super_types(self : SubType) -> Array[TypeIdx] {
-  match self {
-    SubType(_, sts, _) => sts
-    CompTypeSubType(_) => []
-  }
-}
-
-///|
-pub fn SubType::get_comptype(self : SubType) -> CompType {
-  match self {
-    SubType(_, _, ct) => ct
-    CompTypeSubType(ct) => ct
   }
 }
 
@@ -278,25 +211,7 @@ pub impl @quickcheck.Arbitrary for RecType with arbitrary(t, state) {
 }
 
 ///|
-pub fn RecType::get_subtype(self : RecType, idx : UInt) -> SubType? {
-  match (self, idx) {
-    (SingleRecType(st), 0) => Some(st)
-    (GroupRecType(sts), i) => sts.get(i.reinterpret_as_int())
-    _ => None
-  }
-}
-
-///|
-pub struct DefType(RecType, UInt)
-
-///|
-pub fn DefType::project(self : DefType) -> SubType? {
-  let DefType(rt, n) = self
-  match rt {
-    SingleRecType(st) => if n == 0 { Some(st) } else { None }
-    GroupRecType(sts) => sts.get(n.reinterpret_as_int())
-  }
-}
+pub struct DefType(RecType, UInt) derive(Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for DefType with arbitrary(t, state) {
@@ -314,7 +229,7 @@ pub impl @quickcheck.Arbitrary for DefType with arbitrary(t, state) {
 pub enum Limits {
   I32Limits(UInt, UInt?)
   I64Limits(UInt64, UInt64?)
-}
+} derive(Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for Limits with arbitrary(_, state) {
@@ -340,24 +255,16 @@ pub impl @quickcheck.Arbitrary for Limits with arbitrary(_, state) {
 }
 
 ///|
-fn Limits::mem_addr_bits(lim : Limits) -> Int {
-  match lim {
-    I32Limits(_, _) => 32
-    I64Limits(_, _) => 64
-  }
-}
+pub struct TagType(TypeIdx) derive(Eq, Arbitrary)
 
 ///|
-pub struct TagType(TypeIdx) derive(Arbitrary)
+pub struct GlobalType(ValType, Bool) derive(Eq, Arbitrary)
 
 ///|
-pub struct GlobalType(ValType, Bool) derive(Arbitrary)
+pub struct MemType(Limits) derive(Eq, Arbitrary)
 
 ///|
-pub struct MemType(Limits) derive(Arbitrary)
-
-///|
-pub struct TableType(RefType, Limits) derive(Arbitrary)
+pub struct TableType(RefType, Limits) derive(Eq, Arbitrary)
 
 ///|
 pub enum ExternType {
@@ -366,7 +273,7 @@ pub enum ExternType {
   MemExternType(MemType)
   GlobalExternType(GlobalType)
   TagExternType(TagType)
-} derive(Arbitrary)
+} derive(Eq, Arbitrary)
 
 ///|
 pub enum ExternIdx {
@@ -375,24 +282,24 @@ pub enum ExternIdx {
   MemExternIdx(MemIdx)
   GlobalExternIdx(GlobalIdx)
   TagExternIdx(TagIdx)
-} derive(Arbitrary)
+} derive(Eq, Arbitrary)
 
 ///|
 pub enum ElemMode {
   Passive
   Active(TableIdx, Expr)
   Declarative
-} derive(Arbitrary)
+} derive(Eq, Arbitrary)
 
 ///|
 pub enum ElemKind {
   FuncsElemKind(Array[FuncIdx])
   FuncExprsElemKind(Array[Expr])
   TypedExprsElemKind(RefType, Array[Expr])
-} derive(Arbitrary)
+} derive(Eq, Arbitrary)
 
 ///|
-pub struct Elem(ElemMode, ElemKind)
+pub struct Elem(ElemMode, ElemKind) derive (Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for Elem with arbitrary(size, state) {
@@ -449,7 +356,7 @@ pub impl @quickcheck.Arbitrary for Elem with arbitrary(size, state) {
 }
 
 ///|
-pub struct Expr(Array[Instruction])
+pub struct Expr(Array[Instruction]) derive (Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for Expr with arbitrary(t, state) {
@@ -461,19 +368,19 @@ pub impl @quickcheck.Arbitrary for Expr with arbitrary(t, state) {
 }
 
 ///|
-pub struct Import(Name, Name, ExternType) derive(Arbitrary)
+pub struct Import(Name, Name, ExternType) derive(Eq, Arbitrary)
 
 ///|
-pub struct Table(TableType, Expr?) derive(Arbitrary)
+pub struct Table(TableType, Expr?) derive(Eq, Arbitrary)
 
 ///|
-pub struct Global(GlobalType, Expr) derive(Arbitrary)
+pub struct Global(GlobalType, Expr) derive(Eq, Arbitrary)
 
 ///|
-pub struct Export(Name, ExternIdx) derive(Arbitrary)
+pub struct Export(Name, ExternIdx) derive(Eq, Arbitrary)
 
 ///|
-pub struct Locals(UInt, ValType)
+pub struct Locals(UInt, ValType) derive(Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for Locals with arbitrary(t, state) {
@@ -485,7 +392,7 @@ pub impl @quickcheck.Arbitrary for Locals with arbitrary(t, state) {
 }
 
 ///|
-pub struct Func(Array[Locals], Expr)
+pub struct Func(Array[Locals], Expr) derive(Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for Func with arbitrary(t, state) {
@@ -505,10 +412,10 @@ pub impl @quickcheck.Arbitrary for Func with arbitrary(t, state) {
 pub enum DataMode {
   Active(MemIdx, Expr)
   Passive
-} derive(Arbitrary)
+} derive(Eq, Arbitrary)
 
 ///|
-pub struct Data(DataMode, Bytes)
+pub struct Data(DataMode, Bytes) derive(Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for Data with arbitrary(t, state) {
@@ -520,7 +427,7 @@ pub impl @quickcheck.Arbitrary for Data with arbitrary(t, state) {
 }
 
 ///|
-pub struct Name(StringView)
+pub struct Name(StringView) derive (Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for Name with arbitrary(_, state) {
@@ -1277,7 +1184,7 @@ pub impl @quickcheck.Arbitrary for Name with arbitrary(_, state) {
 }
 
 ///|
-pub struct CustomSec(Name, Bytes)
+pub struct CustomSec(Name, Bytes) derive (Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for CustomSec with arbitrary(size, st) {
@@ -1295,31 +1202,31 @@ pub impl @quickcheck.Arbitrary for CustomSec with arbitrary(size, st) {
 }
 
 ///|
-pub struct TypeSec(Array[RecType]) derive(Arbitrary)
+pub struct TypeSec(Array[RecType]) derive(Eq, Arbitrary)
 
 ///|
-pub struct ImportSec(Array[Import]) derive(Arbitrary)
+pub struct ImportSec(Array[Import]) derive(Eq, Arbitrary)
 
 ///|
-pub struct FuncSec(Array[TypeIdx]) derive(Arbitrary)
+pub struct FuncSec(Array[TypeIdx]) derive(Eq, Arbitrary)
 
 ///|
-pub struct TableSec(Array[Table]) derive(Arbitrary)
+pub struct TableSec(Array[Table]) derive(Eq, Arbitrary)
 
 ///|
-pub struct MemSec(Array[MemType]) derive(Arbitrary)
+pub struct MemSec(Array[MemType]) derive(Eq, Arbitrary)
 
 ///|
-pub struct GlobalSec(Array[Global]) derive(Arbitrary)
+pub struct GlobalSec(Array[Global]) derive(Eq, Arbitrary)
 
 ///|
-pub struct ExportSec(Array[Export]) derive(Arbitrary)
+pub struct ExportSec(Array[Export]) derive(Eq, Arbitrary)
 
 ///|
-pub struct StartSec(FuncIdx) derive(Arbitrary)
+pub struct StartSec(FuncIdx) derive(Eq, Arbitrary)
 
 ///|
-pub struct ElemSec(Array[Elem])
+pub struct ElemSec(Array[Elem]) derive (Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for ElemSec with arbitrary(t, state) {
@@ -1336,7 +1243,7 @@ pub impl @quickcheck.Arbitrary for ElemSec with arbitrary(t, state) {
 }
 
 ///|
-pub struct CodeSec(Array[Func])
+pub struct CodeSec(Array[Func]) derive (Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for CodeSec with arbitrary(t, state) {
@@ -1353,7 +1260,7 @@ pub impl @quickcheck.Arbitrary for CodeSec with arbitrary(t, state) {
 }
 
 ///|
-pub struct DataSec(Array[Data])
+pub struct DataSec(Array[Data]) derive (Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for DataSec with arbitrary(t, state) {
@@ -1370,17 +1277,17 @@ pub impl @quickcheck.Arbitrary for DataSec with arbitrary(t, state) {
 }
 
 ///|
-pub struct DataCntSec(U32) derive(Arbitrary)
+pub struct DataCntSec(U32) derive(Eq, Arbitrary)
 
 ///|
-pub struct TagSec(Array[TagType]) derive(Arbitrary)
+pub struct TagSec(Array[TagType]) derive(Eq, Arbitrary)
 
 ///|
 pub enum BlockType {
   EmptyBlockType
   ValTypeBlockType(ValType)
   TypeIdxBlockType(TypeIdx)
-} derive(Arbitrary)
+} derive(Eq, Arbitrary)
 
 ///|
 pub enum Catch {
@@ -1388,7 +1295,7 @@ pub enum Catch {
   CatchRef(TagIdx, LabelIdx)
   CatchAll(LabelIdx)
   CatchAllRef(LabelIdx)
-} derive(Arbitrary)
+} derive(Eq, Arbitrary)
 
 ///|
 pub struct MemArg(U32, MemIdx?, U64)
@@ -1403,7 +1310,7 @@ pub impl @quickcheck.Arbitrary for MemArg with arbitrary(t, state) {
 }
 
 ///|
-pub struct CastOp(Bool, Bool) derive(Arbitrary)
+pub struct CastOp(Bool, Bool) derive(Eq, Arbitrary)
 
 ///|
 pub enum Instruction {
@@ -1935,24 +1842,7 @@ pub enum Instruction {
   I16x8RelaxedQ15mulrS
   I16x8RelaxedDotI8x16I7x16S
   I32x4RelaxedDotI8x16I7x16AddS
-}
-
-///|
-pub fn[T : @quickcheck.Arbitrary] array_of_arbitrary(
-  max : UInt,
-  t : Int,
-  state : @quickcheck/splitmix.RandomState,
-) -> Array[T] {
-  let count = state.next_uint() % max + 1
-  let a = []
-  loop count {
-    0 => break a
-    n => {
-      a.push(@quickcheck.Arbitrary::arbitrary(t, state))
-      continue n - 1
-    }
-  }
-}
+} derive (Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for Instruction with arbitrary(t, state) {
@@ -2749,256 +2639,12 @@ pub impl Eq for Module with equal(l, r) {
 }
 
 ///|
-pub impl Eq for CustomSec with equal(l, r) {
-  l.0 == r.0 && l.1 == r.1
-}
-
-///|
-pub impl Eq for TypeSec with equal(l, r) {
-  l.0 == r.0
-}
-
-///|
-pub impl Eq for ImportSec with equal(l, r) {
-  l.0 == r.0
-}
-
-///|
-pub impl Eq for FuncSec with equal(l, r) {
-  l.0 == r.0
-}
-
-///|
-pub impl Eq for TableSec with equal(l, r) {
-  l.0 == r.0
-}
-
-///|
-pub impl Eq for MemSec with equal(l, r) {
-  l.0 == r.0
-}
-
-///|
-pub impl Eq for TagSec with equal(l, r) {
-  l.0 == r.0
-}
-
-///|
-pub impl Eq for GlobalSec with equal(l, r) {
-  l.0 == r.0
-}
-
-///|
-pub impl Eq for ExportSec with equal(l, r) {
-  l.0 == r.0
-}
-
-///|
-pub impl Eq for StartSec with equal(l, r) {
-  l.0 == r.0
-}
-
-///|
-pub impl Eq for ElemSec with equal(l, r) {
-  l.0 == r.0
-}
-
-///|
-pub impl Eq for DataCntSec with equal(l, r) {
-  l.0 == r.0
-}
-
-///|
-pub impl Eq for CodeSec with equal(l, r) {
-  l.0 == r.0
-}
-
-///|
-pub impl Eq for DataSec with equal(l, r) {
-  l.0 == r.0
-}
-
-///|
-pub impl Eq for Name with equal(l, r) {
-  l.0 == r.0
-}
-
-///|
 pub impl Eq for RecType with equal(l, r) {
   match (l, r) {
     (SingleRecType(stl), GroupRecType([str])) => stl == str
     (GroupRecType([stl]), SingleRecType(str)) => stl == str
     (SingleRecType(stl), SingleRecType(str)) => stl == str
     (GroupRecType(stl), GroupRecType(str)) => stl == str
-    _ => false
-  }
-}
-
-///|
-pub impl Eq for Import with equal(l, r) {
-  l.0 == r.0 && l.1 == r.1 && l.2 == r.2
-}
-
-///|
-pub impl Eq for TypeIdx with equal(l, r) {
-  match (l, r) {
-    (TypeIdx(l), TypeIdx(r)) => l == r
-    (RecIdx(l), RecIdx(r)) => l == r
-    _ => false
-  }
-}
-
-///|
-pub impl Eq for Table with equal(l, r) {
-  l.0 == r.0 && l.1 == r.1
-}
-
-///|
-pub impl Eq for MemType with equal(l, r) {
-  l.0 == r.0
-}
-
-///|
-pub impl Eq for TagType with equal(l, r) {
-  l.0 == r.0
-}
-
-///|
-pub impl Eq for Global with equal(l, r) {
-  l.0 == r.0 && l.1 == r.1
-}
-
-///|
-pub impl Eq for Export with equal(l, r) {
-  l.0 == r.0 && l.1 == r.1
-}
-
-///|
-pub impl Eq for FuncIdx with equal(l, r) {
-  l.0 == r.0
-}
-
-///|
-pub impl Eq for Elem with equal(l, r) {
-  l.0 == r.0 && l.1 == r.1
-}
-
-///|
-pub impl Eq for ElemMode with equal(l, r) {
-  match (l, r) {
-    (Active(l0, l1), Active(r0, r1)) => l0 == r0 && l1 == r1
-    (Passive, Passive) => true
-    (Declarative, Declarative) => true
-    _ => false
-  }
-}
-
-///|
-pub impl Eq for ElemKind with equal(l, r) {
-  match (l, r) {
-    (FuncsElemKind(l), FuncsElemKind(r)) => l == r
-    // Legacy element expressions: always (ref null func)
-    (FuncExprsElemKind(l), FuncExprsElemKind(r)) => l == r
-    // Typed element expressions
-    (TypedExprsElemKind(l0, l1), TypedExprsElemKind(r0, r1)) =>
-      l0 == r0 && l1 == r1
-    _ => false
-  }
-}
-
-///|
-pub impl Eq for U32 with equal(l, r) {
-  l.0 == r.0
-}
-
-///|
-pub impl Eq for Func with equal(l, r) {
-  l.0 == r.0 && l.1 == r.1
-}
-
-///|
-pub impl Eq for Data with equal(l, r) {
-  l.0 == r.0 && l.1 == r.1
-}
-
-///|
-pub impl Eq for SubType with equal(l, r) {
-  match (l, r) {
-    (SubType(fl, stl, ctl), SubType(fr, str, ctr)) =>
-      fl == fr && stl == str && ctl == ctr
-    (CompTypeSubType(ctl), CompTypeSubType(ctr)) => ctl == ctr
-    _ => false
-  }
-}
-
-///|
-pub impl Eq for ExternType with equal(l, r) {
-  match (l, r) {
-    (FuncExternType(l), FuncExternType(r)) => l == r
-    (TableExternType(l), TableExternType(r)) => l == r
-    (MemExternType(l), MemExternType(r)) => l == r
-    (GlobalExternType(l), GlobalExternType(r)) => l == r
-    (TagExternType(l), TagExternType(r)) => l == r
-    _ => false
-  }
-}
-
-///|
-pub impl Eq for TableType with equal(l, r) {
-  l.0 == r.0 && l.1 == r.1
-}
-
-///|
-pub impl Eq for Expr with equal(l, r) {
-  l.0 == r.0
-}
-
-///|
-pub impl Eq for Limits with equal(l, r) {
-  match (l, r) {
-    (I32Limits(l0, l1), I32Limits(r0, r1)) => l0 == r0 && l1 == r1
-    (I64Limits(l0, l1), I64Limits(r0, r1)) => l0 == r0 && l1 == r1
-    _ => false
-  }
-}
-
-///|
-pub impl Eq for GlobalType with equal(l, r) {
-  l.0 == r.0 && l.1 == r.1
-}
-
-///|
-pub impl Eq for ExternIdx with equal(l, r) {
-  match (l, r) {
-    (FuncExternIdx(l), FuncExternIdx(r)) => l == r
-    (TableExternIdx(l), TableExternIdx(r)) => l == r
-    (MemExternIdx(l), MemExternIdx(r)) => l == r
-    (GlobalExternIdx(l), GlobalExternIdx(r)) => l == r
-    (TagExternIdx(l), TagExternIdx(r)) => l == r
-    _ => false
-  }
-}
-
-///|
-pub impl Eq for Locals with equal(l, r) {
-  l.0 == r.0 && l.1 == r.1
-}
-
-///|
-pub impl Eq for DataMode with equal(l, r) {
-  match (l, r) {
-    (Active(l0, l1), Active(r0, r1)) => l0 == r0 && l1 == r1
-    (Passive, Passive) => true
-    _ => false
-  }
-}
-
-///|
-pub impl Eq for CompType with equal(l, r) {
-  match (l, r) {
-    (ArrayCompType(l), ArrayCompType(r)) => l == r
-    (StructCompType(l), StructCompType(r)) => l == r
-    (FuncCompType(l0, l1), FuncCompType(r0, r1)) => l0 == r0 && l1 == r1
     _ => false
   }
 }
@@ -3017,794 +2663,10 @@ pub impl Eq for RefType with equal(l, r) {
 }
 
 ///|
-pub impl Eq for ValType with equal(l, r) {
-  match (l, r) {
-    (VecTypeValType, VecTypeValType) => true
-    (NumTypeValType(n0), NumTypeValType(n1)) => n0 == n1
-    (RefTypeValType(r0), RefTypeValType(r1)) => r0 == r1
-    _ => false
-  }
-}
-
-///|
-pub impl Eq for TableIdx with equal(l, r) {
-  l.0 == r.0
-}
-
-///|
-pub impl Eq for MemIdx with equal(l, r) {
-  l.0 == r.0
-}
-
-///|
-pub impl Eq for GlobalIdx with equal(l, r) {
-  l.0 == r.0
-}
-
-///|
-pub impl Eq for TagIdx with equal(l, r) {
-  l.0 == r.0
-}
-
-///|
-pub impl Eq for FieldType with equal(l, r) {
-  l.0 == r.0 && l.1 == r.1
-}
-
-///|
-pub impl Eq for HeapType with equal(l, r) {
-  match (l, r) {
-    (AbsHeapTypeHeapType(l), AbsHeapTypeHeapType(r)) => l == r
-    (HeapType(l), HeapType(r)) => l == r
-    _ => false
-  }
-}
-
-///|
-pub impl Eq for AbsHeapType with equal(l, r) {
-  match (l, r) {
-    (ExnAbsHeapType, ExnAbsHeapType) => true
-    (ArrayAbsHeapType, ArrayAbsHeapType) => true
-    (StructAbsHeapType, StructAbsHeapType) => true
-    (I31AbsHeapType, I31AbsHeapType) => true
-    (EqAbsHeapType, EqAbsHeapType) => true
-    (AnyAbsHeapType, AnyAbsHeapType) => true
-    (ExternAbsHeapType, ExternAbsHeapType) => true
-    (FuncAbsHeapType, FuncAbsHeapType) => true
-    (NoneAbsHeapType, NoneAbsHeapType) => true
-    (NoExternAbsHeapType, NoExternAbsHeapType) => true
-    (NoFuncAbsHeapType, NoFuncAbsHeapType) => true
-    (NoExnAbsHeapType, NoExnAbsHeapType) => true
-    _ => false
-  }
-}
-
-///|
-pub impl Eq for NumType with equal(l, r) {
-  match (l, r) {
-    (F32NumType, F32NumType) => true
-    (F64NumType, F64NumType) => true
-    (I32NumType, I32NumType) => true
-    (I64NumType, I64NumType) => true
-    _ => false
-  }
-}
-
-///|
-pub impl Eq for StorageType with equal(l, r) {
-  match (l, r) {
-    (ValTypeStorageType(l), ValTypeStorageType(r)) => l == r
-    (PackTypeStorageType(l), PackTypeStorageType(r)) => l == r
-    _ => false
-  }
-}
-
-///|
-pub impl Eq for S33 with equal(l, r) {
-  l.0 == r.0
-}
-
-///|
-pub impl Eq for PackType with equal(l, r) {
-  match (l, r) {
-    (I8PackType, I8PackType) => true
-    (I16PackType, I16PackType) => true
-    _ => false
-  }
-}
-
-///|
-pub impl Eq for BlockType with equal(l, r) {
-  match (l, r) {
-    (ValTypeBlockType(l), ValTypeBlockType(r)) => l == r
-    (TypeIdxBlockType(l), TypeIdxBlockType(r)) => l == r
-    (EmptyBlockType, EmptyBlockType) => true
-    _ => false
-  }
-}
-
-///|
-pub impl Eq for LabelIdx with equal(l, r) {
-  l.0 == r.0
-}
-
-///|
-pub impl Eq for Catch with equal(l, r) {
-  match (l, r) {
-    (Catch(l0, l1), Catch(r0, r1)) => l0 == r0 && l1 == r1
-    (CatchRef(l0, l1), CatchRef(r0, r1)) => l0 == r0 && l1 == r1
-    (CatchAll(l), CatchAll(r)) => l == r
-    (CatchAllRef(l), CatchAllRef(r)) => l == r
-    _ => false
-  }
-}
-
-///|
-pub impl Eq for LocalIdx with equal(l, r) {
-  l.0 == r.0
-}
-
-///|
 pub impl Eq for MemArg with equal(l, r) {
   l.0 == r.0 &&
   l.1.unwrap_or(MemIdx(0)) == r.1.unwrap_or(MemIdx(0)) &&
   l.2 == r.2
-}
-
-///|
-pub impl Eq for ElemIdx with equal(l, r) {
-  l.0 == r.0
-}
-
-///|
-pub impl Eq for CastOp with equal(l, r) {
-  l.0 == r.0 && l.1 == r.1
-}
-
-///|
-pub impl Eq for DataIdx with equal(l, r) {
-  l.0 == r.0
-}
-
-///|
-pub impl Eq for F32 with equal(l, r) {
-  l.0 == r.0
-}
-
-///|
-pub impl Eq for F64 with equal(l, r) {
-  l.0 == r.0
-}
-
-///|
-pub impl Eq for U64 with equal(l, r) {
-  l.0 == r.0
-}
-
-///|
-pub impl Eq for I32 with equal(l, r) {
-  l.0 == r.0
-}
-
-///|
-pub impl Eq for I64 with equal(l, r) {
-  l.0 == r.0
-}
-
-///|
-pub impl Eq for LaneIdx with equal(l, r) {
-  l.0 == r.0
-}
-
-///|
-pub impl Eq for Instruction with equal(l, r) {
-  match (l, r) {
-    (Unreachable, Unreachable) => true
-    (Nop, Nop) => true
-    (Block(l0, l1), Block(r0, r1)) => l0 == r0 && l1 == r1
-    (Loop(l0, l1), Loop(r0, r1)) => l0 == r0 && l1 == r1
-    (If(l0, l1, l2), If(r0, r1, r2)) => l0 == r0 && l1 == r1 && l2 == r2
-    (Throw(l), Throw(r)) => l == r
-    (ThrowRef, ThrowRef) => true
-    (Br(l), Br(r)) => l == r
-    (BrIf(l), BrIf(r)) => l == r
-    (BrTable(l0, l1), BrTable(r0, r1)) => l0 == r0 && l1 == r1
-    (Return, Return) => true
-    (Call(l), Call(r)) => l == r
-    (CallIndirect(l0, l1), CallIndirect(r0, r1)) => l0 == r0 && l1 == r1
-    (ReturnCall(l), ReturnCall(r)) => l == r
-    (ReturnCallIndirect(l0, l1), ReturnCallIndirect(r0, r1)) =>
-      l0 == r0 && l1 == r1
-    (CallRef(l), CallRef(r)) => l == r
-    (ReturnCallRef(l), ReturnCallRef(r)) => l == r
-    (Drop, Drop) => true
-    (Select(l), Select(r)) => l == r
-    (TryTable(l0, l1, l2), TryTable(r0, r1, r2)) =>
-      l0 == r0 && l1 == r1 && l2 == r2
-    (LocalGet(l), LocalGet(r)) => l == r
-    (LocalSet(l), LocalSet(r)) => l == r
-    (LocalTee(l), LocalTee(r)) => l == r
-    (GlobalGet(l), GlobalGet(r)) => l == r
-    (GlobalSet(l), GlobalSet(r)) => l == r
-    (TableGet(l), TableGet(r)) => l == r
-    (TableSet(l), TableSet(r)) => l == r
-    (I32Load(l), I32Load(r)) => l == r
-    (I64Load(l), I64Load(r)) => l == r
-    (F32Load(l), F32Load(r)) => l == r
-    (F64Load(l), F64Load(r)) => l == r
-    (I32Load8S(l), I32Load8S(r)) => l == r
-    (I32Load8U(l), I32Load8U(r)) => l == r
-    (I32Load16S(l), I32Load16S(r)) => l == r
-    (I32Load16U(l), I32Load16U(r)) => l == r
-    (I64Load8S(l), I64Load8S(r)) => l == r
-    (I64Load8U(l), I64Load8U(r)) => l == r
-    (I64Load16S(l), I64Load16S(r)) => l == r
-    (I64Load16U(l), I64Load16U(r)) => l == r
-    (I64Load32S(l), I64Load32S(r)) => l == r
-    (I64Load32U(l), I64Load32U(r)) => l == r
-    (I32Store(l), I32Store(r)) => l == r
-    (I64Store(l), I64Store(r)) => l == r
-    (F32Store(l), F32Store(r)) => l == r
-    (F64Store(l), F64Store(r)) => l == r
-    (I32Store8(l), I32Store8(r)) => l == r
-    (I32Store16(l), I32Store16(r)) => l == r
-    (I64Store8(l), I64Store8(r)) => l == r
-    (I64Store16(l), I64Store16(r)) => l == r
-    (I64Store32(l), I64Store32(r)) => l == r
-    (MemorySize(l), MemorySize(r)) => l == r
-    (MemoryGrow(l), MemoryGrow(r)) => l == r
-    (I32Const(l), I32Const(r)) => l == r
-    (I64Const(l), I64Const(r)) => l == r
-    (F32Const(l), F32Const(r)) => l == r
-    (F64Const(l), F64Const(r)) => l == r
-    (I32Eqz, I32Eqz) => true
-    (I32Eq, I32Eq) => true
-    (I32Ne, I32Ne) => true
-    (I32LtS, I32LtS) => true
-    (I32LtU, I32LtU) => true
-    (I32GtS, I32GtS) => true
-    (I32GtU, I32GtU) => true
-    (I32LeS, I32LeS) => true
-    (I32LeU, I32LeU) => true
-    (I32GeS, I32GeS) => true
-    (I32GeU, I32GeU) => true
-    (I64Eqz, I64Eqz) => true
-    (I64Eq, I64Eq) => true
-    (I64Ne, I64Ne) => true
-    (I64LtS, I64LtS) => true
-    (I64LtU, I64LtU) => true
-    (I64GtS, I64GtS) => true
-    (I64GtU, I64GtU) => true
-    (I64LeS, I64LeS) => true
-    (I64LeU, I64LeU) => true
-    (I64GeS, I64GeS) => true
-    (I64GeU, I64GeU) => true
-    (F32Eq, F32Eq) => true
-    (F32Ne, F32Ne) => true
-    (F32Lt, F32Lt) => true
-    (F32Gt, F32Gt) => true
-    (F32Le, F32Le) => true
-    (F32Ge, F32Ge) => true
-    (F64Eq, F64Eq) => true
-    (F64Ne, F64Ne) => true
-    (F64Lt, F64Lt) => true
-    (F64Gt, F64Gt) => true
-    (F64Le, F64Le) => true
-    (F64Ge, F64Ge) => true
-    (I32Clz, I32Clz) => true
-    (I32Ctz, I32Ctz) => true
-    (I32Popcnt, I32Popcnt) => true
-    (I32Add, I32Add) => true
-    (I32Sub, I32Sub) => true
-    (I32Mul, I32Mul) => true
-    (I32DivS, I32DivS) => true
-    (I32DivU, I32DivU) => true
-    (I32RemS, I32RemS) => true
-    (I32RemU, I32RemU) => true
-    (I32And, I32And) => true
-    (I32Or, I32Or) => true
-    (I32Xor, I32Xor) => true
-    (I32Shl, I32Shl) => true
-    (I32ShrS, I32ShrS) => true
-    (I32ShrU, I32ShrU) => true
-    (I32Rotl, I32Rotl) => true
-    (I32Rotr, I32Rotr) => true
-    (I64Clz, I64Clz) => true
-    (I64Ctz, I64Ctz) => true
-    (I64Popcnt, I64Popcnt) => true
-    (I64Add, I64Add) => true
-    (I64Sub, I64Sub) => true
-    (I64Mul, I64Mul) => true
-    (I64DivS, I64DivS) => true
-    (I64DivU, I64DivU) => true
-    (I64RemS, I64RemS) => true
-    (I64RemU, I64RemU) => true
-    (I64And, I64And) => true
-    (I64Or, I64Or) => true
-    (I64Xor, I64Xor) => true
-    (I64Shl, I64Shl) => true
-    (I64ShrS, I64ShrS) => true
-    (I64ShrU, I64ShrU) => true
-    (I64Rotl, I64Rotl) => true
-    (I64Rotr, I64Rotr) => true
-    (F32Abs, F32Abs) => true
-    (F32Neg, F32Neg) => true
-    (F32Ceil, F32Ceil) => true
-    (F32Floor, F32Floor) => true
-    (F32Trunc, F32Trunc) => true
-    (F32Nearest, F32Nearest) => true
-    (F32Sqrt, F32Sqrt) => true
-    (F32Add, F32Add) => true
-    (F32Sub, F32Sub) => true
-    (F32Mul, F32Mul) => true
-    (F32Div, F32Div) => true
-    (F32Min, F32Min) => true
-    (F32Max, F32Max) => true
-    (F32Copysign, F32Copysign) => true
-    (F64Abs, F64Abs) => true
-    (F64Neg, F64Neg) => true
-    (F64Ceil, F64Ceil) => true
-    (F64Floor, F64Floor) => true
-    (F64Trunc, F64Trunc) => true
-    (F64Nearest, F64Nearest) => true
-    (F64Sqrt, F64Sqrt) => true
-    (F64Add, F64Add) => true
-    (F64Sub, F64Sub) => true
-    (F64Mul, F64Mul) => true
-    (F64Div, F64Div) => true
-    (F64Min, F64Min) => true
-    (F64Max, F64Max) => true
-    (F64Copysign, F64Copysign) => true
-    (I32WrapI64, I32WrapI64) => true
-    (I32TruncF32S, I32TruncF32S) => true
-    (I32TruncF32U, I32TruncF32U) => true
-    (I32TruncF64S, I32TruncF64S) => true
-    (I32TruncF64U, I32TruncF64U) => true
-    (I64ExtendI32S, I64ExtendI32S) => true
-    (I64ExtendI32U, I64ExtendI32U) => true
-    (I64TruncF32S, I64TruncF32S) => true
-    (I64TruncF32U, I64TruncF32U) => true
-    (I64TruncF64S, I64TruncF64S) => true
-    (I64TruncF64U, I64TruncF64U) => true
-    (F32ConvertI32S, F32ConvertI32S) => true
-    (F32ConvertI32U, F32ConvertI32U) => true
-    (F32ConvertI64S, F32ConvertI64S) => true
-    (F32ConvertI64U, F32ConvertI64U) => true
-    (F32DemoteF64, F32DemoteF64) => true
-    (F64ConvertI32S, F64ConvertI32S) => true
-    (F64ConvertI32U, F64ConvertI32U) => true
-    (F64ConvertI64S, F64ConvertI64S) => true
-    (F64ConvertI64U, F64ConvertI64U) => true
-    (F64PromoteF32, F64PromoteF32) => true
-    (I32ReinterpretF32, I32ReinterpretF32) => true
-    (I64ReinterpretF64, I64ReinterpretF64) => true
-    (F32ReinterpretI32, F32ReinterpretI32) => true
-    (F64ReinterpretI64, F64ReinterpretI64) => true
-    (I32Extend8S, I32Extend8S) => true
-    (I32Extend16S, I32Extend16S) => true
-    (I64Extend8S, I64Extend8S) => true
-    (I64Extend16S, I64Extend16S) => true
-    (I64Extend32S, I64Extend32S) => true
-    (RefNull(l), RefNull(r)) => l == r
-    (RefIsNull, RefIsNull) => true
-    (RefFunc(l), RefFunc(r)) => l == r
-    (RefEq, RefEq) => true
-    (RefAsNonNull, RefAsNonNull) => true
-    (BrOnNull(l), BrOnNull(r)) => l == r
-    (BrOnNonNull(l), BrOnNonNull(r)) => l == r
-    (StructNew(l), StructNew(r)) => l == r
-    (StructNewDefault(l), StructNewDefault(r)) => l == r
-    (StructGet(l0, l1), StructGet(r0, r1)) => l0 == r0 && l1 == r1
-    (StructGetS(l0, l1), StructGetS(r0, r1)) => l0 == r0 && l1 == r1
-    (StructGetU(l0, l1), StructGetU(r0, r1)) => l0 == r0 && l1 == r1
-    (StructSet(l0, l1), StructSet(r0, r1)) => l0 == r0 && l1 == r1
-    (ArrayNew(l), ArrayNew(r)) => l == r
-    (ArrayNewDefault(l), ArrayNewDefault(r)) => l == r
-    (ArrayNewFixed(l0, l1), ArrayNewFixed(r0, r1)) => l0 == r0 && l1 == r1
-    (ArrayNewData(l0, l1), ArrayNewData(r0, r1)) => l0 == r0 && l1 == r1
-    (ArrayNewElem(l0, l1), ArrayNewElem(r0, r1)) => l0 == r0 && l1 == r1
-    (ArrayGet(l), ArrayGet(r)) => l == r
-    (ArrayGetS(l), ArrayGetS(r)) => l == r
-    (ArrayGetU(l), ArrayGetU(r)) => l == r
-    (ArraySet(l), ArraySet(r)) => l == r
-    (ArrayLen, ArrayLen) => true
-    (ArrayFill(l), ArrayFill(r)) => l == r
-    (ArrayCopy(l0, l1), ArrayCopy(r0, r1)) => l0 == r0 && l1 == r1
-    (ArrayInitData(l0, l1), ArrayInitData(r0, r1)) => l0 == r0 && l1 == r1
-    (ArrayInitElem(l0, l1), ArrayInitElem(r0, r1)) => l0 == r0 && l1 == r1
-    (RefTest(l0, l1), RefTest(r0, r1)) => l0 == r0 && l1 == r1
-    (RefCast(l0, l1), RefCast(r0, r1)) => l0 == r0 && l1 == r1
-    (BrOnCast(l0, l1, l2, l3), BrOnCast(r0, r1, r2, r3)) =>
-      l0 == r0 && l1 == r1 && l2 == r2 && l3 == r3
-    (BrOnCastFail(l0, l1, l2, l3), BrOnCastFail(r0, r1, r2, r3)) =>
-      l0 == r0 && l1 == r1 && l2 == r2 && l3 == r3
-    (AnyConvertExtern, AnyConvertExtern) => true
-    (ExternConvertAny, ExternConvertAny) => true
-    (RefI31, RefI31) => true
-    (I31GetS, I31GetS) => true
-    (I31GetU, I31GetU) => true
-    (I32TruncSatF32S, I32TruncSatF32S) => true
-    (I32TruncSatF32U, I32TruncSatF32U) => true
-    (I32TruncSatF64S, I32TruncSatF64S) => true
-    (I32TruncSatF64U, I32TruncSatF64U) => true
-    (I64TruncSatF32S, I64TruncSatF32S) => true
-    (I64TruncSatF32U, I64TruncSatF32U) => true
-    (I64TruncSatF64S, I64TruncSatF64S) => true
-    (I64TruncSatF64U, I64TruncSatF64U) => true
-    (MemoryInit(l0, l1), MemoryInit(r0, r1)) => l0 == r0 && l1 == r1
-    (DataDrop(l), DataDrop(r)) => l == r
-    (MemoryCopy(l0, l1), MemoryCopy(r0, r1)) => l0 == r0 && l1 == r1
-    (MemoryFill(l), MemoryFill(r)) => l == r
-    (TableInit(l0, l1), TableInit(r0, r1)) => l0 == r0 && l1 == r1
-    (ElemDrop(l), ElemDrop(r)) => l == r
-    (TableCopy(l0, l1), TableCopy(r0, r1)) => l0 == r0 && l1 == r1
-    (TableGrow(l), TableGrow(r)) => l == r
-    (TableSize(l), TableSize(r)) => l == r
-    (TableFill(l), TableFill(r)) => l == r
-    (V128Load(l), V128Load(r)) => l == r
-    (V128Load8x8S(l), V128Load8x8S(r)) => l == r
-    (V128Load8x8U(l), V128Load8x8U(r)) => l == r
-    (V128Load16x4S(l), V128Load16x4S(r)) => l == r
-    (V128Load16x4U(l), V128Load16x4U(r)) => l == r
-    (V128Load32x2S(l), V128Load32x2S(r)) => l == r
-    (V128Load32x2U(l), V128Load32x2U(r)) => l == r
-    (V128Load8Splat(l), V128Load8Splat(r)) => l == r
-    (V128Load16Splat(l), V128Load16Splat(r)) => l == r
-    (V128Load32Splat(l), V128Load32Splat(r)) => l == r
-    (V128Load64Splat(l), V128Load64Splat(r)) => l == r
-    (V128Store(l), V128Store(r)) => l == r
-    (
-      V128Const(
-        l0,
-        l1,
-        l2,
-        l3,
-        l4,
-        l5,
-        l6,
-        l7,
-        l8,
-        l9,
-        l10,
-        l11,
-        l12,
-        l13,
-        l14,
-        l15
-      ),
-      V128Const(
-        r0,
-        r1,
-        r2,
-        r3,
-        r4,
-        r5,
-        r6,
-        r7,
-        r8,
-        r9,
-        r10,
-        r11,
-        r12,
-        r13,
-        r14,
-        r15
-      ),
-    ) =>
-      l0 == r0 &&
-      l1 == r1 &&
-      l2 == r2 &&
-      l3 == r3 &&
-      l4 == r4 &&
-      l5 == r5 &&
-      l6 == r6 &&
-      l7 == r7 &&
-      l8 == r8 &&
-      l9 == r9 &&
-      l10 == r10 &&
-      l11 == r11 &&
-      l12 == r12 &&
-      l13 == r13 &&
-      l14 == r14 &&
-      l15 == r15
-    (
-      I8x16Shuffle(
-        l0,
-        l1,
-        l2,
-        l3,
-        l4,
-        l5,
-        l6,
-        l7,
-        l8,
-        l9,
-        l10,
-        l11,
-        l12,
-        l13,
-        l14,
-        l15
-      ),
-      I8x16Shuffle(
-        r0,
-        r1,
-        r2,
-        r3,
-        r4,
-        r5,
-        r6,
-        r7,
-        r8,
-        r9,
-        r10,
-        r11,
-        r12,
-        r13,
-        r14,
-        r15
-      ),
-    ) =>
-      l0 == r0 &&
-      l1 == r1 &&
-      l2 == r2 &&
-      l3 == r3 &&
-      l4 == r4 &&
-      l5 == r5 &&
-      l6 == r6 &&
-      l7 == r7 &&
-      l8 == r8 &&
-      l9 == r9 &&
-      l10 == r10 &&
-      l11 == r11 &&
-      l12 == r12 &&
-      l13 == r13 &&
-      l14 == r14 &&
-      l15 == r15
-    (I8x16Swizzle, I8x16Swizzle) => true
-    (I8x16Splat, I8x16Splat) => true
-    (I16x8Splat, I16x8Splat) => true
-    (I32x4Splat, I32x4Splat) => true
-    (I64x2Splat, I64x2Splat) => true
-    (F32x4Splat, F32x4Splat) => true
-    (F64x2Splat, F64x2Splat) => true
-    (I8x16ExtractLaneS(l), I8x16ExtractLaneS(r)) => l == r
-    (I8x16ExtractLaneU(l), I8x16ExtractLaneU(r)) => l == r
-    (I8x16ReplaceLane(l), I8x16ReplaceLane(r)) => l == r
-    (I16x8ExtractLaneS(l), I16x8ExtractLaneS(r)) => l == r
-    (I16x8ExtractLaneU(l), I16x8ExtractLaneU(r)) => l == r
-    (I16x8ReplaceLane(l), I16x8ReplaceLane(r)) => l == r
-    (I32x4ExtractLane(l), I32x4ExtractLane(r)) => l == r
-    (I32x4ReplaceLane(l), I32x4ReplaceLane(r)) => l == r
-    (I64x2ExtractLane(l), I64x2ExtractLane(r)) => l == r
-    (I64x2ReplaceLane(l), I64x2ReplaceLane(r)) => l == r
-    (F32x4ExtractLane(l), F32x4ExtractLane(r)) => l == r
-    (F32x4ReplaceLane(l), F32x4ReplaceLane(r)) => l == r
-    (F64x2ExtractLane(l), F64x2ExtractLane(r)) => l == r
-    (F64x2ReplaceLane(l), F64x2ReplaceLane(r)) => l == r
-    (I8x16Eq, I8x16Eq) => true
-    (I8x16Ne, I8x16Ne) => true
-    (I8x16LtS, I8x16LtS) => true
-    (I8x16LtU, I8x16LtU) => true
-    (I8x16GtS, I8x16GtS) => true
-    (I8x16GtU, I8x16GtU) => true
-    (I8x16LeS, I8x16LeS) => true
-    (I8x16LeU, I8x16LeU) => true
-    (I8x16GeS, I8x16GeS) => true
-    (I8x16GeU, I8x16GeU) => true
-    (I16x8Eq, I16x8Eq) => true
-    (I16x8Ne, I16x8Ne) => true
-    (I16x8LtS, I16x8LtS) => true
-    (I16x8LtU, I16x8LtU) => true
-    (I16x8GtS, I16x8GtS) => true
-    (I16x8GtU, I16x8GtU) => true
-    (I16x8LeS, I16x8LeS) => true
-    (I16x8LeU, I16x8LeU) => true
-    (I16x8GeS, I16x8GeS) => true
-    (I16x8GeU, I16x8GeU) => true
-    (I32x4Eq, I32x4Eq) => true
-    (I32x4Ne, I32x4Ne) => true
-    (I32x4LtS, I32x4LtS) => true
-    (I32x4LtU, I32x4LtU) => true
-    (I32x4GtS, I32x4GtS) => true
-    (I32x4GtU, I32x4GtU) => true
-    (I32x4LeS, I32x4LeS) => true
-    (I32x4LeU, I32x4LeU) => true
-    (I32x4GeS, I32x4GeS) => true
-    (I32x4GeU, I32x4GeU) => true
-    (F32x4Eq, F32x4Eq) => true
-    (F32x4Ne, F32x4Ne) => true
-    (F32x4Lt, F32x4Lt) => true
-    (F32x4Gt, F32x4Gt) => true
-    (F32x4Le, F32x4Le) => true
-    (F32x4Ge, F32x4Ge) => true
-    (F64x2Eq, F64x2Eq) => true
-    (F64x2Ne, F64x2Ne) => true
-    (F64x2Lt, F64x2Lt) => true
-    (F64x2Gt, F64x2Gt) => true
-    (F64x2Le, F64x2Le) => true
-    (F64x2Ge, F64x2Ge) => true
-    (V128Not, V128Not) => true
-    (V128And, V128And) => true
-    (V128Andnot, V128Andnot) => true
-    (V128Or, V128Or) => true
-    (V128Xor, V128Xor) => true
-    (V128Bitselect, V128Bitselect) => true
-    (V128AnyTrue, V128AnyTrue) => true
-    (V128Load8Lane(l0, l1), V128Load8Lane(r0, r1)) => l0 == r0 && l1 == r1
-    (V128Load16Lane(l0, l1), V128Load16Lane(r0, r1)) => l0 == r0 && l1 == r1
-    (V128Load32Lane(l0, l1), V128Load32Lane(r0, r1)) => l0 == r0 && l1 == r1
-    (V128Load64Lane(l0, l1), V128Load64Lane(r0, r1)) => l0 == r0 && l1 == r1
-    (V128Store8Lane(l0, l1), V128Store8Lane(r0, r1)) => l0 == r0 && l1 == r1
-    (V128Store16Lane(l0, l1), V128Store16Lane(r0, r1)) => l0 == r0 && l1 == r1
-    (V128Store32Lane(l0, l1), V128Store32Lane(r0, r1)) => l0 == r0 && l1 == r1
-    (V128Store64Lane(l0, l1), V128Store64Lane(r0, r1)) => l0 == r0 && l1 == r1
-    (V128Load32Zero(l), V128Load32Zero(r)) => l == r
-    (V128Load64Zero(l), V128Load64Zero(r)) => l == r
-    (F32x4DemoteF64x2Zero, F32x4DemoteF64x2Zero) => true
-    (F64x2PromoteLowF32x4, F64x2PromoteLowF32x4) => true
-    (I8x16Abs, I8x16Abs) => true
-    (I8x16Neg, I8x16Neg) => true
-    (I8x16Popcnt, I8x16Popcnt) => true
-    (I8x16AllTrue, I8x16AllTrue) => true
-    (I8x16Bitmask, I8x16Bitmask) => true
-    (I8x16NarrowI16x8S, I8x16NarrowI16x8S) => true
-    (I8x16NarrowI16x8U, I8x16NarrowI16x8U) => true
-    (F32x4Ceil, F32x4Ceil) => true
-    (F32x4Floor, F32x4Floor) => true
-    (F32x4Trunc, F32x4Trunc) => true
-    (F32x4Nearest, F32x4Nearest) => true
-    (I8x16Shl, I8x16Shl) => true
-    (I8x16ShrS, I8x16ShrS) => true
-    (I8x16ShrU, I8x16ShrU) => true
-    (I8x16Add, I8x16Add) => true
-    (I8x16AddSatS, I8x16AddSatS) => true
-    (I8x16AddSatU, I8x16AddSatU) => true
-    (I8x16Sub, I8x16Sub) => true
-    (I8x16SubSatS, I8x16SubSatS) => true
-    (I8x16SubSatU, I8x16SubSatU) => true
-    (F64x2Ceil, F64x2Ceil) => true
-    (F64x2Floor, F64x2Floor) => true
-    (I8x16MinS, I8x16MinS) => true
-    (I8x16MinU, I8x16MinU) => true
-    (I8x16MaxS, I8x16MaxS) => true
-    (I8x16MaxU, I8x16MaxU) => true
-    (F64x2Trunc, F64x2Trunc) => true
-    (I8x16AvgrU, I8x16AvgrU) => true
-    (I16x8ExtaddPairwiseI8x16S, I16x8ExtaddPairwiseI8x16S) => true
-    (I16x8ExtaddPairwiseI8x16U, I16x8ExtaddPairwiseI8x16U) => true
-    (I32x4ExtaddPairwiseI16x8S, I32x4ExtaddPairwiseI16x8S) => true
-    (I32x4ExtaddPairwiseI16x8U, I32x4ExtaddPairwiseI16x8U) => true
-    (I16x8Abs, I16x8Abs) => true
-    (I16x8Neg, I16x8Neg) => true
-    (I16x8Q15mulrSatS, I16x8Q15mulrSatS) => true
-    (I16x8AllTrue, I16x8AllTrue) => true
-    (I16x8Bitmask, I16x8Bitmask) => true
-    (I16x8NarrowI32x4S, I16x8NarrowI32x4S) => true
-    (I16x8NarrowI32x4U, I16x8NarrowI32x4U) => true
-    (I16x8ExtendLowI8x16S, I16x8ExtendLowI8x16S) => true
-    (I16x8ExtendHighI8x16S, I16x8ExtendHighI8x16S) => true
-    (I16x8ExtendLowI8x16U, I16x8ExtendLowI8x16U) => true
-    (I16x8ExtendHighI8x16U, I16x8ExtendHighI8x16U) => true
-    (I16x8Shl, I16x8Shl) => true
-    (I16x8ShrS, I16x8ShrS) => true
-    (I16x8ShrU, I16x8ShrU) => true
-    (I16x8Add, I16x8Add) => true
-    (I16x8AddSatS, I16x8AddSatS) => true
-    (I16x8AddSatU, I16x8AddSatU) => true
-    (I16x8Sub, I16x8Sub) => true
-    (I16x8SubSatS, I16x8SubSatS) => true
-    (I16x8SubSatU, I16x8SubSatU) => true
-    (F64x2Nearest, F64x2Nearest) => true
-    (I16x8Mul, I16x8Mul) => true
-    (I16x8MinS, I16x8MinS) => true
-    (I16x8MinU, I16x8MinU) => true
-    (I16x8MaxS, I16x8MaxS) => true
-    (I16x8MaxU, I16x8MaxU) => true
-    (I16x8AvgrU, I16x8AvgrU) => true
-    (I16x8ExtmulLowI8x16S, I16x8ExtmulLowI8x16S) => true
-    (I16x8ExtmulHighI8x16S, I16x8ExtmulHighI8x16S) => true
-    (I16x8ExtmulLowI8x16U, I16x8ExtmulLowI8x16U) => true
-    (I16x8ExtmulHighI8x16U, I16x8ExtmulHighI8x16U) => true
-    (I32x4Abs, I32x4Abs) => true
-    (I32x4Neg, I32x4Neg) => true
-    (I32x4AllTrue, I32x4AllTrue) => true
-    (I32x4Bitmask, I32x4Bitmask) => true
-    (I32x4ExtendLowI16x8S, I32x4ExtendLowI16x8S) => true
-    (I32x4ExtendHighI16x8S, I32x4ExtendHighI16x8S) => true
-    (I32x4ExtendLowI16x8U, I32x4ExtendLowI16x8U) => true
-    (I32x4ExtendHighI16x8U, I32x4ExtendHighI16x8U) => true
-    (I32x4Shl, I32x4Shl) => true
-    (I32x4ShrS, I32x4ShrS) => true
-    (I32x4ShrU, I32x4ShrU) => true
-    (I32x4Add, I32x4Add) => true
-    (I32x4Sub, I32x4Sub) => true
-    (I32x4Mul, I32x4Mul) => true
-    (I32x4MinS, I32x4MinS) => true
-    (I32x4MinU, I32x4MinU) => true
-    (I32x4MaxS, I32x4MaxS) => true
-    (I32x4MaxU, I32x4MaxU) => true
-    (I32x4DotI16x8S, I32x4DotI16x8S) => true
-    (I32x4ExtmulLowI16x8S, I32x4ExtmulLowI16x8S) => true
-    (I32x4ExtmulHighI16x8S, I32x4ExtmulHighI16x8S) => true
-    (I32x4ExtmulLowI16x8U, I32x4ExtmulLowI16x8U) => true
-    (I32x4ExtmulHighI16x8U, I32x4ExtmulHighI16x8U) => true
-    (I64x2Abs, I64x2Abs) => true
-    (I64x2Neg, I64x2Neg) => true
-    (I64x2AllTrue, I64x2AllTrue) => true
-    (I64x2Bitmask, I64x2Bitmask) => true
-    (I64x2ExtendLowI32x4S, I64x2ExtendLowI32x4S) => true
-    (I64x2ExtendHighI32x4S, I64x2ExtendHighI32x4S) => true
-    (I64x2ExtendLowI32x4U, I64x2ExtendLowI32x4U) => true
-    (I64x2ExtendHighI32x4U, I64x2ExtendHighI32x4U) => true
-    (I64x2Shl, I64x2Shl) => true
-    (I64x2ShrS, I64x2ShrS) => true
-    (I64x2ShrU, I64x2ShrU) => true
-    (I64x2Add, I64x2Add) => true
-    (I64x2Sub, I64x2Sub) => true
-    (I64x2Mul, I64x2Mul) => true
-    (I64x2Eq, I64x2Eq) => true
-    (I64x2Ne, I64x2Ne) => true
-    (I64x2LtS, I64x2LtS) => true
-    (I64x2GtS, I64x2GtS) => true
-    (I64x2LeS, I64x2LeS) => true
-    (I64x2GeS, I64x2GeS) => true
-    (I64x2ExtmulLowI32x4S, I64x2ExtmulLowI32x4S) => true
-    (I64x2ExtmulHighI32x4S, I64x2ExtmulHighI32x4S) => true
-    (I64x2ExtmulLowI32x4U, I64x2ExtmulLowI32x4U) => true
-    (I64x2ExtmulHighI32x4U, I64x2ExtmulHighI32x4U) => true
-    (F32x4Abs, F32x4Abs) => true
-    (F32x4Neg, F32x4Neg) => true
-    (F32x4Sqrt, F32x4Sqrt) => true
-    (F32x4Add, F32x4Add) => true
-    (F32x4Sub, F32x4Sub) => true
-    (F32x4Mul, F32x4Mul) => true
-    (F32x4Div, F32x4Div) => true
-    (F32x4Min, F32x4Min) => true
-    (F32x4Max, F32x4Max) => true
-    (F32x4Pmin, F32x4Pmin) => true
-    (F32x4Pmax, F32x4Pmax) => true
-    (F64x2Abs, F64x2Abs) => true
-    (F64x2Neg, F64x2Neg) => true
-    (F64x2Sqrt, F64x2Sqrt) => true
-    (F64x2Add, F64x2Add) => true
-    (F64x2Sub, F64x2Sub) => true
-    (F64x2Mul, F64x2Mul) => true
-    (F64x2Div, F64x2Div) => true
-    (F64x2Min, F64x2Min) => true
-    (F64x2Max, F64x2Max) => true
-    (F64x2Pmin, F64x2Pmin) => true
-    (F64x2Pmax, F64x2Pmax) => true
-    (I32x4TruncSatF32x4S, I32x4TruncSatF32x4S) => true
-    (I32x4TruncSatF32x4U, I32x4TruncSatF32x4U) => true
-    (F32x4ConvertI32x4S, F32x4ConvertI32x4S) => true
-    (F32x4ConvertI32x4U, F32x4ConvertI32x4U) => true
-    (I32x4TruncSatF64x2SZero, I32x4TruncSatF64x2SZero) => true
-    (I32x4TruncSatF64x2UZero, I32x4TruncSatF64x2UZero) => true
-    (F64x2ConvertLowI32x4S, F64x2ConvertLowI32x4S) => true
-    (F64x2ConvertLowI32x4U, F64x2ConvertLowI32x4U) => true
-    (I8x16RelaxedSwizzle, I8x16RelaxedSwizzle) => true
-    (I32x4RelaxedTruncF32x4S, I32x4RelaxedTruncF32x4S) => true
-    (I32x4RelaxedTruncF32x4U, I32x4RelaxedTruncF32x4U) => true
-    (I32x4RelaxedTruncZeroF64x2S, I32x4RelaxedTruncZeroF64x2S) => true
-    (I32x4RelaxedTruncZeroF64x2U, I32x4RelaxedTruncZeroF64x2U) => true
-    (F32x4RelaxedMadd, F32x4RelaxedMadd) => true
-    (F32x4RelaxedNmadd, F32x4RelaxedNmadd) => true
-    (F64x2RelaxedMadd, F64x2RelaxedMadd) => true
-    (F64x2RelaxedNmadd, F64x2RelaxedNmadd) => true
-    (I8x16RelaxedLaneselect, I8x16RelaxedLaneselect) => true
-    (I16x8RelaxedLaneselect, I16x8RelaxedLaneselect) => true
-    (I32x4RelaxedLaneselect, I32x4RelaxedLaneselect) => true
-    (I64x2RelaxedLaneselect, I64x2RelaxedLaneselect) => true
-    (F32x4RelaxedMin, F32x4RelaxedMin) => true
-    (F32x4RelaxedMax, F32x4RelaxedMax) => true
-    (F64x2RelaxedMin, F64x2RelaxedMin) => true
-    (F64x2RelaxedMax, F64x2RelaxedMax) => true
-    (I16x8RelaxedQ15mulrS, I16x8RelaxedQ15mulrS) => true
-    (I16x8RelaxedDotI8x16I7x16S, I16x8RelaxedDotI8x16I7x16S) => true
-    (I32x4RelaxedDotI8x16I7x16AddS, I32x4RelaxedDotI8x16I7x16AddS) => true
-    _ => false
-  }
 }
 
 ///|
@@ -3828,6 +2690,82 @@ pub struct Env {
   labels : Stack[Array[ValType]]
   return_type : Array[ValType]?
 }
+
+///|
+fn Limits::mem_addr_bits(lim : Limits) -> Int {
+  match lim {
+    I32Limits(_, _) => 32
+    I64Limits(_, _) => 64
+  }
+}
+
+///|
+pub fn[T : @quickcheck.Arbitrary] array_of_arbitrary(
+  max : UInt,
+  t : Int,
+  state : @quickcheck/splitmix.RandomState,
+) -> Array[T] {
+  let count = state.next_uint() % max + 1
+  let a = []
+  loop count {
+    0 => break a
+    n => {
+      a.push(@quickcheck.Arbitrary::arbitrary(t, state))
+      continue n - 1
+    }
+  }
+}
+
+///|
+pub fn RefType::is_nullable(rt : RefType) -> Bool {
+  match rt {
+    HeapTypeRefType(b, _) => b
+    AbsHeapTypeRefType(_) => true
+  }
+}
+
+///|
+pub fn RefType::get_heap_type(rt : RefType) -> HeapType {
+  match rt {
+    HeapTypeRefType(_, ht) => ht
+    AbsHeapTypeRefType(ahs) => AbsHeapTypeHeapType(ahs)
+  }
+}
+
+///|
+pub fn SubType::super_types(self : SubType) -> Array[TypeIdx] {
+  match self {
+    SubType(_, sts, _) => sts
+    CompTypeSubType(_) => []
+  }
+}
+
+///|
+pub fn SubType::get_comptype(self : SubType) -> CompType {
+  match self {
+    SubType(_, _, ct) => ct
+    CompTypeSubType(ct) => ct
+  }
+}
+
+///|
+pub fn RecType::get_subtype(self : RecType, idx : UInt) -> SubType? {
+  match (self, idx) {
+    (SingleRecType(st), 0) => Some(st)
+    (GroupRecType(sts), i) => sts.get(i.reinterpret_as_int())
+    _ => None
+  }
+}
+
+///|
+pub fn DefType::project(self : DefType) -> SubType? {
+  let DefType(rt, n) = self
+  match rt {
+    SingleRecType(st) => if n == 0 { Some(st) } else { None }
+    GroupRecType(sts) => sts.get(n.reinterpret_as_int())
+  }
+}
+
 
 ///|
 pub fn Env::resolve_subtype(env : Env, idx : TypeIdx) -> SubType? {
@@ -3918,11 +2856,6 @@ fn Env::get_local_type(env : Env, idx : LocalIdx) -> ValType? {
 fn Env::get_global_type(env : Env, idx : GlobalIdx) -> GlobalType? {
   let GlobalIdx(i) = idx
   env.globals.get(i.reinterpret_as_int())
-}
-
-///|
-pub impl Eq for DefType with equal(l, r) {
-  l.0 == r.0 && l.1 == r.1
 }
 
 ///|
