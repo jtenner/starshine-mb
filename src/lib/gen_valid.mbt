@@ -2197,9 +2197,17 @@ pub fn gen_module_valid_full(ctx0 : GenCtx) -> Result[(GenCtx, Module), String] 
     Some(codesec),
     Some(datasec),
   )
-<<<<<<< HEAD
-  Ok((ctx12, m))
-=======
   Ok((ctx3, m))
->>>>>>> 9df9c5d (559 tests pass now)
+}
+
+///|
+test "Sanity check" {
+  let ctx = gen_ctx_new(1000)
+  let (_, mod) = gen_module_valid(ctx).unwrap()
+  validate_module(mod).unwrap()
+  let encoded = @buffer.new()
+  mod.encode(encoded).unwrap()
+  let result = Module::decode(encoded.to_bytes(), 0)
+  let _ = result.unwrap()
+  // assert_eq(mod, m2, msg="Modules not equal")
 }
