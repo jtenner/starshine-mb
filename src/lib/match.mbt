@@ -79,7 +79,6 @@ pub impl Match for StorageType with matches(self, other, env) {
   }
 }
 
-///|
 pub impl Match for AbsHeapType with matches(self, other, _) {
   if self == other {
     return true
@@ -93,19 +92,27 @@ pub impl Match for AbsHeapType with matches(self, other, _) {
     (StructAbsHeapType, EqAbsHeapType) => true
     (ArrayAbsHeapType, EqAbsHeapType) => true
 
-    // i31/struct/array <: any (transitive through eq)
+    // i31/struct/array <: any (transitive via eq)
     (I31AbsHeapType, AnyAbsHeapType) => true
     (StructAbsHeapType, AnyAbsHeapType) => true
     (ArrayAbsHeapType, AnyAbsHeapType) => true
 
-    // none <: eq (and transitively any)
-    (NoneAbsHeapType, EqAbsHeapType) => true
+    // none <: all internal types
     (NoneAbsHeapType, AnyAbsHeapType) => true
+    (NoneAbsHeapType, EqAbsHeapType) => true
+    (NoneAbsHeapType, I31AbsHeapType) => true
+    (NoneAbsHeapType, StructAbsHeapType) => true
+    (NoneAbsHeapType, ArrayAbsHeapType) => true
 
-    // "noX matches X" (i.e. noX <: X)
+    // nofunc <: func
     (NoFuncAbsHeapType, FuncAbsHeapType) => true
+
+    // noextern <: extern
     (NoExternAbsHeapType, ExternAbsHeapType) => true
+
+    // noexn <: exn
     (NoExnAbsHeapType, ExnAbsHeapType) => true
+
     _ => false
   }
 }
@@ -153,7 +160,6 @@ fn heaptype_matches_fuel(
   }
 }
 
-///|
 fn subtype_as_heap_fuel(
   st : SubType,
   target : HeapType,
@@ -163,38 +169,35 @@ fn subtype_as_heap_fuel(
   if fuel <= 0 {
     return false
   }
-  match st {
-    CompTypeSubType(_) => false
-    SubType(is_final, supers, ct) => {
-      // 1) Direct shape match against abstract heap supertypes
-      match target {
-        AbsHeapTypeHeapType(abs) => {
-          if comptype_matches_abs(ct, abs) {
-            return true
-          }
-          // if final and direct failed => no subtyping via supertypes
-          if is_final {
-            return false
-          }
-        }
-        _ =>
-          if is_final {
-            // final: only equal would have succeeded earlier via h1==h2
-            // (we don't have an id to compare here), so stop.
-            // Keep conservative.
-            return false
-          }
-      }
+  
+  let (is_final, supers, ct) = match st {
+    CompTypeSubType(ct) => (false, [], ct)
+    SubType(is_final, supers, ct) => (is_final, supers, ct)
+  }
 
-      // 2) Chase declared supertypes (typeuse*)
-      for tu in supers {
-        if heaptype_matches_fuel(HeapType(tu), target, env, fuel - 1) {
-          return true
-        }
+  // 1) Direct shape match against abstract heap supertypes
+  match target {
+    AbsHeapTypeHeapType(abs) => {
+      if comptype_matches_abs(ct, abs) {
+        return true
       }
-      false
+      if is_final {
+        return false
+      }
+    }
+    _ =>
+      if is_final {
+        return false
+      }
+  }
+
+  // 2) Chase declared supertypes
+  for tu in supers {
+    if heaptype_matches_fuel(HeapType(tu), target, env, fuel - 1) {
+      return true
     }
   }
+  false
 }
 
 ///|

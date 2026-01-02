@@ -2197,5 +2197,9 @@ pub fn gen_module_valid_full(ctx0 : GenCtx) -> Result[(GenCtx, Module), String] 
     Some(codesec),
     Some(datasec),
   )
+<<<<<<< HEAD
   Ok((ctx12, m))
+=======
+  Ok((ctx3, m))
+>>>>>>> 9df9c5d (559 tests pass now)
 }

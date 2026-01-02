@@ -6,6 +6,18 @@ pub struct TcState {
 }
 
 ///|
+pub impl Show for TcState with output(self, logger) {
+  logger.write_string("TcState {\n")
+  logger.write_string("  env : ")
+  self.env.output(logger)
+  logger.write_string("\n  stack : ")
+  self.stack.output(logger)
+  logger.write_string("\n  reachable : ")
+  self.reachable.output(logger)
+  logger.write_string("\n}")
+}
+
+///|
 pub type TcResult = Result[TcState, String]
 
 ///|
@@ -103,14 +115,9 @@ fn TcState::push_types(st : TcState, ts : Array[ValType]) -> TcState {
 
 ///|
 fn TcState::pop_types(st : TcState, ts : Array[ValType]) -> TcResult {
-  // Pop in reverse because LIFO
-  let n = ts.length()
-  if n == 0 {
-    return Ok(st)
-  }
   let mut cur = st
-  for i in (n - 1).until(0, step=-1) {
-    cur = match cur.pop_expect(ts[i]) {
+  for t in ts.rev_iter() {
+    cur = match cur.pop_expect(t) {
       Err(e) => return Err(e)
       Ok(s) => s
     }
@@ -143,16 +150,11 @@ fn expect_ref_null_heaptype(v : ValType) -> Result[HeapType, String] {
 
 ///|
 fn pop_types_rev(st : TcState, ts : Array[ValType]) -> TcResult {
-  let n = ts.length()
-  if n == 0 {
-    return Ok(st)
-  }
   let mut st = st
-  let range = (n - 1).until(0, step=-1)
-  for i in range {
-    match st.pop_expect(ts[i]) {
-      Err(e) => return Err(e)
-      Ok(st2) => st = st2
+  for t in ts.rev_iter() {
+    st = match st.pop_expect(t) {
+      Err(t) => return Err(t)
+      Ok(t) => t
     }
   }
   Ok(st)
@@ -557,10 +559,6 @@ fn typecheck_br_table(
     Err(e) => return Err(e)
     Ok(s) => s
   }
-
-  // If unreachable, polymorphic stack: only need label indices to be valid.
-  // But we still must ensure label types are consistent to avoid invalid modules.
-  // We'll keep checking label types even if unreachable.
   let ts = match st.env.get_label_types(ldef) {
     None => return Err("invalid default label index")
     Some(x) => x
@@ -572,10 +570,6 @@ fn typecheck_br_table(
       None => return Err("invalid label index in br_table")
       Some(x) => x
     }
-
-    // Require invariance (same in both directions). For label result types,
-    // exact equality is the usual requirement; mutual match is safer with your
-    // subtyping machinery.
     let same = Match::matches(ts_l, ts, st.env) &&
       Match::matches(ts, ts_l, st.env)
     if !same {
@@ -583,17 +577,14 @@ fn typecheck_br_table(
     }
   }
 
-  // If reachable, ensure the arguments are present on the stack (below selector).
-  if st.reachable {
-    let _ = match st1.pop_types(ts) {
-      Err(e) => return Err(e)
-      Ok(_) => ()
-    }
-
+  // Pop the branch arguments (values that will be passed to the target label)
+  let st2 = match st1.pop_types(ts) {
+    Err(e) => return Err(e)
+    Ok(s) => s
   }
 
-  // Not-taken path continues (like br_if): only selector is consumed.
-  Ok(st1)
+  // br_table always branches - code after is unreachable
+  Ok({ ..st2, reachable: false })
 }
 
 ///|
@@ -829,41 +820,34 @@ fn typecheck_br_on_non_null(st : TcState, l : LabelIdx) -> TcResult {
     None => return Err("invalid label index")
     Some(x) => x
   }
-
-  // pop the reference value (must be nullable ref)
   let (st1, v) = match st.pop1() {
     Err(e) => return Err(e)
     Ok(pair) => pair
   }
-  let (ht, rt_in) = match expect_nullable_ref(v) {
+  let (ht, _rt_in) = match expect_nullable_ref(v) {
     Err(e) => return Err(e)
     Ok(x) => x
   }
   if ht.validate(st.env) is Err(t) {
     return Err("Invalid heap type in br_on_non_null operand: " + t)
   }
-
-  // Spec side condition: label has form t* (ref null? ht).
-  // We'll enforce it strictly: label ends with exactly the popped ref type.
   if label_ts.length() == 0 {
     return Err("br_on_non_null label type too short")
   }
-  let want_last = RefTypeValType(rt_in)
+
+  // Label must end with NON-NULLABLE ref of same heap type
+  let non_null_rt = HeapTypeRefType(false, ht)
+  let want_last = RefTypeValType(non_null_rt)
   let last = label_ts[label_ts.length() - 1]
-  if last != want_last {
-    return Err("br_on_non_null label must end with the same nullable ref type")
+  if not(last.matches(want_last, st.env)) {
+    return Err("br_on_non_null label must end with non-nullable ref type")
   }
   if st.reachable {
-    // Check label prefix types are available beneath the popped ref.
     let prefix = label_ts.sub(start=0, end=label_ts.length() - 1)
-    let _ = match st1.pop_types(prefix.to_array()) {
-      Err(e) => return Err(e)
-      Ok(_) => ()
+    if st1.pop_types(prefix.to_array()) is Err(t) {
+      return Err(t)
     }
-
   }
-
-  // Fallthrough type is t* (ref is consumed)
   Ok(st1)
 }
 
@@ -1452,8 +1436,6 @@ fn typecheck_ref_test(st : TcState, nullable : Bool, ht : HeapType) -> TcResult 
   if rt.validate(st.env) is Err(t) {
     return Err("invalid ref.test target reftype: " + t)
   }
-
-  // pop an input ref value
   let (st1, v) = match st.pop1() {
     Err(e) => return Err(e)
     Ok(pair) => pair
@@ -1463,8 +1445,8 @@ fn typecheck_ref_test(st : TcState, nullable : Bool, ht : HeapType) -> TcResult 
     _ => return Err("ref.test expects a reference operand")
   }
 
-  // require rt ≤ rt_in  (target is subtype of input)
-  if !Match::matches(rt, rt_in, st.env) {
+  // Spec: rt <: rt_in OR rt_in <: rt (types must be in same hierarchy)
+  if not(Match::matches(rt, rt_in, st.env) || Match::matches(rt_in, rt, st.env)) {
     return Err("ref.test target does not match operand type")
   }
   Ok(st1.push1(NumTypeValType(I32NumType)))
@@ -1630,21 +1612,6 @@ fn typecheck_binary(st : TcState, t : ValType, out : ValType) -> TcResult {
 }
 
 ///|
-fn typecheck_compare(st : TcState, t : ValType) -> TcResult {
-  typecheck_binary(st, t, NumTypeValType(I32NumType))
-}
-
-///|
-fn typecheck_v128_unary(st : TcState) -> TcResult {
-  typecheck_unary(st, vt_v128(), vt_v128())
-}
-
-///|
-fn typecheck_v128_binary(st : TcState) -> TcResult {
-  typecheck_binary(st, vt_v128(), vt_v128())
-}
-
-///|
 fn typecheck_v128_ternary(st : TcState) -> TcResult {
   // v128 v128 v128 -> v128
   let st1 = match st.pop_expect(vt_v128()) {
@@ -1660,6 +1627,21 @@ fn typecheck_v128_ternary(st : TcState) -> TcResult {
     Ok(s) => s
   }
   Ok(st3.push1(vt_v128()))
+}
+
+///|
+fn typecheck_compare(st : TcState, t : ValType) -> TcResult {
+  typecheck_binary(st, t, NumTypeValType(I32NumType))
+}
+
+///|
+fn typecheck_v128_unary(st : TcState) -> TcResult {
+  typecheck_unary(st, vt_v128(), vt_v128())
+}
+
+///|
+fn typecheck_v128_binary(st : TcState) -> TcResult {
+  typecheck_binary(st, vt_v128(), vt_v128())
 }
 
 ///|
@@ -1770,14 +1752,14 @@ fn typecheck_v128_load_lane(st : TcState, ma : MemArg, nbits : Int) -> TcResult 
   }
   let at = lim.addr_valtype()
 
-  // pop address (top)
-  let st1 = match st.pop_expect(at) {
+  // pop existing vector (top of stack)
+  let st1 = match st.pop_expect(VecTypeValType) {
     Err(e) => return Err(e)
     Ok(s) => s
   }
 
-  // pop existing vector
-  let st2 = match st1.pop_expect(VecTypeValType) {
+  // pop address
+  let st2 = match st1.pop_expect(at) {
     Err(e) => return Err(e)
     Ok(s) => s
   }
@@ -1796,14 +1778,14 @@ fn typecheck_v128_store_lane(
   }
   let at = lim.addr_valtype()
 
-  // pop address (top)
-  let st1 = match st.pop_expect(at) {
+  // pop vector (top of stack)
+  let st1 = match st.pop_expect(VecTypeValType) {
     Err(e) => return Err(e)
     Ok(s) => s
   }
 
-  // pop vector
-  let st2 = match st1.pop_expect(VecTypeValType) {
+  // pop address
+  let st2 = match st1.pop_expect(at) {
     Err(e) => return Err(e)
     Ok(s) => s
   }
@@ -2165,7 +2147,6 @@ fn typecheck_array_fill(st : TcState, x : TypeIdx) -> TcResult {
   Ok(st4)
 }
 
-///|
 fn typecheck_array_copy(st : TcState, x : TypeIdx, y : TypeIdx) -> TcResult {
   let ft_x = match st.env.resolve_array_field(x) {
     Err(e) => return Err(e)
@@ -2189,35 +2170,36 @@ fn typecheck_array_copy(st : TcState, x : TypeIdx, y : TypeIdx) -> TcResult {
   }
 
   // pop len
-  let st1 = match st.pop_expect(vt_i32()) {
-    Err(e) => return Err(e)
-    Ok(s) => s
+  let st = match st.pop_expect(vt_i32()) {
+    Err(t) => return Err(t)
+    Ok(t) => t
   }
 
   // pop src index
-  let st2 = match st1.pop_expect(vt_i32()) {
-    Err(e) => return Err(e)
-    Ok(s) => s
-  }
-
-  // pop dst index
-  let st3 = match st2.pop_expect(vt_i32()) {
-    Err(e) => return Err(e)
-    Ok(s) => s
+  let st = match st.pop_expect(vt_i32()) {
+    Err(t) => return Err(t)
+    Ok(t) => t
   }
 
   // pop src array
-  let st4 = match st3.pop_expect(ref_null_array_of(y)) {
-    Err(e) => return Err(e)
-    Ok(s) => s
+  let st = match st.pop_expect(ref_null_array_of(y)) {
+    Err(t) => return Err(t)
+    Ok(t) => t
+  }
+
+  // pop dst index
+  let st = match st.pop_expect(vt_i32()) {
+    Err(t) => return Err(t)
+    Ok(t) => t
   }
 
   // pop dst array
-  let st5 = match st4.pop_expect(ref_null_array_of(x)) {
-    Err(e) => return Err(e)
-    Ok(s) => s
+  let st = match st.pop_expect(ref_null_array_of(x)) {
+    Err(t) => return Err(t)
+    Ok(t) => t
   }
-  Ok(st5)
+
+  Ok(st)
 }
 
 ///|
@@ -2937,7 +2919,7 @@ pub impl Typecheck for Instruction with typecheck(self, st) {
     F64x2RelaxedMax => typecheck_v128_binary(st)
     I16x8RelaxedQ15mulrS => typecheck_v128_binary(st)
     I16x8RelaxedDotI8x16I7x16S => typecheck_v128_binary(st)
-    I32x4RelaxedDotI8x16I7x16AddS => typecheck_v128_binary(st)
+    I32x4RelaxedDotI8x16I7x16AddS => typecheck_v128_ternary(st)
 
     // ===== extadd pairwise (unary) =====
     I16x8ExtaddPairwiseI8x16S => typecheck_v128_unary(st)
@@ -2967,4 +2949,4758 @@ pub impl Typecheck for Instruction with typecheck(self, st) {
 
     // _ => Err("unimplemented")
   }
+}
+
+// =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
+
+///|
+fn assert_stack(state : TcState, expected : Array[ValType]) -> Unit {
+  if not(equals(state.stack, expected)) {
+    abort("Stack mismatch: expected \{expected}, got \{state.stack}")
+  }
+}
+
+///|
+fn[T] assert_ok(result : Result[T, String]) -> T {
+  match result {
+    Ok(v) => v
+    Err(e) => abort("Expected Ok, got Err: \{e}")
+  }
+}
+
+///|
+fn[T : Show] assert_err(result : Result[T, String]) -> Unit {
+  match result {
+    Ok(v) => abort("Expected Err, got Ok: \{v}")
+    Err(_) => ()
+  }
+}
+
+///|
+fn i32_type() -> ValType {
+  NumTypeValType(I32NumType)
+}
+
+///|
+fn i64_type() -> ValType {
+  NumTypeValType(I64NumType)
+}
+
+///|
+fn f32_type() -> ValType {
+  NumTypeValType(F32NumType)
+}
+
+///|
+fn f64_type() -> ValType {
+  NumTypeValType(F64NumType)
+}
+
+///|
+fn v128_type() -> ValType {
+  VecTypeValType
+}
+
+///|
+fn anyref_type() -> ValType {
+  RefTypeValType(AbsHeapTypeRefType(AnyAbsHeapType))
+}
+
+///|
+fn eqref_type() -> ValType {
+  RefTypeValType(AbsHeapTypeRefType(EqAbsHeapType))
+}
+
+///|
+fn i31ref_type() -> ValType {
+  RefTypeValType(HeapTypeRefType(false, AbsHeapTypeHeapType(I31AbsHeapType)))
+}
+
+///|
+fn nullable_funcref() -> ValType {
+  RefTypeValType(HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)))
+}
+
+///|
+fn nullable_externref() -> ValType {
+  RefTypeValType(HeapTypeRefType(true, AbsHeapTypeHeapType(ExternAbsHeapType)))
+}
+
+///|
+fn non_nullable_funcref() -> ValType {
+  RefTypeValType(HeapTypeRefType(false, AbsHeapTypeHeapType(FuncAbsHeapType)))
+}
+
+///|
+fn non_nullable_externref() -> ValType {
+  RefTypeValType(HeapTypeRefType(false, AbsHeapTypeHeapType(ExternAbsHeapType)))
+}
+
+///|
+fn make_state(env : Env, stack : Array[ValType]) -> TcState {
+  { env, stack, reachable: true }
+}
+
+// =============================================================================
+// CONTROL INSTRUCTIONS
+// =============================================================================
+
+///|
+test "Typecheck Unreachable" {
+  let state = make_state(empty_env(), [])
+  let new_state = assert_ok(Unreachable.typecheck(state))
+  assert_eq(new_state.reachable, false)
+}
+
+///|
+test "Typecheck Nop" {
+  let state = make_state(empty_env(), [i32_type()])
+  let new_state = assert_ok(Nop.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck Block empty" {
+  let env = empty_env()
+  let state = make_state(env, [])
+  let block = Block(EmptyBlockType, Expr([]))
+  let new_state = assert_ok(block.typecheck(state))
+  assert_stack(new_state, [])
+}
+
+///|
+test "Typecheck Block with result" {
+  let env = empty_env()
+  let state = make_state(env, [])
+  let block = Block(ValTypeBlockType(i32_type()), Expr([I32Const(I32(42))]))
+  let new_state = assert_ok(block.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck Block preserves outer stack" {
+  let env = empty_env()
+  let state = make_state(env, [i64_type()])
+  let block = Block(ValTypeBlockType(i32_type()), Expr([I32Const(I32(1))]))
+  let new_state = assert_ok(block.typecheck(state))
+  assert_stack(new_state, [i64_type(), i32_type()])
+}
+
+///|
+test "Typecheck Loop empty" {
+  let env = empty_env()
+  let state = make_state(env, [])
+  let loop_instr = Loop(EmptyBlockType, Expr([]))
+  let new_state = assert_ok(loop_instr.typecheck(state))
+  assert_stack(new_state, [])
+}
+
+///|
+test "Typecheck If without else" {
+  let env = empty_env()
+  let state = make_state(env, [i32_type()])
+  let if_instr = If(EmptyBlockType, [Nop], None)
+  let new_state = assert_ok(if_instr.typecheck(state))
+  assert_stack(new_state, [])
+}
+
+///|
+test "Typecheck If with else" {
+  let env = empty_env()
+  let state = make_state(env, [i32_type()])
+  let if_instr = If(
+    ValTypeBlockType(i32_type()),
+    [I32Const(I32(1))],
+    Some([I32Const(I32(2))]),
+  )
+  let new_state = assert_ok(if_instr.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck If fails without condition" {
+  let env = empty_env()
+  let state = make_state(env, [])
+  let if_instr = If(EmptyBlockType, [Nop], None)
+  assert_err(if_instr.typecheck(state))
+}
+
+///|
+test "Typecheck Br" {
+  let env = empty_env().with_labels([[]])
+  let state = make_state(env, [])
+  let new_state = assert_ok(Br(LabelIdx(0)).typecheck(state))
+  assert_eq(new_state.reachable, false)
+}
+
+///|
+test "Typecheck Br with values" {
+  let env = empty_env().with_labels([[i32_type()]])
+  let state = make_state(env, [i32_type()])
+  let new_state = assert_ok(Br(LabelIdx(0)).typecheck(state))
+  assert_eq(new_state.reachable, false)
+}
+
+///|
+test "Typecheck Br invalid label" {
+  let env = empty_env().with_labels([])
+  let state = make_state(env, [])
+  assert_err(Br(LabelIdx(0)).typecheck(state))
+}
+
+///|
+test "Typecheck BrIf" {
+  let env = empty_env().with_labels([[]])
+  let state = make_state(env, [i32_type()])
+  let new_state = assert_ok(BrIf(LabelIdx(0)).typecheck(state))
+  assert_stack(new_state, [])
+}
+
+///|
+test "Typecheck BrIf with values" {
+  let env = empty_env().with_labels([[i32_type()]])
+  let state = make_state(env, [i32_type(), i32_type()])
+  let new_state = assert_ok(BrIf(LabelIdx(0)).typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck BrTable" {
+  let env = empty_env().with_labels([[], []])
+  let state = make_state(env, [i32_type()])
+  let br_table = BrTable([LabelIdx(0)], LabelIdx(1))
+  let new_state = assert_ok(br_table.typecheck(state))
+  assert_eq(new_state.reachable, false)
+}
+
+///|
+test "Typecheck BrTable with values" {
+  // Labels expect an i32 value to be passed
+  let env = empty_env().with_labels([[i32_type()], [i32_type()]])
+  // Stack: [i32 (branch value), i32 (selector)]
+  let state = make_state(env, [i32_type(), i32_type()])
+  let br_table = BrTable([LabelIdx(0)], LabelIdx(1))
+  let new_state = assert_ok(br_table.typecheck(state))
+  assert_eq(new_state.reachable, false)
+}
+
+///|
+test "Typecheck BrTable with multiple values" {
+  // Labels expect i32, i64 to be passed
+  let env = empty_env().with_labels([
+    [i32_type(), i64_type()],
+    [i32_type(), i64_type()],
+  ])
+  // Stack: [i32, i64 (branch values), i32 (selector)]
+  let state = make_state(env, [i32_type(), i64_type(), i32_type()])
+  let br_table = BrTable([LabelIdx(0)], LabelIdx(1))
+  let new_state = assert_ok(br_table.typecheck(state))
+  assert_eq(new_state.reachable, false)
+}
+
+///|
+test "Typecheck BrTable multiple targets" {
+  let env = empty_env().with_labels([[], [], [], []])
+  let state = make_state(env, [i32_type()])
+  // Jump table with 3 entries plus default
+  let br_table = BrTable([LabelIdx(0), LabelIdx(1), LabelIdx(2)], LabelIdx(3))
+  let new_state = assert_ok(br_table.typecheck(state))
+  assert_eq(new_state.reachable, false)
+}
+
+///|
+test "Typecheck BrTable invalid default label" {
+  let env = empty_env().with_labels([[]])
+  let state = make_state(env, [i32_type()])
+  let br_table = BrTable([LabelIdx(0)], LabelIdx(5)) // invalid default
+  assert_err(br_table.typecheck(state))
+}
+
+///|
+test "Typecheck BrTable invalid table label" {
+  let env = empty_env().with_labels([[]])
+  let state = make_state(env, [i32_type()])
+  let br_table = BrTable([LabelIdx(0), LabelIdx(99)], LabelIdx(0)) // invalid in table
+  assert_err(br_table.typecheck(state))
+}
+
+///|
+test "Typecheck BrTable mismatched label types" {
+  // Labels have different arities - this is invalid
+  let env = empty_env().with_labels([[i32_type()], []])
+  let state = make_state(env, [i32_type(), i32_type()])
+  let br_table = BrTable([LabelIdx(0)], LabelIdx(1))
+  assert_err(br_table.typecheck(state))
+}
+
+///|
+test "Typecheck BrTable mismatched label value types" {
+  // Labels have same arity but different types
+  let env = empty_env().with_labels([[i32_type()], [i64_type()]])
+  let state = make_state(env, [i32_type(), i32_type()])
+  let br_table = BrTable([LabelIdx(0)], LabelIdx(1))
+  assert_err(br_table.typecheck(state))
+}
+
+///|
+test "Typecheck BrTable missing selector" {
+  let env = empty_env().with_labels([[], []])
+  let state = make_state(env, []) // empty stack - no selector
+  let br_table = BrTable([LabelIdx(0)], LabelIdx(1))
+  assert_err(br_table.typecheck(state))
+}
+
+///|
+test "Typecheck BrTable missing branch values" {
+  // Labels expect an i32 but stack only has the selector
+  let env = empty_env().with_labels([[i32_type()], [i32_type()]])
+  let state = make_state(env, [i32_type()]) // only selector, no branch value
+  let br_table = BrTable([LabelIdx(0)], LabelIdx(1))
+  assert_err(br_table.typecheck(state))
+}
+
+///|
+test "Typecheck BrTable wrong selector type" {
+  let env = empty_env().with_labels([[], []])
+  let state = make_state(env, [i64_type()]) // wrong type for selector
+  let br_table = BrTable([LabelIdx(0)], LabelIdx(1))
+  assert_err(br_table.typecheck(state))
+}
+
+///|
+test "Typecheck Return" {
+  let env = empty_env().with_return_type(Some([]))
+  let state = make_state(env, [])
+  let new_state = assert_ok(Return.typecheck(state))
+  assert_eq(new_state.reachable, false)
+}
+
+///|
+test "Typecheck Return with value" {
+  let env = empty_env().with_return_type(Some([i32_type()]))
+  let state = make_state(env, [i32_type()])
+  let new_state = assert_ok(Return.typecheck(state))
+  assert_eq(new_state.reachable, false)
+}
+
+// =============================================================================
+// PARAMETRIC INSTRUCTIONS
+// =============================================================================
+
+///|
+test "Typecheck Drop i32" {
+  let state = make_state(empty_env(), [i32_type()])
+  let new_state = assert_ok(Drop.typecheck(state))
+  assert_stack(new_state, [])
+}
+
+///|
+test "Typecheck Drop i64" {
+  let state = make_state(empty_env(), [i64_type()])
+  let new_state = assert_ok(Drop.typecheck(state))
+  assert_stack(new_state, [])
+}
+
+///|
+test "Typecheck Drop fails empty stack" {
+  let state = make_state(empty_env(), [])
+  assert_err(Drop.typecheck(state))
+}
+
+///|
+test "Typecheck Select without annotation" {
+  let state = make_state(empty_env(), [i32_type(), i32_type(), i32_type()])
+  let new_state = assert_ok(Select(None).typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck Select with annotation" {
+  let state = make_state(empty_env(), [i32_type(), i32_type(), i32_type()])
+  let new_state = assert_ok(Select(Some([i32_type()])).typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck Select type mismatch fails" {
+  let state = make_state(empty_env(), [i32_type(), i64_type(), i32_type()])
+  assert_err(Select(None).typecheck(state))
+}
+
+// =============================================================================
+// VARIABLE INSTRUCTIONS
+// =============================================================================
+
+///|
+test "Typecheck LocalGet" {
+  let env : Env = { ..empty_env(), locals: [i32_type()] }
+  let state = make_state(env, [])
+  let new_state = assert_ok(LocalGet(LocalIdx(0)).typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck LocalGet invalid index" {
+  let env : Env = { ..empty_env(), locals: [] }
+  let state = make_state(env, [])
+  assert_err(LocalGet(LocalIdx(0)).typecheck(state))
+}
+
+///|
+test "Typecheck LocalSet" {
+  let env : Env = { ..empty_env(), locals: [i32_type()] }
+  let state = make_state(env, [i32_type()])
+  let new_state = assert_ok(LocalSet(LocalIdx(0)).typecheck(state))
+  assert_stack(new_state, [])
+}
+
+///|
+test "Typecheck LocalSet type mismatch" {
+  let env : Env = { ..empty_env(), locals: [i32_type()] }
+  let state = make_state(env, [i64_type()])
+  assert_err(LocalSet(LocalIdx(0)).typecheck(state))
+}
+
+///|
+test "Typecheck LocalTee" {
+  let env : Env = { ..empty_env(), locals: [i32_type()] }
+  let state = make_state(env, [i32_type()])
+  let new_state = assert_ok(LocalTee(LocalIdx(0)).typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck GlobalGet" {
+  let env : Env = { ..empty_env(), globals: [GlobalType(i32_type(), false)] }
+  let state = make_state(env, [])
+  let new_state = assert_ok(GlobalGet(GlobalIdx(0)).typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck GlobalSet mutable" {
+  let env : Env = { ..empty_env(), globals: [GlobalType(i32_type(), true)] }
+  let state = make_state(env, [i32_type()])
+  let new_state = assert_ok(GlobalSet(GlobalIdx(0)).typecheck(state))
+  assert_stack(new_state, [])
+}
+
+///|
+test "Typecheck GlobalSet immutable fails" {
+  let env : Env = { ..empty_env(), globals: [GlobalType(i32_type(), false)] }
+  let state = make_state(env, [i32_type()])
+  assert_err(GlobalSet(GlobalIdx(0)).typecheck(state))
+}
+
+// =============================================================================
+// TABLE INSTRUCTIONS
+// =============================================================================
+
+///|
+test "Typecheck TableGet" {
+  let table_type = TableType(
+    HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+    I32Limits(0, None),
+  )
+  let env : Env = { ..empty_env(), tables: [table_type] }
+  let state = make_state(env, [i32_type()])
+  let new_state = assert_ok(TableGet(TableIdx(0)).typecheck(state))
+  assert_stack(new_state, [nullable_funcref()])
+}
+
+///|
+test "Typecheck TableSet" {
+  let table_type = TableType(
+    HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+    I32Limits(0, None),
+  )
+  let env : Env = { ..empty_env(), tables: [table_type] }
+  let state = make_state(env, [i32_type(), nullable_funcref()])
+  let new_state = assert_ok(TableSet(TableIdx(0)).typecheck(state))
+  assert_stack(new_state, [])
+}
+
+///|
+test "Typecheck TableSize" {
+  let table_type = TableType(
+    HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+    I32Limits(0, None),
+  )
+  let env : Env = { ..empty_env(), tables: [table_type] }
+  let state = make_state(env, [])
+  let new_state = assert_ok(TableSize(TableIdx(0)).typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck TableGrow" {
+  let table_type = TableType(
+    HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+    I32Limits(0, None),
+  )
+  let env : Env = { ..empty_env(), tables: [table_type] }
+  let state = make_state(env, [nullable_funcref(), i32_type()])
+  let new_state = assert_ok(TableGrow(TableIdx(0)).typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck TableFill" {
+  let table_type = TableType(
+    HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+    I32Limits(0, None),
+  )
+  let env : Env = { ..empty_env(), tables: [table_type] }
+  let state = make_state(env, [i32_type(), nullable_funcref(), i32_type()])
+  let new_state = assert_ok(TableFill(TableIdx(0)).typecheck(state))
+  assert_stack(new_state, [])
+}
+
+///|
+test "Typecheck TableCopy" {
+  let table_type = TableType(
+    HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+    I32Limits(0, None),
+  )
+  let env : Env = { ..empty_env(), tables: [table_type, table_type] }
+  let state = make_state(env, [i32_type(), i32_type(), i32_type()])
+  let new_state = assert_ok(
+    TableCopy(TableIdx(0), TableIdx(1)).typecheck(state),
+  )
+  assert_stack(new_state, [])
+}
+
+// =============================================================================
+// MEMORY INSTRUCTIONS
+// =============================================================================
+
+///|
+test "Typecheck I32Load" {
+  let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
+  let state = make_state(env, [i32_type()])
+  let mem_arg = MemArg(U32(0), None, U64(0))
+  let new_state = assert_ok(I32Load(mem_arg).typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I64Load" {
+  let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
+  let state = make_state(env, [i32_type()])
+  let mem_arg = MemArg(U32(0), None, U64(0))
+  let new_state = assert_ok(I64Load(mem_arg).typecheck(state))
+  assert_stack(new_state, [i64_type()])
+}
+
+///|
+test "Typecheck F32Load" {
+  let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
+  let state = make_state(env, [i32_type()])
+  let mem_arg = MemArg(U32(0), None, U64(0))
+  let new_state = assert_ok(F32Load(mem_arg).typecheck(state))
+  assert_stack(new_state, [f32_type()])
+}
+
+///|
+test "Typecheck F64Load" {
+  let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
+  let state = make_state(env, [i32_type()])
+  let mem_arg = MemArg(U32(0), None, U64(0))
+  let new_state = assert_ok(F64Load(mem_arg).typecheck(state))
+  assert_stack(new_state, [f64_type()])
+}
+
+///|
+test "Typecheck I32Load8S" {
+  let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
+  let state = make_state(env, [i32_type()])
+  let mem_arg = MemArg(U32(0), None, U64(0))
+  let new_state = assert_ok(I32Load8S(mem_arg).typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32Load8U" {
+  let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
+  let state = make_state(env, [i32_type()])
+  let mem_arg = MemArg(U32(0), None, U64(0))
+  let new_state = assert_ok(I32Load8U(mem_arg).typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32Load16S" {
+  let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
+  let state = make_state(env, [i32_type()])
+  let mem_arg = MemArg(U32(0), None, U64(0))
+  let new_state = assert_ok(I32Load16S(mem_arg).typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32Load16U" {
+  let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
+  let state = make_state(env, [i32_type()])
+  let mem_arg = MemArg(U32(0), None, U64(0))
+  let new_state = assert_ok(I32Load16U(mem_arg).typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I64Load8S" {
+  let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
+  let state = make_state(env, [i32_type()])
+  let mem_arg = MemArg(U32(0), None, U64(0))
+  let new_state = assert_ok(I64Load8S(mem_arg).typecheck(state))
+  assert_stack(new_state, [i64_type()])
+}
+
+///|
+test "Typecheck I64Load32S" {
+  let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
+  let state = make_state(env, [i32_type()])
+  let mem_arg = MemArg(U32(0), None, U64(0))
+  let new_state = assert_ok(I64Load32S(mem_arg).typecheck(state))
+  assert_stack(new_state, [i64_type()])
+}
+
+///|
+test "Typecheck I32Store" {
+  let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
+  let state = make_state(env, [i32_type(), i32_type()])
+  let mem_arg = MemArg(U32(0), None, U64(0))
+  let new_state = assert_ok(I32Store(mem_arg).typecheck(state))
+  assert_stack(new_state, [])
+}
+
+///|
+test "Typecheck I64Store" {
+  let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
+  let state = make_state(env, [i32_type(), i64_type()])
+  let mem_arg = MemArg(U32(0), None, U64(0))
+  let new_state = assert_ok(I64Store(mem_arg).typecheck(state))
+  assert_stack(new_state, [])
+}
+
+///|
+test "Typecheck F32Store" {
+  let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
+  let state = make_state(env, [i32_type(), f32_type()])
+  let mem_arg = MemArg(U32(0), None, U64(0))
+  let new_state = assert_ok(F32Store(mem_arg).typecheck(state))
+  assert_stack(new_state, [])
+}
+
+///|
+test "Typecheck F64Store" {
+  let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
+  let state = make_state(env, [i32_type(), f64_type()])
+  let mem_arg = MemArg(U32(0), None, U64(0))
+  let new_state = assert_ok(F64Store(mem_arg).typecheck(state))
+  assert_stack(new_state, [])
+}
+
+///|
+test "Typecheck I32Store8" {
+  let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
+  let state = make_state(env, [i32_type(), i32_type()])
+  let mem_arg = MemArg(U32(0), None, U64(0))
+  let new_state = assert_ok(I32Store8(mem_arg).typecheck(state))
+  assert_stack(new_state, [])
+}
+
+///|
+test "Typecheck I64Store32" {
+  let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
+  let state = make_state(env, [i32_type(), i64_type()])
+  let mem_arg = MemArg(U32(0), None, U64(0))
+  let new_state = assert_ok(I64Store32(mem_arg).typecheck(state))
+  assert_stack(new_state, [])
+}
+
+///|
+test "Typecheck MemorySize" {
+  let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
+  let state = make_state(env, [])
+  let new_state = assert_ok(MemorySize(MemIdx(0)).typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck MemoryGrow" {
+  let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
+  let state = make_state(env, [i32_type()])
+  let new_state = assert_ok(MemoryGrow(MemIdx(0)).typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck MemoryCopy" {
+  let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
+  let state = make_state(env, [i32_type(), i32_type(), i32_type()])
+  let new_state = assert_ok(MemoryCopy(MemIdx(0), MemIdx(0)).typecheck(state))
+  assert_stack(new_state, [])
+}
+
+///|
+test "Typecheck MemoryFill" {
+  let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
+  let state = make_state(env, [i32_type(), i32_type(), i32_type()])
+  let new_state = assert_ok(MemoryFill(MemIdx(0)).typecheck(state))
+  assert_stack(new_state, [])
+}
+
+// =============================================================================
+// NUMERIC CONSTANTS
+// =============================================================================
+
+///|
+test "Typecheck I32Const" {
+  let state = make_state(empty_env(), [])
+  let new_state = assert_ok(I32Const(I32(42)).typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I64Const" {
+  let state = make_state(empty_env(), [])
+  let new_state = assert_ok(I64Const(I64(42L)).typecheck(state))
+  assert_stack(new_state, [i64_type()])
+}
+
+///|
+test "Typecheck F32Const" {
+  let state = make_state(empty_env(), [])
+  let new_state = assert_ok(F32Const(F32(3.14)).typecheck(state))
+  assert_stack(new_state, [f32_type()])
+}
+
+///|
+test "Typecheck F64Const" {
+  let state = make_state(empty_env(), [])
+  let new_state = assert_ok(F64Const(F64(3.14)).typecheck(state))
+  assert_stack(new_state, [f64_type()])
+}
+
+// =============================================================================
+// I32 COMPARISON OPERATIONS
+// =============================================================================
+
+///|
+test "Typecheck I32Eqz" {
+  let state = make_state(empty_env(), [i32_type()])
+  let new_state = assert_ok(I32Eqz.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32Eq" {
+  let state = make_state(empty_env(), [i32_type(), i32_type()])
+  let new_state = assert_ok(I32Eq.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32Ne" {
+  let state = make_state(empty_env(), [i32_type(), i32_type()])
+  let new_state = assert_ok(I32Ne.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32LtS" {
+  let state = make_state(empty_env(), [i32_type(), i32_type()])
+  let new_state = assert_ok(I32LtS.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32LtU" {
+  let state = make_state(empty_env(), [i32_type(), i32_type()])
+  let new_state = assert_ok(I32LtU.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32GtS" {
+  let state = make_state(empty_env(), [i32_type(), i32_type()])
+  let new_state = assert_ok(I32GtS.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32GtU" {
+  let state = make_state(empty_env(), [i32_type(), i32_type()])
+  let new_state = assert_ok(I32GtU.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32LeS" {
+  let state = make_state(empty_env(), [i32_type(), i32_type()])
+  let new_state = assert_ok(I32LeS.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32LeU" {
+  let state = make_state(empty_env(), [i32_type(), i32_type()])
+  let new_state = assert_ok(I32LeU.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32GeS" {
+  let state = make_state(empty_env(), [i32_type(), i32_type()])
+  let new_state = assert_ok(I32GeS.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32GeU" {
+  let state = make_state(empty_env(), [i32_type(), i32_type()])
+  let new_state = assert_ok(I32GeU.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+// =============================================================================
+// I64 COMPARISON OPERATIONS
+// =============================================================================
+
+///|
+test "Typecheck I64Eqz" {
+  let state = make_state(empty_env(), [i64_type()])
+  let new_state = assert_ok(I64Eqz.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I64Eq" {
+  let state = make_state(empty_env(), [i64_type(), i64_type()])
+  let new_state = assert_ok(I64Eq.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I64Ne" {
+  let state = make_state(empty_env(), [i64_type(), i64_type()])
+  let new_state = assert_ok(I64Ne.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I64LtS" {
+  let state = make_state(empty_env(), [i64_type(), i64_type()])
+  let new_state = assert_ok(I64LtS.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I64GtU" {
+  let state = make_state(empty_env(), [i64_type(), i64_type()])
+  let new_state = assert_ok(I64GtU.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+// =============================================================================
+// F32 COMPARISON OPERATIONS
+// =============================================================================
+
+///|
+test "Typecheck F32Eq" {
+  let state = make_state(empty_env(), [f32_type(), f32_type()])
+  let new_state = assert_ok(F32Eq.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck F32Ne" {
+  let state = make_state(empty_env(), [f32_type(), f32_type()])
+  let new_state = assert_ok(F32Ne.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck F32Lt" {
+  let state = make_state(empty_env(), [f32_type(), f32_type()])
+  let new_state = assert_ok(F32Lt.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck F32Gt" {
+  let state = make_state(empty_env(), [f32_type(), f32_type()])
+  let new_state = assert_ok(F32Gt.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck F32Le" {
+  let state = make_state(empty_env(), [f32_type(), f32_type()])
+  let new_state = assert_ok(F32Le.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck F32Ge" {
+  let state = make_state(empty_env(), [f32_type(), f32_type()])
+  let new_state = assert_ok(F32Ge.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+// =============================================================================
+// F64 COMPARISON OPERATIONS
+// =============================================================================
+
+///|
+test "Typecheck F64Eq" {
+  let state = make_state(empty_env(), [f64_type(), f64_type()])
+  let new_state = assert_ok(F64Eq.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck F64Lt" {
+  let state = make_state(empty_env(), [f64_type(), f64_type()])
+  let new_state = assert_ok(F64Lt.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+// =============================================================================
+// I32 ARITHMETIC OPERATIONS
+// =============================================================================
+
+///|
+test "Typecheck I32Clz" {
+  let state = make_state(empty_env(), [i32_type()])
+  let new_state = assert_ok(I32Clz.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32Ctz" {
+  let state = make_state(empty_env(), [i32_type()])
+  let new_state = assert_ok(I32Ctz.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32Popcnt" {
+  let state = make_state(empty_env(), [i32_type()])
+  let new_state = assert_ok(I32Popcnt.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32Add" {
+  let state = make_state(empty_env(), [i32_type(), i32_type()])
+  let new_state = assert_ok(I32Add.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32Sub" {
+  let state = make_state(empty_env(), [i32_type(), i32_type()])
+  let new_state = assert_ok(I32Sub.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32Mul" {
+  let state = make_state(empty_env(), [i32_type(), i32_type()])
+  let new_state = assert_ok(I32Mul.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32DivS" {
+  let state = make_state(empty_env(), [i32_type(), i32_type()])
+  let new_state = assert_ok(I32DivS.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32DivU" {
+  let state = make_state(empty_env(), [i32_type(), i32_type()])
+  let new_state = assert_ok(I32DivU.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32RemS" {
+  let state = make_state(empty_env(), [i32_type(), i32_type()])
+  let new_state = assert_ok(I32RemS.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32RemU" {
+  let state = make_state(empty_env(), [i32_type(), i32_type()])
+  let new_state = assert_ok(I32RemU.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32And" {
+  let state = make_state(empty_env(), [i32_type(), i32_type()])
+  let new_state = assert_ok(I32And.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32Or" {
+  let state = make_state(empty_env(), [i32_type(), i32_type()])
+  let new_state = assert_ok(I32Or.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32Xor" {
+  let state = make_state(empty_env(), [i32_type(), i32_type()])
+  let new_state = assert_ok(I32Xor.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32Shl" {
+  let state = make_state(empty_env(), [i32_type(), i32_type()])
+  let new_state = assert_ok(I32Shl.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32ShrS" {
+  let state = make_state(empty_env(), [i32_type(), i32_type()])
+  let new_state = assert_ok(I32ShrS.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32ShrU" {
+  let state = make_state(empty_env(), [i32_type(), i32_type()])
+  let new_state = assert_ok(I32ShrU.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32Rotl" {
+  let state = make_state(empty_env(), [i32_type(), i32_type()])
+  let new_state = assert_ok(I32Rotl.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32Rotr" {
+  let state = make_state(empty_env(), [i32_type(), i32_type()])
+  let new_state = assert_ok(I32Rotr.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+// =============================================================================
+// I64 ARITHMETIC OPERATIONS
+// =============================================================================
+
+///|
+test "Typecheck I64Clz" {
+  let state = make_state(empty_env(), [i64_type()])
+  let new_state = assert_ok(I64Clz.typecheck(state))
+  assert_stack(new_state, [i64_type()])
+}
+
+///|
+test "Typecheck I64Add" {
+  let state = make_state(empty_env(), [i64_type(), i64_type()])
+  let new_state = assert_ok(I64Add.typecheck(state))
+  assert_stack(new_state, [i64_type()])
+}
+
+///|
+test "Typecheck I64Sub" {
+  let state = make_state(empty_env(), [i64_type(), i64_type()])
+  let new_state = assert_ok(I64Sub.typecheck(state))
+  assert_stack(new_state, [i64_type()])
+}
+
+///|
+test "Typecheck I64Mul" {
+  let state = make_state(empty_env(), [i64_type(), i64_type()])
+  let new_state = assert_ok(I64Mul.typecheck(state))
+  assert_stack(new_state, [i64_type()])
+}
+
+// =============================================================================
+// F32 ARITHMETIC OPERATIONS
+// =============================================================================
+
+///|
+test "Typecheck F32Abs" {
+  let state = make_state(empty_env(), [f32_type()])
+  let new_state = assert_ok(F32Abs.typecheck(state))
+  assert_stack(new_state, [f32_type()])
+}
+
+///|
+test "Typecheck F32Neg" {
+  let state = make_state(empty_env(), [f32_type()])
+  let new_state = assert_ok(F32Neg.typecheck(state))
+  assert_stack(new_state, [f32_type()])
+}
+
+///|
+test "Typecheck F32Ceil" {
+  let state = make_state(empty_env(), [f32_type()])
+  let new_state = assert_ok(F32Ceil.typecheck(state))
+  assert_stack(new_state, [f32_type()])
+}
+
+///|
+test "Typecheck F32Floor" {
+  let state = make_state(empty_env(), [f32_type()])
+  let new_state = assert_ok(F32Floor.typecheck(state))
+  assert_stack(new_state, [f32_type()])
+}
+
+///|
+test "Typecheck F32Sqrt" {
+  let state = make_state(empty_env(), [f32_type()])
+  let new_state = assert_ok(F32Sqrt.typecheck(state))
+  assert_stack(new_state, [f32_type()])
+}
+
+///|
+test "Typecheck F32Add" {
+  let state = make_state(empty_env(), [f32_type(), f32_type()])
+  let new_state = assert_ok(F32Add.typecheck(state))
+  assert_stack(new_state, [f32_type()])
+}
+
+///|
+test "Typecheck F32Sub" {
+  let state = make_state(empty_env(), [f32_type(), f32_type()])
+  let new_state = assert_ok(F32Sub.typecheck(state))
+  assert_stack(new_state, [f32_type()])
+}
+
+///|
+test "Typecheck F32Mul" {
+  let state = make_state(empty_env(), [f32_type(), f32_type()])
+  let new_state = assert_ok(F32Mul.typecheck(state))
+  assert_stack(new_state, [f32_type()])
+}
+
+///|
+test "Typecheck F32Div" {
+  let state = make_state(empty_env(), [f32_type(), f32_type()])
+  let new_state = assert_ok(F32Div.typecheck(state))
+  assert_stack(new_state, [f32_type()])
+}
+
+///|
+test "Typecheck F32Min" {
+  let state = make_state(empty_env(), [f32_type(), f32_type()])
+  let new_state = assert_ok(F32Min.typecheck(state))
+  assert_stack(new_state, [f32_type()])
+}
+
+///|
+test "Typecheck F32Max" {
+  let state = make_state(empty_env(), [f32_type(), f32_type()])
+  let new_state = assert_ok(F32Max.typecheck(state))
+  assert_stack(new_state, [f32_type()])
+}
+
+///|
+test "Typecheck F32Copysign" {
+  let state = make_state(empty_env(), [f32_type(), f32_type()])
+  let new_state = assert_ok(F32Copysign.typecheck(state))
+  assert_stack(new_state, [f32_type()])
+}
+
+// =============================================================================
+// F64 ARITHMETIC OPERATIONS
+// =============================================================================
+
+///|
+test "Typecheck F64Abs" {
+  let state = make_state(empty_env(), [f64_type()])
+  let new_state = assert_ok(F64Abs.typecheck(state))
+  assert_stack(new_state, [f64_type()])
+}
+
+///|
+test "Typecheck F64Neg" {
+  let state = make_state(empty_env(), [f64_type()])
+  let new_state = assert_ok(F64Neg.typecheck(state))
+  assert_stack(new_state, [f64_type()])
+}
+
+///|
+test "Typecheck F64Add" {
+  let state = make_state(empty_env(), [f64_type(), f64_type()])
+  let new_state = assert_ok(F64Add.typecheck(state))
+  assert_stack(new_state, [f64_type()])
+}
+
+///|
+test "Typecheck F64Sub" {
+  let state = make_state(empty_env(), [f64_type(), f64_type()])
+  let new_state = assert_ok(F64Sub.typecheck(state))
+  assert_stack(new_state, [f64_type()])
+}
+
+///|
+test "Typecheck F64Mul" {
+  let state = make_state(empty_env(), [f64_type(), f64_type()])
+  let new_state = assert_ok(F64Mul.typecheck(state))
+  assert_stack(new_state, [f64_type()])
+}
+
+///|
+test "Typecheck F64Div" {
+  let state = make_state(empty_env(), [f64_type(), f64_type()])
+  let new_state = assert_ok(F64Div.typecheck(state))
+  assert_stack(new_state, [f64_type()])
+}
+
+// =============================================================================
+// CONVERSION OPERATIONS
+// =============================================================================
+
+///|
+test "Typecheck I32WrapI64" {
+  let state = make_state(empty_env(), [i64_type()])
+  let new_state = assert_ok(I32WrapI64.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32TruncF32S" {
+  let state = make_state(empty_env(), [f32_type()])
+  let new_state = assert_ok(I32TruncF32S.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32TruncF32U" {
+  let state = make_state(empty_env(), [f32_type()])
+  let new_state = assert_ok(I32TruncF32U.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32TruncF64S" {
+  let state = make_state(empty_env(), [f64_type()])
+  let new_state = assert_ok(I32TruncF64S.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32TruncF64U" {
+  let state = make_state(empty_env(), [f64_type()])
+  let new_state = assert_ok(I32TruncF64U.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I64ExtendI32S" {
+  let state = make_state(empty_env(), [i32_type()])
+  let new_state = assert_ok(I64ExtendI32S.typecheck(state))
+  assert_stack(new_state, [i64_type()])
+}
+
+///|
+test "Typecheck I64ExtendI32U" {
+  let state = make_state(empty_env(), [i32_type()])
+  let new_state = assert_ok(I64ExtendI32U.typecheck(state))
+  assert_stack(new_state, [i64_type()])
+}
+
+///|
+test "Typecheck I64TruncF32S" {
+  let state = make_state(empty_env(), [f32_type()])
+  let new_state = assert_ok(I64TruncF32S.typecheck(state))
+  assert_stack(new_state, [i64_type()])
+}
+
+///|
+test "Typecheck I64TruncF64S" {
+  let state = make_state(empty_env(), [f64_type()])
+  let new_state = assert_ok(I64TruncF64S.typecheck(state))
+  assert_stack(new_state, [i64_type()])
+}
+
+///|
+test "Typecheck F32ConvertI32S" {
+  let state = make_state(empty_env(), [i32_type()])
+  let new_state = assert_ok(F32ConvertI32S.typecheck(state))
+  assert_stack(new_state, [f32_type()])
+}
+
+///|
+test "Typecheck F32ConvertI32U" {
+  let state = make_state(empty_env(), [i32_type()])
+  let new_state = assert_ok(F32ConvertI32U.typecheck(state))
+  assert_stack(new_state, [f32_type()])
+}
+
+///|
+test "Typecheck F32ConvertI64S" {
+  let state = make_state(empty_env(), [i64_type()])
+  let new_state = assert_ok(F32ConvertI64S.typecheck(state))
+  assert_stack(new_state, [f32_type()])
+}
+
+///|
+test "Typecheck F32DemoteF64" {
+  let state = make_state(empty_env(), [f64_type()])
+  let new_state = assert_ok(F32DemoteF64.typecheck(state))
+  assert_stack(new_state, [f32_type()])
+}
+
+///|
+test "Typecheck F64ConvertI32S" {
+  let state = make_state(empty_env(), [i32_type()])
+  let new_state = assert_ok(F64ConvertI32S.typecheck(state))
+  assert_stack(new_state, [f64_type()])
+}
+
+///|
+test "Typecheck F64ConvertI64S" {
+  let state = make_state(empty_env(), [i64_type()])
+  let new_state = assert_ok(F64ConvertI64S.typecheck(state))
+  assert_stack(new_state, [f64_type()])
+}
+
+///|
+test "Typecheck F64PromoteF32" {
+  let state = make_state(empty_env(), [f32_type()])
+  let new_state = assert_ok(F64PromoteF32.typecheck(state))
+  assert_stack(new_state, [f64_type()])
+}
+
+///|
+test "Typecheck I32ReinterpretF32" {
+  let state = make_state(empty_env(), [f32_type()])
+  let new_state = assert_ok(I32ReinterpretF32.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I64ReinterpretF64" {
+  let state = make_state(empty_env(), [f64_type()])
+  let new_state = assert_ok(I64ReinterpretF64.typecheck(state))
+  assert_stack(new_state, [i64_type()])
+}
+
+///|
+test "Typecheck F32ReinterpretI32" {
+  let state = make_state(empty_env(), [i32_type()])
+  let new_state = assert_ok(F32ReinterpretI32.typecheck(state))
+  assert_stack(new_state, [f32_type()])
+}
+
+///|
+test "Typecheck F64ReinterpretI64" {
+  let state = make_state(empty_env(), [i64_type()])
+  let new_state = assert_ok(F64ReinterpretI64.typecheck(state))
+  assert_stack(new_state, [f64_type()])
+}
+
+// =============================================================================
+// SIGN EXTENSION OPERATIONS
+// =============================================================================
+
+///|
+test "Typecheck I32Extend8S" {
+  let state = make_state(empty_env(), [i32_type()])
+  let new_state = assert_ok(I32Extend8S.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32Extend16S" {
+  let state = make_state(empty_env(), [i32_type()])
+  let new_state = assert_ok(I32Extend16S.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I64Extend8S" {
+  let state = make_state(empty_env(), [i64_type()])
+  let new_state = assert_ok(I64Extend8S.typecheck(state))
+  assert_stack(new_state, [i64_type()])
+}
+
+///|
+test "Typecheck I64Extend16S" {
+  let state = make_state(empty_env(), [i64_type()])
+  let new_state = assert_ok(I64Extend16S.typecheck(state))
+  assert_stack(new_state, [i64_type()])
+}
+
+///|
+test "Typecheck I64Extend32S" {
+  let state = make_state(empty_env(), [i64_type()])
+  let new_state = assert_ok(I64Extend32S.typecheck(state))
+  assert_stack(new_state, [i64_type()])
+}
+
+// =============================================================================
+// SATURATING TRUNCATION
+// =============================================================================
+
+///|
+test "Typecheck I32TruncSatF32S" {
+  let state = make_state(empty_env(), [f32_type()])
+  let new_state = assert_ok(I32TruncSatF32S.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32TruncSatF32U" {
+  let state = make_state(empty_env(), [f32_type()])
+  let new_state = assert_ok(I32TruncSatF32U.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32TruncSatF64S" {
+  let state = make_state(empty_env(), [f64_type()])
+  let new_state = assert_ok(I32TruncSatF64S.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I64TruncSatF32S" {
+  let state = make_state(empty_env(), [f32_type()])
+  let new_state = assert_ok(I64TruncSatF32S.typecheck(state))
+  assert_stack(new_state, [i64_type()])
+}
+
+///|
+test "Typecheck I64TruncSatF64S" {
+  let state = make_state(empty_env(), [f64_type()])
+  let new_state = assert_ok(I64TruncSatF64S.typecheck(state))
+  assert_stack(new_state, [i64_type()])
+}
+
+// =============================================================================
+// REFERENCE INSTRUCTIONS
+// =============================================================================
+
+///|
+test "Typecheck RefNull func" {
+  let state = make_state(empty_env(), [])
+  let new_state = assert_ok(
+    RefNull(AbsHeapTypeHeapType(FuncAbsHeapType)).typecheck(state),
+  )
+  assert_stack(new_state, [nullable_funcref()])
+}
+
+///|
+test "Typecheck RefNull extern" {
+  let state = make_state(empty_env(), [])
+  let new_state = assert_ok(
+    RefNull(AbsHeapTypeHeapType(ExternAbsHeapType)).typecheck(state),
+  )
+  assert_stack(new_state, [nullable_externref()])
+}
+
+///|
+test "Typecheck RefIsNull" {
+  let state = make_state(empty_env(), [nullable_funcref()])
+  let new_state = assert_ok(RefIsNull.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck RefEq" {
+  let eq_ref = RefTypeValType(
+    HeapTypeRefType(true, AbsHeapTypeHeapType(EqAbsHeapType)),
+  )
+  let state = make_state(empty_env(), [eq_ref, eq_ref])
+  let new_state = assert_ok(RefEq.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck RefAsNonNull" {
+  let state = make_state(empty_env(), [nullable_funcref()])
+  let result = RefAsNonNull.typecheck(state)
+  match result {
+    Ok(new_state) => assert_eq(new_state.stack.length(), 1)
+    Err(_) => ()
+  }
+}
+
+// BrOnNonNull tests
+
+///|
+test "Typecheck BrOnNonNull basic" {
+  let env = empty_env().with_labels([[non_nullable_funcref()]])
+  let state = make_state(env, [nullable_funcref()])
+  let result = BrOnNonNull(LabelIdx(0)).typecheck(state)
+  let new_state = assert_ok(result)
+  assert_stack(new_state, [])
+}
+
+///|
+test "Typecheck BrOnNonNull with prefix types" {
+  let env = empty_env().with_labels([[i32_type(), non_nullable_funcref()]])
+  let state = make_state(env, [i32_type(), nullable_funcref()])
+  let result = BrOnNonNull(LabelIdx(0)).typecheck(state)
+  let new_state = assert_ok(result)
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck BrOnNonNull with externref" {
+  let env = empty_env().with_labels([[non_nullable_externref()]])
+  let state = make_state(env, [nullable_externref()])
+  let result = BrOnNonNull(LabelIdx(0)).typecheck(state)
+  let new_state = assert_ok(result)
+  assert_stack(new_state, [])
+}
+
+///|
+test "Typecheck BrOnNonNull fails with wrong label type" {
+  let env = empty_env().with_labels([[i32_type()]])
+  let state = make_state(env, [nullable_funcref()])
+  let result = BrOnNonNull(LabelIdx(0)).typecheck(state)
+  assert_true(result is Err(_))
+}
+
+// BrOnNull tests
+
+///|
+test "Typecheck BrOnNull basic" {
+  let env = empty_env().with_labels([[]]) // label takes no values
+  let state = make_state(env, [nullable_funcref()])
+  let result = BrOnNull(LabelIdx(0)).typecheck(state)
+  let new_state = assert_ok(result)
+  // Fallthrough pushes non-nullable ref
+  assert_stack(new_state, [non_nullable_funcref()])
+}
+
+///|
+test "Typecheck BrOnNull with prefix types" {
+  let env = empty_env().with_labels([[i32_type()]])
+  let state = make_state(env, [i32_type(), nullable_funcref()])
+  let result = BrOnNull(LabelIdx(0)).typecheck(state)
+  let new_state = assert_ok(result)
+  assert_stack(new_state, [i32_type(), non_nullable_funcref()])
+}
+
+///|
+test "Typecheck BrOnNull with externref" {
+  let env = empty_env().with_labels([[]])
+  let state = make_state(env, [nullable_externref()])
+  let result = BrOnNull(LabelIdx(0)).typecheck(state)
+  let new_state = assert_ok(result)
+  assert_stack(new_state, [non_nullable_externref()])
+}
+
+///|
+test "Typecheck RefI31" {
+  let state = make_state(empty_env(), [i32_type()])
+  let new_state = assert_ok(RefI31.typecheck(state))
+  assert_eq(new_state.stack.length(), 1)
+}
+
+///|
+test "Typecheck I31GetS" {
+  let state = make_state(empty_env(), [i31ref_type()])
+  let new_state = assert_ok(I31GetS.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I31GetU" {
+  let state = make_state(empty_env(), [i31ref_type()])
+  let new_state = assert_ok(I31GetU.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck AnyConvertExtern" {
+  let state = make_state(empty_env(), [nullable_externref()])
+  let result = AnyConvertExtern.typecheck(state)
+  match result {
+    Ok(new_state) => assert_eq(new_state.stack.length(), 1)
+    Err(_) => ()
+  }
+}
+
+///|
+test "Typecheck ExternConvertAny" {
+  let any_ref = RefTypeValType(
+    HeapTypeRefType(true, AbsHeapTypeHeapType(AnyAbsHeapType)),
+  )
+  let state = make_state(empty_env(), [any_ref])
+  let result = ExternConvertAny.typecheck(state)
+  match result {
+    Ok(new_state) => assert_eq(new_state.stack.length(), 1)
+    Err(_) => ()
+  }
+}
+
+// =============================================================================
+// VECTOR (SIMD) INSTRUCTIONS
+// =============================================================================
+
+///|
+test "Typecheck I32Const pushes i32" {
+  let env = empty_env()
+  let state : TcState = { env, stack: [], reachable: true }
+  let result = I32Const(I32(42)).typecheck(state)
+  match result {
+    Ok(new_state) => assert_eq(new_state.stack, [NumTypeValType(I32NumType)])
+    Err(e) => fail("I32Const should typecheck: \{e}")
+  }
+}
+
+///|
+test "Typecheck I32Add consumes two i32s and produces one" {
+  let env = empty_env()
+  let state : TcState = {
+    env,
+    stack: [NumTypeValType(I32NumType), NumTypeValType(I32NumType)],
+    reachable: true,
+  }
+  let result = I32Add.typecheck(state)
+  match result {
+    Ok(new_state) => assert_eq(new_state.stack, [NumTypeValType(I32NumType)])
+    Err(e) => fail("I32Add should typecheck: \{e}")
+  }
+}
+
+///|
+test "Typecheck I32Add fails with insufficient stack" {
+  let env = empty_env()
+  let state : TcState = { env, stack: [], reachable: true }
+  let result = I32Add.typecheck(state)
+  match result {
+    Ok(_) => fail("I32Add should fail with empty stack")
+    Err(_) => ()
+  }
+}
+
+///|
+test "Typecheck Drop removes top of stack" {
+  let env = empty_env()
+  let state : TcState = {
+    env,
+    stack: [NumTypeValType(I32NumType)],
+    reachable: true,
+  }
+  let result = Drop.typecheck(state)
+  match result {
+    Ok(new_state) => assert_eq(new_state.stack, [])
+    Err(e) => fail("Drop should typecheck: \{e}")
+  }
+}
+
+///|
+test "Typecheck Unreachable makes state unreachable" {
+  let env = empty_env()
+  let state : TcState = { env, stack: [], reachable: true }
+  let result = Unreachable.typecheck(state)
+  match result {
+    Ok(new_state) => assert_eq(new_state.reachable, false)
+    Err(e) => fail("Unreachable should typecheck: \{e}")
+  }
+}
+
+///|
+test "Typecheck empty Expr" {
+  let env = empty_env()
+  let state : TcState = { env, stack: [], reachable: true }
+  let expr = Expr([])
+  let result = expr.typecheck(state)
+  match result {
+    Ok(new_state) => assert_eq(new_state.stack, [])
+    Err(e) => fail("Empty Expr should typecheck: \{e}")
+  }
+}
+
+///|
+test "Typecheck Expr sequence" {
+  let env = empty_env()
+  let state : TcState = { env, stack: [], reachable: true }
+  let expr = Expr([I32Const(I32(1)), I32Const(I32(2)), I32Add])
+  let result = expr.typecheck(state)
+  match result {
+    Ok(new_state) => assert_eq(new_state.stack, [NumTypeValType(I32NumType)])
+    Err(e) => fail("Expr sequence should typecheck: \{e}")
+  }
+}
+
+///|
+test "Typecheck I64Const pushes i64" {
+  let env = empty_env()
+  let state : TcState = { env, stack: [], reachable: true }
+  let result = I64Const(I64(100L)).typecheck(state)
+  match result {
+    Ok(new_state) => assert_eq(new_state.stack, [NumTypeValType(I64NumType)])
+    Err(e) => fail("I64Const should typecheck: \{e}")
+  }
+}
+
+///|
+test "Typecheck type mismatch fails" {
+  let env = empty_env()
+  let state : TcState = {
+    env,
+    stack: [NumTypeValType(I64NumType), NumTypeValType(I32NumType)],
+    reachable: true,
+  }
+  let result = I32Add.typecheck(state)
+  match result {
+    Ok(_) => fail("I32Add should fail with mismatched types")
+    Err(_) => ()
+  }
+}
+
+///|
+test "Typecheck V128Const" {
+  let state = make_state(empty_env(), [])
+  let instr = V128Const(
+    b'\x00', b'\x01', b'\x02', b'\x03', b'\x04', b'\x05', b'\x06', b'\x07', b'\x08',
+    b'\x09', b'\x0a', b'\x0b', b'\x0c', b'\x0d', b'\x0e', b'\x0f',
+  )
+  let new_state = assert_ok(instr.typecheck(state))
+  assert_stack(new_state, [v128_type()])
+}
+
+///|
+test "Typecheck V128Load" {
+  let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
+  let state = make_state(env, [i32_type()])
+  let arg = MemArg(U32(0), None, U64(0))
+  let new_state = assert_ok(V128Load(arg).typecheck(state))
+  assert_stack(new_state, [v128_type()])
+}
+
+///|
+test "Typecheck V128Store" {
+  let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
+  let state = make_state(env, [i32_type(), v128_type()])
+  let arg = MemArg(U32(0), None, U64(0))
+  let new_state = assert_ok(V128Store(arg).typecheck(state))
+  assert_stack(new_state, [])
+}
+
+///|
+test "Typecheck I8x16Splat" {
+  let state = make_state(empty_env(), [i32_type()])
+  let new_state = assert_ok(I8x16Splat.typecheck(state))
+  assert_stack(new_state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8Splat" {
+  let state = make_state(empty_env(), [i32_type()])
+  let new_state = assert_ok(I16x8Splat.typecheck(state))
+  assert_stack(new_state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4Splat" {
+  let state = make_state(empty_env(), [i32_type()])
+  let new_state = assert_ok(I32x4Splat.typecheck(state))
+  assert_stack(new_state, [v128_type()])
+}
+
+///|
+test "Typecheck I64x2Splat" {
+  let state = make_state(empty_env(), [i64_type()])
+  let new_state = assert_ok(I64x2Splat.typecheck(state))
+  assert_stack(new_state, [v128_type()])
+}
+
+///|
+test "Typecheck F32x4Splat" {
+  let state = make_state(empty_env(), [f32_type()])
+  let new_state = assert_ok(F32x4Splat.typecheck(state))
+  assert_stack(new_state, [v128_type()])
+}
+
+///|
+test "Typecheck F64x2Splat" {
+  let state = make_state(empty_env(), [f64_type()])
+  let new_state = assert_ok(F64x2Splat.typecheck(state))
+  assert_stack(new_state, [v128_type()])
+}
+
+///|
+test "Typecheck I8x16ExtractLaneS" {
+  let state = make_state(empty_env(), [v128_type()])
+  let new_state = assert_ok(I8x16ExtractLaneS(LaneIdx(0)).typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I16x8ExtractLaneU" {
+  let state = make_state(empty_env(), [v128_type()])
+  let new_state = assert_ok(I16x8ExtractLaneU(LaneIdx(3)).typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32x4ExtractLane" {
+  let state = make_state(empty_env(), [v128_type()])
+  let new_state = assert_ok(I32x4ExtractLane(LaneIdx(1)).typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck I64x2ExtractLane" {
+  let state = make_state(empty_env(), [v128_type()])
+  let new_state = assert_ok(I64x2ExtractLane(LaneIdx(0)).typecheck(state))
+  assert_stack(new_state, [i64_type()])
+}
+
+///|
+test "Typecheck F32x4ExtractLane" {
+  let state = make_state(empty_env(), [v128_type()])
+  let new_state = assert_ok(F32x4ExtractLane(LaneIdx(2)).typecheck(state))
+  assert_stack(new_state, [f32_type()])
+}
+
+///|
+test "Typecheck F64x2ExtractLane" {
+  let state = make_state(empty_env(), [v128_type()])
+  let new_state = assert_ok(F64x2ExtractLane(LaneIdx(1)).typecheck(state))
+  assert_stack(new_state, [f64_type()])
+}
+
+///|
+test "Typecheck I8x16ReplaceLane" {
+  let state = make_state(empty_env(), [v128_type(), i32_type()])
+  let new_state = assert_ok(I8x16ReplaceLane(LaneIdx(0)).typecheck(state))
+  assert_stack(new_state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8ReplaceLane" {
+  let state = make_state(empty_env(), [v128_type(), i32_type()])
+  let new_state = assert_ok(I16x8ReplaceLane(LaneIdx(2)).typecheck(state))
+  assert_stack(new_state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4ReplaceLane" {
+  let state = make_state(empty_env(), [v128_type(), i32_type()])
+  let new_state = assert_ok(I32x4ReplaceLane(LaneIdx(1)).typecheck(state))
+  assert_stack(new_state, [v128_type()])
+}
+
+///|
+test "Typecheck I64x2ReplaceLane" {
+  let state = make_state(empty_env(), [v128_type(), i64_type()])
+  let new_state = assert_ok(I64x2ReplaceLane(LaneIdx(0)).typecheck(state))
+  assert_stack(new_state, [v128_type()])
+}
+
+///|
+test "Typecheck F32x4ReplaceLane" {
+  let state = make_state(empty_env(), [v128_type(), f32_type()])
+  let new_state = assert_ok(F32x4ReplaceLane(LaneIdx(3)).typecheck(state))
+  assert_stack(new_state, [v128_type()])
+}
+
+///|
+test "Typecheck F64x2ReplaceLane" {
+  let state = make_state(empty_env(), [v128_type(), f64_type()])
+  let new_state = assert_ok(F64x2ReplaceLane(LaneIdx(1)).typecheck(state))
+  assert_stack(new_state, [v128_type()])
+}
+
+///|
+test "Typecheck V128Not" {
+  let state = make_state(empty_env(), [v128_type()])
+  let new_state = assert_ok(V128Not.typecheck(state))
+  assert_stack(new_state, [v128_type()])
+}
+
+///|
+test "Typecheck I8x16Abs" {
+  let state = make_state(empty_env(), [v128_type()])
+  let new_state = assert_ok(I8x16Abs.typecheck(state))
+  assert_stack(new_state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8Neg" {
+  let state = make_state(empty_env(), [v128_type()])
+  let new_state = assert_ok(I16x8Neg.typecheck(state))
+  assert_stack(new_state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4AllTrue" {
+  let state = make_state(empty_env(), [v128_type()])
+  let new_state = assert_ok(I32x4AllTrue.typecheck(state))
+  assert_stack(new_state, [i32_type()])
+}
+
+///|
+test "Typecheck V128And" {
+  let state = make_state(empty_env(), [v128_type(), v128_type()])
+  let new_state = assert_ok(V128And.typecheck(state))
+  assert_stack(new_state, [v128_type()])
+}
+
+///|
+test "Typecheck I8x16Add" {
+  let state = make_state(empty_env(), [v128_type(), v128_type()])
+  let new_state = assert_ok(I8x16Add.typecheck(state))
+  assert_stack(new_state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8Mul" {
+  let state = make_state(empty_env(), [v128_type(), v128_type()])
+  let new_state = assert_ok(I16x8Mul.typecheck(state))
+  assert_stack(new_state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4Sub" {
+  let state = make_state(empty_env(), [v128_type(), v128_type()])
+  let new_state = assert_ok(I32x4Sub.typecheck(state))
+  assert_stack(new_state, [v128_type()])
+}
+
+///|
+test "Typecheck F32x4Div" {
+  let state = make_state(empty_env(), [v128_type(), v128_type()])
+  let new_state = assert_ok(F32x4Div.typecheck(state))
+  assert_stack(new_state, [v128_type()])
+}
+
+///|
+test "Typecheck I8x16Eq" {
+  let state = make_state(empty_env(), [v128_type(), v128_type()])
+  let new_state = assert_ok(I8x16Eq.typecheck(state))
+  assert_stack(new_state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8LtS" {
+  let state = make_state(empty_env(), [v128_type(), v128_type()])
+  let new_state = assert_ok(I16x8LtS.typecheck(state))
+  assert_stack(new_state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4GtU" {
+  let state = make_state(empty_env(), [v128_type(), v128_type()])
+  let new_state = assert_ok(I32x4GtU.typecheck(state))
+  assert_stack(new_state, [v128_type()])
+}
+
+///|
+test "Typecheck F32x4Le" {
+  let state = make_state(empty_env(), [v128_type(), v128_type()])
+  let new_state = assert_ok(F32x4Le.typecheck(state))
+  assert_stack(new_state, [v128_type()])
+}
+
+///|
+test "Typecheck V128Bitselect" {
+  let state = make_state(empty_env(), [v128_type(), v128_type(), v128_type()])
+  let new_state = assert_ok(V128Bitselect.typecheck(state))
+  assert_stack(new_state, [v128_type()])
+}
+
+///|
+test "Typecheck V128Load8Lane" {
+  let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
+  let state = make_state(env, [i32_type(), v128_type()])
+  let arg = MemArg(U32(0), None, U64(0))
+  let new_state = assert_ok(V128Load8Lane(arg, LaneIdx(0)).typecheck(state))
+  assert_stack(new_state, [v128_type()])
+}
+
+///|
+test "Typecheck V128Store16Lane" {
+  let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
+  let state = make_state(env, [i32_type(), v128_type()])
+  let arg = MemArg(U32(0), None, U64(0))
+  let new_state = assert_ok(V128Store16Lane(arg, LaneIdx(2)).typecheck(state))
+  assert_stack(new_state, [])
+}
+
+// =============================================================================
+// CALL INSTRUCTIONS
+// =============================================================================
+
+///|
+test "Typecheck Call" {
+  let func_type = FuncType([i32_type()], [i64_type()])
+  let env = empty_env().push_func(func_type)
+  let state = make_state(env, [i32_type()])
+  let result = Call(FuncIdx(0)).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i64_type()])
+}
+
+///|
+test "Typecheck Call no args no results" {
+  let func_type = FuncType([], [])
+  let env = empty_env().push_func(func_type)
+  let state = make_state(env, [])
+  let result = Call(FuncIdx(0)).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [])
+}
+
+///|
+test "Typecheck Call invalid func index" {
+  let env = empty_env()
+  let state = make_state(env, [i32_type()])
+  let result = Call(FuncIdx(0)).typecheck(state)
+  assert_err(result)
+}
+
+///|
+test "Typecheck Call type mismatch" {
+  let func_type = FuncType([i32_type()], [])
+  let env = empty_env().push_func(func_type)
+  let state = make_state(env, [i64_type()])
+  let result = Call(FuncIdx(0)).typecheck(state)
+  assert_err(result)
+}
+
+///|
+test "Typecheck CallIndirect" {
+  let func_subtype = CompTypeSubType(FuncCompType([i32_type()], [i64_type()]))
+  let table_type = TableType(
+    AbsHeapTypeRefType(FuncAbsHeapType),
+    I32Limits(1, None),
+  )
+  let env = { ..empty_env(), global_types: [func_subtype] }.push_table(
+    table_type,
+  )
+  let state = make_state(env, [i32_type(), i32_type()])
+  let result = CallIndirect(TypeIdx(0), TableIdx(0)).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i64_type()])
+}
+
+///|
+test "Typecheck ReturnCall" {
+  let func_type = FuncType([i32_type()], [i64_type()])
+  let env = empty_env()
+    .push_func(func_type)
+    .with_return_type(Some([i64_type()]))
+  let state = make_state(env, [i32_type()])
+  let result = ReturnCall(FuncIdx(0)).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_eq(final_state.reachable, false)
+}
+
+///|
+test "Typecheck ReturnCallIndirect" {
+  let func_subtype = CompTypeSubType(FuncCompType([i32_type()], [i64_type()]))
+  let table_type = TableType(
+    AbsHeapTypeRefType(FuncAbsHeapType),
+    I32Limits(1, None),
+  )
+  let env = { ..empty_env(), global_types: [func_subtype] }
+    .push_table(table_type)
+    .with_return_type(Some([i64_type()]))
+  let state = make_state(env, [i32_type(), i32_type()])
+  let result = ReturnCallIndirect(TypeIdx(0), TableIdx(0)).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_eq(final_state.reachable, false)
+}
+
+///|
+test "Typecheck CallRef" {
+  let func_subtype = CompTypeSubType(FuncCompType([i32_type()], [i64_type()]))
+  let env = { ..empty_env(), global_types: [func_subtype] }
+  let ref_type = RefTypeValType(HeapTypeRefType(false, HeapType(TypeIdx(0))))
+  let state = make_state(env, [i32_type(), ref_type])
+  let result = CallRef(TypeIdx(0)).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i64_type()])
+}
+
+///|
+test "Typecheck ReturnCallRef" {
+  let func_subtype = CompTypeSubType(FuncCompType([i32_type()], [i64_type()]))
+  let env = { ..empty_env(), global_types: [func_subtype] }.with_return_type(
+    Some([i64_type()]),
+  )
+  let ref_type = RefTypeValType(HeapTypeRefType(false, HeapType(TypeIdx(0))))
+  let state = make_state(env, [i32_type(), ref_type])
+  let result = ReturnCallRef(TypeIdx(0)).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_eq(final_state.reachable, false)
+}
+
+// =============================================================================
+// REFERENCE INSTRUCTIONS
+// =============================================================================
+
+///|
+test "Typecheck RefFunc" {
+  let func_type = FuncType([], [])
+  let env = empty_env().push_func(func_type)
+  let state = make_state(env, [])
+  let result = RefFunc(FuncIdx(0)).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_eq(final_state.stack.length(), 1)
+}
+
+///|
+test "Typecheck RefFunc invalid index" {
+  let env = empty_env()
+  let state = make_state(env, [])
+  let result = RefFunc(FuncIdx(0)).typecheck(state)
+  assert_err(result)
+}
+
+///|
+test "Typecheck RefTest non-nullable" {
+  let env = empty_env()
+  let state = make_state(env, [anyref_type()])
+  let result = RefTest(false, AbsHeapTypeHeapType(I31AbsHeapType)).typecheck(
+    state,
+  )
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i32_type()])
+}
+
+///|
+test "Typecheck RefTest eq from any" {
+  let env = empty_env()
+  let state = make_state(env, [anyref_type()])
+  let result = RefTest(true, AbsHeapTypeHeapType(EqAbsHeapType)).typecheck(
+    state,
+  )
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i32_type()])
+}
+
+///|
+test "Typecheck RefTest struct from eq" {
+  let env = empty_env()
+  let state = make_state(env, [eqref_type()])
+  let result = RefTest(true, AbsHeapTypeHeapType(StructAbsHeapType)).typecheck(
+    state,
+  )
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i32_type()])
+}
+
+///|
+test "Typecheck RefTest fails when target not subtype of operand" {
+  let env = empty_env()
+  // i31ref on stack, testing for funcref - these are incompatible hierarchies
+  let state = make_state(env, [i31ref_type()])
+  let result = RefTest(true, AbsHeapTypeHeapType(FuncAbsHeapType)).typecheck(
+    state,
+  )
+  assert_true(result is Err(_))
+}
+
+test "Typecheck RefTest with concrete type recursive" {
+  let struct_subtype = CompTypeSubType(StructCompType([]))
+  let env = empty_env().with_rectype(SingleRecType(struct_subtype))
+  let state = make_state(env, [anyref_type()])
+  let result = RefTest(true, HeapType(RecIdx(0))).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i32_type()])
+}
+
+test "Typecheck RefTest with concrete type in global types" {
+  let struct_subtype = CompTypeSubType(StructCompType([]))
+  let env : Env = { ..empty_env(), global_types: [struct_subtype] }
+  let state = make_state(env, [anyref_type()])
+  let result = RefTest(true, HeapType(TypeIdx(0))).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i32_type()])
+}
+
+///|
+test "Typecheck RefCast non-nullable" {
+  let env = empty_env()
+  let state = make_state(env, [anyref_type()])
+  let result = RefCast(false, AbsHeapTypeHeapType(I31AbsHeapType)).typecheck(
+    state,
+  )
+  let final_state = assert_ok(result)
+  assert_eq(final_state.stack.length(), 1)
+}
+
+test "Typecheck BrOnCast" {
+  let nullable_i31 = RefTypeValType(
+    HeapTypeRefType(true, AbsHeapTypeHeapType(I31AbsHeapType)),
+  )
+  let env = empty_env().with_labels([[nullable_i31]])
+  let state = make_state(env, [anyref_type()])
+  let cast_op = CastOp(true, true)
+  let result = BrOnCast(
+    LabelIdx(0),
+    cast_op,
+    AbsHeapTypeHeapType(AnyAbsHeapType),
+    AbsHeapTypeHeapType(I31AbsHeapType),
+  ).typecheck(state)
+  ignore(assert_ok(result))
+}
+
+///|
+test "Typecheck BrOnCastFail" {
+  let env = empty_env().with_labels([[anyref_type()]])
+  let state = make_state(env, [anyref_type()])
+  let cast_op = CastOp(true, true)
+  let result = BrOnCastFail(
+    LabelIdx(0),
+    cast_op,
+    AbsHeapTypeHeapType(AnyAbsHeapType),
+    AbsHeapTypeHeapType(I31AbsHeapType),
+  ).typecheck(state)
+  ignore(assert_ok(result))
+}
+
+// =============================================================================
+// EXCEPTION HANDLING INSTRUCTIONS
+// =============================================================================
+
+///|
+test "Typecheck Throw" {
+  let tag_subtype = CompTypeSubType(FuncCompType([i32_type()], []))
+  let env = { ..empty_env(), global_types: [tag_subtype] }.push_tag(
+    TagType(TypeIdx(0)),
+  )
+  let state = make_state(env, [i32_type()])
+  let result = Throw(TagIdx(0)).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_eq(final_state.reachable, false)
+}
+
+///|
+test "Typecheck Throw invalid tag" {
+  let env = empty_env()
+  let state = make_state(env, [i32_type()])
+  let result = Throw(TagIdx(0)).typecheck(state)
+  assert_err(result)
+}
+
+///|
+test "Typecheck ThrowRef" {
+  let exnref = RefTypeValType(
+    HeapTypeRefType(false, AbsHeapTypeHeapType(ExnAbsHeapType)),
+  )
+  let env = empty_env()
+  let state = make_state(env, [exnref])
+  let result = ThrowRef.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_eq(final_state.reachable, false)
+}
+
+///|
+test "Typecheck TryTable empty" {
+  let env = empty_env()
+  let state = make_state(env, [])
+  let result = TryTable(EmptyBlockType, [], Expr([])).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [])
+}
+
+///|
+test "Typecheck TryTable with result" {
+  let env = empty_env()
+  let state = make_state(env, [])
+  let block_type = ValTypeBlockType(i32_type())
+  let result = TryTable(block_type, [], Expr([I32Const(I32(42))])).typecheck(
+    state,
+  )
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i32_type()])
+}
+
+// =============================================================================
+// STRUCT INSTRUCTIONS
+// =============================================================================
+
+///|
+test "Typecheck StructNew" {
+  let struct_type = CompTypeSubType(
+    StructCompType([FieldType(ValTypeStorageType(i32_type()), Var)]),
+  )
+  let env = { ..empty_env(), global_types: [struct_type] }
+  let state = make_state(env, [i32_type()])
+  let result = StructNew(TypeIdx(0)).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_eq(final_state.stack.length(), 1)
+}
+
+///|
+test "Typecheck StructNewDefault" {
+  let struct_type = CompTypeSubType(
+    StructCompType([FieldType(ValTypeStorageType(i32_type()), Var)]),
+  )
+  let env = { ..empty_env(), global_types: [struct_type] }
+  let state = make_state(env, [])
+  let result = StructNewDefault(TypeIdx(0)).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_eq(final_state.stack.length(), 1)
+}
+
+///|
+test "Typecheck StructGet" {
+  let struct_type = CompTypeSubType(
+    StructCompType([FieldType(ValTypeStorageType(i32_type()), Var)]),
+  )
+  let env = { ..empty_env(), global_types: [struct_type] }
+  let struct_ref = RefTypeValType(HeapTypeRefType(false, HeapType(TypeIdx(0))))
+  let state = make_state(env, [struct_ref])
+  let result = StructGet(TypeIdx(0), U32(0)).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i32_type()])
+}
+
+///|
+test "Typecheck StructGetS" {
+  let struct_type = CompTypeSubType(
+    StructCompType([FieldType(PackTypeStorageType(I8PackType), Var)]),
+  )
+  let env = { ..empty_env(), global_types: [struct_type] }
+  let struct_ref = RefTypeValType(HeapTypeRefType(false, HeapType(TypeIdx(0))))
+  let state = make_state(env, [struct_ref])
+  let result = StructGetS(TypeIdx(0), U32(0)).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i32_type()])
+}
+
+///|
+test "Typecheck StructGetU" {
+  let struct_type = CompTypeSubType(
+    StructCompType([FieldType(PackTypeStorageType(I16PackType), Var)]),
+  )
+  let env = { ..empty_env(), global_types: [struct_type] }
+  let struct_ref = RefTypeValType(HeapTypeRefType(false, HeapType(TypeIdx(0))))
+  let state = make_state(env, [struct_ref])
+  let result = StructGetU(TypeIdx(0), U32(0)).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i32_type()])
+}
+
+///|
+test "Typecheck StructSet" {
+  let struct_type = CompTypeSubType(
+    StructCompType([FieldType(ValTypeStorageType(i32_type()), Var)]),
+  )
+  let env = { ..empty_env(), global_types: [struct_type] }
+  let struct_ref = RefTypeValType(HeapTypeRefType(false, HeapType(TypeIdx(0))))
+  let state = make_state(env, [struct_ref, i32_type()])
+  let result = StructSet(TypeIdx(0), U32(0)).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [])
+}
+
+// =============================================================================
+// ARRAY INSTRUCTIONS
+// =============================================================================
+
+///|
+test "Typecheck ArrayNew" {
+  let array_type = CompTypeSubType(
+    ArrayCompType(FieldType(ValTypeStorageType(i32_type()), Var)),
+  )
+  let env = { ..empty_env(), global_types: [array_type] }
+  let state = make_state(env, [i32_type(), i32_type()])
+  let result = ArrayNew(TypeIdx(0)).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_eq(final_state.stack.length(), 1)
+}
+
+///|
+test "Typecheck ArrayNewDefault" {
+  let array_type = CompTypeSubType(
+    ArrayCompType(FieldType(ValTypeStorageType(i32_type()), Var)),
+  )
+  let env = { ..empty_env(), global_types: [array_type] }
+  let state = make_state(env, [i32_type()])
+  let result = ArrayNewDefault(TypeIdx(0)).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_eq(final_state.stack.length(), 1)
+}
+
+///|
+test "Typecheck ArrayNewFixed" {
+  let array_type = CompTypeSubType(
+    ArrayCompType(FieldType(ValTypeStorageType(i32_type()), Var)),
+  )
+  let env = { ..empty_env(), global_types: [array_type] }
+  let state = make_state(env, [i32_type(), i32_type(), i32_type()])
+  let result = ArrayNewFixed(TypeIdx(0), U32(3)).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_eq(final_state.stack.length(), 1)
+}
+
+///|
+test "Typecheck ArrayNewData" {
+  let array_type = CompTypeSubType(
+    ArrayCompType(FieldType(ValTypeStorageType(i32_type()), Var)),
+  )
+  let data = Data(Passive, b"")
+  let env = { ..empty_env(), global_types: [array_type] }.push_data(data)
+  let state = make_state(env, [i32_type(), i32_type()])
+  let result = ArrayNewData(TypeIdx(0), DataIdx(0)).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_eq(final_state.stack.length(), 1)
+}
+
+///|
+test "Typecheck ArrayNewElem" {
+  let funcref = AbsHeapTypeRefType(FuncAbsHeapType)
+  let array_type = CompTypeSubType(
+    ArrayCompType(FieldType(ValTypeStorageType(RefTypeValType(funcref)), Var)),
+  )
+  let elem = Elem(Passive, FuncsElemKind([]))
+  let env = { ..empty_env(), global_types: [array_type] }.push_elem(elem)
+  let state = make_state(env, [i32_type(), i32_type()])
+  let result = ArrayNewElem(TypeIdx(0), ElemIdx(0)).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_eq(final_state.stack.length(), 1)
+}
+
+///|
+test "Typecheck ArrayGet" {
+  let array_type = CompTypeSubType(
+    ArrayCompType(FieldType(ValTypeStorageType(i32_type()), Var)),
+  )
+  let env = { ..empty_env(), global_types: [array_type] }
+  let array_ref = RefTypeValType(HeapTypeRefType(false, HeapType(TypeIdx(0))))
+  let state = make_state(env, [array_ref, i32_type()])
+  let result = ArrayGet(TypeIdx(0)).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i32_type()])
+}
+
+///|
+test "Typecheck ArrayGetS" {
+  let array_type = CompTypeSubType(
+    ArrayCompType(FieldType(PackTypeStorageType(I8PackType), Var)),
+  )
+  let env = { ..empty_env(), global_types: [array_type] }
+  let array_ref = RefTypeValType(HeapTypeRefType(false, HeapType(TypeIdx(0))))
+  let state = make_state(env, [array_ref, i32_type()])
+  let result = ArrayGetS(TypeIdx(0)).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i32_type()])
+}
+
+///|
+test "Typecheck ArrayGetU" {
+  let array_type = CompTypeSubType(
+    ArrayCompType(FieldType(PackTypeStorageType(I16PackType), Var)),
+  )
+  let env = { ..empty_env(), global_types: [array_type] }
+  let array_ref = RefTypeValType(HeapTypeRefType(false, HeapType(TypeIdx(0))))
+  let state = make_state(env, [array_ref, i32_type()])
+  let result = ArrayGetU(TypeIdx(0)).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i32_type()])
+}
+
+///|
+test "Typecheck ArraySet" {
+  let array_type = CompTypeSubType(
+    ArrayCompType(FieldType(ValTypeStorageType(i32_type()), Var)),
+  )
+  let env = { ..empty_env(), global_types: [array_type] }
+  let array_ref = RefTypeValType(HeapTypeRefType(false, HeapType(TypeIdx(0))))
+  let state = make_state(env, [array_ref, i32_type(), i32_type()])
+  let result = ArraySet(TypeIdx(0)).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [])
+}
+
+///|
+test "Typecheck ArrayLen" {
+  let array_ref = RefTypeValType(
+    HeapTypeRefType(false, AbsHeapTypeHeapType(ArrayAbsHeapType)),
+  )
+  let env = empty_env()
+  let state = make_state(env, [array_ref])
+  let result = ArrayLen.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i32_type()])
+}
+
+///|
+test "Typecheck ArrayFill" {
+  let array_type = CompTypeSubType(
+    ArrayCompType(FieldType(ValTypeStorageType(i32_type()), Var)),
+  )
+  let env = { ..empty_env(), global_types: [array_type] }
+  let array_ref = RefTypeValType(HeapTypeRefType(false, HeapType(TypeIdx(0))))
+  let state = make_state(env, [array_ref, i32_type(), i32_type(), i32_type()])
+  let result = ArrayFill(TypeIdx(0)).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [])
+}
+
+///|
+test "Typecheck ArrayCopy" {
+  let array_type = CompTypeSubType(
+    ArrayCompType(FieldType(ValTypeStorageType(i32_type()), Var)),
+  )
+  let env = { ..empty_env(), global_types: [array_type] }
+  let array_ref = RefTypeValType(HeapTypeRefType(false, HeapType(TypeIdx(0))))
+  let state = make_state(env, [
+    array_ref,
+    i32_type(),
+    array_ref,
+    i32_type(),
+    i32_type(),
+  ])
+  let result = ArrayCopy(TypeIdx(0), TypeIdx(0)).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [])
+}
+
+///|
+test "Typecheck ArrayInitData" {
+  let array_type = CompTypeSubType(
+    ArrayCompType(FieldType(ValTypeStorageType(i32_type()), Var)),
+  )
+  let data = Data(Passive, b"")
+  let env = { ..empty_env(), global_types: [array_type] }.push_data(data)
+  let array_ref = RefTypeValType(HeapTypeRefType(false, HeapType(TypeIdx(0))))
+  let state = make_state(env, [array_ref, i32_type(), i32_type(), i32_type()])
+  let result = ArrayInitData(TypeIdx(0), DataIdx(0)).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [])
+}
+
+///|
+test "Typecheck ArrayInitElem" {
+  let funcref = AbsHeapTypeRefType(FuncAbsHeapType)
+  let array_type = CompTypeSubType(
+    ArrayCompType(FieldType(ValTypeStorageType(RefTypeValType(funcref)), Var)),
+  )
+  let elem = Elem(Passive, FuncsElemKind([]))
+  let env = { ..empty_env(), global_types: [array_type] }.push_elem(elem)
+  let array_ref = RefTypeValType(HeapTypeRefType(false, HeapType(TypeIdx(0))))
+  let state = make_state(env, [array_ref, i32_type(), i32_type(), i32_type()])
+  let result = ArrayInitElem(TypeIdx(0), ElemIdx(0)).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [])
+}
+
+// =============================================================================
+// MEMORY INIT/DATA INSTRUCTIONS
+// =============================================================================
+
+///|
+test "Typecheck MemoryInit" {
+  let mem_type = MemType(I32Limits(1, None))
+  let data = Data(Passive, b"")
+  let env = empty_env().push_mem(mem_type).push_data(data)
+  let state = make_state(env, [i32_type(), i32_type(), i32_type()])
+  let result = MemoryInit(DataIdx(0), MemIdx(0)).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [])
+}
+
+///|
+test "Typecheck DataDrop" {
+  let data = Data(Passive, b"")
+  let env = empty_env().push_data(data)
+  let state = make_state(env, [])
+  let result = DataDrop(DataIdx(0)).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [])
+}
+
+///|
+test "Typecheck DataDrop invalid index" {
+  let env = empty_env()
+  let state = make_state(env, [])
+  let result = DataDrop(DataIdx(0)).typecheck(state)
+  assert_err(result)
+}
+
+// =============================================================================
+// TABLE INIT/ELEM INSTRUCTIONS
+// =============================================================================
+
+///|
+test "Typecheck TableInit" {
+  let table_type = TableType(
+    AbsHeapTypeRefType(FuncAbsHeapType),
+    I32Limits(1, None),
+  )
+  let elem = Elem(Passive, FuncsElemKind([]))
+  let env = empty_env().push_table(table_type).push_elem(elem)
+  let state = make_state(env, [i32_type(), i32_type(), i32_type()])
+  let result = TableInit(ElemIdx(0), TableIdx(0)).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [])
+}
+
+///|
+test "Typecheck ElemDrop" {
+  let elem = Elem(Passive, FuncsElemKind([]))
+  let env = empty_env().push_elem(elem)
+  let state = make_state(env, [])
+  let result = ElemDrop(ElemIdx(0)).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [])
+}
+
+///|
+test "Typecheck ElemDrop invalid index" {
+  let env = empty_env()
+  let state = make_state(env, [])
+  let result = ElemDrop(ElemIdx(0)).typecheck(state)
+  assert_err(result)
+}
+
+// =============================================================================
+// ADDITIONAL NUMERIC INSTRUCTIONS (missing from original tests)
+// =============================================================================
+
+///|
+test "Typecheck I64LtU" {
+  let env = empty_env()
+  let state = make_state(env, [i64_type(), i64_type()])
+  let result = I64LtU.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i32_type()])
+}
+
+///|
+test "Typecheck I64GtS" {
+  let env = empty_env()
+  let state = make_state(env, [i64_type(), i64_type()])
+  let result = I64GtS.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i32_type()])
+}
+
+///|
+test "Typecheck I64LeS" {
+  let env = empty_env()
+  let state = make_state(env, [i64_type(), i64_type()])
+  let result = I64LeS.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i32_type()])
+}
+
+///|
+test "Typecheck I64LeU" {
+  let env = empty_env()
+  let state = make_state(env, [i64_type(), i64_type()])
+  let result = I64LeU.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i32_type()])
+}
+
+///|
+test "Typecheck I64GeS" {
+  let env = empty_env()
+  let state = make_state(env, [i64_type(), i64_type()])
+  let result = I64GeS.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i32_type()])
+}
+
+///|
+test "Typecheck I64GeU" {
+  let env = empty_env()
+  let state = make_state(env, [i64_type(), i64_type()])
+  let result = I64GeU.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i32_type()])
+}
+
+///|
+test "Typecheck I64Ctz" {
+  let env = empty_env()
+  let state = make_state(env, [i64_type()])
+  let result = I64Ctz.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i64_type()])
+}
+
+///|
+test "Typecheck I64Popcnt" {
+  let env = empty_env()
+  let state = make_state(env, [i64_type()])
+  let result = I64Popcnt.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i64_type()])
+}
+
+///|
+test "Typecheck I64DivS" {
+  let env = empty_env()
+  let state = make_state(env, [i64_type(), i64_type()])
+  let result = I64DivS.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i64_type()])
+}
+
+///|
+test "Typecheck I64DivU" {
+  let env = empty_env()
+  let state = make_state(env, [i64_type(), i64_type()])
+  let result = I64DivU.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i64_type()])
+}
+
+///|
+test "Typecheck I64RemS" {
+  let env = empty_env()
+  let state = make_state(env, [i64_type(), i64_type()])
+  let result = I64RemS.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i64_type()])
+}
+
+///|
+test "Typecheck I64RemU" {
+  let env = empty_env()
+  let state = make_state(env, [i64_type(), i64_type()])
+  let result = I64RemU.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i64_type()])
+}
+
+///|
+test "Typecheck I64And" {
+  let env = empty_env()
+  let state = make_state(env, [i64_type(), i64_type()])
+  let result = I64And.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i64_type()])
+}
+
+///|
+test "Typecheck I64Or" {
+  let env = empty_env()
+  let state = make_state(env, [i64_type(), i64_type()])
+  let result = I64Or.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i64_type()])
+}
+
+///|
+test "Typecheck I64Xor" {
+  let env = empty_env()
+  let state = make_state(env, [i64_type(), i64_type()])
+  let result = I64Xor.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i64_type()])
+}
+
+///|
+test "Typecheck I64Shl" {
+  let env = empty_env()
+  let state = make_state(env, [i64_type(), i64_type()])
+  let result = I64Shl.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i64_type()])
+}
+
+///|
+test "Typecheck I64ShrS" {
+  let env = empty_env()
+  let state = make_state(env, [i64_type(), i64_type()])
+  let result = I64ShrS.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i64_type()])
+}
+
+///|
+test "Typecheck I64ShrU" {
+  let env = empty_env()
+  let state = make_state(env, [i64_type(), i64_type()])
+  let result = I64ShrU.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i64_type()])
+}
+
+///|
+test "Typecheck I64Rotl" {
+  let env = empty_env()
+  let state = make_state(env, [i64_type(), i64_type()])
+  let result = I64Rotl.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i64_type()])
+}
+
+///|
+test "Typecheck I64Rotr" {
+  let env = empty_env()
+  let state = make_state(env, [i64_type(), i64_type()])
+  let result = I64Rotr.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i64_type()])
+}
+
+///|
+test "Typecheck F64Ne" {
+  let env = empty_env()
+  let state = make_state(env, [f64_type(), f64_type()])
+  let result = F64Ne.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i32_type()])
+}
+
+///|
+test "Typecheck F64Gt" {
+  let env = empty_env()
+  let state = make_state(env, [f64_type(), f64_type()])
+  let result = F64Gt.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i32_type()])
+}
+
+///|
+test "Typecheck F64Le" {
+  let env = empty_env()
+  let state = make_state(env, [f64_type(), f64_type()])
+  let result = F64Le.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i32_type()])
+}
+
+///|
+test "Typecheck F64Ge" {
+  let env = empty_env()
+  let state = make_state(env, [f64_type(), f64_type()])
+  let result = F64Ge.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i32_type()])
+}
+
+///|
+test "Typecheck F64Ceil" {
+  let env = empty_env()
+  let state = make_state(env, [f64_type()])
+  let result = F64Ceil.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [f64_type()])
+}
+
+///|
+test "Typecheck F64Floor" {
+  let env = empty_env()
+  let state = make_state(env, [f64_type()])
+  let result = F64Floor.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [f64_type()])
+}
+
+///|
+test "Typecheck F64Trunc" {
+  let env = empty_env()
+  let state = make_state(env, [f64_type()])
+  let result = F64Trunc.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [f64_type()])
+}
+
+///|
+test "Typecheck F64Nearest" {
+  let env = empty_env()
+  let state = make_state(env, [f64_type()])
+  let result = F64Nearest.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [f64_type()])
+}
+
+///|
+test "Typecheck F64Sqrt" {
+  let env = empty_env()
+  let state = make_state(env, [f64_type()])
+  let result = F64Sqrt.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [f64_type()])
+}
+
+///|
+test "Typecheck F64Min" {
+  let env = empty_env()
+  let state = make_state(env, [f64_type(), f64_type()])
+  let result = F64Min.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [f64_type()])
+}
+
+///|
+test "Typecheck F64Max" {
+  let env = empty_env()
+  let state = make_state(env, [f64_type(), f64_type()])
+  let result = F64Max.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [f64_type()])
+}
+
+///|
+test "Typecheck F64Copysign" {
+  let env = empty_env()
+  let state = make_state(env, [f64_type(), f64_type()])
+  let result = F64Copysign.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [f64_type()])
+}
+
+///|
+test "Typecheck F32Trunc" {
+  let env = empty_env()
+  let state = make_state(env, [f32_type()])
+  let result = F32Trunc.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [f32_type()])
+}
+
+///|
+test "Typecheck F32Nearest" {
+  let env = empty_env()
+  let state = make_state(env, [f32_type()])
+  let result = F32Nearest.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [f32_type()])
+}
+
+///|
+test "Typecheck I64TruncF32U" {
+  let env = empty_env()
+  let state = make_state(env, [f32_type()])
+  let result = I64TruncF32U.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i64_type()])
+}
+
+///|
+test "Typecheck I64TruncF64U" {
+  let env = empty_env()
+  let state = make_state(env, [f64_type()])
+  let result = I64TruncF64U.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i64_type()])
+}
+
+///|
+test "Typecheck F32ConvertI64U" {
+  let env = empty_env()
+  let state = make_state(env, [i64_type()])
+  let result = F32ConvertI64U.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [f32_type()])
+}
+
+///|
+test "Typecheck F64ConvertI32U" {
+  let env = empty_env()
+  let state = make_state(env, [i32_type()])
+  let result = F64ConvertI32U.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [f64_type()])
+}
+
+///|
+test "Typecheck F64ConvertI64U" {
+  let env = empty_env()
+  let state = make_state(env, [i64_type()])
+  let result = F64ConvertI64U.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [f64_type()])
+}
+
+///|
+test "Typecheck I32TruncSatF64U" {
+  let env = empty_env()
+  let state = make_state(env, [f64_type()])
+  let result = I32TruncSatF64U.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i32_type()])
+}
+
+///|
+test "Typecheck I64TruncSatF32U" {
+  let env = empty_env()
+  let state = make_state(env, [f32_type()])
+  let result = I64TruncSatF32U.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i64_type()])
+}
+
+///|
+test "Typecheck I64TruncSatF64U" {
+  let env = empty_env()
+  let state = make_state(env, [f64_type()])
+  let result = I64TruncSatF64U.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i64_type()])
+}
+
+// =============================================================================
+// ADDITIONAL LOAD/STORE INSTRUCTIONS
+// =============================================================================
+
+///|
+test "Typecheck I64Load8U" {
+  let mem_type = MemType(I32Limits(1, None))
+  let env = empty_env().push_mem(mem_type)
+  let state = make_state(env, [i32_type()])
+  let result = I64Load8U(MemArg(U32(0), None, U64(0))).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i64_type()])
+}
+
+///|
+test "Typecheck I64Load16S" {
+  let mem_type = MemType(I32Limits(1, None))
+  let env = empty_env().push_mem(mem_type)
+  let state = make_state(env, [i32_type()])
+  let result = I64Load16S(MemArg(U32(0), None, U64(0))).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i64_type()])
+}
+
+///|
+test "Typecheck I64Load16U" {
+  let mem_type = MemType(I32Limits(1, None))
+  let env = empty_env().push_mem(mem_type)
+  let state = make_state(env, [i32_type()])
+  let result = I64Load16U(MemArg(U32(0), None, U64(0))).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i64_type()])
+}
+
+///|
+test "Typecheck I64Load32U" {
+  let mem_type = MemType(I32Limits(1, None))
+  let env = empty_env().push_mem(mem_type)
+  let state = make_state(env, [i32_type()])
+  let result = I64Load32U(MemArg(U32(0), None, U64(0))).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i64_type()])
+}
+
+///|
+test "Typecheck I32Store16" {
+  let mem_type = MemType(I32Limits(1, None))
+  let env = empty_env().push_mem(mem_type)
+  let state = make_state(env, [i32_type(), i32_type()])
+  let result = I32Store16(MemArg(U32(0), None, U64(0))).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [])
+}
+
+///|
+test "Typecheck I64Store8" {
+  let mem_type = MemType(I32Limits(1, None))
+  let env = empty_env().push_mem(mem_type)
+  let state = make_state(env, [i32_type(), i64_type()])
+  let result = I64Store8(MemArg(U32(0), None, U64(0))).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [])
+}
+
+///|
+test "Typecheck I64Store16" {
+  let mem_type = MemType(I32Limits(1, None))
+  let env = empty_env().push_mem(mem_type)
+  let state = make_state(env, [i32_type(), i64_type()])
+  let result = I64Store16(MemArg(U32(0), None, U64(0))).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [])
+}
+
+// =============================================================================
+// ADDITIONAL SIMD INSTRUCTIONS
+// =============================================================================
+
+///|
+test "Typecheck I8x16Shuffle" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I8x16Shuffle(
+    LaneIdx(0),
+    LaneIdx(1),
+    LaneIdx(2),
+    LaneIdx(3),
+    LaneIdx(4),
+    LaneIdx(5),
+    LaneIdx(6),
+    LaneIdx(7),
+    LaneIdx(8),
+    LaneIdx(9),
+    LaneIdx(10),
+    LaneIdx(11),
+    LaneIdx(12),
+    LaneIdx(13),
+    LaneIdx(14),
+    LaneIdx(15),
+  ).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck I8x16Swizzle" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I8x16Swizzle.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck V128AnyTrue" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = V128AnyTrue.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i32_type()])
+}
+
+///|
+test "Typecheck I8x16AllTrue" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I8x16AllTrue.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i32_type()])
+}
+
+///|
+test "Typecheck I8x16Bitmask" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I8x16Bitmask.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i32_type()])
+}
+
+///|
+test "Typecheck I16x8Bitmask" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I16x8Bitmask.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i32_type()])
+}
+
+///|
+test "Typecheck I32x4Bitmask" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I32x4Bitmask.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i32_type()])
+}
+
+///|
+test "Typecheck I64x2Bitmask" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I64x2Bitmask.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [i32_type()])
+}
+
+///|
+test "Typecheck V128Or" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = V128Or.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck V128Xor" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = V128Xor.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck V128Andnot" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = V128Andnot.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck I8x16Neg" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I8x16Neg.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck I8x16Popcnt" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I8x16Popcnt.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck I8x16Sub" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I8x16Sub.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck I8x16AddSatS" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I8x16AddSatS.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck I8x16AddSatU" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I8x16AddSatU.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck I64x2Add" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I64x2Add.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck I64x2Sub" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I64x2Sub.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck I64x2Mul" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I64x2Mul.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck F32x4Add" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = F32x4Add.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck F32x4Sub" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = F32x4Sub.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck F32x4Mul" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = F32x4Mul.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck F64x2Add" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = F64x2Add.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck F64x2Sub" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = F64x2Sub.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck F64x2Mul" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = F64x2Mul.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck F64x2Div" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = F64x2Div.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck F32x4Abs" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = F32x4Abs.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck F32x4Neg" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = F32x4Neg.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck F32x4Sqrt" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = F32x4Sqrt.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck F64x2Abs" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = F64x2Abs.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck F64x2Neg" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = F64x2Neg.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck F64x2Sqrt" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = F64x2Sqrt.typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck V128Load32Zero" {
+  let mem_type = MemType(I32Limits(1, None))
+  let env = empty_env().push_mem(mem_type)
+  let state = make_state(env, [i32_type()])
+  let result = V128Load32Zero(MemArg(U32(0), None, U64(0))).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck V128Load64Zero" {
+  let mem_type = MemType(I32Limits(1, None))
+  let env = empty_env().push_mem(mem_type)
+  let state = make_state(env, [i32_type()])
+  let result = V128Load64Zero(MemArg(U32(0), None, U64(0))).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck V128Load8x8S" {
+  let mem_type = MemType(I32Limits(1, None))
+  let env = empty_env().push_mem(mem_type)
+  let state = make_state(env, [i32_type()])
+  let result = V128Load8x8S(MemArg(U32(0), None, U64(0))).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck V128Load8x8U" {
+  let mem_type = MemType(I32Limits(1, None))
+  let env = empty_env().push_mem(mem_type)
+  let state = make_state(env, [i32_type()])
+  let result = V128Load8x8U(MemArg(U32(0), None, U64(0))).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck V128Load16x4S" {
+  let mem_type = MemType(I32Limits(1, None))
+  let env = empty_env().push_mem(mem_type)
+  let state = make_state(env, [i32_type()])
+  let result = V128Load16x4S(MemArg(U32(0), None, U64(0))).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck V128Load16x4U" {
+  let mem_type = MemType(I32Limits(1, None))
+  let env = empty_env().push_mem(mem_type)
+  let state = make_state(env, [i32_type()])
+  let result = V128Load16x4U(MemArg(U32(0), None, U64(0))).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck V128Load32x2S" {
+  let mem_type = MemType(I32Limits(1, None))
+  let env = empty_env().push_mem(mem_type)
+  let state = make_state(env, [i32_type()])
+  let result = V128Load32x2S(MemArg(U32(0), None, U64(0))).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck V128Load32x2U" {
+  let mem_type = MemType(I32Limits(1, None))
+  let env = empty_env().push_mem(mem_type)
+  let state = make_state(env, [i32_type()])
+  let result = V128Load32x2U(MemArg(U32(0), None, U64(0))).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck V128Load8Splat" {
+  let mem_type = MemType(I32Limits(1, None))
+  let env = empty_env().push_mem(mem_type)
+  let state = make_state(env, [i32_type()])
+  let result = V128Load8Splat(MemArg(U32(0), None, U64(0))).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+///|
+test "Typecheck V128Load16Splat" {
+  let mem_type = MemType(I32Limits(1, None))
+  let env = empty_env().push_mem(mem_type)
+  let state = make_state(env, [i32_type()])
+  let result = V128Load16Splat(MemArg(U32(0), None, U64(0))).typecheck(state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [v128_type()])
+}
+
+// =============================================================================
+// SIMD LOAD TESTS (Missing)
+// =============================================================================
+
+///|
+test "Typecheck V128Load32Splat" {
+  let env = empty_env().push_mem(MemType(I32Limits(1, None)))
+  let state = make_state(env, [i32_type()])
+  let result = V128Load32Splat(MemArg(U32(0), None, U64(0))).typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck V128Load64Splat" {
+  let env = empty_env().push_mem(MemType(I32Limits(1, None)))
+  let state = make_state(env, [i32_type()])
+  let result = V128Load64Splat(MemArg(U32(0), None, U64(0))).typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck V128Load32Lane" {
+  let env = empty_env().push_mem(MemType(I32Limits(1, None)))
+  let state = make_state(env, [i32_type(), v128_type()])
+  let result = V128Load32Lane(MemArg(U32(0), None, U64(0)), LaneIdx(0)).typecheck(
+    state,
+  )
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck V128Load64Lane" {
+  let env = empty_env().push_mem(MemType(I32Limits(1, None)))
+  let state = make_state(env, [i32_type(), v128_type()])
+  let result = V128Load64Lane(MemArg(U32(0), None, U64(0)), LaneIdx(0)).typecheck(
+    state,
+  )
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+// =============================================================================
+// SIMD STORE TESTS (Missing)
+// =============================================================================
+
+///|
+test "Typecheck V128Store8Lane" {
+  let env = empty_env().push_mem(MemType(I32Limits(1, None)))
+  let state = make_state(env, [i32_type(), v128_type()])
+  let result = V128Store8Lane(MemArg(U32(0), None, U64(0)), LaneIdx(0)).typecheck(
+    state,
+  )
+  let state = assert_ok(result)
+  assert_stack(state, [])
+}
+
+///|
+test "Typecheck V128Store32Lane" {
+  let env = empty_env().push_mem(MemType(I32Limits(1, None)))
+  let state = make_state(env, [i32_type(), v128_type()])
+  let result = V128Store32Lane(MemArg(U32(0), None, U64(0)), LaneIdx(0)).typecheck(
+    state,
+  )
+  let state = assert_ok(result)
+  assert_stack(state, [])
+}
+
+///|
+test "Typecheck V128Store64Lane" {
+  let env = empty_env().push_mem(MemType(I32Limits(1, None)))
+  let state = make_state(env, [i32_type(), v128_type()])
+  let result = V128Store64Lane(MemArg(U32(0), None, U64(0)), LaneIdx(0)).typecheck(
+    state,
+  )
+  let state = assert_ok(result)
+  assert_stack(state, [])
+}
+
+// =============================================================================
+// SIMD CONVERSION TESTS
+// =============================================================================
+
+///|
+test "Typecheck F32x4DemoteF64x2Zero" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = F32x4DemoteF64x2Zero.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck F64x2PromoteLowF32x4" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = F64x2PromoteLowF32x4.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4TruncSatF32x4S" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I32x4TruncSatF32x4S.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4TruncSatF32x4U" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I32x4TruncSatF32x4U.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck F32x4ConvertI32x4S" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = F32x4ConvertI32x4S.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck F32x4ConvertI32x4U" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = F32x4ConvertI32x4U.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4TruncSatF64x2SZero" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I32x4TruncSatF64x2SZero.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4TruncSatF64x2UZero" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I32x4TruncSatF64x2UZero.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck F64x2ConvertLowI32x4S" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = F64x2ConvertLowI32x4S.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck F64x2ConvertLowI32x4U" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = F64x2ConvertLowI32x4U.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+// =============================================================================
+// SIMD i8x16 TESTS (Missing)
+// =============================================================================
+
+///|
+test "Typecheck I8x16NarrowI16x8S" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I8x16NarrowI16x8S.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I8x16NarrowI16x8U" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I8x16NarrowI16x8U.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I8x16Shl" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), i32_type()])
+  let result = I8x16Shl.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I8x16ShrS" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), i32_type()])
+  let result = I8x16ShrS.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I8x16ShrU" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), i32_type()])
+  let result = I8x16ShrU.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I8x16SubSatS" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I8x16SubSatS.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I8x16SubSatU" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I8x16SubSatU.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I8x16MinS" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I8x16MinS.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I8x16MinU" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I8x16MinU.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I8x16MaxS" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I8x16MaxS.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I8x16MaxU" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I8x16MaxU.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I8x16AvgrU" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I8x16AvgrU.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+// =============================================================================
+// SIMD i16x8 TESTS (Missing)
+// =============================================================================
+
+///|
+test "Typecheck I16x8Abs" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I16x8Abs.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8AllTrue" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I16x8AllTrue.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [i32_type()])
+}
+
+///|
+test "Typecheck I16x8Q15mulrSatS" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I16x8Q15mulrSatS.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8NarrowI32x4S" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I16x8NarrowI32x4S.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8NarrowI32x4U" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I16x8NarrowI32x4U.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8ExtendLowI8x16S" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I16x8ExtendLowI8x16S.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8ExtendHighI8x16S" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I16x8ExtendHighI8x16S.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8ExtendLowI8x16U" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I16x8ExtendLowI8x16U.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8ExtendHighI8x16U" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I16x8ExtendHighI8x16U.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8Shl" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), i32_type()])
+  let result = I16x8Shl.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8ShrS" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), i32_type()])
+  let result = I16x8ShrS.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8ShrU" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), i32_type()])
+  let result = I16x8ShrU.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8Add" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I16x8Add.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8AddSatS" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I16x8AddSatS.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8AddSatU" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I16x8AddSatU.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8Sub" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I16x8Sub.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8SubSatS" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I16x8SubSatS.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8SubSatU" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I16x8SubSatU.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8MinS" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I16x8MinS.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8MinU" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I16x8MinU.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8MaxS" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I16x8MaxS.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8MaxU" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I16x8MaxU.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8AvgrU" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I16x8AvgrU.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8ExtmulLowI8x16S" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I16x8ExtmulLowI8x16S.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8ExtmulHighI8x16S" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I16x8ExtmulHighI8x16S.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8ExtmulLowI8x16U" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I16x8ExtmulLowI8x16U.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8ExtmulHighI8x16U" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I16x8ExtmulHighI8x16U.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8ExtaddPairwiseI8x16S" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I16x8ExtaddPairwiseI8x16S.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8ExtaddPairwiseI8x16U" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I16x8ExtaddPairwiseI8x16U.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+// =============================================================================
+// SIMD i32x4 TESTS (Missing)
+// =============================================================================
+
+///|
+test "Typecheck I32x4Abs" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I32x4Abs.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4Neg" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I32x4Neg.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4ExtendLowI16x8S" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I32x4ExtendLowI16x8S.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4ExtendHighI16x8S" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I32x4ExtendHighI16x8S.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4ExtendLowI16x8U" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I32x4ExtendLowI16x8U.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4ExtendHighI16x8U" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I32x4ExtendHighI16x8U.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4Shl" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), i32_type()])
+  let result = I32x4Shl.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4ShrS" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), i32_type()])
+  let result = I32x4ShrS.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4ShrU" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), i32_type()])
+  let result = I32x4ShrU.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4Add" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I32x4Add.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4Mul" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I32x4Mul.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4MinS" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I32x4MinS.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4MinU" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I32x4MinU.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4MaxS" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I32x4MaxS.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4MaxU" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I32x4MaxU.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4DotI16x8S" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I32x4DotI16x8S.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4ExtmulLowI16x8S" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I32x4ExtmulLowI16x8S.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4ExtmulHighI16x8S" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I32x4ExtmulHighI16x8S.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4ExtmulLowI16x8U" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I32x4ExtmulLowI16x8U.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4ExtmulHighI16x8U" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I32x4ExtmulHighI16x8U.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4ExtaddPairwiseI16x8S" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I32x4ExtaddPairwiseI16x8S.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4ExtaddPairwiseI16x8U" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I32x4ExtaddPairwiseI16x8U.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+// =============================================================================
+// SIMD i64x2 TESTS (Missing)
+// =============================================================================
+
+///|
+test "Typecheck I64x2Abs" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I64x2Abs.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I64x2Neg" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I64x2Neg.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I64x2AllTrue" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I64x2AllTrue.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [i32_type()])
+}
+
+///|
+test "Typecheck I64x2ExtendLowI32x4S" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I64x2ExtendLowI32x4S.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I64x2ExtendHighI32x4S" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I64x2ExtendHighI32x4S.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I64x2ExtendLowI32x4U" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I64x2ExtendLowI32x4U.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I64x2ExtendHighI32x4U" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I64x2ExtendHighI32x4U.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I64x2Shl" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), i32_type()])
+  let result = I64x2Shl.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I64x2ShrS" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), i32_type()])
+  let result = I64x2ShrS.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I64x2ShrU" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), i32_type()])
+  let result = I64x2ShrU.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I64x2Eq" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I64x2Eq.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I64x2Ne" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I64x2Ne.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I64x2LtS" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I64x2LtS.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I64x2GtS" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I64x2GtS.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I64x2LeS" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I64x2LeS.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I64x2GeS" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I64x2GeS.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I64x2ExtmulLowI32x4S" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I64x2ExtmulLowI32x4S.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I64x2ExtmulHighI32x4S" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I64x2ExtmulHighI32x4S.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I64x2ExtmulLowI32x4U" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I64x2ExtmulLowI32x4U.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I64x2ExtmulHighI32x4U" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I64x2ExtmulHighI32x4U.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+// =============================================================================
+// SIMD f32x4 TESTS (Missing)
+// =============================================================================
+
+///|
+test "Typecheck F32x4Ceil" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = F32x4Ceil.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck F32x4Floor" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = F32x4Floor.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck F32x4Trunc" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = F32x4Trunc.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck F32x4Nearest" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = F32x4Nearest.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck F32x4Min" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = F32x4Min.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck F32x4Max" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = F32x4Max.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck F32x4Pmin" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = F32x4Pmin.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck F32x4Pmax" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = F32x4Pmax.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+// =============================================================================
+// SIMD f64x2 TESTS (Missing)
+// =============================================================================
+
+///|
+test "Typecheck F64x2Ceil" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = F64x2Ceil.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck F64x2Floor" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = F64x2Floor.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck F64x2Trunc" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = F64x2Trunc.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck F64x2Nearest" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = F64x2Nearest.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck F64x2Min" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = F64x2Min.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck F64x2Max" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = F64x2Max.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck F64x2Pmin" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = F64x2Pmin.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck F64x2Pmax" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = F64x2Pmax.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+// =============================================================================
+// SIMD RELAXED TESTS
+// =============================================================================
+
+///|
+test "Typecheck I8x16RelaxedSwizzle" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I8x16RelaxedSwizzle.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4RelaxedTruncF32x4S" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I32x4RelaxedTruncF32x4S.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4RelaxedTruncF32x4U" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I32x4RelaxedTruncF32x4U.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4RelaxedTruncZeroF64x2S" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I32x4RelaxedTruncZeroF64x2S.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4RelaxedTruncZeroF64x2U" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type()])
+  let result = I32x4RelaxedTruncZeroF64x2U.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck F32x4RelaxedMadd" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type(), v128_type()])
+  let result = F32x4RelaxedMadd.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck F32x4RelaxedNmadd" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type(), v128_type()])
+  let result = F32x4RelaxedNmadd.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck F64x2RelaxedMadd" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type(), v128_type()])
+  let result = F64x2RelaxedMadd.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck F64x2RelaxedNmadd" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type(), v128_type()])
+  let result = F64x2RelaxedNmadd.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I8x16RelaxedLaneselect" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type(), v128_type()])
+  let result = I8x16RelaxedLaneselect.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8RelaxedLaneselect" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type(), v128_type()])
+  let result = I16x8RelaxedLaneselect.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4RelaxedLaneselect" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type(), v128_type()])
+  let result = I32x4RelaxedLaneselect.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I64x2RelaxedLaneselect" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type(), v128_type()])
+  let result = I64x2RelaxedLaneselect.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck F32x4RelaxedMin" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = F32x4RelaxedMin.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck F32x4RelaxedMax" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = F32x4RelaxedMax.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck F64x2RelaxedMin" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = F64x2RelaxedMin.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck F64x2RelaxedMax" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = F64x2RelaxedMax.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8RelaxedQ15mulrS" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I16x8RelaxedQ15mulrS.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I16x8RelaxedDotI8x16I7x16S" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type()])
+  let result = I16x8RelaxedDotI8x16I7x16S.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
+}
+
+///|
+test "Typecheck I32x4RelaxedDotI8x16I7x16AddS" {
+  let env = empty_env()
+  let state = make_state(env, [v128_type(), v128_type(), v128_type()])
+  let result = I32x4RelaxedDotI8x16I7x16AddS.typecheck(state)
+  let state = assert_ok(result)
+  assert_stack(state, [v128_type()])
 }

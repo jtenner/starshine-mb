@@ -1,17 +1,12 @@
-///|
 pub fn diff(rt1 : RefType, rt2 : RefType) -> Result[RefType, String] {
   let ht1 = rt1.get_heap_type()
-  let ht2 = rt2.get_heap_type()
-  if ht1 != ht2 {
-    return Err("Heap Types differ")
-  }
-  if rt2.is_nullable() {
-    // (ref null? ht) \ (ref null ht) = (ref ht)
-    Ok(HeapTypeRefType(false, ht1))
-  } else {
-    // (ref null? ht) \ (ref ht) = (ref null? ht)
-    Ok(HeapTypeRefType(rt1.is_nullable(), ht1))
-  }
+  let n1 = rt1.is_nullable()
+  let n2 = rt2.is_nullable()
+  
+  // Result nullability: nullable only if rt1 was nullable AND rt2 was not
+  let null_out = n1 && not(n2)
+  
+  Ok(HeapTypeRefType(null_out, ht1))
 }
 
 ///|
