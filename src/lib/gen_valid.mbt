@@ -26,7 +26,7 @@ pub fn gen_ctx_new(
 
 ///|
 pub fn GenCtx::with_env(ctx : GenCtx, env : Env) -> GenCtx {
-  GenCtx::{ ..ctx, env }
+  GenCtx::{ ..ctx, env, }
 }
 
 ///|
@@ -415,7 +415,7 @@ pub fn gen_typesec_valid(ctx : GenCtx) -> Result[(GenCtx, TypeSec), String] {
   }
 
   // Return updated ctx (consume some fuel proportional to types)
-  let ctx2 = ctx.dec_fuel(rectypes.length()) 
+  let ctx2 = ctx.dec_fuel(rectypes.length())
   Ok((ctx2, TypeSec(rectypes)))
 }
 

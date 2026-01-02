@@ -2780,6 +2780,7 @@ pub fn DefType::project(self : DefType) -> SubType? {
   }
 }
 
+///|
 pub impl Show for FuncType with output(self, logger) {
   let FuncType(props, results) = self
   logger.write_string("FuncType {\n  props : ")
@@ -2934,26 +2935,17 @@ fn Env::get_table_type(env : Env, idx : TableIdx) -> TableType? {
 fn Env::with_label(env : Env, ts : Array[ValType]) -> Env {
   let ls = env.labels.copy()
   ls.push(ts)
-  Env::{
-    ..env,
-    labels: ls,
-  }
+  Env::{ ..env, labels: ls }
 }
 
 ///|
 pub fn Env::with_labels(env : Env, labels : Stack[Array[ValType]]) -> Env {
-  Env::{
-    ..env,
-    labels,
-  }
+  Env::{ ..env, labels, }
 }
 
 ///|
 pub fn Env::with_return_type(env : Env, rt : Array[ValType]?) -> Env {
-  Env::{
-    ..env,
-    return_type: rt,
-  }
+  Env::{ ..env, return_type: rt }
 }
 
 ///|
@@ -2963,10 +2955,7 @@ pub fn Env::with_rectype(env : Env, rt : RecType) -> Env {
     SingleRecType(st) => rs.push([st])
     GroupRecType(sts) => rs.push(sts)
   }
-  Env::{
-    ..env,
-    rec_stack: rs,
-  }
+  Env::{ ..env, rec_stack: rs }
 }
 
 ///|
@@ -2979,10 +2968,7 @@ fn Env::append_rectype_types(env : Env, rt : RecType) -> Env {
         gts.push(st)
       }
   }
-  Env::{
-    ..env,
-    global_types: gts,
-  }
+  Env::{ ..env, global_types: gts }
 }
 
 ///|
@@ -3281,131 +3267,87 @@ fn ref_null_array_of(x : TypeIdx) -> ValType {
 pub fn Env::push_tag(env : Env, t : TagType) -> Env {
   let tags = env.tags.copy()
   tags.push(t)
-  Env::{
-    ..env,
-    tags,
-  }
+  Env::{ ..env, tags, }
 }
 
 ///|
 pub fn Env::push_global(env : Env, gt : GlobalType) -> Env {
   let globals = env.globals.copy()
   globals.push(gt)
-  Env::{
-    ..env,
-    globals,
-  }
+  Env::{ ..env, globals, }
 }
 
 ///|
 pub fn Env::push_func(env : Env, ft : FuncType) -> Env {
   let funcs = env.funcs.copy()
   funcs.push(ft)
-  Env::{
-    ..env,
-    funcs,
-  }
+  Env::{ ..env, funcs, }
 }
 
 ///|
 pub fn Env::push_mem(env : Env, mt : MemType) -> Env {
   let mems = env.mems.copy()
   mems.push(mt)
-  Env::{
-    ..env,
-    mems,
-  }
+  Env::{ ..env, mems, }
 }
 
 ///|
 pub fn Env::push_table(env : Env, tt : TableType) -> Env {
   let tables = env.tables.copy()
   tables.push(tt)
-  Env::{
-    ..env,
-    tables,
-  }
+  Env::{ ..env, tables, }
 }
 
 ///|
 fn Env::with_locals(env : Env, locals : Array[ValType]) -> Env {
-  Env::{
-    ..env,
-    locals,
-  }
+  Env::{ ..env, locals, }
 }
 
 ///|
 fn Env::with_funcs(env : Env, funcs : Array[FuncType]) -> Env {
-  Env::{
-    ..env,
-    funcs,
-  }
+  Env::{ ..env, funcs, }
 }
 
 ///|
 fn Env::with_types(env : Env, global_types : Array[SubType]) -> Env {
-  Env::{
-    ..env,
-    global_types,
-  }
+  Env::{ ..env, global_types, }
 }
 
 ///|
 fn Env::with_tables(env : Env, tables : Array[TableType]) -> Env {
-  Env::{
-    ..env,
-    tables,
-  }
+  Env::{ ..env, tables, }
 }
 
 ///|
 fn Env::with_globals(env : Env, globals : Array[GlobalType]) -> Env {
-  Env::{
-    ..env,
-    globals,
-  }
+  Env::{ ..env, globals, }
 }
 
 ///|
 fn Env::with_mems(env : Env, mems : Array[MemType]) -> Env {
-  Env::{
-    ..env,
-    mems,
-  }
+  Env::{ ..env, mems, }
 }
 
 ///|
 fn Env::with_tags(env : Env, tags : Array[TagType]) -> Env {
-  Env::{
-    ..env,
-    tags,
-  }
+  Env::{ ..env, tags, }
 }
 
 ///|
 pub fn Env::push_data(env : Env, d : Data) -> Env {
   let datas = env.datas.copy()
   datas.push(d)
-  Env::{
-    ..env,
-    datas,
-  }
+  Env::{ ..env, datas, }
 }
 
 ///|
 pub fn Env::push_elem(env : Env, e : Elem) -> Env {
   let elems = env.elems.copy()
   elems.push(e)
-  Env::{
-    ..env,
-    elems,
-  }
+  Env::{ ..env, elems, }
 }
 
-pub fn Env::with_elems(env : Env, elems: Array[Elem]) -> Env {
-  Env::{
-    ..env,
-    elems,
-  }
+///|
+pub fn Env::with_elems(env : Env, elems : Array[Elem]) -> Env {
+  Env::{ ..env, elems, }
 }

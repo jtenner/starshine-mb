@@ -27,7 +27,7 @@ pub trait Typecheck {
 
 ///|
 fn TcState::with_stack(st : TcState, stack : Array[ValType]) -> TcState {
-  TcState::{ ..st, stack}
+  TcState::{ ..st, stack, }
 }
 
 ///|
@@ -384,10 +384,7 @@ fn typecheck_block(st : TcState, bt : BlockType, body : Expr) -> TcResult {
 
   // Typecheck body with label = results
   let env2 = st1.env.with_label(results)
-  let st_body0 = TcState::{
-    ..st1,
-    env: env2,
-  }
+  let st_body0 = TcState::{ ..st1, env: env2 }
   let st_body = match body.typecheck(st_body0) {
     Err(e) => return Err(e)
     Ok(s) => s
@@ -409,10 +406,7 @@ fn typecheck_block(st : TcState, bt : BlockType, body : Expr) -> TcResult {
     // safe and ignorable because > base_len
     ignore(s.pop())
   }
-  let out = TcState::{
-    ..st,
-    stack: s,
-  }
+  let out = TcState::{ ..st, stack: s }
   Ok( // reachability after block is same as entry unless you model merges
     out.push_types(results),
   )
@@ -449,20 +443,14 @@ fn typecheck_if(
 
   // typecheck then branch
   let env_branch = st1.env.with_label(results)
-  let st_then0 = TcState::{
-    ..st1,
-    env: env_branch,
-  }
+  let st_then0 = TcState::{ ..st1, env: env_branch }
   let st_then = match Expr(then_instrs).typecheck(st_then0) {
     Err(e) => return Err(e)
     Ok(s) => s
   }
 
   // typecheck else branch (same starting state!)
-  let st_else0 = TcState::{
-    ..st1,
-    env: env_branch,
-  }
+  let st_else0 = TcState::{ ..st1, env: env_branch }
   let st_else = match Expr(else_instrs).typecheck(st_else0) {
     Err(e) => return Err(e)
     Ok(s) => s
@@ -1070,10 +1058,7 @@ fn typecheck_try_table(
 
   // extend context with innermost label = results
   let env2 = st1.env.with_label(results)
-  let st_body0 = TcState::{
-    ..st1,
-    env: env2,
-  }
+  let st_body0 = TcState::{ ..st1, env: env2 }
 
   // body must typecheck under extended env
   let st_body = match body.typecheck(st_body0) {
@@ -1082,10 +1067,7 @@ fn typecheck_try_table(
   }
 
   // validate all catch clauses under the SAME extended env (spec: C')
-  let st_catch_ctx = TcState::{
-    ..st1,
-    env: env2,
-  }
+  let st_catch_ctx = TcState::{ ..st1, env: env2 }
   for c in catches {
     match typecheck_catch_clause(st_catch_ctx, c) {
       Err(e) => return Err(e)
@@ -1324,10 +1306,7 @@ fn typecheck_loop(st : TcState, bt : BlockType, body : Expr) -> TcResult {
 
   // loop label is params (not results)
   let env2 = st1.env.with_label(params)
-  let st_body0 = TcState::{
-    ..st1,
-    env: env2,
-  }
+  let st_body0 = TcState::{ ..st1, env: env2 }
   let st_body = match body.typecheck(st_body0) {
     Err(e) => return Err(e)
     Ok(s) => s
@@ -2140,6 +2119,7 @@ fn typecheck_array_fill(st : TcState, x : TypeIdx) -> TcResult {
   Ok(st4)
 }
 
+///|
 fn typecheck_array_copy(st : TcState, x : TypeIdx, y : TypeIdx) -> TcResult {
   let ft_x = match st.env.resolve_array_field(x) {
     Err(e) => return Err(e)
@@ -2191,7 +2171,6 @@ fn typecheck_array_copy(st : TcState, x : TypeIdx, y : TypeIdx) -> TcResult {
     Err(t) => return Err(t)
     Ok(t) => t
   }
-
   Ok(st)
 }
 
@@ -5101,6 +5080,7 @@ test "Typecheck RefTest fails when target not subtype of operand" {
   assert_true(result is Err(_))
 }
 
+///|
 test "Typecheck RefTest with concrete type recursive" {
   let struct_subtype = CompTypeSubType(StructCompType([]))
   let env = empty_env().with_rectype(SingleRecType(struct_subtype))
@@ -5110,6 +5090,7 @@ test "Typecheck RefTest with concrete type recursive" {
   assert_stack(final_state, [i32_type()])
 }
 
+///|
 test "Typecheck RefTest with concrete type in global types" {
   let struct_subtype = CompTypeSubType(StructCompType([]))
   let env : Env = { ..empty_env(), global_types: [struct_subtype] }
@@ -5130,6 +5111,7 @@ test "Typecheck RefCast non-nullable" {
   assert_eq(final_state.stack.length(), 1)
 }
 
+///|
 test "Typecheck BrOnCast" {
   let nullable_i31 = RefTypeValType(
     HeapTypeRefType(true, AbsHeapTypeHeapType(I31AbsHeapType)),

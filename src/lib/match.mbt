@@ -79,6 +79,7 @@ pub impl Match for StorageType with matches(self, other, env) {
   }
 }
 
+///|
 pub impl Match for AbsHeapType with matches(self, other, _) {
   if self == other {
     return true
@@ -112,7 +113,6 @@ pub impl Match for AbsHeapType with matches(self, other, _) {
 
     // noexn <: exn
     (NoExnAbsHeapType, ExnAbsHeapType) => true
-
     _ => false
   }
 }
@@ -160,6 +160,7 @@ fn heaptype_matches_fuel(
   }
 }
 
+///|
 fn subtype_as_heap_fuel(
   st : SubType,
   target : HeapType,
@@ -169,7 +170,6 @@ fn subtype_as_heap_fuel(
   if fuel <= 0 {
     return false
   }
-  
   let (is_final, supers, ct) = match st {
     CompTypeSubType(ct) => (false, [], ct)
     SubType(is_final, supers, ct) => (is_final, supers, ct)
@@ -185,10 +185,7 @@ fn subtype_as_heap_fuel(
         return false
       }
     }
-    _ =>
-      if is_final {
-        return false
-      }
+    _ => if is_final { return false }
   }
 
   // 2) Chase declared supertypes

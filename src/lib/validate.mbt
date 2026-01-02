@@ -1,11 +1,11 @@
+///|
 pub fn diff(rt1 : RefType, rt2 : RefType) -> Result[RefType, String] {
   let ht1 = rt1.get_heap_type()
   let n1 = rt1.is_nullable()
   let n2 = rt2.is_nullable()
-  
+
   // Result nullability: nullable only if rt1 was nullable AND rt2 was not
   let null_out = n1 && not(n2)
-  
   Ok(HeapTypeRefType(null_out, ht1))
 }
 
@@ -320,12 +320,7 @@ fn validate_const_expr(
 
   // typecheck it under an empty stack/locals/labels context
   // (but with access to env globals, funcs, etc)
-  let env_tc = Env::{
-    ..env,
-    locals: [],
-    labels: [],
-    return_type: None,
-  }
+  let env_tc = Env::{ ..env, locals: [], labels: [], return_type: None }
   let st0 = TcState::{ env: env_tc, stack: [], reachable: true }
   let st1 = match expr.typecheck(st0) {
     Ok(s) => s
@@ -777,7 +772,7 @@ pub fn validate_elemsec(elemsec : ElemSec?, env0 : Env) -> Result[Env, String] {
         }
         let elems = env.elems.copy()
         elems.push(e)
-        env = env.with_elems(elems) 
+        env = env.with_elems(elems)
       }
       Ok(env)
     }
