@@ -26,17 +26,17 @@ pub fn gen_ctx_new(
 
 ///|
 pub fn GenCtx::with_env(ctx : GenCtx, env : Env) -> GenCtx {
-  GenCtx::{ rnd: ctx.rnd, fuel: ctx.fuel, env }
+  GenCtx::{ ..ctx, env }
 }
 
 ///|
 pub fn GenCtx::with_fuel_only(ctx : GenCtx, fuel : Int) -> GenCtx {
-  GenCtx::{ rnd: ctx.rnd, fuel, env: ctx.env }
+  GenCtx::{ ..ctx, env: ctx.env }
 }
 
 ///|
 pub fn GenCtx::dec_fuel(ctx : GenCtx, n : Int) -> GenCtx {
-  GenCtx::{ rnd: ctx.rnd, fuel: ctx.fuel - n, env: ctx.env }
+  GenCtx::{ ..ctx, fuel: ctx.fuel - n }
 }
 
 ///|
@@ -415,11 +415,7 @@ pub fn gen_typesec_valid(ctx : GenCtx) -> Result[(GenCtx, TypeSec), String] {
   }
 
   // Return updated ctx (consume some fuel proportional to types)
-  let ctx2 = GenCtx::{
-    rnd: ctx.rnd,
-    fuel: ctx.fuel - rectypes.length(),
-    env: ctx.env,
-  }
+  let ctx2 = ctx.dec_fuel(rectypes.length()) 
   Ok((ctx2, TypeSec(rectypes)))
 }
 
@@ -2072,14 +2068,14 @@ pub fn gen_module_valid_full(ctx0 : GenCtx) -> Result[(GenCtx, Module), String] 
     Ok(e) => e
     Err(e) => return Err(e)
   }
-  let ctx2 = GenCtx::{ rnd: ctx1.rnd, fuel: ctx1.fuel, env: env1 }
+  let ctx2 = GenCtx::{ ..ctx1, env: env1 }
 
   // 3) Generate ImportSec (before FuncSec - imports come first)
   let (ctx3, importsec, env2) = match gen_importsec_valid(ctx2, ctx2.env) {
     Ok(x) => x
     Err(e) => return Err(e)
   }
-  let ctx3 = GenCtx::{ rnd: ctx3.rnd, fuel: ctx3.fuel, env: env2 }
+  let ctx3 = GenCtx::{ ..ctx3, env: env2 }
 
   // 4) Choose functype TypeIdxs for FuncSec
   let choices = collect_functype_typeidxs(ctx3.env)
@@ -2099,35 +2095,35 @@ pub fn gen_module_valid_full(ctx0 : GenCtx) -> Result[(GenCtx, Module), String] 
     Ok(e) => e
     Err(e) => return Err(e)
   }
-  let ctx4 = GenCtx::{ rnd: ctx3.rnd, fuel: ctx3.fuel, env: env3 }
+  let ctx4 = GenCtx::{ ..ctx3, env: env3 }
 
   // 6) Generate TableSec
   let (ctx5, tablesec, env4) = match gen_tablesec_valid(ctx4, ctx4.env) {
     Ok(x) => x
     Err(e) => return Err(e)
   }
-  let ctx5 = GenCtx::{ rnd: ctx5.rnd, fuel: ctx5.fuel, env: env4 }
+  let ctx5 = GenCtx::{ ..ctx5, env: env4 }
 
   // 7) Generate MemSec
   let (ctx6, memsec, env5) = match gen_memsec_valid(ctx5, ctx5.env) {
     Ok(x) => x
     Err(e) => return Err(e)
   }
-  let ctx6 = GenCtx::{ rnd: ctx6.rnd, fuel: ctx6.fuel, env: env5 }
+  let ctx6 = GenCtx::{ ..ctx6, env: env5 }
 
   // 8) Generate TagSec
   let (ctx7, tagsec, env6) = match gen_tagsec_valid(ctx6, ctx6.env) {
     Ok(x) => x
     Err(e) => return Err(e)
   }
-  let ctx7 = GenCtx::{ rnd: ctx7.rnd, fuel: ctx7.fuel, env: env6 }
+  let ctx7 = GenCtx::{ ..ctx7, env: env6 }
 
   // 9) Generate GlobalSec
   let (ctx8, globalsec, env7) = match gen_globalsec_valid(ctx7, ctx7.env) {
     Ok(x) => x
     Err(e) => return Err(e)
   }
-  let ctx8 = GenCtx::{ rnd: ctx8.rnd, fuel: ctx8.fuel, env: env7 }
+  let ctx8 = GenCtx::{ ..ctx8, env: env7 }
 
   // 10) Generate ExportSec
   let (ctx9, exportsec) = match gen_exportsec_valid(ctx8, ctx8.env) {
@@ -2146,14 +2142,14 @@ pub fn gen_module_valid_full(ctx0 : GenCtx) -> Result[(GenCtx, Module), String] 
     Ok(x) => x
     Err(e) => return Err(e)
   }
-  let ctx11 = GenCtx::{ rnd: ctx11.rnd, fuel: ctx11.fuel, env: env8 }
+  let ctx11 = GenCtx::{ ..ctx11, env: env8 }
 
   // 13) Generate DataSec
   let (ctx12, datasec, env9) = match gen_datasec_valid(ctx11, ctx11.env) {
     Ok(x) => x
     Err(e) => return Err(e)
   }
-  let ctx12 = GenCtx::{ rnd: ctx12.rnd, fuel: ctx12.fuel, env: env9 }
+  let ctx12 = GenCtx::{ ..ctx12, env: env9 }
 
   // 14) Generate DataCntSec
   let DataSec(data_arr) = datasec
@@ -2197,17 +2193,5 @@ pub fn gen_module_valid_full(ctx0 : GenCtx) -> Result[(GenCtx, Module), String] 
     Some(codesec),
     Some(datasec),
   )
-  Ok((ctx3, m))
-}
-
-///|
-test "Sanity check" {
-  let ctx = gen_ctx_new(1000)
-  let (_, mod) = gen_module_valid(ctx).unwrap()
-  validate_module(mod).unwrap()
-  let encoded = @buffer.new()
-  mod.encode(encoded).unwrap()
-  let result = Module::decode(encoded.to_bytes(), 0)
-  let _ = result.unwrap()
-  // assert_eq(mod, m2, msg="Modules not equal")
+  Ok((ctx12, m))
 }

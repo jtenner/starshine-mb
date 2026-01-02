@@ -2935,53 +2935,23 @@ fn Env::with_label(env : Env, ts : Array[ValType]) -> Env {
   let ls = env.labels.copy()
   ls.push(ts)
   Env::{
-    global_types: env.global_types,
-    rec_stack: env.rec_stack,
-    funcs: env.funcs,
-    tables: env.tables,
-    mems: env.mems,
-    elems: env.elems,
-    datas: env.datas,
-    globals: env.globals,
-    tags: env.tags,
-    locals: env.locals,
+    ..env,
     labels: ls,
-    return_type: env.return_type,
   }
 }
 
 ///|
 pub fn Env::with_labels(env : Env, labels : Stack[Array[ValType]]) -> Env {
   Env::{
-    global_types: env.global_types,
-    rec_stack: env.rec_stack,
-    funcs: env.funcs,
-    tables: env.tables,
-    mems: env.mems,
-    globals: env.globals,
-    elems: env.elems,
-    datas: env.datas,
-    tags: env.tags,
-    locals: env.locals,
+    ..env,
     labels,
-    return_type: env.return_type,
   }
 }
 
 ///|
 pub fn Env::with_return_type(env : Env, rt : Array[ValType]?) -> Env {
   Env::{
-    global_types: env.global_types,
-    rec_stack: env.rec_stack,
-    funcs: env.funcs,
-    tables: env.tables,
-    mems: env.mems,
-    globals: env.globals,
-    elems: env.elems,
-    datas: env.datas,
-    tags: env.tags,
-    locals: env.locals,
-    labels: env.labels,
+    ..env,
     return_type: rt,
   }
 }
@@ -2994,18 +2964,8 @@ pub fn Env::with_rectype(env : Env, rt : RecType) -> Env {
     GroupRecType(sts) => rs.push(sts)
   }
   Env::{
-    global_types: env.global_types,
+    ..env,
     rec_stack: rs,
-    funcs: env.funcs,
-    tables: env.tables,
-    mems: env.mems,
-    globals: env.globals,
-    elems: env.elems,
-    datas: env.datas,
-    tags: env.tags,
-    locals: env.locals,
-    labels: env.labels,
-    return_type: env.return_type,
   }
 }
 
@@ -3020,18 +2980,8 @@ fn Env::append_rectype_types(env : Env, rt : RecType) -> Env {
       }
   }
   Env::{
+    ..env,
     global_types: gts,
-    rec_stack: env.rec_stack,
-    funcs: env.funcs,
-    tables: env.tables,
-    mems: env.mems,
-    globals: env.globals,
-    elems: env.elems,
-    datas: env.datas,
-    tags: env.tags,
-    locals: env.locals,
-    labels: env.labels,
-    return_type: env.return_type,
   }
 }
 
@@ -3332,18 +3282,8 @@ pub fn Env::push_tag(env : Env, t : TagType) -> Env {
   let tags = env.tags.copy()
   tags.push(t)
   Env::{
-    global_types: env.global_types,
-    rec_stack: env.rec_stack,
-    funcs: env.funcs,
-    tables: env.tables,
-    mems: env.mems,
-    globals: env.globals,
-    elems: env.elems,
-    datas: env.datas,
+    ..env,
     tags,
-    locals: env.locals,
-    labels: env.labels,
-    return_type: env.return_type,
   }
 }
 
@@ -3352,18 +3292,8 @@ pub fn Env::push_global(env : Env, gt : GlobalType) -> Env {
   let globals = env.globals.copy()
   globals.push(gt)
   Env::{
-    global_types: env.global_types,
-    rec_stack: env.rec_stack,
-    funcs: env.funcs,
-    tables: env.tables,
-    mems: env.mems,
+    ..env,
     globals,
-    elems: env.elems,
-    datas: env.datas,
-    tags: env.tags,
-    locals: env.locals,
-    labels: env.labels,
-    return_type: env.return_type,
   }
 }
 
@@ -3372,18 +3302,8 @@ pub fn Env::push_func(env : Env, ft : FuncType) -> Env {
   let funcs = env.funcs.copy()
   funcs.push(ft)
   Env::{
-    global_types: env.global_types,
-    rec_stack: env.rec_stack,
+    ..env,
     funcs,
-    tables: env.tables,
-    mems: env.mems,
-    globals: env.globals,
-    elems: env.elems,
-    datas: env.datas,
-    tags: env.tags,
-    locals: env.locals,
-    labels: env.labels,
-    return_type: env.return_type,
   }
 }
 
@@ -3392,18 +3312,8 @@ pub fn Env::push_mem(env : Env, mt : MemType) -> Env {
   let mems = env.mems.copy()
   mems.push(mt)
   Env::{
-    global_types: env.global_types,
-    rec_stack: env.rec_stack,
-    funcs: env.funcs,
-    tables: env.tables,
+    ..env,
     mems,
-    globals: env.globals,
-    elems: env.elems,
-    datas: env.datas,
-    tags: env.tags,
-    locals: env.locals,
-    labels: env.labels,
-    return_type: env.return_type,
   }
 }
 
@@ -3412,144 +3322,64 @@ pub fn Env::push_table(env : Env, tt : TableType) -> Env {
   let tables = env.tables.copy()
   tables.push(tt)
   Env::{
-    global_types: env.global_types,
-    rec_stack: env.rec_stack,
-    funcs: env.funcs,
+    ..env,
     tables,
-    mems: env.mems,
-    globals: env.globals,
-    elems: env.elems,
-    datas: env.datas,
-    tags: env.tags,
-    locals: env.locals,
-    labels: env.labels,
-    return_type: env.return_type,
   }
 }
 
 ///|
 fn Env::with_locals(env : Env, locals : Array[ValType]) -> Env {
   Env::{
-    global_types: env.global_types,
-    rec_stack: env.rec_stack,
-    funcs: env.funcs,
-    tables: env.tables,
-    mems: env.mems,
-    globals: env.globals,
-    elems: env.elems,
-    datas: env.datas,
-    tags: env.tags,
+    ..env,
     locals,
-    labels: env.labels,
-    return_type: env.return_type,
   }
 }
 
 ///|
 fn Env::with_funcs(env : Env, funcs : Array[FuncType]) -> Env {
   Env::{
-    global_types: env.global_types,
-    rec_stack: env.rec_stack,
+    ..env,
     funcs,
-    tables: env.tables,
-    mems: env.mems,
-    globals: env.globals,
-    elems: env.elems,
-    datas: env.datas,
-    tags: env.tags,
-    locals: env.locals,
-    labels: env.labels,
-    return_type: env.return_type,
   }
 }
 
 ///|
 fn Env::with_types(env : Env, global_types : Array[SubType]) -> Env {
   Env::{
+    ..env,
     global_types,
-    rec_stack: env.rec_stack,
-    funcs: env.funcs,
-    tables: env.tables,
-    mems: env.mems,
-    globals: env.globals,
-    elems: env.elems,
-    datas: env.datas,
-    tags: env.tags,
-    locals: env.locals,
-    labels: env.labels,
-    return_type: env.return_type,
   }
 }
 
 ///|
 fn Env::with_tables(env : Env, tables : Array[TableType]) -> Env {
   Env::{
-    global_types: env.global_types,
-    rec_stack: env.rec_stack,
-    funcs: env.funcs,
+    ..env,
     tables,
-    mems: env.mems,
-    globals: env.globals,
-    elems: env.elems,
-    datas: env.datas,
-    tags: env.tags,
-    locals: env.locals,
-    labels: env.labels,
-    return_type: env.return_type,
   }
 }
 
 ///|
 fn Env::with_globals(env : Env, globals : Array[GlobalType]) -> Env {
   Env::{
-    global_types: env.global_types,
-    rec_stack: env.rec_stack,
-    funcs: env.funcs,
-    tables: env.tables,
-    mems: env.mems,
+    ..env,
     globals,
-    elems: env.elems,
-    datas: env.datas,
-    tags: env.tags,
-    locals: env.locals,
-    labels: env.labels,
-    return_type: env.return_type,
   }
 }
 
 ///|
 fn Env::with_mems(env : Env, mems : Array[MemType]) -> Env {
   Env::{
-    global_types: env.global_types,
-    rec_stack: env.rec_stack,
-    funcs: env.funcs,
-    tables: env.tables,
+    ..env,
     mems,
-    globals: env.globals,
-    elems: env.elems,
-    datas: env.datas,
-    tags: env.tags,
-    locals: env.locals,
-    labels: env.labels,
-    return_type: env.return_type,
   }
 }
 
 ///|
 fn Env::with_tags(env : Env, tags : Array[TagType]) -> Env {
   Env::{
-    global_types: env.global_types,
-    rec_stack: env.rec_stack,
-    funcs: env.funcs,
-    tables: env.tables,
-    mems: env.mems,
-    globals: env.globals,
-    elems: env.elems,
-    datas: env.datas,
+    ..env,
     tags,
-    locals: env.locals,
-    labels: env.labels,
-    return_type: env.return_type,
   }
 }
 
@@ -3558,18 +3388,8 @@ pub fn Env::push_data(env : Env, d : Data) -> Env {
   let datas = env.datas.copy()
   datas.push(d)
   Env::{
-    global_types: env.global_types,
-    rec_stack: env.rec_stack,
-    funcs: env.funcs,
-    tables: env.tables,
-    mems: env.mems,
-    globals: env.globals,
-    elems: env.elems,
+    ..env,
     datas,
-    tags: env.tags,
-    locals: env.locals,
-    labels: env.labels,
-    return_type: env.return_type,
   }
 }
 
@@ -3578,17 +3398,14 @@ pub fn Env::push_elem(env : Env, e : Elem) -> Env {
   let elems = env.elems.copy()
   elems.push(e)
   Env::{
-    global_types: env.global_types,
-    rec_stack: env.rec_stack,
-    funcs: env.funcs,
-    tables: env.tables,
-    mems: env.mems,
-    globals: env.globals,
+    ..env,
     elems,
-    datas: env.datas,
-    tags: env.tags,
-    locals: env.locals,
-    labels: env.labels,
-    return_type: env.return_type,
+  }
+}
+
+pub fn Env::with_elems(env : Env, elems: Array[Elem]) -> Env {
+  Env::{
+    ..env,
+    elems,
   }
 }

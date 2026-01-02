@@ -321,15 +321,7 @@ fn validate_const_expr(
   // typecheck it under an empty stack/locals/labels context
   // (but with access to env globals, funcs, etc)
   let env_tc = Env::{
-    global_types: env.global_types,
-    rec_stack: env.rec_stack,
-    funcs: env.funcs,
-    tables: env.tables,
-    mems: env.mems,
-    globals: env.globals,
-    elems: env.elems,
-    datas: env.datas,
-    tags: env.tags,
+    ..env,
     locals: [],
     labels: [],
     return_type: None,
@@ -385,20 +377,7 @@ pub fn validate_globalsec(
 
         // Extend global index space
         out.push(gt)
-        env = Env::{
-          global_types: env.global_types,
-          rec_stack: env.rec_stack,
-          funcs: env.funcs,
-          tables: env.tables,
-          mems: env.mems,
-          globals: out,
-          elems: env.elems,
-          datas: env.datas,
-          tags: env.tags,
-          locals: env.locals,
-          labels: env.labels,
-          return_type: env.return_type,
-        }
+        env = env.with_globals(out)
       }
       Ok(env)
     }
@@ -798,20 +777,7 @@ pub fn validate_elemsec(elemsec : ElemSec?, env0 : Env) -> Result[Env, String] {
         }
         let elems = env.elems.copy()
         elems.push(e)
-        env = Env::{
-          global_types: env.global_types,
-          rec_stack: env.rec_stack,
-          funcs: env.funcs,
-          tables: env.tables,
-          mems: env.mems,
-          globals: env.globals,
-          elems,
-          datas: env.datas,
-          tags: env.tags,
-          locals: env.locals,
-          labels: env.labels,
-          return_type: env.return_type,
-        }
+        env = env.with_elems(elems) 
       }
       Ok(env)
     }

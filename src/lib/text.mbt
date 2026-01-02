@@ -93,21 +93,6 @@ fn take_whitespace(chars : Array[Char], i : Int) -> (Option[Token], Int) {
   }
 }
 
-fn take_identifier(chars : Array[Char], i : Int) -> (Option[Identifier], Int) {
-  match chars.get(i) {
-    Some('$') => {
-      let start = i
-      loop i + 1 {
-        i if chars.get(i) is Some(c) && is_idchar(c) => {
-          continue i + 1
-        }
-        i => 
-      }
-    }
-    _ => (None, i)
-  }
-}
-
 fn is_lower_ascii(char : Char) -> Bool {
   'a' <= char && char <= 'z'
 }
@@ -132,29 +117,10 @@ fn take_keyword(chars : Array[Char], i : Int) -> (Option[Token], Int) {
         i => break (Some(KeywordToken(chars[start : i - 1])), i)
       }
     }
+    _ => (None, i)
   }
 }
 
 fn take_annotation(chars : Array[Char], i : Int) -> (Option[Token], Int) {
-  if chars.get(i) != Some('(') || chars.get(i + 1) != Some('@') {
-    return (None, i)
-  }
-
-  if take_identifier(chars, i + 2) is (Some(name), n) {
-    let tokens = []
-    loop n {
-      n => {
-        match take_token(chars, n) {
-          (Some(CloseParenToken), n) => break ((Some(AnnotationToken(name, tokens)), n))
-          (Some(t), n) => {
-            tokens.push(t)
-            continue n
-          }
-          (None, _) => break (None, i)
-        }
-      }
-    }
-  } else {
-    (None, i)
-  }
+  ...
 }

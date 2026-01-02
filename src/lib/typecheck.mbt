@@ -27,12 +27,12 @@ pub trait Typecheck {
 
 ///|
 fn TcState::with_stack(st : TcState, stack : Array[ValType]) -> TcState {
-  TcState::{ env: st.env, stack, reachable: st.reachable }
+  TcState::{ ..st, stack}
 }
 
 ///|
 fn TcState::set_unreachable(st : TcState) -> TcState {
-  TcState::{ env: st.env, stack: st.stack, reachable: false }
+  TcState::{ ..st, reachable: false }
 }
 
 ///|
@@ -385,9 +385,8 @@ fn typecheck_block(st : TcState, bt : BlockType, body : Expr) -> TcResult {
   // Typecheck body with label = results
   let env2 = st1.env.with_label(results)
   let st_body0 = TcState::{
+    ..st1,
     env: env2,
-    stack: st1.stack,
-    reachable: st1.reachable,
   }
   let st_body = match body.typecheck(st_body0) {
     Err(e) => return Err(e)
@@ -411,9 +410,8 @@ fn typecheck_block(st : TcState, bt : BlockType, body : Expr) -> TcResult {
     ignore(s.pop())
   }
   let out = TcState::{
-    env: st.env, // pop label scope by restoring original env
+    ..st,
     stack: s,
-    reachable: st.reachable,
   }
   Ok( // reachability after block is same as entry unless you model merges
     out.push_types(results),
@@ -452,9 +450,8 @@ fn typecheck_if(
   // typecheck then branch
   let env_branch = st1.env.with_label(results)
   let st_then0 = TcState::{
+    ..st1,
     env: env_branch,
-    stack: st1.stack,
-    reachable: st1.reachable,
   }
   let st_then = match Expr(then_instrs).typecheck(st_then0) {
     Err(e) => return Err(e)
@@ -463,9 +460,8 @@ fn typecheck_if(
 
   // typecheck else branch (same starting state!)
   let st_else0 = TcState::{
+    ..st1,
     env: env_branch,
-    stack: st1.stack,
-    reachable: st1.reachable,
   }
   let st_else = match Expr(else_instrs).typecheck(st_else0) {
     Err(e) => return Err(e)
@@ -1075,9 +1071,8 @@ fn typecheck_try_table(
   // extend context with innermost label = results
   let env2 = st1.env.with_label(results)
   let st_body0 = TcState::{
+    ..st1,
     env: env2,
-    stack: st1.stack,
-    reachable: st1.reachable,
   }
 
   // body must typecheck under extended env
@@ -1088,9 +1083,8 @@ fn typecheck_try_table(
 
   // validate all catch clauses under the SAME extended env (spec: C')
   let st_catch_ctx = TcState::{
+    ..st1,
     env: env2,
-    stack: st1.stack,
-    reachable: st1.reachable,
   }
   for c in catches {
     match typecheck_catch_clause(st_catch_ctx, c) {
@@ -1331,9 +1325,8 @@ fn typecheck_loop(st : TcState, bt : BlockType, body : Expr) -> TcResult {
   // loop label is params (not results)
   let env2 = st1.env.with_label(params)
   let st_body0 = TcState::{
+    ..st1,
     env: env2,
-    stack: st1.stack,
-    reachable: st1.reachable,
   }
   let st_body = match body.typecheck(st_body0) {
     Err(e) => return Err(e)
@@ -2380,8 +2373,7 @@ fn typecheck_array_new_data(st : TcState, x : TypeIdx, y : DataIdx) -> TcResult 
 ///|
 pub impl Typecheck for Instruction with typecheck(self, st) {
   match self {
-    Unreachable =>
-      Ok(TcState::{ env: st.env, stack: st.stack, reachable: false })
+    Unreachable => Ok(TcState::{ ..st, reachable: false })
     Nop => Ok(st)
     I32Const(_) => Ok(st.push1(NumTypeValType(I32NumType)))
     I64Const(_) => Ok(st.push1(NumTypeValType(I64NumType)))
