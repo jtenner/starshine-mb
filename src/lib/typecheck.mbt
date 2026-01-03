@@ -989,7 +989,11 @@ fn typecheck_catch_clause(st : TcState, c : Catch) -> TcResult {
   match c {
     Catch(tag, lbl) => {
       // label must expect tag's payload types
-      let label_types = st.env.labels[lbl.0.reinterpret_as_int()]
+      let label_idx = lbl.0.reinterpret_as_int()
+      let label_types = match st.env.labels.get(label_idx) {
+        Some(label_types) => label_types
+        None => return Err("Invalid catch label index")
+      }
       let payload = tag_payload_types(st.env, tag)
       if not(Match::matches(payload, label_types, st.env)) {
         return Err("catch types (payload) do not match label types")
@@ -998,7 +1002,11 @@ fn typecheck_catch_clause(st : TcState, c : Catch) -> TcResult {
     }
     CatchRef(tag, lbl) => {
       // label must expect tag's payload types + exnref
-      let label_types = st.env.labels[lbl.0.reinterpret_as_int()]
+      let label_idx = lbl.0.reinterpret_as_int()
+      let label_types = match st.env.labels.get(label_idx) {
+        Some(label_types) => label_types
+        None => return Err("Invalid catch label index")
+      }
       let payload = tag_payload_types(st.env, tag)
       let expected = payload.copy()
       expected.push(
@@ -1015,7 +1023,11 @@ fn typecheck_catch_clause(st : TcState, c : Catch) -> TcResult {
     }
     CatchAll(lbl) => {
       // label must expect empty
-      let label_types = st.env.labels[lbl.0.reinterpret_as_int()]
+      let label_idx = lbl.0.reinterpret_as_int()
+      let label_types = match st.env.labels.get(label_idx) {
+        Some(label_types) => label_types
+        None => return Err("Invalid catch label index")
+      }
       if label_types.length() != 0 {
         return Err("catch_all label must expect no values")
       }
@@ -1023,7 +1035,11 @@ fn typecheck_catch_clause(st : TcState, c : Catch) -> TcResult {
     }
     CatchAllRef(lbl) => {
       // label must expect just exnref
-      let label_types = st.env.labels[lbl.0.reinterpret_as_int()]
+      let label_idx = lbl.0.reinterpret_as_int()
+      let label_types = match st.env.labels.get(label_idx) {
+        Some(label_types) => label_types
+        None => return Err("Invalid catch label index")
+      }
       let expected = [
         RefTypeValType(
           HeapTypeRefType(false, AbsHeapTypeHeapType(ExnAbsHeapType)),

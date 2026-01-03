@@ -17,11 +17,31 @@ pub fn empty_env() -> Env
 
 pub fn[T : Eq] equals(Array[T], Array[T]) -> Bool
 
-pub fn gen_ctx_new(Int) -> GenCtx
+pub fn gen_ctx_new(Int, rnd? : @splitmix.RandomState?) -> GenCtx
+
+pub fn gen_datasec_valid(GenCtx, Env) -> Result[(GenCtx, DataSec, Env), String]
+
+pub fn gen_elemsec_valid(GenCtx, Env) -> Result[(GenCtx, ElemSec, Env), String]
+
+pub fn gen_exportsec_valid(GenCtx, Env) -> Result[(GenCtx, ExportSec?), String]
 
 pub fn gen_expr_valid(GenCtx, TcState, Array[ValType]) -> Result[Expr, String]
 
-pub fn gen_module_valid(GenCtx) -> Result[(GenCtx, Module), String]
+pub fn gen_expr_valid_with_blocks(GenCtx, TcState, Array[ValType]) -> Result[Expr, String]
+
+pub fn gen_globalsec_valid(GenCtx, Env) -> Result[(GenCtx, GlobalSec?, Env), String]
+
+pub fn gen_importsec_valid(GenCtx, Env) -> Result[(GenCtx, ImportSec?, Env), String]
+
+pub fn gen_memsec_valid(GenCtx, Env) -> Result[(GenCtx, MemSec, Env), String]
+
+pub fn gen_module_valid_full(GenCtx) -> Result[(GenCtx, Module), String]
+
+pub fn gen_startsec_valid(GenCtx, Env) -> Result[(GenCtx, StartSec?), String]
+
+pub fn gen_tablesec_valid(GenCtx, Env) -> Result[(GenCtx, TableSec, Env), String]
+
+pub fn gen_tagsec_valid(GenCtx, Env) -> Result[(GenCtx, TagSec?, Env), String]
 
 pub fn gen_typesec_valid(GenCtx) -> Result[(GenCtx, TypeSec), String]
 
@@ -274,9 +294,11 @@ pub fn Env::resolve_heaptype_subtype(Self, HeapType) -> SubType?
 pub fn Env::resolve_subtype(Self, TypeIdx) -> SubType?
 pub fn Env::resolve_tag_functype(Self, TagIdx) -> FuncType?
 pub fn Env::resolve_typeidx_subtype(Self, TypeIdx) -> SubType?
+pub fn Env::with_elems(Self, Array[Elem]) -> Self
 pub fn Env::with_labels(Self, Array[Array[ValType]]) -> Self
 pub fn Env::with_rectype(Self, RecType) -> Self
 pub fn Env::with_return_type(Self, Array[ValType]?) -> Self
+pub impl Show for Env
 
 pub struct Export(Name, ExternIdx)
 
@@ -396,6 +418,7 @@ pub impl Encode for FuncSec
 pub struct FuncType(Array[ValType], Array[ValType])
 
 
+pub impl Show for FuncType
 pub impl Validate for FuncType
 
 pub struct GenCtx {
@@ -1096,6 +1119,156 @@ pub impl @quickcheck.Arbitrary for Module
 pub impl Decode for Module
 pub impl Encode for Module
 
+pub struct ModuleTransformer {
+  on_instruction : ((Instruction) -> Instruction?)?
+  on_expr : ((Expr) -> Expr?)?
+  on_valtype : ((ValType) -> ValType?)?
+  on_reftype : ((RefType) -> RefType?)?
+  on_heaptype : ((HeapType) -> HeapType?)?
+  on_blocktype : ((BlockType) -> BlockType?)?
+  on_funcidx : ((FuncIdx) -> FuncIdx?)?
+  on_typeidx : ((TypeIdx) -> TypeIdx?)?
+  on_localidx : ((LocalIdx) -> LocalIdx?)?
+  on_globalidx : ((GlobalIdx) -> GlobalIdx?)?
+  on_tableidx : ((TableIdx) -> TableIdx?)?
+  on_memidx : ((MemIdx) -> MemIdx?)?
+  on_labelidx : ((LabelIdx) -> LabelIdx?)?
+  on_dataidx : ((DataIdx) -> DataIdx?)?
+  on_elemidx : ((ElemIdx) -> ElemIdx?)?
+  on_tagidx : ((TagIdx) -> TagIdx?)?
+}
+pub fn ModuleTransformer::new() -> Self
+pub fn ModuleTransformer::walk_blocktype(Self, BlockType) -> BlockType
+pub fn ModuleTransformer::walk_blocktype_default(Self, BlockType) -> BlockType
+pub fn ModuleTransformer::walk_catch(Self, Catch) -> Catch
+pub fn ModuleTransformer::walk_codesec(Self, CodeSec) -> CodeSec
+pub fn ModuleTransformer::walk_comptype(Self, CompType) -> CompType
+pub fn ModuleTransformer::walk_data(Self, Data) -> Data
+pub fn ModuleTransformer::walk_dataidx(Self, DataIdx) -> DataIdx
+pub fn ModuleTransformer::walk_datamode(Self, DataMode) -> DataMode
+pub fn ModuleTransformer::walk_datasec(Self, DataSec) -> DataSec
+pub fn ModuleTransformer::walk_elem(Self, Elem) -> Elem
+pub fn ModuleTransformer::walk_elemidx(Self, ElemIdx) -> ElemIdx
+pub fn ModuleTransformer::walk_elemkind(Self, ElemKind) -> ElemKind
+pub fn ModuleTransformer::walk_elemmode(Self, ElemMode) -> ElemMode
+pub fn ModuleTransformer::walk_elemsec(Self, ElemSec) -> ElemSec
+pub fn ModuleTransformer::walk_expr(Self, Expr) -> Expr
+pub fn ModuleTransformer::walk_expr_default(Self, Expr) -> Expr
+pub fn ModuleTransformer::walk_fieldtype(Self, FieldType) -> FieldType
+pub fn ModuleTransformer::walk_func(Self, Func) -> Func
+pub fn ModuleTransformer::walk_funcidx(Self, FuncIdx) -> FuncIdx
+pub fn ModuleTransformer::walk_funcsec(Self, FuncSec) -> FuncSec
+pub fn ModuleTransformer::walk_global(Self, Global) -> Global
+pub fn ModuleTransformer::walk_globalidx(Self, GlobalIdx) -> GlobalIdx
+pub fn ModuleTransformer::walk_globalsec(Self, GlobalSec) -> GlobalSec
+pub fn ModuleTransformer::walk_globaltype(Self, GlobalType) -> GlobalType
+pub fn ModuleTransformer::walk_heaptype(Self, HeapType) -> HeapType
+pub fn ModuleTransformer::walk_heaptype_default(Self, HeapType) -> HeapType
+pub fn ModuleTransformer::walk_instruction(Self, Instruction) -> Instruction
+pub fn ModuleTransformer::walk_instruction_default(Self, Instruction) -> Instruction
+pub fn ModuleTransformer::walk_labelidx(Self, LabelIdx) -> LabelIdx
+pub fn ModuleTransformer::walk_localidx(Self, LocalIdx) -> LocalIdx
+pub fn ModuleTransformer::walk_memidx(Self, MemIdx) -> MemIdx
+pub fn ModuleTransformer::walk_module(Self, Module) -> Module
+pub fn ModuleTransformer::walk_rectype(Self, RecType) -> RecType
+pub fn ModuleTransformer::walk_reftype(Self, RefType) -> RefType
+pub fn ModuleTransformer::walk_reftype_default(Self, RefType) -> RefType
+pub fn ModuleTransformer::walk_storagetype(Self, StorageType) -> StorageType
+pub fn ModuleTransformer::walk_subtype(Self, SubType) -> SubType
+pub fn ModuleTransformer::walk_tableidx(Self, TableIdx) -> TableIdx
+pub fn ModuleTransformer::walk_tagidx(Self, TagIdx) -> TagIdx
+pub fn ModuleTransformer::walk_typeidx(Self, TypeIdx) -> TypeIdx
+pub fn ModuleTransformer::walk_typesec(Self, TypeSec) -> TypeSec
+pub fn ModuleTransformer::walk_valtype(Self, ValType) -> ValType
+pub fn ModuleTransformer::walk_valtype_default(Self, ValType) -> ValType
+
+pub struct ModuleVisitor {
+  visit_instruction : ((Instruction) -> Unit)?
+  visit_expr : ((Expr) -> Unit)?
+  visit_valtype : ((ValType) -> Unit)?
+  visit_reftype : ((RefType) -> Unit)?
+  visit_heaptype : ((HeapType) -> Unit)?
+  visit_blocktype : ((BlockType) -> Unit)?
+  visit_comptype : ((CompType) -> Unit)?
+  visit_subtype : ((SubType) -> Unit)?
+  visit_rectype : ((RecType) -> Unit)?
+  visit_fieldtype : ((FieldType) -> Unit)?
+  visit_storagetype : ((StorageType) -> Unit)?
+  visit_globaltype : ((GlobalType) -> Unit)?
+  visit_tabletype : ((TableType) -> Unit)?
+  visit_memtype : ((MemType) -> Unit)?
+  visit_functype : ((FuncType) -> Unit)?
+  visit_funcidx : ((FuncIdx) -> Unit)?
+  visit_typeidx : ((TypeIdx) -> Unit)?
+  visit_localidx : ((LocalIdx) -> Unit)?
+  visit_globalidx : ((GlobalIdx) -> Unit)?
+  visit_tableidx : ((TableIdx) -> Unit)?
+  visit_memidx : ((MemIdx) -> Unit)?
+  visit_labelidx : ((LabelIdx) -> Unit)?
+  visit_dataidx : ((DataIdx) -> Unit)?
+  visit_elemidx : ((ElemIdx) -> Unit)?
+  visit_tagidx : ((TagIdx) -> Unit)?
+  visit_func : ((Func) -> Unit)?
+  visit_global : ((Global) -> Unit)?
+  visit_table : ((Table) -> Unit)?
+  visit_elem : ((Elem) -> Unit)?
+  visit_data : ((Data) -> Unit)?
+  visit_import : ((Import) -> Unit)?
+  visit_export : ((Export) -> Unit)?
+  descend : Bool
+}
+pub fn ModuleVisitor::new() -> Self
+pub fn ModuleVisitor::visit_blocktype(Self, BlockType) -> Unit
+pub fn ModuleVisitor::visit_catch(Self, Catch) -> Unit
+pub fn ModuleVisitor::visit_codesec(Self, CodeSec) -> Unit
+pub fn ModuleVisitor::visit_comptype(Self, CompType) -> Unit
+pub fn ModuleVisitor::visit_data(Self, Data) -> Unit
+pub fn ModuleVisitor::visit_dataidx(Self, DataIdx) -> Unit
+pub fn ModuleVisitor::visit_datamode(Self, DataMode) -> Unit
+pub fn ModuleVisitor::visit_datasec(Self, DataSec) -> Unit
+pub fn ModuleVisitor::visit_elem(Self, Elem) -> Unit
+pub fn ModuleVisitor::visit_elemidx(Self, ElemIdx) -> Unit
+pub fn ModuleVisitor::visit_elemkind(Self, ElemKind) -> Unit
+pub fn ModuleVisitor::visit_elemmode(Self, ElemMode) -> Unit
+pub fn ModuleVisitor::visit_elemsec(Self, ElemSec) -> Unit
+pub fn ModuleVisitor::visit_export(Self, Export) -> Unit
+pub fn ModuleVisitor::visit_exportsec(Self, ExportSec) -> Unit
+pub fn ModuleVisitor::visit_expr(Self, Expr) -> Unit
+pub fn ModuleVisitor::visit_externidx(Self, ExternIdx) -> Unit
+pub fn ModuleVisitor::visit_externtype(Self, ExternType) -> Unit
+pub fn ModuleVisitor::visit_fieldtype(Self, FieldType) -> Unit
+pub fn ModuleVisitor::visit_func(Self, Func) -> Unit
+pub fn ModuleVisitor::visit_funcidx(Self, FuncIdx) -> Unit
+pub fn ModuleVisitor::visit_funcsec(Self, FuncSec) -> Unit
+pub fn ModuleVisitor::visit_global(Self, Global) -> Unit
+pub fn ModuleVisitor::visit_globalidx(Self, GlobalIdx) -> Unit
+pub fn ModuleVisitor::visit_globalsec(Self, GlobalSec) -> Unit
+pub fn ModuleVisitor::visit_globaltype(Self, GlobalType) -> Unit
+pub fn ModuleVisitor::visit_heaptype(Self, HeapType) -> Unit
+pub fn ModuleVisitor::visit_import(Self, Import) -> Unit
+pub fn ModuleVisitor::visit_importsec(Self, ImportSec) -> Unit
+pub fn ModuleVisitor::visit_instruction(Self, Instruction) -> Unit
+pub fn ModuleVisitor::visit_instruction_children(Self, Instruction) -> Unit
+pub fn ModuleVisitor::visit_labelidx(Self, LabelIdx) -> Unit
+pub fn ModuleVisitor::visit_localidx(Self, LocalIdx) -> Unit
+pub fn ModuleVisitor::visit_memidx(Self, MemIdx) -> Unit
+pub fn ModuleVisitor::visit_memsec(Self, MemSec) -> Unit
+pub fn ModuleVisitor::visit_memtype(Self, MemType) -> Unit
+pub fn ModuleVisitor::visit_module(Self, Module) -> Unit
+pub fn ModuleVisitor::visit_rectype(Self, RecType) -> Unit
+pub fn ModuleVisitor::visit_reftype(Self, RefType) -> Unit
+pub fn ModuleVisitor::visit_storagetype(Self, StorageType) -> Unit
+pub fn ModuleVisitor::visit_subtype(Self, SubType) -> Unit
+pub fn ModuleVisitor::visit_table(Self, Table) -> Unit
+pub fn ModuleVisitor::visit_tableidx(Self, TableIdx) -> Unit
+pub fn ModuleVisitor::visit_tablesec(Self, TableSec) -> Unit
+pub fn ModuleVisitor::visit_tabletype(Self, TableType) -> Unit
+pub fn ModuleVisitor::visit_tagidx(Self, TagIdx) -> Unit
+pub fn ModuleVisitor::visit_tagsec(Self, TagSec) -> Unit
+pub fn ModuleVisitor::visit_typeidx(Self, TypeIdx) -> Unit
+pub fn ModuleVisitor::visit_typesec(Self, TypeSec) -> Unit
+pub fn ModuleVisitor::visit_valtype(Self, ValType) -> Unit
+
 pub enum Mut {
   Const
   Var
@@ -1169,7 +1342,6 @@ pub struct S33(UInt)
 pub fn S33::inner(Self) -> UInt
 pub impl Eq for S33
 pub impl Show for S33
-pub impl @quickcheck.Arbitrary for S33
 pub impl Decode for S33
 pub impl Encode for S33
 
@@ -1282,6 +1454,7 @@ pub struct TcState {
   stack : Array[ValType]
   reachable : Bool
 }
+pub impl Show for TcState
 
 pub enum TypeIdx {
   TypeIdx(UInt)
