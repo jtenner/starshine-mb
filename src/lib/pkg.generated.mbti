@@ -1119,68 +1119,154 @@ pub impl @quickcheck.Arbitrary for Module
 pub impl Decode for Module
 pub impl Encode for Module
 
-pub struct ModuleTransformer {
-  on_instruction : ((Instruction) -> Instruction?)?
-  on_expr : ((Expr) -> Expr?)?
-  on_valtype : ((ValType) -> ValType?)?
-  on_reftype : ((RefType) -> RefType?)?
-  on_heaptype : ((HeapType) -> HeapType?)?
-  on_blocktype : ((BlockType) -> BlockType?)?
-  on_funcidx : ((FuncIdx) -> FuncIdx?)?
-  on_typeidx : ((TypeIdx) -> TypeIdx?)?
-  on_localidx : ((LocalIdx) -> LocalIdx?)?
-  on_globalidx : ((GlobalIdx) -> GlobalIdx?)?
-  on_tableidx : ((TableIdx) -> TableIdx?)?
-  on_memidx : ((MemIdx) -> MemIdx?)?
-  on_labelidx : ((LabelIdx) -> LabelIdx?)?
-  on_dataidx : ((DataIdx) -> DataIdx?)?
-  on_elemidx : ((ElemIdx) -> ElemIdx?)?
-  on_tagidx : ((TagIdx) -> TagIdx?)?
+pub struct ModuleTransformer[T] {
+  on_typesec : ((T, TypeSec) -> (T, TypeSec)?)?
+  on_funcsec : ((T, FuncSec) -> (T, FuncSec)?)?
+  on_tablesec : ((T, TableSec) -> (T, TableSec)?)?
+  on_memsec : ((T, MemSec) -> (T, MemSec)?)?
+  on_tagsec : ((T, TagSec) -> (T, TagSec)?)?
+  on_globalsec : ((T, GlobalSec) -> (T, GlobalSec)?)?
+  on_exportsec : ((T, ExportSec) -> (T, ExportSec)?)?
+  on_startsec : ((T, StartSec) -> (T, StartSec)?)?
+  on_elemsec : ((T, ElemSec) -> (T, ElemSec)?)?
+  on_elemkind : ((T, ElemKind) -> (T, ElemKind)?)?
+  on_datacntsec : ((T, DataCntSec) -> (T, DataCntSec)?)?
+  on_codesec : ((T, CodeSec) -> (T, CodeSec)?)?
+  on_datasec : ((T, DataSec) -> (T, DataSec)?)?
+  on_instruction : ((T, Instruction) -> (T, Instruction)?)?
+  on_expr : ((T, Expr) -> (T, Expr)?)?
+  on_valtype : ((T, ValType) -> (T, ValType)?)?
+  on_reftype : ((T, RefType) -> (T, RefType)?)?
+  on_heaptype : ((T, HeapType) -> (T, HeapType)?)?
+  on_blocktype : ((T, BlockType) -> (T, BlockType)?)?
+  on_funcidx : ((T, FuncIdx) -> (T, FuncIdx)?)?
+  on_typeidx : ((T, TypeIdx) -> (T, TypeIdx)?)?
+  on_localidx : ((T, LocalIdx) -> (T, LocalIdx)?)?
+  on_globalidx : ((T, GlobalIdx) -> (T, GlobalIdx)?)?
+  on_tableidx : ((T, TableIdx) -> (T, TableIdx)?)?
+  on_memidx : ((T, MemIdx) -> (T, MemIdx)?)?
+  on_labelidx : ((T, LabelIdx) -> (T, LabelIdx)?)?
+  on_dataidx : ((T, DataIdx) -> (T, DataIdx)?)?
+  on_elemidx : ((T, ElemIdx) -> (T, ElemIdx)?)?
+  on_tagidx : ((T, TagIdx) -> (T, TagIdx)?)?
+  on_name : ((T, Name) -> (T, Name)?)?
+  on_externtype : ((T, ExternType) -> (T, ExternType)?)?
+  on_limits : ((T, Limits) -> (T, Limits)?)?
+  on_memtype : ((T, MemType) -> (T, MemType)?)?
+  on_tagtype : ((T, TagType) -> (T, TagType)?)?
+  on_export : ((T, Export) -> (T, Export)?)?
+  on_global : ((T, Global) -> (T, Global)?)?
+  on_globaltype : ((T, GlobalType) -> (T, GlobalType)?)?
+  on_func : ((T, Func) -> (T, Func)?)?
+  on_locals : ((T, Array[Locals]) -> T?)?
+  on_externidx : ((T, ExternIdx) -> (T, ExternIdx)?)?
+  on_fieldtype : ((T, FieldType) -> (T, FieldType)?)?
+  on_storagetype : ((T, StorageType) -> (T, StorageType)?)?
 }
-pub fn ModuleTransformer::new() -> Self
-pub fn ModuleTransformer::walk_blocktype(Self, BlockType) -> BlockType
-pub fn ModuleTransformer::walk_blocktype_default(Self, BlockType) -> BlockType
-pub fn ModuleTransformer::walk_catch(Self, Catch) -> Catch
-pub fn ModuleTransformer::walk_codesec(Self, CodeSec) -> CodeSec
-pub fn ModuleTransformer::walk_comptype(Self, CompType) -> CompType
-pub fn ModuleTransformer::walk_data(Self, Data) -> Data
-pub fn ModuleTransformer::walk_dataidx(Self, DataIdx) -> DataIdx
-pub fn ModuleTransformer::walk_datamode(Self, DataMode) -> DataMode
-pub fn ModuleTransformer::walk_datasec(Self, DataSec) -> DataSec
-pub fn ModuleTransformer::walk_elem(Self, Elem) -> Elem
-pub fn ModuleTransformer::walk_elemidx(Self, ElemIdx) -> ElemIdx
-pub fn ModuleTransformer::walk_elemkind(Self, ElemKind) -> ElemKind
-pub fn ModuleTransformer::walk_elemmode(Self, ElemMode) -> ElemMode
-pub fn ModuleTransformer::walk_elemsec(Self, ElemSec) -> ElemSec
-pub fn ModuleTransformer::walk_expr(Self, Expr) -> Expr
-pub fn ModuleTransformer::walk_expr_default(Self, Expr) -> Expr
-pub fn ModuleTransformer::walk_fieldtype(Self, FieldType) -> FieldType
-pub fn ModuleTransformer::walk_func(Self, Func) -> Func
-pub fn ModuleTransformer::walk_funcidx(Self, FuncIdx) -> FuncIdx
-pub fn ModuleTransformer::walk_funcsec(Self, FuncSec) -> FuncSec
-pub fn ModuleTransformer::walk_global(Self, Global) -> Global
-pub fn ModuleTransformer::walk_globalidx(Self, GlobalIdx) -> GlobalIdx
-pub fn ModuleTransformer::walk_globalsec(Self, GlobalSec) -> GlobalSec
-pub fn ModuleTransformer::walk_globaltype(Self, GlobalType) -> GlobalType
-pub fn ModuleTransformer::walk_heaptype(Self, HeapType) -> HeapType
-pub fn ModuleTransformer::walk_heaptype_default(Self, HeapType) -> HeapType
-pub fn ModuleTransformer::walk_instruction(Self, Instruction) -> Instruction
-pub fn ModuleTransformer::walk_instruction_default(Self, Instruction) -> Instruction
-pub fn ModuleTransformer::walk_labelidx(Self, LabelIdx) -> LabelIdx
-pub fn ModuleTransformer::walk_localidx(Self, LocalIdx) -> LocalIdx
-pub fn ModuleTransformer::walk_memidx(Self, MemIdx) -> MemIdx
-pub fn ModuleTransformer::walk_module(Self, Module) -> Module
-pub fn ModuleTransformer::walk_rectype(Self, RecType) -> RecType
-pub fn ModuleTransformer::walk_reftype(Self, RefType) -> RefType
-pub fn ModuleTransformer::walk_reftype_default(Self, RefType) -> RefType
-pub fn ModuleTransformer::walk_storagetype(Self, StorageType) -> StorageType
-pub fn ModuleTransformer::walk_subtype(Self, SubType) -> SubType
-pub fn ModuleTransformer::walk_tableidx(Self, TableIdx) -> TableIdx
-pub fn ModuleTransformer::walk_tagidx(Self, TagIdx) -> TagIdx
-pub fn ModuleTransformer::walk_typeidx(Self, TypeIdx) -> TypeIdx
-pub fn ModuleTransformer::walk_typesec(Self, TypeSec) -> TypeSec
-pub fn ModuleTransformer::walk_valtype(Self, ValType) -> ValType
-pub fn ModuleTransformer::walk_valtype_default(Self, ValType) -> ValType
+pub fn[T] ModuleTransformer::new() -> Self[T]
+pub fn[T] ModuleTransformer::walk_blocktype(Self[T], T, BlockType) -> (T, BlockType)
+pub fn[T] ModuleTransformer::walk_blocktype_default(Self[T], T, BlockType) -> (T, BlockType)
+pub fn[T] ModuleTransformer::walk_catch(Self[T], T, Catch) -> (T, Catch)
+pub fn[T] ModuleTransformer::walk_codesec(Self[T], T, CodeSec) -> (T, CodeSec)
+pub fn[T] ModuleTransformer::walk_codesec_default(Self[T], T, CodeSec) -> (T, CodeSec)
+pub fn[T] ModuleTransformer::walk_comptype(Self[T], T, CompType) -> (T, CompType)
+pub fn[T] ModuleTransformer::walk_customsec(Self[T], T, CustomSec) -> (T, CustomSec)
+pub fn[T] ModuleTransformer::walk_customsecs(Self[T], T, Array[CustomSec]) -> T
+pub fn[T] ModuleTransformer::walk_data(Self[T], T, Data) -> (T, Data)
+pub fn[T] ModuleTransformer::walk_datacntsec(Self[T], T, DataCntSec) -> (T, DataCntSec)
+pub fn[T] ModuleTransformer::walk_dataidx(Self[T], T, DataIdx) -> (T, DataIdx)
+pub fn[T] ModuleTransformer::walk_datamode(Self[T], T, DataMode) -> (T, DataMode)
+pub fn[T] ModuleTransformer::walk_datas(Self[T], T, Array[Data]) -> T
+pub fn[T] ModuleTransformer::walk_datasec(Self[T], T, DataSec) -> (T, DataSec)
+pub fn[T] ModuleTransformer::walk_datasec_default(Self[T], T, DataSec) -> (T, DataSec)
+pub fn[T] ModuleTransformer::walk_elem(Self[T], T, Elem) -> (T, Elem)
+pub fn[T] ModuleTransformer::walk_elemidx(Self[T], T, ElemIdx) -> (T, ElemIdx)
+pub fn[T] ModuleTransformer::walk_elemkind(Self[T], T, ElemKind) -> (T, ElemKind)
+pub fn[T] ModuleTransformer::walk_elemkind_default(Self[T], T, ElemKind) -> (T, ElemKind)
+pub fn[T] ModuleTransformer::walk_elemmode(Self[T], T, ElemMode) -> (T, ElemMode)
+pub fn[T] ModuleTransformer::walk_elems(Self[T], T, Array[Elem]) -> T
+pub fn[T] ModuleTransformer::walk_elemsec(Self[T], T, ElemSec) -> (T, ElemSec)
+pub fn[T] ModuleTransformer::walk_elemsec_default(Self[T], T, ElemSec) -> (T, ElemSec)
+pub fn[T] ModuleTransformer::walk_export(Self[T], T, Export) -> (T, Export)
+pub fn[T] ModuleTransformer::walk_export_default(Self[T], T, Export) -> (T, Export)
+pub fn[T] ModuleTransformer::walk_exports(Self[T], T, Array[Export]) -> T
+pub fn[T] ModuleTransformer::walk_exportsec(Self[T], T, ExportSec) -> (T, ExportSec)
+pub fn[T] ModuleTransformer::walk_exportsec_default(Self[T], T, ExportSec) -> (T, ExportSec)
+pub fn[T] ModuleTransformer::walk_expr(Self[T], T, Expr) -> (T, Expr)
+pub fn[T] ModuleTransformer::walk_expr_default(Self[T], T, Expr) -> (T, Expr)
+pub fn[T] ModuleTransformer::walk_exprs(Self[T], T, Array[Expr]) -> T
+pub fn[T] ModuleTransformer::walk_externidx(Self[T], T, ExternIdx) -> (T, ExternIdx)
+pub fn[T] ModuleTransformer::walk_externidx_default(Self[T], T, ExternIdx) -> (T, ExternIdx)
+pub fn[T] ModuleTransformer::walk_externtype(Self[T], T, ExternType) -> (T, ExternType)
+pub fn[T] ModuleTransformer::walk_fieldtype(Self[T], T, FieldType) -> (T, FieldType)
+pub fn[T] ModuleTransformer::walk_fieldtype_default(Self[T], T, FieldType) -> (T, FieldType)
+pub fn[T] ModuleTransformer::walk_fieldtypes(Self[T], T, Array[FieldType]) -> T
+pub fn[T] ModuleTransformer::walk_func(Self[T], T, Func) -> (T, Func)
+pub fn[T] ModuleTransformer::walk_func_default(Self[T], T, Func) -> (T, Func)
+pub fn[T] ModuleTransformer::walk_funcidx(Self[T], T, FuncIdx) -> (T, FuncIdx)
+pub fn[T] ModuleTransformer::walk_funcidxs(Self[T], T, Array[FuncIdx]) -> T
+pub fn[T] ModuleTransformer::walk_funcs(Self[T], T, Array[Func]) -> T
+pub fn[T] ModuleTransformer::walk_funcsec(Self[T], T, FuncSec) -> (T, FuncSec)
+pub fn[T] ModuleTransformer::walk_funcsec_default(Self[T], T, FuncSec) -> (T, FuncSec)
+pub fn[T] ModuleTransformer::walk_global(Self[T], T, Global) -> (T, Global)
+pub fn[T] ModuleTransformer::walk_global_default(Self[T], T, Global) -> (T, Global)
+pub fn[T] ModuleTransformer::walk_globalidx(Self[T], T, GlobalIdx) -> (T, GlobalIdx)
+pub fn[T] ModuleTransformer::walk_globals(Self[T], T, Array[Global]) -> T
+pub fn[T] ModuleTransformer::walk_globalsec(Self[T], T, GlobalSec) -> (T, GlobalSec)
+pub fn[T] ModuleTransformer::walk_globalsec_default(Self[T], T, GlobalSec) -> (T, GlobalSec)
+pub fn[T] ModuleTransformer::walk_globaltype(Self[T], T, GlobalType) -> (T, GlobalType)
+pub fn[T] ModuleTransformer::walk_globaltype_default(Self[T], T, GlobalType) -> (T, GlobalType)
+pub fn[T] ModuleTransformer::walk_heaptype(Self[T], T, HeapType) -> (T, HeapType)
+pub fn[T] ModuleTransformer::walk_heaptype_default(Self[T], T, HeapType) -> (T, HeapType)
+pub fn[T] ModuleTransformer::walk_import(Self[T], T, Import) -> (T, Import)
+pub fn[T] ModuleTransformer::walk_imports(Self[T], T, Array[Import]) -> T
+pub fn[T] ModuleTransformer::walk_importsec(Self[T], T, ImportSec) -> (T, ImportSec)
+pub fn[T] ModuleTransformer::walk_instruction(Self[T], T, Instruction) -> (T, Instruction)
+pub fn[T] ModuleTransformer::walk_instruction_default(Self[T], T, Instruction) -> (T, Instruction)
+pub fn[T] ModuleTransformer::walk_labelidx(Self[T], T, LabelIdx) -> (T, LabelIdx)
+pub fn[T] ModuleTransformer::walk_labelidxs(Self[T], T, Array[LabelIdx]) -> T
+pub fn[T] ModuleTransformer::walk_limits(Self[T], T, Limits) -> (T, Limits)
+pub fn[T] ModuleTransformer::walk_localidx(Self[T], T, LocalIdx) -> (T, LocalIdx)
+pub fn[T] ModuleTransformer::walk_locals(Self[T], T, Array[Locals]) -> T
+pub fn[T] ModuleTransformer::walk_locals_default(Self[T], T, Array[Locals]) -> T
+pub fn[T] ModuleTransformer::walk_memidx(Self[T], T, MemIdx) -> (T, MemIdx)
+pub fn[T] ModuleTransformer::walk_memsec(Self[T], T, MemSec) -> (T, MemSec)
+pub fn[T] ModuleTransformer::walk_memsec_default(Self[T], T, MemSec) -> (T, MemSec)
+pub fn[T] ModuleTransformer::walk_memtype(Self[T], T, MemType) -> (T, MemType)
+pub fn[T] ModuleTransformer::walk_memtype_default(Self[T], T, MemType) -> (T, MemType)
+pub fn[T] ModuleTransformer::walk_memtypes(Self[T], T, Array[MemType]) -> T
+pub fn[T] ModuleTransformer::walk_module(Self[T], T, Module) -> (T, Module)
+pub fn[T] ModuleTransformer::walk_name(Self[T], T, Name) -> (T, Name)
+pub fn[T] ModuleTransformer::walk_rectype(Self[T], T, RecType) -> (T, RecType)
+pub fn[T] ModuleTransformer::walk_rectypes(Self[T], T, Array[RecType]) -> T
+pub fn[T] ModuleTransformer::walk_reftype(Self[T], T, RefType) -> (T, RefType)
+pub fn[T] ModuleTransformer::walk_reftype_default(Self[T], T, RefType) -> (T, RefType)
+pub fn[T] ModuleTransformer::walk_startsec(Self[T], T, StartSec) -> (T, StartSec)
+pub fn[T] ModuleTransformer::walk_startsec_default(Self[T], T, StartSec) -> (T, StartSec)
+pub fn[T] ModuleTransformer::walk_storagetype(Self[T], T, StorageType) -> (T, StorageType)
+pub fn[T] ModuleTransformer::walk_storagetype_default(Self[T], T, StorageType) -> (T, StorageType)
+pub fn[T] ModuleTransformer::walk_subtype(Self[T], T, SubType) -> (T, SubType)
+pub fn[T] ModuleTransformer::walk_subtypes(Self[T], T, Array[SubType]) -> T
+pub fn[T] ModuleTransformer::walk_table(Self[T], T, Table) -> (T, Table)
+pub fn[T] ModuleTransformer::walk_tableidx(Self[T], T, TableIdx) -> (T, TableIdx)
+pub fn[T] ModuleTransformer::walk_tables(Self[T], T, Array[Table]) -> T
+pub fn[T] ModuleTransformer::walk_tablesec(Self[T], T, TableSec) -> (T, TableSec)
+pub fn[T] ModuleTransformer::walk_tablesec_default(Self[T], T, TableSec) -> (T, TableSec)
+pub fn[T] ModuleTransformer::walk_tabletype(Self[T], T, TableType) -> (T, TableType)
+pub fn[T] ModuleTransformer::walk_tabletypes(Self[T], T, Array[TableType]) -> T
+pub fn[T] ModuleTransformer::walk_tagidx(Self[T], T, TagIdx) -> (T, TagIdx)
+pub fn[T] ModuleTransformer::walk_tagsec(Self[T], T, TagSec) -> (T, TagSec)
+pub fn[T] ModuleTransformer::walk_tagsec_default(Self[T], T, TagSec) -> (T, TagSec)
+pub fn[T] ModuleTransformer::walk_tagtype(Self[T], T, TagType) -> (T, TagType)
+pub fn[T] ModuleTransformer::walk_tagtype_default(Self[T], T, TagType) -> (T, TagType)
+pub fn[T] ModuleTransformer::walk_tagtypes(Self[T], T, Array[TagType]) -> T
+pub fn[T] ModuleTransformer::walk_typeidx(Self[T], T, TypeIdx) -> (T, TypeIdx)
+pub fn[T] ModuleTransformer::walk_typeidxs(Self[T], T, Array[TypeIdx]) -> T
+pub fn[T] ModuleTransformer::walk_typesec(Self[T], T, TypeSec) -> (T, TypeSec)
+pub fn[T] ModuleTransformer::walk_typesec_default(Self[T], T, TypeSec) -> (T, TypeSec)
+pub fn[T] ModuleTransformer::walk_valtype(Self[T], T, ValType) -> (T, ValType)
+pub fn[T] ModuleTransformer::walk_valtype_default(Self[T], T, ValType) -> (T, ValType)
+pub fn[T] ModuleTransformer::walk_valtypes(Self[T], T, Array[ValType]) -> T
 
 pub struct ModuleVisitor {
   visit_instruction : ((Instruction) -> Unit)?

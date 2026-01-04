@@ -31,7 +31,7 @@ pub fn GenCtx::with_env(ctx : GenCtx, env : Env) -> GenCtx {
 
 ///|
 pub fn GenCtx::with_fuel_only(ctx : GenCtx, fuel : Int) -> GenCtx {
-  GenCtx::{ ..ctx, fuel }
+  GenCtx::{ ..ctx, fuel, }
 }
 
 ///|
