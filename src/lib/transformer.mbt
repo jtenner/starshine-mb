@@ -93,21 +93,22 @@ pub fn[T] ModuleTransformer::new() -> ModuleTransformer[T] {
   }
 }
 
-///|
-pub fn[T] ModuleTransformer::walk_exprs(
+pub fn [T, E] ModuleTransformer::walk_array(
   self : ModuleTransformer[T],
   t : T,
-  exprs : Array[Expr],
-) -> T {
+  e : (ModuleTransformer[T], T, E) -> (T, E),
+  a : Array[E]
+) -> (T, Array[E]) {
+  let a = a.copy()
   let mut t = t
-  let end = exprs.length()
+  let end = a.length()
   loop 0 {
-    n if n == end => break t
+    n if n == end => break (t, a)
     n => {
-      let expr = exprs[n]
-      let (next_t, expr) = self.walk_expr(t, expr)
+      let item = a[n]
+      let (next_t, item) = e(self, t, item)
       t = next_t
-      exprs[n] = expr
+      a[n] = item
       continue n + 1
     }
   }
@@ -143,53 +144,13 @@ pub fn[T] ModuleTransformer::walk_expr(
 }
 
 ///|
-pub fn[T] ModuleTransformer::walk_instructions(
-  self : ModuleTransformer[T],
-  t : T,
-  instructions : Array[Instruction],
-) -> T {
-  let mut t = t
-  let end = instructions.length()
-  loop 0 {
-    n if n == end => break t
-    n => {
-      let instruction = instructions[n]
-      let (next_t, instruction) = self.walk_instruction(t, instruction)
-      t = next_t
-      instructions[n] = instruction
-      continue n + 1
-    }
-  }
-}
-
-///|
-pub fn[T] ModuleTransformer::walk_catches(
-  self : ModuleTransformer[T],
-  t : T,
-  catches : Array[Catch],
-) -> T {
-  let mut t = t
-  let end = catches.length()
-  loop 0 {
-    n if n == end => break t
-    n => {
-      let c = catches[n]
-      let (next_t, c) = self.walk_catch(t, c)
-      t = next_t
-      catches[n] = c
-      continue n + 1
-    }
-  }
-}
-
-///|
 pub fn[T] ModuleTransformer::walk_expr_default(
   self : ModuleTransformer[T],
   t : T,
   expr : Expr,
 ) -> (T, Expr) {
   let Expr(instructions) = expr
-  let t = self.walk_instructions(t, instructions)
+  let (t, instructions) = self.walk_array(t, ModuleTransformer::walk_instruction, instructions)
   (t, Expr(instructions))
 }
 
@@ -229,9 +190,9 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
     }
     If(bt, then_body, else_body) => {
       let (t, bt) = self.walk_blocktype(t, bt)
-      let t = self.walk_instructions(t, then_body)
+      let (t, then_body) = self.walk_array(t, ModuleTransformer::walk_instruction, then_body)
       if else_body is Some(else_body) {
-        let t = self.walk_instructions(t, else_body)
+        let (t, else_body) = self.walk_array(t, ModuleTransformer::walk_instruction, else_body)
         (t, If(bt, then_body, Some(else_body)))
       } else {
         (t, If(bt, then_body, None))
@@ -239,7 +200,7 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
     }
     TryTable(bt, catches, body) => {
       let (t, bt) = self.walk_blocktype(t, bt)
-      let t = self.walk_catches(t, catches)
+      let (t, catches) = self.walk_array(t, ModuleTransformer::walk_catch, catches)
       let (t, body) = self.walk_expr(t, body)
       (t, TryTable(bt, catches, body))
     }
@@ -254,7 +215,7 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
       (t, BrIf(l))
     }
     BrTable(labels, default) => {
-      let t = self.walk_labelidxs(t, labels)
+      let (t, labels) = self.walk_array(t, ModuleTransformer::walk_labelidx, labels)
       let (t, default) = self.walk_labelidx(t, default)
       (t, BrTable(labels, default))
     }
@@ -503,7 +464,7 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
     Select(types) =>
       match types {
         Some(types) => {
-          let t = self.walk_valtypes(t, types)
+          let (t, types) = self.walk_array(t, ModuleTransformer::walk_valtype, types)
           (t, Select(Some(types)))
         }
         None => (t, Select(None))
@@ -580,26 +541,6 @@ pub fn[T] ModuleTransformer::walk_catch(
 // Index walkers - leaf nodes
 
 ///|
-pub fn[T] ModuleTransformer::walk_funcidxs(
-  self : ModuleTransformer[T],
-  t : T,
-  idxs : Array[FuncIdx],
-) -> T {
-  let end = idxs.length()
-  let mut t = t
-  loop 0 {
-    n if n == end => break t
-    n => {
-      let idx = idxs[n]
-      let (next_t, idx) = self.walk_funcidx(t, idx)
-      idxs[n] = idx
-      t = next_t
-      continue n + 1
-    }
-  }
-}
-
-///|
 pub fn[T] ModuleTransformer::walk_funcidx(
   self : ModuleTransformer[T],
   t : T,
@@ -608,26 +549,6 @@ pub fn[T] ModuleTransformer::walk_funcidx(
   match self.on_funcidx {
     Some(f) => f(t, idx).unwrap_or((t, idx))
     None => (t, idx)
-  }
-}
-
-///|
-pub fn[T] ModuleTransformer::walk_typeidxs(
-  self : ModuleTransformer[T],
-  t : T,
-  idxs : Array[TypeIdx],
-) -> T {
-  let end = idxs.length()
-  let mut t = t
-  loop 0 {
-    n if n == end => break t
-    n => {
-      let idx = idxs[n]
-      let (next_t, idx) = self.walk_typeidx(t, idx)
-      idxs[n] = idx
-      t = next_t
-      continue n + 1
-    }
   }
 }
 
@@ -692,26 +613,6 @@ pub fn[T] ModuleTransformer::walk_memidx(
 }
 
 ///|
-pub fn[T] ModuleTransformer::walk_labelidxs(
-  self : ModuleTransformer[T],
-  t : T,
-  idxs : Array[LabelIdx],
-) -> T {
-  let mut t = t
-  let end = idxs.length()
-  loop 0 {
-    n if n == end => break t
-    n => {
-      let c = idxs[n]
-      let (next_t, c) = self.walk_labelidx(t, c)
-      t = next_t
-      idxs[n] = c
-      continue n + 1
-    }
-  }
-}
-
-///|
 pub fn[T] ModuleTransformer::walk_labelidx(
   self : ModuleTransformer[T],
   t : T,
@@ -756,26 +657,6 @@ pub fn[T] ModuleTransformer::walk_tagidx(
   match self.on_tagidx {
     Some(f) => f(t, idx).unwrap_or((t, idx))
     None => (t, idx)
-  }
-}
-
-///|
-pub fn[T] ModuleTransformer::walk_valtypes(
-  self : ModuleTransformer[T],
-  t : T,
-  vts : Array[ValType],
-) -> T {
-  let end = vts.length()
-  let mut t = t
-  loop 0 {
-    n if n == end => break t
-    n => {
-      let vt = vts[n]
-      let (next_t, vt) = self.walk_valtype(t, vt)
-      t = next_t
-      vts[n] = vt
-      continue n + 1
-    }
   }
 }
 
@@ -1045,7 +926,7 @@ pub fn[T] ModuleTransformer::walk_datasec_default(
   ds : DataSec,
 ) -> (T, DataSec) {
   let DataSec(ds) = ds
-  let t = self.walk_datas(t, ds)
+  let (t, ds) = self.walk_array(t, ModuleTransformer::walk_data, ds)
   (t, DataSec(ds))
 }
 
@@ -1068,29 +949,10 @@ pub fn[T] ModuleTransformer::walk_codesec_default(
   cs : CodeSec,
 ) -> (T, CodeSec) {
   let CodeSec(fs) = cs
-  let t = self.walk_funcs(t, fs)
+  let (t, fs) = self.walk_array(t, ModuleTransformer::walk_func, fs)
   (t, CodeSec(fs))
 }
 
-///|
-pub fn[T] ModuleTransformer::walk_funcs(
-  self : ModuleTransformer[T],
-  t : T,
-  fs : Array[Func],
-) -> T {
-  let end = fs.length()
-  let mut t = t
-  loop 0 {
-    n if n == end => break t
-    n => {
-      let f = fs[n]
-      let (next_t, f) = self.walk_func(t, f)
-      fs[n] = f
-      t = next_t
-      continue n + 1
-    }
-  }
-}
 
 ///|
 pub fn[T] ModuleTransformer::walk_datacntsec(
@@ -1123,7 +985,7 @@ pub fn[T] ModuleTransformer::walk_elemsec_default(
   es : ElemSec,
 ) -> (T, ElemSec) {
   let ElemSec(es) = es
-  let t = self.walk_elems(t, es)
+  let (t, es) = self.walk_array(t, ModuleTransformer::walk_elem, es)
   (t, ElemSec(es))
 }
 
@@ -1169,7 +1031,7 @@ pub fn[T] ModuleTransformer::walk_exportsec_default(
   es : ExportSec,
 ) -> (T, ExportSec) {
   let ExportSec(es) = es
-  let t = self.walk_exports(t, es)
+  let (t, es) = self.walk_array(t, ModuleTransformer::walk_export, es)
   (t, ExportSec(es))
 }
 
@@ -1192,7 +1054,7 @@ pub fn[T] ModuleTransformer::walk_tagsec_default(
   ts : TagSec,
 ) -> (T, TagSec) {
   let TagSec(tags) = ts
-  let t = self.walk_tagtypes(t, tags)
+  let (t, tags) = self.walk_array(t, ModuleTransformer::walk_tagtype, tags)
   (t, TagSec(tags))
 }
 
@@ -1215,7 +1077,7 @@ pub fn[T] ModuleTransformer::walk_memsec_default(
   ms : MemSec,
 ) -> (T, MemSec) {
   let MemSec(m) = ms
-  let t = self.walk_memtypes(t, m)
+  let (t, m) = self.walk_array(t, ModuleTransformer::walk_memtype, m)
   (t, MemSec(m))
 }
 
@@ -1238,7 +1100,7 @@ pub fn[T] ModuleTransformer::walk_tablesec_default(
   ts : TableSec,
 ) -> (T, TableSec) {
   let TableSec(tts) = ts
-  let t = self.walk_tables(t, tts)
+  let (t, tts) = self.walk_array(t, ModuleTransformer::walk_table, tts)
   (t, TableSec(tts))
 }
 
@@ -1305,28 +1167,8 @@ pub fn[T] ModuleTransformer::walk_importsec(
   ims : ImportSec,
 ) -> (T, ImportSec) {
   let ImportSec(ims) = ims
-  let t = self.walk_imports(t, ims)
+  let (t, ims) = self.walk_array(t, ModuleTransformer::walk_import, ims)
   (t, ImportSec(ims))
-}
-
-///|
-pub fn[T] ModuleTransformer::walk_exports(
-  self : ModuleTransformer[T],
-  t : T,
-  expts : Array[Export],
-) -> T {
-  let end = expts.length()
-  let mut t = t
-  loop 0 {
-    n if n == end => break t
-    n => {
-      let expt = expts[n]
-      let (next_t, expt) = self.walk_export(t, expt)
-      expts[n] = expt
-      t = next_t
-      continue n + 1
-    }
-  }
 }
 
 ///|
@@ -1396,26 +1238,6 @@ pub fn[T] ModuleTransformer::walk_externidx_default(
 }
 
 ///|
-pub fn[T] ModuleTransformer::walk_tables(
-  self : ModuleTransformer[T],
-  t : T,
-  tbls : Array[Table],
-) -> T {
-  let end = tbls.length()
-  let mut t = t
-  loop 0 {
-    n if n == end => break t
-    n => {
-      let tbl = tbls[n]
-      let (next_t, tbl) = self.walk_table(t, tbl)
-      tbls[n] = tbl
-      t = next_t
-      continue n + 1
-    }
-  }
-}
-
-///|
 pub fn[T] ModuleTransformer::walk_table(
   self : ModuleTransformer[T],
   t : T,
@@ -1431,26 +1253,6 @@ pub fn[T] ModuleTransformer::walk_table(
     None => (t, None)
   }
   (t, Table(tt, e_option))
-}
-
-///|
-pub fn[T] ModuleTransformer::walk_imports(
-  self : ModuleTransformer[T],
-  t : T,
-  ims : Array[Import],
-) -> T {
-  let end = ims.length()
-  let mut t = t
-  loop 0 {
-    n if n == end => break t
-    n => {
-      let im = ims[n]
-      let (next_t, im) = self.walk_import(t, im)
-      ims[n] = im
-      t = next_t
-      continue n + 1
-    }
-  }
 }
 
 ///|
@@ -1497,26 +1299,6 @@ pub fn[T] ModuleTransformer::walk_externtype(
 }
 
 ///|
-pub fn[T] ModuleTransformer::walk_tagtypes(
-  self : ModuleTransformer[T],
-  t : T,
-  tts : Array[TagType],
-) -> T {
-  let end = tts.length()
-  let mut t = t
-  loop 0 {
-    n if n == end => break t
-    n => {
-      let tt = tts[n]
-      let (next_t, tt) = self.walk_tagtype(t, tt)
-      tts[n] = tt
-      t = next_t
-      continue n + 1
-    }
-  }
-}
-
-///|
 pub fn[T] ModuleTransformer::walk_tagtype(
   self : ModuleTransformer[T],
   t : T,
@@ -1540,26 +1322,6 @@ pub fn[T] ModuleTransformer::walk_tagtype_default(
 }
 
 ///|
-pub fn[T] ModuleTransformer::walk_memtypes(
-  self : ModuleTransformer[T],
-  t : T,
-  mts : Array[MemType],
-) -> T {
-  let end = mts.length()
-  let mut t = t
-  loop 0 {
-    n if n == end => break t
-    n => {
-      let mt = mts[n]
-      let (next_t, mt) = self.walk_memtype(t, mt)
-      t = next_t
-      mts[n] = mt
-      continue n + 1
-    }
-  }
-}
-
-///|
 pub fn[T] ModuleTransformer::walk_memtype(
   self : ModuleTransformer[T],
   t : T,
@@ -1580,26 +1342,6 @@ pub fn[T] ModuleTransformer::walk_memtype_default(
   let MemType(l) = mt
   let (t, l) = self.walk_limits(t, l)
   (t, MemType(l))
-}
-
-///|
-pub fn[T] ModuleTransformer::walk_tabletypes(
-  self : ModuleTransformer[T],
-  t : T,
-  tts : Array[TableType],
-) -> T {
-  let end = tts.length()
-  let mut t = t
-  loop 0 {
-    n if n == end => break t
-    n => {
-      let tt = tts[n]
-      let (next_t, tt) = self.walk_tabletype(t, tt)
-      t = next_t
-      tts[n] = tt
-      continue n + 1
-    }
-  }
 }
 
 ///|
@@ -1645,28 +1387,8 @@ pub fn[T] ModuleTransformer::walk_typesec_default(
   ts : TypeSec,
 ) -> (T, TypeSec) {
   let TypeSec(rectypes) = ts
-  let t = self.walk_rectypes(t, rectypes)
+  let (t, rectypes) = self.walk_array(t, ModuleTransformer::walk_rectype, rectypes)
   (t, TypeSec(rectypes))
-}
-
-///|
-pub fn[T] ModuleTransformer::walk_rectypes(
-  self : ModuleTransformer[T],
-  t : T,
-  recs : Array[RecType],
-) -> T {
-  let end = recs.length()
-  let mut t = t
-  loop 0 {
-    n if n == end => break t
-    n => {
-      let rec = recs[n]
-      let (next_t, rec) = self.walk_rectype(t, rec)
-      recs[n] = rec
-      t = next_t
-      continue n + 1
-    }
-  }
 }
 
 ///|
@@ -1681,28 +1403,8 @@ pub fn[T] ModuleTransformer::walk_rectype(
       (t, SingleRecType(st))
     }
     GroupRecType(sts) => {
-      let t = self.walk_subtypes(t, sts)
+      let (t, sts) = self.walk_array(t, ModuleTransformer::walk_subtype, sts)
       (t, GroupRecType(sts))
-    }
-  }
-}
-
-///|
-pub fn[T] ModuleTransformer::walk_subtypes(
-  self : ModuleTransformer[T],
-  t : T,
-  subs : Array[SubType],
-) -> T {
-  let end = subs.length()
-  let mut t = t
-  loop 0 {
-    n if n == end => break t
-    n => {
-      let sub = subs[n]
-      let (next_t, sub) = self.walk_subtype(t, sub)
-      subs[n] = sub
-      t = next_t
-      continue n + 1
     }
   }
 }
@@ -1715,7 +1417,7 @@ pub fn[T] ModuleTransformer::walk_subtype(
 ) -> (T, SubType) {
   match st {
     SubType(f, supers, ct) => {
-      let t = self.walk_typeidxs(t, supers)
+      let (t, supers) = self.walk_array(t, ModuleTransformer::walk_typeidx, supers)
       let (t, ct) = self.walk_comptype(t, ct)
       (t, SubType(f, supers, ct))
     }
@@ -1734,37 +1436,17 @@ pub fn[T] ModuleTransformer::walk_comptype(
 ) -> (T, CompType) {
   match ct {
     FuncCompType(params, results) => {
-      let t = self.walk_valtypes(t, params)
-      let t = self.walk_valtypes(t, results)
+      let (t, params) = self.walk_array(t, ModuleTransformer::walk_valtype, params)
+      let (t, results) = self.walk_array(t, ModuleTransformer::walk_valtype, results)
       (t, FuncCompType(params, results))
     }
     StructCompType(fields) => {
-      let t = self.walk_fieldtypes(t, fields)
+      let (t, fields) = self.walk_array(t, ModuleTransformer::walk_fieldtype, fields)
       (t, StructCompType(fields))
     }
     ArrayCompType(ft) => {
       let (t, ft) = self.walk_fieldtype(t, ft)
       (t, ArrayCompType(ft))
-    }
-  }
-}
-
-///|
-pub fn[T] ModuleTransformer::walk_fieldtypes(
-  self : ModuleTransformer[T],
-  t : T,
-  fts : Array[FieldType],
-) -> T {
-  let end = fts.length()
-  let mut t = t
-  loop 0 {
-    n if n == end => break t
-    n => {
-      let ft = fts[n]
-      let (next_t, ft) = self.walk_fieldtype(t, ft)
-      fts[n] = ft
-      t = next_t
-      continue n + 1
     }
   }
 }
@@ -1838,28 +1520,8 @@ pub fn[T] ModuleTransformer::walk_globalsec_default(
   gs : GlobalSec,
 ) -> (T, GlobalSec) {
   let GlobalSec(gs) = gs
-  let t = self.walk_globals(t, gs)
+  let (t, gs) = self.walk_array(t, ModuleTransformer::walk_global, gs)
   (t, GlobalSec(gs))
-}
-
-///|
-pub fn[T] ModuleTransformer::walk_globals(
-  self : ModuleTransformer[T],
-  t : T,
-  gs : Array[Global],
-) -> T {
-  let end = gs.length()
-  let mut t = t
-  loop 0 {
-    n if n == end => break t
-    n => {
-      let g = gs[n]
-      let (next_t, g) = self.walk_global(t, g)
-      gs[n] = g
-      t = next_t
-      continue n + 1
-    }
-  }
 }
 
 ///|
@@ -1910,26 +1572,6 @@ pub fn[T] ModuleTransformer::walk_globaltype_default(
 }
 
 ///|
-pub fn[T] ModuleTransformer::walk_elems(
-  self : ModuleTransformer[T],
-  t : T,
-  es : Array[Elem],
-) -> T {
-  let end = es.length()
-  let mut t = t
-  loop 0 {
-    n if n == end => break t
-    n => {
-      let e = es[n]
-      let (next_t, e) = self.walk_elem(t, e)
-      es[n] = e
-      t = next_t
-      continue n + 1
-    }
-  }
-}
-
-///|
 pub fn[T] ModuleTransformer::walk_elem(
   self : ModuleTransformer[T],
   t : T,
@@ -1977,37 +1619,17 @@ pub fn[T] ModuleTransformer::walk_elemkind_default(
 ) -> (T, ElemKind) {
   match kind {
     FuncsElemKind(idxs) => {
-      let t = self.walk_funcidxs(t, idxs)
+      let (t, idxs) = self.walk_array(t, ModuleTransformer::walk_funcidx, idxs)
       (t, FuncsElemKind(idxs))
     }
     FuncExprsElemKind(exprs) => {
-      let t = self.walk_exprs(t, exprs)
+      let (t, exprs) = self.walk_array(t, ModuleTransformer::walk_expr, exprs)
       (t, FuncExprsElemKind(exprs))
     }
     TypedExprsElemKind(rt, exprs) => {
       let (t, rt) = self.walk_reftype(t, rt)
-      let t = self.walk_exprs(t, exprs)
+      let (t, exprs) = self.walk_array(t, ModuleTransformer::walk_expr, exprs)
       (t, TypedExprsElemKind(rt, exprs))
-    }
-  }
-}
-
-///|
-pub fn[T] ModuleTransformer::walk_datas(
-  self : ModuleTransformer[T],
-  t : T,
-  ds : Array[Data],
-) -> T {
-  let end = ds.length()
-  let mut t = t
-  loop 0 {
-    n if n == end => break t
-    n => {
-      let d = ds[n]
-      let (next_t, d) = self.walk_data(t, d)
-      ds[n] = d
-      t = next_t
-      continue n + 1
     }
   }
 }
@@ -2058,6 +1680,6 @@ pub fn[T] ModuleTransformer::walk_funcsec_default(
   fs : FuncSec,
 ) -> (T, FuncSec) {
   let FuncSec(idxs) = fs
-  let t = self.walk_typeidxs(t, idxs)
+  let (t, idxs) = self.walk_array(t, ModuleTransformer::walk_typeidx, idxs)
   (t, FuncSec(idxs))
 }
