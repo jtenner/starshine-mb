@@ -1696,6 +1696,7 @@ pub struct TExpr(Array[TInstr])
 pub fn TExpr::inner(Self) -> Array[TInstr]
 pub impl Eq for TExpr
 pub impl Show for TExpr
+pub impl Typecheck for TExpr
 
 pub enum TInstr {
   TI32Const(I32)
@@ -1800,6 +1801,7 @@ pub enum TInstr {
 }
 pub impl Eq for TInstr
 pub impl Show for TInstr
+pub impl Typecheck for TInstr
 
 pub struct Table(TableType, Expr?)
 
