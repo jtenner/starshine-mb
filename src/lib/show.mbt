@@ -562,12 +562,22 @@ pub impl Show for Locals with output(self, logger) {
 
 ///|
 pub impl Show for Func with output(self, logger) {
-  let Func(ls, expr) = self
-  logger.write_string("(Func ")
-  ls.output(logger)
-  logger.write_char(' ')
-  expr.output(logger)
-  logger.write_char(')')
+  match self {
+    Func(ls, expr) => {
+      logger.write_string("(Func ")
+      ls.output(logger)
+      logger.write_char(' ')
+      expr.output(logger)
+      logger.write_char(')')
+    }
+    TFunc(ls, texpr) => {
+      logger.write_string("(Func ")
+      ls.output(logger)
+      logger.write_char(' ')
+      texpr.output(logger)
+      logger.write_char(')')
+    }
+  }
 }
 
 ///|

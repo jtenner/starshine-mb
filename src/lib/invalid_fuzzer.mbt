@@ -4,7 +4,10 @@ fn make_funcidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   let target = offset + 0x7FFFFFFF
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_funcidx: Some(fn(_ctx : Unit, idx : FuncIdx) -> TransformerResult[Unit, FuncIdx] {
+    on_funcidx: Some(fn(
+      _ctx : Unit,
+      idx : FuncIdx,
+    ) -> TransformerResult[Unit, FuncIdx] {
       let FuncIdx(i) = idx
       // Make idempotent: if already large, don't transform again
       if i >= target {
@@ -21,7 +24,10 @@ fn make_typeidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   let target = offset + 0x7FFFFFFF
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_typeidx: Some(fn(_ctx : Unit, idx : TypeIdx) -> TransformerResult[Unit, TypeIdx] {
+    on_typeidx: Some(fn(
+      _ctx : Unit,
+      idx : TypeIdx,
+    ) -> TransformerResult[Unit, TypeIdx] {
       match idx {
         TypeIdx(i) =>
           if i >= target {
@@ -45,7 +51,10 @@ fn make_localidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   let target = offset + 0x7FFFFFFF
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_localidx: Some(fn(_ctx : Unit, idx : LocalIdx) -> TransformerResult[Unit, LocalIdx] {
+    on_localidx: Some(fn(
+      _ctx : Unit,
+      idx : LocalIdx,
+    ) -> TransformerResult[Unit, LocalIdx] {
       let LocalIdx(i) = idx
       if i >= target {
         Ok(None)
@@ -61,7 +70,10 @@ fn make_globalidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   let target = offset + 0x7FFFFFFF
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_globalidx: Some(fn(_ctx : Unit, idx : GlobalIdx) -> TransformerResult[Unit, GlobalIdx] {
+    on_globalidx: Some(fn(
+      _ctx : Unit,
+      idx : GlobalIdx,
+    ) -> TransformerResult[Unit, GlobalIdx] {
       let GlobalIdx(i) = idx
       if i >= target {
         Ok(None)
@@ -77,7 +89,10 @@ fn make_labelidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   let target = offset + 0x7FFFFFFF
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_labelidx: Some(fn(_ctx : Unit, idx : LabelIdx) -> TransformerResult[Unit, LabelIdx] {
+    on_labelidx: Some(fn(
+      _ctx : Unit,
+      idx : LabelIdx,
+    ) -> TransformerResult[Unit, LabelIdx] {
       let LabelIdx(i) = idx
       if i >= target {
         Ok(None)
@@ -93,7 +108,10 @@ fn make_tableidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   let target = offset + 0x7FFFFFFF
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_tableidx: Some(fn(_ctx : Unit, idx : TableIdx) -> TransformerResult[Unit, TableIdx] {
+    on_tableidx: Some(fn(
+      _ctx : Unit,
+      idx : TableIdx,
+    ) -> TransformerResult[Unit, TableIdx] {
       let TableIdx(i) = idx
       if i >= target {
         Ok(None)
@@ -109,7 +127,10 @@ fn make_memidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   let target = offset + 0x7FFFFFFF
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_memidx: Some(fn(_ctx : Unit, idx : MemIdx) -> TransformerResult[Unit, MemIdx] {
+    on_memidx: Some(fn(
+      _ctx : Unit,
+      idx : MemIdx,
+    ) -> TransformerResult[Unit, MemIdx] {
       let MemIdx(i) = idx
       if i >= target {
         Ok(None)
@@ -125,7 +146,10 @@ fn make_dataidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   let target = offset + 0x7FFFFFFF
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_dataidx: Some(fn(_ctx : Unit, idx : DataIdx) -> TransformerResult[Unit, DataIdx] {
+    on_dataidx: Some(fn(
+      _ctx : Unit,
+      idx : DataIdx,
+    ) -> TransformerResult[Unit, DataIdx] {
       let DataIdx(i) = idx
       if i >= target {
         Ok(None)
@@ -141,7 +165,10 @@ fn make_elemidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   let target = offset + 0x7FFFFFFF
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_elemidx: Some(fn(_ctx : Unit, idx : ElemIdx) -> TransformerResult[Unit, ElemIdx] {
+    on_elemidx: Some(fn(
+      _ctx : Unit,
+      idx : ElemIdx,
+    ) -> TransformerResult[Unit, ElemIdx] {
       let ElemIdx(i) = idx
       if i >= target {
         Ok(None)
@@ -157,7 +184,10 @@ fn make_tagidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   let target = offset + 0x7FFFFFFF
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_tagidx: Some(fn(_ctx : Unit, idx : TagIdx) -> TransformerResult[Unit, TagIdx] {
+    on_tagidx: Some(fn(
+      _ctx : Unit,
+      idx : TagIdx,
+    ) -> TransformerResult[Unit, TagIdx] {
       let TagIdx(i) = idx
       if i >= target {
         Ok(None)
@@ -173,7 +203,10 @@ fn make_tagidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
 fn make_type_corruption_transformer() -> ModuleTransformer[Bool] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_expr: Some(fn(done : Bool, expr : Expr) -> TransformerResult[Bool, Expr] {
+    on_expr: Some(fn(
+      done : Bool,
+      expr : Expr,
+    ) -> TransformerResult[Bool, Expr] {
       if done {
         return Ok(None)
       }
@@ -198,7 +231,10 @@ fn make_numtype_swap_transformer() -> ModuleTransformer[Unit] {
     // Only swap the VALUE TYPES, not the instructions
     // This creates mismatches between declared types and instruction semantics
     ,
-    on_valtype: Some(fn(_ctx : Unit, vt : ValType) -> TransformerResult[Unit, ValType] {
+    on_valtype: Some(fn(
+      _ctx : Unit,
+      vt : ValType,
+    ) -> TransformerResult[Unit, ValType] {
       match vt {
         NumTypeValType(I32NumType) => Ok(Some(((), NumTypeValType(F64NumType))))
         NumTypeValType(I64NumType) => Ok(Some(((), NumTypeValType(F32NumType))))
@@ -216,14 +252,19 @@ fn make_numtype_swap_transformer() -> ModuleTransformer[Unit] {
 fn make_nullability_flip_transformer() -> ModuleTransformer[Unit] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_reftype: Some(fn(_ctx : Unit, rt : RefType) -> TransformerResult[Unit, RefType] {
+    on_reftype: Some(fn(
+      _ctx : Unit,
+      rt : RefType,
+    ) -> TransformerResult[Unit, RefType] {
       match rt {
         // Force all ref types to be non-nullable
         HeapTypeRefType(true, ht) => Ok(Some(((), HeapTypeRefType(false, ht))))
         // Already non-nullable - convert to bottom type to cause more errors
         HeapTypeRefType(false, AbsHeapTypeHeapType(NoneAbsHeapType)) => Ok(None)
-        HeapTypeRefType(false, AbsHeapTypeHeapType(NoFuncAbsHeapType)) => Ok(None)
-        HeapTypeRefType(false, AbsHeapTypeHeapType(NoExternAbsHeapType)) => Ok(None)
+        HeapTypeRefType(false, AbsHeapTypeHeapType(NoFuncAbsHeapType)) =>
+          Ok(None)
+        HeapTypeRefType(false, AbsHeapTypeHeapType(NoExternAbsHeapType)) =>
+          Ok(None)
         HeapTypeRefType(false, ht) =>
           // Change to bottom type of same hierarchy - very restrictive
           match ht {
@@ -233,7 +274,10 @@ fn make_nullability_flip_transformer() -> ModuleTransformer[Unit] {
                 Some(
                   (
                     (),
-                    HeapTypeRefType(false, AbsHeapTypeHeapType(NoFuncAbsHeapType)),
+                    HeapTypeRefType(
+                      false,
+                      AbsHeapTypeHeapType(NoFuncAbsHeapType),
+                    ),
                   ),
                 ),
               )
@@ -256,7 +300,10 @@ fn make_nullability_flip_transformer() -> ModuleTransformer[Unit] {
                 Some(
                   (
                     (),
-                    HeapTypeRefType(false, AbsHeapTypeHeapType(NoExnAbsHeapType)),
+                    HeapTypeRefType(
+                      false,
+                      AbsHeapTypeHeapType(NoExnAbsHeapType),
+                    ),
                   ),
                 ),
               )
@@ -299,7 +346,10 @@ fn make_nullability_flip_transformer() -> ModuleTransformer[Unit] {
 fn make_signature_corruption_transformer() -> ModuleTransformer[Unit] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_comptype: Some(fn(_ctx : Unit, ct : CompType) -> TransformerResult[Unit, CompType] {
+    on_comptype: Some(fn(
+      _ctx : Unit,
+      ct : CompType,
+    ) -> TransformerResult[Unit, CompType] {
       match ct {
         FuncCompType(params, results) => {
           // Add extra parameters that callers won't provide
@@ -358,7 +408,10 @@ fn make_signature_corruption_transformer() -> ModuleTransformer[Unit] {
 fn make_global_init_mismatch_transformer() -> ModuleTransformer[Unit] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_global: Some(fn(_ctx : Unit, g : Global) -> TransformerResult[Unit, Global] {
+    on_global: Some(fn(
+      _ctx : Unit,
+      g : Global,
+    ) -> TransformerResult[Unit, Global] {
       let Global(GlobalType(vt, mutable), _init) = g
       // Create an init expression with wrong type
       let wrong_init = match vt {
@@ -380,7 +433,10 @@ fn make_global_init_mismatch_transformer() -> ModuleTransformer[Unit] {
 fn make_table_init_mismatch_transformer() -> ModuleTransformer[Unit] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_table: Some(fn(_ctx : Unit, t : Table) -> TransformerResult[Unit, Table] {
+    on_table: Some(fn(
+      _ctx : Unit,
+      t : Table,
+    ) -> TransformerResult[Unit, Table] {
       let Table(tt, _init) = t
       // Set init to wrong type expression
       Ok(Some(((), Table(tt, Some(Expr([I32Const(I32(42))]))))))
@@ -393,7 +449,10 @@ fn make_table_init_mismatch_transformer() -> ModuleTransformer[Unit] {
 fn make_drop_insertion_transformer() -> ModuleTransformer[Bool] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_expr: Some(fn(done : Bool, expr : Expr) -> TransformerResult[Bool, Expr] {
+    on_expr: Some(fn(
+      done : Bool,
+      expr : Expr,
+    ) -> TransformerResult[Bool, Expr] {
       if done {
         return Ok(None)
       }
@@ -416,13 +475,18 @@ fn make_drop_insertion_transformer() -> ModuleTransformer[Bool] {
 fn make_block_corruption_transformer() -> ModuleTransformer[Bool] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_expr: Some(fn(done : Bool, expr : Expr) -> TransformerResult[Bool, Expr] {
+    on_expr: Some(fn(
+      done : Bool,
+      expr : Expr,
+    ) -> TransformerResult[Bool, Expr] {
       if done {
         return Ok(None)
       }
       let Expr(instrs) = expr
       if instrs.length() > 0 {
-        Ok(Some((true, Expr(instrs.iter().take(instrs.length() - 1).collect()))))
+        Ok(
+          Some((true, Expr(instrs.iter().take(instrs.length() - 1).collect()))),
+        )
       } else {
         Ok(None)
       }
@@ -435,7 +499,10 @@ fn make_block_corruption_transformer() -> ModuleTransformer[Bool] {
 fn make_blocktype_mismatch_transformer() -> ModuleTransformer[Bool] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_blocktype: Some(fn(done : Bool, bt : BlockType) -> TransformerResult[Bool, BlockType] {
+    on_blocktype: Some(fn(
+      done : Bool,
+      bt : BlockType,
+    ) -> TransformerResult[Bool, BlockType] {
       if done {
         return Ok(None)
       }
@@ -545,12 +612,11 @@ fn apply_strategy(
         Ok(Some((_, new_mod))) => (true, new_mod)
         _ => (false, mod_)
       }
-    HeapTypeSwap => {
+    HeapTypeSwap =>
       match make_drop_insertion_transformer().walk_module(false, mod_) {
         Ok(Some((_, new_mod))) => (true, new_mod)
         _ => (false, mod_)
       }
-    }
     InstructionTypeMismatch =>
       match make_type_corruption_transformer().walk_module(false, mod_) {
         Ok(Some((_, new_mod))) => (true, new_mod)

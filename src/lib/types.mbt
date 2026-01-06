@@ -267,7 +267,10 @@ pub struct Env {
 }
 
 ///|
-pub struct Func(Array[Locals], Expr) derive(Eq)
+pub enum Func {
+  Func(Array[Locals], Expr)
+  TFunc(Array[ValType], TExpr)
+} derive(Eq)
 
 ///|
 pub impl @quickcheck.Arbitrary for CompType with arbitrary(t, state) {
@@ -1281,7 +1284,7 @@ pub struct CodeSec(Array[Func]) derive(Eq)
 pub struct DataSec(Array[Data]) derive(Eq)
 
 ///|
-pub struct CastOp(Bool, Bool) derive(Eq, Arbitrary)
+pub struct CastOp(Bool, Bool) derive(Eq, Arbitrary, Show)
 
 ///|
 pub enum Instruction {
@@ -3288,3 +3291,696 @@ pub fn Env::push_elem(env : Env, e : Elem) -> Env {
 pub fn Env::with_elems(env : Env, elems : Array[Elem]) -> Env {
   Env::{ ..env, elems, }
 }
+
+///|
+/// A tree-based expression where operands are explicit children rather than implicit stack values.
+/// Each TInstr node contains its consumed operands as children.
+pub struct TExpr(Array[TInstr]) derive(Eq, Show)
+
+///|
+/// A tree-based instruction with explicit operands
+pub enum TInstr {
+  // === Constants (0 children, 1 result) ===
+  TI32Const(I32)
+  TI64Const(I64)
+  TF32Const(F32)
+  TF64Const(F64)
+  TRefNull(HeapType)
+  TRefFunc(FuncIdx)
+  TV128Const(
+    Byte,
+    Byte,
+    Byte,
+    Byte,
+    Byte,
+    Byte,
+    Byte,
+    Byte,
+    Byte,
+    Byte,
+    Byte,
+    Byte,
+    Byte,
+    Byte,
+    Byte,
+    Byte
+  )
+
+  // === Nullary (0 children) ===
+  TUnreachable
+  TNop
+  TLocalGet(LocalIdx)
+  TGlobalGet(GlobalIdx)
+  TMemorySize(MemIdx)
+  TTableSize(TableIdx)
+
+  // === Unary (1 child) ===
+  TUnary(UnaryOp, TInstr)
+  TDrop(TInstr)
+  TLocalSet(LocalIdx, TInstr)
+  TLocalTee(LocalIdx, TInstr)
+  TGlobalSet(GlobalIdx, TInstr)
+  TRefIsNull(TInstr)
+  TRefAsNonNull(TInstr)
+  TI31GetS(TInstr)
+  TI31GetU(TInstr)
+  TRefI31(TInstr)
+  TArrayLen(TInstr)
+  TAnyConvertExtern(TInstr)
+  TExternConvertAny(TInstr)
+  TThrowRef(TInstr)
+
+  // === Binary (2 children) ===
+  TBinary(BinaryOp, TInstr, TInstr)
+  TRefEq(TInstr, TInstr)
+  TStore(StoreOp, MemArg, TInstr, TInstr) // addr, value
+
+  // === Load (1 child - address) ===
+  TLoad(LoadOp, MemArg, TInstr)
+
+  // === Memory operations ===
+  TMemoryGrow(MemIdx, TInstr)
+  TMemoryFill(MemIdx, TInstr, TInstr, TInstr) // dest, val, len
+  TMemoryCopy(MemIdx, MemIdx, TInstr, TInstr, TInstr) // dest, src, len
+  TMemoryInit(DataIdx, MemIdx, TInstr, TInstr, TInstr)
+  TDataDrop(DataIdx)
+
+  // === Table operations ===
+  TTableGet(TableIdx, TInstr)
+  TTableSet(TableIdx, TInstr, TInstr)
+  TTableGrow(TableIdx, TInstr, TInstr)
+  TTableFill(TableIdx, TInstr, TInstr, TInstr)
+  TTableCopy(TableIdx, TableIdx, TInstr, TInstr, TInstr)
+  TTableInit(ElemIdx, TableIdx, TInstr, TInstr, TInstr)
+  TElemDrop(ElemIdx)
+
+  // === Calls (N children based on function type) ===
+  TCall(FuncIdx, Array[TInstr])
+  TCallIndirect(TypeIdx, TableIdx, Array[TInstr], TInstr) // args, table index
+  TCallRef(TypeIdx, Array[TInstr], TInstr) // args, funcref
+  TReturnCall(FuncIdx, Array[TInstr])
+  TReturnCallIndirect(TypeIdx, TableIdx, Array[TInstr], TInstr)
+  TReturnCallRef(TypeIdx, Array[TInstr], TInstr)
+
+  // === Control flow ===
+  TBlock(BlockType, TExpr)
+  TLoop(BlockType, TExpr)
+  TIf(BlockType, TInstr, TExpr, TExpr?) // condition, then, else
+  TTryTable(BlockType, Array[Catch], TExpr)
+  TThrow(TagIdx, Array[TInstr])
+
+  // === Branches ===
+  TBr(LabelIdx, Array[TInstr]) // values to pass
+  TBrIf(LabelIdx, TInstr, Array[TInstr]) // condition, values
+  TBrTable(Array[LabelIdx], LabelIdx, TInstr, Array[TInstr]) // index, values
+  TBrOnNull(LabelIdx, TInstr, Array[TInstr])
+  TBrOnNonNull(LabelIdx, TInstr, Array[TInstr])
+  TBrOnCast(LabelIdx, CastOp, HeapType, HeapType, TInstr, Array[TInstr])
+  TBrOnCastFail(LabelIdx, CastOp, HeapType, HeapType, TInstr, Array[TInstr])
+  TReturn(Array[TInstr])
+
+  // === Select ===
+  TSelect(Array[ValType]?, TInstr, TInstr, TInstr) // cond, if_true, if_false
+
+  // === GC: Structs ===
+  TStructNew(TypeIdx, Array[TInstr])
+  TStructNewDefault(TypeIdx)
+  TStructGet(TypeIdx, U32, TInstr)
+  TStructGetS(TypeIdx, U32, TInstr)
+  TStructGetU(TypeIdx, U32, TInstr)
+  TStructSet(TypeIdx, U32, TInstr, TInstr) // struct, value
+
+  // === GC: Arrays ===
+  TArrayNew(TypeIdx, TInstr, TInstr) // init, len
+  TArrayNewDefault(TypeIdx, TInstr) // len
+  TArrayNewFixed(TypeIdx, Array[TInstr])
+  TArrayNewData(TypeIdx, DataIdx, TInstr, TInstr) // offset, len
+  TArrayNewElem(TypeIdx, ElemIdx, TInstr, TInstr)
+  TArrayGet(TypeIdx, TInstr, TInstr) // arr, idx
+  TArrayGetS(TypeIdx, TInstr, TInstr)
+  TArrayGetU(TypeIdx, TInstr, TInstr)
+  TArraySet(TypeIdx, TInstr, TInstr, TInstr) // arr, idx, val
+  TArrayFill(TypeIdx, TInstr, TInstr, TInstr, TInstr) // arr, offset, val, len
+  TArrayCopy(TypeIdx, TypeIdx, TInstr, TInstr, TInstr, TInstr, TInstr)
+  TArrayInitData(TypeIdx, DataIdx, TInstr, TInstr, TInstr, TInstr)
+  TArrayInitElem(TypeIdx, ElemIdx, TInstr, TInstr, TInstr, TInstr)
+
+  // === GC: Casts ===
+  TRefTest(Bool, HeapType, TInstr)
+  TRefCast(Bool, HeapType, TInstr)
+
+  // === SIMD: Splat (scalar -> v128) ===
+  TI8x16Splat(TInstr)
+  TI16x8Splat(TInstr)
+  TI32x4Splat(TInstr)
+  TI64x2Splat(TInstr)
+  TF32x4Splat(TInstr)
+  TF64x2Splat(TInstr)
+
+  // === SIMD: Extract lane (v128 -> scalar) ===
+  TExtractLane(ExtractLaneOp, LaneIdx, TInstr)
+
+  // === SIMD: Replace lane (v128, scalar -> v128) ===
+  TReplaceLane(ReplaceLaneOp, LaneIdx, TInstr, TInstr)
+
+  // === SIMD: Shuffle (v128, v128 -> v128 with 16 lane indices) ===
+  TI8x16Shuffle(
+    LaneIdx,
+    LaneIdx,
+    LaneIdx,
+    LaneIdx,
+    LaneIdx,
+    LaneIdx,
+    LaneIdx,
+    LaneIdx,
+    LaneIdx,
+    LaneIdx,
+    LaneIdx,
+    LaneIdx,
+    LaneIdx,
+    LaneIdx,
+    LaneIdx,
+    LaneIdx,
+    TInstr,
+    TInstr
+  )
+
+  // === SIMD: Swizzle (v128, v128 -> v128) ===
+  TI8x16Swizzle(TInstr, TInstr)
+  TI8x16RelaxedSwizzle(TInstr, TInstr)
+
+  // === SIMD: Shift (v128, i32 -> v128) ===
+  TV128Shift(V128ShiftOp, TInstr, TInstr)
+
+  // === SIMD: Ternary (v128, v128, v128 -> v128) ===
+  TV128Ternary(V128TernaryOp, TInstr, TInstr, TInstr)
+
+  // === SIMD: Lane load (v128, addr -> v128) ===
+  TV128LoadLane(V128LoadLaneOp, MemArg, LaneIdx, TInstr, TInstr)
+
+  // === SIMD: Lane store (v128, addr -> void) ===
+  TV128StoreLane(V128StoreLaneOp, MemArg, LaneIdx, TInstr, TInstr)
+} derive(Eq, Show)
+
+///|
+/// Unary operations
+pub enum UnaryOp {
+  // === Scalar ===
+  I32EqzOp
+  I64EqzOp
+  I32ClzOp
+  I32CtzOp
+  I32PopcntOp
+  I64ClzOp
+  I64CtzOp
+  I64PopcntOp
+  F32AbsOp
+  F32NegOp
+  F32CeilOp
+  F32FloorOp
+  F32TruncOp
+  F32NearestOp
+  F32SqrtOp
+  F64AbsOp
+  F64NegOp
+  F64CeilOp
+  F64FloorOp
+  F64TruncOp
+  F64NearestOp
+  F64SqrtOp
+  I32WrapI64Op
+  I32TruncF32SOp
+  I32TruncF32UOp
+  I32TruncF64SOp
+  I32TruncF64UOp
+  I64ExtendI32SOp
+  I64ExtendI32UOp
+  I64TruncF32SOp
+  I64TruncF32UOp
+  I64TruncF64SOp
+  I64TruncF64UOp
+  F32ConvertI32SOp
+  F32ConvertI32UOp
+  F32ConvertI64SOp
+  F32ConvertI64UOp
+  F32DemoteF64Op
+  F64ConvertI32SOp
+  F64ConvertI32UOp
+  F64ConvertI64SOp
+  F64ConvertI64UOp
+  F64PromoteF32Op
+  I32ReinterpretF32Op
+  I64ReinterpretF64Op
+  F32ReinterpretI32Op
+  F64ReinterpretI64Op
+  I32Extend8SOp
+  I32Extend16SOp
+  I64Extend8SOp
+  I64Extend16SOp
+  I64Extend32SOp
+  I32TruncSatF32SOp
+  I32TruncSatF32UOp
+  I32TruncSatF64SOp
+  I32TruncSatF64UOp
+  I64TruncSatF32SOp
+  I64TruncSatF32UOp
+  I64TruncSatF64SOp
+  I64TruncSatF64UOp
+
+  // === SIMD: v128 -> v128 ===
+  V128NotOp
+  I8x16AbsOp
+  I8x16NegOp
+  I8x16PopcntOp
+  I16x8AbsOp
+  I16x8NegOp
+  I32x4AbsOp
+  I32x4NegOp
+  I64x2AbsOp
+  I64x2NegOp
+  F32x4AbsOp
+  F32x4NegOp
+  F32x4SqrtOp
+  F32x4CeilOp
+  F32x4FloorOp
+  F32x4TruncOp
+  F32x4NearestOp
+  F64x2AbsOp
+  F64x2NegOp
+  F64x2SqrtOp
+  F64x2CeilOp
+  F64x2FloorOp
+  F64x2TruncOp
+  F64x2NearestOp
+
+  // === SIMD: v128 -> i32 (bitmask/alltrue) ===
+  V128AnyTrueOp
+  I8x16AllTrueOp
+  I8x16BitmaskOp
+  I16x8AllTrueOp
+  I16x8BitmaskOp
+  I32x4AllTrueOp
+  I32x4BitmaskOp
+  I64x2AllTrueOp
+  I64x2BitmaskOp
+
+  // === SIMD: Extend/narrow (v128 -> v128) ===
+  I16x8ExtendLowI8x16SOp
+  I16x8ExtendHighI8x16SOp
+  I16x8ExtendLowI8x16UOp
+  I16x8ExtendHighI8x16UOp
+  I32x4ExtendLowI16x8SOp
+  I32x4ExtendHighI16x8SOp
+  I32x4ExtendLowI16x8UOp
+  I32x4ExtendHighI16x8UOp
+  I64x2ExtendLowI32x4SOp
+  I64x2ExtendHighI32x4SOp
+  I64x2ExtendLowI32x4UOp
+  I64x2ExtendHighI32x4UOp
+
+  // === SIMD: Pairwise add (v128 -> v128) ===
+  I16x8ExtaddPairwiseI8x16SOp
+  I16x8ExtaddPairwiseI8x16UOp
+  I32x4ExtaddPairwiseI16x8SOp
+  I32x4ExtaddPairwiseI16x8UOp
+
+  // === SIMD: Conversion (v128 -> v128) ===
+  F32x4DemoteF64x2ZeroOp
+  F64x2PromoteLowF32x4Op
+  I32x4TruncSatF32x4SOp
+  I32x4TruncSatF32x4UOp
+  F32x4ConvertI32x4SOp
+  F32x4ConvertI32x4UOp
+  I32x4TruncSatF64x2SZeroOp
+  I32x4TruncSatF64x2UZeroOp
+  F64x2ConvertLowI32x4SOp
+  F64x2ConvertLowI32x4UOp
+
+  // === SIMD: Relaxed truncation (v128 -> v128) ===
+  I32x4RelaxedTruncF32x4SOp
+  I32x4RelaxedTruncF32x4UOp
+  I32x4RelaxedTruncZeroF64x2SOp
+  I32x4RelaxedTruncZeroF64x2UOp
+} derive(Eq, Show)
+
+///|
+/// Binary operations
+pub enum BinaryOp {
+  // === Scalar ===
+  I32EqOp
+  I32NeOp
+  I32LtSOp
+  I32LtUOp
+  I32GtSOp
+  I32GtUOp
+  I32LeSOp
+  I32LeUOp
+  I32GeSOp
+  I32GeUOp
+  I64EqOp
+  I64NeOp
+  I64LtSOp
+  I64LtUOp
+  I64GtSOp
+  I64GtUOp
+  I64LeSOp
+  I64LeUOp
+  I64GeSOp
+  I64GeUOp
+  F32EqOp
+  F32NeOp
+  F32LtOp
+  F32GtOp
+  F32LeOp
+  F32GeOp
+  F64EqOp
+  F64NeOp
+  F64LtOp
+  F64GtOp
+  F64LeOp
+  F64GeOp
+  I32AddOp
+  I32SubOp
+  I32MulOp
+  I32DivSOp
+  I32DivUOp
+  I32RemSOp
+  I32RemUOp
+  I32AndOp
+  I32OrOp
+  I32XorOp
+  I32ShlOp
+  I32ShrSOp
+  I32ShrUOp
+  I32RotlOp
+  I32RotrOp
+  I64AddOp
+  I64SubOp
+  I64MulOp
+  I64DivSOp
+  I64DivUOp
+  I64RemSOp
+  I64RemUOp
+  I64AndOp
+  I64OrOp
+  I64XorOp
+  I64ShlOp
+  I64ShrSOp
+  I64ShrUOp
+  I64RotlOp
+  I64RotrOp
+  F32AddOp
+  F32SubOp
+  F32MulOp
+  F32DivOp
+  F32MinOp
+  F32MaxOp
+  F32CopysignOp
+  F64AddOp
+  F64SubOp
+  F64MulOp
+  F64DivOp
+  F64MinOp
+  F64MaxOp
+  F64CopysignOp
+
+  // === SIMD: Bitwise (v128, v128 -> v128) ===
+  V128AndOp
+  V128AndnotOp
+  V128OrOp
+  V128XorOp
+
+  // === SIMD: i8x16 comparisons ===
+  I8x16EqOp
+  I8x16NeOp
+  I8x16LtSOp
+  I8x16LtUOp
+  I8x16GtSOp
+  I8x16GtUOp
+  I8x16LeSOp
+  I8x16LeUOp
+  I8x16GeSOp
+  I8x16GeUOp
+
+  // === SIMD: i16x8 comparisons ===
+  I16x8EqOp
+  I16x8NeOp
+  I16x8LtSOp
+  I16x8LtUOp
+  I16x8GtSOp
+  I16x8GtUOp
+  I16x8LeSOp
+  I16x8LeUOp
+  I16x8GeSOp
+  I16x8GeUOp
+
+  // === SIMD: i32x4 comparisons ===
+  I32x4EqOp
+  I32x4NeOp
+  I32x4LtSOp
+  I32x4LtUOp
+  I32x4GtSOp
+  I32x4GtUOp
+  I32x4LeSOp
+  I32x4LeUOp
+  I32x4GeSOp
+  I32x4GeUOp
+
+  // === SIMD: i64x2 comparisons ===
+  I64x2EqOp
+  I64x2NeOp
+  I64x2LtSOp
+  I64x2GtSOp
+  I64x2LeSOp
+  I64x2GeSOp
+
+  // === SIMD: f32x4 comparisons ===
+  F32x4EqOp
+  F32x4NeOp
+  F32x4LtOp
+  F32x4GtOp
+  F32x4LeOp
+  F32x4GeOp
+
+  // === SIMD: f64x2 comparisons ===
+  F64x2EqOp
+  F64x2NeOp
+  F64x2LtOp
+  F64x2GtOp
+  F64x2LeOp
+  F64x2GeOp
+
+  // === SIMD: i8x16 arithmetic ===
+  I8x16AddOp
+  I8x16AddSatSOp
+  I8x16AddSatUOp
+  I8x16SubOp
+  I8x16SubSatSOp
+  I8x16SubSatUOp
+  I8x16MinSOp
+  I8x16MinUOp
+  I8x16MaxSOp
+  I8x16MaxUOp
+  I8x16AvgrUOp
+  I8x16NarrowI16x8SOp
+  I8x16NarrowI16x8UOp
+
+  // === SIMD: i16x8 arithmetic ===
+  I16x8AddOp
+  I16x8AddSatSOp
+  I16x8AddSatUOp
+  I16x8SubOp
+  I16x8SubSatSOp
+  I16x8SubSatUOp
+  I16x8MulOp
+  I16x8MinSOp
+  I16x8MinUOp
+  I16x8MaxSOp
+  I16x8MaxUOp
+  I16x8AvgrUOp
+  I16x8Q15mulrSatSOp
+  I16x8NarrowI32x4SOp
+  I16x8NarrowI32x4UOp
+  I16x8ExtmulLowI8x16SOp
+  I16x8ExtmulHighI8x16SOp
+  I16x8ExtmulLowI8x16UOp
+  I16x8ExtmulHighI8x16UOp
+
+  // === SIMD: i32x4 arithmetic ===
+  I32x4AddOp
+  I32x4SubOp
+  I32x4MulOp
+  I32x4MinSOp
+  I32x4MinUOp
+  I32x4MaxSOp
+  I32x4MaxUOp
+  I32x4DotI16x8SOp
+  I32x4ExtmulLowI16x8SOp
+  I32x4ExtmulHighI16x8SOp
+  I32x4ExtmulLowI16x8UOp
+  I32x4ExtmulHighI16x8UOp
+
+  // === SIMD: i64x2 arithmetic ===
+  I64x2AddOp
+  I64x2SubOp
+  I64x2MulOp
+  I64x2ExtmulLowI32x4SOp
+  I64x2ExtmulHighI32x4SOp
+  I64x2ExtmulLowI32x4UOp
+  I64x2ExtmulHighI32x4UOp
+
+  // === SIMD: f32x4 arithmetic ===
+  F32x4AddOp
+  F32x4SubOp
+  F32x4MulOp
+  F32x4DivOp
+  F32x4MinOp
+  F32x4MaxOp
+  F32x4PminOp
+  F32x4PmaxOp
+
+  // === SIMD: f64x2 arithmetic ===
+  F64x2AddOp
+  F64x2SubOp
+  F64x2MulOp
+  F64x2DivOp
+  F64x2MinOp
+  F64x2MaxOp
+  F64x2PminOp
+  F64x2PmaxOp
+
+  // === SIMD: Relaxed ===
+  F32x4RelaxedMinOp
+  F32x4RelaxedMaxOp
+  F64x2RelaxedMinOp
+  F64x2RelaxedMaxOp
+  I16x8RelaxedQ15mulrSOp
+  I16x8RelaxedDotI8x16I7x16SOp
+} derive(Eq, Show)
+
+///|
+/// Load operations
+pub enum LoadOp {
+  // === Scalar ===
+  I32LoadOp
+  I64LoadOp
+  F32LoadOp
+  F64LoadOp
+  I32Load8SOp
+  I32Load8UOp
+  I32Load16SOp
+  I32Load16UOp
+  I64Load8SOp
+  I64Load8UOp
+  I64Load16SOp
+  I64Load16UOp
+  I64Load32SOp
+  I64Load32UOp
+
+  // === SIMD ===
+  V128LoadOp
+  V128Load8x8SOp
+  V128Load8x8UOp
+  V128Load16x4SOp
+  V128Load16x4UOp
+  V128Load32x2SOp
+  V128Load32x2UOp
+  V128Load8SplatOp
+  V128Load16SplatOp
+  V128Load32SplatOp
+  V128Load64SplatOp
+  V128Load32ZeroOp
+  V128Load64ZeroOp
+} derive(Eq, Show)
+
+///|
+/// Store operations
+pub enum StoreOp {
+  // === Scalar ===
+  I32StoreOp
+  I64StoreOp
+  F32StoreOp
+  F64StoreOp
+  I32Store8Op
+  I32Store16Op
+  I64Store8Op
+  I64Store16Op
+  I64Store32Op
+
+  // === SIMD ===
+  V128StoreOp
+} derive(Eq, Show)
+
+///|
+/// Extract lane operations (v128 -> scalar)
+pub enum ExtractLaneOp {
+  I8x16ExtractLaneSOp
+  I8x16ExtractLaneUOp
+  I16x8ExtractLaneSOp
+  I16x8ExtractLaneUOp
+  I32x4ExtractLaneOp
+  I64x2ExtractLaneOp
+  F32x4ExtractLaneOp
+  F64x2ExtractLaneOp
+} derive(Eq, Show)
+
+///|
+/// Replace lane operations (v128, scalar -> v128)
+pub enum ReplaceLaneOp {
+  I8x16ReplaceLaneOp
+  I16x8ReplaceLaneOp
+  I32x4ReplaceLaneOp
+  I64x2ReplaceLaneOp
+  F32x4ReplaceLaneOp
+  F64x2ReplaceLaneOp
+} derive(Eq, Show)
+
+///|
+/// V128 shift operations (v128, i32 -> v128)
+pub enum V128ShiftOp {
+  I8x16ShlOp
+  I8x16ShrSOp
+  I8x16ShrUOp
+  I16x8ShlOp
+  I16x8ShrSOp
+  I16x8ShrUOp
+  I32x4ShlOp
+  I32x4ShrSOp
+  I32x4ShrUOp
+  I64x2ShlOp
+  I64x2ShrSOp
+  I64x2ShrUOp
+} derive(Eq, Show)
+
+///|
+/// V128 ternary operations (v128, v128, v128 -> v128)
+pub enum V128TernaryOp {
+  V128BitselectOp
+  I8x16RelaxedLaneselectOp
+  I16x8RelaxedLaneselectOp
+  I32x4RelaxedLaneselectOp
+  I64x2RelaxedLaneselectOp
+  F32x4RelaxedMaddOp
+  F32x4RelaxedNmaddOp
+  F64x2RelaxedMaddOp
+  F64x2RelaxedNmaddOp
+  I32x4RelaxedDotI8x16I7x16AddSOp
+} derive(Eq, Show)
+
+///|
+/// V128 lane load operations
+pub enum V128LoadLaneOp {
+  V128Load8LaneOp
+  V128Load16LaneOp
+  V128Load32LaneOp
+  V128Load64LaneOp
+} derive(Eq, Show)
+
+///|
+/// V128 lane store operations
+pub enum V128StoreLaneOp {
+  V128Store8LaneOp
+  V128Store16LaneOp
+  V128Store32LaneOp
+  V128Store64LaneOp
+} derive(Eq, Show)

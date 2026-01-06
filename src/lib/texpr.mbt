@@ -1,658 +1,4 @@
-/// A tree-based expression where operands are explicit children rather than implicit stack values.
-/// Each TInstr node contains its consumed operands as children.
-pub struct TExpr {
-  /// The values remaining on the stack after evaluation (roots of expression trees)
-  values : Array[TInstr]
-}
-
-/// A tree-based instruction with explicit operands
-pub enum TInstr {
-  // === Constants (0 children, 1 result) ===
-  TI32Const(I32)
-  TI64Const(I64)
-  TF32Const(F32)
-  TF64Const(F64)
-  TRefNull(HeapType)
-  TRefFunc(FuncIdx)
-  TV128Const(
-    Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte,
-    Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte
-  )
-
-  // === Nullary (0 children) ===
-  TUnreachable
-  TNop
-  TLocalGet(LocalIdx)
-  TGlobalGet(GlobalIdx)
-  TMemorySize(MemIdx)
-  TTableSize(TableIdx)
-
-  // === Unary (1 child) ===
-  TUnary(UnaryOp, TInstr)
-  TDrop(TInstr)
-  TLocalSet(LocalIdx, TInstr)
-  TLocalTee(LocalIdx, TInstr)
-  TGlobalSet(GlobalIdx, TInstr)
-  TRefIsNull(TInstr)
-  TRefAsNonNull(TInstr)
-  TI31GetS(TInstr)
-  TI31GetU(TInstr)
-  TRefI31(TInstr)
-  TArrayLen(TInstr)
-  TAnyConvertExtern(TInstr)
-  TExternConvertAny(TInstr)
-  TThrowRef(TInstr)
-
-  // === Binary (2 children) ===
-  TBinary(BinaryOp, TInstr, TInstr)
-  TRefEq(TInstr, TInstr)
-  TStore(StoreOp, MemArg, TInstr, TInstr) // addr, value
-
-  // === Load (1 child - address) ===
-  TLoad(LoadOp, MemArg, TInstr)
-
-  // === Memory operations ===
-  TMemoryGrow(MemIdx, TInstr)
-  TMemoryFill(MemIdx, TInstr, TInstr, TInstr) // dest, val, len
-  TMemoryCopy(MemIdx, MemIdx, TInstr, TInstr, TInstr) // dest, src, len
-  TMemoryInit(DataIdx, MemIdx, TInstr, TInstr, TInstr)
-  TDataDrop(DataIdx)
-
-  // === Table operations ===
-  TTableGet(TableIdx, TInstr)
-  TTableSet(TableIdx, TInstr, TInstr)
-  TTableGrow(TableIdx, TInstr, TInstr)
-  TTableFill(TableIdx, TInstr, TInstr, TInstr)
-  TTableCopy(TableIdx, TableIdx, TInstr, TInstr, TInstr)
-  TTableInit(ElemIdx, TableIdx, TInstr, TInstr, TInstr)
-  TElemDrop(ElemIdx)
-
-  // === Calls (N children based on function type) ===
-  TCall(FuncIdx, Array[TInstr])
-  TCallIndirect(TypeIdx, TableIdx, Array[TInstr], TInstr) // args, table index
-  TCallRef(TypeIdx, Array[TInstr], TInstr) // args, funcref
-  TReturnCall(FuncIdx, Array[TInstr])
-  TReturnCallIndirect(TypeIdx, TableIdx, Array[TInstr], TInstr)
-  TReturnCallRef(TypeIdx, Array[TInstr], TInstr)
-
-  // === Control flow ===
-  TBlock(BlockType, TExpr)
-  TLoop(BlockType, TExpr)
-  TIf(BlockType, TInstr, TExpr, TExpr?) // condition, then, else
-  TTryTable(BlockType, Array[Catch], TExpr)
-  TThrow(TagIdx, Array[TInstr])
-
-  // === Branches ===
-  TBr(LabelIdx, Array[TInstr]) // values to pass
-  TBrIf(LabelIdx, TInstr, Array[TInstr]) // condition, values
-  TBrTable(Array[LabelIdx], LabelIdx, TInstr, Array[TInstr]) // index, values
-  TBrOnNull(LabelIdx, TInstr, Array[TInstr])
-  TBrOnNonNull(LabelIdx, TInstr, Array[TInstr])
-  TBrOnCast(LabelIdx, CastOp, HeapType, HeapType, TInstr, Array[TInstr])
-  TBrOnCastFail(LabelIdx, CastOp, HeapType, HeapType, TInstr, Array[TInstr])
-  TReturn(Array[TInstr])
-
-  // === Select ===
-  TSelect(Array[ValType]?, TInstr, TInstr, TInstr) // cond, if_true, if_false
-
-  // === GC: Structs ===
-  TStructNew(TypeIdx, Array[TInstr])
-  TStructNewDefault(TypeIdx)
-  TStructGet(TypeIdx, U32, TInstr)
-  TStructGetS(TypeIdx, U32, TInstr)
-  TStructGetU(TypeIdx, U32, TInstr)
-  TStructSet(TypeIdx, U32, TInstr, TInstr) // struct, value
-
-  // === GC: Arrays ===
-  TArrayNew(TypeIdx, TInstr, TInstr) // init, len
-  TArrayNewDefault(TypeIdx, TInstr) // len
-  TArrayNewFixed(TypeIdx, Array[TInstr])
-  TArrayNewData(TypeIdx, DataIdx, TInstr, TInstr) // offset, len
-  TArrayNewElem(TypeIdx, ElemIdx, TInstr, TInstr)
-  TArrayGet(TypeIdx, TInstr, TInstr) // arr, idx
-  TArrayGetS(TypeIdx, TInstr, TInstr)
-  TArrayGetU(TypeIdx, TInstr, TInstr)
-  TArraySet(TypeIdx, TInstr, TInstr, TInstr) // arr, idx, val
-  TArrayFill(TypeIdx, TInstr, TInstr, TInstr, TInstr) // arr, offset, val, len
-  TArrayCopy(TypeIdx, TypeIdx, TInstr, TInstr, TInstr, TInstr, TInstr)
-  TArrayInitData(TypeIdx, DataIdx, TInstr, TInstr, TInstr, TInstr)
-  TArrayInitElem(TypeIdx, ElemIdx, TInstr, TInstr, TInstr, TInstr)
-
-  // === GC: Casts ===
-  TRefTest(Bool, HeapType, TInstr)
-  TRefCast(Bool, HeapType, TInstr)
-
-  // === SIMD: Splat (scalar -> v128) ===
-  TI8x16Splat(TInstr)
-  TI16x8Splat(TInstr)
-  TI32x4Splat(TInstr)
-  TI64x2Splat(TInstr)
-  TF32x4Splat(TInstr)
-  TF64x2Splat(TInstr)
-
-  // === SIMD: Extract lane (v128 -> scalar) ===
-  TExtractLane(ExtractLaneOp, LaneIdx, TInstr)
-
-  // === SIMD: Replace lane (v128, scalar -> v128) ===
-  TReplaceLane(ReplaceLaneOp, LaneIdx, TInstr, TInstr)
-
-  // === SIMD: Shuffle (v128, v128 -> v128 with 16 lane indices) ===
-  TI8x16Shuffle(
-    LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx,
-    LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx,
-    TInstr, TInstr
-  )
-
-  // === SIMD: Swizzle (v128, v128 -> v128) ===
-  TI8x16Swizzle(TInstr, TInstr)
-  TI8x16RelaxedSwizzle(TInstr, TInstr)
-
-  // === SIMD: Shift (v128, i32 -> v128) ===
-  TV128Shift(V128ShiftOp, TInstr, TInstr)
-
-  // === SIMD: Ternary (v128, v128, v128 -> v128) ===
-  TV128Ternary(V128TernaryOp, TInstr, TInstr, TInstr)
-
-  // === SIMD: Lane load (v128, addr -> v128) ===
-  TV128LoadLane(V128LoadLaneOp, MemArg, LaneIdx, TInstr, TInstr)
-
-  // === SIMD: Lane store (v128, addr -> void) ===
-  TV128StoreLane(V128StoreLaneOp, MemArg, LaneIdx, TInstr, TInstr)
-}
-
-/// Unary operations
-pub enum UnaryOp {
-  // === Scalar ===
-  I32EqzOp
-  I64EqzOp
-  I32ClzOp
-  I32CtzOp
-  I32PopcntOp
-  I64ClzOp
-  I64CtzOp
-  I64PopcntOp
-  F32AbsOp
-  F32NegOp
-  F32CeilOp
-  F32FloorOp
-  F32TruncOp
-  F32NearestOp
-  F32SqrtOp
-  F64AbsOp
-  F64NegOp
-  F64CeilOp
-  F64FloorOp
-  F64TruncOp
-  F64NearestOp
-  F64SqrtOp
-  I32WrapI64Op
-  I32TruncF32SOp
-  I32TruncF32UOp
-  I32TruncF64SOp
-  I32TruncF64UOp
-  I64ExtendI32SOp
-  I64ExtendI32UOp
-  I64TruncF32SOp
-  I64TruncF32UOp
-  I64TruncF64SOp
-  I64TruncF64UOp
-  F32ConvertI32SOp
-  F32ConvertI32UOp
-  F32ConvertI64SOp
-  F32ConvertI64UOp
-  F32DemoteF64Op
-  F64ConvertI32SOp
-  F64ConvertI32UOp
-  F64ConvertI64SOp
-  F64ConvertI64UOp
-  F64PromoteF32Op
-  I32ReinterpretF32Op
-  I64ReinterpretF64Op
-  F32ReinterpretI32Op
-  F64ReinterpretI64Op
-  I32Extend8SOp
-  I32Extend16SOp
-  I64Extend8SOp
-  I64Extend16SOp
-  I64Extend32SOp
-  I32TruncSatF32SOp
-  I32TruncSatF32UOp
-  I32TruncSatF64SOp
-  I32TruncSatF64UOp
-  I64TruncSatF32SOp
-  I64TruncSatF32UOp
-  I64TruncSatF64SOp
-  I64TruncSatF64UOp
-
-  // === SIMD: v128 -> v128 ===
-  V128NotOp
-  I8x16AbsOp
-  I8x16NegOp
-  I8x16PopcntOp
-  I16x8AbsOp
-  I16x8NegOp
-  I32x4AbsOp
-  I32x4NegOp
-  I64x2AbsOp
-  I64x2NegOp
-  F32x4AbsOp
-  F32x4NegOp
-  F32x4SqrtOp
-  F32x4CeilOp
-  F32x4FloorOp
-  F32x4TruncOp
-  F32x4NearestOp
-  F64x2AbsOp
-  F64x2NegOp
-  F64x2SqrtOp
-  F64x2CeilOp
-  F64x2FloorOp
-  F64x2TruncOp
-  F64x2NearestOp
-
-  // === SIMD: v128 -> i32 (bitmask/alltrue) ===
-  V128AnyTrueOp
-  I8x16AllTrueOp
-  I8x16BitmaskOp
-  I16x8AllTrueOp
-  I16x8BitmaskOp
-  I32x4AllTrueOp
-  I32x4BitmaskOp
-  I64x2AllTrueOp
-  I64x2BitmaskOp
-
-  // === SIMD: Extend/narrow (v128 -> v128) ===
-  I16x8ExtendLowI8x16SOp
-  I16x8ExtendHighI8x16SOp
-  I16x8ExtendLowI8x16UOp
-  I16x8ExtendHighI8x16UOp
-  I32x4ExtendLowI16x8SOp
-  I32x4ExtendHighI16x8SOp
-  I32x4ExtendLowI16x8UOp
-  I32x4ExtendHighI16x8UOp
-  I64x2ExtendLowI32x4SOp
-  I64x2ExtendHighI32x4SOp
-  I64x2ExtendLowI32x4UOp
-  I64x2ExtendHighI32x4UOp
-
-  // === SIMD: Pairwise add (v128 -> v128) ===
-  I16x8ExtaddPairwiseI8x16SOp
-  I16x8ExtaddPairwiseI8x16UOp
-  I32x4ExtaddPairwiseI16x8SOp
-  I32x4ExtaddPairwiseI16x8UOp
-
-  // === SIMD: Conversion (v128 -> v128) ===
-  F32x4DemoteF64x2ZeroOp
-  F64x2PromoteLowF32x4Op
-  I32x4TruncSatF32x4SOp
-  I32x4TruncSatF32x4UOp
-  F32x4ConvertI32x4SOp
-  F32x4ConvertI32x4UOp
-  I32x4TruncSatF64x2SZeroOp
-  I32x4TruncSatF64x2UZeroOp
-  F64x2ConvertLowI32x4SOp
-  F64x2ConvertLowI32x4UOp
-
-  // === SIMD: Relaxed truncation (v128 -> v128) ===
-  I32x4RelaxedTruncF32x4SOp
-  I32x4RelaxedTruncF32x4UOp
-  I32x4RelaxedTruncZeroF64x2SOp
-  I32x4RelaxedTruncZeroF64x2UOp
-}
-
-/// Binary operations
-pub enum BinaryOp {
-  // === Scalar ===
-  I32EqOp
-  I32NeOp
-  I32LtSOp
-  I32LtUOp
-  I32GtSOp
-  I32GtUOp
-  I32LeSOp
-  I32LeUOp
-  I32GeSOp
-  I32GeUOp
-  I64EqOp
-  I64NeOp
-  I64LtSOp
-  I64LtUOp
-  I64GtSOp
-  I64GtUOp
-  I64LeSOp
-  I64LeUOp
-  I64GeSOp
-  I64GeUOp
-  F32EqOp
-  F32NeOp
-  F32LtOp
-  F32GtOp
-  F32LeOp
-  F32GeOp
-  F64EqOp
-  F64NeOp
-  F64LtOp
-  F64GtOp
-  F64LeOp
-  F64GeOp
-  I32AddOp
-  I32SubOp
-  I32MulOp
-  I32DivSOp
-  I32DivUOp
-  I32RemSOp
-  I32RemUOp
-  I32AndOp
-  I32OrOp
-  I32XorOp
-  I32ShlOp
-  I32ShrSOp
-  I32ShrUOp
-  I32RotlOp
-  I32RotrOp
-  I64AddOp
-  I64SubOp
-  I64MulOp
-  I64DivSOp
-  I64DivUOp
-  I64RemSOp
-  I64RemUOp
-  I64AndOp
-  I64OrOp
-  I64XorOp
-  I64ShlOp
-  I64ShrSOp
-  I64ShrUOp
-  I64RotlOp
-  I64RotrOp
-  F32AddOp
-  F32SubOp
-  F32MulOp
-  F32DivOp
-  F32MinOp
-  F32MaxOp
-  F32CopysignOp
-  F64AddOp
-  F64SubOp
-  F64MulOp
-  F64DivOp
-  F64MinOp
-  F64MaxOp
-  F64CopysignOp
-
-  // === SIMD: Bitwise (v128, v128 -> v128) ===
-  V128AndOp
-  V128AndnotOp
-  V128OrOp
-  V128XorOp
-
-  // === SIMD: i8x16 comparisons ===
-  I8x16EqOp
-  I8x16NeOp
-  I8x16LtSOp
-  I8x16LtUOp
-  I8x16GtSOp
-  I8x16GtUOp
-  I8x16LeSOp
-  I8x16LeUOp
-  I8x16GeSOp
-  I8x16GeUOp
-
-  // === SIMD: i16x8 comparisons ===
-  I16x8EqOp
-  I16x8NeOp
-  I16x8LtSOp
-  I16x8LtUOp
-  I16x8GtSOp
-  I16x8GtUOp
-  I16x8LeSOp
-  I16x8LeUOp
-  I16x8GeSOp
-  I16x8GeUOp
-
-  // === SIMD: i32x4 comparisons ===
-  I32x4EqOp
-  I32x4NeOp
-  I32x4LtSOp
-  I32x4LtUOp
-  I32x4GtSOp
-  I32x4GtUOp
-  I32x4LeSOp
-  I32x4LeUOp
-  I32x4GeSOp
-  I32x4GeUOp
-
-  // === SIMD: i64x2 comparisons ===
-  I64x2EqOp
-  I64x2NeOp
-  I64x2LtSOp
-  I64x2GtSOp
-  I64x2LeSOp
-  I64x2GeSOp
-
-  // === SIMD: f32x4 comparisons ===
-  F32x4EqOp
-  F32x4NeOp
-  F32x4LtOp
-  F32x4GtOp
-  F32x4LeOp
-  F32x4GeOp
-
-  // === SIMD: f64x2 comparisons ===
-  F64x2EqOp
-  F64x2NeOp
-  F64x2LtOp
-  F64x2GtOp
-  F64x2LeOp
-  F64x2GeOp
-
-  // === SIMD: i8x16 arithmetic ===
-  I8x16AddOp
-  I8x16AddSatSOp
-  I8x16AddSatUOp
-  I8x16SubOp
-  I8x16SubSatSOp
-  I8x16SubSatUOp
-  I8x16MinSOp
-  I8x16MinUOp
-  I8x16MaxSOp
-  I8x16MaxUOp
-  I8x16AvgrUOp
-  I8x16NarrowI16x8SOp
-  I8x16NarrowI16x8UOp
-
-  // === SIMD: i16x8 arithmetic ===
-  I16x8AddOp
-  I16x8AddSatSOp
-  I16x8AddSatUOp
-  I16x8SubOp
-  I16x8SubSatSOp
-  I16x8SubSatUOp
-  I16x8MulOp
-  I16x8MinSOp
-  I16x8MinUOp
-  I16x8MaxSOp
-  I16x8MaxUOp
-  I16x8AvgrUOp
-  I16x8Q15mulrSatSOp
-  I16x8NarrowI32x4SOp
-  I16x8NarrowI32x4UOp
-  I16x8ExtmulLowI8x16SOp
-  I16x8ExtmulHighI8x16SOp
-  I16x8ExtmulLowI8x16UOp
-  I16x8ExtmulHighI8x16UOp
-
-  // === SIMD: i32x4 arithmetic ===
-  I32x4AddOp
-  I32x4SubOp
-  I32x4MulOp
-  I32x4MinSOp
-  I32x4MinUOp
-  I32x4MaxSOp
-  I32x4MaxUOp
-  I32x4DotI16x8SOp
-  I32x4ExtmulLowI16x8SOp
-  I32x4ExtmulHighI16x8SOp
-  I32x4ExtmulLowI16x8UOp
-  I32x4ExtmulHighI16x8UOp
-
-  // === SIMD: i64x2 arithmetic ===
-  I64x2AddOp
-  I64x2SubOp
-  I64x2MulOp
-  I64x2ExtmulLowI32x4SOp
-  I64x2ExtmulHighI32x4SOp
-  I64x2ExtmulLowI32x4UOp
-  I64x2ExtmulHighI32x4UOp
-
-  // === SIMD: f32x4 arithmetic ===
-  F32x4AddOp
-  F32x4SubOp
-  F32x4MulOp
-  F32x4DivOp
-  F32x4MinOp
-  F32x4MaxOp
-  F32x4PminOp
-  F32x4PmaxOp
-
-  // === SIMD: f64x2 arithmetic ===
-  F64x2AddOp
-  F64x2SubOp
-  F64x2MulOp
-  F64x2DivOp
-  F64x2MinOp
-  F64x2MaxOp
-  F64x2PminOp
-  F64x2PmaxOp
-
-  // === SIMD: Relaxed ===
-  F32x4RelaxedMinOp
-  F32x4RelaxedMaxOp
-  F64x2RelaxedMinOp
-  F64x2RelaxedMaxOp
-  I16x8RelaxedQ15mulrSOp
-  I16x8RelaxedDotI8x16I7x16SOp
-}
-
-/// Load operations
-pub enum LoadOp {
-  // === Scalar ===
-  I32LoadOp
-  I64LoadOp
-  F32LoadOp
-  F64LoadOp
-  I32Load8SOp
-  I32Load8UOp
-  I32Load16SOp
-  I32Load16UOp
-  I64Load8SOp
-  I64Load8UOp
-  I64Load16SOp
-  I64Load16UOp
-  I64Load32SOp
-  I64Load32UOp
-
-  // === SIMD ===
-  V128LoadOp
-  V128Load8x8SOp
-  V128Load8x8UOp
-  V128Load16x4SOp
-  V128Load16x4UOp
-  V128Load32x2SOp
-  V128Load32x2UOp
-  V128Load8SplatOp
-  V128Load16SplatOp
-  V128Load32SplatOp
-  V128Load64SplatOp
-  V128Load32ZeroOp
-  V128Load64ZeroOp
-}
-
-/// Store operations
-pub enum StoreOp {
-  // === Scalar ===
-  I32StoreOp
-  I64StoreOp
-  F32StoreOp
-  F64StoreOp
-  I32Store8Op
-  I32Store16Op
-  I64Store8Op
-  I64Store16Op
-  I64Store32Op
-
-  // === SIMD ===
-  V128StoreOp
-}
-
-/// Extract lane operations (v128 -> scalar)
-pub enum ExtractLaneOp {
-  I8x16ExtractLaneSOp
-  I8x16ExtractLaneUOp
-  I16x8ExtractLaneSOp
-  I16x8ExtractLaneUOp
-  I32x4ExtractLaneOp
-  I64x2ExtractLaneOp
-  F32x4ExtractLaneOp
-  F64x2ExtractLaneOp
-}
-
-/// Replace lane operations (v128, scalar -> v128)
-pub enum ReplaceLaneOp {
-  I8x16ReplaceLaneOp
-  I16x8ReplaceLaneOp
-  I32x4ReplaceLaneOp
-  I64x2ReplaceLaneOp
-  F32x4ReplaceLaneOp
-  F64x2ReplaceLaneOp
-}
-
-/// V128 shift operations (v128, i32 -> v128)
-pub enum V128ShiftOp {
-  I8x16ShlOp
-  I8x16ShrSOp
-  I8x16ShrUOp
-  I16x8ShlOp
-  I16x8ShrSOp
-  I16x8ShrUOp
-  I32x4ShlOp
-  I32x4ShrSOp
-  I32x4ShrUOp
-  I64x2ShlOp
-  I64x2ShrSOp
-  I64x2ShrUOp
-}
-
-/// V128 ternary operations (v128, v128, v128 -> v128)
-pub enum V128TernaryOp {
-  V128BitselectOp
-  I8x16RelaxedLaneselectOp
-  I16x8RelaxedLaneselectOp
-  I32x4RelaxedLaneselectOp
-  I64x2RelaxedLaneselectOp
-  F32x4RelaxedMaddOp
-  F32x4RelaxedNmaddOp
-  F64x2RelaxedMaddOp
-  F64x2RelaxedNmaddOp
-  I32x4RelaxedDotI8x16I7x16AddSOp
-}
-
-/// V128 lane load operations
-pub enum V128LoadLaneOp {
-  V128Load8LaneOp
-  V128Load16LaneOp
-  V128Load32LaneOp
-  V128Load64LaneOp
-}
-
-/// V128 lane store operations
-pub enum V128StoreLaneOp {
-  V128Store8LaneOp
-  V128Store16LaneOp
-  V128Store32LaneOp
-  V128Store64LaneOp
-}
-
+///|
 /// Convert flat Expr to tree-based TExpr
 pub fn expr_to_texpr(expr : Expr, env : Env) -> Result[TExpr, String] {
   let stack : Array[TInstr] = []
@@ -662,13 +8,14 @@ pub fn expr_to_texpr(expr : Expr, env : Env) -> Result[TExpr, String] {
       Err(t) => return Err(t)
     }
   }
-  Ok(TExpr::{ values: stack })
+  Ok(TExpr(stack))
 }
 
+///|
 /// Convert tree-based TExpr back to flat Expr
 pub fn texpr_to_expr(texpr : TExpr) -> Expr {
   let instrs : Array[Instruction] = []
-  for value in texpr.values {
+  for value in texpr.0 {
     tinstr_to_instr(value, instrs)
   }
   Expr(instrs)
@@ -678,6 +25,7 @@ pub fn texpr_to_expr(texpr : TExpr) -> Expr {
 // Expr -> TExpr helpers
 // ============================================================================
 
+///|
 fn pop(stack : Array[TInstr]) -> Result[TInstr, String] {
   match stack.pop() {
     Some(v) => Ok(v)
@@ -685,6 +33,7 @@ fn pop(stack : Array[TInstr]) -> Result[TInstr, String] {
   }
 }
 
+///|
 fn pop_n(stack : Array[TInstr], n : Int) -> Result[Array[TInstr], String] {
   if stack.length() < n {
     return Err(
@@ -699,6 +48,7 @@ fn pop_n(stack : Array[TInstr], n : Int) -> Result[Array[TInstr], String] {
   Ok(result)
 }
 
+///|
 fn block_type_inputs(bt : BlockType, env : Env) -> Int {
   match bt {
     EmptyBlockType => 0
@@ -711,22 +61,11 @@ fn block_type_inputs(bt : BlockType, env : Env) -> Int {
   }
 }
 
-fn block_type_outputs(bt : BlockType, env : Env) -> Int {
-  match bt {
-    EmptyBlockType => 0
-    ValTypeBlockType(_) => 1
-    TypeIdxBlockType(idx) =>
-      match env.resolve_functype(idx) {
-        Some(FuncType(_, results)) => results.length()
-        None => 0
-      }
-  }
-}
-
+///|
 fn instr_to_tinstr(
   instr : Instruction,
   stack : Array[TInstr],
-  env : Env
+  env : Env,
 ) -> Result[Unit, String] {
   match instr {
     // === Constants ===
@@ -736,8 +75,29 @@ fn instr_to_tinstr(
     F64Const(v) => stack.push(TF64Const(v))
     RefNull(ht) => stack.push(TRefNull(ht))
     RefFunc(idx) => stack.push(TRefFunc(idx))
-    V128Const(b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15) =>
-      stack.push(TV128Const(b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15))
+    V128Const(
+      b0,
+      b1,
+      b2,
+      b3,
+      b4,
+      b5,
+      b6,
+      b7,
+      b8,
+      b9,
+      b10,
+      b11,
+      b12,
+      b13,
+      b14,
+      b15
+    ) =>
+      stack.push(
+        TV128Const(
+          b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15,
+        ),
+      )
 
     // === Nullary ===
     Unreachable => stack.push(TUnreachable)
@@ -753,7 +113,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I32EqzOp, op))
     }
     I64Eqz => {
@@ -761,7 +120,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I64EqzOp, op))
     }
     I32Clz => {
@@ -769,7 +127,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I32ClzOp, op))
     }
     I32Ctz => {
@@ -777,7 +134,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I32CtzOp, op))
     }
     I32Popcnt => {
@@ -785,7 +141,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I32PopcntOp, op))
     }
     I64Clz => {
@@ -793,7 +148,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I64ClzOp, op))
     }
     I64Ctz => {
@@ -801,7 +155,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I64CtzOp, op))
     }
     I64Popcnt => {
@@ -809,7 +162,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I64PopcntOp, op))
     }
     F32Abs => {
@@ -817,7 +169,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F32AbsOp, op))
     }
     F32Neg => {
@@ -825,7 +176,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F32NegOp, op))
     }
     F32Ceil => {
@@ -833,7 +183,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F32CeilOp, op))
     }
     F32Floor => {
@@ -841,7 +190,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F32FloorOp, op))
     }
     F32Trunc => {
@@ -849,7 +197,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F32TruncOp, op))
     }
     F32Nearest => {
@@ -857,7 +204,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F32NearestOp, op))
     }
     F32Sqrt => {
@@ -865,7 +211,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F32SqrtOp, op))
     }
     F64Abs => {
@@ -873,7 +218,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F64AbsOp, op))
     }
     F64Neg => {
@@ -881,7 +225,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F64NegOp, op))
     }
     F64Ceil => {
@@ -889,7 +232,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F64CeilOp, op))
     }
     F64Floor => {
@@ -897,7 +239,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F64FloorOp, op))
     }
     F64Trunc => {
@@ -905,7 +246,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F64TruncOp, op))
     }
     F64Nearest => {
@@ -913,7 +253,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F64NearestOp, op))
     }
     F64Sqrt => {
@@ -921,7 +260,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F64SqrtOp, op))
     }
 
@@ -931,7 +269,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I32WrapI64Op, op))
     }
     I32TruncF32S => {
@@ -939,7 +276,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I32TruncF32SOp, op))
     }
     I32TruncF32U => {
@@ -947,7 +283,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I32TruncF32UOp, op))
     }
     I32TruncF64S => {
@@ -955,7 +290,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I32TruncF64SOp, op))
     }
     I32TruncF64U => {
@@ -963,7 +297,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I32TruncF64UOp, op))
     }
     I64ExtendI32S => {
@@ -971,7 +304,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I64ExtendI32SOp, op))
     }
     I64ExtendI32U => {
@@ -979,7 +311,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I64ExtendI32UOp, op))
     }
     I64TruncF32S => {
@@ -987,7 +318,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I64TruncF32SOp, op))
     }
     I64TruncF32U => {
@@ -995,7 +325,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I64TruncF32UOp, op))
     }
     I64TruncF64S => {
@@ -1003,7 +332,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I64TruncF64SOp, op))
     }
     I64TruncF64U => {
@@ -1011,7 +339,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I64TruncF64UOp, op))
     }
     F32ConvertI32S => {
@@ -1019,7 +346,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F32ConvertI32SOp, op))
     }
     F32ConvertI32U => {
@@ -1027,7 +353,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F32ConvertI32UOp, op))
     }
     F32ConvertI64S => {
@@ -1035,7 +360,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F32ConvertI64SOp, op))
     }
     F32ConvertI64U => {
@@ -1043,7 +367,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F32ConvertI64UOp, op))
     }
     F32DemoteF64 => {
@@ -1051,7 +374,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F32DemoteF64Op, op))
     }
     F64ConvertI32S => {
@@ -1059,7 +381,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F64ConvertI32SOp, op))
     }
     F64ConvertI32U => {
@@ -1067,7 +388,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F64ConvertI32UOp, op))
     }
     F64ConvertI64S => {
@@ -1075,7 +395,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F64ConvertI64SOp, op))
     }
     F64ConvertI64U => {
@@ -1083,7 +402,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F64ConvertI64UOp, op))
     }
     F64PromoteF32 => {
@@ -1091,7 +409,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F64PromoteF32Op, op))
     }
     I32ReinterpretF32 => {
@@ -1099,7 +416,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I32ReinterpretF32Op, op))
     }
     I64ReinterpretF64 => {
@@ -1107,7 +423,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I64ReinterpretF64Op, op))
     }
     F32ReinterpretI32 => {
@@ -1115,7 +430,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F32ReinterpretI32Op, op))
     }
     F64ReinterpretI64 => {
@@ -1123,7 +437,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F64ReinterpretI64Op, op))
     }
     I32Extend8S => {
@@ -1131,7 +444,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I32Extend8SOp, op))
     }
     I32Extend16S => {
@@ -1139,7 +451,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I32Extend16SOp, op))
     }
     I64Extend8S => {
@@ -1147,7 +458,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I64Extend8SOp, op))
     }
     I64Extend16S => {
@@ -1155,7 +465,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I64Extend16SOp, op))
     }
     I64Extend32S => {
@@ -1163,7 +472,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I64Extend32SOp, op))
     }
     I32TruncSatF32S => {
@@ -1171,7 +479,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I32TruncSatF32SOp, op))
     }
     I32TruncSatF32U => {
@@ -1179,7 +486,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I32TruncSatF32UOp, op))
     }
     I32TruncSatF64S => {
@@ -1187,7 +493,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I32TruncSatF64SOp, op))
     }
     I32TruncSatF64U => {
@@ -1195,7 +500,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I32TruncSatF64UOp, op))
     }
     I64TruncSatF32S => {
@@ -1203,7 +507,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I64TruncSatF32SOp, op))
     }
     I64TruncSatF32U => {
@@ -1211,7 +514,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I64TruncSatF32UOp, op))
     }
     I64TruncSatF64S => {
@@ -1219,7 +521,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I64TruncSatF64SOp, op))
     }
     I64TruncSatF64U => {
@@ -1227,7 +528,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I64TruncSatF64UOp, op))
     }
 
@@ -1237,12 +537,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32EqOp, lhs, rhs))
     }
     I32Ne => {
@@ -1250,12 +548,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32NeOp, lhs, rhs))
     }
     I32LtS => {
@@ -1263,12 +559,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32LtSOp, lhs, rhs))
     }
     I32LtU => {
@@ -1276,12 +570,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32LtUOp, lhs, rhs))
     }
     I32GtS => {
@@ -1289,12 +581,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32GtSOp, lhs, rhs))
     }
     I32GtU => {
@@ -1302,12 +592,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32GtUOp, lhs, rhs))
     }
     I32LeS => {
@@ -1315,12 +603,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32LeSOp, lhs, rhs))
     }
     I32LeU => {
@@ -1328,12 +614,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32LeUOp, lhs, rhs))
     }
     I32GeS => {
@@ -1341,12 +625,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32GeSOp, lhs, rhs))
     }
     I32GeU => {
@@ -1354,12 +636,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32GeUOp, lhs, rhs))
     }
     I64Eq => {
@@ -1367,12 +647,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64EqOp, lhs, rhs))
     }
     I64Ne => {
@@ -1380,12 +658,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64NeOp, lhs, rhs))
     }
     I64LtS => {
@@ -1393,12 +669,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64LtSOp, lhs, rhs))
     }
     I64LtU => {
@@ -1406,12 +680,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64LtUOp, lhs, rhs))
     }
     I64GtS => {
@@ -1419,12 +691,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64GtSOp, lhs, rhs))
     }
     I64GtU => {
@@ -1432,12 +702,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64GtUOp, lhs, rhs))
     }
     I64LeS => {
@@ -1445,12 +713,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64LeSOp, lhs, rhs))
     }
     I64LeU => {
@@ -1458,12 +724,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64LeUOp, lhs, rhs))
     }
     I64GeS => {
@@ -1471,12 +735,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64GeSOp, lhs, rhs))
     }
     I64GeU => {
@@ -1484,12 +746,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64GeUOp, lhs, rhs))
     }
     F32Eq => {
@@ -1497,12 +757,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F32EqOp, lhs, rhs))
     }
     F32Ne => {
@@ -1510,12 +768,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F32NeOp, lhs, rhs))
     }
     F32Lt => {
@@ -1523,12 +779,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F32LtOp, lhs, rhs))
     }
     F32Gt => {
@@ -1536,12 +790,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F32GtOp, lhs, rhs))
     }
     F32Le => {
@@ -1549,12 +801,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F32LeOp, lhs, rhs))
     }
     F32Ge => {
@@ -1562,12 +812,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F32GeOp, lhs, rhs))
     }
     F64Eq => {
@@ -1575,12 +823,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F64EqOp, lhs, rhs))
     }
     F64Ne => {
@@ -1588,12 +834,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F64NeOp, lhs, rhs))
     }
     F64Lt => {
@@ -1601,12 +845,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F64LtOp, lhs, rhs))
     }
     F64Gt => {
@@ -1614,12 +856,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F64GtOp, lhs, rhs))
     }
     F64Le => {
@@ -1627,12 +867,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F64LeOp, lhs, rhs))
     }
     F64Ge => {
@@ -1640,12 +878,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F64GeOp, lhs, rhs))
     }
     I32Add => {
@@ -1653,12 +889,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32AddOp, lhs, rhs))
     }
     I32Sub => {
@@ -1666,12 +900,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32SubOp, lhs, rhs))
     }
     I32Mul => {
@@ -1679,12 +911,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32MulOp, lhs, rhs))
     }
     I32DivS => {
@@ -1692,12 +922,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32DivSOp, lhs, rhs))
     }
     I32DivU => {
@@ -1705,12 +933,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32DivUOp, lhs, rhs))
     }
     I32RemS => {
@@ -1718,12 +944,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32RemSOp, lhs, rhs))
     }
     I32RemU => {
@@ -1731,12 +955,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32RemUOp, lhs, rhs))
     }
     I32And => {
@@ -1744,12 +966,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32AndOp, lhs, rhs))
     }
     I32Or => {
@@ -1757,12 +977,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32OrOp, lhs, rhs))
     }
     I32Xor => {
@@ -1770,12 +988,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32XorOp, lhs, rhs))
     }
     I32Shl => {
@@ -1783,12 +999,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32ShlOp, lhs, rhs))
     }
     I32ShrS => {
@@ -1796,12 +1010,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32ShrSOp, lhs, rhs))
     }
     I32ShrU => {
@@ -1809,12 +1021,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32ShrUOp, lhs, rhs))
     }
     I32Rotl => {
@@ -1822,12 +1032,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32RotlOp, lhs, rhs))
     }
     I32Rotr => {
@@ -1835,12 +1043,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32RotrOp, lhs, rhs))
     }
     I64Add => {
@@ -1848,12 +1054,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64AddOp, lhs, rhs))
     }
     I64Sub => {
@@ -1861,12 +1065,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64SubOp, lhs, rhs))
     }
     I64Mul => {
@@ -1874,12 +1076,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64MulOp, lhs, rhs))
     }
     I64DivS => {
@@ -1887,12 +1087,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64DivSOp, lhs, rhs))
     }
     I64DivU => {
@@ -1900,12 +1098,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64DivUOp, lhs, rhs))
     }
     I64RemS => {
@@ -1913,12 +1109,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64RemSOp, lhs, rhs))
     }
     I64RemU => {
@@ -1926,12 +1120,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64RemUOp, lhs, rhs))
     }
     I64And => {
@@ -1939,12 +1131,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64AndOp, lhs, rhs))
     }
     I64Or => {
@@ -1952,12 +1142,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64OrOp, lhs, rhs))
     }
     I64Xor => {
@@ -1965,12 +1153,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64XorOp, lhs, rhs))
     }
     I64Shl => {
@@ -1978,12 +1164,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64ShlOp, lhs, rhs))
     }
     I64ShrS => {
@@ -1991,12 +1175,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64ShrSOp, lhs, rhs))
     }
     I64ShrU => {
@@ -2004,12 +1186,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64ShrUOp, lhs, rhs))
     }
     I64Rotl => {
@@ -2017,12 +1197,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64RotlOp, lhs, rhs))
     }
     I64Rotr => {
@@ -2030,12 +1208,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64RotrOp, lhs, rhs))
     }
     F32Add => {
@@ -2043,12 +1219,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F32AddOp, lhs, rhs))
     }
     F32Sub => {
@@ -2056,12 +1230,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F32SubOp, lhs, rhs))
     }
     F32Mul => {
@@ -2069,12 +1241,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F32MulOp, lhs, rhs))
     }
     F32Div => {
@@ -2082,12 +1252,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F32DivOp, lhs, rhs))
     }
     F32Min => {
@@ -2095,12 +1263,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F32MinOp, lhs, rhs))
     }
     F32Max => {
@@ -2108,12 +1274,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F32MaxOp, lhs, rhs))
     }
     F32Copysign => {
@@ -2121,12 +1285,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F32CopysignOp, lhs, rhs))
     }
     F64Add => {
@@ -2134,12 +1296,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F64AddOp, lhs, rhs))
     }
     F64Sub => {
@@ -2147,12 +1307,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F64SubOp, lhs, rhs))
     }
     F64Mul => {
@@ -2160,12 +1318,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F64MulOp, lhs, rhs))
     }
     F64Div => {
@@ -2173,12 +1329,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F64DivOp, lhs, rhs))
     }
     F64Min => {
@@ -2186,12 +1340,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F64MinOp, lhs, rhs))
     }
     F64Max => {
@@ -2199,12 +1351,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F64MaxOp, lhs, rhs))
     }
     F64Copysign => {
@@ -2212,12 +1362,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F64CopysignOp, lhs, rhs))
     }
 
@@ -2227,7 +1375,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TDrop(op))
     }
     LocalSet(idx) => {
@@ -2235,7 +1382,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TLocalSet(idx, op))
     }
     LocalTee(idx) => {
@@ -2243,7 +1389,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TLocalTee(idx, op))
     }
     GlobalSet(idx) => {
@@ -2251,7 +1396,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TGlobalSet(idx, op))
     }
     RefIsNull => {
@@ -2259,7 +1403,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TRefIsNull(op))
     }
     RefAsNonNull => {
@@ -2267,7 +1410,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TRefAsNonNull(op))
     }
     RefEq => {
@@ -2275,12 +1417,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TRefEq(lhs, rhs))
     }
     RefI31 => {
@@ -2288,7 +1428,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TRefI31(op))
     }
     I31GetS => {
@@ -2296,7 +1435,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TI31GetS(op))
     }
     I31GetU => {
@@ -2304,7 +1442,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TI31GetU(op))
     }
     ArrayLen => {
@@ -2312,7 +1449,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TArrayLen(op))
     }
     AnyConvertExtern => {
@@ -2320,7 +1456,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TAnyConvertExtern(op))
     }
     ExternConvertAny => {
@@ -2328,7 +1463,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TExternConvertAny(op))
     }
     ThrowRef => {
@@ -2336,7 +1470,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TThrowRef(op))
     }
 
@@ -2346,7 +1479,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TLoad(I32LoadOp, memarg, addr))
     }
     I64Load(memarg) => {
@@ -2354,7 +1486,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TLoad(I64LoadOp, memarg, addr))
     }
     F32Load(memarg) => {
@@ -2362,7 +1493,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TLoad(F32LoadOp, memarg, addr))
     }
     F64Load(memarg) => {
@@ -2370,7 +1500,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TLoad(F64LoadOp, memarg, addr))
     }
     I32Load8S(memarg) => {
@@ -2378,7 +1507,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TLoad(I32Load8SOp, memarg, addr))
     }
     I32Load8U(memarg) => {
@@ -2386,7 +1514,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TLoad(I32Load8UOp, memarg, addr))
     }
     I32Load16S(memarg) => {
@@ -2394,7 +1521,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TLoad(I32Load16SOp, memarg, addr))
     }
     I32Load16U(memarg) => {
@@ -2402,7 +1528,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TLoad(I32Load16UOp, memarg, addr))
     }
     I64Load8S(memarg) => {
@@ -2410,7 +1535,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TLoad(I64Load8SOp, memarg, addr))
     }
     I64Load8U(memarg) => {
@@ -2418,7 +1542,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TLoad(I64Load8UOp, memarg, addr))
     }
     I64Load16S(memarg) => {
@@ -2426,7 +1549,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TLoad(I64Load16SOp, memarg, addr))
     }
     I64Load16U(memarg) => {
@@ -2434,7 +1556,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TLoad(I64Load16UOp, memarg, addr))
     }
     I64Load32S(memarg) => {
@@ -2442,7 +1563,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TLoad(I64Load32SOp, memarg, addr))
     }
     I64Load32U(memarg) => {
@@ -2450,7 +1570,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TLoad(I64Load32UOp, memarg, addr))
     }
 
@@ -2460,12 +1579,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TStore(I32StoreOp, memarg, addr, value))
     }
     I64Store(memarg) => {
@@ -2473,12 +1590,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TStore(I64StoreOp, memarg, addr, value))
     }
     F32Store(memarg) => {
@@ -2486,12 +1601,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TStore(F32StoreOp, memarg, addr, value))
     }
     F64Store(memarg) => {
@@ -2499,12 +1612,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TStore(F64StoreOp, memarg, addr, value))
     }
     I32Store8(memarg) => {
@@ -2512,12 +1623,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TStore(I32Store8Op, memarg, addr, value))
     }
     I32Store16(memarg) => {
@@ -2525,12 +1634,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TStore(I32Store16Op, memarg, addr, value))
     }
     I64Store8(memarg) => {
@@ -2538,12 +1645,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TStore(I64Store8Op, memarg, addr, value))
     }
     I64Store16(memarg) => {
@@ -2551,12 +1656,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TStore(I64Store16Op, memarg, addr, value))
     }
     I64Store32(memarg) => {
@@ -2564,12 +1667,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TStore(I64Store32Op, memarg, addr, value))
     }
 
@@ -2579,7 +1680,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TMemoryGrow(idx, pages))
     }
     MemoryFill(idx) => {
@@ -2587,17 +1687,14 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let val = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let dest = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TMemoryFill(idx, dest, val, len))
     }
     MemoryCopy(dst, src) => {
@@ -2605,17 +1702,14 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let src_addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let dst_addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TMemoryCopy(dst, src, dst_addr, src_addr, len))
     }
     MemoryInit(data_idx, mem_idx) => {
@@ -2623,17 +1717,14 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let src = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let dst = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TMemoryInit(data_idx, mem_idx, dst, src, len))
     }
     DataDrop(idx) => stack.push(TDataDrop(idx))
@@ -2644,7 +1735,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TTableGet(idx, i))
     }
     TableSet(idx) => {
@@ -2652,12 +1742,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let i = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TTableSet(idx, i, val))
     }
     TableGrow(idx) => {
@@ -2665,12 +1753,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let val = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TTableGrow(idx, val, n))
     }
     TableFill(idx) => {
@@ -2678,17 +1764,14 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let val = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let i = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TTableFill(idx, i, val, n))
     }
     TableCopy(dst, src) => {
@@ -2696,17 +1779,14 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let s = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let d = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TTableCopy(dst, src, d, s, n))
     }
     TableInit(elem_idx, table_idx) => {
@@ -2714,17 +1794,14 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let s = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let d = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TTableInit(elem_idx, table_idx, d, s, n))
     }
     ElemDrop(idx) => stack.push(TElemDrop(idx))
@@ -2735,17 +1812,14 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let val2 = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let val1 = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TSelect(types, cond, val1, val2))
     }
 
@@ -2767,14 +1841,14 @@ fn instr_to_tinstr(
           Err(t) => return Err(t)
         }
       }
-      stack.push(TBlock(bt, TExpr::{ values: body_stack }))
+      stack.push(TBlock(bt, TExpr(body_stack)))
     }
     Loop(bt, body) => {
       let n_inputs = block_type_inputs(bt, env)
       let inputs = match pop_n(stack, n_inputs) {
-          Ok(t) => t
-          Err(t) => return Err(t)
-        }
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
       let body_stack = []
       for input in inputs {
         body_stack.push(input)
@@ -2785,19 +1859,18 @@ fn instr_to_tinstr(
           Err(t) => return Err(t)
         }
       }
-      stack.push(TLoop(bt, TExpr::{ values: body_stack }))
+      stack.push(TLoop(bt, TExpr(body_stack)))
     }
     If(bt, then_branch, else_branch) => {
       let cond = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let n_inputs = block_type_inputs(bt, env)
       let inputs = match pop_n(stack, n_inputs) {
-          Ok(t) => t
-          Err(t) => return Err(t)
-        }
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
       let then_stack : Array[TInstr] = []
       for input in inputs {
         then_stack.push(input)
@@ -2820,18 +1893,18 @@ fn instr_to_tinstr(
               Err(t) => return Err(t)
             }
           }
-          Some(TExpr::{ values: else_stack })
+          Some(TExpr(else_stack))
         }
         None => None
       }
-      stack.push(TIf(bt, cond, TExpr::{ values: then_stack }, else_texpr))
+      stack.push(TIf(bt, cond, TExpr(then_stack), else_texpr))
     }
     TryTable(bt, catches, body) => {
       let n_inputs = block_type_inputs(bt, env)
       let inputs = match pop_n(stack, n_inputs) {
-          Ok(t) => t
-          Err(t) => return Err(t)
-        }
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
       let body_stack = []
       for input in inputs {
         body_stack.push(input)
@@ -2842,7 +1915,7 @@ fn instr_to_tinstr(
           Err(t) => return Err(t)
         }
       }
-      stack.push(TTryTable(bt, catches, TExpr::{ values: body_stack }))
+      stack.push(TTryTable(bt, catches, TExpr(body_stack)))
     }
     Throw(tag_idx) => {
       let n_args = match env.resolve_tag_functype(tag_idx) {
@@ -2850,9 +1923,9 @@ fn instr_to_tinstr(
         None => 0
       }
       let args = match pop_n(stack, n_args) {
-          Ok(t) => t
-          Err(t) => return Err(t)
-        }
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
       stack.push(TThrow(tag_idx, args))
     }
 
@@ -2874,7 +1947,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let arity = match env.get_label(label) {
         Some(types) => types.length()
         None => 0
@@ -2890,7 +1962,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let arity = match env.get_label(default) {
         Some(types) => types.length()
         None => 0
@@ -2906,7 +1977,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let arity = match env.get_label(label) {
         Some(types) => types.length()
         None => 0
@@ -2922,7 +1992,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let arity = match env.get_label(label) {
         Some(types) => types.length()
         None => 0
@@ -2938,7 +2007,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let arity = match env.get_label(label) {
         Some(types) => types.length()
         None => 0
@@ -2954,7 +2022,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let arity = match env.get_label(label) {
         Some(types) => types.length()
         None => 0
@@ -2994,7 +2061,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let n_args = match env.resolve_functype(type_idx) {
         Some(FuncType(params, _)) => params.length()
         None => 0
@@ -3010,7 +2076,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let n_args = match env.resolve_functype(type_idx) {
         Some(FuncType(params, _)) => params.length()
         None => 0
@@ -3037,7 +2102,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let n_args = match env.resolve_functype(type_idx) {
         Some(FuncType(params, _)) => params.length()
         None => 0
@@ -3053,7 +2117,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let n_args = match env.resolve_functype(type_idx) {
         Some(FuncType(params, _)) => params.length()
         None => 0
@@ -3083,7 +2146,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TStructGet(type_idx, field_idx, struct_ref))
     }
     StructGetS(type_idx, field_idx) => {
@@ -3091,7 +2153,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TStructGetS(type_idx, field_idx, struct_ref))
     }
     StructGetU(type_idx, field_idx) => {
@@ -3099,7 +2160,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TStructGetU(type_idx, field_idx, struct_ref))
     }
     StructSet(type_idx, field_idx) => {
@@ -3107,12 +2167,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let struct_ref = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TStructSet(type_idx, field_idx, struct_ref, val))
     }
 
@@ -3122,12 +2180,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let init = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TArrayNew(type_idx, init, len))
     }
     ArrayNewDefault(type_idx) => {
@@ -3135,7 +2191,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TArrayNewDefault(type_idx, len))
     }
     ArrayNewFixed(type_idx, n) => {
@@ -3150,12 +2205,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let offset = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TArrayNewData(type_idx, data_idx, offset, len))
     }
     ArrayNewElem(type_idx, elem_idx) => {
@@ -3163,12 +2216,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let offset = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TArrayNewElem(type_idx, elem_idx, offset, len))
     }
     ArrayGet(type_idx) => {
@@ -3176,12 +2227,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let arr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TArrayGet(type_idx, arr, idx))
     }
     ArrayGetS(type_idx) => {
@@ -3189,12 +2238,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let arr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TArrayGetS(type_idx, arr, idx))
     }
     ArrayGetU(type_idx) => {
@@ -3202,12 +2249,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let arr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TArrayGetU(type_idx, arr, idx))
     }
     ArraySet(type_idx) => {
@@ -3215,17 +2260,14 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let idx = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let arr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TArraySet(type_idx, arr, idx, val))
     }
     ArrayFill(type_idx) => {
@@ -3233,22 +2275,18 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let val = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let offset = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let arr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TArrayFill(type_idx, arr, offset, val, len))
     }
     ArrayCopy(dst_type, src_type) => {
@@ -3256,50 +2294,43 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let src_offset = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let src = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let dst_offset = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let dst = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
-      stack.push(TArrayCopy(dst_type, src_type, dst, dst_offset, src, src_offset, len))
+      stack.push(
+        TArrayCopy(dst_type, src_type, dst, dst_offset, src, src_offset, len),
+      )
     }
     ArrayInitData(type_idx, data_idx) => {
       let len = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let src = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let dst = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let arr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TArrayInitData(type_idx, data_idx, arr, dst, src, len))
     }
     ArrayInitElem(type_idx, elem_idx) => {
@@ -3307,22 +2338,18 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let src = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let dst = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let arr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TArrayInitElem(type_idx, elem_idx, arr, dst, src, len))
     }
 
@@ -3332,7 +2359,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TRefTest(nullable, ht, ref_))
     }
     RefCast(nullable, ht) => {
@@ -3340,7 +2366,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TRefCast(nullable, ht, ref_))
     }
 
@@ -3350,7 +2375,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TLoad(V128LoadOp, memarg, addr))
     }
     V128Load8x8S(memarg) => {
@@ -3358,7 +2382,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TLoad(V128Load8x8SOp, memarg, addr))
     }
     V128Load8x8U(memarg) => {
@@ -3366,7 +2389,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TLoad(V128Load8x8UOp, memarg, addr))
     }
     V128Load16x4S(memarg) => {
@@ -3374,7 +2396,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TLoad(V128Load16x4SOp, memarg, addr))
     }
     V128Load16x4U(memarg) => {
@@ -3382,7 +2403,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TLoad(V128Load16x4UOp, memarg, addr))
     }
     V128Load32x2S(memarg) => {
@@ -3390,7 +2410,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TLoad(V128Load32x2SOp, memarg, addr))
     }
     V128Load32x2U(memarg) => {
@@ -3398,7 +2417,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TLoad(V128Load32x2UOp, memarg, addr))
     }
     V128Load8Splat(memarg) => {
@@ -3406,7 +2424,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TLoad(V128Load8SplatOp, memarg, addr))
     }
     V128Load16Splat(memarg) => {
@@ -3414,7 +2431,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TLoad(V128Load16SplatOp, memarg, addr))
     }
     V128Load32Splat(memarg) => {
@@ -3422,7 +2438,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TLoad(V128Load32SplatOp, memarg, addr))
     }
     V128Load64Splat(memarg) => {
@@ -3430,7 +2445,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TLoad(V128Load64SplatOp, memarg, addr))
     }
     V128Load32Zero(memarg) => {
@@ -3438,7 +2452,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TLoad(V128Load32ZeroOp, memarg, addr))
     }
     V128Load64Zero(memarg) => {
@@ -3446,7 +2459,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TLoad(V128Load64ZeroOp, memarg, addr))
     }
     V128Store(memarg) => {
@@ -3454,12 +2466,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TStore(V128StoreOp, memarg, addr, val))
     }
     V128Load8Lane(memarg, lane) => {
@@ -3467,12 +2477,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TV128LoadLane(V128Load8LaneOp, memarg, lane, addr, vec))
     }
     V128Load16Lane(memarg, lane) => {
@@ -3480,12 +2488,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TV128LoadLane(V128Load16LaneOp, memarg, lane, addr, vec))
     }
     V128Load32Lane(memarg, lane) => {
@@ -3493,12 +2499,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TV128LoadLane(V128Load32LaneOp, memarg, lane, addr, vec))
     }
     V128Load64Lane(memarg, lane) => {
@@ -3506,12 +2510,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TV128LoadLane(V128Load64LaneOp, memarg, lane, addr, vec))
     }
     V128Store8Lane(memarg, lane) => {
@@ -3519,12 +2521,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TV128StoreLane(V128Store8LaneOp, memarg, lane, addr, vec))
     }
     V128Store16Lane(memarg, lane) => {
@@ -3532,12 +2532,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TV128StoreLane(V128Store16LaneOp, memarg, lane, addr, vec))
     }
     V128Store32Lane(memarg, lane) => {
@@ -3545,12 +2543,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TV128StoreLane(V128Store32LaneOp, memarg, lane, addr, vec))
     }
     V128Store64Lane(memarg, lane) => {
@@ -3558,12 +2554,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let addr = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TV128StoreLane(V128Store64LaneOp, memarg, lane, addr, vec))
     }
 
@@ -3573,7 +2567,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TI8x16Splat(val))
     }
     I16x8Splat => {
@@ -3581,7 +2574,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TI16x8Splat(val))
     }
     I32x4Splat => {
@@ -3589,7 +2581,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TI32x4Splat(val))
     }
     I64x2Splat => {
@@ -3597,7 +2588,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TI64x2Splat(val))
     }
     F32x4Splat => {
@@ -3605,7 +2595,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TF32x4Splat(val))
     }
     F64x2Splat => {
@@ -3613,7 +2602,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TF64x2Splat(val))
     }
 
@@ -3623,7 +2611,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TExtractLane(I8x16ExtractLaneSOp, lane, vec))
     }
     I8x16ExtractLaneU(lane) => {
@@ -3631,7 +2618,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TExtractLane(I8x16ExtractLaneUOp, lane, vec))
     }
     I16x8ExtractLaneS(lane) => {
@@ -3639,7 +2625,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TExtractLane(I16x8ExtractLaneSOp, lane, vec))
     }
     I16x8ExtractLaneU(lane) => {
@@ -3647,7 +2632,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TExtractLane(I16x8ExtractLaneUOp, lane, vec))
     }
     I32x4ExtractLane(lane) => {
@@ -3655,7 +2639,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TExtractLane(I32x4ExtractLaneOp, lane, vec))
     }
     I64x2ExtractLane(lane) => {
@@ -3663,7 +2646,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TExtractLane(I64x2ExtractLaneOp, lane, vec))
     }
     F32x4ExtractLane(lane) => {
@@ -3671,7 +2653,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TExtractLane(F32x4ExtractLaneOp, lane, vec))
     }
     F64x2ExtractLane(lane) => {
@@ -3679,7 +2660,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TExtractLane(F64x2ExtractLaneOp, lane, vec))
     }
 
@@ -3689,12 +2669,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let vec = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TReplaceLane(I8x16ReplaceLaneOp, lane, vec, val))
     }
     I16x8ReplaceLane(lane) => {
@@ -3702,12 +2680,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let vec = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TReplaceLane(I16x8ReplaceLaneOp, lane, vec, val))
     }
     I32x4ReplaceLane(lane) => {
@@ -3715,12 +2691,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let vec = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TReplaceLane(I32x4ReplaceLaneOp, lane, vec, val))
     }
     I64x2ReplaceLane(lane) => {
@@ -3728,12 +2702,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let vec = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TReplaceLane(I64x2ReplaceLaneOp, lane, vec, val))
     }
     F32x4ReplaceLane(lane) => {
@@ -3741,12 +2713,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let vec = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TReplaceLane(F32x4ReplaceLaneOp, lane, vec, val))
     }
     F64x2ReplaceLane(lane) => {
@@ -3754,40 +2724,56 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let vec = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TReplaceLane(F64x2ReplaceLaneOp, lane, vec, val))
     }
 
     // === SIMD: Shuffle/Swizzle ===
-    I8x16Shuffle(l0, l1, l2, l3, l4, l5, l6, l7, l8, l9, l10, l11, l12, l13, l14, l15) => {
+    I8x16Shuffle(
+      l0,
+      l1,
+      l2,
+      l3,
+      l4,
+      l5,
+      l6,
+      l7,
+      l8,
+      l9,
+      l10,
+      l11,
+      l12,
+      l13,
+      l14,
+      l15
+    ) => {
       let v2 = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let v1 = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
-      stack.push(TI8x16Shuffle(l0, l1, l2, l3, l4, l5, l6, l7, l8, l9, l10, l11, l12, l13, l14, l15, v1, v2))
+      stack.push(
+        TI8x16Shuffle(
+          l0, l1, l2, l3, l4, l5, l6, l7, l8, l9, l10, l11, l12, l13, l14, l15, v1,
+          v2,
+        ),
+      )
     }
     I8x16Swizzle => {
       let indices = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let vec = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TI8x16Swizzle(vec, indices))
     }
     I8x16RelaxedSwizzle => {
@@ -3795,12 +2781,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let vec = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TI8x16RelaxedSwizzle(vec, indices))
     }
 
@@ -3810,7 +2794,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(V128NotOp, op))
     }
     I8x16Abs => {
@@ -3818,7 +2801,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I8x16AbsOp, op))
     }
     I8x16Neg => {
@@ -3826,7 +2808,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I8x16NegOp, op))
     }
     I8x16Popcnt => {
@@ -3834,7 +2815,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I8x16PopcntOp, op))
     }
     I16x8Abs => {
@@ -3842,16 +2822,14 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I16x8AbsOp, op))
     }
-// === SIMD: Unary v128 -> v128 (continued) ===
+    // === SIMD: Unary v128 -> v128 (continued) ===
     I16x8Neg => {
       let op = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I16x8NegOp, op))
     }
     I32x4Abs => {
@@ -3859,7 +2837,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I32x4AbsOp, op))
     }
     I32x4Neg => {
@@ -3867,7 +2844,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I32x4NegOp, op))
     }
     I64x2Abs => {
@@ -3875,7 +2851,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I64x2AbsOp, op))
     }
     I64x2Neg => {
@@ -3883,7 +2858,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I64x2NegOp, op))
     }
     F32x4Abs => {
@@ -3891,7 +2865,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F32x4AbsOp, op))
     }
     F32x4Neg => {
@@ -3899,7 +2872,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F32x4NegOp, op))
     }
     F32x4Sqrt => {
@@ -3907,7 +2879,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F32x4SqrtOp, op))
     }
     F32x4Ceil => {
@@ -3915,7 +2886,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F32x4CeilOp, op))
     }
     F32x4Floor => {
@@ -3923,7 +2893,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F32x4FloorOp, op))
     }
     F32x4Trunc => {
@@ -3931,7 +2900,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F32x4TruncOp, op))
     }
     F32x4Nearest => {
@@ -3939,7 +2907,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F32x4NearestOp, op))
     }
     F64x2Abs => {
@@ -3947,7 +2914,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F64x2AbsOp, op))
     }
     F64x2Neg => {
@@ -3955,7 +2921,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F64x2NegOp, op))
     }
     F64x2Sqrt => {
@@ -3963,7 +2928,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F64x2SqrtOp, op))
     }
     F64x2Ceil => {
@@ -3971,7 +2935,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F64x2CeilOp, op))
     }
     F64x2Floor => {
@@ -3979,7 +2942,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F64x2FloorOp, op))
     }
     F64x2Trunc => {
@@ -3987,7 +2949,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F64x2TruncOp, op))
     }
     F64x2Nearest => {
@@ -3995,7 +2956,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F64x2NearestOp, op))
     }
 
@@ -4005,7 +2965,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(V128AnyTrueOp, op))
     }
     I8x16AllTrue => {
@@ -4013,7 +2972,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I8x16AllTrueOp, op))
     }
     I8x16Bitmask => {
@@ -4021,7 +2979,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I8x16BitmaskOp, op))
     }
     I16x8AllTrue => {
@@ -4029,7 +2986,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I16x8AllTrueOp, op))
     }
     I16x8Bitmask => {
@@ -4037,7 +2993,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I16x8BitmaskOp, op))
     }
     I32x4AllTrue => {
@@ -4045,7 +3000,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I32x4AllTrueOp, op))
     }
     I32x4Bitmask => {
@@ -4053,7 +3007,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I32x4BitmaskOp, op))
     }
     I64x2AllTrue => {
@@ -4061,7 +3014,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I64x2AllTrueOp, op))
     }
     I64x2Bitmask => {
@@ -4069,7 +3021,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I64x2BitmaskOp, op))
     }
 
@@ -4079,7 +3030,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I16x8ExtendLowI8x16SOp, op))
     }
     I16x8ExtendHighI8x16S => {
@@ -4087,7 +3037,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I16x8ExtendHighI8x16SOp, op))
     }
     I16x8ExtendLowI8x16U => {
@@ -4095,7 +3044,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I16x8ExtendLowI8x16UOp, op))
     }
     I16x8ExtendHighI8x16U => {
@@ -4103,7 +3051,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I16x8ExtendHighI8x16UOp, op))
     }
     I32x4ExtendLowI16x8S => {
@@ -4111,7 +3058,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I32x4ExtendLowI16x8SOp, op))
     }
     I32x4ExtendHighI16x8S => {
@@ -4119,7 +3065,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I32x4ExtendHighI16x8SOp, op))
     }
     I32x4ExtendLowI16x8U => {
@@ -4127,7 +3072,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I32x4ExtendLowI16x8UOp, op))
     }
     I32x4ExtendHighI16x8U => {
@@ -4135,7 +3079,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I32x4ExtendHighI16x8UOp, op))
     }
     I64x2ExtendLowI32x4S => {
@@ -4143,7 +3086,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I64x2ExtendLowI32x4SOp, op))
     }
     I64x2ExtendHighI32x4S => {
@@ -4151,7 +3093,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I64x2ExtendHighI32x4SOp, op))
     }
     I64x2ExtendLowI32x4U => {
@@ -4159,7 +3100,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I64x2ExtendLowI32x4UOp, op))
     }
     I64x2ExtendHighI32x4U => {
@@ -4167,7 +3107,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I64x2ExtendHighI32x4UOp, op))
     }
 
@@ -4177,7 +3116,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I16x8ExtaddPairwiseI8x16SOp, op))
     }
     I16x8ExtaddPairwiseI8x16U => {
@@ -4185,7 +3123,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I16x8ExtaddPairwiseI8x16UOp, op))
     }
     I32x4ExtaddPairwiseI16x8S => {
@@ -4193,7 +3130,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I32x4ExtaddPairwiseI16x8SOp, op))
     }
     I32x4ExtaddPairwiseI16x8U => {
@@ -4201,7 +3137,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I32x4ExtaddPairwiseI16x8UOp, op))
     }
 
@@ -4211,7 +3146,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F32x4DemoteF64x2ZeroOp, op))
     }
     F64x2PromoteLowF32x4 => {
@@ -4219,7 +3153,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F64x2PromoteLowF32x4Op, op))
     }
     I32x4TruncSatF32x4S => {
@@ -4227,7 +3160,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I32x4TruncSatF32x4SOp, op))
     }
     I32x4TruncSatF32x4U => {
@@ -4235,7 +3167,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I32x4TruncSatF32x4UOp, op))
     }
     F32x4ConvertI32x4S => {
@@ -4243,7 +3174,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F32x4ConvertI32x4SOp, op))
     }
     F32x4ConvertI32x4U => {
@@ -4251,7 +3181,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F32x4ConvertI32x4UOp, op))
     }
     I32x4TruncSatF64x2SZero => {
@@ -4259,7 +3188,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I32x4TruncSatF64x2SZeroOp, op))
     }
     I32x4TruncSatF64x2UZero => {
@@ -4267,7 +3195,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I32x4TruncSatF64x2UZeroOp, op))
     }
     F64x2ConvertLowI32x4S => {
@@ -4275,7 +3202,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F64x2ConvertLowI32x4SOp, op))
     }
     F64x2ConvertLowI32x4U => {
@@ -4283,7 +3209,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(F64x2ConvertLowI32x4UOp, op))
     }
 
@@ -4293,7 +3218,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I32x4RelaxedTruncF32x4SOp, op))
     }
     I32x4RelaxedTruncF32x4U => {
@@ -4301,7 +3225,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I32x4RelaxedTruncF32x4UOp, op))
     }
     I32x4RelaxedTruncZeroF64x2S => {
@@ -4309,7 +3232,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I32x4RelaxedTruncZeroF64x2SOp, op))
     }
     I32x4RelaxedTruncZeroF64x2U => {
@@ -4317,7 +3239,6 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TUnary(I32x4RelaxedTruncZeroF64x2UOp, op))
     }
 
@@ -4327,12 +3248,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(V128AndOp, lhs, rhs))
     }
     V128Andnot => {
@@ -4340,12 +3259,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(V128AndnotOp, lhs, rhs))
     }
     V128Or => {
@@ -4353,12 +3270,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(V128OrOp, lhs, rhs))
     }
     V128Xor => {
@@ -4366,12 +3281,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(V128XorOp, lhs, rhs))
     }
 
@@ -4381,12 +3294,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I8x16EqOp, lhs, rhs))
     }
     I8x16Ne => {
@@ -4394,12 +3305,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I8x16NeOp, lhs, rhs))
     }
     I8x16LtS => {
@@ -4407,12 +3316,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I8x16LtSOp, lhs, rhs))
     }
     I8x16LtU => {
@@ -4420,12 +3327,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I8x16LtUOp, lhs, rhs))
     }
     I8x16GtS => {
@@ -4433,12 +3338,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I8x16GtSOp, lhs, rhs))
     }
     I8x16GtU => {
@@ -4446,12 +3349,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I8x16GtUOp, lhs, rhs))
     }
     I8x16LeS => {
@@ -4459,12 +3360,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I8x16LeSOp, lhs, rhs))
     }
     I8x16LeU => {
@@ -4472,12 +3371,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I8x16LeUOp, lhs, rhs))
     }
     I8x16GeS => {
@@ -4485,12 +3382,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I8x16GeSOp, lhs, rhs))
     }
     I8x16GeU => {
@@ -4498,12 +3393,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I8x16GeUOp, lhs, rhs))
     }
 
@@ -4513,12 +3406,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I16x8EqOp, lhs, rhs))
     }
     I16x8Ne => {
@@ -4526,12 +3417,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I16x8NeOp, lhs, rhs))
     }
     I16x8LtS => {
@@ -4539,12 +3428,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I16x8LtSOp, lhs, rhs))
     }
     I16x8LtU => {
@@ -4552,12 +3439,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I16x8LtUOp, lhs, rhs))
     }
     I16x8GtS => {
@@ -4565,12 +3450,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I16x8GtSOp, lhs, rhs))
     }
     I16x8GtU => {
@@ -4578,12 +3461,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I16x8GtUOp, lhs, rhs))
     }
     I16x8LeS => {
@@ -4591,12 +3472,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I16x8LeSOp, lhs, rhs))
     }
     I16x8LeU => {
@@ -4604,12 +3483,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I16x8LeUOp, lhs, rhs))
     }
     I16x8GeS => {
@@ -4617,12 +3494,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I16x8GeSOp, lhs, rhs))
     }
     I16x8GeU => {
@@ -4630,12 +3505,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I16x8GeUOp, lhs, rhs))
     }
 
@@ -4645,12 +3518,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32x4EqOp, lhs, rhs))
     }
     I32x4Ne => {
@@ -4658,12 +3529,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32x4NeOp, lhs, rhs))
     }
     I32x4LtS => {
@@ -4671,12 +3540,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32x4LtSOp, lhs, rhs))
     }
     I32x4LtU => {
@@ -4684,12 +3551,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32x4LtUOp, lhs, rhs))
     }
     I32x4GtS => {
@@ -4697,12 +3562,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32x4GtSOp, lhs, rhs))
     }
     I32x4GtU => {
@@ -4710,12 +3573,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32x4GtUOp, lhs, rhs))
     }
     I32x4LeS => {
@@ -4723,12 +3584,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32x4LeSOp, lhs, rhs))
     }
     I32x4LeU => {
@@ -4736,12 +3595,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32x4LeUOp, lhs, rhs))
     }
     I32x4GeS => {
@@ -4749,12 +3606,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32x4GeSOp, lhs, rhs))
     }
     I32x4GeU => {
@@ -4762,12 +3617,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32x4GeUOp, lhs, rhs))
     }
 
@@ -4777,12 +3630,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64x2EqOp, lhs, rhs))
     }
     I64x2Ne => {
@@ -4790,12 +3641,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64x2NeOp, lhs, rhs))
     }
     I64x2LtS => {
@@ -4803,12 +3652,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64x2LtSOp, lhs, rhs))
     }
     I64x2GtS => {
@@ -4816,12 +3663,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64x2GtSOp, lhs, rhs))
     }
     I64x2LeS => {
@@ -4829,12 +3674,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64x2LeSOp, lhs, rhs))
     }
     I64x2GeS => {
@@ -4842,12 +3685,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64x2GeSOp, lhs, rhs))
     }
 
@@ -4857,12 +3698,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F32x4EqOp, lhs, rhs))
     }
     F32x4Ne => {
@@ -4870,12 +3709,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F32x4NeOp, lhs, rhs))
     }
     F32x4Lt => {
@@ -4883,12 +3720,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F32x4LtOp, lhs, rhs))
     }
     F32x4Gt => {
@@ -4896,12 +3731,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F32x4GtOp, lhs, rhs))
     }
     F32x4Le => {
@@ -4909,12 +3742,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F32x4LeOp, lhs, rhs))
     }
     F32x4Ge => {
@@ -4922,12 +3753,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F32x4GeOp, lhs, rhs))
     }
 
@@ -4937,12 +3766,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F64x2EqOp, lhs, rhs))
     }
     F64x2Ne => {
@@ -4950,12 +3777,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F64x2NeOp, lhs, rhs))
     }
     F64x2Lt => {
@@ -4963,12 +3788,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F64x2LtOp, lhs, rhs))
     }
     F64x2Gt => {
@@ -4976,12 +3799,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F64x2GtOp, lhs, rhs))
     }
     F64x2Le => {
@@ -4989,12 +3810,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F64x2LeOp, lhs, rhs))
     }
     F64x2Ge => {
@@ -5002,12 +3821,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F64x2GeOp, lhs, rhs))
     }
 
@@ -5017,12 +3834,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I8x16AddOp, lhs, rhs))
     }
     I8x16AddSatS => {
@@ -5030,12 +3845,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I8x16AddSatSOp, lhs, rhs))
     }
     I8x16AddSatU => {
@@ -5043,12 +3856,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I8x16AddSatUOp, lhs, rhs))
     }
     I8x16Sub => {
@@ -5056,12 +3867,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I8x16SubOp, lhs, rhs))
     }
     I8x16SubSatS => {
@@ -5069,12 +3878,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I8x16SubSatSOp, lhs, rhs))
     }
     I8x16SubSatU => {
@@ -5082,12 +3889,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I8x16SubSatUOp, lhs, rhs))
     }
     I8x16MinS => {
@@ -5095,12 +3900,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I8x16MinSOp, lhs, rhs))
     }
     I8x16MinU => {
@@ -5108,12 +3911,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I8x16MinUOp, lhs, rhs))
     }
     I8x16MaxS => {
@@ -5121,12 +3922,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I8x16MaxSOp, lhs, rhs))
     }
     I8x16MaxU => {
@@ -5134,12 +3933,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I8x16MaxUOp, lhs, rhs))
     }
     I8x16AvgrU => {
@@ -5147,12 +3944,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I8x16AvgrUOp, lhs, rhs))
     }
     I8x16NarrowI16x8S => {
@@ -5160,12 +3955,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I8x16NarrowI16x8SOp, lhs, rhs))
     }
     I8x16NarrowI16x8U => {
@@ -5173,12 +3966,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I8x16NarrowI16x8UOp, lhs, rhs))
     }
 
@@ -5188,12 +3979,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I16x8AddOp, lhs, rhs))
     }
     I16x8AddSatS => {
@@ -5201,12 +3990,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I16x8AddSatSOp, lhs, rhs))
     }
     I16x8AddSatU => {
@@ -5214,12 +4001,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I16x8AddSatUOp, lhs, rhs))
     }
     I16x8Sub => {
@@ -5227,12 +4012,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I16x8SubOp, lhs, rhs))
     }
     I16x8SubSatS => {
@@ -5240,12 +4023,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I16x8SubSatSOp, lhs, rhs))
     }
     I16x8SubSatU => {
@@ -5253,12 +4034,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I16x8SubSatUOp, lhs, rhs))
     }
     I16x8Mul => {
@@ -5266,12 +4045,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I16x8MulOp, lhs, rhs))
     }
     I16x8MinS => {
@@ -5279,12 +4056,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I16x8MinSOp, lhs, rhs))
     }
     I16x8MinU => {
@@ -5292,12 +4067,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I16x8MinUOp, lhs, rhs))
     }
     I16x8MaxS => {
@@ -5305,12 +4078,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I16x8MaxSOp, lhs, rhs))
     }
     I16x8MaxU => {
@@ -5318,12 +4089,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I16x8MaxUOp, lhs, rhs))
     }
     I16x8AvgrU => {
@@ -5331,12 +4100,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I16x8AvgrUOp, lhs, rhs))
     }
     I16x8Q15mulrSatS => {
@@ -5344,12 +4111,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I16x8Q15mulrSatSOp, lhs, rhs))
     }
     I16x8NarrowI32x4S => {
@@ -5357,12 +4122,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I16x8NarrowI32x4SOp, lhs, rhs))
     }
     I16x8NarrowI32x4U => {
@@ -5370,12 +4133,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I16x8NarrowI32x4UOp, lhs, rhs))
     }
     I16x8ExtmulLowI8x16S => {
@@ -5383,12 +4144,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I16x8ExtmulLowI8x16SOp, lhs, rhs))
     }
     I16x8ExtmulHighI8x16S => {
@@ -5396,12 +4155,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I16x8ExtmulHighI8x16SOp, lhs, rhs))
     }
     I16x8ExtmulLowI8x16U => {
@@ -5409,12 +4166,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I16x8ExtmulLowI8x16UOp, lhs, rhs))
     }
     I16x8ExtmulHighI8x16U => {
@@ -5422,12 +4177,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I16x8ExtmulHighI8x16UOp, lhs, rhs))
     }
 
@@ -5437,12 +4190,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32x4AddOp, lhs, rhs))
     }
     I32x4Sub => {
@@ -5450,12 +4201,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32x4SubOp, lhs, rhs))
     }
     I32x4Mul => {
@@ -5463,12 +4212,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32x4MulOp, lhs, rhs))
     }
     I32x4MinS => {
@@ -5476,12 +4223,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32x4MinSOp, lhs, rhs))
     }
     I32x4MinU => {
@@ -5489,12 +4234,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32x4MinUOp, lhs, rhs))
     }
     I32x4MaxS => {
@@ -5502,12 +4245,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32x4MaxSOp, lhs, rhs))
     }
     I32x4MaxU => {
@@ -5515,12 +4256,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32x4MaxUOp, lhs, rhs))
     }
     I32x4DotI16x8S => {
@@ -5528,12 +4267,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32x4DotI16x8SOp, lhs, rhs))
     }
     I32x4ExtmulLowI16x8S => {
@@ -5541,12 +4278,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32x4ExtmulLowI16x8SOp, lhs, rhs))
     }
     I32x4ExtmulHighI16x8S => {
@@ -5554,12 +4289,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32x4ExtmulHighI16x8SOp, lhs, rhs))
     }
     I32x4ExtmulLowI16x8U => {
@@ -5567,12 +4300,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32x4ExtmulLowI16x8UOp, lhs, rhs))
     }
     I32x4ExtmulHighI16x8U => {
@@ -5580,12 +4311,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I32x4ExtmulHighI16x8UOp, lhs, rhs))
     }
 
@@ -5595,12 +4324,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64x2AddOp, lhs, rhs))
     }
     I64x2Sub => {
@@ -5608,12 +4335,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64x2SubOp, lhs, rhs))
     }
     I64x2Mul => {
@@ -5621,12 +4346,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64x2MulOp, lhs, rhs))
     }
     I64x2ExtmulLowI32x4S => {
@@ -5634,12 +4357,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64x2ExtmulLowI32x4SOp, lhs, rhs))
     }
     I64x2ExtmulHighI32x4S => {
@@ -5647,12 +4368,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64x2ExtmulHighI32x4SOp, lhs, rhs))
     }
     I64x2ExtmulLowI32x4U => {
@@ -5660,12 +4379,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64x2ExtmulLowI32x4UOp, lhs, rhs))
     }
     I64x2ExtmulHighI32x4U => {
@@ -5673,12 +4390,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I64x2ExtmulHighI32x4UOp, lhs, rhs))
     }
 
@@ -5688,12 +4403,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F32x4AddOp, lhs, rhs))
     }
     F32x4Sub => {
@@ -5701,12 +4414,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F32x4SubOp, lhs, rhs))
     }
     F32x4Mul => {
@@ -5714,12 +4425,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F32x4MulOp, lhs, rhs))
     }
     F32x4Div => {
@@ -5727,12 +4436,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F32x4DivOp, lhs, rhs))
     }
     F32x4Min => {
@@ -5740,12 +4447,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F32x4MinOp, lhs, rhs))
     }
     F32x4Max => {
@@ -5753,12 +4458,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F32x4MaxOp, lhs, rhs))
     }
     F32x4Pmin => {
@@ -5766,12 +4469,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F32x4PminOp, lhs, rhs))
     }
     F32x4Pmax => {
@@ -5779,12 +4480,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F32x4PmaxOp, lhs, rhs))
     }
 
@@ -5794,12 +4493,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F64x2AddOp, lhs, rhs))
     }
     F64x2Sub => {
@@ -5807,12 +4504,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F64x2SubOp, lhs, rhs))
     }
     F64x2Mul => {
@@ -5820,12 +4515,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F64x2MulOp, lhs, rhs))
     }
     F64x2Div => {
@@ -5833,12 +4526,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F64x2DivOp, lhs, rhs))
     }
     F64x2Min => {
@@ -5846,12 +4537,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F64x2MinOp, lhs, rhs))
     }
     F64x2Max => {
@@ -5859,12 +4548,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F64x2MaxOp, lhs, rhs))
     }
     F64x2Pmin => {
@@ -5872,12 +4559,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F64x2PminOp, lhs, rhs))
     }
     F64x2Pmax => {
@@ -5885,12 +4570,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F64x2PmaxOp, lhs, rhs))
     }
 
@@ -5900,12 +4583,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F32x4RelaxedMinOp, lhs, rhs))
     }
     F32x4RelaxedMax => {
@@ -5913,12 +4594,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F32x4RelaxedMaxOp, lhs, rhs))
     }
     F64x2RelaxedMin => {
@@ -5926,12 +4605,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F64x2RelaxedMinOp, lhs, rhs))
     }
     F64x2RelaxedMax => {
@@ -5939,12 +4616,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(F64x2RelaxedMaxOp, lhs, rhs))
     }
     I16x8RelaxedQ15mulrS => {
@@ -5952,12 +4627,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I16x8RelaxedQ15mulrSOp, lhs, rhs))
     }
     I16x8RelaxedDotI8x16I7x16S => {
@@ -5965,12 +4638,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let lhs = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TBinary(I16x8RelaxedDotI8x16I7x16SOp, lhs, rhs))
     }
 
@@ -5980,12 +4651,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let vec = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TV128Shift(I8x16ShlOp, vec, shift))
     }
     I8x16ShrS => {
@@ -5993,12 +4662,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let vec = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TV128Shift(I8x16ShrSOp, vec, shift))
     }
     I8x16ShrU => {
@@ -6006,12 +4673,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let vec = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TV128Shift(I8x16ShrUOp, vec, shift))
     }
     I16x8Shl => {
@@ -6019,12 +4684,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let vec = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TV128Shift(I16x8ShlOp, vec, shift))
     }
     I16x8ShrS => {
@@ -6032,12 +4695,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let vec = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TV128Shift(I16x8ShrSOp, vec, shift))
     }
     I16x8ShrU => {
@@ -6045,12 +4706,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let vec = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TV128Shift(I16x8ShrUOp, vec, shift))
     }
     I32x4Shl => {
@@ -6058,12 +4717,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let vec = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TV128Shift(I32x4ShlOp, vec, shift))
     }
     I32x4ShrS => {
@@ -6071,12 +4728,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let vec = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TV128Shift(I32x4ShrSOp, vec, shift))
     }
     I32x4ShrU => {
@@ -6084,12 +4739,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let vec = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TV128Shift(I32x4ShrUOp, vec, shift))
     }
     I64x2Shl => {
@@ -6097,12 +4750,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let vec = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TV128Shift(I64x2ShlOp, vec, shift))
     }
     I64x2ShrS => {
@@ -6110,12 +4761,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let vec = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TV128Shift(I64x2ShrSOp, vec, shift))
     }
     I64x2ShrU => {
@@ -6123,12 +4772,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let vec = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TV128Shift(I64x2ShrUOp, vec, shift))
     }
 
@@ -6138,17 +4785,14 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let v2 = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let v1 = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TV128Ternary(V128BitselectOp, v1, v2, c))
     }
     I8x16RelaxedLaneselect => {
@@ -6156,17 +4800,14 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let v2 = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let v1 = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TV128Ternary(I8x16RelaxedLaneselectOp, v1, v2, c))
     }
     I16x8RelaxedLaneselect => {
@@ -6174,17 +4815,14 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let v2 = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let v1 = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TV128Ternary(I16x8RelaxedLaneselectOp, v1, v2, c))
     }
     I32x4RelaxedLaneselect => {
@@ -6192,17 +4830,14 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let v2 = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let v1 = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TV128Ternary(I32x4RelaxedLaneselectOp, v1, v2, c))
     }
     I64x2RelaxedLaneselect => {
@@ -6210,17 +4845,14 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let v2 = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let v1 = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TV128Ternary(I64x2RelaxedLaneselectOp, v1, v2, c))
     }
     F32x4RelaxedMadd => {
@@ -6228,17 +4860,14 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let b = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let a = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TV128Ternary(F32x4RelaxedMaddOp, a, b, c))
     }
     F32x4RelaxedNmadd => {
@@ -6246,17 +4875,14 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let b = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let a = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TV128Ternary(F32x4RelaxedNmaddOp, a, b, c))
     }
     F64x2RelaxedMadd => {
@@ -6264,17 +4890,14 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let b = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let a = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TV128Ternary(F64x2RelaxedMaddOp, a, b, c))
     }
     F64x2RelaxedNmadd => {
@@ -6282,17 +4905,14 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let b = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let a = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TV128Ternary(F64x2RelaxedNmaddOp, a, b, c))
     }
     I32x4RelaxedDotI8x16I7x16AddS => {
@@ -6300,17 +4920,14 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let b = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       let a = match pop(stack) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
-
       stack.push(TV128Ternary(I32x4RelaxedDotI8x16I7x16AddSOp, a, b, c))
     }
   }
@@ -6321,6 +4938,7 @@ fn instr_to_tinstr(
 // TExpr -> Expr helpers
 // ============================================================================
 
+///|
 fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
   match tinstr {
     // === Constants ===
@@ -6330,8 +4948,29 @@ fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
     TF64Const(v) => instrs.push(F64Const(v))
     TRefNull(ht) => instrs.push(RefNull(ht))
     TRefFunc(idx) => instrs.push(RefFunc(idx))
-    TV128Const(b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15) =>
-      instrs.push(V128Const(b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15))
+    TV128Const(
+      b0,
+      b1,
+      b2,
+      b3,
+      b4,
+      b5,
+      b6,
+      b7,
+      b8,
+      b9,
+      b10,
+      b11,
+      b12,
+      b13,
+      b14,
+      b15
+    ) =>
+      instrs.push(
+        V128Const(
+          b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15,
+        ),
+      )
 
     // === Nullary ===
     TUnreachable => instrs.push(Unreachable)
@@ -6527,14 +5166,14 @@ fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
     // === Control flow ===
     TBlock(bt, body) => {
       let body_instrs : Array[Instruction] = []
-      for value in body.values {
+      for value in body.0 {
         tinstr_to_instr(value, body_instrs)
       }
       instrs.push(Block(bt, Expr(body_instrs)))
     }
     TLoop(bt, body) => {
       let body_instrs : Array[Instruction] = []
-      for value in body.values {
+      for value in body.0 {
         tinstr_to_instr(value, body_instrs)
       }
       instrs.push(Loop(bt, Expr(body_instrs)))
@@ -6542,13 +5181,13 @@ fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
     TIf(bt, cond, then_branch, else_branch) => {
       tinstr_to_instr(cond, instrs)
       let then_instrs : Array[Instruction] = []
-      for value in then_branch.values {
+      for value in then_branch.0 {
         tinstr_to_instr(value, then_instrs)
       }
       let else_instrs : Array[Instruction]? = match else_branch {
         Some(else_body) => {
           let els : Array[Instruction] = []
-          for value in else_body.values {
+          for value in else_body.0 {
             tinstr_to_instr(value, els)
           }
           Some(els)
@@ -6559,7 +5198,7 @@ fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
     }
     TTryTable(bt, catches, body) => {
       let body_instrs : Array[Instruction] = []
-      for value in body.values {
+      for value in body.0 {
         tinstr_to_instr(value, body_instrs)
       }
       instrs.push(TryTable(bt, catches, Expr(body_instrs)))
@@ -6674,7 +5313,9 @@ fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
       for elem in elems {
         tinstr_to_instr(elem, instrs)
       }
-      instrs.push(ArrayNewFixed(type_idx, U32(elems.length().reinterpret_as_uint())))
+      instrs.push(
+        ArrayNewFixed(type_idx, U32(elems.length().reinterpret_as_uint())),
+      )
     }
     TArrayNewData(type_idx, data_idx, offset, len) => {
       tinstr_to_instr(offset, instrs)
@@ -6787,10 +5428,33 @@ fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
     }
 
     // === SIMD: Shuffle ===
-    TI8x16Shuffle(l0, l1, l2, l3, l4, l5, l6, l7, l8, l9, l10, l11, l12, l13, l14, l15, v1, v2) => {
+    TI8x16Shuffle(
+      l0,
+      l1,
+      l2,
+      l3,
+      l4,
+      l5,
+      l6,
+      l7,
+      l8,
+      l9,
+      l10,
+      l11,
+      l12,
+      l13,
+      l14,
+      l15,
+      v1,
+      v2
+    ) => {
       tinstr_to_instr(v1, instrs)
       tinstr_to_instr(v2, instrs)
-      instrs.push(I8x16Shuffle(l0, l1, l2, l3, l4, l5, l6, l7, l8, l9, l10, l11, l12, l13, l14, l15))
+      instrs.push(
+        I8x16Shuffle(
+          l0, l1, l2, l3, l4, l5, l6, l7, l8, l9, l10, l11, l12, l13, l14, l15,
+        ),
+      )
     }
 
     // === SIMD: Swizzle ===
@@ -6840,6 +5504,7 @@ fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
 // Op to Instruction helpers
 // ============================================================================
 
+///|
 fn unary_op_to_instr(op : UnaryOp) -> Instruction {
   match op {
     I32EqzOp => I32Eqz
@@ -6974,6 +5639,7 @@ fn unary_op_to_instr(op : UnaryOp) -> Instruction {
   }
 }
 
+///|
 fn binary_op_to_instr(op : BinaryOp) -> Instruction {
   match op {
     I32EqOp => I32Eq
@@ -7194,6 +5860,7 @@ fn binary_op_to_instr(op : BinaryOp) -> Instruction {
   }
 }
 
+///|
 fn load_op_to_instr(op : LoadOp, memarg : MemArg) -> Instruction {
   match op {
     I32LoadOp => I32Load(memarg)
@@ -7226,6 +5893,7 @@ fn load_op_to_instr(op : LoadOp, memarg : MemArg) -> Instruction {
   }
 }
 
+///|
 fn store_op_to_instr(op : StoreOp, memarg : MemArg) -> Instruction {
   match op {
     I32StoreOp => I32Store(memarg)
@@ -7241,6 +5909,7 @@ fn store_op_to_instr(op : StoreOp, memarg : MemArg) -> Instruction {
   }
 }
 
+///|
 fn extract_lane_op_to_instr(op : ExtractLaneOp, lane : LaneIdx) -> Instruction {
   match op {
     I8x16ExtractLaneSOp => I8x16ExtractLaneS(lane)
@@ -7254,6 +5923,7 @@ fn extract_lane_op_to_instr(op : ExtractLaneOp, lane : LaneIdx) -> Instruction {
   }
 }
 
+///|
 fn replace_lane_op_to_instr(op : ReplaceLaneOp, lane : LaneIdx) -> Instruction {
   match op {
     I8x16ReplaceLaneOp => I8x16ReplaceLane(lane)
@@ -7265,6 +5935,7 @@ fn replace_lane_op_to_instr(op : ReplaceLaneOp, lane : LaneIdx) -> Instruction {
   }
 }
 
+///|
 fn v128_shift_op_to_instr(op : V128ShiftOp) -> Instruction {
   match op {
     I8x16ShlOp => I8x16Shl
@@ -7282,6 +5953,7 @@ fn v128_shift_op_to_instr(op : V128ShiftOp) -> Instruction {
   }
 }
 
+///|
 fn v128_ternary_op_to_instr(op : V128TernaryOp) -> Instruction {
   match op {
     V128BitselectOp => V128Bitselect
@@ -7297,10 +5969,11 @@ fn v128_ternary_op_to_instr(op : V128TernaryOp) -> Instruction {
   }
 }
 
+///|
 fn v128_load_lane_op_to_instr(
   op : V128LoadLaneOp,
   memarg : MemArg,
-  lane : LaneIdx
+  lane : LaneIdx,
 ) -> Instruction {
   match op {
     V128Load8LaneOp => V128Load8Lane(memarg, lane)
@@ -7310,15 +5983,44 @@ fn v128_load_lane_op_to_instr(
   }
 }
 
+///|
 fn v128_store_lane_op_to_instr(
   op : V128StoreLaneOp,
   memarg : MemArg,
-  lane : LaneIdx
+  lane : LaneIdx,
 ) -> Instruction {
   match op {
     V128Store8LaneOp => V128Store8Lane(memarg, lane)
     V128Store16LaneOp => V128Store16Lane(memarg, lane)
     V128Store32LaneOp => V128Store32Lane(memarg, lane)
     V128Store64LaneOp => V128Store64Lane(memarg, lane)
+  }
+}
+
+///|
+fn tlocals_to_locals(tlocals : Array[ValType]) -> Array[Locals] {
+  if tlocals.length() == 0 {
+    return []
+  }
+  let end = tlocals.length()
+  let mut current = tlocals[0]
+  let mut count = 1U
+  let acc = []
+  loop 1 {
+    n if n == end => {
+      acc.push(Locals(count, current))
+      break acc
+    }
+    n => {
+      let next = tlocals[n]
+      if current == next {
+        count = count + 1
+      } else {
+        acc.push(Locals(count, current))
+        count = 1
+        current = next
+      }
+      continue n + 1
+    }
   }
 }

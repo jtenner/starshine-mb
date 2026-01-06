@@ -311,6 +311,8 @@ pub enum BinaryOp {
   I16x8RelaxedQ15mulrSOp
   I16x8RelaxedDotI8x16I7x16SOp
 }
+pub impl Eq for BinaryOp
+pub impl Show for BinaryOp
 
 pub enum BlockType {
   EmptyBlockType
@@ -328,6 +330,7 @@ pub struct CastOp(Bool, Bool)
 
 
 pub impl Eq for CastOp
+pub impl Show for CastOp
 pub impl @quickcheck.Arbitrary for CastOp
 pub impl Decode for CastOp
 pub impl Encode for CastOp
@@ -582,6 +585,8 @@ pub enum ExtractLaneOp {
   F32x4ExtractLaneOp
   F64x2ExtractLaneOp
 }
+pub impl Eq for ExtractLaneOp
+pub impl Show for ExtractLaneOp
 
 pub struct F32(Float)
 #deprecated
@@ -612,9 +617,10 @@ pub impl Encode for FieldType
 pub impl Match for FieldType
 pub impl Validate for FieldType
 
-pub struct Func(Array[Locals], Expr)
-
-
+pub enum Func {
+  Func(Array[Locals], Expr)
+  TFunc(Array[ValType], TExpr)
+}
 pub impl Eq for Func
 pub impl Show for Func
 pub impl @quickcheck.Arbitrary for Func
@@ -1307,6 +1313,8 @@ pub enum LoadOp {
   V128Load32ZeroOp
   V128Load64ZeroOp
 }
+pub impl Eq for LoadOp
+pub impl Show for LoadOp
 
 pub struct LocalIdx(UInt)
 #deprecated
@@ -1389,7 +1397,9 @@ pub struct ModuleTransformer[T] {
   on_codesec : ((T, CodeSec) -> Result[(T, CodeSec)?, String])?
   on_datasec : ((T, DataSec) -> Result[(T, DataSec)?, String])?
   on_instruction : ((T, Instruction) -> Result[(T, Instruction)?, String])?
+  on_tinstruction : ((T, TInstr) -> Result[(T, TInstr)?, String])?
   on_expr : ((T, Expr) -> Result[(T, Expr)?, String])?
+  on_texpr : ((T, TExpr) -> Result[(T, TExpr)?, String])?
   on_table : ((T, Table) -> Result[(T, Table)?, String])?
   on_valtype : ((T, ValType) -> Result[(T, ValType)?, String])?
   on_numtype : ((T, NumType) -> Result[(T, NumType)?, String])?
@@ -1401,6 +1411,7 @@ pub struct ModuleTransformer[T] {
   on_blocktype : ((T, BlockType) -> Result[(T, BlockType)?, String])?
   on_funcidx : ((T, FuncIdx) -> Result[(T, FuncIdx)?, String])?
   on_typeidx : ((T, TypeIdx) -> Result[(T, TypeIdx)?, String])?
+  on_laneidx : ((T, LaneIdx) -> Result[(T, LaneIdx)?, String])?
   on_localidx : ((T, LocalIdx) -> Result[(T, LocalIdx)?, String])?
   on_globalidx : ((T, GlobalIdx) -> Result[(T, GlobalIdx)?, String])?
   on_tableidx : ((T, TableIdx) -> Result[(T, TableIdx)?, String])?
@@ -1422,9 +1433,21 @@ pub struct ModuleTransformer[T] {
   on_externidx : ((T, ExternIdx) -> Result[(T, ExternIdx)?, String])?
   on_fieldtype : ((T, FieldType) -> Result[(T, FieldType)?, String])?
   on_storagetype : ((T, StorageType) -> Result[(T, StorageType)?, String])?
+  on_unaryop : ((T, UnaryOp) -> Result[(T, UnaryOp)?, String])?
+  on_binaryop : ((T, BinaryOp) -> Result[(T, BinaryOp)?, String])?
+  on_storeop : ((T, StoreOp) -> Result[(T, StoreOp)?, String])?
+  on_loadop : ((T, LoadOp) -> Result[(T, LoadOp)?, String])?
+  on_extractlaneop : ((T, ExtractLaneOp) -> Result[(T, ExtractLaneOp)?, String])?
+  on_replacelaneop : ((T, ReplaceLaneOp) -> Result[(T, ReplaceLaneOp)?, String])?
+  on_v128shiftop : ((T, V128ShiftOp) -> Result[(T, V128ShiftOp)?, String])?
+  on_v128ternaryop : ((T, V128TernaryOp) -> Result[(T, V128TernaryOp)?, String])?
+  on_v128loadlaneop : ((T, V128LoadLaneOp) -> Result[(T, V128LoadLaneOp)?, String])?
+  on_v128storelaneop : ((T, V128StoreLaneOp) -> Result[(T, V128StoreLaneOp)?, String])?
+  on_memarg : ((T, MemArg) -> Result[(T, MemArg)?, String])?
 }
 pub fn[T] ModuleTransformer::new() -> Self[T]
 pub fn[T, E] ModuleTransformer::walk_array(Self[T], T, (Self[T], T, E) -> Result[(T, E)?, String], Array[E]) -> Result[(T, Array[E])?, String]
+pub fn[T] ModuleTransformer::walk_binaryop(Self[T], T, BinaryOp) -> Result[(T, BinaryOp)?, String]
 pub fn[T] ModuleTransformer::walk_blocktype(Self[T], T, BlockType) -> Result[(T, BlockType)?, String]
 pub fn[T] ModuleTransformer::walk_blocktype_default(Self[T], T, BlockType) -> Result[(T, BlockType)?, String]
 pub fn[T] ModuleTransformer::walk_catch(Self[T], T, Catch) -> Result[(T, Catch)?, String]
@@ -1456,6 +1479,7 @@ pub fn[T] ModuleTransformer::walk_expr_default(Self[T], T, Expr) -> Result[(T, E
 pub fn[T] ModuleTransformer::walk_externidx(Self[T], T, ExternIdx) -> Result[(T, ExternIdx)?, String]
 pub fn[T] ModuleTransformer::walk_externidx_default(Self[T], T, ExternIdx) -> Result[(T, ExternIdx)?, String]
 pub fn[T] ModuleTransformer::walk_externtype(Self[T], T, ExternType) -> Result[(T, ExternType)?, String]
+pub fn[T] ModuleTransformer::walk_extractlaneop(Self[T], T, ExtractLaneOp) -> Result[(T, ExtractLaneOp)?, String]
 pub fn[T] ModuleTransformer::walk_fieldtype(Self[T], T, FieldType) -> Result[(T, FieldType)?, String]
 pub fn[T] ModuleTransformer::walk_fieldtype_default(Self[T], T, FieldType) -> Result[(T, FieldType)?, String]
 pub fn[T] ModuleTransformer::walk_func(Self[T], T, Func) -> Result[(T, Func)?, String]
@@ -1477,10 +1501,13 @@ pub fn[T] ModuleTransformer::walk_importsec(Self[T], T, ImportSec) -> Result[(T,
 pub fn[T] ModuleTransformer::walk_instruction(Self[T], T, Instruction) -> Result[(T, Instruction)?, String]
 pub fn[T] ModuleTransformer::walk_instruction_default(Self[T], T, Instruction) -> Result[(T, Instruction)?, String]
 pub fn[T] ModuleTransformer::walk_labelidx(Self[T], T, LabelIdx) -> Result[(T, LabelIdx)?, String]
+pub fn[T] ModuleTransformer::walk_laneidx(Self[T], T, LaneIdx) -> Result[(T, LaneIdx)?, String]
 pub fn[T] ModuleTransformer::walk_limits(Self[T], T, Limits) -> Result[(T, Limits)?, String]
+pub fn[T] ModuleTransformer::walk_loadop(Self[T], T, LoadOp) -> Result[(T, LoadOp)?, String]
 pub fn[T] ModuleTransformer::walk_localidx(Self[T], T, LocalIdx) -> Result[(T, LocalIdx)?, String]
 pub fn[T] ModuleTransformer::walk_locals(Self[T], T, Array[Locals]) -> Result[(T, Array[Locals])?, String]
 pub fn[T] ModuleTransformer::walk_locals_default(Self[T], T, Array[Locals]) -> Result[(T, Array[Locals])?, String]
+pub fn[T] ModuleTransformer::walk_memarg(Self[T], T, MemArg) -> Result[(T, MemArg)?, String]
 pub fn[T] ModuleTransformer::walk_memidx(Self[T], T, MemIdx) -> Result[(T, MemIdx)?, String]
 pub fn[T] ModuleTransformer::walk_memsec(Self[T], T, MemSec) -> Result[(T, MemSec)?, String]
 pub fn[T] ModuleTransformer::walk_memsec_default(Self[T], T, MemSec) -> Result[(T, MemSec)?, String]
@@ -1493,11 +1520,13 @@ pub fn[T] ModuleTransformer::walk_rectype(Self[T], T, RecType) -> Result[(T, Rec
 pub fn[T] ModuleTransformer::walk_rectype_default(Self[T], T, RecType) -> Result[(T, RecType)?, String]
 pub fn[T] ModuleTransformer::walk_reftype(Self[T], T, RefType) -> Result[(T, RefType)?, String]
 pub fn[T] ModuleTransformer::walk_reftype_default(Self[T], T, RefType) -> Result[(T, RefType)?, String]
+pub fn[T] ModuleTransformer::walk_replacelaneop(Self[T], T, ReplaceLaneOp) -> Result[(T, ReplaceLaneOp)?, String]
 pub fn[T] ModuleTransformer::walk_single_local(Self[T], T, Locals) -> Result[(T, Locals)?, String]
 pub fn[T] ModuleTransformer::walk_startsec(Self[T], T, StartSec) -> Result[(T, StartSec)?, String]
 pub fn[T] ModuleTransformer::walk_startsec_default(Self[T], T, StartSec) -> Result[(T, StartSec)?, String]
 pub fn[T] ModuleTransformer::walk_storagetype(Self[T], T, StorageType) -> Result[(T, StorageType)?, String]
 pub fn[T] ModuleTransformer::walk_storagetype_default(Self[T], T, StorageType) -> Result[(T, StorageType)?, String]
+pub fn[T] ModuleTransformer::walk_storeop(Self[T], T, StoreOp) -> Result[(T, StoreOp)?, String]
 pub fn[T] ModuleTransformer::walk_subtype(Self[T], T, SubType) -> Result[(T, SubType)?, String]
 pub fn[T] ModuleTransformer::walk_subtype_default(Self[T], T, SubType) -> Result[(T, SubType)?, String]
 pub fn[T] ModuleTransformer::walk_table(Self[T], T, Table) -> Result[(T, Table)?, String]
@@ -1511,98 +1540,20 @@ pub fn[T] ModuleTransformer::walk_tagsec(Self[T], T, TagSec) -> Result[(T, TagSe
 pub fn[T] ModuleTransformer::walk_tagsec_default(Self[T], T, TagSec) -> Result[(T, TagSec)?, String]
 pub fn[T] ModuleTransformer::walk_tagtype(Self[T], T, TagType) -> Result[(T, TagType)?, String]
 pub fn[T] ModuleTransformer::walk_tagtype_default(Self[T], T, TagType) -> Result[(T, TagType)?, String]
+pub fn[T] ModuleTransformer::walk_texpr(Self[T], T, TExpr) -> Result[(T, TExpr)?, String]
+pub fn[T] ModuleTransformer::walk_texpr_default(Self[T], T, TExpr) -> Result[(T, TExpr)?, String]
+pub fn[T] ModuleTransformer::walk_tinstruction(Self[T], T, TInstr) -> Result[(T, TInstr)?, String]
+pub fn[T] ModuleTransformer::walk_tinstruction_default(Self[T], T, TInstr) -> Result[(T, TInstr)?, String]
 pub fn[T] ModuleTransformer::walk_typeidx(Self[T], T, TypeIdx) -> Result[(T, TypeIdx)?, String]
 pub fn[T] ModuleTransformer::walk_typesec(Self[T], T, TypeSec) -> Result[(T, TypeSec)?, String]
 pub fn[T] ModuleTransformer::walk_typesec_default(Self[T], T, TypeSec) -> Result[(T, TypeSec)?, String]
+pub fn[T] ModuleTransformer::walk_unaryop(Self[T], T, UnaryOp) -> Result[(T, UnaryOp)?, String]
+pub fn[T] ModuleTransformer::walk_v128loadlaneop(Self[T], T, V128LoadLaneOp) -> Result[(T, V128LoadLaneOp)?, String]
+pub fn[T] ModuleTransformer::walk_v128shiftop(Self[T], T, V128ShiftOp) -> Result[(T, V128ShiftOp)?, String]
+pub fn[T] ModuleTransformer::walk_v128storelaneop(Self[T], T, V128StoreLaneOp) -> Result[(T, V128StoreLaneOp)?, String]
+pub fn[T] ModuleTransformer::walk_v128ternaryop(Self[T], T, V128TernaryOp) -> Result[(T, V128TernaryOp)?, String]
 pub fn[T] ModuleTransformer::walk_valtype(Self[T], T, ValType) -> Result[(T, ValType)?, String]
 pub fn[T] ModuleTransformer::walk_valtype_default(Self[T], T, ValType) -> Result[(T, ValType)?, String]
-
-pub struct ModuleVisitor {
-  visit_instruction : ((Instruction) -> Unit)?
-  visit_expr : ((Expr) -> Unit)?
-  visit_valtype : ((ValType) -> Unit)?
-  visit_reftype : ((RefType) -> Unit)?
-  visit_heaptype : ((HeapType) -> Unit)?
-  visit_blocktype : ((BlockType) -> Unit)?
-  visit_comptype : ((CompType) -> Unit)?
-  visit_subtype : ((SubType) -> Unit)?
-  visit_rectype : ((RecType) -> Unit)?
-  visit_fieldtype : ((FieldType) -> Unit)?
-  visit_storagetype : ((StorageType) -> Unit)?
-  visit_globaltype : ((GlobalType) -> Unit)?
-  visit_tabletype : ((TableType) -> Unit)?
-  visit_memtype : ((MemType) -> Unit)?
-  visit_functype : ((FuncType) -> Unit)?
-  visit_funcidx : ((FuncIdx) -> Unit)?
-  visit_typeidx : ((TypeIdx) -> Unit)?
-  visit_localidx : ((LocalIdx) -> Unit)?
-  visit_globalidx : ((GlobalIdx) -> Unit)?
-  visit_tableidx : ((TableIdx) -> Unit)?
-  visit_memidx : ((MemIdx) -> Unit)?
-  visit_labelidx : ((LabelIdx) -> Unit)?
-  visit_dataidx : ((DataIdx) -> Unit)?
-  visit_elemidx : ((ElemIdx) -> Unit)?
-  visit_tagidx : ((TagIdx) -> Unit)?
-  visit_func : ((Func) -> Unit)?
-  visit_global : ((Global) -> Unit)?
-  visit_table : ((Table) -> Unit)?
-  visit_elem : ((Elem) -> Unit)?
-  visit_data : ((Data) -> Unit)?
-  visit_import : ((Import) -> Unit)?
-  visit_export : ((Export) -> Unit)?
-  descend : Bool
-}
-pub fn ModuleVisitor::new() -> Self
-pub fn ModuleVisitor::visit_blocktype(Self, BlockType) -> Unit
-pub fn ModuleVisitor::visit_catch(Self, Catch) -> Unit
-pub fn ModuleVisitor::visit_codesec(Self, CodeSec) -> Unit
-pub fn ModuleVisitor::visit_comptype(Self, CompType) -> Unit
-pub fn ModuleVisitor::visit_data(Self, Data) -> Unit
-pub fn ModuleVisitor::visit_dataidx(Self, DataIdx) -> Unit
-pub fn ModuleVisitor::visit_datamode(Self, DataMode) -> Unit
-pub fn ModuleVisitor::visit_datasec(Self, DataSec) -> Unit
-pub fn ModuleVisitor::visit_elem(Self, Elem) -> Unit
-pub fn ModuleVisitor::visit_elemidx(Self, ElemIdx) -> Unit
-pub fn ModuleVisitor::visit_elemkind(Self, ElemKind) -> Unit
-pub fn ModuleVisitor::visit_elemmode(Self, ElemMode) -> Unit
-pub fn ModuleVisitor::visit_elemsec(Self, ElemSec) -> Unit
-pub fn ModuleVisitor::visit_export(Self, Export) -> Unit
-pub fn ModuleVisitor::visit_exportsec(Self, ExportSec) -> Unit
-pub fn ModuleVisitor::visit_expr(Self, Expr) -> Unit
-pub fn ModuleVisitor::visit_externidx(Self, ExternIdx) -> Unit
-pub fn ModuleVisitor::visit_externtype(Self, ExternType) -> Unit
-pub fn ModuleVisitor::visit_fieldtype(Self, FieldType) -> Unit
-pub fn ModuleVisitor::visit_func(Self, Func) -> Unit
-pub fn ModuleVisitor::visit_funcidx(Self, FuncIdx) -> Unit
-pub fn ModuleVisitor::visit_funcsec(Self, FuncSec) -> Unit
-pub fn ModuleVisitor::visit_global(Self, Global) -> Unit
-pub fn ModuleVisitor::visit_globalidx(Self, GlobalIdx) -> Unit
-pub fn ModuleVisitor::visit_globalsec(Self, GlobalSec) -> Unit
-pub fn ModuleVisitor::visit_globaltype(Self, GlobalType) -> Unit
-pub fn ModuleVisitor::visit_heaptype(Self, HeapType) -> Unit
-pub fn ModuleVisitor::visit_import(Self, Import) -> Unit
-pub fn ModuleVisitor::visit_importsec(Self, ImportSec) -> Unit
-pub fn ModuleVisitor::visit_instruction(Self, Instruction) -> Unit
-pub fn ModuleVisitor::visit_instruction_children(Self, Instruction) -> Unit
-pub fn ModuleVisitor::visit_labelidx(Self, LabelIdx) -> Unit
-pub fn ModuleVisitor::visit_localidx(Self, LocalIdx) -> Unit
-pub fn ModuleVisitor::visit_memidx(Self, MemIdx) -> Unit
-pub fn ModuleVisitor::visit_memsec(Self, MemSec) -> Unit
-pub fn ModuleVisitor::visit_memtype(Self, MemType) -> Unit
-pub fn ModuleVisitor::visit_module(Self, Module) -> Unit
-pub fn ModuleVisitor::visit_rectype(Self, RecType) -> Unit
-pub fn ModuleVisitor::visit_reftype(Self, RefType) -> Unit
-pub fn ModuleVisitor::visit_storagetype(Self, StorageType) -> Unit
-pub fn ModuleVisitor::visit_subtype(Self, SubType) -> Unit
-pub fn ModuleVisitor::visit_table(Self, Table) -> Unit
-pub fn ModuleVisitor::visit_tableidx(Self, TableIdx) -> Unit
-pub fn ModuleVisitor::visit_tablesec(Self, TableSec) -> Unit
-pub fn ModuleVisitor::visit_tabletype(Self, TableType) -> Unit
-pub fn ModuleVisitor::visit_tagidx(Self, TagIdx) -> Unit
-pub fn ModuleVisitor::visit_tagsec(Self, TagSec) -> Unit
-pub fn ModuleVisitor::visit_typeidx(Self, TypeIdx) -> Unit
-pub fn ModuleVisitor::visit_typesec(Self, TypeSec) -> Unit
-pub fn ModuleVisitor::visit_valtype(Self, ValType) -> Unit
 
 pub enum Mut {
   Const
@@ -1680,6 +1631,8 @@ pub enum ReplaceLaneOp {
   F32x4ReplaceLaneOp
   F64x2ReplaceLaneOp
 }
+pub impl Eq for ReplaceLaneOp
+pub impl Show for ReplaceLaneOp
 
 pub struct S33(UInt)
 #deprecated
@@ -1722,6 +1675,8 @@ pub enum StoreOp {
   I64Store32Op
   V128StoreOp
 }
+pub impl Eq for StoreOp
+pub impl Show for StoreOp
 
 pub enum SubType {
   SubType(Bool, Array[TypeIdx], CompType)
@@ -1736,9 +1691,11 @@ pub impl Decode for SubType
 pub impl Encode for SubType
 pub impl Validate for SubType
 
-pub struct TExpr {
-  values : Array[TInstr]
-}
+pub struct TExpr(Array[TInstr])
+#deprecated
+pub fn TExpr::inner(Self) -> Array[TInstr]
+pub impl Eq for TExpr
+pub impl Show for TExpr
 
 pub enum TInstr {
   TI32Const(I32)
@@ -1841,6 +1798,8 @@ pub enum TInstr {
   TV128LoadLane(V128LoadLaneOp, MemArg, LaneIdx, TInstr, TInstr)
   TV128StoreLane(V128StoreLaneOp, MemArg, LaneIdx, TInstr, TInstr)
 }
+pub impl Eq for TInstr
+pub impl Show for TInstr
 
 pub struct Table(TableType, Expr?)
 
@@ -2082,6 +2041,8 @@ pub enum UnaryOp {
   I32x4RelaxedTruncZeroF64x2SOp
   I32x4RelaxedTruncZeroF64x2UOp
 }
+pub impl Eq for UnaryOp
+pub impl Show for UnaryOp
 
 pub enum V128LoadLaneOp {
   V128Load8LaneOp
@@ -2089,6 +2050,8 @@ pub enum V128LoadLaneOp {
   V128Load32LaneOp
   V128Load64LaneOp
 }
+pub impl Eq for V128LoadLaneOp
+pub impl Show for V128LoadLaneOp
 
 pub enum V128ShiftOp {
   I8x16ShlOp
@@ -2104,6 +2067,8 @@ pub enum V128ShiftOp {
   I64x2ShrSOp
   I64x2ShrUOp
 }
+pub impl Eq for V128ShiftOp
+pub impl Show for V128ShiftOp
 
 pub enum V128StoreLaneOp {
   V128Store8LaneOp
@@ -2111,6 +2076,8 @@ pub enum V128StoreLaneOp {
   V128Store32LaneOp
   V128Store64LaneOp
 }
+pub impl Eq for V128StoreLaneOp
+pub impl Show for V128StoreLaneOp
 
 pub enum V128TernaryOp {
   V128BitselectOp
@@ -2124,6 +2091,8 @@ pub enum V128TernaryOp {
   F64x2RelaxedNmaddOp
   I32x4RelaxedDotI8x16I7x16AddSOp
 }
+pub impl Eq for V128TernaryOp
+pub impl Show for V128TernaryOp
 
 pub enum ValType {
   NumTypeValType(NumType)

@@ -518,54 +518,97 @@ fn validate_func_body_against_functype(
   f : Func,
 ) -> Result[Unit, String] {
   let FuncType(params, results) = ft
-  let Func(local_decls, body) = f
+  match f {
+    Func(local_decls, body) => {
+      // Validate local declarations
+      if validate_locals_decls(env, local_decls) is Err(e) {
+        return Err(e)
+      }
 
-  // locals declarations valid
-  if validate_locals_decls(env, local_decls) is Err(e) {
-    return Err(e)
-  }
+      // Expand locals vector = params ++ expanded locals
+      let locals_extra = match expand_locals(local_decls) {
+        Ok(xs) => xs
+        Err(e) => return Err(e)
+      }
+      let all_locals = params.copy()
+      for vt in locals_extra {
+        all_locals.push(vt)
+      }
 
-  // locals vector = params ++ expanded locals
-  let locals_extra = match expand_locals(local_decls) {
-    Ok(xs) => xs
-    Err(e) => return Err(e)
-  }
-  let all_locals = params.copy()
-  for vt in locals_extra {
-    all_locals.push(vt)
-  }
+      // Extend context:
+      // - locals
+      // - labels appended by results (function label)
+      // - return appended by results
+      let env1 = env
+        .with_locals(all_locals)
+        .with_labels(
+          {
+            let ls = env.labels.copy()
+            ls.push(results)
+            ls
+          },
+        )
+        .with_return_type(Some(results))
+      let st0 = TcState::{ env: env1, stack: [], reachable: true }
+      let st1 = match body.typecheck(st0) {
+        Ok(s) => s
+        Err(e) => return Err(e)
+      }
 
-  // extend context:
-  // - locals
-  // - labels appended by results (function label)
-  // - return appended by results
-  let env1 = env
-    .with_locals(all_locals)
-    .with_labels(
-      {
-        let ls = env.labels.copy()
-        ls.push(results)
-        ls
-      },
-    )
-    .with_return_type(Some(results))
-  let st0 = TcState::{ env: env1, stack: [], reachable: true }
-  let st1 = match body.typecheck(st0) {
-    Ok(s) => s
-    Err(e) => return Err(e)
-  }
-
-  // enforce results at end if reachable
-  if st1.reachable {
-    let st2 = match st1.pop_types(results) {
-      Ok(s) => s
-      Err(e) => return Err(e)
+      // Enforce results at end if reachable
+      if st1.reachable {
+        if st1.stack.length() != results.length() {
+          return Err("function body leaves extra values on stack")
+        }
+        // Check types match
+        for i in 0..<results.length() {
+          if !Match::matches(st1.stack[i], results[i], env1) {
+            return Err("function body result type mismatch")
+          }
+        }
+      }
+      Ok(())
     }
-    if st2.stack.length() != 0 {
-      return Err("function body leaves extra values on stack")
+    TFunc(local_vals, texpr) => {
+      // TFunc(Array[ValType], TExpr) - local_vals contains the full local signature (params + extra locals)
+      // Wait, does it contain params?
+      // Given FuncType has params, and TFunc is the definition.
+      // If TFunc matches the structure of Func (replacing Array[Locals] with Array[ValType]),
+      // then local_vals are the EXTRA locals.
+      // But TFunc is usually "fully typed". Let's assume local_vals = extra_locals flattened.
+
+      let all_locals = params.copy()
+      for vt in local_vals {
+        all_locals.push(vt)
+      }
+      let env1 = env
+        .with_locals(all_locals)
+        .with_labels(
+          {
+            let ls = env.labels.copy()
+            ls.push(results)
+            ls
+          },
+        )
+        .with_return_type(Some(results))
+      let st0 = TcState::{ env: env1, stack: [], reachable: true }
+      let st1 = match texpr.typecheck(st0) {
+        Ok(s) => s
+        Err(e) => return Err(e)
+      }
+      if st1.reachable {
+        if st1.stack.length() != results.length() {
+          return Err("typed function body leaves extra values on stack")
+        }
+        for i in 0..<results.length() {
+          if !Match::matches(st1.stack[i], results[i], env1) {
+            return Err("typed function body result type mismatch")
+          }
+        }
+      }
+      Ok(())
     }
   }
-  Ok(())
 }
 
 ///|

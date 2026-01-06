@@ -1369,7 +1369,14 @@ pub impl Encode for CodeSec with encode(val, buf) {
 ///|
 pub impl Encode for Func with encode(val, buf) {
   let fn_body = @buffer.new()
-  let Func(locals, expr) = val
+  let (locals, expr) = match val {
+    Func(locals, expr) => (locals, expr)
+    TFunc(tlocals, texpr) => {
+      let locals = tlocals_to_locals(tlocals)
+      let expr = texpr_to_expr(texpr)
+      (locals, expr)
+    }
+  }
   if Encode::encode(locals, fn_body) is Err(t) {
     return Err(t)
   }

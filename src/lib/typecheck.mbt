@@ -2938,6 +2938,1539 @@ pub impl Typecheck for Instruction with typecheck(self, st) {
   }
 }
 
+///|
+pub impl Typecheck for TInstr with typecheck(self, st) {
+  match self {
+    // === Constants ===
+    TI32Const(_) => Ok(st.push1(NumTypeValType(I32NumType)))
+    TI64Const(_) => Ok(st.push1(NumTypeValType(I64NumType)))
+    TF32Const(_) => Ok(st.push1(NumTypeValType(F32NumType)))
+    TF64Const(_) => Ok(st.push1(NumTypeValType(F64NumType)))
+    TRefNull(ht) => typecheck_ref_null(st, ht)
+    TRefFunc(f) => typecheck_ref_func(st, f)
+    TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      typecheck_v128_const(st)
+
+    // === Nullary ===
+    TUnreachable => Ok(TcState::{ ..st, reachable: false })
+    TNop => Ok(st)
+    TLocalGet(i) => typecheck_local_get(st, i)
+    TGlobalGet(i) => typecheck_global_get(st, i)
+    TMemorySize(m) => typecheck_memory_size(st, m)
+    TTableSize(t) => typecheck_table_size(st, t)
+
+    // === Unary ===
+    TUnary(op, child) => {
+      let st1 = match child.typecheck(st) {
+        Ok(st1) => st1
+        Err(t) => return Err(t)
+      }
+      match op {
+        // Scalar
+        I32EqzOp => typecheck_unary(st1, vt_i32(), vt_i32())
+        I64EqzOp => typecheck_unary(st1, vt_i64(), vt_i32())
+        I32ClzOp => typecheck_unary(st1, vt_i32(), vt_i32())
+        I32CtzOp => typecheck_unary(st1, vt_i32(), vt_i32())
+        I32PopcntOp => typecheck_unary(st1, vt_i32(), vt_i32())
+        I64ClzOp => typecheck_unary(st1, vt_i64(), vt_i64())
+        I64CtzOp => typecheck_unary(st1, vt_i64(), vt_i64())
+        I64PopcntOp => typecheck_unary(st1, vt_i64(), vt_i64())
+        F32AbsOp => typecheck_unary(st1, vt_f32(), vt_f32())
+        F32NegOp => typecheck_unary(st1, vt_f32(), vt_f32())
+        F32CeilOp => typecheck_unary(st1, vt_f32(), vt_f32())
+        F32FloorOp => typecheck_unary(st1, vt_f32(), vt_f32())
+        F32TruncOp => typecheck_unary(st1, vt_f32(), vt_f32())
+        F32NearestOp => typecheck_unary(st1, vt_f32(), vt_f32())
+        F32SqrtOp => typecheck_unary(st1, vt_f32(), vt_f32())
+        F64AbsOp => typecheck_unary(st1, vt_f64(), vt_f64())
+        F64NegOp => typecheck_unary(st1, vt_f64(), vt_f64())
+        F64CeilOp => typecheck_unary(st1, vt_f64(), vt_f64())
+        F64FloorOp => typecheck_unary(st1, vt_f64(), vt_f64())
+        F64TruncOp => typecheck_unary(st1, vt_f64(), vt_f64())
+        F64NearestOp => typecheck_unary(st1, vt_f64(), vt_f64())
+        F64SqrtOp => typecheck_unary(st1, vt_f64(), vt_f64())
+        I32WrapI64Op => typecheck_unary(st1, vt_i64(), vt_i32())
+        I32TruncF32SOp => typecheck_unary(st1, vt_f32(), vt_i32())
+        I32TruncF32UOp => typecheck_unary(st1, vt_f32(), vt_i32())
+        I32TruncF64SOp => typecheck_unary(st1, vt_f64(), vt_i32())
+        I32TruncF64UOp => typecheck_unary(st1, vt_f64(), vt_i32())
+        I64ExtendI32SOp => typecheck_unary(st1, vt_i32(), vt_i64())
+        I64ExtendI32UOp => typecheck_unary(st1, vt_i32(), vt_i64())
+        I64TruncF32SOp => typecheck_unary(st1, vt_f32(), vt_i64())
+        I64TruncF32UOp => typecheck_unary(st1, vt_f32(), vt_i64())
+        I64TruncF64SOp => typecheck_unary(st1, vt_f64(), vt_i64())
+        I64TruncF64UOp => typecheck_unary(st1, vt_f64(), vt_i64())
+        F32ConvertI32SOp => typecheck_unary(st1, vt_i32(), vt_f32())
+        F32ConvertI32UOp => typecheck_unary(st1, vt_i32(), vt_f32())
+        F32ConvertI64SOp => typecheck_unary(st1, vt_i64(), vt_f32())
+        F32ConvertI64UOp => typecheck_unary(st1, vt_i64(), vt_f32())
+        F32DemoteF64Op => typecheck_unary(st1, vt_f64(), vt_f32())
+        F64ConvertI32SOp => typecheck_unary(st1, vt_i32(), vt_f64())
+        F64ConvertI32UOp => typecheck_unary(st1, vt_i32(), vt_f64())
+        F64ConvertI64SOp => typecheck_unary(st1, vt_i64(), vt_f64())
+        F64ConvertI64UOp => typecheck_unary(st1, vt_i64(), vt_f64())
+        F64PromoteF32Op => typecheck_unary(st1, vt_f32(), vt_f64())
+        I32ReinterpretF32Op => typecheck_unary(st1, vt_f32(), vt_i32())
+        I64ReinterpretF64Op => typecheck_unary(st1, vt_f64(), vt_i64())
+        F32ReinterpretI32Op => typecheck_unary(st1, vt_i32(), vt_f32())
+        F64ReinterpretI64Op => typecheck_unary(st1, vt_i64(), vt_f64())
+        I32Extend8SOp => typecheck_unary(st1, vt_i32(), vt_i32())
+        I32Extend16SOp => typecheck_unary(st1, vt_i32(), vt_i32())
+        I64Extend8SOp => typecheck_unary(st1, vt_i64(), vt_i64())
+        I64Extend16SOp => typecheck_unary(st1, vt_i64(), vt_i64())
+        I64Extend32SOp => typecheck_unary(st1, vt_i64(), vt_i64())
+        I32TruncSatF32SOp => typecheck_unary(st1, vt_f32(), vt_i32())
+        I32TruncSatF32UOp => typecheck_unary(st1, vt_f32(), vt_i32())
+        I32TruncSatF64SOp => typecheck_unary(st1, vt_f64(), vt_i32())
+        I32TruncSatF64UOp => typecheck_unary(st1, vt_f64(), vt_i32())
+        I64TruncSatF32SOp => typecheck_unary(st1, vt_f32(), vt_i64())
+        I64TruncSatF32UOp => typecheck_unary(st1, vt_f32(), vt_i64())
+        I64TruncSatF64SOp => typecheck_unary(st1, vt_f64(), vt_i64())
+        I64TruncSatF64UOp => typecheck_unary(st1, vt_f64(), vt_i64())
+
+        // SIMD: Unary
+        V128NotOp => typecheck_v128_unary(st1)
+        I8x16AbsOp => typecheck_v128_unary(st1)
+        I8x16NegOp => typecheck_v128_unary(st1)
+        I8x16PopcntOp => typecheck_v128_unary(st1)
+        I16x8AbsOp => typecheck_v128_unary(st1)
+        I16x8NegOp => typecheck_v128_unary(st1)
+        I32x4AbsOp => typecheck_v128_unary(st1)
+        I32x4NegOp => typecheck_v128_unary(st1)
+        I64x2AbsOp => typecheck_v128_unary(st1)
+        I64x2NegOp => typecheck_v128_unary(st1)
+        F32x4AbsOp => typecheck_v128_unary(st1)
+        F32x4NegOp => typecheck_v128_unary(st1)
+        F32x4SqrtOp => typecheck_v128_unary(st1)
+        F32x4CeilOp => typecheck_v128_unary(st1)
+        F32x4FloorOp => typecheck_v128_unary(st1)
+        F32x4TruncOp => typecheck_v128_unary(st1)
+        F32x4NearestOp => typecheck_v128_unary(st1)
+        F64x2AbsOp => typecheck_v128_unary(st1)
+        F64x2NegOp => typecheck_v128_unary(st1)
+        F64x2SqrtOp => typecheck_v128_unary(st1)
+        F64x2CeilOp => typecheck_v128_unary(st1)
+        F64x2FloorOp => typecheck_v128_unary(st1)
+        F64x2TruncOp => typecheck_v128_unary(st1)
+        F64x2NearestOp => typecheck_v128_unary(st1)
+
+        // SIMD: Unary (v128 -> i32)
+        V128AnyTrueOp => typecheck_unary(st1, vt_v128(), vt_i32())
+        I8x16AllTrueOp => typecheck_unary(st1, vt_v128(), vt_i32())
+        I8x16BitmaskOp => typecheck_unary(st1, vt_v128(), vt_i32())
+        I16x8AllTrueOp => typecheck_unary(st1, vt_v128(), vt_i32())
+        I16x8BitmaskOp => typecheck_unary(st1, vt_v128(), vt_i32())
+        I32x4AllTrueOp => typecheck_unary(st1, vt_v128(), vt_i32())
+        I32x4BitmaskOp => typecheck_unary(st1, vt_v128(), vt_i32())
+        I64x2AllTrueOp => typecheck_unary(st1, vt_v128(), vt_i32())
+        I64x2BitmaskOp => typecheck_unary(st1, vt_v128(), vt_i32())
+
+        // SIMD: Extend/narrow/pairwise
+        I16x8ExtendLowI8x16SOp => typecheck_v128_unary(st1)
+        I16x8ExtendHighI8x16SOp => typecheck_v128_unary(st1)
+        I16x8ExtendLowI8x16UOp => typecheck_v128_unary(st1)
+        I16x8ExtendHighI8x16UOp => typecheck_v128_unary(st1)
+        I32x4ExtendLowI16x8SOp => typecheck_v128_unary(st1)
+        I32x4ExtendHighI16x8SOp => typecheck_v128_unary(st1)
+        I32x4ExtendLowI16x8UOp => typecheck_v128_unary(st1)
+        I32x4ExtendHighI16x8UOp => typecheck_v128_unary(st1)
+        I64x2ExtendLowI32x4SOp => typecheck_v128_unary(st1)
+        I64x2ExtendHighI32x4SOp => typecheck_v128_unary(st1)
+        I64x2ExtendLowI32x4UOp => typecheck_v128_unary(st1)
+        I64x2ExtendHighI32x4UOp => typecheck_v128_unary(st1)
+        I16x8ExtaddPairwiseI8x16SOp => typecheck_v128_unary(st1)
+        I16x8ExtaddPairwiseI8x16UOp => typecheck_v128_unary(st1)
+        I32x4ExtaddPairwiseI16x8SOp => typecheck_v128_unary(st1)
+        I32x4ExtaddPairwiseI16x8UOp => typecheck_v128_unary(st1)
+
+        // SIMD: Conversions
+        F32x4DemoteF64x2ZeroOp => typecheck_v128_unary(st1)
+        F64x2PromoteLowF32x4Op => typecheck_v128_unary(st1)
+        I32x4TruncSatF32x4SOp => typecheck_v128_unary(st1)
+        I32x4TruncSatF32x4UOp => typecheck_v128_unary(st1)
+        F32x4ConvertI32x4SOp => typecheck_v128_unary(st1)
+        F32x4ConvertI32x4UOp => typecheck_v128_unary(st1)
+        I32x4TruncSatF64x2SZeroOp => typecheck_v128_unary(st1)
+        I32x4TruncSatF64x2UZeroOp => typecheck_v128_unary(st1)
+        F64x2ConvertLowI32x4SOp => typecheck_v128_unary(st1)
+        F64x2ConvertLowI32x4UOp => typecheck_v128_unary(st1)
+
+        // SIMD: Relaxed
+        I32x4RelaxedTruncF32x4SOp => typecheck_v128_unary(st1)
+        I32x4RelaxedTruncF32x4UOp => typecheck_v128_unary(st1)
+        I32x4RelaxedTruncZeroF64x2SOp => typecheck_v128_unary(st1)
+        I32x4RelaxedTruncZeroF64x2UOp => typecheck_v128_unary(st1)
+      }
+    }
+    TDrop(child) => {
+      let st1 = match child.typecheck(st) {
+        Ok(st1) => st1
+        Err(t) => return Err(t)
+      }
+      typecheck_drop(st1)
+    }
+    TLocalSet(i, child) => {
+      let st1 = match child.typecheck(st) {
+        Ok(st1) => st1
+        Err(t) => return Err(t)
+      }
+      typecheck_local_set(st1, i)
+    }
+    TLocalTee(i, child) => {
+      let st1 = match child.typecheck(st) {
+        Ok(st1) => st1
+        Err(t) => return Err(t)
+      }
+      typecheck_local_tee(st1, i)
+    }
+    TGlobalSet(i, child) => {
+      let st1 = match child.typecheck(st) {
+        Ok(st1) => st1
+        Err(t) => return Err(t)
+      }
+      typecheck_global_set(st1, i)
+    }
+    TRefIsNull(child) => {
+      let st1 = match child.typecheck(st) {
+        Ok(st1) => st1
+        Err(t) => return Err(t)
+      }
+      typecheck_ref_is_null(st1)
+    }
+    TRefAsNonNull(child) => {
+      let st1 = match child.typecheck(st) {
+        Ok(st1) => st1
+        Err(t) => return Err(t)
+      }
+      typecheck_ref_as_non_null(st1)
+    }
+    TI31GetS(child) => {
+      let st1 = match child.typecheck(st) {
+        Ok(st1) => st1
+        Err(t) => return Err(t)
+      }
+      typecheck_i31_get(st1)
+    }
+    TI31GetU(child) => {
+      let st1 = match child.typecheck(st) {
+        Ok(st1) => st1
+        Err(t) => return Err(t)
+      }
+      typecheck_i31_get(st1)
+    }
+    TRefI31(child) => {
+      let st1 = match child.typecheck(st) {
+        Ok(st1) => st1
+        Err(t) => return Err(t)
+      }
+      typecheck_ref_i31(st1)
+    }
+    TArrayLen(child) => {
+      let st1 = match child.typecheck(st) {
+        Ok(st1) => st1
+        Err(t) => return Err(t)
+      }
+      typecheck_array_len(st1)
+    }
+    TAnyConvertExtern(child) => {
+      let st1 = match child.typecheck(st) {
+        Ok(st1) => st1
+        Err(t) => return Err(t)
+      }
+      typecheck_any_convert_extern(st1)
+    }
+    TExternConvertAny(child) => {
+      let st1 = match child.typecheck(st) {
+        Ok(st1) => st1
+        Err(t) => return Err(t)
+      }
+      typecheck_extern_convert_any(st1)
+    }
+    TThrowRef(child) => {
+      let st1 = match child.typecheck(st) {
+        Ok(st1) => st1
+        Err(t) => return Err(t)
+      }
+      typecheck_throw_ref(st1)
+    }
+
+    // === Binary ===
+    TBinary(op, left, right) => {
+      let st1 = match left.typecheck(st) {
+        Ok(st1) => st1
+        Err(t) => return Err(t)
+      }
+      let st2 = match right.typecheck(st1) {
+        Ok(st2) => st2
+        Err(t) => return Err(t)
+      }
+      match op {
+        // Scalar Comparisons
+        I32EqOp => typecheck_compare(st2, vt_i32())
+        I32NeOp => typecheck_compare(st2, vt_i32())
+        I32LtSOp => typecheck_compare(st2, vt_i32())
+        I32LtUOp => typecheck_compare(st2, vt_i32())
+        I32GtSOp => typecheck_compare(st2, vt_i32())
+        I32GtUOp => typecheck_compare(st2, vt_i32())
+        I32LeSOp => typecheck_compare(st2, vt_i32())
+        I32LeUOp => typecheck_compare(st2, vt_i32())
+        I32GeSOp => typecheck_compare(st2, vt_i32())
+        I32GeUOp => typecheck_compare(st2, vt_i32())
+        I64EqOp => typecheck_compare(st2, vt_i64())
+        I64NeOp => typecheck_compare(st2, vt_i64())
+        I64LtSOp => typecheck_compare(st2, vt_i64())
+        I64LtUOp => typecheck_compare(st2, vt_i64())
+        I64GtSOp => typecheck_compare(st2, vt_i64())
+        I64GtUOp => typecheck_compare(st2, vt_i64())
+        I64LeSOp => typecheck_compare(st2, vt_i64())
+        I64LeUOp => typecheck_compare(st2, vt_i64())
+        I64GeSOp => typecheck_compare(st2, vt_i64())
+        I64GeUOp => typecheck_compare(st2, vt_i64())
+        F32EqOp => typecheck_compare(st2, vt_f32())
+        F32NeOp => typecheck_compare(st2, vt_f32())
+        F32LtOp => typecheck_compare(st2, vt_f32())
+        F32GtOp => typecheck_compare(st2, vt_f32())
+        F32LeOp => typecheck_compare(st2, vt_f32())
+        F32GeOp => typecheck_compare(st2, vt_f32())
+        F64EqOp => typecheck_compare(st2, vt_f64())
+        F64NeOp => typecheck_compare(st2, vt_f64())
+        F64LtOp => typecheck_compare(st2, vt_f64())
+        F64GtOp => typecheck_compare(st2, vt_f64())
+        F64LeOp => typecheck_compare(st2, vt_f64())
+        F64GeOp => typecheck_compare(st2, vt_f64())
+
+        // Scalar Arithmetic
+        I32AddOp => typecheck_binary(st2, vt_i32(), vt_i32())
+        I32SubOp => typecheck_binary(st2, vt_i32(), vt_i32())
+        I32MulOp => typecheck_binary(st2, vt_i32(), vt_i32())
+        I32DivSOp => typecheck_binary(st2, vt_i32(), vt_i32())
+        I32DivUOp => typecheck_binary(st2, vt_i32(), vt_i32())
+        I32RemSOp => typecheck_binary(st2, vt_i32(), vt_i32())
+        I32RemUOp => typecheck_binary(st2, vt_i32(), vt_i32())
+        I32AndOp => typecheck_binary(st2, vt_i32(), vt_i32())
+        I32OrOp => typecheck_binary(st2, vt_i32(), vt_i32())
+        I32XorOp => typecheck_binary(st2, vt_i32(), vt_i32())
+        I32ShlOp => typecheck_binary(st2, vt_i32(), vt_i32())
+        I32ShrSOp => typecheck_binary(st2, vt_i32(), vt_i32())
+        I32ShrUOp => typecheck_binary(st2, vt_i32(), vt_i32())
+        I32RotlOp => typecheck_binary(st2, vt_i32(), vt_i32())
+        I32RotrOp => typecheck_binary(st2, vt_i32(), vt_i32())
+        I64AddOp => typecheck_binary(st2, vt_i64(), vt_i64())
+        I64SubOp => typecheck_binary(st2, vt_i64(), vt_i64())
+        I64MulOp => typecheck_binary(st2, vt_i64(), vt_i64())
+        I64DivSOp => typecheck_binary(st2, vt_i64(), vt_i64())
+        I64DivUOp => typecheck_binary(st2, vt_i64(), vt_i64())
+        I64RemSOp => typecheck_binary(st2, vt_i64(), vt_i64())
+        I64RemUOp => typecheck_binary(st2, vt_i64(), vt_i64())
+        I64AndOp => typecheck_binary(st2, vt_i64(), vt_i64())
+        I64OrOp => typecheck_binary(st2, vt_i64(), vt_i64())
+        I64XorOp => typecheck_binary(st2, vt_i64(), vt_i64())
+        I64ShlOp => typecheck_binary(st2, vt_i64(), vt_i64())
+        I64ShrSOp => typecheck_binary(st2, vt_i64(), vt_i64())
+        I64ShrUOp => typecheck_binary(st2, vt_i64(), vt_i64())
+        I64RotlOp => typecheck_binary(st2, vt_i64(), vt_i64())
+        I64RotrOp => typecheck_binary(st2, vt_i64(), vt_i64())
+        F32AddOp => typecheck_binary(st2, vt_f32(), vt_f32())
+        F32SubOp => typecheck_binary(st2, vt_f32(), vt_f32())
+        F32MulOp => typecheck_binary(st2, vt_f32(), vt_f32())
+        F32DivOp => typecheck_binary(st2, vt_f32(), vt_f32())
+        F32MinOp => typecheck_binary(st2, vt_f32(), vt_f32())
+        F32MaxOp => typecheck_binary(st2, vt_f32(), vt_f32())
+        F32CopysignOp => typecheck_binary(st2, vt_f32(), vt_f32())
+        F64AddOp => typecheck_binary(st2, vt_f64(), vt_f64())
+        F64SubOp => typecheck_binary(st2, vt_f64(), vt_f64())
+        F64MulOp => typecheck_binary(st2, vt_f64(), vt_f64())
+        F64DivOp => typecheck_binary(st2, vt_f64(), vt_f64())
+        F64MinOp => typecheck_binary(st2, vt_f64(), vt_f64())
+        F64MaxOp => typecheck_binary(st2, vt_f64(), vt_f64())
+        F64CopysignOp => typecheck_binary(st2, vt_f64(), vt_f64())
+
+        // SIMD Binary
+        V128AndOp => typecheck_v128_binary(st2)
+        V128AndnotOp => typecheck_v128_binary(st2)
+        V128OrOp => typecheck_v128_binary(st2)
+        V128XorOp => typecheck_v128_binary(st2)
+        I8x16EqOp => typecheck_v128_compare(st2)
+        I8x16NeOp => typecheck_v128_compare(st2)
+        I8x16LtSOp => typecheck_v128_compare(st2)
+        I8x16LtUOp => typecheck_v128_compare(st2)
+        I8x16GtSOp => typecheck_v128_compare(st2)
+        I8x16GtUOp => typecheck_v128_compare(st2)
+        I8x16LeSOp => typecheck_v128_compare(st2)
+        I8x16LeUOp => typecheck_v128_compare(st2)
+        I8x16GeSOp => typecheck_v128_compare(st2)
+        I8x16GeUOp => typecheck_v128_compare(st2)
+        I16x8EqOp => typecheck_v128_compare(st2)
+        I16x8NeOp => typecheck_v128_compare(st2)
+        I16x8LtSOp => typecheck_v128_compare(st2)
+        I16x8LtUOp => typecheck_v128_compare(st2)
+        I16x8GtSOp => typecheck_v128_compare(st2)
+        I16x8GtUOp => typecheck_v128_compare(st2)
+        I16x8LeSOp => typecheck_v128_compare(st2)
+        I16x8LeUOp => typecheck_v128_compare(st2)
+        I16x8GeSOp => typecheck_v128_compare(st2)
+        I16x8GeUOp => typecheck_v128_compare(st2)
+        I32x4EqOp => typecheck_v128_compare(st2)
+        I32x4NeOp => typecheck_v128_compare(st2)
+        I32x4LtSOp => typecheck_v128_compare(st2)
+        I32x4LtUOp => typecheck_v128_compare(st2)
+        I32x4GtSOp => typecheck_v128_compare(st2)
+        I32x4GtUOp => typecheck_v128_compare(st2)
+        I32x4LeSOp => typecheck_v128_compare(st2)
+        I32x4LeUOp => typecheck_v128_compare(st2)
+        I32x4GeSOp => typecheck_v128_compare(st2)
+        I32x4GeUOp => typecheck_v128_compare(st2)
+        I64x2EqOp => typecheck_v128_compare(st2)
+        I64x2NeOp => typecheck_v128_compare(st2)
+        I64x2LtSOp => typecheck_v128_compare(st2)
+        I64x2GtSOp => typecheck_v128_compare(st2)
+        I64x2LeSOp => typecheck_v128_compare(st2)
+        I64x2GeSOp => typecheck_v128_compare(st2)
+        F32x4EqOp => typecheck_v128_compare(st2)
+        F32x4NeOp => typecheck_v128_compare(st2)
+        F32x4LtOp => typecheck_v128_compare(st2)
+        F32x4GtOp => typecheck_v128_compare(st2)
+        F32x4LeOp => typecheck_v128_compare(st2)
+        F32x4GeOp => typecheck_v128_compare(st2)
+        F64x2EqOp => typecheck_v128_compare(st2)
+        F64x2NeOp => typecheck_v128_compare(st2)
+        F64x2LtOp => typecheck_v128_compare(st2)
+        F64x2GtOp => typecheck_v128_compare(st2)
+        F64x2LeOp => typecheck_v128_compare(st2)
+        F64x2GeOp => typecheck_v128_compare(st2)
+        I8x16AddOp => typecheck_v128_binary(st2)
+        I8x16AddSatSOp => typecheck_v128_binary(st2)
+        I8x16AddSatUOp => typecheck_v128_binary(st2)
+        I8x16SubOp => typecheck_v128_binary(st2)
+        I8x16SubSatSOp => typecheck_v128_binary(st2)
+        I8x16SubSatUOp => typecheck_v128_binary(st2)
+        I8x16MinSOp => typecheck_v128_binary(st2)
+        I8x16MinUOp => typecheck_v128_binary(st2)
+        I8x16MaxSOp => typecheck_v128_binary(st2)
+        I8x16MaxUOp => typecheck_v128_binary(st2)
+        I8x16AvgrUOp => typecheck_v128_binary(st2)
+        I8x16NarrowI16x8SOp => typecheck_v128_binary(st2)
+        I8x16NarrowI16x8UOp => typecheck_v128_binary(st2)
+        I16x8AddOp => typecheck_v128_binary(st2)
+        I16x8AddSatSOp => typecheck_v128_binary(st2)
+        I16x8AddSatUOp => typecheck_v128_binary(st2)
+        I16x8SubOp => typecheck_v128_binary(st2)
+        I16x8SubSatSOp => typecheck_v128_binary(st2)
+        I16x8SubSatUOp => typecheck_v128_binary(st2)
+        I16x8MulOp => typecheck_v128_binary(st2)
+        I16x8MinSOp => typecheck_v128_binary(st2)
+        I16x8MinUOp => typecheck_v128_binary(st2)
+        I16x8MaxSOp => typecheck_v128_binary(st2)
+        I16x8MaxUOp => typecheck_v128_binary(st2)
+        I16x8AvgrUOp => typecheck_v128_binary(st2)
+        I16x8Q15mulrSatSOp => typecheck_v128_binary(st2)
+        I16x8NarrowI32x4SOp => typecheck_v128_binary(st2)
+        I16x8NarrowI32x4UOp => typecheck_v128_binary(st2)
+        I16x8ExtmulLowI8x16SOp => typecheck_v128_binary(st2)
+        I16x8ExtmulHighI8x16SOp => typecheck_v128_binary(st2)
+        I16x8ExtmulLowI8x16UOp => typecheck_v128_binary(st2)
+        I16x8ExtmulHighI8x16UOp => typecheck_v128_binary(st2)
+        I32x4AddOp => typecheck_v128_binary(st2)
+        I32x4SubOp => typecheck_v128_binary(st2)
+        I32x4MulOp => typecheck_v128_binary(st2)
+        I32x4MinSOp => typecheck_v128_binary(st2)
+        I32x4MinUOp => typecheck_v128_binary(st2)
+        I32x4MaxSOp => typecheck_v128_binary(st2)
+        I32x4MaxUOp => typecheck_v128_binary(st2)
+        I32x4DotI16x8SOp => typecheck_v128_binary(st2)
+        I32x4ExtmulLowI16x8SOp => typecheck_v128_binary(st2)
+        I32x4ExtmulHighI16x8SOp => typecheck_v128_binary(st2)
+        I32x4ExtmulLowI16x8UOp => typecheck_v128_binary(st2)
+        I32x4ExtmulHighI16x8UOp => typecheck_v128_binary(st2)
+        I64x2AddOp => typecheck_v128_binary(st2)
+        I64x2SubOp => typecheck_v128_binary(st2)
+        I64x2MulOp => typecheck_v128_binary(st2)
+        I64x2ExtmulLowI32x4SOp => typecheck_v128_binary(st2)
+        I64x2ExtmulHighI32x4SOp => typecheck_v128_binary(st2)
+        I64x2ExtmulLowI32x4UOp => typecheck_v128_binary(st2)
+        I64x2ExtmulHighI32x4UOp => typecheck_v128_binary(st2)
+        F32x4AddOp => typecheck_v128_binary(st2)
+        F32x4SubOp => typecheck_v128_binary(st2)
+        F32x4MulOp => typecheck_v128_binary(st2)
+        F32x4DivOp => typecheck_v128_binary(st2)
+        F32x4MinOp => typecheck_v128_binary(st2)
+        F32x4MaxOp => typecheck_v128_binary(st2)
+        F32x4PminOp => typecheck_v128_binary(st2)
+        F32x4PmaxOp => typecheck_v128_binary(st2)
+        F64x2AddOp => typecheck_v128_binary(st2)
+        F64x2SubOp => typecheck_v128_binary(st2)
+        F64x2MulOp => typecheck_v128_binary(st2)
+        F64x2DivOp => typecheck_v128_binary(st2)
+        F64x2MinOp => typecheck_v128_binary(st2)
+        F64x2MaxOp => typecheck_v128_binary(st2)
+        F64x2PminOp => typecheck_v128_binary(st2)
+        F64x2PmaxOp => typecheck_v128_binary(st2)
+        F32x4RelaxedMinOp => typecheck_v128_binary(st2)
+        F32x4RelaxedMaxOp => typecheck_v128_binary(st2)
+        F64x2RelaxedMinOp => typecheck_v128_binary(st2)
+        F64x2RelaxedMaxOp => typecheck_v128_binary(st2)
+        I16x8RelaxedQ15mulrSOp => typecheck_v128_binary(st2)
+        I16x8RelaxedDotI8x16I7x16SOp => typecheck_v128_binary(st2)
+      }
+    }
+    TRefEq(left, right) => {
+      let st1 = match left.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match right.typecheck(st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_ref_eq(st2)
+    }
+    TStore(op, ma, addr, val) => {
+      let st1 = match addr.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match val.typecheck(st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      match op {
+        I32StoreOp => typecheck_store(st2, ma, 32, vt_i32())
+        I64StoreOp => typecheck_store(st2, ma, 64, vt_i64())
+        F32StoreOp => typecheck_store(st2, ma, 32, vt_f32())
+        F64StoreOp => typecheck_store(st2, ma, 64, vt_f64())
+        I32Store8Op => typecheck_store(st2, ma, 8, vt_i32())
+        I32Store16Op => typecheck_store(st2, ma, 16, vt_i32())
+        I64Store8Op => typecheck_store(st2, ma, 8, vt_i64())
+        I64Store16Op => typecheck_store(st2, ma, 16, vt_i64())
+        I64Store32Op => typecheck_store(st2, ma, 32, vt_i64())
+        V128StoreOp => typecheck_v128_mem_store(st2, ma, 128)
+      }
+    }
+
+    // === Load ===
+    TLoad(op, ma, addr) => {
+      let st1 = match addr.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      match op {
+        I32LoadOp => typecheck_load(st1, ma, 32, vt_i32())
+        I64LoadOp => typecheck_load(st1, ma, 64, vt_i64())
+        F32LoadOp => typecheck_load(st1, ma, 32, vt_f32())
+        F64LoadOp => typecheck_load(st1, ma, 64, vt_f64())
+        I32Load8SOp => typecheck_load(st1, ma, 8, vt_i32())
+        I32Load8UOp => typecheck_load(st1, ma, 8, vt_i32())
+        I32Load16SOp => typecheck_load(st1, ma, 16, vt_i32())
+        I32Load16UOp => typecheck_load(st1, ma, 16, vt_i32())
+        I64Load8SOp => typecheck_load(st1, ma, 8, vt_i64())
+        I64Load8UOp => typecheck_load(st1, ma, 8, vt_i64())
+        I64Load16SOp => typecheck_load(st1, ma, 16, vt_i64())
+        I64Load16UOp => typecheck_load(st1, ma, 16, vt_i64())
+        I64Load32SOp => typecheck_load(st1, ma, 32, vt_i64())
+        I64Load32UOp => typecheck_load(st1, ma, 32, vt_i64())
+        V128LoadOp => typecheck_v128_mem_load(st1, ma, 128)
+        V128Load8x8SOp => typecheck_v128_mem_load_extend64(st1, ma)
+        V128Load8x8UOp => typecheck_v128_mem_load_extend64(st1, ma)
+        V128Load16x4SOp => typecheck_v128_mem_load_extend64(st1, ma)
+        V128Load16x4UOp => typecheck_v128_mem_load_extend64(st1, ma)
+        V128Load32x2SOp => typecheck_v128_mem_load_extend64(st1, ma)
+        V128Load32x2UOp => typecheck_v128_mem_load_extend64(st1, ma)
+        V128Load8SplatOp => typecheck_v128_mem_load_splat(st1, ma, 8)
+        V128Load16SplatOp => typecheck_v128_mem_load_splat(st1, ma, 16)
+        V128Load32SplatOp => typecheck_v128_mem_load_splat(st1, ma, 32)
+        V128Load64SplatOp => typecheck_v128_mem_load_splat(st1, ma, 64)
+        V128Load32ZeroOp => typecheck_v128_mem_load_zero(st1, ma, 32)
+        V128Load64ZeroOp => typecheck_v128_mem_load_zero(st1, ma, 64)
+      }
+    }
+
+    // === Memory ops ===
+    TMemoryGrow(m, delta) => {
+      let st1 = match delta.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_memory_grow(st1, m)
+    }
+    TMemoryFill(m, dst, val, len) => {
+      let st1 = match dst.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match val.typecheck(st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st3 = match len.typecheck(st2) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_memory_fill(st3, m)
+    }
+    TMemoryCopy(mi0, mi1, dst, src, len) => {
+      let st1 = match dst.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match src.typecheck(st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st3 = match len.typecheck(st2) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_memory_copy(st3, mi0, mi1)
+    }
+    TMemoryInit(d, m, dst, src, len) => {
+      let st1 = match dst.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match src.typecheck(st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st3 = match len.typecheck(st2) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_memory_init(st3, d, m)
+    }
+    TDataDrop(d) => typecheck_data_drop(st, d)
+
+    // === Table ops ===
+    TTableGet(t, idx) => {
+      let st1 = match idx.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_table_get(st1, t)
+    }
+    TTableSet(t, idx, val) => {
+      let st1 = match idx.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match val.typecheck(st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_table_set(st2, t)
+    }
+    TTableGrow(t, init, delta) => {
+      let st1 = match init.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match delta.typecheck(st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_table_grow(st2, t)
+    }
+    TTableFill(t, idx, val, len) => {
+      let st1 = match idx.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match val.typecheck(st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st3 = match len.typecheck(st2) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_table_fill(st3, t)
+    }
+    TTableCopy(t0, t1, dst, src, len) => {
+      let st1 = match dst.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match src.typecheck(st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st3 = match len.typecheck(st2) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_table_copy(st3, t0, t1)
+    }
+    TTableInit(e, t, dst, src, len) => {
+      let st1 = match dst.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match src.typecheck(st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st3 = match len.typecheck(st2) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_table_init(st3, e, t)
+    }
+    TElemDrop(e) => typecheck_elem_drop(st, e)
+
+    // === Calls ===
+    TCall(f, args) => {
+      let mut st_acc = st
+      for arg in args {
+        st_acc = match arg.typecheck(st_acc) {
+          Ok(st) => st
+          Err(t) => return Err(t)
+        }
+      }
+      typecheck_call(st_acc, f)
+    }
+    TCallIndirect(tidx, t, args, tab_expr) => {
+      let mut st_acc = st
+      for arg in args {
+        st_acc = match arg.typecheck(st_acc) {
+          Ok(st) => st
+          Err(t) => return Err(t)
+        }
+      }
+      let st_final = match tab_expr.typecheck(st_acc) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_call_indirect(st_final, tidx, t)
+    }
+    TCallRef(tidx, args, funcref) => {
+      let mut st_acc = st
+      for arg in args {
+        st_acc = match arg.typecheck(st_acc) {
+          Ok(st) => st
+          Err(t) => return Err(t)
+        }
+      }
+      let st_final = match funcref.typecheck(st_acc) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_call_ref(st_final, tidx)
+    }
+    TReturnCall(f, args) => {
+      let mut st_acc = st
+      for arg in args {
+        st_acc = match arg.typecheck(st_acc) {
+          Ok(st) => st
+          Err(t) => return Err(t)
+        }
+      }
+      typecheck_return_call(st_acc, f)
+    }
+    TReturnCallIndirect(tidx, t, args, tab_expr) => {
+      let mut st_acc = st
+      for arg in args {
+        st_acc = match arg.typecheck(st_acc) {
+          Ok(st) => st
+          Err(t) => return Err(t)
+        }
+      }
+      let st_final = match tab_expr.typecheck(st_acc) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_return_call_indirect(st_final, tidx, t)
+    }
+    TReturnCallRef(tidx, args, funcref) => {
+      let mut st_acc = st
+      for arg in args {
+        st_acc = match arg.typecheck(st_acc) {
+          Ok(st) => st
+          Err(t) => return Err(t)
+        }
+      }
+      let st_final = match funcref.typecheck(st_acc) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_return_call_ref(st_final, tidx)
+    }
+
+    // === Control Flow ===
+    TBlock(bt, body) => {
+      let (params, results) = match st.env.expand_blocktype(bt) {
+        Err(e) => return Err(e)
+        Ok(x) => x
+      }
+      let st1 = match st.pop_types(params) {
+        Err(e) => return Err(e)
+        Ok(s) => s
+      }
+      let base_len = st1.stack.length()
+      let env2 = st1.env.with_label(results)
+      let mut st_body = TcState::{ ..st1, env: env2 }
+      let TExpr(body) = body
+      for instr in body {
+        st_body = match instr.typecheck(st_body) {
+          Err(e) => return Err(e)
+          Ok(s) => s
+        }
+      }
+      let st2 = if st_body.reachable {
+        match st_body.pop_types(results) {
+          Err(e) => return Err(e)
+          Ok(s) => s
+        }
+      } else {
+        st_body
+      }
+      let s = st2.stack.copy()
+      while s.length() > base_len {
+        ignore(s.pop())
+      }
+      let out = TcState::{ ..st, stack: s }
+      Ok(out.push_types(results))
+    }
+    TLoop(bt, body) => {
+      let (params, results) = match st.env.expand_blocktype(bt) {
+        Err(e) => return Err(e)
+        Ok(x) => x
+      }
+      let st1 = match st.pop_types(params) {
+        Err(e) => return Err(e)
+        Ok(s) => s
+      }
+      let base_len = st1.stack.length()
+      let env2 = st1.env.with_label(params)
+      let mut st_body = TcState::{ ..st1, env: env2 }
+      let TExpr(body) = body
+      for instr in body {
+        st_body = match instr.typecheck(st_body) {
+          Err(e) => return Err(e)
+          Ok(s) => s
+        }
+      }
+      let st2 = if st_body.reachable {
+        match st_body.pop_types(results) {
+          Err(e) => return Err(e)
+          Ok(s) => s
+        }
+      } else {
+        st_body
+      }
+      let s = st2.stack.copy()
+      while s.length() > base_len {
+        ignore(s.pop())
+      }
+      let out = TcState::{ ..st, stack: s }
+      Ok(out.push_types(results))
+    }
+    TIf(bt, cond, then_instrs, else_instrs_opt) => {
+      let (params, results) = match st.env.expand_blocktype(bt) {
+        Err(e) => return Err(e)
+        Ok(x) => x
+      }
+      let st0 = match cond.typecheck(st) {
+        Err(e) => return Err(e)
+        Ok(s) => s
+      }
+      let st0 = match st0.pop_expect(NumTypeValType(I32NumType)) {
+        Err(e) => return Err(e)
+        Ok(s) => s
+      }
+      let st1 = match st0.pop_types(params) {
+        Err(e) => return Err(e)
+        Ok(s) => s
+      }
+      let base_len = st1.stack.length()
+      let else_instrs = match else_instrs_opt {
+        None => []
+        Some(TExpr(xs)) => xs
+      }
+      let env_branch = st1.env.with_label(results)
+      let st_then0 = TcState::{ ..st1, env: env_branch }
+      let mut st_then = st_then0
+      let TExpr(then_instrs) = then_instrs
+      for instr in then_instrs {
+        st_then = match instr.typecheck(st_then) {
+          Err(e) => return Err(e)
+          Ok(s) => s
+        }
+      }
+      let st_else0 = TcState::{ ..st1, env: env_branch }
+      let mut st_else = st_else0
+      for instr in else_instrs {
+        st_else = match instr.typecheck(st_else) {
+          Err(e) => return Err(e)
+          Ok(s) => s
+        }
+      }
+      let norm_branch = fn(
+        sb : TcState,
+      ) -> Result[(Bool, Array[ValType]), String] {
+        let sb2 = if sb.reachable {
+          match sb.pop_types(results) {
+            Err(e) => return Err(e)
+            Ok(s) => s
+          }
+        } else {
+          sb
+        }
+        let stack2 = sb2.stack.copy()
+        while stack2.length() > base_len {
+          ignore(stack2.pop())
+        }
+        Ok((sb2.reachable, stack2))
+      }
+      let (then_reach, then_stack) = match norm_branch(st_then) {
+        Err(e) => return Err(e)
+        Ok(x) => x
+      }
+      let (else_reach, else_stack) = match norm_branch(st_else) {
+        Err(e) => return Err(e)
+        Ok(x) => x
+      }
+      let merged_stack = match (then_reach, else_reach) {
+        (true, true) => {
+          if then_stack != else_stack {
+            return Err("if branch stack mismatch")
+          }
+          then_stack
+        }
+        (true, false) => then_stack
+        (false, true) => else_stack
+        (false, false) => st1.stack.copy()
+      }
+      let merged_reachable = then_reach || else_reach
+      let out = TcState::{
+        env: st.env,
+        stack: merged_stack,
+        reachable: merged_reachable,
+      }
+      Ok(out.push_types(results))
+    }
+    TTryTable(bt, catches, body) => {
+      let (params, results) = match st.env.expand_blocktype(bt) {
+        Err(e) => return Err(e)
+        Ok(x) => x
+      }
+      let st1 = match st.pop_types(params) {
+        Err(e) => return Err(e)
+        Ok(s) => s
+      }
+      let base_len = st1.stack.length()
+      let env2 = st1.env.with_label(results)
+      let st_body0 = TcState::{ ..st1, env: env2 }
+      let mut st_body = st_body0
+      let TExpr(body) = body
+      for instr in body {
+        st_body = match instr.typecheck(st_body) {
+          Err(e) => return Err(e)
+          Ok(s) => s
+        }
+      }
+      let st_catch_ctx = TcState::{ ..st1, env: env2 }
+      for c in catches {
+        match typecheck_catch_clause(st_catch_ctx, c) {
+          Err(e) => return Err(e)
+          Ok(_) => ()
+        }
+      }
+      let st2 = if st_body.reachable {
+        match st_body.pop_types(results) {
+          Err(e) => return Err(e)
+          Ok(s) => s
+        }
+      } else {
+        st_body
+      }
+      let stack2 = st2.stack.copy()
+      while stack2.length() > base_len {
+        ignore(stack2.pop())
+      }
+      let out = TcState::{
+        env: st.env,
+        stack: stack2,
+        reachable: st2.reachable,
+      }
+      Ok(out.push_types(results))
+    }
+    TThrow(tag, args) => {
+      let mut st_acc = st
+      for arg in args {
+        st_acc = match arg.typecheck(st_acc) {
+          Ok(st) => st
+          Err(t) => return Err(t)
+        }
+      }
+      typecheck_throw(st_acc, tag)
+    }
+
+    // === Branches ===
+    TBr(l, args) => {
+      let mut st_acc = st
+      for arg in args {
+        st_acc = match arg.typecheck(st_acc) {
+          Ok(st) => st
+          Err(t) => return Err(t)
+        }
+      }
+      typecheck_br(st_acc, l)
+    }
+    TBrIf(l, cond, args) => {
+      let mut st_acc = st
+      for arg in args {
+        st_acc = match arg.typecheck(st_acc) {
+          Ok(st) => st
+          Err(t) => return Err(t)
+        }
+      }
+      let st_cond = match cond.typecheck(st_acc) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_br_if(st_cond, l)
+    }
+    TBrTable(ls, ldef, index, args) => {
+      let mut st_acc = st
+      for arg in args {
+        st_acc = match arg.typecheck(st_acc) {
+          Ok(st) => st
+          Err(t) => return Err(t)
+        }
+      }
+      let st_idx = match index.typecheck(st_acc) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_br_table(st_idx, ls, ldef)
+    }
+    TBrOnNull(l, r, args) => {
+      let mut st_acc = st
+      for arg in args {
+        st_acc = match arg.typecheck(st_acc) {
+          Ok(st) => st
+          Err(t) => return Err(t)
+        }
+      }
+      let st_ref = match r.typecheck(st_acc) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_br_on_null(st_ref, l)
+    }
+    TBrOnNonNull(l, r, args) => {
+      let mut st_acc = st
+      for arg in args {
+        st_acc = match arg.typecheck(st_acc) {
+          Ok(st) => st
+          Err(t) => return Err(t)
+        }
+      }
+      let st_ref = match r.typecheck(st_acc) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_br_on_non_null(st_ref, l)
+    }
+    TBrOnCast(l, op, ht1, ht2, r, args) => {
+      let mut st_acc = st
+      for arg in args {
+        st_acc = match arg.typecheck(st_acc) {
+          Ok(st) => st
+          Err(t) => return Err(t)
+        }
+      }
+      let st_ref = match r.typecheck(st_acc) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_br_on_cast(st_ref, l, op, ht1, ht2)
+    }
+    TBrOnCastFail(l, op, ht1, ht2, r, args) => {
+      let mut st_acc = st
+      for arg in args {
+        st_acc = match arg.typecheck(st_acc) {
+          Ok(st) => st
+          Err(t) => return Err(t)
+        }
+      }
+      let st_ref = match r.typecheck(st_acc) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_br_on_cast_fail(st_ref, l, op, ht1, ht2)
+    }
+    TReturn(args) => {
+      let mut st_acc = st
+      for arg in args {
+        st_acc = match arg.typecheck(st_acc) {
+          Ok(st) => st
+          Err(t) => return Err(t)
+        }
+      }
+      typecheck_return(st_acc)
+    }
+
+    // === Select ===
+    TSelect(ty_opt, cond, t, f) => {
+      let st_f = match f.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st_t = match t.typecheck(st_f) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st_cond = match cond.typecheck(st_t) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      match ty_opt {
+        None => typecheck_select_untyped(st_cond)
+        Some(ts) => typecheck_select_typed(st_cond, ts)
+      }
+    }
+
+    // === Structs ===
+    TStructNew(x, fields) => {
+      let mut st_acc = st
+      for f in fields {
+        st_acc = match f.typecheck(st_acc) {
+          Ok(st) => st
+          Err(t) => return Err(t)
+        }
+      }
+      typecheck_struct_new(st_acc, x)
+    }
+    TStructNewDefault(x) => typecheck_struct_new_default(st, x)
+    TStructGet(x, i, s) => {
+      let st1 = match s.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_struct_get(st1, x, i)
+    }
+    TStructGetS(x, i, s) => {
+      let st1 = match s.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_struct_get_s(st1, x, i)
+    }
+    TStructGetU(x, i, s) => {
+      let st1 = match s.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_struct_get_u(st1, x, i)
+    }
+    TStructSet(x, i, s, val) => {
+      let st1 = match s.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match val.typecheck(st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_struct_set(st2, x, i)
+    }
+
+    // === Arrays ===
+    TArrayNew(x, init, len) => {
+      let st1 = match init.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match len.typecheck(st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_array_new(st2, x)
+    }
+    TArrayNewDefault(x, len) => {
+      let st1 = match len.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_array_new_default(st1, x)
+    }
+    TArrayNewFixed(x, fields) => {
+      let mut st_acc = st
+      for f in fields {
+        st_acc = match f.typecheck(st_acc) {
+          Ok(st) => st
+          Err(t) => return Err(t)
+        }
+      }
+      typecheck_array_new_fixed(
+        st_acc,
+        x,
+        fields.length().reinterpret_as_uint(),
+      )
+    }
+    TArrayNewData(x, y, offset, len) => {
+      let st1 = match offset.typecheck(st) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      let st2 = match len.typecheck(st1) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      typecheck_array_new_data(st2, x, y)
+    }
+    TArrayNewElem(x, y, offset, len) => {
+      let st1 = match offset.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match len.typecheck(st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_array_new_elem(st2, x, y)
+    }
+    TArrayGet(x, arr, idx) => {
+      let st1 = match arr.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match idx.typecheck(st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_array_get(st2, x)
+    }
+    TArrayGetS(x, arr, idx) => {
+      let st1 = match arr.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match idx.typecheck(st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_array_get_s(st2, x)
+    }
+    TArrayGetU(x, arr, idx) => {
+      let st1 = match arr.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match idx.typecheck(st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_array_get_u(st2, x)
+    }
+    TArraySet(x, arr, idx, val) => {
+      let st1 = match arr.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match idx.typecheck(st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st3 = match val.typecheck(st2) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_array_set(st3, x)
+    }
+    TArrayFill(x, arr, offset, val, len) => {
+      let st1 = match arr.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match offset.typecheck(st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st3 = match val.typecheck(st2) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st4 = match len.typecheck(st3) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_array_fill(st4, x)
+    }
+    TArrayCopy(x, y, arr2, idx2, arr1, idx1, len) => {
+      let st1 = match arr2.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match idx2.typecheck(st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st3 = match arr1.typecheck(st2) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st4 = match idx1.typecheck(st3) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st5 = match len.typecheck(st4) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_array_copy(st5, x, y)
+    }
+    TArrayInitData(x, y, i0, i1, i2, i3) => {
+      let st1 = match i0.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match i1.typecheck(st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st3 = match i2.typecheck(st2) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st4 = match i3.typecheck(st3) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_array_init_data(st4, x, y)
+    }
+    TArrayInitElem(x, y, i0, i1, i2, i3) => {
+      let st1 = match i0.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match i1.typecheck(st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st3 = match i2.typecheck(st2) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st4 = match i3.typecheck(st3) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_array_init_elem(st4, x, y)
+    }
+
+    // === GC: Casts ===
+    TRefTest(nullable, ht, child) => {
+      let st1 = match child.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_ref_test(st1, nullable, ht)
+    }
+    TRefCast(nullable, ht, child) => {
+      let st1 = match child.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_ref_cast(st1, nullable, ht)
+    }
+
+    // === SIMD: Splat ===
+    TI8x16Splat(x) => {
+      let st1 = match x.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_splat(st1, vt_i32())
+    }
+    TI16x8Splat(x) => {
+      let st1 = match x.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_splat(st1, vt_i32())
+    }
+    TI32x4Splat(x) => {
+      let st1 = match x.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_splat(st1, vt_i32())
+    }
+    TI64x2Splat(x) => {
+      let st1 = match x.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_splat(st1, vt_i64())
+    }
+    TF32x4Splat(x) => {
+      let st1 = match x.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_splat(st1, vt_f32())
+    }
+    TF64x2Splat(x) => {
+      let st1 = match x.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_splat(st1, vt_f64())
+    }
+
+    // === SIMD: Extract lane ===
+    TExtractLane(op, _, vec) => {
+      let st1 = match vec.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      match op {
+        I8x16ExtractLaneSOp => typecheck_lane_extract(st1, vt_i32())
+        I8x16ExtractLaneUOp => typecheck_lane_extract(st1, vt_i32())
+        I16x8ExtractLaneSOp => typecheck_lane_extract(st1, vt_i32())
+        I16x8ExtractLaneUOp => typecheck_lane_extract(st1, vt_i32())
+        I32x4ExtractLaneOp => typecheck_lane_extract(st1, vt_i32())
+        I64x2ExtractLaneOp => typecheck_lane_extract(st1, vt_i64())
+        F32x4ExtractLaneOp => typecheck_lane_extract(st1, vt_f32())
+        F64x2ExtractLaneOp => typecheck_lane_extract(st1, vt_f64())
+      }
+    }
+
+    // === SIMD: Replace lane ===
+    TReplaceLane(op, _, vec, val) => {
+      let st1 = match vec.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match val.typecheck(st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      match op {
+        I8x16ReplaceLaneOp => typecheck_lane_replace(st2, vt_i32())
+        I16x8ReplaceLaneOp => typecheck_lane_replace(st2, vt_i32())
+        I32x4ReplaceLaneOp => typecheck_lane_replace(st2, vt_i32())
+        I64x2ReplaceLaneOp => typecheck_lane_replace(st2, vt_i64())
+        F32x4ReplaceLaneOp => typecheck_lane_replace(st2, vt_f32())
+        F64x2ReplaceLaneOp => typecheck_lane_replace(st2, vt_f64())
+      }
+    }
+
+    // === SIMD: Shuffle ===
+    TI8x16Shuffle(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, v1, v2) => {
+      let st1 = match v1.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match v2.typecheck(st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_v128_binary(st2)
+    }
+    TI8x16Swizzle(v1, v2) => {
+      let st1 = match v1.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match v2.typecheck(st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_v128_binary(st2)
+    }
+    TI8x16RelaxedSwizzle(v1, v2) => {
+      let st1 = match v1.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match v2.typecheck(st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_v128_binary(st2)
+    }
+
+    // === SIMD: Shift ===
+    TV128Shift(_, vec, shift) => {
+      let st1 = match vec.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match shift.typecheck(st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_v128_shift(st2)
+    }
+
+    // === SIMD: Ternary ===
+    TV128Ternary(_, c, v1, v2) => {
+      let st1 = match c.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match v1.typecheck(st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st3 = match v2.typecheck(st2) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_v128_ternary(st3)
+    }
+
+    // === SIMD: Lane load/store ===
+    TV128LoadLane(op, ma, _, vec, addr) => {
+      let st1 = match vec.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match addr.typecheck(st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      match op {
+        V128Load8LaneOp => typecheck_v128_load_lane(st2, ma, 8)
+        V128Load16LaneOp => typecheck_v128_load_lane(st2, ma, 16)
+        V128Load32LaneOp => typecheck_v128_load_lane(st2, ma, 32)
+        V128Load64LaneOp => typecheck_v128_load_lane(st2, ma, 64)
+      }
+    }
+    TV128StoreLane(op, ma, _, vec, addr) => {
+      let st1 = match vec.typecheck(st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match addr.typecheck(st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      match op {
+        V128Store8LaneOp => typecheck_v128_store_lane(st2, ma, 8)
+        V128Store16LaneOp => typecheck_v128_store_lane(st2, ma, 16)
+        V128Store32LaneOp => typecheck_v128_store_lane(st2, ma, 32)
+        V128Store64LaneOp => typecheck_v128_store_lane(st2, ma, 64)
+      }
+    }
+  }
+}
+
+///|
+pub impl Typecheck for TExpr with typecheck(self, st0) {
+  let TExpr(instrs) = self
+  let mut st = st0
+  for instr in instrs {
+    match instr.typecheck(st) {
+      Ok(s) => st = s
+      Err(e) => return Err(e)
+    }
+  }
+  Ok(st)
+}
+
 // =============================================================================
 // HELPER FUNCTIONS
 // =============================================================================
