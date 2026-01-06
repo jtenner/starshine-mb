@@ -730,7 +730,8 @@ pub fn[T] ModuleTransformer::walk_valtype_default(
   }
 }
 
-pub fn [T] ModuleTransformer::walk_numtype(
+///|
+pub fn[T] ModuleTransformer::walk_numtype(
   self : ModuleTransformer[T],
   t : T,
   nt : NumType,
@@ -1286,6 +1287,7 @@ pub fn[T] ModuleTransformer::walk_externidx_default(
   }
 }
 
+///|
 pub fn[T] ModuleTransformer::walk_table(
   self : ModuleTransformer[T],
   t : T,
@@ -1455,6 +1457,7 @@ pub fn[T] ModuleTransformer::walk_typesec_default(
   (t, TypeSec(rectypes))
 }
 
+///|
 pub fn[T] ModuleTransformer::walk_rectype(
   self : ModuleTransformer[T],
   t : T,
@@ -1496,11 +1499,12 @@ pub fn[T] ModuleTransformer::walk_subtype(
   }
 }
 
+///|
 pub fn[T] ModuleTransformer::walk_subtype_default(
   self : ModuleTransformer[T],
   t : T,
   st : SubType,
-) ->(T, SubType) {
+) -> (T, SubType) {
   match st {
     SubType(f, supers, ct) => {
       let (t, supers) = self.walk_array(
@@ -1518,6 +1522,7 @@ pub fn[T] ModuleTransformer::walk_subtype_default(
   }
 }
 
+///|
 pub fn[T] ModuleTransformer::walk_comptype(
   self : ModuleTransformer[T],
   t : T,

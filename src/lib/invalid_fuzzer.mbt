@@ -23,8 +23,18 @@ fn make_typeidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
     ..ModuleTransformer::new(),
     on_typeidx: Some(fn(_ctx : Unit, idx : TypeIdx) -> (Unit, TypeIdx)? {
       match idx {
-        TypeIdx(i) => if i >= target { None } else { Some(((), TypeIdx(i + target))) }
-        RecIdx(i) => if i >= target { None } else { Some(((), RecIdx(i + target))) }
+        TypeIdx(i) =>
+          if i >= target {
+            None
+          } else {
+            Some(((), TypeIdx(i + target)))
+          }
+        RecIdx(i) =>
+          if i >= target {
+            None
+          } else {
+            Some(((), RecIdx(i + target)))
+          }
       }
     }),
   }
@@ -37,7 +47,11 @@ fn make_localidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
     ..ModuleTransformer::new(),
     on_localidx: Some(fn(_ctx : Unit, idx : LocalIdx) -> (Unit, LocalIdx)? {
       let LocalIdx(i) = idx
-      if i >= target { None } else { Some(((), LocalIdx(i + target))) }
+      if i >= target {
+        None
+      } else {
+        Some(((), LocalIdx(i + target)))
+      }
     }),
   }
 }
@@ -49,7 +63,11 @@ fn make_globalidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
     ..ModuleTransformer::new(),
     on_globalidx: Some(fn(_ctx : Unit, idx : GlobalIdx) -> (Unit, GlobalIdx)? {
       let GlobalIdx(i) = idx
-      if i >= target { None } else { Some(((), GlobalIdx(i + target))) }
+      if i >= target {
+        None
+      } else {
+        Some(((), GlobalIdx(i + target)))
+      }
     }),
   }
 }
@@ -61,7 +79,11 @@ fn make_labelidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
     ..ModuleTransformer::new(),
     on_labelidx: Some(fn(_ctx : Unit, idx : LabelIdx) -> (Unit, LabelIdx)? {
       let LabelIdx(i) = idx
-      if i >= target { None } else { Some(((), LabelIdx(i + target))) }
+      if i >= target {
+        None
+      } else {
+        Some(((), LabelIdx(i + target)))
+      }
     }),
   }
 }
@@ -73,7 +95,11 @@ fn make_tableidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
     ..ModuleTransformer::new(),
     on_tableidx: Some(fn(_ctx : Unit, idx : TableIdx) -> (Unit, TableIdx)? {
       let TableIdx(i) = idx
-      if i >= target { None } else { Some(((), TableIdx(i + target))) }
+      if i >= target {
+        None
+      } else {
+        Some(((), TableIdx(i + target)))
+      }
     }),
   }
 }
@@ -85,7 +111,11 @@ fn make_memidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
     ..ModuleTransformer::new(),
     on_memidx: Some(fn(_ctx : Unit, idx : MemIdx) -> (Unit, MemIdx)? {
       let MemIdx(i) = idx
-      if i >= target { None } else { Some(((), MemIdx(i + target))) }
+      if i >= target {
+        None
+      } else {
+        Some(((), MemIdx(i + target)))
+      }
     }),
   }
 }
@@ -97,7 +127,11 @@ fn make_dataidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
     ..ModuleTransformer::new(),
     on_dataidx: Some(fn(_ctx : Unit, idx : DataIdx) -> (Unit, DataIdx)? {
       let DataIdx(i) = idx
-      if i >= target { None } else { Some(((), DataIdx(i + target))) }
+      if i >= target {
+        None
+      } else {
+        Some(((), DataIdx(i + target)))
+      }
     }),
   }
 }
@@ -109,7 +143,11 @@ fn make_elemidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
     ..ModuleTransformer::new(),
     on_elemidx: Some(fn(_ctx : Unit, idx : ElemIdx) -> (Unit, ElemIdx)? {
       let ElemIdx(i) = idx
-      if i >= target { None } else { Some(((), ElemIdx(i + target))) }
+      if i >= target {
+        None
+      } else {
+        Some(((), ElemIdx(i + target)))
+      }
     }),
   }
 }
@@ -121,7 +159,11 @@ fn make_tagidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
     ..ModuleTransformer::new(),
     on_tagidx: Some(fn(_ctx : Unit, idx : TagIdx) -> (Unit, TagIdx)? {
       let TagIdx(i) = idx
-      if i >= target { None } else { Some(((), TagIdx(i + target))) }
+      if i >= target {
+        None
+      } else {
+        Some(((), TagIdx(i + target)))
+      }
     }),
   }
 }
@@ -152,9 +194,10 @@ fn make_type_corruption_transformer() -> ModuleTransformer[Bool] {
 ///|
 fn make_numtype_swap_transformer() -> ModuleTransformer[Unit] {
   ModuleTransformer::{
-    ..ModuleTransformer::new(),
+    ..ModuleTransformer::new()
     // Only swap the VALUE TYPES, not the instructions
     // This creates mismatches between declared types and instruction semantics
+    ,
     on_valtype: Some(fn(_ctx : Unit, vt : ValType) -> (Unit, ValType)? {
       match vt {
         NumTypeValType(I32NumType) => Some(((), NumTypeValType(F64NumType)))
@@ -184,18 +227,41 @@ fn make_nullability_flip_transformer() -> ModuleTransformer[Unit] {
         HeapTypeRefType(false, ht) =>
           // Change to bottom type of same hierarchy - very restrictive
           match ht {
-            AbsHeapTypeHeapType(FuncAbsHeapType) |
-            AbsHeapTypeHeapType(NoFuncAbsHeapType) =>
-              Some(((), HeapTypeRefType(false, AbsHeapTypeHeapType(NoFuncAbsHeapType))))
-            AbsHeapTypeHeapType(ExternAbsHeapType) |
-            AbsHeapTypeHeapType(NoExternAbsHeapType) =>
-              Some(((), HeapTypeRefType(false, AbsHeapTypeHeapType(NoExternAbsHeapType))))
-            AbsHeapTypeHeapType(ExnAbsHeapType) |
-            AbsHeapTypeHeapType(NoExnAbsHeapType) =>
-              Some(((), HeapTypeRefType(false, AbsHeapTypeHeapType(NoExnAbsHeapType))))
+            AbsHeapTypeHeapType(FuncAbsHeapType)
+            | AbsHeapTypeHeapType(NoFuncAbsHeapType) =>
+              Some(
+                (
+                  (),
+                  HeapTypeRefType(false, AbsHeapTypeHeapType(NoFuncAbsHeapType)),
+                ),
+              )
+            AbsHeapTypeHeapType(ExternAbsHeapType)
+            | AbsHeapTypeHeapType(NoExternAbsHeapType) =>
+              Some(
+                (
+                  (),
+                  HeapTypeRefType(
+                    false,
+                    AbsHeapTypeHeapType(NoExternAbsHeapType),
+                  ),
+                ),
+              )
+            AbsHeapTypeHeapType(ExnAbsHeapType)
+            | AbsHeapTypeHeapType(NoExnAbsHeapType) =>
+              Some(
+                (
+                  (),
+                  HeapTypeRefType(false, AbsHeapTypeHeapType(NoExnAbsHeapType)),
+                ),
+              )
             _ =>
               // For any/eq/struct/array/i31 hierarchy, use none
-              Some(((), HeapTypeRefType(false, AbsHeapTypeHeapType(NoneAbsHeapType))))
+              Some(
+                (
+                  (),
+                  HeapTypeRefType(false, AbsHeapTypeHeapType(NoneAbsHeapType)),
+                ),
+              )
           }
         AbsHeapTypeRefType(aht) =>
           // These shorthands are nullable, make them non-null with explicit form
@@ -203,7 +269,10 @@ fn make_nullability_flip_transformer() -> ModuleTransformer[Unit] {
       }
     }),
     // Also corrupt ref.null to create definite type errors
-    on_instruction: Some(fn(_ctx : Unit, instr : Instruction) -> (Unit, Instruction)? {
+    on_instruction: Some(fn(
+      _ctx : Unit,
+      instr : Instruction,
+    ) -> (Unit, Instruction)? {
       match instr {
         // ref.null produces nullable ref, but if types expect non-null, this fails
         // Replace with something that definitely won't typecheck
@@ -247,9 +316,15 @@ fn make_signature_corruption_transformer() -> ModuleTransformer[Unit] {
             let FieldType(st, mutability) = ft
             match st {
               ValTypeStorageType(NumTypeValType(I32NumType)) =>
-                FieldType(ValTypeStorageType(NumTypeValType(F64NumType)), mutability)
+                FieldType(
+                  ValTypeStorageType(NumTypeValType(F64NumType)),
+                  mutability,
+                )
               ValTypeStorageType(NumTypeValType(I64NumType)) =>
-                FieldType(ValTypeStorageType(NumTypeValType(F32NumType)), mutability)
+                FieldType(
+                  ValTypeStorageType(NumTypeValType(F32NumType)),
+                  mutability,
+                )
               _ => ft
             }
           })
@@ -301,37 +376,6 @@ fn make_table_init_mismatch_transformer() -> ModuleTransformer[Unit] {
       let Table(tt, _init) = t
       // Set init to wrong type expression
       Some(((), Table(tt, Some(Expr([I32Const(I32(42))])))))
-    }),
-  }
-}
-
-///|
-/// Returns (was_modified, transformed_module)
-fn make_heaptype_swap_transformer() -> ModuleTransformer[Bool] {
-  ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_heaptype: Some(fn(modified : Bool, ht : HeapType) -> (Bool, HeapType)? {
-      match ht {
-        AbsHeapTypeHeapType(FuncAbsHeapType) =>
-          Some((true, AbsHeapTypeHeapType(ExternAbsHeapType)))
-        AbsHeapTypeHeapType(ExternAbsHeapType) =>
-          Some((true, AbsHeapTypeHeapType(FuncAbsHeapType)))
-        AbsHeapTypeHeapType(AnyAbsHeapType) =>
-          Some((true, AbsHeapTypeHeapType(FuncAbsHeapType)))
-        AbsHeapTypeHeapType(EqAbsHeapType) =>
-          Some((true, AbsHeapTypeHeapType(ExternAbsHeapType)))
-        AbsHeapTypeHeapType(I31AbsHeapType) =>
-          Some((true, AbsHeapTypeHeapType(FuncAbsHeapType)))
-        AbsHeapTypeHeapType(StructAbsHeapType) =>
-          Some((true, AbsHeapTypeHeapType(ExternAbsHeapType)))
-        AbsHeapTypeHeapType(ArrayAbsHeapType) =>
-          Some((true, AbsHeapTypeHeapType(FuncAbsHeapType)))
-        AbsHeapTypeHeapType(ExnAbsHeapType) =>
-          Some((true, AbsHeapTypeHeapType(AnyAbsHeapType)))
-        HeapType(TypeIdx(i)) => Some((true, HeapType(TypeIdx(i + 1000))))
-        HeapType(RecIdx(i)) => Some((true, HeapType(RecIdx(i + 1000))))
-        _ => Some((modified, ht)) // Keep tracking, no change
-      }
     }),
   }
 }
@@ -424,36 +468,61 @@ priv enum InvalidationStrategy {
   SignatureCorruption
   GlobalInitMismatch
   TableInitMismatch
-} derive(Show)
+}
 
 ///|
 /// Apply strategy and return transformed module
+
 ///|
-fn apply_strategy(strategy : InvalidationStrategy, mod_ : Module) -> (Bool, Module) {
+fn apply_strategy(
+  strategy : InvalidationStrategy,
+  mod_ : Module,
+) -> (Bool, Module) {
   match strategy {
-    FuncIdxOOB(n) => (true, make_funcidx_oob_transformer(n).walk_module((), mod_).1)
-    TypeIdxOOB(n) => (true, make_typeidx_oob_transformer(n).walk_module((), mod_).1)
-    LocalIdxOOB(n) => (true, make_localidx_oob_transformer(n).walk_module((), mod_).1)
-    GlobalIdxOOB(n) => (true, make_globalidx_oob_transformer(n).walk_module((), mod_).1)
-    LabelIdxOOB(n) => (true, make_labelidx_oob_transformer(n).walk_module((), mod_).1)
-    TableIdxOOB(n) => (true, make_tableidx_oob_transformer(n).walk_module((), mod_).1)
-    MemIdxOOB(n) => (true, make_memidx_oob_transformer(n).walk_module((), mod_).1)
-    DataIdxOOB(n) => (true, make_dataidx_oob_transformer(n).walk_module((), mod_).1)
-    ElemIdxOOB(n) => (true, make_elemidx_oob_transformer(n).walk_module((), mod_).1)
-    TagIdxOOB(n) => (true, make_tagidx_oob_transformer(n).walk_module((), mod_).1)
-    NumTypeSwap => (true, make_numtype_swap_transformer().walk_module((), mod_).1)
-    NullabilityFlip => (true, make_nullability_flip_transformer().walk_module((), mod_).1)
+    FuncIdxOOB(n) =>
+      (true, make_funcidx_oob_transformer(n).walk_module((), mod_).1)
+    TypeIdxOOB(n) =>
+      (true, make_typeidx_oob_transformer(n).walk_module((), mod_).1)
+    LocalIdxOOB(n) =>
+      (true, make_localidx_oob_transformer(n).walk_module((), mod_).1)
+    GlobalIdxOOB(n) =>
+      (true, make_globalidx_oob_transformer(n).walk_module((), mod_).1)
+    LabelIdxOOB(n) =>
+      (true, make_labelidx_oob_transformer(n).walk_module((), mod_).1)
+    TableIdxOOB(n) =>
+      (true, make_tableidx_oob_transformer(n).walk_module((), mod_).1)
+    MemIdxOOB(n) =>
+      (true, make_memidx_oob_transformer(n).walk_module((), mod_).1)
+    DataIdxOOB(n) =>
+      (true, make_dataidx_oob_transformer(n).walk_module((), mod_).1)
+    ElemIdxOOB(n) =>
+      (true, make_elemidx_oob_transformer(n).walk_module((), mod_).1)
+    TagIdxOOB(n) =>
+      (true, make_tagidx_oob_transformer(n).walk_module((), mod_).1)
+    NumTypeSwap =>
+      (true, make_numtype_swap_transformer().walk_module((), mod_).1)
+    NullabilityFlip =>
+      (true, make_nullability_flip_transformer().walk_module((), mod_).1)
     HeapTypeSwap => {
-      let (modified, result) = make_heaptype_swap_transformer().walk_module(false, mod_)
+      let (modified, result) = make_drop_insertion_transformer().walk_module(
+        false, mod_,
+      )
       (modified, result)
     }
-    InstructionTypeMismatch => (true, make_type_corruption_transformer().walk_module(false, mod_).1)
-    BlockTypeMismatch => (true, make_blocktype_mismatch_transformer().walk_module(false, mod_).1)
-    DropInsertion => (true, make_drop_insertion_transformer().walk_module(false, mod_).1)
-    BlockCorruption => (true, make_block_corruption_transformer().walk_module(false, mod_).1)
-    SignatureCorruption => (true, make_signature_corruption_transformer().walk_module((), mod_).1)
-    GlobalInitMismatch => (true, make_global_init_mismatch_transformer().walk_module((), mod_).1)
-    TableInitMismatch => (true, make_table_init_mismatch_transformer().walk_module((), mod_).1)
+    InstructionTypeMismatch =>
+      (true, make_type_corruption_transformer().walk_module(false, mod_).1)
+    BlockTypeMismatch =>
+      (true, make_blocktype_mismatch_transformer().walk_module(false, mod_).1)
+    DropInsertion =>
+      (true, make_drop_insertion_transformer().walk_module(false, mod_).1)
+    BlockCorruption =>
+      (true, make_block_corruption_transformer().walk_module(false, mod_).1)
+    SignatureCorruption =>
+      (true, make_signature_corruption_transformer().walk_module((), mod_).1)
+    GlobalInitMismatch =>
+      (true, make_global_init_mismatch_transformer().walk_module((), mod_).1)
+    TableInitMismatch =>
+      (true, make_table_init_mismatch_transformer().walk_module((), mod_).1)
   }
 }
 
@@ -496,7 +565,6 @@ fn fuzz_invalid_module_with_coverage(
   if not(was_modified) || invalid_module == valid_module {
     return (strategy_name, false, true)
   }
-
   match validate_module(invalid_module) {
     Ok(_) => (strategy_name, true, false)
     Err(_) => (strategy_name, true, true)
@@ -508,16 +576,32 @@ fn fuzz_all_strategies_with_coverage(
   valid_module : Module,
 ) -> Array[(String, Bool, Bool)] {
   let strategies : Array[InvalidationStrategy] = [
-    FuncIdxOOB(1), FuncIdxOOB(100), TypeIdxOOB(1), TypeIdxOOB(100),
-    LocalIdxOOB(1), LocalIdxOOB(100), GlobalIdxOOB(1), LabelIdxOOB(1),
-    TableIdxOOB(1), MemIdxOOB(1), DataIdxOOB(1), ElemIdxOOB(1), TagIdxOOB(1),
-    NumTypeSwap, NullabilityFlip, HeapTypeSwap, InstructionTypeMismatch,
-    BlockTypeMismatch, DropInsertion, BlockCorruption,
-    SignatureCorruption, GlobalInitMismatch, TableInitMismatch,
+    FuncIdxOOB(1),
+    FuncIdxOOB(100),
+    TypeIdxOOB(1),
+    TypeIdxOOB(100),
+    LocalIdxOOB(1),
+    LocalIdxOOB(100),
+    GlobalIdxOOB(1),
+    LabelIdxOOB(1),
+    TableIdxOOB(1),
+    MemIdxOOB(1),
+    DataIdxOOB(1),
+    ElemIdxOOB(1),
+    TagIdxOOB(1),
+    NumTypeSwap,
+    NullabilityFlip,
+    HeapTypeSwap,
+    InstructionTypeMismatch,
+    BlockTypeMismatch,
+    DropInsertion,
+    BlockCorruption,
+    SignatureCorruption,
+    GlobalInitMismatch,
+    TableInitMismatch,
   ]
   strategies.map(fn(s) { fuzz_invalid_module_with_coverage(valid_module, s) })
 }
-
 
 ///|
 test "invalidation fuzzing with coverage" {
@@ -525,17 +609,15 @@ test "invalidation fuzzing with coverage" {
   let tested_count : Map[String, Int] = {}
   let rejected_count : Map[String, Int] = {}
   let strategy_names = [
-    "FuncIdxOOB", "TypeIdxOOB", "LocalIdxOOB", "GlobalIdxOOB", "LabelIdxOOB",
-    "TableIdxOOB", "MemIdxOOB", "DataIdxOOB", "ElemIdxOOB", "TagIdxOOB",
-    "NumTypeSwap", "NullabilityFlip", "HeapTypeSwap", "InstructionTypeMismatch",
-    "BlockTypeMismatch", "DropInsertion", "BlockCorruption",
-    "SignatureCorruption", "GlobalInitMismatch", "TableInitMismatch",
+    "FuncIdxOOB", "TypeIdxOOB", "LocalIdxOOB", "GlobalIdxOOB", "LabelIdxOOB", "TableIdxOOB",
+    "MemIdxOOB", "DataIdxOOB", "ElemIdxOOB", "TagIdxOOB", "NumTypeSwap", "NullabilityFlip",
+    "HeapTypeSwap", "InstructionTypeMismatch", "BlockTypeMismatch", "DropInsertion",
+    "BlockCorruption", "SignatureCorruption", "GlobalInitMismatch", "TableInitMismatch",
   ]
   for s in strategy_names {
     tested_count[s] = 0
     rejected_count[s] = 0
   }
-
   for _ in 0..<200 {
     let ctx = gen_ctx_new(200, rnd=Some(rnd))
     let (_, valid_module) = match gen_module_valid_full(ctx) {
@@ -549,14 +631,19 @@ test "invalidation fuzzing with coverage" {
     for result in results {
       let (strategy_name, was_tested, passed) = result
       if was_tested {
-        tested_count[strategy_name] = tested_count.get(strategy_name).unwrap_or(0) + 1
+        tested_count[strategy_name] = tested_count
+          .get(strategy_name)
+          .unwrap_or(0) +
+          1
         if passed {
-          rejected_count[strategy_name] = rejected_count.get(strategy_name).unwrap_or(0) + 1
+          rejected_count[strategy_name] = rejected_count
+            .get(strategy_name)
+            .unwrap_or(0) +
+            1
         }
       }
     }
   }
-
   let problems : Array[String] = []
   for s in strategy_names {
     let tested = tested_count.get(s).unwrap_or(0)
@@ -564,7 +651,9 @@ test "invalidation fuzzing with coverage" {
     if tested >= 10 {
       let reject_rate = rejected * 100 / tested
       if reject_rate < 80 {
-        problems.push("\{s}: only \{reject_rate}% rejected (\{rejected}/\{tested})")
+        problems.push(
+          "\{s}: only \{reject_rate}% rejected (\{rejected}/\{tested})",
+        )
       }
     }
   }
@@ -574,4 +663,62 @@ test "invalidation fuzzing with coverage" {
       problems.iter().intersperse("\n  ").fold(init="", fn(a, b) { a + b }),
     )
   }
+}
+
+///|
+test "HeapTypeSwap transformer actually modifies heap types" {
+  // Test that each swap produces a different heap type
+  let swaps : Array[(HeapType, HeapType)] = [
+    (
+      AbsHeapTypeHeapType(FuncAbsHeapType),
+      AbsHeapTypeHeapType(ExternAbsHeapType),
+    ),
+    (
+      AbsHeapTypeHeapType(ExternAbsHeapType),
+      AbsHeapTypeHeapType(FuncAbsHeapType),
+    ),
+    (AbsHeapTypeHeapType(AnyAbsHeapType), AbsHeapTypeHeapType(FuncAbsHeapType)),
+    (AbsHeapTypeHeapType(EqAbsHeapType), AbsHeapTypeHeapType(ExternAbsHeapType)),
+    (AbsHeapTypeHeapType(I31AbsHeapType), AbsHeapTypeHeapType(FuncAbsHeapType)),
+    (
+      AbsHeapTypeHeapType(StructAbsHeapType),
+      AbsHeapTypeHeapType(ExternAbsHeapType),
+    ),
+    (
+      AbsHeapTypeHeapType(ArrayAbsHeapType),
+      AbsHeapTypeHeapType(FuncAbsHeapType),
+    ),
+    (AbsHeapTypeHeapType(ExnAbsHeapType), AbsHeapTypeHeapType(AnyAbsHeapType)),
+  ]
+  for pair in swaps {
+    let (before, after) = pair
+    assert_not_eq(before, after)
+  }
+}
+
+///|
+test "RefType AbsHeapTypeRefType swaps produce different values" {
+  let swaps : Array[(RefType, RefType)] = [
+    (AbsHeapTypeRefType(FuncAbsHeapType), AbsHeapTypeRefType(ExternAbsHeapType)),
+    (AbsHeapTypeRefType(ExternAbsHeapType), AbsHeapTypeRefType(FuncAbsHeapType)),
+    (AbsHeapTypeRefType(AnyAbsHeapType), AbsHeapTypeRefType(FuncAbsHeapType)),
+    (AbsHeapTypeRefType(ExnAbsHeapType), AbsHeapTypeRefType(AnyAbsHeapType)),
+  ]
+  for pair in swaps {
+    let (before, after) = pair
+    assert_not_eq(before, after)
+  }
+}
+
+///|
+test "Exn to Any swap - verify these are actually different hierarchies" {
+  // These should NOT be equal
+  assert_not_eq(
+    AbsHeapTypeRefType(ExnAbsHeapType),
+    AbsHeapTypeRefType(AnyAbsHeapType),
+  )
+  assert_not_eq(
+    AbsHeapTypeHeapType(ExnAbsHeapType),
+    AbsHeapTypeHeapType(AnyAbsHeapType),
+  )
 }

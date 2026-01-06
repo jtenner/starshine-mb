@@ -2640,69 +2640,6 @@ pub impl @quickcheck.Arbitrary for Module with arbitrary(t, state) {
 }
 
 ///|
-pub impl Eq for Module with equal(l, r) {
-  let l_custom = l.0
-  let r_custom = r.0
-  if l_custom.length() != r_custom.length() {
-    return false
-  }
-  for lc in l_custom {
-    if !r_custom.contains(lc) {
-      return false
-    }
-  }
-  for rc in r_custom {
-    if !l_custom.contains(rc) {
-      return false
-    }
-  }
-  l.1 == r.1 &&
-  l.2 == r.2 &&
-  l.3 == r.3 &&
-  l.4 == r.4 &&
-  l.5 == r.5 &&
-  l.6 == r.6 &&
-  l.7 == r.7 &&
-  l.8 == r.8 &&
-  l.9 == r.9 &&
-  l.10 == r.10 &&
-  l.11 == r.11 &&
-  l.12 == r.12 &&
-  l.13 == r.13
-}
-
-///|
-pub impl Eq for RecType with equal(l, r) {
-  match (l, r) {
-    (SingleRecType(stl), GroupRecType([str])) => stl == str
-    (GroupRecType([stl]), SingleRecType(str)) => stl == str
-    (SingleRecType(stl), SingleRecType(str)) => stl == str
-    (GroupRecType(stl), GroupRecType(str)) => stl == str
-    _ => false
-  }
-}
-
-///|
-pub impl Eq for RefType with equal(l, r) {
-  match (l, r) {
-    (HeapTypeRefType(l0, l1), HeapTypeRefType(r0, r1)) => l0 == r0 && l1 == r1
-    (AbsHeapTypeRefType(l0), AbsHeapTypeRefType(r0)) => l0 == r0
-    (AbsHeapTypeRefType(l0), HeapTypeRefType(true, AbsHeapTypeHeapType(r0))) =>
-      l0 == r0
-    (HeapTypeRefType(true, AbsHeapTypeHeapType(l0)), AbsHeapTypeRefType(r0)) =>
-      l0 == r0
-    _ => false
-  }
-}
-
-///|
-pub impl Eq for MemArg with equal(l, r) {
-  l.0 == r.0 &&
-  l.1.unwrap_or(MemIdx(0)) == r.1.unwrap_or(MemIdx(0)) &&
-  l.2 == r.2
-}
-
-///|
 type Stack[T] = Array[T]
 
 ///|
