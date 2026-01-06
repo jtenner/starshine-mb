@@ -4,13 +4,13 @@ fn make_funcidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   let target = offset + 0x7FFFFFFF
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_funcidx: Some(fn(_ctx : Unit, idx : FuncIdx) -> (Unit, FuncIdx)? {
+    on_funcidx: Some(fn(_ctx : Unit, idx : FuncIdx) -> TransformerResult[Unit, FuncIdx] {
       let FuncIdx(i) = idx
       // Make idempotent: if already large, don't transform again
       if i >= target {
-        None
+        Ok(None)
       } else {
-        Some(((), FuncIdx(i + target)))
+        Ok(Some(((), FuncIdx(i + target))))
       }
     }),
   }
@@ -21,19 +21,19 @@ fn make_typeidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   let target = offset + 0x7FFFFFFF
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_typeidx: Some(fn(_ctx : Unit, idx : TypeIdx) -> (Unit, TypeIdx)? {
+    on_typeidx: Some(fn(_ctx : Unit, idx : TypeIdx) -> TransformerResult[Unit, TypeIdx] {
       match idx {
         TypeIdx(i) =>
           if i >= target {
-            None
+            Ok(None)
           } else {
-            Some(((), TypeIdx(i + target)))
+            Ok(Some(((), TypeIdx(i + target))))
           }
         RecIdx(i) =>
           if i >= target {
-            None
+            Ok(None)
           } else {
-            Some(((), RecIdx(i + target)))
+            Ok(Some(((), RecIdx(i + target))))
           }
       }
     }),
@@ -45,12 +45,12 @@ fn make_localidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   let target = offset + 0x7FFFFFFF
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_localidx: Some(fn(_ctx : Unit, idx : LocalIdx) -> (Unit, LocalIdx)? {
+    on_localidx: Some(fn(_ctx : Unit, idx : LocalIdx) -> TransformerResult[Unit, LocalIdx] {
       let LocalIdx(i) = idx
       if i >= target {
-        None
+        Ok(None)
       } else {
-        Some(((), LocalIdx(i + target)))
+        Ok(Some(((), LocalIdx(i + target))))
       }
     }),
   }
@@ -61,12 +61,12 @@ fn make_globalidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   let target = offset + 0x7FFFFFFF
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_globalidx: Some(fn(_ctx : Unit, idx : GlobalIdx) -> (Unit, GlobalIdx)? {
+    on_globalidx: Some(fn(_ctx : Unit, idx : GlobalIdx) -> TransformerResult[Unit, GlobalIdx] {
       let GlobalIdx(i) = idx
       if i >= target {
-        None
+        Ok(None)
       } else {
-        Some(((), GlobalIdx(i + target)))
+        Ok(Some(((), GlobalIdx(i + target))))
       }
     }),
   }
@@ -77,12 +77,12 @@ fn make_labelidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   let target = offset + 0x7FFFFFFF
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_labelidx: Some(fn(_ctx : Unit, idx : LabelIdx) -> (Unit, LabelIdx)? {
+    on_labelidx: Some(fn(_ctx : Unit, idx : LabelIdx) -> TransformerResult[Unit, LabelIdx] {
       let LabelIdx(i) = idx
       if i >= target {
-        None
+        Ok(None)
       } else {
-        Some(((), LabelIdx(i + target)))
+        Ok(Some(((), LabelIdx(i + target))))
       }
     }),
   }
@@ -93,12 +93,12 @@ fn make_tableidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   let target = offset + 0x7FFFFFFF
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_tableidx: Some(fn(_ctx : Unit, idx : TableIdx) -> (Unit, TableIdx)? {
+    on_tableidx: Some(fn(_ctx : Unit, idx : TableIdx) -> TransformerResult[Unit, TableIdx] {
       let TableIdx(i) = idx
       if i >= target {
-        None
+        Ok(None)
       } else {
-        Some(((), TableIdx(i + target)))
+        Ok(Some(((), TableIdx(i + target))))
       }
     }),
   }
@@ -109,12 +109,12 @@ fn make_memidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   let target = offset + 0x7FFFFFFF
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_memidx: Some(fn(_ctx : Unit, idx : MemIdx) -> (Unit, MemIdx)? {
+    on_memidx: Some(fn(_ctx : Unit, idx : MemIdx) -> TransformerResult[Unit, MemIdx] {
       let MemIdx(i) = idx
       if i >= target {
-        None
+        Ok(None)
       } else {
-        Some(((), MemIdx(i + target)))
+        Ok(Some(((), MemIdx(i + target))))
       }
     }),
   }
@@ -125,12 +125,12 @@ fn make_dataidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   let target = offset + 0x7FFFFFFF
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_dataidx: Some(fn(_ctx : Unit, idx : DataIdx) -> (Unit, DataIdx)? {
+    on_dataidx: Some(fn(_ctx : Unit, idx : DataIdx) -> TransformerResult[Unit, DataIdx] {
       let DataIdx(i) = idx
       if i >= target {
-        None
+        Ok(None)
       } else {
-        Some(((), DataIdx(i + target)))
+        Ok(Some(((), DataIdx(i + target))))
       }
     }),
   }
@@ -141,12 +141,12 @@ fn make_elemidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   let target = offset + 0x7FFFFFFF
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_elemidx: Some(fn(_ctx : Unit, idx : ElemIdx) -> (Unit, ElemIdx)? {
+    on_elemidx: Some(fn(_ctx : Unit, idx : ElemIdx) -> TransformerResult[Unit, ElemIdx] {
       let ElemIdx(i) = idx
       if i >= target {
-        None
+        Ok(None)
       } else {
-        Some(((), ElemIdx(i + target)))
+        Ok(Some(((), ElemIdx(i + target))))
       }
     }),
   }
@@ -157,12 +157,12 @@ fn make_tagidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   let target = offset + 0x7FFFFFFF
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_tagidx: Some(fn(_ctx : Unit, idx : TagIdx) -> (Unit, TagIdx)? {
+    on_tagidx: Some(fn(_ctx : Unit, idx : TagIdx) -> TransformerResult[Unit, TagIdx] {
       let TagIdx(i) = idx
       if i >= target {
-        None
+        Ok(None)
       } else {
-        Some(((), TagIdx(i + target)))
+        Ok(Some(((), TagIdx(i + target))))
       }
     }),
   }
@@ -173,20 +173,20 @@ fn make_tagidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
 fn make_type_corruption_transformer() -> ModuleTransformer[Bool] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_expr: Some(fn(done : Bool, expr : Expr) -> (Bool, Expr)? {
+    on_expr: Some(fn(done : Bool, expr : Expr) -> TransformerResult[Bool, Expr] {
       if done {
-        return None
+        return Ok(None)
       }
       let Expr(instrs) = expr
       if instrs.length() == 0 {
-        return None
+        return Ok(None)
       }
       // Insert i32.const followed by i64.add - guaranteed type error
       let new_instrs = [I32Const(I32(42)), I64Add]
       for i in instrs {
         new_instrs.push(i)
       }
-      Some((true, Expr(new_instrs)))
+      Ok(Some((true, Expr(new_instrs))))
     }),
   }
 }
@@ -198,13 +198,13 @@ fn make_numtype_swap_transformer() -> ModuleTransformer[Unit] {
     // Only swap the VALUE TYPES, not the instructions
     // This creates mismatches between declared types and instruction semantics
     ,
-    on_valtype: Some(fn(_ctx : Unit, vt : ValType) -> (Unit, ValType)? {
+    on_valtype: Some(fn(_ctx : Unit, vt : ValType) -> TransformerResult[Unit, ValType] {
       match vt {
-        NumTypeValType(I32NumType) => Some(((), NumTypeValType(F64NumType)))
-        NumTypeValType(I64NumType) => Some(((), NumTypeValType(F32NumType)))
-        NumTypeValType(F32NumType) => Some(((), NumTypeValType(I64NumType)))
-        NumTypeValType(F64NumType) => Some(((), NumTypeValType(I32NumType)))
-        _ => None
+        NumTypeValType(I32NumType) => Ok(Some(((), NumTypeValType(F64NumType))))
+        NumTypeValType(I64NumType) => Ok(Some(((), NumTypeValType(F32NumType))))
+        NumTypeValType(F32NumType) => Ok(Some(((), NumTypeValType(I64NumType))))
+        NumTypeValType(F64NumType) => Ok(Some(((), NumTypeValType(I32NumType))))
+        _ => Ok(None)
       }
     }),
   }
@@ -216,70 +216,78 @@ fn make_numtype_swap_transformer() -> ModuleTransformer[Unit] {
 fn make_nullability_flip_transformer() -> ModuleTransformer[Unit] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_reftype: Some(fn(_ctx : Unit, rt : RefType) -> (Unit, RefType)? {
+    on_reftype: Some(fn(_ctx : Unit, rt : RefType) -> TransformerResult[Unit, RefType] {
       match rt {
         // Force all ref types to be non-nullable
-        HeapTypeRefType(true, ht) => Some(((), HeapTypeRefType(false, ht)))
+        HeapTypeRefType(true, ht) => Ok(Some(((), HeapTypeRefType(false, ht))))
         // Already non-nullable - convert to bottom type to cause more errors
-        HeapTypeRefType(false, AbsHeapTypeHeapType(NoneAbsHeapType)) => None
-        HeapTypeRefType(false, AbsHeapTypeHeapType(NoFuncAbsHeapType)) => None
-        HeapTypeRefType(false, AbsHeapTypeHeapType(NoExternAbsHeapType)) => None
+        HeapTypeRefType(false, AbsHeapTypeHeapType(NoneAbsHeapType)) => Ok(None)
+        HeapTypeRefType(false, AbsHeapTypeHeapType(NoFuncAbsHeapType)) => Ok(None)
+        HeapTypeRefType(false, AbsHeapTypeHeapType(NoExternAbsHeapType)) => Ok(None)
         HeapTypeRefType(false, ht) =>
           // Change to bottom type of same hierarchy - very restrictive
           match ht {
             AbsHeapTypeHeapType(FuncAbsHeapType)
             | AbsHeapTypeHeapType(NoFuncAbsHeapType) =>
-              Some(
-                (
-                  (),
-                  HeapTypeRefType(false, AbsHeapTypeHeapType(NoFuncAbsHeapType)),
+              Ok(
+                Some(
+                  (
+                    (),
+                    HeapTypeRefType(false, AbsHeapTypeHeapType(NoFuncAbsHeapType)),
+                  ),
                 ),
               )
             AbsHeapTypeHeapType(ExternAbsHeapType)
             | AbsHeapTypeHeapType(NoExternAbsHeapType) =>
-              Some(
-                (
-                  (),
-                  HeapTypeRefType(
-                    false,
-                    AbsHeapTypeHeapType(NoExternAbsHeapType),
+              Ok(
+                Some(
+                  (
+                    (),
+                    HeapTypeRefType(
+                      false,
+                      AbsHeapTypeHeapType(NoExternAbsHeapType),
+                    ),
                   ),
                 ),
               )
             AbsHeapTypeHeapType(ExnAbsHeapType)
             | AbsHeapTypeHeapType(NoExnAbsHeapType) =>
-              Some(
-                (
-                  (),
-                  HeapTypeRefType(false, AbsHeapTypeHeapType(NoExnAbsHeapType)),
+              Ok(
+                Some(
+                  (
+                    (),
+                    HeapTypeRefType(false, AbsHeapTypeHeapType(NoExnAbsHeapType)),
+                  ),
                 ),
               )
             _ =>
               // For any/eq/struct/array/i31 hierarchy, use none
-              Some(
-                (
-                  (),
-                  HeapTypeRefType(false, AbsHeapTypeHeapType(NoneAbsHeapType)),
+              Ok(
+                Some(
+                  (
+                    (),
+                    HeapTypeRefType(false, AbsHeapTypeHeapType(NoneAbsHeapType)),
+                  ),
                 ),
               )
           }
         AbsHeapTypeRefType(aht) =>
           // These shorthands are nullable, make them non-null with explicit form
-          Some(((), HeapTypeRefType(false, AbsHeapTypeHeapType(aht))))
+          Ok(Some(((), HeapTypeRefType(false, AbsHeapTypeHeapType(aht)))))
       }
     }),
     // Also corrupt ref.null to create definite type errors
     on_instruction: Some(fn(
       _ctx : Unit,
       instr : Instruction,
-    ) -> (Unit, Instruction)? {
+    ) -> TransformerResult[Unit, Instruction] {
       match instr {
         // ref.null produces nullable ref, but if types expect non-null, this fails
         // Replace with something that definitely won't typecheck
-        RefNull(_) => Some(((), I32Const(I32(0)))) // Completely wrong type
-        RefFunc(_) => Some(((), I64Const(I64(0L)))) // Wrong type for funcref
-        RefIsNull => Some(((), I64Const(I64(0L)))) // Expects ref, we removed it
-        _ => None
+        RefNull(_) => Ok(Some(((), I32Const(I32(0))))) // Completely wrong type
+        RefFunc(_) => Ok(Some(((), I64Const(I64(0L))))) // Wrong type for funcref
+        RefIsNull => Ok(Some(((), I64Const(I64(0L))))) // Expects ref, we removed it
+        _ => Ok(None)
       }
     }),
   }
@@ -291,7 +299,7 @@ fn make_nullability_flip_transformer() -> ModuleTransformer[Unit] {
 fn make_signature_corruption_transformer() -> ModuleTransformer[Unit] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_comptype: Some(fn(_ctx : Unit, ct : CompType) -> (Unit, CompType)? {
+    on_comptype: Some(fn(_ctx : Unit, ct : CompType) -> TransformerResult[Unit, CompType] {
       match ct {
         FuncCompType(params, results) => {
           // Add extra parameters that callers won't provide
@@ -308,7 +316,7 @@ fn make_signature_corruption_transformer() -> ModuleTransformer[Unit] {
               other => other
             }
           })
-          Some(((), FuncCompType(new_params, new_results)))
+          Ok(Some(((), FuncCompType(new_params, new_results))))
         }
         StructCompType(fields) => {
           // Change field types
@@ -328,7 +336,7 @@ fn make_signature_corruption_transformer() -> ModuleTransformer[Unit] {
               _ => ft
             }
           })
-          Some(((), StructCompType(new_fields)))
+          Ok(Some(((), StructCompType(new_fields))))
         }
         ArrayCompType(FieldType(st, mutability)) => {
           let new_st = match st {
@@ -338,7 +346,7 @@ fn make_signature_corruption_transformer() -> ModuleTransformer[Unit] {
               ValTypeStorageType(NumTypeValType(F32NumType))
             _ => st
           }
-          Some(((), ArrayCompType(FieldType(new_st, mutability))))
+          Ok(Some(((), ArrayCompType(FieldType(new_st, mutability)))))
         }
       }
     }),
@@ -350,7 +358,7 @@ fn make_signature_corruption_transformer() -> ModuleTransformer[Unit] {
 fn make_global_init_mismatch_transformer() -> ModuleTransformer[Unit] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_global: Some(fn(_ctx : Unit, g : Global) -> (Unit, Global)? {
+    on_global: Some(fn(_ctx : Unit, g : Global) -> TransformerResult[Unit, Global] {
       let Global(GlobalType(vt, mutable), _init) = g
       // Create an init expression with wrong type
       let wrong_init = match vt {
@@ -360,9 +368,9 @@ fn make_global_init_mismatch_transformer() -> ModuleTransformer[Unit] {
         NumTypeValType(F64NumType) => Expr([I32Const(I32(0))])
         RefTypeValType(_) => Expr([I32Const(I32(0))]) // Definitely wrong
         VecTypeValType => Expr([I32Const(I32(0))])
-        BotValType => return None
+        BotValType => return Ok(None)
       }
-      Some(((), Global(GlobalType(vt, mutable), wrong_init)))
+      Ok(Some(((), Global(GlobalType(vt, mutable), wrong_init))))
     }),
   }
 }
@@ -372,10 +380,10 @@ fn make_global_init_mismatch_transformer() -> ModuleTransformer[Unit] {
 fn make_table_init_mismatch_transformer() -> ModuleTransformer[Unit] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_table: Some(fn(_ctx : Unit, t : Table) -> (Unit, Table)? {
+    on_table: Some(fn(_ctx : Unit, t : Table) -> TransformerResult[Unit, Table] {
       let Table(tt, _init) = t
       // Set init to wrong type expression
-      Some(((), Table(tt, Some(Expr([I32Const(I32(42))])))))
+      Ok(Some(((), Table(tt, Some(Expr([I32Const(I32(42))]))))))
     }),
   }
 }
@@ -385,20 +393,20 @@ fn make_table_init_mismatch_transformer() -> ModuleTransformer[Unit] {
 fn make_drop_insertion_transformer() -> ModuleTransformer[Bool] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_expr: Some(fn(done : Bool, expr : Expr) -> (Bool, Expr)? {
+    on_expr: Some(fn(done : Bool, expr : Expr) -> TransformerResult[Bool, Expr] {
       if done {
-        return None
+        return Ok(None)
       }
       let Expr(instrs) = expr
       if instrs.length() == 0 {
-        return None
+        return Ok(None)
       }
       // Prepend Drop instructions to cause stack underflow
       let new_instrs : Array[Instruction] = [Drop, Drop, Drop]
       for i in instrs {
         new_instrs.push(i)
       }
-      Some((true, Expr(new_instrs)))
+      Ok(Some((true, Expr(new_instrs))))
     }),
   }
 }
@@ -408,15 +416,15 @@ fn make_drop_insertion_transformer() -> ModuleTransformer[Bool] {
 fn make_block_corruption_transformer() -> ModuleTransformer[Bool] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_expr: Some(fn(done : Bool, expr : Expr) -> (Bool, Expr)? {
+    on_expr: Some(fn(done : Bool, expr : Expr) -> TransformerResult[Bool, Expr] {
       if done {
-        return None
+        return Ok(None)
       }
       let Expr(instrs) = expr
       if instrs.length() > 0 {
-        Some((true, Expr(instrs.iter().take(instrs.length() - 1).collect())))
+        Ok(Some((true, Expr(instrs.iter().take(instrs.length() - 1).collect()))))
       } else {
-        None
+        Ok(None)
       }
     }),
   }
@@ -427,20 +435,20 @@ fn make_block_corruption_transformer() -> ModuleTransformer[Bool] {
 fn make_blocktype_mismatch_transformer() -> ModuleTransformer[Bool] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_blocktype: Some(fn(done : Bool, bt : BlockType) -> (Bool, BlockType)? {
+    on_blocktype: Some(fn(done : Bool, bt : BlockType) -> TransformerResult[Bool, BlockType] {
       if done {
-        return None
+        return Ok(None)
       }
       match bt {
         EmptyBlockType =>
-          Some((true, ValTypeBlockType(NumTypeValType(I32NumType))))
+          Ok(Some((true, ValTypeBlockType(NumTypeValType(I32NumType)))))
         ValTypeBlockType(NumTypeValType(I32NumType)) =>
-          Some((true, ValTypeBlockType(NumTypeValType(I64NumType))))
-        ValTypeBlockType(_) => Some((true, EmptyBlockType))
+          Ok(Some((true, ValTypeBlockType(NumTypeValType(I64NumType)))))
+        ValTypeBlockType(_) => Ok(Some((true, EmptyBlockType)))
         TypeIdxBlockType(TypeIdx(i)) =>
-          Some((true, TypeIdxBlockType(TypeIdx(i + 1))))
+          Ok(Some((true, TypeIdxBlockType(TypeIdx(i + 1)))))
         TypeIdxBlockType(RecIdx(i)) =>
-          Some((true, TypeIdxBlockType(RecIdx(i + 1))))
+          Ok(Some((true, TypeIdxBlockType(RecIdx(i + 1)))))
       }
     }),
   }
@@ -472,57 +480,112 @@ priv enum InvalidationStrategy {
 
 ///|
 /// Apply strategy and return transformed module
-
-///|
 fn apply_strategy(
   strategy : InvalidationStrategy,
   mod_ : Module,
 ) -> (Bool, Module) {
   match strategy {
     FuncIdxOOB(n) =>
-      (true, make_funcidx_oob_transformer(n).walk_module((), mod_).1)
+      match make_funcidx_oob_transformer(n).walk_module((), mod_) {
+        Ok(Some((_, new_mod))) => (true, new_mod)
+        _ => (false, mod_)
+      }
     TypeIdxOOB(n) =>
-      (true, make_typeidx_oob_transformer(n).walk_module((), mod_).1)
+      match make_typeidx_oob_transformer(n).walk_module((), mod_) {
+        Ok(Some((_, new_mod))) => (true, new_mod)
+        _ => (false, mod_)
+      }
     LocalIdxOOB(n) =>
-      (true, make_localidx_oob_transformer(n).walk_module((), mod_).1)
+      match make_localidx_oob_transformer(n).walk_module((), mod_) {
+        Ok(Some((_, new_mod))) => (true, new_mod)
+        _ => (false, mod_)
+      }
     GlobalIdxOOB(n) =>
-      (true, make_globalidx_oob_transformer(n).walk_module((), mod_).1)
+      match make_globalidx_oob_transformer(n).walk_module((), mod_) {
+        Ok(Some((_, new_mod))) => (true, new_mod)
+        _ => (false, mod_)
+      }
     LabelIdxOOB(n) =>
-      (true, make_labelidx_oob_transformer(n).walk_module((), mod_).1)
+      match make_labelidx_oob_transformer(n).walk_module((), mod_) {
+        Ok(Some((_, new_mod))) => (true, new_mod)
+        _ => (false, mod_)
+      }
     TableIdxOOB(n) =>
-      (true, make_tableidx_oob_transformer(n).walk_module((), mod_).1)
+      match make_tableidx_oob_transformer(n).walk_module((), mod_) {
+        Ok(Some((_, new_mod))) => (true, new_mod)
+        _ => (false, mod_)
+      }
     MemIdxOOB(n) =>
-      (true, make_memidx_oob_transformer(n).walk_module((), mod_).1)
+      match make_memidx_oob_transformer(n).walk_module((), mod_) {
+        Ok(Some((_, new_mod))) => (true, new_mod)
+        _ => (false, mod_)
+      }
     DataIdxOOB(n) =>
-      (true, make_dataidx_oob_transformer(n).walk_module((), mod_).1)
+      match make_dataidx_oob_transformer(n).walk_module((), mod_) {
+        Ok(Some((_, new_mod))) => (true, new_mod)
+        _ => (false, mod_)
+      }
     ElemIdxOOB(n) =>
-      (true, make_elemidx_oob_transformer(n).walk_module((), mod_).1)
+      match make_elemidx_oob_transformer(n).walk_module((), mod_) {
+        Ok(Some((_, new_mod))) => (true, new_mod)
+        _ => (false, mod_)
+      }
     TagIdxOOB(n) =>
-      (true, make_tagidx_oob_transformer(n).walk_module((), mod_).1)
+      match make_tagidx_oob_transformer(n).walk_module((), mod_) {
+        Ok(Some((_, new_mod))) => (true, new_mod)
+        _ => (false, mod_)
+      }
     NumTypeSwap =>
-      (true, make_numtype_swap_transformer().walk_module((), mod_).1)
+      match make_numtype_swap_transformer().walk_module((), mod_) {
+        Ok(Some((_, new_mod))) => (true, new_mod)
+        _ => (false, mod_)
+      }
     NullabilityFlip =>
-      (true, make_nullability_flip_transformer().walk_module((), mod_).1)
+      match make_nullability_flip_transformer().walk_module((), mod_) {
+        Ok(Some((_, new_mod))) => (true, new_mod)
+        _ => (false, mod_)
+      }
     HeapTypeSwap => {
-      let (modified, result) = make_drop_insertion_transformer().walk_module(
-        false, mod_,
-      )
-      (modified, result)
+      match make_drop_insertion_transformer().walk_module(false, mod_) {
+        Ok(Some((_, new_mod))) => (true, new_mod)
+        _ => (false, mod_)
+      }
     }
     InstructionTypeMismatch =>
-      (true, make_type_corruption_transformer().walk_module(false, mod_).1)
+      match make_type_corruption_transformer().walk_module(false, mod_) {
+        Ok(Some((_, new_mod))) => (true, new_mod)
+        _ => (false, mod_)
+      }
     BlockTypeMismatch =>
-      (true, make_blocktype_mismatch_transformer().walk_module(false, mod_).1)
+      match make_blocktype_mismatch_transformer().walk_module(false, mod_) {
+        Ok(Some((_, new_mod))) => (true, new_mod)
+        _ => (false, mod_)
+      }
     DropInsertion =>
-      (true, make_drop_insertion_transformer().walk_module(false, mod_).1)
+      match make_drop_insertion_transformer().walk_module(false, mod_) {
+        Ok(Some((_, new_mod))) => (true, new_mod)
+        _ => (false, mod_)
+      }
     BlockCorruption =>
-      (true, make_block_corruption_transformer().walk_module(false, mod_).1)
+      match make_block_corruption_transformer().walk_module(false, mod_) {
+        Ok(Some((_, new_mod))) => (true, new_mod)
+        _ => (false, mod_)
+      }
     SignatureCorruption =>
-      (true, make_signature_corruption_transformer().walk_module((), mod_).1)
+      match make_signature_corruption_transformer().walk_module((), mod_) {
+        Ok(Some((_, new_mod))) => (true, new_mod)
+        _ => (false, mod_)
+      }
     GlobalInitMismatch =>
-      (true, make_global_init_mismatch_transformer().walk_module((), mod_).1)
+      match make_global_init_mismatch_transformer().walk_module((), mod_) {
+        Ok(Some((_, new_mod))) => (true, new_mod)
+        _ => (false, mod_)
+      }
     TableInitMismatch =>
-      (true, make_table_init_mismatch_transformer().walk_module((), mod_).1)
+      match make_table_init_mismatch_transformer().walk_module((), mod_) {
+        Ok(Some((_, new_mod))) => (true, new_mod)
+        _ => (false, mod_)
+      }
   }
 }
 

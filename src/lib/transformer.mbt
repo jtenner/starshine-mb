@@ -1,53 +1,67 @@
-///|
-/// Transformer callbacks - all optional. Return `None` to use default recursion.
+pub type TransformerResult[T, Elem] = Result[(T, Elem)?, String]
+
+pub fn [T, Elem] change(t : T, elem : Elem) -> TransformerResult[T, Elem] {
+  Ok(Some((t, elem)))
+}
+
+pub fn [T, Elem] unchanged() -> TransformerResult[T, Elem] {
+  Ok(None)
+}
+
+pub fn [T, Elem] error(err : String) -> TransformerResult[T, Elem] {
+  Err(err)
+}
+
+// Transformer Definition
+
 pub struct ModuleTransformer[T] {
-  on_typesec : ((T, TypeSec) -> (T, TypeSec)?)?
-  on_funcsec : ((T, FuncSec) -> (T, FuncSec)?)?
-  on_tablesec : ((T, TableSec) -> (T, TableSec)?)?
-  on_memsec : ((T, MemSec) -> (T, MemSec)?)?
-  on_tagsec : ((T, TagSec) -> (T, TagSec)?)?
-  on_globalsec : ((T, GlobalSec) -> (T, GlobalSec)?)?
-  on_exportsec : ((T, ExportSec) -> (T, ExportSec)?)?
-  on_startsec : ((T, StartSec) -> (T, StartSec)?)?
-  on_elemsec : ((T, ElemSec) -> (T, ElemSec)?)?
-  on_elemkind : ((T, ElemKind) -> (T, ElemKind)?)?
-  on_datacntsec : ((T, DataCntSec) -> (T, DataCntSec)?)?
-  on_codesec : ((T, CodeSec) -> (T, CodeSec)?)?
-  on_datasec : ((T, DataSec) -> (T, DataSec)?)?
-  on_instruction : ((T, Instruction) -> (T, Instruction)?)?
-  on_expr : ((T, Expr) -> (T, Expr)?)?
-  on_table : ((T, Table) -> (T, Table)?)?
-  on_valtype : ((T, ValType) -> (T, ValType)?)?
-  on_numtype : ((T, NumType) -> (T, NumType)?)?
-  on_rectype : ((T, RecType) -> (T, RecType)?)?
-  on_subtype : ((T, SubType) -> (T, SubType)?)?
-  on_comptype : ((T, CompType) -> (T, CompType)?)?
-  on_reftype : ((T, RefType) -> (T, RefType)?)?
-  on_heaptype : ((T, HeapType) -> (T, HeapType)?)?
-  on_blocktype : ((T, BlockType) -> (T, BlockType)?)?
-  on_funcidx : ((T, FuncIdx) -> (T, FuncIdx)?)?
-  on_typeidx : ((T, TypeIdx) -> (T, TypeIdx)?)?
-  on_localidx : ((T, LocalIdx) -> (T, LocalIdx)?)?
-  on_globalidx : ((T, GlobalIdx) -> (T, GlobalIdx)?)?
-  on_tableidx : ((T, TableIdx) -> (T, TableIdx)?)?
-  on_memidx : ((T, MemIdx) -> (T, MemIdx)?)?
-  on_labelidx : ((T, LabelIdx) -> (T, LabelIdx)?)?
-  on_dataidx : ((T, DataIdx) -> (T, DataIdx)?)?
-  on_elemidx : ((T, ElemIdx) -> (T, ElemIdx)?)?
-  on_tagidx : ((T, TagIdx) -> (T, TagIdx)?)?
-  on_name : ((T, Name) -> (T, Name)?)?
-  on_externtype : ((T, ExternType) -> (T, ExternType)?)?
-  on_limits : ((T, Limits) -> (T, Limits)?)?
-  on_memtype : ((T, MemType) -> (T, MemType)?)?
-  on_tagtype : ((T, TagType) -> (T, TagType)?)?
-  on_export : ((T, Export) -> (T, Export)?)?
-  on_global : ((T, Global) -> (T, Global)?)?
-  on_globaltype : ((T, GlobalType) -> (T, GlobalType)?)?
-  on_func : ((T, Func) -> (T, Func)?)?
-  on_locals : ((T, Array[Locals]) -> T?)?
-  on_externidx : ((T, ExternIdx) -> (T, ExternIdx)?)?
-  on_fieldtype : ((T, FieldType) -> (T, FieldType)?)?
-  on_storagetype : ((T, StorageType) -> (T, StorageType)?)?
+  on_typesec : ((T, TypeSec) -> TransformerResult[T, TypeSec])?
+  on_funcsec : ((T, FuncSec) -> TransformerResult[T, FuncSec])?
+  on_tablesec : ((T, TableSec) -> TransformerResult[T, TableSec])?
+  on_memsec : ((T, MemSec) -> TransformerResult[T, MemSec])?
+  on_tagsec : ((T, TagSec) -> TransformerResult[T, TagSec])?
+  on_globalsec : ((T, GlobalSec) -> TransformerResult[T, GlobalSec])?
+  on_exportsec : ((T, ExportSec) -> TransformerResult[T, ExportSec])?
+  on_startsec : ((T, StartSec) -> TransformerResult[T, StartSec])?
+  on_elemsec : ((T, ElemSec) -> TransformerResult[T, ElemSec])?
+  on_elemkind : ((T, ElemKind) -> TransformerResult[T, ElemKind])?
+  on_datacntsec : ((T, DataCntSec) -> TransformerResult[T, DataCntSec])?
+  on_codesec : ((T, CodeSec) -> TransformerResult[T, CodeSec])?
+  on_datasec : ((T, DataSec) -> TransformerResult[T, DataSec])?
+  on_instruction : ((T, Instruction) -> TransformerResult[T, Instruction])?
+  on_expr : ((T, Expr) -> TransformerResult[T, Expr])?
+  on_table : ((T, Table) -> TransformerResult[T, Table])?
+  on_valtype : ((T, ValType) -> TransformerResult[T, ValType])?
+  on_numtype : ((T, NumType) -> TransformerResult[T, NumType])?
+  on_rectype : ((T, RecType) -> TransformerResult[T, RecType])?
+  on_subtype : ((T, SubType) -> TransformerResult[T, SubType])?
+  on_comptype : ((T, CompType) -> TransformerResult[T, CompType])?
+  on_reftype : ((T, RefType) -> TransformerResult[T, RefType])?
+  on_heaptype : ((T, HeapType) -> TransformerResult[T, HeapType])?
+  on_blocktype : ((T, BlockType) -> TransformerResult[T, BlockType])?
+  on_funcidx : ((T, FuncIdx) -> TransformerResult[T, FuncIdx])?
+  on_typeidx : ((T, TypeIdx) -> TransformerResult[T, TypeIdx])?
+  on_localidx : ((T, LocalIdx) -> TransformerResult[T, LocalIdx])?
+  on_globalidx : ((T, GlobalIdx) -> TransformerResult[T, GlobalIdx])?
+  on_tableidx : ((T, TableIdx) -> TransformerResult[T, TableIdx])?
+  on_memidx : ((T, MemIdx) -> TransformerResult[T, MemIdx])?
+  on_labelidx : ((T, LabelIdx) -> TransformerResult[T, LabelIdx])?
+  on_dataidx : ((T, DataIdx) -> TransformerResult[T, DataIdx])?
+  on_elemidx : ((T, ElemIdx) -> TransformerResult[T, ElemIdx])?
+  on_tagidx : ((T, TagIdx) -> TransformerResult[T, TagIdx])?
+  on_name : ((T, Name) -> TransformerResult[T, Name])?
+  on_externtype : ((T, ExternType) -> TransformerResult[T, ExternType])?
+  on_limits : ((T, Limits) -> TransformerResult[T, Limits])?
+  on_memtype : ((T, MemType) -> TransformerResult[T, MemType])?
+  on_tagtype : ((T, TagType) -> TransformerResult[T, TagType])?
+  on_export : ((T, Export) -> TransformerResult[T, Export])?
+  on_global : ((T, Global) -> TransformerResult[T, Global])?
+  on_globaltype : ((T, GlobalType) -> TransformerResult[T, GlobalType])?
+  on_func : ((T, Func) -> TransformerResult[T, Func])?
+  on_locals : ((T, Array[Locals]) -> TransformerResult[T, Array[Locals]])?
+  on_externidx : ((T, ExternIdx) -> TransformerResult[T, ExternIdx])?
+  on_fieldtype : ((T, FieldType) -> TransformerResult[T, FieldType])?
+  on_storagetype : ((T, StorageType) -> TransformerResult[T, StorageType])?
 }
 
 ///|
@@ -107,441 +121,765 @@ pub fn[T] ModuleTransformer::new() -> ModuleTransformer[T] {
 pub fn[T, E] ModuleTransformer::walk_array(
   self : ModuleTransformer[T],
   t : T,
-  e : (ModuleTransformer[T], T, E) -> (T, E),
+  f : (ModuleTransformer[T], T, E) -> TransformerResult[T, E],
   a : Array[E],
-) -> (T, Array[E]) {
-  let a = a.copy()
+) -> TransformerResult[T, Array[E]] {
   let mut t = t
+  let mut changed = false
+  let a = a.copy()
   let end = a.length()
   loop 0 {
-    n if n == end => break (t, a)
+    n if n == end => break
     n => {
       let item = a[n]
-      let (next_t, item) = e(self, t, item)
-      t = next_t
-      a[n] = item
-      continue n + 1
+      match f(self, t, item) {
+        Ok(None) => continue n + 1 // No change
+        Ok(Some((next_t, next_item))) => {
+          t = next_t
+          a[n] = next_item
+          changed = true
+          continue n + 1
+        }
+        Err(e) => return Err(e)
+      }
     }
   }
+  if changed { Ok(Some((t, a))) } else { Ok(None) }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_name(
   self : ModuleTransformer[T],
   t : T,
   name : Name,
-) -> (T, Name) {
+) -> TransformerResult[T, Name] {
   match self.on_name {
-    Some(f) => f(t, name).unwrap_or((t, name))
-    None => (t, name)
+    Some(f) => f(t, name)
+    None => Ok(None)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_expr(
   self : ModuleTransformer[T],
   t : T,
   expr : Expr,
-) -> (T, Expr) {
-  // Check if user wants to override
+) -> TransformerResult[T, Expr] {
   match self.on_expr {
     Some(f) =>
       match f(t, expr) {
-        Some(e) => e
-        None => self.walk_expr_default(t, expr)
+        Err(e) => Err(e)
+        Ok(None) => self.walk_expr_default(t, expr)
+        ok => ok
       }
     None => self.walk_expr_default(t, expr)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_expr_default(
   self : ModuleTransformer[T],
   t : T,
   expr : Expr,
-) -> (T, Expr) {
+) -> TransformerResult[T, Expr] {
   let Expr(instructions) = expr
-  let (t, instructions) = self.walk_array(
-    t,
-    ModuleTransformer::walk_instruction,
-    instructions,
-  )
-  (t, Expr(instructions))
+  match self.walk_array(t, ModuleTransformer::walk_instruction, instructions) {
+    Err(e) => Err(e)
+    Ok(None) => Ok(None)
+    Ok(Some((t, instructions))) => Ok(Some((t, Expr(instructions))))
+  }
 }
-
-///|
 pub fn[T] ModuleTransformer::walk_instruction(
   self : ModuleTransformer[T],
   t : T,
   instr : Instruction,
-) -> (T, Instruction) {
+) -> TransformerResult[T, Instruction] {
   match self.on_instruction {
     Some(f) =>
       match f(t, instr) {
-        Some(i) => i
-        None => self.walk_instruction_default(t, instr)
+        Err(e) => Err(e)
+        Ok(None) => self.walk_instruction_default(t, instr)
+        ok => ok
       }
     None => self.walk_instruction_default(t, instr)
   }
 }
 
-///|
+
 pub fn[T] ModuleTransformer::walk_instruction_default(
   self : ModuleTransformer[T],
   t : T,
   instr : Instruction,
-) -> (T, Instruction) {
+) -> TransformerResult[T, Instruction] {
   match instr {
-    // Control instructions with nested structure
+    // Control instructions
     Block(bt, body) => {
-      let (t, bt) = self.walk_blocktype(t, bt)
-      let (t, body) = self.walk_expr(t, body)
-      (t, Block(bt, body))
+      match self.walk_blocktype(t, bt) {
+        Err(e) => Err(e)
+        Ok(None) => {
+          match self.walk_expr(t, body) {
+            Err(e) => Err(e)
+            Ok(None) => Ok(None)
+            Ok(Some((t, body))) => Ok(Some((t, Block(bt, body))))
+          }
+        }
+        Ok(Some((t, bt))) => {
+          match self.walk_expr(t, body) {
+            Err(e) => Err(e)
+            Ok(None) => Ok(Some((t, Block(bt, body))))
+            Ok(Some((t, body))) => Ok(Some((t, Block(bt, body))))
+          }
+        }
+      }
     }
     Loop(bt, body) => {
-      let (t, bt) = self.walk_blocktype(t, bt)
-      let (t, body) = self.walk_expr(t, body)
-      (t, Loop(bt, body))
+      match self.walk_blocktype(t, bt) {
+        Err(e) => Err(e)
+        Ok(None) => {
+          match self.walk_expr(t, body) {
+            Err(e) => Err(e)
+            Ok(None) => Ok(None)
+            Ok(Some((t, body))) => Ok(Some((t, Loop(bt, body))))
+          }
+        }
+        Ok(Some((t, bt))) => {
+          match self.walk_expr(t, body) {
+            Err(e) => Err(e)
+            Ok(None) => Ok(Some((t, Loop(bt, body))))
+            Ok(Some((t, body))) => Ok(Some((t, Loop(bt, body))))
+          }
+        }
+      }
     }
-    If(bt, then_body, else_body) => {
-      let (t, bt) = self.walk_blocktype(t, bt)
-      let (t, then_body) = self.walk_array(
+    If(bt, then_body, else_body_opt) => {
+      let (t, bt) = match self.walk_blocktype(t, bt) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, bt)
+        Ok(Some((t, bt))) => (t, bt)
+      }
+      let (t, then_body) = match self.walk_array(
         t,
         ModuleTransformer::walk_instruction,
         then_body,
-      )
-      if else_body is Some(else_body) {
-        let (t, else_body) = self.walk_array(
+      ) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, then_body)
+        Ok(Some((t, arr))) => (t, arr)
+      }
+      let (t, else_body_opt) = match else_body_opt {
+        None => (t, None)
+        Some(else_body) => match self.walk_array(
           t,
           ModuleTransformer::walk_instruction,
           else_body,
-        )
-        (t, If(bt, then_body, Some(else_body)))
-      } else {
-        (t, If(bt, then_body, None))
+        ) {
+          Err(e) => return Err(e)
+          Ok(None) => (t, Some(else_body))
+          Ok(Some((t, arr))) => (t, Some(arr))
+        }
       }
+      Ok(Some((t, If(bt, then_body, else_body_opt))))
     }
     TryTable(bt, catches, body) => {
-      let (t, bt) = self.walk_blocktype(t, bt)
-      let (t, catches) = self.walk_array(
-        t,
-        ModuleTransformer::walk_catch,
-        catches,
-      )
-      let (t, body) = self.walk_expr(t, body)
-      (t, TryTable(bt, catches, body))
+      match self.walk_blocktype(t, bt) {
+        Err(e) => Err(e)
+        Ok(None) => {
+          match self.walk_array(t, ModuleTransformer::walk_catch, catches) {
+            Err(e) => Err(e)
+            Ok(None) => {
+              match self.walk_expr(t, body) {
+                Err(e) => Err(e)
+                Ok(None) => Ok(None)
+                Ok(Some((t, body))) => Ok(Some((t, TryTable(bt, catches, body))))
+              }
+            }
+            Ok(Some((t, catches))) => {
+              match self.walk_expr(t, body) {
+                Err(e) => Err(e)
+                Ok(None) => Ok(Some((t, TryTable(bt, catches, body))))
+                Ok(Some((t, body))) => Ok(Some((t, TryTable(bt, catches, body))))
+              }
+            }
+          }
+        }
+        Ok(Some((t, bt))) => {
+          match self.walk_array(t, ModuleTransformer::walk_catch, catches) {
+            Err(e) => Err(e)
+            Ok(None) => {
+              match self.walk_expr(t, body) {
+                Err(e) => Err(e)
+                Ok(None) => Ok(Some((t, TryTable(bt, catches, body))))
+                Ok(Some((t, body))) => Ok(Some((t, TryTable(bt, catches, body))))
+              }
+            }
+            Ok(Some((t, catches))) => {
+              match self.walk_expr(t, body) {
+                Err(e) => Err(e)
+                Ok(None) => Ok(Some((t, TryTable(bt, catches, body))))
+                Ok(Some((t, body))) => Ok(Some((t, TryTable(bt, catches, body))))
+              }
+            }
+          }
+        }
+      }
     }
 
     // Branch instructions
     Br(l) => {
-      let (t, l) = self.walk_labelidx(t, l)
-      (t, Br(l))
+      match self.walk_labelidx(t, l) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, l))) => Ok(Some((t, Br(l))))
+      }
     }
     BrIf(l) => {
-      let (t, l) = self.walk_labelidx(t, l)
-      (t, BrIf(l))
+      match self.walk_labelidx(t, l) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, l))) => Ok(Some((t, BrIf(l))))
+      }
     }
     BrTable(labels, default) => {
-      let (t, labels) = self.walk_array(
-        t,
-        ModuleTransformer::walk_labelidx,
-        labels,
-      )
-      let (t, default) = self.walk_labelidx(t, default)
-      (t, BrTable(labels, default))
+      match self.walk_array(t, ModuleTransformer::walk_labelidx, labels) {
+        Err(e) => Err(e)
+        Ok(None) => {
+          match self.walk_labelidx(t, default) {
+            Err(e) => Err(e)
+            Ok(None) => Ok(None)
+            Ok(Some((t, default))) => Ok(Some((t, BrTable(labels, default))))
+          }
+        }
+        Ok(Some((t, labels))) => {
+          match self.walk_labelidx(t, default) {
+            Err(e) => Err(e)
+            Ok(None) => Ok(Some((t, BrTable(labels, default))))
+            Ok(Some((t, default))) => Ok(Some((t, BrTable(labels, default))))
+          }
+        }
+      }
     }
     BrOnNull(l) => {
-      let (t, l) = self.walk_labelidx(t, l)
-      (t, BrOnNull(l))
+      match self.walk_labelidx(t, l) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, l))) => Ok(Some((t, BrOnNull(l))))
+      }
     }
     BrOnNonNull(l) => {
-      let (t, l) = self.walk_labelidx(t, l)
-      (t, BrOnNonNull(l))
+      match self.walk_labelidx(t, l) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, l))) => Ok(Some((t, BrOnNonNull(l))))
+      }
     }
     BrOnCast(l, op, ht1, ht2) => {
-      let (t, l) = self.walk_labelidx(t, l)
-      let (t, ht1) = self.walk_heaptype(t, ht1)
-      let (t, ht2) = self.walk_heaptype(t, ht2)
-      (t, BrOnCast(l, op, ht1, ht2))
+      let (t, l) = match self.walk_labelidx(t, l) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, l)
+        Ok(Some((t, l))) => (t, l)
+      }
+      let (t, ht1) = match self.walk_heaptype(t, ht1) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, ht1)
+        Ok(Some((t, ht1))) => (t, ht1)
+      }
+      let (t, ht2) = match self.walk_heaptype(t, ht2) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, ht2)
+        Ok(Some((t, ht2))) => (t, ht2)
+      }
+      Ok(Some((t, BrOnCast(l, op, ht1, ht2))))
     }
     BrOnCastFail(l, op, ht1, ht2) => {
-      let (t, l) = self.walk_labelidx(t, l)
-      let (t, ht1) = self.walk_heaptype(t, ht1)
-      let (t, ht2) = self.walk_heaptype(t, ht2)
-      (t, BrOnCastFail(l, op, ht1, ht2))
+      let (t, l) = match self.walk_labelidx(t, l) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, l)
+        Ok(Some((t, l))) => (t, l)
+      }
+      let (t, ht1) = match self.walk_heaptype(t, ht1) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, ht1)
+        Ok(Some((t, ht1))) => (t, ht1)
+      }
+      let (t, ht2) = match self.walk_heaptype(t, ht2) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, ht2)
+        Ok(Some((t, ht2))) => (t, ht2)
+      }
+      Ok(Some((t, BrOnCastFail(l, op, ht1, ht2))))
     }
 
     // Call instructions
     Call(f) => {
-      let (t, f) = self.walk_funcidx(t, f)
-      (t, Call(f))
+      match self.walk_funcidx(t, f) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, f))) => Ok(Some((t, Call(f))))
+      }
     }
     CallIndirect(ty, tbl) => {
-      let (t, ty) = self.walk_typeidx(t, ty)
-      let (t, tbl) = self.walk_tableidx(t, tbl)
-      (t, CallIndirect(ty, tbl))
+      let (t, ty) = match self.walk_typeidx(t, ty) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, ty)
+        Ok(Some((t, ty))) => (t, ty)
+      }
+      let (t, tbl) = match self.walk_tableidx(t, tbl) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, tbl)
+        Ok(Some((t, tbl))) => (t, tbl)
+      }
+      Ok(Some((t, CallIndirect(ty, tbl))))
     }
     ReturnCall(f) => {
-      let (t, f) = self.walk_funcidx(t, f)
-      (t, ReturnCall(f))
+      match self.walk_funcidx(t, f) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, f))) => Ok(Some((t, ReturnCall(f))))
+      }
     }
     ReturnCallIndirect(ty, tbl) => {
-      let (t, ty) = self.walk_typeidx(t, ty)
-      let (t, tbl) = self.walk_tableidx(t, tbl)
-      (t, ReturnCallIndirect(ty, tbl))
+      let (t, ty) = match self.walk_typeidx(t, ty) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, ty)
+        Ok(Some((t, ty))) => (t, ty)
+      }
+      let (t, tbl) = match self.walk_tableidx(t, tbl) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, tbl)
+        Ok(Some((t, tbl))) => (t, tbl)
+      }
+      Ok(Some((t, ReturnCallIndirect(ty, tbl))))
     }
     CallRef(ty) => {
-      let (t, ty) = self.walk_typeidx(t, ty)
-      (t, CallRef(ty))
+      match self.walk_typeidx(t, ty) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ty))) => Ok(Some((t, CallRef(ty))))
+      }
     }
     ReturnCallRef(ty) => {
-      let (t, ty) = self.walk_typeidx(t, ty)
-      (t, ReturnCallRef(ty))
+      match self.walk_typeidx(t, ty) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ty))) => Ok(Some((t, ReturnCallRef(ty))))
+      }
     }
 
     // Variable instructions
     LocalGet(l) => {
-      let (t, l) = self.walk_localidx(t, l)
-      (t, LocalGet(l))
+      match self.walk_localidx(t, l) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, l))) => Ok(Some((t, LocalGet(l))))
+      }
     }
     LocalSet(l) => {
-      let (t, l) = self.walk_localidx(t, l)
-      (t, LocalSet(l))
+      match self.walk_localidx(t, l) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, l))) => Ok(Some((t, LocalSet(l))))
+      }
     }
     LocalTee(l) => {
-      let (t, l) = self.walk_localidx(t, l)
-      (t, LocalTee(l))
+      match self.walk_localidx(t, l) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, l))) => Ok(Some((t, LocalTee(l))))
+      }
     }
     GlobalGet(g) => {
-      let (t, g) = self.walk_globalidx(t, g)
-      (t, GlobalGet(g))
+      match self.walk_globalidx(t, g) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, g))) => Ok(Some((t, GlobalGet(g))))
+      }
     }
     GlobalSet(g) => {
-      let (t, g) = self.walk_globalidx(t, g)
-      (t, GlobalSet(g))
+      match self.walk_globalidx(t, g) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, g))) => Ok(Some((t, GlobalSet(g))))
+      }
     }
 
     // Table instructions
     TableGet(tbl) => {
-      let (t, tbl) = self.walk_tableidx(t, tbl)
-      (t, TableGet(tbl))
+      match self.walk_tableidx(t, tbl) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, tbl))) => Ok(Some((t, TableGet(tbl))))
+      }
     }
     TableSet(tbl) => {
-      let (t, tbl) = self.walk_tableidx(t, tbl)
-      (t, TableSet(tbl))
+      match self.walk_tableidx(t, tbl) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, tbl))) => Ok(Some((t, TableSet(tbl))))
+      }
     }
     TableGrow(tbl) => {
-      let (t, tbl) = self.walk_tableidx(t, tbl)
-      (t, TableGrow(tbl))
+      match self.walk_tableidx(t, tbl) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, tbl))) => Ok(Some((t, TableGrow(tbl))))
+      }
     }
     TableSize(tbl) => {
-      let (t, tbl) = self.walk_tableidx(t, tbl)
-      (t, TableSize(tbl))
+      match self.walk_tableidx(t, tbl) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, tbl))) => Ok(Some((t, TableSize(tbl))))
+      }
     }
     TableFill(tbl) => {
-      let (t, tbl) = self.walk_tableidx(t, tbl)
-      (t, TableFill(tbl))
+      match self.walk_tableidx(t, tbl) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, tbl))) => Ok(Some((t, TableFill(tbl))))
+      }
     }
     TableCopy(t1, t2) => {
-      let (t, t1) = self.walk_tableidx(t, t1)
-      let (t, t2) = self.walk_tableidx(t, t2)
-      (t, TableCopy(t1, t2))
+      let (t, t1) = match self.walk_tableidx(t, t1) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, t1)
+        Ok(Some((t, t1))) => (t, t1)
+      }
+      let (t, t2) = match self.walk_tableidx(t, t2) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, t2)
+        Ok(Some((t, t2))) => (t, t2)
+      }
+      Ok(Some((t, TableCopy(t1, t2))))
     }
     TableInit(e, tbl) => {
-      let (t, e) = self.walk_elemidx(t, e)
-      let (t, tbl) = self.walk_tableidx(t, tbl)
-      (t, TableInit(e, tbl))
+      let (t, e) = match self.walk_elemidx(t, e) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, e)
+        Ok(Some((t, e))) => (t, e)
+      }
+      let (t, tbl) = match self.walk_tableidx(t, tbl) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, tbl)
+        Ok(Some((t, tbl))) => (t, tbl)
+      }
+      Ok(Some((t, TableInit(e, tbl))))
     }
     ElemDrop(e) => {
-      let (t, e) = self.walk_elemidx(t, e)
-      (t, ElemDrop(e))
+      match self.walk_elemidx(t, e) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, e))) => Ok(Some((t, ElemDrop(e))))
+      }
     }
 
     // Reference instructions
     RefNull(ht) => {
-      let (t, ht) = self.walk_heaptype(t, ht)
-      (t, RefNull(ht))
+      match self.walk_heaptype(t, ht) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ht))) => Ok(Some((t, RefNull(ht))))
+      }
     }
     RefFunc(f) => {
-      let (t, f) = self.walk_funcidx(t, f)
-      (t, RefFunc(f))
+      match self.walk_funcidx(t, f) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, f))) => Ok(Some((t, RefFunc(f))))
+      }
     }
     RefTest(nullable, ht) => {
-      let (t, ht) = self.walk_heaptype(t, ht)
-      (t, RefTest(nullable, ht))
+      match self.walk_heaptype(t, ht) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ht))) => Ok(Some((t, RefTest(nullable, ht))))
+      }
     }
     RefCast(nullable, ht) => {
-      let (t, ht) = self.walk_heaptype(t, ht)
-      (t, RefCast(nullable, ht))
+      match self.walk_heaptype(t, ht) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ht))) => Ok(Some((t, RefCast(nullable, ht))))
+      }
     }
 
     // Struct/Array instructions
     StructNew(ty) => {
-      let (t, ty) = self.walk_typeidx(t, ty)
-      (t, StructNew(ty))
+      match self.walk_typeidx(t, ty) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ty))) => Ok(Some((t, StructNew(ty))))
+      }
     }
     StructNewDefault(ty) => {
-      let (t, ty) = self.walk_typeidx(t, ty)
-      (t, StructNewDefault(ty))
+      match self.walk_typeidx(t, ty) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ty))) => Ok(Some((t, StructNewDefault(ty))))
+      }
     }
     StructGet(ty, f) => {
-      let (t, ty) = self.walk_typeidx(t, ty)
-      (t, StructGet(ty, f))
+      match self.walk_typeidx(t, ty) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ty))) => Ok(Some((t, StructGet(ty, f))))
+      }
     }
     StructGetS(ty, f) => {
-      let (t, ty) = self.walk_typeidx(t, ty)
-      (t, StructGetS(ty, f))
+      match self.walk_typeidx(t, ty) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ty))) => Ok(Some((t, StructGetS(ty, f))))
+      }
     }
     StructGetU(ty, f) => {
-      let (t, ty) = self.walk_typeidx(t, ty)
-      (t, StructGetU(ty, f))
+      match self.walk_typeidx(t, ty) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ty))) => Ok(Some((t, StructGetU(ty, f))))
+      }
     }
     StructSet(ty, f) => {
-      let (t, ty) = self.walk_typeidx(t, ty)
-      (t, StructSet(ty, f))
+      match self.walk_typeidx(t, ty) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ty))) => Ok(Some((t, StructSet(ty, f))))
+      }
     }
     ArrayNew(ty) => {
-      let (t, ty) = self.walk_typeidx(t, ty)
-      (t, ArrayNew(ty))
+      match self.walk_typeidx(t, ty) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ty))) => Ok(Some((t, ArrayNew(ty))))
+      }
     }
     ArrayNewDefault(ty) => {
-      let (t, ty) = self.walk_typeidx(t, ty)
-      (t, ArrayNewDefault(ty))
+      match self.walk_typeidx(t, ty) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ty))) => Ok(Some((t, ArrayNewDefault(ty))))
+      }
     }
     ArrayNewFixed(ty, n) => {
-      let (t, ty) = self.walk_typeidx(t, ty)
-      (t, ArrayNewFixed(ty, n))
+      match self.walk_typeidx(t, ty) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ty))) => Ok(Some((t, ArrayNewFixed(ty, n))))
+      }
     }
     ArrayNewData(ty, n) => {
-      let (t, ty) = self.walk_typeidx(t, ty)
-      (t, ArrayNewData(ty, n))
+      match self.walk_typeidx(t, ty) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ty))) => Ok(Some((t, ArrayNewData(ty, n))))
+      }
     }
     ArrayNewElem(ty, e) => {
-      let (t, ty) = self.walk_typeidx(t, ty)
-      let (t, e) = self.walk_elemidx(t, e)
-      (t, ArrayNewElem(ty, e))
+      let (t, ty) = match self.walk_typeidx(t, ty) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, ty)
+        Ok(Some((t, ty))) => (t, ty)
+      }
+      let (t, e) = match self.walk_elemidx(t, e) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, e)
+        Ok(Some((t, e))) => (t, e)
+      }
+      Ok(Some((t, ArrayNewElem(ty, e))))
     }
     ArrayGet(ty) => {
-      let (t, ty) = self.walk_typeidx(t, ty)
-      (t, ArrayGet(ty))
+      match self.walk_typeidx(t, ty) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ty))) => Ok(Some((t, ArrayGet(ty))))
+      }
     }
     ArrayGetS(ty) => {
-      let (t, ty) = self.walk_typeidx(t, ty)
-      (t, ArrayGetS(ty))
+      match self.walk_typeidx(t, ty) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ty))) => Ok(Some((t, ArrayGetS(ty))))
+      }
     }
     ArrayGetU(ty) => {
-      let (t, ty) = self.walk_typeidx(t, ty)
-      (t, ArrayGetU(ty))
+      match self.walk_typeidx(t, ty) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ty))) => Ok(Some((t, ArrayGetU(ty))))
+      }
     }
     ArraySet(ty) => {
-      let (t, ty) = self.walk_typeidx(t, ty)
-      (t, ArraySet(ty))
+      match self.walk_typeidx(t, ty) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ty))) => Ok(Some((t, ArraySet(ty))))
+      }
     }
     ArrayFill(ty) => {
-      let (t, ty) = self.walk_typeidx(t, ty)
-      (t, ArrayFill(ty))
+      match self.walk_typeidx(t, ty) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ty))) => Ok(Some((t, ArrayFill(ty))))
+      }
     }
     ArrayCopy(t1, t2) => {
-      let (t, t1) = self.walk_typeidx(t, t1)
-      let (t, t2) = self.walk_typeidx(t, t2)
-      (t, ArrayCopy(t1, t2))
+      let (t, t1) = match self.walk_typeidx(t, t1) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, t1)
+        Ok(Some((t, t1))) => (t, t1)
+      }
+      let (t, t2) = match self.walk_typeidx(t, t2) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, t2)
+        Ok(Some((t, t2))) => (t, t2)
+      }
+      Ok(Some((t, ArrayCopy(t1, t2))))
     }
     ArrayInitData(ty, d) => {
-      let (t, ty) = self.walk_typeidx(t, ty)
-      let (t, d) = self.walk_dataidx(t, d)
-      (t, ArrayInitData(ty, d))
+      let (t, ty) = match self.walk_typeidx(t, ty) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, ty)
+        Ok(Some((t, ty))) => (t, ty)
+      }
+      let (t, d) = match self.walk_dataidx(t, d) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, d)
+        Ok(Some((t, d))) => (t, d)
+      }
+      Ok(Some((t, ArrayInitData(ty, d))))
     }
     ArrayInitElem(ty, e) => {
-      let (t, ty) = self.walk_typeidx(t, ty)
-      let (t, e) = self.walk_elemidx(t, e)
-      (t, ArrayInitElem(ty, e))
+      let (t, ty) = match self.walk_typeidx(t, ty) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, ty)
+        Ok(Some((t, ty))) => (t, ty)
+      }
+      let (t, e) = match self.walk_elemidx(t, e) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, e)
+        Ok(Some((t, e))) => (t, e)
+      }
+      Ok(Some((t, ArrayInitElem(ty, e))))
     }
 
     // Memory instructions
     MemorySize(m) => {
-      let (t, m) = self.walk_memidx(t, m)
-      (t, MemorySize(m))
+      match self.walk_memidx(t, m) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, m))) => Ok(Some((t, MemorySize(m))))
+      }
     }
     MemoryGrow(m) => {
-      let (t, m) = self.walk_memidx(t, m)
-      (t, MemoryGrow(m))
+      match self.walk_memidx(t, m) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, m))) => Ok(Some((t, MemoryGrow(m))))
+      }
     }
     MemoryFill(m) => {
-      let (t, m) = self.walk_memidx(t, m)
-      (t, MemoryFill(m))
+      match self.walk_memidx(t, m) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, m))) => Ok(Some((t, MemoryFill(m))))
+      }
     }
     MemoryCopy(m1, m2) => {
-      let (t, m1) = self.walk_memidx(t, m1)
-      let (t, m2) = self.walk_memidx(t, m2)
-      (t, MemoryCopy(m1, m2))
+      let (t, m1) = match self.walk_memidx(t, m1) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, m1)
+        Ok(Some((t, m1))) => (t, m1)
+      }
+      let (t, m2) = match self.walk_memidx(t, m2) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, m2)
+        Ok(Some((t, m2))) => (t, m2)
+      }
+      Ok(Some((t, MemoryCopy(m1, m2))))
     }
     MemoryInit(d, m) => {
-      let (t, d) = self.walk_dataidx(t, d)
-      let (t, m) = self.walk_memidx(t, m)
-      (t, MemoryInit(d, m))
+      let (t, d) = match self.walk_dataidx(t, d) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, d)
+        Ok(Some((t, d))) => (t, d)
+      }
+      let (t, m) = match self.walk_memidx(t, m) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, m)
+        Ok(Some((t, m))) => (t, m)
+      }
+      Ok(Some((t, MemoryInit(d, m))))
     }
     DataDrop(d) => {
-      let (t, d) = self.walk_dataidx(t, d)
-      (t, DataDrop(d))
+      match self.walk_dataidx(t, d) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, d))) => Ok(Some((t, DataDrop(d))))
+      }
     }
 
     // Exception instructions
     Throw(ty) => {
-      let (t, ty) = self.walk_tagidx(t, ty)
-      (t, Throw(ty))
+      match self.walk_tagidx(t, ty) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ty))) => Ok(Some((t, Throw(ty))))
+      }
     }
 
     // Select with types
     Select(types) =>
       match types {
-        Some(types) => {
-          let (t, types) = self.walk_array(
-            t,
-            ModuleTransformer::walk_valtype,
-            types,
-          )
-          (t, Select(Some(types)))
+        None => Ok(None)
+        Some(types) => match self.walk_array(
+          t,
+          ModuleTransformer::walk_valtype,
+          types,
+        ) {
+          Err(e) => Err(e)
+          Ok(None) => Ok(None)
+          Ok(Some((t, types))) => Ok(Some((t, Select(Some(types)))))
         }
-        None => (t, Select(None))
       }
 
     // All other instructions pass through unchanged
-    other => (t, other)
+    _ => Ok(None)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_blocktype(
   self : ModuleTransformer[T],
   t : T,
   bt : BlockType,
-) -> (T, BlockType) {
+) -> TransformerResult[T, BlockType] {
   match self.on_blocktype {
     Some(f) =>
       match f(t, bt) {
-        Some(b) => b
-        None => self.walk_blocktype_default(t, bt)
+        Err(e) => Err(e)
+        Ok(None) => self.walk_blocktype_default(t, bt)
+        ok => ok
       }
     None => self.walk_blocktype_default(t, bt)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_blocktype_default(
   self : ModuleTransformer[T],
   t : T,
   bt : BlockType,
-) -> (T, BlockType) {
+) -> TransformerResult[T, BlockType] {
   match bt {
     ValTypeBlockType(vt) => {
-      let (t, vt) = self.walk_valtype(t, vt)
-      (t, ValTypeBlockType(vt))
+      match self.walk_valtype(t, vt) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, vt))) => Ok(Some((t, ValTypeBlockType(vt))))
+      }
     }
     TypeIdxBlockType(ty) => {
-      let (t, ty) = self.walk_typeidx(t, ty)
-      (t, TypeIdxBlockType(ty))
+      match self.walk_typeidx(t, ty) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ty))) => Ok(Some((t, TypeIdxBlockType(ty))))
+      }
     }
-    _ => (t, bt)
+    _ => Ok(None)
   }
 }
 
@@ -550,297 +888,308 @@ pub fn[T] ModuleTransformer::walk_catch(
   self : ModuleTransformer[T],
   t : T,
   c : Catch,
-) -> (T, Catch) {
+) -> TransformerResult[T, Catch] {
   match c {
     Catch(tag, label) => {
-      let (t, tag) = self.walk_tagidx(t, tag)
-      let (t, label) = self.walk_labelidx(t, label)
-      (t, Catch(tag, label))
+      let (t, tag) = match self.walk_tagidx(t, tag) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, tag)
+        Ok(Some((t, tag))) => (t, tag)
+      }
+      let (t, label) = match self.walk_labelidx(t, label) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, label)
+        Ok(Some((t, label))) => (t, label)
+      }
+      Ok(Some((t, Catch(tag, label))))
     }
     CatchRef(tag, label) => {
-      let (t, tag) = self.walk_tagidx(t, tag)
-      let (t, label) = self.walk_labelidx(t, label)
-      (t, CatchRef(tag, label))
+      let (t, tag) = match self.walk_tagidx(t, tag) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, tag)
+        Ok(Some((t, tag))) => (t, tag)
+      }
+      let (t, label) = match self.walk_labelidx(t, label) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, label)
+        Ok(Some((t, label))) => (t, label)
+      }
+      Ok(Some((t, CatchRef(tag, label))))
     }
     CatchAll(label) => {
-      let (t, label) = self.walk_labelidx(t, label)
-      (t, CatchAll(label))
+      match self.walk_labelidx(t, label) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, label))) => Ok(Some((t, CatchAll(label))))
+      }
     }
     CatchAllRef(label) => {
-      let (t, label) = self.walk_labelidx(t, label)
-      (t, CatchAllRef(label))
+      match self.walk_labelidx(t, label) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, label))) => Ok(Some((t, CatchAllRef(label))))
+      }
     }
   }
 }
 
 // Index walkers - leaf nodes
-
-///|
 pub fn[T] ModuleTransformer::walk_funcidx(
   self : ModuleTransformer[T],
   t : T,
   idx : FuncIdx,
-) -> (T, FuncIdx) {
+) -> TransformerResult[T, FuncIdx] {
   match self.on_funcidx {
-    Some(f) => f(t, idx).unwrap_or((t, idx))
-    None => (t, idx)
+    Some(f) => f(t, idx)
+    None => Ok(None)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_typeidx(
   self : ModuleTransformer[T],
   t : T,
   idx : TypeIdx,
-) -> (T, TypeIdx) {
+) -> TransformerResult[T, TypeIdx] {
   match self.on_typeidx {
-    Some(f) => f(t, idx).unwrap_or((t, idx))
-    None => (t, idx)
+    Some(f) => f(t, idx)
+    None => Ok(None)
   }
 }
 
-///|
+
 pub fn[T] ModuleTransformer::walk_localidx(
   self : ModuleTransformer[T],
   t : T,
   idx : LocalIdx,
-) -> (T, LocalIdx) {
+) -> TransformerResult[T, LocalIdx] {
   match self.on_localidx {
-    Some(f) => f(t, idx).unwrap_or((t, idx))
-    None => (t, idx)
+    Some(f) => f(t, idx)
+    None => Ok(None)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_globalidx(
   self : ModuleTransformer[T],
   t : T,
   idx : GlobalIdx,
-) -> (T, GlobalIdx) {
+) -> TransformerResult[T, GlobalIdx] {
   match self.on_globalidx {
-    Some(f) => f(t, idx).unwrap_or((t, idx))
-    None => (t, idx)
+    Some(f) => f(t, idx)
+    None => Ok(None)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_tableidx(
   self : ModuleTransformer[T],
   t : T,
   idx : TableIdx,
-) -> (T, TableIdx) {
+) -> TransformerResult[T, TableIdx] {
   match self.on_tableidx {
-    Some(f) => f(t, idx).unwrap_or((t, idx))
-    None => (t, idx)
+    Some(f) => f(t, idx)
+    None => Ok(None)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_memidx(
   self : ModuleTransformer[T],
   t : T,
   idx : MemIdx,
-) -> (T, MemIdx) {
+) -> TransformerResult[T, MemIdx] {
   match self.on_memidx {
-    Some(f) => f(t, idx).unwrap_or((t, idx))
-    None => (t, idx)
+    Some(f) => f(t, idx)
+    None => Ok(None)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_labelidx(
   self : ModuleTransformer[T],
   t : T,
   idx : LabelIdx,
-) -> (T, LabelIdx) {
+) -> TransformerResult[T, LabelIdx] {
   match self.on_labelidx {
-    Some(f) => f(t, idx).unwrap_or((t, idx))
-    None => (t, idx)
+    Some(f) => f(t, idx)
+    None => Ok(None)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_dataidx(
   self : ModuleTransformer[T],
   t : T,
   idx : DataIdx,
-) -> (T, DataIdx) {
+) -> TransformerResult[T, DataIdx] {
   match self.on_dataidx {
-    Some(f) => f(t, idx).unwrap_or((t, idx))
-    None => (t, idx)
+    Some(f) => f(t, idx)
+    None => Ok(None)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_elemidx(
   self : ModuleTransformer[T],
   t : T,
   idx : ElemIdx,
-) -> (T, ElemIdx) {
+) -> TransformerResult[T, ElemIdx] {
   match self.on_elemidx {
-    Some(f) => f(t, idx).unwrap_or((t, idx))
-    None => (t, idx)
+    Some(f) => f(t, idx)
+    None => Ok(None)
   }
 }
-
-///|
 pub fn[T] ModuleTransformer::walk_tagidx(
   self : ModuleTransformer[T],
   t : T,
   idx : TagIdx,
-) -> (T, TagIdx) {
+) -> TransformerResult[T, TagIdx] {
   match self.on_tagidx {
-    Some(f) => f(t, idx).unwrap_or((t, idx))
-    None => (t, idx)
+    Some(f) => f(t, idx)
+    None => Ok(None)
   }
 }
 
-///|
+
 pub fn[T] ModuleTransformer::walk_valtype(
   self : ModuleTransformer[T],
   t : T,
   vt : ValType,
-) -> (T, ValType) {
+) -> TransformerResult[T, ValType] {
   match self.on_valtype {
     Some(f) =>
       match f(t, vt) {
-        Some(v) => v
-        None => self.walk_valtype_default(t, vt)
+        Err(e) => Err(e)
+        Ok(None) => self.walk_valtype_default(t, vt)
+        ok => ok
       }
     None => self.walk_valtype_default(t, vt)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_valtype_default(
   self : ModuleTransformer[T],
   t : T,
   vt : ValType,
-) -> (T, ValType) {
+) -> TransformerResult[T, ValType] {
   match vt {
     RefTypeValType(rt) => {
-      let (t, rt) = self.walk_reftype(t, rt)
-      (t, RefTypeValType(rt))
+      match self.walk_reftype(t, rt) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, rt))) => Ok(Some((t, RefTypeValType(rt))))
+      }
     }
     NumTypeValType(nt) => {
-      let (t, nt) = self.walk_numtype(t, nt)
-      (t, NumTypeValType(nt))
+      match self.walk_numtype(t, nt) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, nt))) => Ok(Some((t, NumTypeValType(nt))))
+      }
     }
-    other => (t, other)
+    _ => Ok(None)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_numtype(
   self : ModuleTransformer[T],
   t : T,
   nt : NumType,
-) -> (T, NumType) {
+) -> TransformerResult[T, NumType] {
   match self.on_numtype {
-    Some(f) => f(t, nt).unwrap_or((t, nt))
-    None => (t, nt)
+    Some(f) => f(t, nt)
+    None => Ok(None)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_reftype(
   self : ModuleTransformer[T],
   t : T,
   rt : RefType,
-) -> (T, RefType) {
+) -> TransformerResult[T, RefType] {
   match self.on_reftype {
     Some(f) =>
       match f(t, rt) {
-        Some(r) => r
-        None => self.walk_reftype_default(t, rt)
+        Err(e) => Err(e)
+        Ok(None) => self.walk_reftype_default(t, rt)
+        ok => ok
       }
     None => self.walk_reftype_default(t, rt)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_reftype_default(
   self : ModuleTransformer[T],
   t : T,
   rt : RefType,
-) -> (T, RefType) {
+) -> TransformerResult[T, RefType] {
   match rt {
     HeapTypeRefType(nullable, ht) => {
-      let (t, ht) = self.walk_heaptype(t, ht)
-      (t, HeapTypeRefType(nullable, ht))
+      match self.walk_heaptype(t, ht) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ht))) => Ok(Some((t, HeapTypeRefType(nullable, ht))))
+      }
     }
-    _ => (t, rt)
+    _ => Ok(None)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_heaptype(
   self : ModuleTransformer[T],
   t : T,
   ht : HeapType,
-) -> (T, HeapType) {
+) -> TransformerResult[T, HeapType] {
   match self.on_heaptype {
     Some(f) =>
       match f(t, ht) {
-        Some(h) => h
-        None => self.walk_heaptype_default(t, ht)
+        Err(e) => Err(e)
+        Ok(None) => self.walk_heaptype_default(t, ht)
+        ok => ok
       }
     None => self.walk_heaptype_default(t, ht)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_heaptype_default(
   self : ModuleTransformer[T],
   t : T,
   ht : HeapType,
-) -> (T, HeapType) {
+) -> TransformerResult[T, HeapType] {
   match ht {
     HeapType(ty) => {
-      let (t, ty) = self.walk_typeidx(t, ty)
-      (t, HeapType(ty))
+      match self.walk_typeidx(t, ty) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ty))) => Ok(Some((t, HeapType(ty))))
+      }
     }
-    other => (t, other)
+    _ => Ok(None)
   }
 }
 
-///|
+
+// Sections
+
 pub fn[T] ModuleTransformer::walk_customsec(
   self : ModuleTransformer[T],
   t : T,
   sec : CustomSec,
-) -> (T, CustomSec) {
+) -> TransformerResult[T, CustomSec] {
   let CustomSec(n, d) = sec
-  let (t, n) = self.walk_name(t, n)
-  (t, CustomSec(n, d))
+  match self.walk_name(t, n) {
+    Err(e) => Err(e)
+    Ok(None) => Ok(None)
+    Ok(Some((t, n))) => Ok(Some((t, CustomSec(n, d))))
+  }
 }
-
-///|
 pub fn[T] ModuleTransformer::walk_customsecs(
   self : ModuleTransformer[T],
   t : T,
   secs : Array[CustomSec],
-) -> T {
-  let end = secs.length()
-  let mut t = t
-  loop 0 {
-    n if n == end => break t
-    n => {
-      let sec = secs[n]
-      let (next_t, sec) = self.walk_customsec(t, sec)
-      secs[n] = sec
-      t = next_t
-      continue n + 1
-    }
-  }
+) -> TransformerResult[T, Array[CustomSec]] {
+  self.walk_array(t, ModuleTransformer::walk_customsec, secs)
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_module(
   self : ModuleTransformer[T],
   t : T,
   mod : Module,
-) -> (T, Module) {
+) -> TransformerResult[T, Module] {
   let Module(
     custom,
     type_sec,
@@ -857,726 +1206,910 @@ pub fn[T] ModuleTransformer::walk_module(
     code_sec,
     data_sec
   ) = mod
-  let t = self.walk_customsecs(t, custom)
+  
+  let (t, custom) = match self.walk_customsecs(t, custom) {
+    Err(e) => return Err(e)
+    Ok(None) => (t, custom)
+    Ok(Some(v)) => v
+  }
+
   let (t, type_sec) = match type_sec {
-    Some(type_sec) => {
-      let (t, type_sec) = self.walk_typesec(t, type_sec)
-      (t, Some(type_sec))
+    None => (t, None)
+    Some(sec) => match self.walk_typesec(t, sec) {
+      Err(e) => return Err(e)
+      Ok(None) => (t, Some(sec))
+      Ok(Some((t, sec))) => (t, Some(sec))
     }
-    _ => (t, type_sec)
   }
+
   let (t, import_sec) = match import_sec {
-    Some(import_sec) => {
-      let (t, import_sec) = self.walk_importsec(t, import_sec)
-      (t, Some(import_sec))
+    None => (t, None)
+    Some(sec) => match self.walk_importsec(t, sec) {
+      Err(e) => return Err(e)
+      Ok(None) => (t, Some(sec))
+      Ok(Some((t, sec))) => (t, Some(sec))
     }
-    _ => (t, import_sec)
   }
+
   let (t, func_sec) = match func_sec {
-    Some(func_sec) => {
-      let (t, func_sec) = self.walk_funcsec(t, func_sec)
-      (t, Some(func_sec))
+    None => (t, None)
+    Some(sec) => match self.walk_funcsec(t, sec) {
+      Err(e) => return Err(e)
+      Ok(None) => (t, Some(sec))
+      Ok(Some((t, sec))) => (t, Some(sec))
     }
-    _ => (t, func_sec)
   }
+
   let (t, table_sec) = match table_sec {
-    Some(table_sec) => {
-      let (t, table_sec) = self.walk_tablesec(t, table_sec)
-      (t, Some(table_sec))
+    None => (t, None)
+    Some(sec) => match self.walk_tablesec(t, sec) {
+      Err(e) => return Err(e)
+      Ok(None) => (t, Some(sec))
+      Ok(Some((t, sec))) => (t, Some(sec))
     }
-    _ => (t, table_sec)
   }
+
   let (t, mem_sec) = match mem_sec {
-    Some(mem_sec) => {
-      let (t, mem_sec) = self.walk_memsec(t, mem_sec)
-      (t, Some(mem_sec))
+    None => (t, None)
+    Some(sec) => match self.walk_memsec(t, sec) {
+      Err(e) => return Err(e)
+      Ok(None) => (t, Some(sec))
+      Ok(Some((t, sec))) => (t, Some(sec))
     }
-    _ => (t, mem_sec)
   }
+
   let (t, tag_sec) = match tag_sec {
-    Some(tag_sec) => {
-      let (t, tag_sec) = self.walk_tagsec(t, tag_sec)
-      (t, Some(tag_sec))
+    None => (t, None)
+    Some(sec) => match self.walk_tagsec(t, sec) {
+      Err(e) => return Err(e)
+      Ok(None) => (t, Some(sec))
+      Ok(Some((t, sec))) => (t, Some(sec))
     }
-    _ => (t, tag_sec)
   }
+
   let (t, global_sec) = match global_sec {
-    Some(global_sec) => {
-      let (t, global_sec) = self.walk_globalsec(t, global_sec)
-      (t, Some(global_sec))
+    None => (t, None)
+    Some(sec) => match self.walk_globalsec(t, sec) {
+      Err(e) => return Err(e)
+      Ok(None) => (t, Some(sec))
+      Ok(Some((t, sec))) => (t, Some(sec))
     }
-    _ => (t, global_sec)
   }
+
   let (t, export_sec) = match export_sec {
-    Some(export_sec) => {
-      let (t, export_sec) = self.walk_exportsec(t, export_sec)
-      (t, Some(export_sec))
+    None => (t, None)
+    Some(sec) => match self.walk_exportsec(t, sec) {
+      Err(e) => return Err(e)
+      Ok(None) => (t, Some(sec))
+      Ok(Some((t, sec))) => (t, Some(sec))
     }
-    _ => (t, export_sec)
   }
+
   let (t, start_sec) = match start_sec {
-    Some(start_sec) => {
-      let (t, start_sec) = self.walk_startsec(t, start_sec)
-      (t, Some(start_sec))
+    None => (t, None)
+    Some(sec) => match self.walk_startsec(t, sec) {
+      Err(e) => return Err(e)
+      Ok(None) => (t, Some(sec))
+      Ok(Some((t, sec))) => (t, Some(sec))
     }
-    _ => (t, start_sec)
   }
+
   let (t, elem_sec) = match elem_sec {
-    Some(elem_sec) => {
-      let (t, elem_sec) = self.walk_elemsec(t, elem_sec)
-      (t, Some(elem_sec))
+    None => (t, None)
+    Some(sec) => match self.walk_elemsec(t, sec) {
+      Err(e) => return Err(e)
+      Ok(None) => (t, Some(sec))
+      Ok(Some((t, sec))) => (t, Some(sec))
     }
-    _ => (t, elem_sec)
   }
+
   let (t, datacnt_sec) = match datacnt_sec {
-    Some(datacnt_sec) => {
-      let (t, datacnt_sec) = self.walk_datacntsec(t, datacnt_sec)
-      (t, Some(datacnt_sec))
+    None => (t, None)
+    Some(sec) => match self.walk_datacntsec(t, sec) {
+      Err(e) => return Err(e)
+      Ok(None) => (t, Some(sec))
+      Ok(Some((t, sec))) => (t, Some(sec))
     }
-    _ => (t, datacnt_sec)
   }
+
   let (t, code_sec) = match code_sec {
-    Some(code_sec) => {
-      let (t, code_sec) = self.walk_codesec(t, code_sec)
-      (t, Some(code_sec))
+    None => (t, None)
+    Some(sec) => match self.walk_codesec(t, sec) {
+      Err(e) => return Err(e)
+      Ok(None) => (t, Some(sec))
+      Ok(Some((t, sec))) => (t, Some(sec))
     }
-    _ => (t, code_sec)
   }
+
   let (t, data_sec) = match data_sec {
-    Some(data_sec) => {
-      let (t, data_sec) = self.walk_datasec(t, data_sec)
-      (t, Some(data_sec))
+    None => (t, None)
+    Some(sec) => match self.walk_datasec(t, sec) {
+      Err(e) => return Err(e)
+      Ok(None) => (t, Some(sec))
+      Ok(Some((t, sec))) => (t, Some(sec))
     }
-    _ => (t, data_sec)
   }
-  (
-    t,
-    Module(
-      custom, type_sec, import_sec, func_sec, table_sec, mem_sec, tag_sec, global_sec,
-      export_sec, start_sec, elem_sec, datacnt_sec, code_sec, data_sec,
-    ),
-  )
+
+  Ok(Some((t, Module(
+    custom, type_sec, import_sec, func_sec, table_sec, mem_sec, tag_sec, global_sec,
+    export_sec, start_sec, elem_sec, datacnt_sec, code_sec, data_sec,
+  ))))
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_datasec(
   self : ModuleTransformer[T],
   t : T,
   ds : DataSec,
-) -> (T, DataSec) {
+) -> TransformerResult[T, DataSec] {
   match self.on_datasec {
-    Some(f) => f(t, ds).unwrap_or((t, ds))
+    Some(f) =>
+      match f(t, ds) {
+        Err(e) => Err(e)
+        Ok(None) => self.walk_datasec_default(t, ds)
+        ok => ok
+      }
     None => self.walk_datasec_default(t, ds)
   }
 }
-
-///|
 pub fn[T] ModuleTransformer::walk_datasec_default(
   self : ModuleTransformer[T],
   t : T,
   ds : DataSec,
-) -> (T, DataSec) {
+) -> TransformerResult[T, DataSec] {
   let DataSec(ds) = ds
-  let (t, ds) = self.walk_array(t, ModuleTransformer::walk_data, ds)
-  (t, DataSec(ds))
+  match self.walk_array(t, ModuleTransformer::walk_data, ds) {
+    Err(e) => Err(e)
+    Ok(None) => Ok(None)
+    Ok(Some((t, ds))) => Ok(Some((t, DataSec(ds))))
+  }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_codesec(
   self : ModuleTransformer[T],
   t : T,
   cs : CodeSec,
-) -> (T, CodeSec) {
+) -> TransformerResult[T, CodeSec] {
   match self.on_codesec {
-    Some(f) => f(t, cs).unwrap_or((t, cs))
+    Some(f) =>
+      match f(t, cs) {
+        Err(e) => Err(e)
+        Ok(None) => self.walk_codesec_default(t, cs)
+        ok => ok
+      }
     None => self.walk_codesec_default(t, cs)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_codesec_default(
   self : ModuleTransformer[T],
   t : T,
   cs : CodeSec,
-) -> (T, CodeSec) {
+) -> TransformerResult[T, CodeSec] {
   let CodeSec(fs) = cs
-  let (t, fs) = self.walk_array(t, ModuleTransformer::walk_func, fs)
-  (t, CodeSec(fs))
+  match self.walk_array(t, ModuleTransformer::walk_func, fs) {
+    Err(e) => Err(e)
+    Ok(None) => Ok(None)
+    Ok(Some((t, fs))) => Ok(Some((t, CodeSec(fs))))
+  }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_datacntsec(
   self : ModuleTransformer[T],
   t : T,
   dcs : DataCntSec,
-) -> (T, DataCntSec) {
+) -> TransformerResult[T, DataCntSec] {
   match self.on_datacntsec {
-    Some(f) => f(t, dcs).unwrap_or((t, dcs))
-    None => (t, dcs)
+    Some(f) => f(t, dcs)
+    None => Ok(None)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_elemsec(
   self : ModuleTransformer[T],
   t : T,
   es : ElemSec,
-) -> (T, ElemSec) {
+) -> TransformerResult[T, ElemSec] {
   match self.on_elemsec {
-    Some(f) => f(t, es).unwrap_or((t, es))
+    Some(f) =>
+      match f(t, es) {
+        Err(e) => Err(e)
+        Ok(None) => self.walk_elemsec_default(t, es)
+        ok => ok
+      }
     None => self.walk_elemsec_default(t, es)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_elemsec_default(
   self : ModuleTransformer[T],
   t : T,
   es : ElemSec,
-) -> (T, ElemSec) {
+) -> TransformerResult[T, ElemSec] {
   let ElemSec(es) = es
-  let (t, es) = self.walk_array(t, ModuleTransformer::walk_elem, es)
-  (t, ElemSec(es))
+  match self.walk_array(t, ModuleTransformer::walk_elem, es) {
+    Err(e) => Err(e)
+    Ok(None) => Ok(None)
+    Ok(Some((t, es))) => Ok(Some((t, ElemSec(es))))
+  }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_startsec(
   self : ModuleTransformer[T],
   t : T,
   ss : StartSec,
-) -> (T, StartSec) {
+) -> TransformerResult[T, StartSec] {
   match self.on_startsec {
-    Some(f) => f(t, ss).unwrap_or((t, ss))
+    Some(f) =>
+      match f(t, ss) {
+        Err(e) => Err(e)
+        Ok(None) => self.walk_startsec_default(t, ss)
+        ok => ok
+      }
     None => self.walk_startsec_default(t, ss)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_startsec_default(
   self : ModuleTransformer[T],
   t : T,
   ss : StartSec,
-) -> (T, StartSec) {
+) -> TransformerResult[T, StartSec] {
   let StartSec(fidx) = ss
-  let (t, fidx) = self.walk_funcidx(t, fidx)
-  (t, StartSec(fidx))
+  match self.walk_funcidx(t, fidx) {
+    Err(e) => Err(e)
+    Ok(None) => Ok(None)
+    Ok(Some((t, fidx))) => Ok(Some((t, StartSec(fidx))))
+  }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_exportsec(
   self : ModuleTransformer[T],
   t : T,
   es : ExportSec,
-) -> (T, ExportSec) {
+) -> TransformerResult[T, ExportSec] {
   match self.on_exportsec {
-    Some(f) => f(t, es).unwrap_or((t, es))
+    Some(f) =>
+      match f(t, es) {
+        Err(e) => Err(e)
+        Ok(None) => self.walk_exportsec_default(t, es)
+        ok => ok
+      }
     None => self.walk_exportsec_default(t, es)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_exportsec_default(
   self : ModuleTransformer[T],
   t : T,
   es : ExportSec,
-) -> (T, ExportSec) {
+) -> TransformerResult[T, ExportSec] {
   let ExportSec(es) = es
-  let (t, es) = self.walk_array(t, ModuleTransformer::walk_export, es)
-  (t, ExportSec(es))
+  match self.walk_array(t, ModuleTransformer::walk_export, es) {
+    Err(e) => Err(e)
+    Ok(None) => Ok(None)
+    Ok(Some((t, es))) => Ok(Some((t, ExportSec(es))))
+  }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_tagsec(
   self : ModuleTransformer[T],
   t : T,
   ts : TagSec,
-) -> (T, TagSec) {
+) -> TransformerResult[T, TagSec] {
   match self.on_tagsec {
-    Some(f) => f(t, ts).unwrap_or((t, ts))
+    Some(f) =>
+      match f(t, ts) {
+        Err(e) => Err(e)
+        Ok(None) => self.walk_tagsec_default(t, ts)
+        ok => ok
+      }
     None => self.walk_tagsec_default(t, ts)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_tagsec_default(
   self : ModuleTransformer[T],
   t : T,
   ts : TagSec,
-) -> (T, TagSec) {
+) -> TransformerResult[T, TagSec] {
   let TagSec(tags) = ts
-  let (t, tags) = self.walk_array(t, ModuleTransformer::walk_tagtype, tags)
-  (t, TagSec(tags))
+  match self.walk_array(t, ModuleTransformer::walk_tagtype, tags) {
+    Err(e) => Err(e)
+    Ok(None) => Ok(None)
+    Ok(Some((t, tags))) => Ok(Some((t, TagSec(tags))))
+  }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_memsec(
   self : ModuleTransformer[T],
   t : T,
   ms : MemSec,
-) -> (T, MemSec) {
+) -> TransformerResult[T, MemSec] {
   match self.on_memsec {
-    Some(f) => f(t, ms).unwrap_or((t, ms))
+    Some(f) =>
+      match f(t, ms) {
+        Err(e) => Err(e)
+        Ok(None) => self.walk_memsec_default(t, ms)
+        ok => ok
+      }
     None => self.walk_memsec_default(t, ms)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_memsec_default(
   self : ModuleTransformer[T],
   t : T,
   ms : MemSec,
-) -> (T, MemSec) {
+) -> TransformerResult[T, MemSec] {
   let MemSec(m) = ms
-  let (t, m) = self.walk_array(t, ModuleTransformer::walk_memtype, m)
-  (t, MemSec(m))
+  match self.walk_array(t, ModuleTransformer::walk_memtype, m) {
+    Err(e) => Err(e)
+    Ok(None) => Ok(None)
+    Ok(Some((t, m))) => Ok(Some((t, MemSec(m))))
+  }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_tablesec(
   self : ModuleTransformer[T],
   t : T,
   ts : TableSec,
-) -> (T, TableSec) {
+) -> TransformerResult[T, TableSec] {
   match self.on_tablesec {
-    Some(f) => f(t, ts).unwrap_or((t, ts))
+    Some(f) =>
+      match f(t, ts) {
+        Err(e) => Err(e)
+        Ok(None) => self.walk_tablesec_default(t, ts)
+        ok => ok
+      }
     None => self.walk_tablesec_default(t, ts)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_tablesec_default(
   self : ModuleTransformer[T],
   t : T,
   ts : TableSec,
-) -> (T, TableSec) {
+) -> TransformerResult[T, TableSec] {
   let TableSec(tts) = ts
-  let (t, tts) = self.walk_array(t, ModuleTransformer::walk_table, tts)
-  (t, TableSec(tts))
+  match self.walk_array(t, ModuleTransformer::walk_table, tts) {
+    Err(e) => Err(e)
+    Ok(None) => Ok(None)
+    Ok(Some((t, tts))) => Ok(Some((t, TableSec(tts))))
+  }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_func(
   self : ModuleTransformer[T],
   t : T,
   func : Func,
-) -> (T, Func) {
+) -> TransformerResult[T, Func] {
   match self.on_func {
-    Some(f) => f(t, func).unwrap_or((t, func))
+    Some(f) =>
+      match f(t, func) {
+        Err(e) => Err(e)
+        Ok(None) => self.walk_func_default(t, func)
+        ok => ok
+      }
     None => self.walk_func_default(t, func)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_func_default(
   self : ModuleTransformer[T],
   t : T,
   f : Func,
-) -> (T, Func) {
+) -> TransformerResult[T, Func] {
   let Func(locals, body) = f
-  let t = self.walk_locals(t, locals)
-  let (t, body) = self.walk_expr(t, body)
-  (t, Func(locals, body))
+  let mut locals = locals
+  let t = match self.walk_locals(t, locals) {
+    Err(e) => return Err(e)
+    Ok(None) => t
+    Ok(Some((t, ls))) => {
+      locals = ls;
+      t 
+    }
+  }
+  match self.walk_expr(t, body) {
+    Err(e) => Err(e)
+    Ok(None) => Ok(None)
+    Ok(Some((t, body))) => Ok(Some((t, Func(locals, body))))
+  }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_locals(
   self : ModuleTransformer[T],
   t : T,
   l : Array[Locals],
-) -> T {
+) -> TransformerResult[T, Array[Locals]] {
   match self.on_locals {
-    Some(f) => f(t, l).unwrap_or(t)
+    Some(f) => f(t, l)
     None => self.walk_locals_default(t, l)
   }
 }
 
-///|
+
 pub fn[T] ModuleTransformer::walk_locals_default(
   self : ModuleTransformer[T],
   t : T,
   ls : Array[Locals],
-) -> T {
-  let end = ls.length()
-  let mut t = t
-  loop 0 {
-    n if n == end => break t
-    n => {
-      let Locals(count, vt) = ls[n]
-      let (next_t, vt) = self.walk_valtype(t, vt)
-      ls[n] = Locals(count, vt)
-      t = next_t
-      continue n + 1
-    }
+) -> TransformerResult[T, Array[Locals]] {
+  self.walk_array(t, ModuleTransformer::walk_single_local, ls)
+}
+
+pub fn[T] ModuleTransformer::walk_single_local(
+  self : ModuleTransformer[T],
+  t : T,
+  l : Locals,
+) -> TransformerResult[T, Locals] {
+  let Locals(count, vt) = l
+  match self.walk_valtype(t, vt) {
+    Err(e) => Err(e)
+    Ok(None) => Ok(None)
+    Ok(Some((t, vt))) => Ok(Some((t, Locals(count, vt))))
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_importsec(
   self : ModuleTransformer[T],
   t : T,
   ims : ImportSec,
-) -> (T, ImportSec) {
+) -> TransformerResult[T, ImportSec] {
   let ImportSec(ims) = ims
-  let (t, ims) = self.walk_array(t, ModuleTransformer::walk_import, ims)
-  (t, ImportSec(ims))
+  match self.walk_array(t, ModuleTransformer::walk_import, ims) {
+    Err(e) => Err(e)
+    Ok(None) => Ok(None)
+    Ok(Some((t, ims))) => Ok(Some((t, ImportSec(ims))))
+  }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_export(
   self : ModuleTransformer[T],
   t : T,
   expt : Export,
-) -> (T, Export) {
+) -> TransformerResult[T, Export] {
   match self.on_export {
-    Some(f) => f(t, expt).unwrap_or((t, expt))
+    Some(f) =>
+      match f(t, expt) {
+        Err(e) => Err(e)
+        Ok(None) => self.walk_export_default(t, expt)
+        ok => ok
+      }
     None => self.walk_export_default(t, expt)
   }
 }
 
-///|
+
 pub fn[T] ModuleTransformer::walk_export_default(
   self : ModuleTransformer[T],
   t : T,
   ex : Export,
-) -> (T, Export) {
+) -> TransformerResult[T, Export] {
   let Export(n, ei) = ex
-  let (t, n) = self.walk_name(t, n)
-  let (t, ei) = self.walk_externidx(t, ei)
-  (t, Export(n, ei))
+  let (t, n) = match self.walk_name(t, n) {
+    Err(e) => return Err(e)
+    Ok(None) => (t, n)
+    Ok(Some((t, n))) => (t, n)
+  }
+  let (t, ei) = match self.walk_externidx(t, ei) {
+    Err(e) => return Err(e)
+    Ok(None) => (t, ei)
+    Ok(Some((t, ei))) => (t, ei)
+  }
+  Ok(Some((t, Export(n, ei))))
 }
 
-///|
+
 pub fn[T] ModuleTransformer::walk_externidx(
   self : ModuleTransformer[T],
   t : T,
   ex : ExternIdx,
-) -> (T, ExternIdx) {
+) -> TransformerResult[T, ExternIdx] {
   match self.on_externidx {
-    Some(f) => f(t, ex).unwrap_or((t, ex))
+    Some(f) =>
+      match f(t, ex) {
+        Err(e) => Err(e)
+        Ok(None) => self.walk_externidx_default(t, ex)
+        ok => ok
+      }
     None => self.walk_externidx_default(t, ex)
   }
 }
-
-///|
 pub fn[T] ModuleTransformer::walk_externidx_default(
   self : ModuleTransformer[T],
   t : T,
   ex : ExternIdx,
-) -> (T, ExternIdx) {
+) -> TransformerResult[T, ExternIdx] {
   match ex {
     FuncExternIdx(fi) => {
-      let (t, fi) = self.walk_funcidx(t, fi)
-      (t, FuncExternIdx(fi))
+      match self.walk_funcidx(t, fi) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, fi))) => Ok(Some((t, FuncExternIdx(fi))))
+      }
     }
     TableExternIdx(ti) => {
-      let (t, ti) = self.walk_tableidx(t, ti)
-      (t, TableExternIdx(ti))
+      match self.walk_tableidx(t, ti) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ti))) => Ok(Some((t, TableExternIdx(ti))))
+      }
     }
     MemExternIdx(mi) => {
-      let (t, mi) = self.walk_memidx(t, mi)
-      (t, MemExternIdx(mi))
+      match self.walk_memidx(t, mi) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, mi))) => Ok(Some((t, MemExternIdx(mi))))
+      }
     }
     GlobalExternIdx(gi) => {
-      let (t, gi) = self.walk_globalidx(t, gi)
-      (t, GlobalExternIdx(gi))
+      match self.walk_globalidx(t, gi) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, gi))) => Ok(Some((t, GlobalExternIdx(gi))))
+      }
     }
     TagExternIdx(ti) => {
-      let (t, ti) = self.walk_tagidx(t, ti)
-      (t, TagExternIdx(ti))
+      match self.walk_tagidx(t, ti) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ti))) => Ok(Some((t, TagExternIdx(ti))))
+      }
     }
   }
 }
 
-///|
+
 pub fn[T] ModuleTransformer::walk_table(
   self : ModuleTransformer[T],
   t : T,
   tbl : Table,
-) -> (T, Table) {
+) -> TransformerResult[T, Table] {
   match self.on_table {
-    Some(f) => f(t, tbl).unwrap_or((t, tbl))
+    Some(f) =>
+      match f(t, tbl) {
+        Err(e) => Err(e)
+        Ok(None) => self.walk_table_default(t, tbl)
+        ok => ok
+      }
     None => self.walk_table_default(t, tbl)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_table_default(
   self : ModuleTransformer[T],
   t : T,
   tbl : Table,
-) -> (T, Table) {
+) -> TransformerResult[T, Table] {
   let Table(tt, e_option) = tbl
-  let (t, tt) = self.walk_tabletype(t, tt)
-  let (t, e_option) = match e_option {
-    Some(e) => {
-      let (t, e) = self.walk_expr(t, e)
-      (t, Some(e))
-    }
-    None => (t, None)
+  let (t, tt) = match self.walk_tabletype(t, tt) {
+    Err(e) => return Err(e)
+    Ok(None) => (t, tt)
+    Ok(Some((t, tt))) => (t, tt)
   }
-  (t, Table(tt, e_option))
+  let (t, e_option) = match e_option {
+    None => (t, None)
+    Some(e) => match self.walk_expr(t, e) {
+      Err(e) => return Err(e)
+      Ok(None) => (t, Some(e))
+      Ok(Some((t, e))) => (t, Some(e))
+    }
+  }
+  Ok(Some((t, Table(tt, e_option))))
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_import(
   self : ModuleTransformer[T],
   t : T,
   im : Import,
-) -> (T, Import) {
+) -> TransformerResult[T, Import] {
   let Import(n1, n2, ty) = im
-  let (t, n1) = self.walk_name(t, n1)
-  let (t, n2) = self.walk_name(t, n2)
-  let (t, ty) = self.walk_externtype(t, ty)
-  (t, Import(n1, n2, ty))
+  let (t, n1) = match self.walk_name(t, n1) {
+    Err(e) => return Err(e)
+    Ok(None) => (t, n1)
+    Ok(Some((t, n1))) => (t, n1)
+  }
+  let (t, n2) = match self.walk_name(t, n2) {
+    Err(e) => return Err(e)
+    Ok(None) => (t, n2)
+    Ok(Some((t, n2))) => (t, n2)
+  }
+  let (t, ty) = match self.walk_externtype(t, ty) {
+    Err(e) => return Err(e)
+    Ok(None) => (t, ty)
+    Ok(Some((t, ty))) => (t, ty)
+  }
+  Ok(Some((t, Import(n1, n2, ty))))
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_externtype(
   self : ModuleTransformer[T],
   t : T,
   ex : ExternType,
-) -> (T, ExternType) {
-  match ex {
-    FuncExternType(ti) => {
-      let (t, ti) = self.walk_typeidx(t, ti)
-      (t, FuncExternType(ti))
-    }
-    TableExternType(tt) => {
-      let (t, tt) = self.walk_tabletype(t, tt)
-      (t, TableExternType(tt))
-    }
-    MemExternType(mt) => {
-      let (t, mt) = self.walk_memtype(t, mt)
-      (t, MemExternType(mt))
-    }
-    GlobalExternType(gt) => {
-      let (t, gt) = self.walk_globaltype(t, gt)
-      (t, GlobalExternType(gt))
-    }
-    TagExternType(tt) => {
-      let (t, tt) = self.walk_tagtype(t, tt)
-      (t, TagExternType(tt))
-    }
+) -> TransformerResult[T, ExternType] {
+  match self.on_externtype {
+    Some(f) => f(t, ex)
+    None => Ok(None)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_tagtype(
   self : ModuleTransformer[T],
   t : T,
   tt : TagType,
-) -> (T, TagType) {
+) -> TransformerResult[T, TagType] {
   match self.on_tagtype {
-    Some(f) => f(t, tt).unwrap_or((t, tt))
+    Some(f) =>
+      match f(t, tt) {
+        Err(e) => Err(e)
+        Ok(None) => self.walk_tagtype_default(t, tt)
+        ok => ok
+      }
     None => self.walk_tagtype_default(t, tt)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_tagtype_default(
   self : ModuleTransformer[T],
   t : T,
   tt : TagType,
-) -> (T, TagType) {
+) -> TransformerResult[T, TagType] {
   let TagType(ti) = tt
-  let (t, ti) = self.walk_typeidx(t, ti)
-  (t, TagType(ti))
+  match self.walk_typeidx(t, ti) {
+    Err(e) => Err(e)
+    Ok(None) => Ok(None)
+    Ok(Some((t, ti))) => Ok(Some((t, TagType(ti))))
+  }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_memtype(
   self : ModuleTransformer[T],
   t : T,
   mt : MemType,
-) -> (T, MemType) {
+) -> TransformerResult[T, MemType] {
   match self.on_memtype {
-    Some(f) => f(t, mt).unwrap_or((t, mt))
+    Some(f) =>
+      match f(t, mt) {
+        Err(e) => Err(e)
+        Ok(None) => self.walk_memtype_default(t, mt)
+        ok => ok
+      }
     None => self.walk_memtype_default(t, mt)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_memtype_default(
   self : ModuleTransformer[T],
   t : T,
   mt : MemType,
-) -> (T, MemType) {
+) -> TransformerResult[T, MemType] {
   let MemType(l) = mt
-  let (t, l) = self.walk_limits(t, l)
-  (t, MemType(l))
+  match self.walk_limits(t, l) {
+    Err(e) => Err(e)
+    Ok(None) => Ok(None)
+    Ok(Some((t, l))) => Ok(Some((t, MemType(l))))
+  }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_tabletype(
   self : ModuleTransformer[T],
   t : T,
   tt : TableType,
-) -> (T, TableType) {
+) -> TransformerResult[T, TableType] {
   let TableType(rt, l) = tt
-  let (t, rt) = self.walk_reftype(t, rt)
-  let (t, l) = self.walk_limits(t, l)
-  (t, TableType(rt, l))
+  let (t, rt) = match self.walk_reftype(t, rt) {
+    Err(e) => return Err(e)
+    Ok(None) => (t, rt)
+    Ok(Some((t, rt))) => (t, rt)
+  }
+  let (t, l) = match self.walk_limits(t, l) {
+    Err(e) => return Err(e)
+    Ok(None) => (t, l)
+    Ok(Some((t, l))) => (t, l)
+  }
+  Ok(Some((t, TableType(rt, l))))
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_limits(
   self : ModuleTransformer[T],
   t : T,
   l : Limits,
-) -> (T, Limits) {
+) -> TransformerResult[T, Limits] {
   match self.on_limits {
-    Some(f) => f(t, l).unwrap_or((t, l))
-    None => (t, l)
+    Some(f) => f(t, l)
+    None => Ok(None)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_typesec(
   self : ModuleTransformer[T],
   t : T,
   ts : TypeSec,
-) -> (T, TypeSec) {
+) -> TransformerResult[T, TypeSec] {
   match self.on_typesec {
-    Some(f) => f(t, ts).unwrap_or((t, ts))
-    _ => self.walk_typesec_default(t, ts)
+    Some(f) =>
+      match f(t, ts) {
+        Err(e) => Err(e)
+        Ok(None) => self.walk_typesec_default(t, ts)
+        ok => ok
+      }
+    None => self.walk_typesec_default(t, ts)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_typesec_default(
   self : ModuleTransformer[T],
   t : T,
   ts : TypeSec,
-) -> (T, TypeSec) {
+) -> TransformerResult[T, TypeSec] {
   let TypeSec(rectypes) = ts
-  let (t, rectypes) = self.walk_array(
-    t,
-    ModuleTransformer::walk_rectype,
-    rectypes,
-  )
-  (t, TypeSec(rectypes))
+  match self.walk_array(t, ModuleTransformer::walk_rectype, rectypes) {
+    Err(e) => Err(e)
+    Ok(None) => Ok(None)
+    Ok(Some((t, rectypes))) => Ok(Some((t, TypeSec(rectypes))))
+  }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_rectype(
   self : ModuleTransformer[T],
   t : T,
   rt : RecType,
-) -> (T, RecType) {
+) -> TransformerResult[T, RecType] {
   match self.on_rectype {
-    Some(f) => f(t, rt).unwrap_or((t, rt))
+    Some(f) =>
+      match f(t, rt) {
+        Err(e) => Err(e)
+        Ok(None) => self.walk_rectype_default(t, rt)
+        ok => ok
+      }
     None => self.walk_rectype_default(t, rt)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_rectype_default(
   self : ModuleTransformer[T],
   t : T,
   rt : RecType,
-) -> (T, RecType) {
+) -> TransformerResult[T, RecType] {
   match rt {
     SingleRecType(st) => {
-      let (t, st) = self.walk_subtype(t, st)
-      (t, SingleRecType(st))
+      match self.walk_subtype(t, st) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, st))) => Ok(Some((t, SingleRecType(st))))
+      }
     }
     GroupRecType(sts) => {
-      let (t, sts) = self.walk_array(t, ModuleTransformer::walk_subtype, sts)
-      (t, GroupRecType(sts))
+      match self.walk_array(t, ModuleTransformer::walk_subtype, sts) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, sts))) => Ok(Some((t, GroupRecType(sts))))
+      }
     }
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_subtype(
   self : ModuleTransformer[T],
   t : T,
   st : SubType,
-) -> (T, SubType) {
+) -> TransformerResult[T, SubType] {
   match self.on_subtype {
-    Some(f) => f(t, st).unwrap_or((t, st))
+    Some(f) =>
+      match f(t, st) {
+        Err(e) => Err(e)
+        Ok(None) => self.walk_subtype_default(t, st)
+        ok => ok
+      }
     None => self.walk_subtype_default(t, st)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_subtype_default(
   self : ModuleTransformer[T],
   t : T,
   st : SubType,
-) -> (T, SubType) {
+) -> TransformerResult[T, SubType] {
   match st {
     SubType(f, supers, ct) => {
-      let (t, supers) = self.walk_array(
+      let (t, supers) = match self.walk_array(
         t,
         ModuleTransformer::walk_typeidx,
         supers,
-      )
-      let (t, ct) = self.walk_comptype(t, ct)
-      (t, SubType(f, supers, ct))
+      ) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, supers)
+        Ok(Some((t, supers))) => (t, supers)
+      }
+      let (t, ct) = match self.walk_comptype(t, ct) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, ct)
+        Ok(Some((t, ct))) => (t, ct)
+      }
+      Ok(Some((t, SubType(f, supers, ct))))
     }
     CompTypeSubType(ct) => {
-      let (t, ct) = self.walk_comptype(t, ct)
-      (t, CompTypeSubType(ct))
+      match self.walk_comptype(t, ct) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ct))) => Ok(Some((t, CompTypeSubType(ct))))
+      }
     }
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_comptype(
   self : ModuleTransformer[T],
   t : T,
   ct : CompType,
-) -> (T, CompType) {
+) -> TransformerResult[T, CompType] {
   match self.on_comptype {
-    Some(f) => f(t, ct).unwrap_or((t, ct))
+    Some(f) =>
+      match f(t, ct) {
+        Err(e) => Err(e)
+        Ok(None) => self.walk_comptype_default(t, ct)
+        ok => ok
+      }
     None => self.walk_comptype_default(t, ct)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_comptype_default(
   self : ModuleTransformer[T],
   t : T,
   ct : CompType,
-) -> (T, CompType) {
+) -> TransformerResult[T, CompType] {
   match ct {
     FuncCompType(params, results) => {
-      let (t, params) = self.walk_array(
+      let (t, params) = match self.walk_array(
         t,
         ModuleTransformer::walk_valtype,
         params,
-      )
-      let (t, results) = self.walk_array(
+      ) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, params)
+        Ok(Some((t, params))) => (t, params)
+      }
+      let (t, results) = match self.walk_array(
         t,
         ModuleTransformer::walk_valtype,
         results,
-      )
-      (t, FuncCompType(params, results))
+      ) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, results)
+        Ok(Some((t, results))) => (t, results)
+      }
+      Ok(Some((t, FuncCompType(params, results))))
     }
     StructCompType(fields) => {
-      let (t, fields) = self.walk_array(
-        t,
-        ModuleTransformer::walk_fieldtype,
-        fields,
-      )
-      (t, StructCompType(fields))
+      match self.walk_array(t, ModuleTransformer::walk_fieldtype, fields) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, fields))) => Ok(Some((t, StructCompType(fields))))
+      }
     }
     ArrayCompType(ft) => {
-      let (t, ft) = self.walk_fieldtype(t, ft)
-      (t, ArrayCompType(ft))
+      match self.walk_fieldtype(t, ft) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ft))) => Ok(Some((t, ArrayCompType(ft))))
+      }
     }
   }
 }
 
-///|
+
 pub fn[T] ModuleTransformer::walk_fieldtype(
   self : ModuleTransformer[T],
   t : T,
   ft : FieldType,
-) -> (T, FieldType) {
+) -> TransformerResult[T, FieldType] {
   match self.on_fieldtype {
-    Some(f) => f(t, ft).unwrap_or((t, ft))
+    Some(f) =>
+      match f(t, ft) {
+        Err(e) => Err(e)
+        Ok(None) => self.walk_fieldtype_default(t, ft)
+        ok => ok
+      }
     None => self.walk_fieldtype_default(t, ft)
   }
 }
@@ -1586,208 +2119,286 @@ pub fn[T] ModuleTransformer::walk_fieldtype_default(
   self : ModuleTransformer[T],
   t : T,
   ft : FieldType,
-) -> (T, FieldType) {
+) -> TransformerResult[T, FieldType] {
   let FieldType(st, mut_) = ft
-  let (t, st) = self.walk_storagetype(t, st)
-  (t, FieldType(st, mut_))
+  match self.walk_storagetype(t, st) {
+    Err(e) => Err(e)
+    Ok(None) => Ok(None)
+    Ok(Some((t, st))) => Ok(Some((t, FieldType(st, mut_))))
+  }
 }
 
 ///|
+
 pub fn[T] ModuleTransformer::walk_storagetype(
   self : ModuleTransformer[T],
   t : T,
   st : StorageType,
-) -> (T, StorageType) {
+) -> TransformerResult[T, StorageType] {
   match self.on_storagetype {
-    Some(f) => f(t, st).unwrap_or((t, st))
+    Some(f) =>
+      match f(t, st) {
+        Err(e) => Err(e)
+        Ok(None) => self.walk_storagetype_default(t, st)
+        ok => ok
+      }
     None => self.walk_storagetype_default(t, st)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_storagetype_default(
   self : ModuleTransformer[T],
   t : T,
   st : StorageType,
-) -> (T, StorageType) {
+) -> TransformerResult[T, StorageType] {
   match st {
     ValTypeStorageType(vt) => {
-      let (t, vt) = self.walk_valtype(t, vt)
-      (t, ValTypeStorageType(vt))
+      match self.walk_valtype(t, vt) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, vt))) => Ok(Some((t, ValTypeStorageType(vt))))
+      }
     }
-    PackTypeStorageType(_) => (t, st)
+    PackTypeStorageType(_) => Ok(None)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_globalsec(
   self : ModuleTransformer[T],
   t : T,
   gs : GlobalSec,
-) -> (T, GlobalSec) {
+) -> TransformerResult[T, GlobalSec] {
   match self.on_globalsec {
-    Some(f) => f(t, gs).unwrap_or((t, gs))
+    Some(f) =>
+      match f(t, gs) {
+        Err(e) => Err(e)
+        Ok(None) => self.walk_globalsec_default(t, gs)
+        ok => ok
+      }
     None => self.walk_globalsec_default(t, gs)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_globalsec_default(
   self : ModuleTransformer[T],
   t : T,
   gs : GlobalSec,
-) -> (T, GlobalSec) {
+) -> TransformerResult[T, GlobalSec] {
   let GlobalSec(gs) = gs
-  let (t, gs) = self.walk_array(t, ModuleTransformer::walk_global, gs)
-  (t, GlobalSec(gs))
+  match self.walk_array(t, ModuleTransformer::walk_global, gs) {
+    Err(e) => Err(e)
+    Ok(None) => Ok(None)
+    Ok(Some((t, gs))) => Ok(Some((t, GlobalSec(gs))))
+  }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_global(
   self : ModuleTransformer[T],
   t : T,
   g : Global,
-) -> (T, Global) {
+) -> TransformerResult[T, Global] {
   match self.on_global {
-    Some(f) => f(t, g).unwrap_or((t, g))
+    Some(f) =>
+      match f(t, g) {
+        Err(e) => Err(e)
+        Ok(None) => self.walk_global_default(t, g)
+        ok => ok
+      }
     None => self.walk_global_default(t, g)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_global_default(
   self : ModuleTransformer[T],
   t : T,
   g : Global,
-) -> (T, Global) {
+) -> TransformerResult[T, Global] {
   let Global(gt, init) = g
-  let (t, gt) = self.walk_globaltype(t, gt)
-  let (t, init) = self.walk_expr(t, init)
-  (t, Global(gt, init))
+  let (t, gt) = match self.walk_globaltype(t, gt) {
+    Err(e) => return Err(e)
+    Ok(None) => (t, gt)
+    Ok(Some((t, gt))) => (t, gt)
+  }
+  let (t, init) = match self.walk_expr(t, init) {
+    Err(e) => return Err(e)
+    Ok(None) => (t, init)
+    Ok(Some((t, init))) => (t, init)
+  }
+  Ok(Some((t, Global(gt, init))))
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_globaltype(
   self : ModuleTransformer[T],
   t : T,
   gt : GlobalType,
-) -> (T, GlobalType) {
+) -> TransformerResult[T, GlobalType] {
   match self.on_globaltype {
-    Some(f) => f(t, gt).unwrap_or((t, gt))
+    Some(f) =>
+      match f(t, gt) {
+        Err(e) => Err(e)
+        Ok(None) => self.walk_globaltype_default(t, gt)
+        ok => ok
+      }
     None => self.walk_globaltype_default(t, gt)
   }
 }
-
-///|
 pub fn[T] ModuleTransformer::walk_globaltype_default(
   self : ModuleTransformer[T],
   t : T,
   gt : GlobalType,
-) -> (T, GlobalType) {
+) -> TransformerResult[T, GlobalType] {
   let GlobalType(vt, mutable) = gt
-  let (t, vt) = self.walk_valtype(t, vt)
-  (t, GlobalType(vt, mutable))
+  match self.walk_valtype(t, vt) {
+    Err(e) => Err(e)
+    Ok(None) => Ok(None)
+    Ok(Some((t, vt))) => Ok(Some((t, GlobalType(vt, mutable))))
+  }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_elem(
   self : ModuleTransformer[T],
   t : T,
   e : Elem,
-) -> (T, Elem) {
+) -> TransformerResult[T, Elem] {
   let Elem(mode, kind) = e
-  let (t, mode) = self.walk_elemmode(t, mode)
-  let (t, kind) = self.walk_elemkind(t, kind)
-  (t, Elem(mode, kind))
+  let (t, mode) = match self.walk_elemmode(t, mode) {
+    Err(e) => return Err(e)
+    Ok(None) => (t, mode)
+    Ok(Some((t, mode))) => (t, mode)
+  }
+  let (t, kind) = match self.walk_elemkind(t, kind) {
+    Err(e) => return Err(e)
+    Ok(None) => (t, kind)
+    Ok(Some((t, kind))) => (t, kind)
+  }
+  Ok(Some((t, Elem(mode, kind))))
 }
 
-///|
+
 pub fn[T] ModuleTransformer::walk_elemmode(
   self : ModuleTransformer[T],
   t : T,
   mode : ElemMode,
-) -> (T, ElemMode) {
+) -> TransformerResult[T, ElemMode] {
   match mode {
     Active(tidx, offset) => {
-      let (t, tidx) = self.walk_tableidx(t, tidx)
-      let (t, offset) = self.walk_expr(t, offset)
-      (t, Active(tidx, offset))
+      let (t, tidx) = match self.walk_tableidx(t, tidx) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, tidx)
+        Ok(Some((t, tidx))) => (t, tidx)
+      }
+      let (t, offset) = match self.walk_expr(t, offset) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, offset)
+        Ok(Some((t, offset))) => (t, offset)
+      }
+      Ok(Some((t, Active(tidx, offset))))
     }
-    other => (t, other)
+    _ => Ok(None)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_elemkind(
   self : ModuleTransformer[T],
   t : T,
   ek : ElemKind,
-) -> (T, ElemKind) {
+) -> TransformerResult[T, ElemKind] {
   match self.on_elemkind {
-    Some(f) => f(t, ek).unwrap_or((t, ek))
-    _ => self.walk_elemkind_default(t, ek)
+    Some(f) =>
+      match f(t, ek) {
+        Err(e) => Err(e)
+        Ok(None) => self.walk_elemkind_default(t, ek)
+        ok => ok
+      }
+    None => self.walk_elemkind_default(t, ek)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_elemkind_default(
   self : ModuleTransformer[T],
   t : T,
   kind : ElemKind,
-) -> (T, ElemKind) {
+) -> TransformerResult[T, ElemKind] {
   match kind {
     FuncsElemKind(idxs) => {
-      let (t, idxs) = self.walk_array(t, ModuleTransformer::walk_funcidx, idxs)
-      (t, FuncsElemKind(idxs))
+      match self.walk_array(t, ModuleTransformer::walk_funcidx, idxs) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, idxs))) => Ok(Some((t, FuncsElemKind(idxs))))
+      }
     }
     FuncExprsElemKind(exprs) => {
-      let (t, exprs) = self.walk_array(t, ModuleTransformer::walk_expr, exprs)
-      (t, FuncExprsElemKind(exprs))
+      match self.walk_array(t, ModuleTransformer::walk_expr, exprs) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, exprs))) => Ok(Some((t, FuncExprsElemKind(exprs))))
+      }
     }
     TypedExprsElemKind(rt, exprs) => {
-      let (t, rt) = self.walk_reftype(t, rt)
-      let (t, exprs) = self.walk_array(t, ModuleTransformer::walk_expr, exprs)
-      (t, TypedExprsElemKind(rt, exprs))
+      let (t, rt) = match self.walk_reftype(t, rt) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, rt)
+        Ok(Some((t, rt))) => (t, rt)
+      }
+      let (t, exprs) = match self.walk_array(t, ModuleTransformer::walk_expr, exprs) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, exprs)
+        Ok(Some((t, exprs))) => (t, exprs)
+      }
+      Ok(Some((t, TypedExprsElemKind(rt, exprs))))
     }
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_data(
   self : ModuleTransformer[T],
   t : T,
   d : Data,
-) -> (T, Data) {
+) -> TransformerResult[T, Data] {
   let Data(mode, bytes) = d
-  let (t, mode) = self.walk_datamode(t, mode)
-  (t, Data(mode, bytes))
+  let (t, mode) = match self.walk_datamode(t, mode) {
+    Err(e) => return Err(e)
+    Ok(None) => (t, mode)
+    Ok(Some((t, mode))) => (t, mode)
+  }
+  Ok(Some((t, Data(mode, bytes))))
 }
-
-///|
 pub fn[T] ModuleTransformer::walk_datamode(
   self : ModuleTransformer[T],
   t : T,
   mode : DataMode,
-) -> (T, DataMode) {
+) -> TransformerResult[T, DataMode] {
   match mode {
     Active(midx, offset) => {
-      let (t, midx) = self.walk_memidx(t, midx)
-      let (t, offset) = self.walk_expr(t, offset)
-      (t, Active(midx, offset))
+      let (t, midx) = match self.walk_memidx(t, midx) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, midx)
+        Ok(Some((t, midx))) => (t, midx)
+      }
+      let (t, offset) = match self.walk_expr(t, offset) {
+        Err(e) => return Err(e)
+        Ok(None) => (t, offset)
+        Ok(Some((t, offset))) => (t, offset)
+      }
+      Ok(Some((t, Active(midx, offset))))
     }
-    Passive => (t, Passive)
+    Passive => Ok(None)
   }
 }
 
-///|
 pub fn[T] ModuleTransformer::walk_funcsec(
   self : ModuleTransformer[T],
   t : T,
   fs : FuncSec,
-) -> (T, FuncSec) {
+) -> TransformerResult[T, FuncSec] {
   match self.on_funcsec {
-    Some(f) => f(t, fs).unwrap_or((t, fs))
-    _ => self.walk_funcsec_default(t, fs)
+    Some(f) =>
+      match f(t, fs) {
+        Err(e) => Err(e)
+        Ok(None) => self.walk_funcsec_default(t, fs)
+        ok => ok
+      }
+    None => self.walk_funcsec_default(t, fs)
   }
 }
 
@@ -1796,8 +2407,11 @@ pub fn[T] ModuleTransformer::walk_funcsec_default(
   self : ModuleTransformer[T],
   t : T,
   fs : FuncSec,
-) -> (T, FuncSec) {
+) -> TransformerResult[T, FuncSec] {
   let FuncSec(idxs) = fs
-  let (t, idxs) = self.walk_array(t, ModuleTransformer::walk_typeidx, idxs)
-  (t, FuncSec(idxs))
+  match self.walk_array(t, ModuleTransformer::walk_typeidx, idxs) {
+    Err(e) => Err(e)
+    Ok(None) => Ok(None)
+    Ok(Some((t, idxs))) => Ok(Some((t, FuncSec(idxs))))
+  }
 }
