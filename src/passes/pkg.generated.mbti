@@ -1,0 +1,18 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "jtenner/starshine/passes"
+
+import(
+  "jtenner/starshine/lib"
+)
+
+// Values
+pub fn lift_to_texpr_pass() -> @lib.ModuleTransformer[Unit]
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

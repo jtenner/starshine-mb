@@ -493,34 +493,96 @@ fn make_block_corruption_transformer() -> ModuleTransformer[Bool] {
     }),
   }
 }
-
 ///|
-/// Block type mismatch - use Bool to transform once
-fn make_blocktype_mismatch_transformer() -> ModuleTransformer[Bool] {
-  ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_blocktype: Some(fn(
-      done : Bool,
-      bt : BlockType,
-    ) -> TransformerResult[Bool, BlockType] {
-      if done {
-        return Ok(None)
-      }
-      match bt {
-        EmptyBlockType =>
-          Ok(Some((true, ValTypeBlockType(NumTypeValType(I32NumType)))))
-        ValTypeBlockType(NumTypeValType(I32NumType)) =>
-          Ok(Some((true, ValTypeBlockType(NumTypeValType(I64NumType)))))
-        ValTypeBlockType(_) => Ok(Some((true, EmptyBlockType)))
-        TypeIdxBlockType(TypeIdx(i)) =>
-          Ok(Some((true, TypeIdxBlockType(TypeIdx(i + 1)))))
-        TypeIdxBlockType(RecIdx(i)) =>
-          Ok(Some((true, TypeIdxBlockType(RecIdx(i + 1)))))
-      }
-    }),
+fn corrupt_blocktype(bt : BlockType) -> BlockType {
+  match bt {
+    EmptyBlockType => ValTypeBlockType(NumTypeValType(I32NumType))
+    ValTypeBlockType(NumTypeValType(I32NumType)) =>
+      ValTypeBlockType(NumTypeValType(I64NumType))
+    ValTypeBlockType(NumTypeValType(I64NumType)) =>
+      ValTypeBlockType(NumTypeValType(I32NumType))
+    ValTypeBlockType(_) => EmptyBlockType
+    TypeIdxBlockType(TypeIdx(i)) => TypeIdxBlockType(TypeIdx(i + 1))
+    TypeIdxBlockType(RecIdx(i)) => TypeIdxBlockType(RecIdx(i + 1))
   }
 }
 
+///|
+/// Block type mismatch - insert blocks with wrong types or corrupt existing ones
+fn make_blocktype_mismatch_transformer() -> ModuleTransformer[Bool] {
+  ModuleTransformer::{
+    ..ModuleTransformer::new(),
+    on_instruction: Some(
+      fn(done : Bool, ins : Instruction) -> TransformerResult[Bool, Instruction] {
+        if done {
+          return Ok(None)
+        }
+        match ins {
+          // Value-producing instructions: wrap in block claiming no result
+          // Body produces value, block claims nothing -> mismatch
+          I32Const(_) | I64Const(_) | F32Const(_) | F64Const(_) | V128Const(
+            _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+            Ok(Some((true, Block(EmptyBlockType, [ins]))))
+
+          // Nop/Drop: wrap in block claiming it produces i32
+          // Body produces nothing, block claims i32 -> mismatch
+          Nop | Drop =>
+            Ok(
+              Some(
+                (true, Block(ValTypeBlockType(NumTypeValType(I32NumType)), [ins])),
+              ),
+            )
+
+          // LocalGet produces a value - wrap in block claiming different type
+          LocalGet(_) =>
+            Ok(
+              Some(
+                (
+                  true,
+                  Block(ValTypeBlockType(NumTypeValType(I64NumType)), [ins]),
+                ),
+              ),
+            )
+
+          // GlobalGet produces a value - wrap in block claiming empty
+          GlobalGet(_) => Ok(Some((true, Block(EmptyBlockType, [ins]))))
+
+          // Existing control flow: corrupt their block type
+          Block(bt, body) => Ok(Some((true, Block(corrupt_blocktype(bt), body))))
+          Loop(bt, body) => Ok(Some((true, Loop(corrupt_blocktype(bt), body))))
+          If(bt, then_body, else_body) =>
+            Ok(Some((true, If(corrupt_blocktype(bt), then_body, else_body))))
+          TryTable(bt, catches, body) =>
+            Ok(Some((true, TryTable(corrupt_blocktype(bt), catches, body))))
+
+          // RefNull produces a ref - wrap in block claiming i32
+          RefNull(_) =>
+            Ok(
+              Some(
+                (true, Block(ValTypeBlockType(NumTypeValType(I32NumType)), [ins])),
+              ),
+            )
+
+          // RefFunc produces a ref - wrap in block claiming empty
+          RefFunc(_) => Ok(Some((true, Block(EmptyBlockType, [ins]))))
+
+          // StructNewDefault produces a ref - wrap in block claiming i32
+          StructNewDefault(_) =>
+            Ok(
+              Some(
+                (true, Block(ValTypeBlockType(NumTypeValType(I32NumType)), [ins])),
+              ),
+            )
+
+          // ArrayNewDefault needs i32 on stack, produces ref
+          // Can't easily wrap this one without also providing the i32
+
+          _ => Ok(None)
+        }
+      },
+    ),
+  }
+}
 ///|
 priv enum InvalidationStrategy {
   FuncIdxOOB(UInt)

@@ -19,7 +19,7 @@ pub fn[T, Elem] error(err : String) -> TransformerResult[T, Elem] {
 // Transformer Definition
 
 ///|
-pub struct ModuleTransformer[T] {
+pub(all) struct ModuleTransformer[T] {
   on_typesec : ((T, TypeSec) -> TransformerResult[T, TypeSec])?
   on_funcsec : ((T, FuncSec) -> TransformerResult[T, FuncSec])?
   on_tablesec : ((T, TableSec) -> TransformerResult[T, TableSec])?

@@ -432,16 +432,19 @@ fn collect_functype_typeidxs(env : Env) -> Array[TypeIdx] {
 }
 
 ///|
-fn env_for_func_body(env : Env, ft : FuncType, decls : Array[Locals]) -> Env {
+fn env_for_func_body(env : Env, ft : FuncType, decls : Array[Locals]) -> Result[Env, String] {
   let FuncType(params, results) = ft
-  let locals_expanded = expand_locals_decls(decls)
+  let locals_expanded = match expand_locals(decls) {
+    Ok(t) => t
+    Err(t) => return Err(t)
+  }
   let locals_all = params.copy()
   for vt in locals_expanded {
     locals_all.push(vt)
   }
   let labels2 = env.labels.copy()
   labels2.push(results)
-  Env::{
+  Ok(Env::{
     global_types: env.global_types,
     rec_stack: env.rec_stack,
     funcs: env.funcs,
@@ -454,7 +457,7 @@ fn env_for_func_body(env : Env, ft : FuncType, decls : Array[Locals]) -> Env {
     locals: locals_all,
     labels: labels2,
     return_type: Some(results),
-  }
+  })
 }
 
 ///|
@@ -470,19 +473,6 @@ fn gen_locals_decls(
     decls.push(Locals(count, vt))
   }
   decls
-}
-
-///|
-fn expand_locals_decls(decls : Array[Locals]) -> Array[ValType] {
-  let out : Array[ValType] = []
-  for d in decls {
-    let Locals(n, vt) = d
-    let count = n.reinterpret_as_int()
-    for _ in 0..<count {
-      out.push(vt)
-    }
-  }
-  out
 }
 
 ///|
@@ -1981,13 +1971,20 @@ fn gen_fallthrough_values(
 
 ///|
 fn tag_payload_types(env : Env, tag : TagIdx) -> Array[ValType] {
-  let TagType(tidx) = env.tags[tag.0.reinterpret_as_int()]
-  match env.resolve_functype(tidx) {
-    Some(FuncType(params, _)) => params
+  let idx = tag.0
+  // Guard against overflow - if idx >= 2^31, it would become negative when cast to Int
+  if idx > 0x7FFFFFFF {
+    return []
+  }
+  match env.tags.get(idx.reinterpret_as_int()) {
+    Some(TagType(tidx)) =>
+      match env.resolve_functype(tidx) {
+        Some(FuncType(params, _)) => params
+        None => []
+      }
     None => []
   }
 }
-
 ///|
 pub fn gen_expr_valid_with_blocks(
   ctx : GenCtx,
@@ -2053,6 +2050,80 @@ pub fn gen_expr_valid_with_blocks(
     insns.push(i)
   }
   Ok(Expr(insns))
+}
+
+///|
+pub fn gen_tfunc_entry(ctx : GenCtx, tidx : TypeIdx) -> Result[Func, String] {
+  // 1) Resolve the function type
+  let ft = match ctx.env.resolve_functype(tidx) {
+    Some(x) => x
+    None => return Err("gen_tfunc_entry: Func type not found")
+  }
+  let FuncType(_, results) = ft
+
+  // 2) Generate local declarations
+  let locals_decls = gen_locals_decls(ctx.rnd, 3)
+
+  // 3) Prepare environment and state for the body
+  let env_body = match env_for_func_body(ctx.env, ft, locals_decls) {
+    Ok(t) => t
+    Err(t) => return Err(t)
+  }
+  let st0 = TcState::{ env: env_body, stack: [], reachable: true }
+
+  // 4) Generate a valid flat expression
+  let expr = match gen_expr_valid_with_blocks(ctx, st0, results) {
+    Ok(e) => e
+    Err(e) => return Err(e)
+  }
+
+  // 5) Try to convert to TExpr, fall back to Func if it fails
+  match expr_to_texpr(expr, env_body) {
+    Ok(texpr) => {
+      // 6) Expand Locals to Array[ValType] for the TFunc signature
+      let local_types : Array[ValType] = []
+      for l in locals_decls {
+        let Locals(c, t) = l
+        for _ in 0..<c.reinterpret_as_int() {
+          local_types.push(t)
+        }
+      }
+      Ok(TFunc(local_types, texpr))
+    }
+    Err(_) =>
+      // Fall back to regular Func if tree conversion fails
+      Ok(Func(locals_decls, expr))
+  }
+}
+
+pub fn gen_func_entry(ctx : GenCtx, tidx : TypeIdx) -> Result[Func, String] {
+  // Resolve the function type from the environment
+  let ft = match ctx.env.resolve_functype(tidx) {
+    Some(x) => x
+    None => return Err("gen_func_entry: Func type not found")
+  }
+  let FuncType(_, results) = ft
+
+  // Generate local declarations
+  let locals_decls = gen_locals_decls(ctx.rnd, 3)
+
+  // Create the environment and typechecking state for the function body
+  let env_body = match env_for_func_body(ctx.env, ft, locals_decls) {
+    Ok(t) => t
+    Err(t) => return Err(t)
+  }
+  let st0 = TcState::{ env: env_body, stack: [], reachable: true }
+
+  // Generate a valid expression using the block-enabled generator
+  let expr = match gen_expr_valid_with_blocks(ctx, st0, results) {
+    Ok(e) => e
+    Err(e) => return Err(e)
+  }
+
+  // Return the Func variant. 
+  // To produce TFunc, you would convert expr to TExpr using expr_to_texpr,
+  // extract ValTypes from params and locals_decls, and use the TFunc constructor.
+  Ok(Func(locals_decls, expr))
 }
 
 ///|
@@ -2159,20 +2230,18 @@ pub fn gen_module_valid_full(ctx0 : GenCtx) -> Result[(GenCtx, Module), String] 
   let code_funcs : Array[Func] = []
   let FuncSec(tidxs2) = funcsec
   for tidx in tidxs2 {
-    let ft = match ctx12.env.resolve_functype(tidx) {
-      Some(x) => x
-      None => return Err("gen_module_valid: FuncSec typeidx not a functype")
+    // Randomly decide between generating a Func or a TFunc
+    let func = if (ctx12.rnd.next_uint() % 2) == 0 {
+      gen_func_entry(ctx12, tidx)
+    } else {
+      gen_tfunc_entry(ctx12, tidx)
     }
-    let locals_decls = gen_locals_decls(ctx12.rnd, 3)
-    let env_body = env_for_func_body(ctx12.env, ft, locals_decls)
-    let st0 = TcState::{ env: env_body, stack: [], reachable: true }
-    let FuncType(_, results) = ft
-    // Use the new expression generator with blocks
-    let expr = match gen_expr_valid_with_blocks(ctx12, st0, results) {
-      Ok(e) => e
+
+    let f = match func {
+      Ok(f) => f
       Err(e) => return Err(e)
     }
-    code_funcs.push(Func(locals_decls, expr))
+    code_funcs.push(f)
   }
   let codesec = CodeSec(code_funcs)
 

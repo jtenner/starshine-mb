@@ -475,7 +475,7 @@ pub fn validate_tablesec(
 }
 
 ///|
-fn expand_locals(decls : Array[Locals]) -> Result[Array[ValType], String] {
+pub fn expand_locals(decls : Array[Locals]) -> Result[Array[ValType], String] {
   let out : Array[ValType] = []
   for d in decls {
     let Locals(n, vt) = d
@@ -511,13 +511,13 @@ fn validate_locals_decls(
   Ok(())
 }
 
-///|
 fn validate_func_body_against_functype(
   env : Env,
   ft : FuncType,
   f : Func,
 ) -> Result[Unit, String] {
   let FuncType(params, results) = ft
+
   match f {
     Func(local_decls, body) => {
       // Validate local declarations
@@ -549,7 +549,9 @@ fn validate_func_body_against_functype(
           },
         )
         .with_return_type(Some(results))
+      
       let st0 = TcState::{ env: env1, stack: [], reachable: true }
+      
       let st1 = match body.typecheck(st0) {
         Ok(s) => s
         Err(e) => return Err(e)
@@ -576,11 +578,12 @@ fn validate_func_body_against_functype(
       // If TFunc matches the structure of Func (replacing Array[Locals] with Array[ValType]),
       // then local_vals are the EXTRA locals.
       // But TFunc is usually "fully typed". Let's assume local_vals = extra_locals flattened.
-
+      
       let all_locals = params.copy()
       for vt in local_vals {
         all_locals.push(vt)
       }
+      
       let env1 = env
         .with_locals(all_locals)
         .with_labels(
@@ -591,11 +594,13 @@ fn validate_func_body_against_functype(
           },
         )
         .with_return_type(Some(results))
+        
       let st0 = TcState::{ env: env1, stack: [], reachable: true }
       let st1 = match texpr.typecheck(st0) {
         Ok(s) => s
         Err(e) => return Err(e)
       }
+      
       if st1.reachable {
         if st1.stack.length() != results.length() {
           return Err("typed function body leaves extra values on stack")
