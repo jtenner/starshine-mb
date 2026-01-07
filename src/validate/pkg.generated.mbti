@@ -1,0 +1,173 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "jtenner/starshine/validate"
+
+import(
+  "jtenner/starshine/lib"
+  "moonbitlang/core/quickcheck/splitmix"
+)
+
+// Values
+pub fn diff(@lib.RefType, @lib.RefType) -> Result[@lib.RefType, String]
+
+pub fn gen_ctx_new(Int, rnd? : @splitmix.RandomState?) -> GenCtx
+
+pub fn gen_datasec_valid(GenCtx, @lib.Env) -> Result[(GenCtx, @lib.DataSec, @lib.Env), String]
+
+pub fn gen_elemsec_valid(GenCtx, @lib.Env) -> Result[(GenCtx, @lib.ElemSec, @lib.Env), String]
+
+pub fn gen_exportsec_valid(GenCtx, @lib.Env) -> Result[(GenCtx, @lib.ExportSec?), String]
+
+pub fn gen_expr_valid(GenCtx, TcState, Array[@lib.ValType]) -> Result[@lib.Expr, String]
+
+pub fn gen_expr_valid_with_blocks(GenCtx, TcState, Array[@lib.ValType]) -> Result[@lib.Expr, String]
+
+pub fn gen_func_entry(GenCtx, @lib.TypeIdx) -> Result[@lib.Func, String]
+
+pub fn gen_globalsec_valid(GenCtx, @lib.Env) -> Result[(GenCtx, @lib.GlobalSec?, @lib.Env), String]
+
+pub fn gen_importsec_valid(GenCtx, @lib.Env) -> Result[(GenCtx, @lib.ImportSec?, @lib.Env), String]
+
+pub fn gen_memsec_valid(GenCtx, @lib.Env) -> Result[(GenCtx, @lib.MemSec, @lib.Env), String]
+
+pub fn gen_module_valid_full(GenCtx) -> Result[(GenCtx, @lib.Module), String]
+
+pub fn gen_startsec_valid(GenCtx, @lib.Env) -> Result[(GenCtx, @lib.StartSec?), String]
+
+pub fn gen_tablesec_valid(GenCtx, @lib.Env) -> Result[(GenCtx, @lib.TableSec, @lib.Env), String]
+
+pub fn gen_tagsec_valid(GenCtx, @lib.Env) -> Result[(GenCtx, @lib.TagSec?, @lib.Env), String]
+
+pub fn gen_tfunc_entry(GenCtx, @lib.TypeIdx) -> Result[@lib.Func, String]
+
+pub fn gen_typesec_valid(GenCtx) -> Result[(GenCtx, @lib.TypeSec), String]
+
+pub fn validate_codesec(@lib.CodeSec?, @lib.FuncSec?, @lib.Env) -> Result[Unit, String]
+
+pub fn validate_datacnt(@lib.DataCntSec?, @lib.DataSec?) -> Result[Unit, String]
+
+pub fn validate_datasec(@lib.DataSec?, @lib.Env) -> Result[@lib.Env, String]
+
+pub fn validate_elemsec(@lib.ElemSec?, @lib.Env) -> Result[@lib.Env, String]
+
+pub fn validate_exportsec(@lib.ExportSec?, @lib.Env) -> Result[Unit, String]
+
+pub fn validate_funcsec(@lib.FuncSec?, @lib.Env) -> Result[@lib.Env, String]
+
+pub fn validate_globalsec(@lib.GlobalSec?, @lib.Env) -> Result[@lib.Env, String]
+
+pub fn validate_importsec(@lib.ImportSec?, @lib.Env) -> Result[@lib.Env, String]
+
+pub fn validate_memsec(@lib.MemSec?, @lib.Env) -> Result[@lib.Env, String]
+
+pub fn validate_module(@lib.Module) -> Result[Unit, String]
+
+pub fn validate_startsec(@lib.StartSec?, @lib.Env) -> Result[Unit, String]
+
+pub fn validate_tablesec(@lib.TableSec?, @lib.Env) -> Result[@lib.Env, String]
+
+pub fn validate_tagsec(@lib.TagSec?, @lib.Env) -> Result[@lib.Env, String]
+
+pub fn validate_typesec(@lib.TypeSec?, @lib.Env) -> Result[@lib.Env, String]
+
+// Errors
+
+// Types and methods
+pub struct GenCtx {
+  rnd : @splitmix.RandomState
+  fuel : Int
+  env : @lib.Env
+}
+pub fn GenCtx::dec_fuel(Self, Int) -> Self
+pub fn GenCtx::with_env(Self, @lib.Env) -> Self
+pub fn GenCtx::with_fuel_only(Self, Int) -> Self
+
+pub struct TcState {
+  env : @lib.Env
+  stack : Array[@lib.ValType]
+  reachable : Bool
+}
+pub impl Show for TcState
+
+// Type aliases
+pub type TcResult = Result[TcState, String]
+
+// Traits
+pub trait DeclMatch {
+  matches_decl(Self, Self, @lib.Env) -> Bool
+}
+
+pub trait GenValid {
+  gen_valid(Self, GenCtx) -> Result[Self, String]
+}
+
+pub trait Match {
+  matches(Self, Self, @lib.Env) -> Bool
+}
+pub impl Match for @lib.AbsHeapType
+pub impl Match for @lib.CompType
+pub impl Match for @lib.DefType
+pub impl Match for @lib.ExternType
+pub impl Match for @lib.FieldType
+pub impl Match for @lib.GlobalType
+pub impl Match for @lib.HeapType
+pub impl Match for @lib.Limits
+pub impl Match for @lib.MemType
+pub impl Match for @lib.RefType
+pub impl Match for @lib.StorageType
+pub impl Match for @lib.TableType
+pub impl Match for @lib.TagType
+pub impl Match for @lib.ValType
+pub impl[T : Match] Match for Array[T]
+
+pub trait Typecheck {
+  typecheck(Self, TcState) -> Result[TcState, String]
+}
+pub impl Typecheck for @lib.Expr
+pub impl Typecheck for @lib.Instruction
+pub impl Typecheck for @lib.TExpr
+pub impl Typecheck for @lib.TInstr
+
+pub trait Validate {
+  validate(Self, @lib.Env) -> Result[Unit, String]
+}
+pub impl Validate for @lib.AbsHeapType
+pub impl Validate for @lib.BlockType
+pub impl Validate for @lib.Catch
+pub impl Validate for @lib.CompType
+pub impl Validate for @lib.Data
+pub impl Validate for @lib.DataMode
+pub impl Validate for @lib.DefType
+pub impl Validate for @lib.Elem
+pub impl Validate for @lib.ElemKind
+pub impl Validate for @lib.Export
+pub impl Validate for @lib.ExternIdx
+pub impl Validate for @lib.ExternType
+pub impl Validate for @lib.FieldType
+pub impl Validate for @lib.FuncIdx
+pub impl Validate for @lib.FuncType
+pub impl Validate for @lib.GlobalIdx
+pub impl Validate for @lib.GlobalType
+pub impl Validate for @lib.HeapType
+pub impl Validate for @lib.Import
+pub impl Validate for @lib.LabelIdx
+pub impl Validate for @lib.MemIdx
+pub impl Validate for @lib.MemType
+pub impl Validate for @lib.NumType
+pub impl Validate for @lib.RecType
+pub impl Validate for @lib.RefType
+pub impl Validate for @lib.StorageType
+pub impl Validate for @lib.SubType
+pub impl Validate for @lib.TableIdx
+pub impl Validate for @lib.TableType
+pub impl Validate for @lib.TagIdx
+pub impl Validate for @lib.TagSec
+pub impl Validate for @lib.TagType
+pub impl Validate for @lib.TypeIdx
+pub impl Validate for @lib.ValType
+pub impl[T : Validate] Validate for Array[T]
+
+pub trait ValidateMax {
+  validate_max(Self, @lib.Env, UInt64) -> Result[Unit, String]
+}
+pub impl ValidateMax for @lib.Limits
+
