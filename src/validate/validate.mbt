@@ -1,3 +1,4 @@
+
 ///|
 pub fn diff(rt1 : RefType, rt2 : RefType) -> Result[RefType, String] {
   let ht1 = rt1.get_heap_type()
@@ -36,9 +37,9 @@ pub impl Validate for TypeIdx with validate(self, env) {
 ///|
 pub impl Validate for HeapType with validate(self, env) {
   match self {
-    AbsHeapTypeHeapType(abs) => abs.validate(env)
-    HeapType(tidx) => tidx.validate(env)
-    DefTypeHeapType(dt) => dt.validate(env)
+    AbsHeapTypeHeapType(abs) => Validate::validate(abs, env)
+    HeapType(tidx) => Validate::validate(tidx, env)
+    DefTypeHeapType(dt) => Validate::validate(dt, env)
   }
 }
 
@@ -47,7 +48,7 @@ pub impl Validate for DefType with validate(self, env) {
   let DefType(rt, _) = self
   let env2 = env_with_rectype(env, rt)
   match self.project() {
-    Some(st) => st.validate(env2)
+    Some(st) => Validate::validate(st, env2)
     None => Err("Invalid SubType Index")
   }
 }
@@ -60,9 +61,9 @@ pub impl Validate for AbsHeapType with validate(_, _) {
 ///|
 pub impl Validate for ValType with validate(self, env) {
   match self {
-    RefTypeValType(rt) => rt.validate(env)
+    RefTypeValType(rt) => Validate::validate(rt, env)
     VecTypeValType => Ok(())
-    NumTypeValType(nt) => nt.validate(env)
+    NumTypeValType(nt) => Validate::validate(nt, env)
     BotValType => Ok(())
   }
 }
@@ -70,7 +71,7 @@ pub impl Validate for ValType with validate(self, env) {
 ///|
 pub impl[T : Validate] Validate for Array[T] with validate(self, env) {
   for v in self {
-    if v.validate(env) is Err(t) {
+    if Validate::validate(v, env) is Err(t) {
       return Err(t)
     }
   }
@@ -80,7 +81,7 @@ pub impl[T : Validate] Validate for Array[T] with validate(self, env) {
 ///|
 pub impl Validate for BlockType with validate(self, env) {
   match self {
-    ValTypeBlockType(vt) => vt.validate(env)
+    ValTypeBlockType(vt) => Validate::validate(vt, env)
     EmptyBlockType => Ok(())
     TypeIdxBlockType(tidx) =>
       match env.resolve_typeidx_subtype(tidx) {
@@ -107,7 +108,7 @@ pub impl Validate for FuncType with validate(self, env) {
 pub impl Validate for CompType with validate(self, env) {
   match self {
     StructCompType(fts) => Validate::validate(fts, env)
-    ArrayCompType(ft) => ft.validate(env)
+    ArrayCompType(ft) => Validate::validate(ft, env)
     FuncCompType(v0, v1) =>
       match Validate::validate(v0, env) {
         Ok(_) => Validate::validate(v1, env)
@@ -119,21 +120,21 @@ pub impl Validate for CompType with validate(self, env) {
 ///|
 pub impl Validate for RefType with validate(self, env) {
   match self {
-    HeapTypeRefType(_, ht) => ht.validate(env)
-    AbsHeapTypeRefType(abs) => abs.validate(env)
+    HeapTypeRefType(_, ht) => Validate::validate(ht, env)
+    AbsHeapTypeRefType(abs) => Validate::validate(abs, env)
   }
 }
 
 ///|
 pub impl Validate for FieldType with validate(self, env) {
   let FieldType(st, _) = self
-  st.validate(env)
+  Validate::validate(st, env)
 }
 
 ///|
 pub impl Validate for StorageType with validate(self, env) {
   match self {
-    ValTypeStorageType(vt) => vt.validate(env)
+    ValTypeStorageType(vt) => Validate::validate(vt, env)
     PackTypeStorageType(_) => Ok(())
   }
 }
@@ -141,7 +142,7 @@ pub impl Validate for StorageType with validate(self, env) {
 ///|
 pub impl Validate for RecType with validate(self, env) {
   match self {
-    SingleRecType(st) => st.validate(env)
+    SingleRecType(st) => Validate::validate(st, env)
     GroupRecType(sts) => Validate::validate(sts, env)
   }
 }
@@ -151,16 +152,16 @@ pub impl Validate for SubType with validate(self, env) {
   match self {
     SubType(_, matches, ct) => {
       for m in matches {
-        match m.validate(env) {
+        match Validate::validate(m, env) {
           Ok(_) if env.resolve_subtype(m) is Some(t) &&
-            ct.matches(t.get_comptype(), env) => ()
+            Match::matches(ct, t.get_comptype(), env) => ()
           Ok(_) => return Err("Invalid subtype")
           Err(t) => return Err(t)
         }
       }
       Ok(())
     }
-    CompTypeSubType(ct) => ct.validate(env)
+    CompTypeSubType(ct) => Validate::validate(ct, env)
   }
 }
 
@@ -211,7 +212,7 @@ pub impl Validate for TagIdx with validate(self, env) {
 ///|
 pub impl Validate for TagType with validate(self, env) {
   let TagType(tidx) = self
-  if tidx.validate(env) is Err(t) {
+  if Validate::validate(tidx, env) is Err(t) {
     return Err(t)
   }
   match env.resolve_comptype(tidx) {
@@ -235,37 +236,37 @@ pub impl Validate for TagSec with validate(self, env) {
 pub impl Validate for Catch with validate(self, env) {
   match self {
     Catch(t, l) =>
-      match t.validate(env) {
-        Ok(_) => l.validate(env)
+      match Validate::validate(t, env) {
+        Ok(_) => Validate::validate(l, env)
         Err(t) => Err(t)
       }
     CatchRef(t, l) =>
-      match t.validate(env) {
-        Ok(_) => l.validate(env)
+      match Validate::validate(t, env) {
+        Ok(_) => Validate::validate(l, env)
         Err(t) => Err(t)
       }
-    CatchAll(l) => l.validate(env)
-    CatchAllRef(l) => l.validate(env)
+    CatchAll(l) => Validate::validate(l, env)
+    CatchAllRef(l) => Validate::validate(l, env)
   }
 }
 
 ///|
 pub impl Validate for GlobalType with validate(self, env) {
   let GlobalType(vt, _) = self
-  vt.validate(env)
+  Validate::validate(vt, env)
 }
 
 ///|
 pub impl Validate for MemType with validate(self, env) {
   let MemType(lim) = self
-  lim.validate_max(env, 65536)
+  ValidateMax::validate_max(lim, env, 65536)
 }
 
 ///|
 pub impl Validate for TableType with validate(self, env) {
   let TableType(rt, lim) = self
-  match rt.validate(env) {
-    Ok(_) => lim.validate_max(env, 4294967295)
+  match Validate::validate(rt, env) {
+    Ok(_) => ValidateMax::validate_max(lim, env, 4294967295)
     Err(t) => Err(t)
   }
 }
@@ -273,10 +274,10 @@ pub impl Validate for TableType with validate(self, env) {
 ///|
 pub impl Validate for ExternType with validate(self, env) {
   match self {
-    TagExternType(tt) => tt.validate(env)
-    GlobalExternType(gt) => gt.validate(env)
-    MemExternType(mt) => mt.validate(env)
-    TableExternType(tt) => tt.validate(env)
+    TagExternType(tt) => Validate::validate(tt, env)
+    GlobalExternType(gt) => Validate::validate(gt, env)
+    MemExternType(mt) => Validate::validate(mt, env)
+    TableExternType(tt) => Validate::validate(tt, env)
     FuncExternType(tidx) =>
       match env.resolve_functype(tidx) {
         Some(_) => Ok(())
@@ -322,7 +323,7 @@ fn validate_const_expr(
   // (but with access to env globals, funcs, etc)
   let env_tc = Env::{ ..env, locals: [], labels: [], return_type: None }
   let st0 = TcState::{ env: env_tc, stack: [], reachable: true }
-  let st1 = match expr.typecheck(st0) {
+  let st1 = match Typecheck::typecheck(expr, st0) {
     Ok(s) => s
     Err(e) => return Err(e)
   }
@@ -333,7 +334,7 @@ fn validate_const_expr(
     return Err("const expr must leave exactly one value on the stack")
   }
   let actual = st1.stack[0]
-  if actual.matches(want, env_tc) {
+  if Match::matches(actual, want, env_tc) {
     Ok(())
   } else {
     Err("const expr result type mismatch")
@@ -343,7 +344,7 @@ fn validate_const_expr(
 ///|
 fn validate_global(env : Env, g : Global) -> Result[GlobalType, String] {
   let Global(gt, init) = g
-  if gt.validate(env) is Err(t) {
+  if Validate::validate(gt, env) is Err(t) {
     return Err(t) // checks vt validity
   }
   let GlobalType(vt, _mut) = gt
@@ -388,7 +389,7 @@ pub fn validate_tagsec(tagsec : TagSec?, env0 : Env) -> Result[Env, String] {
       let out = env.tags.copy()
       for t in tags {
         // validate tag type under current env
-        if t.validate(env) is Err(t) {
+        if Validate::validate(t, env) is Err(t) {
           return Err(t)
         }
 
@@ -421,7 +422,7 @@ pub fn validate_memsec(memsec : MemSec?, env0 : Env) -> Result[Env, String] {
     Some(MemSec(ms)) => {
       let mut env = env0
       for mt in ms {
-        match mt.validate(env) {
+        match Validate::validate(mt, env) {
           Ok(_) => ()
           Err(e) => return Err(e)
         }
@@ -435,7 +436,7 @@ pub fn validate_memsec(memsec : MemSec?, env0 : Env) -> Result[Env, String] {
 ///|
 fn validate_table(env : Env, t : Table) -> Result[TableType, String] {
   let Table(tt, init_opt) = t
-  match tt.validate(env) {
+  match Validate::validate(tt, env) {
     Ok(_) => ()
     Err(e) => return Err(e)
   }
@@ -444,7 +445,7 @@ fn validate_table(env : Env, t : Table) -> Result[TableType, String] {
     None => Ok(tt)
     Some(init) => {
       // init expr must be const and produce value type rt
-      let want = RefTypeValType(rt)
+      let want = @lib.RefTypeValType(rt)
       match validate_const_expr(env, init, want) {
         Ok(_) => Ok(tt)
         Err(e) => Err(e)
@@ -475,29 +476,13 @@ pub fn validate_tablesec(
 }
 
 ///|
-pub fn expand_locals(decls : Array[Locals]) -> Result[Array[ValType], String] {
-  let out : Array[ValType] = []
-  for d in decls {
-    let Locals(n, vt) = d
-    let count = n.reinterpret_as_int()
-    if count < 0 {
-      return Err("locals: negative count")
-    }
-    for _ in 0..<count {
-      out.push(vt)
-    }
-  }
-  Ok(out)
-}
-
-///|
 fn validate_locals_decls(
   env : Env,
   decls : Array[Locals],
 ) -> Result[Unit, String] {
   for d in decls {
     let Locals(n, vt) = d
-    if vt.validate(env) is Err(e) {
+    if Validate::validate(vt, env) is Err(e) {
       return Err(e)
     }
     let count = n.reinterpret_as_int()
@@ -552,7 +537,7 @@ fn validate_func_body_against_functype(
       
       let st0 = TcState::{ env: env1, stack: [], reachable: true }
       
-      let st1 = match body.typecheck(st0) {
+      let st1 = match Typecheck::typecheck(body, st0) {
         Ok(s) => s
         Err(e) => return Err(e)
       }
@@ -596,7 +581,7 @@ fn validate_func_body_against_functype(
         .with_return_type(Some(results))
         
       let st0 = TcState::{ env: env1, stack: [], reachable: true }
-      let st1 = match texpr.typecheck(st0) {
+      let st1 = match Typecheck::typecheck(texpr, st0) {
         Ok(s) => s
         Err(e) => return Err(e)
       }
@@ -697,7 +682,7 @@ pub impl Validate for DataMode with validate(self, env) {
 ///|
 pub impl Validate for Data with validate(self, env) {
   let Data(mode, _) = self
-  mode.validate(env)
+  Validate::validate(mode, env)
 }
 
 ///|
@@ -708,7 +693,7 @@ pub fn validate_datasec(datasec : DataSec?, env0 : Env) -> Result[Env, String] {
       let mut env = env0
       for d in ds {
         // validate under env that includes previous data segments
-        if d.validate(env) is Err(e) {
+        if Validate::validate(d, env) is Err(e) {
           return Err(e)
         }
         env = env.push_data(d)
@@ -737,7 +722,7 @@ fn validate_elem_mode(
       // require rt ≤ rt_table
       // If your Match::matches works on RefType, use that.
       // Otherwise use ValType wrapper.
-      let ok = Match::matches(RefTypeValType(rt), RefTypeValType(rt_table), env)
+      let ok = Match::matches(@lib.RefTypeValType(rt), RefTypeValType(rt_table), env)
       if !ok {
         return Err("elem.active: elem type does not match table element type")
       }
@@ -775,10 +760,10 @@ pub impl Validate for ElemKind with validate(self, env) {
 
     // typed element expressions: elemtype is provided; each expr must be const of that type
     TypedExprsElemKind(rt, exprs) => {
-      if rt.validate(env) is Err(t) {
+      if Validate::validate(rt, env) is Err(t) {
         return Err(t)
       }
-      let want = RefTypeValType(rt)
+      let want = @lib.RefTypeValType(rt)
       for e in exprs {
         if validate_const_expr(env, e, want) is Err(t) {
           return Err(t)
@@ -794,13 +779,13 @@ pub impl Validate for Elem with validate(self, env) {
   let Elem(mode, kind) = self
 
   // kind validity (incl. elemtype and init exprs)
-  if kind.validate(env) is Err(t) {
+  if Validate::validate(kind, env) is Err(t) {
     return Err(t)
   }
 
   // derive elemtype from kind and validate it
   let rt = elem_reftype(self)
-  if rt.validate(env) is Err(t) {
+  if Validate::validate(rt, env) is Err(t) {
     return Err(t)
   }
 
@@ -815,7 +800,7 @@ pub fn validate_elemsec(elemsec : ElemSec?, env0 : Env) -> Result[Env, String] {
     Some(ElemSec(es)) => {
       let mut env = env0
       for e in es {
-        if e.validate(env) is Err(t) {
+        if Validate::validate(e, env) is Err(t) {
           return Err(t)
         }
         let elems = env.elems.copy()
@@ -830,7 +815,7 @@ pub fn validate_elemsec(elemsec : ElemSec?, env0 : Env) -> Result[Env, String] {
 ///|
 pub impl Validate for Import with validate(self, env) {
   let Import(_, _, xt) = self
-  xt.validate(env)
+  Validate::validate(xt, env)
 }
 
 ///|
@@ -843,7 +828,7 @@ pub fn validate_importsec(
     Some(ImportSec(imps)) => {
       let mut env = env0
       for imp in imps {
-        if imp.validate(env) is Err(e) {
+        if Validate::validate(imp, env) is Err(e) {
           return Err(e)
         }
         let Import(_, _, et) = imp
@@ -927,18 +912,18 @@ pub impl Validate for GlobalIdx with validate(self, env) {
 ///|
 pub impl Validate for ExternIdx with validate(self, env) {
   match self {
-    FuncExternIdx(i) => i.validate(env)
-    TableExternIdx(i) => i.validate(env)
-    MemExternIdx(i) => i.validate(env)
-    GlobalExternIdx(i) => i.validate(env)
-    TagExternIdx(i) => i.validate(env)
+    FuncExternIdx(i) => Validate::validate(i, env)
+    TableExternIdx(i) => Validate::validate(i, env)
+    MemExternIdx(i) => Validate::validate(i, env)
+    GlobalExternIdx(i) => Validate::validate(i, env)
+    TagExternIdx(i) => Validate::validate(i, env)
   }
 }
 
 ///|
 pub impl Validate for Export with validate(self, env) {
   let Export(_, exi) = self
-  exi.validate(env)
+  Validate::validate(exi, env)
 }
 
 ///|
@@ -976,7 +961,7 @@ fn validate_rectype_and_extend(env : Env, rt : RecType) -> Result[Env, String] {
   let env_rec = env_with_rectype(env, rt)
 
   // Validate rectype itself under env_rec
-  if rt.validate(env_rec) is Err(e) {
+  if Validate::validate(rt, env_rec) is Err(e) {
     return Err(e)
   }
 
@@ -1155,10 +1140,10 @@ test "Fuzz Modules" {
 ///|
 test "NumType validates successfully" {
   let env = empty_env()
-  assert_eq(F32NumType.validate(env), Ok(()))
-  assert_eq(F64NumType.validate(env), Ok(()))
-  assert_eq(I32NumType.validate(env), Ok(()))
-  assert_eq(I64NumType.validate(env), Ok(()))
+  assert_eq(Validate::validate(@lib.F32NumType, env), Ok(()))
+  assert_eq(Validate::validate(@lib.F64NumType, env), Ok(()))
+  assert_eq(Validate::validate(@lib.I32NumType, env), Ok(()))
+  assert_eq(Validate::validate(@lib.I64NumType, env), Ok(()))
 }
 
 // ============ AbsHeapType Tests ============
@@ -1166,18 +1151,18 @@ test "NumType validates successfully" {
 ///|
 test "AbsHeapType validates successfully" {
   let env = empty_env()
-  assert_eq(ExnAbsHeapType.validate(env), Ok(()))
-  assert_eq(ArrayAbsHeapType.validate(env), Ok(()))
-  assert_eq(StructAbsHeapType.validate(env), Ok(()))
-  assert_eq(I31AbsHeapType.validate(env), Ok(()))
-  assert_eq(EqAbsHeapType.validate(env), Ok(()))
-  assert_eq(AnyAbsHeapType.validate(env), Ok(()))
-  assert_eq(ExternAbsHeapType.validate(env), Ok(()))
-  assert_eq(FuncAbsHeapType.validate(env), Ok(()))
-  assert_eq(NoneAbsHeapType.validate(env), Ok(()))
-  assert_eq(NoExternAbsHeapType.validate(env), Ok(()))
-  assert_eq(NoFuncAbsHeapType.validate(env), Ok(()))
-  assert_eq(NoExnAbsHeapType.validate(env), Ok(()))
+  assert_eq(Validate::validate(@lib.ExnAbsHeapType, env), Ok(()))
+  assert_eq(Validate::validate(@lib.ArrayAbsHeapType, env), Ok(()))
+  assert_eq(Validate::validate(@lib.StructAbsHeapType, env), Ok(()))
+  assert_eq(Validate::validate(@lib.I31AbsHeapType, env), Ok(()))
+  assert_eq(Validate::validate(@lib.EqAbsHeapType, env), Ok(()))
+  assert_eq(Validate::validate(@lib.AnyAbsHeapType, env), Ok(()))
+  assert_eq(Validate::validate(@lib.ExternAbsHeapType, env), Ok(()))
+  assert_eq(Validate::validate(@lib.FuncAbsHeapType, env), Ok(()))
+  assert_eq(Validate::validate(@lib.NoneAbsHeapType, env), Ok(()))
+  assert_eq(Validate::validate(@lib.NoExternAbsHeapType, env), Ok(()))
+  assert_eq(Validate::validate(@lib.NoFuncAbsHeapType, env), Ok(()))
+  assert_eq(Validate::validate(@lib.NoExnAbsHeapType, env), Ok(()))
 }
 
 // ============ HeapType Tests ============
@@ -1185,23 +1170,23 @@ test "AbsHeapType validates successfully" {
 ///|
 test "HeapType with AbsHeapType validates" {
   let env = empty_env()
-  let ht = AbsHeapTypeHeapType(FuncAbsHeapType)
-  assert_eq(ht.validate(env), Ok(()))
+  let ht = @lib.AbsHeapTypeHeapType(FuncAbsHeapType)
+  assert_eq(Validate::validate(ht, env), Ok(()))
 }
 
 ///|
 test "HeapType with invalid TypeIdx fails" {
   let env = empty_env()
-  let ht = HeapType(TypeIdx(0))
-  assert_eq(ht.validate(env), Err("No type exists for TypeIdx"))
+  let ht = @lib.HeapType(TypeIdx(0))
+  assert_eq(Validate::validate(ht, env), Err("No type exists for TypeIdx"))
 }
 
 ///|
 test "HeapType with valid TypeIdx succeeds" {
-  let st = CompTypeSubType(FuncCompType([], []))
+  let st = @lib.CompTypeSubType(FuncCompType([], []))
   let env = empty_env().with_types([st])
-  let ht = HeapType(TypeIdx(0))
-  assert_eq(ht.validate(env), Ok(()))
+  let ht = @lib.HeapType(TypeIdx(0))
+  assert_eq(Validate::validate(ht, env), Ok(()))
 }
 
 // ============ ValType Tests ============
@@ -1209,28 +1194,30 @@ test "HeapType with valid TypeIdx succeeds" {
 ///|
 test "ValType NumType validates" {
   let env = empty_env()
-  let vt = NumTypeValType(I32NumType)
-  assert_eq(vt.validate(env), Ok(()))
+  let vt = @lib.NumTypeValType(I32NumType)
+  assert_eq(Validate::validate(vt, env), Ok(()))
 }
 
 ///|
 test "ValType VecType validates" {
   let env = empty_env()
-  assert_eq(VecTypeValType.validate(env), Ok(()))
+  let t = @lib.VecTypeValType
+  assert_eq(Validate::validate(t, env), Ok(()))
 }
 
 ///|
 test "ValType BotType validates" {
   let env = empty_env()
-  assert_eq(BotValType.validate(env), Ok(()))
+  let t = @lib.BotValType
+  assert_eq(Validate::validate(t, env), Ok(()))
 }
 
 ///|
 test "ValType RefType with AbsHeapType validates" {
   let env = empty_env()
-  let rt = AbsHeapTypeRefType(FuncAbsHeapType)
-  let vt = RefTypeValType(rt)
-  assert_eq(vt.validate(env), Ok(()))
+  let rt = @lib.AbsHeapTypeRefType(FuncAbsHeapType)
+  let vt = @lib.RefTypeValType(rt)
+  assert_eq(Validate::validate(vt, env), Ok(()))
 }
 
 // ============ RefType Tests ============
@@ -1238,42 +1225,42 @@ test "ValType RefType with AbsHeapType validates" {
 ///|
 test "RefType HeapTypeRefType with valid AbsHeapType validates" {
   let env = empty_env()
-  let rt = HeapTypeRefType(true, AbsHeapTypeHeapType(AnyAbsHeapType))
-  assert_eq(rt.validate(env), Ok(()))
+  let rt = @lib.HeapTypeRefType(true, AbsHeapTypeHeapType(AnyAbsHeapType))
+  assert_eq(Validate::validate(rt, env), Ok(()))
 }
 
 ///|
 test "RefType HeapTypeRefType nullable and non-nullable validate" {
   let env = empty_env()
-  let rt_null = HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType))
-  let rt_non_null = HeapTypeRefType(false, AbsHeapTypeHeapType(FuncAbsHeapType))
-  assert_eq(rt_null.validate(env), Ok(()))
-  assert_eq(rt_non_null.validate(env), Ok(()))
+  let rt_null = @lib.HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType))
+  let rt_non_null = @lib.HeapTypeRefType(false, AbsHeapTypeHeapType(FuncAbsHeapType))
+  assert_eq(Validate::validate(rt_null, env), Ok(()))
+  assert_eq(Validate::validate(rt_non_null, env), Ok(()))
 }
 
 // ============ TypeIdx Tests ============
 
 ///|
 test "TypeIdx validates when type exists" {
-  let st = CompTypeSubType(FuncCompType([], []))
+  let st = @lib.CompTypeSubType(FuncCompType([], []))
   let env = empty_env().with_types([st])
-  let tidx = TypeIdx(0)
-  assert_eq(tidx.validate(env), Ok(()))
+  let tidx = @lib.TypeIdx(0)
+  assert_eq(Validate::validate(tidx, env), Ok(()))
 }
 
 ///|
 test "TypeIdx fails when type does not exist" {
   let env = empty_env()
-  let tidx = TypeIdx(0)
-  assert_eq(tidx.validate(env), Err("No type exists for TypeIdx"))
+  let tidx = @lib.TypeIdx(0)
+  assert_eq(Validate::validate(tidx, env), Err("No type exists for TypeIdx"))
 }
 
 ///|
 test "TypeIdx fails with out of bounds index" {
-  let st = CompTypeSubType(FuncCompType([], []))
+  let st = @lib.CompTypeSubType(FuncCompType([], []))
   let env = empty_env().with_types([st])
-  let tidx = TypeIdx(5)
-  assert_eq(tidx.validate(env), Err("No type exists for TypeIdx"))
+  let tidx = @lib.TypeIdx(5)
+  assert_eq(Validate::validate(tidx, env), Err("No type exists for TypeIdx"))
 }
 
 // ============ LabelIdx Tests ============
@@ -1281,39 +1268,39 @@ test "TypeIdx fails with out of bounds index" {
 ///|
 test "LabelIdx validates when label exists" {
   let env = empty_env().with_labels([[]])
-  let lidx = LabelIdx(0)
-  assert_eq(lidx.validate(env), Ok(()))
+  let lidx = @lib.LabelIdx(0)
+  assert_eq(Validate::validate(lidx, env), Ok(()))
 }
 
 ///|
 test "LabelIdx fails when label does not exist" {
   let env = empty_env()
-  let lidx = LabelIdx(0)
-  assert_eq(lidx.validate(env), Err("Invalid LabelIdx"))
+  let lidx = @lib.LabelIdx(0)
+  assert_eq(Validate::validate(lidx, env), Err("Invalid LabelIdx"))
 }
 
 ///|
 test "LabelIdx fails with out of bounds index" {
   let env = empty_env().with_labels([[]])
-  let lidx = LabelIdx(5)
-  assert_eq(lidx.validate(env), Err("Invalid LabelIdx"))
+  let lidx = @lib.LabelIdx(5)
+  assert_eq(Validate::validate(lidx, env), Err("Invalid LabelIdx"))
 }
 
 // ============ TagIdx Tests ============
 
 ///|
 test "TagIdx validates when tag exists" {
-  let st = CompTypeSubType(FuncCompType([], []))
+  let st = @lib.CompTypeSubType(FuncCompType([], []))
   let env = empty_env().with_types([st]).with_tags([TagType(TypeIdx(0))])
-  let tidx = TagIdx(0)
-  assert_eq(tidx.validate(env), Ok(()))
+  let tidx = @lib.TagIdx(0)
+  assert_eq(Validate::validate(tidx, env), Ok(()))
 }
 
 ///|
 test "TagIdx fails when tag does not exist" {
   let env = empty_env()
-  let tidx = TagIdx(0)
-  assert_eq(tidx.validate(env), Err("Invalid TagIdx"))
+  let tidx = @lib.TagIdx(0)
+  assert_eq(Validate::validate(tidx, env), Err("Invalid TagIdx"))
 }
 
 // ============ FuncIdx Tests ============
@@ -1321,67 +1308,67 @@ test "TagIdx fails when tag does not exist" {
 ///|
 test "FuncIdx validates when func exists" {
   let env = empty_env().with_funcs([FuncType([], [])])
-  let fidx = FuncIdx(0)
-  assert_eq(fidx.validate(env), Ok(()))
+  let fidx = @lib.FuncIdx(0)
+  assert_eq(Validate::validate(fidx, env), Ok(()))
 }
 
 ///|
 test "FuncIdx fails when func does not exist" {
   let env = empty_env()
-  let fidx = FuncIdx(0)
-  assert_eq(fidx.validate(env), Err("invalid func index"))
+  let fidx = @lib.FuncIdx(0)
+  assert_eq(Validate::validate(fidx, env), Err("invalid func index"))
 }
 
 // ============ TableIdx Tests ============
 
 ///|
 test "TableIdx validates when table exists" {
-  let rt = AbsHeapTypeRefType(FuncAbsHeapType)
-  let tt = TableType(rt, I32Limits(0, None))
+  let rt = @lib.AbsHeapTypeRefType(FuncAbsHeapType)
+  let tt = @lib.TableType(rt, I32Limits(0, None))
   let env = empty_env().with_tables([tt])
-  let tidx = TableIdx(0)
-  assert_eq(tidx.validate(env), Ok(()))
+  let tidx = @lib.TableIdx(0)
+  assert_eq(Validate::validate(tidx, env), Ok(()))
 }
 
 ///|
 test "TableIdx fails when table does not exist" {
   let env = empty_env()
-  let tidx = TableIdx(0)
-  assert_eq(tidx.validate(env), Err("invalid table index"))
+  let tidx = @lib.TableIdx(0)
+  assert_eq(Validate::validate(tidx, env), Err("invalid table index"))
 }
 
 // ============ MemIdx Tests ============
 
 ///|
 test "MemIdx validates when memory exists" {
-  let mt = MemType(I32Limits(0, None))
+  let mt = @lib.MemType(I32Limits(0, None))
   let env = empty_env().with_mems([mt])
-  let midx = MemIdx(0)
-  assert_eq(midx.validate(env), Ok(()))
+  let midx = @lib.MemIdx(0)
+  assert_eq(Validate::validate(midx, env), Ok(()))
 }
 
 ///|
 test "MemIdx fails when memory does not exist" {
   let env = empty_env()
-  let midx = MemIdx(0)
-  assert_eq(midx.validate(env), Err("invalid mem index"))
+  let midx = @lib.MemIdx(0)
+  assert_eq(Validate::validate(midx, env), Err("invalid mem index"))
 }
 
 // ============ GlobalIdx Tests ============
 
 ///|
 test "GlobalIdx validates when global exists" {
-  let gt = GlobalType(NumTypeValType(I32NumType), false)
+  let gt = @lib.GlobalType(NumTypeValType(I32NumType), false)
   let env = empty_env().with_globals([gt])
-  let gidx = GlobalIdx(0)
-  assert_eq(gidx.validate(env), Ok(()))
+  let gidx = @lib.GlobalIdx(0)
+  assert_eq(Validate::validate(gidx, env), Ok(()))
 }
 
 ///|
 test "GlobalIdx fails when global does not exist" {
   let env = empty_env()
-  let gidx = GlobalIdx(0)
-  assert_eq(gidx.validate(env), Err("invalid global index"))
+  let gidx = @lib.GlobalIdx(0)
+  assert_eq(Validate::validate(gidx, env), Err("invalid global index"))
 }
 
 // ============ Limits Tests (ValidateMax) ============
@@ -1389,43 +1376,43 @@ test "GlobalIdx fails when global does not exist" {
 ///|
 test "I32Limits validates within max" {
   let env = empty_env()
-  let lim = I32Limits(10, Some(100))
-  assert_eq(lim.validate_max(env, 1000), Ok(()))
+  let lim = @lib.I32Limits(10, Some(100))
+  assert_eq(ValidateMax::validate_max(lim, env, 1000), Ok(()))
 }
 
 ///|
 test "I32Limits validates with no upper bound" {
   let env = empty_env()
-  let lim = I32Limits(10, None)
-  assert_eq(lim.validate_max(env, 1000), Ok(()))
+  let lim = @lib.I32Limits(10, None)
+  assert_eq(ValidateMax::validate_max(lim, env, 1000), Ok(()))
 }
 
 ///|
 test "I32Limits fails when n exceeds k" {
   let env = empty_env()
-  let lim = I32Limits(2000, None)
-  assert_eq(lim.validate_max(env, 1000), Err("Invalid range for limits"))
+  let lim = @lib.I32Limits(2000, None)
+  assert_eq(ValidateMax::validate_max(lim, env, 1000), Err("Invalid range for limits"))
 }
 
 ///|
 test "I32Limits fails when m exceeds k" {
   let env = empty_env()
-  let lim = I32Limits(10, Some(2000))
-  assert_eq(lim.validate_max(env, 1000), Err("Invalid range for limits"))
+  let lim = @lib.I32Limits(10, Some(2000))
+  assert_eq(ValidateMax::validate_max(lim, env, 1000), Err("Invalid range for limits"))
 }
 
 ///|
 test "I32Limits fails when n exceeds m" {
   let env = empty_env()
-  let lim = I32Limits(100, Some(10))
-  assert_eq(lim.validate_max(env, 1000), Err("Invalid range for limits"))
+  let lim = @lib.I32Limits(100, Some(10))
+  assert_eq(ValidateMax::validate_max(lim, env, 1000), Err("Invalid range for limits"))
 }
 
 ///|
 test "I64Limits validates within max" {
   let env = empty_env()
-  let lim = I64Limits(10, Some(100))
-  assert_eq(lim.validate_max(env, 1000), Ok(()))
+  let lim = @lib.I64Limits(10, Some(100))
+  assert_eq(ValidateMax::validate_max(lim, env, 1000), Ok(()))
 }
 
 // ============ MemType Tests ============
@@ -1433,15 +1420,15 @@ test "I64Limits validates within max" {
 ///|
 test "MemType validates with valid limits" {
   let env = empty_env()
-  let mt = MemType(I32Limits(0, Some(100)))
-  assert_eq(mt.validate(env), Ok(()))
+  let mt = @lib.MemType(I32Limits(0, Some(100)))
+  assert_eq(Validate::validate(mt, env), Ok(()))
 }
 
 ///|
 test "MemType fails when limits exceed 65536" {
   let env = empty_env()
-  let mt = MemType(I32Limits(0, Some(100000)))
-  assert_eq(mt.validate(env), Err("Invalid range for limits"))
+  let mt = @lib.MemType(I32Limits(0, Some(100000)))
+  assert_eq(Validate::validate(mt, env), Err("Invalid range for limits"))
 }
 
 // ============ TableType Tests ============
@@ -1449,9 +1436,9 @@ test "MemType fails when limits exceed 65536" {
 ///|
 test "TableType validates with valid ref type and limits" {
   let env = empty_env()
-  let rt = AbsHeapTypeRefType(FuncAbsHeapType)
-  let tt = TableType(rt, I32Limits(0, Some(100)))
-  assert_eq(tt.validate(env), Ok(()))
+  let rt = @lib.AbsHeapTypeRefType(FuncAbsHeapType)
+  let tt = @lib.TableType(rt, I32Limits(0, Some(100)))
+  assert_eq(Validate::validate(tt, env), Ok(()))
 }
 
 // ============ GlobalType Tests ============
@@ -1459,15 +1446,15 @@ test "TableType validates with valid ref type and limits" {
 ///|
 test "GlobalType validates with NumType" {
   let env = empty_env()
-  let gt = GlobalType(NumTypeValType(I32NumType), false)
-  assert_eq(gt.validate(env), Ok(()))
+  let gt = @lib.GlobalType(NumTypeValType(I32NumType), false)
+  assert_eq(Validate::validate(gt, env), Ok(()))
 }
 
 ///|
 test "GlobalType validates mutable" {
   let env = empty_env()
-  let gt = GlobalType(NumTypeValType(I64NumType), true)
-  assert_eq(gt.validate(env), Ok(()))
+  let gt = @lib.GlobalType(NumTypeValType(I64NumType), true)
+  assert_eq(Validate::validate(gt, env), Ok(()))
 }
 
 // ============ StorageType Tests ============
@@ -1475,15 +1462,15 @@ test "GlobalType validates mutable" {
 ///|
 test "StorageType ValType validates" {
   let env = empty_env()
-  let st = ValTypeStorageType(NumTypeValType(I32NumType))
-  assert_eq(st.validate(env), Ok(()))
+  let st = @lib.ValTypeStorageType(NumTypeValType(I32NumType))
+  assert_eq(Validate::validate(st, env), Ok(()))
 }
 
 ///|
 test "StorageType PackType validates" {
   let env = empty_env()
-  let st = PackTypeStorageType(I8PackType)
-  assert_eq(st.validate(env), Ok(()))
+  let st = @lib.PackTypeStorageType(I8PackType)
+  assert_eq(Validate::validate(st, env), Ok(()))
 }
 
 // ============ FieldType Tests ============
@@ -1491,8 +1478,8 @@ test "StorageType PackType validates" {
 ///|
 test "FieldType validates" {
   let env = empty_env()
-  let ft = FieldType(ValTypeStorageType(NumTypeValType(I32NumType)), Const)
-  assert_eq(ft.validate(env), Ok(()))
+  let ft = @lib.FieldType(ValTypeStorageType(NumTypeValType(I32NumType)), Const)
+  assert_eq(Validate::validate(ft, env), Ok(()))
 }
 
 // ============ FuncType Tests ============
@@ -1500,15 +1487,15 @@ test "FieldType validates" {
 ///|
 test "FuncType with empty params and results validates" {
   let env = empty_env()
-  let ft = FuncType([], [])
-  assert_eq(ft.validate(env), Ok(()))
+  let ft = @lib.FuncType([], [])
+  assert_eq(Validate::validate(ft, env), Ok(()))
 }
 
 ///|
 test "FuncType with params and results validates" {
   let env = empty_env()
-  let ft = FuncType([NumTypeValType(I32NumType)], [NumTypeValType(I64NumType)])
-  assert_eq(ft.validate(env), Ok(()))
+  let ft = @lib.FuncType([NumTypeValType(I32NumType)], [NumTypeValType(I64NumType)])
+  assert_eq(Validate::validate(ft, env), Ok(()))
 }
 
 // ============ CompType Tests ============
@@ -1516,31 +1503,31 @@ test "FuncType with params and results validates" {
 ///|
 test "CompType FuncCompType validates" {
   let env = empty_env()
-  let ct = FuncCompType([], [])
-  assert_eq(ct.validate(env), Ok(()))
+  let ct = @lib.FuncCompType([], [])
+  assert_eq(Validate::validate(ct, env), Ok(()))
 }
 
 ///|
 test "CompType ArrayCompType validates" {
   let env = empty_env()
-  let ft = FieldType(ValTypeStorageType(NumTypeValType(I32NumType)), Const)
-  let ct = ArrayCompType(ft)
-  assert_eq(ct.validate(env), Ok(()))
+  let ft = @lib.FieldType(ValTypeStorageType(NumTypeValType(I32NumType)), Const)
+  let ct = @lib.ArrayCompType(ft)
+  assert_eq(Validate::validate(ct, env), Ok(()))
 }
 
 ///|
 test "CompType StructCompType validates" {
   let env = empty_env()
-  let ft = FieldType(ValTypeStorageType(NumTypeValType(I32NumType)), Const)
-  let ct = StructCompType([ft])
-  assert_eq(ct.validate(env), Ok(()))
+  let ft = @lib.FieldType(ValTypeStorageType(NumTypeValType(I32NumType)), Const)
+  let ct = @lib.StructCompType([ft])
+  assert_eq(Validate::validate(ct, env), Ok(()))
 }
 
 ///|
 test "CompType StructCompType empty validates" {
   let env = empty_env()
-  let ct = StructCompType([])
-  assert_eq(ct.validate(env), Ok(()))
+  let ct = @lib.StructCompType([])
+  assert_eq(Validate::validate(ct, env), Ok(()))
 }
 
 // ============ SubType Tests ============
@@ -1548,8 +1535,8 @@ test "CompType StructCompType empty validates" {
 ///|
 test "SubType CompTypeSubType validates" {
   let env = empty_env()
-  let st = CompTypeSubType(FuncCompType([], []))
-  assert_eq(st.validate(env), Ok(()))
+  let st = @lib.CompTypeSubType(FuncCompType([], []))
+  assert_eq(Validate::validate(st, env), Ok(()))
 }
 
 // ============ RecType Tests ============
@@ -1557,22 +1544,22 @@ test "SubType CompTypeSubType validates" {
 ///|
 test "RecType SingleRecType validates" {
   let env = empty_env()
-  let st = CompTypeSubType(FuncCompType([], []))
-  let rt = SingleRecType(st)
-  assert_eq(rt.validate(env), Ok(()))
+  let st = @lib.CompTypeSubType(FuncCompType([], []))
+  let rt = @lib.SingleRecType(st)
+  assert_eq(Validate::validate(rt, env), Ok(()))
 }
 
 ///|
 test "RecType GroupRecType validates" {
   let env = empty_env()
-  let st1 = CompTypeSubType(FuncCompType([], []))
-  let st2 = CompTypeSubType(
+  let st1 = @lib.CompTypeSubType(FuncCompType([], []))
+  let st2 = @lib.CompTypeSubType(
     ArrayCompType(
       FieldType(ValTypeStorageType(NumTypeValType(I32NumType)), Const),
     ),
   )
-  let rt = GroupRecType([st1, st2])
-  assert_eq(rt.validate(env), Ok(()))
+  let rt = @lib.GroupRecType([st1, st2])
+  assert_eq(Validate::validate(rt, env), Ok(()))
 }
 
 // ============ Array[T] Validate Tests ============
@@ -1599,41 +1586,41 @@ test "Empty array validates" {
 ///|
 test "BlockType EmptyBlockType validates" {
   let env = empty_env()
-  assert_eq(EmptyBlockType.validate(env), Ok(()))
+  assert_eq(Validate::validate(@lib.EmptyBlockType, env), Ok(()))
 }
 
 ///|
 test "BlockType ValTypeBlockType validates" {
   let env = empty_env()
-  let bt = ValTypeBlockType(NumTypeValType(I32NumType))
-  assert_eq(bt.validate(env), Ok(()))
+  let bt = @lib.ValTypeBlockType(NumTypeValType(I32NumType))
+  assert_eq(Validate::validate(bt, env), Ok(()))
 }
 
 ///|
 test "BlockType TypeIdxBlockType with valid func type validates" {
-  let st = CompTypeSubType(FuncCompType([], []))
+  let st = @lib.CompTypeSubType(FuncCompType([], []))
   let env = empty_env().with_types([st])
-  let bt = TypeIdxBlockType(TypeIdx(0))
-  assert_eq(bt.validate(env), Ok(()))
+  let bt = @lib.TypeIdxBlockType(TypeIdx(0))
+  assert_eq(Validate::validate(bt, env), Ok(()))
 }
 
 ///|
 test "BlockType TypeIdxBlockType with invalid index fails" {
   let env = empty_env()
-  let bt = TypeIdxBlockType(TypeIdx(0))
-  assert_eq(bt.validate(env), Err("Invalid TypeIdx for block type"))
+  let bt = @lib.TypeIdxBlockType(TypeIdx(0))
+  assert_eq(Validate::validate(bt, env), Err("Invalid TypeIdx for block type"))
 }
 
 ///|
 test "BlockType TypeIdxBlockType with non-func type fails" {
-  let st = CompTypeSubType(
+  let st = @lib.CompTypeSubType(
     ArrayCompType(
       FieldType(ValTypeStorageType(NumTypeValType(I32NumType)), Const),
     ),
   )
   let env = empty_env().with_types([st])
-  let bt = TypeIdxBlockType(TypeIdx(0))
-  assert_eq(bt.validate(env), Err("Expected Func Type for block type"))
+  let bt = @lib.TypeIdxBlockType(TypeIdx(0))
+  assert_eq(Validate::validate(bt, env), Err("Expected Func Type for block type"))
 }
 
 // ============ ExternType Tests ============
@@ -1641,42 +1628,42 @@ test "BlockType TypeIdxBlockType with non-func type fails" {
 ///|
 test "ExternType GlobalExternType validates" {
   let env = empty_env()
-  let gt = GlobalType(NumTypeValType(I32NumType), false)
-  let et = GlobalExternType(gt)
-  assert_eq(et.validate(env), Ok(()))
+  let gt = @lib.GlobalType(NumTypeValType(I32NumType), false)
+  let et = @lib.GlobalExternType(gt)
+  assert_eq(Validate::validate(et, env), Ok(()))
 }
 
 ///|
 test "ExternType MemExternType validates" {
   let env = empty_env()
-  let mt = MemType(I32Limits(0, Some(10)))
-  let et = MemExternType(mt)
-  assert_eq(et.validate(env), Ok(()))
+  let mt = @lib.MemType(I32Limits(0, Some(10)))
+  let et = @lib.MemExternType(mt)
+  assert_eq(Validate::validate(et, env), Ok(()))
 }
 
 ///|
 test "ExternType TableExternType validates" {
   let env = empty_env()
-  let rt = AbsHeapTypeRefType(FuncAbsHeapType)
-  let tt = TableType(rt, I32Limits(0, Some(100)))
-  let et = TableExternType(tt)
-  assert_eq(et.validate(env), Ok(()))
+  let rt = @lib.AbsHeapTypeRefType(FuncAbsHeapType)
+  let tt = @lib.TableType(rt, I32Limits(0, Some(100)))
+  let et = @lib.TableExternType(tt)
+  assert_eq(Validate::validate(et, env), Ok(()))
 }
 
 ///|
 test "ExternType FuncExternType validates when func type exists" {
-  let st = CompTypeSubType(FuncCompType([], []))
+  let st = @lib.CompTypeSubType(FuncCompType([], []))
   let env = empty_env().with_types([st])
-  let et = FuncExternType(TypeIdx(0))
-  assert_eq(et.validate(env), Ok(()))
+  let et = @lib.FuncExternType(TypeIdx(0))
+  assert_eq(Validate::validate(et, env), Ok(()))
 }
 
 ///|
 test "ExternType FuncExternType fails when func type missing" {
   let env = empty_env()
-  let et = FuncExternType(TypeIdx(0))
+  let et = @lib.FuncExternType(TypeIdx(0))
   assert_eq(
-    et.validate(env),
+    Validate::validate(et, env),
     Err("Invalid ExternType: Func extern type not found"),
   )
 }
@@ -1686,33 +1673,33 @@ test "ExternType FuncExternType fails when func type missing" {
 ///|
 test "ExternIdx FuncExternIdx validates" {
   let env = empty_env().with_funcs([FuncType([], [])])
-  let ei = FuncExternIdx(FuncIdx(0))
-  assert_eq(ei.validate(env), Ok(()))
+  let ei = @lib.FuncExternIdx(FuncIdx(0))
+  assert_eq(Validate::validate(ei, env), Ok(()))
 }
 
 ///|
 test "ExternIdx TableExternIdx validates" {
-  let rt = AbsHeapTypeRefType(FuncAbsHeapType)
-  let tt = TableType(rt, I32Limits(0, None))
+  let rt = @lib.AbsHeapTypeRefType(FuncAbsHeapType)
+  let tt = @lib.TableType(rt, I32Limits(0, None))
   let env = empty_env().with_tables([tt])
-  let ei = TableExternIdx(TableIdx(0))
-  assert_eq(ei.validate(env), Ok(()))
+  let ei = @lib.TableExternIdx(TableIdx(0))
+  assert_eq(Validate::validate(ei, env), Ok(()))
 }
 
 ///|
 test "ExternIdx MemExternIdx validates" {
-  let mt = MemType(I32Limits(0, None))
+  let mt = @lib.MemType(I32Limits(0, None))
   let env = empty_env().with_mems([mt])
-  let ei = MemExternIdx(MemIdx(0))
-  assert_eq(ei.validate(env), Ok(()))
+  let ei = @lib.MemExternIdx(MemIdx(0))
+  assert_eq(Validate::validate(ei, env), Ok(()))
 }
 
 ///|
 test "ExternIdx GlobalExternIdx validates" {
-  let gt = GlobalType(NumTypeValType(I32NumType), false)
+  let gt = @lib.GlobalType(NumTypeValType(I32NumType), false)
   let env = empty_env().with_globals([gt])
-  let ei = GlobalExternIdx(GlobalIdx(0))
-  assert_eq(ei.validate(env), Ok(()))
+  let ei = @lib.GlobalExternIdx(GlobalIdx(0))
+  assert_eq(Validate::validate(ei, env), Ok(()))
 }
 
 // ============ Export Tests ============
@@ -1720,15 +1707,15 @@ test "ExternIdx GlobalExternIdx validates" {
 ///|
 test "Export with valid FuncExternIdx validates" {
   let env = empty_env().with_funcs([FuncType([], [])])
-  let exp = Export(Name("test"), FuncExternIdx(FuncIdx(0)))
-  assert_eq(exp.validate(env), Ok(()))
+  let exp = @lib.Export(Name("test"), FuncExternIdx(FuncIdx(0)))
+  assert_eq(Validate::validate(exp, env), Ok(()))
 }
 
 ///|
 test "Export with invalid index fails" {
   let env = empty_env()
-  let exp = Export(Name("test"), FuncExternIdx(FuncIdx(0)))
-  assert_eq(exp.validate(env), Err("invalid func index"))
+  let exp = @lib.Export(Name("test"), FuncExternIdx(FuncIdx(0)))
+  assert_eq(Validate::validate(exp, env), Err("invalid func index"))
 }
 
 // ============ Import Tests ============
@@ -1736,9 +1723,9 @@ test "Export with invalid index fails" {
 ///|
 test "Import with valid GlobalExternType validates" {
   let env = empty_env()
-  let gt = GlobalType(NumTypeValType(I32NumType), false)
-  let imp = Import(Name("mod"), Name("name"), GlobalExternType(gt))
-  assert_eq(imp.validate(env), Ok(()))
+  let gt = @lib.GlobalType(NumTypeValType(I32NumType), false)
+  let imp = @lib.Import(Name("mod"), Name("name"), GlobalExternType(gt))
+  assert_eq(Validate::validate(imp, env), Ok(()))
 }
 
 // ============ DataMode Tests ============
@@ -1746,7 +1733,7 @@ test "Import with valid GlobalExternType validates" {
 ///|
 test "DataMode Passive validates" {
   let env = empty_env()
-  assert_eq(DataMode::Passive.validate(env), Ok(()))
+  assert_eq(Validate::validate(DataMode::Passive, env), Ok(()))
 }
 
 // ============ Data Tests ============
@@ -1754,8 +1741,8 @@ test "DataMode Passive validates" {
 ///|
 test "Data with Passive mode validates" {
   let env = empty_env()
-  let d = Data(Passive, b"hello")
-  assert_eq(d.validate(env), Ok(()))
+  let d = @lib.Data(Passive, b"hello")
+  assert_eq(Validate::validate(d, env), Ok(()))
 }
 
 // ============ Catch Tests ============
@@ -1763,20 +1750,20 @@ test "Data with Passive mode validates" {
 ///|
 test "Catch CatchAll validates with valid label" {
   let env = empty_env().with_labels([[]])
-  let c = CatchAll(LabelIdx(0))
-  assert_eq(c.validate(env), Ok(()))
+  let c = @lib.CatchAll(LabelIdx(0))
+  assert_eq(Validate::validate(c, env), Ok(()))
 }
 
 ///|
 test "Catch CatchAllRef validates with valid label" {
   let env = empty_env().with_labels([[]])
-  let c = CatchAllRef(LabelIdx(0))
-  assert_eq(c.validate(env), Ok(()))
+  let c = @lib.CatchAllRef(LabelIdx(0))
+  assert_eq(Validate::validate(c, env), Ok(()))
 }
 
 ///|
 test "Catch CatchAll fails with invalid label" {
   let env = empty_env()
-  let c = CatchAll(LabelIdx(0))
-  assert_eq(c.validate(env), Err("Invalid LabelIdx"))
+  let c = @lib.CatchAll(LabelIdx(0))
+  assert_eq(Validate::validate(c, env), Err("Invalid LabelIdx"))
 }

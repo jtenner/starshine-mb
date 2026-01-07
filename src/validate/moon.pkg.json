@@ -1,0 +1,9 @@
+{
+    "name": "validate",
+    "import": [
+      {
+        "alias": "lib",
+        "path": "jtenner/starshine/lib"
+      }
+    ]
+}

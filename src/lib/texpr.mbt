@@ -5998,7 +5998,7 @@ fn v128_store_lane_op_to_instr(
 }
 
 ///|
-fn tlocals_to_locals(tlocals : Array[ValType]) -> Array[Locals] {
+pub fn tlocals_to_locals(tlocals : Array[ValType]) -> Array[Locals] {
   if tlocals.length() == 0 {
     return []
   }

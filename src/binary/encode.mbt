@@ -1,3 +1,4 @@
+
 ///|
 pub trait Encode {
   encode(Self, @buffer.Buffer) -> Result[Unit, String]
@@ -6,6 +7,82 @@ pub trait Encode {
 ///|
 pub trait Decode {
   decode(Bytes, Int) -> Result[(Self, Int), String]
+}
+
+using @lib {
+  type NumType,
+  type HeapType,
+  type S33,
+  type F32,
+  type F64,
+  type I32,
+  type I64,
+  type U32,
+  type U64,
+  type AbsHeapType,
+  type RefType,
+  type ValType,
+  type CompType,
+  type FieldType,
+  type Mut,
+  type StorageType,
+  type PackType,
+  type RecType,
+  type SubType,
+  type ExternIdx,
+  type TypeIdx,
+  type FuncIdx,
+  type TableIdx,
+  type MemIdx,
+  type GlobalIdx,
+  type TagIdx,
+  type ElemIdx,
+  type DataIdx,
+  type LocalIdx,
+  type LabelIdx,
+  type LaneIdx,
+  type Name,
+  type CustomSec,
+  type TypeSec,
+  type ImportSec,
+  type Import,
+  type ExternType,
+  type TableType,
+  type Limits,
+  type MemType,
+  type GlobalType,
+  type TagType,
+  type FuncSec,
+  type TableSec,
+  type Table,
+  type MemSec,
+  type GlobalSec,
+  type Global,
+  type ExportSec,
+  type Export,
+  type StartSec,
+  type ElemSec,
+  type Elem,
+  type CodeSec,
+  type Func,
+  type DataSec,
+  type Data,
+  type Locals,
+  type DataCntSec,
+  type TagSec,
+  type CastOp,
+  type Module,
+  type Expr,
+  type Instruction,
+  type ElemMode,
+  type DataMode,
+  type BlockType,
+  type Catch,
+  type MemArg,
+  tlocals_to_locals,
+  texpr_to_expr,
+  i32_valtype,
+  i64_valtype,
 }
 
 ///|
@@ -34,8 +111,8 @@ pub impl Decode for NumType with decode(buf, idx) {
 ///|
 pub impl Encode for HeapType with encode(val, buf) {
   match val {
-    AbsHeapTypeHeapType(ht) => ht.encode(buf)
-    HeapType(TypeIdx(i)) => S33(i).encode(buf)
+    AbsHeapTypeHeapType(ht) => Encode::encode(ht, buf)
+    HeapType(TypeIdx(i)) => Encode::encode(@lib.S33(i), buf)
     HeapType(RecIdx(_)) => Err("Cannot encode recursive indexes")
     DefTypeHeapType(_) => Err("Cannot encode deftypes")
   }
@@ -62,11 +139,11 @@ pub impl Encode for AbsHeapType with encode(val, buf) {
 
 ///|
 pub impl Decode for HeapType with decode(bytes, i) {
-  match AbsHeapType::decode(bytes, i) {
+  match Decode::decode(bytes, i) {
     Ok((abs, i)) => Ok((AbsHeapTypeHeapType(abs), i))
     Err(_) =>
-      match S33::decode(bytes, i) {
-        Ok((S33(s), i)) => Ok((HeapType(TypeIdx(s)), i))
+      match Decode::decode(bytes, i) {
+        Ok((@lib.S33(s), i)) => Ok((HeapType(TypeIdx(s)), i))
         Err(err) => Err(err)
       }
   }
@@ -97,13 +174,13 @@ pub impl Encode for RefType with encode(val, buf) {
   match val {
     HeapTypeRefType(true, ht) => {
       buf.write_byte(0x63)
-      ht.encode(buf)
+      Encode::encode(ht, buf)
     }
     HeapTypeRefType(false, ht) => {
       buf.write_byte(0x64)
-      ht.encode(buf)
+      Encode::encode(ht, buf)
     }
-    AbsHeapTypeRefType(abs) => abs.encode(buf)
+    AbsHeapTypeRefType(abs) => Encode::encode(abs, buf)
   }
 }
 
@@ -112,17 +189,17 @@ pub impl Decode for RefType with decode(bytes, i) {
   match bytes.get(i) {
     None => Err("Index out of bounds")
     Some(0x63) =>
-      match HeapType::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Err(err) => Err(err)
         Ok((ht, i)) => Ok((HeapTypeRefType(true, ht), i))
       }
     Some(0x64) =>
-      match HeapType::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Err(err) => Err(err)
         Ok((ht, i)) => Ok((HeapTypeRefType(false, ht), i))
       }
     Some(_) =>
-      match AbsHeapType::decode(bytes, i) {
+      match Decode::decode(bytes, i) {
         Err(err) => Err(err)
         Ok((abs, i)) => Ok((AbsHeapTypeRefType(abs), i))
       }
@@ -136,8 +213,8 @@ pub impl Encode for ValType with encode(val, buf) {
       buf.write_byte(0x7B)
       Ok(())
     }
-    NumTypeValType(num) => num.encode(buf)
-    RefTypeValType(rt) => rt.encode(buf)
+    NumTypeValType(num) => Encode::encode(num, buf)
+    RefTypeValType(rt) => Encode::encode(rt, buf)
     BotValType => Err("Cannot encode bottom type.")
   }
 }
@@ -148,10 +225,10 @@ pub impl Decode for ValType with decode(bytes, i) {
     None => Err("Index out of bounds")
     Some(0x7B) => Ok((VecTypeValType, i + 1))
     Some(_) =>
-      match NumType::decode(bytes, i) {
+      match Decode::decode(bytes, i) {
         Ok((t, i)) => Ok((NumTypeValType(t), i))
         _ =>
-          match RefType::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((rt, i)) => Ok((RefTypeValType(rt), i))
             _ => Err("Invalid ValType")
           }
@@ -161,13 +238,13 @@ pub impl Decode for ValType with decode(bytes, i) {
 
 ///|
 pub impl[T : Encode] Encode for @list.List[T] with encode(val, buf) {
-  if U32(val.length().reinterpret_as_uint()).encode(buf) is Err(t) {
+  if Encode::encode(@lib.U32(val.length().reinterpret_as_uint()), buf) is Err(t) {
     return Err(t)
   }
   loop val {
     Empty => Ok(())
     More(val, tail~) => {
-      if val.encode(buf) is Err(t) {
+      if Encode::encode(val, buf) is Err(t) {
         break Err(t)
       }
       continue tail
@@ -177,8 +254,8 @@ pub impl[T : Encode] Encode for @list.List[T] with encode(val, buf) {
 
 ///|
 pub impl[T : Decode] Decode for @list.List[T] with decode(bytes, i) {
-  match U32::decode(bytes, i) {
-    Ok((U32(len), i)) =>
+  match Decode::decode(bytes, i) {
+    Ok((@lib.U32(len), i)) =>
       loop ([], len, i) {
         (acc, left, i) if left > 0 =>
           match T::decode(bytes, i) {
@@ -203,7 +280,7 @@ pub impl Encode for CompType with encode(val, buf) {
     }
     ArrayCompType(ft) => {
       buf.write_byte(0x5E)
-      ft.encode(buf)
+      Encode::encode(ft, buf)
     }
     FuncCompType(t1, t2) => {
       buf.write_byte(0x60)
@@ -220,7 +297,7 @@ pub impl Decode for CompType with decode(bytes, i) {
   match bytes.get(i) {
     None => Err("Index out of bounds")
     Some(0x5E) =>
-      match FieldType::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((ft, i)) => Ok((ArrayCompType(ft), i))
         Err(err) => Err(err)
       }
@@ -245,10 +322,10 @@ pub impl Decode for CompType with decode(bytes, i) {
 ///|
 pub impl Encode for FieldType with encode(val, buf) {
   let FieldType(st, m) = val
-  if st.encode(buf) is Err(t) {
+  if Encode::encode(st, buf) is Err(t) {
     return Err(t)
   }
-  if m.encode(buf) is Err(t) {
+  if Encode::encode(m, buf) is Err(t) {
     return Err(t)
   }
   Ok(())
@@ -256,7 +333,7 @@ pub impl Encode for FieldType with encode(val, buf) {
 
 ///|
 pub impl Decode for FieldType with decode(bytes, i) {
-  match StorageType::decode(bytes, i) {
+  match Decode::decode(bytes, i) {
     Err(err) => Err(err)
     Ok((st, i)) =>
       match Decode::decode(bytes, i) {
@@ -291,17 +368,17 @@ pub impl Decode for Mut with decode(bytes, i) {
 ///|
 pub impl Encode for StorageType with encode(val, buf) {
   match val {
-    ValTypeStorageType(vt) => vt.encode(buf)
-    PackTypeStorageType(pt) => pt.encode(buf)
+    ValTypeStorageType(vt) => Encode::encode(vt, buf)
+    PackTypeStorageType(pt) => Encode::encode(pt, buf)
   }
 }
 
 ///|
 pub impl Decode for StorageType with decode(bytes, i) {
-  match ValType::decode(bytes, i) {
+  match Decode::decode(bytes, i) {
     Ok((vt, i)) => Ok((ValTypeStorageType(vt), i))
     Err(_) =>
-      match PackType::decode(bytes, i) {
+      match Decode::decode(bytes, i) {
         Ok((pt, i)) => Ok((PackTypeStorageType(pt), i))
         Err(_) => Err("Invalid StorageType")
       }
@@ -335,7 +412,7 @@ pub impl Decode for PackType with decode(bytes, i) {
 ///|
 pub impl Encode for RecType with encode(val, buf) {
   match val {
-    SingleRecType(st) => st.encode(buf)
+    SingleRecType(st) => Encode::encode(st, buf)
     GroupRecType(sts) => {
       buf.write_byte(0x4E)
       Encode::encode(sts, buf)
@@ -371,9 +448,9 @@ pub impl Encode for SubType with encode(val, buf) {
       if Encode::encode(indexes, buf) is Err(t) {
         return Err(t)
       }
-      ct.encode(buf)
+      Encode::encode(ct, buf)
     }
-    CompTypeSubType(ct) => ct.encode(buf)
+    CompTypeSubType(ct) => Encode::encode(ct, buf)
   }
 }
 
@@ -415,23 +492,23 @@ pub impl Encode for ExternIdx with encode(val, buf) {
   match val {
     FuncExternIdx(idx) => {
       buf.write_byte(0x00)
-      idx.encode(buf)
+      Encode::encode(idx, buf)
     }
     TableExternIdx(idx) => {
       buf.write_byte(0x01)
-      idx.encode(buf)
+      Encode::encode(idx, buf)
     }
     MemExternIdx(idx) => {
       buf.write_byte(0x02)
-      idx.encode(buf)
+      Encode::encode(idx, buf)
     }
     GlobalExternIdx(idx) => {
       buf.write_byte(0x03)
-      idx.encode(buf)
+      Encode::encode(idx, buf)
     }
     TagExternIdx(idx) => {
       buf.write_byte(0x04)
-      idx.encode(buf)
+      Encode::encode(idx, buf)
     }
   }
 }
@@ -667,13 +744,13 @@ pub impl Encode for I32 with encode(val, buf) {
 
 ///|
 pub impl Encode for U32 with encode(val, buf) {
-  let U32(val) = val
+  let @lib.U32(val) = val
   encode_unsigned(val.to_uint64(), buf, 32)
 }
 
 ///|
 pub impl Encode for U64 with encode(val, buf) {
-  let U64(val) = val
+  let @lib.U64(val) = val
   encode_unsigned(val, buf, 64)
 }
 
@@ -716,7 +793,7 @@ pub impl Decode for I32 with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for U32 with decode(bytes, i) {
+pub impl Decode for @lib.U32 with decode(bytes, i) {
   match decode_unsigned(bytes, i, 32) {
     Err(err) => Err(err)
     Ok((val, i)) => Ok((U32(val.to_uint()), i))
@@ -732,7 +809,7 @@ pub impl Decode for I64 with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for U64 with decode(bytes, i) {
+pub impl Decode for @lib.U64 with decode(bytes, i) {
   match decode_unsigned(bytes, i, 64) {
     Err(err) => Err(err)
     Ok((val, i)) => Ok((U64(val), i))
@@ -801,7 +878,7 @@ pub impl[T : Decode] Decode for T? with decode(bytes, i) {
 pub impl[T : Encode] Encode for T? with encode(val, buf) {
   match val {
     None => Ok(())
-    Some(val) => val.encode(buf)
+    Some(val) => Encode::encode(val, buf)
   }
 }
 
@@ -967,7 +1044,7 @@ pub impl Encode for Name with encode(val, buf) {
   let Name(name) = val
   let bytes = @encoding/utf8.encode(name)
   let len = bytes.length()
-  match U32(len.reinterpret_as_uint()).encode(buf) {
+  match Encode::encode(@lib.U32(len.reinterpret_as_uint()), buf) {
     Err(err) => Err(err)
     Ok(_) => {
       buf.write_bytes(bytes)
@@ -978,7 +1055,7 @@ pub impl Encode for Name with encode(val, buf) {
 
 ///|
 pub impl Decode for Name with decode(bytes, i) {
-  let (U32(len_u), j) = match U32::decode(bytes, i) {
+  let (@lib.U32(len_u), j) = match Decode::decode(bytes, i) {
     Err(err) => return Err(err)
     Ok(t) => t
   }
@@ -999,12 +1076,12 @@ pub impl Encode for CustomSec with encode(val, buf) {
   let CustomSec(name, bytes) = val
   buf.write_byte(0)
   let payload_buff = @buffer.new()
-  if name.encode(payload_buff) is Err(t) {
+  if Encode::encode(name, payload_buff) is Err(t) {
     return Err(t)
   }
   payload_buff.write_bytes(bytes)
   let payload_bytes = payload_buff.to_bytes()
-  if U32(payload_bytes.length().reinterpret_as_uint()).encode(buf) is Err(t) {
+  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf) is Err(t) {
     return Err(t)
   }
   buf.write_bytes(payload_bytes)
@@ -1019,7 +1096,7 @@ pub impl Encode for TypeSec with encode(val, buf) {
     return Err(t)
   }
   let payload_bytes = payload.to_bytes()
-  if U32(payload_bytes.length().reinterpret_as_uint()).encode(buf) is Err(t) {
+  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf) is Err(t) {
     return Err(t)
   }
   buf.write_bytes(payload_bytes)
@@ -1034,7 +1111,7 @@ pub impl Encode for ImportSec with encode(val, buf) {
     return Err(t)
   }
   let payload_bytes = payload.to_bytes()
-  if U32(payload_bytes.length().reinterpret_as_uint()).encode(buf) is Err(t) {
+  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf) is Err(t) {
     return Err(t)
   }
   buf.write_bytes(payload_bytes)
@@ -1052,7 +1129,7 @@ pub impl Encode for Import with encode(val, buf) {
     Err(err) => return Err(err)
     Ok(_) => ()
   }
-  et.encode(buf)
+  Encode::encode(et, buf)
 }
 
 ///|
@@ -1060,23 +1137,23 @@ pub impl Encode for ExternType with encode(val, buf) {
   match val {
     FuncExternType(idx) => {
       buf.write_byte(0x00)
-      idx.encode(buf)
+      Encode::encode(idx, buf)
     }
     TableExternType(tt) => {
       buf.write_byte(0x01)
-      tt.encode(buf)
+      Encode::encode(tt, buf)
     }
     MemExternType(mt) => {
       buf.write_byte(0x02)
-      mt.encode(buf)
+      Encode::encode(mt, buf)
     }
     GlobalExternType(gt) => {
       buf.write_byte(0x03)
-      gt.encode(buf)
+      Encode::encode(gt, buf)
     }
     TagExternType(tt) => {
       buf.write_byte(0x04)
-      tt.encode(buf)
+      Encode::encode(tt, buf)
     }
   }
 }
@@ -1084,11 +1161,11 @@ pub impl Encode for ExternType with encode(val, buf) {
 ///|
 pub impl Encode for TableType with encode(val, buf) {
   let TableType(rt, l) = val
-  match rt.encode(buf) {
+  match Encode::encode(rt, buf) {
     Err(err) => return Err(err)
     Ok(_) => ()
   }
-  l.encode(buf)
+  Encode::encode(l, buf)
 }
 
 ///|
@@ -1096,40 +1173,40 @@ pub impl Encode for Limits with encode(val, buf) {
   match val {
     I32Limits(min, None) => {
       buf.write_byte(0x00)
-      U64(min.to_uint64()).encode(buf)
+      Encode::encode(@lib.U64(min.to_uint64()), buf)
     }
     I32Limits(min, Some(max)) => {
       buf.write_byte(0x01)
-      match U64(min.to_uint64()).encode(buf) {
+      match Encode::encode(@lib.U64(min.to_uint64()), buf) {
         Err(err) => return Err(err)
         _ => ()
       }
-      U64(max.to_uint64()).encode(buf)
+      Encode::encode(@lib.U64(max.to_uint64()), buf)
     }
     I64Limits(min, None) => {
       buf.write_byte(0x04)
-      U64(min).encode(buf)
+      Encode::encode(@lib.U64(min), buf)
     }
     I64Limits(min, Some(max)) => {
       buf.write_byte(0x05)
-      match U64(min).encode(buf) {
+      match Encode::encode(@lib.U64(min), buf) {
         Err(err) => return Err(err)
         _ => ()
       }
-      U64(max).encode(buf)
+      Encode::encode(@lib.U64(max), buf)
     }
   }
 }
 
 ///|
 pub impl Encode for MemType with encode(val, buf) {
-  val.0.encode(buf)
+  Encode::encode(val.0, buf)
 }
 
 ///|
 pub impl Encode for GlobalType with encode(val, buf) {
   let GlobalType(vt, m) = val
-  match vt.encode(buf) {
+  match Encode::encode(vt, buf) {
     Err(err) => return Err(err)
     Ok(_) => ()
   }
@@ -1139,7 +1216,7 @@ pub impl Encode for GlobalType with encode(val, buf) {
 ///|
 pub impl Encode for TagType with encode(val, buf) {
   buf.write_byte(0x00)
-  val.0.encode(buf)
+  Encode::encode(val.0, buf)
 }
 
 ///|
@@ -1150,7 +1227,7 @@ pub impl Encode for FuncSec with encode(val, buf) {
     return Err(t)
   }
   let payload_bytes = payload.to_bytes()
-  if U32(payload_bytes.length().reinterpret_as_uint()).encode(buf) is Err(t) {
+  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf) is Err(t) {
     return Err(t)
   }
   buf.write_bytes(payload_bytes)
@@ -1165,7 +1242,7 @@ pub impl Encode for TableSec with encode(val, buf) {
     return Err(t)
   }
   let payload_bytes = payload.to_bytes()
-  if U32(payload_bytes.length().reinterpret_as_uint()).encode(buf) is Err(t) {
+  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf) is Err(t) {
     return Err(t)
   }
   buf.write_bytes(payload_bytes)
@@ -1175,12 +1252,12 @@ pub impl Encode for TableSec with encode(val, buf) {
 ///|
 pub impl Encode for Table with encode(val, buf) {
   match val {
-    Table(tt, None) => tt.encode(buf)
+    Table(tt, None) => Encode::encode(tt, buf)
     Table(tt, Some(e)) => {
       buf.write_bytes(b"\x40\x00")
-      match tt.encode(buf) {
+      match Encode::encode(tt, buf) {
         Err(err) => return Err(err)
-        Ok(_) => e.encode(buf)
+        Ok(_) => Encode::encode(e, buf)
       }
     }
   }
@@ -1194,7 +1271,7 @@ pub impl Encode for MemSec with encode(val, buf) {
     return Err(t)
   }
   let payload_bytes = payload.to_bytes()
-  if U32(payload_bytes.length().reinterpret_as_uint()).encode(buf) is Err(t) {
+  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf) is Err(t) {
     return Err(t)
   }
   buf.write_bytes(payload_bytes)
@@ -1209,7 +1286,7 @@ pub impl Encode for GlobalSec with encode(val, buf) {
     return Err(t)
   }
   let payload_bytes = payload.to_bytes()
-  if U32(payload_bytes.length().reinterpret_as_uint()).encode(buf) is Err(t) {
+  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf) is Err(t) {
     return Err(t)
   }
   buf.write_bytes(payload_bytes)
@@ -1219,11 +1296,11 @@ pub impl Encode for GlobalSec with encode(val, buf) {
 ///|
 pub impl Encode for Global with encode(val, buf) {
   let Global(gt, e) = val
-  match gt.encode(buf) {
+  match Encode::encode(gt, buf) {
     Err(err) => return Err(err)
     Ok(_) => ()
   }
-  e.encode(buf)
+  Encode::encode(e, buf)
 }
 
 ///|
@@ -1234,7 +1311,7 @@ pub impl Encode for ExportSec with encode(val, buf) {
     return Err(t)
   }
   let payload_bytes = payload.to_bytes()
-  if U32(payload_bytes.length().reinterpret_as_uint()).encode(buf) is Err(t) {
+  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf) is Err(t) {
     return Err(t)
   }
   buf.write_bytes(payload_bytes)
@@ -1244,17 +1321,17 @@ pub impl Encode for ExportSec with encode(val, buf) {
 ///|
 pub impl Encode for Export with encode(val, buf) {
   let Export(n, eidx) = val
-  match n.encode(buf) {
+  match Encode::encode(n, buf) {
     Err(err) => return Err(err)
     Ok(_) => ()
   }
-  eidx.encode(buf)
+  Encode::encode(eidx, buf)
 }
 
 ///|
 pub impl Encode for StartSec with encode(val, buf) {
   buf.write_byte(0x08)
-  val.0.encode(buf)
+  Encode::encode(val.0, buf)
 }
 
 ///|
@@ -1265,7 +1342,7 @@ pub impl Encode for ElemSec with encode(val, buf) {
     return Err(t)
   }
   let payload_bytes = payload.to_bytes()
-  if U32(payload_bytes.length().reinterpret_as_uint()).encode(buf) is Err(t) {
+  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf) is Err(t) {
     return Err(t)
   }
   buf.write_bytes(payload_bytes)
@@ -1277,7 +1354,7 @@ pub impl Encode for Elem with encode(val, buf) {
   match val {
     Elem(Active(TableIdx(0), e), FuncsElemKind(y)) => {
       buf.write_byte(0x00)
-      if e.encode(buf) is Err(t) {
+      if Encode::encode(e, buf) is Err(t) {
         return Err(t)
       }
       Encode::encode(y, buf)
@@ -1288,10 +1365,10 @@ pub impl Encode for Elem with encode(val, buf) {
     }
     Elem(Active(ti, e), FuncsElemKind(y)) => {
       buf.write_byte(0x02)
-      if ti.encode(buf) is Err(t) {
+      if Encode::encode(ti, buf) is Err(t) {
         return Err(t)
       }
-      if e.encode(buf) is Err(t) {
+      if Encode::encode(e, buf) is Err(t) {
         return Err(t)
       }
       buf.write_byte(0x00)
@@ -1303,7 +1380,7 @@ pub impl Encode for Elem with encode(val, buf) {
     }
     Elem(Active(TableIdx(0), e), FuncExprsElemKind(es)) => {
       buf.write_byte(0x04)
-      if e.encode(buf) is Err(t) {
+      if Encode::encode(e, buf) is Err(t) {
         return Err(t)
       }
       Encode::encode(es, buf)
@@ -1311,41 +1388,41 @@ pub impl Encode for Elem with encode(val, buf) {
     // Encoder fixes - add funcref reftype
     Elem(Passive, FuncExprsElemKind(es)) => {
       buf.write_byte(0x05)
-      let rt = HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType))
-      if rt.encode(buf) is Err(t) {
+      let rt = @lib.HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType))
+      if Encode::encode(rt, buf) is Err(t) {
         return Err(t)
       }
       Encode::encode(es, buf)
     }
     Elem(Active(ti, e), FuncExprsElemKind(es)) => {
       buf.write_byte(0x06)
-      if ti.encode(buf) is Err(t) {
+      if Encode::encode(ti, buf) is Err(t) {
         return Err(t)
       }
-      if e.encode(buf) is Err(t) {
+      if Encode::encode(e, buf) is Err(t) {
         return Err(t)
       }
       // DON'T encode reftype - format 6 has implicit (ref null func)
       Encode::encode(es, buf)
     }
     Elem(Declarative, FuncExprsElemKind(es)) => {
-      let rt = HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType))
+      let rt = @lib.HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType))
       buf.write_byte(0x07)
-      if rt.encode(buf) is Err(t) {
+      if Encode::encode(rt, buf) is Err(t) {
         return Err(t)
       }
       Encode::encode(es, buf)
     }
     Elem(Passive, TypedExprsElemKind(rt, es)) => {
       buf.write_byte(0x05)
-      if rt.encode(buf) is Err(t) {
+      if Encode::encode(rt, buf) is Err(t) {
         return Err(t)
       }
       Encode::encode(es, buf)
     }
     Elem(Declarative, TypedExprsElemKind(rt, es)) => {
       buf.write_byte(0x07)
-      if rt.encode(buf) is Err(t) {
+      if Encode::encode(rt, buf) is Err(t) {
         return Err(t)
       }
       Encode::encode(es, buf)
@@ -1380,11 +1457,11 @@ pub impl Encode for Func with encode(val, buf) {
   if Encode::encode(locals, fn_body) is Err(t) {
     return Err(t)
   }
-  if expr.encode(fn_body) is Err(t) {
+  if Encode::encode(expr, fn_body) is Err(t) {
     return Err(t)
   }
   let fn_bytes = fn_body.to_bytes()
-  if U32(fn_bytes.length().reinterpret_as_uint()).encode(buf) is Err(t) {
+  if Encode::encode(@lib.U32(fn_bytes.length().reinterpret_as_uint()), buf) is Err(t) {
     return Err(t)
   }
   buf.write_bytes(fn_bytes) // Don't use Encode::encode here - just write raw bytes
@@ -1399,7 +1476,7 @@ pub impl Encode for DataSec with encode(val, buf) {
     return Err(t)
   }
   let payload_bytes = payload.to_bytes()
-  if U32(payload_bytes.length().reinterpret_as_uint()).encode(buf) is Err(t) {
+  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf) is Err(t) {
     return Err(t)
   }
   buf.write_bytes(payload_bytes)
@@ -1411,7 +1488,7 @@ pub impl Encode for Data with encode(val, buf) {
   match val {
     Data(Active(MemIdx(0), e), bytes) => {
       buf.write_byte(0x00)
-      if e.encode(buf) is Err(t) {
+      if Encode::encode(e, buf) is Err(t) {
         return Err(t)
       }
       Encode::encode(bytes, buf)
@@ -1422,10 +1499,10 @@ pub impl Encode for Data with encode(val, buf) {
     }
     Data(Active(idx, e), bytes) => {
       buf.write_byte(0x02)
-      if idx.encode(buf) is Err(t) {
+      if Encode::encode(idx, buf) is Err(t) {
         return Err(t)
       }
-      if e.encode(buf) is Err(t) {
+      if Encode::encode(e, buf) is Err(t) {
         return Err(t)
       }
       Encode::encode(bytes, buf)
@@ -1436,18 +1513,18 @@ pub impl Encode for Data with encode(val, buf) {
 ///|
 pub impl Encode for Locals with encode(val, buf) {
   let Locals(count, vt) = val
-  match U32(count).encode(buf) {
+  match Encode::encode(@lib.U32(count), buf) {
     Err(err) => return Err(err)
     Ok(_) => ()
   }
-  vt.encode(buf)
+  Encode::encode(vt, buf)
 }
 
 ///|
 pub impl Encode for DataCntSec with encode(val, buf) {
   let DataCntSec(count) = val
   buf.write_byte(12)
-  if count.encode(buf) is Err(t) {
+  if Encode::encode(count, buf) is Err(t) {
     return Err(t)
   }
   Ok(())
@@ -1461,7 +1538,7 @@ pub impl Encode for TagSec with encode(val, buf) {
     return Err(t)
   }
   let payload_bytes = payload.to_bytes()
-  if U32(payload_bytes.length().reinterpret_as_uint()).encode(buf) is Err(t) {
+  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf) is Err(t) {
     return Err(t)
   }
   buf.write_bytes(payload_bytes)
@@ -1484,7 +1561,7 @@ pub impl Encode for Module with encode(val, buf) {
   buf.write_bytes(b"\x00\x61\x73\x6D\x01\x00\x00\x00")
   // custom sections
   for sec in val.0 {
-    if sec.encode(buf) is Err(t) {
+    if Encode::encode(sec, buf) is Err(t) {
       return Err(t)
     }
   }
@@ -1553,107 +1630,107 @@ pub impl Decode for Module with decode(bytes, i) {
     }
     i = i + 1
   }
-  while CustomSec::decode(bytes, i) is Ok((sec, next)) {
+  while Decode::decode(bytes, i) is Ok((sec, next)) {
     custom.push(sec)
     i = next
   }
-  if TypeSec::decode(bytes, i) is Ok((sec, next)) {
+  if Decode::decode(bytes, i) is Ok((sec, next)) {
     type_sec = Some(sec)
     i = next
   }
-  while CustomSec::decode(bytes, i) is Ok((sec, next)) {
+  while Decode::decode(bytes, i) is Ok((sec, next)) {
     custom.push(sec)
     i = next
   }
-  if ImportSec::decode(bytes, i) is Ok((sec, next)) {
+  if Decode::decode(bytes, i) is Ok((sec, next)) {
     import_sec = Some(sec)
     i = next
   }
-  while CustomSec::decode(bytes, i) is Ok((sec, next)) {
+  while Decode::decode(bytes, i) is Ok((sec, next)) {
     custom.push(sec)
     i = next
   }
-  if FuncSec::decode(bytes, i) is Ok((sec, next)) {
+  if Decode::decode(bytes, i) is Ok((sec, next)) {
     func_sec = Some(sec)
     i = next
   }
-  while CustomSec::decode(bytes, i) is Ok((sec, next)) {
+  while Decode::decode(bytes, i) is Ok((sec, next)) {
     custom.push(sec)
     i = next
   }
-  if TableSec::decode(bytes, i) is Ok((sec, next)) {
+  if Decode::decode(bytes, i) is Ok((sec, next)) {
     table_sec = Some(sec)
     i = next
   }
-  while CustomSec::decode(bytes, i) is Ok((sec, next)) {
+  while Decode::decode(bytes, i) is Ok((sec, next)) {
     custom.push(sec)
     i = next
   }
-  if MemSec::decode(bytes, i) is Ok((sec, next)) {
+  if Decode::decode(bytes, i) is Ok((sec, next)) {
     mem_sec = Some(sec)
     i = next
   }
-  while CustomSec::decode(bytes, i) is Ok((sec, next)) {
+  while Decode::decode(bytes, i) is Ok((sec, next)) {
     custom.push(sec)
     i = next
   }
-  if TagSec::decode(bytes, i) is Ok((sec, next)) {
+  if Decode::decode(bytes, i) is Ok((sec, next)) {
     tag_sec = Some(sec)
     i = next
   }
-  while CustomSec::decode(bytes, i) is Ok((sec, next)) {
+  while Decode::decode(bytes, i) is Ok((sec, next)) {
     custom.push(sec)
     i = next
   }
-  if GlobalSec::decode(bytes, i) is Ok((sec, next)) {
+  if Decode::decode(bytes, i) is Ok((sec, next)) {
     global_sec = Some(sec)
     i = next
   }
-  while CustomSec::decode(bytes, i) is Ok((sec, next)) {
+  while Decode::decode(bytes, i) is Ok((sec, next)) {
     custom.push(sec)
     i = next
   }
-  if ExportSec::decode(bytes, i) is Ok((sec, next)) {
+  if Decode::decode(bytes, i) is Ok((sec, next)) {
     export_sec = Some(sec)
     i = next
   }
-  while CustomSec::decode(bytes, i) is Ok((sec, next)) {
+  while Decode::decode(bytes, i) is Ok((sec, next)) {
     custom.push(sec)
     i = next
   }
-  if StartSec::decode(bytes, i) is Ok((sec, next)) {
+  if Decode::decode(bytes, i) is Ok((sec, next)) {
     start_sec = Some(sec)
     i = next
   }
-  while CustomSec::decode(bytes, i) is Ok((sec, next)) {
+  while Decode::decode(bytes, i) is Ok((sec, next)) {
     custom.push(sec)
     i = next
   }
-  if ElemSec::decode(bytes, i) is Ok((sec, next)) {
+  if Decode::decode(bytes, i) is Ok((sec, next)) {
     elem_sec = Some(sec)
     i = next
   }
-  while CustomSec::decode(bytes, i) is Ok((sec, next)) {
+  while Decode::decode(bytes, i) is Ok((sec, next)) {
     custom.push(sec)
     i = next
   }
-  if DataCntSec::decode(bytes, i) is Ok((sec, next)) {
+  if Decode::decode(bytes, i) is Ok((sec, next)) {
     data_cnt_sec = Some(sec)
     i = next
   }
-  while CustomSec::decode(bytes, i) is Ok((sec, next)) {
+  while Decode::decode(bytes, i) is Ok((sec, next)) {
     custom.push(sec)
     i = next
   }
-  if CodeSec::decode(bytes, i) is Ok((sec, next)) {
+  if Decode::decode(bytes, i) is Ok((sec, next)) {
     code_sec = Some(sec)
     i = next
   }
-  while CustomSec::decode(bytes, i) is Ok((sec, next)) {
+  while Decode::decode(bytes, i) is Ok((sec, next)) {
     custom.push(sec)
     i = next
   }
-  if DataSec::decode(bytes, i) is Ok((sec, next)) {
+  if Decode::decode(bytes, i) is Ok((sec, next)) {
     data_sec = Some(sec)
     i = next
   }
@@ -1676,7 +1753,7 @@ pub impl Decode for Module with decode(bytes, i) {
 pub impl Decode for Elem with decode(bytes, i) {
   match bytes.get(i) {
     Some(0x00) =>
-      match Expr::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((expr, i)) =>
           match Decode::decode(bytes, i) {
             Ok((fidxs, i)) =>
@@ -1695,9 +1772,9 @@ pub impl Decode for Elem with decode(bytes, i) {
         _ => Err("Invalid elem header")
       }
     Some(0x02) =>
-      match TableIdx::decode(bytes, i + 1) {
-        Ok((TableIdx(idx), i)) =>
-          match Expr::decode(bytes, i) {
+      match Decode::decode(bytes, i + 1) {
+        Ok((@lib.TableIdx(idx), i)) =>
+          match Decode::decode(bytes, i) {
             Ok((expr, i)) =>
               match bytes.get(i) {
                 Some(0x00) =>
@@ -1730,7 +1807,7 @@ pub impl Decode for Elem with decode(bytes, i) {
         _ => Err("Invalid elem header")
       }
     Some(0x04) =>
-      match Expr::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((expr, i)) =>
           match Decode::decode(bytes, i) {
             Ok((exprs, i)) =>
@@ -1748,7 +1825,7 @@ pub impl Decode for Elem with decode(bytes, i) {
         Err(t) => Err(t)
       }
     Some(0x05) =>
-      match RefType::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((rt, i)) =>
           match Decode::decode(bytes, i) {
             Ok((exprs, i)) =>
@@ -1758,9 +1835,9 @@ pub impl Decode for Elem with decode(bytes, i) {
         Err(t) => Err(t)
       }
     Some(0x06) =>
-      match TableIdx::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((idx, i)) =>
-          match Expr::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((expr, i)) =>
               match Decode::decode(bytes, i) {
                 Ok((exprs, i)) =>
@@ -1780,7 +1857,7 @@ pub impl Decode for Elem with decode(bytes, i) {
         Err(t) => Err(t)
       }
     Some(0x07) =>
-      match RefType::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((rt, i)) =>
           match Decode::decode(bytes, i) {
             Ok((exprs, i)) =>
@@ -1799,7 +1876,7 @@ pub impl Decode for ElemSec with decode(bytes, i) {
   if bytes.get(i) != Some(9) {
     return Err("Invalid section header")
   }
-  let (U32(len), payload_start) = match U32::decode(bytes, i + 1) {
+  let (@lib.U32(len), payload_start) = match Decode::decode(bytes, i + 1) {
     Ok(t) => t
     Err(t) => return Err(t)
   }
@@ -1824,17 +1901,17 @@ pub impl Decode for DataCntSec with decode(bytes, i) {
   if bytes.get(i) != Some(12) {
     return Err("Invalid section header")
   }
-  match U32::decode(bytes, i + 1) {
-    Ok((U32(count), i)) => Ok((DataCntSec(count), i))
+  match Decode::decode(bytes, i + 1) {
+    Ok((@lib.U32(count), i)) => Ok((DataCntSec(count), i))
     Err(t) => Err(t)
   }
 }
 
 ///|
 pub impl Decode for Locals with decode(bytes, i) {
-  match U32::decode(bytes, i) {
-    Ok((U32(count), i)) =>
-      match ValType::decode(bytes, i) {
+  match Decode::decode(bytes, i) {
+    Ok((@lib.U32(count), i)) =>
+      match Decode::decode(bytes, i) {
         Ok((vt, i)) => Ok((Locals(count, vt), i))
         Err(t) => Err(t)
       }
@@ -1844,11 +1921,11 @@ pub impl Decode for Locals with decode(bytes, i) {
 
 ///|
 pub impl Decode for Func with decode(bytes, i) {
-  match U32::decode(bytes, i) {
-    Ok((U32(_size), i)) => // Read the length prefix first
+  match Decode::decode(bytes, i) {
+    Ok((@lib.U32(_size), i)) => // Read the length prefix first
       match Decode::decode(bytes, i) {
         Ok((locals, i)) =>
-          match Expr::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((expr, i)) => Ok((Func(locals, expr), i))
             Err(t) => Err(t)
           }
@@ -1873,7 +1950,7 @@ pub impl Decode for CodeSec with decode(bytes, i) {
 pub impl Decode for Data with decode(bytes, i) {
   match bytes.get(i) {
     Some(0x00) =>
-      match Expr::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((expr, i)) =>
           match Decode::decode(bytes, i) {
             Ok((bytes, i)) =>
@@ -1888,9 +1965,9 @@ pub impl Decode for Data with decode(bytes, i) {
         Err(t) => Err(t)
       }
     Some(0x02) =>
-      match MemIdx::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((idx, i)) =>
-          match Expr::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((expr, i)) =>
               match Decode::decode(bytes, i) {
                 Ok((bytes, i)) =>
@@ -1911,7 +1988,7 @@ pub impl Decode for DataSec with decode(bytes, i) {
   if bytes.get(i) != Some(11) {
     return Err("Invalid section header")
   }
-  let (U32(len), payload_start) = match U32::decode(bytes, i + 1) {
+  let (@lib.U32(len), payload_start) = match Decode::decode(bytes, i + 1) {
     Ok(t) => t
     Err(t) => return Err(t)
   }
@@ -1936,7 +2013,7 @@ pub impl Decode for CustomSec with decode(bytes, i) {
   if bytes.get(i) != Some(0) {
     return Err("Invalid section header")
   }
-  let (U32(len), i1) = match U32::decode(bytes, i + 1) {
+  let (@lib.U32(len), i1) = match Decode::decode(bytes, i + 1) {
     Ok(t) => t
     Err(t) => return Err(t)
   }
@@ -1946,7 +2023,7 @@ pub impl Decode for CustomSec with decode(bytes, i) {
     return Err("Custom section payload length out of range")
   }
   let view = bytes[i1:end].to_bytes()
-  let (name, j) = match Name::decode(view, 0) {
+  let (name, j) = match Decode::decode(view, 0) {
     Ok(t) => t
     Err(t) => return Err(t)
   }
@@ -1959,7 +2036,7 @@ pub impl Decode for TypeSec with decode(bytes, i) {
   if bytes.get(i) != Some(1) {
     return Err("Invalid section header")
   }
-  let (U32(len), payload_start) = match U32::decode(bytes, i + 1) {
+  let (@lib.U32(len), payload_start) = match Decode::decode(bytes, i + 1) {
     Ok(t) => t
     Err(t) => return Err(t)
   }
@@ -1981,11 +2058,11 @@ pub impl Decode for TypeSec with decode(bytes, i) {
 
 ///|
 pub impl Decode for Import with decode(bytes, i) {
-  match Name::decode(bytes, i) {
+  match Decode::decode(bytes, i) {
     Ok((nm1, i)) =>
-      match Name::decode(bytes, i) {
+      match Decode::decode(bytes, i) {
         Ok((nm2, i)) =>
-          match ExternType::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((et, i)) => Ok((Import(nm1, nm2, et), i))
             Err(t) => Err(t)
           }
@@ -2000,30 +2077,30 @@ pub impl Decode for Limits with decode(bytes, i) {
   match bytes.get(i) {
     None => Err("Index out of bounds")
     Some(0x00) =>
-      match U64::decode(bytes, i + 1) {
-        Ok((U64(n), i)) => Ok((I32Limits(n.to_uint(), None), i))
+      match Decode::decode(bytes, i + 1) {
+        Ok((@lib.U64(n), i)) => Ok((I32Limits(n.to_uint(), None), i))
         Err(t) => Err(t)
       }
     Some(0x01) =>
-      match U64::decode(bytes, i + 1) {
-        Ok((U64(n), i)) =>
-          match U64::decode(bytes, i) {
-            Ok((U64(m), i)) =>
+      match Decode::decode(bytes, i + 1) {
+        Ok((@lib.U64(n), i)) =>
+          match Decode::decode(bytes, i) {
+            Ok((@lib.U64(m), i)) =>
               Ok((I32Limits(n.to_uint(), Some(m.to_uint())), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
       }
     Some(0x04) =>
-      match U64::decode(bytes, i + 1) {
-        Ok((U64(n), i)) => Ok((I64Limits(n, None), i))
+      match Decode::decode(bytes, i + 1) {
+        Ok((@lib.U64(n), i)) => Ok((I64Limits(n, None), i))
         Err(t) => Err(t)
       }
     Some(0x05) =>
-      match U64::decode(bytes, i + 1) {
-        Ok((U64(n), i)) =>
-          match U64::decode(bytes, i) {
-            Ok((U64(m), i)) => Ok((I64Limits(n, Some(m)), i))
+      match Decode::decode(bytes, i + 1) {
+        Ok((@lib.U64(n), i)) =>
+          match Decode::decode(bytes, i) {
+            Ok((@lib.U64(m), i)) => Ok((I64Limits(n, Some(m)), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
@@ -2034,9 +2111,9 @@ pub impl Decode for Limits with decode(bytes, i) {
 
 ///|
 pub impl Decode for TableType with decode(bytes, i) {
-  match RefType::decode(bytes, i) {
+  match Decode::decode(bytes, i) {
     Ok((rt, i)) =>
-      match Limits::decode(bytes, i) {
+      match Decode::decode(bytes, i) {
         Ok((l, i)) => Ok((TableType(rt, l), i))
         Err(t) => Err(t)
       }
@@ -2046,7 +2123,7 @@ pub impl Decode for TableType with decode(bytes, i) {
 
 ///|
 pub impl Decode for MemType with decode(bytes, i) {
-  match Limits::decode(bytes, i) {
+  match Decode::decode(bytes, i) {
     Ok((l, i)) => Ok((MemType(l), i))
     Err(t) => Err(t)
   }
@@ -2054,7 +2131,7 @@ pub impl Decode for MemType with decode(bytes, i) {
 
 ///|
 pub impl Decode for GlobalType with decode(bytes, i) {
-  match ValType::decode(bytes, i) {
+  match Decode::decode(bytes, i) {
     Ok((vt, i)) =>
       match Decode::decode(bytes, i) {
         Ok((m, i)) => Ok((GlobalType(vt, m), i))
@@ -2069,7 +2146,7 @@ pub impl Decode for TagType with decode(bytes, i) {
   if bytes.get(i) != Some(0x00) {
     return Err("Invalid TagType")
   }
-  match TypeIdx::decode(bytes, i + 1) {
+  match Decode::decode(bytes, i + 1) {
     Ok((idx, i)) => Ok((TagType(idx), i))
     Err(t) => Err(t)
   }
@@ -2079,27 +2156,27 @@ pub impl Decode for TagType with decode(bytes, i) {
 pub impl Decode for ExternType with decode(bytes, i) {
   match bytes.get(i) {
     Some(0x00) =>
-      match TypeIdx::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((idx, i)) => Ok((FuncExternType(idx), i))
         Err(t) => Err(t)
       }
     Some(0x01) =>
-      match TableType::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((tt, i)) => Ok((TableExternType(tt), i))
         Err(t) => Err(t)
       }
     Some(0x02) =>
-      match MemType::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((mt, i)) => Ok((MemExternType(mt), i))
         Err(t) => Err(t)
       }
     Some(0x03) =>
-      match GlobalType::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((gt, i)) => Ok((GlobalExternType(gt), i))
         Err(t) => Err(t)
       }
     Some(0x04) =>
-      match TagType::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((tt, i)) => Ok((TagExternType(tt), i))
         Err(t) => Err(t)
       }
@@ -2115,7 +2192,7 @@ pub impl Decode for ImportSec with decode(bytes, i) {
   if bytes.get(i) != Some(2) {
     return Err("Invalid section header")
   }
-  let (U32(len), payload_start) = match U32::decode(bytes, i + 1) {
+  let (@lib.U32(len), payload_start) = match Decode::decode(bytes, i + 1) {
     Ok(t) => t
     Err(t) => return Err(t)
   }
@@ -2140,7 +2217,7 @@ pub impl Decode for FuncSec with decode(bytes, i) {
   if bytes.get(i) != Some(3) {
     return Err("Invalid section header")
   }
-  let (U32(len), payload_start) = match U32::decode(bytes, i + 1) {
+  let (@lib.U32(len), payload_start) = match Decode::decode(bytes, i + 1) {
     Ok(t) => t
     Err(t) => return Err(t)
   }
@@ -2165,10 +2242,10 @@ pub impl Decode for BlockType with decode(bytes, i) {
   if bytes.get(i) is Some(0x40) {
     return Ok((EmptyBlockType, i + 1))
   }
-  if ValType::decode(bytes, i) is Ok((vt, i)) {
+  if Decode::decode(bytes, i) is Ok((vt, i)) {
     return Ok((ValTypeBlockType(vt), i))
   }
-  if S33::decode(bytes, i) is Ok((S33(idx), i)) {
+  if Decode::decode(bytes, i) is Ok((@lib.S33(idx), i)) {
     return Ok((TypeIdxBlockType(TypeIdx(idx)), i))
   }
   Err("Invalid block type")
@@ -2179,7 +2256,7 @@ pub impl Decode for Expr with decode(bytes, i) {
   let a = Array::new()
   let i = loop i {
     i =>
-      match Instruction::decode(bytes, i) {
+      match Decode::decode(bytes, i) {
         Ok((inst, i)) => {
           a.push(inst)
           continue i
@@ -2195,16 +2272,16 @@ pub impl Decode for Expr with decode(bytes, i) {
 pub impl Decode for Table with decode(bytes, i) {
   match (bytes.get(i), bytes.get(i + 1)) {
     (Some(0x40), Some(0x00)) =>
-      match TableType::decode(bytes, i + 2) {
+      match Decode::decode(bytes, i + 2) {
         Ok((tt, i)) =>
-          match Expr::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((e, i)) => Ok((Table(tt, Some(e)), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
       }
     _ =>
-      match TableType::decode(bytes, i) {
+      match Decode::decode(bytes, i) {
         Ok((tt, i)) => Ok((Table(tt, None), i))
         Err(t) => Err(t)
       }
@@ -2213,9 +2290,9 @@ pub impl Decode for Table with decode(bytes, i) {
 
 ///|
 pub impl Decode for Global with decode(bytes, i) {
-  match GlobalType::decode(bytes, i) {
+  match Decode::decode(bytes, i) {
     Ok((gt, i)) =>
-      match Expr::decode(bytes, i) {
+      match Decode::decode(bytes, i) {
         Ok((expr, i)) => Ok((Global(gt, expr), i))
         Err(t) => Err(t)
       }
@@ -2227,27 +2304,27 @@ pub impl Decode for Global with decode(bytes, i) {
 pub impl Decode for ExternIdx with decode(bytes, i) {
   match bytes.get(i) {
     Some(0x00) =>
-      match FuncIdx::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((idx, i)) => Ok((FuncExternIdx(idx), i))
         Err(t) => Err(t)
       }
     Some(0x01) =>
-      match TableIdx::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((idx, i)) => Ok((TableExternIdx(idx), i))
         Err(t) => Err(t)
       }
     Some(0x02) =>
-      match MemIdx::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((idx, i)) => Ok((MemExternIdx(idx), i))
         Err(t) => Err(t)
       }
     Some(0x03) =>
-      match GlobalIdx::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((idx, i)) => Ok((GlobalExternIdx(idx), i))
         Err(t) => Err(t)
       }
     Some(0x04) =>
-      match TagIdx::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((idx, i)) => Ok((TagExternIdx(idx), i))
         Err(t) => Err(t)
       }
@@ -2258,9 +2335,9 @@ pub impl Decode for ExternIdx with decode(bytes, i) {
 
 ///|
 pub impl Decode for Export with decode(bytes, i) {
-  match Name::decode(bytes, i) {
+  match Decode::decode(bytes, i) {
     Ok((n, i)) =>
-      match ExternIdx::decode(bytes, i) {
+      match Decode::decode(bytes, i) {
         Ok((idx, i)) => Ok((Export(n, idx), i))
         Err(t) => Err(t)
       }
@@ -2273,7 +2350,7 @@ pub impl Decode for TableSec with decode(bytes, i) {
   if bytes.get(i) != Some(4) {
     return Err("Invalid section header")
   }
-  let (U32(len), payload_start) = match U32::decode(bytes, i + 1) {
+  let (@lib.U32(len), payload_start) = match Decode::decode(bytes, i + 1) {
     Ok(t) => t
     Err(t) => return Err(t)
   }
@@ -2298,7 +2375,7 @@ pub impl Decode for MemSec with decode(bytes, i) {
   if bytes.get(i) != Some(5) {
     return Err("Invalid section header")
   }
-  let (U32(len), payload_start) = match U32::decode(bytes, i + 1) {
+  let (@lib.U32(len), payload_start) = match Decode::decode(bytes, i + 1) {
     Ok(t) => t
     Err(t) => return Err(t)
   }
@@ -2323,7 +2400,7 @@ pub impl Decode for TagSec with decode(bytes, i) {
   if bytes.get(i) != Some(13) {
     return Err("Invalid section header")
   }
-  let (U32(len), payload_start) = match U32::decode(bytes, i + 1) {
+  let (@lib.U32(len), payload_start) = match Decode::decode(bytes, i + 1) {
     Ok(t) => t
     Err(t) => return Err(t)
   }
@@ -2348,7 +2425,7 @@ pub impl Decode for GlobalSec with decode(bytes, i) {
   if bytes.get(i) != Some(6) {
     return Err("Invalid section header")
   }
-  let (U32(len), payload_start) = match U32::decode(bytes, i + 1) {
+  let (@lib.U32(len), payload_start) = match Decode::decode(bytes, i + 1) {
     Ok(t) => t
     Err(t) => return Err(t)
   }
@@ -2373,7 +2450,7 @@ pub impl Decode for ExportSec with decode(bytes, i) {
   if bytes.get(i) != Some(7) {
     return Err("Invalid section header")
   }
-  let (U32(len), payload_start) = match U32::decode(bytes, i + 1) {
+  let (@lib.U32(len), payload_start) = match Decode::decode(bytes, i + 1) {
     Ok(t) => t
     Err(t) => return Err(t)
   }
@@ -2398,7 +2475,7 @@ pub impl Decode for StartSec with decode(bytes, i) {
   if bytes.get(i) != Some(8) {
     return Err("Invalid section header")
   }
-  match FuncIdx::decode(bytes, i + 1) {
+  match Decode::decode(bytes, i + 1) {
     Err(t) => Err(t)
     Ok((idx, i)) => Ok((StartSec(idx), i))
   }
@@ -2406,9 +2483,9 @@ pub impl Decode for StartSec with decode(bytes, i) {
 
 ///|
 pub impl Decode for Bytes with decode(bytes, i) {
-  match U32::decode(bytes, i) {
+  match Decode::decode(bytes, i) {
     Err(t) => Err(t)
-    Ok((U32(len), i)) if len + i.reinterpret_as_uint() <=
+    Ok((@lib.U32(len), i)) if len + i.reinterpret_as_uint() <=
       bytes.length().reinterpret_as_uint() => {
       let next = i + len.reinterpret_as_int()
       let val = bytes.sub(start=i, end=next).to_bytes()
@@ -2420,7 +2497,7 @@ pub impl Decode for Bytes with decode(bytes, i) {
 
 ///|
 pub impl Encode for Bytes with encode(val, buf) {
-  match U32(val.length().reinterpret_as_uint()).encode(buf) {
+  match Encode::encode(@lib.U32(val.length().reinterpret_as_uint()), buf) {
     Err(err) => return Err(err)
     Ok(_) => ()
   }
@@ -2435,8 +2512,8 @@ pub impl Encode for BlockType with encode(val, buf) {
       buf.write_byte(0x40)
       Ok(())
     }
-    ValTypeBlockType(vt) => vt.encode(buf)
-    TypeIdxBlockType(TypeIdx(idx)) => S33(idx).encode(buf)
+    ValTypeBlockType(vt) => Encode::encode(vt, buf)
+    TypeIdxBlockType(TypeIdx(idx)) => Encode::encode(@lib.S33(idx), buf)
     _ => Err("Cannot encode recursive indexes")
   }
 }
@@ -2444,7 +2521,7 @@ pub impl Encode for BlockType with encode(val, buf) {
 ///|
 pub impl Encode for Expr with encode(val, buf) {
   for i in val.0.iter() {
-    if i.encode(buf) is Err(err) {
+    if Encode::encode(i, buf) is Err(err) {
       return Err(err)
     }
   }
@@ -2457,31 +2534,31 @@ pub impl Encode for Catch with encode(val, buf) {
   match val {
     Catch(t, l) => {
       buf.write_byte(0x00)
-      if t.encode(buf) is Err(t) {
+      if Encode::encode(t, buf) is Err(t) {
         return Err(t)
       }
-      if l.encode(buf) is Err(t) {
+      if Encode::encode(l, buf) is Err(t) {
         return Err(t)
       }
     }
     CatchRef(t, l) => {
       buf.write_byte(0x01)
-      if t.encode(buf) is Err(t) {
+      if Encode::encode(t, buf) is Err(t) {
         return Err(t)
       }
-      if l.encode(buf) is Err(t) {
+      if Encode::encode(l, buf) is Err(t) {
         return Err(t)
       }
     }
     CatchAll(l) => {
       buf.write_byte(0x02)
-      if l.encode(buf) is Err(t) {
+      if Encode::encode(l, buf) is Err(t) {
         return Err(t)
       }
     }
     CatchAllRef(l) => {
       buf.write_byte(0x03)
-      if l.encode(buf) is Err(t) {
+      if Encode::encode(l, buf) is Err(t) {
         return Err(t)
       }
     }
@@ -2493,21 +2570,21 @@ pub impl Encode for Catch with encode(val, buf) {
 pub impl Encode for MemArg with encode(val, buf) {
   match val {
     MemArg(U32(n), Some(i), m) if n < 64 => {
-      if U32(n + 64).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(n + 64), buf) is Err(t) {
         return Err(t)
       }
-      if i.encode(buf) is Err(t) {
+      if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     MemArg(U32(n), None, m) if n < 64 => {
-      if U32(n).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(n), buf) is Err(t) {
         return Err(t)
       }
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
@@ -2519,7 +2596,7 @@ pub impl Encode for MemArg with encode(val, buf) {
 ///|
 fn simd_inst(id : UInt, buf : @buffer.Buffer) -> Result[Unit, String] {
   buf.write_byte(0xFD)
-  if U32(id).encode(buf) is Err(t) {
+  if Encode::encode(@lib.U32(id), buf) is Err(t) {
     return Err(t)
   }
   Ok(())
@@ -2529,30 +2606,30 @@ fn simd_inst(id : UInt, buf : @buffer.Buffer) -> Result[Unit, String] {
 pub impl Decode for Catch with decode(bytes, i) {
   match bytes.get(i) {
     Some(0x00) =>
-      match TagIdx::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((tidx, i)) =>
-          match LabelIdx::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((lidx, i)) => Ok((Catch(tidx, lidx), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
       }
     Some(0x01) =>
-      match TagIdx::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((tidx, i)) =>
-          match LabelIdx::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((lidx, i)) => Ok((CatchRef(tidx, lidx), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
       }
     Some(0x02) =>
-      match LabelIdx::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((idx, i)) => Ok((CatchAll(idx), i))
         Err(t) => Err(t)
       }
     Some(0x03) =>
-      match LabelIdx::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((idx, i)) => Ok((CatchAllRef(idx), i))
         Err(t) => Err(t)
       }
@@ -2573,19 +2650,19 @@ pub impl Decode for CastOp with decode(bytes, i) {
 
 ///|
 pub impl Decode for MemArg with decode(bytes, i) {
-  match U32::decode(bytes, i) {
-    Ok((U32(n), i)) if n >= 64 && n < 128 =>
-      match MemIdx::decode(bytes, i) {
+  match Decode::decode(bytes, i) {
+    Ok((@lib.U32(n), i)) if n >= 64 && n < 128 =>
+      match Decode::decode(bytes, i) {
         Ok((x, i)) =>
-          match U64::decode(bytes, i) {
-            Ok((U64(m), i)) => Ok((MemArg(n - 64, Some(x), m), i))
+          match Decode::decode(bytes, i) {
+            Ok((@lib.U64(m), i)) => Ok((MemArg(n - 64, Some(x), m), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
       }
-    Ok((U32(n), i)) if n < 64 =>
-      match U64::decode(bytes, i) {
-        Ok((U64(m), i)) => Ok((MemArg(n, None, m), i))
+    Ok((@lib.U32(n), i)) if n < 64 =>
+      match Decode::decode(bytes, i) {
+        Ok((@lib.U64(m), i)) => Ok((MemArg(n, None, m), i))
         Err(t) => Err(t)
       }
     Err(t) => Err(t)
@@ -2606,32 +2683,32 @@ pub impl Decode for Instruction with decode(bytes, i) {
         Err(t) => Err(t)
       }
     Some(0x02) =>
-      match BlockType::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((bt, i)) =>
-          match Expr::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((expr, i)) => Ok((Block(bt, expr), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
       }
     Some(0x03) =>
-      match BlockType::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((bt, i)) =>
-          match Expr::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((expr, i)) => Ok((Loop(bt, expr), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
       }
     Some(0x04) =>
-      match BlockType::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((bt, i)) => {
           let (if_inst, i) = loop (i, [], None) {
             (i, if_insts, Some(else_insts)) =>
               match bytes.get(i) {
-                Some(0x0B) => break (If(bt, if_insts, Some(else_insts)), i + 1)
+                Some(0x0B) => break (@lib.If(bt, if_insts, Some(else_insts)), i + 1)
                 _ =>
-                  match Instruction::decode(bytes, i) {
+                  match Decode::decode(bytes, i) {
                     Ok((inst, i)) => {
                       else_insts.push(inst)
                       continue (i, if_insts, Some(else_insts))
@@ -2644,7 +2721,7 @@ pub impl Decode for Instruction with decode(bytes, i) {
                 Some(0x05) => continue (i + 1, if_insts, Some([]))
                 Some(0x0B) => break (If(bt, if_insts, None), i + 1)
                 _ =>
-                  match Instruction::decode(bytes, i) {
+                  match Decode::decode(bytes, i) {
                     Ok((inst, i)) => {
                       if_insts.push(inst)
                       continue (i, if_insts, None)
@@ -2658,25 +2735,25 @@ pub impl Decode for Instruction with decode(bytes, i) {
         Err(t) => Err(t)
       }
     Some(0x08) =>
-      match TagIdx::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((tag, i)) => Ok((Throw(tag), i))
         Err(t) => Err(t)
       }
     Some(0x0A) => Ok((ThrowRef, i + 1))
     Some(0x0C) =>
-      match LabelIdx::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((lbl, i)) => Ok((Br(lbl), i))
         Err(t) => Err(t)
       }
     Some(0x0D) =>
-      match LabelIdx::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((lbl, i)) => Ok((BrIf(lbl), i))
         Err(t) => Err(t)
       }
     Some(0x0E) =>
       match Decode::decode(bytes, i + 1) {
         Ok((lbls, i)) =>
-          match LabelIdx::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((lbl, i)) => Ok((BrTable(lbls, lbl), i))
             Err(t) => Err(t)
           }
@@ -2684,49 +2761,49 @@ pub impl Decode for Instruction with decode(bytes, i) {
       }
     Some(0x0F) => Ok((Return, i + 1))
     Some(0x10) =>
-      match FuncIdx::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((idx, i)) => Ok((Call(idx), i))
         Err(t) => Err(t)
       }
     Some(0x11) =>
-      match TypeIdx::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((tidx, i)) =>
-          match TableIdx::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((tblidx, i)) => Ok((CallIndirect(tidx, tblidx), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
       }
     Some(0x12) =>
-      match FuncIdx::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((idx, i)) => Ok((ReturnCall(idx), i))
         Err(t) => Err(t)
       }
     Some(0x13) =>
-      match TypeIdx::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((tidx, i)) =>
-          match TableIdx::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((tblidx, i)) => Ok((ReturnCallIndirect(tidx, tblidx), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
       }
     Some(0x14) =>
-      match TypeIdx::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((tidx, i)) => Ok((CallRef(tidx), i))
         Err(t) => Err(t)
       }
     Some(0x15) =>
-      match TypeIdx::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((tidx, i)) => Ok((ReturnCallRef(tidx), i))
         Err(t) => Err(t)
       }
     Some(0x1F) =>
-      match BlockType::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((bt, i)) =>
           match Decode::decode(bytes, i) {
             Ok((c, i)) =>
-              match Expr::decode(bytes, i) {
+              match Decode::decode(bytes, i) {
                 Ok((e, i)) => Ok((TryTable(bt, c, e), i))
                 Err(t) => Err(t)
               }
@@ -2735,183 +2812,183 @@ pub impl Decode for Instruction with decode(bytes, i) {
         Err(t) => Err(t)
       }
     Some(0xD5) =>
-      match LabelIdx::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((idx, i)) => Ok((BrOnNull(idx), i))
         Err(t) => Err(t)
       }
     Some(0xD6) =>
-      match LabelIdx::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((idx, i)) => Ok((BrOnNonNull(idx), i))
         Err(t) => Err(t)
       }
     Some(0x20) =>
-      match LocalIdx::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((idx, i)) => Ok((LocalGet(idx), i))
         Err(t) => Err(t)
       }
     Some(0x21) =>
-      match LocalIdx::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((idx, i)) => Ok((LocalSet(idx), i))
         Err(t) => Err(t)
       }
     Some(0x22) =>
-      match LocalIdx::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((idx, i)) => Ok((LocalTee(idx), i))
         Err(t) => Err(t)
       }
     Some(0x23) =>
-      match GlobalIdx::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((idx, i)) => Ok((GlobalGet(idx), i))
         Err(t) => Err(t)
       }
     Some(0x24) =>
-      match GlobalIdx::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((idx, i)) => Ok((GlobalSet(idx), i))
         Err(t) => Err(t)
       }
     Some(0x25) =>
-      match TableIdx::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((idx, i)) => Ok((TableGet(idx), i))
         Err(t) => Err(t)
       }
     Some(0x26) =>
-      match TableIdx::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((idx, i)) => Ok((TableSet(idx), i))
         Err(t) => Err(t)
       }
     Some(0x28) =>
-      match MemArg::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((m, i)) => Ok((I32Load(m), i))
         Err(t) => Err(t)
       }
     Some(0x29) =>
-      match MemArg::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((m, i)) => Ok((I64Load(m), i))
         Err(t) => Err(t)
       }
     Some(0x2A) =>
-      match MemArg::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((m, i)) => Ok((F32Load(m), i))
         Err(t) => Err(t)
       }
     Some(0x2B) =>
-      match MemArg::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((m, i)) => Ok((F64Load(m), i))
         Err(t) => Err(t)
       }
     Some(0x2C) =>
-      match MemArg::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((m, i)) => Ok((I32Load8S(m), i))
         Err(t) => Err(t)
       }
     Some(0x2D) =>
-      match MemArg::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((m, i)) => Ok((I32Load8U(m), i))
         Err(t) => Err(t)
       }
     Some(0x2E) =>
-      match MemArg::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((m, i)) => Ok((I32Load16S(m), i))
         Err(t) => Err(t)
       }
     Some(0x2F) =>
-      match MemArg::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((m, i)) => Ok((I32Load16U(m), i))
         Err(t) => Err(t)
       }
     Some(0x30) =>
-      match MemArg::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((m, i)) => Ok((I64Load8S(m), i))
         Err(t) => Err(t)
       }
     Some(0x31) =>
-      match MemArg::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((m, i)) => Ok((I64Load8U(m), i))
         Err(t) => Err(t)
       }
     Some(0x32) =>
-      match MemArg::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((m, i)) => Ok((I64Load16S(m), i))
         Err(t) => Err(t)
       }
     Some(0x33) =>
-      match MemArg::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((m, i)) => Ok((I64Load16U(m), i))
         Err(t) => Err(t)
       }
     Some(0x34) =>
-      match MemArg::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((m, i)) => Ok((I64Load32S(m), i))
         Err(t) => Err(t)
       }
     Some(0x35) =>
-      match MemArg::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((m, i)) => Ok((I64Load32U(m), i))
         Err(t) => Err(t)
       }
     Some(0x36) =>
-      match MemArg::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((m, i)) => Ok((I32Store(m), i))
         Err(t) => Err(t)
       }
     Some(0x37) =>
-      match MemArg::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((m, i)) => Ok((I64Store(m), i))
         Err(t) => Err(t)
       }
     Some(0x38) =>
-      match MemArg::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((m, i)) => Ok((F32Store(m), i))
         Err(t) => Err(t)
       }
     Some(0x39) =>
-      match MemArg::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((m, i)) => Ok((F64Store(m), i))
         Err(t) => Err(t)
       }
     Some(0x3A) =>
-      match MemArg::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((m, i)) => Ok((I32Store8(m), i))
         Err(t) => Err(t)
       }
     Some(0x3B) =>
-      match MemArg::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((m, i)) => Ok((I32Store16(m), i))
         Err(t) => Err(t)
       }
     Some(0x3C) =>
-      match MemArg::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((m, i)) => Ok((I64Store8(m), i))
         Err(t) => Err(t)
       }
     Some(0x3D) =>
-      match MemArg::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((m, i)) => Ok((I64Store16(m), i))
         Err(t) => Err(t)
       }
     Some(0x3E) =>
-      match MemArg::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((m, i)) => Ok((I64Store32(m), i))
         Err(t) => Err(t)
       }
     Some(0x3F) =>
-      match MemIdx::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((x, i)) => Ok((MemorySize(x), i))
         Err(t) => Err(t)
       }
     Some(0x40) =>
-      match MemIdx::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((x, i)) => Ok((MemoryGrow(x), i))
         Err(t) => Err(t)
       }
     Some(0xD0) =>
-      match HeapType::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((ht, i)) => Ok((RefNull(ht), i))
         Err(t) => Err(t)
       }
     Some(0xD1) => Ok((RefIsNull, i + 1))
     Some(0xD2) =>
-      match FuncIdx::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((x, i)) => Ok((RefFunc(x), i))
         Err(t) => Err(t)
       }
@@ -3046,193 +3123,193 @@ pub impl Decode for Instruction with decode(bytes, i) {
     Some(0xC3) => Ok((I64Extend16S, i + 1))
     Some(0xC4) => Ok((I64Extend32S, i + 1))
     Some(0x41) =>
-      match I32::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((n, i)) => Ok((I32Const(n), i))
         Err(t) => Err(t)
       }
     Some(0x42) =>
-      match I64::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((n, i)) => Ok((I64Const(n), i))
         Err(t) => Err(t)
       }
     Some(0x43) =>
-      match F32::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((n, i)) => Ok((F32Const(n), i))
         Err(t) => Err(t)
       }
     Some(0x44) =>
-      match F64::decode(bytes, i + 1) {
+      match Decode::decode(bytes, i + 1) {
         Ok((n, i)) => Ok((F64Const(n), i))
         Err(t) => Err(t)
       }
 
     // Section: Control Flow/Aggregate 0xFB
     Some(0xFB) =>
-      match U32::decode(bytes, i + 1) {
-        Ok((U32(0), i)) =>
-          match TypeIdx::decode(bytes, i) {
+      match Decode::decode(bytes, i + 1) {
+        Ok((@lib.U32(0), i)) =>
+          match Decode::decode(bytes, i) {
             Ok((x, i)) => Ok((StructNew(x), i))
             Err(t) => Err(t)
           }
-        Ok((U32(1), i)) =>
-          match TypeIdx::decode(bytes, i) {
+        Ok((@lib.U32(1), i)) =>
+          match Decode::decode(bytes, i) {
             Ok((x, i)) => Ok((StructNewDefault(x), i))
             Err(t) => Err(t)
           }
-        Ok((U32(2), i)) =>
-          match TypeIdx::decode(bytes, i) {
+        Ok((@lib.U32(2), i)) =>
+          match Decode::decode(bytes, i) {
             Ok((x, i)) =>
-              match U32::decode(bytes, i) {
+              match Decode::decode(bytes, i) {
                 Ok((n, i)) => Ok((StructGet(x, n), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
           }
-        Ok((U32(3), i)) =>
-          match TypeIdx::decode(bytes, i) {
+        Ok((@lib.U32(3), i)) =>
+          match Decode::decode(bytes, i) {
             Ok((x, i)) =>
-              match U32::decode(bytes, i) {
+              match Decode::decode(bytes, i) {
                 Ok((n, i)) => Ok((StructGetS(x, n), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
           }
-        Ok((U32(4), i)) =>
-          match TypeIdx::decode(bytes, i) {
+        Ok((@lib.U32(4), i)) =>
+          match Decode::decode(bytes, i) {
             Ok((x, i)) =>
-              match U32::decode(bytes, i) {
+              match Decode::decode(bytes, i) {
                 Ok((n, i)) => Ok((StructGetU(x, n), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
           }
-        Ok((U32(5), i)) =>
-          match TypeIdx::decode(bytes, i) {
+        Ok((@lib.U32(5), i)) =>
+          match Decode::decode(bytes, i) {
             Ok((x, i)) =>
-              match U32::decode(bytes, i) {
+              match Decode::decode(bytes, i) {
                 Ok((n, i)) => Ok((StructSet(x, n), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
           }
         Ok((U32(6), i)) =>
-          match TypeIdx::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((x, i)) => Ok((ArrayNew(x), i))
             Err(t) => Err(t)
           }
-        Ok((U32(7), i)) =>
-          match TypeIdx::decode(bytes, i) {
+        Ok((@lib.U32(7), i)) =>
+          match Decode::decode(bytes, i) {
             Ok((x, i)) => Ok((ArrayNewDefault(x), i))
             Err(t) => Err(t)
           }
-        Ok((U32(8), i)) =>
-          match TypeIdx::decode(bytes, i) {
+        Ok((@lib.U32(8), i)) =>
+          match Decode::decode(bytes, i) {
             Ok((x, i)) =>
-              match U32::decode(bytes, i) {
+              match Decode::decode(bytes, i) {
                 Ok((n, i)) => Ok((ArrayNewFixed(x, n), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
           }
-        Ok((U32(9), i)) =>
-          match TypeIdx::decode(bytes, i) {
+        Ok((@lib.U32(9), i)) =>
+          match Decode::decode(bytes, i) {
             Ok((x, i)) =>
-              match DataIdx::decode(bytes, i) {
+              match Decode::decode(bytes, i) {
                 Ok((n, i)) => Ok((ArrayNewData(x, n), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
           }
-        Ok((U32(10), i)) =>
-          match TypeIdx::decode(bytes, i) {
+        Ok((@lib.U32(10), i)) =>
+          match Decode::decode(bytes, i) {
             Ok((x, i)) =>
-              match ElemIdx::decode(bytes, i) {
+              match Decode::decode(bytes, i) {
                 Ok((n, i)) => Ok((ArrayNewElem(x, n), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
           }
-        Ok((U32(11), i)) =>
-          match TypeIdx::decode(bytes, i) {
+        Ok((@lib.U32(11), i)) =>
+          match Decode::decode(bytes, i) {
             Ok((x, i)) => Ok((ArrayGet(x), i))
             Err(t) => Err(t)
           }
-        Ok((U32(12), i)) =>
-          match TypeIdx::decode(bytes, i) {
+        Ok((@lib.U32(12), i)) =>
+          match Decode::decode(bytes, i) {
             Ok((x, i)) => Ok((ArrayGetS(x), i))
             Err(t) => Err(t)
           }
-        Ok((U32(13), i)) =>
-          match TypeIdx::decode(bytes, i) {
+        Ok((@lib.U32(13), i)) =>
+          match Decode::decode(bytes, i) {
             Ok((x, i)) => Ok((ArrayGetU(x), i))
             Err(t) => Err(t)
           }
-        Ok((U32(14), i)) =>
-          match TypeIdx::decode(bytes, i) {
+        Ok((@lib.U32(14), i)) =>
+          match Decode::decode(bytes, i) {
             Ok((x, i)) => Ok((ArraySet(x), i))
             Err(t) => Err(t)
           }
-        Ok((U32(15), i)) => Ok((ArrayLen, i))
-        Ok((U32(16), i)) =>
-          match TypeIdx::decode(bytes, i) {
+        Ok((@lib.U32(15), i)) => Ok((ArrayLen, i))
+        Ok((@lib.U32(16), i)) =>
+          match Decode::decode(bytes, i) {
             Ok((x, i)) => Ok((ArrayFill(x), i))
             Err(t) => Err(t)
           }
-        Ok((U32(17), i)) =>
-          match TypeIdx::decode(bytes, i) {
+        Ok((@lib.U32(17), i)) =>
+          match Decode::decode(bytes, i) {
             Ok((x1, i)) =>
-              match TypeIdx::decode(bytes, i) {
+              match Decode::decode(bytes, i) {
                 Ok((x2, i)) => Ok((ArrayCopy(x1, x2), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
           }
-        Ok((U32(18), i)) =>
-          match TypeIdx::decode(bytes, i) {
+        Ok((@lib.U32(18), i)) =>
+          match Decode::decode(bytes, i) {
             Ok((x1, i)) =>
-              match DataIdx::decode(bytes, i) {
+              match Decode::decode(bytes, i) {
                 Ok((x2, i)) => Ok((ArrayInitData(x1, x2), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
           }
-        Ok((U32(19), i)) =>
-          match TypeIdx::decode(bytes, i) {
+        Ok((@lib.U32(19), i)) =>
+          match Decode::decode(bytes, i) {
             Ok((x1, i)) =>
-              match ElemIdx::decode(bytes, i) {
+              match Decode::decode(bytes, i) {
                 Ok((x2, i)) => Ok((ArrayInitElem(x1, x2), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
           }
-        Ok((U32(20), i)) =>
-          match HeapType::decode(bytes, i) {
+        Ok((@lib.U32(20), i)) =>
+          match Decode::decode(bytes, i) {
             Ok((ht, i)) => Ok((RefTest(false, ht), i))
             Err(t) => Err(t)
           }
-        Ok((U32(21), i)) =>
-          match HeapType::decode(bytes, i) {
+        Ok((@lib.U32(21), i)) =>
+          match Decode::decode(bytes, i) {
             Ok((ht, i)) => Ok((RefTest(true, ht), i))
             Err(t) => Err(t)
           }
-        Ok((U32(22), i)) =>
-          match HeapType::decode(bytes, i) {
+        Ok((@lib.U32(22), i)) =>
+          match Decode::decode(bytes, i) {
             Ok((ht, i)) => Ok((RefCast(false, ht), i))
             Err(t) => Err(t)
           }
-        Ok((U32(23), i)) =>
-          match HeapType::decode(bytes, i) {
+        Ok((@lib.U32(23), i)) =>
+          match Decode::decode(bytes, i) {
             Ok((ht, i)) => Ok((RefCast(true, ht), i))
             Err(t) => Err(t)
           }
         Ok((U32(24), i)) =>
-          match CastOp::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((c, i)) =>
-              match LabelIdx::decode(bytes, i) {
+              match Decode::decode(bytes, i) {
                 Ok((l, i)) =>
-                  match HeapType::decode(bytes, i) {
+                  match Decode::decode(bytes, i) {
                     Ok((ht1, i)) =>
-                      match HeapType::decode(bytes, i) {
+                      match Decode::decode(bytes, i) {
                         Ok((ht2, i)) => Ok((BrOnCast(l, c, ht1, ht2), i))
                         Err(t) => Err(t)
                       }
@@ -3243,13 +3320,13 @@ pub impl Decode for Instruction with decode(bytes, i) {
             Err(t) => Err(t)
           }
         Ok((U32(25), i)) =>
-          match CastOp::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((c, i)) =>
-              match LabelIdx::decode(bytes, i) {
+              match Decode::decode(bytes, i) {
                 Ok((l, i)) =>
-                  match HeapType::decode(bytes, i) {
+                  match Decode::decode(bytes, i) {
                     Ok((ht1, i)) =>
-                      match HeapType::decode(bytes, i) {
+                      match Decode::decode(bytes, i) {
                         Ok((ht2, i)) => Ok((BrOnCastFail(l, c, ht1, ht2), i))
                         Err(t) => Err(t)
                       }
@@ -3270,8 +3347,8 @@ pub impl Decode for Instruction with decode(bytes, i) {
 
     // Section: Memory/Table/Elem
     Some(0xFC) =>
-      match U32::decode(bytes, i + 1) {
-        Ok((U32(0), i)) => Ok((I32TruncSatF32S, i))
+      match Decode::decode(bytes, i + 1) {
+        Ok((@lib.U32(0), i)) => Ok((I32TruncSatF32S, i))
         Ok((U32(1), i)) => Ok((I32TruncSatF32U, i))
         Ok((U32(2), i)) => Ok((I32TruncSatF64S, i))
         Ok((U32(3), i)) => Ok((I32TruncSatF64U, i))
@@ -3280,68 +3357,68 @@ pub impl Decode for Instruction with decode(bytes, i) {
         Ok((U32(6), i)) => Ok((I64TruncSatF64S, i))
         Ok((U32(7), i)) => Ok((I64TruncSatF64U, i))
         Ok((U32(8), i)) =>
-          match DataIdx::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((x, i)) =>
-              match MemIdx::decode(bytes, i) {
+              match Decode::decode(bytes, i) {
                 Ok((y, i)) => Ok((MemoryInit(x, y), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
           }
         Ok((U32(9), i)) =>
-          match DataIdx::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((x, i)) => Ok((DataDrop(x), i))
             Err(t) => Err(t)
           }
         Ok((U32(10), i)) =>
-          match MemIdx::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((x, i)) =>
-              match MemIdx::decode(bytes, i) {
+              match Decode::decode(bytes, i) {
                 Ok((y, i)) => Ok((MemoryCopy(x, y), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
           }
         Ok((U32(11), i)) =>
-          match MemIdx::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((x, i)) => Ok((MemoryFill(x), i))
             Err(t) => Err(t)
           }
         Ok((U32(12), i)) =>
-          match ElemIdx::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((x, i)) =>
-              match TableIdx::decode(bytes, i) {
+              match Decode::decode(bytes, i) {
                 Ok((y, i)) => Ok((TableInit(x, y), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
           }
         Ok((U32(13), i)) =>
-          match ElemIdx::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((y, i)) => Ok((ElemDrop(y), i))
             Err(t) => Err(t)
           }
         Ok((U32(14), i)) =>
-          match TableIdx::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((x, i)) =>
-              match TableIdx::decode(bytes, i) {
+              match Decode::decode(bytes, i) {
                 Ok((y, i)) => Ok((TableCopy(x, y), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
           }
         Ok((U32(15), i)) =>
-          match TableIdx::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((y, i)) => Ok((TableGrow(y), i))
             Err(t) => Err(t)
           }
         Ok((U32(16), i)) =>
-          match TableIdx::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((y, i)) => Ok((TableSize(y), i))
             Err(t) => Err(t)
           }
         Ok((U32(17), i)) =>
-          match TableIdx::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((y, i)) => Ok((TableFill(y), i))
             Err(t) => Err(t)
           }
@@ -3351,64 +3428,64 @@ pub impl Decode for Instruction with decode(bytes, i) {
 
     // Section: Vector
     Some(0xFD) =>
-      match U32::decode(bytes, i + 1) {
-        Ok((U32(0), i)) =>
-          match MemArg::decode(bytes, i) {
+      match Decode::decode(bytes, i + 1) {
+        Ok((@lib.U32(0), i)) =>
+          match Decode::decode(bytes, i) {
             Ok((m, i)) => Ok((V128Load(m), i))
             Err(t) => Err(t)
           }
         Ok((U32(1), i)) =>
-          match MemArg::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((m, i)) => Ok((V128Load8x8S(m), i))
             Err(t) => Err(t)
           }
         Ok((U32(2), i)) =>
-          match MemArg::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((m, i)) => Ok((V128Load8x8U(m), i))
             Err(t) => Err(t)
           }
         Ok((U32(3), i)) =>
-          match MemArg::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((m, i)) => Ok((V128Load16x4S(m), i))
             Err(t) => Err(t)
           }
         Ok((U32(4), i)) =>
-          match MemArg::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((m, i)) => Ok((V128Load16x4U(m), i))
             Err(t) => Err(t)
           }
         Ok((U32(5), i)) =>
-          match MemArg::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((m, i)) => Ok((V128Load32x2S(m), i))
             Err(t) => Err(t)
           }
         Ok((U32(6), i)) =>
-          match MemArg::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((m, i)) => Ok((V128Load32x2U(m), i))
             Err(t) => Err(t)
           }
         Ok((U32(7), i)) =>
-          match MemArg::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((m, i)) => Ok((V128Load8Splat(m), i))
             Err(t) => Err(t)
           }
         Ok((U32(8), i)) =>
-          match MemArg::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((m, i)) => Ok((V128Load16Splat(m), i))
             Err(t) => Err(t)
           }
         Ok((U32(9), i)) =>
-          match MemArg::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((m, i)) => Ok((V128Load32Splat(m), i))
             Err(t) => Err(t)
           }
         Ok((U32(10), i)) =>
-          match MemArg::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((m, i)) => Ok((V128Load64Splat(m), i))
             Err(t) => Err(t)
           }
         Ok((U32(11), i)) =>
-          match MemArg::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((m, i)) => Ok((V128Store(m), i))
             Err(t) => Err(t)
           }
@@ -3442,51 +3519,51 @@ pub impl Decode for Instruction with decode(bytes, i) {
             Err("Invalid Instruction")
           }
         Ok((U32(13), i)) =>
-          match LaneIdx::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((l0, i)) =>
-              match LaneIdx::decode(bytes, i) {
+              match Decode::decode(bytes, i) {
                 Ok((l1, i)) =>
-                  match LaneIdx::decode(bytes, i) {
+                  match Decode::decode(bytes, i) {
                     Ok((l2, i)) =>
-                      match LaneIdx::decode(bytes, i) {
+                      match Decode::decode(bytes, i) {
                         Ok((l3, i)) =>
-                          match LaneIdx::decode(bytes, i) {
+                          match Decode::decode(bytes, i) {
                             Ok((l4, i)) =>
-                              match LaneIdx::decode(bytes, i) {
+                              match Decode::decode(bytes, i) {
                                 Ok((l5, i)) =>
-                                  match LaneIdx::decode(bytes, i) {
+                                  match Decode::decode(bytes, i) {
                                     Ok((l6, i)) =>
-                                      match LaneIdx::decode(bytes, i) {
+                                      match Decode::decode(bytes, i) {
                                         Ok((l7, i)) =>
-                                          match LaneIdx::decode(bytes, i) {
+                                          match Decode::decode(bytes, i) {
                                             Ok((l8, i)) =>
-                                              match LaneIdx::decode(bytes, i) {
+                                              match Decode::decode(bytes, i) {
                                                 Ok((l9, i)) =>
                                                   match
-                                                    LaneIdx::decode(bytes, i) {
+                                                    Decode::decode(bytes, i) {
                                                     Ok((l10, i)) =>
                                                       match
-                                                        LaneIdx::decode(
+                                                        Decode::decode(
                                                           bytes, i,
                                                         ) {
                                                         Ok((l11, i)) =>
                                                           match
-                                                            LaneIdx::decode(
+                                                            Decode::decode(
                                                               bytes, i,
                                                             ) {
                                                             Ok((l12, i)) =>
                                                               match
-                                                                LaneIdx::decode(
+                                                                Decode::decode(
                                                                   bytes, i,
                                                                 ) {
                                                                 Ok((l13, i)) =>
                                                                   match
-                                                                    LaneIdx::decode(
+                                                                    Decode::decode(
                                                                       bytes, i,
                                                                     ) {
                                                                     Ok((l14, i)) =>
                                                                       match
-                                                                        LaneIdx::decode(
+                                                                        Decode::decode(
                                                                           bytes,
                                                                           i,
                                                                         ) {
@@ -3553,373 +3630,373 @@ pub impl Decode for Instruction with decode(bytes, i) {
               }
             Err(t) => Err(t)
           }
-        Ok((U32(14), i)) => Ok((I8x16Swizzle, i))
-        Ok((U32(15), i)) => Ok((I8x16Splat, i))
-        Ok((U32(16), i)) => Ok((I16x8Splat, i))
-        Ok((U32(17), i)) => Ok((I32x4Splat, i))
-        Ok((U32(18), i)) => Ok((I64x2Splat, i))
-        Ok((U32(19), i)) => Ok((F32x4Splat, i))
-        Ok((U32(20), i)) => Ok((F64x2Splat, i))
-        Ok((U32(35), i)) => Ok((I8x16Eq, i))
-        Ok((U32(36), i)) => Ok((I8x16Ne, i))
-        Ok((U32(37), i)) => Ok((I8x16LtS, i))
-        Ok((U32(38), i)) => Ok((I8x16LtU, i))
-        Ok((U32(39), i)) => Ok((I8x16GtS, i))
-        Ok((U32(40), i)) => Ok((I8x16GtU, i))
-        Ok((U32(41), i)) => Ok((I8x16LeS, i))
-        Ok((U32(42), i)) => Ok((I8x16LeU, i))
-        Ok((U32(43), i)) => Ok((I8x16GeS, i))
-        Ok((U32(44), i)) => Ok((I8x16GeU, i))
-        Ok((U32(45), i)) => Ok((I16x8Eq, i))
-        Ok((U32(46), i)) => Ok((I16x8Ne, i))
-        Ok((U32(47), i)) => Ok((I16x8LtS, i))
-        Ok((U32(48), i)) => Ok((I16x8LtU, i))
-        Ok((U32(49), i)) => Ok((I16x8GtS, i))
-        Ok((U32(50), i)) => Ok((I16x8GtU, i))
-        Ok((U32(51), i)) => Ok((I16x8LeS, i))
-        Ok((U32(52), i)) => Ok((I16x8LeU, i))
-        Ok((U32(53), i)) => Ok((I16x8GeS, i))
-        Ok((U32(54), i)) => Ok((I16x8GeU, i))
-        Ok((U32(55), i)) => Ok((I32x4Eq, i))
-        Ok((U32(56), i)) => Ok((I32x4Ne, i))
-        Ok((U32(57), i)) => Ok((I32x4LtS, i))
-        Ok((U32(58), i)) => Ok((I32x4LtU, i))
-        Ok((U32(59), i)) => Ok((I32x4GtS, i))
-        Ok((U32(60), i)) => Ok((I32x4GtU, i))
-        Ok((U32(61), i)) => Ok((I32x4LeS, i))
-        Ok((U32(62), i)) => Ok((I32x4LeU, i))
-        Ok((U32(63), i)) => Ok((I32x4GeS, i))
-        Ok((U32(64), i)) => Ok((I32x4GeU, i))
-        Ok((U32(65), i)) => Ok((F32x4Eq, i))
-        Ok((U32(66), i)) => Ok((F32x4Ne, i))
-        Ok((U32(67), i)) => Ok((F32x4Lt, i))
-        Ok((U32(68), i)) => Ok((F32x4Gt, i))
-        Ok((U32(69), i)) => Ok((F32x4Le, i))
-        Ok((U32(70), i)) => Ok((F32x4Ge, i))
-        Ok((U32(71), i)) => Ok((F64x2Eq, i))
-        Ok((U32(72), i)) => Ok((F64x2Ne, i))
-        Ok((U32(73), i)) => Ok((F64x2Lt, i))
-        Ok((U32(74), i)) => Ok((F64x2Gt, i))
-        Ok((U32(75), i)) => Ok((F64x2Le, i))
-        Ok((U32(76), i)) => Ok((F64x2Ge, i))
-        Ok((U32(77), i)) => Ok((V128Not, i))
-        Ok((U32(78), i)) => Ok((V128And, i))
-        Ok((U32(79), i)) => Ok((V128Andnot, i))
-        Ok((U32(80), i)) => Ok((V128Or, i))
-        Ok((U32(81), i)) => Ok((V128Xor, i))
-        Ok((U32(82), i)) => Ok((V128Bitselect, i))
-        Ok((U32(83), i)) => Ok((V128AnyTrue, i))
-        Ok((U32(94), i)) => Ok((F32x4DemoteF64x2Zero, i))
-        Ok((U32(95), i)) => Ok((F64x2PromoteLowF32x4, i))
-        Ok((U32(96), i)) => Ok((I8x16Abs, i))
-        Ok((U32(97), i)) => Ok((I8x16Neg, i))
-        Ok((U32(98), i)) => Ok((I8x16Popcnt, i))
-        Ok((U32(99), i)) => Ok((I8x16AllTrue, i))
-        Ok((U32(100), i)) => Ok((I8x16Bitmask, i))
-        Ok((U32(101), i)) => Ok((I8x16NarrowI16x8S, i))
-        Ok((U32(102), i)) => Ok((I8x16NarrowI16x8U, i))
-        Ok((U32(103), i)) => Ok((F32x4Ceil, i))
-        Ok((U32(104), i)) => Ok((F32x4Floor, i))
-        Ok((U32(105), i)) => Ok((F32x4Trunc, i))
-        Ok((U32(106), i)) => Ok((F32x4Nearest, i))
-        Ok((U32(107), i)) => Ok((I8x16Shl, i))
-        Ok((U32(108), i)) => Ok((I8x16ShrS, i))
-        Ok((U32(109), i)) => Ok((I8x16ShrU, i))
-        Ok((U32(110), i)) => Ok((I8x16Add, i))
-        Ok((U32(111), i)) => Ok((I8x16AddSatS, i))
-        Ok((U32(112), i)) => Ok((I8x16AddSatU, i))
-        Ok((U32(113), i)) => Ok((I8x16Sub, i))
-        Ok((U32(114), i)) => Ok((I8x16SubSatS, i))
-        Ok((U32(115), i)) => Ok((I8x16SubSatU, i))
-        Ok((U32(116), i)) => Ok((F64x2Ceil, i))
-        Ok((U32(117), i)) => Ok((F64x2Floor, i))
-        Ok((U32(118), i)) => Ok((I8x16MinS, i))
-        Ok((U32(119), i)) => Ok((I8x16MinU, i))
-        Ok((U32(120), i)) => Ok((I8x16MaxS, i))
-        Ok((U32(121), i)) => Ok((I8x16MaxU, i))
-        Ok((U32(122), i)) => Ok((F64x2Trunc, i))
-        Ok((U32(123), i)) => Ok((I8x16AvgrU, i))
-        Ok((U32(124), i)) => Ok((I16x8ExtaddPairwiseI8x16S, i))
-        Ok((U32(125), i)) => Ok((I16x8ExtaddPairwiseI8x16U, i))
-        Ok((U32(126), i)) => Ok((I32x4ExtaddPairwiseI16x8S, i))
-        Ok((U32(127), i)) => Ok((I32x4ExtaddPairwiseI16x8U, i))
-        Ok((U32(128), i)) => Ok((I16x8Abs, i))
-        Ok((U32(129), i)) => Ok((I16x8Neg, i))
-        Ok((U32(130), i)) => Ok((I16x8Q15mulrSatS, i))
-        Ok((U32(131), i)) => Ok((I16x8AllTrue, i))
-        Ok((U32(132), i)) => Ok((I16x8Bitmask, i))
-        Ok((U32(133), i)) => Ok((I16x8NarrowI32x4S, i))
-        Ok((U32(134), i)) => Ok((I16x8NarrowI32x4U, i))
-        Ok((U32(135), i)) => Ok((I16x8ExtendLowI8x16S, i))
-        Ok((U32(136), i)) => Ok((I16x8ExtendHighI8x16S, i))
-        Ok((U32(137), i)) => Ok((I16x8ExtendLowI8x16U, i))
-        Ok((U32(138), i)) => Ok((I16x8ExtendHighI8x16U, i))
-        Ok((U32(139), i)) => Ok((I16x8Shl, i))
-        Ok((U32(140), i)) => Ok((I16x8ShrS, i))
-        Ok((U32(141), i)) => Ok((I16x8ShrU, i))
-        Ok((U32(142), i)) => Ok((I16x8Add, i))
-        Ok((U32(143), i)) => Ok((I16x8AddSatS, i))
-        Ok((U32(144), i)) => Ok((I16x8AddSatU, i))
-        Ok((U32(145), i)) => Ok((I16x8Sub, i))
-        Ok((U32(146), i)) => Ok((I16x8SubSatS, i))
-        Ok((U32(147), i)) => Ok((I16x8SubSatU, i))
-        Ok((U32(148), i)) => Ok((F64x2Nearest, i))
-        Ok((U32(149), i)) => Ok((I16x8Mul, i))
-        Ok((U32(150), i)) => Ok((I16x8MinS, i))
-        Ok((U32(151), i)) => Ok((I16x8MinU, i))
-        Ok((U32(152), i)) => Ok((I16x8MaxS, i))
-        Ok((U32(153), i)) => Ok((I16x8MaxU, i))
-        Ok((U32(155), i)) => Ok((I16x8AvgrU, i))
-        Ok((U32(156), i)) => Ok((I16x8ExtmulLowI8x16S, i))
-        Ok((U32(157), i)) => Ok((I16x8ExtmulHighI8x16S, i))
-        Ok((U32(158), i)) => Ok((I16x8ExtmulLowI8x16U, i))
-        Ok((U32(159), i)) => Ok((I16x8ExtmulHighI8x16U, i))
-        Ok((U32(160), i)) => Ok((I32x4Abs, i))
-        Ok((U32(161), i)) => Ok((I32x4Neg, i))
-        Ok((U32(163), i)) => Ok((I32x4AllTrue, i))
-        Ok((U32(164), i)) => Ok((I32x4Bitmask, i))
-        Ok((U32(167), i)) => Ok((I32x4ExtendLowI16x8S, i))
-        Ok((U32(168), i)) => Ok((I32x4ExtendHighI16x8S, i))
-        Ok((U32(169), i)) => Ok((I32x4ExtendLowI16x8U, i))
-        Ok((U32(170), i)) => Ok((I32x4ExtendHighI16x8U, i))
-        Ok((U32(171), i)) => Ok((I32x4Shl, i))
-        Ok((U32(172), i)) => Ok((I32x4ShrS, i))
-        Ok((U32(173), i)) => Ok((I32x4ShrU, i))
-        Ok((U32(174), i)) => Ok((I32x4Add, i))
-        Ok((U32(177), i)) => Ok((I32x4Sub, i))
-        Ok((U32(181), i)) => Ok((I32x4Mul, i))
-        Ok((U32(182), i)) => Ok((I32x4MinS, i))
-        Ok((U32(183), i)) => Ok((I32x4MinU, i))
-        Ok((U32(184), i)) => Ok((I32x4MaxS, i))
-        Ok((U32(185), i)) => Ok((I32x4MaxU, i))
-        Ok((U32(186), i)) => Ok((I32x4DotI16x8S, i))
-        Ok((U32(188), i)) => Ok((I32x4ExtmulLowI16x8S, i))
-        Ok((U32(189), i)) => Ok((I32x4ExtmulHighI16x8S, i))
-        Ok((U32(190), i)) => Ok((I32x4ExtmulLowI16x8U, i))
-        Ok((U32(191), i)) => Ok((I32x4ExtmulHighI16x8U, i))
-        Ok((U32(192), i)) => Ok((I64x2Abs, i))
-        Ok((U32(193), i)) => Ok((I64x2Neg, i))
-        Ok((U32(195), i)) => Ok((I64x2AllTrue, i))
-        Ok((U32(196), i)) => Ok((I64x2Bitmask, i))
-        Ok((U32(199), i)) => Ok((I64x2ExtendLowI32x4S, i))
-        Ok((U32(200), i)) => Ok((I64x2ExtendHighI32x4S, i))
-        Ok((U32(201), i)) => Ok((I64x2ExtendLowI32x4U, i))
-        Ok((U32(202), i)) => Ok((I64x2ExtendHighI32x4U, i))
-        Ok((U32(203), i)) => Ok((I64x2Shl, i))
-        Ok((U32(204), i)) => Ok((I64x2ShrS, i))
-        Ok((U32(205), i)) => Ok((I64x2ShrU, i))
-        Ok((U32(206), i)) => Ok((I64x2Add, i))
-        Ok((U32(209), i)) => Ok((I64x2Sub, i))
-        Ok((U32(213), i)) => Ok((I64x2Mul, i))
-        Ok((U32(214), i)) => Ok((I64x2Eq, i))
-        Ok((U32(215), i)) => Ok((I64x2Ne, i))
-        Ok((U32(216), i)) => Ok((I64x2LtS, i))
-        Ok((U32(217), i)) => Ok((I64x2GtS, i))
-        Ok((U32(218), i)) => Ok((I64x2LeS, i))
-        Ok((U32(219), i)) => Ok((I64x2GeS, i))
-        Ok((U32(220), i)) => Ok((I64x2ExtmulLowI32x4S, i))
-        Ok((U32(221), i)) => Ok((I64x2ExtmulHighI32x4S, i))
-        Ok((U32(222), i)) => Ok((I64x2ExtmulLowI32x4U, i))
-        Ok((U32(223), i)) => Ok((I64x2ExtmulHighI32x4U, i))
-        Ok((U32(224), i)) => Ok((F32x4Abs, i))
-        Ok((U32(225), i)) => Ok((F32x4Neg, i))
-        Ok((U32(227), i)) => Ok((F32x4Sqrt, i))
-        Ok((U32(228), i)) => Ok((F32x4Add, i))
-        Ok((U32(229), i)) => Ok((F32x4Sub, i))
-        Ok((U32(230), i)) => Ok((F32x4Mul, i))
-        Ok((U32(231), i)) => Ok((F32x4Div, i))
-        Ok((U32(232), i)) => Ok((F32x4Min, i))
-        Ok((U32(233), i)) => Ok((F32x4Max, i))
-        Ok((U32(234), i)) => Ok((F32x4Pmin, i))
-        Ok((U32(235), i)) => Ok((F32x4Pmax, i))
-        Ok((U32(236), i)) => Ok((F64x2Abs, i))
-        Ok((U32(237), i)) => Ok((F64x2Neg, i))
-        Ok((U32(239), i)) => Ok((F64x2Sqrt, i))
-        Ok((U32(240), i)) => Ok((F64x2Add, i))
-        Ok((U32(241), i)) => Ok((F64x2Sub, i))
-        Ok((U32(242), i)) => Ok((F64x2Mul, i))
-        Ok((U32(243), i)) => Ok((F64x2Div, i))
-        Ok((U32(244), i)) => Ok((F64x2Min, i))
-        Ok((U32(245), i)) => Ok((F64x2Max, i))
-        Ok((U32(246), i)) => Ok((F64x2Pmin, i))
-        Ok((U32(247), i)) => Ok((F64x2Pmax, i))
-        Ok((U32(248), i)) => Ok((I32x4TruncSatF32x4S, i))
-        Ok((U32(249), i)) => Ok((I32x4TruncSatF32x4U, i))
-        Ok((U32(250), i)) => Ok((F32x4ConvertI32x4S, i))
-        Ok((U32(251), i)) => Ok((F32x4ConvertI32x4U, i))
-        Ok((U32(252), i)) => Ok((I32x4TruncSatF64x2SZero, i))
-        Ok((U32(253), i)) => Ok((I32x4TruncSatF64x2UZero, i))
-        Ok((U32(254), i)) => Ok((F64x2ConvertLowI32x4S, i))
-        Ok((U32(255), i)) => Ok((F64x2ConvertLowI32x4U, i))
-        Ok((U32(256), i)) => Ok((I8x16RelaxedSwizzle, i))
-        Ok((U32(257), i)) => Ok((I32x4RelaxedTruncF32x4S, i))
-        Ok((U32(258), i)) => Ok((I32x4RelaxedTruncF32x4U, i))
-        Ok((U32(259), i)) => Ok((I32x4RelaxedTruncZeroF64x2S, i))
-        Ok((U32(260), i)) => Ok((I32x4RelaxedTruncZeroF64x2U, i))
-        Ok((U32(261), i)) => Ok((F32x4RelaxedMadd, i))
-        Ok((U32(262), i)) => Ok((F32x4RelaxedNmadd, i))
-        Ok((U32(263), i)) => Ok((F64x2RelaxedMadd, i))
-        Ok((U32(264), i)) => Ok((F64x2RelaxedNmadd, i))
-        Ok((U32(265), i)) => Ok((I8x16RelaxedLaneselect, i))
-        Ok((U32(266), i)) => Ok((I16x8RelaxedLaneselect, i))
-        Ok((U32(267), i)) => Ok((I32x4RelaxedLaneselect, i))
-        Ok((U32(268), i)) => Ok((I64x2RelaxedLaneselect, i))
-        Ok((U32(269), i)) => Ok((F32x4RelaxedMin, i))
-        Ok((U32(270), i)) => Ok((F32x4RelaxedMax, i))
-        Ok((U32(271), i)) => Ok((F64x2RelaxedMin, i))
-        Ok((U32(272), i)) => Ok((F64x2RelaxedMax, i))
-        Ok((U32(273), i)) => Ok((I16x8RelaxedQ15mulrS, i))
-        Ok((U32(274), i)) => Ok((I16x8RelaxedDotI8x16I7x16S, i))
-        Ok((U32(275), i)) => Ok((I32x4RelaxedDotI8x16I7x16AddS, i))
-        Ok((U32(21), i)) =>
-          match LaneIdx::decode(bytes, i) {
+        Ok((@lib.U32(14), i)) => Ok((I8x16Swizzle, i))
+        Ok((@lib.U32(15), i)) => Ok((I8x16Splat, i))
+        Ok((@lib.U32(16), i)) => Ok((I16x8Splat, i))
+        Ok((@lib.U32(17), i)) => Ok((I32x4Splat, i))
+        Ok((@lib.U32(18), i)) => Ok((I64x2Splat, i))
+        Ok((@lib.U32(19), i)) => Ok((F32x4Splat, i))
+        Ok((@lib.U32(20), i)) => Ok((F64x2Splat, i))
+        Ok((@lib.U32(35), i)) => Ok((I8x16Eq, i))
+        Ok((@lib.U32(36), i)) => Ok((I8x16Ne, i))
+        Ok((@lib.U32(37), i)) => Ok((I8x16LtS, i))
+        Ok((@lib.U32(38), i)) => Ok((I8x16LtU, i))
+        Ok((@lib.U32(39), i)) => Ok((I8x16GtS, i))
+        Ok((@lib.U32(40), i)) => Ok((I8x16GtU, i))
+        Ok((@lib.U32(41), i)) => Ok((I8x16LeS, i))
+        Ok((@lib.U32(42), i)) => Ok((I8x16LeU, i))
+        Ok((@lib.U32(43), i)) => Ok((I8x16GeS, i))
+        Ok((@lib.U32(44), i)) => Ok((I8x16GeU, i))
+        Ok((@lib.U32(45), i)) => Ok((I16x8Eq, i))
+        Ok((@lib.U32(46), i)) => Ok((I16x8Ne, i))
+        Ok((@lib.U32(47), i)) => Ok((I16x8LtS, i))
+        Ok((@lib.U32(48), i)) => Ok((I16x8LtU, i))
+        Ok((@lib.U32(49), i)) => Ok((I16x8GtS, i))
+        Ok((@lib.U32(50), i)) => Ok((I16x8GtU, i))
+        Ok((@lib.U32(51), i)) => Ok((I16x8LeS, i))
+        Ok((@lib.U32(52), i)) => Ok((I16x8LeU, i))
+        Ok((@lib.U32(53), i)) => Ok((I16x8GeS, i))
+        Ok((@lib.U32(54), i)) => Ok((I16x8GeU, i))
+        Ok((@lib.U32(55), i)) => Ok((I32x4Eq, i))
+        Ok((@lib.U32(56), i)) => Ok((I32x4Ne, i))
+        Ok((@lib.U32(57), i)) => Ok((I32x4LtS, i))
+        Ok((@lib.U32(58), i)) => Ok((I32x4LtU, i))
+        Ok((@lib.U32(59), i)) => Ok((I32x4GtS, i))
+        Ok((@lib.U32(60), i)) => Ok((I32x4GtU, i))
+        Ok((@lib.U32(61), i)) => Ok((I32x4LeS, i))
+        Ok((@lib.U32(62), i)) => Ok((I32x4LeU, i))
+        Ok((@lib.U32(63), i)) => Ok((I32x4GeS, i))
+        Ok((@lib.U32(64), i)) => Ok((I32x4GeU, i))
+        Ok((@lib.U32(65), i)) => Ok((F32x4Eq, i))
+        Ok((@lib.U32(66), i)) => Ok((F32x4Ne, i))
+        Ok((@lib.U32(67), i)) => Ok((F32x4Lt, i))
+        Ok((@lib.U32(68), i)) => Ok((F32x4Gt, i))
+        Ok((@lib.U32(69), i)) => Ok((F32x4Le, i))
+        Ok((@lib.U32(70), i)) => Ok((F32x4Ge, i))
+        Ok((@lib.U32(71), i)) => Ok((F64x2Eq, i))
+        Ok((@lib.U32(72), i)) => Ok((F64x2Ne, i))
+        Ok((@lib.U32(73), i)) => Ok((F64x2Lt, i))
+        Ok((@lib.U32(74), i)) => Ok((F64x2Gt, i))
+        Ok((@lib.U32(75), i)) => Ok((F64x2Le, i))
+        Ok((@lib.U32(76), i)) => Ok((F64x2Ge, i))
+        Ok((@lib.U32(77), i)) => Ok((V128Not, i))
+        Ok((@lib.U32(78), i)) => Ok((V128And, i))
+        Ok((@lib.U32(79), i)) => Ok((V128Andnot, i))
+        Ok((@lib.U32(80), i)) => Ok((V128Or, i))
+        Ok((@lib.U32(81), i)) => Ok((V128Xor, i))
+        Ok((@lib.U32(82), i)) => Ok((V128Bitselect, i))
+        Ok((@lib.U32(83), i)) => Ok((V128AnyTrue, i))
+        Ok((@lib.U32(94), i)) => Ok((F32x4DemoteF64x2Zero, i))
+        Ok((@lib.U32(95), i)) => Ok((F64x2PromoteLowF32x4, i))
+        Ok((@lib.U32(96), i)) => Ok((I8x16Abs, i))
+        Ok((@lib.U32(97), i)) => Ok((I8x16Neg, i))
+        Ok((@lib.U32(98), i)) => Ok((I8x16Popcnt, i))
+        Ok((@lib.U32(99), i)) => Ok((I8x16AllTrue, i))
+        Ok((@lib.U32(100), i)) => Ok((I8x16Bitmask, i))
+        Ok((@lib.U32(101), i)) => Ok((I8x16NarrowI16x8S, i))
+        Ok((@lib.U32(102), i)) => Ok((I8x16NarrowI16x8U, i))
+        Ok((@lib.U32(103), i)) => Ok((F32x4Ceil, i))
+        Ok((@lib.U32(104), i)) => Ok((F32x4Floor, i))
+        Ok((@lib.U32(105), i)) => Ok((F32x4Trunc, i))
+        Ok((@lib.U32(106), i)) => Ok((F32x4Nearest, i))
+        Ok((@lib.U32(107), i)) => Ok((I8x16Shl, i))
+        Ok((@lib.U32(108), i)) => Ok((I8x16ShrS, i))
+        Ok((@lib.U32(109), i)) => Ok((I8x16ShrU, i))
+        Ok((@lib.U32(110), i)) => Ok((I8x16Add, i))
+        Ok((@lib.U32(111), i)) => Ok((I8x16AddSatS, i))
+        Ok((@lib.U32(112), i)) => Ok((I8x16AddSatU, i))
+        Ok((@lib.U32(113), i)) => Ok((I8x16Sub, i))
+        Ok((@lib.U32(114), i)) => Ok((I8x16SubSatS, i))
+        Ok((@lib.U32(115), i)) => Ok((I8x16SubSatU, i))
+        Ok((@lib.U32(116), i)) => Ok((F64x2Ceil, i))
+        Ok((@lib.U32(117), i)) => Ok((F64x2Floor, i))
+        Ok((@lib.U32(118), i)) => Ok((I8x16MinS, i))
+        Ok((@lib.U32(119), i)) => Ok((I8x16MinU, i))
+        Ok((@lib.U32(120), i)) => Ok((I8x16MaxS, i))
+        Ok((@lib.U32(121), i)) => Ok((I8x16MaxU, i))
+        Ok((@lib.U32(122), i)) => Ok((F64x2Trunc, i))
+        Ok((@lib.U32(123), i)) => Ok((I8x16AvgrU, i))
+        Ok((@lib.U32(124), i)) => Ok((I16x8ExtaddPairwiseI8x16S, i))
+        Ok((@lib.U32(125), i)) => Ok((I16x8ExtaddPairwiseI8x16U, i))
+        Ok((@lib.U32(126), i)) => Ok((I32x4ExtaddPairwiseI16x8S, i))
+        Ok((@lib.U32(127), i)) => Ok((I32x4ExtaddPairwiseI16x8U, i))
+        Ok((@lib.U32(128), i)) => Ok((I16x8Abs, i))
+        Ok((@lib.U32(129), i)) => Ok((I16x8Neg, i))
+        Ok((@lib.U32(130), i)) => Ok((I16x8Q15mulrSatS, i))
+        Ok((@lib.U32(131), i)) => Ok((I16x8AllTrue, i))
+        Ok((@lib.U32(132), i)) => Ok((I16x8Bitmask, i))
+        Ok((@lib.U32(133), i)) => Ok((I16x8NarrowI32x4S, i))
+        Ok((@lib.U32(134), i)) => Ok((I16x8NarrowI32x4U, i))
+        Ok((@lib.U32(135), i)) => Ok((I16x8ExtendLowI8x16S, i))
+        Ok((@lib.U32(136), i)) => Ok((I16x8ExtendHighI8x16S, i))
+        Ok((@lib.U32(137), i)) => Ok((I16x8ExtendLowI8x16U, i))
+        Ok((@lib.U32(138), i)) => Ok((I16x8ExtendHighI8x16U, i))
+        Ok((@lib.U32(139), i)) => Ok((I16x8Shl, i))
+        Ok((@lib.U32(140), i)) => Ok((I16x8ShrS, i))
+        Ok((@lib.U32(141), i)) => Ok((I16x8ShrU, i))
+        Ok((@lib.U32(142), i)) => Ok((I16x8Add, i))
+        Ok((@lib.U32(143), i)) => Ok((I16x8AddSatS, i))
+        Ok((@lib.U32(144), i)) => Ok((I16x8AddSatU, i))
+        Ok((@lib.U32(145), i)) => Ok((I16x8Sub, i))
+        Ok((@lib.U32(146), i)) => Ok((I16x8SubSatS, i))
+        Ok((@lib.U32(147), i)) => Ok((I16x8SubSatU, i))
+        Ok((@lib.U32(148), i)) => Ok((F64x2Nearest, i))
+        Ok((@lib.U32(149), i)) => Ok((I16x8Mul, i))
+        Ok((@lib.U32(150), i)) => Ok((I16x8MinS, i))
+        Ok((@lib.U32(151), i)) => Ok((I16x8MinU, i))
+        Ok((@lib.U32(152), i)) => Ok((I16x8MaxS, i))
+        Ok((@lib.U32(153), i)) => Ok((I16x8MaxU, i))
+        Ok((@lib.U32(155), i)) => Ok((I16x8AvgrU, i))
+        Ok((@lib.U32(156), i)) => Ok((I16x8ExtmulLowI8x16S, i))
+        Ok((@lib.U32(157), i)) => Ok((I16x8ExtmulHighI8x16S, i))
+        Ok((@lib.U32(158), i)) => Ok((I16x8ExtmulLowI8x16U, i))
+        Ok((@lib.U32(159), i)) => Ok((I16x8ExtmulHighI8x16U, i))
+        Ok((@lib.U32(160), i)) => Ok((I32x4Abs, i))
+        Ok((@lib.U32(161), i)) => Ok((I32x4Neg, i))
+        Ok((@lib.U32(163), i)) => Ok((I32x4AllTrue, i))
+        Ok((@lib.U32(164), i)) => Ok((I32x4Bitmask, i))
+        Ok((@lib.U32(167), i)) => Ok((I32x4ExtendLowI16x8S, i))
+        Ok((@lib.U32(168), i)) => Ok((I32x4ExtendHighI16x8S, i))
+        Ok((@lib.U32(169), i)) => Ok((I32x4ExtendLowI16x8U, i))
+        Ok((@lib.U32(170), i)) => Ok((I32x4ExtendHighI16x8U, i))
+        Ok((@lib.U32(171), i)) => Ok((I32x4Shl, i))
+        Ok((@lib.U32(172), i)) => Ok((I32x4ShrS, i))
+        Ok((@lib.U32(173), i)) => Ok((I32x4ShrU, i))
+        Ok((@lib.U32(174), i)) => Ok((I32x4Add, i))
+        Ok((@lib.U32(177), i)) => Ok((I32x4Sub, i))
+        Ok((@lib.U32(181), i)) => Ok((I32x4Mul, i))
+        Ok((@lib.U32(182), i)) => Ok((I32x4MinS, i))
+        Ok((@lib.U32(183), i)) => Ok((I32x4MinU, i))
+        Ok((@lib.U32(184), i)) => Ok((I32x4MaxS, i))
+        Ok((@lib.U32(185), i)) => Ok((I32x4MaxU, i))
+        Ok((@lib.U32(186), i)) => Ok((I32x4DotI16x8S, i))
+        Ok((@lib.U32(188), i)) => Ok((I32x4ExtmulLowI16x8S, i))
+        Ok((@lib.U32(189), i)) => Ok((I32x4ExtmulHighI16x8S, i))
+        Ok((@lib.U32(190), i)) => Ok((I32x4ExtmulLowI16x8U, i))
+        Ok((@lib.U32(191), i)) => Ok((I32x4ExtmulHighI16x8U, i))
+        Ok((@lib.U32(192), i)) => Ok((I64x2Abs, i))
+        Ok((@lib.U32(193), i)) => Ok((I64x2Neg, i))
+        Ok((@lib.U32(195), i)) => Ok((I64x2AllTrue, i))
+        Ok((@lib.U32(196), i)) => Ok((I64x2Bitmask, i))
+        Ok((@lib.U32(199), i)) => Ok((I64x2ExtendLowI32x4S, i))
+        Ok((@lib.U32(200), i)) => Ok((I64x2ExtendHighI32x4S, i))
+        Ok((@lib.U32(201), i)) => Ok((I64x2ExtendLowI32x4U, i))
+        Ok((@lib.U32(202), i)) => Ok((I64x2ExtendHighI32x4U, i))
+        Ok((@lib.U32(203), i)) => Ok((I64x2Shl, i))
+        Ok((@lib.U32(204), i)) => Ok((I64x2ShrS, i))
+        Ok((@lib.U32(205), i)) => Ok((I64x2ShrU, i))
+        Ok((@lib.U32(206), i)) => Ok((I64x2Add, i))
+        Ok((@lib.U32(209), i)) => Ok((I64x2Sub, i))
+        Ok((@lib.U32(213), i)) => Ok((I64x2Mul, i))
+        Ok((@lib.U32(214), i)) => Ok((I64x2Eq, i))
+        Ok((@lib.U32(215), i)) => Ok((I64x2Ne, i))
+        Ok((@lib.U32(216), i)) => Ok((I64x2LtS, i))
+        Ok((@lib.U32(217), i)) => Ok((I64x2GtS, i))
+        Ok((@lib.U32(218), i)) => Ok((I64x2LeS, i))
+        Ok((@lib.U32(219), i)) => Ok((I64x2GeS, i))
+        Ok((@lib.U32(220), i)) => Ok((I64x2ExtmulLowI32x4S, i))
+        Ok((@lib.U32(221), i)) => Ok((I64x2ExtmulHighI32x4S, i))
+        Ok((@lib.U32(222), i)) => Ok((I64x2ExtmulLowI32x4U, i))
+        Ok((@lib.U32(223), i)) => Ok((I64x2ExtmulHighI32x4U, i))
+        Ok((@lib.U32(224), i)) => Ok((F32x4Abs, i))
+        Ok((@lib.U32(225), i)) => Ok((F32x4Neg, i))
+        Ok((@lib.U32(227), i)) => Ok((F32x4Sqrt, i))
+        Ok((@lib.U32(228), i)) => Ok((F32x4Add, i))
+        Ok((@lib.U32(229), i)) => Ok((F32x4Sub, i))
+        Ok((@lib.U32(230), i)) => Ok((F32x4Mul, i))
+        Ok((@lib.U32(231), i)) => Ok((F32x4Div, i))
+        Ok((@lib.U32(232), i)) => Ok((F32x4Min, i))
+        Ok((@lib.U32(233), i)) => Ok((F32x4Max, i))
+        Ok((@lib.U32(234), i)) => Ok((F32x4Pmin, i))
+        Ok((@lib.U32(235), i)) => Ok((F32x4Pmax, i))
+        Ok((@lib.U32(236), i)) => Ok((F64x2Abs, i))
+        Ok((@lib.U32(237), i)) => Ok((F64x2Neg, i))
+        Ok((@lib.U32(239), i)) => Ok((F64x2Sqrt, i))
+        Ok((@lib.U32(240), i)) => Ok((F64x2Add, i))
+        Ok((@lib.U32(241), i)) => Ok((F64x2Sub, i))
+        Ok((@lib.U32(242), i)) => Ok((F64x2Mul, i))
+        Ok((@lib.U32(243), i)) => Ok((F64x2Div, i))
+        Ok((@lib.U32(244), i)) => Ok((F64x2Min, i))
+        Ok((@lib.U32(245), i)) => Ok((F64x2Max, i))
+        Ok((@lib.U32(246), i)) => Ok((F64x2Pmin, i))
+        Ok((@lib.U32(247), i)) => Ok((F64x2Pmax, i))
+        Ok((@lib.U32(248), i)) => Ok((I32x4TruncSatF32x4S, i))
+        Ok((@lib.U32(249), i)) => Ok((I32x4TruncSatF32x4U, i))
+        Ok((@lib.U32(250), i)) => Ok((F32x4ConvertI32x4S, i))
+        Ok((@lib.U32(251), i)) => Ok((F32x4ConvertI32x4U, i))
+        Ok((@lib.U32(252), i)) => Ok((I32x4TruncSatF64x2SZero, i))
+        Ok((@lib.U32(253), i)) => Ok((I32x4TruncSatF64x2UZero, i))
+        Ok((@lib.U32(254), i)) => Ok((F64x2ConvertLowI32x4S, i))
+        Ok((@lib.U32(255), i)) => Ok((F64x2ConvertLowI32x4U, i))
+        Ok((@lib.U32(256), i)) => Ok((I8x16RelaxedSwizzle, i))
+        Ok((@lib.U32(257), i)) => Ok((I32x4RelaxedTruncF32x4S, i))
+        Ok((@lib.U32(258), i)) => Ok((I32x4RelaxedTruncF32x4U, i))
+        Ok((@lib.U32(259), i)) => Ok((I32x4RelaxedTruncZeroF64x2S, i))
+        Ok((@lib.U32(260), i)) => Ok((I32x4RelaxedTruncZeroF64x2U, i))
+        Ok((@lib.U32(261), i)) => Ok((F32x4RelaxedMadd, i))
+        Ok((@lib.U32(262), i)) => Ok((F32x4RelaxedNmadd, i))
+        Ok((@lib.U32(263), i)) => Ok((F64x2RelaxedMadd, i))
+        Ok((@lib.U32(264), i)) => Ok((F64x2RelaxedNmadd, i))
+        Ok((@lib.U32(265), i)) => Ok((I8x16RelaxedLaneselect, i))
+        Ok((@lib.U32(266), i)) => Ok((I16x8RelaxedLaneselect, i))
+        Ok((@lib.U32(267), i)) => Ok((I32x4RelaxedLaneselect, i))
+        Ok((@lib.U32(268), i)) => Ok((I64x2RelaxedLaneselect, i))
+        Ok((@lib.U32(269), i)) => Ok((F32x4RelaxedMin, i))
+        Ok((@lib.U32(270), i)) => Ok((F32x4RelaxedMax, i))
+        Ok((@lib.U32(271), i)) => Ok((F64x2RelaxedMin, i))
+        Ok((@lib.U32(272), i)) => Ok((F64x2RelaxedMax, i))
+        Ok((@lib.U32(273), i)) => Ok((I16x8RelaxedQ15mulrS, i))
+        Ok((@lib.U32(274), i)) => Ok((I16x8RelaxedDotI8x16I7x16S, i))
+        Ok((@lib.U32(275), i)) => Ok((I32x4RelaxedDotI8x16I7x16AddS, i))
+        Ok((@lib.U32(21), i)) =>
+          match Decode::decode(bytes, i) {
             Ok((l, i)) => Ok((I8x16ExtractLaneS(l), i))
             Err(t) => Err(t)
           }
         Ok((U32(22), i)) =>
-          match LaneIdx::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((l, i)) => Ok((I8x16ExtractLaneU(l), i))
             Err(t) => Err(t)
           }
         Ok((U32(23), i)) =>
-          match LaneIdx::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((l, i)) => Ok((I8x16ReplaceLane(l), i))
             Err(t) => Err(t)
           }
         Ok((U32(24), i)) =>
-          match LaneIdx::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((l, i)) => Ok((I16x8ExtractLaneS(l), i))
             Err(t) => Err(t)
           }
         Ok((U32(25), i)) =>
-          match LaneIdx::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((l, i)) => Ok((I16x8ExtractLaneU(l), i))
             Err(t) => Err(t)
           }
         Ok((U32(26), i)) =>
-          match LaneIdx::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((l, i)) => Ok((I16x8ReplaceLane(l), i))
             Err(t) => Err(t)
           }
         Ok((U32(27), i)) =>
-          match LaneIdx::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((l, i)) => Ok((I32x4ExtractLane(l), i))
             Err(t) => Err(t)
           }
         Ok((U32(28), i)) =>
-          match LaneIdx::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((l, i)) => Ok((I32x4ReplaceLane(l), i))
             Err(t) => Err(t)
           }
         Ok((U32(29), i)) =>
-          match LaneIdx::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((l, i)) => Ok((I64x2ExtractLane(l), i))
             Err(t) => Err(t)
           }
         Ok((U32(30), i)) =>
-          match LaneIdx::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((l, i)) => Ok((I64x2ReplaceLane(l), i))
             Err(t) => Err(t)
           }
         Ok((U32(31), i)) =>
-          match LaneIdx::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((l, i)) => Ok((F32x4ExtractLane(l), i))
             Err(t) => Err(t)
           }
         Ok((U32(32), i)) =>
-          match LaneIdx::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((l, i)) => Ok((F32x4ReplaceLane(l), i))
             Err(t) => Err(t)
           }
         Ok((U32(33), i)) =>
-          match LaneIdx::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((l, i)) => Ok((F64x2ExtractLane(l), i))
             Err(t) => Err(t)
           }
         Ok((U32(34), i)) =>
-          match LaneIdx::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((l, i)) => Ok((F64x2ReplaceLane(l), i))
             Err(t) => Err(t)
           }
         Ok((U32(84), i)) =>
-          match MemArg::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((m, i)) =>
-              match LaneIdx::decode(bytes, i) {
+              match Decode::decode(bytes, i) {
                 Ok((l, i)) => Ok((V128Load8Lane(m, l), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
           }
         Ok((U32(85), i)) =>
-          match MemArg::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((m, i)) =>
-              match LaneIdx::decode(bytes, i) {
+              match Decode::decode(bytes, i) {
                 Ok((l, i)) => Ok((V128Load16Lane(m, l), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
           }
         Ok((U32(86), i)) =>
-          match MemArg::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((m, i)) =>
-              match LaneIdx::decode(bytes, i) {
+              match Decode::decode(bytes, i) {
                 Ok((l, i)) => Ok((V128Load32Lane(m, l), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
           }
         Ok((U32(87), i)) =>
-          match MemArg::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((m, i)) =>
-              match LaneIdx::decode(bytes, i) {
+              match Decode::decode(bytes, i) {
                 Ok((l, i)) => Ok((V128Load64Lane(m, l), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
           }
         Ok((U32(88), i)) =>
-          match MemArg::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((m, i)) =>
-              match LaneIdx::decode(bytes, i) {
+              match Decode::decode(bytes, i) {
                 Ok((l, i)) => Ok((V128Store8Lane(m, l), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
           }
         Ok((U32(89), i)) =>
-          match MemArg::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((m, i)) =>
-              match LaneIdx::decode(bytes, i) {
+              match Decode::decode(bytes, i) {
                 Ok((l, i)) => Ok((V128Store16Lane(m, l), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
           }
         Ok((U32(90), i)) =>
-          match MemArg::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((m, i)) =>
-              match LaneIdx::decode(bytes, i) {
+              match Decode::decode(bytes, i) {
                 Ok((l, i)) => Ok((V128Store32Lane(m, l), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
           }
         Ok((U32(91), i)) =>
-          match MemArg::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((m, i)) =>
-              match LaneIdx::decode(bytes, i) {
+              match Decode::decode(bytes, i) {
                 Ok((l, i)) => Ok((V128Store64Lane(m, l), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
           }
         Ok((U32(92), i)) =>
-          match MemArg::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((m, i)) => Ok((V128Load32Zero(m), i))
             Err(t) => Err(t)
           }
         Ok((U32(93), i)) =>
-          match MemArg::decode(bytes, i) {
+          match Decode::decode(bytes, i) {
             Ok((m, i)) => Ok((V128Load64Zero(m), i))
             Err(t) => Err(t)
           }
@@ -3937,36 +4014,36 @@ pub impl Encode for Instruction with encode(val, buf) {
     Nop => buf.write_byte(0x01)
     Block(bt, i) => {
       buf.write_byte(0x02)
-      if bt.encode(buf) is Err(t) {
+      if Encode::encode(bt, buf) is Err(t) {
         return Err(t)
       }
-      if i.encode(buf) is Err(t) {
+      if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
     }
     Loop(bt, i) => {
       buf.write_byte(0x03)
-      if bt.encode(buf) is Err(t) {
+      if Encode::encode(bt, buf) is Err(t) {
         return Err(t)
       }
-      if i.encode(buf) is Err(t) {
+      if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
     }
     If(bt, if_block, else_block) => {
       buf.write_byte(0x04)
-      if bt.encode(buf) is Err(t) {
+      if Encode::encode(bt, buf) is Err(t) {
         return Err(t)
       }
       for i in if_block.iter() {
-        if i.encode(buf) is Err(t) {
+        if Encode::encode(i, buf) is Err(t) {
           return Err(t)
         }
       }
       if else_block is Some(else_block) {
         buf.write_byte(0x05)
         for i in else_block.iter() {
-          if i.encode(buf) is Err(t) {
+          if Encode::encode(i, buf) is Err(t) {
             return Err(t)
           }
         }
@@ -3975,20 +4052,20 @@ pub impl Encode for Instruction with encode(val, buf) {
     }
     Throw(t) => {
       buf.write_byte(0x08)
-      if t.encode(buf) is Err(t) {
+      if Encode::encode(t, buf) is Err(t) {
         return Err(t)
       }
     }
     ThrowRef => buf.write_byte(0x0A)
     Br(i) => {
       buf.write_byte(0x0C)
-      if i.encode(buf) is Err(t) {
+      if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
     }
     BrIf(i) => {
       buf.write_byte(0x0D)
-      if i.encode(buf) is Err(t) {
+      if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
     }
@@ -3997,50 +4074,50 @@ pub impl Encode for Instruction with encode(val, buf) {
       if Encode::encode(ls, buf) is Err(t) {
         return Err(t)
       }
-      if i.encode(buf) is Err(t) {
+      if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
     }
     Return => buf.write_byte(0x0F)
     Call(i) => {
       buf.write_byte(0x10)
-      if i.encode(buf) is Err(t) {
+      if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
     }
     CallIndirect(ty, ta) => {
       buf.write_byte(0x11)
-      if ty.encode(buf) is Err(t) {
+      if Encode::encode(ty, buf) is Err(t) {
         return Err(t)
       }
-      if ta.encode(buf) is Err(t) {
+      if Encode::encode(ta, buf) is Err(t) {
         return Err(t)
       }
     }
     ReturnCall(f) => {
       buf.write_byte(0x12)
-      if f.encode(buf) is Err(t) {
+      if Encode::encode(f, buf) is Err(t) {
         return Err(t)
       }
     }
     ReturnCallIndirect(ty, ta) => {
       buf.write_byte(0x13)
-      if ty.encode(buf) is Err(t) {
+      if Encode::encode(ty, buf) is Err(t) {
         return Err(t)
       }
-      if ta.encode(buf) is Err(t) {
+      if Encode::encode(ta, buf) is Err(t) {
         return Err(t)
       }
     }
     CallRef(t) => {
       buf.write_byte(0x14)
-      if t.encode(buf) is Err(t) {
+      if Encode::encode(t, buf) is Err(t) {
         return Err(t)
       }
     }
     ReturnCallRef(t) => {
       buf.write_byte(0x15)
-      if t.encode(buf) is Err(t) {
+      if Encode::encode(t, buf) is Err(t) {
         return Err(t)
       }
     }
@@ -4054,229 +4131,229 @@ pub impl Encode for Instruction with encode(val, buf) {
     }
     TryTable(bt, c, e) => {
       buf.write_byte(0x1F)
-      if bt.encode(buf) is Err(t) {
+      if Encode::encode(bt, buf) is Err(t) {
         return Err(t)
       }
       if Encode::encode(c, buf) is Err(t) {
         return Err(t)
       }
-      if e.encode(buf) is Err(t) {
+      if Encode::encode(e, buf) is Err(t) {
         return Err(t)
       }
     }
     LocalGet(l) => {
       buf.write_byte(0x20)
-      if l.encode(buf) is Err(t) {
+      if Encode::encode(l, buf) is Err(t) {
         return Err(t)
       }
     }
     LocalSet(l) => {
       buf.write_byte(0x21)
-      if l.encode(buf) is Err(t) {
+      if Encode::encode(l, buf) is Err(t) {
         return Err(t)
       }
     }
     LocalTee(l) => {
       buf.write_byte(0x22)
-      if l.encode(buf) is Err(t) {
+      if Encode::encode(l, buf) is Err(t) {
         return Err(t)
       }
     }
     GlobalGet(g) => {
       buf.write_byte(0x23)
-      if g.encode(buf) is Err(t) {
+      if Encode::encode(g, buf) is Err(t) {
         return Err(t)
       }
     }
     GlobalSet(g) => {
       buf.write_byte(0x24)
-      if g.encode(buf) is Err(t) {
+      if Encode::encode(g, buf) is Err(t) {
         return Err(t)
       }
     }
     TableGet(i) => {
       buf.write_byte(0x25)
-      if i.encode(buf) is Err(t) {
+      if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
     }
     TableSet(i) => {
       buf.write_byte(0x26)
-      if i.encode(buf) is Err(t) {
+      if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
     }
     I32Load(m) => {
       buf.write_byte(0x28)
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     I64Load(m) => {
       buf.write_byte(0x29)
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     F32Load(m) => {
       buf.write_byte(0x2A)
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     F64Load(m) => {
       buf.write_byte(0x2B)
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     I32Load8S(m) => {
       buf.write_byte(0x2C)
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     I32Load8U(m) => {
       buf.write_byte(0x2D)
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     I32Load16S(m) => {
       buf.write_byte(0x2E)
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     I32Load16U(m) => {
       buf.write_byte(0x2F)
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     I64Load8S(m) => {
       buf.write_byte(0x30)
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     I64Load8U(m) => {
       buf.write_byte(0x31)
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     I64Load16S(m) => {
       buf.write_byte(0x32)
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     I64Load16U(m) => {
       buf.write_byte(0x33)
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     I64Load32S(m) => {
       buf.write_byte(0x34)
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     I64Load32U(m) => {
       buf.write_byte(0x35)
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     I32Store(m) => {
       buf.write_byte(0x36)
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     I64Store(m) => {
       buf.write_byte(0x37)
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     F32Store(m) => {
       buf.write_byte(0x38)
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     F64Store(m) => {
       buf.write_byte(0x39)
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     I32Store8(m) => {
       buf.write_byte(0x3A)
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     I32Store16(m) => {
       buf.write_byte(0x3B)
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     I64Store8(m) => {
       buf.write_byte(0x3C)
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     I64Store16(m) => {
       buf.write_byte(0x3D)
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     I64Store32(m) => {
       buf.write_byte(0x3E)
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     MemorySize(m) => {
       buf.write_byte(0x3F)
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     MemoryGrow(m) => {
       buf.write_byte(0x40)
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     I32Const(c) => {
       buf.write_byte(0x41)
-      if c.encode(buf) is Err(t) {
+      if Encode::encode(c, buf) is Err(t) {
         return Err(t)
       }
     }
     I64Const(c) => {
       buf.write_byte(0x42)
-      if c.encode(buf) is Err(t) {
+      if Encode::encode(c, buf) is Err(t) {
         return Err(t)
       }
     }
     F32Const(c) => {
       buf.write_byte(0x43)
-      if c.encode(buf) is Err(t) {
+      if Encode::encode(c, buf) is Err(t) {
         return Err(t)
       }
     }
     F64Const(c) => {
       buf.write_byte(0x44)
-      if c.encode(buf) is Err(t) {
+      if Encode::encode(c, buf) is Err(t) {
         return Err(t)
       }
     }
@@ -4410,14 +4487,14 @@ pub impl Encode for Instruction with encode(val, buf) {
     I64Extend32S => buf.write_byte(0xC4)
     RefNull(ht) => {
       buf.write_byte(0xD0)
-      if ht.encode(buf) is Err(t) {
+      if Encode::encode(ht, buf) is Err(t) {
         return Err(t)
       }
     }
     RefIsNull => buf.write_byte(0xD1)
     RefFunc(i) => {
       buf.write_byte(0xD2)
-      if i.encode(buf) is Err(t) {
+      if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
     }
@@ -4425,322 +4502,322 @@ pub impl Encode for Instruction with encode(val, buf) {
     RefAsNonNull => buf.write_byte(0xD4)
     BrOnNull(i) => {
       buf.write_byte(0xD5)
-      if i.encode(buf) is Err(t) {
+      if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
     }
     BrOnNonNull(i) => {
       buf.write_byte(0xD6)
-      if i.encode(buf) is Err(t) {
+      if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
     }
     StructNew(i) => {
       buf.write_byte(0xFB)
-      if U32(0).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(0), buf) is Err(t) {
         return Err(t)
       }
-      if i.encode(buf) is Err(t) {
+      if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
     }
     StructNewDefault(i) => {
       buf.write_byte(0xFB)
-      if U32(1).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(1), buf) is Err(t) {
         return Err(t)
       }
-      if i.encode(buf) is Err(t) {
+      if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
     }
     StructGet(i, idx) => {
       buf.write_byte(0xFB)
-      if U32(2).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(2), buf) is Err(t) {
         return Err(t)
       }
-      if i.encode(buf) is Err(t) {
+      if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
-      if idx.encode(buf) is Err(t) {
+      if Encode::encode(idx, buf) is Err(t) {
         return Err(t)
       }
     }
     StructGetS(i, idx) => {
       buf.write_byte(0xFB)
-      if U32(3).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(3), buf) is Err(t) {
         return Err(t)
       }
-      if i.encode(buf) is Err(t) {
+      if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
-      if idx.encode(buf) is Err(t) {
+      if Encode::encode(idx, buf) is Err(t) {
         return Err(t)
       }
     }
     StructGetU(i, idx) => {
       buf.write_byte(0xFB)
-      if U32(4).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(4), buf) is Err(t) {
         return Err(t)
       }
-      if i.encode(buf) is Err(t) {
+      if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
-      if idx.encode(buf) is Err(t) {
+      if Encode::encode(idx, buf) is Err(t) {
         return Err(t)
       }
     }
     StructSet(i, idx) => {
       buf.write_byte(0xFB)
-      if U32(5).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(5), buf) is Err(t) {
         return Err(t)
       }
-      if i.encode(buf) is Err(t) {
+      if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
-      if idx.encode(buf) is Err(t) {
+      if Encode::encode(idx, buf) is Err(t) {
         return Err(t)
       }
     }
     ArrayNew(i) => {
       buf.write_byte(0xFB)
-      if U32(6).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(6), buf) is Err(t) {
         return Err(t)
       }
-      if i.encode(buf) is Err(t) {
+      if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
     }
     ArrayNewDefault(i) => {
       buf.write_byte(0xFB)
-      if U32(7).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(7), buf) is Err(t) {
         return Err(t)
       }
-      if i.encode(buf) is Err(t) {
+      if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
     }
     ArrayNewFixed(i, n) => {
       buf.write_byte(0xFB)
-      if U32(8).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(8), buf) is Err(t) {
         return Err(t)
       }
-      if i.encode(buf) is Err(t) {
+      if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
-      if n.encode(buf) is Err(t) {
+      if Encode::encode(n, buf) is Err(t) {
         return Err(t)
       }
     }
     ArrayNewData(i, idx) => {
       buf.write_byte(0xFB)
-      if U32(9).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(9), buf) is Err(t) {
         return Err(t)
       }
-      if i.encode(buf) is Err(t) {
+      if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
-      if idx.encode(buf) is Err(t) {
+      if Encode::encode(idx, buf) is Err(t) {
         return Err(t)
       }
     }
     ArrayNewElem(i, idx) => {
       buf.write_byte(0xFB)
-      if U32(10).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(10), buf) is Err(t) {
         return Err(t)
       }
-      if i.encode(buf) is Err(t) {
+      if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
-      if idx.encode(buf) is Err(t) {
+      if Encode::encode(idx, buf) is Err(t) {
         return Err(t)
       }
     }
     ArrayGet(i) => {
       buf.write_byte(0xFB)
-      if U32(11).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(11), buf) is Err(t) {
         return Err(t)
       }
-      if i.encode(buf) is Err(t) {
+      if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
     }
     ArrayGetS(i) => {
       buf.write_byte(0xFB)
-      if U32(12).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(12), buf) is Err(t) {
         return Err(t)
       }
-      if i.encode(buf) is Err(t) {
+      if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
     }
     ArrayGetU(i) => {
       buf.write_byte(0xFB)
-      if U32(13).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(13), buf) is Err(t) {
         return Err(t)
       }
-      if i.encode(buf) is Err(t) {
+      if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
     }
     ArraySet(i) => {
       buf.write_byte(0xFB)
-      if U32(14).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(14), buf) is Err(t) {
         return Err(t)
       }
-      if i.encode(buf) is Err(t) {
+      if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
     }
     ArrayLen => {
       buf.write_byte(0xFB)
-      if U32(15).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(15), buf) is Err(t) {
         return Err(t)
       }
     }
     ArrayFill(i) => {
       buf.write_byte(0xFB)
-      if U32(16).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(16), buf) is Err(t) {
         return Err(t)
       }
-      if i.encode(buf) is Err(t) {
+      if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
     }
     ArrayCopy(x0, x1) => {
       buf.write_byte(0xFB)
-      if U32(17).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(17), buf) is Err(t) {
         return Err(t)
       }
-      if x0.encode(buf) is Err(t) {
+      if Encode::encode(x0, buf) is Err(t) {
         return Err(t)
       }
-      if x1.encode(buf) is Err(t) {
+      if Encode::encode(x1, buf) is Err(t) {
         return Err(t)
       }
     }
     ArrayInitData(x, y) => {
       buf.write_byte(0xFB)
-      if U32(18).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(18), buf) is Err(t) {
         return Err(t)
       }
-      if x.encode(buf) is Err(t) {
+      if Encode::encode(x, buf) is Err(t) {
         return Err(t)
       }
-      if y.encode(buf) is Err(t) {
+      if Encode::encode(y, buf) is Err(t) {
         return Err(t)
       }
     }
     ArrayInitElem(x, y) => {
       buf.write_byte(0xFB)
-      if U32(19).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(19), buf) is Err(t) {
         return Err(t)
       }
-      if x.encode(buf) is Err(t) {
+      if Encode::encode(x, buf) is Err(t) {
         return Err(t)
       }
-      if y.encode(buf) is Err(t) {
+      if Encode::encode(y, buf) is Err(t) {
         return Err(t)
       }
     }
     RefTest(false, ht) => {
       buf.write_byte(0xFB)
-      if U32(20).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(20), buf) is Err(t) {
         return Err(t)
       }
-      if ht.encode(buf) is Err(t) {
+      if Encode::encode(ht, buf) is Err(t) {
         return Err(t)
       }
     }
     RefTest(true, ht) => {
       buf.write_byte(0xFB)
-      if U32(21).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(21), buf) is Err(t) {
         return Err(t)
       }
-      if ht.encode(buf) is Err(t) {
+      if Encode::encode(ht, buf) is Err(t) {
         return Err(t)
       }
     }
     RefCast(false, ht) => {
       buf.write_byte(0xFB)
-      if U32(22).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(22), buf) is Err(t) {
         return Err(t)
       }
-      if ht.encode(buf) is Err(t) {
+      if Encode::encode(ht, buf) is Err(t) {
         return Err(t)
       }
     }
     RefCast(true, ht) => {
       buf.write_byte(0xFB)
-      if U32(23).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(23), buf) is Err(t) {
         return Err(t)
       }
-      if ht.encode(buf) is Err(t) {
+      if Encode::encode(ht, buf) is Err(t) {
         return Err(t)
       }
     }
     BrOnCast(l, castop, ht0, ht1) => {
       buf.write_byte(0xFB)
-      if U32(24).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(24), buf) is Err(t) {
         return Err(t)
       }
-      if castop.encode(buf) is Err(t) {
+      if Encode::encode(castop, buf) is Err(t) {
         return Err(t)
       }
-      if l.encode(buf) is Err(t) {
+      if Encode::encode(l, buf) is Err(t) {
         return Err(t)
       }
-      if ht0.encode(buf) is Err(t) {
+      if Encode::encode(ht0, buf) is Err(t) {
         return Err(t)
       }
-      if ht1.encode(buf) is Err(t) {
+      if Encode::encode(ht1, buf) is Err(t) {
         return Err(t)
       }
     }
     BrOnCastFail(l, castop, ht0, ht1) => {
       buf.write_byte(0xFB)
-      if U32(25).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(25), buf) is Err(t) {
         return Err(t)
       }
-      if castop.encode(buf) is Err(t) {
+      if Encode::encode(castop, buf) is Err(t) {
         return Err(t)
       }
-      if l.encode(buf) is Err(t) {
+      if Encode::encode(l, buf) is Err(t) {
         return Err(t)
       }
-      if ht0.encode(buf) is Err(t) {
+      if Encode::encode(ht0, buf) is Err(t) {
         return Err(t)
       }
-      if ht1.encode(buf) is Err(t) {
+      if Encode::encode(ht1, buf) is Err(t) {
         return Err(t)
       }
     }
     AnyConvertExtern => {
       buf.write_byte(0xFB)
-      if U32(26).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(26), buf) is Err(t) {
         return Err(t)
       }
     }
     ExternConvertAny => {
       buf.write_byte(0xFB)
-      if U32(27).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(27), buf) is Err(t) {
         return Err(t)
       }
     }
     RefI31 => {
       buf.write_byte(0xFB)
-      if U32(28).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(28), buf) is Err(t) {
         return Err(t)
       }
     }
     I31GetS => {
       buf.write_byte(0xFB)
-      if U32(29).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(29), buf) is Err(t) {
         return Err(t)
       }
     }
     I31GetU => {
       buf.write_byte(0xFB)
-      if U32(30).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(30), buf) is Err(t) {
         return Err(t)
       }
     }
@@ -4754,211 +4831,211 @@ pub impl Encode for Instruction with encode(val, buf) {
     I64TruncSatF64U => buf.write_bytes(b"\xFC\x07")
     MemoryInit(di, mi) => {
       buf.write_byte(0xFC)
-      if U32(8).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(8), buf) is Err(t) {
         return Err(t)
       }
-      if di.encode(buf) is Err(t) {
+      if Encode::encode(di, buf) is Err(t) {
         return Err(t)
       }
-      if mi.encode(buf) is Err(t) {
+      if Encode::encode(mi, buf) is Err(t) {
         return Err(t)
       }
     }
     DataDrop(di) => {
       buf.write_byte(0xFC)
-      if U32(9).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(9), buf) is Err(t) {
         return Err(t)
       }
-      if di.encode(buf) is Err(t) {
+      if Encode::encode(di, buf) is Err(t) {
         return Err(t)
       }
     }
     MemoryCopy(mi0, mi1) => {
       buf.write_byte(0xFC)
-      if U32(10).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(10), buf) is Err(t) {
         return Err(t)
       }
-      if mi0.encode(buf) is Err(t) {
+      if Encode::encode(mi0, buf) is Err(t) {
         return Err(t)
       }
-      if mi1.encode(buf) is Err(t) {
+      if Encode::encode(mi1, buf) is Err(t) {
         return Err(t)
       }
     }
     MemoryFill(mi) => {
       buf.write_byte(0xFC)
-      if U32(11).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(11), buf) is Err(t) {
         return Err(t)
       }
-      if mi.encode(buf) is Err(t) {
+      if Encode::encode(mi, buf) is Err(t) {
         return Err(t)
       }
     }
     TableInit(ei, ti) => {
       buf.write_byte(0xFC)
-      if U32(12).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(12), buf) is Err(t) {
         return Err(t)
       }
-      if ei.encode(buf) is Err(t) {
+      if Encode::encode(ei, buf) is Err(t) {
         return Err(t)
       }
-      if ti.encode(buf) is Err(t) {
+      if Encode::encode(ti, buf) is Err(t) {
         return Err(t)
       }
     }
     ElemDrop(ei) => {
       buf.write_byte(0xFC)
-      if U32(13).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(13), buf) is Err(t) {
         return Err(t)
       }
-      if ei.encode(buf) is Err(t) {
+      if Encode::encode(ei, buf) is Err(t) {
         return Err(t)
       }
     }
     TableCopy(ti0, ti1) => {
       buf.write_byte(0xFC)
-      if U32(14).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(14), buf) is Err(t) {
         return Err(t)
       }
-      if ti0.encode(buf) is Err(t) {
+      if Encode::encode(ti0, buf) is Err(t) {
         return Err(t)
       }
-      if ti1.encode(buf) is Err(t) {
+      if Encode::encode(ti1, buf) is Err(t) {
         return Err(t)
       }
     }
     TableGrow(ti) => {
       buf.write_byte(0xFC)
-      if U32(15).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(15), buf) is Err(t) {
         return Err(t)
       }
-      if ti.encode(buf) is Err(t) {
+      if Encode::encode(ti, buf) is Err(t) {
         return Err(t)
       }
     }
     TableSize(ti) => {
       buf.write_byte(0xFC)
-      if U32(16).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(16), buf) is Err(t) {
         return Err(t)
       }
-      if ti.encode(buf) is Err(t) {
+      if Encode::encode(ti, buf) is Err(t) {
         return Err(t)
       }
     }
     TableFill(ti) => {
       buf.write_byte(0xFC)
-      if U32(17).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(17), buf) is Err(t) {
         return Err(t)
       }
-      if ti.encode(buf) is Err(t) {
+      if Encode::encode(ti, buf) is Err(t) {
         return Err(t)
       }
     }
     V128Load(m) => {
       buf.write_byte(0xFD)
-      if U32(0).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(0), buf) is Err(t) {
         return Err(t)
       }
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     V128Load8x8S(m) => {
       buf.write_byte(0xFD)
-      if U32(1).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(1), buf) is Err(t) {
         return Err(t)
       }
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     V128Load8x8U(m) => {
       buf.write_byte(0xFD)
-      if U32(2).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(2), buf) is Err(t) {
         return Err(t)
       }
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     V128Load16x4S(m) => {
       buf.write_byte(0xFD)
-      if U32(3).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(3), buf) is Err(t) {
         return Err(t)
       }
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     V128Load16x4U(m) => {
       buf.write_byte(0xFD)
-      if U32(4).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(4), buf) is Err(t) {
         return Err(t)
       }
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     V128Load32x2S(m) => {
       buf.write_byte(0xFD)
-      if U32(5).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(5), buf) is Err(t) {
         return Err(t)
       }
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     V128Load32x2U(m) => {
       buf.write_byte(0xFD)
-      if U32(6).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(6), buf) is Err(t) {
         return Err(t)
       }
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     V128Load8Splat(m) => {
       buf.write_byte(0xFD)
-      if U32(7).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(7), buf) is Err(t) {
         return Err(t)
       }
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     V128Load16Splat(m) => {
       buf.write_byte(0xFD)
-      if U32(8).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(8), buf) is Err(t) {
         return Err(t)
       }
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     V128Load32Splat(m) => {
       buf.write_byte(0xFD)
-      if U32(9).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(9), buf) is Err(t) {
         return Err(t)
       }
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     V128Load64Splat(m) => {
       buf.write_byte(0xFD)
-      if U32(10).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(10), buf) is Err(t) {
         return Err(t)
       }
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     V128Store(m) => {
       buf.write_byte(0xFD)
-      if U32(11).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(11), buf) is Err(t) {
         return Err(t)
       }
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
@@ -4981,7 +5058,7 @@ pub impl Encode for Instruction with encode(val, buf) {
       b15
     ) => {
       buf.write_byte(0xFD)
-      if U32(12).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(12), buf) is Err(t) {
         return Err(t)
       }
       buf.write_byte(b0)
@@ -5020,55 +5097,55 @@ pub impl Encode for Instruction with encode(val, buf) {
       b15
     ) => {
       buf.write_byte(0xFD)
-      if U32(13).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(13), buf) is Err(t) {
         return Err(t)
       }
-      if b0.encode(buf) is Err(t) {
+      if Encode::encode(b0, buf) is Err(t) {
         return Err(t)
       }
-      if b1.encode(buf) is Err(t) {
+      if Encode::encode(b1, buf) is Err(t) {
         return Err(t)
       }
-      if b2.encode(buf) is Err(t) {
+      if Encode::encode(b2, buf) is Err(t) {
         return Err(t)
       }
-      if b3.encode(buf) is Err(t) {
+      if Encode::encode(b3, buf) is Err(t) {
         return Err(t)
       }
-      if b4.encode(buf) is Err(t) {
+      if Encode::encode(b4, buf) is Err(t) {
         return Err(t)
       }
-      if b5.encode(buf) is Err(t) {
+      if Encode::encode(b5, buf) is Err(t) {
         return Err(t)
       }
-      if b6.encode(buf) is Err(t) {
+      if Encode::encode(b6, buf) is Err(t) {
         return Err(t)
       }
-      if b7.encode(buf) is Err(t) {
+      if Encode::encode(b7, buf) is Err(t) {
         return Err(t)
       }
-      if b8.encode(buf) is Err(t) {
+      if Encode::encode(b8, buf) is Err(t) {
         return Err(t)
       }
-      if b9.encode(buf) is Err(t) {
+      if Encode::encode(b9, buf) is Err(t) {
         return Err(t)
       }
-      if b10.encode(buf) is Err(t) {
+      if Encode::encode(b10, buf) is Err(t) {
         return Err(t)
       }
-      if b11.encode(buf) is Err(t) {
+      if Encode::encode(b11, buf) is Err(t) {
         return Err(t)
       }
-      if b12.encode(buf) is Err(t) {
+      if Encode::encode(b12, buf) is Err(t) {
         return Err(t)
       }
-      if b13.encode(buf) is Err(t) {
+      if Encode::encode(b13, buf) is Err(t) {
         return Err(t)
       }
-      if b14.encode(buf) is Err(t) {
+      if Encode::encode(b14, buf) is Err(t) {
         return Err(t)
       }
-      if b15.encode(buf) is Err(t) {
+      if Encode::encode(b15, buf) is Err(t) {
         return Err(t)
       }
     }
@@ -5081,127 +5158,127 @@ pub impl Encode for Instruction with encode(val, buf) {
     F64x2Splat => return simd_inst(20, buf)
     I8x16ExtractLaneS(l) => {
       buf.write_byte(0xFD)
-      if U32(21).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(21), buf) is Err(t) {
         return Err(t)
       }
-      if l.encode(buf) is Err(t) {
+      if Encode::encode(l, buf) is Err(t) {
         return Err(t)
       }
     }
     I8x16ExtractLaneU(l) => {
       buf.write_byte(0xFD)
-      if U32(22).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(22), buf) is Err(t) {
         return Err(t)
       }
-      if l.encode(buf) is Err(t) {
+      if Encode::encode(l, buf) is Err(t) {
         return Err(t)
       }
     }
     I8x16ReplaceLane(l) => {
       buf.write_byte(0xFD)
-      if U32(23).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(23), buf) is Err(t) {
         return Err(t)
       }
-      if l.encode(buf) is Err(t) {
+      if Encode::encode(l, buf) is Err(t) {
         return Err(t)
       }
     }
     I16x8ExtractLaneS(l) => {
       buf.write_byte(0xFD)
-      if U32(24).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(24), buf) is Err(t) {
         return Err(t)
       }
-      if l.encode(buf) is Err(t) {
+      if Encode::encode(l, buf) is Err(t) {
         return Err(t)
       }
     }
     I16x8ExtractLaneU(l) => {
       buf.write_byte(0xFD)
-      if U32(25).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(25), buf) is Err(t) {
         return Err(t)
       }
-      if l.encode(buf) is Err(t) {
+      if Encode::encode(l, buf) is Err(t) {
         return Err(t)
       }
     }
     I16x8ReplaceLane(l) => {
       buf.write_byte(0xFD)
-      if U32(26).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(26), buf) is Err(t) {
         return Err(t)
       }
-      if l.encode(buf) is Err(t) {
+      if Encode::encode(l, buf) is Err(t) {
         return Err(t)
       }
     }
     I32x4ExtractLane(l) => {
       buf.write_byte(0xFD)
-      if U32(27).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(27), buf) is Err(t) {
         return Err(t)
       }
-      if l.encode(buf) is Err(t) {
+      if Encode::encode(l, buf) is Err(t) {
         return Err(t)
       }
     }
     I32x4ReplaceLane(l) => {
       buf.write_byte(0xFD)
-      if U32(28).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(28), buf) is Err(t) {
         return Err(t)
       }
-      if l.encode(buf) is Err(t) {
+      if Encode::encode(l, buf) is Err(t) {
         return Err(t)
       }
     }
     I64x2ExtractLane(l) => {
       buf.write_byte(0xFD)
-      if U32(29).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(29), buf) is Err(t) {
         return Err(t)
       }
-      if l.encode(buf) is Err(t) {
+      if Encode::encode(l, buf) is Err(t) {
         return Err(t)
       }
     }
     I64x2ReplaceLane(l) => {
       buf.write_byte(0xFD)
-      if U32(30).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(30), buf) is Err(t) {
         return Err(t)
       }
-      if l.encode(buf) is Err(t) {
+      if Encode::encode(l, buf) is Err(t) {
         return Err(t)
       }
     }
     F32x4ExtractLane(l) => {
       buf.write_byte(0xFD)
-      if U32(31).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(31), buf) is Err(t) {
         return Err(t)
       }
-      if l.encode(buf) is Err(t) {
+      if Encode::encode(l, buf) is Err(t) {
         return Err(t)
       }
     }
     F32x4ReplaceLane(l) => {
       buf.write_byte(0xFD)
-      if U32(32).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(32), buf) is Err(t) {
         return Err(t)
       }
-      if l.encode(buf) is Err(t) {
+      if Encode::encode(l, buf) is Err(t) {
         return Err(t)
       }
     }
     F64x2ExtractLane(l) => {
       buf.write_byte(0xFD)
-      if U32(33).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(33), buf) is Err(t) {
         return Err(t)
       }
-      if l.encode(buf) is Err(t) {
+      if Encode::encode(l, buf) is Err(t) {
         return Err(t)
       }
     }
     F64x2ReplaceLane(l) => {
       buf.write_byte(0xFD)
-      if U32(34).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(34), buf) is Err(t) {
         return Err(t)
       }
-      if l.encode(buf) is Err(t) {
+      if Encode::encode(l, buf) is Err(t) {
         return Err(t)
       }
     }
@@ -5256,115 +5333,115 @@ pub impl Encode for Instruction with encode(val, buf) {
     V128AnyTrue => return simd_inst(83, buf)
     V128Load8Lane(m, l) => {
       buf.write_byte(0xFD)
-      if U32(84).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(84), buf) is Err(t) {
         return Err(t)
       }
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
-      if l.encode(buf) is Err(t) {
+      if Encode::encode(l, buf) is Err(t) {
         return Err(t)
       }
     }
     V128Load16Lane(m, l) => {
       buf.write_byte(0xFD)
-      if U32(85).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(85), buf) is Err(t) {
         return Err(t)
       }
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
-      if l.encode(buf) is Err(t) {
+      if Encode::encode(l, buf) is Err(t) {
         return Err(t)
       }
     }
     V128Load32Lane(m, l) => {
       buf.write_byte(0xFD)
-      if U32(86).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(86), buf) is Err(t) {
         return Err(t)
       }
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
-      if l.encode(buf) is Err(t) {
+      if Encode::encode(l, buf) is Err(t) {
         return Err(t)
       }
     }
     V128Load64Lane(m, l) => {
       buf.write_byte(0xFD)
-      if U32(87).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(87), buf) is Err(t) {
         return Err(t)
       }
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
-      if l.encode(buf) is Err(t) {
+      if Encode::encode(l, buf) is Err(t) {
         return Err(t)
       }
     }
     V128Store8Lane(m, l) => {
       buf.write_byte(0xFD)
-      if U32(88).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(88), buf) is Err(t) {
         return Err(t)
       }
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
-      if l.encode(buf) is Err(t) {
+      if Encode::encode(l, buf) is Err(t) {
         return Err(t)
       }
     }
     V128Store16Lane(m, l) => {
       buf.write_byte(0xFD)
-      if U32(89).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(89), buf) is Err(t) {
         return Err(t)
       }
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
-      if l.encode(buf) is Err(t) {
+      if Encode::encode(l, buf) is Err(t) {
         return Err(t)
       }
     }
     V128Store32Lane(m, l) => {
       buf.write_byte(0xFD)
-      if U32(90).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(90), buf) is Err(t) {
         return Err(t)
       }
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
-      if l.encode(buf) is Err(t) {
+      if Encode::encode(l, buf) is Err(t) {
         return Err(t)
       }
     }
     V128Store64Lane(m, l) => {
       buf.write_byte(0xFD)
-      if U32(91).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(91), buf) is Err(t) {
         return Err(t)
       }
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
-      if l.encode(buf) is Err(t) {
+      if Encode::encode(l, buf) is Err(t) {
         return Err(t)
       }
     }
     V128Load32Zero(m) => {
       buf.write_byte(0xFD)
-      if U32(92).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(92), buf) is Err(t) {
         return Err(t)
       }
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
     V128Load64Zero(m) => {
       buf.write_byte(0xFD)
-      if U32(93).encode(buf) is Err(t) {
+      if Encode::encode(@lib.U32(93), buf) is Err(t) {
         return Err(t)
       }
-      if m.encode(buf) is Err(t) {
+      if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }
     }
@@ -5536,11 +5613,11 @@ pub impl Encode for Instruction with encode(val, buf) {
 
 ///|
 pub impl[T : Encode] Encode for Array[T] with encode(val, buf) {
-  if U32(val.length().reinterpret_as_uint()).encode(buf) is Err(t) {
+  if Encode::encode(@lib.U32(val.length().reinterpret_as_uint()), buf) is Err(t) {
     return Err(t)
   }
   for v in val {
-    if v.encode(buf) is Err(t) {
+    if Encode::encode(v, buf) is Err(t) {
       return Err(t)
     }
   }
@@ -5549,9 +5626,9 @@ pub impl[T : Encode] Encode for Array[T] with encode(val, buf) {
 
 ///|
 pub impl[T : Decode] Decode for Array[T] with decode(bytes, i) {
-  match U32::decode(bytes, i) {
+  match Decode::decode(bytes, i) {
     Err(t) => Err(t)
-    Ok((U32(count), i)) =>
+    Ok((@lib.U32(count), i)) =>
       loop (count, [], i) {
         (0, result, i) => break Ok((result, i))
         (n, result, i) =>
@@ -5770,27 +5847,27 @@ test "uleb encoder never exceeds ceil(nbits/7)" {
 
 ///|
 test "numtype valtype" {
-  roundtrip(F32NumType)
-  roundtrip(F64NumType)
-  roundtrip(I32NumType)
-  roundtrip(I64NumType)
+  roundtrip(@lib.F32NumType)
+  roundtrip(@lib.F64NumType)
+  roundtrip(@lib.I32NumType)
+  roundtrip(@lib.I64NumType)
 }
 
 ///|
 test "Heap Types" {
-  roundtrip(AbsHeapTypeHeapType(ExnAbsHeapType))
-  roundtrip(AbsHeapTypeHeapType(ArrayAbsHeapType))
-  roundtrip(AbsHeapTypeHeapType(StructAbsHeapType))
-  roundtrip(AbsHeapTypeHeapType(I31AbsHeapType))
-  roundtrip(AbsHeapTypeHeapType(EqAbsHeapType))
-  roundtrip(AbsHeapTypeHeapType(AnyAbsHeapType))
-  roundtrip(AbsHeapTypeHeapType(ExternAbsHeapType))
-  roundtrip(AbsHeapTypeHeapType(FuncAbsHeapType))
-  roundtrip(AbsHeapTypeHeapType(NoneAbsHeapType))
-  roundtrip(AbsHeapTypeHeapType(NoExternAbsHeapType))
-  roundtrip(AbsHeapTypeHeapType(NoFuncAbsHeapType))
-  roundtrip(AbsHeapTypeHeapType(NoExnAbsHeapType))
-  roundtrip(HeapType(TypeIdx(23)))
+  roundtrip(@lib.AbsHeapTypeHeapType(ExnAbsHeapType))
+  roundtrip(@lib.AbsHeapTypeHeapType(ArrayAbsHeapType))
+  roundtrip(@lib.AbsHeapTypeHeapType(StructAbsHeapType))
+  roundtrip(@lib.AbsHeapTypeHeapType(I31AbsHeapType))
+  roundtrip(@lib.AbsHeapTypeHeapType(EqAbsHeapType))
+  roundtrip(@lib.AbsHeapTypeHeapType(AnyAbsHeapType))
+  roundtrip(@lib.AbsHeapTypeHeapType(ExternAbsHeapType))
+  roundtrip(@lib.AbsHeapTypeHeapType(FuncAbsHeapType))
+  roundtrip(@lib.AbsHeapTypeHeapType(NoneAbsHeapType))
+  roundtrip(@lib.AbsHeapTypeHeapType(NoExternAbsHeapType))
+  roundtrip(@lib.AbsHeapTypeHeapType(NoFuncAbsHeapType))
+  roundtrip(@lib.AbsHeapTypeHeapType(NoExnAbsHeapType))
+  roundtrip(@lib.HeapType(TypeIdx(23)))
 }
 
 ///|
@@ -5808,12 +5885,12 @@ test "Ref Types" {
 ///|
 test "Comp Types" {
   roundtrip(
-    ArrayCompType(
+    @lib.ArrayCompType(
       FieldType(ValTypeStorageType(NumTypeValType(I32NumType)), Var),
     ),
   )
   roundtrip(
-    StructCompType([
+    @lib.StructCompType([
       FieldType(
         ValTypeStorageType(
           RefTypeValType(
@@ -5825,7 +5902,7 @@ test "Comp Types" {
     ]),
   )
   roundtrip(
-    FuncCompType([i32_valtype(), i64_valtype()], [i64_valtype(), i32_valtype()]),
+    @lib.FuncCompType([i32_valtype(), i64_valtype()], [i64_valtype(), i32_valtype()]),
   )
   let _ : Array[CompType] = roundtrip_arbitrary(30)
 
@@ -5839,19 +5916,19 @@ test "Storage Type" {
 
 ///|
 test "Packed Type" {
-  roundtrip(I8PackType)
-  roundtrip(I16PackType)
+  roundtrip(@lib.I8PackType)
+  roundtrip(@lib.I16PackType)
 }
 
 ///|
 test "SubTypes" {
   roundtrip(
-    CompTypeSubType(
+    @lib.CompTypeSubType(
       ArrayCompType(FieldType(ValTypeStorageType(i32_valtype()), Var)),
     ),
   )
   roundtrip(
-    SubType(false, [TypeIdx(0), TypeIdx(2), TypeIdx(4)], FuncCompType([], [])),
+    @lib.SubType(false, [TypeIdx(0), TypeIdx(2), TypeIdx(4)], FuncCompType([], [])),
   )
 }
 
@@ -5905,7 +5982,7 @@ test "LaneIdx" {
 
 ///|
 test "Float specific edge case?" {
-  roundtrip(F32Const(F32(0.011397957801818848)))
+  roundtrip(@lib.F32Const(F32(0.011397957801818848)))
 }
 
 ///|

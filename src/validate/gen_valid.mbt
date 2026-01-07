@@ -1,3 +1,18 @@
+using @lib {
+  type FuncType,
+  type Locals,
+  type Data,
+  type DataMode,
+  type Elem,
+  type ElemMode,
+  type ImportSec,
+  type Import,
+  type Mut,
+  type Module,
+  vt_i32,
+  expand_locals,
+  expr_to_texpr,
+}
 ///|
 pub trait GenValid {
   gen_valid(Self, GenCtx) -> Result[Self, String]
@@ -52,29 +67,29 @@ fn gen_value_of_type(
     NumTypeValType(nt) =>
       match nt {
         I32NumType => {
-          let ins = I32Const(I32(ctx.rnd.next_int()))
-          match ins.typecheck(st) {
+          let ins = @lib.I32Const(I32(ctx.rnd.next_int()))
+          match Typecheck::typecheck(ins, st) {
             Ok(st2) => Ok((ctx.dec_fuel(1), st2, [ins]))
             Err(e) => Err(e)
           }
         }
         I64NumType => {
-          let ins = I64Const(I64(ctx.rnd.next_int64()))
-          match ins.typecheck(st) {
+          let ins = @lib.I64Const(I64(ctx.rnd.next_int64()))
+          match Typecheck::typecheck(ins, st) {
             Ok(st2) => Ok((ctx.dec_fuel(1), st2, [ins]))
             Err(e) => Err(e)
           }
         }
         F32NumType => {
-          let ins = F32Const(F32(ctx.rnd.next_float()))
-          match ins.typecheck(st) {
+          let ins = @lib.F32Const(F32(ctx.rnd.next_float()))
+          match Typecheck::typecheck(ins, st) {
             Ok(st2) => Ok((ctx.dec_fuel(1), st2, [ins]))
             Err(e) => Err(e)
           }
         }
         F64NumType => {
-          let ins = F64Const(F64(ctx.rnd.next_double()))
-          match ins.typecheck(st) {
+          let ins = @lib.F64Const(F64(ctx.rnd.next_double()))
+          match Typecheck::typecheck(ins, st) {
             Ok(st2) => Ok((ctx.dec_fuel(1), st2, [ins]))
             Err(e) => Err(e)
           }
@@ -82,7 +97,7 @@ fn gen_value_of_type(
       }
     VecTypeValType => {
       // emit a random V128Const
-      let ins = V128Const(
+      let ins = @lib.V128Const(
         (ctx.rnd.next_uint() % 256).to_byte(),
         (ctx.rnd.next_uint() % 256).to_byte(),
         (ctx.rnd.next_uint() % 256).to_byte(),
@@ -100,7 +115,7 @@ fn gen_value_of_type(
         (ctx.rnd.next_uint() % 256).to_byte(),
         (ctx.rnd.next_uint() % 256).to_byte(),
       )
-      match ins.typecheck(st) {
+      match Typecheck::typecheck(ins, st) {
         Ok(st2) => Ok((ctx.dec_fuel(1), st2, [ins]))
         Err(e) => Err(e)
       }
@@ -109,8 +124,8 @@ fn gen_value_of_type(
       // If nullable: ref.null is easiest
       if rt.is_nullable() {
         let ht = rt.get_heap_type()
-        let ins = RefNull(ht)
-        match ins.typecheck(st) {
+        let ins = @lib.RefNull(ht)
+        match Typecheck::typecheck(ins, st) {
           Ok(st2) => Ok((ctx.dec_fuel(1), st2, [ins]))
           Err(e) => Err(e)
         }
@@ -125,8 +140,8 @@ fn gen_value_of_type(
               Ok(x) => x
               Err(e) => return Err(e)
             }
-            let ins2 = RefI31
-            match ins2.typecheck(st1) {
+            let ins2 = @lib.RefI31
+            match Typecheck::typecheck(ins2, st1) {
               Ok(st2) => {
                 let out = is1.copy()
                 out.push(ins2)
@@ -140,11 +155,11 @@ fn gen_value_of_type(
             if ctx.env.funcs.length() == 0 {
               return Err("cannot construct non-null funcref: no funcs in env")
             }
-            let idx = FuncIdx(
+            let idx = @lib.FuncIdx(
               ctx.rnd.next_uint() % ctx.env.funcs.length().reinterpret_as_uint(),
             )
-            let ins = RefFunc(idx)
-            match ins.typecheck(st) {
+            let ins = @lib.RefFunc(idx)
+            match Typecheck::typecheck(ins, st) {
               Ok(st2) => Ok((ctx.dec_fuel(1), st2, [ins]))
               Err(e) => Err(e)
             }
@@ -186,8 +201,8 @@ fn emit_finish_return(
   }
 
   // now return (consumes want values)
-  let ret = Return
-  match ret.typecheck(st) {
+  let ret = @lib.Return
+  match Typecheck::typecheck(ret, st) {
     Ok(st2) => {
       out.push(ret)
       Ok((ctx.dec_fuel(1), st2, out))
@@ -217,7 +232,7 @@ pub fn gen_expr_valid(
     // try multiple candidates; accept the first that typechecks
     for _ in 0..<30 {
       let cand = gen_candidate_instruction(ctx, st)
-      match cand.typecheck(st) {
+      match Typecheck::typecheck(cand, st) {
         Ok(st2) => {
           insns.push(cand)
           st = st2
@@ -266,8 +281,8 @@ fn gen_nonnull_ref_of_typeidx(
   }
   match ct {
     StructCompType(_) => {
-      let ins = StructNewDefault(x)
-      match ins.typecheck(st) {
+      let ins = @lib.StructNewDefault(x)
+      match Typecheck::typecheck(ins, st) {
         Ok(st2) => Ok((ctx.dec_fuel(1), st2, [ins]))
         Err(e) => Err(e)
       }
@@ -278,8 +293,8 @@ fn gen_nonnull_ref_of_typeidx(
         Ok(x) => x
         Err(e) => return Err(e)
       }
-      let ins2 = ArrayNewDefault(x)
-      match ins2.typecheck(st1) {
+      let ins2 = @lib.ArrayNewDefault(x)
+      match Typecheck::typecheck(ins2, st1) {
         Ok(st2) => {
           let out = is1.copy()
           out.push(ins2)
@@ -303,7 +318,7 @@ fn gen_defaultable_valtype(rnd : @quickcheck/splitmix.RandomState) -> ValType {
     _ => {
       // nullable refs only (default is ref.null)
       let abs = match rnd.next_uint() % 6 {
-        0 => AnyAbsHeapType
+        0 => @lib.AnyAbsHeapType
         1 => EqAbsHeapType
         2 => StructAbsHeapType
         3 => ArrayAbsHeapType
@@ -318,8 +333,8 @@ fn gen_defaultable_valtype(rnd : @quickcheck/splitmix.RandomState) -> ValType {
 ///|
 fn gen_defaultable_field(rnd : @quickcheck/splitmix.RandomState) -> FieldType {
   let vt = gen_defaultable_valtype(rnd)
-  let st = ValTypeStorageType(vt)
-  let m = if (rnd.next_uint() & 1) == 1 { Var } else { Const }
+  let st = @lib.ValTypeStorageType(vt)
+  let m = if (rnd.next_uint() & 1) == 1 { @lib.Var } else { Const }
   FieldType(st, m)
 }
 
@@ -340,7 +355,7 @@ fn gen_defaultable_struct_rectype(
   for _ in 0..<n {
     fields.push(gen_defaultable_field(rnd))
   }
-  let ct = StructCompType(fields)
+  let ct = @lib.StructCompType(fields)
   // keep simple: no supertypes, non-final or final randomly
   let is_final = (rnd.next_uint() & 1) == 1
   SingleRecType(SubType(is_final, [], ct))
@@ -351,7 +366,7 @@ fn gen_defaultable_array_rectype(
   rnd : @quickcheck/splitmix.RandomState,
 ) -> RecType {
   let ft = gen_defaultable_array_field(rnd)
-  let ct = ArrayCompType(ft)
+  let ct = @lib.ArrayCompType(ft)
   let is_final = (rnd.next_uint() & 1) == 1
   SingleRecType(SubType(is_final, [], ct))
 }
@@ -374,7 +389,7 @@ fn gen_func_rectype(rnd : @quickcheck/splitmix.RandomState) -> RecType {
   for _ in 0..<rn {
     rs.push(gen_small_valtype(rnd))
   }
-  let ct = FuncCompType(ps, rs)
+  let ct = @lib.FuncCompType(ps, rs)
   let is_final = true // functions are typically final-ish; keep true to simplify
   SingleRecType(SubType(is_final, [], ct))
 }
@@ -423,7 +438,7 @@ pub fn gen_typesec_valid(ctx : GenCtx) -> Result[(GenCtx, TypeSec), String] {
 fn collect_functype_typeidxs(env : Env) -> Array[TypeIdx] {
   let out : Array[TypeIdx] = []
   for i in 0..<env.global_types.length() {
-    let tidx = TypeIdx(i.reinterpret_as_uint())
+    let tidx = @lib.TypeIdx(i.reinterpret_as_uint())
     if env.resolve_functype(tidx) is Some(_) {
       out.push(tidx)
     }
@@ -497,7 +512,7 @@ fn gen_tabletype(
 ) -> TableType {
   // Choose element type - prefer funcref for compatibility with elem segments
   let rt = match rnd.next_uint() % 5 {
-    0 => HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType))
+    0 => @lib.HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType))
     1 => HeapTypeRefType(true, AbsHeapTypeHeapType(ExternAbsHeapType))
     2 => HeapTypeRefType(true, AbsHeapTypeHeapType(AnyAbsHeapType))
     3 => HeapTypeRefType(true, AbsHeapTypeHeapType(EqAbsHeapType))
@@ -514,7 +529,7 @@ fn gen_memtype(rnd : @quickcheck/splitmix.RandomState) -> MemType {
   let has_max = (rnd.next_uint() & 1) == 1
   let lim = if has_max {
     let max = min + rnd.next_uint() % 4
-    I32Limits(min, Some(max))
+    @lib.I32Limits(min, Some(max))
   } else {
     I32Limits(min, None)
   }
@@ -582,7 +597,7 @@ pub fn gen_datasec_valid(
       let offset_expr = match lim {
         I32Limits(_, _) => {
           let offset_val = (rnd.next_uint() % 256).reinterpret_as_int()
-          Expr([I32Const(I32(offset_val))])
+          @lib.Expr([I32Const(I32(offset_val))])
         }
         I64Limits(_, _) => {
           let offset_val = (rnd.next_uint64() % 256UL).reinterpret_as_int64()
@@ -600,7 +615,7 @@ pub fn gen_datasec_valid(
     for i in 0..<byte_count {
       bytes.push((rnd.next_uint() % 256).to_byte())
     }
-    let d = Data(mode, Bytes::from_array(bytes))
+    let d = @lib.Data(mode, Bytes::from_array(bytes))
     datas.push(d)
     env = env.push_data(d)
   }
@@ -680,7 +695,7 @@ fn find_compatible_table_for_funcref(env : Env) -> TableIdx? {
     let tt = env.tables[i]
     let TableType(rt, _) = tt
     // funcref is compatible with funcref tables
-    let funcref = HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType))
+    let funcref = @lib.HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType))
     if Match::matches(funcref, rt, env) {
       return Some(TableIdx(i.reinterpret_as_uint()))
     }
@@ -711,7 +726,7 @@ pub fn gen_elemsec_valid(
           let TableType(_, lim) = env.tables[tab_idx.0.reinterpret_as_int()]
           let offset_val = (rnd.next_uint() % 10).reinterpret_as_int()
           let offset_expr = match lim {
-            I32Limits(_, _) => Expr([I32Const(I32(offset_val))])
+            I32Limits(_, _) => @lib.Expr([I32Const(I32(offset_val))])
             I64Limits(_, _) => Expr([I64Const(I64(offset_val.to_int64()))])
           }
           (Active(tab_idx, offset_expr), true)
@@ -726,14 +741,14 @@ pub fn gen_elemsec_valid(
         0 => gen_elem_kind_funcs(rnd, env)
         1 => gen_elem_kind_func_exprs(rnd, env)
         _ => {
-          let rt = HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType))
+          let rt = @lib.HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType))
           gen_elem_kind_typed_exprs(rnd, env, rt)
         }
       }
     } else {
       gen_elem_kind_funcs(rnd, env)
     }
-    let elem = Elem(mode, kind)
+    let elem = @lib.Elem(mode, kind)
     elems.push(elem)
     // Update env with new elem
     let elems_arr = env.elems.copy()
@@ -768,7 +783,7 @@ fn gen_globaltype(rnd : @quickcheck/splitmix.RandomState) -> GlobalType {
 fn collect_tag_functype_typeidxs(env : Env) -> Array[TypeIdx] {
   let out : Array[TypeIdx] = []
   for i in 0..<env.global_types.length() {
-    let tidx = TypeIdx(i.reinterpret_as_uint())
+    let tidx = @lib.TypeIdx(i.reinterpret_as_uint())
     match env.resolve_functype(tidx) {
       Some(FuncType(_, results)) if results.length() == 0 => out.push(tidx)
       _ => ()
@@ -832,7 +847,7 @@ pub fn gen_importsec_valid(
             None => continue
           }
           env = env.push_func(ft)
-          (name, FuncExternType(tidx))
+          (name, @lib.FuncExternType(tidx))
         } else {
           continue
         }
@@ -1116,7 +1131,7 @@ pub fn gen_startsec_valid(
 fn collect_struct_typeidxs(env : Env) -> Array[TypeIdx] {
   let out : Array[TypeIdx] = []
   for i in 0..<env.global_types.length() {
-    let tidx = TypeIdx(i.reinterpret_as_uint())
+    let tidx = @lib.TypeIdx(i.reinterpret_as_uint())
     match env.resolve_comptype(tidx) {
       Some(StructCompType(_)) => out.push(tidx)
       _ => ()
@@ -1129,7 +1144,7 @@ fn collect_struct_typeidxs(env : Env) -> Array[TypeIdx] {
 fn collect_array_typeidxs(env : Env) -> Array[TypeIdx] {
   let out : Array[TypeIdx] = []
   for i in 0..<env.global_types.length() {
-    let tidx = TypeIdx(i.reinterpret_as_uint())
+    let tidx = @lib.TypeIdx(i.reinterpret_as_uint())
     match env.resolve_comptype(tidx) {
       Some(ArrayCompType(_)) => out.push(tidx)
       _ => ()
@@ -1215,7 +1230,7 @@ fn gen_struct_instruction(
     return Some(StructNewDefault(tidx))
   }
   let fidx = (rnd.next_uint() % field_count.reinterpret_as_uint()).reinterpret_as_int()
-  let field_idx = U32(fidx.reinterpret_as_uint())
+  let field_idx = @lib.U32(fidx.reinterpret_as_uint())
   let choice = rnd.next_uint() % 6
   match choice {
     0 => Some(StructNewDefault(tidx))
@@ -1345,7 +1360,7 @@ fn gen_tag_instruction(
     return None
   }
   let tag_pick = (rnd.next_uint() % env.tags.length().reinterpret_as_uint()).reinterpret_as_int()
-  let tag_idx = TagIdx(tag_pick.reinterpret_as_uint())
+  let tag_idx = @lib.TagIdx(tag_pick.reinterpret_as_uint())
 
   // throw is the main instruction we can generate simply
   Some(Throw(tag_idx))
@@ -1361,7 +1376,7 @@ fn gen_ref_instruction(
     0 => {
       // ref.null with random heap type
       let abs = match rnd.next_uint() % 8 {
-        0 => AnyAbsHeapType
+        0 => @lib.AnyAbsHeapType
         1 => EqAbsHeapType
         2 => I31AbsHeapType
         3 => StructAbsHeapType
@@ -1475,7 +1490,7 @@ fn gen_memory_instruction(
     return None
   }
   let mem_idx_val = rnd.next_uint() % env.mems.length().reinterpret_as_uint()
-  let mem_idx = MemIdx(mem_idx_val)
+  let mem_idx = @lib.MemIdx(mem_idx_val)
 
   // Generate alignment (must be power of 2, encoded as log2)
   // For i32 load/store: max align is 2 (4 bytes)
@@ -1523,7 +1538,7 @@ fn gen_local_instruction(
     return None
   }
   let idx = rnd.next_uint() % env.locals.length().reinterpret_as_uint()
-  let local_idx = LocalIdx(idx)
+  let local_idx = @lib.LocalIdx(idx)
   match rnd.next_uint() % 3 {
     0 => Some(LocalGet(local_idx))
     1 => Some(LocalSet(local_idx))
@@ -1540,7 +1555,7 @@ fn gen_global_instruction(
     return None
   }
   let idx = rnd.next_uint() % env.globals.length().reinterpret_as_uint()
-  let global_idx = GlobalIdx(idx)
+  let global_idx = @lib.GlobalIdx(idx)
 
   // Check mutability for global.set
   let gt = env.globals[idx.reinterpret_as_int()]
@@ -1569,7 +1584,7 @@ fn gen_call_instruction(
         // Find a funcref table
         for i in 0..<env.tables.length() {
           let TableType(rt, _) = env.tables[i]
-          let funcref = HeapTypeRefType(
+          let funcref = @lib.HeapTypeRefType(
             true,
             AbsHeapTypeHeapType(FuncAbsHeapType),
           )
@@ -1604,7 +1619,7 @@ fn gen_table_instruction(
     return None
   }
   let tidx = rnd.next_uint() % env.tables.length().reinterpret_as_uint()
-  let table_idx = TableIdx(tidx)
+  let table_idx = @lib.TableIdx(tidx)
   match rnd.next_uint() % 4 {
     0 => Some(TableGet(table_idx))
     1 => Some(TableSet(table_idx))
@@ -1769,10 +1784,10 @@ fn gen_try_catch_all(
   // catch_all branches with empty values, outer block has empty result
 
   let try_body = gen_simple_try_body(rnd, st.env)
-  let catch_clause = CatchAll(LabelIdx(0))
-  let try_table = TryTable(EmptyBlockType, [catch_clause], try_body)
-  let block_ins = Block(EmptyBlockType, [try_table])
-  match block_ins.typecheck(st) {
+  let catch_clause = @lib.CatchAll(LabelIdx(0))
+  let try_table = @lib.TryTable(EmptyBlockType, [catch_clause], try_body)
+  let block_ins = @lib.Block(EmptyBlockType, [try_table])
+  match Typecheck::typecheck(block_ins, st) {
     Ok(st2) => Ok((ctx.dec_fuel(3), st2, [block_ins]))
     Err(e) => Err(e)
   }
@@ -1788,18 +1803,18 @@ fn gen_try_catch_all_ref(
   // After try_table completes normally, we need to produce an exnref
   // Since we can't easily produce a non-null exnref, use nullable
 
-  let exnref_nullable = RefTypeValType(
+  let exnref_nullable = @lib.RefTypeValType(
     HeapTypeRefType(true, AbsHeapTypeHeapType(ExnAbsHeapType)),
   )
-  let outer_bt = ValTypeBlockType(exnref_nullable)
+  let outer_bt = @lib.ValTypeBlockType(exnref_nullable)
   let try_body = gen_simple_try_body(rnd, st.env)
-  let catch_clause = CatchAllRef(LabelIdx(0))
-  let try_table = TryTable(EmptyBlockType, [catch_clause], try_body)
+  let catch_clause = @lib.CatchAllRef(LabelIdx(0))
+  let try_table = @lib.TryTable(EmptyBlockType, [catch_clause], try_body)
 
   // After try_table, produce null exnref for fallthrough
-  let fallthrough = RefNull(AbsHeapTypeHeapType(ExnAbsHeapType))
-  let block_ins = Block(outer_bt, [try_table, fallthrough])
-  match block_ins.typecheck(st) {
+  let fallthrough = @lib.RefNull(AbsHeapTypeHeapType(ExnAbsHeapType))
+  let block_ins = @lib.Block(outer_bt, [try_table, fallthrough])
+  match Typecheck::typecheck(block_ins, st) {
     Ok(st2) => Ok((ctx.dec_fuel(4), st2, [block_ins]))
     Err(e) => Err(e)
   }
@@ -1814,14 +1829,14 @@ fn gen_try_catch(
   // catch tag L branches with tag's payload types
   // Outer block result = payload types
 
-  let tag_idx = TagIdx(
+  let tag_idx = @lib.TagIdx(
     rnd.next_uint() % st.env.tags.length().reinterpret_as_uint(),
   )
   let payload = tag_payload_types(st.env, tag_idx)
 
   // Build block type - only support empty or single-value for simplicity
   let outer_bt = match payload.length() {
-    0 => EmptyBlockType
+    0 => @lib.EmptyBlockType
     1 => ValTypeBlockType(payload[0])
     _ => return Err("multi-value catch payload not supported yet")
   }
@@ -1832,14 +1847,14 @@ fn gen_try_catch(
     Err(e) => return Err(e)
   }
   let try_body = gen_simple_try_body(rnd, st.env)
-  let catch_clause = Catch(tag_idx, LabelIdx(0))
-  let try_table = TryTable(EmptyBlockType, [catch_clause], try_body)
+  let catch_clause = @lib.Catch(tag_idx, LabelIdx(0))
+  let try_table = @lib.TryTable(EmptyBlockType, [catch_clause], try_body)
   let block_body : Array[Instruction] = [try_table]
   for ins in fallthrough {
     block_body.push(ins)
   }
-  let block_ins = Block(outer_bt, block_body)
-  match block_ins.typecheck(st) {
+  let block_ins = @lib.Block(outer_bt, block_body)
+  match Typecheck::typecheck(block_ins, st) {
     Ok(st2) => Ok((ctx.dec_fuel(4 + fallthrough.length()), st2, [block_ins]))
     Err(e) => Err(e)
   }
@@ -1854,7 +1869,7 @@ fn gen_try_catch_ref(
   // catch_ref tag L branches with payload + exnref
   // For simplicity, only handle tags with empty payload
 
-  let tag_idx = TagIdx(
+  let tag_idx = @lib.TagIdx(
     rnd.next_uint() % st.env.tags.length().reinterpret_as_uint(),
   )
   let payload = tag_payload_types(st.env, tag_idx)
@@ -1868,18 +1883,18 @@ fn gen_try_catch_ref(
   // catch_ref with empty payload produces non-null exnref
   // We use nullable outer block since fallthrough can only produce ref.null
   // (non-null exnref from catch is subtype of nullable)
-  let exnref_nullable = RefTypeValType(
+  let exnref_nullable = @lib.RefTypeValType(
     HeapTypeRefType(true, AbsHeapTypeHeapType(ExnAbsHeapType)),
   )
-  let outer_bt = ValTypeBlockType(exnref_nullable)
+  let outer_bt = @lib.ValTypeBlockType(exnref_nullable)
   let try_body = gen_simple_try_body(rnd, st.env)
-  let catch_clause = CatchRef(tag_idx, LabelIdx(0))
-  let try_table = TryTable(EmptyBlockType, [catch_clause], try_body)
+  let catch_clause = @lib.CatchRef(tag_idx, LabelIdx(0))
+  let try_table = @lib.TryTable(EmptyBlockType, [catch_clause], try_body)
 
   // Fallthrough: produce null exnref
-  let fallthrough = RefNull(AbsHeapTypeHeapType(ExnAbsHeapType))
-  let block_ins = Block(outer_bt, [try_table, fallthrough])
-  match block_ins.typecheck(st) {
+  let fallthrough = @lib.RefNull(AbsHeapTypeHeapType(ExnAbsHeapType))
+  let block_ins = @lib.Block(outer_bt, [try_table, fallthrough])
+  match Typecheck::typecheck(block_ins, st) {
     Ok(st2) => Ok((ctx.dec_fuel(4), st2, [block_ins]))
     Err(e) => Err(e)
   }
@@ -1900,7 +1915,7 @@ fn gen_simple_try_body(
 
   // Sometimes throw
   if env.tags.length() > 0 && rnd.next_uint() % 2 == 0 {
-    let tag_idx = TagIdx(
+    let tag_idx = @lib.TagIdx(
       rnd.next_uint() % env.tags.length().reinterpret_as_uint(),
     )
     let payload = tag_payload_types(env, tag_idx)
@@ -2021,7 +2036,7 @@ pub fn gen_expr_valid_with_blocks(
     // Try multiple candidates; accept the first that typechecks
     for _ in 0..<50 {
       let cand = gen_candidate_instruction(ctx, st)
-      match cand.typecheck(st) {
+      match Typecheck::typecheck(cand, st) {
         Ok(st2) => {
           insns.push(cand)
           st = st2
@@ -2159,7 +2174,7 @@ pub fn gen_module_valid_full(ctx0 : GenCtx) -> Result[(GenCtx, Module), String] 
     let pick = (ctx3.rnd.next_uint() % choices.length().reinterpret_as_uint()).reinterpret_as_int()
     func_tidxs.push(choices[pick])
   }
-  let funcsec = FuncSec(func_tidxs)
+  let funcsec = @lib.FuncSec(func_tidxs)
 
   // 5) Extend env.funcs
   let env3 = match validate_funcsec(Some(funcsec), ctx3.env) {
@@ -2224,7 +2239,7 @@ pub fn gen_module_valid_full(ctx0 : GenCtx) -> Result[(GenCtx, Module), String] 
 
   // 14) Generate DataCntSec
   let DataSec(data_arr) = datasec
-  let datacntsec = DataCntSec(U32(data_arr.length().reinterpret_as_uint()))
+  let datacntsec = @lib.DataCntSec(U32(data_arr.length().reinterpret_as_uint()))
 
   // 15) Generate function bodies for CodeSec
   let code_funcs : Array[Func] = []
@@ -2243,10 +2258,10 @@ pub fn gen_module_valid_full(ctx0 : GenCtx) -> Result[(GenCtx, Module), String] 
     }
     code_funcs.push(f)
   }
-  let codesec = CodeSec(code_funcs)
+  let codesec = @lib.CodeSec(code_funcs)
 
   // 16) Assemble module
-  let m = Module(
+  let m = @lib.Module(
     [], // customs
     Some(typesec),
     importsec,

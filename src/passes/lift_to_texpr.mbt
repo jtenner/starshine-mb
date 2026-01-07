@@ -1,16 +1,30 @@
-pub fn lift_to_texpr_pass() -> @lib.ModuleTransformer[Unit] {
-  @lib.ModuleTransformer::{
-    ..@lib.ModuleTransformer::new(),
-    on_func: Some(fn (_ : Unit, f : @lib.Func) -> @lib.TransformerResult[Unit, @lib.Func] {
+using @validate {
+  type ModuleTransformer,
+  type TransformerResult,
+  change,
+  unchanged,
+}
+
+using @lib {
+  type Env,
+  expr_to_texpr,
+  expand_locals,
+
+}
+
+pub fn lift_to_texpr_pass() -> ModuleTransformer[Unit] {
+  ModuleTransformer::{
+    ..ModuleTransformer::new(),
+    on_func: Some(fn (_ : Unit, f : @lib.Func) -> TransformerResult[Unit, @lib.Func] {
       match f {
-        Func(l, t) => match @lib.expr_to_texpr(t, @lib.Env::new()) {
-          Ok(t) => match @lib.expand_locals(l) {
-            Ok(l) => @lib.change((), @lib.TFunc(l, t))
+        Func(l, t) => match expr_to_texpr(t, Env::new()) {
+          Ok(t) => match expand_locals(l) {
+            Ok(l) => change((), @lib.TFunc(l, t))
             Err(t) => Err(t)
           }
           Err(t) => Err(t)
         }
-        TFunc(_, _) => @lib.unchanged()
+        TFunc(_, _) => unchanged()
       }
     })
   }

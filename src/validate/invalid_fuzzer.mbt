@@ -215,7 +215,7 @@ fn make_type_corruption_transformer() -> ModuleTransformer[Bool] {
         return Ok(None)
       }
       // Insert i32.const followed by i64.add - guaranteed type error
-      let new_instrs = [I32Const(I32(42)), I64Add]
+      let new_instrs = [@lib.I32Const(I32(42)), I64Add]
       for i in instrs {
         new_instrs.push(i)
       }
@@ -359,7 +359,7 @@ fn make_signature_corruption_transformer() -> ModuleTransformer[Unit] {
           // Change result types
           let new_results = results.map(fn(vt) {
             match vt {
-              NumTypeValType(I32NumType) => NumTypeValType(F64NumType)
+              NumTypeValType(I32NumType) => @lib.NumTypeValType(F64NumType)
               NumTypeValType(I64NumType) => NumTypeValType(F32NumType)
               NumTypeValType(F32NumType) => NumTypeValType(I64NumType)
               NumTypeValType(F64NumType) => NumTypeValType(I32NumType)
@@ -374,7 +374,7 @@ fn make_signature_corruption_transformer() -> ModuleTransformer[Unit] {
             let FieldType(st, mutability) = ft
             match st {
               ValTypeStorageType(NumTypeValType(I32NumType)) =>
-                FieldType(
+                @lib.FieldType(
                   ValTypeStorageType(NumTypeValType(F64NumType)),
                   mutability,
                 )
@@ -391,7 +391,7 @@ fn make_signature_corruption_transformer() -> ModuleTransformer[Unit] {
         ArrayCompType(FieldType(st, mutability)) => {
           let new_st = match st {
             ValTypeStorageType(NumTypeValType(I32NumType)) =>
-              ValTypeStorageType(NumTypeValType(F64NumType))
+              @lib.ValTypeStorageType(NumTypeValType(F64NumType))
             ValTypeStorageType(NumTypeValType(I64NumType)) =>
               ValTypeStorageType(NumTypeValType(F32NumType))
             _ => st
@@ -415,7 +415,7 @@ fn make_global_init_mismatch_transformer() -> ModuleTransformer[Unit] {
       let Global(GlobalType(vt, mutable), _init) = g
       // Create an init expression with wrong type
       let wrong_init = match vt {
-        NumTypeValType(I32NumType) => Expr([F64Const(F64(0.0))])
+        NumTypeValType(I32NumType) => @lib.Expr([F64Const(F64(0.0))])
         NumTypeValType(I64NumType) => Expr([F32Const(F32(0.0))])
         NumTypeValType(F32NumType) => Expr([I64Const(I64(0L))])
         NumTypeValType(F64NumType) => Expr([I32Const(I32(0))])
@@ -905,11 +905,11 @@ test "RefType AbsHeapTypeRefType swaps produce different values" {
 test "Exn to Any swap - verify these are actually different hierarchies" {
   // These should NOT be equal
   assert_not_eq(
-    AbsHeapTypeRefType(ExnAbsHeapType),
+    @lib.AbsHeapTypeRefType(ExnAbsHeapType),
     AbsHeapTypeRefType(AnyAbsHeapType),
   )
   assert_not_eq(
-    AbsHeapTypeHeapType(ExnAbsHeapType),
+    @lib.AbsHeapTypeHeapType(ExnAbsHeapType),
     AbsHeapTypeHeapType(AnyAbsHeapType),
   )
 }
