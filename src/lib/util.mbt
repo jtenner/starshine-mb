@@ -1,4 +1,3 @@
-
 ///|
 pub fn expand_locals(decls : Array[Locals]) -> Result[Array[ValType], String] {
   let out : Array[ValType] = []

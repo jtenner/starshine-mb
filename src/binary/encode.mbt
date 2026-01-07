@@ -1,4 +1,3 @@
-
 ///|
 pub trait Encode {
   encode(Self, @buffer.Buffer) -> Result[Unit, String]
@@ -9,6 +8,7 @@ pub trait Decode {
   decode(Bytes, Int) -> Result[(Self, Int), String]
 }
 
+///|
 using @lib {
   type NumType,
   type HeapType,
@@ -1081,7 +1081,8 @@ pub impl Encode for CustomSec with encode(val, buf) {
   }
   payload_buff.write_bytes(bytes)
   let payload_bytes = payload_buff.to_bytes()
-  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf) is Err(t) {
+  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf)
+    is Err(t) {
     return Err(t)
   }
   buf.write_bytes(payload_bytes)
@@ -1096,7 +1097,8 @@ pub impl Encode for TypeSec with encode(val, buf) {
     return Err(t)
   }
   let payload_bytes = payload.to_bytes()
-  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf) is Err(t) {
+  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf)
+    is Err(t) {
     return Err(t)
   }
   buf.write_bytes(payload_bytes)
@@ -1111,7 +1113,8 @@ pub impl Encode for ImportSec with encode(val, buf) {
     return Err(t)
   }
   let payload_bytes = payload.to_bytes()
-  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf) is Err(t) {
+  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf)
+    is Err(t) {
     return Err(t)
   }
   buf.write_bytes(payload_bytes)
@@ -1227,7 +1230,8 @@ pub impl Encode for FuncSec with encode(val, buf) {
     return Err(t)
   }
   let payload_bytes = payload.to_bytes()
-  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf) is Err(t) {
+  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf)
+    is Err(t) {
     return Err(t)
   }
   buf.write_bytes(payload_bytes)
@@ -1242,7 +1246,8 @@ pub impl Encode for TableSec with encode(val, buf) {
     return Err(t)
   }
   let payload_bytes = payload.to_bytes()
-  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf) is Err(t) {
+  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf)
+    is Err(t) {
     return Err(t)
   }
   buf.write_bytes(payload_bytes)
@@ -1271,7 +1276,8 @@ pub impl Encode for MemSec with encode(val, buf) {
     return Err(t)
   }
   let payload_bytes = payload.to_bytes()
-  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf) is Err(t) {
+  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf)
+    is Err(t) {
     return Err(t)
   }
   buf.write_bytes(payload_bytes)
@@ -1286,7 +1292,8 @@ pub impl Encode for GlobalSec with encode(val, buf) {
     return Err(t)
   }
   let payload_bytes = payload.to_bytes()
-  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf) is Err(t) {
+  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf)
+    is Err(t) {
     return Err(t)
   }
   buf.write_bytes(payload_bytes)
@@ -1311,7 +1318,8 @@ pub impl Encode for ExportSec with encode(val, buf) {
     return Err(t)
   }
   let payload_bytes = payload.to_bytes()
-  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf) is Err(t) {
+  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf)
+    is Err(t) {
     return Err(t)
   }
   buf.write_bytes(payload_bytes)
@@ -1342,7 +1350,8 @@ pub impl Encode for ElemSec with encode(val, buf) {
     return Err(t)
   }
   let payload_bytes = payload.to_bytes()
-  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf) is Err(t) {
+  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf)
+    is Err(t) {
     return Err(t)
   }
   buf.write_bytes(payload_bytes)
@@ -1461,7 +1470,8 @@ pub impl Encode for Func with encode(val, buf) {
     return Err(t)
   }
   let fn_bytes = fn_body.to_bytes()
-  if Encode::encode(@lib.U32(fn_bytes.length().reinterpret_as_uint()), buf) is Err(t) {
+  if Encode::encode(@lib.U32(fn_bytes.length().reinterpret_as_uint()), buf)
+    is Err(t) {
     return Err(t)
   }
   buf.write_bytes(fn_bytes) // Don't use Encode::encode here - just write raw bytes
@@ -1476,7 +1486,8 @@ pub impl Encode for DataSec with encode(val, buf) {
     return Err(t)
   }
   let payload_bytes = payload.to_bytes()
-  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf) is Err(t) {
+  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf)
+    is Err(t) {
     return Err(t)
   }
   buf.write_bytes(payload_bytes)
@@ -1538,7 +1549,8 @@ pub impl Encode for TagSec with encode(val, buf) {
     return Err(t)
   }
   let payload_bytes = payload.to_bytes()
-  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf) is Err(t) {
+  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf)
+    is Err(t) {
     return Err(t)
   }
   buf.write_bytes(payload_bytes)
@@ -2706,7 +2718,8 @@ pub impl Decode for Instruction with decode(bytes, i) {
           let (if_inst, i) = loop (i, [], None) {
             (i, if_insts, Some(else_insts)) =>
               match bytes.get(i) {
-                Some(0x0B) => break (@lib.If(bt, if_insts, Some(else_insts)), i + 1)
+                Some(0x0B) =>
+                  break (@lib.If(bt, if_insts, Some(else_insts)), i + 1)
                 _ =>
                   match Decode::decode(bytes, i) {
                     Ok((inst, i)) => {
@@ -3543,9 +3556,7 @@ pub impl Decode for Instruction with decode(bytes, i) {
                                                     Decode::decode(bytes, i) {
                                                     Ok((l10, i)) =>
                                                       match
-                                                        Decode::decode(
-                                                          bytes, i,
-                                                        ) {
+                                                        Decode::decode(bytes, i) {
                                                         Ok((l11, i)) =>
                                                           match
                                                             Decode::decode(
@@ -5902,7 +5913,10 @@ test "Comp Types" {
     ]),
   )
   roundtrip(
-    @lib.FuncCompType([i32_valtype(), i64_valtype()], [i64_valtype(), i32_valtype()]),
+    @lib.FuncCompType([i32_valtype(), i64_valtype()], [
+      i64_valtype(),
+      i32_valtype(),
+    ]),
   )
   let _ : Array[CompType] = roundtrip_arbitrary(30)
 
@@ -5928,7 +5942,11 @@ test "SubTypes" {
     ),
   )
   roundtrip(
-    @lib.SubType(false, [TypeIdx(0), TypeIdx(2), TypeIdx(4)], FuncCompType([], [])),
+    @lib.SubType(
+      false,
+      [TypeIdx(0), TypeIdx(2), TypeIdx(4)],
+      FuncCompType([], []),
+    ),
   )
 }
 

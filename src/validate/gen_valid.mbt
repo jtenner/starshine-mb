@@ -1,3 +1,4 @@
+///|
 using @lib {
   type FuncType,
   type Locals,
@@ -13,6 +14,7 @@ using @lib {
   expand_locals,
   expr_to_texpr,
 }
+
 ///|
 pub trait GenValid {
   gen_valid(Self, GenCtx) -> Result[Self, String]
@@ -447,7 +449,11 @@ fn collect_functype_typeidxs(env : Env) -> Array[TypeIdx] {
 }
 
 ///|
-fn env_for_func_body(env : Env, ft : FuncType, decls : Array[Locals]) -> Result[Env, String] {
+fn env_for_func_body(
+  env : Env,
+  ft : FuncType,
+  decls : Array[Locals],
+) -> Result[Env, String] {
   let FuncType(params, results) = ft
   let locals_expanded = match expand_locals(decls) {
     Ok(t) => t
@@ -695,7 +701,10 @@ fn find_compatible_table_for_funcref(env : Env) -> TableIdx? {
     let tt = env.tables[i]
     let TableType(rt, _) = tt
     // funcref is compatible with funcref tables
-    let funcref = @lib.HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType))
+    let funcref = @lib.HeapTypeRefType(
+      true,
+      AbsHeapTypeHeapType(FuncAbsHeapType),
+    )
     if Match::matches(funcref, rt, env) {
       return Some(TableIdx(i.reinterpret_as_uint()))
     }
@@ -741,7 +750,10 @@ pub fn gen_elemsec_valid(
         0 => gen_elem_kind_funcs(rnd, env)
         1 => gen_elem_kind_func_exprs(rnd, env)
         _ => {
-          let rt = @lib.HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType))
+          let rt = @lib.HeapTypeRefType(
+            true,
+            AbsHeapTypeHeapType(FuncAbsHeapType),
+          )
           gen_elem_kind_typed_exprs(rnd, env, rt)
         }
       }
@@ -2000,6 +2012,7 @@ fn tag_payload_types(env : Env, tag : TagIdx) -> Array[ValType] {
     None => []
   }
 }
+
 ///|
 pub fn gen_expr_valid_with_blocks(
   ctx : GenCtx,
@@ -2111,6 +2124,7 @@ pub fn gen_tfunc_entry(ctx : GenCtx, tidx : TypeIdx) -> Result[Func, String] {
   }
 }
 
+///|
 pub fn gen_func_entry(ctx : GenCtx, tidx : TypeIdx) -> Result[Func, String] {
   // Resolve the function type from the environment
   let ft = match ctx.env.resolve_functype(tidx) {
@@ -2246,12 +2260,11 @@ pub fn gen_module_valid_full(ctx0 : GenCtx) -> Result[(GenCtx, Module), String] 
   let FuncSec(tidxs2) = funcsec
   for tidx in tidxs2 {
     // Randomly decide between generating a Func or a TFunc
-    let func = if (ctx12.rnd.next_uint() % 2) == 0 {
+    let func = if ctx12.rnd.next_uint() % 2 == 0 {
       gen_func_entry(ctx12, tidx)
     } else {
       gen_tfunc_entry(ctx12, tidx)
     }
-
     let f = match func {
       Ok(f) => f
       Err(e) => return Err(e)

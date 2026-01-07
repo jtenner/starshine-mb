@@ -245,10 +245,10 @@ pub(all) struct Module(
   DataCntSec?,
   CodeSec?,
   DataSec?
-) derive (Hash)
+) derive(Hash)
 
 ///|
-pub(all) struct FuncType(Array[ValType], Array[ValType]) derive (Hash)
+pub(all) struct FuncType(Array[ValType], Array[ValType]) derive(Hash)
 
 ///|
 pub(all) struct Env {
@@ -2929,6 +2929,7 @@ pub fn empty_env() -> Env {
   }
 }
 
+///|
 pub fn Env::new() -> Env {
   empty_env()
 }

@@ -1,4 +1,3 @@
-
 ///|
 pub type TransformerResult[T, Elem] = Result[(T, Elem)?, String]
 

@@ -1,4 +1,3 @@
-
 ///|
 pub fn diff(rt1 : RefType, rt2 : RefType) -> Result[RefType, String] {
   let ht1 = rt1.get_heap_type()
@@ -496,13 +495,13 @@ fn validate_locals_decls(
   Ok(())
 }
 
+///|
 fn validate_func_body_against_functype(
   env : Env,
   ft : FuncType,
   f : Func,
 ) -> Result[Unit, String] {
   let FuncType(params, results) = ft
-
   match f {
     Func(local_decls, body) => {
       // Validate local declarations
@@ -534,9 +533,7 @@ fn validate_func_body_against_functype(
           },
         )
         .with_return_type(Some(results))
-      
       let st0 = TcState::{ env: env1, stack: [], reachable: true }
-      
       let st1 = match Typecheck::typecheck(body, st0) {
         Ok(s) => s
         Err(e) => return Err(e)
@@ -563,12 +560,11 @@ fn validate_func_body_against_functype(
       // If TFunc matches the structure of Func (replacing Array[Locals] with Array[ValType]),
       // then local_vals are the EXTRA locals.
       // But TFunc is usually "fully typed". Let's assume local_vals = extra_locals flattened.
-      
+
       let all_locals = params.copy()
       for vt in local_vals {
         all_locals.push(vt)
       }
-      
       let env1 = env
         .with_locals(all_locals)
         .with_labels(
@@ -579,13 +575,11 @@ fn validate_func_body_against_functype(
           },
         )
         .with_return_type(Some(results))
-        
       let st0 = TcState::{ env: env1, stack: [], reachable: true }
       let st1 = match Typecheck::typecheck(texpr, st0) {
         Ok(s) => s
         Err(e) => return Err(e)
       }
-      
       if st1.reachable {
         if st1.stack.length() != results.length() {
           return Err("typed function body leaves extra values on stack")
@@ -722,7 +716,11 @@ fn validate_elem_mode(
       // require rt ≤ rt_table
       // If your Match::matches works on RefType, use that.
       // Otherwise use ValType wrapper.
-      let ok = Match::matches(@lib.RefTypeValType(rt), RefTypeValType(rt_table), env)
+      let ok = Match::matches(
+        @lib.RefTypeValType(rt),
+        RefTypeValType(rt_table),
+        env,
+      )
       if !ok {
         return Err("elem.active: elem type does not match table element type")
       }
@@ -1233,7 +1231,10 @@ test "RefType HeapTypeRefType with valid AbsHeapType validates" {
 test "RefType HeapTypeRefType nullable and non-nullable validate" {
   let env = empty_env()
   let rt_null = @lib.HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType))
-  let rt_non_null = @lib.HeapTypeRefType(false, AbsHeapTypeHeapType(FuncAbsHeapType))
+  let rt_non_null = @lib.HeapTypeRefType(
+    false,
+    AbsHeapTypeHeapType(FuncAbsHeapType),
+  )
   assert_eq(Validate::validate(rt_null, env), Ok(()))
   assert_eq(Validate::validate(rt_non_null, env), Ok(()))
 }
@@ -1391,21 +1392,30 @@ test "I32Limits validates with no upper bound" {
 test "I32Limits fails when n exceeds k" {
   let env = empty_env()
   let lim = @lib.I32Limits(2000, None)
-  assert_eq(ValidateMax::validate_max(lim, env, 1000), Err("Invalid range for limits"))
+  assert_eq(
+    ValidateMax::validate_max(lim, env, 1000),
+    Err("Invalid range for limits"),
+  )
 }
 
 ///|
 test "I32Limits fails when m exceeds k" {
   let env = empty_env()
   let lim = @lib.I32Limits(10, Some(2000))
-  assert_eq(ValidateMax::validate_max(lim, env, 1000), Err("Invalid range for limits"))
+  assert_eq(
+    ValidateMax::validate_max(lim, env, 1000),
+    Err("Invalid range for limits"),
+  )
 }
 
 ///|
 test "I32Limits fails when n exceeds m" {
   let env = empty_env()
   let lim = @lib.I32Limits(100, Some(10))
-  assert_eq(ValidateMax::validate_max(lim, env, 1000), Err("Invalid range for limits"))
+  assert_eq(
+    ValidateMax::validate_max(lim, env, 1000),
+    Err("Invalid range for limits"),
+  )
 }
 
 ///|
@@ -1494,7 +1504,9 @@ test "FuncType with empty params and results validates" {
 ///|
 test "FuncType with params and results validates" {
   let env = empty_env()
-  let ft = @lib.FuncType([NumTypeValType(I32NumType)], [NumTypeValType(I64NumType)])
+  let ft = @lib.FuncType([NumTypeValType(I32NumType)], [
+    NumTypeValType(I64NumType),
+  ])
   assert_eq(Validate::validate(ft, env), Ok(()))
 }
 
@@ -1620,7 +1632,10 @@ test "BlockType TypeIdxBlockType with non-func type fails" {
   )
   let env = empty_env().with_types([st])
   let bt = @lib.TypeIdxBlockType(TypeIdx(0))
-  assert_eq(Validate::validate(bt, env), Err("Expected Func Type for block type"))
+  assert_eq(
+    Validate::validate(bt, env),
+    Err("Expected Func Type for block type"),
+  )
 }
 
 // ============ ExternType Tests ============

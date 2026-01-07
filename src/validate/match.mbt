@@ -1,4 +1,3 @@
-
 ///|
 pub trait Match {
   matches(Self, Self, Env) -> Bool
@@ -74,7 +73,8 @@ pub impl Match for FieldType with matches(self, other, env) {
 ///|
 pub impl Match for StorageType with matches(self, other, env) {
   match (self, other) {
-    (ValTypeStorageType(v1), ValTypeStorageType(v2)) => Match::matches(v1, v2, env)
+    (ValTypeStorageType(v1), ValTypeStorageType(v2)) =>
+      Match::matches(v1, v2, env)
     (PackTypeStorageType(p1), PackTypeStorageType(p2)) => p1 == p2
     _ => false
   }
@@ -138,7 +138,8 @@ fn heaptype_matches_fuel(
     return false
   }
   match (h1, h2) {
-    (AbsHeapTypeHeapType(a1), AbsHeapTypeHeapType(a2)) => Match::matches(a1, a2, env)
+    (AbsHeapTypeHeapType(a1), AbsHeapTypeHeapType(a2)) =>
+      Match::matches(a1, a2, env)
 
     // Spec: defined type judgement
     (DefTypeHeapType(dt1), DefTypeHeapType(dt2)) =>
@@ -488,7 +489,9 @@ pub impl Match for GlobalType with matches(self, other, env) {
 pub impl Match for TableType with matches(self, other, env) {
   let TableType(rt1, lim1) = self
   let TableType(rt2, lim2) = other
-  Match::matches(lim1, lim2, env) && Match::matches(rt1, rt2, env) && Match::matches(rt2, rt1, env)
+  Match::matches(lim1, lim2, env) &&
+  Match::matches(rt1, rt2, env) &&
+  Match::matches(rt2, rt1, env)
 }
 
 ///|
@@ -530,7 +533,9 @@ test "AbsHeapType: reflexivity" {
   assert_true(Match::matches(@lib.ExternAbsHeapType, ExternAbsHeapType, env))
   assert_true(Match::matches(@lib.NoneAbsHeapType, NoneAbsHeapType, env))
   assert_true(Match::matches(@lib.NoFuncAbsHeapType, NoFuncAbsHeapType, env))
-  assert_true(Match::matches(@lib.NoExternAbsHeapType, NoExternAbsHeapType, env))
+  assert_true(
+    Match::matches(@lib.NoExternAbsHeapType, NoExternAbsHeapType, env),
+  )
   assert_true(Match::matches(@lib.NoExnAbsHeapType, NoExnAbsHeapType, env))
 }
 
@@ -600,31 +605,43 @@ test "Limits: reflexivity" {
 test "Limits: n1 >= n2 required" {
   let env = Env::new()
   // [10..100] matches [5..100] (10 >= 5)
-  assert_true(Match::matches(@lib.I32Limits(10, Some(100)), I32Limits(5, Some(100)), env))
+  assert_true(
+    Match::matches(@lib.I32Limits(10, Some(100)), I32Limits(5, Some(100)), env),
+  )
   // [5..100] does not match [10..100] (5 < 10)
-  assert_false(Match::matches(@lib.I32Limits(5, Some(100)), I32Limits(10, Some(100)), env))
+  assert_false(
+    Match::matches(@lib.I32Limits(5, Some(100)), I32Limits(10, Some(100)), env),
+  )
 }
 
 ///|
 test "Limits: m1 <= m2 required when both bounded" {
   let env = Env::new()
   // [10..50] matches [10..100] (50 <= 100)
-  assert_true(Match::matches(@lib.I32Limits(10, Some(50)), I32Limits(10, Some(100)), env))
+  assert_true(
+    Match::matches(@lib.I32Limits(10, Some(50)), I32Limits(10, Some(100)), env),
+  )
   // [10..100] does not match [10..50] (100 > 50)
-  assert_false(Match::matches(@lib.I32Limits(10, Some(100)), I32Limits(10, Some(50)), env))
+  assert_false(
+    Match::matches(@lib.I32Limits(10, Some(100)), I32Limits(10, Some(50)), env),
+  )
 }
 
 ///|
 test "Limits: bounded matches unbounded" {
   let env = Env::new()
   // [10..100] matches [10..∞]
-  assert_true(Match::matches(@lib.I32Limits(10, Some(100)), I32Limits(10, None), env))
+  assert_true(
+    Match::matches(@lib.I32Limits(10, Some(100)), I32Limits(10, None), env),
+  )
 }
 
 ///|
 test "Limits: unbounded matches unbounded" {
   let env = Env::new()
-  assert_true(Match::matches(@lib.I32Limits(10, None), I32Limits(10, None), env))
+  assert_true(
+    Match::matches(@lib.I32Limits(10, None), I32Limits(10, None), env),
+  )
   assert_true(Match::matches(@lib.I32Limits(10, None), I32Limits(5, None), env))
 }
 
@@ -632,17 +649,27 @@ test "Limits: unbounded matches unbounded" {
 test "Limits: unbounded does not match bounded" {
   let env = Env::new()
   // [10..∞] does not match [10..100]
-  assert_false(Match::matches(@lib.I32Limits(10, None), I32Limits(10, Some(100)), env))
+  assert_false(
+    Match::matches(@lib.I32Limits(10, None), I32Limits(10, Some(100)), env),
+  )
 }
 
 ///|
 test "Limits: i32 vs i64 don't match" {
   let env = Env::new()
   assert_false(
-    Match::matches(@lib.I32Limits(10, Some(100)), I64Limits(10UL, Some(100UL)), env),
+    Match::matches(
+      @lib.I32Limits(10, Some(100)),
+      I64Limits(10UL, Some(100UL)),
+      env,
+    ),
   )
   assert_false(
-    Match::matches(@lib.I64Limits(10UL, Some(100UL)), I32Limits(10, Some(100)), env),
+    Match::matches(
+      @lib.I64Limits(10UL, Some(100UL)),
+      I32Limits(10, Some(100)),
+      env,
+    ),
   )
 }
 
@@ -717,22 +744,46 @@ test "FieldType: const vs var don't match" {
 test "ValType: primitive types use equality" {
   let env = Env::new()
   assert_true(
-    Match::matches(@lib.NumTypeValType(I32NumType), NumTypeValType(I32NumType), env),
+    Match::matches(
+      @lib.NumTypeValType(I32NumType),
+      NumTypeValType(I32NumType),
+      env,
+    ),
   )
   assert_true(
-    Match::matches(@lib.NumTypeValType(I64NumType), NumTypeValType(I64NumType), env),
+    Match::matches(
+      @lib.NumTypeValType(I64NumType),
+      NumTypeValType(I64NumType),
+      env,
+    ),
   )
   assert_true(
-    Match::matches(@lib.NumTypeValType(F32NumType), NumTypeValType(F32NumType), env),
+    Match::matches(
+      @lib.NumTypeValType(F32NumType),
+      NumTypeValType(F32NumType),
+      env,
+    ),
   )
   assert_true(
-    Match::matches(@lib.NumTypeValType(F64NumType), NumTypeValType(F64NumType), env),
+    Match::matches(
+      @lib.NumTypeValType(F64NumType),
+      NumTypeValType(F64NumType),
+      env,
+    ),
   )
   assert_false(
-    Match::matches(@lib.NumTypeValType(I32NumType), NumTypeValType(I64NumType), env),
+    Match::matches(
+      @lib.NumTypeValType(I32NumType),
+      NumTypeValType(I64NumType),
+      env,
+    ),
   )
   assert_false(
-    Match::matches(@lib.NumTypeValType(F32NumType), NumTypeValType(F64NumType), env),
+    Match::matches(
+      @lib.NumTypeValType(F32NumType),
+      NumTypeValType(F64NumType),
+      env,
+    ),
   )
 }
 
@@ -742,7 +793,9 @@ test "ValType: ref types delegate to RefType matching" {
   // (ref null any) matches (ref null any)
   let rt1 = @lib.HeapTypeRefType(true, AbsHeapTypeHeapType(AnyAbsHeapType))
   let rt2 = @lib.HeapTypeRefType(true, AbsHeapTypeHeapType(AnyAbsHeapType))
-  assert_true(Match::matches(@lib.RefTypeValType(rt1), RefTypeValType(rt2), env))
+  assert_true(
+    Match::matches(@lib.RefTypeValType(rt1), RefTypeValType(rt2), env),
+  )
 }
 
 // =============================================================================
@@ -752,7 +805,10 @@ test "ValType: ref types delegate to RefType matching" {
 ///|
 test "RefType: nullability - non-null <: nullable" {
   let env = Env::new()
-  let non_null = @lib.HeapTypeRefType(false, AbsHeapTypeHeapType(AnyAbsHeapType))
+  let non_null = @lib.HeapTypeRefType(
+    false,
+    AbsHeapTypeHeapType(AnyAbsHeapType),
+  )
   let nullable = @lib.HeapTypeRefType(true, AbsHeapTypeHeapType(AnyAbsHeapType))
   assert_true(Match::matches(non_null, nullable, env))
   assert_false(Match::matches(nullable, non_null, env))
@@ -787,7 +843,10 @@ test "RefType: non-null subtype matches nullable supertype" {
     false,
     AbsHeapTypeHeapType(EqAbsHeapType),
   )
-  let ref_any_null = @lib.HeapTypeRefType(true, AbsHeapTypeHeapType(AnyAbsHeapType))
+  let ref_any_null = @lib.HeapTypeRefType(
+    true,
+    AbsHeapTypeHeapType(AnyAbsHeapType),
+  )
   assert_true(Match::matches(ref_eq_nonnull, ref_any_null, env))
 }
 
@@ -883,9 +942,15 @@ test "CompType: FuncCompType - param count mismatch" {
 ///|
 test "CompType: StructCompType - field matching" {
   let env = Env::new()
-  let s1 = @lib.StructCompType([FieldType(PackTypeStorageType(I8PackType), Const)])
-  let s2 = @lib.StructCompType([FieldType(PackTypeStorageType(I8PackType), Const)])
-  let s3 = @lib.StructCompType([FieldType(PackTypeStorageType(I16PackType), Const)])
+  let s1 = @lib.StructCompType([
+    FieldType(PackTypeStorageType(I8PackType), Const),
+  ])
+  let s2 = @lib.StructCompType([
+    FieldType(PackTypeStorageType(I8PackType), Const),
+  ])
+  let s3 = @lib.StructCompType([
+    FieldType(PackTypeStorageType(I16PackType), Const),
+  ])
   assert_true(Match::matches(s1, s2, env))
   assert_false(Match::matches(s1, s3, env))
 }
@@ -905,7 +970,9 @@ test "CompType: different kinds don't match" {
   let env = Env::new()
   let func = @lib.FuncCompType([], [])
   let struct_ = @lib.StructCompType([])
-  let array = @lib.ArrayCompType(FieldType(PackTypeStorageType(I8PackType), Const))
+  let array = @lib.ArrayCompType(
+    FieldType(PackTypeStorageType(I8PackType), Const),
+  )
   assert_false(Match::matches(func, struct_, env))
   assert_false(Match::matches(struct_, array, env))
   assert_false(Match::matches(array, func, env))
@@ -1016,7 +1083,9 @@ test "TagType: requires bidirectional typeidx matching" {
 test "ExternType: different kinds don't match" {
   let env = Env::new()
   let mem = @lib.MemExternType(MemType(I32Limits(1, None)))
-  let global = @lib.GlobalExternType(GlobalType(NumTypeValType(I32NumType), false))
+  let global = @lib.GlobalExternType(
+    GlobalType(NumTypeValType(I32NumType), false),
+  )
   assert_false(Match::matches(mem, global, env))
   assert_false(Match::matches(global, mem, env))
 }

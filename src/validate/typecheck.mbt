@@ -25,6 +25,7 @@ pub trait Typecheck {
   typecheck(Self, TcState) -> Result[TcState, String]
 }
 
+///|
 fn empty_env() -> Env {
   Env::new()
 }
@@ -169,7 +170,7 @@ pub impl Typecheck for Expr with typecheck(self, st0) {
   let Expr(instrs) = self
   let mut st = st0
   for ins in instrs {
-    match Typecheck::typecheck(ins,st) {
+    match Typecheck::typecheck(ins, st) {
       Ok(stp) => st = stp
       Err(err) => return Err(err)
     }
@@ -389,7 +390,7 @@ fn typecheck_block(st : TcState, bt : BlockType, body : Expr) -> TcResult {
   // Typecheck body with label = results
   let env2 = st1.env.with_label(results)
   let st_body0 = TcState::{ ..st1, env: env2 }
-  let st_body = match Typecheck::typecheck(body,st_body0) {
+  let st_body = match Typecheck::typecheck(body, st_body0) {
     Err(e) => return Err(e)
     Ok(s) => s
   }
@@ -4600,7 +4601,10 @@ test "Typecheck Block empty" {
 test "Typecheck Block with result" {
   let env = empty_env()
   let state = make_state(env, [])
-  let block = @lib.Block(ValTypeBlockType(i32_type()), Expr([I32Const(I32(42))]))
+  let block = @lib.Block(
+    ValTypeBlockType(i32_type()),
+    Expr([I32Const(I32(42))]),
+  )
   let new_state = assert_ok(Typecheck::typecheck(block, state))
   assert_stack(new_state, [i32_type()])
 }
@@ -4734,7 +4738,10 @@ test "Typecheck BrTable multiple targets" {
   let env = empty_env().with_labels([[], [], [], []])
   let state = make_state(env, [i32_type()])
   // Jump table with 3 entries plus default
-  let br_table = @lib.BrTable([LabelIdx(0), LabelIdx(1), LabelIdx(2)], LabelIdx(3))
+  let br_table = @lib.BrTable(
+    [LabelIdx(0), LabelIdx(1), LabelIdx(2)],
+    LabelIdx(3),
+  )
   let new_state = assert_ok(Typecheck::typecheck(br_table, state))
   assert_eq(new_state.reachable, false)
 }
@@ -4926,7 +4933,9 @@ test "Typecheck GlobalGet" {
 test "Typecheck GlobalSet mutable" {
   let env : Env = { ..empty_env(), globals: [GlobalType(i32_type(), true)] }
   let state = make_state(env, [i32_type()])
-  let new_state = assert_ok(Typecheck::typecheck(@lib.GlobalSet(GlobalIdx(0)), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.GlobalSet(GlobalIdx(0)), state),
+  )
   assert_stack(new_state, [])
 }
 
@@ -4949,7 +4958,9 @@ test "Typecheck TableGet" {
   )
   let env : Env = { ..empty_env(), tables: [table_type] }
   let state = make_state(env, [i32_type()])
-  let new_state = assert_ok(Typecheck::typecheck(@lib.TableGet(TableIdx(0)), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.TableGet(TableIdx(0)), state),
+  )
   assert_stack(new_state, [nullable_funcref()])
 }
 
@@ -4961,7 +4972,9 @@ test "Typecheck TableSet" {
   )
   let env : Env = { ..empty_env(), tables: [table_type] }
   let state = make_state(env, [i32_type(), nullable_funcref()])
-  let new_state = assert_ok(Typecheck::typecheck(@lib.TableSet(TableIdx(0)), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.TableSet(TableIdx(0)), state),
+  )
   assert_stack(new_state, [])
 }
 
@@ -4973,7 +4986,9 @@ test "Typecheck TableSize" {
   )
   let env : Env = { ..empty_env(), tables: [table_type] }
   let state = make_state(env, [])
-  let new_state = assert_ok(Typecheck::typecheck(@lib.TableSize(TableIdx(0)), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.TableSize(TableIdx(0)), state),
+  )
   assert_stack(new_state, [i32_type()])
 }
 
@@ -4985,7 +5000,9 @@ test "Typecheck TableGrow" {
   )
   let env : Env = { ..empty_env(), tables: [table_type] }
   let state = make_state(env, [nullable_funcref(), i32_type()])
-  let new_state = assert_ok(Typecheck::typecheck(@lib.TableGrow(TableIdx(0)), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.TableGrow(TableIdx(0)), state),
+  )
   assert_stack(new_state, [i32_type()])
 }
 
@@ -4997,7 +5014,9 @@ test "Typecheck TableFill" {
   )
   let env : Env = { ..empty_env(), tables: [table_type] }
   let state = make_state(env, [i32_type(), nullable_funcref(), i32_type()])
-  let new_state = assert_ok(Typecheck::typecheck(@lib.TableFill(TableIdx(0)), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.TableFill(TableIdx(0)), state),
+  )
   assert_stack(new_state, [])
 }
 
@@ -5060,7 +5079,9 @@ test "Typecheck I32Load8S" {
   let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
   let state = make_state(env, [i32_type()])
   let mem_arg = @lib.MemArg(U32(0), None, U64(0))
-  let new_state = assert_ok(Typecheck::typecheck(@lib.I32Load8S(mem_arg), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.I32Load8S(mem_arg), state),
+  )
   assert_stack(new_state, [i32_type()])
 }
 
@@ -5069,7 +5090,9 @@ test "Typecheck I32Load8U" {
   let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
   let state = make_state(env, [i32_type()])
   let mem_arg = @lib.MemArg(U32(0), None, U64(0))
-  let new_state = assert_ok(Typecheck::typecheck(@lib.I32Load8U(mem_arg), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.I32Load8U(mem_arg), state),
+  )
   assert_stack(new_state, [i32_type()])
 }
 
@@ -5078,7 +5101,9 @@ test "Typecheck I32Load16S" {
   let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
   let state = make_state(env, [i32_type()])
   let mem_arg = @lib.MemArg(U32(0), None, U64(0))
-  let new_state = assert_ok(Typecheck::typecheck(@lib.I32Load16S(mem_arg), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.I32Load16S(mem_arg), state),
+  )
   assert_stack(new_state, [i32_type()])
 }
 
@@ -5087,7 +5112,9 @@ test "Typecheck I32Load16U" {
   let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
   let state = make_state(env, [i32_type()])
   let mem_arg = @lib.MemArg(U32(0), None, U64(0))
-  let new_state = assert_ok(Typecheck::typecheck(@lib.I32Load16U(mem_arg), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.I32Load16U(mem_arg), state),
+  )
   assert_stack(new_state, [i32_type()])
 }
 
@@ -5096,7 +5123,9 @@ test "Typecheck I64Load8S" {
   let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
   let state = make_state(env, [i32_type()])
   let mem_arg = @lib.MemArg(U32(0), None, U64(0))
-  let new_state = assert_ok(Typecheck::typecheck(@lib.I64Load8S(mem_arg), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.I64Load8S(mem_arg), state),
+  )
   assert_stack(new_state, [i64_type()])
 }
 
@@ -5105,7 +5134,9 @@ test "Typecheck I64Load32S" {
   let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
   let state = make_state(env, [i32_type()])
   let mem_arg = @lib.MemArg(U32(0), None, U64(0))
-  let new_state = assert_ok(Typecheck::typecheck(@lib.I64Load32S(mem_arg), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.I64Load32S(mem_arg), state),
+  )
   assert_stack(new_state, [i64_type()])
 }
 
@@ -5150,7 +5181,9 @@ test "Typecheck I32Store8" {
   let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
   let state = make_state(env, [i32_type(), i32_type()])
   let mem_arg = @lib.MemArg(U32(0), None, U64(0))
-  let new_state = assert_ok(Typecheck::typecheck(@lib.I32Store8(mem_arg), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.I32Store8(mem_arg), state),
+  )
   assert_stack(new_state, [])
 }
 
@@ -5159,7 +5192,9 @@ test "Typecheck I64Store32" {
   let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
   let state = make_state(env, [i32_type(), i64_type()])
   let mem_arg = @lib.MemArg(U32(0), None, U64(0))
-  let new_state = assert_ok(Typecheck::typecheck(@lib.I64Store32(mem_arg), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.I64Store32(mem_arg), state),
+  )
   assert_stack(new_state, [])
 }
 
@@ -5167,7 +5202,9 @@ test "Typecheck I64Store32" {
 test "Typecheck MemorySize" {
   let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
   let state = make_state(env, [])
-  let new_state = assert_ok(Typecheck::typecheck(@lib.MemorySize(MemIdx(0)), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.MemorySize(MemIdx(0)), state),
+  )
   assert_stack(new_state, [i32_type()])
 }
 
@@ -5175,7 +5212,9 @@ test "Typecheck MemorySize" {
 test "Typecheck MemoryGrow" {
   let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
   let state = make_state(env, [i32_type()])
-  let new_state = assert_ok(Typecheck::typecheck(@lib.MemoryGrow(MemIdx(0)), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.MemoryGrow(MemIdx(0)), state),
+  )
   assert_stack(new_state, [i32_type()])
 }
 
@@ -5183,7 +5222,9 @@ test "Typecheck MemoryGrow" {
 test "Typecheck MemoryCopy" {
   let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
   let state = make_state(env, [i32_type(), i32_type(), i32_type()])
-  let new_state = assert_ok(Typecheck::typecheck(@lib.MemoryCopy(MemIdx(0), MemIdx(0)), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.MemoryCopy(MemIdx(0), MemIdx(0)), state),
+  )
   assert_stack(new_state, [])
 }
 
@@ -5191,7 +5232,9 @@ test "Typecheck MemoryCopy" {
 test "Typecheck MemoryFill" {
   let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
   let state = make_state(env, [i32_type(), i32_type(), i32_type()])
-  let new_state = assert_ok(Typecheck::typecheck(@lib.MemoryFill(MemIdx(0)), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.MemoryFill(MemIdx(0)), state),
+  )
   assert_stack(new_state, [])
 }
 
@@ -5209,21 +5252,27 @@ test "Typecheck I32Const" {
 ///|
 test "Typecheck I64Const" {
   let state = make_state(empty_env(), [])
-  let new_state = assert_ok(Typecheck::typecheck(@lib.I64Const(I64(42L)), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.I64Const(I64(42L)), state),
+  )
   assert_stack(new_state, [i64_type()])
 }
 
 ///|
 test "Typecheck F32Const" {
   let state = make_state(empty_env(), [])
-  let new_state = assert_ok(Typecheck::typecheck(@lib.F32Const(F32(3.14)), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.F32Const(F32(3.14)), state),
+  )
   assert_stack(new_state, [f32_type()])
 }
 
 ///|
 test "Typecheck F64Const" {
   let state = make_state(empty_env(), [])
-  let new_state = assert_ok(Typecheck::typecheck(@lib.F64Const(F64(3.14)), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.F64Const(F64(3.14)), state),
+  )
   assert_stack(new_state, [f64_type()])
 }
 
@@ -5937,7 +5986,10 @@ test "Typecheck I64TruncSatF64S" {
 test "Typecheck RefNull func" {
   let state = make_state(empty_env(), [])
   let new_state = assert_ok(
-    Typecheck::typecheck(@lib.RefNull(AbsHeapTypeHeapType(FuncAbsHeapType)), state),
+    Typecheck::typecheck(
+      @lib.RefNull(AbsHeapTypeHeapType(FuncAbsHeapType)),
+      state,
+    ),
   )
   assert_stack(new_state, [nullable_funcref()])
 }
@@ -5946,7 +5998,10 @@ test "Typecheck RefNull func" {
 test "Typecheck RefNull extern" {
   let state = make_state(empty_env(), [])
   let new_state = assert_ok(
-    Typecheck::typecheck(@lib.RefNull(AbsHeapTypeHeapType(ExternAbsHeapType)), state),
+    Typecheck::typecheck(
+      @lib.RefNull(AbsHeapTypeHeapType(ExternAbsHeapType)),
+      state,
+    ),
   )
   assert_stack(new_state, [nullable_externref()])
 }
@@ -6280,84 +6335,108 @@ test "Typecheck F64x2Splat" {
 ///|
 test "Typecheck I8x16ExtractLaneS" {
   let state = make_state(empty_env(), [v128_type()])
-  let new_state = assert_ok(Typecheck::typecheck(@lib.I8x16ExtractLaneS(LaneIdx(0)), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.I8x16ExtractLaneS(LaneIdx(0)), state),
+  )
   assert_stack(new_state, [i32_type()])
 }
 
 ///|
 test "Typecheck I16x8ExtractLaneU" {
   let state = make_state(empty_env(), [v128_type()])
-  let new_state = assert_ok(Typecheck::typecheck(@lib.I16x8ExtractLaneU(LaneIdx(3)), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.I16x8ExtractLaneU(LaneIdx(3)), state),
+  )
   assert_stack(new_state, [i32_type()])
 }
 
 ///|
 test "Typecheck I32x4ExtractLane" {
   let state = make_state(empty_env(), [v128_type()])
-  let new_state = assert_ok(Typecheck::typecheck(@lib.I32x4ExtractLane(LaneIdx(1)), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.I32x4ExtractLane(LaneIdx(1)), state),
+  )
   assert_stack(new_state, [i32_type()])
 }
 
 ///|
 test "Typecheck I64x2ExtractLane" {
   let state = make_state(empty_env(), [v128_type()])
-  let new_state = assert_ok(Typecheck::typecheck(@lib.I64x2ExtractLane(LaneIdx(0)), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.I64x2ExtractLane(LaneIdx(0)), state),
+  )
   assert_stack(new_state, [i64_type()])
 }
 
 ///|
 test "Typecheck F32x4ExtractLane" {
   let state = make_state(empty_env(), [v128_type()])
-  let new_state = assert_ok(Typecheck::typecheck(@lib.F32x4ExtractLane(LaneIdx(2)), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.F32x4ExtractLane(LaneIdx(2)), state),
+  )
   assert_stack(new_state, [f32_type()])
 }
 
 ///|
 test "Typecheck F64x2ExtractLane" {
   let state = make_state(empty_env(), [v128_type()])
-  let new_state = assert_ok(Typecheck::typecheck(@lib.F64x2ExtractLane(LaneIdx(1)), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.F64x2ExtractLane(LaneIdx(1)), state),
+  )
   assert_stack(new_state, [f64_type()])
 }
 
 ///|
 test "Typecheck I8x16ReplaceLane" {
   let state = make_state(empty_env(), [v128_type(), i32_type()])
-  let new_state = assert_ok(Typecheck::typecheck(@lib.I8x16ReplaceLane(LaneIdx(0)), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.I8x16ReplaceLane(LaneIdx(0)), state),
+  )
   assert_stack(new_state, [v128_type()])
 }
 
 ///|
 test "Typecheck I16x8ReplaceLane" {
   let state = make_state(empty_env(), [v128_type(), i32_type()])
-  let new_state = assert_ok(Typecheck::typecheck(@lib.I16x8ReplaceLane(LaneIdx(2)), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.I16x8ReplaceLane(LaneIdx(2)), state),
+  )
   assert_stack(new_state, [v128_type()])
 }
 
 ///|
 test "Typecheck I32x4ReplaceLane" {
   let state = make_state(empty_env(), [v128_type(), i32_type()])
-  let new_state = assert_ok(Typecheck::typecheck(@lib.I32x4ReplaceLane(LaneIdx(1)), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.I32x4ReplaceLane(LaneIdx(1)), state),
+  )
   assert_stack(new_state, [v128_type()])
 }
 
 ///|
 test "Typecheck I64x2ReplaceLane" {
   let state = make_state(empty_env(), [v128_type(), i64_type()])
-  let new_state = assert_ok(Typecheck::typecheck(@lib.I64x2ReplaceLane(LaneIdx(0)), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.I64x2ReplaceLane(LaneIdx(0)), state),
+  )
   assert_stack(new_state, [v128_type()])
 }
 
 ///|
 test "Typecheck F32x4ReplaceLane" {
   let state = make_state(empty_env(), [v128_type(), f32_type()])
-  let new_state = assert_ok(Typecheck::typecheck(@lib.F32x4ReplaceLane(LaneIdx(3)), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.F32x4ReplaceLane(LaneIdx(3)), state),
+  )
   assert_stack(new_state, [v128_type()])
 }
 
 ///|
 test "Typecheck F64x2ReplaceLane" {
   let state = make_state(empty_env(), [v128_type(), f64_type()])
-  let new_state = assert_ok(Typecheck::typecheck(@lib.F64x2ReplaceLane(LaneIdx(1)), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.F64x2ReplaceLane(LaneIdx(1)), state),
+  )
   assert_stack(new_state, [v128_type()])
 }
 
@@ -6464,7 +6543,9 @@ test "Typecheck V128Load8Lane" {
   let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
   let state = make_state(env, [i32_type(), v128_type()])
   let arg = @lib.MemArg(U32(0), None, U64(0))
-  let new_state = assert_ok(Typecheck::typecheck(@lib.V128Load8Lane(arg, LaneIdx(0)), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.V128Load8Lane(arg, LaneIdx(0)), state),
+  )
   assert_stack(new_state, [v128_type()])
 }
 
@@ -6473,7 +6554,9 @@ test "Typecheck V128Store16Lane" {
   let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
   let state = make_state(env, [i32_type(), v128_type()])
   let arg = @lib.MemArg(U32(0), None, U64(0))
-  let new_state = assert_ok(Typecheck::typecheck(@lib.V128Store16Lane(arg, LaneIdx(2)), state))
+  let new_state = assert_ok(
+    Typecheck::typecheck(@lib.V128Store16Lane(arg, LaneIdx(2)), state),
+  )
   assert_stack(new_state, [])
 }
 
@@ -6520,7 +6603,9 @@ test "Typecheck Call type mismatch" {
 
 ///|
 test "Typecheck CallIndirect" {
-  let func_subtype = @lib.CompTypeSubType(FuncCompType([i32_type()], [i64_type()]))
+  let func_subtype = @lib.CompTypeSubType(
+    FuncCompType([i32_type()], [i64_type()]),
+  )
   let table_type = @lib.TableType(
     AbsHeapTypeRefType(FuncAbsHeapType),
     I32Limits(1, None),
@@ -6529,7 +6614,10 @@ test "Typecheck CallIndirect" {
     table_type,
   )
   let state = make_state(env, [i32_type(), i32_type()])
-  let result = Typecheck::typecheck(@lib.CallIndirect(TypeIdx(0), TableIdx(0)), state)
+  let result = Typecheck::typecheck(
+    @lib.CallIndirect(TypeIdx(0), TableIdx(0)),
+    state,
+  )
   let final_state = assert_ok(result)
   assert_stack(final_state, [i64_type()])
 }
@@ -6548,7 +6636,9 @@ test "Typecheck ReturnCall" {
 
 ///|
 test "Typecheck ReturnCallIndirect" {
-  let func_subtype = @lib.CompTypeSubType(FuncCompType([i32_type()], [i64_type()]))
+  let func_subtype = @lib.CompTypeSubType(
+    FuncCompType([i32_type()], [i64_type()]),
+  )
   let table_type = @lib.TableType(
     AbsHeapTypeRefType(FuncAbsHeapType),
     I32Limits(1, None),
@@ -6557,16 +6647,23 @@ test "Typecheck ReturnCallIndirect" {
     .push_table(table_type)
     .with_return_type(Some([i64_type()]))
   let state = make_state(env, [i32_type(), i32_type()])
-  let result = Typecheck::typecheck(@lib.ReturnCallIndirect(TypeIdx(0), TableIdx(0)), state)
+  let result = Typecheck::typecheck(
+    @lib.ReturnCallIndirect(TypeIdx(0), TableIdx(0)),
+    state,
+  )
   let final_state = assert_ok(result)
   assert_eq(final_state.reachable, false)
 }
 
 ///|
 test "Typecheck CallRef" {
-  let func_subtype = @lib.CompTypeSubType(FuncCompType([i32_type()], [i64_type()]))
+  let func_subtype = @lib.CompTypeSubType(
+    FuncCompType([i32_type()], [i64_type()]),
+  )
   let env = { ..empty_env(), global_types: [func_subtype] }
-  let ref_type = @lib.RefTypeValType(HeapTypeRefType(false, HeapType(TypeIdx(0))))
+  let ref_type = @lib.RefTypeValType(
+    HeapTypeRefType(false, HeapType(TypeIdx(0))),
+  )
   let state = make_state(env, [i32_type(), ref_type])
   let result = Typecheck::typecheck(@lib.CallRef(TypeIdx(0)), state)
   let final_state = assert_ok(result)
@@ -6575,11 +6672,15 @@ test "Typecheck CallRef" {
 
 ///|
 test "Typecheck ReturnCallRef" {
-  let func_subtype = @lib.CompTypeSubType(FuncCompType([i32_type()], [i64_type()]))
+  let func_subtype = @lib.CompTypeSubType(
+    FuncCompType([i32_type()], [i64_type()]),
+  )
   let env = { ..empty_env(), global_types: [func_subtype] }.with_return_type(
     Some([i64_type()]),
   )
-  let ref_type = @lib.RefTypeValType(HeapTypeRefType(false, HeapType(TypeIdx(0))))
+  let ref_type = @lib.RefTypeValType(
+    HeapTypeRefType(false, HeapType(TypeIdx(0))),
+  )
   let state = make_state(env, [i32_type(), ref_type])
   let result = Typecheck::typecheck(@lib.ReturnCallRef(TypeIdx(0)), state)
   let final_state = assert_ok(result)
@@ -6612,7 +6713,8 @@ test "Typecheck RefFunc invalid index" {
 test "Typecheck RefTest non-nullable" {
   let env = empty_env()
   let state = make_state(env, [anyref_type()])
-  let result = Typecheck::typecheck(@lib.RefTest(false, AbsHeapTypeHeapType(I31AbsHeapType)), 
+  let result = Typecheck::typecheck(
+    @lib.RefTest(false, AbsHeapTypeHeapType(I31AbsHeapType)),
     state,
   )
   let final_state = assert_ok(result)
@@ -6623,7 +6725,8 @@ test "Typecheck RefTest non-nullable" {
 test "Typecheck RefTest eq from any" {
   let env = empty_env()
   let state = make_state(env, [anyref_type()])
-  let result = Typecheck::typecheck(@lib.RefTest(true, AbsHeapTypeHeapType(EqAbsHeapType)), 
+  let result = Typecheck::typecheck(
+    @lib.RefTest(true, AbsHeapTypeHeapType(EqAbsHeapType)),
     state,
   )
   let final_state = assert_ok(result)
@@ -6634,7 +6737,8 @@ test "Typecheck RefTest eq from any" {
 test "Typecheck RefTest struct from eq" {
   let env = empty_env()
   let state = make_state(env, [eqref_type()])
-  let result = Typecheck::typecheck(@lib.RefTest(true, AbsHeapTypeHeapType(StructAbsHeapType)), 
+  let result = Typecheck::typecheck(
+    @lib.RefTest(true, AbsHeapTypeHeapType(StructAbsHeapType)),
     state,
   )
   let final_state = assert_ok(result)
@@ -6646,7 +6750,8 @@ test "Typecheck RefTest fails when target not subtype of operand" {
   let env = empty_env()
   // i31ref on stack, testing for funcref - these are incompatible hierarchies
   let state = make_state(env, [i31ref_type()])
-  let result = Typecheck::typecheck(@lib.RefTest(true, AbsHeapTypeHeapType(FuncAbsHeapType)), 
+  let result = Typecheck::typecheck(
+    @lib.RefTest(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
     state,
   )
   assert_true(result is Err(_))
@@ -6657,7 +6762,10 @@ test "Typecheck RefTest with concrete type recursive" {
   let struct_subtype = @lib.CompTypeSubType(StructCompType([]))
   let env = empty_env().with_rectype(SingleRecType(struct_subtype))
   let state = make_state(env, [anyref_type()])
-  let result = Typecheck::typecheck(@lib.RefTest(true, HeapType(RecIdx(0))), state)
+  let result = Typecheck::typecheck(
+    @lib.RefTest(true, HeapType(RecIdx(0))),
+    state,
+  )
   let final_state = assert_ok(result)
   assert_stack(final_state, [i32_type()])
 }
@@ -6667,7 +6775,10 @@ test "Typecheck RefTest with concrete type in global types" {
   let struct_subtype = @lib.CompTypeSubType(StructCompType([]))
   let env : Env = { ..empty_env(), global_types: [struct_subtype] }
   let state = make_state(env, [anyref_type()])
-  let result = Typecheck::typecheck(@lib.RefTest(true, HeapType(TypeIdx(0))), state)
+  let result = Typecheck::typecheck(
+    @lib.RefTest(true, HeapType(TypeIdx(0))),
+    state,
+  )
   let final_state = assert_ok(result)
   assert_stack(final_state, [i32_type()])
 }
@@ -6676,7 +6787,8 @@ test "Typecheck RefTest with concrete type in global types" {
 test "Typecheck RefCast non-nullable" {
   let env = empty_env()
   let state = make_state(env, [anyref_type()])
-  let result = Typecheck::typecheck(@lib.RefCast(false, AbsHeapTypeHeapType(I31AbsHeapType)), 
+  let result = Typecheck::typecheck(
+    @lib.RefCast(false, AbsHeapTypeHeapType(I31AbsHeapType)),
     state,
   )
   let final_state = assert_ok(result)
@@ -6756,7 +6868,10 @@ test "Typecheck ThrowRef" {
 test "Typecheck TryTable empty" {
   let env = empty_env()
   let state = make_state(env, [])
-  let result = Typecheck::typecheck(@lib.TryTable(EmptyBlockType, [], Expr([])), state)
+  let result = Typecheck::typecheck(
+    @lib.TryTable(EmptyBlockType, [], Expr([])),
+    state,
+  )
   let final_state = assert_ok(result)
   assert_stack(final_state, [])
 }
@@ -6766,7 +6881,8 @@ test "Typecheck TryTable with result" {
   let env = empty_env()
   let state = make_state(env, [])
   let block_type = @lib.ValTypeBlockType(i32_type())
-  let result = Typecheck::typecheck(@lib.TryTable(block_type, [], Expr([I32Const(I32(42))])), 
+  let result = Typecheck::typecheck(
+    @lib.TryTable(block_type, [], Expr([I32Const(I32(42))])),
     state,
   )
   let final_state = assert_ok(result)
@@ -6807,7 +6923,9 @@ test "Typecheck StructGet" {
     StructCompType([FieldType(ValTypeStorageType(i32_type()), Var)]),
   )
   let env = { ..empty_env(), global_types: [struct_type] }
-  let struct_ref = @lib.RefTypeValType(HeapTypeRefType(false, HeapType(TypeIdx(0))))
+  let struct_ref = @lib.RefTypeValType(
+    HeapTypeRefType(false, HeapType(TypeIdx(0))),
+  )
   let state = make_state(env, [struct_ref])
   let result = Typecheck::typecheck(@lib.StructGet(TypeIdx(0), U32(0)), state)
   let final_state = assert_ok(result)
@@ -6820,7 +6938,9 @@ test "Typecheck StructGetS" {
     StructCompType([FieldType(PackTypeStorageType(I8PackType), Var)]),
   )
   let env = { ..empty_env(), global_types: [struct_type] }
-  let struct_ref = @lib.RefTypeValType(HeapTypeRefType(false, HeapType(TypeIdx(0))))
+  let struct_ref = @lib.RefTypeValType(
+    HeapTypeRefType(false, HeapType(TypeIdx(0))),
+  )
   let state = make_state(env, [struct_ref])
   let result = Typecheck::typecheck(@lib.StructGetS(TypeIdx(0), U32(0)), state)
   let final_state = assert_ok(result)
@@ -6833,7 +6953,9 @@ test "Typecheck StructGetU" {
     StructCompType([FieldType(PackTypeStorageType(I16PackType), Var)]),
   )
   let env = { ..empty_env(), global_types: [struct_type] }
-  let struct_ref = @lib.RefTypeValType(HeapTypeRefType(false, HeapType(TypeIdx(0))))
+  let struct_ref = @lib.RefTypeValType(
+    HeapTypeRefType(false, HeapType(TypeIdx(0))),
+  )
   let state = make_state(env, [struct_ref])
   let result = Typecheck::typecheck(@lib.StructGetU(TypeIdx(0), U32(0)), state)
   let final_state = assert_ok(result)
@@ -6846,7 +6968,9 @@ test "Typecheck StructSet" {
     StructCompType([FieldType(ValTypeStorageType(i32_type()), Var)]),
   )
   let env = { ..empty_env(), global_types: [struct_type] }
-  let struct_ref = @lib.RefTypeValType(HeapTypeRefType(false, HeapType(TypeIdx(0))))
+  let struct_ref = @lib.RefTypeValType(
+    HeapTypeRefType(false, HeapType(TypeIdx(0))),
+  )
   let state = make_state(env, [struct_ref, i32_type()])
   let result = Typecheck::typecheck(@lib.StructSet(TypeIdx(0), U32(0)), state)
   let final_state = assert_ok(result)
@@ -6888,7 +7012,10 @@ test "Typecheck ArrayNewFixed" {
   )
   let env = { ..empty_env(), global_types: [array_type] }
   let state = make_state(env, [i32_type(), i32_type(), i32_type()])
-  let result = Typecheck::typecheck(@lib.ArrayNewFixed(TypeIdx(0), U32(3)), state)
+  let result = Typecheck::typecheck(
+    @lib.ArrayNewFixed(TypeIdx(0), U32(3)),
+    state,
+  )
   let final_state = assert_ok(result)
   assert_eq(final_state.stack.length(), 1)
 }
@@ -6901,7 +7028,10 @@ test "Typecheck ArrayNewData" {
   let data = @lib.Data(Passive, b"")
   let env = { ..empty_env(), global_types: [array_type] }.push_data(data)
   let state = make_state(env, [i32_type(), i32_type()])
-  let result = Typecheck::typecheck(@lib.ArrayNewData(TypeIdx(0), DataIdx(0)), state)
+  let result = Typecheck::typecheck(
+    @lib.ArrayNewData(TypeIdx(0), DataIdx(0)),
+    state,
+  )
   let final_state = assert_ok(result)
   assert_eq(final_state.stack.length(), 1)
 }
@@ -6915,7 +7045,10 @@ test "Typecheck ArrayNewElem" {
   let elem = @lib.Elem(Passive, FuncsElemKind([]))
   let env = { ..empty_env(), global_types: [array_type] }.push_elem(elem)
   let state = make_state(env, [i32_type(), i32_type()])
-  let result = Typecheck::typecheck(@lib.ArrayNewElem(TypeIdx(0), ElemIdx(0)), state)
+  let result = Typecheck::typecheck(
+    @lib.ArrayNewElem(TypeIdx(0), ElemIdx(0)),
+    state,
+  )
   let final_state = assert_ok(result)
   assert_eq(final_state.stack.length(), 1)
 }
@@ -6926,7 +7059,9 @@ test "Typecheck ArrayGet" {
     ArrayCompType(FieldType(ValTypeStorageType(i32_type()), Var)),
   )
   let env = { ..empty_env(), global_types: [array_type] }
-  let array_ref = @lib.RefTypeValType(HeapTypeRefType(false, HeapType(TypeIdx(0))))
+  let array_ref = @lib.RefTypeValType(
+    HeapTypeRefType(false, HeapType(TypeIdx(0))),
+  )
   let state = make_state(env, [array_ref, i32_type()])
   let result = Typecheck::typecheck(@lib.ArrayGet(TypeIdx(0)), state)
   let final_state = assert_ok(result)
@@ -6939,7 +7074,9 @@ test "Typecheck ArrayGetS" {
     ArrayCompType(FieldType(PackTypeStorageType(I8PackType), Var)),
   )
   let env = { ..empty_env(), global_types: [array_type] }
-  let array_ref = @lib.RefTypeValType(HeapTypeRefType(false, HeapType(TypeIdx(0))))
+  let array_ref = @lib.RefTypeValType(
+    HeapTypeRefType(false, HeapType(TypeIdx(0))),
+  )
   let state = make_state(env, [array_ref, i32_type()])
   let result = Typecheck::typecheck(@lib.ArrayGetS(TypeIdx(0)), state)
   let final_state = assert_ok(result)
@@ -6952,7 +7089,9 @@ test "Typecheck ArrayGetU" {
     ArrayCompType(FieldType(PackTypeStorageType(I16PackType), Var)),
   )
   let env = { ..empty_env(), global_types: [array_type] }
-  let array_ref = @lib.RefTypeValType(HeapTypeRefType(false, HeapType(TypeIdx(0))))
+  let array_ref = @lib.RefTypeValType(
+    HeapTypeRefType(false, HeapType(TypeIdx(0))),
+  )
   let state = make_state(env, [array_ref, i32_type()])
   let result = Typecheck::typecheck(@lib.ArrayGetU(TypeIdx(0)), state)
   let final_state = assert_ok(result)
@@ -6965,7 +7104,9 @@ test "Typecheck ArraySet" {
     ArrayCompType(FieldType(ValTypeStorageType(i32_type()), Var)),
   )
   let env = { ..empty_env(), global_types: [array_type] }
-  let array_ref = @lib.RefTypeValType(HeapTypeRefType(false, HeapType(TypeIdx(0))))
+  let array_ref = @lib.RefTypeValType(
+    HeapTypeRefType(false, HeapType(TypeIdx(0))),
+  )
   let state = make_state(env, [array_ref, i32_type(), i32_type()])
   let result = Typecheck::typecheck(@lib.ArraySet(TypeIdx(0)), state)
   let final_state = assert_ok(result)
@@ -6990,7 +7131,9 @@ test "Typecheck ArrayFill" {
     ArrayCompType(FieldType(ValTypeStorageType(i32_type()), Var)),
   )
   let env = { ..empty_env(), global_types: [array_type] }
-  let array_ref = @lib.RefTypeValType(HeapTypeRefType(false, HeapType(TypeIdx(0))))
+  let array_ref = @lib.RefTypeValType(
+    HeapTypeRefType(false, HeapType(TypeIdx(0))),
+  )
   let state = make_state(env, [array_ref, i32_type(), i32_type(), i32_type()])
   let result = Typecheck::typecheck(@lib.ArrayFill(TypeIdx(0)), state)
   let final_state = assert_ok(result)
@@ -7003,7 +7146,9 @@ test "Typecheck ArrayCopy" {
     ArrayCompType(FieldType(ValTypeStorageType(i32_type()), Var)),
   )
   let env = { ..empty_env(), global_types: [array_type] }
-  let array_ref = @lib.RefTypeValType(HeapTypeRefType(false, HeapType(TypeIdx(0))))
+  let array_ref = @lib.RefTypeValType(
+    HeapTypeRefType(false, HeapType(TypeIdx(0))),
+  )
   let state = make_state(env, [
     array_ref,
     i32_type(),
@@ -7011,7 +7156,10 @@ test "Typecheck ArrayCopy" {
     i32_type(),
     i32_type(),
   ])
-  let result = Typecheck::typecheck(@lib.ArrayCopy(TypeIdx(0), TypeIdx(0)), state)
+  let result = Typecheck::typecheck(
+    @lib.ArrayCopy(TypeIdx(0), TypeIdx(0)),
+    state,
+  )
   let final_state = assert_ok(result)
   assert_stack(final_state, [])
 }
@@ -7023,9 +7171,14 @@ test "Typecheck ArrayInitData" {
   )
   let data = @lib.Data(Passive, b"")
   let env = { ..empty_env(), global_types: [array_type] }.push_data(data)
-  let array_ref = @lib.RefTypeValType(HeapTypeRefType(false, HeapType(TypeIdx(0))))
+  let array_ref = @lib.RefTypeValType(
+    HeapTypeRefType(false, HeapType(TypeIdx(0))),
+  )
   let state = make_state(env, [array_ref, i32_type(), i32_type(), i32_type()])
-  let result = Typecheck::typecheck(@lib.ArrayInitData(TypeIdx(0), DataIdx(0)), state)
+  let result = Typecheck::typecheck(
+    @lib.ArrayInitData(TypeIdx(0), DataIdx(0)),
+    state,
+  )
   let final_state = assert_ok(result)
   assert_stack(final_state, [])
 }
@@ -7038,9 +7191,14 @@ test "Typecheck ArrayInitElem" {
   )
   let elem = @lib.Elem(Passive, FuncsElemKind([]))
   let env = { ..empty_env(), global_types: [array_type] }.push_elem(elem)
-  let array_ref = @lib.RefTypeValType(HeapTypeRefType(false, HeapType(TypeIdx(0))))
+  let array_ref = @lib.RefTypeValType(
+    HeapTypeRefType(false, HeapType(TypeIdx(0))),
+  )
   let state = make_state(env, [array_ref, i32_type(), i32_type(), i32_type()])
-  let result = Typecheck::typecheck(@lib.ArrayInitElem(TypeIdx(0), ElemIdx(0)), state)
+  let result = Typecheck::typecheck(
+    @lib.ArrayInitElem(TypeIdx(0), ElemIdx(0)),
+    state,
+  )
   let final_state = assert_ok(result)
   assert_stack(final_state, [])
 }
@@ -7055,7 +7213,10 @@ test "Typecheck MemoryInit" {
   let data = @lib.Data(Passive, b"")
   let env = empty_env().push_mem(mem_type).push_data(data)
   let state = make_state(env, [i32_type(), i32_type(), i32_type()])
-  let result = Typecheck::typecheck(@lib.MemoryInit(DataIdx(0), MemIdx(0)), state)
+  let result = Typecheck::typecheck(
+    @lib.MemoryInit(DataIdx(0), MemIdx(0)),
+    state,
+  )
   let final_state = assert_ok(result)
   assert_stack(final_state, [])
 }
@@ -7091,7 +7252,10 @@ test "Typecheck TableInit" {
   let elem = @lib.Elem(Passive, FuncsElemKind([]))
   let env = empty_env().push_table(table_type).push_elem(elem)
   let state = make_state(env, [i32_type(), i32_type(), i32_type()])
-  let result = Typecheck::typecheck(@lib.TableInit(ElemIdx(0), TableIdx(0)), state)
+  let result = Typecheck::typecheck(
+    @lib.TableInit(ElemIdx(0), TableIdx(0)),
+    state,
+  )
   let final_state = assert_ok(result)
   assert_stack(final_state, [])
 }
@@ -7505,7 +7669,10 @@ test "Typecheck I64Load8U" {
   let mem_type = @lib.MemType(I32Limits(1, None))
   let env = empty_env().push_mem(mem_type)
   let state = make_state(env, [i32_type()])
-  let result = Typecheck::typecheck(@lib.I64Load8U(MemArg(U32(0), None, U64(0))), state)
+  let result = Typecheck::typecheck(
+    @lib.I64Load8U(MemArg(U32(0), None, U64(0))),
+    state,
+  )
   let final_state = assert_ok(result)
   assert_stack(final_state, [i64_type()])
 }
@@ -7515,7 +7682,10 @@ test "Typecheck I64Load16S" {
   let mem_type = @lib.MemType(I32Limits(1, None))
   let env = empty_env().push_mem(mem_type)
   let state = make_state(env, [i32_type()])
-  let result = Typecheck::typecheck(@lib.I64Load16S(MemArg(U32(0), None, U64(0))), state)
+  let result = Typecheck::typecheck(
+    @lib.I64Load16S(MemArg(U32(0), None, U64(0))),
+    state,
+  )
   let final_state = assert_ok(result)
   assert_stack(final_state, [i64_type()])
 }
@@ -7525,7 +7695,10 @@ test "Typecheck I64Load16U" {
   let mem_type = @lib.MemType(I32Limits(1, None))
   let env = empty_env().push_mem(mem_type)
   let state = make_state(env, [i32_type()])
-  let result = Typecheck::typecheck(@lib.I64Load16U(MemArg(U32(0), None, U64(0))), state)
+  let result = Typecheck::typecheck(
+    @lib.I64Load16U(MemArg(U32(0), None, U64(0))),
+    state,
+  )
   let final_state = assert_ok(result)
   assert_stack(final_state, [i64_type()])
 }
@@ -7535,7 +7708,10 @@ test "Typecheck I64Load32U" {
   let mem_type = @lib.MemType(I32Limits(1, None))
   let env = empty_env().push_mem(mem_type)
   let state = make_state(env, [i32_type()])
-  let result = Typecheck::typecheck(@lib.I64Load32U(MemArg(U32(0), None, U64(0))), state)
+  let result = Typecheck::typecheck(
+    @lib.I64Load32U(MemArg(U32(0), None, U64(0))),
+    state,
+  )
   let final_state = assert_ok(result)
   assert_stack(final_state, [i64_type()])
 }
@@ -7545,7 +7721,10 @@ test "Typecheck I32Store16" {
   let mem_type = @lib.MemType(I32Limits(1, None))
   let env = empty_env().push_mem(mem_type)
   let state = make_state(env, [i32_type(), i32_type()])
-  let result = Typecheck::typecheck(@lib.I32Store16(MemArg(U32(0), None, U64(0))), state)
+  let result = Typecheck::typecheck(
+    @lib.I32Store16(MemArg(U32(0), None, U64(0))),
+    state,
+  )
   let final_state = assert_ok(result)
   assert_stack(final_state, [])
 }
@@ -7555,7 +7734,10 @@ test "Typecheck I64Store8" {
   let mem_type = @lib.MemType(I32Limits(1, None))
   let env = empty_env().push_mem(mem_type)
   let state = make_state(env, [i32_type(), i64_type()])
-  let result = Typecheck::typecheck(@lib.I64Store8(MemArg(U32(0), None, U64(0))), state)
+  let result = Typecheck::typecheck(
+    @lib.I64Store8(MemArg(U32(0), None, U64(0))),
+    state,
+  )
   let final_state = assert_ok(result)
   assert_stack(final_state, [])
 }
@@ -7565,7 +7747,10 @@ test "Typecheck I64Store16" {
   let mem_type = @lib.MemType(I32Limits(1, None))
   let env = empty_env().push_mem(mem_type)
   let state = make_state(env, [i32_type(), i64_type()])
-  let result = Typecheck::typecheck(@lib.I64Store16(MemArg(U32(0), None, U64(0))), state)
+  let result = Typecheck::typecheck(
+    @lib.I64Store16(MemArg(U32(0), None, U64(0))),
+    state,
+  )
   let final_state = assert_ok(result)
   assert_stack(final_state, [])
 }
@@ -7885,7 +8070,10 @@ test "Typecheck V128Load32Zero" {
   let mem_type = @lib.MemType(I32Limits(1, None))
   let env = empty_env().push_mem(mem_type)
   let state = make_state(env, [i32_type()])
-  let result = Typecheck::typecheck(@lib.V128Load32Zero(MemArg(U32(0), None, U64(0))), state)
+  let result = Typecheck::typecheck(
+    @lib.V128Load32Zero(MemArg(U32(0), None, U64(0))),
+    state,
+  )
   let final_state = assert_ok(result)
   assert_stack(final_state, [v128_type()])
 }
@@ -7895,7 +8083,10 @@ test "Typecheck V128Load64Zero" {
   let mem_type = @lib.MemType(I32Limits(1, None))
   let env = empty_env().push_mem(mem_type)
   let state = make_state(env, [i32_type()])
-  let result = Typecheck::typecheck(@lib.V128Load64Zero(MemArg(U32(0), None, U64(0))), state)
+  let result = Typecheck::typecheck(
+    @lib.V128Load64Zero(MemArg(U32(0), None, U64(0))),
+    state,
+  )
   let final_state = assert_ok(result)
   assert_stack(final_state, [v128_type()])
 }
@@ -7905,7 +8096,10 @@ test "Typecheck V128Load8x8S" {
   let mem_type = @lib.MemType(I32Limits(1, None))
   let env = empty_env().push_mem(mem_type)
   let state = make_state(env, [i32_type()])
-  let result = Typecheck::typecheck(@lib.V128Load8x8S(MemArg(U32(0), None, U64(0))), state)
+  let result = Typecheck::typecheck(
+    @lib.V128Load8x8S(MemArg(U32(0), None, U64(0))),
+    state,
+  )
   let final_state = assert_ok(result)
   assert_stack(final_state, [v128_type()])
 }
@@ -7915,7 +8109,10 @@ test "Typecheck V128Load8x8U" {
   let mem_type = @lib.MemType(I32Limits(1, None))
   let env = empty_env().push_mem(mem_type)
   let state = make_state(env, [i32_type()])
-  let result = Typecheck::typecheck(@lib.V128Load8x8U(MemArg(U32(0), None, U64(0))), state)
+  let result = Typecheck::typecheck(
+    @lib.V128Load8x8U(MemArg(U32(0), None, U64(0))),
+    state,
+  )
   let final_state = assert_ok(result)
   assert_stack(final_state, [v128_type()])
 }
@@ -7925,7 +8122,10 @@ test "Typecheck V128Load16x4S" {
   let mem_type = @lib.MemType(I32Limits(1, None))
   let env = empty_env().push_mem(mem_type)
   let state = make_state(env, [i32_type()])
-  let result = Typecheck::typecheck(@lib.V128Load16x4S(MemArg(U32(0), None, U64(0))), state)
+  let result = Typecheck::typecheck(
+    @lib.V128Load16x4S(MemArg(U32(0), None, U64(0))),
+    state,
+  )
   let final_state = assert_ok(result)
   assert_stack(final_state, [v128_type()])
 }
@@ -7935,7 +8135,10 @@ test "Typecheck V128Load16x4U" {
   let mem_type = @lib.MemType(I32Limits(1, None))
   let env = empty_env().push_mem(mem_type)
   let state = make_state(env, [i32_type()])
-  let result = Typecheck::typecheck(@lib.V128Load16x4U(MemArg(U32(0), None, U64(0))), state)
+  let result = Typecheck::typecheck(
+    @lib.V128Load16x4U(MemArg(U32(0), None, U64(0))),
+    state,
+  )
   let final_state = assert_ok(result)
   assert_stack(final_state, [v128_type()])
 }
@@ -7945,7 +8148,10 @@ test "Typecheck V128Load32x2S" {
   let mem_type = @lib.MemType(I32Limits(1, None))
   let env = empty_env().push_mem(mem_type)
   let state = make_state(env, [i32_type()])
-  let result = Typecheck::typecheck(@lib.V128Load32x2S(MemArg(U32(0), None, U64(0))), state)
+  let result = Typecheck::typecheck(
+    @lib.V128Load32x2S(MemArg(U32(0), None, U64(0))),
+    state,
+  )
   let final_state = assert_ok(result)
   assert_stack(final_state, [v128_type()])
 }
@@ -7955,7 +8161,10 @@ test "Typecheck V128Load32x2U" {
   let mem_type = @lib.MemType(I32Limits(1, None))
   let env = empty_env().push_mem(mem_type)
   let state = make_state(env, [i32_type()])
-  let result = Typecheck::typecheck(@lib.V128Load32x2U(MemArg(U32(0), None, U64(0))), state)
+  let result = Typecheck::typecheck(
+    @lib.V128Load32x2U(MemArg(U32(0), None, U64(0))),
+    state,
+  )
   let final_state = assert_ok(result)
   assert_stack(final_state, [v128_type()])
 }
@@ -7965,7 +8174,10 @@ test "Typecheck V128Load8Splat" {
   let mem_type = @lib.MemType(I32Limits(1, None))
   let env = empty_env().push_mem(mem_type)
   let state = make_state(env, [i32_type()])
-  let result = Typecheck::typecheck(@lib.V128Load8Splat(MemArg(U32(0), None, U64(0))), state)
+  let result = Typecheck::typecheck(
+    @lib.V128Load8Splat(MemArg(U32(0), None, U64(0))),
+    state,
+  )
   let final_state = assert_ok(result)
   assert_stack(final_state, [v128_type()])
 }
@@ -7975,7 +8187,10 @@ test "Typecheck V128Load16Splat" {
   let mem_type = @lib.MemType(I32Limits(1, None))
   let env = empty_env().push_mem(mem_type)
   let state = make_state(env, [i32_type()])
-  let result = Typecheck::typecheck(@lib.V128Load16Splat(MemArg(U32(0), None, U64(0))), state)
+  let result = Typecheck::typecheck(
+    @lib.V128Load16Splat(MemArg(U32(0), None, U64(0))),
+    state,
+  )
   let final_state = assert_ok(result)
   assert_stack(final_state, [v128_type()])
 }
@@ -7988,7 +8203,10 @@ test "Typecheck V128Load16Splat" {
 test "Typecheck V128Load32Splat" {
   let env = empty_env().push_mem(MemType(I32Limits(1, None)))
   let state = make_state(env, [i32_type()])
-  let result = Typecheck::typecheck(@lib.V128Load32Splat(MemArg(U32(0), None, U64(0))), state)
+  let result = Typecheck::typecheck(
+    @lib.V128Load32Splat(MemArg(U32(0), None, U64(0))),
+    state,
+  )
   let state = assert_ok(result)
   assert_stack(state, [v128_type()])
 }
@@ -7997,7 +8215,10 @@ test "Typecheck V128Load32Splat" {
 test "Typecheck V128Load64Splat" {
   let env = empty_env().push_mem(MemType(I32Limits(1, None)))
   let state = make_state(env, [i32_type()])
-  let result = Typecheck::typecheck(@lib.V128Load64Splat(MemArg(U32(0), None, U64(0))), state)
+  let result = Typecheck::typecheck(
+    @lib.V128Load64Splat(MemArg(U32(0), None, U64(0))),
+    state,
+  )
   let state = assert_ok(result)
   assert_stack(state, [v128_type()])
 }
@@ -8006,7 +8227,8 @@ test "Typecheck V128Load64Splat" {
 test "Typecheck V128Load32Lane" {
   let env = empty_env().push_mem(MemType(I32Limits(1, None)))
   let state = make_state(env, [i32_type(), v128_type()])
-  let result = Typecheck::typecheck(@lib.V128Load32Lane(MemArg(U32(0), None, U64(0)), LaneIdx(0)), 
+  let result = Typecheck::typecheck(
+    @lib.V128Load32Lane(MemArg(U32(0), None, U64(0)), LaneIdx(0)),
     state,
   )
   let state = assert_ok(result)
@@ -8017,7 +8239,8 @@ test "Typecheck V128Load32Lane" {
 test "Typecheck V128Load64Lane" {
   let env = empty_env().push_mem(MemType(I32Limits(1, None)))
   let state = make_state(env, [i32_type(), v128_type()])
-  let result = Typecheck::typecheck(@lib.V128Load64Lane(MemArg(U32(0), None, U64(0)), LaneIdx(0)), 
+  let result = Typecheck::typecheck(
+    @lib.V128Load64Lane(MemArg(U32(0), None, U64(0)), LaneIdx(0)),
     state,
   )
   let state = assert_ok(result)
@@ -8032,7 +8255,8 @@ test "Typecheck V128Load64Lane" {
 test "Typecheck V128Store8Lane" {
   let env = empty_env().push_mem(MemType(I32Limits(1, None)))
   let state = make_state(env, [i32_type(), v128_type()])
-  let result = Typecheck::typecheck(@lib.V128Store8Lane(MemArg(U32(0), None, U64(0)), LaneIdx(0)), 
+  let result = Typecheck::typecheck(
+    @lib.V128Store8Lane(MemArg(U32(0), None, U64(0)), LaneIdx(0)),
     state,
   )
   let state = assert_ok(result)
@@ -8043,7 +8267,8 @@ test "Typecheck V128Store8Lane" {
 test "Typecheck V128Store32Lane" {
   let env = empty_env().push_mem(MemType(I32Limits(1, None)))
   let state = make_state(env, [i32_type(), v128_type()])
-  let result = Typecheck::typecheck(@lib.V128Store32Lane(MemArg(U32(0), None, U64(0)), LaneIdx(0)), 
+  let result = Typecheck::typecheck(
+    @lib.V128Store32Lane(MemArg(U32(0), None, U64(0)), LaneIdx(0)),
     state,
   )
   let state = assert_ok(result)
@@ -8054,7 +8279,8 @@ test "Typecheck V128Store32Lane" {
 test "Typecheck V128Store64Lane" {
   let env = empty_env().push_mem(MemType(I32Limits(1, None)))
   let state = make_state(env, [i32_type(), v128_type()])
-  let result = Typecheck::typecheck(@lib.V128Store64Lane(MemArg(U32(0), None, U64(0)), LaneIdx(0)), 
+  let result = Typecheck::typecheck(
+    @lib.V128Store64Lane(MemArg(U32(0), None, U64(0)), LaneIdx(0)),
     state,
   )
   let state = assert_ok(result)
