@@ -1,7 +1,6 @@
 {
   "name": "passes",
   "import": [
-    "jtenner/starshine/lib",
-    "jtenner/starshine/validate"
+    "jtenner/starshine/lib"
   ]
 }
