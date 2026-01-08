@@ -1,19 +1,9 @@
 ///|
-using @lib {
-  type Env,
-  expr_to_texpr,
-  expand_locals,
-  type ModuleTransformer,
-  type TransformerResult,
-  change,
-  unchanged,
-}
-
-///|
 pub fn lift_to_texpr_pass() -> ModuleTransformer[Unit] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
     on_func: Some(fn(
+      _ : ModuleTransformer[Unit],
       _ : Unit,
       f : @lib.Func,
     ) -> TransformerResult[Unit, @lib.Func] {

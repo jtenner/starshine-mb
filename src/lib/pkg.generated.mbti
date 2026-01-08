@@ -1328,67 +1328,67 @@ pub impl Show for Module
 pub impl @quickcheck.Arbitrary for Module
 
 pub(all) struct ModuleTransformer[T] {
-  on_typesec : ((T, TypeSec) -> Result[(T, TypeSec)?, String])?
-  on_funcsec : ((T, FuncSec) -> Result[(T, FuncSec)?, String])?
-  on_tablesec : ((T, TableSec) -> Result[(T, TableSec)?, String])?
-  on_memsec : ((T, MemSec) -> Result[(T, MemSec)?, String])?
-  on_tagsec : ((T, TagSec) -> Result[(T, TagSec)?, String])?
-  on_globalsec : ((T, GlobalSec) -> Result[(T, GlobalSec)?, String])?
-  on_exportsec : ((T, ExportSec) -> Result[(T, ExportSec)?, String])?
-  on_startsec : ((T, StartSec) -> Result[(T, StartSec)?, String])?
-  on_elemsec : ((T, ElemSec) -> Result[(T, ElemSec)?, String])?
-  on_elemkind : ((T, ElemKind) -> Result[(T, ElemKind)?, String])?
-  on_datacntsec : ((T, DataCntSec) -> Result[(T, DataCntSec)?, String])?
-  on_codesec : ((T, CodeSec) -> Result[(T, CodeSec)?, String])?
-  on_datasec : ((T, DataSec) -> Result[(T, DataSec)?, String])?
-  on_instruction : ((T, Instruction) -> Result[(T, Instruction)?, String])?
-  on_tinstruction : ((T, TInstr) -> Result[(T, TInstr)?, String])?
-  on_expr : ((T, Expr) -> Result[(T, Expr)?, String])?
-  on_texpr : ((T, TExpr) -> Result[(T, TExpr)?, String])?
-  on_table : ((T, Table) -> Result[(T, Table)?, String])?
-  on_valtype : ((T, ValType) -> Result[(T, ValType)?, String])?
-  on_numtype : ((T, NumType) -> Result[(T, NumType)?, String])?
-  on_rectype : ((T, RecType) -> Result[(T, RecType)?, String])?
-  on_subtype : ((T, SubType) -> Result[(T, SubType)?, String])?
-  on_comptype : ((T, CompType) -> Result[(T, CompType)?, String])?
-  on_reftype : ((T, RefType) -> Result[(T, RefType)?, String])?
-  on_heaptype : ((T, HeapType) -> Result[(T, HeapType)?, String])?
-  on_blocktype : ((T, BlockType) -> Result[(T, BlockType)?, String])?
-  on_funcidx : ((T, FuncIdx) -> Result[(T, FuncIdx)?, String])?
-  on_typeidx : ((T, TypeIdx) -> Result[(T, TypeIdx)?, String])?
-  on_laneidx : ((T, LaneIdx) -> Result[(T, LaneIdx)?, String])?
-  on_localidx : ((T, LocalIdx) -> Result[(T, LocalIdx)?, String])?
-  on_globalidx : ((T, GlobalIdx) -> Result[(T, GlobalIdx)?, String])?
-  on_tableidx : ((T, TableIdx) -> Result[(T, TableIdx)?, String])?
-  on_memidx : ((T, MemIdx) -> Result[(T, MemIdx)?, String])?
-  on_labelidx : ((T, LabelIdx) -> Result[(T, LabelIdx)?, String])?
-  on_dataidx : ((T, DataIdx) -> Result[(T, DataIdx)?, String])?
-  on_elemidx : ((T, ElemIdx) -> Result[(T, ElemIdx)?, String])?
-  on_tagidx : ((T, TagIdx) -> Result[(T, TagIdx)?, String])?
-  on_name : ((T, Name) -> Result[(T, Name)?, String])?
-  on_externtype : ((T, ExternType) -> Result[(T, ExternType)?, String])?
-  on_limits : ((T, Limits) -> Result[(T, Limits)?, String])?
-  on_memtype : ((T, MemType) -> Result[(T, MemType)?, String])?
-  on_tagtype : ((T, TagType) -> Result[(T, TagType)?, String])?
-  on_export : ((T, Export) -> Result[(T, Export)?, String])?
-  on_global : ((T, Global) -> Result[(T, Global)?, String])?
-  on_globaltype : ((T, GlobalType) -> Result[(T, GlobalType)?, String])?
-  on_func : ((T, Func) -> Result[(T, Func)?, String])?
-  on_locals : ((T, Array[Locals]) -> Result[(T, Array[Locals])?, String])?
-  on_externidx : ((T, ExternIdx) -> Result[(T, ExternIdx)?, String])?
-  on_fieldtype : ((T, FieldType) -> Result[(T, FieldType)?, String])?
-  on_storagetype : ((T, StorageType) -> Result[(T, StorageType)?, String])?
-  on_unaryop : ((T, UnaryOp) -> Result[(T, UnaryOp)?, String])?
-  on_binaryop : ((T, BinaryOp) -> Result[(T, BinaryOp)?, String])?
-  on_storeop : ((T, StoreOp) -> Result[(T, StoreOp)?, String])?
-  on_loadop : ((T, LoadOp) -> Result[(T, LoadOp)?, String])?
-  on_extractlaneop : ((T, ExtractLaneOp) -> Result[(T, ExtractLaneOp)?, String])?
-  on_replacelaneop : ((T, ReplaceLaneOp) -> Result[(T, ReplaceLaneOp)?, String])?
-  on_v128shiftop : ((T, V128ShiftOp) -> Result[(T, V128ShiftOp)?, String])?
-  on_v128ternaryop : ((T, V128TernaryOp) -> Result[(T, V128TernaryOp)?, String])?
-  on_v128loadlaneop : ((T, V128LoadLaneOp) -> Result[(T, V128LoadLaneOp)?, String])?
-  on_v128storelaneop : ((T, V128StoreLaneOp) -> Result[(T, V128StoreLaneOp)?, String])?
-  on_memarg : ((T, MemArg) -> Result[(T, MemArg)?, String])?
+  on_typesec : ((ModuleTransformer[T], T, TypeSec) -> Result[(T, TypeSec)?, String])?
+  on_funcsec : ((ModuleTransformer[T], T, FuncSec) -> Result[(T, FuncSec)?, String])?
+  on_tablesec : ((ModuleTransformer[T], T, TableSec) -> Result[(T, TableSec)?, String])?
+  on_memsec : ((ModuleTransformer[T], T, MemSec) -> Result[(T, MemSec)?, String])?
+  on_tagsec : ((ModuleTransformer[T], T, TagSec) -> Result[(T, TagSec)?, String])?
+  on_globalsec : ((ModuleTransformer[T], T, GlobalSec) -> Result[(T, GlobalSec)?, String])?
+  on_exportsec : ((ModuleTransformer[T], T, ExportSec) -> Result[(T, ExportSec)?, String])?
+  on_startsec : ((ModuleTransformer[T], T, StartSec) -> Result[(T, StartSec)?, String])?
+  on_elemsec : ((ModuleTransformer[T], T, ElemSec) -> Result[(T, ElemSec)?, String])?
+  on_elemkind : ((ModuleTransformer[T], T, ElemKind) -> Result[(T, ElemKind)?, String])?
+  on_datacntsec : ((ModuleTransformer[T], T, DataCntSec) -> Result[(T, DataCntSec)?, String])?
+  on_codesec : ((ModuleTransformer[T], T, CodeSec) -> Result[(T, CodeSec)?, String])?
+  on_datasec : ((ModuleTransformer[T], T, DataSec) -> Result[(T, DataSec)?, String])?
+  on_instruction : ((ModuleTransformer[T], T, Instruction) -> Result[(T, Instruction)?, String])?
+  on_tinstruction : ((ModuleTransformer[T], T, TInstr) -> Result[(T, TInstr)?, String])?
+  on_expr : ((ModuleTransformer[T], T, Expr) -> Result[(T, Expr)?, String])?
+  on_texpr : ((ModuleTransformer[T], T, TExpr) -> Result[(T, TExpr)?, String])?
+  on_table : ((ModuleTransformer[T], T, Table) -> Result[(T, Table)?, String])?
+  on_valtype : ((ModuleTransformer[T], T, ValType) -> Result[(T, ValType)?, String])?
+  on_numtype : ((ModuleTransformer[T], T, NumType) -> Result[(T, NumType)?, String])?
+  on_rectype : ((ModuleTransformer[T], T, RecType) -> Result[(T, RecType)?, String])?
+  on_subtype : ((ModuleTransformer[T], T, SubType) -> Result[(T, SubType)?, String])?
+  on_comptype : ((ModuleTransformer[T], T, CompType) -> Result[(T, CompType)?, String])?
+  on_reftype : ((ModuleTransformer[T], T, RefType) -> Result[(T, RefType)?, String])?
+  on_heaptype : ((ModuleTransformer[T], T, HeapType) -> Result[(T, HeapType)?, String])?
+  on_blocktype : ((ModuleTransformer[T], T, BlockType) -> Result[(T, BlockType)?, String])?
+  on_funcidx : ((ModuleTransformer[T], T, FuncIdx) -> Result[(T, FuncIdx)?, String])?
+  on_typeidx : ((ModuleTransformer[T], T, TypeIdx) -> Result[(T, TypeIdx)?, String])?
+  on_laneidx : ((ModuleTransformer[T], T, LaneIdx) -> Result[(T, LaneIdx)?, String])?
+  on_localidx : ((ModuleTransformer[T], T, LocalIdx) -> Result[(T, LocalIdx)?, String])?
+  on_globalidx : ((ModuleTransformer[T], T, GlobalIdx) -> Result[(T, GlobalIdx)?, String])?
+  on_tableidx : ((ModuleTransformer[T], T, TableIdx) -> Result[(T, TableIdx)?, String])?
+  on_memidx : ((ModuleTransformer[T], T, MemIdx) -> Result[(T, MemIdx)?, String])?
+  on_labelidx : ((ModuleTransformer[T], T, LabelIdx) -> Result[(T, LabelIdx)?, String])?
+  on_dataidx : ((ModuleTransformer[T], T, DataIdx) -> Result[(T, DataIdx)?, String])?
+  on_elemidx : ((ModuleTransformer[T], T, ElemIdx) -> Result[(T, ElemIdx)?, String])?
+  on_tagidx : ((ModuleTransformer[T], T, TagIdx) -> Result[(T, TagIdx)?, String])?
+  on_name : ((ModuleTransformer[T], T, Name) -> Result[(T, Name)?, String])?
+  on_externtype : ((ModuleTransformer[T], T, ExternType) -> Result[(T, ExternType)?, String])?
+  on_limits : ((ModuleTransformer[T], T, Limits) -> Result[(T, Limits)?, String])?
+  on_memtype : ((ModuleTransformer[T], T, MemType) -> Result[(T, MemType)?, String])?
+  on_tagtype : ((ModuleTransformer[T], T, TagType) -> Result[(T, TagType)?, String])?
+  on_export : ((ModuleTransformer[T], T, Export) -> Result[(T, Export)?, String])?
+  on_global : ((ModuleTransformer[T], T, Global) -> Result[(T, Global)?, String])?
+  on_globaltype : ((ModuleTransformer[T], T, GlobalType) -> Result[(T, GlobalType)?, String])?
+  on_func : ((ModuleTransformer[T], T, Func) -> Result[(T, Func)?, String])?
+  on_locals : ((ModuleTransformer[T], T, Array[Locals]) -> Result[(T, Array[Locals])?, String])?
+  on_externidx : ((ModuleTransformer[T], T, ExternIdx) -> Result[(T, ExternIdx)?, String])?
+  on_fieldtype : ((ModuleTransformer[T], T, FieldType) -> Result[(T, FieldType)?, String])?
+  on_storagetype : ((ModuleTransformer[T], T, StorageType) -> Result[(T, StorageType)?, String])?
+  on_unaryop : ((ModuleTransformer[T], T, UnaryOp) -> Result[(T, UnaryOp)?, String])?
+  on_binaryop : ((ModuleTransformer[T], T, BinaryOp) -> Result[(T, BinaryOp)?, String])?
+  on_storeop : ((ModuleTransformer[T], T, StoreOp) -> Result[(T, StoreOp)?, String])?
+  on_loadop : ((ModuleTransformer[T], T, LoadOp) -> Result[(T, LoadOp)?, String])?
+  on_extractlaneop : ((ModuleTransformer[T], T, ExtractLaneOp) -> Result[(T, ExtractLaneOp)?, String])?
+  on_replacelaneop : ((ModuleTransformer[T], T, ReplaceLaneOp) -> Result[(T, ReplaceLaneOp)?, String])?
+  on_v128shiftop : ((ModuleTransformer[T], T, V128ShiftOp) -> Result[(T, V128ShiftOp)?, String])?
+  on_v128ternaryop : ((ModuleTransformer[T], T, V128TernaryOp) -> Result[(T, V128TernaryOp)?, String])?
+  on_v128loadlaneop : ((ModuleTransformer[T], T, V128LoadLaneOp) -> Result[(T, V128LoadLaneOp)?, String])?
+  on_v128storelaneop : ((ModuleTransformer[T], T, V128StoreLaneOp) -> Result[(T, V128StoreLaneOp)?, String])?
+  on_memarg : ((ModuleTransformer[T], T, MemArg) -> Result[(T, MemArg)?, String])?
 }
 pub fn[T] ModuleTransformer::new() -> Self[T]
 pub fn[T, E] ModuleTransformer::walk_array(Self[T], T, (Self[T], T, E) -> Result[(T, E)?, String], Array[E]) -> Result[(T, Array[E])?, String]

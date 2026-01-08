@@ -5,6 +5,7 @@ fn make_funcidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
     on_funcidx: Some(fn(
+      _ : ModuleTransformer[Unit],
       _ctx : Unit,
       idx : FuncIdx,
     ) -> TransformerResult[Unit, FuncIdx] {
@@ -25,6 +26,7 @@ fn make_typeidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
     on_typeidx: Some(fn(
+      _: ModuleTransformer[Unit],
       _ctx : Unit,
       idx : TypeIdx,
     ) -> TransformerResult[Unit, TypeIdx] {
@@ -52,6 +54,7 @@ fn make_localidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
     on_localidx: Some(fn(
+      _ : ModuleTransformer[Unit],
       _ctx : Unit,
       idx : LocalIdx,
     ) -> TransformerResult[Unit, LocalIdx] {
@@ -71,6 +74,7 @@ fn make_globalidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
     on_globalidx: Some(fn(
+      _ : ModuleTransformer[Unit],
       _ctx : Unit,
       idx : GlobalIdx,
     ) -> TransformerResult[Unit, GlobalIdx] {
@@ -90,6 +94,7 @@ fn make_labelidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
     on_labelidx: Some(fn(
+      _ : ModuleTransformer[Unit],
       _ctx : Unit,
       idx : LabelIdx,
     ) -> TransformerResult[Unit, LabelIdx] {
@@ -109,6 +114,7 @@ fn make_tableidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
     on_tableidx: Some(fn(
+      _ : ModuleTransformer[Unit],
       _ctx : Unit,
       idx : TableIdx,
     ) -> TransformerResult[Unit, TableIdx] {
@@ -128,6 +134,7 @@ fn make_memidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
     on_memidx: Some(fn(
+      _ : ModuleTransformer[Unit],
       _ctx : Unit,
       idx : MemIdx,
     ) -> TransformerResult[Unit, MemIdx] {
@@ -147,6 +154,7 @@ fn make_dataidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
     on_dataidx: Some(fn(
+      _ : ModuleTransformer[Unit],
       _ctx : Unit,
       idx : DataIdx,
     ) -> TransformerResult[Unit, DataIdx] {
@@ -166,6 +174,7 @@ fn make_elemidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
     on_elemidx: Some(fn(
+      _ : ModuleTransformer[Unit],
       _ctx : Unit,
       idx : ElemIdx,
     ) -> TransformerResult[Unit, ElemIdx] {
@@ -185,6 +194,7 @@ fn make_tagidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
     on_tagidx: Some(fn(
+      _ : ModuleTransformer[Unit],
       _ctx : Unit,
       idx : TagIdx,
     ) -> TransformerResult[Unit, TagIdx] {
@@ -204,6 +214,7 @@ fn make_type_corruption_transformer() -> ModuleTransformer[Bool] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
     on_expr: Some(fn(
+      _ : ModuleTransformer[Bool],
       done : Bool,
       expr : Expr,
     ) -> TransformerResult[Bool, Expr] {
@@ -232,6 +243,7 @@ fn make_numtype_swap_transformer() -> ModuleTransformer[Unit] {
     // This creates mismatches between declared types and instruction semantics
     ,
     on_valtype: Some(fn(
+      _ : ModuleTransformer[Unit],
       _ctx : Unit,
       vt : ValType,
     ) -> TransformerResult[Unit, ValType] {
@@ -253,6 +265,7 @@ fn make_nullability_flip_transformer() -> ModuleTransformer[Unit] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
     on_reftype: Some(fn(
+      _ : ModuleTransformer[Unit],
       _ctx : Unit,
       rt : RefType,
     ) -> TransformerResult[Unit, RefType] {
@@ -325,6 +338,7 @@ fn make_nullability_flip_transformer() -> ModuleTransformer[Unit] {
     }),
     // Also corrupt ref.null to create definite type errors
     on_instruction: Some(fn(
+      _ : ModuleTransformer[Unit],
       _ctx : Unit,
       instr : Instruction,
     ) -> TransformerResult[Unit, Instruction] {
@@ -347,6 +361,7 @@ fn make_signature_corruption_transformer() -> ModuleTransformer[Unit] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
     on_comptype: Some(fn(
+      _ : ModuleTransformer[Unit],
       _ctx : Unit,
       ct : CompType,
     ) -> TransformerResult[Unit, CompType] {
@@ -409,6 +424,7 @@ fn make_global_init_mismatch_transformer() -> ModuleTransformer[Unit] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
     on_global: Some(fn(
+      _ : ModuleTransformer[Unit],
       _ctx : Unit,
       g : Global,
     ) -> TransformerResult[Unit, Global] {
@@ -434,6 +450,7 @@ fn make_table_init_mismatch_transformer() -> ModuleTransformer[Unit] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
     on_table: Some(fn(
+      _ : ModuleTransformer[Unit],
       _ctx : Unit,
       t : Table,
     ) -> TransformerResult[Unit, Table] {
@@ -450,6 +467,7 @@ fn make_drop_insertion_transformer() -> ModuleTransformer[Bool] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
     on_expr: Some(fn(
+      _ : ModuleTransformer[Bool],
       done : Bool,
       expr : Expr,
     ) -> TransformerResult[Bool, Expr] {
@@ -476,6 +494,7 @@ fn make_block_corruption_transformer() -> ModuleTransformer[Bool] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
     on_expr: Some(fn(
+      _ : ModuleTransformer[Bool],
       done : Bool,
       expr : Expr,
     ) -> TransformerResult[Bool, Expr] {
@@ -514,6 +533,7 @@ fn make_blocktype_mismatch_transformer() -> ModuleTransformer[Bool] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
     on_instruction: Some(fn(
+      _ : ModuleTransformer[Bool],
       done : Bool,
       ins : Instruction,
     ) -> TransformerResult[Bool, Instruction] {

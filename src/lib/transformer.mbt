@@ -20,73 +20,73 @@ pub fn[T, Elem] error(err : String) -> TransformerResult[T, Elem] {
 
 ///|
 pub(all) struct ModuleTransformer[T] {
-  on_typesec : ((T, TypeSec) -> TransformerResult[T, TypeSec])?
-  on_funcsec : ((T, FuncSec) -> TransformerResult[T, FuncSec])?
-  on_tablesec : ((T, TableSec) -> TransformerResult[T, TableSec])?
-  on_memsec : ((T, MemSec) -> TransformerResult[T, MemSec])?
-  on_tagsec : ((T, TagSec) -> TransformerResult[T, TagSec])?
-  on_globalsec : ((T, GlobalSec) -> TransformerResult[T, GlobalSec])?
-  on_exportsec : ((T, ExportSec) -> TransformerResult[T, ExportSec])?
-  on_startsec : ((T, StartSec) -> TransformerResult[T, StartSec])?
-  on_elemsec : ((T, ElemSec) -> TransformerResult[T, ElemSec])?
-  on_elemkind : ((T, ElemKind) -> TransformerResult[T, ElemKind])?
-  on_datacntsec : ((T, DataCntSec) -> TransformerResult[T, DataCntSec])?
-  on_codesec : ((T, CodeSec) -> TransformerResult[T, CodeSec])?
-  on_datasec : ((T, DataSec) -> TransformerResult[T, DataSec])?
-  on_instruction : ((T, Instruction) -> TransformerResult[T, Instruction])?
-  on_tinstruction : ((T, TInstr) -> TransformerResult[T, TInstr])?
-  on_expr : ((T, Expr) -> TransformerResult[T, Expr])?
-  on_texpr : ((T, TExpr) -> TransformerResult[T, TExpr])?
-  on_table : ((T, Table) -> TransformerResult[T, Table])?
-  on_valtype : ((T, ValType) -> TransformerResult[T, ValType])?
-  on_numtype : ((T, NumType) -> TransformerResult[T, NumType])?
-  on_rectype : ((T, RecType) -> TransformerResult[T, RecType])?
-  on_subtype : ((T, SubType) -> TransformerResult[T, SubType])?
-  on_comptype : ((T, CompType) -> TransformerResult[T, CompType])?
-  on_reftype : ((T, RefType) -> TransformerResult[T, RefType])?
-  on_heaptype : ((T, HeapType) -> TransformerResult[T, HeapType])?
-  on_blocktype : ((T, BlockType) -> TransformerResult[T, BlockType])?
-  on_funcidx : ((T, FuncIdx) -> TransformerResult[T, FuncIdx])?
-  on_typeidx : ((T, TypeIdx) -> TransformerResult[T, TypeIdx])?
-  on_laneidx : ((T, LaneIdx) -> TransformerResult[T, LaneIdx])?
-  on_localidx : ((T, LocalIdx) -> TransformerResult[T, LocalIdx])?
-  on_globalidx : ((T, GlobalIdx) -> TransformerResult[T, GlobalIdx])?
-  on_tableidx : ((T, TableIdx) -> TransformerResult[T, TableIdx])?
-  on_memidx : ((T, MemIdx) -> TransformerResult[T, MemIdx])?
-  on_labelidx : ((T, LabelIdx) -> TransformerResult[T, LabelIdx])?
-  on_dataidx : ((T, DataIdx) -> TransformerResult[T, DataIdx])?
-  on_elemidx : ((T, ElemIdx) -> TransformerResult[T, ElemIdx])?
-  on_tagidx : ((T, TagIdx) -> TransformerResult[T, TagIdx])?
-  on_name : ((T, Name) -> TransformerResult[T, Name])?
-  on_externtype : ((T, ExternType) -> TransformerResult[T, ExternType])?
-  on_limits : ((T, Limits) -> TransformerResult[T, Limits])?
-  on_memtype : ((T, MemType) -> TransformerResult[T, MemType])?
-  on_tagtype : ((T, TagType) -> TransformerResult[T, TagType])?
-  on_export : ((T, Export) -> TransformerResult[T, Export])?
-  on_global : ((T, Global) -> TransformerResult[T, Global])?
-  on_globaltype : ((T, GlobalType) -> TransformerResult[T, GlobalType])?
-  on_func : ((T, Func) -> TransformerResult[T, Func])?
-  on_locals : ((T, Array[Locals]) -> TransformerResult[T, Array[Locals]])?
-  on_externidx : ((T, ExternIdx) -> TransformerResult[T, ExternIdx])?
-  on_fieldtype : ((T, FieldType) -> TransformerResult[T, FieldType])?
-  on_storagetype : ((T, StorageType) -> TransformerResult[T, StorageType])?
-  on_unaryop : ((T, UnaryOp) -> TransformerResult[T, UnaryOp])?
-  on_binaryop : ((T, BinaryOp) -> TransformerResult[T, BinaryOp])?
-  on_storeop : ((T, StoreOp) -> TransformerResult[T, StoreOp])?
-  on_loadop : ((T, LoadOp) -> TransformerResult[T, LoadOp])?
-  on_extractlaneop : ((T, ExtractLaneOp) -> TransformerResult[T, ExtractLaneOp])?
-  on_replacelaneop : ((T, ReplaceLaneOp) -> TransformerResult[T, ReplaceLaneOp])?
-  on_v128shiftop : ((T, V128ShiftOp) -> TransformerResult[T, V128ShiftOp])?
-  on_v128ternaryop : ((T, V128TernaryOp) -> TransformerResult[T, V128TernaryOp])?
-  on_v128loadlaneop : ((T, V128LoadLaneOp) -> TransformerResult[
+  on_typesec : ((ModuleTransformer[T], T, TypeSec) -> TransformerResult[T, TypeSec])?
+  on_funcsec : ((ModuleTransformer[T], T, FuncSec) -> TransformerResult[T, FuncSec])?
+  on_tablesec : ((ModuleTransformer[T], T, TableSec) -> TransformerResult[T, TableSec])?
+  on_memsec : ((ModuleTransformer[T], T, MemSec) -> TransformerResult[T, MemSec])?
+  on_tagsec : ((ModuleTransformer[T], T, TagSec) -> TransformerResult[T, TagSec])?
+  on_globalsec : ((ModuleTransformer[T], T, GlobalSec) -> TransformerResult[T, GlobalSec])?
+  on_exportsec : ((ModuleTransformer[T], T, ExportSec) -> TransformerResult[T, ExportSec])?
+  on_startsec : ((ModuleTransformer[T], T, StartSec) -> TransformerResult[T, StartSec])?
+  on_elemsec : ((ModuleTransformer[T], T, ElemSec) -> TransformerResult[T, ElemSec])?
+  on_elemkind : ((ModuleTransformer[T], T, ElemKind) -> TransformerResult[T, ElemKind])?
+  on_datacntsec : ((ModuleTransformer[T], T, DataCntSec) -> TransformerResult[T, DataCntSec])?
+  on_codesec : ((ModuleTransformer[T], T, CodeSec) -> TransformerResult[T, CodeSec])?
+  on_datasec : ((ModuleTransformer[T], T, DataSec) -> TransformerResult[T, DataSec])?
+  on_instruction : ((ModuleTransformer[T], T, Instruction) -> TransformerResult[T, Instruction])?
+  on_tinstruction : ((ModuleTransformer[T], T, TInstr) -> TransformerResult[T, TInstr])?
+  on_expr : ((ModuleTransformer[T], T, Expr) -> TransformerResult[T, Expr])?
+  on_texpr : ((ModuleTransformer[T], T, TExpr) -> TransformerResult[T, TExpr])?
+  on_table : ((ModuleTransformer[T], T, Table) -> TransformerResult[T, Table])?
+  on_valtype : ((ModuleTransformer[T], T, ValType) -> TransformerResult[T, ValType])?
+  on_numtype : ((ModuleTransformer[T], T, NumType) -> TransformerResult[T, NumType])?
+  on_rectype : ((ModuleTransformer[T], T, RecType) -> TransformerResult[T, RecType])?
+  on_subtype : ((ModuleTransformer[T], T, SubType) -> TransformerResult[T, SubType])?
+  on_comptype : ((ModuleTransformer[T], T, CompType) -> TransformerResult[T, CompType])?
+  on_reftype : ((ModuleTransformer[T], T, RefType) -> TransformerResult[T, RefType])?
+  on_heaptype : ((ModuleTransformer[T], T, HeapType) -> TransformerResult[T, HeapType])?
+  on_blocktype : ((ModuleTransformer[T], T, BlockType) -> TransformerResult[T, BlockType])?
+  on_funcidx : ((ModuleTransformer[T], T, FuncIdx) -> TransformerResult[T, FuncIdx])?
+  on_typeidx : ((ModuleTransformer[T], T, TypeIdx) -> TransformerResult[T, TypeIdx])?
+  on_laneidx : ((ModuleTransformer[T], T, LaneIdx) -> TransformerResult[T, LaneIdx])?
+  on_localidx : ((ModuleTransformer[T], T, LocalIdx) -> TransformerResult[T, LocalIdx])?
+  on_globalidx : ((ModuleTransformer[T], T, GlobalIdx) -> TransformerResult[T, GlobalIdx])?
+  on_tableidx : ((ModuleTransformer[T], T, TableIdx) -> TransformerResult[T, TableIdx])?
+  on_memidx : ((ModuleTransformer[T], T, MemIdx) -> TransformerResult[T, MemIdx])?
+  on_labelidx : ((ModuleTransformer[T], T, LabelIdx) -> TransformerResult[T, LabelIdx])?
+  on_dataidx : ((ModuleTransformer[T], T, DataIdx) -> TransformerResult[T, DataIdx])?
+  on_elemidx : ((ModuleTransformer[T], T, ElemIdx) -> TransformerResult[T, ElemIdx])?
+  on_tagidx : ((ModuleTransformer[T], T, TagIdx) -> TransformerResult[T, TagIdx])?
+  on_name : ((ModuleTransformer[T], T, Name) -> TransformerResult[T, Name])?
+  on_externtype : ((ModuleTransformer[T], T, ExternType) -> TransformerResult[T, ExternType])?
+  on_limits : ((ModuleTransformer[T], T, Limits) -> TransformerResult[T, Limits])?
+  on_memtype : ((ModuleTransformer[T], T, MemType) -> TransformerResult[T, MemType])?
+  on_tagtype : ((ModuleTransformer[T], T, TagType) -> TransformerResult[T, TagType])?
+  on_export : ((ModuleTransformer[T], T, Export) -> TransformerResult[T, Export])?
+  on_global : ((ModuleTransformer[T], T, Global) -> TransformerResult[T, Global])?
+  on_globaltype : ((ModuleTransformer[T], T, GlobalType) -> TransformerResult[T, GlobalType])?
+  on_func : ((ModuleTransformer[T], T, Func) -> TransformerResult[T, Func])?
+  on_locals : ((ModuleTransformer[T], T, Array[Locals]) -> TransformerResult[T, Array[Locals]])?
+  on_externidx : ((ModuleTransformer[T], T, ExternIdx) -> TransformerResult[T, ExternIdx])?
+  on_fieldtype : ((ModuleTransformer[T], T, FieldType) -> TransformerResult[T, FieldType])?
+  on_storagetype : ((ModuleTransformer[T], T, StorageType) -> TransformerResult[T, StorageType])?
+  on_unaryop : ((ModuleTransformer[T], T, UnaryOp) -> TransformerResult[T, UnaryOp])?
+  on_binaryop : ((ModuleTransformer[T], T, BinaryOp) -> TransformerResult[T, BinaryOp])?
+  on_storeop : ((ModuleTransformer[T], T, StoreOp) -> TransformerResult[T, StoreOp])?
+  on_loadop : ((ModuleTransformer[T], T, LoadOp) -> TransformerResult[T, LoadOp])?
+  on_extractlaneop : ((ModuleTransformer[T], T, ExtractLaneOp) -> TransformerResult[T, ExtractLaneOp])?
+  on_replacelaneop : ((ModuleTransformer[T], T, ReplaceLaneOp) -> TransformerResult[T, ReplaceLaneOp])?
+  on_v128shiftop : ((ModuleTransformer[T], T, V128ShiftOp) -> TransformerResult[T, V128ShiftOp])?
+  on_v128ternaryop : ((ModuleTransformer[T], T, V128TernaryOp) -> TransformerResult[T, V128TernaryOp])?
+  on_v128loadlaneop : ((ModuleTransformer[T], T, V128LoadLaneOp) -> TransformerResult[
     T,
     V128LoadLaneOp,
   ])?
-  on_v128storelaneop : ((T, V128StoreLaneOp) -> TransformerResult[
+  on_v128storelaneop : ((ModuleTransformer[T], T, V128StoreLaneOp) -> TransformerResult[
     T,
     V128StoreLaneOp,
   ])?
-  on_memarg : ((T, MemArg) -> TransformerResult[T, MemArg])?
+  on_memarg : ((ModuleTransformer[T], T, MemArg) -> TransformerResult[T, MemArg])?
 }
 
 ///|
@@ -197,7 +197,7 @@ pub fn[T] ModuleTransformer::walk_name(
   name : Name,
 ) -> TransformerResult[T, Name] {
   match self.on_name {
-    Some(f) => f(t, name)
+    Some(f) => f(self, t, name)
     None => Ok(None)
   }
 }
@@ -210,7 +210,7 @@ pub fn[T] ModuleTransformer::walk_expr(
 ) -> TransformerResult[T, Expr] {
   match self.on_expr {
     Some(f) =>
-      match f(t, expr) {
+      match f(self, t, expr) {
         Err(e) => Err(e)
         Ok(None) => self.walk_expr_default(t, expr)
         ok => ok
@@ -227,7 +227,7 @@ pub fn[T] ModuleTransformer::walk_texpr(
 ) -> TransformerResult[T, TExpr] {
   match self.on_texpr {
     Some(f) =>
-      match f(t, texpr) {
+      match f(self, t, texpr) {
         Err(e) => Err(e)
         Ok(None) => self.walk_texpr_default(t, texpr)
         ok => ok
@@ -274,7 +274,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction(
 ) -> TransformerResult[T, TInstr] {
   match self.on_tinstruction {
     Some(f) =>
-      match f(t, tinstr) {
+      match f(self, t, tinstr) {
         Ok(None) => self.walk_tinstruction_default(t, tinstr)
         Ok(t) => Ok(t)
         Err(t) => Err(t)
@@ -1964,7 +1964,7 @@ pub fn[T] ModuleTransformer::walk_instruction(
 ) -> TransformerResult[T, Instruction] {
   match self.on_instruction {
     Some(f) =>
-      match f(t, instr) {
+      match f(self, t, instr) {
         Err(e) => Err(e)
         Ok(None) => self.walk_instruction_default(t, instr)
         ok => ok
@@ -2559,7 +2559,7 @@ pub fn[T] ModuleTransformer::walk_blocktype(
 ) -> TransformerResult[T, BlockType] {
   match self.on_blocktype {
     Some(f) =>
-      match f(t, bt) {
+      match f(self, t, bt) {
         Err(e) => Err(e)
         Ok(None) => self.walk_blocktype_default(t, bt)
         ok => ok
@@ -2648,7 +2648,7 @@ pub fn[T] ModuleTransformer::walk_funcidx(
   idx : FuncIdx,
 ) -> TransformerResult[T, FuncIdx] {
   match self.on_funcidx {
-    Some(f) => f(t, idx)
+    Some(f) => f(self, t, idx)
     None => Ok(None)
   }
 }
@@ -2660,7 +2660,7 @@ pub fn[T] ModuleTransformer::walk_typeidx(
   idx : TypeIdx,
 ) -> TransformerResult[T, TypeIdx] {
   match self.on_typeidx {
-    Some(f) => f(t, idx)
+    Some(f) => f(self, t, idx)
     None => Ok(None)
   }
 }
@@ -2672,7 +2672,7 @@ pub fn[T] ModuleTransformer::walk_localidx(
   idx : LocalIdx,
 ) -> TransformerResult[T, LocalIdx] {
   match self.on_localidx {
-    Some(f) => f(t, idx)
+    Some(f) => f(self, t, idx)
     None => Ok(None)
   }
 }
@@ -2684,7 +2684,7 @@ pub fn[T] ModuleTransformer::walk_globalidx(
   idx : GlobalIdx,
 ) -> TransformerResult[T, GlobalIdx] {
   match self.on_globalidx {
-    Some(f) => f(t, idx)
+    Some(f) => f(self, t, idx)
     None => Ok(None)
   }
 }
@@ -2696,7 +2696,7 @@ pub fn[T] ModuleTransformer::walk_tableidx(
   idx : TableIdx,
 ) -> TransformerResult[T, TableIdx] {
   match self.on_tableidx {
-    Some(f) => f(t, idx)
+    Some(f) => f(self, t, idx)
     None => Ok(None)
   }
 }
@@ -2708,7 +2708,7 @@ pub fn[T] ModuleTransformer::walk_memidx(
   idx : MemIdx,
 ) -> TransformerResult[T, MemIdx] {
   match self.on_memidx {
-    Some(f) => f(t, idx)
+    Some(f) => f(self, t, idx)
     None => Ok(None)
   }
 }
@@ -2720,7 +2720,7 @@ pub fn[T] ModuleTransformer::walk_labelidx(
   idx : LabelIdx,
 ) -> TransformerResult[T, LabelIdx] {
   match self.on_labelidx {
-    Some(f) => f(t, idx)
+    Some(f) => f(self, t, idx)
     None => Ok(None)
   }
 }
@@ -2732,7 +2732,7 @@ pub fn[T] ModuleTransformer::walk_laneidx(
   idx : LaneIdx,
 ) -> TransformerResult[T, LaneIdx] {
   match self.on_laneidx {
-    Some(f) => f(t, idx)
+    Some(f) => f(self, t, idx)
     None => Ok(None)
   }
 }
@@ -2744,7 +2744,7 @@ pub fn[T] ModuleTransformer::walk_dataidx(
   idx : DataIdx,
 ) -> TransformerResult[T, DataIdx] {
   match self.on_dataidx {
-    Some(f) => f(t, idx)
+    Some(f) => f(self, t, idx)
     None => Ok(None)
   }
 }
@@ -2756,7 +2756,7 @@ pub fn[T] ModuleTransformer::walk_elemidx(
   idx : ElemIdx,
 ) -> TransformerResult[T, ElemIdx] {
   match self.on_elemidx {
-    Some(f) => f(t, idx)
+    Some(f) => f(self, t, idx)
     None => Ok(None)
   }
 }
@@ -2768,7 +2768,7 @@ pub fn[T] ModuleTransformer::walk_tagidx(
   idx : TagIdx,
 ) -> TransformerResult[T, TagIdx] {
   match self.on_tagidx {
-    Some(f) => f(t, idx)
+    Some(f) => f(self, t, idx)
     None => Ok(None)
   }
 }
@@ -2781,7 +2781,7 @@ pub fn[T] ModuleTransformer::walk_valtype(
 ) -> TransformerResult[T, ValType] {
   match self.on_valtype {
     Some(f) =>
-      match f(t, vt) {
+      match f(self, t, vt) {
         Err(e) => Err(e)
         Ok(None) => self.walk_valtype_default(t, vt)
         ok => ok
@@ -2820,7 +2820,7 @@ pub fn[T] ModuleTransformer::walk_numtype(
   nt : NumType,
 ) -> TransformerResult[T, NumType] {
   match self.on_numtype {
-    Some(f) => f(t, nt)
+    Some(f) => f(self, t, nt)
     None => Ok(None)
   }
 }
@@ -2833,7 +2833,7 @@ pub fn[T] ModuleTransformer::walk_reftype(
 ) -> TransformerResult[T, RefType] {
   match self.on_reftype {
     Some(f) =>
-      match f(t, rt) {
+      match f(self, t, rt) {
         Err(e) => Err(e)
         Ok(None) => self.walk_reftype_default(t, rt)
         ok => ok
@@ -2867,7 +2867,7 @@ pub fn[T] ModuleTransformer::walk_heaptype(
 ) -> TransformerResult[T, HeapType] {
   match self.on_heaptype {
     Some(f) =>
-      match f(t, ht) {
+      match f(self, t, ht) {
         Err(e) => Err(e)
         Ok(None) => self.walk_heaptype_default(t, ht)
         ok => ok
@@ -3083,7 +3083,7 @@ pub fn[T] ModuleTransformer::walk_datasec(
 ) -> TransformerResult[T, DataSec] {
   match self.on_datasec {
     Some(f) =>
-      match f(t, ds) {
+      match f(self, t, ds) {
         Err(e) => Err(e)
         Ok(None) => self.walk_datasec_default(t, ds)
         ok => ok
@@ -3114,7 +3114,7 @@ pub fn[T] ModuleTransformer::walk_codesec(
 ) -> TransformerResult[T, CodeSec] {
   match self.on_codesec {
     Some(f) =>
-      match f(t, cs) {
+      match f(self, t, cs) {
         Err(e) => Err(e)
         Ok(None) => self.walk_codesec_default(t, cs)
         ok => ok
@@ -3144,7 +3144,7 @@ pub fn[T] ModuleTransformer::walk_datacntsec(
   dcs : DataCntSec,
 ) -> TransformerResult[T, DataCntSec] {
   match self.on_datacntsec {
-    Some(f) => f(t, dcs)
+    Some(f) => f(self, t, dcs)
     None => Ok(None)
   }
 }
@@ -3157,7 +3157,7 @@ pub fn[T] ModuleTransformer::walk_elemsec(
 ) -> TransformerResult[T, ElemSec] {
   match self.on_elemsec {
     Some(f) =>
-      match f(t, es) {
+      match f(self, t, es) {
         Err(e) => Err(e)
         Ok(None) => self.walk_elemsec_default(t, es)
         ok => ok
@@ -3188,7 +3188,7 @@ pub fn[T] ModuleTransformer::walk_startsec(
 ) -> TransformerResult[T, StartSec] {
   match self.on_startsec {
     Some(f) =>
-      match f(t, ss) {
+      match f(self, t, ss) {
         Err(e) => Err(e)
         Ok(None) => self.walk_startsec_default(t, ss)
         ok => ok
@@ -3219,7 +3219,7 @@ pub fn[T] ModuleTransformer::walk_exportsec(
 ) -> TransformerResult[T, ExportSec] {
   match self.on_exportsec {
     Some(f) =>
-      match f(t, es) {
+      match f(self, t, es) {
         Err(e) => Err(e)
         Ok(None) => self.walk_exportsec_default(t, es)
         ok => ok
@@ -3250,7 +3250,7 @@ pub fn[T] ModuleTransformer::walk_tagsec(
 ) -> TransformerResult[T, TagSec] {
   match self.on_tagsec {
     Some(f) =>
-      match f(t, ts) {
+      match f(self, t, ts) {
         Err(e) => Err(e)
         Ok(None) => self.walk_tagsec_default(t, ts)
         ok => ok
@@ -3281,7 +3281,7 @@ pub fn[T] ModuleTransformer::walk_memsec(
 ) -> TransformerResult[T, MemSec] {
   match self.on_memsec {
     Some(f) =>
-      match f(t, ms) {
+      match f(self, t, ms) {
         Err(e) => Err(e)
         Ok(None) => self.walk_memsec_default(t, ms)
         ok => ok
@@ -3312,7 +3312,7 @@ pub fn[T] ModuleTransformer::walk_tablesec(
 ) -> TransformerResult[T, TableSec] {
   match self.on_tablesec {
     Some(f) =>
-      match f(t, ts) {
+      match f(self, t, ts) {
         Err(e) => Err(e)
         Ok(None) => self.walk_tablesec_default(t, ts)
         ok => ok
@@ -3343,7 +3343,7 @@ pub fn[T] ModuleTransformer::walk_func(
 ) -> TransformerResult[T, Func] {
   match self.on_func {
     Some(f) =>
-      match f(t, func) {
+      match f(self, t, func) {
         Err(e) => Err(e)
         Ok(None) => self.walk_func_default(t, func)
         ok => ok
@@ -3399,7 +3399,7 @@ pub fn[T] ModuleTransformer::walk_locals(
   l : Array[Locals],
 ) -> TransformerResult[T, Array[Locals]] {
   match self.on_locals {
-    Some(f) => f(t, l)
+    Some(f) => f(self, t, l)
     None => self.walk_locals_default(t, l)
   }
 }
@@ -3449,7 +3449,7 @@ pub fn[T] ModuleTransformer::walk_export(
 ) -> TransformerResult[T, Export] {
   match self.on_export {
     Some(f) =>
-      match f(t, expt) {
+      match f(self, t, expt) {
         Err(e) => Err(e)
         Ok(None) => self.walk_export_default(t, expt)
         ok => ok
@@ -3486,7 +3486,7 @@ pub fn[T] ModuleTransformer::walk_externidx(
 ) -> TransformerResult[T, ExternIdx] {
   match self.on_externidx {
     Some(f) =>
-      match f(t, ex) {
+      match f(self, t, ex) {
         Err(e) => Err(e)
         Ok(None) => self.walk_externidx_default(t, ex)
         ok => ok
@@ -3543,7 +3543,7 @@ pub fn[T] ModuleTransformer::walk_table(
 ) -> TransformerResult[T, Table] {
   match self.on_table {
     Some(f) =>
-      match f(t, tbl) {
+      match f(self, t, tbl) {
         Err(e) => Err(e)
         Ok(None) => self.walk_table_default(t, tbl)
         ok => ok
@@ -3608,7 +3608,7 @@ pub fn[T] ModuleTransformer::walk_externtype(
   ex : ExternType,
 ) -> TransformerResult[T, ExternType] {
   match self.on_externtype {
-    Some(f) => f(t, ex)
+    Some(f) => f(self, t, ex)
     None => Ok(None)
   }
 }
@@ -3621,7 +3621,7 @@ pub fn[T] ModuleTransformer::walk_tagtype(
 ) -> TransformerResult[T, TagType] {
   match self.on_tagtype {
     Some(f) =>
-      match f(t, tt) {
+      match f(self, t, tt) {
         Err(e) => Err(e)
         Ok(None) => self.walk_tagtype_default(t, tt)
         ok => ok
@@ -3652,7 +3652,7 @@ pub fn[T] ModuleTransformer::walk_memtype(
 ) -> TransformerResult[T, MemType] {
   match self.on_memtype {
     Some(f) =>
-      match f(t, mt) {
+      match f(self, t, mt) {
         Err(e) => Err(e)
         Ok(None) => self.walk_memtype_default(t, mt)
         ok => ok
@@ -3702,7 +3702,7 @@ pub fn[T] ModuleTransformer::walk_limits(
   l : Limits,
 ) -> TransformerResult[T, Limits] {
   match self.on_limits {
-    Some(f) => f(t, l)
+    Some(f) => f(self, t, l)
     None => Ok(None)
   }
 }
@@ -3715,7 +3715,7 @@ pub fn[T] ModuleTransformer::walk_typesec(
 ) -> TransformerResult[T, TypeSec] {
   match self.on_typesec {
     Some(f) =>
-      match f(t, ts) {
+      match f(self, t, ts) {
         Err(e) => Err(e)
         Ok(None) => self.walk_typesec_default(t, ts)
         ok => ok
@@ -3746,7 +3746,7 @@ pub fn[T] ModuleTransformer::walk_rectype(
 ) -> TransformerResult[T, RecType] {
   match self.on_rectype {
     Some(f) =>
-      match f(t, rt) {
+      match f(self, t, rt) {
         Err(e) => Err(e)
         Ok(None) => self.walk_rectype_default(t, rt)
         ok => ok
@@ -3785,7 +3785,7 @@ pub fn[T] ModuleTransformer::walk_subtype(
 ) -> TransformerResult[T, SubType] {
   match self.on_subtype {
     Some(f) =>
-      match f(t, st) {
+      match f(self, t, st) {
         Err(e) => Err(e)
         Ok(None) => self.walk_subtype_default(t, st)
         ok => ok
@@ -3832,7 +3832,7 @@ pub fn[T] ModuleTransformer::walk_comptype(
 ) -> TransformerResult[T, CompType] {
   match self.on_comptype {
     Some(f) =>
-      match f(t, ct) {
+      match f(self, t, ct) {
         Err(e) => Err(e)
         Ok(None) => self.walk_comptype_default(t, ct)
         ok => ok
@@ -3886,7 +3886,7 @@ pub fn[T] ModuleTransformer::walk_fieldtype(
 ) -> TransformerResult[T, FieldType] {
   match self.on_fieldtype {
     Some(f) =>
-      match f(t, ft) {
+      match f(self, t, ft) {
         Err(e) => Err(e)
         Ok(None) => self.walk_fieldtype_default(t, ft)
         ok => ok
@@ -3917,7 +3917,7 @@ pub fn[T] ModuleTransformer::walk_storagetype(
 ) -> TransformerResult[T, StorageType] {
   match self.on_storagetype {
     Some(f) =>
-      match f(t, st) {
+      match f(self, t, st) {
         Err(e) => Err(e)
         Ok(None) => self.walk_storagetype_default(t, st)
         ok => ok
@@ -3951,7 +3951,7 @@ pub fn[T] ModuleTransformer::walk_globalsec(
 ) -> TransformerResult[T, GlobalSec] {
   match self.on_globalsec {
     Some(f) =>
-      match f(t, gs) {
+      match f(self, t, gs) {
         Err(e) => Err(e)
         Ok(None) => self.walk_globalsec_default(t, gs)
         ok => ok
@@ -3982,7 +3982,7 @@ pub fn[T] ModuleTransformer::walk_global(
 ) -> TransformerResult[T, Global] {
   match self.on_global {
     Some(f) =>
-      match f(t, g) {
+      match f(self, t, g) {
         Err(e) => Err(e)
         Ok(None) => self.walk_global_default(t, g)
         ok => ok
@@ -4019,7 +4019,7 @@ pub fn[T] ModuleTransformer::walk_globaltype(
 ) -> TransformerResult[T, GlobalType] {
   match self.on_globaltype {
     Some(f) =>
-      match f(t, gt) {
+      match f(self, t, gt) {
         Err(e) => Err(e)
         Ok(None) => self.walk_globaltype_default(t, gt)
         ok => ok
@@ -4094,7 +4094,7 @@ pub fn[T] ModuleTransformer::walk_elemkind(
 ) -> TransformerResult[T, ElemKind] {
   match self.on_elemkind {
     Some(f) =>
-      match f(t, ek) {
+      match f(self, t, ek) {
         Err(e) => Err(e)
         Ok(None) => self.walk_elemkind_default(t, ek)
         ok => ok
@@ -4186,7 +4186,7 @@ pub fn[T] ModuleTransformer::walk_funcsec(
 ) -> TransformerResult[T, FuncSec] {
   match self.on_funcsec {
     Some(f) =>
-      match f(t, fs) {
+      match f(self, t, fs) {
         Err(e) => Err(e)
         Ok(None) => self.walk_funcsec_default(t, fs)
         ok => ok
@@ -4216,7 +4216,7 @@ pub fn[T] ModuleTransformer::walk_unaryop(
   op : UnaryOp,
 ) -> TransformerResult[T, UnaryOp] {
   match self.on_unaryop {
-    Some(f) => f(t, op)
+    Some(f) => f(self, t, op)
     None => Ok(None)
   }
 }
@@ -4228,7 +4228,7 @@ pub fn[T] ModuleTransformer::walk_binaryop(
   op : BinaryOp,
 ) -> TransformerResult[T, BinaryOp] {
   match self.on_binaryop {
-    Some(f) => f(t, op)
+    Some(f) => f(self, t, op)
     None => Ok(None)
   }
 }
@@ -4240,7 +4240,7 @@ pub fn[T] ModuleTransformer::walk_storeop(
   op : StoreOp,
 ) -> TransformerResult[T, StoreOp] {
   match self.on_storeop {
-    Some(f) => f(t, op)
+    Some(f) => f(self, t, op)
     None => Ok(None)
   }
 }
@@ -4252,7 +4252,7 @@ pub fn[T] ModuleTransformer::walk_memarg(
   ma : MemArg,
 ) -> TransformerResult[T, MemArg] {
   match self.on_memarg {
-    Some(f) => f(t, ma)
+    Some(f) => f(self, t, ma)
     None => Ok(None)
   }
 }
@@ -4264,7 +4264,7 @@ pub fn[T] ModuleTransformer::walk_loadop(
   op : LoadOp,
 ) -> TransformerResult[T, LoadOp] {
   match self.on_loadop {
-    Some(f) => f(t, op)
+    Some(f) => f(self, t, op)
     None => Ok(None)
   }
 }
@@ -4276,7 +4276,7 @@ pub fn[T] ModuleTransformer::walk_extractlaneop(
   op : ExtractLaneOp,
 ) -> TransformerResult[T, ExtractLaneOp] {
   match self.on_extractlaneop {
-    Some(f) => f(t, op)
+    Some(f) => f(self, t, op)
     None => Ok(None)
   }
 }
@@ -4288,7 +4288,7 @@ pub fn[T] ModuleTransformer::walk_replacelaneop(
   op : ReplaceLaneOp,
 ) -> TransformerResult[T, ReplaceLaneOp] {
   match self.on_replacelaneop {
-    Some(f) => f(t, op)
+    Some(f) => f(self, t, op)
     None => Ok(None)
   }
 }
@@ -4300,7 +4300,7 @@ pub fn[T] ModuleTransformer::walk_v128shiftop(
   op : V128ShiftOp,
 ) -> TransformerResult[T, V128ShiftOp] {
   match self.on_v128shiftop {
-    Some(f) => f(t, op)
+    Some(f) => f(self, t, op)
     None => Ok(None)
   }
 }
@@ -4312,7 +4312,7 @@ pub fn[T] ModuleTransformer::walk_v128ternaryop(
   op : V128TernaryOp,
 ) -> TransformerResult[T, V128TernaryOp] {
   match self.on_v128ternaryop {
-    Some(f) => f(t, op)
+    Some(f) => f(self, t, op)
     None => Ok(None)
   }
 }
@@ -4324,7 +4324,7 @@ pub fn[T] ModuleTransformer::walk_v128loadlaneop(
   op : V128LoadLaneOp,
 ) -> TransformerResult[T, V128LoadLaneOp] {
   match self.on_v128loadlaneop {
-    Some(f) => f(t, op)
+    Some(f) => f(self, t, op)
     None => Ok(None)
   }
 }
@@ -4336,7 +4336,7 @@ pub fn[T] ModuleTransformer::walk_v128storelaneop(
   op : V128StoreLaneOp,
 ) -> TransformerResult[T, V128StoreLaneOp] {
   match self.on_v128storelaneop {
-    Some(f) => f(t, op)
+    Some(f) => f(self, t, op)
     None => Ok(None)
   }
 }

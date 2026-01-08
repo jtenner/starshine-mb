@@ -8,6 +8,9 @@ import(
 )
 
 // Values
+pub fn size_signed(Int64, Int) -> Result[Int, String]
+
+pub fn size_unsigned(UInt64, Int) -> Result[Int, String]
 
 // Errors
 
