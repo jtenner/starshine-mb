@@ -6,13 +6,21 @@ import(
 )
 
 // Values
-pub fn lift_to_texpr_pass() -> @lib.ModuleTransformer[Unit]
+pub fn alignment_lowering_pass() -> @lib.ModuleTransformer[AlignmentLoweringContext]
 
-pub fn new_const_hoisting_pass() -> @lib.ModuleTransformer[ConstHoistingState]
+pub fn const_hoisting_pass() -> @lib.ModuleTransformer[ConstHoistingState]
+
+pub fn lift_to_texpr_pass() -> @lib.ModuleTransformer[Unit]
 
 // Errors
 
 // Types and methods
+pub struct AlignmentLoweringContext {
+  mut locals : Array[@lib.ValType]
+  memories : Array[@lib.MemType]
+}
+pub fn AlignmentLoweringContext::new(Array[@lib.MemType]) -> Self
+
 pub struct ConstHoistingState {
   usage : Map[Literal, Int]
 }
@@ -24,6 +32,7 @@ pub struct Literal(LiteralKind, Bytes)
 pub impl Compare for Literal
 pub impl Eq for Literal
 pub impl Hash for Literal
+pub impl Show for Literal
 
 pub enum LiteralKind {
   I32LiteralKind
@@ -35,6 +44,7 @@ pub enum LiteralKind {
 pub impl Compare for LiteralKind
 pub impl Eq for LiteralKind
 pub impl Hash for LiteralKind
+pub impl Show for LiteralKind
 
 pub struct SquareMatrix[T] {
   storage : Map[UInt64, T]
