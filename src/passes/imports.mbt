@@ -19,6 +19,9 @@ using @lib {
   type MemArg,
   type MemType,
   type TExpr,
+  type F32,
+  type F64,
+  type FuncIdx,
 }
 
 ///|

@@ -230,22 +230,22 @@ pub(all) struct Data(DataMode, Bytes) derive(Eq, Hash)
 pub(all) struct Name(StringView) derive(Eq, Hash)
 
 ///|
-pub(all) struct Module(
-  Array[CustomSec],
-  TypeSec?,
-  ImportSec?,
-  FuncSec?,
-  TableSec?,
-  MemSec?,
-  TagSec?,
-  GlobalSec?,
-  ExportSec?,
-  StartSec?,
-  ElemSec?,
-  DataCntSec?,
-  CodeSec?,
-  DataSec?
-) derive(Hash)
+pub(all) struct Module{
+  custom_secs : Array[CustomSec]
+  type_sec : TypeSec?
+  import_sec : ImportSec?
+  func_sec : FuncSec?
+  table_sec : TableSec?
+  mem_sec : MemSec?
+  tag_sec : TagSec?
+  global_sec : GlobalSec?
+  export_sec : ExportSec?
+  start_sec : StartSec?
+  elem_sec : ElemSec?
+  data_cnt_sec : DataCntSec?
+  code_sec : CodeSec?
+  data_sec : DataSec?
+ } derive(Hash)
 
 ///|
 pub(all) struct FuncType(Array[ValType], Array[ValType]) derive(Hash)
@@ -2572,74 +2572,74 @@ pub impl @quickcheck.Arbitrary for CustomSec with arbitrary(size, st) {
 
 ///|
 pub impl @quickcheck.Arbitrary for Module with arbitrary(t, state) {
-  Module(
-    array_of_arbitrary(5, t, state),
-    if state.next_positive_int() % 2 == 0 {
+  Module::{
+    custom_secs: array_of_arbitrary(5, t, state),
+    type_sec : if state.next_positive_int() % 2 == 0 {
       Some(@quickcheck.Arbitrary::arbitrary(t, state))
     } else {
       None
     },
-    if state.next_positive_int() % 2 == 0 {
+    import_sec : if state.next_positive_int() % 2 == 0 {
       Some(@quickcheck.Arbitrary::arbitrary(t, state))
     } else {
       None
     },
-    if state.next_positive_int() % 2 == 0 {
+    func_sec : if state.next_positive_int() % 2 == 0 {
       Some(@quickcheck.Arbitrary::arbitrary(t, state))
     } else {
       None
     },
-    if state.next_positive_int() % 2 == 0 {
+    table_sec : if state.next_positive_int() % 2 == 0 {
       Some(@quickcheck.Arbitrary::arbitrary(t, state))
     } else {
       None
     },
-    if state.next_positive_int() % 2 == 0 {
+    mem_sec : if state.next_positive_int() % 2 == 0 {
       Some(@quickcheck.Arbitrary::arbitrary(t, state))
     } else {
       None
     },
-    if state.next_positive_int() % 2 == 0 {
+    tag_sec : if state.next_positive_int() % 2 == 0 {
       Some(@quickcheck.Arbitrary::arbitrary(t, state))
     } else {
       None
     },
-    if state.next_positive_int() % 2 == 0 {
+    global_sec : if state.next_positive_int() % 2 == 0 {
       Some(@quickcheck.Arbitrary::arbitrary(t, state))
     } else {
       None
     },
-    if state.next_positive_int() % 2 == 0 {
+    export_sec : if state.next_positive_int() % 2 == 0 {
       Some(@quickcheck.Arbitrary::arbitrary(t, state))
     } else {
       None
     },
-    if state.next_positive_int() % 2 == 0 {
+    start_sec : if state.next_positive_int() % 2 == 0 {
       Some(@quickcheck.Arbitrary::arbitrary(t, state))
     } else {
       None
     },
-    if state.next_positive_int() % 2 == 0 {
+    elem_sec : if state.next_positive_int() % 2 == 0 {
       Some(@quickcheck.Arbitrary::arbitrary(t, state))
     } else {
       None
     },
-    if state.next_positive_int() % 2 == 0 {
+    data_cnt_sec : if state.next_positive_int() % 2 == 0 {
       Some(@quickcheck.Arbitrary::arbitrary(t, state))
     } else {
       None
     },
-    if state.next_positive_int() % 2 == 0 {
+    code_sec : if state.next_positive_int() % 2 == 0 {
       Some(@quickcheck.Arbitrary::arbitrary(t, state))
     } else {
       None
     },
-    if state.next_positive_int() % 2 == 0 {
+    data_sec : if state.next_positive_int() % 2 == 0 {
       Some(@quickcheck.Arbitrary::arbitrary(t, state))
     } else {
       None
-    },
-  )
+    }
+  }
 }
 
 ///|

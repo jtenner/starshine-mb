@@ -1,7 +1,7 @@
 ///|
 pub impl Eq for Module with equal(l, r) {
-  let l_custom = l.0
-  let r_custom = r.0
+  let l_custom = l.custom_secs
+  let r_custom = r.custom_secs
   if l_custom.length() != r_custom.length() {
     return false
   }
@@ -15,19 +15,19 @@ pub impl Eq for Module with equal(l, r) {
       return false
     }
   }
-  l.1 == r.1 &&
-  l.2 == r.2 &&
-  l.3 == r.3 &&
-  l.4 == r.4 &&
-  l.5 == r.5 &&
-  l.6 == r.6 &&
-  l.7 == r.7 &&
-  l.8 == r.8 &&
-  l.9 == r.9 &&
-  l.10 == r.10 &&
-  l.11 == r.11 &&
-  l.12 == r.12 &&
-  l.13 == r.13
+  l.type_sec == r.type_sec &&
+  l.import_sec == r.import_sec &&
+  l.func_sec == r.func_sec &&
+  l.table_sec == r.table_sec &&
+  l.mem_sec == r.mem_sec &&
+  l.tag_sec == r.tag_sec &&
+  l.global_sec == r.global_sec &&
+  l.export_sec == r.export_sec &&
+  l.start_sec == r.start_sec &&
+  l.elem_sec == r.elem_sec &&
+  l.data_cnt_sec == r.data_cnt_sec &&
+  l.code_sec == r.code_sec &&
+  l.data_sec == r.data_sec
 }
 
 ///|

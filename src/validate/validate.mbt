@@ -1020,22 +1020,22 @@ fn validate_exportsec_unique(
 ///|
 /// Validates a whole module from an empty context, building its Env incrementally.
 pub fn validate_module(m : Module) -> Result[Unit, String] {
-  let Module(
-    _customs,
-    typesec_opt,
-    importsec_opt,
-    funcsec_opt,
-    tablesec_opt,
-    memsec_opt,
-    tagsec_opt,
-    globalsec_opt,
-    exportsec_opt,
-    startsec_opt,
-    elemsec_opt,
-    datacntsec_opt,
-    codesec_opt,
-    datasec_opt
-  ) = m
+  let {
+    type_sec : typesec_opt,
+    import_sec : importsec_opt,
+    func_sec : funcsec_opt,
+    table_sec : tablesec_opt,
+    mem_sec : memsec_opt,
+    tag_sec : tagsec_opt,
+    global_sec : globalsec_opt,
+    export_sec : exportsec_opt,
+    start_sec : startsec_opt,
+    elem_sec : elemsec_opt,
+    data_cnt_sec : datacntsec_opt,
+    code_sec : codesec_opt,
+    data_sec : datasec_opt,
+    ..
+   } = m
 
   // Start from empty env (module validation does not take an external env)
   let mut env = empty_env()

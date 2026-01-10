@@ -1633,48 +1633,48 @@ pub impl Encode for CastOp with encode(val, buf) {
 pub impl Encode for Module with encode(val, buf) {
   buf.write_bytes(b"\x00\x61\x73\x6D\x01\x00\x00\x00")
   // custom sections
-  for sec in val.0 {
+  for sec in val.custom_secs {
     if Encode::encode(sec, buf) is Err(t) {
       return Err(t)
     }
   }
-  if Encode::encode(val.1, buf) is Err(t) {
+  if Encode::encode(val.type_sec, buf) is Err(t) {
     return Err(t)
   }
-  if Encode::encode(val.2, buf) is Err(t) {
+  if Encode::encode(val.import_sec, buf) is Err(t) {
     return Err(t)
   }
-  if Encode::encode(val.3, buf) is Err(t) {
+  if Encode::encode(val.func_sec, buf) is Err(t) {
     return Err(t)
   }
-  if Encode::encode(val.4, buf) is Err(t) {
+  if Encode::encode(val.table_sec, buf) is Err(t) {
     return Err(t)
   }
-  if Encode::encode(val.5, buf) is Err(t) {
+  if Encode::encode(val.mem_sec, buf) is Err(t) {
     return Err(t)
   }
-  if Encode::encode(val.6, buf) is Err(t) {
+  if Encode::encode(val.tag_sec, buf) is Err(t) {
     return Err(t)
   }
-  if Encode::encode(val.7, buf) is Err(t) {
+  if Encode::encode(val.global_sec, buf) is Err(t) {
     return Err(t)
   }
-  if Encode::encode(val.8, buf) is Err(t) {
+  if Encode::encode(val.export_sec, buf) is Err(t) {
     return Err(t)
   }
-  if Encode::encode(val.9, buf) is Err(t) {
+  if Encode::encode(val.start_sec, buf) is Err(t) {
     return Err(t)
   }
-  if Encode::encode(val.10, buf) is Err(t) {
+  if Encode::encode(val.elem_sec, buf) is Err(t) {
     return Err(t)
   }
-  if Encode::encode(val.11, buf) is Err(t) {
+  if Encode::encode(val.data_cnt_sec, buf) is Err(t) {
     return Err(t)
   }
-  if Encode::encode(val.12, buf) is Err(t) {
+  if Encode::encode(val.code_sec, buf) is Err(t) {
     return Err(t)
   }
-  if Encode::encode(val.13, buf) is Err(t) {
+  if Encode::encode(val.data_sec, buf) is Err(t) {
     return Err(t)
   }
   Ok(())
@@ -1810,10 +1810,10 @@ pub impl Decode for Module with decode(bytes, i) {
   if i == bytes.length() {
     Ok(
       (
-        Module(
-          custom, type_sec, import_sec, func_sec, table_sec, mem_sec, tag_sec, global_sec,
+        Module::{
+          custom_secs: custom, type_sec, import_sec, func_sec, table_sec, mem_sec, tag_sec, global_sec,
           export_sec, start_sec, elem_sec, data_cnt_sec, code_sec, data_sec,
-        ),
+        },
         i,
       ),
     )

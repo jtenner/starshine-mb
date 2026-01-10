@@ -2274,21 +2274,21 @@ pub fn gen_module_valid_full(ctx0 : GenCtx) -> Result[(GenCtx, Module), String] 
   let codesec = @lib.CodeSec(code_funcs)
 
   // 16) Assemble module
-  let m = @lib.Module(
-    [], // customs
-    Some(typesec),
-    importsec,
-    Some(funcsec),
-    Some(tablesec),
-    Some(memsec),
-    tagsec,
-    globalsec,
-    exportsec,
-    startsec,
-    Some(elemsec),
-    Some(datacntsec),
-    Some(codesec),
-    Some(datasec),
-  )
+  let m = @lib.Module::{
+    custom_secs: [], // customs
+    type_sec: Some(typesec),
+    import_sec: importsec,
+    func_sec: Some(funcsec),
+    table_sec: Some(tablesec),
+    mem_sec: Some(memsec),
+    tag_sec: tagsec,
+    global_sec: globalsec,
+    export_sec: exportsec,
+    start_sec: startsec,
+    elem_sec: Some(elemsec),
+    data_cnt_sec: Some(datacntsec),
+    code_sec: Some(codesec),
+    data_sec: Some(datasec),
+  }
   Ok((ctx12, m))
 }
