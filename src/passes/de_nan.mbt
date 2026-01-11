@@ -59,21 +59,28 @@ fn produces_f64(i : TInstr) -> Bool {
     _ => false
   }
 }
-
 fn make_denam_transformer() -> ModuleTransformer[DeNaNState] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
-    // Enter function
     on_func: Some(fn (self, st, func) {
       match func {
-        TFunc(_, _) => {
+        TFunc(params, _) => {
+          // FIX: Check parameters to determine if helpers are needed for sanitization
+          let mut st = st
+          for param in params {
+            match param {
+              NumTypeValType(F32NumType) => st = { ..st, need_f32: true }
+              NumTypeValType(F64NumType) => st = { ..st, need_f64: true }
+              _ => ()
+            }
+          }
+
           let st = DeNaNState::{ ..st, in_func: true }
           let (st, func) = match self.walk_func_default(st, func) {
             Ok(Some(t)) => t
             Ok(None) => (st, func)
             Err(t) => return Err(t)
           }
-          
           
           change(DeNaNState::{ ..st, in_func: false }, func)
         }
@@ -104,17 +111,17 @@ fn make_denam_transformer() -> ModuleTransformer[DeNaNState] {
         _ if st.in_func && produces_f32(instr) => {
           let st = DeNaNState::{ ..st, need_f32: true }
           match st.deNan32 {
-            Some(idx) =>
-              Ok(Some((
-                st,
-                TCall(idx, [instr])
-              )))
-            None =>
-              // helper not created yet
-              Ok(Some((
-                st,
-                instr
-              )))
+            Some(idx) => {
+              let (st, processed_instr) = match self.walk_tinstruction_default(st, instr) {
+                Ok(Some(pair)) => pair
+                Ok(None) => (st, instr)
+                Err(e) => return Err(e)
+              }
+              Ok(Some((st, TCall(idx, [processed_instr]))))
+            }
+            None => {
+              self.walk_tinstruction_default(st, instr)
+            }
           }
         }
 
@@ -122,17 +129,21 @@ fn make_denam_transformer() -> ModuleTransformer[DeNaNState] {
         _ if st.in_func && produces_f64(instr) => {
           let st = DeNaNState::{ ..st, need_f64: true }
           match st.deNan64 {
-            Some(idx) =>
-              Ok(Some((
-                st,
-                TCall(idx, [instr])
-              )))
-            None =>
-              Ok(Some((st, instr)))
+            Some(idx) => {
+              let (st, processed_instr) = match self.walk_tinstruction_default(st, instr) {
+                Ok(Some(pair)) => pair
+                Ok(None) => (st, instr)
+                Err(e) => return Err(e)
+              }
+              Ok(Some((st, TCall(idx, [processed_instr]))))
+            }
+            None => {
+              self.walk_tinstruction_default(st, instr)
+            }
           }
         }
 
-        _ => self.walk_tinstruction(st, instr)
+        _ => self.walk_tinstruction_default(st, instr)
       }
     })
   }
@@ -265,7 +276,7 @@ pub fn run_denam(m : @lib.Module) -> Result[@lib.Module, String] {
     offset = offset + 1
   }
 
-  // Early exit if no helpers needed (only constant replacements occurred)
+  // Early exit if no helpers needed
   if idx32 is None && idx64 is None {
     return Ok(mod1)
   }
@@ -279,12 +290,11 @@ pub fn run_denam(m : @lib.Module) -> Result[@lib.Module, String] {
 
   let (st2, mod2) = match tr.walk_module(st2, mod1) {
     Ok(Some(pair)) => pair
-    Ok(None) => (st2, mod1)
+    Ok(None) => (st2, mod1) // Should ideally not happen if mod1 had content, but safe fallback
     Err(e) => return Err(e)
   }
 
   // Post-process: Sanitize function parameters
-  // We iterate over the CodeSec to inject parameter checks at the start of functions
   let current_funcs = match mod2.code_sec {
     Some(cs) => cs.0
     None => []
@@ -311,7 +321,6 @@ pub fn run_denam(m : @lib.Module) -> Result[@lib.Module, String] {
 
   Ok(mod2.with_code_sec(@lib.CodeSec(final_funcs)))
 }
-
 // test_denan.mbt
 
 // ============================================
