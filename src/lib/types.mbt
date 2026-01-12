@@ -248,7 +248,7 @@ pub(all) struct Module {
 } derive(Hash)
 
 ///|
-pub(all) struct FuncType(Array[ValType], Array[ValType]) derive(Hash)
+pub(all) struct FuncType(Array[ValType], Array[ValType]) derive(Hash, Eq)
 
 ///|
 pub(all) struct Env {
@@ -5037,8 +5037,8 @@ pub fn t_call_indirect(
 }
 
 ///|
-pub fn t_call_ref(ti : TypeIdx, props : Array[TInstr], ref : TInstr) -> TInstr {
-  TCallRef(ti, props, ref)
+pub fn t_call_ref(ti : TypeIdx, props : Array[TInstr], r : TInstr) -> TInstr {
+  TCallRef(ti, props, r)
 }
 
 ///|

@@ -16,12 +16,16 @@ using @lib {
   type LoadOp,
   type StoreOp,
   type V128LoadLaneOp,
-  type MemArg,
   type MemType,
   type TExpr,
   type F32,
   type F64,
   type FuncIdx,
+  type TableIdx,
+  type TypeIdx,
+  type Module,
+  type LabelIdx,
+  type RecType,
 }
 
 ///|

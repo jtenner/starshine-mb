@@ -666,11 +666,6 @@ fn make_i32_mem() -> Array[MemType] {
 }
 
 ///|
-fn make_i64_mem() -> Array[MemType] {
-  [MemType(I64Limits(1, None))]
-}
-
-///|
 fn run_pass(
   ctx : AlignmentLoweringContext,
   instr : TInstr,

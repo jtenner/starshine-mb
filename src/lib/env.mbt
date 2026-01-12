@@ -333,3 +333,127 @@ pub fn Env::push_elem(env : Env, e : Elem) -> Env {
 pub fn Env::with_elems(env : Env, elems : Array[Elem]) -> Env {
   Env::{ ..env, elems, }
 }
+
+///|
+pub fn Env::with_module(self : Env, m : Module) -> Env {
+  let env = self
+
+  // --- Types ---------------------------------------------------------------
+  let env = match m.type_sec {
+    None => env
+    Some(TypeSec(recs)) => {
+      let mut e = env
+      for rec in recs {
+        e = e.with_rectype(rec)
+      }
+      e
+    }
+  }
+
+  // --- Imports -------------------------------------------------------------
+  let env = match m.import_sec {
+    None => env
+    Some(ImportSec(imps)) => {
+      let mut e = env
+      for imp in imps {
+        match imp {
+          Import(_, _, exttype) =>
+            match exttype {
+              FuncExternType(type_idx) =>
+                match e.resolve_functype(type_idx) {
+                  None => ()
+                  Some(ft) => e = e.push_func(ft)
+                }
+              TableExternType(table_ty) => e = e.push_table(table_ty)
+              MemExternType(mem_ty) => e = e.push_mem(mem_ty)
+              GlobalExternType(global_ty) => e = e.push_global(global_ty)
+              TagExternType(tag_ty) => e = e.push_tag(tag_ty)
+            }
+        }
+      }
+      e
+    }
+  }
+
+  // --- Function section ----------------------------------------------------
+  let env = match m.func_sec {
+    None => env
+    Some(FuncSec(type_idxs)) => {
+      let mut e = env
+      for tidx in type_idxs {
+        match e.resolve_functype(tidx) {
+          None => ()
+          Some(ft) => e = e.push_func(ft)
+        }
+      }
+      e
+    }
+  }
+
+  // --- Tables --------------------------------------------------------------
+  let env = match m.table_sec {
+    None => env
+    Some(TableSec(tables)) => {
+      let mut e = env
+      for table in tables {
+        e = e.push_table(table.0)
+      }
+      e
+    }
+  }
+
+  // --- Memories ------------------------------------------------------------
+  let env = match m.mem_sec {
+    None => env
+    Some(MemSec(mems)) => {
+      let mut e = env
+      for mem in mems {
+        e = e.push_mem(mem)
+      }
+      e
+    }
+  }
+
+  // --- Globals -------------------------------------------------------------
+  let env = match m.global_sec {
+    None => env
+    Some(GlobalSec(globals)) => {
+      let mut e = env
+      for global in globals {
+        e = e.push_global(global.0)
+      }
+      e
+    }
+  }
+
+  // --- Tags ---------------------------------------------------------------
+  let env = match m.tag_sec {
+    None => env
+    Some(TagSec(tags)) => {
+      let mut e = env
+      for tag in tags {
+        e = e.push_tag(tag)
+      }
+      e
+    }
+  }
+
+  // --- Elems ---------------------------------------------------------------
+  let env = match m.elem_sec {
+    None => env
+    Some(ElemSec(elems)) => env.with_elems(elems)
+  }
+
+  // --- Data ---------------------------------------------------------------
+  let env = match m.data_sec {
+    None => env
+    Some(DataSec(datas)) => {
+      let mut e = env
+      for d in datas {
+        e = e.push_data(d)
+      }
+      e
+    }
+  }
+  env
+}
