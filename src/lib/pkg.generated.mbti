@@ -1319,9 +1319,37 @@ pub impl Hash for MemType
 pub impl Show for MemType
 pub impl @quickcheck.Arbitrary for MemType
 
-pub(all) struct Module(Array[CustomSec], TypeSec?, ImportSec?, FuncSec?, TableSec?, MemSec?, TagSec?, GlobalSec?, ExportSec?, StartSec?, ElemSec?, DataCntSec?, CodeSec?, DataSec?)
-
-
+pub(all) struct Module {
+  custom_secs : Array[CustomSec]
+  type_sec : TypeSec?
+  import_sec : ImportSec?
+  func_sec : FuncSec?
+  table_sec : TableSec?
+  mem_sec : MemSec?
+  tag_sec : TagSec?
+  global_sec : GlobalSec?
+  export_sec : ExportSec?
+  start_sec : StartSec?
+  elem_sec : ElemSec?
+  data_cnt_sec : DataCntSec?
+  code_sec : CodeSec?
+  data_sec : DataSec?
+}
+pub fn Module::new() -> Self
+pub fn Module::with_code_sec(Self, CodeSec) -> Self
+pub fn Module::with_custom_secs(Self, Array[CustomSec]) -> Self
+pub fn Module::with_data_cnt_sec(Self, DataCntSec) -> Self
+pub fn Module::with_data_sec(Self, DataSec) -> Self
+pub fn Module::with_elem_sec(Self, ElemSec) -> Self
+pub fn Module::with_export_sec(Self, ExportSec) -> Self
+pub fn Module::with_func_sec(Self, FuncSec) -> Self
+pub fn Module::with_global_sec(Self, GlobalSec) -> Self
+pub fn Module::with_import_sec(Self, ImportSec) -> Self
+pub fn Module::with_mem_sec(Self, MemSec) -> Self
+pub fn Module::with_start_sec(Self, StartSec) -> Self
+pub fn Module::with_table_sec(Self, TableSec) -> Self
+pub fn Module::with_tag_sec(Self, TagSec) -> Self
+pub fn Module::with_type_sec(Self, TypeSec) -> Self
 pub impl Eq for Module
 pub impl Hash for Module
 pub impl Show for Module

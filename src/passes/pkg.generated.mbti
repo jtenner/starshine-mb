@@ -12,6 +12,8 @@ pub fn const_hoisting_pass() -> @lib.ModuleTransformer[ConstHoistingState]
 
 pub fn lift_to_texpr_pass() -> @lib.ModuleTransformer[Unit]
 
+pub fn run_denam(@lib.Module) -> Result[@lib.Module, String]
+
 // Errors
 
 // Types and methods

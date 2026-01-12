@@ -3073,8 +3073,8 @@ pub fn[T] ModuleTransformer::walk_module(
     elem_sec,
     data_cnt_sec,
     code_sec,
-    data_sec
-   } = mod
+    data_sec,
+  } = mod
   let (t, custom_secs) = match self.walk_customsecs(t, custom_secs) {
     Err(e) => return Err(e)
     Ok(None) => (t, custom_secs)
@@ -3170,7 +3170,7 @@ pub fn[T] ModuleTransformer::walk_module(
         Ok(Some((t, sec))) => (t, Some(sec))
       }
   }
-  let (t, datacnt_sec) = match data_cnt_sec {
+  let (t, data_cnt_sec) = match data_cnt_sec {
     None => (t, None)
     Some(data_cnt_sec) =>
       match self.walk_datacntsec(t, data_cnt_sec) {
@@ -3202,8 +3202,20 @@ pub fn[T] ModuleTransformer::walk_module(
       (
         t,
         Module::{
-          custom_secs, type_sec, import_sec, func_sec, table_sec, mem_sec, tag_sec, global_sec,
-          export_sec, start_sec, elem_sec, data_cnt_sec, code_sec, data_sec,
+          custom_secs,
+          type_sec,
+          import_sec,
+          func_sec,
+          table_sec,
+          mem_sec,
+          tag_sec,
+          global_sec,
+          export_sec,
+          start_sec,
+          elem_sec,
+          data_cnt_sec,
+          code_sec,
+          data_sec,
         },
       ),
     ),

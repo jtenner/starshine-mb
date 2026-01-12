@@ -1811,8 +1811,20 @@ pub impl Decode for Module with decode(bytes, i) {
     Ok(
       (
         Module::{
-          custom_secs: custom, type_sec, import_sec, func_sec, table_sec, mem_sec, tag_sec, global_sec,
-          export_sec, start_sec, elem_sec, data_cnt_sec, code_sec, data_sec,
+          custom_secs: custom,
+          type_sec,
+          import_sec,
+          func_sec,
+          table_sec,
+          mem_sec,
+          tag_sec,
+          global_sec,
+          export_sec,
+          start_sec,
+          elem_sec,
+          data_cnt_sec,
+          code_sec,
+          data_sec,
         },
         i,
       ),

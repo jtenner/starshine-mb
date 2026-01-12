@@ -2055,7 +2055,7 @@ pub impl Show for DataSec with output(self, logger) {
 ///|
 pub impl Show for Module with output(self, logger) {
   let {
-    custom_secs : customs,
+    custom_secs: customs,
     type_sec,
     import_sec,
     func_sec,
@@ -2068,8 +2068,8 @@ pub impl Show for Module with output(self, logger) {
     elem_sec,
     data_cnt_sec,
     code_sec,
-    data_sec
-   } = self
+    data_sec,
+  } = self
   logger.write_string("Module[\n")
   logger.write_string("customs: ")
   customs.output(logger)
