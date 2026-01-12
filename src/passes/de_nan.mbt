@@ -649,9 +649,8 @@ test "f64.div is wrapped with deNan call" {
 test "f32 parameter is sanitized at function entry" {
   let func = @lib.TFunc(
     [NumTypeValType(F32NumType)], // One f32 parameter
-    TExpr([
-      TLocalGet(LocalIdx(0)), // Just return the parameter
-    ]),
+    TExpr([TLocalGet(LocalIdx(0))], // Just return the parameter
+    ),
   )
   let mod = make_module_with_code([func])
   let result = run_denam(mod)

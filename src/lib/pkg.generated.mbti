@@ -7,15 +7,107 @@ import(
 )
 
 // Values
+pub fn abs_heap_type_heap_type(AbsHeapType) -> HeapType
+
+pub fn abs_heap_type_ref_type(AbsHeapType) -> RefType
+
+pub fn active(MemIdx, Expr) -> DataMode
+
+pub fn any_abs_heap_type() -> AbsHeapType
+
+pub fn any_convert_extern_inst() -> Instruction
+
 pub fn anyref_valtype() -> ValType
+
+pub fn array_abs_heap_type() -> AbsHeapType
+
+pub fn array_comp_type(FieldType) -> CompType
+
+pub fn array_copy_inst(TypeIdx, TypeIdx) -> Instruction
+
+pub fn array_fill_inst(TypeIdx) -> Instruction
+
+pub fn array_get_inst(TypeIdx) -> Instruction
+
+pub fn array_get_s_inst(TypeIdx) -> Instruction
+
+pub fn array_get_u_inst(TypeIdx) -> Instruction
+
+pub fn array_init_data_inst(TypeIdx, DataIdx) -> Instruction
+
+pub fn array_init_elem_inst(TypeIdx, ElemIdx) -> Instruction
+
+pub fn array_len_inst() -> Instruction
+
+pub fn array_new_data_inst(TypeIdx, DataIdx) -> Instruction
+
+pub fn array_new_default_inst(TypeIdx) -> Instruction
+
+pub fn array_new_elem_inst(TypeIdx, ElemIdx) -> Instruction
+
+pub fn array_new_fixed_inst(TypeIdx, U32) -> Instruction
+
+pub fn array_new_inst(TypeIdx) -> Instruction
 
 pub fn[T : @quickcheck.Arbitrary] array_of_arbitrary(UInt, Int, @splitmix.RandomState) -> Array[T]
 
+pub fn array_set_inst(TypeIdx) -> Instruction
+
+pub fn block_inst(BlockType, Expr) -> Instruction
+
+pub fn bot_val_type() -> ValType
+
+pub fn br_if_inst(LabelIdx) -> Instruction
+
+pub fn br_inst(LabelIdx) -> Instruction
+
+pub fn br_on_cast_fail_inst(LabelIdx, Bool, HeapType, Bool, HeapType) -> Instruction
+
+pub fn br_on_cast_inst(LabelIdx, Bool, HeapType, Bool, HeapType) -> Instruction
+
+pub fn br_on_non_null_inst(LabelIdx) -> Instruction
+
+pub fn br_on_null_inst(LabelIdx) -> Instruction
+
+pub fn br_table_inst(Array[LabelIdx], LabelIdx) -> Instruction
+
+pub fn call_indirect_inst(TypeIdx, TableIdx) -> Instruction
+
+pub fn call_inst(FuncIdx) -> Instruction
+
+pub fn call_ref_inst(TypeIdx) -> Instruction
+
+pub fn catch_(TagIdx, LabelIdx) -> Catch
+
+pub fn catch_all(LabelIdx) -> Catch
+
+pub fn catch_all_ref(LabelIdx) -> Catch
+
+pub fn catch_ref(TagIdx, LabelIdx) -> Catch
+
 pub fn[T, Elem] change(T, Elem) -> Result[(T, Elem)?, String]
+
+pub fn comp_type_sub_type(CompType) -> SubType
+
+pub fn data_drop_inst(DataIdx) -> Instruction
+
+pub fn declarative() -> ElemMode
+
+pub fn def_type_heap_type(DefType) -> HeapType
+
+pub fn drop_inst() -> Instruction
+
+pub fn elem_active(TableIdx, Expr) -> ElemMode
+
+pub fn elem_drop_inst(ElemIdx) -> Instruction
+
+pub fn elem_passive() -> ElemMode
 
 pub fn elem_reftype(Elem) -> RefType
 
 pub fn empty_env() -> Env
+
+pub fn eq_abs_heap_type() -> AbsHeapType
 
 pub fn eqref_null_valtype() -> ValType
 
@@ -23,55 +115,2103 @@ pub fn[T : Eq] equals(Array[T], Array[T]) -> Bool
 
 pub fn[T, Elem] error(String) -> Result[(T, Elem)?, String]
 
+pub fn exn_abs_heap_type() -> AbsHeapType
+
 pub fn expand_locals(Array[Locals]) -> Result[Array[ValType], String]
 
 pub fn expr_to_texpr(Expr, Env) -> Result[TExpr, String]
 
+pub fn extern_abs_heap_type() -> AbsHeapType
+
+pub fn extern_convert_any_inst() -> Instruction
+
 pub fn externref_valtype() -> ValType
+
+pub fn f32_abs_inst() -> Instruction
+
+pub fn f32_abs_op() -> UnaryOp
+
+pub fn f32_add_inst() -> Instruction
+
+pub fn f32_add_op() -> BinaryOp
+
+pub fn f32_ceil_inst() -> Instruction
+
+pub fn f32_ceil_op() -> UnaryOp
+
+pub fn f32_const_inst(F32) -> Instruction
+
+pub fn f32_convert_i32s_inst() -> Instruction
+
+pub fn f32_convert_i32s_op() -> UnaryOp
+
+pub fn f32_convert_i32u_inst() -> Instruction
+
+pub fn f32_convert_i32u_op() -> UnaryOp
+
+pub fn f32_convert_i64s_inst() -> Instruction
+
+pub fn f32_convert_i64s_op() -> UnaryOp
+
+pub fn f32_convert_i64u_inst() -> Instruction
+
+pub fn f32_convert_i64u_op() -> UnaryOp
+
+pub fn f32_copysign_inst() -> Instruction
+
+pub fn f32_copysign_op() -> BinaryOp
+
+pub fn f32_demote_f64_inst() -> Instruction
+
+pub fn f32_demote_f64_op() -> UnaryOp
+
+pub fn f32_div_inst() -> Instruction
+
+pub fn f32_div_op() -> BinaryOp
+
+pub fn f32_eq_inst() -> Instruction
+
+pub fn f32_eq_op() -> BinaryOp
+
+pub fn f32_floor_inst() -> Instruction
+
+pub fn f32_floor_op() -> UnaryOp
+
+pub fn f32_ge_inst() -> Instruction
+
+pub fn f32_ge_op() -> BinaryOp
+
+pub fn f32_gt_inst() -> Instruction
+
+pub fn f32_gt_op() -> BinaryOp
+
+pub fn f32_le_inst() -> Instruction
+
+pub fn f32_le_op() -> BinaryOp
+
+pub fn f32_load_inst(MemArg) -> Instruction
+
+pub fn f32_load_op() -> LoadOp
+
+pub fn f32_lt_inst() -> Instruction
+
+pub fn f32_lt_op() -> BinaryOp
+
+pub fn f32_max_inst() -> Instruction
+
+pub fn f32_max_op() -> BinaryOp
+
+pub fn f32_min_inst() -> Instruction
+
+pub fn f32_min_op() -> BinaryOp
+
+pub fn f32_mul_inst() -> Instruction
+
+pub fn f32_mul_op() -> BinaryOp
+
+pub fn f32_ne_inst() -> Instruction
+
+pub fn f32_ne_op() -> BinaryOp
+
+pub fn f32_nearest_inst() -> Instruction
+
+pub fn f32_nearest_op() -> UnaryOp
+
+pub fn f32_neg_inst() -> Instruction
+
+pub fn f32_neg_op() -> UnaryOp
+
+pub fn f32_num_type() -> NumType
+
+pub fn f32_reinterpret_i32_inst() -> Instruction
+
+pub fn f32_reinterpret_i32_op() -> UnaryOp
+
+pub fn f32_sqrt_inst() -> Instruction
+
+pub fn f32_sqrt_op() -> UnaryOp
+
+pub fn f32_store_inst(MemArg) -> Instruction
+
+pub fn f32_store_op() -> StoreOp
+
+pub fn f32_sub_inst() -> Instruction
+
+pub fn f32_sub_op() -> BinaryOp
+
+pub fn f32_trunc_inst() -> Instruction
+
+pub fn f32_trunc_op() -> UnaryOp
+
+pub fn f32x4_abs_inst() -> Instruction
+
+pub fn f32x4_abs_op() -> UnaryOp
+
+pub fn f32x4_add_inst() -> Instruction
+
+pub fn f32x4_add_op() -> BinaryOp
+
+pub fn f32x4_ceil_inst() -> Instruction
+
+pub fn f32x4_ceil_op() -> UnaryOp
+
+pub fn f32x4_convert_i32x4s_inst() -> Instruction
+
+pub fn f32x4_convert_i32x4s_op() -> UnaryOp
+
+pub fn f32x4_convert_i32x4u_inst() -> Instruction
+
+pub fn f32x4_convert_i32x4u_op() -> UnaryOp
+
+pub fn f32x4_demote_f64x2_zero_inst() -> Instruction
+
+pub fn f32x4_demote_f64x2_zero_op() -> UnaryOp
+
+pub fn f32x4_div_inst() -> Instruction
+
+pub fn f32x4_div_op() -> BinaryOp
+
+pub fn f32x4_eq_inst() -> Instruction
+
+pub fn f32x4_eq_op() -> BinaryOp
+
+pub fn f32x4_extract_lane_inst(LaneIdx) -> Instruction
+
+pub fn f32x4_extract_lane_op() -> ExtractLaneOp
+
+pub fn f32x4_floor_inst() -> Instruction
+
+pub fn f32x4_floor_op() -> UnaryOp
+
+pub fn f32x4_ge_inst() -> Instruction
+
+pub fn f32x4_ge_op() -> BinaryOp
+
+pub fn f32x4_gt_inst() -> Instruction
+
+pub fn f32x4_gt_op() -> BinaryOp
+
+pub fn f32x4_le_inst() -> Instruction
+
+pub fn f32x4_le_op() -> BinaryOp
+
+pub fn f32x4_lt_inst() -> Instruction
+
+pub fn f32x4_lt_op() -> BinaryOp
+
+pub fn f32x4_max_inst() -> Instruction
+
+pub fn f32x4_max_op() -> BinaryOp
+
+pub fn f32x4_min_inst() -> Instruction
+
+pub fn f32x4_min_op() -> BinaryOp
+
+pub fn f32x4_mul_inst() -> Instruction
+
+pub fn f32x4_mul_op() -> BinaryOp
+
+pub fn f32x4_ne_inst() -> Instruction
+
+pub fn f32x4_ne_op() -> BinaryOp
+
+pub fn f32x4_nearest_inst() -> Instruction
+
+pub fn f32x4_nearest_op() -> UnaryOp
+
+pub fn f32x4_neg_inst() -> Instruction
+
+pub fn f32x4_neg_op() -> UnaryOp
+
+pub fn f32x4_pmax_inst() -> Instruction
+
+pub fn f32x4_pmax_op() -> BinaryOp
+
+pub fn f32x4_pmin_inst() -> Instruction
+
+pub fn f32x4_pmin_op() -> BinaryOp
+
+pub fn f32x4_relaxed_madd_inst() -> Instruction
+
+pub fn f32x4_relaxed_madd_op() -> V128TernaryOp
+
+pub fn f32x4_relaxed_max_inst() -> Instruction
+
+pub fn f32x4_relaxed_max_op() -> BinaryOp
+
+pub fn f32x4_relaxed_min_inst() -> Instruction
+
+pub fn f32x4_relaxed_min_op() -> BinaryOp
+
+pub fn f32x4_relaxed_nmadd_inst() -> Instruction
+
+pub fn f32x4_relaxed_nmadd_op() -> V128TernaryOp
+
+pub fn f32x4_replace_lane_inst(LaneIdx) -> Instruction
+
+pub fn f32x4_replace_lane_op() -> ReplaceLaneOp
+
+pub fn f32x4_splat_inst() -> Instruction
+
+pub fn f32x4_sqrt_inst() -> Instruction
+
+pub fn f32x4_sqrt_op() -> UnaryOp
+
+pub fn f32x4_sub_inst() -> Instruction
+
+pub fn f32x4_sub_op() -> BinaryOp
+
+pub fn f32x4_trunc_inst() -> Instruction
+
+pub fn f32x4_trunc_op() -> UnaryOp
+
+pub fn f64_abs_inst() -> Instruction
+
+pub fn f64_abs_op() -> UnaryOp
+
+pub fn f64_add_inst() -> Instruction
+
+pub fn f64_add_op() -> BinaryOp
+
+pub fn f64_ceil_inst() -> Instruction
+
+pub fn f64_ceil_op() -> UnaryOp
+
+pub fn f64_const_inst(F64) -> Instruction
+
+pub fn f64_convert_i32s_inst() -> Instruction
+
+pub fn f64_convert_i32s_op() -> UnaryOp
+
+pub fn f64_convert_i32u_inst() -> Instruction
+
+pub fn f64_convert_i32u_op() -> UnaryOp
+
+pub fn f64_convert_i64s_inst() -> Instruction
+
+pub fn f64_convert_i64s_op() -> UnaryOp
+
+pub fn f64_convert_i64u_inst() -> Instruction
+
+pub fn f64_convert_i64u_op() -> UnaryOp
+
+pub fn f64_copysign_inst() -> Instruction
+
+pub fn f64_copysign_op() -> BinaryOp
+
+pub fn f64_div_inst() -> Instruction
+
+pub fn f64_div_op() -> BinaryOp
+
+pub fn f64_eq_inst() -> Instruction
+
+pub fn f64_eq_op() -> BinaryOp
+
+pub fn f64_floor_inst() -> Instruction
+
+pub fn f64_floor_op() -> UnaryOp
+
+pub fn f64_ge_inst() -> Instruction
+
+pub fn f64_ge_op() -> BinaryOp
+
+pub fn f64_gt_inst() -> Instruction
+
+pub fn f64_gt_op() -> BinaryOp
+
+pub fn f64_le_inst() -> Instruction
+
+pub fn f64_le_op() -> BinaryOp
+
+pub fn f64_load_inst(MemArg) -> Instruction
+
+pub fn f64_load_op() -> LoadOp
+
+pub fn f64_lt_inst() -> Instruction
+
+pub fn f64_lt_op() -> BinaryOp
+
+pub fn f64_max_inst() -> Instruction
+
+pub fn f64_max_op() -> BinaryOp
+
+pub fn f64_min_inst() -> Instruction
+
+pub fn f64_min_op() -> BinaryOp
+
+pub fn f64_mul_inst() -> Instruction
+
+pub fn f64_mul_op() -> BinaryOp
+
+pub fn f64_ne_inst() -> Instruction
+
+pub fn f64_ne_op() -> BinaryOp
+
+pub fn f64_nearest_inst() -> Instruction
+
+pub fn f64_nearest_op() -> UnaryOp
+
+pub fn f64_neg_inst() -> Instruction
+
+pub fn f64_neg_op() -> UnaryOp
+
+pub fn f64_num_type() -> NumType
+
+pub fn f64_promote_f32_inst() -> Instruction
+
+pub fn f64_promote_f32_op() -> UnaryOp
+
+pub fn f64_reinterpret_i64_inst() -> Instruction
+
+pub fn f64_reinterpret_i64_op() -> UnaryOp
+
+pub fn f64_sqrt_inst() -> Instruction
+
+pub fn f64_sqrt_op() -> UnaryOp
+
+pub fn f64_store_inst(MemArg) -> Instruction
+
+pub fn f64_store_op() -> StoreOp
+
+pub fn f64_sub_inst() -> Instruction
+
+pub fn f64_sub_op() -> BinaryOp
+
+pub fn f64_trunc_inst() -> Instruction
+
+pub fn f64_trunc_op() -> UnaryOp
+
+pub fn f64x2_abs_inst() -> Instruction
+
+pub fn f64x2_abs_op() -> UnaryOp
+
+pub fn f64x2_add_inst() -> Instruction
+
+pub fn f64x2_add_op() -> BinaryOp
+
+pub fn f64x2_ceil_inst() -> Instruction
+
+pub fn f64x2_ceil_op() -> UnaryOp
+
+pub fn f64x2_convert_low_i32x4s_inst() -> Instruction
+
+pub fn f64x2_convert_low_i32x4s_op() -> UnaryOp
+
+pub fn f64x2_convert_low_i32x4u_inst() -> Instruction
+
+pub fn f64x2_convert_low_i32x4u_op() -> UnaryOp
+
+pub fn f64x2_div_inst() -> Instruction
+
+pub fn f64x2_div_op() -> BinaryOp
+
+pub fn f64x2_eq_inst() -> Instruction
+
+pub fn f64x2_eq_op() -> BinaryOp
+
+pub fn f64x2_extract_lane_inst(LaneIdx) -> Instruction
+
+pub fn f64x2_extract_lane_op() -> ExtractLaneOp
+
+pub fn f64x2_floor_inst() -> Instruction
+
+pub fn f64x2_floor_op() -> UnaryOp
+
+pub fn f64x2_ge_inst() -> Instruction
+
+pub fn f64x2_ge_op() -> BinaryOp
+
+pub fn f64x2_gt_inst() -> Instruction
+
+pub fn f64x2_gt_op() -> BinaryOp
+
+pub fn f64x2_le_inst() -> Instruction
+
+pub fn f64x2_le_op() -> BinaryOp
+
+pub fn f64x2_lt_inst() -> Instruction
+
+pub fn f64x2_lt_op() -> BinaryOp
+
+pub fn f64x2_max_inst() -> Instruction
+
+pub fn f64x2_max_op() -> BinaryOp
+
+pub fn f64x2_min_inst() -> Instruction
+
+pub fn f64x2_min_op() -> BinaryOp
+
+pub fn f64x2_mul_inst() -> Instruction
+
+pub fn f64x2_mul_op() -> BinaryOp
+
+pub fn f64x2_ne_inst() -> Instruction
+
+pub fn f64x2_ne_op() -> BinaryOp
+
+pub fn f64x2_nearest_inst() -> Instruction
+
+pub fn f64x2_nearest_op() -> UnaryOp
+
+pub fn f64x2_neg_inst() -> Instruction
+
+pub fn f64x2_neg_op() -> UnaryOp
+
+pub fn f64x2_pmax_inst() -> Instruction
+
+pub fn f64x2_pmax_op() -> BinaryOp
+
+pub fn f64x2_pmin_inst() -> Instruction
+
+pub fn f64x2_pmin_op() -> BinaryOp
+
+pub fn f64x2_promote_low_f32x4_inst() -> Instruction
+
+pub fn f64x2_promote_low_f32x4_op() -> UnaryOp
+
+pub fn f64x2_relaxed_madd_inst() -> Instruction
+
+pub fn f64x2_relaxed_madd_op() -> V128TernaryOp
+
+pub fn f64x2_relaxed_max_inst() -> Instruction
+
+pub fn f64x2_relaxed_max_op() -> BinaryOp
+
+pub fn f64x2_relaxed_min_inst() -> Instruction
+
+pub fn f64x2_relaxed_min_op() -> BinaryOp
+
+pub fn f64x2_relaxed_nmadd_inst() -> Instruction
+
+pub fn f64x2_relaxed_nmadd_op() -> V128TernaryOp
+
+pub fn f64x2_replace_lane_inst(LaneIdx) -> Instruction
+
+pub fn f64x2_replace_lane_op() -> ReplaceLaneOp
+
+pub fn f64x2_splat_inst() -> Instruction
+
+pub fn f64x2_sqrt_inst() -> Instruction
+
+pub fn f64x2_sqrt_op() -> UnaryOp
+
+pub fn f64x2_sub_inst() -> Instruction
+
+pub fn f64x2_sub_op() -> BinaryOp
+
+pub fn f64x2_trunc_inst() -> Instruction
+
+pub fn f64x2_trunc_op() -> UnaryOp
 
 pub fn field_is_mutable(FieldType) -> Bool
 
+pub fn func_abs_heap_type() -> AbsHeapType
+
+pub fn func_comp_type(Array[ValType], Array[ValType]) -> CompType
+
+pub fn func_exprs_elem_kind(Array[Expr]) -> ElemKind
+
+pub fn func_extern_idx(FuncIdx) -> ExternIdx
+
+pub fn func_extern_type(TypeIdx) -> ExternType
+
+pub fn func_idx(UInt) -> FuncIdx
+
 pub fn funcref_valtype() -> ValType
+
+pub fn funcs_elem_kind(Array[FuncIdx]) -> ElemKind
 
 pub fn get_struct_field(Array[FieldType], U32) -> Result[FieldType, String]
 
+pub fn global_extern_idx(GlobalIdx) -> ExternIdx
+
+pub fn global_extern_type(GlobalType) -> ExternType
+
+pub fn global_get_inst(GlobalIdx) -> Instruction
+
+pub fn global_idx(UInt) -> GlobalIdx
+
+pub fn global_set_inst(GlobalIdx) -> Instruction
+
+pub fn global_type(ValType, Bool) -> GlobalType
+
+pub fn group_rec_type(Array[SubType]) -> RecType
+
 pub fn has_default(ValType) -> Bool
+
+pub fn heap_type(TypeIdx) -> HeapType
+
+pub fn heap_type_ref_type(Bool, HeapType) -> RefType
+
+pub fn i16_pack_type() -> PackType
+
+pub fn i16x8_abs_inst() -> Instruction
+
+pub fn i16x8_abs_op() -> UnaryOp
+
+pub fn i16x8_add_inst() -> Instruction
+
+pub fn i16x8_add_op() -> BinaryOp
+
+pub fn i16x8_add_sat_s_inst() -> Instruction
+
+pub fn i16x8_add_sat_s_op() -> BinaryOp
+
+pub fn i16x8_add_sat_u_inst() -> Instruction
+
+pub fn i16x8_add_sat_u_op() -> BinaryOp
+
+pub fn i16x8_all_true_inst() -> Instruction
+
+pub fn i16x8_all_true_op() -> UnaryOp
+
+pub fn i16x8_avgr_u_inst() -> Instruction
+
+pub fn i16x8_avgr_u_op() -> BinaryOp
+
+pub fn i16x8_bitmask_inst() -> Instruction
+
+pub fn i16x8_bitmask_op() -> UnaryOp
+
+pub fn i16x8_eq_inst() -> Instruction
+
+pub fn i16x8_eq_op() -> BinaryOp
+
+pub fn i16x8_extadd_pairwise_i8x16s_inst() -> Instruction
+
+pub fn i16x8_extadd_pairwise_i8x16s_op() -> UnaryOp
+
+pub fn i16x8_extadd_pairwise_i8x16u_inst() -> Instruction
+
+pub fn i16x8_extadd_pairwise_i8x16u_op() -> UnaryOp
+
+pub fn i16x8_extend_high_i8x16s_inst() -> Instruction
+
+pub fn i16x8_extend_high_i8x16s_op() -> UnaryOp
+
+pub fn i16x8_extend_high_i8x16u_inst() -> Instruction
+
+pub fn i16x8_extend_high_i8x16u_op() -> UnaryOp
+
+pub fn i16x8_extend_low_i8x16s_inst() -> Instruction
+
+pub fn i16x8_extend_low_i8x16s_op() -> UnaryOp
+
+pub fn i16x8_extend_low_i8x16u_inst() -> Instruction
+
+pub fn i16x8_extend_low_i8x16u_op() -> UnaryOp
+
+pub fn i16x8_extmul_high_i8x16s_inst() -> Instruction
+
+pub fn i16x8_extmul_high_i8x16s_op() -> BinaryOp
+
+pub fn i16x8_extmul_high_i8x16u_inst() -> Instruction
+
+pub fn i16x8_extmul_high_i8x16u_op() -> BinaryOp
+
+pub fn i16x8_extmul_low_i8x16s_inst() -> Instruction
+
+pub fn i16x8_extmul_low_i8x16s_op() -> BinaryOp
+
+pub fn i16x8_extmul_low_i8x16u_inst() -> Instruction
+
+pub fn i16x8_extmul_low_i8x16u_op() -> BinaryOp
+
+pub fn i16x8_extract_lane_s_inst(LaneIdx) -> Instruction
+
+pub fn i16x8_extract_lane_s_op() -> ExtractLaneOp
+
+pub fn i16x8_extract_lane_u_inst(LaneIdx) -> Instruction
+
+pub fn i16x8_extract_lane_u_op() -> ExtractLaneOp
+
+pub fn i16x8_ge_s_inst() -> Instruction
+
+pub fn i16x8_ge_s_op() -> BinaryOp
+
+pub fn i16x8_ge_u_inst() -> Instruction
+
+pub fn i16x8_ge_u_op() -> BinaryOp
+
+pub fn i16x8_gt_s_inst() -> Instruction
+
+pub fn i16x8_gt_s_op() -> BinaryOp
+
+pub fn i16x8_gt_u_inst() -> Instruction
+
+pub fn i16x8_gt_u_op() -> BinaryOp
+
+pub fn i16x8_le_s_inst() -> Instruction
+
+pub fn i16x8_le_s_op() -> BinaryOp
+
+pub fn i16x8_le_u_inst() -> Instruction
+
+pub fn i16x8_le_u_op() -> BinaryOp
+
+pub fn i16x8_lt_s_inst() -> Instruction
+
+pub fn i16x8_lt_s_op() -> BinaryOp
+
+pub fn i16x8_lt_u_inst() -> Instruction
+
+pub fn i16x8_lt_u_op() -> BinaryOp
+
+pub fn i16x8_max_s_inst() -> Instruction
+
+pub fn i16x8_max_s_op() -> BinaryOp
+
+pub fn i16x8_max_u_inst() -> Instruction
+
+pub fn i16x8_max_u_op() -> BinaryOp
+
+pub fn i16x8_min_s_inst() -> Instruction
+
+pub fn i16x8_min_s_op() -> BinaryOp
+
+pub fn i16x8_min_u_inst() -> Instruction
+
+pub fn i16x8_min_u_op() -> BinaryOp
+
+pub fn i16x8_mul_inst() -> Instruction
+
+pub fn i16x8_mul_op() -> BinaryOp
+
+pub fn i16x8_narrow_i32x4s_inst() -> Instruction
+
+pub fn i16x8_narrow_i32x4s_op() -> BinaryOp
+
+pub fn i16x8_narrow_i32x4u_inst() -> Instruction
+
+pub fn i16x8_narrow_i32x4u_op() -> BinaryOp
+
+pub fn i16x8_ne_inst() -> Instruction
+
+pub fn i16x8_ne_op() -> BinaryOp
+
+pub fn i16x8_neg_inst() -> Instruction
+
+pub fn i16x8_neg_op() -> UnaryOp
+
+pub fn i16x8_relaxed_dot_i8x16i7x16s_inst() -> Instruction
+
+pub fn i16x8_relaxed_dot_i8x16i7x16s_op() -> BinaryOp
+
+pub fn i16x8_relaxed_laneselect_inst() -> Instruction
+
+pub fn i16x8_relaxed_laneselect_op() -> V128TernaryOp
+
+pub fn i16x8_relaxed_q15mulr_s_inst() -> Instruction
+
+pub fn i16x8_relaxed_q15mulr_s_op() -> BinaryOp
+
+pub fn i16x8_replace_lane_inst(LaneIdx) -> Instruction
+
+pub fn i16x8_replace_lane_op() -> ReplaceLaneOp
+
+pub fn i16x8_shl_inst() -> Instruction
+
+pub fn i16x8_shl_op() -> V128ShiftOp
+
+pub fn i16x8_shr_s_inst() -> Instruction
+
+pub fn i16x8_shr_s_op() -> V128ShiftOp
+
+pub fn i16x8_shr_u_inst() -> Instruction
+
+pub fn i16x8_shr_u_op() -> V128ShiftOp
+
+pub fn i16x8_splat_inst() -> Instruction
+
+pub fn i16x8_sub_inst() -> Instruction
+
+pub fn i16x8_sub_op() -> BinaryOp
+
+pub fn i16x8_sub_sat_s_inst() -> Instruction
+
+pub fn i16x8_sub_sat_s_op() -> BinaryOp
+
+pub fn i16x8_sub_sat_u_inst() -> Instruction
+
+pub fn i16x8_sub_sat_u_op() -> BinaryOp
+
+pub fn i16x8q15mulr_sat_s_inst() -> Instruction
+
+pub fn i16x8q15mulr_sat_s_op() -> BinaryOp
+
+pub fn i31_abs_heap_type() -> AbsHeapType
+
+pub fn i31_get_s_inst() -> Instruction
+
+pub fn i31_get_u_inst() -> Instruction
 
 pub fn i31ref_nullable_valtype() -> ValType
 
 pub fn i31ref_valtype() -> ValType
 
+pub fn i32_add_inst() -> Instruction
+
+pub fn i32_add_op() -> BinaryOp
+
+pub fn i32_and_inst() -> Instruction
+
+pub fn i32_and_op() -> BinaryOp
+
+pub fn i32_clz_inst() -> Instruction
+
+pub fn i32_clz_op() -> UnaryOp
+
+pub fn i32_const_inst(I32) -> Instruction
+
+pub fn i32_ctz_inst() -> Instruction
+
+pub fn i32_ctz_op() -> UnaryOp
+
+pub fn i32_div_s_inst() -> Instruction
+
+pub fn i32_div_s_op() -> BinaryOp
+
+pub fn i32_div_u_inst() -> Instruction
+
+pub fn i32_div_u_op() -> BinaryOp
+
+pub fn i32_eq_inst() -> Instruction
+
+pub fn i32_eq_op() -> BinaryOp
+
+pub fn i32_eqz_inst() -> Instruction
+
+pub fn i32_eqz_op() -> UnaryOp
+
+pub fn i32_extend16s_inst() -> Instruction
+
+pub fn i32_extend16s_op() -> UnaryOp
+
+pub fn i32_extend8s_inst() -> Instruction
+
+pub fn i32_extend8s_op() -> UnaryOp
+
+pub fn i32_ge_s_inst() -> Instruction
+
+pub fn i32_ge_s_op() -> BinaryOp
+
+pub fn i32_ge_u_inst() -> Instruction
+
+pub fn i32_ge_u_op() -> BinaryOp
+
+pub fn i32_gt_s_inst() -> Instruction
+
+pub fn i32_gt_s_op() -> BinaryOp
+
+pub fn i32_gt_u_inst() -> Instruction
+
+pub fn i32_gt_u_op() -> BinaryOp
+
+pub fn i32_le_s_inst() -> Instruction
+
+pub fn i32_le_s_op() -> BinaryOp
+
+pub fn i32_le_u_inst() -> Instruction
+
+pub fn i32_le_u_op() -> BinaryOp
+
+pub fn i32_limits(UInt, UInt?) -> Limits
+
+pub fn i32_load16s_inst(MemArg) -> Instruction
+
+pub fn i32_load16s_op() -> LoadOp
+
+pub fn i32_load16u_inst(MemArg) -> Instruction
+
+pub fn i32_load16u_op() -> LoadOp
+
+pub fn i32_load8s_inst(MemArg) -> Instruction
+
+pub fn i32_load8s_op() -> LoadOp
+
+pub fn i32_load8u_inst(MemArg) -> Instruction
+
+pub fn i32_load8u_op() -> LoadOp
+
+pub fn i32_load_inst(MemArg) -> Instruction
+
+pub fn i32_load_op() -> LoadOp
+
+pub fn i32_lt_s_inst() -> Instruction
+
+pub fn i32_lt_s_op() -> BinaryOp
+
+pub fn i32_lt_u_inst() -> Instruction
+
+pub fn i32_lt_u_op() -> BinaryOp
+
+pub fn i32_mul_inst() -> Instruction
+
+pub fn i32_mul_op() -> BinaryOp
+
+pub fn i32_ne_inst() -> Instruction
+
+pub fn i32_ne_op() -> BinaryOp
+
+pub fn i32_num_type() -> NumType
+
+pub fn i32_or_inst() -> Instruction
+
+pub fn i32_or_op() -> BinaryOp
+
+pub fn i32_popcnt_inst() -> Instruction
+
+pub fn i32_popcnt_op() -> UnaryOp
+
+pub fn i32_reinterpret_f32_inst() -> Instruction
+
+pub fn i32_reinterpret_f32_op() -> UnaryOp
+
+pub fn i32_rem_s_inst() -> Instruction
+
+pub fn i32_rem_s_op() -> BinaryOp
+
+pub fn i32_rem_u_inst() -> Instruction
+
+pub fn i32_rem_u_op() -> BinaryOp
+
+pub fn i32_rotl_inst() -> Instruction
+
+pub fn i32_rotl_op() -> BinaryOp
+
+pub fn i32_rotr_inst() -> Instruction
+
+pub fn i32_rotr_op() -> BinaryOp
+
+pub fn i32_shl_inst() -> Instruction
+
+pub fn i32_shl_op() -> BinaryOp
+
+pub fn i32_shr_s_inst() -> Instruction
+
+pub fn i32_shr_s_op() -> BinaryOp
+
+pub fn i32_shr_u_inst() -> Instruction
+
+pub fn i32_shr_u_op() -> BinaryOp
+
+pub fn i32_store16_inst(MemArg) -> Instruction
+
+pub fn i32_store16_op() -> StoreOp
+
+pub fn i32_store8_inst(MemArg) -> Instruction
+
+pub fn i32_store8_op() -> StoreOp
+
+pub fn i32_store_inst(MemArg) -> Instruction
+
+pub fn i32_store_op() -> StoreOp
+
+pub fn i32_sub_inst() -> Instruction
+
+pub fn i32_sub_op() -> BinaryOp
+
+pub fn i32_trunc_f32s_inst() -> Instruction
+
+pub fn i32_trunc_f32s_op() -> UnaryOp
+
+pub fn i32_trunc_f32u_inst() -> Instruction
+
+pub fn i32_trunc_f32u_op() -> UnaryOp
+
+pub fn i32_trunc_f64s_inst() -> Instruction
+
+pub fn i32_trunc_f64s_op() -> UnaryOp
+
+pub fn i32_trunc_f64u_inst() -> Instruction
+
+pub fn i32_trunc_f64u_op() -> UnaryOp
+
+pub fn i32_trunc_sat_f32s_inst() -> Instruction
+
+pub fn i32_trunc_sat_f32s_op() -> UnaryOp
+
+pub fn i32_trunc_sat_f32u_inst() -> Instruction
+
+pub fn i32_trunc_sat_f32u_op() -> UnaryOp
+
+pub fn i32_trunc_sat_f64s_inst() -> Instruction
+
+pub fn i32_trunc_sat_f64s_op() -> UnaryOp
+
+pub fn i32_trunc_sat_f64u_inst() -> Instruction
+
+pub fn i32_trunc_sat_f64u_op() -> UnaryOp
+
 pub fn i32_valtype() -> ValType
+
+pub fn i32_wrap_i64_inst() -> Instruction
+
+pub fn i32_wrap_i64_op() -> UnaryOp
+
+pub fn i32_xor_inst() -> Instruction
+
+pub fn i32_xor_op() -> BinaryOp
+
+pub fn i32x4_abs_inst() -> Instruction
+
+pub fn i32x4_abs_op() -> UnaryOp
+
+pub fn i32x4_add_inst() -> Instruction
+
+pub fn i32x4_add_op() -> BinaryOp
+
+pub fn i32x4_all_true_inst() -> Instruction
+
+pub fn i32x4_all_true_op() -> UnaryOp
+
+pub fn i32x4_bitmask_inst() -> Instruction
+
+pub fn i32x4_bitmask_op() -> UnaryOp
+
+pub fn i32x4_dot_i16x8s_inst() -> Instruction
+
+pub fn i32x4_dot_i16x8s_op() -> BinaryOp
+
+pub fn i32x4_eq_inst() -> Instruction
+
+pub fn i32x4_eq_op() -> BinaryOp
+
+pub fn i32x4_extadd_pairwise_i16x8s_inst() -> Instruction
+
+pub fn i32x4_extadd_pairwise_i16x8s_op() -> UnaryOp
+
+pub fn i32x4_extadd_pairwise_i16x8u_inst() -> Instruction
+
+pub fn i32x4_extadd_pairwise_i16x8u_op() -> UnaryOp
+
+pub fn i32x4_extend_high_i16x8s_inst() -> Instruction
+
+pub fn i32x4_extend_high_i16x8s_op() -> UnaryOp
+
+pub fn i32x4_extend_high_i16x8u_inst() -> Instruction
+
+pub fn i32x4_extend_high_i16x8u_op() -> UnaryOp
+
+pub fn i32x4_extend_low_i16x8s_inst() -> Instruction
+
+pub fn i32x4_extend_low_i16x8s_op() -> UnaryOp
+
+pub fn i32x4_extend_low_i16x8u_inst() -> Instruction
+
+pub fn i32x4_extend_low_i16x8u_op() -> UnaryOp
+
+pub fn i32x4_extmul_high_i16x8s_inst() -> Instruction
+
+pub fn i32x4_extmul_high_i16x8s_op() -> BinaryOp
+
+pub fn i32x4_extmul_high_i16x8u_inst() -> Instruction
+
+pub fn i32x4_extmul_high_i16x8u_op() -> BinaryOp
+
+pub fn i32x4_extmul_low_i16x8s_inst() -> Instruction
+
+pub fn i32x4_extmul_low_i16x8s_op() -> BinaryOp
+
+pub fn i32x4_extmul_low_i16x8u_inst() -> Instruction
+
+pub fn i32x4_extmul_low_i16x8u_op() -> BinaryOp
+
+pub fn i32x4_extract_lane_inst(LaneIdx) -> Instruction
+
+pub fn i32x4_extract_lane_op() -> ExtractLaneOp
+
+pub fn i32x4_ge_s_inst() -> Instruction
+
+pub fn i32x4_ge_s_op() -> BinaryOp
+
+pub fn i32x4_ge_u_inst() -> Instruction
+
+pub fn i32x4_ge_u_op() -> BinaryOp
+
+pub fn i32x4_gt_s_inst() -> Instruction
+
+pub fn i32x4_gt_s_op() -> BinaryOp
+
+pub fn i32x4_gt_u_inst() -> Instruction
+
+pub fn i32x4_gt_u_op() -> BinaryOp
+
+pub fn i32x4_le_s_inst() -> Instruction
+
+pub fn i32x4_le_s_op() -> BinaryOp
+
+pub fn i32x4_le_u_inst() -> Instruction
+
+pub fn i32x4_le_u_op() -> BinaryOp
+
+pub fn i32x4_lt_s_inst() -> Instruction
+
+pub fn i32x4_lt_s_op() -> BinaryOp
+
+pub fn i32x4_lt_u_inst() -> Instruction
+
+pub fn i32x4_lt_u_op() -> BinaryOp
+
+pub fn i32x4_max_s_inst() -> Instruction
+
+pub fn i32x4_max_s_op() -> BinaryOp
+
+pub fn i32x4_max_u_inst() -> Instruction
+
+pub fn i32x4_max_u_op() -> BinaryOp
+
+pub fn i32x4_min_s_inst() -> Instruction
+
+pub fn i32x4_min_s_op() -> BinaryOp
+
+pub fn i32x4_min_u_inst() -> Instruction
+
+pub fn i32x4_min_u_op() -> BinaryOp
+
+pub fn i32x4_mul_inst() -> Instruction
+
+pub fn i32x4_mul_op() -> BinaryOp
+
+pub fn i32x4_ne_inst() -> Instruction
+
+pub fn i32x4_ne_op() -> BinaryOp
+
+pub fn i32x4_neg_inst() -> Instruction
+
+pub fn i32x4_neg_op() -> UnaryOp
+
+pub fn i32x4_relaxed_dot_i8x16i7x16_add_s_inst() -> Instruction
+
+pub fn i32x4_relaxed_dot_i8x16i7x16_add_s_op() -> V128TernaryOp
+
+pub fn i32x4_relaxed_laneselect_inst() -> Instruction
+
+pub fn i32x4_relaxed_laneselect_op() -> V128TernaryOp
+
+pub fn i32x4_relaxed_trunc_f32x4s_inst() -> Instruction
+
+pub fn i32x4_relaxed_trunc_f32x4s_op() -> UnaryOp
+
+pub fn i32x4_relaxed_trunc_f32x4u_inst() -> Instruction
+
+pub fn i32x4_relaxed_trunc_f32x4u_op() -> UnaryOp
+
+pub fn i32x4_relaxed_trunc_zero_f64x2s_inst() -> Instruction
+
+pub fn i32x4_relaxed_trunc_zero_f64x2s_op() -> UnaryOp
+
+pub fn i32x4_relaxed_trunc_zero_f64x2u_inst() -> Instruction
+
+pub fn i32x4_relaxed_trunc_zero_f64x2u_op() -> UnaryOp
+
+pub fn i32x4_replace_lane_inst(LaneIdx) -> Instruction
+
+pub fn i32x4_replace_lane_op() -> ReplaceLaneOp
+
+pub fn i32x4_shl_inst() -> Instruction
+
+pub fn i32x4_shl_op() -> V128ShiftOp
+
+pub fn i32x4_shr_s_inst() -> Instruction
+
+pub fn i32x4_shr_s_op() -> V128ShiftOp
+
+pub fn i32x4_shr_u_inst() -> Instruction
+
+pub fn i32x4_shr_u_op() -> V128ShiftOp
+
+pub fn i32x4_splat_inst() -> Instruction
+
+pub fn i32x4_sub_inst() -> Instruction
+
+pub fn i32x4_sub_op() -> BinaryOp
+
+pub fn i32x4_trunc_sat_f32x4s_inst() -> Instruction
+
+pub fn i32x4_trunc_sat_f32x4s_op() -> UnaryOp
+
+pub fn i32x4_trunc_sat_f32x4u_inst() -> Instruction
+
+pub fn i32x4_trunc_sat_f32x4u_op() -> UnaryOp
+
+pub fn i32x4_trunc_sat_f64x2s_zero_inst() -> Instruction
+
+pub fn i32x4_trunc_sat_f64x2s_zero_op() -> UnaryOp
+
+pub fn i32x4_trunc_sat_f64x2u_zero_inst() -> Instruction
+
+pub fn i32x4_trunc_sat_f64x2u_zero_op() -> UnaryOp
+
+pub fn i64_add_inst() -> Instruction
+
+pub fn i64_add_op() -> BinaryOp
+
+pub fn i64_and_inst() -> Instruction
+
+pub fn i64_and_op() -> BinaryOp
+
+pub fn i64_clz_inst() -> Instruction
+
+pub fn i64_clz_op() -> UnaryOp
+
+pub fn i64_const_inst(I64) -> Instruction
+
+pub fn i64_ctz_inst() -> Instruction
+
+pub fn i64_ctz_op() -> UnaryOp
+
+pub fn i64_div_s_inst() -> Instruction
+
+pub fn i64_div_s_op() -> BinaryOp
+
+pub fn i64_div_u_inst() -> Instruction
+
+pub fn i64_div_u_op() -> BinaryOp
+
+pub fn i64_eq_inst() -> Instruction
+
+pub fn i64_eq_op() -> BinaryOp
+
+pub fn i64_eqz_inst() -> Instruction
+
+pub fn i64_eqz_op() -> UnaryOp
+
+pub fn i64_extend16s_inst() -> Instruction
+
+pub fn i64_extend16s_op() -> UnaryOp
+
+pub fn i64_extend32s_inst() -> Instruction
+
+pub fn i64_extend32s_op() -> UnaryOp
+
+pub fn i64_extend8s_inst() -> Instruction
+
+pub fn i64_extend8s_op() -> UnaryOp
+
+pub fn i64_extend_i32s_inst() -> Instruction
+
+pub fn i64_extend_i32s_op() -> UnaryOp
+
+pub fn i64_extend_i32u_inst() -> Instruction
+
+pub fn i64_extend_i32u_op() -> UnaryOp
+
+pub fn i64_ge_s_inst() -> Instruction
+
+pub fn i64_ge_s_op() -> BinaryOp
+
+pub fn i64_ge_u_inst() -> Instruction
+
+pub fn i64_ge_u_op() -> BinaryOp
+
+pub fn i64_gt_s_inst() -> Instruction
+
+pub fn i64_gt_s_op() -> BinaryOp
+
+pub fn i64_gt_u_inst() -> Instruction
+
+pub fn i64_gt_u_op() -> BinaryOp
+
+pub fn i64_le_s_inst() -> Instruction
+
+pub fn i64_le_s_op() -> BinaryOp
+
+pub fn i64_le_u_inst() -> Instruction
+
+pub fn i64_le_u_op() -> BinaryOp
+
+pub fn i64_limits(UInt64, UInt64?) -> Limits
+
+pub fn i64_load16s_inst(MemArg) -> Instruction
+
+pub fn i64_load16s_op() -> LoadOp
+
+pub fn i64_load16u_inst(MemArg) -> Instruction
+
+pub fn i64_load16u_op() -> LoadOp
+
+pub fn i64_load32s_inst(MemArg) -> Instruction
+
+pub fn i64_load32s_op() -> LoadOp
+
+pub fn i64_load32u_inst(MemArg) -> Instruction
+
+pub fn i64_load32u_op() -> LoadOp
+
+pub fn i64_load8s_inst(MemArg) -> Instruction
+
+pub fn i64_load8s_op() -> LoadOp
+
+pub fn i64_load8u_inst(MemArg) -> Instruction
+
+pub fn i64_load8u_op() -> LoadOp
+
+pub fn i64_load_inst(MemArg) -> Instruction
+
+pub fn i64_load_op() -> LoadOp
+
+pub fn i64_lt_s_inst() -> Instruction
+
+pub fn i64_lt_s_op() -> BinaryOp
+
+pub fn i64_lt_u_inst() -> Instruction
+
+pub fn i64_lt_u_op() -> BinaryOp
+
+pub fn i64_mul_inst() -> Instruction
+
+pub fn i64_mul_op() -> BinaryOp
+
+pub fn i64_ne_inst() -> Instruction
+
+pub fn i64_ne_op() -> BinaryOp
+
+pub fn i64_num_type() -> NumType
+
+pub fn i64_or_inst() -> Instruction
+
+pub fn i64_or_op() -> BinaryOp
+
+pub fn i64_popcnt_inst() -> Instruction
+
+pub fn i64_popcnt_op() -> UnaryOp
+
+pub fn i64_reinterpret_f64_inst() -> Instruction
+
+pub fn i64_reinterpret_f64_op() -> UnaryOp
+
+pub fn i64_rem_s_inst() -> Instruction
+
+pub fn i64_rem_s_op() -> BinaryOp
+
+pub fn i64_rem_u_inst() -> Instruction
+
+pub fn i64_rem_u_op() -> BinaryOp
+
+pub fn i64_rotl_inst() -> Instruction
+
+pub fn i64_rotl_op() -> BinaryOp
+
+pub fn i64_rotr_inst() -> Instruction
+
+pub fn i64_rotr_op() -> BinaryOp
+
+pub fn i64_shl_inst() -> Instruction
+
+pub fn i64_shl_op() -> BinaryOp
+
+pub fn i64_shr_s_inst() -> Instruction
+
+pub fn i64_shr_s_op() -> BinaryOp
+
+pub fn i64_shr_u_inst() -> Instruction
+
+pub fn i64_shr_u_op() -> BinaryOp
+
+pub fn i64_store16_inst(MemArg) -> Instruction
+
+pub fn i64_store16_op() -> StoreOp
+
+pub fn i64_store32_inst(MemArg) -> Instruction
+
+pub fn i64_store32_op() -> StoreOp
+
+pub fn i64_store8_inst(MemArg) -> Instruction
+
+pub fn i64_store8_op() -> StoreOp
+
+pub fn i64_store_inst(MemArg) -> Instruction
+
+pub fn i64_store_op() -> StoreOp
+
+pub fn i64_sub_inst() -> Instruction
+
+pub fn i64_sub_op() -> BinaryOp
+
+pub fn i64_trunc_f32s_inst() -> Instruction
+
+pub fn i64_trunc_f32s_op() -> UnaryOp
+
+pub fn i64_trunc_f32u_inst() -> Instruction
+
+pub fn i64_trunc_f32u_op() -> UnaryOp
+
+pub fn i64_trunc_f64s_inst() -> Instruction
+
+pub fn i64_trunc_f64s_op() -> UnaryOp
+
+pub fn i64_trunc_f64u_inst() -> Instruction
+
+pub fn i64_trunc_f64u_op() -> UnaryOp
+
+pub fn i64_trunc_sat_f32s_inst() -> Instruction
+
+pub fn i64_trunc_sat_f32s_op() -> UnaryOp
+
+pub fn i64_trunc_sat_f32u_inst() -> Instruction
+
+pub fn i64_trunc_sat_f32u_op() -> UnaryOp
+
+pub fn i64_trunc_sat_f64s_inst() -> Instruction
+
+pub fn i64_trunc_sat_f64s_op() -> UnaryOp
+
+pub fn i64_trunc_sat_f64u_inst() -> Instruction
+
+pub fn i64_trunc_sat_f64u_op() -> UnaryOp
 
 pub fn i64_valtype() -> ValType
 
+pub fn i64_xor_inst() -> Instruction
+
+pub fn i64_xor_op() -> BinaryOp
+
+pub fn i64x2_abs_inst() -> Instruction
+
+pub fn i64x2_abs_op() -> UnaryOp
+
+pub fn i64x2_add_inst() -> Instruction
+
+pub fn i64x2_add_op() -> BinaryOp
+
+pub fn i64x2_all_true_inst() -> Instruction
+
+pub fn i64x2_all_true_op() -> UnaryOp
+
+pub fn i64x2_bitmask_inst() -> Instruction
+
+pub fn i64x2_bitmask_op() -> UnaryOp
+
+pub fn i64x2_eq_inst() -> Instruction
+
+pub fn i64x2_eq_op() -> BinaryOp
+
+pub fn i64x2_extend_high_i32x4s_inst() -> Instruction
+
+pub fn i64x2_extend_high_i32x4s_op() -> UnaryOp
+
+pub fn i64x2_extend_high_i32x4u_inst() -> Instruction
+
+pub fn i64x2_extend_high_i32x4u_op() -> UnaryOp
+
+pub fn i64x2_extend_low_i32x4s_inst() -> Instruction
+
+pub fn i64x2_extend_low_i32x4s_op() -> UnaryOp
+
+pub fn i64x2_extend_low_i32x4u_inst() -> Instruction
+
+pub fn i64x2_extend_low_i32x4u_op() -> UnaryOp
+
+pub fn i64x2_extmul_high_i32x4s_inst() -> Instruction
+
+pub fn i64x2_extmul_high_i32x4s_op() -> BinaryOp
+
+pub fn i64x2_extmul_high_i32x4u_inst() -> Instruction
+
+pub fn i64x2_extmul_high_i32x4u_op() -> BinaryOp
+
+pub fn i64x2_extmul_low_i32x4s_inst() -> Instruction
+
+pub fn i64x2_extmul_low_i32x4s_op() -> BinaryOp
+
+pub fn i64x2_extmul_low_i32x4u_inst() -> Instruction
+
+pub fn i64x2_extmul_low_i32x4u_op() -> BinaryOp
+
+pub fn i64x2_extract_lane_inst(LaneIdx) -> Instruction
+
+pub fn i64x2_extract_lane_op() -> ExtractLaneOp
+
+pub fn i64x2_ge_s_inst() -> Instruction
+
+pub fn i64x2_ge_s_op() -> BinaryOp
+
+pub fn i64x2_gt_s_inst() -> Instruction
+
+pub fn i64x2_gt_s_op() -> BinaryOp
+
+pub fn i64x2_le_s_inst() -> Instruction
+
+pub fn i64x2_le_s_op() -> BinaryOp
+
+pub fn i64x2_lt_s_inst() -> Instruction
+
+pub fn i64x2_lt_s_op() -> BinaryOp
+
+pub fn i64x2_mul_inst() -> Instruction
+
+pub fn i64x2_mul_op() -> BinaryOp
+
+pub fn i64x2_ne_inst() -> Instruction
+
+pub fn i64x2_ne_op() -> BinaryOp
+
+pub fn i64x2_neg_inst() -> Instruction
+
+pub fn i64x2_neg_op() -> UnaryOp
+
+pub fn i64x2_relaxed_laneselect_inst() -> Instruction
+
+pub fn i64x2_relaxed_laneselect_op() -> V128TernaryOp
+
+pub fn i64x2_replace_lane_inst(LaneIdx) -> Instruction
+
+pub fn i64x2_replace_lane_op() -> ReplaceLaneOp
+
+pub fn i64x2_shl_inst() -> Instruction
+
+pub fn i64x2_shl_op() -> V128ShiftOp
+
+pub fn i64x2_shr_s_inst() -> Instruction
+
+pub fn i64x2_shr_s_op() -> V128ShiftOp
+
+pub fn i64x2_shr_u_inst() -> Instruction
+
+pub fn i64x2_shr_u_op() -> V128ShiftOp
+
+pub fn i64x2_splat_inst() -> Instruction
+
+pub fn i64x2_sub_inst() -> Instruction
+
+pub fn i64x2_sub_op() -> BinaryOp
+
+pub fn i8_pack_type() -> PackType
+
+pub fn i8x16_abs_inst() -> Instruction
+
+pub fn i8x16_abs_op() -> UnaryOp
+
+pub fn i8x16_add_inst() -> Instruction
+
+pub fn i8x16_add_op() -> BinaryOp
+
+pub fn i8x16_add_sat_s_inst() -> Instruction
+
+pub fn i8x16_add_sat_s_op() -> BinaryOp
+
+pub fn i8x16_add_sat_u_inst() -> Instruction
+
+pub fn i8x16_add_sat_u_op() -> BinaryOp
+
+pub fn i8x16_all_true_inst() -> Instruction
+
+pub fn i8x16_all_true_op() -> UnaryOp
+
+pub fn i8x16_avgr_u_inst() -> Instruction
+
+pub fn i8x16_avgr_u_op() -> BinaryOp
+
+pub fn i8x16_bitmask_inst() -> Instruction
+
+pub fn i8x16_bitmask_op() -> UnaryOp
+
+pub fn i8x16_eq_inst() -> Instruction
+
+pub fn i8x16_eq_op() -> BinaryOp
+
+pub fn i8x16_extract_lane_s_inst(LaneIdx) -> Instruction
+
+pub fn i8x16_extract_lane_s_op() -> ExtractLaneOp
+
+pub fn i8x16_extract_lane_u_inst(LaneIdx) -> Instruction
+
+pub fn i8x16_extract_lane_u_op() -> ExtractLaneOp
+
+pub fn i8x16_ge_s_inst() -> Instruction
+
+pub fn i8x16_ge_s_op() -> BinaryOp
+
+pub fn i8x16_ge_u_inst() -> Instruction
+
+pub fn i8x16_ge_u_op() -> BinaryOp
+
+pub fn i8x16_gt_s_inst() -> Instruction
+
+pub fn i8x16_gt_s_op() -> BinaryOp
+
+pub fn i8x16_gt_u_inst() -> Instruction
+
+pub fn i8x16_gt_u_op() -> BinaryOp
+
+pub fn i8x16_le_s_inst() -> Instruction
+
+pub fn i8x16_le_s_op() -> BinaryOp
+
+pub fn i8x16_le_u_inst() -> Instruction
+
+pub fn i8x16_le_u_op() -> BinaryOp
+
+pub fn i8x16_lt_s_inst() -> Instruction
+
+pub fn i8x16_lt_s_op() -> BinaryOp
+
+pub fn i8x16_lt_u_inst() -> Instruction
+
+pub fn i8x16_lt_u_op() -> BinaryOp
+
+pub fn i8x16_max_s_inst() -> Instruction
+
+pub fn i8x16_max_s_op() -> BinaryOp
+
+pub fn i8x16_max_u_inst() -> Instruction
+
+pub fn i8x16_max_u_op() -> BinaryOp
+
+pub fn i8x16_min_s_inst() -> Instruction
+
+pub fn i8x16_min_s_op() -> BinaryOp
+
+pub fn i8x16_min_u_inst() -> Instruction
+
+pub fn i8x16_min_u_op() -> BinaryOp
+
+pub fn i8x16_narrow_i16x8s_inst() -> Instruction
+
+pub fn i8x16_narrow_i16x8s_op() -> BinaryOp
+
+pub fn i8x16_narrow_i16x8u_inst() -> Instruction
+
+pub fn i8x16_narrow_i16x8u_op() -> BinaryOp
+
+pub fn i8x16_ne_inst() -> Instruction
+
+pub fn i8x16_ne_op() -> BinaryOp
+
+pub fn i8x16_neg_inst() -> Instruction
+
+pub fn i8x16_neg_op() -> UnaryOp
+
+pub fn i8x16_popcnt_inst() -> Instruction
+
+pub fn i8x16_popcnt_op() -> UnaryOp
+
+pub fn i8x16_relaxed_laneselect_inst() -> Instruction
+
+pub fn i8x16_relaxed_laneselect_op() -> V128TernaryOp
+
+pub fn i8x16_relaxed_swizzle_inst() -> Instruction
+
+pub fn i8x16_replace_lane_inst(LaneIdx) -> Instruction
+
+pub fn i8x16_replace_lane_op() -> ReplaceLaneOp
+
+pub fn i8x16_shl_inst() -> Instruction
+
+pub fn i8x16_shl_op() -> V128ShiftOp
+
+pub fn i8x16_shr_s_inst() -> Instruction
+
+pub fn i8x16_shr_s_op() -> V128ShiftOp
+
+pub fn i8x16_shr_u_inst() -> Instruction
+
+pub fn i8x16_shr_u_op() -> V128ShiftOp
+
+pub fn i8x16_shuffle_inst(LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx) -> Instruction
+
+pub fn i8x16_splat_inst() -> Instruction
+
+pub fn i8x16_sub_inst() -> Instruction
+
+pub fn i8x16_sub_op() -> BinaryOp
+
+pub fn i8x16_sub_sat_s_inst() -> Instruction
+
+pub fn i8x16_sub_sat_s_op() -> BinaryOp
+
+pub fn i8x16_sub_sat_u_inst() -> Instruction
+
+pub fn i8x16_sub_sat_u_op() -> BinaryOp
+
+pub fn i8x16_swizzle_inst() -> Instruction
+
+pub fn if_inst(BlockType, Array[Instruction], Array[Instruction]?) -> Instruction
+
 pub fn is_packed(StorageType) -> Bool
+
+pub fn label_idx(UInt) -> LabelIdx
+
+pub fn local_get_inst(LocalIdx) -> Instruction
+
+pub fn local_set_inst(LocalIdx) -> Instruction
+
+pub fn local_tee_inst(LocalIdx) -> Instruction
+
+pub fn loop_inst(BlockType, Expr) -> Instruction
+
+pub fn mem_extern_idx(MemIdx) -> ExternIdx
+
+pub fn mem_extern_type(MemType) -> ExternType
+
+pub fn mem_type(Limits) -> MemType
+
+pub fn memory_copy_inst(MemIdx, MemIdx) -> Instruction
+
+pub fn memory_fill_inst(MemIdx) -> Instruction
+
+pub fn memory_grow_inst(MemIdx) -> Instruction
+
+pub fn memory_init_inst(DataIdx, MemIdx) -> Instruction
+
+pub fn memory_size_inst(MemIdx) -> Instruction
 
 pub fn min_addr(Limits, Limits) -> Limits
 
 pub fn min_addr_valtype(Limits, Limits) -> ValType
 
+pub fn mut_const() -> Mut
+
+pub fn mut_var() -> Mut
+
+pub fn no_exn_abs_heap_type() -> AbsHeapType
+
+pub fn no_extern_abs_heap_type() -> AbsHeapType
+
+pub fn no_func_abs_heap_type() -> AbsHeapType
+
+pub fn none_abs_heap_type() -> AbsHeapType
+
+pub fn nop_inst() -> Instruction
+
+pub fn num_type_val_type(NumType) -> ValType
+
+pub fn pack_type_storage_type(PackType) -> StorageType
+
+pub fn passive() -> DataMode
+
+pub fn rec_idx(UInt) -> TypeIdx
+
 pub fn ref_array_nonnull(TypeIdx) -> ValType
 
 pub fn ref_array_nullable(TypeIdx) -> ValType
+
+pub fn ref_as_non_null_inst() -> Instruction
+
+pub fn ref_cast_inst(Bool, HeapType) -> Instruction
+
+pub fn ref_eq_inst() -> Instruction
+
+pub fn ref_func_inst(FuncIdx) -> Instruction
+
+pub fn ref_i31_inst() -> Instruction
+
+pub fn ref_is_null_inst() -> Instruction
 
 pub fn ref_null_array_of(TypeIdx) -> ValType
 
 pub fn ref_null_exn_valtype() -> ValType
 
+pub fn ref_null_inst(HeapType) -> Instruction
+
 pub fn ref_null_valtype(HeapType) -> ValType
+
+pub fn ref_test_inst(Bool, HeapType) -> Instruction
+
+pub fn ref_type_val_type(RefType) -> ValType
 
 pub fn ref_valtype(RefType) -> ValType
 
+pub fn return_call_indirect_inst(TypeIdx, TableIdx) -> Instruction
+
+pub fn return_call_inst(FuncIdx) -> Instruction
+
+pub fn return_call_ref_inst(TypeIdx) -> Instruction
+
+pub fn return_inst() -> Instruction
+
+pub fn select_inst(types? : Array[ValType]?) -> Instruction
+
+pub fn single_rec_type(SubType) -> RecType
+
+pub fn struct_abs_heap_type() -> AbsHeapType
+
+pub fn struct_comp_type(Array[FieldType]) -> CompType
+
+pub fn struct_get_inst(TypeIdx, U32) -> Instruction
+
+pub fn struct_get_s_inst(TypeIdx, U32) -> Instruction
+
+pub fn struct_get_u_inst(TypeIdx, U32) -> Instruction
+
+pub fn struct_new_default_inst(TypeIdx) -> Instruction
+
+pub fn struct_new_inst(TypeIdx) -> Instruction
+
+pub fn struct_set_inst(TypeIdx, U32) -> Instruction
+
+pub fn sub_type(Bool, Array[TypeIdx], CompType) -> SubType
+
+pub fn t_any_convert_extern(TInstr) -> TInstr
+
+pub fn t_array_copy(TypeIdx, TypeIdx, TInstr, TInstr, TInstr, TInstr, TInstr) -> TInstr
+
+pub fn t_array_fill(TypeIdx, TInstr, TInstr, TInstr, TInstr) -> TInstr
+
+pub fn t_array_get(TypeIdx, TInstr, TInstr) -> TInstr
+
+pub fn t_array_get_s(TypeIdx, TInstr, TInstr) -> TInstr
+
+pub fn t_array_get_u(TypeIdx, TInstr, TInstr) -> TInstr
+
+pub fn t_array_init_data(TypeIdx, DataIdx, TInstr, TInstr, TInstr, TInstr) -> TInstr
+
+pub fn t_array_init_elem(TypeIdx, ElemIdx, TInstr, TInstr, TInstr, TInstr) -> TInstr
+
+pub fn t_array_len(TInstr) -> TInstr
+
+pub fn t_array_new(TypeIdx, TInstr, TInstr) -> TInstr
+
+pub fn t_array_new_data(TypeIdx, DataIdx, TInstr, TInstr) -> TInstr
+
+pub fn t_array_new_default(TypeIdx, TInstr) -> TInstr
+
+pub fn t_array_new_elem(TypeIdx, ElemIdx, TInstr, TInstr) -> TInstr
+
+pub fn t_array_new_fixed(TypeIdx, Array[TInstr]) -> TInstr
+
+pub fn t_array_set(TypeIdx, TInstr, TInstr, TInstr) -> TInstr
+
+pub fn t_binary(BinaryOp, TInstr, TInstr) -> TInstr
+
+pub fn t_block(BlockType, TExpr) -> TInstr
+
+pub fn t_br(LabelIdx, Array[TInstr]) -> TInstr
+
+pub fn t_br_if(LabelIdx, TInstr, Array[TInstr]) -> TInstr
+
+pub fn t_br_on_cast(LabelIdx, Bool, HeapType, Bool, HeapType, TInstr, Array[TInstr]) -> TInstr
+
+pub fn t_br_on_cast_fail(LabelIdx, Bool, HeapType, Bool, HeapType, TInstr, Array[TInstr]) -> TInstr
+
+pub fn t_br_on_non_null(LabelIdx, TInstr, Array[TInstr]) -> TInstr
+
+pub fn t_br_on_null(LabelIdx, TInstr, Array[TInstr]) -> TInstr
+
+pub fn t_br_table(Array[LabelIdx], LabelIdx, TInstr, Array[TInstr]) -> TInstr
+
+pub fn t_call(FuncIdx, Array[TInstr]) -> TInstr
+
+pub fn t_call_indirect(TypeIdx, TableIdx, Array[TInstr], TInstr) -> TInstr
+
+pub fn t_call_ref(TypeIdx, Array[TInstr], TInstr) -> TInstr
+
+pub fn t_data_drop(DataIdx) -> TInstr
+
+pub fn t_drop(TInstr) -> TInstr
+
+pub fn t_elem_drop(ElemIdx) -> TInstr
+
+pub fn t_extern_convert_any(TInstr) -> TInstr
+
+pub fn t_extract_lane(ExtractLaneOp, LaneIdx, TInstr) -> TInstr
+
+pub fn t_f32_const(F32) -> TInstr
+
+pub fn t_f32x4_splat(TInstr) -> TInstr
+
+pub fn t_f64_const(F64) -> TInstr
+
+pub fn t_f64x2_splat(TInstr) -> TInstr
+
+pub fn t_global_get(GlobalIdx) -> TInstr
+
+pub fn t_global_set(GlobalIdx, TInstr) -> TInstr
+
+pub fn t_i16x8_splat(TInstr) -> TInstr
+
+pub fn t_i31_get_s(TInstr) -> TInstr
+
+pub fn t_i31_get_u(TInstr) -> TInstr
+
+pub fn t_i32_const(I32) -> TInstr
+
+pub fn t_i32x4_splat(TInstr) -> TInstr
+
+pub fn t_i64_const(I64) -> TInstr
+
+pub fn t_i64x2_splat(TInstr) -> TInstr
+
+pub fn t_i8x16_relaxed_swizzle(TInstr, TInstr) -> TInstr
+
+pub fn t_i8x16_shuffle(LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, TInstr, TInstr) -> TInstr
+
+pub fn t_i8x16_splat(TInstr) -> TInstr
+
+pub fn t_i8x16_swizzle(TInstr, TInstr) -> TInstr
+
+pub fn t_if(BlockType, TInstr, TExpr, TExpr?) -> TInstr
+
+pub fn t_load(LoadOp, MemArg, TInstr) -> TInstr
+
+pub fn t_local_get(LocalIdx) -> TInstr
+
+pub fn t_local_set(LocalIdx, TInstr) -> TInstr
+
+pub fn t_local_tee(LocalIdx, TInstr) -> TInstr
+
+pub fn t_loop(BlockType, TExpr) -> TInstr
+
+pub fn t_memory_copy(MemIdx, MemIdx, TInstr, TInstr, TInstr) -> TInstr
+
+pub fn t_memory_fill(MemIdx, TInstr, TInstr, TInstr) -> TInstr
+
+pub fn t_memory_grow(MemIdx, TInstr) -> TInstr
+
+pub fn t_memory_init(DataIdx, MemIdx, TInstr, TInstr, TInstr) -> TInstr
+
+pub fn t_memory_size(MemIdx) -> TInstr
+
+pub fn t_nop() -> TInstr
+
+pub fn t_ref_as_non_null(TInstr) -> TInstr
+
+pub fn t_ref_cast(Bool, HeapType, TInstr) -> TInstr
+
+pub fn t_ref_eq(TInstr, TInstr) -> TInstr
+
+pub fn t_ref_func(FuncIdx) -> TInstr
+
+pub fn t_ref_i31(TInstr) -> TInstr
+
+pub fn t_ref_is_null(TInstr) -> TInstr
+
+pub fn t_ref_null(HeapType) -> TInstr
+
+pub fn t_ref_test(Bool, HeapType, TInstr) -> TInstr
+
+pub fn t_replace_lane(ReplaceLaneOp, LaneIdx, TInstr, TInstr) -> TInstr
+
+pub fn t_return(Array[TInstr]) -> TInstr
+
+pub fn t_return_call(FuncIdx, Array[TInstr]) -> TInstr
+
+pub fn t_return_call_indirect(TypeIdx, TableIdx, Array[TInstr], TInstr) -> TInstr
+
+pub fn t_return_call_ref(TypeIdx, Array[TInstr], TInstr) -> TInstr
+
+pub fn t_select(Array[ValType]?, TInstr, TInstr, TInstr) -> TInstr
+
+pub fn t_store(StoreOp, MemArg, TInstr, TInstr) -> TInstr
+
+pub fn t_struct_get(TypeIdx, U32, TInstr) -> TInstr
+
+pub fn t_struct_get_s(TypeIdx, U32, TInstr) -> TInstr
+
+pub fn t_struct_get_u(TypeIdx, U32, TInstr) -> TInstr
+
+pub fn t_struct_new(TypeIdx, Array[TInstr]) -> TInstr
+
+pub fn t_struct_new_default(TypeIdx) -> TInstr
+
+pub fn t_struct_set(TypeIdx, U32, TInstr, TInstr) -> TInstr
+
+pub fn t_table_copy(TableIdx, TableIdx, TInstr, TInstr, TInstr) -> TInstr
+
+pub fn t_table_fill(TableIdx, TInstr, TInstr, TInstr) -> TInstr
+
+pub fn t_table_get(TableIdx, TInstr) -> TInstr
+
+pub fn t_table_grow(TableIdx, TInstr, TInstr) -> TInstr
+
+pub fn t_table_init(ElemIdx, TableIdx, TInstr, TInstr, TInstr) -> TInstr
+
+pub fn t_table_set(TableIdx, TInstr, TInstr) -> TInstr
+
+pub fn t_table_size(TableIdx) -> TInstr
+
+pub fn t_throw(TagIdx, Array[TInstr]) -> TInstr
+
+pub fn t_throw_ref(TInstr) -> TInstr
+
+pub fn t_try_table(BlockType, Array[Catch], TExpr) -> TInstr
+
+pub fn t_unary(UnaryOp, TInstr) -> TInstr
+
+pub fn t_unreachable() -> TInstr
+
+pub fn t_v128_const_inst(Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte) -> TInstr
+
+pub fn table_copy_inst(TableIdx, TableIdx) -> Instruction
+
+pub fn table_extern_idx(TableIdx) -> ExternIdx
+
+pub fn table_extern_type(TableType) -> ExternType
+
+pub fn table_fill_inst(TableIdx) -> Instruction
+
+pub fn table_get_inst(TableIdx) -> Instruction
+
+pub fn table_grow_inst(TableIdx) -> Instruction
+
+pub fn table_idx(UInt) -> TableIdx
+
+pub fn table_init_inst(ElemIdx, TableIdx) -> Instruction
+
+pub fn table_set_inst(TableIdx) -> Instruction
+
+pub fn table_size_inst(TableIdx) -> Instruction
+
+pub fn table_type(RefType, Limits) -> TableType
+
+pub fn tag_extern_idx(TagIdx) -> ExternIdx
+
+pub fn tag_extern_type(TagType) -> ExternType
+
+pub fn tag_type(TypeIdx) -> TagType
+
 pub fn texpr_to_expr(TExpr) -> Expr
 
+pub fn throw_inst(TagIdx) -> Instruction
+
+pub fn throw_ref_inst() -> Instruction
+
 pub fn tlocals_to_locals(Array[ValType]) -> Array[Locals]
+
+pub fn try_table_inst(BlockType, Array[Catch], Expr) -> Instruction
+
+pub fn tv128_load_lane(V128LoadLaneOp, MemArg, LaneIdx, TInstr, TInstr) -> TInstr
+
+pub fn tv128_shift(V128ShiftOp, TInstr, TInstr) -> TInstr
+
+pub fn tv128_store_lane(V128StoreLaneOp, MemArg, LaneIdx, TInstr, TInstr) -> TInstr
+
+pub fn tv128_ternary(V128TernaryOp, TInstr, TInstr, TInstr) -> TInstr
+
+pub fn type_idx(UInt) -> TypeIdx
+
+pub fn typed_exprs_elem_kind(RefType, Array[Expr]) -> ElemKind
 
 pub fn u32_to_int(U32) -> Int
 
 pub fn[T, Elem] unchanged() -> Result[(T, Elem)?, String]
 
 pub fn unpack_storage(StorageType) -> ValType
+
+pub fn unreachable_inst() -> Instruction
+
+pub fn v128_and_inst() -> Instruction
+
+pub fn v128_and_op() -> BinaryOp
+
+pub fn v128_andnot_inst() -> Instruction
+
+pub fn v128_andnot_op() -> BinaryOp
+
+pub fn v128_any_true_inst() -> Instruction
+
+pub fn v128_any_true_op() -> UnaryOp
+
+pub fn v128_bitselect_inst() -> Instruction
+
+pub fn v128_bitselect_op() -> V128TernaryOp
+
+pub fn v128_const_inst(Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte) -> Instruction
+
+pub fn v128_load16_lane_inst(MemArg, LaneIdx) -> Instruction
+
+pub fn v128_load16_lane_op() -> V128LoadLaneOp
+
+pub fn v128_load16_splat_inst(MemArg) -> Instruction
+
+pub fn v128_load16_splat_op() -> LoadOp
+
+pub fn v128_load16x4s_inst(MemArg) -> Instruction
+
+pub fn v128_load16x4s_op() -> LoadOp
+
+pub fn v128_load16x4u_inst(MemArg) -> Instruction
+
+pub fn v128_load16x4u_op() -> LoadOp
+
+pub fn v128_load32_lane_inst(MemArg, LaneIdx) -> Instruction
+
+pub fn v128_load32_lane_op() -> V128LoadLaneOp
+
+pub fn v128_load32_splat_inst(MemArg) -> Instruction
+
+pub fn v128_load32_splat_op() -> LoadOp
+
+pub fn v128_load32_zero_inst(MemArg) -> Instruction
+
+pub fn v128_load32_zero_op() -> LoadOp
+
+pub fn v128_load32x2s_inst(MemArg) -> Instruction
+
+pub fn v128_load32x2s_op() -> LoadOp
+
+pub fn v128_load32x2u_inst(MemArg) -> Instruction
+
+pub fn v128_load32x2u_op() -> LoadOp
+
+pub fn v128_load64_lane_inst(MemArg, LaneIdx) -> Instruction
+
+pub fn v128_load64_lane_op() -> V128LoadLaneOp
+
+pub fn v128_load64_splat_inst(MemArg) -> Instruction
+
+pub fn v128_load64_splat_op() -> LoadOp
+
+pub fn v128_load64_zero_inst(MemArg) -> Instruction
+
+pub fn v128_load64_zero_op() -> LoadOp
+
+pub fn v128_load8_lane_inst(MemArg, LaneIdx) -> Instruction
+
+pub fn v128_load8_lane_op() -> V128LoadLaneOp
+
+pub fn v128_load8_splat_inst(MemArg) -> Instruction
+
+pub fn v128_load8_splat_op() -> LoadOp
+
+pub fn v128_load8x8s_inst(MemArg) -> Instruction
+
+pub fn v128_load8x8s_op() -> LoadOp
+
+pub fn v128_load8x8u_inst(MemArg) -> Instruction
+
+pub fn v128_load8x8u_op() -> LoadOp
+
+pub fn v128_load_inst(MemArg) -> Instruction
+
+pub fn v128_load_op() -> LoadOp
+
+pub fn v128_not_inst() -> Instruction
+
+pub fn v128_not_op() -> UnaryOp
+
+pub fn v128_or_inst() -> Instruction
+
+pub fn v128_or_op() -> BinaryOp
+
+pub fn v128_store16_lane_inst(MemArg, LaneIdx) -> Instruction
+
+pub fn v128_store16_lane_op() -> V128StoreLaneOp
+
+pub fn v128_store32_lane_inst(MemArg, LaneIdx) -> Instruction
+
+pub fn v128_store32_lane_op() -> V128StoreLaneOp
+
+pub fn v128_store64_lane_inst(MemArg, LaneIdx) -> Instruction
+
+pub fn v128_store64_lane_op() -> V128StoreLaneOp
+
+pub fn v128_store8_lane_inst(MemArg, LaneIdx) -> Instruction
+
+pub fn v128_store8_lane_op() -> V128StoreLaneOp
+
+pub fn v128_store_inst(MemArg) -> Instruction
+
+pub fn v128_store_op() -> StoreOp
+
+pub fn v128_xor_inst() -> Instruction
+
+pub fn v128_xor_op() -> BinaryOp
+
+pub fn val_type_storage_type(ValType) -> StorageType
+
+pub fn vec_type_val_type() -> ValType
 
 pub fn vt_f32() -> ValType
 

@@ -273,957 +273,6 @@ pub(all) enum Func {
 } derive(Eq, Hash)
 
 ///|
-pub impl @quickcheck.Arbitrary for CompType with arbitrary(t, state) {
-  match state.next_uint() % 3 {
-    1 => StructCompType(array_of_arbitrary(5, t, state))
-    2 =>
-      FuncCompType(
-        array_of_arbitrary(5, t, state),
-        array_of_arbitrary(5, t, state),
-      )
-    _ => ArrayCompType(@quickcheck.Arbitrary::arbitrary(t, state))
-  }
-}
-
-///|
-pub impl @quickcheck.Arbitrary for RecType with arbitrary(t, state) {
-  if (state.next_uint() & 1) == 1 {
-    SingleRecType(@quickcheck.Arbitrary::arbitrary(t, state))
-  } else {
-    GroupRecType(array_of_arbitrary(5, t, state))
-  }
-}
-
-///|
-pub impl @quickcheck.Arbitrary for HeapType with arbitrary(size, st) {
-  if (st.next_uint() & 1) == 1 {
-    AbsHeapTypeHeapType(@quickcheck.Arbitrary::arbitrary(size, st))
-  } else {
-    HeapType(@quickcheck.Arbitrary::arbitrary(size, st))
-  }
-  // Def types are not arbitrary
-}
-
-///|
-pub impl @quickcheck.Arbitrary for ValType with arbitrary(size, st) {
-  match st.next_uint() % 3 {
-    0 => NumTypeValType(@quickcheck.Arbitrary::arbitrary(size, st))
-    1 => VecTypeValType
-    2 => RefTypeValType(@quickcheck.Arbitrary::arbitrary(size, st))
-    _ => VecTypeValType
-  }
-}
-
-///|
-pub impl @quickcheck.Arbitrary for TypeIdx with arbitrary(_, st) {
-  TypeIdx(st.next_uint())
-  // recursive indexes are not arbitrary
-}
-
-///|
-pub impl @quickcheck.Arbitrary for LaneIdx with arbitrary(_, state) {
-  let b : Byte = (state.next_uint() % 16).to_byte()
-  LaneIdx(b)
-}
-
-///|
-pub impl @quickcheck.Arbitrary for SubType with arbitrary(t, st) {
-  if st.next_uint() % 2 == 1 {
-    SubType(
-      st.next_uint() % 2 == 1,
-      array_of_arbitrary(1, t, st),
-      @quickcheck.Arbitrary::arbitrary(t, st),
-    )
-  } else {
-    CompTypeSubType(@quickcheck.Arbitrary::arbitrary(t, st))
-  }
-}
-
-///|
-pub impl @quickcheck.Arbitrary for DefType with arbitrary(t, state) {
-  let s = @quickcheck.Arbitrary::arbitrary(t, state)
-  match s {
-    SingleRecType(_) => DefType(s, 0)
-    GroupRecType(g) => {
-      let idx = state.next_uint() % g.length().reinterpret_as_uint()
-      DefType(s, idx)
-    }
-  }
-}
-
-///|
-pub impl @quickcheck.Arbitrary for Limits with arbitrary(_, state) {
-  if (state.next_uint() & 1) == 1 {
-    if (state.next_uint() & 1) == 1 {
-      I32Limits(state.next_uint(), None)
-    } else {
-      let a : UInt = state.next_uint()
-      let b : UInt = state.next_uint()
-      let min = if a > b { b } else { a }
-      let max = if a > b { a } else { b }
-      I32Limits(min, Some(max))
-    }
-  } else if (state.next_uint() & 1) == 1 {
-    I64Limits(state.next_uint64(), None)
-  } else {
-    let a : UInt64 = state.next_uint64()
-    let b : UInt64 = state.next_uint64()
-    let min = if a > b { b } else { a }
-    let max = if a > b { a } else { b }
-    I64Limits(min, Some(max))
-  }
-}
-
-///|
-pub impl @quickcheck.Arbitrary for Elem with arbitrary(size, state) {
-  match state.next_uint() % 8 {
-    // 0x00: Active(table 0) + FuncsElemKind
-    0 => {
-      let expr = @quickcheck.Arbitrary::arbitrary(size, state)
-      let funcs = array_of_arbitrary(5, size, state)
-      Elem(Active(TableIdx(0), expr), FuncsElemKind(funcs))
-    }
-    // 0x01: Passive + FuncsElemKind
-    1 => {
-      let funcs = array_of_arbitrary(5, size, state)
-      Elem(Passive, FuncsElemKind(funcs))
-    }
-    // 0x02: Active(any table) + FuncsElemKind
-    2 => {
-      let ti : TableIdx = @quickcheck.Arbitrary::arbitrary(size, state)
-      let expr = @quickcheck.Arbitrary::arbitrary(size, state)
-      let funcs = array_of_arbitrary(5, size, state)
-      Elem(Active(ti, expr), FuncsElemKind(funcs))
-    }
-    // 0x03: Declarative + FuncsElemKind
-    3 => {
-      let funcs = array_of_arbitrary(5, size, state)
-      Elem(Declarative, FuncsElemKind(funcs))
-    }
-    // 0x04: Active(table 0) + FuncExprsElemKind
-    4 => {
-      let expr = @quickcheck.Arbitrary::arbitrary(size, state)
-      let exprs = array_of_arbitrary(3, size, state)
-      Elem(Active(TableIdx(0), expr), FuncExprsElemKind(exprs))
-    }
-    // 0x05: Passive + TypedExprsElemKind (covers FuncExprsElemKind too)
-    5 => {
-      let rt : RefType = @quickcheck.Arbitrary::arbitrary(size, state)
-      let exprs = array_of_arbitrary(3, size, state)
-      Elem(Passive, TypedExprsElemKind(rt, exprs))
-    }
-    // 0x06: Active(any table) + FuncExprsElemKind
-    6 => {
-      let ti : TableIdx = @quickcheck.Arbitrary::arbitrary(size, state)
-      let expr = @quickcheck.Arbitrary::arbitrary(size, state)
-      let exprs = array_of_arbitrary(3, size, state)
-      Elem(Active(ti, expr), FuncExprsElemKind(exprs))
-    }
-    // 0x07: Declarative + TypedExprsElemKind
-    _ => {
-      let rt : RefType = @quickcheck.Arbitrary::arbitrary(size, state)
-      let exprs = array_of_arbitrary(3, size, state)
-      Elem(Declarative, TypedExprsElemKind(rt, exprs))
-    }
-  }
-}
-
-///|
-pub impl @quickcheck.Arbitrary for Expr with arbitrary(t, state) {
-  Expr([
-    @quickcheck.Arbitrary::arbitrary(t, state),
-    @quickcheck.Arbitrary::arbitrary(t, state),
-    @quickcheck.Arbitrary::arbitrary(t, state),
-  ])
-}
-
-///|
-pub impl @quickcheck.Arbitrary for Locals with arbitrary(t, state) {
-  let count = state.next_positive_int() % 3 + 1
-  Locals(
-    count.reinterpret_as_uint(),
-    @quickcheck.Arbitrary::arbitrary(t, state),
-  )
-}
-
-///|
-pub impl @quickcheck.Arbitrary for Func with arbitrary(t, state) {
-  let elems = []
-  let count = state.next_positive_int() % 4 + 1
-  loop count {
-    0 => break ()
-    n => {
-      elems.push(@quickcheck.Arbitrary::arbitrary(t, state))
-      continue n - 1
-    }
-  }
-  Func(elems, @quickcheck.Arbitrary::arbitrary(t, state))
-}
-
-///|
-pub impl @quickcheck.Arbitrary for Data with arbitrary(t, state) {
-  let size = state.next_positive_int() % 10 + 1
-  Data(
-    @quickcheck.Arbitrary::arbitrary(t, state),
-    @quickcheck.Arbitrary::arbitrary(size, state),
-  )
-}
-
-///|
-pub impl @quickcheck.Arbitrary for Name with arbitrary(_, state) {
-  let count = state.next_positive_int() % 5
-  let sb = StringBuilder::new(size_hint=count)
-  loop (count, state.next_positive_int() % 91799) {
-    (0, _) => break
-    (n, i) if (i >= 32 && i <= 126) ||
-      (i >= 160 && i <= 172) ||
-      (i >= 174 && i <= 887) ||
-      (i >= 890 && i <= 895) ||
-      (i >= 900 && i <= 906) ||
-      (i >= 908 && i <= 908) ||
-      (i >= 910 && i <= 929) ||
-      (i >= 931 && i <= 1327) ||
-      (i >= 1329 && i <= 1366) ||
-      (i >= 1369 && i <= 1418) ||
-      (i >= 1421 && i <= 1423) ||
-      (i >= 1425 && i <= 1479) ||
-      (i >= 1488 && i <= 1514) ||
-      (i >= 1519 && i <= 1524) ||
-      (i >= 1542 && i <= 1563) ||
-      (i >= 1565 && i <= 1756) ||
-      (i >= 1758 && i <= 1805) ||
-      (i >= 1808 && i <= 1866) ||
-      (i >= 1869 && i <= 1969) ||
-      (i >= 1984 && i <= 2042) ||
-      (i >= 2045 && i <= 2093) ||
-      (i >= 2096 && i <= 2110) ||
-      (i >= 2112 && i <= 2139) ||
-      (i >= 2142 && i <= 2142) ||
-      (i >= 2144 && i <= 2154) ||
-      (i >= 2160 && i <= 2191) ||
-      (i >= 2199 && i <= 2273) ||
-      (i >= 2275 && i <= 2435) ||
-      (i >= 2437 && i <= 2444) ||
-      (i >= 2447 && i <= 2448) ||
-      (i >= 2451 && i <= 2472) ||
-      (i >= 2474 && i <= 2480) ||
-      (i >= 2482 && i <= 2482) ||
-      (i >= 2486 && i <= 2489) ||
-      (i >= 2492 && i <= 2500) ||
-      (i >= 2503 && i <= 2504) ||
-      (i >= 2507 && i <= 2510) ||
-      (i >= 2519 && i <= 2519) ||
-      (i >= 2524 && i <= 2525) ||
-      (i >= 2527 && i <= 2531) ||
-      (i >= 2534 && i <= 2558) ||
-      (i >= 2561 && i <= 2563) ||
-      (i >= 2565 && i <= 2570) ||
-      (i >= 2575 && i <= 2576) ||
-      (i >= 2579 && i <= 2600) ||
-      (i >= 2602 && i <= 2608) ||
-      (i >= 2610 && i <= 2611) ||
-      (i >= 2613 && i <= 2614) ||
-      (i >= 2616 && i <= 2617) ||
-      (i >= 2620 && i <= 2620) ||
-      (i >= 2622 && i <= 2626) ||
-      (i >= 2631 && i <= 2632) ||
-      (i >= 2635 && i <= 2637) ||
-      (i >= 2641 && i <= 2641) ||
-      (i >= 2649 && i <= 2652) ||
-      (i >= 2654 && i <= 2654) ||
-      (i >= 2662 && i <= 2678) ||
-      (i >= 2689 && i <= 2691) ||
-      (i >= 2693 && i <= 2701) ||
-      (i >= 2703 && i <= 2705) ||
-      (i >= 2707 && i <= 2728) ||
-      (i >= 2730 && i <= 2736) ||
-      (i >= 2738 && i <= 2739) ||
-      (i >= 2741 && i <= 2745) ||
-      (i >= 2748 && i <= 2757) ||
-      (i >= 2759 && i <= 2761) ||
-      (i >= 2763 && i <= 2765) ||
-      (i >= 2768 && i <= 2768) ||
-      (i >= 2784 && i <= 2787) ||
-      (i >= 2790 && i <= 2801) ||
-      (i >= 2809 && i <= 2815) ||
-      (i >= 2817 && i <= 2819) ||
-      (i >= 2821 && i <= 2828) ||
-      (i >= 2831 && i <= 2832) ||
-      (i >= 2835 && i <= 2856) ||
-      (i >= 2858 && i <= 2864) ||
-      (i >= 2866 && i <= 2867) ||
-      (i >= 2869 && i <= 2873) ||
-      (i >= 2876 && i <= 2884) ||
-      (i >= 2887 && i <= 2888) ||
-      (i >= 2891 && i <= 2893) ||
-      (i >= 2901 && i <= 2903) ||
-      (i >= 2908 && i <= 2909) ||
-      (i >= 2911 && i <= 2915) ||
-      (i >= 2918 && i <= 2935) ||
-      (i >= 2946 && i <= 2947) ||
-      (i >= 2949 && i <= 2954) ||
-      (i >= 2958 && i <= 2960) ||
-      (i >= 2962 && i <= 2965) ||
-      (i >= 2969 && i <= 2970) ||
-      (i >= 2972 && i <= 2972) ||
-      (i >= 2974 && i <= 2975) ||
-      (i >= 2979 && i <= 2980) ||
-      (i >= 2984 && i <= 2986) ||
-      (i >= 2990 && i <= 3001) ||
-      (i >= 3006 && i <= 3010) ||
-      (i >= 3014 && i <= 3016) ||
-      (i >= 3018 && i <= 3021) ||
-      (i >= 3024 && i <= 3024) ||
-      (i >= 3031 && i <= 3031) ||
-      (i >= 3046 && i <= 3066) ||
-      (i >= 3072 && i <= 3084) ||
-      (i >= 3086 && i <= 3088) ||
-      (i >= 3090 && i <= 3112) ||
-      (i >= 3114 && i <= 3129) ||
-      (i >= 3132 && i <= 3140) ||
-      (i >= 3142 && i <= 3144) ||
-      (i >= 3146 && i <= 3149) ||
-      (i >= 3157 && i <= 3158) ||
-      (i >= 3160 && i <= 3162) ||
-      (i >= 3164 && i <= 3165) ||
-      (i >= 3168 && i <= 3171) ||
-      (i >= 3174 && i <= 3183) ||
-      (i >= 3191 && i <= 3212) ||
-      (i >= 3214 && i <= 3216) ||
-      (i >= 3218 && i <= 3240) ||
-      (i >= 3242 && i <= 3251) ||
-      (i >= 3253 && i <= 3257) ||
-      (i >= 3260 && i <= 3268) ||
-      (i >= 3270 && i <= 3272) ||
-      (i >= 3274 && i <= 3277) ||
-      (i >= 3285 && i <= 3286) ||
-      (i >= 3292 && i <= 3294) ||
-      (i >= 3296 && i <= 3299) ||
-      (i >= 3302 && i <= 3311) ||
-      (i >= 3313 && i <= 3315) ||
-      (i >= 3328 && i <= 3340) ||
-      (i >= 3342 && i <= 3344) ||
-      (i >= 3346 && i <= 3396) ||
-      (i >= 3398 && i <= 3400) ||
-      (i >= 3402 && i <= 3407) ||
-      (i >= 3412 && i <= 3427) ||
-      (i >= 3430 && i <= 3455) ||
-      (i >= 3457 && i <= 3459) ||
-      (i >= 3461 && i <= 3478) ||
-      (i >= 3482 && i <= 3505) ||
-      (i >= 3507 && i <= 3515) ||
-      (i >= 3517 && i <= 3517) ||
-      (i >= 3520 && i <= 3526) ||
-      (i >= 3530 && i <= 3530) ||
-      (i >= 3535 && i <= 3540) ||
-      (i >= 3542 && i <= 3542) ||
-      (i >= 3544 && i <= 3551) ||
-      (i >= 3558 && i <= 3567) ||
-      (i >= 3570 && i <= 3572) ||
-      (i >= 3585 && i <= 3642) ||
-      (i >= 3647 && i <= 3675) ||
-      (i >= 3713 && i <= 3714) ||
-      (i >= 3716 && i <= 3716) ||
-      (i >= 3718 && i <= 3722) ||
-      (i >= 3724 && i <= 3747) ||
-      (i >= 3749 && i <= 3749) ||
-      (i >= 3751 && i <= 3773) ||
-      (i >= 3776 && i <= 3780) ||
-      (i >= 3782 && i <= 3782) ||
-      (i >= 3784 && i <= 3790) ||
-      (i >= 3792 && i <= 3801) ||
-      (i >= 3804 && i <= 3807) ||
-      (i >= 3840 && i <= 3911) ||
-      (i >= 3913 && i <= 3948) ||
-      (i >= 3953 && i <= 3991) ||
-      (i >= 3993 && i <= 4028) ||
-      (i >= 4030 && i <= 4044) ||
-      (i >= 4046 && i <= 4058) ||
-      (i >= 4096 && i <= 4293) ||
-      (i >= 4295 && i <= 4295) ||
-      (i >= 4301 && i <= 4301) ||
-      (i >= 4304 && i <= 4680) ||
-      (i >= 4682 && i <= 4685) ||
-      (i >= 4688 && i <= 4694) ||
-      (i >= 4696 && i <= 4696) ||
-      (i >= 4698 && i <= 4701) ||
-      (i >= 4704 && i <= 4744) ||
-      (i >= 4746 && i <= 4749) ||
-      (i >= 4752 && i <= 4784) ||
-      (i >= 4786 && i <= 4789) ||
-      (i >= 4792 && i <= 4798) ||
-      (i >= 4800 && i <= 4800) ||
-      (i >= 4802 && i <= 4805) ||
-      (i >= 4808 && i <= 4822) ||
-      (i >= 4824 && i <= 4880) ||
-      (i >= 4882 && i <= 4885) ||
-      (i >= 4888 && i <= 4954) ||
-      (i >= 4957 && i <= 4988) ||
-      (i >= 4992 && i <= 5017) ||
-      (i >= 5024 && i <= 5109) ||
-      (i >= 5112 && i <= 5117) ||
-      (i >= 5120 && i <= 5788) ||
-      (i >= 5792 && i <= 5880) ||
-      (i >= 5888 && i <= 5909) ||
-      (i >= 5919 && i <= 5942) ||
-      (i >= 5952 && i <= 5971) ||
-      (i >= 5984 && i <= 5996) ||
-      (i >= 5998 && i <= 6000) ||
-      (i >= 6002 && i <= 6003) ||
-      (i >= 6016 && i <= 6109) ||
-      (i >= 6112 && i <= 6121) ||
-      (i >= 6128 && i <= 6137) ||
-      (i >= 6144 && i <= 6157) ||
-      (i >= 6159 && i <= 6169) ||
-      (i >= 6176 && i <= 6264) ||
-      (i >= 6272 && i <= 6314) ||
-      (i >= 6320 && i <= 6389) ||
-      (i >= 6400 && i <= 6430) ||
-      (i >= 6432 && i <= 6443) ||
-      (i >= 6448 && i <= 6459) ||
-      (i >= 6464 && i <= 6464) ||
-      (i >= 6468 && i <= 6509) ||
-      (i >= 6512 && i <= 6516) ||
-      (i >= 6528 && i <= 6571) ||
-      (i >= 6576 && i <= 6601) ||
-      (i >= 6608 && i <= 6618) ||
-      (i >= 6622 && i <= 6683) ||
-      (i >= 6686 && i <= 6750) ||
-      (i >= 6752 && i <= 6780) ||
-      (i >= 6783 && i <= 6793) ||
-      (i >= 6800 && i <= 6809) ||
-      (i >= 6816 && i <= 6829) ||
-      (i >= 6832 && i <= 6877) ||
-      (i >= 6880 && i <= 6891) ||
-      (i >= 6912 && i <= 6988) ||
-      (i >= 6990 && i <= 7155) ||
-      (i >= 7164 && i <= 7223) ||
-      (i >= 7227 && i <= 7241) ||
-      (i >= 7245 && i <= 7306) ||
-      (i >= 7312 && i <= 7354) ||
-      (i >= 7357 && i <= 7367) ||
-      (i >= 7376 && i <= 7418) ||
-      (i >= 7424 && i <= 7957) ||
-      (i >= 7960 && i <= 7965) ||
-      (i >= 7968 && i <= 8005) ||
-      (i >= 8008 && i <= 8013) ||
-      (i >= 8016 && i <= 8023) ||
-      (i >= 8025 && i <= 8025) ||
-      (i >= 8027 && i <= 8027) ||
-      (i >= 8029 && i <= 8029) ||
-      (i >= 8031 && i <= 8061) ||
-      (i >= 8064 && i <= 8116) ||
-      (i >= 8118 && i <= 8132) ||
-      (i >= 8134 && i <= 8147) ||
-      (i >= 8150 && i <= 8155) ||
-      (i >= 8157 && i <= 8175) ||
-      (i >= 8178 && i <= 8180) ||
-      (i >= 8182 && i <= 8190) ||
-      (i >= 8192 && i <= 8202) ||
-      (i >= 8208 && i <= 8233) ||
-      (i >= 8239 && i <= 8287) ||
-      (i >= 8304 && i <= 8305) ||
-      (i >= 8308 && i <= 8334) ||
-      (i >= 8336 && i <= 8348) ||
-      (i >= 8352 && i <= 8385) ||
-      (i >= 8400 && i <= 8432) ||
-      (i >= 8448 && i <= 8587) ||
-      (i >= 8592 && i <= 9257) ||
-      (i >= 9280 && i <= 9290) ||
-      (i >= 9312 && i <= 11123) ||
-      (i >= 11126 && i <= 11507) ||
-      (i >= 11513 && i <= 11557) ||
-      (i >= 11559 && i <= 11559) ||
-      (i >= 11565 && i <= 11565) ||
-      (i >= 11568 && i <= 11623) ||
-      (i >= 11631 && i <= 11632) ||
-      (i >= 11647 && i <= 11670) ||
-      (i >= 11680 && i <= 11686) ||
-      (i >= 11688 && i <= 11694) ||
-      (i >= 11696 && i <= 11702) ||
-      (i >= 11704 && i <= 11710) ||
-      (i >= 11712 && i <= 11718) ||
-      (i >= 11720 && i <= 11726) ||
-      (i >= 11728 && i <= 11734) ||
-      (i >= 11736 && i <= 11742) ||
-      (i >= 11744 && i <= 11869) ||
-      (i >= 11904 && i <= 11929) ||
-      (i >= 11931 && i <= 12019) ||
-      (i >= 12032 && i <= 12245) ||
-      (i >= 12272 && i <= 12351) ||
-      (i >= 12353 && i <= 12438) ||
-      (i >= 12441 && i <= 12543) ||
-      (i >= 12549 && i <= 12591) ||
-      (i >= 12593 && i <= 12686) ||
-      (i >= 12688 && i <= 12773) ||
-      (i >= 12783 && i <= 12830) ||
-      (i >= 12832 && i <= 42124) ||
-      (i >= 42128 && i <= 42182) ||
-      (i >= 42192 && i <= 42539) ||
-      (i >= 42560 && i <= 42743) ||
-      (i >= 42752 && i <= 42972) ||
-      (i >= 42993 && i <= 43052) ||
-      (i >= 43056 && i <= 43065) ||
-      (i >= 43072 && i <= 43127) ||
-      (i >= 43136 && i <= 43205) ||
-      (i >= 43214 && i <= 43225) ||
-      (i >= 43232 && i <= 43347) ||
-      (i >= 43359 && i <= 43388) ||
-      (i >= 43392 && i <= 43469) ||
-      (i >= 43471 && i <= 43481) ||
-      (i >= 43486 && i <= 43518) ||
-      (i >= 43520 && i <= 43574) ||
-      (i >= 43584 && i <= 43597) ||
-      (i >= 43600 && i <= 43609) ||
-      (i >= 43612 && i <= 43714) ||
-      (i >= 43739 && i <= 43766) ||
-      (i >= 43777 && i <= 43782) ||
-      (i >= 43785 && i <= 43790) ||
-      (i >= 43793 && i <= 43798) ||
-      (i >= 43808 && i <= 43814) ||
-      (i >= 43816 && i <= 43822) ||
-      (i >= 43824 && i <= 43883) ||
-      (i >= 43888 && i <= 44013) ||
-      (i >= 44016 && i <= 44025) ||
-      (i >= 44032 && i <= 55203) ||
-      (i >= 55216 && i <= 55238) ||
-      (i >= 55243 && i <= 55291) ||
-      (i >= 63744 && i <= 64109) ||
-      (i >= 64112 && i <= 64217) ||
-      (i >= 64256 && i <= 64262) ||
-      (i >= 64275 && i <= 64279) ||
-      (i >= 64285 && i <= 64310) ||
-      (i >= 64312 && i <= 64316) ||
-      (i >= 64318 && i <= 64318) ||
-      (i >= 64320 && i <= 64321) ||
-      (i >= 64323 && i <= 64324) ||
-      (i >= 64326 && i <= 64975) ||
-      (i >= 65008 && i <= 65049) ||
-      (i >= 65056 && i <= 65106) ||
-      (i >= 65108 && i <= 65126) ||
-      (i >= 65128 && i <= 65131) ||
-      (i >= 65136 && i <= 65140) ||
-      (i >= 65142 && i <= 65276) ||
-      (i >= 65281 && i <= 65470) ||
-      (i >= 65474 && i <= 65479) ||
-      (i >= 65482 && i <= 65487) ||
-      (i >= 65490 && i <= 65495) ||
-      (i >= 65498 && i <= 65500) ||
-      (i >= 65504 && i <= 65510) ||
-      (i >= 65512 && i <= 65518) ||
-      (i >= 65532 && i <= 65533) ||
-      (i >= 65536 && i <= 65547) ||
-      (i >= 65549 && i <= 65574) ||
-      (i >= 65576 && i <= 65594) ||
-      (i >= 65596 && i <= 65597) ||
-      (i >= 65599 && i <= 65613) ||
-      (i >= 65616 && i <= 65629) ||
-      (i >= 65664 && i <= 65786) ||
-      (i >= 65792 && i <= 65794) ||
-      (i >= 65799 && i <= 65843) ||
-      (i >= 65847 && i <= 65934) ||
-      (i >= 65936 && i <= 65948) ||
-      (i >= 65952 && i <= 65952) ||
-      (i >= 66000 && i <= 66045) ||
-      (i >= 66176 && i <= 66204) ||
-      (i >= 66208 && i <= 66256) ||
-      (i >= 66272 && i <= 66299) ||
-      (i >= 66304 && i <= 66339) ||
-      (i >= 66349 && i <= 66378) ||
-      (i >= 66384 && i <= 66426) ||
-      (i >= 66432 && i <= 66461) ||
-      (i >= 66463 && i <= 66499) ||
-      (i >= 66504 && i <= 66517) ||
-      (i >= 66560 && i <= 66717) ||
-      (i >= 66720 && i <= 66729) ||
-      (i >= 66736 && i <= 66771) ||
-      (i >= 66776 && i <= 66811) ||
-      (i >= 66816 && i <= 66855) ||
-      (i >= 66864 && i <= 66915) ||
-      (i >= 66927 && i <= 66938) ||
-      (i >= 66940 && i <= 66954) ||
-      (i >= 66956 && i <= 66962) ||
-      (i >= 66964 && i <= 66965) ||
-      (i >= 66967 && i <= 66977) ||
-      (i >= 66979 && i <= 66993) ||
-      (i >= 66995 && i <= 67001) ||
-      (i >= 67003 && i <= 67004) ||
-      (i >= 67008 && i <= 67059) ||
-      (i >= 67072 && i <= 67382) ||
-      (i >= 67392 && i <= 67413) ||
-      (i >= 67424 && i <= 67431) ||
-      (i >= 67456 && i <= 67461) ||
-      (i >= 67463 && i <= 67504) ||
-      (i >= 67506 && i <= 67514) ||
-      (i >= 67584 && i <= 67589) ||
-      (i >= 67592 && i <= 67592) ||
-      (i >= 67594 && i <= 67637) ||
-      (i >= 67639 && i <= 67640) ||
-      (i >= 67644 && i <= 67644) ||
-      (i >= 67647 && i <= 67669) ||
-      (i >= 67671 && i <= 67742) ||
-      (i >= 67751 && i <= 67759) ||
-      (i >= 67808 && i <= 67826) ||
-      (i >= 67828 && i <= 67829) ||
-      (i >= 67835 && i <= 67867) ||
-      (i >= 67871 && i <= 67897) ||
-      (i >= 67903 && i <= 67929) ||
-      (i >= 67968 && i <= 68023) ||
-      (i >= 68028 && i <= 68047) ||
-      (i >= 68050 && i <= 68099) ||
-      (i >= 68101 && i <= 68102) ||
-      (i >= 68108 && i <= 68115) ||
-      (i >= 68117 && i <= 68119) ||
-      (i >= 68121 && i <= 68149) ||
-      (i >= 68152 && i <= 68154) ||
-      (i >= 68159 && i <= 68168) ||
-      (i >= 68176 && i <= 68184) ||
-      (i >= 68192 && i <= 68255) ||
-      (i >= 68288 && i <= 68326) ||
-      (i >= 68331 && i <= 68342) ||
-      (i >= 68352 && i <= 68405) ||
-      (i >= 68409 && i <= 68437) ||
-      (i >= 68440 && i <= 68466) ||
-      (i >= 68472 && i <= 68497) ||
-      (i >= 68505 && i <= 68508) ||
-      (i >= 68521 && i <= 68527) ||
-      (i >= 68608 && i <= 68680) ||
-      (i >= 68736 && i <= 68786) ||
-      (i >= 68800 && i <= 68850) ||
-      (i >= 68858 && i <= 68903) ||
-      (i >= 68912 && i <= 68921) ||
-      (i >= 68928 && i <= 68965) ||
-      (i >= 68969 && i <= 68997) ||
-      (i >= 69006 && i <= 69007) ||
-      (i >= 69216 && i <= 69246) ||
-      (i >= 69248 && i <= 69289) ||
-      (i >= 69291 && i <= 69293) ||
-      (i >= 69296 && i <= 69297) ||
-      (i >= 69314 && i <= 69319) ||
-      (i >= 69328 && i <= 69336) ||
-      (i >= 69370 && i <= 69415) ||
-      (i >= 69424 && i <= 69465) ||
-      (i >= 69488 && i <= 69513) ||
-      (i >= 69552 && i <= 69579) ||
-      (i >= 69600 && i <= 69622) ||
-      (i >= 69632 && i <= 69709) ||
-      (i >= 69714 && i <= 69749) ||
-      (i >= 69759 && i <= 69820) ||
-      (i >= 69822 && i <= 69826) ||
-      (i >= 69840 && i <= 69864) ||
-      (i >= 69872 && i <= 69881) ||
-      (i >= 69888 && i <= 69940) ||
-      (i >= 69942 && i <= 69959) ||
-      (i >= 69968 && i <= 70006) ||
-      (i >= 70016 && i <= 70111) ||
-      (i >= 70113 && i <= 70132) ||
-      (i >= 70144 && i <= 70161) ||
-      (i >= 70163 && i <= 70209) ||
-      (i >= 70272 && i <= 70278) ||
-      (i >= 70280 && i <= 70280) ||
-      (i >= 70282 && i <= 70285) ||
-      (i >= 70287 && i <= 70301) ||
-      (i >= 70303 && i <= 70313) ||
-      (i >= 70320 && i <= 70378) ||
-      (i >= 70384 && i <= 70393) ||
-      (i >= 70400 && i <= 70403) ||
-      (i >= 70405 && i <= 70412) ||
-      (i >= 70415 && i <= 70416) ||
-      (i >= 70419 && i <= 70440) ||
-      (i >= 70442 && i <= 70448) ||
-      (i >= 70450 && i <= 70451) ||
-      (i >= 70453 && i <= 70457) ||
-      (i >= 70459 && i <= 70468) ||
-      (i >= 70471 && i <= 70472) ||
-      (i >= 70475 && i <= 70477) ||
-      (i >= 70480 && i <= 70480) ||
-      (i >= 70487 && i <= 70487) ||
-      (i >= 70493 && i <= 70499) ||
-      (i >= 70502 && i <= 70508) ||
-      (i >= 70512 && i <= 70516) ||
-      (i >= 70528 && i <= 70537) ||
-      (i >= 70539 && i <= 70539) ||
-      (i >= 70542 && i <= 70542) ||
-      (i >= 70544 && i <= 70581) ||
-      (i >= 70583 && i <= 70592) ||
-      (i >= 70594 && i <= 70594) ||
-      (i >= 70597 && i <= 70597) ||
-      (i >= 70599 && i <= 70602) ||
-      (i >= 70604 && i <= 70613) ||
-      (i >= 70615 && i <= 70616) ||
-      (i >= 70625 && i <= 70626) ||
-      (i >= 70656 && i <= 70747) ||
-      (i >= 70749 && i <= 70753) ||
-      (i >= 70784 && i <= 70855) ||
-      (i >= 70864 && i <= 70873) ||
-      (i >= 71040 && i <= 71093) ||
-      (i >= 71096 && i <= 71133) ||
-      (i >= 71168 && i <= 71236) ||
-      (i >= 71248 && i <= 71257) ||
-      (i >= 71264 && i <= 71276) ||
-      (i >= 71296 && i <= 71353) ||
-      (i >= 71360 && i <= 71369) ||
-      (i >= 71376 && i <= 71395) ||
-      (i >= 71424 && i <= 71450) ||
-      (i >= 71453 && i <= 71467) ||
-      (i >= 71472 && i <= 71494) ||
-      (i >= 71680 && i <= 71739) ||
-      (i >= 71840 && i <= 71922) ||
-      (i >= 71935 && i <= 71942) ||
-      (i >= 71945 && i <= 71945) ||
-      (i >= 71948 && i <= 71955) ||
-      (i >= 71957 && i <= 71958) ||
-      (i >= 71960 && i <= 71989) ||
-      (i >= 71991 && i <= 71992) ||
-      (i >= 71995 && i <= 72006) ||
-      (i >= 72016 && i <= 72025) ||
-      (i >= 72096 && i <= 72103) ||
-      (i >= 72106 && i <= 72151) ||
-      (i >= 72154 && i <= 72164) ||
-      (i >= 72192 && i <= 72263) ||
-      (i >= 72272 && i <= 72354) ||
-      (i >= 72368 && i <= 72440) ||
-      (i >= 72448 && i <= 72457) ||
-      (i >= 72544 && i <= 72551) ||
-      (i >= 72640 && i <= 72673) ||
-      (i >= 72688 && i <= 72697) ||
-      (i >= 72704 && i <= 72712) ||
-      (i >= 72714 && i <= 72758) ||
-      (i >= 72760 && i <= 72773) ||
-      (i >= 72784 && i <= 72812) ||
-      (i >= 72816 && i <= 72847) ||
-      (i >= 72850 && i <= 72871) ||
-      (i >= 72873 && i <= 72886) ||
-      (i >= 72960 && i <= 72966) ||
-      (i >= 72968 && i <= 72969) ||
-      (i >= 72971 && i <= 73014) ||
-      (i >= 73018 && i <= 73018) ||
-      (i >= 73020 && i <= 73021) ||
-      (i >= 73023 && i <= 73031) ||
-      (i >= 73040 && i <= 73049) ||
-      (i >= 73056 && i <= 73061) ||
-      (i >= 73063 && i <= 73064) ||
-      (i >= 73066 && i <= 73102) ||
-      (i >= 73104 && i <= 73105) ||
-      (i >= 73107 && i <= 73112) ||
-      (i >= 73120 && i <= 73129) ||
-      (i >= 73136 && i <= 73179) ||
-      (i >= 73184 && i <= 73193) ||
-      (i >= 73440 && i <= 73464) ||
-      (i >= 73472 && i <= 73488) ||
-      (i >= 73490 && i <= 73530) ||
-      (i >= 73534 && i <= 73562) ||
-      (i >= 73648 && i <= 73648) ||
-      (i >= 73664 && i <= 73713) ||
-      (i >= 73727 && i <= 74649) ||
-      (i >= 74752 && i <= 74862) ||
-      (i >= 74864 && i <= 74868) ||
-      (i >= 74880 && i <= 75075) ||
-      (i >= 77712 && i <= 77810) ||
-      (i >= 77824 && i <= 78895) ||
-      (i >= 78912 && i <= 78933) ||
-      (i >= 78944 && i <= 82938) ||
-      (i >= 82944 && i <= 83526) ||
-      (i >= 90368 && i <= 90425) ||
-      (i >= 92160 && i <= 92728) ||
-      (i >= 92736 && i <= 92766) ||
-      (i >= 92768 && i <= 92777) ||
-      (i >= 92782 && i <= 92862) ||
-      (i >= 92864 && i <= 92873) ||
-      (i >= 92880 && i <= 92909) ||
-      (i >= 92912 && i <= 92917) ||
-      (i >= 92928 && i <= 92997) ||
-      (i >= 93008 && i <= 93017) ||
-      (i >= 93019 && i <= 93025) ||
-      (i >= 93027 && i <= 93047) ||
-      (i >= 93053 && i <= 93071) ||
-      (i >= 93504 && i <= 93561) ||
-      (i >= 93760 && i <= 93850) ||
-      (i >= 93856 && i <= 93880) ||
-      (i >= 93883 && i <= 93907) ||
-      (i >= 93952 && i <= 94026) ||
-      (i >= 94031 && i <= 94087) ||
-      (i >= 94095 && i <= 94111) ||
-      (i >= 94176 && i <= 94180) ||
-      (i >= 94192 && i <= 94198) ||
-      (i >= 94208 && i <= 101589) ||
-      (i >= 101631 && i <= 101662) ||
-      (i >= 101760 && i <= 101874) ||
-      (i >= 110576 && i <= 110579) ||
-      (i >= 110581 && i <= 110587) ||
-      (i >= 110589 && i <= 110590) ||
-      (i >= 110592 && i <= 110882) ||
-      (i >= 110898 && i <= 110898) ||
-      (i >= 110928 && i <= 110930) ||
-      (i >= 110933 && i <= 110933) ||
-      (i >= 110948 && i <= 110951) ||
-      (i >= 110960 && i <= 111355) ||
-      (i >= 113664 && i <= 113770) ||
-      (i >= 113776 && i <= 113788) ||
-      (i >= 113792 && i <= 113800) ||
-      (i >= 113808 && i <= 113817) ||
-      (i >= 113820 && i <= 113823) ||
-      (i >= 117760 && i <= 118012) ||
-      (i >= 118016 && i <= 118451) ||
-      (i >= 118458 && i <= 118480) ||
-      (i >= 118496 && i <= 118512) ||
-      (i >= 118528 && i <= 118573) ||
-      (i >= 118576 && i <= 118598) ||
-      (i >= 118608 && i <= 118723) ||
-      (i >= 118784 && i <= 119029) ||
-      (i >= 119040 && i <= 119078) ||
-      (i >= 119081 && i <= 119154) ||
-      (i >= 119163 && i <= 119274) ||
-      (i >= 119296 && i <= 119365) ||
-      (i >= 119488 && i <= 119507) ||
-      (i >= 119520 && i <= 119539) ||
-      (i >= 119552 && i <= 119638) ||
-      (i >= 119648 && i <= 119672) ||
-      (i >= 119808 && i <= 119892) ||
-      (i >= 119894 && i <= 119964) ||
-      (i >= 119966 && i <= 119967) ||
-      (i >= 119970 && i <= 119970) ||
-      (i >= 119973 && i <= 119974) ||
-      (i >= 119977 && i <= 119980) ||
-      (i >= 119982 && i <= 119993) ||
-      (i >= 119995 && i <= 119995) ||
-      (i >= 119997 && i <= 120003) ||
-      (i >= 120005 && i <= 120069) ||
-      (i >= 120071 && i <= 120074) ||
-      (i >= 120077 && i <= 120084) ||
-      (i >= 120086 && i <= 120092) ||
-      (i >= 120094 && i <= 120121) ||
-      (i >= 120123 && i <= 120126) ||
-      (i >= 120128 && i <= 120132) ||
-      (i >= 120134 && i <= 120134) ||
-      (i >= 120138 && i <= 120144) ||
-      (i >= 120146 && i <= 120485) ||
-      (i >= 120488 && i <= 120779) ||
-      (i >= 120782 && i <= 121483) ||
-      (i >= 121499 && i <= 121503) ||
-      (i >= 121505 && i <= 121519) ||
-      (i >= 122624 && i <= 122654) ||
-      (i >= 122661 && i <= 122666) ||
-      (i >= 122880 && i <= 122886) ||
-      (i >= 122888 && i <= 122904) ||
-      (i >= 122907 && i <= 122913) ||
-      (i >= 122915 && i <= 122916) ||
-      (i >= 122918 && i <= 122922) ||
-      (i >= 122928 && i <= 122989) ||
-      (i >= 123023 && i <= 123023) ||
-      (i >= 123136 && i <= 123180) ||
-      (i >= 123184 && i <= 123197) ||
-      (i >= 123200 && i <= 123209) ||
-      (i >= 123214 && i <= 123215) ||
-      (i >= 123536 && i <= 123566) ||
-      (i >= 123584 && i <= 123641) ||
-      (i >= 123647 && i <= 123647) ||
-      (i >= 124112 && i <= 124153) ||
-      (i >= 124368 && i <= 124410) ||
-      (i >= 124415 && i <= 124415) ||
-      (i >= 124608 && i <= 124638) ||
-      (i >= 124640 && i <= 124661) ||
-      (i >= 124670 && i <= 124671) ||
-      (i >= 124896 && i <= 124902) ||
-      (i >= 124904 && i <= 124907) ||
-      (i >= 124909 && i <= 124910) ||
-      (i >= 124912 && i <= 124926) ||
-      (i >= 124928 && i <= 125124) ||
-      (i >= 125127 && i <= 125142) ||
-      (i >= 125184 && i <= 125259) ||
-      (i >= 125264 && i <= 125273) ||
-      (i >= 125278 && i <= 125279) ||
-      (i >= 126065 && i <= 126132) ||
-      (i >= 126209 && i <= 126269) ||
-      (i >= 126464 && i <= 126467) ||
-      (i >= 126469 && i <= 126495) ||
-      (i >= 126497 && i <= 126498) ||
-      (i >= 126500 && i <= 126500) ||
-      (i >= 126503 && i <= 126503) ||
-      (i >= 126505 && i <= 126514) ||
-      (i >= 126516 && i <= 126519) ||
-      (i >= 126521 && i <= 126521) ||
-      (i >= 126523 && i <= 126523) ||
-      (i >= 126530 && i <= 126530) ||
-      (i >= 126535 && i <= 126535) ||
-      (i >= 126537 && i <= 126537) ||
-      (i >= 126539 && i <= 126539) ||
-      (i >= 126541 && i <= 126543) ||
-      (i >= 126545 && i <= 126546) ||
-      (i >= 126548 && i <= 126548) ||
-      (i >= 126551 && i <= 126551) ||
-      (i >= 126553 && i <= 126553) ||
-      (i >= 126555 && i <= 126555) ||
-      (i >= 126557 && i <= 126557) ||
-      (i >= 126559 && i <= 126559) ||
-      (i >= 126561 && i <= 126562) ||
-      (i >= 126564 && i <= 126564) ||
-      (i >= 126567 && i <= 126570) ||
-      (i >= 126572 && i <= 126578) ||
-      (i >= 126580 && i <= 126583) ||
-      (i >= 126585 && i <= 126588) ||
-      (i >= 126590 && i <= 126590) ||
-      (i >= 126592 && i <= 126601) ||
-      (i >= 126603 && i <= 126619) ||
-      (i >= 126625 && i <= 126627) ||
-      (i >= 126629 && i <= 126633) ||
-      (i >= 126635 && i <= 126651) ||
-      (i >= 126704 && i <= 126705) ||
-      (i >= 126976 && i <= 127019) ||
-      (i >= 127024 && i <= 127123) ||
-      (i >= 127136 && i <= 127150) ||
-      (i >= 127153 && i <= 127167) ||
-      (i >= 127169 && i <= 127183) ||
-      (i >= 127185 && i <= 127221) ||
-      (i >= 127232 && i <= 127405) ||
-      (i >= 127462 && i <= 127490) ||
-      (i >= 127504 && i <= 127547) ||
-      (i >= 127552 && i <= 127560) ||
-      (i >= 127568 && i <= 127569) ||
-      (i >= 127584 && i <= 127589) ||
-      (i >= 127744 && i <= 128728) ||
-      (i >= 128732 && i <= 128748) ||
-      (i >= 128752 && i <= 128764) ||
-      (i >= 128768 && i <= 128985) ||
-      (i >= 128992 && i <= 129003) ||
-      (i >= 129008 && i <= 129008) ||
-      (i >= 129024 && i <= 129035) ||
-      (i >= 129040 && i <= 129095) ||
-      (i >= 129104 && i <= 129113) ||
-      (i >= 129120 && i <= 129159) ||
-      (i >= 129168 && i <= 129197) ||
-      (i >= 129200 && i <= 129211) ||
-      (i >= 129216 && i <= 129217) ||
-      (i >= 129232 && i <= 129240) ||
-      (i >= 129280 && i <= 129623) ||
-      (i >= 129632 && i <= 129645) ||
-      (i >= 129648 && i <= 129660) ||
-      (i >= 129664 && i <= 129674) ||
-      (i >= 129678 && i <= 129734) ||
-      (i >= 129736 && i <= 129736) ||
-      (i >= 129741 && i <= 129756) ||
-      (i >= 129759 && i <= 129770) ||
-      (i >= 129775 && i <= 129784) ||
-      (i >= 129792 && i <= 129938) ||
-      (i >= 129940 && i <= 130042) ||
-      (i >= 131072 && i <= 173791) ||
-      (i >= 173824 && i <= 178205) ||
-      (i >= 178208 && i <= 183981) ||
-      (i >= 183984 && i <= 191456) ||
-      (i >= 191472 && i <= 192093) ||
-      (i >= 194560 && i <= 195101) ||
-      (i >= 196608 && i <= 201546) ||
-      (i >= 201552 && i <= 210041) ||
-      (i >= 917760 && i <= 917999) => {
-      sb.write_char(i.unsafe_to_char())
-      continue (n - 1, state.next_positive_int() % 91799)
-    }
-    (n, _) => continue (n, state.next_positive_int() % 91799)
-  }
-  Name(sb.to_string().to_string_view())
-}
-
-///|
 pub(all) struct CustomSec(Name, Bytes) derive(Eq, Hash)
 
 ///|
@@ -1819,830 +868,6 @@ pub(all) enum Instruction {
 } derive(Eq, Hash)
 
 ///|
-pub impl @quickcheck.Arbitrary for MemArg with arbitrary(t, state) {
-  MemArg(
-    U32(state.next_uint() % 64),
-    @quickcheck.Arbitrary::arbitrary(t, state),
-    @quickcheck.Arbitrary::arbitrary(t, state),
-  )
-}
-
-///|
-pub impl @quickcheck.Arbitrary for Instruction with arbitrary(t, state) {
-  match state.next_uint() % 494 {
-    0 => Unreachable
-    1 => Nop
-    2 =>
-      Block(
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-      )
-    3 =>
-      Loop(
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-      )
-    4 =>
-      If(
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        array_of_arbitrary(5, t, state),
-        if (state.next_uint() & 1) == 1 {
-          Some(array_of_arbitrary(5, t, state))
-        } else {
-          None
-        },
-      )
-    5 => Throw(@quickcheck.Arbitrary::arbitrary(t, state))
-    6 => ThrowRef
-    7 => Br(@quickcheck.Arbitrary::arbitrary(t, state))
-    8 => BrIf(@quickcheck.Arbitrary::arbitrary(t, state))
-    9 =>
-      BrTable(
-        array_of_arbitrary(3, t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-      )
-    10 => Return
-    11 => Call(@quickcheck.Arbitrary::arbitrary(t, state))
-    12 =>
-      CallIndirect(
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-      )
-    13 => ReturnCall(@quickcheck.Arbitrary::arbitrary(t, state))
-    14 =>
-      ReturnCallIndirect(
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-      )
-    15 => CallRef(@quickcheck.Arbitrary::arbitrary(t, state))
-    16 => ReturnCallRef(@quickcheck.Arbitrary::arbitrary(t, state))
-    17 => Drop
-    18 =>
-      TryTable(
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        array_of_arbitrary(4, t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-      )
-    19 =>
-      Select(
-        if @quickcheck.Arbitrary::arbitrary(t, state) {
-          Some(array_of_arbitrary(4, t, state))
-        } else {
-          None
-        },
-      )
-    20 => LocalGet(@quickcheck.Arbitrary::arbitrary(t, state))
-    21 => LocalSet(@quickcheck.Arbitrary::arbitrary(t, state))
-    22 => LocalTee(@quickcheck.Arbitrary::arbitrary(t, state))
-    23 => GlobalGet(@quickcheck.Arbitrary::arbitrary(t, state))
-    24 => GlobalSet(@quickcheck.Arbitrary::arbitrary(t, state))
-    25 => TableGet(@quickcheck.Arbitrary::arbitrary(t, state))
-    26 => TableSet(@quickcheck.Arbitrary::arbitrary(t, state))
-    27 => I32Load(@quickcheck.Arbitrary::arbitrary(t, state))
-    28 => I64Load(@quickcheck.Arbitrary::arbitrary(t, state))
-    29 => F32Load(@quickcheck.Arbitrary::arbitrary(t, state))
-    30 => F64Load(@quickcheck.Arbitrary::arbitrary(t, state))
-    31 => I32Load8S(@quickcheck.Arbitrary::arbitrary(t, state))
-    32 => I32Load8U(@quickcheck.Arbitrary::arbitrary(t, state))
-    33 => I32Load16S(@quickcheck.Arbitrary::arbitrary(t, state))
-    34 => I32Load16U(@quickcheck.Arbitrary::arbitrary(t, state))
-    35 => I64Load8S(@quickcheck.Arbitrary::arbitrary(t, state))
-    36 => I64Load8U(@quickcheck.Arbitrary::arbitrary(t, state))
-    37 => I64Load16S(@quickcheck.Arbitrary::arbitrary(t, state))
-    38 => I64Load16U(@quickcheck.Arbitrary::arbitrary(t, state))
-    39 => I64Load32S(@quickcheck.Arbitrary::arbitrary(t, state))
-    40 => I64Load32U(@quickcheck.Arbitrary::arbitrary(t, state))
-    41 => I32Store(@quickcheck.Arbitrary::arbitrary(t, state))
-    42 => I64Store(@quickcheck.Arbitrary::arbitrary(t, state))
-    43 => F32Store(@quickcheck.Arbitrary::arbitrary(t, state))
-    44 => F64Store(@quickcheck.Arbitrary::arbitrary(t, state))
-    45 => I32Store8(@quickcheck.Arbitrary::arbitrary(t, state))
-    46 => I32Store16(@quickcheck.Arbitrary::arbitrary(t, state))
-    47 => I64Store8(@quickcheck.Arbitrary::arbitrary(t, state))
-    48 => I64Store16(@quickcheck.Arbitrary::arbitrary(t, state))
-    49 => I64Store32(@quickcheck.Arbitrary::arbitrary(t, state))
-    50 => MemorySize(@quickcheck.Arbitrary::arbitrary(t, state))
-    51 => MemoryGrow(@quickcheck.Arbitrary::arbitrary(t, state))
-    52 => I32Const(@quickcheck.Arbitrary::arbitrary(t, state))
-    53 => I64Const(@quickcheck.Arbitrary::arbitrary(t, state))
-    54 => F32Const(@quickcheck.Arbitrary::arbitrary(t, state))
-    55 => F64Const(@quickcheck.Arbitrary::arbitrary(t, state))
-    56 => I32Eqz
-    57 => I32Eq
-    58 => I32Ne
-    59 => I32LtS
-    60 => I32LtU
-    61 => I32GtS
-    62 => I32GtU
-    63 => I32LeS
-    64 => I32LeU
-    65 => I32GeS
-    66 => I32GeU
-    67 => I64Eqz
-    68 => I64Eq
-    69 => I64Ne
-    70 => I64LtS
-    71 => I64LtU
-    72 => I64GtS
-    73 => I64GtU
-    74 => I64LeS
-    75 => I64LeU
-    76 => I64GeS
-    77 => I64GeU
-    78 => F32Eq
-    79 => F32Ne
-    80 => F32Lt
-    81 => F32Gt
-    82 => F32Le
-    83 => F32Ge
-    84 => F64Eq
-    85 => F64Ne
-    86 => F64Lt
-    87 => F64Gt
-    88 => F64Le
-    89 => F64Ge
-    90 => I32Clz
-    91 => I32Ctz
-    92 => I32Popcnt
-    93 => I32Add
-    94 => I32Sub
-    95 => I32Mul
-    96 => I32DivS
-    97 => I32DivU
-    98 => I32RemS
-    99 => I32RemU
-    100 => I32And
-    101 => I32Or
-    102 => I32Xor
-    103 => I32Shl
-    104 => I32ShrS
-    105 => I32ShrU
-    106 => I32Rotl
-    107 => I32Rotr
-    108 => I64Clz
-    109 => I64Ctz
-    110 => I64Popcnt
-    111 => I64Add
-    112 => I64Sub
-    113 => I64Mul
-    114 => I64DivS
-    115 => I64DivU
-    116 => I64RemS
-    117 => I64RemU
-    118 => I64And
-    119 => I64Or
-    120 => I64Xor
-    121 => I64Shl
-    122 => I64ShrS
-    123 => I64ShrU
-    124 => I64Rotl
-    125 => I64Rotr
-    126 => F32Abs
-    127 => F32Neg
-    128 => F32Ceil
-    129 => F32Floor
-    130 => F32Trunc
-    131 => F32Nearest
-    132 => F32Sqrt
-    133 => F32Add
-    134 => F32Sub
-    135 => F32Mul
-    136 => F32Div
-    137 => F32Min
-    138 => F32Max
-    139 => F32Copysign
-    140 => F64Abs
-    141 => F64Neg
-    142 => F64Ceil
-    143 => F64Floor
-    144 => F64Trunc
-    145 => F64Nearest
-    146 => F64Sqrt
-    147 => F64Add
-    148 => F64Sub
-    149 => F64Mul
-    150 => F64Div
-    151 => F64Min
-    152 => F64Max
-    153 => F64Copysign
-    154 => I32WrapI64
-    155 => I32TruncF32S
-    156 => I32TruncF32U
-    157 => I32TruncF64S
-    158 => I32TruncF64U
-    159 => I64ExtendI32S
-    160 => I64ExtendI32U
-    161 => I64TruncF32S
-    162 => I64TruncF32U
-    163 => I64TruncF64S
-    164 => I64TruncF64U
-    165 => F32ConvertI32S
-    166 => F32ConvertI32U
-    167 => F32ConvertI64S
-    168 => F32ConvertI64U
-    169 => F32DemoteF64
-    170 => F64ConvertI32S
-    171 => F64ConvertI32U
-    172 => F64ConvertI64S
-    173 => F64ConvertI64U
-    174 => F64PromoteF32
-    175 => I32ReinterpretF32
-    176 => I64ReinterpretF64
-    177 => F32ReinterpretI32
-    178 => F64ReinterpretI64
-    179 => I32Extend8S
-    180 => I32Extend16S
-    181 => I64Extend8S
-    182 => I64Extend16S
-    183 => I64Extend32S
-    184 => RefNull(@quickcheck.Arbitrary::arbitrary(t, state))
-    185 => RefIsNull
-    186 => RefFunc(@quickcheck.Arbitrary::arbitrary(t, state))
-    187 => RefEq
-    188 => RefAsNonNull
-    189 => BrOnNull(@quickcheck.Arbitrary::arbitrary(t, state))
-    190 => BrOnNonNull(@quickcheck.Arbitrary::arbitrary(t, state))
-    191 => StructNew(@quickcheck.Arbitrary::arbitrary(t, state))
-    192 => StructNewDefault(@quickcheck.Arbitrary::arbitrary(t, state))
-    193 =>
-      StructGet(
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-      )
-    194 =>
-      StructGetS(
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-      )
-    195 =>
-      StructGetU(
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-      )
-    196 =>
-      StructSet(
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-      )
-    197 => ArrayNew(@quickcheck.Arbitrary::arbitrary(t, state))
-    198 => ArrayNewDefault(@quickcheck.Arbitrary::arbitrary(t, state))
-    199 =>
-      ArrayNewFixed(
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-      )
-    200 =>
-      ArrayNewData(
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-      )
-    201 =>
-      ArrayNewElem(
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-      )
-    202 => ArrayGet(@quickcheck.Arbitrary::arbitrary(t, state))
-    203 => ArrayGetS(@quickcheck.Arbitrary::arbitrary(t, state))
-    204 => ArrayGetU(@quickcheck.Arbitrary::arbitrary(t, state))
-    205 => ArraySet(@quickcheck.Arbitrary::arbitrary(t, state))
-    206 => ArrayLen
-    207 => ArrayFill(@quickcheck.Arbitrary::arbitrary(t, state))
-    208 =>
-      ArrayCopy(
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-      )
-    209 =>
-      ArrayInitData(
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-      )
-    210 =>
-      ArrayInitElem(
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-      )
-    211 =>
-      RefTest(
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-      )
-    212 =>
-      RefCast(
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-      )
-    213 =>
-      BrOnCast(
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-      )
-    214 =>
-      BrOnCastFail(
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-      )
-    215 => AnyConvertExtern
-    216 => ExternConvertAny
-    217 => RefI31
-    218 => I31GetS
-    219 => I31GetU
-    220 => I32TruncSatF32S
-    221 => I32TruncSatF32U
-    222 => I32TruncSatF64S
-    223 => I32TruncSatF64U
-    224 => I64TruncSatF32S
-    225 => I64TruncSatF32U
-    226 => I64TruncSatF64S
-    227 => I64TruncSatF64U
-    228 =>
-      MemoryInit(
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-      )
-    229 => DataDrop(@quickcheck.Arbitrary::arbitrary(t, state))
-    230 =>
-      MemoryCopy(
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-      )
-    231 => MemoryFill(@quickcheck.Arbitrary::arbitrary(t, state))
-    232 =>
-      TableInit(
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-      )
-    233 => ElemDrop(@quickcheck.Arbitrary::arbitrary(t, state))
-    234 =>
-      TableCopy(
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-      )
-    235 => TableGrow(@quickcheck.Arbitrary::arbitrary(t, state))
-    236 => TableSize(@quickcheck.Arbitrary::arbitrary(t, state))
-    237 => TableFill(@quickcheck.Arbitrary::arbitrary(t, state))
-    238 => V128Load(@quickcheck.Arbitrary::arbitrary(t, state))
-    239 => V128Load8x8S(@quickcheck.Arbitrary::arbitrary(t, state))
-    240 => V128Load8x8U(@quickcheck.Arbitrary::arbitrary(t, state))
-    241 => V128Load16x4S(@quickcheck.Arbitrary::arbitrary(t, state))
-    242 => V128Load16x4U(@quickcheck.Arbitrary::arbitrary(t, state))
-    243 => V128Load32x2S(@quickcheck.Arbitrary::arbitrary(t, state))
-    244 => V128Load32x2U(@quickcheck.Arbitrary::arbitrary(t, state))
-    245 => V128Load8Splat(@quickcheck.Arbitrary::arbitrary(t, state))
-    246 => V128Load16Splat(@quickcheck.Arbitrary::arbitrary(t, state))
-    247 => V128Load32Splat(@quickcheck.Arbitrary::arbitrary(t, state))
-    248 => V128Load64Splat(@quickcheck.Arbitrary::arbitrary(t, state))
-    249 => V128Store(@quickcheck.Arbitrary::arbitrary(t, state))
-    250 =>
-      V128Const(
-        (state.next_uint() % 256).to_byte(),
-        (state.next_uint() % 256).to_byte(),
-        (state.next_uint() % 256).to_byte(),
-        (state.next_uint() % 256).to_byte(),
-        (state.next_uint() % 256).to_byte(),
-        (state.next_uint() % 256).to_byte(),
-        (state.next_uint() % 256).to_byte(),
-        (state.next_uint() % 256).to_byte(),
-        (state.next_uint() % 256).to_byte(),
-        (state.next_uint() % 256).to_byte(),
-        (state.next_uint() % 256).to_byte(),
-        (state.next_uint() % 256).to_byte(),
-        (state.next_uint() % 256).to_byte(),
-        (state.next_uint() % 256).to_byte(),
-        (state.next_uint() % 256).to_byte(),
-        (state.next_uint() % 256).to_byte(),
-      )
-    251 =>
-      I8x16Shuffle(
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-      )
-    252 => I8x16Swizzle
-    253 => I8x16Splat
-    254 => I16x8Splat
-    255 => I32x4Splat
-    256 => I64x2Splat
-    257 => F32x4Splat
-    258 => F64x2Splat
-    259 => I8x16ExtractLaneS(@quickcheck.Arbitrary::arbitrary(t, state))
-    260 => I8x16ExtractLaneU(@quickcheck.Arbitrary::arbitrary(t, state))
-    261 => I8x16ReplaceLane(@quickcheck.Arbitrary::arbitrary(t, state))
-    262 => I16x8ExtractLaneS(@quickcheck.Arbitrary::arbitrary(t, state))
-    263 => I16x8ExtractLaneU(@quickcheck.Arbitrary::arbitrary(t, state))
-    264 => I16x8ReplaceLane(@quickcheck.Arbitrary::arbitrary(t, state))
-    265 => I32x4ExtractLane(@quickcheck.Arbitrary::arbitrary(t, state))
-    266 => I32x4ReplaceLane(@quickcheck.Arbitrary::arbitrary(t, state))
-    267 => I64x2ExtractLane(@quickcheck.Arbitrary::arbitrary(t, state))
-    268 => I64x2ReplaceLane(@quickcheck.Arbitrary::arbitrary(t, state))
-    269 => F32x4ExtractLane(@quickcheck.Arbitrary::arbitrary(t, state))
-    270 => F32x4ReplaceLane(@quickcheck.Arbitrary::arbitrary(t, state))
-    271 => F64x2ExtractLane(@quickcheck.Arbitrary::arbitrary(t, state))
-    272 => F64x2ReplaceLane(@quickcheck.Arbitrary::arbitrary(t, state))
-    273 => I8x16Eq
-    274 => I8x16Ne
-    275 => I8x16LtS
-    276 => I8x16LtU
-    277 => I8x16GtS
-    278 => I8x16GtU
-    279 => I8x16LeS
-    280 => I8x16LeU
-    281 => I8x16GeS
-    282 => I8x16GeU
-    283 => I16x8Eq
-    284 => I16x8Ne
-    285 => I16x8LtS
-    286 => I16x8LtU
-    287 => I16x8GtS
-    288 => I16x8GtU
-    289 => I16x8LeS
-    290 => I16x8LeU
-    291 => I16x8GeS
-    292 => I16x8GeU
-    293 => I32x4Eq
-    294 => I32x4Ne
-    295 => I32x4LtS
-    296 => I32x4LtU
-    297 => I32x4GtS
-    298 => I32x4GtU
-    299 => I32x4LeS
-    300 => I32x4LeU
-    301 => I32x4GeS
-    302 => I32x4GeU
-    303 => F32x4Eq
-    304 => F32x4Ne
-    305 => F32x4Lt
-    306 => F32x4Gt
-    307 => F32x4Le
-    308 => F32x4Ge
-    309 => F64x2Eq
-    310 => F64x2Ne
-    311 => F64x2Lt
-    312 => F64x2Gt
-    313 => F64x2Le
-    314 => F64x2Ge
-    315 => V128Not
-    316 => V128And
-    317 => V128Andnot
-    318 => V128Or
-    319 => V128Xor
-    320 => V128Bitselect
-    321 => V128AnyTrue
-    322 =>
-      V128Load8Lane(
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-      )
-    323 =>
-      V128Load16Lane(
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-      )
-    324 =>
-      V128Load32Lane(
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-      )
-    325 =>
-      V128Load64Lane(
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-      )
-    326 =>
-      V128Store8Lane(
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-      )
-    327 =>
-      V128Store16Lane(
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-      )
-    328 =>
-      V128Store32Lane(
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-      )
-    329 =>
-      V128Store64Lane(
-        @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
-      )
-    330 => V128Load32Zero(@quickcheck.Arbitrary::arbitrary(t, state))
-    331 => V128Load64Zero(@quickcheck.Arbitrary::arbitrary(t, state))
-    332 => F32x4DemoteF64x2Zero
-    333 => F64x2PromoteLowF32x4
-    334 => I8x16Abs
-    335 => I8x16Neg
-    336 => I8x16Popcnt
-    337 => I8x16AllTrue
-    338 => I8x16Bitmask
-    339 => I8x16NarrowI16x8S
-    340 => I8x16NarrowI16x8U
-    341 => F32x4Ceil
-    342 => F32x4Floor
-    343 => F32x4Trunc
-    344 => F32x4Nearest
-    345 => I8x16Shl
-    346 => I8x16ShrS
-    347 => I8x16ShrU
-    348 => I8x16Add
-    349 => I8x16AddSatS
-    350 => I8x16AddSatU
-    351 => I8x16Sub
-    352 => I8x16SubSatS
-    353 => I8x16SubSatU
-    354 => F64x2Ceil
-    355 => F64x2Floor
-    356 => I8x16MinS
-    357 => I8x16MinU
-    358 => I8x16MaxS
-    359 => I8x16MaxU
-    360 => F64x2Trunc
-    361 => I8x16AvgrU
-    362 => I16x8ExtaddPairwiseI8x16S
-    363 => I16x8ExtaddPairwiseI8x16U
-    364 => I32x4ExtaddPairwiseI16x8S
-    365 => I32x4ExtaddPairwiseI16x8U
-    366 => I16x8Abs
-    367 => I16x8Neg
-    368 => I16x8Q15mulrSatS
-    369 => I16x8AllTrue
-    370 => I16x8Bitmask
-    371 => I16x8NarrowI32x4S
-    372 => I16x8NarrowI32x4U
-    373 => I16x8ExtendLowI8x16S
-    374 => I16x8ExtendHighI8x16S
-    375 => I16x8ExtendLowI8x16U
-    376 => I16x8ExtendHighI8x16U
-    377 => I16x8Shl
-    378 => I16x8ShrS
-    379 => I16x8ShrU
-    380 => I16x8Add
-    381 => I16x8AddSatS
-    382 => I16x8AddSatU
-    383 => I16x8Sub
-    384 => I16x8SubSatS
-    385 => I16x8SubSatU
-    386 => F64x2Nearest
-    387 => I16x8Mul
-    388 => I16x8MinS
-    389 => I16x8MinU
-    390 => I16x8MaxS
-    391 => I16x8MaxU
-    392 => I16x8AvgrU
-    393 => I16x8ExtmulLowI8x16S
-    394 => I16x8ExtmulHighI8x16S
-    395 => I16x8ExtmulLowI8x16U
-    396 => I16x8ExtmulHighI8x16U
-    397 => I32x4Abs
-    398 => I32x4Neg
-    399 => I32x4AllTrue
-    400 => I32x4Bitmask
-    401 => I32x4ExtendLowI16x8S
-    402 => I32x4ExtendHighI16x8S
-    403 => I32x4ExtendLowI16x8U
-    404 => I32x4ExtendHighI16x8U
-    405 => I32x4Shl
-    406 => I32x4ShrS
-    407 => I32x4ShrU
-    408 => I32x4Add
-    409 => I32x4Sub
-    410 => I32x4Mul
-    411 => I32x4MinS
-    412 => I32x4MinU
-    413 => I32x4MaxS
-    414 => I32x4MaxU
-    415 => I32x4DotI16x8S
-    416 => I32x4ExtmulLowI16x8S
-    417 => I32x4ExtmulHighI16x8S
-    418 => I32x4ExtmulLowI16x8U
-    419 => I32x4ExtmulHighI16x8U
-    420 => I64x2Abs
-    421 => I64x2Neg
-    422 => I64x2AllTrue
-    423 => I64x2Bitmask
-    424 => I64x2ExtendLowI32x4S
-    425 => I64x2ExtendHighI32x4S
-    426 => I64x2ExtendLowI32x4U
-    427 => I64x2ExtendHighI32x4U
-    428 => I64x2Shl
-    429 => I64x2ShrS
-    430 => I64x2ShrU
-    431 => I64x2Add
-    432 => I64x2Sub
-    433 => I64x2Mul
-    434 => I64x2Eq
-    435 => I64x2Ne
-    436 => I64x2LtS
-    437 => I64x2GtS
-    438 => I64x2LeS
-    439 => I64x2GeS
-    440 => I64x2ExtmulLowI32x4S
-    441 => I64x2ExtmulHighI32x4S
-    442 => I64x2ExtmulLowI32x4U
-    443 => I64x2ExtmulHighI32x4U
-    444 => F32x4Abs
-    445 => F32x4Neg
-    446 => F32x4Sqrt
-    447 => F32x4Add
-    448 => F32x4Sub
-    449 => F32x4Mul
-    450 => F32x4Div
-    451 => F32x4Min
-    452 => F32x4Max
-    453 => F32x4Pmin
-    454 => F32x4Pmax
-    455 => F64x2Abs
-    456 => F64x2Neg
-    457 => F64x2Sqrt
-    458 => F64x2Add
-    459 => F64x2Sub
-    460 => F64x2Mul
-    461 => F64x2Div
-    462 => F64x2Min
-    463 => F64x2Max
-    464 => F64x2Pmin
-    465 => F64x2Pmax
-    466 => I32x4TruncSatF32x4S
-    467 => I32x4TruncSatF32x4U
-    468 => F32x4ConvertI32x4S
-    469 => F32x4ConvertI32x4U
-    470 => I32x4TruncSatF64x2SZero
-    471 => I32x4TruncSatF64x2UZero
-    472 => F64x2ConvertLowI32x4S
-    473 => F64x2ConvertLowI32x4U
-    474 => I8x16RelaxedSwizzle
-    475 => I32x4RelaxedTruncF32x4S
-    476 => I32x4RelaxedTruncF32x4U
-    477 => I32x4RelaxedTruncZeroF64x2S
-    478 => I32x4RelaxedTruncZeroF64x2U
-    479 => F32x4RelaxedMadd
-    480 => F32x4RelaxedNmadd
-    481 => F64x2RelaxedMadd
-    482 => F64x2RelaxedNmadd
-    483 => I8x16RelaxedLaneselect
-    484 => I16x8RelaxedLaneselect
-    485 => I32x4RelaxedLaneselect
-    486 => I64x2RelaxedLaneselect
-    487 => F32x4RelaxedMin
-    488 => F32x4RelaxedMax
-    489 => F64x2RelaxedMin
-    490 => F64x2RelaxedMax
-    491 => I16x8RelaxedQ15mulrS
-    492 => I16x8RelaxedDotI8x16I7x16S
-    493 => I32x4RelaxedDotI8x16I7x16AddS
-    _ => Nop
-  }
-}
-
-///|
-pub impl @quickcheck.Arbitrary for ElemSec with arbitrary(t, state) {
-  let elems = []
-  let count = state.next_positive_int() % 4 + 1
-  loop count {
-    0 => break ()
-    n => {
-      elems.push(@quickcheck.Arbitrary::arbitrary(t, state))
-      continue n - 1
-    }
-  }
-  ElemSec(elems)
-}
-
-///|
-pub impl @quickcheck.Arbitrary for CodeSec with arbitrary(t, state) {
-  let elems = []
-  let count = state.next_positive_int() % 4 + 1
-  loop count {
-    0 => break ()
-    n => {
-      elems.push(@quickcheck.Arbitrary::arbitrary(t, state))
-      continue n - 1
-    }
-  }
-  CodeSec(elems)
-}
-
-///|
-pub impl @quickcheck.Arbitrary for DataSec with arbitrary(t, state) {
-  let elems = []
-  let count = state.next_positive_int() % 4 + 1
-  loop count {
-    0 => break ()
-    n => {
-      elems.push(@quickcheck.Arbitrary::arbitrary(t, state))
-      continue n - 1
-    }
-  }
-  DataSec(elems)
-}
-
-///|
-pub impl @quickcheck.Arbitrary for CustomSec with arbitrary(size, st) {
-  let name = @quickcheck.Arbitrary::arbitrary(size, st)
-  let length = st.next_positive_int() % 19 + 1
-  let buf = @buffer.new()
-  let bytes = loop length {
-    0 => buf.to_bytes()
-    n => {
-      buf.write_byte((st.next_positive_int() % 256).to_byte())
-      continue n - 1
-    }
-  }
-  CustomSec(name, bytes)
-}
-
-///|
-pub impl @quickcheck.Arbitrary for Module with arbitrary(t, state) {
-  Module::{
-    custom_secs: array_of_arbitrary(5, t, state),
-    type_sec: if state.next_positive_int() % 2 == 0 {
-      Some(@quickcheck.Arbitrary::arbitrary(t, state))
-    } else {
-      None
-    },
-    import_sec: if state.next_positive_int() % 2 == 0 {
-      Some(@quickcheck.Arbitrary::arbitrary(t, state))
-    } else {
-      None
-    },
-    func_sec: if state.next_positive_int() % 2 == 0 {
-      Some(@quickcheck.Arbitrary::arbitrary(t, state))
-    } else {
-      None
-    },
-    table_sec: if state.next_positive_int() % 2 == 0 {
-      Some(@quickcheck.Arbitrary::arbitrary(t, state))
-    } else {
-      None
-    },
-    mem_sec: if state.next_positive_int() % 2 == 0 {
-      Some(@quickcheck.Arbitrary::arbitrary(t, state))
-    } else {
-      None
-    },
-    tag_sec: if state.next_positive_int() % 2 == 0 {
-      Some(@quickcheck.Arbitrary::arbitrary(t, state))
-    } else {
-      None
-    },
-    global_sec: if state.next_positive_int() % 2 == 0 {
-      Some(@quickcheck.Arbitrary::arbitrary(t, state))
-    } else {
-      None
-    },
-    export_sec: if state.next_positive_int() % 2 == 0 {
-      Some(@quickcheck.Arbitrary::arbitrary(t, state))
-    } else {
-      None
-    },
-    start_sec: if state.next_positive_int() % 2 == 0 {
-      Some(@quickcheck.Arbitrary::arbitrary(t, state))
-    } else {
-      None
-    },
-    elem_sec: if state.next_positive_int() % 2 == 0 {
-      Some(@quickcheck.Arbitrary::arbitrary(t, state))
-    } else {
-      None
-    },
-    data_cnt_sec: if state.next_positive_int() % 2 == 0 {
-      Some(@quickcheck.Arbitrary::arbitrary(t, state))
-    } else {
-      None
-    },
-    code_sec: if state.next_positive_int() % 2 == 0 {
-      Some(@quickcheck.Arbitrary::arbitrary(t, state))
-    } else {
-      None
-    },
-    data_sec: if state.next_positive_int() % 2 == 0 {
-      Some(@quickcheck.Arbitrary::arbitrary(t, state))
-    } else {
-      None
-    },
-  }
-}
-
-///|
 type Stack[T] = Array[T]
 
 ///|
@@ -2650,23 +875,6 @@ pub fn Limits::mem_addr_bits(lim : Limits) -> Int {
   match lim {
     I32Limits(_, _) => 32
     I64Limits(_, _) => 64
-  }
-}
-
-///|
-pub fn[T : @quickcheck.Arbitrary] array_of_arbitrary(
-  max : UInt,
-  t : Int,
-  state : @quickcheck/splitmix.RandomState,
-) -> Array[T] {
-  let count = state.next_uint() % max + 1
-  let a = []
-  loop count {
-    0 => break a
-    n => {
-      a.push(@quickcheck.Arbitrary::arbitrary(t, state))
-      continue n - 1
-    }
   }
 }
 
@@ -3528,7 +1736,6 @@ pub(all) enum BinaryOp {
 } derive(Eq, Show, Hash)
 
 ///|
-/// Load operations
 pub(all) enum LoadOp {
   // === Scalar ===
   I32LoadOp
@@ -3653,3 +1860,5606 @@ pub(all) enum V128StoreLaneOp {
   V128Store32LaneOp
   V128Store64LaneOp
 } derive(Eq, Show, Hash)
+
+///|
+pub fn f32_num_type() -> NumType {
+  F32NumType
+}
+
+///|
+pub fn f64_num_type() -> NumType {
+  F64NumType
+}
+
+///|
+pub fn i32_num_type() -> NumType {
+  I32NumType
+}
+
+///|
+pub fn i64_num_type() -> NumType {
+  I64NumType
+}
+
+///|
+pub fn exn_abs_heap_type() -> AbsHeapType {
+  ExnAbsHeapType
+}
+
+///|
+pub fn array_abs_heap_type() -> AbsHeapType {
+  ArrayAbsHeapType
+}
+
+///|
+pub fn struct_abs_heap_type() -> AbsHeapType {
+  StructAbsHeapType
+}
+
+///|
+pub fn i31_abs_heap_type() -> AbsHeapType {
+  I31AbsHeapType
+}
+
+///|
+pub fn eq_abs_heap_type() -> AbsHeapType {
+  EqAbsHeapType
+}
+
+///|
+pub fn any_abs_heap_type() -> AbsHeapType {
+  AnyAbsHeapType
+}
+
+///|
+pub fn extern_abs_heap_type() -> AbsHeapType {
+  ExternAbsHeapType
+}
+
+///|
+pub fn func_abs_heap_type() -> AbsHeapType {
+  FuncAbsHeapType
+}
+
+///|
+pub fn none_abs_heap_type() -> AbsHeapType {
+  NoneAbsHeapType
+}
+
+///|
+pub fn no_extern_abs_heap_type() -> AbsHeapType {
+  NoExternAbsHeapType
+}
+
+///|
+pub fn no_func_abs_heap_type() -> AbsHeapType {
+  NoFuncAbsHeapType
+}
+
+///|
+pub fn no_exn_abs_heap_type() -> AbsHeapType {
+  NoExnAbsHeapType
+}
+
+///|
+pub fn abs_heap_type_heap_type(abs : AbsHeapType) -> HeapType {
+  AbsHeapTypeHeapType(abs)
+}
+
+///|
+pub fn type_idx(idx : UInt) -> TypeIdx {
+  TypeIdx(idx)
+}
+
+///|
+pub fn heap_type(ty_idx : TypeIdx) -> HeapType {
+  HeapType(ty_idx)
+}
+
+///|
+pub fn def_type_heap_type(dt : DefType) -> HeapType {
+  DefTypeHeapType(dt)
+}
+
+///|
+pub fn heap_type_ref_type(nullable : Bool, ht : HeapType) -> RefType {
+  HeapTypeRefType(nullable, ht)
+}
+
+///|
+pub fn abs_heap_type_ref_type(abs : AbsHeapType) -> RefType {
+  AbsHeapTypeRefType(abs)
+}
+
+///|
+pub fn num_type_val_type(nt : NumType) -> ValType {
+  NumTypeValType(nt)
+}
+
+///|
+pub fn vec_type_val_type() -> ValType {
+  VecTypeValType
+}
+
+///|
+pub fn ref_type_val_type(rt : RefType) -> ValType {
+  RefTypeValType(rt)
+}
+
+///|
+pub fn bot_val_type() -> ValType {
+  BotValType
+}
+
+///|
+pub fn i16_pack_type() -> PackType {
+  I16PackType
+}
+
+///|
+pub fn i8_pack_type() -> PackType {
+  I8PackType
+}
+
+///|
+pub fn val_type_storage_type(vt : ValType) -> StorageType {
+  ValTypeStorageType(vt)
+}
+
+///|
+pub fn pack_type_storage_type(pt : PackType) -> StorageType {
+  PackTypeStorageType(pt)
+}
+
+///|
+pub fn mut_const() -> Mut {
+  Const
+}
+
+///|
+pub fn mut_var() -> Mut {
+  Var
+}
+
+///|
+pub fn catch_(ti : TagIdx, li : LabelIdx) -> Catch {
+  Catch(ti, li)
+}
+
+///|
+pub fn catch_ref(ti : TagIdx, li : LabelIdx) -> Catch {
+  CatchRef(ti, li)
+}
+
+///|
+pub fn catch_all(li : LabelIdx) -> Catch {
+  CatchAll(li)
+}
+
+///|
+pub fn catch_all_ref(li : LabelIdx) -> Catch {
+  CatchAllRef(li)
+}
+
+///|
+pub fn rec_idx(idx : UInt) -> TypeIdx {
+  RecIdx(idx)
+}
+
+///|
+pub fn array_comp_type(ft : FieldType) -> CompType {
+  ArrayCompType(ft)
+}
+
+///|
+pub fn struct_comp_type(fs : Array[FieldType]) -> CompType {
+  StructCompType(fs)
+}
+
+///|
+pub fn func_comp_type(props : ResultType, results : ResultType) -> CompType {
+  FuncCompType(props, results)
+}
+
+///|
+pub fn sub_type(f : Bool, supers : Array[TypeIdx], ct : CompType) -> SubType {
+  SubType(f, supers, ct)
+}
+
+///|
+pub fn comp_type_sub_type(ct : CompType) -> SubType {
+  CompTypeSubType(ct)
+}
+
+///|
+pub fn single_rec_type(st : SubType) -> RecType {
+  SingleRecType(st)
+}
+
+///|
+pub fn group_rec_type(sts : Array[SubType]) -> RecType {
+  GroupRecType(sts)
+}
+
+///|
+pub fn i32_limits(min : UInt, max : UInt?) -> Limits {
+  I32Limits(min, max)
+}
+
+///|
+pub fn i64_limits(min : UInt64, max : UInt64?) -> Limits {
+  I64Limits(min, max)
+}
+
+///|
+pub fn func_extern_type(idx : TypeIdx) -> ExternType {
+  FuncExternType(idx)
+}
+
+///|
+pub fn table_type(rt : RefType, limits : Limits) -> TableType {
+  TableType(rt, limits)
+}
+
+///|
+pub fn table_extern_type(tt : TableType) -> ExternType {
+  TableExternType(tt)
+}
+
+///|
+pub fn mem_type(l : Limits) -> MemType {
+  MemType(l)
+}
+
+///|
+pub fn mem_extern_type(mt : MemType) -> ExternType {
+  MemExternType(mt)
+}
+
+///|
+pub fn global_type(vt : ValType, nullable : Bool) -> GlobalType {
+  GlobalType(vt, nullable)
+}
+
+///|
+pub fn global_extern_type(gt : GlobalType) -> ExternType {
+  GlobalExternType(gt)
+}
+
+///|
+pub fn tag_type(idx : TypeIdx) -> TagType {
+  TagType(idx)
+}
+
+///|
+pub fn tag_extern_type(tt : TagType) -> ExternType {
+  TagExternType(tt)
+}
+
+///|
+pub fn func_idx(idx : UInt) -> FuncIdx {
+  FuncIdx(idx)
+}
+
+///|
+pub fn func_extern_idx(fi : FuncIdx) -> ExternIdx {
+  FuncExternIdx(fi)
+}
+
+///|
+pub fn table_idx(idx : UInt) -> TableIdx {
+  TableIdx(idx)
+}
+
+///|
+pub fn table_extern_idx(ti : TableIdx) -> ExternIdx {
+  TableExternIdx(ti)
+}
+
+///|
+pub fn mem_extern_idx(mi : MemIdx) -> ExternIdx {
+  MemExternIdx(mi)
+}
+
+///|
+pub fn global_idx(idx : UInt) -> GlobalIdx {
+  GlobalIdx(idx)
+}
+
+///|
+pub fn global_extern_idx(gi : GlobalIdx) -> ExternIdx {
+  GlobalExternIdx(gi)
+}
+
+///|
+pub fn tag_extern_idx(ti : TagIdx) -> ExternIdx {
+  TagExternIdx(ti)
+}
+
+///|
+pub fn elem_passive() -> ElemMode {
+  Passive
+}
+
+///|
+pub fn elem_active(ti : TableIdx, val : Expr) -> ElemMode {
+  Active(ti, val)
+}
+
+///|
+pub fn declarative() -> ElemMode {
+  Declarative
+}
+
+///|
+pub fn funcs_elem_kind(fs : Array[FuncIdx]) -> ElemKind {
+  FuncsElemKind(fs)
+}
+
+///|
+pub fn func_exprs_elem_kind(fs : Array[Expr]) -> ElemKind {
+  FuncExprsElemKind(fs)
+}
+
+///|
+pub fn typed_exprs_elem_kind(rt : RefType, els : Array[Expr]) -> ElemKind {
+  TypedExprsElemKind(rt, els)
+}
+
+///|
+pub fn active(mi : MemIdx, expr : Expr) -> DataMode {
+  Active(mi, expr)
+}
+
+///|
+pub fn passive() -> DataMode {
+  Passive
+}
+
+///|
+pub fn label_idx(idx : UInt) -> LabelIdx {
+  LabelIdx(idx)
+}
+
+///|
+pub fn unreachable_inst() -> Instruction {
+  Unreachable
+}
+
+///|
+pub fn nop_inst() -> Instruction {
+  Nop
+}
+
+///|
+pub fn block_inst(bt : BlockType, val : Expr) -> Instruction {
+  Block(bt, val)
+}
+
+///|
+pub fn loop_inst(bt : BlockType, val : Expr) -> Instruction {
+  Loop(bt, val)
+}
+
+///|
+pub fn if_inst(
+  bt : BlockType,
+  if_block : Array[Instruction],
+  else_block : Array[Instruction]?,
+) -> Instruction {
+  If(bt, if_block, else_block)
+}
+
+///|
+pub fn throw_inst(ti : TagIdx) -> Instruction {
+  Throw(ti)
+}
+
+///|
+pub fn throw_ref_inst() -> Instruction {
+  ThrowRef
+}
+
+///|
+pub fn br_inst(li : LabelIdx) -> Instruction {
+  Br(li)
+}
+
+///|
+pub fn br_if_inst(li : LabelIdx) -> Instruction {
+  BrIf(li)
+}
+
+///|
+pub fn br_table_inst(ls : Array[LabelIdx], li0 : LabelIdx) -> Instruction {
+  BrTable(ls, li0)
+}
+
+///|
+pub fn return_inst() -> Instruction {
+  Return
+}
+
+///|
+pub fn call_inst(fi : FuncIdx) -> Instruction {
+  Call(fi)
+}
+
+///|
+pub fn call_indirect_inst(ty_idx : TypeIdx, tbl_idx : TableIdx) -> Instruction {
+  CallIndirect(ty_idx, tbl_idx)
+}
+
+///|
+pub fn return_call_inst(fi : FuncIdx) -> Instruction {
+  ReturnCall(fi)
+}
+
+///|
+pub fn return_call_indirect_inst(
+  ty_idx : TypeIdx,
+  tbl_idx : TableIdx,
+) -> Instruction {
+  ReturnCallIndirect(ty_idx, tbl_idx)
+}
+
+///|
+pub fn call_ref_inst(ti : TypeIdx) -> Instruction {
+  CallRef(ti)
+}
+
+///|
+pub fn return_call_ref_inst(ti : TypeIdx) -> Instruction {
+  ReturnCallRef(ti)
+}
+
+///|
+pub fn drop_inst() -> Instruction {
+  Drop
+}
+
+///|
+pub fn select_inst(types? : Array[ValType]? = None) -> Instruction {
+  Select(types)
+}
+
+///|
+pub fn try_table_inst(
+  bt : BlockType,
+  catches : Array[Catch],
+  val : Expr,
+) -> Instruction {
+  TryTable(bt, catches, val)
+}
+
+///|
+pub fn local_get_inst(li : LocalIdx) -> Instruction {
+  LocalGet(li)
+}
+
+///|
+pub fn local_set_inst(li : LocalIdx) -> Instruction {
+  LocalSet(li)
+}
+
+///|
+pub fn local_tee_inst(li : LocalIdx) -> Instruction {
+  LocalTee(li)
+}
+
+///|
+pub fn global_get_inst(gi : GlobalIdx) -> Instruction {
+  GlobalGet(gi)
+}
+
+///|
+pub fn global_set_inst(gi : GlobalIdx) -> Instruction {
+  GlobalSet(gi)
+}
+
+///|
+pub fn table_get_inst(ti : TableIdx) -> Instruction {
+  TableGet(ti)
+}
+
+///|
+pub fn table_set_inst(ti : TableIdx) -> Instruction {
+  TableSet(ti)
+}
+
+///|
+pub fn i32_load_inst(ma : MemArg) -> Instruction {
+  I32Load(ma)
+}
+
+///|
+pub fn i64_load_inst(ma : MemArg) -> Instruction {
+  I64Load(ma)
+}
+
+///|
+pub fn f32_load_inst(ma : MemArg) -> Instruction {
+  F32Load(ma)
+}
+
+///|
+pub fn f64_load_inst(ma : MemArg) -> Instruction {
+  F64Load(ma)
+}
+
+///|
+pub fn i32_load8s_inst(ma : MemArg) -> Instruction {
+  I32Load8S(ma)
+}
+
+///|
+pub fn i32_load8u_inst(ma : MemArg) -> Instruction {
+  I32Load8U(ma)
+}
+
+///|
+pub fn i32_load16s_inst(ma : MemArg) -> Instruction {
+  I32Load16S(ma)
+}
+
+///|
+pub fn i32_load16u_inst(ma : MemArg) -> Instruction {
+  I32Load16U(ma)
+}
+
+///|
+pub fn i64_load8s_inst(ma : MemArg) -> Instruction {
+  I64Load8S(ma)
+}
+
+///|
+pub fn i64_load8u_inst(ma : MemArg) -> Instruction {
+  I64Load8U(ma)
+}
+
+///|
+pub fn i64_load16s_inst(ma : MemArg) -> Instruction {
+  I64Load16S(ma)
+}
+
+///|
+pub fn i64_load16u_inst(ma : MemArg) -> Instruction {
+  I64Load16U(ma)
+}
+
+///|
+pub fn i64_load32s_inst(ma : MemArg) -> Instruction {
+  I64Load32S(ma)
+}
+
+///|
+pub fn i64_load32u_inst(ma : MemArg) -> Instruction {
+  I64Load32U(ma)
+}
+
+///|
+pub fn i32_store_inst(ma : MemArg) -> Instruction {
+  I32Store(ma)
+}
+
+///|
+pub fn i64_store_inst(ma : MemArg) -> Instruction {
+  I64Store(ma)
+}
+
+///|
+pub fn f32_store_inst(ma : MemArg) -> Instruction {
+  F32Store(ma)
+}
+
+///|
+pub fn f64_store_inst(ma : MemArg) -> Instruction {
+  F64Store(ma)
+}
+
+///|
+pub fn i32_store8_inst(ma : MemArg) -> Instruction {
+  I32Store8(ma)
+}
+
+///|
+pub fn i32_store16_inst(ma : MemArg) -> Instruction {
+  I32Store16(ma)
+}
+
+///|
+pub fn i64_store8_inst(ma : MemArg) -> Instruction {
+  I64Store8(ma)
+}
+
+///|
+pub fn i64_store16_inst(ma : MemArg) -> Instruction {
+  I64Store16(ma)
+}
+
+///|
+pub fn i64_store32_inst(ma : MemArg) -> Instruction {
+  I64Store32(ma)
+}
+
+///|
+pub fn memory_size_inst(mi : MemIdx) -> Instruction {
+  MemorySize(mi)
+}
+
+///|
+pub fn memory_grow_inst(mi : MemIdx) -> Instruction {
+  MemoryGrow(mi)
+}
+
+///|
+pub fn i32_const_inst(val : I32) -> Instruction {
+  I32Const(val)
+}
+
+///|
+pub fn i64_const_inst(val : I64) -> Instruction {
+  I64Const(val)
+}
+
+///|
+pub fn f32_const_inst(val : F32) -> Instruction {
+  F32Const(val)
+}
+
+///|
+pub fn f64_const_inst(val : F64) -> Instruction {
+  F64Const(val)
+}
+
+///|
+pub fn i32_eqz_inst() -> Instruction {
+  I32Eqz
+}
+
+///|
+pub fn i32_eq_inst() -> Instruction {
+  I32Eq
+}
+
+///|
+pub fn i32_ne_inst() -> Instruction {
+  I32Ne
+}
+
+///|
+pub fn i32_lt_s_inst() -> Instruction {
+  I32LtS
+}
+
+///|
+pub fn i32_lt_u_inst() -> Instruction {
+  I32LtU
+}
+
+///|
+pub fn i32_gt_s_inst() -> Instruction {
+  I32GtS
+}
+
+///|
+pub fn i32_gt_u_inst() -> Instruction {
+  I32GtU
+}
+
+///|
+pub fn i32_le_s_inst() -> Instruction {
+  I32LeS
+}
+
+///|
+pub fn i32_le_u_inst() -> Instruction {
+  I32LeU
+}
+
+///|
+pub fn i32_ge_s_inst() -> Instruction {
+  I32GeS
+}
+
+///|
+pub fn i32_ge_u_inst() -> Instruction {
+  I32GeU
+}
+
+///|
+pub fn i64_eqz_inst() -> Instruction {
+  I64Eqz
+}
+
+///|
+pub fn i64_eq_inst() -> Instruction {
+  I64Eq
+}
+
+///|
+pub fn i64_ne_inst() -> Instruction {
+  I64Ne
+}
+
+///|
+pub fn i64_lt_s_inst() -> Instruction {
+  I64LtS
+}
+
+///|
+pub fn i64_lt_u_inst() -> Instruction {
+  I64LtU
+}
+
+///|
+pub fn i64_gt_s_inst() -> Instruction {
+  I64GtS
+}
+
+///|
+pub fn i64_gt_u_inst() -> Instruction {
+  I64GtU
+}
+
+///|
+pub fn i64_le_s_inst() -> Instruction {
+  I64LeS
+}
+
+///|
+pub fn i64_le_u_inst() -> Instruction {
+  I64LeU
+}
+
+///|
+pub fn i64_ge_s_inst() -> Instruction {
+  I64GeS
+}
+
+///|
+pub fn i64_ge_u_inst() -> Instruction {
+  I64GeU
+}
+
+///|
+pub fn f32_eq_inst() -> Instruction {
+  F32Eq
+}
+
+///|
+pub fn f32_ne_inst() -> Instruction {
+  F32Ne
+}
+
+///|
+pub fn f32_lt_inst() -> Instruction {
+  F32Lt
+}
+
+///|
+pub fn f32_gt_inst() -> Instruction {
+  F32Gt
+}
+
+///|
+pub fn f32_le_inst() -> Instruction {
+  F32Le
+}
+
+///|
+pub fn f32_ge_inst() -> Instruction {
+  F32Ge
+}
+
+///|
+pub fn f64_eq_inst() -> Instruction {
+  F64Eq
+}
+
+///|
+pub fn f64_ne_inst() -> Instruction {
+  F64Ne
+}
+
+///|
+pub fn f64_lt_inst() -> Instruction {
+  F64Lt
+}
+
+///|
+pub fn f64_gt_inst() -> Instruction {
+  F64Gt
+}
+
+///|
+pub fn f64_le_inst() -> Instruction {
+  F64Le
+}
+
+///|
+pub fn f64_ge_inst() -> Instruction {
+  F64Ge
+}
+
+///|
+pub fn i32_clz_inst() -> Instruction {
+  I32Clz
+}
+
+///|
+pub fn i32_ctz_inst() -> Instruction {
+  I32Ctz
+}
+
+///|
+pub fn i32_popcnt_inst() -> Instruction {
+  I32Popcnt
+}
+
+///|
+pub fn i32_add_inst() -> Instruction {
+  I32Add
+}
+
+///|
+pub fn i32_sub_inst() -> Instruction {
+  I32Sub
+}
+
+///|
+pub fn i32_mul_inst() -> Instruction {
+  I32Mul
+}
+
+///|
+pub fn i32_div_s_inst() -> Instruction {
+  I32DivS
+}
+
+///|
+pub fn i32_div_u_inst() -> Instruction {
+  I32DivU
+}
+
+///|
+pub fn i32_rem_s_inst() -> Instruction {
+  I32RemS
+}
+
+///|
+pub fn i32_rem_u_inst() -> Instruction {
+  I32RemU
+}
+
+///|
+pub fn i32_and_inst() -> Instruction {
+  I32And
+}
+
+///|
+pub fn i32_or_inst() -> Instruction {
+  I32Or
+}
+
+///|
+pub fn i32_xor_inst() -> Instruction {
+  I32Xor
+}
+
+///|
+pub fn i32_shl_inst() -> Instruction {
+  I32Shl
+}
+
+///|
+pub fn i32_shr_s_inst() -> Instruction {
+  I32ShrS
+}
+
+///|
+pub fn i32_shr_u_inst() -> Instruction {
+  I32ShrU
+}
+
+///|
+pub fn i32_rotl_inst() -> Instruction {
+  I32Rotl
+}
+
+///|
+pub fn i32_rotr_inst() -> Instruction {
+  I32Rotr
+}
+
+///|
+pub fn i64_clz_inst() -> Instruction {
+  I64Clz
+}
+
+///|
+pub fn i64_ctz_inst() -> Instruction {
+  I64Ctz
+}
+
+///|
+pub fn i64_popcnt_inst() -> Instruction {
+  I64Popcnt
+}
+
+///|
+pub fn i64_add_inst() -> Instruction {
+  I64Add
+}
+
+///|
+pub fn i64_sub_inst() -> Instruction {
+  I64Sub
+}
+
+///|
+pub fn i64_mul_inst() -> Instruction {
+  I64Mul
+}
+
+///|
+pub fn i64_div_s_inst() -> Instruction {
+  I64DivS
+}
+
+///|
+pub fn i64_div_u_inst() -> Instruction {
+  I64DivU
+}
+
+///|
+pub fn i64_rem_s_inst() -> Instruction {
+  I64RemS
+}
+
+///|
+pub fn i64_rem_u_inst() -> Instruction {
+  I64RemU
+}
+
+///|
+pub fn i64_and_inst() -> Instruction {
+  I64And
+}
+
+///|
+pub fn i64_or_inst() -> Instruction {
+  I64Or
+}
+
+///|
+pub fn i64_xor_inst() -> Instruction {
+  I64Xor
+}
+
+///|
+pub fn i64_shl_inst() -> Instruction {
+  I64Shl
+}
+
+///|
+pub fn i64_shr_s_inst() -> Instruction {
+  I64ShrS
+}
+
+///|
+pub fn i64_shr_u_inst() -> Instruction {
+  I64ShrU
+}
+
+///|
+pub fn i64_rotl_inst() -> Instruction {
+  I64Rotl
+}
+
+///|
+pub fn i64_rotr_inst() -> Instruction {
+  I64Rotr
+}
+
+///|
+pub fn f32_abs_inst() -> Instruction {
+  F32Abs
+}
+
+///|
+pub fn f32_neg_inst() -> Instruction {
+  F32Neg
+}
+
+///|
+pub fn f32_ceil_inst() -> Instruction {
+  F32Ceil
+}
+
+///|
+pub fn f32_floor_inst() -> Instruction {
+  F32Floor
+}
+
+///|
+pub fn f32_trunc_inst() -> Instruction {
+  F32Trunc
+}
+
+///|
+pub fn f32_nearest_inst() -> Instruction {
+  F32Nearest
+}
+
+///|
+pub fn f32_sqrt_inst() -> Instruction {
+  F32Sqrt
+}
+
+///|
+pub fn f32_add_inst() -> Instruction {
+  F32Add
+}
+
+///|
+pub fn f32_sub_inst() -> Instruction {
+  F32Sub
+}
+
+///|
+pub fn f32_mul_inst() -> Instruction {
+  F32Mul
+}
+
+///|
+pub fn f32_div_inst() -> Instruction {
+  F32Div
+}
+
+///|
+pub fn f32_min_inst() -> Instruction {
+  F32Min
+}
+
+///|
+pub fn f32_max_inst() -> Instruction {
+  F32Max
+}
+
+///|
+pub fn f32_copysign_inst() -> Instruction {
+  F32Copysign
+}
+
+///|
+pub fn f64_abs_inst() -> Instruction {
+  F64Abs
+}
+
+///|
+pub fn f64_neg_inst() -> Instruction {
+  F64Neg
+}
+
+///|
+pub fn f64_ceil_inst() -> Instruction {
+  F64Ceil
+}
+
+///|
+pub fn f64_floor_inst() -> Instruction {
+  F64Floor
+}
+
+///|
+pub fn f64_trunc_inst() -> Instruction {
+  F64Trunc
+}
+
+///|
+pub fn f64_nearest_inst() -> Instruction {
+  F64Nearest
+}
+
+///|
+pub fn f64_sqrt_inst() -> Instruction {
+  F64Sqrt
+}
+
+///|
+pub fn f64_add_inst() -> Instruction {
+  F64Add
+}
+
+///|
+pub fn f64_sub_inst() -> Instruction {
+  F64Sub
+}
+
+///|
+pub fn f64_mul_inst() -> Instruction {
+  F64Mul
+}
+
+///|
+pub fn f64_div_inst() -> Instruction {
+  F64Div
+}
+
+///|
+pub fn f64_min_inst() -> Instruction {
+  F64Min
+}
+
+///|
+pub fn f64_max_inst() -> Instruction {
+  F64Max
+}
+
+///|
+pub fn f64_copysign_inst() -> Instruction {
+  F64Copysign
+}
+
+///|
+pub fn i32_wrap_i64_inst() -> Instruction {
+  I32WrapI64
+}
+
+///|
+pub fn i32_trunc_f32s_inst() -> Instruction {
+  I32TruncF32S
+}
+
+///|
+pub fn i32_trunc_f32u_inst() -> Instruction {
+  I32TruncF32U
+}
+
+///|
+pub fn i32_trunc_f64s_inst() -> Instruction {
+  I32TruncF64S
+}
+
+///|
+pub fn i32_trunc_f64u_inst() -> Instruction {
+  I32TruncF64U
+}
+
+///|
+pub fn i64_extend_i32s_inst() -> Instruction {
+  I64ExtendI32S
+}
+
+///|
+pub fn i64_extend_i32u_inst() -> Instruction {
+  I64ExtendI32U
+}
+
+///|
+pub fn i64_trunc_f32s_inst() -> Instruction {
+  I64TruncF32S
+}
+
+///|
+pub fn i64_trunc_f32u_inst() -> Instruction {
+  I64TruncF32U
+}
+
+///|
+pub fn i64_trunc_f64s_inst() -> Instruction {
+  I64TruncF64S
+}
+
+///|
+pub fn i64_trunc_f64u_inst() -> Instruction {
+  I64TruncF64U
+}
+
+///|
+pub fn f32_convert_i32s_inst() -> Instruction {
+  F32ConvertI32S
+}
+
+///|
+pub fn f32_convert_i32u_inst() -> Instruction {
+  F32ConvertI32U
+}
+
+///|
+pub fn f32_convert_i64s_inst() -> Instruction {
+  F32ConvertI64S
+}
+
+///|
+pub fn f32_convert_i64u_inst() -> Instruction {
+  F32ConvertI64U
+}
+
+///|
+pub fn f32_demote_f64_inst() -> Instruction {
+  F32DemoteF64
+}
+
+///|
+pub fn f64_convert_i32s_inst() -> Instruction {
+  F64ConvertI32S
+}
+
+///|
+pub fn f64_convert_i32u_inst() -> Instruction {
+  F64ConvertI32U
+}
+
+///|
+pub fn f64_convert_i64s_inst() -> Instruction {
+  F64ConvertI64S
+}
+
+///|
+pub fn f64_convert_i64u_inst() -> Instruction {
+  F64ConvertI64U
+}
+
+///|
+pub fn f64_promote_f32_inst() -> Instruction {
+  F64PromoteF32
+}
+
+///|
+pub fn i32_reinterpret_f32_inst() -> Instruction {
+  I32ReinterpretF32
+}
+
+///|
+pub fn i64_reinterpret_f64_inst() -> Instruction {
+  I64ReinterpretF64
+}
+
+///|
+pub fn f32_reinterpret_i32_inst() -> Instruction {
+  F32ReinterpretI32
+}
+
+///|
+pub fn f64_reinterpret_i64_inst() -> Instruction {
+  F64ReinterpretI64
+}
+
+///|
+pub fn i32_extend8s_inst() -> Instruction {
+  I32Extend8S
+}
+
+///|
+pub fn i32_extend16s_inst() -> Instruction {
+  I32Extend16S
+}
+
+///|
+pub fn i64_extend8s_inst() -> Instruction {
+  I64Extend8S
+}
+
+///|
+pub fn i64_extend16s_inst() -> Instruction {
+  I64Extend16S
+}
+
+///|
+pub fn i64_extend32s_inst() -> Instruction {
+  I64Extend32S
+}
+
+///|
+pub fn ref_null_inst(ht : HeapType) -> Instruction {
+  RefNull(ht)
+}
+
+///|
+pub fn ref_is_null_inst() -> Instruction {
+  RefIsNull
+}
+
+///|
+pub fn ref_func_inst(fi : FuncIdx) -> Instruction {
+  RefFunc(fi)
+}
+
+///|
+pub fn ref_eq_inst() -> Instruction {
+  RefEq
+}
+
+///|
+pub fn ref_as_non_null_inst() -> Instruction {
+  RefAsNonNull
+}
+
+///|
+pub fn br_on_null_inst(li : LabelIdx) -> Instruction {
+  BrOnNull(li)
+}
+
+///|
+pub fn br_on_non_null_inst(li : LabelIdx) -> Instruction {
+  BrOnNonNull(li)
+}
+
+///|
+pub fn struct_new_inst(ti : TypeIdx) -> Instruction {
+  StructNew(ti)
+}
+
+///|
+pub fn struct_new_default_inst(ti : TypeIdx) -> Instruction {
+  StructNewDefault(ti)
+}
+
+///|
+pub fn struct_get_inst(ty : TypeIdx, fi : U32) -> Instruction {
+  StructGet(ty, fi)
+}
+
+///|
+pub fn struct_get_s_inst(ty : TypeIdx, fi : U32) -> Instruction {
+  StructGetS(ty, fi)
+}
+
+///|
+pub fn struct_get_u_inst(ty : TypeIdx, fi : U32) -> Instruction {
+  StructGetU(ty, fi)
+}
+
+///|
+pub fn struct_set_inst(ty : TypeIdx, fi : U32) -> Instruction {
+  StructSet(ty, fi)
+}
+
+///|
+pub fn array_new_inst(ti : TypeIdx) -> Instruction {
+  ArrayNew(ti)
+}
+
+///|
+pub fn array_new_default_inst(ti : TypeIdx) -> Instruction {
+  ArrayNewDefault(ti)
+}
+
+///|
+pub fn array_new_fixed_inst(ti : TypeIdx, len : U32) -> Instruction {
+  ArrayNewFixed(ti, len)
+}
+
+///|
+pub fn array_new_data_inst(ti : TypeIdx, di : DataIdx) -> Instruction {
+  ArrayNewData(ti, di)
+}
+
+///|
+pub fn array_new_elem_inst(ti : TypeIdx, ei : ElemIdx) -> Instruction {
+  ArrayNewElem(ti, ei)
+}
+
+///|
+pub fn array_get_inst(ti : TypeIdx) -> Instruction {
+  ArrayGet(ti)
+}
+
+///|
+pub fn array_get_s_inst(ti : TypeIdx) -> Instruction {
+  ArrayGetS(ti)
+}
+
+///|
+pub fn array_get_u_inst(ti : TypeIdx) -> Instruction {
+  ArrayGetU(ti)
+}
+
+///|
+pub fn array_set_inst(ti : TypeIdx) -> Instruction {
+  ArraySet(ti)
+}
+
+///|
+pub fn array_len_inst() -> Instruction {
+  ArrayLen
+}
+
+///|
+pub fn array_fill_inst(ti : TypeIdx) -> Instruction {
+  ArrayFill(ti)
+}
+
+///|
+pub fn array_copy_inst(ti0 : TypeIdx, ti1 : TypeIdx) -> Instruction {
+  ArrayCopy(ti0, ti1)
+}
+
+///|
+pub fn array_init_data_inst(ti : TypeIdx, di : DataIdx) -> Instruction {
+  ArrayInitData(ti, di)
+}
+
+///|
+pub fn array_init_elem_inst(ti : TypeIdx, ei : ElemIdx) -> Instruction {
+  ArrayInitElem(ti, ei)
+}
+
+///|
+pub fn ref_test_inst(nullable : Bool, ht : HeapType) -> Instruction {
+  RefTest(nullable, ht)
+}
+
+///|
+pub fn ref_cast_inst(nullable : Bool, ht : HeapType) -> Instruction {
+  RefCast(nullable, ht)
+}
+
+///|
+pub fn br_on_cast_inst(
+  li : LabelIdx,
+  t_nullable_0 : Bool,
+  ht0 : HeapType,
+  t_nullable_1 : Bool,
+  ht1 : HeapType,
+) -> Instruction {
+  BrOnCast(li, CastOp(t_nullable_0, t_nullable_1), ht0, ht1)
+}
+
+///|
+pub fn br_on_cast_fail_inst(
+  li : LabelIdx,
+  t_nullable_0 : Bool,
+  ht0 : HeapType,
+  t_nullable_1 : Bool,
+  ht1 : HeapType,
+) -> Instruction {
+  BrOnCastFail(li, CastOp(t_nullable_0, t_nullable_1), ht0, ht1)
+}
+
+///|
+pub fn any_convert_extern_inst() -> Instruction {
+  AnyConvertExtern
+}
+
+///|
+pub fn extern_convert_any_inst() -> Instruction {
+  ExternConvertAny
+}
+
+///|
+pub fn ref_i31_inst() -> Instruction {
+  RefI31
+}
+
+///|
+pub fn i31_get_s_inst() -> Instruction {
+  I31GetS
+}
+
+///|
+pub fn i31_get_u_inst() -> Instruction {
+  I31GetU
+}
+
+///|
+pub fn i32_trunc_sat_f32s_inst() -> Instruction {
+  I32TruncSatF32S
+}
+
+///|
+pub fn i32_trunc_sat_f32u_inst() -> Instruction {
+  I32TruncSatF32U
+}
+
+///|
+pub fn i32_trunc_sat_f64s_inst() -> Instruction {
+  I32TruncSatF64S
+}
+
+///|
+pub fn i32_trunc_sat_f64u_inst() -> Instruction {
+  I32TruncSatF64U
+}
+
+///|
+pub fn i64_trunc_sat_f32s_inst() -> Instruction {
+  I64TruncSatF32S
+}
+
+///|
+pub fn i64_trunc_sat_f32u_inst() -> Instruction {
+  I64TruncSatF32U
+}
+
+///|
+pub fn i64_trunc_sat_f64s_inst() -> Instruction {
+  I64TruncSatF64S
+}
+
+///|
+pub fn i64_trunc_sat_f64u_inst() -> Instruction {
+  I64TruncSatF64U
+}
+
+///|
+pub fn memory_init_inst(di : DataIdx, mi : MemIdx) -> Instruction {
+  MemoryInit(di, mi)
+}
+
+///|
+pub fn data_drop_inst(di : DataIdx) -> Instruction {
+  DataDrop(di)
+}
+
+///|
+pub fn memory_copy_inst(mi0 : MemIdx, mi1 : MemIdx) -> Instruction {
+  MemoryCopy(mi0, mi1)
+}
+
+///|
+pub fn memory_fill_inst(mi : MemIdx) -> Instruction {
+  MemoryFill(mi)
+}
+
+///|
+pub fn table_init_inst(ei : ElemIdx, ti : TableIdx) -> Instruction {
+  TableInit(ei, ti)
+}
+
+///|
+pub fn elem_drop_inst(ei : ElemIdx) -> Instruction {
+  ElemDrop(ei)
+}
+
+///|
+pub fn table_copy_inst(ti0 : TableIdx, ti1 : TableIdx) -> Instruction {
+  TableCopy(ti0, ti1)
+}
+
+///|
+pub fn table_grow_inst(ti : TableIdx) -> Instruction {
+  TableGrow(ti)
+}
+
+///|
+pub fn table_size_inst(ti : TableIdx) -> Instruction {
+  TableSize(ti)
+}
+
+///|
+pub fn table_fill_inst(ti : TableIdx) -> Instruction {
+  TableFill(ti)
+}
+
+///|
+pub fn v128_load_inst(ma : MemArg) -> Instruction {
+  V128Load(ma)
+}
+
+///|
+pub fn v128_load8x8s_inst(ma : MemArg) -> Instruction {
+  V128Load8x8S(ma)
+}
+
+///|
+pub fn v128_load8x8u_inst(ma : MemArg) -> Instruction {
+  V128Load8x8U(ma)
+}
+
+///|
+pub fn v128_load16x4s_inst(ma : MemArg) -> Instruction {
+  V128Load16x4S(ma)
+}
+
+///|
+pub fn v128_load16x4u_inst(ma : MemArg) -> Instruction {
+  V128Load16x4U(ma)
+}
+
+///|
+pub fn v128_load32x2s_inst(ma : MemArg) -> Instruction {
+  V128Load32x2S(ma)
+}
+
+///|
+pub fn v128_load32x2u_inst(ma : MemArg) -> Instruction {
+  V128Load32x2U(ma)
+}
+
+///|
+pub fn v128_load8_splat_inst(ma : MemArg) -> Instruction {
+  V128Load8Splat(ma)
+}
+
+///|
+pub fn v128_load16_splat_inst(ma : MemArg) -> Instruction {
+  V128Load16Splat(ma)
+}
+
+///|
+pub fn v128_load32_splat_inst(ma : MemArg) -> Instruction {
+  V128Load32Splat(ma)
+}
+
+///|
+pub fn v128_load64_splat_inst(ma : MemArg) -> Instruction {
+  V128Load64Splat(ma)
+}
+
+///|
+pub fn v128_store_inst(ma : MemArg) -> Instruction {
+  V128Store(ma)
+}
+
+///|
+pub fn v128_const_inst(
+  b0 : Byte,
+  b1 : Byte,
+  b2 : Byte,
+  b3 : Byte,
+  b4 : Byte,
+  b5 : Byte,
+  b6 : Byte,
+  b7 : Byte,
+  b8 : Byte,
+  b9 : Byte,
+  b10 : Byte,
+  b11 : Byte,
+  b12 : Byte,
+  b13 : Byte,
+  b14 : Byte,
+  b15 : Byte,
+) -> Instruction {
+  V128Const(
+    b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15,
+  )
+}
+
+///|
+pub fn i8x16_shuffle_inst(
+  li0 : LaneIdx,
+  li1 : LaneIdx,
+  li2 : LaneIdx,
+  li3 : LaneIdx,
+  li4 : LaneIdx,
+  li5 : LaneIdx,
+  li6 : LaneIdx,
+  li7 : LaneIdx,
+  li8 : LaneIdx,
+  li9 : LaneIdx,
+  li10 : LaneIdx,
+  li11 : LaneIdx,
+  li12 : LaneIdx,
+  li13 : LaneIdx,
+  li14 : LaneIdx,
+  li15 : LaneIdx,
+) -> Instruction {
+  I8x16Shuffle(
+    li0, li1, li2, li3, li4, li5, li6, li7, li8, li9, li10, li11, li12, li13, li14,
+    li15,
+  )
+}
+
+///|
+pub fn i8x16_swizzle_inst() -> Instruction {
+  I8x16Swizzle
+}
+
+///|
+pub fn i8x16_splat_inst() -> Instruction {
+  I8x16Splat
+}
+
+///|
+pub fn i16x8_splat_inst() -> Instruction {
+  I16x8Splat
+}
+
+///|
+pub fn i32x4_splat_inst() -> Instruction {
+  I32x4Splat
+}
+
+///|
+pub fn i64x2_splat_inst() -> Instruction {
+  I64x2Splat
+}
+
+///|
+pub fn f32x4_splat_inst() -> Instruction {
+  F32x4Splat
+}
+
+///|
+pub fn f64x2_splat_inst() -> Instruction {
+  F64x2Splat
+}
+
+///|
+pub fn i8x16_extract_lane_s_inst(li : LaneIdx) -> Instruction {
+  I8x16ExtractLaneS(li)
+}
+
+///|
+pub fn i8x16_extract_lane_u_inst(li : LaneIdx) -> Instruction {
+  I8x16ExtractLaneU(li)
+}
+
+///|
+pub fn i8x16_replace_lane_inst(li : LaneIdx) -> Instruction {
+  I8x16ReplaceLane(li)
+}
+
+///|
+pub fn i16x8_extract_lane_s_inst(li : LaneIdx) -> Instruction {
+  I16x8ExtractLaneS(li)
+}
+
+///|
+pub fn i16x8_extract_lane_u_inst(li : LaneIdx) -> Instruction {
+  I16x8ExtractLaneU(li)
+}
+
+///|
+pub fn i16x8_replace_lane_inst(li : LaneIdx) -> Instruction {
+  I16x8ReplaceLane(li)
+}
+
+///|
+pub fn i32x4_extract_lane_inst(li : LaneIdx) -> Instruction {
+  I32x4ExtractLane(li)
+}
+
+///|
+pub fn i32x4_replace_lane_inst(li : LaneIdx) -> Instruction {
+  I32x4ReplaceLane(li)
+}
+
+///|
+pub fn i64x2_extract_lane_inst(li : LaneIdx) -> Instruction {
+  I64x2ExtractLane(li)
+}
+
+///|
+pub fn i64x2_replace_lane_inst(li : LaneIdx) -> Instruction {
+  I64x2ReplaceLane(li)
+}
+
+///|
+pub fn f32x4_extract_lane_inst(li : LaneIdx) -> Instruction {
+  F32x4ExtractLane(li)
+}
+
+///|
+pub fn f32x4_replace_lane_inst(li : LaneIdx) -> Instruction {
+  F32x4ReplaceLane(li)
+}
+
+///|
+pub fn f64x2_extract_lane_inst(li : LaneIdx) -> Instruction {
+  F64x2ExtractLane(li)
+}
+
+///|
+pub fn f64x2_replace_lane_inst(li : LaneIdx) -> Instruction {
+  F64x2ReplaceLane(li)
+}
+
+///|
+pub fn i8x16_eq_inst() -> Instruction {
+  I8x16Eq
+}
+
+///|
+pub fn i8x16_ne_inst() -> Instruction {
+  I8x16Ne
+}
+
+///|
+pub fn i8x16_lt_s_inst() -> Instruction {
+  I8x16LtS
+}
+
+///|
+pub fn i8x16_lt_u_inst() -> Instruction {
+  I8x16LtU
+}
+
+///|
+pub fn i8x16_gt_s_inst() -> Instruction {
+  I8x16GtS
+}
+
+///|
+pub fn i8x16_gt_u_inst() -> Instruction {
+  I8x16GtU
+}
+
+///|
+pub fn i8x16_le_s_inst() -> Instruction {
+  I8x16LeS
+}
+
+///|
+pub fn i8x16_le_u_inst() -> Instruction {
+  I8x16LeU
+}
+
+///|
+pub fn i8x16_ge_s_inst() -> Instruction {
+  I8x16GeS
+}
+
+///|
+pub fn i8x16_ge_u_inst() -> Instruction {
+  I8x16GeU
+}
+
+///|
+pub fn i16x8_eq_inst() -> Instruction {
+  I16x8Eq
+}
+
+///|
+pub fn i16x8_ne_inst() -> Instruction {
+  I16x8Ne
+}
+
+///|
+pub fn i16x8_lt_s_inst() -> Instruction {
+  I16x8LtS
+}
+
+///|
+pub fn i16x8_lt_u_inst() -> Instruction {
+  I16x8LtU
+}
+
+///|
+pub fn i16x8_gt_s_inst() -> Instruction {
+  I16x8GtS
+}
+
+///|
+pub fn i16x8_gt_u_inst() -> Instruction {
+  I16x8GtU
+}
+
+///|
+pub fn i16x8_le_s_inst() -> Instruction {
+  I16x8LeS
+}
+
+///|
+pub fn i16x8_le_u_inst() -> Instruction {
+  I16x8LeU
+}
+
+///|
+pub fn i16x8_ge_s_inst() -> Instruction {
+  I16x8GeS
+}
+
+///|
+pub fn i16x8_ge_u_inst() -> Instruction {
+  I16x8GeU
+}
+
+///|
+pub fn i32x4_eq_inst() -> Instruction {
+  I32x4Eq
+}
+
+///|
+pub fn i32x4_ne_inst() -> Instruction {
+  I32x4Ne
+}
+
+///|
+pub fn i32x4_lt_s_inst() -> Instruction {
+  I32x4LtS
+}
+
+///|
+pub fn i32x4_lt_u_inst() -> Instruction {
+  I32x4LtU
+}
+
+///|
+pub fn i32x4_gt_s_inst() -> Instruction {
+  I32x4GtS
+}
+
+///|
+pub fn i32x4_gt_u_inst() -> Instruction {
+  I32x4GtU
+}
+
+///|
+pub fn i32x4_le_s_inst() -> Instruction {
+  I32x4LeS
+}
+
+///|
+pub fn i32x4_le_u_inst() -> Instruction {
+  I32x4LeU
+}
+
+///|
+pub fn i32x4_ge_s_inst() -> Instruction {
+  I32x4GeS
+}
+
+///|
+pub fn i32x4_ge_u_inst() -> Instruction {
+  I32x4GeU
+}
+
+///|
+pub fn f32x4_eq_inst() -> Instruction {
+  F32x4Eq
+}
+
+///|
+pub fn f32x4_ne_inst() -> Instruction {
+  F32x4Ne
+}
+
+///|
+pub fn f32x4_lt_inst() -> Instruction {
+  F32x4Lt
+}
+
+///|
+pub fn f32x4_gt_inst() -> Instruction {
+  F32x4Gt
+}
+
+///|
+pub fn f32x4_le_inst() -> Instruction {
+  F32x4Le
+}
+
+///|
+pub fn f32x4_ge_inst() -> Instruction {
+  F32x4Ge
+}
+
+///|
+pub fn f64x2_eq_inst() -> Instruction {
+  F64x2Eq
+}
+
+///|
+pub fn f64x2_ne_inst() -> Instruction {
+  F64x2Ne
+}
+
+///|
+pub fn f64x2_lt_inst() -> Instruction {
+  F64x2Lt
+}
+
+///|
+pub fn f64x2_gt_inst() -> Instruction {
+  F64x2Gt
+}
+
+///|
+pub fn f64x2_le_inst() -> Instruction {
+  F64x2Le
+}
+
+///|
+pub fn f64x2_ge_inst() -> Instruction {
+  F64x2Ge
+}
+
+///|
+pub fn v128_not_inst() -> Instruction {
+  V128Not
+}
+
+///|
+pub fn v128_and_inst() -> Instruction {
+  V128And
+}
+
+///|
+pub fn v128_andnot_inst() -> Instruction {
+  V128Andnot
+}
+
+///|
+pub fn v128_or_inst() -> Instruction {
+  V128Or
+}
+
+///|
+pub fn v128_xor_inst() -> Instruction {
+  V128Xor
+}
+
+///|
+pub fn v128_bitselect_inst() -> Instruction {
+  V128Bitselect
+}
+
+///|
+pub fn v128_any_true_inst() -> Instruction {
+  V128AnyTrue
+}
+
+///|
+pub fn v128_load8_lane_inst(ma : MemArg, li : LaneIdx) -> Instruction {
+  V128Load8Lane(ma, li)
+}
+
+///|
+pub fn v128_load16_lane_inst(ma : MemArg, li : LaneIdx) -> Instruction {
+  V128Load16Lane(ma, li)
+}
+
+///|
+pub fn v128_load32_lane_inst(ma : MemArg, li : LaneIdx) -> Instruction {
+  V128Load32Lane(ma, li)
+}
+
+///|
+pub fn v128_load64_lane_inst(ma : MemArg, li : LaneIdx) -> Instruction {
+  V128Load64Lane(ma, li)
+}
+
+///|
+pub fn v128_store8_lane_inst(ma : MemArg, li : LaneIdx) -> Instruction {
+  V128Store8Lane(ma, li)
+}
+
+///|
+pub fn v128_store16_lane_inst(ma : MemArg, li : LaneIdx) -> Instruction {
+  V128Store16Lane(ma, li)
+}
+
+///|
+pub fn v128_store32_lane_inst(ma : MemArg, li : LaneIdx) -> Instruction {
+  V128Store32Lane(ma, li)
+}
+
+///|
+pub fn v128_store64_lane_inst(ma : MemArg, li : LaneIdx) -> Instruction {
+  V128Store64Lane(ma, li)
+}
+
+///|
+pub fn v128_load32_zero_inst(ma : MemArg) -> Instruction {
+  V128Load32Zero(ma)
+}
+
+///|
+pub fn v128_load64_zero_inst(ma : MemArg) -> Instruction {
+  V128Load64Zero(ma)
+}
+
+///|
+pub fn f32x4_demote_f64x2_zero_inst() -> Instruction {
+  F32x4DemoteF64x2Zero
+}
+
+///|
+pub fn f64x2_promote_low_f32x4_inst() -> Instruction {
+  F64x2PromoteLowF32x4
+}
+
+///|
+pub fn i8x16_abs_inst() -> Instruction {
+  I8x16Abs
+}
+
+///|
+pub fn i8x16_neg_inst() -> Instruction {
+  I8x16Neg
+}
+
+///|
+pub fn i8x16_popcnt_inst() -> Instruction {
+  I8x16Popcnt
+}
+
+///|
+pub fn i8x16_all_true_inst() -> Instruction {
+  I8x16AllTrue
+}
+
+///|
+pub fn i8x16_bitmask_inst() -> Instruction {
+  I8x16Bitmask
+}
+
+///|
+pub fn i8x16_narrow_i16x8s_inst() -> Instruction {
+  I8x16NarrowI16x8S
+}
+
+///|
+pub fn i8x16_narrow_i16x8u_inst() -> Instruction {
+  I8x16NarrowI16x8U
+}
+
+///|
+pub fn f32x4_ceil_inst() -> Instruction {
+  F32x4Ceil
+}
+
+///|
+pub fn f32x4_floor_inst() -> Instruction {
+  F32x4Floor
+}
+
+///|
+pub fn f32x4_trunc_inst() -> Instruction {
+  F32x4Trunc
+}
+
+///|
+pub fn f32x4_nearest_inst() -> Instruction {
+  F32x4Nearest
+}
+
+///|
+pub fn i8x16_shl_inst() -> Instruction {
+  I8x16Shl
+}
+
+///|
+pub fn i8x16_shr_s_inst() -> Instruction {
+  I8x16ShrS
+}
+
+///|
+pub fn i8x16_shr_u_inst() -> Instruction {
+  I8x16ShrU
+}
+
+///|
+pub fn i8x16_add_inst() -> Instruction {
+  I8x16Add
+}
+
+///|
+pub fn i8x16_add_sat_s_inst() -> Instruction {
+  I8x16AddSatS
+}
+
+///|
+pub fn i8x16_add_sat_u_inst() -> Instruction {
+  I8x16AddSatU
+}
+
+///|
+pub fn i8x16_sub_inst() -> Instruction {
+  I8x16Sub
+}
+
+///|
+pub fn i8x16_sub_sat_s_inst() -> Instruction {
+  I8x16SubSatS
+}
+
+///|
+pub fn i8x16_sub_sat_u_inst() -> Instruction {
+  I8x16SubSatU
+}
+
+///|
+pub fn f64x2_ceil_inst() -> Instruction {
+  F64x2Ceil
+}
+
+///|
+pub fn f64x2_floor_inst() -> Instruction {
+  F64x2Floor
+}
+
+///|
+pub fn i8x16_min_s_inst() -> Instruction {
+  I8x16MinS
+}
+
+///|
+pub fn i8x16_min_u_inst() -> Instruction {
+  I8x16MinU
+}
+
+///|
+pub fn i8x16_max_s_inst() -> Instruction {
+  I8x16MaxS
+}
+
+///|
+pub fn i8x16_max_u_inst() -> Instruction {
+  I8x16MaxU
+}
+
+///|
+pub fn f64x2_trunc_inst() -> Instruction {
+  F64x2Trunc
+}
+
+///|
+pub fn i8x16_avgr_u_inst() -> Instruction {
+  I8x16AvgrU
+}
+
+///|
+pub fn i16x8_extadd_pairwise_i8x16s_inst() -> Instruction {
+  I16x8ExtaddPairwiseI8x16S
+}
+
+///|
+pub fn i16x8_extadd_pairwise_i8x16u_inst() -> Instruction {
+  I16x8ExtaddPairwiseI8x16U
+}
+
+///|
+pub fn i32x4_extadd_pairwise_i16x8s_inst() -> Instruction {
+  I32x4ExtaddPairwiseI16x8S
+}
+
+///|
+pub fn i32x4_extadd_pairwise_i16x8u_inst() -> Instruction {
+  I32x4ExtaddPairwiseI16x8U
+}
+
+///|
+pub fn i16x8_abs_inst() -> Instruction {
+  I16x8Abs
+}
+
+///|
+pub fn i16x8_neg_inst() -> Instruction {
+  I16x8Neg
+}
+
+///|
+pub fn i16x8q15mulr_sat_s_inst() -> Instruction {
+  I16x8Q15mulrSatS
+}
+
+///|
+pub fn i16x8_all_true_inst() -> Instruction {
+  I16x8AllTrue
+}
+
+///|
+pub fn i16x8_bitmask_inst() -> Instruction {
+  I16x8Bitmask
+}
+
+///|
+pub fn i16x8_narrow_i32x4s_inst() -> Instruction {
+  I16x8NarrowI32x4S
+}
+
+///|
+pub fn i16x8_narrow_i32x4u_inst() -> Instruction {
+  I16x8NarrowI32x4U
+}
+
+///|
+pub fn i16x8_extend_low_i8x16s_inst() -> Instruction {
+  I16x8ExtendLowI8x16S
+}
+
+///|
+pub fn i16x8_extend_high_i8x16s_inst() -> Instruction {
+  I16x8ExtendHighI8x16S
+}
+
+///|
+pub fn i16x8_extend_low_i8x16u_inst() -> Instruction {
+  I16x8ExtendLowI8x16U
+}
+
+///|
+pub fn i16x8_extend_high_i8x16u_inst() -> Instruction {
+  I16x8ExtendHighI8x16U
+}
+
+///|
+pub fn i16x8_shl_inst() -> Instruction {
+  I16x8Shl
+}
+
+///|
+pub fn i16x8_shr_s_inst() -> Instruction {
+  I16x8ShrS
+}
+
+///|
+pub fn i16x8_shr_u_inst() -> Instruction {
+  I16x8ShrU
+}
+
+///|
+pub fn i16x8_add_inst() -> Instruction {
+  I16x8Add
+}
+
+///|
+pub fn i16x8_add_sat_s_inst() -> Instruction {
+  I16x8AddSatS
+}
+
+///|
+pub fn i16x8_add_sat_u_inst() -> Instruction {
+  I16x8AddSatU
+}
+
+///|
+pub fn i16x8_sub_inst() -> Instruction {
+  I16x8Sub
+}
+
+///|
+pub fn i16x8_sub_sat_s_inst() -> Instruction {
+  I16x8SubSatS
+}
+
+///|
+pub fn i16x8_sub_sat_u_inst() -> Instruction {
+  I16x8SubSatU
+}
+
+///|
+pub fn f64x2_nearest_inst() -> Instruction {
+  F64x2Nearest
+}
+
+///|
+pub fn i16x8_mul_inst() -> Instruction {
+  I16x8Mul
+}
+
+///|
+pub fn i16x8_min_s_inst() -> Instruction {
+  I16x8MinS
+}
+
+///|
+pub fn i16x8_min_u_inst() -> Instruction {
+  I16x8MinU
+}
+
+///|
+pub fn i16x8_max_s_inst() -> Instruction {
+  I16x8MaxS
+}
+
+///|
+pub fn i16x8_max_u_inst() -> Instruction {
+  I16x8MaxU
+}
+
+///|
+pub fn i16x8_avgr_u_inst() -> Instruction {
+  I16x8AvgrU
+}
+
+///|
+pub fn i16x8_extmul_low_i8x16s_inst() -> Instruction {
+  I16x8ExtmulLowI8x16S
+}
+
+///|
+pub fn i16x8_extmul_high_i8x16s_inst() -> Instruction {
+  I16x8ExtmulHighI8x16S
+}
+
+///|
+pub fn i16x8_extmul_low_i8x16u_inst() -> Instruction {
+  I16x8ExtmulLowI8x16U
+}
+
+///|
+pub fn i16x8_extmul_high_i8x16u_inst() -> Instruction {
+  I16x8ExtmulHighI8x16U
+}
+
+///|
+pub fn i32x4_abs_inst() -> Instruction {
+  I32x4Abs
+}
+
+///|
+pub fn i32x4_neg_inst() -> Instruction {
+  I32x4Neg
+}
+
+///|
+pub fn i32x4_all_true_inst() -> Instruction {
+  I32x4AllTrue
+}
+
+///|
+pub fn i32x4_bitmask_inst() -> Instruction {
+  I32x4Bitmask
+}
+
+///|
+pub fn i32x4_extend_low_i16x8s_inst() -> Instruction {
+  I32x4ExtendLowI16x8S
+}
+
+///|
+pub fn i32x4_extend_high_i16x8s_inst() -> Instruction {
+  I32x4ExtendHighI16x8S
+}
+
+///|
+pub fn i32x4_extend_low_i16x8u_inst() -> Instruction {
+  I32x4ExtendLowI16x8U
+}
+
+///|
+pub fn i32x4_extend_high_i16x8u_inst() -> Instruction {
+  I32x4ExtendHighI16x8U
+}
+
+///|
+pub fn i32x4_shl_inst() -> Instruction {
+  I32x4Shl
+}
+
+///|
+pub fn i32x4_shr_s_inst() -> Instruction {
+  I32x4ShrS
+}
+
+///|
+pub fn i32x4_shr_u_inst() -> Instruction {
+  I32x4ShrU
+}
+
+///|
+pub fn i32x4_add_inst() -> Instruction {
+  I32x4Add
+}
+
+///|
+pub fn i32x4_sub_inst() -> Instruction {
+  I32x4Sub
+}
+
+///|
+pub fn i32x4_mul_inst() -> Instruction {
+  I32x4Mul
+}
+
+///|
+pub fn i32x4_min_s_inst() -> Instruction {
+  I32x4MinS
+}
+
+///|
+pub fn i32x4_min_u_inst() -> Instruction {
+  I32x4MinU
+}
+
+///|
+pub fn i32x4_max_s_inst() -> Instruction {
+  I32x4MaxS
+}
+
+///|
+pub fn i32x4_max_u_inst() -> Instruction {
+  I32x4MaxU
+}
+
+///|
+pub fn i32x4_dot_i16x8s_inst() -> Instruction {
+  I32x4DotI16x8S
+}
+
+///|
+pub fn i32x4_extmul_low_i16x8s_inst() -> Instruction {
+  I32x4ExtmulLowI16x8S
+}
+
+///|
+pub fn i32x4_extmul_high_i16x8s_inst() -> Instruction {
+  I32x4ExtmulHighI16x8S
+}
+
+///|
+pub fn i32x4_extmul_low_i16x8u_inst() -> Instruction {
+  I32x4ExtmulLowI16x8U
+}
+
+///|
+pub fn i32x4_extmul_high_i16x8u_inst() -> Instruction {
+  I32x4ExtmulHighI16x8U
+}
+
+///|
+pub fn i64x2_abs_inst() -> Instruction {
+  I64x2Abs
+}
+
+///|
+pub fn i64x2_neg_inst() -> Instruction {
+  I64x2Neg
+}
+
+///|
+pub fn i64x2_all_true_inst() -> Instruction {
+  I64x2AllTrue
+}
+
+///|
+pub fn i64x2_bitmask_inst() -> Instruction {
+  I64x2Bitmask
+}
+
+///|
+pub fn i64x2_extend_low_i32x4s_inst() -> Instruction {
+  I64x2ExtendLowI32x4S
+}
+
+///|
+pub fn i64x2_extend_high_i32x4s_inst() -> Instruction {
+  I64x2ExtendHighI32x4S
+}
+
+///|
+pub fn i64x2_extend_low_i32x4u_inst() -> Instruction {
+  I64x2ExtendLowI32x4U
+}
+
+///|
+pub fn i64x2_extend_high_i32x4u_inst() -> Instruction {
+  I64x2ExtendHighI32x4U
+}
+
+///|
+pub fn i64x2_shl_inst() -> Instruction {
+  I64x2Shl
+}
+
+///|
+pub fn i64x2_shr_s_inst() -> Instruction {
+  I64x2ShrS
+}
+
+///|
+pub fn i64x2_shr_u_inst() -> Instruction {
+  I64x2ShrU
+}
+
+///|
+pub fn i64x2_add_inst() -> Instruction {
+  I64x2Add
+}
+
+///|
+pub fn i64x2_sub_inst() -> Instruction {
+  I64x2Sub
+}
+
+///|
+pub fn i64x2_mul_inst() -> Instruction {
+  I64x2Mul
+}
+
+///|
+pub fn i64x2_eq_inst() -> Instruction {
+  I64x2Eq
+}
+
+///|
+pub fn i64x2_ne_inst() -> Instruction {
+  I64x2Ne
+}
+
+///|
+pub fn i64x2_lt_s_inst() -> Instruction {
+  I64x2LtS
+}
+
+///|
+pub fn i64x2_gt_s_inst() -> Instruction {
+  I64x2GtS
+}
+
+///|
+pub fn i64x2_le_s_inst() -> Instruction {
+  I64x2LeS
+}
+
+///|
+pub fn i64x2_ge_s_inst() -> Instruction {
+  I64x2GeS
+}
+
+///|
+pub fn i64x2_extmul_low_i32x4s_inst() -> Instruction {
+  I64x2ExtmulLowI32x4S
+}
+
+///|
+pub fn i64x2_extmul_high_i32x4s_inst() -> Instruction {
+  I64x2ExtmulHighI32x4S
+}
+
+///|
+pub fn i64x2_extmul_low_i32x4u_inst() -> Instruction {
+  I64x2ExtmulLowI32x4U
+}
+
+///|
+pub fn i64x2_extmul_high_i32x4u_inst() -> Instruction {
+  I64x2ExtmulHighI32x4U
+}
+
+///|
+pub fn f32x4_abs_inst() -> Instruction {
+  F32x4Abs
+}
+
+///|
+pub fn f32x4_neg_inst() -> Instruction {
+  F32x4Neg
+}
+
+///|
+pub fn f32x4_sqrt_inst() -> Instruction {
+  F32x4Sqrt
+}
+
+///|
+pub fn f32x4_add_inst() -> Instruction {
+  F32x4Add
+}
+
+///|
+pub fn f32x4_sub_inst() -> Instruction {
+  F32x4Sub
+}
+
+///|
+pub fn f32x4_mul_inst() -> Instruction {
+  F32x4Mul
+}
+
+///|
+pub fn f32x4_div_inst() -> Instruction {
+  F32x4Div
+}
+
+///|
+pub fn f32x4_min_inst() -> Instruction {
+  F32x4Min
+}
+
+///|
+pub fn f32x4_max_inst() -> Instruction {
+  F32x4Max
+}
+
+///|
+pub fn f32x4_pmin_inst() -> Instruction {
+  F32x4Pmin
+}
+
+///|
+pub fn f32x4_pmax_inst() -> Instruction {
+  F32x4Pmax
+}
+
+///|
+pub fn f64x2_abs_inst() -> Instruction {
+  F64x2Abs
+}
+
+///|
+pub fn f64x2_neg_inst() -> Instruction {
+  F64x2Neg
+}
+
+///|
+pub fn f64x2_sqrt_inst() -> Instruction {
+  F64x2Sqrt
+}
+
+///|
+pub fn f64x2_add_inst() -> Instruction {
+  F64x2Add
+}
+
+///|
+pub fn f64x2_sub_inst() -> Instruction {
+  F64x2Sub
+}
+
+///|
+pub fn f64x2_mul_inst() -> Instruction {
+  F64x2Mul
+}
+
+///|
+pub fn f64x2_div_inst() -> Instruction {
+  F64x2Div
+}
+
+///|
+pub fn f64x2_min_inst() -> Instruction {
+  F64x2Min
+}
+
+///|
+pub fn f64x2_max_inst() -> Instruction {
+  F64x2Max
+}
+
+///|
+pub fn f64x2_pmin_inst() -> Instruction {
+  F64x2Pmin
+}
+
+///|
+pub fn f64x2_pmax_inst() -> Instruction {
+  F64x2Pmax
+}
+
+///|
+pub fn i32x4_trunc_sat_f32x4s_inst() -> Instruction {
+  I32x4TruncSatF32x4S
+}
+
+///|
+pub fn i32x4_trunc_sat_f32x4u_inst() -> Instruction {
+  I32x4TruncSatF32x4U
+}
+
+///|
+pub fn f32x4_convert_i32x4s_inst() -> Instruction {
+  F32x4ConvertI32x4S
+}
+
+///|
+pub fn f32x4_convert_i32x4u_inst() -> Instruction {
+  F32x4ConvertI32x4U
+}
+
+///|
+pub fn i32x4_trunc_sat_f64x2s_zero_inst() -> Instruction {
+  I32x4TruncSatF64x2SZero
+}
+
+///|
+pub fn i32x4_trunc_sat_f64x2u_zero_inst() -> Instruction {
+  I32x4TruncSatF64x2UZero
+}
+
+///|
+pub fn f64x2_convert_low_i32x4s_inst() -> Instruction {
+  F64x2ConvertLowI32x4S
+}
+
+///|
+pub fn f64x2_convert_low_i32x4u_inst() -> Instruction {
+  F64x2ConvertLowI32x4U
+}
+
+///|
+pub fn i8x16_relaxed_swizzle_inst() -> Instruction {
+  I8x16RelaxedSwizzle
+}
+
+///|
+pub fn i32x4_relaxed_trunc_f32x4s_inst() -> Instruction {
+  I32x4RelaxedTruncF32x4S
+}
+
+///|
+pub fn i32x4_relaxed_trunc_f32x4u_inst() -> Instruction {
+  I32x4RelaxedTruncF32x4U
+}
+
+///|
+pub fn i32x4_relaxed_trunc_zero_f64x2s_inst() -> Instruction {
+  I32x4RelaxedTruncZeroF64x2S
+}
+
+///|
+pub fn i32x4_relaxed_trunc_zero_f64x2u_inst() -> Instruction {
+  I32x4RelaxedTruncZeroF64x2U
+}
+
+///|
+pub fn f32x4_relaxed_madd_inst() -> Instruction {
+  F32x4RelaxedMadd
+}
+
+///|
+pub fn f32x4_relaxed_nmadd_inst() -> Instruction {
+  F32x4RelaxedNmadd
+}
+
+///|
+pub fn f64x2_relaxed_madd_inst() -> Instruction {
+  F64x2RelaxedMadd
+}
+
+///|
+pub fn f64x2_relaxed_nmadd_inst() -> Instruction {
+  F64x2RelaxedNmadd
+}
+
+///|
+pub fn i8x16_relaxed_laneselect_inst() -> Instruction {
+  I8x16RelaxedLaneselect
+}
+
+///|
+pub fn i16x8_relaxed_laneselect_inst() -> Instruction {
+  I16x8RelaxedLaneselect
+}
+
+///|
+pub fn i32x4_relaxed_laneselect_inst() -> Instruction {
+  I32x4RelaxedLaneselect
+}
+
+///|
+pub fn i64x2_relaxed_laneselect_inst() -> Instruction {
+  I64x2RelaxedLaneselect
+}
+
+///|
+pub fn f32x4_relaxed_min_inst() -> Instruction {
+  F32x4RelaxedMin
+}
+
+///|
+pub fn f32x4_relaxed_max_inst() -> Instruction {
+  F32x4RelaxedMax
+}
+
+///|
+pub fn f64x2_relaxed_min_inst() -> Instruction {
+  F64x2RelaxedMin
+}
+
+///|
+pub fn f64x2_relaxed_max_inst() -> Instruction {
+  F64x2RelaxedMax
+}
+
+///|
+pub fn i16x8_relaxed_q15mulr_s_inst() -> Instruction {
+  I16x8RelaxedQ15mulrS
+}
+
+///|
+pub fn i16x8_relaxed_dot_i8x16i7x16s_inst() -> Instruction {
+  I16x8RelaxedDotI8x16I7x16S
+}
+
+///|
+pub fn i32x4_relaxed_dot_i8x16i7x16_add_s_inst() -> Instruction {
+  I32x4RelaxedDotI8x16I7x16AddS
+}
+
+///|
+pub fn t_i32_const(val : I32) -> TInstr {
+  TI32Const(val)
+}
+
+///|
+pub fn t_i64_const(val : I64) -> TInstr {
+  TI64Const(val)
+}
+
+///|
+pub fn t_f32_const(val : F32) -> TInstr {
+  TF32Const(val)
+}
+
+///|
+pub fn t_f64_const(val : F64) -> TInstr {
+  TF64Const(val)
+}
+
+///|
+pub fn t_ref_null(val : HeapType) -> TInstr {
+  TRefNull(val)
+}
+
+///|
+pub fn t_ref_func(val : FuncIdx) -> TInstr {
+  TRefFunc(val)
+}
+
+///|
+pub fn t_v128_const_inst(
+  b0 : Byte,
+  b1 : Byte,
+  b2 : Byte,
+  b3 : Byte,
+  b4 : Byte,
+  b5 : Byte,
+  b6 : Byte,
+  b7 : Byte,
+  b8 : Byte,
+  b9 : Byte,
+  b10 : Byte,
+  b11 : Byte,
+  b12 : Byte,
+  b13 : Byte,
+  b14 : Byte,
+  b15 : Byte,
+) -> TInstr {
+  TV128Const(
+    b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15,
+  )
+}
+
+///|
+pub fn t_unreachable() -> TInstr {
+  TUnreachable
+}
+
+///|
+pub fn t_nop() -> TInstr {
+  TNop
+}
+
+///|
+pub fn t_local_get(idx : LocalIdx) -> TInstr {
+  TLocalGet(idx)
+}
+
+///|
+pub fn t_global_get(idx : GlobalIdx) -> TInstr {
+  TGlobalGet(idx)
+}
+
+///|
+pub fn t_memory_size(idx : MemIdx) -> TInstr {
+  TMemorySize(idx)
+}
+
+///|
+pub fn t_table_size(idx : TableIdx) -> TInstr {
+  TTableSize(idx)
+}
+
+///|
+pub fn t_unary(op : UnaryOp, i : TInstr) -> TInstr {
+  TUnary(op, i)
+}
+
+///|
+pub fn t_drop(i : TInstr) -> TInstr {
+  TDrop(i)
+}
+
+///|
+pub fn t_local_set(idx : LocalIdx, i : TInstr) -> TInstr {
+  TLocalSet(idx, i)
+}
+
+///|
+pub fn t_local_tee(idx : LocalIdx, i : TInstr) -> TInstr {
+  TLocalTee(idx, i)
+}
+
+///|
+pub fn t_global_set(idx : GlobalIdx, i : TInstr) -> TInstr {
+  TGlobalSet(idx, i)
+}
+
+///|
+pub fn t_ref_is_null(i : TInstr) -> TInstr {
+  TRefIsNull(i)
+}
+
+///|
+pub fn t_ref_as_non_null(i : TInstr) -> TInstr {
+  TRefAsNonNull(i)
+}
+
+///|
+pub fn t_i31_get_s(i : TInstr) -> TInstr {
+  TI31GetS(i)
+}
+
+///|
+pub fn t_i31_get_u(i : TInstr) -> TInstr {
+  TI31GetU(i)
+}
+
+///|
+pub fn t_ref_i31(i : TInstr) -> TInstr {
+  TRefI31(i)
+}
+
+///|
+pub fn t_array_len(i : TInstr) -> TInstr {
+  TArrayLen(i)
+}
+
+///|
+pub fn t_any_convert_extern(i : TInstr) -> TInstr {
+  TAnyConvertExtern(i)
+}
+
+///|
+pub fn t_extern_convert_any(i : TInstr) -> TInstr {
+  TExternConvertAny(i)
+}
+
+///|
+pub fn t_throw_ref(i : TInstr) -> TInstr {
+  TThrowRef(i)
+}
+
+///|
+pub fn t_binary(op : BinaryOp, i0 : TInstr, i1 : TInstr) -> TInstr {
+  TBinary(op, i0, i1)
+}
+
+///|
+pub fn t_ref_eq(i0 : TInstr, i1 : TInstr) -> TInstr {
+  TRefEq(i0, i1)
+}
+
+///|
+pub fn t_store(op : StoreOp, ma : MemArg, i0 : TInstr, i1 : TInstr) -> TInstr {
+  TStore(op, ma, i0, i1)
+}
+
+///|
+pub fn t_load(op : LoadOp, ma : MemArg, i : TInstr) -> TInstr {
+  TLoad(op, ma, i)
+}
+
+///|
+pub fn t_memory_grow(mi : MemIdx, i : TInstr) -> TInstr {
+  TMemoryGrow(mi, i)
+}
+
+///|
+pub fn t_memory_fill(
+  mi : MemIdx,
+  i0 : TInstr,
+  i1 : TInstr,
+  i2 : TInstr,
+) -> TInstr {
+  TMemoryFill(mi, i0, i1, i2)
+}
+
+///|
+pub fn t_memory_copy(
+  mi0 : MemIdx,
+  mi1 : MemIdx,
+  i0 : TInstr,
+  i1 : TInstr,
+  i2 : TInstr,
+) -> TInstr {
+  TMemoryCopy(mi0, mi1, i0, i1, i2)
+}
+
+///|
+pub fn t_memory_init(
+  di : DataIdx,
+  mi : MemIdx,
+  i0 : TInstr,
+  i1 : TInstr,
+  i2 : TInstr,
+) -> TInstr {
+  TMemoryInit(di, mi, i0, i1, i2)
+}
+
+///|
+pub fn t_data_drop(di : DataIdx) -> TInstr {
+  TDataDrop(di)
+}
+
+///|
+pub fn t_table_get(ti : TableIdx, i : TInstr) -> TInstr {
+  TTableGet(ti, i)
+}
+
+///|
+pub fn t_table_set(ti : TableIdx, i0 : TInstr, i1 : TInstr) -> TInstr {
+  TTableSet(ti, i0, i1)
+}
+
+///|
+pub fn t_table_grow(ti : TableIdx, i0 : TInstr, i1 : TInstr) -> TInstr {
+  TTableGrow(ti, i0, i1)
+}
+
+///|
+pub fn t_table_fill(
+  ti : TableIdx,
+  i0 : TInstr,
+  i1 : TInstr,
+  i2 : TInstr,
+) -> TInstr {
+  TTableFill(ti, i0, i1, i2)
+}
+
+///|
+pub fn t_table_copy(
+  ti0 : TableIdx,
+  ti1 : TableIdx,
+  i0 : TInstr,
+  i1 : TInstr,
+  i2 : TInstr,
+) -> TInstr {
+  TTableCopy(ti0, ti1, i0, i1, i2)
+}
+
+///|
+pub fn t_table_init(
+  ei : ElemIdx,
+  ti : TableIdx,
+  i0 : TInstr,
+  i1 : TInstr,
+  i2 : TInstr,
+) -> TInstr {
+  TTableInit(ei, ti, i0, i1, i2)
+}
+
+///|
+pub fn t_elem_drop(ei : ElemIdx) -> TInstr {
+  TElemDrop(ei)
+}
+
+///|
+pub fn t_call(di : FuncIdx, props : Array[TInstr]) -> TInstr {
+  TCall(di, props)
+}
+
+///|
+pub fn t_call_indirect(
+  ty_i : TypeIdx,
+  tbl_i : TableIdx,
+  props : Array[TInstr],
+  i : TInstr,
+) -> TInstr {
+  TCallIndirect(ty_i, tbl_i, props, i)
+}
+
+///|
+pub fn t_call_ref(ti : TypeIdx, props : Array[TInstr], ref : TInstr) -> TInstr {
+  TCallRef(ti, props, ref)
+}
+
+///|
+pub fn t_return_call(fi : FuncIdx, props : Array[TInstr]) -> TInstr {
+  TReturnCall(fi, props)
+}
+
+///|
+pub fn t_return_call_indirect(
+  ty_i : TypeIdx,
+  tbl_i : TableIdx,
+  props : Array[TInstr],
+  i : TInstr,
+) -> TInstr {
+  TReturnCallIndirect(ty_i, tbl_i, props, i)
+}
+
+///|
+pub fn t_return_call_ref(
+  ti : TypeIdx,
+  props : Array[TInstr],
+  i : TInstr,
+) -> TInstr {
+  TReturnCallRef(ti, props, i)
+}
+
+///|
+pub fn t_block(bt : BlockType, e : TExpr) -> TInstr {
+  TBlock(bt, e)
+}
+
+///|
+pub fn t_loop(bt : BlockType, e : TExpr) -> TInstr {
+  TLoop(bt, e)
+}
+
+///|
+pub fn t_if(bt : BlockType, i : TInstr, e0 : TExpr, e1_opt : TExpr?) -> TInstr {
+  TIf(bt, i, e0, e1_opt)
+}
+
+///|
+pub fn t_try_table(bt : BlockType, c : Array[Catch], e : TExpr) -> TInstr {
+  TTryTable(bt, c, e)
+}
+
+///|
+pub fn t_throw(ti : TagIdx, i : Array[TInstr]) -> TInstr {
+  TThrow(ti, i)
+}
+
+///|
+pub fn t_br(li : LabelIdx, i : Array[TInstr]) -> TInstr {
+  TBr(li, i)
+}
+
+///|
+pub fn t_br_if(li : LabelIdx, i0 : TInstr, i : Array[TInstr]) -> TInstr {
+  TBrIf(li, i0, i)
+}
+
+///|
+pub fn t_br_table(
+  l : Array[LabelIdx],
+  l0 : LabelIdx,
+  i0 : TInstr,
+  i : Array[TInstr],
+) -> TInstr {
+  TBrTable(l, l0, i0, i)
+}
+
+///|
+pub fn t_br_on_null(li : LabelIdx, i0 : TInstr, i : Array[TInstr]) -> TInstr {
+  TBrOnNull(li, i0, i)
+}
+
+///|
+pub fn t_br_on_non_null(
+  li : LabelIdx,
+  i0 : TInstr,
+  i : Array[TInstr],
+) -> TInstr {
+  TBrOnNonNull(li, i0, i)
+}
+
+///|
+pub fn t_br_on_cast(
+  li : LabelIdx,
+  ht_null_0 : Bool,
+  ht0 : HeapType,
+  ht_null_1 : Bool,
+  ht1 : HeapType,
+  i0 : TInstr,
+  i : Array[TInstr],
+) -> TInstr {
+  TBrOnCast(li, CastOp(ht_null_0, ht_null_1), ht0, ht1, i0, i)
+}
+
+///|
+pub fn t_br_on_cast_fail(
+  li : LabelIdx,
+  ht_null_0 : Bool,
+  ht0 : HeapType,
+  ht_null_1 : Bool,
+  ht1 : HeapType,
+  i0 : TInstr,
+  i : Array[TInstr],
+) -> TInstr {
+  TBrOnCastFail(li, CastOp(ht_null_0, ht_null_1), ht0, ht1, i0, i)
+}
+
+///|
+pub fn t_return(i : Array[TInstr]) -> TInstr {
+  TReturn(i)
+}
+
+///|
+pub fn t_select(
+  tys : Array[ValType]?,
+  i0 : TInstr,
+  i1 : TInstr,
+  i2 : TInstr,
+) -> TInstr {
+  TSelect(tys, i0, i1, i2)
+}
+
+///|
+pub fn t_struct_new(ti : TypeIdx, i : Array[TInstr]) -> TInstr {
+  TStructNew(ti, i)
+}
+
+///|
+pub fn t_struct_new_default(ti : TypeIdx) -> TInstr {
+  TStructNewDefault(ti)
+}
+
+///|
+pub fn t_struct_get(ti : TypeIdx, idx : U32, i : TInstr) -> TInstr {
+  TStructGet(ti, idx, i)
+}
+
+///|
+pub fn t_struct_get_s(ti : TypeIdx, idx : U32, i : TInstr) -> TInstr {
+  TStructGetS(ti, idx, i)
+}
+
+///|
+pub fn t_struct_get_u(ti : TypeIdx, idx : U32, i : TInstr) -> TInstr {
+  TStructGetU(ti, idx, i)
+}
+
+///|
+pub fn t_struct_set(
+  ti : TypeIdx,
+  idx : U32,
+  i0 : TInstr,
+  i1 : TInstr,
+) -> TInstr {
+  TStructSet(ti, idx, i0, i1)
+}
+
+///|
+pub fn t_array_new(ti : TypeIdx, t0 : TInstr, t1 : TInstr) -> TInstr {
+  TArrayNew(ti, t0, t1)
+}
+
+///|
+pub fn t_array_new_default(ti : TypeIdx, i : TInstr) -> TInstr {
+  TArrayNewDefault(ti, i)
+}
+
+///|
+pub fn t_array_new_fixed(ti : TypeIdx, i : Array[TInstr]) -> TInstr {
+  TArrayNewFixed(ti, i)
+}
+
+///|
+pub fn t_array_new_data(
+  ti : TypeIdx,
+  di : DataIdx,
+  i0 : TInstr,
+  i1 : TInstr,
+) -> TInstr {
+  TArrayNewData(ti, di, i0, i1)
+}
+
+///|
+pub fn t_array_new_elem(
+  ti : TypeIdx,
+  ei : ElemIdx,
+  i0 : TInstr,
+  i1 : TInstr,
+) -> TInstr {
+  TArrayNewElem(ti, ei, i0, i1)
+}
+
+///|
+pub fn t_array_get(ti : TypeIdx, i0 : TInstr, i1 : TInstr) -> TInstr {
+  TArrayGet(ti, i0, i1)
+}
+
+///|
+pub fn t_array_get_s(ti : TypeIdx, i0 : TInstr, i1 : TInstr) -> TInstr {
+  TArrayGetS(ti, i0, i1)
+}
+
+///|
+pub fn t_array_get_u(ti : TypeIdx, i0 : TInstr, i1 : TInstr) -> TInstr {
+  TArrayGetU(ti, i0, i1)
+}
+
+///|
+pub fn t_array_set(
+  ti : TypeIdx,
+  i0 : TInstr,
+  i1 : TInstr,
+  i2 : TInstr,
+) -> TInstr {
+  TArraySet(ti, i0, i1, i2)
+}
+
+///|
+pub fn t_array_fill(
+  ti : TypeIdx,
+  i0 : TInstr,
+  i1 : TInstr,
+  i2 : TInstr,
+  i3 : TInstr,
+) -> TInstr {
+  TArrayFill(ti, i0, i1, i2, i3)
+}
+
+///|
+pub fn t_array_copy(
+  ti0 : TypeIdx,
+  ti1 : TypeIdx,
+  i0 : TInstr,
+  i1 : TInstr,
+  i2 : TInstr,
+  i3 : TInstr,
+  i4 : TInstr,
+) -> TInstr {
+  TArrayCopy(ti0, ti1, i0, i1, i2, i3, i4)
+}
+
+///|
+pub fn t_array_init_data(
+  ti : TypeIdx,
+  di : DataIdx,
+  i0 : TInstr,
+  i1 : TInstr,
+  i2 : TInstr,
+  i3 : TInstr,
+) -> TInstr {
+  TArrayInitData(ti, di, i0, i1, i2, i3)
+}
+
+///|
+pub fn t_array_init_elem(
+  ti : TypeIdx,
+  ei : ElemIdx,
+  i0 : TInstr,
+  i1 : TInstr,
+  i2 : TInstr,
+  i3 : TInstr,
+) -> TInstr {
+  TArrayInitElem(ti, ei, i0, i1, i2, i3)
+}
+
+///|
+pub fn t_ref_test(nullable : Bool, ht : HeapType, i : TInstr) -> TInstr {
+  TRefTest(nullable, ht, i)
+}
+
+///|
+pub fn t_ref_cast(nullable : Bool, ht : HeapType, i : TInstr) -> TInstr {
+  TRefCast(nullable, ht, i)
+}
+
+// === SIMD: Splat (scalar -> v128) ===
+
+///|
+pub fn t_i8x16_splat(i : TInstr) -> TInstr {
+  TI8x16Splat(i)
+}
+
+///|
+pub fn t_i16x8_splat(i : TInstr) -> TInstr {
+  TI16x8Splat(i)
+}
+
+///|
+pub fn t_i32x4_splat(i : TInstr) -> TInstr {
+  TI32x4Splat(i)
+}
+
+///|
+pub fn t_i64x2_splat(i : TInstr) -> TInstr {
+  TI64x2Splat(i)
+}
+
+///|
+pub fn t_f32x4_splat(i : TInstr) -> TInstr {
+  TF32x4Splat(i)
+}
+
+///|
+pub fn t_f64x2_splat(i : TInstr) -> TInstr {
+  TF64x2Splat(i)
+}
+
+///|
+pub fn t_extract_lane(op : ExtractLaneOp, li : LaneIdx, i : TInstr) -> TInstr {
+  TExtractLane(op, li, i)
+}
+
+///|
+pub fn t_replace_lane(
+  op : ReplaceLaneOp,
+  li : LaneIdx,
+  i0 : TInstr,
+  i1 : TInstr,
+) -> TInstr {
+  TReplaceLane(op, li, i0, i1)
+}
+
+///|
+pub fn t_i8x16_shuffle(
+  li0 : LaneIdx,
+  li1 : LaneIdx,
+  li2 : LaneIdx,
+  li3 : LaneIdx,
+  li4 : LaneIdx,
+  li5 : LaneIdx,
+  li6 : LaneIdx,
+  li7 : LaneIdx,
+  li8 : LaneIdx,
+  li9 : LaneIdx,
+  li10 : LaneIdx,
+  li11 : LaneIdx,
+  li12 : LaneIdx,
+  li13 : LaneIdx,
+  li14 : LaneIdx,
+  li15 : LaneIdx,
+  i0 : TInstr,
+  i1 : TInstr,
+) -> TInstr {
+  TI8x16Shuffle(
+    li0, li1, li2, li3, li4, li5, li6, li7, li8, li9, li10, li11, li12, li13, li14,
+    li15, i0, i1,
+  )
+}
+
+///|
+pub fn t_i8x16_swizzle(i0 : TInstr, i1 : TInstr) -> TInstr {
+  TI8x16Swizzle(i0, i1)
+}
+
+///|
+pub fn t_i8x16_relaxed_swizzle(i0 : TInstr, i1 : TInstr) -> TInstr {
+  TI8x16RelaxedSwizzle(i0, i1)
+}
+
+///|
+pub fn tv128_shift(op : V128ShiftOp, i0 : TInstr, i1 : TInstr) -> TInstr {
+  TV128Shift(op, i0, i1)
+}
+
+///|
+pub fn tv128_ternary(
+  op : V128TernaryOp,
+  i0 : TInstr,
+  i1 : TInstr,
+  i2 : TInstr,
+) -> TInstr {
+  TV128Ternary(op, i0, i1, i2)
+}
+
+///|
+pub fn tv128_load_lane(
+  op : V128LoadLaneOp,
+  ma : MemArg,
+  li : LaneIdx,
+  i0 : TInstr,
+  i1 : TInstr,
+) -> TInstr {
+  TV128LoadLane(op, ma, li, i0, i1)
+}
+
+///|
+pub fn tv128_store_lane(
+  op : V128StoreLaneOp,
+  ma : MemArg,
+  li : LaneIdx,
+  i0 : TInstr,
+  i1 : TInstr,
+) -> TInstr {
+  TV128StoreLane(op, ma, li, i0, i1)
+}
+
+///|
+pub fn i32_eqz_op() -> UnaryOp {
+  I32EqzOp
+}
+
+///|
+pub fn i64_eqz_op() -> UnaryOp {
+  I64EqzOp
+}
+
+///|
+pub fn i32_clz_op() -> UnaryOp {
+  I32ClzOp
+}
+
+///|
+pub fn i32_ctz_op() -> UnaryOp {
+  I32CtzOp
+}
+
+///|
+pub fn i32_popcnt_op() -> UnaryOp {
+  I32PopcntOp
+}
+
+///|
+pub fn i64_clz_op() -> UnaryOp {
+  I64ClzOp
+}
+
+///|
+pub fn i64_ctz_op() -> UnaryOp {
+  I64CtzOp
+}
+
+///|
+pub fn i64_popcnt_op() -> UnaryOp {
+  I64PopcntOp
+}
+
+///|
+pub fn f32_abs_op() -> UnaryOp {
+  F32AbsOp
+}
+
+///|
+pub fn f32_neg_op() -> UnaryOp {
+  F32NegOp
+}
+
+///|
+pub fn f32_ceil_op() -> UnaryOp {
+  F32CeilOp
+}
+
+///|
+pub fn f32_floor_op() -> UnaryOp {
+  F32FloorOp
+}
+
+///|
+pub fn f32_trunc_op() -> UnaryOp {
+  F32TruncOp
+}
+
+///|
+pub fn f32_nearest_op() -> UnaryOp {
+  F32NearestOp
+}
+
+///|
+pub fn f32_sqrt_op() -> UnaryOp {
+  F32SqrtOp
+}
+
+///|
+pub fn f64_abs_op() -> UnaryOp {
+  F64AbsOp
+}
+
+///|
+pub fn f64_neg_op() -> UnaryOp {
+  F64NegOp
+}
+
+///|
+pub fn f64_ceil_op() -> UnaryOp {
+  F64CeilOp
+}
+
+///|
+pub fn f64_floor_op() -> UnaryOp {
+  F64FloorOp
+}
+
+///|
+pub fn f64_trunc_op() -> UnaryOp {
+  F64TruncOp
+}
+
+///|
+pub fn f64_nearest_op() -> UnaryOp {
+  F64NearestOp
+}
+
+///|
+pub fn f64_sqrt_op() -> UnaryOp {
+  F64SqrtOp
+}
+
+///|
+pub fn i32_wrap_i64_op() -> UnaryOp {
+  I32WrapI64Op
+}
+
+///|
+pub fn i32_trunc_f32s_op() -> UnaryOp {
+  I32TruncF32SOp
+}
+
+///|
+pub fn i32_trunc_f32u_op() -> UnaryOp {
+  I32TruncF32UOp
+}
+
+///|
+pub fn i32_trunc_f64s_op() -> UnaryOp {
+  I32TruncF64SOp
+}
+
+///|
+pub fn i32_trunc_f64u_op() -> UnaryOp {
+  I32TruncF64UOp
+}
+
+///|
+pub fn i64_extend_i32s_op() -> UnaryOp {
+  I64ExtendI32SOp
+}
+
+///|
+pub fn i64_extend_i32u_op() -> UnaryOp {
+  I64ExtendI32UOp
+}
+
+///|
+pub fn i64_trunc_f32s_op() -> UnaryOp {
+  I64TruncF32SOp
+}
+
+///|
+pub fn i64_trunc_f32u_op() -> UnaryOp {
+  I64TruncF32UOp
+}
+
+///|
+pub fn i64_trunc_f64s_op() -> UnaryOp {
+  I64TruncF64SOp
+}
+
+///|
+pub fn i64_trunc_f64u_op() -> UnaryOp {
+  I64TruncF64UOp
+}
+
+///|
+pub fn f32_convert_i32s_op() -> UnaryOp {
+  F32ConvertI32SOp
+}
+
+///|
+pub fn f32_convert_i32u_op() -> UnaryOp {
+  F32ConvertI32UOp
+}
+
+///|
+pub fn f32_convert_i64s_op() -> UnaryOp {
+  F32ConvertI64SOp
+}
+
+///|
+pub fn f32_convert_i64u_op() -> UnaryOp {
+  F32ConvertI64UOp
+}
+
+///|
+pub fn f32_demote_f64_op() -> UnaryOp {
+  F32DemoteF64Op
+}
+
+///|
+pub fn f64_convert_i32s_op() -> UnaryOp {
+  F64ConvertI32SOp
+}
+
+///|
+pub fn f64_convert_i32u_op() -> UnaryOp {
+  F64ConvertI32UOp
+}
+
+///|
+pub fn f64_convert_i64s_op() -> UnaryOp {
+  F64ConvertI64SOp
+}
+
+///|
+pub fn f64_convert_i64u_op() -> UnaryOp {
+  F64ConvertI64UOp
+}
+
+///|
+pub fn f64_promote_f32_op() -> UnaryOp {
+  F64PromoteF32Op
+}
+
+///|
+pub fn i32_reinterpret_f32_op() -> UnaryOp {
+  I32ReinterpretF32Op
+}
+
+///|
+pub fn i64_reinterpret_f64_op() -> UnaryOp {
+  I64ReinterpretF64Op
+}
+
+///|
+pub fn f32_reinterpret_i32_op() -> UnaryOp {
+  F32ReinterpretI32Op
+}
+
+///|
+pub fn f64_reinterpret_i64_op() -> UnaryOp {
+  F64ReinterpretI64Op
+}
+
+///|
+pub fn i32_extend8s_op() -> UnaryOp {
+  I32Extend8SOp
+}
+
+///|
+pub fn i32_extend16s_op() -> UnaryOp {
+  I32Extend16SOp
+}
+
+///|
+pub fn i64_extend8s_op() -> UnaryOp {
+  I64Extend8SOp
+}
+
+///|
+pub fn i64_extend16s_op() -> UnaryOp {
+  I64Extend16SOp
+}
+
+///|
+pub fn i64_extend32s_op() -> UnaryOp {
+  I64Extend32SOp
+}
+
+///|
+pub fn i32_trunc_sat_f32s_op() -> UnaryOp {
+  I32TruncSatF32SOp
+}
+
+///|
+pub fn i32_trunc_sat_f32u_op() -> UnaryOp {
+  I32TruncSatF32UOp
+}
+
+///|
+pub fn i32_trunc_sat_f64s_op() -> UnaryOp {
+  I32TruncSatF64SOp
+}
+
+///|
+pub fn i32_trunc_sat_f64u_op() -> UnaryOp {
+  I32TruncSatF64UOp
+}
+
+///|
+pub fn i64_trunc_sat_f32s_op() -> UnaryOp {
+  I64TruncSatF32SOp
+}
+
+///|
+pub fn i64_trunc_sat_f32u_op() -> UnaryOp {
+  I64TruncSatF32UOp
+}
+
+///|
+pub fn i64_trunc_sat_f64s_op() -> UnaryOp {
+  I64TruncSatF64SOp
+}
+
+///|
+pub fn i64_trunc_sat_f64u_op() -> UnaryOp {
+  I64TruncSatF64UOp
+}
+
+///|
+pub fn v128_not_op() -> UnaryOp {
+  V128NotOp
+}
+
+///|
+pub fn i8x16_abs_op() -> UnaryOp {
+  I8x16AbsOp
+}
+
+///|
+pub fn i8x16_neg_op() -> UnaryOp {
+  I8x16NegOp
+}
+
+///|
+pub fn i8x16_popcnt_op() -> UnaryOp {
+  I8x16PopcntOp
+}
+
+///|
+pub fn i16x8_abs_op() -> UnaryOp {
+  I16x8AbsOp
+}
+
+///|
+pub fn i16x8_neg_op() -> UnaryOp {
+  I16x8NegOp
+}
+
+///|
+pub fn i32x4_abs_op() -> UnaryOp {
+  I32x4AbsOp
+}
+
+///|
+pub fn i32x4_neg_op() -> UnaryOp {
+  I32x4NegOp
+}
+
+///|
+pub fn i64x2_abs_op() -> UnaryOp {
+  I64x2AbsOp
+}
+
+///|
+pub fn i64x2_neg_op() -> UnaryOp {
+  I64x2NegOp
+}
+
+///|
+pub fn f32x4_abs_op() -> UnaryOp {
+  F32x4AbsOp
+}
+
+///|
+pub fn f32x4_neg_op() -> UnaryOp {
+  F32x4NegOp
+}
+
+///|
+pub fn f32x4_sqrt_op() -> UnaryOp {
+  F32x4SqrtOp
+}
+
+///|
+pub fn f32x4_ceil_op() -> UnaryOp {
+  F32x4CeilOp
+}
+
+///|
+pub fn f32x4_floor_op() -> UnaryOp {
+  F32x4FloorOp
+}
+
+///|
+pub fn f32x4_trunc_op() -> UnaryOp {
+  F32x4TruncOp
+}
+
+///|
+pub fn f32x4_nearest_op() -> UnaryOp {
+  F32x4NearestOp
+}
+
+///|
+pub fn f64x2_abs_op() -> UnaryOp {
+  F64x2AbsOp
+}
+
+///|
+pub fn f64x2_neg_op() -> UnaryOp {
+  F64x2NegOp
+}
+
+///|
+pub fn f64x2_sqrt_op() -> UnaryOp {
+  F64x2SqrtOp
+}
+
+///|
+pub fn f64x2_ceil_op() -> UnaryOp {
+  F64x2CeilOp
+}
+
+///|
+pub fn f64x2_floor_op() -> UnaryOp {
+  F64x2FloorOp
+}
+
+///|
+pub fn f64x2_trunc_op() -> UnaryOp {
+  F64x2TruncOp
+}
+
+///|
+pub fn f64x2_nearest_op() -> UnaryOp {
+  F64x2NearestOp
+}
+
+///|
+pub fn v128_any_true_op() -> UnaryOp {
+  V128AnyTrueOp
+}
+
+///|
+pub fn i8x16_all_true_op() -> UnaryOp {
+  I8x16AllTrueOp
+}
+
+///|
+pub fn i8x16_bitmask_op() -> UnaryOp {
+  I8x16BitmaskOp
+}
+
+///|
+pub fn i16x8_all_true_op() -> UnaryOp {
+  I16x8AllTrueOp
+}
+
+///|
+pub fn i16x8_bitmask_op() -> UnaryOp {
+  I16x8BitmaskOp
+}
+
+///|
+pub fn i32x4_all_true_op() -> UnaryOp {
+  I32x4AllTrueOp
+}
+
+///|
+pub fn i32x4_bitmask_op() -> UnaryOp {
+  I32x4BitmaskOp
+}
+
+///|
+pub fn i64x2_all_true_op() -> UnaryOp {
+  I64x2AllTrueOp
+}
+
+///|
+pub fn i64x2_bitmask_op() -> UnaryOp {
+  I64x2BitmaskOp
+}
+
+///|
+pub fn i16x8_extend_low_i8x16s_op() -> UnaryOp {
+  I16x8ExtendLowI8x16SOp
+}
+
+///|
+pub fn i16x8_extend_high_i8x16s_op() -> UnaryOp {
+  I16x8ExtendHighI8x16SOp
+}
+
+///|
+pub fn i16x8_extend_low_i8x16u_op() -> UnaryOp {
+  I16x8ExtendLowI8x16UOp
+}
+
+///|
+pub fn i16x8_extend_high_i8x16u_op() -> UnaryOp {
+  I16x8ExtendHighI8x16UOp
+}
+
+///|
+pub fn i32x4_extend_low_i16x8s_op() -> UnaryOp {
+  I32x4ExtendLowI16x8SOp
+}
+
+///|
+pub fn i32x4_extend_high_i16x8s_op() -> UnaryOp {
+  I32x4ExtendHighI16x8SOp
+}
+
+///|
+pub fn i32x4_extend_low_i16x8u_op() -> UnaryOp {
+  I32x4ExtendLowI16x8UOp
+}
+
+///|
+pub fn i32x4_extend_high_i16x8u_op() -> UnaryOp {
+  I32x4ExtendHighI16x8UOp
+}
+
+///|
+pub fn i64x2_extend_low_i32x4s_op() -> UnaryOp {
+  I64x2ExtendLowI32x4SOp
+}
+
+///|
+pub fn i64x2_extend_high_i32x4s_op() -> UnaryOp {
+  I64x2ExtendHighI32x4SOp
+}
+
+///|
+pub fn i64x2_extend_low_i32x4u_op() -> UnaryOp {
+  I64x2ExtendLowI32x4UOp
+}
+
+///|
+pub fn i64x2_extend_high_i32x4u_op() -> UnaryOp {
+  I64x2ExtendHighI32x4UOp
+}
+
+///|
+pub fn i16x8_extadd_pairwise_i8x16s_op() -> UnaryOp {
+  I16x8ExtaddPairwiseI8x16SOp
+}
+
+///|
+pub fn i16x8_extadd_pairwise_i8x16u_op() -> UnaryOp {
+  I16x8ExtaddPairwiseI8x16UOp
+}
+
+///|
+pub fn i32x4_extadd_pairwise_i16x8s_op() -> UnaryOp {
+  I32x4ExtaddPairwiseI16x8SOp
+}
+
+///|
+pub fn i32x4_extadd_pairwise_i16x8u_op() -> UnaryOp {
+  I32x4ExtaddPairwiseI16x8UOp
+}
+
+///|
+pub fn f32x4_demote_f64x2_zero_op() -> UnaryOp {
+  F32x4DemoteF64x2ZeroOp
+}
+
+///|
+pub fn f64x2_promote_low_f32x4_op() -> UnaryOp {
+  F64x2PromoteLowF32x4Op
+}
+
+///|
+pub fn i32x4_trunc_sat_f32x4s_op() -> UnaryOp {
+  I32x4TruncSatF32x4SOp
+}
+
+///|
+pub fn i32x4_trunc_sat_f32x4u_op() -> UnaryOp {
+  I32x4TruncSatF32x4UOp
+}
+
+///|
+pub fn f32x4_convert_i32x4s_op() -> UnaryOp {
+  F32x4ConvertI32x4SOp
+}
+
+///|
+pub fn f32x4_convert_i32x4u_op() -> UnaryOp {
+  F32x4ConvertI32x4UOp
+}
+
+///|
+pub fn i32x4_trunc_sat_f64x2s_zero_op() -> UnaryOp {
+  I32x4TruncSatF64x2SZeroOp
+}
+
+///|
+pub fn i32x4_trunc_sat_f64x2u_zero_op() -> UnaryOp {
+  I32x4TruncSatF64x2UZeroOp
+}
+
+///|
+pub fn f64x2_convert_low_i32x4s_op() -> UnaryOp {
+  F64x2ConvertLowI32x4SOp
+}
+
+///|
+pub fn f64x2_convert_low_i32x4u_op() -> UnaryOp {
+  F64x2ConvertLowI32x4UOp
+}
+
+///|
+pub fn i32x4_relaxed_trunc_f32x4s_op() -> UnaryOp {
+  I32x4RelaxedTruncF32x4SOp
+}
+
+///|
+pub fn i32x4_relaxed_trunc_f32x4u_op() -> UnaryOp {
+  I32x4RelaxedTruncF32x4UOp
+}
+
+///|
+pub fn i32x4_relaxed_trunc_zero_f64x2s_op() -> UnaryOp {
+  I32x4RelaxedTruncZeroF64x2SOp
+}
+
+///|
+pub fn i32x4_relaxed_trunc_zero_f64x2u_op() -> UnaryOp {
+  I32x4RelaxedTruncZeroF64x2UOp
+}
+
+///|
+pub fn i32_eq_op() -> BinaryOp {
+  I32EqOp
+}
+
+///|
+pub fn i32_ne_op() -> BinaryOp {
+  I32NeOp
+}
+
+///|
+pub fn i32_lt_s_op() -> BinaryOp {
+  I32LtSOp
+}
+
+///|
+pub fn i32_lt_u_op() -> BinaryOp {
+  I32LtUOp
+}
+
+///|
+pub fn i32_gt_s_op() -> BinaryOp {
+  I32GtSOp
+}
+
+///|
+pub fn i32_gt_u_op() -> BinaryOp {
+  I32GtUOp
+}
+
+///|
+pub fn i32_le_s_op() -> BinaryOp {
+  I32LeSOp
+}
+
+///|
+pub fn i32_le_u_op() -> BinaryOp {
+  I32LeUOp
+}
+
+///|
+pub fn i32_ge_s_op() -> BinaryOp {
+  I32GeSOp
+}
+
+///|
+pub fn i32_ge_u_op() -> BinaryOp {
+  I32GeUOp
+}
+
+///|
+pub fn i64_eq_op() -> BinaryOp {
+  I64EqOp
+}
+
+///|
+pub fn i64_ne_op() -> BinaryOp {
+  I64NeOp
+}
+
+///|
+pub fn i64_lt_s_op() -> BinaryOp {
+  I64LtSOp
+}
+
+///|
+pub fn i64_lt_u_op() -> BinaryOp {
+  I64LtUOp
+}
+
+///|
+pub fn i64_gt_s_op() -> BinaryOp {
+  I64GtSOp
+}
+
+///|
+pub fn i64_gt_u_op() -> BinaryOp {
+  I64GtUOp
+}
+
+///|
+pub fn i64_le_s_op() -> BinaryOp {
+  I64LeSOp
+}
+
+///|
+pub fn i64_le_u_op() -> BinaryOp {
+  I64LeUOp
+}
+
+///|
+pub fn i64_ge_s_op() -> BinaryOp {
+  I64GeSOp
+}
+
+///|
+pub fn i64_ge_u_op() -> BinaryOp {
+  I64GeUOp
+}
+
+///|
+pub fn f32_eq_op() -> BinaryOp {
+  F32EqOp
+}
+
+///|
+pub fn f32_ne_op() -> BinaryOp {
+  F32NeOp
+}
+
+///|
+pub fn f32_lt_op() -> BinaryOp {
+  F32LtOp
+}
+
+///|
+pub fn f32_gt_op() -> BinaryOp {
+  F32GtOp
+}
+
+///|
+pub fn f32_le_op() -> BinaryOp {
+  F32LeOp
+}
+
+///|
+pub fn f32_ge_op() -> BinaryOp {
+  F32GeOp
+}
+
+///|
+pub fn f64_eq_op() -> BinaryOp {
+  F64EqOp
+}
+
+///|
+pub fn f64_ne_op() -> BinaryOp {
+  F64NeOp
+}
+
+///|
+pub fn f64_lt_op() -> BinaryOp {
+  F64LtOp
+}
+
+///|
+pub fn f64_gt_op() -> BinaryOp {
+  F64GtOp
+}
+
+///|
+pub fn f64_le_op() -> BinaryOp {
+  F64LeOp
+}
+
+///|
+pub fn f64_ge_op() -> BinaryOp {
+  F64GeOp
+}
+
+///|
+pub fn i32_add_op() -> BinaryOp {
+  I32AddOp
+}
+
+///|
+pub fn i32_sub_op() -> BinaryOp {
+  I32SubOp
+}
+
+///|
+pub fn i32_mul_op() -> BinaryOp {
+  I32MulOp
+}
+
+///|
+pub fn i32_div_s_op() -> BinaryOp {
+  I32DivSOp
+}
+
+///|
+pub fn i32_div_u_op() -> BinaryOp {
+  I32DivUOp
+}
+
+///|
+pub fn i32_rem_s_op() -> BinaryOp {
+  I32RemSOp
+}
+
+///|
+pub fn i32_rem_u_op() -> BinaryOp {
+  I32RemUOp
+}
+
+///|
+pub fn i32_and_op() -> BinaryOp {
+  I32AndOp
+}
+
+///|
+pub fn i32_or_op() -> BinaryOp {
+  I32OrOp
+}
+
+///|
+pub fn i32_xor_op() -> BinaryOp {
+  I32XorOp
+}
+
+///|
+pub fn i32_shl_op() -> BinaryOp {
+  I32ShlOp
+}
+
+///|
+pub fn i32_shr_s_op() -> BinaryOp {
+  I32ShrSOp
+}
+
+///|
+pub fn i32_shr_u_op() -> BinaryOp {
+  I32ShrUOp
+}
+
+///|
+pub fn i32_rotl_op() -> BinaryOp {
+  I32RotlOp
+}
+
+///|
+pub fn i32_rotr_op() -> BinaryOp {
+  I32RotrOp
+}
+
+///|
+pub fn i64_add_op() -> BinaryOp {
+  I64AddOp
+}
+
+///|
+pub fn i64_sub_op() -> BinaryOp {
+  I64SubOp
+}
+
+///|
+pub fn i64_mul_op() -> BinaryOp {
+  I64MulOp
+}
+
+///|
+pub fn i64_div_s_op() -> BinaryOp {
+  I64DivSOp
+}
+
+///|
+pub fn i64_div_u_op() -> BinaryOp {
+  I64DivUOp
+}
+
+///|
+pub fn i64_rem_s_op() -> BinaryOp {
+  I64RemSOp
+}
+
+///|
+pub fn i64_rem_u_op() -> BinaryOp {
+  I64RemUOp
+}
+
+///|
+pub fn i64_and_op() -> BinaryOp {
+  I64AndOp
+}
+
+///|
+pub fn i64_or_op() -> BinaryOp {
+  I64OrOp
+}
+
+///|
+pub fn i64_xor_op() -> BinaryOp {
+  I64XorOp
+}
+
+///|
+pub fn i64_shl_op() -> BinaryOp {
+  I64ShlOp
+}
+
+///|
+pub fn i64_shr_s_op() -> BinaryOp {
+  I64ShrSOp
+}
+
+///|
+pub fn i64_shr_u_op() -> BinaryOp {
+  I64ShrUOp
+}
+
+///|
+pub fn i64_rotl_op() -> BinaryOp {
+  I64RotlOp
+}
+
+///|
+pub fn i64_rotr_op() -> BinaryOp {
+  I64RotrOp
+}
+
+///|
+pub fn f32_add_op() -> BinaryOp {
+  F32AddOp
+}
+
+///|
+pub fn f32_sub_op() -> BinaryOp {
+  F32SubOp
+}
+
+///|
+pub fn f32_mul_op() -> BinaryOp {
+  F32MulOp
+}
+
+///|
+pub fn f32_div_op() -> BinaryOp {
+  F32DivOp
+}
+
+///|
+pub fn f32_min_op() -> BinaryOp {
+  F32MinOp
+}
+
+///|
+pub fn f32_max_op() -> BinaryOp {
+  F32MaxOp
+}
+
+///|
+pub fn f32_copysign_op() -> BinaryOp {
+  F32CopysignOp
+}
+
+///|
+pub fn f64_add_op() -> BinaryOp {
+  F64AddOp
+}
+
+///|
+pub fn f64_sub_op() -> BinaryOp {
+  F64SubOp
+}
+
+///|
+pub fn f64_mul_op() -> BinaryOp {
+  F64MulOp
+}
+
+///|
+pub fn f64_div_op() -> BinaryOp {
+  F64DivOp
+}
+
+///|
+pub fn f64_min_op() -> BinaryOp {
+  F64MinOp
+}
+
+///|
+pub fn f64_max_op() -> BinaryOp {
+  F64MaxOp
+}
+
+///|
+pub fn f64_copysign_op() -> BinaryOp {
+  F64CopysignOp
+}
+
+///|
+pub fn v128_and_op() -> BinaryOp {
+  V128AndOp
+}
+
+///|
+pub fn v128_andnot_op() -> BinaryOp {
+  V128AndnotOp
+}
+
+///|
+pub fn v128_or_op() -> BinaryOp {
+  V128OrOp
+}
+
+///|
+pub fn v128_xor_op() -> BinaryOp {
+  V128XorOp
+}
+
+///|
+pub fn i8x16_eq_op() -> BinaryOp {
+  I8x16EqOp
+}
+
+///|
+pub fn i8x16_ne_op() -> BinaryOp {
+  I8x16NeOp
+}
+
+///|
+pub fn i8x16_lt_s_op() -> BinaryOp {
+  I8x16LtSOp
+}
+
+///|
+pub fn i8x16_lt_u_op() -> BinaryOp {
+  I8x16LtUOp
+}
+
+///|
+pub fn i8x16_gt_s_op() -> BinaryOp {
+  I8x16GtSOp
+}
+
+///|
+pub fn i8x16_gt_u_op() -> BinaryOp {
+  I8x16GtUOp
+}
+
+///|
+pub fn i8x16_le_s_op() -> BinaryOp {
+  I8x16LeSOp
+}
+
+///|
+pub fn i8x16_le_u_op() -> BinaryOp {
+  I8x16LeUOp
+}
+
+///|
+pub fn i8x16_ge_s_op() -> BinaryOp {
+  I8x16GeSOp
+}
+
+///|
+pub fn i8x16_ge_u_op() -> BinaryOp {
+  I8x16GeUOp
+}
+
+///|
+pub fn i16x8_eq_op() -> BinaryOp {
+  I16x8EqOp
+}
+
+///|
+pub fn i16x8_ne_op() -> BinaryOp {
+  I16x8NeOp
+}
+
+///|
+pub fn i16x8_lt_s_op() -> BinaryOp {
+  I16x8LtSOp
+}
+
+///|
+pub fn i16x8_lt_u_op() -> BinaryOp {
+  I16x8LtUOp
+}
+
+///|
+pub fn i16x8_gt_s_op() -> BinaryOp {
+  I16x8GtSOp
+}
+
+///|
+pub fn i16x8_gt_u_op() -> BinaryOp {
+  I16x8GtUOp
+}
+
+///|
+pub fn i16x8_le_s_op() -> BinaryOp {
+  I16x8LeSOp
+}
+
+///|
+pub fn i16x8_le_u_op() -> BinaryOp {
+  I16x8LeUOp
+}
+
+///|
+pub fn i16x8_ge_s_op() -> BinaryOp {
+  I16x8GeSOp
+}
+
+///|
+pub fn i16x8_ge_u_op() -> BinaryOp {
+  I16x8GeUOp
+}
+
+///|
+pub fn i32x4_eq_op() -> BinaryOp {
+  I32x4EqOp
+}
+
+///|
+pub fn i32x4_ne_op() -> BinaryOp {
+  I32x4NeOp
+}
+
+///|
+pub fn i32x4_lt_s_op() -> BinaryOp {
+  I32x4LtSOp
+}
+
+///|
+pub fn i32x4_lt_u_op() -> BinaryOp {
+  I32x4LtUOp
+}
+
+///|
+pub fn i32x4_gt_s_op() -> BinaryOp {
+  I32x4GtSOp
+}
+
+///|
+pub fn i32x4_gt_u_op() -> BinaryOp {
+  I32x4GtUOp
+}
+
+///|
+pub fn i32x4_le_s_op() -> BinaryOp {
+  I32x4LeSOp
+}
+
+///|
+pub fn i32x4_le_u_op() -> BinaryOp {
+  I32x4LeUOp
+}
+
+///|
+pub fn i32x4_ge_s_op() -> BinaryOp {
+  I32x4GeSOp
+}
+
+///|
+pub fn i32x4_ge_u_op() -> BinaryOp {
+  I32x4GeUOp
+}
+
+///|
+pub fn i64x2_eq_op() -> BinaryOp {
+  I64x2EqOp
+}
+
+///|
+pub fn i64x2_ne_op() -> BinaryOp {
+  I64x2NeOp
+}
+
+///|
+pub fn i64x2_lt_s_op() -> BinaryOp {
+  I64x2LtSOp
+}
+
+///|
+pub fn i64x2_gt_s_op() -> BinaryOp {
+  I64x2GtSOp
+}
+
+///|
+pub fn i64x2_le_s_op() -> BinaryOp {
+  I64x2LeSOp
+}
+
+///|
+pub fn i64x2_ge_s_op() -> BinaryOp {
+  I64x2GeSOp
+}
+
+///|
+pub fn f32x4_eq_op() -> BinaryOp {
+  F32x4EqOp
+}
+
+///|
+pub fn f32x4_ne_op() -> BinaryOp {
+  F32x4NeOp
+}
+
+///|
+pub fn f32x4_lt_op() -> BinaryOp {
+  F32x4LtOp
+}
+
+///|
+pub fn f32x4_gt_op() -> BinaryOp {
+  F32x4GtOp
+}
+
+///|
+pub fn f32x4_le_op() -> BinaryOp {
+  F32x4LeOp
+}
+
+///|
+pub fn f32x4_ge_op() -> BinaryOp {
+  F32x4GeOp
+}
+
+///|
+pub fn f64x2_eq_op() -> BinaryOp {
+  F64x2EqOp
+}
+
+///|
+pub fn f64x2_ne_op() -> BinaryOp {
+  F64x2NeOp
+}
+
+///|
+pub fn f64x2_lt_op() -> BinaryOp {
+  F64x2LtOp
+}
+
+///|
+pub fn f64x2_gt_op() -> BinaryOp {
+  F64x2GtOp
+}
+
+///|
+pub fn f64x2_le_op() -> BinaryOp {
+  F64x2LeOp
+}
+
+///|
+pub fn f64x2_ge_op() -> BinaryOp {
+  F64x2GeOp
+}
+
+///|
+pub fn i8x16_add_op() -> BinaryOp {
+  I8x16AddOp
+}
+
+///|
+pub fn i8x16_add_sat_s_op() -> BinaryOp {
+  I8x16AddSatSOp
+}
+
+///|
+pub fn i8x16_add_sat_u_op() -> BinaryOp {
+  I8x16AddSatUOp
+}
+
+///|
+pub fn i8x16_sub_op() -> BinaryOp {
+  I8x16SubOp
+}
+
+///|
+pub fn i8x16_sub_sat_s_op() -> BinaryOp {
+  I8x16SubSatSOp
+}
+
+///|
+pub fn i8x16_sub_sat_u_op() -> BinaryOp {
+  I8x16SubSatUOp
+}
+
+///|
+pub fn i8x16_min_s_op() -> BinaryOp {
+  I8x16MinSOp
+}
+
+///|
+pub fn i8x16_min_u_op() -> BinaryOp {
+  I8x16MinUOp
+}
+
+///|
+pub fn i8x16_max_s_op() -> BinaryOp {
+  I8x16MaxSOp
+}
+
+///|
+pub fn i8x16_max_u_op() -> BinaryOp {
+  I8x16MaxUOp
+}
+
+///|
+pub fn i8x16_avgr_u_op() -> BinaryOp {
+  I8x16AvgrUOp
+}
+
+///|
+pub fn i8x16_narrow_i16x8s_op() -> BinaryOp {
+  I8x16NarrowI16x8SOp
+}
+
+///|
+pub fn i8x16_narrow_i16x8u_op() -> BinaryOp {
+  I8x16NarrowI16x8UOp
+}
+
+///|
+pub fn i16x8_add_op() -> BinaryOp {
+  I16x8AddOp
+}
+
+///|
+pub fn i16x8_add_sat_s_op() -> BinaryOp {
+  I16x8AddSatSOp
+}
+
+///|
+pub fn i16x8_add_sat_u_op() -> BinaryOp {
+  I16x8AddSatUOp
+}
+
+///|
+pub fn i16x8_sub_op() -> BinaryOp {
+  I16x8SubOp
+}
+
+///|
+pub fn i16x8_sub_sat_s_op() -> BinaryOp {
+  I16x8SubSatSOp
+}
+
+///|
+pub fn i16x8_sub_sat_u_op() -> BinaryOp {
+  I16x8SubSatUOp
+}
+
+///|
+pub fn i16x8_mul_op() -> BinaryOp {
+  I16x8MulOp
+}
+
+///|
+pub fn i16x8_min_s_op() -> BinaryOp {
+  I16x8MinSOp
+}
+
+///|
+pub fn i16x8_min_u_op() -> BinaryOp {
+  I16x8MinUOp
+}
+
+///|
+pub fn i16x8_max_s_op() -> BinaryOp {
+  I16x8MaxSOp
+}
+
+///|
+pub fn i16x8_max_u_op() -> BinaryOp {
+  I16x8MaxUOp
+}
+
+///|
+pub fn i16x8_avgr_u_op() -> BinaryOp {
+  I16x8AvgrUOp
+}
+
+///|
+pub fn i16x8q15mulr_sat_s_op() -> BinaryOp {
+  I16x8Q15mulrSatSOp
+}
+
+///|
+pub fn i16x8_narrow_i32x4s_op() -> BinaryOp {
+  I16x8NarrowI32x4SOp
+}
+
+///|
+pub fn i16x8_narrow_i32x4u_op() -> BinaryOp {
+  I16x8NarrowI32x4UOp
+}
+
+///|
+pub fn i16x8_extmul_low_i8x16s_op() -> BinaryOp {
+  I16x8ExtmulLowI8x16SOp
+}
+
+///|
+pub fn i16x8_extmul_high_i8x16s_op() -> BinaryOp {
+  I16x8ExtmulHighI8x16SOp
+}
+
+///|
+pub fn i16x8_extmul_low_i8x16u_op() -> BinaryOp {
+  I16x8ExtmulLowI8x16UOp
+}
+
+///|
+pub fn i16x8_extmul_high_i8x16u_op() -> BinaryOp {
+  I16x8ExtmulHighI8x16UOp
+}
+
+///|
+pub fn i32x4_add_op() -> BinaryOp {
+  I32x4AddOp
+}
+
+///|
+pub fn i32x4_sub_op() -> BinaryOp {
+  I32x4SubOp
+}
+
+///|
+pub fn i32x4_mul_op() -> BinaryOp {
+  I32x4MulOp
+}
+
+///|
+pub fn i32x4_min_s_op() -> BinaryOp {
+  I32x4MinSOp
+}
+
+///|
+pub fn i32x4_min_u_op() -> BinaryOp {
+  I32x4MinUOp
+}
+
+///|
+pub fn i32x4_max_s_op() -> BinaryOp {
+  I32x4MaxSOp
+}
+
+///|
+pub fn i32x4_max_u_op() -> BinaryOp {
+  I32x4MaxUOp
+}
+
+///|
+pub fn i32x4_dot_i16x8s_op() -> BinaryOp {
+  I32x4DotI16x8SOp
+}
+
+///|
+pub fn i32x4_extmul_low_i16x8s_op() -> BinaryOp {
+  I32x4ExtmulLowI16x8SOp
+}
+
+///|
+pub fn i32x4_extmul_high_i16x8s_op() -> BinaryOp {
+  I32x4ExtmulHighI16x8SOp
+}
+
+///|
+pub fn i32x4_extmul_low_i16x8u_op() -> BinaryOp {
+  I32x4ExtmulLowI16x8UOp
+}
+
+///|
+pub fn i32x4_extmul_high_i16x8u_op() -> BinaryOp {
+  I32x4ExtmulHighI16x8UOp
+}
+
+///|
+pub fn i64x2_add_op() -> BinaryOp {
+  I64x2AddOp
+}
+
+///|
+pub fn i64x2_sub_op() -> BinaryOp {
+  I64x2SubOp
+}
+
+///|
+pub fn i64x2_mul_op() -> BinaryOp {
+  I64x2MulOp
+}
+
+///|
+pub fn i64x2_extmul_low_i32x4s_op() -> BinaryOp {
+  I64x2ExtmulLowI32x4SOp
+}
+
+///|
+pub fn i64x2_extmul_high_i32x4s_op() -> BinaryOp {
+  I64x2ExtmulHighI32x4SOp
+}
+
+///|
+pub fn i64x2_extmul_low_i32x4u_op() -> BinaryOp {
+  I64x2ExtmulLowI32x4UOp
+}
+
+///|
+pub fn i64x2_extmul_high_i32x4u_op() -> BinaryOp {
+  I64x2ExtmulHighI32x4UOp
+}
+
+///|
+pub fn f32x4_add_op() -> BinaryOp {
+  F32x4AddOp
+}
+
+///|
+pub fn f32x4_sub_op() -> BinaryOp {
+  F32x4SubOp
+}
+
+///|
+pub fn f32x4_mul_op() -> BinaryOp {
+  F32x4MulOp
+}
+
+///|
+pub fn f32x4_div_op() -> BinaryOp {
+  F32x4DivOp
+}
+
+///|
+pub fn f32x4_min_op() -> BinaryOp {
+  F32x4MinOp
+}
+
+///|
+pub fn f32x4_max_op() -> BinaryOp {
+  F32x4MaxOp
+}
+
+///|
+pub fn f32x4_pmin_op() -> BinaryOp {
+  F32x4PminOp
+}
+
+///|
+pub fn f32x4_pmax_op() -> BinaryOp {
+  F32x4PmaxOp
+}
+
+///|
+pub fn f64x2_add_op() -> BinaryOp {
+  F64x2AddOp
+}
+
+///|
+pub fn f64x2_sub_op() -> BinaryOp {
+  F64x2SubOp
+}
+
+///|
+pub fn f64x2_mul_op() -> BinaryOp {
+  F64x2MulOp
+}
+
+///|
+pub fn f64x2_div_op() -> BinaryOp {
+  F64x2DivOp
+}
+
+///|
+pub fn f64x2_min_op() -> BinaryOp {
+  F64x2MinOp
+}
+
+///|
+pub fn f64x2_max_op() -> BinaryOp {
+  F64x2MaxOp
+}
+
+///|
+pub fn f64x2_pmin_op() -> BinaryOp {
+  F64x2PminOp
+}
+
+///|
+pub fn f64x2_pmax_op() -> BinaryOp {
+  F64x2PmaxOp
+}
+
+///|
+pub fn f32x4_relaxed_min_op() -> BinaryOp {
+  F32x4RelaxedMinOp
+}
+
+///|
+pub fn f32x4_relaxed_max_op() -> BinaryOp {
+  F32x4RelaxedMaxOp
+}
+
+///|
+pub fn f64x2_relaxed_min_op() -> BinaryOp {
+  F64x2RelaxedMinOp
+}
+
+///|
+pub fn f64x2_relaxed_max_op() -> BinaryOp {
+  F64x2RelaxedMaxOp
+}
+
+///|
+pub fn i16x8_relaxed_q15mulr_s_op() -> BinaryOp {
+  I16x8RelaxedQ15mulrSOp
+}
+
+///|
+pub fn i16x8_relaxed_dot_i8x16i7x16s_op() -> BinaryOp {
+  I16x8RelaxedDotI8x16I7x16SOp
+}
+
+///|
+pub fn i32_load_op() -> LoadOp {
+  I32LoadOp
+}
+
+///|
+pub fn i64_load_op() -> LoadOp {
+  I64LoadOp
+}
+
+///|
+pub fn f32_load_op() -> LoadOp {
+  F32LoadOp
+}
+
+///|
+pub fn f64_load_op() -> LoadOp {
+  F64LoadOp
+}
+
+///|
+pub fn i32_load8s_op() -> LoadOp {
+  I32Load8SOp
+}
+
+///|
+pub fn i32_load8u_op() -> LoadOp {
+  I32Load8UOp
+}
+
+///|
+pub fn i32_load16s_op() -> LoadOp {
+  I32Load16SOp
+}
+
+///|
+pub fn i32_load16u_op() -> LoadOp {
+  I32Load16UOp
+}
+
+///|
+pub fn i64_load8s_op() -> LoadOp {
+  I64Load8SOp
+}
+
+///|
+pub fn i64_load8u_op() -> LoadOp {
+  I64Load8UOp
+}
+
+///|
+pub fn i64_load16s_op() -> LoadOp {
+  I64Load16SOp
+}
+
+///|
+pub fn i64_load16u_op() -> LoadOp {
+  I64Load16UOp
+}
+
+///|
+pub fn i64_load32s_op() -> LoadOp {
+  I64Load32SOp
+}
+
+///|
+pub fn i64_load32u_op() -> LoadOp {
+  I64Load32UOp
+}
+
+///|
+pub fn v128_load_op() -> LoadOp {
+  V128LoadOp
+}
+
+///|
+pub fn v128_load8x8s_op() -> LoadOp {
+  V128Load8x8SOp
+}
+
+///|
+pub fn v128_load8x8u_op() -> LoadOp {
+  V128Load8x8UOp
+}
+
+///|
+pub fn v128_load16x4s_op() -> LoadOp {
+  V128Load16x4SOp
+}
+
+///|
+pub fn v128_load16x4u_op() -> LoadOp {
+  V128Load16x4UOp
+}
+
+///|
+pub fn v128_load32x2s_op() -> LoadOp {
+  V128Load32x2SOp
+}
+
+///|
+pub fn v128_load32x2u_op() -> LoadOp {
+  V128Load32x2UOp
+}
+
+///|
+pub fn v128_load8_splat_op() -> LoadOp {
+  V128Load8SplatOp
+}
+
+///|
+pub fn v128_load16_splat_op() -> LoadOp {
+  V128Load16SplatOp
+}
+
+///|
+pub fn v128_load32_splat_op() -> LoadOp {
+  V128Load32SplatOp
+}
+
+///|
+pub fn v128_load64_splat_op() -> LoadOp {
+  V128Load64SplatOp
+}
+
+///|
+pub fn v128_load32_zero_op() -> LoadOp {
+  V128Load32ZeroOp
+}
+
+///|
+pub fn v128_load64_zero_op() -> LoadOp {
+  V128Load64ZeroOp
+}
+
+///|
+pub fn i32_store_op() -> StoreOp {
+  I32StoreOp
+}
+
+///|
+pub fn i64_store_op() -> StoreOp {
+  I64StoreOp
+}
+
+///|
+pub fn f32_store_op() -> StoreOp {
+  F32StoreOp
+}
+
+///|
+pub fn f64_store_op() -> StoreOp {
+  F64StoreOp
+}
+
+///|
+pub fn i32_store8_op() -> StoreOp {
+  I32Store8Op
+}
+
+///|
+pub fn i32_store16_op() -> StoreOp {
+  I32Store16Op
+}
+
+///|
+pub fn i64_store8_op() -> StoreOp {
+  I64Store8Op
+}
+
+///|
+pub fn i64_store16_op() -> StoreOp {
+  I64Store16Op
+}
+
+///|
+pub fn i64_store32_op() -> StoreOp {
+  I64Store32Op
+}
+
+///|
+pub fn v128_store_op() -> StoreOp {
+  V128StoreOp
+}
+
+///|
+pub fn i8x16_extract_lane_s_op() -> ExtractLaneOp {
+  I8x16ExtractLaneSOp
+}
+
+///|
+pub fn i8x16_extract_lane_u_op() -> ExtractLaneOp {
+  I8x16ExtractLaneUOp
+}
+
+///|
+pub fn i16x8_extract_lane_s_op() -> ExtractLaneOp {
+  I16x8ExtractLaneSOp
+}
+
+///|
+pub fn i16x8_extract_lane_u_op() -> ExtractLaneOp {
+  I16x8ExtractLaneUOp
+}
+
+///|
+pub fn i32x4_extract_lane_op() -> ExtractLaneOp {
+  I32x4ExtractLaneOp
+}
+
+///|
+pub fn i64x2_extract_lane_op() -> ExtractLaneOp {
+  I64x2ExtractLaneOp
+}
+
+///|
+pub fn f32x4_extract_lane_op() -> ExtractLaneOp {
+  F32x4ExtractLaneOp
+}
+
+///|
+pub fn f64x2_extract_lane_op() -> ExtractLaneOp {
+  F64x2ExtractLaneOp
+}
+
+///|
+pub fn i8x16_replace_lane_op() -> ReplaceLaneOp {
+  I8x16ReplaceLaneOp
+}
+
+///|
+pub fn i16x8_replace_lane_op() -> ReplaceLaneOp {
+  I16x8ReplaceLaneOp
+}
+
+///|
+pub fn i32x4_replace_lane_op() -> ReplaceLaneOp {
+  I32x4ReplaceLaneOp
+}
+
+///|
+pub fn i64x2_replace_lane_op() -> ReplaceLaneOp {
+  I64x2ReplaceLaneOp
+}
+
+///|
+pub fn f32x4_replace_lane_op() -> ReplaceLaneOp {
+  F32x4ReplaceLaneOp
+}
+
+///|
+pub fn f64x2_replace_lane_op() -> ReplaceLaneOp {
+  F64x2ReplaceLaneOp
+}
+
+///|
+pub fn i8x16_shl_op() -> V128ShiftOp {
+  I8x16ShlOp
+}
+
+///|
+pub fn i8x16_shr_s_op() -> V128ShiftOp {
+  I8x16ShrSOp
+}
+
+///|
+pub fn i8x16_shr_u_op() -> V128ShiftOp {
+  I8x16ShrUOp
+}
+
+///|
+pub fn i16x8_shl_op() -> V128ShiftOp {
+  I16x8ShlOp
+}
+
+///|
+pub fn i16x8_shr_s_op() -> V128ShiftOp {
+  I16x8ShrSOp
+}
+
+///|
+pub fn i16x8_shr_u_op() -> V128ShiftOp {
+  I16x8ShrUOp
+}
+
+///|
+pub fn i32x4_shl_op() -> V128ShiftOp {
+  I32x4ShlOp
+}
+
+///|
+pub fn i32x4_shr_s_op() -> V128ShiftOp {
+  I32x4ShrSOp
+}
+
+///|
+pub fn i32x4_shr_u_op() -> V128ShiftOp {
+  I32x4ShrUOp
+}
+
+///|
+pub fn i64x2_shl_op() -> V128ShiftOp {
+  I64x2ShlOp
+}
+
+///|
+pub fn i64x2_shr_s_op() -> V128ShiftOp {
+  I64x2ShrSOp
+}
+
+///|
+pub fn i64x2_shr_u_op() -> V128ShiftOp {
+  I64x2ShrUOp
+}
+
+///|
+pub fn v128_bitselect_op() -> V128TernaryOp {
+  V128BitselectOp
+}
+
+///|
+pub fn i8x16_relaxed_laneselect_op() -> V128TernaryOp {
+  I8x16RelaxedLaneselectOp
+}
+
+///|
+pub fn i16x8_relaxed_laneselect_op() -> V128TernaryOp {
+  I16x8RelaxedLaneselectOp
+}
+
+///|
+pub fn i32x4_relaxed_laneselect_op() -> V128TernaryOp {
+  I32x4RelaxedLaneselectOp
+}
+
+///|
+pub fn i64x2_relaxed_laneselect_op() -> V128TernaryOp {
+  I64x2RelaxedLaneselectOp
+}
+
+///|
+pub fn f32x4_relaxed_madd_op() -> V128TernaryOp {
+  F32x4RelaxedMaddOp
+}
+
+///|
+pub fn f32x4_relaxed_nmadd_op() -> V128TernaryOp {
+  F32x4RelaxedNmaddOp
+}
+
+///|
+pub fn f64x2_relaxed_madd_op() -> V128TernaryOp {
+  F64x2RelaxedMaddOp
+}
+
+///|
+pub fn f64x2_relaxed_nmadd_op() -> V128TernaryOp {
+  F64x2RelaxedNmaddOp
+}
+
+///|
+pub fn i32x4_relaxed_dot_i8x16i7x16_add_s_op() -> V128TernaryOp {
+  I32x4RelaxedDotI8x16I7x16AddSOp
+}
+
+///|
+pub fn v128_load8_lane_op() -> V128LoadLaneOp {
+  V128Load8LaneOp
+}
+
+///|
+pub fn v128_load16_lane_op() -> V128LoadLaneOp {
+  V128Load16LaneOp
+}
+
+///|
+pub fn v128_load32_lane_op() -> V128LoadLaneOp {
+  V128Load32LaneOp
+}
+
+///|
+pub fn v128_load64_lane_op() -> V128LoadLaneOp {
+  V128Load64LaneOp
+}
+
+///|
+pub fn v128_store8_lane_op() -> V128StoreLaneOp {
+  V128Store8LaneOp
+}
+
+///|
+pub fn v128_store16_lane_op() -> V128StoreLaneOp {
+  V128Store16LaneOp
+}
+
+///|
+pub fn v128_store32_lane_op() -> V128StoreLaneOp {
+  V128Store32LaneOp
+}
+
+///|
+pub fn v128_store64_lane_op() -> V128StoreLaneOp {
+  V128Store64LaneOp
+}
