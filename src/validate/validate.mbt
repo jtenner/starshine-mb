@@ -1472,14 +1472,14 @@ test "GlobalType validates mutable" {
 ///|
 test "StorageType ValType validates" {
   let env = empty_env()
-  let st = @lib.ValTypeStorageType(ValType::i32())
+  let st = StorageType::val_type(ValType::i32())
   assert_eq(Validate::validate(st, env), Ok(()))
 }
 
 ///|
 test "StorageType PackType validates" {
   let env = empty_env()
-  let st = @lib.PackTypeStorageType(PackType::i8())
+  let st = StorageType::pack_type(PackType::i8())
   assert_eq(Validate::validate(st, env), Ok(()))
 }
 
@@ -1488,7 +1488,7 @@ test "StorageType PackType validates" {
 ///|
 test "FieldType validates" {
   let env = empty_env()
-  let ft = @lib.FieldType(ValTypeStorageType(ValType::i32()), Const)
+  let ft = @lib.FieldType(StorageType::val_type(ValType::i32()), Const)
   assert_eq(Validate::validate(ft, env), Ok(()))
 }
 
@@ -1520,7 +1520,7 @@ test "CompType FuncCompType validates" {
 ///|
 test "CompType ArrayCompType validates" {
   let env = empty_env()
-  let ft = @lib.FieldType(ValTypeStorageType(ValType::i32()), Const)
+  let ft = @lib.FieldType(StorageType::val_type(ValType::i32()), Const)
   let ct = @lib.ArrayCompType(ft)
   assert_eq(Validate::validate(ct, env), Ok(()))
 }
@@ -1528,7 +1528,7 @@ test "CompType ArrayCompType validates" {
 ///|
 test "CompType StructCompType validates" {
   let env = empty_env()
-  let ft = @lib.FieldType(ValTypeStorageType(ValType::i32()), Const)
+  let ft = @lib.FieldType(StorageType::val_type(ValType::i32()), Const)
   let ct = @lib.StructCompType([ft])
   assert_eq(Validate::validate(ct, env), Ok(()))
 }
@@ -1564,7 +1564,7 @@ test "RecType GroupRecType validates" {
   let env = empty_env()
   let st1 = @lib.CompTypeSubType(FuncCompType([], []))
   let st2 = @lib.CompTypeSubType(
-    ArrayCompType(FieldType(ValTypeStorageType(ValType::i32()), Const)),
+    ArrayCompType(FieldType(StorageType::val_type(ValType::i32()), Const)),
   )
   let rt = @lib.GroupRecType([st1, st2])
   assert_eq(Validate::validate(rt, env), Ok(()))
@@ -1619,7 +1619,7 @@ test "BlockType TypeIdxBlockType with invalid index fails" {
 ///|
 test "BlockType TypeIdxBlockType with non-func type fails" {
   let st = @lib.CompTypeSubType(
-    ArrayCompType(FieldType(ValTypeStorageType(ValType::i32()), Const)),
+    ArrayCompType(FieldType(StorageType::val_type(ValType::i32()), Const)),
   )
   let env = empty_env().with_types([st])
   let bt = BlockType::type_idx(TypeIdx::new(0))

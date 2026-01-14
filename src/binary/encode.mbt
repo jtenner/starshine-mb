@@ -372,10 +372,10 @@ pub impl Encode for StorageType with encode(val, buf) {
 ///|
 pub impl Decode for StorageType with decode(bytes, i) {
   match Decode::decode(bytes, i) {
-    Ok((vt, i)) => Ok((ValTypeStorageType(vt), i))
+    Ok((vt, i)) => Ok((StorageType::val_type(vt), i))
     Err(_) =>
       match Decode::decode(bytes, i) {
-        Ok((pt, i)) => Ok((PackTypeStorageType(pt), i))
+        Ok((pt, i)) => Ok((StorageType::pack_type(pt), i))
         Err(_) => Err("Invalid StorageType")
       }
   }
@@ -5975,12 +5975,12 @@ test "Ref Types" {
 ///|
 test "Comp Types" {
   roundtrip(
-    @lib.ArrayCompType(FieldType(ValTypeStorageType(ValType::i32()), Var)),
+    @lib.ArrayCompType(FieldType(StorageType::val_type(ValType::i32()), Var)),
   )
   roundtrip(
     @lib.StructCompType([
       FieldType(
-        ValTypeStorageType(
+        StorageType::val_type(
           ValType::ref_type(
             RefType::new(true, HeapType::abs(AbsHeapType::i31())),
           ),
@@ -6015,7 +6015,7 @@ test "Packed Type" {
 test "SubTypes" {
   roundtrip(
     @lib.CompTypeSubType(
-      ArrayCompType(FieldType(ValTypeStorageType(ValType::i32()), Var)),
+      ArrayCompType(FieldType(StorageType::val_type(ValType::i32()), Var)),
     ),
   )
   roundtrip(

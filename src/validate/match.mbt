@@ -696,9 +696,9 @@ test "MemType: delegates to limits" {
 ///|
 test "StorageType: equality based" {
   let env = Env::new()
-  // Assuming storage types like PackTypeStorageType(PackType::i8()), PackTypeStorageType(PackType::i16()), ValTypeStorageType
-  let s1 = @lib.PackTypeStorageType(PackType::i8())
-  let s2 = @lib.PackTypeStorageType(PackType::i16())
+  // Assuming storage types like StorageType::pack_type(PackType::i8()), StorageType::pack_type(PackType::i16()), StorageType::val_type
+  let s1 = StorageType::pack_type(PackType::i8())
+  let s2 = StorageType::pack_type(PackType::i16())
   assert_true(Match::matches(s1, s1, env))
   assert_true(Match::matches(s2, s2, env))
   assert_false(Match::matches(s1, s2, env))
@@ -711,7 +711,7 @@ test "StorageType: equality based" {
 ///|
 test "FieldType: const is covariant" {
   let env = Env::new()
-  let st = @lib.PackTypeStorageType(PackType::i8())
+  let st = StorageType::pack_type(PackType::i8())
   let f1 = @lib.FieldType(st, Const)
   let f2 = @lib.FieldType(st, Const)
   assert_true(Match::matches(f1, f2, env))
@@ -720,7 +720,7 @@ test "FieldType: const is covariant" {
 ///|
 test "FieldType: var is invariant" {
   let env = Env::new()
-  let st = @lib.PackTypeStorageType(PackType::i8())
+  let st = StorageType::pack_type(PackType::i8())
   let f1 = @lib.FieldType(st, Var)
   let f2 = @lib.FieldType(st, Var)
   assert_true(Match::matches(f1, f2, env))
@@ -729,7 +729,7 @@ test "FieldType: var is invariant" {
 ///|
 test "FieldType: const vs var don't match" {
   let env = Env::new()
-  let st = @lib.PackTypeStorageType(PackType::i8())
+  let st = StorageType::pack_type(PackType::i8())
   let const_field = @lib.FieldType(st, Const)
   let var_field = @lib.FieldType(st, Var)
   assert_false(Match::matches(const_field, var_field, env))
@@ -902,13 +902,13 @@ test "CompType: FuncCompType - param count mismatch" {
 test "CompType: StructCompType - field matching" {
   let env = Env::new()
   let s1 = @lib.StructCompType([
-    FieldType(PackTypeStorageType(PackType::i8()), Const),
+    FieldType(StorageType::pack_type(PackType::i8()), Const),
   ])
   let s2 = @lib.StructCompType([
-    FieldType(PackTypeStorageType(PackType::i8()), Const),
+    FieldType(StorageType::pack_type(PackType::i8()), Const),
   ])
   let s3 = @lib.StructCompType([
-    FieldType(PackTypeStorageType(PackType::i16()), Const),
+    FieldType(StorageType::pack_type(PackType::i16()), Const),
   ])
   assert_true(Match::matches(s1, s2, env))
   assert_false(Match::matches(s1, s3, env))
@@ -917,9 +917,9 @@ test "CompType: StructCompType - field matching" {
 ///|
 test "CompType: ArrayCompType - field matching" {
   let env = Env::new()
-  let a1 = @lib.ArrayCompType(FieldType(PackTypeStorageType(PackType::i8()), Const))
-  let a2 = @lib.ArrayCompType(FieldType(PackTypeStorageType(PackType::i8()), Const))
-  let a3 = @lib.ArrayCompType(FieldType(PackTypeStorageType(PackType::i8()), Var))
+  let a1 = @lib.ArrayCompType(FieldType(StorageType::pack_type(PackType::i8()), Const))
+  let a2 = @lib.ArrayCompType(FieldType(StorageType::pack_type(PackType::i8()), Const))
+  let a3 = @lib.ArrayCompType(FieldType(StorageType::pack_type(PackType::i8()), Var))
   assert_true(Match::matches(a1, a2, env))
   assert_false(Match::matches(a1, a3, env))
 }
@@ -930,7 +930,7 @@ test "CompType: different kinds don't match" {
   let func = @lib.FuncCompType([], [])
   let struct_ = @lib.StructCompType([])
   let array = @lib.ArrayCompType(
-    FieldType(PackTypeStorageType(PackType::i8()), Const),
+    FieldType(StorageType::pack_type(PackType::i8()), Const),
   )
   assert_false(Match::matches(func, struct_, env))
   assert_false(Match::matches(struct_, array, env))
@@ -1116,8 +1116,8 @@ test "nested ref type in struct field" {
   // const field with ref type - covariant
   let ref_eq = RefType::new(true, HeapType::abs(AbsHeapType::eq()))
   let ref_any = RefType::new(true, HeapType::abs(AbsHeapType::any()))
-  let st_eq = @lib.ValTypeStorageType(ValType::ref_type(ref_eq))
-  let st_any = @lib.ValTypeStorageType(ValType::ref_type(ref_any))
+  let st_eq = StorageType::val_type(ValType::ref_type(ref_eq))
+  let st_any = StorageType::val_type(ValType::ref_type(ref_any))
   let f1 = @lib.FieldType(st_eq, Const)
   let f2 = @lib.FieldType(st_any, Const)
   assert_true(Match::matches(f1, f2, env))

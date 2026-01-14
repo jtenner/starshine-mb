@@ -389,9 +389,9 @@ fn make_signature_corruption_transformer() -> ModuleTransformer[Unit] {
             let FieldType(st, mutability) = ft
             match st {
               ValTypeStorageType(NumTypeValType(I32NumType)) =>
-                @lib.FieldType(ValTypeStorageType(ValType::f64()), mutability)
+                @lib.FieldType(StorageType::val_type(ValType::f64()), mutability)
               ValTypeStorageType(NumTypeValType(I64NumType)) =>
-                FieldType(ValTypeStorageType(ValType::f32()), mutability)
+                FieldType(StorageType::val_type(ValType::f32()), mutability)
               _ => ft
             }
           })
@@ -400,9 +400,9 @@ fn make_signature_corruption_transformer() -> ModuleTransformer[Unit] {
         ArrayCompType(FieldType(st, mutability)) => {
           let new_st = match st {
             ValTypeStorageType(NumTypeValType(I32NumType)) =>
-              @lib.ValTypeStorageType(ValType::f64())
+             StorageType::val_type(ValType::f64())
             ValTypeStorageType(NumTypeValType(I64NumType)) =>
-              ValTypeStorageType(ValType::f32())
+              StorageType::val_type(ValType::f32())
             _ => st
           }
           Ok(Some(((), ArrayCompType(FieldType(new_st, mutability)))))

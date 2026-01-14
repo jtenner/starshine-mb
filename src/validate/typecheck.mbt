@@ -6910,7 +6910,7 @@ test "Typecheck TryTable with result" {
 ///|
 test "Typecheck StructNew" {
   let struct_type = @lib.CompTypeSubType(
-    StructCompType([FieldType(ValTypeStorageType(ValType::i32()), Var)]),
+    StructCompType([FieldType(StorageType::val_type(ValType::i32()), Var)]),
   )
   let env = { ..empty_env(), global_types: [struct_type] }
   let state = make_state(env, [ValType::i32()])
@@ -6922,7 +6922,7 @@ test "Typecheck StructNew" {
 ///|
 test "Typecheck StructNewDefault" {
   let struct_type = @lib.CompTypeSubType(
-    StructCompType([FieldType(ValTypeStorageType(ValType::i32()), Var)]),
+    StructCompType([FieldType(StorageType::val_type(ValType::i32()), Var)]),
   )
   let env = { ..empty_env(), global_types: [struct_type] }
   let state = make_state(env, [])
@@ -6934,7 +6934,7 @@ test "Typecheck StructNewDefault" {
 ///|
 test "Typecheck StructGet" {
   let struct_type = @lib.CompTypeSubType(
-    StructCompType([FieldType(ValTypeStorageType(ValType::i32()), Var)]),
+    StructCompType([FieldType(StorageType::val_type(ValType::i32()), Var)]),
   )
   let env = { ..empty_env(), global_types: [struct_type] }
   let struct_ref = ValType::ref_type(
@@ -6949,7 +6949,7 @@ test "Typecheck StructGet" {
 ///|
 test "Typecheck StructGetS" {
   let struct_type = @lib.CompTypeSubType(
-    StructCompType([FieldType(PackTypeStorageType(PackType::i8()), Var)]),
+    StructCompType([FieldType(StorageType::pack_type(PackType::i8()), Var)]),
   )
   let env = { ..empty_env(), global_types: [struct_type] }
   let struct_ref = ValType::ref_type(
@@ -6964,7 +6964,7 @@ test "Typecheck StructGetS" {
 ///|
 test "Typecheck StructGetU" {
   let struct_type = @lib.CompTypeSubType(
-    StructCompType([FieldType(PackTypeStorageType(PackType::i16()), Var)]),
+    StructCompType([FieldType(StorageType::pack_type(PackType::i16()), Var)]),
   )
   let env = { ..empty_env(), global_types: [struct_type] }
   let struct_ref = ValType::ref_type(
@@ -6979,7 +6979,7 @@ test "Typecheck StructGetU" {
 ///|
 test "Typecheck StructSet" {
   let struct_type = @lib.CompTypeSubType(
-    StructCompType([FieldType(ValTypeStorageType(ValType::i32()), Var)]),
+    StructCompType([FieldType(StorageType::val_type(ValType::i32()), Var)]),
   )
   let env = { ..empty_env(), global_types: [struct_type] }
   let struct_ref = ValType::ref_type(
@@ -6998,7 +6998,7 @@ test "Typecheck StructSet" {
 ///|
 test "Typecheck ArrayNew" {
   let array_type = @lib.CompTypeSubType(
-    ArrayCompType(FieldType(ValTypeStorageType(ValType::i32()), Var)),
+    ArrayCompType(FieldType(StorageType::val_type(ValType::i32()), Var)),
   )
   let env = { ..empty_env(), global_types: [array_type] }
   let state = make_state(env, [ValType::i32(), ValType::i32()])
@@ -7010,7 +7010,7 @@ test "Typecheck ArrayNew" {
 ///|
 test "Typecheck ArrayNewDefault" {
   let array_type = @lib.CompTypeSubType(
-    ArrayCompType(FieldType(ValTypeStorageType(ValType::i32()), Var)),
+    ArrayCompType(FieldType(StorageType::val_type(ValType::i32()), Var)),
   )
   let env = { ..empty_env(), global_types: [array_type] }
   let state = make_state(env, [ValType::i32()])
@@ -7022,7 +7022,7 @@ test "Typecheck ArrayNewDefault" {
 ///|
 test "Typecheck ArrayNewFixed" {
   let array_type = @lib.CompTypeSubType(
-    ArrayCompType(FieldType(ValTypeStorageType(ValType::i32()), Var)),
+    ArrayCompType(FieldType(StorageType::val_type(ValType::i32()), Var)),
   )
   let env = { ..empty_env(), global_types: [array_type] }
   let state = make_state(env, [ValType::i32(), ValType::i32(), ValType::i32()])
@@ -7037,7 +7037,7 @@ test "Typecheck ArrayNewFixed" {
 ///|
 test "Typecheck ArrayNewData" {
   let array_type = @lib.CompTypeSubType(
-    ArrayCompType(FieldType(ValTypeStorageType(ValType::i32()), Var)),
+    ArrayCompType(FieldType(StorageType::val_type(ValType::i32()), Var)),
   )
   let data = @lib.Data(Passive, b"")
   let env = { ..empty_env(), global_types: [array_type] }.push_data(data)
@@ -7055,7 +7055,7 @@ test "Typecheck ArrayNewElem" {
   let funcref = RefType::abs(AbsHeapType::func())
   let array_type = @lib.CompTypeSubType(
     ArrayCompType(
-      FieldType(ValTypeStorageType(ValType::ref_type(funcref)), Var),
+      FieldType(StorageType::val_type(ValType::ref_type(funcref)), Var),
     ),
   )
   let elem = Elem::new(ElemMode::passive(), ElemKind::funcs([]))
@@ -7072,7 +7072,7 @@ test "Typecheck ArrayNewElem" {
 ///|
 test "Typecheck ArrayGet" {
   let array_type = @lib.CompTypeSubType(
-    ArrayCompType(FieldType(ValTypeStorageType(ValType::i32()), Var)),
+    ArrayCompType(FieldType(StorageType::val_type(ValType::i32()), Var)),
   )
   let env = { ..empty_env(), global_types: [array_type] }
   let array_ref = ValType::ref_type(
@@ -7087,7 +7087,7 @@ test "Typecheck ArrayGet" {
 ///|
 test "Typecheck ArrayGetS" {
   let array_type = @lib.CompTypeSubType(
-    ArrayCompType(FieldType(PackTypeStorageType(PackType::i8()), Var)),
+    ArrayCompType(FieldType(StorageType::pack_type(PackType::i8()), Var)),
   )
   let env = { ..empty_env(), global_types: [array_type] }
   let array_ref = ValType::ref_type(
@@ -7102,7 +7102,7 @@ test "Typecheck ArrayGetS" {
 ///|
 test "Typecheck ArrayGetU" {
   let array_type = @lib.CompTypeSubType(
-    ArrayCompType(FieldType(PackTypeStorageType(PackType::i16()), Var)),
+    ArrayCompType(FieldType(StorageType::pack_type(PackType::i16()), Var)),
   )
   let env = { ..empty_env(), global_types: [array_type] }
   let array_ref = ValType::ref_type(
@@ -7117,7 +7117,7 @@ test "Typecheck ArrayGetU" {
 ///|
 test "Typecheck ArraySet" {
   let array_type = @lib.CompTypeSubType(
-    ArrayCompType(FieldType(ValTypeStorageType(ValType::i32()), Var)),
+    ArrayCompType(FieldType(StorageType::val_type(ValType::i32()), Var)),
   )
   let env = { ..empty_env(), global_types: [array_type] }
   let array_ref = ValType::ref_type(
@@ -7144,7 +7144,7 @@ test "Typecheck ArrayLen" {
 ///|
 test "Typecheck ArrayFill" {
   let array_type = @lib.CompTypeSubType(
-    ArrayCompType(FieldType(ValTypeStorageType(ValType::i32()), Var)),
+    ArrayCompType(FieldType(StorageType::val_type(ValType::i32()), Var)),
   )
   let env = { ..empty_env(), global_types: [array_type] }
   let array_ref = ValType::ref_type(
@@ -7164,7 +7164,7 @@ test "Typecheck ArrayFill" {
 ///|
 test "Typecheck ArrayCopy" {
   let array_type = @lib.CompTypeSubType(
-    ArrayCompType(FieldType(ValTypeStorageType(ValType::i32()), Var)),
+    ArrayCompType(FieldType(StorageType::val_type(ValType::i32()), Var)),
   )
   let env = { ..empty_env(), global_types: [array_type] }
   let array_ref = ValType::ref_type(
@@ -7188,7 +7188,7 @@ test "Typecheck ArrayCopy" {
 ///|
 test "Typecheck ArrayInitData" {
   let array_type = @lib.CompTypeSubType(
-    ArrayCompType(FieldType(ValTypeStorageType(ValType::i32()), Var)),
+    ArrayCompType(FieldType(StorageType::val_type(ValType::i32()), Var)),
   )
   let data = @lib.Data(Passive, b"")
   let env = { ..empty_env(), global_types: [array_type] }.push_data(data)
@@ -7214,7 +7214,7 @@ test "Typecheck ArrayInitElem" {
   let funcref = RefType::abs(AbsHeapType::func())
   let array_type = @lib.CompTypeSubType(
     ArrayCompType(
-      FieldType(ValTypeStorageType(ValType::ref_type(funcref)), Var),
+      FieldType(StorageType::val_type(ValType::ref_type(funcref)), Var),
     ),
   )
   let elem = Elem::new(ElemMode::passive(), ElemKind::funcs([]))

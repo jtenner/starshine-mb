@@ -74,7 +74,7 @@ pub enum PackType {
 } derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) enum StorageType {
+pub enum StorageType {
   ValTypeStorageType(ValType)
   PackTypeStorageType(PackType)
 } derive(Eq, Arbitrary, Hash)

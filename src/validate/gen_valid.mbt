@@ -319,7 +319,7 @@ fn gen_defaultable_valtype(rnd : @quickcheck/splitmix.RandomState) -> ValType {
 ///|
 fn gen_defaultable_field(rnd : @quickcheck/splitmix.RandomState) -> FieldType {
   let vt = gen_defaultable_valtype(rnd)
-  let st = @lib.ValTypeStorageType(vt)
+  let st = StorageType::val_type(vt)
   let m = if (rnd.next_uint() & 1) == 1 { @lib.Var } else { Const }
   FieldType(st, m)
 }
