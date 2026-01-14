@@ -20,6 +20,7 @@ pub fn[T, Elem] error(err : String) -> TransformerResult[T, Elem] {
 
 ///|
 pub(all) struct ModuleTransformer[T] {
+  on_module : ((ModuleTransformer[T], T, Module) -> TransformerResult[T, Module])?
   on_typesec : ((ModuleTransformer[T], T, TypeSec) -> TransformerResult[
     T,
     TypeSec,
@@ -227,6 +228,7 @@ pub(all) struct ModuleTransformer[T] {
 ///|
 pub fn[T] ModuleTransformer::new() -> ModuleTransformer[T] {
   ModuleTransformer::{
+    on_module: None,
     on_typesec: None,
     on_funcsec: None,
     on_tablesec: None,

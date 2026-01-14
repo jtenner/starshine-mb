@@ -10,6 +10,8 @@ pub fn alignment_lowering_pass() -> @lib.ModuleTransformer[AlignmentLoweringCont
 
 pub fn const_hoisting_pass() -> @lib.ModuleTransformer[ConstHoistingState]
 
+pub fn directize_module(@lib.Module, Bool) -> Result[@lib.Module, String]
+
 pub fn lift_to_texpr_pass() -> @lib.ModuleTransformer[Unit]
 
 pub fn run_denam(@lib.Module) -> Result[@lib.Module, String]
@@ -17,6 +19,8 @@ pub fn run_denam(@lib.Module) -> Result[@lib.Module, String]
 // Errors
 
 // Types and methods
+type ATRState
+
 pub struct AlignmentLoweringContext {
   mut locals : Array[@lib.ValType]
   memories : Array[@lib.MemType]
@@ -55,6 +59,8 @@ pub struct SquareMatrix[T] {
 pub fn[T] SquareMatrix::get_or(Self[T], T, UInt, UInt) -> Result[T, String]
 pub fn[T : Default] SquareMatrix::get_or_default(Self[T], UInt, UInt) -> Result[T, String]
 pub fn[T] SquareMatrix::new(size? : UInt) -> Self[T]
+
+type SubTypes
 
 // Type aliases
 

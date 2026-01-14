@@ -7463,3 +7463,69 @@ pub fn v128_store32_lane_op() -> V128StoreLaneOp {
 pub fn v128_store64_lane_op() -> V128StoreLaneOp {
   V128Store64LaneOp
 }
+
+pub fn def_type(rec : RecType, idx : UInt) -> DefType {
+  DefType(rec, idx)
+}
+
+pub fn HeapType::is_struct(self : Self) -> Bool {
+  match self {
+    DefTypeHeapType(def) => {
+      match def.project() {
+        Some(st) => {
+          match st.get_comptype() {
+            StructCompType(_) => true
+            _ => false
+          }
+        }
+        None => false
+      }
+    }
+    _ => false
+  }
+}
+
+pub fn HeapType::is_array(self : Self) -> Bool {
+  match self {
+    DefTypeHeapType(def) => {
+      match def.project() {
+        Some(st) => {
+          match st.get_comptype() {
+            ArrayCompType(_) => true
+            _ => false
+          }
+        }
+        None => false
+      }
+    }
+    _ => false
+  }
+}
+
+pub fn HeapType::is_gc_aggregate(self : Self) -> Bool {
+  self.is_struct() || self.is_array()
+}
+
+pub fn bottom_heap_type() -> HeapType {
+  AbsHeapTypeHeapType(NoneAbsHeapType)
+}
+
+pub fn cast_op(b0 : Bool, b1 : Bool) -> CastOp {
+  CastOp(b0, b1)
+}
+
+pub fn type_sec(rts : Array[RecType])-> TypeSec {
+  TypeSec(rts)
+}
+
+pub fn code_sec(fs : Array[Func]) -> CodeSec {
+  CodeSec(fs)
+}
+
+pub fn t_expr(instrs : Array[TInstr]) -> TExpr {
+  TExpr(instrs)
+}
+
+pub fn t_func(args : Array[ValType], expr : TExpr) -> Func {
+  TFunc(args, expr)
+}

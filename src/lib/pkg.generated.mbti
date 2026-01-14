@@ -57,6 +57,8 @@ pub fn block_inst(BlockType, Expr) -> Instruction
 
 pub fn bot_val_type() -> ValType
 
+pub fn bottom_heap_type() -> HeapType
+
 pub fn br_if_inst(LabelIdx) -> Instruction
 
 pub fn br_inst(LabelIdx) -> Instruction
@@ -77,6 +79,8 @@ pub fn call_inst(FuncIdx) -> Instruction
 
 pub fn call_ref_inst(TypeIdx) -> Instruction
 
+pub fn cast_op(Bool, Bool) -> CastOp
+
 pub fn catch_(TagIdx, LabelIdx) -> Catch
 
 pub fn catch_all(LabelIdx) -> Catch
@@ -92,6 +96,8 @@ pub fn comp_type_sub_type(CompType) -> SubType
 pub fn data_drop_inst(DataIdx) -> Instruction
 
 pub fn declarative() -> ElemMode
+
+pub fn def_type(RecType, UInt) -> DefType
 
 pub fn def_type_heap_type(DefType) -> HeapType
 
@@ -2651,6 +2657,7 @@ pub fn Env::with_label(Self, Array[ValType]) -> Self
 pub fn Env::with_labels(Self, Array[Array[ValType]]) -> Self
 pub fn Env::with_locals(Self, Array[ValType]) -> Self
 pub fn Env::with_mems(Self, Array[MemType]) -> Self
+pub fn Env::with_module(Self, Module) -> Self
 pub fn Env::with_rectype(Self, RecType) -> Self
 pub fn Env::with_return_type(Self, Array[ValType]?) -> Self
 pub fn Env::with_tables(Self, Array[TableType]) -> Self
@@ -2773,6 +2780,7 @@ pub impl @quickcheck.Arbitrary for FuncSec
 pub(all) struct FuncType(Array[ValType], Array[ValType])
 
 
+pub impl Eq for FuncType
 pub impl Hash for FuncType
 pub impl Show for FuncType
 
@@ -2813,6 +2821,9 @@ pub(all) enum HeapType {
   HeapType(TypeIdx)
   DefTypeHeapType(DefType)
 }
+pub fn HeapType::is_array(Self) -> Bool
+pub fn HeapType::is_gc_aggregate(Self) -> Bool
+pub fn HeapType::is_struct(Self) -> Bool
 pub impl Eq for HeapType
 pub impl Hash for HeapType
 pub impl Show for HeapType
@@ -3496,6 +3507,7 @@ pub impl Show for Module
 pub impl @quickcheck.Arbitrary for Module
 
 pub(all) struct ModuleTransformer[T] {
+  on_module : ((ModuleTransformer[T], T, Module) -> Result[(T, Module)?, String])?
   on_typesec : ((ModuleTransformer[T], T, TypeSec) -> Result[(T, TypeSec)?, String])?
   on_funcsec : ((ModuleTransformer[T], T, FuncSec) -> Result[(T, FuncSec)?, String])?
   on_tablesec : ((ModuleTransformer[T], T, TableSec) -> Result[(T, TableSec)?, String])?
