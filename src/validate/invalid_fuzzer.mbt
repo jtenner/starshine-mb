@@ -289,7 +289,7 @@ fn make_nullability_flip_transformer() -> ModuleTransformer[Unit] {
                     (),
                     HeapTypeRefType(
                       false,
-                      AbsHeapTypeHeapType(NoFuncAbsHeapType),
+                      HeapType::abs(AbsHeapType::no_func()),
                     ),
                   ),
                 ),
@@ -302,7 +302,7 @@ fn make_nullability_flip_transformer() -> ModuleTransformer[Unit] {
                     (),
                     HeapTypeRefType(
                       false,
-                      AbsHeapTypeHeapType(NoExternAbsHeapType),
+                      HeapType::abs(AbsHeapType::no_extern()),
                     ),
                   ),
                 ),
@@ -315,7 +315,7 @@ fn make_nullability_flip_transformer() -> ModuleTransformer[Unit] {
                     (),
                     HeapTypeRefType(
                       false,
-                      AbsHeapTypeHeapType(NoExnAbsHeapType),
+                      HeapType::abs(AbsHeapType::no_exn()),
                     ),
                   ),
                 ),
@@ -326,14 +326,14 @@ fn make_nullability_flip_transformer() -> ModuleTransformer[Unit] {
                 Some(
                   (
                     (),
-                    HeapTypeRefType(false, AbsHeapTypeHeapType(NoneAbsHeapType)),
+                    HeapTypeRefType(false, HeapType::abs(AbsHeapType::none())),
                   ),
                 ),
               )
           }
         AbsHeapTypeRefType(aht) =>
           // These shorthands are nullable, make them non-null with explicit form
-          Ok(Some(((), HeapTypeRefType(false, AbsHeapTypeHeapType(aht)))))
+          Ok(Some(((), HeapTypeRefType(false, HeapType::abs(aht)))))
       }
     }),
     // Also corrupt ref.null to create definite type errors
@@ -881,25 +881,25 @@ test "HeapTypeSwap transformer actually modifies heap types" {
   // Test that each swap produces a different heap type
   let swaps : Array[(HeapType, HeapType)] = [
     (
-      AbsHeapTypeHeapType(FuncAbsHeapType),
-      AbsHeapTypeHeapType(ExternAbsHeapType),
+      HeapType::abs(AbsHeapType::func()),
+      HeapType::abs(AbsHeapType::extern_()),
     ),
     (
-      AbsHeapTypeHeapType(ExternAbsHeapType),
-      AbsHeapTypeHeapType(FuncAbsHeapType),
+      HeapType::abs(AbsHeapType::extern_()),
+      HeapType::abs(AbsHeapType::func()),
     ),
-    (AbsHeapTypeHeapType(AnyAbsHeapType), AbsHeapTypeHeapType(FuncAbsHeapType)),
-    (AbsHeapTypeHeapType(EqAbsHeapType), AbsHeapTypeHeapType(ExternAbsHeapType)),
-    (AbsHeapTypeHeapType(I31AbsHeapType), AbsHeapTypeHeapType(FuncAbsHeapType)),
+    (HeapType::abs(AbsHeapType::any()), HeapType::abs(AbsHeapType::func())),
+    (HeapType::abs(AbsHeapType::eq()), HeapType::abs(AbsHeapType::extern_())),
+    (HeapType::abs(AbsHeapType::i31()), HeapType::abs(AbsHeapType::func())),
     (
-      AbsHeapTypeHeapType(StructAbsHeapType),
-      AbsHeapTypeHeapType(ExternAbsHeapType),
+      HeapType::abs(AbsHeapType::struct_()),
+      HeapType::abs(AbsHeapType::extern_()),
     ),
     (
-      AbsHeapTypeHeapType(ArrayAbsHeapType),
-      AbsHeapTypeHeapType(FuncAbsHeapType),
+      HeapType::abs(AbsHeapType::array()),
+      HeapType::abs(AbsHeapType::func()),
     ),
-    (AbsHeapTypeHeapType(ExnAbsHeapType), AbsHeapTypeHeapType(AnyAbsHeapType)),
+    (HeapType::abs(AbsHeapType::exn()), HeapType::abs(AbsHeapType::any())),
   ]
   for pair in swaps {
     let (before, after) = pair
@@ -910,10 +910,10 @@ test "HeapTypeSwap transformer actually modifies heap types" {
 ///|
 test "RefType AbsHeapTypeRefType swaps produce different values" {
   let swaps : Array[(RefType, RefType)] = [
-    (AbsHeapTypeRefType(FuncAbsHeapType), AbsHeapTypeRefType(ExternAbsHeapType)),
-    (AbsHeapTypeRefType(ExternAbsHeapType), AbsHeapTypeRefType(FuncAbsHeapType)),
-    (AbsHeapTypeRefType(AnyAbsHeapType), AbsHeapTypeRefType(FuncAbsHeapType)),
-    (AbsHeapTypeRefType(ExnAbsHeapType), AbsHeapTypeRefType(AnyAbsHeapType)),
+    (AbsHeapTypeRefType(AbsHeapType::func()), AbsHeapTypeRefType(AbsHeapType::extern_())),
+    (AbsHeapTypeRefType(AbsHeapType::extern_()), AbsHeapTypeRefType(AbsHeapType::func())),
+    (AbsHeapTypeRefType(AbsHeapType::any()), AbsHeapTypeRefType(AbsHeapType::func())),
+    (AbsHeapTypeRefType(AbsHeapType::exn()), AbsHeapTypeRefType(AbsHeapType::any())),
   ]
   for pair in swaps {
     let (before, after) = pair
@@ -925,11 +925,11 @@ test "RefType AbsHeapTypeRefType swaps produce different values" {
 test "Exn to Any swap - verify these are actually different hierarchies" {
   // These should NOT be equal
   assert_not_eq(
-    @lib.AbsHeapTypeRefType(ExnAbsHeapType),
-    AbsHeapTypeRefType(AnyAbsHeapType),
+    @lib.AbsHeapTypeRefType(AbsHeapType::exn()),
+    AbsHeapTypeRefType(AbsHeapType::any()),
   )
   assert_not_eq(
-    @lib.AbsHeapTypeHeapType(ExnAbsHeapType),
-    AbsHeapTypeHeapType(AnyAbsHeapType),
+    HeapType::abs(AbsHeapType::exn()),
+    HeapType::abs(AbsHeapType::any()),
   )
 }

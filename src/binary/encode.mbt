@@ -136,10 +136,10 @@ pub impl Encode for AbsHeapType with encode(val, buf) {
 ///|
 pub impl Decode for HeapType with decode(bytes, i) {
   match Decode::decode(bytes, i) {
-    Ok((abs, i)) => Ok((AbsHeapTypeHeapType(abs), i))
+    Ok((abs, i)) => Ok((HeapType::abs(abs), i))
     Err(_) =>
       match Decode::decode(bytes, i) {
-        Ok((@lib.S33(s), i)) => Ok((HeapType(TypeIdx(s)), i))
+        Ok((@lib.S33(s), i)) => Ok((HeapType::new(TypeIdx(s)), i))
         Err(err) => Err(err)
       }
   }
@@ -148,18 +148,18 @@ pub impl Decode for HeapType with decode(bytes, i) {
 ///|
 pub impl Decode for AbsHeapType with decode(bytes, i) {
   match bytes.get(i) {
-    Some(0x69) => Ok((ExnAbsHeapType, i + 1))
-    Some(0x6A) => Ok((ArrayAbsHeapType, i + 1))
-    Some(0x6B) => Ok((StructAbsHeapType, i + 1))
-    Some(0x6C) => Ok((I31AbsHeapType, i + 1))
-    Some(0x6D) => Ok((EqAbsHeapType, i + 1))
-    Some(0x6E) => Ok((AnyAbsHeapType, i + 1))
-    Some(0x6F) => Ok((ExternAbsHeapType, i + 1))
-    Some(0x70) => Ok((FuncAbsHeapType, i + 1))
-    Some(0x71) => Ok((NoneAbsHeapType, i + 1))
-    Some(0x72) => Ok((NoExternAbsHeapType, i + 1))
-    Some(0x73) => Ok((NoFuncAbsHeapType, i + 1))
-    Some(0x74) => Ok((NoExnAbsHeapType, i + 1))
+    Some(0x69) => Ok((AbsHeapType::exn(), i + 1))
+    Some(0x6A) => Ok((AbsHeapType::array(), i + 1))
+    Some(0x6B) => Ok((AbsHeapType::struct_(), i + 1))
+    Some(0x6C) => Ok((AbsHeapType::i31(), i + 1))
+    Some(0x6D) => Ok((AbsHeapType::eq(), i + 1))
+    Some(0x6E) => Ok((AbsHeapType::any(), i + 1))
+    Some(0x6F) => Ok((AbsHeapType::extern_(), i + 1))
+    Some(0x70) => Ok((AbsHeapType::func(), i + 1))
+    Some(0x71) => Ok((AbsHeapType::none(), i + 1))
+    Some(0x72) => Ok((AbsHeapType::no_extern(), i + 1))
+    Some(0x73) => Ok((AbsHeapType::no_func(), i + 1))
+    Some(0x74) => Ok((AbsHeapType::no_exn(), i + 1))
     Some(_) => Err("Invalid Abstract Heap Type")
     None => Err("Index out of bounds")
   }
@@ -1454,7 +1454,7 @@ pub impl Encode for Elem with encode(val, buf) {
     // Encoder fixes - add funcref reftype
     Elem(Passive, FuncExprsElemKind(es)) => {
       buf.write_byte(0x05)
-      let rt = @lib.HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType))
+      let rt = @lib.HeapTypeRefType(true, HeapType::abs(AbsHeapType::func()))
       if Encode::encode(rt, buf) is Err(t) {
         return Err(t)
       }
@@ -1472,7 +1472,7 @@ pub impl Encode for Elem with encode(val, buf) {
       Encode::encode(es, buf)
     }
     Elem(Declarative, FuncExprsElemKind(es)) => {
-      let rt = @lib.HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType))
+      let rt = @lib.HeapTypeRefType(true, HeapType::abs(AbsHeapType::func()))
       buf.write_byte(0x07)
       if Encode::encode(rt, buf) is Err(t) {
         return Err(t)
@@ -5945,19 +5945,19 @@ test "numtype valtype" {
 
 ///|
 test "Heap Types" {
-  roundtrip(@lib.AbsHeapTypeHeapType(ExnAbsHeapType))
-  roundtrip(@lib.AbsHeapTypeHeapType(ArrayAbsHeapType))
-  roundtrip(@lib.AbsHeapTypeHeapType(StructAbsHeapType))
-  roundtrip(@lib.AbsHeapTypeHeapType(I31AbsHeapType))
-  roundtrip(@lib.AbsHeapTypeHeapType(EqAbsHeapType))
-  roundtrip(@lib.AbsHeapTypeHeapType(AnyAbsHeapType))
-  roundtrip(@lib.AbsHeapTypeHeapType(ExternAbsHeapType))
-  roundtrip(@lib.AbsHeapTypeHeapType(FuncAbsHeapType))
-  roundtrip(@lib.AbsHeapTypeHeapType(NoneAbsHeapType))
-  roundtrip(@lib.AbsHeapTypeHeapType(NoExternAbsHeapType))
-  roundtrip(@lib.AbsHeapTypeHeapType(NoFuncAbsHeapType))
-  roundtrip(@lib.AbsHeapTypeHeapType(NoExnAbsHeapType))
-  roundtrip(@lib.HeapType(TypeIdx(23)))
+  roundtrip(HeapType::abs(AbsHeapType::exn()))
+  roundtrip(HeapType::abs(AbsHeapType::array()))
+  roundtrip(HeapType::abs(AbsHeapType::struct_()))
+  roundtrip(HeapType::abs(AbsHeapType::i31()))
+  roundtrip(HeapType::abs(AbsHeapType::eq()))
+  roundtrip(HeapType::abs(AbsHeapType::any()))
+  roundtrip(HeapType::abs(AbsHeapType::extern_()))
+  roundtrip(HeapType::abs(AbsHeapType::func()))
+  roundtrip(HeapType::abs(AbsHeapType::none()))
+  roundtrip(HeapType::abs(AbsHeapType::no_extern()))
+  roundtrip(HeapType::abs(AbsHeapType::no_func()))
+  roundtrip(HeapType::abs(AbsHeapType::no_exn()))
+  roundtrip(HeapType::new(TypeIdx(23)))
 }
 
 ///|
@@ -5982,7 +5982,7 @@ test "Comp Types" {
       FieldType(
         ValTypeStorageType(
           ValType::ref_type(
-            HeapTypeRefType(true, AbsHeapTypeHeapType(I31AbsHeapType)),
+            HeapTypeRefType(true, HeapType::abs(AbsHeapType::i31())),
           ),
         ),
         Var,

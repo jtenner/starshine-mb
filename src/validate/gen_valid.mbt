@@ -304,14 +304,14 @@ fn gen_defaultable_valtype(rnd : @quickcheck/splitmix.RandomState) -> ValType {
     _ => {
       // nullable refs only (default is ref.null)
       let abs = match rnd.next_uint() % 6 {
-        0 => @lib.AnyAbsHeapType
-        1 => EqAbsHeapType
-        2 => StructAbsHeapType
-        3 => ArrayAbsHeapType
-        4 => FuncAbsHeapType
-        _ => ExternAbsHeapType
+        0 => AbsHeapType::any()
+        1 => AbsHeapType::eq()
+        2 => AbsHeapType::struct_()
+        3 => AbsHeapType::array()
+        4 => AbsHeapType::func()
+        _ => AbsHeapType::extern_()
       }
-      ValType::ref_type(HeapTypeRefType(true, AbsHeapTypeHeapType(abs)))
+      ValType::ref_type(HeapTypeRefType(true, HeapType::abs(abs)))
     }
   }
 }
@@ -502,11 +502,11 @@ fn gen_tabletype(
 ) -> TableType {
   // Choose element type - prefer funcref for compatibility with elem segments
   let rt = match rnd.next_uint() % 5 {
-    0 => @lib.HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType))
-    1 => HeapTypeRefType(true, AbsHeapTypeHeapType(ExternAbsHeapType))
-    2 => HeapTypeRefType(true, AbsHeapTypeHeapType(AnyAbsHeapType))
-    3 => HeapTypeRefType(true, AbsHeapTypeHeapType(EqAbsHeapType))
-    _ => HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType))
+    0 => @lib.HeapTypeRefType(true, HeapType::abs(AbsHeapType::func()))
+    1 => HeapTypeRefType(true, HeapType::abs(AbsHeapType::extern_()))
+    2 => HeapTypeRefType(true, HeapType::abs(AbsHeapType::any()))
+    3 => HeapTypeRefType(true, HeapType::abs(AbsHeapType::eq()))
+    _ => HeapTypeRefType(true, HeapType::abs(AbsHeapType::func()))
   }
   let lim = gen_limits_i32(rnd, 100)
   ignore(env) // env available for future type-index references
@@ -642,7 +642,7 @@ fn gen_elem_kind_func_exprs(
       exprs.push(Expr::new([RefFunc(FuncIdx(fidx))]))
     } else {
       // ref.null func
-      exprs.push(Expr::new([RefNull(AbsHeapTypeHeapType(FuncAbsHeapType))]))
+      exprs.push(Expr::new([RefNull(HeapType::abs(AbsHeapType::func()))]))
     }
   }
   ElemKind::func_exprs(exprs)
@@ -687,7 +687,7 @@ fn find_compatible_table_for_funcref(env : Env) -> TableIdx? {
     // funcref is compatible with funcref tables
     let funcref = @lib.HeapTypeRefType(
       true,
-      AbsHeapTypeHeapType(FuncAbsHeapType),
+      HeapType::abs(AbsHeapType::func()),
     )
     if Match::matches(funcref, rt, env) {
       return Some(TableIdx(i.reinterpret_as_uint()))
@@ -736,7 +736,7 @@ pub fn gen_elemsec_valid(
         _ => {
           let rt = @lib.HeapTypeRefType(
             true,
-            AbsHeapTypeHeapType(FuncAbsHeapType),
+            HeapType::abs(AbsHeapType::func()),
           )
           gen_elem_kind_typed_exprs(rnd, env, rt)
         }
@@ -1372,16 +1372,16 @@ fn gen_ref_instruction(
     0 => {
       // ref.null with random heap type
       let abs = match rnd.next_uint() % 8 {
-        0 => @lib.AnyAbsHeapType
-        1 => EqAbsHeapType
-        2 => I31AbsHeapType
-        3 => StructAbsHeapType
-        4 => ArrayAbsHeapType
-        5 => FuncAbsHeapType
-        6 => ExternAbsHeapType
-        _ => NoneAbsHeapType
+        0 => @lib.AbsHeapType::any()
+        1 => AbsHeapType::eq()
+        2 => AbsHeapType::i31()
+        3 => AbsHeapType::struct_()
+        4 => AbsHeapType::array()
+        5 => AbsHeapType::func()
+        6 => AbsHeapType::extern_()
+        _ => AbsHeapType::none()
       }
-      Some(RefNull(AbsHeapTypeHeapType(abs)))
+      Some(RefNull(HeapType::abs(abs)))
     }
     1 => Some(RefIsNull)
     2 => Some(RefAsNonNull)
@@ -1394,7 +1394,7 @@ fn gen_ref_instruction(
       let struct_idxs = collect_struct_typeidxs(env)
       if struct_idxs.length() > 0 {
         let pick = (rnd.next_uint() % struct_idxs.length().reinterpret_as_uint()).reinterpret_as_int()
-        Some(RefTest(false, HeapType(struct_idxs[pick])))
+        Some(RefTest(false, HeapType::new(struct_idxs[pick])))
       } else {
         Some(RefIsNull)
       }
@@ -1405,7 +1405,7 @@ fn gen_ref_instruction(
       if struct_idxs.length() > 0 {
         let pick = (rnd.next_uint() % struct_idxs.length().reinterpret_as_uint()).reinterpret_as_int()
         let nullable = (rnd.next_uint() & 1) == 1
-        Some(RefCast(nullable, HeapType(struct_idxs[pick])))
+        Some(RefCast(nullable, HeapType::new(struct_idxs[pick])))
       } else {
         Some(RefIsNull)
       }
@@ -1582,7 +1582,7 @@ fn gen_call_instruction(
           let TableType(rt, _) = env.tables[i]
           let funcref = @lib.HeapTypeRefType(
             true,
-            AbsHeapTypeHeapType(FuncAbsHeapType),
+            HeapType::abs(AbsHeapType::func()),
           )
           if Match::matches(funcref, rt, env) {
             // Need to find the function type index
@@ -1804,7 +1804,7 @@ fn gen_try_catch_all_ref(
   // Since we can't easily produce a non-null exnref, use nullable
 
   let exnref_nullable = ValType::ref_type(
-    HeapTypeRefType(true, AbsHeapTypeHeapType(ExnAbsHeapType)),
+    HeapTypeRefType(true, HeapType::abs(AbsHeapType::exn())),
   )
   let outer_bt = @lib.ValTypeBlockType(exnref_nullable)
   let try_body = gen_simple_try_body(rnd, st.env)
@@ -1816,7 +1816,7 @@ fn gen_try_catch_all_ref(
   )
 
   // After try_table, produce null exnref for fallthrough
-  let fallthrough = @lib.RefNull(AbsHeapTypeHeapType(ExnAbsHeapType))
+  let fallthrough = @lib.RefNull(HeapType::abs(AbsHeapType::exn()))
   let block_ins = Instruction::block(
     outer_bt,
     Expr::new([try_table, fallthrough]),
@@ -1895,7 +1895,7 @@ fn gen_try_catch_ref(
   // We use nullable outer block since fallthrough can only produce ref.null
   // (non-null exnref from catch is subtype of nullable)
   let exnref_nullable = ValType::ref_type(
-    HeapTypeRefType(true, AbsHeapTypeHeapType(ExnAbsHeapType)),
+    HeapTypeRefType(true, HeapType::abs(AbsHeapType::exn())),
   )
   let outer_bt = @lib.ValTypeBlockType(exnref_nullable)
   let try_body = gen_simple_try_body(rnd, st.env)
@@ -1907,7 +1907,7 @@ fn gen_try_catch_ref(
   )
 
   // Fallthrough: produce null exnref
-  let fallthrough = @lib.RefNull(AbsHeapTypeHeapType(ExnAbsHeapType))
+  let fallthrough = @lib.RefNull(HeapType::abs(AbsHeapType::exn()))
   let block_ins = @lib.Block(outer_bt, Expr::new([try_table, fallthrough]))
   match Typecheck::typecheck(block_ins, st) {
     Ok(st2) => Ok((ctx.dec_fuel(4), st2, [block_ins]))

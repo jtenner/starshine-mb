@@ -28,7 +28,7 @@ pub enum NumType {
 } derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) enum AbsHeapType {
+pub enum AbsHeapType {
   ExnAbsHeapType
   ArrayAbsHeapType
   StructAbsHeapType
@@ -44,7 +44,7 @@ pub(all) enum AbsHeapType {
 } derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) enum HeapType {
+pub enum HeapType {
   AbsHeapTypeHeapType(AbsHeapType)
   HeapType(TypeIdx)
   DefTypeHeapType(DefType)
@@ -1876,67 +1876,67 @@ pub fn i64_num_type() -> NumType {
 }
 
 ///|
-pub fn exn_abs_heap_type() -> AbsHeapType {
+pub fn AbsHeapType::exn() -> AbsHeapType {
   ExnAbsHeapType
 }
 
 ///|
-pub fn array_abs_heap_type() -> AbsHeapType {
+pub fn AbsHeapType::array() -> AbsHeapType {
   ArrayAbsHeapType
 }
 
 ///|
-pub fn struct_abs_heap_type() -> AbsHeapType {
+pub fn AbsHeapType::struct_() -> AbsHeapType {
   StructAbsHeapType
 }
 
 ///|
-pub fn i31_abs_heap_type() -> AbsHeapType {
+pub fn AbsHeapType::i31() -> AbsHeapType {
   I31AbsHeapType
 }
 
 ///|
-pub fn eq_abs_heap_type() -> AbsHeapType {
+pub fn AbsHeapType::eq() -> AbsHeapType {
   EqAbsHeapType
 }
 
 ///|
-pub fn any_abs_heap_type() -> AbsHeapType {
+pub fn AbsHeapType::any() -> AbsHeapType {
   AnyAbsHeapType
 }
 
 ///|
-pub fn extern_abs_heap_type() -> AbsHeapType {
+pub fn AbsHeapType::extern_() -> AbsHeapType {
   ExternAbsHeapType
 }
 
 ///|
-pub fn func_abs_heap_type() -> AbsHeapType {
+pub fn AbsHeapType::func() -> AbsHeapType {
   FuncAbsHeapType
 }
 
 ///|
-pub fn none_abs_heap_type() -> AbsHeapType {
+pub fn AbsHeapType::none() -> AbsHeapType {
   NoneAbsHeapType
 }
 
 ///|
-pub fn no_extern_abs_heap_type() -> AbsHeapType {
+pub fn AbsHeapType::no_extern() -> AbsHeapType {
   NoExternAbsHeapType
 }
 
 ///|
-pub fn no_func_abs_heap_type() -> AbsHeapType {
+pub fn AbsHeapType::no_func() -> AbsHeapType {
   NoFuncAbsHeapType
 }
 
 ///|
-pub fn no_exn_abs_heap_type() -> AbsHeapType {
+pub fn AbsHeapType::no_exn() -> AbsHeapType {
   NoExnAbsHeapType
 }
 
 ///|
-pub fn abs_heap_type_heap_type(abs : AbsHeapType) -> HeapType {
+pub fn HeapType::abs(abs : AbsHeapType) -> HeapType {
   AbsHeapTypeHeapType(abs)
 }
 
@@ -1946,12 +1946,12 @@ pub fn type_idx(idx : UInt) -> TypeIdx {
 }
 
 ///|
-pub fn heap_type(ty_idx : TypeIdx) -> HeapType {
+pub fn HeapType::new(ty_idx : TypeIdx) -> HeapType {
   HeapType(ty_idx)
 }
 
 ///|
-pub fn def_type_heap_type(dt : DefType) -> HeapType {
+pub fn HeapType::def_type(dt : DefType) -> HeapType {
   DefTypeHeapType(dt)
 }
 

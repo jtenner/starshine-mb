@@ -34,20 +34,20 @@ fn build_subtypes(mod : Module) -> SubTypes {
     for rec in type_sec.0 {
       match rec {
         SingleRecType(st) => {
-          let ht = heap_type(
+          let ht = HeapType::new(
             TypeIdx::new(current_type_idx.reinterpret_as_uint()),
           )
           types.push(ht)
-          immediate[ht] = st.super_types().map(heap_type)
+          immediate[ht] = st.super_types().map(HeapType::new)
           current_type_idx = current_type_idx + 1
         }
         GroupRecType(sts) =>
           for st in sts {
-            let ht = heap_type(
+            let ht = HeapType::new(
               TypeIdx::new(current_type_idx.reinterpret_as_uint()),
             )
             types.push(ht)
-            immediate[ht] = st.super_types().map(heap_type)
+            immediate[ht] = st.super_types().map(HeapType::new)
             current_type_idx = current_type_idx + 1
           }
       }
@@ -64,14 +64,14 @@ fn collect_created_types(module : Module) -> HeapTypeSet {
     on_tinstruction: Some(fn(_, _, instr) {
       match instr {
         // ---- structs ----
-        TStructNew(type_idx, _) => set.add(heap_type(type_idx))
+        TStructNew(type_idx, _) => set.add(HeapType::new(type_idx))
 
         // ---- arrays ----
         TArrayNew(type_idx, _, _)
         | TArrayNewDefault(type_idx, _)
         | TArrayNewFixed(type_idx, _)
         | TArrayNewData(type_idx, _, _, _)
-        | TArrayNewElem(type_idx, _, _, _) => set.add(heap_type(type_idx))
+        | TArrayNewElem(type_idx, _, _, _) => set.add(HeapType::new(type_idx))
         _ => ()
       }
       unchanged()
@@ -303,7 +303,7 @@ fn run_abstract_type_refining(
 
 ///|
 test "abstract struct usage becomes bottom" {
-  let ht = heap_type(type_idx(0))
+  let ht = HeapType::new(type_idx(0))
   let mod = Module::new()
     .with_type_sec(
       TypeSec([SingleRecType(comp_type_sub_type(struct_comp_type([])))]),
@@ -316,7 +316,7 @@ test "abstract struct usage becomes bottom" {
             TInstr::ref_cast(
               true,
               ht,
-              TInstr::ref_null(abs_heap_type_heap_type(any_abs_heap_type())),
+              TInstr::ref_null(HeapType::abs(AbsHeapType::any())),
             ),
           ]),
         ),
@@ -338,11 +338,11 @@ test "abstract struct usage becomes bottom" {
 test "exact ref.cast collapses to trap" {
   let instr = TInstr::ref_cast(
     true,
-    heap_type(type_idx(0)),
-    TInstr::ref_null(abs_heap_type_heap_type(any_abs_heap_type())),
+    HeapType::new(type_idx(0)),
+    TInstr::ref_null(HeapType::abs(AbsHeapType::any())),
   )
   let mapping = Map::new()
-  mapping.set(heap_type(type_idx(0)), HeapType::bottom())
+  mapping.set(HeapType::new(type_idx(0)), HeapType::bottom())
   let rewritten = rewrite_descriptor_exact_ref_cast(instr, mapping)
   match rewritten {
     TBlock(_, _) => ()
@@ -354,14 +354,14 @@ test "exact ref.cast collapses to trap" {
 test "non-exact cast refines normally" {
   let instr = TInstr::ref_cast(
     true,
-    heap_type(type_idx(0)),
-    TInstr::ref_null(abs_heap_type_heap_type(any_abs_heap_type())),
+    HeapType::new(type_idx(0)),
+    TInstr::ref_null(HeapType::abs(AbsHeapType::any())),
   )
   let mapping = Map::new()
-  mapping.set(heap_type(type_idx(0)), heap_type(type_idx(1)))
+  mapping.set(HeapType::new(type_idx(0)), HeapType::new(type_idx(1)))
   let rewritten = rewrite_cast(instr, mapping, true)
   match rewritten {
-    TRefCast(_, ht, _) => assert_eq(ht, heap_type(type_idx(1)))
+    TRefCast(_, ht, _) => assert_eq(ht, HeapType::new(type_idx(1)))
     _ => fail("unexpected rewrite")
   }
 }
@@ -371,14 +371,14 @@ test "exact br_on_cast does not gain success" {
   let instr = TInstr::br_on_cast(
     LabelIdx::new(0),
     true,
-    heap_type(type_idx(1)),
+    HeapType::new(type_idx(1)),
     true,
-    heap_type(type_idx(0)),
-    TInstr::ref_null(abs_heap_type_heap_type(any_abs_heap_type())),
+    HeapType::new(type_idx(0)),
+    TInstr::ref_null(HeapType::abs(AbsHeapType::any())),
     [],
   )
   let mapping = Map::new()
-  mapping.set(heap_type(type_idx(0)), heap_type(type_idx(2)))
+  mapping.set(HeapType::new(type_idx(0)), HeapType::new(type_idx(2)))
   let rewritten = rewrite_descriptor_exact_br_on_cast(instr, mapping)
   match rewritten {
     TBrOnCast(_, op, _, dst, _, _) => {
@@ -394,10 +394,10 @@ test "abstract array collapses to bottom" {
   let instr = TInstr::array_new(
     type_idx(0),
     TInstr::i32_const(I32(1)),
-    TInstr::ref_null(abs_heap_type_heap_type(any_abs_heap_type())),
+    TInstr::ref_null(HeapType::abs(AbsHeapType::any())),
   )
   let mapping = Map::new()
-  mapping.set(heap_type(type_idx(0)), HeapType::bottom())
+  mapping.set(HeapType::new(type_idx(0)), HeapType::bottom())
   let rewritten = rewrite_cast(instr, mapping, true)
   assert_eq(rewritten, instr) // allocation itself unchanged
 }

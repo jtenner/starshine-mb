@@ -415,7 +415,7 @@ test "directize: constant index resolves to known function" {
           table_type(
             RefType::heap_type(
               true,
-              abs_heap_type_heap_type(func_abs_heap_type()),
+              HeapType::abs(AbsHeapType::func()),
             ),
             Limits::i32(1, Some(1)),
           ),
@@ -466,7 +466,7 @@ test "directize: out-of-bounds constant index becomes unreachable" {
       TableSec([
         Table(
           TableType(
-            HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+            HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())),
             I32Limits(1, Some(1)),
           ),
           None,
@@ -513,7 +513,7 @@ test "directize: null entry in table becomes unreachable" {
       TableSec([
         Table(
           TableType(
-            HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+            HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())),
             I32Limits(2, Some(2)),
           ),
           None,
@@ -557,7 +557,7 @@ test "directize: non-constant index is not transformed" {
       TableSec([
         Table(
           TableType(
-            HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+            HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())),
             I32Limits(1, Some(1)),
           ),
           None,
@@ -608,7 +608,7 @@ test "directize: type mismatch becomes unreachable" {
       TableSec([
         Table(
           TableType(
-            HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+            HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())),
             I32Limits(1, Some(1)),
           ),
           None,
@@ -660,7 +660,7 @@ test "directize: table.set prevents optimization" {
       TableSec([
         Table(
           TableType(
-            HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+            HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())),
             I32Limits(1, Some(1)),
           ),
           None,
@@ -704,7 +704,7 @@ test "directize: table.fill prevents optimization" {
       TableSec([
         Table(
           TableType(
-            HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+            HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())),
             I32Limits(2, Some(2)),
           ),
           None,
@@ -753,14 +753,14 @@ test "directize: table.copy prevents optimization on dest table" {
       TableSec::new([
         Table::new(
           TableType(
-            HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+            HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())),
             I32Limits(1, Some(1)),
           ),
           None,
         ),
         Table::new(
           TableType(
-            HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+            HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())),
             I32Limits(1, Some(1)),
           ),
           None,
@@ -820,7 +820,7 @@ test "directize: table.init prevents optimization" {
       TableSec([
         Table(
           TableType(
-            HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+            HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())),
             I32Limits(1, Some(1)),
           ),
           None,
@@ -866,7 +866,7 @@ test "directize: table.grow marks table as growable" {
       TableSec([
         Table(
           TableType(
-            HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+            HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())),
             I32Limits(1, None),
           ),
           None,
@@ -912,7 +912,7 @@ test "directize: initial_immutable=false prevents optimization" {
       TableSec([
         Table(
           TableType(
-            HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+            HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())),
             I32Limits(1, Some(1)),
           ),
           None,
@@ -960,7 +960,7 @@ test "directize: return_call_indirect with constant index" {
       TableSec([
         Table(
           TableType(
-            HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+            HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())),
             I32Limits(1, Some(1)),
           ),
           None,
@@ -1003,7 +1003,7 @@ test "directize: return_call_indirect out of bounds becomes unreachable" {
       TableSec([
         Table(
           TableType(
-            HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+            HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())),
             I32Limits(1, Some(1)),
           ),
           None,
@@ -1050,7 +1050,7 @@ test "directize: select-based call_indirect with both branches known" {
       TableSec([
         Table(
           TableType(
-            HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+            HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())),
             I32Limits(2, Some(2)),
           ),
           None,
@@ -1103,7 +1103,7 @@ test "directize: select-based call_indirect with one branch trapping" {
       TableSec([
         Table(
           TableType(
-            HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+            HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())),
             I32Limits(2, Some(2)),
           ),
           None,
@@ -1167,7 +1167,7 @@ test "directize: select-based call_indirect with unknown branch not transformed"
       TableSec([
         Table(
           TableType(
-            HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+            HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())),
             I32Limits(1, None),
           ),
           None,
@@ -1231,7 +1231,7 @@ test "directize: br_table-based call_indirect with all branches known" {
       TableSec([
         Table(
           TableType(
-            HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+            HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())),
             I32Limits(3, Some(3)),
           ),
           None,
@@ -1288,7 +1288,7 @@ test "directize: passive element segment doesn't initialize table" {
       TableSec([
         Table(
           TableType(
-            HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+            HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())),
             I32Limits(1, Some(1)),
           ),
           None,
@@ -1326,7 +1326,7 @@ test "directize: declarative element segment doesn't initialize table" {
       TableSec([
         Table(
           TableType(
-            HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+            HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())),
             I32Limits(1, Some(1)),
           ),
           None,
@@ -1369,7 +1369,7 @@ test "directize: element segment with non-constant offset marks table mutable" {
       TableSec([
         Table(
           TableType(
-            HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+            HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())),
             I32Limits(1, Some(1)),
           ),
           None,
@@ -1413,7 +1413,7 @@ test "directize: element segment with expression kind marks table mutable" {
       TableSec([
         Table(
           TableType(
-            HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+            HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())),
             I32Limits(1, Some(1)),
           ),
           None,
@@ -1460,14 +1460,14 @@ test "directize: multiple tables, only one modified" {
       TableSec([
         Table(
           TableType(
-            HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+            HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())),
             I32Limits(1, Some(1)),
           ),
           None,
         ),
         Table(
           TableType(
-            HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+            HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())),
             I32Limits(1, Some(1)),
           ),
           None,
@@ -1534,7 +1534,7 @@ test "directize: arguments are propagated to direct call" {
       TableSec([
         Table(
           TableType(
-            HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+            HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())),
             I32Limits(1, Some(1)),
           ),
           None,
@@ -1587,7 +1587,7 @@ test "directize: negative index (interpreted as large unsigned) becomes unreacha
       TableSec([
         Table(
           TableType(
-            HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+            HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())),
             I32Limits(1, Some(1)),
           ),
           None,
@@ -1635,7 +1635,7 @@ test "directize: empty table always traps" {
       TableSec([
         Table(
           TableType(
-            HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+            HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())),
             I32Limits(0, Some(0)),
           ),
           None,
@@ -1694,7 +1694,7 @@ test "directize: element segment at offset beyond initial table entries" {
       TableSec([
         Table(
           TableType(
-            HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+            HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())),
             I32Limits(4, Some(4)),
           ),
           None,
@@ -1752,7 +1752,7 @@ test "directize: table with i64 limits" {
       TableSec([
         Table(
           TableType(
-            HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
+            HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())),
             I64Limits(1UL, Some(1UL)),
           ),
           None,

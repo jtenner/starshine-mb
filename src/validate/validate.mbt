@@ -1149,18 +1149,18 @@ test "NumType validates successfully" {
 ///|
 test "AbsHeapType validates successfully" {
   let env = empty_env()
-  assert_eq(Validate::validate(@lib.ExnAbsHeapType, env), Ok(()))
-  assert_eq(Validate::validate(@lib.ArrayAbsHeapType, env), Ok(()))
-  assert_eq(Validate::validate(@lib.StructAbsHeapType, env), Ok(()))
-  assert_eq(Validate::validate(@lib.I31AbsHeapType, env), Ok(()))
-  assert_eq(Validate::validate(@lib.EqAbsHeapType, env), Ok(()))
-  assert_eq(Validate::validate(@lib.AnyAbsHeapType, env), Ok(()))
-  assert_eq(Validate::validate(@lib.ExternAbsHeapType, env), Ok(()))
-  assert_eq(Validate::validate(@lib.FuncAbsHeapType, env), Ok(()))
-  assert_eq(Validate::validate(@lib.NoneAbsHeapType, env), Ok(()))
-  assert_eq(Validate::validate(@lib.NoExternAbsHeapType, env), Ok(()))
-  assert_eq(Validate::validate(@lib.NoFuncAbsHeapType, env), Ok(()))
-  assert_eq(Validate::validate(@lib.NoExnAbsHeapType, env), Ok(()))
+  assert_eq(Validate::validate(AbsHeapType::exn(), env), Ok(()))
+  assert_eq(Validate::validate(AbsHeapType::array(), env), Ok(()))
+  assert_eq(Validate::validate(AbsHeapType::struct_(), env), Ok(()))
+  assert_eq(Validate::validate(AbsHeapType::i31(), env), Ok(()))
+  assert_eq(Validate::validate(AbsHeapType::eq(), env), Ok(()))
+  assert_eq(Validate::validate(AbsHeapType::any(), env), Ok(()))
+  assert_eq(Validate::validate(AbsHeapType::extern_(), env), Ok(()))
+  assert_eq(Validate::validate(AbsHeapType::func(), env), Ok(()))
+  assert_eq(Validate::validate(AbsHeapType::none(), env), Ok(()))
+  assert_eq(Validate::validate(AbsHeapType::no_extern(), env), Ok(()))
+  assert_eq(Validate::validate(AbsHeapType::no_func(), env), Ok(()))
+  assert_eq(Validate::validate(AbsHeapType::no_exn(), env), Ok(()))
 }
 
 // ============ HeapType Tests ============
@@ -1168,14 +1168,14 @@ test "AbsHeapType validates successfully" {
 ///|
 test "HeapType with AbsHeapType validates" {
   let env = empty_env()
-  let ht = @lib.AbsHeapTypeHeapType(FuncAbsHeapType)
+  let ht = HeapType::abs(AbsHeapType::func())
   assert_eq(Validate::validate(ht, env), Ok(()))
 }
 
 ///|
 test "HeapType with invalid TypeIdx fails" {
   let env = empty_env()
-  let ht = @lib.HeapType(TypeIdx(0))
+  let ht = HeapType::new(TypeIdx(0))
   assert_eq(Validate::validate(ht, env), Err("No type exists for TypeIdx"))
 }
 
@@ -1183,7 +1183,7 @@ test "HeapType with invalid TypeIdx fails" {
 test "HeapType with valid TypeIdx succeeds" {
   let st = @lib.CompTypeSubType(FuncCompType([], []))
   let env = empty_env().with_types([st])
-  let ht = @lib.HeapType(TypeIdx(0))
+  let ht = HeapType::new(TypeIdx(0))
   assert_eq(Validate::validate(ht, env), Ok(()))
 }
 
@@ -1213,7 +1213,7 @@ test "ValType BotType validates" {
 ///|
 test "ValType RefType with AbsHeapType validates" {
   let env = empty_env()
-  let rt = @lib.AbsHeapTypeRefType(FuncAbsHeapType)
+  let rt = @lib.AbsHeapTypeRefType(AbsHeapType::func())
   let vt = ValType::ref_type(rt)
   assert_eq(Validate::validate(vt, env), Ok(()))
 }
@@ -1223,17 +1223,17 @@ test "ValType RefType with AbsHeapType validates" {
 ///|
 test "RefType HeapTypeRefType with valid AbsHeapType validates" {
   let env = empty_env()
-  let rt = @lib.HeapTypeRefType(true, AbsHeapTypeHeapType(AnyAbsHeapType))
+  let rt = @lib.HeapTypeRefType(true, HeapType::abs(AbsHeapType::any()))
   assert_eq(Validate::validate(rt, env), Ok(()))
 }
 
 ///|
 test "RefType HeapTypeRefType nullable and non-nullable validate" {
   let env = empty_env()
-  let rt_null = @lib.HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType))
+  let rt_null = @lib.HeapTypeRefType(true, HeapType::abs(AbsHeapType::func()))
   let rt_non_null = @lib.HeapTypeRefType(
     false,
-    AbsHeapTypeHeapType(FuncAbsHeapType),
+    HeapType::abs(AbsHeapType::func()),
   )
   assert_eq(Validate::validate(rt_null, env), Ok(()))
   assert_eq(Validate::validate(rt_non_null, env), Ok(()))
@@ -1324,7 +1324,7 @@ test "FuncIdx fails when func does not exist" {
 
 ///|
 test "TableIdx validates when table exists" {
-  let rt = @lib.AbsHeapTypeRefType(FuncAbsHeapType)
+  let rt = @lib.AbsHeapTypeRefType(AbsHeapType::func())
   let tt = @lib.TableType(rt, I32Limits(0, None))
   let env = empty_env().with_tables([tt])
   let tidx = @lib.TableIdx(0)
@@ -1446,7 +1446,7 @@ test "MemType fails when limits exceed 65536" {
 ///|
 test "TableType validates with valid ref type and limits" {
   let env = empty_env()
-  let rt = @lib.AbsHeapTypeRefType(FuncAbsHeapType)
+  let rt = @lib.AbsHeapTypeRefType(AbsHeapType::func())
   let tt = @lib.TableType(rt, I32Limits(0, Some(100)))
   assert_eq(Validate::validate(tt, env), Ok(()))
 }
@@ -1650,7 +1650,7 @@ test "ExternType MemExternType validates" {
 ///|
 test "ExternType TableExternType validates" {
   let env = empty_env()
-  let rt = @lib.AbsHeapTypeRefType(FuncAbsHeapType)
+  let rt = @lib.AbsHeapTypeRefType(AbsHeapType::func())
   let tt = @lib.TableType(rt, I32Limits(0, Some(100)))
   let et = @lib.TableExternType(tt)
   assert_eq(Validate::validate(et, env), Ok(()))
@@ -1685,7 +1685,7 @@ test "ExternIdx FuncExternIdx validates" {
 
 ///|
 test "ExternIdx TableExternIdx validates" {
-  let rt = @lib.AbsHeapTypeRefType(FuncAbsHeapType)
+  let rt = @lib.AbsHeapTypeRefType(AbsHeapType::func())
   let tt = @lib.TableType(rt, I32Limits(0, None))
   let env = empty_env().with_tables([tt])
   let ei = @lib.TableExternIdx(TableIdx(0))
