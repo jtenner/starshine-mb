@@ -6633,7 +6633,7 @@ test "Typecheck CallIndirect" {
   )
   let state = make_state(env, [ValType::i32(), ValType::i32()])
   let result = Typecheck::typecheck(
-    @lib.CallIndirect(TypeIdx(0), TableIdx(0)),
+    @lib.CallIndirect(TypeIdx::new(0), TableIdx(0)),
     state,
   )
   let final_state = assert_ok(result)
@@ -6666,7 +6666,7 @@ test "Typecheck ReturnCallIndirect" {
     .with_return_type(Some([ValType::i64()]))
   let state = make_state(env, [ValType::i32(), ValType::i32()])
   let result = Typecheck::typecheck(
-    @lib.ReturnCallIndirect(TypeIdx(0), TableIdx(0)),
+    @lib.ReturnCallIndirect(TypeIdx::new(0), TableIdx(0)),
     state,
   )
   let final_state = assert_ok(result)
@@ -6679,9 +6679,9 @@ test "Typecheck CallRef" {
     FuncCompType([ValType::i32()], [ValType::i64()]),
   )
   let env = { ..empty_env(), global_types: [func_subtype] }
-  let ref_type = ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx(0))))
+  let ref_type = ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx::new(0))))
   let state = make_state(env, [ValType::i32(), ref_type])
-  let result = Typecheck::typecheck(@lib.CallRef(TypeIdx(0)), state)
+  let result = Typecheck::typecheck(@lib.CallRef(TypeIdx::new(0)), state)
   let final_state = assert_ok(result)
   assert_stack(final_state, [ValType::i64()])
 }
@@ -6694,9 +6694,9 @@ test "Typecheck ReturnCallRef" {
   let env = { ..empty_env(), global_types: [func_subtype] }.with_return_type(
     Some([ValType::i64()]),
   )
-  let ref_type = ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx(0))))
+  let ref_type = ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx::new(0))))
   let state = make_state(env, [ValType::i32(), ref_type])
-  let result = Typecheck::typecheck(@lib.ReturnCallRef(TypeIdx(0)), state)
+  let result = Typecheck::typecheck(@lib.ReturnCallRef(TypeIdx::new(0)), state)
   let final_state = assert_ok(result)
   assert_eq(final_state.reachable, false)
 }
@@ -6777,7 +6777,7 @@ test "Typecheck RefTest with concrete type recursive" {
   let env = empty_env().with_rectype(SingleRecType(struct_subtype))
   let state = make_state(env, [anyref_type()])
   let result = Typecheck::typecheck(
-    @lib.RefTest(true, HeapType::new(RecIdx(0))),
+    @lib.RefTest(true, HeapType::new(TypeIdx::rec(0))),
     state,
   )
   let final_state = assert_ok(result)
@@ -6790,7 +6790,7 @@ test "Typecheck RefTest with concrete type in global types" {
   let env : Env = { ..empty_env(), global_types: [struct_subtype] }
   let state = make_state(env, [anyref_type()])
   let result = Typecheck::typecheck(
-    @lib.RefTest(true, HeapType::new(TypeIdx(0))),
+    @lib.RefTest(true, HeapType::new(TypeIdx::new(0))),
     state,
   )
   let final_state = assert_ok(result)
@@ -6850,7 +6850,7 @@ test "Typecheck BrOnCastFail" {
 test "Typecheck Throw" {
   let tag_subtype = @lib.CompTypeSubType(FuncCompType([ValType::i32()], []))
   let env = { ..empty_env(), global_types: [tag_subtype] }.push_tag(
-    TagType(TypeIdx(0)),
+    TagType(TypeIdx::new(0)),
   )
   let state = make_state(env, [ValType::i32()])
   let result = Typecheck::typecheck(@lib.Throw(TagIdx(0)), state)
@@ -6914,7 +6914,7 @@ test "Typecheck StructNew" {
   )
   let env = { ..empty_env(), global_types: [struct_type] }
   let state = make_state(env, [ValType::i32()])
-  let result = Typecheck::typecheck(@lib.StructNew(TypeIdx(0)), state)
+  let result = Typecheck::typecheck(@lib.StructNew(TypeIdx::new(0)), state)
   let final_state = assert_ok(result)
   assert_eq(final_state.stack.length(), 1)
 }
@@ -6926,7 +6926,7 @@ test "Typecheck StructNewDefault" {
   )
   let env = { ..empty_env(), global_types: [struct_type] }
   let state = make_state(env, [])
-  let result = Typecheck::typecheck(@lib.StructNewDefault(TypeIdx(0)), state)
+  let result = Typecheck::typecheck(@lib.StructNewDefault(TypeIdx::new(0)), state)
   let final_state = assert_ok(result)
   assert_eq(final_state.stack.length(), 1)
 }
@@ -6938,10 +6938,10 @@ test "Typecheck StructGet" {
   )
   let env = { ..empty_env(), global_types: [struct_type] }
   let struct_ref = ValType::ref_type(
-    RefType::new(false, HeapType::new(TypeIdx(0))),
+    RefType::new(false, HeapType::new(TypeIdx::new(0))),
   )
   let state = make_state(env, [struct_ref])
-  let result = Typecheck::typecheck(@lib.StructGet(TypeIdx(0), U32(0)), state)
+  let result = Typecheck::typecheck(@lib.StructGet(TypeIdx::new(0), U32(0)), state)
   let final_state = assert_ok(result)
   assert_stack(final_state, [ValType::i32()])
 }
@@ -6949,14 +6949,14 @@ test "Typecheck StructGet" {
 ///|
 test "Typecheck StructGetS" {
   let struct_type = @lib.CompTypeSubType(
-    StructCompType([FieldType(PackTypeStorageType(I8PackType), Var)]),
+    StructCompType([FieldType(PackTypeStorageType(PackType::i8()), Var)]),
   )
   let env = { ..empty_env(), global_types: [struct_type] }
   let struct_ref = ValType::ref_type(
-    RefType::new(false, HeapType::new(TypeIdx(0))),
+    RefType::new(false, HeapType::new(TypeIdx::new(0))),
   )
   let state = make_state(env, [struct_ref])
-  let result = Typecheck::typecheck(@lib.StructGetS(TypeIdx(0), U32(0)), state)
+  let result = Typecheck::typecheck(@lib.StructGetS(TypeIdx::new(0), U32(0)), state)
   let final_state = assert_ok(result)
   assert_stack(final_state, [ValType::i32()])
 }
@@ -6964,14 +6964,14 @@ test "Typecheck StructGetS" {
 ///|
 test "Typecheck StructGetU" {
   let struct_type = @lib.CompTypeSubType(
-    StructCompType([FieldType(PackTypeStorageType(I16PackType), Var)]),
+    StructCompType([FieldType(PackTypeStorageType(PackType::i16()), Var)]),
   )
   let env = { ..empty_env(), global_types: [struct_type] }
   let struct_ref = ValType::ref_type(
-    RefType::new(false, HeapType::new(TypeIdx(0))),
+    RefType::new(false, HeapType::new(TypeIdx::new(0))),
   )
   let state = make_state(env, [struct_ref])
-  let result = Typecheck::typecheck(@lib.StructGetU(TypeIdx(0), U32(0)), state)
+  let result = Typecheck::typecheck(@lib.StructGetU(TypeIdx::new(0), U32(0)), state)
   let final_state = assert_ok(result)
   assert_stack(final_state, [ValType::i32()])
 }
@@ -6983,10 +6983,10 @@ test "Typecheck StructSet" {
   )
   let env = { ..empty_env(), global_types: [struct_type] }
   let struct_ref = ValType::ref_type(
-    RefType::new(false, HeapType::new(TypeIdx(0))),
+    RefType::new(false, HeapType::new(TypeIdx::new(0))),
   )
   let state = make_state(env, [struct_ref, ValType::i32()])
-  let result = Typecheck::typecheck(@lib.StructSet(TypeIdx(0), U32(0)), state)
+  let result = Typecheck::typecheck(@lib.StructSet(TypeIdx::new(0), U32(0)), state)
   let final_state = assert_ok(result)
   assert_stack(final_state, [])
 }
@@ -7002,7 +7002,7 @@ test "Typecheck ArrayNew" {
   )
   let env = { ..empty_env(), global_types: [array_type] }
   let state = make_state(env, [ValType::i32(), ValType::i32()])
-  let result = Typecheck::typecheck(@lib.ArrayNew(TypeIdx(0)), state)
+  let result = Typecheck::typecheck(@lib.ArrayNew(TypeIdx::new(0)), state)
   let final_state = assert_ok(result)
   assert_eq(final_state.stack.length(), 1)
 }
@@ -7014,7 +7014,7 @@ test "Typecheck ArrayNewDefault" {
   )
   let env = { ..empty_env(), global_types: [array_type] }
   let state = make_state(env, [ValType::i32()])
-  let result = Typecheck::typecheck(@lib.ArrayNewDefault(TypeIdx(0)), state)
+  let result = Typecheck::typecheck(@lib.ArrayNewDefault(TypeIdx::new(0)), state)
   let final_state = assert_ok(result)
   assert_eq(final_state.stack.length(), 1)
 }
@@ -7027,7 +7027,7 @@ test "Typecheck ArrayNewFixed" {
   let env = { ..empty_env(), global_types: [array_type] }
   let state = make_state(env, [ValType::i32(), ValType::i32(), ValType::i32()])
   let result = Typecheck::typecheck(
-    @lib.ArrayNewFixed(TypeIdx(0), U32(3)),
+    @lib.ArrayNewFixed(TypeIdx::new(0), U32(3)),
     state,
   )
   let final_state = assert_ok(result)
@@ -7043,7 +7043,7 @@ test "Typecheck ArrayNewData" {
   let env = { ..empty_env(), global_types: [array_type] }.push_data(data)
   let state = make_state(env, [ValType::i32(), ValType::i32()])
   let result = Typecheck::typecheck(
-    @lib.ArrayNewData(TypeIdx(0), DataIdx(0)),
+    @lib.ArrayNewData(TypeIdx::new(0), DataIdx(0)),
     state,
   )
   let final_state = assert_ok(result)
@@ -7062,7 +7062,7 @@ test "Typecheck ArrayNewElem" {
   let env = { ..empty_env(), global_types: [array_type] }.push_elem(elem)
   let state = make_state(env, [ValType::i32(), ValType::i32()])
   let result = Typecheck::typecheck(
-    @lib.ArrayNewElem(TypeIdx(0), ElemIdx(0)),
+    @lib.ArrayNewElem(TypeIdx::new(0), ElemIdx(0)),
     state,
   )
   let final_state = assert_ok(result)
@@ -7076,10 +7076,10 @@ test "Typecheck ArrayGet" {
   )
   let env = { ..empty_env(), global_types: [array_type] }
   let array_ref = ValType::ref_type(
-    RefType::new(false, HeapType::new(TypeIdx(0))),
+    RefType::new(false, HeapType::new(TypeIdx::new(0))),
   )
   let state = make_state(env, [array_ref, ValType::i32()])
-  let result = Typecheck::typecheck(@lib.ArrayGet(TypeIdx(0)), state)
+  let result = Typecheck::typecheck(@lib.ArrayGet(TypeIdx::new(0)), state)
   let final_state = assert_ok(result)
   assert_stack(final_state, [ValType::i32()])
 }
@@ -7087,14 +7087,14 @@ test "Typecheck ArrayGet" {
 ///|
 test "Typecheck ArrayGetS" {
   let array_type = @lib.CompTypeSubType(
-    ArrayCompType(FieldType(PackTypeStorageType(I8PackType), Var)),
+    ArrayCompType(FieldType(PackTypeStorageType(PackType::i8()), Var)),
   )
   let env = { ..empty_env(), global_types: [array_type] }
   let array_ref = ValType::ref_type(
-    RefType::new(false, HeapType::new(TypeIdx(0))),
+    RefType::new(false, HeapType::new(TypeIdx::new(0))),
   )
   let state = make_state(env, [array_ref, ValType::i32()])
-  let result = Typecheck::typecheck(@lib.ArrayGetS(TypeIdx(0)), state)
+  let result = Typecheck::typecheck(@lib.ArrayGetS(TypeIdx::new(0)), state)
   let final_state = assert_ok(result)
   assert_stack(final_state, [ValType::i32()])
 }
@@ -7102,14 +7102,14 @@ test "Typecheck ArrayGetS" {
 ///|
 test "Typecheck ArrayGetU" {
   let array_type = @lib.CompTypeSubType(
-    ArrayCompType(FieldType(PackTypeStorageType(I16PackType), Var)),
+    ArrayCompType(FieldType(PackTypeStorageType(PackType::i16()), Var)),
   )
   let env = { ..empty_env(), global_types: [array_type] }
   let array_ref = ValType::ref_type(
-    RefType::new(false, HeapType::new(TypeIdx(0))),
+    RefType::new(false, HeapType::new(TypeIdx::new(0))),
   )
   let state = make_state(env, [array_ref, ValType::i32()])
-  let result = Typecheck::typecheck(@lib.ArrayGetU(TypeIdx(0)), state)
+  let result = Typecheck::typecheck(@lib.ArrayGetU(TypeIdx::new(0)), state)
   let final_state = assert_ok(result)
   assert_stack(final_state, [ValType::i32()])
 }
@@ -7121,10 +7121,10 @@ test "Typecheck ArraySet" {
   )
   let env = { ..empty_env(), global_types: [array_type] }
   let array_ref = ValType::ref_type(
-    RefType::new(false, HeapType::new(TypeIdx(0))),
+    RefType::new(false, HeapType::new(TypeIdx::new(0))),
   )
   let state = make_state(env, [array_ref, ValType::i32(), ValType::i32()])
-  let result = Typecheck::typecheck(@lib.ArraySet(TypeIdx(0)), state)
+  let result = Typecheck::typecheck(@lib.ArraySet(TypeIdx::new(0)), state)
   let final_state = assert_ok(result)
   assert_stack(final_state, [])
 }
@@ -7148,7 +7148,7 @@ test "Typecheck ArrayFill" {
   )
   let env = { ..empty_env(), global_types: [array_type] }
   let array_ref = ValType::ref_type(
-    RefType::new(false, HeapType::new(TypeIdx(0))),
+    RefType::new(false, HeapType::new(TypeIdx::new(0))),
   )
   let state = make_state(env, [
     array_ref,
@@ -7156,7 +7156,7 @@ test "Typecheck ArrayFill" {
     ValType::i32(),
     ValType::i32(),
   ])
-  let result = Typecheck::typecheck(@lib.ArrayFill(TypeIdx(0)), state)
+  let result = Typecheck::typecheck(@lib.ArrayFill(TypeIdx::new(0)), state)
   let final_state = assert_ok(result)
   assert_stack(final_state, [])
 }
@@ -7168,7 +7168,7 @@ test "Typecheck ArrayCopy" {
   )
   let env = { ..empty_env(), global_types: [array_type] }
   let array_ref = ValType::ref_type(
-    RefType::new(false, HeapType::new(TypeIdx(0))),
+    RefType::new(false, HeapType::new(TypeIdx::new(0))),
   )
   let state = make_state(env, [
     array_ref,
@@ -7178,7 +7178,7 @@ test "Typecheck ArrayCopy" {
     ValType::i32(),
   ])
   let result = Typecheck::typecheck(
-    @lib.ArrayCopy(TypeIdx(0), TypeIdx(0)),
+    @lib.ArrayCopy(TypeIdx::new(0), TypeIdx::new(0)),
     state,
   )
   let final_state = assert_ok(result)
@@ -7193,7 +7193,7 @@ test "Typecheck ArrayInitData" {
   let data = @lib.Data(Passive, b"")
   let env = { ..empty_env(), global_types: [array_type] }.push_data(data)
   let array_ref = ValType::ref_type(
-    RefType::new(false, HeapType::new(TypeIdx(0))),
+    RefType::new(false, HeapType::new(TypeIdx::new(0))),
   )
   let state = make_state(env, [
     array_ref,
@@ -7202,7 +7202,7 @@ test "Typecheck ArrayInitData" {
     ValType::i32(),
   ])
   let result = Typecheck::typecheck(
-    @lib.ArrayInitData(TypeIdx(0), DataIdx(0)),
+    @lib.ArrayInitData(TypeIdx::new(0), DataIdx(0)),
     state,
   )
   let final_state = assert_ok(result)
@@ -7220,7 +7220,7 @@ test "Typecheck ArrayInitElem" {
   let elem = Elem::new(ElemMode::passive(), ElemKind::funcs([]))
   let env = { ..empty_env(), global_types: [array_type] }.push_elem(elem)
   let array_ref = ValType::ref_type(
-    RefType::new(false, HeapType::new(TypeIdx(0))),
+    RefType::new(false, HeapType::new(TypeIdx::new(0))),
   )
   let state = make_state(env, [
     array_ref,
@@ -7229,7 +7229,7 @@ test "Typecheck ArrayInitElem" {
     ValType::i32(),
   ])
   let result = Typecheck::typecheck(
-    @lib.ArrayInitElem(TypeIdx(0), ElemIdx(0)),
+    @lib.ArrayInitElem(TypeIdx::new(0), ElemIdx(0)),
     state,
   )
   let final_state = assert_ok(result)

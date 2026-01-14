@@ -312,14 +312,14 @@ fn finalize_load_op(op : LoadOp, i : TInstr) -> TInstr {
     V128Load8SplatOp => TI8x16Splat(i)
     V128Load32ZeroOp =>
       TReplaceLane(
-        I32x4ReplaceLaneOp,
+        ReplaceLaneOp::i32x4_replace_lane(),
         LaneIdx(0),
         TV128Const(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
         i,
       )
     V128Load64ZeroOp =>
       TReplaceLane(
-        I64x2ReplaceLaneOp,
+        ReplaceLaneOp::i64x2_replace_lane(),
         LaneIdx(0),
         TV128Const(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
         i,

@@ -68,7 +68,7 @@ pub enum ValType {
 pub type ResultType = Array[ValType]
 
 ///|
-pub(all) enum PackType {
+pub enum PackType {
   I16PackType
   I8PackType
 } derive(Eq, Arbitrary, Hash)
@@ -89,7 +89,7 @@ pub(all) enum Mut {
 } derive(Arbitrary, Eq, Hash)
 
 ///|
-pub(all) enum TypeIdx {
+pub enum TypeIdx {
   TypeIdx(UInt)
   RecIdx(UInt)
 } derive(Eq, Hash)
@@ -1796,7 +1796,7 @@ pub(all) enum ExtractLaneOp {
 
 ///|
 /// Replace lane operations (v128, scalar -> v128)
-pub(all) enum ReplaceLaneOp {
+pub enum ReplaceLaneOp {
   I8x16ReplaceLaneOp
   I16x8ReplaceLaneOp
   I32x4ReplaceLaneOp
@@ -1807,7 +1807,7 @@ pub(all) enum ReplaceLaneOp {
 
 ///|
 /// V128 shift operations (v128, i32 -> v128)
-pub(all) enum V128ShiftOp {
+pub enum V128ShiftOp {
   I8x16ShlOp
   I8x16ShrSOp
   I8x16ShrUOp
@@ -1824,7 +1824,7 @@ pub(all) enum V128ShiftOp {
 
 ///|
 /// V128 ternary operations (v128, v128, v128 -> v128)
-pub(all) enum V128TernaryOp {
+pub enum V128TernaryOp {
   V128BitselectOp
   I8x16RelaxedLaneselectOp
   I16x8RelaxedLaneselectOp
@@ -1839,7 +1839,7 @@ pub(all) enum V128TernaryOp {
 
 ///|
 /// V128 lane load operations
-pub(all) enum V128LoadLaneOp {
+pub enum V128LoadLaneOp {
   V128Load8LaneOp
   V128Load16LaneOp
   V128Load32LaneOp
@@ -1848,32 +1848,12 @@ pub(all) enum V128LoadLaneOp {
 
 ///|
 /// V128 lane store operations
-pub(all) enum V128StoreLaneOp {
+pub enum V128StoreLaneOp {
   V128Store8LaneOp
   V128Store16LaneOp
   V128Store32LaneOp
   V128Store64LaneOp
 } derive(Eq, Show, Hash)
-
-///|
-pub fn f32_num_type() -> NumType {
-  F32NumType
-}
-
-///|
-pub fn f64_num_type() -> NumType {
-  F64NumType
-}
-
-///|
-pub fn i32_num_type() -> NumType {
-  I32NumType
-}
-
-///|
-pub fn i64_num_type() -> NumType {
-  I64NumType
-}
 
 ///|
 pub fn AbsHeapType::exn() -> AbsHeapType {
@@ -1941,8 +1921,12 @@ pub fn HeapType::abs(abs : AbsHeapType) -> HeapType {
 }
 
 ///|
-pub fn type_idx(idx : UInt) -> TypeIdx {
+pub fn TypeIdx::new(idx : UInt) -> TypeIdx {
   TypeIdx(idx)
+}
+
+pub fn TypeIdx::rec(idx : UInt) -> TypeIdx {
+  RecIdx(idx)
 }
 
 ///|
@@ -1963,26 +1947,6 @@ pub fn RefType::new(nullable : Bool, ht : HeapType) -> RefType {
 ///|
 pub fn RefType::abs(abs : AbsHeapType) -> RefType {
   AbsHeapTypeRefType(abs)
-}
-
-///|
-pub fn num_type_val_type(nt : NumType) -> ValType {
-  NumTypeValType(nt)
-}
-
-///|
-pub fn vec_type_val_type() -> ValType {
-  VecTypeValType
-}
-
-///|
-pub fn ref_type_val_type(rt : RefType) -> ValType {
-  RefTypeValType(rt)
-}
-
-///|
-pub fn bot() -> ValType {
-  BotValType
 }
 
 ///|
@@ -7636,9 +7600,4 @@ pub fn NumType::i64() -> NumType {
 ///|
 pub fn TableIdx::new(i : UInt) -> TableIdx {
   TableIdx(i)
-}
-
-///|
-pub fn TypeIdx::new(i : UInt) -> TypeIdx {
-  TypeIdx(i)
 }

@@ -139,7 +139,7 @@ pub impl Decode for HeapType with decode(bytes, i) {
     Ok((abs, i)) => Ok((HeapType::abs(abs), i))
     Err(_) =>
       match Decode::decode(bytes, i) {
-        Ok((@lib.S33(s), i)) => Ok((HeapType::new(TypeIdx(s)), i))
+        Ok((@lib.S33(s), i)) => Ok((HeapType::new(TypeIdx::new(s)), i))
         Err(err) => Err(err)
       }
   }
@@ -398,8 +398,8 @@ pub impl Encode for PackType with encode(val, buf) {
 ///|
 pub impl Decode for PackType with decode(bytes, i) {
   match bytes.get(i) {
-    Some(0x77) => Ok((I16PackType, i + 1))
-    Some(0x78) => Ok((I8PackType, i + 1))
+    Some(0x77) => Ok((PackType::i16(), i + 1))
+    Some(0x78) => Ok((PackType::i8(), i + 1))
     Some(_) => Err("Invalid Packed Type")
     None => Err("Index out of bounds")
   }
@@ -951,7 +951,7 @@ pub impl Encode for TypeIdx with encode(val, buf) {
 pub impl Decode for TypeIdx with decode(bytes, i) {
   match decode_unsigned(bytes, i, 32) {
     Err(t) => Err(t)
-    Ok((n, i)) => Ok((TypeIdx(n.to_uint()), i))
+    Ok((n, i)) => Ok((TypeIdx::new(n.to_uint()), i))
   }
 }
 
@@ -2337,7 +2337,7 @@ pub impl Decode for BlockType with decode(bytes, i) {
     return Ok((ValTypeBlockType(vt), i))
   }
   if Decode::decode(bytes, i) is Ok((@lib.S33(idx), i)) {
-    return Ok((TypeIdxBlockType(TypeIdx(idx)), i))
+    return Ok((BlockType::type_idx(TypeIdx::new(idx)), i))
   }
   Err("Invalid block type")
 }
@@ -5957,7 +5957,7 @@ test "Heap Types" {
   roundtrip(HeapType::abs(AbsHeapType::no_extern()))
   roundtrip(HeapType::abs(AbsHeapType::no_func()))
   roundtrip(HeapType::abs(AbsHeapType::no_exn()))
-  roundtrip(HeapType::new(TypeIdx(23)))
+  roundtrip(HeapType::new(TypeIdx::new(23)))
 }
 
 ///|
@@ -6007,8 +6007,8 @@ test "Storage Type" {
 
 ///|
 test "Packed Type" {
-  roundtrip(@lib.I8PackType)
-  roundtrip(@lib.I16PackType)
+  roundtrip(PackType::i8())
+  roundtrip(PackType::i16())
 }
 
 ///|
@@ -6021,7 +6021,7 @@ test "SubTypes" {
   roundtrip(
     @lib.SubType(
       false,
-      [TypeIdx(0), TypeIdx(2), TypeIdx(4)],
+      [TypeIdx::new(0), TypeIdx::new(2), TypeIdx::new(4)],
       FuncCompType([], []),
     ),
   )

@@ -68,6 +68,7 @@ using @lib {
   type Import,
   type Mut,
   type Module,
+  type PackType,
   expand_locals,
   equals,
   get_struct_field,

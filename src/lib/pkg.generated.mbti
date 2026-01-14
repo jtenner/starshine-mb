@@ -7,17 +7,9 @@ import(
 )
 
 // Values
-pub fn abs_heap_type_heap_type(AbsHeapType) -> HeapType
-
-pub fn any_abs_heap_type() -> AbsHeapType
-
-pub fn array_abs_heap_type() -> AbsHeapType
-
 pub fn array_comp_type(FieldType) -> CompType
 
 pub fn[T : @quickcheck.Arbitrary] array_of_arbitrary(UInt, Int, @splitmix.RandomState) -> Array[T]
-
-pub fn bot() -> ValType
 
 pub fn catch_(TagIdx, LabelIdx) -> Catch
 
@@ -31,27 +23,13 @@ pub fn[T, Elem] change(T, Elem) -> Result[(T, Elem)?, String]
 
 pub fn comp_type_sub_type(CompType) -> SubType
 
-pub fn def_type_heap_type(DefType) -> HeapType
-
 pub fn empty_env() -> Env
-
-pub fn eq_abs_heap_type() -> AbsHeapType
 
 pub fn[T : Eq] equals(Array[T], Array[T]) -> Bool
 
 pub fn[T, Elem] error(String) -> Result[(T, Elem)?, String]
 
-pub fn exn_abs_heap_type() -> AbsHeapType
-
 pub fn expand_locals(Array[Locals]) -> Result[Array[ValType], String]
-
-pub fn extern_abs_heap_type() -> AbsHeapType
-
-pub fn f32_num_type() -> NumType
-
-pub fn f64_num_type() -> NumType
-
-pub fn func_abs_heap_type() -> AbsHeapType
 
 pub fn func_comp_type(Array[ValType], Array[ValType]) -> CompType
 
@@ -75,14 +53,6 @@ pub fn group_rec_type(Array[SubType]) -> RecType
 
 pub fn has_default(ValType) -> Bool
 
-pub fn heap_type(TypeIdx) -> HeapType
-
-pub fn i31_abs_heap_type() -> AbsHeapType
-
-pub fn i32_num_type() -> NumType
-
-pub fn i64_num_type() -> NumType
-
 pub fn mem_extern_idx(MemIdx) -> ExternIdx
 
 pub fn mem_extern_type(MemType) -> ExternType
@@ -93,23 +63,9 @@ pub fn min_addr(Limits, Limits) -> Limits
 
 pub fn min_addr_valtype(Limits, Limits) -> ValType
 
-pub fn no_exn_abs_heap_type() -> AbsHeapType
-
-pub fn no_extern_abs_heap_type() -> AbsHeapType
-
-pub fn no_func_abs_heap_type() -> AbsHeapType
-
-pub fn none_abs_heap_type() -> AbsHeapType
-
-pub fn num_type_val_type(NumType) -> ValType
-
 pub fn rec_idx(UInt) -> TypeIdx
 
-pub fn ref_type_val_type(RefType) -> ValType
-
 pub fn single_rec_type(SubType) -> RecType
-
-pub fn struct_abs_heap_type() -> AbsHeapType
 
 pub fn struct_comp_type(Array[FieldType]) -> CompType
 
@@ -131,16 +87,12 @@ pub fn tag_type(TypeIdx) -> TagType
 
 pub fn tlocals_to_locals(Array[ValType]) -> Array[Locals]
 
-pub fn type_idx(UInt) -> TypeIdx
-
 pub fn[T, Elem] unchanged() -> Result[(T, Elem)?, String]
-
-pub fn vec_type_val_type() -> ValType
 
 // Errors
 
 // Types and methods
-pub(all) enum AbsHeapType {
+pub enum AbsHeapType {
   ExnAbsHeapType
   ArrayAbsHeapType
   StructAbsHeapType
@@ -154,6 +106,18 @@ pub(all) enum AbsHeapType {
   NoFuncAbsHeapType
   NoExnAbsHeapType
 }
+pub fn AbsHeapType::any() -> Self
+pub fn AbsHeapType::array() -> Self
+pub fn AbsHeapType::eq() -> Self
+pub fn AbsHeapType::exn() -> Self
+pub fn AbsHeapType::extern_() -> Self
+pub fn AbsHeapType::func() -> Self
+pub fn AbsHeapType::i31() -> Self
+pub fn AbsHeapType::no_exn() -> Self
+pub fn AbsHeapType::no_extern() -> Self
+pub fn AbsHeapType::no_func() -> Self
+pub fn AbsHeapType::none() -> Self
+pub fn AbsHeapType::struct_() -> Self
 pub impl Eq for AbsHeapType
 pub impl Hash for AbsHeapType
 pub impl Show for AbsHeapType
@@ -954,15 +918,18 @@ pub impl Hash for GlobalType
 pub impl Show for GlobalType
 pub impl @quickcheck.Arbitrary for GlobalType
 
-pub(all) enum HeapType {
+pub enum HeapType {
   AbsHeapTypeHeapType(AbsHeapType)
   HeapType(TypeIdx)
   DefTypeHeapType(DefType)
 }
+pub fn HeapType::abs(AbsHeapType) -> Self
 pub fn HeapType::bottom() -> Self
+pub fn HeapType::def_type(DefType) -> Self
 pub fn HeapType::is_array(Self) -> Bool
 pub fn HeapType::is_gc_aggregate(Self) -> Bool
 pub fn HeapType::is_struct(Self) -> Bool
+pub fn HeapType::new(TypeIdx) -> Self
 pub impl Eq for HeapType
 pub impl Hash for HeapType
 pub impl Show for HeapType
@@ -2401,20 +2368,20 @@ pub impl Hash for RecType
 pub impl Show for RecType
 pub impl @quickcheck.Arbitrary for RecType
 
-pub(all) enum RefType {
+pub enum RefType {
   HeapTypeRefType(Bool, HeapType)
   AbsHeapTypeRefType(AbsHeapType)
 }
-pub fn RefType::abs_heap_type(AbsHeapType) -> Self
+pub fn RefType::abs(AbsHeapType) -> Self
 pub fn RefType::get_heap_type(Self) -> HeapType
-pub fn RefType::heap_type(Bool, HeapType) -> Self
 pub fn RefType::is_nullable(Self) -> Bool
+pub fn RefType::new(Bool, HeapType) -> Self
 pub impl Eq for RefType
 pub impl Hash for RefType
 pub impl Show for RefType
 pub impl @quickcheck.Arbitrary for RefType
 
-pub(all) enum ReplaceLaneOp {
+pub enum ReplaceLaneOp {
   I8x16ReplaceLaneOp
   I16x8ReplaceLaneOp
   I32x4ReplaceLaneOp
@@ -2769,11 +2736,12 @@ pub impl Hash for TagType
 pub impl Show for TagType
 pub impl @quickcheck.Arbitrary for TagType
 
-pub(all) enum TypeIdx {
+pub enum TypeIdx {
   TypeIdx(UInt)
   RecIdx(UInt)
 }
 pub fn TypeIdx::new(UInt) -> Self
+pub fn TypeIdx::rec(UInt) -> Self
 pub impl Eq for TypeIdx
 pub impl Hash for TypeIdx
 pub impl Show for TypeIdx
@@ -3056,7 +3024,7 @@ pub impl Eq for UnaryOp
 pub impl Hash for UnaryOp
 pub impl Show for UnaryOp
 
-pub(all) enum V128LoadLaneOp {
+pub enum V128LoadLaneOp {
   V128Load8LaneOp
   V128Load16LaneOp
   V128Load32LaneOp
@@ -3070,7 +3038,7 @@ pub impl Eq for V128LoadLaneOp
 pub impl Hash for V128LoadLaneOp
 pub impl Show for V128LoadLaneOp
 
-pub(all) enum V128ShiftOp {
+pub enum V128ShiftOp {
   I8x16ShlOp
   I8x16ShrSOp
   I8x16ShrUOp
@@ -3100,7 +3068,7 @@ pub impl Eq for V128ShiftOp
 pub impl Hash for V128ShiftOp
 pub impl Show for V128ShiftOp
 
-pub(all) enum V128StoreLaneOp {
+pub enum V128StoreLaneOp {
   V128Store8LaneOp
   V128Store16LaneOp
   V128Store32LaneOp
@@ -3114,7 +3082,7 @@ pub impl Eq for V128StoreLaneOp
 pub impl Hash for V128StoreLaneOp
 pub impl Show for V128StoreLaneOp
 
-pub(all) enum V128TernaryOp {
+pub enum V128TernaryOp {
   V128BitselectOp
   I8x16RelaxedLaneselectOp
   I16x8RelaxedLaneselectOp

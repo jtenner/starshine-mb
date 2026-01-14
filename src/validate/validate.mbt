@@ -1175,7 +1175,7 @@ test "HeapType with AbsHeapType validates" {
 ///|
 test "HeapType with invalid TypeIdx fails" {
   let env = empty_env()
-  let ht = HeapType::new(TypeIdx(0))
+  let ht = HeapType::new(TypeIdx::new(0))
   assert_eq(Validate::validate(ht, env), Err("No type exists for TypeIdx"))
 }
 
@@ -1183,7 +1183,7 @@ test "HeapType with invalid TypeIdx fails" {
 test "HeapType with valid TypeIdx succeeds" {
   let st = @lib.CompTypeSubType(FuncCompType([], []))
   let env = empty_env().with_types([st])
-  let ht = HeapType::new(TypeIdx(0))
+  let ht = HeapType::new(TypeIdx::new(0))
   assert_eq(Validate::validate(ht, env), Ok(()))
 }
 
@@ -1245,14 +1245,14 @@ test "RefType HeapTypeRefType nullable and non-nullable validate" {
 test "TypeIdx validates when type exists" {
   let st = @lib.CompTypeSubType(FuncCompType([], []))
   let env = empty_env().with_types([st])
-  let tidx = @lib.TypeIdx(0)
+  let tidx = TypeIdx::new(0)
   assert_eq(Validate::validate(tidx, env), Ok(()))
 }
 
 ///|
 test "TypeIdx fails when type does not exist" {
   let env = empty_env()
-  let tidx = @lib.TypeIdx(0)
+  let tidx = TypeIdx::new(0)
   assert_eq(Validate::validate(tidx, env), Err("No type exists for TypeIdx"))
 }
 
@@ -1260,7 +1260,7 @@ test "TypeIdx fails when type does not exist" {
 test "TypeIdx fails with out of bounds index" {
   let st = @lib.CompTypeSubType(FuncCompType([], []))
   let env = empty_env().with_types([st])
-  let tidx = @lib.TypeIdx(5)
+  let tidx = TypeIdx::new(5)
   assert_eq(Validate::validate(tidx, env), Err("No type exists for TypeIdx"))
 }
 
@@ -1292,7 +1292,7 @@ test "LabelIdx fails with out of bounds index" {
 ///|
 test "TagIdx validates when tag exists" {
   let st = @lib.CompTypeSubType(FuncCompType([], []))
-  let env = empty_env().with_types([st]).with_tags([TagType(TypeIdx(0))])
+  let env = empty_env().with_types([st]).with_tags([TagType(TypeIdx::new(0))])
   let tidx = @lib.TagIdx(0)
   assert_eq(Validate::validate(tidx, env), Ok(()))
 }
@@ -1479,7 +1479,7 @@ test "StorageType ValType validates" {
 ///|
 test "StorageType PackType validates" {
   let env = empty_env()
-  let st = @lib.PackTypeStorageType(I8PackType)
+  let st = @lib.PackTypeStorageType(PackType::i8())
   assert_eq(Validate::validate(st, env), Ok(()))
 }
 
@@ -1605,14 +1605,14 @@ test "BlockType ValTypeBlockType validates" {
 test "BlockType TypeIdxBlockType with valid func type validates" {
   let st = @lib.CompTypeSubType(FuncCompType([], []))
   let env = empty_env().with_types([st])
-  let bt = @lib.TypeIdxBlockType(TypeIdx(0))
+  let bt = BlockType::type_idx(TypeIdx::new(0))
   assert_eq(Validate::validate(bt, env), Ok(()))
 }
 
 ///|
 test "BlockType TypeIdxBlockType with invalid index fails" {
   let env = empty_env()
-  let bt = @lib.TypeIdxBlockType(TypeIdx(0))
+  let bt = BlockType::type_idx(TypeIdx::new(0))
   assert_eq(Validate::validate(bt, env), Err("Invalid TypeIdx for block type"))
 }
 
@@ -1622,7 +1622,7 @@ test "BlockType TypeIdxBlockType with non-func type fails" {
     ArrayCompType(FieldType(ValTypeStorageType(ValType::i32()), Const)),
   )
   let env = empty_env().with_types([st])
-  let bt = @lib.TypeIdxBlockType(TypeIdx(0))
+  let bt = BlockType::type_idx(TypeIdx::new(0))
   assert_eq(
     Validate::validate(bt, env),
     Err("Expected Func Type for block type"),
@@ -1660,14 +1660,14 @@ test "ExternType TableExternType validates" {
 test "ExternType FuncExternType validates when func type exists" {
   let st = @lib.CompTypeSubType(FuncCompType([], []))
   let env = empty_env().with_types([st])
-  let et = @lib.FuncExternType(TypeIdx(0))
+  let et = @lib.FuncExternType(TypeIdx::new(0))
   assert_eq(Validate::validate(et, env), Ok(()))
 }
 
 ///|
 test "ExternType FuncExternType fails when func type missing" {
   let env = empty_env()
-  let et = @lib.FuncExternType(TypeIdx(0))
+  let et = @lib.FuncExternType(TypeIdx::new(0))
   assert_eq(
     Validate::validate(et, env),
     Err("Invalid ExternType: Func extern type not found"),

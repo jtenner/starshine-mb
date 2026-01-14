@@ -35,13 +35,13 @@ fn make_typeidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
           if i >= target {
             Ok(None)
           } else {
-            Ok(Some(((), TypeIdx(i + target))))
+            Ok(Some(((), TypeIdx::new(i + target))))
           }
         RecIdx(i) =>
           if i >= target {
             Ok(None)
           } else {
-            Ok(Some(((), RecIdx(i + target))))
+            Ok(Some(((), TypeIdx::rec(i + target))))
           }
       }
     }),
@@ -518,8 +518,8 @@ fn corrupt_blocktype(bt : BlockType) -> BlockType {
     ValTypeBlockType(NumTypeValType(I64NumType)) =>
       ValTypeBlockType(ValType::i32())
     ValTypeBlockType(_) => EmptyBlockType
-    TypeIdxBlockType(TypeIdx(i)) => TypeIdxBlockType(TypeIdx(i + 1))
-    TypeIdxBlockType(RecIdx(i)) => TypeIdxBlockType(RecIdx(i + 1))
+    TypeIdxBlockType(TypeIdx(i)) => TypeIdxBlockType(TypeIdx::new(i + 1))
+    TypeIdxBlockType(RecIdx(i)) => TypeIdxBlockType(TypeIdx::rec(i + 1))
   }
 }
 

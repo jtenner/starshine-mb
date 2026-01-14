@@ -424,7 +424,7 @@ pub fn gen_typesec_valid(ctx : GenCtx) -> Result[(GenCtx, TypeSec), String] {
 fn collect_functype_typeidxs(env : Env) -> Array[TypeIdx] {
   let out : Array[TypeIdx] = []
   for i in 0..<env.global_types.length() {
-    let tidx = @lib.TypeIdx(i.reinterpret_as_uint())
+    let tidx = TypeIdx::new(i.reinterpret_as_uint())
     if env.resolve_functype(tidx) is Some(_) {
       out.push(tidx)
     }
@@ -779,7 +779,7 @@ fn gen_globaltype(rnd : @quickcheck/splitmix.RandomState) -> GlobalType {
 fn collect_tag_functype_typeidxs(env : Env) -> Array[TypeIdx] {
   let out : Array[TypeIdx] = []
   for i in 0..<env.global_types.length() {
-    let tidx = @lib.TypeIdx(i.reinterpret_as_uint())
+    let tidx = TypeIdx::new(i.reinterpret_as_uint())
     match env.resolve_functype(tidx) {
       Some(FuncType(_, results)) if results.length() == 0 => out.push(tidx)
       _ => ()
@@ -1127,7 +1127,7 @@ pub fn gen_startsec_valid(
 fn collect_struct_typeidxs(env : Env) -> Array[TypeIdx] {
   let out : Array[TypeIdx] = []
   for i in 0..<env.global_types.length() {
-    let tidx = @lib.TypeIdx(i.reinterpret_as_uint())
+    let tidx = TypeIdx::new(i.reinterpret_as_uint())
     match env.resolve_comptype(tidx) {
       Some(StructCompType(_)) => out.push(tidx)
       _ => ()
@@ -1140,7 +1140,7 @@ fn collect_struct_typeidxs(env : Env) -> Array[TypeIdx] {
 fn collect_array_typeidxs(env : Env) -> Array[TypeIdx] {
   let out : Array[TypeIdx] = []
   for i in 0..<env.global_types.length() {
-    let tidx = @lib.TypeIdx(i.reinterpret_as_uint())
+    let tidx = TypeIdx::new(i.reinterpret_as_uint())
     match env.resolve_comptype(tidx) {
       Some(ArrayCompType(_)) => out.push(tidx)
       _ => ()

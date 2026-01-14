@@ -303,7 +303,7 @@ fn run_abstract_type_refining(
 
 ///|
 test "abstract struct usage becomes bottom" {
-  let ht = HeapType::new(type_idx(0))
+  let ht = HeapType::new(TypeIdx::new(0))
   let mod = Module::new()
     .with_type_sec(
       TypeSec([SingleRecType(comp_type_sub_type(struct_comp_type([])))]),
@@ -338,11 +338,11 @@ test "abstract struct usage becomes bottom" {
 test "exact ref.cast collapses to trap" {
   let instr = TInstr::ref_cast(
     true,
-    HeapType::new(type_idx(0)),
+    HeapType::new(TypeIdx::new(0)),
     TInstr::ref_null(HeapType::abs(AbsHeapType::any())),
   )
   let mapping = Map::new()
-  mapping.set(HeapType::new(type_idx(0)), HeapType::bottom())
+  mapping.set(HeapType::new(TypeIdx::new(0)), HeapType::bottom())
   let rewritten = rewrite_descriptor_exact_ref_cast(instr, mapping)
   match rewritten {
     TBlock(_, _) => ()
@@ -354,14 +354,14 @@ test "exact ref.cast collapses to trap" {
 test "non-exact cast refines normally" {
   let instr = TInstr::ref_cast(
     true,
-    HeapType::new(type_idx(0)),
+    HeapType::new(TypeIdx::new(0)),
     TInstr::ref_null(HeapType::abs(AbsHeapType::any())),
   )
   let mapping = Map::new()
-  mapping.set(HeapType::new(type_idx(0)), HeapType::new(type_idx(1)))
+  mapping.set(HeapType::new(TypeIdx::new(0)), HeapType::new(TypeIdx::new(1)))
   let rewritten = rewrite_cast(instr, mapping, true)
   match rewritten {
-    TRefCast(_, ht, _) => assert_eq(ht, HeapType::new(type_idx(1)))
+    TRefCast(_, ht, _) => assert_eq(ht, HeapType::new(TypeIdx::new(1)))
     _ => fail("unexpected rewrite")
   }
 }
@@ -371,14 +371,14 @@ test "exact br_on_cast does not gain success" {
   let instr = TInstr::br_on_cast(
     LabelIdx::new(0),
     true,
-    HeapType::new(type_idx(1)),
+    HeapType::new(TypeIdx::new(1)),
     true,
-    HeapType::new(type_idx(0)),
+    HeapType::new(TypeIdx::new(0)),
     TInstr::ref_null(HeapType::abs(AbsHeapType::any())),
     [],
   )
   let mapping = Map::new()
-  mapping.set(HeapType::new(type_idx(0)), HeapType::new(type_idx(2)))
+  mapping.set(HeapType::new(TypeIdx::new(0)), HeapType::new(TypeIdx::new(2)))
   let rewritten = rewrite_descriptor_exact_br_on_cast(instr, mapping)
   match rewritten {
     TBrOnCast(_, op, _, dst, _, _) => {
@@ -392,12 +392,12 @@ test "exact br_on_cast does not gain success" {
 ///|
 test "abstract array collapses to bottom" {
   let instr = TInstr::array_new(
-    type_idx(0),
+    TypeIdx::new(0),
     TInstr::i32_const(I32(1)),
     TInstr::ref_null(HeapType::abs(AbsHeapType::any())),
   )
   let mapping = Map::new()
-  mapping.set(HeapType::new(type_idx(0)), HeapType::bottom())
+  mapping.set(HeapType::new(TypeIdx::new(0)), HeapType::bottom())
   let rewritten = rewrite_cast(instr, mapping, true)
   assert_eq(rewritten, instr) // allocation itself unchanged
 }
