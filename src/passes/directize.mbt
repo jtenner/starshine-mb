@@ -9,11 +9,15 @@ priv struct TableInfo {
   // true if table.grow may add new entries
   may_grow : Bool
   initial_contents_immutable : Bool
+  initialization_complete : Bool
 }
 
 ///|
 fn TableInfo::can_optimize_by_entry(self : TableInfo) -> Bool {
-  self.initial_contents_immutable && !self.may_overwrite_entries
+  self.initial_contents_immutable &&
+  self.initialization_complete &&
+  !self.may_overwrite_entries &&
+  !self.may_grow
 }
 
 ///|
@@ -32,6 +36,7 @@ fn make_table_write_analyzer(infos : TableInfoMap) -> ModuleTransformer[Unit] {
     ..ModuleTransformer::new(),
     on_tinstruction: Some(fn(_, _, instr) {
       match instr {
+        // Any runtime write invalidates entry-based initialization
         TTableSet(table_idx, _, _)
         | TTableFill(table_idx, _, _, _)
         | TTableInit(_, table_idx, _, _, _)
@@ -43,9 +48,12 @@ fn make_table_write_analyzer(infos : TableInfoMap) -> ModuleTransformer[Unit] {
                 may_overwrite_entries: true,
                 may_grow: info.may_grow,
                 initial_contents_immutable: info.initial_contents_immutable,
+                initialization_complete: false,
               })
             None => ()
           }
+
+        // Growing the table invalidates completeness but not existing writes
         TTableGrow(table_idx, _, _) =>
           match infos.get(table_idx) {
             Some(info) =>
@@ -54,6 +62,7 @@ fn make_table_write_analyzer(infos : TableInfoMap) -> ModuleTransformer[Unit] {
                 may_overwrite_entries: info.may_overwrite_entries,
                 may_grow: true,
                 initial_contents_immutable: info.initial_contents_immutable,
+                initialization_complete: false,
               })
             None => ()
           }
@@ -71,7 +80,7 @@ fn compute_table_info(
 ) -> Result[TableInfoMap, String] {
   let infos = Map::new()
 
-  // --- Initialize tables ---
+  // 1. Initialize tables from Table Section
   match m.table_sec {
     Some(TableSec(tables)) =>
       for i in 0..<tables.length() {
@@ -79,78 +88,85 @@ fn compute_table_info(
           I32Limits(min, _) => min
           I64Limits(min, _) => min.to_uint()
         }
-        infos.set(@lib.TableIdx(i.reinterpret_as_uint()), TableInfo::{
+        infos.set(TableIdx::new(i.reinterpret_as_uint()), TableInfo::{
           flat_names: Array::make(min_size.reinterpret_as_int(), None),
           may_overwrite_entries: false,
           may_grow: false,
           initial_contents_immutable: initial_immutable,
+          initialization_complete: true,
         })
       }
     None => ()
   }
 
-  // --- Apply element segments ---
+  // 2. Apply element segments
   match m.elem_sec {
     Some(ElemSec(elems)) =>
       for elem in elems {
-        match elem {
-          Elem(Active(table_idx, offset_expr), kind) =>
+        // Use the structure matching your Elem::new(mode, kind) test setup
+        match (elem.0, elem.1) {
+          (Active(table_idx, offset_expr), FuncsElemKind(funcs)) =>
             match infos.get(table_idx) {
-              Some(info) => {
-                // Non-constant offsets invalidate optimization
-                if offset_expr.0.length() != 1 {
-                  infos.set(table_idx, TableInfo::{
-                    flat_names: info.flat_names,
-                    may_overwrite_entries: true,
-                    may_grow: info.may_grow,
-                    initial_contents_immutable: info.initial_contents_immutable,
-                  })
-                  continue
-                }
-                match offset_expr.0[0] {
-                  I32Const(I32(off)) =>
-                    match kind {
-                      FuncsElemKind(funcs) => {
-                        let names = info.flat_names
-                        for j in 0..<funcs.length() {
-                          let idx = off + j
-                          if idx >= 0 && idx < names.length() {
-                            names[idx] = Some(funcs[j])
-                          }
+              Some(info) =>
+                // We only handle a single I32Const as an offset
+                if offset_expr.0.length() == 1 {
+                  match offset_expr.0[0] {
+                    I32Const(I32(off)) => {
+                      let names = info.flat_names
+                      let mut ok = true
+                      for j in 0..<funcs.length() {
+                        let idx = off + j
+                        if idx < 0 || idx >= names.length() {
+                          // OOB initialization is a validation error in Wasm, 
+                          // but for us, it just means we can't optimize.
+                          ok = false
+                          break
                         }
-                        infos.set(table_idx, TableInfo::{
-                          flat_names: names,
-                          may_overwrite_entries: info.may_overwrite_entries,
-                          may_grow: info.may_grow,
-                          initial_contents_immutable: info.initial_contents_immutable,
-                        })
+                        if names[idx] is Some(_) {
+                          ok = false // Overwriting existing entry
+                          break
+                        }
+                        names[idx] = Some(funcs[j])
                       }
-                      _ =>
-                        infos.set(table_idx, TableInfo::{
-                          flat_names: info.flat_names,
-                          may_overwrite_entries: true,
-                          may_grow: info.may_grow,
-                          initial_contents_immutable: info.initial_contents_immutable,
-                        })
+                      infos.set(table_idx, {
+                        ..info,
+                        flat_names: names,
+                        may_overwrite_entries: info.may_overwrite_entries || !ok,
+                        initialization_complete: info.initialization_complete &&
+                        ok,
+                      })
                     }
-                  _ =>
-                    infos.set(table_idx, TableInfo::{
-                      flat_names: info.flat_names,
-                      may_overwrite_entries: true,
-                      may_grow: info.may_grow,
-                      initial_contents_immutable: info.initial_contents_immutable,
-                    })
+                    // Complex offset expression: mark incomplete
+                    _ =>
+                      infos.set(table_idx, {
+                        ..info,
+                        initialization_complete: false,
+                      })
+                  }
+                } else {
+                  infos.set(table_idx, {
+                    ..info,
+                    initialization_complete: false,
+                  })
                 }
-              }
               None => ()
             }
-          _ => ()
+
+          // If it's an active segment we don't handle (like FuncExprs), 
+          // we must invalidate that table's completeness.
+          (Active(table_idx, _), _) =>
+            match infos.get(table_idx) {
+              Some(info) =>
+                infos.set(table_idx, { ..info, initialization_complete: false })
+              None => ()
+            }
+          _ => () // Passive/Declarative don't affect initial table state
         }
       }
     None => ()
   }
 
-  // --- Analyze code ---
+  // 3. Analyze runtime writes (TTableSet, etc.)
   let analyzer = make_table_write_analyzer(infos)
   match analyzer.walk_module((), m) {
     Ok(_) => Ok(infos)
@@ -163,7 +179,6 @@ fn get_target_info(
   index : TInstr,
   table : TableInfo,
   call_type : TypeIdx,
-  func_types : Map[FuncIdx, TypeIdx],
   env : Env,
 ) -> IndirectTargetInfo {
   match index {
@@ -180,20 +195,16 @@ fn get_target_info(
         match table.flat_names[idx.reinterpret_as_int()] {
           None => Trap
           Some(func_idx) =>
-            match func_types.get(func_idx) {
+            match env.get_functype_by_funcidx(func_idx) {
               None => Trap
-              Some(func_ty_idx) =>
-                match env.resolve_functype(func_ty_idx) {
+              Some(func_ty) =>
+                match env.resolve_functype(call_type) {
                   None => Trap
-                  Some(func_ty) =>
-                    match env.resolve_functype(call_type) {
-                      None => Trap
-                      Some(call_ty) =>
-                        if func_ty == call_ty {
-                          Known(func_idx)
-                        } else {
-                          Trap
-                        }
+                  Some(call_ty) =>
+                    if func_ty == call_ty {
+                      Known(func_idx)
+                    } else {
+                      Trap
                     }
                 }
             }
@@ -210,11 +221,10 @@ fn get_select_targets(
   else_idx : TInstr,
   table : TableInfo,
   call_type : TypeIdx,
-  func_types : Map[FuncIdx, TypeIdx],
   env : Env,
 ) -> (IndirectTargetInfo, IndirectTargetInfo) {
-  let then_info = get_target_info(then_idx, table, call_type, func_types, env)
-  let else_info = get_target_info(else_idx, table, call_type, func_types, env)
+  let then_info = get_target_info(then_idx, table, call_type, env)
+  let else_info = get_target_info(else_idx, table, call_type, env)
   (then_info, else_info)
 }
 
@@ -237,11 +247,10 @@ fn rewrite_select_call_indirect(
   then_idx : TInstr,
   else_idx : TInstr,
   cond : TInstr,
-  func_types : Map[FuncIdx, TypeIdx],
   env : Env,
 ) -> TInstr? {
   let (then_info, else_info) = get_select_targets(
-    then_idx, else_idx, table, type_idx, func_types, env,
+    then_idx, else_idx, table, type_idx, env,
   )
   match then_info {
     Unknown => None
@@ -268,7 +277,6 @@ fn rewrite_br_table_call_indirect(
   default_label : LabelIdx,
   index : TInstr,
   carried : Array[TInstr],
-  func_types : Map[FuncIdx, TypeIdx],
   env : Env,
 ) -> TInstr? {
   let target_count = labels.length() + 1
@@ -277,7 +285,7 @@ fn rewrite_br_table_call_indirect(
   // Resolve each possible numeric index
   for i in 0..<target_count {
     let idx_instr = TInstr::i32_const(I32(i))
-    let info = get_target_info(idx_instr, table, type_idx, func_types, env)
+    let info = get_target_info(idx_instr, table, type_idx, env)
     match info {
       Unknown => return None
       _ => targets.push(info)
@@ -285,14 +293,19 @@ fn rewrite_br_table_call_indirect(
   }
 
   // Build nested blocks from bottom up
-  let mut body = TExpr::new([TInstr::br_table(labels, default_label, index, carried)])
+  let mut body = TExpr::new([
+    TInstr::br_table(labels, default_label, index, carried),
+  ])
   for info in targets.rev_iter() {
     let branch = match info {
-      Known(func_idx) => TExpr::new([TInstr::call(func_idx, args), TInstr::return_([])])
+      Known(func_idx) =>
+        TExpr::new([TInstr::call(func_idx, args), TInstr::return_([])])
       Trap => TExpr::new([TInstr::unreachable_()])
       Unknown => TExpr::new([TInstr::unreachable_()])
     }
-    body = TExpr::new([TInstr::block(BlockType::type_idx(type_idx), branch), ..body.0])
+    body = TExpr::new(
+      [TInstr::block(BlockType::type_idx(type_idx), branch), ..body.0],
+    )
   }
   Some(TInstr::block(BlockType::type_idx(type_idx), body))
 }
@@ -300,7 +313,6 @@ fn rewrite_br_table_call_indirect(
 ///|
 fn make_directize_transformer(
   tables : TableInfoMap,
-  func_types : Map[FuncIdx, TypeIdx],
   env : Env,
 ) -> ModuleTransformer[Unit] {
   return ModuleTransformer::{
@@ -314,8 +326,7 @@ fn make_directize_transformer(
                 TSelect(_, then_idx, else_idx, cond) =>
                   match
                     rewrite_select_call_indirect(
-                      type_idx, table, args, then_idx, else_idx, cond, func_types,
-                      env,
+                      type_idx, table, args, then_idx, else_idx, cond, env,
                     ) {
                     Some(i) => change((), i)
                     None => unchanged()
@@ -324,14 +335,13 @@ fn make_directize_transformer(
                   match
                     rewrite_br_table_call_indirect(
                       type_idx, table, args, labels, default_label, idx, carried,
-                      func_types, env,
+                      env,
                     ) {
                     Some(i) => change((), i)
                     None => unchanged()
                   }
                 _ =>
-                  match
-                    get_target_info(index, table, type_idx, func_types, env) {
+                  match get_target_info(index, table, type_idx, env) {
                     Known(f) => change((), TInstr::call(f, args))
                     Trap => change((), TInstr::unreachable_())
                     Unknown => unchanged()
@@ -342,7 +352,7 @@ fn make_directize_transformer(
         TReturnCallIndirect(type_idx, table_idx, args, index) =>
           match tables.get(table_idx) {
             Some(table) if table.can_optimize_by_entry() =>
-              match get_target_info(index, table, type_idx, func_types, env) {
+              match get_target_info(index, table, type_idx, env) {
                 Known(f) => change((), TInstr::return_call(f, args))
                 Trap => change((), TInstr::unreachable_())
                 Unknown => unchanged()
@@ -365,17 +375,7 @@ pub fn directize_module(
     Err(t) => return Err(t)
     Ok(tables) => tables
   }
-
-  // Build func_types map manually from the function section
-  let func_types = Map::new()
-  match m.func_sec {
-    None => ()
-    Some(FuncSec(types)) =>
-      for i in 0..<types.length() {
-        func_types.set(func_idx(i.reinterpret_as_uint()), types[i])
-      }
-  }
-  let transformer = make_directize_transformer(tables, func_types, env)
+  let transformer = make_directize_transformer(tables, env)
   match transformer.walk_module((), m) {
     Ok(Some((_, new_m))) => Ok(new_m)
     Ok(None) => Ok(m)
@@ -392,7 +392,9 @@ fn make_simple_functype() -> RecType {
 fn make_functype_i32_to_i32() -> RecType {
   single_rec_type(
     comp_type_sub_type(
-      func_comp_type([num_type_val_type(i32_num_type())], [num_type_val_type(i32_num_type())]),
+      func_comp_type([num_type_val_type(i32_num_type())], [
+        num_type_val_type(i32_num_type()),
+      ]),
     ),
   )
 }
@@ -411,7 +413,10 @@ test "directize: constant index resolves to known function" {
       TableSec::new([
         Table::new(
           table_type(
-            RefType::heap_type(true, abs_heap_type_heap_type(func_abs_heap_type())),
+            RefType::heap_type(
+              true,
+              abs_heap_type_heap_type(func_abs_heap_type()),
+            ),
             Limits::i32(1, Some(1)),
           ),
           None,
@@ -421,7 +426,10 @@ test "directize: constant index resolves to known function" {
     .with_elem_sec(
       ElemSec::new([
         Elem::new(
-          ElemMode::active(table_idx(0), Expr::new([Instruction::i32_const(I32(0))])),
+          ElemMode::active(
+            table_idx(0),
+            Expr::new([Instruction::i32_const(I32(0))]),
+          ),
           ElemKind::funcs([func_idx(0)]),
         ),
       ]),
@@ -430,7 +438,9 @@ test "directize: constant index resolves to known function" {
       CodeSec([
         TFunc(
           [],
-          TExpr::new([TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0)))]),
+          TExpr::new([
+            TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0))),
+          ]),
         ),
       ]),
     )
@@ -475,7 +485,9 @@ test "directize: out-of-bounds constant index becomes unreachable" {
       CodeSec([
         TFunc(
           [],
-          TExpr::new([TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(10)))], // Out of bounds
+          TExpr::new([
+              TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(10))),
+            ], // Out of bounds
           ),
         ),
       ]),
@@ -520,7 +532,9 @@ test "directize: null entry in table becomes unreachable" {
       CodeSec([
         TFunc(
           [],
-          TExpr::new([TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(1)))], // Index 1 is null
+          TExpr::new([
+              TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(1))),
+            ], // Index 1 is null
           ),
         ),
       ]),
@@ -756,7 +770,10 @@ test "directize: table.copy prevents optimization on dest table" {
     .with_elem_sec(
       ElemSec::new([
         Elem::new(
-          ElemMode::active(TableIdx(0), Expr::new([Instruction::i32_const(I32(0))])),
+          ElemMode::active(
+            TableIdx(0),
+            Expr::new([Instruction::i32_const(I32(0))]),
+          ),
           ElemKind::funcs([FuncIdx(0)]),
         ),
         Elem::new(
@@ -810,7 +827,9 @@ test "directize: table.init prevents optimization" {
         ),
       ]),
     )
-    .with_elem_sec(ElemSec([Elem(ElemMode::passive(), ElemKind::funcs([FuncIdx(0)]))]))
+    .with_elem_sec(
+      ElemSec([Elem(ElemMode::passive(), ElemKind::funcs([FuncIdx(0)]))]),
+    )
     .with_code_sec(
       CodeSec([
         Func::t_func(
@@ -912,7 +931,9 @@ test "directize: initial_immutable=false prevents optimization" {
       CodeSec([
         TFunc(
           [],
-          TExpr::new([TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0)))]),
+          TExpr::new([
+            TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0))),
+          ]),
         ),
       ]),
     )
@@ -1274,12 +1295,16 @@ test "directize: passive element segment doesn't initialize table" {
         ),
       ]),
     )
-    .with_elem_sec(ElemSec([Elem(ElemMode::passive(), ElemKind::funcs([FuncIdx(0)]))])) // Passive, not active
+    .with_elem_sec(
+      ElemSec([Elem(ElemMode::passive(), ElemKind::funcs([FuncIdx(0)]))]),
+    ) // Passive, not active
     .with_code_sec(
       CodeSec([
         TFunc(
           [],
-          TExpr::new([TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0)))]),
+          TExpr::new([
+            TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0))),
+          ]),
         ),
       ]),
     )
@@ -1308,12 +1333,16 @@ test "directize: declarative element segment doesn't initialize table" {
         ),
       ]),
     )
-    .with_elem_sec(ElemSec([Elem(ElemMode::declarative(), ElemKind::funcs([FuncIdx(0)]))])) // Declarative
+    .with_elem_sec(
+      ElemSec([Elem(ElemMode::declarative(), ElemKind::funcs([FuncIdx(0)]))]),
+    ) // Declarative
     .with_code_sec(
       CodeSec([
         TFunc(
           [],
-          TExpr::new([TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0)))]),
+          TExpr::new([
+            TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0))),
+          ]),
         ),
       ]),
     )
@@ -1333,10 +1362,7 @@ test "directize: element segment with non-constant offset marks table mutable" {
     .with_func_sec(FuncSec([TypeIdx(0)]))
     .with_global_sec(
       GlobalSec([
-        Global(
-          GlobalType(ValType::i32(), false),
-          Expr::new([I32Const(I32(0))]),
-        ),
+        Global(GlobalType(ValType::i32(), false), Expr::new([I32Const(I32(0))])),
       ]),
     )
     .with_table_sec(
@@ -1362,7 +1388,9 @@ test "directize: element segment with non-constant offset marks table mutable" {
       CodeSec([
         TFunc(
           [],
-          TExpr::new([TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0)))]),
+          TExpr::new([
+            TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0))),
+          ]),
         ),
       ]),
     )
@@ -1404,7 +1432,9 @@ test "directize: element segment with expression kind marks table mutable" {
       CodeSec([
         TFunc(
           [],
-          TExpr::new([TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0)))]),
+          TExpr::new([
+            TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0))),
+          ]),
         ),
       ]),
     )
@@ -1576,7 +1606,9 @@ test "directize: negative index (interpreted as large unsigned) becomes unreacha
       CodeSec([
         TFunc(
           [],
-          TExpr::new([TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(-1)))], // -1 = 0xFFFFFFFF
+          TExpr::new([
+              TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(-1))),
+            ], // -1 = 0xFFFFFFFF
           ),
         ),
       ]),
@@ -1614,7 +1646,9 @@ test "directize: empty table always traps" {
       CodeSec([
         TFunc(
           [],
-          TExpr::new([TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0)))]),
+          TExpr::new([
+            TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0))),
+          ]),
         ),
       ]),
     )
@@ -1737,7 +1771,9 @@ test "directize: table with i64 limits" {
       CodeSec([
         TFunc(
           [],
-          TExpr::new([TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0)))]),
+          TExpr::new([
+            TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0))),
+          ]),
         ),
       ]),
     )

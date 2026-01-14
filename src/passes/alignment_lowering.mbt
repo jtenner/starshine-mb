@@ -53,7 +53,7 @@ fn load_op_with_chunk_size(
   chunk_size : ChunkSize,
 ) -> Result[LoadOp, String] {
   match (stack_size, chunk_size) {
-    (StackSize32, ChunkSize8) => Ok(LoadOp::i32_load8u(),)
+    (StackSize32, ChunkSize8) => Ok(LoadOp::i32_load8u())
     (StackSize32, ChunkSize16) => Ok(LoadOp::i32_load16u())
     (StackSize64, ChunkSize8) => Ok(LoadOp::i64_load8u())
     (StackSize64, ChunkSize16) => Ok(LoadOp::i64_load16u())
@@ -206,11 +206,7 @@ fn load_shift_op(
     StackSize32 =>
       TBinary(I32ShlOp, op, TInstr::i32_const(I32(offset.to_int() * 8)))
     StackSize64 =>
-      TBinary(
-        I64ShlOp,
-        op,
-        TI64Const(I64(offset.reinterpret_as_int64() * 8)),
-      )
+      TBinary(I64ShlOp, op, TI64Const(I64(offset.reinterpret_as_int64() * 8)))
   }
 }
 
@@ -227,11 +223,7 @@ fn store_shift_op(
     StackSize32 =>
       TBinary(I32ShrUOp, op, TInstr::i32_const(I32(offset.to_int() * 8)))
     StackSize64 =>
-      TBinary(
-        I64ShrUOp,
-        op,
-        TI64Const(I64(offset.reinterpret_as_int64() * 8)),
-      )
+      TBinary(I64ShrUOp, op, TI64Const(I64(offset.reinterpret_as_int64() * 8)))
   }
 }
 
@@ -270,7 +262,11 @@ fn finalize_v128_extending_load(
   )
   match stack_size {
     StackSize32 => {
-      let shifted = TInstr::binary(BinaryOp::i32_shl(), extracted, TInstr::i32_const(I32(shift)))
+      let shifted = TInstr::binary(
+        BinaryOp::i32_shl(),
+        extracted,
+        TInstr::i32_const(I32(shift)),
+      )
       if is_signed {
         let sign_mask = TInstr::binary(
           BinaryOp::i32_shl(),
@@ -402,7 +398,11 @@ pub fn alignment_lowering_pass() -> ModuleTransformer[AlignmentLoweringContext] 
           if op_size > 8 {
             return change(
               t,
-              TInstr::load(op, MemArg::new(U32(align), mem_option, U64(offset)), a),
+              TInstr::load(
+                op,
+                MemArg::new(U32(align), mem_option, U64(offset)),
+                a,
+              ),
             )
           }
           let effective_align = @cmp.minimum(align, op_size)
@@ -435,7 +435,11 @@ pub fn alignment_lowering_pass() -> ModuleTransformer[AlignmentLoweringContext] 
           }
           let first_load = TInstr::load(
             load_op,
-            MemArg::new(U32(chunk_byte_count), mem_option, U64(offset + first.1)),
+            MemArg::new(
+              U32(chunk_byte_count),
+              mem_option,
+              U64(offset + first.1),
+            ),
             ptr_start_set,
           )
           let mut acc = load_shift_op(value_stack_size, first.1, first_load)
@@ -480,7 +484,12 @@ pub fn alignment_lowering_pass() -> ModuleTransformer[AlignmentLoweringContext] 
           if op_size > 8 {
             return change(
               t,
-              TInstr::store(op, MemArg::new(U32(align), mem_option, U64(offset)), a, b),
+              TInstr::store(
+                op,
+                MemArg::new(U32(align), mem_option, U64(offset)),
+                a,
+                b,
+              ),
             )
           }
           let effective_align = @cmp.minimum(align, op_size)
@@ -488,7 +497,12 @@ pub fn alignment_lowering_pass() -> ModuleTransformer[AlignmentLoweringContext] 
           if c.length() == 1 {
             return change(
               t,
-              TInstr::store(op, MemArg::new(U32(align), mem_option, U64(offset)), a, b),
+              TInstr::store(
+                op,
+                MemArg::new(U32(align), mem_option, U64(offset)),
+                a,
+                b,
+              ),
             )
           }
 
@@ -601,10 +615,14 @@ pub fn alignment_lowering_pass() -> ModuleTransformer[AlignmentLoweringContext] 
 
           // Determine the load operation based on lane size
           let (replace_op, stack_size) = match op {
-            V128Load8LaneOp => (ReplaceLaneOp::i8x16_replace_lane(), StackSize32)
-            V128Load16LaneOp => (ReplaceLaneOp::i16x8_replace_lane(), StackSize32)
-            V128Load32LaneOp => (ReplaceLaneOp::i32x4_replace_lane(), StackSize32)
-            V128Load64LaneOp => (ReplaceLaneOp::i64x2_replace_lane(), StackSize64)
+            V128Load8LaneOp =>
+              (ReplaceLaneOp::i8x16_replace_lane(), StackSize32)
+            V128Load16LaneOp =>
+              (ReplaceLaneOp::i16x8_replace_lane(), StackSize32)
+            V128Load32LaneOp =>
+              (ReplaceLaneOp::i32x4_replace_lane(), StackSize32)
+            V128Load64LaneOp =>
+              (ReplaceLaneOp::i64x2_replace_lane(), StackSize64)
           }
 
           // Build the chunked load
@@ -617,7 +635,11 @@ pub fn alignment_lowering_pass() -> ModuleTransformer[AlignmentLoweringContext] 
           }
           let first_load = TInstr::load(
             chunk_load_op,
-            MemArg::new(U32(chunk_byte_count), mem_option, U64(offset + first.1)),
+            MemArg::new(
+              U32(chunk_byte_count),
+              mem_option,
+              U64(offset + first.1),
+            ),
             TLocalTee(ptr_local, a),
           )
           let mut acc = load_shift_op(stack_size, first.1, first_load)
@@ -1470,7 +1492,11 @@ test "unaligned load allocates new local for pointer" {
   let ctx = make_ctx(make_i32_mem())
   let initial_locals : Array[ValType] = [ValType::i32()]
   let body = [
-    TInstr::load(LoadOp::i32_load(), MemArg::new(U32(1), None, U64(0)), TInstr::local_get(LocalIdx::new(0))),
+    TInstr::load(
+      LoadOp::i32_load(),
+      MemArg::new(U32(1), None, U64(0)),
+      TInstr::local_get(LocalIdx::new(0)),
+    ),
   ]
   let result = run_func_pass(ctx, initial_locals, body)
   match result {
@@ -1636,7 +1662,11 @@ test "nested instructions are transformed" {
     StoreOp::i32_store(),
     MemArg::new(U32(4), None, U64(0)),
     TInstr::local_get(LocalIdx::new(0)),
-    TInstr::load(LoadOp::i32_load(), MemArg::new(U32(1), None, U64(0)), TInstr::local_get(LocalIdx::new(1))),
+    TInstr::load(
+      LoadOp::i32_load(),
+      MemArg::new(U32(1), None, U64(0)),
+      TInstr::local_get(LocalIdx::new(1)),
+    ),
   )
   let result = run_pass(ctx, instr)
   // The inner load should be transformed even if outer store is aligned
@@ -1735,7 +1765,11 @@ test "align clamped to op_size" {
 ///|
 test "other instructions pass through unchanged" {
   let ctx = make_ctx(make_i32_mem())
-  let instr = TInstr::binary(BinaryOp::i32_add(), TInstr::i32_const(I32(1)), TInstr::i32_const(I32(2)))
+  let instr = TInstr::binary(
+    BinaryOp::i32_add(),
+    TInstr::i32_const(I32(1)),
+    TInstr::i32_const(I32(2)),
+  )
   let result = run_pass(ctx, instr)
   match result {
     Ok(TBinary(I32AddOp, TI32Const(I32(1)), TI32Const(I32(2)))) => ()

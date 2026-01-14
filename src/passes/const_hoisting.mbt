@@ -337,11 +337,10 @@ test "const hoisting: single use does nothing" {
 ///|
 test "const hoisting: large constant is hoisted" {
   let big = 100000
-  let f = @lib.TFunc([], TExpr::new([
-    TI32Const(I32(big)),
-    TI32Const(I32(big)),
-    TI32Const(I32(big)),
-  ]))
+  let f = @lib.TFunc(
+    [],
+    TExpr::new([TI32Const(I32(big)), TI32Const(I32(big)), TI32Const(I32(big))]),
+  )
   let f2 = run_hoist(f)
   match f2 {
     TFunc(locals, TExpr(instrs)) => {
@@ -362,11 +361,10 @@ test "const hoisting: large constant is hoisted" {
 
 ///|
 test "const hoisting: small constants are not hoisted" {
-  let f = @lib.TFunc([], TExpr::new([
-    TI32Const(I32(0)),
-    TI32Const(I32(0)),
-    TI32Const(I32(0)),
-  ]))
+  let f = @lib.TFunc(
+    [],
+    TExpr::new([TI32Const(I32(0)), TI32Const(I32(0)), TI32Const(I32(0))]),
+  )
   let f2 = run_hoist(f)
   match f2 {
     TFunc(locals, TExpr(instrs)) => {
@@ -382,11 +380,10 @@ test "const hoisting: small constants are not hoisted" {
 
 ///|
 test "const hoisting: different literals are not merged" {
-  let f = Func::t_func([], TExpr::new([
-    TI32Const(I32(10)),
-    TI32Const(I32(20)),
-    TI32Const(I32(10)),
-  ]))
+  let f = Func::t_func(
+    [],
+    TExpr::new([TI32Const(I32(10)), TI32Const(I32(20)), TI32Const(I32(10))]),
+  )
   let f2 = run_hoist(f)
   match f2 {
     TFunc(locals, TExpr(instrs)) => {
@@ -403,11 +400,10 @@ test "const hoisting: different literals are not merged" {
 ///|
 test "const hoisting: f64 hoisted when repeated" {
   let pi = 3.141592653589793
-  let f = Func::t_func([], TExpr::new([
-    TF64Const(F64(pi)),
-    TF64Const(F64(pi)),
-    TF64Const(F64(pi)),
-  ]))
+  let f = Func::t_func(
+    [],
+    TExpr::new([TF64Const(F64(pi)), TF64Const(F64(pi)), TF64Const(F64(pi))]),
+  )
   let f2 = run_hoist(f)
   match f2 {
     TFunc(locals, TExpr(instrs)) => {

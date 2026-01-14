@@ -468,7 +468,9 @@ test "helper functions are added when f32 operations exist" {
   // f32.add produces f32, should trigger helper generation
   let func = @lib.TFunc(
     [],
-    TExpr::new([@lib.TBinary(F32AddOp, TF32Const(F32(1.0)), TF32Const(F32(2.0)))]),
+    TExpr::new([
+      @lib.TBinary(F32AddOp, TF32Const(F32(1.0)), TF32Const(F32(2.0))),
+    ]),
   )
   let mod = make_module_with_code([func])
   let result = run_denam(mod)
@@ -488,7 +490,9 @@ test "helper functions are added when f32 operations exist" {
 test "helper functions are added when f64 operations exist" {
   let func = @lib.TFunc(
     [],
-    TExpr::new([@lib.TBinary(F64AddOp, TF64Const(F64(1.0)), TF64Const(F64(2.0)))]),
+    TExpr::new([
+      @lib.TBinary(F64AddOp, TF64Const(F64(1.0)), TF64Const(F64(2.0))),
+    ]),
   )
   let mod = make_module_with_code([func])
   let result = run_denam(mod)
@@ -557,7 +561,9 @@ test "no helpers added when only NaN constants exist" {
 test "f32.add is wrapped with deNan call" {
   let func = @lib.TFunc(
     [],
-    TExpr::new([@lib.TBinary(F32AddOp, TF32Const(F32(1.0)), TF32Const(F32(2.0)))]),
+    TExpr::new([
+      @lib.TBinary(F32AddOp, TF32Const(F32(1.0)), TF32Const(F32(2.0))),
+    ]),
   )
   let mod = make_module_with_code([func])
   let result = run_denam(mod)
@@ -675,10 +681,7 @@ test "f32 parameter is sanitized at function entry" {
 
 ///|
 test "f64 parameter is sanitized at function entry" {
-  let func = @lib.TFunc(
-    [ValType::f64()],
-    TExpr::new([TLocalGet(LocalIdx(0))]),
-  )
+  let func = @lib.TFunc([ValType::f64()], TExpr::new([TLocalGet(LocalIdx(0))]))
   let mod = make_module_with_code([func])
   let result = run_denam(mod)
   match result {
@@ -702,8 +705,8 @@ test "mixed parameters - only floats sanitized" {
       ValType::i32(), // param 0: i32 - not sanitized
       ValType::f32(), // param 1: f32 - sanitized
       ValType::i64(), // param 2: i64 - not sanitized
-      ValType::f64(), // param 3: f64 - sanitized
-    ],
+      ValType::f64(),
+    ], // param 3: f64 - sanitized
     TExpr::new([TLocalGet(LocalIdx(0))]),
   )
   let mod = make_module_with_code([func])
@@ -737,10 +740,7 @@ test "mixed parameters - only floats sanitized" {
 
 ///|
 test "i32 parameter is not sanitized" {
-  let func = @lib.TFunc(
-    [ValType::i32()],
-    TExpr::new([TLocalGet(LocalIdx(0))]),
-  )
+  let func = @lib.TFunc([ValType::i32()], TExpr::new([TLocalGet(LocalIdx(0))]))
   let mod = make_module_with_code([func])
   let result = run_denam(mod)
   match result {
@@ -768,7 +768,9 @@ test "i32 parameter is not sanitized" {
 test "deNan32 helper has correct structure" {
   let func = @lib.TFunc(
     [],
-    TExpr::new([@lib.TBinary(F32AddOp, TF32Const(F32(1.0)), TF32Const(F32(2.0)))]),
+    TExpr::new([
+      @lib.TBinary(F32AddOp, TF32Const(F32(1.0)), TF32Const(F32(2.0))),
+    ]),
   )
   let mod = make_module_with_code([func])
   let result = run_denam(mod)

@@ -1,4 +1,2 @@
-using @lib {
-  type NumType,
-  type ElemKind,
-}
+///|
+using @lib {type NumType, type ElemKind}

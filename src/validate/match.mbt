@@ -743,48 +743,12 @@ test "FieldType: const vs var don't match" {
 ///|
 test "ValType: primitive types use equality" {
   let env = Env::new()
-  assert_true(
-    Match::matches(
-      @lib.ValType::i32(),
-      ValType::i32(),
-      env,
-    ),
-  )
-  assert_true(
-    Match::matches(
-      @lib.ValType::i64(),
-      ValType::i64(),
-      env,
-    ),
-  )
-  assert_true(
-    Match::matches(
-      @lib.ValType::f32(),
-      ValType::f32(),
-      env,
-    ),
-  )
-  assert_true(
-    Match::matches(
-      @lib.ValType::f64(),
-      ValType::f64(),
-      env,
-    ),
-  )
-  assert_false(
-    Match::matches(
-      @lib.ValType::i32(),
-      ValType::i64(),
-      env,
-    ),
-  )
-  assert_false(
-    Match::matches(
-      @lib.ValType::f32(),
-      ValType::f64(),
-      env,
-    ),
-  )
+  assert_true(Match::matches(@lib.ValType::i32(), ValType::i32(), env))
+  assert_true(Match::matches(@lib.ValType::i64(), ValType::i64(), env))
+  assert_true(Match::matches(@lib.ValType::f32(), ValType::f32(), env))
+  assert_true(Match::matches(@lib.ValType::f64(), ValType::f64(), env))
+  assert_false(Match::matches(@lib.ValType::i32(), ValType::i64(), env))
+  assert_false(Match::matches(@lib.ValType::f32(), ValType::f64(), env))
 }
 
 ///|
@@ -922,9 +886,7 @@ test "CompType: FuncCompType - contravariant params, covariant results" {
 ///|
 test "CompType: FuncCompType - reflexivity" {
   let env = Env::new()
-  let f = @lib.FuncCompType([ValType::i32()], [
-    ValType::i64(),
-  ])
+  let f = @lib.FuncCompType([ValType::i32()], [ValType::i64()])
   assert_true(Match::matches(f, f, env))
 }
 
@@ -932,10 +894,7 @@ test "CompType: FuncCompType - reflexivity" {
 test "CompType: FuncCompType - param count mismatch" {
   let env = Env::new()
   let f1 = @lib.FuncCompType([ValType::i32()], [])
-  let f2 = @lib.FuncCompType(
-    [ValType::i32(), ValType::i64()],
-    [],
-  )
+  let f2 = @lib.FuncCompType([ValType::i32(), ValType::i64()], [])
   assert_false(Match::matches(f1, f2, env))
 }
 
@@ -1083,9 +1042,7 @@ test "TagType: requires bidirectional typeidx matching" {
 test "ExternType: different kinds don't match" {
   let env = Env::new()
   let mem = @lib.MemExternType(MemType(I32Limits(1, None)))
-  let global = @lib.GlobalExternType(
-    GlobalType(ValType::i32(), false),
-  )
+  let global = @lib.GlobalExternType(GlobalType(ValType::i32(), false))
   assert_false(Match::matches(mem, global, env))
   assert_false(Match::matches(global, mem, env))
 }

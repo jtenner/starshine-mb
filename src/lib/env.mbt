@@ -115,11 +115,20 @@ pub fn Env::with_return_type(env : Env, rt : Array[ValType]?) -> Env {
 ///|
 pub fn Env::with_rectype(env : Env, rt : RecType) -> Env {
   let rs = env.rec_stack.copy()
+  let gs = env.global_types.copy()
   match rt {
-    SingleRecType(st) => rs.push([st])
-    GroupRecType(sts) => rs.push(sts)
+    SingleRecType(st) => {
+      rs.push([st])
+      gs.push(st)
+    }
+    GroupRecType(sts) => {
+      rs.push(sts)
+      for st in sts {
+        gs.push(st)
+      }
+    }
   }
-  Env::{ ..env, rec_stack: rs }
+  Env::{ ..env, rec_stack: rs, global_types: gs }
 }
 
 ///|
@@ -380,7 +389,8 @@ pub fn Env::with_module(self : Env, m : Module) -> Env {
     None => env
     Some(FuncSec(type_idxs)) => {
       let mut e = env
-      for tidx in type_idxs {
+      for i in 0..<type_idxs.length() {
+        let tidx = type_idxs[i]
         match e.resolve_functype(tidx) {
           None => ()
           Some(ft) => e = e.push_func(ft)

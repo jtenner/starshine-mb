@@ -199,8 +199,6 @@ pub enum ElemKind {
 ///|
 pub(all) struct Elem(ElemMode, ElemKind) derive(Eq, Hash)
 
-
-
 ///|
 pub struct Expr(Array[Instruction]) derive(Eq, Hash)
 
@@ -979,18 +977,22 @@ pub fn ValType::i64() -> ValType {
   NumTypeValType(I64NumType)
 }
 
+///|
 pub fn ValType::f32() -> ValType {
   NumTypeValType(F32NumType)
 }
 
+///|
 pub fn ValType::f64() -> ValType {
   NumTypeValType(F64NumType)
 }
 
+///|
 pub fn ValType::v128() -> ValType {
   VecTypeValType
 }
 
+///|
 pub fn ValType::num_type(t : NumType) -> ValType {
   NumTypeValType(t)
 }
@@ -1012,6 +1014,7 @@ pub fn ValType::funcref() -> ValType {
   RefTypeValType(AbsHeapTypeRefType(FuncAbsHeapType))
 }
 
+///|
 pub fn ValType::bottom() -> ValType {
   BotValType
 }
@@ -2262,7 +2265,10 @@ pub fn Instruction::br_if(li : LabelIdx) -> Instruction {
 }
 
 ///|
-pub fn Instruction::br_table(ls : Array[LabelIdx], li0 : LabelIdx) -> Instruction {
+pub fn Instruction::br_table(
+  ls : Array[LabelIdx],
+  li0 : LabelIdx,
+) -> Instruction {
   BrTable(ls, li0)
 }
 
@@ -2277,7 +2283,10 @@ pub fn Instruction::call(fi : FuncIdx) -> Instruction {
 }
 
 ///|
-pub fn Instruction::call_indirect(ty_idx : TypeIdx, tbl_idx : TableIdx) -> Instruction {
+pub fn Instruction::call_indirect(
+  ty_idx : TypeIdx,
+  tbl_idx : TableIdx,
+) -> Instruction {
   CallIndirect(ty_idx, tbl_idx)
 }
 
@@ -4909,7 +4918,12 @@ pub fn TInstr::ref_eq(i0 : TInstr, i1 : TInstr) -> TInstr {
 }
 
 ///|
-pub fn TInstr::store(op : StoreOp, ma : MemArg, i0 : TInstr, i1 : TInstr) -> TInstr {
+pub fn TInstr::store(
+  op : StoreOp,
+  ma : MemArg,
+  i0 : TInstr,
+  i1 : TInstr,
+) -> TInstr {
   TStore(op, ma, i0, i1)
 }
 
@@ -5028,7 +5042,11 @@ pub fn TInstr::call_indirect(
 }
 
 ///|
-pub fn TInstr::call_ref(ti : TypeIdx, props : Array[TInstr], r : TInstr) -> TInstr {
+pub fn TInstr::call_ref(
+  ti : TypeIdx,
+  props : Array[TInstr],
+  r : TInstr,
+) -> TInstr {
   TCallRef(ti, props, r)
 }
 
@@ -5067,7 +5085,12 @@ pub fn TInstr::loop_(bt : BlockType, e : TExpr) -> TInstr {
 }
 
 ///|
-pub fn TInstr::if_(bt : BlockType, i : TInstr, e0 : TExpr, e1_opt : TExpr?) -> TInstr {
+pub fn TInstr::if_(
+  bt : BlockType,
+  i : TInstr,
+  e0 : TExpr,
+  e1_opt : TExpr?,
+) -> TInstr {
   TIf(bt, i, e0, e1_opt)
 }
 
@@ -5102,7 +5125,11 @@ pub fn TInstr::br_table(
 }
 
 ///|
-pub fn TInstr::br_on_null(li : LabelIdx, i0 : TInstr, i : Array[TInstr]) -> TInstr {
+pub fn TInstr::br_on_null(
+  li : LabelIdx,
+  i0 : TInstr,
+  i : Array[TInstr],
+) -> TInstr {
   TBrOnNull(li, i0, i)
 }
 
@@ -5342,7 +5369,11 @@ pub fn TInstr::f64x2_splat(i : TInstr) -> TInstr {
 }
 
 ///|
-pub fn TInstr::extract_lane(op : ExtractLaneOp, li : LaneIdx, i : TInstr) -> TInstr {
+pub fn TInstr::extract_lane(
+  op : ExtractLaneOp,
+  li : LaneIdx,
+  i : TInstr,
+) -> TInstr {
   TExtractLane(op, li, i)
 }
 
@@ -7455,123 +7486,159 @@ pub fn V128StoreLaneOp::v128_store64_lane() -> V128StoreLaneOp {
   V128Store64LaneOp
 }
 
+///|
 pub fn DefType::new(rec : RecType, idx : UInt) -> DefType {
   DefType(rec, idx)
 }
 
+///|
 pub fn HeapType::is_struct(self : Self) -> Bool {
   match self {
-    DefTypeHeapType(def) => {
+    DefTypeHeapType(def) =>
       match def.project() {
-        Some(st) => {
+        Some(st) =>
           match st.get_comptype() {
             StructCompType(_) => true
             _ => false
           }
-        }
         None => false
       }
-    }
     _ => false
   }
 }
 
+///|
 pub fn HeapType::is_array(self : Self) -> Bool {
   match self {
-    DefTypeHeapType(def) => {
+    DefTypeHeapType(def) =>
       match def.project() {
-        Some(st) => {
+        Some(st) =>
           match st.get_comptype() {
             ArrayCompType(_) => true
             _ => false
           }
-        }
         None => false
       }
-    }
     _ => false
   }
 }
 
+///|
 pub fn HeapType::is_gc_aggregate(self : Self) -> Bool {
   self.is_struct() || self.is_array()
 }
 
+///|
 pub fn HeapType::bottom() -> HeapType {
   AbsHeapTypeHeapType(NoneAbsHeapType)
 }
 
+///|
 pub fn CastOp::new(b0 : Bool, b1 : Bool) -> CastOp {
   CastOp(b0, b1)
 }
 
-pub fn TypeSec::new(rts : Array[RecType])-> TypeSec {
+///|
+pub fn TypeSec::new(rts : Array[RecType]) -> TypeSec {
   TypeSec(rts)
 }
 
+///|
 pub fn CodeSec::new(fs : Array[Func]) -> CodeSec {
   CodeSec(fs)
 }
 
+///|
 pub fn TExpr::new(instrs : Array[TInstr]) -> TExpr {
   TExpr(instrs)
 }
 
+///|
 pub fn Func::t_func(args : Array[ValType], expr : TExpr) -> Func {
   TFunc(args, expr)
 }
 
+///|
 pub fn BlockType::empty() -> BlockType {
   EmptyBlockType
 }
+
+///|
 pub fn BlockType::val_type(vt : ValType) -> BlockType {
   ValTypeBlockType(vt)
 }
+
+///|
 pub fn BlockType::type_idx(ti : TypeIdx) -> BlockType {
   TypeIdxBlockType(ti)
 }
 
+///|
 pub fn TableSec::new(t : Array[Table]) -> TableSec {
   TableSec(t)
 }
 
+///|
 pub fn Table::new(tt : TableType, v : Expr?) -> Table {
   Table(tt, v)
 }
 
+///|
 pub fn Expr::new(i : Array[Instruction]) -> Expr {
   Expr(i)
 }
 
+///|
 pub fn Elem::new(mode : ElemMode, kind : ElemKind) -> Elem {
   Elem(mode, kind)
 }
 
+///|
 pub fn ElemSec::new(e : Array[Elem]) -> ElemSec {
   ElemSec(e)
 }
 
+///|
 pub fn MemArg::new(align : U32, mem : MemIdx?, offset : U64) -> MemArg {
   MemArg(align, mem, offset)
 }
 
+///|
 pub fn LocalIdx::new(idx : UInt) -> LocalIdx {
   LocalIdx(idx)
 }
 
+///|
 pub fn LaneIdx::new(idx : Byte) -> LaneIdx {
   LaneIdx(idx)
 }
 
+///|
 pub fn NumType::f32() -> NumType {
   F32NumType
 }
+
+///|
 pub fn NumType::f64() -> NumType {
   F64NumType
 }
+
+///|
 pub fn NumType::i32() -> NumType {
   I32NumType
 }
+
+///|
 pub fn NumType::i64() -> NumType {
   I64NumType
+}
+
+///|
+pub fn TableIdx::new(i : UInt) -> TableIdx {
+  TableIdx(i)
+}
+
+///|
+pub fn TypeIdx::new(i : UInt) -> TypeIdx {
+  TypeIdx(i)
 }

@@ -1493,12 +1493,10 @@ pub impl Encode for Elem with encode(val, buf) {
       }
       Encode::encode(es, buf)
     }
-    Elem(Active(_), TypedExprsElemKind(_)) => {
-      println("Hit problem active sequence.")
+    Elem(Active(_), TypedExprsElemKind(_)) =>
       Err(
         "Invalid Active Sequence. Active Sequences must be func refs or indicies.",
       )
-    }
   }
 }
 
@@ -1847,7 +1845,8 @@ pub impl Decode for Elem with decode(bytes, i) {
       match bytes.get(i + 1) {
         Some(0x00) =>
           match Decode::decode(bytes, i + 2) {
-            Ok((fidxs, i)) => Ok((Elem(ElemMode::passive(), ElemKind::funcs(fidxs)), i))
+            Ok((fidxs, i)) =>
+              Ok((Elem(ElemMode::passive(), ElemKind::funcs(fidxs)), i))
             Err(t) => Err(t)
           }
         _ => Err("Invalid elem header")
@@ -1882,7 +1881,8 @@ pub impl Decode for Elem with decode(bytes, i) {
       match bytes.get(i + 1) {
         Some(0x00) =>
           match Decode::decode(bytes, i + 2) {
-            Ok((fidxs, i)) => Ok((Elem(ElemMode::declarative(), ElemKind::funcs(fidxs)), i))
+            Ok((fidxs, i)) =>
+              Ok((Elem(ElemMode::declarative(), ElemKind::funcs(fidxs)), i))
             Err(t) => Err(t)
           }
         _ => Err("Invalid elem header")
@@ -1910,7 +1910,9 @@ pub impl Decode for Elem with decode(bytes, i) {
         Ok((rt, i)) =>
           match Decode::decode(bytes, i) {
             Ok((exprs, i)) =>
-              Ok((Elem(ElemMode::passive(), ElemKind::typed_exprs(rt, exprs)), i))
+              Ok(
+                (Elem(ElemMode::passive(), ElemKind::typed_exprs(rt, exprs)), i),
+              )
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
@@ -1942,7 +1944,15 @@ pub impl Decode for Elem with decode(bytes, i) {
         Ok((rt, i)) =>
           match Decode::decode(bytes, i) {
             Ok((exprs, i)) =>
-              Ok((Elem::new(ElemMode::declarative(), ElemKind::typed_exprs(rt, exprs)), i))
+              Ok(
+                (
+                  Elem::new(
+                    ElemMode::declarative(),
+                    ElemKind::typed_exprs(rt, exprs),
+                  ),
+                  i,
+                ),
+              )
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
@@ -5965,9 +5975,7 @@ test "Ref Types" {
 ///|
 test "Comp Types" {
   roundtrip(
-    @lib.ArrayCompType(
-      FieldType(ValTypeStorageType(ValType::i32()), Var),
-    ),
+    @lib.ArrayCompType(FieldType(ValTypeStorageType(ValType::i32()), Var)),
   )
   roundtrip(
     @lib.StructCompType([

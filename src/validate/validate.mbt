@@ -1504,9 +1504,7 @@ test "FuncType with empty params and results validates" {
 ///|
 test "FuncType with params and results validates" {
   let env = empty_env()
-  let ft = @lib.FuncType([ValType::i32()], [
-    ValType::i64(),
-  ])
+  let ft = @lib.FuncType([ValType::i32()], [ValType::i64()])
   assert_eq(Validate::validate(ft, env), Ok(()))
 }
 
@@ -1566,9 +1564,7 @@ test "RecType GroupRecType validates" {
   let env = empty_env()
   let st1 = @lib.CompTypeSubType(FuncCompType([], []))
   let st2 = @lib.CompTypeSubType(
-    ArrayCompType(
-      FieldType(ValTypeStorageType(ValType::i32()), Const),
-    ),
+    ArrayCompType(FieldType(ValTypeStorageType(ValType::i32()), Const)),
   )
   let rt = @lib.GroupRecType([st1, st2])
   assert_eq(Validate::validate(rt, env), Ok(()))
@@ -1579,10 +1575,7 @@ test "RecType GroupRecType validates" {
 ///|
 test "Array of ValType validates" {
   let env = empty_env()
-  let arr : Array[ValType] = [
-    ValType::i32(),
-    ValType::i64(),
-  ]
+  let arr : Array[ValType] = [ValType::i32(), ValType::i64()]
   assert_eq(Validate::validate(arr, env), Ok(()))
 }
 
@@ -1626,9 +1619,7 @@ test "BlockType TypeIdxBlockType with invalid index fails" {
 ///|
 test "BlockType TypeIdxBlockType with non-func type fails" {
   let st = @lib.CompTypeSubType(
-    ArrayCompType(
-      FieldType(ValTypeStorageType(ValType::i32()), Const),
-    ),
+    ArrayCompType(FieldType(ValTypeStorageType(ValType::i32()), Const)),
   )
   let env = empty_env().with_types([st])
   let bt = @lib.TypeIdxBlockType(TypeIdx(0))

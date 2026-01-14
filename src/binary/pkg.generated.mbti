@@ -1,0 +1,173 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "jtenner/starshine/binary"
+
+import(
+  "jtenner/starshine/lib"
+  "moonbitlang/core/buffer"
+  "moonbitlang/core/list"
+)
+
+// Values
+pub fn size_signed(Int64, Int) -> Result[Int, String]
+
+pub fn size_unsigned(UInt64, Int) -> Result[Int, String]
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+pub trait Decode {
+  decode(Bytes, Int) -> Result[(Self, Int), String]
+}
+pub impl Decode for Bool
+pub impl[T : Decode] Decode for T?
+pub impl Decode for Bytes
+pub impl Decode for @lib.AbsHeapType
+pub impl Decode for @lib.BlockType
+pub impl Decode for @lib.CastOp
+pub impl Decode for @lib.Catch
+pub impl Decode for @lib.CodeSec
+pub impl Decode for @lib.CompType
+pub impl Decode for @lib.CustomSec
+pub impl Decode for @lib.Data
+pub impl Decode for @lib.DataCntSec
+pub impl Decode for @lib.DataIdx
+pub impl Decode for @lib.DataSec
+pub impl Decode for @lib.Elem
+pub impl Decode for @lib.ElemIdx
+pub impl Decode for @lib.ElemSec
+pub impl Decode for @lib.Export
+pub impl Decode for @lib.ExportSec
+pub impl Decode for @lib.Expr
+pub impl Decode for @lib.ExternIdx
+pub impl Decode for @lib.ExternType
+pub impl Decode for @lib.F32
+pub impl Decode for @lib.F64
+pub impl Decode for @lib.FieldType
+pub impl Decode for @lib.Func
+pub impl Decode for @lib.FuncIdx
+pub impl Decode for @lib.FuncSec
+pub impl Decode for @lib.Global
+pub impl Decode for @lib.GlobalIdx
+pub impl Decode for @lib.GlobalSec
+pub impl Decode for @lib.GlobalType
+pub impl Decode for @lib.HeapType
+pub impl Decode for @lib.I32
+pub impl Decode for @lib.I64
+pub impl Decode for @lib.Import
+pub impl Decode for @lib.ImportSec
+pub impl Decode for @lib.Instruction
+pub impl Decode for @lib.LabelIdx
+pub impl Decode for @lib.LaneIdx
+pub impl Decode for @lib.Limits
+pub impl Decode for @lib.LocalIdx
+pub impl Decode for @lib.Locals
+pub impl Decode for @lib.MemArg
+pub impl Decode for @lib.MemIdx
+pub impl Decode for @lib.MemSec
+pub impl Decode for @lib.MemType
+pub impl Decode for @lib.Module
+pub impl Decode for @lib.Mut
+pub impl Decode for @lib.Name
+pub impl Decode for @lib.NumType
+pub impl Decode for @lib.PackType
+pub impl Decode for @lib.RecType
+pub impl Decode for @lib.RefType
+pub impl Decode for @lib.S33
+pub impl Decode for @lib.StartSec
+pub impl Decode for @lib.StorageType
+pub impl Decode for @lib.SubType
+pub impl Decode for @lib.Table
+pub impl Decode for @lib.TableIdx
+pub impl Decode for @lib.TableSec
+pub impl Decode for @lib.TableType
+pub impl Decode for @lib.TagIdx
+pub impl Decode for @lib.TagSec
+pub impl Decode for @lib.TagType
+pub impl Decode for @lib.TypeIdx
+pub impl Decode for @lib.TypeSec
+pub impl Decode for @lib.U32
+pub impl Decode for @lib.U64
+pub impl Decode for @lib.ValType
+pub impl[T : Decode] Decode for Array[T]
+pub impl[T : Decode] Decode for @list.List[T]
+
+pub trait Encode {
+  encode(Self, @buffer.Buffer) -> Result[Unit, String]
+}
+pub impl Encode for Bool
+pub impl[T : Encode] Encode for T?
+pub impl Encode for Bytes
+pub impl Encode for @lib.AbsHeapType
+pub impl Encode for @lib.BlockType
+pub impl Encode for @lib.CastOp
+pub impl Encode for @lib.Catch
+pub impl Encode for @lib.CodeSec
+pub impl Encode for @lib.CompType
+pub impl Encode for @lib.CustomSec
+pub impl Encode for @lib.Data
+pub impl Encode for @lib.DataCntSec
+pub impl Encode for @lib.DataIdx
+pub impl Encode for @lib.DataSec
+pub impl Encode for @lib.Elem
+pub impl Encode for @lib.ElemIdx
+pub impl Encode for @lib.ElemSec
+pub impl Encode for @lib.Export
+pub impl Encode for @lib.ExportSec
+pub impl Encode for @lib.Expr
+pub impl Encode for @lib.ExternIdx
+pub impl Encode for @lib.ExternType
+pub impl Encode for @lib.F32
+pub impl Encode for @lib.F64
+pub impl Encode for @lib.FieldType
+pub impl Encode for @lib.Func
+pub impl Encode for @lib.FuncIdx
+pub impl Encode for @lib.FuncSec
+pub impl Encode for @lib.Global
+pub impl Encode for @lib.GlobalIdx
+pub impl Encode for @lib.GlobalSec
+pub impl Encode for @lib.GlobalType
+pub impl Encode for @lib.HeapType
+pub impl Encode for @lib.I32
+pub impl Encode for @lib.I64
+pub impl Encode for @lib.Import
+pub impl Encode for @lib.ImportSec
+pub impl Encode for @lib.Instruction
+pub impl Encode for @lib.LabelIdx
+pub impl Encode for @lib.LaneIdx
+pub impl Encode for @lib.Limits
+pub impl Encode for @lib.LocalIdx
+pub impl Encode for @lib.Locals
+pub impl Encode for @lib.MemArg
+pub impl Encode for @lib.MemIdx
+pub impl Encode for @lib.MemSec
+pub impl Encode for @lib.MemType
+pub impl Encode for @lib.Module
+pub impl Encode for @lib.Mut
+pub impl Encode for @lib.Name
+pub impl Encode for @lib.NumType
+pub impl Encode for @lib.PackType
+pub impl Encode for @lib.RecType
+pub impl Encode for @lib.RefType
+pub impl Encode for @lib.S33
+pub impl Encode for @lib.StartSec
+pub impl Encode for @lib.StorageType
+pub impl Encode for @lib.SubType
+pub impl Encode for @lib.Table
+pub impl Encode for @lib.TableIdx
+pub impl Encode for @lib.TableSec
+pub impl Encode for @lib.TableType
+pub impl Encode for @lib.TagIdx
+pub impl Encode for @lib.TagSec
+pub impl Encode for @lib.TagType
+pub impl Encode for @lib.TypeIdx
+pub impl Encode for @lib.TypeSec
+pub impl Encode for @lib.U32
+pub impl Encode for @lib.U64
+pub impl Encode for @lib.ValType
+pub impl[T : Encode] Encode for Array[T]
+pub impl[T : Encode] Encode for @list.List[T]
+

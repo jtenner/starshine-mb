@@ -121,7 +121,8 @@ fn gen_value_of_type(
           HeapType(x) => gen_nonnull_ref_of_typeidx(ctx, st, x)
           AbsHeapTypeHeapType(I31AbsHeapType) => {
             // i32.const; ref.i31
-            let (ctx1, st1, is1) = match gen_value_of_type(ctx, st, ValType::i32()) {
+            let (ctx1, st1, is1) = match
+              gen_value_of_type(ctx, st, ValType::i32()) {
               Ok(x) => x
               Err(e) => return Err(e)
             }
@@ -1780,7 +1781,11 @@ fn gen_try_catch_all(
 
   let try_body = gen_simple_try_body(rnd, st.env)
   let catch_clause = @lib.CatchAll(LabelIdx(0))
-  let try_table = @lib.TryTable(EmptyBlockType, [catch_clause], Expr::new(try_body))
+  let try_table = @lib.TryTable(
+    EmptyBlockType,
+    [catch_clause],
+    Expr::new(try_body),
+  )
   let block_ins = @lib.Block(EmptyBlockType, Expr::new([try_table]))
   match Typecheck::typecheck(block_ins, st) {
     Ok(st2) => Ok((ctx.dec_fuel(3), st2, [block_ins]))
@@ -1804,11 +1809,18 @@ fn gen_try_catch_all_ref(
   let outer_bt = @lib.ValTypeBlockType(exnref_nullable)
   let try_body = gen_simple_try_body(rnd, st.env)
   let catch_clause = @lib.CatchAllRef(LabelIdx(0))
-  let try_table = @lib.TryTable(EmptyBlockType, [catch_clause], Expr::new(try_body))
+  let try_table = @lib.TryTable(
+    EmptyBlockType,
+    [catch_clause],
+    Expr::new(try_body),
+  )
 
   // After try_table, produce null exnref for fallthrough
   let fallthrough = @lib.RefNull(AbsHeapTypeHeapType(ExnAbsHeapType))
-  let block_ins = Instruction::block(outer_bt, Expr::new([try_table, fallthrough]))
+  let block_ins = Instruction::block(
+    outer_bt,
+    Expr::new([try_table, fallthrough]),
+  )
   match Typecheck::typecheck(block_ins, st) {
     Ok(st2) => Ok((ctx.dec_fuel(4), st2, [block_ins]))
     Err(e) => Err(e)
@@ -1843,7 +1855,11 @@ fn gen_try_catch(
   }
   let try_body = gen_simple_try_body(rnd, st.env)
   let catch_clause = @lib.Catch(tag_idx, LabelIdx(0))
-  let try_table = @lib.TryTable(EmptyBlockType, [catch_clause], Expr::new(try_body))
+  let try_table = @lib.TryTable(
+    EmptyBlockType,
+    [catch_clause],
+    Expr::new(try_body),
+  )
   let block_body : Array[Instruction] = [try_table]
   for ins in fallthrough {
     block_body.push(ins)
@@ -1884,7 +1900,11 @@ fn gen_try_catch_ref(
   let outer_bt = @lib.ValTypeBlockType(exnref_nullable)
   let try_body = gen_simple_try_body(rnd, st.env)
   let catch_clause = @lib.CatchRef(tag_idx, LabelIdx(0))
-  let try_table = @lib.TryTable(EmptyBlockType, [catch_clause], Expr::new(try_body))
+  let try_table = @lib.TryTable(
+    EmptyBlockType,
+    [catch_clause],
+    Expr::new(try_body),
+  )
 
   // Fallthrough: produce null exnref
   let fallthrough = @lib.RefNull(AbsHeapTypeHeapType(ExnAbsHeapType))

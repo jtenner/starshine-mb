@@ -389,15 +389,9 @@ fn make_signature_corruption_transformer() -> ModuleTransformer[Unit] {
             let FieldType(st, mutability) = ft
             match st {
               ValTypeStorageType(NumTypeValType(I32NumType)) =>
-                @lib.FieldType(
-                  ValTypeStorageType(ValType::f64()),
-                  mutability,
-                )
+                @lib.FieldType(ValTypeStorageType(ValType::f64()), mutability)
               ValTypeStorageType(NumTypeValType(I64NumType)) =>
-                FieldType(
-                  ValTypeStorageType(ValType::f32()),
-                  mutability,
-                )
+                FieldType(ValTypeStorageType(ValType::f32()), mutability)
               _ => ft
             }
           })
@@ -504,7 +498,9 @@ fn make_block_corruption_transformer() -> ModuleTransformer[Bool] {
       let Expr(instrs) = expr
       if instrs.length() > 0 {
         Ok(
-          Some((true, Expr::new(instrs.iter().take(instrs.length() - 1).collect()))),
+          Some(
+            (true, Expr::new(instrs.iter().take(instrs.length() - 1).collect())),
+          ),
         )
       } else {
         Ok(None)
@@ -568,7 +564,8 @@ fn make_blocktype_mismatch_transformer() -> ModuleTransformer[Bool] {
           )
 
         // GlobalGet produces a value - wrap in block claiming empty
-        GlobalGet(_) => Ok(Some((true, Block(EmptyBlockType, Expr::new([ins])))))
+        GlobalGet(_) =>
+          Ok(Some((true, Block(EmptyBlockType, Expr::new([ins])))))
 
         // Existing control flow: corrupt their block type
         Block(bt, body) => Ok(Some((true, Block(corrupt_blocktype(bt), body))))

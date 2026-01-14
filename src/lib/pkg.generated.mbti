@@ -1,0 +1,3179 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "jtenner/starshine/lib"
+
+import(
+  "moonbitlang/core/quickcheck"
+  "moonbitlang/core/quickcheck/splitmix"
+)
+
+// Values
+pub fn abs_heap_type_heap_type(AbsHeapType) -> HeapType
+
+pub fn any_abs_heap_type() -> AbsHeapType
+
+pub fn array_abs_heap_type() -> AbsHeapType
+
+pub fn array_comp_type(FieldType) -> CompType
+
+pub fn[T : @quickcheck.Arbitrary] array_of_arbitrary(UInt, Int, @splitmix.RandomState) -> Array[T]
+
+pub fn bot() -> ValType
+
+pub fn catch_(TagIdx, LabelIdx) -> Catch
+
+pub fn catch_all(LabelIdx) -> Catch
+
+pub fn catch_all_ref(LabelIdx) -> Catch
+
+pub fn catch_ref(TagIdx, LabelIdx) -> Catch
+
+pub fn[T, Elem] change(T, Elem) -> Result[(T, Elem)?, String]
+
+pub fn comp_type_sub_type(CompType) -> SubType
+
+pub fn def_type_heap_type(DefType) -> HeapType
+
+pub fn empty_env() -> Env
+
+pub fn eq_abs_heap_type() -> AbsHeapType
+
+pub fn[T : Eq] equals(Array[T], Array[T]) -> Bool
+
+pub fn[T, Elem] error(String) -> Result[(T, Elem)?, String]
+
+pub fn exn_abs_heap_type() -> AbsHeapType
+
+pub fn expand_locals(Array[Locals]) -> Result[Array[ValType], String]
+
+pub fn extern_abs_heap_type() -> AbsHeapType
+
+pub fn f32_num_type() -> NumType
+
+pub fn f64_num_type() -> NumType
+
+pub fn func_abs_heap_type() -> AbsHeapType
+
+pub fn func_comp_type(Array[ValType], Array[ValType]) -> CompType
+
+pub fn func_extern_idx(FuncIdx) -> ExternIdx
+
+pub fn func_extern_type(TypeIdx) -> ExternType
+
+pub fn func_idx(UInt) -> FuncIdx
+
+pub fn get_struct_field(Array[FieldType], U32) -> Result[FieldType, String]
+
+pub fn global_extern_idx(GlobalIdx) -> ExternIdx
+
+pub fn global_extern_type(GlobalType) -> ExternType
+
+pub fn global_idx(UInt) -> GlobalIdx
+
+pub fn global_type(ValType, Bool) -> GlobalType
+
+pub fn group_rec_type(Array[SubType]) -> RecType
+
+pub fn has_default(ValType) -> Bool
+
+pub fn heap_type(TypeIdx) -> HeapType
+
+pub fn i31_abs_heap_type() -> AbsHeapType
+
+pub fn i32_num_type() -> NumType
+
+pub fn i64_num_type() -> NumType
+
+pub fn mem_extern_idx(MemIdx) -> ExternIdx
+
+pub fn mem_extern_type(MemType) -> ExternType
+
+pub fn mem_type(Limits) -> MemType
+
+pub fn min_addr(Limits, Limits) -> Limits
+
+pub fn min_addr_valtype(Limits, Limits) -> ValType
+
+pub fn no_exn_abs_heap_type() -> AbsHeapType
+
+pub fn no_extern_abs_heap_type() -> AbsHeapType
+
+pub fn no_func_abs_heap_type() -> AbsHeapType
+
+pub fn none_abs_heap_type() -> AbsHeapType
+
+pub fn num_type_val_type(NumType) -> ValType
+
+pub fn rec_idx(UInt) -> TypeIdx
+
+pub fn ref_type_val_type(RefType) -> ValType
+
+pub fn single_rec_type(SubType) -> RecType
+
+pub fn struct_abs_heap_type() -> AbsHeapType
+
+pub fn struct_comp_type(Array[FieldType]) -> CompType
+
+pub fn sub_type(Bool, Array[TypeIdx], CompType) -> SubType
+
+pub fn table_extern_idx(TableIdx) -> ExternIdx
+
+pub fn table_extern_type(TableType) -> ExternType
+
+pub fn table_idx(UInt) -> TableIdx
+
+pub fn table_type(RefType, Limits) -> TableType
+
+pub fn tag_extern_idx(TagIdx) -> ExternIdx
+
+pub fn tag_extern_type(TagType) -> ExternType
+
+pub fn tag_type(TypeIdx) -> TagType
+
+pub fn tlocals_to_locals(Array[ValType]) -> Array[Locals]
+
+pub fn type_idx(UInt) -> TypeIdx
+
+pub fn[T, Elem] unchanged() -> Result[(T, Elem)?, String]
+
+pub fn vec_type_val_type() -> ValType
+
+// Errors
+
+// Types and methods
+pub(all) enum AbsHeapType {
+  ExnAbsHeapType
+  ArrayAbsHeapType
+  StructAbsHeapType
+  I31AbsHeapType
+  EqAbsHeapType
+  AnyAbsHeapType
+  ExternAbsHeapType
+  FuncAbsHeapType
+  NoneAbsHeapType
+  NoExternAbsHeapType
+  NoFuncAbsHeapType
+  NoExnAbsHeapType
+}
+pub impl Eq for AbsHeapType
+pub impl Hash for AbsHeapType
+pub impl Show for AbsHeapType
+pub impl @quickcheck.Arbitrary for AbsHeapType
+
+pub(all) enum BinaryOp {
+  I32EqOp
+  I32NeOp
+  I32LtSOp
+  I32LtUOp
+  I32GtSOp
+  I32GtUOp
+  I32LeSOp
+  I32LeUOp
+  I32GeSOp
+  I32GeUOp
+  I64EqOp
+  I64NeOp
+  I64LtSOp
+  I64LtUOp
+  I64GtSOp
+  I64GtUOp
+  I64LeSOp
+  I64LeUOp
+  I64GeSOp
+  I64GeUOp
+  F32EqOp
+  F32NeOp
+  F32LtOp
+  F32GtOp
+  F32LeOp
+  F32GeOp
+  F64EqOp
+  F64NeOp
+  F64LtOp
+  F64GtOp
+  F64LeOp
+  F64GeOp
+  I32AddOp
+  I32SubOp
+  I32MulOp
+  I32DivSOp
+  I32DivUOp
+  I32RemSOp
+  I32RemUOp
+  I32AndOp
+  I32OrOp
+  I32XorOp
+  I32ShlOp
+  I32ShrSOp
+  I32ShrUOp
+  I32RotlOp
+  I32RotrOp
+  I64AddOp
+  I64SubOp
+  I64MulOp
+  I64DivSOp
+  I64DivUOp
+  I64RemSOp
+  I64RemUOp
+  I64AndOp
+  I64OrOp
+  I64XorOp
+  I64ShlOp
+  I64ShrSOp
+  I64ShrUOp
+  I64RotlOp
+  I64RotrOp
+  F32AddOp
+  F32SubOp
+  F32MulOp
+  F32DivOp
+  F32MinOp
+  F32MaxOp
+  F32CopysignOp
+  F64AddOp
+  F64SubOp
+  F64MulOp
+  F64DivOp
+  F64MinOp
+  F64MaxOp
+  F64CopysignOp
+  V128AndOp
+  V128AndnotOp
+  V128OrOp
+  V128XorOp
+  I8x16EqOp
+  I8x16NeOp
+  I8x16LtSOp
+  I8x16LtUOp
+  I8x16GtSOp
+  I8x16GtUOp
+  I8x16LeSOp
+  I8x16LeUOp
+  I8x16GeSOp
+  I8x16GeUOp
+  I16x8EqOp
+  I16x8NeOp
+  I16x8LtSOp
+  I16x8LtUOp
+  I16x8GtSOp
+  I16x8GtUOp
+  I16x8LeSOp
+  I16x8LeUOp
+  I16x8GeSOp
+  I16x8GeUOp
+  I32x4EqOp
+  I32x4NeOp
+  I32x4LtSOp
+  I32x4LtUOp
+  I32x4GtSOp
+  I32x4GtUOp
+  I32x4LeSOp
+  I32x4LeUOp
+  I32x4GeSOp
+  I32x4GeUOp
+  I64x2EqOp
+  I64x2NeOp
+  I64x2LtSOp
+  I64x2GtSOp
+  I64x2LeSOp
+  I64x2GeSOp
+  F32x4EqOp
+  F32x4NeOp
+  F32x4LtOp
+  F32x4GtOp
+  F32x4LeOp
+  F32x4GeOp
+  F64x2EqOp
+  F64x2NeOp
+  F64x2LtOp
+  F64x2GtOp
+  F64x2LeOp
+  F64x2GeOp
+  I8x16AddOp
+  I8x16AddSatSOp
+  I8x16AddSatUOp
+  I8x16SubOp
+  I8x16SubSatSOp
+  I8x16SubSatUOp
+  I8x16MinSOp
+  I8x16MinUOp
+  I8x16MaxSOp
+  I8x16MaxUOp
+  I8x16AvgrUOp
+  I8x16NarrowI16x8SOp
+  I8x16NarrowI16x8UOp
+  I16x8AddOp
+  I16x8AddSatSOp
+  I16x8AddSatUOp
+  I16x8SubOp
+  I16x8SubSatSOp
+  I16x8SubSatUOp
+  I16x8MulOp
+  I16x8MinSOp
+  I16x8MinUOp
+  I16x8MaxSOp
+  I16x8MaxUOp
+  I16x8AvgrUOp
+  I16x8Q15mulrSatSOp
+  I16x8NarrowI32x4SOp
+  I16x8NarrowI32x4UOp
+  I16x8ExtmulLowI8x16SOp
+  I16x8ExtmulHighI8x16SOp
+  I16x8ExtmulLowI8x16UOp
+  I16x8ExtmulHighI8x16UOp
+  I32x4AddOp
+  I32x4SubOp
+  I32x4MulOp
+  I32x4MinSOp
+  I32x4MinUOp
+  I32x4MaxSOp
+  I32x4MaxUOp
+  I32x4DotI16x8SOp
+  I32x4ExtmulLowI16x8SOp
+  I32x4ExtmulHighI16x8SOp
+  I32x4ExtmulLowI16x8UOp
+  I32x4ExtmulHighI16x8UOp
+  I64x2AddOp
+  I64x2SubOp
+  I64x2MulOp
+  I64x2ExtmulLowI32x4SOp
+  I64x2ExtmulHighI32x4SOp
+  I64x2ExtmulLowI32x4UOp
+  I64x2ExtmulHighI32x4UOp
+  F32x4AddOp
+  F32x4SubOp
+  F32x4MulOp
+  F32x4DivOp
+  F32x4MinOp
+  F32x4MaxOp
+  F32x4PminOp
+  F32x4PmaxOp
+  F64x2AddOp
+  F64x2SubOp
+  F64x2MulOp
+  F64x2DivOp
+  F64x2MinOp
+  F64x2MaxOp
+  F64x2PminOp
+  F64x2PmaxOp
+  F32x4RelaxedMinOp
+  F32x4RelaxedMaxOp
+  F64x2RelaxedMinOp
+  F64x2RelaxedMaxOp
+  I16x8RelaxedQ15mulrSOp
+  I16x8RelaxedDotI8x16I7x16SOp
+}
+pub fn BinaryOp::f32_add() -> Self
+pub fn BinaryOp::f32_copysign() -> Self
+pub fn BinaryOp::f32_div() -> Self
+pub fn BinaryOp::f32_eq() -> Self
+pub fn BinaryOp::f32_ge() -> Self
+pub fn BinaryOp::f32_gt() -> Self
+pub fn BinaryOp::f32_le() -> Self
+pub fn BinaryOp::f32_lt() -> Self
+pub fn BinaryOp::f32_max() -> Self
+pub fn BinaryOp::f32_min() -> Self
+pub fn BinaryOp::f32_mul() -> Self
+pub fn BinaryOp::f32_ne() -> Self
+pub fn BinaryOp::f32_sub() -> Self
+pub fn BinaryOp::f32x4_add() -> Self
+pub fn BinaryOp::f32x4_div() -> Self
+pub fn BinaryOp::f32x4_eq() -> Self
+pub fn BinaryOp::f32x4_ge() -> Self
+pub fn BinaryOp::f32x4_gt() -> Self
+pub fn BinaryOp::f32x4_le() -> Self
+pub fn BinaryOp::f32x4_lt() -> Self
+pub fn BinaryOp::f32x4_max() -> Self
+pub fn BinaryOp::f32x4_min() -> Self
+pub fn BinaryOp::f32x4_mul() -> Self
+pub fn BinaryOp::f32x4_ne() -> Self
+pub fn BinaryOp::f32x4_pmax() -> Self
+pub fn BinaryOp::f32x4_pmin() -> Self
+pub fn BinaryOp::f32x4_relaxed_max() -> Self
+pub fn BinaryOp::f32x4_relaxed_min() -> Self
+pub fn BinaryOp::f32x4_sub() -> Self
+pub fn BinaryOp::f64_add() -> Self
+pub fn BinaryOp::f64_copysign() -> Self
+pub fn BinaryOp::f64_div() -> Self
+pub fn BinaryOp::f64_eq() -> Self
+pub fn BinaryOp::f64_ge() -> Self
+pub fn BinaryOp::f64_gt() -> Self
+pub fn BinaryOp::f64_le() -> Self
+pub fn BinaryOp::f64_lt() -> Self
+pub fn BinaryOp::f64_max() -> Self
+pub fn BinaryOp::f64_min() -> Self
+pub fn BinaryOp::f64_mul() -> Self
+pub fn BinaryOp::f64_ne() -> Self
+pub fn BinaryOp::f64_sub() -> Self
+pub fn BinaryOp::f64x2_add() -> Self
+pub fn BinaryOp::f64x2_div() -> Self
+pub fn BinaryOp::f64x2_eq() -> Self
+pub fn BinaryOp::f64x2_ge() -> Self
+pub fn BinaryOp::f64x2_gt() -> Self
+pub fn BinaryOp::f64x2_le() -> Self
+pub fn BinaryOp::f64x2_lt() -> Self
+pub fn BinaryOp::f64x2_max() -> Self
+pub fn BinaryOp::f64x2_min() -> Self
+pub fn BinaryOp::f64x2_mul() -> Self
+pub fn BinaryOp::f64x2_ne() -> Self
+pub fn BinaryOp::f64x2_pmax() -> Self
+pub fn BinaryOp::f64x2_pmin() -> Self
+pub fn BinaryOp::f64x2_relaxed_max() -> Self
+pub fn BinaryOp::f64x2_relaxed_min() -> Self
+pub fn BinaryOp::f64x2_sub() -> Self
+pub fn BinaryOp::i16x8_add() -> Self
+pub fn BinaryOp::i16x8_add_sat_s() -> Self
+pub fn BinaryOp::i16x8_add_sat_u() -> Self
+pub fn BinaryOp::i16x8_avgr_u() -> Self
+pub fn BinaryOp::i16x8_eq() -> Self
+pub fn BinaryOp::i16x8_extmul_high_i8x16s() -> Self
+pub fn BinaryOp::i16x8_extmul_high_i8x16u() -> Self
+pub fn BinaryOp::i16x8_extmul_low_i8x16s() -> Self
+pub fn BinaryOp::i16x8_extmul_low_i8x16u() -> Self
+pub fn BinaryOp::i16x8_ge_s() -> Self
+pub fn BinaryOp::i16x8_ge_u() -> Self
+pub fn BinaryOp::i16x8_gt_s() -> Self
+pub fn BinaryOp::i16x8_gt_u() -> Self
+pub fn BinaryOp::i16x8_le_s() -> Self
+pub fn BinaryOp::i16x8_le_u() -> Self
+pub fn BinaryOp::i16x8_lt_s() -> Self
+pub fn BinaryOp::i16x8_lt_u() -> Self
+pub fn BinaryOp::i16x8_max_s() -> Self
+pub fn BinaryOp::i16x8_max_u() -> Self
+pub fn BinaryOp::i16x8_min_s() -> Self
+pub fn BinaryOp::i16x8_min_u() -> Self
+pub fn BinaryOp::i16x8_mul() -> Self
+pub fn BinaryOp::i16x8_narrow_i32x4s() -> Self
+pub fn BinaryOp::i16x8_narrow_i32x4u() -> Self
+pub fn BinaryOp::i16x8_ne() -> Self
+pub fn BinaryOp::i16x8_relaxed_dot_i8x16i7x16s() -> Self
+pub fn BinaryOp::i16x8_relaxed_q15mulr_s() -> Self
+pub fn BinaryOp::i16x8_sub() -> Self
+pub fn BinaryOp::i16x8_sub_sat_s() -> Self
+pub fn BinaryOp::i16x8_sub_sat_u() -> Self
+pub fn BinaryOp::i16x8q15mulr_sat_s() -> Self
+pub fn BinaryOp::i32_add() -> Self
+pub fn BinaryOp::i32_and() -> Self
+pub fn BinaryOp::i32_div_s() -> Self
+pub fn BinaryOp::i32_div_u() -> Self
+pub fn BinaryOp::i32_eq() -> Self
+pub fn BinaryOp::i32_ge_s() -> Self
+pub fn BinaryOp::i32_ge_u() -> Self
+pub fn BinaryOp::i32_gt_s() -> Self
+pub fn BinaryOp::i32_gt_u() -> Self
+pub fn BinaryOp::i32_le_s() -> Self
+pub fn BinaryOp::i32_le_u() -> Self
+pub fn BinaryOp::i32_lt_s() -> Self
+pub fn BinaryOp::i32_lt_u() -> Self
+pub fn BinaryOp::i32_mul() -> Self
+pub fn BinaryOp::i32_ne() -> Self
+pub fn BinaryOp::i32_or() -> Self
+pub fn BinaryOp::i32_rem_s() -> Self
+pub fn BinaryOp::i32_rem_u() -> Self
+pub fn BinaryOp::i32_rotl() -> Self
+pub fn BinaryOp::i32_rotr() -> Self
+pub fn BinaryOp::i32_shl() -> Self
+pub fn BinaryOp::i32_shr_s() -> Self
+pub fn BinaryOp::i32_shr_u() -> Self
+pub fn BinaryOp::i32_sub() -> Self
+pub fn BinaryOp::i32_xor() -> Self
+pub fn BinaryOp::i32x4_add() -> Self
+pub fn BinaryOp::i32x4_dot_i16x8s() -> Self
+pub fn BinaryOp::i32x4_eq() -> Self
+pub fn BinaryOp::i32x4_extmul_high_i16x8s() -> Self
+pub fn BinaryOp::i32x4_extmul_high_i16x8u() -> Self
+pub fn BinaryOp::i32x4_extmul_low_i16x8s() -> Self
+pub fn BinaryOp::i32x4_extmul_low_i16x8u() -> Self
+pub fn BinaryOp::i32x4_ge_s() -> Self
+pub fn BinaryOp::i32x4_ge_u() -> Self
+pub fn BinaryOp::i32x4_gt_s() -> Self
+pub fn BinaryOp::i32x4_gt_u() -> Self
+pub fn BinaryOp::i32x4_le_s() -> Self
+pub fn BinaryOp::i32x4_le_u() -> Self
+pub fn BinaryOp::i32x4_lt_s() -> Self
+pub fn BinaryOp::i32x4_lt_u() -> Self
+pub fn BinaryOp::i32x4_max_s() -> Self
+pub fn BinaryOp::i32x4_max_u() -> Self
+pub fn BinaryOp::i32x4_min_s() -> Self
+pub fn BinaryOp::i32x4_min_u() -> Self
+pub fn BinaryOp::i32x4_mul() -> Self
+pub fn BinaryOp::i32x4_ne() -> Self
+pub fn BinaryOp::i32x4_sub() -> Self
+pub fn BinaryOp::i64_add() -> Self
+pub fn BinaryOp::i64_and() -> Self
+pub fn BinaryOp::i64_div_s() -> Self
+pub fn BinaryOp::i64_div_u() -> Self
+pub fn BinaryOp::i64_eq() -> Self
+pub fn BinaryOp::i64_ge_s() -> Self
+pub fn BinaryOp::i64_ge_u() -> Self
+pub fn BinaryOp::i64_gt_s() -> Self
+pub fn BinaryOp::i64_gt_u() -> Self
+pub fn BinaryOp::i64_le_s() -> Self
+pub fn BinaryOp::i64_le_u() -> Self
+pub fn BinaryOp::i64_lt_s() -> Self
+pub fn BinaryOp::i64_lt_u() -> Self
+pub fn BinaryOp::i64_mul() -> Self
+pub fn BinaryOp::i64_ne() -> Self
+pub fn BinaryOp::i64_or() -> Self
+pub fn BinaryOp::i64_rem_s() -> Self
+pub fn BinaryOp::i64_rem_u() -> Self
+pub fn BinaryOp::i64_rotl() -> Self
+pub fn BinaryOp::i64_rotr() -> Self
+pub fn BinaryOp::i64_shl() -> Self
+pub fn BinaryOp::i64_shr_s() -> Self
+pub fn BinaryOp::i64_shr_u() -> Self
+pub fn BinaryOp::i64_sub() -> Self
+pub fn BinaryOp::i64_xor() -> Self
+pub fn BinaryOp::i64x2_add() -> Self
+pub fn BinaryOp::i64x2_eq() -> Self
+pub fn BinaryOp::i64x2_extmul_high_i32x4s() -> Self
+pub fn BinaryOp::i64x2_extmul_high_i32x4u() -> Self
+pub fn BinaryOp::i64x2_extmul_low_i32x4s() -> Self
+pub fn BinaryOp::i64x2_extmul_low_i32x4u() -> Self
+pub fn BinaryOp::i64x2_ge_s() -> Self
+pub fn BinaryOp::i64x2_gt_s() -> Self
+pub fn BinaryOp::i64x2_le_s() -> Self
+pub fn BinaryOp::i64x2_lt_s() -> Self
+pub fn BinaryOp::i64x2_mul() -> Self
+pub fn BinaryOp::i64x2_ne() -> Self
+pub fn BinaryOp::i64x2_sub() -> Self
+pub fn BinaryOp::i8x16_add() -> Self
+pub fn BinaryOp::i8x16_add_sat_s() -> Self
+pub fn BinaryOp::i8x16_add_sat_u() -> Self
+pub fn BinaryOp::i8x16_avgr_u() -> Self
+pub fn BinaryOp::i8x16_eq() -> Self
+pub fn BinaryOp::i8x16_ge_s() -> Self
+pub fn BinaryOp::i8x16_ge_u() -> Self
+pub fn BinaryOp::i8x16_gt_s() -> Self
+pub fn BinaryOp::i8x16_gt_u() -> Self
+pub fn BinaryOp::i8x16_le_s() -> Self
+pub fn BinaryOp::i8x16_le_u() -> Self
+pub fn BinaryOp::i8x16_lt_s() -> Self
+pub fn BinaryOp::i8x16_lt_u() -> Self
+pub fn BinaryOp::i8x16_max_s() -> Self
+pub fn BinaryOp::i8x16_max_u() -> Self
+pub fn BinaryOp::i8x16_min_s() -> Self
+pub fn BinaryOp::i8x16_min_u() -> Self
+pub fn BinaryOp::i8x16_narrow_i16x8s() -> Self
+pub fn BinaryOp::i8x16_narrow_i16x8u() -> Self
+pub fn BinaryOp::i8x16_ne() -> Self
+pub fn BinaryOp::i8x16_sub() -> Self
+pub fn BinaryOp::i8x16_sub_sat_s() -> Self
+pub fn BinaryOp::i8x16_sub_sat_u() -> Self
+pub fn BinaryOp::v128_and() -> Self
+pub fn BinaryOp::v128_andnot() -> Self
+pub fn BinaryOp::v128_or() -> Self
+pub fn BinaryOp::v128_xor() -> Self
+pub impl Eq for BinaryOp
+pub impl Hash for BinaryOp
+pub impl Show for BinaryOp
+
+pub(all) enum BlockType {
+  EmptyBlockType
+  ValTypeBlockType(ValType)
+  TypeIdxBlockType(TypeIdx)
+}
+pub fn BlockType::empty() -> Self
+pub fn BlockType::type_idx(TypeIdx) -> Self
+pub fn BlockType::val_type(ValType) -> Self
+pub impl Eq for BlockType
+pub impl Hash for BlockType
+pub impl Show for BlockType
+pub impl @quickcheck.Arbitrary for BlockType
+
+pub(all) struct CastOp(Bool, Bool)
+
+
+pub fn CastOp::new(Bool, Bool) -> Self
+pub impl Eq for CastOp
+pub impl Hash for CastOp
+pub impl Show for CastOp
+pub impl @quickcheck.Arbitrary for CastOp
+
+pub(all) enum Catch {
+  Catch(TagIdx, LabelIdx)
+  CatchRef(TagIdx, LabelIdx)
+  CatchAll(LabelIdx)
+  CatchAllRef(LabelIdx)
+}
+pub impl Eq for Catch
+pub impl Hash for Catch
+pub impl Show for Catch
+pub impl @quickcheck.Arbitrary for Catch
+
+pub(all) struct CodeSec(Array[Func])
+#deprecated
+pub fn CodeSec::inner(Self) -> Array[Func]
+pub fn CodeSec::new(Array[Func]) -> Self
+pub impl Eq for CodeSec
+pub impl Hash for CodeSec
+pub impl Show for CodeSec
+pub impl @quickcheck.Arbitrary for CodeSec
+
+pub(all) enum CompType {
+  ArrayCompType(FieldType)
+  StructCompType(Array[FieldType])
+  FuncCompType(Array[ValType], Array[ValType])
+}
+pub impl Eq for CompType
+pub impl Hash for CompType
+pub impl Show for CompType
+pub impl @quickcheck.Arbitrary for CompType
+
+pub(all) struct CustomSec(Name, Bytes)
+
+
+pub impl Eq for CustomSec
+pub impl Hash for CustomSec
+pub impl Show for CustomSec
+pub impl @quickcheck.Arbitrary for CustomSec
+
+pub(all) struct Data(DataMode, Bytes)
+
+
+pub impl Eq for Data
+pub impl Hash for Data
+pub impl Show for Data
+pub impl @quickcheck.Arbitrary for Data
+
+pub(all) struct DataCntSec(U32)
+#deprecated
+pub fn DataCntSec::inner(Self) -> U32
+pub impl Eq for DataCntSec
+pub impl Hash for DataCntSec
+pub impl Show for DataCntSec
+pub impl @quickcheck.Arbitrary for DataCntSec
+
+pub(all) struct DataIdx(UInt)
+#deprecated
+pub fn DataIdx::inner(Self) -> UInt
+pub impl Eq for DataIdx
+pub impl Hash for DataIdx
+pub impl Show for DataIdx
+pub impl @quickcheck.Arbitrary for DataIdx
+
+pub(all) enum DataMode {
+  Active(MemIdx, Expr)
+  Passive
+}
+pub fn DataMode::active(MemIdx, Expr) -> Self
+pub fn DataMode::passive() -> Self
+pub impl Eq for DataMode
+pub impl Hash for DataMode
+pub impl Show for DataMode
+pub impl @quickcheck.Arbitrary for DataMode
+
+pub(all) struct DataSec(Array[Data])
+#deprecated
+pub fn DataSec::inner(Self) -> Array[Data]
+pub impl Eq for DataSec
+pub impl Hash for DataSec
+pub impl Show for DataSec
+pub impl @quickcheck.Arbitrary for DataSec
+
+pub(all) struct DefType(RecType, UInt)
+
+
+pub fn DefType::new(RecType, UInt) -> Self
+pub fn DefType::project(Self) -> SubType?
+pub impl Eq for DefType
+pub impl Hash for DefType
+pub impl Show for DefType
+pub impl @quickcheck.Arbitrary for DefType
+
+pub(all) struct Elem(ElemMode, ElemKind)
+
+
+pub fn Elem::new(ElemMode, ElemKind) -> Self
+pub fn Elem::reftype(Self) -> RefType
+pub impl Eq for Elem
+pub impl Hash for Elem
+pub impl Show for Elem
+pub impl @quickcheck.Arbitrary for Elem
+
+pub(all) struct ElemIdx(UInt)
+#deprecated
+pub fn ElemIdx::inner(Self) -> UInt
+pub impl Eq for ElemIdx
+pub impl Hash for ElemIdx
+pub impl Show for ElemIdx
+pub impl @quickcheck.Arbitrary for ElemIdx
+
+pub enum ElemKind {
+  FuncsElemKind(Array[FuncIdx])
+  FuncExprsElemKind(Array[Expr])
+  TypedExprsElemKind(RefType, Array[Expr])
+}
+pub fn ElemKind::func_exprs(Array[Expr]) -> Self
+pub fn ElemKind::funcs(Array[FuncIdx]) -> Self
+pub fn ElemKind::typed_exprs(RefType, Array[Expr]) -> Self
+pub impl Eq for ElemKind
+pub impl Hash for ElemKind
+pub impl Show for ElemKind
+pub impl @quickcheck.Arbitrary for ElemKind
+
+pub enum ElemMode {
+  Passive
+  Active(TableIdx, Expr)
+  Declarative
+}
+pub fn ElemMode::active(TableIdx, Expr) -> Self
+pub fn ElemMode::declarative() -> Self
+pub fn ElemMode::passive() -> Self
+pub impl Eq for ElemMode
+pub impl Hash for ElemMode
+pub impl Show for ElemMode
+pub impl @quickcheck.Arbitrary for ElemMode
+
+pub(all) struct ElemSec(Array[Elem])
+#deprecated
+pub fn ElemSec::inner(Self) -> Array[Elem]
+pub fn ElemSec::new(Array[Elem]) -> Self
+pub impl Eq for ElemSec
+pub impl Hash for ElemSec
+pub impl Show for ElemSec
+pub impl @quickcheck.Arbitrary for ElemSec
+
+pub(all) struct Env {
+  global_types : Array[SubType]
+  rec_stack : Array[Array[SubType]]
+  funcs : Array[FuncType]
+  tables : Array[TableType]
+  mems : Array[MemType]
+  globals : Array[GlobalType]
+  elems : Array[Elem]
+  datas : Array[Data]
+  tags : Array[TagType]
+  locals : Array[ValType]
+  labels : Array[Array[ValType]]
+  return_type : Array[ValType]?
+}
+pub fn Env::append_rectype_types(Self, RecType) -> Self
+pub fn Env::expand_blocktype(Self, BlockType) -> Result[(Array[ValType], Array[ValType]), String]
+pub fn Env::get_elem(Self, ElemIdx) -> Elem?
+pub fn Env::get_functype_by_funcidx(Self, FuncIdx) -> FuncType?
+pub fn Env::get_global_type(Self, GlobalIdx) -> GlobalType?
+pub fn Env::get_label(Self, LabelIdx) -> Array[ValType]?
+pub fn Env::get_label_types(Self, LabelIdx) -> Array[ValType]?
+pub fn Env::get_local_type(Self, LocalIdx) -> ValType?
+pub fn Env::get_memtype(Self, MemIdx) -> MemType?
+pub fn Env::get_table_type(Self, TableIdx) -> TableType?
+pub fn Env::get_tag(Self, TagIdx) -> TagType?
+pub fn Env::has_data(Self, DataIdx) -> Bool
+pub fn Env::has_func(Self, FuncIdx) -> Bool
+pub fn Env::new() -> Self
+pub fn Env::push_data(Self, Data) -> Self
+pub fn Env::push_elem(Self, Elem) -> Self
+pub fn Env::push_func(Self, FuncType) -> Self
+pub fn Env::push_global(Self, GlobalType) -> Self
+pub fn Env::push_mem(Self, MemType) -> Self
+pub fn Env::push_table(Self, TableType) -> Self
+pub fn Env::push_tag(Self, TagType) -> Self
+pub fn Env::resolve_array_field(Self, TypeIdx) -> Result[FieldType, String]
+pub fn Env::resolve_comptype(Self, TypeIdx) -> CompType?
+pub fn Env::resolve_functype(Self, TypeIdx) -> FuncType?
+pub fn Env::resolve_heaptype_subtype(Self, HeapType) -> SubType?
+pub fn Env::resolve_struct_fields(Self, TypeIdx) -> Result[Array[FieldType], String]
+pub fn Env::resolve_subtype(Self, TypeIdx) -> SubType?
+pub fn Env::resolve_tag_functype(Self, TagIdx) -> FuncType?
+pub fn Env::resolve_typeidx_subtype(Self, TypeIdx) -> SubType?
+pub fn Env::with_elems(Self, Array[Elem]) -> Self
+pub fn Env::with_funcs(Self, Array[FuncType]) -> Self
+pub fn Env::with_globals(Self, Array[GlobalType]) -> Self
+pub fn Env::with_label(Self, Array[ValType]) -> Self
+pub fn Env::with_labels(Self, Array[Array[ValType]]) -> Self
+pub fn Env::with_locals(Self, Array[ValType]) -> Self
+pub fn Env::with_mems(Self, Array[MemType]) -> Self
+pub fn Env::with_module(Self, Module) -> Self
+pub fn Env::with_rectype(Self, RecType) -> Self
+pub fn Env::with_return_type(Self, Array[ValType]?) -> Self
+pub fn Env::with_tables(Self, Array[TableType]) -> Self
+pub fn Env::with_tags(Self, Array[TagType]) -> Self
+pub fn Env::with_types(Self, Array[SubType]) -> Self
+pub impl Hash for Env
+pub impl Show for Env
+
+pub(all) struct Export(Name, ExternIdx)
+
+
+pub impl Eq for Export
+pub impl Hash for Export
+pub impl Show for Export
+pub impl @quickcheck.Arbitrary for Export
+
+pub(all) struct ExportSec(Array[Export])
+#deprecated
+pub fn ExportSec::inner(Self) -> Array[Export]
+pub impl Eq for ExportSec
+pub impl Hash for ExportSec
+pub impl Show for ExportSec
+pub impl @quickcheck.Arbitrary for ExportSec
+
+pub struct Expr(Array[Instruction])
+#deprecated
+pub fn Expr::inner(Self) -> Array[Instruction]
+pub fn Expr::new(Array[Instruction]) -> Self
+pub fn Expr::to_texpr(Self, Env) -> Result[TExpr, String]
+pub impl Eq for Expr
+pub impl Hash for Expr
+pub impl Show for Expr
+pub impl @quickcheck.Arbitrary for Expr
+
+pub(all) enum ExternIdx {
+  FuncExternIdx(FuncIdx)
+  TableExternIdx(TableIdx)
+  MemExternIdx(MemIdx)
+  GlobalExternIdx(GlobalIdx)
+  TagExternIdx(TagIdx)
+}
+pub impl Eq for ExternIdx
+pub impl Hash for ExternIdx
+pub impl Show for ExternIdx
+pub impl @quickcheck.Arbitrary for ExternIdx
+
+pub(all) enum ExternType {
+  FuncExternType(TypeIdx)
+  TableExternType(TableType)
+  MemExternType(MemType)
+  GlobalExternType(GlobalType)
+  TagExternType(TagType)
+}
+pub impl Eq for ExternType
+pub impl Hash for ExternType
+pub impl Show for ExternType
+pub impl @quickcheck.Arbitrary for ExternType
+
+pub(all) enum ExtractLaneOp {
+  I8x16ExtractLaneSOp
+  I8x16ExtractLaneUOp
+  I16x8ExtractLaneSOp
+  I16x8ExtractLaneUOp
+  I32x4ExtractLaneOp
+  I64x2ExtractLaneOp
+  F32x4ExtractLaneOp
+  F64x2ExtractLaneOp
+}
+pub fn ExtractLaneOp::f32x4_extract_lane() -> Self
+pub fn ExtractLaneOp::f64x2_extract_lane() -> Self
+pub fn ExtractLaneOp::i16x8_extract_lane_s() -> Self
+pub fn ExtractLaneOp::i16x8_extract_lane_u() -> Self
+pub fn ExtractLaneOp::i32x4_extract_lane() -> Self
+pub fn ExtractLaneOp::i64x2_extract_lane() -> Self
+pub fn ExtractLaneOp::i8x16_extract_lane_s() -> Self
+pub fn ExtractLaneOp::i8x16_extract_lane_u() -> Self
+pub impl Eq for ExtractLaneOp
+pub impl Hash for ExtractLaneOp
+pub impl Show for ExtractLaneOp
+
+pub(all) struct F32(Float)
+#deprecated
+pub fn F32::inner(Self) -> Float
+pub impl Eq for F32
+pub impl Hash for F32
+pub impl Show for F32
+pub impl @quickcheck.Arbitrary for F32
+
+pub(all) struct F64(Double)
+#deprecated
+pub fn F64::inner(Self) -> Double
+pub impl Eq for F64
+pub impl Hash for F64
+pub impl Show for F64
+pub impl @quickcheck.Arbitrary for F64
+
+pub(all) struct FieldType(StorageType, Mut)
+
+
+pub fn FieldType::is_mutable(Self) -> Bool
+pub impl Eq for FieldType
+pub impl Hash for FieldType
+pub impl Show for FieldType
+pub impl @quickcheck.Arbitrary for FieldType
+
+pub(all) enum Func {
+  Func(Array[Locals], Expr)
+  TFunc(Array[ValType], TExpr)
+}
+pub fn Func::t_func(Array[ValType], TExpr) -> Self
+pub impl Eq for Func
+pub impl Hash for Func
+pub impl Show for Func
+pub impl @quickcheck.Arbitrary for Func
+
+pub(all) struct FuncIdx(UInt)
+#deprecated
+pub fn FuncIdx::inner(Self) -> UInt
+pub impl Eq for FuncIdx
+pub impl Hash for FuncIdx
+pub impl Show for FuncIdx
+pub impl @quickcheck.Arbitrary for FuncIdx
+
+pub(all) struct FuncSec(Array[TypeIdx])
+#deprecated
+pub fn FuncSec::inner(Self) -> Array[TypeIdx]
+pub impl Eq for FuncSec
+pub impl Hash for FuncSec
+pub impl Show for FuncSec
+pub impl @quickcheck.Arbitrary for FuncSec
+
+pub(all) struct FuncType(Array[ValType], Array[ValType])
+
+
+pub impl Eq for FuncType
+pub impl Hash for FuncType
+pub impl Show for FuncType
+
+pub(all) struct Global(GlobalType, Expr)
+
+
+pub impl Eq for Global
+pub impl Hash for Global
+pub impl Show for Global
+pub impl @quickcheck.Arbitrary for Global
+
+pub(all) struct GlobalIdx(UInt)
+#deprecated
+pub fn GlobalIdx::inner(Self) -> UInt
+pub impl Eq for GlobalIdx
+pub impl Hash for GlobalIdx
+pub impl Show for GlobalIdx
+pub impl @quickcheck.Arbitrary for GlobalIdx
+
+pub(all) struct GlobalSec(Array[Global])
+#deprecated
+pub fn GlobalSec::inner(Self) -> Array[Global]
+pub impl Eq for GlobalSec
+pub impl Hash for GlobalSec
+pub impl Show for GlobalSec
+pub impl @quickcheck.Arbitrary for GlobalSec
+
+pub(all) struct GlobalType(ValType, Bool)
+
+
+pub impl Eq for GlobalType
+pub impl Hash for GlobalType
+pub impl Show for GlobalType
+pub impl @quickcheck.Arbitrary for GlobalType
+
+pub(all) enum HeapType {
+  AbsHeapTypeHeapType(AbsHeapType)
+  HeapType(TypeIdx)
+  DefTypeHeapType(DefType)
+}
+pub fn HeapType::bottom() -> Self
+pub fn HeapType::is_array(Self) -> Bool
+pub fn HeapType::is_gc_aggregate(Self) -> Bool
+pub fn HeapType::is_struct(Self) -> Bool
+pub impl Eq for HeapType
+pub impl Hash for HeapType
+pub impl Show for HeapType
+pub impl @quickcheck.Arbitrary for HeapType
+
+pub(all) struct I32(Int)
+#deprecated
+pub fn I32::inner(Self) -> Int
+pub impl Eq for I32
+pub impl Hash for I32
+pub impl Show for I32
+pub impl @quickcheck.Arbitrary for I32
+
+pub(all) struct I64(Int64)
+#deprecated
+pub fn I64::inner(Self) -> Int64
+pub impl Eq for I64
+pub impl Hash for I64
+pub impl Show for I64
+pub impl @quickcheck.Arbitrary for I64
+
+pub(all) struct Import(Name, Name, ExternType)
+
+
+pub impl Eq for Import
+pub impl Hash for Import
+pub impl Show for Import
+pub impl @quickcheck.Arbitrary for Import
+
+pub(all) struct ImportSec(Array[Import])
+#deprecated
+pub fn ImportSec::inner(Self) -> Array[Import]
+pub impl Eq for ImportSec
+pub impl Hash for ImportSec
+pub impl Show for ImportSec
+pub impl @quickcheck.Arbitrary for ImportSec
+
+pub(all) enum Instruction {
+  Unreachable
+  Nop
+  Block(BlockType, Expr)
+  Loop(BlockType, Expr)
+  If(BlockType, Array[Instruction], Array[Instruction]?)
+  Throw(TagIdx)
+  ThrowRef
+  Br(LabelIdx)
+  BrIf(LabelIdx)
+  BrTable(Array[LabelIdx], LabelIdx)
+  Return
+  Call(FuncIdx)
+  CallIndirect(TypeIdx, TableIdx)
+  ReturnCall(FuncIdx)
+  ReturnCallIndirect(TypeIdx, TableIdx)
+  CallRef(TypeIdx)
+  ReturnCallRef(TypeIdx)
+  Drop
+  Select(Array[ValType]?)
+  TryTable(BlockType, Array[Catch], Expr)
+  LocalGet(LocalIdx)
+  LocalSet(LocalIdx)
+  LocalTee(LocalIdx)
+  GlobalGet(GlobalIdx)
+  GlobalSet(GlobalIdx)
+  TableGet(TableIdx)
+  TableSet(TableIdx)
+  I32Load(MemArg)
+  I64Load(MemArg)
+  F32Load(MemArg)
+  F64Load(MemArg)
+  I32Load8S(MemArg)
+  I32Load8U(MemArg)
+  I32Load16S(MemArg)
+  I32Load16U(MemArg)
+  I64Load8S(MemArg)
+  I64Load8U(MemArg)
+  I64Load16S(MemArg)
+  I64Load16U(MemArg)
+  I64Load32S(MemArg)
+  I64Load32U(MemArg)
+  I32Store(MemArg)
+  I64Store(MemArg)
+  F32Store(MemArg)
+  F64Store(MemArg)
+  I32Store8(MemArg)
+  I32Store16(MemArg)
+  I64Store8(MemArg)
+  I64Store16(MemArg)
+  I64Store32(MemArg)
+  MemorySize(MemIdx)
+  MemoryGrow(MemIdx)
+  I32Const(I32)
+  I64Const(I64)
+  F32Const(F32)
+  F64Const(F64)
+  I32Eqz
+  I32Eq
+  I32Ne
+  I32LtS
+  I32LtU
+  I32GtS
+  I32GtU
+  I32LeS
+  I32LeU
+  I32GeS
+  I32GeU
+  I64Eqz
+  I64Eq
+  I64Ne
+  I64LtS
+  I64LtU
+  I64GtS
+  I64GtU
+  I64LeS
+  I64LeU
+  I64GeS
+  I64GeU
+  F32Eq
+  F32Ne
+  F32Lt
+  F32Gt
+  F32Le
+  F32Ge
+  F64Eq
+  F64Ne
+  F64Lt
+  F64Gt
+  F64Le
+  F64Ge
+  I32Clz
+  I32Ctz
+  I32Popcnt
+  I32Add
+  I32Sub
+  I32Mul
+  I32DivS
+  I32DivU
+  I32RemS
+  I32RemU
+  I32And
+  I32Or
+  I32Xor
+  I32Shl
+  I32ShrS
+  I32ShrU
+  I32Rotl
+  I32Rotr
+  I64Clz
+  I64Ctz
+  I64Popcnt
+  I64Add
+  I64Sub
+  I64Mul
+  I64DivS
+  I64DivU
+  I64RemS
+  I64RemU
+  I64And
+  I64Or
+  I64Xor
+  I64Shl
+  I64ShrS
+  I64ShrU
+  I64Rotl
+  I64Rotr
+  F32Abs
+  F32Neg
+  F32Ceil
+  F32Floor
+  F32Trunc
+  F32Nearest
+  F32Sqrt
+  F32Add
+  F32Sub
+  F32Mul
+  F32Div
+  F32Min
+  F32Max
+  F32Copysign
+  F64Abs
+  F64Neg
+  F64Ceil
+  F64Floor
+  F64Trunc
+  F64Nearest
+  F64Sqrt
+  F64Add
+  F64Sub
+  F64Mul
+  F64Div
+  F64Min
+  F64Max
+  F64Copysign
+  I32WrapI64
+  I32TruncF32S
+  I32TruncF32U
+  I32TruncF64S
+  I32TruncF64U
+  I64ExtendI32S
+  I64ExtendI32U
+  I64TruncF32S
+  I64TruncF32U
+  I64TruncF64S
+  I64TruncF64U
+  F32ConvertI32S
+  F32ConvertI32U
+  F32ConvertI64S
+  F32ConvertI64U
+  F32DemoteF64
+  F64ConvertI32S
+  F64ConvertI32U
+  F64ConvertI64S
+  F64ConvertI64U
+  F64PromoteF32
+  I32ReinterpretF32
+  I64ReinterpretF64
+  F32ReinterpretI32
+  F64ReinterpretI64
+  I32Extend8S
+  I32Extend16S
+  I64Extend8S
+  I64Extend16S
+  I64Extend32S
+  RefNull(HeapType)
+  RefIsNull
+  RefFunc(FuncIdx)
+  RefEq
+  RefAsNonNull
+  BrOnNull(LabelIdx)
+  BrOnNonNull(LabelIdx)
+  StructNew(TypeIdx)
+  StructNewDefault(TypeIdx)
+  StructGet(TypeIdx, U32)
+  StructGetS(TypeIdx, U32)
+  StructGetU(TypeIdx, U32)
+  StructSet(TypeIdx, U32)
+  ArrayNew(TypeIdx)
+  ArrayNewDefault(TypeIdx)
+  ArrayNewFixed(TypeIdx, U32)
+  ArrayNewData(TypeIdx, DataIdx)
+  ArrayNewElem(TypeIdx, ElemIdx)
+  ArrayGet(TypeIdx)
+  ArrayGetS(TypeIdx)
+  ArrayGetU(TypeIdx)
+  ArraySet(TypeIdx)
+  ArrayLen
+  ArrayFill(TypeIdx)
+  ArrayCopy(TypeIdx, TypeIdx)
+  ArrayInitData(TypeIdx, DataIdx)
+  ArrayInitElem(TypeIdx, ElemIdx)
+  RefTest(Bool, HeapType)
+  RefCast(Bool, HeapType)
+  BrOnCast(LabelIdx, CastOp, HeapType, HeapType)
+  BrOnCastFail(LabelIdx, CastOp, HeapType, HeapType)
+  AnyConvertExtern
+  ExternConvertAny
+  RefI31
+  I31GetS
+  I31GetU
+  I32TruncSatF32S
+  I32TruncSatF32U
+  I32TruncSatF64S
+  I32TruncSatF64U
+  I64TruncSatF32S
+  I64TruncSatF32U
+  I64TruncSatF64S
+  I64TruncSatF64U
+  MemoryInit(DataIdx, MemIdx)
+  DataDrop(DataIdx)
+  MemoryCopy(MemIdx, MemIdx)
+  MemoryFill(MemIdx)
+  TableInit(ElemIdx, TableIdx)
+  ElemDrop(ElemIdx)
+  TableCopy(TableIdx, TableIdx)
+  TableGrow(TableIdx)
+  TableSize(TableIdx)
+  TableFill(TableIdx)
+  V128Load(MemArg)
+  V128Load8x8S(MemArg)
+  V128Load8x8U(MemArg)
+  V128Load16x4S(MemArg)
+  V128Load16x4U(MemArg)
+  V128Load32x2S(MemArg)
+  V128Load32x2U(MemArg)
+  V128Load8Splat(MemArg)
+  V128Load16Splat(MemArg)
+  V128Load32Splat(MemArg)
+  V128Load64Splat(MemArg)
+  V128Store(MemArg)
+  V128Const(Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte)
+  I8x16Shuffle(LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx)
+  I8x16Swizzle
+  I8x16Splat
+  I16x8Splat
+  I32x4Splat
+  I64x2Splat
+  F32x4Splat
+  F64x2Splat
+  I8x16ExtractLaneS(LaneIdx)
+  I8x16ExtractLaneU(LaneIdx)
+  I8x16ReplaceLane(LaneIdx)
+  I16x8ExtractLaneS(LaneIdx)
+  I16x8ExtractLaneU(LaneIdx)
+  I16x8ReplaceLane(LaneIdx)
+  I32x4ExtractLane(LaneIdx)
+  I32x4ReplaceLane(LaneIdx)
+  I64x2ExtractLane(LaneIdx)
+  I64x2ReplaceLane(LaneIdx)
+  F32x4ExtractLane(LaneIdx)
+  F32x4ReplaceLane(LaneIdx)
+  F64x2ExtractLane(LaneIdx)
+  F64x2ReplaceLane(LaneIdx)
+  I8x16Eq
+  I8x16Ne
+  I8x16LtS
+  I8x16LtU
+  I8x16GtS
+  I8x16GtU
+  I8x16LeS
+  I8x16LeU
+  I8x16GeS
+  I8x16GeU
+  I16x8Eq
+  I16x8Ne
+  I16x8LtS
+  I16x8LtU
+  I16x8GtS
+  I16x8GtU
+  I16x8LeS
+  I16x8LeU
+  I16x8GeS
+  I16x8GeU
+  I32x4Eq
+  I32x4Ne
+  I32x4LtS
+  I32x4LtU
+  I32x4GtS
+  I32x4GtU
+  I32x4LeS
+  I32x4LeU
+  I32x4GeS
+  I32x4GeU
+  F32x4Eq
+  F32x4Ne
+  F32x4Lt
+  F32x4Gt
+  F32x4Le
+  F32x4Ge
+  F64x2Eq
+  F64x2Ne
+  F64x2Lt
+  F64x2Gt
+  F64x2Le
+  F64x2Ge
+  V128Not
+  V128And
+  V128Andnot
+  V128Or
+  V128Xor
+  V128Bitselect
+  V128AnyTrue
+  V128Load8Lane(MemArg, LaneIdx)
+  V128Load16Lane(MemArg, LaneIdx)
+  V128Load32Lane(MemArg, LaneIdx)
+  V128Load64Lane(MemArg, LaneIdx)
+  V128Store8Lane(MemArg, LaneIdx)
+  V128Store16Lane(MemArg, LaneIdx)
+  V128Store32Lane(MemArg, LaneIdx)
+  V128Store64Lane(MemArg, LaneIdx)
+  V128Load32Zero(MemArg)
+  V128Load64Zero(MemArg)
+  F32x4DemoteF64x2Zero
+  F64x2PromoteLowF32x4
+  I8x16Abs
+  I8x16Neg
+  I8x16Popcnt
+  I8x16AllTrue
+  I8x16Bitmask
+  I8x16NarrowI16x8S
+  I8x16NarrowI16x8U
+  F32x4Ceil
+  F32x4Floor
+  F32x4Trunc
+  F32x4Nearest
+  I8x16Shl
+  I8x16ShrS
+  I8x16ShrU
+  I8x16Add
+  I8x16AddSatS
+  I8x16AddSatU
+  I8x16Sub
+  I8x16SubSatS
+  I8x16SubSatU
+  F64x2Ceil
+  F64x2Floor
+  I8x16MinS
+  I8x16MinU
+  I8x16MaxS
+  I8x16MaxU
+  F64x2Trunc
+  I8x16AvgrU
+  I16x8ExtaddPairwiseI8x16S
+  I16x8ExtaddPairwiseI8x16U
+  I32x4ExtaddPairwiseI16x8S
+  I32x4ExtaddPairwiseI16x8U
+  I16x8Abs
+  I16x8Neg
+  I16x8Q15mulrSatS
+  I16x8AllTrue
+  I16x8Bitmask
+  I16x8NarrowI32x4S
+  I16x8NarrowI32x4U
+  I16x8ExtendLowI8x16S
+  I16x8ExtendHighI8x16S
+  I16x8ExtendLowI8x16U
+  I16x8ExtendHighI8x16U
+  I16x8Shl
+  I16x8ShrS
+  I16x8ShrU
+  I16x8Add
+  I16x8AddSatS
+  I16x8AddSatU
+  I16x8Sub
+  I16x8SubSatS
+  I16x8SubSatU
+  F64x2Nearest
+  I16x8Mul
+  I16x8MinS
+  I16x8MinU
+  I16x8MaxS
+  I16x8MaxU
+  I16x8AvgrU
+  I16x8ExtmulLowI8x16S
+  I16x8ExtmulHighI8x16S
+  I16x8ExtmulLowI8x16U
+  I16x8ExtmulHighI8x16U
+  I32x4Abs
+  I32x4Neg
+  I32x4AllTrue
+  I32x4Bitmask
+  I32x4ExtendLowI16x8S
+  I32x4ExtendHighI16x8S
+  I32x4ExtendLowI16x8U
+  I32x4ExtendHighI16x8U
+  I32x4Shl
+  I32x4ShrS
+  I32x4ShrU
+  I32x4Add
+  I32x4Sub
+  I32x4Mul
+  I32x4MinS
+  I32x4MinU
+  I32x4MaxS
+  I32x4MaxU
+  I32x4DotI16x8S
+  I32x4ExtmulLowI16x8S
+  I32x4ExtmulHighI16x8S
+  I32x4ExtmulLowI16x8U
+  I32x4ExtmulHighI16x8U
+  I64x2Abs
+  I64x2Neg
+  I64x2AllTrue
+  I64x2Bitmask
+  I64x2ExtendLowI32x4S
+  I64x2ExtendHighI32x4S
+  I64x2ExtendLowI32x4U
+  I64x2ExtendHighI32x4U
+  I64x2Shl
+  I64x2ShrS
+  I64x2ShrU
+  I64x2Add
+  I64x2Sub
+  I64x2Mul
+  I64x2Eq
+  I64x2Ne
+  I64x2LtS
+  I64x2GtS
+  I64x2LeS
+  I64x2GeS
+  I64x2ExtmulLowI32x4S
+  I64x2ExtmulHighI32x4S
+  I64x2ExtmulLowI32x4U
+  I64x2ExtmulHighI32x4U
+  F32x4Abs
+  F32x4Neg
+  F32x4Sqrt
+  F32x4Add
+  F32x4Sub
+  F32x4Mul
+  F32x4Div
+  F32x4Min
+  F32x4Max
+  F32x4Pmin
+  F32x4Pmax
+  F64x2Abs
+  F64x2Neg
+  F64x2Sqrt
+  F64x2Add
+  F64x2Sub
+  F64x2Mul
+  F64x2Div
+  F64x2Min
+  F64x2Max
+  F64x2Pmin
+  F64x2Pmax
+  I32x4TruncSatF32x4S
+  I32x4TruncSatF32x4U
+  F32x4ConvertI32x4S
+  F32x4ConvertI32x4U
+  I32x4TruncSatF64x2SZero
+  I32x4TruncSatF64x2UZero
+  F64x2ConvertLowI32x4S
+  F64x2ConvertLowI32x4U
+  I8x16RelaxedSwizzle
+  I32x4RelaxedTruncF32x4S
+  I32x4RelaxedTruncF32x4U
+  I32x4RelaxedTruncZeroF64x2S
+  I32x4RelaxedTruncZeroF64x2U
+  F32x4RelaxedMadd
+  F32x4RelaxedNmadd
+  F64x2RelaxedMadd
+  F64x2RelaxedNmadd
+  I8x16RelaxedLaneselect
+  I16x8RelaxedLaneselect
+  I32x4RelaxedLaneselect
+  I64x2RelaxedLaneselect
+  F32x4RelaxedMin
+  F32x4RelaxedMax
+  F64x2RelaxedMin
+  F64x2RelaxedMax
+  I16x8RelaxedQ15mulrS
+  I16x8RelaxedDotI8x16I7x16S
+  I32x4RelaxedDotI8x16I7x16AddS
+}
+pub fn Instruction::any_convert_extern() -> Self
+pub fn Instruction::array_copy(TypeIdx, TypeIdx) -> Self
+pub fn Instruction::array_fill(TypeIdx) -> Self
+pub fn Instruction::array_get(TypeIdx) -> Self
+pub fn Instruction::array_get_s(TypeIdx) -> Self
+pub fn Instruction::array_get_u(TypeIdx) -> Self
+pub fn Instruction::array_init_data(TypeIdx, DataIdx) -> Self
+pub fn Instruction::array_init_elem(TypeIdx, ElemIdx) -> Self
+pub fn Instruction::array_len() -> Self
+pub fn Instruction::array_new(TypeIdx) -> Self
+pub fn Instruction::array_new_data(TypeIdx, DataIdx) -> Self
+pub fn Instruction::array_new_default(TypeIdx) -> Self
+pub fn Instruction::array_new_elem(TypeIdx, ElemIdx) -> Self
+pub fn Instruction::array_new_fixed(TypeIdx, U32) -> Self
+pub fn Instruction::array_set(TypeIdx) -> Self
+pub fn Instruction::block(BlockType, Expr) -> Self
+pub fn Instruction::br(LabelIdx) -> Self
+pub fn Instruction::br_if(LabelIdx) -> Self
+pub fn Instruction::br_on_cast(LabelIdx, Bool, HeapType, Bool, HeapType) -> Self
+pub fn Instruction::br_on_cast_fail(LabelIdx, Bool, HeapType, Bool, HeapType) -> Self
+pub fn Instruction::br_on_non_null(LabelIdx) -> Self
+pub fn Instruction::br_on_null(LabelIdx) -> Self
+pub fn Instruction::br_table(Array[LabelIdx], LabelIdx) -> Self
+pub fn Instruction::call(FuncIdx) -> Self
+pub fn Instruction::call_indirect(TypeIdx, TableIdx) -> Self
+pub fn Instruction::call_ref(TypeIdx) -> Self
+pub fn Instruction::data_drop(DataIdx) -> Self
+pub fn Instruction::drop() -> Self
+pub fn Instruction::elem_drop(ElemIdx) -> Self
+pub fn Instruction::extern_convert_any() -> Self
+pub fn Instruction::f32_abs() -> Self
+pub fn Instruction::f32_add() -> Self
+pub fn Instruction::f32_ceil() -> Self
+pub fn Instruction::f32_const(F32) -> Self
+pub fn Instruction::f32_convert_i32s() -> Self
+pub fn Instruction::f32_convert_i32u() -> Self
+pub fn Instruction::f32_convert_i64s() -> Self
+pub fn Instruction::f32_convert_i64u() -> Self
+pub fn Instruction::f32_copysign() -> Self
+pub fn Instruction::f32_demote_f64() -> Self
+pub fn Instruction::f32_div() -> Self
+pub fn Instruction::f32_eq() -> Self
+pub fn Instruction::f32_floor() -> Self
+pub fn Instruction::f32_ge() -> Self
+pub fn Instruction::f32_gt() -> Self
+pub fn Instruction::f32_le() -> Self
+pub fn Instruction::f32_load(MemArg) -> Self
+pub fn Instruction::f32_lt() -> Self
+pub fn Instruction::f32_max() -> Self
+pub fn Instruction::f32_min() -> Self
+pub fn Instruction::f32_mul() -> Self
+pub fn Instruction::f32_ne() -> Self
+pub fn Instruction::f32_nearest() -> Self
+pub fn Instruction::f32_neg() -> Self
+pub fn Instruction::f32_reinterpret_i32() -> Self
+pub fn Instruction::f32_sqrt() -> Self
+pub fn Instruction::f32_store(MemArg) -> Self
+pub fn Instruction::f32_sub() -> Self
+pub fn Instruction::f32_trunc() -> Self
+pub fn Instruction::f32x4_abs() -> Self
+pub fn Instruction::f32x4_add() -> Self
+pub fn Instruction::f32x4_ceil() -> Self
+pub fn Instruction::f32x4_convert_i32x4s() -> Self
+pub fn Instruction::f32x4_convert_i32x4u() -> Self
+pub fn Instruction::f32x4_demote_f64x2_zero() -> Self
+pub fn Instruction::f32x4_div() -> Self
+pub fn Instruction::f32x4_eq() -> Self
+pub fn Instruction::f32x4_extract_lane(LaneIdx) -> Self
+pub fn Instruction::f32x4_floor() -> Self
+pub fn Instruction::f32x4_ge() -> Self
+pub fn Instruction::f32x4_gt() -> Self
+pub fn Instruction::f32x4_le() -> Self
+pub fn Instruction::f32x4_lt() -> Self
+pub fn Instruction::f32x4_max() -> Self
+pub fn Instruction::f32x4_min() -> Self
+pub fn Instruction::f32x4_mul() -> Self
+pub fn Instruction::f32x4_ne() -> Self
+pub fn Instruction::f32x4_nearest() -> Self
+pub fn Instruction::f32x4_neg() -> Self
+pub fn Instruction::f32x4_pmax() -> Self
+pub fn Instruction::f32x4_pmin() -> Self
+pub fn Instruction::f32x4_relaxed_madd() -> Self
+pub fn Instruction::f32x4_relaxed_max() -> Self
+pub fn Instruction::f32x4_relaxed_min() -> Self
+pub fn Instruction::f32x4_relaxed_nmadd() -> Self
+pub fn Instruction::f32x4_replace_lane(LaneIdx) -> Self
+pub fn Instruction::f32x4_splat() -> Self
+pub fn Instruction::f32x4_sqrt() -> Self
+pub fn Instruction::f32x4_sub() -> Self
+pub fn Instruction::f32x4_trunc() -> Self
+pub fn Instruction::f64_abs() -> Self
+pub fn Instruction::f64_add() -> Self
+pub fn Instruction::f64_ceil() -> Self
+pub fn Instruction::f64_const(F64) -> Self
+pub fn Instruction::f64_convert_i32s() -> Self
+pub fn Instruction::f64_convert_i32u() -> Self
+pub fn Instruction::f64_convert_i64s() -> Self
+pub fn Instruction::f64_convert_i64u() -> Self
+pub fn Instruction::f64_copysign() -> Self
+pub fn Instruction::f64_div() -> Self
+pub fn Instruction::f64_eq() -> Self
+pub fn Instruction::f64_floor() -> Self
+pub fn Instruction::f64_ge() -> Self
+pub fn Instruction::f64_gt() -> Self
+pub fn Instruction::f64_le() -> Self
+pub fn Instruction::f64_load(MemArg) -> Self
+pub fn Instruction::f64_lt() -> Self
+pub fn Instruction::f64_max() -> Self
+pub fn Instruction::f64_min() -> Self
+pub fn Instruction::f64_mul() -> Self
+pub fn Instruction::f64_ne() -> Self
+pub fn Instruction::f64_nearest() -> Self
+pub fn Instruction::f64_neg() -> Self
+pub fn Instruction::f64_promote_f32() -> Self
+pub fn Instruction::f64_reinterpret_i64() -> Self
+pub fn Instruction::f64_sqrt() -> Self
+pub fn Instruction::f64_store(MemArg) -> Self
+pub fn Instruction::f64_sub() -> Self
+pub fn Instruction::f64_trunc() -> Self
+pub fn Instruction::f64x2_abs() -> Self
+pub fn Instruction::f64x2_add() -> Self
+pub fn Instruction::f64x2_ceil() -> Self
+pub fn Instruction::f64x2_convert_low_i32x4s() -> Self
+pub fn Instruction::f64x2_convert_low_i32x4u() -> Self
+pub fn Instruction::f64x2_div() -> Self
+pub fn Instruction::f64x2_eq() -> Self
+pub fn Instruction::f64x2_extract_lane(LaneIdx) -> Self
+pub fn Instruction::f64x2_floor() -> Self
+pub fn Instruction::f64x2_ge() -> Self
+pub fn Instruction::f64x2_gt() -> Self
+pub fn Instruction::f64x2_le() -> Self
+pub fn Instruction::f64x2_lt() -> Self
+pub fn Instruction::f64x2_max() -> Self
+pub fn Instruction::f64x2_min() -> Self
+pub fn Instruction::f64x2_mul() -> Self
+pub fn Instruction::f64x2_ne() -> Self
+pub fn Instruction::f64x2_nearest() -> Self
+pub fn Instruction::f64x2_neg() -> Self
+pub fn Instruction::f64x2_pmax() -> Self
+pub fn Instruction::f64x2_pmin() -> Self
+pub fn Instruction::f64x2_promote_low_f32x4() -> Self
+pub fn Instruction::f64x2_relaxed_madd() -> Self
+pub fn Instruction::f64x2_relaxed_max() -> Self
+pub fn Instruction::f64x2_relaxed_min() -> Self
+pub fn Instruction::f64x2_relaxed_nmadd() -> Self
+pub fn Instruction::f64x2_replace_lane(LaneIdx) -> Self
+pub fn Instruction::f64x2_splat() -> Self
+pub fn Instruction::f64x2_sqrt() -> Self
+pub fn Instruction::f64x2_sub() -> Self
+pub fn Instruction::f64x2_trunc() -> Self
+pub fn Instruction::global_get(GlobalIdx) -> Self
+pub fn Instruction::global_set(GlobalIdx) -> Self
+pub fn Instruction::i16x8_abs() -> Self
+pub fn Instruction::i16x8_add() -> Self
+pub fn Instruction::i16x8_add_sat_s() -> Self
+pub fn Instruction::i16x8_add_sat_u() -> Self
+pub fn Instruction::i16x8_all_true() -> Self
+pub fn Instruction::i16x8_avgr_u() -> Self
+pub fn Instruction::i16x8_bitmask() -> Self
+pub fn Instruction::i16x8_eq() -> Self
+pub fn Instruction::i16x8_extadd_pairwise_i8x16s() -> Self
+pub fn Instruction::i16x8_extadd_pairwise_i8x16u() -> Self
+pub fn Instruction::i16x8_extend_high_i8x16s() -> Self
+pub fn Instruction::i16x8_extend_high_i8x16u() -> Self
+pub fn Instruction::i16x8_extend_low_i8x16s() -> Self
+pub fn Instruction::i16x8_extend_low_i8x16u() -> Self
+pub fn Instruction::i16x8_extmul_high_i8x16s() -> Self
+pub fn Instruction::i16x8_extmul_high_i8x16u() -> Self
+pub fn Instruction::i16x8_extmul_low_i8x16s() -> Self
+pub fn Instruction::i16x8_extmul_low_i8x16u() -> Self
+pub fn Instruction::i16x8_extract_lane_s(LaneIdx) -> Self
+pub fn Instruction::i16x8_extract_lane_u(LaneIdx) -> Self
+pub fn Instruction::i16x8_ge_s() -> Self
+pub fn Instruction::i16x8_ge_u() -> Self
+pub fn Instruction::i16x8_gt_s() -> Self
+pub fn Instruction::i16x8_gt_u() -> Self
+pub fn Instruction::i16x8_le_s() -> Self
+pub fn Instruction::i16x8_le_u() -> Self
+pub fn Instruction::i16x8_lt_s() -> Self
+pub fn Instruction::i16x8_lt_u() -> Self
+pub fn Instruction::i16x8_max_s() -> Self
+pub fn Instruction::i16x8_max_u() -> Self
+pub fn Instruction::i16x8_min_s() -> Self
+pub fn Instruction::i16x8_min_u() -> Self
+pub fn Instruction::i16x8_mul() -> Self
+pub fn Instruction::i16x8_narrow_i32x4s() -> Self
+pub fn Instruction::i16x8_narrow_i32x4u() -> Self
+pub fn Instruction::i16x8_ne() -> Self
+pub fn Instruction::i16x8_neg() -> Self
+pub fn Instruction::i16x8_relaxed_dot_i8x16i7x16s() -> Self
+pub fn Instruction::i16x8_relaxed_laneselect() -> Self
+pub fn Instruction::i16x8_relaxed_q15mulr_s() -> Self
+pub fn Instruction::i16x8_replace_lane(LaneIdx) -> Self
+pub fn Instruction::i16x8_shl() -> Self
+pub fn Instruction::i16x8_shr_s() -> Self
+pub fn Instruction::i16x8_shr_u() -> Self
+pub fn Instruction::i16x8_splat() -> Self
+pub fn Instruction::i16x8_sub() -> Self
+pub fn Instruction::i16x8_sub_sat_s() -> Self
+pub fn Instruction::i16x8_sub_sat_u() -> Self
+pub fn Instruction::i16x8q15mulr_sat_s() -> Self
+pub fn Instruction::i31_get_s() -> Self
+pub fn Instruction::i31_get_u() -> Self
+pub fn Instruction::i32_add() -> Self
+pub fn Instruction::i32_and() -> Self
+pub fn Instruction::i32_clz() -> Self
+pub fn Instruction::i32_const(I32) -> Self
+pub fn Instruction::i32_ctz() -> Self
+pub fn Instruction::i32_div_s() -> Self
+pub fn Instruction::i32_div_u() -> Self
+pub fn Instruction::i32_eq() -> Self
+pub fn Instruction::i32_eqz() -> Self
+pub fn Instruction::i32_extend16s() -> Self
+pub fn Instruction::i32_extend8s() -> Self
+pub fn Instruction::i32_ge_s() -> Self
+pub fn Instruction::i32_ge_u() -> Self
+pub fn Instruction::i32_gt_s() -> Self
+pub fn Instruction::i32_gt_u() -> Self
+pub fn Instruction::i32_le_s() -> Self
+pub fn Instruction::i32_le_u() -> Self
+pub fn Instruction::i32_load(MemArg) -> Self
+pub fn Instruction::i32_load16s(MemArg) -> Self
+pub fn Instruction::i32_load16u(MemArg) -> Self
+pub fn Instruction::i32_load8s(MemArg) -> Self
+pub fn Instruction::i32_load8u(MemArg) -> Self
+pub fn Instruction::i32_lt_s() -> Self
+pub fn Instruction::i32_lt_u() -> Self
+pub fn Instruction::i32_mul() -> Self
+pub fn Instruction::i32_ne() -> Self
+pub fn Instruction::i32_or() -> Self
+pub fn Instruction::i32_popcnt() -> Self
+pub fn Instruction::i32_reinterpret_f32() -> Self
+pub fn Instruction::i32_rem_s() -> Self
+pub fn Instruction::i32_rem_u() -> Self
+pub fn Instruction::i32_rotl() -> Self
+pub fn Instruction::i32_rotr() -> Self
+pub fn Instruction::i32_shl() -> Self
+pub fn Instruction::i32_shr_s() -> Self
+pub fn Instruction::i32_shr_u() -> Self
+pub fn Instruction::i32_store(MemArg) -> Self
+pub fn Instruction::i32_store16(MemArg) -> Self
+pub fn Instruction::i32_store8(MemArg) -> Self
+pub fn Instruction::i32_sub() -> Self
+pub fn Instruction::i32_trunc_f32s() -> Self
+pub fn Instruction::i32_trunc_f32u() -> Self
+pub fn Instruction::i32_trunc_f64s() -> Self
+pub fn Instruction::i32_trunc_f64u() -> Self
+pub fn Instruction::i32_trunc_sat_f32s() -> Self
+pub fn Instruction::i32_trunc_sat_f32u() -> Self
+pub fn Instruction::i32_trunc_sat_f64s() -> Self
+pub fn Instruction::i32_trunc_sat_f64u() -> Self
+pub fn Instruction::i32_wrap_i64() -> Self
+pub fn Instruction::i32_xor() -> Self
+pub fn Instruction::i32x4_abs() -> Self
+pub fn Instruction::i32x4_add() -> Self
+pub fn Instruction::i32x4_all_true() -> Self
+pub fn Instruction::i32x4_bitmask() -> Self
+pub fn Instruction::i32x4_dot_i16x8s() -> Self
+pub fn Instruction::i32x4_eq() -> Self
+pub fn Instruction::i32x4_extadd_pairwise_i16x8s() -> Self
+pub fn Instruction::i32x4_extadd_pairwise_i16x8u() -> Self
+pub fn Instruction::i32x4_extend_high_i16x8s() -> Self
+pub fn Instruction::i32x4_extend_high_i16x8u() -> Self
+pub fn Instruction::i32x4_extend_low_i16x8s() -> Self
+pub fn Instruction::i32x4_extend_low_i16x8u() -> Self
+pub fn Instruction::i32x4_extmul_high_i16x8s() -> Self
+pub fn Instruction::i32x4_extmul_high_i16x8u() -> Self
+pub fn Instruction::i32x4_extmul_low_i16x8s() -> Self
+pub fn Instruction::i32x4_extmul_low_i16x8u() -> Self
+pub fn Instruction::i32x4_extract_lane(LaneIdx) -> Self
+pub fn Instruction::i32x4_ge_s() -> Self
+pub fn Instruction::i32x4_ge_u() -> Self
+pub fn Instruction::i32x4_gt_s() -> Self
+pub fn Instruction::i32x4_gt_u() -> Self
+pub fn Instruction::i32x4_le_s() -> Self
+pub fn Instruction::i32x4_le_u() -> Self
+pub fn Instruction::i32x4_lt_s() -> Self
+pub fn Instruction::i32x4_lt_u() -> Self
+pub fn Instruction::i32x4_max_s() -> Self
+pub fn Instruction::i32x4_max_u() -> Self
+pub fn Instruction::i32x4_min_s() -> Self
+pub fn Instruction::i32x4_min_u() -> Self
+pub fn Instruction::i32x4_mul() -> Self
+pub fn Instruction::i32x4_ne() -> Self
+pub fn Instruction::i32x4_neg() -> Self
+pub fn Instruction::i32x4_relaxed_dot_i8x16i7x16_add_s() -> Self
+pub fn Instruction::i32x4_relaxed_laneselect() -> Self
+pub fn Instruction::i32x4_relaxed_trunc_f32x4s() -> Self
+pub fn Instruction::i32x4_relaxed_trunc_f32x4u() -> Self
+pub fn Instruction::i32x4_relaxed_trunc_zero_f64x2s() -> Self
+pub fn Instruction::i32x4_relaxed_trunc_zero_f64x2u() -> Self
+pub fn Instruction::i32x4_replace_lane(LaneIdx) -> Self
+pub fn Instruction::i32x4_shl() -> Self
+pub fn Instruction::i32x4_shr_s() -> Self
+pub fn Instruction::i32x4_shr_u() -> Self
+pub fn Instruction::i32x4_splat() -> Self
+pub fn Instruction::i32x4_sub() -> Self
+pub fn Instruction::i32x4_trunc_sat_f32x4s() -> Self
+pub fn Instruction::i32x4_trunc_sat_f32x4u() -> Self
+pub fn Instruction::i32x4_trunc_sat_f64x2s_zero() -> Self
+pub fn Instruction::i32x4_trunc_sat_f64x2u_zero() -> Self
+pub fn Instruction::i64_add() -> Self
+pub fn Instruction::i64_and() -> Self
+pub fn Instruction::i64_clz() -> Self
+pub fn Instruction::i64_const(I64) -> Self
+pub fn Instruction::i64_ctz() -> Self
+pub fn Instruction::i64_div_s() -> Self
+pub fn Instruction::i64_div_u() -> Self
+pub fn Instruction::i64_eq() -> Self
+pub fn Instruction::i64_eqz() -> Self
+pub fn Instruction::i64_extend16s() -> Self
+pub fn Instruction::i64_extend32s() -> Self
+pub fn Instruction::i64_extend8s() -> Self
+pub fn Instruction::i64_extend_i32s() -> Self
+pub fn Instruction::i64_extend_i32u() -> Self
+pub fn Instruction::i64_ge_s() -> Self
+pub fn Instruction::i64_ge_u() -> Self
+pub fn Instruction::i64_gt_s() -> Self
+pub fn Instruction::i64_gt_u() -> Self
+pub fn Instruction::i64_le_s() -> Self
+pub fn Instruction::i64_le_u() -> Self
+pub fn Instruction::i64_load(MemArg) -> Self
+pub fn Instruction::i64_load16s(MemArg) -> Self
+pub fn Instruction::i64_load16u(MemArg) -> Self
+pub fn Instruction::i64_load32s(MemArg) -> Self
+pub fn Instruction::i64_load32u(MemArg) -> Self
+pub fn Instruction::i64_load8s(MemArg) -> Self
+pub fn Instruction::i64_load8u(MemArg) -> Self
+pub fn Instruction::i64_lt_s() -> Self
+pub fn Instruction::i64_lt_u() -> Self
+pub fn Instruction::i64_mul() -> Self
+pub fn Instruction::i64_ne() -> Self
+pub fn Instruction::i64_or() -> Self
+pub fn Instruction::i64_popcnt() -> Self
+pub fn Instruction::i64_reinterpret_f64() -> Self
+pub fn Instruction::i64_rem_s() -> Self
+pub fn Instruction::i64_rem_u() -> Self
+pub fn Instruction::i64_rotl() -> Self
+pub fn Instruction::i64_rotr() -> Self
+pub fn Instruction::i64_shl() -> Self
+pub fn Instruction::i64_shr_s() -> Self
+pub fn Instruction::i64_shr_u() -> Self
+pub fn Instruction::i64_store(MemArg) -> Self
+pub fn Instruction::i64_store16(MemArg) -> Self
+pub fn Instruction::i64_store32(MemArg) -> Self
+pub fn Instruction::i64_store8(MemArg) -> Self
+pub fn Instruction::i64_sub() -> Self
+pub fn Instruction::i64_trunc_f32s() -> Self
+pub fn Instruction::i64_trunc_f32u() -> Self
+pub fn Instruction::i64_trunc_f64s() -> Self
+pub fn Instruction::i64_trunc_f64u() -> Self
+pub fn Instruction::i64_trunc_sat_f32s() -> Self
+pub fn Instruction::i64_trunc_sat_f32u() -> Self
+pub fn Instruction::i64_trunc_sat_f64s() -> Self
+pub fn Instruction::i64_trunc_sat_f64u() -> Self
+pub fn Instruction::i64_xor() -> Self
+pub fn Instruction::i64x2_abs() -> Self
+pub fn Instruction::i64x2_add() -> Self
+pub fn Instruction::i64x2_all_true() -> Self
+pub fn Instruction::i64x2_bitmask() -> Self
+pub fn Instruction::i64x2_eq() -> Self
+pub fn Instruction::i64x2_extend_high_i32x4s() -> Self
+pub fn Instruction::i64x2_extend_high_i32x4u() -> Self
+pub fn Instruction::i64x2_extend_low_i32x4s() -> Self
+pub fn Instruction::i64x2_extend_low_i32x4u() -> Self
+pub fn Instruction::i64x2_extmul_high_i32x4s() -> Self
+pub fn Instruction::i64x2_extmul_high_i32x4u() -> Self
+pub fn Instruction::i64x2_extmul_low_i32x4s() -> Self
+pub fn Instruction::i64x2_extmul_low_i32x4u() -> Self
+pub fn Instruction::i64x2_extract_lane(LaneIdx) -> Self
+pub fn Instruction::i64x2_ge_s() -> Self
+pub fn Instruction::i64x2_gt_s() -> Self
+pub fn Instruction::i64x2_le_s() -> Self
+pub fn Instruction::i64x2_lt_s() -> Self
+pub fn Instruction::i64x2_mul() -> Self
+pub fn Instruction::i64x2_ne() -> Self
+pub fn Instruction::i64x2_neg() -> Self
+pub fn Instruction::i64x2_relaxed_laneselect() -> Self
+pub fn Instruction::i64x2_replace_lane(LaneIdx) -> Self
+pub fn Instruction::i64x2_shl() -> Self
+pub fn Instruction::i64x2_shr_s() -> Self
+pub fn Instruction::i64x2_shr_u() -> Self
+pub fn Instruction::i64x2_splat() -> Self
+pub fn Instruction::i64x2_sub() -> Self
+pub fn Instruction::i8x16_abs() -> Self
+pub fn Instruction::i8x16_add() -> Self
+pub fn Instruction::i8x16_add_sat_s() -> Self
+pub fn Instruction::i8x16_add_sat_u() -> Self
+pub fn Instruction::i8x16_all_true() -> Self
+pub fn Instruction::i8x16_avgr_u() -> Self
+pub fn Instruction::i8x16_bitmask() -> Self
+pub fn Instruction::i8x16_eq() -> Self
+pub fn Instruction::i8x16_extract_lane_s(LaneIdx) -> Self
+pub fn Instruction::i8x16_extract_lane_u(LaneIdx) -> Self
+pub fn Instruction::i8x16_ge_s() -> Self
+pub fn Instruction::i8x16_ge_u() -> Self
+pub fn Instruction::i8x16_gt_s() -> Self
+pub fn Instruction::i8x16_gt_u() -> Self
+pub fn Instruction::i8x16_le_s() -> Self
+pub fn Instruction::i8x16_le_u() -> Self
+pub fn Instruction::i8x16_lt_s() -> Self
+pub fn Instruction::i8x16_lt_u() -> Self
+pub fn Instruction::i8x16_max_s() -> Self
+pub fn Instruction::i8x16_max_u() -> Self
+pub fn Instruction::i8x16_min_s() -> Self
+pub fn Instruction::i8x16_min_u() -> Self
+pub fn Instruction::i8x16_narrow_i16x8s() -> Self
+pub fn Instruction::i8x16_narrow_i16x8u() -> Self
+pub fn Instruction::i8x16_ne() -> Self
+pub fn Instruction::i8x16_neg() -> Self
+pub fn Instruction::i8x16_popcnt() -> Self
+pub fn Instruction::i8x16_relaxed_laneselect() -> Self
+pub fn Instruction::i8x16_relaxed_swizzle() -> Self
+pub fn Instruction::i8x16_replace_lane(LaneIdx) -> Self
+pub fn Instruction::i8x16_shl() -> Self
+pub fn Instruction::i8x16_shr_s() -> Self
+pub fn Instruction::i8x16_shr_u() -> Self
+pub fn Instruction::i8x16_shuffle(LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx) -> Self
+pub fn Instruction::i8x16_splat() -> Self
+pub fn Instruction::i8x16_sub() -> Self
+pub fn Instruction::i8x16_sub_sat_s() -> Self
+pub fn Instruction::i8x16_sub_sat_u() -> Self
+pub fn Instruction::i8x16_swizzle() -> Self
+pub fn Instruction::if_(BlockType, Array[Self], Array[Self]?) -> Self
+pub fn Instruction::local_get(LocalIdx) -> Self
+pub fn Instruction::local_set(LocalIdx) -> Self
+pub fn Instruction::local_tee(LocalIdx) -> Self
+pub fn Instruction::loop_(BlockType, Expr) -> Self
+pub fn Instruction::memory_copy(MemIdx, MemIdx) -> Self
+pub fn Instruction::memory_fill(MemIdx) -> Self
+pub fn Instruction::memory_grow(MemIdx) -> Self
+pub fn Instruction::memory_init(DataIdx, MemIdx) -> Self
+pub fn Instruction::memory_size(MemIdx) -> Self
+pub fn Instruction::nop() -> Self
+pub fn Instruction::ref_as_non_null() -> Self
+pub fn Instruction::ref_cast(Bool, HeapType) -> Self
+pub fn Instruction::ref_eq() -> Self
+pub fn Instruction::ref_func(FuncIdx) -> Self
+pub fn Instruction::ref_i31() -> Self
+pub fn Instruction::ref_is_null() -> Self
+pub fn Instruction::ref_null(HeapType) -> Self
+pub fn Instruction::ref_test(Bool, HeapType) -> Self
+pub fn Instruction::return_() -> Self
+pub fn Instruction::return_call(FuncIdx) -> Self
+pub fn Instruction::return_call_indirect(TypeIdx, TableIdx) -> Self
+pub fn Instruction::return_call_ref(TypeIdx) -> Self
+pub fn Instruction::select(types? : Array[ValType]?) -> Self
+pub fn Instruction::struct_get(TypeIdx, U32) -> Self
+pub fn Instruction::struct_get_s(TypeIdx, U32) -> Self
+pub fn Instruction::struct_get_u(TypeIdx, U32) -> Self
+pub fn Instruction::struct_new(TypeIdx) -> Self
+pub fn Instruction::struct_new_default(TypeIdx) -> Self
+pub fn Instruction::struct_set(TypeIdx, U32) -> Self
+pub fn Instruction::table_copy(TableIdx, TableIdx) -> Self
+pub fn Instruction::table_fill(TableIdx) -> Self
+pub fn Instruction::table_get(TableIdx) -> Self
+pub fn Instruction::table_grow(TableIdx) -> Self
+pub fn Instruction::table_init(ElemIdx, TableIdx) -> Self
+pub fn Instruction::table_set(TableIdx) -> Self
+pub fn Instruction::table_size(TableIdx) -> Self
+pub fn Instruction::throw_(TagIdx) -> Self
+pub fn Instruction::throw_ref() -> Self
+pub fn Instruction::try_table(BlockType, Array[Catch], Expr) -> Self
+pub fn Instruction::unreachable_() -> Self
+pub fn Instruction::v128_and() -> Self
+pub fn Instruction::v128_andnot() -> Self
+pub fn Instruction::v128_any_true() -> Self
+pub fn Instruction::v128_bitselect() -> Self
+pub fn Instruction::v128_const(Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte) -> Self
+pub fn Instruction::v128_load(MemArg) -> Self
+pub fn Instruction::v128_load16_lane(MemArg, LaneIdx) -> Self
+pub fn Instruction::v128_load16_splat(MemArg) -> Self
+pub fn Instruction::v128_load16x4s(MemArg) -> Self
+pub fn Instruction::v128_load16x4u(MemArg) -> Self
+pub fn Instruction::v128_load32_lane(MemArg, LaneIdx) -> Self
+pub fn Instruction::v128_load32_splat(MemArg) -> Self
+pub fn Instruction::v128_load32_zero(MemArg) -> Self
+pub fn Instruction::v128_load32x2s(MemArg) -> Self
+pub fn Instruction::v128_load32x2u(MemArg) -> Self
+pub fn Instruction::v128_load64_lane(MemArg, LaneIdx) -> Self
+pub fn Instruction::v128_load64_splat(MemArg) -> Self
+pub fn Instruction::v128_load64_zero(MemArg) -> Self
+pub fn Instruction::v128_load8_lane(MemArg, LaneIdx) -> Self
+pub fn Instruction::v128_load8_splat(MemArg) -> Self
+pub fn Instruction::v128_load8x8s(MemArg) -> Self
+pub fn Instruction::v128_load8x8u(MemArg) -> Self
+pub fn Instruction::v128_not() -> Self
+pub fn Instruction::v128_or() -> Self
+pub fn Instruction::v128_store(MemArg) -> Self
+pub fn Instruction::v128_store16_lane(MemArg, LaneIdx) -> Self
+pub fn Instruction::v128_store32_lane(MemArg, LaneIdx) -> Self
+pub fn Instruction::v128_store64_lane(MemArg, LaneIdx) -> Self
+pub fn Instruction::v128_store8_lane(MemArg, LaneIdx) -> Self
+pub fn Instruction::v128_xor() -> Self
+pub impl Eq for Instruction
+pub impl Hash for Instruction
+pub impl Show for Instruction
+pub impl @quickcheck.Arbitrary for Instruction
+
+pub(all) struct LabelIdx(UInt)
+#deprecated
+pub fn LabelIdx::inner(Self) -> UInt
+pub fn LabelIdx::new(UInt) -> Self
+pub impl Eq for LabelIdx
+pub impl Hash for LabelIdx
+pub impl Show for LabelIdx
+pub impl @quickcheck.Arbitrary for LabelIdx
+
+pub(all) struct LaneIdx(Byte)
+#deprecated
+pub fn LaneIdx::inner(Self) -> Byte
+pub fn LaneIdx::new(Byte) -> Self
+pub impl Eq for LaneIdx
+pub impl Hash for LaneIdx
+pub impl Show for LaneIdx
+pub impl @quickcheck.Arbitrary for LaneIdx
+
+pub(all) enum Limits {
+  I32Limits(UInt, UInt?)
+  I64Limits(UInt64, UInt64?)
+}
+pub fn Limits::addr_valtype(Self) -> ValType
+pub fn Limits::i32(UInt, UInt?) -> Self
+pub fn Limits::i64(UInt64, UInt64?) -> Self
+pub fn Limits::mem_addr_bits(Self) -> Int
+pub impl Eq for Limits
+pub impl Hash for Limits
+pub impl Show for Limits
+pub impl @quickcheck.Arbitrary for Limits
+
+pub enum LoadOp {
+  I32LoadOp
+  I64LoadOp
+  F32LoadOp
+  F64LoadOp
+  I32Load8SOp
+  I32Load8UOp
+  I32Load16SOp
+  I32Load16UOp
+  I64Load8SOp
+  I64Load8UOp
+  I64Load16SOp
+  I64Load16UOp
+  I64Load32SOp
+  I64Load32UOp
+  V128LoadOp
+  V128Load8x8SOp
+  V128Load8x8UOp
+  V128Load16x4SOp
+  V128Load16x4UOp
+  V128Load32x2SOp
+  V128Load32x2UOp
+  V128Load8SplatOp
+  V128Load16SplatOp
+  V128Load32SplatOp
+  V128Load64SplatOp
+  V128Load32ZeroOp
+  V128Load64ZeroOp
+}
+pub fn LoadOp::f32_load() -> Self
+pub fn LoadOp::f64_load() -> Self
+pub fn LoadOp::i32_load() -> Self
+pub fn LoadOp::i32_load16s() -> Self
+pub fn LoadOp::i32_load16u() -> Self
+pub fn LoadOp::i32_load8s() -> Self
+pub fn LoadOp::i32_load8u() -> Self
+pub fn LoadOp::i64_load() -> Self
+pub fn LoadOp::i64_load16s() -> Self
+pub fn LoadOp::i64_load16u() -> Self
+pub fn LoadOp::i64_load32s() -> Self
+pub fn LoadOp::i64_load32u() -> Self
+pub fn LoadOp::i64_load8s() -> Self
+pub fn LoadOp::i64_load8u() -> Self
+pub fn LoadOp::v128_load() -> Self
+pub fn LoadOp::v128_load16_splat() -> Self
+pub fn LoadOp::v128_load16x4s() -> Self
+pub fn LoadOp::v128_load16x4u() -> Self
+pub fn LoadOp::v128_load32_splat() -> Self
+pub fn LoadOp::v128_load32_zero() -> Self
+pub fn LoadOp::v128_load32x2s() -> Self
+pub fn LoadOp::v128_load32x2u() -> Self
+pub fn LoadOp::v128_load64_splat() -> Self
+pub fn LoadOp::v128_load64_zero() -> Self
+pub fn LoadOp::v128_load8_splat() -> Self
+pub fn LoadOp::v128_load8x8s() -> Self
+pub fn LoadOp::v128_load8x8u() -> Self
+pub impl Eq for LoadOp
+pub impl Hash for LoadOp
+pub impl Show for LoadOp
+
+pub(all) struct LocalIdx(UInt)
+#deprecated
+pub fn LocalIdx::inner(Self) -> UInt
+pub fn LocalIdx::new(UInt) -> Self
+pub impl Eq for LocalIdx
+pub impl Hash for LocalIdx
+pub impl Show for LocalIdx
+pub impl @quickcheck.Arbitrary for LocalIdx
+
+pub(all) struct Locals(UInt, ValType)
+
+
+pub impl Eq for Locals
+pub impl Hash for Locals
+pub impl Show for Locals
+pub impl @quickcheck.Arbitrary for Locals
+
+pub(all) struct MemArg(U32, MemIdx?, U64)
+
+
+pub fn MemArg::new(U32, MemIdx?, U64) -> Self
+pub impl Eq for MemArg
+pub impl Hash for MemArg
+pub impl Show for MemArg
+pub impl @quickcheck.Arbitrary for MemArg
+
+pub(all) struct MemIdx(UInt)
+#deprecated
+pub fn MemIdx::inner(Self) -> UInt
+pub impl Eq for MemIdx
+pub impl Hash for MemIdx
+pub impl Show for MemIdx
+pub impl @quickcheck.Arbitrary for MemIdx
+
+pub(all) struct MemSec(Array[MemType])
+#deprecated
+pub fn MemSec::inner(Self) -> Array[MemType]
+pub impl Eq for MemSec
+pub impl Hash for MemSec
+pub impl Show for MemSec
+pub impl @quickcheck.Arbitrary for MemSec
+
+pub(all) struct MemType(Limits)
+#deprecated
+pub fn MemType::inner(Self) -> Limits
+pub impl Eq for MemType
+pub impl Hash for MemType
+pub impl Show for MemType
+pub impl @quickcheck.Arbitrary for MemType
+
+pub(all) struct Module {
+  custom_secs : Array[CustomSec]
+  type_sec : TypeSec?
+  import_sec : ImportSec?
+  func_sec : FuncSec?
+  table_sec : TableSec?
+  mem_sec : MemSec?
+  tag_sec : TagSec?
+  global_sec : GlobalSec?
+  export_sec : ExportSec?
+  start_sec : StartSec?
+  elem_sec : ElemSec?
+  data_cnt_sec : DataCntSec?
+  code_sec : CodeSec?
+  data_sec : DataSec?
+}
+pub fn Module::new() -> Self
+pub fn Module::with_code_sec(Self, CodeSec) -> Self
+pub fn Module::with_custom_secs(Self, Array[CustomSec]) -> Self
+pub fn Module::with_data_cnt_sec(Self, DataCntSec) -> Self
+pub fn Module::with_data_sec(Self, DataSec) -> Self
+pub fn Module::with_elem_sec(Self, ElemSec) -> Self
+pub fn Module::with_export_sec(Self, ExportSec) -> Self
+pub fn Module::with_func_sec(Self, FuncSec) -> Self
+pub fn Module::with_global_sec(Self, GlobalSec) -> Self
+pub fn Module::with_import_sec(Self, ImportSec) -> Self
+pub fn Module::with_mem_sec(Self, MemSec) -> Self
+pub fn Module::with_start_sec(Self, StartSec) -> Self
+pub fn Module::with_table_sec(Self, TableSec) -> Self
+pub fn Module::with_tag_sec(Self, TagSec) -> Self
+pub fn Module::with_type_sec(Self, TypeSec) -> Self
+pub impl Eq for Module
+pub impl Hash for Module
+pub impl Show for Module
+pub impl @quickcheck.Arbitrary for Module
+
+pub(all) struct ModuleTransformer[T] {
+  on_module : ((ModuleTransformer[T], T, Module) -> Result[(T, Module)?, String])?
+  on_typesec : ((ModuleTransformer[T], T, TypeSec) -> Result[(T, TypeSec)?, String])?
+  on_funcsec : ((ModuleTransformer[T], T, FuncSec) -> Result[(T, FuncSec)?, String])?
+  on_tablesec : ((ModuleTransformer[T], T, TableSec) -> Result[(T, TableSec)?, String])?
+  on_memsec : ((ModuleTransformer[T], T, MemSec) -> Result[(T, MemSec)?, String])?
+  on_tagsec : ((ModuleTransformer[T], T, TagSec) -> Result[(T, TagSec)?, String])?
+  on_globalsec : ((ModuleTransformer[T], T, GlobalSec) -> Result[(T, GlobalSec)?, String])?
+  on_exportsec : ((ModuleTransformer[T], T, ExportSec) -> Result[(T, ExportSec)?, String])?
+  on_startsec : ((ModuleTransformer[T], T, StartSec) -> Result[(T, StartSec)?, String])?
+  on_elemsec : ((ModuleTransformer[T], T, ElemSec) -> Result[(T, ElemSec)?, String])?
+  on_elemkind : ((ModuleTransformer[T], T, ElemKind) -> Result[(T, ElemKind)?, String])?
+  on_datacntsec : ((ModuleTransformer[T], T, DataCntSec) -> Result[(T, DataCntSec)?, String])?
+  on_codesec : ((ModuleTransformer[T], T, CodeSec) -> Result[(T, CodeSec)?, String])?
+  on_datasec : ((ModuleTransformer[T], T, DataSec) -> Result[(T, DataSec)?, String])?
+  on_instruction : ((ModuleTransformer[T], T, Instruction) -> Result[(T, Instruction)?, String])?
+  on_tinstruction : ((ModuleTransformer[T], T, TInstr) -> Result[(T, TInstr)?, String])?
+  on_expr : ((ModuleTransformer[T], T, Expr) -> Result[(T, Expr)?, String])?
+  on_texpr : ((ModuleTransformer[T], T, TExpr) -> Result[(T, TExpr)?, String])?
+  on_table : ((ModuleTransformer[T], T, Table) -> Result[(T, Table)?, String])?
+  on_valtype : ((ModuleTransformer[T], T, ValType) -> Result[(T, ValType)?, String])?
+  on_numtype : ((ModuleTransformer[T], T, NumType) -> Result[(T, NumType)?, String])?
+  on_rectype : ((ModuleTransformer[T], T, RecType) -> Result[(T, RecType)?, String])?
+  on_subtype : ((ModuleTransformer[T], T, SubType) -> Result[(T, SubType)?, String])?
+  on_comptype : ((ModuleTransformer[T], T, CompType) -> Result[(T, CompType)?, String])?
+  on_reftype : ((ModuleTransformer[T], T, RefType) -> Result[(T, RefType)?, String])?
+  on_heaptype : ((ModuleTransformer[T], T, HeapType) -> Result[(T, HeapType)?, String])?
+  on_blocktype : ((ModuleTransformer[T], T, BlockType) -> Result[(T, BlockType)?, String])?
+  on_funcidx : ((ModuleTransformer[T], T, FuncIdx) -> Result[(T, FuncIdx)?, String])?
+  on_typeidx : ((ModuleTransformer[T], T, TypeIdx) -> Result[(T, TypeIdx)?, String])?
+  on_laneidx : ((ModuleTransformer[T], T, LaneIdx) -> Result[(T, LaneIdx)?, String])?
+  on_localidx : ((ModuleTransformer[T], T, LocalIdx) -> Result[(T, LocalIdx)?, String])?
+  on_globalidx : ((ModuleTransformer[T], T, GlobalIdx) -> Result[(T, GlobalIdx)?, String])?
+  on_tableidx : ((ModuleTransformer[T], T, TableIdx) -> Result[(T, TableIdx)?, String])?
+  on_memidx : ((ModuleTransformer[T], T, MemIdx) -> Result[(T, MemIdx)?, String])?
+  on_labelidx : ((ModuleTransformer[T], T, LabelIdx) -> Result[(T, LabelIdx)?, String])?
+  on_dataidx : ((ModuleTransformer[T], T, DataIdx) -> Result[(T, DataIdx)?, String])?
+  on_elemidx : ((ModuleTransformer[T], T, ElemIdx) -> Result[(T, ElemIdx)?, String])?
+  on_tagidx : ((ModuleTransformer[T], T, TagIdx) -> Result[(T, TagIdx)?, String])?
+  on_name : ((ModuleTransformer[T], T, Name) -> Result[(T, Name)?, String])?
+  on_externtype : ((ModuleTransformer[T], T, ExternType) -> Result[(T, ExternType)?, String])?
+  on_limits : ((ModuleTransformer[T], T, Limits) -> Result[(T, Limits)?, String])?
+  on_memtype : ((ModuleTransformer[T], T, MemType) -> Result[(T, MemType)?, String])?
+  on_tagtype : ((ModuleTransformer[T], T, TagType) -> Result[(T, TagType)?, String])?
+  on_export : ((ModuleTransformer[T], T, Export) -> Result[(T, Export)?, String])?
+  on_global : ((ModuleTransformer[T], T, Global) -> Result[(T, Global)?, String])?
+  on_globaltype : ((ModuleTransformer[T], T, GlobalType) -> Result[(T, GlobalType)?, String])?
+  on_func : ((ModuleTransformer[T], T, Func) -> Result[(T, Func)?, String])?
+  on_locals : ((ModuleTransformer[T], T, Array[Locals]) -> Result[(T, Array[Locals])?, String])?
+  on_externidx : ((ModuleTransformer[T], T, ExternIdx) -> Result[(T, ExternIdx)?, String])?
+  on_fieldtype : ((ModuleTransformer[T], T, FieldType) -> Result[(T, FieldType)?, String])?
+  on_storagetype : ((ModuleTransformer[T], T, StorageType) -> Result[(T, StorageType)?, String])?
+  on_unaryop : ((ModuleTransformer[T], T, UnaryOp) -> Result[(T, UnaryOp)?, String])?
+  on_binaryop : ((ModuleTransformer[T], T, BinaryOp) -> Result[(T, BinaryOp)?, String])?
+  on_storeop : ((ModuleTransformer[T], T, StoreOp) -> Result[(T, StoreOp)?, String])?
+  on_loadop : ((ModuleTransformer[T], T, LoadOp) -> Result[(T, LoadOp)?, String])?
+  on_extractlaneop : ((ModuleTransformer[T], T, ExtractLaneOp) -> Result[(T, ExtractLaneOp)?, String])?
+  on_replacelaneop : ((ModuleTransformer[T], T, ReplaceLaneOp) -> Result[(T, ReplaceLaneOp)?, String])?
+  on_v128shiftop : ((ModuleTransformer[T], T, V128ShiftOp) -> Result[(T, V128ShiftOp)?, String])?
+  on_v128ternaryop : ((ModuleTransformer[T], T, V128TernaryOp) -> Result[(T, V128TernaryOp)?, String])?
+  on_v128loadlaneop : ((ModuleTransformer[T], T, V128LoadLaneOp) -> Result[(T, V128LoadLaneOp)?, String])?
+  on_v128storelaneop : ((ModuleTransformer[T], T, V128StoreLaneOp) -> Result[(T, V128StoreLaneOp)?, String])?
+  on_memarg : ((ModuleTransformer[T], T, MemArg) -> Result[(T, MemArg)?, String])?
+}
+pub fn[T] ModuleTransformer::new() -> Self[T]
+pub fn[T, E] ModuleTransformer::walk_array(Self[T], T, (Self[T], T, E) -> Result[(T, E)?, String], Array[E]) -> Result[(T, Array[E])?, String]
+pub fn[T] ModuleTransformer::walk_binaryop(Self[T], T, BinaryOp) -> Result[(T, BinaryOp)?, String]
+pub fn[T] ModuleTransformer::walk_blocktype(Self[T], T, BlockType) -> Result[(T, BlockType)?, String]
+pub fn[T] ModuleTransformer::walk_blocktype_default(Self[T], T, BlockType) -> Result[(T, BlockType)?, String]
+pub fn[T] ModuleTransformer::walk_catch(Self[T], T, Catch) -> Result[(T, Catch)?, String]
+pub fn[T] ModuleTransformer::walk_codesec(Self[T], T, CodeSec) -> Result[(T, CodeSec)?, String]
+pub fn[T] ModuleTransformer::walk_codesec_default(Self[T], T, CodeSec) -> Result[(T, CodeSec)?, String]
+pub fn[T] ModuleTransformer::walk_comptype(Self[T], T, CompType) -> Result[(T, CompType)?, String]
+pub fn[T] ModuleTransformer::walk_comptype_default(Self[T], T, CompType) -> Result[(T, CompType)?, String]
+pub fn[T] ModuleTransformer::walk_customsec(Self[T], T, CustomSec) -> Result[(T, CustomSec)?, String]
+pub fn[T] ModuleTransformer::walk_customsecs(Self[T], T, Array[CustomSec]) -> Result[(T, Array[CustomSec])?, String]
+pub fn[T] ModuleTransformer::walk_data(Self[T], T, Data) -> Result[(T, Data)?, String]
+pub fn[T] ModuleTransformer::walk_datacntsec(Self[T], T, DataCntSec) -> Result[(T, DataCntSec)?, String]
+pub fn[T] ModuleTransformer::walk_dataidx(Self[T], T, DataIdx) -> Result[(T, DataIdx)?, String]
+pub fn[T] ModuleTransformer::walk_datamode(Self[T], T, DataMode) -> Result[(T, DataMode)?, String]
+pub fn[T] ModuleTransformer::walk_datasec(Self[T], T, DataSec) -> Result[(T, DataSec)?, String]
+pub fn[T] ModuleTransformer::walk_datasec_default(Self[T], T, DataSec) -> Result[(T, DataSec)?, String]
+pub fn[T] ModuleTransformer::walk_elem(Self[T], T, Elem) -> Result[(T, Elem)?, String]
+pub fn[T] ModuleTransformer::walk_elemidx(Self[T], T, ElemIdx) -> Result[(T, ElemIdx)?, String]
+pub fn[T] ModuleTransformer::walk_elemkind(Self[T], T, ElemKind) -> Result[(T, ElemKind)?, String]
+pub fn[T] ModuleTransformer::walk_elemkind_default(Self[T], T, ElemKind) -> Result[(T, ElemKind)?, String]
+pub fn[T] ModuleTransformer::walk_elemmode(Self[T], T, ElemMode) -> Result[(T, ElemMode)?, String]
+pub fn[T] ModuleTransformer::walk_elemsec(Self[T], T, ElemSec) -> Result[(T, ElemSec)?, String]
+pub fn[T] ModuleTransformer::walk_elemsec_default(Self[T], T, ElemSec) -> Result[(T, ElemSec)?, String]
+pub fn[T] ModuleTransformer::walk_export(Self[T], T, Export) -> Result[(T, Export)?, String]
+pub fn[T] ModuleTransformer::walk_export_default(Self[T], T, Export) -> Result[(T, Export)?, String]
+pub fn[T] ModuleTransformer::walk_exportsec(Self[T], T, ExportSec) -> Result[(T, ExportSec)?, String]
+pub fn[T] ModuleTransformer::walk_exportsec_default(Self[T], T, ExportSec) -> Result[(T, ExportSec)?, String]
+pub fn[T] ModuleTransformer::walk_expr(Self[T], T, Expr) -> Result[(T, Expr)?, String]
+pub fn[T] ModuleTransformer::walk_expr_default(Self[T], T, Expr) -> Result[(T, Expr)?, String]
+pub fn[T] ModuleTransformer::walk_externidx(Self[T], T, ExternIdx) -> Result[(T, ExternIdx)?, String]
+pub fn[T] ModuleTransformer::walk_externidx_default(Self[T], T, ExternIdx) -> Result[(T, ExternIdx)?, String]
+pub fn[T] ModuleTransformer::walk_externtype(Self[T], T, ExternType) -> Result[(T, ExternType)?, String]
+pub fn[T] ModuleTransformer::walk_extractlaneop(Self[T], T, ExtractLaneOp) -> Result[(T, ExtractLaneOp)?, String]
+pub fn[T] ModuleTransformer::walk_fieldtype(Self[T], T, FieldType) -> Result[(T, FieldType)?, String]
+pub fn[T] ModuleTransformer::walk_fieldtype_default(Self[T], T, FieldType) -> Result[(T, FieldType)?, String]
+pub fn[T] ModuleTransformer::walk_func(Self[T], T, Func) -> Result[(T, Func)?, String]
+pub fn[T] ModuleTransformer::walk_func_default(Self[T], T, Func) -> Result[(T, Func)?, String]
+pub fn[T] ModuleTransformer::walk_funcidx(Self[T], T, FuncIdx) -> Result[(T, FuncIdx)?, String]
+pub fn[T] ModuleTransformer::walk_funcsec(Self[T], T, FuncSec) -> Result[(T, FuncSec)?, String]
+pub fn[T] ModuleTransformer::walk_funcsec_default(Self[T], T, FuncSec) -> Result[(T, FuncSec)?, String]
+pub fn[T] ModuleTransformer::walk_global(Self[T], T, Global) -> Result[(T, Global)?, String]
+pub fn[T] ModuleTransformer::walk_global_default(Self[T], T, Global) -> Result[(T, Global)?, String]
+pub fn[T] ModuleTransformer::walk_globalidx(Self[T], T, GlobalIdx) -> Result[(T, GlobalIdx)?, String]
+pub fn[T] ModuleTransformer::walk_globalsec(Self[T], T, GlobalSec) -> Result[(T, GlobalSec)?, String]
+pub fn[T] ModuleTransformer::walk_globalsec_default(Self[T], T, GlobalSec) -> Result[(T, GlobalSec)?, String]
+pub fn[T] ModuleTransformer::walk_globaltype(Self[T], T, GlobalType) -> Result[(T, GlobalType)?, String]
+pub fn[T] ModuleTransformer::walk_globaltype_default(Self[T], T, GlobalType) -> Result[(T, GlobalType)?, String]
+pub fn[T] ModuleTransformer::walk_heaptype(Self[T], T, HeapType) -> Result[(T, HeapType)?, String]
+pub fn[T] ModuleTransformer::walk_heaptype_default(Self[T], T, HeapType) -> Result[(T, HeapType)?, String]
+pub fn[T] ModuleTransformer::walk_import(Self[T], T, Import) -> Result[(T, Import)?, String]
+pub fn[T] ModuleTransformer::walk_importsec(Self[T], T, ImportSec) -> Result[(T, ImportSec)?, String]
+pub fn[T] ModuleTransformer::walk_instruction(Self[T], T, Instruction) -> Result[(T, Instruction)?, String]
+pub fn[T] ModuleTransformer::walk_instruction_default(Self[T], T, Instruction) -> Result[(T, Instruction)?, String]
+pub fn[T] ModuleTransformer::walk_labelidx(Self[T], T, LabelIdx) -> Result[(T, LabelIdx)?, String]
+pub fn[T] ModuleTransformer::walk_laneidx(Self[T], T, LaneIdx) -> Result[(T, LaneIdx)?, String]
+pub fn[T] ModuleTransformer::walk_limits(Self[T], T, Limits) -> Result[(T, Limits)?, String]
+pub fn[T] ModuleTransformer::walk_loadop(Self[T], T, LoadOp) -> Result[(T, LoadOp)?, String]
+pub fn[T] ModuleTransformer::walk_localidx(Self[T], T, LocalIdx) -> Result[(T, LocalIdx)?, String]
+pub fn[T] ModuleTransformer::walk_locals(Self[T], T, Array[Locals]) -> Result[(T, Array[Locals])?, String]
+pub fn[T] ModuleTransformer::walk_locals_default(Self[T], T, Array[Locals]) -> Result[(T, Array[Locals])?, String]
+pub fn[T] ModuleTransformer::walk_memarg(Self[T], T, MemArg) -> Result[(T, MemArg)?, String]
+pub fn[T] ModuleTransformer::walk_memidx(Self[T], T, MemIdx) -> Result[(T, MemIdx)?, String]
+pub fn[T] ModuleTransformer::walk_memsec(Self[T], T, MemSec) -> Result[(T, MemSec)?, String]
+pub fn[T] ModuleTransformer::walk_memsec_default(Self[T], T, MemSec) -> Result[(T, MemSec)?, String]
+pub fn[T] ModuleTransformer::walk_memtype(Self[T], T, MemType) -> Result[(T, MemType)?, String]
+pub fn[T] ModuleTransformer::walk_memtype_default(Self[T], T, MemType) -> Result[(T, MemType)?, String]
+pub fn[T] ModuleTransformer::walk_module(Self[T], T, Module) -> Result[(T, Module)?, String]
+pub fn[T] ModuleTransformer::walk_name(Self[T], T, Name) -> Result[(T, Name)?, String]
+pub fn[T] ModuleTransformer::walk_numtype(Self[T], T, NumType) -> Result[(T, NumType)?, String]
+pub fn[T] ModuleTransformer::walk_rectype(Self[T], T, RecType) -> Result[(T, RecType)?, String]
+pub fn[T] ModuleTransformer::walk_rectype_default(Self[T], T, RecType) -> Result[(T, RecType)?, String]
+pub fn[T] ModuleTransformer::walk_reftype(Self[T], T, RefType) -> Result[(T, RefType)?, String]
+pub fn[T] ModuleTransformer::walk_reftype_default(Self[T], T, RefType) -> Result[(T, RefType)?, String]
+pub fn[T] ModuleTransformer::walk_replacelaneop(Self[T], T, ReplaceLaneOp) -> Result[(T, ReplaceLaneOp)?, String]
+pub fn[T] ModuleTransformer::walk_single_local(Self[T], T, Locals) -> Result[(T, Locals)?, String]
+pub fn[T] ModuleTransformer::walk_startsec(Self[T], T, StartSec) -> Result[(T, StartSec)?, String]
+pub fn[T] ModuleTransformer::walk_startsec_default(Self[T], T, StartSec) -> Result[(T, StartSec)?, String]
+pub fn[T] ModuleTransformer::walk_storagetype(Self[T], T, StorageType) -> Result[(T, StorageType)?, String]
+pub fn[T] ModuleTransformer::walk_storagetype_default(Self[T], T, StorageType) -> Result[(T, StorageType)?, String]
+pub fn[T] ModuleTransformer::walk_storeop(Self[T], T, StoreOp) -> Result[(T, StoreOp)?, String]
+pub fn[T] ModuleTransformer::walk_subtype(Self[T], T, SubType) -> Result[(T, SubType)?, String]
+pub fn[T] ModuleTransformer::walk_subtype_default(Self[T], T, SubType) -> Result[(T, SubType)?, String]
+pub fn[T] ModuleTransformer::walk_table(Self[T], T, Table) -> Result[(T, Table)?, String]
+pub fn[T] ModuleTransformer::walk_table_default(Self[T], T, Table) -> Result[(T, Table)?, String]
+pub fn[T] ModuleTransformer::walk_tableidx(Self[T], T, TableIdx) -> Result[(T, TableIdx)?, String]
+pub fn[T] ModuleTransformer::walk_tablesec(Self[T], T, TableSec) -> Result[(T, TableSec)?, String]
+pub fn[T] ModuleTransformer::walk_tablesec_default(Self[T], T, TableSec) -> Result[(T, TableSec)?, String]
+pub fn[T] ModuleTransformer::walk_tabletype(Self[T], T, TableType) -> Result[(T, TableType)?, String]
+pub fn[T] ModuleTransformer::walk_tagidx(Self[T], T, TagIdx) -> Result[(T, TagIdx)?, String]
+pub fn[T] ModuleTransformer::walk_tagsec(Self[T], T, TagSec) -> Result[(T, TagSec)?, String]
+pub fn[T] ModuleTransformer::walk_tagsec_default(Self[T], T, TagSec) -> Result[(T, TagSec)?, String]
+pub fn[T] ModuleTransformer::walk_tagtype(Self[T], T, TagType) -> Result[(T, TagType)?, String]
+pub fn[T] ModuleTransformer::walk_tagtype_default(Self[T], T, TagType) -> Result[(T, TagType)?, String]
+pub fn[T] ModuleTransformer::walk_texpr(Self[T], T, TExpr) -> Result[(T, TExpr)?, String]
+pub fn[T] ModuleTransformer::walk_texpr_default(Self[T], T, TExpr) -> Result[(T, TExpr)?, String]
+pub fn[T] ModuleTransformer::walk_tinstruction(Self[T], T, TInstr) -> Result[(T, TInstr)?, String]
+pub fn[T] ModuleTransformer::walk_tinstruction_default(Self[T], T, TInstr) -> Result[(T, TInstr)?, String]
+pub fn[T] ModuleTransformer::walk_typeidx(Self[T], T, TypeIdx) -> Result[(T, TypeIdx)?, String]
+pub fn[T] ModuleTransformer::walk_typesec(Self[T], T, TypeSec) -> Result[(T, TypeSec)?, String]
+pub fn[T] ModuleTransformer::walk_typesec_default(Self[T], T, TypeSec) -> Result[(T, TypeSec)?, String]
+pub fn[T] ModuleTransformer::walk_unaryop(Self[T], T, UnaryOp) -> Result[(T, UnaryOp)?, String]
+pub fn[T] ModuleTransformer::walk_v128loadlaneop(Self[T], T, V128LoadLaneOp) -> Result[(T, V128LoadLaneOp)?, String]
+pub fn[T] ModuleTransformer::walk_v128shiftop(Self[T], T, V128ShiftOp) -> Result[(T, V128ShiftOp)?, String]
+pub fn[T] ModuleTransformer::walk_v128storelaneop(Self[T], T, V128StoreLaneOp) -> Result[(T, V128StoreLaneOp)?, String]
+pub fn[T] ModuleTransformer::walk_v128ternaryop(Self[T], T, V128TernaryOp) -> Result[(T, V128TernaryOp)?, String]
+pub fn[T] ModuleTransformer::walk_valtype(Self[T], T, ValType) -> Result[(T, ValType)?, String]
+pub fn[T] ModuleTransformer::walk_valtype_default(Self[T], T, ValType) -> Result[(T, ValType)?, String]
+
+pub(all) enum Mut {
+  Const
+  Var
+}
+pub fn Mut::const_() -> Self
+pub fn Mut::var() -> Self
+pub impl Eq for Mut
+pub impl Hash for Mut
+pub impl Show for Mut
+pub impl @quickcheck.Arbitrary for Mut
+
+pub(all) struct Name(StringView)
+#deprecated
+pub fn Name::inner(Self) -> StringView
+pub impl Eq for Name
+pub impl Hash for Name
+pub impl Show for Name
+pub impl @quickcheck.Arbitrary for Name
+
+pub enum NumType {
+  F32NumType
+  F64NumType
+  I32NumType
+  I64NumType
+}
+pub fn NumType::f32() -> Self
+pub fn NumType::f64() -> Self
+pub fn NumType::i32() -> Self
+pub fn NumType::i64() -> Self
+pub impl Eq for NumType
+pub impl Hash for NumType
+pub impl Show for NumType
+pub impl @quickcheck.Arbitrary for NumType
+
+pub(all) enum PackType {
+  I16PackType
+  I8PackType
+}
+pub fn PackType::i16() -> Self
+pub fn PackType::i8() -> Self
+pub impl Eq for PackType
+pub impl Hash for PackType
+pub impl Show for PackType
+pub impl @quickcheck.Arbitrary for PackType
+
+pub(all) enum RecType {
+  SingleRecType(SubType)
+  GroupRecType(Array[SubType])
+}
+pub fn RecType::get_subtype(Self, UInt) -> SubType?
+pub impl Eq for RecType
+pub impl Hash for RecType
+pub impl Show for RecType
+pub impl @quickcheck.Arbitrary for RecType
+
+pub(all) enum RefType {
+  HeapTypeRefType(Bool, HeapType)
+  AbsHeapTypeRefType(AbsHeapType)
+}
+pub fn RefType::abs_heap_type(AbsHeapType) -> Self
+pub fn RefType::get_heap_type(Self) -> HeapType
+pub fn RefType::heap_type(Bool, HeapType) -> Self
+pub fn RefType::is_nullable(Self) -> Bool
+pub impl Eq for RefType
+pub impl Hash for RefType
+pub impl Show for RefType
+pub impl @quickcheck.Arbitrary for RefType
+
+pub(all) enum ReplaceLaneOp {
+  I8x16ReplaceLaneOp
+  I16x8ReplaceLaneOp
+  I32x4ReplaceLaneOp
+  I64x2ReplaceLaneOp
+  F32x4ReplaceLaneOp
+  F64x2ReplaceLaneOp
+}
+pub fn ReplaceLaneOp::f32x4_replace_lane() -> Self
+pub fn ReplaceLaneOp::f64x2_replace_lane() -> Self
+pub fn ReplaceLaneOp::i16x8_replace_lane() -> Self
+pub fn ReplaceLaneOp::i32x4_replace_lane() -> Self
+pub fn ReplaceLaneOp::i64x2_replace_lane() -> Self
+pub fn ReplaceLaneOp::i8x16_replace_lane() -> Self
+pub impl Eq for ReplaceLaneOp
+pub impl Hash for ReplaceLaneOp
+pub impl Show for ReplaceLaneOp
+
+pub(all) struct S33(UInt)
+#deprecated
+pub fn S33::inner(Self) -> UInt
+pub impl Eq for S33
+pub impl Hash for S33
+pub impl Show for S33
+
+pub(all) struct StartSec(FuncIdx)
+#deprecated
+pub fn StartSec::inner(Self) -> FuncIdx
+pub impl Eq for StartSec
+pub impl Hash for StartSec
+pub impl Show for StartSec
+pub impl @quickcheck.Arbitrary for StartSec
+
+pub(all) enum StorageType {
+  ValTypeStorageType(ValType)
+  PackTypeStorageType(PackType)
+}
+pub fn StorageType::is_packed(Self) -> Bool
+pub fn StorageType::pack_type(PackType) -> Self
+pub fn StorageType::unpack(Self) -> ValType
+pub fn StorageType::val_type(ValType) -> Self
+pub impl Eq for StorageType
+pub impl Hash for StorageType
+pub impl Show for StorageType
+pub impl @quickcheck.Arbitrary for StorageType
+
+pub(all) enum StoreOp {
+  I32StoreOp
+  I64StoreOp
+  F32StoreOp
+  F64StoreOp
+  I32Store8Op
+  I32Store16Op
+  I64Store8Op
+  I64Store16Op
+  I64Store32Op
+  V128StoreOp
+}
+pub fn StoreOp::f32_store() -> Self
+pub fn StoreOp::f64_store() -> Self
+pub fn StoreOp::i32_store() -> Self
+pub fn StoreOp::i32_store16() -> Self
+pub fn StoreOp::i32_store8() -> Self
+pub fn StoreOp::i64_store() -> Self
+pub fn StoreOp::i64_store16() -> Self
+pub fn StoreOp::i64_store32() -> Self
+pub fn StoreOp::i64_store8() -> Self
+pub fn StoreOp::v128_store() -> Self
+pub impl Eq for StoreOp
+pub impl Hash for StoreOp
+pub impl Show for StoreOp
+
+pub(all) enum SubType {
+  SubType(Bool, Array[TypeIdx], CompType)
+  CompTypeSubType(CompType)
+}
+pub fn SubType::get_comptype(Self) -> CompType
+pub fn SubType::super_types(Self) -> Array[TypeIdx]
+pub impl Eq for SubType
+pub impl Hash for SubType
+pub impl Show for SubType
+pub impl @quickcheck.Arbitrary for SubType
+
+pub struct TExpr(Array[TInstr])
+#deprecated
+pub fn TExpr::inner(Self) -> Array[TInstr]
+pub fn TExpr::new(Array[TInstr]) -> Self
+pub fn TExpr::to_expr(Self) -> Expr
+pub impl Eq for TExpr
+pub impl Hash for TExpr
+pub impl Show for TExpr
+
+pub(all) enum TInstr {
+  TI32Const(I32)
+  TI64Const(I64)
+  TF32Const(F32)
+  TF64Const(F64)
+  TRefNull(HeapType)
+  TRefFunc(FuncIdx)
+  TV128Const(Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte)
+  TUnreachable
+  TNop
+  TLocalGet(LocalIdx)
+  TGlobalGet(GlobalIdx)
+  TMemorySize(MemIdx)
+  TTableSize(TableIdx)
+  TUnary(UnaryOp, TInstr)
+  TDrop(TInstr)
+  TLocalSet(LocalIdx, TInstr)
+  TLocalTee(LocalIdx, TInstr)
+  TGlobalSet(GlobalIdx, TInstr)
+  TRefIsNull(TInstr)
+  TRefAsNonNull(TInstr)
+  TI31GetS(TInstr)
+  TI31GetU(TInstr)
+  TRefI31(TInstr)
+  TArrayLen(TInstr)
+  TAnyConvertExtern(TInstr)
+  TExternConvertAny(TInstr)
+  TThrowRef(TInstr)
+  TBinary(BinaryOp, TInstr, TInstr)
+  TRefEq(TInstr, TInstr)
+  TStore(StoreOp, MemArg, TInstr, TInstr)
+  TLoad(LoadOp, MemArg, TInstr)
+  TMemoryGrow(MemIdx, TInstr)
+  TMemoryFill(MemIdx, TInstr, TInstr, TInstr)
+  TMemoryCopy(MemIdx, MemIdx, TInstr, TInstr, TInstr)
+  TMemoryInit(DataIdx, MemIdx, TInstr, TInstr, TInstr)
+  TDataDrop(DataIdx)
+  TTableGet(TableIdx, TInstr)
+  TTableSet(TableIdx, TInstr, TInstr)
+  TTableGrow(TableIdx, TInstr, TInstr)
+  TTableFill(TableIdx, TInstr, TInstr, TInstr)
+  TTableCopy(TableIdx, TableIdx, TInstr, TInstr, TInstr)
+  TTableInit(ElemIdx, TableIdx, TInstr, TInstr, TInstr)
+  TElemDrop(ElemIdx)
+  TCall(FuncIdx, Array[TInstr])
+  TCallIndirect(TypeIdx, TableIdx, Array[TInstr], TInstr)
+  TCallRef(TypeIdx, Array[TInstr], TInstr)
+  TReturnCall(FuncIdx, Array[TInstr])
+  TReturnCallIndirect(TypeIdx, TableIdx, Array[TInstr], TInstr)
+  TReturnCallRef(TypeIdx, Array[TInstr], TInstr)
+  TBlock(BlockType, TExpr)
+  TLoop(BlockType, TExpr)
+  TIf(BlockType, TInstr, TExpr, TExpr?)
+  TTryTable(BlockType, Array[Catch], TExpr)
+  TThrow(TagIdx, Array[TInstr])
+  TBr(LabelIdx, Array[TInstr])
+  TBrIf(LabelIdx, TInstr, Array[TInstr])
+  TBrTable(Array[LabelIdx], LabelIdx, TInstr, Array[TInstr])
+  TBrOnNull(LabelIdx, TInstr, Array[TInstr])
+  TBrOnNonNull(LabelIdx, TInstr, Array[TInstr])
+  TBrOnCast(LabelIdx, CastOp, HeapType, HeapType, TInstr, Array[TInstr])
+  TBrOnCastFail(LabelIdx, CastOp, HeapType, HeapType, TInstr, Array[TInstr])
+  TReturn(Array[TInstr])
+  TSelect(Array[ValType]?, TInstr, TInstr, TInstr)
+  TStructNew(TypeIdx, Array[TInstr])
+  TStructNewDefault(TypeIdx)
+  TStructGet(TypeIdx, U32, TInstr)
+  TStructGetS(TypeIdx, U32, TInstr)
+  TStructGetU(TypeIdx, U32, TInstr)
+  TStructSet(TypeIdx, U32, TInstr, TInstr)
+  TArrayNew(TypeIdx, TInstr, TInstr)
+  TArrayNewDefault(TypeIdx, TInstr)
+  TArrayNewFixed(TypeIdx, Array[TInstr])
+  TArrayNewData(TypeIdx, DataIdx, TInstr, TInstr)
+  TArrayNewElem(TypeIdx, ElemIdx, TInstr, TInstr)
+  TArrayGet(TypeIdx, TInstr, TInstr)
+  TArrayGetS(TypeIdx, TInstr, TInstr)
+  TArrayGetU(TypeIdx, TInstr, TInstr)
+  TArraySet(TypeIdx, TInstr, TInstr, TInstr)
+  TArrayFill(TypeIdx, TInstr, TInstr, TInstr, TInstr)
+  TArrayCopy(TypeIdx, TypeIdx, TInstr, TInstr, TInstr, TInstr, TInstr)
+  TArrayInitData(TypeIdx, DataIdx, TInstr, TInstr, TInstr, TInstr)
+  TArrayInitElem(TypeIdx, ElemIdx, TInstr, TInstr, TInstr, TInstr)
+  TRefTest(Bool, HeapType, TInstr)
+  TRefCast(Bool, HeapType, TInstr)
+  TI8x16Splat(TInstr)
+  TI16x8Splat(TInstr)
+  TI32x4Splat(TInstr)
+  TI64x2Splat(TInstr)
+  TF32x4Splat(TInstr)
+  TF64x2Splat(TInstr)
+  TExtractLane(ExtractLaneOp, LaneIdx, TInstr)
+  TReplaceLane(ReplaceLaneOp, LaneIdx, TInstr, TInstr)
+  TI8x16Shuffle(LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, TInstr, TInstr)
+  TI8x16Swizzle(TInstr, TInstr)
+  TI8x16RelaxedSwizzle(TInstr, TInstr)
+  TV128Shift(V128ShiftOp, TInstr, TInstr)
+  TV128Ternary(V128TernaryOp, TInstr, TInstr, TInstr)
+  TV128LoadLane(V128LoadLaneOp, MemArg, LaneIdx, TInstr, TInstr)
+  TV128StoreLane(V128StoreLaneOp, MemArg, LaneIdx, TInstr, TInstr)
+}
+pub fn TInstr::any_convert_extern(Self) -> Self
+pub fn TInstr::array_copy(TypeIdx, TypeIdx, Self, Self, Self, Self, Self) -> Self
+pub fn TInstr::array_fill(TypeIdx, Self, Self, Self, Self) -> Self
+pub fn TInstr::array_get(TypeIdx, Self, Self) -> Self
+pub fn TInstr::array_get_s(TypeIdx, Self, Self) -> Self
+pub fn TInstr::array_get_u(TypeIdx, Self, Self) -> Self
+pub fn TInstr::array_init_data(TypeIdx, DataIdx, Self, Self, Self, Self) -> Self
+pub fn TInstr::array_init_elem(TypeIdx, ElemIdx, Self, Self, Self, Self) -> Self
+pub fn TInstr::array_len(Self) -> Self
+pub fn TInstr::array_new(TypeIdx, Self, Self) -> Self
+pub fn TInstr::array_new_data(TypeIdx, DataIdx, Self, Self) -> Self
+pub fn TInstr::array_new_default(TypeIdx, Self) -> Self
+pub fn TInstr::array_new_elem(TypeIdx, ElemIdx, Self, Self) -> Self
+pub fn TInstr::array_new_fixed(TypeIdx, Array[Self]) -> Self
+pub fn TInstr::array_set(TypeIdx, Self, Self, Self) -> Self
+pub fn TInstr::binary(BinaryOp, Self, Self) -> Self
+pub fn TInstr::block(BlockType, TExpr) -> Self
+pub fn TInstr::br(LabelIdx, Array[Self]) -> Self
+pub fn TInstr::br_if(LabelIdx, Self, Array[Self]) -> Self
+pub fn TInstr::br_on_cast(LabelIdx, Bool, HeapType, Bool, HeapType, Self, Array[Self]) -> Self
+pub fn TInstr::br_on_cast_fail(LabelIdx, Bool, HeapType, Bool, HeapType, Self, Array[Self]) -> Self
+pub fn TInstr::br_on_non_null(LabelIdx, Self, Array[Self]) -> Self
+pub fn TInstr::br_on_null(LabelIdx, Self, Array[Self]) -> Self
+pub fn TInstr::br_table(Array[LabelIdx], LabelIdx, Self, Array[Self]) -> Self
+pub fn TInstr::call(FuncIdx, Array[Self]) -> Self
+pub fn TInstr::call_indirect(TypeIdx, TableIdx, Array[Self], Self) -> Self
+pub fn TInstr::call_ref(TypeIdx, Array[Self], Self) -> Self
+pub fn TInstr::data_drop(DataIdx) -> Self
+pub fn TInstr::drop(Self) -> Self
+pub fn TInstr::elem_drop(ElemIdx) -> Self
+pub fn TInstr::extern_convert_any(Self) -> Self
+pub fn TInstr::extract_lane(ExtractLaneOp, LaneIdx, Self) -> Self
+pub fn TInstr::f32_const(F32) -> Self
+pub fn TInstr::f32x4_splat(Self) -> Self
+pub fn TInstr::f64_const(F64) -> Self
+pub fn TInstr::f64x2_splat(Self) -> Self
+pub fn TInstr::global_get(GlobalIdx) -> Self
+pub fn TInstr::global_set(GlobalIdx, Self) -> Self
+pub fn TInstr::i16x8_splat(Self) -> Self
+pub fn TInstr::i31_get_s(Self) -> Self
+pub fn TInstr::i31_get_u(Self) -> Self
+pub fn TInstr::i32_const(I32) -> Self
+pub fn TInstr::i32x4_splat(Self) -> Self
+pub fn TInstr::i64_const(I64) -> Self
+pub fn TInstr::i64x2_splat(Self) -> Self
+pub fn TInstr::i8x16_relaxed_swizzle(Self, Self) -> Self
+pub fn TInstr::i8x16_shuffle(LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, LaneIdx, Self, Self) -> Self
+pub fn TInstr::i8x16_splat(Self) -> Self
+pub fn TInstr::i8x16_swizzle(Self, Self) -> Self
+pub fn TInstr::if_(BlockType, Self, TExpr, TExpr?) -> Self
+pub fn TInstr::load(LoadOp, MemArg, Self) -> Self
+pub fn TInstr::local_get(LocalIdx) -> Self
+pub fn TInstr::local_set(LocalIdx, Self) -> Self
+pub fn TInstr::local_tee(LocalIdx, Self) -> Self
+pub fn TInstr::loop_(BlockType, TExpr) -> Self
+pub fn TInstr::memory_copy(MemIdx, MemIdx, Self, Self, Self) -> Self
+pub fn TInstr::memory_fill(MemIdx, Self, Self, Self) -> Self
+pub fn TInstr::memory_grow(MemIdx, Self) -> Self
+pub fn TInstr::memory_init(DataIdx, MemIdx, Self, Self, Self) -> Self
+pub fn TInstr::memory_size(MemIdx) -> Self
+pub fn TInstr::nop() -> Self
+pub fn TInstr::ref_as_non_null(Self) -> Self
+pub fn TInstr::ref_cast(Bool, HeapType, Self) -> Self
+pub fn TInstr::ref_eq(Self, Self) -> Self
+pub fn TInstr::ref_func(FuncIdx) -> Self
+pub fn TInstr::ref_i31(Self) -> Self
+pub fn TInstr::ref_is_null(Self) -> Self
+pub fn TInstr::ref_null(HeapType) -> Self
+pub fn TInstr::ref_test(Bool, HeapType, Self) -> Self
+pub fn TInstr::replace_lane(ReplaceLaneOp, LaneIdx, Self, Self) -> Self
+pub fn TInstr::return_(Array[Self]) -> Self
+pub fn TInstr::return_call(FuncIdx, Array[Self]) -> Self
+pub fn TInstr::return_call_indirect(TypeIdx, TableIdx, Array[Self], Self) -> Self
+pub fn TInstr::return_call_ref(TypeIdx, Array[Self], Self) -> Self
+pub fn TInstr::select(Array[ValType]?, Self, Self, Self) -> Self
+pub fn TInstr::store(StoreOp, MemArg, Self, Self) -> Self
+pub fn TInstr::struct_get(TypeIdx, U32, Self) -> Self
+pub fn TInstr::struct_get_s(TypeIdx, U32, Self) -> Self
+pub fn TInstr::struct_get_u(TypeIdx, U32, Self) -> Self
+pub fn TInstr::struct_new(TypeIdx, Array[Self]) -> Self
+pub fn TInstr::struct_new_default(TypeIdx) -> Self
+pub fn TInstr::struct_set(TypeIdx, U32, Self, Self) -> Self
+pub fn TInstr::table_copy(TableIdx, TableIdx, Self, Self, Self) -> Self
+pub fn TInstr::table_fill(TableIdx, Self, Self, Self) -> Self
+pub fn TInstr::table_get(TableIdx, Self) -> Self
+pub fn TInstr::table_grow(TableIdx, Self, Self) -> Self
+pub fn TInstr::table_init(ElemIdx, TableIdx, Self, Self, Self) -> Self
+pub fn TInstr::table_set(TableIdx, Self, Self) -> Self
+pub fn TInstr::table_size(TableIdx) -> Self
+pub fn TInstr::throw_(TagIdx, Array[Self]) -> Self
+pub fn TInstr::throw_ref(Self) -> Self
+pub fn TInstr::try_table(BlockType, Array[Catch], TExpr) -> Self
+pub fn TInstr::unary(UnaryOp, Self) -> Self
+pub fn TInstr::unreachable_() -> Self
+pub fn TInstr::v128_const(Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte) -> Self
+pub fn TInstr::v128_load_lane(V128LoadLaneOp, MemArg, LaneIdx, Self, Self) -> Self
+pub fn TInstr::v128_shift(V128ShiftOp, Self, Self) -> Self
+pub fn TInstr::v128_store_lane(V128StoreLaneOp, MemArg, LaneIdx, Self, Self) -> Self
+pub fn TInstr::v128_ternary(V128TernaryOp, Self, Self, Self) -> Self
+pub impl Eq for TInstr
+pub impl Hash for TInstr
+pub impl Show for TInstr
+
+pub(all) struct Table(TableType, Expr?)
+
+
+pub fn Table::new(TableType, Expr?) -> Self
+pub impl Eq for Table
+pub impl Hash for Table
+pub impl Show for Table
+pub impl @quickcheck.Arbitrary for Table
+
+pub(all) struct TableIdx(UInt)
+#deprecated
+pub fn TableIdx::inner(Self) -> UInt
+pub fn TableIdx::new(UInt) -> Self
+pub impl Eq for TableIdx
+pub impl Hash for TableIdx
+pub impl Show for TableIdx
+pub impl @quickcheck.Arbitrary for TableIdx
+
+pub(all) struct TableSec(Array[Table])
+#deprecated
+pub fn TableSec::inner(Self) -> Array[Table]
+pub fn TableSec::new(Array[Table]) -> Self
+pub impl Eq for TableSec
+pub impl Hash for TableSec
+pub impl Show for TableSec
+pub impl @quickcheck.Arbitrary for TableSec
+
+pub(all) struct TableType(RefType, Limits)
+
+
+pub impl Eq for TableType
+pub impl Hash for TableType
+pub impl Show for TableType
+pub impl @quickcheck.Arbitrary for TableType
+
+pub(all) struct TagIdx(UInt)
+#deprecated
+pub fn TagIdx::inner(Self) -> UInt
+pub impl Eq for TagIdx
+pub impl Hash for TagIdx
+pub impl Show for TagIdx
+pub impl @quickcheck.Arbitrary for TagIdx
+
+pub(all) struct TagSec(Array[TagType])
+#deprecated
+pub fn TagSec::inner(Self) -> Array[TagType]
+pub impl Eq for TagSec
+pub impl Hash for TagSec
+pub impl Show for TagSec
+pub impl @quickcheck.Arbitrary for TagSec
+
+pub(all) struct TagType(TypeIdx)
+#deprecated
+pub fn TagType::inner(Self) -> TypeIdx
+pub impl Eq for TagType
+pub impl Hash for TagType
+pub impl Show for TagType
+pub impl @quickcheck.Arbitrary for TagType
+
+pub(all) enum TypeIdx {
+  TypeIdx(UInt)
+  RecIdx(UInt)
+}
+pub fn TypeIdx::new(UInt) -> Self
+pub impl Eq for TypeIdx
+pub impl Hash for TypeIdx
+pub impl Show for TypeIdx
+pub impl @quickcheck.Arbitrary for TypeIdx
+
+pub(all) struct TypeSec(Array[RecType])
+#deprecated
+pub fn TypeSec::inner(Self) -> Array[RecType]
+pub fn TypeSec::new(Array[RecType]) -> Self
+pub impl Eq for TypeSec
+pub impl Hash for TypeSec
+pub impl Show for TypeSec
+pub impl @quickcheck.Arbitrary for TypeSec
+
+pub(all) struct U32(UInt)
+#deprecated
+pub fn U32::inner(Self) -> UInt
+pub impl Eq for U32
+pub impl Hash for U32
+pub impl Show for U32
+pub impl @quickcheck.Arbitrary for U32
+
+pub(all) struct U64(UInt64)
+#deprecated
+pub fn U64::inner(Self) -> UInt64
+pub impl Eq for U64
+pub impl Hash for U64
+pub impl Show for U64
+pub impl @quickcheck.Arbitrary for U64
+
+pub(all) enum UnaryOp {
+  I32EqzOp
+  I64EqzOp
+  I32ClzOp
+  I32CtzOp
+  I32PopcntOp
+  I64ClzOp
+  I64CtzOp
+  I64PopcntOp
+  F32AbsOp
+  F32NegOp
+  F32CeilOp
+  F32FloorOp
+  F32TruncOp
+  F32NearestOp
+  F32SqrtOp
+  F64AbsOp
+  F64NegOp
+  F64CeilOp
+  F64FloorOp
+  F64TruncOp
+  F64NearestOp
+  F64SqrtOp
+  I32WrapI64Op
+  I32TruncF32SOp
+  I32TruncF32UOp
+  I32TruncF64SOp
+  I32TruncF64UOp
+  I64ExtendI32SOp
+  I64ExtendI32UOp
+  I64TruncF32SOp
+  I64TruncF32UOp
+  I64TruncF64SOp
+  I64TruncF64UOp
+  F32ConvertI32SOp
+  F32ConvertI32UOp
+  F32ConvertI64SOp
+  F32ConvertI64UOp
+  F32DemoteF64Op
+  F64ConvertI32SOp
+  F64ConvertI32UOp
+  F64ConvertI64SOp
+  F64ConvertI64UOp
+  F64PromoteF32Op
+  I32ReinterpretF32Op
+  I64ReinterpretF64Op
+  F32ReinterpretI32Op
+  F64ReinterpretI64Op
+  I32Extend8SOp
+  I32Extend16SOp
+  I64Extend8SOp
+  I64Extend16SOp
+  I64Extend32SOp
+  I32TruncSatF32SOp
+  I32TruncSatF32UOp
+  I32TruncSatF64SOp
+  I32TruncSatF64UOp
+  I64TruncSatF32SOp
+  I64TruncSatF32UOp
+  I64TruncSatF64SOp
+  I64TruncSatF64UOp
+  V128NotOp
+  I8x16AbsOp
+  I8x16NegOp
+  I8x16PopcntOp
+  I16x8AbsOp
+  I16x8NegOp
+  I32x4AbsOp
+  I32x4NegOp
+  I64x2AbsOp
+  I64x2NegOp
+  F32x4AbsOp
+  F32x4NegOp
+  F32x4SqrtOp
+  F32x4CeilOp
+  F32x4FloorOp
+  F32x4TruncOp
+  F32x4NearestOp
+  F64x2AbsOp
+  F64x2NegOp
+  F64x2SqrtOp
+  F64x2CeilOp
+  F64x2FloorOp
+  F64x2TruncOp
+  F64x2NearestOp
+  V128AnyTrueOp
+  I8x16AllTrueOp
+  I8x16BitmaskOp
+  I16x8AllTrueOp
+  I16x8BitmaskOp
+  I32x4AllTrueOp
+  I32x4BitmaskOp
+  I64x2AllTrueOp
+  I64x2BitmaskOp
+  I16x8ExtendLowI8x16SOp
+  I16x8ExtendHighI8x16SOp
+  I16x8ExtendLowI8x16UOp
+  I16x8ExtendHighI8x16UOp
+  I32x4ExtendLowI16x8SOp
+  I32x4ExtendHighI16x8SOp
+  I32x4ExtendLowI16x8UOp
+  I32x4ExtendHighI16x8UOp
+  I64x2ExtendLowI32x4SOp
+  I64x2ExtendHighI32x4SOp
+  I64x2ExtendLowI32x4UOp
+  I64x2ExtendHighI32x4UOp
+  I16x8ExtaddPairwiseI8x16SOp
+  I16x8ExtaddPairwiseI8x16UOp
+  I32x4ExtaddPairwiseI16x8SOp
+  I32x4ExtaddPairwiseI16x8UOp
+  F32x4DemoteF64x2ZeroOp
+  F64x2PromoteLowF32x4Op
+  I32x4TruncSatF32x4SOp
+  I32x4TruncSatF32x4UOp
+  F32x4ConvertI32x4SOp
+  F32x4ConvertI32x4UOp
+  I32x4TruncSatF64x2SZeroOp
+  I32x4TruncSatF64x2UZeroOp
+  F64x2ConvertLowI32x4SOp
+  F64x2ConvertLowI32x4UOp
+  I32x4RelaxedTruncF32x4SOp
+  I32x4RelaxedTruncF32x4UOp
+  I32x4RelaxedTruncZeroF64x2SOp
+  I32x4RelaxedTruncZeroF64x2UOp
+}
+pub fn UnaryOp::f32_abs() -> Self
+pub fn UnaryOp::f32_ceil() -> Self
+pub fn UnaryOp::f32_convert_i32s() -> Self
+pub fn UnaryOp::f32_convert_i32u() -> Self
+pub fn UnaryOp::f32_convert_i64s() -> Self
+pub fn UnaryOp::f32_convert_i64u() -> Self
+pub fn UnaryOp::f32_demote_f64() -> Self
+pub fn UnaryOp::f32_floor() -> Self
+pub fn UnaryOp::f32_nearest() -> Self
+pub fn UnaryOp::f32_neg() -> Self
+pub fn UnaryOp::f32_reinterpret_i32() -> Self
+pub fn UnaryOp::f32_sqrt() -> Self
+pub fn UnaryOp::f32_trunc() -> Self
+pub fn UnaryOp::f32x4_abs() -> Self
+pub fn UnaryOp::f32x4_ceil() -> Self
+pub fn UnaryOp::f32x4_convert_i32x4s() -> Self
+pub fn UnaryOp::f32x4_convert_i32x4u() -> Self
+pub fn UnaryOp::f32x4_demote_f64x2_zero() -> Self
+pub fn UnaryOp::f32x4_floor() -> Self
+pub fn UnaryOp::f32x4_nearest() -> Self
+pub fn UnaryOp::f32x4_neg() -> Self
+pub fn UnaryOp::f32x4_sqrt() -> Self
+pub fn UnaryOp::f32x4_trunc() -> Self
+pub fn UnaryOp::f64_abs() -> Self
+pub fn UnaryOp::f64_ceil() -> Self
+pub fn UnaryOp::f64_convert_i32s() -> Self
+pub fn UnaryOp::f64_convert_i32u() -> Self
+pub fn UnaryOp::f64_convert_i64s() -> Self
+pub fn UnaryOp::f64_convert_i64u() -> Self
+pub fn UnaryOp::f64_floor() -> Self
+pub fn UnaryOp::f64_nearest() -> Self
+pub fn UnaryOp::f64_neg() -> Self
+pub fn UnaryOp::f64_promote_f32() -> Self
+pub fn UnaryOp::f64_reinterpret_i64() -> Self
+pub fn UnaryOp::f64_sqrt() -> Self
+pub fn UnaryOp::f64_trunc() -> Self
+pub fn UnaryOp::f64x2_abs() -> Self
+pub fn UnaryOp::f64x2_ceil() -> Self
+pub fn UnaryOp::f64x2_convert_low_i32x4s() -> Self
+pub fn UnaryOp::f64x2_convert_low_i32x4u() -> Self
+pub fn UnaryOp::f64x2_floor() -> Self
+pub fn UnaryOp::f64x2_nearest() -> Self
+pub fn UnaryOp::f64x2_neg() -> Self
+pub fn UnaryOp::f64x2_promote_low_f32x4() -> Self
+pub fn UnaryOp::f64x2_sqrt() -> Self
+pub fn UnaryOp::f64x2_trunc() -> Self
+pub fn UnaryOp::i16x8_abs() -> Self
+pub fn UnaryOp::i16x8_all_true() -> Self
+pub fn UnaryOp::i16x8_bitmask() -> Self
+pub fn UnaryOp::i16x8_extadd_pairwise_i8x16s() -> Self
+pub fn UnaryOp::i16x8_extadd_pairwise_i8x16u() -> Self
+pub fn UnaryOp::i16x8_extend_high_i8x16s() -> Self
+pub fn UnaryOp::i16x8_extend_high_i8x16u() -> Self
+pub fn UnaryOp::i16x8_extend_low_i8x16s() -> Self
+pub fn UnaryOp::i16x8_extend_low_i8x16u() -> Self
+pub fn UnaryOp::i16x8_neg() -> Self
+pub fn UnaryOp::i32_clz() -> Self
+pub fn UnaryOp::i32_ctz() -> Self
+pub fn UnaryOp::i32_eqz() -> Self
+pub fn UnaryOp::i32_extend16s() -> Self
+pub fn UnaryOp::i32_extend8s() -> Self
+pub fn UnaryOp::i32_popcnt() -> Self
+pub fn UnaryOp::i32_reinterpret_f32() -> Self
+pub fn UnaryOp::i32_trunc_f32s() -> Self
+pub fn UnaryOp::i32_trunc_f32u() -> Self
+pub fn UnaryOp::i32_trunc_f64s() -> Self
+pub fn UnaryOp::i32_trunc_f64u() -> Self
+pub fn UnaryOp::i32_trunc_sat_f32s() -> Self
+pub fn UnaryOp::i32_trunc_sat_f32u() -> Self
+pub fn UnaryOp::i32_trunc_sat_f64s() -> Self
+pub fn UnaryOp::i32_trunc_sat_f64u() -> Self
+pub fn UnaryOp::i32_wrap_i64() -> Self
+pub fn UnaryOp::i32x4_abs() -> Self
+pub fn UnaryOp::i32x4_all_true() -> Self
+pub fn UnaryOp::i32x4_bitmask() -> Self
+pub fn UnaryOp::i32x4_extadd_pairwise_i16x8s() -> Self
+pub fn UnaryOp::i32x4_extadd_pairwise_i16x8u() -> Self
+pub fn UnaryOp::i32x4_extend_high_i16x8s() -> Self
+pub fn UnaryOp::i32x4_extend_high_i16x8u() -> Self
+pub fn UnaryOp::i32x4_extend_low_i16x8s() -> Self
+pub fn UnaryOp::i32x4_extend_low_i16x8u() -> Self
+pub fn UnaryOp::i32x4_neg() -> Self
+pub fn UnaryOp::i32x4_relaxed_trunc_f32x4s() -> Self
+pub fn UnaryOp::i32x4_relaxed_trunc_f32x4u() -> Self
+pub fn UnaryOp::i32x4_relaxed_trunc_zero_f64x2s() -> Self
+pub fn UnaryOp::i32x4_relaxed_trunc_zero_f64x2u() -> Self
+pub fn UnaryOp::i32x4_trunc_sat_f32x4s() -> Self
+pub fn UnaryOp::i32x4_trunc_sat_f32x4u() -> Self
+pub fn UnaryOp::i32x4_trunc_sat_f64x2s_zero() -> Self
+pub fn UnaryOp::i32x4_trunc_sat_f64x2u_zero() -> Self
+pub fn UnaryOp::i64_clz() -> Self
+pub fn UnaryOp::i64_ctz() -> Self
+pub fn UnaryOp::i64_eqz() -> Self
+pub fn UnaryOp::i64_extend16s() -> Self
+pub fn UnaryOp::i64_extend32s() -> Self
+pub fn UnaryOp::i64_extend8s() -> Self
+pub fn UnaryOp::i64_extend_i32s() -> Self
+pub fn UnaryOp::i64_extend_i32u() -> Self
+pub fn UnaryOp::i64_popcnt() -> Self
+pub fn UnaryOp::i64_reinterpret_f64() -> Self
+pub fn UnaryOp::i64_trunc_f32s() -> Self
+pub fn UnaryOp::i64_trunc_f32u() -> Self
+pub fn UnaryOp::i64_trunc_f64s() -> Self
+pub fn UnaryOp::i64_trunc_f64u() -> Self
+pub fn UnaryOp::i64_trunc_sat_f32s() -> Self
+pub fn UnaryOp::i64_trunc_sat_f32u() -> Self
+pub fn UnaryOp::i64_trunc_sat_f64s() -> Self
+pub fn UnaryOp::i64_trunc_sat_f64u() -> Self
+pub fn UnaryOp::i64x2_abs() -> Self
+pub fn UnaryOp::i64x2_all_true() -> Self
+pub fn UnaryOp::i64x2_bitmask() -> Self
+pub fn UnaryOp::i64x2_extend_high_i32x4s() -> Self
+pub fn UnaryOp::i64x2_extend_high_i32x4u() -> Self
+pub fn UnaryOp::i64x2_extend_low_i32x4s() -> Self
+pub fn UnaryOp::i64x2_extend_low_i32x4u() -> Self
+pub fn UnaryOp::i64x2_neg() -> Self
+pub fn UnaryOp::i8x16_abs() -> Self
+pub fn UnaryOp::i8x16_all_true() -> Self
+pub fn UnaryOp::i8x16_bitmask() -> Self
+pub fn UnaryOp::i8x16_neg() -> Self
+pub fn UnaryOp::i8x16_popcnt() -> Self
+pub fn UnaryOp::v128_any_true() -> Self
+pub fn UnaryOp::v128_not() -> Self
+pub impl Eq for UnaryOp
+pub impl Hash for UnaryOp
+pub impl Show for UnaryOp
+
+pub(all) enum V128LoadLaneOp {
+  V128Load8LaneOp
+  V128Load16LaneOp
+  V128Load32LaneOp
+  V128Load64LaneOp
+}
+pub fn V128LoadLaneOp::v128_load16_lane() -> Self
+pub fn V128LoadLaneOp::v128_load32_lane() -> Self
+pub fn V128LoadLaneOp::v128_load64_lane() -> Self
+pub fn V128LoadLaneOp::v128_load8_lane() -> Self
+pub impl Eq for V128LoadLaneOp
+pub impl Hash for V128LoadLaneOp
+pub impl Show for V128LoadLaneOp
+
+pub(all) enum V128ShiftOp {
+  I8x16ShlOp
+  I8x16ShrSOp
+  I8x16ShrUOp
+  I16x8ShlOp
+  I16x8ShrSOp
+  I16x8ShrUOp
+  I32x4ShlOp
+  I32x4ShrSOp
+  I32x4ShrUOp
+  I64x2ShlOp
+  I64x2ShrSOp
+  I64x2ShrUOp
+}
+pub fn V128ShiftOp::i16x8_shl() -> Self
+pub fn V128ShiftOp::i16x8_shr_s() -> Self
+pub fn V128ShiftOp::i16x8_shr_u() -> Self
+pub fn V128ShiftOp::i32x4_shl() -> Self
+pub fn V128ShiftOp::i32x4_shr_s() -> Self
+pub fn V128ShiftOp::i32x4_shr_u() -> Self
+pub fn V128ShiftOp::i64x2_shl() -> Self
+pub fn V128ShiftOp::i64x2_shr_s() -> Self
+pub fn V128ShiftOp::i64x2_shr_u() -> Self
+pub fn V128ShiftOp::i8x16_shl() -> Self
+pub fn V128ShiftOp::i8x16_shr_s() -> Self
+pub fn V128ShiftOp::i8x16_shr_u() -> Self
+pub impl Eq for V128ShiftOp
+pub impl Hash for V128ShiftOp
+pub impl Show for V128ShiftOp
+
+pub(all) enum V128StoreLaneOp {
+  V128Store8LaneOp
+  V128Store16LaneOp
+  V128Store32LaneOp
+  V128Store64LaneOp
+}
+pub fn V128StoreLaneOp::v128_store16_lane() -> Self
+pub fn V128StoreLaneOp::v128_store32_lane() -> Self
+pub fn V128StoreLaneOp::v128_store64_lane() -> Self
+pub fn V128StoreLaneOp::v128_store8_lane() -> Self
+pub impl Eq for V128StoreLaneOp
+pub impl Hash for V128StoreLaneOp
+pub impl Show for V128StoreLaneOp
+
+pub(all) enum V128TernaryOp {
+  V128BitselectOp
+  I8x16RelaxedLaneselectOp
+  I16x8RelaxedLaneselectOp
+  I32x4RelaxedLaneselectOp
+  I64x2RelaxedLaneselectOp
+  F32x4RelaxedMaddOp
+  F32x4RelaxedNmaddOp
+  F64x2RelaxedMaddOp
+  F64x2RelaxedNmaddOp
+  I32x4RelaxedDotI8x16I7x16AddSOp
+}
+pub fn V128TernaryOp::f32x4_relaxed_madd() -> Self
+pub fn V128TernaryOp::f32x4_relaxed_nmadd() -> Self
+pub fn V128TernaryOp::f64x2_relaxed_madd() -> Self
+pub fn V128TernaryOp::f64x2_relaxed_nmadd() -> Self
+pub fn V128TernaryOp::i16x8_relaxed_laneselect() -> Self
+pub fn V128TernaryOp::i32x4_relaxed_dot_i8x16i7x16_add_s() -> Self
+pub fn V128TernaryOp::i32x4_relaxed_laneselect() -> Self
+pub fn V128TernaryOp::i64x2_relaxed_laneselect() -> Self
+pub fn V128TernaryOp::i8x16_relaxed_laneselect() -> Self
+pub fn V128TernaryOp::v128_bitselect() -> Self
+pub impl Eq for V128TernaryOp
+pub impl Hash for V128TernaryOp
+pub impl Show for V128TernaryOp
+
+pub enum ValType {
+  NumTypeValType(NumType)
+  VecTypeValType
+  RefTypeValType(RefType)
+  BotValType
+}
+pub fn ValType::anyref() -> Self
+pub fn ValType::bottom() -> Self
+pub fn ValType::eqref_null() -> Self
+pub fn ValType::externref() -> Self
+pub fn ValType::f32() -> Self
+pub fn ValType::f64() -> Self
+pub fn ValType::funcref() -> Self
+pub fn ValType::i31ref() -> Self
+pub fn ValType::i31ref_nullable() -> Self
+pub fn ValType::i32() -> Self
+pub fn ValType::i64() -> Self
+pub fn ValType::num_type(NumType) -> Self
+pub fn ValType::ref_array_nonnull(TypeIdx) -> Self
+pub fn ValType::ref_array_nullable(TypeIdx) -> Self
+pub fn ValType::ref_null(HeapType) -> Self
+pub fn ValType::ref_null_array_of(TypeIdx) -> Self
+pub fn ValType::ref_null_exn() -> Self
+pub fn ValType::ref_type(RefType) -> Self
+pub fn ValType::v128() -> Self
+pub impl Eq for ValType
+pub impl Hash for ValType
+pub impl Show for ValType
+pub impl @quickcheck.Arbitrary for ValType
+
+// Type aliases
+pub type ResultType = Array[ValType]
+
+pub type TransformerResult[T, Elem] = Result[(T, Elem)?, String]
+
+// Traits
+
