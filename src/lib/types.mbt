@@ -80,7 +80,7 @@ pub enum StorageType {
 } derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) struct FieldType(StorageType, Mut) derive(Eq, Arbitrary, Hash)
+pub struct FieldType(StorageType, Mut) derive(Eq, Arbitrary, Hash)
 
 ///|
 pub(all) enum Mut {
@@ -7600,4 +7600,8 @@ pub fn NumType::i64() -> NumType {
 ///|
 pub fn TableIdx::new(i : UInt) -> TableIdx {
   TableIdx(i)
+}
+
+pub fn FieldType::new(st : StorageType, m : Mut) -> FieldType {
+  FieldType(st, m)
 }
