@@ -681,7 +681,10 @@ test "f32 parameter is sanitized at function entry" {
 
 ///|
 test "f64 parameter is sanitized at function entry" {
-  let func = @lib.TFunc([ValType::f64()], TExpr::new([TLocalGet(LocalIdx::new(0))]))
+  let func = @lib.TFunc(
+    [ValType::f64()],
+    TExpr::new([TLocalGet(LocalIdx::new(0))]),
+  )
   let mod = make_module_with_code([func])
   let result = run_denam(mod)
   match result {
@@ -740,7 +743,10 @@ test "mixed parameters - only floats sanitized" {
 
 ///|
 test "i32 parameter is not sanitized" {
-  let func = @lib.TFunc([ValType::i32()], TExpr::new([TLocalGet(LocalIdx::new(0))]))
+  let func = @lib.TFunc(
+    [ValType::i32()],
+    TExpr::new([TLocalGet(LocalIdx::new(0))]),
+  )
   let mod = make_module_with_code([func])
   let result = run_denam(mod)
   match result {

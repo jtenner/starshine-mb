@@ -287,10 +287,7 @@ fn make_nullability_flip_transformer() -> ModuleTransformer[Unit] {
                 Some(
                   (
                     (),
-                    RefType::new(
-                      false,
-                      HeapType::abs(AbsHeapType::no_func()),
-                    ),
+                    RefType::new(false, HeapType::abs(AbsHeapType::no_func())),
                   ),
                 ),
               )
@@ -300,10 +297,7 @@ fn make_nullability_flip_transformer() -> ModuleTransformer[Unit] {
                 Some(
                   (
                     (),
-                    RefType::new(
-                      false,
-                      HeapType::abs(AbsHeapType::no_extern()),
-                    ),
+                    RefType::new(false, HeapType::abs(AbsHeapType::no_extern())),
                   ),
                 ),
               )
@@ -313,10 +307,7 @@ fn make_nullability_flip_transformer() -> ModuleTransformer[Unit] {
                 Some(
                   (
                     (),
-                    RefType::new(
-                      false,
-                      HeapType::abs(AbsHeapType::no_exn()),
-                    ),
+                    RefType::new(false, HeapType::abs(AbsHeapType::no_exn())),
                   ),
                 ),
               )
@@ -324,10 +315,7 @@ fn make_nullability_flip_transformer() -> ModuleTransformer[Unit] {
               // For any/eq/struct/array/i31 hierarchy, use none
               Ok(
                 Some(
-                  (
-                    (),
-                    RefType::new(false, HeapType::abs(AbsHeapType::none())),
-                  ),
+                  ((), RefType::new(false, HeapType::abs(AbsHeapType::none()))),
                 ),
               )
           }
@@ -389,9 +377,15 @@ fn make_signature_corruption_transformer() -> ModuleTransformer[Unit] {
             let FieldType(st, mutability) = ft
             match st {
               ValTypeStorageType(NumTypeValType(I32NumType)) =>
-                FieldType::new(StorageType::val_type(ValType::f64()), mutability)
+                FieldType::new(
+                  StorageType::val_type(ValType::f64()),
+                  mutability,
+                )
               ValTypeStorageType(NumTypeValType(I64NumType)) =>
-                FieldType::new(StorageType::val_type(ValType::f32()), mutability)
+                FieldType::new(
+                  StorageType::val_type(ValType::f32()),
+                  mutability,
+                )
               _ => ft
             }
           })
@@ -400,7 +394,7 @@ fn make_signature_corruption_transformer() -> ModuleTransformer[Unit] {
         ArrayCompType(FieldType(st, mutability)) => {
           let new_st = match st {
             ValTypeStorageType(NumTypeValType(I32NumType)) =>
-             StorageType::val_type(ValType::f64())
+              StorageType::val_type(ValType::f64())
             ValTypeStorageType(NumTypeValType(I64NumType)) =>
               StorageType::val_type(ValType::f32())
             _ => st
@@ -880,14 +874,8 @@ test "invalidation fuzzing with coverage" {
 test "HeapTypeSwap transformer actually modifies heap types" {
   // Test that each swap produces a different heap type
   let swaps : Array[(HeapType, HeapType)] = [
-    (
-      HeapType::abs(AbsHeapType::func()),
-      HeapType::abs(AbsHeapType::extern_()),
-    ),
-    (
-      HeapType::abs(AbsHeapType::extern_()),
-      HeapType::abs(AbsHeapType::func()),
-    ),
+    (HeapType::abs(AbsHeapType::func()), HeapType::abs(AbsHeapType::extern_())),
+    (HeapType::abs(AbsHeapType::extern_()), HeapType::abs(AbsHeapType::func())),
     (HeapType::abs(AbsHeapType::any()), HeapType::abs(AbsHeapType::func())),
     (HeapType::abs(AbsHeapType::eq()), HeapType::abs(AbsHeapType::extern_())),
     (HeapType::abs(AbsHeapType::i31()), HeapType::abs(AbsHeapType::func())),
@@ -895,10 +883,7 @@ test "HeapTypeSwap transformer actually modifies heap types" {
       HeapType::abs(AbsHeapType::struct_()),
       HeapType::abs(AbsHeapType::extern_()),
     ),
-    (
-      HeapType::abs(AbsHeapType::array()),
-      HeapType::abs(AbsHeapType::func()),
-    ),
+    (HeapType::abs(AbsHeapType::array()), HeapType::abs(AbsHeapType::func())),
     (HeapType::abs(AbsHeapType::exn()), HeapType::abs(AbsHeapType::any())),
   ]
   for pair in swaps {

@@ -203,10 +203,15 @@ fn subtype_as_heap_fuel(
 fn comptype_matches_abs(ct : CompType, abs : AbsHeapType) -> Bool {
   match ct {
     StructCompType(_) =>
-      abs == AbsHeapType::struct_() || abs == AbsHeapType::eq() || abs == AbsHeapType::any()
+      abs == AbsHeapType::struct_() ||
+      abs == AbsHeapType::eq() ||
+      abs == AbsHeapType::any()
     ArrayCompType(_) =>
-      abs == AbsHeapType::array() || abs == AbsHeapType::eq() || abs == AbsHeapType::any()
-    FuncCompType(_, _) => abs == AbsHeapType::func() || abs == AbsHeapType::any()
+      abs == AbsHeapType::array() ||
+      abs == AbsHeapType::eq() ||
+      abs == AbsHeapType::any()
+    FuncCompType(_, _) =>
+      abs == AbsHeapType::func() || abs == AbsHeapType::any()
   }
 }
 
@@ -275,7 +280,8 @@ fn deftype_matches_abs_fuel(
           abs == AbsHeapType::array() ||
           abs == AbsHeapType::eq() ||
           abs == AbsHeapType::any()
-        FuncCompType(_, _) => abs == AbsHeapType::func() || abs == AbsHeapType::any()
+        FuncCompType(_, _) =>
+          abs == AbsHeapType::func() || abs == AbsHeapType::any()
       }
   }
 }
@@ -527,12 +533,18 @@ test "AbsHeapType: reflexivity" {
   assert_true(Match::matches(AbsHeapType::any(), AbsHeapType::any(), env))
   assert_true(Match::matches(AbsHeapType::eq(), AbsHeapType::eq(), env))
   assert_true(Match::matches(AbsHeapType::i31(), AbsHeapType::i31(), env))
-  assert_true(Match::matches(AbsHeapType::struct_(), AbsHeapType::struct_(), env))
+  assert_true(
+    Match::matches(AbsHeapType::struct_(), AbsHeapType::struct_(), env),
+  )
   assert_true(Match::matches(AbsHeapType::array(), AbsHeapType::array(), env))
   assert_true(Match::matches(AbsHeapType::func(), AbsHeapType::func(), env))
-  assert_true(Match::matches(AbsHeapType::extern_(), AbsHeapType::extern_(), env))
+  assert_true(
+    Match::matches(AbsHeapType::extern_(), AbsHeapType::extern_(), env),
+  )
   assert_true(Match::matches(AbsHeapType::none(), AbsHeapType::none(), env))
-  assert_true(Match::matches(AbsHeapType::no_func(), AbsHeapType::no_func(), env))
+  assert_true(
+    Match::matches(AbsHeapType::no_func(), AbsHeapType::no_func(), env),
+  )
   assert_true(
     Match::matches(AbsHeapType::no_extern(), AbsHeapType::no_extern(), env),
   )
@@ -570,12 +582,16 @@ test "AbsHeapType: none <: any" {
 test "AbsHeapType: noX <: X (bottom types)" {
   let env = Env::new()
   assert_true(Match::matches(AbsHeapType::no_func(), AbsHeapType::func(), env))
-  assert_true(Match::matches(AbsHeapType::no_extern(), AbsHeapType::extern_(), env))
+  assert_true(
+    Match::matches(AbsHeapType::no_extern(), AbsHeapType::extern_(), env),
+  )
   assert_true(Match::matches(AbsHeapType::no_exn(), AbsHeapType::exn(), env))
 
   // reverse should not hold
   assert_false(Match::matches(AbsHeapType::func(), AbsHeapType::no_func(), env))
-  assert_false(Match::matches(AbsHeapType::extern_(), AbsHeapType::no_extern(), env))
+  assert_false(
+    Match::matches(AbsHeapType::extern_(), AbsHeapType::no_extern(), env),
+  )
   assert_false(Match::matches(AbsHeapType::exn(), AbsHeapType::no_exn(), env))
 }
 
@@ -585,7 +601,9 @@ test "AbsHeapType: unrelated types don't match" {
   assert_false(Match::matches(AbsHeapType::func(), AbsHeapType::extern_(), env))
   assert_false(Match::matches(AbsHeapType::extern_(), AbsHeapType::func(), env))
   assert_false(Match::matches(AbsHeapType::i31(), AbsHeapType::func(), env))
-  assert_false(Match::matches(AbsHeapType::struct_(), AbsHeapType::array(), env))
+  assert_false(
+    Match::matches(AbsHeapType::struct_(), AbsHeapType::array(), env),
+  )
 }
 
 // =============================================================================
@@ -769,10 +787,7 @@ test "ValType: ref types delegate to RefType matching" {
 ///|
 test "RefType: nullability - non-null <: nullable" {
   let env = Env::new()
-  let non_null = RefType::new(
-    false,
-    HeapType::abs(AbsHeapType::any()),
-  )
+  let non_null = RefType::new(false, HeapType::abs(AbsHeapType::any()))
   let nullable = RefType::new(true, HeapType::abs(AbsHeapType::any()))
   assert_true(Match::matches(non_null, nullable, env))
   assert_false(Match::matches(nullable, non_null, env))
@@ -803,14 +818,8 @@ test "RefType: heap type subtyping with nullability" {
 test "RefType: non-null subtype matches nullable supertype" {
   let env = Env::new()
   // (ref eq) <: (ref null any)
-  let ref_eq_nonnull = RefType::new(
-    false,
-    HeapType::abs(AbsHeapType::eq()),
-  )
-  let ref_any_null = RefType::new(
-    true,
-    HeapType::abs(AbsHeapType::any()),
-  )
+  let ref_eq_nonnull = RefType::new(false, HeapType::abs(AbsHeapType::eq()))
+  let ref_any_null = RefType::new(true, HeapType::abs(AbsHeapType::any()))
   assert_true(Match::matches(ref_eq_nonnull, ref_any_null, env))
 }
 
@@ -917,9 +926,15 @@ test "CompType: StructCompType - field matching" {
 ///|
 test "CompType: ArrayCompType - field matching" {
   let env = Env::new()
-  let a1 = @lib.ArrayCompType(FieldType::new(StorageType::pack_type(PackType::i8()), Const))
-  let a2 = @lib.ArrayCompType(FieldType::new(StorageType::pack_type(PackType::i8()), Const))
-  let a3 = @lib.ArrayCompType(FieldType::new(StorageType::pack_type(PackType::i8()), Var))
+  let a1 = @lib.ArrayCompType(
+    FieldType::new(StorageType::pack_type(PackType::i8()), Const),
+  )
+  let a2 = @lib.ArrayCompType(
+    FieldType::new(StorageType::pack_type(PackType::i8()), Const),
+  )
+  let a3 = @lib.ArrayCompType(
+    FieldType::new(StorageType::pack_type(PackType::i8()), Var),
+  )
   assert_true(Match::matches(a1, a2, env))
   assert_false(Match::matches(a1, a3, env))
 }

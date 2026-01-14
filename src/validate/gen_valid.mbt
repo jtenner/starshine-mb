@@ -685,10 +685,7 @@ fn find_compatible_table_for_funcref(env : Env) -> TableIdx? {
     let tt = env.tables[i]
     let TableType(rt, _) = tt
     // funcref is compatible with funcref tables
-    let funcref = RefType::new(
-      true,
-      HeapType::abs(AbsHeapType::func()),
-    )
+    let funcref = RefType::new(true, HeapType::abs(AbsHeapType::func()))
     if Match::matches(funcref, rt, env) {
       return Some(TableIdx::new(i.reinterpret_as_uint()))
     }
@@ -734,10 +731,7 @@ pub fn gen_elemsec_valid(
         0 => gen_elem_kind_funcs(rnd, env)
         1 => gen_elem_kind_func_exprs(rnd, env)
         _ => {
-          let rt = RefType::new(
-            true,
-            HeapType::abs(AbsHeapType::func()),
-          )
+          let rt = RefType::new(true, HeapType::abs(AbsHeapType::func()))
           gen_elem_kind_typed_exprs(rnd, env, rt)
         }
       }
@@ -1056,7 +1050,9 @@ pub fn gen_exportsec_valid(
   // Export memory (common for WASI compatibility)
   if env.mems.length() > 0 && rnd.next_uint() % 2 == 0 {
     let name = "memory"
-    exports.push(Export(Name(name.to_string_view()), MemExternIdx(MemIdx::new(0))))
+    exports.push(
+      Export(Name(name.to_string_view()), MemExternIdx(MemIdx::new(0))),
+    )
   }
 
   // Export some globals
@@ -1580,10 +1576,7 @@ fn gen_call_instruction(
         // Find a funcref table
         for i in 0..<env.tables.length() {
           let TableType(rt, _) = env.tables[i]
-          let funcref = RefType::new(
-            true,
-            HeapType::abs(AbsHeapType::func()),
-          )
+          let funcref = RefType::new(true, HeapType::abs(AbsHeapType::func()))
           if Match::matches(funcref, rt, env) {
             // Need to find the function type index
             let func_tidxs = collect_functype_typeidxs(env)

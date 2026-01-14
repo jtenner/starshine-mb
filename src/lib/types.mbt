@@ -1925,6 +1925,7 @@ pub fn TypeIdx::new(idx : UInt) -> TypeIdx {
   TypeIdx(idx)
 }
 
+///|
 pub fn TypeIdx::rec(idx : UInt) -> TypeIdx {
   RecIdx(idx)
 }
@@ -1975,7 +1976,7 @@ pub fn Mut::const_() -> Mut {
 }
 
 ///|
-pub fn Mut::var() -> Mut {
+pub fn Mut::var_() -> Mut {
   Var
 }
 
@@ -7602,25 +7603,37 @@ pub fn TableIdx::new(i : UInt) -> TableIdx {
   TableIdx(i)
 }
 
+///|
 pub fn FieldType::new(st : StorageType, m : Mut) -> FieldType {
   FieldType(st, m)
 }
 
+///|
 pub fn FuncIdx::new(idx : UInt) -> FuncIdx {
   FuncIdx(idx)
 }
+
+///|
 pub fn MemIdx::new(idx : UInt) -> MemIdx {
   MemIdx(idx)
 }
+
+///|
 pub fn GlobalIdx::new(idx : UInt) -> GlobalIdx {
   GlobalIdx(idx)
 }
+
+///|
 pub fn TagIdx::new(idx : UInt) -> TagIdx {
   TagIdx(idx)
 }
+
+///|
 pub fn ElemIdx::new(idx : UInt) -> ElemIdx {
   ElemIdx(idx)
 }
+
+///|
 pub fn DataIdx::new(idx : UInt) -> DataIdx {
   DataIdx(idx)
 }

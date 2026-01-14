@@ -19,8 +19,6 @@ pub fn run_denam(@lib.Module) -> Result[@lib.Module, String]
 // Errors
 
 // Types and methods
-type ATRState
-
 pub struct AlignmentLoweringContext {
   mut locals : Array[@lib.ValType]
   memories : Array[@lib.MemType]
@@ -59,8 +57,6 @@ pub struct SquareMatrix[T] {
 pub fn[T] SquareMatrix::get_or(Self[T], T, UInt, UInt) -> Result[T, String]
 pub fn[T : Default] SquareMatrix::get_or_default(Self[T], UInt, UInt) -> Result[T, String]
 pub fn[T] SquareMatrix::new(size? : UInt) -> Self[T]
-
-type SubTypes
 
 // Type aliases
 

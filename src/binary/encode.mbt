@@ -1836,7 +1836,15 @@ pub impl Decode for Elem with decode(bytes, i) {
         Ok((expr, i)) =>
           match Decode::decode(bytes, i) {
             Ok((fidxs, i)) =>
-              Ok((Elem(ElemMode::active(TableIdx::new(0), expr), ElemKind::funcs(fidxs)), i))
+              Ok(
+                (
+                  Elem(
+                    ElemMode::active(TableIdx::new(0), expr),
+                    ElemKind::funcs(fidxs),
+                  ),
+                  i,
+                ),
+              )
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
@@ -5975,7 +5983,9 @@ test "Ref Types" {
 ///|
 test "Comp Types" {
   roundtrip(
-    @lib.ArrayCompType(FieldType::new(StorageType::val_type(ValType::i32()), Var)),
+    @lib.ArrayCompType(
+      FieldType::new(StorageType::val_type(ValType::i32()), Var),
+    ),
   )
   roundtrip(
     @lib.StructCompType([

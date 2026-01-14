@@ -607,9 +607,10 @@ pub impl Hash for DataCntSec
 pub impl Show for DataCntSec
 pub impl @quickcheck.Arbitrary for DataCntSec
 
-pub(all) struct DataIdx(UInt)
+pub struct DataIdx(UInt)
 #deprecated
 pub fn DataIdx::inner(Self) -> UInt
+pub fn DataIdx::new(UInt) -> Self
 pub impl Eq for DataIdx
 pub impl Hash for DataIdx
 pub impl Show for DataIdx
@@ -654,9 +655,10 @@ pub impl Hash for Elem
 pub impl Show for Elem
 pub impl @quickcheck.Arbitrary for Elem
 
-pub(all) struct ElemIdx(UInt)
+pub struct ElemIdx(UInt)
 #deprecated
 pub fn ElemIdx::inner(Self) -> UInt
+pub fn ElemIdx::new(UInt) -> Self
 pub impl Eq for ElemIdx
 pub impl Hash for ElemIdx
 pub impl Show for ElemIdx
@@ -844,10 +846,11 @@ pub impl Hash for F64
 pub impl Show for F64
 pub impl @quickcheck.Arbitrary for F64
 
-pub(all) struct FieldType(StorageType, Mut)
+pub struct FieldType(StorageType, Mut)
 
 
 pub fn FieldType::is_mutable(Self) -> Bool
+pub fn FieldType::new(StorageType, Mut) -> Self
 pub impl Eq for FieldType
 pub impl Hash for FieldType
 pub impl Show for FieldType
@@ -863,9 +866,10 @@ pub impl Hash for Func
 pub impl Show for Func
 pub impl @quickcheck.Arbitrary for Func
 
-pub(all) struct FuncIdx(UInt)
+pub struct FuncIdx(UInt)
 #deprecated
 pub fn FuncIdx::inner(Self) -> UInt
+pub fn FuncIdx::new(UInt) -> Self
 pub impl Eq for FuncIdx
 pub impl Hash for FuncIdx
 pub impl Show for FuncIdx
@@ -894,9 +898,10 @@ pub impl Hash for Global
 pub impl Show for Global
 pub impl @quickcheck.Arbitrary for Global
 
-pub(all) struct GlobalIdx(UInt)
+pub struct GlobalIdx(UInt)
 #deprecated
 pub fn GlobalIdx::inner(Self) -> UInt
+pub fn GlobalIdx::new(UInt) -> Self
 pub impl Eq for GlobalIdx
 pub impl Hash for GlobalIdx
 pub impl Show for GlobalIdx
@@ -1962,7 +1967,7 @@ pub impl Hash for Instruction
 pub impl Show for Instruction
 pub impl @quickcheck.Arbitrary for Instruction
 
-pub(all) struct LabelIdx(UInt)
+pub struct LabelIdx(UInt)
 #deprecated
 pub fn LabelIdx::inner(Self) -> UInt
 pub fn LabelIdx::new(UInt) -> Self
@@ -1971,7 +1976,7 @@ pub impl Hash for LabelIdx
 pub impl Show for LabelIdx
 pub impl @quickcheck.Arbitrary for LabelIdx
 
-pub(all) struct LaneIdx(Byte)
+pub struct LaneIdx(Byte)
 #deprecated
 pub fn LaneIdx::inner(Self) -> Byte
 pub fn LaneIdx::new(Byte) -> Self
@@ -2053,7 +2058,7 @@ pub impl Eq for LoadOp
 pub impl Hash for LoadOp
 pub impl Show for LoadOp
 
-pub(all) struct LocalIdx(UInt)
+pub struct LocalIdx(UInt)
 #deprecated
 pub fn LocalIdx::inner(Self) -> UInt
 pub fn LocalIdx::new(UInt) -> Self
@@ -2079,9 +2084,10 @@ pub impl Hash for MemArg
 pub impl Show for MemArg
 pub impl @quickcheck.Arbitrary for MemArg
 
-pub(all) struct MemIdx(UInt)
+pub struct MemIdx(UInt)
 #deprecated
 pub fn MemIdx::inner(Self) -> UInt
+pub fn MemIdx::new(UInt) -> Self
 pub impl Eq for MemIdx
 pub impl Hash for MemIdx
 pub impl Show for MemIdx
@@ -2318,7 +2324,7 @@ pub(all) enum Mut {
   Var
 }
 pub fn Mut::const_() -> Self
-pub fn Mut::var() -> Self
+pub fn Mut::var_() -> Self
 pub impl Eq for Mut
 pub impl Hash for Mut
 pub impl Show for Mut
@@ -2347,7 +2353,7 @@ pub impl Hash for NumType
 pub impl Show for NumType
 pub impl @quickcheck.Arbitrary for NumType
 
-pub(all) enum PackType {
+pub enum PackType {
   I16PackType
   I8PackType
 }
@@ -2414,7 +2420,7 @@ pub impl Hash for StartSec
 pub impl Show for StartSec
 pub impl @quickcheck.Arbitrary for StartSec
 
-pub(all) enum StorageType {
+pub enum StorageType {
   ValTypeStorageType(ValType)
   PackTypeStorageType(PackType)
 }
@@ -2686,7 +2692,7 @@ pub impl Hash for Table
 pub impl Show for Table
 pub impl @quickcheck.Arbitrary for Table
 
-pub(all) struct TableIdx(UInt)
+pub struct TableIdx(UInt)
 #deprecated
 pub fn TableIdx::inner(Self) -> UInt
 pub fn TableIdx::new(UInt) -> Self
@@ -2712,9 +2718,10 @@ pub impl Hash for TableType
 pub impl Show for TableType
 pub impl @quickcheck.Arbitrary for TableType
 
-pub(all) struct TagIdx(UInt)
+pub struct TagIdx(UInt)
 #deprecated
 pub fn TagIdx::inner(Self) -> UInt
+pub fn TagIdx::new(UInt) -> Self
 pub impl Eq for TagIdx
 pub impl Hash for TagIdx
 pub impl Show for TagIdx

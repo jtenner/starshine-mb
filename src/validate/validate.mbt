@@ -1231,10 +1231,7 @@ test "RefType HeapTypeRefType with valid AbsHeapType validates" {
 test "RefType HeapTypeRefType nullable and non-nullable validate" {
   let env = empty_env()
   let rt_null = RefType::new(true, HeapType::abs(AbsHeapType::func()))
-  let rt_non_null = RefType::new(
-    false,
-    HeapType::abs(AbsHeapType::func()),
-  )
+  let rt_non_null = RefType::new(false, HeapType::abs(AbsHeapType::func()))
   assert_eq(Validate::validate(rt_null, env), Ok(()))
   assert_eq(Validate::validate(rt_non_null, env), Ok(()))
 }
