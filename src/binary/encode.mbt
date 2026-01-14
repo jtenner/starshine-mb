@@ -10,75 +10,7 @@ pub trait Decode {
 
 ///|
 using @lib {
-  type HeapType,
-  type S33,
-  type F32,
-  type F64,
-  type I32,
-  type I64,
-  type U32,
-  type U64,
-  type AbsHeapType,
-  type RefType,
-  type ValType,
-  type CompType,
-  type FieldType,
-  type Mut,
-  type StorageType,
-  type PackType,
-  type RecType,
-  type SubType,
-  type ExternIdx,
-  type TypeIdx,
-  type FuncIdx,
-  type TableIdx,
-  type MemIdx,
-  type GlobalIdx,
-  type TagIdx,
-  type ElemIdx,
-  type DataIdx,
-  type LocalIdx,
-  type LabelIdx,
-  type LaneIdx,
-  type Name,
-  type CustomSec,
-  type TypeSec,
-  type ImportSec,
-  type Import,
-  type ExternType,
-  type TableType,
-  type Limits,
-  type MemType,
-  type GlobalType,
-  type TagType,
-  type FuncSec,
-  type TableSec,
-  type Table,
-  type MemSec,
-  type GlobalSec,
-  type Global,
-  type ExportSec,
-  type Export,
-  type StartSec,
-  type ElemSec,
-  type Elem,
-  type CodeSec,
-  type Func,
-  type DataSec,
-  type Data,
-  type Locals,
-  type DataCntSec,
-  type TagSec,
-  type CastOp,
-  type Module,
-  type Expr,
-  type Instruction,
-  type ElemMode,
-  type DataMode,
-  type BlockType,
-  type Catch,
-  type MemArg,
-  tlocals_to_locals,
+  
 }
 
 ///|
@@ -2708,7 +2640,7 @@ pub impl Decode for Catch with decode(bytes, i) {
       match Decode::decode(bytes, i + 1) {
         Ok((tidx, i)) =>
           match Decode::decode(bytes, i) {
-            Ok((lidx, i)) => Ok((Catch(tidx, lidx), i))
+            Ok((lidx, i)) => Ok((Catch::new(tidx, lidx), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
@@ -2717,19 +2649,19 @@ pub impl Decode for Catch with decode(bytes, i) {
       match Decode::decode(bytes, i + 1) {
         Ok((tidx, i)) =>
           match Decode::decode(bytes, i) {
-            Ok((lidx, i)) => Ok((CatchRef(tidx, lidx), i))
+            Ok((lidx, i)) => Ok((Catch::ref_(tidx, lidx), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
       }
     Some(0x02) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((idx, i)) => Ok((CatchAll(idx), i))
+        Ok((idx, i)) => Ok((Catch::all(idx), i))
         Err(t) => Err(t)
       }
     Some(0x03) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((idx, i)) => Ok((CatchAllRef(idx), i))
+        Ok((idx, i)) => Ok((Catch::all_ref(idx), i))
         Err(t) => Err(t)
       }
     _ => Err("Invalid catch")

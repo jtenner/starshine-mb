@@ -1773,7 +1773,7 @@ fn gen_try_catch_all(
   // catch_all branches with empty values, outer block has empty result
 
   let try_body = gen_simple_try_body(rnd, st.env)
-  let catch_clause = @lib.CatchAll(LabelIdx::new(0))
+  let catch_clause = Catch::all(LabelIdx::new(0))
   let try_table = @lib.TryTable(
     EmptyBlockType,
     [catch_clause],
@@ -1801,7 +1801,7 @@ fn gen_try_catch_all_ref(
   )
   let outer_bt = @lib.ValTypeBlockType(exnref_nullable)
   let try_body = gen_simple_try_body(rnd, st.env)
-  let catch_clause = @lib.CatchAllRef(LabelIdx::new(0))
+  let catch_clause = Catch::all_ref(LabelIdx::new(0))
   let try_table = @lib.TryTable(
     EmptyBlockType,
     [catch_clause],
@@ -1847,7 +1847,7 @@ fn gen_try_catch(
     Err(e) => return Err(e)
   }
   let try_body = gen_simple_try_body(rnd, st.env)
-  let catch_clause = @lib.Catch(tag_idx, LabelIdx::new(0))
+  let catch_clause = Catch::new(tag_idx, LabelIdx::new(0))
   let try_table = @lib.TryTable(
     EmptyBlockType,
     [catch_clause],
@@ -1892,7 +1892,7 @@ fn gen_try_catch_ref(
   )
   let outer_bt = @lib.ValTypeBlockType(exnref_nullable)
   let try_body = gen_simple_try_body(rnd, st.env)
-  let catch_clause = @lib.CatchRef(tag_idx, LabelIdx::new(0))
+  let catch_clause = Catch::ref_(tag_idx, LabelIdx::new(0))
   let try_table = @lib.TryTable(
     EmptyBlockType,
     [catch_clause],

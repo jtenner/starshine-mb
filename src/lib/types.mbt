@@ -319,7 +319,7 @@ pub(all) enum BlockType {
 } derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) enum Catch {
+pub enum Catch {
   Catch(TagIdx, LabelIdx)
   CatchRef(TagIdx, LabelIdx)
   CatchAll(LabelIdx)
@@ -1981,22 +1981,22 @@ pub fn Mut::var_() -> Mut {
 }
 
 ///|
-pub fn catch_(ti : TagIdx, li : LabelIdx) -> Catch {
+pub fn Catch::new(ti : TagIdx, li : LabelIdx) -> Catch {
   Catch(ti, li)
 }
 
 ///|
-pub fn catch_ref(ti : TagIdx, li : LabelIdx) -> Catch {
+pub fn Catch::ref_(ti : TagIdx, li : LabelIdx) -> Catch {
   CatchRef(ti, li)
 }
 
 ///|
-pub fn catch_all(li : LabelIdx) -> Catch {
+pub fn Catch::all(li : LabelIdx) -> Catch {
   CatchAll(li)
 }
 
 ///|
-pub fn catch_all_ref(li : LabelIdx) -> Catch {
+pub fn Catch::all_ref(li : LabelIdx) -> Catch {
   CatchAllRef(li)
 }
 

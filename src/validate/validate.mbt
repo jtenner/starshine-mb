@@ -1753,20 +1753,20 @@ test "Data with Passive mode validates" {
 ///|
 test "Catch CatchAll validates with valid label" {
   let env = empty_env().with_labels([[]])
-  let c = @lib.CatchAll(LabelIdx::new(0))
+  let c = Catch::all(LabelIdx::new(0))
   assert_eq(Validate::validate(c, env), Ok(()))
 }
 
 ///|
 test "Catch CatchAllRef validates with valid label" {
   let env = empty_env().with_labels([[]])
-  let c = @lib.CatchAllRef(LabelIdx::new(0))
+  let c = Catch::all_ref(LabelIdx::new(0))
   assert_eq(Validate::validate(c, env), Ok(()))
 }
 
 ///|
 test "Catch CatchAll fails with invalid label" {
   let env = empty_env()
-  let c = @lib.CatchAll(LabelIdx::new(0))
+  let c = Catch::all(LabelIdx::new(0))
   assert_eq(Validate::validate(c, env), Err("Invalid LabelIdx"))
 }

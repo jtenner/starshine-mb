@@ -11,14 +11,6 @@ pub fn array_comp_type(FieldType) -> CompType
 
 pub fn[T : @quickcheck.Arbitrary] array_of_arbitrary(UInt, Int, @splitmix.RandomState) -> Array[T]
 
-pub fn catch_(TagIdx, LabelIdx) -> Catch
-
-pub fn catch_all(LabelIdx) -> Catch
-
-pub fn catch_all_ref(LabelIdx) -> Catch
-
-pub fn catch_ref(TagIdx, LabelIdx) -> Catch
-
 pub fn[T, Elem] change(T, Elem) -> Result[(T, Elem)?, String]
 
 pub fn comp_type_sub_type(CompType) -> SubType
@@ -553,12 +545,16 @@ pub impl Hash for CastOp
 pub impl Show for CastOp
 pub impl @quickcheck.Arbitrary for CastOp
 
-pub(all) enum Catch {
+pub enum Catch {
   Catch(TagIdx, LabelIdx)
   CatchRef(TagIdx, LabelIdx)
   CatchAll(LabelIdx)
   CatchAllRef(LabelIdx)
 }
+pub fn Catch::all(LabelIdx) -> Self
+pub fn Catch::all_ref(LabelIdx) -> Self
+pub fn Catch::new(TagIdx, LabelIdx) -> Self
+pub fn Catch::ref_(TagIdx, LabelIdx) -> Self
 pub impl Eq for Catch
 pub impl Hash for Catch
 pub impl Show for Catch
