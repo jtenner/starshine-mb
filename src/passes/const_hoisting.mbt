@@ -275,7 +275,7 @@ pub fn const_hoisting_pass() -> ModuleTransformer[ConstHoistingState] {
           if after < before {
             let next = locals.length().reinterpret_as_uint()
             locals.push(lit.0.get_valtype())
-            replacers.set(lit, @lib.LocalIdx(next))
+            replacers.set(lit, LocalIdx::new(next))
           }
         }
       }

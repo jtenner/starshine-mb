@@ -892,7 +892,7 @@ pub impl Validate for TableIdx with validate(self, env) {
 ///|
 pub impl Validate for MemIdx with validate(self, env) {
   let MemIdx(i) = self
-  match env.get_memtype(i) {
+  match env.get_memtype(MemIdx::new(i)) {
     Some(_) => Ok(())
     None => Err("invalid mem index")
   }
@@ -901,7 +901,7 @@ pub impl Validate for MemIdx with validate(self, env) {
 ///|
 pub impl Validate for GlobalIdx with validate(self, env) {
   let GlobalIdx(i) = self
-  match env.get_global_type(i) {
+  match env.get_global_type(GlobalIdx::new(i)) {
     Some(_) => Ok(())
     None => Err("invalid global index")
   }
@@ -1269,21 +1269,21 @@ test "TypeIdx fails with out of bounds index" {
 ///|
 test "LabelIdx validates when label exists" {
   let env = empty_env().with_labels([[]])
-  let lidx = @lib.LabelIdx(0)
+  let lidx = LabelIdx::new(0)
   assert_eq(Validate::validate(lidx, env), Ok(()))
 }
 
 ///|
 test "LabelIdx fails when label does not exist" {
   let env = empty_env()
-  let lidx = @lib.LabelIdx(0)
+  let lidx = LabelIdx::new(0)
   assert_eq(Validate::validate(lidx, env), Err("Invalid LabelIdx"))
 }
 
 ///|
 test "LabelIdx fails with out of bounds index" {
   let env = empty_env().with_labels([[]])
-  let lidx = @lib.LabelIdx(5)
+  let lidx = LabelIdx::new(5)
   assert_eq(Validate::validate(lidx, env), Err("Invalid LabelIdx"))
 }
 
@@ -1293,14 +1293,14 @@ test "LabelIdx fails with out of bounds index" {
 test "TagIdx validates when tag exists" {
   let st = @lib.CompTypeSubType(FuncCompType([], []))
   let env = empty_env().with_types([st]).with_tags([TagType(TypeIdx::new(0))])
-  let tidx = @lib.TagIdx(0)
+  let tidx = TagIdx::new(0)
   assert_eq(Validate::validate(tidx, env), Ok(()))
 }
 
 ///|
 test "TagIdx fails when tag does not exist" {
   let env = empty_env()
-  let tidx = @lib.TagIdx(0)
+  let tidx = TagIdx::new(0)
   assert_eq(Validate::validate(tidx, env), Err("Invalid TagIdx"))
 }
 
@@ -1309,14 +1309,14 @@ test "TagIdx fails when tag does not exist" {
 ///|
 test "FuncIdx validates when func exists" {
   let env = empty_env().with_funcs([FuncType([], [])])
-  let fidx = @lib.FuncIdx(0)
+  let fidx = FuncIdx::new(0)
   assert_eq(Validate::validate(fidx, env), Ok(()))
 }
 
 ///|
 test "FuncIdx fails when func does not exist" {
   let env = empty_env()
-  let fidx = @lib.FuncIdx(0)
+  let fidx = FuncIdx::new(0)
   assert_eq(Validate::validate(fidx, env), Err("invalid func index"))
 }
 
@@ -1327,14 +1327,14 @@ test "TableIdx validates when table exists" {
   let rt = RefType::abs(AbsHeapType::func())
   let tt = @lib.TableType(rt, I32Limits(0, None))
   let env = empty_env().with_tables([tt])
-  let tidx = @lib.TableIdx(0)
+  let tidx = TableIdx::new(0)
   assert_eq(Validate::validate(tidx, env), Ok(()))
 }
 
 ///|
 test "TableIdx fails when table does not exist" {
   let env = empty_env()
-  let tidx = @lib.TableIdx(0)
+  let tidx = TableIdx::new(0)
   assert_eq(Validate::validate(tidx, env), Err("invalid table index"))
 }
 
@@ -1344,14 +1344,14 @@ test "TableIdx fails when table does not exist" {
 test "MemIdx validates when memory exists" {
   let mt = @lib.MemType(I32Limits(0, None))
   let env = empty_env().with_mems([mt])
-  let midx = @lib.MemIdx(0)
+  let midx = MemIdx::new(0)
   assert_eq(Validate::validate(midx, env), Ok(()))
 }
 
 ///|
 test "MemIdx fails when memory does not exist" {
   let env = empty_env()
-  let midx = @lib.MemIdx(0)
+  let midx = MemIdx::new(0)
   assert_eq(Validate::validate(midx, env), Err("invalid mem index"))
 }
 
@@ -1361,14 +1361,14 @@ test "MemIdx fails when memory does not exist" {
 test "GlobalIdx validates when global exists" {
   let gt = @lib.GlobalType(ValType::i32(), false)
   let env = empty_env().with_globals([gt])
-  let gidx = @lib.GlobalIdx(0)
+  let gidx = GlobalIdx::new(0)
   assert_eq(Validate::validate(gidx, env), Ok(()))
 }
 
 ///|
 test "GlobalIdx fails when global does not exist" {
   let env = empty_env()
-  let gidx = @lib.GlobalIdx(0)
+  let gidx = GlobalIdx::new(0)
   assert_eq(Validate::validate(gidx, env), Err("invalid global index"))
 }
 
@@ -1679,7 +1679,7 @@ test "ExternType FuncExternType fails when func type missing" {
 ///|
 test "ExternIdx FuncExternIdx validates" {
   let env = empty_env().with_funcs([FuncType([], [])])
-  let ei = @lib.FuncExternIdx(FuncIdx(0))
+  let ei = @lib.FuncExternIdx(FuncIdx::new(0))
   assert_eq(Validate::validate(ei, env), Ok(()))
 }
 
@@ -1688,7 +1688,7 @@ test "ExternIdx TableExternIdx validates" {
   let rt = RefType::abs(AbsHeapType::func())
   let tt = @lib.TableType(rt, I32Limits(0, None))
   let env = empty_env().with_tables([tt])
-  let ei = @lib.TableExternIdx(TableIdx(0))
+  let ei = @lib.TableExternIdx(TableIdx::new(0))
   assert_eq(Validate::validate(ei, env), Ok(()))
 }
 
@@ -1696,7 +1696,7 @@ test "ExternIdx TableExternIdx validates" {
 test "ExternIdx MemExternIdx validates" {
   let mt = @lib.MemType(I32Limits(0, None))
   let env = empty_env().with_mems([mt])
-  let ei = @lib.MemExternIdx(MemIdx(0))
+  let ei = @lib.MemExternIdx(MemIdx::new(0))
   assert_eq(Validate::validate(ei, env), Ok(()))
 }
 
@@ -1704,7 +1704,7 @@ test "ExternIdx MemExternIdx validates" {
 test "ExternIdx GlobalExternIdx validates" {
   let gt = @lib.GlobalType(ValType::i32(), false)
   let env = empty_env().with_globals([gt])
-  let ei = @lib.GlobalExternIdx(GlobalIdx(0))
+  let ei = @lib.GlobalExternIdx(GlobalIdx::new(0))
   assert_eq(Validate::validate(ei, env), Ok(()))
 }
 
@@ -1713,14 +1713,14 @@ test "ExternIdx GlobalExternIdx validates" {
 ///|
 test "Export with valid FuncExternIdx validates" {
   let env = empty_env().with_funcs([FuncType([], [])])
-  let exp = @lib.Export(Name("test"), FuncExternIdx(FuncIdx(0)))
+  let exp = @lib.Export(Name("test"), FuncExternIdx(FuncIdx::new(0)))
   assert_eq(Validate::validate(exp, env), Ok(()))
 }
 
 ///|
 test "Export with invalid index fails" {
   let env = empty_env()
-  let exp = @lib.Export(Name("test"), FuncExternIdx(FuncIdx(0)))
+  let exp = @lib.Export(Name("test"), FuncExternIdx(FuncIdx::new(0)))
   assert_eq(Validate::validate(exp, env), Err("invalid func index"))
 }
 
@@ -1756,20 +1756,20 @@ test "Data with Passive mode validates" {
 ///|
 test "Catch CatchAll validates with valid label" {
   let env = empty_env().with_labels([[]])
-  let c = @lib.CatchAll(LabelIdx(0))
+  let c = @lib.CatchAll(LabelIdx::new(0))
   assert_eq(Validate::validate(c, env), Ok(()))
 }
 
 ///|
 test "Catch CatchAllRef validates with valid label" {
   let env = empty_env().with_labels([[]])
-  let c = @lib.CatchAllRef(LabelIdx(0))
+  let c = @lib.CatchAllRef(LabelIdx::new(0))
   assert_eq(Validate::validate(c, env), Ok(()))
 }
 
 ///|
 test "Catch CatchAll fails with invalid label" {
   let env = empty_env()
-  let c = @lib.CatchAll(LabelIdx(0))
+  let c = @lib.CatchAll(LabelIdx::new(0))
   assert_eq(Validate::validate(c, env), Err("Invalid LabelIdx"))
 }

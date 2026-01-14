@@ -141,7 +141,7 @@ fn gen_value_of_type(
             if ctx.env.funcs.length() == 0 {
               return Err("cannot construct non-null funcref: no funcs in env")
             }
-            let idx = @lib.FuncIdx(
+            let idx = FuncIdx::new(
               ctx.rnd.next_uint() % ctx.env.funcs.length().reinterpret_as_uint(),
             )
             let ins = @lib.RefFunc(idx)
@@ -579,7 +579,7 @@ pub fn gen_datasec_valid(
     let mode = if is_active {
       let mem_idx = rnd.next_uint() % env.mems.length().reinterpret_as_uint()
       // Get address type from memory limits
-      let MemType(lim) = match env.get_memtype(MemIdx(mem_idx)) {
+      let MemType(lim) = match env.get_memtype(MemIdx::new(mem_idx)) {
         Some(mt) => mt
         None => return Err("gen_datasec_valid: invalid mem index")
       }
@@ -594,7 +594,7 @@ pub fn gen_datasec_valid(
           Expr::new([I64Const(I64(offset_val))])
         }
       }
-      DataMode::Active(MemIdx(mem_idx), offset_expr)
+      DataMode::Active(MemIdx::new(mem_idx), offset_expr)
     } else {
       Passive
     }
@@ -623,7 +623,7 @@ fn gen_elem_kind_funcs(
   if env.funcs.length() > 0 {
     for _ in 0..<elem_count {
       let fidx = rnd.next_uint() % env.funcs.length().reinterpret_as_uint()
-      func_indices.push(FuncIdx(fidx))
+      func_indices.push(FuncIdx::new(fidx))
     }
   }
   ElemKind::funcs(func_indices)
@@ -639,7 +639,7 @@ fn gen_elem_kind_func_exprs(
   for _ in 0..<elem_count {
     if env.funcs.length() > 0 && (rnd.next_uint() & 1) == 1 {
       let fidx = rnd.next_uint() % env.funcs.length().reinterpret_as_uint()
-      exprs.push(Expr::new([RefFunc(FuncIdx(fidx))]))
+      exprs.push(Expr::new([RefFunc(FuncIdx::new(fidx))]))
     } else {
       // ref.null func
       exprs.push(Expr::new([RefNull(HeapType::abs(AbsHeapType::func()))]))
@@ -668,7 +668,7 @@ fn gen_elem_kind_typed_exprs(
           if env.funcs.length() > 0 {
             let fidx = rnd.next_uint() %
               env.funcs.length().reinterpret_as_uint()
-            exprs.push(Expr::new([RefFunc(FuncIdx(fidx))]))
+            exprs.push(Expr::new([RefFunc(FuncIdx::new(fidx))]))
           }
         _ =>
           // For other non-null types, skip (harder to generate)
@@ -690,7 +690,7 @@ fn find_compatible_table_for_funcref(env : Env) -> TableIdx? {
       HeapType::abs(AbsHeapType::func()),
     )
     if Match::matches(funcref, rt, env) {
-      return Some(TableIdx(i.reinterpret_as_uint()))
+      return Some(TableIdx::new(i.reinterpret_as_uint()))
     }
   }
   None
@@ -942,7 +942,7 @@ fn gen_const_expr_for_valtype(
             if env.funcs.length() > 0 {
               let fidx = rnd.next_uint() %
                 env.funcs.length().reinterpret_as_uint()
-              Expr::new([RefFunc(FuncIdx(fidx))])
+              Expr::new([RefFunc(FuncIdx::new(fidx))])
             } else {
               // Fallback to null (will fail validation for non-null, but safer)
               Expr::new([RefNull(ht)])
@@ -1038,7 +1038,7 @@ pub fn gen_exportsec_valid(
         let name = make_unique_name("func", i)
         let fidx = rnd.next_uint() % env.funcs.length().reinterpret_as_uint()
         exports.push(
-          Export(Name(name.to_string_view()), FuncExternIdx(FuncIdx(fidx))),
+          Export(Name(name.to_string_view()), FuncExternIdx(FuncIdx::new(fidx))),
         )
       }
     }
@@ -1049,14 +1049,14 @@ pub fn gen_exportsec_valid(
     let name = make_unique_name("table", 0)
     let tidx = rnd.next_uint() % env.tables.length().reinterpret_as_uint()
     exports.push(
-      Export(Name(name.to_string_view()), TableExternIdx(TableIdx(tidx))),
+      Export(Name(name.to_string_view()), TableExternIdx(TableIdx::new(tidx))),
     )
   }
 
   // Export memory (common for WASI compatibility)
   if env.mems.length() > 0 && rnd.next_uint() % 2 == 0 {
     let name = "memory"
-    exports.push(Export(Name(name.to_string_view()), MemExternIdx(MemIdx(0))))
+    exports.push(Export(Name(name.to_string_view()), MemExternIdx(MemIdx::new(0))))
   }
 
   // Export some globals
@@ -1067,7 +1067,7 @@ pub fn gen_exportsec_valid(
         exports.push(
           Export(
             Name(name.to_string_view()),
-            GlobalExternIdx(GlobalIdx(i.reinterpret_as_uint())),
+            GlobalExternIdx(GlobalIdx::new(i.reinterpret_as_uint())),
           ),
         )
       }
@@ -1079,7 +1079,7 @@ pub fn gen_exportsec_valid(
     let name = make_unique_name("tag", 0)
     let tidx = rnd.next_uint() % env.tags.length().reinterpret_as_uint()
     exports.push(
-      Export(Name(name.to_string_view()), TagExternIdx(TagIdx(tidx))),
+      Export(Name(name.to_string_view()), TagExternIdx(TagIdx::new(tidx))),
     )
   }
   let ctx2 = ctx.dec_fuel(exports.length())
@@ -1097,7 +1097,7 @@ fn find_start_func_candidate(env : Env) -> FuncIdx? {
     let ft = env.funcs[i]
     let FuncType(params, results) = ft
     if params.length() == 0 && results.length() == 0 {
-      return Some(FuncIdx(i.reinterpret_as_uint()))
+      return Some(FuncIdx::new(i.reinterpret_as_uint()))
     }
   }
   None
@@ -1356,7 +1356,7 @@ fn gen_tag_instruction(
     return None
   }
   let tag_pick = (rnd.next_uint() % env.tags.length().reinterpret_as_uint()).reinterpret_as_int()
-  let tag_idx = @lib.TagIdx(tag_pick.reinterpret_as_uint())
+  let tag_idx = TagIdx::new(tag_pick.reinterpret_as_uint())
 
   // throw is the main instruction we can generate simply
   Some(Throw(tag_idx))
@@ -1414,7 +1414,7 @@ fn gen_ref_instruction(
       // ref.func if we have functions
       if env.funcs.length() > 0 {
         let fidx = rnd.next_uint() % env.funcs.length().reinterpret_as_uint()
-        Some(RefFunc(FuncIdx(fidx)))
+        Some(RefFunc(FuncIdx::new(fidx)))
       } else {
         Some(RefIsNull)
       }
@@ -1486,7 +1486,7 @@ fn gen_memory_instruction(
     return None
   }
   let mem_idx_val = rnd.next_uint() % env.mems.length().reinterpret_as_uint()
-  let mem_idx = @lib.MemIdx(mem_idx_val)
+  let mem_idx = MemIdx::new(mem_idx_val)
 
   // Generate alignment (must be power of 2, encoded as log2)
   // For i32 load/store: max align is 2 (4 bytes)
@@ -1534,7 +1534,7 @@ fn gen_local_instruction(
     return None
   }
   let idx = rnd.next_uint() % env.locals.length().reinterpret_as_uint()
-  let local_idx = @lib.LocalIdx(idx)
+  let local_idx = LocalIdx::new(idx)
   match rnd.next_uint() % 3 {
     0 => Some(LocalGet(local_idx))
     1 => Some(LocalSet(local_idx))
@@ -1551,7 +1551,7 @@ fn gen_global_instruction(
     return None
   }
   let idx = rnd.next_uint() % env.globals.length().reinterpret_as_uint()
-  let global_idx = @lib.GlobalIdx(idx)
+  let global_idx = GlobalIdx::new(idx)
 
   // Check mutability for global.set
   let gt = env.globals[idx.reinterpret_as_int()]
@@ -1573,7 +1573,7 @@ fn gen_call_instruction(
   }
   let fidx = rnd.next_uint() % env.funcs.length().reinterpret_as_uint()
   match rnd.next_uint() % 2 {
-    0 => Some(Call(FuncIdx(fidx)))
+    0 => Some(Call(FuncIdx::new(fidx)))
     _ =>
       // call_indirect needs a table with funcref
       if env.tables.length() > 0 {
@@ -1593,15 +1593,15 @@ fn gen_call_instruction(
               return Some(
                 CallIndirect(
                   func_tidxs[tidx_pick],
-                  TableIdx(i.reinterpret_as_uint()),
+                  TableIdx::new(i.reinterpret_as_uint()),
                 ),
               )
             }
           }
         }
-        Some(Call(FuncIdx(fidx)))
+        Some(Call(FuncIdx::new(fidx)))
       } else {
-        Some(Call(FuncIdx(fidx)))
+        Some(Call(FuncIdx::new(fidx)))
       }
   }
 }
@@ -1615,7 +1615,7 @@ fn gen_table_instruction(
     return None
   }
   let tidx = rnd.next_uint() % env.tables.length().reinterpret_as_uint()
-  let table_idx = @lib.TableIdx(tidx)
+  let table_idx = TableIdx::new(tidx)
   match rnd.next_uint() % 4 {
     0 => Some(TableGet(table_idx))
     1 => Some(TableSet(table_idx))
@@ -1780,7 +1780,7 @@ fn gen_try_catch_all(
   // catch_all branches with empty values, outer block has empty result
 
   let try_body = gen_simple_try_body(rnd, st.env)
-  let catch_clause = @lib.CatchAll(LabelIdx(0))
+  let catch_clause = @lib.CatchAll(LabelIdx::new(0))
   let try_table = @lib.TryTable(
     EmptyBlockType,
     [catch_clause],
@@ -1808,7 +1808,7 @@ fn gen_try_catch_all_ref(
   )
   let outer_bt = @lib.ValTypeBlockType(exnref_nullable)
   let try_body = gen_simple_try_body(rnd, st.env)
-  let catch_clause = @lib.CatchAllRef(LabelIdx(0))
+  let catch_clause = @lib.CatchAllRef(LabelIdx::new(0))
   let try_table = @lib.TryTable(
     EmptyBlockType,
     [catch_clause],
@@ -1836,7 +1836,7 @@ fn gen_try_catch(
   // catch tag L branches with tag's payload types
   // Outer block result = payload types
 
-  let tag_idx = @lib.TagIdx(
+  let tag_idx = TagIdx::new(
     rnd.next_uint() % st.env.tags.length().reinterpret_as_uint(),
   )
   let payload = tag_payload_types(st.env, tag_idx)
@@ -1854,7 +1854,7 @@ fn gen_try_catch(
     Err(e) => return Err(e)
   }
   let try_body = gen_simple_try_body(rnd, st.env)
-  let catch_clause = @lib.Catch(tag_idx, LabelIdx(0))
+  let catch_clause = @lib.Catch(tag_idx, LabelIdx::new(0))
   let try_table = @lib.TryTable(
     EmptyBlockType,
     [catch_clause],
@@ -1880,7 +1880,7 @@ fn gen_try_catch_ref(
   // catch_ref tag L branches with payload + exnref
   // For simplicity, only handle tags with empty payload
 
-  let tag_idx = @lib.TagIdx(
+  let tag_idx = TagIdx::new(
     rnd.next_uint() % st.env.tags.length().reinterpret_as_uint(),
   )
   let payload = tag_payload_types(st.env, tag_idx)
@@ -1899,7 +1899,7 @@ fn gen_try_catch_ref(
   )
   let outer_bt = @lib.ValTypeBlockType(exnref_nullable)
   let try_body = gen_simple_try_body(rnd, st.env)
-  let catch_clause = @lib.CatchRef(tag_idx, LabelIdx(0))
+  let catch_clause = @lib.CatchRef(tag_idx, LabelIdx::new(0))
   let try_table = @lib.TryTable(
     EmptyBlockType,
     [catch_clause],
@@ -1930,7 +1930,7 @@ fn gen_simple_try_body(
 
   // Sometimes throw
   if env.tags.length() > 0 && rnd.next_uint() % 2 == 0 {
-    let tag_idx = @lib.TagIdx(
+    let tag_idx = TagIdx::new(
       rnd.next_uint() % env.tags.length().reinterpret_as_uint(),
     )
     let payload = tag_payload_types(env, tag_idx)

@@ -49,9 +49,11 @@ using @lib {
   type UnaryOp,
   type CodeSec,
   type CastOp,
-  type DefType,
   type RefType,
   type ElemMode,
+  type MemIdx,
+  type ElemIdx,
+  type GlobalIdx,
 }
 
 ///|

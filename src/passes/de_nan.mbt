@@ -187,8 +187,8 @@ fn sanitize_params(
           Some(idx) =>
             prefix.push(
               TLocalSet(
-                LocalIdx(i.reinterpret_as_uint()),
-                TCall(idx, [TLocalGet(LocalIdx(i.reinterpret_as_uint()))]),
+                LocalIdx::new(i.reinterpret_as_uint()),
+                TCall(idx, [TLocalGet(LocalIdx::new(i.reinterpret_as_uint()))]),
               ),
             )
           None => ()
@@ -198,8 +198,8 @@ fn sanitize_params(
           Some(idx) =>
             prefix.push(
               TLocalSet(
-                LocalIdx(i.reinterpret_as_uint()),
-                TCall(idx, [TLocalGet(LocalIdx(i.reinterpret_as_uint()))]),
+                LocalIdx::new(i.reinterpret_as_uint()),
+                TCall(idx, [TLocalGet(LocalIdx::new(i.reinterpret_as_uint()))]),
               ),
             )
           None => ()
@@ -219,13 +219,13 @@ fn sanitize_params(
 fn make_denam32_func() -> Func {
   let cond = @lib.TBinary(
     F32EqOp,
-    TLocalGet(LocalIdx(0)),
-    TLocalGet(LocalIdx(0)),
+    TLocalGet(LocalIdx::new(0)),
+    TLocalGet(LocalIdx::new(0)),
   )
   let body = @lib.TIf(
     ValTypeBlockType(ValType::f32()),
     cond,
-    TExpr::new([TLocalGet(LocalIdx(0))]),
+    TExpr::new([TLocalGet(LocalIdx::new(0))]),
     Some(TExpr::new([TF32Const(F32(0.0))])),
   )
   TFunc([ValType::f32()], TExpr::new([body]))
@@ -235,13 +235,13 @@ fn make_denam32_func() -> Func {
 fn make_denam64_func() -> Func {
   let cond = @lib.TBinary(
     F64EqOp,
-    TLocalGet(LocalIdx(0)),
-    TLocalGet(LocalIdx(0)),
+    TLocalGet(LocalIdx::new(0)),
+    TLocalGet(LocalIdx::new(0)),
   )
   let body = @lib.TIf(
     ValTypeBlockType(ValType::f64()),
     cond,
-    TExpr::new([TLocalGet(LocalIdx(0))]),
+    TExpr::new([TLocalGet(LocalIdx::new(0))]),
     Some(TExpr::new([TF64Const(F64(0.0))])),
   )
   TFunc([ValType::f64()], TExpr::new([body]))
@@ -275,11 +275,11 @@ pub fn run_denam(m : @lib.Module) -> Result[@lib.Module, String] {
   let mut offset = 0U
   let base_count = base_count.reinterpret_as_uint()
   if st1.need_f32 {
-    idx32 = Some(FuncIdx(base_count + offset))
+    idx32 = Some(FuncIdx::new(base_count + offset))
     offset = offset + 1
   }
   if st1.need_f64 {
-    idx64 = Some(FuncIdx(base_count + offset))
+    idx64 = Some(FuncIdx::new(base_count + offset))
     offset = offset + 1
   }
 
@@ -655,7 +655,7 @@ test "f64.div is wrapped with deNan call" {
 test "f32 parameter is sanitized at function entry" {
   let func = @lib.TFunc(
     [ValType::f32()], // One f32 parameter
-    TExpr::new([TLocalGet(LocalIdx(0))], // Just return the parameter
+    TExpr::new([TLocalGet(LocalIdx::new(0))], // Just return the parameter
     ),
   )
   let mod = make_module_with_code([func])
@@ -681,7 +681,7 @@ test "f32 parameter is sanitized at function entry" {
 
 ///|
 test "f64 parameter is sanitized at function entry" {
-  let func = @lib.TFunc([ValType::f64()], TExpr::new([TLocalGet(LocalIdx(0))]))
+  let func = @lib.TFunc([ValType::f64()], TExpr::new([TLocalGet(LocalIdx::new(0))]))
   let mod = make_module_with_code([func])
   let result = run_denam(mod)
   match result {
@@ -707,7 +707,7 @@ test "mixed parameters - only floats sanitized" {
       ValType::i64(), // param 2: i64 - not sanitized
       ValType::f64(),
     ], // param 3: f64 - sanitized
-    TExpr::new([TLocalGet(LocalIdx(0))]),
+    TExpr::new([TLocalGet(LocalIdx::new(0))]),
   )
   let mod = make_module_with_code([func])
   let result = run_denam(mod)
@@ -740,7 +740,7 @@ test "mixed parameters - only floats sanitized" {
 
 ///|
 test "i32 parameter is not sanitized" {
-  let func = @lib.TFunc([ValType::i32()], TExpr::new([TLocalGet(LocalIdx(0))]))
+  let func = @lib.TFunc([ValType::i32()], TExpr::new([TLocalGet(LocalIdx::new(0))]))
   let mod = make_module_with_code([func])
   let result = run_denam(mod)
   match result {
@@ -908,11 +908,11 @@ test "nested expressions are properly wrapped" {
 test "multiple functions are all processed" {
   let func1 = @lib.TFunc(
     [ValType::f32()],
-    TExpr::new([TInstr::unary(F32SqrtOp, TInstr::local_get(LocalIdx(0)))]),
+    TExpr::new([TInstr::unary(F32SqrtOp, TInstr::local_get(LocalIdx::new(0)))]),
   )
   let func2 = @lib.TFunc(
     [ValType::f64()],
-    TExpr::new([TInstr::unary(F64SqrtOp, TInstr::local_get(LocalIdx(0)))]),
+    TExpr::new([TInstr::unary(F64SqrtOp, TInstr::local_get(LocalIdx::new(0)))]),
   )
   let mod = make_module_with_code([func1, func2])
   let result = run_denam(mod)

@@ -333,7 +333,7 @@ pub impl Decode for FieldType with decode(bytes, i) {
     Err(err) => Err(err)
     Ok((st, i)) =>
       match Decode::decode(bytes, i) {
-        Ok((m, i)) => Ok((FieldType(st, m), i))
+        Ok((m, i)) => Ok((FieldType::new(st, m), i))
         Err(err) => Err(err)
       }
   }
@@ -965,7 +965,7 @@ pub impl Encode for FuncIdx with encode(val, buf) {
 pub impl Decode for FuncIdx with decode(bytes, i) {
   match decode_unsigned(bytes, i, 32) {
     Err(t) => Err(t)
-    Ok((n, i)) => Ok((FuncIdx(n.to_uint()), i))
+    Ok((n, i)) => Ok((FuncIdx::new(n.to_uint()), i))
   }
 }
 
@@ -979,7 +979,7 @@ pub impl Encode for TableIdx with encode(val, buf) {
 pub impl Decode for TableIdx with decode(bytes, i) {
   match decode_unsigned(bytes, i, 32) {
     Err(t) => Err(t)
-    Ok((n, i)) => Ok((TableIdx(n.to_uint()), i))
+    Ok((n, i)) => Ok((TableIdx::new(n.to_uint()), i))
   }
 }
 
@@ -993,7 +993,7 @@ pub impl Encode for MemIdx with encode(val, buf) {
 pub impl Decode for MemIdx with decode(bytes, i) {
   match decode_unsigned(bytes, i, 32) {
     Err(t) => Err(t)
-    Ok((n, i)) => Ok((MemIdx(n.to_uint()), i))
+    Ok((n, i)) => Ok((MemIdx::new(n.to_uint()), i))
   }
 }
 
@@ -1007,7 +1007,7 @@ pub impl Encode for GlobalIdx with encode(val, buf) {
 pub impl Decode for GlobalIdx with decode(bytes, i) {
   match decode_unsigned(bytes, i, 32) {
     Err(t) => Err(t)
-    Ok((n, i)) => Ok((GlobalIdx(n.to_uint()), i))
+    Ok((n, i)) => Ok((GlobalIdx::new(n.to_uint()), i))
   }
 }
 
@@ -1021,7 +1021,7 @@ pub impl Encode for TagIdx with encode(val, buf) {
 pub impl Decode for TagIdx with decode(bytes, i) {
   match decode_unsigned(bytes, i, 32) {
     Err(t) => Err(t)
-    Ok((n, i)) => Ok((TagIdx(n.to_uint()), i))
+    Ok((n, i)) => Ok((TagIdx::new(n.to_uint()), i))
   }
 }
 
@@ -1035,7 +1035,7 @@ pub impl Encode for ElemIdx with encode(val, buf) {
 pub impl Decode for ElemIdx with decode(bytes, i) {
   match decode_unsigned(bytes, i, 32) {
     Err(t) => Err(t)
-    Ok((n, i)) => Ok((ElemIdx(n.to_uint()), i))
+    Ok((n, i)) => Ok((ElemIdx::new(n.to_uint()), i))
   }
 }
 
@@ -1049,7 +1049,7 @@ pub impl Encode for DataIdx with encode(val, buf) {
 pub impl Decode for DataIdx with decode(bytes, i) {
   match decode_unsigned(bytes, i, 32) {
     Err(t) => Err(t)
-    Ok((n, i)) => Ok((DataIdx(n.to_uint()), i))
+    Ok((n, i)) => Ok((DataIdx::new(n.to_uint()), i))
   }
 }
 
@@ -1063,7 +1063,7 @@ pub impl Encode for LocalIdx with encode(val, buf) {
 pub impl Decode for LocalIdx with decode(bytes, i) {
   match decode_unsigned(bytes, i, 32) {
     Err(t) => Err(t)
-    Ok((n, i)) => Ok((LocalIdx(n.to_uint()), i))
+    Ok((n, i)) => Ok((LocalIdx::new(n.to_uint()), i))
   }
 }
 
@@ -1077,7 +1077,7 @@ pub impl Encode for LabelIdx with encode(val, buf) {
 pub impl Decode for LabelIdx with decode(bytes, i) {
   match decode_unsigned(bytes, i, 32) {
     Err(t) => Err(t)
-    Ok((n, i)) => Ok((LabelIdx(n.to_uint()), i))
+    Ok((n, i)) => Ok((LabelIdx::new(n.to_uint()), i))
   }
 }
 
@@ -1090,7 +1090,7 @@ pub impl Encode for LaneIdx with encode(val, buf) {
 ///|
 pub impl Decode for LaneIdx with decode(bytes, i) {
   if bytes.get(i) is Some(n) && n < 16 {
-    Ok((LaneIdx(n), i + 1))
+    Ok((LaneIdx::new(n), i + 1))
   } else {
     Err("Invalid Lane Index")
   }
@@ -1836,7 +1836,7 @@ pub impl Decode for Elem with decode(bytes, i) {
         Ok((expr, i)) =>
           match Decode::decode(bytes, i) {
             Ok((fidxs, i)) =>
-              Ok((Elem(ElemMode::active(0, expr), ElemKind::funcs(fidxs)), i))
+              Ok((Elem(ElemMode::active(TableIdx::new(0), expr), ElemKind::funcs(fidxs)), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
@@ -1863,7 +1863,7 @@ pub impl Decode for Elem with decode(bytes, i) {
                       Ok(
                         (
                           Elem(
-                            ElemMode::active(idx, expr),
+                            ElemMode::active(TableIdx::new(idx), expr),
                             ElemKind::funcs(fidxs),
                           ),
                           i,
@@ -1895,7 +1895,7 @@ pub impl Decode for Elem with decode(bytes, i) {
               Ok(
                 (
                   Elem(
-                    ElemMode::active(TableIdx(0), expr),
+                    ElemMode::active(TableIdx::new(0), expr),
                     ElemKind::func_exprs(exprs),
                   ),
                   i,
@@ -2045,7 +2045,7 @@ pub impl Decode for Data with decode(bytes, i) {
         Ok((expr, i)) =>
           match Decode::decode(bytes, i) {
             Ok((bytes, i)) =>
-              Ok((Data(DataMode::Active(MemIdx(0), expr), bytes), i))
+              Ok((Data(DataMode::Active(MemIdx::new(0), expr), bytes), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
@@ -5975,11 +5975,11 @@ test "Ref Types" {
 ///|
 test "Comp Types" {
   roundtrip(
-    @lib.ArrayCompType(FieldType(StorageType::val_type(ValType::i32()), Var)),
+    @lib.ArrayCompType(FieldType::new(StorageType::val_type(ValType::i32()), Var)),
   )
   roundtrip(
     @lib.StructCompType([
-      FieldType(
+      FieldType::new(
         StorageType::val_type(
           ValType::ref_type(
             RefType::new(true, HeapType::abs(AbsHeapType::i31())),
@@ -6015,7 +6015,7 @@ test "Packed Type" {
 test "SubTypes" {
   roundtrip(
     @lib.CompTypeSubType(
-      ArrayCompType(FieldType(StorageType::val_type(ValType::i32()), Var)),
+      ArrayCompType(FieldType::new(StorageType::val_type(ValType::i32()), Var)),
     ),
   )
   roundtrip(

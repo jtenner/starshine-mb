@@ -257,7 +257,7 @@ fn finalize_v128_extending_load(
   // Extract the value at the correct position
   let extracted = TInstr::extract_lane(
     ExtractLaneOp::i8x16_extract_lane_u(),
-    LaneIdx(byte_offset.to_byte()),
+    LaneIdx::new(byte_offset.to_byte()),
     i,
   )
   match stack_size {
@@ -313,14 +313,14 @@ fn finalize_load_op(op : LoadOp, i : TInstr) -> TInstr {
     V128Load32ZeroOp =>
       TReplaceLane(
         ReplaceLaneOp::i32x4_replace_lane(),
-        LaneIdx(0),
+        LaneIdx::new(0),
         TV128Const(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
         i,
       )
     V128Load64ZeroOp =>
       TReplaceLane(
         ReplaceLaneOp::i64x2_replace_lane(),
-        LaneIdx(0),
+        LaneIdx::new(0),
         TV128Const(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
         i,
       )
@@ -1439,7 +1439,7 @@ test "load with explicit memory index" {
   ctx.locals = [ValType::i64()]
   let instr = TInstr::load(
     LoadOp::i32_load(),
-    MemArg::new(U32(1), Some(MemIdx(1)), U64(0)),
+    MemArg::new(U32(1), Some(MemIdx::new(1)), U64(0)),
     TInstr::local_get(LocalIdx::new(0)),
   )
   let result = run_pass(ctx, instr)
@@ -1456,7 +1456,7 @@ test "store with explicit memory index" {
   ctx.locals = [ValType::i64()]
   let instr = TInstr::store(
     StoreOp::i32_store(),
-    MemArg::new(U32(1), Some(MemIdx(1)), U64(0)),
+    MemArg::new(U32(1), Some(MemIdx::new(1)), U64(0)),
     TInstr::local_get(LocalIdx::new(0)),
     TInstr::i32_const(I32(42)),
   )
@@ -1473,7 +1473,7 @@ test "invalid memory index returns error" {
   ctx.locals = [ValType::i32()]
   let instr = TInstr::load(
     LoadOp::i32_load(),
-    MemArg::new(U32(1), Some(MemIdx(99)), U64(0)),
+    MemArg::new(U32(1), Some(MemIdx::new(99)), U64(0)),
     TInstr::local_get(LocalIdx::new(0)),
   )
   let result = run_pass(ctx, instr)

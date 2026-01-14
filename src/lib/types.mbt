@@ -95,34 +95,34 @@ pub enum TypeIdx {
 } derive(Eq, Hash)
 
 ///|
-pub(all) struct FuncIdx(UInt) derive(Eq, Arbitrary, Hash)
+pub struct FuncIdx(UInt) derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) struct TableIdx(UInt) derive(Eq, Arbitrary, Hash)
+pub struct TableIdx(UInt) derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) struct MemIdx(UInt) derive(Eq, Arbitrary, Hash)
+pub struct MemIdx(UInt) derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) struct GlobalIdx(UInt) derive(Eq, Arbitrary, Hash)
+pub struct GlobalIdx(UInt) derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) struct TagIdx(UInt) derive(Eq, Arbitrary, Hash)
+pub struct TagIdx(UInt) derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) struct ElemIdx(UInt) derive(Eq, Arbitrary, Hash)
+pub struct ElemIdx(UInt) derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) struct DataIdx(UInt) derive(Eq, Arbitrary, Hash)
+pub struct DataIdx(UInt) derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) struct LocalIdx(UInt) derive(Eq, Arbitrary, Hash)
+pub struct LocalIdx(UInt) derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) struct LabelIdx(UInt) derive(Eq, Arbitrary, Hash)
+pub struct LabelIdx(UInt) derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) struct LaneIdx(Byte) derive(Eq, Hash)
+pub struct LaneIdx(Byte) derive(Eq, Hash)
 
 ///|
 pub(all) enum CompType {
@@ -7604,4 +7604,23 @@ pub fn TableIdx::new(i : UInt) -> TableIdx {
 
 pub fn FieldType::new(st : StorageType, m : Mut) -> FieldType {
   FieldType(st, m)
+}
+
+pub fn FuncIdx::new(idx : UInt) -> FuncIdx {
+  FuncIdx(idx)
+}
+pub fn MemIdx::new(idx : UInt) -> MemIdx {
+  MemIdx(idx)
+}
+pub fn GlobalIdx::new(idx : UInt) -> GlobalIdx {
+  GlobalIdx(idx)
+}
+pub fn TagIdx::new(idx : UInt) -> TagIdx {
+  TagIdx(idx)
+}
+pub fn ElemIdx::new(idx : UInt) -> ElemIdx {
+  ElemIdx(idx)
+}
+pub fn DataIdx::new(idx : UInt) -> DataIdx {
+  DataIdx(idx)
 }

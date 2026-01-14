@@ -5,8 +5,7 @@ type HeapTypeSet = Set[HeapType]
 type HeapTypeMap = Map[HeapType, HeapType]
 
 ///|
-struct ATRState {
-  created : HeapTypeSet
+priv struct ATRState {
   created_or_sub : HeapTypeSet
   refinable : HeapTypeMap
   mapping : HeapTypeMap
@@ -15,7 +14,7 @@ struct ATRState {
 }
 
 ///|
-struct SubTypes {
+priv struct SubTypes {
   types : Array[HeapType]
   immediate_sub : Map[HeapType, Array[HeapType]]
 }
@@ -57,7 +56,7 @@ fn build_subtypes(mod : Module) -> SubTypes {
 }
 
 ///|
-fn collect_created_types(module : Module) -> HeapTypeSet {
+fn collect_created_types(mod : Module) -> HeapTypeSet {
   let set = Set::new()
   let transformer = ModuleTransformer::{
     ..ModuleTransformer::new(),
@@ -77,7 +76,7 @@ fn collect_created_types(module : Module) -> HeapTypeSet {
       unchanged()
     }),
   }
-  ignore(transformer.walk_module((), module))
+  ignore(transformer.walk_module((), mod))
   set
 }
 
@@ -136,7 +135,7 @@ fn compute_refinable(
 fn build_mapping(state : ATRState) -> HeapTypeMap {
   let mapping = Map::new()
   for t in state.subtypes.types {
-    if !state.created_or_sub.contains(t) {
+    if state.traps_never_happen && !state.created_or_sub.contains(t) {
       mapping[t] = HeapType::bottom()
       continue
     }
@@ -156,7 +155,6 @@ fn rewrite_heaptype(ht : HeapType, mapping : HeapTypeMap) -> HeapType {
 fn rewrite_cast(
   instr : TInstr,
   mapping : HeapTypeMap,
-  traps_never_happen : Bool,
 ) -> TInstr {
   match instr {
     TRefCast(nullable, ht, v) => {
@@ -181,7 +179,8 @@ fn drop_then_unreachable(value : TInstr) -> TInstr {
   TBlock(EmptyBlockType, TExpr::new([TDrop(value), TUnreachable]))
 }
 
-///|
+/// Computes the full abstract-type-refining analysis state.
+/// Must be run before invoking `abstract_type_refining`.
 fn compute_atr_state(mod : Module, traps_never_happen : Bool) -> ATRState {
   let subtypes = build_subtypes(mod)
   let created = collect_created_types(mod)
@@ -192,7 +191,6 @@ fn compute_atr_state(mod : Module, traps_never_happen : Bool) -> ATRState {
     Map::new()
   }
   let tmp_state = ATRState::{
-    created,
     created_or_sub,
     refinable,
     mapping: Map::new(),
@@ -203,20 +201,20 @@ fn compute_atr_state(mod : Module, traps_never_happen : Bool) -> ATRState {
   ATRState::{ ..tmp_state, mapping, }
 }
 
-///|
+///| For exact descriptor casts, normalization must not introduce new successes.
+///| Nullability does not make bottom inhabitable, so it is ignored here.
 fn rewrite_descriptor_exact_ref_cast(
   instr : TInstr,
   mapping : HeapTypeMap,
+  traps_never_happen : Bool,
 ) -> TInstr {
   match instr {
-    TRefCast(nullable, ht, value) =>
-      // If the type was normalized to bottom, this cast is impossible.
-      if ht == HeapType::bottom() {
-        drop_then_unreachable(value)
-      } else if is_refined(ht, mapping) {
-        let refined = mapping.get(ht).unwrap()
-        // If refinement makes this impossible, force trap
-        // or Exact descriptor cast must not gain success
+    TRefCast(_, ht, value) =>
+      // Exact casts must not gain success.
+      // After normalization, this is impossible iff:
+      //   - the type is bottom, or
+      //   - the type was refined to something else.
+      if traps_never_happen && (ht == HeapType::bottom() || is_refined(ht, mapping)) {
         drop_then_unreachable(value)
       } else {
         instr
@@ -229,17 +227,18 @@ fn rewrite_descriptor_exact_ref_cast(
 fn rewrite_descriptor_exact_br_on_cast(
   instr : TInstr,
   mapping : HeapTypeMap,
+  traps_never_happen : Bool,
 ) -> TInstr {
   match instr {
     TBrOnCast(label, op, src_ht, dst_ht, value, args) =>
-      if op.1 && is_refined(dst_ht, mapping) {
+      if traps_never_happen && op.1 && is_refined(dst_ht, mapping) {
         let new_op = CastOp::new(op.0, false)
         TBrOnCast(label, new_op, src_ht, HeapType::bottom(), value, args)
       } else {
         instr
       }
     TBrOnCastFail(label, op, src_ht, dst_ht, value, args) =>
-      if op.1 && is_refined(dst_ht, mapping) {
+      if traps_never_happen && op.1 && is_refined(dst_ht, mapping) {
         let new_op = CastOp::new(op.0, false)
         TBrOnCastFail(label, new_op, src_ht, HeapType::bottom(), value, args)
       } else {
@@ -250,15 +249,13 @@ fn rewrite_descriptor_exact_br_on_cast(
 }
 
 ///|
-fn abstract_type_refining(
-  traps_never_happen : Bool,
-) -> ModuleTransformer[ATRState] {
+fn abstract_type_refining() -> ModuleTransformer[ATRState] {
   ModuleTransformer::{
     ..ModuleTransformer::new(),
     on_tinstruction: Some(fn(_, state, instr) {
-      let instr = rewrite_cast(instr, state.mapping, state.traps_never_happen)
-      let instr = rewrite_descriptor_exact_ref_cast(instr, state.mapping)
-      let instr = rewrite_descriptor_exact_br_on_cast(instr, state.mapping)
+      let instr = rewrite_cast(instr, state.mapping)
+      let instr = rewrite_descriptor_exact_ref_cast(instr, state.mapping, state.traps_never_happen)
+      let instr = rewrite_descriptor_exact_br_on_cast(instr, state.mapping, state.traps_never_happen)
       change(state, instr)
     }),
     on_heaptype: Some(fn(_, state, ht) {
@@ -274,27 +271,10 @@ fn run_abstract_type_refining(
 ) -> Module {
 
   // ---- analysis phase ----
-  let subtypes = build_subtypes(mod)
-  let created = collect_created_types(mod)
-  let created_or_sub = compute_created_or_sub(created, subtypes)
-  let refinable = if traps_never_happen {
-    compute_refinable(created, created_or_sub, subtypes)
-  } else {
-    Map::new()
-  }
-  let tmp_state = ATRState::{
-    created,
-    created_or_sub,
-    refinable,
-    mapping: Map::new(),
-    traps_never_happen,
-    subtypes,
-  }
-  let mapping = build_mapping(tmp_state)
-  let initial_state = ATRState::{ ..tmp_state, mapping, }
+  let initial_state = compute_atr_state(mod, traps_never_happen)
 
   // ---- rewrite phase ----
-  let (_, new_mod) = abstract_type_refining(traps_never_happen)
+  let (_, new_mod) = abstract_type_refining()
     .walk_module(initial_state, mod)
     .unwrap()
     .unwrap()
@@ -341,12 +321,55 @@ test "exact ref.cast collapses to trap" {
     HeapType::new(TypeIdx::new(0)),
     TInstr::ref_null(HeapType::abs(AbsHeapType::any())),
   )
+
   let mapping = Map::new()
-  mapping.set(HeapType::new(TypeIdx::new(0)), HeapType::bottom())
-  let rewritten = rewrite_descriptor_exact_ref_cast(instr, mapping)
+  mapping.set(
+    HeapType::new(TypeIdx::new(0)),
+    HeapType::bottom(),
+  )
+
+  // Phase 1: normalize heap type
+  let instr =
+    rewrite_cast(instr, mapping)
+
+  // Phase 2: exact-descriptor handling
+  let rewritten =
+    rewrite_descriptor_exact_ref_cast(
+      instr,
+      mapping,
+      true,
+    )
+
   match rewritten {
     TBlock(_, _) => ()
     _ => fail("expected drop + unreachable")
+  }
+}
+
+///|
+test "exact ref.cast does not trap when traps may happen" {
+  let instr = TInstr::ref_cast(
+    true,
+    HeapType::new(TypeIdx::new(0)),
+    TInstr::ref_null(HeapType::abs(AbsHeapType::any())),
+  )
+
+  let mapping = Map::new()
+  mapping.set(
+    HeapType::new(TypeIdx::new(0)),
+    HeapType::bottom(),
+  )
+
+  let rewritten =
+    rewrite_descriptor_exact_ref_cast(
+      instr,
+      mapping,
+      false, // traps MAY happen
+    )
+
+  match rewritten {
+    TRefCast(_, _, _) => ()
+    _ => fail("exact cast must not collapse when traps may happen")
   }
 }
 
@@ -359,7 +382,7 @@ test "non-exact cast refines normally" {
   )
   let mapping = Map::new()
   mapping.set(HeapType::new(TypeIdx::new(0)), HeapType::new(TypeIdx::new(1)))
-  let rewritten = rewrite_cast(instr, mapping, true)
+  let rewritten = rewrite_cast(instr, mapping)
   match rewritten {
     TRefCast(_, ht, _) => assert_eq(ht, HeapType::new(TypeIdx::new(1)))
     _ => fail("unexpected rewrite")
@@ -377,13 +400,58 @@ test "exact br_on_cast does not gain success" {
     TInstr::ref_null(HeapType::abs(AbsHeapType::any())),
     [],
   )
+
   let mapping = Map::new()
-  mapping.set(HeapType::new(TypeIdx::new(0)), HeapType::new(TypeIdx::new(2)))
-  let rewritten = rewrite_descriptor_exact_br_on_cast(instr, mapping)
+  mapping.set(
+    HeapType::new(TypeIdx::new(0)),
+    HeapType::new(TypeIdx::new(2)),
+  )
+
+  let rewritten =
+    rewrite_descriptor_exact_br_on_cast(
+      instr,
+      mapping,
+      true, // traps_never_happen
+    )
+
   match rewritten {
     TBrOnCast(_, op, _, dst, _, _) => {
-      assert_true(!op.1)
-      assert_eq(dst, HeapType::bottom())
+      assert_true(!op.1)                 // exact → non-exact
+      assert_eq(dst, HeapType::bottom()) // cannot gain success
+    }
+    _ => fail("unexpected rewrite")
+  }
+}
+
+///|
+test "exact br_on_cast preserved when traps may happen" {
+  let instr = TInstr::br_on_cast(
+    LabelIdx::new(0),
+    true,
+    HeapType::new(TypeIdx::new(1)),
+    true,
+    HeapType::new(TypeIdx::new(0)),
+    TInstr::ref_null(HeapType::abs(AbsHeapType::any())),
+    [],
+  )
+
+  let mapping = Map::new()
+  mapping.set(
+    HeapType::new(TypeIdx::new(0)),
+    HeapType::new(TypeIdx::new(2)),
+  )
+
+  let rewritten =
+    rewrite_descriptor_exact_br_on_cast(
+      instr,
+      mapping,
+      false, // traps MAY happen
+    )
+
+  match rewritten {
+    TBrOnCast(_, op, _, dst, _, _) => {
+      assert_true(op.1) // still exact
+      assert_eq(dst, HeapType::new(TypeIdx::new(0)))
     }
     _ => fail("unexpected rewrite")
   }
@@ -398,6 +466,104 @@ test "abstract array collapses to bottom" {
   )
   let mapping = Map::new()
   mapping.set(HeapType::new(TypeIdx::new(0)), HeapType::bottom())
-  let rewritten = rewrite_cast(instr, mapping, true)
+  let rewritten = rewrite_cast(instr, mapping)
   assert_eq(rewritten, instr) // allocation itself unchanged
+}
+
+test "abstract struct does not trap when traps may happen" {
+  let ht = HeapType::new(TypeIdx::new(0))
+
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec([
+        SingleRecType(
+          comp_type_sub_type(struct_comp_type([]))
+        )
+      ])
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::ref_cast(
+              true,
+              ht,
+              TInstr::ref_null(HeapType::abs(AbsHeapType::any()))
+            )
+          ])
+        )
+      ])
+    )
+
+  let new_mod = run_abstract_type_refining(mod, false)
+
+  let CodeSec(funcs) = new_mod.code_sec.unwrap()
+  let instrs = match funcs[0] {
+    Func(_) => fail("Expected tfunc")
+    TFunc(_, TExpr(instrs)) => instrs
+  }
+
+  match instrs[0] {
+    // Must stay a cast, not a trap
+    TRefCast(_, _, _) => ()
+    _ => fail("cast must not collapse when traps may happen")
+  }
+}
+
+///|
+test "non-bottom refinement allowed even when traps may happen" {
+  let instr = TInstr::ref_cast(
+    true,
+    HeapType::new(TypeIdx::new(0)),
+    TInstr::ref_null(HeapType::abs(AbsHeapType::any()))
+  )
+
+  let mapping = Map::new()
+  mapping.set(
+    HeapType::new(TypeIdx::new(0)),
+    HeapType::new(TypeIdx::new(1))
+  )
+
+  let rewritten = rewrite_cast(instr, mapping)
+
+  match rewritten {
+    TRefCast(_, ht, _) =>
+      assert_eq(ht, HeapType::new(TypeIdx::new(1)))
+    _ => fail("expected safe refinement")
+  }
+}
+
+///|
+test "exact br_on_cast not rewritten when traps may happen" {
+  let instr = TInstr::br_on_cast(
+    LabelIdx::new(0),
+    true,
+    HeapType::new(TypeIdx::new(1)),
+    true,
+    HeapType::new(TypeIdx::new(0)),
+    TInstr::ref_null(HeapType::abs(AbsHeapType::any())),
+    []
+  )
+
+  let mapping = Map::new()
+  mapping.set(
+    HeapType::new(TypeIdx::new(0)),
+    HeapType::new(TypeIdx::new(2))
+  )
+
+  let rewritten =
+    rewrite_descriptor_exact_br_on_cast(
+      instr,
+      mapping,
+      false
+    )
+
+  match rewritten {
+    TBrOnCast(_, op, _, dst, _, _) => {
+      assert_true(op.1)               // still exact
+      assert_eq(dst, HeapType::new(TypeIdx::new(0)))
+    }
+    _ => fail("unexpected rewrite")
+  }
 }

@@ -69,6 +69,7 @@ using @lib {
   type Mut,
   type Module,
   type PackType,
+  type LaneIdx,
   expand_locals,
   equals,
   get_struct_field,

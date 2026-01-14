@@ -14,7 +14,7 @@ fn make_funcidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
       if i >= target {
         Ok(None)
       } else {
-        Ok(Some(((), FuncIdx(i + target))))
+        Ok(Some(((), FuncIdx::new(i + target))))
       }
     }),
   }
@@ -62,7 +62,7 @@ fn make_localidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
       if i >= target {
         Ok(None)
       } else {
-        Ok(Some(((), LocalIdx(i + target))))
+        Ok(Some(((), LocalIdx::new(i + target))))
       }
     }),
   }
@@ -82,7 +82,7 @@ fn make_globalidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
       if i >= target {
         Ok(None)
       } else {
-        Ok(Some(((), GlobalIdx(i + target))))
+        Ok(Some(((), GlobalIdx::new(i + target))))
       }
     }),
   }
@@ -102,7 +102,7 @@ fn make_labelidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
       if i >= target {
         Ok(None)
       } else {
-        Ok(Some(((), LabelIdx(i + target))))
+        Ok(Some(((), LabelIdx::new(i + target))))
       }
     }),
   }
@@ -122,7 +122,7 @@ fn make_tableidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
       if i >= target {
         Ok(None)
       } else {
-        Ok(Some(((), TableIdx(i + target))))
+        Ok(Some(((), TableIdx::new(i + target))))
       }
     }),
   }
@@ -142,7 +142,7 @@ fn make_memidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
       if i >= target {
         Ok(None)
       } else {
-        Ok(Some(((), MemIdx(i + target))))
+        Ok(Some(((), MemIdx::new(i + target))))
       }
     }),
   }
@@ -162,7 +162,7 @@ fn make_dataidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
       if i >= target {
         Ok(None)
       } else {
-        Ok(Some(((), DataIdx(i + target))))
+        Ok(Some(((), DataIdx::new(i + target))))
       }
     }),
   }
@@ -182,7 +182,7 @@ fn make_elemidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
       if i >= target {
         Ok(None)
       } else {
-        Ok(Some(((), ElemIdx(i + target))))
+        Ok(Some(((), ElemIdx::new(i + target))))
       }
     }),
   }
@@ -202,7 +202,7 @@ fn make_tagidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
       if i >= target {
         Ok(None)
       } else {
-        Ok(Some(((), TagIdx(i + target))))
+        Ok(Some(((), TagIdx::new(i + target))))
       }
     }),
   }

@@ -1272,7 +1272,7 @@ fn typecheck_load(
   nbits : Int,
   result : ValType,
 ) -> TcResult {
-  let (_mem, lim) = match memarg_check(st, ma, MemIdx(0), nbits) {
+  let (_mem, lim) = match memarg_check(st, ma, MemIdx::new(0), nbits) {
     Err(e) => return Err(e)
     Ok(x) => x
   }
@@ -1291,7 +1291,7 @@ fn typecheck_store(
   nbits : Int,
   value : ValType,
 ) -> TcResult {
-  let (_mem, lim) = match memarg_check(st, ma, MemIdx(0), nbits) {
+  let (_mem, lim) = match memarg_check(st, ma, MemIdx::new(0), nbits) {
     Err(e) => return Err(e)
     Ok(x) => x
   }
@@ -1694,7 +1694,7 @@ fn typecheck_v128_const(st : TcState) -> TcResult {
 
 ///|
 fn typecheck_v128_mem_load(st : TcState, ma : MemArg, nbits : Int) -> TcResult {
-  let (_mem, lim) = match memarg_check(st, ma, MemIdx(0), nbits) {
+  let (_mem, lim) = match memarg_check(st, ma, MemIdx::new(0), nbits) {
     Err(e) => return Err(e)
     Ok(x) => x
   }
@@ -1708,7 +1708,7 @@ fn typecheck_v128_mem_load(st : TcState, ma : MemArg, nbits : Int) -> TcResult {
 
 ///|
 fn typecheck_v128_mem_store(st : TcState, ma : MemArg, nbits : Int) -> TcResult {
-  let (_mem, lim) = match memarg_check(st, ma, MemIdx(0), nbits) {
+  let (_mem, lim) = match memarg_check(st, ma, MemIdx::new(0), nbits) {
     Err(e) => return Err(e)
     Ok(x) => x
   }
@@ -1739,7 +1739,7 @@ fn typecheck_v128_mem_load_zero(
 
 ///|
 fn typecheck_v128_load_lane(st : TcState, ma : MemArg, nbits : Int) -> TcResult {
-  let (_mem, lim) = match memarg_check(st, ma, MemIdx(0), nbits) {
+  let (_mem, lim) = match memarg_check(st, ma, MemIdx::new(0), nbits) {
     Err(e) => return Err(e)
     Ok(x) => x
   }
@@ -1765,7 +1765,7 @@ fn typecheck_v128_store_lane(
   ma : MemArg,
   nbits : Int,
 ) -> TcResult {
-  let (_mem, lim) = match memarg_check(st, ma, MemIdx(0), nbits) {
+  let (_mem, lim) = match memarg_check(st, ma, MemIdx::new(0), nbits) {
     Err(e) => return Err(e)
     Ok(x) => x
   }
@@ -4657,7 +4657,7 @@ test "Typecheck If fails without condition" {
 test "Typecheck Br" {
   let env = empty_env().with_labels([[]])
   let state = make_state(env, [])
-  let new_state = assert_ok(Typecheck::typecheck(@lib.Br(LabelIdx(0)), state))
+  let new_state = assert_ok(Typecheck::typecheck(@lib.Br(LabelIdx::new(0)), state))
   assert_eq(new_state.reachable, false)
 }
 
@@ -4665,7 +4665,7 @@ test "Typecheck Br" {
 test "Typecheck Br with values" {
   let env = empty_env().with_labels([[ValType::i32()]])
   let state = make_state(env, [ValType::i32()])
-  let new_state = assert_ok(Typecheck::typecheck(@lib.Br(LabelIdx(0)), state))
+  let new_state = assert_ok(Typecheck::typecheck(@lib.Br(LabelIdx::new(0)), state))
   assert_eq(new_state.reachable, false)
 }
 
@@ -4673,7 +4673,7 @@ test "Typecheck Br with values" {
 test "Typecheck Br invalid label" {
   let env = empty_env().with_labels([])
   let state = make_state(env, [])
-  let t = @lib.Br(LabelIdx(0))
+  let t = @lib.Br(LabelIdx::new(0))
   assert_err(Typecheck::typecheck(t, state))
 }
 
@@ -4681,7 +4681,7 @@ test "Typecheck Br invalid label" {
 test "Typecheck BrIf" {
   let env = empty_env().with_labels([[]])
   let state = make_state(env, [ValType::i32()])
-  let t = @lib.BrIf(LabelIdx(0))
+  let t = @lib.BrIf(LabelIdx::new(0))
   let new_state = assert_ok(Typecheck::typecheck(t, state))
   assert_stack(new_state, [])
 }
@@ -4690,7 +4690,7 @@ test "Typecheck BrIf" {
 test "Typecheck BrIf with values" {
   let env = empty_env().with_labels([[ValType::i32()]])
   let state = make_state(env, [ValType::i32(), ValType::i32()])
-  let t = @lib.BrIf(LabelIdx(0))
+  let t = @lib.BrIf(LabelIdx::new(0))
   let new_state = assert_ok(Typecheck::typecheck(t, state))
   assert_stack(new_state, [ValType::i32()])
 }
@@ -4699,7 +4699,7 @@ test "Typecheck BrIf with values" {
 test "Typecheck BrTable" {
   let env = empty_env().with_labels([[], []])
   let state = make_state(env, [ValType::i32()])
-  let br_table = @lib.BrTable([LabelIdx(0)], LabelIdx(1))
+  let br_table = @lib.BrTable([LabelIdx::new(0)], LabelIdx::new(1))
   let new_state = assert_ok(Typecheck::typecheck(br_table, state))
   assert_eq(new_state.reachable, false)
 }
@@ -4710,7 +4710,7 @@ test "Typecheck BrTable with values" {
   let env = empty_env().with_labels([[ValType::i32()], [ValType::i32()]])
   // Stack: [i32 (branch value), i32 (selector)]
   let state = make_state(env, [ValType::i32(), ValType::i32()])
-  let br_table = @lib.BrTable([LabelIdx(0)], LabelIdx(1))
+  let br_table = @lib.BrTable([LabelIdx::new(0)], LabelIdx::new(1))
   let new_state = assert_ok(Typecheck::typecheck(br_table, state))
   assert_eq(new_state.reachable, false)
 }
@@ -4724,7 +4724,7 @@ test "Typecheck BrTable with multiple values" {
   ])
   // Stack: [i32, i64 (branch values), i32 (selector)]
   let state = make_state(env, [ValType::i32(), ValType::i64(), ValType::i32()])
-  let br_table = @lib.BrTable([LabelIdx(0)], LabelIdx(1))
+  let br_table = @lib.BrTable([LabelIdx::new(0)], LabelIdx::new(1))
   let new_state = assert_ok(Typecheck::typecheck(br_table, state))
   assert_eq(new_state.reachable, false)
 }
@@ -4735,8 +4735,8 @@ test "Typecheck BrTable multiple targets" {
   let state = make_state(env, [ValType::i32()])
   // Jump table with 3 entries plus default
   let br_table = @lib.BrTable(
-    [LabelIdx(0), LabelIdx(1), LabelIdx(2)],
-    LabelIdx(3),
+    [LabelIdx::new(0), LabelIdx::new(1), LabelIdx::new(2)],
+    LabelIdx::new(3),
   )
   let new_state = assert_ok(Typecheck::typecheck(br_table, state))
   assert_eq(new_state.reachable, false)
@@ -4746,7 +4746,7 @@ test "Typecheck BrTable multiple targets" {
 test "Typecheck BrTable invalid default label" {
   let env = empty_env().with_labels([[]])
   let state = make_state(env, [ValType::i32()])
-  let br_table = @lib.BrTable([LabelIdx(0)], LabelIdx(5)) // invalid default
+  let br_table = @lib.BrTable([LabelIdx::new(0)], LabelIdx::new(5)) // invalid default
   assert_err(Typecheck::typecheck(br_table, state))
 }
 
@@ -4754,7 +4754,7 @@ test "Typecheck BrTable invalid default label" {
 test "Typecheck BrTable invalid table label" {
   let env = empty_env().with_labels([[]])
   let state = make_state(env, [ValType::i32()])
-  let br_table = @lib.BrTable([LabelIdx(0), LabelIdx(99)], LabelIdx(0)) // invalid in table
+  let br_table = @lib.BrTable([LabelIdx::new(0), LabelIdx::new(99)], LabelIdx::new(0)) // invalid in table
   assert_err(Typecheck::typecheck(br_table, state))
 }
 
@@ -4763,7 +4763,7 @@ test "Typecheck BrTable mismatched label types" {
   // Labels have different arities - this is invalid
   let env = empty_env().with_labels([[ValType::i32()], []])
   let state = make_state(env, [ValType::i32(), ValType::i32()])
-  let br_table = @lib.BrTable([LabelIdx(0)], LabelIdx(1))
+  let br_table = @lib.BrTable([LabelIdx::new(0)], LabelIdx::new(1))
   assert_err(Typecheck::typecheck(br_table, state))
 }
 
@@ -4772,7 +4772,7 @@ test "Typecheck BrTable mismatched label value types" {
   // Labels have same arity but different types
   let env = empty_env().with_labels([[ValType::i32()], [ValType::i64()]])
   let state = make_state(env, [ValType::i32(), ValType::i32()])
-  let br_table = @lib.BrTable([LabelIdx(0)], LabelIdx(1))
+  let br_table = @lib.BrTable([LabelIdx::new(0)], LabelIdx::new(1))
   assert_err(Typecheck::typecheck(br_table, state))
 }
 
@@ -4780,7 +4780,7 @@ test "Typecheck BrTable mismatched label value types" {
 test "Typecheck BrTable missing selector" {
   let env = empty_env().with_labels([[], []])
   let state = make_state(env, []) // empty stack - no selector
-  let br_table = @lib.BrTable([LabelIdx(0)], LabelIdx(1))
+  let br_table = @lib.BrTable([LabelIdx::new(0)], LabelIdx::new(1))
   assert_err(Typecheck::typecheck(br_table, state))
 }
 
@@ -4789,7 +4789,7 @@ test "Typecheck BrTable missing branch values" {
   // Labels expect an i32 but stack only has the selector
   let env = empty_env().with_labels([[ValType::i32()], [ValType::i32()]])
   let state = make_state(env, [ValType::i32()]) // only selector, no branch value
-  let br_table = @lib.BrTable([LabelIdx(0)], LabelIdx(1))
+  let br_table = @lib.BrTable([LabelIdx::new(0)], LabelIdx::new(1))
   assert_err(Typecheck::typecheck(br_table, state))
 }
 
@@ -4797,7 +4797,7 @@ test "Typecheck BrTable missing branch values" {
 test "Typecheck BrTable wrong selector type" {
   let env = empty_env().with_labels([[], []])
   let state = make_state(env, [ValType::i64()]) // wrong type for selector
-  let br_table = @lib.BrTable([LabelIdx(0)], LabelIdx(1))
+  let br_table = @lib.BrTable([LabelIdx::new(0)], LabelIdx::new(1))
   assert_err(Typecheck::typecheck(br_table, state))
 }
 
@@ -4889,7 +4889,7 @@ test "Typecheck Select type mismatch fails" {
 test "Typecheck LocalGet" {
   let env : Env = { ..empty_env(), locals: [ValType::i32()] }
   let state = make_state(env, [])
-  let t = @lib.LocalGet(LocalIdx(0))
+  let t = @lib.LocalGet(LocalIdx::new(0))
   let new_state = assert_ok(Typecheck::typecheck(t, state))
   assert_stack(new_state, [ValType::i32()])
 }
@@ -4898,7 +4898,7 @@ test "Typecheck LocalGet" {
 test "Typecheck LocalGet invalid index" {
   let env : Env = { ..empty_env(), locals: [] }
   let state = make_state(env, [])
-  let t = @lib.LocalGet(LocalIdx(0))
+  let t = @lib.LocalGet(LocalIdx::new(0))
   assert_err(Typecheck::typecheck(t, state))
 }
 
@@ -4906,7 +4906,7 @@ test "Typecheck LocalGet invalid index" {
 test "Typecheck LocalSet" {
   let env : Env = { ..empty_env(), locals: [ValType::i32()] }
   let state = make_state(env, [ValType::i32()])
-  let t = @lib.LocalSet(LocalIdx(0))
+  let t = @lib.LocalSet(LocalIdx::new(0))
   let new_state = assert_ok(Typecheck::typecheck(t, state))
   assert_stack(new_state, [])
 }
@@ -4915,7 +4915,7 @@ test "Typecheck LocalSet" {
 test "Typecheck LocalSet type mismatch" {
   let env = Env::{ ..empty_env(), locals: [ValType::i32()] }
   let state = make_state(env, [ValType::i64()])
-  let t = @lib.LocalSet(LocalIdx(0))
+  let t = @lib.LocalSet(LocalIdx::new(0))
   assert_err(Typecheck::typecheck(t, state))
 }
 
@@ -4923,7 +4923,7 @@ test "Typecheck LocalSet type mismatch" {
 test "Typecheck LocalTee" {
   let env : Env = { ..empty_env(), locals: [ValType::i32()] }
   let state = make_state(env, [ValType::i32()])
-  let t = @lib.LocalTee(LocalIdx(0))
+  let t = @lib.LocalTee(LocalIdx::new(0))
   let new_state = assert_ok(Typecheck::typecheck(t, state))
   assert_stack(new_state, [ValType::i32()])
 }
@@ -4935,7 +4935,7 @@ test "Typecheck GlobalGet" {
     globals: [GlobalType(ValType::i32(), false)],
   }
   let state = make_state(env, [])
-  let t = @lib.GlobalGet(GlobalIdx(0))
+  let t = @lib.GlobalGet(GlobalIdx::new(0))
   let new_state = assert_ok(Typecheck::typecheck(t, state))
   assert_stack(new_state, [ValType::i32()])
 }
@@ -4945,7 +4945,7 @@ test "Typecheck GlobalSet mutable" {
   let env : Env = { ..empty_env(), globals: [GlobalType(ValType::i32(), true)] }
   let state = make_state(env, [ValType::i32()])
   let new_state = assert_ok(
-    Typecheck::typecheck(@lib.GlobalSet(GlobalIdx(0)), state),
+    Typecheck::typecheck(@lib.GlobalSet(GlobalIdx::new(0)), state),
   )
   assert_stack(new_state, [])
 }
@@ -4957,7 +4957,7 @@ test "Typecheck GlobalSet immutable fails" {
     globals: [GlobalType(ValType::i32(), false)],
   }
   let state = make_state(env, [ValType::i32()])
-  assert_err(Typecheck::typecheck(@lib.GlobalSet(GlobalIdx(0)), state))
+  assert_err(Typecheck::typecheck(@lib.GlobalSet(GlobalIdx::new(0)), state))
 }
 
 // =============================================================================
@@ -4973,7 +4973,7 @@ test "Typecheck TableGet" {
   let env : Env = { ..empty_env(), tables: [table_type] }
   let state = make_state(env, [ValType::i32()])
   let new_state = assert_ok(
-    Typecheck::typecheck(@lib.TableGet(TableIdx(0)), state),
+    Typecheck::typecheck(@lib.TableGet(TableIdx::new(0)), state),
   )
   assert_stack(new_state, [nullable_funcref()])
 }
@@ -4987,7 +4987,7 @@ test "Typecheck TableSet" {
   let env : Env = { ..empty_env(), tables: [table_type] }
   let state = make_state(env, [ValType::i32(), nullable_funcref()])
   let new_state = assert_ok(
-    Typecheck::typecheck(@lib.TableSet(TableIdx(0)), state),
+    Typecheck::typecheck(@lib.TableSet(TableIdx::new(0)), state),
   )
   assert_stack(new_state, [])
 }
@@ -5001,7 +5001,7 @@ test "Typecheck TableSize" {
   let env : Env = { ..empty_env(), tables: [table_type] }
   let state = make_state(env, [])
   let new_state = assert_ok(
-    Typecheck::typecheck(@lib.TableSize(TableIdx(0)), state),
+    Typecheck::typecheck(@lib.TableSize(TableIdx::new(0)), state),
   )
   assert_stack(new_state, [ValType::i32()])
 }
@@ -5015,7 +5015,7 @@ test "Typecheck TableGrow" {
   let env : Env = { ..empty_env(), tables: [table_type] }
   let state = make_state(env, [nullable_funcref(), ValType::i32()])
   let new_state = assert_ok(
-    Typecheck::typecheck(@lib.TableGrow(TableIdx(0)), state),
+    Typecheck::typecheck(@lib.TableGrow(TableIdx::new(0)), state),
   )
   assert_stack(new_state, [ValType::i32()])
 }
@@ -5033,7 +5033,7 @@ test "Typecheck TableFill" {
     ValType::i32(),
   ])
   let new_state = assert_ok(
-    Typecheck::typecheck(@lib.TableFill(TableIdx(0)), state),
+    Typecheck::typecheck(@lib.TableFill(TableIdx::new(0)), state),
   )
   assert_stack(new_state, [])
 }
@@ -5047,7 +5047,7 @@ test "Typecheck TableCopy" {
   let env : Env = { ..empty_env(), tables: [table_type, table_type] }
   let state = make_state(env, [ValType::i32(), ValType::i32(), ValType::i32()])
   let new_state = assert_ok(
-    Typecheck::typecheck(@lib.TableCopy(TableIdx(0), TableIdx(1)), state),
+    Typecheck::typecheck(@lib.TableCopy(TableIdx::new(0), TableIdx::new(1)), state),
   )
   assert_stack(new_state, [])
 }
@@ -5221,7 +5221,7 @@ test "Typecheck MemorySize" {
   let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
   let state = make_state(env, [])
   let new_state = assert_ok(
-    Typecheck::typecheck(@lib.MemorySize(MemIdx(0)), state),
+    Typecheck::typecheck(@lib.MemorySize(MemIdx::new(0)), state),
   )
   assert_stack(new_state, [ValType::i32()])
 }
@@ -5231,7 +5231,7 @@ test "Typecheck MemoryGrow" {
   let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
   let state = make_state(env, [ValType::i32()])
   let new_state = assert_ok(
-    Typecheck::typecheck(@lib.MemoryGrow(MemIdx(0)), state),
+    Typecheck::typecheck(@lib.MemoryGrow(MemIdx::new(0)), state),
   )
   assert_stack(new_state, [ValType::i32()])
 }
@@ -5241,7 +5241,7 @@ test "Typecheck MemoryCopy" {
   let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
   let state = make_state(env, [ValType::i32(), ValType::i32(), ValType::i32()])
   let new_state = assert_ok(
-    Typecheck::typecheck(@lib.MemoryCopy(MemIdx(0), MemIdx(0)), state),
+    Typecheck::typecheck(@lib.MemoryCopy(MemIdx::new(0), MemIdx::new(0)), state),
   )
   assert_stack(new_state, [])
 }
@@ -5251,7 +5251,7 @@ test "Typecheck MemoryFill" {
   let env : Env = { ..empty_env(), mems: [MemType(I32Limits(1, None))] }
   let state = make_state(env, [ValType::i32(), ValType::i32(), ValType::i32()])
   let new_state = assert_ok(
-    Typecheck::typecheck(@lib.MemoryFill(MemIdx(0)), state),
+    Typecheck::typecheck(@lib.MemoryFill(MemIdx::new(0)), state),
   )
   assert_stack(new_state, [])
 }
@@ -6057,7 +6057,7 @@ test "Typecheck RefAsNonNull" {
 test "Typecheck BrOnNonNull basic" {
   let env = empty_env().with_labels([[non_nullable_funcref()]])
   let state = make_state(env, [nullable_funcref()])
-  let result = Typecheck::typecheck(@lib.BrOnNonNull(LabelIdx(0)), state)
+  let result = Typecheck::typecheck(@lib.BrOnNonNull(LabelIdx::new(0)), state)
   let new_state = assert_ok(result)
   assert_stack(new_state, [])
 }
@@ -6066,7 +6066,7 @@ test "Typecheck BrOnNonNull basic" {
 test "Typecheck BrOnNonNull with prefix types" {
   let env = empty_env().with_labels([[ValType::i32(), non_nullable_funcref()]])
   let state = make_state(env, [ValType::i32(), nullable_funcref()])
-  let result = Typecheck::typecheck(@lib.BrOnNonNull(LabelIdx(0)), state)
+  let result = Typecheck::typecheck(@lib.BrOnNonNull(LabelIdx::new(0)), state)
   let new_state = assert_ok(result)
   assert_stack(new_state, [ValType::i32()])
 }
@@ -6075,7 +6075,7 @@ test "Typecheck BrOnNonNull with prefix types" {
 test "Typecheck BrOnNonNull with externref" {
   let env = empty_env().with_labels([[non_nullable_externref()]])
   let state = make_state(env, [nullable_externref()])
-  let result = Typecheck::typecheck(@lib.BrOnNonNull(LabelIdx(0)), state)
+  let result = Typecheck::typecheck(@lib.BrOnNonNull(LabelIdx::new(0)), state)
   let new_state = assert_ok(result)
   assert_stack(new_state, [])
 }
@@ -6084,7 +6084,7 @@ test "Typecheck BrOnNonNull with externref" {
 test "Typecheck BrOnNonNull fails with wrong label type" {
   let env = empty_env().with_labels([[ValType::i32()]])
   let state = make_state(env, [nullable_funcref()])
-  let result = Typecheck::typecheck(@lib.BrOnNonNull(LabelIdx(0)), state)
+  let result = Typecheck::typecheck(@lib.BrOnNonNull(LabelIdx::new(0)), state)
   assert_true(result is Err(_))
 }
 
@@ -6094,7 +6094,7 @@ test "Typecheck BrOnNonNull fails with wrong label type" {
 test "Typecheck BrOnNull basic" {
   let env = empty_env().with_labels([[]]) // label takes no values
   let state = make_state(env, [nullable_funcref()])
-  let result = Typecheck::typecheck(@lib.BrOnNull(LabelIdx(0)), state)
+  let result = Typecheck::typecheck(@lib.BrOnNull(LabelIdx::new(0)), state)
   let new_state = assert_ok(result)
   // Fallthrough pushes non-nullable ref
   assert_stack(new_state, [non_nullable_funcref()])
@@ -6104,7 +6104,7 @@ test "Typecheck BrOnNull basic" {
 test "Typecheck BrOnNull with prefix types" {
   let env = empty_env().with_labels([[ValType::i32()]])
   let state = make_state(env, [ValType::i32(), nullable_funcref()])
-  let result = Typecheck::typecheck(@lib.BrOnNull(LabelIdx(0)), state)
+  let result = Typecheck::typecheck(@lib.BrOnNull(LabelIdx::new(0)), state)
   let new_state = assert_ok(result)
   assert_stack(new_state, [ValType::i32(), non_nullable_funcref()])
 }
@@ -6113,7 +6113,7 @@ test "Typecheck BrOnNull with prefix types" {
 test "Typecheck BrOnNull with externref" {
   let env = empty_env().with_labels([[]])
   let state = make_state(env, [nullable_externref()])
-  let result = Typecheck::typecheck(@lib.BrOnNull(LabelIdx(0)), state)
+  let result = Typecheck::typecheck(@lib.BrOnNull(LabelIdx::new(0)), state)
   let new_state = assert_ok(result)
   assert_stack(new_state, [non_nullable_externref()])
 }
@@ -6350,7 +6350,7 @@ test "Typecheck F64x2Splat" {
 test "Typecheck I8x16ExtractLaneS" {
   let state = make_state(empty_env(), [ValType::v128()])
   let new_state = assert_ok(
-    Typecheck::typecheck(@lib.I8x16ExtractLaneS(LaneIdx(0)), state),
+    Typecheck::typecheck(@lib.I8x16ExtractLaneS(LaneIdx::new(0)), state),
   )
   assert_stack(new_state, [ValType::i32()])
 }
@@ -6359,7 +6359,7 @@ test "Typecheck I8x16ExtractLaneS" {
 test "Typecheck I16x8ExtractLaneU" {
   let state = make_state(empty_env(), [ValType::v128()])
   let new_state = assert_ok(
-    Typecheck::typecheck(@lib.I16x8ExtractLaneU(LaneIdx(3)), state),
+    Typecheck::typecheck(@lib.I16x8ExtractLaneU(LaneIdx::new(3)), state),
   )
   assert_stack(new_state, [ValType::i32()])
 }
@@ -6368,7 +6368,7 @@ test "Typecheck I16x8ExtractLaneU" {
 test "Typecheck I32x4ExtractLane" {
   let state = make_state(empty_env(), [ValType::v128()])
   let new_state = assert_ok(
-    Typecheck::typecheck(@lib.I32x4ExtractLane(LaneIdx(1)), state),
+    Typecheck::typecheck(@lib.I32x4ExtractLane(LaneIdx::new(1)), state),
   )
   assert_stack(new_state, [ValType::i32()])
 }
@@ -6377,7 +6377,7 @@ test "Typecheck I32x4ExtractLane" {
 test "Typecheck I64x2ExtractLane" {
   let state = make_state(empty_env(), [ValType::v128()])
   let new_state = assert_ok(
-    Typecheck::typecheck(@lib.I64x2ExtractLane(LaneIdx(0)), state),
+    Typecheck::typecheck(@lib.I64x2ExtractLane(LaneIdx::new(0)), state),
   )
   assert_stack(new_state, [ValType::i64()])
 }
@@ -6386,7 +6386,7 @@ test "Typecheck I64x2ExtractLane" {
 test "Typecheck F32x4ExtractLane" {
   let state = make_state(empty_env(), [ValType::v128()])
   let new_state = assert_ok(
-    Typecheck::typecheck(@lib.F32x4ExtractLane(LaneIdx(2)), state),
+    Typecheck::typecheck(@lib.F32x4ExtractLane(LaneIdx::new(2)), state),
   )
   assert_stack(new_state, [ValType::f32()])
 }
@@ -6395,7 +6395,7 @@ test "Typecheck F32x4ExtractLane" {
 test "Typecheck F64x2ExtractLane" {
   let state = make_state(empty_env(), [ValType::v128()])
   let new_state = assert_ok(
-    Typecheck::typecheck(@lib.F64x2ExtractLane(LaneIdx(1)), state),
+    Typecheck::typecheck(@lib.F64x2ExtractLane(LaneIdx::new(1)), state),
   )
   assert_stack(new_state, [ValType::f64()])
 }
@@ -6404,7 +6404,7 @@ test "Typecheck F64x2ExtractLane" {
 test "Typecheck I8x16ReplaceLane" {
   let state = make_state(empty_env(), [ValType::v128(), ValType::i32()])
   let new_state = assert_ok(
-    Typecheck::typecheck(@lib.I8x16ReplaceLane(LaneIdx(0)), state),
+    Typecheck::typecheck(@lib.I8x16ReplaceLane(LaneIdx::new(0)), state),
   )
   assert_stack(new_state, [ValType::v128()])
 }
@@ -6413,7 +6413,7 @@ test "Typecheck I8x16ReplaceLane" {
 test "Typecheck I16x8ReplaceLane" {
   let state = make_state(empty_env(), [ValType::v128(), ValType::i32()])
   let new_state = assert_ok(
-    Typecheck::typecheck(@lib.I16x8ReplaceLane(LaneIdx(2)), state),
+    Typecheck::typecheck(@lib.I16x8ReplaceLane(LaneIdx::new(2)), state),
   )
   assert_stack(new_state, [ValType::v128()])
 }
@@ -6422,7 +6422,7 @@ test "Typecheck I16x8ReplaceLane" {
 test "Typecheck I32x4ReplaceLane" {
   let state = make_state(empty_env(), [ValType::v128(), ValType::i32()])
   let new_state = assert_ok(
-    Typecheck::typecheck(@lib.I32x4ReplaceLane(LaneIdx(1)), state),
+    Typecheck::typecheck(@lib.I32x4ReplaceLane(LaneIdx::new(1)), state),
   )
   assert_stack(new_state, [ValType::v128()])
 }
@@ -6431,7 +6431,7 @@ test "Typecheck I32x4ReplaceLane" {
 test "Typecheck I64x2ReplaceLane" {
   let state = make_state(empty_env(), [ValType::v128(), ValType::i64()])
   let new_state = assert_ok(
-    Typecheck::typecheck(@lib.I64x2ReplaceLane(LaneIdx(0)), state),
+    Typecheck::typecheck(@lib.I64x2ReplaceLane(LaneIdx::new(0)), state),
   )
   assert_stack(new_state, [ValType::v128()])
 }
@@ -6440,7 +6440,7 @@ test "Typecheck I64x2ReplaceLane" {
 test "Typecheck F32x4ReplaceLane" {
   let state = make_state(empty_env(), [ValType::v128(), ValType::f32()])
   let new_state = assert_ok(
-    Typecheck::typecheck(@lib.F32x4ReplaceLane(LaneIdx(3)), state),
+    Typecheck::typecheck(@lib.F32x4ReplaceLane(LaneIdx::new(3)), state),
   )
   assert_stack(new_state, [ValType::v128()])
 }
@@ -6449,7 +6449,7 @@ test "Typecheck F32x4ReplaceLane" {
 test "Typecheck F64x2ReplaceLane" {
   let state = make_state(empty_env(), [ValType::v128(), ValType::f64()])
   let new_state = assert_ok(
-    Typecheck::typecheck(@lib.F64x2ReplaceLane(LaneIdx(1)), state),
+    Typecheck::typecheck(@lib.F64x2ReplaceLane(LaneIdx::new(1)), state),
   )
   assert_stack(new_state, [ValType::v128()])
 }
@@ -6562,7 +6562,7 @@ test "Typecheck V128Load8Lane" {
   let state = make_state(env, [ValType::i32(), ValType::v128()])
   let arg = @lib.MemArg(U32(0), None, U64(0))
   let new_state = assert_ok(
-    Typecheck::typecheck(@lib.V128Load8Lane(arg, LaneIdx(0)), state),
+    Typecheck::typecheck(@lib.V128Load8Lane(arg, LaneIdx::new(0)), state),
   )
   assert_stack(new_state, [ValType::v128()])
 }
@@ -6573,7 +6573,7 @@ test "Typecheck V128Store16Lane" {
   let state = make_state(env, [ValType::i32(), ValType::v128()])
   let arg = @lib.MemArg(U32(0), None, U64(0))
   let new_state = assert_ok(
-    Typecheck::typecheck(@lib.V128Store16Lane(arg, LaneIdx(2)), state),
+    Typecheck::typecheck(@lib.V128Store16Lane(arg, LaneIdx::new(2)), state),
   )
   assert_stack(new_state, [])
 }
@@ -6587,7 +6587,7 @@ test "Typecheck Call" {
   let func_type = @lib.FuncType([ValType::i32()], [ValType::i64()])
   let env = empty_env().push_func(func_type)
   let state = make_state(env, [ValType::i32()])
-  let result = Typecheck::typecheck(@lib.Call(FuncIdx(0)), state)
+  let result = Typecheck::typecheck(@lib.Call(FuncIdx::new(0)), state)
   let final_state = assert_ok(result)
   assert_stack(final_state, [ValType::i64()])
 }
@@ -6597,7 +6597,7 @@ test "Typecheck Call no args no results" {
   let func_type = @lib.FuncType([], [])
   let env = empty_env().push_func(func_type)
   let state = make_state(env, [])
-  let result = Typecheck::typecheck(@lib.Call(FuncIdx(0)), state)
+  let result = Typecheck::typecheck(@lib.Call(FuncIdx::new(0)), state)
   let final_state = assert_ok(result)
   assert_stack(final_state, [])
 }
@@ -6606,7 +6606,7 @@ test "Typecheck Call no args no results" {
 test "Typecheck Call invalid func index" {
   let env = empty_env()
   let state = make_state(env, [ValType::i32()])
-  let result = Typecheck::typecheck(@lib.Call(FuncIdx(0)), state)
+  let result = Typecheck::typecheck(@lib.Call(FuncIdx::new(0)), state)
   assert_err(result)
 }
 
@@ -6615,7 +6615,7 @@ test "Typecheck Call type mismatch" {
   let func_type = @lib.FuncType([ValType::i32()], [])
   let env = empty_env().push_func(func_type)
   let state = make_state(env, [ValType::i64()])
-  let result = Typecheck::typecheck(@lib.Call(FuncIdx(0)), state)
+  let result = Typecheck::typecheck(@lib.Call(FuncIdx::new(0)), state)
   assert_err(result)
 }
 
@@ -6633,7 +6633,7 @@ test "Typecheck CallIndirect" {
   )
   let state = make_state(env, [ValType::i32(), ValType::i32()])
   let result = Typecheck::typecheck(
-    @lib.CallIndirect(TypeIdx::new(0), TableIdx(0)),
+    @lib.CallIndirect(TypeIdx::new(0), TableIdx::new(0)),
     state,
   )
   let final_state = assert_ok(result)
@@ -6647,7 +6647,7 @@ test "Typecheck ReturnCall" {
     .push_func(func_type)
     .with_return_type(Some([ValType::i64()]))
   let state = make_state(env, [ValType::i32()])
-  let result = Typecheck::typecheck(@lib.ReturnCall(FuncIdx(0)), state)
+  let result = Typecheck::typecheck(@lib.ReturnCall(FuncIdx::new(0)), state)
   let final_state = assert_ok(result)
   assert_eq(final_state.reachable, false)
 }
@@ -6666,7 +6666,7 @@ test "Typecheck ReturnCallIndirect" {
     .with_return_type(Some([ValType::i64()]))
   let state = make_state(env, [ValType::i32(), ValType::i32()])
   let result = Typecheck::typecheck(
-    @lib.ReturnCallIndirect(TypeIdx::new(0), TableIdx(0)),
+    @lib.ReturnCallIndirect(TypeIdx::new(0), TableIdx::new(0)),
     state,
   )
   let final_state = assert_ok(result)
@@ -6710,7 +6710,7 @@ test "Typecheck RefFunc" {
   let func_type = @lib.FuncType([], [])
   let env = empty_env().push_func(func_type)
   let state = make_state(env, [])
-  let result = Typecheck::typecheck(@lib.RefFunc(FuncIdx(0)), state)
+  let result = Typecheck::typecheck(@lib.RefFunc(FuncIdx::new(0)), state)
   let final_state = assert_ok(result)
   assert_eq(final_state.stack.length(), 1)
 }
@@ -6719,7 +6719,7 @@ test "Typecheck RefFunc" {
 test "Typecheck RefFunc invalid index" {
   let env = empty_env()
   let state = make_state(env, [])
-  let result = Typecheck::typecheck(@lib.RefFunc(FuncIdx(0)), state)
+  let result = Typecheck::typecheck(@lib.RefFunc(FuncIdx::new(0)), state)
   assert_err(result)
 }
 
@@ -6818,7 +6818,7 @@ test "Typecheck BrOnCast" {
   let state = make_state(env, [anyref_type()])
   let cast_op = @lib.CastOp(true, true)
   let t = @lib.BrOnCast(
-    LabelIdx(0),
+    LabelIdx::new(0),
     cast_op,
     HeapType::abs(AbsHeapType::any()),
     HeapType::abs(AbsHeapType::i31()),
@@ -6833,7 +6833,7 @@ test "Typecheck BrOnCastFail" {
   let state = make_state(env, [anyref_type()])
   let cast_op = @lib.CastOp(true, true)
   let t = @lib.BrOnCastFail(
-    LabelIdx(0),
+    LabelIdx::new(0),
     cast_op,
     HeapType::abs(AbsHeapType::any()),
     HeapType::abs(AbsHeapType::i31()),
@@ -6853,7 +6853,7 @@ test "Typecheck Throw" {
     TagType(TypeIdx::new(0)),
   )
   let state = make_state(env, [ValType::i32()])
-  let result = Typecheck::typecheck(@lib.Throw(TagIdx(0)), state)
+  let result = Typecheck::typecheck(@lib.Throw(TagIdx::new(0)), state)
   let final_state = assert_ok(result)
   assert_eq(final_state.reachable, false)
 }
@@ -6862,7 +6862,7 @@ test "Typecheck Throw" {
 test "Typecheck Throw invalid tag" {
   let env = empty_env()
   let state = make_state(env, [ValType::i32()])
-  let result = Typecheck::typecheck(@lib.Throw(TagIdx(0)), state)
+  let result = Typecheck::typecheck(@lib.Throw(TagIdx::new(0)), state)
   assert_err(result)
 }
 
@@ -7043,7 +7043,7 @@ test "Typecheck ArrayNewData" {
   let env = { ..empty_env(), global_types: [array_type] }.push_data(data)
   let state = make_state(env, [ValType::i32(), ValType::i32()])
   let result = Typecheck::typecheck(
-    @lib.ArrayNewData(TypeIdx::new(0), DataIdx(0)),
+    @lib.ArrayNewData(TypeIdx::new(0), DataIdx::new(0)),
     state,
   )
   let final_state = assert_ok(result)
@@ -7062,7 +7062,7 @@ test "Typecheck ArrayNewElem" {
   let env = { ..empty_env(), global_types: [array_type] }.push_elem(elem)
   let state = make_state(env, [ValType::i32(), ValType::i32()])
   let result = Typecheck::typecheck(
-    @lib.ArrayNewElem(TypeIdx::new(0), ElemIdx(0)),
+    @lib.ArrayNewElem(TypeIdx::new(0), ElemIdx::new(0)),
     state,
   )
   let final_state = assert_ok(result)
@@ -7202,7 +7202,7 @@ test "Typecheck ArrayInitData" {
     ValType::i32(),
   ])
   let result = Typecheck::typecheck(
-    @lib.ArrayInitData(TypeIdx::new(0), DataIdx(0)),
+    @lib.ArrayInitData(TypeIdx::new(0), DataIdx::new(0)),
     state,
   )
   let final_state = assert_ok(result)
@@ -7229,7 +7229,7 @@ test "Typecheck ArrayInitElem" {
     ValType::i32(),
   ])
   let result = Typecheck::typecheck(
-    @lib.ArrayInitElem(TypeIdx::new(0), ElemIdx(0)),
+    @lib.ArrayInitElem(TypeIdx::new(0), ElemIdx::new(0)),
     state,
   )
   let final_state = assert_ok(result)
@@ -7247,7 +7247,7 @@ test "Typecheck MemoryInit" {
   let env = empty_env().push_mem(mem_type).push_data(data)
   let state = make_state(env, [ValType::i32(), ValType::i32(), ValType::i32()])
   let result = Typecheck::typecheck(
-    @lib.MemoryInit(DataIdx(0), MemIdx(0)),
+    @lib.MemoryInit(DataIdx::new(0), MemIdx::new(0)),
     state,
   )
   let final_state = assert_ok(result)
@@ -7259,7 +7259,7 @@ test "Typecheck DataDrop" {
   let data = @lib.Data(Passive, b"")
   let env = empty_env().push_data(data)
   let state = make_state(env, [])
-  let result = Typecheck::typecheck(@lib.DataDrop(DataIdx(0)), state)
+  let result = Typecheck::typecheck(@lib.DataDrop(DataIdx::new(0)), state)
   let final_state = assert_ok(result)
   assert_stack(final_state, [])
 }
@@ -7268,7 +7268,7 @@ test "Typecheck DataDrop" {
 test "Typecheck DataDrop invalid index" {
   let env = empty_env()
   let state = make_state(env, [])
-  let result = Typecheck::typecheck(@lib.DataDrop(DataIdx(0)), state)
+  let result = Typecheck::typecheck(@lib.DataDrop(DataIdx::new(0)), state)
   assert_err(result)
 }
 
@@ -7286,7 +7286,7 @@ test "Typecheck TableInit" {
   let env = empty_env().push_table(table_type).push_elem(elem)
   let state = make_state(env, [ValType::i32(), ValType::i32(), ValType::i32()])
   let result = Typecheck::typecheck(
-    @lib.TableInit(ElemIdx(0), TableIdx(0)),
+    @lib.TableInit(ElemIdx::new(0), TableIdx::new(0)),
     state,
   )
   let final_state = assert_ok(result)
@@ -7298,7 +7298,7 @@ test "Typecheck ElemDrop" {
   let elem = Elem::new(ElemMode::passive(), ElemKind::funcs([]))
   let env = empty_env().push_elem(elem)
   let state = make_state(env, [])
-  let result = Typecheck::typecheck(@lib.ElemDrop(ElemIdx(0)), state)
+  let result = Typecheck::typecheck(@lib.ElemDrop(ElemIdx::new(0)), state)
   let final_state = assert_ok(result)
   assert_stack(final_state, [])
 }
@@ -7307,7 +7307,7 @@ test "Typecheck ElemDrop" {
 test "Typecheck ElemDrop invalid index" {
   let env = empty_env()
   let state = make_state(env, [])
-  let result = Typecheck::typecheck(@lib.ElemDrop(ElemIdx(0)), state)
+  let result = Typecheck::typecheck(@lib.ElemDrop(ElemIdx::new(0)), state)
   assert_err(result)
 }
 
@@ -7797,22 +7797,22 @@ test "Typecheck I8x16Shuffle" {
   let env = empty_env()
   let state = make_state(env, [ValType::v128(), ValType::v128()])
   let t = @lib.I8x16Shuffle(
-    LaneIdx(0),
-    LaneIdx(1),
-    LaneIdx(2),
-    LaneIdx(3),
-    LaneIdx(4),
-    LaneIdx(5),
-    LaneIdx(6),
-    LaneIdx(7),
-    LaneIdx(8),
-    LaneIdx(9),
-    LaneIdx(10),
-    LaneIdx(11),
-    LaneIdx(12),
-    LaneIdx(13),
-    LaneIdx(14),
-    LaneIdx(15),
+    LaneIdx::new(0),
+    LaneIdx::new(1),
+    LaneIdx::new(2),
+    LaneIdx::new(3),
+    LaneIdx::new(4),
+    LaneIdx::new(5),
+    LaneIdx::new(6),
+    LaneIdx::new(7),
+    LaneIdx::new(8),
+    LaneIdx::new(9),
+    LaneIdx::new(10),
+    LaneIdx::new(11),
+    LaneIdx::new(12),
+    LaneIdx::new(13),
+    LaneIdx::new(14),
+    LaneIdx::new(15),
   )
   let result = Typecheck::typecheck(t, state)
   let final_state = assert_ok(result)
@@ -8261,7 +8261,7 @@ test "Typecheck V128Load32Lane" {
   let env = empty_env().push_mem(MemType(I32Limits(1, None)))
   let state = make_state(env, [ValType::i32(), ValType::v128()])
   let result = Typecheck::typecheck(
-    @lib.V128Load32Lane(MemArg(U32(0), None, U64(0)), LaneIdx(0)),
+    @lib.V128Load32Lane(MemArg(U32(0), None, U64(0)), LaneIdx::new(0)),
     state,
   )
   let state = assert_ok(result)
@@ -8273,7 +8273,7 @@ test "Typecheck V128Load64Lane" {
   let env = empty_env().push_mem(MemType(I32Limits(1, None)))
   let state = make_state(env, [ValType::i32(), ValType::v128()])
   let result = Typecheck::typecheck(
-    @lib.V128Load64Lane(MemArg(U32(0), None, U64(0)), LaneIdx(0)),
+    @lib.V128Load64Lane(MemArg(U32(0), None, U64(0)), LaneIdx::new(0)),
     state,
   )
   let state = assert_ok(result)
@@ -8289,7 +8289,7 @@ test "Typecheck V128Store8Lane" {
   let env = empty_env().push_mem(MemType(I32Limits(1, None)))
   let state = make_state(env, [ValType::i32(), ValType::v128()])
   let result = Typecheck::typecheck(
-    @lib.V128Store8Lane(MemArg(U32(0), None, U64(0)), LaneIdx(0)),
+    @lib.V128Store8Lane(MemArg(U32(0), None, U64(0)), LaneIdx::new(0)),
     state,
   )
   let state = assert_ok(result)
@@ -8301,7 +8301,7 @@ test "Typecheck V128Store32Lane" {
   let env = empty_env().push_mem(MemType(I32Limits(1, None)))
   let state = make_state(env, [ValType::i32(), ValType::v128()])
   let result = Typecheck::typecheck(
-    @lib.V128Store32Lane(MemArg(U32(0), None, U64(0)), LaneIdx(0)),
+    @lib.V128Store32Lane(MemArg(U32(0), None, U64(0)), LaneIdx::new(0)),
     state,
   )
   let state = assert_ok(result)
@@ -8313,7 +8313,7 @@ test "Typecheck V128Store64Lane" {
   let env = empty_env().push_mem(MemType(I32Limits(1, None)))
   let state = make_state(env, [ValType::i32(), ValType::v128()])
   let result = Typecheck::typecheck(
-    @lib.V128Store64Lane(MemArg(U32(0), None, U64(0)), LaneIdx(0)),
+    @lib.V128Store64Lane(MemArg(U32(0), None, U64(0)), LaneIdx::new(0)),
     state,
   )
   let state = assert_ok(result)
