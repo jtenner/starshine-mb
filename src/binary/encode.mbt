@@ -10,7 +10,6 @@ pub trait Decode {
 
 ///|
 using @lib {
-  type NumType,
   type HeapType,
   type S33,
   type F32,
@@ -80,9 +79,6 @@ using @lib {
   type Catch,
   type MemArg,
   tlocals_to_locals,
-  texpr_to_expr,
-  i32_valtype,
-  i64_valtype,
 }
 
 ///|
@@ -99,10 +95,10 @@ pub impl Encode for NumType with encode(val, buf) {
 ///|
 pub impl Decode for NumType with decode(buf, idx) {
   match buf.get(idx) {
-    Some(0x7C) => Ok((F64NumType, idx + 1))
-    Some(0x7D) => Ok((F32NumType, idx + 1))
-    Some(0x7E) => Ok((I64NumType, idx + 1))
-    Some(0x7F) => Ok((I32NumType, idx + 1))
+    Some(0x7C) => Ok((NumType::f64(), idx + 1))
+    Some(0x7D) => Ok((NumType::f32(), idx + 1))
+    Some(0x7E) => Ok((NumType::i64(), idx + 1))
+    Some(0x7F) => Ok((NumType::i32(), idx + 1))
     Some(_) => Err("Invalid NumType Byte")
     None => Err("Index out of bounds")
   }
@@ -223,13 +219,13 @@ pub impl Encode for ValType with encode(val, buf) {
 pub impl Decode for ValType with decode(bytes, i) {
   match bytes.get(i) {
     None => Err("Index out of bounds")
-    Some(0x7B) => Ok((VecTypeValType, i + 1))
+    Some(0x7B) => Ok((ValType::v128(), i + 1))
     Some(_) =>
       match Decode::decode(bytes, i) {
-        Ok((t, i)) => Ok((NumTypeValType(t), i))
+        Ok((t, i)) => Ok((ValType::num_type(t), i))
         _ =>
           match Decode::decode(bytes, i) {
-            Ok((rt, i)) => Ok((RefTypeValType(rt), i))
+            Ok((rt, i)) => Ok((ValType::ref_type(rt), i))
             _ => Err("Invalid ValType")
           }
       }
@@ -1520,7 +1516,7 @@ pub impl Encode for Func with encode(val, buf) {
     Func(locals, expr) => (locals, expr)
     TFunc(tlocals, texpr) => {
       let locals = tlocals_to_locals(tlocals)
-      let expr = texpr_to_expr(texpr)
+      let expr = texpr.to_expr()
       (locals, expr)
     }
   }
@@ -1842,7 +1838,7 @@ pub impl Decode for Elem with decode(bytes, i) {
         Ok((expr, i)) =>
           match Decode::decode(bytes, i) {
             Ok((fidxs, i)) =>
-              Ok((Elem(ElemMode::Active(0, expr), FuncsElemKind(fidxs)), i))
+              Ok((Elem(ElemMode::active(0, expr), ElemKind::funcs(fidxs)), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
@@ -1851,7 +1847,7 @@ pub impl Decode for Elem with decode(bytes, i) {
       match bytes.get(i + 1) {
         Some(0x00) =>
           match Decode::decode(bytes, i + 2) {
-            Ok((fidxs, i)) => Ok((Elem(Passive, FuncsElemKind(fidxs)), i))
+            Ok((fidxs, i)) => Ok((Elem(ElemMode::passive(), ElemKind::funcs(fidxs)), i))
             Err(t) => Err(t)
           }
         _ => Err("Invalid elem header")
@@ -1868,8 +1864,8 @@ pub impl Decode for Elem with decode(bytes, i) {
                       Ok(
                         (
                           Elem(
-                            ElemMode::Active(idx, expr),
-                            FuncsElemKind(fidxs),
+                            ElemMode::active(idx, expr),
+                            ElemKind::funcs(fidxs),
                           ),
                           i,
                         ),
@@ -1886,7 +1882,7 @@ pub impl Decode for Elem with decode(bytes, i) {
       match bytes.get(i + 1) {
         Some(0x00) =>
           match Decode::decode(bytes, i + 2) {
-            Ok((fidxs, i)) => Ok((Elem(Declarative, FuncsElemKind(fidxs)), i))
+            Ok((fidxs, i)) => Ok((Elem(ElemMode::declarative(), ElemKind::funcs(fidxs)), i))
             Err(t) => Err(t)
           }
         _ => Err("Invalid elem header")
@@ -1899,8 +1895,8 @@ pub impl Decode for Elem with decode(bytes, i) {
               Ok(
                 (
                   Elem(
-                    ElemMode::Active(TableIdx(0), expr),
-                    FuncExprsElemKind(exprs),
+                    ElemMode::active(TableIdx(0), expr),
+                    ElemKind::func_exprs(exprs),
                   ),
                   i,
                 ),
@@ -1914,7 +1910,7 @@ pub impl Decode for Elem with decode(bytes, i) {
         Ok((rt, i)) =>
           match Decode::decode(bytes, i) {
             Ok((exprs, i)) =>
-              Ok((Elem(Passive, TypedExprsElemKind(rt, exprs)), i))
+              Ok((Elem(ElemMode::passive(), ElemKind::typed_exprs(rt, exprs)), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
@@ -1929,8 +1925,8 @@ pub impl Decode for Elem with decode(bytes, i) {
                   Ok(
                     (
                       Elem(
-                        ElemMode::Active(idx, expr),
-                        FuncExprsElemKind(exprs),
+                        ElemMode::active(idx, expr),
+                        ElemKind::func_exprs(exprs),
                       ),
                       i,
                     ),
@@ -1946,7 +1942,7 @@ pub impl Decode for Elem with decode(bytes, i) {
         Ok((rt, i)) =>
           match Decode::decode(bytes, i) {
             Ok((exprs, i)) =>
-              Ok((Elem(Declarative, TypedExprsElemKind(rt, exprs)), i))
+              Ok((Elem::new(ElemMode::declarative(), ElemKind::typed_exprs(rt, exprs)), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
@@ -2350,7 +2346,7 @@ pub impl Decode for Expr with decode(bytes, i) {
         Err(t) => return Err(t)
       }
   }
-  Ok((Expr(a), i))
+  Ok((Expr::new(a), i))
 }
 
 ///|
@@ -5931,10 +5927,10 @@ test "uleb encoder never exceeds ceil(nbits/7)" {
 
 ///|
 test "numtype valtype" {
-  roundtrip(@lib.F32NumType)
-  roundtrip(@lib.F64NumType)
-  roundtrip(@lib.I32NumType)
-  roundtrip(@lib.I64NumType)
+  roundtrip(NumType::f32())
+  roundtrip(NumType::f64())
+  roundtrip(NumType::i32())
+  roundtrip(NumType::i64())
 }
 
 ///|
@@ -5970,14 +5966,14 @@ test "Ref Types" {
 test "Comp Types" {
   roundtrip(
     @lib.ArrayCompType(
-      FieldType(ValTypeStorageType(NumTypeValType(I32NumType)), Var),
+      FieldType(ValTypeStorageType(ValType::i32()), Var),
     ),
   )
   roundtrip(
     @lib.StructCompType([
       FieldType(
         ValTypeStorageType(
-          RefTypeValType(
+          ValType::ref_type(
             HeapTypeRefType(true, AbsHeapTypeHeapType(I31AbsHeapType)),
           ),
         ),
@@ -5986,9 +5982,9 @@ test "Comp Types" {
     ]),
   )
   roundtrip(
-    @lib.FuncCompType([i32_valtype(), i64_valtype()], [
-      i64_valtype(),
-      i32_valtype(),
+    @lib.FuncCompType([ValType::i32(), ValType::i64()], [
+      ValType::i64(),
+      ValType::i32(),
     ]),
   )
   let _ : Array[CompType] = roundtrip_arbitrary(30)
@@ -6011,7 +6007,7 @@ test "Packed Type" {
 test "SubTypes" {
   roundtrip(
     @lib.CompTypeSubType(
-      ArrayCompType(FieldType(ValTypeStorageType(i32_valtype()), Var)),
+      ArrayCompType(FieldType(ValTypeStorageType(ValType::i32()), Var)),
     ),
   )
   roundtrip(

@@ -745,43 +745,43 @@ test "ValType: primitive types use equality" {
   let env = Env::new()
   assert_true(
     Match::matches(
-      @lib.NumTypeValType(I32NumType),
-      NumTypeValType(I32NumType),
+      @lib.ValType::i32(),
+      ValType::i32(),
       env,
     ),
   )
   assert_true(
     Match::matches(
-      @lib.NumTypeValType(I64NumType),
-      NumTypeValType(I64NumType),
+      @lib.ValType::i64(),
+      ValType::i64(),
       env,
     ),
   )
   assert_true(
     Match::matches(
-      @lib.NumTypeValType(F32NumType),
-      NumTypeValType(F32NumType),
+      @lib.ValType::f32(),
+      ValType::f32(),
       env,
     ),
   )
   assert_true(
     Match::matches(
-      @lib.NumTypeValType(F64NumType),
-      NumTypeValType(F64NumType),
+      @lib.ValType::f64(),
+      ValType::f64(),
       env,
     ),
   )
   assert_false(
     Match::matches(
-      @lib.NumTypeValType(I32NumType),
-      NumTypeValType(I64NumType),
+      @lib.ValType::i32(),
+      ValType::i64(),
       env,
     ),
   )
   assert_false(
     Match::matches(
-      @lib.NumTypeValType(F32NumType),
-      NumTypeValType(F64NumType),
+      @lib.ValType::f32(),
+      ValType::f64(),
       env,
     ),
   )
@@ -794,7 +794,7 @@ test "ValType: ref types delegate to RefType matching" {
   let rt1 = @lib.HeapTypeRefType(true, AbsHeapTypeHeapType(AnyAbsHeapType))
   let rt2 = @lib.HeapTypeRefType(true, AbsHeapTypeHeapType(AnyAbsHeapType))
   assert_true(
-    Match::matches(@lib.RefTypeValType(rt1), RefTypeValType(rt2), env),
+    Match::matches(@lib.ValType::ref_type(rt1), ValType::ref_type(rt2), env),
   )
 }
 
@@ -878,17 +878,17 @@ test "Array: empty arrays match" {
 ///|
 test "Array: length mismatch" {
   let env = Env::new()
-  let arr1 = [@lib.NumTypeValType(I32NumType)]
-  let arr2 = [@lib.NumTypeValType(I32NumType), NumTypeValType(I64NumType)]
+  let arr1 = [@lib.ValType::i32()]
+  let arr2 = [@lib.ValType::i32(), ValType::i64()]
   assert_false(Match::matches(arr1, arr2, env))
 }
 
 ///|
 test "Array: element-wise matching" {
   let env = Env::new()
-  let arr1 = [@lib.NumTypeValType(I32NumType), NumTypeValType(I64NumType)]
-  let arr2 = [@lib.NumTypeValType(I32NumType), NumTypeValType(I64NumType)]
-  let arr3 = [@lib.NumTypeValType(I32NumType), NumTypeValType(F64NumType)]
+  let arr1 = [@lib.ValType::i32(), ValType::i64()]
+  let arr2 = [@lib.ValType::i32(), ValType::i64()]
+  let arr3 = [@lib.ValType::i32(), ValType::f64()]
   assert_true(Match::matches(arr1, arr2, env))
   assert_false(Match::matches(arr1, arr3, env))
 }
@@ -903,10 +903,10 @@ test "CompType: FuncCompType - contravariant params, covariant results" {
 
   // For functions: (p1 -> r1) <: (p2 -> r2) iff p2 <: p1 and r1 <: r2
   // Using ref types for subtyping examples
-  let ref_any = @lib.RefTypeValType(
+  let ref_any = @lib.ValType::ref_type(
     HeapTypeRefType(true, AbsHeapTypeHeapType(AnyAbsHeapType)),
   )
-  let ref_eq = @lib.RefTypeValType(
+  let ref_eq = @lib.ValType::ref_type(
     HeapTypeRefType(true, AbsHeapTypeHeapType(EqAbsHeapType)),
   )
 
@@ -922,8 +922,8 @@ test "CompType: FuncCompType - contravariant params, covariant results" {
 ///|
 test "CompType: FuncCompType - reflexivity" {
   let env = Env::new()
-  let f = @lib.FuncCompType([NumTypeValType(I32NumType)], [
-    NumTypeValType(I64NumType),
+  let f = @lib.FuncCompType([ValType::i32()], [
+    ValType::i64(),
   ])
   assert_true(Match::matches(f, f, env))
 }
@@ -931,9 +931,9 @@ test "CompType: FuncCompType - reflexivity" {
 ///|
 test "CompType: FuncCompType - param count mismatch" {
   let env = Env::new()
-  let f1 = @lib.FuncCompType([NumTypeValType(I32NumType)], [])
+  let f1 = @lib.FuncCompType([ValType::i32()], [])
   let f2 = @lib.FuncCompType(
-    [NumTypeValType(I32NumType), NumTypeValType(I64NumType)],
+    [ValType::i32(), ValType::i64()],
     [],
   )
   assert_false(Match::matches(f1, f2, env))
@@ -985,10 +985,10 @@ test "CompType: different kinds don't match" {
 ///|
 test "GlobalType: const is covariant" {
   let env = Env::new()
-  let ref_eq = @lib.RefTypeValType(
+  let ref_eq = @lib.ValType::ref_type(
     HeapTypeRefType(true, AbsHeapTypeHeapType(EqAbsHeapType)),
   )
-  let ref_any = @lib.RefTypeValType(
+  let ref_any = @lib.ValType::ref_type(
     HeapTypeRefType(true, AbsHeapTypeHeapType(AnyAbsHeapType)),
   )
   let g1 = @lib.GlobalType(ref_eq, false) // const
@@ -1002,10 +1002,10 @@ test "GlobalType: const is covariant" {
 ///|
 test "GlobalType: mut is invariant" {
   let env = Env::new()
-  let ref_eq = @lib.RefTypeValType(
+  let ref_eq = @lib.ValType::ref_type(
     HeapTypeRefType(true, AbsHeapTypeHeapType(EqAbsHeapType)),
   )
-  let ref_any = @lib.RefTypeValType(
+  let ref_any = @lib.ValType::ref_type(
     HeapTypeRefType(true, AbsHeapTypeHeapType(AnyAbsHeapType)),
   )
   let g1 = @lib.GlobalType(ref_eq, true) // mut
@@ -1019,15 +1019,15 @@ test "GlobalType: mut is invariant" {
 ///|
 test "GlobalType: mut self-match" {
   let env = Env::new()
-  let g = @lib.GlobalType(NumTypeValType(I32NumType), true)
+  let g = @lib.GlobalType(ValType::i32(), true)
   assert_true(Match::matches(g, g, env))
 }
 
 ///|
 test "GlobalType: const vs mut don't match" {
   let env = Env::new()
-  let const_g = @lib.GlobalType(NumTypeValType(I32NumType), false)
-  let mut_g = @lib.GlobalType(NumTypeValType(I32NumType), true)
+  let const_g = @lib.GlobalType(ValType::i32(), false)
+  let mut_g = @lib.GlobalType(ValType::i32(), true)
   assert_false(Match::matches(const_g, mut_g, env))
   assert_false(Match::matches(mut_g, const_g, env))
 }
@@ -1084,7 +1084,7 @@ test "ExternType: different kinds don't match" {
   let env = Env::new()
   let mem = @lib.MemExternType(MemType(I32Limits(1, None)))
   let global = @lib.GlobalExternType(
-    GlobalType(NumTypeValType(I32NumType), false),
+    GlobalType(ValType::i32(), false),
   )
   assert_false(Match::matches(mem, global, env))
   assert_false(Match::matches(global, mem, env))
@@ -1102,8 +1102,8 @@ test "ExternType: MemExternType delegates to MemType" {
 ///|
 test "ExternType: GlobalExternType delegates to GlobalType" {
   let env = Env::new()
-  let g1 = @lib.GlobalExternType(GlobalType(NumTypeValType(I32NumType), false))
-  let g2 = @lib.GlobalExternType(GlobalType(NumTypeValType(I32NumType), false))
+  let g1 = @lib.GlobalExternType(GlobalType(ValType::i32(), false))
+  let g2 = @lib.GlobalExternType(GlobalType(ValType::i32(), false))
   assert_true(Match::matches(g1, g2, env))
 }
 
@@ -1141,10 +1141,10 @@ test "complex function type subtyping" {
   // func(ref null any, ref null any) -> (ref null eq)
   // <:
   // func(ref null eq, ref null eq) -> (ref null any)
-  let ref_any = @lib.RefTypeValType(
+  let ref_any = @lib.ValType::ref_type(
     HeapTypeRefType(true, AbsHeapTypeHeapType(AnyAbsHeapType)),
   )
-  let ref_eq = @lib.RefTypeValType(
+  let ref_eq = @lib.ValType::ref_type(
     HeapTypeRefType(true, AbsHeapTypeHeapType(EqAbsHeapType)),
   )
   let f1 = @lib.FuncCompType([ref_any, ref_any], [ref_eq])
@@ -1159,8 +1159,8 @@ test "nested ref type in struct field" {
   // const field with ref type - covariant
   let ref_eq = @lib.HeapTypeRefType(true, AbsHeapTypeHeapType(EqAbsHeapType))
   let ref_any = @lib.HeapTypeRefType(true, AbsHeapTypeHeapType(AnyAbsHeapType))
-  let st_eq = @lib.ValTypeStorageType(RefTypeValType(ref_eq))
-  let st_any = @lib.ValTypeStorageType(RefTypeValType(ref_any))
+  let st_eq = @lib.ValTypeStorageType(ValType::ref_type(ref_eq))
+  let st_any = @lib.ValTypeStorageType(ValType::ref_type(ref_any))
   let f1 = @lib.FieldType(st_eq, Const)
   let f2 = @lib.FieldType(st_any, Const)
   assert_true(Match::matches(f1, f2, env))

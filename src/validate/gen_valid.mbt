@@ -1,21 +1,4 @@
 ///|
-using @lib {
-  type FuncType,
-  type Locals,
-  type Data,
-  type DataMode,
-  type Elem,
-  type ElemMode,
-  type ImportSec,
-  type Import,
-  type Mut,
-  type Module,
-  vt_i32,
-  expand_locals,
-  expr_to_texpr,
-}
-
-///|
 pub trait GenValid {
   gen_valid(Self, GenCtx) -> Result[Self, String]
 }
@@ -138,7 +121,7 @@ fn gen_value_of_type(
           HeapType(x) => gen_nonnull_ref_of_typeidx(ctx, st, x)
           AbsHeapTypeHeapType(I31AbsHeapType) => {
             // i32.const; ref.i31
-            let (ctx1, st1, is1) = match gen_value_of_type(ctx, st, vt_i32()) {
+            let (ctx1, st1, is1) = match gen_value_of_type(ctx, st, ValType::i32()) {
               Ok(x) => x
               Err(e) => return Err(e)
             }
@@ -267,7 +250,7 @@ pub fn gen_expr_valid(
   for i in fin {
     insns.push(i)
   }
-  Ok(Expr(insns))
+  Ok(Expr::new(insns))
 }
 
 ///|
@@ -291,7 +274,7 @@ fn gen_nonnull_ref_of_typeidx(
     }
     ArrayCompType(_) => {
       // Need i32 length first, then array.new_default
-      let (ctx1, st1, is1) = match gen_value_of_type(ctx, st, vt_i32()) {
+      let (ctx1, st1, is1) = match gen_value_of_type(ctx, st, ValType::i32()) {
         Ok(x) => x
         Err(e) => return Err(e)
       }
@@ -312,11 +295,11 @@ fn gen_nonnull_ref_of_typeidx(
 ///|
 fn gen_defaultable_valtype(rnd : @quickcheck/splitmix.RandomState) -> ValType {
   match rnd.next_uint() % 6 {
-    0 => NumTypeValType(I32NumType)
-    1 => NumTypeValType(I64NumType)
-    2 => NumTypeValType(F32NumType)
-    3 => NumTypeValType(F64NumType)
-    4 => VecTypeValType
+    0 => ValType::i32()
+    1 => ValType::i64()
+    2 => ValType::f32()
+    3 => ValType::f64()
+    4 => ValType::v128()
     _ => {
       // nullable refs only (default is ref.null)
       let abs = match rnd.next_uint() % 6 {
@@ -327,7 +310,7 @@ fn gen_defaultable_valtype(rnd : @quickcheck/splitmix.RandomState) -> ValType {
         4 => FuncAbsHeapType
         _ => ExternAbsHeapType
       }
-      RefTypeValType(HeapTypeRefType(true, AbsHeapTypeHeapType(abs)))
+      ValType::ref_type(HeapTypeRefType(true, AbsHeapTypeHeapType(abs)))
     }
   }
 }
@@ -603,11 +586,11 @@ pub fn gen_datasec_valid(
       let offset_expr = match lim {
         I32Limits(_, _) => {
           let offset_val = (rnd.next_uint() % 256).reinterpret_as_int()
-          @lib.Expr([I32Const(I32(offset_val))])
+          Expr::new([I32Const(I32(offset_val))])
         }
         I64Limits(_, _) => {
           let offset_val = (rnd.next_uint64() % 256UL).reinterpret_as_int64()
-          Expr([I64Const(I64(offset_val))])
+          Expr::new([I64Const(I64(offset_val))])
         }
       }
       DataMode::Active(MemIdx(mem_idx), offset_expr)
@@ -642,7 +625,7 @@ fn gen_elem_kind_funcs(
       func_indices.push(FuncIdx(fidx))
     }
   }
-  FuncsElemKind(func_indices)
+  ElemKind::funcs(func_indices)
 }
 
 ///|
@@ -655,13 +638,13 @@ fn gen_elem_kind_func_exprs(
   for _ in 0..<elem_count {
     if env.funcs.length() > 0 && (rnd.next_uint() & 1) == 1 {
       let fidx = rnd.next_uint() % env.funcs.length().reinterpret_as_uint()
-      exprs.push(Expr([RefFunc(FuncIdx(fidx))]))
+      exprs.push(Expr::new([RefFunc(FuncIdx(fidx))]))
     } else {
       // ref.null func
-      exprs.push(Expr([RefNull(AbsHeapTypeHeapType(FuncAbsHeapType))]))
+      exprs.push(Expr::new([RefNull(AbsHeapTypeHeapType(FuncAbsHeapType))]))
     }
   }
-  FuncExprsElemKind(exprs)
+  ElemKind::func_exprs(exprs)
 }
 
 ///|
@@ -676,7 +659,7 @@ fn gen_elem_kind_typed_exprs(
   for _ in 0..<elem_count {
     // For nullable refs, we can always use ref.null
     if rt.is_nullable() {
-      exprs.push(Expr([RefNull(ht)]))
+      exprs.push(Expr::new([RefNull(ht)]))
     } else {
       // Non-null: need ref.func for func types
       match ht {
@@ -684,7 +667,7 @@ fn gen_elem_kind_typed_exprs(
           if env.funcs.length() > 0 {
             let fidx = rnd.next_uint() %
               env.funcs.length().reinterpret_as_uint()
-            exprs.push(Expr([RefFunc(FuncIdx(fidx))]))
+            exprs.push(Expr::new([RefFunc(FuncIdx(fidx))]))
           }
         _ =>
           // For other non-null types, skip (harder to generate)
@@ -692,7 +675,7 @@ fn gen_elem_kind_typed_exprs(
       }
     }
   }
-  TypedExprsElemKind(rt, exprs)
+  ElemKind::typed_exprs(rt, exprs)
 }
 
 ///|
@@ -725,9 +708,9 @@ pub fn gen_elemsec_valid(
     // Choose mode
     let mode_choice = rnd.next_uint() % 4
     let (mode, use_funcref) = if mode_choice == 0 {
-      (ElemMode::Passive, true)
+      (ElemMode::passive(), true)
     } else if mode_choice == 1 {
-      (Declarative, true)
+      (ElemMode::declarative(), true)
     } else {
       // Try Active mode
       match find_compatible_table_for_funcref(env) {
@@ -735,12 +718,12 @@ pub fn gen_elemsec_valid(
           let TableType(_, lim) = env.tables[tab_idx.0.reinterpret_as_int()]
           let offset_val = (rnd.next_uint() % 10).reinterpret_as_int()
           let offset_expr = match lim {
-            I32Limits(_, _) => @lib.Expr([I32Const(I32(offset_val))])
-            I64Limits(_, _) => Expr([I64Const(I64(offset_val.to_int64()))])
+            I32Limits(_, _) => Expr::new([I32Const(I32(offset_val))])
+            I64Limits(_, _) => Expr::new([I64Const(I64(offset_val.to_int64()))])
           }
-          (Active(tab_idx, offset_expr), true)
+          (ElemMode::active(tab_idx, offset_expr), true)
         }
-        None => (Passive, true)
+        None => (ElemMode::passive(), true)
       }
     }
 
@@ -922,12 +905,12 @@ fn gen_const_expr_for_valtype(
   env : Env,
 ) -> Expr {
   match vt {
-    NumTypeValType(I32NumType) => Expr([I32Const(I32(rnd.next_int()))])
-    NumTypeValType(I64NumType) => Expr([I64Const(I64(rnd.next_int64()))])
-    NumTypeValType(F32NumType) => Expr([F32Const(F32(rnd.next_float()))])
-    NumTypeValType(F64NumType) => Expr([F64Const(F64(rnd.next_double()))])
+    NumTypeValType(I32NumType) => Expr::new([I32Const(I32(rnd.next_int()))])
+    NumTypeValType(I64NumType) => Expr::new([I64Const(I64(rnd.next_int64()))])
+    NumTypeValType(F32NumType) => Expr::new([F32Const(F32(rnd.next_float()))])
+    NumTypeValType(F64NumType) => Expr::new([F64Const(F64(rnd.next_double()))])
     VecTypeValType =>
-      Expr([
+      Expr::new([
         V128Const(
           (rnd.next_uint() % 256).to_byte(),
           (rnd.next_uint() % 256).to_byte(),
@@ -949,7 +932,7 @@ fn gen_const_expr_for_valtype(
       ])
     RefTypeValType(rt) =>
       if rt.is_nullable() {
-        Expr([RefNull(rt.get_heap_type())])
+        Expr::new([RefNull(rt.get_heap_type())])
       } else {
         // For non-null refs, try ref.func if it's a func type
         let ht = rt.get_heap_type()
@@ -958,15 +941,15 @@ fn gen_const_expr_for_valtype(
             if env.funcs.length() > 0 {
               let fidx = rnd.next_uint() %
                 env.funcs.length().reinterpret_as_uint()
-              Expr([RefFunc(FuncIdx(fidx))])
+              Expr::new([RefFunc(FuncIdx(fidx))])
             } else {
               // Fallback to null (will fail validation for non-null, but safer)
-              Expr([RefNull(ht)])
+              Expr::new([RefNull(ht)])
             }
-          _ => Expr([RefNull(ht)])
+          _ => Expr::new([RefNull(ht)])
         }
       }
-    BotValType => Expr([Unreachable])
+    BotValType => Expr::new([Unreachable])
   }
 }
 
@@ -1797,8 +1780,8 @@ fn gen_try_catch_all(
 
   let try_body = gen_simple_try_body(rnd, st.env)
   let catch_clause = @lib.CatchAll(LabelIdx(0))
-  let try_table = @lib.TryTable(EmptyBlockType, [catch_clause], try_body)
-  let block_ins = @lib.Block(EmptyBlockType, [try_table])
+  let try_table = @lib.TryTable(EmptyBlockType, [catch_clause], Expr::new(try_body))
+  let block_ins = @lib.Block(EmptyBlockType, Expr::new([try_table]))
   match Typecheck::typecheck(block_ins, st) {
     Ok(st2) => Ok((ctx.dec_fuel(3), st2, [block_ins]))
     Err(e) => Err(e)
@@ -1815,17 +1798,17 @@ fn gen_try_catch_all_ref(
   // After try_table completes normally, we need to produce an exnref
   // Since we can't easily produce a non-null exnref, use nullable
 
-  let exnref_nullable = @lib.RefTypeValType(
+  let exnref_nullable = ValType::ref_type(
     HeapTypeRefType(true, AbsHeapTypeHeapType(ExnAbsHeapType)),
   )
   let outer_bt = @lib.ValTypeBlockType(exnref_nullable)
   let try_body = gen_simple_try_body(rnd, st.env)
   let catch_clause = @lib.CatchAllRef(LabelIdx(0))
-  let try_table = @lib.TryTable(EmptyBlockType, [catch_clause], try_body)
+  let try_table = @lib.TryTable(EmptyBlockType, [catch_clause], Expr::new(try_body))
 
   // After try_table, produce null exnref for fallthrough
   let fallthrough = @lib.RefNull(AbsHeapTypeHeapType(ExnAbsHeapType))
-  let block_ins = @lib.Block(outer_bt, [try_table, fallthrough])
+  let block_ins = Instruction::block(outer_bt, Expr::new([try_table, fallthrough]))
   match Typecheck::typecheck(block_ins, st) {
     Ok(st2) => Ok((ctx.dec_fuel(4), st2, [block_ins]))
     Err(e) => Err(e)
@@ -1860,12 +1843,12 @@ fn gen_try_catch(
   }
   let try_body = gen_simple_try_body(rnd, st.env)
   let catch_clause = @lib.Catch(tag_idx, LabelIdx(0))
-  let try_table = @lib.TryTable(EmptyBlockType, [catch_clause], try_body)
+  let try_table = @lib.TryTable(EmptyBlockType, [catch_clause], Expr::new(try_body))
   let block_body : Array[Instruction] = [try_table]
   for ins in fallthrough {
     block_body.push(ins)
   }
-  let block_ins = @lib.Block(outer_bt, block_body)
+  let block_ins = @lib.Block(outer_bt, Expr::new(block_body))
   match Typecheck::typecheck(block_ins, st) {
     Ok(st2) => Ok((ctx.dec_fuel(4 + fallthrough.length()), st2, [block_ins]))
     Err(e) => Err(e)
@@ -1895,17 +1878,17 @@ fn gen_try_catch_ref(
   // catch_ref with empty payload produces non-null exnref
   // We use nullable outer block since fallthrough can only produce ref.null
   // (non-null exnref from catch is subtype of nullable)
-  let exnref_nullable = @lib.RefTypeValType(
+  let exnref_nullable = ValType::ref_type(
     HeapTypeRefType(true, AbsHeapTypeHeapType(ExnAbsHeapType)),
   )
   let outer_bt = @lib.ValTypeBlockType(exnref_nullable)
   let try_body = gen_simple_try_body(rnd, st.env)
   let catch_clause = @lib.CatchRef(tag_idx, LabelIdx(0))
-  let try_table = @lib.TryTable(EmptyBlockType, [catch_clause], try_body)
+  let try_table = @lib.TryTable(EmptyBlockType, [catch_clause], Expr::new(try_body))
 
   // Fallthrough: produce null exnref
   let fallthrough = @lib.RefNull(AbsHeapTypeHeapType(ExnAbsHeapType))
-  let block_ins = @lib.Block(outer_bt, [try_table, fallthrough])
+  let block_ins = @lib.Block(outer_bt, Expr::new([try_table, fallthrough]))
   match Typecheck::typecheck(block_ins, st) {
     Ok(st2) => Ok((ctx.dec_fuel(4), st2, [block_ins]))
     Err(e) => Err(e)
@@ -2077,7 +2060,7 @@ pub fn gen_expr_valid_with_blocks(
   for i in fin {
     insns.push(i)
   }
-  Ok(Expr(insns))
+  Ok(Expr::new(insns))
 }
 
 ///|
@@ -2106,7 +2089,7 @@ pub fn gen_tfunc_entry(ctx : GenCtx, tidx : TypeIdx) -> Result[Func, String] {
   }
 
   // 5) Try to convert to TExpr, fall back to Func if it fails
-  match expr_to_texpr(expr, env_body) {
+  match expr.to_texpr(env_body) {
     Ok(texpr) => {
       // 6) Expand Locals to Array[ValType] for the TFunc signature
       let local_types : Array[ValType] = []

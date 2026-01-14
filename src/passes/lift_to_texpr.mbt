@@ -9,7 +9,7 @@ pub fn lift_to_texpr_pass() -> ModuleTransformer[Unit] {
     ) -> TransformerResult[Unit, @lib.Func] {
       match f {
         Func(l, t) =>
-          match expr_to_texpr(t, Env::new()) {
+          match t.to_texpr(Env::new()) {
             Ok(t) =>
               match expand_locals(l) {
                 Ok(l) => change((), @lib.TFunc(l, t))

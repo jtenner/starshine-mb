@@ -444,7 +444,7 @@ fn validate_table(env : Env, t : Table) -> Result[TableType, String] {
     None => Ok(tt)
     Some(init) => {
       // init expr must be const and produce value type rt
-      let want = @lib.RefTypeValType(rt)
+      let want = ValType::ref_type(rt)
       match validate_const_expr(env, init, want) {
         Ok(_) => Ok(tt)
         Err(e) => Err(e)
@@ -717,8 +717,8 @@ fn validate_elem_mode(
       // If your Match::matches works on RefType, use that.
       // Otherwise use ValType wrapper.
       let ok = Match::matches(
-        @lib.RefTypeValType(rt),
-        RefTypeValType(rt_table),
+        ValType::ref_type(rt),
+        ValType::ref_type(rt_table),
         env,
       )
       if !ok {
@@ -747,7 +747,7 @@ pub impl Validate for ElemKind with validate(self, env) {
 
     // legacy element expressions: elemtype is funcref; each expr must be const funcref
     FuncExprsElemKind(exprs) => {
-      let want = funcref_valtype()
+      let want = ValType::funcref()
       for e in exprs {
         if validate_const_expr(env, e, want) is Err(t) {
           return Err(t)
@@ -761,7 +761,7 @@ pub impl Validate for ElemKind with validate(self, env) {
       if Validate::validate(rt, env) is Err(t) {
         return Err(t)
       }
-      let want = @lib.RefTypeValType(rt)
+      let want = ValType::ref_type(rt)
       for e in exprs {
         if validate_const_expr(env, e, want) is Err(t) {
           return Err(t)
@@ -782,7 +782,7 @@ pub impl Validate for Elem with validate(self, env) {
   }
 
   // derive elemtype from kind and validate it
-  let rt = elem_reftype(self)
+  let rt = Elem::reftype(self)
   if Validate::validate(rt, env) is Err(t) {
     return Err(t)
   }
@@ -1138,10 +1138,10 @@ test "Fuzz Modules" {
 ///|
 test "NumType validates successfully" {
   let env = empty_env()
-  assert_eq(Validate::validate(@lib.F32NumType, env), Ok(()))
-  assert_eq(Validate::validate(@lib.F64NumType, env), Ok(()))
-  assert_eq(Validate::validate(@lib.I32NumType, env), Ok(()))
-  assert_eq(Validate::validate(@lib.I64NumType, env), Ok(()))
+  assert_eq(Validate::validate(NumType::f32(), env), Ok(()))
+  assert_eq(Validate::validate(NumType::f64(), env), Ok(()))
+  assert_eq(Validate::validate(NumType::i32(), env), Ok(()))
+  assert_eq(Validate::validate(NumType::i64(), env), Ok(()))
 }
 
 // ============ AbsHeapType Tests ============
@@ -1192,21 +1192,21 @@ test "HeapType with valid TypeIdx succeeds" {
 ///|
 test "ValType NumType validates" {
   let env = empty_env()
-  let vt = @lib.NumTypeValType(I32NumType)
+  let vt = ValType::i32()
   assert_eq(Validate::validate(vt, env), Ok(()))
 }
 
 ///|
 test "ValType VecType validates" {
   let env = empty_env()
-  let t = @lib.VecTypeValType
+  let t = ValType::v128()
   assert_eq(Validate::validate(t, env), Ok(()))
 }
 
 ///|
 test "ValType BotType validates" {
   let env = empty_env()
-  let t = @lib.BotValType
+  let t = ValType::bottom()
   assert_eq(Validate::validate(t, env), Ok(()))
 }
 
@@ -1214,7 +1214,7 @@ test "ValType BotType validates" {
 test "ValType RefType with AbsHeapType validates" {
   let env = empty_env()
   let rt = @lib.AbsHeapTypeRefType(FuncAbsHeapType)
-  let vt = @lib.RefTypeValType(rt)
+  let vt = ValType::ref_type(rt)
   assert_eq(Validate::validate(vt, env), Ok(()))
 }
 
@@ -1359,7 +1359,7 @@ test "MemIdx fails when memory does not exist" {
 
 ///|
 test "GlobalIdx validates when global exists" {
-  let gt = @lib.GlobalType(NumTypeValType(I32NumType), false)
+  let gt = @lib.GlobalType(ValType::i32(), false)
   let env = empty_env().with_globals([gt])
   let gidx = @lib.GlobalIdx(0)
   assert_eq(Validate::validate(gidx, env), Ok(()))
@@ -1456,14 +1456,14 @@ test "TableType validates with valid ref type and limits" {
 ///|
 test "GlobalType validates with NumType" {
   let env = empty_env()
-  let gt = @lib.GlobalType(NumTypeValType(I32NumType), false)
+  let gt = @lib.GlobalType(ValType::i32(), false)
   assert_eq(Validate::validate(gt, env), Ok(()))
 }
 
 ///|
 test "GlobalType validates mutable" {
   let env = empty_env()
-  let gt = @lib.GlobalType(NumTypeValType(I64NumType), true)
+  let gt = @lib.GlobalType(ValType::i64(), true)
   assert_eq(Validate::validate(gt, env), Ok(()))
 }
 
@@ -1472,7 +1472,7 @@ test "GlobalType validates mutable" {
 ///|
 test "StorageType ValType validates" {
   let env = empty_env()
-  let st = @lib.ValTypeStorageType(NumTypeValType(I32NumType))
+  let st = @lib.ValTypeStorageType(ValType::i32())
   assert_eq(Validate::validate(st, env), Ok(()))
 }
 
@@ -1488,7 +1488,7 @@ test "StorageType PackType validates" {
 ///|
 test "FieldType validates" {
   let env = empty_env()
-  let ft = @lib.FieldType(ValTypeStorageType(NumTypeValType(I32NumType)), Const)
+  let ft = @lib.FieldType(ValTypeStorageType(ValType::i32()), Const)
   assert_eq(Validate::validate(ft, env), Ok(()))
 }
 
@@ -1504,8 +1504,8 @@ test "FuncType with empty params and results validates" {
 ///|
 test "FuncType with params and results validates" {
   let env = empty_env()
-  let ft = @lib.FuncType([NumTypeValType(I32NumType)], [
-    NumTypeValType(I64NumType),
+  let ft = @lib.FuncType([ValType::i32()], [
+    ValType::i64(),
   ])
   assert_eq(Validate::validate(ft, env), Ok(()))
 }
@@ -1522,7 +1522,7 @@ test "CompType FuncCompType validates" {
 ///|
 test "CompType ArrayCompType validates" {
   let env = empty_env()
-  let ft = @lib.FieldType(ValTypeStorageType(NumTypeValType(I32NumType)), Const)
+  let ft = @lib.FieldType(ValTypeStorageType(ValType::i32()), Const)
   let ct = @lib.ArrayCompType(ft)
   assert_eq(Validate::validate(ct, env), Ok(()))
 }
@@ -1530,7 +1530,7 @@ test "CompType ArrayCompType validates" {
 ///|
 test "CompType StructCompType validates" {
   let env = empty_env()
-  let ft = @lib.FieldType(ValTypeStorageType(NumTypeValType(I32NumType)), Const)
+  let ft = @lib.FieldType(ValTypeStorageType(ValType::i32()), Const)
   let ct = @lib.StructCompType([ft])
   assert_eq(Validate::validate(ct, env), Ok(()))
 }
@@ -1567,7 +1567,7 @@ test "RecType GroupRecType validates" {
   let st1 = @lib.CompTypeSubType(FuncCompType([], []))
   let st2 = @lib.CompTypeSubType(
     ArrayCompType(
-      FieldType(ValTypeStorageType(NumTypeValType(I32NumType)), Const),
+      FieldType(ValTypeStorageType(ValType::i32()), Const),
     ),
   )
   let rt = @lib.GroupRecType([st1, st2])
@@ -1580,8 +1580,8 @@ test "RecType GroupRecType validates" {
 test "Array of ValType validates" {
   let env = empty_env()
   let arr : Array[ValType] = [
-    NumTypeValType(I32NumType),
-    NumTypeValType(I64NumType),
+    ValType::i32(),
+    ValType::i64(),
   ]
   assert_eq(Validate::validate(arr, env), Ok(()))
 }
@@ -1604,7 +1604,7 @@ test "BlockType EmptyBlockType validates" {
 ///|
 test "BlockType ValTypeBlockType validates" {
   let env = empty_env()
-  let bt = @lib.ValTypeBlockType(NumTypeValType(I32NumType))
+  let bt = @lib.ValTypeBlockType(ValType::i32())
   assert_eq(Validate::validate(bt, env), Ok(()))
 }
 
@@ -1627,7 +1627,7 @@ test "BlockType TypeIdxBlockType with invalid index fails" {
 test "BlockType TypeIdxBlockType with non-func type fails" {
   let st = @lib.CompTypeSubType(
     ArrayCompType(
-      FieldType(ValTypeStorageType(NumTypeValType(I32NumType)), Const),
+      FieldType(ValTypeStorageType(ValType::i32()), Const),
     ),
   )
   let env = empty_env().with_types([st])
@@ -1643,7 +1643,7 @@ test "BlockType TypeIdxBlockType with non-func type fails" {
 ///|
 test "ExternType GlobalExternType validates" {
   let env = empty_env()
-  let gt = @lib.GlobalType(NumTypeValType(I32NumType), false)
+  let gt = @lib.GlobalType(ValType::i32(), false)
   let et = @lib.GlobalExternType(gt)
   assert_eq(Validate::validate(et, env), Ok(()))
 }
@@ -1711,7 +1711,7 @@ test "ExternIdx MemExternIdx validates" {
 
 ///|
 test "ExternIdx GlobalExternIdx validates" {
-  let gt = @lib.GlobalType(NumTypeValType(I32NumType), false)
+  let gt = @lib.GlobalType(ValType::i32(), false)
   let env = empty_env().with_globals([gt])
   let ei = @lib.GlobalExternIdx(GlobalIdx(0))
   assert_eq(Validate::validate(ei, env), Ok(()))
@@ -1738,7 +1738,7 @@ test "Export with invalid index fails" {
 ///|
 test "Import with valid GlobalExternType validates" {
   let env = empty_env()
-  let gt = @lib.GlobalType(NumTypeValType(I32NumType), false)
+  let gt = @lib.GlobalType(ValType::i32(), false)
   let imp = @lib.Import(Name("mod"), Name("name"), GlobalExternType(gt))
   assert_eq(Validate::validate(imp, env), Ok(()))
 }

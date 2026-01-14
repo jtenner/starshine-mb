@@ -20,7 +20,7 @@ pub(all) struct U32(UInt) derive(Eq, Arbitrary, Hash)
 pub(all) struct U64(UInt64) derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) enum NumType {
+pub enum NumType {
   F32NumType
   F64NumType
   I32NumType
@@ -57,7 +57,7 @@ pub(all) enum RefType {
 } derive(Arbitrary, Hash)
 
 ///|
-pub(all) enum ValType {
+pub enum ValType {
   NumTypeValType(NumType)
   VecTypeValType
   RefTypeValType(RefType)
@@ -183,14 +183,14 @@ pub(all) enum ExternIdx {
 } derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) enum ElemMode {
+pub enum ElemMode {
   Passive
   Active(TableIdx, Expr)
   Declarative
 } derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) enum ElemKind {
+pub enum ElemKind {
   FuncsElemKind(Array[FuncIdx])
   FuncExprsElemKind(Array[Expr])
   TypedExprsElemKind(RefType, Array[Expr])
@@ -199,8 +199,10 @@ pub(all) enum ElemKind {
 ///|
 pub(all) struct Elem(ElemMode, ElemKind) derive(Eq, Hash)
 
+
+
 ///|
-pub(all) struct Expr(Array[Instruction]) derive(Eq, Hash)
+pub struct Expr(Array[Instruction]) derive(Eq, Hash)
 
 ///|
 pub(all) struct Import(Name, Name, ExternType) derive(Eq, Arbitrary, Hash)
@@ -968,30 +970,50 @@ pub impl Show for Env with output(self, logger) {
 }
 
 ///|
-pub fn i32_valtype() -> ValType {
+pub fn ValType::i32() -> ValType {
   NumTypeValType(I32NumType)
 }
 
 ///|
-pub fn i64_valtype() -> ValType {
+pub fn ValType::i64() -> ValType {
   NumTypeValType(I64NumType)
 }
 
+pub fn ValType::f32() -> ValType {
+  NumTypeValType(F32NumType)
+}
+
+pub fn ValType::f64() -> ValType {
+  NumTypeValType(F64NumType)
+}
+
+pub fn ValType::v128() -> ValType {
+  VecTypeValType
+}
+
+pub fn ValType::num_type(t : NumType) -> ValType {
+  NumTypeValType(t)
+}
+
 ///|
-pub fn ref_valtype(rt : RefType) -> ValType {
+pub fn ValType::ref_type(rt : RefType) -> ValType {
   RefTypeValType(rt)
 }
 
 ///|
-pub fn ref_null_exn_valtype() -> ValType {
+pub fn ValType::ref_null_exn() -> ValType {
   RefTypeValType(HeapTypeRefType(true, AbsHeapTypeHeapType(ExnAbsHeapType)))
 }
 
 ///|
-pub fn funcref_valtype() -> ValType {
+pub fn ValType::funcref() -> ValType {
   // In core Wasm, call_indirect uses funcref.
   // Your encoding: AbsHeapTypeRefType(_) is nullable; funcref is (ref null func).
   RefTypeValType(AbsHeapTypeRefType(FuncAbsHeapType))
+}
+
+pub fn ValType::bottom() -> ValType {
+  BotValType
 }
 
 ///|
@@ -1025,8 +1047,8 @@ pub fn min_addr(a : Limits, b : Limits) -> Limits {
 }
 
 ///|
-pub fn elem_reftype(e : Elem) -> RefType {
-  match e {
+pub fn Elem::reftype(self : Elem) -> RefType {
+  match self {
     Elem(_, kind) =>
       match kind {
         FuncsElemKind(_) => AbsHeapTypeRefType(FuncAbsHeapType) // funcref
@@ -1037,17 +1059,17 @@ pub fn elem_reftype(e : Elem) -> RefType {
 }
 
 ///|
-pub fn ref_null_valtype(ht : HeapType) -> ValType {
+pub fn ValType::ref_null(ht : HeapType) -> ValType {
   RefTypeValType(HeapTypeRefType(true, ht))
 }
 
 ///|
-pub fn eqref_null_valtype() -> ValType {
+pub fn ValType::eqref_null() -> ValType {
   RefTypeValType(HeapTypeRefType(true, AbsHeapTypeHeapType(EqAbsHeapType)))
 }
 
 ///|
-pub fn unpack_storage(st : StorageType) -> ValType {
+pub fn StorageType::unpack(st : StorageType) -> ValType {
   match st {
     ValTypeStorageType(vt) => vt
     PackTypeStorageType(_) => NumTypeValType(I32NumType)
@@ -1055,17 +1077,11 @@ pub fn unpack_storage(st : StorageType) -> ValType {
 }
 
 ///|
-pub fn is_packed(st : StorageType) -> Bool {
+pub fn StorageType::is_packed(st : StorageType) -> Bool {
   match st {
     PackTypeStorageType(_) => true
     _ => false
   }
-}
-
-///|
-pub fn u32_to_int(u : U32) -> Int {
-  let U32(i) = u
-  i.reinterpret_as_int()
 }
 
 ///|
@@ -1083,44 +1099,19 @@ pub fn get_struct_field(
   fields : Array[FieldType],
   i : U32,
 ) -> Result[FieldType, String] {
-  let idx = u32_to_int(i)
-  match fields.get(idx) {
+  let U32(idx) = i
+  match fields.get(idx.reinterpret_as_int()) {
     None => Err("struct field index out of range")
     Some(ft) => Ok(ft)
   }
 }
 
 ///|
-pub fn field_is_mutable(ft : FieldType) -> Bool {
+pub fn FieldType::is_mutable(ft : FieldType) -> Bool {
   match ft {
     FieldType(_, Var) => true
     _ => false
   }
-}
-
-///|
-pub fn vt_i32() -> ValType {
-  NumTypeValType(I32NumType)
-}
-
-///|
-pub fn vt_i64() -> ValType {
-  NumTypeValType(I64NumType)
-}
-
-///|
-pub fn vt_f32() -> ValType {
-  NumTypeValType(F32NumType)
-}
-
-///|
-pub fn vt_f64() -> ValType {
-  NumTypeValType(F64NumType)
-}
-
-///|
-pub fn vt_v128() -> ValType {
-  VecTypeValType
 }
 
 ///|
@@ -1132,47 +1123,47 @@ pub fn min_addr_valtype(l1 : Limits, l2 : Limits) -> ValType {
 }
 
 ///|
-pub fn anyref_valtype() -> ValType {
+pub fn ValType::anyref() -> ValType {
   // (ref null any)
   RefTypeValType(HeapTypeRefType(true, AbsHeapTypeHeapType(AnyAbsHeapType)))
 }
 
 ///|
-pub fn externref_valtype() -> ValType {
+pub fn ValType::externref() -> ValType {
   // (ref null extern)
   RefTypeValType(HeapTypeRefType(true, AbsHeapTypeHeapType(ExternAbsHeapType)))
 }
 
 ///|
-pub fn i31ref_valtype() -> ValType {
+pub fn ValType::i31ref() -> ValType {
   // (ref i31) (non-null)
   RefTypeValType(HeapTypeRefType(false, AbsHeapTypeHeapType(I31AbsHeapType)))
 }
 
 ///|
-pub fn i31ref_nullable_valtype() -> ValType {
+pub fn ValType::i31ref_nullable() -> ValType {
   RefTypeValType(HeapTypeRefType(true, AbsHeapTypeHeapType(I31AbsHeapType)))
 }
 
 ///|
-pub fn ref_array_nonnull(x : TypeIdx) -> ValType {
+pub fn ValType::ref_array_nonnull(x : TypeIdx) -> ValType {
   RefTypeValType(HeapTypeRefType(false, HeapType(x)))
 }
 
 ///|
-pub fn ref_array_nullable(x : TypeIdx) -> ValType {
+pub fn ValType::ref_array_nullable(x : TypeIdx) -> ValType {
   RefTypeValType(HeapTypeRefType(true, HeapType(x)))
 }
 
 ///|
-pub fn ref_null_array_of(x : TypeIdx) -> ValType {
+pub fn ValType::ref_null_array_of(x : TypeIdx) -> ValType {
   RefTypeValType(HeapTypeRefType(true, HeapType(x)))
 }
 
 ///|
 /// A tree-based expression where operands are explicit children rather than implicit stack values.
 /// Each TInstr node contains its consumed operands as children.
-pub(all) struct TExpr(Array[TInstr]) derive(Eq, Show, Hash)
+pub struct TExpr(Array[TInstr]) derive(Eq, Show, Hash)
 
 ///|
 /// A tree-based instruction with explicit operands
@@ -1736,7 +1727,7 @@ pub(all) enum BinaryOp {
 } derive(Eq, Show, Hash)
 
 ///|
-pub(all) enum LoadOp {
+pub enum LoadOp {
   // === Scalar ===
   I32LoadOp
   I64LoadOp
@@ -1962,12 +1953,12 @@ pub fn def_type_heap_type(dt : DefType) -> HeapType {
 }
 
 ///|
-pub fn heap_type_ref_type(nullable : Bool, ht : HeapType) -> RefType {
+pub fn RefType::heap_type(nullable : Bool, ht : HeapType) -> RefType {
   HeapTypeRefType(nullable, ht)
 }
 
 ///|
-pub fn abs_heap_type_ref_type(abs : AbsHeapType) -> RefType {
+pub fn RefType::abs_heap_type(abs : AbsHeapType) -> RefType {
   AbsHeapTypeRefType(abs)
 }
 
@@ -1987,37 +1978,37 @@ pub fn ref_type_val_type(rt : RefType) -> ValType {
 }
 
 ///|
-pub fn bot_val_type() -> ValType {
+pub fn bot() -> ValType {
   BotValType
 }
 
 ///|
-pub fn i16_pack_type() -> PackType {
+pub fn PackType::i16() -> PackType {
   I16PackType
 }
 
 ///|
-pub fn i8_pack_type() -> PackType {
+pub fn PackType::i8() -> PackType {
   I8PackType
 }
 
 ///|
-pub fn val_type_storage_type(vt : ValType) -> StorageType {
+pub fn StorageType::val_type(vt : ValType) -> StorageType {
   ValTypeStorageType(vt)
 }
 
 ///|
-pub fn pack_type_storage_type(pt : PackType) -> StorageType {
+pub fn StorageType::pack_type(pt : PackType) -> StorageType {
   PackTypeStorageType(pt)
 }
 
 ///|
-pub fn mut_const() -> Mut {
+pub fn Mut::const_() -> Mut {
   Const
 }
 
 ///|
-pub fn mut_var() -> Mut {
+pub fn Mut::var() -> Mut {
   Var
 }
 
@@ -2082,12 +2073,12 @@ pub fn group_rec_type(sts : Array[SubType]) -> RecType {
 }
 
 ///|
-pub fn i32_limits(min : UInt, max : UInt?) -> Limits {
+pub fn Limits::i32(min : UInt, max : UInt?) -> Limits {
   I32Limits(min, max)
 }
 
 ///|
-pub fn i64_limits(min : UInt64, max : UInt64?) -> Limits {
+pub fn Limits::i64(min : UInt64, max : UInt64?) -> Limits {
   I64Limits(min, max)
 }
 
@@ -2177,72 +2168,72 @@ pub fn tag_extern_idx(ti : TagIdx) -> ExternIdx {
 }
 
 ///|
-pub fn elem_passive() -> ElemMode {
+pub fn ElemMode::passive() -> ElemMode {
   Passive
 }
 
 ///|
-pub fn elem_active(ti : TableIdx, val : Expr) -> ElemMode {
+pub fn ElemMode::active(ti : TableIdx, val : Expr) -> ElemMode {
   Active(ti, val)
 }
 
 ///|
-pub fn declarative() -> ElemMode {
+pub fn ElemMode::declarative() -> ElemMode {
   Declarative
 }
 
 ///|
-pub fn funcs_elem_kind(fs : Array[FuncIdx]) -> ElemKind {
+pub fn ElemKind::funcs(fs : Array[FuncIdx]) -> ElemKind {
   FuncsElemKind(fs)
 }
 
 ///|
-pub fn func_exprs_elem_kind(fs : Array[Expr]) -> ElemKind {
+pub fn ElemKind::func_exprs(fs : Array[Expr]) -> ElemKind {
   FuncExprsElemKind(fs)
 }
 
 ///|
-pub fn typed_exprs_elem_kind(rt : RefType, els : Array[Expr]) -> ElemKind {
+pub fn ElemKind::typed_exprs(rt : RefType, els : Array[Expr]) -> ElemKind {
   TypedExprsElemKind(rt, els)
 }
 
 ///|
-pub fn active(mi : MemIdx, expr : Expr) -> DataMode {
+pub fn DataMode::active(mi : MemIdx, expr : Expr) -> DataMode {
   Active(mi, expr)
 }
 
 ///|
-pub fn passive() -> DataMode {
+pub fn DataMode::passive() -> DataMode {
   Passive
 }
 
 ///|
-pub fn label_idx(idx : UInt) -> LabelIdx {
+pub fn LabelIdx::new(idx : UInt) -> LabelIdx {
   LabelIdx(idx)
 }
 
 ///|
-pub fn unreachable_inst() -> Instruction {
+pub fn Instruction::unreachable_() -> Instruction {
   Unreachable
 }
 
 ///|
-pub fn nop_inst() -> Instruction {
+pub fn Instruction::nop() -> Instruction {
   Nop
 }
 
 ///|
-pub fn block_inst(bt : BlockType, val : Expr) -> Instruction {
+pub fn Instruction::block(bt : BlockType, val : Expr) -> Instruction {
   Block(bt, val)
 }
 
 ///|
-pub fn loop_inst(bt : BlockType, val : Expr) -> Instruction {
+pub fn Instruction::loop_(bt : BlockType, val : Expr) -> Instruction {
   Loop(bt, val)
 }
 
 ///|
-pub fn if_inst(
+pub fn Instruction::if_(
   bt : BlockType,
   if_block : Array[Instruction],
   else_block : Array[Instruction]?,
@@ -2251,52 +2242,52 @@ pub fn if_inst(
 }
 
 ///|
-pub fn throw_inst(ti : TagIdx) -> Instruction {
+pub fn Instruction::throw_(ti : TagIdx) -> Instruction {
   Throw(ti)
 }
 
 ///|
-pub fn throw_ref_inst() -> Instruction {
+pub fn Instruction::throw_ref() -> Instruction {
   ThrowRef
 }
 
 ///|
-pub fn br_inst(li : LabelIdx) -> Instruction {
+pub fn Instruction::br(li : LabelIdx) -> Instruction {
   Br(li)
 }
 
 ///|
-pub fn br_if_inst(li : LabelIdx) -> Instruction {
+pub fn Instruction::br_if(li : LabelIdx) -> Instruction {
   BrIf(li)
 }
 
 ///|
-pub fn br_table_inst(ls : Array[LabelIdx], li0 : LabelIdx) -> Instruction {
+pub fn Instruction::br_table(ls : Array[LabelIdx], li0 : LabelIdx) -> Instruction {
   BrTable(ls, li0)
 }
 
 ///|
-pub fn return_inst() -> Instruction {
+pub fn Instruction::return_() -> Instruction {
   Return
 }
 
 ///|
-pub fn call_inst(fi : FuncIdx) -> Instruction {
+pub fn Instruction::call(fi : FuncIdx) -> Instruction {
   Call(fi)
 }
 
 ///|
-pub fn call_indirect_inst(ty_idx : TypeIdx, tbl_idx : TableIdx) -> Instruction {
+pub fn Instruction::call_indirect(ty_idx : TypeIdx, tbl_idx : TableIdx) -> Instruction {
   CallIndirect(ty_idx, tbl_idx)
 }
 
 ///|
-pub fn return_call_inst(fi : FuncIdx) -> Instruction {
+pub fn Instruction::return_call(fi : FuncIdx) -> Instruction {
   ReturnCall(fi)
 }
 
 ///|
-pub fn return_call_indirect_inst(
+pub fn Instruction::return_call_indirect(
   ty_idx : TypeIdx,
   tbl_idx : TableIdx,
 ) -> Instruction {
@@ -2304,27 +2295,27 @@ pub fn return_call_indirect_inst(
 }
 
 ///|
-pub fn call_ref_inst(ti : TypeIdx) -> Instruction {
+pub fn Instruction::call_ref(ti : TypeIdx) -> Instruction {
   CallRef(ti)
 }
 
 ///|
-pub fn return_call_ref_inst(ti : TypeIdx) -> Instruction {
+pub fn Instruction::return_call_ref(ti : TypeIdx) -> Instruction {
   ReturnCallRef(ti)
 }
 
 ///|
-pub fn drop_inst() -> Instruction {
+pub fn Instruction::drop() -> Instruction {
   Drop
 }
 
 ///|
-pub fn select_inst(types? : Array[ValType]? = None) -> Instruction {
+pub fn Instruction::select(types? : Array[ValType]? = None) -> Instruction {
   Select(types)
 }
 
 ///|
-pub fn try_table_inst(
+pub fn Instruction::try_table(
   bt : BlockType,
   catches : Array[Catch],
   val : Expr,
@@ -2333,972 +2324,972 @@ pub fn try_table_inst(
 }
 
 ///|
-pub fn local_get_inst(li : LocalIdx) -> Instruction {
+pub fn Instruction::local_get(li : LocalIdx) -> Instruction {
   LocalGet(li)
 }
 
 ///|
-pub fn local_set_inst(li : LocalIdx) -> Instruction {
+pub fn Instruction::local_set(li : LocalIdx) -> Instruction {
   LocalSet(li)
 }
 
 ///|
-pub fn local_tee_inst(li : LocalIdx) -> Instruction {
+pub fn Instruction::local_tee(li : LocalIdx) -> Instruction {
   LocalTee(li)
 }
 
 ///|
-pub fn global_get_inst(gi : GlobalIdx) -> Instruction {
+pub fn Instruction::global_get(gi : GlobalIdx) -> Instruction {
   GlobalGet(gi)
 }
 
 ///|
-pub fn global_set_inst(gi : GlobalIdx) -> Instruction {
+pub fn Instruction::global_set(gi : GlobalIdx) -> Instruction {
   GlobalSet(gi)
 }
 
 ///|
-pub fn table_get_inst(ti : TableIdx) -> Instruction {
+pub fn Instruction::table_get(ti : TableIdx) -> Instruction {
   TableGet(ti)
 }
 
 ///|
-pub fn table_set_inst(ti : TableIdx) -> Instruction {
+pub fn Instruction::table_set(ti : TableIdx) -> Instruction {
   TableSet(ti)
 }
 
 ///|
-pub fn i32_load_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::i32_load(ma : MemArg) -> Instruction {
   I32Load(ma)
 }
 
 ///|
-pub fn i64_load_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::i64_load(ma : MemArg) -> Instruction {
   I64Load(ma)
 }
 
 ///|
-pub fn f32_load_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::f32_load(ma : MemArg) -> Instruction {
   F32Load(ma)
 }
 
 ///|
-pub fn f64_load_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::f64_load(ma : MemArg) -> Instruction {
   F64Load(ma)
 }
 
 ///|
-pub fn i32_load8s_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::i32_load8s(ma : MemArg) -> Instruction {
   I32Load8S(ma)
 }
 
 ///|
-pub fn i32_load8u_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::i32_load8u(ma : MemArg) -> Instruction {
   I32Load8U(ma)
 }
 
 ///|
-pub fn i32_load16s_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::i32_load16s(ma : MemArg) -> Instruction {
   I32Load16S(ma)
 }
 
 ///|
-pub fn i32_load16u_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::i32_load16u(ma : MemArg) -> Instruction {
   I32Load16U(ma)
 }
 
 ///|
-pub fn i64_load8s_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::i64_load8s(ma : MemArg) -> Instruction {
   I64Load8S(ma)
 }
 
 ///|
-pub fn i64_load8u_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::i64_load8u(ma : MemArg) -> Instruction {
   I64Load8U(ma)
 }
 
 ///|
-pub fn i64_load16s_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::i64_load16s(ma : MemArg) -> Instruction {
   I64Load16S(ma)
 }
 
 ///|
-pub fn i64_load16u_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::i64_load16u(ma : MemArg) -> Instruction {
   I64Load16U(ma)
 }
 
 ///|
-pub fn i64_load32s_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::i64_load32s(ma : MemArg) -> Instruction {
   I64Load32S(ma)
 }
 
 ///|
-pub fn i64_load32u_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::i64_load32u(ma : MemArg) -> Instruction {
   I64Load32U(ma)
 }
 
 ///|
-pub fn i32_store_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::i32_store(ma : MemArg) -> Instruction {
   I32Store(ma)
 }
 
 ///|
-pub fn i64_store_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::i64_store(ma : MemArg) -> Instruction {
   I64Store(ma)
 }
 
 ///|
-pub fn f32_store_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::f32_store(ma : MemArg) -> Instruction {
   F32Store(ma)
 }
 
 ///|
-pub fn f64_store_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::f64_store(ma : MemArg) -> Instruction {
   F64Store(ma)
 }
 
 ///|
-pub fn i32_store8_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::i32_store8(ma : MemArg) -> Instruction {
   I32Store8(ma)
 }
 
 ///|
-pub fn i32_store16_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::i32_store16(ma : MemArg) -> Instruction {
   I32Store16(ma)
 }
 
 ///|
-pub fn i64_store8_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::i64_store8(ma : MemArg) -> Instruction {
   I64Store8(ma)
 }
 
 ///|
-pub fn i64_store16_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::i64_store16(ma : MemArg) -> Instruction {
   I64Store16(ma)
 }
 
 ///|
-pub fn i64_store32_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::i64_store32(ma : MemArg) -> Instruction {
   I64Store32(ma)
 }
 
 ///|
-pub fn memory_size_inst(mi : MemIdx) -> Instruction {
+pub fn Instruction::memory_size(mi : MemIdx) -> Instruction {
   MemorySize(mi)
 }
 
 ///|
-pub fn memory_grow_inst(mi : MemIdx) -> Instruction {
+pub fn Instruction::memory_grow(mi : MemIdx) -> Instruction {
   MemoryGrow(mi)
 }
 
 ///|
-pub fn i32_const_inst(val : I32) -> Instruction {
+pub fn Instruction::i32_const(val : I32) -> Instruction {
   I32Const(val)
 }
 
 ///|
-pub fn i64_const_inst(val : I64) -> Instruction {
+pub fn Instruction::i64_const(val : I64) -> Instruction {
   I64Const(val)
 }
 
 ///|
-pub fn f32_const_inst(val : F32) -> Instruction {
+pub fn Instruction::f32_const(val : F32) -> Instruction {
   F32Const(val)
 }
 
 ///|
-pub fn f64_const_inst(val : F64) -> Instruction {
+pub fn Instruction::f64_const(val : F64) -> Instruction {
   F64Const(val)
 }
 
 ///|
-pub fn i32_eqz_inst() -> Instruction {
+pub fn Instruction::i32_eqz() -> Instruction {
   I32Eqz
 }
 
 ///|
-pub fn i32_eq_inst() -> Instruction {
+pub fn Instruction::i32_eq() -> Instruction {
   I32Eq
 }
 
 ///|
-pub fn i32_ne_inst() -> Instruction {
+pub fn Instruction::i32_ne() -> Instruction {
   I32Ne
 }
 
 ///|
-pub fn i32_lt_s_inst() -> Instruction {
+pub fn Instruction::i32_lt_s() -> Instruction {
   I32LtS
 }
 
 ///|
-pub fn i32_lt_u_inst() -> Instruction {
+pub fn Instruction::i32_lt_u() -> Instruction {
   I32LtU
 }
 
 ///|
-pub fn i32_gt_s_inst() -> Instruction {
+pub fn Instruction::i32_gt_s() -> Instruction {
   I32GtS
 }
 
 ///|
-pub fn i32_gt_u_inst() -> Instruction {
+pub fn Instruction::i32_gt_u() -> Instruction {
   I32GtU
 }
 
 ///|
-pub fn i32_le_s_inst() -> Instruction {
+pub fn Instruction::i32_le_s() -> Instruction {
   I32LeS
 }
 
 ///|
-pub fn i32_le_u_inst() -> Instruction {
+pub fn Instruction::i32_le_u() -> Instruction {
   I32LeU
 }
 
 ///|
-pub fn i32_ge_s_inst() -> Instruction {
+pub fn Instruction::i32_ge_s() -> Instruction {
   I32GeS
 }
 
 ///|
-pub fn i32_ge_u_inst() -> Instruction {
+pub fn Instruction::i32_ge_u() -> Instruction {
   I32GeU
 }
 
 ///|
-pub fn i64_eqz_inst() -> Instruction {
+pub fn Instruction::i64_eqz() -> Instruction {
   I64Eqz
 }
 
 ///|
-pub fn i64_eq_inst() -> Instruction {
+pub fn Instruction::i64_eq() -> Instruction {
   I64Eq
 }
 
 ///|
-pub fn i64_ne_inst() -> Instruction {
+pub fn Instruction::i64_ne() -> Instruction {
   I64Ne
 }
 
 ///|
-pub fn i64_lt_s_inst() -> Instruction {
+pub fn Instruction::i64_lt_s() -> Instruction {
   I64LtS
 }
 
 ///|
-pub fn i64_lt_u_inst() -> Instruction {
+pub fn Instruction::i64_lt_u() -> Instruction {
   I64LtU
 }
 
 ///|
-pub fn i64_gt_s_inst() -> Instruction {
+pub fn Instruction::i64_gt_s() -> Instruction {
   I64GtS
 }
 
 ///|
-pub fn i64_gt_u_inst() -> Instruction {
+pub fn Instruction::i64_gt_u() -> Instruction {
   I64GtU
 }
 
 ///|
-pub fn i64_le_s_inst() -> Instruction {
+pub fn Instruction::i64_le_s() -> Instruction {
   I64LeS
 }
 
 ///|
-pub fn i64_le_u_inst() -> Instruction {
+pub fn Instruction::i64_le_u() -> Instruction {
   I64LeU
 }
 
 ///|
-pub fn i64_ge_s_inst() -> Instruction {
+pub fn Instruction::i64_ge_s() -> Instruction {
   I64GeS
 }
 
 ///|
-pub fn i64_ge_u_inst() -> Instruction {
+pub fn Instruction::i64_ge_u() -> Instruction {
   I64GeU
 }
 
 ///|
-pub fn f32_eq_inst() -> Instruction {
+pub fn Instruction::f32_eq() -> Instruction {
   F32Eq
 }
 
 ///|
-pub fn f32_ne_inst() -> Instruction {
+pub fn Instruction::f32_ne() -> Instruction {
   F32Ne
 }
 
 ///|
-pub fn f32_lt_inst() -> Instruction {
+pub fn Instruction::f32_lt() -> Instruction {
   F32Lt
 }
 
 ///|
-pub fn f32_gt_inst() -> Instruction {
+pub fn Instruction::f32_gt() -> Instruction {
   F32Gt
 }
 
 ///|
-pub fn f32_le_inst() -> Instruction {
+pub fn Instruction::f32_le() -> Instruction {
   F32Le
 }
 
 ///|
-pub fn f32_ge_inst() -> Instruction {
+pub fn Instruction::f32_ge() -> Instruction {
   F32Ge
 }
 
 ///|
-pub fn f64_eq_inst() -> Instruction {
+pub fn Instruction::f64_eq() -> Instruction {
   F64Eq
 }
 
 ///|
-pub fn f64_ne_inst() -> Instruction {
+pub fn Instruction::f64_ne() -> Instruction {
   F64Ne
 }
 
 ///|
-pub fn f64_lt_inst() -> Instruction {
+pub fn Instruction::f64_lt() -> Instruction {
   F64Lt
 }
 
 ///|
-pub fn f64_gt_inst() -> Instruction {
+pub fn Instruction::f64_gt() -> Instruction {
   F64Gt
 }
 
 ///|
-pub fn f64_le_inst() -> Instruction {
+pub fn Instruction::f64_le() -> Instruction {
   F64Le
 }
 
 ///|
-pub fn f64_ge_inst() -> Instruction {
+pub fn Instruction::f64_ge() -> Instruction {
   F64Ge
 }
 
 ///|
-pub fn i32_clz_inst() -> Instruction {
+pub fn Instruction::i32_clz() -> Instruction {
   I32Clz
 }
 
 ///|
-pub fn i32_ctz_inst() -> Instruction {
+pub fn Instruction::i32_ctz() -> Instruction {
   I32Ctz
 }
 
 ///|
-pub fn i32_popcnt_inst() -> Instruction {
+pub fn Instruction::i32_popcnt() -> Instruction {
   I32Popcnt
 }
 
 ///|
-pub fn i32_add_inst() -> Instruction {
+pub fn Instruction::i32_add() -> Instruction {
   I32Add
 }
 
 ///|
-pub fn i32_sub_inst() -> Instruction {
+pub fn Instruction::i32_sub() -> Instruction {
   I32Sub
 }
 
 ///|
-pub fn i32_mul_inst() -> Instruction {
+pub fn Instruction::i32_mul() -> Instruction {
   I32Mul
 }
 
 ///|
-pub fn i32_div_s_inst() -> Instruction {
+pub fn Instruction::i32_div_s() -> Instruction {
   I32DivS
 }
 
 ///|
-pub fn i32_div_u_inst() -> Instruction {
+pub fn Instruction::i32_div_u() -> Instruction {
   I32DivU
 }
 
 ///|
-pub fn i32_rem_s_inst() -> Instruction {
+pub fn Instruction::i32_rem_s() -> Instruction {
   I32RemS
 }
 
 ///|
-pub fn i32_rem_u_inst() -> Instruction {
+pub fn Instruction::i32_rem_u() -> Instruction {
   I32RemU
 }
 
 ///|
-pub fn i32_and_inst() -> Instruction {
+pub fn Instruction::i32_and() -> Instruction {
   I32And
 }
 
 ///|
-pub fn i32_or_inst() -> Instruction {
+pub fn Instruction::i32_or() -> Instruction {
   I32Or
 }
 
 ///|
-pub fn i32_xor_inst() -> Instruction {
+pub fn Instruction::i32_xor() -> Instruction {
   I32Xor
 }
 
 ///|
-pub fn i32_shl_inst() -> Instruction {
+pub fn Instruction::i32_shl() -> Instruction {
   I32Shl
 }
 
 ///|
-pub fn i32_shr_s_inst() -> Instruction {
+pub fn Instruction::i32_shr_s() -> Instruction {
   I32ShrS
 }
 
 ///|
-pub fn i32_shr_u_inst() -> Instruction {
+pub fn Instruction::i32_shr_u() -> Instruction {
   I32ShrU
 }
 
 ///|
-pub fn i32_rotl_inst() -> Instruction {
+pub fn Instruction::i32_rotl() -> Instruction {
   I32Rotl
 }
 
 ///|
-pub fn i32_rotr_inst() -> Instruction {
+pub fn Instruction::i32_rotr() -> Instruction {
   I32Rotr
 }
 
 ///|
-pub fn i64_clz_inst() -> Instruction {
+pub fn Instruction::i64_clz() -> Instruction {
   I64Clz
 }
 
 ///|
-pub fn i64_ctz_inst() -> Instruction {
+pub fn Instruction::i64_ctz() -> Instruction {
   I64Ctz
 }
 
 ///|
-pub fn i64_popcnt_inst() -> Instruction {
+pub fn Instruction::i64_popcnt() -> Instruction {
   I64Popcnt
 }
 
 ///|
-pub fn i64_add_inst() -> Instruction {
+pub fn Instruction::i64_add() -> Instruction {
   I64Add
 }
 
 ///|
-pub fn i64_sub_inst() -> Instruction {
+pub fn Instruction::i64_sub() -> Instruction {
   I64Sub
 }
 
 ///|
-pub fn i64_mul_inst() -> Instruction {
+pub fn Instruction::i64_mul() -> Instruction {
   I64Mul
 }
 
 ///|
-pub fn i64_div_s_inst() -> Instruction {
+pub fn Instruction::i64_div_s() -> Instruction {
   I64DivS
 }
 
 ///|
-pub fn i64_div_u_inst() -> Instruction {
+pub fn Instruction::i64_div_u() -> Instruction {
   I64DivU
 }
 
 ///|
-pub fn i64_rem_s_inst() -> Instruction {
+pub fn Instruction::i64_rem_s() -> Instruction {
   I64RemS
 }
 
 ///|
-pub fn i64_rem_u_inst() -> Instruction {
+pub fn Instruction::i64_rem_u() -> Instruction {
   I64RemU
 }
 
 ///|
-pub fn i64_and_inst() -> Instruction {
+pub fn Instruction::i64_and() -> Instruction {
   I64And
 }
 
 ///|
-pub fn i64_or_inst() -> Instruction {
+pub fn Instruction::i64_or() -> Instruction {
   I64Or
 }
 
 ///|
-pub fn i64_xor_inst() -> Instruction {
+pub fn Instruction::i64_xor() -> Instruction {
   I64Xor
 }
 
 ///|
-pub fn i64_shl_inst() -> Instruction {
+pub fn Instruction::i64_shl() -> Instruction {
   I64Shl
 }
 
 ///|
-pub fn i64_shr_s_inst() -> Instruction {
+pub fn Instruction::i64_shr_s() -> Instruction {
   I64ShrS
 }
 
 ///|
-pub fn i64_shr_u_inst() -> Instruction {
+pub fn Instruction::i64_shr_u() -> Instruction {
   I64ShrU
 }
 
 ///|
-pub fn i64_rotl_inst() -> Instruction {
+pub fn Instruction::i64_rotl() -> Instruction {
   I64Rotl
 }
 
 ///|
-pub fn i64_rotr_inst() -> Instruction {
+pub fn Instruction::i64_rotr() -> Instruction {
   I64Rotr
 }
 
 ///|
-pub fn f32_abs_inst() -> Instruction {
+pub fn Instruction::f32_abs() -> Instruction {
   F32Abs
 }
 
 ///|
-pub fn f32_neg_inst() -> Instruction {
+pub fn Instruction::f32_neg() -> Instruction {
   F32Neg
 }
 
 ///|
-pub fn f32_ceil_inst() -> Instruction {
+pub fn Instruction::f32_ceil() -> Instruction {
   F32Ceil
 }
 
 ///|
-pub fn f32_floor_inst() -> Instruction {
+pub fn Instruction::f32_floor() -> Instruction {
   F32Floor
 }
 
 ///|
-pub fn f32_trunc_inst() -> Instruction {
+pub fn Instruction::f32_trunc() -> Instruction {
   F32Trunc
 }
 
 ///|
-pub fn f32_nearest_inst() -> Instruction {
+pub fn Instruction::f32_nearest() -> Instruction {
   F32Nearest
 }
 
 ///|
-pub fn f32_sqrt_inst() -> Instruction {
+pub fn Instruction::f32_sqrt() -> Instruction {
   F32Sqrt
 }
 
 ///|
-pub fn f32_add_inst() -> Instruction {
+pub fn Instruction::f32_add() -> Instruction {
   F32Add
 }
 
 ///|
-pub fn f32_sub_inst() -> Instruction {
+pub fn Instruction::f32_sub() -> Instruction {
   F32Sub
 }
 
 ///|
-pub fn f32_mul_inst() -> Instruction {
+pub fn Instruction::f32_mul() -> Instruction {
   F32Mul
 }
 
 ///|
-pub fn f32_div_inst() -> Instruction {
+pub fn Instruction::f32_div() -> Instruction {
   F32Div
 }
 
 ///|
-pub fn f32_min_inst() -> Instruction {
+pub fn Instruction::f32_min() -> Instruction {
   F32Min
 }
 
 ///|
-pub fn f32_max_inst() -> Instruction {
+pub fn Instruction::f32_max() -> Instruction {
   F32Max
 }
 
 ///|
-pub fn f32_copysign_inst() -> Instruction {
+pub fn Instruction::f32_copysign() -> Instruction {
   F32Copysign
 }
 
 ///|
-pub fn f64_abs_inst() -> Instruction {
+pub fn Instruction::f64_abs() -> Instruction {
   F64Abs
 }
 
 ///|
-pub fn f64_neg_inst() -> Instruction {
+pub fn Instruction::f64_neg() -> Instruction {
   F64Neg
 }
 
 ///|
-pub fn f64_ceil_inst() -> Instruction {
+pub fn Instruction::f64_ceil() -> Instruction {
   F64Ceil
 }
 
 ///|
-pub fn f64_floor_inst() -> Instruction {
+pub fn Instruction::f64_floor() -> Instruction {
   F64Floor
 }
 
 ///|
-pub fn f64_trunc_inst() -> Instruction {
+pub fn Instruction::f64_trunc() -> Instruction {
   F64Trunc
 }
 
 ///|
-pub fn f64_nearest_inst() -> Instruction {
+pub fn Instruction::f64_nearest() -> Instruction {
   F64Nearest
 }
 
 ///|
-pub fn f64_sqrt_inst() -> Instruction {
+pub fn Instruction::f64_sqrt() -> Instruction {
   F64Sqrt
 }
 
 ///|
-pub fn f64_add_inst() -> Instruction {
+pub fn Instruction::f64_add() -> Instruction {
   F64Add
 }
 
 ///|
-pub fn f64_sub_inst() -> Instruction {
+pub fn Instruction::f64_sub() -> Instruction {
   F64Sub
 }
 
 ///|
-pub fn f64_mul_inst() -> Instruction {
+pub fn Instruction::f64_mul() -> Instruction {
   F64Mul
 }
 
 ///|
-pub fn f64_div_inst() -> Instruction {
+pub fn Instruction::f64_div() -> Instruction {
   F64Div
 }
 
 ///|
-pub fn f64_min_inst() -> Instruction {
+pub fn Instruction::f64_min() -> Instruction {
   F64Min
 }
 
 ///|
-pub fn f64_max_inst() -> Instruction {
+pub fn Instruction::f64_max() -> Instruction {
   F64Max
 }
 
 ///|
-pub fn f64_copysign_inst() -> Instruction {
+pub fn Instruction::f64_copysign() -> Instruction {
   F64Copysign
 }
 
 ///|
-pub fn i32_wrap_i64_inst() -> Instruction {
+pub fn Instruction::i32_wrap_i64() -> Instruction {
   I32WrapI64
 }
 
 ///|
-pub fn i32_trunc_f32s_inst() -> Instruction {
+pub fn Instruction::i32_trunc_f32s() -> Instruction {
   I32TruncF32S
 }
 
 ///|
-pub fn i32_trunc_f32u_inst() -> Instruction {
+pub fn Instruction::i32_trunc_f32u() -> Instruction {
   I32TruncF32U
 }
 
 ///|
-pub fn i32_trunc_f64s_inst() -> Instruction {
+pub fn Instruction::i32_trunc_f64s() -> Instruction {
   I32TruncF64S
 }
 
 ///|
-pub fn i32_trunc_f64u_inst() -> Instruction {
+pub fn Instruction::i32_trunc_f64u() -> Instruction {
   I32TruncF64U
 }
 
 ///|
-pub fn i64_extend_i32s_inst() -> Instruction {
+pub fn Instruction::i64_extend_i32s() -> Instruction {
   I64ExtendI32S
 }
 
 ///|
-pub fn i64_extend_i32u_inst() -> Instruction {
+pub fn Instruction::i64_extend_i32u() -> Instruction {
   I64ExtendI32U
 }
 
 ///|
-pub fn i64_trunc_f32s_inst() -> Instruction {
+pub fn Instruction::i64_trunc_f32s() -> Instruction {
   I64TruncF32S
 }
 
 ///|
-pub fn i64_trunc_f32u_inst() -> Instruction {
+pub fn Instruction::i64_trunc_f32u() -> Instruction {
   I64TruncF32U
 }
 
 ///|
-pub fn i64_trunc_f64s_inst() -> Instruction {
+pub fn Instruction::i64_trunc_f64s() -> Instruction {
   I64TruncF64S
 }
 
 ///|
-pub fn i64_trunc_f64u_inst() -> Instruction {
+pub fn Instruction::i64_trunc_f64u() -> Instruction {
   I64TruncF64U
 }
 
 ///|
-pub fn f32_convert_i32s_inst() -> Instruction {
+pub fn Instruction::f32_convert_i32s() -> Instruction {
   F32ConvertI32S
 }
 
 ///|
-pub fn f32_convert_i32u_inst() -> Instruction {
+pub fn Instruction::f32_convert_i32u() -> Instruction {
   F32ConvertI32U
 }
 
 ///|
-pub fn f32_convert_i64s_inst() -> Instruction {
+pub fn Instruction::f32_convert_i64s() -> Instruction {
   F32ConvertI64S
 }
 
 ///|
-pub fn f32_convert_i64u_inst() -> Instruction {
+pub fn Instruction::f32_convert_i64u() -> Instruction {
   F32ConvertI64U
 }
 
 ///|
-pub fn f32_demote_f64_inst() -> Instruction {
+pub fn Instruction::f32_demote_f64() -> Instruction {
   F32DemoteF64
 }
 
 ///|
-pub fn f64_convert_i32s_inst() -> Instruction {
+pub fn Instruction::f64_convert_i32s() -> Instruction {
   F64ConvertI32S
 }
 
 ///|
-pub fn f64_convert_i32u_inst() -> Instruction {
+pub fn Instruction::f64_convert_i32u() -> Instruction {
   F64ConvertI32U
 }
 
 ///|
-pub fn f64_convert_i64s_inst() -> Instruction {
+pub fn Instruction::f64_convert_i64s() -> Instruction {
   F64ConvertI64S
 }
 
 ///|
-pub fn f64_convert_i64u_inst() -> Instruction {
+pub fn Instruction::f64_convert_i64u() -> Instruction {
   F64ConvertI64U
 }
 
 ///|
-pub fn f64_promote_f32_inst() -> Instruction {
+pub fn Instruction::f64_promote_f32() -> Instruction {
   F64PromoteF32
 }
 
 ///|
-pub fn i32_reinterpret_f32_inst() -> Instruction {
+pub fn Instruction::i32_reinterpret_f32() -> Instruction {
   I32ReinterpretF32
 }
 
 ///|
-pub fn i64_reinterpret_f64_inst() -> Instruction {
+pub fn Instruction::i64_reinterpret_f64() -> Instruction {
   I64ReinterpretF64
 }
 
 ///|
-pub fn f32_reinterpret_i32_inst() -> Instruction {
+pub fn Instruction::f32_reinterpret_i32() -> Instruction {
   F32ReinterpretI32
 }
 
 ///|
-pub fn f64_reinterpret_i64_inst() -> Instruction {
+pub fn Instruction::f64_reinterpret_i64() -> Instruction {
   F64ReinterpretI64
 }
 
 ///|
-pub fn i32_extend8s_inst() -> Instruction {
+pub fn Instruction::i32_extend8s() -> Instruction {
   I32Extend8S
 }
 
 ///|
-pub fn i32_extend16s_inst() -> Instruction {
+pub fn Instruction::i32_extend16s() -> Instruction {
   I32Extend16S
 }
 
 ///|
-pub fn i64_extend8s_inst() -> Instruction {
+pub fn Instruction::i64_extend8s() -> Instruction {
   I64Extend8S
 }
 
 ///|
-pub fn i64_extend16s_inst() -> Instruction {
+pub fn Instruction::i64_extend16s() -> Instruction {
   I64Extend16S
 }
 
 ///|
-pub fn i64_extend32s_inst() -> Instruction {
+pub fn Instruction::i64_extend32s() -> Instruction {
   I64Extend32S
 }
 
 ///|
-pub fn ref_null_inst(ht : HeapType) -> Instruction {
+pub fn Instruction::ref_null(ht : HeapType) -> Instruction {
   RefNull(ht)
 }
 
 ///|
-pub fn ref_is_null_inst() -> Instruction {
+pub fn Instruction::ref_is_null() -> Instruction {
   RefIsNull
 }
 
 ///|
-pub fn ref_func_inst(fi : FuncIdx) -> Instruction {
+pub fn Instruction::ref_func(fi : FuncIdx) -> Instruction {
   RefFunc(fi)
 }
 
 ///|
-pub fn ref_eq_inst() -> Instruction {
+pub fn Instruction::ref_eq() -> Instruction {
   RefEq
 }
 
 ///|
-pub fn ref_as_non_null_inst() -> Instruction {
+pub fn Instruction::ref_as_non_null() -> Instruction {
   RefAsNonNull
 }
 
 ///|
-pub fn br_on_null_inst(li : LabelIdx) -> Instruction {
+pub fn Instruction::br_on_null(li : LabelIdx) -> Instruction {
   BrOnNull(li)
 }
 
 ///|
-pub fn br_on_non_null_inst(li : LabelIdx) -> Instruction {
+pub fn Instruction::br_on_non_null(li : LabelIdx) -> Instruction {
   BrOnNonNull(li)
 }
 
 ///|
-pub fn struct_new_inst(ti : TypeIdx) -> Instruction {
+pub fn Instruction::struct_new(ti : TypeIdx) -> Instruction {
   StructNew(ti)
 }
 
 ///|
-pub fn struct_new_default_inst(ti : TypeIdx) -> Instruction {
+pub fn Instruction::struct_new_default(ti : TypeIdx) -> Instruction {
   StructNewDefault(ti)
 }
 
 ///|
-pub fn struct_get_inst(ty : TypeIdx, fi : U32) -> Instruction {
+pub fn Instruction::struct_get(ty : TypeIdx, fi : U32) -> Instruction {
   StructGet(ty, fi)
 }
 
 ///|
-pub fn struct_get_s_inst(ty : TypeIdx, fi : U32) -> Instruction {
+pub fn Instruction::struct_get_s(ty : TypeIdx, fi : U32) -> Instruction {
   StructGetS(ty, fi)
 }
 
 ///|
-pub fn struct_get_u_inst(ty : TypeIdx, fi : U32) -> Instruction {
+pub fn Instruction::struct_get_u(ty : TypeIdx, fi : U32) -> Instruction {
   StructGetU(ty, fi)
 }
 
 ///|
-pub fn struct_set_inst(ty : TypeIdx, fi : U32) -> Instruction {
+pub fn Instruction::struct_set(ty : TypeIdx, fi : U32) -> Instruction {
   StructSet(ty, fi)
 }
 
 ///|
-pub fn array_new_inst(ti : TypeIdx) -> Instruction {
+pub fn Instruction::array_new(ti : TypeIdx) -> Instruction {
   ArrayNew(ti)
 }
 
 ///|
-pub fn array_new_default_inst(ti : TypeIdx) -> Instruction {
+pub fn Instruction::array_new_default(ti : TypeIdx) -> Instruction {
   ArrayNewDefault(ti)
 }
 
 ///|
-pub fn array_new_fixed_inst(ti : TypeIdx, len : U32) -> Instruction {
+pub fn Instruction::array_new_fixed(ti : TypeIdx, len : U32) -> Instruction {
   ArrayNewFixed(ti, len)
 }
 
 ///|
-pub fn array_new_data_inst(ti : TypeIdx, di : DataIdx) -> Instruction {
+pub fn Instruction::array_new_data(ti : TypeIdx, di : DataIdx) -> Instruction {
   ArrayNewData(ti, di)
 }
 
 ///|
-pub fn array_new_elem_inst(ti : TypeIdx, ei : ElemIdx) -> Instruction {
+pub fn Instruction::array_new_elem(ti : TypeIdx, ei : ElemIdx) -> Instruction {
   ArrayNewElem(ti, ei)
 }
 
 ///|
-pub fn array_get_inst(ti : TypeIdx) -> Instruction {
+pub fn Instruction::array_get(ti : TypeIdx) -> Instruction {
   ArrayGet(ti)
 }
 
 ///|
-pub fn array_get_s_inst(ti : TypeIdx) -> Instruction {
+pub fn Instruction::array_get_s(ti : TypeIdx) -> Instruction {
   ArrayGetS(ti)
 }
 
 ///|
-pub fn array_get_u_inst(ti : TypeIdx) -> Instruction {
+pub fn Instruction::array_get_u(ti : TypeIdx) -> Instruction {
   ArrayGetU(ti)
 }
 
 ///|
-pub fn array_set_inst(ti : TypeIdx) -> Instruction {
+pub fn Instruction::array_set(ti : TypeIdx) -> Instruction {
   ArraySet(ti)
 }
 
 ///|
-pub fn array_len_inst() -> Instruction {
+pub fn Instruction::array_len() -> Instruction {
   ArrayLen
 }
 
 ///|
-pub fn array_fill_inst(ti : TypeIdx) -> Instruction {
+pub fn Instruction::array_fill(ti : TypeIdx) -> Instruction {
   ArrayFill(ti)
 }
 
 ///|
-pub fn array_copy_inst(ti0 : TypeIdx, ti1 : TypeIdx) -> Instruction {
+pub fn Instruction::array_copy(ti0 : TypeIdx, ti1 : TypeIdx) -> Instruction {
   ArrayCopy(ti0, ti1)
 }
 
 ///|
-pub fn array_init_data_inst(ti : TypeIdx, di : DataIdx) -> Instruction {
+pub fn Instruction::array_init_data(ti : TypeIdx, di : DataIdx) -> Instruction {
   ArrayInitData(ti, di)
 }
 
 ///|
-pub fn array_init_elem_inst(ti : TypeIdx, ei : ElemIdx) -> Instruction {
+pub fn Instruction::array_init_elem(ti : TypeIdx, ei : ElemIdx) -> Instruction {
   ArrayInitElem(ti, ei)
 }
 
 ///|
-pub fn ref_test_inst(nullable : Bool, ht : HeapType) -> Instruction {
+pub fn Instruction::ref_test(nullable : Bool, ht : HeapType) -> Instruction {
   RefTest(nullable, ht)
 }
 
 ///|
-pub fn ref_cast_inst(nullable : Bool, ht : HeapType) -> Instruction {
+pub fn Instruction::ref_cast(nullable : Bool, ht : HeapType) -> Instruction {
   RefCast(nullable, ht)
 }
 
 ///|
-pub fn br_on_cast_inst(
+pub fn Instruction::br_on_cast(
   li : LabelIdx,
   t_nullable_0 : Bool,
   ht0 : HeapType,
@@ -3309,7 +3300,7 @@ pub fn br_on_cast_inst(
 }
 
 ///|
-pub fn br_on_cast_fail_inst(
+pub fn Instruction::br_on_cast_fail(
   li : LabelIdx,
   t_nullable_0 : Bool,
   ht0 : HeapType,
@@ -3320,182 +3311,182 @@ pub fn br_on_cast_fail_inst(
 }
 
 ///|
-pub fn any_convert_extern_inst() -> Instruction {
+pub fn Instruction::any_convert_extern() -> Instruction {
   AnyConvertExtern
 }
 
 ///|
-pub fn extern_convert_any_inst() -> Instruction {
+pub fn Instruction::extern_convert_any() -> Instruction {
   ExternConvertAny
 }
 
 ///|
-pub fn ref_i31_inst() -> Instruction {
+pub fn Instruction::ref_i31() -> Instruction {
   RefI31
 }
 
 ///|
-pub fn i31_get_s_inst() -> Instruction {
+pub fn Instruction::i31_get_s() -> Instruction {
   I31GetS
 }
 
 ///|
-pub fn i31_get_u_inst() -> Instruction {
+pub fn Instruction::i31_get_u() -> Instruction {
   I31GetU
 }
 
 ///|
-pub fn i32_trunc_sat_f32s_inst() -> Instruction {
+pub fn Instruction::i32_trunc_sat_f32s() -> Instruction {
   I32TruncSatF32S
 }
 
 ///|
-pub fn i32_trunc_sat_f32u_inst() -> Instruction {
+pub fn Instruction::i32_trunc_sat_f32u() -> Instruction {
   I32TruncSatF32U
 }
 
 ///|
-pub fn i32_trunc_sat_f64s_inst() -> Instruction {
+pub fn Instruction::i32_trunc_sat_f64s() -> Instruction {
   I32TruncSatF64S
 }
 
 ///|
-pub fn i32_trunc_sat_f64u_inst() -> Instruction {
+pub fn Instruction::i32_trunc_sat_f64u() -> Instruction {
   I32TruncSatF64U
 }
 
 ///|
-pub fn i64_trunc_sat_f32s_inst() -> Instruction {
+pub fn Instruction::i64_trunc_sat_f32s() -> Instruction {
   I64TruncSatF32S
 }
 
 ///|
-pub fn i64_trunc_sat_f32u_inst() -> Instruction {
+pub fn Instruction::i64_trunc_sat_f32u() -> Instruction {
   I64TruncSatF32U
 }
 
 ///|
-pub fn i64_trunc_sat_f64s_inst() -> Instruction {
+pub fn Instruction::i64_trunc_sat_f64s() -> Instruction {
   I64TruncSatF64S
 }
 
 ///|
-pub fn i64_trunc_sat_f64u_inst() -> Instruction {
+pub fn Instruction::i64_trunc_sat_f64u() -> Instruction {
   I64TruncSatF64U
 }
 
 ///|
-pub fn memory_init_inst(di : DataIdx, mi : MemIdx) -> Instruction {
+pub fn Instruction::memory_init(di : DataIdx, mi : MemIdx) -> Instruction {
   MemoryInit(di, mi)
 }
 
 ///|
-pub fn data_drop_inst(di : DataIdx) -> Instruction {
+pub fn Instruction::data_drop(di : DataIdx) -> Instruction {
   DataDrop(di)
 }
 
 ///|
-pub fn memory_copy_inst(mi0 : MemIdx, mi1 : MemIdx) -> Instruction {
+pub fn Instruction::memory_copy(mi0 : MemIdx, mi1 : MemIdx) -> Instruction {
   MemoryCopy(mi0, mi1)
 }
 
 ///|
-pub fn memory_fill_inst(mi : MemIdx) -> Instruction {
+pub fn Instruction::memory_fill(mi : MemIdx) -> Instruction {
   MemoryFill(mi)
 }
 
 ///|
-pub fn table_init_inst(ei : ElemIdx, ti : TableIdx) -> Instruction {
+pub fn Instruction::table_init(ei : ElemIdx, ti : TableIdx) -> Instruction {
   TableInit(ei, ti)
 }
 
 ///|
-pub fn elem_drop_inst(ei : ElemIdx) -> Instruction {
+pub fn Instruction::elem_drop(ei : ElemIdx) -> Instruction {
   ElemDrop(ei)
 }
 
 ///|
-pub fn table_copy_inst(ti0 : TableIdx, ti1 : TableIdx) -> Instruction {
+pub fn Instruction::table_copy(ti0 : TableIdx, ti1 : TableIdx) -> Instruction {
   TableCopy(ti0, ti1)
 }
 
 ///|
-pub fn table_grow_inst(ti : TableIdx) -> Instruction {
+pub fn Instruction::table_grow(ti : TableIdx) -> Instruction {
   TableGrow(ti)
 }
 
 ///|
-pub fn table_size_inst(ti : TableIdx) -> Instruction {
+pub fn Instruction::table_size(ti : TableIdx) -> Instruction {
   TableSize(ti)
 }
 
 ///|
-pub fn table_fill_inst(ti : TableIdx) -> Instruction {
+pub fn Instruction::table_fill(ti : TableIdx) -> Instruction {
   TableFill(ti)
 }
 
 ///|
-pub fn v128_load_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::v128_load(ma : MemArg) -> Instruction {
   V128Load(ma)
 }
 
 ///|
-pub fn v128_load8x8s_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::v128_load8x8s(ma : MemArg) -> Instruction {
   V128Load8x8S(ma)
 }
 
 ///|
-pub fn v128_load8x8u_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::v128_load8x8u(ma : MemArg) -> Instruction {
   V128Load8x8U(ma)
 }
 
 ///|
-pub fn v128_load16x4s_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::v128_load16x4s(ma : MemArg) -> Instruction {
   V128Load16x4S(ma)
 }
 
 ///|
-pub fn v128_load16x4u_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::v128_load16x4u(ma : MemArg) -> Instruction {
   V128Load16x4U(ma)
 }
 
 ///|
-pub fn v128_load32x2s_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::v128_load32x2s(ma : MemArg) -> Instruction {
   V128Load32x2S(ma)
 }
 
 ///|
-pub fn v128_load32x2u_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::v128_load32x2u(ma : MemArg) -> Instruction {
   V128Load32x2U(ma)
 }
 
 ///|
-pub fn v128_load8_splat_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::v128_load8_splat(ma : MemArg) -> Instruction {
   V128Load8Splat(ma)
 }
 
 ///|
-pub fn v128_load16_splat_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::v128_load16_splat(ma : MemArg) -> Instruction {
   V128Load16Splat(ma)
 }
 
 ///|
-pub fn v128_load32_splat_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::v128_load32_splat(ma : MemArg) -> Instruction {
   V128Load32Splat(ma)
 }
 
 ///|
-pub fn v128_load64_splat_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::v128_load64_splat(ma : MemArg) -> Instruction {
   V128Load64Splat(ma)
 }
 
 ///|
-pub fn v128_store_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::v128_store(ma : MemArg) -> Instruction {
   V128Store(ma)
 }
 
 ///|
-pub fn v128_const_inst(
+pub fn Instruction::v128_const(
   b0 : Byte,
   b1 : Byte,
   b2 : Byte,
@@ -3519,7 +3510,7 @@ pub fn v128_const_inst(
 }
 
 ///|
-pub fn i8x16_shuffle_inst(
+pub fn Instruction::i8x16_shuffle(
   li0 : LaneIdx,
   li1 : LaneIdx,
   li2 : LaneIdx,
@@ -3544,1247 +3535,1247 @@ pub fn i8x16_shuffle_inst(
 }
 
 ///|
-pub fn i8x16_swizzle_inst() -> Instruction {
+pub fn Instruction::i8x16_swizzle() -> Instruction {
   I8x16Swizzle
 }
 
 ///|
-pub fn i8x16_splat_inst() -> Instruction {
+pub fn Instruction::i8x16_splat() -> Instruction {
   I8x16Splat
 }
 
 ///|
-pub fn i16x8_splat_inst() -> Instruction {
+pub fn Instruction::i16x8_splat() -> Instruction {
   I16x8Splat
 }
 
 ///|
-pub fn i32x4_splat_inst() -> Instruction {
+pub fn Instruction::i32x4_splat() -> Instruction {
   I32x4Splat
 }
 
 ///|
-pub fn i64x2_splat_inst() -> Instruction {
+pub fn Instruction::i64x2_splat() -> Instruction {
   I64x2Splat
 }
 
 ///|
-pub fn f32x4_splat_inst() -> Instruction {
+pub fn Instruction::f32x4_splat() -> Instruction {
   F32x4Splat
 }
 
 ///|
-pub fn f64x2_splat_inst() -> Instruction {
+pub fn Instruction::f64x2_splat() -> Instruction {
   F64x2Splat
 }
 
 ///|
-pub fn i8x16_extract_lane_s_inst(li : LaneIdx) -> Instruction {
+pub fn Instruction::i8x16_extract_lane_s(li : LaneIdx) -> Instruction {
   I8x16ExtractLaneS(li)
 }
 
 ///|
-pub fn i8x16_extract_lane_u_inst(li : LaneIdx) -> Instruction {
+pub fn Instruction::i8x16_extract_lane_u(li : LaneIdx) -> Instruction {
   I8x16ExtractLaneU(li)
 }
 
 ///|
-pub fn i8x16_replace_lane_inst(li : LaneIdx) -> Instruction {
+pub fn Instruction::i8x16_replace_lane(li : LaneIdx) -> Instruction {
   I8x16ReplaceLane(li)
 }
 
 ///|
-pub fn i16x8_extract_lane_s_inst(li : LaneIdx) -> Instruction {
+pub fn Instruction::i16x8_extract_lane_s(li : LaneIdx) -> Instruction {
   I16x8ExtractLaneS(li)
 }
 
 ///|
-pub fn i16x8_extract_lane_u_inst(li : LaneIdx) -> Instruction {
+pub fn Instruction::i16x8_extract_lane_u(li : LaneIdx) -> Instruction {
   I16x8ExtractLaneU(li)
 }
 
 ///|
-pub fn i16x8_replace_lane_inst(li : LaneIdx) -> Instruction {
+pub fn Instruction::i16x8_replace_lane(li : LaneIdx) -> Instruction {
   I16x8ReplaceLane(li)
 }
 
 ///|
-pub fn i32x4_extract_lane_inst(li : LaneIdx) -> Instruction {
+pub fn Instruction::i32x4_extract_lane(li : LaneIdx) -> Instruction {
   I32x4ExtractLane(li)
 }
 
 ///|
-pub fn i32x4_replace_lane_inst(li : LaneIdx) -> Instruction {
+pub fn Instruction::i32x4_replace_lane(li : LaneIdx) -> Instruction {
   I32x4ReplaceLane(li)
 }
 
 ///|
-pub fn i64x2_extract_lane_inst(li : LaneIdx) -> Instruction {
+pub fn Instruction::i64x2_extract_lane(li : LaneIdx) -> Instruction {
   I64x2ExtractLane(li)
 }
 
 ///|
-pub fn i64x2_replace_lane_inst(li : LaneIdx) -> Instruction {
+pub fn Instruction::i64x2_replace_lane(li : LaneIdx) -> Instruction {
   I64x2ReplaceLane(li)
 }
 
 ///|
-pub fn f32x4_extract_lane_inst(li : LaneIdx) -> Instruction {
+pub fn Instruction::f32x4_extract_lane(li : LaneIdx) -> Instruction {
   F32x4ExtractLane(li)
 }
 
 ///|
-pub fn f32x4_replace_lane_inst(li : LaneIdx) -> Instruction {
+pub fn Instruction::f32x4_replace_lane(li : LaneIdx) -> Instruction {
   F32x4ReplaceLane(li)
 }
 
 ///|
-pub fn f64x2_extract_lane_inst(li : LaneIdx) -> Instruction {
+pub fn Instruction::f64x2_extract_lane(li : LaneIdx) -> Instruction {
   F64x2ExtractLane(li)
 }
 
 ///|
-pub fn f64x2_replace_lane_inst(li : LaneIdx) -> Instruction {
+pub fn Instruction::f64x2_replace_lane(li : LaneIdx) -> Instruction {
   F64x2ReplaceLane(li)
 }
 
 ///|
-pub fn i8x16_eq_inst() -> Instruction {
+pub fn Instruction::i8x16_eq() -> Instruction {
   I8x16Eq
 }
 
 ///|
-pub fn i8x16_ne_inst() -> Instruction {
+pub fn Instruction::i8x16_ne() -> Instruction {
   I8x16Ne
 }
 
 ///|
-pub fn i8x16_lt_s_inst() -> Instruction {
+pub fn Instruction::i8x16_lt_s() -> Instruction {
   I8x16LtS
 }
 
 ///|
-pub fn i8x16_lt_u_inst() -> Instruction {
+pub fn Instruction::i8x16_lt_u() -> Instruction {
   I8x16LtU
 }
 
 ///|
-pub fn i8x16_gt_s_inst() -> Instruction {
+pub fn Instruction::i8x16_gt_s() -> Instruction {
   I8x16GtS
 }
 
 ///|
-pub fn i8x16_gt_u_inst() -> Instruction {
+pub fn Instruction::i8x16_gt_u() -> Instruction {
   I8x16GtU
 }
 
 ///|
-pub fn i8x16_le_s_inst() -> Instruction {
+pub fn Instruction::i8x16_le_s() -> Instruction {
   I8x16LeS
 }
 
 ///|
-pub fn i8x16_le_u_inst() -> Instruction {
+pub fn Instruction::i8x16_le_u() -> Instruction {
   I8x16LeU
 }
 
 ///|
-pub fn i8x16_ge_s_inst() -> Instruction {
+pub fn Instruction::i8x16_ge_s() -> Instruction {
   I8x16GeS
 }
 
 ///|
-pub fn i8x16_ge_u_inst() -> Instruction {
+pub fn Instruction::i8x16_ge_u() -> Instruction {
   I8x16GeU
 }
 
 ///|
-pub fn i16x8_eq_inst() -> Instruction {
+pub fn Instruction::i16x8_eq() -> Instruction {
   I16x8Eq
 }
 
 ///|
-pub fn i16x8_ne_inst() -> Instruction {
+pub fn Instruction::i16x8_ne() -> Instruction {
   I16x8Ne
 }
 
 ///|
-pub fn i16x8_lt_s_inst() -> Instruction {
+pub fn Instruction::i16x8_lt_s() -> Instruction {
   I16x8LtS
 }
 
 ///|
-pub fn i16x8_lt_u_inst() -> Instruction {
+pub fn Instruction::i16x8_lt_u() -> Instruction {
   I16x8LtU
 }
 
 ///|
-pub fn i16x8_gt_s_inst() -> Instruction {
+pub fn Instruction::i16x8_gt_s() -> Instruction {
   I16x8GtS
 }
 
 ///|
-pub fn i16x8_gt_u_inst() -> Instruction {
+pub fn Instruction::i16x8_gt_u() -> Instruction {
   I16x8GtU
 }
 
 ///|
-pub fn i16x8_le_s_inst() -> Instruction {
+pub fn Instruction::i16x8_le_s() -> Instruction {
   I16x8LeS
 }
 
 ///|
-pub fn i16x8_le_u_inst() -> Instruction {
+pub fn Instruction::i16x8_le_u() -> Instruction {
   I16x8LeU
 }
 
 ///|
-pub fn i16x8_ge_s_inst() -> Instruction {
+pub fn Instruction::i16x8_ge_s() -> Instruction {
   I16x8GeS
 }
 
 ///|
-pub fn i16x8_ge_u_inst() -> Instruction {
+pub fn Instruction::i16x8_ge_u() -> Instruction {
   I16x8GeU
 }
 
 ///|
-pub fn i32x4_eq_inst() -> Instruction {
+pub fn Instruction::i32x4_eq() -> Instruction {
   I32x4Eq
 }
 
 ///|
-pub fn i32x4_ne_inst() -> Instruction {
+pub fn Instruction::i32x4_ne() -> Instruction {
   I32x4Ne
 }
 
 ///|
-pub fn i32x4_lt_s_inst() -> Instruction {
+pub fn Instruction::i32x4_lt_s() -> Instruction {
   I32x4LtS
 }
 
 ///|
-pub fn i32x4_lt_u_inst() -> Instruction {
+pub fn Instruction::i32x4_lt_u() -> Instruction {
   I32x4LtU
 }
 
 ///|
-pub fn i32x4_gt_s_inst() -> Instruction {
+pub fn Instruction::i32x4_gt_s() -> Instruction {
   I32x4GtS
 }
 
 ///|
-pub fn i32x4_gt_u_inst() -> Instruction {
+pub fn Instruction::i32x4_gt_u() -> Instruction {
   I32x4GtU
 }
 
 ///|
-pub fn i32x4_le_s_inst() -> Instruction {
+pub fn Instruction::i32x4_le_s() -> Instruction {
   I32x4LeS
 }
 
 ///|
-pub fn i32x4_le_u_inst() -> Instruction {
+pub fn Instruction::i32x4_le_u() -> Instruction {
   I32x4LeU
 }
 
 ///|
-pub fn i32x4_ge_s_inst() -> Instruction {
+pub fn Instruction::i32x4_ge_s() -> Instruction {
   I32x4GeS
 }
 
 ///|
-pub fn i32x4_ge_u_inst() -> Instruction {
+pub fn Instruction::i32x4_ge_u() -> Instruction {
   I32x4GeU
 }
 
 ///|
-pub fn f32x4_eq_inst() -> Instruction {
+pub fn Instruction::f32x4_eq() -> Instruction {
   F32x4Eq
 }
 
 ///|
-pub fn f32x4_ne_inst() -> Instruction {
+pub fn Instruction::f32x4_ne() -> Instruction {
   F32x4Ne
 }
 
 ///|
-pub fn f32x4_lt_inst() -> Instruction {
+pub fn Instruction::f32x4_lt() -> Instruction {
   F32x4Lt
 }
 
 ///|
-pub fn f32x4_gt_inst() -> Instruction {
+pub fn Instruction::f32x4_gt() -> Instruction {
   F32x4Gt
 }
 
 ///|
-pub fn f32x4_le_inst() -> Instruction {
+pub fn Instruction::f32x4_le() -> Instruction {
   F32x4Le
 }
 
 ///|
-pub fn f32x4_ge_inst() -> Instruction {
+pub fn Instruction::f32x4_ge() -> Instruction {
   F32x4Ge
 }
 
 ///|
-pub fn f64x2_eq_inst() -> Instruction {
+pub fn Instruction::f64x2_eq() -> Instruction {
   F64x2Eq
 }
 
 ///|
-pub fn f64x2_ne_inst() -> Instruction {
+pub fn Instruction::f64x2_ne() -> Instruction {
   F64x2Ne
 }
 
 ///|
-pub fn f64x2_lt_inst() -> Instruction {
+pub fn Instruction::f64x2_lt() -> Instruction {
   F64x2Lt
 }
 
 ///|
-pub fn f64x2_gt_inst() -> Instruction {
+pub fn Instruction::f64x2_gt() -> Instruction {
   F64x2Gt
 }
 
 ///|
-pub fn f64x2_le_inst() -> Instruction {
+pub fn Instruction::f64x2_le() -> Instruction {
   F64x2Le
 }
 
 ///|
-pub fn f64x2_ge_inst() -> Instruction {
+pub fn Instruction::f64x2_ge() -> Instruction {
   F64x2Ge
 }
 
 ///|
-pub fn v128_not_inst() -> Instruction {
+pub fn Instruction::v128_not() -> Instruction {
   V128Not
 }
 
 ///|
-pub fn v128_and_inst() -> Instruction {
+pub fn Instruction::v128_and() -> Instruction {
   V128And
 }
 
 ///|
-pub fn v128_andnot_inst() -> Instruction {
+pub fn Instruction::v128_andnot() -> Instruction {
   V128Andnot
 }
 
 ///|
-pub fn v128_or_inst() -> Instruction {
+pub fn Instruction::v128_or() -> Instruction {
   V128Or
 }
 
 ///|
-pub fn v128_xor_inst() -> Instruction {
+pub fn Instruction::v128_xor() -> Instruction {
   V128Xor
 }
 
 ///|
-pub fn v128_bitselect_inst() -> Instruction {
+pub fn Instruction::v128_bitselect() -> Instruction {
   V128Bitselect
 }
 
 ///|
-pub fn v128_any_true_inst() -> Instruction {
+pub fn Instruction::v128_any_true() -> Instruction {
   V128AnyTrue
 }
 
 ///|
-pub fn v128_load8_lane_inst(ma : MemArg, li : LaneIdx) -> Instruction {
+pub fn Instruction::v128_load8_lane(ma : MemArg, li : LaneIdx) -> Instruction {
   V128Load8Lane(ma, li)
 }
 
 ///|
-pub fn v128_load16_lane_inst(ma : MemArg, li : LaneIdx) -> Instruction {
+pub fn Instruction::v128_load16_lane(ma : MemArg, li : LaneIdx) -> Instruction {
   V128Load16Lane(ma, li)
 }
 
 ///|
-pub fn v128_load32_lane_inst(ma : MemArg, li : LaneIdx) -> Instruction {
+pub fn Instruction::v128_load32_lane(ma : MemArg, li : LaneIdx) -> Instruction {
   V128Load32Lane(ma, li)
 }
 
 ///|
-pub fn v128_load64_lane_inst(ma : MemArg, li : LaneIdx) -> Instruction {
+pub fn Instruction::v128_load64_lane(ma : MemArg, li : LaneIdx) -> Instruction {
   V128Load64Lane(ma, li)
 }
 
 ///|
-pub fn v128_store8_lane_inst(ma : MemArg, li : LaneIdx) -> Instruction {
+pub fn Instruction::v128_store8_lane(ma : MemArg, li : LaneIdx) -> Instruction {
   V128Store8Lane(ma, li)
 }
 
 ///|
-pub fn v128_store16_lane_inst(ma : MemArg, li : LaneIdx) -> Instruction {
+pub fn Instruction::v128_store16_lane(ma : MemArg, li : LaneIdx) -> Instruction {
   V128Store16Lane(ma, li)
 }
 
 ///|
-pub fn v128_store32_lane_inst(ma : MemArg, li : LaneIdx) -> Instruction {
+pub fn Instruction::v128_store32_lane(ma : MemArg, li : LaneIdx) -> Instruction {
   V128Store32Lane(ma, li)
 }
 
 ///|
-pub fn v128_store64_lane_inst(ma : MemArg, li : LaneIdx) -> Instruction {
+pub fn Instruction::v128_store64_lane(ma : MemArg, li : LaneIdx) -> Instruction {
   V128Store64Lane(ma, li)
 }
 
 ///|
-pub fn v128_load32_zero_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::v128_load32_zero(ma : MemArg) -> Instruction {
   V128Load32Zero(ma)
 }
 
 ///|
-pub fn v128_load64_zero_inst(ma : MemArg) -> Instruction {
+pub fn Instruction::v128_load64_zero(ma : MemArg) -> Instruction {
   V128Load64Zero(ma)
 }
 
 ///|
-pub fn f32x4_demote_f64x2_zero_inst() -> Instruction {
+pub fn Instruction::f32x4_demote_f64x2_zero() -> Instruction {
   F32x4DemoteF64x2Zero
 }
 
 ///|
-pub fn f64x2_promote_low_f32x4_inst() -> Instruction {
+pub fn Instruction::f64x2_promote_low_f32x4() -> Instruction {
   F64x2PromoteLowF32x4
 }
 
 ///|
-pub fn i8x16_abs_inst() -> Instruction {
+pub fn Instruction::i8x16_abs() -> Instruction {
   I8x16Abs
 }
 
 ///|
-pub fn i8x16_neg_inst() -> Instruction {
+pub fn Instruction::i8x16_neg() -> Instruction {
   I8x16Neg
 }
 
 ///|
-pub fn i8x16_popcnt_inst() -> Instruction {
+pub fn Instruction::i8x16_popcnt() -> Instruction {
   I8x16Popcnt
 }
 
 ///|
-pub fn i8x16_all_true_inst() -> Instruction {
+pub fn Instruction::i8x16_all_true() -> Instruction {
   I8x16AllTrue
 }
 
 ///|
-pub fn i8x16_bitmask_inst() -> Instruction {
+pub fn Instruction::i8x16_bitmask() -> Instruction {
   I8x16Bitmask
 }
 
 ///|
-pub fn i8x16_narrow_i16x8s_inst() -> Instruction {
+pub fn Instruction::i8x16_narrow_i16x8s() -> Instruction {
   I8x16NarrowI16x8S
 }
 
 ///|
-pub fn i8x16_narrow_i16x8u_inst() -> Instruction {
+pub fn Instruction::i8x16_narrow_i16x8u() -> Instruction {
   I8x16NarrowI16x8U
 }
 
 ///|
-pub fn f32x4_ceil_inst() -> Instruction {
+pub fn Instruction::f32x4_ceil() -> Instruction {
   F32x4Ceil
 }
 
 ///|
-pub fn f32x4_floor_inst() -> Instruction {
+pub fn Instruction::f32x4_floor() -> Instruction {
   F32x4Floor
 }
 
 ///|
-pub fn f32x4_trunc_inst() -> Instruction {
+pub fn Instruction::f32x4_trunc() -> Instruction {
   F32x4Trunc
 }
 
 ///|
-pub fn f32x4_nearest_inst() -> Instruction {
+pub fn Instruction::f32x4_nearest() -> Instruction {
   F32x4Nearest
 }
 
 ///|
-pub fn i8x16_shl_inst() -> Instruction {
+pub fn Instruction::i8x16_shl() -> Instruction {
   I8x16Shl
 }
 
 ///|
-pub fn i8x16_shr_s_inst() -> Instruction {
+pub fn Instruction::i8x16_shr_s() -> Instruction {
   I8x16ShrS
 }
 
 ///|
-pub fn i8x16_shr_u_inst() -> Instruction {
+pub fn Instruction::i8x16_shr_u() -> Instruction {
   I8x16ShrU
 }
 
 ///|
-pub fn i8x16_add_inst() -> Instruction {
+pub fn Instruction::i8x16_add() -> Instruction {
   I8x16Add
 }
 
 ///|
-pub fn i8x16_add_sat_s_inst() -> Instruction {
+pub fn Instruction::i8x16_add_sat_s() -> Instruction {
   I8x16AddSatS
 }
 
 ///|
-pub fn i8x16_add_sat_u_inst() -> Instruction {
+pub fn Instruction::i8x16_add_sat_u() -> Instruction {
   I8x16AddSatU
 }
 
 ///|
-pub fn i8x16_sub_inst() -> Instruction {
+pub fn Instruction::i8x16_sub() -> Instruction {
   I8x16Sub
 }
 
 ///|
-pub fn i8x16_sub_sat_s_inst() -> Instruction {
+pub fn Instruction::i8x16_sub_sat_s() -> Instruction {
   I8x16SubSatS
 }
 
 ///|
-pub fn i8x16_sub_sat_u_inst() -> Instruction {
+pub fn Instruction::i8x16_sub_sat_u() -> Instruction {
   I8x16SubSatU
 }
 
 ///|
-pub fn f64x2_ceil_inst() -> Instruction {
+pub fn Instruction::f64x2_ceil() -> Instruction {
   F64x2Ceil
 }
 
 ///|
-pub fn f64x2_floor_inst() -> Instruction {
+pub fn Instruction::f64x2_floor() -> Instruction {
   F64x2Floor
 }
 
 ///|
-pub fn i8x16_min_s_inst() -> Instruction {
+pub fn Instruction::i8x16_min_s() -> Instruction {
   I8x16MinS
 }
 
 ///|
-pub fn i8x16_min_u_inst() -> Instruction {
+pub fn Instruction::i8x16_min_u() -> Instruction {
   I8x16MinU
 }
 
 ///|
-pub fn i8x16_max_s_inst() -> Instruction {
+pub fn Instruction::i8x16_max_s() -> Instruction {
   I8x16MaxS
 }
 
 ///|
-pub fn i8x16_max_u_inst() -> Instruction {
+pub fn Instruction::i8x16_max_u() -> Instruction {
   I8x16MaxU
 }
 
 ///|
-pub fn f64x2_trunc_inst() -> Instruction {
+pub fn Instruction::f64x2_trunc() -> Instruction {
   F64x2Trunc
 }
 
 ///|
-pub fn i8x16_avgr_u_inst() -> Instruction {
+pub fn Instruction::i8x16_avgr_u() -> Instruction {
   I8x16AvgrU
 }
 
 ///|
-pub fn i16x8_extadd_pairwise_i8x16s_inst() -> Instruction {
+pub fn Instruction::i16x8_extadd_pairwise_i8x16s() -> Instruction {
   I16x8ExtaddPairwiseI8x16S
 }
 
 ///|
-pub fn i16x8_extadd_pairwise_i8x16u_inst() -> Instruction {
+pub fn Instruction::i16x8_extadd_pairwise_i8x16u() -> Instruction {
   I16x8ExtaddPairwiseI8x16U
 }
 
 ///|
-pub fn i32x4_extadd_pairwise_i16x8s_inst() -> Instruction {
+pub fn Instruction::i32x4_extadd_pairwise_i16x8s() -> Instruction {
   I32x4ExtaddPairwiseI16x8S
 }
 
 ///|
-pub fn i32x4_extadd_pairwise_i16x8u_inst() -> Instruction {
+pub fn Instruction::i32x4_extadd_pairwise_i16x8u() -> Instruction {
   I32x4ExtaddPairwiseI16x8U
 }
 
 ///|
-pub fn i16x8_abs_inst() -> Instruction {
+pub fn Instruction::i16x8_abs() -> Instruction {
   I16x8Abs
 }
 
 ///|
-pub fn i16x8_neg_inst() -> Instruction {
+pub fn Instruction::i16x8_neg() -> Instruction {
   I16x8Neg
 }
 
 ///|
-pub fn i16x8q15mulr_sat_s_inst() -> Instruction {
+pub fn Instruction::i16x8q15mulr_sat_s() -> Instruction {
   I16x8Q15mulrSatS
 }
 
 ///|
-pub fn i16x8_all_true_inst() -> Instruction {
+pub fn Instruction::i16x8_all_true() -> Instruction {
   I16x8AllTrue
 }
 
 ///|
-pub fn i16x8_bitmask_inst() -> Instruction {
+pub fn Instruction::i16x8_bitmask() -> Instruction {
   I16x8Bitmask
 }
 
 ///|
-pub fn i16x8_narrow_i32x4s_inst() -> Instruction {
+pub fn Instruction::i16x8_narrow_i32x4s() -> Instruction {
   I16x8NarrowI32x4S
 }
 
 ///|
-pub fn i16x8_narrow_i32x4u_inst() -> Instruction {
+pub fn Instruction::i16x8_narrow_i32x4u() -> Instruction {
   I16x8NarrowI32x4U
 }
 
 ///|
-pub fn i16x8_extend_low_i8x16s_inst() -> Instruction {
+pub fn Instruction::i16x8_extend_low_i8x16s() -> Instruction {
   I16x8ExtendLowI8x16S
 }
 
 ///|
-pub fn i16x8_extend_high_i8x16s_inst() -> Instruction {
+pub fn Instruction::i16x8_extend_high_i8x16s() -> Instruction {
   I16x8ExtendHighI8x16S
 }
 
 ///|
-pub fn i16x8_extend_low_i8x16u_inst() -> Instruction {
+pub fn Instruction::i16x8_extend_low_i8x16u() -> Instruction {
   I16x8ExtendLowI8x16U
 }
 
 ///|
-pub fn i16x8_extend_high_i8x16u_inst() -> Instruction {
+pub fn Instruction::i16x8_extend_high_i8x16u() -> Instruction {
   I16x8ExtendHighI8x16U
 }
 
 ///|
-pub fn i16x8_shl_inst() -> Instruction {
+pub fn Instruction::i16x8_shl() -> Instruction {
   I16x8Shl
 }
 
 ///|
-pub fn i16x8_shr_s_inst() -> Instruction {
+pub fn Instruction::i16x8_shr_s() -> Instruction {
   I16x8ShrS
 }
 
 ///|
-pub fn i16x8_shr_u_inst() -> Instruction {
+pub fn Instruction::i16x8_shr_u() -> Instruction {
   I16x8ShrU
 }
 
 ///|
-pub fn i16x8_add_inst() -> Instruction {
+pub fn Instruction::i16x8_add() -> Instruction {
   I16x8Add
 }
 
 ///|
-pub fn i16x8_add_sat_s_inst() -> Instruction {
+pub fn Instruction::i16x8_add_sat_s() -> Instruction {
   I16x8AddSatS
 }
 
 ///|
-pub fn i16x8_add_sat_u_inst() -> Instruction {
+pub fn Instruction::i16x8_add_sat_u() -> Instruction {
   I16x8AddSatU
 }
 
 ///|
-pub fn i16x8_sub_inst() -> Instruction {
+pub fn Instruction::i16x8_sub() -> Instruction {
   I16x8Sub
 }
 
 ///|
-pub fn i16x8_sub_sat_s_inst() -> Instruction {
+pub fn Instruction::i16x8_sub_sat_s() -> Instruction {
   I16x8SubSatS
 }
 
 ///|
-pub fn i16x8_sub_sat_u_inst() -> Instruction {
+pub fn Instruction::i16x8_sub_sat_u() -> Instruction {
   I16x8SubSatU
 }
 
 ///|
-pub fn f64x2_nearest_inst() -> Instruction {
+pub fn Instruction::f64x2_nearest() -> Instruction {
   F64x2Nearest
 }
 
 ///|
-pub fn i16x8_mul_inst() -> Instruction {
+pub fn Instruction::i16x8_mul() -> Instruction {
   I16x8Mul
 }
 
 ///|
-pub fn i16x8_min_s_inst() -> Instruction {
+pub fn Instruction::i16x8_min_s() -> Instruction {
   I16x8MinS
 }
 
 ///|
-pub fn i16x8_min_u_inst() -> Instruction {
+pub fn Instruction::i16x8_min_u() -> Instruction {
   I16x8MinU
 }
 
 ///|
-pub fn i16x8_max_s_inst() -> Instruction {
+pub fn Instruction::i16x8_max_s() -> Instruction {
   I16x8MaxS
 }
 
 ///|
-pub fn i16x8_max_u_inst() -> Instruction {
+pub fn Instruction::i16x8_max_u() -> Instruction {
   I16x8MaxU
 }
 
 ///|
-pub fn i16x8_avgr_u_inst() -> Instruction {
+pub fn Instruction::i16x8_avgr_u() -> Instruction {
   I16x8AvgrU
 }
 
 ///|
-pub fn i16x8_extmul_low_i8x16s_inst() -> Instruction {
+pub fn Instruction::i16x8_extmul_low_i8x16s() -> Instruction {
   I16x8ExtmulLowI8x16S
 }
 
 ///|
-pub fn i16x8_extmul_high_i8x16s_inst() -> Instruction {
+pub fn Instruction::i16x8_extmul_high_i8x16s() -> Instruction {
   I16x8ExtmulHighI8x16S
 }
 
 ///|
-pub fn i16x8_extmul_low_i8x16u_inst() -> Instruction {
+pub fn Instruction::i16x8_extmul_low_i8x16u() -> Instruction {
   I16x8ExtmulLowI8x16U
 }
 
 ///|
-pub fn i16x8_extmul_high_i8x16u_inst() -> Instruction {
+pub fn Instruction::i16x8_extmul_high_i8x16u() -> Instruction {
   I16x8ExtmulHighI8x16U
 }
 
 ///|
-pub fn i32x4_abs_inst() -> Instruction {
+pub fn Instruction::i32x4_abs() -> Instruction {
   I32x4Abs
 }
 
 ///|
-pub fn i32x4_neg_inst() -> Instruction {
+pub fn Instruction::i32x4_neg() -> Instruction {
   I32x4Neg
 }
 
 ///|
-pub fn i32x4_all_true_inst() -> Instruction {
+pub fn Instruction::i32x4_all_true() -> Instruction {
   I32x4AllTrue
 }
 
 ///|
-pub fn i32x4_bitmask_inst() -> Instruction {
+pub fn Instruction::i32x4_bitmask() -> Instruction {
   I32x4Bitmask
 }
 
 ///|
-pub fn i32x4_extend_low_i16x8s_inst() -> Instruction {
+pub fn Instruction::i32x4_extend_low_i16x8s() -> Instruction {
   I32x4ExtendLowI16x8S
 }
 
 ///|
-pub fn i32x4_extend_high_i16x8s_inst() -> Instruction {
+pub fn Instruction::i32x4_extend_high_i16x8s() -> Instruction {
   I32x4ExtendHighI16x8S
 }
 
 ///|
-pub fn i32x4_extend_low_i16x8u_inst() -> Instruction {
+pub fn Instruction::i32x4_extend_low_i16x8u() -> Instruction {
   I32x4ExtendLowI16x8U
 }
 
 ///|
-pub fn i32x4_extend_high_i16x8u_inst() -> Instruction {
+pub fn Instruction::i32x4_extend_high_i16x8u() -> Instruction {
   I32x4ExtendHighI16x8U
 }
 
 ///|
-pub fn i32x4_shl_inst() -> Instruction {
+pub fn Instruction::i32x4_shl() -> Instruction {
   I32x4Shl
 }
 
 ///|
-pub fn i32x4_shr_s_inst() -> Instruction {
+pub fn Instruction::i32x4_shr_s() -> Instruction {
   I32x4ShrS
 }
 
 ///|
-pub fn i32x4_shr_u_inst() -> Instruction {
+pub fn Instruction::i32x4_shr_u() -> Instruction {
   I32x4ShrU
 }
 
 ///|
-pub fn i32x4_add_inst() -> Instruction {
+pub fn Instruction::i32x4_add() -> Instruction {
   I32x4Add
 }
 
 ///|
-pub fn i32x4_sub_inst() -> Instruction {
+pub fn Instruction::i32x4_sub() -> Instruction {
   I32x4Sub
 }
 
 ///|
-pub fn i32x4_mul_inst() -> Instruction {
+pub fn Instruction::i32x4_mul() -> Instruction {
   I32x4Mul
 }
 
 ///|
-pub fn i32x4_min_s_inst() -> Instruction {
+pub fn Instruction::i32x4_min_s() -> Instruction {
   I32x4MinS
 }
 
 ///|
-pub fn i32x4_min_u_inst() -> Instruction {
+pub fn Instruction::i32x4_min_u() -> Instruction {
   I32x4MinU
 }
 
 ///|
-pub fn i32x4_max_s_inst() -> Instruction {
+pub fn Instruction::i32x4_max_s() -> Instruction {
   I32x4MaxS
 }
 
 ///|
-pub fn i32x4_max_u_inst() -> Instruction {
+pub fn Instruction::i32x4_max_u() -> Instruction {
   I32x4MaxU
 }
 
 ///|
-pub fn i32x4_dot_i16x8s_inst() -> Instruction {
+pub fn Instruction::i32x4_dot_i16x8s() -> Instruction {
   I32x4DotI16x8S
 }
 
 ///|
-pub fn i32x4_extmul_low_i16x8s_inst() -> Instruction {
+pub fn Instruction::i32x4_extmul_low_i16x8s() -> Instruction {
   I32x4ExtmulLowI16x8S
 }
 
 ///|
-pub fn i32x4_extmul_high_i16x8s_inst() -> Instruction {
+pub fn Instruction::i32x4_extmul_high_i16x8s() -> Instruction {
   I32x4ExtmulHighI16x8S
 }
 
 ///|
-pub fn i32x4_extmul_low_i16x8u_inst() -> Instruction {
+pub fn Instruction::i32x4_extmul_low_i16x8u() -> Instruction {
   I32x4ExtmulLowI16x8U
 }
 
 ///|
-pub fn i32x4_extmul_high_i16x8u_inst() -> Instruction {
+pub fn Instruction::i32x4_extmul_high_i16x8u() -> Instruction {
   I32x4ExtmulHighI16x8U
 }
 
 ///|
-pub fn i64x2_abs_inst() -> Instruction {
+pub fn Instruction::i64x2_abs() -> Instruction {
   I64x2Abs
 }
 
 ///|
-pub fn i64x2_neg_inst() -> Instruction {
+pub fn Instruction::i64x2_neg() -> Instruction {
   I64x2Neg
 }
 
 ///|
-pub fn i64x2_all_true_inst() -> Instruction {
+pub fn Instruction::i64x2_all_true() -> Instruction {
   I64x2AllTrue
 }
 
 ///|
-pub fn i64x2_bitmask_inst() -> Instruction {
+pub fn Instruction::i64x2_bitmask() -> Instruction {
   I64x2Bitmask
 }
 
 ///|
-pub fn i64x2_extend_low_i32x4s_inst() -> Instruction {
+pub fn Instruction::i64x2_extend_low_i32x4s() -> Instruction {
   I64x2ExtendLowI32x4S
 }
 
 ///|
-pub fn i64x2_extend_high_i32x4s_inst() -> Instruction {
+pub fn Instruction::i64x2_extend_high_i32x4s() -> Instruction {
   I64x2ExtendHighI32x4S
 }
 
 ///|
-pub fn i64x2_extend_low_i32x4u_inst() -> Instruction {
+pub fn Instruction::i64x2_extend_low_i32x4u() -> Instruction {
   I64x2ExtendLowI32x4U
 }
 
 ///|
-pub fn i64x2_extend_high_i32x4u_inst() -> Instruction {
+pub fn Instruction::i64x2_extend_high_i32x4u() -> Instruction {
   I64x2ExtendHighI32x4U
 }
 
 ///|
-pub fn i64x2_shl_inst() -> Instruction {
+pub fn Instruction::i64x2_shl() -> Instruction {
   I64x2Shl
 }
 
 ///|
-pub fn i64x2_shr_s_inst() -> Instruction {
+pub fn Instruction::i64x2_shr_s() -> Instruction {
   I64x2ShrS
 }
 
 ///|
-pub fn i64x2_shr_u_inst() -> Instruction {
+pub fn Instruction::i64x2_shr_u() -> Instruction {
   I64x2ShrU
 }
 
 ///|
-pub fn i64x2_add_inst() -> Instruction {
+pub fn Instruction::i64x2_add() -> Instruction {
   I64x2Add
 }
 
 ///|
-pub fn i64x2_sub_inst() -> Instruction {
+pub fn Instruction::i64x2_sub() -> Instruction {
   I64x2Sub
 }
 
 ///|
-pub fn i64x2_mul_inst() -> Instruction {
+pub fn Instruction::i64x2_mul() -> Instruction {
   I64x2Mul
 }
 
 ///|
-pub fn i64x2_eq_inst() -> Instruction {
+pub fn Instruction::i64x2_eq() -> Instruction {
   I64x2Eq
 }
 
 ///|
-pub fn i64x2_ne_inst() -> Instruction {
+pub fn Instruction::i64x2_ne() -> Instruction {
   I64x2Ne
 }
 
 ///|
-pub fn i64x2_lt_s_inst() -> Instruction {
+pub fn Instruction::i64x2_lt_s() -> Instruction {
   I64x2LtS
 }
 
 ///|
-pub fn i64x2_gt_s_inst() -> Instruction {
+pub fn Instruction::i64x2_gt_s() -> Instruction {
   I64x2GtS
 }
 
 ///|
-pub fn i64x2_le_s_inst() -> Instruction {
+pub fn Instruction::i64x2_le_s() -> Instruction {
   I64x2LeS
 }
 
 ///|
-pub fn i64x2_ge_s_inst() -> Instruction {
+pub fn Instruction::i64x2_ge_s() -> Instruction {
   I64x2GeS
 }
 
 ///|
-pub fn i64x2_extmul_low_i32x4s_inst() -> Instruction {
+pub fn Instruction::i64x2_extmul_low_i32x4s() -> Instruction {
   I64x2ExtmulLowI32x4S
 }
 
 ///|
-pub fn i64x2_extmul_high_i32x4s_inst() -> Instruction {
+pub fn Instruction::i64x2_extmul_high_i32x4s() -> Instruction {
   I64x2ExtmulHighI32x4S
 }
 
 ///|
-pub fn i64x2_extmul_low_i32x4u_inst() -> Instruction {
+pub fn Instruction::i64x2_extmul_low_i32x4u() -> Instruction {
   I64x2ExtmulLowI32x4U
 }
 
 ///|
-pub fn i64x2_extmul_high_i32x4u_inst() -> Instruction {
+pub fn Instruction::i64x2_extmul_high_i32x4u() -> Instruction {
   I64x2ExtmulHighI32x4U
 }
 
 ///|
-pub fn f32x4_abs_inst() -> Instruction {
+pub fn Instruction::f32x4_abs() -> Instruction {
   F32x4Abs
 }
 
 ///|
-pub fn f32x4_neg_inst() -> Instruction {
+pub fn Instruction::f32x4_neg() -> Instruction {
   F32x4Neg
 }
 
 ///|
-pub fn f32x4_sqrt_inst() -> Instruction {
+pub fn Instruction::f32x4_sqrt() -> Instruction {
   F32x4Sqrt
 }
 
 ///|
-pub fn f32x4_add_inst() -> Instruction {
+pub fn Instruction::f32x4_add() -> Instruction {
   F32x4Add
 }
 
 ///|
-pub fn f32x4_sub_inst() -> Instruction {
+pub fn Instruction::f32x4_sub() -> Instruction {
   F32x4Sub
 }
 
 ///|
-pub fn f32x4_mul_inst() -> Instruction {
+pub fn Instruction::f32x4_mul() -> Instruction {
   F32x4Mul
 }
 
 ///|
-pub fn f32x4_div_inst() -> Instruction {
+pub fn Instruction::f32x4_div() -> Instruction {
   F32x4Div
 }
 
 ///|
-pub fn f32x4_min_inst() -> Instruction {
+pub fn Instruction::f32x4_min() -> Instruction {
   F32x4Min
 }
 
 ///|
-pub fn f32x4_max_inst() -> Instruction {
+pub fn Instruction::f32x4_max() -> Instruction {
   F32x4Max
 }
 
 ///|
-pub fn f32x4_pmin_inst() -> Instruction {
+pub fn Instruction::f32x4_pmin() -> Instruction {
   F32x4Pmin
 }
 
 ///|
-pub fn f32x4_pmax_inst() -> Instruction {
+pub fn Instruction::f32x4_pmax() -> Instruction {
   F32x4Pmax
 }
 
 ///|
-pub fn f64x2_abs_inst() -> Instruction {
+pub fn Instruction::f64x2_abs() -> Instruction {
   F64x2Abs
 }
 
 ///|
-pub fn f64x2_neg_inst() -> Instruction {
+pub fn Instruction::f64x2_neg() -> Instruction {
   F64x2Neg
 }
 
 ///|
-pub fn f64x2_sqrt_inst() -> Instruction {
+pub fn Instruction::f64x2_sqrt() -> Instruction {
   F64x2Sqrt
 }
 
 ///|
-pub fn f64x2_add_inst() -> Instruction {
+pub fn Instruction::f64x2_add() -> Instruction {
   F64x2Add
 }
 
 ///|
-pub fn f64x2_sub_inst() -> Instruction {
+pub fn Instruction::f64x2_sub() -> Instruction {
   F64x2Sub
 }
 
 ///|
-pub fn f64x2_mul_inst() -> Instruction {
+pub fn Instruction::f64x2_mul() -> Instruction {
   F64x2Mul
 }
 
 ///|
-pub fn f64x2_div_inst() -> Instruction {
+pub fn Instruction::f64x2_div() -> Instruction {
   F64x2Div
 }
 
 ///|
-pub fn f64x2_min_inst() -> Instruction {
+pub fn Instruction::f64x2_min() -> Instruction {
   F64x2Min
 }
 
 ///|
-pub fn f64x2_max_inst() -> Instruction {
+pub fn Instruction::f64x2_max() -> Instruction {
   F64x2Max
 }
 
 ///|
-pub fn f64x2_pmin_inst() -> Instruction {
+pub fn Instruction::f64x2_pmin() -> Instruction {
   F64x2Pmin
 }
 
 ///|
-pub fn f64x2_pmax_inst() -> Instruction {
+pub fn Instruction::f64x2_pmax() -> Instruction {
   F64x2Pmax
 }
 
 ///|
-pub fn i32x4_trunc_sat_f32x4s_inst() -> Instruction {
+pub fn Instruction::i32x4_trunc_sat_f32x4s() -> Instruction {
   I32x4TruncSatF32x4S
 }
 
 ///|
-pub fn i32x4_trunc_sat_f32x4u_inst() -> Instruction {
+pub fn Instruction::i32x4_trunc_sat_f32x4u() -> Instruction {
   I32x4TruncSatF32x4U
 }
 
 ///|
-pub fn f32x4_convert_i32x4s_inst() -> Instruction {
+pub fn Instruction::f32x4_convert_i32x4s() -> Instruction {
   F32x4ConvertI32x4S
 }
 
 ///|
-pub fn f32x4_convert_i32x4u_inst() -> Instruction {
+pub fn Instruction::f32x4_convert_i32x4u() -> Instruction {
   F32x4ConvertI32x4U
 }
 
 ///|
-pub fn i32x4_trunc_sat_f64x2s_zero_inst() -> Instruction {
+pub fn Instruction::i32x4_trunc_sat_f64x2s_zero() -> Instruction {
   I32x4TruncSatF64x2SZero
 }
 
 ///|
-pub fn i32x4_trunc_sat_f64x2u_zero_inst() -> Instruction {
+pub fn Instruction::i32x4_trunc_sat_f64x2u_zero() -> Instruction {
   I32x4TruncSatF64x2UZero
 }
 
 ///|
-pub fn f64x2_convert_low_i32x4s_inst() -> Instruction {
+pub fn Instruction::f64x2_convert_low_i32x4s() -> Instruction {
   F64x2ConvertLowI32x4S
 }
 
 ///|
-pub fn f64x2_convert_low_i32x4u_inst() -> Instruction {
+pub fn Instruction::f64x2_convert_low_i32x4u() -> Instruction {
   F64x2ConvertLowI32x4U
 }
 
 ///|
-pub fn i8x16_relaxed_swizzle_inst() -> Instruction {
+pub fn Instruction::i8x16_relaxed_swizzle() -> Instruction {
   I8x16RelaxedSwizzle
 }
 
 ///|
-pub fn i32x4_relaxed_trunc_f32x4s_inst() -> Instruction {
+pub fn Instruction::i32x4_relaxed_trunc_f32x4s() -> Instruction {
   I32x4RelaxedTruncF32x4S
 }
 
 ///|
-pub fn i32x4_relaxed_trunc_f32x4u_inst() -> Instruction {
+pub fn Instruction::i32x4_relaxed_trunc_f32x4u() -> Instruction {
   I32x4RelaxedTruncF32x4U
 }
 
 ///|
-pub fn i32x4_relaxed_trunc_zero_f64x2s_inst() -> Instruction {
+pub fn Instruction::i32x4_relaxed_trunc_zero_f64x2s() -> Instruction {
   I32x4RelaxedTruncZeroF64x2S
 }
 
 ///|
-pub fn i32x4_relaxed_trunc_zero_f64x2u_inst() -> Instruction {
+pub fn Instruction::i32x4_relaxed_trunc_zero_f64x2u() -> Instruction {
   I32x4RelaxedTruncZeroF64x2U
 }
 
 ///|
-pub fn f32x4_relaxed_madd_inst() -> Instruction {
+pub fn Instruction::f32x4_relaxed_madd() -> Instruction {
   F32x4RelaxedMadd
 }
 
 ///|
-pub fn f32x4_relaxed_nmadd_inst() -> Instruction {
+pub fn Instruction::f32x4_relaxed_nmadd() -> Instruction {
   F32x4RelaxedNmadd
 }
 
 ///|
-pub fn f64x2_relaxed_madd_inst() -> Instruction {
+pub fn Instruction::f64x2_relaxed_madd() -> Instruction {
   F64x2RelaxedMadd
 }
 
 ///|
-pub fn f64x2_relaxed_nmadd_inst() -> Instruction {
+pub fn Instruction::f64x2_relaxed_nmadd() -> Instruction {
   F64x2RelaxedNmadd
 }
 
 ///|
-pub fn i8x16_relaxed_laneselect_inst() -> Instruction {
+pub fn Instruction::i8x16_relaxed_laneselect() -> Instruction {
   I8x16RelaxedLaneselect
 }
 
 ///|
-pub fn i16x8_relaxed_laneselect_inst() -> Instruction {
+pub fn Instruction::i16x8_relaxed_laneselect() -> Instruction {
   I16x8RelaxedLaneselect
 }
 
 ///|
-pub fn i32x4_relaxed_laneselect_inst() -> Instruction {
+pub fn Instruction::i32x4_relaxed_laneselect() -> Instruction {
   I32x4RelaxedLaneselect
 }
 
 ///|
-pub fn i64x2_relaxed_laneselect_inst() -> Instruction {
+pub fn Instruction::i64x2_relaxed_laneselect() -> Instruction {
   I64x2RelaxedLaneselect
 }
 
 ///|
-pub fn f32x4_relaxed_min_inst() -> Instruction {
+pub fn Instruction::f32x4_relaxed_min() -> Instruction {
   F32x4RelaxedMin
 }
 
 ///|
-pub fn f32x4_relaxed_max_inst() -> Instruction {
+pub fn Instruction::f32x4_relaxed_max() -> Instruction {
   F32x4RelaxedMax
 }
 
 ///|
-pub fn f64x2_relaxed_min_inst() -> Instruction {
+pub fn Instruction::f64x2_relaxed_min() -> Instruction {
   F64x2RelaxedMin
 }
 
 ///|
-pub fn f64x2_relaxed_max_inst() -> Instruction {
+pub fn Instruction::f64x2_relaxed_max() -> Instruction {
   F64x2RelaxedMax
 }
 
 ///|
-pub fn i16x8_relaxed_q15mulr_s_inst() -> Instruction {
+pub fn Instruction::i16x8_relaxed_q15mulr_s() -> Instruction {
   I16x8RelaxedQ15mulrS
 }
 
 ///|
-pub fn i16x8_relaxed_dot_i8x16i7x16s_inst() -> Instruction {
+pub fn Instruction::i16x8_relaxed_dot_i8x16i7x16s() -> Instruction {
   I16x8RelaxedDotI8x16I7x16S
 }
 
 ///|
-pub fn i32x4_relaxed_dot_i8x16i7x16_add_s_inst() -> Instruction {
+pub fn Instruction::i32x4_relaxed_dot_i8x16i7x16_add_s() -> Instruction {
   I32x4RelaxedDotI8x16I7x16AddS
 }
 
 ///|
-pub fn t_i32_const(val : I32) -> TInstr {
+pub fn TInstr::i32_const(val : I32) -> TInstr {
   TI32Const(val)
 }
 
 ///|
-pub fn t_i64_const(val : I64) -> TInstr {
+pub fn TInstr::i64_const(val : I64) -> TInstr {
   TI64Const(val)
 }
 
 ///|
-pub fn t_f32_const(val : F32) -> TInstr {
+pub fn TInstr::f32_const(val : F32) -> TInstr {
   TF32Const(val)
 }
 
 ///|
-pub fn t_f64_const(val : F64) -> TInstr {
+pub fn TInstr::f64_const(val : F64) -> TInstr {
   TF64Const(val)
 }
 
 ///|
-pub fn t_ref_null(val : HeapType) -> TInstr {
+pub fn TInstr::ref_null(val : HeapType) -> TInstr {
   TRefNull(val)
 }
 
 ///|
-pub fn t_ref_func(val : FuncIdx) -> TInstr {
+pub fn TInstr::ref_func(val : FuncIdx) -> TInstr {
   TRefFunc(val)
 }
 
 ///|
-pub fn t_v128_const_inst(
+pub fn TInstr::v128_const(
   b0 : Byte,
   b1 : Byte,
   b2 : Byte,
@@ -4808,132 +4799,132 @@ pub fn t_v128_const_inst(
 }
 
 ///|
-pub fn t_unreachable() -> TInstr {
+pub fn TInstr::unreachable_() -> TInstr {
   TUnreachable
 }
 
 ///|
-pub fn t_nop() -> TInstr {
+pub fn TInstr::nop() -> TInstr {
   TNop
 }
 
 ///|
-pub fn t_local_get(idx : LocalIdx) -> TInstr {
+pub fn TInstr::local_get(idx : LocalIdx) -> TInstr {
   TLocalGet(idx)
 }
 
 ///|
-pub fn t_global_get(idx : GlobalIdx) -> TInstr {
+pub fn TInstr::global_get(idx : GlobalIdx) -> TInstr {
   TGlobalGet(idx)
 }
 
 ///|
-pub fn t_memory_size(idx : MemIdx) -> TInstr {
+pub fn TInstr::memory_size(idx : MemIdx) -> TInstr {
   TMemorySize(idx)
 }
 
 ///|
-pub fn t_table_size(idx : TableIdx) -> TInstr {
+pub fn TInstr::table_size(idx : TableIdx) -> TInstr {
   TTableSize(idx)
 }
 
 ///|
-pub fn t_unary(op : UnaryOp, i : TInstr) -> TInstr {
+pub fn TInstr::unary(op : UnaryOp, i : TInstr) -> TInstr {
   TUnary(op, i)
 }
 
 ///|
-pub fn t_drop(i : TInstr) -> TInstr {
+pub fn TInstr::drop(i : TInstr) -> TInstr {
   TDrop(i)
 }
 
 ///|
-pub fn t_local_set(idx : LocalIdx, i : TInstr) -> TInstr {
+pub fn TInstr::local_set(idx : LocalIdx, i : TInstr) -> TInstr {
   TLocalSet(idx, i)
 }
 
 ///|
-pub fn t_local_tee(idx : LocalIdx, i : TInstr) -> TInstr {
+pub fn TInstr::local_tee(idx : LocalIdx, i : TInstr) -> TInstr {
   TLocalTee(idx, i)
 }
 
 ///|
-pub fn t_global_set(idx : GlobalIdx, i : TInstr) -> TInstr {
+pub fn TInstr::global_set(idx : GlobalIdx, i : TInstr) -> TInstr {
   TGlobalSet(idx, i)
 }
 
 ///|
-pub fn t_ref_is_null(i : TInstr) -> TInstr {
+pub fn TInstr::ref_is_null(i : TInstr) -> TInstr {
   TRefIsNull(i)
 }
 
 ///|
-pub fn t_ref_as_non_null(i : TInstr) -> TInstr {
+pub fn TInstr::ref_as_non_null(i : TInstr) -> TInstr {
   TRefAsNonNull(i)
 }
 
 ///|
-pub fn t_i31_get_s(i : TInstr) -> TInstr {
+pub fn TInstr::i31_get_s(i : TInstr) -> TInstr {
   TI31GetS(i)
 }
 
 ///|
-pub fn t_i31_get_u(i : TInstr) -> TInstr {
+pub fn TInstr::i31_get_u(i : TInstr) -> TInstr {
   TI31GetU(i)
 }
 
 ///|
-pub fn t_ref_i31(i : TInstr) -> TInstr {
+pub fn TInstr::ref_i31(i : TInstr) -> TInstr {
   TRefI31(i)
 }
 
 ///|
-pub fn t_array_len(i : TInstr) -> TInstr {
+pub fn TInstr::array_len(i : TInstr) -> TInstr {
   TArrayLen(i)
 }
 
 ///|
-pub fn t_any_convert_extern(i : TInstr) -> TInstr {
+pub fn TInstr::any_convert_extern(i : TInstr) -> TInstr {
   TAnyConvertExtern(i)
 }
 
 ///|
-pub fn t_extern_convert_any(i : TInstr) -> TInstr {
+pub fn TInstr::extern_convert_any(i : TInstr) -> TInstr {
   TExternConvertAny(i)
 }
 
 ///|
-pub fn t_throw_ref(i : TInstr) -> TInstr {
+pub fn TInstr::throw_ref(i : TInstr) -> TInstr {
   TThrowRef(i)
 }
 
 ///|
-pub fn t_binary(op : BinaryOp, i0 : TInstr, i1 : TInstr) -> TInstr {
+pub fn TInstr::binary(op : BinaryOp, i0 : TInstr, i1 : TInstr) -> TInstr {
   TBinary(op, i0, i1)
 }
 
 ///|
-pub fn t_ref_eq(i0 : TInstr, i1 : TInstr) -> TInstr {
+pub fn TInstr::ref_eq(i0 : TInstr, i1 : TInstr) -> TInstr {
   TRefEq(i0, i1)
 }
 
 ///|
-pub fn t_store(op : StoreOp, ma : MemArg, i0 : TInstr, i1 : TInstr) -> TInstr {
+pub fn TInstr::store(op : StoreOp, ma : MemArg, i0 : TInstr, i1 : TInstr) -> TInstr {
   TStore(op, ma, i0, i1)
 }
 
 ///|
-pub fn t_load(op : LoadOp, ma : MemArg, i : TInstr) -> TInstr {
+pub fn TInstr::load(op : LoadOp, ma : MemArg, i : TInstr) -> TInstr {
   TLoad(op, ma, i)
 }
 
 ///|
-pub fn t_memory_grow(mi : MemIdx, i : TInstr) -> TInstr {
+pub fn TInstr::memory_grow(mi : MemIdx, i : TInstr) -> TInstr {
   TMemoryGrow(mi, i)
 }
 
 ///|
-pub fn t_memory_fill(
+pub fn TInstr::memory_fill(
   mi : MemIdx,
   i0 : TInstr,
   i1 : TInstr,
@@ -4943,7 +4934,7 @@ pub fn t_memory_fill(
 }
 
 ///|
-pub fn t_memory_copy(
+pub fn TInstr::memory_copy(
   mi0 : MemIdx,
   mi1 : MemIdx,
   i0 : TInstr,
@@ -4954,7 +4945,7 @@ pub fn t_memory_copy(
 }
 
 ///|
-pub fn t_memory_init(
+pub fn TInstr::memory_init(
   di : DataIdx,
   mi : MemIdx,
   i0 : TInstr,
@@ -4965,27 +4956,27 @@ pub fn t_memory_init(
 }
 
 ///|
-pub fn t_data_drop(di : DataIdx) -> TInstr {
+pub fn TInstr::data_drop(di : DataIdx) -> TInstr {
   TDataDrop(di)
 }
 
 ///|
-pub fn t_table_get(ti : TableIdx, i : TInstr) -> TInstr {
+pub fn TInstr::table_get(ti : TableIdx, i : TInstr) -> TInstr {
   TTableGet(ti, i)
 }
 
 ///|
-pub fn t_table_set(ti : TableIdx, i0 : TInstr, i1 : TInstr) -> TInstr {
+pub fn TInstr::table_set(ti : TableIdx, i0 : TInstr, i1 : TInstr) -> TInstr {
   TTableSet(ti, i0, i1)
 }
 
 ///|
-pub fn t_table_grow(ti : TableIdx, i0 : TInstr, i1 : TInstr) -> TInstr {
+pub fn TInstr::table_grow(ti : TableIdx, i0 : TInstr, i1 : TInstr) -> TInstr {
   TTableGrow(ti, i0, i1)
 }
 
 ///|
-pub fn t_table_fill(
+pub fn TInstr::table_fill(
   ti : TableIdx,
   i0 : TInstr,
   i1 : TInstr,
@@ -4995,7 +4986,7 @@ pub fn t_table_fill(
 }
 
 ///|
-pub fn t_table_copy(
+pub fn TInstr::table_copy(
   ti0 : TableIdx,
   ti1 : TableIdx,
   i0 : TInstr,
@@ -5006,7 +4997,7 @@ pub fn t_table_copy(
 }
 
 ///|
-pub fn t_table_init(
+pub fn TInstr::table_init(
   ei : ElemIdx,
   ti : TableIdx,
   i0 : TInstr,
@@ -5017,17 +5008,17 @@ pub fn t_table_init(
 }
 
 ///|
-pub fn t_elem_drop(ei : ElemIdx) -> TInstr {
+pub fn TInstr::elem_drop(ei : ElemIdx) -> TInstr {
   TElemDrop(ei)
 }
 
 ///|
-pub fn t_call(di : FuncIdx, props : Array[TInstr]) -> TInstr {
+pub fn TInstr::call(di : FuncIdx, props : Array[TInstr]) -> TInstr {
   TCall(di, props)
 }
 
 ///|
-pub fn t_call_indirect(
+pub fn TInstr::call_indirect(
   ty_i : TypeIdx,
   tbl_i : TableIdx,
   props : Array[TInstr],
@@ -5037,17 +5028,17 @@ pub fn t_call_indirect(
 }
 
 ///|
-pub fn t_call_ref(ti : TypeIdx, props : Array[TInstr], r : TInstr) -> TInstr {
+pub fn TInstr::call_ref(ti : TypeIdx, props : Array[TInstr], r : TInstr) -> TInstr {
   TCallRef(ti, props, r)
 }
 
 ///|
-pub fn t_return_call(fi : FuncIdx, props : Array[TInstr]) -> TInstr {
+pub fn TInstr::return_call(fi : FuncIdx, props : Array[TInstr]) -> TInstr {
   TReturnCall(fi, props)
 }
 
 ///|
-pub fn t_return_call_indirect(
+pub fn TInstr::return_call_indirect(
   ty_i : TypeIdx,
   tbl_i : TableIdx,
   props : Array[TInstr],
@@ -5057,7 +5048,7 @@ pub fn t_return_call_indirect(
 }
 
 ///|
-pub fn t_return_call_ref(
+pub fn TInstr::return_call_ref(
   ti : TypeIdx,
   props : Array[TInstr],
   i : TInstr,
@@ -5066,42 +5057,42 @@ pub fn t_return_call_ref(
 }
 
 ///|
-pub fn t_block(bt : BlockType, e : TExpr) -> TInstr {
+pub fn TInstr::block(bt : BlockType, e : TExpr) -> TInstr {
   TBlock(bt, e)
 }
 
 ///|
-pub fn t_loop(bt : BlockType, e : TExpr) -> TInstr {
+pub fn TInstr::loop_(bt : BlockType, e : TExpr) -> TInstr {
   TLoop(bt, e)
 }
 
 ///|
-pub fn t_if(bt : BlockType, i : TInstr, e0 : TExpr, e1_opt : TExpr?) -> TInstr {
+pub fn TInstr::if_(bt : BlockType, i : TInstr, e0 : TExpr, e1_opt : TExpr?) -> TInstr {
   TIf(bt, i, e0, e1_opt)
 }
 
 ///|
-pub fn t_try_table(bt : BlockType, c : Array[Catch], e : TExpr) -> TInstr {
+pub fn TInstr::try_table(bt : BlockType, c : Array[Catch], e : TExpr) -> TInstr {
   TTryTable(bt, c, e)
 }
 
 ///|
-pub fn t_throw(ti : TagIdx, i : Array[TInstr]) -> TInstr {
+pub fn TInstr::throw_(ti : TagIdx, i : Array[TInstr]) -> TInstr {
   TThrow(ti, i)
 }
 
 ///|
-pub fn t_br(li : LabelIdx, i : Array[TInstr]) -> TInstr {
+pub fn TInstr::br(li : LabelIdx, i : Array[TInstr]) -> TInstr {
   TBr(li, i)
 }
 
 ///|
-pub fn t_br_if(li : LabelIdx, i0 : TInstr, i : Array[TInstr]) -> TInstr {
+pub fn TInstr::br_if(li : LabelIdx, i0 : TInstr, i : Array[TInstr]) -> TInstr {
   TBrIf(li, i0, i)
 }
 
 ///|
-pub fn t_br_table(
+pub fn TInstr::br_table(
   l : Array[LabelIdx],
   l0 : LabelIdx,
   i0 : TInstr,
@@ -5111,12 +5102,12 @@ pub fn t_br_table(
 }
 
 ///|
-pub fn t_br_on_null(li : LabelIdx, i0 : TInstr, i : Array[TInstr]) -> TInstr {
+pub fn TInstr::br_on_null(li : LabelIdx, i0 : TInstr, i : Array[TInstr]) -> TInstr {
   TBrOnNull(li, i0, i)
 }
 
 ///|
-pub fn t_br_on_non_null(
+pub fn TInstr::br_on_non_null(
   li : LabelIdx,
   i0 : TInstr,
   i : Array[TInstr],
@@ -5125,7 +5116,7 @@ pub fn t_br_on_non_null(
 }
 
 ///|
-pub fn t_br_on_cast(
+pub fn TInstr::br_on_cast(
   li : LabelIdx,
   ht_null_0 : Bool,
   ht0 : HeapType,
@@ -5138,7 +5129,7 @@ pub fn t_br_on_cast(
 }
 
 ///|
-pub fn t_br_on_cast_fail(
+pub fn TInstr::br_on_cast_fail(
   li : LabelIdx,
   ht_null_0 : Bool,
   ht0 : HeapType,
@@ -5151,12 +5142,12 @@ pub fn t_br_on_cast_fail(
 }
 
 ///|
-pub fn t_return(i : Array[TInstr]) -> TInstr {
+pub fn TInstr::return_(i : Array[TInstr]) -> TInstr {
   TReturn(i)
 }
 
 ///|
-pub fn t_select(
+pub fn TInstr::select(
   tys : Array[ValType]?,
   i0 : TInstr,
   i1 : TInstr,
@@ -5166,32 +5157,32 @@ pub fn t_select(
 }
 
 ///|
-pub fn t_struct_new(ti : TypeIdx, i : Array[TInstr]) -> TInstr {
+pub fn TInstr::struct_new(ti : TypeIdx, i : Array[TInstr]) -> TInstr {
   TStructNew(ti, i)
 }
 
 ///|
-pub fn t_struct_new_default(ti : TypeIdx) -> TInstr {
+pub fn TInstr::struct_new_default(ti : TypeIdx) -> TInstr {
   TStructNewDefault(ti)
 }
 
 ///|
-pub fn t_struct_get(ti : TypeIdx, idx : U32, i : TInstr) -> TInstr {
+pub fn TInstr::struct_get(ti : TypeIdx, idx : U32, i : TInstr) -> TInstr {
   TStructGet(ti, idx, i)
 }
 
 ///|
-pub fn t_struct_get_s(ti : TypeIdx, idx : U32, i : TInstr) -> TInstr {
+pub fn TInstr::struct_get_s(ti : TypeIdx, idx : U32, i : TInstr) -> TInstr {
   TStructGetS(ti, idx, i)
 }
 
 ///|
-pub fn t_struct_get_u(ti : TypeIdx, idx : U32, i : TInstr) -> TInstr {
+pub fn TInstr::struct_get_u(ti : TypeIdx, idx : U32, i : TInstr) -> TInstr {
   TStructGetU(ti, idx, i)
 }
 
 ///|
-pub fn t_struct_set(
+pub fn TInstr::struct_set(
   ti : TypeIdx,
   idx : U32,
   i0 : TInstr,
@@ -5201,22 +5192,22 @@ pub fn t_struct_set(
 }
 
 ///|
-pub fn t_array_new(ti : TypeIdx, t0 : TInstr, t1 : TInstr) -> TInstr {
+pub fn TInstr::array_new(ti : TypeIdx, t0 : TInstr, t1 : TInstr) -> TInstr {
   TArrayNew(ti, t0, t1)
 }
 
 ///|
-pub fn t_array_new_default(ti : TypeIdx, i : TInstr) -> TInstr {
+pub fn TInstr::array_new_default(ti : TypeIdx, i : TInstr) -> TInstr {
   TArrayNewDefault(ti, i)
 }
 
 ///|
-pub fn t_array_new_fixed(ti : TypeIdx, i : Array[TInstr]) -> TInstr {
+pub fn TInstr::array_new_fixed(ti : TypeIdx, i : Array[TInstr]) -> TInstr {
   TArrayNewFixed(ti, i)
 }
 
 ///|
-pub fn t_array_new_data(
+pub fn TInstr::array_new_data(
   ti : TypeIdx,
   di : DataIdx,
   i0 : TInstr,
@@ -5226,7 +5217,7 @@ pub fn t_array_new_data(
 }
 
 ///|
-pub fn t_array_new_elem(
+pub fn TInstr::array_new_elem(
   ti : TypeIdx,
   ei : ElemIdx,
   i0 : TInstr,
@@ -5236,22 +5227,22 @@ pub fn t_array_new_elem(
 }
 
 ///|
-pub fn t_array_get(ti : TypeIdx, i0 : TInstr, i1 : TInstr) -> TInstr {
+pub fn TInstr::array_get(ti : TypeIdx, i0 : TInstr, i1 : TInstr) -> TInstr {
   TArrayGet(ti, i0, i1)
 }
 
 ///|
-pub fn t_array_get_s(ti : TypeIdx, i0 : TInstr, i1 : TInstr) -> TInstr {
+pub fn TInstr::array_get_s(ti : TypeIdx, i0 : TInstr, i1 : TInstr) -> TInstr {
   TArrayGetS(ti, i0, i1)
 }
 
 ///|
-pub fn t_array_get_u(ti : TypeIdx, i0 : TInstr, i1 : TInstr) -> TInstr {
+pub fn TInstr::array_get_u(ti : TypeIdx, i0 : TInstr, i1 : TInstr) -> TInstr {
   TArrayGetU(ti, i0, i1)
 }
 
 ///|
-pub fn t_array_set(
+pub fn TInstr::array_set(
   ti : TypeIdx,
   i0 : TInstr,
   i1 : TInstr,
@@ -5261,7 +5252,7 @@ pub fn t_array_set(
 }
 
 ///|
-pub fn t_array_fill(
+pub fn TInstr::array_fill(
   ti : TypeIdx,
   i0 : TInstr,
   i1 : TInstr,
@@ -5272,7 +5263,7 @@ pub fn t_array_fill(
 }
 
 ///|
-pub fn t_array_copy(
+pub fn TInstr::array_copy(
   ti0 : TypeIdx,
   ti1 : TypeIdx,
   i0 : TInstr,
@@ -5285,7 +5276,7 @@ pub fn t_array_copy(
 }
 
 ///|
-pub fn t_array_init_data(
+pub fn TInstr::array_init_data(
   ti : TypeIdx,
   di : DataIdx,
   i0 : TInstr,
@@ -5297,7 +5288,7 @@ pub fn t_array_init_data(
 }
 
 ///|
-pub fn t_array_init_elem(
+pub fn TInstr::array_init_elem(
   ti : TypeIdx,
   ei : ElemIdx,
   i0 : TInstr,
@@ -5309,54 +5300,54 @@ pub fn t_array_init_elem(
 }
 
 ///|
-pub fn t_ref_test(nullable : Bool, ht : HeapType, i : TInstr) -> TInstr {
+pub fn TInstr::ref_test(nullable : Bool, ht : HeapType, i : TInstr) -> TInstr {
   TRefTest(nullable, ht, i)
 }
 
 ///|
-pub fn t_ref_cast(nullable : Bool, ht : HeapType, i : TInstr) -> TInstr {
+pub fn TInstr::ref_cast(nullable : Bool, ht : HeapType, i : TInstr) -> TInstr {
   TRefCast(nullable, ht, i)
 }
 
 // === SIMD: Splat (scalar -> v128) ===
 
 ///|
-pub fn t_i8x16_splat(i : TInstr) -> TInstr {
+pub fn TInstr::i8x16_splat(i : TInstr) -> TInstr {
   TI8x16Splat(i)
 }
 
 ///|
-pub fn t_i16x8_splat(i : TInstr) -> TInstr {
+pub fn TInstr::i16x8_splat(i : TInstr) -> TInstr {
   TI16x8Splat(i)
 }
 
 ///|
-pub fn t_i32x4_splat(i : TInstr) -> TInstr {
+pub fn TInstr::i32x4_splat(i : TInstr) -> TInstr {
   TI32x4Splat(i)
 }
 
 ///|
-pub fn t_i64x2_splat(i : TInstr) -> TInstr {
+pub fn TInstr::i64x2_splat(i : TInstr) -> TInstr {
   TI64x2Splat(i)
 }
 
 ///|
-pub fn t_f32x4_splat(i : TInstr) -> TInstr {
+pub fn TInstr::f32x4_splat(i : TInstr) -> TInstr {
   TF32x4Splat(i)
 }
 
 ///|
-pub fn t_f64x2_splat(i : TInstr) -> TInstr {
+pub fn TInstr::f64x2_splat(i : TInstr) -> TInstr {
   TF64x2Splat(i)
 }
 
 ///|
-pub fn t_extract_lane(op : ExtractLaneOp, li : LaneIdx, i : TInstr) -> TInstr {
+pub fn TInstr::extract_lane(op : ExtractLaneOp, li : LaneIdx, i : TInstr) -> TInstr {
   TExtractLane(op, li, i)
 }
 
 ///|
-pub fn t_replace_lane(
+pub fn TInstr::replace_lane(
   op : ReplaceLaneOp,
   li : LaneIdx,
   i0 : TInstr,
@@ -5366,7 +5357,7 @@ pub fn t_replace_lane(
 }
 
 ///|
-pub fn t_i8x16_shuffle(
+pub fn TInstr::i8x16_shuffle(
   li0 : LaneIdx,
   li1 : LaneIdx,
   li2 : LaneIdx,
@@ -5393,22 +5384,22 @@ pub fn t_i8x16_shuffle(
 }
 
 ///|
-pub fn t_i8x16_swizzle(i0 : TInstr, i1 : TInstr) -> TInstr {
+pub fn TInstr::i8x16_swizzle(i0 : TInstr, i1 : TInstr) -> TInstr {
   TI8x16Swizzle(i0, i1)
 }
 
 ///|
-pub fn t_i8x16_relaxed_swizzle(i0 : TInstr, i1 : TInstr) -> TInstr {
+pub fn TInstr::i8x16_relaxed_swizzle(i0 : TInstr, i1 : TInstr) -> TInstr {
   TI8x16RelaxedSwizzle(i0, i1)
 }
 
 ///|
-pub fn tv128_shift(op : V128ShiftOp, i0 : TInstr, i1 : TInstr) -> TInstr {
+pub fn TInstr::v128_shift(op : V128ShiftOp, i0 : TInstr, i1 : TInstr) -> TInstr {
   TV128Shift(op, i0, i1)
 }
 
 ///|
-pub fn tv128_ternary(
+pub fn TInstr::v128_ternary(
   op : V128TernaryOp,
   i0 : TInstr,
   i1 : TInstr,
@@ -5418,7 +5409,7 @@ pub fn tv128_ternary(
 }
 
 ///|
-pub fn tv128_load_lane(
+pub fn TInstr::v128_load_lane(
   op : V128LoadLaneOp,
   ma : MemArg,
   li : LaneIdx,
@@ -5429,7 +5420,7 @@ pub fn tv128_load_lane(
 }
 
 ///|
-pub fn tv128_store_lane(
+pub fn TInstr::v128_store_lane(
   op : V128StoreLaneOp,
   ma : MemArg,
   li : LaneIdx,
@@ -5440,2031 +5431,2031 @@ pub fn tv128_store_lane(
 }
 
 ///|
-pub fn i32_eqz_op() -> UnaryOp {
+pub fn UnaryOp::i32_eqz() -> UnaryOp {
   I32EqzOp
 }
 
 ///|
-pub fn i64_eqz_op() -> UnaryOp {
+pub fn UnaryOp::i64_eqz() -> UnaryOp {
   I64EqzOp
 }
 
 ///|
-pub fn i32_clz_op() -> UnaryOp {
+pub fn UnaryOp::i32_clz() -> UnaryOp {
   I32ClzOp
 }
 
 ///|
-pub fn i32_ctz_op() -> UnaryOp {
+pub fn UnaryOp::i32_ctz() -> UnaryOp {
   I32CtzOp
 }
 
 ///|
-pub fn i32_popcnt_op() -> UnaryOp {
+pub fn UnaryOp::i32_popcnt() -> UnaryOp {
   I32PopcntOp
 }
 
 ///|
-pub fn i64_clz_op() -> UnaryOp {
+pub fn UnaryOp::i64_clz() -> UnaryOp {
   I64ClzOp
 }
 
 ///|
-pub fn i64_ctz_op() -> UnaryOp {
+pub fn UnaryOp::i64_ctz() -> UnaryOp {
   I64CtzOp
 }
 
 ///|
-pub fn i64_popcnt_op() -> UnaryOp {
+pub fn UnaryOp::i64_popcnt() -> UnaryOp {
   I64PopcntOp
 }
 
 ///|
-pub fn f32_abs_op() -> UnaryOp {
+pub fn UnaryOp::f32_abs() -> UnaryOp {
   F32AbsOp
 }
 
 ///|
-pub fn f32_neg_op() -> UnaryOp {
+pub fn UnaryOp::f32_neg() -> UnaryOp {
   F32NegOp
 }
 
 ///|
-pub fn f32_ceil_op() -> UnaryOp {
+pub fn UnaryOp::f32_ceil() -> UnaryOp {
   F32CeilOp
 }
 
 ///|
-pub fn f32_floor_op() -> UnaryOp {
+pub fn UnaryOp::f32_floor() -> UnaryOp {
   F32FloorOp
 }
 
 ///|
-pub fn f32_trunc_op() -> UnaryOp {
+pub fn UnaryOp::f32_trunc() -> UnaryOp {
   F32TruncOp
 }
 
 ///|
-pub fn f32_nearest_op() -> UnaryOp {
+pub fn UnaryOp::f32_nearest() -> UnaryOp {
   F32NearestOp
 }
 
 ///|
-pub fn f32_sqrt_op() -> UnaryOp {
+pub fn UnaryOp::f32_sqrt() -> UnaryOp {
   F32SqrtOp
 }
 
 ///|
-pub fn f64_abs_op() -> UnaryOp {
+pub fn UnaryOp::f64_abs() -> UnaryOp {
   F64AbsOp
 }
 
 ///|
-pub fn f64_neg_op() -> UnaryOp {
+pub fn UnaryOp::f64_neg() -> UnaryOp {
   F64NegOp
 }
 
 ///|
-pub fn f64_ceil_op() -> UnaryOp {
+pub fn UnaryOp::f64_ceil() -> UnaryOp {
   F64CeilOp
 }
 
 ///|
-pub fn f64_floor_op() -> UnaryOp {
+pub fn UnaryOp::f64_floor() -> UnaryOp {
   F64FloorOp
 }
 
 ///|
-pub fn f64_trunc_op() -> UnaryOp {
+pub fn UnaryOp::f64_trunc() -> UnaryOp {
   F64TruncOp
 }
 
 ///|
-pub fn f64_nearest_op() -> UnaryOp {
+pub fn UnaryOp::f64_nearest() -> UnaryOp {
   F64NearestOp
 }
 
 ///|
-pub fn f64_sqrt_op() -> UnaryOp {
+pub fn UnaryOp::f64_sqrt() -> UnaryOp {
   F64SqrtOp
 }
 
 ///|
-pub fn i32_wrap_i64_op() -> UnaryOp {
+pub fn UnaryOp::i32_wrap_i64() -> UnaryOp {
   I32WrapI64Op
 }
 
 ///|
-pub fn i32_trunc_f32s_op() -> UnaryOp {
+pub fn UnaryOp::i32_trunc_f32s() -> UnaryOp {
   I32TruncF32SOp
 }
 
 ///|
-pub fn i32_trunc_f32u_op() -> UnaryOp {
+pub fn UnaryOp::i32_trunc_f32u() -> UnaryOp {
   I32TruncF32UOp
 }
 
 ///|
-pub fn i32_trunc_f64s_op() -> UnaryOp {
+pub fn UnaryOp::i32_trunc_f64s() -> UnaryOp {
   I32TruncF64SOp
 }
 
 ///|
-pub fn i32_trunc_f64u_op() -> UnaryOp {
+pub fn UnaryOp::i32_trunc_f64u() -> UnaryOp {
   I32TruncF64UOp
 }
 
 ///|
-pub fn i64_extend_i32s_op() -> UnaryOp {
+pub fn UnaryOp::i64_extend_i32s() -> UnaryOp {
   I64ExtendI32SOp
 }
 
 ///|
-pub fn i64_extend_i32u_op() -> UnaryOp {
+pub fn UnaryOp::i64_extend_i32u() -> UnaryOp {
   I64ExtendI32UOp
 }
 
 ///|
-pub fn i64_trunc_f32s_op() -> UnaryOp {
+pub fn UnaryOp::i64_trunc_f32s() -> UnaryOp {
   I64TruncF32SOp
 }
 
 ///|
-pub fn i64_trunc_f32u_op() -> UnaryOp {
+pub fn UnaryOp::i64_trunc_f32u() -> UnaryOp {
   I64TruncF32UOp
 }
 
 ///|
-pub fn i64_trunc_f64s_op() -> UnaryOp {
+pub fn UnaryOp::i64_trunc_f64s() -> UnaryOp {
   I64TruncF64SOp
 }
 
 ///|
-pub fn i64_trunc_f64u_op() -> UnaryOp {
+pub fn UnaryOp::i64_trunc_f64u() -> UnaryOp {
   I64TruncF64UOp
 }
 
 ///|
-pub fn f32_convert_i32s_op() -> UnaryOp {
+pub fn UnaryOp::f32_convert_i32s() -> UnaryOp {
   F32ConvertI32SOp
 }
 
 ///|
-pub fn f32_convert_i32u_op() -> UnaryOp {
+pub fn UnaryOp::f32_convert_i32u() -> UnaryOp {
   F32ConvertI32UOp
 }
 
 ///|
-pub fn f32_convert_i64s_op() -> UnaryOp {
+pub fn UnaryOp::f32_convert_i64s() -> UnaryOp {
   F32ConvertI64SOp
 }
 
 ///|
-pub fn f32_convert_i64u_op() -> UnaryOp {
+pub fn UnaryOp::f32_convert_i64u() -> UnaryOp {
   F32ConvertI64UOp
 }
 
 ///|
-pub fn f32_demote_f64_op() -> UnaryOp {
+pub fn UnaryOp::f32_demote_f64() -> UnaryOp {
   F32DemoteF64Op
 }
 
 ///|
-pub fn f64_convert_i32s_op() -> UnaryOp {
+pub fn UnaryOp::f64_convert_i32s() -> UnaryOp {
   F64ConvertI32SOp
 }
 
 ///|
-pub fn f64_convert_i32u_op() -> UnaryOp {
+pub fn UnaryOp::f64_convert_i32u() -> UnaryOp {
   F64ConvertI32UOp
 }
 
 ///|
-pub fn f64_convert_i64s_op() -> UnaryOp {
+pub fn UnaryOp::f64_convert_i64s() -> UnaryOp {
   F64ConvertI64SOp
 }
 
 ///|
-pub fn f64_convert_i64u_op() -> UnaryOp {
+pub fn UnaryOp::f64_convert_i64u() -> UnaryOp {
   F64ConvertI64UOp
 }
 
 ///|
-pub fn f64_promote_f32_op() -> UnaryOp {
+pub fn UnaryOp::f64_promote_f32() -> UnaryOp {
   F64PromoteF32Op
 }
 
 ///|
-pub fn i32_reinterpret_f32_op() -> UnaryOp {
+pub fn UnaryOp::i32_reinterpret_f32() -> UnaryOp {
   I32ReinterpretF32Op
 }
 
 ///|
-pub fn i64_reinterpret_f64_op() -> UnaryOp {
+pub fn UnaryOp::i64_reinterpret_f64() -> UnaryOp {
   I64ReinterpretF64Op
 }
 
 ///|
-pub fn f32_reinterpret_i32_op() -> UnaryOp {
+pub fn UnaryOp::f32_reinterpret_i32() -> UnaryOp {
   F32ReinterpretI32Op
 }
 
 ///|
-pub fn f64_reinterpret_i64_op() -> UnaryOp {
+pub fn UnaryOp::f64_reinterpret_i64() -> UnaryOp {
   F64ReinterpretI64Op
 }
 
 ///|
-pub fn i32_extend8s_op() -> UnaryOp {
+pub fn UnaryOp::i32_extend8s() -> UnaryOp {
   I32Extend8SOp
 }
 
 ///|
-pub fn i32_extend16s_op() -> UnaryOp {
+pub fn UnaryOp::i32_extend16s() -> UnaryOp {
   I32Extend16SOp
 }
 
 ///|
-pub fn i64_extend8s_op() -> UnaryOp {
+pub fn UnaryOp::i64_extend8s() -> UnaryOp {
   I64Extend8SOp
 }
 
 ///|
-pub fn i64_extend16s_op() -> UnaryOp {
+pub fn UnaryOp::i64_extend16s() -> UnaryOp {
   I64Extend16SOp
 }
 
 ///|
-pub fn i64_extend32s_op() -> UnaryOp {
+pub fn UnaryOp::i64_extend32s() -> UnaryOp {
   I64Extend32SOp
 }
 
 ///|
-pub fn i32_trunc_sat_f32s_op() -> UnaryOp {
+pub fn UnaryOp::i32_trunc_sat_f32s() -> UnaryOp {
   I32TruncSatF32SOp
 }
 
 ///|
-pub fn i32_trunc_sat_f32u_op() -> UnaryOp {
+pub fn UnaryOp::i32_trunc_sat_f32u() -> UnaryOp {
   I32TruncSatF32UOp
 }
 
 ///|
-pub fn i32_trunc_sat_f64s_op() -> UnaryOp {
+pub fn UnaryOp::i32_trunc_sat_f64s() -> UnaryOp {
   I32TruncSatF64SOp
 }
 
 ///|
-pub fn i32_trunc_sat_f64u_op() -> UnaryOp {
+pub fn UnaryOp::i32_trunc_sat_f64u() -> UnaryOp {
   I32TruncSatF64UOp
 }
 
 ///|
-pub fn i64_trunc_sat_f32s_op() -> UnaryOp {
+pub fn UnaryOp::i64_trunc_sat_f32s() -> UnaryOp {
   I64TruncSatF32SOp
 }
 
 ///|
-pub fn i64_trunc_sat_f32u_op() -> UnaryOp {
+pub fn UnaryOp::i64_trunc_sat_f32u() -> UnaryOp {
   I64TruncSatF32UOp
 }
 
 ///|
-pub fn i64_trunc_sat_f64s_op() -> UnaryOp {
+pub fn UnaryOp::i64_trunc_sat_f64s() -> UnaryOp {
   I64TruncSatF64SOp
 }
 
 ///|
-pub fn i64_trunc_sat_f64u_op() -> UnaryOp {
+pub fn UnaryOp::i64_trunc_sat_f64u() -> UnaryOp {
   I64TruncSatF64UOp
 }
 
 ///|
-pub fn v128_not_op() -> UnaryOp {
+pub fn UnaryOp::v128_not() -> UnaryOp {
   V128NotOp
 }
 
 ///|
-pub fn i8x16_abs_op() -> UnaryOp {
+pub fn UnaryOp::i8x16_abs() -> UnaryOp {
   I8x16AbsOp
 }
 
 ///|
-pub fn i8x16_neg_op() -> UnaryOp {
+pub fn UnaryOp::i8x16_neg() -> UnaryOp {
   I8x16NegOp
 }
 
 ///|
-pub fn i8x16_popcnt_op() -> UnaryOp {
+pub fn UnaryOp::i8x16_popcnt() -> UnaryOp {
   I8x16PopcntOp
 }
 
 ///|
-pub fn i16x8_abs_op() -> UnaryOp {
+pub fn UnaryOp::i16x8_abs() -> UnaryOp {
   I16x8AbsOp
 }
 
 ///|
-pub fn i16x8_neg_op() -> UnaryOp {
+pub fn UnaryOp::i16x8_neg() -> UnaryOp {
   I16x8NegOp
 }
 
 ///|
-pub fn i32x4_abs_op() -> UnaryOp {
+pub fn UnaryOp::i32x4_abs() -> UnaryOp {
   I32x4AbsOp
 }
 
 ///|
-pub fn i32x4_neg_op() -> UnaryOp {
+pub fn UnaryOp::i32x4_neg() -> UnaryOp {
   I32x4NegOp
 }
 
 ///|
-pub fn i64x2_abs_op() -> UnaryOp {
+pub fn UnaryOp::i64x2_abs() -> UnaryOp {
   I64x2AbsOp
 }
 
 ///|
-pub fn i64x2_neg_op() -> UnaryOp {
+pub fn UnaryOp::i64x2_neg() -> UnaryOp {
   I64x2NegOp
 }
 
 ///|
-pub fn f32x4_abs_op() -> UnaryOp {
+pub fn UnaryOp::f32x4_abs() -> UnaryOp {
   F32x4AbsOp
 }
 
 ///|
-pub fn f32x4_neg_op() -> UnaryOp {
+pub fn UnaryOp::f32x4_neg() -> UnaryOp {
   F32x4NegOp
 }
 
 ///|
-pub fn f32x4_sqrt_op() -> UnaryOp {
+pub fn UnaryOp::f32x4_sqrt() -> UnaryOp {
   F32x4SqrtOp
 }
 
 ///|
-pub fn f32x4_ceil_op() -> UnaryOp {
+pub fn UnaryOp::f32x4_ceil() -> UnaryOp {
   F32x4CeilOp
 }
 
 ///|
-pub fn f32x4_floor_op() -> UnaryOp {
+pub fn UnaryOp::f32x4_floor() -> UnaryOp {
   F32x4FloorOp
 }
 
 ///|
-pub fn f32x4_trunc_op() -> UnaryOp {
+pub fn UnaryOp::f32x4_trunc() -> UnaryOp {
   F32x4TruncOp
 }
 
 ///|
-pub fn f32x4_nearest_op() -> UnaryOp {
+pub fn UnaryOp::f32x4_nearest() -> UnaryOp {
   F32x4NearestOp
 }
 
 ///|
-pub fn f64x2_abs_op() -> UnaryOp {
+pub fn UnaryOp::f64x2_abs() -> UnaryOp {
   F64x2AbsOp
 }
 
 ///|
-pub fn f64x2_neg_op() -> UnaryOp {
+pub fn UnaryOp::f64x2_neg() -> UnaryOp {
   F64x2NegOp
 }
 
 ///|
-pub fn f64x2_sqrt_op() -> UnaryOp {
+pub fn UnaryOp::f64x2_sqrt() -> UnaryOp {
   F64x2SqrtOp
 }
 
 ///|
-pub fn f64x2_ceil_op() -> UnaryOp {
+pub fn UnaryOp::f64x2_ceil() -> UnaryOp {
   F64x2CeilOp
 }
 
 ///|
-pub fn f64x2_floor_op() -> UnaryOp {
+pub fn UnaryOp::f64x2_floor() -> UnaryOp {
   F64x2FloorOp
 }
 
 ///|
-pub fn f64x2_trunc_op() -> UnaryOp {
+pub fn UnaryOp::f64x2_trunc() -> UnaryOp {
   F64x2TruncOp
 }
 
 ///|
-pub fn f64x2_nearest_op() -> UnaryOp {
+pub fn UnaryOp::f64x2_nearest() -> UnaryOp {
   F64x2NearestOp
 }
 
 ///|
-pub fn v128_any_true_op() -> UnaryOp {
+pub fn UnaryOp::v128_any_true() -> UnaryOp {
   V128AnyTrueOp
 }
 
 ///|
-pub fn i8x16_all_true_op() -> UnaryOp {
+pub fn UnaryOp::i8x16_all_true() -> UnaryOp {
   I8x16AllTrueOp
 }
 
 ///|
-pub fn i8x16_bitmask_op() -> UnaryOp {
+pub fn UnaryOp::i8x16_bitmask() -> UnaryOp {
   I8x16BitmaskOp
 }
 
 ///|
-pub fn i16x8_all_true_op() -> UnaryOp {
+pub fn UnaryOp::i16x8_all_true() -> UnaryOp {
   I16x8AllTrueOp
 }
 
 ///|
-pub fn i16x8_bitmask_op() -> UnaryOp {
+pub fn UnaryOp::i16x8_bitmask() -> UnaryOp {
   I16x8BitmaskOp
 }
 
 ///|
-pub fn i32x4_all_true_op() -> UnaryOp {
+pub fn UnaryOp::i32x4_all_true() -> UnaryOp {
   I32x4AllTrueOp
 }
 
 ///|
-pub fn i32x4_bitmask_op() -> UnaryOp {
+pub fn UnaryOp::i32x4_bitmask() -> UnaryOp {
   I32x4BitmaskOp
 }
 
 ///|
-pub fn i64x2_all_true_op() -> UnaryOp {
+pub fn UnaryOp::i64x2_all_true() -> UnaryOp {
   I64x2AllTrueOp
 }
 
 ///|
-pub fn i64x2_bitmask_op() -> UnaryOp {
+pub fn UnaryOp::i64x2_bitmask() -> UnaryOp {
   I64x2BitmaskOp
 }
 
 ///|
-pub fn i16x8_extend_low_i8x16s_op() -> UnaryOp {
+pub fn UnaryOp::i16x8_extend_low_i8x16s() -> UnaryOp {
   I16x8ExtendLowI8x16SOp
 }
 
 ///|
-pub fn i16x8_extend_high_i8x16s_op() -> UnaryOp {
+pub fn UnaryOp::i16x8_extend_high_i8x16s() -> UnaryOp {
   I16x8ExtendHighI8x16SOp
 }
 
 ///|
-pub fn i16x8_extend_low_i8x16u_op() -> UnaryOp {
+pub fn UnaryOp::i16x8_extend_low_i8x16u() -> UnaryOp {
   I16x8ExtendLowI8x16UOp
 }
 
 ///|
-pub fn i16x8_extend_high_i8x16u_op() -> UnaryOp {
+pub fn UnaryOp::i16x8_extend_high_i8x16u() -> UnaryOp {
   I16x8ExtendHighI8x16UOp
 }
 
 ///|
-pub fn i32x4_extend_low_i16x8s_op() -> UnaryOp {
+pub fn UnaryOp::i32x4_extend_low_i16x8s() -> UnaryOp {
   I32x4ExtendLowI16x8SOp
 }
 
 ///|
-pub fn i32x4_extend_high_i16x8s_op() -> UnaryOp {
+pub fn UnaryOp::i32x4_extend_high_i16x8s() -> UnaryOp {
   I32x4ExtendHighI16x8SOp
 }
 
 ///|
-pub fn i32x4_extend_low_i16x8u_op() -> UnaryOp {
+pub fn UnaryOp::i32x4_extend_low_i16x8u() -> UnaryOp {
   I32x4ExtendLowI16x8UOp
 }
 
 ///|
-pub fn i32x4_extend_high_i16x8u_op() -> UnaryOp {
+pub fn UnaryOp::i32x4_extend_high_i16x8u() -> UnaryOp {
   I32x4ExtendHighI16x8UOp
 }
 
 ///|
-pub fn i64x2_extend_low_i32x4s_op() -> UnaryOp {
+pub fn UnaryOp::i64x2_extend_low_i32x4s() -> UnaryOp {
   I64x2ExtendLowI32x4SOp
 }
 
 ///|
-pub fn i64x2_extend_high_i32x4s_op() -> UnaryOp {
+pub fn UnaryOp::i64x2_extend_high_i32x4s() -> UnaryOp {
   I64x2ExtendHighI32x4SOp
 }
 
 ///|
-pub fn i64x2_extend_low_i32x4u_op() -> UnaryOp {
+pub fn UnaryOp::i64x2_extend_low_i32x4u() -> UnaryOp {
   I64x2ExtendLowI32x4UOp
 }
 
 ///|
-pub fn i64x2_extend_high_i32x4u_op() -> UnaryOp {
+pub fn UnaryOp::i64x2_extend_high_i32x4u() -> UnaryOp {
   I64x2ExtendHighI32x4UOp
 }
 
 ///|
-pub fn i16x8_extadd_pairwise_i8x16s_op() -> UnaryOp {
+pub fn UnaryOp::i16x8_extadd_pairwise_i8x16s() -> UnaryOp {
   I16x8ExtaddPairwiseI8x16SOp
 }
 
 ///|
-pub fn i16x8_extadd_pairwise_i8x16u_op() -> UnaryOp {
+pub fn UnaryOp::i16x8_extadd_pairwise_i8x16u() -> UnaryOp {
   I16x8ExtaddPairwiseI8x16UOp
 }
 
 ///|
-pub fn i32x4_extadd_pairwise_i16x8s_op() -> UnaryOp {
+pub fn UnaryOp::i32x4_extadd_pairwise_i16x8s() -> UnaryOp {
   I32x4ExtaddPairwiseI16x8SOp
 }
 
 ///|
-pub fn i32x4_extadd_pairwise_i16x8u_op() -> UnaryOp {
+pub fn UnaryOp::i32x4_extadd_pairwise_i16x8u() -> UnaryOp {
   I32x4ExtaddPairwiseI16x8UOp
 }
 
 ///|
-pub fn f32x4_demote_f64x2_zero_op() -> UnaryOp {
+pub fn UnaryOp::f32x4_demote_f64x2_zero() -> UnaryOp {
   F32x4DemoteF64x2ZeroOp
 }
 
 ///|
-pub fn f64x2_promote_low_f32x4_op() -> UnaryOp {
+pub fn UnaryOp::f64x2_promote_low_f32x4() -> UnaryOp {
   F64x2PromoteLowF32x4Op
 }
 
 ///|
-pub fn i32x4_trunc_sat_f32x4s_op() -> UnaryOp {
+pub fn UnaryOp::i32x4_trunc_sat_f32x4s() -> UnaryOp {
   I32x4TruncSatF32x4SOp
 }
 
 ///|
-pub fn i32x4_trunc_sat_f32x4u_op() -> UnaryOp {
+pub fn UnaryOp::i32x4_trunc_sat_f32x4u() -> UnaryOp {
   I32x4TruncSatF32x4UOp
 }
 
 ///|
-pub fn f32x4_convert_i32x4s_op() -> UnaryOp {
+pub fn UnaryOp::f32x4_convert_i32x4s() -> UnaryOp {
   F32x4ConvertI32x4SOp
 }
 
 ///|
-pub fn f32x4_convert_i32x4u_op() -> UnaryOp {
+pub fn UnaryOp::f32x4_convert_i32x4u() -> UnaryOp {
   F32x4ConvertI32x4UOp
 }
 
 ///|
-pub fn i32x4_trunc_sat_f64x2s_zero_op() -> UnaryOp {
+pub fn UnaryOp::i32x4_trunc_sat_f64x2s_zero() -> UnaryOp {
   I32x4TruncSatF64x2SZeroOp
 }
 
 ///|
-pub fn i32x4_trunc_sat_f64x2u_zero_op() -> UnaryOp {
+pub fn UnaryOp::i32x4_trunc_sat_f64x2u_zero() -> UnaryOp {
   I32x4TruncSatF64x2UZeroOp
 }
 
 ///|
-pub fn f64x2_convert_low_i32x4s_op() -> UnaryOp {
+pub fn UnaryOp::f64x2_convert_low_i32x4s() -> UnaryOp {
   F64x2ConvertLowI32x4SOp
 }
 
 ///|
-pub fn f64x2_convert_low_i32x4u_op() -> UnaryOp {
+pub fn UnaryOp::f64x2_convert_low_i32x4u() -> UnaryOp {
   F64x2ConvertLowI32x4UOp
 }
 
 ///|
-pub fn i32x4_relaxed_trunc_f32x4s_op() -> UnaryOp {
+pub fn UnaryOp::i32x4_relaxed_trunc_f32x4s() -> UnaryOp {
   I32x4RelaxedTruncF32x4SOp
 }
 
 ///|
-pub fn i32x4_relaxed_trunc_f32x4u_op() -> UnaryOp {
+pub fn UnaryOp::i32x4_relaxed_trunc_f32x4u() -> UnaryOp {
   I32x4RelaxedTruncF32x4UOp
 }
 
 ///|
-pub fn i32x4_relaxed_trunc_zero_f64x2s_op() -> UnaryOp {
+pub fn UnaryOp::i32x4_relaxed_trunc_zero_f64x2s() -> UnaryOp {
   I32x4RelaxedTruncZeroF64x2SOp
 }
 
 ///|
-pub fn i32x4_relaxed_trunc_zero_f64x2u_op() -> UnaryOp {
+pub fn UnaryOp::i32x4_relaxed_trunc_zero_f64x2u() -> UnaryOp {
   I32x4RelaxedTruncZeroF64x2UOp
 }
 
 ///|
-pub fn i32_eq_op() -> BinaryOp {
+pub fn BinaryOp::i32_eq() -> BinaryOp {
   I32EqOp
 }
 
 ///|
-pub fn i32_ne_op() -> BinaryOp {
+pub fn BinaryOp::i32_ne() -> BinaryOp {
   I32NeOp
 }
 
 ///|
-pub fn i32_lt_s_op() -> BinaryOp {
+pub fn BinaryOp::i32_lt_s() -> BinaryOp {
   I32LtSOp
 }
 
 ///|
-pub fn i32_lt_u_op() -> BinaryOp {
+pub fn BinaryOp::i32_lt_u() -> BinaryOp {
   I32LtUOp
 }
 
 ///|
-pub fn i32_gt_s_op() -> BinaryOp {
+pub fn BinaryOp::i32_gt_s() -> BinaryOp {
   I32GtSOp
 }
 
 ///|
-pub fn i32_gt_u_op() -> BinaryOp {
+pub fn BinaryOp::i32_gt_u() -> BinaryOp {
   I32GtUOp
 }
 
 ///|
-pub fn i32_le_s_op() -> BinaryOp {
+pub fn BinaryOp::i32_le_s() -> BinaryOp {
   I32LeSOp
 }
 
 ///|
-pub fn i32_le_u_op() -> BinaryOp {
+pub fn BinaryOp::i32_le_u() -> BinaryOp {
   I32LeUOp
 }
 
 ///|
-pub fn i32_ge_s_op() -> BinaryOp {
+pub fn BinaryOp::i32_ge_s() -> BinaryOp {
   I32GeSOp
 }
 
 ///|
-pub fn i32_ge_u_op() -> BinaryOp {
+pub fn BinaryOp::i32_ge_u() -> BinaryOp {
   I32GeUOp
 }
 
 ///|
-pub fn i64_eq_op() -> BinaryOp {
+pub fn BinaryOp::i64_eq() -> BinaryOp {
   I64EqOp
 }
 
 ///|
-pub fn i64_ne_op() -> BinaryOp {
+pub fn BinaryOp::i64_ne() -> BinaryOp {
   I64NeOp
 }
 
 ///|
-pub fn i64_lt_s_op() -> BinaryOp {
+pub fn BinaryOp::i64_lt_s() -> BinaryOp {
   I64LtSOp
 }
 
 ///|
-pub fn i64_lt_u_op() -> BinaryOp {
+pub fn BinaryOp::i64_lt_u() -> BinaryOp {
   I64LtUOp
 }
 
 ///|
-pub fn i64_gt_s_op() -> BinaryOp {
+pub fn BinaryOp::i64_gt_s() -> BinaryOp {
   I64GtSOp
 }
 
 ///|
-pub fn i64_gt_u_op() -> BinaryOp {
+pub fn BinaryOp::i64_gt_u() -> BinaryOp {
   I64GtUOp
 }
 
 ///|
-pub fn i64_le_s_op() -> BinaryOp {
+pub fn BinaryOp::i64_le_s() -> BinaryOp {
   I64LeSOp
 }
 
 ///|
-pub fn i64_le_u_op() -> BinaryOp {
+pub fn BinaryOp::i64_le_u() -> BinaryOp {
   I64LeUOp
 }
 
 ///|
-pub fn i64_ge_s_op() -> BinaryOp {
+pub fn BinaryOp::i64_ge_s() -> BinaryOp {
   I64GeSOp
 }
 
 ///|
-pub fn i64_ge_u_op() -> BinaryOp {
+pub fn BinaryOp::i64_ge_u() -> BinaryOp {
   I64GeUOp
 }
 
 ///|
-pub fn f32_eq_op() -> BinaryOp {
+pub fn BinaryOp::f32_eq() -> BinaryOp {
   F32EqOp
 }
 
 ///|
-pub fn f32_ne_op() -> BinaryOp {
+pub fn BinaryOp::f32_ne() -> BinaryOp {
   F32NeOp
 }
 
 ///|
-pub fn f32_lt_op() -> BinaryOp {
+pub fn BinaryOp::f32_lt() -> BinaryOp {
   F32LtOp
 }
 
 ///|
-pub fn f32_gt_op() -> BinaryOp {
+pub fn BinaryOp::f32_gt() -> BinaryOp {
   F32GtOp
 }
 
 ///|
-pub fn f32_le_op() -> BinaryOp {
+pub fn BinaryOp::f32_le() -> BinaryOp {
   F32LeOp
 }
 
 ///|
-pub fn f32_ge_op() -> BinaryOp {
+pub fn BinaryOp::f32_ge() -> BinaryOp {
   F32GeOp
 }
 
 ///|
-pub fn f64_eq_op() -> BinaryOp {
+pub fn BinaryOp::f64_eq() -> BinaryOp {
   F64EqOp
 }
 
 ///|
-pub fn f64_ne_op() -> BinaryOp {
+pub fn BinaryOp::f64_ne() -> BinaryOp {
   F64NeOp
 }
 
 ///|
-pub fn f64_lt_op() -> BinaryOp {
+pub fn BinaryOp::f64_lt() -> BinaryOp {
   F64LtOp
 }
 
 ///|
-pub fn f64_gt_op() -> BinaryOp {
+pub fn BinaryOp::f64_gt() -> BinaryOp {
   F64GtOp
 }
 
 ///|
-pub fn f64_le_op() -> BinaryOp {
+pub fn BinaryOp::f64_le() -> BinaryOp {
   F64LeOp
 }
 
 ///|
-pub fn f64_ge_op() -> BinaryOp {
+pub fn BinaryOp::f64_ge() -> BinaryOp {
   F64GeOp
 }
 
 ///|
-pub fn i32_add_op() -> BinaryOp {
+pub fn BinaryOp::i32_add() -> BinaryOp {
   I32AddOp
 }
 
 ///|
-pub fn i32_sub_op() -> BinaryOp {
+pub fn BinaryOp::i32_sub() -> BinaryOp {
   I32SubOp
 }
 
 ///|
-pub fn i32_mul_op() -> BinaryOp {
+pub fn BinaryOp::i32_mul() -> BinaryOp {
   I32MulOp
 }
 
 ///|
-pub fn i32_div_s_op() -> BinaryOp {
+pub fn BinaryOp::i32_div_s() -> BinaryOp {
   I32DivSOp
 }
 
 ///|
-pub fn i32_div_u_op() -> BinaryOp {
+pub fn BinaryOp::i32_div_u() -> BinaryOp {
   I32DivUOp
 }
 
 ///|
-pub fn i32_rem_s_op() -> BinaryOp {
+pub fn BinaryOp::i32_rem_s() -> BinaryOp {
   I32RemSOp
 }
 
 ///|
-pub fn i32_rem_u_op() -> BinaryOp {
+pub fn BinaryOp::i32_rem_u() -> BinaryOp {
   I32RemUOp
 }
 
 ///|
-pub fn i32_and_op() -> BinaryOp {
+pub fn BinaryOp::i32_and() -> BinaryOp {
   I32AndOp
 }
 
 ///|
-pub fn i32_or_op() -> BinaryOp {
+pub fn BinaryOp::i32_or() -> BinaryOp {
   I32OrOp
 }
 
 ///|
-pub fn i32_xor_op() -> BinaryOp {
+pub fn BinaryOp::i32_xor() -> BinaryOp {
   I32XorOp
 }
 
 ///|
-pub fn i32_shl_op() -> BinaryOp {
+pub fn BinaryOp::i32_shl() -> BinaryOp {
   I32ShlOp
 }
 
 ///|
-pub fn i32_shr_s_op() -> BinaryOp {
+pub fn BinaryOp::i32_shr_s() -> BinaryOp {
   I32ShrSOp
 }
 
 ///|
-pub fn i32_shr_u_op() -> BinaryOp {
+pub fn BinaryOp::i32_shr_u() -> BinaryOp {
   I32ShrUOp
 }
 
 ///|
-pub fn i32_rotl_op() -> BinaryOp {
+pub fn BinaryOp::i32_rotl() -> BinaryOp {
   I32RotlOp
 }
 
 ///|
-pub fn i32_rotr_op() -> BinaryOp {
+pub fn BinaryOp::i32_rotr() -> BinaryOp {
   I32RotrOp
 }
 
 ///|
-pub fn i64_add_op() -> BinaryOp {
+pub fn BinaryOp::i64_add() -> BinaryOp {
   I64AddOp
 }
 
 ///|
-pub fn i64_sub_op() -> BinaryOp {
+pub fn BinaryOp::i64_sub() -> BinaryOp {
   I64SubOp
 }
 
 ///|
-pub fn i64_mul_op() -> BinaryOp {
+pub fn BinaryOp::i64_mul() -> BinaryOp {
   I64MulOp
 }
 
 ///|
-pub fn i64_div_s_op() -> BinaryOp {
+pub fn BinaryOp::i64_div_s() -> BinaryOp {
   I64DivSOp
 }
 
 ///|
-pub fn i64_div_u_op() -> BinaryOp {
+pub fn BinaryOp::i64_div_u() -> BinaryOp {
   I64DivUOp
 }
 
 ///|
-pub fn i64_rem_s_op() -> BinaryOp {
+pub fn BinaryOp::i64_rem_s() -> BinaryOp {
   I64RemSOp
 }
 
 ///|
-pub fn i64_rem_u_op() -> BinaryOp {
+pub fn BinaryOp::i64_rem_u() -> BinaryOp {
   I64RemUOp
 }
 
 ///|
-pub fn i64_and_op() -> BinaryOp {
+pub fn BinaryOp::i64_and() -> BinaryOp {
   I64AndOp
 }
 
 ///|
-pub fn i64_or_op() -> BinaryOp {
+pub fn BinaryOp::i64_or() -> BinaryOp {
   I64OrOp
 }
 
 ///|
-pub fn i64_xor_op() -> BinaryOp {
+pub fn BinaryOp::i64_xor() -> BinaryOp {
   I64XorOp
 }
 
 ///|
-pub fn i64_shl_op() -> BinaryOp {
+pub fn BinaryOp::i64_shl() -> BinaryOp {
   I64ShlOp
 }
 
 ///|
-pub fn i64_shr_s_op() -> BinaryOp {
+pub fn BinaryOp::i64_shr_s() -> BinaryOp {
   I64ShrSOp
 }
 
 ///|
-pub fn i64_shr_u_op() -> BinaryOp {
+pub fn BinaryOp::i64_shr_u() -> BinaryOp {
   I64ShrUOp
 }
 
 ///|
-pub fn i64_rotl_op() -> BinaryOp {
+pub fn BinaryOp::i64_rotl() -> BinaryOp {
   I64RotlOp
 }
 
 ///|
-pub fn i64_rotr_op() -> BinaryOp {
+pub fn BinaryOp::i64_rotr() -> BinaryOp {
   I64RotrOp
 }
 
 ///|
-pub fn f32_add_op() -> BinaryOp {
+pub fn BinaryOp::f32_add() -> BinaryOp {
   F32AddOp
 }
 
 ///|
-pub fn f32_sub_op() -> BinaryOp {
+pub fn BinaryOp::f32_sub() -> BinaryOp {
   F32SubOp
 }
 
 ///|
-pub fn f32_mul_op() -> BinaryOp {
+pub fn BinaryOp::f32_mul() -> BinaryOp {
   F32MulOp
 }
 
 ///|
-pub fn f32_div_op() -> BinaryOp {
+pub fn BinaryOp::f32_div() -> BinaryOp {
   F32DivOp
 }
 
 ///|
-pub fn f32_min_op() -> BinaryOp {
+pub fn BinaryOp::f32_min() -> BinaryOp {
   F32MinOp
 }
 
 ///|
-pub fn f32_max_op() -> BinaryOp {
+pub fn BinaryOp::f32_max() -> BinaryOp {
   F32MaxOp
 }
 
 ///|
-pub fn f32_copysign_op() -> BinaryOp {
+pub fn BinaryOp::f32_copysign() -> BinaryOp {
   F32CopysignOp
 }
 
 ///|
-pub fn f64_add_op() -> BinaryOp {
+pub fn BinaryOp::f64_add() -> BinaryOp {
   F64AddOp
 }
 
 ///|
-pub fn f64_sub_op() -> BinaryOp {
+pub fn BinaryOp::f64_sub() -> BinaryOp {
   F64SubOp
 }
 
 ///|
-pub fn f64_mul_op() -> BinaryOp {
+pub fn BinaryOp::f64_mul() -> BinaryOp {
   F64MulOp
 }
 
 ///|
-pub fn f64_div_op() -> BinaryOp {
+pub fn BinaryOp::f64_div() -> BinaryOp {
   F64DivOp
 }
 
 ///|
-pub fn f64_min_op() -> BinaryOp {
+pub fn BinaryOp::f64_min() -> BinaryOp {
   F64MinOp
 }
 
 ///|
-pub fn f64_max_op() -> BinaryOp {
+pub fn BinaryOp::f64_max() -> BinaryOp {
   F64MaxOp
 }
 
 ///|
-pub fn f64_copysign_op() -> BinaryOp {
+pub fn BinaryOp::f64_copysign() -> BinaryOp {
   F64CopysignOp
 }
 
 ///|
-pub fn v128_and_op() -> BinaryOp {
+pub fn BinaryOp::v128_and() -> BinaryOp {
   V128AndOp
 }
 
 ///|
-pub fn v128_andnot_op() -> BinaryOp {
+pub fn BinaryOp::v128_andnot() -> BinaryOp {
   V128AndnotOp
 }
 
 ///|
-pub fn v128_or_op() -> BinaryOp {
+pub fn BinaryOp::v128_or() -> BinaryOp {
   V128OrOp
 }
 
 ///|
-pub fn v128_xor_op() -> BinaryOp {
+pub fn BinaryOp::v128_xor() -> BinaryOp {
   V128XorOp
 }
 
 ///|
-pub fn i8x16_eq_op() -> BinaryOp {
+pub fn BinaryOp::i8x16_eq() -> BinaryOp {
   I8x16EqOp
 }
 
 ///|
-pub fn i8x16_ne_op() -> BinaryOp {
+pub fn BinaryOp::i8x16_ne() -> BinaryOp {
   I8x16NeOp
 }
 
 ///|
-pub fn i8x16_lt_s_op() -> BinaryOp {
+pub fn BinaryOp::i8x16_lt_s() -> BinaryOp {
   I8x16LtSOp
 }
 
 ///|
-pub fn i8x16_lt_u_op() -> BinaryOp {
+pub fn BinaryOp::i8x16_lt_u() -> BinaryOp {
   I8x16LtUOp
 }
 
 ///|
-pub fn i8x16_gt_s_op() -> BinaryOp {
+pub fn BinaryOp::i8x16_gt_s() -> BinaryOp {
   I8x16GtSOp
 }
 
 ///|
-pub fn i8x16_gt_u_op() -> BinaryOp {
+pub fn BinaryOp::i8x16_gt_u() -> BinaryOp {
   I8x16GtUOp
 }
 
 ///|
-pub fn i8x16_le_s_op() -> BinaryOp {
+pub fn BinaryOp::i8x16_le_s() -> BinaryOp {
   I8x16LeSOp
 }
 
 ///|
-pub fn i8x16_le_u_op() -> BinaryOp {
+pub fn BinaryOp::i8x16_le_u() -> BinaryOp {
   I8x16LeUOp
 }
 
 ///|
-pub fn i8x16_ge_s_op() -> BinaryOp {
+pub fn BinaryOp::i8x16_ge_s() -> BinaryOp {
   I8x16GeSOp
 }
 
 ///|
-pub fn i8x16_ge_u_op() -> BinaryOp {
+pub fn BinaryOp::i8x16_ge_u() -> BinaryOp {
   I8x16GeUOp
 }
 
 ///|
-pub fn i16x8_eq_op() -> BinaryOp {
+pub fn BinaryOp::i16x8_eq() -> BinaryOp {
   I16x8EqOp
 }
 
 ///|
-pub fn i16x8_ne_op() -> BinaryOp {
+pub fn BinaryOp::i16x8_ne() -> BinaryOp {
   I16x8NeOp
 }
 
 ///|
-pub fn i16x8_lt_s_op() -> BinaryOp {
+pub fn BinaryOp::i16x8_lt_s() -> BinaryOp {
   I16x8LtSOp
 }
 
 ///|
-pub fn i16x8_lt_u_op() -> BinaryOp {
+pub fn BinaryOp::i16x8_lt_u() -> BinaryOp {
   I16x8LtUOp
 }
 
 ///|
-pub fn i16x8_gt_s_op() -> BinaryOp {
+pub fn BinaryOp::i16x8_gt_s() -> BinaryOp {
   I16x8GtSOp
 }
 
 ///|
-pub fn i16x8_gt_u_op() -> BinaryOp {
+pub fn BinaryOp::i16x8_gt_u() -> BinaryOp {
   I16x8GtUOp
 }
 
 ///|
-pub fn i16x8_le_s_op() -> BinaryOp {
+pub fn BinaryOp::i16x8_le_s() -> BinaryOp {
   I16x8LeSOp
 }
 
 ///|
-pub fn i16x8_le_u_op() -> BinaryOp {
+pub fn BinaryOp::i16x8_le_u() -> BinaryOp {
   I16x8LeUOp
 }
 
 ///|
-pub fn i16x8_ge_s_op() -> BinaryOp {
+pub fn BinaryOp::i16x8_ge_s() -> BinaryOp {
   I16x8GeSOp
 }
 
 ///|
-pub fn i16x8_ge_u_op() -> BinaryOp {
+pub fn BinaryOp::i16x8_ge_u() -> BinaryOp {
   I16x8GeUOp
 }
 
 ///|
-pub fn i32x4_eq_op() -> BinaryOp {
+pub fn BinaryOp::i32x4_eq() -> BinaryOp {
   I32x4EqOp
 }
 
 ///|
-pub fn i32x4_ne_op() -> BinaryOp {
+pub fn BinaryOp::i32x4_ne() -> BinaryOp {
   I32x4NeOp
 }
 
 ///|
-pub fn i32x4_lt_s_op() -> BinaryOp {
+pub fn BinaryOp::i32x4_lt_s() -> BinaryOp {
   I32x4LtSOp
 }
 
 ///|
-pub fn i32x4_lt_u_op() -> BinaryOp {
+pub fn BinaryOp::i32x4_lt_u() -> BinaryOp {
   I32x4LtUOp
 }
 
 ///|
-pub fn i32x4_gt_s_op() -> BinaryOp {
+pub fn BinaryOp::i32x4_gt_s() -> BinaryOp {
   I32x4GtSOp
 }
 
 ///|
-pub fn i32x4_gt_u_op() -> BinaryOp {
+pub fn BinaryOp::i32x4_gt_u() -> BinaryOp {
   I32x4GtUOp
 }
 
 ///|
-pub fn i32x4_le_s_op() -> BinaryOp {
+pub fn BinaryOp::i32x4_le_s() -> BinaryOp {
   I32x4LeSOp
 }
 
 ///|
-pub fn i32x4_le_u_op() -> BinaryOp {
+pub fn BinaryOp::i32x4_le_u() -> BinaryOp {
   I32x4LeUOp
 }
 
 ///|
-pub fn i32x4_ge_s_op() -> BinaryOp {
+pub fn BinaryOp::i32x4_ge_s() -> BinaryOp {
   I32x4GeSOp
 }
 
 ///|
-pub fn i32x4_ge_u_op() -> BinaryOp {
+pub fn BinaryOp::i32x4_ge_u() -> BinaryOp {
   I32x4GeUOp
 }
 
 ///|
-pub fn i64x2_eq_op() -> BinaryOp {
+pub fn BinaryOp::i64x2_eq() -> BinaryOp {
   I64x2EqOp
 }
 
 ///|
-pub fn i64x2_ne_op() -> BinaryOp {
+pub fn BinaryOp::i64x2_ne() -> BinaryOp {
   I64x2NeOp
 }
 
 ///|
-pub fn i64x2_lt_s_op() -> BinaryOp {
+pub fn BinaryOp::i64x2_lt_s() -> BinaryOp {
   I64x2LtSOp
 }
 
 ///|
-pub fn i64x2_gt_s_op() -> BinaryOp {
+pub fn BinaryOp::i64x2_gt_s() -> BinaryOp {
   I64x2GtSOp
 }
 
 ///|
-pub fn i64x2_le_s_op() -> BinaryOp {
+pub fn BinaryOp::i64x2_le_s() -> BinaryOp {
   I64x2LeSOp
 }
 
 ///|
-pub fn i64x2_ge_s_op() -> BinaryOp {
+pub fn BinaryOp::i64x2_ge_s() -> BinaryOp {
   I64x2GeSOp
 }
 
 ///|
-pub fn f32x4_eq_op() -> BinaryOp {
+pub fn BinaryOp::f32x4_eq() -> BinaryOp {
   F32x4EqOp
 }
 
 ///|
-pub fn f32x4_ne_op() -> BinaryOp {
+pub fn BinaryOp::f32x4_ne() -> BinaryOp {
   F32x4NeOp
 }
 
 ///|
-pub fn f32x4_lt_op() -> BinaryOp {
+pub fn BinaryOp::f32x4_lt() -> BinaryOp {
   F32x4LtOp
 }
 
 ///|
-pub fn f32x4_gt_op() -> BinaryOp {
+pub fn BinaryOp::f32x4_gt() -> BinaryOp {
   F32x4GtOp
 }
 
 ///|
-pub fn f32x4_le_op() -> BinaryOp {
+pub fn BinaryOp::f32x4_le() -> BinaryOp {
   F32x4LeOp
 }
 
 ///|
-pub fn f32x4_ge_op() -> BinaryOp {
+pub fn BinaryOp::f32x4_ge() -> BinaryOp {
   F32x4GeOp
 }
 
 ///|
-pub fn f64x2_eq_op() -> BinaryOp {
+pub fn BinaryOp::f64x2_eq() -> BinaryOp {
   F64x2EqOp
 }
 
 ///|
-pub fn f64x2_ne_op() -> BinaryOp {
+pub fn BinaryOp::f64x2_ne() -> BinaryOp {
   F64x2NeOp
 }
 
 ///|
-pub fn f64x2_lt_op() -> BinaryOp {
+pub fn BinaryOp::f64x2_lt() -> BinaryOp {
   F64x2LtOp
 }
 
 ///|
-pub fn f64x2_gt_op() -> BinaryOp {
+pub fn BinaryOp::f64x2_gt() -> BinaryOp {
   F64x2GtOp
 }
 
 ///|
-pub fn f64x2_le_op() -> BinaryOp {
+pub fn BinaryOp::f64x2_le() -> BinaryOp {
   F64x2LeOp
 }
 
 ///|
-pub fn f64x2_ge_op() -> BinaryOp {
+pub fn BinaryOp::f64x2_ge() -> BinaryOp {
   F64x2GeOp
 }
 
 ///|
-pub fn i8x16_add_op() -> BinaryOp {
+pub fn BinaryOp::i8x16_add() -> BinaryOp {
   I8x16AddOp
 }
 
 ///|
-pub fn i8x16_add_sat_s_op() -> BinaryOp {
+pub fn BinaryOp::i8x16_add_sat_s() -> BinaryOp {
   I8x16AddSatSOp
 }
 
 ///|
-pub fn i8x16_add_sat_u_op() -> BinaryOp {
+pub fn BinaryOp::i8x16_add_sat_u() -> BinaryOp {
   I8x16AddSatUOp
 }
 
 ///|
-pub fn i8x16_sub_op() -> BinaryOp {
+pub fn BinaryOp::i8x16_sub() -> BinaryOp {
   I8x16SubOp
 }
 
 ///|
-pub fn i8x16_sub_sat_s_op() -> BinaryOp {
+pub fn BinaryOp::i8x16_sub_sat_s() -> BinaryOp {
   I8x16SubSatSOp
 }
 
 ///|
-pub fn i8x16_sub_sat_u_op() -> BinaryOp {
+pub fn BinaryOp::i8x16_sub_sat_u() -> BinaryOp {
   I8x16SubSatUOp
 }
 
 ///|
-pub fn i8x16_min_s_op() -> BinaryOp {
+pub fn BinaryOp::i8x16_min_s() -> BinaryOp {
   I8x16MinSOp
 }
 
 ///|
-pub fn i8x16_min_u_op() -> BinaryOp {
+pub fn BinaryOp::i8x16_min_u() -> BinaryOp {
   I8x16MinUOp
 }
 
 ///|
-pub fn i8x16_max_s_op() -> BinaryOp {
+pub fn BinaryOp::i8x16_max_s() -> BinaryOp {
   I8x16MaxSOp
 }
 
 ///|
-pub fn i8x16_max_u_op() -> BinaryOp {
+pub fn BinaryOp::i8x16_max_u() -> BinaryOp {
   I8x16MaxUOp
 }
 
 ///|
-pub fn i8x16_avgr_u_op() -> BinaryOp {
+pub fn BinaryOp::i8x16_avgr_u() -> BinaryOp {
   I8x16AvgrUOp
 }
 
 ///|
-pub fn i8x16_narrow_i16x8s_op() -> BinaryOp {
+pub fn BinaryOp::i8x16_narrow_i16x8s() -> BinaryOp {
   I8x16NarrowI16x8SOp
 }
 
 ///|
-pub fn i8x16_narrow_i16x8u_op() -> BinaryOp {
+pub fn BinaryOp::i8x16_narrow_i16x8u() -> BinaryOp {
   I8x16NarrowI16x8UOp
 }
 
 ///|
-pub fn i16x8_add_op() -> BinaryOp {
+pub fn BinaryOp::i16x8_add() -> BinaryOp {
   I16x8AddOp
 }
 
 ///|
-pub fn i16x8_add_sat_s_op() -> BinaryOp {
+pub fn BinaryOp::i16x8_add_sat_s() -> BinaryOp {
   I16x8AddSatSOp
 }
 
 ///|
-pub fn i16x8_add_sat_u_op() -> BinaryOp {
+pub fn BinaryOp::i16x8_add_sat_u() -> BinaryOp {
   I16x8AddSatUOp
 }
 
 ///|
-pub fn i16x8_sub_op() -> BinaryOp {
+pub fn BinaryOp::i16x8_sub() -> BinaryOp {
   I16x8SubOp
 }
 
 ///|
-pub fn i16x8_sub_sat_s_op() -> BinaryOp {
+pub fn BinaryOp::i16x8_sub_sat_s() -> BinaryOp {
   I16x8SubSatSOp
 }
 
 ///|
-pub fn i16x8_sub_sat_u_op() -> BinaryOp {
+pub fn BinaryOp::i16x8_sub_sat_u() -> BinaryOp {
   I16x8SubSatUOp
 }
 
 ///|
-pub fn i16x8_mul_op() -> BinaryOp {
+pub fn BinaryOp::i16x8_mul() -> BinaryOp {
   I16x8MulOp
 }
 
 ///|
-pub fn i16x8_min_s_op() -> BinaryOp {
+pub fn BinaryOp::i16x8_min_s() -> BinaryOp {
   I16x8MinSOp
 }
 
 ///|
-pub fn i16x8_min_u_op() -> BinaryOp {
+pub fn BinaryOp::i16x8_min_u() -> BinaryOp {
   I16x8MinUOp
 }
 
 ///|
-pub fn i16x8_max_s_op() -> BinaryOp {
+pub fn BinaryOp::i16x8_max_s() -> BinaryOp {
   I16x8MaxSOp
 }
 
 ///|
-pub fn i16x8_max_u_op() -> BinaryOp {
+pub fn BinaryOp::i16x8_max_u() -> BinaryOp {
   I16x8MaxUOp
 }
 
 ///|
-pub fn i16x8_avgr_u_op() -> BinaryOp {
+pub fn BinaryOp::i16x8_avgr_u() -> BinaryOp {
   I16x8AvgrUOp
 }
 
 ///|
-pub fn i16x8q15mulr_sat_s_op() -> BinaryOp {
+pub fn BinaryOp::i16x8q15mulr_sat_s() -> BinaryOp {
   I16x8Q15mulrSatSOp
 }
 
 ///|
-pub fn i16x8_narrow_i32x4s_op() -> BinaryOp {
+pub fn BinaryOp::i16x8_narrow_i32x4s() -> BinaryOp {
   I16x8NarrowI32x4SOp
 }
 
 ///|
-pub fn i16x8_narrow_i32x4u_op() -> BinaryOp {
+pub fn BinaryOp::i16x8_narrow_i32x4u() -> BinaryOp {
   I16x8NarrowI32x4UOp
 }
 
 ///|
-pub fn i16x8_extmul_low_i8x16s_op() -> BinaryOp {
+pub fn BinaryOp::i16x8_extmul_low_i8x16s() -> BinaryOp {
   I16x8ExtmulLowI8x16SOp
 }
 
 ///|
-pub fn i16x8_extmul_high_i8x16s_op() -> BinaryOp {
+pub fn BinaryOp::i16x8_extmul_high_i8x16s() -> BinaryOp {
   I16x8ExtmulHighI8x16SOp
 }
 
 ///|
-pub fn i16x8_extmul_low_i8x16u_op() -> BinaryOp {
+pub fn BinaryOp::i16x8_extmul_low_i8x16u() -> BinaryOp {
   I16x8ExtmulLowI8x16UOp
 }
 
 ///|
-pub fn i16x8_extmul_high_i8x16u_op() -> BinaryOp {
+pub fn BinaryOp::i16x8_extmul_high_i8x16u() -> BinaryOp {
   I16x8ExtmulHighI8x16UOp
 }
 
 ///|
-pub fn i32x4_add_op() -> BinaryOp {
+pub fn BinaryOp::i32x4_add() -> BinaryOp {
   I32x4AddOp
 }
 
 ///|
-pub fn i32x4_sub_op() -> BinaryOp {
+pub fn BinaryOp::i32x4_sub() -> BinaryOp {
   I32x4SubOp
 }
 
 ///|
-pub fn i32x4_mul_op() -> BinaryOp {
+pub fn BinaryOp::i32x4_mul() -> BinaryOp {
   I32x4MulOp
 }
 
 ///|
-pub fn i32x4_min_s_op() -> BinaryOp {
+pub fn BinaryOp::i32x4_min_s() -> BinaryOp {
   I32x4MinSOp
 }
 
 ///|
-pub fn i32x4_min_u_op() -> BinaryOp {
+pub fn BinaryOp::i32x4_min_u() -> BinaryOp {
   I32x4MinUOp
 }
 
 ///|
-pub fn i32x4_max_s_op() -> BinaryOp {
+pub fn BinaryOp::i32x4_max_s() -> BinaryOp {
   I32x4MaxSOp
 }
 
 ///|
-pub fn i32x4_max_u_op() -> BinaryOp {
+pub fn BinaryOp::i32x4_max_u() -> BinaryOp {
   I32x4MaxUOp
 }
 
 ///|
-pub fn i32x4_dot_i16x8s_op() -> BinaryOp {
+pub fn BinaryOp::i32x4_dot_i16x8s() -> BinaryOp {
   I32x4DotI16x8SOp
 }
 
 ///|
-pub fn i32x4_extmul_low_i16x8s_op() -> BinaryOp {
+pub fn BinaryOp::i32x4_extmul_low_i16x8s() -> BinaryOp {
   I32x4ExtmulLowI16x8SOp
 }
 
 ///|
-pub fn i32x4_extmul_high_i16x8s_op() -> BinaryOp {
+pub fn BinaryOp::i32x4_extmul_high_i16x8s() -> BinaryOp {
   I32x4ExtmulHighI16x8SOp
 }
 
 ///|
-pub fn i32x4_extmul_low_i16x8u_op() -> BinaryOp {
+pub fn BinaryOp::i32x4_extmul_low_i16x8u() -> BinaryOp {
   I32x4ExtmulLowI16x8UOp
 }
 
 ///|
-pub fn i32x4_extmul_high_i16x8u_op() -> BinaryOp {
+pub fn BinaryOp::i32x4_extmul_high_i16x8u() -> BinaryOp {
   I32x4ExtmulHighI16x8UOp
 }
 
 ///|
-pub fn i64x2_add_op() -> BinaryOp {
+pub fn BinaryOp::i64x2_add() -> BinaryOp {
   I64x2AddOp
 }
 
 ///|
-pub fn i64x2_sub_op() -> BinaryOp {
+pub fn BinaryOp::i64x2_sub() -> BinaryOp {
   I64x2SubOp
 }
 
 ///|
-pub fn i64x2_mul_op() -> BinaryOp {
+pub fn BinaryOp::i64x2_mul() -> BinaryOp {
   I64x2MulOp
 }
 
 ///|
-pub fn i64x2_extmul_low_i32x4s_op() -> BinaryOp {
+pub fn BinaryOp::i64x2_extmul_low_i32x4s() -> BinaryOp {
   I64x2ExtmulLowI32x4SOp
 }
 
 ///|
-pub fn i64x2_extmul_high_i32x4s_op() -> BinaryOp {
+pub fn BinaryOp::i64x2_extmul_high_i32x4s() -> BinaryOp {
   I64x2ExtmulHighI32x4SOp
 }
 
 ///|
-pub fn i64x2_extmul_low_i32x4u_op() -> BinaryOp {
+pub fn BinaryOp::i64x2_extmul_low_i32x4u() -> BinaryOp {
   I64x2ExtmulLowI32x4UOp
 }
 
 ///|
-pub fn i64x2_extmul_high_i32x4u_op() -> BinaryOp {
+pub fn BinaryOp::i64x2_extmul_high_i32x4u() -> BinaryOp {
   I64x2ExtmulHighI32x4UOp
 }
 
 ///|
-pub fn f32x4_add_op() -> BinaryOp {
+pub fn BinaryOp::f32x4_add() -> BinaryOp {
   F32x4AddOp
 }
 
 ///|
-pub fn f32x4_sub_op() -> BinaryOp {
+pub fn BinaryOp::f32x4_sub() -> BinaryOp {
   F32x4SubOp
 }
 
 ///|
-pub fn f32x4_mul_op() -> BinaryOp {
+pub fn BinaryOp::f32x4_mul() -> BinaryOp {
   F32x4MulOp
 }
 
 ///|
-pub fn f32x4_div_op() -> BinaryOp {
+pub fn BinaryOp::f32x4_div() -> BinaryOp {
   F32x4DivOp
 }
 
 ///|
-pub fn f32x4_min_op() -> BinaryOp {
+pub fn BinaryOp::f32x4_min() -> BinaryOp {
   F32x4MinOp
 }
 
 ///|
-pub fn f32x4_max_op() -> BinaryOp {
+pub fn BinaryOp::f32x4_max() -> BinaryOp {
   F32x4MaxOp
 }
 
 ///|
-pub fn f32x4_pmin_op() -> BinaryOp {
+pub fn BinaryOp::f32x4_pmin() -> BinaryOp {
   F32x4PminOp
 }
 
 ///|
-pub fn f32x4_pmax_op() -> BinaryOp {
+pub fn BinaryOp::f32x4_pmax() -> BinaryOp {
   F32x4PmaxOp
 }
 
 ///|
-pub fn f64x2_add_op() -> BinaryOp {
+pub fn BinaryOp::f64x2_add() -> BinaryOp {
   F64x2AddOp
 }
 
 ///|
-pub fn f64x2_sub_op() -> BinaryOp {
+pub fn BinaryOp::f64x2_sub() -> BinaryOp {
   F64x2SubOp
 }
 
 ///|
-pub fn f64x2_mul_op() -> BinaryOp {
+pub fn BinaryOp::f64x2_mul() -> BinaryOp {
   F64x2MulOp
 }
 
 ///|
-pub fn f64x2_div_op() -> BinaryOp {
+pub fn BinaryOp::f64x2_div() -> BinaryOp {
   F64x2DivOp
 }
 
 ///|
-pub fn f64x2_min_op() -> BinaryOp {
+pub fn BinaryOp::f64x2_min() -> BinaryOp {
   F64x2MinOp
 }
 
 ///|
-pub fn f64x2_max_op() -> BinaryOp {
+pub fn BinaryOp::f64x2_max() -> BinaryOp {
   F64x2MaxOp
 }
 
 ///|
-pub fn f64x2_pmin_op() -> BinaryOp {
+pub fn BinaryOp::f64x2_pmin() -> BinaryOp {
   F64x2PminOp
 }
 
 ///|
-pub fn f64x2_pmax_op() -> BinaryOp {
+pub fn BinaryOp::f64x2_pmax() -> BinaryOp {
   F64x2PmaxOp
 }
 
 ///|
-pub fn f32x4_relaxed_min_op() -> BinaryOp {
+pub fn BinaryOp::f32x4_relaxed_min() -> BinaryOp {
   F32x4RelaxedMinOp
 }
 
 ///|
-pub fn f32x4_relaxed_max_op() -> BinaryOp {
+pub fn BinaryOp::f32x4_relaxed_max() -> BinaryOp {
   F32x4RelaxedMaxOp
 }
 
 ///|
-pub fn f64x2_relaxed_min_op() -> BinaryOp {
+pub fn BinaryOp::f64x2_relaxed_min() -> BinaryOp {
   F64x2RelaxedMinOp
 }
 
 ///|
-pub fn f64x2_relaxed_max_op() -> BinaryOp {
+pub fn BinaryOp::f64x2_relaxed_max() -> BinaryOp {
   F64x2RelaxedMaxOp
 }
 
 ///|
-pub fn i16x8_relaxed_q15mulr_s_op() -> BinaryOp {
+pub fn BinaryOp::i16x8_relaxed_q15mulr_s() -> BinaryOp {
   I16x8RelaxedQ15mulrSOp
 }
 
 ///|
-pub fn i16x8_relaxed_dot_i8x16i7x16s_op() -> BinaryOp {
+pub fn BinaryOp::i16x8_relaxed_dot_i8x16i7x16s() -> BinaryOp {
   I16x8RelaxedDotI8x16I7x16SOp
 }
 
 ///|
-pub fn i32_load_op() -> LoadOp {
+pub fn LoadOp::i32_load() -> LoadOp {
   I32LoadOp
 }
 
 ///|
-pub fn i64_load_op() -> LoadOp {
+pub fn LoadOp::i64_load() -> LoadOp {
   I64LoadOp
 }
 
 ///|
-pub fn f32_load_op() -> LoadOp {
+pub fn LoadOp::f32_load() -> LoadOp {
   F32LoadOp
 }
 
 ///|
-pub fn f64_load_op() -> LoadOp {
+pub fn LoadOp::f64_load() -> LoadOp {
   F64LoadOp
 }
 
 ///|
-pub fn i32_load8s_op() -> LoadOp {
+pub fn LoadOp::i32_load8s() -> LoadOp {
   I32Load8SOp
 }
 
 ///|
-pub fn i32_load8u_op() -> LoadOp {
+pub fn LoadOp::i32_load8u() -> LoadOp {
   I32Load8UOp
 }
 
 ///|
-pub fn i32_load16s_op() -> LoadOp {
+pub fn LoadOp::i32_load16s() -> LoadOp {
   I32Load16SOp
 }
 
 ///|
-pub fn i32_load16u_op() -> LoadOp {
+pub fn LoadOp::i32_load16u() -> LoadOp {
   I32Load16UOp
 }
 
 ///|
-pub fn i64_load8s_op() -> LoadOp {
+pub fn LoadOp::i64_load8s() -> LoadOp {
   I64Load8SOp
 }
 
 ///|
-pub fn i64_load8u_op() -> LoadOp {
+pub fn LoadOp::i64_load8u() -> LoadOp {
   I64Load8UOp
 }
 
 ///|
-pub fn i64_load16s_op() -> LoadOp {
+pub fn LoadOp::i64_load16s() -> LoadOp {
   I64Load16SOp
 }
 
 ///|
-pub fn i64_load16u_op() -> LoadOp {
+pub fn LoadOp::i64_load16u() -> LoadOp {
   I64Load16UOp
 }
 
 ///|
-pub fn i64_load32s_op() -> LoadOp {
+pub fn LoadOp::i64_load32s() -> LoadOp {
   I64Load32SOp
 }
 
 ///|
-pub fn i64_load32u_op() -> LoadOp {
+pub fn LoadOp::i64_load32u() -> LoadOp {
   I64Load32UOp
 }
 
 ///|
-pub fn v128_load_op() -> LoadOp {
+pub fn LoadOp::v128_load() -> LoadOp {
   V128LoadOp
 }
 
 ///|
-pub fn v128_load8x8s_op() -> LoadOp {
+pub fn LoadOp::v128_load8x8s() -> LoadOp {
   V128Load8x8SOp
 }
 
 ///|
-pub fn v128_load8x8u_op() -> LoadOp {
+pub fn LoadOp::v128_load8x8u() -> LoadOp {
   V128Load8x8UOp
 }
 
 ///|
-pub fn v128_load16x4s_op() -> LoadOp {
+pub fn LoadOp::v128_load16x4s() -> LoadOp {
   V128Load16x4SOp
 }
 
 ///|
-pub fn v128_load16x4u_op() -> LoadOp {
+pub fn LoadOp::v128_load16x4u() -> LoadOp {
   V128Load16x4UOp
 }
 
 ///|
-pub fn v128_load32x2s_op() -> LoadOp {
+pub fn LoadOp::v128_load32x2s() -> LoadOp {
   V128Load32x2SOp
 }
 
 ///|
-pub fn v128_load32x2u_op() -> LoadOp {
+pub fn LoadOp::v128_load32x2u() -> LoadOp {
   V128Load32x2UOp
 }
 
 ///|
-pub fn v128_load8_splat_op() -> LoadOp {
+pub fn LoadOp::v128_load8_splat() -> LoadOp {
   V128Load8SplatOp
 }
 
 ///|
-pub fn v128_load16_splat_op() -> LoadOp {
+pub fn LoadOp::v128_load16_splat() -> LoadOp {
   V128Load16SplatOp
 }
 
 ///|
-pub fn v128_load32_splat_op() -> LoadOp {
+pub fn LoadOp::v128_load32_splat() -> LoadOp {
   V128Load32SplatOp
 }
 
 ///|
-pub fn v128_load64_splat_op() -> LoadOp {
+pub fn LoadOp::v128_load64_splat() -> LoadOp {
   V128Load64SplatOp
 }
 
 ///|
-pub fn v128_load32_zero_op() -> LoadOp {
+pub fn LoadOp::v128_load32_zero() -> LoadOp {
   V128Load32ZeroOp
 }
 
 ///|
-pub fn v128_load64_zero_op() -> LoadOp {
+pub fn LoadOp::v128_load64_zero() -> LoadOp {
   V128Load64ZeroOp
 }
 
 ///|
-pub fn i32_store_op() -> StoreOp {
+pub fn StoreOp::i32_store() -> StoreOp {
   I32StoreOp
 }
 
 ///|
-pub fn i64_store_op() -> StoreOp {
+pub fn StoreOp::i64_store() -> StoreOp {
   I64StoreOp
 }
 
 ///|
-pub fn f32_store_op() -> StoreOp {
+pub fn StoreOp::f32_store() -> StoreOp {
   F32StoreOp
 }
 
 ///|
-pub fn f64_store_op() -> StoreOp {
+pub fn StoreOp::f64_store() -> StoreOp {
   F64StoreOp
 }
 
 ///|
-pub fn i32_store8_op() -> StoreOp {
+pub fn StoreOp::i32_store8() -> StoreOp {
   I32Store8Op
 }
 
 ///|
-pub fn i32_store16_op() -> StoreOp {
+pub fn StoreOp::i32_store16() -> StoreOp {
   I32Store16Op
 }
 
 ///|
-pub fn i64_store8_op() -> StoreOp {
+pub fn StoreOp::i64_store8() -> StoreOp {
   I64Store8Op
 }
 
 ///|
-pub fn i64_store16_op() -> StoreOp {
+pub fn StoreOp::i64_store16() -> StoreOp {
   I64Store16Op
 }
 
 ///|
-pub fn i64_store32_op() -> StoreOp {
+pub fn StoreOp::i64_store32() -> StoreOp {
   I64Store32Op
 }
 
 ///|
-pub fn v128_store_op() -> StoreOp {
+pub fn StoreOp::v128_store() -> StoreOp {
   V128StoreOp
 }
 
 ///|
-pub fn i8x16_extract_lane_s_op() -> ExtractLaneOp {
+pub fn ExtractLaneOp::i8x16_extract_lane_s() -> ExtractLaneOp {
   I8x16ExtractLaneSOp
 }
 
 ///|
-pub fn i8x16_extract_lane_u_op() -> ExtractLaneOp {
+pub fn ExtractLaneOp::i8x16_extract_lane_u() -> ExtractLaneOp {
   I8x16ExtractLaneUOp
 }
 
 ///|
-pub fn i16x8_extract_lane_s_op() -> ExtractLaneOp {
+pub fn ExtractLaneOp::i16x8_extract_lane_s() -> ExtractLaneOp {
   I16x8ExtractLaneSOp
 }
 
 ///|
-pub fn i16x8_extract_lane_u_op() -> ExtractLaneOp {
+pub fn ExtractLaneOp::i16x8_extract_lane_u() -> ExtractLaneOp {
   I16x8ExtractLaneUOp
 }
 
 ///|
-pub fn i32x4_extract_lane_op() -> ExtractLaneOp {
+pub fn ExtractLaneOp::i32x4_extract_lane() -> ExtractLaneOp {
   I32x4ExtractLaneOp
 }
 
 ///|
-pub fn i64x2_extract_lane_op() -> ExtractLaneOp {
+pub fn ExtractLaneOp::i64x2_extract_lane() -> ExtractLaneOp {
   I64x2ExtractLaneOp
 }
 
 ///|
-pub fn f32x4_extract_lane_op() -> ExtractLaneOp {
+pub fn ExtractLaneOp::f32x4_extract_lane() -> ExtractLaneOp {
   F32x4ExtractLaneOp
 }
 
 ///|
-pub fn f64x2_extract_lane_op() -> ExtractLaneOp {
+pub fn ExtractLaneOp::f64x2_extract_lane() -> ExtractLaneOp {
   F64x2ExtractLaneOp
 }
 
 ///|
-pub fn i8x16_replace_lane_op() -> ReplaceLaneOp {
+pub fn ReplaceLaneOp::i8x16_replace_lane() -> ReplaceLaneOp {
   I8x16ReplaceLaneOp
 }
 
 ///|
-pub fn i16x8_replace_lane_op() -> ReplaceLaneOp {
+pub fn ReplaceLaneOp::i16x8_replace_lane() -> ReplaceLaneOp {
   I16x8ReplaceLaneOp
 }
 
 ///|
-pub fn i32x4_replace_lane_op() -> ReplaceLaneOp {
+pub fn ReplaceLaneOp::i32x4_replace_lane() -> ReplaceLaneOp {
   I32x4ReplaceLaneOp
 }
 
 ///|
-pub fn i64x2_replace_lane_op() -> ReplaceLaneOp {
+pub fn ReplaceLaneOp::i64x2_replace_lane() -> ReplaceLaneOp {
   I64x2ReplaceLaneOp
 }
 
 ///|
-pub fn f32x4_replace_lane_op() -> ReplaceLaneOp {
+pub fn ReplaceLaneOp::f32x4_replace_lane() -> ReplaceLaneOp {
   F32x4ReplaceLaneOp
 }
 
 ///|
-pub fn f64x2_replace_lane_op() -> ReplaceLaneOp {
+pub fn ReplaceLaneOp::f64x2_replace_lane() -> ReplaceLaneOp {
   F64x2ReplaceLaneOp
 }
 
 ///|
-pub fn i8x16_shl_op() -> V128ShiftOp {
+pub fn V128ShiftOp::i8x16_shl() -> V128ShiftOp {
   I8x16ShlOp
 }
 
 ///|
-pub fn i8x16_shr_s_op() -> V128ShiftOp {
+pub fn V128ShiftOp::i8x16_shr_s() -> V128ShiftOp {
   I8x16ShrSOp
 }
 
 ///|
-pub fn i8x16_shr_u_op() -> V128ShiftOp {
+pub fn V128ShiftOp::i8x16_shr_u() -> V128ShiftOp {
   I8x16ShrUOp
 }
 
 ///|
-pub fn i16x8_shl_op() -> V128ShiftOp {
+pub fn V128ShiftOp::i16x8_shl() -> V128ShiftOp {
   I16x8ShlOp
 }
 
 ///|
-pub fn i16x8_shr_s_op() -> V128ShiftOp {
+pub fn V128ShiftOp::i16x8_shr_s() -> V128ShiftOp {
   I16x8ShrSOp
 }
 
 ///|
-pub fn i16x8_shr_u_op() -> V128ShiftOp {
+pub fn V128ShiftOp::i16x8_shr_u() -> V128ShiftOp {
   I16x8ShrUOp
 }
 
 ///|
-pub fn i32x4_shl_op() -> V128ShiftOp {
+pub fn V128ShiftOp::i32x4_shl() -> V128ShiftOp {
   I32x4ShlOp
 }
 
 ///|
-pub fn i32x4_shr_s_op() -> V128ShiftOp {
+pub fn V128ShiftOp::i32x4_shr_s() -> V128ShiftOp {
   I32x4ShrSOp
 }
 
 ///|
-pub fn i32x4_shr_u_op() -> V128ShiftOp {
+pub fn V128ShiftOp::i32x4_shr_u() -> V128ShiftOp {
   I32x4ShrUOp
 }
 
 ///|
-pub fn i64x2_shl_op() -> V128ShiftOp {
+pub fn V128ShiftOp::i64x2_shl() -> V128ShiftOp {
   I64x2ShlOp
 }
 
 ///|
-pub fn i64x2_shr_s_op() -> V128ShiftOp {
+pub fn V128ShiftOp::i64x2_shr_s() -> V128ShiftOp {
   I64x2ShrSOp
 }
 
 ///|
-pub fn i64x2_shr_u_op() -> V128ShiftOp {
+pub fn V128ShiftOp::i64x2_shr_u() -> V128ShiftOp {
   I64x2ShrUOp
 }
 
 ///|
-pub fn v128_bitselect_op() -> V128TernaryOp {
+pub fn V128TernaryOp::v128_bitselect() -> V128TernaryOp {
   V128BitselectOp
 }
 
 ///|
-pub fn i8x16_relaxed_laneselect_op() -> V128TernaryOp {
+pub fn V128TernaryOp::i8x16_relaxed_laneselect() -> V128TernaryOp {
   I8x16RelaxedLaneselectOp
 }
 
 ///|
-pub fn i16x8_relaxed_laneselect_op() -> V128TernaryOp {
+pub fn V128TernaryOp::i16x8_relaxed_laneselect() -> V128TernaryOp {
   I16x8RelaxedLaneselectOp
 }
 
 ///|
-pub fn i32x4_relaxed_laneselect_op() -> V128TernaryOp {
+pub fn V128TernaryOp::i32x4_relaxed_laneselect() -> V128TernaryOp {
   I32x4RelaxedLaneselectOp
 }
 
 ///|
-pub fn i64x2_relaxed_laneselect_op() -> V128TernaryOp {
+pub fn V128TernaryOp::i64x2_relaxed_laneselect() -> V128TernaryOp {
   I64x2RelaxedLaneselectOp
 }
 
 ///|
-pub fn f32x4_relaxed_madd_op() -> V128TernaryOp {
+pub fn V128TernaryOp::f32x4_relaxed_madd() -> V128TernaryOp {
   F32x4RelaxedMaddOp
 }
 
 ///|
-pub fn f32x4_relaxed_nmadd_op() -> V128TernaryOp {
+pub fn V128TernaryOp::f32x4_relaxed_nmadd() -> V128TernaryOp {
   F32x4RelaxedNmaddOp
 }
 
 ///|
-pub fn f64x2_relaxed_madd_op() -> V128TernaryOp {
+pub fn V128TernaryOp::f64x2_relaxed_madd() -> V128TernaryOp {
   F64x2RelaxedMaddOp
 }
 
 ///|
-pub fn f64x2_relaxed_nmadd_op() -> V128TernaryOp {
+pub fn V128TernaryOp::f64x2_relaxed_nmadd() -> V128TernaryOp {
   F64x2RelaxedNmaddOp
 }
 
 ///|
-pub fn i32x4_relaxed_dot_i8x16i7x16_add_s_op() -> V128TernaryOp {
+pub fn V128TernaryOp::i32x4_relaxed_dot_i8x16i7x16_add_s() -> V128TernaryOp {
   I32x4RelaxedDotI8x16I7x16AddSOp
 }
 
 ///|
-pub fn v128_load8_lane_op() -> V128LoadLaneOp {
+pub fn V128LoadLaneOp::v128_load8_lane() -> V128LoadLaneOp {
   V128Load8LaneOp
 }
 
 ///|
-pub fn v128_load16_lane_op() -> V128LoadLaneOp {
+pub fn V128LoadLaneOp::v128_load16_lane() -> V128LoadLaneOp {
   V128Load16LaneOp
 }
 
 ///|
-pub fn v128_load32_lane_op() -> V128LoadLaneOp {
+pub fn V128LoadLaneOp::v128_load32_lane() -> V128LoadLaneOp {
   V128Load32LaneOp
 }
 
 ///|
-pub fn v128_load64_lane_op() -> V128LoadLaneOp {
+pub fn V128LoadLaneOp::v128_load64_lane() -> V128LoadLaneOp {
   V128Load64LaneOp
 }
 
 ///|
-pub fn v128_store8_lane_op() -> V128StoreLaneOp {
+pub fn V128StoreLaneOp::v128_store8_lane() -> V128StoreLaneOp {
   V128Store8LaneOp
 }
 
 ///|
-pub fn v128_store16_lane_op() -> V128StoreLaneOp {
+pub fn V128StoreLaneOp::v128_store16_lane() -> V128StoreLaneOp {
   V128Store16LaneOp
 }
 
 ///|
-pub fn v128_store32_lane_op() -> V128StoreLaneOp {
+pub fn V128StoreLaneOp::v128_store32_lane() -> V128StoreLaneOp {
   V128Store32LaneOp
 }
 
 ///|
-pub fn v128_store64_lane_op() -> V128StoreLaneOp {
+pub fn V128StoreLaneOp::v128_store64_lane() -> V128StoreLaneOp {
   V128Store64LaneOp
 }
 
-pub fn def_type(rec : RecType, idx : UInt) -> DefType {
+pub fn DefType::new(rec : RecType, idx : UInt) -> DefType {
   DefType(rec, idx)
 }
 
@@ -7506,26 +7497,81 @@ pub fn HeapType::is_gc_aggregate(self : Self) -> Bool {
   self.is_struct() || self.is_array()
 }
 
-pub fn bottom_heap_type() -> HeapType {
+pub fn HeapType::bottom() -> HeapType {
   AbsHeapTypeHeapType(NoneAbsHeapType)
 }
 
-pub fn cast_op(b0 : Bool, b1 : Bool) -> CastOp {
+pub fn CastOp::new(b0 : Bool, b1 : Bool) -> CastOp {
   CastOp(b0, b1)
 }
 
-pub fn type_sec(rts : Array[RecType])-> TypeSec {
+pub fn TypeSec::new(rts : Array[RecType])-> TypeSec {
   TypeSec(rts)
 }
 
-pub fn code_sec(fs : Array[Func]) -> CodeSec {
+pub fn CodeSec::new(fs : Array[Func]) -> CodeSec {
   CodeSec(fs)
 }
 
-pub fn t_expr(instrs : Array[TInstr]) -> TExpr {
+pub fn TExpr::new(instrs : Array[TInstr]) -> TExpr {
   TExpr(instrs)
 }
 
-pub fn t_func(args : Array[ValType], expr : TExpr) -> Func {
+pub fn Func::t_func(args : Array[ValType], expr : TExpr) -> Func {
   TFunc(args, expr)
+}
+
+pub fn BlockType::empty() -> BlockType {
+  EmptyBlockType
+}
+pub fn BlockType::val_type(vt : ValType) -> BlockType {
+  ValTypeBlockType(vt)
+}
+pub fn BlockType::type_idx(ti : TypeIdx) -> BlockType {
+  TypeIdxBlockType(ti)
+}
+
+pub fn TableSec::new(t : Array[Table]) -> TableSec {
+  TableSec(t)
+}
+
+pub fn Table::new(tt : TableType, v : Expr?) -> Table {
+  Table(tt, v)
+}
+
+pub fn Expr::new(i : Array[Instruction]) -> Expr {
+  Expr(i)
+}
+
+pub fn Elem::new(mode : ElemMode, kind : ElemKind) -> Elem {
+  Elem(mode, kind)
+}
+
+pub fn ElemSec::new(e : Array[Elem]) -> ElemSec {
+  ElemSec(e)
+}
+
+pub fn MemArg::new(align : U32, mem : MemIdx?, offset : U64) -> MemArg {
+  MemArg(align, mem, offset)
+}
+
+pub fn LocalIdx::new(idx : UInt) -> LocalIdx {
+  LocalIdx(idx)
+}
+
+pub fn LaneIdx::new(idx : Byte) -> LaneIdx {
+  LaneIdx(idx)
+}
+
+pub fn NumType::f32() -> NumType {
+  F32NumType
+}
+pub fn NumType::f64() -> NumType {
+  F64NumType
+}
+pub fn NumType::i32() -> NumType {
+  I32NumType
+}
+pub fn NumType::i64() -> NumType {
+  I64NumType
 }

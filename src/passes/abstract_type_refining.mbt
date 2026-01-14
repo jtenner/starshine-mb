@@ -28,14 +28,14 @@ fn build_subtypes(module : Module) -> SubTypes {
     for rec in type_sec.0 {
       match rec {
         SingleRecType(st) => {
-          let ht = def_type_heap_type(def_type(rec, 0))
+          let ht = def_type_heap_type(DefType::new(rec, 0))
           types.push(ht)
           immediate[ht] = st.super_types().map(heap_type)
         }
         GroupRecType(sts) => {
           for i in sts.iter2() {
             let (i, st) = i
-            let ht = def_type_heap_type(def_type(rec, i.reinterpret_as_uint()))
+            let ht = def_type_heap_type(DefType::new(rec, i.reinterpret_as_uint()))
             types.push(ht)
             immediate[ht] = st.super_types().map(heap_type)
           }
@@ -143,7 +143,7 @@ fn build_mapping(state : ATRState) -> HeapTypeMap {
     }
 
     if !state.created_or_sub.contains(t) {
-      mapping[t] = bottom_heap_type()
+      mapping[t] = HeapType::bottom()
       continue
     }
 
@@ -190,7 +190,7 @@ fn rewrite_cast(
 fn drop_then_unreachable(value : TInstr) -> TInstr {
   TBlock(
     EmptyBlockType,
-    TExpr([
+    TExpr::new([
       TDrop(value),
       TUnreachable
     ])
@@ -224,8 +224,8 @@ fn rewrite_descriptor_exact_br_on_cast(
   match instr {
     TBrOnCast(label, op, src_ht, dst_ht, value, args) => {
       if op.1 && is_refined(dst_ht, mapping) {
-        let new_op = cast_op(op.0, false)
-        TBrOnCast(label, new_op, src_ht, bottom_heap_type(), value, args)
+        let new_op = CastOp::new(op.0, false)
+        TBrOnCast(label, new_op, src_ht, HeapType::bottom(), value, args)
       } else {
         instr
       }
@@ -233,8 +233,8 @@ fn rewrite_descriptor_exact_br_on_cast(
 
     TBrOnCastFail(label, op, src_ht, dst_ht, value, args) => {
       if op.1 && is_refined(dst_ht, mapping) {
-        let new_op = cast_op(op.0, false)
-        TBrOnCastFail(label, new_op, src_ht, bottom_heap_type(), value, args)
+        let new_op = CastOp::new(op.0, false)
+        TBrOnCastFail(label, new_op, src_ht, HeapType::bottom(), value, args)
       } else {
         instr
       }
@@ -319,12 +319,12 @@ test "abstract struct usage becomes bottom" {
         ])
       )
       .with_code_sec(
-        code_sec([
-          t_func(
+        CodeSec::new([
+          Func::t_func(
             [],
-            t_expr([
+            TExpr::new([
               // Use the abstract type
-              t_ref_cast(true, ht, t_ref_null(abs_heap_type_heap_type(any_abs_heap_type())))
+              TInstr::ref_cast(true, ht, TInstr::ref_null(abs_heap_type_heap_type(any_abs_heap_type())))
             ])
           )
         ])
@@ -359,15 +359,15 @@ test "abstract struct usage becomes bottom" {
 
 test "exact ref.cast collapses to trap" {
   let instr =
-    t_ref_cast(
+    TInstr::ref_cast(
       true,
       heap_type(type_idx(0)),
-      t_ref_null(abs_heap_type_heap_type(any_abs_heap_type()))
+      TInstr::ref_null(abs_heap_type_heap_type(any_abs_heap_type()))
     )
 
   let mapping = Map::new()
     
-  mapping.set(heap_type(type_idx(0)), bottom_heap_type())
+  mapping.set(heap_type(type_idx(0)), HeapType::bottom())
 
   let rewritten =
     rewrite_descriptor_exact_ref_cast(instr, mapping)
@@ -380,10 +380,10 @@ test "exact ref.cast collapses to trap" {
 
 test "non-exact cast refines normally" {
   let instr =
-    t_ref_cast(
+    TInstr::ref_cast(
       true,
       heap_type(type_idx(0)),
-      t_ref_null(abs_heap_type_heap_type(any_abs_heap_type()))
+      TInstr::ref_null(abs_heap_type_heap_type(any_abs_heap_type()))
     )
 
   let mapping = Map::new()
@@ -402,13 +402,13 @@ test "non-exact cast refines normally" {
 
 test "exact br_on_cast does not gain success" {
   let instr =
-    t_br_on_cast(
-      label_idx(0),
+    TInstr::br_on_cast(
+      LabelIdx::new(0),
       true,
       heap_type(type_idx(1)),
       true,
       heap_type(type_idx(0)),
-      t_ref_null(abs_heap_type_heap_type(any_abs_heap_type())),
+      TInstr::ref_null(abs_heap_type_heap_type(any_abs_heap_type())),
       []
     )
 
@@ -422,7 +422,7 @@ test "exact br_on_cast does not gain success" {
   match rewritten {
     TBrOnCast(_, op, _, dst, _, _) => {
       assert_true(!op.1)
-      assert_eq(dst, bottom_heap_type())
+      assert_eq(dst, HeapType::bottom())
     }
     _ => fail("unexpected rewrite")
   }
@@ -430,15 +430,15 @@ test "exact br_on_cast does not gain success" {
 
 test "abstract array collapses to bottom" {
   let instr =
-    t_array_new(
+    TInstr::array_new(
       type_idx(0),
-      t_i32_const(I32(1)),
-      t_ref_null(abs_heap_type_heap_type(any_abs_heap_type()))
+      TInstr::i32_const(I32(1)),
+      TInstr::ref_null(abs_heap_type_heap_type(any_abs_heap_type()))
     )
 
   let mapping = Map::new()
     
-  mapping.set(heap_type(type_idx(0)), bottom_heap_type())
+  mapping.set(heap_type(type_idx(0)), HeapType::bottom())
 
   let rewritten =
     rewrite_cast(instr, mapping, true)

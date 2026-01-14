@@ -221,11 +221,11 @@ fn get_select_targets(
 ///|
 fn make_call_branch(info : IndirectTargetInfo, args : Array[TInstr]) -> TExpr {
   match info {
-    Known(func_idx) => TExpr([TCall(func_idx, args)])
-    Trap => TExpr([TUnreachable])
+    Known(func_idx) => TExpr::new([TCall(func_idx, args)])
+    Trap => TExpr::new([TUnreachable])
     Unknown =>
       // Should never be used if we check properly
-      TExpr([TUnreachable])
+      TExpr::new([TUnreachable])
   }
 }
 
@@ -276,7 +276,7 @@ fn rewrite_br_table_call_indirect(
 
   // Resolve each possible numeric index
   for i in 0..<target_count {
-    let idx_instr = @lib.TI32Const(I32(i))
+    let idx_instr = TInstr::i32_const(I32(i))
     let info = get_target_info(idx_instr, table, type_idx, func_types, env)
     match info {
       Unknown => return None
@@ -285,16 +285,16 @@ fn rewrite_br_table_call_indirect(
   }
 
   // Build nested blocks from bottom up
-  let mut body = @lib.TExpr([TBrTable(labels, default_label, index, carried)])
+  let mut body = TExpr::new([TInstr::br_table(labels, default_label, index, carried)])
   for info in targets.rev_iter() {
     let branch = match info {
-      Known(func_idx) => @lib.TExpr([TCall(func_idx, args), TReturn([])])
-      Trap => TExpr([TUnreachable])
-      Unknown => TExpr([TUnreachable])
+      Known(func_idx) => TExpr::new([TInstr::call(func_idx, args), TInstr::return_([])])
+      Trap => TExpr::new([TInstr::unreachable_()])
+      Unknown => TExpr::new([TInstr::unreachable_()])
     }
-    body = TExpr([TBlock(TypeIdxBlockType(type_idx), branch), ..body.0])
+    body = TExpr::new([TInstr::block(BlockType::type_idx(type_idx), branch), ..body.0])
   }
-  Some(TBlock(TypeIdxBlockType(type_idx), body))
+  Some(TInstr::block(BlockType::type_idx(type_idx), body))
 }
 
 ///|
@@ -317,8 +317,8 @@ fn make_directize_transformer(
                       type_idx, table, args, then_idx, else_idx, cond, func_types,
                       env,
                     ) {
-                    Some(i) => Ok(Some(((), i)))
-                    None => Ok(None)
+                    Some(i) => change((), i)
+                    None => unchanged()
                   }
                 TBrTable(labels, default_label, idx, carried) =>
                   match
@@ -326,15 +326,15 @@ fn make_directize_transformer(
                       type_idx, table, args, labels, default_label, idx, carried,
                       func_types, env,
                     ) {
-                    Some(i) => Ok(Some(((), i)))
-                    None => Ok(None)
+                    Some(i) => change((), i)
+                    None => unchanged()
                   }
                 _ =>
                   match
                     get_target_info(index, table, type_idx, func_types, env) {
-                    Known(f) => Ok(Some(((), TCall(f, args))))
-                    Trap => Ok(Some(((), TUnreachable)))
-                    Unknown => Ok(None)
+                    Known(f) => change((), TInstr::call(f, args))
+                    Trap => change((), TInstr::unreachable_())
+                    Unknown => unchanged()
                   }
               }
             _ => Ok(None)
@@ -343,13 +343,13 @@ fn make_directize_transformer(
           match tables.get(table_idx) {
             Some(table) if table.can_optimize_by_entry() =>
               match get_target_info(index, table, type_idx, func_types, env) {
-                Known(f) => Ok(Some(((), TReturnCall(f, args))))
-                Trap => Ok(Some(((), TUnreachable)))
-                Unknown => Ok(None)
+                Known(f) => change((), TInstr::return_call(f, args))
+                Trap => change((), TInstr::unreachable_())
+                Unknown => unchanged()
               }
-            _ => Ok(None)
+            _ => unchanged()
           }
-        _ => Ok(None)
+        _ => unchanged()
       }
     }),
   }
@@ -372,7 +372,7 @@ pub fn directize_module(
     None => ()
     Some(FuncSec(types)) =>
       for i in 0..<types.length() {
-        func_types.set(@lib.FuncIdx(i.reinterpret_as_uint()), types[i])
+        func_types.set(func_idx(i.reinterpret_as_uint()), types[i])
       }
   }
   let transformer = make_directize_transformer(tables, func_types, env)
@@ -385,14 +385,14 @@ pub fn directize_module(
 
 ///|
 fn make_simple_functype() -> RecType {
-  SingleRecType(CompTypeSubType(FuncCompType([], [])))
+  single_rec_type(comp_type_sub_type(func_comp_type([], [])))
 }
 
 ///|
 fn make_functype_i32_to_i32() -> RecType {
-  SingleRecType(
-    CompTypeSubType(
-      FuncCompType([NumTypeValType(I32NumType)], [NumTypeValType(I32NumType)]),
+  single_rec_type(
+    comp_type_sub_type(
+      func_comp_type([num_type_val_type(i32_num_type())], [num_type_val_type(i32_num_type())]),
     ),
   )
 }
@@ -408,21 +408,21 @@ test "directize: constant index resolves to known function" {
     .with_type_sec(TypeSec([make_simple_functype()]))
     .with_func_sec(FuncSec([TypeIdx(0)]))
     .with_table_sec(
-      TableSec([
-        Table(
-          TableType(
-            HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
-            I32Limits(1, Some(1)),
+      TableSec::new([
+        Table::new(
+          table_type(
+            RefType::heap_type(true, abs_heap_type_heap_type(func_abs_heap_type())),
+            Limits::i32(1, Some(1)),
           ),
           None,
         ),
       ]),
     )
     .with_elem_sec(
-      ElemSec([
-        Elem(
-          Active(TableIdx(0), Expr([I32Const(I32(0))])),
-          FuncsElemKind([FuncIdx(0)]),
+      ElemSec::new([
+        Elem::new(
+          ElemMode::active(table_idx(0), Expr::new([Instruction::i32_const(I32(0))])),
+          ElemKind::funcs([func_idx(0)]),
         ),
       ]),
     )
@@ -430,7 +430,7 @@ test "directize: constant index resolves to known function" {
       CodeSec([
         TFunc(
           [],
-          TExpr([TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0)))]),
+          TExpr::new([TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0)))]),
         ),
       ]),
     )
@@ -466,8 +466,8 @@ test "directize: out-of-bounds constant index becomes unreachable" {
     .with_elem_sec(
       ElemSec([
         Elem(
-          Active(TableIdx(0), Expr([I32Const(I32(0))])),
-          FuncsElemKind([FuncIdx(0)]),
+          ElemMode::active(TableIdx(0), Expr::new([I32Const(I32(0))])),
+          ElemKind::funcs([FuncIdx(0)]),
         ),
       ]),
     )
@@ -475,7 +475,7 @@ test "directize: out-of-bounds constant index becomes unreachable" {
       CodeSec([
         TFunc(
           [],
-          TExpr([TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(10)))], // Out of bounds
+          TExpr::new([TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(10)))], // Out of bounds
           ),
         ),
       ]),
@@ -511,8 +511,8 @@ test "directize: null entry in table becomes unreachable" {
     .with_elem_sec(
       ElemSec([
         Elem(
-          Active(TableIdx(0), Expr([I32Const(I32(0))])),
-          FuncsElemKind([FuncIdx(0)]),
+          ElemMode::active(TableIdx(0), Expr::new([I32Const(I32(0))])),
+          ElemKind::funcs([FuncIdx(0)]),
         ),
       ]),
     )
@@ -520,7 +520,7 @@ test "directize: null entry in table becomes unreachable" {
       CodeSec([
         TFunc(
           [],
-          TExpr([TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(1)))], // Index 1 is null
+          TExpr::new([TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(1)))], // Index 1 is null
           ),
         ),
       ]),
@@ -553,16 +553,16 @@ test "directize: non-constant index is not transformed" {
     .with_elem_sec(
       ElemSec([
         Elem(
-          Active(TableIdx(0), Expr([I32Const(I32(0))])),
-          FuncsElemKind([FuncIdx(0)]),
+          ElemMode::active(TableIdx(0), Expr::new([I32Const(I32(0))])),
+          ElemKind::funcs([FuncIdx(0)]),
         ),
       ]),
     )
     .with_code_sec(
       CodeSec([
         TFunc(
-          [NumTypeValType(I32NumType)],
-          TExpr([
+          [ValType::i32()],
+          TExpr::new([
             TCallIndirect(TypeIdx(0), TableIdx(0), [], TLocalGet(LocalIdx(0))), // Dynamic index
           ]),
         ),
@@ -604,8 +604,8 @@ test "directize: type mismatch becomes unreachable" {
     .with_elem_sec(
       ElemSec([
         Elem(
-          Active(TableIdx(0), Expr([I32Const(I32(0))])),
-          FuncsElemKind([FuncIdx(0)]),
+          ElemMode::active(TableIdx(0), Expr::new([I32Const(I32(0))])),
+          ElemKind::funcs([FuncIdx(0)]),
         ),
       ]),
     )
@@ -613,7 +613,7 @@ test "directize: type mismatch becomes unreachable" {
       CodeSec([
         TFunc(
           [],
-          TExpr([
+          TExpr::new([
             TCallIndirect(
               TypeIdx(1),
               TableIdx(0),
@@ -656,8 +656,8 @@ test "directize: table.set prevents optimization" {
     .with_elem_sec(
       ElemSec([
         Elem(
-          Active(TableIdx(0), Expr([I32Const(I32(0))])),
-          FuncsElemKind([FuncIdx(0)]),
+          ElemMode::active(TableIdx(0), Expr::new([I32Const(I32(0))])),
+          ElemKind::funcs([FuncIdx(0)]),
         ),
       ]),
     )
@@ -665,7 +665,7 @@ test "directize: table.set prevents optimization" {
       CodeSec([
         TFunc(
           [],
-          TExpr([
+          TExpr::new([
             TTableSet(TableIdx(0), TI32Const(I32(0)), TRefFunc(FuncIdx(1))), // Modifies table
             TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0))),
           ]),
@@ -700,8 +700,8 @@ test "directize: table.fill prevents optimization" {
     .with_elem_sec(
       ElemSec([
         Elem(
-          Active(TableIdx(0), Expr([I32Const(I32(0))])),
-          FuncsElemKind([FuncIdx(0)]),
+          ElemMode::active(TableIdx(0), Expr::new([I32Const(I32(0))])),
+          ElemKind::funcs([FuncIdx(0)]),
         ),
       ]),
     )
@@ -709,7 +709,7 @@ test "directize: table.fill prevents optimization" {
       CodeSec([
         TFunc(
           [],
-          TExpr([
+          TExpr::new([
             TTableFill(
               TableIdx(0),
               TI32Const(I32(0)),
@@ -736,15 +736,15 @@ test "directize: table.copy prevents optimization on dest table" {
     .with_type_sec(TypeSec([make_simple_functype()]))
     .with_func_sec(FuncSec([TypeIdx(0)]))
     .with_table_sec(
-      TableSec([
-        Table(
+      TableSec::new([
+        Table::new(
           TableType(
             HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
             I32Limits(1, Some(1)),
           ),
           None,
         ),
-        Table(
+        Table::new(
           TableType(
             HeapTypeRefType(true, AbsHeapTypeHeapType(FuncAbsHeapType)),
             I32Limits(1, Some(1)),
@@ -754,14 +754,14 @@ test "directize: table.copy prevents optimization on dest table" {
       ]),
     )
     .with_elem_sec(
-      ElemSec([
-        Elem(
-          Active(TableIdx(0), Expr([I32Const(I32(0))])),
-          FuncsElemKind([FuncIdx(0)]),
+      ElemSec::new([
+        Elem::new(
+          ElemMode::active(TableIdx(0), Expr::new([Instruction::i32_const(I32(0))])),
+          ElemKind::funcs([FuncIdx(0)]),
         ),
-        Elem(
-          Active(TableIdx(1), Expr([I32Const(I32(0))])),
-          FuncsElemKind([FuncIdx(0)]),
+        Elem::new(
+          ElemMode::active(TableIdx(1), Expr::new([I32Const(I32(0))])),
+          ElemKind::funcs([FuncIdx(0)]),
         ),
       ]),
     )
@@ -769,7 +769,7 @@ test "directize: table.copy prevents optimization on dest table" {
       CodeSec([
         TFunc(
           [],
-          TExpr([
+          TExpr::new([
             TTableCopy(
               TableIdx(0),
               TableIdx(1),
@@ -810,12 +810,12 @@ test "directize: table.init prevents optimization" {
         ),
       ]),
     )
-    .with_elem_sec(ElemSec([Elem(Passive, FuncsElemKind([FuncIdx(0)]))]))
+    .with_elem_sec(ElemSec([Elem(ElemMode::passive(), ElemKind::funcs([FuncIdx(0)]))]))
     .with_code_sec(
       CodeSec([
-        TFunc(
+        Func::t_func(
           [],
-          TExpr([
+          TExpr::new([
             TTableInit(
               ElemIdx(0),
               TableIdx(0),
@@ -857,8 +857,8 @@ test "directize: table.grow marks table as growable" {
     .with_elem_sec(
       ElemSec([
         Elem(
-          Active(TableIdx(0), Expr([I32Const(I32(0))])),
-          FuncsElemKind([FuncIdx(0)]),
+          ElemMode::active(TableIdx(0), Expr::new([I32Const(I32(0))])),
+          ElemKind::funcs([FuncIdx(0)]),
         ),
       ]),
     )
@@ -866,7 +866,7 @@ test "directize: table.grow marks table as growable" {
       CodeSec([
         TFunc(
           [],
-          TExpr([
+          TExpr::new([
             TDrop(
               TTableGrow(TableIdx(0), TRefFunc(FuncIdx(0)), TI32Const(I32(1))),
             ),
@@ -903,8 +903,8 @@ test "directize: initial_immutable=false prevents optimization" {
     .with_elem_sec(
       ElemSec([
         Elem(
-          Active(TableIdx(0), Expr([I32Const(I32(0))])),
-          FuncsElemKind([FuncIdx(0)]),
+          ElemMode::active(TableIdx(0), Expr::new([I32Const(I32(0))])),
+          ElemKind::funcs([FuncIdx(0)]),
         ),
       ]),
     )
@@ -912,7 +912,7 @@ test "directize: initial_immutable=false prevents optimization" {
       CodeSec([
         TFunc(
           [],
-          TExpr([TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0)))]),
+          TExpr::new([TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0)))]),
         ),
       ]),
     )
@@ -949,8 +949,8 @@ test "directize: return_call_indirect with constant index" {
     .with_elem_sec(
       ElemSec([
         Elem(
-          Active(TableIdx(0), Expr([I32Const(I32(0))])),
-          FuncsElemKind([FuncIdx(0)]),
+          ElemMode::active(TableIdx(0), Expr::new([I32Const(I32(0))])),
+          ElemKind::funcs([FuncIdx(0)]),
         ),
       ]),
     )
@@ -958,7 +958,7 @@ test "directize: return_call_indirect with constant index" {
       CodeSec([
         TFunc(
           [],
-          TExpr([
+          TExpr::new([
             TReturnCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0))),
           ]),
         ),
@@ -992,8 +992,8 @@ test "directize: return_call_indirect out of bounds becomes unreachable" {
     .with_elem_sec(
       ElemSec([
         Elem(
-          Active(TableIdx(0), Expr([I32Const(I32(0))])),
-          FuncsElemKind([FuncIdx(0)]),
+          ElemMode::active(TableIdx(0), Expr::new([I32Const(I32(0))])),
+          ElemKind::funcs([FuncIdx(0)]),
         ),
       ]),
     )
@@ -1001,7 +1001,7 @@ test "directize: return_call_indirect out of bounds becomes unreachable" {
       CodeSec([
         TFunc(
           [],
-          TExpr([
+          TExpr::new([
             TReturnCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(99))),
           ]),
         ),
@@ -1039,16 +1039,16 @@ test "directize: select-based call_indirect with both branches known" {
     .with_elem_sec(
       ElemSec([
         Elem(
-          Active(TableIdx(0), Expr([I32Const(I32(0))])),
-          FuncsElemKind([FuncIdx(0), FuncIdx(1)]),
+          ElemMode::active(TableIdx(0), Expr::new([I32Const(I32(0))])),
+          ElemKind::funcs([FuncIdx(0), FuncIdx(1)]),
         ),
       ]),
     )
     .with_code_sec(
       CodeSec([
         TFunc(
-          [NumTypeValType(I32NumType)],
-          TExpr([
+          [ValType::i32()],
+          TExpr::new([
             TCallIndirect(
               TypeIdx(0),
               TableIdx(0),
@@ -1092,16 +1092,16 @@ test "directize: select-based call_indirect with one branch trapping" {
     .with_elem_sec(
       ElemSec([
         Elem(
-          Active(TableIdx(0), Expr([I32Const(I32(0))])),
-          FuncsElemKind([FuncIdx(0)]),
+          ElemMode::active(TableIdx(0), Expr::new([I32Const(I32(0))])),
+          ElemKind::funcs([FuncIdx(0)]),
         ),
       ]),
     )
     .with_code_sec(
       CodeSec([
         TFunc(
-          [NumTypeValType(I32NumType)],
-          TExpr([
+          [ValType::i32()],
+          TExpr::new([
             TCallIndirect(
               TypeIdx(0),
               TableIdx(0),
@@ -1156,16 +1156,16 @@ test "directize: select-based call_indirect with unknown branch not transformed"
     .with_elem_sec(
       ElemSec([
         Elem(
-          Active(TableIdx(0), Expr([I32Const(I32(0))])),
-          FuncsElemKind([FuncIdx(0)]),
+          ElemMode::active(TableIdx(0), Expr::new([I32Const(I32(0))])),
+          ElemKind::funcs([FuncIdx(0)]),
         ),
       ]),
     )
     .with_code_sec(
       CodeSec([
         TFunc(
-          [NumTypeValType(I32NumType)],
-          TExpr([
+          [ValType::i32()],
+          TExpr::new([
             TDrop(
               TTableGrow(TableIdx(0), TRefFunc(FuncIdx(0)), TI32Const(I32(10))),
             ),
@@ -1220,16 +1220,16 @@ test "directize: br_table-based call_indirect with all branches known" {
     .with_elem_sec(
       ElemSec([
         Elem(
-          Active(TableIdx(0), Expr([I32Const(I32(0))])),
-          FuncsElemKind([FuncIdx(0), FuncIdx(1), FuncIdx(2)]),
+          ElemMode::active(TableIdx(0), Expr::new([I32Const(I32(0))])),
+          ElemKind::funcs([FuncIdx(0), FuncIdx(1), FuncIdx(2)]),
         ),
       ]),
     )
     .with_code_sec(
       CodeSec([
         TFunc(
-          [NumTypeValType(I32NumType)],
-          TExpr([
+          [ValType::i32()],
+          TExpr::new([
             TCallIndirect(
               TypeIdx(0),
               TableIdx(0),
@@ -1274,12 +1274,12 @@ test "directize: passive element segment doesn't initialize table" {
         ),
       ]),
     )
-    .with_elem_sec(ElemSec([Elem(Passive, FuncsElemKind([FuncIdx(0)]))])) // Passive, not active
+    .with_elem_sec(ElemSec([Elem(ElemMode::passive(), ElemKind::funcs([FuncIdx(0)]))])) // Passive, not active
     .with_code_sec(
       CodeSec([
         TFunc(
           [],
-          TExpr([TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0)))]),
+          TExpr::new([TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0)))]),
         ),
       ]),
     )
@@ -1308,12 +1308,12 @@ test "directize: declarative element segment doesn't initialize table" {
         ),
       ]),
     )
-    .with_elem_sec(ElemSec([Elem(Declarative, FuncsElemKind([FuncIdx(0)]))])) // Declarative
+    .with_elem_sec(ElemSec([Elem(ElemMode::declarative(), ElemKind::funcs([FuncIdx(0)]))])) // Declarative
     .with_code_sec(
       CodeSec([
         TFunc(
           [],
-          TExpr([TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0)))]),
+          TExpr::new([TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0)))]),
         ),
       ]),
     )
@@ -1334,8 +1334,8 @@ test "directize: element segment with non-constant offset marks table mutable" {
     .with_global_sec(
       GlobalSec([
         Global(
-          GlobalType(NumTypeValType(I32NumType), false),
-          Expr([I32Const(I32(0))]),
+          GlobalType(ValType::i32(), false),
+          Expr::new([I32Const(I32(0))]),
         ),
       ]),
     )
@@ -1353,8 +1353,8 @@ test "directize: element segment with non-constant offset marks table mutable" {
     .with_elem_sec(
       ElemSec([
         Elem(
-          Active(TableIdx(0), Expr([GlobalGet(GlobalIdx(0))])),
-          FuncsElemKind([FuncIdx(0)]),
+          ElemMode::active(TableIdx(0), Expr::new([GlobalGet(GlobalIdx(0))])),
+          ElemKind::funcs([FuncIdx(0)]),
         ),
       ]),
     ) // Non-constant offset
@@ -1362,7 +1362,7 @@ test "directize: element segment with non-constant offset marks table mutable" {
       CodeSec([
         TFunc(
           [],
-          TExpr([TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0)))]),
+          TExpr::new([TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0)))]),
         ),
       ]),
     )
@@ -1395,8 +1395,8 @@ test "directize: element segment with expression kind marks table mutable" {
     .with_elem_sec(
       ElemSec([
         Elem(
-          Active(TableIdx(0), Expr([I32Const(I32(0))])),
-          FuncExprsElemKind([Expr([RefFunc(FuncIdx(0))])]),
+          ElemMode::active(TableIdx(0), Expr::new([I32Const(I32(0))])),
+          ElemKind::func_exprs([Expr::new([RefFunc(FuncIdx(0))])]),
         ),
       ]),
     ) // Expression kind
@@ -1404,7 +1404,7 @@ test "directize: element segment with expression kind marks table mutable" {
       CodeSec([
         TFunc(
           [],
-          TExpr([TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0)))]),
+          TExpr::new([TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0)))]),
         ),
       ]),
     )
@@ -1447,12 +1447,12 @@ test "directize: multiple tables, only one modified" {
     .with_elem_sec(
       ElemSec([
         Elem(
-          Active(TableIdx(0), Expr([I32Const(I32(0))])),
-          FuncsElemKind([FuncIdx(0)]),
+          ElemMode::active(TableIdx(0), Expr::new([I32Const(I32(0))])),
+          ElemKind::funcs([FuncIdx(0)]),
         ),
         Elem(
-          Active(TableIdx(1), Expr([I32Const(I32(0))])),
-          FuncsElemKind([FuncIdx(1)]),
+          ElemMode::active(TableIdx(1), Expr::new([I32Const(I32(0))])),
+          ElemKind::funcs([FuncIdx(1)]),
         ),
       ]),
     )
@@ -1460,7 +1460,7 @@ test "directize: multiple tables, only one modified" {
       CodeSec([
         TFunc(
           [],
-          TExpr([
+          TExpr::new([
             TTableSet(TableIdx(0), TI32Const(I32(0)), TRefFunc(FuncIdx(1))), // Modify table 0
             TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0))), // Should NOT be optimized
             TCallIndirect(TypeIdx(0), TableIdx(1), [], TI32Const(I32(0))), // Should be optimized
@@ -1514,8 +1514,8 @@ test "directize: arguments are propagated to direct call" {
     .with_elem_sec(
       ElemSec([
         Elem(
-          Active(TableIdx(0), Expr([I32Const(I32(0))])),
-          FuncsElemKind([FuncIdx(0)]),
+          ElemMode::active(TableIdx(0), Expr::new([I32Const(I32(0))])),
+          ElemKind::funcs([FuncIdx(0)]),
         ),
       ]),
     )
@@ -1523,7 +1523,7 @@ test "directize: arguments are propagated to direct call" {
       CodeSec([
         TFunc(
           [],
-          TExpr([
+          TExpr::new([
             TCallIndirect(
               TypeIdx(0),
               TableIdx(0),
@@ -1567,8 +1567,8 @@ test "directize: negative index (interpreted as large unsigned) becomes unreacha
     .with_elem_sec(
       ElemSec([
         Elem(
-          Active(TableIdx(0), Expr([I32Const(I32(0))])),
-          FuncsElemKind([FuncIdx(0)]),
+          ElemMode::active(TableIdx(0), Expr::new([I32Const(I32(0))])),
+          ElemKind::funcs([FuncIdx(0)]),
         ),
       ]),
     )
@@ -1576,7 +1576,7 @@ test "directize: negative index (interpreted as large unsigned) becomes unreacha
       CodeSec([
         TFunc(
           [],
-          TExpr([TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(-1)))], // -1 = 0xFFFFFFFF
+          TExpr::new([TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(-1)))], // -1 = 0xFFFFFFFF
           ),
         ),
       ]),
@@ -1614,7 +1614,7 @@ test "directize: empty table always traps" {
       CodeSec([
         TFunc(
           [],
-          TExpr([TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0)))]),
+          TExpr::new([TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0)))]),
         ),
       ]),
     )
@@ -1636,7 +1636,7 @@ test "directize: module without tables" {
   let m = Module::new()
     .with_type_sec(TypeSec([make_simple_functype()]))
     .with_func_sec(FuncSec([TypeIdx(0)]))
-    .with_code_sec(CodeSec([TFunc([], TExpr([TNop]))]))
+    .with_code_sec(CodeSec([TFunc([], TExpr::new([TNop]))]))
   let result = directize_module(m, true)
   assert_true(result is Ok(_))
   let new_m = result.unwrap()
@@ -1670,8 +1670,8 @@ test "directize: element segment at offset beyond initial table entries" {
     .with_elem_sec(
       ElemSec([
         Elem(
-          Active(TableIdx(0), Expr([I32Const(I32(2))])),
-          FuncsElemKind([FuncIdx(0), FuncIdx(1)]),
+          ElemMode::active(TableIdx(0), Expr::new([I32Const(I32(2))])),
+          ElemKind::funcs([FuncIdx(0), FuncIdx(1)]),
         ),
       ]),
     )
@@ -1679,7 +1679,7 @@ test "directize: element segment at offset beyond initial table entries" {
       CodeSec([
         TFunc(
           [],
-          TExpr([
+          TExpr::new([
             TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0))), // null - trap
             TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(2))), // func 0
             TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(3))), // func 1
@@ -1728,8 +1728,8 @@ test "directize: table with i64 limits" {
     .with_elem_sec(
       ElemSec([
         Elem(
-          Active(TableIdx(0), Expr([I32Const(I32(0))])),
-          FuncsElemKind([FuncIdx(0)]),
+          ElemMode::active(TableIdx(0), Expr::new([I32Const(I32(0))])),
+          ElemKind::funcs([FuncIdx(0)]),
         ),
       ]),
     )
@@ -1737,7 +1737,7 @@ test "directize: table with i64 limits" {
       CodeSec([
         TFunc(
           [],
-          TExpr([TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0)))]),
+          TExpr::new([TCallIndirect(TypeIdx(0), TableIdx(0), [], TI32Const(I32(0)))]),
         ),
       ]),
     )

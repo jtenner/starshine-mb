@@ -53,11 +53,11 @@ fn load_op_with_chunk_size(
   chunk_size : ChunkSize,
 ) -> Result[LoadOp, String] {
   match (stack_size, chunk_size) {
-    (StackSize32, ChunkSize8) => Ok(I32Load8UOp)
-    (StackSize32, ChunkSize16) => Ok(I32Load16UOp)
-    (StackSize64, ChunkSize8) => Ok(I64Load8UOp)
-    (StackSize64, ChunkSize16) => Ok(I64Load16UOp)
-    (StackSize64, ChunkSize32) => Ok(I64Load32UOp)
+    (StackSize32, ChunkSize8) => Ok(LoadOp::i32_load8u(),)
+    (StackSize32, ChunkSize16) => Ok(LoadOp::i32_load16u())
+    (StackSize64, ChunkSize8) => Ok(LoadOp::i64_load8u())
+    (StackSize64, ChunkSize16) => Ok(LoadOp::i64_load16u())
+    (StackSize64, ChunkSize32) => Ok(LoadOp::i64_load32u())
     // Impossible!
     _ => Err("Invalid chunk size for value")
   }
@@ -204,10 +204,10 @@ fn load_shift_op(
 ) -> TInstr {
   match stack_size {
     StackSize32 =>
-      TBinary(@lib.I32ShlOp, op, TI32Const(I32(offset.to_int() * 8)))
+      TBinary(I32ShlOp, op, TInstr::i32_const(I32(offset.to_int() * 8)))
     StackSize64 =>
       TBinary(
-        @lib.I64ShlOp,
+        I64ShlOp,
         op,
         TI64Const(I64(offset.reinterpret_as_int64() * 8)),
       )
@@ -225,10 +225,10 @@ fn store_shift_op(
   }
   match stack_size {
     StackSize32 =>
-      TBinary(@lib.I32ShrUOp, op, TI32Const(I32(offset.to_int() * 8)))
+      TBinary(I32ShrUOp, op, TInstr::i32_const(I32(offset.to_int() * 8)))
     StackSize64 =>
       TBinary(
-        @lib.I64ShrUOp,
+        I64ShrUOp,
         op,
         TI64Const(I64(offset.reinterpret_as_int64() * 8)),
       )
@@ -263,43 +263,43 @@ fn finalize_v128_extending_load(
   let shift = byte_offset.reinterpret_as_int() * 8
 
   // Extract the value at the correct position
-  let extracted = @lib.TExtractLane(
-    I8x16ExtractLaneUOp,
+  let extracted = TInstr::extract_lane(
+    ExtractLaneOp::i8x16_extract_lane_u(),
     LaneIdx(byte_offset.to_byte()),
     i,
   )
   match stack_size {
     StackSize32 => {
-      let shifted = @lib.TBinary(I32ShlOp, extracted, TI32Const(I32(shift)))
+      let shifted = TInstr::binary(BinaryOp::i32_shl(), extracted, TInstr::i32_const(I32(shift)))
       if is_signed {
-        let sign_mask = @lib.TBinary(
-          I32ShlOp,
-          TBinary(I32ShrSOp, extracted, TI32Const(I32(7))),
-          TI32Const(I32(shift)),
+        let sign_mask = TInstr::binary(
+          BinaryOp::i32_shl(),
+          TInstr::binary(I32ShrSOp, extracted, TInstr::i32_const(I32(7))),
+          TInstr::i32_const(I32(shift)),
         )
-        @lib.TBinary(I32OrOp, shifted, sign_mask)
+        TInstr::binary(I32OrOp, shifted, sign_mask)
       } else {
         shifted
       }
     }
     StackSize64 => {
-      let extracted_i64 = @lib.TUnary(I64ExtendI32UOp, extracted)
-      let shifted = @lib.TBinary(
+      let extracted_i64 = TInstr::unary(UnaryOp::i64_extend16s(), extracted)
+      let shifted = TInstr::binary(
         I64ShlOp,
         extracted_i64,
         TI64Const(I64(shift.to_int64())),
       )
       if is_signed {
-        let sign_mask = @lib.TBinary(
+        let sign_mask = TInstr::binary(
           I64ShlOp,
-          TBinary(
+          TInstr::binary(
             I64ShrSOp,
             TUnary(I64ExtendI32SOp, extracted),
             TI64Const(I64(7)),
           ),
           TI64Const(I64(shift.to_int64())),
         )
-        @lib.TBinary(I64OrOp, shifted, sign_mask)
+        TInstr::binary(I64OrOp, shifted, sign_mask)
       } else {
         shifted
       }
@@ -364,8 +364,8 @@ fn finalize_load_op(op : LoadOp, i : TInstr) -> TInstr {
 ///|
 fn load_or_op(stack_size : StackSize, l : TInstr, r : TInstr) -> TInstr {
   match stack_size {
-    StackSize32 => TBinary(I32OrOp, l, r)
-    StackSize64 => TBinary(I64OrOp, l, r)
+    StackSize32 => TInstr::binary(I32OrOp, l, r)
+    StackSize64 => TInstr::binary(I64OrOp, l, r)
   }
 }
 
@@ -402,7 +402,7 @@ pub fn alignment_lowering_pass() -> ModuleTransformer[AlignmentLoweringContext] 
           if op_size > 8 {
             return change(
               t,
-              TLoad(op, MemArg(U32(align), mem_option, U64(offset)), a),
+              TInstr::load(op, MemArg::new(U32(align), mem_option, U64(offset)), a),
             )
           }
           let effective_align = @cmp.minimum(align, op_size)
@@ -410,7 +410,7 @@ pub fn alignment_lowering_pass() -> ModuleTransformer[AlignmentLoweringContext] 
           if c.length() == 1 {
             return change(
               t,
-              TLoad(op, MemArg(U32(align), mem_option, U64(offset)), a),
+              TLoad(op, MemArg::new(U32(align), mem_option, U64(offset)), a),
             )
           }
           let mem_idx = match mem_option {
@@ -423,8 +423,8 @@ pub fn alignment_lowering_pass() -> ModuleTransformer[AlignmentLoweringContext] 
           }
           let next = t.locals.length().reinterpret_as_uint()
           t.locals.push(ptr_valtype)
-          let local_idx = @lib.LocalIdx(next)
-          let ptr_start_set = @lib.TLocalTee(local_idx, a)
+          let local_idx = LocalIdx::new(next)
+          let ptr_start_set = TInstr::local_tee(local_idx, a)
           let value_stack_size = load_op_stack_size(op)
           let first = c[0]
           let chunk_byte_count = first.0.byte_count()
@@ -433,9 +433,9 @@ pub fn alignment_lowering_pass() -> ModuleTransformer[AlignmentLoweringContext] 
             Ok(t) => t
             Err(e) => return Err(e)
           }
-          let first_load = @lib.TLoad(
+          let first_load = TInstr::load(
             load_op,
-            MemArg(U32(chunk_byte_count), mem_option, U64(offset + first.1)),
+            MemArg::new(U32(chunk_byte_count), mem_option, U64(offset + first.1)),
             ptr_start_set,
           )
           let mut acc = load_shift_op(value_stack_size, first.1, first_load)
@@ -447,14 +447,14 @@ pub fn alignment_lowering_pass() -> ModuleTransformer[AlignmentLoweringContext] 
                 Ok(t) => t
                 Err(e) => return Err(e)
               }
-              let load_instr = @lib.TLoad(
+              let load_instr = TInstr::load(
                 load_op,
-                MemArg(
+                MemArg::new(
                   U32(chunk_byte_count),
                   mem_option,
                   U64(relative_offset + offset),
                 ),
-                TLocalGet(local_idx),
+                TInstr::local_get(local_idx),
               )
               let shift_op = load_shift_op(
                 value_stack_size, relative_offset, load_instr,
@@ -480,7 +480,7 @@ pub fn alignment_lowering_pass() -> ModuleTransformer[AlignmentLoweringContext] 
           if op_size > 8 {
             return change(
               t,
-              TStore(op, MemArg(U32(align), mem_option, U64(offset)), a, b),
+              TInstr::store(op, MemArg::new(U32(align), mem_option, U64(offset)), a, b),
             )
           }
           let effective_align = @cmp.minimum(align, op_size)
@@ -488,7 +488,7 @@ pub fn alignment_lowering_pass() -> ModuleTransformer[AlignmentLoweringContext] 
           if c.length() == 1 {
             return change(
               t,
-              TStore(op, MemArg(U32(align), mem_option, U64(offset)), a, b),
+              TInstr::store(op, MemArg::new(U32(align), mem_option, U64(offset)), a, b),
             )
           }
 
@@ -503,15 +503,15 @@ pub fn alignment_lowering_pass() -> ModuleTransformer[AlignmentLoweringContext] 
           }
           let ptr_local_idx = t.locals.length().reinterpret_as_uint()
           t.locals.push(ptr_valtype)
-          let ptr_local = @lib.LocalIdx(ptr_local_idx)
+          let ptr_local = LocalIdx::new(ptr_local_idx)
           let value_stack_size = store_op_stack_size(op)
           let value_valtype = match value_stack_size {
-            StackSize32 => @lib.vt_i32()
-            StackSize64 => @lib.vt_i64()
+            StackSize32 => ValType::i32()
+            StackSize64 => ValType::i64()
           }
           let value_local_idx = t.locals.length().reinterpret_as_uint()
           t.locals.push(value_valtype)
-          let value_local = @lib.LocalIdx(value_local_idx)
+          let value_local = LocalIdx::new(value_local_idx)
 
           // Prepare the value (reinterpret floats to ints)
           let prepared_value = prepare_store_value(op, b)
@@ -521,8 +521,8 @@ pub fn alignment_lowering_pass() -> ModuleTransformer[AlignmentLoweringContext] 
 
           // First instruction: set both locals
           // We'll use TLocalSet for ptr and TLocalTee for value, then drop
-          stores.push(@lib.TLocalSet(ptr_local, a))
-          stores.push(@lib.TLocalSet(value_local, prepared_value))
+          stores.push(TLocalSet(ptr_local, a))
+          stores.push(TLocalSet(value_local, prepared_value))
           for i = 0; i < c.length(); i = i + 1 {
             let (chunk_size, relative_offset) = c[i]
             let chunk_byte_count = chunk_size.byte_count()
@@ -534,23 +534,23 @@ pub fn alignment_lowering_pass() -> ModuleTransformer[AlignmentLoweringContext] 
             let shifted_value = store_shift_op(
               value_stack_size,
               relative_offset,
-              TLocalGet(value_local),
+              TInstr::local_get(value_local),
             )
-            let store_instr = @lib.TStore(
+            let store_instr = TInstr::store(
               store_op,
-              MemArg(
+              MemArg::new(
                 U32(chunk_byte_count),
                 mem_option,
                 U64(offset + relative_offset),
               ),
-              TLocalGet(ptr_local),
+              TInstr::local_get(ptr_local),
               shifted_value,
             )
             stores.push(store_instr)
           }
 
           // Wrap in a block with empty result type
-          change(t, TBlock(EmptyBlockType, TExpr(stores)))
+          change(t, TBlock(EmptyBlockType, TExpr::new(stores)))
         }
         TV128LoadLane(
           op,
@@ -577,7 +577,7 @@ pub fn alignment_lowering_pass() -> ModuleTransformer[AlignmentLoweringContext] 
               t,
               TV128LoadLane(
                 op,
-                MemArg(U32(align), mem_option, U64(offset)),
+                MemArg::new(U32(align), mem_option, U64(offset)),
                 lane,
                 a,
                 b,
@@ -597,14 +597,14 @@ pub fn alignment_lowering_pass() -> ModuleTransformer[AlignmentLoweringContext] 
           }
           let ptr_local_idx = t.locals.length().reinterpret_as_uint()
           t.locals.push(ptr_valtype)
-          let ptr_local = @lib.LocalIdx(ptr_local_idx)
+          let ptr_local = LocalIdx::new(ptr_local_idx)
 
           // Determine the load operation based on lane size
           let (replace_op, stack_size) = match op {
-            V128Load8LaneOp => (@lib.I8x16ReplaceLaneOp, StackSize32)
-            V128Load16LaneOp => (@lib.I16x8ReplaceLaneOp, StackSize32)
-            V128Load32LaneOp => (@lib.I32x4ReplaceLaneOp, StackSize32)
-            V128Load64LaneOp => (@lib.I64x2ReplaceLaneOp, StackSize64)
+            V128Load8LaneOp => (ReplaceLaneOp::i8x16_replace_lane(), StackSize32)
+            V128Load16LaneOp => (ReplaceLaneOp::i16x8_replace_lane(), StackSize32)
+            V128Load32LaneOp => (ReplaceLaneOp::i32x4_replace_lane(), StackSize32)
+            V128Load64LaneOp => (ReplaceLaneOp::i64x2_replace_lane(), StackSize64)
           }
 
           // Build the chunked load
@@ -615,9 +615,9 @@ pub fn alignment_lowering_pass() -> ModuleTransformer[AlignmentLoweringContext] 
             Ok(t) => t
             Err(e) => return Err(e)
           }
-          let first_load = @lib.TLoad(
+          let first_load = TInstr::load(
             chunk_load_op,
-            MemArg(U32(chunk_byte_count), mem_option, U64(offset + first.1)),
+            MemArg::new(U32(chunk_byte_count), mem_option, U64(offset + first.1)),
             TLocalTee(ptr_local, a),
           )
           let mut acc = load_shift_op(stack_size, first.1, first_load)
@@ -629,14 +629,14 @@ pub fn alignment_lowering_pass() -> ModuleTransformer[AlignmentLoweringContext] 
               Ok(t) => t
               Err(e) => return Err(e)
             }
-            let load_instr = @lib.TLoad(
+            let load_instr = TInstr::load(
               chunk_load_op,
-              MemArg(
+              MemArg::new(
                 U32(chunk_byte_count),
                 mem_option,
                 U64(relative_offset + offset),
               ),
-              TLocalGet(ptr_local),
+              TInstr::local_get(ptr_local),
             )
             let shift_op = load_shift_op(
               stack_size, relative_offset, load_instr,
@@ -685,7 +685,7 @@ fn run_func_pass(
   body : Array[TInstr],
 ) -> Result[(Array[ValType], TExpr), String] {
   let pass = alignment_lowering_pass()
-  let func = @lib.TFunc(locals, TExpr(body))
+  let func = Func::t_func(locals, TExpr::new(body))
   match pass.walk_func(ctx, func) {
     Ok(Some((_, TFunc(new_locals, new_body)))) => Ok((new_locals, new_body))
     Ok(None) =>
@@ -776,10 +776,10 @@ test "chunks: unaligned offset affects chunking" {
 ///|
 test "aligned i32 load passes through" {
   let ctx = make_ctx(make_i32_mem())
-  let instr = @lib.TLoad(
-    I32LoadOp,
-    MemArg(U32(4), None, U64(0)),
-    TLocalGet(LocalIdx(0)),
+  let instr = TInstr::load(
+    LoadOp::i32_load(),
+    MemArg::new(U32(4), None, U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -791,10 +791,10 @@ test "aligned i32 load passes through" {
 ///|
 test "aligned i64 load passes through" {
   let ctx = make_ctx(make_i32_mem())
-  let instr = @lib.TLoad(
-    I64LoadOp,
-    MemArg(U32(8), None, U64(0)),
-    TLocalGet(LocalIdx(0)),
+  let instr = TInstr::load(
+    LoadOp::i64_load(),
+    MemArg::new(U32(8), None, U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -806,10 +806,10 @@ test "aligned i64 load passes through" {
 ///|
 test "aligned f32 load passes through" {
   let ctx = make_ctx(make_i32_mem())
-  let instr = @lib.TLoad(
-    F32LoadOp,
-    MemArg(U32(4), None, U64(0)),
-    TLocalGet(LocalIdx(0)),
+  let instr = TInstr::load(
+    LoadOp::f32_load(),
+    MemArg::new(U32(4), None, U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -821,10 +821,10 @@ test "aligned f32 load passes through" {
 ///|
 test "aligned f64 load passes through" {
   let ctx = make_ctx(make_i32_mem())
-  let instr = @lib.TLoad(
-    F64LoadOp,
-    MemArg(U32(8), None, U64(0)),
-    TLocalGet(LocalIdx(0)),
+  let instr = TInstr::load(
+    LoadOp::f64_load(),
+    MemArg::new(U32(8), None, U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -840,11 +840,11 @@ test "aligned f64 load passes through" {
 ///|
 test "unaligned i32 load with align=1 is split" {
   let ctx = make_ctx(make_i32_mem())
-  ctx.locals = [vt_i32()] // One local for the address
-  let instr = @lib.TLoad(
-    I32LoadOp,
-    MemArg(U32(1), None, U64(0)),
-    TLocalGet(LocalIdx(0)),
+  ctx.locals = [ValType::i32()] // One local for the address
+  let instr = TInstr::load(
+    LoadOp::i32_load(),
+    MemArg::new(U32(1), None, U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -858,11 +858,11 @@ test "unaligned i32 load with align=1 is split" {
 ///|
 test "unaligned i32 load with align=2 is split into 2 loads" {
   let ctx = make_ctx(make_i32_mem())
-  ctx.locals = [vt_i32()]
-  let instr = @lib.TLoad(
-    I32LoadOp,
-    MemArg(U32(2), None, U64(0)),
-    TLocalGet(LocalIdx(0)),
+  ctx.locals = [ValType::i32()]
+  let instr = TInstr::load(
+    LoadOp::i32_load(),
+    MemArg::new(U32(2), None, U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -876,11 +876,11 @@ test "unaligned i32 load with align=2 is split into 2 loads" {
 ///|
 test "unaligned i64 load with align=1 is split" {
   let ctx = make_ctx(make_i32_mem())
-  ctx.locals = [vt_i32()]
-  let instr = @lib.TLoad(
-    I64LoadOp,
-    MemArg(U32(1), None, U64(0)),
-    TLocalGet(LocalIdx(0)),
+  ctx.locals = [ValType::i32()]
+  let instr = TInstr::load(
+    LoadOp::i64_load(),
+    MemArg::new(U32(1), None, U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -894,11 +894,11 @@ test "unaligned i64 load with align=1 is split" {
 ///|
 test "unaligned i64 load with align=4 is split into 2 loads" {
   let ctx = make_ctx(make_i32_mem())
-  ctx.locals = [vt_i32()]
-  let instr = @lib.TLoad(
-    I64LoadOp,
-    MemArg(U32(4), None, U64(0)),
-    TLocalGet(LocalIdx(0)),
+  ctx.locals = [ValType::i32()]
+  let instr = TInstr::load(
+    LoadOp::i64_load(),
+    MemArg::new(U32(4), None, U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -912,11 +912,11 @@ test "unaligned i64 load with align=4 is split into 2 loads" {
 ///|
 test "unaligned f32 load produces reinterpret wrapper" {
   let ctx = make_ctx(make_i32_mem())
-  ctx.locals = [vt_i32()]
-  let instr = @lib.TLoad(
-    F32LoadOp,
-    MemArg(U32(1), None, U64(0)),
-    TLocalGet(LocalIdx(0)),
+  ctx.locals = [ValType::i32()]
+  let instr = TInstr::load(
+    LoadOp::f32_load(),
+    MemArg::new(U32(1), None, U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -930,11 +930,11 @@ test "unaligned f32 load produces reinterpret wrapper" {
 ///|
 test "unaligned f64 load produces reinterpret wrapper" {
   let ctx = make_ctx(make_i32_mem())
-  ctx.locals = [vt_i32()]
-  let instr = @lib.TLoad(
-    F64LoadOp,
-    MemArg(U32(1), None, U64(0)),
-    TLocalGet(LocalIdx(0)),
+  ctx.locals = [ValType::i32()]
+  let instr = TInstr::load(
+    LoadOp::f64_load(),
+    MemArg::new(U32(1), None, U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -952,10 +952,10 @@ test "unaligned f64 load produces reinterpret wrapper" {
 ///|
 test "i32.load8 always passes through (naturally aligned)" {
   let ctx = make_ctx(make_i32_mem())
-  let instr = @lib.TLoad(
-    I32Load8UOp,
-    MemArg(U32(1), None, U64(0)),
-    TLocalGet(LocalIdx(0)),
+  let instr = TInstr::load(
+    LoadOp::i32_load8u(),
+    MemArg::new(U32(1), None, U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -967,11 +967,11 @@ test "i32.load8 always passes through (naturally aligned)" {
 ///|
 test "i32.load16 with align=1 is split" {
   let ctx = make_ctx(make_i32_mem())
-  ctx.locals = [vt_i32()]
-  let instr = @lib.TLoad(
-    I32Load16UOp,
-    MemArg(U32(1), None, U64(0)),
-    TLocalGet(LocalIdx(0)),
+  ctx.locals = [ValType::i32()]
+  let instr = TInstr::load(
+    LoadOp::i32_load16u(),
+    MemArg::new(U32(1), None, U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -986,11 +986,11 @@ test "i32.load16 with align=1 is split" {
 ///|
 test "i64.load32 with align=2 is split" {
   let ctx = make_ctx(make_i32_mem())
-  ctx.locals = [vt_i32()]
-  let instr = @lib.TLoad(
-    I64Load32UOp,
-    MemArg(U32(2), None, U64(0)),
-    TLocalGet(LocalIdx(0)),
+  ctx.locals = [ValType::i32()]
+  let instr = TInstr::load(
+    LoadOp::i64_load32u(),
+    MemArg::new(U32(2), None, U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -1008,11 +1008,11 @@ test "i64.load32 with align=2 is split" {
 ///|
 test "aligned i32 store passes through" {
   let ctx = make_ctx(make_i32_mem())
-  let instr = @lib.TStore(
+  let instr = TInstr::store(
     I32StoreOp,
-    MemArg(U32(4), None, U64(0)),
-    TLocalGet(LocalIdx(0)),
-    TI32Const(I32(42)),
+    MemArg::new(U32(4), None, U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
+    TInstr::i32_const(I32(42)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -1024,10 +1024,10 @@ test "aligned i32 store passes through" {
 ///|
 test "aligned i64 store passes through" {
   let ctx = make_ctx(make_i32_mem())
-  let instr = @lib.TStore(
+  let instr = TInstr::store(
     I64StoreOp,
-    MemArg(U32(8), None, U64(0)),
-    TLocalGet(LocalIdx(0)),
+    MemArg::new(U32(8), None, U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
     TI64Const(I64(42)),
   )
   let result = run_pass(ctx, instr)
@@ -1040,10 +1040,10 @@ test "aligned i64 store passes through" {
 ///|
 test "aligned f32 store passes through" {
   let ctx = make_ctx(make_i32_mem())
-  let instr = @lib.TStore(
+  let instr = TInstr::store(
     F32StoreOp,
-    MemArg(U32(4), None, U64(0)),
-    TLocalGet(LocalIdx(0)),
+    MemArg::new(U32(4), None, U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
     TF32Const(F32(3.14)),
   )
   let result = run_pass(ctx, instr)
@@ -1060,12 +1060,12 @@ test "aligned f32 store passes through" {
 ///|
 test "unaligned i32 store with align=1 produces block" {
   let ctx = make_ctx(make_i32_mem())
-  ctx.locals = [vt_i32()]
-  let instr = @lib.TStore(
+  ctx.locals = [ValType::i32()]
+  let instr = TInstr::store(
     I32StoreOp,
-    MemArg(U32(1), None, U64(0)),
-    TLocalGet(LocalIdx(0)),
-    TI32Const(I32(42)),
+    MemArg::new(U32(1), None, U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
+    TInstr::i32_const(I32(42)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -1079,12 +1079,12 @@ test "unaligned i32 store with align=1 produces block" {
 ///|
 test "unaligned i32 store with align=2 produces block" {
   let ctx = make_ctx(make_i32_mem())
-  ctx.locals = [vt_i32()]
-  let instr = @lib.TStore(
+  ctx.locals = [ValType::i32()]
+  let instr = TInstr::store(
     I32StoreOp,
-    MemArg(U32(2), None, U64(0)),
-    TLocalGet(LocalIdx(0)),
-    TI32Const(I32(42)),
+    MemArg::new(U32(2), None, U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
+    TInstr::i32_const(I32(42)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -1098,11 +1098,11 @@ test "unaligned i32 store with align=2 produces block" {
 ///|
 test "unaligned i64 store with align=1 produces block" {
   let ctx = make_ctx(make_i32_mem())
-  ctx.locals = [vt_i32()]
-  let instr = @lib.TStore(
+  ctx.locals = [ValType::i32()]
+  let instr = TInstr::store(
     I64StoreOp,
-    MemArg(U32(1), None, U64(0)),
-    TLocalGet(LocalIdx(0)),
+    MemArg::new(U32(1), None, U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
     TI64Const(I64(42)),
   )
   let result = run_pass(ctx, instr)
@@ -1117,11 +1117,11 @@ test "unaligned i64 store with align=1 produces block" {
 ///|
 test "unaligned f32 store produces block with reinterpret" {
   let ctx = make_ctx(make_i32_mem())
-  ctx.locals = [vt_i32()]
-  let instr = @lib.TStore(
+  ctx.locals = [ValType::i32()]
+  let instr = TInstr::store(
     F32StoreOp,
-    MemArg(U32(1), None, U64(0)),
-    TLocalGet(LocalIdx(0)),
+    MemArg::new(U32(1), None, U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
     TF32Const(F32(3.14)),
   )
   let result = run_pass(ctx, instr)
@@ -1138,11 +1138,11 @@ test "unaligned f32 store produces block with reinterpret" {
 ///|
 test "unaligned f64 store produces block with reinterpret" {
   let ctx = make_ctx(make_i32_mem())
-  ctx.locals = [vt_i32()]
-  let instr = @lib.TStore(
+  ctx.locals = [ValType::i32()]
+  let instr = TInstr::store(
     F64StoreOp,
-    MemArg(U32(1), None, U64(0)),
-    TLocalGet(LocalIdx(0)),
+    MemArg::new(U32(1), None, U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
     TF64Const(F64(3.14)),
   )
   let result = run_pass(ctx, instr)
@@ -1162,12 +1162,12 @@ test "unaligned f64 store produces block with reinterpret" {
 ///|
 test "unaligned i32 store block has correct structure" {
   let ctx = make_ctx(make_i32_mem())
-  ctx.locals = [vt_i32()]
-  let instr = @lib.TStore(
-    I32StoreOp,
-    MemArg(U32(1), None, U64(0)),
-    TLocalGet(LocalIdx(0)),
-    TI32Const(I32(0x12345678)),
+  ctx.locals = [ValType::i32()]
+  let instr = TInstr::store(
+    StoreOp::i32_store(),
+    MemArg::new(U32(1), None, U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
+    TInstr::i32_const(I32(0x12345678)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -1203,10 +1203,10 @@ test "unaligned i32 store block has correct structure" {
 ///|
 test "v128 load with size > 8 passes through" {
   let ctx = make_ctx(make_i32_mem())
-  let instr = @lib.TLoad(
-    V128LoadOp,
-    MemArg(U32(1), None, U64(0)),
-    TLocalGet(LocalIdx(0)),
+  let instr = TInstr::load(
+    LoadOp::v128_load(),
+    MemArg::new(U32(1), None, U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -1218,11 +1218,11 @@ test "v128 load with size > 8 passes through" {
 ///|
 test "v128 store with size > 8 passes through" {
   let ctx = make_ctx(make_i32_mem())
-  let instr = @lib.TStore(
-    V128StoreOp,
-    MemArg(U32(1), None, U64(0)),
-    TLocalGet(LocalIdx(0)),
-    TV128Const(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+  let instr = TInstr::store(
+    StoreOp::v128_store(),
+    MemArg::new(U32(1), None, U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
+    TInstr::v128_const(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -1238,10 +1238,10 @@ test "v128 store with size > 8 passes through" {
 ///|
 test "v128.load64_splat aligned passes through" {
   let ctx = make_ctx(make_i32_mem())
-  let instr = @lib.TLoad(
-    V128Load64SplatOp,
-    MemArg(U32(8), None, U64(0)),
-    TLocalGet(LocalIdx(0)),
+  let instr = TInstr::load(
+    LoadOp::v128_load64_splat(),
+    MemArg::new(U32(8), None, U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -1253,11 +1253,11 @@ test "v128.load64_splat aligned passes through" {
 ///|
 test "v128.load64_splat unaligned produces splat wrapper" {
   let ctx = make_ctx(make_i32_mem())
-  ctx.locals = [vt_i32()]
-  let instr = @lib.TLoad(
-    V128Load64SplatOp,
-    MemArg(U32(1), None, U64(0)),
-    TLocalGet(LocalIdx(0)),
+  ctx.locals = [ValType::i32()]
+  let instr = TInstr::load(
+    LoadOp::v128_load64_splat(),
+    MemArg::new(U32(1), None, U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -1271,11 +1271,11 @@ test "v128.load64_splat unaligned produces splat wrapper" {
 ///|
 test "v128.load32_splat unaligned produces splat wrapper" {
   let ctx = make_ctx(make_i32_mem())
-  ctx.locals = [vt_i32()]
-  let instr = @lib.TLoad(
-    V128Load32SplatOp,
-    MemArg(U32(1), None, U64(0)),
-    TLocalGet(LocalIdx(0)),
+  ctx.locals = [ValType::i32()]
+  let instr = TInstr::load(
+    LoadOp::v128_load32_splat(),
+    MemArg::new(U32(1), None, U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -1293,11 +1293,11 @@ test "v128.load32_splat unaligned produces splat wrapper" {
 ///|
 test "v128.load64_zero unaligned produces replace_lane" {
   let ctx = make_ctx(make_i32_mem())
-  ctx.locals = [vt_i32()]
-  let instr = @lib.TLoad(
-    V128Load64ZeroOp,
-    MemArg(U32(1), None, U64(0)),
-    TLocalGet(LocalIdx(0)),
+  ctx.locals = [ValType::i32()]
+  let instr = TInstr::load(
+    LoadOp::v128_load64_zero(),
+    MemArg::new(U32(1), None, U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -1311,11 +1311,11 @@ test "v128.load64_zero unaligned produces replace_lane" {
 ///|
 test "v128.load32_zero unaligned produces replace_lane" {
   let ctx = make_ctx(make_i32_mem())
-  ctx.locals = [vt_i32()]
-  let instr = @lib.TLoad(
-    V128Load32ZeroOp,
-    MemArg(U32(1), None, U64(0)),
-    TLocalGet(LocalIdx(0)),
+  ctx.locals = [ValType::i32()]
+  let instr = TInstr::load(
+    LoadOp::v128_load32_zero(),
+    MemArg::new(U32(1), None, U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -1333,12 +1333,12 @@ test "v128.load32_zero unaligned produces replace_lane" {
 ///|
 test "v128.load8_lane aligned passes through" {
   let ctx = make_ctx(make_i32_mem())
-  let instr = @lib.TV128LoadLane(
-    V128Load8LaneOp,
-    MemArg(U32(1), None, U64(0)),
-    LaneIdx(0),
-    TLocalGet(LocalIdx(0)),
-    TV128Const(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+  let instr = TInstr::v128_load_lane(
+    V128LoadLaneOp::v128_load8_lane(),
+    MemArg::new(U32(1), None, U64(0)),
+    LaneIdx::new(0),
+    TInstr::local_get(LocalIdx::new(0)),
+    TInstr::v128_const(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -1350,13 +1350,13 @@ test "v128.load8_lane aligned passes through" {
 ///|
 test "v128.load16_lane unaligned produces replace_lane" {
   let ctx = make_ctx(make_i32_mem())
-  ctx.locals = [vt_i32()]
-  let instr = @lib.TV128LoadLane(
-    V128Load16LaneOp,
-    MemArg(U32(1), None, U64(0)),
-    LaneIdx(0),
-    TLocalGet(LocalIdx(0)),
-    TV128Const(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+  ctx.locals = [ValType::i32()]
+  let instr = TInstr::v128_load_lane(
+    V128LoadLaneOp::v128_load16_lane(),
+    MemArg::new(U32(1), None, U64(0)),
+    LaneIdx::new(0),
+    TInstr::local_get(LocalIdx::new(0)),
+    TInstr::v128_const(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -1370,13 +1370,13 @@ test "v128.load16_lane unaligned produces replace_lane" {
 ///|
 test "v128.load32_lane unaligned produces replace_lane" {
   let ctx = make_ctx(make_i32_mem())
-  ctx.locals = [vt_i32()]
-  let instr = @lib.TV128LoadLane(
-    V128Load32LaneOp,
-    MemArg(U32(1), None, U64(0)),
-    LaneIdx(0),
-    TLocalGet(LocalIdx(0)),
-    TV128Const(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+  ctx.locals = [ValType::i32()]
+  let instr = TInstr::v128_load_lane(
+    V128LoadLaneOp::v128_load32_lane(),
+    MemArg::new(U32(1), None, U64(0)),
+    LaneIdx::new(0),
+    TInstr::local_get(LocalIdx::new(0)),
+    TInstr::v128_const(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -1390,13 +1390,13 @@ test "v128.load32_lane unaligned produces replace_lane" {
 ///|
 test "v128.load64_lane unaligned produces replace_lane" {
   let ctx = make_ctx(make_i32_mem())
-  ctx.locals = [vt_i32()]
-  let instr = @lib.TV128LoadLane(
-    V128Load64LaneOp,
-    MemArg(U32(1), None, U64(0)),
-    LaneIdx(0),
-    TLocalGet(LocalIdx(0)),
-    TV128Const(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+  ctx.locals = [ValType::i32()]
+  let instr = TInstr::v128_load_lane(
+    V128LoadLaneOp::v128_load64_lane(),
+    MemArg::new(U32(1), None, U64(0)),
+    LaneIdx::new(0),
+    TInstr::local_get(LocalIdx::new(0)),
+    TInstr::v128_const(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -1414,11 +1414,11 @@ test "v128.load64_lane unaligned produces replace_lane" {
 ///|
 test "load with explicit memory index" {
   let ctx = make_ctx([MemType(I32Limits(1, None)), MemType(I64Limits(1, None))])
-  ctx.locals = [vt_i64()]
-  let instr = @lib.TLoad(
-    I32LoadOp,
-    MemArg(U32(1), Some(MemIdx(1)), U64(0)),
-    TLocalGet(LocalIdx(0)),
+  ctx.locals = [ValType::i64()]
+  let instr = TInstr::load(
+    LoadOp::i32_load(),
+    MemArg::new(U32(1), Some(MemIdx(1)), U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
   )
   let result = run_pass(ctx, instr)
   // Should succeed and use i64 for pointer local (memory 1 is i64)
@@ -1431,12 +1431,12 @@ test "load with explicit memory index" {
 ///|
 test "store with explicit memory index" {
   let ctx = make_ctx([MemType(I32Limits(1, None)), MemType(I64Limits(1, None))])
-  ctx.locals = [vt_i64()]
-  let instr = @lib.TStore(
-    I32StoreOp,
-    MemArg(U32(1), Some(MemIdx(1)), U64(0)),
-    TLocalGet(LocalIdx(0)),
-    TI32Const(I32(42)),
+  ctx.locals = [ValType::i64()]
+  let instr = TInstr::store(
+    StoreOp::i32_store(),
+    MemArg::new(U32(1), Some(MemIdx(1)), U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
+    TInstr::i32_const(I32(42)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -1448,11 +1448,11 @@ test "store with explicit memory index" {
 ///|
 test "invalid memory index returns error" {
   let ctx = make_ctx(make_i32_mem())
-  ctx.locals = [vt_i32()]
-  let instr = @lib.TLoad(
-    I32LoadOp,
-    MemArg(U32(1), Some(MemIdx(99)), U64(0)),
-    TLocalGet(LocalIdx(0)),
+  ctx.locals = [ValType::i32()]
+  let instr = TInstr::load(
+    LoadOp::i32_load(),
+    MemArg::new(U32(1), Some(MemIdx(99)), U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -1468,16 +1468,16 @@ test "invalid memory index returns error" {
 ///|
 test "unaligned load allocates new local for pointer" {
   let ctx = make_ctx(make_i32_mem())
-  let initial_locals : Array[ValType] = [vt_i32()]
+  let initial_locals : Array[ValType] = [ValType::i32()]
   let body = [
-    @lib.TLoad(I32LoadOp, MemArg(U32(1), None, U64(0)), TLocalGet(LocalIdx(0))),
+    TInstr::load(LoadOp::i32_load(), MemArg::new(U32(1), None, U64(0)), TInstr::local_get(LocalIdx::new(0))),
   ]
   let result = run_func_pass(ctx, initial_locals, body)
   match result {
     Ok((new_locals, _)) => {
       // Should have added one local for pointer
       assert_eq(new_locals.length(), 2)
-      assert_eq(new_locals[1], vt_i32())
+      assert_eq(new_locals[1], ValType::i32())
     }
     Err(e) => fail("Error: \{e}")
   }
@@ -1486,13 +1486,13 @@ test "unaligned load allocates new local for pointer" {
 ///|
 test "unaligned store allocates locals for pointer and value" {
   let ctx = make_ctx(make_i32_mem())
-  let initial_locals : Array[ValType] = [vt_i32()]
+  let initial_locals : Array[ValType] = [ValType::i32()]
   let body = [
-    @lib.TStore(
-      I32StoreOp,
-      MemArg(U32(1), None, U64(0)),
-      TLocalGet(LocalIdx(0)),
-      TI32Const(I32(42)),
+    TInstr::store(
+      StoreOp::i32_store(),
+      MemArg::new(U32(1), None, U64(0)),
+      TInstr::local_get(LocalIdx::new(0)),
+      TInstr::i32_const(I32(42)),
     ),
   ]
   let result = run_func_pass(ctx, initial_locals, body)
@@ -1507,21 +1507,21 @@ test "unaligned store allocates locals for pointer and value" {
 ///|
 test "i64 store allocates i64 value local" {
   let ctx = make_ctx(make_i32_mem())
-  let initial_locals : Array[ValType] = [vt_i32()]
+  let initial_locals : Array[ValType] = [ValType::i32()]
   let body = [
-    @lib.TStore(
-      I64StoreOp,
-      MemArg(U32(1), None, U64(0)),
-      TLocalGet(LocalIdx(0)),
-      TI64Const(I64(42)),
+    TInstr::store(
+      StoreOp::i64_store(),
+      MemArg::new(U32(1), None, U64(0)),
+      TInstr::local_get(LocalIdx::new(0)),
+      TInstr::i64_const(I64(42)),
     ),
   ]
   let result = run_func_pass(ctx, initial_locals, body)
   match result {
     Ok((new_locals, _)) => {
       assert_eq(new_locals.length(), 3)
-      assert_eq(new_locals[1], vt_i32()) // pointer
-      assert_eq(new_locals[2], vt_i64()) // value
+      assert_eq(new_locals[1], ValType::i32()) // pointer
+      assert_eq(new_locals[2], ValType::i64()) // value
     }
     Err(e) => fail("Error: \{e}")
   }
@@ -1534,10 +1534,10 @@ test "i64 store allocates i64 value local" {
 ///|
 test "i32.load8_s unaligned produces sign extension" {
   let ctx = make_ctx(make_i32_mem())
-  let instr = @lib.TLoad(
-    I32Load8SOp,
-    MemArg(U32(1), None, U64(0)),
-    TLocalGet(LocalIdx(0)),
+  let instr = TInstr::load(
+    LoadOp::i32_load8s(),
+    MemArg::new(U32(1), None, U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -1551,11 +1551,11 @@ test "i32.load8_s unaligned produces sign extension" {
 ///|
 test "i32.load16_s unaligned produces sign extension" {
   let ctx = make_ctx(make_i32_mem())
-  ctx.locals = [vt_i32()]
-  let instr = @lib.TLoad(
-    I32Load16SOp,
-    MemArg(U32(1), None, U64(0)),
-    TLocalGet(LocalIdx(0)),
+  ctx.locals = [ValType::i32()]
+  let instr = TInstr::load(
+    LoadOp::i32_load16s(),
+    MemArg::new(U32(1), None, U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -1569,11 +1569,11 @@ test "i32.load16_s unaligned produces sign extension" {
 ///|
 test "i64.load32_s unaligned produces sign extension" {
   let ctx = make_ctx(make_i32_mem())
-  ctx.locals = [vt_i32()]
-  let instr = @lib.TLoad(
-    I64Load32SOp,
-    MemArg(U32(1), None, U64(0)),
-    TLocalGet(LocalIdx(0)),
+  ctx.locals = [ValType::i32()]
+  let instr = TInstr::load(
+    LoadOp::i64_load32s(),
+    MemArg::new(U32(1), None, U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -1591,11 +1591,11 @@ test "i64.load32_s unaligned produces sign extension" {
 ///|
 test "load with non-zero offset" {
   let ctx = make_ctx(make_i32_mem())
-  ctx.locals = [vt_i32()]
-  let instr = @lib.TLoad(
-    I32LoadOp,
-    MemArg(U32(1), None, U64(100)),
-    TLocalGet(LocalIdx(0)),
+  ctx.locals = [ValType::i32()]
+  let instr = TInstr::load(
+    LoadOp::i32_load(),
+    MemArg::new(U32(1), None, U64(100)),
+    TInstr::local_get(LocalIdx::new(0)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -1608,12 +1608,12 @@ test "load with non-zero offset" {
 ///|
 test "store with non-zero offset" {
   let ctx = make_ctx(make_i32_mem())
-  ctx.locals = [vt_i32()]
-  let instr = @lib.TStore(
-    I32StoreOp,
-    MemArg(U32(1), None, U64(100)),
-    TLocalGet(LocalIdx(0)),
-    TI32Const(I32(42)),
+  ctx.locals = [ValType::i32()]
+  let instr = TInstr::store(
+    StoreOp::i32_store(),
+    MemArg::new(U32(1), None, U64(100)),
+    TInstr::local_get(LocalIdx::new(0)),
+    TInstr::i32_const(I32(42)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -1630,13 +1630,13 @@ test "store with non-zero offset" {
 ///|
 test "nested instructions are transformed" {
   let ctx = make_ctx(make_i32_mem())
-  ctx.locals = [vt_i32(), vt_i32()]
+  ctx.locals = [ValType::i32(), ValType::i32()]
   // Load inside a store
-  let instr = @lib.TStore(
-    I32StoreOp,
-    MemArg(U32(4), None, U64(0)),
-    TLocalGet(LocalIdx(0)),
-    TLoad(I32LoadOp, MemArg(U32(1), None, U64(0)), TLocalGet(LocalIdx(1))),
+  let instr = TInstr::store(
+    StoreOp::i32_store(),
+    MemArg::new(U32(4), None, U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
+    TInstr::load(LoadOp::i32_load(), MemArg::new(U32(1), None, U64(0)), TInstr::local_get(LocalIdx::new(1))),
   )
   let result = run_pass(ctx, instr)
   // The inner load should be transformed even if outer store is aligned
@@ -1655,18 +1655,18 @@ test "nested instructions are transformed" {
 
 ///|
 test "size_of_load_op returns correct sizes" {
-  assert_eq(size_of_load_op(I32LoadOp), 4)
-  assert_eq(size_of_load_op(I64LoadOp), 8)
-  assert_eq(size_of_load_op(F32LoadOp), 4)
-  assert_eq(size_of_load_op(F64LoadOp), 8)
-  assert_eq(size_of_load_op(I32Load8UOp), 1)
-  assert_eq(size_of_load_op(I32Load8SOp), 1)
-  assert_eq(size_of_load_op(I32Load16UOp), 2)
-  assert_eq(size_of_load_op(I32Load16SOp), 2)
-  assert_eq(size_of_load_op(I64Load8UOp), 1)
-  assert_eq(size_of_load_op(I64Load16UOp), 2)
-  assert_eq(size_of_load_op(I64Load32UOp), 4)
-  assert_eq(size_of_load_op(V128LoadOp), 16)
+  assert_eq(size_of_load_op(LoadOp::i32_load()), 4)
+  assert_eq(size_of_load_op(LoadOp::i64_load()), 8)
+  assert_eq(size_of_load_op(LoadOp::f32_load()), 4)
+  assert_eq(size_of_load_op(LoadOp::f64_load()), 8)
+  assert_eq(size_of_load_op(LoadOp::i32_load8u()), 1)
+  assert_eq(size_of_load_op(LoadOp::i32_load8s()), 1)
+  assert_eq(size_of_load_op(LoadOp::i32_load16u()), 2)
+  assert_eq(size_of_load_op(LoadOp::i32_load16s()), 2)
+  assert_eq(size_of_load_op(LoadOp::i64_load8u()), 1)
+  assert_eq(size_of_load_op(LoadOp::i64_load16u()), 2)
+  assert_eq(size_of_load_op(LoadOp::i64_load32u()), 4)
+  assert_eq(size_of_load_op(LoadOp::v128_load()), 16)
 }
 
 ///|
@@ -1693,12 +1693,12 @@ test "ChunkSize::byte_count returns correct values" {
 
 ///|
 test "load_op_stack_size returns correct stack sizes" {
-  assert_eq(load_op_stack_size(I32LoadOp), StackSize32)
-  assert_eq(load_op_stack_size(I64LoadOp), StackSize64)
-  assert_eq(load_op_stack_size(F32LoadOp), StackSize32)
-  assert_eq(load_op_stack_size(F64LoadOp), StackSize64)
-  assert_eq(load_op_stack_size(I32Load8UOp), StackSize32)
-  assert_eq(load_op_stack_size(I64Load8UOp), StackSize64)
+  assert_eq(load_op_stack_size(LoadOp::i32_load()), StackSize32)
+  assert_eq(load_op_stack_size(LoadOp::i64_load()), StackSize64)
+  assert_eq(load_op_stack_size(LoadOp::f32_load()), StackSize32)
+  assert_eq(load_op_stack_size(LoadOp::f64_load()), StackSize64)
+  assert_eq(load_op_stack_size(LoadOp::i32_load()), StackSize32)
+  assert_eq(load_op_stack_size(LoadOp::i64_load8u()), StackSize64)
 }
 
 ///|
@@ -1719,10 +1719,10 @@ test "store_op_stack_size returns correct stack sizes" {
 test "align clamped to op_size" {
   // If align > op_size, it should be clamped to op_size
   let ctx = make_ctx(make_i32_mem())
-  let instr = @lib.TLoad(
-    I32LoadOp,
-    MemArg(U32(8), None, U64(0)), // align=8 but i32 is only 4 bytes
-    TLocalGet(LocalIdx(0)),
+  let instr = TInstr::load(
+    LoadOp::i32_load(),
+    MemArg::new(U32(8), None, U64(0)), // align=8 but i32 is only 4 bytes
+    TInstr::local_get(LocalIdx::new(0)),
   )
   let result = run_pass(ctx, instr)
   // Should be treated as aligned (4 >= 4)
@@ -1735,7 +1735,7 @@ test "align clamped to op_size" {
 ///|
 test "other instructions pass through unchanged" {
   let ctx = make_ctx(make_i32_mem())
-  let instr = @lib.TBinary(I32AddOp, TI32Const(I32(1)), TI32Const(I32(2)))
+  let instr = TInstr::binary(BinaryOp::i32_add(), TInstr::i32_const(I32(1)), TInstr::i32_const(I32(2)))
   let result = run_pass(ctx, instr)
   match result {
     Ok(TBinary(I32AddOp, TI32Const(I32(1)), TI32Const(I32(2)))) => ()

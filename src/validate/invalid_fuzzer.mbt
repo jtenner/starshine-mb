@@ -230,7 +230,7 @@ fn make_type_corruption_transformer() -> ModuleTransformer[Bool] {
       for i in instrs {
         new_instrs.push(i)
       }
-      Ok(Some((true, Expr(new_instrs))))
+      Ok(Some((true, Expr::new(new_instrs))))
     }),
   }
 }
@@ -248,10 +248,10 @@ fn make_numtype_swap_transformer() -> ModuleTransformer[Unit] {
       vt : ValType,
     ) -> TransformerResult[Unit, ValType] {
       match vt {
-        NumTypeValType(I32NumType) => Ok(Some(((), NumTypeValType(F64NumType))))
-        NumTypeValType(I64NumType) => Ok(Some(((), NumTypeValType(F32NumType))))
-        NumTypeValType(F32NumType) => Ok(Some(((), NumTypeValType(I64NumType))))
-        NumTypeValType(F64NumType) => Ok(Some(((), NumTypeValType(I32NumType))))
+        NumTypeValType(I32NumType) => Ok(Some(((), ValType::f64())))
+        NumTypeValType(I64NumType) => Ok(Some(((), ValType::f32())))
+        NumTypeValType(F32NumType) => Ok(Some(((), ValType::i64())))
+        NumTypeValType(F64NumType) => Ok(Some(((), ValType::i32())))
         _ => Ok(None)
       }
     }),
@@ -369,15 +369,15 @@ fn make_signature_corruption_transformer() -> ModuleTransformer[Unit] {
         FuncCompType(params, results) => {
           // Add extra parameters that callers won't provide
           let new_params = params.copy()
-          new_params.push(NumTypeValType(I64NumType))
-          new_params.push(NumTypeValType(F64NumType))
+          new_params.push(ValType::i64())
+          new_params.push(ValType::f64())
           // Change result types
           let new_results = results.map(fn(vt) {
             match vt {
-              NumTypeValType(I32NumType) => @lib.NumTypeValType(F64NumType)
-              NumTypeValType(I64NumType) => NumTypeValType(F32NumType)
-              NumTypeValType(F32NumType) => NumTypeValType(I64NumType)
-              NumTypeValType(F64NumType) => NumTypeValType(I32NumType)
+              NumTypeValType(I32NumType) => @lib.ValType::f64()
+              NumTypeValType(I64NumType) => ValType::f32()
+              NumTypeValType(F32NumType) => ValType::i64()
+              NumTypeValType(F64NumType) => ValType::i32()
               other => other
             }
           })
@@ -390,12 +390,12 @@ fn make_signature_corruption_transformer() -> ModuleTransformer[Unit] {
             match st {
               ValTypeStorageType(NumTypeValType(I32NumType)) =>
                 @lib.FieldType(
-                  ValTypeStorageType(NumTypeValType(F64NumType)),
+                  ValTypeStorageType(ValType::f64()),
                   mutability,
                 )
               ValTypeStorageType(NumTypeValType(I64NumType)) =>
                 FieldType(
-                  ValTypeStorageType(NumTypeValType(F32NumType)),
+                  ValTypeStorageType(ValType::f32()),
                   mutability,
                 )
               _ => ft
@@ -406,9 +406,9 @@ fn make_signature_corruption_transformer() -> ModuleTransformer[Unit] {
         ArrayCompType(FieldType(st, mutability)) => {
           let new_st = match st {
             ValTypeStorageType(NumTypeValType(I32NumType)) =>
-              @lib.ValTypeStorageType(NumTypeValType(F64NumType))
+              @lib.ValTypeStorageType(ValType::f64())
             ValTypeStorageType(NumTypeValType(I64NumType)) =>
-              ValTypeStorageType(NumTypeValType(F32NumType))
+              ValTypeStorageType(ValType::f32())
             _ => st
           }
           Ok(Some(((), ArrayCompType(FieldType(new_st, mutability)))))
@@ -431,12 +431,12 @@ fn make_global_init_mismatch_transformer() -> ModuleTransformer[Unit] {
       let Global(GlobalType(vt, mutable), _init) = g
       // Create an init expression with wrong type
       let wrong_init = match vt {
-        NumTypeValType(I32NumType) => @lib.Expr([F64Const(F64(0.0))])
-        NumTypeValType(I64NumType) => Expr([F32Const(F32(0.0))])
-        NumTypeValType(F32NumType) => Expr([I64Const(I64(0L))])
-        NumTypeValType(F64NumType) => Expr([I32Const(I32(0))])
-        RefTypeValType(_) => Expr([I32Const(I32(0))]) // Definitely wrong
-        VecTypeValType => Expr([I32Const(I32(0))])
+        NumTypeValType(I32NumType) => Expr::new([F64Const(F64(0.0))])
+        NumTypeValType(I64NumType) => Expr::new([F32Const(F32(0.0))])
+        NumTypeValType(F32NumType) => Expr::new([I64Const(I64(0L))])
+        NumTypeValType(F64NumType) => Expr::new([I32Const(I32(0))])
+        RefTypeValType(_) => Expr::new([I32Const(I32(0))]) // Definitely wrong
+        VecTypeValType => Expr::new([I32Const(I32(0))])
         BotValType => return Ok(None)
       }
       Ok(Some(((), Global(GlobalType(vt, mutable), wrong_init))))
@@ -456,7 +456,7 @@ fn make_table_init_mismatch_transformer() -> ModuleTransformer[Unit] {
     ) -> TransformerResult[Unit, Table] {
       let Table(tt, _init) = t
       // Set init to wrong type expression
-      Ok(Some(((), Table(tt, Some(Expr([I32Const(I32(42))]))))))
+      Ok(Some(((), Table(tt, Some(Expr::new([I32Const(I32(42))]))))))
     }),
   }
 }
@@ -483,7 +483,7 @@ fn make_drop_insertion_transformer() -> ModuleTransformer[Bool] {
       for i in instrs {
         new_instrs.push(i)
       }
-      Ok(Some((true, Expr(new_instrs))))
+      Ok(Some((true, Expr::new(new_instrs))))
     }),
   }
 }
@@ -504,7 +504,7 @@ fn make_block_corruption_transformer() -> ModuleTransformer[Bool] {
       let Expr(instrs) = expr
       if instrs.length() > 0 {
         Ok(
-          Some((true, Expr(instrs.iter().take(instrs.length() - 1).collect()))),
+          Some((true, Expr::new(instrs.iter().take(instrs.length() - 1).collect()))),
         )
       } else {
         Ok(None)
@@ -516,11 +516,11 @@ fn make_block_corruption_transformer() -> ModuleTransformer[Bool] {
 ///|
 fn corrupt_blocktype(bt : BlockType) -> BlockType {
   match bt {
-    EmptyBlockType => ValTypeBlockType(NumTypeValType(I32NumType))
+    EmptyBlockType => ValTypeBlockType(ValType::i32())
     ValTypeBlockType(NumTypeValType(I32NumType)) =>
-      ValTypeBlockType(NumTypeValType(I64NumType))
+      ValTypeBlockType(ValType::i64())
     ValTypeBlockType(NumTypeValType(I64NumType)) =>
-      ValTypeBlockType(NumTypeValType(I32NumType))
+      ValTypeBlockType(ValType::i32())
     ValTypeBlockType(_) => EmptyBlockType
     TypeIdxBlockType(TypeIdx(i)) => TypeIdxBlockType(TypeIdx(i + 1))
     TypeIdxBlockType(RecIdx(i)) => TypeIdxBlockType(RecIdx(i + 1))
@@ -548,14 +548,14 @@ fn make_blocktype_mismatch_transformer() -> ModuleTransformer[Bool] {
         | F32Const(_)
         | F64Const(_)
         | V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-          Ok(Some((true, Block(EmptyBlockType, [ins]))))
+          Ok(Some((true, Block(EmptyBlockType, Expr::new([ins])))))
 
         // Nop/Drop: wrap in block claiming it produces i32
         // Body produces nothing, block claims i32 -> mismatch
         Nop | Drop =>
           Ok(
             Some(
-              (true, Block(ValTypeBlockType(NumTypeValType(I32NumType)), [ins])),
+              (true, Block(ValTypeBlockType(ValType::i32()), Expr::new([ins]))),
             ),
           )
 
@@ -563,12 +563,12 @@ fn make_blocktype_mismatch_transformer() -> ModuleTransformer[Bool] {
         LocalGet(_) =>
           Ok(
             Some(
-              (true, Block(ValTypeBlockType(NumTypeValType(I64NumType)), [ins])),
+              (true, Block(ValTypeBlockType(ValType::i64()), Expr::new([ins]))),
             ),
           )
 
         // GlobalGet produces a value - wrap in block claiming empty
-        GlobalGet(_) => Ok(Some((true, Block(EmptyBlockType, [ins]))))
+        GlobalGet(_) => Ok(Some((true, Block(EmptyBlockType, Expr::new([ins])))))
 
         // Existing control flow: corrupt their block type
         Block(bt, body) => Ok(Some((true, Block(corrupt_blocktype(bt), body))))
@@ -582,18 +582,18 @@ fn make_blocktype_mismatch_transformer() -> ModuleTransformer[Bool] {
         RefNull(_) =>
           Ok(
             Some(
-              (true, Block(ValTypeBlockType(NumTypeValType(I32NumType)), [ins])),
+              (true, Block(ValTypeBlockType(ValType::i32()), Expr::new([ins]))),
             ),
           )
 
         // RefFunc produces a ref - wrap in block claiming empty
-        RefFunc(_) => Ok(Some((true, Block(EmptyBlockType, [ins]))))
+        RefFunc(_) => Ok(Some((true, Block(EmptyBlockType, Expr::new([ins])))))
 
         // StructNewDefault produces a ref - wrap in block claiming i32
         StructNewDefault(_) =>
           Ok(
             Some(
-              (true, Block(ValTypeBlockType(NumTypeValType(I32NumType)), [ins])),
+              (true, Block(ValTypeBlockType(ValType::i32()), Expr::new([ins]))),
             ),
           )
 

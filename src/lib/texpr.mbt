@@ -1,6 +1,6 @@
 ///|
 /// Convert flat Expr to tree-based TExpr
-pub fn expr_to_texpr(expr : Expr, env : Env) -> Result[TExpr, String] {
+pub fn Expr::to_texpr(expr : Expr, env : Env) -> Result[TExpr, String] {
   let stack : Array[TInstr] = []
   for instr in expr.0 {
     match instr_to_tinstr(instr, stack, env) {
@@ -13,7 +13,7 @@ pub fn expr_to_texpr(expr : Expr, env : Env) -> Result[TExpr, String] {
 
 ///|
 /// Convert tree-based TExpr back to flat Expr
-pub fn texpr_to_expr(texpr : TExpr) -> Expr {
+pub fn TExpr::to_expr(texpr : TExpr) -> Expr {
   let instrs : Array[Instruction] = []
   for value in texpr.0 {
     tinstr_to_instr(value, instrs)
