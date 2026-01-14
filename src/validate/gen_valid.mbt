@@ -311,7 +311,7 @@ fn gen_defaultable_valtype(rnd : @quickcheck/splitmix.RandomState) -> ValType {
         4 => AbsHeapType::func()
         _ => AbsHeapType::extern_()
       }
-      ValType::ref_type(HeapTypeRefType(true, HeapType::abs(abs)))
+      ValType::ref_type(RefType::new(true, HeapType::abs(abs)))
     }
   }
 }
@@ -502,11 +502,11 @@ fn gen_tabletype(
 ) -> TableType {
   // Choose element type - prefer funcref for compatibility with elem segments
   let rt = match rnd.next_uint() % 5 {
-    0 => @lib.HeapTypeRefType(true, HeapType::abs(AbsHeapType::func()))
-    1 => HeapTypeRefType(true, HeapType::abs(AbsHeapType::extern_()))
-    2 => HeapTypeRefType(true, HeapType::abs(AbsHeapType::any()))
-    3 => HeapTypeRefType(true, HeapType::abs(AbsHeapType::eq()))
-    _ => HeapTypeRefType(true, HeapType::abs(AbsHeapType::func()))
+    0 => RefType::new(true, HeapType::abs(AbsHeapType::func()))
+    1 => RefType::new(true, HeapType::abs(AbsHeapType::extern_()))
+    2 => RefType::new(true, HeapType::abs(AbsHeapType::any()))
+    3 => RefType::new(true, HeapType::abs(AbsHeapType::eq()))
+    _ => RefType::new(true, HeapType::abs(AbsHeapType::func()))
   }
   let lim = gen_limits_i32(rnd, 100)
   ignore(env) // env available for future type-index references
@@ -685,7 +685,7 @@ fn find_compatible_table_for_funcref(env : Env) -> TableIdx? {
     let tt = env.tables[i]
     let TableType(rt, _) = tt
     // funcref is compatible with funcref tables
-    let funcref = @lib.HeapTypeRefType(
+    let funcref = RefType::new(
       true,
       HeapType::abs(AbsHeapType::func()),
     )
@@ -734,7 +734,7 @@ pub fn gen_elemsec_valid(
         0 => gen_elem_kind_funcs(rnd, env)
         1 => gen_elem_kind_func_exprs(rnd, env)
         _ => {
-          let rt = @lib.HeapTypeRefType(
+          let rt = RefType::new(
             true,
             HeapType::abs(AbsHeapType::func()),
           )
@@ -1580,7 +1580,7 @@ fn gen_call_instruction(
         // Find a funcref table
         for i in 0..<env.tables.length() {
           let TableType(rt, _) = env.tables[i]
-          let funcref = @lib.HeapTypeRefType(
+          let funcref = RefType::new(
             true,
             HeapType::abs(AbsHeapType::func()),
           )
@@ -1804,7 +1804,7 @@ fn gen_try_catch_all_ref(
   // Since we can't easily produce a non-null exnref, use nullable
 
   let exnref_nullable = ValType::ref_type(
-    HeapTypeRefType(true, HeapType::abs(AbsHeapType::exn())),
+    RefType::new(true, HeapType::abs(AbsHeapType::exn())),
   )
   let outer_bt = @lib.ValTypeBlockType(exnref_nullable)
   let try_body = gen_simple_try_body(rnd, st.env)
@@ -1895,7 +1895,7 @@ fn gen_try_catch_ref(
   // We use nullable outer block since fallthrough can only produce ref.null
   // (non-null exnref from catch is subtype of nullable)
   let exnref_nullable = ValType::ref_type(
-    HeapTypeRefType(true, HeapType::abs(AbsHeapType::exn())),
+    RefType::new(true, HeapType::abs(AbsHeapType::exn())),
   )
   let outer_bt = @lib.ValTypeBlockType(exnref_nullable)
   let try_body = gen_simple_try_body(rnd, st.env)

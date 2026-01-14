@@ -51,7 +51,7 @@ pub enum HeapType {
 } derive(Eq, Hash)
 
 ///|
-pub(all) enum RefType {
+pub enum RefType {
   HeapTypeRefType(Bool, HeapType)
   AbsHeapTypeRefType(AbsHeapType)
 } derive(Arbitrary, Hash)
@@ -1956,12 +1956,12 @@ pub fn HeapType::def_type(dt : DefType) -> HeapType {
 }
 
 ///|
-pub fn RefType::heap_type(nullable : Bool, ht : HeapType) -> RefType {
+pub fn RefType::new(nullable : Bool, ht : HeapType) -> RefType {
   HeapTypeRefType(nullable, ht)
 }
 
 ///|
-pub fn RefType::abs_heap_type(abs : AbsHeapType) -> RefType {
+pub fn RefType::abs(abs : AbsHeapType) -> RefType {
   AbsHeapTypeRefType(abs)
 }
 

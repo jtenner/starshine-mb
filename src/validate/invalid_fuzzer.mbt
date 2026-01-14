@@ -271,7 +271,7 @@ fn make_nullability_flip_transformer() -> ModuleTransformer[Unit] {
     ) -> TransformerResult[Unit, RefType] {
       match rt {
         // Force all ref types to be non-nullable
-        HeapTypeRefType(true, ht) => Ok(Some(((), HeapTypeRefType(false, ht))))
+        HeapTypeRefType(true, ht) => Ok(Some(((), RefType::new(false, ht))))
         // Already non-nullable - convert to bottom type to cause more errors
         HeapTypeRefType(false, AbsHeapTypeHeapType(NoneAbsHeapType)) => Ok(None)
         HeapTypeRefType(false, AbsHeapTypeHeapType(NoFuncAbsHeapType)) =>
@@ -287,7 +287,7 @@ fn make_nullability_flip_transformer() -> ModuleTransformer[Unit] {
                 Some(
                   (
                     (),
-                    HeapTypeRefType(
+                    RefType::new(
                       false,
                       HeapType::abs(AbsHeapType::no_func()),
                     ),
@@ -300,7 +300,7 @@ fn make_nullability_flip_transformer() -> ModuleTransformer[Unit] {
                 Some(
                   (
                     (),
-                    HeapTypeRefType(
+                    RefType::new(
                       false,
                       HeapType::abs(AbsHeapType::no_extern()),
                     ),
@@ -313,7 +313,7 @@ fn make_nullability_flip_transformer() -> ModuleTransformer[Unit] {
                 Some(
                   (
                     (),
-                    HeapTypeRefType(
+                    RefType::new(
                       false,
                       HeapType::abs(AbsHeapType::no_exn()),
                     ),
@@ -326,14 +326,14 @@ fn make_nullability_flip_transformer() -> ModuleTransformer[Unit] {
                 Some(
                   (
                     (),
-                    HeapTypeRefType(false, HeapType::abs(AbsHeapType::none())),
+                    RefType::new(false, HeapType::abs(AbsHeapType::none())),
                   ),
                 ),
               )
           }
         AbsHeapTypeRefType(aht) =>
           // These shorthands are nullable, make them non-null with explicit form
-          Ok(Some(((), HeapTypeRefType(false, HeapType::abs(aht)))))
+          Ok(Some(((), RefType::new(false, HeapType::abs(aht)))))
       }
     }),
     // Also corrupt ref.null to create definite type errors
@@ -910,10 +910,10 @@ test "HeapTypeSwap transformer actually modifies heap types" {
 ///|
 test "RefType AbsHeapTypeRefType swaps produce different values" {
   let swaps : Array[(RefType, RefType)] = [
-    (AbsHeapTypeRefType(AbsHeapType::func()), AbsHeapTypeRefType(AbsHeapType::extern_())),
-    (AbsHeapTypeRefType(AbsHeapType::extern_()), AbsHeapTypeRefType(AbsHeapType::func())),
-    (AbsHeapTypeRefType(AbsHeapType::any()), AbsHeapTypeRefType(AbsHeapType::func())),
-    (AbsHeapTypeRefType(AbsHeapType::exn()), AbsHeapTypeRefType(AbsHeapType::any())),
+    (RefType::abs(AbsHeapType::func()), RefType::abs(AbsHeapType::extern_())),
+    (RefType::abs(AbsHeapType::extern_()), RefType::abs(AbsHeapType::func())),
+    (RefType::abs(AbsHeapType::any()), RefType::abs(AbsHeapType::func())),
+    (RefType::abs(AbsHeapType::exn()), RefType::abs(AbsHeapType::any())),
   ]
   for pair in swaps {
     let (before, after) = pair
@@ -925,8 +925,8 @@ test "RefType AbsHeapTypeRefType swaps produce different values" {
 test "Exn to Any swap - verify these are actually different hierarchies" {
   // These should NOT be equal
   assert_not_eq(
-    @lib.AbsHeapTypeRefType(AbsHeapType::exn()),
-    AbsHeapTypeRefType(AbsHeapType::any()),
+    RefType::abs(AbsHeapType::exn()),
+    RefType::abs(AbsHeapType::any()),
   )
   assert_not_eq(
     HeapType::abs(AbsHeapType::exn()),

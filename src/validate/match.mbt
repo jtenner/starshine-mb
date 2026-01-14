@@ -755,8 +755,8 @@ test "ValType: primitive types use equality" {
 test "ValType: ref types delegate to RefType matching" {
   let env = Env::new()
   // (ref null any) matches (ref null any)
-  let rt1 = @lib.HeapTypeRefType(true, HeapType::abs(AbsHeapType::any()))
-  let rt2 = @lib.HeapTypeRefType(true, HeapType::abs(AbsHeapType::any()))
+  let rt1 = RefType::new(true, HeapType::abs(AbsHeapType::any()))
+  let rt2 = RefType::new(true, HeapType::abs(AbsHeapType::any()))
   assert_true(
     Match::matches(@lib.ValType::ref_type(rt1), ValType::ref_type(rt2), env),
   )
@@ -769,11 +769,11 @@ test "ValType: ref types delegate to RefType matching" {
 ///|
 test "RefType: nullability - non-null <: nullable" {
   let env = Env::new()
-  let non_null = @lib.HeapTypeRefType(
+  let non_null = RefType::new(
     false,
     HeapType::abs(AbsHeapType::any()),
   )
-  let nullable = @lib.HeapTypeRefType(true, HeapType::abs(AbsHeapType::any()))
+  let nullable = RefType::new(true, HeapType::abs(AbsHeapType::any()))
   assert_true(Match::matches(non_null, nullable, env))
   assert_false(Match::matches(nullable, non_null, env))
 }
@@ -781,10 +781,10 @@ test "RefType: nullability - non-null <: nullable" {
 ///|
 test "RefType: same nullability" {
   let env = Env::new()
-  let null1 = @lib.HeapTypeRefType(true, HeapType::abs(AbsHeapType::any()))
-  let null2 = @lib.HeapTypeRefType(true, HeapType::abs(AbsHeapType::any()))
-  let non1 = @lib.HeapTypeRefType(false, HeapType::abs(AbsHeapType::any()))
-  let non2 = @lib.HeapTypeRefType(false, HeapType::abs(AbsHeapType::any()))
+  let null1 = RefType::new(true, HeapType::abs(AbsHeapType::any()))
+  let null2 = RefType::new(true, HeapType::abs(AbsHeapType::any()))
+  let non1 = RefType::new(false, HeapType::abs(AbsHeapType::any()))
+  let non2 = RefType::new(false, HeapType::abs(AbsHeapType::any()))
   assert_true(Match::matches(null1, null2, env))
   assert_true(Match::matches(non1, non2, env))
 }
@@ -793,8 +793,8 @@ test "RefType: same nullability" {
 test "RefType: heap type subtyping with nullability" {
   let env = Env::new()
   // (ref null eq) <: (ref null any)
-  let ref_eq = @lib.HeapTypeRefType(true, HeapType::abs(AbsHeapType::eq()))
-  let ref_any = @lib.HeapTypeRefType(true, HeapType::abs(AbsHeapType::any()))
+  let ref_eq = RefType::new(true, HeapType::abs(AbsHeapType::eq()))
+  let ref_any = RefType::new(true, HeapType::abs(AbsHeapType::any()))
   assert_true(Match::matches(ref_eq, ref_any, env))
   assert_false(Match::matches(ref_any, ref_eq, env))
 }
@@ -803,11 +803,11 @@ test "RefType: heap type subtyping with nullability" {
 test "RefType: non-null subtype matches nullable supertype" {
   let env = Env::new()
   // (ref eq) <: (ref null any)
-  let ref_eq_nonnull = @lib.HeapTypeRefType(
+  let ref_eq_nonnull = RefType::new(
     false,
     HeapType::abs(AbsHeapType::eq()),
   )
-  let ref_any_null = @lib.HeapTypeRefType(
+  let ref_any_null = RefType::new(
     true,
     HeapType::abs(AbsHeapType::any()),
   )
@@ -868,10 +868,10 @@ test "CompType: FuncCompType - contravariant params, covariant results" {
   // For functions: (p1 -> r1) <: (p2 -> r2) iff p2 <: p1 and r1 <: r2
   // Using ref types for subtyping examples
   let ref_any = @lib.ValType::ref_type(
-    HeapTypeRefType(true, HeapType::abs(AbsHeapType::any())),
+    RefType::new(true, HeapType::abs(AbsHeapType::any())),
   )
   let ref_eq = @lib.ValType::ref_type(
-    HeapTypeRefType(true, HeapType::abs(AbsHeapType::eq())),
+    RefType::new(true, HeapType::abs(AbsHeapType::eq())),
   )
 
   // func(any) -> eq  <:  func(eq) -> any
@@ -945,10 +945,10 @@ test "CompType: different kinds don't match" {
 test "GlobalType: const is covariant" {
   let env = Env::new()
   let ref_eq = @lib.ValType::ref_type(
-    HeapTypeRefType(true, HeapType::abs(AbsHeapType::eq())),
+    RefType::new(true, HeapType::abs(AbsHeapType::eq())),
   )
   let ref_any = @lib.ValType::ref_type(
-    HeapTypeRefType(true, HeapType::abs(AbsHeapType::any())),
+    RefType::new(true, HeapType::abs(AbsHeapType::any())),
   )
   let g1 = @lib.GlobalType(ref_eq, false) // const
   let g2 = @lib.GlobalType(ref_any, false) // const
@@ -962,10 +962,10 @@ test "GlobalType: const is covariant" {
 test "GlobalType: mut is invariant" {
   let env = Env::new()
   let ref_eq = @lib.ValType::ref_type(
-    HeapTypeRefType(true, HeapType::abs(AbsHeapType::eq())),
+    RefType::new(true, HeapType::abs(AbsHeapType::eq())),
   )
   let ref_any = @lib.ValType::ref_type(
-    HeapTypeRefType(true, HeapType::abs(AbsHeapType::any())),
+    RefType::new(true, HeapType::abs(AbsHeapType::any())),
   )
   let g1 = @lib.GlobalType(ref_eq, true) // mut
   let g2 = @lib.GlobalType(ref_any, true) // mut
@@ -998,7 +998,7 @@ test "GlobalType: const vs mut don't match" {
 ///|
 test "TableType: limits and reftype must match" {
   let env = Env::new()
-  let rt = @lib.HeapTypeRefType(true, HeapType::abs(AbsHeapType::func()))
+  let rt = RefType::new(true, HeapType::abs(AbsHeapType::func()))
   let t1 = @lib.TableType(rt, I32Limits(0, Some(100)))
   let t2 = @lib.TableType(rt, I32Limits(0, Some(200)))
 
@@ -1010,8 +1010,8 @@ test "TableType: limits and reftype must match" {
 ///|
 test "TableType: reftype is invariant" {
   let env = Env::new()
-  let rt_func = @lib.HeapTypeRefType(true, HeapType::abs(AbsHeapType::func()))
-  let rt_any = @lib.HeapTypeRefType(true, HeapType::abs(AbsHeapType::any()))
+  let rt_func = RefType::new(true, HeapType::abs(AbsHeapType::func()))
+  let rt_any = RefType::new(true, HeapType::abs(AbsHeapType::any()))
   let limits = @lib.I32Limits(0, Some(100))
   let t1 = @lib.TableType(rt_func, limits)
   let t2 = @lib.TableType(rt_any, limits)
@@ -1067,7 +1067,7 @@ test "ExternType: GlobalExternType delegates to GlobalType" {
 ///|
 test "ExternType: TableExternType delegates to TableType" {
   let env = Env::new()
-  let rt = @lib.HeapTypeRefType(true, HeapType::abs(AbsHeapType::func()))
+  let rt = RefType::new(true, HeapType::abs(AbsHeapType::func()))
   let t1 = @lib.TableExternType(TableType(rt, I32Limits(0, Some(10))))
   let t2 = @lib.TableExternType(TableType(rt, I32Limits(0, Some(10))))
   assert_true(Match::matches(t1, t2, env))
@@ -1099,10 +1099,10 @@ test "complex function type subtyping" {
   // <:
   // func(ref null eq, ref null eq) -> (ref null any)
   let ref_any = ValType::ref_type(
-    HeapTypeRefType(true, HeapType::abs(AbsHeapType::any())),
+    RefType::new(true, HeapType::abs(AbsHeapType::any())),
   )
   let ref_eq = ValType::ref_type(
-    HeapTypeRefType(true, HeapType::abs(AbsHeapType::eq())),
+    RefType::new(true, HeapType::abs(AbsHeapType::eq())),
   )
   let f1 = @lib.FuncCompType([ref_any, ref_any], [ref_eq])
   let f2 = @lib.FuncCompType([ref_eq, ref_eq], [ref_any])
@@ -1114,8 +1114,8 @@ test "nested ref type in struct field" {
   let env = Env::new()
 
   // const field with ref type - covariant
-  let ref_eq = @lib.HeapTypeRefType(true, HeapType::abs(AbsHeapType::eq()))
-  let ref_any = @lib.HeapTypeRefType(true, HeapType::abs(AbsHeapType::any()))
+  let ref_eq = RefType::new(true, HeapType::abs(AbsHeapType::eq()))
+  let ref_any = RefType::new(true, HeapType::abs(AbsHeapType::any()))
   let st_eq = @lib.ValTypeStorageType(ValType::ref_type(ref_eq))
   let st_any = @lib.ValTypeStorageType(ValType::ref_type(ref_any))
   let f1 = @lib.FieldType(st_eq, Const)

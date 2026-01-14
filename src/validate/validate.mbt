@@ -6,7 +6,7 @@ pub fn diff(rt1 : RefType, rt2 : RefType) -> Result[RefType, String] {
 
   // Result nullability: nullable only if rt1 was nullable AND rt2 was not
   let null_out = n1 && not(n2)
-  Ok(HeapTypeRefType(null_out, ht1))
+  Ok(RefType::new(null_out, ht1))
 }
 
 ///|
@@ -1213,7 +1213,7 @@ test "ValType BotType validates" {
 ///|
 test "ValType RefType with AbsHeapType validates" {
   let env = empty_env()
-  let rt = @lib.AbsHeapTypeRefType(AbsHeapType::func())
+  let rt = RefType::abs(AbsHeapType::func())
   let vt = ValType::ref_type(rt)
   assert_eq(Validate::validate(vt, env), Ok(()))
 }
@@ -1223,15 +1223,15 @@ test "ValType RefType with AbsHeapType validates" {
 ///|
 test "RefType HeapTypeRefType with valid AbsHeapType validates" {
   let env = empty_env()
-  let rt = @lib.HeapTypeRefType(true, HeapType::abs(AbsHeapType::any()))
+  let rt = RefType::new(true, HeapType::abs(AbsHeapType::any()))
   assert_eq(Validate::validate(rt, env), Ok(()))
 }
 
 ///|
 test "RefType HeapTypeRefType nullable and non-nullable validate" {
   let env = empty_env()
-  let rt_null = @lib.HeapTypeRefType(true, HeapType::abs(AbsHeapType::func()))
-  let rt_non_null = @lib.HeapTypeRefType(
+  let rt_null = RefType::new(true, HeapType::abs(AbsHeapType::func()))
+  let rt_non_null = RefType::new(
     false,
     HeapType::abs(AbsHeapType::func()),
   )
@@ -1324,7 +1324,7 @@ test "FuncIdx fails when func does not exist" {
 
 ///|
 test "TableIdx validates when table exists" {
-  let rt = @lib.AbsHeapTypeRefType(AbsHeapType::func())
+  let rt = RefType::abs(AbsHeapType::func())
   let tt = @lib.TableType(rt, I32Limits(0, None))
   let env = empty_env().with_tables([tt])
   let tidx = @lib.TableIdx(0)
@@ -1446,7 +1446,7 @@ test "MemType fails when limits exceed 65536" {
 ///|
 test "TableType validates with valid ref type and limits" {
   let env = empty_env()
-  let rt = @lib.AbsHeapTypeRefType(AbsHeapType::func())
+  let rt = RefType::abs(AbsHeapType::func())
   let tt = @lib.TableType(rt, I32Limits(0, Some(100)))
   assert_eq(Validate::validate(tt, env), Ok(()))
 }
@@ -1650,7 +1650,7 @@ test "ExternType MemExternType validates" {
 ///|
 test "ExternType TableExternType validates" {
   let env = empty_env()
-  let rt = @lib.AbsHeapTypeRefType(AbsHeapType::func())
+  let rt = RefType::abs(AbsHeapType::func())
   let tt = @lib.TableType(rt, I32Limits(0, Some(100)))
   let et = @lib.TableExternType(tt)
   assert_eq(Validate::validate(et, env), Ok(()))
@@ -1685,7 +1685,7 @@ test "ExternIdx FuncExternIdx validates" {
 
 ///|
 test "ExternIdx TableExternIdx validates" {
-  let rt = @lib.AbsHeapTypeRefType(AbsHeapType::func())
+  let rt = RefType::abs(AbsHeapType::func())
   let tt = @lib.TableType(rt, I32Limits(0, None))
   let env = empty_env().with_tables([tt])
   let ei = @lib.TableExternIdx(TableIdx(0))

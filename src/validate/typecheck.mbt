@@ -650,7 +650,7 @@ fn typecheck_call_ref(st : TcState, tidx : TypeIdx) -> TcResult {
 
   // Pop funcref of type (ref null tidx)
   // Your representation: HeapTypeRefType(nullable, HeapType(TypeIdx))
-  let fref = ValType::ref_type(HeapTypeRefType(true, HeapType::new(tidx)))
+  let fref = ValType::ref_type(RefType::new(true, HeapType::new(tidx)))
   let st1 = match st.pop_expect(fref) {
     Err(e) => return Err(e)
     Ok(s) => s
@@ -717,7 +717,7 @@ fn typecheck_return_call_indirect(
   }
 
   // elem_rt <: funcref
-  let fr = ValType::ref_type(AbsHeapTypeRefType(AbsHeapType::func()))
+  let fr = ValType::ref_type(RefType::abs(AbsHeapType::func()))
   let elem_vt = ValType::ref_type(elem_rt)
   if !Match::matches(elem_vt, fr, st.env) {
     return Err(
@@ -745,7 +745,7 @@ fn typecheck_return_call_ref(st : TcState, tidx : TypeIdx) -> TcResult {
     Err(e) => return Err(e)
     Ok(_) => ()
   }
-  let fref = ValType::ref_type(HeapTypeRefType(true, HeapType::new(tidx)))
+  let fref = ValType::ref_type(RefType::new(true, HeapType::new(tidx)))
   let st1 = match st.pop_expect(fref) {
     Err(e) => return Err(e)
     Ok(s) => s
@@ -800,7 +800,7 @@ fn typecheck_br_on_null(st : TcState, l : LabelIdx) -> TcResult {
   }
 
   // Fallthrough refines to non-null (ref ht)
-  Ok(st1.push1(ValType::ref_type(HeapTypeRefType(false, ht))))
+  Ok(st1.push1(ValType::ref_type(RefType::new(false, ht))))
 }
 
 ///|
@@ -825,7 +825,7 @@ fn typecheck_br_on_non_null(st : TcState, l : LabelIdx) -> TcResult {
   }
 
   // Label must end with NON-NULLABLE ref of same heap type
-  let non_null_rt = @lib.HeapTypeRefType(false, ht)
+  let non_null_rt = RefType::new(false, ht)
   let want_last = ValType::ref_type(non_null_rt)
   let last = label_ts[label_ts.length() - 1]
   if not(Match::matches(last, want_last, st.env)) {
@@ -849,8 +849,8 @@ fn typecheck_br_on_cast(
   ht2 : HeapType,
 ) -> TcResult {
   let CastOp(n1, n2) = op
-  let rt1 = @lib.HeapTypeRefType(n1, ht1)
-  let rt2 = @lib.HeapTypeRefType(n2, ht2)
+  let rt1 = RefType::new(n1, ht1)
+  let rt2 = RefType::new(n2, ht2)
   if Validate::validate(rt1, st.env) is Err(t) {
     return Err("Invalid BrOnCast: " + t)
   }
@@ -910,8 +910,8 @@ fn typecheck_br_on_cast_fail(
   ht2 : HeapType,
 ) -> TcResult {
   let CastOp(n1, n2) = op
-  let rt1 = @lib.HeapTypeRefType(n1, ht1)
-  let rt2 = @lib.HeapTypeRefType(n2, ht2)
+  let rt1 = RefType::new(n1, ht1)
+  let rt2 = RefType::new(n2, ht2)
   if Validate::validate(rt1, st.env) is Err(t) {
     return Err("Invalid RefType on BrOnCastFail: " + t)
   }
@@ -1016,7 +1016,7 @@ fn typecheck_catch_clause(st : TcState, c : Catch) -> TcResult {
       let expected = payload.copy()
       expected.push(
         ValType::ref_type(
-          HeapTypeRefType(false, HeapType::abs(AbsHeapType::exn())),
+          RefType::new(false, HeapType::abs(AbsHeapType::exn())),
         ),
       )
       if not(Match::matches(payload, label_types, st.env)) {
@@ -1047,7 +1047,7 @@ fn typecheck_catch_clause(st : TcState, c : Catch) -> TcResult {
       }
       let expected = [
         ValType::ref_type(
-          HeapTypeRefType(false, HeapType::abs(AbsHeapType::exn())),
+          RefType::new(false, HeapType::abs(AbsHeapType::exn())),
         ),
       ]
       if not(Match::matches(expected, label_types, st.env)) {
@@ -1397,7 +1397,7 @@ fn typecheck_ref_as_non_null(st : TcState) -> TcResult {
     RefTypeValType(rt) =>
       match rt {
         HeapTypeRefType(true, ht) =>
-          Ok(st1.push1(ValType::ref_type(HeapTypeRefType(false, ht))))
+          Ok(st1.push1(ValType::ref_type(RefType::new(false, ht))))
         HeapTypeRefType(false, _) =>
           Err("ref.as_non_null expects (ref null ht), got non-null ref")
         AbsHeapTypeRefType(_) =>
@@ -1425,7 +1425,7 @@ fn typecheck_ref_eq(st : TcState) -> TcResult {
 
 ///|
 fn typecheck_ref_test(st : TcState, nullable : Bool, ht : HeapType) -> TcResult {
-  let rt = @lib.HeapTypeRefType(nullable, ht)
+  let rt = RefType::new(nullable, ht)
   if Validate::validate(rt, st.env) is Err(t) {
     return Err("invalid ref.test target reftype: " + t)
   }
@@ -1447,7 +1447,7 @@ fn typecheck_ref_test(st : TcState, nullable : Bool, ht : HeapType) -> TcResult 
 
 ///|
 fn typecheck_ref_cast(st : TcState, nullable : Bool, ht : HeapType) -> TcResult {
-  let rt = @lib.HeapTypeRefType(nullable, ht)
+  let rt = RefType::new(nullable, ht)
   if Validate::validate(rt, st.env) is Err(t) {
     return Err("invalid ref.cast target reftype: " + t)
   }
@@ -1484,7 +1484,7 @@ fn typecheck_struct_new(st : TcState, x : TypeIdx) -> TcResult {
   }
 
   // push (ref x)
-  Ok(st1.push1(ValType::ref_type(HeapTypeRefType(false, HeapType::new(x)))))
+  Ok(st1.push1(ValType::ref_type(RefType::new(false, HeapType::new(x)))))
 }
 
 ///|
@@ -1500,7 +1500,7 @@ fn typecheck_struct_new_default(st : TcState, x : TypeIdx) -> TcResult {
       return Err("struct.new_default: no default for a non-null field type")
     }
   }
-  Ok(st.push1(ValType::ref_type(HeapTypeRefType(false, HeapType::new(x)))))
+  Ok(st.push1(ValType::ref_type(RefType::new(false, HeapType::new(x)))))
 }
 
 ///|
@@ -1519,7 +1519,7 @@ fn typecheck_struct_get(st : TcState, x : TypeIdx, i : U32) -> TcResult {
     )
   }
   let st1 = match
-    st.pop_expect(ValType::ref_type(HeapTypeRefType(true, HeapType::new(x)))) {
+    st.pop_expect(ValType::ref_type(RefType::new(true, HeapType::new(x)))) {
     Err(e) => return Err(e)
     Ok(s) => s
   }
@@ -1540,7 +1540,7 @@ fn typecheck_struct_get_s(st : TcState, x : TypeIdx, i : U32) -> TcResult {
     return Err("struct.get_s requires packed field")
   }
   let st1 = match
-    st.pop_expect(ValType::ref_type(HeapTypeRefType(true, HeapType::new(x)))) {
+    st.pop_expect(ValType::ref_type(RefType::new(true, HeapType::new(x)))) {
     Err(e) => return Err(e)
     Ok(s) => s
   }
@@ -1575,7 +1575,7 @@ fn typecheck_struct_set(st : TcState, x : TypeIdx, i : U32) -> TcResult {
     Ok(s) => s
   }
   let st2 = match
-    st1.pop_expect(ValType::ref_type(HeapTypeRefType(true, HeapType::new(x)))) {
+    st1.pop_expect(ValType::ref_type(RefType::new(true, HeapType::new(x)))) {
     Err(e) => return Err(e)
     Ok(s) => s
   }
@@ -2093,7 +2093,7 @@ fn typecheck_array_set(st : TcState, x : TypeIdx) -> TcResult {
 ///|
 fn typecheck_array_len(st : TcState) -> TcResult {
   let want = ValType::ref_type(
-    HeapTypeRefType(true, HeapType::abs(AbsHeapType::array())),
+    RefType::new(true, HeapType::abs(AbsHeapType::array())),
   )
   let st1 = match st.pop_expect(want) {
     Err(e) => return Err(e)
@@ -4517,42 +4517,42 @@ fn[T : Show] assert_err(result : Result[T, String]) -> Unit {
 
 ///|
 fn anyref_type() -> ValType {
-  ValType::ref_type(AbsHeapTypeRefType(AbsHeapType::any()))
+  ValType::ref_type(RefType::abs(AbsHeapType::any()))
 }
 
 ///|
 fn eqref_type() -> ValType {
-  ValType::ref_type(AbsHeapTypeRefType(AbsHeapType::eq()))
+  ValType::ref_type(RefType::abs(AbsHeapType::eq()))
 }
 
 ///|
 fn i31ref_type() -> ValType {
-  ValType::ref_type(HeapTypeRefType(false, HeapType::abs(AbsHeapType::i31())))
+  ValType::ref_type(RefType::new(false, HeapType::abs(AbsHeapType::i31())))
 }
 
 ///|
 fn nullable_funcref() -> ValType {
-  ValType::ref_type(HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())))
+  ValType::ref_type(RefType::new(true, HeapType::abs(AbsHeapType::func())))
 }
 
 ///|
 fn nullable_externref() -> ValType {
   ValType::ref_type(
-    HeapTypeRefType(true, HeapType::abs(AbsHeapType::extern_())),
+    RefType::new(true, HeapType::abs(AbsHeapType::extern_())),
   )
 }
 
 ///|
 fn non_nullable_funcref() -> ValType {
   ValType::ref_type(
-    HeapTypeRefType(false, HeapType::abs(AbsHeapType::func())),
+    RefType::new(false, HeapType::abs(AbsHeapType::func())),
   )
 }
 
 ///|
 fn non_nullable_externref() -> ValType {
   ValType::ref_type(
-    HeapTypeRefType(false, HeapType::abs(AbsHeapType::extern_())),
+    RefType::new(false, HeapType::abs(AbsHeapType::extern_())),
   )
 }
 
@@ -4967,7 +4967,7 @@ test "Typecheck GlobalSet immutable fails" {
 ///|
 test "Typecheck TableGet" {
   let table_type = @lib.TableType(
-    HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())),
+    RefType::new(true, HeapType::abs(AbsHeapType::func())),
     I32Limits(0, None),
   )
   let env : Env = { ..empty_env(), tables: [table_type] }
@@ -4981,7 +4981,7 @@ test "Typecheck TableGet" {
 ///|
 test "Typecheck TableSet" {
   let table_type = @lib.TableType(
-    HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())),
+    RefType::new(true, HeapType::abs(AbsHeapType::func())),
     I32Limits(0, None),
   )
   let env : Env = { ..empty_env(), tables: [table_type] }
@@ -4995,7 +4995,7 @@ test "Typecheck TableSet" {
 ///|
 test "Typecheck TableSize" {
   let table_type = @lib.TableType(
-    HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())),
+    RefType::new(true, HeapType::abs(AbsHeapType::func())),
     I32Limits(0, None),
   )
   let env : Env = { ..empty_env(), tables: [table_type] }
@@ -5009,7 +5009,7 @@ test "Typecheck TableSize" {
 ///|
 test "Typecheck TableGrow" {
   let table_type = @lib.TableType(
-    HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())),
+    RefType::new(true, HeapType::abs(AbsHeapType::func())),
     I32Limits(0, None),
   )
   let env : Env = { ..empty_env(), tables: [table_type] }
@@ -5023,7 +5023,7 @@ test "Typecheck TableGrow" {
 ///|
 test "Typecheck TableFill" {
   let table_type = @lib.TableType(
-    HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())),
+    RefType::new(true, HeapType::abs(AbsHeapType::func())),
     I32Limits(0, None),
   )
   let env : Env = { ..empty_env(), tables: [table_type] }
@@ -5041,7 +5041,7 @@ test "Typecheck TableFill" {
 ///|
 test "Typecheck TableCopy" {
   let table_type = @lib.TableType(
-    HeapTypeRefType(true, HeapType::abs(AbsHeapType::func())),
+    RefType::new(true, HeapType::abs(AbsHeapType::func())),
     I32Limits(0, None),
   )
   let env : Env = { ..empty_env(), tables: [table_type, table_type] }
@@ -6034,7 +6034,7 @@ test "Typecheck RefIsNull" {
 ///|
 test "Typecheck RefEq" {
   let eq_ref = ValType::ref_type(
-    HeapTypeRefType(true, HeapType::abs(AbsHeapType::eq())),
+    RefType::new(true, HeapType::abs(AbsHeapType::eq())),
   )
   let state = make_state(empty_env(), [eq_ref, eq_ref])
   let new_state = assert_ok(Typecheck::typecheck(@lib.RefEq, state))
@@ -6152,7 +6152,7 @@ test "Typecheck AnyConvertExtern" {
 ///|
 test "Typecheck ExternConvertAny" {
   let any_ref = ValType::ref_type(
-    HeapTypeRefType(true, HeapType::abs(AbsHeapType::any())),
+    RefType::new(true, HeapType::abs(AbsHeapType::any())),
   )
   let state = make_state(empty_env(), [any_ref])
   let result = Typecheck::typecheck(@lib.ExternConvertAny, state)
@@ -6625,7 +6625,7 @@ test "Typecheck CallIndirect" {
     FuncCompType([ValType::i32()], [ValType::i64()]),
   )
   let table_type = @lib.TableType(
-    AbsHeapTypeRefType(AbsHeapType::func()),
+    RefType::abs(AbsHeapType::func()),
     I32Limits(1, None),
   )
   let env = { ..empty_env(), global_types: [func_subtype] }.push_table(
@@ -6658,7 +6658,7 @@ test "Typecheck ReturnCallIndirect" {
     FuncCompType([ValType::i32()], [ValType::i64()]),
   )
   let table_type = @lib.TableType(
-    AbsHeapTypeRefType(AbsHeapType::func()),
+    RefType::abs(AbsHeapType::func()),
     I32Limits(1, None),
   )
   let env = { ..empty_env(), global_types: [func_subtype] }
@@ -6679,7 +6679,7 @@ test "Typecheck CallRef" {
     FuncCompType([ValType::i32()], [ValType::i64()]),
   )
   let env = { ..empty_env(), global_types: [func_subtype] }
-  let ref_type = ValType::ref_type(HeapTypeRefType(false, HeapType::new(TypeIdx(0))))
+  let ref_type = ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx(0))))
   let state = make_state(env, [ValType::i32(), ref_type])
   let result = Typecheck::typecheck(@lib.CallRef(TypeIdx(0)), state)
   let final_state = assert_ok(result)
@@ -6694,7 +6694,7 @@ test "Typecheck ReturnCallRef" {
   let env = { ..empty_env(), global_types: [func_subtype] }.with_return_type(
     Some([ValType::i64()]),
   )
-  let ref_type = ValType::ref_type(HeapTypeRefType(false, HeapType::new(TypeIdx(0))))
+  let ref_type = ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx(0))))
   let state = make_state(env, [ValType::i32(), ref_type])
   let result = Typecheck::typecheck(@lib.ReturnCallRef(TypeIdx(0)), state)
   let final_state = assert_ok(result)
@@ -6812,7 +6812,7 @@ test "Typecheck RefCast non-nullable" {
 ///|
 test "Typecheck BrOnCast" {
   let nullable_i31 = ValType::ref_type(
-    HeapTypeRefType(true, HeapType::abs(AbsHeapType::i31())),
+    RefType::new(true, HeapType::abs(AbsHeapType::i31())),
   )
   let env = empty_env().with_labels([[nullable_i31]])
   let state = make_state(env, [anyref_type()])
@@ -6869,7 +6869,7 @@ test "Typecheck Throw invalid tag" {
 ///|
 test "Typecheck ThrowRef" {
   let exnref = ValType::ref_type(
-    HeapTypeRefType(false, HeapType::abs(AbsHeapType::exn())),
+    RefType::new(false, HeapType::abs(AbsHeapType::exn())),
   )
   let env = empty_env()
   let state = make_state(env, [exnref])
@@ -6938,7 +6938,7 @@ test "Typecheck StructGet" {
   )
   let env = { ..empty_env(), global_types: [struct_type] }
   let struct_ref = ValType::ref_type(
-    HeapTypeRefType(false, HeapType::new(TypeIdx(0))),
+    RefType::new(false, HeapType::new(TypeIdx(0))),
   )
   let state = make_state(env, [struct_ref])
   let result = Typecheck::typecheck(@lib.StructGet(TypeIdx(0), U32(0)), state)
@@ -6953,7 +6953,7 @@ test "Typecheck StructGetS" {
   )
   let env = { ..empty_env(), global_types: [struct_type] }
   let struct_ref = ValType::ref_type(
-    HeapTypeRefType(false, HeapType::new(TypeIdx(0))),
+    RefType::new(false, HeapType::new(TypeIdx(0))),
   )
   let state = make_state(env, [struct_ref])
   let result = Typecheck::typecheck(@lib.StructGetS(TypeIdx(0), U32(0)), state)
@@ -6968,7 +6968,7 @@ test "Typecheck StructGetU" {
   )
   let env = { ..empty_env(), global_types: [struct_type] }
   let struct_ref = ValType::ref_type(
-    HeapTypeRefType(false, HeapType::new(TypeIdx(0))),
+    RefType::new(false, HeapType::new(TypeIdx(0))),
   )
   let state = make_state(env, [struct_ref])
   let result = Typecheck::typecheck(@lib.StructGetU(TypeIdx(0), U32(0)), state)
@@ -6983,7 +6983,7 @@ test "Typecheck StructSet" {
   )
   let env = { ..empty_env(), global_types: [struct_type] }
   let struct_ref = ValType::ref_type(
-    HeapTypeRefType(false, HeapType::new(TypeIdx(0))),
+    RefType::new(false, HeapType::new(TypeIdx(0))),
   )
   let state = make_state(env, [struct_ref, ValType::i32()])
   let result = Typecheck::typecheck(@lib.StructSet(TypeIdx(0), U32(0)), state)
@@ -7052,7 +7052,7 @@ test "Typecheck ArrayNewData" {
 
 ///|
 test "Typecheck ArrayNewElem" {
-  let funcref = @lib.AbsHeapTypeRefType(AbsHeapType::func())
+  let funcref = RefType::abs(AbsHeapType::func())
   let array_type = @lib.CompTypeSubType(
     ArrayCompType(
       FieldType(ValTypeStorageType(ValType::ref_type(funcref)), Var),
@@ -7076,7 +7076,7 @@ test "Typecheck ArrayGet" {
   )
   let env = { ..empty_env(), global_types: [array_type] }
   let array_ref = ValType::ref_type(
-    HeapTypeRefType(false, HeapType::new(TypeIdx(0))),
+    RefType::new(false, HeapType::new(TypeIdx(0))),
   )
   let state = make_state(env, [array_ref, ValType::i32()])
   let result = Typecheck::typecheck(@lib.ArrayGet(TypeIdx(0)), state)
@@ -7091,7 +7091,7 @@ test "Typecheck ArrayGetS" {
   )
   let env = { ..empty_env(), global_types: [array_type] }
   let array_ref = ValType::ref_type(
-    HeapTypeRefType(false, HeapType::new(TypeIdx(0))),
+    RefType::new(false, HeapType::new(TypeIdx(0))),
   )
   let state = make_state(env, [array_ref, ValType::i32()])
   let result = Typecheck::typecheck(@lib.ArrayGetS(TypeIdx(0)), state)
@@ -7106,7 +7106,7 @@ test "Typecheck ArrayGetU" {
   )
   let env = { ..empty_env(), global_types: [array_type] }
   let array_ref = ValType::ref_type(
-    HeapTypeRefType(false, HeapType::new(TypeIdx(0))),
+    RefType::new(false, HeapType::new(TypeIdx(0))),
   )
   let state = make_state(env, [array_ref, ValType::i32()])
   let result = Typecheck::typecheck(@lib.ArrayGetU(TypeIdx(0)), state)
@@ -7121,7 +7121,7 @@ test "Typecheck ArraySet" {
   )
   let env = { ..empty_env(), global_types: [array_type] }
   let array_ref = ValType::ref_type(
-    HeapTypeRefType(false, HeapType::new(TypeIdx(0))),
+    RefType::new(false, HeapType::new(TypeIdx(0))),
   )
   let state = make_state(env, [array_ref, ValType::i32(), ValType::i32()])
   let result = Typecheck::typecheck(@lib.ArraySet(TypeIdx(0)), state)
@@ -7132,7 +7132,7 @@ test "Typecheck ArraySet" {
 ///|
 test "Typecheck ArrayLen" {
   let array_ref = ValType::ref_type(
-    HeapTypeRefType(false, HeapType::abs(AbsHeapType::array())),
+    RefType::new(false, HeapType::abs(AbsHeapType::array())),
   )
   let env = empty_env()
   let state = make_state(env, [array_ref])
@@ -7148,7 +7148,7 @@ test "Typecheck ArrayFill" {
   )
   let env = { ..empty_env(), global_types: [array_type] }
   let array_ref = ValType::ref_type(
-    HeapTypeRefType(false, HeapType::new(TypeIdx(0))),
+    RefType::new(false, HeapType::new(TypeIdx(0))),
   )
   let state = make_state(env, [
     array_ref,
@@ -7168,7 +7168,7 @@ test "Typecheck ArrayCopy" {
   )
   let env = { ..empty_env(), global_types: [array_type] }
   let array_ref = ValType::ref_type(
-    HeapTypeRefType(false, HeapType::new(TypeIdx(0))),
+    RefType::new(false, HeapType::new(TypeIdx(0))),
   )
   let state = make_state(env, [
     array_ref,
@@ -7193,7 +7193,7 @@ test "Typecheck ArrayInitData" {
   let data = @lib.Data(Passive, b"")
   let env = { ..empty_env(), global_types: [array_type] }.push_data(data)
   let array_ref = ValType::ref_type(
-    HeapTypeRefType(false, HeapType::new(TypeIdx(0))),
+    RefType::new(false, HeapType::new(TypeIdx(0))),
   )
   let state = make_state(env, [
     array_ref,
@@ -7211,7 +7211,7 @@ test "Typecheck ArrayInitData" {
 
 ///|
 test "Typecheck ArrayInitElem" {
-  let funcref = @lib.AbsHeapTypeRefType(AbsHeapType::func())
+  let funcref = RefType::abs(AbsHeapType::func())
   let array_type = @lib.CompTypeSubType(
     ArrayCompType(
       FieldType(ValTypeStorageType(ValType::ref_type(funcref)), Var),
@@ -7220,7 +7220,7 @@ test "Typecheck ArrayInitElem" {
   let elem = Elem::new(ElemMode::passive(), ElemKind::funcs([]))
   let env = { ..empty_env(), global_types: [array_type] }.push_elem(elem)
   let array_ref = ValType::ref_type(
-    HeapTypeRefType(false, HeapType::new(TypeIdx(0))),
+    RefType::new(false, HeapType::new(TypeIdx(0))),
   )
   let state = make_state(env, [
     array_ref,
@@ -7279,7 +7279,7 @@ test "Typecheck DataDrop invalid index" {
 ///|
 test "Typecheck TableInit" {
   let table_type = @lib.TableType(
-    AbsHeapTypeRefType(AbsHeapType::func()),
+    RefType::abs(AbsHeapType::func()),
     I32Limits(1, None),
   )
   let elem = Elem::new(ElemMode::passive(), ElemKind::funcs([]))

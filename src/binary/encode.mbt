@@ -187,17 +187,17 @@ pub impl Decode for RefType with decode(bytes, i) {
     Some(0x63) =>
       match Decode::decode(bytes, i + 1) {
         Err(err) => Err(err)
-        Ok((ht, i)) => Ok((HeapTypeRefType(true, ht), i))
+        Ok((ht, i)) => Ok((RefType::new(true, ht), i))
       }
     Some(0x64) =>
       match Decode::decode(bytes, i + 1) {
         Err(err) => Err(err)
-        Ok((ht, i)) => Ok((HeapTypeRefType(false, ht), i))
+        Ok((ht, i)) => Ok((RefType::new(false, ht), i))
       }
     Some(_) =>
       match Decode::decode(bytes, i) {
         Err(err) => Err(err)
-        Ok((abs, i)) => Ok((AbsHeapTypeRefType(abs), i))
+        Ok((abs, i)) => Ok((RefType::abs(abs), i))
       }
   }
 }
@@ -1454,7 +1454,7 @@ pub impl Encode for Elem with encode(val, buf) {
     // Encoder fixes - add funcref reftype
     Elem(Passive, FuncExprsElemKind(es)) => {
       buf.write_byte(0x05)
-      let rt = @lib.HeapTypeRefType(true, HeapType::abs(AbsHeapType::func()))
+      let rt = RefType::new(true, HeapType::abs(AbsHeapType::func()))
       if Encode::encode(rt, buf) is Err(t) {
         return Err(t)
       }
@@ -1472,7 +1472,7 @@ pub impl Encode for Elem with encode(val, buf) {
       Encode::encode(es, buf)
     }
     Elem(Declarative, FuncExprsElemKind(es)) => {
-      let rt = @lib.HeapTypeRefType(true, HeapType::abs(AbsHeapType::func()))
+      let rt = RefType::new(true, HeapType::abs(AbsHeapType::func()))
       buf.write_byte(0x07)
       if Encode::encode(rt, buf) is Err(t) {
         return Err(t)
@@ -5982,7 +5982,7 @@ test "Comp Types" {
       FieldType(
         ValTypeStorageType(
           ValType::ref_type(
-            HeapTypeRefType(true, HeapType::abs(AbsHeapType::i31())),
+            RefType::new(true, HeapType::abs(AbsHeapType::i31())),
           ),
         ),
         Var,
