@@ -197,7 +197,7 @@ pub enum ElemKind {
 } derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) struct Elem(ElemMode, ElemKind) derive(Eq, Hash)
+pub struct Elem(ElemMode, ElemKind) derive(Eq, Hash)
 
 ///|
 pub struct Expr(Array[Instruction]) derive(Eq, Hash)

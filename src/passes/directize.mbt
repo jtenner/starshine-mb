@@ -473,7 +473,7 @@ test "directize: out-of-bounds constant index becomes unreachable" {
     )
     .with_elem_sec(
       ElemSec([
-        Elem(
+        Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0)]),
         ),
@@ -525,7 +525,7 @@ test "directize: null entry in table becomes unreachable" {
     )
     .with_elem_sec(
       ElemSec([
-        Elem(
+        Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0)]),
         ),
@@ -574,7 +574,7 @@ test "directize: non-constant index is not transformed" {
     )
     .with_elem_sec(
       ElemSec([
-        Elem(
+        Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0)]),
         ),
@@ -630,7 +630,7 @@ test "directize: type mismatch becomes unreachable" {
     )
     .with_elem_sec(
       ElemSec([
-        Elem(
+        Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0)]),
         ),
@@ -682,7 +682,7 @@ test "directize: table.set prevents optimization" {
     )
     .with_elem_sec(
       ElemSec([
-        Elem(
+        Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0)]),
         ),
@@ -735,7 +735,7 @@ test "directize: table.fill prevents optimization" {
     )
     .with_elem_sec(
       ElemSec([
-        Elem(
+        Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0)]),
         ),
@@ -860,7 +860,9 @@ test "directize: table.init prevents optimization" {
       ]),
     )
     .with_elem_sec(
-      ElemSec([Elem(ElemMode::passive(), ElemKind::funcs([FuncIdx::new(0)]))]),
+      ElemSec([
+        Elem::new(ElemMode::passive(), ElemKind::funcs([FuncIdx::new(0)])),
+      ]),
     )
     .with_code_sec(
       CodeSec([
@@ -912,7 +914,7 @@ test "directize: table.grow marks table as growable" {
     )
     .with_elem_sec(
       ElemSec([
-        Elem(
+        Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0)]),
         ),
@@ -967,7 +969,7 @@ test "directize: initial_immutable=false prevents optimization" {
     )
     .with_elem_sec(
       ElemSec([
-        Elem(
+        Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0)]),
         ),
@@ -1020,7 +1022,7 @@ test "directize: return_call_indirect with constant index" {
     )
     .with_elem_sec(
       ElemSec([
-        Elem(
+        Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0)]),
         ),
@@ -1068,7 +1070,7 @@ test "directize: return_call_indirect out of bounds becomes unreachable" {
     )
     .with_elem_sec(
       ElemSec([
-        Elem(
+        Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0)]),
         ),
@@ -1120,7 +1122,7 @@ test "directize: select-based call_indirect with both branches known" {
     )
     .with_elem_sec(
       ElemSec([
-        Elem(
+        Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0), FuncIdx::new(1)]),
         ),
@@ -1173,7 +1175,7 @@ test "directize: select-based call_indirect with one branch trapping" {
     )
     .with_elem_sec(
       ElemSec([
-        Elem(
+        Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0)]),
         ),
@@ -1237,7 +1239,7 @@ test "directize: select-based call_indirect with unknown branch not transformed"
     )
     .with_elem_sec(
       ElemSec([
-        Elem(
+        Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0)]),
         ),
@@ -1305,7 +1307,7 @@ test "directize: br_table-based call_indirect with all branches known" {
     )
     .with_elem_sec(
       ElemSec([
-        Elem(
+        Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0), FuncIdx::new(1), FuncIdx::new(2)]),
         ),
@@ -1361,7 +1363,9 @@ test "directize: passive element segment doesn't initialize table" {
       ]),
     )
     .with_elem_sec(
-      ElemSec([Elem(ElemMode::passive(), ElemKind::funcs([FuncIdx::new(0)]))]),
+      ElemSec([
+        Elem::new(ElemMode::passive(), ElemKind::funcs([FuncIdx::new(0)])),
+      ]),
     ) // Passive, not active
     .with_code_sec(
       CodeSec([
@@ -1405,7 +1409,7 @@ test "directize: declarative element segment doesn't initialize table" {
     )
     .with_elem_sec(
       ElemSec([
-        Elem(ElemMode::declarative(), ElemKind::funcs([FuncIdx::new(0)])),
+        Elem::new(ElemMode::declarative(), ElemKind::funcs([FuncIdx::new(0)])),
       ]),
     ) // Declarative
     .with_code_sec(
@@ -1455,7 +1459,7 @@ test "directize: element segment with non-constant offset marks table mutable" {
     )
     .with_elem_sec(
       ElemSec([
-        Elem(
+        Elem::new(
           ElemMode::active(
             TableIdx::new(0),
             Expr::new([GlobalGet(GlobalIdx::new(0))]),
@@ -1507,7 +1511,7 @@ test "directize: element segment with expression kind marks table mutable" {
     )
     .with_elem_sec(
       ElemSec([
-        Elem(
+        Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::func_exprs([Expr::new([RefFunc(FuncIdx::new(0))])]),
         ),
@@ -1566,11 +1570,11 @@ test "directize: multiple tables, only one modified" {
     )
     .with_elem_sec(
       ElemSec([
-        Elem(
+        Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0)]),
         ),
-        Elem(
+        Elem::new(
           ElemMode::active(TableIdx::new(1), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(1)]),
         ),
@@ -1647,7 +1651,7 @@ test "directize: arguments are propagated to direct call" {
     )
     .with_elem_sec(
       ElemSec([
-        Elem(
+        Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0)]),
         ),
@@ -1700,7 +1704,7 @@ test "directize: negative index (interpreted as large unsigned) becomes unreacha
     )
     .with_elem_sec(
       ElemSec([
-        Elem(
+        Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0)]),
         ),
@@ -1817,7 +1821,7 @@ test "directize: element segment at offset beyond initial table entries" {
     )
     .with_elem_sec(
       ElemSec([
-        Elem(
+        Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(2))])),
           ElemKind::funcs([FuncIdx::new(0), FuncIdx::new(1)]),
         ),
@@ -1890,7 +1894,7 @@ test "directize: table with i64 limits" {
     )
     .with_elem_sec(
       ElemSec([
-        Elem(
+        Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0)]),
         ),

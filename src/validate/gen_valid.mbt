@@ -738,7 +738,7 @@ pub fn gen_elemsec_valid(
     } else {
       gen_elem_kind_funcs(rnd, env)
     }
-    let elem = @lib.Elem(mode, kind)
+    let elem = Elem::new(mode, kind)
     elems.push(elem)
     // Update env with new elem
     let elems_arr = env.elems.copy()

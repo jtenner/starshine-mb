@@ -54,6 +54,8 @@ using @lib {
   type MemIdx,
   type ElemIdx,
   type GlobalIdx,
+  type LocalGraph,
+  type LocalSet,
 }
 
 ///|

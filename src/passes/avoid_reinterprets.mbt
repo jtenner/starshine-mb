@@ -1,1 +1,301 @@
+///|
+fn is_reinterpret(op : UnaryOp) -> Bool {
+  match op {
+    UnaryOp::I32ReinterpretF32Op => true
+    UnaryOp::I64ReinterpretF64Op => true
+    UnaryOp::F32ReinterpretI32Op => true
+    UnaryOp::F64ReinterpretI64Op => true
+    _ => false
+  }
+}
 
+///|
+fn reinterpret_load_op(op : LoadOp) -> LoadOp? {
+  match op {
+    LoadOp::F32LoadOp => Some(LoadOp::i32_load())
+    LoadOp::I32LoadOp => Some(LoadOp::f32_load())
+    LoadOp::F64LoadOp => Some(LoadOp::i64_load())
+    LoadOp::I64LoadOp => Some(LoadOp::f64_load())
+    _ => None
+  }
+}
+
+///|
+fn reinterpret_compatible(op : UnaryOp, load_op : LoadOp) -> Bool {
+  match (op, load_op) {
+    (UnaryOp::I32ReinterpretF32Op, LoadOp::F32LoadOp) => true
+    (UnaryOp::F32ReinterpretI32Op, LoadOp::I32LoadOp) => true
+    (UnaryOp::I64ReinterpretF64Op, LoadOp::F64LoadOp) => true
+    (UnaryOp::F64ReinterpretI64Op, LoadOp::I64LoadOp) => true
+    _ => false
+  }
+}
+
+///|
+fn rewrite_reinterpret_of_load(instr : TInstr) -> TInstr? {
+  match instr {
+    TUnary(op, TLoad(load_op, memarg, ptr)) => {
+      if !reinterpret_compatible(op, load_op) {
+        return None
+      }
+      match reinterpret_load_op(load_op) {
+        Some(new_op) => Some(TInstr::TLoad(new_op, memarg, ptr))
+        None => None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn get_single_load_from_local(
+  graph : LocalGraph,
+  get_idx : Int,
+) -> (LoadOp, MemArg, TInstr)? {
+  let sets = graph.get_sets(get_idx)
+  if sets.length() != 1 {
+    return None
+  }
+  match sets.to_array()[0] {
+    LocalSet::Set(_, TInstr::TLocalSet(_, TInstr::TLoad(op, memarg, ptr))) =>
+      Some((op, memarg, ptr))
+    _ => None
+  }
+}
+
+///|
+fn avoid_reinterprets() -> ModuleTransformer[(LocalGraph, Int)] {
+  ModuleTransformer::{
+    ..ModuleTransformer::new()
+
+    // Phase 1: build LocalGraph
+    ,
+    on_func: Some(fn(self, _, func) {
+      match func {
+        Func(_) => Err("Expected TFunc")
+        TFunc(_, body) => {
+          println("ANALYSIS order:")
+          for t in body.0.iter2() {
+            let (i, instr) = t
+            println((i, instr))
+          }
+          let graph = LocalGraph::new(body.0)
+          self.walk_func_default((graph, 0), func)
+        }
+      }
+    }),
+
+    // Phase 2: rewrite
+    on_tinstruction: Some(fn(_, state, instr) {
+      let (graph, idx) = state
+      let cur_idx = idx
+      let next_state = match instr {
+        TInstr::TUnary(_, TInstr::TLocalGet(_)) => (graph, idx + 1)
+        _ => (graph, idx)
+      }
+
+      // Case A: reinterpret(load)
+      if rewrite_reinterpret_of_load(instr) is Some(new_instr) {
+        return change(next_state, new_instr)
+      }
+
+      // Case B: reinterpret(local.get)
+      match instr {
+        TInstr::TUnary(op, TInstr::TLocalGet(_)) if is_reinterpret(op) =>
+          match get_single_load_from_local(graph, cur_idx) {
+            Some((load_op, memarg, ptr)) =>
+              match reinterpret_load_op(load_op) {
+                Some(new_op) =>
+                  change(next_state, TInstr::TLoad(new_op, memarg, ptr))
+                None => change(next_state, instr)
+              }
+            None => change(next_state, instr)
+          }
+        _ => unchanged()
+      }
+    }),
+  }
+}
+
+///|
+test "AvoidReinterprets: rewrite reinterpret(load)" {
+  let instr = TInstr::unary(
+    UnaryOp::i32_reinterpret_f32(),
+    TInstr::load(
+      LoadOp::f32_load(),
+      MemArg::new(0, None, 0),
+      TInstr::i32_const(I32(0)),
+    ),
+  )
+  let expr = TExpr::new([instr])
+  let func = Func::t_func([], expr)
+  let pass = avoid_reinterprets()
+  let (_, new_func) = pass
+    .walk_func((LocalGraph::new(expr.0), 0), func)
+    .unwrap()
+    .unwrap()
+  match new_func {
+    TFunc(_, TExpr(instrs)) =>
+      match instrs[0] {
+        TInstr::TLoad(LoadOp::I32LoadOp, _, _) => ()
+        _ => fail("expected i32.load")
+      }
+    _ => fail("expected TFunc")
+  }
+}
+
+///|
+test "AvoidReinterprets: rewrite reinterpret(local.get) with single load" {
+  let x = LocalIdx::new(0)
+  let instrs = [
+    TInstr::local_set(
+      x,
+      TInstr::load(
+        LoadOp::f32_load(),
+        MemArg::new(0, None, 0),
+        TInstr::i32_const(I32(0)),
+      ),
+    ),
+    TInstr::unary(UnaryOp::i32_reinterpret_f32(), TInstr::local_get(x)),
+  ]
+  let expr = TExpr::new(instrs)
+  let func = Func::t_func([], expr)
+  let mod = Module::new().with_code_sec(CodeSec::new([func]))
+  let pass = avoid_reinterprets()
+  let dummy_graph = LocalGraph::new([])
+  let initial_state = (dummy_graph, 0)
+  let (_, new_module) = pass.walk_module(initial_state, mod).unwrap().unwrap()
+  let CodeSec(funcs) = new_module.code_sec.unwrap()
+  let new_func = funcs[0]
+  match new_func {
+    TFunc(_, TExpr(new_instrs)) =>
+      match new_instrs[1] {
+        TInstr::TLoad(LoadOp::I32LoadOp, _, _) => ()
+        _ => fail("expected i32.load")
+      }
+    _ => fail("expected TFunc")
+  }
+}
+
+///|
+test "AvoidReinterprets: do not rewrite when multiple defining loads exist" {
+  let x = LocalIdx::new(0)
+  let instrs = [
+    TInstr::local_set(
+      x,
+      TInstr::load(
+        LoadOp::f32_load(),
+        MemArg::new(0, None, 0),
+        TInstr::i32_const(I32(0)),
+      ),
+    ),
+    TInstr::local_set(
+      x,
+      TInstr::load(
+        LoadOp::f32_load(),
+        MemArg::new(4, None, 0),
+        TInstr::i32_const(I32(0)),
+      ),
+    ),
+    TInstr::unary(UnaryOp::i32_reinterpret_f32(), TInstr::local_get(x)),
+  ]
+  let expr = TExpr::new(instrs)
+  let func = Func::t_func([], expr)
+  let pass = avoid_reinterprets()
+  let (_, new_func) = pass
+    .walk_func((LocalGraph::new(expr.0), 0), func)
+    .unwrap()
+    .unwrap()
+  match new_func {
+    TFunc(_, TExpr(new_instrs)) =>
+      match new_instrs[2] {
+        TInstr::TLoad(LoadOp::I32LoadOp, _, _) => ()
+        _ => fail("expected i32.load")
+      }
+    _ => fail("expected TFunc")
+  }
+}
+
+///|
+test "AvoidReinterprets: unrelated instructions are unchanged" {
+  let instr = TInstr::unary(UnaryOp::i32_eqz(), TInstr::i32_const(I32(0)))
+  let expr = TExpr::new([instr])
+  let func = Func::t_func([], expr)
+  let pass = avoid_reinterprets()
+  let (_, new_func) = pass
+    .walk_func((LocalGraph::new(expr.0), 0), func)
+    .unwrap()
+    .unwrap()
+  assert_eq(new_func, func)
+}
+
+///|
+test "AvoidReinterprets: reinterpret of non-load is unchanged" {
+  let instr = TInstr::unary(
+    UnaryOp::i32_reinterpret_f32(),
+    TInstr::i32_const(I32(42)),
+  )
+  let expr = TExpr::new([instr])
+  let func = Func::t_func([], expr)
+  let pass = avoid_reinterprets()
+  let (_, new_func) = pass
+    .walk_func((LocalGraph::new(expr.0), 0), func)
+    .unwrap()
+    .unwrap()
+  assert_eq(new_func, func)
+}
+
+///|
+test "AvoidReinterprets: reinterpret with mismatched load type is unchanged" {
+  let instr = TInstr::unary(
+    UnaryOp::i64_reinterpret_f64(),
+    TInstr::load(
+      LoadOp::f32_load(), // mismatch
+      MemArg::new(0, None, 0),
+      TInstr::i32_const(I32(0)),
+    ),
+  )
+  let expr = TExpr::new([instr])
+  let func = Func::t_func([], expr)
+  let pass = avoid_reinterprets()
+  let (_, new_func) = pass
+    .walk_func((LocalGraph::new(expr.0), 0), func)
+    .unwrap()
+    .unwrap()
+  assert_eq(new_func, func)
+}
+
+///|
+test "AvoidReinterprets: reinterpret(local.get) inside expression" {
+  let x = LocalIdx::new(0)
+  let instrs = [
+    TInstr::local_set(
+      x,
+      TInstr::load(
+        LoadOp::f32_load(),
+        MemArg::new(0, None, 0),
+        TInstr::i32_const(I32(0)),
+      ),
+    ),
+    TInstr::binary(
+      BinaryOp::i32_add(),
+      TInstr::unary(UnaryOp::i32_reinterpret_f32(), TInstr::local_get(x)),
+      TInstr::i32_const(I32(1)),
+    ),
+  ]
+  let expr = TExpr::new(instrs)
+  let func = Func::t_func([], expr)
+  let pass = avoid_reinterprets()
+  let (_, new_func) = pass
+    .walk_func((LocalGraph::new(expr.0), 0), func)
+    .unwrap()
+    .unwrap()
+  match new_func {
+    TFunc(_, TExpr(new_instrs)) =>
+      match new_instrs[1] {
+        TInstr::TBinary(_, TInstr::TLoad(LoadOp::I32LoadOp, _, _), _) => ()
+        _ => fail("expected i32.load inside binary expression")
+      }
+    _ => fail("expected TFunc")
+  }
+}

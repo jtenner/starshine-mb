@@ -4,6 +4,7 @@ package "jtenner/starshine/lib"
 import(
   "moonbitlang/core/quickcheck"
   "moonbitlang/core/quickcheck/splitmix"
+  "moonbitlang/core/set"
 )
 
 // Values
@@ -641,7 +642,7 @@ pub impl Hash for DefType
 pub impl Show for DefType
 pub impl @quickcheck.Arbitrary for DefType
 
-pub(all) struct Elem(ElemMode, ElemKind)
+pub struct Elem(ElemMode, ElemKind)
 
 
 pub fn Elem::new(ElemMode, ElemKind) -> Self
@@ -2054,6 +2055,12 @@ pub impl Eq for LoadOp
 pub impl Hash for LoadOp
 pub impl Show for LoadOp
 
+pub struct LocalGraph {
+  get_sets : Map[Int, @set.Set[LocalSet]]
+}
+pub fn LocalGraph::get_sets(Self, Int) -> @set.Set[LocalSet]
+pub fn LocalGraph::new(Array[TInstr]) -> Self
+
 pub struct LocalIdx(UInt)
 #deprecated
 pub fn LocalIdx::inner(Self) -> UInt
@@ -2062,6 +2069,13 @@ pub impl Eq for LocalIdx
 pub impl Hash for LocalIdx
 pub impl Show for LocalIdx
 pub impl @quickcheck.Arbitrary for LocalIdx
+
+pub enum LocalSet {
+  InitValue
+  Set(LocalIdx, TInstr)
+}
+pub impl Eq for LocalSet
+pub impl Hash for LocalSet
 
 pub(all) struct Locals(UInt, ValType)
 

@@ -9,9 +9,7 @@ pub trait Decode {
 }
 
 ///|
-using @lib {
-  
-}
+using @lib {}
 
 ///|
 pub impl Encode for NumType with encode(val, buf) {
@@ -1770,7 +1768,7 @@ pub impl Decode for Elem with decode(bytes, i) {
             Ok((fidxs, i)) =>
               Ok(
                 (
-                  Elem(
+                  Elem::new(
                     ElemMode::active(TableIdx::new(0), expr),
                     ElemKind::funcs(fidxs),
                   ),
@@ -1786,7 +1784,7 @@ pub impl Decode for Elem with decode(bytes, i) {
         Some(0x00) =>
           match Decode::decode(bytes, i + 2) {
             Ok((fidxs, i)) =>
-              Ok((Elem(ElemMode::passive(), ElemKind::funcs(fidxs)), i))
+              Ok((Elem::new(ElemMode::passive(), ElemKind::funcs(fidxs)), i))
             Err(t) => Err(t)
           }
         _ => Err("Invalid elem header")
@@ -1802,7 +1800,7 @@ pub impl Decode for Elem with decode(bytes, i) {
                     Ok((fidxs, i)) =>
                       Ok(
                         (
-                          Elem(
+                          Elem::new(
                             ElemMode::active(TableIdx::new(idx), expr),
                             ElemKind::funcs(fidxs),
                           ),
@@ -1822,7 +1820,9 @@ pub impl Decode for Elem with decode(bytes, i) {
         Some(0x00) =>
           match Decode::decode(bytes, i + 2) {
             Ok((fidxs, i)) =>
-              Ok((Elem(ElemMode::declarative(), ElemKind::funcs(fidxs)), i))
+              Ok(
+                (Elem::new(ElemMode::declarative(), ElemKind::funcs(fidxs)), i),
+              )
             Err(t) => Err(t)
           }
         _ => Err("Invalid elem header")
@@ -1834,7 +1834,7 @@ pub impl Decode for Elem with decode(bytes, i) {
             Ok((exprs, i)) =>
               Ok(
                 (
-                  Elem(
+                  Elem::new(
                     ElemMode::active(TableIdx::new(0), expr),
                     ElemKind::func_exprs(exprs),
                   ),
@@ -1851,7 +1851,13 @@ pub impl Decode for Elem with decode(bytes, i) {
           match Decode::decode(bytes, i) {
             Ok((exprs, i)) =>
               Ok(
-                (Elem(ElemMode::passive(), ElemKind::typed_exprs(rt, exprs)), i),
+                (
+                  Elem::new(
+                    ElemMode::passive(),
+                    ElemKind::typed_exprs(rt, exprs),
+                  ),
+                  i,
+                ),
               )
             Err(t) => Err(t)
           }
@@ -1866,7 +1872,7 @@ pub impl Decode for Elem with decode(bytes, i) {
                 Ok((exprs, i)) =>
                   Ok(
                     (
-                      Elem(
+                      Elem::new(
                         ElemMode::active(idx, expr),
                         ElemKind::func_exprs(exprs),
                       ),
