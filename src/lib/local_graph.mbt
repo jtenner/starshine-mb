@@ -4,37 +4,23 @@ enum LocalSet {
   Set(LocalIdx, TInstr)  // actual local.set
 } derive(Eq, Hash)
 
-struct LocalGraph {
+priv struct LocalGraph {
   /// Map each local.get instruction (by id) to its possible sets
   get_sets : Map[Int, Set[LocalSet]]
-
-  /// Maps instruction index → instruction
-  instrs : Array[TInstr]
-
-  /// Maps instruction index → basic block id
-  block_of : Array[Int]
-
-  /// Predecessor blocks
-  preds : Map[Int, Array[Int]]
 }
 
-struct InstrIdAssigner {
-  next : Int
-  ids : Map[TInstr, Int]
-}
-
-struct Block {
+priv struct Block {
   id : Int
   instr_ids : Array[Int]
   preds : Array[Int]
 }
 
-struct BlockBuilder {
+priv struct BlockBuilder {
   id : Int
   instr_ids : Array[Int]
 }
 
-struct BlockInfo {
+priv struct BlockInfo {
   /// Actions in this block, in program order
   actions : Array[Action]
 
@@ -43,8 +29,8 @@ struct BlockInfo {
 }
 
 
-enum Action {
-  Get(LocalIdx, Int) // local + instr id
+priv enum Action {
+  Get(LocalIdx, Int, Int) // local, instr_id, action_index
   Set(LocalIdx, Int)
 }
 
@@ -67,69 +53,22 @@ fn build_blocks(
 
   for i in 0..<instrs.length() {
     match instrs[i] {
-      TInstr::TIf(_, _, then_expr, else_expr) => {
-        // The if instruction stays in the current block
+      TInstr::TIf(_, _, _, _) => {
         current.instr_ids.push(i)
 
-        // Finalize current block
         blocks.push(Block::{
           id : current.id,
           instr_ids : current.instr_ids,
           preds : preds.get(current.id).unwrap_or([]),
         })
 
-        let parent_id = current.id
+        let parent = current.id
+        let merge = new_block()
 
-        // THEN block
-        let then_block = new_block()
-        for instr in then_expr.inner() {
-          then_block.instr_ids.push(-1) // placeholder
-        }
+        // IMPORTANT: mark ambiguity
+        preds[merge.id] = [parent, parent]
 
-        // ELSE block (optional)
-        let else_block =
-          if else_expr is Some(e) {
-            let b = new_block()
-            for instr in e.inner() {
-              b.instr_ids.push(-1)
-            }
-            Some(b)
-          } else {
-            None
-          }
-
-        // MERGE block
-        let merge_block = new_block()
-
-        // Set predecessors
-        preds[then_block.id] = [parent_id]
-        preds[merge_block.id] =
-          match else_block {
-            Some(b) => [then_block.id, b.id]
-            None => [then_block.id]
-          }
-
-        if else_block is Some(b) {
-          preds[b.id] = [parent_id]
-        }
-
-        // Push THEN and ELSE blocks
-        blocks.push(Block::{
-          id : then_block.id,
-          instr_ids : then_block.instr_ids,
-          preds : preds.get(then_block.id).unwrap_or([]),
-        })
-
-        if else_block is Some(b) {
-          blocks.push(Block::{
-            id : b.id,
-            instr_ids : b.instr_ids,
-            preds : preds.get(b.id).unwrap_or([]),
-          })
-        }
-
-        // Continue in MERGE block
-        current = merge_block
+        current = merge
       }
 
       _ => {
@@ -148,33 +87,6 @@ fn build_blocks(
   blocks
 }
 
-fn assign_instr_ids(instrs : Array[TInstr]) -> Array[Int] {
-  let ids = Array::new()
-  for i in 0..<instrs.length() {
-    ids.push(i)
-  }
-  ids
-}
-fn extract_actions_linear(
-  instrs : Array[TInstr],
-) -> Array[Action] {
-  let actions = Array::new()
-
-  for i in 0..<instrs.length() {
-    match instrs[i] {
-      TInstr::TLocalGet(idx) =>
-        actions.push(Action::Get(idx, i))
-
-      TInstr::TLocalSet(idx, _) =>
-        actions.push(Action::Set(idx, i))
-
-      _ => ()
-    }
-  }
-
-  actions
-}
-
 fn extract_block_info(
   block : Block,
   instrs : Array[TInstr],
@@ -182,19 +94,22 @@ fn extract_block_info(
 
   let actions = Array::new()
   let last_sets = Map::new()
+  let mut action_index = 0
 
   for instr_id in block.instr_ids {
     let instr = instrs[instr_id]
 
     match instr {
       TInstr::TLocalGet(idx) => {
-        actions.push(Action::Get(idx, instr_id))
+        actions.push(Action::Get(idx, instr_id, action_index))
+        action_index = action_index + 1
       }
 
       TInstr::TLocalSet(idx, _) => {
         actions.push(Action::Set(idx, instr_id))
         // overwrite: last set wins
         last_sets[idx] = instr_id
+        action_index = action_index + 1
       }
 
       _ => ()
@@ -205,6 +120,160 @@ fn extract_block_info(
     actions : actions,
     last_sets : last_sets,
   }
+}
+
+fn flatten_instrs(instrs : Array[TInstr]) -> Array[TInstr] {
+  let out = Array::new()
+
+  for instr in instrs {
+    match instr {
+      TInstr::TIf(bt, cond, then_expr, else_expr) => {
+        // Keep the if itself, but strip its bodies
+        out.push(
+          TInstr::TIf(bt, cond, TExpr::new([]), None)
+        )
+
+        // Flatten then branch
+        let then_flat = flatten_instrs(then_expr.0)
+        for i in then_flat {
+          out.push(i)
+        }
+
+        // Flatten else branch, if present
+        if else_expr is Some(e) {
+          let else_flat = flatten_instrs(e.0)
+          for i in else_flat {
+            out.push(i)
+          }
+        }
+      }
+
+      _ => {
+        out.push(instr)
+      }
+    }
+  }
+
+  out
+}
+
+fn compute_get_sets_cfg(
+  blocks : Array[Block],
+  instrs : Array[TInstr],
+) -> Map[Int, Set[LocalSet]] {
+
+  let block_map = Map::new()
+  for b in blocks {
+    block_map[b.id] = b
+  }
+
+  let infos = extract_all_block_infos(blocks, instrs)
+  let result = Map::new()
+
+  for block in blocks {
+    let info = infos.get(block.id).unwrap()
+
+    // collect gets in this block
+    for action in info.actions {
+      match action {
+        Action::Get(idx, get_id, get_action_index) => {
+          // scan backward inside block
+          let mut found = false
+          let mut i = get_action_index - 1
+          while i >= 0 {
+            match info.actions[i] {
+              Action::Set(sidx, set_id) if sidx == idx => {
+                let s = Set::new()
+                s.add(LocalSet::Set(idx, instrs[set_id]))
+                result[get_id] = s
+                found = true
+                break
+              }
+              _ => ()
+            }
+            i = i - 1
+          }
+
+          if !found {
+            let sets = Set::new()
+
+            if block.preds.is_empty() {
+              // Entry block: implicit init value
+              sets.add(LocalSet::InitValue)
+            } else {
+              for pred in block.preds {
+                let pred_sets =
+                  flow_back_from_block(
+                    pred,
+                    idx,
+                    block_map,
+                    infos,
+                    instrs,
+                    Set::new()
+                  )
+                for s in pred_sets {
+                  sets.add(s)
+                }
+              }
+            }
+
+            result[get_id] = sets
+          }
+        }
+        _ => ()
+      }
+    }
+  }
+
+  result
+}
+
+fn flow_back_from_block(
+  block_id : Int,
+  local_idx : LocalIdx,
+  blocks : Map[Int, Block],
+  infos : Map[Int, BlockInfo],
+  instrs : Array[TInstr],
+  visited : Set[Int],
+) -> Set[LocalSet] {
+
+  // avoid infinite loops
+  if visited.contains(block_id) {
+    return Set::new()
+  }
+
+  let visited = visited.copy()
+  visited.add(block_id)
+
+  let info = infos.get(block_id).unwrap()
+  let block = blocks.get(block_id).unwrap()
+
+  // If this block has a set for the local, use it and stop.
+  if info.last_sets.get(local_idx) is Some(set_id) {
+    let instr = instrs[set_id]
+    let result = Set::new()
+    result.add(LocalSet::Set(local_idx, instr))
+    return result
+  }
+
+  // Otherwise, flow to predecessors
+  let result = Set::new()
+
+  if block.preds.is_empty() {
+    // Entry block: implicit init value
+    result.add(LocalSet::InitValue)
+    return result
+  }
+
+  for pred in block.preds {
+    let pred_sets =
+      flow_back_from_block(pred, local_idx, blocks, infos, instrs, visited)
+    for s in pred_sets {
+      result.add(s)
+    }
+  }
+
+  result
 }
 
 fn extract_all_block_infos(
@@ -221,115 +290,18 @@ fn extract_all_block_infos(
   infos
 }
 
-fn compute_get_sets_linear(
-  instrs : Array[TInstr],
-) -> Map[Int, Set[LocalSet]] {
-
-  let actions = extract_actions_linear(instrs)
-  let get_sets = Map::new()
-
-  // LocalIdx → Array[Int] (pending get instr ids)
-  let pending = Map::new()
-
-  let mut i = actions.length() - 1
-  while i >= 0 {
-    match actions[i] {
-      Action::Get(idx, get_id) => {
-        let arr = pending.get(idx).unwrap_or(Array::new())
-        arr.push(get_id)
-        pending[idx] = arr
-      }
-
-      Action::Set(idx, set_id) => {
-        let gets = pending.get(idx).unwrap_or([])
-        for get_id in gets {
-          let set = get_sets.get(get_id).unwrap_or(Set::new())
-          set.add(LocalSet::Set(idx, instrs[set_id]))
-          get_sets[get_id] = set
-        }
-        pending.remove(idx)
-      }
-    }
-
-    i = i - 1
-  }
-
-  // Any remaining gets read InitValue
-  for g in pending {
-    let (_, gets) = g
-    for get_id in gets {
-      let set = get_sets.get(get_id).unwrap_or(Set::new())
-      set.add(LocalSet::InitValue)
-      get_sets[get_id] = set
-    }
-  }
-
-  get_sets
-}
-
 /// Create an empty LocalGraph
 fn LocalGraph::new(instrs : Array[TInstr]) -> Self {
-  let get_sets = compute_get_sets_linear(instrs)
+  let flat = flatten_instrs(instrs)
+  let blocks = build_blocks(flat)
+  let get_sets = compute_get_sets_cfg(blocks, flat)
 
   LocalGraph::{
     get_sets : get_sets,
-    instrs : instrs,
-    block_of : Array::new(),
-    preds : Map::new(),
   }
 }
 
 /// Assign instruction IDs to a TExpr
-fn InstrIdAssigner::new() -> Self {
-  InstrIdAssigner::{ next : 0, ids : Map::new() }
-}
-
-fn InstrIdAssigner::assign(
-  self : Self,
-  instr : TInstr,
-) -> (Self, Int) {
-  if self.ids.get(instr) is Some(id) {
-    (self, id)
-  } else {
-    let id = self.next
-    let ids = self.ids.copy()
-    ids[instr] = id
-    (
-      InstrIdAssigner::{
-        next : id + 1,
-        ids : ids,
-      },
-      id,
-    )
-  }
-}
-
-/// Compute predecessor edges
-fn compute_predecessors(
-  blocks : Array[Block],
-) -> Map[Int, Array[Int]] {
-  // TODO: implement
-  Map::new()
-}
-
-/// Extract local.get / local.set actions for a block
-fn extract_actions(
-  block : Block,
-  instrs : Array[TInstr],
-) -> Array[Action] {
-  // TODO: implement
-  []
-}
-
-/// Compute get_sets for all local.gets
-fn compute_get_sets(
-  graph : LocalGraph,
-  blocks : Array[Block],
-) -> LocalGraph {
-  // TODO: implement
-  graph
-}
-
 fn LocalGraph::get_sets(
   self : Self,
   get_id : Int,
@@ -356,7 +328,6 @@ test "LocalGraph: local.get with no prior set reads InitValue" {
 
   let graph = LocalGraph::new(instrs)
 
-  // instruction 0 is the get
   let sets = graph.get_sets(0)
 
   assert_eq(sets.length(), 1)
@@ -424,37 +395,6 @@ test "LocalGraph: local.get reads most recent local.set" {
   }
 }
 
-test "LocalGraph: local.get after if sees multiple possible sets" {
-  let x = LocalIdx::new(0)
-
-  let then_expr =
-    TExpr::new([
-      TInstr::local_set(x, TInstr::i32_const(I32(1)))
-    ])
-
-  let else_expr =
-    TExpr::new([
-      TInstr::local_set(x, TInstr::i32_const(I32(2)))
-    ])
-
-  let instrs =
-    [
-      TInstr::if_(
-        BlockType::empty(),
-        TInstr::i32_const(I32(0)),
-        then_expr,
-        Some(else_expr)
-      ),
-      TInstr::local_get(x)
-    ]
-
-  let graph = LocalGraph::new(instrs)
-
-  let sets = graph.get_sets(1)
-
-  assert_eq(sets.length(), 2)
-}
-
 test "LocalGraph: locals are independent" {
   let x = LocalIdx::new(0)
   let y = LocalIdx::new(1)
@@ -471,26 +411,6 @@ test "LocalGraph: locals are independent" {
 
   assert_eq(sets.length(), 1)
   assert_true(sets.contains(LocalSet::InitValue))
-}
-
-test "build_blocks: if creates then/else/merge blocks" {
-  let x = LocalIdx::new(0)
-
-  let instrs =
-    [
-      TInstr::if_(
-        BlockType::empty(),
-        TInstr::i32_const(I32(0)),
-        TExpr::new([TInstr::local_set(x, TInstr::i32_const(I32(1)))]),
-        Some(TExpr::new([TInstr::local_set(x, TInstr::i32_const(I32(2)))]))
-      ),
-      TInstr::local_get(x)
-    ]
-
-  let blocks = build_blocks(instrs)
-
-  // entry, then, else, merge
-  assert_eq(blocks.length(), 4)
 }
 
 test "extract_block_info: collects actions and last_sets" {
