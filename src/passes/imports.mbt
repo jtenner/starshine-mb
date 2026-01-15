@@ -11,6 +11,8 @@ using @lib {
   func_comp_type,
   table_type,
   table_idx,
+  uses,
+  defs,
   type AbsHeapType,
   type ModuleTransformer,
   type TransformerResult,

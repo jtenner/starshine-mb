@@ -73,15 +73,8 @@ fn avoid_reinterprets() -> ModuleTransformer[(LocalGraph, Int)] {
     on_func: Some(fn(self, _, func) {
       match func {
         Func(_) => Err("Expected TFunc")
-        TFunc(_, body) => {
-          println("ANALYSIS order:")
-          for t in body.0.iter2() {
-            let (i, instr) = t
-            println((i, instr))
-          }
-          let graph = LocalGraph::new(body.0)
-          self.walk_func_default((graph, 0), func)
-        }
+        TFunc(_, body) =>
+          self.walk_func_default((LocalGraph::new(body.0), 0), func)
       }
     }),
 
