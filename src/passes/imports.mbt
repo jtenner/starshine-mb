@@ -59,6 +59,7 @@ using @lib {
   type LocalSet,
   type TableType,
   type GlobalType,
+  type Global,
 }
 
 ///|

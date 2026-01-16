@@ -1716,14 +1716,14 @@ test "ExternIdx GlobalExternIdx validates" {
 ///|
 test "Export with valid FuncExternIdx validates" {
   let env = empty_env().with_funcs([FuncType([], [])])
-  let exp = @lib.Export(Name("test"), ExternIdx::func(FuncIdx::new(0)))
+  let exp = Export::new(Name("test"), ExternIdx::func(FuncIdx::new(0)))
   assert_eq(Validate::validate(exp, env), Ok(()))
 }
 
 ///|
 test "Export with invalid index fails" {
   let env = empty_env()
-  let exp = @lib.Export(Name("test"), ExternIdx::func(FuncIdx::new(0)))
+  let exp = Export::new(Name("test"), ExternIdx::func(FuncIdx::new(0)))
   assert_eq(Validate::validate(exp, env), Err("invalid func index"))
 }
 
@@ -1733,7 +1733,7 @@ test "Export with invalid index fails" {
 test "Import with valid GlobalExternType validates" {
   let env = empty_env()
   let gt = GlobalType::new(ValType::i32(), false)
-  let imp = @lib.Import(Name("mod"), Name("name"), ExternType::global(gt))
+  let imp = Import::new(Name("mod"), Name("name"), ExternType::global(gt))
   assert_eq(Validate::validate(imp, env), Ok(()))
 }
 

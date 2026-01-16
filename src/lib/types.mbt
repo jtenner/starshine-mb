@@ -203,19 +203,19 @@ pub struct Elem(ElemMode, ElemKind) derive(Eq, Hash)
 pub struct Expr(Array[Instruction]) derive(Eq, Hash)
 
 ///|
-pub(all) struct Import(Name, Name, ExternType) derive(Eq, Arbitrary, Hash)
+pub struct Import(Name, Name, ExternType) derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) struct Table(TableType, Expr?) derive(Eq, Arbitrary, Hash)
+pub struct Table(TableType, Expr?) derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) struct Global(GlobalType, Expr) derive(Eq, Arbitrary, Hash)
+pub struct Global(GlobalType, Expr) derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) struct Export(Name, ExternIdx) derive(Eq, Arbitrary, Hash)
+pub struct Export(Name, ExternIdx) derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) struct Locals(UInt, ValType) derive(Eq, Hash)
+pub struct Locals(UInt, ValType) derive(Eq, Hash)
 
 ///|
 pub(all) enum DataMode {
@@ -7513,6 +7513,10 @@ pub fn TExpr::new(instrs : Array[TInstr]) -> TExpr {
   TExpr(instrs)
 }
 
+pub fn Func::new(locals : Array[Locals], expr : Expr) -> Func {
+  Func(locals, expr)
+}
+
 ///|
 pub fn Func::t_func(args : Array[ValType], expr : TExpr) -> Func {
   TFunc(args, expr)
@@ -7735,4 +7739,20 @@ pub fn ExternIdx::global(gi : GlobalIdx) -> ExternIdx {
 
 pub fn ExternIdx::tag(ti : TagIdx) -> ExternIdx {
   TagExternIdx(ti)
+}
+
+pub fn Import::new(n0 : Name, n1 : Name, et : ExternType) -> Import {
+  Import(n0, n1, et)
+}
+
+pub fn Global::new(gt : GlobalType, e : Expr) -> Global {
+  Global(gt, e)
+}
+
+pub fn Export::new(n : Name, ei : ExternIdx) -> Export {
+  Export(n, ei)
+}
+
+pub fn Locals::new(u : UInt, vt : ValType) -> Locals {
+  Locals(u, vt)
 }

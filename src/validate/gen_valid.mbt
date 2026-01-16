@@ -475,7 +475,7 @@ fn gen_locals_decls(
   for _ in 0..<groups {
     let vt = gen_defaultable_valtype(rnd)
     let count = rnd.next_uint() % 3 + 1 // 1..3 locals of this type
-    decls.push(Locals(count, vt))
+    decls.push(Locals::new(count, vt))
   }
   decls
 }
@@ -538,7 +538,7 @@ pub fn gen_tablesec_valid(
   for _ in 0..<count {
     let tt = gen_tabletype(rnd, env)
     // No init expr for simplicity
-    tables.push(Table(tt, None))
+    tables.push(Table::new(tt, None))
     env = env.push_table(tt)
   }
   let ctx2 = ctx.dec_fuel(count)
@@ -882,7 +882,7 @@ pub fn gen_importsec_valid(
         }
     }
     imports.push(
-      Import(Name(mod_name.to_string_view()), Name(name.to_string_view()), desc),
+      Import::new(Name(mod_name.to_string_view()), Name(name.to_string_view()), desc),
     )
   }
   let ctx2 = ctx.dec_fuel(imports.length())
@@ -968,7 +968,7 @@ pub fn gen_globalsec_valid(
     let gt = gen_globaltype(rnd)
     let GlobalType(vt, _) = gt
     let init_expr = gen_const_expr_for_valtype(rnd, vt, env)
-    globals.push(Global(gt, init_expr))
+    globals.push(Global::new(gt, init_expr))
     env = env.push_global(gt)
   }
   let ctx2 = ctx.dec_fuel(count)
@@ -1032,7 +1032,7 @@ pub fn gen_exportsec_valid(
         let name = make_unique_name("func", i)
         let fidx = rnd.next_uint() % env.funcs.length().reinterpret_as_uint()
         exports.push(
-          Export(Name(name.to_string_view()), ExternIdx::func(FuncIdx::new(fidx))),
+          Export::new(Name(name.to_string_view()), ExternIdx::func(FuncIdx::new(fidx))),
         )
       }
     }
@@ -1043,7 +1043,7 @@ pub fn gen_exportsec_valid(
     let name = make_unique_name("table", 0)
     let tidx = rnd.next_uint() % env.tables.length().reinterpret_as_uint()
     exports.push(
-      Export(Name(name.to_string_view()), ExternIdx::table(TableIdx::new(tidx))),
+      Export::new(Name(name.to_string_view()), ExternIdx::table(TableIdx::new(tidx))),
     )
   }
 
@@ -1051,7 +1051,7 @@ pub fn gen_exportsec_valid(
   if env.mems.length() > 0 && rnd.next_uint() % 2 == 0 {
     let name = "memory"
     exports.push(
-      Export(Name(name.to_string_view()), ExternIdx::mem(MemIdx::new(0))),
+      Export::new(Name(name.to_string_view()), ExternIdx::mem(MemIdx::new(0))),
     )
   }
 
@@ -1061,7 +1061,7 @@ pub fn gen_exportsec_valid(
       if rnd.next_uint() % 3 == 0 {
         let name = make_unique_name("global", i)
         exports.push(
-          Export(
+          Export::new(
             Name(name.to_string_view()),
             ExternIdx::global(GlobalIdx::new(i.reinterpret_as_uint())),
           ),
@@ -1075,7 +1075,7 @@ pub fn gen_exportsec_valid(
     let name = make_unique_name("tag", 0)
     let tidx = rnd.next_uint() % env.tags.length().reinterpret_as_uint()
     exports.push(
-      Export(Name(name.to_string_view()), ExternIdx::tag(TagIdx::new(tidx))),
+      Export::new(Name(name.to_string_view()), ExternIdx::tag(TagIdx::new(tidx))),
     )
   }
   let ctx2 = ctx.dec_fuel(exports.length())
@@ -2112,11 +2112,11 @@ pub fn gen_tfunc_entry(ctx : GenCtx, tidx : TypeIdx) -> Result[Func, String] {
           local_types.push(t)
         }
       }
-      Ok(TFunc(local_types, texpr))
+      Ok(Func::t_func(local_types, texpr))
     }
     Err(_) =>
       // Fall back to regular Func if tree conversion fails
-      Ok(Func(locals_decls, expr))
+      Ok(Func::new(locals_decls, expr))
   }
 }
 

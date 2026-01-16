@@ -427,7 +427,7 @@ fn make_global_init_mismatch_transformer() -> ModuleTransformer[Unit] {
         VecTypeValType => Expr::new([I32Const(I32(0))])
         BotValType => return Ok(None)
       }
-      Ok(Some(((), Global(GlobalType::new(vt, mutable), wrong_init))))
+      Ok(Some(((), Global::new(GlobalType::new(vt, mutable), wrong_init))))
     }),
   }
 }
@@ -444,7 +444,7 @@ fn make_table_init_mismatch_transformer() -> ModuleTransformer[Unit] {
     ) -> TransformerResult[Unit, Table] {
       let Table(tt, _init) = t
       // Set init to wrong type expression
-      Ok(Some(((), Table(tt, Some(Expr::new([I32Const(I32(42))]))))))
+      Ok(Some(((), Table::new(tt, Some(Expr::new([I32Const(I32(42))]))))))
     }),
   }
 }

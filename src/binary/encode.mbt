@@ -1949,7 +1949,7 @@ pub impl Decode for Locals with decode(bytes, i) {
   match Decode::decode(bytes, i) {
     Ok((@lib.U32(count), i)) =>
       match Decode::decode(bytes, i) {
-        Ok((vt, i)) => Ok((Locals(count, vt), i))
+        Ok((vt, i)) => Ok((Locals::new(count, vt), i))
         Err(t) => Err(t)
       }
     Err(t) => Err(t)
@@ -2100,7 +2100,7 @@ pub impl Decode for Import with decode(bytes, i) {
       match Decode::decode(bytes, i) {
         Ok((nm2, i)) =>
           match Decode::decode(bytes, i) {
-            Ok((et, i)) => Ok((Import(nm1, nm2, et), i))
+            Ok((et, i)) => Ok((Import::new(nm1, nm2, et), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
@@ -2312,14 +2312,14 @@ pub impl Decode for Table with decode(bytes, i) {
       match Decode::decode(bytes, i + 2) {
         Ok((tt, i)) =>
           match Decode::decode(bytes, i) {
-            Ok((e, i)) => Ok((Table(tt, Some(e)), i))
+            Ok((e, i)) => Ok((Table::new(tt, Some(e)), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
       }
     _ =>
       match Decode::decode(bytes, i) {
-        Ok((tt, i)) => Ok((Table(tt, None), i))
+        Ok((tt, i)) => Ok((Table::new(tt, None), i))
         Err(t) => Err(t)
       }
   }
@@ -2330,7 +2330,7 @@ pub impl Decode for Global with decode(bytes, i) {
   match Decode::decode(bytes, i) {
     Ok((gt, i)) =>
       match Decode::decode(bytes, i) {
-        Ok((expr, i)) => Ok((Global(gt, expr), i))
+        Ok((expr, i)) => Ok((Global::new(gt, expr), i))
         Err(t) => Err(t)
       }
     Err(t) => Err(t)
@@ -2375,7 +2375,7 @@ pub impl Decode for Export with decode(bytes, i) {
   match Decode::decode(bytes, i) {
     Ok((n, i)) =>
       match Decode::decode(bytes, i) {
-        Ok((idx, i)) => Ok((Export(n, idx), i))
+        Ok((idx, i)) => Ok((Export::new(n, idx), i))
         Err(t) => Err(t)
       }
     Err(t) => Err(t)

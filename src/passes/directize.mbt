@@ -462,7 +462,7 @@ test "directize: out-of-bounds constant index becomes unreachable" {
     .with_func_sec(FuncSec([TypeIdx::new(0)]))
     .with_table_sec(
       TableSec([
-        Table(
+        Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
             Limits::i32(1, Some(1)),
@@ -514,7 +514,7 @@ test "directize: null entry in table becomes unreachable" {
     .with_func_sec(FuncSec([TypeIdx::new(0)]))
     .with_table_sec(
       TableSec([
-        Table(
+        Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
             Limits::i32(2, Some(2)),
@@ -563,7 +563,7 @@ test "directize: non-constant index is not transformed" {
     .with_func_sec(FuncSec([TypeIdx::new(0)]))
     .with_table_sec(
       TableSec([
-        Table(
+        Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
             Limits::i32(1, Some(1)),
@@ -619,7 +619,7 @@ test "directize: type mismatch becomes unreachable" {
     .with_func_sec(FuncSec([TypeIdx::new(0)])) // Function uses type 0
     .with_table_sec(
       TableSec([
-        Table(
+        Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
             Limits::i32(1, Some(1)),
@@ -671,7 +671,7 @@ test "directize: table.set prevents optimization" {
     .with_func_sec(FuncSec([TypeIdx::new(0), TypeIdx::new(0)])) // Two functions
     .with_table_sec(
       TableSec([
-        Table(
+        Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
             Limits::i32(1, Some(1)),
@@ -724,7 +724,7 @@ test "directize: table.fill prevents optimization" {
     .with_func_sec(FuncSec([TypeIdx::new(0)]))
     .with_table_sec(
       TableSec([
-        Table(
+        Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
             Limits::i32(2, Some(2)),
@@ -850,7 +850,7 @@ test "directize: table.init prevents optimization" {
     .with_func_sec(FuncSec([TypeIdx::new(0)]))
     .with_table_sec(
       TableSec([
-        Table(
+        Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
             Limits::i32(1, Some(1)),
@@ -903,7 +903,7 @@ test "directize: table.grow marks table as growable" {
     .with_func_sec(FuncSec([TypeIdx::new(0)]))
     .with_table_sec(
       TableSec([
-        Table(
+        Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
             Limits::i32(1, None),
@@ -958,7 +958,7 @@ test "directize: initial_immutable=false prevents optimization" {
     .with_func_sec(FuncSec([TypeIdx::new(0)]))
     .with_table_sec(
       TableSec([
-        Table(
+        Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
             Limits::i32(1, Some(1)),
@@ -1011,7 +1011,7 @@ test "directize: return_call_indirect with constant index" {
     .with_func_sec(FuncSec([TypeIdx::new(0)]))
     .with_table_sec(
       TableSec([
-        Table(
+        Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
             Limits::i32(1, Some(1)),
@@ -1059,7 +1059,7 @@ test "directize: return_call_indirect out of bounds becomes unreachable" {
     .with_func_sec(FuncSec([TypeIdx::new(0)]))
     .with_table_sec(
       TableSec([
-        Table(
+        Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
             Limits::i32(1, Some(1)),
@@ -1111,7 +1111,7 @@ test "directize: select-based call_indirect with both branches known" {
     .with_func_sec(FuncSec([TypeIdx::new(0), TypeIdx::new(0)])) // Two functions
     .with_table_sec(
       TableSec([
-        Table(
+        Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
             Limits::i32(2, Some(2)),
@@ -1164,7 +1164,7 @@ test "directize: select-based call_indirect with one branch trapping" {
     .with_func_sec(FuncSec([TypeIdx::new(0)]))
     .with_table_sec(
       TableSec([
-        Table(
+        Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
             Limits::i32(2, Some(2)),
@@ -1228,7 +1228,7 @@ test "directize: select-based call_indirect with unknown branch not transformed"
     .with_func_sec(FuncSec([TypeIdx::new(0)]))
     .with_table_sec(
       TableSec([
-        Table(
+        Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
             Limits::i32(1, None),
@@ -1296,7 +1296,7 @@ test "directize: br_table-based call_indirect with all branches known" {
     .with_func_sec(FuncSec([TypeIdx::new(0), TypeIdx::new(0), TypeIdx::new(0)])) // Three functions
     .with_table_sec(
       TableSec([
-        Table(
+        Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
             Limits::i32(3, Some(3)),
@@ -1353,7 +1353,7 @@ test "directize: passive element segment doesn't initialize table" {
     .with_func_sec(FuncSec([TypeIdx::new(0)]))
     .with_table_sec(
       TableSec([
-        Table(
+        Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
             Limits::i32(1, Some(1)),
@@ -1398,7 +1398,7 @@ test "directize: declarative element segment doesn't initialize table" {
     .with_func_sec(FuncSec([TypeIdx::new(0)]))
     .with_table_sec(
       TableSec([
-        Table(
+        Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
             Limits::i32(1, Some(1)),
@@ -1443,7 +1443,7 @@ test "directize: element segment with non-constant offset marks table mutable" {
     .with_func_sec(FuncSec([TypeIdx::new(0)]))
     .with_global_sec(
       GlobalSec([
-        Global(
+        Global::new(
           GlobalType::new(ValType::i32(), false),
           Expr::new([I32Const(I32(0))]),
         ),
@@ -1451,7 +1451,7 @@ test "directize: element segment with non-constant offset marks table mutable" {
     )
     .with_table_sec(
       TableSec([
-        Table(
+        Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
             Limits::i32(1, Some(1)),
@@ -1503,7 +1503,7 @@ test "directize: element segment with expression kind marks table mutable" {
     .with_func_sec(FuncSec([TypeIdx::new(0)]))
     .with_table_sec(
       TableSec([
-        Table(
+        Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
             Limits::i32(1, Some(1)),
@@ -1555,14 +1555,14 @@ test "directize: multiple tables, only one modified" {
     .with_func_sec(FuncSec([TypeIdx::new(0), TypeIdx::new(0)]))
     .with_table_sec(
       TableSec([
-        Table(
+        Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
             Limits::i32(1, Some(1)),
           ),
           None,
         ),
-        Table(
+        Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
             Limits::i32(1, Some(1)),
@@ -1643,7 +1643,7 @@ test "directize: arguments are propagated to direct call" {
     .with_func_sec(FuncSec([TypeIdx::new(0)]))
     .with_table_sec(
       TableSec([
-        Table(
+        Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
             Limits::i32(1, Some(1)),
@@ -1696,7 +1696,7 @@ test "directize: negative index (interpreted as large unsigned) becomes unreacha
     .with_func_sec(FuncSec([TypeIdx::new(0)]))
     .with_table_sec(
       TableSec([
-        Table(
+        Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
             Limits::i32(1, Some(1)),
@@ -1749,7 +1749,7 @@ test "directize: empty table always traps" {
     .with_func_sec(FuncSec([TypeIdx::new(0)]))
     .with_table_sec(
       TableSec([
-        Table(
+        Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
             Limits::i32(0, Some(0)),
@@ -1813,7 +1813,7 @@ test "directize: element segment at offset beyond initial table entries" {
     .with_func_sec(FuncSec([TypeIdx::new(0), TypeIdx::new(0)]))
     .with_table_sec(
       TableSec([
-        Table(
+        Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
             Limits::i32(4, Some(4)),
@@ -1886,7 +1886,7 @@ test "directize: table with i64 limits" {
     .with_func_sec(FuncSec([TypeIdx::new(0)]))
     .with_table_sec(
       TableSec([
-        Table(
+        Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
             Limits::i64(1UL, Some(1UL)),
