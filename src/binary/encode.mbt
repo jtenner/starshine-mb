@@ -388,7 +388,7 @@ pub impl Decode for SubType with decode(buf, i) {
       match Decode::decode(buf, i + 1) {
         Ok((idxs, i)) =>
           match Decode::decode(buf, i) {
-            Ok((ct, i)) => Ok((SubType(true, idxs, ct), i))
+            Ok((ct, i)) => Ok((SubType::new(true, idxs, ct), i))
             Err(err) => Err(err)
           }
         Err(err) => Err(err)
@@ -398,7 +398,7 @@ pub impl Decode for SubType with decode(buf, i) {
       match Decode::decode(buf, i + 1) {
         Ok((idxs, i)) =>
           match Decode::decode(buf, i) {
-            Ok((ct, i)) => Ok((SubType(false, idxs, ct), i))
+            Ok((ct, i)) => Ok((SubType::new(false, idxs, ct), i))
             Err(err) => Err(err)
           }
         Err(err) => Err(err)
@@ -406,7 +406,7 @@ pub impl Decode for SubType with decode(buf, i) {
     // CompType, don't consume the character
     Some(_) =>
       match Decode::decode(buf, i) {
-        Ok((ct, i)) => Ok((CompTypeSubType(ct), i))
+        Ok((ct, i)) => Ok((SubType::comp_type(ct), i))
         Err(err) => Err(err)
       }
     None => Err("Index out of bounds")
@@ -5962,12 +5962,12 @@ test "Packed Type" {
 ///|
 test "SubTypes" {
   roundtrip(
-    @lib.CompTypeSubType(
+    SubType::comp_type(
       CompType::array(FieldType::new(StorageType::val_type(ValType::i32()), Var)),
     ),
   )
   roundtrip(
-    @lib.SubType(
+    SubType::new(
       false,
       [TypeIdx::new(0), TypeIdx::new(2), TypeIdx::new(4)],
       CompType::func([], []),

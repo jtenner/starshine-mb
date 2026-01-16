@@ -1181,7 +1181,7 @@ test "HeapType with invalid TypeIdx fails" {
 
 ///|
 test "HeapType with valid TypeIdx succeeds" {
-  let st = @lib.CompTypeSubType(CompType::func([], []))
+  let st = SubType::comp_type(CompType::func([], []))
   let env = empty_env().with_types([st])
   let ht = HeapType::new(TypeIdx::new(0))
   assert_eq(Validate::validate(ht, env), Ok(()))
@@ -1240,7 +1240,7 @@ test "RefType HeapTypeRefType nullable and non-nullable validate" {
 
 ///|
 test "TypeIdx validates when type exists" {
-  let st = @lib.CompTypeSubType(CompType::func([], []))
+  let st = SubType::comp_type(CompType::func([], []))
   let env = empty_env().with_types([st])
   let tidx = TypeIdx::new(0)
   assert_eq(Validate::validate(tidx, env), Ok(()))
@@ -1255,7 +1255,7 @@ test "TypeIdx fails when type does not exist" {
 
 ///|
 test "TypeIdx fails with out of bounds index" {
-  let st = @lib.CompTypeSubType(CompType::func([], []))
+  let st = SubType::comp_type(CompType::func([], []))
   let env = empty_env().with_types([st])
   let tidx = TypeIdx::new(5)
   assert_eq(Validate::validate(tidx, env), Err("No type exists for TypeIdx"))
@@ -1288,7 +1288,7 @@ test "LabelIdx fails with out of bounds index" {
 
 ///|
 test "TagIdx validates when tag exists" {
-  let st = @lib.CompTypeSubType(CompType::func([], []))
+  let st = SubType::comp_type(CompType::func([], []))
   let env = empty_env().with_types([st]).with_tags([TagType(TypeIdx::new(0))])
   let tidx = TagIdx::new(0)
   assert_eq(Validate::validate(tidx, env), Ok(()))
@@ -1510,7 +1510,7 @@ test "FuncType with params and results validates" {
 ///|
 test "CompType FuncCompType validates" {
   let env = empty_env()
-  let ct = @lib.CompTypeSubType(CompType::func([], []))
+  let ct = SubType::comp_type(CompType::func([], []))
   assert_eq(Validate::validate(ct, env), Ok(()))
 }
 
@@ -1518,7 +1518,7 @@ test "CompType FuncCompType validates" {
 test "CompType ArrayCompType validates" {
   let env = empty_env()
   let ft = FieldType::new(StorageType::val_type(ValType::i32()), Const)
-  let ct = @lib.CompTypeSubType(CompType::array(ft))
+  let ct = SubType::comp_type(CompType::array(ft))
   assert_eq(Validate::validate(ct, env), Ok(()))
 }
 
@@ -1526,14 +1526,14 @@ test "CompType ArrayCompType validates" {
 test "CompType StructCompType validates" {
   let env = empty_env()
   let ft = FieldType::new(StorageType::val_type(ValType::i32()), Const)
-  let ct = @lib.CompTypeSubType(CompType::struct_([ft]))
+  let ct = SubType::comp_type(CompType::struct_([ft]))
   assert_eq(Validate::validate(ct, env), Ok(()))
 }
 
 ///|
 test "CompType StructCompType empty validates" {
   let env = empty_env()
-  let ct = @lib.CompTypeSubType(CompType::struct_([]))
+  let ct = SubType::comp_type(CompType::struct_([]))
   assert_eq(Validate::validate(ct, env), Ok(()))
 }
 
@@ -1542,7 +1542,7 @@ test "CompType StructCompType empty validates" {
 ///|
 test "SubType CompTypeSubType validates" {
   let env = empty_env()
-  let st = @lib.CompTypeSubType(CompType::func([], []))
+  let st = SubType::comp_type(CompType::func([], []))
   assert_eq(Validate::validate(st, env), Ok(()))
 }
 
@@ -1551,7 +1551,7 @@ test "SubType CompTypeSubType validates" {
 ///|
 test "RecType SingleRecType validates" {
   let env = empty_env()
-  let st = @lib.CompTypeSubType(CompType::func([], []))
+  let st = SubType::comp_type(CompType::func([], []))
   let rt = @lib.SingleRecType(st)
   assert_eq(Validate::validate(rt, env), Ok(()))
 }
@@ -1559,8 +1559,8 @@ test "RecType SingleRecType validates" {
 ///|
 test "RecType GroupRecType validates" {
   let env = empty_env()
-  let st1 = @lib.CompTypeSubType(CompType::func([], []))
-  let st2 = @lib.CompTypeSubType(
+  let st1 = SubType::comp_type(CompType::func([], []))
+  let st2 = SubType::comp_type(
     CompType::array(FieldType::new(StorageType::val_type(ValType::i32()), Const)),
   )
   let rt = @lib.GroupRecType([st1, st2])
@@ -1600,7 +1600,7 @@ test "BlockType ValTypeBlockType validates" {
 
 ///|
 test "BlockType TypeIdxBlockType with valid func type validates" {
-  let st = @lib.CompTypeSubType(CompType::func([], []))
+  let st = SubType::comp_type(CompType::func([], []))
   let env = empty_env().with_types([st])
   let bt = BlockType::type_idx(TypeIdx::new(0))
   assert_eq(Validate::validate(bt, env), Ok(()))
@@ -1615,7 +1615,7 @@ test "BlockType TypeIdxBlockType with invalid index fails" {
 
 ///|
 test "BlockType TypeIdxBlockType with non-func type fails" {
-  let st = @lib.CompTypeSubType(
+  let st = SubType::comp_type(
     CompType::array(FieldType::new(StorageType::val_type(ValType::i32()), Const)),
   )
   let env = empty_env().with_types([st])
@@ -1655,7 +1655,7 @@ test "ExternType TableExternType validates" {
 
 ///|
 test "ExternType FuncExternType validates when func type exists" {
-  let st = @lib.CompTypeSubType(CompType::func([], []))
+  let st = SubType::comp_type(CompType::func([], []))
   let env = empty_env().with_types([st])
   let et = @lib.FuncExternType(TypeIdx::new(0))
   assert_eq(Validate::validate(et, env), Ok(()))

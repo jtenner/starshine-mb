@@ -132,7 +132,7 @@ pub enum CompType {
 } derive(Eq, Hash)
 
 ///|
-pub(all) enum SubType {
+pub enum SubType {
   SubType(Bool, Array[TypeIdx], CompType)
   CompTypeSubType(CompType)
 } derive(Eq, Hash)
@@ -7648,4 +7648,12 @@ pub fn CompType::struct_(fts : Array[FieldType]) -> CompType {
 
 pub fn CompType::func(params : ResultType, results : ResultType) -> CompType {
   FuncCompType(params, results)
+}
+
+pub fn SubType::new(f : Bool, supers : Array[TypeIdx], ct : CompType) -> SubType {
+  SubType(f, supers, ct)
+}
+
+pub fn SubType::comp_type(ct : CompType) -> SubType {
+  CompTypeSubType(ct)
 }

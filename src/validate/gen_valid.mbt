@@ -344,7 +344,7 @@ fn gen_defaultable_struct_rectype(
   let ct = CompType::struct_(fields)
   // keep simple: no supertypes, non-final or final randomly
   let is_final = (rnd.next_uint() & 1) == 1
-  SingleRecType(SubType(is_final, [], ct))
+  SingleRecType(SubType::new(is_final, [], ct))
 }
 
 ///|
@@ -354,7 +354,7 @@ fn gen_defaultable_array_rectype(
   let ft = gen_defaultable_array_field(rnd)
   let ct = CompType::array(ft)
   let is_final = (rnd.next_uint() & 1) == 1
-  SingleRecType(SubType(is_final, [], ct))
+  SingleRecType(SubType::new(is_final, [], ct))
 }
 
 ///|
@@ -377,7 +377,7 @@ fn gen_func_rectype(rnd : @quickcheck/splitmix.RandomState) -> RecType {
   }
   let ct = CompType::func(ps, rs)
   let is_final = true // functions are typically final-ish; keep true to simplify
-  SingleRecType(SubType(is_final, [], ct))
+  SingleRecType(SubType::new(is_final, [], ct))
 }
 
 ///|
