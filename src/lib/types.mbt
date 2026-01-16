@@ -248,7 +248,7 @@ pub struct Module {
 } derive(Hash)
 
 ///|
-pub(all) struct FuncType(Array[ValType], Array[ValType]) derive(Hash, Eq)
+pub struct FuncType(Array[ValType], Array[ValType]) derive(Hash, Eq)
 
 ///|
 pub(all) struct Env {
@@ -7763,4 +7763,8 @@ pub fn Data::new(dm : DataMode, b : Bytes) -> Data {
 
 pub fn Name::new(sv : StringView) -> Name {
   Name(sv)
+}
+
+pub fn FuncType::new(params : Array[ValType], results : Array[ValType]) -> FuncType {
+  FuncType(params, results)
 }

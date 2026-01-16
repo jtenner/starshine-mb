@@ -6591,7 +6591,7 @@ test "Typecheck V128Store16Lane" {
 
 ///|
 test "Typecheck Call" {
-  let func_type = @lib.FuncType([ValType::i32()], [ValType::i64()])
+  let func_type = FuncType::new([ValType::i32()], [ValType::i64()])
   let env = empty_env().push_func(func_type)
   let state = make_state(env, [ValType::i32()])
   let result = Typecheck::typecheck(@lib.Call(FuncIdx::new(0)), state)
@@ -6601,7 +6601,7 @@ test "Typecheck Call" {
 
 ///|
 test "Typecheck Call no args no results" {
-  let func_type = @lib.FuncType([], [])
+  let func_type = FuncType::new([], [])
   let env = empty_env().push_func(func_type)
   let state = make_state(env, [])
   let result = Typecheck::typecheck(@lib.Call(FuncIdx::new(0)), state)
@@ -6619,7 +6619,7 @@ test "Typecheck Call invalid func index" {
 
 ///|
 test "Typecheck Call type mismatch" {
-  let func_type = @lib.FuncType([ValType::i32()], [])
+  let func_type = FuncType::new([ValType::i32()], [])
   let env = empty_env().push_func(func_type)
   let state = make_state(env, [ValType::i64()])
   let result = Typecheck::typecheck(@lib.Call(FuncIdx::new(0)), state)
@@ -6649,7 +6649,7 @@ test "Typecheck CallIndirect" {
 
 ///|
 test "Typecheck ReturnCall" {
-  let func_type = @lib.FuncType([ValType::i32()], [ValType::i64()])
+  let func_type = FuncType::new([ValType::i32()], [ValType::i64()])
   let env = empty_env()
     .push_func(func_type)
     .with_return_type(Some([ValType::i64()]))
@@ -6718,7 +6718,7 @@ test "Typecheck ReturnCallRef" {
 
 ///|
 test "Typecheck RefFunc" {
-  let func_type = @lib.FuncType([], [])
+  let func_type = FuncType::new([], [])
   let env = empty_env().push_func(func_type)
   let state = make_state(env, [])
   let result = Typecheck::typecheck(@lib.RefFunc(FuncIdx::new(0)), state)

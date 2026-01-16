@@ -1307,7 +1307,7 @@ test "TagIdx fails when tag does not exist" {
 
 ///|
 test "FuncIdx validates when func exists" {
-  let env = empty_env().with_funcs([FuncType([], [])])
+  let env = empty_env().with_funcs([FuncType::new([], [])])
   let fidx = FuncIdx::new(0)
   assert_eq(Validate::validate(fidx, env), Ok(()))
 }
@@ -1496,14 +1496,14 @@ test "FieldType validates" {
 ///|
 test "FuncType with empty params and results validates" {
   let env = empty_env()
-  let ft = @lib.FuncType([], [])
+  let ft = FuncType::new([], [])
   assert_eq(Validate::validate(ft, env), Ok(()))
 }
 
 ///|
 test "FuncType with params and results validates" {
   let env = empty_env()
-  let ft = @lib.FuncType([ValType::i32()], [ValType::i64()])
+  let ft = FuncType::new([ValType::i32()], [ValType::i64()])
   assert_eq(Validate::validate(ft, env), Ok(()))
 }
 
@@ -1681,7 +1681,7 @@ test "ExternType FuncExternType fails when func type missing" {
 
 ///|
 test "ExternIdx FuncExternIdx validates" {
-  let env = empty_env().with_funcs([FuncType([], [])])
+  let env = empty_env().with_funcs([FuncType::new([], [])])
   let ei = ExternIdx::func(FuncIdx::new(0))
   assert_eq(Validate::validate(ei, env), Ok(()))
 }
@@ -1715,7 +1715,7 @@ test "ExternIdx GlobalExternIdx validates" {
 
 ///|
 test "Export with valid FuncExternIdx validates" {
-  let env = empty_env().with_funcs([FuncType([], [])])
+  let env = empty_env().with_funcs([FuncType::new([], [])])
   let exp = Export::new(Name::new("test"), ExternIdx::func(FuncIdx::new(0)))
   assert_eq(Validate::validate(exp, env), Ok(()))
 }
