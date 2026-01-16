@@ -153,16 +153,16 @@ pub enum Limits {
 } derive(Eq, Hash)
 
 ///|
-pub(all) struct TagType(TypeIdx) derive(Eq, Arbitrary, Hash)
+pub struct TagType(TypeIdx) derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) struct GlobalType(ValType, Bool) derive(Eq, Arbitrary, Hash)
+pub struct GlobalType(ValType, Bool) derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) struct MemType(Limits) derive(Eq, Arbitrary, Hash)
+pub struct MemType(Limits) derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) struct TableType(RefType, Limits) derive(Eq, Arbitrary, Hash)
+pub struct TableType(RefType, Limits) derive(Eq, Arbitrary, Hash)
 
 ///|
 pub(all) enum ExternType {
@@ -2053,11 +2053,6 @@ pub fn Limits::i64(min : UInt64, max : UInt64?) -> Limits {
 ///|
 pub fn func_extern_type(idx : TypeIdx) -> ExternType {
   FuncExternType(idx)
-}
-
-///|
-pub fn table_type(rt : RefType, limits : Limits) -> TableType {
-  TableType(rt, limits)
 }
 
 ///|
@@ -7675,4 +7670,17 @@ pub fn RecType::new(st : SubType) -> RecType {
 ///|
 pub fn RecType::group(sts : Array[SubType]) -> RecType {
   GroupRecType(sts)
+}
+
+pub fn TagType::new(ti : TypeIdx) -> TagType {
+  TagType(ti)
+}
+pub fn GlobalType::new(vt : ValType, nullable : Bool) -> GlobalType {
+  GlobalType(vt, nullable)
+}
+pub fn MemType::new(lim : Limits) -> MemType {
+  MemType(lim)
+}
+pub fn TableType::new(rt : RefType, lim : Limits) -> TableType {
+  TableType(rt, lim)
 }

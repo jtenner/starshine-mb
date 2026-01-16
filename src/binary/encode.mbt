@@ -2151,7 +2151,7 @@ pub impl Decode for TableType with decode(bytes, i) {
   match Decode::decode(bytes, i) {
     Ok((rt, i)) =>
       match Decode::decode(bytes, i) {
-        Ok((l, i)) => Ok((TableType(rt, l), i))
+        Ok((l, i)) => Ok((TableType::new(rt, l), i))
         Err(t) => Err(t)
       }
     Err(t) => Err(t)
@@ -2161,7 +2161,7 @@ pub impl Decode for TableType with decode(bytes, i) {
 ///|
 pub impl Decode for MemType with decode(bytes, i) {
   match Decode::decode(bytes, i) {
-    Ok((l, i)) => Ok((MemType(l), i))
+    Ok((l, i)) => Ok((MemType::new(l), i))
     Err(t) => Err(t)
   }
 }
@@ -2171,8 +2171,8 @@ pub impl Decode for GlobalType with decode(bytes, i) {
   match Decode::decode(bytes, i) {
     Ok((vt, i)) =>
       match Decode::decode(bytes, i) {
-        Ok((m, i)) => Ok((GlobalType(vt, m), i))
-        Err(_) => Ok((GlobalType(vt, false), i))
+        Ok((m, i)) => Ok((GlobalType::new(vt, m), i))
+        Err(_) => Ok((GlobalType::new(vt, false), i))
       }
     Err(t) => Err(t)
   }
@@ -2184,7 +2184,7 @@ pub impl Decode for TagType with decode(bytes, i) {
     return Err("Invalid TagType")
   }
   match Decode::decode(bytes, i + 1) {
-    Ok((idx, i)) => Ok((TagType(idx), i))
+    Ok((idx, i)) => Ok((TagType::new(idx), i))
     Err(t) => Err(t)
   }
 }

@@ -9,7 +9,6 @@ using @lib {
   struct_comp_type,
   func_idx,
   func_comp_type,
-  table_type,
   table_idx,
   uses,
   defs,
@@ -58,6 +57,8 @@ using @lib {
   type GlobalIdx,
   type LocalGraph,
   type LocalSet,
+  type TableType,
+  type GlobalType,
 }
 
 ///|

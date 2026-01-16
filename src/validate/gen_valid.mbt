@@ -510,7 +510,7 @@ fn gen_tabletype(
   }
   let lim = gen_limits_i32(rnd, 100)
   ignore(env) // env available for future type-index references
-  TableType(rt, lim)
+  TableType::new(rt, lim)
 }
 
 ///|
@@ -523,7 +523,7 @@ fn gen_memtype(rnd : @quickcheck/splitmix.RandomState) -> MemType {
   } else {
     Limits::i32(min, None)
   }
-  MemType(lim)
+  MemType::new(lim)
 }
 
 ///|
@@ -766,7 +766,7 @@ pub fn gen_elemsec_valid(
 fn gen_globaltype(rnd : @quickcheck/splitmix.RandomState) -> GlobalType {
   let vt = gen_defaultable_valtype(rnd)
   let m = (rnd.next_uint() & 1) == 1
-  GlobalType(vt, m)
+  GlobalType::new(vt, m)
 }
 
 ///|
@@ -790,7 +790,7 @@ fn gen_tagtype(rnd : @quickcheck/splitmix.RandomState, env : Env) -> TagType? {
     return None
   }
   let pick = (rnd.next_uint() % func_tidxs.length().reinterpret_as_uint()).reinterpret_as_int()
-  Some(TagType(func_tidxs[pick]))
+  Some(TagType::new(func_tidxs[pick]))
 }
 
 ///|

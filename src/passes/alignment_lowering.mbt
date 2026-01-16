@@ -684,7 +684,7 @@ fn make_ctx(memories : Array[MemType]) -> AlignmentLoweringContext {
 
 ///|
 fn make_i32_mem() -> Array[MemType] {
-  [MemType(Limits::i32(1, None))]
+  [MemType::new(Limits::i32(1, None))]
 }
 
 ///|
@@ -1436,8 +1436,8 @@ test "v128.load64_lane unaligned produces replace_lane" {
 ///|
 test "load with explicit memory index" {
   let ctx = make_ctx([
-    MemType(Limits::i32(1, None)),
-    MemType(Limits::i64(1, None)),
+    MemType::new(Limits::i32(1, None)),
+    MemType::new(Limits::i64(1, None)),
   ])
   ctx.locals = [ValType::i64()]
   let instr = TInstr::load(
@@ -1456,8 +1456,8 @@ test "load with explicit memory index" {
 ///|
 test "store with explicit memory index" {
   let ctx = make_ctx([
-    MemType(Limits::i32(1, None)),
-    MemType(Limits::i64(1, None)),
+    MemType::new(Limits::i32(1, None)),
+    MemType::new(Limits::i64(1, None)),
   ])
   ctx.locals = [ValType::i64()]
   let instr = TInstr::store(

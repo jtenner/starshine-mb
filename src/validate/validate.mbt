@@ -1289,7 +1289,7 @@ test "LabelIdx fails with out of bounds index" {
 ///|
 test "TagIdx validates when tag exists" {
   let st = SubType::comp_type(CompType::func([], []))
-  let env = empty_env().with_types([st]).with_tags([TagType(TypeIdx::new(0))])
+  let env = empty_env().with_types([st]).with_tags([TagType::new(TypeIdx::new(0))])
   let tidx = TagIdx::new(0)
   assert_eq(Validate::validate(tidx, env), Ok(()))
 }
@@ -1322,7 +1322,7 @@ test "FuncIdx fails when func does not exist" {
 ///|
 test "TableIdx validates when table exists" {
   let rt = RefType::abs(AbsHeapType::func())
-  let tt = @lib.TableType(rt, Limits::i32(0, None))
+  let tt = TableType::new(rt, Limits::i32(0, None))
   let env = empty_env().with_tables([tt])
   let tidx = TableIdx::new(0)
   assert_eq(Validate::validate(tidx, env), Ok(()))
@@ -1339,7 +1339,7 @@ test "TableIdx fails when table does not exist" {
 
 ///|
 test "MemIdx validates when memory exists" {
-  let mt = @lib.MemType(Limits::i32(0, None))
+  let mt = MemType::new(Limits::i32(0, None))
   let env = empty_env().with_mems([mt])
   let midx = MemIdx::new(0)
   assert_eq(Validate::validate(midx, env), Ok(()))
@@ -1356,7 +1356,7 @@ test "MemIdx fails when memory does not exist" {
 
 ///|
 test "GlobalIdx validates when global exists" {
-  let gt = @lib.GlobalType(ValType::i32(), false)
+  let gt = GlobalType::new(ValType::i32(), false)
   let env = empty_env().with_globals([gt])
   let gidx = GlobalIdx::new(0)
   assert_eq(Validate::validate(gidx, env), Ok(()))
@@ -1427,14 +1427,14 @@ test "I64Limits validates within max" {
 ///|
 test "MemType validates with valid limits" {
   let env = empty_env()
-  let mt = @lib.MemType(Limits::i32(0, Some(100)))
+  let mt = MemType::new(Limits::i32(0, Some(100)))
   assert_eq(Validate::validate(mt, env), Ok(()))
 }
 
 ///|
 test "MemType fails when limits exceed 65536" {
   let env = empty_env()
-  let mt = @lib.MemType(Limits::i32(0, Some(100000)))
+  let mt = MemType::new(Limits::i32(0, Some(100000)))
   assert_eq(Validate::validate(mt, env), Err("Invalid range for limits"))
 }
 
@@ -1444,7 +1444,7 @@ test "MemType fails when limits exceed 65536" {
 test "TableType validates with valid ref type and limits" {
   let env = empty_env()
   let rt = RefType::abs(AbsHeapType::func())
-  let tt = @lib.TableType(rt, Limits::i32(0, Some(100)))
+  let tt = TableType::new(rt, Limits::i32(0, Some(100)))
   assert_eq(Validate::validate(tt, env), Ok(()))
 }
 
@@ -1453,14 +1453,14 @@ test "TableType validates with valid ref type and limits" {
 ///|
 test "GlobalType validates with NumType" {
   let env = empty_env()
-  let gt = @lib.GlobalType(ValType::i32(), false)
+  let gt = GlobalType::new(ValType::i32(), false)
   assert_eq(Validate::validate(gt, env), Ok(()))
 }
 
 ///|
 test "GlobalType validates mutable" {
   let env = empty_env()
-  let gt = @lib.GlobalType(ValType::i64(), true)
+  let gt = GlobalType::new(ValType::i64(), true)
   assert_eq(Validate::validate(gt, env), Ok(()))
 }
 
@@ -1635,7 +1635,7 @@ test "BlockType TypeIdxBlockType with non-func type fails" {
 ///|
 test "ExternType GlobalExternType validates" {
   let env = empty_env()
-  let gt = @lib.GlobalType(ValType::i32(), false)
+  let gt = GlobalType::new(ValType::i32(), false)
   let et = @lib.GlobalExternType(gt)
   assert_eq(Validate::validate(et, env), Ok(()))
 }
@@ -1643,7 +1643,7 @@ test "ExternType GlobalExternType validates" {
 ///|
 test "ExternType MemExternType validates" {
   let env = empty_env()
-  let mt = @lib.MemType(Limits::i32(0, Some(10)))
+  let mt = MemType::new(Limits::i32(0, Some(10)))
   let et = @lib.MemExternType(mt)
   assert_eq(Validate::validate(et, env), Ok(()))
 }
@@ -1652,7 +1652,7 @@ test "ExternType MemExternType validates" {
 test "ExternType TableExternType validates" {
   let env = empty_env()
   let rt = RefType::abs(AbsHeapType::func())
-  let tt = @lib.TableType(rt, Limits::i32(0, Some(100)))
+  let tt = TableType::new(rt, Limits::i32(0, Some(100)))
   let et = @lib.TableExternType(tt)
   assert_eq(Validate::validate(et, env), Ok(()))
 }
@@ -1687,7 +1687,7 @@ test "ExternIdx FuncExternIdx validates" {
 ///|
 test "ExternIdx TableExternIdx validates" {
   let rt = RefType::abs(AbsHeapType::func())
-  let tt = @lib.TableType(rt, Limits::i32(0, None))
+  let tt = TableType::new(rt, Limits::i32(0, None))
   let env = empty_env().with_tables([tt])
   let ei = @lib.TableExternIdx(TableIdx::new(0))
   assert_eq(Validate::validate(ei, env), Ok(()))
@@ -1695,7 +1695,7 @@ test "ExternIdx TableExternIdx validates" {
 
 ///|
 test "ExternIdx MemExternIdx validates" {
-  let mt = @lib.MemType(Limits::i32(0, None))
+  let mt = MemType::new(Limits::i32(0, None))
   let env = empty_env().with_mems([mt])
   let ei = @lib.MemExternIdx(MemIdx::new(0))
   assert_eq(Validate::validate(ei, env), Ok(()))
@@ -1703,7 +1703,7 @@ test "ExternIdx MemExternIdx validates" {
 
 ///|
 test "ExternIdx GlobalExternIdx validates" {
-  let gt = @lib.GlobalType(ValType::i32(), false)
+  let gt = GlobalType::new(ValType::i32(), false)
   let env = empty_env().with_globals([gt])
   let ei = @lib.GlobalExternIdx(GlobalIdx::new(0))
   assert_eq(Validate::validate(ei, env), Ok(()))
@@ -1730,7 +1730,7 @@ test "Export with invalid index fails" {
 ///|
 test "Import with valid GlobalExternType validates" {
   let env = empty_env()
-  let gt = @lib.GlobalType(ValType::i32(), false)
+  let gt = GlobalType::new(ValType::i32(), false)
   let imp = @lib.Import(Name("mod"), Name("name"), GlobalExternType(gt))
   assert_eq(Validate::validate(imp, env), Ok(()))
 }

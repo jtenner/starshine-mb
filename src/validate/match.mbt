@@ -696,9 +696,9 @@ test "Limits: i32 vs i64 don't match" {
 ///|
 test "MemType: delegates to limits" {
   let env = Env::new()
-  let m1 = @lib.MemType(Limits::i32(1, Some(10)))
-  let m2 = @lib.MemType(Limits::i32(1, Some(20)))
-  let m3 = @lib.MemType(Limits::i32(2, Some(10)))
+  let m1 = MemType::new(Limits::i32(1, Some(10)))
+  let m2 = MemType::new(Limits::i32(1, Some(20)))
+  let m3 = MemType::new(Limits::i32(2, Some(10)))
   assert_true(Match::matches(m1, m1, env))
   assert_true(Match::matches(m1, m2, env)) // [1..10] <: [1..20]
   assert_false(Match::matches(m2, m1, env)) // [1..20] not <: [1..10]
@@ -963,8 +963,8 @@ test "GlobalType: const is covariant" {
   let ref_any = @lib.ValType::ref_type(
     RefType::new(true, HeapType::abs(AbsHeapType::any())),
   )
-  let g1 = @lib.GlobalType(ref_eq, false) // const
-  let g2 = @lib.GlobalType(ref_any, false) // const
+  let g1 = GlobalType::new(ref_eq, false) // const
+  let g2 = GlobalType::new(ref_any, false) // const
 
   // (const eq) <: (const any)
   assert_true(Match::matches(g1, g2, env))
@@ -980,8 +980,8 @@ test "GlobalType: mut is invariant" {
   let ref_any = @lib.ValType::ref_type(
     RefType::new(true, HeapType::abs(AbsHeapType::any())),
   )
-  let g1 = @lib.GlobalType(ref_eq, true) // mut
-  let g2 = @lib.GlobalType(ref_any, true) // mut
+  let g1 = GlobalType::new(ref_eq, true) // mut
+  let g2 = GlobalType::new(ref_any, true) // mut
 
   // (mut eq) does not match (mut any) - invariant
   assert_false(Match::matches(g1, g2, env))
@@ -991,15 +991,15 @@ test "GlobalType: mut is invariant" {
 ///|
 test "GlobalType: mut self-match" {
   let env = Env::new()
-  let g = @lib.GlobalType(ValType::i32(), true)
+  let g = GlobalType::new(ValType::i32(), true)
   assert_true(Match::matches(g, g, env))
 }
 
 ///|
 test "GlobalType: const vs mut don't match" {
   let env = Env::new()
-  let const_g = @lib.GlobalType(ValType::i32(), false)
-  let mut_g = @lib.GlobalType(ValType::i32(), true)
+  let const_g = GlobalType::new(ValType::i32(), false)
+  let mut_g = GlobalType::new(ValType::i32(), true)
   assert_false(Match::matches(const_g, mut_g, env))
   assert_false(Match::matches(mut_g, const_g, env))
 }
@@ -1012,8 +1012,8 @@ test "GlobalType: const vs mut don't match" {
 test "TableType: limits and reftype must match" {
   let env = Env::new()
   let rt = RefType::new(true, HeapType::abs(AbsHeapType::func()))
-  let t1 = @lib.TableType(rt, Limits::i32(0, Some(100)))
-  let t2 = @lib.TableType(rt, Limits::i32(0, Some(200)))
+  let t1 = TableType::new(rt, Limits::i32(0, Some(100)))
+  let t2 = TableType::new(rt, Limits::i32(0, Some(200)))
 
   // limits: [0..100] <: [0..200]
   // reftype must be invariant
@@ -1026,8 +1026,8 @@ test "TableType: reftype is invariant" {
   let rt_func = RefType::new(true, HeapType::abs(AbsHeapType::func()))
   let rt_any = RefType::new(true, HeapType::abs(AbsHeapType::any()))
   let limits = Limits::i32(0, Some(100))
-  let t1 = @lib.TableType(rt_func, limits)
-  let t2 = @lib.TableType(rt_any, limits)
+  let t1 = TableType::new(rt_func, limits)
+  let t2 = TableType::new(rt_any, limits)
 
   // Even though func might be a subtype, table element type is invariant
   assert_false(Match::matches(t1, t2, env))
@@ -1042,8 +1042,8 @@ test "TableType: reftype is invariant" {
 test "TagType: requires bidirectional typeidx matching" {
   let env = Env::new()
   // Assuming typeidx 0 exists and matches itself
-  let t1 = @lib.TagType(TypeIdx::new(0))
-  let t2 = @lib.TagType(TypeIdx::new(0))
+  let t1 = TagType::new(TypeIdx::new(0))
+  let t2 = TagType::new(TypeIdx::new(0))
   assert_true(Match::matches(t1, t2, env))
 }
 
@@ -1054,8 +1054,8 @@ test "TagType: requires bidirectional typeidx matching" {
 ///|
 test "ExternType: different kinds don't match" {
   let env = Env::new()
-  let mem = @lib.MemExternType(MemType(Limits::i32(1, None)))
-  let global = @lib.GlobalExternType(GlobalType(ValType::i32(), false))
+  let mem = @lib.MemExternType(MemType::new(Limits::i32(1, None)))
+  let global = @lib.GlobalExternType(GlobalType::new(ValType::i32(), false))
   assert_false(Match::matches(mem, global, env))
   assert_false(Match::matches(global, mem, env))
 }
@@ -1063,8 +1063,8 @@ test "ExternType: different kinds don't match" {
 ///|
 test "ExternType: MemExternType delegates to MemType" {
   let env = Env::new()
-  let m1 = @lib.MemExternType(MemType(Limits::i32(1, Some(10))))
-  let m2 = @lib.MemExternType(MemType(Limits::i32(1, Some(20))))
+  let m1 = @lib.MemExternType(MemType::new(Limits::i32(1, Some(10))))
+  let m2 = @lib.MemExternType(MemType::new(Limits::i32(1, Some(20))))
   assert_true(Match::matches(m1, m2, env))
   assert_false(Match::matches(m2, m1, env))
 }
@@ -1072,8 +1072,8 @@ test "ExternType: MemExternType delegates to MemType" {
 ///|
 test "ExternType: GlobalExternType delegates to GlobalType" {
   let env = Env::new()
-  let g1 = @lib.GlobalExternType(GlobalType(ValType::i32(), false))
-  let g2 = @lib.GlobalExternType(GlobalType(ValType::i32(), false))
+  let g1 = @lib.GlobalExternType(GlobalType::new(ValType::i32(), false))
+  let g2 = @lib.GlobalExternType(GlobalType::new(ValType::i32(), false))
   assert_true(Match::matches(g1, g2, env))
 }
 
@@ -1081,8 +1081,8 @@ test "ExternType: GlobalExternType delegates to GlobalType" {
 test "ExternType: TableExternType delegates to TableType" {
   let env = Env::new()
   let rt = RefType::new(true, HeapType::abs(AbsHeapType::func()))
-  let t1 = @lib.TableExternType(TableType(rt, Limits::i32(0, Some(10))))
-  let t2 = @lib.TableExternType(TableType(rt, Limits::i32(0, Some(10))))
+  let t1 = @lib.TableExternType(TableType::new(rt, Limits::i32(0, Some(10))))
+  let t2 = @lib.TableExternType(TableType::new(rt, Limits::i32(0, Some(10))))
   assert_true(Match::matches(t1, t2, env))
 }
 
