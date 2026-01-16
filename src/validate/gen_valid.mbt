@@ -882,7 +882,11 @@ pub fn gen_importsec_valid(
         }
     }
     imports.push(
-      Import::new(Name::new(mod_name.to_string_view()), Name::new(name.to_string_view()), desc),
+      Import::new(
+        Name::new(mod_name.to_string_view()),
+        Name::new(name.to_string_view()),
+        desc,
+      ),
     )
   }
   let ctx2 = ctx.dec_fuel(imports.length())
@@ -1032,7 +1036,10 @@ pub fn gen_exportsec_valid(
         let name = make_unique_name("func", i)
         let fidx = rnd.next_uint() % env.funcs.length().reinterpret_as_uint()
         exports.push(
-          Export::new(Name::new(name.to_string_view()), ExternIdx::func(FuncIdx::new(fidx))),
+          Export::new(
+            Name::new(name.to_string_view()),
+            ExternIdx::func(FuncIdx::new(fidx)),
+          ),
         )
       }
     }
@@ -1043,7 +1050,10 @@ pub fn gen_exportsec_valid(
     let name = make_unique_name("table", 0)
     let tidx = rnd.next_uint() % env.tables.length().reinterpret_as_uint()
     exports.push(
-      Export::new(Name::new(name.to_string_view()), ExternIdx::table(TableIdx::new(tidx))),
+      Export::new(
+        Name::new(name.to_string_view()),
+        ExternIdx::table(TableIdx::new(tidx)),
+      ),
     )
   }
 
@@ -1051,7 +1061,10 @@ pub fn gen_exportsec_valid(
   if env.mems.length() > 0 && rnd.next_uint() % 2 == 0 {
     let name = "memory"
     exports.push(
-      Export::new(Name::new(name.to_string_view()), ExternIdx::mem(MemIdx::new(0))),
+      Export::new(
+        Name::new(name.to_string_view()),
+        ExternIdx::mem(MemIdx::new(0)),
+      ),
     )
   }
 
@@ -1075,7 +1088,10 @@ pub fn gen_exportsec_valid(
     let name = make_unique_name("tag", 0)
     let tidx = rnd.next_uint() % env.tags.length().reinterpret_as_uint()
     exports.push(
-      Export::new(Name::new(name.to_string_view()), ExternIdx::tag(TagIdx::new(tidx))),
+      Export::new(
+        Name::new(name.to_string_view()),
+        ExternIdx::tag(TagIdx::new(tidx)),
+      ),
     )
   }
   let ctx2 = ctx.dec_fuel(exports.length())
@@ -2299,7 +2315,6 @@ pub fn gen_module_valid_full(ctx : GenCtx) -> Result[(GenCtx, Module), String] {
   let codesec = @lib.CodeSec(code_funcs)
   m = m.with_code_sec(codesec)
 
-  
   // 16) Assemble module
   Ok((ctx12, m))
 }

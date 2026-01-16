@@ -1733,7 +1733,11 @@ test "Export with invalid index fails" {
 test "Import with valid GlobalExternType validates" {
   let env = empty_env()
   let gt = GlobalType::new(ValType::i32(), false)
-  let imp = Import::new(Name::new("mod"), Name::new("name"), ExternType::global(gt))
+  let imp = Import::new(
+    Name::new("mod"),
+    Name::new("name"),
+    ExternType::global(gt),
+  )
   assert_eq(Validate::validate(imp, env), Ok(()))
 }
 

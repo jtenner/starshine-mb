@@ -8,6 +8,8 @@ import(
 // Values
 pub fn alignment_lowering_pass() -> @lib.ModuleTransformer[AlignmentLoweringContext]
 
+pub fn code_folding_pass() -> @lib.ModuleTransformer[CodeFoldingState]
+
 pub fn const_hoisting_pass() -> @lib.ModuleTransformer[ConstHoistingState]
 
 pub fn directize_module(@lib.Module, Bool) -> Result[@lib.Module, String]
@@ -25,10 +27,19 @@ pub struct AlignmentLoweringContext {
 }
 pub fn AlignmentLoweringContext::new(Array[@lib.MemType]) -> Self
 
+type BlockLiveness
+pub impl Show for BlockLiveness
+
+type CodeFoldingState
+
 pub struct ConstHoistingState {
   usage : Map[Literal, Int]
 }
 pub fn ConstHoistingState::new() -> Self
+
+type ConstKey
+pub impl Eq for ConstKey
+pub impl Hash for ConstKey
 
 pub struct Literal(LiteralKind, Bytes)
 
@@ -57,6 +68,9 @@ pub struct SquareMatrix[T] {
 pub fn[T] SquareMatrix::get_or(Self[T], T, UInt, UInt) -> Result[T, String]
 pub fn[T : Default] SquareMatrix::get_or_default(Self[T], UInt, UInt) -> Result[T, String]
 pub fn[T] SquareMatrix::new(size? : UInt) -> Self[T]
+
+type Tail
+pub impl Eq for Tail
 
 // Type aliases
 

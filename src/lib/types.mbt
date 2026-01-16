@@ -7474,6 +7474,7 @@ pub fn TExpr::new(instrs : Array[TInstr]) -> TExpr {
   TExpr(instrs)
 }
 
+///|
 pub fn Func::new(locals : Array[Locals], expr : Expr) -> Func {
   Func(locals, expr)
 }
@@ -7682,50 +7683,65 @@ pub fn ExternType::tag(tt : TagType) -> ExternType {
   TagExternType(tt)
 }
 
+///|
 pub fn ExternIdx::func(fi : FuncIdx) -> ExternIdx {
   FuncExternIdx(fi)
 }
 
+///|
 pub fn ExternIdx::table(ti : TableIdx) -> ExternIdx {
   TableExternIdx(ti)
 }
 
+///|
 pub fn ExternIdx::mem(mi : MemIdx) -> ExternIdx {
   MemExternIdx(mi)
 }
 
+///|
 pub fn ExternIdx::global(gi : GlobalIdx) -> ExternIdx {
   GlobalExternIdx(gi)
 }
 
+///|
 pub fn ExternIdx::tag(ti : TagIdx) -> ExternIdx {
   TagExternIdx(ti)
 }
 
+///|
 pub fn Import::new(n0 : Name, n1 : Name, et : ExternType) -> Import {
   Import(n0, n1, et)
 }
 
+///|
 pub fn Global::new(gt : GlobalType, e : Expr) -> Global {
   Global(gt, e)
 }
 
+///|
 pub fn Export::new(n : Name, ei : ExternIdx) -> Export {
   Export(n, ei)
 }
 
+///|
 pub fn Locals::new(u : UInt, vt : ValType) -> Locals {
   Locals(u, vt)
 }
 
+///|
 pub fn Data::new(dm : DataMode, b : Bytes) -> Data {
   Data(dm, b)
 }
 
+///|
 pub fn Name::new(sv : StringView) -> Name {
   Name(sv)
 }
 
-pub fn FuncType::new(params : Array[ValType], results : Array[ValType]) -> FuncType {
+///|
+pub fn FuncType::new(
+  params : Array[ValType],
+  results : Array[ValType],
+) -> FuncType {
   FuncType(params, results)
 }

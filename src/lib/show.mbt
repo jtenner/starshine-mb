@@ -2115,7 +2115,6 @@ pub impl Show for Module with output(self, logger) {
   logger.write_string("]")
 }
 
-
 ///|
 pub impl Show for FuncType with output(self, logger) {
   let FuncType(props, results) = self

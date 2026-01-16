@@ -1608,7 +1608,6 @@ pub impl Encode for Module with encode(val, buf) {
 pub impl Decode for Module with decode(bytes, i) {
   let mut i = i
   let custom = Array::new()
-
   let mut mod = Module::new()
   for b in [0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00] {
     if bytes.get(i) != Some(b.to_byte()) {

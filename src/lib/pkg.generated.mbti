@@ -16,6 +16,8 @@ pub fn[T, Elem] change(T, Elem) -> Result[(T, Elem)?, String]
 
 pub fn comp_type_sub_type(CompType) -> SubType
 
+pub fn defs(TInstr) -> @set.Set[LocalIdx]
+
 pub fn empty_env() -> Env
 
 pub fn[T : Eq] equals(Array[T], Array[T]) -> Bool
@@ -70,8 +72,6 @@ pub fn table_extern_type(TableType) -> ExternType
 
 pub fn table_idx(UInt) -> TableIdx
 
-pub fn table_type(RefType, Limits) -> TableType
-
 pub fn tag_extern_idx(TagIdx) -> ExternIdx
 
 pub fn tag_extern_type(TagType) -> ExternType
@@ -81,6 +81,8 @@ pub fn tag_type(TypeIdx) -> TagType
 pub fn tlocals_to_locals(Array[ValType]) -> Array[Locals]
 
 pub fn[T, Elem] unchanged() -> Result[(T, Elem)?, String]
+
+pub fn uses(TInstr) -> @set.Set[LocalIdx]
 
 // Errors
 
@@ -570,11 +572,14 @@ pub impl Hash for CodeSec
 pub impl Show for CodeSec
 pub impl @quickcheck.Arbitrary for CodeSec
 
-pub(all) enum CompType {
+pub enum CompType {
   ArrayCompType(FieldType)
   StructCompType(Array[FieldType])
   FuncCompType(Array[ValType], Array[ValType])
 }
+pub fn CompType::array(FieldType) -> Self
+pub fn CompType::func(Array[ValType], Array[ValType]) -> Self
+pub fn CompType::struct_(Array[FieldType]) -> Self
 pub impl Eq for CompType
 pub impl Hash for CompType
 pub impl Show for CompType
@@ -588,9 +593,10 @@ pub impl Hash for CustomSec
 pub impl Show for CustomSec
 pub impl @quickcheck.Arbitrary for CustomSec
 
-pub(all) struct Data(DataMode, Bytes)
+pub struct Data(DataMode, Bytes)
 
 
+pub fn Data::new(DataMode, Bytes) -> Self
 pub impl Eq for Data
 pub impl Hash for Data
 pub impl Show for Data
@@ -613,7 +619,7 @@ pub impl Hash for DataIdx
 pub impl Show for DataIdx
 pub impl @quickcheck.Arbitrary for DataIdx
 
-pub(all) enum DataMode {
+pub enum DataMode {
   Active(MemIdx, Expr)
   Passive
 }
@@ -632,7 +638,7 @@ pub impl Hash for DataSec
 pub impl Show for DataSec
 pub impl @quickcheck.Arbitrary for DataSec
 
-pub(all) struct DefType(RecType, UInt)
+pub struct DefType(RecType, UInt)
 
 
 pub fn DefType::new(RecType, UInt) -> Self
@@ -755,9 +761,10 @@ pub fn Env::with_types(Self, Array[SubType]) -> Self
 pub impl Hash for Env
 pub impl Show for Env
 
-pub(all) struct Export(Name, ExternIdx)
+pub struct Export(Name, ExternIdx)
 
 
+pub fn Export::new(Name, ExternIdx) -> Self
 pub impl Eq for Export
 pub impl Hash for Export
 pub impl Show for Export
@@ -781,25 +788,35 @@ pub impl Hash for Expr
 pub impl Show for Expr
 pub impl @quickcheck.Arbitrary for Expr
 
-pub(all) enum ExternIdx {
+pub enum ExternIdx {
   FuncExternIdx(FuncIdx)
   TableExternIdx(TableIdx)
   MemExternIdx(MemIdx)
   GlobalExternIdx(GlobalIdx)
   TagExternIdx(TagIdx)
 }
+pub fn ExternIdx::func(FuncIdx) -> Self
+pub fn ExternIdx::global(GlobalIdx) -> Self
+pub fn ExternIdx::mem(MemIdx) -> Self
+pub fn ExternIdx::table(TableIdx) -> Self
+pub fn ExternIdx::tag(TagIdx) -> Self
 pub impl Eq for ExternIdx
 pub impl Hash for ExternIdx
 pub impl Show for ExternIdx
 pub impl @quickcheck.Arbitrary for ExternIdx
 
-pub(all) enum ExternType {
+pub enum ExternType {
   FuncExternType(TypeIdx)
   TableExternType(TableType)
   MemExternType(MemType)
   GlobalExternType(GlobalType)
   TagExternType(TagType)
 }
+pub fn ExternType::func(TypeIdx) -> Self
+pub fn ExternType::global(GlobalType) -> Self
+pub fn ExternType::mem(MemType) -> Self
+pub fn ExternType::table(TableType) -> Self
+pub fn ExternType::tag(TagType) -> Self
 pub impl Eq for ExternType
 pub impl Hash for ExternType
 pub impl Show for ExternType
@@ -853,10 +870,11 @@ pub impl Hash for FieldType
 pub impl Show for FieldType
 pub impl @quickcheck.Arbitrary for FieldType
 
-pub(all) enum Func {
+pub enum Func {
   Func(Array[Locals], Expr)
   TFunc(Array[ValType], TExpr)
 }
+pub fn Func::new(Array[Locals], Expr) -> Self
 pub fn Func::t_func(Array[ValType], TExpr) -> Self
 pub impl Eq for Func
 pub impl Hash for Func
@@ -880,16 +898,18 @@ pub impl Hash for FuncSec
 pub impl Show for FuncSec
 pub impl @quickcheck.Arbitrary for FuncSec
 
-pub(all) struct FuncType(Array[ValType], Array[ValType])
+pub struct FuncType(Array[ValType], Array[ValType])
 
 
+pub fn FuncType::new(Array[ValType], Array[ValType]) -> Self
 pub impl Eq for FuncType
 pub impl Hash for FuncType
 pub impl Show for FuncType
 
-pub(all) struct Global(GlobalType, Expr)
+pub struct Global(GlobalType, Expr)
 
 
+pub fn Global::new(GlobalType, Expr) -> Self
 pub impl Eq for Global
 pub impl Hash for Global
 pub impl Show for Global
@@ -912,9 +932,10 @@ pub impl Hash for GlobalSec
 pub impl Show for GlobalSec
 pub impl @quickcheck.Arbitrary for GlobalSec
 
-pub(all) struct GlobalType(ValType, Bool)
+pub struct GlobalType(ValType, Bool)
 
 
+pub fn GlobalType::new(ValType, Bool) -> Self
 pub impl Eq for GlobalType
 pub impl Hash for GlobalType
 pub impl Show for GlobalType
@@ -953,9 +974,10 @@ pub impl Hash for I64
 pub impl Show for I64
 pub impl @quickcheck.Arbitrary for I64
 
-pub(all) struct Import(Name, Name, ExternType)
+pub struct Import(Name, Name, ExternType)
 
 
+pub fn Import::new(Name, Name, ExternType) -> Self
 pub impl Eq for Import
 pub impl Hash for Import
 pub impl Show for Import
@@ -1982,7 +2004,7 @@ pub impl Hash for LaneIdx
 pub impl Show for LaneIdx
 pub impl @quickcheck.Arbitrary for LaneIdx
 
-pub(all) enum Limits {
+pub enum Limits {
   I32Limits(UInt, UInt?)
   I64Limits(UInt64, UInt64?)
 }
@@ -2077,9 +2099,10 @@ pub enum LocalSet {
 pub impl Eq for LocalSet
 pub impl Hash for LocalSet
 
-pub(all) struct Locals(UInt, ValType)
+pub struct Locals(UInt, ValType)
 
 
+pub fn Locals::new(UInt, ValType) -> Self
 pub impl Eq for Locals
 pub impl Hash for Locals
 pub impl Show for Locals
@@ -2111,15 +2134,16 @@ pub impl Hash for MemSec
 pub impl Show for MemSec
 pub impl @quickcheck.Arbitrary for MemSec
 
-pub(all) struct MemType(Limits)
+pub struct MemType(Limits)
 #deprecated
 pub fn MemType::inner(Self) -> Limits
+pub fn MemType::new(Limits) -> Self
 pub impl Eq for MemType
 pub impl Hash for MemType
 pub impl Show for MemType
 pub impl @quickcheck.Arbitrary for MemType
 
-pub(all) struct Module {
+pub struct Module {
   custom_secs : Array[CustomSec]
   type_sec : TypeSec?
   import_sec : ImportSec?
@@ -2340,9 +2364,10 @@ pub impl Hash for Mut
 pub impl Show for Mut
 pub impl @quickcheck.Arbitrary for Mut
 
-pub(all) struct Name(StringView)
+pub struct Name(StringView)
 #deprecated
 pub fn Name::inner(Self) -> StringView
+pub fn Name::new(StringView) -> Self
 pub impl Eq for Name
 pub impl Hash for Name
 pub impl Show for Name
@@ -2374,11 +2399,13 @@ pub impl Hash for PackType
 pub impl Show for PackType
 pub impl @quickcheck.Arbitrary for PackType
 
-pub(all) enum RecType {
+pub enum RecType {
   SingleRecType(SubType)
   GroupRecType(Array[SubType])
 }
 pub fn RecType::get_subtype(Self, UInt) -> SubType?
+pub fn RecType::group(Array[SubType]) -> Self
+pub fn RecType::new(SubType) -> Self
 pub impl Eq for RecType
 pub impl Hash for RecType
 pub impl Show for RecType
@@ -2469,11 +2496,13 @@ pub impl Eq for StoreOp
 pub impl Hash for StoreOp
 pub impl Show for StoreOp
 
-pub(all) enum SubType {
+pub enum SubType {
   SubType(Bool, Array[TypeIdx], CompType)
   CompTypeSubType(CompType)
 }
+pub fn SubType::comp_type(CompType) -> Self
 pub fn SubType::get_comptype(Self) -> CompType
+pub fn SubType::new(Bool, Array[TypeIdx], CompType) -> Self
 pub fn SubType::super_types(Self) -> Array[TypeIdx]
 pub impl Eq for SubType
 pub impl Hash for SubType
@@ -2693,7 +2722,7 @@ pub impl Eq for TInstr
 pub impl Hash for TInstr
 pub impl Show for TInstr
 
-pub(all) struct Table(TableType, Expr?)
+pub struct Table(TableType, Expr?)
 
 
 pub fn Table::new(TableType, Expr?) -> Self
@@ -2720,9 +2749,10 @@ pub impl Hash for TableSec
 pub impl Show for TableSec
 pub impl @quickcheck.Arbitrary for TableSec
 
-pub(all) struct TableType(RefType, Limits)
+pub struct TableType(RefType, Limits)
 
 
+pub fn TableType::new(RefType, Limits) -> Self
 pub impl Eq for TableType
 pub impl Hash for TableType
 pub impl Show for TableType
@@ -2745,9 +2775,10 @@ pub impl Hash for TagSec
 pub impl Show for TagSec
 pub impl @quickcheck.Arbitrary for TagSec
 
-pub(all) struct TagType(TypeIdx)
+pub struct TagType(TypeIdx)
 #deprecated
 pub fn TagType::inner(Self) -> TypeIdx
+pub fn TagType::new(TypeIdx) -> Self
 pub impl Eq for TagType
 pub impl Hash for TagType
 pub impl Show for TagType
