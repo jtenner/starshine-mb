@@ -2194,27 +2194,27 @@ pub impl Decode for ExternType with decode(bytes, i) {
   match bytes.get(i) {
     Some(0x00) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((idx, i)) => Ok((FuncExternType(idx), i))
+        Ok((idx, i)) => Ok((ExternType::func(idx), i))
         Err(t) => Err(t)
       }
     Some(0x01) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((tt, i)) => Ok((TableExternType(tt), i))
+        Ok((tt, i)) => Ok((ExternType::table(tt), i))
         Err(t) => Err(t)
       }
     Some(0x02) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((mt, i)) => Ok((MemExternType(mt), i))
+        Ok((mt, i)) => Ok((ExternType::mem(mt), i))
         Err(t) => Err(t)
       }
     Some(0x03) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((gt, i)) => Ok((GlobalExternType(gt), i))
+        Ok((gt, i)) => Ok((ExternType::global(gt), i))
         Err(t) => Err(t)
       }
     Some(0x04) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((tt, i)) => Ok((TagExternType(tt), i))
+        Ok((tt, i)) => Ok((ExternType::tag(tt), i))
         Err(t) => Err(t)
       }
     Some(_) => Err("Invalid ExternType Header")

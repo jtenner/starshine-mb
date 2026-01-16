@@ -1054,8 +1054,8 @@ test "TagType: requires bidirectional typeidx matching" {
 ///|
 test "ExternType: different kinds don't match" {
   let env = Env::new()
-  let mem = @lib.MemExternType(MemType::new(Limits::i32(1, None)))
-  let global = @lib.GlobalExternType(GlobalType::new(ValType::i32(), false))
+  let mem = ExternType::mem(MemType::new(Limits::i32(1, None)))
+  let global = ExternType::global(GlobalType::new(ValType::i32(), false))
   assert_false(Match::matches(mem, global, env))
   assert_false(Match::matches(global, mem, env))
 }
@@ -1063,8 +1063,8 @@ test "ExternType: different kinds don't match" {
 ///|
 test "ExternType: MemExternType delegates to MemType" {
   let env = Env::new()
-  let m1 = @lib.MemExternType(MemType::new(Limits::i32(1, Some(10))))
-  let m2 = @lib.MemExternType(MemType::new(Limits::i32(1, Some(20))))
+  let m1 = ExternType::mem(MemType::new(Limits::i32(1, Some(10))))
+  let m2 = ExternType::mem(MemType::new(Limits::i32(1, Some(20))))
   assert_true(Match::matches(m1, m2, env))
   assert_false(Match::matches(m2, m1, env))
 }
@@ -1072,8 +1072,8 @@ test "ExternType: MemExternType delegates to MemType" {
 ///|
 test "ExternType: GlobalExternType delegates to GlobalType" {
   let env = Env::new()
-  let g1 = @lib.GlobalExternType(GlobalType::new(ValType::i32(), false))
-  let g2 = @lib.GlobalExternType(GlobalType::new(ValType::i32(), false))
+  let g1 = ExternType::global(GlobalType::new(ValType::i32(), false))
+  let g2 = ExternType::global(GlobalType::new(ValType::i32(), false))
   assert_true(Match::matches(g1, g2, env))
 }
 
@@ -1081,8 +1081,8 @@ test "ExternType: GlobalExternType delegates to GlobalType" {
 test "ExternType: TableExternType delegates to TableType" {
   let env = Env::new()
   let rt = RefType::new(true, HeapType::abs(AbsHeapType::func()))
-  let t1 = @lib.TableExternType(TableType::new(rt, Limits::i32(0, Some(10))))
-  let t2 = @lib.TableExternType(TableType::new(rt, Limits::i32(0, Some(10))))
+  let t1 = ExternType::table(TableType::new(rt, Limits::i32(0, Some(10))))
+  let t2 = ExternType::table(TableType::new(rt, Limits::i32(0, Some(10))))
   assert_true(Match::matches(t1, t2, env))
 }
 

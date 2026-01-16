@@ -837,7 +837,7 @@ pub fn gen_importsec_valid(
             None => continue
           }
           env = env.push_func(ft)
-          (name, @lib.FuncExternType(tidx))
+          (name, ExternType::func(tidx))
         } else {
           continue
         }
@@ -848,7 +848,7 @@ pub fn gen_importsec_valid(
         let name = "table_" + table_idx.to_string()
         table_idx = table_idx + 1
         env = env.push_table(tt)
-        (name, TableExternType(tt))
+        (name, ExternType::table(tt))
       }
       2 =>
         // Import a memory (only if we don't have one yet - MVP limit)
@@ -857,7 +857,7 @@ pub fn gen_importsec_valid(
           let name = "memory_" + mem_idx.to_string()
           mem_idx = mem_idx + 1
           env = env.push_mem(mt)
-          (name, MemExternType(mt))
+          (name, ExternType::mem(mt))
         } else {
           continue
         }
@@ -867,7 +867,7 @@ pub fn gen_importsec_valid(
         let name = "global_" + global_idx.to_string()
         global_idx = global_idx + 1
         env = env.push_global(gt)
-        (name, GlobalExternType(gt))
+        (name, ExternType::global(gt))
       }
       _ =>
         // Import a tag
@@ -876,7 +876,7 @@ pub fn gen_importsec_valid(
             let name = "tag_" + tag_idx.to_string()
             tag_idx = tag_idx + 1
             env = env.push_tag(tt)
-            (name, TagExternType(tt))
+            (name, ExternType::tag(tt))
           }
           None => continue
         }

@@ -1638,7 +1638,7 @@ test "BlockType TypeIdxBlockType with non-func type fails" {
 test "ExternType GlobalExternType validates" {
   let env = empty_env()
   let gt = GlobalType::new(ValType::i32(), false)
-  let et = @lib.GlobalExternType(gt)
+  let et = ExternType::global(gt)
   assert_eq(Validate::validate(et, env), Ok(()))
 }
 
@@ -1646,7 +1646,7 @@ test "ExternType GlobalExternType validates" {
 test "ExternType MemExternType validates" {
   let env = empty_env()
   let mt = MemType::new(Limits::i32(0, Some(10)))
-  let et = @lib.MemExternType(mt)
+  let et = ExternType::mem(mt)
   assert_eq(Validate::validate(et, env), Ok(()))
 }
 
@@ -1655,7 +1655,7 @@ test "ExternType TableExternType validates" {
   let env = empty_env()
   let rt = RefType::abs(AbsHeapType::func())
   let tt = TableType::new(rt, Limits::i32(0, Some(100)))
-  let et = @lib.TableExternType(tt)
+  let et = ExternType::table(tt)
   assert_eq(Validate::validate(et, env), Ok(()))
 }
 
@@ -1663,14 +1663,14 @@ test "ExternType TableExternType validates" {
 test "ExternType FuncExternType validates when func type exists" {
   let st = SubType::comp_type(CompType::func([], []))
   let env = empty_env().with_types([st])
-  let et = @lib.FuncExternType(TypeIdx::new(0))
+  let et = ExternType::func(TypeIdx::new(0))
   assert_eq(Validate::validate(et, env), Ok(()))
 }
 
 ///|
 test "ExternType FuncExternType fails when func type missing" {
   let env = empty_env()
-  let et = @lib.FuncExternType(TypeIdx::new(0))
+  let et = ExternType::func(TypeIdx::new(0))
   assert_eq(
     Validate::validate(et, env),
     Err("Invalid ExternType: Func extern type not found"),
@@ -1733,7 +1733,7 @@ test "Export with invalid index fails" {
 test "Import with valid GlobalExternType validates" {
   let env = empty_env()
   let gt = GlobalType::new(ValType::i32(), false)
-  let imp = @lib.Import(Name("mod"), Name("name"), GlobalExternType(gt))
+  let imp = @lib.Import(Name("mod"), Name("name"), ExternType::global(gt))
   assert_eq(Validate::validate(imp, env), Ok(()))
 }
 

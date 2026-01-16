@@ -165,7 +165,7 @@ pub struct MemType(Limits) derive(Eq, Arbitrary, Hash)
 pub struct TableType(RefType, Limits) derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) enum ExternType {
+pub enum ExternType {
   FuncExternType(TypeIdx)
   TableExternType(TableType)
   MemExternType(MemType)
@@ -7690,4 +7690,29 @@ pub fn MemType::new(lim : Limits) -> MemType {
 ///|
 pub fn TableType::new(rt : RefType, lim : Limits) -> TableType {
   TableType(rt, lim)
+}
+
+///|
+pub fn ExternType::func(idx : TypeIdx) -> ExternType {
+  FuncExternType(idx)
+}
+
+///|
+pub fn ExternType::table(tt : TableType) -> ExternType {
+  TableExternType(tt)
+}
+
+///|
+pub fn ExternType::mem(mt : MemType) -> ExternType {
+  MemExternType(mt)
+}
+
+///|
+pub fn ExternType::global(gt : GlobalType) -> ExternType {
+  GlobalExternType(gt)
+}
+
+///|
+pub fn ExternType::tag(tt : TagType) -> ExternType {
+  TagExternType(tt)
 }
