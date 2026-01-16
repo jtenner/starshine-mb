@@ -1933,7 +1933,7 @@ pub impl Decode for Func with decode(bytes, i) {
       match Decode::decode(bytes, i) {
         Ok((locals, i)) =>
           match Decode::decode(bytes, i) {
-            Ok((expr, i)) => Ok((Func(locals, expr), i))
+            Ok((expr, i)) => Ok((Func::new(locals, expr), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)

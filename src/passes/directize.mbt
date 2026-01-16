@@ -429,7 +429,7 @@ test "directize: constant index resolves to known function" {
     )
     .with_code_sec(
       CodeSec([
-        TFunc(
+        Func::t_func(
           [],
           TExpr::new([
             TCallIndirect(
@@ -481,7 +481,7 @@ test "directize: out-of-bounds constant index becomes unreachable" {
     )
     .with_code_sec(
       CodeSec([
-        TFunc(
+        Func::t_func(
           [],
           TExpr::new([
               TCallIndirect(
@@ -533,7 +533,7 @@ test "directize: null entry in table becomes unreachable" {
     )
     .with_code_sec(
       CodeSec([
-        TFunc(
+        Func::t_func(
           [],
           TExpr::new([
               TCallIndirect(
@@ -582,7 +582,7 @@ test "directize: non-constant index is not transformed" {
     )
     .with_code_sec(
       CodeSec([
-        TFunc(
+        Func::t_func(
           [ValType::i32()],
           TExpr::new([
             TCallIndirect(
@@ -638,7 +638,7 @@ test "directize: type mismatch becomes unreachable" {
     )
     .with_code_sec(
       CodeSec([
-        TFunc(
+        Func::t_func(
           [],
           TExpr::new([
             TCallIndirect(
@@ -690,7 +690,7 @@ test "directize: table.set prevents optimization" {
     )
     .with_code_sec(
       CodeSec([
-        TFunc(
+        Func::t_func(
           [],
           TExpr::new([
             TTableSet(
@@ -743,7 +743,7 @@ test "directize: table.fill prevents optimization" {
     )
     .with_code_sec(
       CodeSec([
-        TFunc(
+        Func::t_func(
           [],
           TExpr::new([
             TTableFill(
@@ -811,7 +811,7 @@ test "directize: table.copy prevents optimization on dest table" {
     )
     .with_code_sec(
       CodeSec([
-        TFunc(
+        Func::t_func(
           [],
           TExpr::new([
             TTableCopy(
@@ -922,7 +922,7 @@ test "directize: table.grow marks table as growable" {
     )
     .with_code_sec(
       CodeSec([
-        TFunc(
+        Func::t_func(
           [],
           TExpr::new([
             TDrop(
@@ -977,7 +977,7 @@ test "directize: initial_immutable=false prevents optimization" {
     )
     .with_code_sec(
       CodeSec([
-        TFunc(
+        Func::t_func(
           [],
           TExpr::new([
             TCallIndirect(
@@ -1030,7 +1030,7 @@ test "directize: return_call_indirect with constant index" {
     )
     .with_code_sec(
       CodeSec([
-        TFunc(
+        Func::t_func(
           [],
           TExpr::new([
             TReturnCallIndirect(
@@ -1078,7 +1078,7 @@ test "directize: return_call_indirect out of bounds becomes unreachable" {
     )
     .with_code_sec(
       CodeSec([
-        TFunc(
+        Func::t_func(
           [],
           TExpr::new([
             TReturnCallIndirect(
@@ -1130,7 +1130,7 @@ test "directize: select-based call_indirect with both branches known" {
     )
     .with_code_sec(
       CodeSec([
-        TFunc(
+        Func::t_func(
           [ValType::i32()],
           TExpr::new([
             TCallIndirect(
@@ -1183,7 +1183,7 @@ test "directize: select-based call_indirect with one branch trapping" {
     )
     .with_code_sec(
       CodeSec([
-        TFunc(
+        Func::t_func(
           [ValType::i32()],
           TExpr::new([
             TCallIndirect(
@@ -1247,7 +1247,7 @@ test "directize: select-based call_indirect with unknown branch not transformed"
     )
     .with_code_sec(
       CodeSec([
-        TFunc(
+        Func::t_func(
           [ValType::i32()],
           TExpr::new([
             TDrop(
@@ -1315,7 +1315,7 @@ test "directize: br_table-based call_indirect with all branches known" {
     )
     .with_code_sec(
       CodeSec([
-        TFunc(
+        Func::t_func(
           [ValType::i32()],
           TExpr::new([
             TCallIndirect(
@@ -1369,7 +1369,7 @@ test "directize: passive element segment doesn't initialize table" {
     ) // Passive, not active
     .with_code_sec(
       CodeSec([
-        TFunc(
+        Func::t_func(
           [],
           TExpr::new([
             TCallIndirect(
@@ -1414,7 +1414,7 @@ test "directize: declarative element segment doesn't initialize table" {
     ) // Declarative
     .with_code_sec(
       CodeSec([
-        TFunc(
+        Func::t_func(
           [],
           TExpr::new([
             TCallIndirect(
@@ -1473,7 +1473,7 @@ test "directize: element segment with non-constant offset marks table mutable" {
     ) // Non-constant offset
     .with_code_sec(
       CodeSec([
-        TFunc(
+        Func::t_func(
           [],
           TExpr::new([
             TCallIndirect(
@@ -1522,7 +1522,7 @@ test "directize: element segment with expression kind marks table mutable" {
     ) // Expression kind
     .with_code_sec(
       CodeSec([
-        TFunc(
+        Func::t_func(
           [],
           TExpr::new([
             TCallIndirect(
@@ -1585,7 +1585,7 @@ test "directize: multiple tables, only one modified" {
     )
     .with_code_sec(
       CodeSec([
-        TFunc(
+        Func::t_func(
           [],
           TExpr::new([
             TTableSet(
@@ -1662,7 +1662,7 @@ test "directize: arguments are propagated to direct call" {
     )
     .with_code_sec(
       CodeSec([
-        TFunc(
+        Func::t_func(
           [],
           TExpr::new([
             TCallIndirect(
@@ -1715,7 +1715,7 @@ test "directize: negative index (interpreted as large unsigned) becomes unreacha
     )
     .with_code_sec(
       CodeSec([
-        TFunc(
+        Func::t_func(
           [],
           TExpr::new([
               TCallIndirect(
@@ -1760,7 +1760,7 @@ test "directize: empty table always traps" {
     )
     .with_code_sec(
       CodeSec([
-        TFunc(
+        Func::t_func(
           [],
           TExpr::new([
             TCallIndirect(
@@ -1791,7 +1791,7 @@ test "directize: module without tables" {
   let m = Module::new()
     .with_type_sec(TypeSec([make_simple_functype()]))
     .with_func_sec(FuncSec([TypeIdx::new(0)]))
-    .with_code_sec(CodeSec([TFunc([], TExpr::new([TNop]))]))
+    .with_code_sec(CodeSec([Func::t_func([], TExpr::new([TNop]))]))
   let result = directize_module(m, true)
   assert_true(result is Ok(_))
   let new_m = result.unwrap()
@@ -1832,7 +1832,7 @@ test "directize: element segment at offset beyond initial table entries" {
     )
     .with_code_sec(
       CodeSec([
-        TFunc(
+        Func::t_func(
           [],
           TExpr::new([
             TCallIndirect(
@@ -1905,7 +1905,7 @@ test "directize: table with i64 limits" {
     )
     .with_code_sec(
       CodeSec([
-        TFunc(
+        Func::t_func(
           [],
           TExpr::new([
             TCallIndirect(

@@ -2148,7 +2148,7 @@ pub fn gen_func_entry(ctx : GenCtx, tidx : TypeIdx) -> Result[Func, String] {
   // Return the Func variant. 
   // To produce TFunc, you would convert expr to TExpr using expr_to_texpr,
   // extract ValTypes from params and locals_decls, and use the TFunc constructor.
-  Ok(Func(locals_decls, expr))
+  Ok(Func::new(locals_decls, expr))
 }
 
 ///|

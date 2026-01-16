@@ -5,14 +5,14 @@ pub fn lift_to_texpr_pass() -> ModuleTransformer[Unit] {
     on_func: Some(fn(
       _ : ModuleTransformer[Unit],
       _ : Unit,
-      f : @lib.Func,
-    ) -> TransformerResult[Unit, @lib.Func] {
+      f : Func,
+    ) -> TransformerResult[Unit, Func] {
       match f {
         Func(l, t) =>
           match t.to_texpr(Env::new()) {
             Ok(t) =>
               match expand_locals(l) {
-                Ok(l) => change((), @lib.TFunc(l, t))
+                Ok(l) => change((), Func::t_func(l, t))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)

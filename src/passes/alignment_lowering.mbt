@@ -374,10 +374,10 @@ pub fn alignment_lowering_pass() -> ModuleTransformer[AlignmentLoweringContext] 
         Func(_) => Err("Expected TFunc")
         TFunc(locals, b) => {
           t.locals = locals
-          match self.walk_func_default(t, TFunc(locals, b)) {
+          match self.walk_func_default(t, Func::t_func(locals, b)) {
             Ok(Some((t, func))) =>
               match func {
-                TFunc(_, b) => change(t, TFunc(t.locals, b))
+                TFunc(_, b) => change(t, Func::t_func(t.locals, b))
                 _ => Err("Expected TFunc")
               }
             Err(t) => Err(t)

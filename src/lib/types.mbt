@@ -267,7 +267,7 @@ pub(all) struct Env {
 } derive(Hash)
 
 ///|
-pub(all) enum Func {
+pub enum Func {
   Func(Array[Locals], Expr)
   TFunc(Array[ValType], TExpr)
 } derive(Eq, Hash)

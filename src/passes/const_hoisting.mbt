@@ -290,7 +290,7 @@ pub fn const_hoisting_pass() -> ModuleTransformer[ConstHoistingState] {
         let con = lit.get_tinst()
         body.0.insert(0, TLocalSet(idx, con))
       }
-      change(t, TFunc(locals, body))
+      change(t, Func::t_func(locals, body))
     }),
     on_tinstruction: Some(fn(self, t, i) {
       match i {
@@ -322,7 +322,7 @@ fn run_hoist(f : Func) -> Func raise {
 
 ///|
 test "const hoisting: single use does nothing" {
-  let f = @lib.TFunc([], TExpr::new([TI32Const(I32(7))]))
+  let f = Func::t_func([], TExpr::new([TI32Const(I32(7))]))
   let f2 = run_hoist(f)
   match f2 {
     TFunc(locals, TExpr(instrs)) => {
@@ -337,7 +337,7 @@ test "const hoisting: single use does nothing" {
 ///|
 test "const hoisting: large constant is hoisted" {
   let big = 100000
-  let f = @lib.TFunc(
+  let f = Func::t_func(
     [],
     TExpr::new([TI32Const(I32(big)), TI32Const(I32(big)), TI32Const(I32(big))]),
   )
@@ -361,7 +361,7 @@ test "const hoisting: large constant is hoisted" {
 
 ///|
 test "const hoisting: small constants are not hoisted" {
-  let f = @lib.TFunc(
+  let f = Func::t_func(
     [],
     TExpr::new([TI32Const(I32(0)), TI32Const(I32(0)), TI32Const(I32(0))]),
   )
