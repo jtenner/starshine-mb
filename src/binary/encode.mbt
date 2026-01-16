@@ -224,19 +224,19 @@ pub impl Decode for CompType with decode(bytes, i) {
     None => Err("Index out of bounds")
     Some(0x5E) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((ft, i)) => Ok((ArrayCompType(ft), i))
+        Ok((ft, i)) => Ok((CompType::array(ft), i))
         Err(err) => Err(err)
       }
     Some(0x5F) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((fts, i)) => Ok((StructCompType(fts), i))
+        Ok((fts, i)) => Ok((CompType::struct_(fts), i))
         Err(err) => Err(err)
       }
     Some(0x60) =>
       match Decode::decode(bytes, i + 1) {
         Ok((props, i)) =>
           match Decode::decode(bytes, i) {
-            Ok((rets, i)) => Ok((FuncCompType(props, rets), i))
+            Ok((rets, i)) => Ok((CompType::func(props, rets), i))
             Err(err) => Err(err)
           }
         Err(err) => Err(err)
@@ -5921,12 +5921,12 @@ test "Ref Types" {
 ///|
 test "Comp Types" {
   roundtrip(
-    @lib.ArrayCompType(
+    CompType::array(
       FieldType::new(StorageType::val_type(ValType::i32()), Var),
     ),
   )
   roundtrip(
-    @lib.StructCompType([
+    CompType::struct_([
       FieldType::new(
         StorageType::val_type(
           ValType::ref_type(
@@ -5938,7 +5938,7 @@ test "Comp Types" {
     ]),
   )
   roundtrip(
-    @lib.FuncCompType([ValType::i32(), ValType::i64()], [
+    CompType::func([ValType::i32(), ValType::i64()], [
       ValType::i64(),
       ValType::i32(),
     ]),
@@ -5963,14 +5963,14 @@ test "Packed Type" {
 test "SubTypes" {
   roundtrip(
     @lib.CompTypeSubType(
-      ArrayCompType(FieldType::new(StorageType::val_type(ValType::i32()), Var)),
+      CompType::array(FieldType::new(StorageType::val_type(ValType::i32()), Var)),
     ),
   )
   roundtrip(
     @lib.SubType(
       false,
       [TypeIdx::new(0), TypeIdx::new(2), TypeIdx::new(4)],
-      FuncCompType([], []),
+      CompType::func([], []),
     ),
   )
 }

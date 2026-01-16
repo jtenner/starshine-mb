@@ -886,8 +886,8 @@ test "CompType: FuncCompType - contravariant params, covariant results" {
   // func(any) -> eq  <:  func(eq) -> any
   // params: eq <: any (contravariant check)
   // results: eq <: any (covariant check)
-  let f1 = @lib.FuncCompType([ref_any], [ref_eq])
-  let f2 = @lib.FuncCompType([ref_eq], [ref_any])
+  let f1 = CompType::func([ref_any], [ref_eq])
+  let f2 = CompType::func([ref_eq], [ref_any])
   assert_true(Match::matches(f1, f2, env))
   assert_false(Match::matches(f2, f1, env))
 }
@@ -895,28 +895,28 @@ test "CompType: FuncCompType - contravariant params, covariant results" {
 ///|
 test "CompType: FuncCompType - reflexivity" {
   let env = Env::new()
-  let f = @lib.FuncCompType([ValType::i32()], [ValType::i64()])
+  let f = CompType::func([ValType::i32()], [ValType::i64()])
   assert_true(Match::matches(f, f, env))
 }
 
 ///|
 test "CompType: FuncCompType - param count mismatch" {
   let env = Env::new()
-  let f1 = @lib.FuncCompType([ValType::i32()], [])
-  let f2 = @lib.FuncCompType([ValType::i32(), ValType::i64()], [])
+  let f1 = CompType::func([ValType::i32()], [])
+  let f2 = CompType::func([ValType::i32(), ValType::i64()], [])
   assert_false(Match::matches(f1, f2, env))
 }
 
 ///|
 test "CompType: StructCompType - field matching" {
   let env = Env::new()
-  let s1 = @lib.StructCompType([
+  let s1 = CompType::struct_([
     FieldType::new(StorageType::pack_type(PackType::i8()), Const),
   ])
-  let s2 = @lib.StructCompType([
+  let s2 = CompType::struct_([
     FieldType::new(StorageType::pack_type(PackType::i8()), Const),
   ])
-  let s3 = @lib.StructCompType([
+  let s3 = CompType::struct_([
     FieldType::new(StorageType::pack_type(PackType::i16()), Const),
   ])
   assert_true(Match::matches(s1, s2, env))
@@ -926,13 +926,13 @@ test "CompType: StructCompType - field matching" {
 ///|
 test "CompType: ArrayCompType - field matching" {
   let env = Env::new()
-  let a1 = @lib.ArrayCompType(
+  let a1 = CompType::array(
     FieldType::new(StorageType::pack_type(PackType::i8()), Const),
   )
-  let a2 = @lib.ArrayCompType(
+  let a2 = CompType::array(
     FieldType::new(StorageType::pack_type(PackType::i8()), Const),
   )
-  let a3 = @lib.ArrayCompType(
+  let a3 = CompType::array(
     FieldType::new(StorageType::pack_type(PackType::i8()), Var),
   )
   assert_true(Match::matches(a1, a2, env))
@@ -942,9 +942,9 @@ test "CompType: ArrayCompType - field matching" {
 ///|
 test "CompType: different kinds don't match" {
   let env = Env::new()
-  let func = @lib.FuncCompType([], [])
-  let struct_ = @lib.StructCompType([])
-  let array = @lib.ArrayCompType(
+  let func = CompType::func([], [])
+  let struct_ = CompType::struct_([])
+  let array = CompType::array(
     FieldType::new(StorageType::pack_type(PackType::i8()), Const),
   )
   assert_false(Match::matches(func, struct_, env))
@@ -1119,8 +1119,8 @@ test "complex function type subtyping" {
   let ref_eq = ValType::ref_type(
     RefType::new(true, HeapType::abs(AbsHeapType::eq())),
   )
-  let f1 = @lib.FuncCompType([ref_any, ref_any], [ref_eq])
-  let f2 = @lib.FuncCompType([ref_eq, ref_eq], [ref_any])
+  let f1 = CompType::func([ref_any, ref_any], [ref_eq])
+  let f2 = CompType::func([ref_eq, ref_eq], [ref_any])
   assert_true(Match::matches(f1, f2, env))
 }
 

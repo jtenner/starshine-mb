@@ -125,7 +125,7 @@ pub struct LabelIdx(UInt) derive(Eq, Arbitrary, Hash)
 pub struct LaneIdx(Byte) derive(Eq, Hash)
 
 ///|
-pub(all) enum CompType {
+pub enum CompType {
   ArrayCompType(FieldType)
   StructCompType(Array[FieldType])
   FuncCompType(ResultType, ResultType)
@@ -7636,4 +7636,16 @@ pub fn ElemIdx::new(idx : UInt) -> ElemIdx {
 ///|
 pub fn DataIdx::new(idx : UInt) -> DataIdx {
   DataIdx(idx)
+}
+
+pub fn CompType::array(ft : FieldType) -> CompType {
+  ArrayCompType(ft)
+}
+
+pub fn CompType::struct_(fts : Array[FieldType]) -> CompType {
+  StructCompType(fts)
+}
+
+pub fn CompType::func(params : ResultType, results : ResultType) -> CompType {
+  FuncCompType(params, results)
 }

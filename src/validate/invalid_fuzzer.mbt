@@ -369,7 +369,7 @@ fn make_signature_corruption_transformer() -> ModuleTransformer[Unit] {
               other => other
             }
           })
-          Ok(Some(((), FuncCompType(new_params, new_results))))
+          Ok(Some(((), CompType::func(new_params, new_results))))
         }
         StructCompType(fields) => {
           // Change field types
@@ -389,7 +389,7 @@ fn make_signature_corruption_transformer() -> ModuleTransformer[Unit] {
               _ => ft
             }
           })
-          Ok(Some(((), StructCompType(new_fields))))
+          Ok(Some(((), CompType::struct_(new_fields))))
         }
         ArrayCompType(FieldType(st, mutability)) => {
           let new_st = match st {
@@ -399,7 +399,7 @@ fn make_signature_corruption_transformer() -> ModuleTransformer[Unit] {
               StorageType::val_type(ValType::f32())
             _ => st
           }
-          Ok(Some(((), ArrayCompType(FieldType::new(new_st, mutability)))))
+          Ok(Some(((), CompType::array(FieldType::new(new_st, mutability)))))
         }
       }
     }),
