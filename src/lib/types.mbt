@@ -224,10 +224,10 @@ pub enum DataMode {
 } derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) struct Data(DataMode, Bytes) derive(Eq, Hash)
+pub struct Data(DataMode, Bytes) derive(Eq, Hash)
 
 ///|
-pub(all) struct Name(StringView) derive(Eq, Hash)
+pub struct Name(StringView) derive(Eq, Hash)
 
 ///|
 pub(all) struct Module {
@@ -7755,4 +7755,12 @@ pub fn Export::new(n : Name, ei : ExternIdx) -> Export {
 
 pub fn Locals::new(u : UInt, vt : ValType) -> Locals {
   Locals(u, vt)
+}
+
+pub fn Data::new(dm : DataMode, b : Bytes) -> Data {
+  Data(dm, b)
+}
+
+pub fn Name::new(sv : StringView) -> Name {
+  Name(sv)
 }

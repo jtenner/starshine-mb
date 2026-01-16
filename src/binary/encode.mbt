@@ -1055,7 +1055,7 @@ pub impl Decode for Name with decode(bytes, i) {
     return Err("Index out of bounds")
   }
   let name = @encoding/utf8.decode_lossy(bytes[j:end]).to_string_view()
-  Ok((Name(name), end))
+  Ok((Name::new(name), end))
 }
 
 ///|
@@ -1991,14 +1991,14 @@ pub impl Decode for Data with decode(bytes, i) {
         Ok((expr, i)) =>
           match Decode::decode(bytes, i) {
             Ok((bytes, i)) =>
-              Ok((Data(DataMode::active(MemIdx::new(0), expr), bytes), i))
+              Ok((Data::new(DataMode::active(MemIdx::new(0), expr), bytes), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
       }
     Some(0x01) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((bytes, i)) => Ok((Data(DataMode::passive(), bytes), i))
+        Ok((bytes, i)) => Ok((Data::new(DataMode::passive(), bytes), i))
         Err(t) => Err(t)
       }
     Some(0x02) =>
@@ -2008,7 +2008,7 @@ pub impl Decode for Data with decode(bytes, i) {
             Ok((expr, i)) =>
               match Decode::decode(bytes, i) {
                 Ok((bytes, i)) =>
-                  Ok((Data(DataMode::active(idx, expr), bytes), i))
+                  Ok((Data::new(DataMode::active(idx, expr), bytes), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)

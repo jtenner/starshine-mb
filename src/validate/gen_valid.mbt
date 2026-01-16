@@ -605,7 +605,7 @@ pub fn gen_datasec_valid(
     for i in 0..<byte_count {
       bytes.push((rnd.next_uint() % 256).to_byte())
     }
-    let d = @lib.Data(mode, Bytes::from_array(bytes))
+    let d = Data::new(mode, Bytes::from_array(bytes))
     datas.push(d)
     env = env.push_data(d)
   }
@@ -882,7 +882,7 @@ pub fn gen_importsec_valid(
         }
     }
     imports.push(
-      Import::new(Name(mod_name.to_string_view()), Name(name.to_string_view()), desc),
+      Import::new(Name::new(mod_name.to_string_view()), Name::new(name.to_string_view()), desc),
     )
   }
   let ctx2 = ctx.dec_fuel(imports.length())
@@ -1032,7 +1032,7 @@ pub fn gen_exportsec_valid(
         let name = make_unique_name("func", i)
         let fidx = rnd.next_uint() % env.funcs.length().reinterpret_as_uint()
         exports.push(
-          Export::new(Name(name.to_string_view()), ExternIdx::func(FuncIdx::new(fidx))),
+          Export::new(Name::new(name.to_string_view()), ExternIdx::func(FuncIdx::new(fidx))),
         )
       }
     }
@@ -1043,7 +1043,7 @@ pub fn gen_exportsec_valid(
     let name = make_unique_name("table", 0)
     let tidx = rnd.next_uint() % env.tables.length().reinterpret_as_uint()
     exports.push(
-      Export::new(Name(name.to_string_view()), ExternIdx::table(TableIdx::new(tidx))),
+      Export::new(Name::new(name.to_string_view()), ExternIdx::table(TableIdx::new(tidx))),
     )
   }
 
@@ -1051,7 +1051,7 @@ pub fn gen_exportsec_valid(
   if env.mems.length() > 0 && rnd.next_uint() % 2 == 0 {
     let name = "memory"
     exports.push(
-      Export::new(Name(name.to_string_view()), ExternIdx::mem(MemIdx::new(0))),
+      Export::new(Name::new(name.to_string_view()), ExternIdx::mem(MemIdx::new(0))),
     )
   }
 
@@ -1062,7 +1062,7 @@ pub fn gen_exportsec_valid(
         let name = make_unique_name("global", i)
         exports.push(
           Export::new(
-            Name(name.to_string_view()),
+            Name::new(name.to_string_view()),
             ExternIdx::global(GlobalIdx::new(i.reinterpret_as_uint())),
           ),
         )
@@ -1075,7 +1075,7 @@ pub fn gen_exportsec_valid(
     let name = make_unique_name("tag", 0)
     let tidx = rnd.next_uint() % env.tags.length().reinterpret_as_uint()
     exports.push(
-      Export::new(Name(name.to_string_view()), ExternIdx::tag(TagIdx::new(tidx))),
+      Export::new(Name::new(name.to_string_view()), ExternIdx::tag(TagIdx::new(tidx))),
     )
   }
   let ctx2 = ctx.dec_fuel(exports.length())
