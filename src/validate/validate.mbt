@@ -1289,7 +1289,9 @@ test "LabelIdx fails with out of bounds index" {
 ///|
 test "TagIdx validates when tag exists" {
   let st = SubType::comp_type(CompType::func([], []))
-  let env = empty_env().with_types([st]).with_tags([TagType::new(TypeIdx::new(0))])
+  let env = empty_env()
+    .with_types([st])
+    .with_tags([TagType::new(TypeIdx::new(0))])
   let tidx = TagIdx::new(0)
   assert_eq(Validate::validate(tidx, env), Ok(()))
 }

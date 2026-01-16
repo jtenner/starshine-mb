@@ -1443,7 +1443,10 @@ test "directize: element segment with non-constant offset marks table mutable" {
     .with_func_sec(FuncSec([TypeIdx::new(0)]))
     .with_global_sec(
       GlobalSec([
-        Global(GlobalType::new(ValType::i32(), false), Expr::new([I32Const(I32(0))])),
+        Global(
+          GlobalType::new(ValType::i32(), false),
+          Expr::new([I32Const(I32(0))]),
+        ),
       ]),
     )
     .with_table_sec(

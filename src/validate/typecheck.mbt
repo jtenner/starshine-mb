@@ -4943,7 +4943,10 @@ test "Typecheck GlobalGet" {
 
 ///|
 test "Typecheck GlobalSet mutable" {
-  let env : Env = { ..empty_env(), globals: [GlobalType::new(ValType::i32(), true)] }
+  let env : Env = {
+    ..empty_env(),
+    globals: [GlobalType::new(ValType::i32(), true)],
+  }
   let state = make_state(env, [ValType::i32()])
   let new_state = assert_ok(
     Typecheck::typecheck(@lib.GlobalSet(GlobalIdx::new(0)), state),
@@ -8244,7 +8247,7 @@ test "Typecheck V128Load32x2U" {
 
 ///|
 test "Typecheck V128Load8Splat" {
-let mem_type =  MemType::new(Limits::i32(1, None))
+  let mem_type = MemType::new(Limits::i32(1, None))
   let env = empty_env().push_mem(mem_type)
   let state = make_state(env, [ValType::i32()])
   let result = Typecheck::typecheck(

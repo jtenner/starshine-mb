@@ -7672,15 +7672,22 @@ pub fn RecType::group(sts : Array[SubType]) -> RecType {
   GroupRecType(sts)
 }
 
+///|
 pub fn TagType::new(ti : TypeIdx) -> TagType {
   TagType(ti)
 }
+
+///|
 pub fn GlobalType::new(vt : ValType, nullable : Bool) -> GlobalType {
   GlobalType(vt, nullable)
 }
+
+///|
 pub fn MemType::new(lim : Limits) -> MemType {
   MemType(lim)
 }
+
+///|
 pub fn TableType::new(rt : RefType, lim : Limits) -> TableType {
   TableType(rt, lim)
 }
