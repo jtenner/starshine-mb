@@ -10,6 +10,8 @@ pub fn alignment_lowering_pass() -> @lib.ModuleTransformer[AlignmentLoweringCont
 
 pub fn code_folding_pass() -> @lib.ModuleTransformer[CodeFoldingState]
 
+pub fn code_pushing_pass() -> @lib.ModuleTransformer[Unit]
+
 pub fn const_hoisting_pass() -> @lib.ModuleTransformer[ConstHoistingState]
 
 pub fn directize_module(@lib.Module, Bool) -> Result[@lib.Module, String]
