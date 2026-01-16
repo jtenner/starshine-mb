@@ -489,9 +489,9 @@ fn gen_limits_i32(
   let has_max = (rnd.next_uint() & 1) == 1
   if has_max {
     let max = min + rnd.next_uint() % (max_val - min + 1)
-    I32Limits(min, Some(max))
+    Limits::i32(min, Some(max))
   } else {
-    I32Limits(min, None)
+    Limits::i32(min, None)
   }
 }
 
@@ -519,9 +519,9 @@ fn gen_memtype(rnd : @quickcheck/splitmix.RandomState) -> MemType {
   let has_max = (rnd.next_uint() & 1) == 1
   let lim = if has_max {
     let max = min + rnd.next_uint() % 4
-    @lib.I32Limits(min, Some(max))
+    Limits::i32(min, Some(max))
   } else {
-    I32Limits(min, None)
+    Limits::i32(min, None)
   }
   MemType(lim)
 }

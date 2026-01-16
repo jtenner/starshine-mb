@@ -1322,7 +1322,7 @@ test "FuncIdx fails when func does not exist" {
 ///|
 test "TableIdx validates when table exists" {
   let rt = RefType::abs(AbsHeapType::func())
-  let tt = @lib.TableType(rt, I32Limits(0, None))
+  let tt = @lib.TableType(rt, Limits::i32(0, None))
   let env = empty_env().with_tables([tt])
   let tidx = TableIdx::new(0)
   assert_eq(Validate::validate(tidx, env), Ok(()))
@@ -1339,7 +1339,7 @@ test "TableIdx fails when table does not exist" {
 
 ///|
 test "MemIdx validates when memory exists" {
-  let mt = @lib.MemType(I32Limits(0, None))
+  let mt = @lib.MemType(Limits::i32(0, None))
   let env = empty_env().with_mems([mt])
   let midx = MemIdx::new(0)
   assert_eq(Validate::validate(midx, env), Ok(()))
@@ -1374,21 +1374,21 @@ test "GlobalIdx fails when global does not exist" {
 ///|
 test "I32Limits validates within max" {
   let env = empty_env()
-  let lim = @lib.I32Limits(10, Some(100))
+  let lim = Limits::i32(10, Some(100))
   assert_eq(ValidateMax::validate_max(lim, env, 1000), Ok(()))
 }
 
 ///|
 test "I32Limits validates with no upper bound" {
   let env = empty_env()
-  let lim = @lib.I32Limits(10, None)
+  let lim = Limits::i32(10, None)
   assert_eq(ValidateMax::validate_max(lim, env, 1000), Ok(()))
 }
 
 ///|
 test "I32Limits fails when n exceeds k" {
   let env = empty_env()
-  let lim = @lib.I32Limits(2000, None)
+  let lim = Limits::i32(2000, None)
   assert_eq(
     ValidateMax::validate_max(lim, env, 1000),
     Err("Invalid range for limits"),
@@ -1398,7 +1398,7 @@ test "I32Limits fails when n exceeds k" {
 ///|
 test "I32Limits fails when m exceeds k" {
   let env = empty_env()
-  let lim = @lib.I32Limits(10, Some(2000))
+  let lim = Limits::i32(10, Some(2000))
   assert_eq(
     ValidateMax::validate_max(lim, env, 1000),
     Err("Invalid range for limits"),
@@ -1408,7 +1408,7 @@ test "I32Limits fails when m exceeds k" {
 ///|
 test "I32Limits fails when n exceeds m" {
   let env = empty_env()
-  let lim = @lib.I32Limits(100, Some(10))
+  let lim = Limits::i32(100, Some(10))
   assert_eq(
     ValidateMax::validate_max(lim, env, 1000),
     Err("Invalid range for limits"),
@@ -1418,7 +1418,7 @@ test "I32Limits fails when n exceeds m" {
 ///|
 test "I64Limits validates within max" {
   let env = empty_env()
-  let lim = @lib.I64Limits(10, Some(100))
+  let lim = Limits::i64(10, Some(100))
   assert_eq(ValidateMax::validate_max(lim, env, 1000), Ok(()))
 }
 
@@ -1427,14 +1427,14 @@ test "I64Limits validates within max" {
 ///|
 test "MemType validates with valid limits" {
   let env = empty_env()
-  let mt = @lib.MemType(I32Limits(0, Some(100)))
+  let mt = @lib.MemType(Limits::i32(0, Some(100)))
   assert_eq(Validate::validate(mt, env), Ok(()))
 }
 
 ///|
 test "MemType fails when limits exceed 65536" {
   let env = empty_env()
-  let mt = @lib.MemType(I32Limits(0, Some(100000)))
+  let mt = @lib.MemType(Limits::i32(0, Some(100000)))
   assert_eq(Validate::validate(mt, env), Err("Invalid range for limits"))
 }
 
@@ -1444,7 +1444,7 @@ test "MemType fails when limits exceed 65536" {
 test "TableType validates with valid ref type and limits" {
   let env = empty_env()
   let rt = RefType::abs(AbsHeapType::func())
-  let tt = @lib.TableType(rt, I32Limits(0, Some(100)))
+  let tt = @lib.TableType(rt, Limits::i32(0, Some(100)))
   assert_eq(Validate::validate(tt, env), Ok(()))
 }
 
@@ -1561,7 +1561,9 @@ test "RecType GroupRecType validates" {
   let env = empty_env()
   let st1 = SubType::comp_type(CompType::func([], []))
   let st2 = SubType::comp_type(
-    CompType::array(FieldType::new(StorageType::val_type(ValType::i32()), Const)),
+    CompType::array(
+      FieldType::new(StorageType::val_type(ValType::i32()), Const),
+    ),
   )
   let rt = RecType::group([st1, st2])
   assert_eq(Validate::validate(rt, env), Ok(()))
@@ -1616,7 +1618,9 @@ test "BlockType TypeIdxBlockType with invalid index fails" {
 ///|
 test "BlockType TypeIdxBlockType with non-func type fails" {
   let st = SubType::comp_type(
-    CompType::array(FieldType::new(StorageType::val_type(ValType::i32()), Const)),
+    CompType::array(
+      FieldType::new(StorageType::val_type(ValType::i32()), Const),
+    ),
   )
   let env = empty_env().with_types([st])
   let bt = BlockType::type_idx(TypeIdx::new(0))
@@ -1639,7 +1643,7 @@ test "ExternType GlobalExternType validates" {
 ///|
 test "ExternType MemExternType validates" {
   let env = empty_env()
-  let mt = @lib.MemType(I32Limits(0, Some(10)))
+  let mt = @lib.MemType(Limits::i32(0, Some(10)))
   let et = @lib.MemExternType(mt)
   assert_eq(Validate::validate(et, env), Ok(()))
 }
@@ -1648,7 +1652,7 @@ test "ExternType MemExternType validates" {
 test "ExternType TableExternType validates" {
   let env = empty_env()
   let rt = RefType::abs(AbsHeapType::func())
-  let tt = @lib.TableType(rt, I32Limits(0, Some(100)))
+  let tt = @lib.TableType(rt, Limits::i32(0, Some(100)))
   let et = @lib.TableExternType(tt)
   assert_eq(Validate::validate(et, env), Ok(()))
 }
@@ -1683,7 +1687,7 @@ test "ExternIdx FuncExternIdx validates" {
 ///|
 test "ExternIdx TableExternIdx validates" {
   let rt = RefType::abs(AbsHeapType::func())
-  let tt = @lib.TableType(rt, I32Limits(0, None))
+  let tt = @lib.TableType(rt, Limits::i32(0, None))
   let env = empty_env().with_tables([tt])
   let ei = @lib.TableExternIdx(TableIdx::new(0))
   assert_eq(Validate::validate(ei, env), Ok(()))
@@ -1691,7 +1695,7 @@ test "ExternIdx TableExternIdx validates" {
 
 ///|
 test "ExternIdx MemExternIdx validates" {
-  let mt = @lib.MemType(I32Limits(0, None))
+  let mt = @lib.MemType(Limits::i32(0, None))
   let env = empty_env().with_mems([mt])
   let ei = @lib.MemExternIdx(MemIdx::new(0))
   assert_eq(Validate::validate(ei, env), Ok(()))

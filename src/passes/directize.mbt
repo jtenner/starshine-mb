@@ -465,7 +465,7 @@ test "directize: out-of-bounds constant index becomes unreachable" {
         Table(
           TableType(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
-            I32Limits(1, Some(1)),
+            Limits::i32(1, Some(1)),
           ),
           None,
         ),
@@ -517,7 +517,7 @@ test "directize: null entry in table becomes unreachable" {
         Table(
           TableType(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
-            I32Limits(2, Some(2)),
+            Limits::i32(2, Some(2)),
           ),
           None,
         ),
@@ -566,7 +566,7 @@ test "directize: non-constant index is not transformed" {
         Table(
           TableType(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
-            I32Limits(1, Some(1)),
+            Limits::i32(1, Some(1)),
           ),
           None,
         ),
@@ -622,7 +622,7 @@ test "directize: type mismatch becomes unreachable" {
         Table(
           TableType(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
-            I32Limits(1, Some(1)),
+            Limits::i32(1, Some(1)),
           ),
           None,
         ),
@@ -674,7 +674,7 @@ test "directize: table.set prevents optimization" {
         Table(
           TableType(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
-            I32Limits(1, Some(1)),
+            Limits::i32(1, Some(1)),
           ),
           None,
         ),
@@ -727,7 +727,7 @@ test "directize: table.fill prevents optimization" {
         Table(
           TableType(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
-            I32Limits(2, Some(2)),
+            Limits::i32(2, Some(2)),
           ),
           None,
         ),
@@ -781,14 +781,14 @@ test "directize: table.copy prevents optimization on dest table" {
         Table::new(
           TableType(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
-            I32Limits(1, Some(1)),
+            Limits::i32(1, Some(1)),
           ),
           None,
         ),
         Table::new(
           TableType(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
-            I32Limits(1, Some(1)),
+            Limits::i32(1, Some(1)),
           ),
           None,
         ),
@@ -853,7 +853,7 @@ test "directize: table.init prevents optimization" {
         Table(
           TableType(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
-            I32Limits(1, Some(1)),
+            Limits::i32(1, Some(1)),
           ),
           None,
         ),
@@ -906,7 +906,7 @@ test "directize: table.grow marks table as growable" {
         Table(
           TableType(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
-            I32Limits(1, None),
+            Limits::i32(1, None),
           ),
           None,
         ),
@@ -961,7 +961,7 @@ test "directize: initial_immutable=false prevents optimization" {
         Table(
           TableType(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
-            I32Limits(1, Some(1)),
+            Limits::i32(1, Some(1)),
           ),
           None,
         ),
@@ -1014,7 +1014,7 @@ test "directize: return_call_indirect with constant index" {
         Table(
           TableType(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
-            I32Limits(1, Some(1)),
+            Limits::i32(1, Some(1)),
           ),
           None,
         ),
@@ -1062,7 +1062,7 @@ test "directize: return_call_indirect out of bounds becomes unreachable" {
         Table(
           TableType(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
-            I32Limits(1, Some(1)),
+            Limits::i32(1, Some(1)),
           ),
           None,
         ),
@@ -1114,7 +1114,7 @@ test "directize: select-based call_indirect with both branches known" {
         Table(
           TableType(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
-            I32Limits(2, Some(2)),
+            Limits::i32(2, Some(2)),
           ),
           None,
         ),
@@ -1167,7 +1167,7 @@ test "directize: select-based call_indirect with one branch trapping" {
         Table(
           TableType(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
-            I32Limits(2, Some(2)),
+            Limits::i32(2, Some(2)),
           ),
           None,
         ),
@@ -1231,7 +1231,7 @@ test "directize: select-based call_indirect with unknown branch not transformed"
         Table(
           TableType(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
-            I32Limits(1, None),
+            Limits::i32(1, None),
           ),
           None,
         ),
@@ -1299,7 +1299,7 @@ test "directize: br_table-based call_indirect with all branches known" {
         Table(
           TableType(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
-            I32Limits(3, Some(3)),
+            Limits::i32(3, Some(3)),
           ),
           None,
         ),
@@ -1356,7 +1356,7 @@ test "directize: passive element segment doesn't initialize table" {
         Table(
           TableType(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
-            I32Limits(1, Some(1)),
+            Limits::i32(1, Some(1)),
           ),
           None,
         ),
@@ -1401,7 +1401,7 @@ test "directize: declarative element segment doesn't initialize table" {
         Table(
           TableType(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
-            I32Limits(1, Some(1)),
+            Limits::i32(1, Some(1)),
           ),
           None,
         ),
@@ -1451,7 +1451,7 @@ test "directize: element segment with non-constant offset marks table mutable" {
         Table(
           TableType(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
-            I32Limits(1, Some(1)),
+            Limits::i32(1, Some(1)),
           ),
           None,
         ),
@@ -1503,7 +1503,7 @@ test "directize: element segment with expression kind marks table mutable" {
         Table(
           TableType(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
-            I32Limits(1, Some(1)),
+            Limits::i32(1, Some(1)),
           ),
           None,
         ),
@@ -1555,14 +1555,14 @@ test "directize: multiple tables, only one modified" {
         Table(
           TableType(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
-            I32Limits(1, Some(1)),
+            Limits::i32(1, Some(1)),
           ),
           None,
         ),
         Table(
           TableType(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
-            I32Limits(1, Some(1)),
+            Limits::i32(1, Some(1)),
           ),
           None,
         ),
@@ -1643,7 +1643,7 @@ test "directize: arguments are propagated to direct call" {
         Table(
           TableType(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
-            I32Limits(1, Some(1)),
+            Limits::i32(1, Some(1)),
           ),
           None,
         ),
@@ -1696,7 +1696,7 @@ test "directize: negative index (interpreted as large unsigned) becomes unreacha
         Table(
           TableType(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
-            I32Limits(1, Some(1)),
+            Limits::i32(1, Some(1)),
           ),
           None,
         ),
@@ -1749,7 +1749,7 @@ test "directize: empty table always traps" {
         Table(
           TableType(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
-            I32Limits(0, Some(0)),
+            Limits::i32(0, Some(0)),
           ),
           None,
         ),
@@ -1813,7 +1813,7 @@ test "directize: element segment at offset beyond initial table entries" {
         Table(
           TableType(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
-            I32Limits(4, Some(4)),
+            Limits::i32(4, Some(4)),
           ),
           None,
         ),
@@ -1886,7 +1886,7 @@ test "directize: table with i64 limits" {
         Table(
           TableType(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
-            I64Limits(1UL, Some(1UL)),
+            Limits::i64(1UL, Some(1UL)),
           ),
           None,
         ),

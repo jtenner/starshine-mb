@@ -144,10 +144,10 @@ pub enum RecType {
 } derive(Hash)
 
 ///|
-pub(all) struct DefType(RecType, UInt) derive(Eq, Hash)
+pub struct DefType(RecType, UInt) derive(Eq, Hash)
 
 ///|
-pub(all) enum Limits {
+pub enum Limits {
   I32Limits(UInt, UInt?)
   I64Limits(UInt64, UInt64?)
 } derive(Eq, Hash)
@@ -7638,30 +7638,41 @@ pub fn DataIdx::new(idx : UInt) -> DataIdx {
   DataIdx(idx)
 }
 
+///|
 pub fn CompType::array(ft : FieldType) -> CompType {
   ArrayCompType(ft)
 }
 
+///|
 pub fn CompType::struct_(fts : Array[FieldType]) -> CompType {
   StructCompType(fts)
 }
 
+///|
 pub fn CompType::func(params : ResultType, results : ResultType) -> CompType {
   FuncCompType(params, results)
 }
 
-pub fn SubType::new(f : Bool, supers : Array[TypeIdx], ct : CompType) -> SubType {
+///|
+pub fn SubType::new(
+  f : Bool,
+  supers : Array[TypeIdx],
+  ct : CompType,
+) -> SubType {
   SubType(f, supers, ct)
 }
 
+///|
 pub fn SubType::comp_type(ct : CompType) -> SubType {
   CompTypeSubType(ct)
 }
 
+///|
 pub fn RecType::new(st : SubType) -> RecType {
   SingleRecType(st)
 }
 
+///|
 pub fn RecType::group(sts : Array[SubType]) -> RecType {
   GroupRecType(sts)
 }

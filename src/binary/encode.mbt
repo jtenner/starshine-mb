@@ -2115,7 +2115,7 @@ pub impl Decode for Limits with decode(bytes, i) {
     None => Err("Index out of bounds")
     Some(0x00) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((@lib.U64(n), i)) => Ok((I32Limits(n.to_uint(), None), i))
+        Ok((@lib.U64(n), i)) => Ok((Limits::i32(n.to_uint(), None), i))
         Err(t) => Err(t)
       }
     Some(0x01) =>
@@ -2123,21 +2123,21 @@ pub impl Decode for Limits with decode(bytes, i) {
         Ok((@lib.U64(n), i)) =>
           match Decode::decode(bytes, i) {
             Ok((@lib.U64(m), i)) =>
-              Ok((I32Limits(n.to_uint(), Some(m.to_uint())), i))
+              Ok((Limits::i32(n.to_uint(), Some(m.to_uint())), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
       }
     Some(0x04) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((@lib.U64(n), i)) => Ok((I64Limits(n, None), i))
+        Ok((@lib.U64(n), i)) => Ok((Limits::i64(n, None), i))
         Err(t) => Err(t)
       }
     Some(0x05) =>
       match Decode::decode(bytes, i + 1) {
         Ok((@lib.U64(n), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((@lib.U64(m), i)) => Ok((I64Limits(n, Some(m)), i))
+            Ok((@lib.U64(m), i)) => Ok((Limits::i64(n, Some(m)), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
@@ -5921,9 +5921,7 @@ test "Ref Types" {
 ///|
 test "Comp Types" {
   roundtrip(
-    CompType::array(
-      FieldType::new(StorageType::val_type(ValType::i32()), Var),
-    ),
+    CompType::array(FieldType::new(StorageType::val_type(ValType::i32()), Var)),
   )
   roundtrip(
     CompType::struct_([
@@ -5963,7 +5961,9 @@ test "Packed Type" {
 test "SubTypes" {
   roundtrip(
     SubType::comp_type(
-      CompType::array(FieldType::new(StorageType::val_type(ValType::i32()), Var)),
+      CompType::array(
+        FieldType::new(StorageType::val_type(ValType::i32()), Var),
+      ),
     ),
   )
   roundtrip(

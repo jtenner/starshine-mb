@@ -613,8 +613,8 @@ test "AbsHeapType: unrelated types don't match" {
 ///|
 test "Limits: reflexivity" {
   let env = Env::new()
-  let l1 = @lib.I32Limits(10, Some(100))
-  let l2 = @lib.I64Limits(10UL, Some(100UL))
+  let l1 = Limits::i32(10, Some(100))
+  let l2 = Limits::i64(10UL, Some(100UL))
   assert_true(Match::matches(l1, l1, env))
   assert_true(Match::matches(l2, l2, env))
 }
@@ -624,11 +624,11 @@ test "Limits: n1 >= n2 required" {
   let env = Env::new()
   // [10..100] matches [5..100] (10 >= 5)
   assert_true(
-    Match::matches(@lib.I32Limits(10, Some(100)), I32Limits(5, Some(100)), env),
+    Match::matches(Limits::i32(10, Some(100)), Limits::i32(5, Some(100)), env),
   )
   // [5..100] does not match [10..100] (5 < 10)
   assert_false(
-    Match::matches(@lib.I32Limits(5, Some(100)), I32Limits(10, Some(100)), env),
+    Match::matches(Limits::i32(5, Some(100)), Limits::i32(10, Some(100)), env),
   )
 }
 
@@ -637,11 +637,11 @@ test "Limits: m1 <= m2 required when both bounded" {
   let env = Env::new()
   // [10..50] matches [10..100] (50 <= 100)
   assert_true(
-    Match::matches(@lib.I32Limits(10, Some(50)), I32Limits(10, Some(100)), env),
+    Match::matches(Limits::i32(10, Some(50)), Limits::i32(10, Some(100)), env),
   )
   // [10..100] does not match [10..50] (100 > 50)
   assert_false(
-    Match::matches(@lib.I32Limits(10, Some(100)), I32Limits(10, Some(50)), env),
+    Match::matches(Limits::i32(10, Some(100)), Limits::i32(10, Some(50)), env),
   )
 }
 
@@ -650,17 +650,15 @@ test "Limits: bounded matches unbounded" {
   let env = Env::new()
   // [10..100] matches [10..∞]
   assert_true(
-    Match::matches(@lib.I32Limits(10, Some(100)), I32Limits(10, None), env),
+    Match::matches(Limits::i32(10, Some(100)), Limits::i32(10, None), env),
   )
 }
 
 ///|
 test "Limits: unbounded matches unbounded" {
   let env = Env::new()
-  assert_true(
-    Match::matches(@lib.I32Limits(10, None), I32Limits(10, None), env),
-  )
-  assert_true(Match::matches(@lib.I32Limits(10, None), I32Limits(5, None), env))
+  assert_true(Match::matches(Limits::i32(10, None), Limits::i32(10, None), env))
+  assert_true(Match::matches(Limits::i32(10, None), Limits::i32(5, None), env))
 }
 
 ///|
@@ -668,7 +666,7 @@ test "Limits: unbounded does not match bounded" {
   let env = Env::new()
   // [10..∞] does not match [10..100]
   assert_false(
-    Match::matches(@lib.I32Limits(10, None), I32Limits(10, Some(100)), env),
+    Match::matches(Limits::i32(10, None), Limits::i32(10, Some(100)), env),
   )
 }
 
@@ -677,15 +675,15 @@ test "Limits: i32 vs i64 don't match" {
   let env = Env::new()
   assert_false(
     Match::matches(
-      @lib.I32Limits(10, Some(100)),
-      I64Limits(10UL, Some(100UL)),
+      Limits::i32(10, Some(100)),
+      Limits::i64(10UL, Some(100UL)),
       env,
     ),
   )
   assert_false(
     Match::matches(
-      @lib.I64Limits(10UL, Some(100UL)),
-      I32Limits(10, Some(100)),
+      Limits::i64(10UL, Some(100UL)),
+      Limits::i32(10, Some(100)),
       env,
     ),
   )
@@ -698,9 +696,9 @@ test "Limits: i32 vs i64 don't match" {
 ///|
 test "MemType: delegates to limits" {
   let env = Env::new()
-  let m1 = @lib.MemType(I32Limits(1, Some(10)))
-  let m2 = @lib.MemType(I32Limits(1, Some(20)))
-  let m3 = @lib.MemType(I32Limits(2, Some(10)))
+  let m1 = @lib.MemType(Limits::i32(1, Some(10)))
+  let m2 = @lib.MemType(Limits::i32(1, Some(20)))
+  let m3 = @lib.MemType(Limits::i32(2, Some(10)))
   assert_true(Match::matches(m1, m1, env))
   assert_true(Match::matches(m1, m2, env)) // [1..10] <: [1..20]
   assert_false(Match::matches(m2, m1, env)) // [1..20] not <: [1..10]
@@ -1014,8 +1012,8 @@ test "GlobalType: const vs mut don't match" {
 test "TableType: limits and reftype must match" {
   let env = Env::new()
   let rt = RefType::new(true, HeapType::abs(AbsHeapType::func()))
-  let t1 = @lib.TableType(rt, I32Limits(0, Some(100)))
-  let t2 = @lib.TableType(rt, I32Limits(0, Some(200)))
+  let t1 = @lib.TableType(rt, Limits::i32(0, Some(100)))
+  let t2 = @lib.TableType(rt, Limits::i32(0, Some(200)))
 
   // limits: [0..100] <: [0..200]
   // reftype must be invariant
@@ -1027,7 +1025,7 @@ test "TableType: reftype is invariant" {
   let env = Env::new()
   let rt_func = RefType::new(true, HeapType::abs(AbsHeapType::func()))
   let rt_any = RefType::new(true, HeapType::abs(AbsHeapType::any()))
-  let limits = @lib.I32Limits(0, Some(100))
+  let limits = Limits::i32(0, Some(100))
   let t1 = @lib.TableType(rt_func, limits)
   let t2 = @lib.TableType(rt_any, limits)
 
@@ -1056,7 +1054,7 @@ test "TagType: requires bidirectional typeidx matching" {
 ///|
 test "ExternType: different kinds don't match" {
   let env = Env::new()
-  let mem = @lib.MemExternType(MemType(I32Limits(1, None)))
+  let mem = @lib.MemExternType(MemType(Limits::i32(1, None)))
   let global = @lib.GlobalExternType(GlobalType(ValType::i32(), false))
   assert_false(Match::matches(mem, global, env))
   assert_false(Match::matches(global, mem, env))
@@ -1065,8 +1063,8 @@ test "ExternType: different kinds don't match" {
 ///|
 test "ExternType: MemExternType delegates to MemType" {
   let env = Env::new()
-  let m1 = @lib.MemExternType(MemType(I32Limits(1, Some(10))))
-  let m2 = @lib.MemExternType(MemType(I32Limits(1, Some(20))))
+  let m1 = @lib.MemExternType(MemType(Limits::i32(1, Some(10))))
+  let m2 = @lib.MemExternType(MemType(Limits::i32(1, Some(20))))
   assert_true(Match::matches(m1, m2, env))
   assert_false(Match::matches(m2, m1, env))
 }
@@ -1083,8 +1081,8 @@ test "ExternType: GlobalExternType delegates to GlobalType" {
 test "ExternType: TableExternType delegates to TableType" {
   let env = Env::new()
   let rt = RefType::new(true, HeapType::abs(AbsHeapType::func()))
-  let t1 = @lib.TableExternType(TableType(rt, I32Limits(0, Some(10))))
-  let t2 = @lib.TableExternType(TableType(rt, I32Limits(0, Some(10))))
+  let t1 = @lib.TableExternType(TableType(rt, Limits::i32(0, Some(10))))
+  let t2 = @lib.TableExternType(TableType(rt, Limits::i32(0, Some(10))))
   assert_true(Match::matches(t1, t2, env))
 }
 
