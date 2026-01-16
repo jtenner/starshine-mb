@@ -7080,7 +7080,7 @@ test "Typecheck ArrayNewData" {
   let array_type = SubType::comp_type(
     CompType::array(FieldType::new(StorageType::val_type(ValType::i32()), Var)),
   )
-  let data = @lib.Data(Passive, b"")
+  let data = @lib.Data(DataMode::passive(), b"")
   let env = { ..empty_env(), global_types: [array_type] }.push_data(data)
   let state = make_state(env, [ValType::i32(), ValType::i32()])
   let result = Typecheck::typecheck(
@@ -7233,7 +7233,7 @@ test "Typecheck ArrayInitData" {
   let array_type = SubType::comp_type(
     CompType::array(FieldType::new(StorageType::val_type(ValType::i32()), Var)),
   )
-  let data = @lib.Data(Passive, b"")
+  let data = @lib.Data(DataMode::passive(), b"")
   let env = { ..empty_env(), global_types: [array_type] }.push_data(data)
   let array_ref = ValType::ref_type(
     RefType::new(false, HeapType::new(TypeIdx::new(0))),
@@ -7286,7 +7286,7 @@ test "Typecheck ArrayInitElem" {
 ///|
 test "Typecheck MemoryInit" {
   let mem_type = MemType::new(Limits::i32(1, None))
-  let data = @lib.Data(Passive, b"")
+  let data = @lib.Data(DataMode::passive(), b"")
   let env = empty_env().push_mem(mem_type).push_data(data)
   let state = make_state(env, [ValType::i32(), ValType::i32(), ValType::i32()])
   let result = Typecheck::typecheck(
@@ -7299,7 +7299,7 @@ test "Typecheck MemoryInit" {
 
 ///|
 test "Typecheck DataDrop" {
-  let data = @lib.Data(Passive, b"")
+  let data = @lib.Data(DataMode::passive(), b"")
   let env = empty_env().push_data(data)
   let state = make_state(env, [])
   let result = Typecheck::typecheck(@lib.DataDrop(DataIdx::new(0)), state)

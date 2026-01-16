@@ -1991,14 +1991,14 @@ pub impl Decode for Data with decode(bytes, i) {
         Ok((expr, i)) =>
           match Decode::decode(bytes, i) {
             Ok((bytes, i)) =>
-              Ok((Data(DataMode::Active(MemIdx::new(0), expr), bytes), i))
+              Ok((Data(DataMode::active(MemIdx::new(0), expr), bytes), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
       }
     Some(0x01) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((bytes, i)) => Ok((Data(DataMode::Passive, bytes), i))
+        Ok((bytes, i)) => Ok((Data(DataMode::passive(), bytes), i))
         Err(t) => Err(t)
       }
     Some(0x02) =>
@@ -2008,7 +2008,7 @@ pub impl Decode for Data with decode(bytes, i) {
             Ok((expr, i)) =>
               match Decode::decode(bytes, i) {
                 Ok((bytes, i)) =>
-                  Ok((Data(DataMode::Active(idx, expr), bytes), i))
+                  Ok((Data(DataMode::active(idx, expr), bytes), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)

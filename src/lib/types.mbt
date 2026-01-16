@@ -218,7 +218,7 @@ pub struct Export(Name, ExternIdx) derive(Eq, Arbitrary, Hash)
 pub struct Locals(UInt, ValType) derive(Eq, Hash)
 
 ///|
-pub(all) enum DataMode {
+pub enum DataMode {
   Active(MemIdx, Expr)
   Passive
 } derive(Eq, Arbitrary, Hash)

@@ -1742,7 +1742,7 @@ test "Import with valid GlobalExternType validates" {
 ///|
 test "DataMode Passive validates" {
   let env = empty_env()
-  assert_eq(Validate::validate(DataMode::Passive, env), Ok(()))
+  assert_eq(Validate::validate(DataMode::passive(), env), Ok(()))
 }
 
 // ============ Data Tests ============
@@ -1750,7 +1750,7 @@ test "DataMode Passive validates" {
 ///|
 test "Data with Passive mode validates" {
   let env = empty_env()
-  let d = @lib.Data(Passive, b"hello")
+  let d = @lib.Data(DataMode::passive(), b"hello")
   assert_eq(Validate::validate(d, env), Ok(()))
 }
 

@@ -594,9 +594,9 @@ pub fn gen_datasec_valid(
           Expr::new([I64Const(I64(offset_val))])
         }
       }
-      DataMode::Active(MemIdx::new(mem_idx), offset_expr)
+      DataMode::active(MemIdx::new(mem_idx), offset_expr)
     } else {
-      Passive
+      DataMode::passive()
     }
 
     // Generate some random bytes
