@@ -3,6 +3,7 @@ package "jtenner/starshine/passes"
 
 import(
   "jtenner/starshine/lib"
+  "moonbitlang/core/hashmap"
 )
 
 // Values
@@ -14,9 +15,15 @@ pub fn code_pushing_pass() -> @lib.ModuleTransformer[Unit]
 
 pub fn const_hoisting_pass() -> @lib.ModuleTransformer[ConstHoistingState]
 
+pub fn constant_field_propagation_pass() -> @lib.ModuleTransformer[CFPState]
+
 pub fn directize_module(@lib.Module, Bool) -> Result[@lib.Module, String]
 
 pub fn lift_to_texpr_pass() -> @lib.ModuleTransformer[Unit]
+
+pub fn propagate_to_supertypes(CFPState) -> Unit
+
+pub fn run_constant_field_propagation(@lib.Module) -> Result[@lib.Module, String]
 
 pub fn run_denam(@lib.Module) -> Result[@lib.Module, String]
 
@@ -32,6 +39,13 @@ pub fn AlignmentLoweringContext::new(Array[@lib.MemType]) -> Self
 type BlockLiveness
 pub impl Show for BlockLiveness
 
+pub struct CFPState {
+  field_values : @hashmap.HashMap[(Int, Int), FieldValue]
+  type_sec : @lib.TypeSec?
+}
+pub fn CFPState::from_module(@lib.Module) -> Self
+pub fn CFPState::new() -> Self
+
 type CodeFoldingState
 
 pub struct ConstHoistingState {
@@ -42,6 +56,13 @@ pub fn ConstHoistingState::new() -> Self
 type ConstKey
 pub impl Eq for ConstKey
 pub impl Hash for ConstKey
+
+pub enum FieldValue {
+  Uninitialized
+  Constant(@lib.TInstr)
+  Unknown
+}
+pub impl Eq for FieldValue
 
 pub struct Literal(LiteralKind, Bytes)
 
