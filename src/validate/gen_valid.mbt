@@ -2152,26 +2152,33 @@ pub fn gen_func_entry(ctx : GenCtx, tidx : TypeIdx) -> Result[Func, String] {
 }
 
 ///|
-pub fn gen_module_valid_full(ctx0 : GenCtx) -> Result[(GenCtx, Module), String] {
+pub fn gen_module_valid_full(ctx : GenCtx) -> Result[(GenCtx, Module), String] {
+  let mut m = Module::new()
+
   // 1) Generate TypeSec
-  let (ctx1, typesec) = match gen_typesec_valid(ctx0) {
+  let (ctx, typesec) = match gen_typesec_valid(ctx) {
     Ok(x) => x
     Err(e) => return Err(e)
   }
+  m = m.with_type_sec(typesec)
 
   // 2) Build env with typesec
   let env1 = match validate_typesec(Some(typesec), empty_env()) {
     Ok(e) => e
     Err(e) => return Err(e)
   }
-  let ctx2 = GenCtx::{ ..ctx1, env: env1 }
+  let ctx = GenCtx::{ ..ctx, env: env1 }
 
   // 3) Generate ImportSec (before FuncSec - imports come first)
-  let (ctx3, importsec, env2) = match gen_importsec_valid(ctx2, ctx2.env) {
+  let (ctx3, importsec, env2) = match gen_importsec_valid(ctx, ctx.env) {
     Ok(x) => x
     Err(e) => return Err(e)
   }
   let ctx3 = GenCtx::{ ..ctx3, env: env2 }
+  match importsec {
+    None => ()
+    Some(x) => m = m.with_import_sec(x)
+  }
 
   // 4) Choose functype TypeIdxs for FuncSec
   let choices = collect_functype_typeidxs(ctx3.env)
@@ -2185,6 +2192,7 @@ pub fn gen_module_valid_full(ctx0 : GenCtx) -> Result[(GenCtx, Module), String] 
     func_tidxs.push(choices[pick])
   }
   let funcsec = @lib.FuncSec(func_tidxs)
+  m = m.with_func_sec(funcsec)
 
   // 5) Extend env.funcs
   let env3 = match validate_funcsec(Some(funcsec), ctx3.env) {
@@ -2199,6 +2207,7 @@ pub fn gen_module_valid_full(ctx0 : GenCtx) -> Result[(GenCtx, Module), String] 
     Err(e) => return Err(e)
   }
   let ctx5 = GenCtx::{ ..ctx5, env: env4 }
+  m = m.with_table_sec(tablesec)
 
   // 7) Generate MemSec
   let (ctx6, memsec, env5) = match gen_memsec_valid(ctx5, ctx5.env) {
@@ -2206,6 +2215,7 @@ pub fn gen_module_valid_full(ctx0 : GenCtx) -> Result[(GenCtx, Module), String] 
     Err(e) => return Err(e)
   }
   let ctx6 = GenCtx::{ ..ctx6, env: env5 }
+  m = m.with_mem_sec(memsec)
 
   // 8) Generate TagSec
   let (ctx7, tagsec, env6) = match gen_tagsec_valid(ctx6, ctx6.env) {
@@ -2213,6 +2223,10 @@ pub fn gen_module_valid_full(ctx0 : GenCtx) -> Result[(GenCtx, Module), String] 
     Err(e) => return Err(e)
   }
   let ctx7 = GenCtx::{ ..ctx7, env: env6 }
+  match tagsec {
+    None => ()
+    Some(x) => m = m.with_tag_sec(x)
+  }
 
   // 9) Generate GlobalSec
   let (ctx8, globalsec, env7) = match gen_globalsec_valid(ctx7, ctx7.env) {
@@ -2220,17 +2234,29 @@ pub fn gen_module_valid_full(ctx0 : GenCtx) -> Result[(GenCtx, Module), String] 
     Err(e) => return Err(e)
   }
   let ctx8 = GenCtx::{ ..ctx8, env: env7 }
+  match globalsec {
+    None => ()
+    Some(x) => m = m.with_global_sec(x)
+  }
 
   // 10) Generate ExportSec
   let (ctx9, exportsec) = match gen_exportsec_valid(ctx8, ctx8.env) {
     Ok(x) => x
     Err(e) => return Err(e)
   }
+  match exportsec {
+    None => ()
+    Some(x) => m = m.with_export_sec(x)
+  }
 
   // 11) Generate StartSec
   let (ctx10, startsec) = match gen_startsec_valid(ctx9, ctx8.env) {
     Ok(x) => x
     Err(e) => return Err(e)
+  }
+  match startsec {
+    None => ()
+    Some(x) => m = m.with_start_sec(x)
   }
 
   // 12) Generate ElemSec
@@ -2239,6 +2265,7 @@ pub fn gen_module_valid_full(ctx0 : GenCtx) -> Result[(GenCtx, Module), String] 
     Err(e) => return Err(e)
   }
   let ctx11 = GenCtx::{ ..ctx11, env: env8 }
+  m = m.with_elem_sec(elemsec)
 
   // 13) Generate DataSec
   let (ctx12, datasec, env9) = match gen_datasec_valid(ctx11, ctx11.env) {
@@ -2246,10 +2273,12 @@ pub fn gen_module_valid_full(ctx0 : GenCtx) -> Result[(GenCtx, Module), String] 
     Err(e) => return Err(e)
   }
   let ctx12 = GenCtx::{ ..ctx12, env: env9 }
+  m = m.with_data_sec(datasec)
 
   // 14) Generate DataCntSec
   let DataSec(data_arr) = datasec
   let datacntsec = @lib.DataCntSec(U32(data_arr.length().reinterpret_as_uint()))
+  m = m.with_data_cnt_sec(datacntsec)
 
   // 15) Generate function bodies for CodeSec
   let code_funcs : Array[Func] = []
@@ -2268,23 +2297,9 @@ pub fn gen_module_valid_full(ctx0 : GenCtx) -> Result[(GenCtx, Module), String] 
     code_funcs.push(f)
   }
   let codesec = @lib.CodeSec(code_funcs)
+  m = m.with_code_sec(codesec)
 
+  
   // 16) Assemble module
-  let m = @lib.Module::{
-    custom_secs: [], // customs
-    type_sec: Some(typesec),
-    import_sec: importsec,
-    func_sec: Some(funcsec),
-    table_sec: Some(tablesec),
-    mem_sec: Some(memsec),
-    tag_sec: tagsec,
-    global_sec: globalsec,
-    export_sec: exportsec,
-    start_sec: startsec,
-    elem_sec: Some(elemsec),
-    data_cnt_sec: Some(datacntsec),
-    code_sec: Some(codesec),
-    data_sec: Some(datasec),
-  }
   Ok((ctx12, m))
 }

@@ -230,7 +230,7 @@ pub struct Data(DataMode, Bytes) derive(Eq, Hash)
 pub struct Name(StringView) derive(Eq, Hash)
 
 ///|
-pub(all) struct Module {
+pub struct Module {
   custom_secs : Array[CustomSec]
   type_sec : TypeSec?
   import_sec : ImportSec?

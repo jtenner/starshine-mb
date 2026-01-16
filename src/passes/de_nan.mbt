@@ -334,7 +334,7 @@ fn make_empty_module() -> @lib.Module {
 
 ///|
 fn make_module_with_code(funcs : Array[Func]) -> @lib.Module {
-  @lib.Module::{ ..make_empty_module(), code_sec: Some(@lib.CodeSec(funcs)) }
+  Module::new().with_code_sec(CodeSec(funcs))
 }
 
 // ============================================

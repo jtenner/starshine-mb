@@ -1608,19 +1608,8 @@ pub impl Encode for Module with encode(val, buf) {
 pub impl Decode for Module with decode(bytes, i) {
   let mut i = i
   let custom = Array::new()
-  let mut type_sec = None
-  let mut import_sec = None
-  let mut func_sec = None
-  let mut table_sec = None
-  let mut mem_sec = None
-  let mut tag_sec = None
-  let mut global_sec = None
-  let mut export_sec = None
-  let mut start_sec = None
-  let mut elem_sec = None
-  let mut data_cnt_sec = None
-  let mut code_sec = None
-  let mut data_sec = None
+
+  let mut mod = Module::new()
   for b in [0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00] {
     if bytes.get(i) != Some(b.to_byte()) {
       return Err("Invalid magic header")
@@ -1632,7 +1621,7 @@ pub impl Decode for Module with decode(bytes, i) {
     i = next
   }
   if Decode::decode(bytes, i) is Ok((sec, next)) {
-    type_sec = Some(sec)
+    mod = mod.with_type_sec(sec)
     i = next
   }
   while Decode::decode(bytes, i) is Ok((sec, next)) {
@@ -1640,7 +1629,7 @@ pub impl Decode for Module with decode(bytes, i) {
     i = next
   }
   if Decode::decode(bytes, i) is Ok((sec, next)) {
-    import_sec = Some(sec)
+    mod = mod.with_import_sec(sec)
     i = next
   }
   while Decode::decode(bytes, i) is Ok((sec, next)) {
@@ -1648,7 +1637,7 @@ pub impl Decode for Module with decode(bytes, i) {
     i = next
   }
   if Decode::decode(bytes, i) is Ok((sec, next)) {
-    func_sec = Some(sec)
+    mod = mod.with_func_sec(sec)
     i = next
   }
   while Decode::decode(bytes, i) is Ok((sec, next)) {
@@ -1656,7 +1645,7 @@ pub impl Decode for Module with decode(bytes, i) {
     i = next
   }
   if Decode::decode(bytes, i) is Ok((sec, next)) {
-    table_sec = Some(sec)
+    mod = mod.with_table_sec(sec)
     i = next
   }
   while Decode::decode(bytes, i) is Ok((sec, next)) {
@@ -1664,7 +1653,7 @@ pub impl Decode for Module with decode(bytes, i) {
     i = next
   }
   if Decode::decode(bytes, i) is Ok((sec, next)) {
-    mem_sec = Some(sec)
+    mod = mod.with_mem_sec(sec)
     i = next
   }
   while Decode::decode(bytes, i) is Ok((sec, next)) {
@@ -1672,7 +1661,7 @@ pub impl Decode for Module with decode(bytes, i) {
     i = next
   }
   if Decode::decode(bytes, i) is Ok((sec, next)) {
-    tag_sec = Some(sec)
+    mod = mod.with_tag_sec(sec)
     i = next
   }
   while Decode::decode(bytes, i) is Ok((sec, next)) {
@@ -1680,7 +1669,7 @@ pub impl Decode for Module with decode(bytes, i) {
     i = next
   }
   if Decode::decode(bytes, i) is Ok((sec, next)) {
-    global_sec = Some(sec)
+    mod = mod.with_global_sec(sec)
     i = next
   }
   while Decode::decode(bytes, i) is Ok((sec, next)) {
@@ -1688,7 +1677,7 @@ pub impl Decode for Module with decode(bytes, i) {
     i = next
   }
   if Decode::decode(bytes, i) is Ok((sec, next)) {
-    export_sec = Some(sec)
+    mod = mod.with_export_sec(sec)
     i = next
   }
   while Decode::decode(bytes, i) is Ok((sec, next)) {
@@ -1696,7 +1685,7 @@ pub impl Decode for Module with decode(bytes, i) {
     i = next
   }
   if Decode::decode(bytes, i) is Ok((sec, next)) {
-    start_sec = Some(sec)
+    mod = mod.with_start_sec(sec)
     i = next
   }
   while Decode::decode(bytes, i) is Ok((sec, next)) {
@@ -1704,7 +1693,7 @@ pub impl Decode for Module with decode(bytes, i) {
     i = next
   }
   if Decode::decode(bytes, i) is Ok((sec, next)) {
-    elem_sec = Some(sec)
+    mod = mod.with_elem_sec(sec)
     i = next
   }
   while Decode::decode(bytes, i) is Ok((sec, next)) {
@@ -1712,7 +1701,7 @@ pub impl Decode for Module with decode(bytes, i) {
     i = next
   }
   if Decode::decode(bytes, i) is Ok((sec, next)) {
-    data_cnt_sec = Some(sec)
+    mod = mod.with_data_cnt_sec(sec)
     i = next
   }
   while Decode::decode(bytes, i) is Ok((sec, next)) {
@@ -1720,7 +1709,7 @@ pub impl Decode for Module with decode(bytes, i) {
     i = next
   }
   if Decode::decode(bytes, i) is Ok((sec, next)) {
-    code_sec = Some(sec)
+    mod = mod.with_code_sec(sec)
     i = next
   }
   while Decode::decode(bytes, i) is Ok((sec, next)) {
@@ -1728,31 +1717,12 @@ pub impl Decode for Module with decode(bytes, i) {
     i = next
   }
   if Decode::decode(bytes, i) is Ok((sec, next)) {
-    data_sec = Some(sec)
+    mod = mod.with_data_sec(sec)
     i = next
   }
+  mod = mod.with_custom_secs(custom)
   if i == bytes.length() {
-    Ok(
-      (
-        Module::{
-          custom_secs: custom,
-          type_sec,
-          import_sec,
-          func_sec,
-          table_sec,
-          mem_sec,
-          tag_sec,
-          global_sec,
-          export_sec,
-          start_sec,
-          elem_sec,
-          data_cnt_sec,
-          code_sec,
-          data_sec,
-        },
-        i,
-      ),
-    )
+    Ok((mod, i))
   } else {
     Err("Invalid module")
   }
