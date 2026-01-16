@@ -352,12 +352,12 @@ pub impl Decode for RecType with decode(buf, i) {
     None => Err("Index out of bounds")
     Some(0x4E) =>
       match Decode::decode(buf, i + 1) {
-        Ok((sts, i)) => Ok((GroupRecType(sts), i))
+        Ok((sts, i)) => Ok((RecType::group(sts), i))
         Err(err) => Err(err)
       }
     Some(_) =>
       match Decode::decode(buf, i) {
-        Ok((st, i)) => Ok((SingleRecType(st), i))
+        Ok((st, i)) => Ok((RecType::new(st), i))
         Err(err) => Err(err)
       }
   }

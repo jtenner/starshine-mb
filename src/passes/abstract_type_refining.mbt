@@ -295,7 +295,7 @@ test "abstract struct usage becomes bottom" {
   let ht = HeapType::new(TypeIdx::new(0))
   let mod = Module::new()
     .with_type_sec(
-      TypeSec([SingleRecType(comp_type_sub_type(struct_comp_type([])))]),
+      TypeSec([RecType::new(comp_type_sub_type(struct_comp_type([])))]),
     )
     .with_code_sec(
       CodeSec::new([
@@ -446,7 +446,7 @@ test "abstract struct does not trap when traps may happen" {
   let ht = HeapType::new(TypeIdx::new(0))
   let mod = Module::new()
     .with_type_sec(
-      TypeSec([SingleRecType(comp_type_sub_type(struct_comp_type([])))]),
+      TypeSec([RecType::new(comp_type_sub_type(struct_comp_type([])))]),
     )
     .with_code_sec(
       CodeSec::new([

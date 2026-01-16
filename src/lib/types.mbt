@@ -138,7 +138,7 @@ pub enum SubType {
 } derive(Eq, Hash)
 
 ///|
-pub(all) enum RecType {
+pub enum RecType {
   SingleRecType(SubType)
   GroupRecType(Array[SubType])
 } derive(Hash)
@@ -7656,4 +7656,12 @@ pub fn SubType::new(f : Bool, supers : Array[TypeIdx], ct : CompType) -> SubType
 
 pub fn SubType::comp_type(ct : CompType) -> SubType {
   CompTypeSubType(ct)
+}
+
+pub fn RecType::new(st : SubType) -> RecType {
+  SingleRecType(st)
+}
+
+pub fn RecType::group(sts : Array[SubType]) -> RecType {
+  GroupRecType(sts)
 }

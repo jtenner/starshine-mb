@@ -1552,7 +1552,7 @@ test "SubType CompTypeSubType validates" {
 test "RecType SingleRecType validates" {
   let env = empty_env()
   let st = SubType::comp_type(CompType::func([], []))
-  let rt = @lib.SingleRecType(st)
+  let rt = RecType::new(st)
   assert_eq(Validate::validate(rt, env), Ok(()))
 }
 
@@ -1563,7 +1563,7 @@ test "RecType GroupRecType validates" {
   let st2 = SubType::comp_type(
     CompType::array(FieldType::new(StorageType::val_type(ValType::i32()), Const)),
   )
-  let rt = @lib.GroupRecType([st1, st2])
+  let rt = RecType::group([st1, st2])
   assert_eq(Validate::validate(rt, env), Ok(()))
 }
 

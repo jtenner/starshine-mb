@@ -6782,7 +6782,7 @@ test "Typecheck RefTest fails when target not subtype of operand" {
 ///|
 test "Typecheck RefTest with concrete type recursive" {
   let struct_subtype = SubType::comp_type(CompType::struct_([]))
-  let env = empty_env().with_rectype(SingleRecType(struct_subtype))
+  let env = empty_env().with_rectype(RecType::new(struct_subtype))
   let state = make_state(env, [anyref_type()])
   let result = Typecheck::typecheck(
     @lib.RefTest(true, HeapType::new(TypeIdx::rec(0))),
