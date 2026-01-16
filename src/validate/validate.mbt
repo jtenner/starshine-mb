@@ -1682,7 +1682,7 @@ test "ExternType FuncExternType fails when func type missing" {
 ///|
 test "ExternIdx FuncExternIdx validates" {
   let env = empty_env().with_funcs([FuncType([], [])])
-  let ei = @lib.FuncExternIdx(FuncIdx::new(0))
+  let ei = ExternIdx::func(FuncIdx::new(0))
   assert_eq(Validate::validate(ei, env), Ok(()))
 }
 
@@ -1691,7 +1691,7 @@ test "ExternIdx TableExternIdx validates" {
   let rt = RefType::abs(AbsHeapType::func())
   let tt = TableType::new(rt, Limits::i32(0, None))
   let env = empty_env().with_tables([tt])
-  let ei = @lib.TableExternIdx(TableIdx::new(0))
+  let ei = ExternIdx::table(TableIdx::new(0))
   assert_eq(Validate::validate(ei, env), Ok(()))
 }
 
@@ -1699,7 +1699,7 @@ test "ExternIdx TableExternIdx validates" {
 test "ExternIdx MemExternIdx validates" {
   let mt = MemType::new(Limits::i32(0, None))
   let env = empty_env().with_mems([mt])
-  let ei = @lib.MemExternIdx(MemIdx::new(0))
+  let ei = ExternIdx::mem(MemIdx::new(0))
   assert_eq(Validate::validate(ei, env), Ok(()))
 }
 
@@ -1707,7 +1707,7 @@ test "ExternIdx MemExternIdx validates" {
 test "ExternIdx GlobalExternIdx validates" {
   let gt = GlobalType::new(ValType::i32(), false)
   let env = empty_env().with_globals([gt])
-  let ei = @lib.GlobalExternIdx(GlobalIdx::new(0))
+  let ei = ExternIdx::global(GlobalIdx::new(0))
   assert_eq(Validate::validate(ei, env), Ok(()))
 }
 
@@ -1716,14 +1716,14 @@ test "ExternIdx GlobalExternIdx validates" {
 ///|
 test "Export with valid FuncExternIdx validates" {
   let env = empty_env().with_funcs([FuncType([], [])])
-  let exp = @lib.Export(Name("test"), FuncExternIdx(FuncIdx::new(0)))
+  let exp = @lib.Export(Name("test"), ExternIdx::func(FuncIdx::new(0)))
   assert_eq(Validate::validate(exp, env), Ok(()))
 }
 
 ///|
 test "Export with invalid index fails" {
   let env = empty_env()
-  let exp = @lib.Export(Name("test"), FuncExternIdx(FuncIdx::new(0)))
+  let exp = @lib.Export(Name("test"), ExternIdx::func(FuncIdx::new(0)))
   assert_eq(Validate::validate(exp, env), Err("invalid func index"))
 }
 

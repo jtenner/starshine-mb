@@ -2342,27 +2342,27 @@ pub impl Decode for ExternIdx with decode(bytes, i) {
   match bytes.get(i) {
     Some(0x00) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((idx, i)) => Ok((FuncExternIdx(idx), i))
+        Ok((idx, i)) => Ok((ExternIdx::func(idx), i))
         Err(t) => Err(t)
       }
     Some(0x01) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((idx, i)) => Ok((TableExternIdx(idx), i))
+        Ok((idx, i)) => Ok((ExternIdx::table(idx), i))
         Err(t) => Err(t)
       }
     Some(0x02) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((idx, i)) => Ok((MemExternIdx(idx), i))
+        Ok((idx, i)) => Ok((ExternIdx::mem(idx), i))
         Err(t) => Err(t)
       }
     Some(0x03) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((idx, i)) => Ok((GlobalExternIdx(idx), i))
+        Ok((idx, i)) => Ok((ExternIdx::global(idx), i))
         Err(t) => Err(t)
       }
     Some(0x04) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((idx, i)) => Ok((TagExternIdx(idx), i))
+        Ok((idx, i)) => Ok((ExternIdx::tag(idx), i))
         Err(t) => Err(t)
       }
     Some(_) => Err("Invalid extern index")

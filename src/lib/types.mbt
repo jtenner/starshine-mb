@@ -174,7 +174,7 @@ pub enum ExternType {
 } derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) enum ExternIdx {
+pub enum ExternIdx {
   FuncExternIdx(FuncIdx)
   TableExternIdx(TableIdx)
   MemExternIdx(MemIdx)
@@ -7715,4 +7715,24 @@ pub fn ExternType::global(gt : GlobalType) -> ExternType {
 ///|
 pub fn ExternType::tag(tt : TagType) -> ExternType {
   TagExternType(tt)
+}
+
+pub fn ExternIdx::func(fi : FuncIdx) -> ExternIdx {
+  FuncExternIdx(fi)
+}
+
+pub fn ExternIdx::table(ti : TableIdx) -> ExternIdx {
+  TableExternIdx(ti)
+}
+
+pub fn ExternIdx::mem(mi : MemIdx) -> ExternIdx {
+  MemExternIdx(mi)
+}
+
+pub fn ExternIdx::global(gi : GlobalIdx) -> ExternIdx {
+  GlobalExternIdx(gi)
+}
+
+pub fn ExternIdx::tag(ti : TagIdx) -> ExternIdx {
+  TagExternIdx(ti)
 }
