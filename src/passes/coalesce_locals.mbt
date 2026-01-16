@@ -1,7 +1,4 @@
 ///|
-type Interference = Set[(LocalIdx, LocalIdx)]
-
-///|
 type LocalMap = Map[LocalIdx, LocalIdx]
 
 ///|
@@ -13,7 +10,7 @@ enum ConstKey {
 } derive(Eq, Hash)
 
 ///|
-struct Block {
+priv struct Block {
   id : Int
   instrs : Array[TInstr]
   preds : Array[Int]
@@ -25,7 +22,7 @@ struct Block {
 struct BlockLiveness {
   live_in : Set[LocalIdx]
   live_out : Set[LocalIdx]
-} derive (Show)
+} derive(Show)
 
 ///|
 type ValueId = Int
@@ -45,7 +42,7 @@ fn value_of_expr(
 ) -> ValueId? {
   match expr {
     // Constant literals: each literal gets its own value ID
-    TI32Const(I32(n)) => {
+    TI32Const(I32(n)) =>
       // Use consts table to get consistent ID for same constant
       match consts.get(ConstKey::I32Key(n)) {
         Some(id) => Some(id)
@@ -56,8 +53,7 @@ fn value_of_expr(
           Some(id)
         }
       }
-    }
-    TI64Const(I64(n)) => {
+    TI64Const(I64(n)) =>
       // Use consts table to get consistent ID for same constant
       match consts.get(ConstKey::I64Key(n)) {
         Some(id) => Some(id)
@@ -68,8 +64,7 @@ fn value_of_expr(
           Some(id)
         }
       }
-    }
-    TF32Const(F32(f)) => {
+    TF32Const(F32(f)) =>
       // Use consts table to get consistent ID for same constant
       match consts.get(ConstKey::F32Key(f)) {
         Some(id) => Some(id)
@@ -80,8 +75,7 @@ fn value_of_expr(
           Some(id)
         }
       }
-    }
-    TF64Const(F64(f)) => {
+    TF64Const(F64(f)) =>
       // Use consts table to get consistent ID for same constant
       match consts.get(ConstKey::F64Key(f)) {
         Some(id) => Some(id)
@@ -92,7 +86,6 @@ fn value_of_expr(
           Some(id)
         }
       }
-    }
 
     // Copy: produces fresh value
     TInstr::TLocalGet(idx) => env.get(idx)
@@ -100,13 +93,6 @@ fn value_of_expr(
     // Anything else: fresh value
     _ => None
   }
-}
-
-///|
-fn new_value_id(counter : Ref[Int]) -> ValueId {
-  let id = counter.val
-  counter.update(fn(x) { x + 1 })
-  id
 }
 
 ///|
@@ -133,11 +119,12 @@ fn copy_frequency(copies : Set[(LocalIdx, LocalIdx)]) -> Map[LocalIdx, Int] {
   freq
 }
 
+///|
 fn has_future_simultaneous_use(
   instrs : Array[TInstr],
-  start  : Int,
-  a      : LocalIdx,
-  b      : LocalIdx,
+  start : Int,
+  a : LocalIdx,
+  b : LocalIdx,
 ) -> Bool {
   for j in start..<instrs.length() {
     let s = simultaneous_uses(instrs[j])
@@ -148,6 +135,7 @@ fn has_future_simultaneous_use(
   false
 }
 
+///|
 fn add_block_interference_with_values(
   block : Block,
   inter : Set[(LocalIdx, LocalIdx)],
@@ -179,68 +167,39 @@ fn add_block_interference_with_values(
     let d = defs_shallow(instr)
     let u = uses_shallow(instr)
     let env_after = envs[i + 1]
-
     for x in d {
       for y in live {
-        if x == y { continue }
-
-        // Copy rule: x = y means they hold same value, no interference
-        let is_copy_of_y = match instr {
-          TInstr::TLocalSet(_, TInstr::TLocalGet(src)) => y == src
-          _ => false
-        }
-        if is_copy_of_y {
+        if x == y {
           continue
         }
 
-        // Check if both have known values that are equal
+        // Value numbering: if both have known values that are equal,
+        // they can be coalesced ONLY if they have a future simultaneous use
         let vx = env_after.get(x)
         let vy = env_after.get(y)
-        
         match (vx, vy) {
-          (Some(vx_val), Some(vy_val)) => {
+          (Some(vx_val), Some(vy_val)) =>
             if vx_val == vy_val {
-              // Same value - no interference needed
-              continue
+              // Same value - check if they have a future simultaneous use
+              if has_future_simultaneous_use(block.instrs, i + 1, x, y) {
+                // They will be used simultaneously, so no interference
+                continue
+              }
             }
-          }
-          _ => ()  // Unknown values - must add interference
+          _ => () // Unknown values - must add interference
         }
-        
+
+        // Otherwise, they interfere
         inter.add(ordered_pair(x, y))
       }
     }
-
-    for x in d { live.remove(x) }
-    for x in u { live.add(x) }
-  }
-}
-
-///|
-fn may_be_same_value(
-  a : LocalIdx,
-  b : LocalIdx,
-  values_out : Map[Int, ValueEnv],
-  liveness : Map[Int, BlockLiveness],
-) -> Bool {
-  for v in values_out {
-    let (bid, env) = v
-    let live = liveness[bid].live_in
-
-    // Only check real overlap points
-    if !live.contains(a) || !live.contains(b) {
-      continue
+    for x in d {
+      live.remove(x)
     }
-    match (env.get(a), env.get(b)) {
-      (Some(x), Some(y)) => if x != y { return false }
-      _ =>
-        // overlap but unknown → unsafe
-        return false
+    for x in u {
+      live.add(x)
     }
   }
-
-  // ✅ No counterexample found → safe
-  true
 }
 
 ///|
@@ -460,23 +419,9 @@ fn compute_cfg_liveness(blocks : Array[Block]) -> Map[Int, BlockLiveness] {
   result
 }
 
-fn log_interference(
-  reason : String,
-  a : LocalIdx,
-  b : LocalIdx,
-  block : Int,
-) -> Unit {
-  println(
-    "ADD INTERFERENCE " +
-    ordered_pair(a, b).to_string() +
-    " reason=" + reason +
-    " block=" + block.to_string()
-  )
-}
-
 ///|
 fn compute_interferences_cfg(
-  blocks: Array[Block],
+  blocks : Array[Block],
   locals : Array[ValType],
 ) -> (Set[(LocalIdx, LocalIdx)], Map[Int, ValueEnv], Map[Int, ValueEnv]) {
   let liveness = compute_cfg_liveness(blocks)
@@ -485,7 +430,9 @@ fn compute_interferences_cfg(
   // Fresh value numbering state
   let counter = Ref::new(0)
   let consts = Map::new()
-  let (values_in, values_out) = compute_cfg_value_envs(blocks, locals, counter, consts)
+  let (values_in, values_out) = compute_cfg_value_envs(
+    blocks, locals, counter, consts,
+  )
 
   // --- 1. Intra-block interference ---
   for b in blocks {
@@ -500,21 +447,13 @@ fn compute_interferences_cfg(
     if b.preds.length() <= 1 {
       continue
     }
-
     let live = liveness[b.id].live_in
-
     for x in live {
       for y in live {
         if x == y {
           continue
         }
 
-        println(
-          "MERGE CHECK " +
-          x.to_string() + "," + y.to_string() +
-          " must_same=" +
-          must_be_same_value(x, y, blocks, values_out, liveness).to_string()
-        )
         // If value-numbering proves equality across ALL paths, no interference
         if must_be_same_value(x, y, blocks, values_out, liveness) {
           continue
@@ -671,6 +610,7 @@ fn interferes(
 }
 
 ///|
+
 ///|
 fn must_be_same_value(
   a : LocalIdx,
@@ -680,72 +620,97 @@ fn must_be_same_value(
   liveness : Map[Int, BlockLiveness],
 ) -> Bool {
 
-  // We are looking for a COUNTEREXAMPLE:
-  // a block where a and b are both live,
-  // and on some predecessor they may hold different values.
+  // This function checks if two locals MUST hold the same value
+  // at merge points (blocks with multiple predecessors).
+  // It's used to allow coalescing even when there's interference,
+  // if we can prove the locals always hold the same value.
+  //
+  // For single-block functions or non-merge points, we return false
+  // because the interference graph already handles value numbering
+  // for those cases.
 
+  let mut found_merge_point = false
   for bblock in blocks {
     let bid = bblock.id
 
-    // Only care about real merge points
+    // Only check merge points (blocks with multiple predecessors)
     if bblock.preds.length() <= 1 {
       continue
     }
-
     let live = liveness[bid].live_in
 
     // If both locals are not live here, skip
     if !live.contains(a) || !live.contains(b) {
       continue
     }
+    found_merge_point = true
 
-    // Track the expected value pair across predecessors
-    let mut seen : (ValueId?, ValueId?)? = None
-
+    // Collect all defined values for a and b across all predecessors
+    let mut defined_value : ValueId? = None
+    let mut all_compatible = true
     for p in bblock.preds {
       let env = values_out[p]
       let va = env.get(a)
       let vb = env.get(b)
 
-      match seen {
-        None => {
-          // First predecessor establishes the reference
-          seen = Some((va, vb))
-        }
-
-        Some((ra, rb)) => {
-          // Compare with previous predecessor
-
-          match ((ra, rb), (va, vb)) {
-
-            // Both known and equal → ok
-            ((Some(x), Some(y)), (Some(x2), Some(y2))) =>
-              if x != x2 || y != y2 {
-                return false
+      // Check if either a or b is defined on this path
+      match (va, vb) {
+        // Both defined: must be equal
+        (Some(x), Some(y)) => {
+          if x != y {
+            all_compatible = false
+            break
+          }
+          // Both defined and equal: check against previously seen value
+          match defined_value {
+            None => defined_value = Some(x)
+            Some(v) =>
+              if v != x {
+                all_compatible = false
+                break
               }
-
-            // One side known, other unknown → could differ
-            ((Some(_), _), (_, Some(_))) =>
-              return false
-
-            ((_, Some(_)), (Some(_), _)) =>
-              return false
-
-            // Both unknown → still compatible
-            ((None, None), (None, None)) =>
-              ()
-
-            // Mixed unknowns but consistent → ok
-            _ =>
-              ()
           }
         }
+
+        // Only a is defined
+        (Some(x), None) =>
+          match defined_value {
+            None => defined_value = Some(x)
+            Some(v) =>
+              if v != x {
+                all_compatible = false
+                break
+              }
+          }
+
+        // Only b is defined
+        (None, Some(y)) =>
+          match defined_value {
+            None => defined_value = Some(y)
+            Some(v) =>
+              if v != y {
+                all_compatible = false
+                break
+              }
+          }
+
+        // Neither defined: this path doesn't constrain the value
+        (None, None) => ()
       }
+    }
+    if !all_compatible {
+      return false
+    }
+
+    // If we found a consistent value across all paths, they can be coalesced
+    if defined_value is None {
+      return false
     }
   }
 
-  // No counterexample found
-  true
+  // If we found at least one merge point where both are live,
+  // and all checks passed, they must be equal
+  found_merge_point
 }
 
 ///|
@@ -757,7 +722,6 @@ fn compute_coalescing(
   values_out : Map[Int, ValueEnv],
   liveness : Map[Int, BlockLiveness],
 ) -> LocalMap {
-  println("INTERFERENCE GRAPH = " + inter.to_string())
   let mapping : LocalMap = Map::new()
   let reps : Array[LocalIdx] = Array::new()
   for li in order {
@@ -768,18 +732,11 @@ fn compute_coalescing(
         continue
       }
 
-      println(
-        "TRY COALESCE " +
-        li.to_string() + " -> " + r.to_string() +
-        " interfere=" + interferes(inter, li, r).to_string() +
-        " must_same=" +
-        must_be_same_value(li, r, blocks, values_out, liveness).to_string()
-      )
-
-      // TRUST the interference graph. 
-      // If they are in the set, they overlap with different values 
+      // TRUST the interference graph.
+      // If they are in the set, they overlap with different values
       // or they are a copy where the source remained live.
-      if !interferes(inter, li, r) || must_be_same_value(li, r, blocks, values_out, liveness) {
+      if !interferes(inter, li, r) ||
+        must_be_same_value(li, r, blocks, values_out, liveness) {
         mapping[li] = r
         assigned = true
         break
@@ -791,33 +748,6 @@ fn compute_coalescing(
     }
   }
   mapping
-}
-
-///|
-fn rewrite_locals_instr(instr : TInstr, mapping : LocalMap) -> TInstr {
-  let walker = ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_tinstruction: Some(fn(_, _, i) {
-      match i {
-        TInstr::TLocalGet(idx) =>
-          change((), TInstr::TLocalGet(mapping.get(idx).unwrap()))
-        TInstr::TLocalSet(idx, value) =>
-          change((), TInstr::TLocalSet(mapping.get(idx).unwrap(), value))
-        _ => unchanged()
-      }
-    }),
-  }
-  let (_, new_expr) = walker
-    .walk_texpr_default((), TExpr::new([instr]))
-    .unwrap()
-    .unwrap()
-  let TExpr(instrs) = new_expr
-  if instrs.length() == 1 {
-    instrs[0]
-  } else {
-    // Invariant violated: fall back to original instruction
-    instr
-  }
 }
 
 ///|
@@ -849,13 +779,11 @@ fn coalesce_locals() -> ModuleTransformer[Unit] {
         TFunc(locals, body) => {
           let instrs = body.0
           let blocks = build_cfg(instrs)
-          let (inter, values_in, values_out) = compute_interferences_cfg(blocks, locals)
+          let (inter, _, values_out) = compute_interferences_cfg(blocks, locals)
           let liveness = compute_cfg_liveness(build_cfg(instrs))
           let copies = find_copies(instrs)
           let freq = copy_frequency(copies)
           let order = compute_coalesce_order(locals, freq)
-          println("VALUES_IN = " + values_in.to_string())
-          println(("LIVENESS = ", liveness))
           let mapping = compute_coalescing(
             locals, inter, order, blocks, values_out, liveness,
           )
@@ -873,7 +801,7 @@ fn coalesce_locals() -> ModuleTransformer[Unit] {
 fn rewrite_instr_locals(instr : TInstr, mapping : LocalMap) -> TInstr {
   let walker = ModuleTransformer::{
     ..ModuleTransformer::new(),
-    on_tinstruction: Some(fn(self, _, i) {
+    on_tinstruction: Some(fn(_, _, i) {
       match i {
         TInstr::TLocalGet(idx) =>
           change((), TInstr::TLocalGet(mapping.get(idx).unwrap()))
@@ -1039,16 +967,6 @@ fn identity_order(n : Int) -> Array[LocalIdx] {
     order.push(LocalIdx::new(i.reinterpret_as_uint()))
   }
   order
-}
-
-///|
-fn empty_values_in() -> Map[Int, ValueEnv] {
-  Map::new()
-}
-
-///|
-fn empty_liveness() -> Map[Int, BlockLiveness] {
-  Map::new()
 }
 
 ///|
@@ -1507,7 +1425,6 @@ test "Value numbering: reassignment breaks equality" {
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
 
-  println(new_mod.code_sec)
   // x and y no longer equal
   assert_true(
     new_mod.code_sec is Some(CodeSec([TFunc(locals, _)])) &&
@@ -1535,8 +1452,6 @@ test "Value numbering: equal values across branches coalesce" {
   let func = Func::t_func([ValType::i32(), ValType::i32()], TExpr::new(instrs))
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
-
-  println(new_mod.code_sec)
   assert_true(
     new_mod.code_sec is Some(CodeSec([TFunc(locals, _)])) &&
     locals.length() == 1,

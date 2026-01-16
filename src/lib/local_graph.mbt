@@ -34,7 +34,7 @@ priv struct BlockInfo {
 
 ///|
 priv enum Action {
-  Get(LocalIdx, Int, Int) // local, instr_id, action_index
+  Get(LocalIdx, Int, Int) // local, instr_id (unused), action_index
   Set(LocalIdx, Int)
 }
 
