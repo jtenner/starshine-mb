@@ -12,6 +12,7 @@ using @lib {
   table_idx,
   uses,
   defs,
+  tlocals_to_locals,
   type AbsHeapType,
   type ModuleTransformer,
   type TransformerResult,
