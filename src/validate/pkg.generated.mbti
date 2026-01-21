@@ -31,6 +31,8 @@ pub fn gen_memsec_valid(GenCtx, @lib.Env) -> Result[(GenCtx, @lib.MemSec, @lib.E
 
 pub fn gen_module_valid_full(GenCtx) -> Result[(GenCtx, @lib.Module), String]
 
+pub fn gen_side_effect_tinstr(GenValidV2Context, Int) -> @lib.TInstr
+
 pub fn gen_startsec_valid(GenCtx, @lib.Env) -> Result[(GenCtx, @lib.StartSec?), String]
 
 pub fn gen_tablesec_valid(GenCtx, @lib.Env) -> Result[(GenCtx, @lib.TableSec, @lib.Env), String]
@@ -39,7 +41,19 @@ pub fn gen_tagsec_valid(GenCtx, @lib.Env) -> Result[(GenCtx, @lib.TagSec?, @lib.
 
 pub fn gen_tfunc_entry(GenCtx, @lib.TypeIdx) -> Result[@lib.Func, String]
 
+pub fn gen_tinstr_of_type(GenValidV2Context, @lib.ValType) -> @lib.TInstr
+
 pub fn gen_typesec_valid(GenCtx) -> Result[(GenCtx, @lib.TypeSec), String]
+
+pub fn gen_valid_module(@splitmix.RandomState) -> @lib.Module
+
+pub fn gen_valid_numtype(GenValidV2Context) -> @lib.NumType
+
+pub fn gen_valid_result_type(GenValidV2Context, Array[@lib.ValType], TypeGenerationStrategy) -> Array[@lib.ValType]
+
+pub fn gen_valid_tfunc(GenValidV2Context, Array[@lib.ValType], Array[@lib.ValType]) -> @lib.Func
+
+pub fn gen_valid_valtype(GenValidV2Context) -> @lib.ValType
 
 pub fn validate_codesec(@lib.CodeSec?, @lib.FuncSec?, @lib.Env) -> Result[Unit, String]
 
@@ -81,12 +95,16 @@ pub fn GenCtx::dec_fuel(Self, Int) -> Self
 pub fn GenCtx::with_env(Self, @lib.Env) -> Self
 pub fn GenCtx::with_fuel_only(Self, Int) -> Self
 
+type GenValidV2Context
+
 pub struct TcState {
   env : @lib.Env
   stack : Array[@lib.ValType]
   reachable : Bool
 }
 pub impl Show for TcState
+
+type TypeGenerationStrategy
 
 // Type aliases
 pub type TcResult = Result[TcState, String]

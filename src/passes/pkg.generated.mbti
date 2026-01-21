@@ -21,11 +21,15 @@ pub fn directize_module(@lib.Module, Bool) -> Result[@lib.Module, String]
 
 pub fn lift_to_texpr_pass() -> @lib.ModuleTransformer[Unit]
 
+pub fn lower_to_expr_pass() -> @lib.ModuleTransformer[Unit]
+
 pub fn propagate_to_supertypes(CFPState) -> Unit
 
 pub fn run_constant_field_propagation(@lib.Module) -> Result[@lib.Module, String]
 
 pub fn run_denam(@lib.Module) -> Result[@lib.Module, String]
+
+pub fn run_lower_to_expr_pass(@lib.Module) -> @lib.Module
 
 // Errors
 

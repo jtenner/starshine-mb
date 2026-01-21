@@ -1,0 +1,48 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "jtenner/starshine/wat"
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct SpannedToken {
+  token : Token
+  span : (UInt, UInt)
+}
+pub fn SpannedToken::new(Token, (UInt, UInt)) -> Self
+pub fn SpannedToken::tokenize(String) -> Iter[Self]
+pub impl Eq for SpannedToken
+pub impl Show for SpannedToken
+
+pub enum Token {
+  LParen
+  RParen
+  Keyword(String)
+  Identifier(String)
+  UIntLiteral(String)
+  SIntLiteral(String)
+  FloatLiteral(String)
+  StringLiteral(String)
+  Reserved(String)
+  WhiteSpace
+}
+pub fn Token::float_literal(String) -> Self
+pub fn Token::identifier(String) -> Self
+pub fn Token::keyword(String) -> Self
+pub fn Token::l_paren() -> Self
+pub fn Token::r_paren() -> Self
+pub fn Token::reserved(String) -> Self
+pub fn Token::s_int_literal(String) -> Self
+pub fn Token::string_literal(String) -> Self
+pub fn Token::u_int_literal(String) -> Self
+pub fn Token::whitespace() -> Self
+pub impl Eq for Token
+pub impl Show for Token
+
+// Type aliases
+
+// Traits
+pub trait Parse {
+}
+

@@ -19,10 +19,9 @@ pub fn lower_to_expr_pass() -> ModuleTransformer[Unit] {
   }
 }
 
+///|
 pub fn run_lower_to_expr_pass(mod : Module) -> Module {
   let t = lower_to_expr_pass()
-  let (_, mod) =  t.walk_module((), mod)
-    .unwrap()
-    .unwrap()
+  let (_, mod) = t.walk_module((), mod).unwrap().unwrap()
   mod
 }

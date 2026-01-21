@@ -824,11 +824,7 @@ test "invalidation fuzzing with coverage" {
     rejected_count[s] = 0
   }
   for _ in 0..<200 {
-    let ctx = gen_ctx_new(200, rnd=Some(rnd))
-    let (_, valid_module) = match gen_module_valid_full(ctx) {
-      Ok(t) => t
-      Err(_) => continue
-    }
+    let valid_module = gen_valid_module(rnd)
     if validate_module(valid_module) is Err(_) {
       continue
     }

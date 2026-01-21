@@ -626,6 +626,7 @@ pub fn validate_codesec(
           None => return Err("internal: missing functype for code body")
         }
         if validate_func_body_against_functype(env, ft, bodies[i]) is Err(e) {
+          println("Func body \{i} invalid:\n  \{bodies[i]}")
           return Err(e)
         }
       }
@@ -1113,19 +1114,17 @@ pub fn validate_module(m : Module) -> Result[Unit, String] {
 }
 
 ///|
+
 test "Fuzz Modules" {
   let rnd = @quickcheck/splitmix.new()
   loop 100000 {
     0 => break ()
     n => {
-      let ctx = gen_ctx_new(1000, rnd=Some(rnd))
-      let mod = gen_module_valid_full(ctx)
-      if mod is Err(t) {
-        assert_true(false, msg=t)
-      }
-      let (_, mod) = mod.unwrap()
+      let mod = gen_valid_module(rnd)
       let result = validate_module(mod)
+      
       if result is Err(t) {
+        println(mod)
         assert_true(false, msg=t)
       }
       continue n - 1

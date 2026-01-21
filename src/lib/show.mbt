@@ -57,10 +57,10 @@ pub impl Show for U64 with output(self, logger) {
 ///|
 pub impl Show for NumType with output(self, logger) {
   match self {
-    F32NumType => logger.write_string("(NumType F32)")
-    F64NumType => logger.write_string("(NumType F64)")
-    I32NumType => logger.write_string("(NumType I32)")
-    I64NumType => logger.write_string("(NumType I64)")
+    F32NumType => logger.write_string("F32")
+    F64NumType => logger.write_string("F64")
+    I32NumType => logger.write_string("I32")
+    I64NumType => logger.write_string("I64")
   }
 }
 

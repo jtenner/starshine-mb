@@ -1079,6 +1079,17 @@ pub fn FieldType::is_mutable(ft : FieldType) -> Bool {
 }
 
 ///|
+pub fn FieldType::unpack(self : Self) -> ValType {
+  let FieldType(st, _) = self
+  st.unpack()
+}
+
+///|
+pub fn FieldType::get_storage_type(self : Self) -> StorageType {
+  self.0
+}
+
+///|
 pub fn min_addr_valtype(l1 : Limits, l2 : Limits) -> ValType {
   match (l1, l2) {
     (I64Limits(_, _), I64Limits(_, _)) => NumTypeValType(I64NumType)
@@ -7465,8 +7476,28 @@ pub fn TypeSec::new(rts : Array[RecType]) -> TypeSec {
 }
 
 ///|
+pub fn MemSec::new(mems : Array[MemType]) -> MemSec {
+  MemSec(mems)
+}
+
+///|
+pub fn GlobalSec::new(gs : Array[Global]) -> GlobalSec {
+  GlobalSec(gs)
+}
+
+///|
 pub fn CodeSec::new(fs : Array[Func]) -> CodeSec {
   CodeSec(fs)
+}
+
+///|
+pub fn DataSec::new(ds : Array[Data]) -> DataSec {
+  DataSec(ds)
+}
+
+///|
+pub fn DataCntSec::new(dc : U32) -> DataCntSec {
+  DataCntSec(dc)
 }
 
 ///|
@@ -7522,6 +7553,10 @@ pub fn Elem::new(mode : ElemMode, kind : ElemKind) -> Elem {
 ///|
 pub fn ElemSec::new(e : Array[Elem]) -> ElemSec {
   ElemSec(e)
+}
+
+pub fn TagSec::new(e : Array[TagType]) -> TagSec {
+  TagSec(e)
 }
 
 ///|

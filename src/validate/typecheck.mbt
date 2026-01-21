@@ -49,6 +49,7 @@ fn TcState::push1(st : TcState, vt : ValType) -> TcState {
 
 ///|
 fn TcState::pop_ref_or_bot(st : TcState) -> Result[(TcState, RefType?), String] {
+  println("Popping a ref or bot")
   match st.pop1() {
     Err(e) => Err(e)
     Ok((st1, v)) =>
@@ -79,7 +80,9 @@ fn TcState::pop1(st : TcState) -> Result[(TcState, ValType), String] {
   }
   let s = st.stack.copy()
   match s.pop() {
-    None => Err("stack underflow")
+    None => {
+      Err("stack underflow")
+    }
     Some(v) => Ok((st.with_stack(s), v))
   }
 }
@@ -87,7 +90,10 @@ fn TcState::pop1(st : TcState) -> Result[(TcState, ValType), String] {
 ///|
 fn TcState::pop_expect(st : TcState, expected : ValType) -> TcResult {
   match st.pop1() {
-    Err(e) => Err(e)
+    Err(e) => {
+      println("Expecting: \{expected}")
+      Err(e)
+    }
     Ok((st2, actual)) => {
       if !st.reachable {
         return Ok(st2)
@@ -95,6 +101,7 @@ fn TcState::pop_expect(st : TcState, expected : ValType) -> TcResult {
       if Match::matches(actual, expected, st.env) {
         Ok(st2)
       } else {
+        println("Expecting: \{expected} received \{actual}")
         Err("type mismatch")
       }
     }
@@ -104,7 +111,10 @@ fn TcState::pop_expect(st : TcState, expected : ValType) -> TcResult {
 ///|
 fn typecheck_drop(st : TcState) -> TcResult {
   match st.pop1() {
-    Err(e) => Err(e)
+    Err(e) => {
+      println("Type checking a drop")
+      Err(e)
+    }
     Ok((st2, _)) => Ok(st2)
   }
 }
@@ -216,13 +226,19 @@ fn typecheck_select_untyped(st : TcState) -> TcResult {
 
   // pop second operand
   let (st2, t2) = match st1.pop1() {
-    Err(e) => return Err(e)
+    Err(e) => {
+      println("Popping second operand of select")
+      return Err(e)
+    }
     Ok(pair) => pair
   }
 
   // pop first operand
   let (st3, t1) = match st2.pop1() {
-    Err(e) => return Err(e)
+    Err(e) => {
+      println("Popping first operand of select")
+      return Err(e)
+    }
     Ok(pair) => pair
   }
 
@@ -987,6 +1003,22 @@ fn typecheck_throw_ref(st : TcState) -> TcResult {
     Ok(s) => s
   }
   Ok(st1.set_unreachable())
+}
+
+fn tag_payload_types(env : Env, tag : TagIdx) -> Array[ValType] {
+  let idx = tag.0
+  // Guard against overflow - if idx >= 2^31, it would become negative when cast to Int
+  if idx > 0x7FFFFFFF {
+    return []
+  }
+  match env.tags.get(idx.reinterpret_as_int()) {
+    Some(TagType(tidx)) =>
+      match env.resolve_functype(tidx) {
+        Some(FuncType(params, _)) => params
+        None => []
+      }
+    None => []
+  }
 }
 
 ///|

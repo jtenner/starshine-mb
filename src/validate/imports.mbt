@@ -70,6 +70,8 @@ using @lib {
   type Module,
   type PackType,
   type LaneIdx,
+  type ResultType,
+  type LoadOp,
   expand_locals,
   equals,
   get_struct_field,
@@ -77,3 +79,6 @@ using @lib {
   min_addr_valtype,
   min_addr,
 }
+
+///|
+using @quickcheck/splitmix {type RandomState}

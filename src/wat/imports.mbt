@@ -1,7 +1,5 @@
-using @lib {
-  
-}
+///|
+using @lib {}
 
-using @buffer {
-  type Buffer
-}
+///|
+using @buffer {type Buffer}

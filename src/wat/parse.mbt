@@ -1,5 +1,2 @@
-
-
-pub trait Parse {
-
-}
+///|
+pub trait Parse {}

@@ -605,6 +605,7 @@ pub impl @quickcheck.Arbitrary for Data
 pub(all) struct DataCntSec(U32)
 #deprecated
 pub fn DataCntSec::inner(Self) -> U32
+pub fn DataCntSec::new(U32) -> Self
 pub impl Eq for DataCntSec
 pub impl Hash for DataCntSec
 pub impl Show for DataCntSec
@@ -633,6 +634,7 @@ pub impl @quickcheck.Arbitrary for DataMode
 pub(all) struct DataSec(Array[Data])
 #deprecated
 pub fn DataSec::inner(Self) -> Array[Data]
+pub fn DataSec::new(Array[Data]) -> Self
 pub impl Eq for DataSec
 pub impl Hash for DataSec
 pub impl Show for DataSec
@@ -863,8 +865,10 @@ pub impl @quickcheck.Arbitrary for F64
 pub struct FieldType(StorageType, Mut)
 
 
+pub fn FieldType::get_storage_type(Self) -> StorageType
 pub fn FieldType::is_mutable(Self) -> Bool
 pub fn FieldType::new(StorageType, Mut) -> Self
+pub fn FieldType::unpack(Self) -> ValType
 pub impl Eq for FieldType
 pub impl Hash for FieldType
 pub impl Show for FieldType
@@ -927,6 +931,7 @@ pub impl @quickcheck.Arbitrary for GlobalIdx
 pub(all) struct GlobalSec(Array[Global])
 #deprecated
 pub fn GlobalSec::inner(Self) -> Array[Global]
+pub fn GlobalSec::new(Array[Global]) -> Self
 pub impl Eq for GlobalSec
 pub impl Hash for GlobalSec
 pub impl Show for GlobalSec
@@ -2129,6 +2134,7 @@ pub impl @quickcheck.Arbitrary for MemIdx
 pub(all) struct MemSec(Array[MemType])
 #deprecated
 pub fn MemSec::inner(Self) -> Array[MemType]
+pub fn MemSec::new(Array[MemType]) -> Self
 pub impl Eq for MemSec
 pub impl Hash for MemSec
 pub impl Show for MemSec
