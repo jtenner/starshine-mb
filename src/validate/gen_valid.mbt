@@ -5,7 +5,7 @@ struct Label {
 }
 
 ///|
-struct GenValidV2Context {
+struct GenValidContext {
   mut func_idx : Int
   funcs : Map[Func, Int]
   sigs : Map[Int, (ResultType, ResultType)]
@@ -33,7 +33,7 @@ struct GenValidV2Context {
 }
 
 ///|
-fn GenValidV2Context::new(rnd : RandomState) -> GenValidV2Context {
+fn GenValidContext::new(rnd : RandomState) -> GenValidContext {
   {
     func_idx: 0,
     funcs: Map::new(),
@@ -60,8 +60,8 @@ fn GenValidV2Context::new(rnd : RandomState) -> GenValidV2Context {
 }
 
 ///|
-fn GenValidV2Context::add_tag(
-  self : GenValidV2Context,
+fn GenValidContext::add_tag(
+  self : GenValidContext,
   sig_idx : Int,
   params : ResultType,
 ) -> Int {
@@ -72,8 +72,8 @@ fn GenValidV2Context::add_tag(
 }
 
 ///|
-fn GenValidV2Context::add_func_with_sig(
-  self : GenValidV2Context,
+fn GenValidContext::add_func_with_sig(
+  self : GenValidContext,
   func : Func,
   sig_idx : Int,
 ) -> Int {
@@ -86,8 +86,8 @@ fn GenValidV2Context::add_func_with_sig(
 }
 
 ///|
-fn GenValidV2Context::add_signature(
-  self : GenValidV2Context,
+fn GenValidContext::add_signature(
+  self : GenValidContext,
   accepts : ResultType,
   returns : ResultType,
 ) -> Int {
@@ -102,8 +102,8 @@ fn GenValidV2Context::add_signature(
 }
 
 ///|
-fn GenValidV2Context::add_struct_type(
-  self : GenValidV2Context,
+fn GenValidContext::add_struct_type(
+  self : GenValidContext,
   fields : Array[FieldType],
 ) -> Int {
   let next = self.type_idx
@@ -116,8 +116,8 @@ fn GenValidV2Context::add_struct_type(
 }
 
 ///|
-fn GenValidV2Context::add_array_type(
-  self : GenValidV2Context,
+fn GenValidContext::add_array_type(
+  self : GenValidContext,
   elem_type : FieldType,
 ) -> Int {
   let next = self.type_idx
@@ -129,8 +129,8 @@ fn GenValidV2Context::add_array_type(
   next
 }
 
-fn GenValidV2Context::label_matches(
-  ctx : GenValidV2Context,
+fn GenValidContext::label_matches(
+  ctx : GenValidContext,
   l : Int,
   want : ResultType,
 ) -> Bool {
@@ -143,7 +143,7 @@ fn GenValidV2Context::label_matches(
 }
 
 ///|
-fn GenValidV2Context::add_func(self : GenValidV2Context, func : Func) -> Int {
+fn GenValidContext::add_func(self : GenValidContext, func : Func) -> Int {
   let next = self.func_idx
   self.func_idx = next + 1
   self.funcs.set(func, next)
@@ -151,8 +151,8 @@ fn GenValidV2Context::add_func(self : GenValidV2Context, func : Func) -> Int {
 }
 
 ///|
-fn GenValidV2Context::add_global(
-  self : GenValidV2Context,
+fn GenValidContext::add_global(
+  self : GenValidContext,
   gt : GlobalType,
 ) -> Int {
   let next = self.global_idx
@@ -162,28 +162,28 @@ fn GenValidV2Context::add_global(
 }
 
 ///|
-fn GenValidV2Context::ensure_memory(self : GenValidV2Context) -> Unit {
+fn GenValidContext::ensure_memory(self : GenValidContext) -> Unit {
   if self.mem_count == 0 {
     self.mem_count = 1
   }
 }
 
 ///|
-fn GenValidV2Context::ensure_table(self : GenValidV2Context) -> Unit {
+fn GenValidContext::ensure_table(self : GenValidContext) -> Unit {
   if self.table_count == 0 {
     self.table_count = 1
   }
 }
 
-fn GenValidV2Context::label_result_at(
-  self : GenValidV2Context,
+fn GenValidContext::label_result_at(
+  self : GenValidContext,
   l : Int,
 ) -> Label {
   self.label_stack[l]
 }
 
-fn GenValidV2Context::labels_matching_result(
-  self : GenValidV2Context,
+fn GenValidContext::labels_matching_result(
+  self : GenValidContext,
   want : ResultType,
 ) -> Array[Int] {
   let result : Array[Int] = []
@@ -196,7 +196,7 @@ fn GenValidV2Context::labels_matching_result(
   result
 }
 
-fn GenValidV2Context::empty_labels(self : GenValidV2Context) -> Array[Int] {
+fn GenValidContext::empty_labels(self : GenValidContext) -> Array[Int] {
   let result : Array[Int] = []
   for l in 0..<self.label_stack.length() {
     if self.label_stack[l].result == [] {
@@ -207,8 +207,8 @@ fn GenValidV2Context::empty_labels(self : GenValidV2Context) -> Array[Int] {
 }
 
 ///|
-fn GenValidV2Context::add_elem_segment(
-  self : GenValidV2Context,
+fn GenValidContext::add_elem_segment(
+  self : GenValidContext,
   mode : ElemMode,
 ) -> Int {
   let next = self.elem_idx
@@ -218,8 +218,8 @@ fn GenValidV2Context::add_elem_segment(
 }
 
 ///|
-fn GenValidV2Context::add_data_segment(
-  self : GenValidV2Context,
+fn GenValidContext::add_data_segment(
+  self : GenValidContext,
   mode : DataMode,
 ) -> Int {
   let next = self.data_idx
@@ -229,7 +229,7 @@ fn GenValidV2Context::add_data_segment(
 }
 
 ///|
-fn GenValidV2Context::random_int(self : GenValidV2Context, max : Int) -> Int {
+fn GenValidContext::random_int(self : GenValidContext, max : Int) -> Int {
   if max <= 0 {
     return 0
   }
@@ -237,12 +237,12 @@ fn GenValidV2Context::random_int(self : GenValidV2Context, max : Int) -> Int {
 }
 
 ///|
-fn GenValidV2Context::random_bool(self : GenValidV2Context) -> Bool {
+fn GenValidContext::random_bool(self : GenValidContext) -> Bool {
   self.rnd.next_positive_int() % 2 == 0
 }
 
-fn GenValidV2Context::push_label(
-  self : GenValidV2Context,
+fn GenValidContext::push_label(
+  self : GenValidContext,
   bt : ResultType,
   catchable : Bool
 ) -> Unit {
@@ -250,18 +250,18 @@ fn GenValidV2Context::push_label(
   self.label_stack.insert(0, Label::{ result: bt, catchable })
 }
 
-fn GenValidV2Context::pop_label(self : GenValidV2Context) -> Unit {
+fn GenValidContext::pop_label(self : GenValidContext) -> Unit {
   // remove innermost label
   ignore(self.label_stack.remove(0))
 }
 
-fn GenValidV2Context::label_count(self : GenValidV2Context) -> Int {
+fn GenValidContext::label_count(self : GenValidContext) -> Int {
   self.label_stack.length()
 }
 
 ///|
-fn GenValidV2Context::get_or_add_signature(
-  self : GenValidV2Context,
+fn GenValidContext::get_or_add_signature(
+  self : GenValidContext,
   accepts : ResultType,
   returns : ResultType,
 ) -> Int {
@@ -276,8 +276,8 @@ fn GenValidV2Context::get_or_add_signature(
 
 ///|
 /// Reserve a function index before the body is generated (for forward references)
-fn GenValidV2Context::reserve_func(
-  self : GenValidV2Context,
+fn GenValidContext::reserve_func(
+  self : GenValidContext,
   sig_idx : Int,
 ) -> Int {
   let next = self.func_idx
@@ -288,8 +288,8 @@ fn GenValidV2Context::reserve_func(
 
 ///|
 /// Finalize a reserved function by associating it with its body
-fn GenValidV2Context::finalize_func(
-  self : GenValidV2Context,
+fn GenValidContext::finalize_func(
+  self : GenValidContext,
   func_idx : Int,
   func : Func,
 ) -> Unit {
@@ -297,8 +297,8 @@ fn GenValidV2Context::finalize_func(
 }
 
 ///|
-fn GenValidV2Context::get_callable_funcs(
-  self : GenValidV2Context,
+fn GenValidContext::get_callable_funcs(
+  self : GenValidContext,
 ) -> Array[(Int, ResultType, ResultType)] {
   let result : Array[(Int, ResultType, ResultType)] = []
   for t in self.func_sigs.iter() {
@@ -319,7 +319,7 @@ enum TypeGenerationStrategy {
 }
 
 ///|
-pub fn gen_valid_valtype(ctx : GenValidV2Context) -> ValType {
+pub fn gen_valid_valtype(ctx : GenValidContext) -> ValType {
   match ctx.random_int(4) {
     0 => ValType::i32()
     1 => ValType::i64()
@@ -329,7 +329,7 @@ pub fn gen_valid_valtype(ctx : GenValidV2Context) -> ValType {
 }
 
 ///|
-pub fn gen_valid_numtype(ctx : GenValidV2Context) -> NumType {
+pub fn gen_valid_numtype(ctx : GenValidContext) -> NumType {
   match ctx.random_int(4) {
     0 => NumType::i32()
     1 => NumType::i64()
@@ -340,7 +340,7 @@ pub fn gen_valid_numtype(ctx : GenValidV2Context) -> NumType {
 
 ///|
 /// Generate a storage type for struct/array fields
-fn gen_storage_type(ctx : GenValidV2Context) -> StorageType {
+fn gen_storage_type(ctx : GenValidContext) -> StorageType {
   match ctx.random_int(6) {
     0 => StorageType::val_type(ValType::i32())
     1 => StorageType::val_type(ValType::i64())
@@ -353,7 +353,7 @@ fn gen_storage_type(ctx : GenValidV2Context) -> StorageType {
 
 ///|
 /// Generate table.set instruction (side effect)
-fn gen_table_set_tinstr(ctx : GenValidV2Context) -> TInstr? {
+fn gen_table_set_tinstr(ctx : GenValidContext) -> TInstr? {
   if ctx.table_count == 0 {
     return None
   }
@@ -370,7 +370,7 @@ fn gen_table_set_tinstr(ctx : GenValidV2Context) -> TInstr? {
 
 ///|
 /// Generate table.size instruction
-fn gen_table_size_tinstr(ctx : GenValidV2Context) -> TInstr? {
+fn gen_table_size_tinstr(ctx : GenValidContext) -> TInstr? {
   if ctx.table_count == 0 {
     return None
   }
@@ -379,7 +379,7 @@ fn gen_table_size_tinstr(ctx : GenValidV2Context) -> TInstr? {
 
 ///|
 /// Generate table.grow instruction
-fn gen_table_grow_tinstr(ctx : GenValidV2Context) -> TInstr? {
+fn gen_table_grow_tinstr(ctx : GenValidContext) -> TInstr? {
   if ctx.table_count == 0 {
     return None
   }
@@ -390,7 +390,7 @@ fn gen_table_grow_tinstr(ctx : GenValidV2Context) -> TInstr? {
 
 ///|
 /// Generate a field type for structs/arrays
-fn gen_field_type(ctx : GenValidV2Context) -> FieldType {
+fn gen_field_type(ctx : GenValidContext) -> FieldType {
   let storage = gen_storage_type(ctx)
   let mutable = ctx.random_bool()
   FieldType::new(storage, if mutable { Var } else { Const })
@@ -398,7 +398,7 @@ fn gen_field_type(ctx : GenValidV2Context) -> FieldType {
 
 ///|
 /// Generate a constant expression for global initialization
-fn gen_const_expr(ctx : GenValidV2Context, vt : ValType) -> Expr {
+fn gen_const_expr(ctx : GenValidContext, vt : ValType) -> Expr {
   match vt {
     NumTypeValType(I32NumType) =>
       Expr::new([I32Const(I32(ctx.random_int(100)))])
@@ -421,7 +421,7 @@ fn gen_const_expr(ctx : GenValidV2Context, vt : ValType) -> Expr {
 
 ///|
 pub fn gen_valid_result_type(
-  ctx : GenValidV2Context,
+  ctx : GenValidContext,
   base : ResultType,
   strategy : TypeGenerationStrategy,
 ) -> ResultType {
@@ -448,7 +448,7 @@ pub fn gen_valid_result_type(
 ///|
 /// Generate a call instruction with subtype-aware matching
 fn gen_call_tinstr_v2(
-  ctx : GenValidV2Context,
+  ctx : GenValidContext,
   target_types : ResultType,
   strategy : TypeGenerationStrategy,
 ) -> TInstr? {
@@ -470,7 +470,7 @@ fn gen_call_tinstr_v2(
 ///|
 /// Generate a call_indirect instruction
 fn gen_call_indirect_tinstr(
-  ctx : GenValidV2Context,
+  ctx : GenValidContext,
   target_return : ValType,
 ) -> TInstr? {
   if ctx.table_count == 0 {
@@ -511,7 +511,7 @@ fn gen_call_indirect_tinstr(
 
 ///|
 /// Generate a TCall instruction to an existing function
-fn gen_call_tinstr(ctx : GenValidV2Context, target_return : ValType) -> TInstr? {
+fn gen_call_tinstr(ctx : GenValidContext, target_return : ValType) -> TInstr? {
   let callables = ctx.get_callable_funcs()
   if callables.length() == 0 {
     return None
@@ -537,7 +537,7 @@ fn gen_call_tinstr(ctx : GenValidV2Context, target_return : ValType) -> TInstr? 
 
 ///|
 /// Generate a struct.new instruction
-fn gen_struct_new_tinstr(ctx : GenValidV2Context) -> TInstr? {
+fn gen_struct_new_tinstr(ctx : GenValidContext) -> TInstr? {
   if ctx.struct_types.length() == 0 {
     return None
   }
@@ -555,7 +555,7 @@ fn gen_struct_new_tinstr(ctx : GenValidV2Context) -> TInstr? {
 ///|
 /// Generate a struct.get instruction (requires struct on stack)
 fn gen_struct_get_tinstr(
-  ctx : GenValidV2Context,
+  ctx : GenValidContext,
   target_type : ValType,
 ) -> TInstr? {
   // Find a struct type with a field matching target_type
@@ -602,7 +602,7 @@ fn gen_struct_get_tinstr(
 
 ///|
 /// Generate an array.new instruction
-fn gen_array_new_tinstr(ctx : GenValidV2Context) -> TInstr? {
+fn gen_array_new_tinstr(ctx : GenValidContext) -> TInstr? {
   if ctx.array_types.length() == 0 {
     return None
   }
@@ -649,7 +649,7 @@ fn gen_array_new_tinstr(ctx : GenValidV2Context) -> TInstr? {
 
 ///|
 /// Generate array.new_data if we have data segments
-fn gen_array_new_data_tinstr(ctx : GenValidV2Context) -> TInstr? {
+fn gen_array_new_data_tinstr(ctx : GenValidContext) -> TInstr? {
   if ctx.array_types.length() == 0 || ctx.data_idx == 0 {
     return None
   }
@@ -680,7 +680,7 @@ fn gen_array_new_data_tinstr(ctx : GenValidV2Context) -> TInstr? {
 ///|
 /// Generate an array.get instruction
 fn gen_array_get_tinstr(
-  ctx : GenValidV2Context,
+  ctx : GenValidContext,
   target_type : ValType,
 ) -> TInstr? {
   for type_idx, elem_type in ctx.array_types {
@@ -729,7 +729,7 @@ fn storage_type_to_valtype(st : StorageType) -> ValType {
 
 ///|
 /// Generate a call as a side effect (drop all return values)
-fn gen_call_side_effect(ctx : GenValidV2Context) -> TInstr? {
+fn gen_call_side_effect(ctx : GenValidContext) -> TInstr? {
   let callables = ctx.get_callable_funcs()
   if callables.length() == 0 {
     return None
@@ -764,7 +764,7 @@ fn gen_call_side_effect(ctx : GenValidV2Context) -> TInstr? {
 }
 
 ///|
-fn gen_i32_tinstr(ctx : GenValidV2Context) -> TInstr {
+fn gen_i32_tinstr(ctx : GenValidContext) -> TInstr {
   match ctx.random_int(6) {
     0 => TI32Const(I32(ctx.rnd.next_int()))
     1 => {
@@ -791,7 +791,7 @@ fn gen_i32_tinstr(ctx : GenValidV2Context) -> TInstr {
 }
 
 ///|
-fn gen_i32_tinstr_simple(ctx : GenValidV2Context) -> TInstr {
+fn gen_i32_tinstr_simple(ctx : GenValidContext) -> TInstr {
   for i, local_type in ctx.locals {
     match local_type {
       NumTypeValType(I32NumType) =>
@@ -805,7 +805,7 @@ fn gen_i32_tinstr_simple(ctx : GenValidV2Context) -> TInstr {
 }
 
 ///|
-fn gen_i64_tinstr(ctx : GenValidV2Context) -> TInstr {
+fn gen_i64_tinstr(ctx : GenValidContext) -> TInstr {
   match ctx.random_int(4) {
     0 => TI64Const(I64(ctx.rnd.next_int64()))
     1 => {
@@ -822,7 +822,7 @@ fn gen_i64_tinstr(ctx : GenValidV2Context) -> TInstr {
 }
 
 ///|
-fn gen_i64_tinstr_simple(ctx : GenValidV2Context) -> TInstr {
+fn gen_i64_tinstr_simple(ctx : GenValidContext) -> TInstr {
   for i, local_type in ctx.locals {
     match local_type {
       NumTypeValType(I64NumType) =>
@@ -836,7 +836,7 @@ fn gen_i64_tinstr_simple(ctx : GenValidV2Context) -> TInstr {
 }
 
 ///|
-fn gen_f32_tinstr(ctx : GenValidV2Context) -> TInstr {
+fn gen_f32_tinstr(ctx : GenValidContext) -> TInstr {
   match ctx.random_int(4) {
     0 => TF32Const(F32(ctx.rnd.next_double().to_float()))
     1 => {
@@ -853,7 +853,7 @@ fn gen_f32_tinstr(ctx : GenValidV2Context) -> TInstr {
 }
 
 ///|
-fn gen_f32_tinstr_simple(ctx : GenValidV2Context) -> TInstr {
+fn gen_f32_tinstr_simple(ctx : GenValidContext) -> TInstr {
   for i, local_type in ctx.locals {
     match local_type {
       NumTypeValType(F32NumType) =>
@@ -867,7 +867,7 @@ fn gen_f32_tinstr_simple(ctx : GenValidV2Context) -> TInstr {
 }
 
 ///|
-fn gen_f64_tinstr(ctx : GenValidV2Context) -> TInstr {
+fn gen_f64_tinstr(ctx : GenValidContext) -> TInstr {
   match ctx.random_int(4) {
     0 => TF64Const(F64(ctx.rnd.next_double()))
     1 => {
@@ -884,7 +884,7 @@ fn gen_f64_tinstr(ctx : GenValidV2Context) -> TInstr {
 }
 
 ///|
-fn gen_f64_tinstr_simple(ctx : GenValidV2Context) -> TInstr {
+fn gen_f64_tinstr_simple(ctx : GenValidContext) -> TInstr {
   for i, local_type in ctx.locals {
     match local_type {
       NumTypeValType(F64NumType) =>
@@ -899,7 +899,7 @@ fn gen_f64_tinstr_simple(ctx : GenValidV2Context) -> TInstr {
 
 ///|
 /// Generate table.get instruction
-fn gen_table_get_tinstr(ctx : GenValidV2Context) -> TInstr? {
+fn gen_table_get_tinstr(ctx : GenValidContext) -> TInstr? {
   if ctx.table_count == 0 {
     return None
   }
@@ -909,7 +909,7 @@ fn gen_table_get_tinstr(ctx : GenValidV2Context) -> TInstr? {
 
 ///|
 /// Generate memory.init instruction
-fn gen_memory_init_tinstr(ctx : GenValidV2Context) -> TInstr? {
+fn gen_memory_init_tinstr(ctx : GenValidContext) -> TInstr? {
   if ctx.mem_count == 0 || ctx.data_idx == 0 {
     return None
   }
@@ -939,7 +939,7 @@ fn gen_memory_init_tinstr(ctx : GenValidV2Context) -> TInstr? {
 
 ///|
 /// Generate memory.copy instruction
-fn gen_memory_copy_tinstr(ctx : GenValidV2Context) -> TInstr? {
+fn gen_memory_copy_tinstr(ctx : GenValidContext) -> TInstr? {
   if ctx.mem_count == 0 {
     return None
   }
@@ -951,7 +951,7 @@ fn gen_memory_copy_tinstr(ctx : GenValidV2Context) -> TInstr? {
 
 ///|
 /// Generate memory.fill instruction
-fn gen_memory_fill_tinstr(ctx : GenValidV2Context) -> TInstr? {
+fn gen_memory_fill_tinstr(ctx : GenValidContext) -> TInstr? {
   if ctx.mem_count == 0 {
     return None
   }
@@ -963,7 +963,7 @@ fn gen_memory_fill_tinstr(ctx : GenValidV2Context) -> TInstr? {
 
 ///|
 /// Generate array.fill instruction (side effect)
-fn gen_array_fill_tinstr(ctx : GenValidV2Context) -> TInstr? {
+fn gen_array_fill_tinstr(ctx : GenValidContext) -> TInstr? {
   for t in ctx.array_types {
     let (type_idx, elem_type) = t
     if elem_type.is_mutable() {
@@ -993,7 +993,7 @@ fn gen_array_fill_tinstr(ctx : GenValidV2Context) -> TInstr? {
 
 ///|
 /// Generate array.copy instruction (side effect)
-fn gen_array_copy_tinstr(ctx : GenValidV2Context) -> TInstr? {
+fn gen_array_copy_tinstr(ctx : GenValidContext) -> TInstr? {
   if ctx.array_types.length() == 0 {
     return None
   }
@@ -1046,7 +1046,7 @@ fn gen_array_copy_tinstr(ctx : GenValidV2Context) -> TInstr? {
 
 ///|
 /// Generate array.len instruction
-fn gen_array_len_tinstr(ctx : GenValidV2Context) -> TInstr? {
+fn gen_array_len_tinstr(ctx : GenValidContext) -> TInstr? {
   match gen_array_new_tinstr(ctx) {
     Some(array_instr) => Some(TArrayLen(array_instr))
     None => None
@@ -1056,7 +1056,7 @@ fn gen_array_len_tinstr(ctx : GenValidV2Context) -> TInstr? {
 ///|
 /// Generate ref.cast instruction
 fn gen_ref_cast_tinstr(
-  ctx : GenValidV2Context,
+  ctx : GenValidContext,
   target_type : RefType,
 ) -> TInstr? {
   // Generate a value that could be cast to target_type
@@ -1128,7 +1128,7 @@ fn gen_ref_cast_tinstr(
   }
 }
 
-fn gen_ref_test_tinstr(ctx : GenValidV2Context) -> TInstr? {
+fn gen_ref_test_tinstr(ctx : GenValidContext) -> TInstr? {
   let ref_val =
     match gen_known_ref_value(ctx) {
       Some(v) => v
@@ -1146,7 +1146,7 @@ fn gen_ref_test_tinstr(ctx : GenValidV2Context) -> TInstr? {
 }
 
 ///|
-fn gen_v128_tinstr(ctx : GenValidV2Context) -> TInstr {
+fn gen_v128_tinstr(ctx : GenValidContext) -> TInstr {
   if ctx.random_bool() {
     TV128Const(
       b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
@@ -1158,7 +1158,7 @@ fn gen_v128_tinstr(ctx : GenValidV2Context) -> TInstr {
 }
 
 ///|
-fn gen_ref_tinstr(ctx : GenValidV2Context, rt : RefType) -> TInstr {
+fn gen_ref_tinstr(ctx : GenValidContext, rt : RefType) -> TInstr {
   match rt.get_heap_type() {
     AbsHeapTypeHeapType(StructAbsHeapType) =>
       match gen_struct_new_tinstr(ctx) {
@@ -1227,8 +1227,8 @@ fn is_abs_heaptype_subtype(sub : AbsHeapType, sup : AbsHeapType) -> Bool {
 
 ///|
 /// Find functions whose return type is compatible with target using subtyping
-fn GenValidV2Context::find_callable_returning(
-  self : GenValidV2Context,
+fn GenValidContext::find_callable_returning(
+  self : GenValidContext,
   target : ResultType,
   strategy : TypeGenerationStrategy,
 ) -> Array[(Int, ResultType, ResultType)] {
@@ -1318,7 +1318,7 @@ fn is_valtype_subtype(sub : ValType, sup : ValType) -> Bool {
 
 ///|
 /// Generate struct.set side effect
-fn gen_struct_set_tinstr(ctx : GenValidV2Context) -> TInstr? {
+fn gen_struct_set_tinstr(ctx : GenValidContext) -> TInstr? {
   // Find a mutable struct field
   for fields in ctx.struct_types {
     let (type_idx, fields) = fields
@@ -1352,7 +1352,7 @@ fn gen_struct_set_tinstr(ctx : GenValidV2Context) -> TInstr? {
 
 ///|
 /// Generate array.set side effect
-fn gen_array_set_tinstr(ctx : GenValidV2Context) -> TInstr? {
+fn gen_array_set_tinstr(ctx : GenValidContext) -> TInstr? {
   for t in ctx.array_types {
     let (type_idx, elem_type) = t
     if elem_type.is_mutable() {
@@ -1383,7 +1383,7 @@ fn gen_array_set_tinstr(ctx : GenValidV2Context) -> TInstr? {
 }
 
 ///|
-fn gen_simple_side_effect(ctx : GenValidV2Context) -> TInstr {
+fn gen_simple_side_effect(ctx : GenValidContext) -> TInstr {
   if ctx.locals.length() > 0 && ctx.random_bool() {
     let idx = ctx.random_int(ctx.locals.length())
     let local_type = ctx.locals[idx]
@@ -1395,7 +1395,7 @@ fn gen_simple_side_effect(ctx : GenValidV2Context) -> TInstr {
 }
 
 ///|
-fn gen_store_tinstr(ctx : GenValidV2Context) -> TInstr {
+fn gen_store_tinstr(ctx : GenValidContext) -> TInstr {
   let addr = gen_i32_tinstr_simple(ctx)
   let mem_arg = MemArg::new(U32(0), None, U64(0))
   match ctx.random_int(4) {
@@ -1420,7 +1420,7 @@ fn gen_store_tinstr(ctx : GenValidV2Context) -> TInstr {
 
 ///|
 /// Generate local initialization instructions (now integrated into gen_valid_tfunc)
-fn gen_local_inits(ctx : GenValidV2Context, param_count : Int) -> Array[TInstr] {
+fn gen_local_inits(ctx : GenValidContext, param_count : Int) -> Array[TInstr] {
   let inits : Array[TInstr] = []
   for i in param_count..<ctx.locals.length() {
     let local_type = ctx.locals[i]
@@ -1431,7 +1431,7 @@ fn gen_local_inits(ctx : GenValidV2Context, param_count : Int) -> Array[TInstr] 
 }
 
 ///|
-fn gen_default_value(ctx : GenValidV2Context, vt : ValType) -> TInstr {
+fn gen_default_value(ctx : GenValidContext, vt : ValType) -> TInstr {
   match vt {
     NumTypeValType(I32NumType) => TI32Const(I32(ctx.random_int(100)))
     NumTypeValType(I64NumType) => TI64Const(I64(ctx.random_int(100).to_int64()))
@@ -1451,7 +1451,7 @@ fn gen_default_value(ctx : GenValidV2Context, vt : ValType) -> TInstr {
 
 ///|
 /// Generate data segments
-fn gen_data_segments(ctx : GenValidV2Context) -> Array[Data] {
+fn gen_data_segments(ctx : GenValidContext) -> Array[Data] {
   let segments : Array[Data] = []
   let num_segments = ctx.random_int(3) + 1
   for _ in 0..<num_segments {
@@ -1479,7 +1479,7 @@ fn gen_data_segments(ctx : GenValidV2Context) -> Array[Data] {
 
 ///|
 /// Generate elem segments
-fn gen_elem_segments(ctx : GenValidV2Context) -> Array[Elem] {
+fn gen_elem_segments(ctx : GenValidContext) -> Array[Elem] {
   let segments : Array[Elem] = []
   if ctx.func_idx == 0 {
     return segments
@@ -1522,7 +1522,7 @@ fn gen_elem_segments(ctx : GenValidV2Context) -> Array[Elem] {
 }
 
 fn immediate_catch_label(
-  ctx : GenValidV2Context,
+  ctx : GenValidContext,
   params : ResultType,
 ) -> Int? {
   if ctx.label_stack.length() <= 1 {
@@ -1538,7 +1538,7 @@ fn immediate_catch_label(
 
 ///|
 /// Generate a br_if instruction (side effect - conditionally branches)
-fn gen_br_if_tinstr(ctx : GenValidV2Context) -> TInstr? {
+fn gen_br_if_tinstr(ctx : GenValidContext) -> TInstr? {
   let empty_labels = ctx.empty_labels()
   if empty_labels.length() == 0 {
     return None
@@ -1551,7 +1551,7 @@ fn gen_br_if_tinstr(ctx : GenValidV2Context) -> TInstr? {
 
 ///|
 /// Generate a br_table instruction (side effect)
-fn gen_br_table_tinstr(ctx : GenValidV2Context) -> TInstr? {
+fn gen_br_table_tinstr(ctx : GenValidContext) -> TInstr? {
   let empty_labels = ctx.empty_labels()
   if empty_labels.length() == 0 {
     return None
@@ -1576,7 +1576,7 @@ fn gen_br_table_tinstr(ctx : GenValidV2Context) -> TInstr? {
 
 ///|
 /// Generate a throw instruction
-fn gen_throw_tinstr(ctx : GenValidV2Context) -> TInstr? {
+fn gen_throw_tinstr(ctx : GenValidContext) -> TInstr? {
   if ctx.tag_idx == 0 {
     return None
   }
@@ -1589,7 +1589,7 @@ fn gen_throw_tinstr(ctx : GenValidV2Context) -> TInstr? {
   Some(TThrow(TagIdx::new(tag_idx_val.reinterpret_as_uint()), args))
 }
 
-fn gen_try_table_tinstr(ctx : GenValidV2Context) -> TInstr? {
+fn gen_try_table_tinstr(ctx : GenValidContext) -> TInstr? {
   // Must have tags
   if ctx.tag_idx == 0 {
     return None
@@ -1655,7 +1655,7 @@ fn gen_try_table_tinstr(ctx : GenValidV2Context) -> TInstr? {
 
 ///|
 /// Generate global.get instruction
-fn gen_global_get_tinstr(ctx : GenValidV2Context, target_type : ValType) -> TInstr? {
+fn gen_global_get_tinstr(ctx : GenValidContext, target_type : ValType) -> TInstr? {
   for i, gt in ctx.globals {
     let GlobalType(vt, _) = gt
     if vt == target_type {
@@ -1667,7 +1667,7 @@ fn gen_global_get_tinstr(ctx : GenValidV2Context, target_type : ValType) -> TIns
 
 ///|
 /// Generate a load instruction
-fn gen_load_tinstr(ctx : GenValidV2Context, target_type : ValType) -> TInstr? {
+fn gen_load_tinstr(ctx : GenValidContext, target_type : ValType) -> TInstr? {
   if ctx.mem_count == 0 {
     return None
   }
@@ -1684,7 +1684,7 @@ fn gen_load_tinstr(ctx : GenValidV2Context, target_type : ValType) -> TInstr? {
 
 ///|
 /// Enhanced gen_tinstr_of_type with more variety including globals and loads
-pub fn gen_tinstr_of_type(ctx : GenValidV2Context, vt : ValType) -> TInstr {
+pub fn gen_tinstr_of_type(ctx : GenValidContext, vt : ValType) -> TInstr {
   // Sometimes use a local if available
   if ctx.random_int(6) == 0 {
     for i, local_type in ctx.locals {
@@ -1779,7 +1779,7 @@ pub fn gen_tinstr_of_type(ctx : GenValidV2Context, vt : ValType) -> TInstr {
   }
 }
 
-fn gen_known_ref_value(ctx : GenValidV2Context) -> TInstr? {
+fn gen_known_ref_value(ctx : GenValidContext) -> TInstr? {
   // locals
   for i, vt in ctx.locals {
     match vt {
@@ -1810,7 +1810,7 @@ fn gen_known_ref_value(ctx : GenValidV2Context) -> TInstr? {
 ///|
 /// Enhanced gen_side_effect_tinstr with label depth for branches
 pub fn gen_side_effect_tinstr(
-  ctx : GenValidV2Context,
+  ctx : GenValidContext,
   depth : Int,
   label_depth~ : Int = 0,
 ) -> TInstr {
@@ -2102,7 +2102,7 @@ pub fn gen_side_effect_tinstr(
 
 ///|
 fn gen_return_instrs(
-  ctx : GenValidV2Context,
+  ctx : GenValidContext,
   returns : ResultType,
 ) -> Array[TInstr] {
   if returns.length() == 0 {
@@ -2117,7 +2117,7 @@ fn gen_return_instrs(
 
 ///|
 pub fn gen_valid_tfunc(
-  ctx : GenValidV2Context,
+  ctx : GenValidContext,
   accepts : ResultType,
   returns : ResultType,
 ) -> Func {
@@ -2174,7 +2174,7 @@ pub fn gen_valid_tfunc(
 
 ///|
 /// Generate tags for exception handling
-fn gen_tags(ctx : GenValidV2Context) -> Array[TagType] {
+fn gen_tags(ctx : GenValidContext) -> Array[TagType] {
   let tags : Array[TagType] = []
   let num_tags = ctx.random_int(3) + 1
   for _ in 0..<num_tags {
@@ -2193,7 +2193,7 @@ fn gen_tags(ctx : GenValidV2Context) -> Array[TagType] {
 
 ///|
 pub fn gen_valid_module(rnd : RandomState) -> Module {
-  let ctx = GenValidV2Context::new(rnd)
+  let ctx = GenValidContext::new(rnd)
 
   // Always add memory (to increase MemIdxOOB coverage)
   ctx.ensure_memory()
