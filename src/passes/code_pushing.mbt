@@ -186,15 +186,6 @@ fn Effects::new() -> Effects {
 }
 
 ///|
-fn Effects::has_side_effects(self : Effects) -> Bool {
-  self.writes_memory ||
-  self.writes_globals ||
-  self.calls ||
-  self.traps ||
-  self.throws
-}
-
-///|
 /// Check if these effects conflict with another set of effects
 /// Two effects conflict if one writes something the other reads/writes
 fn Effects::invalidates(self : Effects, other : Effects) -> Bool {
@@ -539,15 +530,6 @@ priv struct PushingState {
   analyzer : LocalAnalyzer
   num_gets_so_far : Array[Int]
   mut changed : Bool
-}
-
-///|
-fn PushingState::new(num_locals : Int) -> PushingState {
-  PushingState::{
-    analyzer: LocalAnalyzer::new(num_locals),
-    num_gets_so_far: Array::make(num_locals, 0),
-    changed: false,
-  }
 }
 
 ///|

@@ -66,7 +66,6 @@ using @lib {
   type Elem,
   type ImportSec,
   type Import,
-  type Mut,
   type Module,
   type PackType,
   type LaneIdx,

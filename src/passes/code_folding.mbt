@@ -197,20 +197,6 @@ fn can_move(items : Array[TInstr], container : TInstr) -> Bool {
 }
 
 ///|
-/// Mark an instruction and all its children as modified
-fn mark_as_modified(state : CodeFoldingState, instr : TInstr) -> Unit {
-  state.modifieds.add(instr)
-  let walker = ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_tinstruction: Some(fn(self, _, i) {
-      state.modifieds.add(i)
-      self.walk_tinstruction_default((), i)
-    }),
-  }
-  ignore(walker.walk_tinstruction((), instr))
-}
-
-///|
 /// Get the mergeable item from a tail at a given depth
 fn get_mergeable(tail : Tail, num : Int) -> TInstr? {
   if not(tail.is_fallthrough()) {
@@ -696,12 +682,8 @@ pub fn code_folding_pass() -> ModuleTransformer[CodeFoldingState] {
 test "code_folding_pass can be created" {
   let pass = code_folding_pass()
   let state = CodeFoldingState::{
+    ..CodeFoldingState::new(),
     another_pass: false,
-    break_tails: Map::new(),
-    unreachable_tails: [],
-    return_tails: [],
-    unoptimizables: Set::new(),
-    modifieds: Set::new(),
   }
 
   // Simple test: pass through a function
@@ -739,12 +721,8 @@ test "get_branch_targets finds branches" {
 fn run_fold(f : Func) -> Func raise {
   let pass = code_folding_pass()
   let state = CodeFoldingState::{
+    ..CodeFoldingState::new(),
     another_pass: false,
-    break_tails: Map::new(),
-    unreachable_tails: [],
-    return_tails: [],
-    unoptimizables: Set::new(),
-    modifieds: Set::new(),
   }
   match pass.walk_func(state, f) {
     Ok(Some((_, new_f))) => return new_f
@@ -767,12 +745,8 @@ test "simple function unchanged" {
 ///|
 test "collect_block_tails finds return tails" {
   let state = CodeFoldingState::{
+    ..CodeFoldingState::new(),
     another_pass: false,
-    break_tails: Map::new(),
-    unreachable_tails: [],
-    return_tails: [],
-    unoptimizables: Set::new(),
-    modifieds: Set::new(),
   }
   let instrs = [
     TInstr::i32_const(I32(1)),
@@ -786,12 +760,8 @@ test "collect_block_tails finds return tails" {
 ///|
 test "collect_block_tails finds unreachable tails" {
   let state = CodeFoldingState::{
+    ..CodeFoldingState::new(),
     another_pass: false,
-    break_tails: Map::new(),
-    unreachable_tails: [],
-    return_tails: [],
-    unoptimizables: Set::new(),
-    modifieds: Set::new(),
   }
   let instrs = [TInstr::i32_const(I32(1)), TUnreachable]
   collect_block_tails(state, instrs)
@@ -801,12 +771,8 @@ test "collect_block_tails finds unreachable tails" {
 ///|
 test "collect_block_tails marks br_if as unoptimizable" {
   let state = CodeFoldingState::{
+    ..CodeFoldingState::new(),
     another_pass: false,
-    break_tails: Map::new(),
-    unreachable_tails: [],
-    return_tails: [],
-    unoptimizables: Set::new(),
-    modifieds: Set::new(),
   }
   let instrs : Array[TInstr] = [
     TInstr::br_if(LabelIdx::new(0), TInstr::i32_const(I32(1)), []),
@@ -818,12 +784,8 @@ test "collect_block_tails marks br_if as unoptimizable" {
 ///|
 test "collect_block_tails recurses into blocks" {
   let state = CodeFoldingState::{
+    ..CodeFoldingState::new(),
     another_pass: false,
-    break_tails: Map::new(),
-    unreachable_tails: [],
-    return_tails: [],
-    unoptimizables: Set::new(),
-    modifieds: Set::new(),
   }
   let inner : Array[TInstr] = [TInstr::return_([TInstr::i32_const(I32(42))])]
   let instrs : Array[TInstr] = [
@@ -1010,13 +972,9 @@ test "code folding: single instruction unchanged" {
 
 ///|
 test "code folding: br_table marks all targets unoptimizable" {
-  let state = CodeFoldingState::{
+    let state = CodeFoldingState::{
+    ..CodeFoldingState::new(),
     another_pass: false,
-    break_tails: Map::new(),
-    unreachable_tails: [],
-    return_tails: [],
-    unoptimizables: Set::new(),
-    modifieds: Set::new(),
   }
   let br_table = TInstr::br_table(
     [LabelIdx::new(0), LabelIdx::new(1)],

@@ -1,5 +1,5 @@
 
-struct Label {
+priv struct Label {
   result : ResultType
   catchable : Bool
 }
@@ -72,20 +72,6 @@ fn GenValidContext::add_tag(
 }
 
 ///|
-fn GenValidContext::add_func_with_sig(
-  self : GenValidContext,
-  func : Func,
-  sig_idx : Int,
-) -> Int {
-  let next = self.func_idx
-  self.func_idx = next + 1
-  self.funcs.set(func, next)
-  self.func_sigs.set(next, sig_idx)
-  self.sigs.get(sig_idx) |> ignore // Ensure signature exists
-  next
-}
-
-///|
 fn GenValidContext::add_signature(
   self : GenValidContext,
   accepts : ResultType,
@@ -129,27 +115,6 @@ fn GenValidContext::add_array_type(
   next
 }
 
-fn GenValidContext::label_matches(
-  ctx : GenValidContext,
-  l : Int,
-  want : ResultType,
-) -> Bool {
-  // label 0 is the try_table label; must match exactly
-  if l == 0 {
-    return ctx.label_result_at(0).result == want
-  }
-  // enclosing labels
-  ctx.label_result_at(l).result == want
-}
-
-///|
-fn GenValidContext::add_func(self : GenValidContext, func : Func) -> Int {
-  let next = self.func_idx
-  self.func_idx = next + 1
-  self.funcs.set(func, next)
-  next
-}
-
 ///|
 fn GenValidContext::add_global(
   self : GenValidContext,
@@ -173,27 +138,6 @@ fn GenValidContext::ensure_table(self : GenValidContext) -> Unit {
   if self.table_count == 0 {
     self.table_count = 1
   }
-}
-
-fn GenValidContext::label_result_at(
-  self : GenValidContext,
-  l : Int,
-) -> Label {
-  self.label_stack[l]
-}
-
-fn GenValidContext::labels_matching_result(
-  self : GenValidContext,
-  want : ResultType,
-) -> Array[Int] {
-  let result : Array[Int] = []
-  let n = self.label_stack.length()
-  for l in 0..<n {
-    if self.label_result_at(l).result == want {
-      result.push(l)
-    }
-  }
-  result
 }
 
 fn GenValidContext::empty_labels(self : GenValidContext) -> Array[Int] {
@@ -510,32 +454,6 @@ fn gen_call_indirect_tinstr(
 }
 
 ///|
-/// Generate a TCall instruction to an existing function
-fn gen_call_tinstr(ctx : GenValidContext, target_return : ValType) -> TInstr? {
-  let callables = ctx.get_callable_funcs()
-  if callables.length() == 0 {
-    return None
-  }
-  let matching : Array[(Int, ResultType, ResultType)] = []
-  for callable in callables {
-    let (_, _, returns) = callable
-    // Only match single-return functions to avoid multi-value issues
-    if returns.length() == 1 && returns[0] == target_return {
-      matching.push(callable)
-    }
-  }
-  if matching.length() == 0 {
-    return None
-  }
-  let (func_idx, accepts, _) = matching[ctx.random_int(matching.length())]
-  let args : Array[TInstr] = []
-  for param_type in accepts {
-    args.push(gen_tinstr_of_type(ctx, param_type))
-  }
-  Some(TInstr::call(FuncIdx::new(func_idx.reinterpret_as_uint()), args))
-}
-
-///|
 /// Generate a struct.new instruction
 fn gen_struct_new_tinstr(ctx : GenValidContext) -> TInstr? {
   if ctx.struct_types.length() == 0 {
@@ -648,42 +566,12 @@ fn gen_array_new_tinstr(ctx : GenValidContext) -> TInstr? {
 }
 
 ///|
-/// Generate array.new_data if we have data segments
-fn gen_array_new_data_tinstr(ctx : GenValidContext) -> TInstr? {
-  if ctx.array_types.length() == 0 || ctx.data_idx == 0 {
-    return None
-  }
-
-  // Find an array type with i8 or i16 element (for data segments)
-  for _, elem_type in ctx.array_types {
-    let (type_idx, elem_type) = elem_type
-    match elem_type.get_storage_type() {
-      PackTypeStorageType(I8PackType) | PackTypeStorageType(I16PackType) => {
-        let data_idx = ctx.random_int(ctx.data_idx)
-        let offset = TInstr::i32_const(I32(0))
-        let length = TInstr::i32_const(I32(ctx.random_int(10) + 1))
-        return Some(
-          TArrayNewData(
-            TypeIdx::new(type_idx.reinterpret_as_uint()),
-            DataIdx::new(data_idx.reinterpret_as_uint()),
-            offset,
-            length,
-          ),
-        )
-      }
-      _ => continue
-    }
-  }
-  None
-}
-
-///|
 /// Generate an array.get instruction
 fn gen_array_get_tinstr(
   ctx : GenValidContext,
   target_type : ValType,
 ) -> TInstr? {
-  for type_idx, elem_type in ctx.array_types {
+  for elem_type in ctx.array_types {
     let (type_idx, elem_type) = elem_type
     let elem_vt = storage_type_to_valtype(elem_type.get_storage_type())
     if elem_vt == target_type {
@@ -838,7 +726,7 @@ fn gen_i64_tinstr_simple(ctx : GenValidContext) -> TInstr {
 ///|
 fn gen_f32_tinstr(ctx : GenValidContext) -> TInstr {
   match ctx.random_int(4) {
-    0 => TF32Const(F32(ctx.rnd.next_double().to_float()))
+    0 => TF32Const(F32(Float::from_double(ctx.rnd.next_double())))
     1 => {
       let a = gen_f32_tinstr_simple(ctx)
       let b = gen_f32_tinstr_simple(ctx)
@@ -848,7 +736,7 @@ fn gen_f32_tinstr(ctx : GenValidContext) -> TInstr {
       let a = gen_i32_tinstr_simple(ctx)
       TUnary(F32ConvertI32SOp, a)
     }
-    _ => TF32Const(F32(ctx.random_int(100).to_double().to_float()))
+    _ => TF32Const(F32(Float::from_double(ctx.random_int(100).to_double())))
   }
 }
 
@@ -1050,81 +938,6 @@ fn gen_array_len_tinstr(ctx : GenValidContext) -> TInstr? {
   match gen_array_new_tinstr(ctx) {
     Some(array_instr) => Some(TArrayLen(array_instr))
     None => None
-  }
-}
-
-///|
-/// Generate ref.cast instruction
-fn gen_ref_cast_tinstr(
-  ctx : GenValidContext,
-  target_type : RefType,
-) -> TInstr? {
-  // Generate a value that could be cast to target_type
-  let heap_type = target_type.get_heap_type()
-  match heap_type {
-    HeapType(TypeIdx(idx)) => {
-      // Check if it's a struct or array type we know about
-      for t in ctx.struct_types {
-        let (struct_idx, _) = t
-        if struct_idx == idx.reinterpret_as_int() {
-          let ref_val = match gen_struct_new_tinstr(ctx) {
-            Some(instr) => instr
-            None => return None
-          }
-          return Some(
-            TInstr::ref_cast(
-              target_type.is_nullable(),
-              target_type.get_heap_type(),
-              ref_val,
-            ),
-          )
-        }
-      }
-      for a in ctx.array_types {
-        let (arr_idx, _) = a
-        if arr_idx == idx.reinterpret_as_int() {
-          let ref_val = match gen_array_new_tinstr(ctx) {
-            Some(instr) => instr
-            None => return None
-          }
-          return Some(
-            TInstr::ref_cast(
-              target_type.is_nullable(),
-              target_type.get_heap_type(),
-              ref_val,
-            ),
-          )
-        }
-      }
-      None
-    }
-    AbsHeapTypeHeapType(StructAbsHeapType) => {
-      let ref_val = match gen_struct_new_tinstr(ctx) {
-        Some(instr) => instr
-        None => return None
-      }
-      Some(
-        TInstr::ref_cast(
-          target_type.is_nullable(),
-          target_type.get_heap_type(),
-          ref_val,
-        ),
-      )
-    }
-    AbsHeapTypeHeapType(ArrayAbsHeapType) => {
-      let ref_val = match gen_array_new_tinstr(ctx) {
-        Some(instr) => instr
-        None => return None
-      }
-      Some(
-        TInstr::ref_cast(
-          target_type.is_nullable(),
-          target_type.get_heap_type(),
-          ref_val,
-        ),
-      )
-    }
-    _ => None
   }
 }
 
@@ -1519,21 +1332,6 @@ fn gen_elem_segments(ctx : GenValidContext) -> Array[Elem] {
     }
   }
   segments
-}
-
-fn immediate_catch_label(
-  ctx : GenValidContext,
-  params : ResultType,
-) -> Int? {
-  if ctx.label_stack.length() <= 1 {
-    return None
-  }
-  let label = ctx.label_stack[1]
-  if label.catchable && label.result == params {
-    Some(1)
-  } else {
-    None
-  }
 }
 
 ///|
