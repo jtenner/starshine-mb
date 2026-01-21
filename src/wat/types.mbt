@@ -4,7 +4,7 @@ pub enum LiteralType {
   Hexfloat
   Infinity
   Nan
-}
+} derive (Show)
 
 pub enum ErrorLevel {
   Error
@@ -20,18 +20,18 @@ pub struct Location {
   line : Int
   first_column : Int
   last_column : Int
-}
+} derive(Show)
 
 pub struct Literal {
   literal_type : LiteralType
   text : String
-}
+} derive(Show)
 
 pub struct Token {
   location : Location
   token_type : TokenType
   value : TokenValue
-}
+} derive (Show)
 
 pub struct LexerError {
   level : ErrorLevel
@@ -56,7 +56,7 @@ pub enum ValueType {
   ExternRef
   Func
   Extern
-}
+} derive (Show)
 
 pub enum Opcode {
   // Control
@@ -273,7 +273,7 @@ pub enum Opcode {
   I64TruncSatF32U
   I64TruncSatF64S
   I64TruncSatF64U
-}
+} derive (Show)
 
 pub enum TokenType {
   Eof
@@ -299,12 +299,9 @@ pub enum TokenType {
   Global
   Table
   Memory
-  Elem
-  Data
-  Start
+
   Import
   Export
-  Mut
   // Types
   ValueType(ValueType)
   // Instructions
@@ -333,7 +330,11 @@ pub enum TokenType {
   Input
   Output
   Binary
-}
+  Start
+  Data
+  Elem
+  Mut
+} derive (Show)
 
 pub enum TokenValue {
   None
@@ -341,7 +342,7 @@ pub enum TokenValue {
   Literal(Literal)
   ValueType(ValueType)
   Opcode(Opcode)
-}
+} derive (Show)
 
 // ============================================================================
 // Keyword Entry and Hash Table
