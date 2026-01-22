@@ -345,21 +345,21 @@ fn gen_field_type(ctx : GenValidContext) -> FieldType {
 fn gen_const_expr(ctx : GenValidContext, vt : ValType) -> Expr {
   match vt {
     NumTypeValType(I32NumType) =>
-      Expr::new([I32Const(I32(ctx.random_int(100)))])
+      Expr::new([Instruction::i32_const(I32(ctx.random_int(100)))])
     NumTypeValType(I64NumType) =>
-      Expr::new([I64Const(I64(ctx.random_int(100).to_int64()))])
-    NumTypeValType(F32NumType) => Expr::new([F32Const(F32(1.0))])
+      Expr::new([Instruction::i64_const(I64(ctx.random_int(100).to_int64()))])
+    NumTypeValType(F32NumType) => Expr::new([Instruction::f32_const(F32(1.0))])
     NumTypeValType(F64NumType) =>
-      Expr::new([F64Const(F64(ctx.random_int(100).to_double()))])
+      Expr::new([Instruction::f64_const(F64(ctx.random_int(100).to_double()))])
     VecTypeValType =>
       Expr::new([
-        V128Const(
+        Instruction::v128_const(
           b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
           b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
         ),
       ])
-    RefTypeValType(rt) => Expr::new([RefNull(rt.get_heap_type())])
-    BotValType => Expr::new([Unreachable])
+    RefTypeValType(rt) => Expr::new([Instruction::ref_null(rt.get_heap_type())])
+    BotValType => Expr::new([Instruction::unreachable_()])
   }
 }
 
@@ -1276,7 +1276,7 @@ fn gen_data_segments(ctx : GenValidContext) -> Array[Data] {
     }
     if ctx.mem_count > 0 && ctx.random_bool() {
       // Active data segment
-      let offset = Expr::new([I32Const(I32(ctx.random_int(1024)))])
+      let offset = Expr::new([Instruction::i32_const(I32(ctx.random_int(1024)))])
       let mode = DataMode::active(MemIdx::new(0), offset)
       ignore(ctx.add_data_segment(mode))
       segments.push(Data::new(mode, Bytes::from_array(bytes)))
@@ -1305,13 +1305,13 @@ fn gen_elem_segments(ctx : GenValidContext) -> Array[Elem] {
     for _ in 0..<num_refs {
       let func_idx = ctx.random_int(ctx.func_idx)
       init_exprs.push(
-        Expr::new([RefFunc(FuncIdx::new(func_idx.reinterpret_as_uint()))]),
+        Expr::new([Instruction::ref_func(FuncIdx::new(func_idx.reinterpret_as_uint()))]),
       )
     }
     let ref_type = RefType::new(true, HeapType::abs(AbsHeapType::func()))
     if ctx.table_count > 0 && ctx.random_bool() {
       // Active elem segment
-      let offset = Expr::new([I32Const(I32(ctx.random_int(10)))])
+      let offset = Expr::new([Instruction::i32_const(I32(ctx.random_int(10)))])
       let mode = ElemMode::active(TableIdx::new(0), offset)
       let kind = ElemKind::typed_exprs(ref_type, init_exprs)
       ignore(ctx.add_elem_segment(mode))
@@ -2122,11 +2122,11 @@ pub fn gen_valid_module(rnd : RandomState) -> Module {
   let table_init = if ctx.func_idx > 0 && ctx.random_bool() {
     Some(
       Expr::new([
-        RefFunc(FuncIdx::new(ctx.random_int(ctx.func_idx).reinterpret_as_uint())),
+        Instruction::ref_func(FuncIdx::new(ctx.random_int(ctx.func_idx).reinterpret_as_uint())),
       ]),
     )
   } else {
-    Some(Expr::new([RefNull(HeapType::abs(AbsHeapType::func()))]))
+    Some(Expr::new([Instruction::ref_null(HeapType::abs(AbsHeapType::func()))]))
   }
 
   // Build module

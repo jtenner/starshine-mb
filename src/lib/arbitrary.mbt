@@ -1774,17 +1774,17 @@ pub impl @quickcheck.Arbitrary for Module with arbitrary(t, state) {
 }
 
 ///|
-pub fn[T : @quickcheck.Arbitrary] array_of_arbitrary(
+pub fn[T : Arbitrary] array_of_arbitrary(
   max : UInt,
   t : Int,
-  state : @quickcheck/splitmix.RandomState,
+  state : RandomState,
 ) -> Array[T] {
   let count = state.next_uint() % max + 1
   let a = []
   loop count {
     0 => break a
     n => {
-      a.push(@quickcheck.Arbitrary::arbitrary(t, state))
+      a.push(Arbitrary::arbitrary(t, state))
       continue n - 1
     }
   }

@@ -1,9 +1,9 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "jtenner/starshine/wast"
 
-import(
-  "moonbitlang/core/hashmap"
-)
+import {
+  "moonbitlang/core/hashmap",
+}
 
 // Values
 pub fn lookup_keyword(String) -> TokenType?

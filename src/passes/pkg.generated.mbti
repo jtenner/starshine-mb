@@ -1,10 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "jtenner/starshine/passes"
 
-import(
-  "jtenner/starshine/lib"
-  "moonbitlang/core/hashmap"
-)
+import {
+  "jtenner/starshine/lib",
+  "moonbitlang/core/hashmap",
+}
 
 // Values
 pub fn alignment_lowering_pass() -> @lib.ModuleTransformer[AlignmentLoweringContext]

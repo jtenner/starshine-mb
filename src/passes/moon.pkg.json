@@ -2,6 +2,9 @@
   "name": "passes",
   "import": [
     "jtenner/starshine/lib",
-    "jtenner/starshine/binary"
+    "jtenner/starshine/binary",
+    "moonbitlang/core/buffer",
+    "moonbitlang/core/hashmap",
+    "moonbitlang/core/cmp"
   ]
 }

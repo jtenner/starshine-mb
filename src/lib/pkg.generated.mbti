@@ -1,11 +1,11 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "jtenner/starshine/lib"
 
-import(
-  "moonbitlang/core/quickcheck"
-  "moonbitlang/core/quickcheck/splitmix"
-  "moonbitlang/core/set"
-)
+import {
+  "moonbitlang/core/quickcheck",
+  "moonbitlang/core/quickcheck/splitmix",
+  "moonbitlang/core/set",
+}
 
 // Values
 pub fn array_comp_type(FieldType) -> CompType
@@ -1000,7 +1000,7 @@ pub impl Hash for ImportSec
 pub impl Show for ImportSec
 pub impl @quickcheck.Arbitrary for ImportSec
 
-pub(all) enum Instruction {
+pub enum Instruction {
   Unreachable
   Nop
   Block(BlockType, Expr)

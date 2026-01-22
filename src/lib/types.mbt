@@ -336,7 +336,7 @@ pub struct DataSec(Array[Data]) derive(Eq, Hash)
 pub struct CastOp(Bool, Bool) derive(Eq, Arbitrary, Show, Hash)
 
 ///|
-pub(all) enum Instruction {
+pub enum Instruction {
   Unreachable
   Nop
   Block(BlockType, Expr)

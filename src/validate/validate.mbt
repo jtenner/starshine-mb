@@ -1115,7 +1115,7 @@ pub fn validate_module(m : Module) -> Result[Unit, String] {
 ///|
 
 test "Fuzz Modules" {
-  let rnd = @quickcheck/splitmix.new()
+  let rnd = @splitmix.new()
   loop 100000 {
     0 => break ()
     n => {

@@ -1029,7 +1029,7 @@ pub impl Decode for LaneIdx with decode(bytes, i) {
 ///|
 pub impl Encode for Name with encode(val, buf) {
   let Name(name) = val
-  let bytes = @encoding/utf8.encode(name)
+  let bytes = @utf8.encode(name)
   let len = bytes.length()
   match Encode::encode(@lib.U32(len.reinterpret_as_uint()), buf) {
     Err(err) => Err(err)
@@ -1054,7 +1054,7 @@ pub impl Decode for Name with decode(bytes, i) {
   if end > bytes.length() {
     return Err("Index out of bounds")
   }
-  let name = @encoding/utf8.decode_lossy(bytes[j:end]).to_string_view()
+  let name = @utf8.decode_lossy(bytes[j:end]).to_string_view()
   Ok((Name::new(name), end))
 }
 
@@ -2679,20 +2679,20 @@ pub impl Decode for MemArg with decode(bytes, i) {
 ///|
 pub impl Decode for Instruction with decode(bytes, i) {
   match bytes.get(i) {
-    Some(0x00) => Ok((Unreachable, i + 1))
-    Some(0x01) => Ok((Nop, i + 1))
-    Some(0x1A) => Ok((Drop, i + 1))
-    Some(0x1B) => Ok((Select(None), i + 1))
+    Some(0x00) => Ok((Instruction::unreachable_(), i + 1))
+    Some(0x01) => Ok((Instruction::nop(), i + 1))
+    Some(0x1A) => Ok((Instruction::drop(), i + 1))
+    Some(0x1B) => Ok((Instruction::select(types = None), i + 1))
     Some(0x1C) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((vts, i)) => Ok((Select(Some(vts)), i))
+        Ok((vts, i)) => Ok((Instruction::select(types = Some(vts)), i))
         Err(t) => Err(t)
       }
     Some(0x02) =>
       match Decode::decode(bytes, i + 1) {
         Ok((bt, i)) =>
           match Decode::decode(bytes, i) {
-            Ok((expr, i)) => Ok((Block(bt, expr), i))
+            Ok((expr, i)) => Ok((Instruction::block(bt, expr), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
@@ -2701,7 +2701,7 @@ pub impl Decode for Instruction with decode(bytes, i) {
       match Decode::decode(bytes, i + 1) {
         Ok((bt, i)) =>
           match Decode::decode(bytes, i) {
-            Ok((expr, i)) => Ok((Loop(bt, expr), i))
+            Ok((expr, i)) => Ok((Instruction::loop_(bt, expr), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
@@ -2713,7 +2713,7 @@ pub impl Decode for Instruction with decode(bytes, i) {
             (i, if_insts, Some(else_insts)) =>
               match bytes.get(i) {
                 Some(0x0B) =>
-                  break (@lib.If(bt, if_insts, Some(else_insts)), i + 1)
+                  break (Instruction::if_(bt, if_insts, Some(else_insts)), i + 1)
                 _ =>
                   match Decode::decode(bytes, i) {
                     Ok((inst, i)) => {
@@ -2726,7 +2726,7 @@ pub impl Decode for Instruction with decode(bytes, i) {
             (i, if_insts, None) =>
               match bytes.get(i) {
                 Some(0x05) => continue (i + 1, if_insts, Some([]))
-                Some(0x0B) => break (If(bt, if_insts, None), i + 1)
+                Some(0x0B) => break (Instruction::if_(bt, if_insts, None), i + 1)
                 _ =>
                   match Decode::decode(bytes, i) {
                     Ok((inst, i)) => {
@@ -2743,66 +2743,66 @@ pub impl Decode for Instruction with decode(bytes, i) {
       }
     Some(0x08) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((tag, i)) => Ok((Throw(tag), i))
+        Ok((tag, i)) => Ok((Instruction::throw_(tag), i))
         Err(t) => Err(t)
       }
-    Some(0x0A) => Ok((ThrowRef, i + 1))
+    Some(0x0A) => Ok((Instruction::throw_ref(), i + 1))
     Some(0x0C) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((lbl, i)) => Ok((Br(lbl), i))
+        Ok((lbl, i)) => Ok((Instruction::br(lbl), i))
         Err(t) => Err(t)
       }
     Some(0x0D) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((lbl, i)) => Ok((BrIf(lbl), i))
+        Ok((lbl, i)) => Ok((Instruction::br_if(lbl), i))
         Err(t) => Err(t)
       }
     Some(0x0E) =>
       match Decode::decode(bytes, i + 1) {
         Ok((lbls, i)) =>
           match Decode::decode(bytes, i) {
-            Ok((lbl, i)) => Ok((BrTable(lbls, lbl), i))
+            Ok((lbl, i)) => Ok((Instruction::br_table(lbls, lbl), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
       }
-    Some(0x0F) => Ok((Return, i + 1))
+    Some(0x0F) => Ok((Instruction::return_(), i + 1))
     Some(0x10) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((idx, i)) => Ok((Call(idx), i))
+        Ok((idx, i)) => Ok((Instruction::call(idx), i))
         Err(t) => Err(t)
       }
     Some(0x11) =>
       match Decode::decode(bytes, i + 1) {
         Ok((tidx, i)) =>
           match Decode::decode(bytes, i) {
-            Ok((tblidx, i)) => Ok((CallIndirect(tidx, tblidx), i))
+            Ok((tblidx, i)) => Ok((Instruction::call_indirect(tidx, tblidx), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
       }
     Some(0x12) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((idx, i)) => Ok((ReturnCall(idx), i))
+        Ok((idx, i)) => Ok((Instruction::return_call(idx), i))
         Err(t) => Err(t)
       }
     Some(0x13) =>
       match Decode::decode(bytes, i + 1) {
         Ok((tidx, i)) =>
           match Decode::decode(bytes, i) {
-            Ok((tblidx, i)) => Ok((ReturnCallIndirect(tidx, tblidx), i))
+            Ok((tblidx, i)) => Ok((Instruction::return_call_indirect(tidx, tblidx), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
       }
     Some(0x14) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((tidx, i)) => Ok((CallRef(tidx), i))
+        Ok((tidx, i)) => Ok((Instruction::call_ref(tidx), i))
         Err(t) => Err(t)
       }
     Some(0x15) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((tidx, i)) => Ok((ReturnCallRef(tidx), i))
+        Ok((tidx, i)) => Ok((Instruction::return_call_ref(tidx), i))
         Err(t) => Err(t)
       }
     Some(0x1F) =>
@@ -2811,7 +2811,7 @@ pub impl Decode for Instruction with decode(bytes, i) {
           match Decode::decode(bytes, i) {
             Ok((c, i)) =>
               match Decode::decode(bytes, i) {
-                Ok((e, i)) => Ok((TryTable(bt, c, e), i))
+                Ok((e, i)) => Ok((Instruction::try_table(bt, c, e), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
@@ -2820,333 +2820,333 @@ pub impl Decode for Instruction with decode(bytes, i) {
       }
     Some(0xD5) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((idx, i)) => Ok((BrOnNull(idx), i))
+        Ok((idx, i)) => Ok((Instruction::br_on_null(idx), i))
         Err(t) => Err(t)
       }
     Some(0xD6) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((idx, i)) => Ok((BrOnNonNull(idx), i))
+        Ok((idx, i)) => Ok((Instruction::br_on_non_null(idx), i))
         Err(t) => Err(t)
       }
     Some(0x20) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((idx, i)) => Ok((LocalGet(idx), i))
+        Ok((idx, i)) => Ok((Instruction::local_get(idx), i))
         Err(t) => Err(t)
       }
     Some(0x21) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((idx, i)) => Ok((LocalSet(idx), i))
+        Ok((idx, i)) => Ok((Instruction::local_set(idx), i))
         Err(t) => Err(t)
       }
     Some(0x22) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((idx, i)) => Ok((LocalTee(idx), i))
+        Ok((idx, i)) => Ok((Instruction::local_tee(idx), i))
         Err(t) => Err(t)
       }
     Some(0x23) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((idx, i)) => Ok((GlobalGet(idx), i))
+        Ok((idx, i)) => Ok((Instruction::global_get(idx), i))
         Err(t) => Err(t)
       }
     Some(0x24) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((idx, i)) => Ok((GlobalSet(idx), i))
+        Ok((idx, i)) => Ok((Instruction::global_set(idx), i))
         Err(t) => Err(t)
       }
     Some(0x25) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((idx, i)) => Ok((TableGet(idx), i))
+        Ok((idx, i)) => Ok((Instruction::table_get(idx), i))
         Err(t) => Err(t)
       }
     Some(0x26) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((idx, i)) => Ok((TableSet(idx), i))
+        Ok((idx, i)) => Ok((Instruction::table_set(idx), i))
         Err(t) => Err(t)
       }
     Some(0x28) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((I32Load(m), i))
+        Ok((m, i)) => Ok((Instruction::i32_load(m), i))
         Err(t) => Err(t)
       }
     Some(0x29) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((I64Load(m), i))
+        Ok((m, i)) => Ok((Instruction::i64_load(m), i))
         Err(t) => Err(t)
       }
     Some(0x2A) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((F32Load(m), i))
+        Ok((m, i)) => Ok((Instruction::f32_load(m), i))
         Err(t) => Err(t)
       }
     Some(0x2B) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((F64Load(m), i))
+        Ok((m, i)) => Ok((Instruction::f64_load(m), i))
         Err(t) => Err(t)
       }
     Some(0x2C) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((I32Load8S(m), i))
+        Ok((m, i)) => Ok((Instruction::i32_load8s(m), i))
         Err(t) => Err(t)
       }
     Some(0x2D) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((I32Load8U(m), i))
+        Ok((m, i)) => Ok((Instruction::i32_load8u(m), i))
         Err(t) => Err(t)
       }
     Some(0x2E) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((I32Load16S(m), i))
+        Ok((m, i)) => Ok((Instruction::i32_load16s(m), i))
         Err(t) => Err(t)
       }
     Some(0x2F) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((I32Load16U(m), i))
+        Ok((m, i)) => Ok((Instruction::i32_load16u(m), i))
         Err(t) => Err(t)
       }
     Some(0x30) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((I64Load8S(m), i))
+        Ok((m, i)) => Ok((Instruction::i64_load8s(m), i))
         Err(t) => Err(t)
       }
     Some(0x31) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((I64Load8U(m), i))
+        Ok((m, i)) => Ok((Instruction::i64_load8u(m), i))
         Err(t) => Err(t)
       }
     Some(0x32) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((I64Load16S(m), i))
+        Ok((m, i)) => Ok((Instruction::i64_load16s(m), i))
         Err(t) => Err(t)
       }
     Some(0x33) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((I64Load16U(m), i))
+        Ok((m, i)) => Ok((Instruction::i64_load16u(m), i))
         Err(t) => Err(t)
       }
     Some(0x34) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((I64Load32S(m), i))
+        Ok((m, i)) => Ok((Instruction::i64_load32s(m), i))
         Err(t) => Err(t)
       }
     Some(0x35) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((I64Load32U(m), i))
+        Ok((m, i)) => Ok((Instruction::i64_load32u(m), i))
         Err(t) => Err(t)
       }
     Some(0x36) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((I32Store(m), i))
+        Ok((m, i)) => Ok((Instruction::i32_store(m), i))
         Err(t) => Err(t)
       }
     Some(0x37) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((I64Store(m), i))
+        Ok((m, i)) => Ok((Instruction::i64_store(m), i))
         Err(t) => Err(t)
       }
     Some(0x38) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((F32Store(m), i))
+        Ok((m, i)) => Ok((Instruction::f32_store(m), i))
         Err(t) => Err(t)
       }
     Some(0x39) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((F64Store(m), i))
+        Ok((m, i)) => Ok((Instruction::f64_store(m), i))
         Err(t) => Err(t)
       }
     Some(0x3A) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((I32Store8(m), i))
+        Ok((m, i)) => Ok((Instruction::i32_store8(m), i))
         Err(t) => Err(t)
       }
     Some(0x3B) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((I32Store16(m), i))
+        Ok((m, i)) => Ok((Instruction::i32_store16(m), i))
         Err(t) => Err(t)
       }
     Some(0x3C) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((I64Store8(m), i))
+        Ok((m, i)) => Ok((Instruction::i64_store8(m), i))
         Err(t) => Err(t)
       }
     Some(0x3D) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((I64Store16(m), i))
+        Ok((m, i)) => Ok((Instruction::i64_store16(m), i))
         Err(t) => Err(t)
       }
     Some(0x3E) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((I64Store32(m), i))
+        Ok((m, i)) => Ok((Instruction::i64_store32(m), i))
         Err(t) => Err(t)
       }
     Some(0x3F) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((x, i)) => Ok((MemorySize(x), i))
+        Ok((x, i)) => Ok((Instruction::memory_size(x), i))
         Err(t) => Err(t)
       }
     Some(0x40) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((x, i)) => Ok((MemoryGrow(x), i))
+        Ok((x, i)) => Ok((Instruction::memory_grow(x), i))
         Err(t) => Err(t)
       }
     Some(0xD0) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((ht, i)) => Ok((RefNull(ht), i))
+        Ok((ht, i)) => Ok((Instruction::ref_null(ht), i))
         Err(t) => Err(t)
       }
-    Some(0xD1) => Ok((RefIsNull, i + 1))
+    Some(0xD1) => Ok((Instruction::ref_is_null(), i + 1))
     Some(0xD2) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((x, i)) => Ok((RefFunc(x), i))
+        Ok((x, i)) => Ok((Instruction::ref_func(x), i))
         Err(t) => Err(t)
       }
-    Some(0xD3) => Ok((RefEq, i + 1))
-    Some(0xD4) => Ok((RefAsNonNull, i + 1))
-    Some(0x45) => Ok((I32Eqz, i + 1))
-    Some(0x46) => Ok((I32Eq, i + 1))
-    Some(0x47) => Ok((I32Ne, i + 1))
-    Some(0x48) => Ok((I32LtS, i + 1))
-    Some(0x49) => Ok((I32LtU, i + 1))
-    Some(0x4A) => Ok((I32GtS, i + 1))
-    Some(0x4B) => Ok((I32GtU, i + 1))
-    Some(0x4C) => Ok((I32LeS, i + 1))
-    Some(0x4D) => Ok((I32LeU, i + 1))
-    Some(0x4E) => Ok((I32GeS, i + 1))
-    Some(0x4F) => Ok((I32GeU, i + 1))
-    Some(0x50) => Ok((I64Eqz, i + 1))
-    Some(0x51) => Ok((I64Eq, i + 1))
-    Some(0x52) => Ok((I64Ne, i + 1))
-    Some(0x53) => Ok((I64LtS, i + 1))
-    Some(0x54) => Ok((I64LtU, i + 1))
-    Some(0x55) => Ok((I64GtS, i + 1))
-    Some(0x56) => Ok((I64GtU, i + 1))
-    Some(0x57) => Ok((I64LeS, i + 1))
-    Some(0x58) => Ok((I64LeU, i + 1))
-    Some(0x59) => Ok((I64GeS, i + 1))
-    Some(0x5A) => Ok((I64GeU, i + 1))
-    Some(0x5B) => Ok((F32Eq, i + 1))
-    Some(0x5C) => Ok((F32Ne, i + 1))
-    Some(0x5D) => Ok((F32Lt, i + 1))
-    Some(0x5E) => Ok((F32Gt, i + 1))
-    Some(0x5F) => Ok((F32Le, i + 1))
-    Some(0x60) => Ok((F32Ge, i + 1))
-    Some(0x61) => Ok((F64Eq, i + 1))
-    Some(0x62) => Ok((F64Ne, i + 1))
-    Some(0x63) => Ok((F64Lt, i + 1))
-    Some(0x64) => Ok((F64Gt, i + 1))
-    Some(0x65) => Ok((F64Le, i + 1))
-    Some(0x66) => Ok((F64Ge, i + 1))
-    Some(0x67) => Ok((I32Clz, i + 1))
-    Some(0x68) => Ok((I32Ctz, i + 1))
-    Some(0x69) => Ok((I32Popcnt, i + 1))
-    Some(0x6A) => Ok((I32Add, i + 1))
-    Some(0x6B) => Ok((I32Sub, i + 1))
-    Some(0x6C) => Ok((I32Mul, i + 1))
-    Some(0x6D) => Ok((I32DivS, i + 1))
-    Some(0x6E) => Ok((I32DivU, i + 1))
-    Some(0x6F) => Ok((I32RemS, i + 1))
-    Some(0x70) => Ok((I32RemU, i + 1))
-    Some(0x71) => Ok((I32And, i + 1))
-    Some(0x72) => Ok((I32Or, i + 1))
-    Some(0x73) => Ok((I32Xor, i + 1))
-    Some(0x74) => Ok((I32Shl, i + 1))
-    Some(0x75) => Ok((I32ShrS, i + 1))
-    Some(0x76) => Ok((I32ShrU, i + 1))
-    Some(0x77) => Ok((I32Rotl, i + 1))
-    Some(0x78) => Ok((I32Rotr, i + 1))
-    Some(0x79) => Ok((I64Clz, i + 1))
-    Some(0x7A) => Ok((I64Ctz, i + 1))
-    Some(0x7B) => Ok((I64Popcnt, i + 1))
-    Some(0x7C) => Ok((I64Add, i + 1))
-    Some(0x7D) => Ok((I64Sub, i + 1))
-    Some(0x7E) => Ok((I64Mul, i + 1))
-    Some(0x7F) => Ok((I64DivS, i + 1))
-    Some(0x80) => Ok((I64DivU, i + 1))
-    Some(0x81) => Ok((I64RemS, i + 1))
-    Some(0x82) => Ok((I64RemU, i + 1))
-    Some(0x83) => Ok((I64And, i + 1))
-    Some(0x84) => Ok((I64Or, i + 1))
-    Some(0x85) => Ok((I64Xor, i + 1))
-    Some(0x86) => Ok((I64Shl, i + 1))
-    Some(0x87) => Ok((I64ShrS, i + 1))
-    Some(0x88) => Ok((I64ShrU, i + 1))
-    Some(0x89) => Ok((I64Rotl, i + 1))
-    Some(0x8A) => Ok((I64Rotr, i + 1))
-    Some(0x8B) => Ok((F32Abs, i + 1))
-    Some(0x8C) => Ok((F32Neg, i + 1))
-    Some(0x8D) => Ok((F32Ceil, i + 1))
-    Some(0x8E) => Ok((F32Floor, i + 1))
-    Some(0x8F) => Ok((F32Trunc, i + 1))
-    Some(0x90) => Ok((F32Nearest, i + 1))
-    Some(0x91) => Ok((F32Sqrt, i + 1))
-    Some(0x92) => Ok((F32Add, i + 1))
-    Some(0x93) => Ok((F32Sub, i + 1))
-    Some(0x94) => Ok((F32Mul, i + 1))
-    Some(0x95) => Ok((F32Div, i + 1))
-    Some(0x96) => Ok((F32Min, i + 1))
-    Some(0x97) => Ok((F32Max, i + 1))
-    Some(0x98) => Ok((F32Copysign, i + 1))
-    Some(0x99) => Ok((F64Abs, i + 1))
-    Some(0x9A) => Ok((F64Neg, i + 1))
-    Some(0x9B) => Ok((F64Ceil, i + 1))
-    Some(0x9C) => Ok((F64Floor, i + 1))
-    Some(0x9D) => Ok((F64Trunc, i + 1))
-    Some(0x9E) => Ok((F64Nearest, i + 1))
-    Some(0x9F) => Ok((F64Sqrt, i + 1))
-    Some(0xA0) => Ok((F64Add, i + 1))
-    Some(0xA1) => Ok((F64Sub, i + 1))
-    Some(0xA2) => Ok((F64Mul, i + 1))
-    Some(0xA3) => Ok((F64Div, i + 1))
-    Some(0xA4) => Ok((F64Min, i + 1))
-    Some(0xA5) => Ok((F64Max, i + 1))
-    Some(0xA6) => Ok((F64Copysign, i + 1))
-    Some(0xA7) => Ok((I32WrapI64, i + 1))
-    Some(0xA8) => Ok((I32TruncF32S, i + 1))
-    Some(0xA9) => Ok((I32TruncF32U, i + 1))
-    Some(0xAA) => Ok((I32TruncF64S, i + 1))
-    Some(0xAB) => Ok((I32TruncF64U, i + 1))
-    Some(0xAC) => Ok((I64ExtendI32S, i + 1))
-    Some(0xAD) => Ok((I64ExtendI32U, i + 1))
-    Some(0xAE) => Ok((I64TruncF32S, i + 1))
-    Some(0xAF) => Ok((I64TruncF32U, i + 1))
-    Some(0xB0) => Ok((I64TruncF64S, i + 1))
-    Some(0xB1) => Ok((I64TruncF64U, i + 1))
-    Some(0xB2) => Ok((F32ConvertI32S, i + 1))
-    Some(0xB3) => Ok((F32ConvertI32U, i + 1))
-    Some(0xB4) => Ok((F32ConvertI64S, i + 1))
-    Some(0xB5) => Ok((F32ConvertI64U, i + 1))
-    Some(0xB6) => Ok((F32DemoteF64, i + 1))
-    Some(0xB7) => Ok((F64ConvertI32S, i + 1))
-    Some(0xB8) => Ok((F64ConvertI32U, i + 1))
-    Some(0xB9) => Ok((F64ConvertI64S, i + 1))
-    Some(0xBA) => Ok((F64ConvertI64U, i + 1))
-    Some(0xBB) => Ok((F64PromoteF32, i + 1))
-    Some(0xBC) => Ok((I32ReinterpretF32, i + 1))
-    Some(0xBD) => Ok((I64ReinterpretF64, i + 1))
-    Some(0xBE) => Ok((F32ReinterpretI32, i + 1))
-    Some(0xBF) => Ok((F64ReinterpretI64, i + 1))
-    Some(0xC0) => Ok((I32Extend8S, i + 1))
-    Some(0xC1) => Ok((I32Extend16S, i + 1))
-    Some(0xC2) => Ok((I64Extend8S, i + 1))
-    Some(0xC3) => Ok((I64Extend16S, i + 1))
-    Some(0xC4) => Ok((I64Extend32S, i + 1))
+    Some(0xD3) => Ok((Instruction::ref_eq(), i + 1))
+    Some(0xD4) => Ok((Instruction::ref_as_non_null(), i + 1))
+    Some(0x45) => Ok((Instruction::i32_eqz(), i + 1))
+    Some(0x46) => Ok((Instruction::i32_eq(), i + 1))
+    Some(0x47) => Ok((Instruction::i32_ne(), i + 1))
+    Some(0x48) => Ok((Instruction::i32_lt_s(), i + 1))
+    Some(0x49) => Ok((Instruction::i32_lt_u(), i + 1))
+    Some(0x4A) => Ok((Instruction::i32_gt_s(), i + 1))
+    Some(0x4B) => Ok((Instruction::i32_gt_u(), i + 1))
+    Some(0x4C) => Ok((Instruction::i32_le_s(), i + 1))
+    Some(0x4D) => Ok((Instruction::i32_le_u(), i + 1))
+    Some(0x4E) => Ok((Instruction::i32_ge_s(), i + 1))
+    Some(0x4F) => Ok((Instruction::i32_ge_u(), i + 1))
+    Some(0x50) => Ok((Instruction::i64_eqz(), i + 1))
+    Some(0x51) => Ok((Instruction::i64_eq(), i + 1))
+    Some(0x52) => Ok((Instruction::i64_ne(), i + 1))
+    Some(0x53) => Ok((Instruction::i64_lt_s(), i + 1))
+    Some(0x54) => Ok((Instruction::i64_lt_u(), i + 1))
+    Some(0x55) => Ok((Instruction::i64_gt_s(), i + 1))
+    Some(0x56) => Ok((Instruction::i64_gt_u(), i + 1))
+    Some(0x57) => Ok((Instruction::i64_le_s(), i + 1))
+    Some(0x58) => Ok((Instruction::i64_le_u(), i + 1))
+    Some(0x59) => Ok((Instruction::i64_ge_s(), i + 1))
+    Some(0x5A) => Ok((Instruction::i64_ge_u(), i + 1))
+    Some(0x5B) => Ok((Instruction::f32_eq(), i + 1))
+    Some(0x5C) => Ok((Instruction::f32_ne(), i + 1))
+    Some(0x5D) => Ok((Instruction::f32_lt(), i + 1))
+    Some(0x5E) => Ok((Instruction::f32_gt(), i + 1))
+    Some(0x5F) => Ok((Instruction::f32_le(), i + 1))
+    Some(0x60) => Ok((Instruction::f32_ge(), i + 1))
+    Some(0x61) => Ok((Instruction::f64_eq(), i + 1))
+    Some(0x62) => Ok((Instruction::f64_ne(), i + 1))
+    Some(0x63) => Ok((Instruction::f64_lt(), i + 1))
+    Some(0x64) => Ok((Instruction::f64_gt(), i + 1))
+    Some(0x65) => Ok((Instruction::f64_le(), i + 1))
+    Some(0x66) => Ok((Instruction::f64_ge(), i + 1))
+    Some(0x67) => Ok((Instruction::i32_clz(), i + 1))
+    Some(0x68) => Ok((Instruction::i32_ctz(), i + 1))
+    Some(0x69) => Ok((Instruction::i32_popcnt(), i + 1))
+    Some(0x6A) => Ok((Instruction::i32_add(), i + 1))
+    Some(0x6B) => Ok((Instruction::i32_sub(), i + 1))
+    Some(0x6C) => Ok((Instruction::i32_mul(), i + 1))
+    Some(0x6D) => Ok((Instruction::i32_div_s(), i + 1))
+    Some(0x6E) => Ok((Instruction::i32_div_u(), i + 1))
+    Some(0x6F) => Ok((Instruction::i32_rem_s(), i + 1))
+    Some(0x70) => Ok((Instruction::i32_rem_u(), i + 1))
+    Some(0x71) => Ok((Instruction::i32_and(), i + 1))
+    Some(0x72) => Ok((Instruction::i32_or(), i + 1))
+    Some(0x73) => Ok((Instruction::i32_xor(), i + 1))
+    Some(0x74) => Ok((Instruction::i32_shl(), i + 1))
+    Some(0x75) => Ok((Instruction::i32_shr_s(), i + 1))
+    Some(0x76) => Ok((Instruction::i32_shr_u(), i + 1))
+    Some(0x77) => Ok((Instruction::i32_rotl(), i + 1))
+    Some(0x78) => Ok((Instruction::i32_rotr(), i + 1))
+    Some(0x79) => Ok((Instruction::i64_clz(), i + 1))
+    Some(0x7A) => Ok((Instruction::i64_ctz(), i + 1))
+    Some(0x7B) => Ok((Instruction::i64_popcnt(), i + 1))
+    Some(0x7C) => Ok((Instruction::i64_add(), i + 1))
+    Some(0x7D) => Ok((Instruction::i64_sub(), i + 1))
+    Some(0x7E) => Ok((Instruction::i64_mul(), i + 1))
+    Some(0x7F) => Ok((Instruction::i64_div_s(), i + 1))
+    Some(0x80) => Ok((Instruction::i64_div_u(), i + 1))
+    Some(0x81) => Ok((Instruction::i64_rem_s(), i + 1))
+    Some(0x82) => Ok((Instruction::i64_rem_u(), i + 1))
+    Some(0x83) => Ok((Instruction::i64_and(), i + 1))
+    Some(0x84) => Ok((Instruction::i64_or(), i + 1))
+    Some(0x85) => Ok((Instruction::i64_xor(), i + 1))
+    Some(0x86) => Ok((Instruction::i64_shl(), i + 1))
+    Some(0x87) => Ok((Instruction::i64_shr_s(), i + 1))
+    Some(0x88) => Ok((Instruction::i64_shr_u(), i + 1))
+    Some(0x89) => Ok((Instruction::i64_rotl(), i + 1))
+    Some(0x8A) => Ok((Instruction::i64_rotr(), i + 1))
+    Some(0x8B) => Ok((Instruction::f32_abs(), i + 1))
+    Some(0x8C) => Ok((Instruction::f32_neg(), i + 1))
+    Some(0x8D) => Ok((Instruction::f32_ceil(), i + 1))
+    Some(0x8E) => Ok((Instruction::f32_floor(), i + 1))
+    Some(0x8F) => Ok((Instruction::f32_trunc(), i + 1))
+    Some(0x90) => Ok((Instruction::f32_nearest(), i + 1))
+    Some(0x91) => Ok((Instruction::f32_sqrt(), i + 1))
+    Some(0x92) => Ok((Instruction::f32_add(), i + 1))
+    Some(0x93) => Ok((Instruction::f32_sub(), i + 1))
+    Some(0x94) => Ok((Instruction::f32_mul(), i + 1))
+    Some(0x95) => Ok((Instruction::f32_div(), i + 1))
+    Some(0x96) => Ok((Instruction::f32_min(), i + 1))
+    Some(0x97) => Ok((Instruction::f32_max(), i + 1))
+    Some(0x98) => Ok((Instruction::f32_copysign(), i + 1))
+    Some(0x99) => Ok((Instruction::f64_abs(), i + 1))
+    Some(0x9A) => Ok((Instruction::f64_neg(), i + 1))
+    Some(0x9B) => Ok((Instruction::f64_ceil(), i + 1))
+    Some(0x9C) => Ok((Instruction::f64_floor(), i + 1))
+    Some(0x9D) => Ok((Instruction::f64_trunc(), i + 1))
+    Some(0x9E) => Ok((Instruction::f64_nearest(), i + 1))
+    Some(0x9F) => Ok((Instruction::f64_sqrt(), i + 1))
+    Some(0xA0) => Ok((Instruction::f64_add(), i + 1))
+    Some(0xA1) => Ok((Instruction::f64_sub(), i + 1))
+    Some(0xA2) => Ok((Instruction::f64_mul(), i + 1))
+    Some(0xA3) => Ok((Instruction::f64_div(), i + 1))
+    Some(0xA4) => Ok((Instruction::f64_min(), i + 1))
+    Some(0xA5) => Ok((Instruction::f64_max(), i + 1))
+    Some(0xA6) => Ok((Instruction::f64_copysign(), i + 1))
+    Some(0xA7) => Ok((Instruction::i32_wrap_i64(), i + 1))
+    Some(0xA8) => Ok((Instruction::i32_trunc_f32s(), i + 1))
+    Some(0xA9) => Ok((Instruction::i32_trunc_f32u(), i + 1))
+    Some(0xAA) => Ok((Instruction::i32_trunc_f64s(), i + 1))
+    Some(0xAB) => Ok((Instruction::i32_trunc_f64u(), i + 1))
+    Some(0xAC) => Ok((Instruction::i64_extend_i32s(), i + 1))
+    Some(0xAD) => Ok((Instruction::i64_extend_i32u(), i + 1))
+    Some(0xAE) => Ok((Instruction::i64_trunc_f32s(), i + 1))
+    Some(0xAF) => Ok((Instruction::i64_trunc_f32u(), i + 1))
+    Some(0xB0) => Ok((Instruction::i64_trunc_f64s(), i + 1))
+    Some(0xB1) => Ok((Instruction::i64_trunc_f64u(), i + 1))
+    Some(0xB2) => Ok((Instruction::f32_convert_i32s(), i + 1))
+    Some(0xB3) => Ok((Instruction::f32_convert_i32u(), i + 1))
+    Some(0xB4) => Ok((Instruction::f32_convert_i64s(), i + 1))
+    Some(0xB5) => Ok((Instruction::f32_convert_i64u(), i + 1))
+    Some(0xB6) => Ok((Instruction::f32_demote_f64(), i + 1))
+    Some(0xB7) => Ok((Instruction::f64_convert_i32s(), i + 1))
+    Some(0xB8) => Ok((Instruction::f64_convert_i32u(), i + 1))
+    Some(0xB9) => Ok((Instruction::f64_convert_i64s(), i + 1))
+    Some(0xBA) => Ok((Instruction::f64_convert_i64u(), i + 1))
+    Some(0xBB) => Ok((Instruction::f64_promote_f32(), i + 1))
+    Some(0xBC) => Ok((Instruction::i32_reinterpret_f32(), i + 1))
+    Some(0xBD) => Ok((Instruction::i64_reinterpret_f64(), i + 1))
+    Some(0xBE) => Ok((Instruction::f32_reinterpret_i32(), i + 1))
+    Some(0xBF) => Ok((Instruction::f64_reinterpret_i64(), i + 1))
+    Some(0xC0) => Ok((Instruction::i32_extend8s(), i + 1))
+    Some(0xC1) => Ok((Instruction::i32_extend16s(), i + 1))
+    Some(0xC2) => Ok((Instruction::i64_extend8s(), i + 1))
+    Some(0xC3) => Ok((Instruction::i64_extend16s(), i + 1))
+    Some(0xC4) => Ok((Instruction::i64_extend32s(), i + 1))
     Some(0x41) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((n, i)) => Ok((I32Const(n), i))
+        Ok((n, i)) => Ok((Instruction::i32_const(n), i))
         Err(t) => Err(t)
       }
     Some(0x42) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((n, i)) => Ok((I64Const(n), i))
+        Ok((n, i)) => Ok((Instruction::i64_const(n), i))
         Err(t) => Err(t)
       }
     Some(0x43) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((n, i)) => Ok((F32Const(n), i))
+        Ok((n, i)) => Ok((Instruction::f32_const(n), i))
         Err(t) => Err(t)
       }
     Some(0x44) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((n, i)) => Ok((F64Const(n), i))
+        Ok((n, i)) => Ok((Instruction::f64_const(n), i))
         Err(t) => Err(t)
       }
 
@@ -3155,19 +3155,19 @@ pub impl Decode for Instruction with decode(bytes, i) {
       match Decode::decode(bytes, i + 1) {
         Ok((@lib.U32(0), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((x, i)) => Ok((StructNew(x), i))
+            Ok((x, i)) => Ok((Instruction::struct_new(x), i))
             Err(t) => Err(t)
           }
         Ok((@lib.U32(1), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((x, i)) => Ok((StructNewDefault(x), i))
+            Ok((x, i)) => Ok((Instruction::struct_new_default(x), i))
             Err(t) => Err(t)
           }
         Ok((@lib.U32(2), i)) =>
           match Decode::decode(bytes, i) {
             Ok((x, i)) =>
               match Decode::decode(bytes, i) {
-                Ok((n, i)) => Ok((StructGet(x, n), i))
+                Ok((n, i)) => Ok((Instruction::struct_get(x, n), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
@@ -3176,7 +3176,7 @@ pub impl Decode for Instruction with decode(bytes, i) {
           match Decode::decode(bytes, i) {
             Ok((x, i)) =>
               match Decode::decode(bytes, i) {
-                Ok((n, i)) => Ok((StructGetS(x, n), i))
+                Ok((n, i)) => Ok((Instruction::struct_get_s(x, n), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
@@ -3185,7 +3185,7 @@ pub impl Decode for Instruction with decode(bytes, i) {
           match Decode::decode(bytes, i) {
             Ok((x, i)) =>
               match Decode::decode(bytes, i) {
-                Ok((n, i)) => Ok((StructGetU(x, n), i))
+                Ok((n, i)) => Ok((Instruction::struct_get_u(x, n), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
@@ -3194,26 +3194,26 @@ pub impl Decode for Instruction with decode(bytes, i) {
           match Decode::decode(bytes, i) {
             Ok((x, i)) =>
               match Decode::decode(bytes, i) {
-                Ok((n, i)) => Ok((StructSet(x, n), i))
+                Ok((n, i)) => Ok((Instruction::struct_set(x, n), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
           }
         Ok((U32(6), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((x, i)) => Ok((ArrayNew(x), i))
+            Ok((x, i)) => Ok((Instruction::array_new(x), i))
             Err(t) => Err(t)
           }
         Ok((@lib.U32(7), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((x, i)) => Ok((ArrayNewDefault(x), i))
+            Ok((x, i)) => Ok((Instruction::array_new_default(x), i))
             Err(t) => Err(t)
           }
         Ok((@lib.U32(8), i)) =>
           match Decode::decode(bytes, i) {
             Ok((x, i)) =>
               match Decode::decode(bytes, i) {
-                Ok((n, i)) => Ok((ArrayNewFixed(x, n), i))
+                Ok((n, i)) => Ok((Instruction::array_new_fixed(x, n), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
@@ -3222,7 +3222,7 @@ pub impl Decode for Instruction with decode(bytes, i) {
           match Decode::decode(bytes, i) {
             Ok((x, i)) =>
               match Decode::decode(bytes, i) {
-                Ok((n, i)) => Ok((ArrayNewData(x, n), i))
+                Ok((n, i)) => Ok((Instruction::array_new_data(x, n), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
@@ -3231,42 +3231,42 @@ pub impl Decode for Instruction with decode(bytes, i) {
           match Decode::decode(bytes, i) {
             Ok((x, i)) =>
               match Decode::decode(bytes, i) {
-                Ok((n, i)) => Ok((ArrayNewElem(x, n), i))
+                Ok((n, i)) => Ok((Instruction::array_new_elem(x, n), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
           }
         Ok((@lib.U32(11), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((x, i)) => Ok((ArrayGet(x), i))
+            Ok((x, i)) => Ok((Instruction::array_get(x), i))
             Err(t) => Err(t)
           }
         Ok((@lib.U32(12), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((x, i)) => Ok((ArrayGetS(x), i))
+            Ok((x, i)) => Ok((Instruction::array_get_s(x), i))
             Err(t) => Err(t)
           }
         Ok((@lib.U32(13), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((x, i)) => Ok((ArrayGetU(x), i))
+            Ok((x, i)) => Ok((Instruction::array_get_u(x), i))
             Err(t) => Err(t)
           }
         Ok((@lib.U32(14), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((x, i)) => Ok((ArraySet(x), i))
+            Ok((x, i)) => Ok((Instruction::array_set(x), i))
             Err(t) => Err(t)
           }
-        Ok((@lib.U32(15), i)) => Ok((ArrayLen, i))
+        Ok((@lib.U32(15), i)) => Ok((Instruction::array_len(), i))
         Ok((@lib.U32(16), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((x, i)) => Ok((ArrayFill(x), i))
+            Ok((x, i)) => Ok((Instruction::array_fill(x), i))
             Err(t) => Err(t)
           }
         Ok((@lib.U32(17), i)) =>
           match Decode::decode(bytes, i) {
             Ok((x1, i)) =>
               match Decode::decode(bytes, i) {
-                Ok((x2, i)) => Ok((ArrayCopy(x1, x2), i))
+                Ok((x2, i)) => Ok((Instruction::array_copy(x1, x2), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
@@ -3275,7 +3275,7 @@ pub impl Decode for Instruction with decode(bytes, i) {
           match Decode::decode(bytes, i) {
             Ok((x1, i)) =>
               match Decode::decode(bytes, i) {
-                Ok((x2, i)) => Ok((ArrayInitData(x1, x2), i))
+                Ok((x2, i)) => Ok((Instruction::array_init_data(x1, x2), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
@@ -3284,40 +3284,41 @@ pub impl Decode for Instruction with decode(bytes, i) {
           match Decode::decode(bytes, i) {
             Ok((x1, i)) =>
               match Decode::decode(bytes, i) {
-                Ok((x2, i)) => Ok((ArrayInitElem(x1, x2), i))
+                Ok((x2, i)) => Ok((Instruction::array_init_elem(x1, x2), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
           }
         Ok((@lib.U32(20), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((ht, i)) => Ok((RefTest(false, ht), i))
+            Ok((ht, i)) => Ok((Instruction::ref_test(false, ht), i))
             Err(t) => Err(t)
           }
         Ok((@lib.U32(21), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((ht, i)) => Ok((RefTest(true, ht), i))
+            Ok((ht, i)) => Ok((Instruction::ref_test(true, ht), i))
             Err(t) => Err(t)
           }
         Ok((@lib.U32(22), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((ht, i)) => Ok((RefCast(false, ht), i))
+            Ok((ht, i)) => Ok((Instruction::ref_cast(false, ht), i))
             Err(t) => Err(t)
           }
         Ok((@lib.U32(23), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((ht, i)) => Ok((RefCast(true, ht), i))
+            Ok((ht, i)) => Ok((Instruction::ref_cast(true, ht), i))
             Err(t) => Err(t)
           }
-        Ok((U32(24), i)) =>
-          match Decode::decode(bytes, i) {
+        Ok((U32(24), i)) => {
+          let castop : Result[(CastOp, Int), String] = Decode::decode(bytes, i)
+          match castop {
             Ok((c, i)) =>
               match Decode::decode(bytes, i) {
                 Ok((l, i)) =>
                   match Decode::decode(bytes, i) {
                     Ok((ht1, i)) =>
                       match Decode::decode(bytes, i) {
-                        Ok((ht2, i)) => Ok((BrOnCast(l, c, ht1, ht2), i))
+                        Ok((ht2, i)) => Ok((Instruction::br_on_cast(l, c.0, ht1, c.1, ht2), i))
                         Err(t) => Err(t)
                       }
                     Err(t) => Err(t)
@@ -3326,15 +3327,17 @@ pub impl Decode for Instruction with decode(bytes, i) {
               }
             Err(t) => Err(t)
           }
-        Ok((U32(25), i)) =>
-          match Decode::decode(bytes, i) {
+        }
+        Ok((U32(25), i)) => {
+          let castop : Result[(CastOp, Int), String] = Decode::decode(bytes, i)
+          match castop {
             Ok((c, i)) =>
               match Decode::decode(bytes, i) {
                 Ok((l, i)) =>
                   match Decode::decode(bytes, i) {
                     Ok((ht1, i)) =>
                       match Decode::decode(bytes, i) {
-                        Ok((ht2, i)) => Ok((BrOnCastFail(l, c, ht1, ht2), i))
+                        Ok((ht2, i)) => Ok((Instruction::br_on_cast_fail(l, c.0, ht1, c.1, ht2), i))
                         Err(t) => Err(t)
                       }
                     Err(t) => Err(t)
@@ -3343,11 +3346,12 @@ pub impl Decode for Instruction with decode(bytes, i) {
               }
             Err(t) => Err(t)
           }
-        Ok((U32(26), i)) => Ok((AnyConvertExtern, i))
-        Ok((U32(27), i)) => Ok((ExternConvertAny, i))
-        Ok((U32(28), i)) => Ok((RefI31, i))
-        Ok((U32(29), i)) => Ok((I31GetS, i))
-        Ok((U32(30), i)) => Ok((I31GetU, i))
+        }
+        Ok((U32(26), i)) => Ok((Instruction::any_convert_extern(), i))
+        Ok((U32(27), i)) => Ok((Instruction::extern_convert_any(), i))
+        Ok((U32(28), i)) => Ok((Instruction::ref_i31(), i))
+        Ok((U32(29), i)) => Ok((Instruction::i31_get_s(), i))
+        Ok((U32(30), i)) => Ok((Instruction::i31_get_u(), i))
         Err(t) => Err(t)
         _ => Err("Invalid instruction")
       }
@@ -3355,78 +3359,78 @@ pub impl Decode for Instruction with decode(bytes, i) {
     // Section: Memory/Table/Elem
     Some(0xFC) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((@lib.U32(0), i)) => Ok((I32TruncSatF32S, i))
-        Ok((U32(1), i)) => Ok((I32TruncSatF32U, i))
-        Ok((U32(2), i)) => Ok((I32TruncSatF64S, i))
-        Ok((U32(3), i)) => Ok((I32TruncSatF64U, i))
-        Ok((U32(4), i)) => Ok((I64TruncSatF32S, i))
-        Ok((U32(5), i)) => Ok((I64TruncSatF32U, i))
-        Ok((U32(6), i)) => Ok((I64TruncSatF64S, i))
-        Ok((U32(7), i)) => Ok((I64TruncSatF64U, i))
+        Ok((@lib.U32(0), i)) => Ok((Instruction::i32_trunc_sat_f32s(), i))
+        Ok((U32(1), i)) => Ok((Instruction::i32_trunc_sat_f32u(), i))
+        Ok((U32(2), i)) => Ok((Instruction::i32_trunc_sat_f64s(), i))
+        Ok((U32(3), i)) => Ok((Instruction::i32_trunc_sat_f64u(), i))
+        Ok((U32(4), i)) => Ok((Instruction::i64_trunc_sat_f32s(), i))
+        Ok((U32(5), i)) => Ok((Instruction::i64_trunc_sat_f32u(), i))
+        Ok((U32(6), i)) => Ok((Instruction::i64_trunc_sat_f64s(), i))
+        Ok((U32(7), i)) => Ok((Instruction::i64_trunc_sat_f64u(), i))
         Ok((U32(8), i)) =>
           match Decode::decode(bytes, i) {
             Ok((x, i)) =>
               match Decode::decode(bytes, i) {
-                Ok((y, i)) => Ok((MemoryInit(x, y), i))
+                Ok((y, i)) => Ok((Instruction::memory_init(x, y), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
           }
         Ok((U32(9), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((x, i)) => Ok((DataDrop(x), i))
+            Ok((x, i)) => Ok((Instruction::data_drop(x), i))
             Err(t) => Err(t)
           }
         Ok((U32(10), i)) =>
           match Decode::decode(bytes, i) {
             Ok((x, i)) =>
               match Decode::decode(bytes, i) {
-                Ok((y, i)) => Ok((MemoryCopy(x, y), i))
+                Ok((y, i)) => Ok((Instruction::memory_copy(x, y), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
           }
         Ok((U32(11), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((x, i)) => Ok((MemoryFill(x), i))
+            Ok((x, i)) => Ok((Instruction::memory_fill(x), i))
             Err(t) => Err(t)
           }
         Ok((U32(12), i)) =>
           match Decode::decode(bytes, i) {
             Ok((x, i)) =>
               match Decode::decode(bytes, i) {
-                Ok((y, i)) => Ok((TableInit(x, y), i))
+                Ok((y, i)) => Ok((Instruction::table_init(x, y), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
           }
         Ok((U32(13), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((y, i)) => Ok((ElemDrop(y), i))
+            Ok((y, i)) => Ok((Instruction::elem_drop(y), i))
             Err(t) => Err(t)
           }
         Ok((U32(14), i)) =>
           match Decode::decode(bytes, i) {
             Ok((x, i)) =>
               match Decode::decode(bytes, i) {
-                Ok((y, i)) => Ok((TableCopy(x, y), i))
+                Ok((y, i)) => Ok((Instruction::table_copy(x, y), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
           }
         Ok((U32(15), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((y, i)) => Ok((TableGrow(y), i))
+            Ok((y, i)) => Ok((Instruction::table_grow(y), i))
             Err(t) => Err(t)
           }
         Ok((U32(16), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((y, i)) => Ok((TableSize(y), i))
+            Ok((y, i)) => Ok((Instruction::table_size(y), i))
             Err(t) => Err(t)
           }
         Ok((U32(17), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((y, i)) => Ok((TableFill(y), i))
+            Ok((y, i)) => Ok((Instruction::table_fill(y), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
@@ -3438,62 +3442,62 @@ pub impl Decode for Instruction with decode(bytes, i) {
       match Decode::decode(bytes, i + 1) {
         Ok((@lib.U32(0), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((m, i)) => Ok((V128Load(m), i))
+            Ok((m, i)) => Ok((Instruction::v128_load(m), i))
             Err(t) => Err(t)
           }
         Ok((U32(1), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((m, i)) => Ok((V128Load8x8S(m), i))
+            Ok((m, i)) => Ok((Instruction::v128_load8x8s(m), i))
             Err(t) => Err(t)
           }
         Ok((U32(2), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((m, i)) => Ok((V128Load8x8U(m), i))
+            Ok((m, i)) => Ok((Instruction::v128_load8x8u(m), i))
             Err(t) => Err(t)
           }
         Ok((U32(3), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((m, i)) => Ok((V128Load16x4S(m), i))
+            Ok((m, i)) => Ok((Instruction::v128_load16x4s(m), i))
             Err(t) => Err(t)
           }
         Ok((U32(4), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((m, i)) => Ok((V128Load16x4U(m), i))
+            Ok((m, i)) => Ok((Instruction::v128_load16x4u(m), i))
             Err(t) => Err(t)
           }
         Ok((U32(5), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((m, i)) => Ok((V128Load32x2S(m), i))
+            Ok((m, i)) => Ok((Instruction::v128_load32x2s(m), i))
             Err(t) => Err(t)
           }
         Ok((U32(6), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((m, i)) => Ok((V128Load32x2U(m), i))
+            Ok((m, i)) => Ok((Instruction::v128_load32x2u(m), i))
             Err(t) => Err(t)
           }
         Ok((U32(7), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((m, i)) => Ok((V128Load8Splat(m), i))
+            Ok((m, i)) => Ok((Instruction::v128_load8_splat(m), i))
             Err(t) => Err(t)
           }
         Ok((U32(8), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((m, i)) => Ok((V128Load16Splat(m), i))
+            Ok((m, i)) => Ok((Instruction::v128_load16_splat(m), i))
             Err(t) => Err(t)
           }
         Ok((U32(9), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((m, i)) => Ok((V128Load32Splat(m), i))
+            Ok((m, i)) => Ok((Instruction::v128_load32_splat(m), i))
             Err(t) => Err(t)
           }
         Ok((U32(10), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((m, i)) => Ok((V128Load64Splat(m), i))
+            Ok((m, i)) => Ok((Instruction::v128_load64_splat(m), i))
             Err(t) => Err(t)
           }
         Ok((U32(11), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((m, i)) => Ok((V128Store(m), i))
+            Ok((m, i)) => Ok((Instruction::v128_store(m), i))
             Err(t) => Err(t)
           }
         Ok((U32(12), i)) =>
@@ -3501,7 +3505,7 @@ pub impl Decode for Instruction with decode(bytes, i) {
           if bytes.length() >= i + 16 {
             Ok(
               (
-                V128Const(
+                Instruction::v128_const(
                   bytes.unsafe_get(i),
                   bytes.unsafe_get(i + 1),
                   bytes.unsafe_get(i + 2),
@@ -3580,7 +3584,7 @@ pub impl Decode for Instruction with decode(bytes, i) {
                                                                         ) =>
                                                                           Ok(
                                                                             (
-                                                                              I8x16Shuffle(
+                                                                              Instruction::i8x16_shuffle(
                                                                                 l0,
                                                                                 l1,
                                                                                 l2,
@@ -3635,299 +3639,299 @@ pub impl Decode for Instruction with decode(bytes, i) {
               }
             Err(t) => Err(t)
           }
-        Ok((@lib.U32(14), i)) => Ok((I8x16Swizzle, i))
-        Ok((@lib.U32(15), i)) => Ok((I8x16Splat, i))
-        Ok((@lib.U32(16), i)) => Ok((I16x8Splat, i))
-        Ok((@lib.U32(17), i)) => Ok((I32x4Splat, i))
-        Ok((@lib.U32(18), i)) => Ok((I64x2Splat, i))
-        Ok((@lib.U32(19), i)) => Ok((F32x4Splat, i))
-        Ok((@lib.U32(20), i)) => Ok((F64x2Splat, i))
-        Ok((@lib.U32(35), i)) => Ok((I8x16Eq, i))
-        Ok((@lib.U32(36), i)) => Ok((I8x16Ne, i))
-        Ok((@lib.U32(37), i)) => Ok((I8x16LtS, i))
-        Ok((@lib.U32(38), i)) => Ok((I8x16LtU, i))
-        Ok((@lib.U32(39), i)) => Ok((I8x16GtS, i))
-        Ok((@lib.U32(40), i)) => Ok((I8x16GtU, i))
-        Ok((@lib.U32(41), i)) => Ok((I8x16LeS, i))
-        Ok((@lib.U32(42), i)) => Ok((I8x16LeU, i))
-        Ok((@lib.U32(43), i)) => Ok((I8x16GeS, i))
-        Ok((@lib.U32(44), i)) => Ok((I8x16GeU, i))
-        Ok((@lib.U32(45), i)) => Ok((I16x8Eq, i))
-        Ok((@lib.U32(46), i)) => Ok((I16x8Ne, i))
-        Ok((@lib.U32(47), i)) => Ok((I16x8LtS, i))
-        Ok((@lib.U32(48), i)) => Ok((I16x8LtU, i))
-        Ok((@lib.U32(49), i)) => Ok((I16x8GtS, i))
-        Ok((@lib.U32(50), i)) => Ok((I16x8GtU, i))
-        Ok((@lib.U32(51), i)) => Ok((I16x8LeS, i))
-        Ok((@lib.U32(52), i)) => Ok((I16x8LeU, i))
-        Ok((@lib.U32(53), i)) => Ok((I16x8GeS, i))
-        Ok((@lib.U32(54), i)) => Ok((I16x8GeU, i))
-        Ok((@lib.U32(55), i)) => Ok((I32x4Eq, i))
-        Ok((@lib.U32(56), i)) => Ok((I32x4Ne, i))
-        Ok((@lib.U32(57), i)) => Ok((I32x4LtS, i))
-        Ok((@lib.U32(58), i)) => Ok((I32x4LtU, i))
-        Ok((@lib.U32(59), i)) => Ok((I32x4GtS, i))
-        Ok((@lib.U32(60), i)) => Ok((I32x4GtU, i))
-        Ok((@lib.U32(61), i)) => Ok((I32x4LeS, i))
-        Ok((@lib.U32(62), i)) => Ok((I32x4LeU, i))
-        Ok((@lib.U32(63), i)) => Ok((I32x4GeS, i))
-        Ok((@lib.U32(64), i)) => Ok((I32x4GeU, i))
-        Ok((@lib.U32(65), i)) => Ok((F32x4Eq, i))
-        Ok((@lib.U32(66), i)) => Ok((F32x4Ne, i))
-        Ok((@lib.U32(67), i)) => Ok((F32x4Lt, i))
-        Ok((@lib.U32(68), i)) => Ok((F32x4Gt, i))
-        Ok((@lib.U32(69), i)) => Ok((F32x4Le, i))
-        Ok((@lib.U32(70), i)) => Ok((F32x4Ge, i))
-        Ok((@lib.U32(71), i)) => Ok((F64x2Eq, i))
-        Ok((@lib.U32(72), i)) => Ok((F64x2Ne, i))
-        Ok((@lib.U32(73), i)) => Ok((F64x2Lt, i))
-        Ok((@lib.U32(74), i)) => Ok((F64x2Gt, i))
-        Ok((@lib.U32(75), i)) => Ok((F64x2Le, i))
-        Ok((@lib.U32(76), i)) => Ok((F64x2Ge, i))
-        Ok((@lib.U32(77), i)) => Ok((V128Not, i))
-        Ok((@lib.U32(78), i)) => Ok((V128And, i))
-        Ok((@lib.U32(79), i)) => Ok((V128Andnot, i))
-        Ok((@lib.U32(80), i)) => Ok((V128Or, i))
-        Ok((@lib.U32(81), i)) => Ok((V128Xor, i))
-        Ok((@lib.U32(82), i)) => Ok((V128Bitselect, i))
-        Ok((@lib.U32(83), i)) => Ok((V128AnyTrue, i))
-        Ok((@lib.U32(94), i)) => Ok((F32x4DemoteF64x2Zero, i))
-        Ok((@lib.U32(95), i)) => Ok((F64x2PromoteLowF32x4, i))
-        Ok((@lib.U32(96), i)) => Ok((I8x16Abs, i))
-        Ok((@lib.U32(97), i)) => Ok((I8x16Neg, i))
-        Ok((@lib.U32(98), i)) => Ok((I8x16Popcnt, i))
-        Ok((@lib.U32(99), i)) => Ok((I8x16AllTrue, i))
-        Ok((@lib.U32(100), i)) => Ok((I8x16Bitmask, i))
-        Ok((@lib.U32(101), i)) => Ok((I8x16NarrowI16x8S, i))
-        Ok((@lib.U32(102), i)) => Ok((I8x16NarrowI16x8U, i))
-        Ok((@lib.U32(103), i)) => Ok((F32x4Ceil, i))
-        Ok((@lib.U32(104), i)) => Ok((F32x4Floor, i))
-        Ok((@lib.U32(105), i)) => Ok((F32x4Trunc, i))
-        Ok((@lib.U32(106), i)) => Ok((F32x4Nearest, i))
-        Ok((@lib.U32(107), i)) => Ok((I8x16Shl, i))
-        Ok((@lib.U32(108), i)) => Ok((I8x16ShrS, i))
-        Ok((@lib.U32(109), i)) => Ok((I8x16ShrU, i))
-        Ok((@lib.U32(110), i)) => Ok((I8x16Add, i))
-        Ok((@lib.U32(111), i)) => Ok((I8x16AddSatS, i))
-        Ok((@lib.U32(112), i)) => Ok((I8x16AddSatU, i))
-        Ok((@lib.U32(113), i)) => Ok((I8x16Sub, i))
-        Ok((@lib.U32(114), i)) => Ok((I8x16SubSatS, i))
-        Ok((@lib.U32(115), i)) => Ok((I8x16SubSatU, i))
-        Ok((@lib.U32(116), i)) => Ok((F64x2Ceil, i))
-        Ok((@lib.U32(117), i)) => Ok((F64x2Floor, i))
-        Ok((@lib.U32(118), i)) => Ok((I8x16MinS, i))
-        Ok((@lib.U32(119), i)) => Ok((I8x16MinU, i))
-        Ok((@lib.U32(120), i)) => Ok((I8x16MaxS, i))
-        Ok((@lib.U32(121), i)) => Ok((I8x16MaxU, i))
-        Ok((@lib.U32(122), i)) => Ok((F64x2Trunc, i))
-        Ok((@lib.U32(123), i)) => Ok((I8x16AvgrU, i))
-        Ok((@lib.U32(124), i)) => Ok((I16x8ExtaddPairwiseI8x16S, i))
-        Ok((@lib.U32(125), i)) => Ok((I16x8ExtaddPairwiseI8x16U, i))
-        Ok((@lib.U32(126), i)) => Ok((I32x4ExtaddPairwiseI16x8S, i))
-        Ok((@lib.U32(127), i)) => Ok((I32x4ExtaddPairwiseI16x8U, i))
-        Ok((@lib.U32(128), i)) => Ok((I16x8Abs, i))
-        Ok((@lib.U32(129), i)) => Ok((I16x8Neg, i))
-        Ok((@lib.U32(130), i)) => Ok((I16x8Q15mulrSatS, i))
-        Ok((@lib.U32(131), i)) => Ok((I16x8AllTrue, i))
-        Ok((@lib.U32(132), i)) => Ok((I16x8Bitmask, i))
-        Ok((@lib.U32(133), i)) => Ok((I16x8NarrowI32x4S, i))
-        Ok((@lib.U32(134), i)) => Ok((I16x8NarrowI32x4U, i))
-        Ok((@lib.U32(135), i)) => Ok((I16x8ExtendLowI8x16S, i))
-        Ok((@lib.U32(136), i)) => Ok((I16x8ExtendHighI8x16S, i))
-        Ok((@lib.U32(137), i)) => Ok((I16x8ExtendLowI8x16U, i))
-        Ok((@lib.U32(138), i)) => Ok((I16x8ExtendHighI8x16U, i))
-        Ok((@lib.U32(139), i)) => Ok((I16x8Shl, i))
-        Ok((@lib.U32(140), i)) => Ok((I16x8ShrS, i))
-        Ok((@lib.U32(141), i)) => Ok((I16x8ShrU, i))
-        Ok((@lib.U32(142), i)) => Ok((I16x8Add, i))
-        Ok((@lib.U32(143), i)) => Ok((I16x8AddSatS, i))
-        Ok((@lib.U32(144), i)) => Ok((I16x8AddSatU, i))
-        Ok((@lib.U32(145), i)) => Ok((I16x8Sub, i))
-        Ok((@lib.U32(146), i)) => Ok((I16x8SubSatS, i))
-        Ok((@lib.U32(147), i)) => Ok((I16x8SubSatU, i))
-        Ok((@lib.U32(148), i)) => Ok((F64x2Nearest, i))
-        Ok((@lib.U32(149), i)) => Ok((I16x8Mul, i))
-        Ok((@lib.U32(150), i)) => Ok((I16x8MinS, i))
-        Ok((@lib.U32(151), i)) => Ok((I16x8MinU, i))
-        Ok((@lib.U32(152), i)) => Ok((I16x8MaxS, i))
-        Ok((@lib.U32(153), i)) => Ok((I16x8MaxU, i))
-        Ok((@lib.U32(155), i)) => Ok((I16x8AvgrU, i))
-        Ok((@lib.U32(156), i)) => Ok((I16x8ExtmulLowI8x16S, i))
-        Ok((@lib.U32(157), i)) => Ok((I16x8ExtmulHighI8x16S, i))
-        Ok((@lib.U32(158), i)) => Ok((I16x8ExtmulLowI8x16U, i))
-        Ok((@lib.U32(159), i)) => Ok((I16x8ExtmulHighI8x16U, i))
-        Ok((@lib.U32(160), i)) => Ok((I32x4Abs, i))
-        Ok((@lib.U32(161), i)) => Ok((I32x4Neg, i))
-        Ok((@lib.U32(163), i)) => Ok((I32x4AllTrue, i))
-        Ok((@lib.U32(164), i)) => Ok((I32x4Bitmask, i))
-        Ok((@lib.U32(167), i)) => Ok((I32x4ExtendLowI16x8S, i))
-        Ok((@lib.U32(168), i)) => Ok((I32x4ExtendHighI16x8S, i))
-        Ok((@lib.U32(169), i)) => Ok((I32x4ExtendLowI16x8U, i))
-        Ok((@lib.U32(170), i)) => Ok((I32x4ExtendHighI16x8U, i))
-        Ok((@lib.U32(171), i)) => Ok((I32x4Shl, i))
-        Ok((@lib.U32(172), i)) => Ok((I32x4ShrS, i))
-        Ok((@lib.U32(173), i)) => Ok((I32x4ShrU, i))
-        Ok((@lib.U32(174), i)) => Ok((I32x4Add, i))
-        Ok((@lib.U32(177), i)) => Ok((I32x4Sub, i))
-        Ok((@lib.U32(181), i)) => Ok((I32x4Mul, i))
-        Ok((@lib.U32(182), i)) => Ok((I32x4MinS, i))
-        Ok((@lib.U32(183), i)) => Ok((I32x4MinU, i))
-        Ok((@lib.U32(184), i)) => Ok((I32x4MaxS, i))
-        Ok((@lib.U32(185), i)) => Ok((I32x4MaxU, i))
-        Ok((@lib.U32(186), i)) => Ok((I32x4DotI16x8S, i))
-        Ok((@lib.U32(188), i)) => Ok((I32x4ExtmulLowI16x8S, i))
-        Ok((@lib.U32(189), i)) => Ok((I32x4ExtmulHighI16x8S, i))
-        Ok((@lib.U32(190), i)) => Ok((I32x4ExtmulLowI16x8U, i))
-        Ok((@lib.U32(191), i)) => Ok((I32x4ExtmulHighI16x8U, i))
-        Ok((@lib.U32(192), i)) => Ok((I64x2Abs, i))
-        Ok((@lib.U32(193), i)) => Ok((I64x2Neg, i))
-        Ok((@lib.U32(195), i)) => Ok((I64x2AllTrue, i))
-        Ok((@lib.U32(196), i)) => Ok((I64x2Bitmask, i))
-        Ok((@lib.U32(199), i)) => Ok((I64x2ExtendLowI32x4S, i))
-        Ok((@lib.U32(200), i)) => Ok((I64x2ExtendHighI32x4S, i))
-        Ok((@lib.U32(201), i)) => Ok((I64x2ExtendLowI32x4U, i))
-        Ok((@lib.U32(202), i)) => Ok((I64x2ExtendHighI32x4U, i))
-        Ok((@lib.U32(203), i)) => Ok((I64x2Shl, i))
-        Ok((@lib.U32(204), i)) => Ok((I64x2ShrS, i))
-        Ok((@lib.U32(205), i)) => Ok((I64x2ShrU, i))
-        Ok((@lib.U32(206), i)) => Ok((I64x2Add, i))
-        Ok((@lib.U32(209), i)) => Ok((I64x2Sub, i))
-        Ok((@lib.U32(213), i)) => Ok((I64x2Mul, i))
-        Ok((@lib.U32(214), i)) => Ok((I64x2Eq, i))
-        Ok((@lib.U32(215), i)) => Ok((I64x2Ne, i))
-        Ok((@lib.U32(216), i)) => Ok((I64x2LtS, i))
-        Ok((@lib.U32(217), i)) => Ok((I64x2GtS, i))
-        Ok((@lib.U32(218), i)) => Ok((I64x2LeS, i))
-        Ok((@lib.U32(219), i)) => Ok((I64x2GeS, i))
-        Ok((@lib.U32(220), i)) => Ok((I64x2ExtmulLowI32x4S, i))
-        Ok((@lib.U32(221), i)) => Ok((I64x2ExtmulHighI32x4S, i))
-        Ok((@lib.U32(222), i)) => Ok((I64x2ExtmulLowI32x4U, i))
-        Ok((@lib.U32(223), i)) => Ok((I64x2ExtmulHighI32x4U, i))
-        Ok((@lib.U32(224), i)) => Ok((F32x4Abs, i))
-        Ok((@lib.U32(225), i)) => Ok((F32x4Neg, i))
-        Ok((@lib.U32(227), i)) => Ok((F32x4Sqrt, i))
-        Ok((@lib.U32(228), i)) => Ok((F32x4Add, i))
-        Ok((@lib.U32(229), i)) => Ok((F32x4Sub, i))
-        Ok((@lib.U32(230), i)) => Ok((F32x4Mul, i))
-        Ok((@lib.U32(231), i)) => Ok((F32x4Div, i))
-        Ok((@lib.U32(232), i)) => Ok((F32x4Min, i))
-        Ok((@lib.U32(233), i)) => Ok((F32x4Max, i))
-        Ok((@lib.U32(234), i)) => Ok((F32x4Pmin, i))
-        Ok((@lib.U32(235), i)) => Ok((F32x4Pmax, i))
-        Ok((@lib.U32(236), i)) => Ok((F64x2Abs, i))
-        Ok((@lib.U32(237), i)) => Ok((F64x2Neg, i))
-        Ok((@lib.U32(239), i)) => Ok((F64x2Sqrt, i))
-        Ok((@lib.U32(240), i)) => Ok((F64x2Add, i))
-        Ok((@lib.U32(241), i)) => Ok((F64x2Sub, i))
-        Ok((@lib.U32(242), i)) => Ok((F64x2Mul, i))
-        Ok((@lib.U32(243), i)) => Ok((F64x2Div, i))
-        Ok((@lib.U32(244), i)) => Ok((F64x2Min, i))
-        Ok((@lib.U32(245), i)) => Ok((F64x2Max, i))
-        Ok((@lib.U32(246), i)) => Ok((F64x2Pmin, i))
-        Ok((@lib.U32(247), i)) => Ok((F64x2Pmax, i))
-        Ok((@lib.U32(248), i)) => Ok((I32x4TruncSatF32x4S, i))
-        Ok((@lib.U32(249), i)) => Ok((I32x4TruncSatF32x4U, i))
-        Ok((@lib.U32(250), i)) => Ok((F32x4ConvertI32x4S, i))
-        Ok((@lib.U32(251), i)) => Ok((F32x4ConvertI32x4U, i))
-        Ok((@lib.U32(252), i)) => Ok((I32x4TruncSatF64x2SZero, i))
-        Ok((@lib.U32(253), i)) => Ok((I32x4TruncSatF64x2UZero, i))
-        Ok((@lib.U32(254), i)) => Ok((F64x2ConvertLowI32x4S, i))
-        Ok((@lib.U32(255), i)) => Ok((F64x2ConvertLowI32x4U, i))
-        Ok((@lib.U32(256), i)) => Ok((I8x16RelaxedSwizzle, i))
-        Ok((@lib.U32(257), i)) => Ok((I32x4RelaxedTruncF32x4S, i))
-        Ok((@lib.U32(258), i)) => Ok((I32x4RelaxedTruncF32x4U, i))
-        Ok((@lib.U32(259), i)) => Ok((I32x4RelaxedTruncZeroF64x2S, i))
-        Ok((@lib.U32(260), i)) => Ok((I32x4RelaxedTruncZeroF64x2U, i))
-        Ok((@lib.U32(261), i)) => Ok((F32x4RelaxedMadd, i))
-        Ok((@lib.U32(262), i)) => Ok((F32x4RelaxedNmadd, i))
-        Ok((@lib.U32(263), i)) => Ok((F64x2RelaxedMadd, i))
-        Ok((@lib.U32(264), i)) => Ok((F64x2RelaxedNmadd, i))
-        Ok((@lib.U32(265), i)) => Ok((I8x16RelaxedLaneselect, i))
-        Ok((@lib.U32(266), i)) => Ok((I16x8RelaxedLaneselect, i))
-        Ok((@lib.U32(267), i)) => Ok((I32x4RelaxedLaneselect, i))
-        Ok((@lib.U32(268), i)) => Ok((I64x2RelaxedLaneselect, i))
-        Ok((@lib.U32(269), i)) => Ok((F32x4RelaxedMin, i))
-        Ok((@lib.U32(270), i)) => Ok((F32x4RelaxedMax, i))
-        Ok((@lib.U32(271), i)) => Ok((F64x2RelaxedMin, i))
-        Ok((@lib.U32(272), i)) => Ok((F64x2RelaxedMax, i))
-        Ok((@lib.U32(273), i)) => Ok((I16x8RelaxedQ15mulrS, i))
-        Ok((@lib.U32(274), i)) => Ok((I16x8RelaxedDotI8x16I7x16S, i))
-        Ok((@lib.U32(275), i)) => Ok((I32x4RelaxedDotI8x16I7x16AddS, i))
+        Ok((@lib.U32(14), i)) => Ok((Instruction::i8x16_swizzle(), i))
+        Ok((@lib.U32(15), i)) => Ok((Instruction::i8x16_splat(), i))
+        Ok((@lib.U32(16), i)) => Ok((Instruction::i16x8_splat(), i))
+        Ok((@lib.U32(17), i)) => Ok((Instruction::i32x4_splat(), i))
+        Ok((@lib.U32(18), i)) => Ok((Instruction::i64x2_splat(), i))
+        Ok((@lib.U32(19), i)) => Ok((Instruction::f32x4_splat(), i))
+        Ok((@lib.U32(20), i)) => Ok((Instruction::f64x2_splat(), i))
+        Ok((@lib.U32(35), i)) => Ok((Instruction::i8x16_eq(), i))
+        Ok((@lib.U32(36), i)) => Ok((Instruction::i8x16_ne(), i))
+        Ok((@lib.U32(37), i)) => Ok((Instruction::i8x16_lt_s(), i))
+        Ok((@lib.U32(38), i)) => Ok((Instruction::i8x16_lt_u(), i))
+        Ok((@lib.U32(39), i)) => Ok((Instruction::i8x16_gt_s(), i))
+        Ok((@lib.U32(40), i)) => Ok((Instruction::i8x16_gt_u(), i))
+        Ok((@lib.U32(41), i)) => Ok((Instruction::i8x16_le_s(), i))
+        Ok((@lib.U32(42), i)) => Ok((Instruction::i8x16_le_u(), i))
+        Ok((@lib.U32(43), i)) => Ok((Instruction::i8x16_ge_s(), i))
+        Ok((@lib.U32(44), i)) => Ok((Instruction::i8x16_ge_u(), i))
+        Ok((@lib.U32(45), i)) => Ok((Instruction::i16x8_eq(), i))
+        Ok((@lib.U32(46), i)) => Ok((Instruction::i16x8_ne(), i))
+        Ok((@lib.U32(47), i)) => Ok((Instruction::i16x8_lt_s(), i))
+        Ok((@lib.U32(48), i)) => Ok((Instruction::i16x8_lt_u(), i))
+        Ok((@lib.U32(49), i)) => Ok((Instruction::i16x8_gt_s(), i))
+        Ok((@lib.U32(50), i)) => Ok((Instruction::i16x8_gt_u(), i))
+        Ok((@lib.U32(51), i)) => Ok((Instruction::i16x8_le_s(), i))
+        Ok((@lib.U32(52), i)) => Ok((Instruction::i16x8_le_u(), i))
+        Ok((@lib.U32(53), i)) => Ok((Instruction::i16x8_ge_s(), i))
+        Ok((@lib.U32(54), i)) => Ok((Instruction::i16x8_ge_u(), i))
+        Ok((@lib.U32(55), i)) => Ok((Instruction::i32x4_eq(), i))
+        Ok((@lib.U32(56), i)) => Ok((Instruction::i32x4_ne(), i))
+        Ok((@lib.U32(57), i)) => Ok((Instruction::i32x4_lt_s(), i))
+        Ok((@lib.U32(58), i)) => Ok((Instruction::i32x4_lt_u(), i))
+        Ok((@lib.U32(59), i)) => Ok((Instruction::i32x4_gt_s(), i))
+        Ok((@lib.U32(60), i)) => Ok((Instruction::i32x4_gt_u(), i))
+        Ok((@lib.U32(61), i)) => Ok((Instruction::i32x4_le_s(), i))
+        Ok((@lib.U32(62), i)) => Ok((Instruction::i32x4_le_u(), i))
+        Ok((@lib.U32(63), i)) => Ok((Instruction::i32x4_ge_s(), i))
+        Ok((@lib.U32(64), i)) => Ok((Instruction::i32x4_ge_u(), i))
+        Ok((@lib.U32(65), i)) => Ok((Instruction::f32x4_eq(), i))
+        Ok((@lib.U32(66), i)) => Ok((Instruction::f32x4_ne(), i))
+        Ok((@lib.U32(67), i)) => Ok((Instruction::f32x4_lt(), i))
+        Ok((@lib.U32(68), i)) => Ok((Instruction::f32x4_gt(), i))
+        Ok((@lib.U32(69), i)) => Ok((Instruction::f32x4_le(), i))
+        Ok((@lib.U32(70), i)) => Ok((Instruction::f32x4_ge(), i))
+        Ok((@lib.U32(71), i)) => Ok((Instruction::f64x2_eq(), i))
+        Ok((@lib.U32(72), i)) => Ok((Instruction::f64x2_ne(), i))
+        Ok((@lib.U32(73), i)) => Ok((Instruction::f64x2_lt(), i))
+        Ok((@lib.U32(74), i)) => Ok((Instruction::f64x2_gt(), i))
+        Ok((@lib.U32(75), i)) => Ok((Instruction::f64x2_le(), i))
+        Ok((@lib.U32(76), i)) => Ok((Instruction::f64x2_ge(), i))
+        Ok((@lib.U32(77), i)) => Ok((Instruction::v128_not(), i))
+        Ok((@lib.U32(78), i)) => Ok((Instruction::v128_and(), i))
+        Ok((@lib.U32(79), i)) => Ok((Instruction::v128_andnot(), i))
+        Ok((@lib.U32(80), i)) => Ok((Instruction::v128_or(), i))
+        Ok((@lib.U32(81), i)) => Ok((Instruction::v128_xor(), i))
+        Ok((@lib.U32(82), i)) => Ok((Instruction::v128_bitselect(), i))
+        Ok((@lib.U32(83), i)) => Ok((Instruction::v128_any_true(), i))
+        Ok((@lib.U32(94), i)) => Ok((Instruction::f32x4_demote_f64x2_zero(), i))
+        Ok((@lib.U32(95), i)) => Ok((Instruction::f64x2_promote_low_f32x4(), i))
+        Ok((@lib.U32(96), i)) => Ok((Instruction::i8x16_abs(), i))
+        Ok((@lib.U32(97), i)) => Ok((Instruction::i8x16_neg(), i))
+        Ok((@lib.U32(98), i)) => Ok((Instruction::i8x16_popcnt(), i))
+        Ok((@lib.U32(99), i)) => Ok((Instruction::i8x16_all_true(), i))
+        Ok((@lib.U32(100), i)) => Ok((Instruction::i8x16_bitmask(), i))
+        Ok((@lib.U32(101), i)) => Ok((Instruction::i8x16_narrow_i16x8s(), i))
+        Ok((@lib.U32(102), i)) => Ok((Instruction::i8x16_narrow_i16x8u(), i))
+        Ok((@lib.U32(103), i)) => Ok((Instruction::f32x4_ceil(), i))
+        Ok((@lib.U32(104), i)) => Ok((Instruction::f32x4_floor(), i))
+        Ok((@lib.U32(105), i)) => Ok((Instruction::f32x4_trunc(), i))
+        Ok((@lib.U32(106), i)) => Ok((Instruction::f32x4_nearest(), i))
+        Ok((@lib.U32(107), i)) => Ok((Instruction::i8x16_shl(), i))
+        Ok((@lib.U32(108), i)) => Ok((Instruction::i8x16_shr_s(), i))
+        Ok((@lib.U32(109), i)) => Ok((Instruction::i8x16_shr_u(), i))
+        Ok((@lib.U32(110), i)) => Ok((Instruction::i8x16_add(), i))
+        Ok((@lib.U32(111), i)) => Ok((Instruction::i8x16_add_sat_s(), i))
+        Ok((@lib.U32(112), i)) => Ok((Instruction::i8x16_add_sat_u(), i))
+        Ok((@lib.U32(113), i)) => Ok((Instruction::i8x16_sub(), i))
+        Ok((@lib.U32(114), i)) => Ok((Instruction::i8x16_sub_sat_s(), i))
+        Ok((@lib.U32(115), i)) => Ok((Instruction::i8x16_sub_sat_u(), i))
+        Ok((@lib.U32(116), i)) => Ok((Instruction::f64x2_ceil(), i))
+        Ok((@lib.U32(117), i)) => Ok((Instruction::f64x2_floor(), i))
+        Ok((@lib.U32(118), i)) => Ok((Instruction::i8x16_min_s(), i))
+        Ok((@lib.U32(119), i)) => Ok((Instruction::i8x16_min_u(), i))
+        Ok((@lib.U32(120), i)) => Ok((Instruction::i8x16_max_s(), i))
+        Ok((@lib.U32(121), i)) => Ok((Instruction::i8x16_max_u(), i))
+        Ok((@lib.U32(122), i)) => Ok((Instruction::f64x2_trunc(), i))
+        Ok((@lib.U32(123), i)) => Ok((Instruction::i8x16_avgr_u(), i))
+        Ok((@lib.U32(124), i)) => Ok((Instruction::i16x8_extadd_pairwise_i8x16s(), i))
+        Ok((@lib.U32(125), i)) => Ok((Instruction::i16x8_extadd_pairwise_i8x16u(), i))
+        Ok((@lib.U32(126), i)) => Ok((Instruction::i32x4_extadd_pairwise_i16x8s(), i))
+        Ok((@lib.U32(127), i)) => Ok((Instruction::i32x4_extadd_pairwise_i16x8u(), i))
+        Ok((@lib.U32(128), i)) => Ok((Instruction::i16x8_abs(), i))
+        Ok((@lib.U32(129), i)) => Ok((Instruction::i16x8_neg(), i))
+        Ok((@lib.U32(130), i)) => Ok((Instruction::i16x8q15mulr_sat_s(), i))
+        Ok((@lib.U32(131), i)) => Ok((Instruction::i16x8_all_true(), i))
+        Ok((@lib.U32(132), i)) => Ok((Instruction::i16x8_bitmask(), i))
+        Ok((@lib.U32(133), i)) => Ok((Instruction::i16x8_narrow_i32x4s(), i))
+        Ok((@lib.U32(134), i)) => Ok((Instruction::i16x8_narrow_i32x4u(), i))
+        Ok((@lib.U32(135), i)) => Ok((Instruction::i16x8_extend_low_i8x16s(), i))
+        Ok((@lib.U32(136), i)) => Ok((Instruction::i16x8_extend_high_i8x16s(), i))
+        Ok((@lib.U32(137), i)) => Ok((Instruction::i16x8_extend_low_i8x16u(), i))
+        Ok((@lib.U32(138), i)) => Ok((Instruction::i16x8_extend_high_i8x16u(), i))
+        Ok((@lib.U32(139), i)) => Ok((Instruction::i16x8_shl(), i))
+        Ok((@lib.U32(140), i)) => Ok((Instruction::i16x8_shr_s(), i))
+        Ok((@lib.U32(141), i)) => Ok((Instruction::i16x8_shr_u(), i))
+        Ok((@lib.U32(142), i)) => Ok((Instruction::i16x8_add(), i))
+        Ok((@lib.U32(143), i)) => Ok((Instruction::i16x8_add_sat_s(), i))
+        Ok((@lib.U32(144), i)) => Ok((Instruction::i16x8_add_sat_u(), i))
+        Ok((@lib.U32(145), i)) => Ok((Instruction::i16x8_sub(), i))
+        Ok((@lib.U32(146), i)) => Ok((Instruction::i16x8_sub_sat_s(), i))
+        Ok((@lib.U32(147), i)) => Ok((Instruction::i16x8_sub_sat_u(), i))
+        Ok((@lib.U32(148), i)) => Ok((Instruction::f64x2_nearest(), i))
+        Ok((@lib.U32(149), i)) => Ok((Instruction::i16x8_mul(), i))
+        Ok((@lib.U32(150), i)) => Ok((Instruction::i16x8_min_s(), i))
+        Ok((@lib.U32(151), i)) => Ok((Instruction::i16x8_min_u(), i))
+        Ok((@lib.U32(152), i)) => Ok((Instruction::i16x8_max_s(), i))
+        Ok((@lib.U32(153), i)) => Ok((Instruction::i16x8_max_u(), i))
+        Ok((@lib.U32(155), i)) => Ok((Instruction::i16x8_avgr_u(), i))
+        Ok((@lib.U32(156), i)) => Ok((Instruction::i16x8_extmul_low_i8x16s(), i))
+        Ok((@lib.U32(157), i)) => Ok((Instruction::i16x8_extmul_high_i8x16s(), i))
+        Ok((@lib.U32(158), i)) => Ok((Instruction::i16x8_extmul_low_i8x16u(), i))
+        Ok((@lib.U32(159), i)) => Ok((Instruction::i16x8_extmul_high_i8x16u(), i))
+        Ok((@lib.U32(160), i)) => Ok((Instruction::i32x4_abs(), i))
+        Ok((@lib.U32(161), i)) => Ok((Instruction::i32x4_neg(), i))
+        Ok((@lib.U32(163), i)) => Ok((Instruction::i32x4_all_true(), i))
+        Ok((@lib.U32(164), i)) => Ok((Instruction::i32x4_bitmask(), i))
+        Ok((@lib.U32(167), i)) => Ok((Instruction::i32x4_extend_low_i16x8s(), i))
+        Ok((@lib.U32(168), i)) => Ok((Instruction::i32x4_extend_high_i16x8s(), i))
+        Ok((@lib.U32(169), i)) => Ok((Instruction::i32x4_extend_low_i16x8u(), i))
+        Ok((@lib.U32(170), i)) => Ok((Instruction::i32x4_extend_high_i16x8u(), i))
+        Ok((@lib.U32(171), i)) => Ok((Instruction::i32x4_shl(), i))
+        Ok((@lib.U32(172), i)) => Ok((Instruction::i32x4_shr_s(), i))
+        Ok((@lib.U32(173), i)) => Ok((Instruction::i32x4_shr_u(), i))
+        Ok((@lib.U32(174), i)) => Ok((Instruction::i32x4_add(), i))
+        Ok((@lib.U32(177), i)) => Ok((Instruction::i32x4_sub(), i))
+        Ok((@lib.U32(181), i)) => Ok((Instruction::i32x4_mul(), i))
+        Ok((@lib.U32(182), i)) => Ok((Instruction::i32x4_min_s(), i))
+        Ok((@lib.U32(183), i)) => Ok((Instruction::i32x4_min_u(), i))
+        Ok((@lib.U32(184), i)) => Ok((Instruction::i32x4_max_s(), i))
+        Ok((@lib.U32(185), i)) => Ok((Instruction::i32x4_max_u(), i))
+        Ok((@lib.U32(186), i)) => Ok((Instruction::i32x4_dot_i16x8s(), i))
+        Ok((@lib.U32(188), i)) => Ok((Instruction::i32x4_extmul_low_i16x8s(), i))
+        Ok((@lib.U32(189), i)) => Ok((Instruction::i32x4_extmul_high_i16x8s(), i))
+        Ok((@lib.U32(190), i)) => Ok((Instruction::i32x4_extmul_low_i16x8u(), i))
+        Ok((@lib.U32(191), i)) => Ok((Instruction::i32x4_extmul_high_i16x8u(), i))
+        Ok((@lib.U32(192), i)) => Ok((Instruction::i64x2_abs(), i))
+        Ok((@lib.U32(193), i)) => Ok((Instruction::i64x2_neg(), i))
+        Ok((@lib.U32(195), i)) => Ok((Instruction::i64x2_all_true(), i))
+        Ok((@lib.U32(196), i)) => Ok((Instruction::i64x2_bitmask(), i))
+        Ok((@lib.U32(199), i)) => Ok((Instruction::i64x2_extend_low_i32x4s(), i))
+        Ok((@lib.U32(200), i)) => Ok((Instruction::i64x2_extend_high_i32x4s(), i))
+        Ok((@lib.U32(201), i)) => Ok((Instruction::i64x2_extend_low_i32x4u(), i))
+        Ok((@lib.U32(202), i)) => Ok((Instruction::i64x2_extend_high_i32x4u(), i))
+        Ok((@lib.U32(203), i)) => Ok((Instruction::i64x2_shl(), i))
+        Ok((@lib.U32(204), i)) => Ok((Instruction::i64x2_shr_s(), i))
+        Ok((@lib.U32(205), i)) => Ok((Instruction::i64x2_shr_u(), i))
+        Ok((@lib.U32(206), i)) => Ok((Instruction::i64x2_add(), i))
+        Ok((@lib.U32(209), i)) => Ok((Instruction::i64x2_sub(), i))
+        Ok((@lib.U32(213), i)) => Ok((Instruction::i64x2_mul(), i))
+        Ok((@lib.U32(214), i)) => Ok((Instruction::i64x2_eq(), i))
+        Ok((@lib.U32(215), i)) => Ok((Instruction::i64x2_ne(), i))
+        Ok((@lib.U32(216), i)) => Ok((Instruction::i64x2_lt_s(), i))
+        Ok((@lib.U32(217), i)) => Ok((Instruction::i64x2_gt_s(), i))
+        Ok((@lib.U32(218), i)) => Ok((Instruction::i64x2_le_s(), i))
+        Ok((@lib.U32(219), i)) => Ok((Instruction::i64x2_ge_s(), i))
+        Ok((@lib.U32(220), i)) => Ok((Instruction::i64x2_extmul_low_i32x4s(), i))
+        Ok((@lib.U32(221), i)) => Ok((Instruction::i64x2_extmul_high_i32x4s(), i))
+        Ok((@lib.U32(222), i)) => Ok((Instruction::i64x2_extmul_low_i32x4u(), i))
+        Ok((@lib.U32(223), i)) => Ok((Instruction::i64x2_extmul_high_i32x4u(), i))
+        Ok((@lib.U32(224), i)) => Ok((Instruction::f32x4_abs(), i))
+        Ok((@lib.U32(225), i)) => Ok((Instruction::f32x4_neg(), i))
+        Ok((@lib.U32(227), i)) => Ok((Instruction::f32x4_sqrt(), i))
+        Ok((@lib.U32(228), i)) => Ok((Instruction::f32x4_add(), i))
+        Ok((@lib.U32(229), i)) => Ok((Instruction::f32x4_sub(), i))
+        Ok((@lib.U32(230), i)) => Ok((Instruction::f32x4_mul(), i))
+        Ok((@lib.U32(231), i)) => Ok((Instruction::f32x4_div(), i))
+        Ok((@lib.U32(232), i)) => Ok((Instruction::f32x4_min(), i))
+        Ok((@lib.U32(233), i)) => Ok((Instruction::f32x4_max(), i))
+        Ok((@lib.U32(234), i)) => Ok((Instruction::f32x4_pmin(), i))
+        Ok((@lib.U32(235), i)) => Ok((Instruction::f32x4_pmax(), i))
+        Ok((@lib.U32(236), i)) => Ok((Instruction::f64x2_abs(), i))
+        Ok((@lib.U32(237), i)) => Ok((Instruction::f64x2_neg(), i))
+        Ok((@lib.U32(239), i)) => Ok((Instruction::f64x2_sqrt(), i))
+        Ok((@lib.U32(240), i)) => Ok((Instruction::f64x2_add(), i))
+        Ok((@lib.U32(241), i)) => Ok((Instruction::f64x2_sub(), i))
+        Ok((@lib.U32(242), i)) => Ok((Instruction::f64x2_mul(), i))
+        Ok((@lib.U32(243), i)) => Ok((Instruction::f64x2_div(), i))
+        Ok((@lib.U32(244), i)) => Ok((Instruction::f64x2_min(), i))
+        Ok((@lib.U32(245), i)) => Ok((Instruction::f64x2_max(), i))
+        Ok((@lib.U32(246), i)) => Ok((Instruction::f64x2_pmin(), i))
+        Ok((@lib.U32(247), i)) => Ok((Instruction::f64x2_pmax(), i))
+        Ok((@lib.U32(248), i)) => Ok((Instruction::i32x4_trunc_sat_f32x4s(), i))
+        Ok((@lib.U32(249), i)) => Ok((Instruction::i32x4_trunc_sat_f32x4u(), i))
+        Ok((@lib.U32(250), i)) => Ok((Instruction::f32x4_convert_i32x4s(), i))
+        Ok((@lib.U32(251), i)) => Ok((Instruction::f32x4_convert_i32x4u(), i))
+        Ok((@lib.U32(252), i)) => Ok((Instruction::i32x4_trunc_sat_f64x2s_zero(), i))
+        Ok((@lib.U32(253), i)) => Ok((Instruction::i32x4_trunc_sat_f64x2u_zero(), i))
+        Ok((@lib.U32(254), i)) => Ok((Instruction::f64x2_convert_low_i32x4s(), i))
+        Ok((@lib.U32(255), i)) => Ok((Instruction::f64x2_convert_low_i32x4u(), i))
+        Ok((@lib.U32(256), i)) => Ok((Instruction::i8x16_relaxed_swizzle(), i))
+        Ok((@lib.U32(257), i)) => Ok((Instruction::i32x4_relaxed_trunc_f32x4s(), i))
+        Ok((@lib.U32(258), i)) => Ok((Instruction::i32x4_relaxed_trunc_f32x4u(), i))
+        Ok((@lib.U32(259), i)) => Ok((Instruction::i32x4_relaxed_trunc_zero_f64x2s(), i))
+        Ok((@lib.U32(260), i)) => Ok((Instruction::i32x4_relaxed_trunc_zero_f64x2u(), i))
+        Ok((@lib.U32(261), i)) => Ok((Instruction::f32x4_relaxed_madd(), i))
+        Ok((@lib.U32(262), i)) => Ok((Instruction::f32x4_relaxed_nmadd(), i))
+        Ok((@lib.U32(263), i)) => Ok((Instruction::f64x2_relaxed_madd(), i))
+        Ok((@lib.U32(264), i)) => Ok((Instruction::f64x2_relaxed_nmadd(), i))
+        Ok((@lib.U32(265), i)) => Ok((Instruction::i8x16_relaxed_laneselect(), i))
+        Ok((@lib.U32(266), i)) => Ok((Instruction::i16x8_relaxed_laneselect(), i))
+        Ok((@lib.U32(267), i)) => Ok((Instruction::i32x4_relaxed_laneselect(), i))
+        Ok((@lib.U32(268), i)) => Ok((Instruction::i64x2_relaxed_laneselect(), i))
+        Ok((@lib.U32(269), i)) => Ok((Instruction::f32x4_relaxed_min(), i))
+        Ok((@lib.U32(270), i)) => Ok((Instruction::f32x4_relaxed_max(), i))
+        Ok((@lib.U32(271), i)) => Ok((Instruction::f64x2_relaxed_min(), i))
+        Ok((@lib.U32(272), i)) => Ok((Instruction::f64x2_relaxed_max(), i))
+        Ok((@lib.U32(273), i)) => Ok((Instruction::i16x8_relaxed_q15mulr_s(), i))
+        Ok((@lib.U32(274), i)) => Ok((Instruction::i16x8_relaxed_dot_i8x16i7x16s(), i))
+        Ok((@lib.U32(275), i)) => Ok((Instruction::i32x4_relaxed_dot_i8x16i7x16_add_s(), i))
         Ok((@lib.U32(21), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((l, i)) => Ok((I8x16ExtractLaneS(l), i))
+            Ok((l, i)) => Ok((Instruction::i8x16_extract_lane_s(l), i))
             Err(t) => Err(t)
           }
         Ok((U32(22), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((l, i)) => Ok((I8x16ExtractLaneU(l), i))
+            Ok((l, i)) => Ok((Instruction::i8x16_extract_lane_u(l), i))
             Err(t) => Err(t)
           }
         Ok((U32(23), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((l, i)) => Ok((I8x16ReplaceLane(l), i))
+            Ok((l, i)) => Ok((Instruction::i8x16_replace_lane(l), i))
             Err(t) => Err(t)
           }
         Ok((U32(24), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((l, i)) => Ok((I16x8ExtractLaneS(l), i))
+            Ok((l, i)) => Ok((Instruction::i16x8_extract_lane_s(l), i))
             Err(t) => Err(t)
           }
         Ok((U32(25), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((l, i)) => Ok((I16x8ExtractLaneU(l), i))
+            Ok((l, i)) => Ok((Instruction::i16x8_extract_lane_u(l), i))
             Err(t) => Err(t)
           }
         Ok((U32(26), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((l, i)) => Ok((I16x8ReplaceLane(l), i))
+            Ok((l, i)) => Ok((Instruction::i16x8_replace_lane(l), i))
             Err(t) => Err(t)
           }
         Ok((U32(27), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((l, i)) => Ok((I32x4ExtractLane(l), i))
+            Ok((l, i)) => Ok((Instruction::i32x4_extract_lane(l), i))
             Err(t) => Err(t)
           }
         Ok((U32(28), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((l, i)) => Ok((I32x4ReplaceLane(l), i))
+            Ok((l, i)) => Ok((Instruction::i32x4_replace_lane(l), i))
             Err(t) => Err(t)
           }
         Ok((U32(29), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((l, i)) => Ok((I64x2ExtractLane(l), i))
+            Ok((l, i)) => Ok((Instruction::i64x2_extract_lane(l), i))
             Err(t) => Err(t)
           }
         Ok((U32(30), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((l, i)) => Ok((I64x2ReplaceLane(l), i))
+            Ok((l, i)) => Ok((Instruction::i64x2_replace_lane(l), i))
             Err(t) => Err(t)
           }
         Ok((U32(31), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((l, i)) => Ok((F32x4ExtractLane(l), i))
+            Ok((l, i)) => Ok((Instruction::f32x4_extract_lane(l), i))
             Err(t) => Err(t)
           }
         Ok((U32(32), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((l, i)) => Ok((F32x4ReplaceLane(l), i))
+            Ok((l, i)) => Ok((Instruction::f32x4_replace_lane(l), i))
             Err(t) => Err(t)
           }
         Ok((U32(33), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((l, i)) => Ok((F64x2ExtractLane(l), i))
+            Ok((l, i)) => Ok((Instruction::f64x2_extract_lane(l), i))
             Err(t) => Err(t)
           }
         Ok((U32(34), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((l, i)) => Ok((F64x2ReplaceLane(l), i))
+            Ok((l, i)) => Ok((Instruction::f64x2_replace_lane(l), i))
             Err(t) => Err(t)
           }
         Ok((U32(84), i)) =>
           match Decode::decode(bytes, i) {
             Ok((m, i)) =>
               match Decode::decode(bytes, i) {
-                Ok((l, i)) => Ok((V128Load8Lane(m, l), i))
+                Ok((l, i)) => Ok((Instruction::v128_load8_lane(m, l), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
@@ -3936,7 +3940,7 @@ pub impl Decode for Instruction with decode(bytes, i) {
           match Decode::decode(bytes, i) {
             Ok((m, i)) =>
               match Decode::decode(bytes, i) {
-                Ok((l, i)) => Ok((V128Load16Lane(m, l), i))
+                Ok((l, i)) => Ok((Instruction::v128_load16_lane(m, l), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
@@ -3945,7 +3949,7 @@ pub impl Decode for Instruction with decode(bytes, i) {
           match Decode::decode(bytes, i) {
             Ok((m, i)) =>
               match Decode::decode(bytes, i) {
-                Ok((l, i)) => Ok((V128Load32Lane(m, l), i))
+                Ok((l, i)) => Ok((Instruction::v128_load32_lane(m, l), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
@@ -3954,7 +3958,7 @@ pub impl Decode for Instruction with decode(bytes, i) {
           match Decode::decode(bytes, i) {
             Ok((m, i)) =>
               match Decode::decode(bytes, i) {
-                Ok((l, i)) => Ok((V128Load64Lane(m, l), i))
+                Ok((l, i)) => Ok((Instruction::v128_load64_lane(m, l), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
@@ -3963,7 +3967,7 @@ pub impl Decode for Instruction with decode(bytes, i) {
           match Decode::decode(bytes, i) {
             Ok((m, i)) =>
               match Decode::decode(bytes, i) {
-                Ok((l, i)) => Ok((V128Store8Lane(m, l), i))
+                Ok((l, i)) => Ok((Instruction::v128_store8_lane(m, l), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
@@ -3972,7 +3976,7 @@ pub impl Decode for Instruction with decode(bytes, i) {
           match Decode::decode(bytes, i) {
             Ok((m, i)) =>
               match Decode::decode(bytes, i) {
-                Ok((l, i)) => Ok((V128Store16Lane(m, l), i))
+                Ok((l, i)) => Ok((Instruction::v128_store16_lane(m, l), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
@@ -3981,7 +3985,7 @@ pub impl Decode for Instruction with decode(bytes, i) {
           match Decode::decode(bytes, i) {
             Ok((m, i)) =>
               match Decode::decode(bytes, i) {
-                Ok((l, i)) => Ok((V128Store32Lane(m, l), i))
+                Ok((l, i)) => Ok((Instruction::v128_store32_lane(m, l), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
@@ -3990,19 +3994,19 @@ pub impl Decode for Instruction with decode(bytes, i) {
           match Decode::decode(bytes, i) {
             Ok((m, i)) =>
               match Decode::decode(bytes, i) {
-                Ok((l, i)) => Ok((V128Store64Lane(m, l), i))
+                Ok((l, i)) => Ok((Instruction::v128_store64_lane(m, l), i))
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
           }
         Ok((U32(92), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((m, i)) => Ok((V128Load32Zero(m), i))
+            Ok((m, i)) => Ok((Instruction::v128_load32_zero(m), i))
             Err(t) => Err(t)
           }
         Ok((U32(93), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((m, i)) => Ok((V128Load64Zero(m), i))
+            Ok((m, i)) => Ok((Instruction::v128_load64_zero(m), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
@@ -5694,7 +5698,7 @@ fn[T : Encode + Decode + Eq + Show] roundtrip(x : T) -> Unit raise {
 fn[T : Encode + Decode + Eq + Show + @quickcheck.Arbitrary] roundtrip_arbitrary(
   count : Int,
 ) -> Array[T] raise {
-  let st = @quickcheck/splitmix.new()
+  let st = @splitmix.new()
   let a = Array::new(capacity=count)
   loop count {
     0 => break a
@@ -5991,7 +5995,7 @@ test "LaneIdx" {
 
 ///|
 test "Float specific edge case?" {
-  roundtrip(@lib.F32Const(F32(0.011397957801818848)))
+  roundtrip(Instruction::f32_const(F32(0.011397957801818848)))
 }
 
 ///|
@@ -6020,7 +6024,7 @@ test "Block Types" {
 
 ///|
 test "Instructions arbitrary" {
-  let st = @quickcheck/splitmix.new()
+  let st = @splitmix.new()
   loop 1000000 {
     0 => break ()
     n => {
@@ -6033,7 +6037,7 @@ test "Instructions arbitrary" {
 
 ///|
 test "Arbitrary CustomSec" {
-  let st = @quickcheck/splitmix.new()
+  let st = @splitmix.new()
   loop 100 {
     0 => break ()
     n => {
@@ -6046,7 +6050,7 @@ test "Arbitrary CustomSec" {
 
 ///|
 test "Arbitrary TypeSec" {
-  let st = @quickcheck/splitmix.new()
+  let st = @splitmix.new()
   loop 100 {
     0 => break ()
     n => {
@@ -6059,7 +6063,7 @@ test "Arbitrary TypeSec" {
 
 ///|
 test "Arbitrary ImportSec" {
-  let st = @quickcheck/splitmix.new()
+  let st = @splitmix.new()
   loop 100 {
     0 => break ()
     n => {
@@ -6072,7 +6076,7 @@ test "Arbitrary ImportSec" {
 
 ///|
 test "Arbitrary FuncSec" {
-  let st = @quickcheck/splitmix.new()
+  let st = @splitmix.new()
   loop 100 {
     0 => break ()
     n => {
@@ -6085,7 +6089,7 @@ test "Arbitrary FuncSec" {
 
 ///|
 test "Arbitrary TableSec" {
-  let st = @quickcheck/splitmix.new()
+  let st = @splitmix.new()
   loop 100 {
     0 => break ()
     n => {
@@ -6098,7 +6102,7 @@ test "Arbitrary TableSec" {
 
 ///|
 test "Arbitrary MemSec" {
-  let st = @quickcheck/splitmix.new()
+  let st = @splitmix.new()
   loop 100 {
     0 => break ()
     n => {
@@ -6111,7 +6115,7 @@ test "Arbitrary MemSec" {
 
 ///|
 test "Arbitrary GlobalSec" {
-  let st = @quickcheck/splitmix.new()
+  let st = @splitmix.new()
   loop 100 {
     0 => break ()
     n => {
@@ -6124,7 +6128,7 @@ test "Arbitrary GlobalSec" {
 
 ///|
 test "Arbitrary ExportSec" {
-  let st = @quickcheck/splitmix.new()
+  let st = @splitmix.new()
   loop 100 {
     0 => break ()
     n => {
@@ -6137,7 +6141,7 @@ test "Arbitrary ExportSec" {
 
 ///|
 test "Arbitrary StartSec" {
-  let st = @quickcheck/splitmix.new()
+  let st = @splitmix.new()
   loop 100 {
     0 => break ()
     n => {
@@ -6150,7 +6154,7 @@ test "Arbitrary StartSec" {
 
 ///|
 test "Arbitrary Elem" {
-  let st = @quickcheck/splitmix.new()
+  let st = @splitmix.new()
   loop 1000 {
     0 => break ()
     n => {
@@ -6163,7 +6167,7 @@ test "Arbitrary Elem" {
 
 ///|
 test "Arbitrary ElemSec" {
-  let st = @quickcheck/splitmix.new()
+  let st = @splitmix.new()
   loop 100 {
     0 => break ()
     n => {
@@ -6176,7 +6180,7 @@ test "Arbitrary ElemSec" {
 
 ///|
 test "Arbitrary Func" {
-  let st = @quickcheck/splitmix.new()
+  let st = @splitmix.new()
   loop 1000 {
     0 => break ()
     n => {
@@ -6189,7 +6193,7 @@ test "Arbitrary Func" {
 
 ///|
 test "Arbitrary CodeSec" {
-  let st = @quickcheck/splitmix.new()
+  let st = @splitmix.new()
   loop 100 {
     0 => break ()
     n => {
@@ -6202,7 +6206,7 @@ test "Arbitrary CodeSec" {
 
 ///|
 test "Arbitrary Data" {
-  let st = @quickcheck/splitmix.new()
+  let st = @splitmix.new()
   loop 1000 {
     0 => break ()
     n => {
@@ -6215,7 +6219,7 @@ test "Arbitrary Data" {
 
 ///|
 test "Arbitrary DataSec" {
-  let st = @quickcheck/splitmix.new()
+  let st = @splitmix.new()
   loop 100 {
     0 => break ()
     n => {
@@ -6228,7 +6232,7 @@ test "Arbitrary DataSec" {
 
 ///|
 test "Arbitrary DataCntSec" {
-  let st = @quickcheck/splitmix.new()
+  let st = @splitmix.new()
   loop 100 {
     0 => break ()
     n => {
@@ -6241,7 +6245,7 @@ test "Arbitrary DataCntSec" {
 
 ///|
 test "Arbitrary TagSec" {
-  let st = @quickcheck/splitmix.new()
+  let st = @splitmix.new()
   loop 100 {
     0 => break ()
     n => {
@@ -6254,7 +6258,7 @@ test "Arbitrary TagSec" {
 
 ///|
 test "Arbitrary Module" {
-  let st = @quickcheck/splitmix.new()
+  let st = @splitmix.new()
   loop 1000 {
     0 => break ()
     n => {
@@ -6267,7 +6271,7 @@ test "Arbitrary Module" {
 
 ///|
 test "Names" {
-  let st = @quickcheck/splitmix.new()
+  let st = @splitmix.new()
   loop 1000 {
     0 => break ()
     n => {

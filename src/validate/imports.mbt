@@ -80,4 +80,4 @@ using @lib {
 }
 
 ///|
-using @quickcheck/splitmix {type RandomState}
+using @splitmix {type RandomState}

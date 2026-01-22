@@ -219,7 +219,7 @@ pub struct ParseError {
   message : String
 }
 
-pub type! ParserError {
+pub suberror ParserError {
   UnexpectedToken(Token, String)
   UnexpectedEof
   InvalidInstruction(String)

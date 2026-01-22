@@ -226,7 +226,7 @@ fn make_type_corruption_transformer() -> ModuleTransformer[Bool] {
         return Ok(None)
       }
       // Insert i32.const followed by i64.add - guaranteed type error
-      let new_instrs = [@lib.I32Const(I32(42)), I64Add]
+      let new_instrs = [Instruction::i32_const(I32(42)), Instruction::i64_add()]
       for i in instrs {
         new_instrs.push(i)
       }
@@ -333,9 +333,9 @@ fn make_nullability_flip_transformer() -> ModuleTransformer[Unit] {
       match instr {
         // ref.null produces nullable ref, but if types expect non-null, this fails
         // Replace with something that definitely won't typecheck
-        RefNull(_) => Ok(Some(((), I32Const(I32(0))))) // Completely wrong type
-        RefFunc(_) => Ok(Some(((), I64Const(I64(0L))))) // Wrong type for funcref
-        RefIsNull => Ok(Some(((), I64Const(I64(0L))))) // Expects ref, we removed it
+        RefNull(_) => Ok(Some(((), Instruction::i32_const(I32(0))))) // Completely wrong type
+        RefFunc(_) => Ok(Some(((), Instruction::i64_const(I64(0L))))) // Wrong type for funcref
+        RefIsNull => Ok(Some(((), Instruction::i64_const(I64(0L))))) // Expects ref, we removed it
         _ => Ok(None)
       }
     }),
@@ -419,12 +419,12 @@ fn make_global_init_mismatch_transformer() -> ModuleTransformer[Unit] {
       let Global(GlobalType(vt, mutable), _init) = g
       // Create an init expression with wrong type
       let wrong_init = match vt {
-        NumTypeValType(I32NumType) => Expr::new([F64Const(F64(0.0))])
-        NumTypeValType(I64NumType) => Expr::new([F32Const(F32(0.0))])
-        NumTypeValType(F32NumType) => Expr::new([I64Const(I64(0L))])
-        NumTypeValType(F64NumType) => Expr::new([I32Const(I32(0))])
-        RefTypeValType(_) => Expr::new([I32Const(I32(0))]) // Definitely wrong
-        VecTypeValType => Expr::new([I32Const(I32(0))])
+        NumTypeValType(I32NumType) => Expr::new([Instruction::f64_const(F64(0.0))])
+        NumTypeValType(I64NumType) => Expr::new([Instruction::f32_const(F32(0.0))])
+        NumTypeValType(F32NumType) => Expr::new([Instruction::i64_const(I64(0L))])
+        NumTypeValType(F64NumType) => Expr::new([Instruction::i32_const(I32(0))])
+        RefTypeValType(_) => Expr::new([Instruction::i32_const(I32(0))]) // Definitely wrong
+        VecTypeValType => Expr::new([Instruction::i32_const(I32(0))])
         BotValType => return Ok(None)
       }
       Ok(Some(((), Global::new(GlobalType::new(vt, mutable), wrong_init))))
@@ -444,7 +444,7 @@ fn make_table_init_mismatch_transformer() -> ModuleTransformer[Unit] {
     ) -> TransformerResult[Unit, Table] {
       let Table(tt, _init) = t
       // Set init to wrong type expression
-      Ok(Some(((), Table::new(tt, Some(Expr::new([I32Const(I32(42))]))))))
+      Ok(Some(((), Table::new(tt, Some(Expr::new([Instruction::i32_const(I32(42))]))))))
     }),
   }
 }
@@ -467,7 +467,7 @@ fn make_drop_insertion_transformer() -> ModuleTransformer[Bool] {
         return Ok(None)
       }
       // Prepend Drop instructions to cause stack underflow
-      let new_instrs : Array[Instruction] = [Drop, Drop, Drop]
+      let new_instrs : Array[Instruction] = [Instruction::drop(), Instruction::drop(), Instruction::drop()]
       for i in instrs {
         new_instrs.push(i)
       }
@@ -538,14 +538,14 @@ fn make_blocktype_mismatch_transformer() -> ModuleTransformer[Bool] {
         | F32Const(_)
         | F64Const(_)
         | V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-          Ok(Some((true, Block(EmptyBlockType, Expr::new([ins])))))
+          Ok(Some((true, Instruction::block(EmptyBlockType, Expr::new([ins])))))
 
         // Nop/Drop: wrap in block claiming it produces i32
         // Body produces nothing, block claims i32 -> mismatch
         Nop | Drop =>
           Ok(
             Some(
-              (true, Block(ValTypeBlockType(ValType::i32()), Expr::new([ins]))),
+              (true, Instruction::block(ValTypeBlockType(ValType::i32()), Expr::new([ins]))),
             ),
           )
 
@@ -553,38 +553,38 @@ fn make_blocktype_mismatch_transformer() -> ModuleTransformer[Bool] {
         LocalGet(_) =>
           Ok(
             Some(
-              (true, Block(ValTypeBlockType(ValType::i64()), Expr::new([ins]))),
+              (true, Instruction::block(ValTypeBlockType(ValType::i64()), Expr::new([ins]))),
             ),
           )
 
         // GlobalGet produces a value - wrap in block claiming empty
         GlobalGet(_) =>
-          Ok(Some((true, Block(EmptyBlockType, Expr::new([ins])))))
+          Ok(Some((true, Instruction::block(EmptyBlockType, Expr::new([ins])))))
 
         // Existing control flow: corrupt their block type
-        Block(bt, body) => Ok(Some((true, Block(corrupt_blocktype(bt), body))))
-        Loop(bt, body) => Ok(Some((true, Loop(corrupt_blocktype(bt), body))))
+        Block(bt, body) => Ok(Some((true, Instruction::block(corrupt_blocktype(bt), body))))
+        Loop(bt, body) => Ok(Some((true, Instruction::loop_(corrupt_blocktype(bt), body))))
         If(bt, then_body, else_body) =>
-          Ok(Some((true, If(corrupt_blocktype(bt), then_body, else_body))))
+          Ok(Some((true, Instruction::if_(corrupt_blocktype(bt), then_body, else_body))))
         TryTable(bt, catches, body) =>
-          Ok(Some((true, TryTable(corrupt_blocktype(bt), catches, body))))
+          Ok(Some((true, Instruction::try_table(corrupt_blocktype(bt), catches, body))))
 
         // RefNull produces a ref - wrap in block claiming i32
         RefNull(_) =>
           Ok(
             Some(
-              (true, Block(ValTypeBlockType(ValType::i32()), Expr::new([ins]))),
+              (true, Instruction::block(ValTypeBlockType(ValType::i32()), Expr::new([ins]))),
             ),
           )
 
         // RefFunc produces a ref - wrap in block claiming empty
-        RefFunc(_) => Ok(Some((true, Block(EmptyBlockType, Expr::new([ins])))))
+        RefFunc(_) => Ok(Some((true, Instruction::block(EmptyBlockType, Expr::new([ins])))))
 
         // StructNewDefault produces a ref - wrap in block claiming i32
         StructNewDefault(_) =>
           Ok(
             Some(
-              (true, Block(ValTypeBlockType(ValType::i32()), Expr::new([ins]))),
+              (true, Instruction::block(ValTypeBlockType(ValType::i32()), Expr::new([ins]))),
             ),
           )
 
@@ -810,7 +810,7 @@ fn fuzz_all_strategies_with_coverage(
 
 ///|
 test "invalidation fuzzing with coverage" {
-  let rnd = @quickcheck/splitmix.new()
+  let rnd = @splitmix.new()
   let tested_count : Map[String, Int] = {}
   let rejected_count : Map[String, Int] = {}
   let strategy_names = [

@@ -4,6 +4,8 @@
       {
         "alias": "lib",
         "path": "jtenner/starshine/lib"
-      }
+      },
+      "moonbitlang/core/quickcheck",
+      "moonbitlang/core/quickcheck/splitmix"
     ]
 }

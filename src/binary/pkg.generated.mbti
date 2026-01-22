@@ -1,11 +1,11 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "jtenner/starshine/binary"
 
-import(
-  "jtenner/starshine/lib"
-  "moonbitlang/core/buffer"
-  "moonbitlang/core/list"
-)
+import {
+  "jtenner/starshine/lib",
+  "moonbitlang/core/buffer",
+  "moonbitlang/core/list",
+}
 
 // Values
 pub fn size_signed(Int64, Int) -> Result[Int, String]
