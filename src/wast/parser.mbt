@@ -355,7 +355,7 @@ fn WastParser::get_text(_ : WastParser, token : Token) -> String {
   }
 }
 
-fn WastParser::get_literal_text(self : WastParser, token : Token) -> String {
+fn WastParser::get_literal_text(_ : WastParser, token : Token) -> String {
   match token.value {
     Literal(lit) => lit.text
     _ => ""
@@ -461,6 +461,11 @@ fn WastParser::parse_value_type(self : WastParser) -> ValueType raise ParserErro
     ValueType(vt) => {
       let _ = self.advance()
       vt
+    }
+    // 'func' is an abbreviation for funcref in heap type contexts (e.g., ref.null func)
+    Func => {
+      let _ = self.advance()
+      FuncRef
     }
     _ => raise UnexpectedToken(self.current, "expected value type")
   }
@@ -984,9 +989,20 @@ fn WastParser::parse_opcode_instruction(
       Instruction::TableCopy(dst, src)
     }
     Opcode::TableInit => {
-      let table = self.try_parse_index().unwrap_or(Index::Num(0))
-      let elem = self.parse_index()
-      Instruction::TableInit(table, elem)
+      // table.init can have either:
+      //   table.init elemidx           -> table defaults to 0
+      //   table.init tableidx elemidx  -> explicit table index
+      let first = self.try_parse_index()
+      match first {
+        Some(idx1) => {
+          let second = self.try_parse_index()
+          match second {
+            Some(idx2) => Instruction::TableInit(idx1, idx2) // tableidx, elemidx
+            None => Instruction::TableInit(Index::Num(0), idx1) // default table 0, elemidx
+          }
+        }
+        None => raise Custom("table.init requires at least one index")
+      }
     }
     Opcode::ElemDrop => Instruction::ElemDrop(self.parse_index())
 

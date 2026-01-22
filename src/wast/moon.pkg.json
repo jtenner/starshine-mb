@@ -1,5 +1,5 @@
 {
-  "name": "wat",
+  "name": "wast",
   "import": [
     {
       "alias": "lib",

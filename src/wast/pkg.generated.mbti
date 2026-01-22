@@ -1,0 +1,587 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "jtenner/starshine/wast"
+
+import(
+  "moonbitlang/core/hashmap"
+)
+
+// Values
+pub fn lookup_keyword(String) -> TokenType?
+
+// Errors
+pub suberror ParserError {
+  UnexpectedToken(Token, String)
+  UnexpectedEof
+  InvalidInstruction(String)
+  InvalidType(String)
+  Custom(String)
+}
+pub impl Show for ParserError
+
+// Types and methods
+pub struct BlockType {
+  label : String?
+  type_use : TypeUse?
+}
+
+pub struct DataSegment {
+  id : String?
+  memory_index : Index
+  offset : Array[Instruction]
+  data : Bytes
+}
+
+pub struct ElemSegment {
+  id : String?
+  table_index : Index
+  offset : Array[Instruction]
+  func_indices : Array[Index]
+}
+
+pub enum ErrorLevel {
+  Error
+  Warning
+}
+
+pub struct Export {
+  name : String
+  desc : ExportDesc
+}
+
+pub enum ExportDesc {
+  Func(Index)
+  Table(Index)
+  Memory(Index)
+  Global(Index)
+}
+
+pub struct Func {
+  id : String?
+  exports : Array[InlineExport]
+  type_use : TypeUse
+  locals : Array[Local]
+  body : Array[Instruction]
+}
+
+pub struct FuncType {
+  params : Array[ValueType]
+  results : Array[ValueType]
+}
+
+pub struct Global {
+  id : String?
+  exports : Array[InlineExport]
+  global_type : GlobalType
+  init : Array[Instruction]
+}
+
+pub struct GlobalType {
+  val_type : ValueType
+  mutable_ : Bool
+}
+
+pub struct Import {
+  module_name : String
+  field_name : String
+  desc : ImportDesc
+  id : String?
+}
+
+pub enum ImportDesc {
+  Func(TypeUse)
+  Table(TableType)
+  Memory(MemoryType)
+  Global(GlobalType)
+}
+
+pub enum Index {
+  Num(UInt)
+  Id(String)
+}
+
+pub enum InlineExport {
+  Export(String)
+}
+
+pub enum Instruction {
+  Unreachable
+  Nop
+  Block(BlockType, Array[Instruction])
+  Loop(BlockType, Array[Instruction])
+  If(BlockType, Array[Instruction], Array[Instruction])
+  Br(Index)
+  BrIf(Index)
+  BrTable(Array[Index], Index)
+  Return
+  Call(Index)
+  CallIndirect(Index, TypeUse)
+  Drop
+  Select(Array[ValueType]?)
+  LocalGet(Index)
+  LocalSet(Index)
+  LocalTee(Index)
+  GlobalGet(Index)
+  GlobalSet(Index)
+  TableGet(Index)
+  TableSet(Index)
+  TableSize(Index)
+  TableGrow(Index)
+  TableFill(Index)
+  TableCopy(Index, Index)
+  TableInit(Index, Index)
+  ElemDrop(Index)
+  Load(Opcode, MemArg)
+  Store(Opcode, MemArg)
+  MemorySize
+  MemoryGrow
+  MemoryFill
+  MemoryCopy
+  MemoryInit(Index)
+  DataDrop(Index)
+  Const(Opcode, String)
+  Unary(Opcode)
+  Binary(Opcode)
+  Test(Opcode)
+  Compare(Opcode)
+  Convert(Opcode)
+  RefNull(ValueType)
+  RefIsNull
+  RefFunc(Index)
+}
+
+type KeywordEntry
+
+pub struct KeywordTable {
+  map : @hashmap.HashMap[String, TokenType]
+}
+pub fn KeywordTable::lookup(Self, String) -> TokenType?
+
+pub struct LexerError {
+  level : ErrorLevel
+  location : Location
+  message : String
+}
+
+pub struct LexerState {
+  cursor : Int
+  line : Int
+  line_start : Int
+}
+
+pub struct Limits {
+  min : UInt
+  max : UInt?
+}
+
+pub struct Literal {
+  literal_type : LiteralType
+  text : String
+}
+pub impl Show for Literal
+
+pub enum LiteralType {
+  Int
+  Float
+  Hexfloat
+  Infinity
+  Nan
+}
+pub impl Show for LiteralType
+
+pub struct Local {
+  id : String?
+  val_type : ValueType
+}
+
+pub struct Location {
+  filename : String
+  line : Int
+  first_column : Int
+  last_column : Int
+}
+pub impl Show for Location
+
+pub struct MemArg {
+  align : UInt
+  offset : UInt
+}
+
+pub struct Memory {
+  id : String?
+  exports : Array[InlineExport]
+  memory_type : MemoryType
+}
+
+pub struct MemoryType(Limits)
+#deprecated
+pub fn MemoryType::inner(Self) -> Limits
+
+pub struct Module {
+  id : String?
+  fields : Array[ModuleField]
+}
+
+pub enum ModuleField {
+  TypeField(TypeDef)
+  FuncField(Func)
+  TableField(Table)
+  MemoryField(Memory)
+  GlobalField(Global)
+  ImportField(Import)
+  ExportField(Export)
+  StartField(Start)
+  ElemField(ElemSegment)
+  DataField(DataSegment)
+}
+
+pub enum Opcode {
+  Unreachable
+  Nop
+  Block
+  Loop
+  If
+  Else
+  End
+  Br
+  BrIf
+  BrTable
+  Return
+  Call
+  CallIndirect
+  RefNull
+  RefIsNull
+  RefFunc
+  Drop
+  Select
+  LocalGet
+  LocalSet
+  LocalTee
+  GlobalGet
+  GlobalSet
+  TableGet
+  TableSet
+  TableSize
+  TableGrow
+  TableFill
+  TableCopy
+  TableInit
+  ElemDrop
+  I32Load
+  I64Load
+  F32Load
+  F64Load
+  I32Load8S
+  I32Load8U
+  I32Load16S
+  I32Load16U
+  I64Load8S
+  I64Load8U
+  I64Load16S
+  I64Load16U
+  I64Load32S
+  I64Load32U
+  I32Store
+  I64Store
+  F32Store
+  F64Store
+  I32Store8
+  I32Store16
+  I64Store8
+  I64Store16
+  I64Store32
+  MemorySize
+  MemoryGrow
+  MemoryFill
+  MemoryCopy
+  MemoryInit
+  DataDrop
+  I32Const
+  I64Const
+  F32Const
+  F64Const
+  I32Eqz
+  I32Eq
+  I32Ne
+  I32LtS
+  I32LtU
+  I32GtS
+  I32GtU
+  I32LeS
+  I32LeU
+  I32GeS
+  I32GeU
+  I32Clz
+  I32Ctz
+  I32Popcnt
+  I32Add
+  I32Sub
+  I32Mul
+  I32DivS
+  I32DivU
+  I32RemS
+  I32RemU
+  I32And
+  I32Or
+  I32Xor
+  I32Shl
+  I32ShrS
+  I32ShrU
+  I32Rotl
+  I32Rotr
+  I64Eqz
+  I64Eq
+  I64Ne
+  I64LtS
+  I64LtU
+  I64GtS
+  I64GtU
+  I64LeS
+  I64LeU
+  I64GeS
+  I64GeU
+  I64Clz
+  I64Ctz
+  I64Popcnt
+  I64Add
+  I64Sub
+  I64Mul
+  I64DivS
+  I64DivU
+  I64RemS
+  I64RemU
+  I64And
+  I64Or
+  I64Xor
+  I64Shl
+  I64ShrS
+  I64ShrU
+  I64Rotl
+  I64Rotr
+  F32Eq
+  F32Ne
+  F32Lt
+  F32Gt
+  F32Le
+  F32Ge
+  F32Abs
+  F32Neg
+  F32Ceil
+  F32Floor
+  F32Trunc
+  F32Nearest
+  F32Sqrt
+  F32Add
+  F32Sub
+  F32Mul
+  F32Div
+  F32Min
+  F32Max
+  F32Copysign
+  F64Eq
+  F64Ne
+  F64Lt
+  F64Gt
+  F64Le
+  F64Ge
+  F64Abs
+  F64Neg
+  F64Ceil
+  F64Floor
+  F64Trunc
+  F64Nearest
+  F64Sqrt
+  F64Add
+  F64Sub
+  F64Mul
+  F64Div
+  F64Min
+  F64Max
+  F64Copysign
+  I32WrapI64
+  I32TruncF32S
+  I32TruncF32U
+  I32TruncF64S
+  I32TruncF64U
+  I64ExtendI32S
+  I64ExtendI32U
+  I64TruncF32S
+  I64TruncF32U
+  I64TruncF64S
+  I64TruncF64U
+  F32ConvertI32S
+  F32ConvertI32U
+  F32ConvertI64S
+  F32ConvertI64U
+  F32DemoteF64
+  F64ConvertI32S
+  F64ConvertI32U
+  F64ConvertI64S
+  F64ConvertI64U
+  F64PromoteF32
+  I32ReinterpretF32
+  I64ReinterpretF64
+  F32ReinterpretI32
+  F64ReinterpretI64
+  I32Extend8S
+  I32Extend16S
+  I64Extend8S
+  I64Extend16S
+  I64Extend32S
+  I32TruncSatF32S
+  I32TruncSatF32U
+  I32TruncSatF64S
+  I32TruncSatF64U
+  I64TruncSatF32S
+  I64TruncSatF32U
+  I64TruncSatF64S
+  I64TruncSatF64U
+}
+pub impl Show for Opcode
+
+pub struct ParseError {
+  location : Location
+  message : String
+}
+
+type ReservedChars
+
+pub struct Start {
+  func_index : Index
+}
+
+pub struct Table {
+  id : String?
+  exports : Array[InlineExport]
+  table_type : TableType
+}
+
+pub struct TableType {
+  limits : Limits
+  elem_type : ValueType
+}
+
+pub struct Token {
+  location : Location
+  token_type : TokenType
+  value : TokenValue
+}
+pub impl Show for Token
+
+pub enum TokenType {
+  Eof
+  Lpar
+  Rpar
+  LparAnn
+  Nat
+  Int
+  Float
+  Text
+  Var
+  Reserved
+  AlignEqNat
+  OffsetEqNat
+  Invalid
+  Module
+  Type
+  Func
+  Param
+  Result
+  Local
+  Global
+  Table
+  Memory
+  Import
+  Export
+  ValueType(ValueType)
+  Opcode(Opcode)
+  Block
+  Loop
+  If
+  Then
+  Else
+  End
+  Offset
+  Item
+  Declare
+  Quote
+  Register
+  Invoke
+  Get
+  AssertMalformed
+  AssertInvalid
+  AssertUnlinkable
+  AssertReturn
+  AssertTrap
+  AssertExhaustion
+  Input
+  Output
+  Binary
+  Start
+  Data
+  Elem
+  Mut
+}
+pub impl Show for TokenType
+
+pub enum TokenValue {
+  None
+  Text(String)
+  Literal(Literal)
+  ValueType(ValueType)
+  Opcode(Opcode)
+}
+pub impl Show for TokenValue
+
+pub struct TypeDef {
+  id : String?
+  func_type : FuncType
+}
+
+pub struct TypeUse {
+  type_index : Index?
+  func_type : FuncType
+}
+
+pub enum ValueType {
+  I32
+  I64
+  F32
+  F64
+  V128
+  FuncRef
+  ExternRef
+  Func
+  Extern
+}
+pub impl Show for ValueType
+
+pub struct WastLexer {
+  buffer : Bytes
+  filename : String
+  mut line : Int
+  mut cursor : Int
+  mut line_start : Int
+  mut token_start : Int
+  errors : Array[LexerError]
+}
+pub fn WastLexer::get_errors(Self) -> Array[LexerError]
+pub fn WastLexer::get_token(Self) -> Token
+pub fn WastLexer::has_errors(Self) -> Bool
+pub fn WastLexer::new(Bytes, String) -> Self
+
+pub struct WastParser {
+  lexer : WastLexer
+  mut current : Token
+  errors : Array[ParseError]
+}
+pub fn WastParser::get_errors(Self) -> Array[ParseError]
+pub fn WastParser::has_errors(Self) -> Bool
+pub fn WastParser::new(WastLexer) -> Self
+pub fn WastParser::parse_module(Self) -> Module raise ParserError
+
+// Type aliases
+
+// Traits
+pub trait Parse {
+}
+

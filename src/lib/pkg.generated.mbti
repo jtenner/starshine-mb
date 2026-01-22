@@ -2776,6 +2776,7 @@ pub impl @quickcheck.Arbitrary for TagIdx
 pub(all) struct TagSec(Array[TagType])
 #deprecated
 pub fn TagSec::inner(Self) -> Array[TagType]
+pub fn TagSec::new(Array[TagType]) -> Self
 pub impl Eq for TagSec
 pub impl Hash for TagSec
 pub impl Show for TagSec

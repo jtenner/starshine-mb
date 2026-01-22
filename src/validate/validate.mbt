@@ -626,7 +626,6 @@ pub fn validate_codesec(
           None => return Err("internal: missing functype for code body")
         }
         if validate_func_body_against_functype(env, ft, bodies[i]) is Err(e) {
-          println("Func body \{i} invalid:\n  \{bodies[i]}")
           return Err(e)
         }
       }
@@ -1124,7 +1123,6 @@ test "Fuzz Modules" {
       let result = validate_module(mod)
       
       if result is Err(t) {
-        println(mod)
         assert_true(false, msg=t)
       }
       continue n - 1

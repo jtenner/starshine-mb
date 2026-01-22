@@ -5651,29 +5651,26 @@ pub impl[T : Decode] Decode for Array[T] with decode(bytes, i) {
 // For tests:
 
 ///|
-priv suberror EncodingFailed
+priv suberror EncodingFailed {
+  EncodingFailed(String)
+}
 
 ///|
-priv suberror DecodingFailed
+priv suberror DecodingFailed {
+  DecodingFailed(String)
+}
 
 ///|
 fn[T : Encode + Decode + Eq + Show] roundtrip(x : T) -> Unit raise {
   let buf = @buffer.new()
   match Encode::encode(x, buf) {
     Ok(_) => ()
-    Err(t) => {
-      println(("Encoding failed", t))
-      raise EncodingFailed
-    }
+    Err(t) => raise EncodingFailed(t)
   }
   let bytes = buf.to_bytes()
   let (y, i2) = match Decode::decode(bytes, 0) {
     Ok(t) => t
-    Err(t) => {
-      println(("Decoding failed", t, "for", x))
-      println(("Bytes", bytes.to_array()))
-      raise DecodingFailed
-    }
+    Err(t) => raise DecodingFailed(t)
   }
   if bytes.length() != i2 {
     println(("Failed: Byte Length Mismatch", bytes.length(), i2))
@@ -5685,7 +5682,7 @@ fn[T : Encode + Decode + Eq + Show] roundtrip(x : T) -> Unit raise {
     match Encode::encode(y, compare) {
       Ok(_) =>
         println(("Decoded byte representation", compare.to_bytes().to_array()))
-      Err(_) => println("Could not re-encode actual value")
+      Err(t) => println("Could not re-encode actual value \{t}")
     }
     println(("Decoded", y))
   }

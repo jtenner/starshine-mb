@@ -9,51 +9,19 @@ import(
 // Values
 pub fn diff(@lib.RefType, @lib.RefType) -> Result[@lib.RefType, String]
 
-pub fn gen_ctx_new(Int, rnd? : @splitmix.RandomState?) -> GenCtx
+pub fn gen_side_effect_tinstr(GenValidContext, Int, label_depth? : Int) -> @lib.TInstr
 
-pub fn gen_datasec_valid(GenCtx, @lib.Env) -> Result[(GenCtx, @lib.DataSec, @lib.Env), String]
-
-pub fn gen_elemsec_valid(GenCtx, @lib.Env) -> Result[(GenCtx, @lib.ElemSec, @lib.Env), String]
-
-pub fn gen_exportsec_valid(GenCtx, @lib.Env) -> Result[(GenCtx, @lib.ExportSec?), String]
-
-pub fn gen_expr_valid(GenCtx, TcState, Array[@lib.ValType]) -> Result[@lib.Expr, String]
-
-pub fn gen_expr_valid_with_blocks(GenCtx, TcState, Array[@lib.ValType]) -> Result[@lib.Expr, String]
-
-pub fn gen_func_entry(GenCtx, @lib.TypeIdx) -> Result[@lib.Func, String]
-
-pub fn gen_globalsec_valid(GenCtx, @lib.Env) -> Result[(GenCtx, @lib.GlobalSec?, @lib.Env), String]
-
-pub fn gen_importsec_valid(GenCtx, @lib.Env) -> Result[(GenCtx, @lib.ImportSec?, @lib.Env), String]
-
-pub fn gen_memsec_valid(GenCtx, @lib.Env) -> Result[(GenCtx, @lib.MemSec, @lib.Env), String]
-
-pub fn gen_module_valid_full(GenCtx) -> Result[(GenCtx, @lib.Module), String]
-
-pub fn gen_side_effect_tinstr(GenValidV2Context, Int) -> @lib.TInstr
-
-pub fn gen_startsec_valid(GenCtx, @lib.Env) -> Result[(GenCtx, @lib.StartSec?), String]
-
-pub fn gen_tablesec_valid(GenCtx, @lib.Env) -> Result[(GenCtx, @lib.TableSec, @lib.Env), String]
-
-pub fn gen_tagsec_valid(GenCtx, @lib.Env) -> Result[(GenCtx, @lib.TagSec?, @lib.Env), String]
-
-pub fn gen_tfunc_entry(GenCtx, @lib.TypeIdx) -> Result[@lib.Func, String]
-
-pub fn gen_tinstr_of_type(GenValidV2Context, @lib.ValType) -> @lib.TInstr
-
-pub fn gen_typesec_valid(GenCtx) -> Result[(GenCtx, @lib.TypeSec), String]
+pub fn gen_tinstr_of_type(GenValidContext, @lib.ValType) -> @lib.TInstr
 
 pub fn gen_valid_module(@splitmix.RandomState) -> @lib.Module
 
-pub fn gen_valid_numtype(GenValidV2Context) -> @lib.NumType
+pub fn gen_valid_numtype(GenValidContext) -> @lib.NumType
 
-pub fn gen_valid_result_type(GenValidV2Context, Array[@lib.ValType], TypeGenerationStrategy) -> Array[@lib.ValType]
+pub fn gen_valid_result_type(GenValidContext, Array[@lib.ValType], TypeGenerationStrategy) -> Array[@lib.ValType]
 
-pub fn gen_valid_tfunc(GenValidV2Context, Array[@lib.ValType], Array[@lib.ValType]) -> @lib.Func
+pub fn gen_valid_tfunc(GenValidContext, Array[@lib.ValType], Array[@lib.ValType]) -> @lib.Func
 
-pub fn gen_valid_valtype(GenValidV2Context) -> @lib.ValType
+pub fn gen_valid_valtype(GenValidContext) -> @lib.ValType
 
 pub fn validate_codesec(@lib.CodeSec?, @lib.FuncSec?, @lib.Env) -> Result[Unit, String]
 
@@ -86,16 +54,7 @@ pub fn validate_typesec(@lib.TypeSec?, @lib.Env) -> Result[@lib.Env, String]
 // Errors
 
 // Types and methods
-pub struct GenCtx {
-  rnd : @splitmix.RandomState
-  fuel : Int
-  env : @lib.Env
-}
-pub fn GenCtx::dec_fuel(Self, Int) -> Self
-pub fn GenCtx::with_env(Self, @lib.Env) -> Self
-pub fn GenCtx::with_fuel_only(Self, Int) -> Self
-
-type GenValidV2Context
+type GenValidContext
 
 pub struct TcState {
   env : @lib.Env
@@ -112,10 +71,6 @@ pub type TcResult = Result[TcState, String]
 // Traits
 pub trait DeclMatch {
   matches_decl(Self, Self, @lib.Env) -> Bool
-}
-
-pub trait GenValid {
-  gen_valid(Self, GenCtx) -> Result[Self, String]
 }
 
 pub trait Match {
