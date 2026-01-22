@@ -47,7 +47,6 @@ pub impl Decode for AbsHeapType with decode(bytes, i) {
   }
 }
 
-
 ///|
 pub impl Decode for RefType with decode(bytes, i) {
   match bytes.get(i) {
@@ -87,7 +86,6 @@ pub impl Decode for ValType with decode(bytes, i) {
   }
 }
 
-
 ///|
 pub impl[T : Decode] Decode for @list.List[T] with decode(bytes, i) {
   match Decode::decode(bytes, i) {
@@ -106,7 +104,6 @@ pub impl[T : Decode] Decode for @list.List[T] with decode(bytes, i) {
     Err(err) => Err(err)
   }
 }
-
 
 ///|
 pub impl Decode for CompType with decode(bytes, i) {
@@ -135,7 +132,6 @@ pub impl Decode for CompType with decode(bytes, i) {
   }
 }
 
-
 ///|
 pub impl Decode for Mut with decode(bytes, i) {
   if i >= bytes.length() {
@@ -149,7 +145,6 @@ pub impl Decode for Mut with decode(bytes, i) {
   }
 }
 
-
 ///|
 pub impl Decode for StorageType with decode(bytes, i) {
   match Decode::decode(bytes, i) {
@@ -162,7 +157,6 @@ pub impl Decode for StorageType with decode(bytes, i) {
   }
 }
 
-
 ///|
 pub impl Decode for PackType with decode(bytes, i) {
   match bytes.get(i) {
@@ -172,7 +166,6 @@ pub impl Decode for PackType with decode(bytes, i) {
     None => Err("Index out of bounds")
   }
 }
-
 
 ///|
 pub impl Decode for RecType with decode(buf, i) {
@@ -190,7 +183,6 @@ pub impl Decode for RecType with decode(buf, i) {
       }
   }
 }
-
 
 ///|
 pub impl Decode for SubType with decode(buf, i) {
@@ -350,7 +342,6 @@ fn decode_signed(
   Ok((acc, i))
 }
 
-
 ///|
 pub impl Decode for S33 with decode(bytes, i) {
   match decode_signed(bytes, i, 33) {
@@ -423,7 +414,6 @@ pub impl Decode for F64 with decode(bytes, i) {
   }
 }
 
-
 ///|
 pub impl Decode for Bool with decode(bytes, i) {
   match bytes.get(i) {
@@ -450,7 +440,6 @@ pub impl Decode for TypeIdx with decode(bytes, i) {
   }
 }
 
-
 ///|
 pub impl Decode for FuncIdx with decode(bytes, i) {
   match decode_unsigned(bytes, i, 32) {
@@ -458,7 +447,6 @@ pub impl Decode for FuncIdx with decode(bytes, i) {
     Ok((n, i)) => Ok((FuncIdx::new(n.to_uint()), i))
   }
 }
-
 
 ///|
 pub impl Decode for TableIdx with decode(bytes, i) {
@@ -476,7 +464,6 @@ pub impl Decode for MemIdx with decode(bytes, i) {
   }
 }
 
-
 ///|
 pub impl Decode for GlobalIdx with decode(bytes, i) {
   match decode_unsigned(bytes, i, 32) {
@@ -484,7 +471,6 @@ pub impl Decode for GlobalIdx with decode(bytes, i) {
     Ok((n, i)) => Ok((GlobalIdx::new(n.to_uint()), i))
   }
 }
-
 
 ///|
 pub impl Decode for TagIdx with decode(bytes, i) {
@@ -494,7 +480,6 @@ pub impl Decode for TagIdx with decode(bytes, i) {
   }
 }
 
-
 ///|
 pub impl Decode for ElemIdx with decode(bytes, i) {
   match decode_unsigned(bytes, i, 32) {
@@ -502,7 +487,6 @@ pub impl Decode for ElemIdx with decode(bytes, i) {
     Ok((n, i)) => Ok((ElemIdx::new(n.to_uint()), i))
   }
 }
-
 
 ///|
 pub impl Decode for DataIdx with decode(bytes, i) {
@@ -512,7 +496,6 @@ pub impl Decode for DataIdx with decode(bytes, i) {
   }
 }
 
-
 ///|
 pub impl Decode for LocalIdx with decode(bytes, i) {
   match decode_unsigned(bytes, i, 32) {
@@ -520,7 +503,6 @@ pub impl Decode for LocalIdx with decode(bytes, i) {
     Ok((n, i)) => Ok((LocalIdx::new(n.to_uint()), i))
   }
 }
-
 
 ///|
 pub impl Decode for LaneIdx with decode(bytes, i) {
@@ -531,7 +513,6 @@ pub impl Decode for LaneIdx with decode(bytes, i) {
   }
 }
 
-
 ///|
 pub impl Decode for LabelIdx with decode(bytes, i) {
   match decode_unsigned(bytes, i, 32) {
@@ -539,7 +520,6 @@ pub impl Decode for LabelIdx with decode(bytes, i) {
     Ok((n, i)) => Ok((LabelIdx::new(n.to_uint()), i))
   }
 }
-
 
 ///|
 pub impl Decode for Name with decode(bytes, i) {
@@ -1456,7 +1436,6 @@ pub impl Decode for Bytes with decode(bytes, i) {
   }
 }
 
-
 ///|
 pub impl Decode for Catch with decode(bytes, i) {
   match bytes.get(i) {
@@ -1510,14 +1489,14 @@ pub impl Decode for MemArg with decode(bytes, i) {
       match Decode::decode(bytes, i) {
         Ok((x, i)) =>
           match Decode::decode(bytes, i) {
-            Ok((@lib.U64(m), i)) => Ok((MemArg(n - 64, Some(x), m), i))
+            Ok((@lib.U64(m), i)) => Ok((MemArg::new(n - 64, Some(x), m), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
       }
     Ok((@lib.U32(n), i)) if n < 64 =>
       match Decode::decode(bytes, i) {
-        Ok((@lib.U64(m), i)) => Ok((MemArg(n, None, m), i))
+        Ok((@lib.U64(m), i)) => Ok((MemArg::new(n, None, m), i))
         Err(t) => Err(t)
       }
     Err(t) => Err(t)
@@ -1531,10 +1510,10 @@ pub impl Decode for Instruction with decode(bytes, i) {
     Some(0x00) => Ok((Instruction::unreachable_(), i + 1))
     Some(0x01) => Ok((Instruction::nop(), i + 1))
     Some(0x1A) => Ok((Instruction::drop(), i + 1))
-    Some(0x1B) => Ok((Instruction::select(types = None), i + 1))
+    Some(0x1B) => Ok((Instruction::select(types=None), i + 1))
     Some(0x1C) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((vts, i)) => Ok((Instruction::select(types = Some(vts)), i))
+        Ok((vts, i)) => Ok((Instruction::select(types=Some(vts)), i))
         Err(t) => Err(t)
       }
     Some(0x02) =>
@@ -1562,7 +1541,10 @@ pub impl Decode for Instruction with decode(bytes, i) {
             (i, if_insts, Some(else_insts)) =>
               match bytes.get(i) {
                 Some(0x0B) =>
-                  break (Instruction::if_(bt, if_insts, Some(else_insts)), i + 1)
+                  break (
+                    Instruction::if_(bt, if_insts, Some(else_insts)),
+                    i + 1,
+                  )
                 _ =>
                   match Decode::decode(bytes, i) {
                     Ok((inst, i)) => {
@@ -1575,7 +1557,8 @@ pub impl Decode for Instruction with decode(bytes, i) {
             (i, if_insts, None) =>
               match bytes.get(i) {
                 Some(0x05) => continue (i + 1, if_insts, Some([]))
-                Some(0x0B) => break (Instruction::if_(bt, if_insts, None), i + 1)
+                Some(0x0B) =>
+                  break (Instruction::if_(bt, if_insts, None), i + 1)
                 _ =>
                   match Decode::decode(bytes, i) {
                     Ok((inst, i)) => {
@@ -1639,7 +1622,8 @@ pub impl Decode for Instruction with decode(bytes, i) {
       match Decode::decode(bytes, i + 1) {
         Ok((tidx, i)) =>
           match Decode::decode(bytes, i) {
-            Ok((tblidx, i)) => Ok((Instruction::return_call_indirect(tidx, tblidx), i))
+            Ok((tblidx, i)) =>
+              Ok((Instruction::return_call_indirect(tidx, tblidx), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
@@ -2167,7 +2151,10 @@ pub impl Decode for Instruction with decode(bytes, i) {
                   match Decode::decode(bytes, i) {
                     Ok((ht1, i)) =>
                       match Decode::decode(bytes, i) {
-                        Ok((ht2, i)) => Ok((Instruction::br_on_cast(l, c.0, ht1, c.1, ht2), i))
+                        Ok((ht2, i)) =>
+                          Ok(
+                            (Instruction::br_on_cast(l, c.0, ht1, c.1, ht2), i),
+                          )
                         Err(t) => Err(t)
                       }
                     Err(t) => Err(t)
@@ -2186,7 +2173,19 @@ pub impl Decode for Instruction with decode(bytes, i) {
                   match Decode::decode(bytes, i) {
                     Ok((ht1, i)) =>
                       match Decode::decode(bytes, i) {
-                        Ok((ht2, i)) => Ok((Instruction::br_on_cast_fail(l, c.0, ht1, c.1, ht2), i))
+                        Ok((ht2, i)) =>
+                          Ok(
+                            (
+                              Instruction::br_on_cast_fail(
+                                l,
+                                c.0,
+                                ht1,
+                                c.1,
+                                ht2,
+                              ),
+                              i,
+                            ),
+                          )
                         Err(t) => Err(t)
                       }
                     Err(t) => Err(t)
@@ -2574,10 +2573,14 @@ pub impl Decode for Instruction with decode(bytes, i) {
         Ok((@lib.U32(121), i)) => Ok((Instruction::i8x16_max_u(), i))
         Ok((@lib.U32(122), i)) => Ok((Instruction::f64x2_trunc(), i))
         Ok((@lib.U32(123), i)) => Ok((Instruction::i8x16_avgr_u(), i))
-        Ok((@lib.U32(124), i)) => Ok((Instruction::i16x8_extadd_pairwise_i8x16s(), i))
-        Ok((@lib.U32(125), i)) => Ok((Instruction::i16x8_extadd_pairwise_i8x16u(), i))
-        Ok((@lib.U32(126), i)) => Ok((Instruction::i32x4_extadd_pairwise_i16x8s(), i))
-        Ok((@lib.U32(127), i)) => Ok((Instruction::i32x4_extadd_pairwise_i16x8u(), i))
+        Ok((@lib.U32(124), i)) =>
+          Ok((Instruction::i16x8_extadd_pairwise_i8x16s(), i))
+        Ok((@lib.U32(125), i)) =>
+          Ok((Instruction::i16x8_extadd_pairwise_i8x16u(), i))
+        Ok((@lib.U32(126), i)) =>
+          Ok((Instruction::i32x4_extadd_pairwise_i16x8s(), i))
+        Ok((@lib.U32(127), i)) =>
+          Ok((Instruction::i32x4_extadd_pairwise_i16x8u(), i))
         Ok((@lib.U32(128), i)) => Ok((Instruction::i16x8_abs(), i))
         Ok((@lib.U32(129), i)) => Ok((Instruction::i16x8_neg(), i))
         Ok((@lib.U32(130), i)) => Ok((Instruction::i16x8q15mulr_sat_s(), i))
@@ -2585,10 +2588,14 @@ pub impl Decode for Instruction with decode(bytes, i) {
         Ok((@lib.U32(132), i)) => Ok((Instruction::i16x8_bitmask(), i))
         Ok((@lib.U32(133), i)) => Ok((Instruction::i16x8_narrow_i32x4s(), i))
         Ok((@lib.U32(134), i)) => Ok((Instruction::i16x8_narrow_i32x4u(), i))
-        Ok((@lib.U32(135), i)) => Ok((Instruction::i16x8_extend_low_i8x16s(), i))
-        Ok((@lib.U32(136), i)) => Ok((Instruction::i16x8_extend_high_i8x16s(), i))
-        Ok((@lib.U32(137), i)) => Ok((Instruction::i16x8_extend_low_i8x16u(), i))
-        Ok((@lib.U32(138), i)) => Ok((Instruction::i16x8_extend_high_i8x16u(), i))
+        Ok((@lib.U32(135), i)) =>
+          Ok((Instruction::i16x8_extend_low_i8x16s(), i))
+        Ok((@lib.U32(136), i)) =>
+          Ok((Instruction::i16x8_extend_high_i8x16s(), i))
+        Ok((@lib.U32(137), i)) =>
+          Ok((Instruction::i16x8_extend_low_i8x16u(), i))
+        Ok((@lib.U32(138), i)) =>
+          Ok((Instruction::i16x8_extend_high_i8x16u(), i))
         Ok((@lib.U32(139), i)) => Ok((Instruction::i16x8_shl(), i))
         Ok((@lib.U32(140), i)) => Ok((Instruction::i16x8_shr_s(), i))
         Ok((@lib.U32(141), i)) => Ok((Instruction::i16x8_shr_u(), i))
@@ -2605,18 +2612,26 @@ pub impl Decode for Instruction with decode(bytes, i) {
         Ok((@lib.U32(152), i)) => Ok((Instruction::i16x8_max_s(), i))
         Ok((@lib.U32(153), i)) => Ok((Instruction::i16x8_max_u(), i))
         Ok((@lib.U32(155), i)) => Ok((Instruction::i16x8_avgr_u(), i))
-        Ok((@lib.U32(156), i)) => Ok((Instruction::i16x8_extmul_low_i8x16s(), i))
-        Ok((@lib.U32(157), i)) => Ok((Instruction::i16x8_extmul_high_i8x16s(), i))
-        Ok((@lib.U32(158), i)) => Ok((Instruction::i16x8_extmul_low_i8x16u(), i))
-        Ok((@lib.U32(159), i)) => Ok((Instruction::i16x8_extmul_high_i8x16u(), i))
+        Ok((@lib.U32(156), i)) =>
+          Ok((Instruction::i16x8_extmul_low_i8x16s(), i))
+        Ok((@lib.U32(157), i)) =>
+          Ok((Instruction::i16x8_extmul_high_i8x16s(), i))
+        Ok((@lib.U32(158), i)) =>
+          Ok((Instruction::i16x8_extmul_low_i8x16u(), i))
+        Ok((@lib.U32(159), i)) =>
+          Ok((Instruction::i16x8_extmul_high_i8x16u(), i))
         Ok((@lib.U32(160), i)) => Ok((Instruction::i32x4_abs(), i))
         Ok((@lib.U32(161), i)) => Ok((Instruction::i32x4_neg(), i))
         Ok((@lib.U32(163), i)) => Ok((Instruction::i32x4_all_true(), i))
         Ok((@lib.U32(164), i)) => Ok((Instruction::i32x4_bitmask(), i))
-        Ok((@lib.U32(167), i)) => Ok((Instruction::i32x4_extend_low_i16x8s(), i))
-        Ok((@lib.U32(168), i)) => Ok((Instruction::i32x4_extend_high_i16x8s(), i))
-        Ok((@lib.U32(169), i)) => Ok((Instruction::i32x4_extend_low_i16x8u(), i))
-        Ok((@lib.U32(170), i)) => Ok((Instruction::i32x4_extend_high_i16x8u(), i))
+        Ok((@lib.U32(167), i)) =>
+          Ok((Instruction::i32x4_extend_low_i16x8s(), i))
+        Ok((@lib.U32(168), i)) =>
+          Ok((Instruction::i32x4_extend_high_i16x8s(), i))
+        Ok((@lib.U32(169), i)) =>
+          Ok((Instruction::i32x4_extend_low_i16x8u(), i))
+        Ok((@lib.U32(170), i)) =>
+          Ok((Instruction::i32x4_extend_high_i16x8u(), i))
         Ok((@lib.U32(171), i)) => Ok((Instruction::i32x4_shl(), i))
         Ok((@lib.U32(172), i)) => Ok((Instruction::i32x4_shr_s(), i))
         Ok((@lib.U32(173), i)) => Ok((Instruction::i32x4_shr_u(), i))
@@ -2628,18 +2643,26 @@ pub impl Decode for Instruction with decode(bytes, i) {
         Ok((@lib.U32(184), i)) => Ok((Instruction::i32x4_max_s(), i))
         Ok((@lib.U32(185), i)) => Ok((Instruction::i32x4_max_u(), i))
         Ok((@lib.U32(186), i)) => Ok((Instruction::i32x4_dot_i16x8s(), i))
-        Ok((@lib.U32(188), i)) => Ok((Instruction::i32x4_extmul_low_i16x8s(), i))
-        Ok((@lib.U32(189), i)) => Ok((Instruction::i32x4_extmul_high_i16x8s(), i))
-        Ok((@lib.U32(190), i)) => Ok((Instruction::i32x4_extmul_low_i16x8u(), i))
-        Ok((@lib.U32(191), i)) => Ok((Instruction::i32x4_extmul_high_i16x8u(), i))
+        Ok((@lib.U32(188), i)) =>
+          Ok((Instruction::i32x4_extmul_low_i16x8s(), i))
+        Ok((@lib.U32(189), i)) =>
+          Ok((Instruction::i32x4_extmul_high_i16x8s(), i))
+        Ok((@lib.U32(190), i)) =>
+          Ok((Instruction::i32x4_extmul_low_i16x8u(), i))
+        Ok((@lib.U32(191), i)) =>
+          Ok((Instruction::i32x4_extmul_high_i16x8u(), i))
         Ok((@lib.U32(192), i)) => Ok((Instruction::i64x2_abs(), i))
         Ok((@lib.U32(193), i)) => Ok((Instruction::i64x2_neg(), i))
         Ok((@lib.U32(195), i)) => Ok((Instruction::i64x2_all_true(), i))
         Ok((@lib.U32(196), i)) => Ok((Instruction::i64x2_bitmask(), i))
-        Ok((@lib.U32(199), i)) => Ok((Instruction::i64x2_extend_low_i32x4s(), i))
-        Ok((@lib.U32(200), i)) => Ok((Instruction::i64x2_extend_high_i32x4s(), i))
-        Ok((@lib.U32(201), i)) => Ok((Instruction::i64x2_extend_low_i32x4u(), i))
-        Ok((@lib.U32(202), i)) => Ok((Instruction::i64x2_extend_high_i32x4u(), i))
+        Ok((@lib.U32(199), i)) =>
+          Ok((Instruction::i64x2_extend_low_i32x4s(), i))
+        Ok((@lib.U32(200), i)) =>
+          Ok((Instruction::i64x2_extend_high_i32x4s(), i))
+        Ok((@lib.U32(201), i)) =>
+          Ok((Instruction::i64x2_extend_low_i32x4u(), i))
+        Ok((@lib.U32(202), i)) =>
+          Ok((Instruction::i64x2_extend_high_i32x4u(), i))
         Ok((@lib.U32(203), i)) => Ok((Instruction::i64x2_shl(), i))
         Ok((@lib.U32(204), i)) => Ok((Instruction::i64x2_shr_s(), i))
         Ok((@lib.U32(205), i)) => Ok((Instruction::i64x2_shr_u(), i))
@@ -2652,10 +2675,14 @@ pub impl Decode for Instruction with decode(bytes, i) {
         Ok((@lib.U32(217), i)) => Ok((Instruction::i64x2_gt_s(), i))
         Ok((@lib.U32(218), i)) => Ok((Instruction::i64x2_le_s(), i))
         Ok((@lib.U32(219), i)) => Ok((Instruction::i64x2_ge_s(), i))
-        Ok((@lib.U32(220), i)) => Ok((Instruction::i64x2_extmul_low_i32x4s(), i))
-        Ok((@lib.U32(221), i)) => Ok((Instruction::i64x2_extmul_high_i32x4s(), i))
-        Ok((@lib.U32(222), i)) => Ok((Instruction::i64x2_extmul_low_i32x4u(), i))
-        Ok((@lib.U32(223), i)) => Ok((Instruction::i64x2_extmul_high_i32x4u(), i))
+        Ok((@lib.U32(220), i)) =>
+          Ok((Instruction::i64x2_extmul_low_i32x4s(), i))
+        Ok((@lib.U32(221), i)) =>
+          Ok((Instruction::i64x2_extmul_high_i32x4s(), i))
+        Ok((@lib.U32(222), i)) =>
+          Ok((Instruction::i64x2_extmul_low_i32x4u(), i))
+        Ok((@lib.U32(223), i)) =>
+          Ok((Instruction::i64x2_extmul_high_i32x4u(), i))
         Ok((@lib.U32(224), i)) => Ok((Instruction::f32x4_abs(), i))
         Ok((@lib.U32(225), i)) => Ok((Instruction::f32x4_neg(), i))
         Ok((@lib.U32(227), i)) => Ok((Instruction::f32x4_sqrt(), i))
@@ -2682,30 +2709,45 @@ pub impl Decode for Instruction with decode(bytes, i) {
         Ok((@lib.U32(249), i)) => Ok((Instruction::i32x4_trunc_sat_f32x4u(), i))
         Ok((@lib.U32(250), i)) => Ok((Instruction::f32x4_convert_i32x4s(), i))
         Ok((@lib.U32(251), i)) => Ok((Instruction::f32x4_convert_i32x4u(), i))
-        Ok((@lib.U32(252), i)) => Ok((Instruction::i32x4_trunc_sat_f64x2s_zero(), i))
-        Ok((@lib.U32(253), i)) => Ok((Instruction::i32x4_trunc_sat_f64x2u_zero(), i))
-        Ok((@lib.U32(254), i)) => Ok((Instruction::f64x2_convert_low_i32x4s(), i))
-        Ok((@lib.U32(255), i)) => Ok((Instruction::f64x2_convert_low_i32x4u(), i))
+        Ok((@lib.U32(252), i)) =>
+          Ok((Instruction::i32x4_trunc_sat_f64x2s_zero(), i))
+        Ok((@lib.U32(253), i)) =>
+          Ok((Instruction::i32x4_trunc_sat_f64x2u_zero(), i))
+        Ok((@lib.U32(254), i)) =>
+          Ok((Instruction::f64x2_convert_low_i32x4s(), i))
+        Ok((@lib.U32(255), i)) =>
+          Ok((Instruction::f64x2_convert_low_i32x4u(), i))
         Ok((@lib.U32(256), i)) => Ok((Instruction::i8x16_relaxed_swizzle(), i))
-        Ok((@lib.U32(257), i)) => Ok((Instruction::i32x4_relaxed_trunc_f32x4s(), i))
-        Ok((@lib.U32(258), i)) => Ok((Instruction::i32x4_relaxed_trunc_f32x4u(), i))
-        Ok((@lib.U32(259), i)) => Ok((Instruction::i32x4_relaxed_trunc_zero_f64x2s(), i))
-        Ok((@lib.U32(260), i)) => Ok((Instruction::i32x4_relaxed_trunc_zero_f64x2u(), i))
+        Ok((@lib.U32(257), i)) =>
+          Ok((Instruction::i32x4_relaxed_trunc_f32x4s(), i))
+        Ok((@lib.U32(258), i)) =>
+          Ok((Instruction::i32x4_relaxed_trunc_f32x4u(), i))
+        Ok((@lib.U32(259), i)) =>
+          Ok((Instruction::i32x4_relaxed_trunc_zero_f64x2s(), i))
+        Ok((@lib.U32(260), i)) =>
+          Ok((Instruction::i32x4_relaxed_trunc_zero_f64x2u(), i))
         Ok((@lib.U32(261), i)) => Ok((Instruction::f32x4_relaxed_madd(), i))
         Ok((@lib.U32(262), i)) => Ok((Instruction::f32x4_relaxed_nmadd(), i))
         Ok((@lib.U32(263), i)) => Ok((Instruction::f64x2_relaxed_madd(), i))
         Ok((@lib.U32(264), i)) => Ok((Instruction::f64x2_relaxed_nmadd(), i))
-        Ok((@lib.U32(265), i)) => Ok((Instruction::i8x16_relaxed_laneselect(), i))
-        Ok((@lib.U32(266), i)) => Ok((Instruction::i16x8_relaxed_laneselect(), i))
-        Ok((@lib.U32(267), i)) => Ok((Instruction::i32x4_relaxed_laneselect(), i))
-        Ok((@lib.U32(268), i)) => Ok((Instruction::i64x2_relaxed_laneselect(), i))
+        Ok((@lib.U32(265), i)) =>
+          Ok((Instruction::i8x16_relaxed_laneselect(), i))
+        Ok((@lib.U32(266), i)) =>
+          Ok((Instruction::i16x8_relaxed_laneselect(), i))
+        Ok((@lib.U32(267), i)) =>
+          Ok((Instruction::i32x4_relaxed_laneselect(), i))
+        Ok((@lib.U32(268), i)) =>
+          Ok((Instruction::i64x2_relaxed_laneselect(), i))
         Ok((@lib.U32(269), i)) => Ok((Instruction::f32x4_relaxed_min(), i))
         Ok((@lib.U32(270), i)) => Ok((Instruction::f32x4_relaxed_max(), i))
         Ok((@lib.U32(271), i)) => Ok((Instruction::f64x2_relaxed_min(), i))
         Ok((@lib.U32(272), i)) => Ok((Instruction::f64x2_relaxed_max(), i))
-        Ok((@lib.U32(273), i)) => Ok((Instruction::i16x8_relaxed_q15mulr_s(), i))
-        Ok((@lib.U32(274), i)) => Ok((Instruction::i16x8_relaxed_dot_i8x16i7x16s(), i))
-        Ok((@lib.U32(275), i)) => Ok((Instruction::i32x4_relaxed_dot_i8x16i7x16_add_s(), i))
+        Ok((@lib.U32(273), i)) =>
+          Ok((Instruction::i16x8_relaxed_q15mulr_s(), i))
+        Ok((@lib.U32(274), i)) =>
+          Ok((Instruction::i16x8_relaxed_dot_i8x16i7x16s(), i))
+        Ok((@lib.U32(275), i)) =>
+          Ok((Instruction::i32x4_relaxed_dot_i8x16i7x16_add_s(), i))
         Ok((@lib.U32(21), i)) =>
           match Decode::decode(bytes, i) {
             Ok((l, i)) => Ok((Instruction::i8x16_extract_lane_s(l), i))
@@ -2865,6 +2907,17 @@ pub impl Decode for Instruction with decode(bytes, i) {
   }
 }
 
+///|
+pub impl Decode for FieldType with decode(bytes, i) {
+  match Decode::decode(bytes, i) {
+    Err(err) => Err(err)
+    Ok((st, i)) =>
+      match Decode::decode(bytes, i) {
+        Ok((m, i)) => Ok((FieldType::new(st, m), i))
+        Err(err) => Err(err)
+      }
+  }
+}
 
 ///|
 pub impl[T : Decode] Decode for Array[T] with decode(bytes, i) {
@@ -2884,4 +2937,3 @@ pub impl[T : Decode] Decode for Array[T] with decode(bytes, i) {
       }
   }
 }
-

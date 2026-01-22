@@ -636,7 +636,7 @@ fn optimize_segment(
 
   // Replace pushed instructions with nops (we'll compact later)
   for idx in to_push {
-    list[idx] = TNop
+    list[idx] = TInstr::nop()
   }
 
   // Insert pushed instructions after push point
@@ -831,7 +831,7 @@ fn try_push_into_arm(
   // We can push! Insert at the beginning of the arm
   state.changed = true
   let set_instr = list[set_idx]
-  list[set_idx] = TNop
+  list[set_idx] = TInstr::nop()
 
   // Create new arm with the instruction prepended
   let new_arm_instrs : Array[TInstr] = [set_instr]
@@ -1272,7 +1272,7 @@ test "is_push_point detects if" {
   let instr = TInstr::if_(
     BlockType::empty(),
     TInstr::i32_const(I32(1)),
-    TExpr::new([TNop]),
+    TExpr::new([TInstr::nop()]),
     None,
   )
   assert_true(is_push_point(instr))
@@ -1292,7 +1292,7 @@ test "is_push_point rejects unconditional br" {
 
 ///|
 test "is_push_point rejects block" {
-  let instr = TInstr::block(BlockType::empty(), TExpr::new([TNop]))
+  let instr = TInstr::block(BlockType::empty(), TExpr::new([TInstr::nop()]))
   assert_false(is_push_point(instr))
 }
 

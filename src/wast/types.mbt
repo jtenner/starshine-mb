@@ -1,11 +1,13 @@
+///|
 pub enum LiteralType {
   Int
   Float
   Hexfloat
   Infinity
   Nan
-} derive (Show)
+} derive(Show)
 
+///|
 pub enum ErrorLevel {
   Error
   Warning
@@ -15,6 +17,7 @@ pub enum ErrorLevel {
 // Core Structures
 // ============================================================================
 
+///|
 pub struct Location {
   filename : String
   line : Int
@@ -22,30 +25,34 @@ pub struct Location {
   last_column : Int
 } derive(Show)
 
+///|
 pub struct Literal {
   literal_type : LiteralType
   text : String
 } derive(Show)
 
+///|
 pub struct Token {
   location : Location
   token_type : TokenType
   value : TokenValue
-} derive (Show)
+} derive(Show)
 
+///|
 pub struct LexerError {
   level : ErrorLevel
   location : Location
   message : String
 }
 
+///|
 enum ReservedChars {
   None
   Id
   Some
 }
 
-
+///|
 pub enum ValueType {
   I32
   I64
@@ -56,8 +63,9 @@ pub enum ValueType {
   ExternRef
   Func
   Extern
-} derive (Show)
+} derive(Show)
 
+///|
 pub enum Opcode {
   // Control
   Unreachable
@@ -273,8 +281,9 @@ pub enum Opcode {
   I64TruncSatF32U
   I64TruncSatF64S
   I64TruncSatF64U
-} derive (Show)
+} derive(Show)
 
+///|
 pub enum TokenType {
   Eof
   Lpar
@@ -299,7 +308,6 @@ pub enum TokenType {
   Global
   Table
   Memory
-
   Import
   Export
   // Types
@@ -334,20 +342,22 @@ pub enum TokenType {
   Data
   Elem
   Mut
-} derive (Show)
+} derive(Show)
 
+///|
 pub enum TokenValue {
   None
   Text(String)
   Literal(Literal)
   ValueType(ValueType)
   Opcode(Opcode)
-} derive (Show)
+} derive(Show)
 
 // ============================================================================
 // Keyword Entry and Hash Table
 // ============================================================================
 
+///|
 struct KeywordEntry {
   keyword : String
   token_type : TokenType
@@ -357,6 +367,7 @@ struct KeywordEntry {
 // WastLexer
 // ============================================================================
 
+///|
 pub struct WastLexer {
   buffer : Bytes
   filename : String
@@ -366,4 +377,3 @@ pub struct WastLexer {
   mut token_start : Int
   errors : Array[LexerError]
 }
-

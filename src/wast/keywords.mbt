@@ -3,6 +3,8 @@
 // ============================================================================
 
 // Simple hash function for keyword lookup
+
+///|
 fn hash_string(s : String) -> Int {
   let mut h = 0
   for i = 0; i < s.length(); i = i + 1 {
@@ -12,14 +14,16 @@ fn hash_string(s : String) -> Int {
 }
 
 // Keyword hash table using a Map
+
+///|
 pub struct KeywordTable {
   map : @hashmap.HashMap[String, TokenType]
 }
 
-
+///|
 fn KeywordTable::new() -> KeywordTable {
   let map = @hashmap.new(capacity=512)
-  
+
   // Module structure
   map.set("module", Module)
   map.set("type", Type)
@@ -46,7 +50,7 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("binary", Binary)
   map.set("input", Input)
   map.set("output", Output)
-  
+
   // Assertions
   map.set("assert_malformed", AssertMalformed)
   map.set("assert_invalid", AssertInvalid)
@@ -54,7 +58,7 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("assert_return", AssertReturn)
   map.set("assert_trap", AssertTrap)
   map.set("assert_exhaustion", AssertExhaustion)
-  
+
   // Control keywords
   map.set("block", Block)
   map.set("loop", Loop)
@@ -62,7 +66,7 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("then", Then)
   map.set("else", Else)
   map.set("end", End)
-  
+
   // Value types
   map.set("i32", ValueType(I32))
   map.set("i64", ValueType(I64))
@@ -71,7 +75,7 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("v128", ValueType(V128))
   map.set("funcref", ValueType(FuncRef))
   map.set("externref", ValueType(ExternRef))
-  
+
   // Control instructions
   map.set("unreachable", Opcode(Unreachable))
   map.set("nop", Opcode(Nop))
@@ -81,23 +85,23 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("return", Opcode(Return))
   map.set("call", Opcode(Call))
   map.set("call_indirect", Opcode(CallIndirect))
-  
+
   // Reference instructions
   map.set("ref.null", Opcode(RefNull))
   map.set("ref.is_null", Opcode(RefIsNull))
   map.set("ref.func", Opcode(RefFunc))
-  
+
   // Parametric instructions
   map.set("drop", Opcode(Drop))
   map.set("select", Opcode(Select))
-  
+
   // Variable instructions
   map.set("local.get", Opcode(LocalGet))
   map.set("local.set", Opcode(LocalSet))
   map.set("local.tee", Opcode(LocalTee))
   map.set("global.get", Opcode(GlobalGet))
   map.set("global.set", Opcode(GlobalSet))
-  
+
   // Table instructions
   map.set("table.get", Opcode(TableGet))
   map.set("table.set", Opcode(TableSet))
@@ -107,7 +111,7 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("table.copy", Opcode(TableCopy))
   map.set("table.init", Opcode(TableInit))
   map.set("elem.drop", Opcode(ElemDrop))
-  
+
   // Memory instructions
   map.set("i32.load", Opcode(I32Load))
   map.set("i64.load", Opcode(I64Load))
@@ -138,13 +142,13 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("memory.copy", Opcode(MemoryCopy))
   map.set("memory.init", Opcode(MemoryInit))
   map.set("data.drop", Opcode(DataDrop))
-  
+
   // Numeric - Constants
   map.set("i32.const", Opcode(I32Const))
   map.set("i64.const", Opcode(I64Const))
   map.set("f32.const", Opcode(F32Const))
   map.set("f64.const", Opcode(F64Const))
-  
+
   // i32 comparison
   map.set("i32.eqz", Opcode(I32Eqz))
   map.set("i32.eq", Opcode(I32Eq))
@@ -157,7 +161,7 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("i32.le_u", Opcode(I32LeU))
   map.set("i32.ge_s", Opcode(I32GeS))
   map.set("i32.ge_u", Opcode(I32GeU))
-  
+
   // i32 arithmetic
   map.set("i32.clz", Opcode(I32Clz))
   map.set("i32.ctz", Opcode(I32Ctz))
@@ -177,7 +181,7 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("i32.shr_u", Opcode(I32ShrU))
   map.set("i32.rotl", Opcode(I32Rotl))
   map.set("i32.rotr", Opcode(I32Rotr))
-  
+
   // i64 comparison
   map.set("i64.eqz", Opcode(I64Eqz))
   map.set("i64.eq", Opcode(I64Eq))
@@ -190,7 +194,7 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("i64.le_u", Opcode(I64LeU))
   map.set("i64.ge_s", Opcode(I64GeS))
   map.set("i64.ge_u", Opcode(I64GeU))
-  
+
   // i64 arithmetic
   map.set("i64.clz", Opcode(I64Clz))
   map.set("i64.ctz", Opcode(I64Ctz))
@@ -210,7 +214,7 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("i64.shr_u", Opcode(I64ShrU))
   map.set("i64.rotl", Opcode(I64Rotl))
   map.set("i64.rotr", Opcode(I64Rotr))
-  
+
   // f32 comparison
   map.set("f32.eq", Opcode(F32Eq))
   map.set("f32.ne", Opcode(F32Ne))
@@ -218,7 +222,7 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("f32.gt", Opcode(F32Gt))
   map.set("f32.le", Opcode(F32Le))
   map.set("f32.ge", Opcode(F32Ge))
-  
+
   // f32 arithmetic
   map.set("f32.abs", Opcode(F32Abs))
   map.set("f32.neg", Opcode(F32Neg))
@@ -234,7 +238,7 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("f32.min", Opcode(F32Min))
   map.set("f32.max", Opcode(F32Max))
   map.set("f32.copysign", Opcode(F32Copysign))
-  
+
   // f64 comparison
   map.set("f64.eq", Opcode(F64Eq))
   map.set("f64.ne", Opcode(F64Ne))
@@ -242,7 +246,7 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("f64.gt", Opcode(F64Gt))
   map.set("f64.le", Opcode(F64Le))
   map.set("f64.ge", Opcode(F64Ge))
-  
+
   // f64 arithmetic
   map.set("f64.abs", Opcode(F64Abs))
   map.set("f64.neg", Opcode(F64Neg))
@@ -258,7 +262,7 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("f64.min", Opcode(F64Min))
   map.set("f64.max", Opcode(F64Max))
   map.set("f64.copysign", Opcode(F64Copysign))
-  
+
   // Conversions
   map.set("i32.wrap_i64", Opcode(I32WrapI64))
   map.set("i32.trunc_f32_s", Opcode(I32TruncF32S))
@@ -285,14 +289,14 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("i64.reinterpret_f64", Opcode(I64ReinterpretF64))
   map.set("f32.reinterpret_i32", Opcode(F32ReinterpretI32))
   map.set("f64.reinterpret_i64", Opcode(F64ReinterpretI64))
-  
+
   // Sign extension
   map.set("i32.extend8_s", Opcode(I32Extend8S))
   map.set("i32.extend16_s", Opcode(I32Extend16S))
   map.set("i64.extend8_s", Opcode(I64Extend8S))
   map.set("i64.extend16_s", Opcode(I64Extend16S))
   map.set("i64.extend32_s", Opcode(I64Extend32S))
-  
+
   // Saturating truncation
   map.set("i32.trunc_sat_f32_s", Opcode(I32TruncSatF32S))
   map.set("i32.trunc_sat_f32_u", Opcode(I32TruncSatF32U))
@@ -302,16 +306,20 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("i64.trunc_sat_f32_u", Opcode(I64TruncSatF32U))
   map.set("i64.trunc_sat_f64_s", Opcode(I64TruncSatF64S))
   map.set("i64.trunc_sat_f64_u", Opcode(I64TruncSatF64U))
-  
   { map, }
 }
 
 // Use a lazy-initialized global
+
+///|
 let keyword_table : KeywordTable = KeywordTable::new()
 
+///|
 pub fn lookup_keyword(s : String) -> TokenType? {
   keyword_table.lookup(s)
 }
+
+///|
 pub fn KeywordTable::lookup(self : KeywordTable, s : String) -> TokenType? {
   self.map.get(s)
 }

@@ -1,4 +1,3 @@
-
 ///|
 priv suberror EncodingFailed {
   EncodingFailed(String)

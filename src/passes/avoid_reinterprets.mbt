@@ -1,10 +1,10 @@
 ///|
 fn is_reinterpret(op : UnaryOp) -> Bool {
   match op {
-    UnaryOp::I32ReinterpretF32Op => true
-    UnaryOp::I64ReinterpretF64Op => true
-    UnaryOp::F32ReinterpretI32Op => true
-    UnaryOp::F64ReinterpretI64Op => true
+    I32ReinterpretF32Op => true
+    I64ReinterpretF64Op => true
+    F32ReinterpretI32Op => true
+    F64ReinterpretI64Op => true
     _ => false
   }
 }
@@ -12,10 +12,10 @@ fn is_reinterpret(op : UnaryOp) -> Bool {
 ///|
 fn reinterpret_load_op(op : LoadOp) -> LoadOp? {
   match op {
-    LoadOp::F32LoadOp => Some(LoadOp::i32_load())
-    LoadOp::I32LoadOp => Some(LoadOp::f32_load())
-    LoadOp::F64LoadOp => Some(LoadOp::i64_load())
-    LoadOp::I64LoadOp => Some(LoadOp::f64_load())
+    F32LoadOp => Some(LoadOp::i32_load())
+    I32LoadOp => Some(LoadOp::f32_load())
+    F64LoadOp => Some(LoadOp::i64_load())
+    I64LoadOp => Some(LoadOp::f64_load())
     _ => None
   }
 }
@@ -23,10 +23,10 @@ fn reinterpret_load_op(op : LoadOp) -> LoadOp? {
 ///|
 fn reinterpret_compatible(op : UnaryOp, load_op : LoadOp) -> Bool {
   match (op, load_op) {
-    (UnaryOp::I32ReinterpretF32Op, LoadOp::F32LoadOp) => true
-    (UnaryOp::F32ReinterpretI32Op, LoadOp::I32LoadOp) => true
-    (UnaryOp::I64ReinterpretF64Op, LoadOp::F64LoadOp) => true
-    (UnaryOp::F64ReinterpretI64Op, LoadOp::I64LoadOp) => true
+    (I32ReinterpretF32Op, F32LoadOp) => true
+    (F32ReinterpretI32Op, I32LoadOp) => true
+    (I64ReinterpretF64Op, F64LoadOp) => true
+    (F64ReinterpretI64Op, I64LoadOp) => true
     _ => false
   }
 }
@@ -39,7 +39,7 @@ fn rewrite_reinterpret_of_load(instr : TInstr) -> TInstr? {
         return None
       }
       match reinterpret_load_op(load_op) {
-        Some(new_op) => Some(TInstr::TLoad(new_op, memarg, ptr))
+        Some(new_op) => Some(TInstr::load(new_op, memarg, ptr))
         None => None
       }
     }
@@ -57,7 +57,7 @@ fn get_single_load_from_local(
     return None
   }
   match sets.to_array()[0] {
-    LocalSet::Set(_, TInstr::TLocalSet(_, TInstr::TLoad(op, memarg, ptr))) =>
+    LocalSet::Set(_, TLocalSet(_, TLoad(op, memarg, ptr))) =>
       Some((op, memarg, ptr))
     _ => None
   }
@@ -99,7 +99,7 @@ fn avoid_reinterprets() -> ModuleTransformer[(LocalGraph, Int)] {
             Some((load_op, memarg, ptr)) =>
               match reinterpret_load_op(load_op) {
                 Some(new_op) =>
-                  change(next_state, TInstr::TLoad(new_op, memarg, ptr))
+                  change(next_state, TInstr::load(new_op, memarg, ptr))
                 None => change(next_state, instr)
               }
             None => change(next_state, instr)

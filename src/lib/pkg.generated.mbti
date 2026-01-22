@@ -118,7 +118,7 @@ pub impl Hash for AbsHeapType
 pub impl Show for AbsHeapType
 pub impl @quickcheck.Arbitrary for AbsHeapType
 
-pub(all) enum BinaryOp {
+pub enum BinaryOp {
   I32EqOp
   I32NeOp
   I32LtSOp
@@ -826,7 +826,7 @@ pub impl Hash for ExternType
 pub impl Show for ExternType
 pub impl @quickcheck.Arbitrary for ExternType
 
-pub(all) enum ExtractLaneOp {
+pub enum ExtractLaneOp {
   I8x16ExtractLaneSOp
   I8x16ExtractLaneUOp
   I16x8ExtractLaneSOp
@@ -2117,7 +2117,7 @@ pub impl Hash for Locals
 pub impl Show for Locals
 pub impl @quickcheck.Arbitrary for Locals
 
-pub(all) struct MemArg(U32, MemIdx?, U64)
+pub struct MemArg(U32, MemIdx?, U64)
 
 
 pub fn MemArg::new(U32, MemIdx?, U64) -> Self
@@ -2481,7 +2481,7 @@ pub impl Hash for StorageType
 pub impl Show for StorageType
 pub impl @quickcheck.Arbitrary for StorageType
 
-pub(all) enum StoreOp {
+pub enum StoreOp {
   I32StoreOp
   I64StoreOp
   F32StoreOp
@@ -2529,7 +2529,7 @@ pub impl Eq for TExpr
 pub impl Hash for TExpr
 pub impl Show for TExpr
 
-pub(all) enum TInstr {
+pub enum TInstr {
   TI32Const(I32)
   TI64Const(I64)
   TF32Const(F32)
@@ -2832,7 +2832,7 @@ pub impl Hash for U64
 pub impl Show for U64
 pub impl @quickcheck.Arbitrary for U64
 
-pub(all) enum UnaryOp {
+pub enum UnaryOp {
   I32EqzOp
   I64EqzOp
   I32ClzOp

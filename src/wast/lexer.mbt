@@ -1,11 +1,11 @@
-
-
+///|
 let eof : Int = -1
 
 // ============================================================================
 // Constructor
 // ============================================================================
 
+///|
 pub fn WastLexer::new(buffer : Bytes, filename : String) -> WastLexer {
   {
     buffer,
@@ -22,20 +22,24 @@ pub fn WastLexer::new(buffer : Bytes, filename : String) -> WastLexer {
 // Character Classification
 // ============================================================================
 
+///|
 fn is_digit(c : Int) -> Bool {
   c >= 0x30 && c <= 0x39 // '0' to '9'
 }
 
+///|
 fn is_hex_digit(c : Int) -> Bool {
   is_digit(c) ||
   (c >= 0x41 && c <= 0x46) || // 'A' to 'F'
   (c >= 0x61 && c <= 0x66) // 'a' to 'f'
 }
 
+///|
 fn is_keyword(c : Int) -> Bool {
   c >= 0x61 && c <= 0x7A // 'a' to 'z'
 }
 
+///|
 fn is_id_char(c : Int) -> Bool {
   if c < 0x21 || c > 0x7E {
     return false
@@ -47,6 +51,7 @@ fn is_id_char(c : Int) -> Bool {
   }
 }
 
+///|
 fn parse_hex_digit(c : Int) -> Int {
   if c >= 0x30 && c <= 0x39 {
     c - 0x30
@@ -63,6 +68,7 @@ fn parse_hex_digit(c : Int) -> Int {
 // Low-level Character Operations
 // ============================================================================
 
+///|
 fn WastLexer::peek_char(self : WastLexer) -> Int {
   if self.cursor < self.buffer.length() {
     self.buffer[self.cursor].to_int()
@@ -71,6 +77,7 @@ fn WastLexer::peek_char(self : WastLexer) -> Int {
   }
 }
 
+///|
 fn WastLexer::read_char(self : WastLexer) -> Int {
   if self.cursor < self.buffer.length() {
     let c = self.buffer[self.cursor].to_int()
@@ -81,6 +88,7 @@ fn WastLexer::read_char(self : WastLexer) -> Int {
   }
 }
 
+///|
 fn WastLexer::match_char(self : WastLexer, c : Int) -> Bool {
   if self.peek_char() == c {
     let _ = self.read_char()
@@ -90,6 +98,7 @@ fn WastLexer::match_char(self : WastLexer, c : Int) -> Bool {
   }
 }
 
+///|
 fn WastLexer::match_string(self : WastLexer, s : String) -> Bool {
   let saved_cursor = self.cursor
   for i = 0; i < s.length(); i = i + 1 {
@@ -101,6 +110,7 @@ fn WastLexer::match_string(self : WastLexer, s : String) -> Bool {
   true
 }
 
+///|
 fn WastLexer::newline(self : WastLexer) -> Unit {
   self.line += 1
   self.line_start = self.cursor
@@ -110,6 +120,7 @@ fn WastLexer::newline(self : WastLexer) -> Unit {
 // Token Creation Helpers
 // ============================================================================
 
+///|
 fn WastLexer::get_location(self : WastLexer) -> Location {
   let first_col = if self.token_start >= self.line_start {
     self.token_start - self.line_start + 1
@@ -121,9 +132,15 @@ fn WastLexer::get_location(self : WastLexer) -> Location {
   } else {
     1
   }
-  { filename: self.filename, line: self.line, first_column: first_col, last_column: last_col }
+  {
+    filename: self.filename,
+    line: self.line,
+    first_column: first_col,
+    last_column: last_col,
+  }
 }
 
+///|
 fn WastLexer::get_text(self : WastLexer, offset : Int) -> String {
   let start = self.token_start + offset
   if start >= self.buffer.length() || self.cursor <= start {
@@ -137,14 +154,16 @@ fn WastLexer::get_text(self : WastLexer, offset : Int) -> String {
   String::from_array(chars)
 }
 
+///|
 fn WastLexer::bare_token(self : WastLexer, token_type : TokenType) -> Token {
   { location: self.get_location(), token_type, value: None }
 }
 
+///|
 fn WastLexer::literal_token(
   self : WastLexer,
   token_type : TokenType,
-  literal_type : LiteralType
+  literal_type : LiteralType,
 ) -> Token {
   let text = self.get_text(0)
   {
@@ -154,20 +173,29 @@ fn WastLexer::literal_token(
   }
 }
 
-fn WastLexer::text_token(self : WastLexer, token_type : TokenType, offset : Int) -> Token {
-  { location: self.get_location(), token_type, value: Text(self.get_text(offset)) }
+///|
+fn WastLexer::text_token(
+  self : WastLexer,
+  token_type : TokenType,
+  offset : Int,
+) -> Token {
+  {
+    location: self.get_location(),
+    token_type,
+    value: Text(self.get_text(offset)),
+  }
 }
 
+///|
 fn WastLexer::error(self : WastLexer, message : String) -> Unit {
-  self.errors.push(
-    { level: Error, location: self.get_location(), message },
-  )
+  self.errors.push({ level: Error, location: self.get_location(), message })
 }
 
 // ============================================================================
 // Comment and Whitespace Handling
 // ============================================================================
 
+///|
 fn WastLexer::read_block_comment(self : WastLexer) -> Bool {
   let mut nesting = 1
   while true {
@@ -197,6 +225,7 @@ fn WastLexer::read_block_comment(self : WastLexer) -> Bool {
   false
 }
 
+///|
 fn WastLexer::read_line_comment(self : WastLexer) -> Bool {
   while true {
     match self.read_char() {
@@ -205,6 +234,7 @@ fn WastLexer::read_line_comment(self : WastLexer) -> Bool {
         // '\r'
         if self.peek_char() == 0x0A {
           let _ = self.read_char()
+
         }
         self.newline()
         return true
@@ -220,12 +250,14 @@ fn WastLexer::read_line_comment(self : WastLexer) -> Bool {
   false
 }
 
+///|
 fn WastLexer::read_whitespace(self : WastLexer) -> Unit {
   while true {
     match self.peek_char() {
       0x20 | 0x09 | 0x0D => {
         // ' ', '\t', '\r'
         let _ = self.read_char()
+
       }
       0x0A => {
         // '\n'
@@ -241,6 +273,7 @@ fn WastLexer::read_whitespace(self : WastLexer) -> Unit {
 // Number Reading Helpers
 // ============================================================================
 
+///|
 fn WastLexer::read_num(self : WastLexer) -> Bool {
   if is_digit(self.peek_char()) {
     let _ = self.read_char()
@@ -253,6 +286,7 @@ fn WastLexer::read_num(self : WastLexer) -> Bool {
   false
 }
 
+///|
 fn WastLexer::read_hex_num(self : WastLexer) -> Bool {
   if is_hex_digit(self.peek_char()) {
     let _ = self.read_char()
@@ -265,14 +299,17 @@ fn WastLexer::read_hex_num(self : WastLexer) -> Bool {
   false
 }
 
+///|
 fn WastLexer::read_sign(self : WastLexer) -> Unit {
   let c = self.peek_char()
   if c == 0x2B || c == 0x2D {
     // '+' or '-'
     let _ = self.read_char()
+
   }
 }
 
+///|
 fn WastLexer::read_reserved_chars(self : WastLexer) -> ReservedChars {
   let mut ret = ReservedChars::None
   while true {
@@ -293,6 +330,7 @@ fn WastLexer::read_reserved_chars(self : WastLexer) -> ReservedChars {
   ret
 }
 
+///|
 fn WastLexer::no_trailing_reserved_chars(self : WastLexer) -> Bool {
   not(is_id_char(self.peek_char())) && self.peek_char() != 0x22
 }
@@ -301,6 +339,7 @@ fn WastLexer::no_trailing_reserved_chars(self : WastLexer) -> Bool {
 // String Token Parsing
 // ============================================================================
 
+///|
 fn WastLexer::get_string_token(self : WastLexer) -> Token {
   let saved_token_start = self.token_start
   let mut has_error = false
@@ -325,7 +364,7 @@ fn WastLexer::get_string_token(self : WastLexer) -> Token {
         }
         in_string = false
       }
-      0x5C => {
+      0x5C =>
         // '\\'
         match self.read_char() {
           0x74 | 0x6E | 0x72 | 0x22 | 0x27 | 0x5C =>
@@ -334,6 +373,7 @@ fn WastLexer::get_string_token(self : WastLexer) -> Token {
           c if is_hex_digit(c) =>
             if is_hex_digit(self.peek_char()) {
               let _ = self.read_char()
+
             } else {
               self.token_start = self.cursor - 2
               self.error("bad escape")
@@ -376,7 +416,6 @@ fn WastLexer::get_string_token(self : WastLexer) -> Token {
             has_error = true
           }
         }
-      }
       _ => ()
     }
   }
@@ -391,7 +430,11 @@ fn WastLexer::get_string_token(self : WastLexer) -> Token {
 // Number Token Parsing
 // ============================================================================
 
-fn WastLexer::get_number_token(self : WastLexer, token_type : TokenType) -> Token {
+///|
+fn WastLexer::get_number_token(
+  self : WastLexer,
+  token_type : TokenType,
+) -> Token {
   let mut tt = token_type
   if self.read_num() {
     if self.match_char(0x2E) {
@@ -420,7 +463,11 @@ fn WastLexer::get_number_token(self : WastLexer, token_type : TokenType) -> Toke
   self.get_reserved_token()
 }
 
-fn WastLexer::get_hex_number_token(self : WastLexer, token_type : TokenType) -> Token {
+///|
+fn WastLexer::get_hex_number_token(
+  self : WastLexer,
+  token_type : TokenType,
+) -> Token {
   let mut tt = token_type
   if self.read_hex_num() {
     if self.match_char(0x2E) {
@@ -449,6 +496,7 @@ fn WastLexer::get_hex_number_token(self : WastLexer, token_type : TokenType) -> 
   self.get_reserved_token()
 }
 
+///|
 fn WastLexer::get_inf_token(self : WastLexer) -> Token {
   if self.match_string("inf") {
     if self.no_trailing_reserved_chars() {
@@ -459,11 +507,14 @@ fn WastLexer::get_inf_token(self : WastLexer) -> Token {
   self.get_keyword_token()
 }
 
+///|
 fn WastLexer::get_nan_token(self : WastLexer) -> Token {
   if self.match_string("nan") {
     if self.match_char(0x3A) {
       // ':'
-      if self.match_string("0x") && self.read_hex_num() && self.no_trailing_reserved_chars() {
+      if self.match_string("0x") &&
+        self.read_hex_num() &&
+        self.no_trailing_reserved_chars() {
         return self.literal_token(Float, Nan)
       }
     } else if self.no_trailing_reserved_chars() {
@@ -473,10 +524,11 @@ fn WastLexer::get_nan_token(self : WastLexer) -> Token {
   self.get_keyword_token()
 }
 
+///|
 fn WastLexer::get_name_eq_num_token(
   self : WastLexer,
   name : String,
-  token_type : TokenType
+  token_type : TokenType,
 ) -> Token {
   if self.match_string(name) {
     if self.match_string("0x") {
@@ -494,6 +546,7 @@ fn WastLexer::get_name_eq_num_token(
 // Identifier and Keyword Tokens
 // ============================================================================
 
+///|
 fn WastLexer::get_id_chars(self : WastLexer) -> Token {
   if self.read_reserved_chars() is Id {
     return self.text_token(Var, 0)
@@ -501,23 +554,32 @@ fn WastLexer::get_id_chars(self : WastLexer) -> Token {
   self.text_token(Reserved, 0)
 }
 
+///|
 fn WastLexer::get_keyword_token(self : WastLexer) -> Token {
   let _ = self.read_reserved_chars()
   let text = self.get_text(0)
   match lookup_keyword(text) {
-    Some(token_type) => {
+    Some(token_type) =>
       match token_type {
         ValueType(vt) =>
-          { location: self.get_location(), token_type, value: TokenValue::ValueType(vt) }
+          {
+            location: self.get_location(),
+            token_type,
+            value: TokenValue::ValueType(vt),
+          }
         Opcode(op) =>
-          { location: self.get_location(), token_type, value: TokenValue::Opcode(op) }
+          {
+            location: self.get_location(),
+            token_type,
+            value: TokenValue::Opcode(op),
+          }
         _ => self.bare_token(token_type)
       }
-    }
     None => self.text_token(Reserved, 0)
   }
 }
 
+///|
 fn WastLexer::get_reserved_token(self : WastLexer) -> Token {
   let _ = self.read_reserved_chars()
   self.text_token(Reserved, 0)
@@ -527,12 +589,13 @@ fn WastLexer::get_reserved_token(self : WastLexer) -> Token {
 // Main Tokenization Entry Point
 // ============================================================================
 
+///|
 pub fn WastLexer::get_token(self : WastLexer) -> Token {
   while true {
     self.token_start = self.cursor
     match self.peek_char() {
       c if c == eof => return self.bare_token(Eof)
-      0x28 => {
+      0x28 =>
         // '('
         if self.match_string("(;") {
           if self.read_block_comment() {
@@ -546,13 +609,12 @@ pub fn WastLexer::get_token(self : WastLexer) -> Token {
           let _ = self.read_char()
           return self.bare_token(Lpar)
         }
-      }
       0x29 => {
         // ')'
         let _ = self.read_char()
         return self.bare_token(Rpar)
       }
-      0x3B => {
+      0x3B =>
         // ';'
         if self.match_string(";;") {
           if self.read_line_comment() {
@@ -564,7 +626,6 @@ pub fn WastLexer::get_token(self : WastLexer) -> Token {
           self.error("unexpected char")
           continue
         }
-      }
       0x20 | 0x09 | 0x0D | 0x0A => {
         // ' ', '\t', '\r', '\n'
         self.read_whitespace()
@@ -640,10 +701,12 @@ pub fn WastLexer::get_token(self : WastLexer) -> Token {
 // Utility Functions
 // ============================================================================
 
+///|
 pub fn WastLexer::get_errors(self : WastLexer) -> Array[LexerError] {
   self.errors
 }
 
+///|
 pub fn WastLexer::has_errors(self : WastLexer) -> Bool {
   self.errors.length() > 0
 }
@@ -652,6 +715,7 @@ pub fn WastLexer::has_errors(self : WastLexer) -> Bool {
 // lexer_test.mbt - Comprehensive Tests
 // ============================================================================
 
+///|
 fn string_to_bytes(s : String) -> Bytes {
   let bytes = @buffer.new(size_hint=s.length())
   for i = 0; i < s.length(); i = i + 1 {
@@ -660,10 +724,12 @@ fn string_to_bytes(s : String) -> Bytes {
   bytes.to_bytes()
 }
 
+///|
 fn make_lexer(source : String) -> WastLexer {
   WastLexer::new(string_to_bytes(source), "test.wast")
 }
 
+///|
 fn collect_tokens(lexer : WastLexer) -> Array[Token] {
   let tokens : Array[Token] = []
   while true {
@@ -676,15 +742,31 @@ fn collect_tokens(lexer : WastLexer) -> Array[Token] {
   tokens
 }
 
+///|
 priv suberror TokenTypeMismatch
+
+///|
 priv suberror ExpectedLiteral
+
+///|
 priv suberror ExpectedIntLiteral
+
+///|
 priv suberror ExpectedFloatLiteral
+
+///|
 priv suberror ExpectedHexFloatLiteral
+
+///|
 priv suberror ExpectedInfinityLiteral
+
+///|
 priv suberror ExpectedNanLiteral
+
+///|
 priv suberror ExpectedText
 
+///|
 fn assert_token_type(token : Token, expected : TokenType) -> Unit raise Error {
   // Simple comparison - in real code you'd implement proper equality
   let matches = match (token.token_type, expected) {
@@ -730,30 +812,35 @@ fn assert_token_type(token : Token, expected : TokenType) -> Unit raise Error {
 // Basic Token Tests
 // ============================================================================
 
+///|
 test "empty input returns EOF" {
   let lexer = make_lexer("")
   let token = lexer.get_token()
   assert_token_type(token, Eof)
 }
 
+///|
 test "whitespace only returns EOF" {
   let lexer = make_lexer("   \t\n\r\n  ")
   let token = lexer.get_token()
   assert_token_type(token, Eof)
 }
 
+///|
 test "left paren" {
   let lexer = make_lexer("(")
   let token = lexer.get_token()
   assert_token_type(token, Lpar)
 }
 
+///|
 test "right paren" {
   let lexer = make_lexer(")")
   let token = lexer.get_token()
   assert_token_type(token, Rpar)
 }
 
+///|
 test "multiple parens" {
   let lexer = make_lexer("(())")
   let tokens = collect_tokens(lexer)
@@ -769,30 +856,35 @@ test "multiple parens" {
 // Comment Tests
 // ============================================================================
 
+///|
 test "line comment" {
   let lexer = make_lexer(";; this is a comment\n(")
   let token = lexer.get_token()
   assert_token_type(token, Lpar)
 }
 
+///|
 test "line comment at EOF" {
   let lexer = make_lexer(";; comment without newline")
   let token = lexer.get_token()
   assert_token_type(token, Eof)
 }
 
+///|
 test "block comment" {
   let lexer = make_lexer("(; block comment ;)(")
   let token = lexer.get_token()
   assert_token_type(token, Lpar)
 }
 
+///|
 test "nested block comment" {
   let lexer = make_lexer("(; outer (; inner ;) outer ;)(")
   let token = lexer.get_token()
   assert_token_type(token, Lpar)
 }
 
+///|
 test "block comment with newlines" {
   let lexer = make_lexer("(; line 1\nline 2\nline 3 ;)(")
   let token = lexer.get_token()
@@ -804,6 +896,7 @@ test "block comment with newlines" {
 // Number Tests
 // ============================================================================
 
+///|
 test "natural number" {
   let lexer = make_lexer("42")
   let token = lexer.get_token()
@@ -814,12 +907,14 @@ test "natural number" {
   }
 }
 
+///|
 test "natural number zero" {
   let lexer = make_lexer("0")
   let token = lexer.get_token()
   assert_token_type(token, Nat)
 }
 
+///|
 test "positive integer" {
   let lexer = make_lexer("+123")
   let token = lexer.get_token()
@@ -830,6 +925,7 @@ test "positive integer" {
   }
 }
 
+///|
 test "negative integer" {
   let lexer = make_lexer("-456")
   let token = lexer.get_token()
@@ -840,6 +936,7 @@ test "negative integer" {
   }
 }
 
+///|
 test "hex number" {
   let lexer = make_lexer("0xDEADBEEF")
   let token = lexer.get_token()
@@ -850,12 +947,14 @@ test "hex number" {
   }
 }
 
+///|
 test "hex number lowercase" {
   let lexer = make_lexer("0xabcdef")
   let token = lexer.get_token()
   assert_token_type(token, Nat)
 }
 
+///|
 test "number with underscores" {
   let lexer = make_lexer("1_000_000")
   let token = lexer.get_token()
@@ -866,12 +965,14 @@ test "number with underscores" {
   }
 }
 
+///|
 test "hex number with underscores" {
   let lexer = make_lexer("0xDEAD_BEEF")
   let token = lexer.get_token()
   assert_token_type(token, Nat)
 }
 
+///|
 test "float decimal" {
   let lexer = make_lexer("3.14")
   let token = lexer.get_token()
@@ -888,75 +989,87 @@ test "float decimal" {
   }
 }
 
+///|
 test "float with exponent" {
   let lexer = make_lexer("1.5e10")
   let token = lexer.get_token()
   assert_token_type(token, Float)
 }
 
+///|
 test "float with negative exponent" {
   let lexer = make_lexer("2.5e-3")
   let token = lexer.get_token()
   assert_token_type(token, Float)
 }
 
+///|
 test "float with positive exponent" {
   let lexer = make_lexer("1E+5")
   let token = lexer.get_token()
   assert_token_type(token, Float)
 }
 
+///|
 test "hex float" {
   let lexer = make_lexer("0x1.fp10")
   let token = lexer.get_token()
   assert_token_type(token, Float)
   match token.value {
-    Literal(lit) => match lit.literal_type {
-      Hexfloat => ()
-      _ => raise ExpectedHexFloatLiteral
-    }
+    Literal(lit) =>
+      match lit.literal_type {
+        Hexfloat => ()
+        _ => raise ExpectedHexFloatLiteral
+      }
     _ => raise ExpectedLiteral
   }
 }
 
+///|
 test "infinity" {
   let lexer = make_lexer("inf")
   let token = lexer.get_token()
   assert_token_type(token, Float)
   match token.value {
-    Literal(lit) => match lit.literal_type {
-      Infinity => ()
-      _ => raise ExpectedInfinityLiteral
-    }
+    Literal(lit) =>
+      match lit.literal_type {
+        Infinity => ()
+        _ => raise ExpectedInfinityLiteral
+      }
     _ => raise ExpectedLiteral
   }
 }
 
+///|
 test "positive infinity" {
   let lexer = make_lexer("+inf")
   let token = lexer.get_token()
   assert_token_type(token, Float)
 }
 
+///|
 test "negative infinity" {
   let lexer = make_lexer("-inf")
   let token = lexer.get_token()
   assert_token_type(token, Float)
 }
 
+///|
 test "nan" {
   let lexer = make_lexer("nan")
   let token = lexer.get_token()
   assert_token_type(token, Float)
   match token.value {
-    Literal(lit) => match lit.literal_type {
-      Nan => ()
-      _ => raise ExpectedNanLiteral
-    }
+    Literal(lit) =>
+      match lit.literal_type {
+        Nan => ()
+        _ => raise ExpectedNanLiteral
+      }
     _ => raise ExpectedLiteral
   }
 }
 
+///|
 test "nan with payload" {
   let lexer = make_lexer("nan:0x7fc00000")
   let token = lexer.get_token()
@@ -967,6 +1080,7 @@ test "nan with payload" {
 // String Tests
 // ============================================================================
 
+///|
 test "simple string" {
   let lexer = make_lexer("\"hello\"")
   let token = lexer.get_token()
@@ -977,42 +1091,49 @@ test "simple string" {
   }
 }
 
+///|
 test "empty string" {
   let lexer = make_lexer("\"\"")
   let token = lexer.get_token()
   assert_token_type(token, Text)
 }
 
+///|
 test "string with escape sequences" {
   let lexer = make_lexer("\"hello\\nworld\"")
   let token = lexer.get_token()
   assert_token_type(token, Text)
 }
 
+///|
 test "string with tab escape" {
   let lexer = make_lexer("\"col1\\tcol2\"")
   let token = lexer.get_token()
   assert_token_type(token, Text)
 }
 
+///|
 test "string with hex escape" {
   let lexer = make_lexer("\"\\41\\42\\43\"")
   let token = lexer.get_token()
   assert_token_type(token, Text)
 }
 
+///|
 test "string with unicode escape" {
   let lexer = make_lexer("\"\\u{0041}\"")
   let token = lexer.get_token()
   assert_token_type(token, Text)
 }
 
+///|
 test "string with quote escape" {
   let lexer = make_lexer("\"say \\\"hello\\\"\"")
   let token = lexer.get_token()
   assert_token_type(token, Text)
 }
 
+///|
 test "string with backslash escape" {
   let lexer = make_lexer("\"path\\\\to\\\\file\"")
   let token = lexer.get_token()
@@ -1023,6 +1144,7 @@ test "string with backslash escape" {
 // Variable Tests
 // ============================================================================
 
+///|
 test "variable with dollar" {
   let lexer = make_lexer("$foo")
   let token = lexer.get_token()
@@ -1033,18 +1155,21 @@ test "variable with dollar" {
   }
 }
 
+///|
 test "variable with numbers" {
   let lexer = make_lexer("$var123")
   let token = lexer.get_token()
   assert_token_type(token, Var)
 }
 
+///|
 test "variable with underscores" {
   let lexer = make_lexer("$my_var_name")
   let token = lexer.get_token()
   assert_token_type(token, Var)
 }
 
+///|
 test "variable with special chars" {
   let lexer = make_lexer("$<>+-*/")
   let token = lexer.get_token()
@@ -1055,66 +1180,77 @@ test "variable with special chars" {
 // Keyword Tests
 // ============================================================================
 
+///|
 test "module keyword" {
   let lexer = make_lexer("module")
   let token = lexer.get_token()
   assert_token_type(token, Module)
 }
 
+///|
 test "func keyword" {
   let lexer = make_lexer("func")
   let token = lexer.get_token()
   assert_token_type(token, Func)
 }
 
+///|
 test "param keyword" {
   let lexer = make_lexer("param")
   let token = lexer.get_token()
   assert_token_type(token, Param)
 }
 
+///|
 test "result keyword" {
   let lexer = make_lexer("result")
   let token = lexer.get_token()
   assert_token_type(token, Result)
 }
 
+///|
 test "local keyword" {
   let lexer = make_lexer("local")
   let token = lexer.get_token()
   assert_token_type(token, Local)
 }
 
+///|
 test "global keyword" {
   let lexer = make_lexer("global")
   let token = lexer.get_token()
   assert_token_type(token, Global)
 }
 
+///|
 test "type keyword" {
   let lexer = make_lexer("type")
   let token = lexer.get_token()
   assert_token_type(token, Type)
 }
 
+///|
 test "import keyword" {
   let lexer = make_lexer("import")
   let token = lexer.get_token()
   assert_token_type(token, Import)
 }
 
+///|
 test "export keyword" {
   let lexer = make_lexer("export")
   let token = lexer.get_token()
   assert_token_type(token, Export)
 }
 
+///|
 test "memory keyword" {
   let lexer = make_lexer("memory")
   let token = lexer.get_token()
   assert_token_type(token, Memory)
 }
 
+///|
 test "table keyword" {
   let lexer = make_lexer("table")
   let token = lexer.get_token()
@@ -1125,36 +1261,42 @@ test "table keyword" {
 // Type Keyword Tests
 // ============================================================================
 
+///|
 test "i32 type" {
   let lexer = make_lexer("i32")
   let token = lexer.get_token()
   assert_token_type(token, ValueType(I32))
 }
 
+///|
 test "i64 type" {
   let lexer = make_lexer("i64")
   let token = lexer.get_token()
   assert_token_type(token, ValueType(I64))
 }
 
+///|
 test "f32 type" {
   let lexer = make_lexer("f32")
   let token = lexer.get_token()
   assert_token_type(token, ValueType(F32))
 }
 
+///|
 test "f64 type" {
   let lexer = make_lexer("f64")
   let token = lexer.get_token()
   assert_token_type(token, ValueType(F64))
 }
 
+///|
 test "funcref type" {
   let lexer = make_lexer("funcref")
   let token = lexer.get_token()
   assert_token_type(token, ValueType(FuncRef))
 }
 
+///|
 test "externref type" {
   let lexer = make_lexer("externref")
   let token = lexer.get_token()
@@ -1165,60 +1307,70 @@ test "externref type" {
 // Instruction Tests
 // ============================================================================
 
+///|
 test "i32.add instruction" {
   let lexer = make_lexer("i32.add")
   let token = lexer.get_token()
   assert_token_type(token, Opcode(I32Add))
 }
 
+///|
 test "i32.sub instruction" {
   let lexer = make_lexer("i32.sub")
   let token = lexer.get_token()
   assert_token_type(token, Opcode(I32Sub))
 }
 
+///|
 test "i32.const instruction" {
   let lexer = make_lexer("i32.const")
   let token = lexer.get_token()
   assert_token_type(token, Opcode(I32Const))
 }
 
+///|
 test "local.get instruction" {
   let lexer = make_lexer("local.get")
   let token = lexer.get_token()
   assert_token_type(token, Opcode(LocalGet))
 }
 
+///|
 test "local.set instruction" {
   let lexer = make_lexer("local.set")
   let token = lexer.get_token()
   assert_token_type(token, Opcode(LocalSet))
 }
 
+///|
 test "call instruction" {
   let lexer = make_lexer("call")
   let token = lexer.get_token()
   assert_token_type(token, Opcode(Call))
 }
 
+///|
 test "drop instruction" {
   let lexer = make_lexer("drop")
   let token = lexer.get_token()
   assert_token_type(token, Opcode(Drop))
 }
 
+///|
 test "return instruction" {
   let lexer = make_lexer("return")
   let token = lexer.get_token()
   assert_token_type(token, Opcode(Return))
 }
 
+///|
 test "unreachable instruction" {
   let lexer = make_lexer("unreachable")
   let token = lexer.get_token()
   assert_token_type(token, Opcode(Unreachable))
 }
 
+///|
 test "nop instruction" {
   let lexer = make_lexer("nop")
   let token = lexer.get_token()
@@ -1229,42 +1381,49 @@ test "nop instruction" {
 // Control Flow Tests
 // ============================================================================
 
+///|
 test "block keyword" {
   let lexer = make_lexer("block")
   let token = lexer.get_token()
   assert_token_type(token, Block)
 }
 
+///|
 test "loop keyword" {
   let lexer = make_lexer("loop")
   let token = lexer.get_token()
   assert_token_type(token, Loop)
 }
 
+///|
 test "if keyword" {
   let lexer = make_lexer("if")
   let token = lexer.get_token()
   assert_token_type(token, If)
 }
 
+///|
 test "else keyword" {
   let lexer = make_lexer("else")
   let token = lexer.get_token()
   assert_token_type(token, Else)
 }
 
+///|
 test "end keyword" {
   let lexer = make_lexer("end")
   let token = lexer.get_token()
   assert_token_type(token, End)
 }
 
+///|
 test "br instruction" {
   let lexer = make_lexer("br")
   let token = lexer.get_token()
   assert_token_type(token, Opcode(Br))
 }
 
+///|
 test "br_if instruction" {
   let lexer = make_lexer("br_if")
   let token = lexer.get_token()
@@ -1275,6 +1434,7 @@ test "br_if instruction" {
 // Annotation Tests
 // ============================================================================
 
+///|
 test "annotation" {
   let lexer = make_lexer("(@custom)")
   let token = lexer.get_token()
@@ -1289,6 +1449,7 @@ test "annotation" {
 // Align and Offset Tests
 // ============================================================================
 
+///|
 test "align equals nat" {
   let lexer = make_lexer("align=4")
   let token = lexer.get_token()
@@ -1299,12 +1460,14 @@ test "align equals nat" {
   }
 }
 
+///|
 test "align equals hex" {
   let lexer = make_lexer("align=0x10")
   let token = lexer.get_token()
   assert_token_type(token, AlignEqNat)
 }
 
+///|
 test "offset equals nat" {
   let lexer = make_lexer("offset=100")
   let token = lexer.get_token()
@@ -1315,6 +1478,7 @@ test "offset equals nat" {
   }
 }
 
+///|
 test "offset equals hex" {
   let lexer = make_lexer("offset=0xFF")
   let token = lexer.get_token()
@@ -1325,6 +1489,7 @@ test "offset equals hex" {
 // Location Tests
 // ============================================================================
 
+///|
 test "location tracking" {
   let lexer = make_lexer("(func)")
   let token1 = lexer.get_token() // (
@@ -1334,6 +1499,7 @@ test "location tracking" {
   assert_eq(token2.location.first_column, 2)
 }
 
+///|
 test "location tracking across newlines" {
   let lexer = make_lexer("(\n  func\n)")
   let _ = lexer.get_token() // (
@@ -1347,6 +1513,7 @@ test "location tracking across newlines" {
 // Integration Tests - Full Module Parsing
 // ============================================================================
 
+///|
 test "simple function" {
   let source =
     #|(module
@@ -1362,6 +1529,7 @@ test "simple function" {
   assert_false(lexer.has_errors())
 }
 
+///|
 test "memory and data" {
   let source =
     #|(module
@@ -1372,6 +1540,7 @@ test "memory and data" {
   assert_false(lexer.has_errors())
 }
 
+///|
 test "import and export" {
   let source =
     #|(module
@@ -1383,6 +1552,7 @@ test "import and export" {
   assert_false(lexer.has_errors())
 }
 
+///|
 test "global variables" {
   let source =
     #|(module
@@ -1393,6 +1563,7 @@ test "global variables" {
   assert_false(lexer.has_errors())
 }
 
+///|
 test "control flow" {
   let source =
     #|(module
@@ -1412,6 +1583,7 @@ test "control flow" {
 // Error Recovery Tests
 // ============================================================================
 
+///|
 test "error on unexpected character" {
   let lexer = make_lexer("(func @)")
   let _ = collect_tokens(lexer)
@@ -1419,6 +1591,7 @@ test "error on unexpected character" {
   // The @ character should cause an error
 }
 
+///|
 test "unterminated block comment" {
   let lexer = make_lexer("(; unterminated")
   let token = lexer.get_token()
@@ -1431,12 +1604,14 @@ test "unterminated block comment" {
 // Edge Cases
 // ============================================================================
 
+///|
 test "reserved token" {
   let lexer = make_lexer("notakeyword")
   let token = lexer.get_token()
   assert_token_type(token, Reserved)
 }
 
+///|
 test "keywords with common prefix" {
   let source = "local local.get local.set local.tee"
   let lexer = make_lexer(source)
@@ -1450,6 +1625,7 @@ test "keywords with common prefix" {
   assert_token_type(t4, Opcode(LocalTee))
 }
 
+///|
 test "float vs int distinction" {
   let lexer1 = make_lexer("42")
   let t1 = lexer1.get_token()
@@ -1462,31 +1638,38 @@ test "float vs int distinction" {
   assert_token_type(t3, Float)
 }
 
+///|
 test "hex vs decimal distinction" {
   let lexer1 = make_lexer("255")
   let t1 = lexer1.get_token()
   match t1.value {
-    Literal(lit) => match lit.literal_type {
-      LiteralType::Int => ()
-      _ => raise ExpectedIntLiteral
-    }
+    Literal(lit) =>
+      match lit.literal_type {
+        LiteralType::Int => ()
+        _ => raise ExpectedIntLiteral
+      }
     _ => raise ExpectedLiteral
   }
   let lexer2 = make_lexer("0xFF")
   let t2 = lexer2.get_token()
   match t2.value {
-    Literal(lit) => match lit.literal_type {
-      LiteralType::Int => ()
-      _ => raise ExpectedIntLiteral
-    }
+    Literal(lit) =>
+      match lit.literal_type {
+        LiteralType::Int => ()
+        _ => raise ExpectedIntLiteral
+      }
     _ => raise ExpectedLiteral
   }
 }
 
+///|
 test "many tokens stress test" {
   let mut source = ""
   for i = 0; i < 100; i = i + 1 {
-    source = source + "(func $f" + i.to_string() + " (param i32) (result i32) local.get 0)\n"
+    source = source +
+      "(func $f" +
+      i.to_string() +
+      " (param i32) (result i32) local.get 0)\n"
   }
   let lexer = make_lexer(source)
   let tokens = collect_tokens(lexer)
@@ -1494,6 +1677,7 @@ test "many tokens stress test" {
   assert_false(lexer.has_errors())
 }
 
+///|
 test "mixed whitespace" {
   let lexer = make_lexer("(\t\r\n  func  \t)")
   let tokens = collect_tokens(lexer)

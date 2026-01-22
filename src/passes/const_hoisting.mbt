@@ -33,15 +33,17 @@ fn Literal::byte_size(self : Literal) -> Int {
 fn Literal::get_tinst(self : Literal) -> TInstr {
   match self {
     Literal(I32LiteralKind, b) =>
-      TI32Const(b.unsafe_read_uint32_le(0).reinterpret_as_int())
+      TInstr::i32_const(b.unsafe_read_uint32_le(0).reinterpret_as_int())
     Literal(I64LiteralKind, b) =>
-      TI64Const(b.unsafe_read_uint64_le(0).reinterpret_as_int64())
+      TInstr::i64_const(b.unsafe_read_uint64_le(0).reinterpret_as_int64())
     Literal(F32LiteralKind, b) =>
-      TF32Const(F32(Float::reinterpret_from_uint(b.unsafe_read_uint32_le(0))))
+      TInstr::f32_const(
+        F32(Float::reinterpret_from_uint(b.unsafe_read_uint32_le(0))),
+      )
     Literal(F64LiteralKind, b) =>
-      TF64Const(b.unsafe_read_uint64_le(0).reinterpret_as_double())
+      TInstr::f64_const(b.unsafe_read_uint64_le(0).reinterpret_as_double())
     Literal(V128LiteralKind, b) =>
-      TV128Const(
+      TInstr::v128_const(
         b.unsafe_get(0),
         b.unsafe_get(1),
         b.unsafe_get(2),
@@ -180,7 +182,7 @@ fn replace_literal_pass() -> ModuleTransformer[Map[Literal, LocalIdx]] {
         TI32Const(I32(val)) => {
           let lit = i32_lit(val)
           if t.get(lit) is Some(idx) {
-            change(t, @lib.TLocalGet(idx))
+            change(t, TInstr::local_get(idx))
           } else {
             unchanged()
           }
@@ -188,7 +190,7 @@ fn replace_literal_pass() -> ModuleTransformer[Map[Literal, LocalIdx]] {
         TI64Const(I64(val)) => {
           let lit = i64_lit(val)
           if t.get(lit) is Some(idx) {
-            change(t, @lib.TLocalGet(idx))
+            change(t, TInstr::local_get(idx))
           } else {
             unchanged()
           }
@@ -196,7 +198,7 @@ fn replace_literal_pass() -> ModuleTransformer[Map[Literal, LocalIdx]] {
         TF32Const(F32(val)) => {
           let lit = f32_lit(val)
           if t.get(lit) is Some(idx) {
-            change(t, @lib.TLocalGet(idx))
+            change(t, TInstr::local_get(idx))
           } else {
             unchanged()
           }
@@ -204,7 +206,7 @@ fn replace_literal_pass() -> ModuleTransformer[Map[Literal, LocalIdx]] {
         TF64Const(F64(val)) => {
           let lit = f64_lit(val)
           if t.get(lit) is Some(idx) {
-            change(t, @lib.TLocalGet(idx))
+            change(t, TInstr::local_get(idx))
           } else {
             unchanged()
           }
@@ -233,7 +235,7 @@ fn replace_literal_pass() -> ModuleTransformer[Map[Literal, LocalIdx]] {
             b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15,
           )
           if t.get(lit) is Some(idx) {
-            change(t, @lib.TLocalGet(idx))
+            change(t, TInstr::local_get(idx))
           } else {
             unchanged()
           }
@@ -288,7 +290,7 @@ pub fn const_hoisting_pass() -> ModuleTransformer[ConstHoistingState] {
         let lit = k.0
         let idx = k.1
         let con = lit.get_tinst()
-        body.0.insert(0, TLocalSet(idx, con))
+        body.0.insert(0, TInstr::local_set(idx, con))
       }
       change(t, Func::t_func(locals, body))
     }),
@@ -322,13 +324,13 @@ fn run_hoist(f : Func) -> Func raise {
 
 ///|
 test "const hoisting: single use does nothing" {
-  let f = Func::t_func([], TExpr::new([TI32Const(I32(7))]))
+  let f = Func::t_func([], TExpr::new([TInstr::i32_const(I32(7))]))
   let f2 = run_hoist(f)
   match f2 {
     TFunc(locals, TExpr(instrs)) => {
       assert_eq(locals.length(), 0)
       assert_eq(instrs.length(), 1)
-      assert_eq(instrs[0], TI32Const(7))
+      assert_eq(instrs[0], TInstr::i32_const(I32(7)))
     }
     _ => fail("expected TFunc")
   }
@@ -339,7 +341,11 @@ test "const hoisting: large constant is hoisted" {
   let big = 100000
   let f = Func::t_func(
     [],
-    TExpr::new([TI32Const(I32(big)), TI32Const(I32(big)), TI32Const(I32(big))]),
+    TExpr::new([
+      TInstr::i32_const(I32(big)),
+      TInstr::i32_const(I32(big)),
+      TInstr::i32_const(I32(big)),
+    ]),
   )
   let f2 = run_hoist(f)
   match f2 {
@@ -363,7 +369,11 @@ test "const hoisting: large constant is hoisted" {
 test "const hoisting: small constants are not hoisted" {
   let f = Func::t_func(
     [],
-    TExpr::new([TI32Const(I32(0)), TI32Const(I32(0)), TI32Const(I32(0))]),
+    TExpr::new([
+      TInstr::i32_const(I32(0)),
+      TInstr::i32_const(I32(0)),
+      TInstr::i32_const(I32(0)),
+    ]),
   )
   let f2 = run_hoist(f)
   match f2 {
@@ -371,7 +381,7 @@ test "const hoisting: small constants are not hoisted" {
       assert_eq(locals.length(), 0)
       assert_eq(instrs.length(), 3)
       for i in instrs {
-        assert_true(i is @lib.TI32Const(_))
+        assert_true(i is TInstr::TI32Const(_))
       }
     }
     _ => fail("expected TFunc")
@@ -382,7 +392,11 @@ test "const hoisting: small constants are not hoisted" {
 test "const hoisting: different literals are not merged" {
   let f = Func::t_func(
     [],
-    TExpr::new([TI32Const(I32(10)), TI32Const(I32(20)), TI32Const(I32(10))]),
+    TExpr::new([
+      TInstr::i32_const(I32(10)),
+      TInstr::i32_const(I32(20)),
+      TInstr::i32_const(I32(10)),
+    ]),
   )
   let f2 = run_hoist(f)
   match f2 {
@@ -402,7 +416,11 @@ test "const hoisting: f64 hoisted when repeated" {
   let pi = 3.141592653589793
   let f = Func::t_func(
     [],
-    TExpr::new([TF64Const(F64(pi)), TF64Const(F64(pi)), TF64Const(F64(pi))]),
+    TExpr::new([
+      TInstr::f64_const(F64(pi)),
+      TInstr::f64_const(F64(pi)),
+      TInstr::f64_const(F64(pi)),
+    ]),
   )
   let f2 = run_hoist(f)
   match f2 {

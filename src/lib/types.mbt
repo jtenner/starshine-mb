@@ -309,7 +309,7 @@ pub struct DataCntSec(U32) derive(Eq, Arbitrary, Hash)
 pub struct TagSec(Array[TagType]) derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) struct MemArg(U32, MemIdx?, U64) derive(Hash)
+pub struct MemArg(U32, MemIdx?, U64) derive(Hash)
 
 ///|
 pub(all) enum BlockType {
@@ -1142,7 +1142,7 @@ pub struct TExpr(Array[TInstr]) derive(Eq, Show, Hash)
 
 ///|
 /// A tree-based instruction with explicit operands
-pub(all) enum TInstr {
+pub enum TInstr {
   // === Constants (0 children, 1 result) ===
   TI32Const(I32)
   TI64Const(I64)
@@ -1327,7 +1327,7 @@ pub(all) enum TInstr {
 
 ///|
 /// Unary operations
-pub(all) enum UnaryOp {
+pub enum UnaryOp {
   // === Scalar ===
   I32EqzOp
   I64EqzOp
@@ -1468,7 +1468,7 @@ pub(all) enum UnaryOp {
 
 ///|
 /// Binary operations
-pub(all) enum BinaryOp {
+pub enum BinaryOp {
   // === Scalar ===
   I32EqOp
   I32NeOp
@@ -1737,7 +1737,7 @@ pub enum LoadOp {
 
 ///|
 /// Store operations
-pub(all) enum StoreOp {
+pub enum StoreOp {
   // === Scalar ===
   I32StoreOp
   I64StoreOp
@@ -1755,7 +1755,7 @@ pub(all) enum StoreOp {
 
 ///|
 /// Extract lane operations (v128 -> scalar)
-pub(all) enum ExtractLaneOp {
+pub enum ExtractLaneOp {
   I8x16ExtractLaneSOp
   I8x16ExtractLaneUOp
   I16x8ExtractLaneSOp
@@ -7505,18 +7505,22 @@ pub fn CustomSec::new(name : Name, payload : Bytes) -> CustomSec {
   CustomSec(name, payload)
 }
 
+///|
 pub fn ImportSec::new(imports : Array[Import]) -> ImportSec {
   ImportSec(imports)
 }
 
+///|
 pub fn FuncSec::new(i : Array[TypeIdx]) -> FuncSec {
   FuncSec(i)
 }
 
+///|
 pub fn ExportSec::new(exports : Array[Export]) -> ExportSec {
   ExportSec(exports)
 }
 
+///|
 pub fn StartSec::new(fi : FuncIdx) -> StartSec {
   StartSec(fi)
 }
@@ -7576,6 +7580,7 @@ pub fn ElemSec::new(e : Array[Elem]) -> ElemSec {
   ElemSec(e)
 }
 
+///|
 pub fn TagSec::new(e : Array[TagType]) -> TagSec {
   TagSec(e)
 }

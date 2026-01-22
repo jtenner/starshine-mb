@@ -1113,7 +1113,6 @@ pub fn validate_module(m : Module) -> Result[Unit, String] {
 }
 
 ///|
-
 test "Fuzz Modules" {
   let rnd = @splitmix.new()
   loop 100000 {
@@ -1121,7 +1120,6 @@ test "Fuzz Modules" {
     n => {
       let mod = gen_valid_module(rnd)
       let result = validate_module(mod)
-      
       if result is Err(t) {
         assert_true(false, msg=t)
       }

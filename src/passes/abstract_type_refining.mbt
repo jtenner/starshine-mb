@@ -159,13 +159,13 @@ fn rewrite_cast(instr : TInstr, mapping : HeapTypeMap) -> TInstr {
       if new_ht == ht {
         instr
       } else {
-        TRefCast(nullable, new_ht, v)
+        TInstr::ref_cast(nullable, new_ht, v)
       }
     }
     TBrOnCast(l, op, ht1, ht2, v, args) => {
       let n1 = rewrite_heaptype(ht1, mapping)
       let n2 = rewrite_heaptype(ht2, mapping)
-      TBrOnCast(l, op, n1, n2, v, args)
+      TInstr::br_on_cast(l, op.0, n1, op.1, n2, v, args)
     }
     _ => instr
   }
@@ -173,7 +173,10 @@ fn rewrite_cast(instr : TInstr, mapping : HeapTypeMap) -> TInstr {
 
 ///|
 fn drop_then_unreachable(value : TInstr) -> TInstr {
-  TBlock(EmptyBlockType, TExpr::new([TDrop(value), TUnreachable]))
+  TInstr::block(
+    EmptyBlockType,
+    TExpr::new([TInstr::drop(value), TInstr::unreachable_()]),
+  )
 }
 
 ///|
@@ -233,15 +236,29 @@ fn rewrite_descriptor_exact_br_on_cast(
   match instr {
     TBrOnCast(label, op, src_ht, dst_ht, value, args) =>
       if traps_never_happen && op.1 && is_refined(dst_ht, mapping) {
-        let new_op = CastOp::new(op.0, false)
-        TBrOnCast(label, new_op, src_ht, HeapType::bottom(), value, args)
+        TInstr::br_on_cast(
+          label,
+          op.0,
+          src_ht,
+          false,
+          HeapType::bottom(),
+          value,
+          args,
+        )
       } else {
         instr
       }
     TBrOnCastFail(label, op, src_ht, dst_ht, value, args) =>
       if traps_never_happen && op.1 && is_refined(dst_ht, mapping) {
-        let new_op = CastOp::new(op.0, false)
-        TBrOnCastFail(label, new_op, src_ht, HeapType::bottom(), value, args)
+        TInstr::br_on_cast_fail(
+          label,
+          op.0,
+          src_ht,
+          false,
+          HeapType::bottom(),
+          value,
+          args,
+        )
       } else {
         instr
       }

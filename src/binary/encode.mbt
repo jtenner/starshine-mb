@@ -43,7 +43,6 @@ pub impl Encode for AbsHeapType with encode(val, buf) {
   Ok(())
 }
 
-
 ///|
 pub impl Encode for RefType with encode(val, buf) {
   match val {
@@ -58,7 +57,6 @@ pub impl Encode for RefType with encode(val, buf) {
     AbsHeapTypeRefType(abs) => Encode::encode(abs, buf)
   }
 }
-
 
 ///|
 pub impl Encode for ValType with encode(val, buf) {
@@ -123,18 +121,6 @@ pub impl Encode for FieldType with encode(val, buf) {
 }
 
 ///|
-pub impl Decode for FieldType with decode(bytes, i) {
-  match Decode::decode(bytes, i) {
-    Err(err) => Err(err)
-    Ok((st, i)) =>
-      match Decode::decode(bytes, i) {
-        Ok((m, i)) => Ok((FieldType::new(st, m), i))
-        Err(err) => Err(err)
-      }
-  }
-}
-
-///|
 pub impl Encode for Mut with encode(val, buf) {
   match val {
     Const => buf.write_byte(0x00)
@@ -143,7 +129,6 @@ pub impl Encode for Mut with encode(val, buf) {
   Ok(())
 }
 
-
 ///|
 pub impl Encode for StorageType with encode(val, buf) {
   match val {
@@ -151,7 +136,6 @@ pub impl Encode for StorageType with encode(val, buf) {
     PackTypeStorageType(pt) => Encode::encode(pt, buf)
   }
 }
-
 
 ///|
 pub impl Encode for PackType with encode(val, buf) {
@@ -167,7 +151,6 @@ pub impl Encode for PackType with encode(val, buf) {
   }
 }
 
-
 ///|
 pub impl Encode for RecType with encode(val, buf) {
   match val {
@@ -178,7 +161,6 @@ pub impl Encode for RecType with encode(val, buf) {
     }
   }
 }
-
 
 ///|
 pub impl Encode for SubType with encode(val, buf) {
@@ -196,7 +178,6 @@ pub impl Encode for SubType with encode(val, buf) {
     CompTypeSubType(ct) => Encode::encode(ct, buf)
   }
 }
-
 
 ///|
 pub impl Encode for ExternIdx with encode(val, buf) {
@@ -431,7 +412,6 @@ pub impl Encode for Bool with encode(val, buf) {
   Ok(())
 }
 
-
 ///|
 pub impl[T : Encode] Encode for T? with encode(val, buf) {
   match val {
@@ -460,7 +440,6 @@ pub impl Encode for TableIdx with encode(val, buf) {
   encode_unsigned(id.to_uint64(), buf, 32)
 }
 
-
 ///|
 pub impl Encode for MemIdx with encode(val, buf) {
   let MemIdx(id) = val
@@ -472,7 +451,6 @@ pub impl Encode for GlobalIdx with encode(val, buf) {
   let GlobalIdx(id) = val
   encode_unsigned(id.to_uint64(), buf, 32)
 }
-
 
 ///|
 pub impl Encode for TagIdx with encode(val, buf) {
@@ -491,7 +469,6 @@ pub impl Encode for DataIdx with encode(val, buf) {
   let DataIdx(id) = val
   encode_unsigned(id.to_uint64(), buf, 32)
 }
-
 
 ///|
 pub impl Encode for LocalIdx with encode(val, buf) {
@@ -524,7 +501,6 @@ pub impl Encode for Name with encode(val, buf) {
     }
   }
 }
-
 
 ///|
 pub impl Encode for CustomSec with encode(val, buf) {
@@ -1071,7 +1047,6 @@ pub impl Encode for Module with encode(val, buf) {
   }
   Ok(())
 }
-
 
 ///|
 pub impl Encode for Bytes with encode(val, buf) {

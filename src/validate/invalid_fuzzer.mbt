@@ -419,10 +419,14 @@ fn make_global_init_mismatch_transformer() -> ModuleTransformer[Unit] {
       let Global(GlobalType(vt, mutable), _init) = g
       // Create an init expression with wrong type
       let wrong_init = match vt {
-        NumTypeValType(I32NumType) => Expr::new([Instruction::f64_const(F64(0.0))])
-        NumTypeValType(I64NumType) => Expr::new([Instruction::f32_const(F32(0.0))])
-        NumTypeValType(F32NumType) => Expr::new([Instruction::i64_const(I64(0L))])
-        NumTypeValType(F64NumType) => Expr::new([Instruction::i32_const(I32(0))])
+        NumTypeValType(I32NumType) =>
+          Expr::new([Instruction::f64_const(F64(0.0))])
+        NumTypeValType(I64NumType) =>
+          Expr::new([Instruction::f32_const(F32(0.0))])
+        NumTypeValType(F32NumType) =>
+          Expr::new([Instruction::i64_const(I64(0L))])
+        NumTypeValType(F64NumType) =>
+          Expr::new([Instruction::i32_const(I32(0))])
         RefTypeValType(_) => Expr::new([Instruction::i32_const(I32(0))]) // Definitely wrong
         VecTypeValType => Expr::new([Instruction::i32_const(I32(0))])
         BotValType => return Ok(None)
@@ -444,7 +448,14 @@ fn make_table_init_mismatch_transformer() -> ModuleTransformer[Unit] {
     ) -> TransformerResult[Unit, Table] {
       let Table(tt, _init) = t
       // Set init to wrong type expression
-      Ok(Some(((), Table::new(tt, Some(Expr::new([Instruction::i32_const(I32(42))]))))))
+      Ok(
+        Some(
+          (
+            (),
+            Table::new(tt, Some(Expr::new([Instruction::i32_const(I32(42))]))),
+          ),
+        ),
+      )
     }),
   }
 }
@@ -467,7 +478,11 @@ fn make_drop_insertion_transformer() -> ModuleTransformer[Bool] {
         return Ok(None)
       }
       // Prepend Drop instructions to cause stack underflow
-      let new_instrs : Array[Instruction] = [Instruction::drop(), Instruction::drop(), Instruction::drop()]
+      let new_instrs : Array[Instruction] = [
+        Instruction::drop(),
+        Instruction::drop(),
+        Instruction::drop(),
+      ]
       for i in instrs {
         new_instrs.push(i)
       }
@@ -545,7 +560,13 @@ fn make_blocktype_mismatch_transformer() -> ModuleTransformer[Bool] {
         Nop | Drop =>
           Ok(
             Some(
-              (true, Instruction::block(ValTypeBlockType(ValType::i32()), Expr::new([ins]))),
+              (
+                true,
+                Instruction::block(
+                  ValTypeBlockType(ValType::i32()),
+                  Expr::new([ins]),
+                ),
+              ),
             ),
           )
 
@@ -553,7 +574,13 @@ fn make_blocktype_mismatch_transformer() -> ModuleTransformer[Bool] {
         LocalGet(_) =>
           Ok(
             Some(
-              (true, Instruction::block(ValTypeBlockType(ValType::i64()), Expr::new([ins]))),
+              (
+                true,
+                Instruction::block(
+                  ValTypeBlockType(ValType::i64()),
+                  Expr::new([ins]),
+                ),
+              ),
             ),
           )
 
@@ -562,29 +589,58 @@ fn make_blocktype_mismatch_transformer() -> ModuleTransformer[Bool] {
           Ok(Some((true, Instruction::block(EmptyBlockType, Expr::new([ins])))))
 
         // Existing control flow: corrupt their block type
-        Block(bt, body) => Ok(Some((true, Instruction::block(corrupt_blocktype(bt), body))))
-        Loop(bt, body) => Ok(Some((true, Instruction::loop_(corrupt_blocktype(bt), body))))
+        Block(bt, body) =>
+          Ok(Some((true, Instruction::block(corrupt_blocktype(bt), body))))
+        Loop(bt, body) =>
+          Ok(Some((true, Instruction::loop_(corrupt_blocktype(bt), body))))
         If(bt, then_body, else_body) =>
-          Ok(Some((true, Instruction::if_(corrupt_blocktype(bt), then_body, else_body))))
+          Ok(
+            Some(
+              (
+                true,
+                Instruction::if_(corrupt_blocktype(bt), then_body, else_body),
+              ),
+            ),
+          )
         TryTable(bt, catches, body) =>
-          Ok(Some((true, Instruction::try_table(corrupt_blocktype(bt), catches, body))))
+          Ok(
+            Some(
+              (
+                true,
+                Instruction::try_table(corrupt_blocktype(bt), catches, body),
+              ),
+            ),
+          )
 
         // RefNull produces a ref - wrap in block claiming i32
         RefNull(_) =>
           Ok(
             Some(
-              (true, Instruction::block(ValTypeBlockType(ValType::i32()), Expr::new([ins]))),
+              (
+                true,
+                Instruction::block(
+                  ValTypeBlockType(ValType::i32()),
+                  Expr::new([ins]),
+                ),
+              ),
             ),
           )
 
         // RefFunc produces a ref - wrap in block claiming empty
-        RefFunc(_) => Ok(Some((true, Instruction::block(EmptyBlockType, Expr::new([ins])))))
+        RefFunc(_) =>
+          Ok(Some((true, Instruction::block(EmptyBlockType, Expr::new([ins])))))
 
         // StructNewDefault produces a ref - wrap in block claiming i32
         StructNewDefault(_) =>
           Ok(
             Some(
-              (true, Instruction::block(ValTypeBlockType(ValType::i32()), Expr::new([ins]))),
+              (
+                true,
+                Instruction::block(
+                  ValTypeBlockType(ValType::i32()),
+                  Expr::new([ins]),
+                ),
+              ),
             ),
           )
 

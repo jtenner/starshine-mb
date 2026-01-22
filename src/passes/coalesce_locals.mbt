@@ -804,11 +804,11 @@ fn rewrite_instr_locals(instr : TInstr, mapping : LocalMap) -> TInstr {
     on_tinstruction: Some(fn(_, _, i) {
       match i {
         TInstr::TLocalGet(idx) =>
-          change((), TInstr::TLocalGet(mapping.get(idx).unwrap()))
+          change((), TInstr::local_get(mapping.get(idx).unwrap()))
         TInstr::TLocalSet(idx, value) =>
-          change((), TInstr::TLocalSet(mapping.get(idx).unwrap(), value))
+          change((), TInstr::local_set(mapping.get(idx).unwrap(), value))
         TInstr::TLocalTee(idx, value) =>
-          change((), TInstr::TLocalTee(mapping.get(idx).unwrap(), value))
+          change((), TInstr::local_tee(mapping.get(idx).unwrap(), value))
         _ => unchanged()
       }
     }),

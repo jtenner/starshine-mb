@@ -519,7 +519,7 @@ fn process_block(
       optimize_expression_tails(
         state,
         all_tails,
-        TBlock(BlockType::empty(), TExpr::new(instrs)),
+        TInstr::block(BlockType::empty(), TExpr::new(instrs)),
       )
     }
   }
@@ -544,7 +544,7 @@ fn process_if(
       optimize_expression_tails(
         state,
         tails,
-        TIf(BlockType::empty(), cond, then_body, Some(else_expr)),
+        TInstr::if_(BlockType::empty(), cond, then_body, Some(else_expr)),
       )
     }
   }
@@ -568,7 +568,7 @@ pub fn code_folding_pass() -> ModuleTransformer[CodeFoldingState] {
                   match process_block(new_state, LabelIdx::new(0), new_body.0) {
                     Some(_) =>
                       // Block was modified
-                      change(new_state, TBlock(bt, new_body))
+                      change(new_state, TInstr::block(bt, new_body))
                     None => change(new_state, new_instr)
                   }
                 _ => change(new_state, new_instr)
@@ -591,7 +591,10 @@ pub fn code_folding_pass() -> ModuleTransformer[CodeFoldingState] {
                   match process_if(new_state, new_cond, new_then, new_else) {
                     Some(_) =>
                       // If was modified
-                      change(new_state, TIf(bt, new_cond, new_then, new_else))
+                      change(
+                        new_state,
+                        TInstr::if_(bt, new_cond, new_then, new_else),
+                      )
                     None => change(new_state, new_instr)
                   }
                 _ => change(new_state, new_instr)
@@ -751,7 +754,7 @@ test "collect_block_tails finds return tails" {
   let instrs = [
     TInstr::i32_const(I32(1)),
     TInstr::i32_const(I32(2)),
-    TReturn([TInstr::i32_const(I32(3))]),
+    TInstr::return_([TInstr::i32_const(I32(3))]),
   ]
   collect_block_tails(state, instrs)
   assert_eq(state.return_tails.length(), 1)
@@ -763,7 +766,7 @@ test "collect_block_tails finds unreachable tails" {
     ..CodeFoldingState::new(),
     another_pass: false,
   }
-  let instrs = [TInstr::i32_const(I32(1)), TUnreachable]
+  let instrs = [TInstr::i32_const(I32(1)), TInstr::unreachable_()]
   collect_block_tails(state, instrs)
   assert_eq(state.unreachable_tails.length(), 1)
 }
@@ -833,19 +836,21 @@ test "get_mergeable returns items from end" {
 
 ///|
 test "is_terminating detects terminators" {
-  assert_true(is_terminating(TUnreachable))
-  assert_true(is_terminating(TReturn([])))
-  assert_true(is_terminating(TReturnCall(FuncIdx::new(0), [])))
+  assert_true(is_terminating(TInstr::unreachable_()))
+  assert_true(is_terminating(TInstr::return_([])))
+  assert_true(is_terminating(TInstr::return_call(FuncIdx::new(0), [])))
   assert_true(not(is_terminating(TInstr::i32_const(I32(42)))))
-  assert_true(not(is_terminating(TNop)))
+  assert_true(not(is_terminating(TInstr::nop())))
 }
 
 ///|
 test "is_branch detects branches" {
-  assert_true(is_branch(TBr(LabelIdx::new(0), [])))
-  assert_true(is_branch(TBrIf(LabelIdx::new(0), TInstr::i32_const(I32(1)), [])))
+  assert_true(is_branch(TInstr::br(LabelIdx::new(0), [])))
+  assert_true(
+    is_branch(TInstr::br_if(LabelIdx::new(0), TInstr::i32_const(I32(1)), [])),
+  )
   assert_true(not(is_branch(TInstr::i32_const(I32(42)))))
-  assert_true(not(is_branch(TUnreachable)))
+  assert_true(not(is_branch(TInstr::unreachable_())))
 }
 
 ///|
@@ -862,7 +867,7 @@ test "measure_all sums instruction costs" {
 ///|
 test "can_move allows simple instructions" {
   let items = [TInstr::i32_const(I32(42))]
-  let container = TInstr::block(BlockType::empty(), TExpr::new([TNop]))
+  let container = TInstr::block(BlockType::empty(), TExpr::new([TInstr::nop()]))
   assert_true(can_move(items, container))
 }
 
@@ -959,7 +964,7 @@ test "code folding: empty function unchanged" {
 
 ///|
 test "code folding: single instruction unchanged" {
-  let f = Func::t_func([], TExpr::new([TNop]))
+  let f = Func::t_func([], TExpr::new([TInstr::nop()]))
   let f2 = run_fold(f)
   match f2 {
     TFunc(_, TExpr(instrs)) => {
@@ -972,7 +977,7 @@ test "code folding: single instruction unchanged" {
 
 ///|
 test "code folding: br_table marks all targets unoptimizable" {
-    let state = CodeFoldingState::{
+  let state = CodeFoldingState::{
     ..CodeFoldingState::new(),
     another_pass: false,
   }

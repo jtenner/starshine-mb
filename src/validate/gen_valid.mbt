@@ -1,4 +1,4 @@
-
+///|
 priv struct Label {
   result : ResultType
   catchable : Bool
@@ -55,7 +55,7 @@ fn GenValidContext::new(rnd : RandomState) -> GenValidContext {
     tag_idx: 0,
     tag_sigs: [],
     rnd,
-    label_stack: []
+    label_stack: [],
   }
 }
 
@@ -116,10 +116,7 @@ fn GenValidContext::add_array_type(
 }
 
 ///|
-fn GenValidContext::add_global(
-  self : GenValidContext,
-  gt : GlobalType,
-) -> Int {
+fn GenValidContext::add_global(self : GenValidContext, gt : GlobalType) -> Int {
   let next = self.global_idx
   self.global_idx = next + 1
   self.globals.push(gt)
@@ -140,6 +137,7 @@ fn GenValidContext::ensure_table(self : GenValidContext) -> Unit {
   }
 }
 
+///|
 fn GenValidContext::empty_labels(self : GenValidContext) -> Array[Int] {
   let result : Array[Int] = []
   for l in 0..<self.label_stack.length() {
@@ -185,20 +183,23 @@ fn GenValidContext::random_bool(self : GenValidContext) -> Bool {
   self.rnd.next_positive_int() % 2 == 0
 }
 
+///|
 fn GenValidContext::push_label(
   self : GenValidContext,
   bt : ResultType,
-  catchable : Bool
+  catchable : Bool,
 ) -> Unit {
   // label 0 = innermost
   self.label_stack.insert(0, Label::{ result: bt, catchable })
 }
 
+///|
 fn GenValidContext::pop_label(self : GenValidContext) -> Unit {
   // remove innermost label
   ignore(self.label_stack.remove(0))
 }
 
+///|
 fn GenValidContext::label_count(self : GenValidContext) -> Int {
   self.label_stack.length()
 }
@@ -220,10 +221,7 @@ fn GenValidContext::get_or_add_signature(
 
 ///|
 /// Reserve a function index before the body is generated (for forward references)
-fn GenValidContext::reserve_func(
-  self : GenValidContext,
-  sig_idx : Int,
-) -> Int {
+fn GenValidContext::reserve_func(self : GenValidContext, sig_idx : Int) -> Int {
   let next = self.func_idx
   self.func_idx = next + 1
   self.func_sigs.set(next, sig_idx)
@@ -307,9 +305,9 @@ fn gen_table_set_tinstr(ctx : GenValidContext) -> TInstr? {
       FuncIdx::new(ctx.random_int(ctx.func_idx).reinterpret_as_uint()),
     )
   } else {
-    TRefNull(HeapType::abs(AbsHeapType::func()))
+    TInstr::ref_null(HeapType::abs(AbsHeapType::func()))
   }
-  Some(TTableSet(TableIdx::new(0), idx, func_ref))
+  Some(TInstr::table_set(TableIdx::new(0), idx, func_ref))
 }
 
 ///|
@@ -318,7 +316,7 @@ fn gen_table_size_tinstr(ctx : GenValidContext) -> TInstr? {
   if ctx.table_count == 0 {
     return None
   }
-  Some(TTableSize(TableIdx::new(0)))
+  Some(TInstr::table_size(TableIdx::new(0)))
 }
 
 ///|
@@ -329,7 +327,7 @@ fn gen_table_grow_tinstr(ctx : GenValidContext) -> TInstr? {
   }
   let init_val = TInstr::ref_null(HeapType::abs(AbsHeapType::func()))
   let delta = TInstr::i32_const(I32(ctx.random_int(5) + 1))
-  Some(TTableGrow(TableIdx::new(0), init_val, delta))
+  Some(TInstr::table_grow(TableIdx::new(0), init_val, delta))
 }
 
 ///|
@@ -398,7 +396,6 @@ fn gen_call_tinstr_v2(
 ) -> TInstr? {
   // Only support Exact strategy to avoid multi-value complexity
   guard strategy is Exact else { return None }
-  
   let callables = ctx.find_callable_returning(target_types, Exact)
   if callables.length() == 0 {
     return None
@@ -464,10 +461,15 @@ fn gen_struct_new_tinstr(ctx : GenValidContext) -> TInstr? {
     )]
   let field_values : Array[TInstr] = []
   for field in fields {
-    let vt = storage_type_to_valtype(field.get_storage_type())  // Fixed
+    let vt = storage_type_to_valtype(field.get_storage_type()) // Fixed
     field_values.push(gen_tinstr_of_type(ctx, vt))
   }
-  Some(TStructNew(TypeIdx::new(type_idx.reinterpret_as_uint()), field_values))
+  Some(
+    TInstr::struct_new(
+      TypeIdx::new(type_idx.reinterpret_as_uint()),
+      field_values,
+    ),
+  )
 }
 
 ///|
@@ -534,7 +536,7 @@ fn gen_array_new_tinstr(ctx : GenValidContext) -> TInstr? {
       let init_val = gen_tinstr_of_type(ctx, elem_vt)
       let length = TInstr::i32_const(I32(ctx.random_int(10) + 1))
       Some(
-        TArrayNew(
+        TInstr::array_new(
           TypeIdx::new(type_idx.reinterpret_as_uint()),
           init_val,
           length,
@@ -545,7 +547,10 @@ fn gen_array_new_tinstr(ctx : GenValidContext) -> TInstr? {
       // array.new_default with just length
       let length = TInstr::i32_const(I32(ctx.random_int(10) + 1))
       Some(
-        TArrayNewDefault(TypeIdx::new(type_idx.reinterpret_as_uint()), length),
+        TInstr::array_new_default(
+          TypeIdx::new(type_idx.reinterpret_as_uint()),
+          length,
+        ),
       )
     }
     _ => {
@@ -586,7 +591,7 @@ fn gen_array_get_tinstr(
       match elem_type.get_storage_type() {
         PackTypeStorageType(_) =>
           return Some(
-            TArrayGetS(
+            TInstr::array_get_s(
               TypeIdx::new(type_idx.reinterpret_as_uint()),
               array,
               index,
@@ -594,7 +599,7 @@ fn gen_array_get_tinstr(
           )
         _ =>
           return Some(
-            TArrayGet(
+            TInstr::array_get(
               TypeIdx::new(type_idx.reinterpret_as_uint()),
               array,
               index,
@@ -634,47 +639,50 @@ fn gen_call_side_effect(ctx : GenValidContext) -> TInstr? {
     for param_type in accepts {
       args.push(gen_tinstr_of_type(ctx, param_type))
     }
-    return Some(TCall(FuncIdx::new(func_idx.reinterpret_as_uint()), args))
+    return Some(
+      TInstr::call(FuncIdx::new(func_idx.reinterpret_as_uint()), args),
+    )
   }
-
   if usable_funcs.length() == 0 {
     return None
   }
 
   // Call single-return function and drop result
-  let (func_idx, accepts, _) = usable_funcs[ctx.random_int(usable_funcs.length())]
+  let (func_idx, accepts, _) = usable_funcs[ctx.random_int(
+      usable_funcs.length(),
+    )]
   let args : Array[TInstr] = []
   for param_type in accepts {
     args.push(gen_tinstr_of_type(ctx, param_type))
   }
   let call = TInstr::call(FuncIdx::new(func_idx.reinterpret_as_uint()), args)
-  Some(TDrop(call))
+  Some(TInstr::drop(call))
 }
 
 ///|
 fn gen_i32_tinstr(ctx : GenValidContext) -> TInstr {
   match ctx.random_int(6) {
-    0 => TI32Const(I32(ctx.rnd.next_int()))
+    0 => TInstr::i32_const(I32(ctx.rnd.next_int()))
     1 => {
       let a = gen_i32_tinstr_simple(ctx)
       let b = gen_i32_tinstr_simple(ctx)
-      TBinary(I32AddOp, a, b)
+      TInstr::binary(BinaryOp::i32_add(), a, b)
     }
     2 => {
       let a = gen_i32_tinstr_simple(ctx)
       let b = gen_i32_tinstr_simple(ctx)
-      TBinary(I32MulOp, a, b)
+      TInstr::binary(BinaryOp::i32_mul(), a, b)
     }
     3 => {
       let a = gen_i32_tinstr_simple(ctx)
       let b = gen_i32_tinstr_simple(ctx)
-      TBinary(I32SubOp, a, b)
+      TInstr::binary(BinaryOp::i32_sub(), a, b)
     }
     4 => {
       let a = gen_i32_tinstr_simple(ctx)
-      TUnary(I32ClzOp, a)
+      TInstr::unary(UnaryOp::i32_clz(), a)
     }
-    _ => TI32Const(I32(ctx.random_int(1000)))
+    _ => TInstr::i32_const(I32(ctx.random_int(1000)))
   }
 }
 
@@ -684,28 +692,28 @@ fn gen_i32_tinstr_simple(ctx : GenValidContext) -> TInstr {
     match local_type {
       NumTypeValType(I32NumType) =>
         if ctx.random_bool() {
-          return TLocalGet(LocalIdx::new(i.reinterpret_as_uint()))
+          return TInstr::local_get(LocalIdx::new(i.reinterpret_as_uint()))
         }
       _ => continue
     }
   }
-  TI32Const(I32(ctx.random_int(100)))
+  TInstr::i32_const(I32(ctx.random_int(100)))
 }
 
 ///|
 fn gen_i64_tinstr(ctx : GenValidContext) -> TInstr {
   match ctx.random_int(4) {
-    0 => TI64Const(I64(ctx.rnd.next_int64()))
+    0 => TInstr::i64_const(I64(ctx.rnd.next_int64()))
     1 => {
       let a = gen_i64_tinstr_simple(ctx)
       let b = gen_i64_tinstr_simple(ctx)
-      TBinary(I64AddOp, a, b)
+      TInstr::binary(BinaryOp::i64_add(), a, b)
     }
     2 => {
       let a = gen_i32_tinstr_simple(ctx)
-      TUnary(I64ExtendI32SOp, a)
+      TInstr::unary(UnaryOp::i64_extend_i32s(), a)
     }
-    _ => TI64Const(I64(ctx.random_int(1000).to_int64()))
+    _ => TInstr::i64_const(I64(ctx.random_int(1000).to_int64()))
   }
 }
 
@@ -715,28 +723,31 @@ fn gen_i64_tinstr_simple(ctx : GenValidContext) -> TInstr {
     match local_type {
       NumTypeValType(I64NumType) =>
         if ctx.random_bool() {
-          return TLocalGet(LocalIdx::new(i.reinterpret_as_uint()))
+          return TInstr::local_get(LocalIdx::new(i.reinterpret_as_uint()))
         }
       _ => continue
     }
   }
-  TI64Const(I64(ctx.random_int(100).to_int64()))
+  TInstr::i64_const(I64(ctx.random_int(100).to_int64()))
 }
 
 ///|
 fn gen_f32_tinstr(ctx : GenValidContext) -> TInstr {
   match ctx.random_int(4) {
-    0 => TF32Const(F32(Float::from_double(ctx.rnd.next_double())))
+    0 => TInstr::f32_const(F32(Float::from_double(ctx.rnd.next_double())))
     1 => {
       let a = gen_f32_tinstr_simple(ctx)
       let b = gen_f32_tinstr_simple(ctx)
-      TBinary(F32AddOp, a, b)
+      TInstr::binary(BinaryOp::f32_add(), a, b)
     }
     2 => {
       let a = gen_i32_tinstr_simple(ctx)
-      TUnary(F32ConvertI32SOp, a)
+      TInstr::unary(UnaryOp::f32_convert_i32s(), a)
     }
-    _ => TF32Const(F32(Float::from_double(ctx.random_int(100).to_double())))
+    _ =>
+      TInstr::f32_const(
+        F32(Float::from_double(ctx.random_int(100).to_double())),
+      )
   }
 }
 
@@ -746,28 +757,28 @@ fn gen_f32_tinstr_simple(ctx : GenValidContext) -> TInstr {
     match local_type {
       NumTypeValType(F32NumType) =>
         if ctx.random_bool() {
-          return TLocalGet(LocalIdx::new(i.reinterpret_as_uint()))
+          return TInstr::local_get(LocalIdx::new(i.reinterpret_as_uint()))
         }
       _ => continue
     }
   }
-  TF32Const(F32(1.0))
+  TInstr::f32_const(F32(1.0))
 }
 
 ///|
 fn gen_f64_tinstr(ctx : GenValidContext) -> TInstr {
   match ctx.random_int(4) {
-    0 => TF64Const(F64(ctx.rnd.next_double()))
+    0 => TInstr::f64_const(F64(ctx.rnd.next_double()))
     1 => {
       let a = gen_f64_tinstr_simple(ctx)
       let b = gen_f64_tinstr_simple(ctx)
-      TBinary(F64AddOp, a, b)
+      TInstr::binary(BinaryOp::f64_add(), a, b)
     }
     2 => {
       let a = gen_i64_tinstr_simple(ctx)
-      TUnary(F64ConvertI64SOp, a)
+      TInstr::unary(UnaryOp::f64_convert_i64s(), a)
     }
-    _ => TF64Const(F64(ctx.random_int(100).to_double()))
+    _ => TInstr::f64_const(F64(ctx.random_int(100).to_double()))
   }
 }
 
@@ -777,12 +788,12 @@ fn gen_f64_tinstr_simple(ctx : GenValidContext) -> TInstr {
     match local_type {
       NumTypeValType(F64NumType) =>
         if ctx.random_bool() {
-          return TLocalGet(LocalIdx::new(i.reinterpret_as_uint()))
+          return TInstr::local_get(LocalIdx::new(i.reinterpret_as_uint()))
         }
       _ => continue
     }
   }
-  TF64Const(F64(1.0))
+  TInstr::f64_const(F64(1.0))
 }
 
 ///|
@@ -792,7 +803,7 @@ fn gen_table_get_tinstr(ctx : GenValidContext) -> TInstr? {
     return None
   }
   let idx = gen_i32_tinstr_simple(ctx)
-  Some(TTableGet(TableIdx::new(0), idx))
+  Some(TInstr::table_get(TableIdx::new(0), idx))
 }
 
 ///|
@@ -834,7 +845,7 @@ fn gen_memory_copy_tinstr(ctx : GenValidContext) -> TInstr? {
   let dest = gen_i32_tinstr_simple(ctx)
   let src = gen_i32_tinstr_simple(ctx)
   let size = TInstr::i32_const(I32(ctx.random_int(64) + 1))
-  Some(TMemoryCopy(MemIdx::new(0), MemIdx::new(0), dest, src, size))
+  Some(TInstr::memory_copy(MemIdx::new(0), MemIdx::new(0), dest, src, size))
 }
 
 ///|
@@ -846,7 +857,7 @@ fn gen_memory_fill_tinstr(ctx : GenValidContext) -> TInstr? {
   let dest = gen_i32_tinstr_simple(ctx)
   let value = gen_i32_tinstr_simple(ctx)
   let size = TInstr::i32_const(I32(ctx.random_int(64) + 1))
-  Some(TMemoryFill(MemIdx::new(0), dest, value, size))
+  Some(TInstr::memory_fill(MemIdx::new(0), dest, value, size))
 }
 
 ///|
@@ -866,7 +877,7 @@ fn gen_array_fill_tinstr(ctx : GenValidContext) -> TInstr? {
       let fill_val = gen_tinstr_of_type(ctx, elem_vt)
       let length = TInstr::i32_const(I32(ctx.random_int(5) + 1))
       return Some(
-        TArrayFill(
+        TInstr::array_fill(
           TypeIdx::new(type_idx.reinterpret_as_uint()),
           array,
           offset,
@@ -916,7 +927,7 @@ fn gen_array_copy_tinstr(ctx : GenValidContext) -> TInstr? {
         let src_offset = TInstr::i32_const(I32(ctx.random_int(5)))
         let length = TInstr::i32_const(I32(ctx.random_int(3) + 1))
         return Some(
-          TArrayCopy(
+          TInstr::array_copy(
             TypeIdx::new(type_idx_dst.reinterpret_as_uint()),
             TypeIdx::new(type_idx_src.reinterpret_as_uint()),
             dst,
@@ -936,37 +947,34 @@ fn gen_array_copy_tinstr(ctx : GenValidContext) -> TInstr? {
 /// Generate array.len instruction
 fn gen_array_len_tinstr(ctx : GenValidContext) -> TInstr? {
   match gen_array_new_tinstr(ctx) {
-    Some(array_instr) => Some(TArrayLen(array_instr))
+    Some(array_instr) => Some(TInstr::array_len(array_instr))
     None => None
   }
 }
 
+///|
 fn gen_ref_test_tinstr(ctx : GenValidContext) -> TInstr? {
-  let ref_val =
-    match gen_known_ref_value(ctx) {
-      Some(v) => v
-      None => return None
-    }
-
-  let test_heap_type =
-    if ctx.random_bool() {
-      HeapType::abs(AbsHeapType::struct_())
-    } else {
-      HeapType::abs(AbsHeapType::array())
-    }
-
+  let ref_val = match gen_known_ref_value(ctx) {
+    Some(v) => v
+    None => return None
+  }
+  let test_heap_type = if ctx.random_bool() {
+    HeapType::abs(AbsHeapType::struct_())
+  } else {
+    HeapType::abs(AbsHeapType::array())
+  }
   Some(TInstr::ref_test(false, test_heap_type, ref_val))
 }
 
 ///|
 fn gen_v128_tinstr(ctx : GenValidContext) -> TInstr {
   if ctx.random_bool() {
-    TV128Const(
+    TInstr::v128_const(
       b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
       b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
     )
   } else {
-    TI32x4Splat(gen_i32_tinstr_simple(ctx))
+    TInstr::i32x4_splat(gen_i32_tinstr_simple(ctx))
   }
 }
 
@@ -976,22 +984,22 @@ fn gen_ref_tinstr(ctx : GenValidContext, rt : RefType) -> TInstr {
     AbsHeapTypeHeapType(StructAbsHeapType) =>
       match gen_struct_new_tinstr(ctx) {
         Some(instr) => instr
-        None => TRefNull(rt.get_heap_type())
+        None => TInstr::ref_null(rt.get_heap_type())
       }
     AbsHeapTypeHeapType(ArrayAbsHeapType) =>
       match gen_array_new_tinstr(ctx) {
         Some(instr) => instr
-        None => TRefNull(rt.get_heap_type())
+        None => TInstr::ref_null(rt.get_heap_type())
       }
     AbsHeapTypeHeapType(FuncAbsHeapType) =>
       if ctx.func_idx > 0 && ctx.random_bool() {
-        TRefFunc(
+        TInstr::ref_func(
           FuncIdx::new(ctx.random_int(ctx.func_idx).reinterpret_as_uint()),
         )
       } else {
-        TRefNull(rt.get_heap_type())
+        TInstr::ref_null(rt.get_heap_type())
       }
-    _ => TRefNull(rt.get_heap_type())
+    _ => TInstr::ref_null(rt.get_heap_type())
   }
 }
 
@@ -1150,7 +1158,7 @@ fn gen_struct_set_tinstr(ctx : GenValidContext) -> TInstr? {
         )
         let new_value = gen_tinstr_of_type(ctx, field_vt)
         return Some(
-          TStructSet(
+          TInstr::struct_set(
             TypeIdx::new(type_idx.reinterpret_as_uint()),
             U32(field_idx.reinterpret_as_uint()),
             struct_val,
@@ -1170,11 +1178,10 @@ fn gen_array_set_tinstr(ctx : GenValidContext) -> TInstr? {
     let (type_idx, elem_type) = t
     if elem_type.is_mutable() {
       let elem_vt = storage_type_to_valtype(elem_type.get_storage_type())
-      let init_val =
-        match elem_vt {
-          RefTypeValType(rt) => gen_ref_tinstr(ctx, rt)
-          _ => gen_tinstr_of_type(ctx, elem_vt)
-        }
+      let init_val = match elem_vt {
+        RefTypeValType(rt) => gen_ref_tinstr(ctx, rt)
+        _ => gen_tinstr_of_type(ctx, elem_vt)
+      }
       let array = TInstr::array_new(
         TypeIdx::new(type_idx.reinterpret_as_uint()),
         init_val,
@@ -1183,7 +1190,7 @@ fn gen_array_set_tinstr(ctx : GenValidContext) -> TInstr? {
       let index = TInstr::i32_const(I32(ctx.random_int(5)))
       let new_value = gen_tinstr_of_type(ctx, elem_vt)
       return Some(
-        TArraySet(
+        TInstr::array_set(
           TypeIdx::new(type_idx.reinterpret_as_uint()),
           array,
           index,
@@ -1201,9 +1208,9 @@ fn gen_simple_side_effect(ctx : GenValidContext) -> TInstr {
     let idx = ctx.random_int(ctx.locals.length())
     let local_type = ctx.locals[idx]
     let value = gen_tinstr_of_type(ctx, local_type)
-    TLocalSet(LocalIdx::new(idx.reinterpret_as_uint()), value)
+    TInstr::local_set(LocalIdx::new(idx.reinterpret_as_uint()), value)
   } else {
-    TDrop(gen_tinstr_of_type(ctx, gen_valid_valtype(ctx)))
+    TInstr::drop(gen_tinstr_of_type(ctx, gen_valid_valtype(ctx)))
   }
 }
 
@@ -1214,19 +1221,19 @@ fn gen_store_tinstr(ctx : GenValidContext) -> TInstr {
   match ctx.random_int(4) {
     0 => {
       let value = gen_i32_tinstr_simple(ctx)
-      TStore(I32StoreOp, mem_arg, addr, value)
+      TInstr::store(StoreOp::i32_store(), mem_arg, addr, value)
     }
     1 => {
       let value = gen_i64_tinstr_simple(ctx)
-      TStore(I64StoreOp, mem_arg, addr, value)
+      TInstr::store(StoreOp::i64_store(), mem_arg, addr, value)
     }
     2 => {
       let value = gen_f32_tinstr_simple(ctx)
-      TStore(F32StoreOp, mem_arg, addr, value)
+      TInstr::store(StoreOp::f32_store(), mem_arg, addr, value)
     }
     _ => {
       let value = gen_f64_tinstr_simple(ctx)
-      TStore(F64StoreOp, mem_arg, addr, value)
+      TInstr::store(StoreOp::f64_store(), mem_arg, addr, value)
     }
   }
 }
@@ -1238,7 +1245,9 @@ fn gen_local_inits(ctx : GenValidContext, param_count : Int) -> Array[TInstr] {
   for i in param_count..<ctx.locals.length() {
     let local_type = ctx.locals[i]
     let init_value = gen_default_value(ctx, local_type)
-    inits.push(TLocalSet(LocalIdx::new(i.reinterpret_as_uint()), init_value))
+    inits.push(
+      TInstr::local_set(LocalIdx::new(i.reinterpret_as_uint()), init_value),
+    )
   }
   inits
 }
@@ -1246,19 +1255,22 @@ fn gen_local_inits(ctx : GenValidContext, param_count : Int) -> Array[TInstr] {
 ///|
 fn gen_default_value(ctx : GenValidContext, vt : ValType) -> TInstr {
   match vt {
-    NumTypeValType(I32NumType) => TI32Const(I32(ctx.random_int(100)))
-    NumTypeValType(I64NumType) => TI64Const(I64(ctx.random_int(100).to_int64()))
+    NumTypeValType(I32NumType) => TInstr::i32_const(I32(ctx.random_int(100)))
+    NumTypeValType(I64NumType) =>
+      TInstr::i64_const(I64(ctx.random_int(100).to_int64()))
     NumTypeValType(F32NumType) =>
-      TF32Const(F32(Float::from_double(ctx.random_int(100).to_double())))
+      TInstr::f32_const(
+        F32(Float::from_double(ctx.random_int(100).to_double())),
+      )
     NumTypeValType(F64NumType) =>
-      TF64Const(F64(ctx.random_int(100).to_double()))
+      TInstr::f64_const(F64(ctx.random_int(100).to_double()))
     VecTypeValType =>
-      TV128Const(
+      TInstr::v128_const(
         b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
         b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
       )
-    RefTypeValType(rt) => TRefNull(rt.get_heap_type())
-    BotValType => TUnreachable
+    RefTypeValType(rt) => TInstr::ref_null(rt.get_heap_type())
+    BotValType => TInstr::unreachable_()
   }
 }
 
@@ -1305,7 +1317,9 @@ fn gen_elem_segments(ctx : GenValidContext) -> Array[Elem] {
     for _ in 0..<num_refs {
       let func_idx = ctx.random_int(ctx.func_idx)
       init_exprs.push(
-        Expr::new([Instruction::ref_func(FuncIdx::new(func_idx.reinterpret_as_uint()))]),
+        Expr::new([
+          Instruction::ref_func(FuncIdx::new(func_idx.reinterpret_as_uint())),
+        ]),
       )
     }
     let ref_type = RefType::new(true, HeapType::abs(AbsHeapType::func()))
@@ -1341,7 +1355,6 @@ fn gen_br_if_tinstr(ctx : GenValidContext) -> TInstr? {
   if empty_labels.length() == 0 {
     return None
   }
-
   let label = empty_labels[ctx.random_int(empty_labels.length())]
   let cond = gen_i32_tinstr_simple(ctx)
   Some(TInstr::br_if(LabelIdx::new(label.reinterpret_as_uint()), cond, []))
@@ -1354,20 +1367,15 @@ fn gen_br_table_tinstr(ctx : GenValidContext) -> TInstr? {
   if empty_labels.length() == 0 {
     return None
   }
-
   let num_labels = ctx.random_int(3) + 1
   let labels : Array[LabelIdx] = []
   for _ in 0..<num_labels {
     let l = empty_labels[ctx.random_int(empty_labels.length())]
     labels.push(LabelIdx::new(l.reinterpret_as_uint()))
   }
-
-  let default_label =
-    LabelIdx::new(
-      empty_labels[ctx.random_int(empty_labels.length())]
-        .reinterpret_as_uint(),
-    )
-
+  let default_label = LabelIdx::new(
+    empty_labels[ctx.random_int(empty_labels.length())].reinterpret_as_uint(),
+  )
   let index = gen_i32_tinstr_simple(ctx)
   Some(TInstr::br_table(labels, default_label, index, []))
 }
@@ -1384,9 +1392,10 @@ fn gen_throw_tinstr(ctx : GenValidContext) -> TInstr? {
   for param_type in params {
     args.push(gen_tinstr_of_type(ctx, param_type))
   }
-  Some(TThrow(TagIdx::new(tag_idx_val.reinterpret_as_uint()), args))
+  Some(TInstr::throw_(TagIdx::new(tag_idx_val.reinterpret_as_uint()), args))
 }
 
+///|
 fn gen_try_table_tinstr(ctx : GenValidContext) -> TInstr? {
   // Must have tags
   if ctx.tag_idx == 0 {
@@ -1397,7 +1406,6 @@ fn gen_try_table_tinstr(ctx : GenValidContext) -> TInstr? {
   if ctx.label_stack.length() <= 1 {
     return None
   }
-
   let enclosing = ctx.label_stack[1]
 
   // Enclosing label must be catchable and void
@@ -1413,32 +1421,22 @@ fn gen_try_table_tinstr(ctx : GenValidContext) -> TInstr? {
       empty_tags.push(tag_i)
     }
   }
-
   if empty_tags.length() == 0 {
     return None
   }
-
-  let tag_idx_val =
-    empty_tags[ctx.random_int(empty_tags.length())]
+  let tag_idx_val = empty_tags[ctx.random_int(empty_tags.length())]
 
   // try body
   ctx.push_label([], false)
-
   let body_instrs : Array[TInstr] = [
-    TThrow(
-      TagIdx::new(tag_idx_val.reinterpret_as_uint()),
-      [],
-    ),
+    TInstr::throw_(TagIdx::new(tag_idx_val.reinterpret_as_uint()), []),
   ]
-
   if ctx.random_bool() {
     body_instrs.push(gen_simple_side_effect(ctx))
   }
-
   ctx.pop_label()
-
   Some(
-    TTryTable(
+    TInstr::try_table(
       EmptyBlockType,
       [
         Catch::new(
@@ -1453,11 +1451,14 @@ fn gen_try_table_tinstr(ctx : GenValidContext) -> TInstr? {
 
 ///|
 /// Generate global.get instruction
-fn gen_global_get_tinstr(ctx : GenValidContext, target_type : ValType) -> TInstr? {
+fn gen_global_get_tinstr(
+  ctx : GenValidContext,
+  target_type : ValType,
+) -> TInstr? {
   for i, gt in ctx.globals {
     let GlobalType(vt, _) = gt
     if vt == target_type {
-      return Some(TGlobalGet(GlobalIdx::new(i.reinterpret_as_uint())))
+      return Some(TInstr::global_get(GlobalIdx::new(i.reinterpret_as_uint())))
     }
   }
   None
@@ -1472,10 +1473,14 @@ fn gen_load_tinstr(ctx : GenValidContext, target_type : ValType) -> TInstr? {
   let addr = gen_i32_tinstr_simple(ctx)
   let mem_arg = MemArg::new(U32(0), None, U64(0))
   match target_type {
-    NumTypeValType(I32NumType) => Some(TLoad(LoadOp::i32_load(), mem_arg, addr))
-    NumTypeValType(I64NumType) => Some(TLoad(LoadOp::i64_load(), mem_arg, addr))
-    NumTypeValType(F32NumType) => Some(TLoad(LoadOp::f32_load(), mem_arg, addr))
-    NumTypeValType(F64NumType) => Some(TLoad(LoadOp::f64_load(), mem_arg, addr))
+    NumTypeValType(I32NumType) =>
+      Some(TInstr::load(LoadOp::i32_load(), mem_arg, addr))
+    NumTypeValType(I64NumType) =>
+      Some(TInstr::load(LoadOp::i64_load(), mem_arg, addr))
+    NumTypeValType(F32NumType) =>
+      Some(TInstr::load(LoadOp::f32_load(), mem_arg, addr))
+    NumTypeValType(F64NumType) =>
+      Some(TInstr::load(LoadOp::f64_load(), mem_arg, addr))
     _ => None
   }
 }
@@ -1487,7 +1492,7 @@ pub fn gen_tinstr_of_type(ctx : GenValidContext, vt : ValType) -> TInstr {
   if ctx.random_int(6) == 0 {
     for i, local_type in ctx.locals {
       if local_type == vt {
-        return TLocalGet(LocalIdx::new(i.reinterpret_as_uint()))
+        return TInstr::local_get(LocalIdx::new(i.reinterpret_as_uint()))
       }
     }
   }
@@ -1573,17 +1578,18 @@ pub fn gen_tinstr_of_type(ctx : GenValidContext, vt : ValType) -> TInstr {
     NumTypeValType(F64NumType) => gen_f64_tinstr(ctx)
     VecTypeValType => gen_v128_tinstr(ctx)
     RefTypeValType(rt) => gen_ref_tinstr(ctx, rt)
-    BotValType => TUnreachable
+    BotValType => TInstr::unreachable_()
   }
 }
 
+///|
 fn gen_known_ref_value(ctx : GenValidContext) -> TInstr? {
   // locals
   for i, vt in ctx.locals {
     match vt {
       RefTypeValType(_) =>
         if ctx.random_bool() {
-          return Some(TLocalGet(LocalIdx::new(i.reinterpret_as_uint())))
+          return Some(TInstr::local_get(LocalIdx::new(i.reinterpret_as_uint())))
         }
       _ => ()
     }
@@ -1595,7 +1601,9 @@ fn gen_known_ref_value(ctx : GenValidContext) -> TInstr? {
     match vt {
       RefTypeValType(_) =>
         if ctx.random_bool() {
-          return Some(TGlobalGet(GlobalIdx::new(i.reinterpret_as_uint())))
+          return Some(
+            TInstr::global_get(GlobalIdx::new(i.reinterpret_as_uint())),
+          )
         }
       _ => ()
     }
@@ -1610,12 +1618,11 @@ fn gen_known_ref_value(ctx : GenValidContext) -> TInstr? {
 pub fn gen_side_effect_tinstr(
   ctx : GenValidContext,
   depth : Int,
-  label_depth~ : Int = 0,
+  label_depth? : Int = 0,
 ) -> TInstr {
   if depth > 3 {
     return gen_simple_side_effect(ctx)
   }
-
   let has_mem = ctx.mem_count > 0
   let has_table = ctx.table_count > 0
   let has_callables = ctx.get_callable_funcs().length() > 0
@@ -1626,13 +1633,14 @@ pub fn gen_side_effect_tinstr(
   let has_tags = ctx.tag_idx > 0
   let has_globals = ctx.globals.length() > 0
   let has_labels = ctx.label_count() > 0
-  let has_passive_data = ctx.data_modes.iter().any(fn(m) {
-    match m {
-      Passive => true
-      _ => false
-    }
-  })
-
+  let has_passive_data = ctx.data_modes
+    .iter()
+    .any(fn(m) {
+      match m {
+        Passive => true
+        _ => false
+      }
+    })
   let ops : Array[() -> TInstr?] = []
 
   // ------------------------------------------------------------
@@ -1643,18 +1651,17 @@ pub fn gen_side_effect_tinstr(
       let idx = ctx.random_int(ctx.locals.length())
       let vt = ctx.locals[idx]
       Some(
-        TLocalSet(
+        TInstr::local_set(
           LocalIdx::new(idx.reinterpret_as_uint()),
           gen_tinstr_of_type(ctx, vt),
         ),
       )
     } else {
-      Some(TDrop(gen_tinstr_of_type(ctx, gen_valid_valtype(ctx))))
+      Some(TInstr::drop(gen_tinstr_of_type(ctx, gen_valid_valtype(ctx))))
     }
   })
-
   ops.push(fn() {
-    Some(TDrop(gen_tinstr_of_type(ctx, gen_valid_valtype(ctx))))
+    Some(TInstr::drop(gen_tinstr_of_type(ctx, gen_valid_valtype(ctx))))
   })
 
   // ------------------------------------------------------------
@@ -1668,7 +1675,7 @@ pub fn gen_side_effect_tinstr(
       instrs.push(gen_side_effect_tinstr(ctx, depth + 1))
     }
     ctx.pop_label()
-    Some(TBlock(EmptyBlockType, TExpr::new(instrs)))
+    Some(TInstr::block(EmptyBlockType, TExpr::new(instrs)))
   })
 
   // ------------------------------------------------------------
@@ -1684,7 +1691,7 @@ pub fn gen_side_effect_tinstr(
       )
     }
     ctx.pop_label()
-    Some(TLoop(EmptyBlockType, TExpr::new(instrs)))
+    Some(TInstr::loop_(EmptyBlockType, TExpr::new(instrs)))
   })
 
   // ------------------------------------------------------------
@@ -1693,25 +1700,23 @@ pub fn gen_side_effect_tinstr(
   ops.push(fn() {
     let cond = gen_i32_tinstr_simple(ctx)
     ctx.push_label([], true)
-
     let then_instrs : Array[TInstr] = []
     for _ in 0..<(ctx.random_int(2) + 1) {
       then_instrs.push(gen_side_effect_tinstr(ctx, depth + 1))
     }
-
-    let else_branch =
-      if ctx.random_bool() {
-        let else_instrs : Array[TInstr] = []
-        for _ in 0..<(ctx.random_int(2) + 1) {
-          else_instrs.push(gen_side_effect_tinstr(ctx, depth + 1))
-        }
-        Some(TExpr::new(else_instrs))
-      } else {
-        None
+    let else_branch = if ctx.random_bool() {
+      let else_instrs : Array[TInstr] = []
+      for _ in 0..<(ctx.random_int(2) + 1) {
+        else_instrs.push(gen_side_effect_tinstr(ctx, depth + 1))
       }
-
+      Some(TExpr::new(else_instrs))
+    } else {
+      None
+    }
     ctx.pop_label()
-    Some(TIf(EmptyBlockType, cond, TExpr::new(then_instrs), else_branch))
+    Some(
+      TInstr::if_(EmptyBlockType, cond, TExpr::new(then_instrs), else_branch),
+    )
   })
 
   // ------------------------------------------------------------
@@ -1745,10 +1750,13 @@ pub fn gen_side_effect_tinstr(
         ),
       )
     })
-
     ops.push(fn() {
       let i = ctx.random_int(ctx.globals.length())
-      Some(TDrop(TGlobalGet(GlobalIdx::new(i.reinterpret_as_uint()))))
+      Some(
+        TInstr::drop(
+          TInstr::global_get(GlobalIdx::new(i.reinterpret_as_uint())),
+        ),
+      )
     })
   }
 
@@ -1759,19 +1767,15 @@ pub fn gen_side_effect_tinstr(
     ops.push(fn() { Some(gen_store_tinstr(ctx)) })
     ops.push(fn() { gen_memory_fill_tinstr(ctx) })
     ops.push(fn() { gen_memory_copy_tinstr(ctx) })
-    ops.push(fn() { Some(TDrop(TMemorySize(MemIdx::new(0)))) })
+    ops.push(fn() { Some(TInstr::drop(TInstr::memory_size(MemIdx::new(0)))) })
     ops.push(fn() {
       Some(
-        TDrop(
-          TMemoryGrow(
-            MemIdx::new(0),
-            gen_i32_tinstr_simple(ctx),
-          ),
+        TInstr::drop(
+          TInstr::memory_grow(MemIdx::new(0), gen_i32_tinstr_simple(ctx)),
         ),
       )
     })
   }
-
   if has_mem && has_passive_data {
     ops.push(fn() { gen_memory_init_tinstr(ctx) })
   }
@@ -1783,21 +1787,20 @@ pub fn gen_side_effect_tinstr(
     ops.push(fn() { gen_table_set_tinstr(ctx) })
     ops.push(fn() {
       Some(
-        TDrop(
-          gen_table_grow_tinstr(ctx)
-            .unwrap_or(TInstr::i32_const(I32(0))),
+        TInstr::drop(
+          gen_table_grow_tinstr(ctx).unwrap_or(TInstr::i32_const(I32(0))),
         ),
       )
     })
     ops.push(fn() {
       match gen_table_get_tinstr(ctx) {
-        Some(x) => Some(TDrop(x))
+        Some(x) => Some(TInstr::drop(x))
         None => None
       }
     })
     ops.push(fn() {
       match gen_table_size_tinstr(ctx) {
-        Some(x) => Some(TDrop(x))
+        Some(x) => Some(TInstr::drop(x))
         None => None
       }
     })
@@ -1819,16 +1822,20 @@ pub fn gen_side_effect_tinstr(
   }
   if has_data {
     ops.push(fn() {
-      Some(TDataDrop(DataIdx::new(
-        ctx.random_int(ctx.data_idx).reinterpret_as_uint(),
-      )))
+      Some(
+        TInstr::data_drop(
+          DataIdx::new(ctx.random_int(ctx.data_idx).reinterpret_as_uint()),
+        ),
+      )
     })
   }
   if has_elem {
     ops.push(fn() {
-      Some(TElemDrop(ElemIdx::new(
-        ctx.random_int(ctx.elem_idx).reinterpret_as_uint(),
-      )))
+      Some(
+        TInstr::elem_drop(
+          ElemIdx::new(ctx.random_int(ctx.elem_idx).reinterpret_as_uint()),
+        ),
+      )
     })
   }
 
@@ -1841,12 +1848,10 @@ pub fn gen_side_effect_tinstr(
       if ctx.label_stack.length() <= 1 {
         return None
       }
-
       let enclosing = ctx.label_stack[1]
       if !enclosing.catchable || enclosing.result.length() != 0 {
         return None
       }
-
       let empty_tags : Array[Int] = []
       for tag_i in 0..<ctx.tag_idx {
         let (_, params) = ctx.tag_sigs[tag_i]
@@ -1854,18 +1859,14 @@ pub fn gen_side_effect_tinstr(
           empty_tags.push(tag_i)
         }
       }
-
       if empty_tags.length() == 0 {
         return None
       }
-
-      let tag_idx_val =
-        empty_tags[ctx.random_int(empty_tags.length())]
-
+      let tag_idx_val = empty_tags[ctx.random_int(empty_tags.length())]
       match gen_throw_tinstr(ctx) {
         Some(throw_instr) =>
           Some(
-            TTryTable(
+            TInstr::try_table(
               EmptyBlockType,
               [
                 Catch::new(
@@ -1894,8 +1895,7 @@ pub fn gen_side_effect_tinstr(
       None => ()
     }
   }
-
-  TDrop(gen_tinstr_of_type(ctx, gen_valid_valtype(ctx)))
+  TInstr::drop(gen_tinstr_of_type(ctx, gen_valid_valtype(ctx)))
 }
 
 ///|
@@ -1904,13 +1904,13 @@ fn gen_return_instrs(
   returns : ResultType,
 ) -> Array[TInstr] {
   if returns.length() == 0 {
-    return [TReturn([])]
+    return [TInstr::return_([])]
   }
   let return_values : Array[TInstr] = []
   for vt in returns {
     return_values.push(gen_tinstr_of_type(ctx, vt))
   }
-  [TReturn(return_values)]
+  [TInstr::return_(return_values)]
 }
 
 ///|
@@ -1919,24 +1919,22 @@ pub fn gen_valid_tfunc(
   accepts : ResultType,
   returns : ResultType,
 ) -> Func {
-    let old_locals = ctx.locals.copy()
-    let old_labels = ctx.label_stack.copy()
+  let old_locals = ctx.locals.copy()
+  let old_labels = ctx.label_stack.copy()
 
-    // RESET label stack and PUSH FUNCTION LABEL
-    ctx.label_stack = []
-    ctx.label_stack.push(Label::{ result : returns, catchable : true })
+  // RESET label stack and PUSH FUNCTION LABEL
+  ctx.label_stack = []
+  ctx.label_stack.push(Label::{ result: returns, catchable: true })
+  ctx.locals = []
 
-    ctx.locals = []
-
-    // Add parameters as locals
-    for vt in accepts {
-      ctx.locals.push(vt)
-    }
+  // Add parameters as locals
+  for vt in accepts {
+    ctx.locals.push(vt)
+  }
 
   // Add arbitrary locals
   let num_arbitrary_locals = ctx.random_int(5) + 1
   let all_local_types : Array[ValType] = []
-
   for _ in 0..<num_arbitrary_locals {
     let local_type = gen_valid_valtype(ctx)
     ctx.locals.push(local_type)
@@ -1963,10 +1961,8 @@ pub fn gen_valid_tfunc(
   for instr in return_instrs {
     body_instrs.push(instr)
   }
-
   ctx.locals = old_locals
   ctx.label_stack = old_labels
-
   Func::t_func(all_local_types, TExpr::new(body_instrs))
 }
 
@@ -2070,28 +2066,24 @@ pub fn gen_valid_module(rnd : RandomState) -> Module {
 
   // Collect and sort types
   let type_entries : Array[(Int, RecType)] = []
-
   for t in ctx.struct_types {
     let (idx, fields) = t
     type_entries.push(
       (idx, RecType::new(SubType::comp_type(CompType::struct_(fields)))),
     )
   }
-
   for t in ctx.array_types {
     let (idx, elem_type) = t
     type_entries.push(
       (idx, RecType::new(SubType::comp_type(CompType::array(elem_type)))),
     )
   }
-
   for idx, sig in ctx.sigs {
     let (accepts, returns) = sig
     type_entries.push(
       (idx, RecType::new(SubType::comp_type(CompType::func(accepts, returns)))),
     )
   }
-
   type_entries.sort_by(fn(a, b) { a.0 - b.0 })
   let all_types = type_entries.map(fn(e) { e.1 })
 
@@ -2122,7 +2114,9 @@ pub fn gen_valid_module(rnd : RandomState) -> Module {
   let table_init = if ctx.func_idx > 0 && ctx.random_bool() {
     Some(
       Expr::new([
-        Instruction::ref_func(FuncIdx::new(ctx.random_int(ctx.func_idx).reinterpret_as_uint())),
+        Instruction::ref_func(
+          FuncIdx::new(ctx.random_int(ctx.func_idx).reinterpret_as_uint()),
+        ),
       ]),
     )
   } else {
@@ -2134,20 +2128,21 @@ pub fn gen_valid_module(rnd : RandomState) -> Module {
     .with_type_sec(TypeSec::new(all_types))
     .with_func_sec(FuncSec::new(func_type_indices))
     .with_global_sec(GlobalSec::new(globals))
-    .with_start_sec(StartSec::new(FuncIdx::new(main_func_idx.reinterpret_as_uint())))
+    .with_start_sec(
+      StartSec::new(FuncIdx::new(main_func_idx.reinterpret_as_uint())),
+    )
     .with_code_sec(CodeSec::new(generated_funcs.map(fn(f) { f.0 })))
-  
+
   // Always add memory
   mod = mod.with_mem_sec(MemSec::new([MemType::new(Limits::i32(1, Some(10)))]))
-  
+
   // Always add table with initializer
   mod = mod.with_table_sec(TableSec::new([Table::new(table_type, table_init)]))
-  
+
   // Add tag section if we have tags
   if tags.length() > 0 {
     mod = mod.with_tag_sec(TagSec::new(tags))
   }
-  
   if elem_segments.length() > 0 {
     mod = mod.with_elem_sec(ElemSec::new(elem_segments))
   }

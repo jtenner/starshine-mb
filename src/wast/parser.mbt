@@ -2,30 +2,36 @@
 // AST Types
 // ============================================================================
 
+///|
 pub enum Index {
   Num(UInt)
   Id(String)
 }
 
+///|
 pub struct Limits {
   min : UInt
   max : UInt?
 }
 
+///|
 pub struct FuncType {
   params : Array[ValueType]
   results : Array[ValueType]
 }
 
+///|
 pub struct TypeUse {
   type_index : Index?
   func_type : FuncType
 }
 
+///|
 pub enum InlineExport {
   Export(String)
 }
 
+///|
 pub enum ImportDesc {
   Func(TypeUse)
   Table(TableType)
@@ -33,6 +39,7 @@ pub enum ImportDesc {
   Global(GlobalType)
 }
 
+///|
 pub struct Import {
   module_name : String
   field_name : String
@@ -40,6 +47,7 @@ pub struct Import {
   id : String?
 }
 
+///|
 pub enum ExportDesc {
   Func(Index)
   Table(Index)
@@ -47,28 +55,34 @@ pub enum ExportDesc {
   Global(Index)
 }
 
+///|
 pub struct Export {
   name : String
   desc : ExportDesc
 }
 
+///|
 pub struct TableType {
   limits : Limits
   elem_type : ValueType
 }
 
+///|
 pub struct MemoryType(Limits)
 
+///|
 pub struct GlobalType {
   val_type : ValueType
   mutable_ : Bool
 }
 
+///|
 pub struct Local {
   id : String?
   val_type : ValueType
 }
 
+///|
 pub struct Func {
   id : String?
   exports : Array[InlineExport]
@@ -77,6 +91,7 @@ pub struct Func {
   body : Array[Instruction]
 }
 
+///|
 pub struct Global {
   id : String?
   exports : Array[InlineExport]
@@ -84,23 +99,27 @@ pub struct Global {
   init : Array[Instruction]
 }
 
+///|
 pub struct Table {
   id : String?
   exports : Array[InlineExport]
   table_type : TableType
 }
 
+///|
 pub struct Memory {
   id : String?
   exports : Array[InlineExport]
   memory_type : MemoryType
 }
 
+///|
 pub struct TypeDef {
   id : String?
   func_type : FuncType
 }
 
+///|
 pub struct DataSegment {
   id : String?
   memory_index : Index
@@ -108,6 +127,7 @@ pub struct DataSegment {
   data : Bytes
 }
 
+///|
 pub struct ElemSegment {
   id : String?
   table_index : Index
@@ -115,10 +135,12 @@ pub struct ElemSegment {
   func_indices : Array[Index]
 }
 
+///|
 pub struct Start {
   func_index : Index
 }
 
+///|
 pub enum ModuleField {
   TypeField(TypeDef)
   FuncField(Func)
@@ -132,6 +154,7 @@ pub enum ModuleField {
   DataField(DataSegment)
 }
 
+///|
 pub struct Module {
   id : String?
   fields : Array[ModuleField]
@@ -141,16 +164,19 @@ pub struct Module {
 // Instruction AST
 // ============================================================================
 
+///|
 pub struct MemArg {
   align : UInt
   offset : UInt
 }
 
+///|
 pub struct BlockType {
   label : String?
   type_use : TypeUse?
 }
 
+///|
 pub enum Instruction {
   // Control
   Unreachable
@@ -164,18 +190,18 @@ pub enum Instruction {
   Return
   Call(Index)
   CallIndirect(Index, TypeUse)
-  
+
   // Parametric
   Drop
   Select(Array[ValueType]?)
-  
+
   // Variable
   LocalGet(Index)
   LocalSet(Index)
   LocalTee(Index)
   GlobalGet(Index)
   GlobalSet(Index)
-  
+
   // Table
   TableGet(Index)
   TableSet(Index)
@@ -185,7 +211,7 @@ pub enum Instruction {
   TableCopy(Index, Index)
   TableInit(Index, Index)
   ElemDrop(Index)
-  
+
   // Memory
   Load(Opcode, MemArg)
   Store(Opcode, MemArg)
@@ -195,7 +221,7 @@ pub enum Instruction {
   MemoryCopy
   MemoryInit(Index)
   DataDrop(Index)
-  
+
   // Numeric
   Const(Opcode, String)
   Unary(Opcode)
@@ -203,7 +229,7 @@ pub enum Instruction {
   Test(Opcode)
   Compare(Opcode)
   Convert(Opcode)
-  
+
   // Reference
   RefNull(ValueType)
   RefIsNull
@@ -214,23 +240,26 @@ pub enum Instruction {
 // Parser Error Types
 // ============================================================================
 
+///|
 pub struct ParseError {
   location : Location
   message : String
 }
 
+///|
 pub suberror ParserError {
   UnexpectedToken(Token, String)
   UnexpectedEof
   InvalidInstruction(String)
   InvalidType(String)
   Custom(String)
-} derive (Show)
+} derive(Show)
 
 // ============================================================================
 // Lexer State for Rollback
 // ============================================================================
 
+///|
 pub struct LexerState {
   cursor : Int
   line : Int
@@ -241,22 +270,19 @@ pub struct LexerState {
 // Parser Structure
 // ============================================================================
 
+///|
 pub struct WastParser {
   lexer : WastLexer
   mut current : Token
   errors : Array[ParseError]
 }
 
+///|
 pub fn WastParser::new(lexer : WastLexer) -> WastParser {
   let parser = {
     lexer,
     current: {
-      location: {
-        filename: "",
-        line: 0,
-        first_column: 0,
-        last_column: 0,
-      },
+      location: { filename: "", line: 0, first_column: 0, last_column: 0 },
       token_type: Eof,
       value: None,
     },
@@ -270,12 +296,14 @@ pub fn WastParser::new(lexer : WastLexer) -> WastParser {
 // Parser Utilities
 // ============================================================================
 
+///|
 fn WastParser::advance(self : WastParser) -> Token {
   let prev = self.current
   self.current = self.lexer.get_token()
   prev
 }
 
+///|
 fn WastParser::check(self : WastParser, token_type : TokenType) -> Bool {
   match (self.current.token_type, token_type) {
     (Eof, Eof) => true
@@ -315,6 +343,7 @@ fn WastParser::check(self : WastParser, token_type : TokenType) -> Bool {
   }
 }
 
+///|
 fn WastParser::match_token(self : WastParser, token_type : TokenType) -> Bool {
   if self.check(token_type) {
     let _ = self.advance()
@@ -324,6 +353,7 @@ fn WastParser::match_token(self : WastParser, token_type : TokenType) -> Bool {
   }
 }
 
+///|
 fn WastParser::expect(
   self : WastParser,
   token_type : TokenType,
@@ -336,18 +366,24 @@ fn WastParser::expect(
   }
 }
 
+///|
 fn WastParser::expect_lpar(self : WastParser) -> Unit raise ParserError {
   let _ = self.expect(Lpar, "expected '('")
+
 }
 
+///|
 fn WastParser::expect_rpar(self : WastParser) -> Unit raise ParserError {
   let _ = self.expect(Rpar, "expected ')'")
+
 }
 
+///|
 fn WastParser::error(self : WastParser, message : String) -> Unit {
   self.errors.push({ location: self.current.location, message })
 }
 
+///|
 fn WastParser::get_text(_ : WastParser, token : Token) -> String {
   match token.value {
     Text(s) => s
@@ -355,6 +391,7 @@ fn WastParser::get_text(_ : WastParser, token : Token) -> String {
   }
 }
 
+///|
 fn WastParser::get_literal_text(_ : WastParser, token : Token) -> String {
   match token.value {
     Literal(lit) => lit.text
@@ -366,10 +403,16 @@ fn WastParser::get_literal_text(_ : WastParser, token : Token) -> String {
 // Lexer State Management
 // ============================================================================
 
+///|
 fn WastParser::save_lexer_state(self : WastParser) -> LexerState {
-  { cursor: self.lexer.cursor, line: self.lexer.line, line_start: self.lexer.line_start }
+  {
+    cursor: self.lexer.cursor,
+    line: self.lexer.line,
+    line_start: self.lexer.line_start,
+  }
 }
 
+///|
 fn WastParser::restore_lexer_state(
   self : WastParser,
   state : LexerState,
@@ -383,6 +426,7 @@ fn WastParser::restore_lexer_state(
 // Index Parsing
 // ============================================================================
 
+///|
 fn WastParser::parse_index(self : WastParser) -> Index raise ParserError {
   match self.current.token_type {
     Nat => {
@@ -399,19 +443,15 @@ fn WastParser::parse_index(self : WastParser) -> Index raise ParserError {
   }
 }
 
+///|
 fn WastParser::try_parse_index(self : WastParser) -> Index? {
   match self.current.token_type {
-    Nat | Var => {
-      try {
-        Some(self.parse_index())
-      } catch {
-        _ => None
-      }
-    }
+    Nat | Var => Some(self.parse_index()) catch { _ => None }
     _ => None
   }
 }
 
+///|
 fn parse_uint(s : String) -> UInt {
   let mut result : UInt = 0
   let mut i = 0
@@ -456,7 +496,10 @@ fn parse_uint(s : String) -> UInt {
 // Value Type Parsing
 // ============================================================================
 
-fn WastParser::parse_value_type(self : WastParser) -> ValueType raise ParserError {
+///|
+fn WastParser::parse_value_type(
+  self : WastParser,
+) -> ValueType raise ParserError {
   match self.current.token_type {
     ValueType(vt) => {
       let _ = self.advance()
@@ -475,17 +518,16 @@ fn WastParser::parse_value_type(self : WastParser) -> ValueType raise ParserErro
 // Limits Parsing
 // ============================================================================
 
+///|
 fn WastParser::parse_limits(self : WastParser) -> Limits raise ParserError {
   let min_token = self.expect(Nat, "expected minimum limit")
   let min = parse_uint(self.get_literal_text(min_token))
-
-  let max : Option[UInt] = if self.check(Nat) {
+  let max : UInt? = if self.check(Nat) {
     let max_token = self.advance()
     Some(parse_uint(self.get_literal_text(max_token)))
   } else {
     None
   }
-
   { min, max }
 }
 
@@ -493,6 +535,7 @@ fn WastParser::parse_limits(self : WastParser) -> Limits raise ParserError {
 // Type Use Parsing
 // ============================================================================
 
+///|
 fn WastParser::parse_type_use(self : WastParser) -> TypeUse raise ParserError {
   let mut type_index : Index? = None
   let params : Array[ValueType] = []
@@ -502,9 +545,7 @@ fn WastParser::parse_type_use(self : WastParser) -> TypeUse raise ParserError {
   if self.check(Lpar) {
     let saved_state = self.save_lexer_state()
     let saved_token = self.current
-
     self.expect_lpar()
-
     if self.check(Type) {
       let _ = self.advance() // consume 'type'
       type_index = Some(self.parse_index())
@@ -522,9 +563,7 @@ fn WastParser::parse_type_use(self : WastParser) -> TypeUse raise ParserError {
   while self.check(Lpar) {
     let saved_state = self.save_lexer_state()
     let saved_token = self.current
-
     self.expect_lpar()
-
     if self.check(Param) {
       let _ = self.advance() // consume 'param'
       // Check for named param: (param $name type)
@@ -550,9 +589,7 @@ fn WastParser::parse_type_use(self : WastParser) -> TypeUse raise ParserError {
   while self.check(Lpar) {
     let saved_state = self.save_lexer_state()
     let saved_token = self.current
-
     self.expect_lpar()
-
     if self.check(Result) {
       let _ = self.advance() // consume 'result'
       while self.current.token_type is ValueType(_) {
@@ -566,7 +603,6 @@ fn WastParser::parse_type_use(self : WastParser) -> TypeUse raise ParserError {
       break
     }
   }
-
   { type_index, func_type: { params, results } }
 }
 
@@ -574,10 +610,8 @@ fn WastParser::parse_type_use(self : WastParser) -> TypeUse raise ParserError {
 // Instruction Parsing
 // ============================================================================
 
-fn WastParser::parse_mem_arg(
-  self : WastParser,
-  default_align : UInt,
-) -> MemArg {
+///|
+fn WastParser::parse_mem_arg(self : WastParser, default_align : UInt) -> MemArg {
   let mut offset : UInt = 0
   let mut align = default_align
 
@@ -595,12 +629,14 @@ fn WastParser::parse_mem_arg(
       _ => break
     }
   }
-
   { align, offset }
 }
 
-fn WastParser::parse_block_type(self : WastParser) -> BlockType raise ParserError {
-  let label : Option[String] = if self.current.token_type is Var {
+///|
+fn WastParser::parse_block_type(
+  self : WastParser,
+) -> BlockType raise ParserError {
+  let label : String? = if self.current.token_type is Var {
     let token = self.advance()
     Some(self.get_text(token))
   } else {
@@ -608,12 +644,10 @@ fn WastParser::parse_block_type(self : WastParser) -> BlockType raise ParserErro
   }
 
   // Try to parse type use for block
-  let type_use : Option[TypeUse] = if self.check(Lpar) {
+  let type_use : TypeUse? = if self.check(Lpar) {
     let saved_state = self.save_lexer_state()
     let saved_token = self.current
-
     self.expect_lpar()
-
     if self.check(Type) || self.check(Param) || self.check(Result) {
       // It's a type use, parse it
       self.restore_lexer_state(saved_state)
@@ -632,15 +666,14 @@ fn WastParser::parse_block_type(self : WastParser) -> BlockType raise ParserErro
   } else {
     None
   }
-
   { label, type_use }
 }
 
+///|
 fn WastParser::parse_instructions(
   self : WastParser,
 ) -> Array[Instruction] raise ParserError {
   let instrs : Array[Instruction] = []
-
   while true {
     match self.current.token_type {
       Rpar | Else | End | Eof => break
@@ -652,18 +685,17 @@ fn WastParser::parse_instructions(
         }
         self.expect_rpar()
       }
-      _ => {
+      _ =>
         match self.try_parse_plain_instruction() {
           Some(instr) => instrs.push(instr)
           None => break
         }
-      }
     }
   }
-
   instrs
 }
 
+///|
 fn WastParser::parse_folded_instruction(
   self : WastParser,
 ) -> Array[Instruction] raise ParserError {
@@ -708,27 +740,24 @@ fn WastParser::parse_folded_instruction(
         }
         self.expect_rpar()
       }
-
-      let has_folded_then = self.check(Lpar) && {
-        let saved = self.save_lexer_state()
-        let saved_token = self.current
-        self.expect_lpar()
-        let is_then = self.check(Then)
-        self.restore_lexer_state(saved)
-        self.current = saved_token
-        is_then
-      }
-
+      let has_folded_then = self.check(Lpar) &&
+        {
+          let saved = self.save_lexer_state()
+          let saved_token = self.current
+          self.expect_lpar()
+          let is_then = self.check(Then)
+          self.restore_lexer_state(saved)
+          self.current = saved_token
+          is_then
+        }
       let mut then_body : Array[Instruction] = []
       let mut else_body : Array[Instruction] = []
-
       if has_folded_then {
         // Hybrid syntax
         self.expect_lpar()
         let _ = self.expect(Then, "expected 'then'")
         then_body = self.parse_instructions()
         self.expect_rpar()
-
         if self.check(Lpar) {
           let saved = self.save_lexer_state()
           let saved_token = self.current
@@ -751,8 +780,8 @@ fn WastParser::parse_folded_instruction(
           []
         }
         let _ = self.expect(End, "expected 'end'")
-      }
 
+      }
       result.push(If(block_type, then_body, else_body))
       result
     }
@@ -776,6 +805,7 @@ fn WastParser::parse_folded_instruction(
   }
 }
 
+///|
 fn WastParser::try_parse_plain_instruction(
   self : WastParser,
 ) -> Instruction? raise ParserError {
@@ -797,7 +827,6 @@ fn WastParser::try_parse_plain_instruction(
     If => {
       let _ = self.advance()
       let block_type = self.parse_block_type()
-
       let mut used_explicit_syntax = false
 
       // Check if we're using explicit (then ...) syntax
@@ -805,7 +834,6 @@ fn WastParser::try_parse_plain_instruction(
         let saved_state = self.save_lexer_state()
         let saved_token = self.current
         self.expect_lpar()
-
         if self.check(Then) {
           // Explicit (then ...) form
           used_explicit_syntax = true
@@ -829,7 +857,6 @@ fn WastParser::try_parse_plain_instruction(
         let saved_state = self.save_lexer_state()
         let saved_token = self.current
         self.expect_lpar()
-
         if self.check(Else) {
           // Explicit (else ...) form
           used_explicit_syntax = true
@@ -857,6 +884,7 @@ fn WastParser::try_parse_plain_instruction(
       // Only expect 'end' for flat form (no explicit then/else blocks)
       if not(used_explicit_syntax) {
         let _ = self.expect(End, "expected 'end'")
+
       }
       Some(Instruction::If(block_type, then_body, else_body))
     }
@@ -868,6 +896,7 @@ fn WastParser::try_parse_plain_instruction(
   }
 }
 
+///|
 fn WastParser::parse_block_body(
   self : WastParser,
 ) -> Array[Instruction] raise ParserError {
@@ -886,24 +915,23 @@ fn WastParser::parse_block_body(
           self.current = saved_token
           break
         }
-
         let folded = self.parse_folded_instruction()
         for instr in folded {
           instrs.push(instr)
         }
         self.expect_rpar()
       }
-      _ => {
+      _ =>
         match self.try_parse_plain_instruction() {
           Some(instr) => instrs.push(instr)
           None => break
         }
-      }
     }
   }
   instrs
 }
 
+///|
 fn WastParser::parse_opcode_instruction(
   self : WastParser,
   op : Opcode,
@@ -937,7 +965,7 @@ fn WastParser::parse_opcode_instruction(
     Opcode::Drop => Instruction::Drop
     Opcode::Select => {
       // Check for typed select
-      let types : Option[Array[ValueType]] = if self.check(Lpar) {
+      let types : Array[ValueType]? = if self.check(Lpar) {
         let saved_state = self.save_lexer_state()
         let saved_token = self.current
         self.expect_lpar()
@@ -968,21 +996,16 @@ fn WastParser::parse_opcode_instruction(
     Opcode::GlobalSet => Instruction::GlobalSet(self.parse_index())
 
     // Table
-    Opcode::TableGet => Instruction::TableGet(
-      self.try_parse_index().unwrap_or(Index::Num(0)),
-    )
-    Opcode::TableSet => Instruction::TableSet(
-      self.try_parse_index().unwrap_or(Index::Num(0)),
-    )
-    Opcode::TableSize => Instruction::TableSize(
-      self.try_parse_index().unwrap_or(Index::Num(0)),
-    )
-    Opcode::TableGrow => Instruction::TableGrow(
-      self.try_parse_index().unwrap_or(Index::Num(0)),
-    )
-    Opcode::TableFill => Instruction::TableFill(
-      self.try_parse_index().unwrap_or(Index::Num(0)),
-    )
+    Opcode::TableGet =>
+      Instruction::TableGet(self.try_parse_index().unwrap_or(Index::Num(0)))
+    Opcode::TableSet =>
+      Instruction::TableSet(self.try_parse_index().unwrap_or(Index::Num(0)))
+    Opcode::TableSize =>
+      Instruction::TableSize(self.try_parse_index().unwrap_or(Index::Num(0)))
+    Opcode::TableGrow =>
+      Instruction::TableGrow(self.try_parse_index().unwrap_or(Index::Num(0)))
+    Opcode::TableFill =>
+      Instruction::TableFill(self.try_parse_index().unwrap_or(Index::Num(0)))
     Opcode::TableCopy => {
       let dst = self.try_parse_index().unwrap_or(Index::Num(0))
       let src = self.try_parse_index().unwrap_or(Index::Num(0))
@@ -1011,17 +1034,24 @@ fn WastParser::parse_opcode_instruction(
     Opcode::I64Load => Instruction::Load(op, self.parse_mem_arg(8))
     Opcode::F32Load => Instruction::Load(op, self.parse_mem_arg(4))
     Opcode::F64Load => Instruction::Load(op, self.parse_mem_arg(8))
-    Opcode::I32Load8S | Opcode::I32Load8U => Instruction::Load(op, self.parse_mem_arg(1))
-    Opcode::I32Load16S | Opcode::I32Load16U => Instruction::Load(op, self.parse_mem_arg(2))
-    Opcode::I64Load8S | Opcode::I64Load8U => Instruction::Load(op, self.parse_mem_arg(1))
-    Opcode::I64Load16S | Opcode::I64Load16U => Instruction::Load(op, self.parse_mem_arg(2))
-    Opcode::I64Load32S | Opcode::I64Load32U => Instruction::Load(op, self.parse_mem_arg(4))
+    Opcode::I32Load8S | Opcode::I32Load8U =>
+      Instruction::Load(op, self.parse_mem_arg(1))
+    Opcode::I32Load16S | Opcode::I32Load16U =>
+      Instruction::Load(op, self.parse_mem_arg(2))
+    Opcode::I64Load8S | Opcode::I64Load8U =>
+      Instruction::Load(op, self.parse_mem_arg(1))
+    Opcode::I64Load16S | Opcode::I64Load16U =>
+      Instruction::Load(op, self.parse_mem_arg(2))
+    Opcode::I64Load32S | Opcode::I64Load32U =>
+      Instruction::Load(op, self.parse_mem_arg(4))
     Opcode::I32Store => Instruction::Store(op, self.parse_mem_arg(4))
     Opcode::I64Store => Instruction::Store(op, self.parse_mem_arg(8))
     Opcode::F32Store => Instruction::Store(op, self.parse_mem_arg(4))
     Opcode::F64Store => Instruction::Store(op, self.parse_mem_arg(8))
-    Opcode::I32Store8 | Opcode::I64Store8 => Instruction::Store(op, self.parse_mem_arg(1))
-    Opcode::I32Store16 | Opcode::I64Store16 => Instruction::Store(op, self.parse_mem_arg(2))
+    Opcode::I32Store8 | Opcode::I64Store8 =>
+      Instruction::Store(op, self.parse_mem_arg(1))
+    Opcode::I32Store16 | Opcode::I64Store16 =>
+      Instruction::Store(op, self.parse_mem_arg(2))
     Opcode::I64Store32 => Instruction::Store(op, self.parse_mem_arg(4))
     Opcode::MemorySize => Instruction::MemorySize
     Opcode::MemoryGrow => Instruction::MemoryGrow
@@ -1049,66 +1079,149 @@ fn WastParser::parse_opcode_instruction(
     }
 
     // Unary
-    Opcode::I32Clz | Opcode::I32Ctz | Opcode::I32Popcnt |
-    Opcode::I64Clz | Opcode::I64Ctz | Opcode::I64Popcnt |
-    Opcode::F32Abs | Opcode::F32Neg | Opcode::F32Ceil | Opcode::F32Floor |
-    Opcode::F32Trunc | Opcode::F32Nearest | Opcode::F32Sqrt |
-    Opcode::F64Abs | Opcode::F64Neg | Opcode::F64Ceil | Opcode::F64Floor |
-    Opcode::F64Trunc | Opcode::F64Nearest | Opcode::F64Sqrt |
-    Opcode::I32Extend8S | Opcode::I32Extend16S |
-    Opcode::I64Extend8S | Opcode::I64Extend16S | Opcode::I64Extend32S =>
-      Instruction::Unary(op)
+    Opcode::I32Clz
+    | Opcode::I32Ctz
+    | Opcode::I32Popcnt
+    | Opcode::I64Clz
+    | Opcode::I64Ctz
+    | Opcode::I64Popcnt
+    | Opcode::F32Abs
+    | Opcode::F32Neg
+    | Opcode::F32Ceil
+    | Opcode::F32Floor
+    | Opcode::F32Trunc
+    | Opcode::F32Nearest
+    | Opcode::F32Sqrt
+    | Opcode::F64Abs
+    | Opcode::F64Neg
+    | Opcode::F64Ceil
+    | Opcode::F64Floor
+    | Opcode::F64Trunc
+    | Opcode::F64Nearest
+    | Opcode::F64Sqrt
+    | Opcode::I32Extend8S
+    | Opcode::I32Extend16S
+    | Opcode::I64Extend8S
+    | Opcode::I64Extend16S
+    | Opcode::I64Extend32S => Instruction::Unary(op)
 
     // Binary
-    Opcode::I32Add | Opcode::I32Sub | Opcode::I32Mul | Opcode::I32DivS | Opcode::I32DivU |
-    Opcode::I32RemS | Opcode::I32RemU | Opcode::I32And | Opcode::I32Or | Opcode::I32Xor |
-    Opcode::I32Shl | Opcode::I32ShrS | Opcode::I32ShrU | Opcode::I32Rotl | Opcode::I32Rotr |
-    Opcode::I64Add | Opcode::I64Sub | Opcode::I64Mul | Opcode::I64DivS | Opcode::I64DivU |
-    Opcode::I64RemS | Opcode::I64RemU | Opcode::I64And | Opcode::I64Or | Opcode::I64Xor |
-    Opcode::I64Shl | Opcode::I64ShrS | Opcode::I64ShrU | Opcode::I64Rotl | Opcode::I64Rotr |
-    Opcode::F32Add | Opcode::F32Sub | Opcode::F32Mul | Opcode::F32Div |
-    Opcode::F32Min | Opcode::F32Max | Opcode::F32Copysign |
-    Opcode::F64Add | Opcode::F64Sub | Opcode::F64Mul | Opcode::F64Div |
-    Opcode::F64Min | Opcode::F64Max | Opcode::F64Copysign =>
-      Instruction::Binary(op)
+    Opcode::I32Add
+    | Opcode::I32Sub
+    | Opcode::I32Mul
+    | Opcode::I32DivS
+    | Opcode::I32DivU
+    | Opcode::I32RemS
+    | Opcode::I32RemU
+    | Opcode::I32And
+    | Opcode::I32Or
+    | Opcode::I32Xor
+    | Opcode::I32Shl
+    | Opcode::I32ShrS
+    | Opcode::I32ShrU
+    | Opcode::I32Rotl
+    | Opcode::I32Rotr
+    | Opcode::I64Add
+    | Opcode::I64Sub
+    | Opcode::I64Mul
+    | Opcode::I64DivS
+    | Opcode::I64DivU
+    | Opcode::I64RemS
+    | Opcode::I64RemU
+    | Opcode::I64And
+    | Opcode::I64Or
+    | Opcode::I64Xor
+    | Opcode::I64Shl
+    | Opcode::I64ShrS
+    | Opcode::I64ShrU
+    | Opcode::I64Rotl
+    | Opcode::I64Rotr
+    | Opcode::F32Add
+    | Opcode::F32Sub
+    | Opcode::F32Mul
+    | Opcode::F32Div
+    | Opcode::F32Min
+    | Opcode::F32Max
+    | Opcode::F32Copysign
+    | Opcode::F64Add
+    | Opcode::F64Sub
+    | Opcode::F64Mul
+    | Opcode::F64Div
+    | Opcode::F64Min
+    | Opcode::F64Max
+    | Opcode::F64Copysign => Instruction::Binary(op)
 
     // Test
-    Opcode::I32Eqz | Opcode::I64Eqz =>
-      Instruction::Test(op)
+    Opcode::I32Eqz | Opcode::I64Eqz => Instruction::Test(op)
 
     // Compare
-    Opcode::I32Eq | Opcode::I32Ne | Opcode::I32LtS | Opcode::I32LtU |
-    Opcode::I32GtS | Opcode::I32GtU | Opcode::I32LeS | Opcode::I32LeU |
-    Opcode::I32GeS | Opcode::I32GeU |
-    Opcode::I64Eq | Opcode::I64Ne | Opcode::I64LtS | Opcode::I64LtU |
-    Opcode::I64GtS | Opcode::I64GtU | Opcode::I64LeS | Opcode::I64LeU |
-    Opcode::I64GeS | Opcode::I64GeU |
-    Opcode::F32Eq | Opcode::F32Ne | Opcode::F32Lt | Opcode::F32Gt |
-    Opcode::F32Le | Opcode::F32Ge |
-    Opcode::F64Eq | Opcode::F64Ne | Opcode::F64Lt | Opcode::F64Gt |
-    Opcode::F64Le | Opcode::F64Ge =>
-      Instruction::Compare(op)
+    Opcode::I32Eq
+    | Opcode::I32Ne
+    | Opcode::I32LtS
+    | Opcode::I32LtU
+    | Opcode::I32GtS
+    | Opcode::I32GtU
+    | Opcode::I32LeS
+    | Opcode::I32LeU
+    | Opcode::I32GeS
+    | Opcode::I32GeU
+    | Opcode::I64Eq
+    | Opcode::I64Ne
+    | Opcode::I64LtS
+    | Opcode::I64LtU
+    | Opcode::I64GtS
+    | Opcode::I64GtU
+    | Opcode::I64LeS
+    | Opcode::I64LeU
+    | Opcode::I64GeS
+    | Opcode::I64GeU
+    | Opcode::F32Eq
+    | Opcode::F32Ne
+    | Opcode::F32Lt
+    | Opcode::F32Gt
+    | Opcode::F32Le
+    | Opcode::F32Ge
+    | Opcode::F64Eq
+    | Opcode::F64Ne
+    | Opcode::F64Lt
+    | Opcode::F64Gt
+    | Opcode::F64Le
+    | Opcode::F64Ge => Instruction::Compare(op)
 
     // Conversion
-    Opcode::I32WrapI64 |
-    Opcode::I32TruncF32S | Opcode::I32TruncF32U |
-    Opcode::I32TruncF64S | Opcode::I32TruncF64U |
-    Opcode::I64ExtendI32S | Opcode::I64ExtendI32U |
-    Opcode::I64TruncF32S | Opcode::I64TruncF32U |
-    Opcode::I64TruncF64S | Opcode::I64TruncF64U |
-    Opcode::F32ConvertI32S | Opcode::F32ConvertI32U |
-    Opcode::F32ConvertI64S | Opcode::F32ConvertI64U |
-    Opcode::F32DemoteF64 |
-    Opcode::F64ConvertI32S | Opcode::F64ConvertI32U |
-    Opcode::F64ConvertI64S | Opcode::F64ConvertI64U |
-    Opcode::F64PromoteF32 |
-    Opcode::I32ReinterpretF32 | Opcode::I64ReinterpretF64 |
-    Opcode::F32ReinterpretI32 | Opcode::F64ReinterpretI64 |
-    Opcode::I32TruncSatF32S | Opcode::I32TruncSatF32U |
-    Opcode::I32TruncSatF64S | Opcode::I32TruncSatF64U |
-    Opcode::I64TruncSatF32S | Opcode::I64TruncSatF32U |
-    Opcode::I64TruncSatF64S | Opcode::I64TruncSatF64U =>
-      Instruction::Convert(op)
+    Opcode::I32WrapI64
+    | Opcode::I32TruncF32S
+    | Opcode::I32TruncF32U
+    | Opcode::I32TruncF64S
+    | Opcode::I32TruncF64U
+    | Opcode::I64ExtendI32S
+    | Opcode::I64ExtendI32U
+    | Opcode::I64TruncF32S
+    | Opcode::I64TruncF32U
+    | Opcode::I64TruncF64S
+    | Opcode::I64TruncF64U
+    | Opcode::F32ConvertI32S
+    | Opcode::F32ConvertI32U
+    | Opcode::F32ConvertI64S
+    | Opcode::F32ConvertI64U
+    | Opcode::F32DemoteF64
+    | Opcode::F64ConvertI32S
+    | Opcode::F64ConvertI32U
+    | Opcode::F64ConvertI64S
+    | Opcode::F64ConvertI64U
+    | Opcode::F64PromoteF32
+    | Opcode::I32ReinterpretF32
+    | Opcode::I64ReinterpretF64
+    | Opcode::F32ReinterpretI32
+    | Opcode::F64ReinterpretI64
+    | Opcode::I32TruncSatF32S
+    | Opcode::I32TruncSatF32U
+    | Opcode::I32TruncSatF64S
+    | Opcode::I32TruncSatF64U
+    | Opcode::I64TruncSatF32S
+    | Opcode::I64TruncSatF32U
+    | Opcode::I64TruncSatF64S
+    | Opcode::I64TruncSatF64U => Instruction::Convert(op)
 
     // Reference
     Opcode::RefNull => {
@@ -1117,7 +1230,6 @@ fn WastParser::parse_opcode_instruction(
     }
     Opcode::RefIsNull => Instruction::RefIsNull
     Opcode::RefFunc => Instruction::RefFunc(self.parse_index())
-
     _ => raise InvalidInstruction("unknown opcode")
   }
 }
@@ -1126,10 +1238,10 @@ fn WastParser::parse_opcode_instruction(
 // Module Field Parsing
 // ============================================================================
 
+///|
 fn WastParser::parse_type_def(self : WastParser) -> TypeDef raise ParserError {
   let _ = self.expect(Type, "expected 'type'")
-
-  let id : Option[String] = if self.current.token_type is Var {
+  let id : String? = if self.current.token_type is Var {
     let token = self.advance()
     Some(self.get_text(token))
   } else {
@@ -1139,7 +1251,6 @@ fn WastParser::parse_type_def(self : WastParser) -> TypeDef raise ParserError {
   // (func ...)
   self.expect_lpar()
   let _ = self.expect(Func, "expected 'func'")
-
   let params : Array[ValueType] = []
   let results : Array[ValueType] = []
 
@@ -1183,12 +1294,11 @@ fn WastParser::parse_type_def(self : WastParser) -> TypeDef raise ParserError {
       break
     }
   }
-
   self.expect_rpar() // close func
-
   { id, func_type: { params, results } }
 }
 
+///|
 fn WastParser::parse_inline_exports(
   self : WastParser,
 ) -> Array[InlineExport] raise ParserError {
@@ -1203,9 +1313,7 @@ fn WastParser::parse_inline_exports(
       let name = self.get_text(name_token)
       // Remove quotes from string
       let cleaned = if name.length() >= 2 {
-        try {
-          name.sub(start=1, end=name.length() - 1).to_string()
-        } catch {
+        name.sub(start=1, end=name.length() - 1).to_string() catch {
           _ => name
         }
       } else {
@@ -1222,18 +1330,16 @@ fn WastParser::parse_inline_exports(
   exports
 }
 
+///|
 fn WastParser::parse_func(self : WastParser) -> Func raise ParserError {
   let _ = self.expect(Func, "expected 'func'")
-
-  let id : Option[String] = if self.current.token_type is Var {
+  let id : String? = if self.current.token_type is Var {
     let token = self.advance()
     Some(self.get_text(token))
   } else {
     None
   }
-
   let exports = self.parse_inline_exports()
-
   let type_use = self.parse_type_use()
 
   // Parse locals
@@ -1246,7 +1352,7 @@ fn WastParser::parse_func(self : WastParser) -> Func raise ParserError {
       let _ = self.advance()
       if self.current.token_type is Var {
         let id_token = self.advance()
-        let local_id : Option[String] = Some(self.get_text(id_token))
+        let local_id : String? = Some(self.get_text(id_token))
         let vt = self.parse_value_type()
         locals.push({ id: local_id, val_type: vt })
       } else {
@@ -1262,56 +1368,48 @@ fn WastParser::parse_func(self : WastParser) -> Func raise ParserError {
       break
     }
   }
-
   let body = self.parse_instructions()
-
   { id, exports, type_use, locals, body }
 }
 
+///|
 fn WastParser::parse_table(self : WastParser) -> Table raise ParserError {
   let _ = self.expect(Table, "expected 'table'")
-
-  let id : Option[String] = if self.current.token_type is Var {
+  let id : String? = if self.current.token_type is Var {
     let token = self.advance()
     Some(self.get_text(token))
   } else {
     None
   }
-
   let exports = self.parse_inline_exports()
-
   let limits = self.parse_limits()
   let elem_type = self.parse_value_type()
-
   { id, exports, table_type: { limits, elem_type } }
 }
 
+///|
 fn WastParser::parse_memory(self : WastParser) -> Memory raise ParserError {
   let _ = self.expect(Memory, "expected 'memory'")
-
-  let id : Option[String] = if self.current.token_type is Var {
+  let id : String? = if self.current.token_type is Var {
     let token = self.advance()
     Some(self.get_text(token))
   } else {
     None
   }
-
   let exports = self.parse_inline_exports()
   let limits = self.parse_limits()
-
   { id, exports, memory_type: limits }
 }
 
+///|
 fn WastParser::parse_global(self : WastParser) -> Global raise ParserError {
   let _ = self.expect(Global, "expected 'global'")
-
-  let id : Option[String] = if self.current.token_type is Var {
+  let id : String? = if self.current.token_type is Var {
     let token = self.advance()
     Some(self.get_text(token))
   } else {
     None
   }
-
   let exports = self.parse_inline_exports()
 
   // Parse global type
@@ -1332,27 +1430,22 @@ fn WastParser::parse_global(self : WastParser) -> Global raise ParserError {
   } else {
     (self.parse_value_type(), false)
   }
-
   let init = self.parse_instructions()
-
   { id, exports, global_type: { val_type, mutable_ }, init }
 }
 
+///|
 fn WastParser::parse_import(self : WastParser) -> Import raise ParserError {
   let _ = self.expect(Import, "expected 'import'")
-
   let module_token = self.expect(Text, "expected module name")
   let module_name = self.strip_quotes(self.get_text(module_token))
-
   let field_token = self.expect(Text, "expected field name")
   let field_name = self.strip_quotes(self.get_text(field_token))
-
   self.expect_lpar()
-
   let (desc, id) = match self.current.token_type {
     Func => {
       let _ = self.advance()
-      let func_id : Option[String] = if self.current.token_type is Var {
+      let func_id : String? = if self.current.token_type is Var {
         let token = self.advance()
         Some(self.get_text(token))
       } else {
@@ -1363,7 +1456,7 @@ fn WastParser::parse_import(self : WastParser) -> Import raise ParserError {
     }
     Table => {
       let _ = self.advance()
-      let table_id : Option[String] = if self.current.token_type is Var {
+      let table_id : String? = if self.current.token_type is Var {
         let token = self.advance()
         Some(self.get_text(token))
       } else {
@@ -1375,7 +1468,7 @@ fn WastParser::parse_import(self : WastParser) -> Import raise ParserError {
     }
     Memory => {
       let _ = self.advance()
-      let mem_id : Option[String] = if self.current.token_type is Var {
+      let mem_id : String? = if self.current.token_type is Var {
         let token = self.advance()
         Some(self.get_text(token))
       } else {
@@ -1386,7 +1479,7 @@ fn WastParser::parse_import(self : WastParser) -> Import raise ParserError {
     }
     Global => {
       let _ = self.advance()
-      let global_id : Option[String] = if self.current.token_type is Var {
+      let global_id : String? = if self.current.token_type is Var {
         let token = self.advance()
         Some(self.get_text(token))
       } else {
@@ -1405,20 +1498,16 @@ fn WastParser::parse_import(self : WastParser) -> Import raise ParserError {
     }
     _ => raise UnexpectedToken(self.current, "expected import descriptor")
   }
-
   self.expect_rpar()
-
   { module_name, field_name, desc, id }
 }
 
+///|
 fn WastParser::parse_export(self : WastParser) -> Export raise ParserError {
   let _ = self.expect(Export, "expected 'export'")
-
   let name_token = self.expect(Text, "expected export name")
   let name = self.strip_quotes(self.get_text(name_token))
-
   self.expect_lpar()
-
   let desc = match self.current.token_type {
     Func => {
       let _ = self.advance()
@@ -1438,22 +1527,21 @@ fn WastParser::parse_export(self : WastParser) -> Export raise ParserError {
     }
     _ => raise UnexpectedToken(self.current, "expected export descriptor")
   }
-
   self.expect_rpar()
-
   { name, desc }
 }
 
+///|
 fn WastParser::parse_start(self : WastParser) -> Start raise ParserError {
   let _ = self.expect(Start, "expected 'start'")
   let func_index = self.parse_index()
-  Start::{ func_index }
+  Start::{ func_index, }
 }
 
+///|
 fn WastParser::parse_data(self : WastParser) -> DataSegment raise ParserError {
   let _ = self.expect(Data, "expected 'data'")
-
-  let id : Option[String] = if self.current.token_type is Var {
+  let id : String? = if self.current.token_type is Var {
     let token = self.advance()
     Some(self.get_text(token))
   } else {
@@ -1468,6 +1556,7 @@ fn WastParser::parse_data(self : WastParser) -> DataSegment raise ParserError {
     self.expect_lpar()
     if self.check(Offset) {
       let _ = self.advance()
+
     }
     let instrs = self.parse_instructions()
     self.expect_rpar()
@@ -1484,20 +1573,18 @@ fn WastParser::parse_data(self : WastParser) -> DataSegment raise ParserError {
     let decoded = self.decode_string(text)
     data_bytes.write_bytes(decoded)
   }
-
   { id, memory_index, offset, data: data_bytes.to_bytes() }
 }
 
+///|
 fn WastParser::parse_elem(self : WastParser) -> ElemSegment raise ParserError {
   let _ = self.expect(Elem, "expected 'elem'")
-
-  let id : Option[String] = if self.current.token_type is Var {
+  let id : String? = if self.current.token_type is Var {
     let token = self.advance()
     Some(self.get_text(token))
   } else {
     None
   }
-
   let table_index = self.try_parse_index().unwrap_or(Index::Num(0))
 
   // Offset expression
@@ -1505,6 +1592,7 @@ fn WastParser::parse_elem(self : WastParser) -> ElemSegment raise ParserError {
     self.expect_lpar()
     if self.check(Offset) {
       let _ = self.advance()
+
     }
     let instrs = self.parse_instructions()
     self.expect_rpar()
@@ -1518,7 +1606,6 @@ fn WastParser::parse_elem(self : WastParser) -> ElemSegment raise ParserError {
   while self.current.token_type is (Nat | Var) {
     func_indices.push(self.parse_index())
   }
-
   { id, table_index, offset, func_indices }
 }
 
@@ -1526,7 +1613,10 @@ fn WastParser::parse_elem(self : WastParser) -> ElemSegment raise ParserError {
 // Module Parsing
 // ============================================================================
 
-fn WastParser::parse_module_field(self : WastParser) -> ModuleField raise ParserError {
+///|
+fn WastParser::parse_module_field(
+  self : WastParser,
+) -> ModuleField raise ParserError {
   match self.current.token_type {
     Type => ModuleField::TypeField(self.parse_type_def())
     Func => ModuleField::FuncField(self.parse_func())
@@ -1542,27 +1632,23 @@ fn WastParser::parse_module_field(self : WastParser) -> ModuleField raise Parser
   }
 }
 
+///|
 pub fn WastParser::parse_module(self : WastParser) -> Module raise ParserError {
   self.expect_lpar()
   let _ = self.expect(Module, "expected 'module'")
-
-  let id : Option[String] = if self.current.token_type is Var {
+  let id : String? = if self.current.token_type is Var {
     let token = self.advance()
     Some(self.get_text(token))
   } else {
     None
   }
-
   let fields : Array[ModuleField] = []
-
   while self.check(Lpar) {
     self.expect_lpar()
     fields.push(self.parse_module_field())
     self.expect_rpar()
   }
-
   self.expect_rpar()
-
   { id, fields }
 }
 
@@ -1570,11 +1656,10 @@ pub fn WastParser::parse_module(self : WastParser) -> Module raise ParserError {
 // Utility Functions
 // ============================================================================
 
+///|
 fn WastParser::strip_quotes(_ : WastParser, s : String) -> String {
   if s.length() >= 2 && s[0] == '"' && s[s.length() - 1] == '"' {
-    try {
-      s.sub(start=1, end=s.length() - 1).to_string()
-    } catch {
+    s.sub(start=1, end=s.length() - 1).to_string() catch {
       _ => s
     }
   } else {
@@ -1582,6 +1667,7 @@ fn WastParser::strip_quotes(_ : WastParser, s : String) -> String {
   }
 }
 
+///|
 fn WastParser::decode_string(self : WastParser, s : String) -> Bytes {
   let buf = @buffer.new()
   let inner = self.strip_quotes(s)
@@ -1615,7 +1701,7 @@ fn WastParser::decode_string(self : WastParser, s : String) -> Bytes {
           buf.write_byte(b'\\')
           i += 2
         }
-        _ => {
+        _ =>
           // Hex escape \XX
           if i + 2 < inner.length() {
             let h1 = hex_val(inner[i + 1].unsafe_to_char())
@@ -1631,7 +1717,6 @@ fn WastParser::decode_string(self : WastParser, s : String) -> Bytes {
             buf.write_byte(c.to_int().to_byte())
             i += 1
           }
-        }
       }
     } else {
       buf.write_byte(c.to_int().to_byte())
@@ -1641,6 +1726,7 @@ fn WastParser::decode_string(self : WastParser, s : String) -> Bytes {
   buf.to_bytes()
 }
 
+///|
 fn hex_val(c : Char) -> Int {
   if c >= '0' && c <= '9' {
     c.to_int() - 0x30
@@ -1653,10 +1739,12 @@ fn hex_val(c : Char) -> Int {
   }
 }
 
+///|
 pub fn WastParser::has_errors(self : WastParser) -> Bool {
   self.errors.length() > 0 || self.lexer.has_errors()
 }
 
+///|
 pub fn WastParser::get_errors(self : WastParser) -> Array[ParseError] {
   self.errors
 }
@@ -1674,6 +1762,7 @@ pub fn WastParser::get_errors(self : WastParser) -> Array[ParseError] {
 // Tests
 // ============================================================================
 
+///|
 test "parse simple module" {
   let source =
     #|(module
@@ -1688,6 +1777,7 @@ test "parse simple module" {
   assert_eq(mod.fields.length(), 1)
 }
 
+///|
 test "parse function with locals" {
   let source =
     #|(module
@@ -1705,11 +1795,11 @@ test "parse function with locals" {
     #|)
   let lexer = make_lexer(source)
   let parser = WastParser::new(lexer)
-  
   let _ = parser.parse_module()
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse function with type reference" {
   let source =
     #|(module
@@ -1723,6 +1813,7 @@ test "parse function with type reference" {
   assert_eq(mod.fields.length(), 2)
 }
 
+///|
 test "parse memory and data" {
   let source =
     #|(module
@@ -1734,6 +1825,7 @@ test "parse memory and data" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse import and export" {
   let source =
     #|(module
@@ -1753,6 +1845,7 @@ test "parse import and export" {
 // Module Structure Tests
 // ----------------------------------------------------------------------------
 
+///|
 test "parse empty module" {
   let source = "(module)"
   let lexer = make_lexer(source)
@@ -1763,6 +1856,7 @@ test "parse empty module" {
   assert_eq(mod.fields.length(), 0)
 }
 
+///|
 test "parse named module" {
   let source = "(module $my_module)"
   let lexer = make_lexer(source)
@@ -1776,6 +1870,7 @@ test "parse named module" {
 // Type Definition Tests
 // ----------------------------------------------------------------------------
 
+///|
 test "parse type with no params no results" {
   let source = "(module (type $t (func)))"
   let lexer = make_lexer(source)
@@ -1785,6 +1880,7 @@ test "parse type with no params no results" {
   assert_eq(mod.fields.length(), 1)
 }
 
+///|
 test "parse type with params only" {
   let source = "(module (type $t (func (param i32) (param i64))))"
   let lexer = make_lexer(source)
@@ -1793,6 +1889,7 @@ test "parse type with params only" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse type with results only" {
   let source = "(module (type $t (func (result i32))))"
   let lexer = make_lexer(source)
@@ -1801,6 +1898,7 @@ test "parse type with results only" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse type with multiple params abbreviated" {
   let source = "(module (type $t (func (param i32 i64 f32 f64))))"
   let lexer = make_lexer(source)
@@ -1809,6 +1907,7 @@ test "parse type with multiple params abbreviated" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse type with multiple results" {
   let source = "(module (type $t (func (result i32 i64))))"
   let lexer = make_lexer(source)
@@ -1817,6 +1916,7 @@ test "parse type with multiple results" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse type with named params" {
   let source = "(module (type $t (func (param $a i32) (param $b i64) (result i32))))"
   let lexer = make_lexer(source)
@@ -1829,6 +1929,7 @@ test "parse type with named params" {
 // Function Tests
 // ----------------------------------------------------------------------------
 
+///|
 test "parse minimal function" {
   let source = "(module (func))"
   let lexer = make_lexer(source)
@@ -1837,6 +1938,7 @@ test "parse minimal function" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse named function" {
   let source = "(module (func $foo))"
   let lexer = make_lexer(source)
@@ -1845,22 +1947,27 @@ test "parse named function" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse function with inline export" {
-  let source = #|(module (func $foo (export "foo")))|
+  let source =
+    #|(module (func $foo (export "foo")))|
   let lexer = make_lexer(source)
   let parser = WastParser::new(lexer)
   let _ = parser.parse_module()
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse function with multiple inline exports" {
-  let source = #|(module (func $foo (export "foo") (export "bar")))|
+  let source =
+    #|(module (func $foo (export "foo") (export "bar")))|
   let lexer = make_lexer(source)
   let parser = WastParser::new(lexer)
   let _ = parser.parse_module()
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse a function with type reference" {
   let source =
     #|(module
@@ -1872,6 +1979,7 @@ test "parse a function with type reference" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse function with inline signature" {
   let source = "(module (func $add (param i32 i32) (result i32) local.get 0 local.get 1 i32.add))"
   let lexer = make_lexer(source)
@@ -1880,6 +1988,7 @@ test "parse function with inline signature" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse function with named params" {
   let source = "(module (func $add (param $a i32) (param $b i32) (result i32) local.get $a local.get $b i32.add))"
   let lexer = make_lexer(source)
@@ -1888,6 +1997,7 @@ test "parse function with named params" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse another function with locals" {
   let source = "(module (func $f (local i32) (local i64 f32)))"
   let lexer = make_lexer(source)
@@ -1896,6 +2006,7 @@ test "parse another function with locals" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse function with named locals" {
   let source = "(module (func $f (local $x i32) (local $y i64)))"
   let lexer = make_lexer(source)
@@ -1908,6 +2019,7 @@ test "parse function with named locals" {
 // Control Flow Tests - Block
 // ----------------------------------------------------------------------------
 
+///|
 test "parse empty block flat" {
   let source = "(module (func block end))"
   let lexer = make_lexer(source)
@@ -1916,6 +2028,7 @@ test "parse empty block flat" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse empty block folded" {
   let source = "(module (func (block)))"
   let lexer = make_lexer(source)
@@ -1924,6 +2037,7 @@ test "parse empty block folded" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse named block" {
   let source = "(module (func (block $label nop)))"
   let lexer = make_lexer(source)
@@ -1932,6 +2046,7 @@ test "parse named block" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse block with result type" {
   let source = "(module (func (result i32) (block (result i32) i32.const 42)))"
   let lexer = make_lexer(source)
@@ -1940,6 +2055,7 @@ test "parse block with result type" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse block flat with instructions" {
   let source = "(module (func block nop nop end))"
   let lexer = make_lexer(source)
@@ -1948,6 +2064,7 @@ test "parse block flat with instructions" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse nested blocks" {
   let source = "(module (func (block (block (block nop)))))"
   let lexer = make_lexer(source)
@@ -1960,6 +2077,7 @@ test "parse nested blocks" {
 // Control Flow Tests - Loop
 // ----------------------------------------------------------------------------
 
+///|
 test "parse empty loop flat" {
   let source = "(module (func loop end))"
   let lexer = make_lexer(source)
@@ -1968,6 +2086,7 @@ test "parse empty loop flat" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse empty loop folded" {
   let source = "(module (func (loop)))"
   let lexer = make_lexer(source)
@@ -1976,6 +2095,7 @@ test "parse empty loop folded" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse named loop with br" {
   let source = "(module (func (loop $continue (br $continue))))"
   let lexer = make_lexer(source)
@@ -1988,6 +2108,7 @@ test "parse named loop with br" {
 // Control Flow Tests - If
 // ----------------------------------------------------------------------------
 
+///|
 test "parse if flat no else" {
   let source = "(module (func (param i32) local.get 0 if nop end))"
   let lexer = make_lexer(source)
@@ -1996,6 +2117,7 @@ test "parse if flat no else" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse if flat with else" {
   let source = "(module (func (param i32) local.get 0 if nop else nop end))"
   let lexer = make_lexer(source)
@@ -2004,6 +2126,7 @@ test "parse if flat with else" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse if folded condition only" {
   let source = "(module (func (param i32) (if (local.get 0) (then nop))))"
   let lexer = make_lexer(source)
@@ -2012,6 +2135,7 @@ test "parse if folded condition only" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse if folded with else" {
   let source = "(module (func (param i32) (if (local.get 0) (then nop) (else nop))))"
   let lexer = make_lexer(source)
@@ -2020,6 +2144,7 @@ test "parse if folded with else" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse if with result type" {
   let source = "(module (func (param i32) (result i32) (if (result i32) (local.get 0) (then (i32.const 1)) (else (i32.const 0)))))"
   let lexer = make_lexer(source)
@@ -2028,6 +2153,7 @@ test "parse if with result type" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse nested if" {
   let source =
     #|(module (func (param i32 i32)
@@ -2047,6 +2173,7 @@ test "parse nested if" {
 // Control Flow Tests - Branch
 // ----------------------------------------------------------------------------
 
+///|
 test "parse br" {
   let source = "(module (func (block $exit (br $exit))))"
   let lexer = make_lexer(source)
@@ -2055,6 +2182,7 @@ test "parse br" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse br with numeric index" {
   let source = "(module (func (block (br 0))))"
   let lexer = make_lexer(source)
@@ -2063,6 +2191,7 @@ test "parse br with numeric index" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse br_if" {
   let source = "(module (func (param i32) (block $exit (local.get 0) (br_if $exit))))"
   let lexer = make_lexer(source)
@@ -2071,6 +2200,7 @@ test "parse br_if" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse br_table" {
   let source = "(module (func (param i32) (block $a (block $b (local.get 0) (br_table $a $b $a)))))"
   let lexer = make_lexer(source)
@@ -2079,6 +2209,7 @@ test "parse br_table" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse return" {
   let source = "(module (func return))"
   let lexer = make_lexer(source)
@@ -2091,6 +2222,7 @@ test "parse return" {
 // Call Tests
 // ----------------------------------------------------------------------------
 
+///|
 test "parse call" {
   let source = "(module (func $f) (func (call $f)))"
   let lexer = make_lexer(source)
@@ -2099,6 +2231,7 @@ test "parse call" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse call with numeric index" {
   let source = "(module (func) (func (call 0)))"
   let lexer = make_lexer(source)
@@ -2107,6 +2240,7 @@ test "parse call with numeric index" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse call_indirect" {
   let source =
     #|(module
@@ -2126,6 +2260,7 @@ test "parse call_indirect" {
 // Numeric Instruction Tests
 // ----------------------------------------------------------------------------
 
+///|
 test "parse i32 const" {
   let source = "(module (func (result i32) i32.const 42))"
   let lexer = make_lexer(source)
@@ -2134,6 +2269,7 @@ test "parse i32 const" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse i32 const negative" {
   let source = "(module (func (result i32) i32.const -42))"
   let lexer = make_lexer(source)
@@ -2142,6 +2278,7 @@ test "parse i32 const negative" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse i32 const hex" {
   let source = "(module (func (result i32) i32.const 0x2a))"
   let lexer = make_lexer(source)
@@ -2150,6 +2287,7 @@ test "parse i32 const hex" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse i64 const" {
   let source = "(module (func (result i64) i64.const 9223372036854775807))"
   let lexer = make_lexer(source)
@@ -2158,6 +2296,7 @@ test "parse i64 const" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse f32 const" {
   let source = "(module (func (result f32) f32.const 3.14))"
   let lexer = make_lexer(source)
@@ -2166,6 +2305,7 @@ test "parse f32 const" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse f64 const" {
   let source = "(module (func (result f64) f64.const 3.141592653589793))"
   let lexer = make_lexer(source)
@@ -2174,6 +2314,7 @@ test "parse f64 const" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse i32 arithmetic" {
   let source = "(module (func (param i32 i32) (result i32) local.get 0 local.get 1 i32.add))"
   let lexer = make_lexer(source)
@@ -2182,6 +2323,7 @@ test "parse i32 arithmetic" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse i32 arithmetic folded" {
   let source = "(module (func (param i32 i32) (result i32) (i32.add (local.get 0) (local.get 1))))"
   let lexer = make_lexer(source)
@@ -2190,6 +2332,7 @@ test "parse i32 arithmetic folded" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse i32 all binary ops" {
   let source =
     #|(module (func (param i32 i32) (result i32)
@@ -2216,6 +2359,7 @@ test "parse i32 all binary ops" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse i32 unary ops" {
   let source =
     #|(module (func (param i32) (result i32)
@@ -2230,6 +2374,7 @@ test "parse i32 unary ops" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse i32 comparison ops" {
   let source =
     #|(module (func (param i32 i32) (result i32)
@@ -2251,6 +2396,7 @@ test "parse i32 comparison ops" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse i32 eqz" {
   let source = "(module (func (param i32) (result i32) (i32.eqz (local.get 0))))"
   let lexer = make_lexer(source)
@@ -2259,6 +2405,7 @@ test "parse i32 eqz" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse f32 ops" {
   let source =
     #|(module (func (param f32 f32) (result f32)
@@ -2277,6 +2424,7 @@ test "parse f32 ops" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse f32 unary ops" {
   let source =
     #|(module (func (param f32) (result f32)
@@ -2299,6 +2447,7 @@ test "parse f32 unary ops" {
 // Conversion Instruction Tests
 // ----------------------------------------------------------------------------
 
+///|
 test "parse i32 wrap i64" {
   let source = "(module (func (param i64) (result i32) (i32.wrap_i64 (local.get 0))))"
   let lexer = make_lexer(source)
@@ -2307,6 +2456,7 @@ test "parse i32 wrap i64" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse i64 extend i32" {
   let source =
     #|(module (func (param i32) (result i64)
@@ -2320,6 +2470,7 @@ test "parse i64 extend i32" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse float conversions" {
   let source =
     #|(module
@@ -2333,6 +2484,7 @@ test "parse float conversions" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse reinterpret" {
   let source =
     #|(module
@@ -2346,6 +2498,7 @@ test "parse reinterpret" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse trunc sat" {
   let source =
     #|(module
@@ -2359,6 +2512,7 @@ test "parse trunc sat" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse sign extension" {
   let source =
     #|(module (func (param i32 i64)
@@ -2378,6 +2532,7 @@ test "parse sign extension" {
 // Variable Instruction Tests
 // ----------------------------------------------------------------------------
 
+///|
 test "parse local get set tee" {
   let source =
     #|(module (func (param i32) (local i32)
@@ -2391,6 +2546,7 @@ test "parse local get set tee" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse global get set" {
   let source =
     #|(module
@@ -2410,6 +2566,7 @@ test "parse global get set" {
 // Memory Instruction Tests
 // ----------------------------------------------------------------------------
 
+///|
 test "parse memory load store" {
   let source =
     #|(module
@@ -2426,6 +2583,7 @@ test "parse memory load store" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse memory load with offset and align" {
   let source =
     #|(module
@@ -2438,6 +2596,7 @@ test "parse memory load with offset and align" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse memory load partial" {
   let source =
     #|(module
@@ -2460,6 +2619,7 @@ test "parse memory load partial" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse memory store partial" {
   let source =
     #|(module
@@ -2476,6 +2636,7 @@ test "parse memory store partial" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse memory size and grow" {
   let source =
     #|(module
@@ -2490,6 +2651,7 @@ test "parse memory size and grow" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse memory fill copy" {
   let source =
     #|(module
@@ -2503,6 +2665,7 @@ test "parse memory fill copy" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse memory init and data drop" {
   let source =
     #|(module
@@ -2521,6 +2684,7 @@ test "parse memory init and data drop" {
 // Table Instruction Tests
 // ----------------------------------------------------------------------------
 
+///|
 test "parse table get set" {
   let source =
     #|(module
@@ -2535,6 +2699,7 @@ test "parse table get set" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse table size grow fill" {
   let source =
     #|(module
@@ -2549,6 +2714,7 @@ test "parse table size grow fill" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse table copy init" {
   let source =
     #|(module
@@ -2569,6 +2735,7 @@ test "parse table copy init" {
 // Reference Instruction Tests
 // ----------------------------------------------------------------------------
 
+///|
 test "parse ref null" {
   let source = "(module (func (result funcref) (ref.null func)))"
   let lexer = make_lexer(source)
@@ -2577,6 +2744,7 @@ test "parse ref null" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse ref is null" {
   let source = "(module (func (param funcref) (result i32) (ref.is_null (local.get 0))))"
   let lexer = make_lexer(source)
@@ -2585,6 +2753,7 @@ test "parse ref is null" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse ref func" {
   let source =
     #|(module
@@ -2600,6 +2769,7 @@ test "parse ref func" {
 // Parametric Instruction Tests
 // ----------------------------------------------------------------------------
 
+///|
 test "parse drop" {
   let source = "(module (func (i32.const 42) drop))"
   let lexer = make_lexer(source)
@@ -2608,6 +2778,7 @@ test "parse drop" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse select" {
   let source = "(module (func (param i32) (result i32) (select (i32.const 1) (i32.const 2) (local.get 0))))"
   let lexer = make_lexer(source)
@@ -2616,6 +2787,7 @@ test "parse select" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse typed select" {
   let source = "(module (func (param i32) (result i32) (select (result i32) (i32.const 1) (i32.const 2) (local.get 0))))"
   let lexer = make_lexer(source)
@@ -2628,6 +2800,7 @@ test "parse typed select" {
 // Memory Definition Tests
 // ----------------------------------------------------------------------------
 
+///|
 test "parse memory min only" {
   let source = "(module (memory 1))"
   let lexer = make_lexer(source)
@@ -2636,6 +2809,7 @@ test "parse memory min only" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse memory min max" {
   let source = "(module (memory 1 10))"
   let lexer = make_lexer(source)
@@ -2644,6 +2818,7 @@ test "parse memory min max" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse named memory" {
   let source = "(module (memory $mem 1))"
   let lexer = make_lexer(source)
@@ -2652,8 +2827,10 @@ test "parse named memory" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse memory with inline export" {
-  let source = #|(module (memory $mem (export "memory") 1))|
+  let source =
+    #|(module (memory $mem (export "memory") 1))|
   let lexer = make_lexer(source)
   let parser = WastParser::new(lexer)
   let _ = parser.parse_module()
@@ -2664,6 +2841,7 @@ test "parse memory with inline export" {
 // Table Definition Tests
 // ----------------------------------------------------------------------------
 
+///|
 test "parse table min only" {
   let source = "(module (table 1 funcref))"
   let lexer = make_lexer(source)
@@ -2672,6 +2850,7 @@ test "parse table min only" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse table min max" {
   let source = "(module (table 1 10 funcref))"
   let lexer = make_lexer(source)
@@ -2680,6 +2859,7 @@ test "parse table min max" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse named table" {
   let source = "(module (table $tbl 1 funcref))"
   let lexer = make_lexer(source)
@@ -2688,8 +2868,10 @@ test "parse named table" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse table with inline export" {
-  let source = #|(module (table $tbl (export "table") 1 funcref))|
+  let source =
+    #|(module (table $tbl (export "table") 1 funcref))|
   let lexer = make_lexer(source)
   let parser = WastParser::new(lexer)
   let _ = parser.parse_module()
@@ -2700,6 +2882,7 @@ test "parse table with inline export" {
 // Global Definition Tests
 // ----------------------------------------------------------------------------
 
+///|
 test "parse immutable global" {
   let source = "(module (global i32 (i32.const 42)))"
   let lexer = make_lexer(source)
@@ -2708,6 +2891,7 @@ test "parse immutable global" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse mutable global" {
   let source = "(module (global (mut i32) (i32.const 42)))"
   let lexer = make_lexer(source)
@@ -2716,6 +2900,7 @@ test "parse mutable global" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse named global" {
   let source = "(module (global $g (mut i32) (i32.const 0)))"
   let lexer = make_lexer(source)
@@ -2724,14 +2909,17 @@ test "parse named global" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse global with inline export" {
-  let source = #|(module (global $g (export "global") (mut i32) (i32.const 0)))|
+  let source =
+    #|(module (global $g (export "global") (mut i32) (i32.const 0)))|
   let lexer = make_lexer(source)
   let parser = WastParser::new(lexer)
   let _ = parser.parse_module()
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse global all types" {
   let source =
     #|(module
@@ -2749,14 +2937,17 @@ test "parse global all types" {
 // Import Tests
 // ----------------------------------------------------------------------------
 
+///|
 test "parse import func" {
-  let source = #|(module (import "env" "log" (func $log (param i32))))|
+  let source =
+    #|(module (import "env" "log" (func $log (param i32))))|
   let lexer = make_lexer(source)
   let parser = WastParser::new(lexer)
   let _ = parser.parse_module()
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse import func with type" {
   let source =
     #|(module
@@ -2768,32 +2959,40 @@ test "parse import func with type" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse import memory" {
-  let source = #|(module (import "env" "memory" (memory 1)))|
+  let source =
+    #|(module (import "env" "memory" (memory 1)))|
   let lexer = make_lexer(source)
   let parser = WastParser::new(lexer)
   let _ = parser.parse_module()
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse import table" {
-  let source = #|(module (import "env" "table" (table 1 funcref)))|
+  let source =
+    #|(module (import "env" "table" (table 1 funcref)))|
   let lexer = make_lexer(source)
   let parser = WastParser::new(lexer)
   let _ = parser.parse_module()
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse import global immutable" {
-  let source = #|(module (import "env" "g" (global i32)))|
+  let source =
+    #|(module (import "env" "g" (global i32)))|
   let lexer = make_lexer(source)
   let parser = WastParser::new(lexer)
   let _ = parser.parse_module()
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse import global mutable" {
-  let source = #|(module (import "env" "g" (global (mut i32))))|
+  let source =
+    #|(module (import "env" "g" (global (mut i32))))|
   let lexer = make_lexer(source)
   let parser = WastParser::new(lexer)
   let _ = parser.parse_module()
@@ -2804,40 +3003,50 @@ test "parse import global mutable" {
 // Export Tests
 // ----------------------------------------------------------------------------
 
+///|
 test "parse export func" {
-  let source = #|(module (func $f) (export "f" (func $f)))|
+  let source =
+    #|(module (func $f) (export "f" (func $f)))|
   let lexer = make_lexer(source)
   let parser = WastParser::new(lexer)
   let _ = parser.parse_module()
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse export func by index" {
-  let source = #|(module (func) (export "f" (func 0)))|
+  let source =
+    #|(module (func) (export "f" (func 0)))|
   let lexer = make_lexer(source)
   let parser = WastParser::new(lexer)
   let _ = parser.parse_module()
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse export memory" {
-  let source = #|(module (memory 1) (export "mem" (memory 0)))|
+  let source =
+    #|(module (memory 1) (export "mem" (memory 0)))|
   let lexer = make_lexer(source)
   let parser = WastParser::new(lexer)
   let _ = parser.parse_module()
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse export table" {
-  let source = #|(module (table 1 funcref) (export "tbl" (table 0)))|
+  let source =
+    #|(module (table 1 funcref) (export "tbl" (table 0)))|
   let lexer = make_lexer(source)
   let parser = WastParser::new(lexer)
   let _ = parser.parse_module()
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse export global" {
-  let source = #|(module (global i32 (i32.const 0)) (export "g" (global 0)))|
+  let source =
+    #|(module (global i32 (i32.const 0)) (export "g" (global 0)))|
   let lexer = make_lexer(source)
   let parser = WastParser::new(lexer)
   let _ = parser.parse_module()
@@ -2848,6 +3057,7 @@ test "parse export global" {
 // Start Function Tests
 // ----------------------------------------------------------------------------
 
+///|
 test "parse start by name" {
   let source = "(module (func $main) (start $main))"
   let lexer = make_lexer(source)
@@ -2856,6 +3066,7 @@ test "parse start by name" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse start by index" {
   let source = "(module (func) (start 0))"
   let lexer = make_lexer(source)
@@ -2868,40 +3079,50 @@ test "parse start by index" {
 // Data Segment Tests
 // ----------------------------------------------------------------------------
 
+///|
 test "parse data segment" {
-  let source = #|(module (memory 1) (data (i32.const 0) "hello"))|
+  let source =
+    #|(module (memory 1) (data (i32.const 0) "hello"))|
   let lexer = make_lexer(source)
   let parser = WastParser::new(lexer)
   let _ = parser.parse_module()
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse data segment with offset keyword" {
-  let source = #|(module (memory 1) (data (offset (i32.const 0)) "hello"))|
+  let source =
+    #|(module (memory 1) (data (offset (i32.const 0)) "hello"))|
   let lexer = make_lexer(source)
   let parser = WastParser::new(lexer)
   let _ = parser.parse_module()
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse named data segment" {
-  let source = #|(module (memory 1) (data $d (i32.const 0) "hello"))|
+  let source =
+    #|(module (memory 1) (data $d (i32.const 0) "hello"))|
   let lexer = make_lexer(source)
   let parser = WastParser::new(lexer)
   let _ = parser.parse_module()
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse data segment multiple strings" {
-  let source = #|(module (memory 1) (data (i32.const 0) "hello" " " "world"))|
+  let source =
+    #|(module (memory 1) (data (i32.const 0) "hello" " " "world"))|
   let lexer = make_lexer(source)
   let parser = WastParser::new(lexer)
   let _ = parser.parse_module()
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse data segment with escapes" {
-  let source = #|(module (memory 1) (data (i32.const 0) "hello\nworld\00"))|
+  let source =
+    #|(module (memory 1) (data (i32.const 0) "hello\nworld\00"))|
   let lexer = make_lexer(source)
   let parser = WastParser::new(lexer)
   let _ = parser.parse_module()
@@ -2912,6 +3133,7 @@ test "parse data segment with escapes" {
 // Element Segment Tests
 // ----------------------------------------------------------------------------
 
+///|
 test "parse elem segment" {
   let source = "(module (table 1 funcref) (func $f) (elem (i32.const 0) $f))"
   let lexer = make_lexer(source)
@@ -2920,6 +3142,7 @@ test "parse elem segment" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse elem segment with offset keyword" {
   let source = "(module (table 1 funcref) (func $f) (elem (offset (i32.const 0)) $f))"
   let lexer = make_lexer(source)
@@ -2928,6 +3151,7 @@ test "parse elem segment with offset keyword" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse named elem segment" {
   let source = "(module (table 1 funcref) (func $f) (elem $e (i32.const 0) $f))"
   let lexer = make_lexer(source)
@@ -2936,6 +3160,7 @@ test "parse named elem segment" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse elem segment multiple funcs" {
   let source = "(module (table 3 funcref) (func $a) (func $b) (func $c) (elem (i32.const 0) $a $b $c))"
   let lexer = make_lexer(source)
@@ -2944,6 +3169,7 @@ test "parse elem segment multiple funcs" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse elem segment by index" {
   let source = "(module (table 1 funcref) (func) (elem (i32.const 0) 0))"
   let lexer = make_lexer(source)
@@ -2956,6 +3182,7 @@ test "parse elem segment by index" {
 // Complex Expression Tests
 // ----------------------------------------------------------------------------
 
+///|
 test "parse deeply nested folded expressions" {
   let source =
     #|(module (func (result i32)
@@ -2972,6 +3199,7 @@ test "parse deeply nested folded expressions" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse mixed flat and folded" {
   let source =
     #|(module (func (param i32) (result i32)
@@ -2985,6 +3213,7 @@ test "parse mixed flat and folded" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse fibonacci recursive" {
   let source =
     #|(module
@@ -3001,6 +3230,7 @@ test "parse fibonacci recursive" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse factorial iterative" {
   let source =
     #|(module
@@ -3024,6 +3254,7 @@ test "parse factorial iterative" {
 // Complete Module Tests
 // ----------------------------------------------------------------------------
 
+///|
 test "parse complete module with all sections" {
   let source =
     #|(module $complete
@@ -3077,6 +3308,7 @@ test "parse complete module with all sections" {
 // Edge Case Tests
 // ----------------------------------------------------------------------------
 
+///|
 test "parse hex integers" {
   let source = "(module (func (result i32) i32.const 0xDEADBEEF))"
   let lexer = make_lexer(source)
@@ -3085,6 +3317,7 @@ test "parse hex integers" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse underscore in numbers" {
   let source = "(module (func (result i32) i32.const 1_000_000))"
   let lexer = make_lexer(source)
@@ -3093,6 +3326,7 @@ test "parse underscore in numbers" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse empty block in if" {
   let source = "(module (func (param i32) (if (local.get 0) (then) (else))))"
   let lexer = make_lexer(source)
@@ -3101,6 +3335,7 @@ test "parse empty block in if" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse unreachable and nop" {
   let source = "(module (func unreachable) (func nop))"
   let lexer = make_lexer(source)
@@ -3109,6 +3344,7 @@ test "parse unreachable and nop" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse many fields in module" {
   let source =
     #|(module
@@ -3121,6 +3357,7 @@ test "parse many fields in module" {
   assert_eq(mod.fields.length(), 10)
 }
 
+///|
 test "parse function with many params" {
   let source = "(module (func (param i32 i32 i32 i32 i32 i32 i32 i32)))"
   let lexer = make_lexer(source)
@@ -3129,6 +3366,7 @@ test "parse function with many params" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse f32 special values" {
   let source =
     #|(module
@@ -3141,6 +3379,7 @@ test "parse f32 special values" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse f64 special values" {
   let source =
     #|(module
@@ -3157,6 +3396,7 @@ test "parse f64 special values" {
 // If Statement Variations
 // ----------------------------------------------------------------------------
 
+///|
 test "parse if flat form simple" {
   let source =
     #|(module (func (param i32)
@@ -3170,6 +3410,7 @@ test "parse if flat form simple" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse if flat form with else" {
   let source =
     #|(module (func (param i32)
@@ -3185,6 +3426,7 @@ test "parse if flat form with else" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse if flat form with result" {
   let source =
     #|(module (func (param i32) (result i32)
@@ -3200,6 +3442,7 @@ test "parse if flat form with result" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse if folded with condition" {
   let source = "(module (func (param i32) (if (local.get 0) (then nop))))"
   let lexer = make_lexer(source)
@@ -3208,6 +3451,7 @@ test "parse if folded with condition" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse if folded complex condition" {
   let source =
     #|(module (func (param i32 i32)
@@ -3220,6 +3464,7 @@ test "parse if folded complex condition" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse if inside block" {
   let source =
     #|(module (func (param i32)
@@ -3232,6 +3477,7 @@ test "parse if inside block" {
   assert_false(parser.has_errors())
 }
 
+///|
 test "parse if inside loop" {
   let source =
     #|(module (func (param i32)

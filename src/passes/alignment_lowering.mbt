@@ -69,11 +69,11 @@ fn store_op_with_chunk_size(
   chunk_size : ChunkSize,
 ) -> Result[StoreOp, String] {
   match (stack_size, chunk_size) {
-    (StackSize32, ChunkSize8) => Ok(I32Store8Op)
-    (StackSize32, ChunkSize16) => Ok(I32Store16Op)
-    (StackSize64, ChunkSize8) => Ok(I64Store8Op)
-    (StackSize64, ChunkSize16) => Ok(I64Store16Op)
-    (StackSize64, ChunkSize32) => Ok(I64Store32Op)
+    (StackSize32, ChunkSize8) => Ok(StoreOp::i32_store8())
+    (StackSize32, ChunkSize16) => Ok(StoreOp::i32_store16())
+    (StackSize64, ChunkSize8) => Ok(StoreOp::i64_store8())
+    (StackSize64, ChunkSize16) => Ok(StoreOp::i64_store16())
+    (StackSize64, ChunkSize32) => Ok(StoreOp::i64_store32())
     _ => Err("Invalid chunk size for store")
   }
 }
@@ -204,9 +204,17 @@ fn load_shift_op(
 ) -> TInstr {
   match stack_size {
     StackSize32 =>
-      TBinary(I32ShlOp, op, TInstr::i32_const(I32(offset.to_int() * 8)))
+      TInstr::binary(
+        BinaryOp::i32_shl(),
+        op,
+        TInstr::i32_const(I32(offset.to_int() * 8)),
+      )
     StackSize64 =>
-      TBinary(I64ShlOp, op, TI64Const(I64(offset.reinterpret_as_int64() * 8)))
+      TInstr::binary(
+        BinaryOp::i64_shl(),
+        op,
+        TInstr::i64_const(I64(offset.reinterpret_as_int64() * 8)),
+      )
   }
 }
 
@@ -221,17 +229,25 @@ fn store_shift_op(
   }
   match stack_size {
     StackSize32 =>
-      TBinary(I32ShrUOp, op, TInstr::i32_const(I32(offset.to_int() * 8)))
+      TInstr::binary(
+        BinaryOp::i32_shr_u(),
+        op,
+        TInstr::i32_const(I32(offset.to_int() * 8)),
+      )
     StackSize64 =>
-      TBinary(I64ShrUOp, op, TI64Const(I64(offset.reinterpret_as_int64() * 8)))
+      TInstr::binary(
+        BinaryOp::i64_shr_u(),
+        op,
+        TInstr::i64_const(I64(offset.reinterpret_as_int64() * 8)),
+      )
   }
 }
 
 ///|
 fn prepare_store_value(op : StoreOp, value : TInstr) -> TInstr {
   match op {
-    F64StoreOp => TUnary(I64ReinterpretF64Op, value)
-    F32StoreOp => TUnary(I32ReinterpretF32Op, value)
+    F64StoreOp => TInstr::unary(UnaryOp::i64_reinterpret_f64(), value)
+    F32StoreOp => TInstr::unary(UnaryOp::i32_reinterpret_f32(), value)
     _ => value
   }
 }
@@ -270,10 +286,14 @@ fn finalize_v128_extending_load(
       if is_signed {
         let sign_mask = TInstr::binary(
           BinaryOp::i32_shl(),
-          TInstr::binary(I32ShrSOp, extracted, TInstr::i32_const(I32(7))),
+          TInstr::binary(
+            BinaryOp::i32_shr_s(),
+            extracted,
+            TInstr::i32_const(I32(7)),
+          ),
           TInstr::i32_const(I32(shift)),
         )
-        TInstr::binary(I32OrOp, shifted, sign_mask)
+        TInstr::binary(BinaryOp::i32_or(), shifted, sign_mask)
       } else {
         shifted
       }
@@ -281,21 +301,21 @@ fn finalize_v128_extending_load(
     StackSize64 => {
       let extracted_i64 = TInstr::unary(UnaryOp::i64_extend16s(), extracted)
       let shifted = TInstr::binary(
-        I64ShlOp,
+        BinaryOp::i64_shl(),
         extracted_i64,
-        TI64Const(I64(shift.to_int64())),
+        TInstr::i64_const(I64(shift.to_int64())),
       )
       if is_signed {
         let sign_mask = TInstr::binary(
-          I64ShlOp,
+          BinaryOp::i64_shl(),
           TInstr::binary(
-            I64ShrSOp,
-            TUnary(I64ExtendI32SOp, extracted),
-            TI64Const(I64(7)),
+            BinaryOp::i64_shr_s(),
+            TInstr::unary(UnaryOp::i64_extend_i32s(), extracted),
+            TInstr::i64_const(I64(7)),
           ),
-          TI64Const(I64(shift.to_int64())),
+          TInstr::i64_const(I64(shift.to_int64())),
         )
-        TInstr::binary(I64OrOp, shifted, sign_mask)
+        TInstr::binary(BinaryOp::i64_or(), shifted, sign_mask)
       } else {
         shifted
       }
@@ -306,37 +326,37 @@ fn finalize_v128_extending_load(
 ///|
 fn finalize_load_op(op : LoadOp, i : TInstr) -> TInstr {
   match op {
-    V128Load64SplatOp => TI64x2Splat(i)
-    V128Load32SplatOp => TI32x4Splat(i)
-    V128Load16SplatOp => TI16x8Splat(i)
-    V128Load8SplatOp => TI8x16Splat(i)
+    V128Load64SplatOp => TInstr::i64x2_splat(i)
+    V128Load32SplatOp => TInstr::i32x4_splat(i)
+    V128Load16SplatOp => TInstr::i16x8_splat(i)
+    V128Load8SplatOp => TInstr::i8x16_splat(i)
     V128Load32ZeroOp =>
-      TReplaceLane(
+      TInstr::replace_lane(
         ReplaceLaneOp::i32x4_replace_lane(),
         LaneIdx::new(0),
-        TV128Const(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+        TInstr::v128_const(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
         i,
       )
     V128Load64ZeroOp =>
-      TReplaceLane(
+      TInstr::replace_lane(
         ReplaceLaneOp::i64x2_replace_lane(),
         LaneIdx::new(0),
-        TV128Const(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+        TInstr::v128_const(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
         i,
       )
     V128LoadOp => i
     I64Load32UOp => i
-    I64Load32SOp => TUnary(I64Extend32SOp, i)
+    I64Load32SOp => TInstr::unary(UnaryOp::i64_extend32s(), i)
     I64Load16UOp => i
-    I64Load16SOp => TUnary(I64Extend16SOp, i)
+    I64Load16SOp => TInstr::unary(UnaryOp::i64_extend16s(), i)
     I64Load8UOp => i
-    I64Load8SOp => TUnary(I64Extend8SOp, i)
+    I64Load8SOp => TInstr::unary(UnaryOp::i64_extend8s(), i)
     I32Load16UOp => i
-    I32Load16SOp => TUnary(I32Extend16SOp, i)
+    I32Load16SOp => TInstr::unary(UnaryOp::i32_extend16s(), i)
     I32Load8UOp => i
-    I32Load8SOp => TUnary(I32Extend8SOp, i)
-    F64LoadOp => TUnary(F64ReinterpretI64Op, i)
-    F32LoadOp => TUnary(F32ReinterpretI32Op, i)
+    I32Load8SOp => TInstr::unary(UnaryOp::i32_extend8s(), i)
+    F64LoadOp => TInstr::unary(UnaryOp::f64_reinterpret_i64(), i)
+    F32LoadOp => TInstr::unary(UnaryOp::f32_reinterpret_i32(), i)
     I64LoadOp => i
     I32LoadOp => i
     // TODO: V128 extending loads need more work
@@ -360,8 +380,8 @@ fn finalize_load_op(op : LoadOp, i : TInstr) -> TInstr {
 ///|
 fn load_or_op(stack_size : StackSize, l : TInstr, r : TInstr) -> TInstr {
   match stack_size {
-    StackSize32 => TInstr::binary(I32OrOp, l, r)
-    StackSize64 => TInstr::binary(I64OrOp, l, r)
+    StackSize32 => TInstr::binary(BinaryOp::i32_or(), l, r)
+    StackSize64 => TInstr::binary(BinaryOp::i64_or(), l, r)
   }
 }
 
@@ -410,7 +430,11 @@ pub fn alignment_lowering_pass() -> ModuleTransformer[AlignmentLoweringContext] 
           if c.length() == 1 {
             return change(
               t,
-              TLoad(op, MemArg::new(U32(align), mem_option, U64(offset)), a),
+              TInstr::load(
+                op,
+                MemArg::new(U32(align), mem_option, U64(offset)),
+                a,
+              ),
             )
           }
           let mem_idx = match mem_option {
@@ -535,8 +559,8 @@ pub fn alignment_lowering_pass() -> ModuleTransformer[AlignmentLoweringContext] 
 
           // First instruction: set both locals
           // We'll use TLocalSet for ptr and TLocalTee for value, then drop
-          stores.push(TLocalSet(ptr_local, a))
-          stores.push(TLocalSet(value_local, prepared_value))
+          stores.push(TInstr::local_set(ptr_local, a))
+          stores.push(TInstr::local_set(value_local, prepared_value))
           for i = 0; i < c.length(); i = i + 1 {
             let (chunk_size, relative_offset) = c[i]
             let chunk_byte_count = chunk_size.byte_count()
@@ -564,7 +588,7 @@ pub fn alignment_lowering_pass() -> ModuleTransformer[AlignmentLoweringContext] 
           }
 
           // Wrap in a block with empty result type
-          change(t, TBlock(EmptyBlockType, TExpr::new(stores)))
+          change(t, TInstr::block(EmptyBlockType, TExpr::new(stores)))
         }
         TV128LoadLane(
           op,
@@ -589,7 +613,7 @@ pub fn alignment_lowering_pass() -> ModuleTransformer[AlignmentLoweringContext] 
           if c.length() == 1 {
             return change(
               t,
-              TV128LoadLane(
+              TInstr::v128_load_lane(
                 op,
                 MemArg::new(U32(align), mem_option, U64(offset)),
                 lane,
@@ -640,7 +664,7 @@ pub fn alignment_lowering_pass() -> ModuleTransformer[AlignmentLoweringContext] 
               mem_option,
               U64(offset + first.1),
             ),
-            TLocalTee(ptr_local, a),
+            TInstr::local_tee(ptr_local, a),
           )
           let mut acc = load_shift_op(stack_size, first.1, first_load)
           for i = 1; i < c.length(); i = i + 1 {
@@ -667,7 +691,7 @@ pub fn alignment_lowering_pass() -> ModuleTransformer[AlignmentLoweringContext] 
           }
 
           // Use replace_lane to put the loaded value into the vector
-          change(t, TReplaceLane(replace_op, lane, b, acc))
+          change(t, TInstr::replace_lane(replace_op, lane, b, acc))
         }
         _ => self.walk_tinstruction_default(t, i)
       }
@@ -1031,7 +1055,7 @@ test "i64.load32 with align=2 is split" {
 test "aligned i32 store passes through" {
   let ctx = make_ctx(make_i32_mem())
   let instr = TInstr::store(
-    I32StoreOp,
+    StoreOp::i32_store(),
     MemArg::new(U32(4), None, U64(0)),
     TInstr::local_get(LocalIdx::new(0)),
     TInstr::i32_const(I32(42)),
@@ -1047,10 +1071,10 @@ test "aligned i32 store passes through" {
 test "aligned i64 store passes through" {
   let ctx = make_ctx(make_i32_mem())
   let instr = TInstr::store(
-    I64StoreOp,
+    StoreOp::i64_store(),
     MemArg::new(U32(8), None, U64(0)),
     TInstr::local_get(LocalIdx::new(0)),
-    TI64Const(I64(42)),
+    TInstr::i64_const(I64(42)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -1063,10 +1087,10 @@ test "aligned i64 store passes through" {
 test "aligned f32 store passes through" {
   let ctx = make_ctx(make_i32_mem())
   let instr = TInstr::store(
-    F32StoreOp,
+    StoreOp::f32_store(),
     MemArg::new(U32(4), None, U64(0)),
     TInstr::local_get(LocalIdx::new(0)),
-    TF32Const(F32(3.14)),
+    TInstr::f32_const(F32(3.14)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -1084,7 +1108,7 @@ test "unaligned i32 store with align=1 produces block" {
   let ctx = make_ctx(make_i32_mem())
   ctx.locals = [ValType::i32()]
   let instr = TInstr::store(
-    I32StoreOp,
+    StoreOp::i32_store(),
     MemArg::new(U32(1), None, U64(0)),
     TInstr::local_get(LocalIdx::new(0)),
     TInstr::i32_const(I32(42)),
@@ -1103,7 +1127,7 @@ test "unaligned i32 store with align=2 produces block" {
   let ctx = make_ctx(make_i32_mem())
   ctx.locals = [ValType::i32()]
   let instr = TInstr::store(
-    I32StoreOp,
+    StoreOp::i32_store(),
     MemArg::new(U32(2), None, U64(0)),
     TInstr::local_get(LocalIdx::new(0)),
     TInstr::i32_const(I32(42)),
@@ -1122,10 +1146,10 @@ test "unaligned i64 store with align=1 produces block" {
   let ctx = make_ctx(make_i32_mem())
   ctx.locals = [ValType::i32()]
   let instr = TInstr::store(
-    I64StoreOp,
+    StoreOp::i64_store(),
     MemArg::new(U32(1), None, U64(0)),
     TInstr::local_get(LocalIdx::new(0)),
-    TI64Const(I64(42)),
+    TInstr::i64_const(I64(42)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -1141,10 +1165,10 @@ test "unaligned f32 store produces block with reinterpret" {
   let ctx = make_ctx(make_i32_mem())
   ctx.locals = [ValType::i32()]
   let instr = TInstr::store(
-    F32StoreOp,
+    StoreOp::f32_store(),
     MemArg::new(U32(1), None, U64(0)),
     TInstr::local_get(LocalIdx::new(0)),
-    TF32Const(F32(3.14)),
+    TInstr::f32_const(F32(3.14)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -1162,10 +1186,10 @@ test "unaligned f64 store produces block with reinterpret" {
   let ctx = make_ctx(make_i32_mem())
   ctx.locals = [ValType::i32()]
   let instr = TInstr::store(
-    F64StoreOp,
+    StoreOp::f64_store(),
     MemArg::new(U32(1), None, U64(0)),
     TInstr::local_get(LocalIdx::new(0)),
-    TF64Const(F64(3.14)),
+    TInstr::f64_const(F64(3.14)),
   )
   let result = run_pass(ctx, instr)
   match result {
@@ -1707,16 +1731,16 @@ test "size_of_load_op returns correct sizes" {
 
 ///|
 test "size_of_store_op returns correct sizes" {
-  assert_eq(size_of_store_op(I32StoreOp), 4)
-  assert_eq(size_of_store_op(I64StoreOp), 8)
-  assert_eq(size_of_store_op(F32StoreOp), 4)
-  assert_eq(size_of_store_op(F64StoreOp), 8)
-  assert_eq(size_of_store_op(I32Store8Op), 1)
-  assert_eq(size_of_store_op(I32Store16Op), 2)
-  assert_eq(size_of_store_op(I64Store8Op), 1)
-  assert_eq(size_of_store_op(I64Store16Op), 2)
-  assert_eq(size_of_store_op(I64Store32Op), 4)
-  assert_eq(size_of_store_op(V128StoreOp), 16)
+  assert_eq(size_of_store_op(StoreOp::i32_store()), 4)
+  assert_eq(size_of_store_op(StoreOp::i64_store()), 8)
+  assert_eq(size_of_store_op(StoreOp::f32_store()), 4)
+  assert_eq(size_of_store_op(StoreOp::f64_store()), 8)
+  assert_eq(size_of_store_op(StoreOp::i32_store8()), 1)
+  assert_eq(size_of_store_op(StoreOp::i32_store16()), 2)
+  assert_eq(size_of_store_op(StoreOp::i64_store8()), 1)
+  assert_eq(size_of_store_op(StoreOp::i64_store16()), 2)
+  assert_eq(size_of_store_op(StoreOp::i64_store32()), 4)
+  assert_eq(size_of_store_op(StoreOp::v128_store()), 16)
 }
 
 ///|
@@ -1739,12 +1763,12 @@ test "load_op_stack_size returns correct stack sizes" {
 
 ///|
 test "store_op_stack_size returns correct stack sizes" {
-  assert_eq(store_op_stack_size(I32StoreOp), StackSize32)
-  assert_eq(store_op_stack_size(I64StoreOp), StackSize64)
-  assert_eq(store_op_stack_size(F32StoreOp), StackSize32)
-  assert_eq(store_op_stack_size(F64StoreOp), StackSize64)
-  assert_eq(store_op_stack_size(I32Store8Op), StackSize32)
-  assert_eq(store_op_stack_size(I64Store8Op), StackSize64)
+  assert_eq(store_op_stack_size(StoreOp::i32_store()), StackSize32)
+  assert_eq(store_op_stack_size(StoreOp::i64_store()), StackSize64)
+  assert_eq(store_op_stack_size(StoreOp::f32_store()), StackSize32)
+  assert_eq(store_op_stack_size(StoreOp::f64_store()), StackSize64)
+  assert_eq(store_op_stack_size(StoreOp::i32_store8()), StackSize32)
+  assert_eq(store_op_stack_size(StoreOp::i64_store8()), StackSize64)
 }
 
 // ============================================================
@@ -1786,7 +1810,7 @@ test "other instructions pass through unchanged" {
 ///|
 test "nop passes through unchanged" {
   let ctx = make_ctx(make_i32_mem())
-  let result = run_pass(ctx, TNop)
+  let result = run_pass(ctx, TInstr::nop())
   match result {
     Ok(TNop) => ()
     _ => fail("Expected nop to pass through")
@@ -1796,7 +1820,7 @@ test "nop passes through unchanged" {
 ///|
 test "unreachable passes through unchanged" {
   let ctx = make_ctx(make_i32_mem())
-  let result = run_pass(ctx, TUnreachable)
+  let result = run_pass(ctx, TInstr::unreachable_())
   match result {
     Ok(TUnreachable) => ()
     _ => fail("Expected unreachable to pass through")
