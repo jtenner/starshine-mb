@@ -344,7 +344,7 @@ fn make_cfp_optimizer(state : CFPState) -> ModuleTransformer[Unit] {
               let drop_ref = TInstr::drop(ref_instr)
               // Create a block to hold both instructions
               let result = TInstr::block(
-                BlockType::empty(),
+                BlockType::void_(),
                 TExpr::new([drop_ref, constant]),
               )
               change((), result)
@@ -368,7 +368,7 @@ fn make_cfp_optimizer(state : CFPState) -> ModuleTransformer[Unit] {
                     // ref.test on ref.null always returns 0 (false)
                     let drop_ref = TInstr::drop(ref_instr)
                     let result = TInstr::block(
-                      BlockType::empty(),
+                      BlockType::void_(),
                       TExpr::new([drop_ref, TInstr::i32_const(I32(0))]),
                     )
                     change((), result)

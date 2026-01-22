@@ -312,8 +312,8 @@ pub struct TagSec(Array[TagType]) derive(Eq, Arbitrary, Hash)
 pub struct MemArg(U32, MemIdx?, U64) derive(Hash)
 
 ///|
-pub(all) enum BlockType {
-  EmptyBlockType
+pub enum BlockType {
+  VoidBlockType
   ValTypeBlockType(ValType)
   TypeIdxBlockType(TypeIdx)
 } derive(Eq, Arbitrary, Hash)
@@ -7541,8 +7541,8 @@ pub fn Func::t_func(args : Array[ValType], expr : TExpr) -> Func {
 }
 
 ///|
-pub fn BlockType::empty() -> BlockType {
-  EmptyBlockType
+pub fn BlockType::void_() -> BlockType {
+  VoidBlockType
 }
 
 ///|

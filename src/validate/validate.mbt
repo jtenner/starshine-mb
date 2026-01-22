@@ -81,7 +81,7 @@ pub impl[T : Validate] Validate for Array[T] with validate(self, env) {
 pub impl Validate for BlockType with validate(self, env) {
   match self {
     ValTypeBlockType(vt) => Validate::validate(vt, env)
-    EmptyBlockType => Ok(())
+    VoidBlockType => Ok(())
     TypeIdxBlockType(tidx) =>
       match env.resolve_typeidx_subtype(tidx) {
         Some(st) =>
@@ -1585,15 +1585,15 @@ test "Empty array validates" {
 // ============ BlockType Tests ============
 
 ///|
-test "BlockType EmptyBlockType validates" {
+test "BlockType VoidBlockType validates" {
   let env = empty_env()
-  assert_eq(Validate::validate(@lib.EmptyBlockType, env), Ok(()))
+  assert_eq(Validate::validate(BlockType::void_(), env), Ok(()))
 }
 
 ///|
 test "BlockType ValTypeBlockType validates" {
   let env = empty_env()
-  let bt = @lib.ValTypeBlockType(ValType::i32())
+  let bt = BlockType::val_type(ValType::i32())
   assert_eq(Validate::validate(bt, env), Ok(()))
 }
 

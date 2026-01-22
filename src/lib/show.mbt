@@ -616,7 +616,7 @@ pub impl Show for Name with output(self, logger) {
 pub impl Show for BlockType with output(self, logger) {
   match self {
     ValTypeBlockType(vt) => vt.output(logger)
-    EmptyBlockType => logger.write_string("(Void)")
+    VoidBlockType => logger.write_string("(Void)")
     TypeIdxBlockType(t) => t.output(logger)
   }
 }

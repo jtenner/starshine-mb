@@ -521,14 +521,14 @@ fn make_block_corruption_transformer() -> ModuleTransformer[Bool] {
 ///|
 fn corrupt_blocktype(bt : BlockType) -> BlockType {
   match bt {
-    EmptyBlockType => ValTypeBlockType(ValType::i32())
+    VoidBlockType => BlockType::val_type(ValType::i32())
     ValTypeBlockType(NumTypeValType(I32NumType)) =>
-      ValTypeBlockType(ValType::i64())
+      BlockType::val_type(ValType::i64())
     ValTypeBlockType(NumTypeValType(I64NumType)) =>
-      ValTypeBlockType(ValType::i32())
-    ValTypeBlockType(_) => EmptyBlockType
-    TypeIdxBlockType(TypeIdx(i)) => TypeIdxBlockType(TypeIdx::new(i + 1))
-    TypeIdxBlockType(RecIdx(i)) => TypeIdxBlockType(TypeIdx::rec(i + 1))
+      BlockType::val_type(ValType::i32())
+    ValTypeBlockType(_) => BlockType::void_()
+    TypeIdxBlockType(TypeIdx(i)) => BlockType::type_idx(TypeIdx::new(i + 1))
+    TypeIdxBlockType(RecIdx(i)) => BlockType::type_idx(TypeIdx::rec(i + 1))
   }
 }
 
@@ -553,7 +553,11 @@ fn make_blocktype_mismatch_transformer() -> ModuleTransformer[Bool] {
         | F32Const(_)
         | F64Const(_)
         | V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-          Ok(Some((true, Instruction::block(EmptyBlockType, Expr::new([ins])))))
+          Ok(
+            Some(
+              (true, Instruction::block(BlockType::void_(), Expr::new([ins]))),
+            ),
+          )
 
         // Nop/Drop: wrap in block claiming it produces i32
         // Body produces nothing, block claims i32 -> mismatch
@@ -563,7 +567,7 @@ fn make_blocktype_mismatch_transformer() -> ModuleTransformer[Bool] {
               (
                 true,
                 Instruction::block(
-                  ValTypeBlockType(ValType::i32()),
+                  BlockType::val_type(ValType::i32()),
                   Expr::new([ins]),
                 ),
               ),
@@ -577,7 +581,7 @@ fn make_blocktype_mismatch_transformer() -> ModuleTransformer[Bool] {
               (
                 true,
                 Instruction::block(
-                  ValTypeBlockType(ValType::i64()),
+                  BlockType::val_type(ValType::i64()),
                   Expr::new([ins]),
                 ),
               ),
@@ -586,7 +590,11 @@ fn make_blocktype_mismatch_transformer() -> ModuleTransformer[Bool] {
 
         // GlobalGet produces a value - wrap in block claiming empty
         GlobalGet(_) =>
-          Ok(Some((true, Instruction::block(EmptyBlockType, Expr::new([ins])))))
+          Ok(
+            Some(
+              (true, Instruction::block(BlockType::void_(), Expr::new([ins]))),
+            ),
+          )
 
         // Existing control flow: corrupt their block type
         Block(bt, body) =>
@@ -619,7 +627,7 @@ fn make_blocktype_mismatch_transformer() -> ModuleTransformer[Bool] {
               (
                 true,
                 Instruction::block(
-                  ValTypeBlockType(ValType::i32()),
+                  BlockType::val_type(ValType::i32()),
                   Expr::new([ins]),
                 ),
               ),
@@ -628,7 +636,11 @@ fn make_blocktype_mismatch_transformer() -> ModuleTransformer[Bool] {
 
         // RefFunc produces a ref - wrap in block claiming empty
         RefFunc(_) =>
-          Ok(Some((true, Instruction::block(EmptyBlockType, Expr::new([ins])))))
+          Ok(
+            Some(
+              (true, Instruction::block(BlockType::void_(), Expr::new([ins]))),
+            ),
+          )
 
         // StructNewDefault produces a ref - wrap in block claiming i32
         StructNewDefault(_) =>
@@ -637,7 +649,7 @@ fn make_blocktype_mismatch_transformer() -> ModuleTransformer[Bool] {
               (
                 true,
                 Instruction::block(
-                  ValTypeBlockType(ValType::i32()),
+                  BlockType::val_type(ValType::i32()),
                   Expr::new([ins]),
                 ),
               ),

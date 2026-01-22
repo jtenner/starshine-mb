@@ -1181,10 +1181,10 @@ pub impl Decode for FuncSec with decode(bytes, i) {
 ///|
 pub impl Decode for BlockType with decode(bytes, i) {
   if bytes.get(i) is Some(0x40) {
-    return Ok((EmptyBlockType, i + 1))
+    return Ok((BlockType::void_(), i + 1))
   }
   if Decode::decode(bytes, i) is Ok((vt, i)) {
-    return Ok((ValTypeBlockType(vt), i))
+    return Ok((BlockType::val_type(vt), i))
   }
   if Decode::decode(bytes, i) is Ok((@lib.S33(idx), i)) {
     return Ok((BlockType::type_idx(TypeIdx::new(idx)), i))

@@ -227,7 +227,7 @@ fn make_denam32_func() -> Func {
     TInstr::local_get(LocalIdx::new(0)),
   )
   let body = TInstr::if_(
-    ValTypeBlockType(ValType::f32()),
+    BlockType::val_type(ValType::f32()),
     cond,
     TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
     Some(TExpr::new([TInstr::f32_const(F32(0.0))])),
@@ -243,7 +243,7 @@ fn make_denam64_func() -> Func {
     TInstr::local_get(LocalIdx::new(0)),
   )
   let body = TInstr::if_(
-    ValTypeBlockType(ValType::f64()),
+    BlockType::val_type(ValType::f64()),
     cond,
     TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
     Some(TExpr::new([TInstr::f64_const(F64(0.0))])),

@@ -526,14 +526,14 @@ pub impl Eq for BinaryOp
 pub impl Hash for BinaryOp
 pub impl Show for BinaryOp
 
-pub(all) enum BlockType {
-  EmptyBlockType
+pub enum BlockType {
+  VoidBlockType
   ValTypeBlockType(ValType)
   TypeIdxBlockType(TypeIdx)
 }
-pub fn BlockType::empty() -> Self
 pub fn BlockType::type_idx(TypeIdx) -> Self
 pub fn BlockType::val_type(ValType) -> Self
+pub fn BlockType::void_() -> Self
 pub impl Eq for BlockType
 pub impl Hash for BlockType
 pub impl Show for BlockType

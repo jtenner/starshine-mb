@@ -51,7 +51,7 @@ fn pop_n(stack : Array[TInstr], n : Int) -> Result[Array[TInstr], String] {
 ///|
 fn block_type_inputs(bt : BlockType, env : Env) -> Int {
   match bt {
-    EmptyBlockType => 0
+    VoidBlockType => 0
     ValTypeBlockType(_) => 0
     TypeIdxBlockType(idx) =>
       match env.resolve_functype(idx) {

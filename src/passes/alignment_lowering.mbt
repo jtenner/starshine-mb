@@ -588,7 +588,7 @@ pub fn alignment_lowering_pass() -> ModuleTransformer[AlignmentLoweringContext] 
           }
 
           // Wrap in a block with empty result type
-          change(t, TInstr::block(EmptyBlockType, TExpr::new(stores)))
+          change(t, TInstr::block(BlockType::void_(), TExpr::new(stores)))
         }
         TV128LoadLane(
           op,
@@ -1115,7 +1115,7 @@ test "unaligned i32 store with align=1 produces block" {
   )
   let result = run_pass(ctx, instr)
   match result {
-    Ok(TBlock(EmptyBlockType, _)) => ()
+    Ok(TBlock(VoidBlockType, _)) => ()
     Ok(TStore(_, _, _, _)) => fail("Expected block with split stores")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
@@ -1134,7 +1134,7 @@ test "unaligned i32 store with align=2 produces block" {
   )
   let result = run_pass(ctx, instr)
   match result {
-    Ok(TBlock(EmptyBlockType, _)) => ()
+    Ok(TBlock(VoidBlockType, _)) => ()
     Ok(TStore(_, _, _, _)) => fail("Expected block with split stores")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
@@ -1153,7 +1153,7 @@ test "unaligned i64 store with align=1 produces block" {
   )
   let result = run_pass(ctx, instr)
   match result {
-    Ok(TBlock(EmptyBlockType, _)) => ()
+    Ok(TBlock(VoidBlockType, _)) => ()
     Ok(TStore(_, _, _, _)) => fail("Expected block with split stores")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
@@ -1172,7 +1172,7 @@ test "unaligned f32 store produces block with reinterpret" {
   )
   let result = run_pass(ctx, instr)
   match result {
-    Ok(TBlock(EmptyBlockType, TExpr(instrs))) =>
+    Ok(TBlock(VoidBlockType, TExpr(instrs))) =>
       // Should have local sets followed by stores
       assert_true(instrs.length() > 2)
     Ok(TStore(_, _, _, _)) => fail("Expected block with split stores")
@@ -1193,8 +1193,7 @@ test "unaligned f64 store produces block with reinterpret" {
   )
   let result = run_pass(ctx, instr)
   match result {
-    Ok(TBlock(EmptyBlockType, TExpr(instrs))) =>
-      assert_true(instrs.length() > 2)
+    Ok(TBlock(VoidBlockType, TExpr(instrs))) => assert_true(instrs.length() > 2)
     Ok(TStore(_, _, _, _)) => fail("Expected block with split stores")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
@@ -1217,7 +1216,7 @@ test "unaligned i32 store block has correct structure" {
   )
   let result = run_pass(ctx, instr)
   match result {
-    Ok(TBlock(EmptyBlockType, TExpr(instrs))) => {
+    Ok(TBlock(VoidBlockType, TExpr(instrs))) => {
       // First two instructions should be local.set for ptr and value
       match instrs[0] {
         TLocalSet(_, _) => ()
@@ -1673,7 +1672,7 @@ test "store with non-zero offset" {
   )
   let result = run_pass(ctx, instr)
   match result {
-    Ok(TBlock(EmptyBlockType, _)) => ()
+    Ok(TBlock(VoidBlockType, _)) => ()
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
   }

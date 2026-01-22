@@ -1437,7 +1437,7 @@ fn gen_try_table_tinstr(ctx : GenValidContext) -> TInstr? {
   ctx.pop_label()
   Some(
     TInstr::try_table(
-      EmptyBlockType,
+      BlockType::void_(),
       [
         Catch::new(
           TagIdx::new(tag_idx_val.reinterpret_as_uint()),
@@ -1675,7 +1675,7 @@ pub fn gen_side_effect_tinstr(
       instrs.push(gen_side_effect_tinstr(ctx, depth + 1))
     }
     ctx.pop_label()
-    Some(TInstr::block(EmptyBlockType, TExpr::new(instrs)))
+    Some(TInstr::block(BlockType::void_(), TExpr::new(instrs)))
   })
 
   // ------------------------------------------------------------
@@ -1691,7 +1691,7 @@ pub fn gen_side_effect_tinstr(
       )
     }
     ctx.pop_label()
-    Some(TInstr::loop_(EmptyBlockType, TExpr::new(instrs)))
+    Some(TInstr::loop_(BlockType::void_(), TExpr::new(instrs)))
   })
 
   // ------------------------------------------------------------
@@ -1715,7 +1715,12 @@ pub fn gen_side_effect_tinstr(
     }
     ctx.pop_label()
     Some(
-      TInstr::if_(EmptyBlockType, cond, TExpr::new(then_instrs), else_branch),
+      TInstr::if_(
+        BlockType::void_(),
+        cond,
+        TExpr::new(then_instrs),
+        else_branch,
+      ),
     )
   })
 
@@ -1867,7 +1872,7 @@ pub fn gen_side_effect_tinstr(
         Some(throw_instr) =>
           Some(
             TInstr::try_table(
-              EmptyBlockType,
+              BlockType::void_(),
               [
                 Catch::new(
                   TagIdx::new(tag_idx_val.reinterpret_as_uint()),

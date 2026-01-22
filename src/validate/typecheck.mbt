@@ -4596,7 +4596,7 @@ test "Typecheck Nop" {
 test "Typecheck Block empty" {
   let env = empty_env()
   let state = make_state(env, [])
-  let block = Instruction::block(EmptyBlockType, Expr::new([]))
+  let block = Instruction::block(BlockType::void_(), Expr::new([]))
   let new_state = assert_ok(Typecheck::typecheck(block, state))
   assert_stack(new_state, [])
 }
@@ -4618,7 +4618,7 @@ test "Typecheck Block preserves outer stack" {
   let env = empty_env()
   let state = make_state(env, [ValType::i64()])
   let block = Instruction::block(
-    ValTypeBlockType(ValType::i32()),
+    BlockType::val_type(ValType::i32()),
     Expr::new([Instruction::i32_const(I32(1))]),
   )
   let new_state = assert_ok(Typecheck::typecheck(block, state))
@@ -4629,7 +4629,7 @@ test "Typecheck Block preserves outer stack" {
 test "Typecheck Loop empty" {
   let env = empty_env()
   let state = make_state(env, [])
-  let loop_instr = Instruction::loop_(EmptyBlockType, Expr::new([]))
+  let loop_instr = Instruction::loop_(BlockType::void_(), Expr::new([]))
   let new_state = assert_ok(Typecheck::typecheck(loop_instr, state))
   assert_stack(new_state, [])
 }
@@ -4638,7 +4638,11 @@ test "Typecheck Loop empty" {
 test "Typecheck If without else" {
   let env = empty_env()
   let state = make_state(env, [ValType::i32()])
-  let if_instr = Instruction::if_(EmptyBlockType, [Instruction::nop()], None)
+  let if_instr = Instruction::if_(
+    BlockType::void_(),
+    [Instruction::nop()],
+    None,
+  )
   let new_state = assert_ok(Typecheck::typecheck(if_instr, state))
   assert_stack(new_state, [])
 }
@@ -4648,7 +4652,7 @@ test "Typecheck If with else" {
   let env = empty_env()
   let state = make_state(env, [ValType::i32()])
   let if_instr = Instruction::if_(
-    ValTypeBlockType(ValType::i32()),
+    BlockType::val_type(ValType::i32()),
     [Instruction::i32_const(I32(1))],
     Some([Instruction::i32_const(I32(2))]),
   )
@@ -4660,7 +4664,11 @@ test "Typecheck If with else" {
 test "Typecheck If fails without condition" {
   let env = empty_env()
   let state = make_state(env, [])
-  let if_instr = Instruction::if_(EmptyBlockType, [Instruction::nop()], None)
+  let if_instr = Instruction::if_(
+    BlockType::void_(),
+    [Instruction::nop()],
+    None,
+  )
   assert_err(Typecheck::typecheck(if_instr, state))
 }
 
@@ -7174,7 +7182,7 @@ test "Typecheck TryTable empty" {
   let env = empty_env()
   let state = make_state(env, [])
   let result = Typecheck::typecheck(
-    Instruction::try_table(EmptyBlockType, [], Expr::new([])),
+    Instruction::try_table(BlockType::void_(), [], Expr::new([])),
     state,
   )
   let final_state = assert_ok(result)

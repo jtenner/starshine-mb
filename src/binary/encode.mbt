@@ -1061,7 +1061,7 @@ pub impl Encode for Bytes with encode(val, buf) {
 ///|
 pub impl Encode for BlockType with encode(val, buf) {
   match val {
-    EmptyBlockType => {
+    VoidBlockType => {
       buf.write_byte(0x40)
       Ok(())
     }

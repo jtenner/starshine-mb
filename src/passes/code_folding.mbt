@@ -519,7 +519,7 @@ fn process_block(
       optimize_expression_tails(
         state,
         all_tails,
-        TInstr::block(BlockType::empty(), TExpr::new(instrs)),
+        TInstr::block(BlockType::void_(), TExpr::new(instrs)),
       )
     }
   }
@@ -544,7 +544,7 @@ fn process_if(
       optimize_expression_tails(
         state,
         tails,
-        TInstr::if_(BlockType::empty(), cond, then_body, Some(else_expr)),
+        TInstr::if_(BlockType::void_(), cond, then_body, Some(else_expr)),
       )
     }
   }
@@ -792,7 +792,7 @@ test "collect_block_tails recurses into blocks" {
   }
   let inner : Array[TInstr] = [TInstr::return_([TInstr::i32_const(I32(42))])]
   let instrs : Array[TInstr] = [
-    TInstr::block(BlockType::empty(), TExpr::new(inner)),
+    TInstr::block(BlockType::void_(), TExpr::new(inner)),
   ]
   collect_block_tails(state, instrs)
   assert_eq(state.return_tails.length(), 1)
@@ -867,7 +867,7 @@ test "measure_all sums instruction costs" {
 ///|
 test "can_move allows simple instructions" {
   let items = [TInstr::i32_const(I32(42))]
-  let container = TInstr::block(BlockType::empty(), TExpr::new([TInstr::nop()]))
+  let container = TInstr::block(BlockType::void_(), TExpr::new([TInstr::nop()]))
   assert_true(can_move(items, container))
 }
 
@@ -893,7 +893,7 @@ test "code folding: if-else with identical tails" {
     TInstr::i32_const(I32(999)), // Same C (must be equal value)
   ])
   let if_instr = TInstr::if_(
-    BlockType::empty(),
+    BlockType::void_(),
     TInstr::i32_const(I32(0)),
     then_body,
     Some(else_body),
@@ -911,7 +911,7 @@ test "code folding: if-else with identical tails" {
 test "code folding: nested blocks" {
   // Nested block structure
   let inner = TExpr::new([TInstr::i32_const(I32(1)), TInstr::i32_const(I32(2))])
-  let outer = TExpr::new([TInstr::block(BlockType::empty(), inner)])
+  let outer = TExpr::new([TInstr::block(BlockType::void_(), inner)])
   let f = Func::t_func([], outer)
   let f2 = run_fold(f)
   match f2 {
@@ -926,7 +926,7 @@ test "code folding: loop body" {
     TInstr::i32_const(I32(1)),
     TInstr::br(LabelIdx::new(0), []),
   ])
-  let loop_instr = TInstr::loop_(BlockType::empty(), loop_body)
+  let loop_instr = TInstr::loop_(BlockType::void_(), loop_body)
   let f = Func::t_func([], TExpr::new([loop_instr]))
   let f2 = run_fold(f)
   match f2 {
@@ -939,7 +939,7 @@ test "code folding: loop body" {
 test "code folding: multiple returns" {
   // Function with multiple return points
   let if_instr = TInstr::if_(
-    BlockType::empty(),
+    BlockType::void_(),
     TInstr::i32_const(I32(0)),
     TExpr::new([TInstr::return_([TInstr::i32_const(I32(1))])]),
     Some(TExpr::new([TInstr::return_([TInstr::i32_const(I32(2))])])),
@@ -998,14 +998,14 @@ test "code folding: br_table marks all targets unoptimizable" {
 test "code folding: complex nested structure" {
   // Create a complex nested structure
   let inner_if = TInstr::if_(
-    BlockType::empty(),
+    BlockType::void_(),
     TInstr::local_get(LocalIdx::new(0)),
     TExpr::new([TInstr::i32_const(I32(1))]),
     Some(TExpr::new([TInstr::i32_const(I32(2))])),
   )
-  let block = TInstr::block(BlockType::empty(), TExpr::new([inner_if]))
+  let block = TInstr::block(BlockType::void_(), TExpr::new([inner_if]))
   let outer_if = TInstr::if_(
-    BlockType::empty(),
+    BlockType::void_(),
     TInstr::local_get(LocalIdx::new(1)),
     TExpr::new([block]),
     Some(TExpr::new([TInstr::i32_const(I32(3))])),
@@ -1037,7 +1037,7 @@ test "get_branch_targets finds br_table targets" {
 test "get_branch_targets finds nested branches" {
   let inner_br = TInstr::br(LabelIdx::new(1), [])
   let block = TInstr::block(
-    BlockType::empty(),
+    BlockType::void_(),
     TExpr::new([inner_br, TInstr::br(LabelIdx::new(0), [])]),
   )
   let targets = get_branch_targets(block)

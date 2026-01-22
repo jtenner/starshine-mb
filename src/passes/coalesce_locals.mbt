@@ -1106,7 +1106,7 @@ test "CFG liveness: merge causes interference" {
   let y = LocalIdx::new(1)
   let instrs = [
     TInstr::if_(
-      BlockType::empty(),
+      BlockType::void_(),
       TInstr::i32_const(I32(1)),
       TExpr::new([TInstr::local_set(x, TInstr::i32_const(I32(1)))]),
       Some(TExpr::new([TInstr::local_set(y, TInstr::i32_const(I32(2)))])),
@@ -1126,7 +1126,7 @@ test "CFG liveness: diamond merge creates interference" {
   let y = LocalIdx::new(1)
   let instrs = [
     TInstr::if_(
-      BlockType::empty(),
+      BlockType::void_(),
       TInstr::i32_const(I32(1)),
       TExpr::new([TInstr::local_set(x, TInstr::i32_const(I32(1)))]),
       Some(TExpr::new([TInstr::local_set(y, TInstr::i32_const(I32(2)))])),
@@ -1149,7 +1149,7 @@ test "CFG liveness: disjoint branch locals do not interfere" {
   let y = LocalIdx::new(1)
   let instrs = [
     TInstr::if_(
-      BlockType::empty(),
+      BlockType::void_(),
       TInstr::i32_const(I32(1)),
       TExpr::new([
         TInstr::local_set(x, TInstr::i32_const(I32(1))),
@@ -1176,7 +1176,7 @@ test "CoalesceLocals: merge interference prevents coalescing" {
   let y = LocalIdx::new(1)
   let instrs = [
     TInstr::if_(
-      BlockType::empty(),
+      BlockType::void_(),
       TInstr::i32_const(I32(1)),
       TExpr::new([TInstr::local_set(x, TInstr::i32_const(I32(1)))]),
       Some(TExpr::new([TInstr::local_set(y, TInstr::i32_const(I32(2)))])),
@@ -1202,7 +1202,7 @@ test "CoalesceLocals: branch-local lifetimes can be coalesced" {
   let y = LocalIdx::new(1)
   let instrs = [
     TInstr::if_(
-      BlockType::empty(),
+      BlockType::void_(),
       TInstr::i32_const(I32(1)),
       TExpr::new([
         TInstr::local_set(x, TInstr::i32_const(I32(1))),
@@ -1232,11 +1232,11 @@ test "CFG liveness: nested ifs propagate interference correctly" {
   let y = LocalIdx::new(1)
   let instrs = [
     TInstr::if_(
-      BlockType::empty(),
+      BlockType::void_(),
       TInstr::i32_const(I32(1)),
       TExpr::new([
         TInstr::if_(
-          BlockType::empty(),
+          BlockType::void_(),
           TInstr::i32_const(I32(1)),
           TExpr::new([TInstr::local_set(x, TInstr::i32_const(I32(1)))]),
           Some(TExpr::new([TInstr::local_set(y, TInstr::i32_const(I32(2)))])),
@@ -1263,7 +1263,7 @@ test "CFG liveness: local live across loop interferes" {
   let instrs = [
     TInstr::local_set(x, TInstr::i32_const(I32(1))),
     TInstr::loop_(
-      BlockType::empty(),
+      BlockType::void_(),
       TExpr::new([
         TInstr::local_get(x),
         TInstr::local_set(y, TInstr::i32_const(I32(2))),
@@ -1284,7 +1284,7 @@ test "CFG liveness: dead locals inside loop do not interfere" {
   let y = LocalIdx::new(1)
   let instrs = [
     TInstr::loop_(
-      BlockType::empty(),
+      BlockType::void_(),
       TExpr::new([
         TInstr::local_set(x, TInstr::i32_const(I32(1))),
         TInstr::local_get(x),
@@ -1438,7 +1438,7 @@ test "Value numbering: equal values across branches coalesce" {
   let y = LocalIdx::new(1)
   let instrs = [
     TInstr::if_(
-      BlockType::empty(),
+      BlockType::void_(),
       TInstr::i32_const(I32(1)),
       TExpr::new([TInstr::local_set(x, TInstr::i32_const(I32(1)))]),
       Some(TExpr::new([TInstr::local_set(y, TInstr::i32_const(I32(1)))])),

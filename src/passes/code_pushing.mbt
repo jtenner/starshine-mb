@@ -1082,7 +1082,7 @@ test "analyze_function with nested block" {
   let inner = TExpr::new([
     TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(42))),
   ])
-  let body = TExpr::new([TInstr::block(BlockType::empty(), inner)])
+  let body = TExpr::new([TInstr::block(BlockType::void_(), inner)])
   let f = Func::t_func([ValType::i32()], body)
   let analyzer = analyze_function(f)
   assert_eq(analyzer.num_sets[0], 1)
@@ -1103,7 +1103,7 @@ test "analyze_function with if-else" {
   ])
   let body = TExpr::new([
     TInstr::if_(
-      BlockType::empty(),
+      BlockType::void_(),
       TInstr::i32_const(I32(1)),
       then_body,
       Some(else_body),
@@ -1270,7 +1270,7 @@ test "Effects::merge combines effects" {
 ///|
 test "is_push_point detects if" {
   let instr = TInstr::if_(
-    BlockType::empty(),
+    BlockType::void_(),
     TInstr::i32_const(I32(1)),
     TExpr::new([TInstr::nop()]),
     None,
@@ -1292,7 +1292,7 @@ test "is_push_point rejects unconditional br" {
 
 ///|
 test "is_push_point rejects block" {
-  let instr = TInstr::block(BlockType::empty(), TExpr::new([TInstr::nop()]))
+  let instr = TInstr::block(BlockType::void_(), TExpr::new([TInstr::nop()]))
   assert_false(is_push_point(instr))
 }
 

@@ -174,7 +174,7 @@ fn rewrite_cast(instr : TInstr, mapping : HeapTypeMap) -> TInstr {
 ///|
 fn drop_then_unreachable(value : TInstr) -> TInstr {
   TInstr::block(
-    EmptyBlockType,
+    BlockType::void_(),
     TExpr::new([TInstr::drop(value), TInstr::unreachable_()]),
   )
 }

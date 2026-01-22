@@ -184,7 +184,7 @@ pub fn Env::expand_blocktype(
   bt : BlockType,
 ) -> Result[(Array[ValType], Array[ValType]), String] {
   match bt {
-    EmptyBlockType => Ok(([], []))
+    VoidBlockType => Ok(([], []))
     ValTypeBlockType(vt) => Ok(([], [vt]))
     TypeIdxBlockType(tidx) =>
       match env.resolve_functype(tidx) {
