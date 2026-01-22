@@ -273,40 +273,40 @@ pub enum Func {
 } derive(Eq, Hash)
 
 ///|
-pub(all) struct CustomSec(Name, Bytes) derive(Eq, Hash)
+pub struct CustomSec(Name, Bytes) derive(Eq, Hash)
 
 ///|
-pub(all) struct TypeSec(Array[RecType]) derive(Eq, Arbitrary, Hash)
+pub struct TypeSec(Array[RecType]) derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) struct ImportSec(Array[Import]) derive(Eq, Arbitrary, Hash)
+pub struct ImportSec(Array[Import]) derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) struct FuncSec(Array[TypeIdx]) derive(Eq, Arbitrary, Hash)
+pub struct FuncSec(Array[TypeIdx]) derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) struct TableSec(Array[Table]) derive(Eq, Arbitrary, Hash)
+pub struct TableSec(Array[Table]) derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) struct MemSec(Array[MemType]) derive(Eq, Arbitrary, Hash)
+pub struct MemSec(Array[MemType]) derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) struct GlobalSec(Array[Global]) derive(Eq, Arbitrary, Hash)
+pub struct GlobalSec(Array[Global]) derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) struct ExportSec(Array[Export]) derive(Eq, Arbitrary, Hash)
+pub struct ExportSec(Array[Export]) derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) struct StartSec(FuncIdx) derive(Eq, Arbitrary, Hash)
+pub struct StartSec(FuncIdx) derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) struct ElemSec(Array[Elem]) derive(Eq, Hash)
+pub struct ElemSec(Array[Elem]) derive(Eq, Hash)
 
 ///|
-pub(all) struct DataCntSec(U32) derive(Eq, Arbitrary, Hash)
+pub struct DataCntSec(U32) derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) struct TagSec(Array[TagType]) derive(Eq, Arbitrary, Hash)
+pub struct TagSec(Array[TagType]) derive(Eq, Arbitrary, Hash)
 
 ///|
 pub(all) struct MemArg(U32, MemIdx?, U64) derive(Hash)
@@ -327,10 +327,10 @@ pub enum Catch {
 } derive(Eq, Arbitrary, Hash)
 
 ///|
-pub(all) struct CodeSec(Array[Func]) derive(Eq, Hash)
+pub struct CodeSec(Array[Func]) derive(Eq, Hash)
 
 ///|
-pub(all) struct DataSec(Array[Data]) derive(Eq, Hash)
+pub struct DataSec(Array[Data]) derive(Eq, Hash)
 
 ///|
 pub(all) struct CastOp(Bool, Bool) derive(Eq, Arbitrary, Show, Hash)
@@ -7498,6 +7498,27 @@ pub fn DataSec::new(ds : Array[Data]) -> DataSec {
 ///|
 pub fn DataCntSec::new(dc : U32) -> DataCntSec {
   DataCntSec(dc)
+}
+
+///|
+pub fn CustomSec::new(name : Name, payload : Bytes) -> CustomSec {
+  CustomSec(name, payload)
+}
+
+pub fn ImportSec::new(imports : Array[Import]) -> ImportSec {
+  ImportSec(imports)
+}
+
+pub fn FuncSec::new(i : Array[TypeIdx]) -> FuncSec {
+  FuncSec(i)
+}
+
+pub fn ExportSec::new(exports : Array[Export]) -> ExportSec {
+  ExportSec(exports)
+}
+
+pub fn StartSec::new(fi : FuncIdx) -> StartSec {
+  StartSec(fi)
 }
 
 ///|

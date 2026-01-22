@@ -2131,11 +2131,11 @@ pub fn gen_valid_module(rnd : RandomState) -> Module {
 
   // Build module
   let mut mod = Module::new()
-    .with_type_sec(TypeSec(all_types))
-    .with_func_sec(FuncSec(func_type_indices))
+    .with_type_sec(TypeSec::new(all_types))
+    .with_func_sec(FuncSec::new(func_type_indices))
     .with_global_sec(GlobalSec::new(globals))
-    .with_start_sec(StartSec(FuncIdx::new(main_func_idx.reinterpret_as_uint())))
-    .with_code_sec(CodeSec(generated_funcs.map(fn(f) { f.0 })))
+    .with_start_sec(StartSec::new(FuncIdx::new(main_func_idx.reinterpret_as_uint())))
+    .with_code_sec(CodeSec::new(generated_funcs.map(fn(f) { f.0 })))
   
   // Always add memory
   mod = mod.with_mem_sec(MemSec::new([MemType::new(Limits::i32(1, Some(10)))]))

@@ -319,7 +319,7 @@ pub fn run_denam(m : @lib.Module) -> Result[@lib.Module, String] {
   if st2.need_f64 {
     final_funcs.push(make_denam64_func())
   }
-  Ok(mod2.with_code_sec(@lib.CodeSec(final_funcs)))
+  Ok(mod2.with_code_sec(CodeSec::new(final_funcs)))
 }
 // test_denan.mbt
 
@@ -334,7 +334,7 @@ fn make_empty_module() -> @lib.Module {
 
 ///|
 fn make_module_with_code(funcs : Array[Func]) -> @lib.Module {
-  Module::new().with_code_sec(CodeSec(funcs))
+  Module::new().with_code_sec(CodeSec::new(funcs))
 }
 
 // ============================================

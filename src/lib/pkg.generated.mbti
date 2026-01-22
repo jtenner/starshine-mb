@@ -563,7 +563,7 @@ pub impl Hash for Catch
 pub impl Show for Catch
 pub impl @quickcheck.Arbitrary for Catch
 
-pub(all) struct CodeSec(Array[Func])
+pub struct CodeSec(Array[Func])
 #deprecated
 pub fn CodeSec::inner(Self) -> Array[Func]
 pub fn CodeSec::new(Array[Func]) -> Self
@@ -585,9 +585,10 @@ pub impl Hash for CompType
 pub impl Show for CompType
 pub impl @quickcheck.Arbitrary for CompType
 
-pub(all) struct CustomSec(Name, Bytes)
+pub struct CustomSec(Name, Bytes)
 
 
+pub fn CustomSec::new(Name, Bytes) -> Self
 pub impl Eq for CustomSec
 pub impl Hash for CustomSec
 pub impl Show for CustomSec
@@ -602,7 +603,7 @@ pub impl Hash for Data
 pub impl Show for Data
 pub impl @quickcheck.Arbitrary for Data
 
-pub(all) struct DataCntSec(U32)
+pub struct DataCntSec(U32)
 #deprecated
 pub fn DataCntSec::inner(Self) -> U32
 pub fn DataCntSec::new(U32) -> Self
@@ -631,7 +632,7 @@ pub impl Hash for DataMode
 pub impl Show for DataMode
 pub impl @quickcheck.Arbitrary for DataMode
 
-pub(all) struct DataSec(Array[Data])
+pub struct DataSec(Array[Data])
 #deprecated
 pub fn DataSec::inner(Self) -> Array[Data]
 pub fn DataSec::new(Array[Data]) -> Self
@@ -695,7 +696,7 @@ pub impl Hash for ElemMode
 pub impl Show for ElemMode
 pub impl @quickcheck.Arbitrary for ElemMode
 
-pub(all) struct ElemSec(Array[Elem])
+pub struct ElemSec(Array[Elem])
 #deprecated
 pub fn ElemSec::inner(Self) -> Array[Elem]
 pub fn ElemSec::new(Array[Elem]) -> Self
@@ -772,9 +773,10 @@ pub impl Hash for Export
 pub impl Show for Export
 pub impl @quickcheck.Arbitrary for Export
 
-pub(all) struct ExportSec(Array[Export])
+pub struct ExportSec(Array[Export])
 #deprecated
 pub fn ExportSec::inner(Self) -> Array[Export]
+pub fn ExportSec::new(Array[Export]) -> Self
 pub impl Eq for ExportSec
 pub impl Hash for ExportSec
 pub impl Show for ExportSec
@@ -894,9 +896,10 @@ pub impl Hash for FuncIdx
 pub impl Show for FuncIdx
 pub impl @quickcheck.Arbitrary for FuncIdx
 
-pub(all) struct FuncSec(Array[TypeIdx])
+pub struct FuncSec(Array[TypeIdx])
 #deprecated
 pub fn FuncSec::inner(Self) -> Array[TypeIdx]
+pub fn FuncSec::new(Array[TypeIdx]) -> Self
 pub impl Eq for FuncSec
 pub impl Hash for FuncSec
 pub impl Show for FuncSec
@@ -928,7 +931,7 @@ pub impl Hash for GlobalIdx
 pub impl Show for GlobalIdx
 pub impl @quickcheck.Arbitrary for GlobalIdx
 
-pub(all) struct GlobalSec(Array[Global])
+pub struct GlobalSec(Array[Global])
 #deprecated
 pub fn GlobalSec::inner(Self) -> Array[Global]
 pub fn GlobalSec::new(Array[Global]) -> Self
@@ -988,9 +991,10 @@ pub impl Hash for Import
 pub impl Show for Import
 pub impl @quickcheck.Arbitrary for Import
 
-pub(all) struct ImportSec(Array[Import])
+pub struct ImportSec(Array[Import])
 #deprecated
 pub fn ImportSec::inner(Self) -> Array[Import]
+pub fn ImportSec::new(Array[Import]) -> Self
 pub impl Eq for ImportSec
 pub impl Hash for ImportSec
 pub impl Show for ImportSec
@@ -2131,7 +2135,7 @@ pub impl Hash for MemIdx
 pub impl Show for MemIdx
 pub impl @quickcheck.Arbitrary for MemIdx
 
-pub(all) struct MemSec(Array[MemType])
+pub struct MemSec(Array[MemType])
 #deprecated
 pub fn MemSec::inner(Self) -> Array[MemType]
 pub fn MemSec::new(Array[MemType]) -> Self
@@ -2455,9 +2459,10 @@ pub impl Eq for S33
 pub impl Hash for S33
 pub impl Show for S33
 
-pub(all) struct StartSec(FuncIdx)
+pub struct StartSec(FuncIdx)
 #deprecated
 pub fn StartSec::inner(Self) -> FuncIdx
+pub fn StartSec::new(FuncIdx) -> Self
 pub impl Eq for StartSec
 pub impl Hash for StartSec
 pub impl Show for StartSec
@@ -2746,7 +2751,7 @@ pub impl Hash for TableIdx
 pub impl Show for TableIdx
 pub impl @quickcheck.Arbitrary for TableIdx
 
-pub(all) struct TableSec(Array[Table])
+pub struct TableSec(Array[Table])
 #deprecated
 pub fn TableSec::inner(Self) -> Array[Table]
 pub fn TableSec::new(Array[Table]) -> Self
@@ -2773,7 +2778,7 @@ pub impl Hash for TagIdx
 pub impl Show for TagIdx
 pub impl @quickcheck.Arbitrary for TagIdx
 
-pub(all) struct TagSec(Array[TagType])
+pub struct TagSec(Array[TagType])
 #deprecated
 pub fn TagSec::inner(Self) -> Array[TagType]
 pub fn TagSec::new(Array[TagType]) -> Self
@@ -2802,7 +2807,7 @@ pub impl Hash for TypeIdx
 pub impl Show for TypeIdx
 pub impl @quickcheck.Arbitrary for TypeIdx
 
-pub(all) struct TypeSec(Array[RecType])
+pub struct TypeSec(Array[RecType])
 #deprecated
 pub fn TypeSec::inner(Self) -> Array[RecType]
 pub fn TypeSec::new(Array[RecType]) -> Self

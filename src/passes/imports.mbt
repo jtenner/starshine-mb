@@ -61,6 +61,9 @@ using @lib {
   type TableType,
   type GlobalType,
   type Global,
+  type TypeSec,
+  type FuncSec,
+  type GlobalSec,
 }
 
 ///|

@@ -403,8 +403,8 @@ fn make_functype_i32_to_i32() -> RecType {
 test "directize: constant index resolves to known function" {
   // Setup: table with func 0 at index 0
   let m = Module::new()
-    .with_type_sec(TypeSec([make_simple_functype()]))
-    .with_func_sec(FuncSec([TypeIdx::new(0)]))
+    .with_type_sec(TypeSec::new([make_simple_functype()]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_table_sec(
       TableSec::new([
         Table::new(
@@ -428,7 +428,7 @@ test "directize: constant index resolves to known function" {
       ]),
     )
     .with_code_sec(
-      CodeSec([
+      CodeSec::new([
         Func::t_func(
           [],
           TExpr::new([
@@ -458,10 +458,10 @@ test "directize: constant index resolves to known function" {
 ///|
 test "directize: out-of-bounds constant index becomes unreachable" {
   let m = Module::new()
-    .with_type_sec(TypeSec([make_simple_functype()]))
-    .with_func_sec(FuncSec([TypeIdx::new(0)]))
+    .with_type_sec(TypeSec::new([make_simple_functype()]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_table_sec(
-      TableSec([
+      TableSec::new([
         Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
@@ -472,7 +472,7 @@ test "directize: out-of-bounds constant index becomes unreachable" {
       ]),
     )
     .with_elem_sec(
-      ElemSec([
+      ElemSec::new([
         Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0)]),
@@ -480,7 +480,7 @@ test "directize: out-of-bounds constant index becomes unreachable" {
       ]),
     )
     .with_code_sec(
-      CodeSec([
+      CodeSec::new([
         Func::t_func(
           [],
           TExpr::new([
@@ -510,10 +510,10 @@ test "directize: out-of-bounds constant index becomes unreachable" {
 test "directize: null entry in table becomes unreachable" {
   // Table with size 2, but only index 0 is filled
   let m = Module::new()
-    .with_type_sec(TypeSec([make_simple_functype()]))
-    .with_func_sec(FuncSec([TypeIdx::new(0)]))
+    .with_type_sec(TypeSec::new([make_simple_functype()]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_table_sec(
-      TableSec([
+      TableSec::new([
         Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
@@ -524,7 +524,7 @@ test "directize: null entry in table becomes unreachable" {
       ]),
     )
     .with_elem_sec(
-      ElemSec([
+      ElemSec::new([
         Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0)]),
@@ -532,7 +532,7 @@ test "directize: null entry in table becomes unreachable" {
       ]),
     )
     .with_code_sec(
-      CodeSec([
+      CodeSec::new([
         Func::t_func(
           [],
           TExpr::new([
@@ -559,10 +559,10 @@ test "directize: null entry in table becomes unreachable" {
 ///|
 test "directize: non-constant index is not transformed" {
   let m = Module::new()
-    .with_type_sec(TypeSec([make_simple_functype()]))
-    .with_func_sec(FuncSec([TypeIdx::new(0)]))
+    .with_type_sec(TypeSec::new([make_simple_functype()]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_table_sec(
-      TableSec([
+      TableSec::new([
         Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
@@ -573,7 +573,7 @@ test "directize: non-constant index is not transformed" {
       ]),
     )
     .with_elem_sec(
-      ElemSec([
+      ElemSec::new([
         Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0)]),
@@ -581,7 +581,7 @@ test "directize: non-constant index is not transformed" {
       ]),
     )
     .with_code_sec(
-      CodeSec([
+      CodeSec::new([
         Func::t_func(
           [ValType::i32()],
           TExpr::new([
@@ -614,11 +614,11 @@ test "directize: type mismatch becomes unreachable" {
   // Function has type 0 (void -> void), but call uses type 1 (i32 -> i32)
   let m = Module::new()
     .with_type_sec(
-      TypeSec([make_simple_functype(), make_functype_i32_to_i32()]),
+      TypeSec::new([make_simple_functype(), make_functype_i32_to_i32()]),
     )
-    .with_func_sec(FuncSec([TypeIdx::new(0)])) // Function uses type 0
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)])) // Function uses type 0
     .with_table_sec(
-      TableSec([
+      TableSec::new([
         Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
@@ -629,7 +629,7 @@ test "directize: type mismatch becomes unreachable" {
       ]),
     )
     .with_elem_sec(
-      ElemSec([
+      ElemSec::new([
         Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0)]),
@@ -637,7 +637,7 @@ test "directize: type mismatch becomes unreachable" {
       ]),
     )
     .with_code_sec(
-      CodeSec([
+      CodeSec::new([
         Func::t_func(
           [],
           TExpr::new([
@@ -667,10 +667,10 @@ test "directize: type mismatch becomes unreachable" {
 ///|
 test "directize: table.set prevents optimization" {
   let m = Module::new()
-    .with_type_sec(TypeSec([make_simple_functype()]))
-    .with_func_sec(FuncSec([TypeIdx::new(0), TypeIdx::new(0)])) // Two functions
+    .with_type_sec(TypeSec::new([make_simple_functype()]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)])) // Two functions
     .with_table_sec(
-      TableSec([
+      TableSec::new([
         Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
@@ -681,7 +681,7 @@ test "directize: table.set prevents optimization" {
       ]),
     )
     .with_elem_sec(
-      ElemSec([
+      ElemSec::new([
         Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0)]),
@@ -689,7 +689,7 @@ test "directize: table.set prevents optimization" {
       ]),
     )
     .with_code_sec(
-      CodeSec([
+      CodeSec::new([
         Func::t_func(
           [],
           TExpr::new([
@@ -720,10 +720,10 @@ test "directize: table.set prevents optimization" {
 ///|
 test "directize: table.fill prevents optimization" {
   let m = Module::new()
-    .with_type_sec(TypeSec([make_simple_functype()]))
-    .with_func_sec(FuncSec([TypeIdx::new(0)]))
+    .with_type_sec(TypeSec::new([make_simple_functype()]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_table_sec(
-      TableSec([
+      TableSec::new([
         Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
@@ -734,7 +734,7 @@ test "directize: table.fill prevents optimization" {
       ]),
     )
     .with_elem_sec(
-      ElemSec([
+      ElemSec::new([
         Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0)]),
@@ -742,7 +742,7 @@ test "directize: table.fill prevents optimization" {
       ]),
     )
     .with_code_sec(
-      CodeSec([
+      CodeSec::new([
         Func::t_func(
           [],
           TExpr::new([
@@ -774,8 +774,8 @@ test "directize: table.fill prevents optimization" {
 ///|
 test "directize: table.copy prevents optimization on dest table" {
   let m = Module::new()
-    .with_type_sec(TypeSec([make_simple_functype()]))
-    .with_func_sec(FuncSec([TypeIdx::new(0)]))
+    .with_type_sec(TypeSec::new([make_simple_functype()]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_table_sec(
       TableSec::new([
         Table::new(
@@ -810,7 +810,7 @@ test "directize: table.copy prevents optimization on dest table" {
       ]),
     )
     .with_code_sec(
-      CodeSec([
+      CodeSec::new([
         Func::t_func(
           [],
           TExpr::new([
@@ -846,10 +846,10 @@ test "directize: table.copy prevents optimization on dest table" {
 ///|
 test "directize: table.init prevents optimization" {
   let m = Module::new()
-    .with_type_sec(TypeSec([make_simple_functype()]))
-    .with_func_sec(FuncSec([TypeIdx::new(0)]))
+    .with_type_sec(TypeSec::new([make_simple_functype()]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_table_sec(
-      TableSec([
+      TableSec::new([
         Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
@@ -860,12 +860,12 @@ test "directize: table.init prevents optimization" {
       ]),
     )
     .with_elem_sec(
-      ElemSec([
+      ElemSec::new([
         Elem::new(ElemMode::passive(), ElemKind::funcs([FuncIdx::new(0)])),
       ]),
     )
     .with_code_sec(
-      CodeSec([
+      CodeSec::new([
         Func::t_func(
           [],
           TExpr::new([
@@ -899,10 +899,10 @@ test "directize: table.init prevents optimization" {
 test "directize: table.grow marks table as growable" {
   // Out of bounds access on growable table should be Unknown, not Trap
   let m = Module::new()
-    .with_type_sec(TypeSec([make_simple_functype()]))
-    .with_func_sec(FuncSec([TypeIdx::new(0)]))
+    .with_type_sec(TypeSec::new([make_simple_functype()]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_table_sec(
-      TableSec([
+      TableSec::new([
         Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
@@ -913,7 +913,7 @@ test "directize: table.grow marks table as growable" {
       ]),
     )
     .with_elem_sec(
-      ElemSec([
+      ElemSec::new([
         Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0)]),
@@ -921,7 +921,7 @@ test "directize: table.grow marks table as growable" {
       ]),
     )
     .with_code_sec(
-      CodeSec([
+      CodeSec::new([
         Func::t_func(
           [],
           TExpr::new([
@@ -954,10 +954,10 @@ test "directize: table.grow marks table as growable" {
 ///|
 test "directize: initial_immutable=false prevents optimization" {
   let m = Module::new()
-    .with_type_sec(TypeSec([make_simple_functype()]))
-    .with_func_sec(FuncSec([TypeIdx::new(0)]))
+    .with_type_sec(TypeSec::new([make_simple_functype()]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_table_sec(
-      TableSec([
+      TableSec::new([
         Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
@@ -968,7 +968,7 @@ test "directize: initial_immutable=false prevents optimization" {
       ]),
     )
     .with_elem_sec(
-      ElemSec([
+      ElemSec::new([
         Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0)]),
@@ -976,7 +976,7 @@ test "directize: initial_immutable=false prevents optimization" {
       ]),
     )
     .with_code_sec(
-      CodeSec([
+      CodeSec::new([
         Func::t_func(
           [],
           TExpr::new([
@@ -1007,10 +1007,10 @@ test "directize: initial_immutable=false prevents optimization" {
 ///|
 test "directize: return_call_indirect with constant index" {
   let m = Module::new()
-    .with_type_sec(TypeSec([make_simple_functype()]))
-    .with_func_sec(FuncSec([TypeIdx::new(0)]))
+    .with_type_sec(TypeSec::new([make_simple_functype()]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_table_sec(
-      TableSec([
+      TableSec::new([
         Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
@@ -1021,7 +1021,7 @@ test "directize: return_call_indirect with constant index" {
       ]),
     )
     .with_elem_sec(
-      ElemSec([
+      ElemSec::new([
         Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0)]),
@@ -1029,7 +1029,7 @@ test "directize: return_call_indirect with constant index" {
       ]),
     )
     .with_code_sec(
-      CodeSec([
+      CodeSec::new([
         Func::t_func(
           [],
           TExpr::new([
@@ -1055,10 +1055,10 @@ test "directize: return_call_indirect with constant index" {
 ///|
 test "directize: return_call_indirect out of bounds becomes unreachable" {
   let m = Module::new()
-    .with_type_sec(TypeSec([make_simple_functype()]))
-    .with_func_sec(FuncSec([TypeIdx::new(0)]))
+    .with_type_sec(TypeSec::new([make_simple_functype()]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_table_sec(
-      TableSec([
+      TableSec::new([
         Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
@@ -1069,7 +1069,7 @@ test "directize: return_call_indirect out of bounds becomes unreachable" {
       ]),
     )
     .with_elem_sec(
-      ElemSec([
+      ElemSec::new([
         Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0)]),
@@ -1077,7 +1077,7 @@ test "directize: return_call_indirect out of bounds becomes unreachable" {
       ]),
     )
     .with_code_sec(
-      CodeSec([
+      CodeSec::new([
         Func::t_func(
           [],
           TExpr::new([
@@ -1107,10 +1107,10 @@ test "directize: return_call_indirect out of bounds becomes unreachable" {
 ///|
 test "directize: select-based call_indirect with both branches known" {
   let m = Module::new()
-    .with_type_sec(TypeSec([make_simple_functype()]))
-    .with_func_sec(FuncSec([TypeIdx::new(0), TypeIdx::new(0)])) // Two functions
+    .with_type_sec(TypeSec::new([make_simple_functype()]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)])) // Two functions
     .with_table_sec(
-      TableSec([
+      TableSec::new([
         Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
@@ -1121,7 +1121,7 @@ test "directize: select-based call_indirect with both branches known" {
       ]),
     )
     .with_elem_sec(
-      ElemSec([
+      ElemSec::new([
         Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0), FuncIdx::new(1)]),
@@ -1129,7 +1129,7 @@ test "directize: select-based call_indirect with both branches known" {
       ]),
     )
     .with_code_sec(
-      CodeSec([
+      CodeSec::new([
         Func::t_func(
           [ValType::i32()],
           TExpr::new([
@@ -1160,10 +1160,10 @@ test "directize: select-based call_indirect with both branches known" {
 ///|
 test "directize: select-based call_indirect with one branch trapping" {
   let m = Module::new()
-    .with_type_sec(TypeSec([make_simple_functype()]))
-    .with_func_sec(FuncSec([TypeIdx::new(0)]))
+    .with_type_sec(TypeSec::new([make_simple_functype()]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_table_sec(
-      TableSec([
+      TableSec::new([
         Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
@@ -1174,7 +1174,7 @@ test "directize: select-based call_indirect with one branch trapping" {
       ]),
     )
     .with_elem_sec(
-      ElemSec([
+      ElemSec::new([
         Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0)]),
@@ -1182,7 +1182,7 @@ test "directize: select-based call_indirect with one branch trapping" {
       ]),
     )
     .with_code_sec(
-      CodeSec([
+      CodeSec::new([
         Func::t_func(
           [ValType::i32()],
           TExpr::new([
@@ -1224,10 +1224,10 @@ test "directize: select-based call_indirect with one branch trapping" {
 ///|
 test "directize: select-based call_indirect with unknown branch not transformed" {
   let m = Module::new()
-    .with_type_sec(TypeSec([make_simple_functype()]))
-    .with_func_sec(FuncSec([TypeIdx::new(0)]))
+    .with_type_sec(TypeSec::new([make_simple_functype()]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_table_sec(
-      TableSec([
+      TableSec::new([
         Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
@@ -1238,7 +1238,7 @@ test "directize: select-based call_indirect with unknown branch not transformed"
       ]),
     )
     .with_elem_sec(
-      ElemSec([
+      ElemSec::new([
         Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0)]),
@@ -1246,7 +1246,7 @@ test "directize: select-based call_indirect with unknown branch not transformed"
       ]),
     )
     .with_code_sec(
-      CodeSec([
+      CodeSec::new([
         Func::t_func(
           [ValType::i32()],
           TExpr::new([
@@ -1292,10 +1292,10 @@ test "directize: select-based call_indirect with unknown branch not transformed"
 ///|
 test "directize: br_table-based call_indirect with all branches known" {
   let m = Module::new()
-    .with_type_sec(TypeSec([make_simple_functype()]))
-    .with_func_sec(FuncSec([TypeIdx::new(0), TypeIdx::new(0), TypeIdx::new(0)])) // Three functions
+    .with_type_sec(TypeSec::new([make_simple_functype()]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0), TypeIdx::new(0)])) // Three functions
     .with_table_sec(
-      TableSec([
+      TableSec::new([
         Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
@@ -1306,7 +1306,7 @@ test "directize: br_table-based call_indirect with all branches known" {
       ]),
     )
     .with_elem_sec(
-      ElemSec([
+      ElemSec::new([
         Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0), FuncIdx::new(1), FuncIdx::new(2)]),
@@ -1314,7 +1314,7 @@ test "directize: br_table-based call_indirect with all branches known" {
       ]),
     )
     .with_code_sec(
-      CodeSec([
+      CodeSec::new([
         Func::t_func(
           [ValType::i32()],
           TExpr::new([
@@ -1349,10 +1349,10 @@ test "directize: br_table-based call_indirect with all branches known" {
 ///|
 test "directize: passive element segment doesn't initialize table" {
   let m = Module::new()
-    .with_type_sec(TypeSec([make_simple_functype()]))
-    .with_func_sec(FuncSec([TypeIdx::new(0)]))
+    .with_type_sec(TypeSec::new([make_simple_functype()]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_table_sec(
-      TableSec([
+      TableSec::new([
         Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
@@ -1363,12 +1363,12 @@ test "directize: passive element segment doesn't initialize table" {
       ]),
     )
     .with_elem_sec(
-      ElemSec([
+      ElemSec::new([
         Elem::new(ElemMode::passive(), ElemKind::funcs([FuncIdx::new(0)])),
       ]),
     ) // Passive, not active
     .with_code_sec(
-      CodeSec([
+      CodeSec::new([
         Func::t_func(
           [],
           TExpr::new([
@@ -1394,10 +1394,10 @@ test "directize: passive element segment doesn't initialize table" {
 ///|
 test "directize: declarative element segment doesn't initialize table" {
   let m = Module::new()
-    .with_type_sec(TypeSec([make_simple_functype()]))
-    .with_func_sec(FuncSec([TypeIdx::new(0)]))
+    .with_type_sec(TypeSec::new([make_simple_functype()]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_table_sec(
-      TableSec([
+      TableSec::new([
         Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
@@ -1408,12 +1408,12 @@ test "directize: declarative element segment doesn't initialize table" {
       ]),
     )
     .with_elem_sec(
-      ElemSec([
+      ElemSec::new([
         Elem::new(ElemMode::declarative(), ElemKind::funcs([FuncIdx::new(0)])),
       ]),
     ) // Declarative
     .with_code_sec(
-      CodeSec([
+      CodeSec::new([
         Func::t_func(
           [],
           TExpr::new([
@@ -1439,10 +1439,10 @@ test "directize: declarative element segment doesn't initialize table" {
 ///|
 test "directize: element segment with non-constant offset marks table mutable" {
   let m = Module::new()
-    .with_type_sec(TypeSec([make_simple_functype()]))
-    .with_func_sec(FuncSec([TypeIdx::new(0)]))
+    .with_type_sec(TypeSec::new([make_simple_functype()]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_global_sec(
-      GlobalSec([
+      GlobalSec::new([
         Global::new(
           GlobalType::new(ValType::i32(), false),
           Expr::new([I32Const(I32(0))]),
@@ -1450,7 +1450,7 @@ test "directize: element segment with non-constant offset marks table mutable" {
       ]),
     )
     .with_table_sec(
-      TableSec([
+      TableSec::new([
         Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
@@ -1461,7 +1461,7 @@ test "directize: element segment with non-constant offset marks table mutable" {
       ]),
     )
     .with_elem_sec(
-      ElemSec([
+      ElemSec::new([
         Elem::new(
           ElemMode::active(
             TableIdx::new(0),
@@ -1472,7 +1472,7 @@ test "directize: element segment with non-constant offset marks table mutable" {
       ]),
     ) // Non-constant offset
     .with_code_sec(
-      CodeSec([
+      CodeSec::new([
         Func::t_func(
           [],
           TExpr::new([
@@ -1499,10 +1499,10 @@ test "directize: element segment with non-constant offset marks table mutable" {
 ///|
 test "directize: element segment with expression kind marks table mutable" {
   let m = Module::new()
-    .with_type_sec(TypeSec([make_simple_functype()]))
-    .with_func_sec(FuncSec([TypeIdx::new(0)]))
+    .with_type_sec(TypeSec::new([make_simple_functype()]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_table_sec(
-      TableSec([
+      TableSec::new([
         Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
@@ -1513,7 +1513,7 @@ test "directize: element segment with expression kind marks table mutable" {
       ]),
     )
     .with_elem_sec(
-      ElemSec([
+      ElemSec::new([
         Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::func_exprs([Expr::new([RefFunc(FuncIdx::new(0))])]),
@@ -1521,7 +1521,7 @@ test "directize: element segment with expression kind marks table mutable" {
       ]),
     ) // Expression kind
     .with_code_sec(
-      CodeSec([
+      CodeSec::new([
         Func::t_func(
           [],
           TExpr::new([
@@ -1551,10 +1551,10 @@ test "directize: element segment with expression kind marks table mutable" {
 ///|
 test "directize: multiple tables, only one modified" {
   let m = Module::new()
-    .with_type_sec(TypeSec([make_simple_functype()]))
-    .with_func_sec(FuncSec([TypeIdx::new(0), TypeIdx::new(0)]))
+    .with_type_sec(TypeSec::new([make_simple_functype()]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
     .with_table_sec(
-      TableSec([
+      TableSec::new([
         Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
@@ -1572,7 +1572,7 @@ test "directize: multiple tables, only one modified" {
       ]),
     )
     .with_elem_sec(
-      ElemSec([
+      ElemSec::new([
         Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0)]),
@@ -1584,7 +1584,7 @@ test "directize: multiple tables, only one modified" {
       ]),
     )
     .with_code_sec(
-      CodeSec([
+      CodeSec::new([
         Func::t_func(
           [],
           TExpr::new([
@@ -1639,10 +1639,10 @@ test "directize: multiple tables, only one modified" {
 ///|
 test "directize: arguments are propagated to direct call" {
   let m = Module::new()
-    .with_type_sec(TypeSec([make_functype_i32_to_i32()]))
-    .with_func_sec(FuncSec([TypeIdx::new(0)]))
+    .with_type_sec(TypeSec::new([make_functype_i32_to_i32()]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_table_sec(
-      TableSec([
+      TableSec::new([
         Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
@@ -1653,7 +1653,7 @@ test "directize: arguments are propagated to direct call" {
       ]),
     )
     .with_elem_sec(
-      ElemSec([
+      ElemSec::new([
         Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0)]),
@@ -1661,7 +1661,7 @@ test "directize: arguments are propagated to direct call" {
       ]),
     )
     .with_code_sec(
-      CodeSec([
+      CodeSec::new([
         Func::t_func(
           [],
           TExpr::new([
@@ -1692,10 +1692,10 @@ test "directize: arguments are propagated to direct call" {
 ///|
 test "directize: negative index (interpreted as large unsigned) becomes unreachable" {
   let m = Module::new()
-    .with_type_sec(TypeSec([make_simple_functype()]))
-    .with_func_sec(FuncSec([TypeIdx::new(0)]))
+    .with_type_sec(TypeSec::new([make_simple_functype()]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_table_sec(
-      TableSec([
+      TableSec::new([
         Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
@@ -1706,7 +1706,7 @@ test "directize: negative index (interpreted as large unsigned) becomes unreacha
       ]),
     )
     .with_elem_sec(
-      ElemSec([
+      ElemSec::new([
         Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0)]),
@@ -1714,7 +1714,7 @@ test "directize: negative index (interpreted as large unsigned) becomes unreacha
       ]),
     )
     .with_code_sec(
-      CodeSec([
+      CodeSec::new([
         Func::t_func(
           [],
           TExpr::new([
@@ -1745,10 +1745,10 @@ test "directize: negative index (interpreted as large unsigned) becomes unreacha
 ///|
 test "directize: empty table always traps" {
   let m = Module::new()
-    .with_type_sec(TypeSec([make_simple_functype()]))
-    .with_func_sec(FuncSec([TypeIdx::new(0)]))
+    .with_type_sec(TypeSec::new([make_simple_functype()]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_table_sec(
-      TableSec([
+      TableSec::new([
         Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
@@ -1759,7 +1759,7 @@ test "directize: empty table always traps" {
       ]),
     )
     .with_code_sec(
-      CodeSec([
+      CodeSec::new([
         Func::t_func(
           [],
           TExpr::new([
@@ -1789,9 +1789,9 @@ test "directize: empty table always traps" {
 ///|
 test "directize: module without tables" {
   let m = Module::new()
-    .with_type_sec(TypeSec([make_simple_functype()]))
-    .with_func_sec(FuncSec([TypeIdx::new(0)]))
-    .with_code_sec(CodeSec([Func::t_func([], TExpr::new([TNop]))]))
+    .with_type_sec(TypeSec::new([make_simple_functype()]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], TExpr::new([TNop]))]))
   let result = directize_module(m, true)
   assert_true(result is Ok(_))
   let new_m = result.unwrap()
@@ -1809,10 +1809,10 @@ test "directize: module without tables" {
 test "directize: element segment at offset beyond initial table entries" {
   // Table size is 4, element at offset 2 writes indices 2 and 3
   let m = Module::new()
-    .with_type_sec(TypeSec([make_simple_functype()]))
-    .with_func_sec(FuncSec([TypeIdx::new(0), TypeIdx::new(0)]))
+    .with_type_sec(TypeSec::new([make_simple_functype()]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
     .with_table_sec(
-      TableSec([
+      TableSec::new([
         Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
@@ -1823,7 +1823,7 @@ test "directize: element segment at offset beyond initial table entries" {
       ]),
     )
     .with_elem_sec(
-      ElemSec([
+      ElemSec::new([
         Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(2))])),
           ElemKind::funcs([FuncIdx::new(0), FuncIdx::new(1)]),
@@ -1831,7 +1831,7 @@ test "directize: element segment at offset beyond initial table entries" {
       ]),
     )
     .with_code_sec(
-      CodeSec([
+      CodeSec::new([
         Func::t_func(
           [],
           TExpr::new([
@@ -1882,10 +1882,10 @@ test "directize: element segment at offset beyond initial table entries" {
 ///|
 test "directize: table with i64 limits" {
   let m = Module::new()
-    .with_type_sec(TypeSec([make_simple_functype()]))
-    .with_func_sec(FuncSec([TypeIdx::new(0)]))
+    .with_type_sec(TypeSec::new([make_simple_functype()]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_table_sec(
-      TableSec([
+      TableSec::new([
         Table::new(
           TableType::new(
             RefType::new(true, HeapType::abs(AbsHeapType::func())),
@@ -1896,7 +1896,7 @@ test "directize: table with i64 limits" {
       ]),
     )
     .with_elem_sec(
-      ElemSec([
+      ElemSec::new([
         Elem::new(
           ElemMode::active(TableIdx::new(0), Expr::new([I32Const(I32(0))])),
           ElemKind::funcs([FuncIdx::new(0)]),
@@ -1904,7 +1904,7 @@ test "directize: table with i64 limits" {
       ]),
     )
     .with_code_sec(
-      CodeSec([
+      CodeSec::new([
         Func::t_func(
           [],
           TExpr::new([

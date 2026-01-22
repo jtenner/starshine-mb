@@ -1896,7 +1896,7 @@ pub impl Decode for ElemSec with decode(bytes, i) {
     Err(t) => return Err(t)
   }
   if j == len {
-    Ok((ElemSec(content), payload_end))
+    Ok((ElemSec::new(content), payload_end))
   } else {
     Err("Invalid section - didn't consume all bytes")
   }
@@ -1908,7 +1908,7 @@ pub impl Decode for DataCntSec with decode(bytes, i) {
     return Err("Invalid section header")
   }
   match Decode::decode(bytes, i + 1) {
-    Ok((@lib.U32(count), i)) => Ok((DataCntSec(count), i))
+    Ok((@lib.U32(count), i)) => Ok((DataCntSec::new(count), i))
     Err(t) => Err(t)
   }
 }
@@ -1947,7 +1947,7 @@ pub impl Decode for CodeSec with decode(bytes, i) {
     return Err("Invalid section header")
   }
   match Decode::decode(bytes, i + 1) {
-    Ok((funcs, i)) => Ok((CodeSec(funcs), i))
+    Ok((funcs, i)) => Ok((CodeSec::new(funcs), i))
     Err(t) => Err(t)
   }
 }
@@ -2008,7 +2008,7 @@ pub impl Decode for DataSec with decode(bytes, i) {
     Err(t) => return Err(t)
   }
   if j == len {
-    Ok((DataSec(content), payload_end))
+    Ok((DataSec::new(content), payload_end))
   } else {
     Err("Invalid section - didn't consume all bytes")
   }
@@ -2034,7 +2034,7 @@ pub impl Decode for CustomSec with decode(bytes, i) {
     Err(t) => return Err(t)
   }
   let bytes = view[j:].to_bytes()
-  Ok((CustomSec(name, bytes), end))
+  Ok((CustomSec::new(name, bytes), end))
 }
 
 ///|
@@ -2056,7 +2056,7 @@ pub impl Decode for TypeSec with decode(bytes, i) {
     Err(t) => return Err(t)
   }
   if j == len {
-    Ok((TypeSec(content), payload_end))
+    Ok((TypeSec::new(content), payload_end))
   } else {
     Err("Invalid section - didn't consume all bytes")
   }
@@ -2212,7 +2212,7 @@ pub impl Decode for ImportSec with decode(bytes, i) {
     Err(t) => return Err(t)
   }
   if j == len {
-    Ok((ImportSec(content), payload_end))
+    Ok((ImportSec::new(content), payload_end))
   } else {
     Err("Invalid section - didn't consume all bytes")
   }
@@ -2237,7 +2237,7 @@ pub impl Decode for FuncSec with decode(bytes, i) {
     Err(t) => return Err(t)
   }
   if j == len {
-    Ok((FuncSec(content), payload_end))
+    Ok((FuncSec::new(content), payload_end))
   } else {
     Err("Invalid section - didn't consume all bytes")
   }
@@ -2370,7 +2370,7 @@ pub impl Decode for TableSec with decode(bytes, i) {
     Err(t) => return Err(t)
   }
   if j == len {
-    Ok((TableSec(content), payload_end))
+    Ok((TableSec::new(content), payload_end))
   } else {
     Err("Invalid section - didn't consume all bytes")
   }
@@ -2395,7 +2395,7 @@ pub impl Decode for MemSec with decode(bytes, i) {
     Err(t) => return Err(t)
   }
   if j == len {
-    Ok((MemSec(content), payload_end))
+    Ok((MemSec::new(content), payload_end))
   } else {
     Err("Invalid section - didn't consume all bytes")
   }
@@ -2420,7 +2420,7 @@ pub impl Decode for TagSec with decode(bytes, i) {
     Err(t) => return Err(t)
   }
   if j == len {
-    Ok((TagSec(content), payload_end))
+    Ok((TagSec::new(content), payload_end))
   } else {
     Err("Invalid section - didn't consume all bytes")
   }
@@ -2445,7 +2445,7 @@ pub impl Decode for GlobalSec with decode(bytes, i) {
     Err(t) => return Err(t)
   }
   if j == len {
-    Ok((GlobalSec(content), payload_end))
+    Ok((GlobalSec::new(content), payload_end))
   } else {
     Err("Invalid section - didn't consume all bytes")
   }
@@ -2470,7 +2470,7 @@ pub impl Decode for ExportSec with decode(bytes, i) {
     Err(t) => return Err(t)
   }
   if j == len {
-    Ok((ExportSec(content), payload_end))
+    Ok((ExportSec::new(content), payload_end))
   } else {
     Err("Invalid section - didn't consume all bytes")
   }
@@ -2483,7 +2483,7 @@ pub impl Decode for StartSec with decode(bytes, i) {
   }
   match Decode::decode(bytes, i + 1) {
     Err(t) => Err(t)
-    Ok((idx, i)) => Ok((StartSec(idx), i))
+    Ok((idx, i)) => Ok((StartSec::new(idx), i))
   }
 }
 
