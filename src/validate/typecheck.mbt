@@ -6851,7 +6851,7 @@ test "Typecheck BrOnCast" {
   )
   let env = empty_env().with_labels([[nullable_i31]])
   let state = make_state(env, [anyref_type()])
-  let cast_op = @lib.CastOp(true, true)
+  let cast_op = CastOp::new(true, true)
   let t = @lib.BrOnCast(
     LabelIdx::new(0),
     cast_op,
@@ -6866,7 +6866,7 @@ test "Typecheck BrOnCast" {
 test "Typecheck BrOnCastFail" {
   let env = empty_env().with_labels([[anyref_type()]])
   let state = make_state(env, [anyref_type()])
-  let cast_op = @lib.CastOp(true, true)
+  let cast_op = CastOp::new(true, true)
   let t = @lib.BrOnCastFail(
     LabelIdx::new(0),
     cast_op,

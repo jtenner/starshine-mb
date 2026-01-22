@@ -333,7 +333,7 @@ pub struct CodeSec(Array[Func]) derive(Eq, Hash)
 pub struct DataSec(Array[Data]) derive(Eq, Hash)
 
 ///|
-pub(all) struct CastOp(Bool, Bool) derive(Eq, Arbitrary, Show, Hash)
+pub struct CastOp(Bool, Bool) derive(Eq, Arbitrary, Show, Hash)
 
 ///|
 pub(all) enum Instruction {

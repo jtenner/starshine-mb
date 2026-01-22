@@ -2646,10 +2646,10 @@ pub impl Decode for Catch with decode(bytes, i) {
 ///|
 pub impl Decode for CastOp with decode(bytes, i) {
   match bytes.get(i) {
-    Some(0x00) => Ok((CastOp(false, false), i + 1))
-    Some(0x01) => Ok((CastOp(true, false), i + 1))
-    Some(0x02) => Ok((CastOp(false, true), i + 1))
-    Some(0x03) => Ok((CastOp(true, true), i + 1))
+    Some(0x00) => Ok((CastOp::new(false, false), i + 1))
+    Some(0x01) => Ok((CastOp::new(true, false), i + 1))
+    Some(0x02) => Ok((CastOp::new(false, true), i + 1))
+    Some(0x03) => Ok((CastOp::new(true, true), i + 1))
     _ => Err("Invalid castop")
   }
 }

@@ -539,7 +539,7 @@ pub impl Hash for BlockType
 pub impl Show for BlockType
 pub impl @quickcheck.Arbitrary for BlockType
 
-pub(all) struct CastOp(Bool, Bool)
+pub struct CastOp(Bool, Bool)
 
 
 pub fn CastOp::new(Bool, Bool) -> Self
