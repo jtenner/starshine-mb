@@ -387,9 +387,8 @@ fn load_or_op(stack_size : StackSize, l : TInstr, r : TInstr) -> TInstr {
 
 ///|
 pub fn alignment_lowering_pass() -> ModuleTransformer[AlignmentLoweringContext] {
-  ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_func: Some(fn(self, t, i) {
+  ModuleTransformer::new()
+    .on_func_evt(fn(self,  t : AlignmentLoweringContext, i) {
       match i {
         Func(_) => Err("Expected TFunc")
         TFunc(locals, b) => {
@@ -405,8 +404,8 @@ pub fn alignment_lowering_pass() -> ModuleTransformer[AlignmentLoweringContext] 
           }
         }
       }
-    }),
-    on_tinstruction: Some(fn(self, t, i) {
+    })
+    .on_tinstruction_evt(fn(self, t, i) {
       match i {
         TLoad(op, MemArg(U32(align), mem_option, U64(offset)), a) => {
           let a = match self.walk_tinstruction_default(t, a) {
@@ -695,8 +694,7 @@ pub fn alignment_lowering_pass() -> ModuleTransformer[AlignmentLoweringContext] 
         }
         _ => self.walk_tinstruction_default(t, i)
       }
-    }),
-  }
+    })
 }
 
 // alignment_lowering_test.mbt

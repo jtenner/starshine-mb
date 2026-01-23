@@ -87,9 +87,8 @@ fn extract_actions_from_instr(
   last_sets : Map[LocalIdx, Int],
   action_index_ref : Ref[Int],
 ) -> Unit {
-  let walker = ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_tinstruction: Some(fn(self, _, i) {
+  let walker = ModuleTransformer::new()
+    .on_tinstruction_evt(fn(self, _, i) {
       match i {
         TInstr::TLocalGet(idx) => {
           actions.push(Action::Get(idx, instr_id, action_index_ref.val))
@@ -105,8 +104,7 @@ fn extract_actions_from_instr(
 
       // continue traversal
       self.walk_tinstruction_default((), i)
-    }),
-  }
+    })
 
   // kick off traversal
   ignore(walker.walk_texpr_default((), TExpr::new([instr])))

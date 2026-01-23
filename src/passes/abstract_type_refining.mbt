@@ -58,9 +58,8 @@ fn build_subtypes(mod : Module) -> SubTypes {
 ///|
 fn collect_created_types(mod : Module) -> HeapTypeSet {
   let set = Set::new()
-  let transformer = ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_tinstruction: Some(fn(_, _, instr) {
+  let transformer = ModuleTransformer::new()
+    .on_tinstruction_evt(fn(_, _, instr) {
       match instr {
         // ---- structs ----
         TStructNew(type_idx, _) => set.add(HeapType::new(type_idx))
@@ -74,8 +73,8 @@ fn collect_created_types(mod : Module) -> HeapTypeSet {
         _ => ()
       }
       unchanged()
-    }),
-  }
+    })
+  
   ignore(transformer.walk_module((), mod))
   set
 }
@@ -268,9 +267,8 @@ fn rewrite_descriptor_exact_br_on_cast(
 
 ///|
 fn abstract_type_refining() -> ModuleTransformer[ATRState] {
-  ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_tinstruction: Some(fn(_, state, instr) {
+  ModuleTransformer::new()
+    .on_tinstruction_evt(fn(_, state : ATRState, instr) {
       let instr = rewrite_cast(instr, state.mapping)
       let instr = rewrite_descriptor_exact_ref_cast(
         instr,
@@ -283,11 +281,10 @@ fn abstract_type_refining() -> ModuleTransformer[ATRState] {
         state.traps_never_happen,
       )
       change(state, instr)
-    }),
-    on_heaptype: Some(fn(_, state, ht) {
+    })
+    .on_heaptype_evt(fn(_, state, ht) {
       change(state, rewrite_heaptype(ht, state.mapping))
-    }),
-  }
+    })
 }
 
 ///|

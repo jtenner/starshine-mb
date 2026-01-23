@@ -19,7 +19,7 @@ pub fn[T, Elem] error(err : String) -> TransformerResult[T, Elem] {
 // Transformer Definition
 
 ///|
-pub(all) struct ModuleTransformer[T] {
+pub struct ModuleTransformer[T] {
   on_module : ((ModuleTransformer[T], T, Module) -> TransformerResult[T, Module])?
   on_typesec : ((ModuleTransformer[T], T, TypeSec) -> TransformerResult[
     T,
@@ -292,6 +292,195 @@ pub fn[T] ModuleTransformer::new() -> ModuleTransformer[T] {
     on_memarg: None,
   }
 }
+
+pub fn [T] ModuleTransformer::on_module_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, Module) -> TransformerResult[T, Module]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_module: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_typesec_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, TypeSec) -> TransformerResult[T, TypeSec]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_typesec: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_funcsec_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, FuncSec) -> TransformerResult[T, FuncSec]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_funcsec: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_tablesec_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, TableSec) -> TransformerResult[T, TableSec]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_tablesec: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_memsec_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, MemSec) -> TransformerResult[T, MemSec]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_memsec: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_tagsec_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, TagSec) -> TransformerResult[T, TagSec]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_tagsec: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_globalsec_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, GlobalSec) -> TransformerResult[T, GlobalSec]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_globalsec: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_exportsec_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, ExportSec) -> TransformerResult[T, ExportSec]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_exportsec: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_startsec_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, StartSec) -> TransformerResult[T, StartSec]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_startsec: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_elemsec_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, ElemSec) -> TransformerResult[T, ElemSec]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_elemsec: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_elemkind_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, ElemKind) -> TransformerResult[T, ElemKind]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_elemkind: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_datacntsec_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, DataCntSec) -> TransformerResult[T, DataCntSec]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_datacntsec: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_codesec_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, CodeSec) -> TransformerResult[T, CodeSec]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_codesec: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_datasec_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, DataSec) -> TransformerResult[T, DataSec]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_datasec: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_instruction_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, Instruction) -> TransformerResult[T, Instruction]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_instruction: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_tinstruction_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, TInstr) -> TransformerResult[T, TInstr]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_tinstruction: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_expr_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, Expr) -> TransformerResult[T, Expr]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_expr: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_texpr_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, TExpr) -> TransformerResult[T, TExpr]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_texpr: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_table_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, Table) -> TransformerResult[T, Table]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_table: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_valtype_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, ValType) -> TransformerResult[T, ValType]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_valtype: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_numtype_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, NumType) -> TransformerResult[T, NumType]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_numtype: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_rectype_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, RecType) -> TransformerResult[T, RecType]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_rectype: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_subtype_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, SubType) -> TransformerResult[T, SubType]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_subtype: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_comptype_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, CompType) -> TransformerResult[T, CompType]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_comptype: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_reftype_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, RefType) -> TransformerResult[T, RefType]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_reftype: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_heaptype_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, HeapType) -> TransformerResult[T, HeapType]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_heaptype: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_blocktype_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, BlockType) -> TransformerResult[T, BlockType]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_blocktype: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_funcidx_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, FuncIdx) -> TransformerResult[T, FuncIdx]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_funcidx: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_typeidx_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, TypeIdx) -> TransformerResult[T, TypeIdx]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_typeidx: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_laneidx_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, LaneIdx) -> TransformerResult[T, LaneIdx]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_laneidx: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_localidx_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, LocalIdx) -> TransformerResult[T, LocalIdx]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_localidx: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_globalidx_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, GlobalIdx) -> TransformerResult[T, GlobalIdx]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_globalidx: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_tableidx_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, TableIdx) -> TransformerResult[T, TableIdx]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_tableidx: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_memidx_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, MemIdx) -> TransformerResult[T, MemIdx]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_memidx: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_labelidx_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, LabelIdx) -> TransformerResult[T, LabelIdx]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_labelidx: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_dataidx_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, DataIdx) -> TransformerResult[T, DataIdx]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_dataidx: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_elemidx_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, ElemIdx) -> TransformerResult[T, ElemIdx]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_elemidx: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_tagidx_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, TagIdx) -> TransformerResult[T, TagIdx]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_tagidx: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_name_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, Name) -> TransformerResult[T, Name]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_name: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_externtype_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, ExternType) -> TransformerResult[T, ExternType]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_externtype: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_limits_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, Limits) -> TransformerResult[T, Limits]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_limits: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_memtype_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, MemType) -> TransformerResult[T, MemType]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_memtype: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_tagtype_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, TagType) -> TransformerResult[T, TagType]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_tagtype: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_export_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, Export) -> TransformerResult[T, Export]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_export: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_global_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, Global) -> TransformerResult[T, Global]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_global: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_globaltype_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, GlobalType) -> TransformerResult[T, GlobalType]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_globaltype: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_func_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, Func) -> TransformerResult[T, Func]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_func: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_locals_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, Array[Locals]) -> TransformerResult[T, Array[Locals]]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_locals: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_externidx_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, ExternIdx) -> TransformerResult[T, ExternIdx]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_externidx: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_fieldtype_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, FieldType) -> TransformerResult[T, FieldType]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_fieldtype: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_storagetype_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, StorageType) -> TransformerResult[T, StorageType]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_storagetype: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_unaryop_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, UnaryOp) -> TransformerResult[T, UnaryOp]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_unaryop: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_binaryop_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, BinaryOp) -> TransformerResult[T, BinaryOp]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_binaryop: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_storeop_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, StoreOp) -> TransformerResult[T, StoreOp]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_storeop: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_loadop_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, LoadOp) -> TransformerResult[T, LoadOp]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_loadop: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_extractlaneop_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, ExtractLaneOp) -> TransformerResult[T, ExtractLaneOp]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_extractlaneop: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_replacelaneop_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, ReplaceLaneOp) -> TransformerResult[T, ReplaceLaneOp]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_replacelaneop: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_v128shiftop_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, V128ShiftOp) -> TransformerResult[T, V128ShiftOp]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_v128shiftop: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_v128ternaryop_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, V128TernaryOp) -> TransformerResult[T, V128TernaryOp]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_v128ternaryop: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_v128loadlaneop_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, V128LoadLaneOp) -> TransformerResult[T, V128LoadLaneOp]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_v128loadlaneop: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_v128storelaneop_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, V128StoreLaneOp) -> TransformerResult[T, V128StoreLaneOp]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_v128storelaneop: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_memarg_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, MemArg) -> TransformerResult[T, MemArg]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_memarg: Some(evt) }
+}
+
+
 
 ///|
 pub fn[T, E] ModuleTransformer::walk_array(
