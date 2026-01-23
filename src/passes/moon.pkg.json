@@ -3,8 +3,11 @@
   "import": [
     "jtenner/starshine/lib",
     "jtenner/starshine/binary",
+    "jtenner/starshine/dataflow",
+    "jtenner/starshine/local_graph",
     "moonbitlang/core/buffer",
     "moonbitlang/core/hashmap",
-    "moonbitlang/core/cmp"
+    "moonbitlang/core/cmp",
+    "moonbitlang/core/set"
   ]
 }

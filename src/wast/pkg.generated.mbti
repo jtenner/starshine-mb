@@ -443,8 +443,6 @@ pub struct ParseError {
   message : String
 }
 
-type ReservedChars
-
 pub struct Start {
   func_index : Index
 }

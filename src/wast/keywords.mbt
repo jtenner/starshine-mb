@@ -2,17 +2,6 @@
 // keywords.mbt - Keyword Hash Table
 // ============================================================================
 
-// Simple hash function for keyword lookup
-
-///|
-fn hash_string(s : String) -> Int {
-  let mut h = 0
-  for i = 0; i < s.length(); i = i + 1 {
-    h = (h * 31 + s[i].to_int()) % 0x7FFFFFFF
-  }
-  h
-}
-
 // Keyword hash table using a Map
 
 ///|

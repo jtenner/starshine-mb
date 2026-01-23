@@ -1,0 +1,9 @@
+{
+  "name": "local_graph",
+  "import": [
+    "jtenner/starshine/lib",
+    "moonbitlang/core/buffer",
+    "moonbitlang/core/quickcheck",
+    "moonbitlang/core/quickcheck/splitmix"
+  ]
+}

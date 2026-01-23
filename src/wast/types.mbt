@@ -46,7 +46,7 @@ pub struct LexerError {
 }
 
 ///|
-enum ReservedChars {
+priv enum ReservedChars {
   None
   Id
   Some

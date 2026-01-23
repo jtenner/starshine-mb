@@ -1,0 +1,438 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "jtenner/starshine/dataflow"
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct BinaryExpr {
+  op : BinaryOp
+  left : ExprId
+  right : ExprId
+  result_type : WasmType
+}
+pub impl Eq for BinaryExpr
+pub impl Show for BinaryExpr
+
+pub enum BinaryOp {
+  AddInt32
+  AddInt64
+  SubInt32
+  SubInt64
+  MulInt32
+  MulInt64
+  DivSInt32
+  DivSInt64
+  DivUInt32
+  DivUInt64
+  RemSInt32
+  RemSInt64
+  RemUInt32
+  RemUInt64
+  AndInt32
+  AndInt64
+  OrInt32
+  OrInt64
+  XorInt32
+  XorInt64
+  ShlInt32
+  ShlInt64
+  ShrUInt32
+  ShrUInt64
+  ShrSInt32
+  ShrSInt64
+  RotLInt32
+  RotLInt64
+  RotRInt32
+  RotRInt64
+  EqInt32
+  EqInt64
+  NeInt32
+  NeInt64
+  LtSInt32
+  LtSInt64
+  LtUInt32
+  LtUInt64
+  LeSInt32
+  LeSInt64
+  LeUInt32
+  LeUInt64
+  GtSInt32
+  GtSInt64
+  GtUInt32
+  GtUInt64
+  GeSInt32
+  GeSInt64
+  GeUInt32
+  GeUInt64
+  AddFloat32
+  AddFloat64
+  SubFloat32
+  SubFloat64
+  MulFloat32
+  MulFloat64
+  DivFloat32
+  DivFloat64
+}
+pub fn BinaryOp::get_opposite(Self) -> Self?
+pub fn BinaryOp::is_relational(Self) -> Bool
+pub impl Eq for BinaryOp
+pub impl Show for BinaryOp
+
+pub struct BlockExpr {
+  name : String?
+  list : Array[ExprId]
+  result_type : WasmType
+}
+pub impl Eq for BlockExpr
+pub impl Show for BlockExpr
+
+pub struct BreakExpr {
+  name : String
+  value : ExprId?
+  condition : ExprId?
+}
+pub impl Eq for BreakExpr
+pub impl Show for BreakExpr
+
+pub struct CallExpr {
+  target : String
+  operands : Array[ExprId]
+  result_type : WasmType
+}
+pub impl Eq for CallExpr
+pub impl Show for CallExpr
+
+pub struct ConstExpr {
+  value : Literal
+}
+pub impl Eq for ConstExpr
+pub impl Show for ConstExpr
+
+pub struct DropExpr {
+  value : ExprId
+}
+pub impl Eq for DropExpr
+pub impl Show for DropExpr
+
+pub struct ExprId(Int)
+#deprecated
+pub fn ExprId::inner(Self) -> Int
+pub impl Compare for ExprId
+pub impl Eq for ExprId
+pub impl Hash for ExprId
+pub impl Show for ExprId
+
+pub enum Expression {
+  Nop
+  Block(BlockExpr)
+  If(IfExpr)
+  Loop(LoopExpr)
+  Break(BreakExpr)
+  Switch(SwitchExpr)
+  LocalGet(LocalGetExpr)
+  LocalSet(LocalSetExpr)
+  Const(ConstExpr)
+  Unary(UnaryExpr)
+  Binary(BinaryExpr)
+  Select(SelectExpr)
+  Drop(DropExpr)
+  Unreachable
+  Call(CallExpr)
+  Return(ReturnExpr)
+  Generic(GenericExpr)
+}
+pub fn Expression::get_type(Self) -> WasmType
+pub impl Eq for Expression
+pub impl Show for Expression
+
+pub struct ExpressionStore {
+  expressions : Array[Expression]
+  types : Array[WasmType]
+}
+pub fn ExpressionStore::add(Self, Expression, WasmType) -> ExprId
+pub fn ExpressionStore::get(Self, ExprId) -> Expression?
+pub fn ExpressionStore::get_type(Self, ExprId) -> WasmType
+pub fn ExpressionStore::new() -> Self
+
+pub struct FlowState {
+  locals : Array[NodeId]
+  condition : NodeId
+}
+pub fn FlowState::new(Array[NodeId], NodeId) -> Self
+
+pub struct Function {
+  name : String
+  params : Array[WasmType]
+  results : Array[WasmType]
+  locals : Array[LocalInfo]
+  body : ExprId?
+  expressions : ExpressionStore
+}
+pub fn Function::add_local(Self, WasmType, String?) -> Int
+pub fn Function::add_param(Self, WasmType) -> Int
+pub fn Function::get_local_type(Self, Int) -> WasmType
+pub fn Function::get_num_locals(Self) -> Int
+pub fn Function::is_param(Self, Int) -> Bool
+pub fn Function::new(String) -> Self
+
+pub struct GenericExpr {
+  children : Array[ExprId]
+  result_type : WasmType
+}
+pub impl Eq for GenericExpr
+pub impl Show for GenericExpr
+
+pub struct Graph {
+  node_store : NodeStore
+  set_node_map : Map[ExprId, NodeId]
+  expression_condition_map : Map[ExprId, Array[NodeId]]
+  expression_parent_map : Map[ExprId, ExprId]
+  node_parent_map : Map[NodeId, ExprId]
+  sets : Array[ExprId]
+  constant_nodes : Map[Literal, NodeId]
+  break_states : Map[String, Array[Array[NodeId]]]
+  mut locals : Array[NodeId]
+  mut parent : ExprId?
+  mut func : Function?
+  mut mod : Module?
+}
+pub fn Graph::add_node(Self, Node) -> NodeId
+pub fn Graph::bad(Self) -> NodeId
+pub fn Graph::build(Self, Function, Module) -> Unit
+pub fn Graph::debug_print(Self) -> String
+pub fn Graph::do_visit_binary(Self, BinaryExpr, ExprId) -> NodeId
+pub fn Graph::do_visit_block(Self, BlockExpr, ExprId) -> NodeId
+pub fn Graph::do_visit_break(Self, BreakExpr) -> NodeId
+pub fn Graph::do_visit_const(Self, ConstExpr) -> NodeId
+pub fn Graph::do_visit_drop(Self, DropExpr, ExprId) -> NodeId
+pub fn Graph::do_visit_generic(Self, Expression, ExprId) -> NodeId
+pub fn Graph::do_visit_if(Self, IfExpr, ExprId) -> NodeId
+pub fn Graph::do_visit_local_get(Self, LocalGetExpr) -> NodeId
+pub fn Graph::do_visit_local_set(Self, LocalSetExpr, ExprId) -> NodeId
+pub fn Graph::do_visit_loop(Self, LoopExpr, ExprId) -> NodeId
+pub fn Graph::do_visit_select(Self, SelectExpr, ExprId) -> NodeId
+pub fn Graph::do_visit_switch(Self, SwitchExpr) -> NodeId
+pub fn Graph::do_visit_unary(Self, UnaryExpr, ExprId) -> NodeId
+pub fn Graph::do_visit_unreachable(Self) -> NodeId
+pub fn Graph::ensure_i1(Self, NodeId, ExprId?) -> NodeId
+pub fn Graph::expand_from_i1(Self, NodeId, ExprId?) -> NodeId
+pub fn Graph::get_conditions(Self, ExprId) -> Array[NodeId]
+pub fn Graph::get_node_for_set(Self, ExprId) -> NodeId?
+pub fn Graph::get_parent(Self, ExprId) -> ExprId?
+pub fn Graph::get_set_for_expr(Self, ExprId) -> ExprId?
+pub fn Graph::get_set_for_node(Self, NodeId) -> ExprId?
+pub fn Graph::get_sets(Self) -> Array[ExprId]
+pub fn Graph::is_flow_state_unreachable(Self, FlowState) -> Bool
+pub fn Graph::is_in_unreachable(Self) -> Bool
+pub fn Graph::is_locals_unreachable(Self, Array[NodeId]) -> Bool
+pub fn Graph::is_relevant_local(Self, Int) -> Bool
+pub fn Graph::is_relevant_type(Self, WasmType) -> Bool
+pub fn Graph::make_const(Self, Literal) -> NodeId
+pub fn Graph::make_use(Self, NodeId) -> Expression?
+pub fn Graph::make_var(Self, WasmType) -> NodeId
+pub fn Graph::make_zero(Self, WasmType) -> NodeId
+pub fn Graph::make_zero_comp(Self, NodeId, Bool, ExprId?) -> NodeId
+pub fn Graph::merge(Self, Array[FlowState]) -> Unit
+pub fn Graph::merge_block(Self, Array[Array[NodeId]]) -> Unit
+pub fn Graph::merge_if(Self, Array[NodeId], Array[NodeId], NodeId, ExprId) -> Unit
+pub fn Graph::new() -> Self
+pub fn Graph::set_in_reachable(Self) -> Unit
+pub fn Graph::set_in_unreachable(Self) -> Unit
+pub fn Graph::visit(Self, ExprId) -> NodeId
+pub fn Graph::visit_expression(Self, Expression, ExprId) -> NodeId
+
+pub struct IfExpr {
+  condition : ExprId
+  if_true : ExprId
+  if_false : ExprId?
+  result_type : WasmType
+}
+pub impl Eq for IfExpr
+pub impl Show for IfExpr
+
+pub enum Literal {
+  LitI32(Int)
+  LitI64(Int64)
+  LitF32(Float)
+  LitF64(Double)
+}
+pub fn Literal::get_type(Self) -> WasmType
+pub fn Literal::make_zero(WasmType) -> Self
+pub impl Eq for Literal
+pub impl Hash for Literal
+pub impl Show for Literal
+
+pub struct LocalGetExpr {
+  index : Int
+}
+pub impl Eq for LocalGetExpr
+pub impl Show for LocalGetExpr
+
+pub struct LocalInfo {
+  local_type : WasmType
+  is_param : Bool
+  name : String?
+}
+
+pub struct LocalSetExpr {
+  index : Int
+  value : ExprId
+  is_tee : Bool
+}
+pub impl Eq for LocalSetExpr
+pub impl Show for LocalSetExpr
+
+pub struct LoopExpr {
+  name : String?
+  body : ExprId
+  result_type : WasmType
+}
+pub impl Eq for LoopExpr
+pub impl Show for LoopExpr
+
+pub struct Module {
+  functions : Map[String, Function]
+  name : String?
+}
+pub fn Module::add_function(Self, Function) -> Unit
+pub fn Module::new() -> Self
+
+pub struct Node {
+  mut id : NodeId
+  node_type : NodeType
+  wasm_type : WasmType
+  expr : Expression?
+  mut index : Int
+  mut origin : ExprId?
+  values : Array[NodeId]
+}
+pub fn Node::add_value(Self, NodeId) -> Unit
+pub fn Node::get_value(Self, Int) -> NodeId?
+pub fn Node::is_bad(Self) -> Bool
+pub fn Node::is_block(Self) -> Bool
+pub fn Node::is_cond(Self) -> Bool
+pub fn Node::is_const(Self) -> Bool
+pub fn Node::is_expr(Self) -> Bool
+pub fn Node::is_phi(Self) -> Bool
+pub fn Node::is_var(Self) -> Bool
+pub fn Node::is_zext(Self) -> Bool
+pub fn Node::make_bad(NodeId) -> Self
+pub fn Node::make_block(NodeId) -> Self
+pub fn Node::make_cond(NodeId, NodeId, Int, NodeId) -> Self
+pub fn Node::make_expr(NodeId, Expression, ExprId?) -> Self
+pub fn Node::make_phi(NodeId, NodeId, Int) -> Self
+pub fn Node::make_var(NodeId, WasmType) -> Self
+pub fn Node::make_zext(NodeId, NodeId, ExprId?) -> Self
+pub fn Node::new(NodeId, NodeType) -> Self
+pub fn Node::returns_i1(Self) -> Bool
+
+pub struct NodeId(Int)
+#deprecated
+pub fn NodeId::inner(Self) -> Int
+pub impl Compare for NodeId
+pub impl Eq for NodeId
+pub impl Hash for NodeId
+pub impl Show for NodeId
+
+pub struct NodeStore {
+  nodes : Array[Node]
+  mut bad_node_id : NodeId
+}
+pub fn NodeStore::add_node(Self, Node) -> NodeId
+pub fn NodeStore::bad(Self) -> NodeId
+pub fn NodeStore::get(Self, NodeId) -> Node?
+pub fn NodeStore::get_mut(Self, NodeId) -> Node?
+pub fn NodeStore::get_wasm_type(Self, NodeId) -> WasmType
+pub fn NodeStore::is_bad(Self, NodeId) -> Bool
+pub fn NodeStore::len(Self) -> Int
+pub fn NodeStore::new() -> Self
+
+pub enum NodeType {
+  Var
+  Expr
+  Phi
+  Cond
+  Block
+  Zext
+  Bad
+}
+pub impl Eq for NodeType
+pub impl Show for NodeType
+
+pub struct ReturnExpr {
+  value : ExprId?
+}
+pub impl Eq for ReturnExpr
+pub impl Show for ReturnExpr
+
+pub struct SelectExpr {
+  if_true : ExprId
+  if_false : ExprId
+  condition : ExprId
+  result_type : WasmType
+}
+pub impl Eq for SelectExpr
+pub impl Show for SelectExpr
+
+pub struct SwitchExpr {
+  condition : ExprId
+  targets : Array[String]
+  default : String
+}
+pub impl Eq for SwitchExpr
+pub impl Show for SwitchExpr
+
+pub struct UnaryExpr {
+  op : UnaryOp
+  value : ExprId
+  result_type : WasmType
+}
+pub impl Eq for UnaryExpr
+pub impl Show for UnaryExpr
+
+pub enum UnaryOp {
+  ClzInt32
+  ClzInt64
+  CtzInt32
+  CtzInt64
+  PopcntInt32
+  PopcntInt64
+  EqZInt32
+  EqZInt64
+  ExtendSInt32
+  ExtendUInt32
+  WrapInt64
+  NegFloat32
+  NegFloat64
+  AbsFloat32
+  AbsFloat64
+}
+pub fn UnaryOp::is_relational(Self) -> Bool
+pub impl Eq for UnaryOp
+pub impl Show for UnaryOp
+
+pub enum WasmType {
+  I32
+  I64
+  F32
+  F64
+  V128
+  FuncRef
+  ExternRef
+  Unreachable
+  None
+}
+pub fn WasmType::bit_size(Self) -> Int
+pub fn WasmType::is_concrete(Self) -> Bool
+pub fn WasmType::is_integer(Self) -> Bool
+pub impl Eq for WasmType
+pub impl Hash for WasmType
+pub impl Show for WasmType
+
+// Type aliases
+pub type Locals = Array[NodeId]
+
+// Traits
+

@@ -50,14 +50,11 @@ using @lib {
   type ReplaceLaneOp,
   type UnaryOp,
   type CodeSec,
-  type CastOp,
   type RefType,
   type ElemMode,
   type MemIdx,
   type ElemIdx,
   type GlobalIdx,
-  type LocalGraph,
-  type LocalSet,
   type TableType,
   type GlobalType,
   type Global,
@@ -66,5 +63,37 @@ using @lib {
   type GlobalSec,
 }
 
+using @local_graph {
+  type LocalGraph,
+  type LocalSet,
+}
+
 ///|
 using @binary {size_signed}
+
+using @dataflow {
+  type NodeId,
+  type Node,
+  type Graph,
+  type Expression,
+  type Literal as DataFlowLiteral,
+  type WasmType,
+  type UnaryOp as DataFlowUnaryOp,
+  type BinaryOp as DataFlowBinaryOp,
+  type LocalGetExpr,
+  type LocalSetExpr,
+  type ConstExpr,
+  type UnaryExpr,
+  type BinaryExpr,
+  type SelectExpr,
+  type DropExpr,
+  type CallExpr,
+  type ReturnExpr,
+  type GenericExpr,
+  type ExprId,
+  type IfExpr,
+  type BlockExpr,
+  type LoopExpr,
+  type BreakExpr,
+  type SwitchExpr,
+}

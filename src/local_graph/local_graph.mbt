@@ -133,7 +133,7 @@ fn flatten_instrs(instrs : Array[TInstr]) -> Array[TInstr] {
     match instr {
       TInstr::TIf(bt, cond, then_expr, else_expr) => {
         // Keep the if itself, but strip its bodies
-        out.push(TInstr::TIf(bt, cond, TExpr::new([]), None))
+        out.push(TInstr::if_(bt, cond, TExpr::new([]), None))
 
         // Flatten then branch
         let then_flat = flatten_instrs(then_expr.0)
