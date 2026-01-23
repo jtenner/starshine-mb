@@ -5,6 +5,10 @@
         "alias": "lib",
         "path": "jtenner/starshine/lib"
       },
+      {
+        "alias": "transformer",
+        "path": "jtenner/starshine/transformer"
+      },
       "moonbitlang/core/quickcheck",
       "moonbitlang/core/quickcheck/splitmix"
     ]

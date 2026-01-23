@@ -54,7 +54,6 @@ using @lib {
   type MemSec,
   type MemType,
   type Module,
-  type ModuleTransformer,
   type Name,
   type NumType,
   type PackType,
@@ -74,12 +73,16 @@ using @lib {
   type TagType,
   type TExpr,
   type TInstr,
-  type TransformerResult,
   type TypeIdx,
   type TypeSec,
   type U32,
   type UnaryOp,
   type ValType,
+}
+
+using @transformer {
+  type ModuleTransformer,
+  type TransformerResult,
 }
 
 ///|

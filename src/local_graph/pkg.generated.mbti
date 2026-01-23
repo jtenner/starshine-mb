@@ -1,0 +1,30 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "jtenner/starshine/local_graph"
+
+import {
+  "jtenner/starshine/lib",
+  "moonbitlang/core/set",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct LocalGraph {
+  get_sets : Map[Int, @set.Set[LocalSet]]
+}
+pub fn LocalGraph::get_sets(Self, Int) -> @set.Set[LocalSet]
+pub fn LocalGraph::new(Array[@lib.TInstr]) -> Self
+
+pub enum LocalSet {
+  InitValue
+  Set(@lib.LocalIdx, @lib.TInstr)
+}
+pub impl Eq for LocalSet
+pub impl Hash for LocalSet
+
+// Type aliases
+
+// Traits
+

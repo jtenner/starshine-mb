@@ -383,7 +383,7 @@ pub fn[T] ModuleTransformer::walk_expr_default(
   match self.walk_array(t, ModuleTransformer::walk_instruction, instructions) {
     Err(e) => Err(e)
     Ok(None) => Ok(None)
-    Ok(Some((t, instructions))) => Ok(Some((t, Expr(instructions))))
+    Ok(Some((t, instructions))) => Ok(Some((t, Expr::new(instructions))))
   }
 }
 
@@ -400,7 +400,7 @@ pub fn[T] ModuleTransformer::walk_texpr_default(
     Ok(None) => (t, instructions)
     Ok(Some(t)) => t
   }
-  Ok(Some((t, TExpr(instructions))))
+  Ok(Some((t, TExpr::new(instructions))))
 }
 
 ///|
@@ -435,7 +435,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TRefNull(ht))))
+      Ok(Some((t, TInstr::ref_null(ht))))
     }
     TRefFunc(fi) => {
       let (t, fi) = match self.walk_funcidx(t, fi) {
@@ -443,7 +443,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TRefFunc(fi))))
+      Ok(Some((t, TInstr::ref_func(fi))))
     }
     // === Nullary (0 children) ===
 
@@ -453,7 +453,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TLocalGet(li))))
+      Ok(Some((t, TInstr::local_get(li))))
     }
     TGlobalGet(gi) => {
       let (t, gi) = match self.walk_globalidx(t, gi) {
@@ -461,7 +461,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TGlobalGet(gi))))
+      Ok(Some((t, TInstr::global_get(gi))))
     }
     TMemorySize(mi) => {
       let (t, mi) = match self.walk_memidx(t, mi) {
@@ -469,7 +469,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TMemorySize(mi))))
+      Ok(Some((t, TInstr::memory_size(mi))))
     }
     TTableSize(ti) => {
       let (t, ti) = match self.walk_tableidx(t, ti) {
@@ -477,7 +477,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TTableSize(ti))))
+      Ok(Some((t, TInstr::table_size(ti))))
     }
 
     // === Unary (1 child) ===
@@ -492,7 +492,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TUnary(op, i))))
+      Ok(Some((t, TInstr::unary(op, i))))
     }
     TDrop(i) => {
       let (t, i) = match self.walk_tinstruction(t, i) {
@@ -500,7 +500,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TDrop(i))))
+      Ok(Some((t, TInstr::drop(i))))
     }
     TLocalSet(li, i) => {
       let (t, li) = match self.walk_localidx(t, li) {
@@ -513,7 +513,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TLocalSet(li, i))))
+      Ok(Some((t, TInstr::local_set(li, i))))
     }
     TLocalTee(li, i) => {
       let (t, li) = match self.walk_localidx(t, li) {
@@ -526,7 +526,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TLocalTee(li, i))))
+      Ok(Some((t, TInstr::local_tee(li, i))))
     }
     TGlobalSet(gi, i) => {
       let (t, gi) = match self.walk_globalidx(t, gi) {
@@ -539,7 +539,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TGlobalSet(gi, i))))
+      Ok(Some((t, TInstr::global_set(gi, i))))
     }
     TRefIsNull(i) => {
       let (t, i) = match self.walk_tinstruction(t, i) {
@@ -547,7 +547,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TRefIsNull(i))))
+      Ok(Some((t, TInstr::ref_is_null(i))))
     }
     TRefAsNonNull(i) => {
       let (t, i) = match self.walk_tinstruction(t, i) {
@@ -555,7 +555,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TRefAsNonNull(i))))
+      Ok(Some((t, TInstr::ref_as_non_null(i))))
     }
     TI31GetS(i) => {
       let (t, i) = match self.walk_tinstruction(t, i) {
@@ -563,7 +563,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TI31GetS(i))))
+      Ok(Some((t, TInstr::i31_get_s(i))))
     }
     TI31GetU(i) => {
       let (t, i) = match self.walk_tinstruction(t, i) {
@@ -571,7 +571,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TI31GetU(i))))
+      Ok(Some((t, TInstr::i31_get_u(i))))
     }
     TRefI31(i) => {
       let (t, i) = match self.walk_tinstruction(t, i) {
@@ -579,7 +579,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TRefI31(i))))
+      Ok(Some((t, TInstr::ref_i31(i))))
     }
     TArrayLen(i) => {
       let (t, i) = match self.walk_tinstruction(t, i) {
@@ -587,7 +587,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TArrayLen(i))))
+      Ok(Some((t, TInstr::array_len(i))))
     }
     TAnyConvertExtern(i) => {
       let (t, i) = match self.walk_tinstruction(t, i) {
@@ -595,7 +595,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TAnyConvertExtern(i))))
+      Ok(Some((t, TInstr::any_convert_extern(i))))
     }
     TExternConvertAny(i) => {
       let (t, i) = match self.walk_tinstruction(t, i) {
@@ -603,7 +603,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TExternConvertAny(i))))
+      Ok(Some((t, TInstr::extern_convert_any(i))))
     }
     TThrowRef(i) => {
       let (t, i) = match self.walk_tinstruction(t, i) {
@@ -611,7 +611,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TThrowRef(i))))
+      Ok(Some((t, TInstr::throw_ref(i))))
     }
 
     // === Binary (2 children) ===
@@ -631,7 +631,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TBinary(op, i1, i2))))
+      Ok(Some((t, TInstr::binary(op, i1, i2))))
     }
     TRefEq(i1, i2) => {
       let (t, i1) = match self.walk_tinstruction(t, i1) {
@@ -644,7 +644,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TRefEq(i1, i2))))
+      Ok(Some((t, TInstr::ref_eq(i1, i2))))
     }
     TStore(op, ma, i1, i2) => {
       let (t, op) = match self.walk_storeop(t, op) {
@@ -667,7 +667,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TStore(op, ma, i1, i2))))
+      Ok(Some((t, TInstr::store(op, ma, i1, i2))))
     }
 
     // === Load (1 child - address) ===
@@ -687,7 +687,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TLoad(op, ma, i))))
+      Ok(Some((t, TInstr::load(op, ma, i))))
     }
 
     // === Memory operations ===
@@ -702,7 +702,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TMemoryGrow(mi, i))))
+      Ok(Some((t, TInstr::memory_grow(mi, i))))
     }
     TMemoryFill(mi, i1, i2, i3) => {
       let (t, mi) = match self.walk_memidx(t, mi) {
@@ -725,7 +725,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TMemoryFill(mi, i1, i2, i3))))
+      Ok(Some((t, TInstr::memory_fill(mi, i1, i2, i3))))
     }
     TMemoryCopy(mi1, mi2, i1, i2, i3) => {
       let (t, mi1) = match self.walk_memidx(t, mi1) {
@@ -753,7 +753,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TMemoryCopy(mi1, mi2, i1, i2, i3))))
+      Ok(Some((t, TInstr::memory_copy(mi1, mi2, i1, i2, i3))))
     }
     TMemoryInit(di, mi, i1, i2, i3) => {
       let (t, di) = match self.walk_dataidx(t, di) {
@@ -781,7 +781,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TMemoryInit(di, mi, i1, i2, i3))))
+      Ok(Some((t, TInstr::memory_init(di, mi, i1, i2, i3))))
     }
     TDataDrop(di) => {
       let (t, di) = match self.walk_dataidx(t, di) {
@@ -789,7 +789,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TDataDrop(di))))
+      Ok(Some((t, TInstr::data_drop(di))))
     }
 
     // === Table operations ===
@@ -804,7 +804,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TTableGet(ti, i))))
+      Ok(Some((t, TInstr::table_get(ti, i))))
     }
     TTableSet(ti, i1, i2) => {
       let (t, ti) = match self.walk_tableidx(t, ti) {
@@ -822,7 +822,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TTableSet(ti, i1, i2))))
+      Ok(Some((t, TInstr::table_set(ti, i1, i2))))
     }
     TTableGrow(ti, i1, i2) => {
       let (t, ti) = match self.walk_tableidx(t, ti) {
@@ -840,7 +840,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TTableGrow(ti, i1, i2))))
+      Ok(Some((t, TInstr::table_grow(ti, i1, i2))))
     }
     TTableFill(ti, i1, i2, i3) => {
       let (t, ti) = match self.walk_tableidx(t, ti) {
@@ -863,7 +863,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TTableFill(ti, i1, i2, i3))))
+      Ok(Some((t, TInstr::table_fill(ti, i1, i2, i3))))
     }
     TTableCopy(ti1, ti2, i1, i2, i3) => {
       let (t, ti1) = match self.walk_tableidx(t, ti1) {
@@ -891,7 +891,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TTableCopy(ti1, ti2, i1, i2, i3))))
+      Ok(Some((t, TInstr::table_copy(ti1, ti2, i1, i2, i3))))
     }
     TTableInit(ei, ti, i1, i2, i3) => {
       let (t, ei) = match self.walk_elemidx(t, ei) {
@@ -919,7 +919,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TTableInit(ei, ti, i1, i2, i3))))
+      Ok(Some((t, TInstr::table_init(ei, ti, i1, i2, i3))))
     }
     TElemDrop(ei) => {
       let (t, ei) = match self.walk_elemidx(t, ei) {
@@ -927,7 +927,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TElemDrop(ei))))
+      Ok(Some((t, TInstr::elem_drop(ei))))
     }
 
     // === Calls (N children based on function type) ===
@@ -943,7 +943,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TCall(fi, i))))
+      Ok(Some((t, TInstr::call(fi, i))))
     }
     TCallIndirect(tyi, tai, i0, i) => {
       let (t, tyi) = match self.walk_typeidx(t, tyi) {
@@ -967,7 +967,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TCallIndirect(tyi, tai, i0, i))))
+      Ok(Some((t, TInstr::call_indirect(tyi, tai, i0, i))))
     }
     TCallRef(tyi, i0, i) => {
       let (t, tyi) = match self.walk_typeidx(t, tyi) {
@@ -986,7 +986,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TCallRef(tyi, i0, i))))
+      Ok(Some((t, TInstr::call_ref(tyi, i0, i))))
     }
     TReturnCall(fi, i) => {
       let (t, fi) = match self.walk_funcidx(t, fi) {
@@ -1000,7 +1000,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TReturnCall(fi, i))))
+      Ok(Some((t, TInstr::return_call(fi, i))))
     }
     TReturnCallIndirect(tyi, tai, i0, i) => {
       let (t, tyi) = match self.walk_typeidx(t, tyi) {
@@ -1024,7 +1024,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TReturnCallIndirect(tyi, tai, i0, i))))
+      Ok(Some((t, TInstr::return_call_indirect(tyi, tai, i0, i))))
     }
     TReturnCallRef(tyi, i0, i) => {
       let (t, tyi) = match self.walk_typeidx(t, tyi) {
@@ -1043,7 +1043,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TReturnCallRef(tyi, i0, i))))
+      Ok(Some((t, TInstr::return_call_ref(tyi, i0, i))))
     }
 
     // === Control flow ===
@@ -1058,7 +1058,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TBlock(bt, e))))
+      Ok(Some((t, TInstr::block(bt, e))))
     }
     TLoop(bt, e) => {
       let (t, bt) = match self.walk_blocktype(t, bt) {
@@ -1071,7 +1071,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TLoop(bt, e))))
+      Ok(Some((t, TInstr::loop_(bt, e))))
     }
     TIf(bt, i_if, e_then, e_else_option) => {
       let (t, bt) = match self.walk_blocktype(t, bt) {
@@ -1098,7 +1098,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       } else {
         (t, e_else_option)
       }
-      Ok(Some((t, TIf(bt, i_if, e_then, e_else_option))))
+      Ok(Some((t, TInstr::if_(bt, i_if, e_then, e_else_option))))
     }
     TTryTable(bt, c, e) => {
       let (t, bt) = match self.walk_blocktype(t, bt) {
@@ -1116,7 +1116,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TTryTable(bt, c, e))))
+      Ok(Some((t, TInstr::try_table(bt, c, e))))
     }
     TThrow(ti, i) => {
       let (t, ti) = match self.walk_tagidx(t, ti) {
@@ -1130,7 +1130,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TThrow(ti, i))))
+      Ok(Some((t, TInstr::throw_(ti, i))))
     }
 
     // === Branches ===
@@ -1146,7 +1146,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TBr(li, i))))
+      Ok(Some((t, TInstr::br(li, i))))
     }
     TBrIf(li, i0, i) => {
       let (t, li) = match self.walk_labelidx(t, li) {
@@ -1165,7 +1165,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TBrIf(li, i0, i))))
+      Ok(Some((t, TInstr::br_if(li, i0, i))))
     }
     TBrTable(ls, li, i0, i) => {
       let (t, ls) = match
@@ -1190,7 +1190,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TBrTable(ls, li, i0, i))))
+      Ok(Some((t, TInstr::br_table(ls, li, i0, i))))
     }
     TBrOnNull(li, i0, i) => {
       let (t, li) = match self.walk_labelidx(t, li) {
@@ -1209,7 +1209,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TBrOnNull(li, i0, i))))
+      Ok(Some((t, TInstr::br_on_null(li, i0, i))))
     }
     TBrOnNonNull(li, i0, i) => {
       let (t, li) = match self.walk_labelidx(t, li) {
@@ -1228,7 +1228,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TBrOnNonNull(li, i0, i))))
+      Ok(Some((t, TInstr::br_on_non_null(li, i0, i))))
     }
     TBrOnCast(li, co, ht0, ht1, i0, i) => {
       let (t, li) = match self.walk_labelidx(t, li) {
@@ -1257,7 +1257,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TBrOnCast(li, co, ht0, ht1, i0, i))))
+      Ok(Some((t, TInstr::br_on_cast(li, co.0, ht0, co.1, ht1, i0, i))))
     }
     TBrOnCastFail(li, co, ht0, ht1, i0, i) => {
       let (t, li) = match self.walk_labelidx(t, li) {
@@ -1286,7 +1286,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TBrOnCastFail(li, co, ht0, ht1, i0, i))))
+      Ok(Some((t, TInstr::br_on_cast_fail(li, co.0, ht0, co.1, ht1, i0, i))))
     }
     TReturn(i) => {
       let (t, i) = match
@@ -1295,7 +1295,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TReturn(i))))
+      Ok(Some((t, TInstr::return_(i))))
     }
 
     // === Select ===
@@ -1324,7 +1324,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TSelect(vts_option, i0, i1, i2))))
+      Ok(Some((t, TInstr::select(vts_option, i0, i1, i2))))
     }
 
     // === GC: Structs ===
@@ -1340,7 +1340,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TStructNew(ti, i))))
+      Ok(Some((t, TInstr::struct_new(ti, i))))
     }
     TStructNewDefault(ti) => {
       let (t, ti) = match self.walk_typeidx(t, ti) {
@@ -1348,7 +1348,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TStructNewDefault(ti))))
+      Ok(Some((t, TInstr::struct_new_default(ti))))
     }
     TStructGet(ti, f, i) => {
       let (t, ti) = match self.walk_typeidx(t, ti) {
@@ -1361,7 +1361,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TStructGet(ti, f, i))))
+      Ok(Some((t, TInstr::struct_get(ti, f, i))))
     }
     TStructGetS(ti, f, i) => {
       let (t, ti) = match self.walk_typeidx(t, ti) {
@@ -1374,7 +1374,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TStructGetS(ti, f, i))))
+      Ok(Some((t, TInstr::struct_get_s(ti, f, i))))
     }
     TStructGetU(ti, f, i) => {
       let (t, ti) = match self.walk_typeidx(t, ti) {
@@ -1387,7 +1387,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TStructGetU(ti, f, i))))
+      Ok(Some((t, TInstr::struct_get_u(ti, f, i))))
     }
     TStructSet(ti, f, i0, i1) => {
       let (t, ti) = match self.walk_typeidx(t, ti) {
@@ -1405,7 +1405,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TStructSet(ti, f, i0, i1))))
+      Ok(Some((t, TInstr::struct_set(ti, f, i0, i1))))
     }
 
     // === GC: Arrays ===
@@ -1425,7 +1425,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TArrayNew(ti, i0, i1))))
+      Ok(Some((t, TInstr::array_new(ti, i0, i1))))
     }
     TArrayNewDefault(ti, i) => {
       let (t, ti) = match self.walk_typeidx(t, ti) {
@@ -1438,7 +1438,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TArrayNewDefault(ti, i))))
+      Ok(Some((t, TInstr::array_new_default(ti, i))))
     }
     TArrayNewFixed(ti, i) => {
       let (t, ti) = match self.walk_typeidx(t, ti) {
@@ -1452,7 +1452,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TArrayNewFixed(ti, i))))
+      Ok(Some((t, TInstr::array_new_fixed(ti, i))))
     }
     TArrayNewData(ti, di, i0, i1) => {
       let (t, ti) = match self.walk_typeidx(t, ti) {
@@ -1475,7 +1475,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TArrayNewData(ti, di, i0, i1))))
+      Ok(Some((t, TInstr::array_new_data(ti, di, i0, i1))))
     }
     TArrayNewElem(ti, ei, i0, i1) => {
       let (t, ti) = match self.walk_typeidx(t, ti) {
@@ -1498,7 +1498,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TArrayNewElem(ti, ei, i0, i1))))
+      Ok(Some((t, TInstr::array_new_elem(ti, ei, i0, i1))))
     }
     TArrayGet(ti, i0, i1) => {
       let (t, ti) = match self.walk_typeidx(t, ti) {
@@ -1516,7 +1516,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TArrayGet(ti, i0, i1))))
+      Ok(Some((t, TInstr::array_get(ti, i0, i1))))
     }
     TArrayGetS(ti, i0, i1) => {
       let (t, ti) = match self.walk_typeidx(t, ti) {
@@ -1534,7 +1534,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TArrayGetS(ti, i0, i1))))
+      Ok(Some((t, TInstr::array_get_s(ti, i0, i1))))
     }
     TArrayGetU(ti, i0, i1) => {
       let (t, ti) = match self.walk_typeidx(t, ti) {
@@ -1552,7 +1552,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TArrayGetU(ti, i0, i1))))
+      Ok(Some((t, TInstr::array_get_u(ti, i0, i1))))
     }
     TArraySet(ti, i0, i1, i2) => {
       let (t, ti) = match self.walk_typeidx(t, ti) {
@@ -1575,7 +1575,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TArraySet(ti, i0, i1, i2))))
+      Ok(Some((t, TInstr::array_set(ti, i0, i1, i2))))
     }
     TArrayFill(ti, i0, i1, i2, i3) => {
       let (t, ti) = match self.walk_typeidx(t, ti) {
@@ -1603,7 +1603,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TArrayFill(ti, i0, i1, i2, i3))))
+      Ok(Some((t, TInstr::array_fill(ti, i0, i1, i2, i3))))
     }
     TArrayCopy(ti0, ti1, i0, i1, i2, i3, i4) => {
       let (t, ti0) = match self.walk_typeidx(t, ti0) {
@@ -1641,7 +1641,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TArrayCopy(ti0, ti1, i0, i1, i2, i3, i4))))
+      Ok(Some((t, TInstr::array_copy(ti0, ti1, i0, i1, i2, i3, i4))))
     }
     TArrayInitData(ti, di, i0, i1, i2, i3) => {
       let (t, ti) = match self.walk_typeidx(t, ti) {
@@ -1674,7 +1674,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TArrayInitData(ti, di, i0, i1, i2, i3))))
+      Ok(Some((t, TInstr::array_init_data(ti, di, i0, i1, i2, i3))))
     }
     TArrayInitElem(ti, ei, i0, i1, i2, i3) => {
       let (t, ti) = match self.walk_typeidx(t, ti) {
@@ -1707,7 +1707,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TArrayInitElem(ti, ei, i0, i1, i2, i3))))
+      Ok(Some((t, TInstr::array_init_elem(ti, ei, i0, i1, i2, i3))))
     }
 
     // === GC: Casts ===
@@ -1722,7 +1722,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TRefTest(b, ht, i))))
+      Ok(Some((t, TInstr::ref_test(b, ht, i))))
     }
     TRefCast(b, ht, i) => {
       let (t, ht) = match self.walk_heaptype(t, ht) {
@@ -1735,7 +1735,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TRefCast(b, ht, i))))
+      Ok(Some((t, TInstr::ref_cast(b, ht, i))))
     }
 
     // === SIMD: Splat (scalar -> v128) ===
@@ -1745,7 +1745,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TI8x16Splat(i))))
+      Ok(Some((t, TInstr::i8x16_splat(i))))
     }
     TI16x8Splat(i) => {
       let (t, i) = match self.walk_tinstruction(t, i) {
@@ -1753,7 +1753,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TI16x8Splat(i))))
+      Ok(Some((t, TInstr::i16x8_splat(i))))
     }
     TI32x4Splat(i) => {
       let (t, i) = match self.walk_tinstruction(t, i) {
@@ -1761,7 +1761,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TI32x4Splat(i))))
+      Ok(Some((t, TInstr::i32x4_splat(i))))
     }
     TI64x2Splat(i) => {
       let (t, i) = match self.walk_tinstruction(t, i) {
@@ -1769,7 +1769,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TI64x2Splat(i))))
+      Ok(Some((t, TInstr::i64x2_splat(i))))
     }
     TF32x4Splat(i) => {
       let (t, i) = match self.walk_tinstruction(t, i) {
@@ -1777,7 +1777,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TF32x4Splat(i))))
+      Ok(Some((t, TInstr::f32x4_splat(i))))
     }
     TF64x2Splat(i) => {
       let (t, i) = match self.walk_tinstruction(t, i) {
@@ -1785,7 +1785,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TF64x2Splat(i))))
+      Ok(Some((t, TInstr::f64x2_splat(i))))
     }
 
     // === SIMD: Extract lane (v128 -> scalar) ===
@@ -1805,7 +1805,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TExtractLane(op, li, i))))
+      Ok(Some((t, TInstr::extract_lane(op, li, i))))
     }
 
     // === SIMD: Replace lane (v128, scalar -> v128) ===
@@ -1830,7 +1830,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TReplaceLane(op, li, i0, i1))))
+      Ok(Some((t, TInstr::replace_lane(op, li, i0, i1))))
     }
 
     // === SIMD: Shuffle (v128, v128 -> v128 with 16 lane indices) ===
@@ -1948,7 +1948,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Some(
           (
             t,
-            TI8x16Shuffle(
+            TInstr::i8x16_shuffle(
               li0, li1, li2, li3, li4, li5, li6, li7, li8, li9, li10, li11, li12,
               li13, li14, li15, i0, i1,
             ),
@@ -1969,7 +1969,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TI8x16Swizzle(i0, i1))))
+      Ok(Some((t, TInstr::i8x16_swizzle(i0, i1))))
     }
     TI8x16RelaxedSwizzle(i0, i1) => {
       let (t, i0) = match self.walk_tinstruction(t, i0) {
@@ -1982,7 +1982,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TI8x16RelaxedSwizzle(i0, i1))))
+      Ok(Some((t, TInstr::i8x16_relaxed_swizzle(i0, i1))))
     }
 
     // === SIMD: Shift (v128, i32 -> v128) ===
@@ -2002,7 +2002,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TV128Shift(op, i0, i1))))
+      Ok(Some((t, TInstr::v128_shift(op, i0, i1))))
     }
 
     // === SIMD: Ternary (v128, v128, v128 -> v128) ===
@@ -2027,7 +2027,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TV128Ternary(op, i0, i1, i2))))
+      Ok(Some((t, TInstr::v128_ternary(op, i0, i1, i2))))
     }
 
     // === SIMD: Lane load (v128, addr -> v128) ===
@@ -2057,7 +2057,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TV128LoadLane(op, ma, li, i0, i1))))
+      Ok(Some((t, TInstr::v128_load_lane(op, ma, li, i0, i1))))
     }
 
     // === SIMD: Lane store (v128, addr -> void) ===
@@ -2087,7 +2087,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TV128StoreLane(op, ma, li, i0, i1))))
+      Ok(Some((t, TInstr::v128_store_lane(op, ma, li, i0, i1))))
     }
     _ => Ok(None)
   }
@@ -2125,13 +2125,13 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
           match self.walk_expr(t, body) {
             Err(e) => Err(e)
             Ok(None) => Ok(None)
-            Ok(Some((t, body))) => Ok(Some((t, Block(bt, body))))
+            Ok(Some((t, body))) => Ok(Some((t, Instruction::block(bt, body))))
           }
         Ok(Some((t, bt))) =>
           match self.walk_expr(t, body) {
             Err(e) => Err(e)
-            Ok(None) => Ok(Some((t, Block(bt, body))))
-            Ok(Some((t, body))) => Ok(Some((t, Block(bt, body))))
+            Ok(None) => Ok(Some((t, Instruction::block(bt, body))))
+            Ok(Some((t, body))) => Ok(Some((t, Instruction::block(bt, body))))
           }
       }
     Loop(bt, body) =>
@@ -2141,13 +2141,13 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
           match self.walk_expr(t, body) {
             Err(e) => Err(e)
             Ok(None) => Ok(None)
-            Ok(Some((t, body))) => Ok(Some((t, Loop(bt, body))))
+            Ok(Some((t, body))) => Ok(Some((t, Instruction::loop_(bt, body))))
           }
         Ok(Some((t, bt))) =>
           match self.walk_expr(t, body) {
             Err(e) => Err(e)
-            Ok(None) => Ok(Some((t, Loop(bt, body))))
-            Ok(Some((t, body))) => Ok(Some((t, Loop(bt, body))))
+            Ok(None) => Ok(Some((t, Instruction::loop_(bt, body))))
+            Ok(Some((t, body))) => Ok(Some((t, Instruction::loop_(bt, body))))
           }
       }
     If(bt, then_body, else_body_opt) => {
@@ -2172,7 +2172,7 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
             Ok(Some((t, arr))) => (t, Some(arr))
           }
       }
-      Ok(Some((t, If(bt, then_body, else_body_opt))))
+      Ok(Some((t, Instruction::if_(bt, then_body, else_body_opt))))
     }
     TryTable(bt, catches, body) =>
       match self.walk_blocktype(t, bt) {
@@ -2185,14 +2185,14 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
                 Err(e) => Err(e)
                 Ok(None) => Ok(None)
                 Ok(Some((t, body))) =>
-                  Ok(Some((t, TryTable(bt, catches, body))))
+                  Ok(Some((t, Instruction::try_table(bt, catches, body))))
               }
             Ok(Some((t, catches))) =>
               match self.walk_expr(t, body) {
                 Err(e) => Err(e)
-                Ok(None) => Ok(Some((t, TryTable(bt, catches, body))))
+                Ok(None) => Ok(Some((t, Instruction::try_table(bt, catches, body))))
                 Ok(Some((t, body))) =>
-                  Ok(Some((t, TryTable(bt, catches, body))))
+                  Ok(Some((t, Instruction::try_table(bt, catches, body))))
               }
           }
         Ok(Some((t, bt))) =>
@@ -2201,16 +2201,16 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
             Ok(None) =>
               match self.walk_expr(t, body) {
                 Err(e) => Err(e)
-                Ok(None) => Ok(Some((t, TryTable(bt, catches, body))))
+                Ok(None) => Ok(Some((t, Instruction::try_table(bt, catches, body))))
                 Ok(Some((t, body))) =>
-                  Ok(Some((t, TryTable(bt, catches, body))))
+                  Ok(Some((t, Instruction::try_table(bt, catches, body))))
               }
             Ok(Some((t, catches))) =>
               match self.walk_expr(t, body) {
                 Err(e) => Err(e)
-                Ok(None) => Ok(Some((t, TryTable(bt, catches, body))))
+                Ok(None) => Ok(Some((t, Instruction::try_table(bt, catches, body))))
                 Ok(Some((t, body))) =>
-                  Ok(Some((t, TryTable(bt, catches, body))))
+                  Ok(Some((t, Instruction::try_table(bt, catches, body))))
               }
           }
       }
@@ -2220,13 +2220,13 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
       match self.walk_labelidx(t, l) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, l))) => Ok(Some((t, Br(l))))
+        Ok(Some((t, l))) => Ok(Some((t, Instruction::br(l))))
       }
     BrIf(l) =>
       match self.walk_labelidx(t, l) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, l))) => Ok(Some((t, BrIf(l))))
+        Ok(Some((t, l))) => Ok(Some((t, Instruction::br_if(l))))
       }
     BrTable(labels, default) =>
       match self.walk_array(t, ModuleTransformer::walk_labelidx, labels) {
@@ -2235,26 +2235,26 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
           match self.walk_labelidx(t, default) {
             Err(e) => Err(e)
             Ok(None) => Ok(None)
-            Ok(Some((t, default))) => Ok(Some((t, BrTable(labels, default))))
+            Ok(Some((t, default))) => Ok(Some((t, Instruction::br_table(labels, default))))
           }
         Ok(Some((t, labels))) =>
           match self.walk_labelidx(t, default) {
             Err(e) => Err(e)
-            Ok(None) => Ok(Some((t, BrTable(labels, default))))
-            Ok(Some((t, default))) => Ok(Some((t, BrTable(labels, default))))
+            Ok(None) => Ok(Some((t, Instruction::br_table(labels, default))))
+            Ok(Some((t, default))) => Ok(Some((t, Instruction::br_table(labels, default))))
           }
       }
     BrOnNull(l) =>
       match self.walk_labelidx(t, l) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, l))) => Ok(Some((t, BrOnNull(l))))
+        Ok(Some((t, l))) => Ok(Some((t, Instruction::br_on_null(l))))
       }
     BrOnNonNull(l) =>
       match self.walk_labelidx(t, l) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, l))) => Ok(Some((t, BrOnNonNull(l))))
+        Ok(Some((t, l))) => Ok(Some((t, Instruction::br_on_non_null(l))))
       }
     BrOnCast(l, op, ht1, ht2) => {
       let (t, l) = match self.walk_labelidx(t, l) {
@@ -2272,7 +2272,7 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
         Ok(None) => (t, ht2)
         Ok(Some((t, ht2))) => (t, ht2)
       }
-      Ok(Some((t, BrOnCast(l, op, ht1, ht2))))
+      Ok(Some((t, Instruction::br_on_cast(l, op.0, ht1, op.1, ht2))))
     }
     BrOnCastFail(l, op, ht1, ht2) => {
       let (t, l) = match self.walk_labelidx(t, l) {
@@ -2290,7 +2290,7 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
         Ok(None) => (t, ht2)
         Ok(Some((t, ht2))) => (t, ht2)
       }
-      Ok(Some((t, BrOnCastFail(l, op, ht1, ht2))))
+      Ok(Some((t, Instruction::br_on_cast_fail(l, op.0, ht1, op.1, ht2))))
     }
 
     // Call instructions
@@ -2298,7 +2298,7 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
       match self.walk_funcidx(t, f) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, f))) => Ok(Some((t, Call(f))))
+        Ok(Some((t, f))) => Ok(Some((t, Instruction::call(f))))
       }
     CallIndirect(ty, tbl) => {
       let (t, ty) = match self.walk_typeidx(t, ty) {
@@ -2311,13 +2311,13 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
         Ok(None) => (t, tbl)
         Ok(Some((t, tbl))) => (t, tbl)
       }
-      Ok(Some((t, CallIndirect(ty, tbl))))
+      Ok(Some((t, Instruction::call_indirect(ty, tbl))))
     }
     ReturnCall(f) =>
       match self.walk_funcidx(t, f) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, f))) => Ok(Some((t, ReturnCall(f))))
+        Ok(Some((t, f))) => Ok(Some((t, Instruction::return_call(f))))
       }
     ReturnCallIndirect(ty, tbl) => {
       let (t, ty) = match self.walk_typeidx(t, ty) {
@@ -2330,19 +2330,19 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
         Ok(None) => (t, tbl)
         Ok(Some((t, tbl))) => (t, tbl)
       }
-      Ok(Some((t, ReturnCallIndirect(ty, tbl))))
+      Ok(Some((t, Instruction::return_call_indirect(ty, tbl))))
     }
     CallRef(ty) =>
       match self.walk_typeidx(t, ty) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, ty))) => Ok(Some((t, CallRef(ty))))
+        Ok(Some((t, ty))) => Ok(Some((t, Instruction::call_ref(ty))))
       }
     ReturnCallRef(ty) =>
       match self.walk_typeidx(t, ty) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, ty))) => Ok(Some((t, ReturnCallRef(ty))))
+        Ok(Some((t, ty))) => Ok(Some((t, Instruction::return_call_ref(ty))))
       }
 
     // Variable instructions
@@ -2350,31 +2350,31 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
       match self.walk_localidx(t, l) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, l))) => Ok(Some((t, LocalGet(l))))
+        Ok(Some((t, l))) => Ok(Some((t, Instruction::local_get(l))))
       }
     LocalSet(l) =>
       match self.walk_localidx(t, l) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, l))) => Ok(Some((t, LocalSet(l))))
+        Ok(Some((t, l))) => Ok(Some((t, Instruction::local_set(l))))
       }
     LocalTee(l) =>
       match self.walk_localidx(t, l) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, l))) => Ok(Some((t, LocalTee(l))))
+        Ok(Some((t, l))) => Ok(Some((t, Instruction::local_tee(l))))
       }
     GlobalGet(g) =>
       match self.walk_globalidx(t, g) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, g))) => Ok(Some((t, GlobalGet(g))))
+        Ok(Some((t, g))) => Ok(Some((t, Instruction::global_get(g))))
       }
     GlobalSet(g) =>
       match self.walk_globalidx(t, g) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, g))) => Ok(Some((t, GlobalSet(g))))
+        Ok(Some((t, g))) => Ok(Some((t, Instruction::global_set(g))))
       }
 
     // Table instructions
@@ -2382,31 +2382,31 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
       match self.walk_tableidx(t, tbl) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, tbl))) => Ok(Some((t, TableGet(tbl))))
+        Ok(Some((t, tbl))) => Ok(Some((t, Instruction::table_get(tbl))))
       }
     TableSet(tbl) =>
       match self.walk_tableidx(t, tbl) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, tbl))) => Ok(Some((t, TableSet(tbl))))
+        Ok(Some((t, tbl))) => Ok(Some((t, Instruction::table_set(tbl))))
       }
     TableGrow(tbl) =>
       match self.walk_tableidx(t, tbl) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, tbl))) => Ok(Some((t, TableGrow(tbl))))
+        Ok(Some((t, tbl))) => Ok(Some((t, Instruction::table_grow(tbl))))
       }
     TableSize(tbl) =>
       match self.walk_tableidx(t, tbl) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, tbl))) => Ok(Some((t, TableSize(tbl))))
+        Ok(Some((t, tbl))) => Ok(Some((t, Instruction::table_size(tbl))))
       }
     TableFill(tbl) =>
       match self.walk_tableidx(t, tbl) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, tbl))) => Ok(Some((t, TableFill(tbl))))
+        Ok(Some((t, tbl))) => Ok(Some((t, Instruction::table_fill(tbl))))
       }
     TableCopy(t1, t2) => {
       let (t, t1) = match self.walk_tableidx(t, t1) {
@@ -2419,7 +2419,7 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
         Ok(None) => (t, t2)
         Ok(Some((t, t2))) => (t, t2)
       }
-      Ok(Some((t, TableCopy(t1, t2))))
+      Ok(Some((t, Instruction::table_copy(t1, t2))))
     }
     TableInit(e, tbl) => {
       let (t, e) = match self.walk_elemidx(t, e) {
@@ -2432,13 +2432,13 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
         Ok(None) => (t, tbl)
         Ok(Some((t, tbl))) => (t, tbl)
       }
-      Ok(Some((t, TableInit(e, tbl))))
+      Ok(Some((t, Instruction::table_init(e, tbl))))
     }
     ElemDrop(e) =>
       match self.walk_elemidx(t, e) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, e))) => Ok(Some((t, ElemDrop(e))))
+        Ok(Some((t, e))) => Ok(Some((t, Instruction::elem_drop(e))))
       }
 
     // Reference instructions
@@ -2446,25 +2446,25 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
       match self.walk_heaptype(t, ht) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, ht))) => Ok(Some((t, RefNull(ht))))
+        Ok(Some((t, ht))) => Ok(Some((t, Instruction::ref_null(ht))))
       }
     RefFunc(f) =>
       match self.walk_funcidx(t, f) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, f))) => Ok(Some((t, RefFunc(f))))
+        Ok(Some((t, f))) => Ok(Some((t, Instruction::ref_func(f))))
       }
     RefTest(nullable, ht) =>
       match self.walk_heaptype(t, ht) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, ht))) => Ok(Some((t, RefTest(nullable, ht))))
+        Ok(Some((t, ht))) => Ok(Some((t, Instruction::ref_test(nullable, ht))))
       }
     RefCast(nullable, ht) =>
       match self.walk_heaptype(t, ht) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, ht))) => Ok(Some((t, RefCast(nullable, ht))))
+        Ok(Some((t, ht))) => Ok(Some((t, Instruction::ref_cast(nullable, ht))))
       }
 
     // Struct/Array instructions
@@ -2472,61 +2472,61 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
       match self.walk_typeidx(t, ty) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, ty))) => Ok(Some((t, StructNew(ty))))
+        Ok(Some((t, ty))) => Ok(Some((t, Instruction::struct_new(ty))))
       }
     StructNewDefault(ty) =>
       match self.walk_typeidx(t, ty) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, ty))) => Ok(Some((t, StructNewDefault(ty))))
+        Ok(Some((t, ty))) => Ok(Some((t, Instruction::struct_new_default(ty))))
       }
     StructGet(ty, f) =>
       match self.walk_typeidx(t, ty) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, ty))) => Ok(Some((t, StructGet(ty, f))))
+        Ok(Some((t, ty))) => Ok(Some((t, Instruction::struct_get(ty, f))))
       }
     StructGetS(ty, f) =>
       match self.walk_typeidx(t, ty) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, ty))) => Ok(Some((t, StructGetS(ty, f))))
+        Ok(Some((t, ty))) => Ok(Some((t, Instruction::struct_get_s(ty, f))))
       }
     StructGetU(ty, f) =>
       match self.walk_typeidx(t, ty) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, ty))) => Ok(Some((t, StructGetU(ty, f))))
+        Ok(Some((t, ty))) => Ok(Some((t, Instruction::struct_get_u(ty, f))))
       }
     StructSet(ty, f) =>
       match self.walk_typeidx(t, ty) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, ty))) => Ok(Some((t, StructSet(ty, f))))
+        Ok(Some((t, ty))) => Ok(Some((t, Instruction::struct_set(ty, f))))
       }
     ArrayNew(ty) =>
       match self.walk_typeidx(t, ty) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, ty))) => Ok(Some((t, ArrayNew(ty))))
+        Ok(Some((t, ty))) => Ok(Some((t, Instruction::array_new(ty))))
       }
     ArrayNewDefault(ty) =>
       match self.walk_typeidx(t, ty) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, ty))) => Ok(Some((t, ArrayNewDefault(ty))))
+        Ok(Some((t, ty))) => Ok(Some((t, Instruction::array_new_default(ty))))
       }
     ArrayNewFixed(ty, n) =>
       match self.walk_typeidx(t, ty) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, ty))) => Ok(Some((t, ArrayNewFixed(ty, n))))
+        Ok(Some((t, ty))) => Ok(Some((t, Instruction::array_new_fixed(ty, n))))
       }
     ArrayNewData(ty, n) =>
       match self.walk_typeidx(t, ty) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, ty))) => Ok(Some((t, ArrayNewData(ty, n))))
+        Ok(Some((t, ty))) => Ok(Some((t, Instruction::array_new_data(ty, n))))
       }
     ArrayNewElem(ty, e) => {
       let (t, ty) = match self.walk_typeidx(t, ty) {
@@ -2539,37 +2539,37 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
         Ok(None) => (t, e)
         Ok(Some((t, e))) => (t, e)
       }
-      Ok(Some((t, ArrayNewElem(ty, e))))
+      Ok(Some((t, Instruction::array_new_elem(ty, e))))
     }
     ArrayGet(ty) =>
       match self.walk_typeidx(t, ty) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, ty))) => Ok(Some((t, ArrayGet(ty))))
+        Ok(Some((t, ty))) => Ok(Some((t, Instruction::array_get(ty))))
       }
     ArrayGetS(ty) =>
       match self.walk_typeidx(t, ty) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, ty))) => Ok(Some((t, ArrayGetS(ty))))
+        Ok(Some((t, ty))) => Ok(Some((t, Instruction::array_get_s(ty))))
       }
     ArrayGetU(ty) =>
       match self.walk_typeidx(t, ty) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, ty))) => Ok(Some((t, ArrayGetU(ty))))
+        Ok(Some((t, ty))) => Ok(Some((t, Instruction::array_get_u(ty))))
       }
     ArraySet(ty) =>
       match self.walk_typeidx(t, ty) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, ty))) => Ok(Some((t, ArraySet(ty))))
+        Ok(Some((t, ty))) => Ok(Some((t, Instruction::array_set(ty))))
       }
     ArrayFill(ty) =>
       match self.walk_typeidx(t, ty) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, ty))) => Ok(Some((t, ArrayFill(ty))))
+        Ok(Some((t, ty))) => Ok(Some((t, Instruction::array_fill(ty))))
       }
     ArrayCopy(t1, t2) => {
       let (t, t1) = match self.walk_typeidx(t, t1) {
@@ -2582,7 +2582,7 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
         Ok(None) => (t, t2)
         Ok(Some((t, t2))) => (t, t2)
       }
-      Ok(Some((t, ArrayCopy(t1, t2))))
+      Ok(Some((t, Instruction::array_copy(t1, t2))))
     }
     ArrayInitData(ty, d) => {
       let (t, ty) = match self.walk_typeidx(t, ty) {
@@ -2595,7 +2595,7 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
         Ok(None) => (t, d)
         Ok(Some((t, d))) => (t, d)
       }
-      Ok(Some((t, ArrayInitData(ty, d))))
+      Ok(Some((t, Instruction::array_init_data(ty, d))))
     }
     ArrayInitElem(ty, e) => {
       let (t, ty) = match self.walk_typeidx(t, ty) {
@@ -2608,7 +2608,7 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
         Ok(None) => (t, e)
         Ok(Some((t, e))) => (t, e)
       }
-      Ok(Some((t, ArrayInitElem(ty, e))))
+      Ok(Some((t, Instruction::array_init_elem(ty, e))))
     }
 
     // Memory instructions
@@ -2616,19 +2616,19 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
       match self.walk_memidx(t, m) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, m))) => Ok(Some((t, MemorySize(m))))
+        Ok(Some((t, m))) => Ok(Some((t, Instruction::memory_size(m))))
       }
     MemoryGrow(m) =>
       match self.walk_memidx(t, m) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, m))) => Ok(Some((t, MemoryGrow(m))))
+        Ok(Some((t, m))) => Ok(Some((t, Instruction::memory_grow(m))))
       }
     MemoryFill(m) =>
       match self.walk_memidx(t, m) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, m))) => Ok(Some((t, MemoryFill(m))))
+        Ok(Some((t, m))) => Ok(Some((t, Instruction::memory_fill(m))))
       }
     MemoryCopy(m1, m2) => {
       let (t, m1) = match self.walk_memidx(t, m1) {
@@ -2641,7 +2641,7 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
         Ok(None) => (t, m2)
         Ok(Some((t, m2))) => (t, m2)
       }
-      Ok(Some((t, MemoryCopy(m1, m2))))
+      Ok(Some((t, Instruction::memory_copy(m1, m2))))
     }
     MemoryInit(d, m) => {
       let (t, d) = match self.walk_dataidx(t, d) {
@@ -2654,13 +2654,13 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
         Ok(None) => (t, m)
         Ok(Some((t, m))) => (t, m)
       }
-      Ok(Some((t, MemoryInit(d, m))))
+      Ok(Some((t, Instruction::memory_init(d, m))))
     }
     DataDrop(d) =>
       match self.walk_dataidx(t, d) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, d))) => Ok(Some((t, DataDrop(d))))
+        Ok(Some((t, d))) => Ok(Some((t, Instruction::data_drop(d))))
       }
 
     // Exception instructions
@@ -2668,7 +2668,7 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
       match self.walk_tagidx(t, ty) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, ty))) => Ok(Some((t, Throw(ty))))
+        Ok(Some((t, ty))) => Ok(Some((t, Instruction::throw_(ty))))
       }
 
     // Select with types
@@ -2679,7 +2679,7 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
           match self.walk_array(t, ModuleTransformer::walk_valtype, types) {
             Err(e) => Err(e)
             Ok(None) => Ok(None)
-            Ok(Some((t, types))) => Ok(Some((t, Select(Some(types)))))
+            Ok(Some((t, types))) => Ok(Some((t, Instruction::select(types = Some(types)))))
           }
       }
 
@@ -2716,13 +2716,13 @@ pub fn[T] ModuleTransformer::walk_blocktype_default(
       match self.walk_valtype(t, vt) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, vt))) => Ok(Some((t, ValTypeBlockType(vt))))
+        Ok(Some((t, vt))) => Ok(Some((t, BlockType::val_type(vt))))
       }
     TypeIdxBlockType(ty) =>
       match self.walk_typeidx(t, ty) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, ty))) => Ok(Some((t, TypeIdxBlockType(ty))))
+        Ok(Some((t, ty))) => Ok(Some((t, BlockType::type_idx(ty))))
       }
     _ => Ok(None)
   }
@@ -2746,7 +2746,7 @@ pub fn[T] ModuleTransformer::walk_catch(
         Ok(None) => (t, label)
         Ok(Some((t, label))) => (t, label)
       }
-      Ok(Some((t, Catch(tag, label))))
+      Ok(Some((t, Catch::new(tag, label))))
     }
     CatchRef(tag, label) => {
       let (t, tag) = match self.walk_tagidx(t, tag) {
@@ -2759,19 +2759,19 @@ pub fn[T] ModuleTransformer::walk_catch(
         Ok(None) => (t, label)
         Ok(Some((t, label))) => (t, label)
       }
-      Ok(Some((t, CatchRef(tag, label))))
+      Ok(Some((t, Catch::ref_(tag, label))))
     }
     CatchAll(label) =>
       match self.walk_labelidx(t, label) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, label))) => Ok(Some((t, CatchAll(label))))
+        Ok(Some((t, label))) => Ok(Some((t, Catch::all(label))))
       }
     CatchAllRef(label) =>
       match self.walk_labelidx(t, label) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, label))) => Ok(Some((t, CatchAllRef(label))))
+        Ok(Some((t, label))) => Ok(Some((t, Catch::all_ref(label))))
       }
   }
 }
@@ -2938,13 +2938,13 @@ pub fn[T] ModuleTransformer::walk_valtype_default(
       match self.walk_reftype(t, rt) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, rt))) => Ok(Some((t, RefTypeValType(rt))))
+        Ok(Some((t, rt))) => Ok(Some((t, ValType::ref_type(rt))))
       }
     NumTypeValType(nt) =>
       match self.walk_numtype(t, nt) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, nt))) => Ok(Some((t, NumTypeValType(nt))))
+        Ok(Some((t, nt))) => Ok(Some((t, ValType::num_type(nt))))
       }
     _ => Ok(None)
   }
@@ -2990,7 +2990,7 @@ pub fn[T] ModuleTransformer::walk_reftype_default(
       match self.walk_heaptype(t, ht) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, ht))) => Ok(Some((t, HeapTypeRefType(nullable, ht))))
+        Ok(Some((t, ht))) => Ok(Some((t, RefType::new(nullable, ht))))
       }
     _ => Ok(None)
   }
@@ -3024,7 +3024,7 @@ pub fn[T] ModuleTransformer::walk_heaptype_default(
       match self.walk_typeidx(t, ty) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, ty))) => Ok(Some((t, HeapType(ty))))
+        Ok(Some((t, ty))) => Ok(Some((t, HeapType::new(ty))))
       }
     _ => Ok(None)
   }
@@ -3042,7 +3042,7 @@ pub fn[T] ModuleTransformer::walk_customsec(
   match self.walk_name(t, n) {
     Err(e) => Err(e)
     Ok(None) => Ok(None)
-    Ok(Some((t, n))) => Ok(Some((t, CustomSec(n, d))))
+    Ok(Some((t, n))) => Ok(Some((t, CustomSec::new(n, d))))
   }
 }
 
@@ -3203,22 +3203,22 @@ pub fn[T] ModuleTransformer::walk_module(
     Some(
       (
         t,
-        Module::{
-          custom_secs,
-          type_sec,
-          import_sec,
-          func_sec,
-          table_sec,
-          mem_sec,
-          tag_sec,
-          global_sec,
-          export_sec,
-          start_sec,
-          elem_sec,
-          data_cnt_sec,
-          code_sec,
-          data_sec,
-        },
+        Module::new(
+          custom_secs = custom_secs,
+          type_sec = type_sec,
+          import_sec = import_sec,
+          func_sec = func_sec,
+          table_sec = table_sec,
+          mem_sec = mem_sec,
+          tag_sec = tag_sec,
+          global_sec = global_sec,
+          export_sec = export_sec,
+          start_sec = start_sec,
+          elem_sec = elem_sec,
+          data_cnt_sec = data_cnt_sec,
+          code_sec = code_sec,
+          data_sec = data_sec,
+        ),
       ),
     ),
   )
@@ -3251,7 +3251,7 @@ pub fn[T] ModuleTransformer::walk_datasec_default(
   match self.walk_array(t, ModuleTransformer::walk_data, ds) {
     Err(e) => Err(e)
     Ok(None) => Ok(None)
-    Ok(Some((t, ds))) => Ok(Some((t, DataSec(ds))))
+    Ok(Some((t, ds))) => Ok(Some((t, DataSec::new(ds))))
   }
 }
 
@@ -3282,7 +3282,7 @@ pub fn[T] ModuleTransformer::walk_codesec_default(
   match self.walk_array(t, ModuleTransformer::walk_func, fs) {
     Err(e) => Err(e)
     Ok(None) => Ok(None)
-    Ok(Some((t, fs))) => Ok(Some((t, CodeSec(fs))))
+    Ok(Some((t, fs))) => Ok(Some((t, CodeSec::new(fs))))
   }
 }
 
@@ -3325,7 +3325,7 @@ pub fn[T] ModuleTransformer::walk_elemsec_default(
   match self.walk_array(t, ModuleTransformer::walk_elem, es) {
     Err(e) => Err(e)
     Ok(None) => Ok(None)
-    Ok(Some((t, es))) => Ok(Some((t, ElemSec(es))))
+    Ok(Some((t, es))) => Ok(Some((t, ElemSec::new(es))))
   }
 }
 
@@ -3356,7 +3356,7 @@ pub fn[T] ModuleTransformer::walk_startsec_default(
   match self.walk_funcidx(t, fidx) {
     Err(e) => Err(e)
     Ok(None) => Ok(None)
-    Ok(Some((t, fidx))) => Ok(Some((t, StartSec(fidx))))
+    Ok(Some((t, fidx))) => Ok(Some((t, StartSec::new(fidx))))
   }
 }
 
@@ -3387,7 +3387,7 @@ pub fn[T] ModuleTransformer::walk_exportsec_default(
   match self.walk_array(t, ModuleTransformer::walk_export, es) {
     Err(e) => Err(e)
     Ok(None) => Ok(None)
-    Ok(Some((t, es))) => Ok(Some((t, ExportSec(es))))
+    Ok(Some((t, es))) => Ok(Some((t, ExportSec::new(es))))
   }
 }
 
@@ -3418,7 +3418,7 @@ pub fn[T] ModuleTransformer::walk_tagsec_default(
   match self.walk_array(t, ModuleTransformer::walk_tagtype, tags) {
     Err(e) => Err(e)
     Ok(None) => Ok(None)
-    Ok(Some((t, tags))) => Ok(Some((t, TagSec(tags))))
+    Ok(Some((t, tags))) => Ok(Some((t, TagSec::new(tags))))
   }
 }
 
@@ -3449,7 +3449,7 @@ pub fn[T] ModuleTransformer::walk_memsec_default(
   match self.walk_array(t, ModuleTransformer::walk_memtype, m) {
     Err(e) => Err(e)
     Ok(None) => Ok(None)
-    Ok(Some((t, m))) => Ok(Some((t, MemSec(m))))
+    Ok(Some((t, m))) => Ok(Some((t, MemSec::new(m))))
   }
 }
 
@@ -3480,7 +3480,7 @@ pub fn[T] ModuleTransformer::walk_tablesec_default(
   match self.walk_array(t, ModuleTransformer::walk_table, tts) {
     Err(e) => Err(e)
     Ok(None) => Ok(None)
-    Ok(Some((t, tts))) => Ok(Some((t, TableSec(tts))))
+    Ok(Some((t, tts))) => Ok(Some((t, TableSec::new(tts))))
   }
 }
 
@@ -3521,7 +3521,7 @@ pub fn[T] ModuleTransformer::walk_func_default(
       match self.walk_expr(t, body) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, body))) => Ok(Some((t, Func(locals, body))))
+        Ok(Some((t, body))) => Ok(Some((t, Func::new(locals, body))))
       }
     }
     TFunc(locals, tbody) => {
@@ -3536,7 +3536,7 @@ pub fn[T] ModuleTransformer::walk_func_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, TFunc(locals, tbody))))
+      Ok(Some((t, Func::t_func(locals, tbody))))
     }
   }
 }
@@ -3572,7 +3572,7 @@ pub fn[T] ModuleTransformer::walk_single_local(
   match self.walk_valtype(t, vt) {
     Err(e) => Err(e)
     Ok(None) => Ok(None)
-    Ok(Some((t, vt))) => Ok(Some((t, Locals(count, vt))))
+    Ok(Some((t, vt))) => Ok(Some((t, Locals::new(count, vt))))
   }
 }
 
@@ -3586,7 +3586,7 @@ pub fn[T] ModuleTransformer::walk_importsec(
   match self.walk_array(t, ModuleTransformer::walk_import, ims) {
     Err(e) => Err(e)
     Ok(None) => Ok(None)
-    Ok(Some((t, ims))) => Ok(Some((t, ImportSec(ims))))
+    Ok(Some((t, ims))) => Ok(Some((t, ImportSec::new(ims))))
   }
 }
 
@@ -3624,7 +3624,7 @@ pub fn[T] ModuleTransformer::walk_export_default(
     Ok(None) => (t, ei)
     Ok(Some((t, ei))) => (t, ei)
   }
-  Ok(Some((t, Export(n, ei))))
+  Ok(Some((t, Export::new(n, ei))))
 }
 
 ///|
@@ -3655,31 +3655,31 @@ pub fn[T] ModuleTransformer::walk_externidx_default(
       match self.walk_funcidx(t, fi) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, fi))) => Ok(Some((t, FuncExternIdx(fi))))
+        Ok(Some((t, fi))) => Ok(Some((t, ExternIdx::func(fi))))
       }
     TableExternIdx(ti) =>
       match self.walk_tableidx(t, ti) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, ti))) => Ok(Some((t, TableExternIdx(ti))))
+        Ok(Some((t, ti))) => Ok(Some((t, ExternIdx::table(ti))))
       }
     MemExternIdx(mi) =>
       match self.walk_memidx(t, mi) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, mi))) => Ok(Some((t, MemExternIdx(mi))))
+        Ok(Some((t, mi))) => Ok(Some((t, ExternIdx::mem(mi))))
       }
     GlobalExternIdx(gi) =>
       match self.walk_globalidx(t, gi) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, gi))) => Ok(Some((t, GlobalExternIdx(gi))))
+        Ok(Some((t, gi))) => Ok(Some((t, ExternIdx::global(gi))))
       }
     TagExternIdx(ti) =>
       match self.walk_tagidx(t, ti) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, ti))) => Ok(Some((t, TagExternIdx(ti))))
+        Ok(Some((t, ti))) => Ok(Some((t, ExternIdx::tag(ti))))
       }
   }
 }
@@ -3722,7 +3722,7 @@ pub fn[T] ModuleTransformer::walk_table_default(
         Ok(Some((t, e))) => (t, Some(e))
       }
   }
-  Ok(Some((t, Table(tt, e_option))))
+  Ok(Some((t, Table::new(tt, e_option))))
 }
 
 ///|
@@ -3747,7 +3747,7 @@ pub fn[T] ModuleTransformer::walk_import(
     Ok(None) => (t, ty)
     Ok(Some((t, ty))) => (t, ty)
   }
-  Ok(Some((t, Import(n1, n2, ty))))
+  Ok(Some((t, Import::new(n1, n2, ty))))
 }
 
 ///|
@@ -3789,7 +3789,7 @@ pub fn[T] ModuleTransformer::walk_tagtype_default(
   match self.walk_typeidx(t, ti) {
     Err(e) => Err(e)
     Ok(None) => Ok(None)
-    Ok(Some((t, ti))) => Ok(Some((t, TagType(ti))))
+    Ok(Some((t, ti))) => Ok(Some((t, TagType::new(ti))))
   }
 }
 
@@ -3820,7 +3820,7 @@ pub fn[T] ModuleTransformer::walk_memtype_default(
   match self.walk_limits(t, l) {
     Err(e) => Err(e)
     Ok(None) => Ok(None)
-    Ok(Some((t, l))) => Ok(Some((t, MemType(l))))
+    Ok(Some((t, l))) => Ok(Some((t, MemType::new(l))))
   }
 }
 
@@ -3841,7 +3841,7 @@ pub fn[T] ModuleTransformer::walk_tabletype(
     Ok(None) => (t, l)
     Ok(Some((t, l))) => (t, l)
   }
-  Ok(Some((t, TableType(rt, l))))
+  Ok(Some((t, TableType::new(rt, l))))
 }
 
 ///|
@@ -3883,7 +3883,7 @@ pub fn[T] ModuleTransformer::walk_typesec_default(
   match self.walk_array(t, ModuleTransformer::walk_rectype, rectypes) {
     Err(e) => Err(e)
     Ok(None) => Ok(None)
-    Ok(Some((t, rectypes))) => Ok(Some((t, TypeSec(rectypes))))
+    Ok(Some((t, rectypes))) => Ok(Some((t, TypeSec::new(rectypes))))
   }
 }
 
@@ -3915,13 +3915,13 @@ pub fn[T] ModuleTransformer::walk_rectype_default(
       match self.walk_subtype(t, st) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, st))) => Ok(Some((t, SingleRecType(st))))
+        Ok(Some((t, st))) => Ok(Some((t, RecType::new(st))))
       }
     GroupRecType(sts) =>
       match self.walk_array(t, ModuleTransformer::walk_subtype, sts) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, sts))) => Ok(Some((t, GroupRecType(sts))))
+        Ok(Some((t, sts))) => Ok(Some((t, RecType::group(sts))))
       }
   }
 }
@@ -3962,13 +3962,13 @@ pub fn[T] ModuleTransformer::walk_subtype_default(
         Ok(None) => (t, ct)
         Ok(Some((t, ct))) => (t, ct)
       }
-      Ok(Some((t, SubType(f, supers, ct))))
+      Ok(Some((t, SubType::new(f, supers, ct))))
     }
     CompTypeSubType(ct) =>
       match self.walk_comptype(t, ct) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, ct))) => Ok(Some((t, CompTypeSubType(ct))))
+        Ok(Some((t, ct))) => Ok(Some((t, SubType::comp_type(ct))))
       }
   }
 }
@@ -4010,19 +4010,19 @@ pub fn[T] ModuleTransformer::walk_comptype_default(
         Ok(None) => (t, results)
         Ok(Some((t, results))) => (t, results)
       }
-      Ok(Some((t, FuncCompType(params, results))))
+      Ok(Some((t, CompType::func(params, results))))
     }
     StructCompType(fields) =>
       match self.walk_array(t, ModuleTransformer::walk_fieldtype, fields) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, fields))) => Ok(Some((t, StructCompType(fields))))
+        Ok(Some((t, fields))) => Ok(Some((t, CompType::struct_(fields))))
       }
     ArrayCompType(ft) =>
       match self.walk_fieldtype(t, ft) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, ft))) => Ok(Some((t, ArrayCompType(ft))))
+        Ok(Some((t, ft))) => Ok(Some((t, CompType::array(ft))))
       }
   }
 }
@@ -4054,7 +4054,7 @@ pub fn[T] ModuleTransformer::walk_fieldtype_default(
   match self.walk_storagetype(t, st) {
     Err(e) => Err(e)
     Ok(None) => Ok(None)
-    Ok(Some((t, st))) => Ok(Some((t, FieldType(st, mut_))))
+    Ok(Some((t, st))) => Ok(Some((t, FieldType::new(st, mut_))))
   }
 }
 
@@ -4086,7 +4086,7 @@ pub fn[T] ModuleTransformer::walk_storagetype_default(
       match self.walk_valtype(t, vt) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, vt))) => Ok(Some((t, ValTypeStorageType(vt))))
+        Ok(Some((t, vt))) => Ok(Some((t, StorageType::val_type(vt))))
       }
     PackTypeStorageType(_) => Ok(None)
   }
@@ -4119,7 +4119,7 @@ pub fn[T] ModuleTransformer::walk_globalsec_default(
   match self.walk_array(t, ModuleTransformer::walk_global, gs) {
     Err(e) => Err(e)
     Ok(None) => Ok(None)
-    Ok(Some((t, gs))) => Ok(Some((t, GlobalSec(gs))))
+    Ok(Some((t, gs))) => Ok(Some((t, GlobalSec::new(gs))))
   }
 }
 
@@ -4157,7 +4157,7 @@ pub fn[T] ModuleTransformer::walk_global_default(
     Ok(None) => (t, init)
     Ok(Some((t, init))) => (t, init)
   }
-  Ok(Some((t, Global(gt, init))))
+  Ok(Some((t, Global::new(gt, init))))
 }
 
 ///|
@@ -4187,7 +4187,7 @@ pub fn[T] ModuleTransformer::walk_globaltype_default(
   match self.walk_valtype(t, vt) {
     Err(e) => Err(e)
     Ok(None) => Ok(None)
-    Ok(Some((t, vt))) => Ok(Some((t, GlobalType(vt, mutable))))
+    Ok(Some((t, vt))) => Ok(Some((t, GlobalType::new(vt, mutable))))
   }
 }
 
@@ -4208,7 +4208,7 @@ pub fn[T] ModuleTransformer::walk_elem(
     Ok(None) => (t, kind)
     Ok(Some((t, kind))) => (t, kind)
   }
-  Ok(Some((t, Elem(mode, kind))))
+  Ok(Some((t, Elem::new(mode, kind))))
 }
 
 ///|
@@ -4229,7 +4229,7 @@ pub fn[T] ModuleTransformer::walk_elemmode(
         Ok(None) => (t, offset)
         Ok(Some((t, offset))) => (t, offset)
       }
-      Ok(Some((t, Active(tidx, offset))))
+      Ok(Some((t, ElemMode::active(tidx, offset))))
     }
     _ => Ok(None)
   }
@@ -4263,13 +4263,13 @@ pub fn[T] ModuleTransformer::walk_elemkind_default(
       match self.walk_array(t, ModuleTransformer::walk_funcidx, idxs) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, idxs))) => Ok(Some((t, FuncsElemKind(idxs))))
+        Ok(Some((t, idxs))) => Ok(Some((t, ElemKind::funcs(idxs))))
       }
     FuncExprsElemKind(exprs) =>
       match self.walk_array(t, ModuleTransformer::walk_expr, exprs) {
         Err(e) => Err(e)
         Ok(None) => Ok(None)
-        Ok(Some((t, exprs))) => Ok(Some((t, FuncExprsElemKind(exprs))))
+        Ok(Some((t, exprs))) => Ok(Some((t, ElemKind::func_exprs(exprs))))
       }
     TypedExprsElemKind(rt, exprs) => {
       let (t, rt) = match self.walk_reftype(t, rt) {
@@ -4283,7 +4283,7 @@ pub fn[T] ModuleTransformer::walk_elemkind_default(
         Ok(None) => (t, exprs)
         Ok(Some((t, exprs))) => (t, exprs)
       }
-      Ok(Some((t, TypedExprsElemKind(rt, exprs))))
+      Ok(Some((t, ElemKind::typed_exprs(rt, exprs))))
     }
   }
 }
@@ -4300,7 +4300,7 @@ pub fn[T] ModuleTransformer::walk_data(
     Ok(None) => (t, mode)
     Ok(Some((t, mode))) => (t, mode)
   }
-  Ok(Some((t, Data(mode, bytes))))
+  Ok(Some((t, Data::new(mode, bytes))))
 }
 
 ///|
@@ -4321,7 +4321,7 @@ pub fn[T] ModuleTransformer::walk_datamode(
         Ok(None) => (t, offset)
         Ok(Some((t, offset))) => (t, offset)
       }
-      Ok(Some((t, Active(midx, offset))))
+      Ok(Some((t, DataMode::active(midx, offset))))
     }
     Passive => Ok(None)
   }
@@ -4354,7 +4354,7 @@ pub fn[T] ModuleTransformer::walk_funcsec_default(
   match self.walk_array(t, ModuleTransformer::walk_typeidx, idxs) {
     Err(e) => Err(e)
     Ok(None) => Ok(None)
-    Ok(Some((t, idxs))) => Ok(Some((t, FuncSec(idxs))))
+    Ok(Some((t, idxs))) => Ok(Some((t, FuncSec::new(idxs))))
   }
 }
 

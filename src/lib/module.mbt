@@ -1,24 +1,4 @@
 ///|
-pub fn Module::new() -> Module {
-  Module::{
-    custom_secs: [],
-    type_sec: None,
-    import_sec: None,
-    func_sec: None,
-    table_sec: None,
-    mem_sec: None,
-    tag_sec: None,
-    global_sec: None,
-    export_sec: None,
-    start_sec: None,
-    elem_sec: None,
-    data_cnt_sec: None,
-    code_sec: None,
-    data_sec: None,
-  }
-}
-
-///|
 pub fn Module::with_custom_secs(
   self : Module,
   custom_secs : Array[CustomSec],

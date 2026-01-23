@@ -1,6 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "jtenner/starshine/dataflow"
 
+import {
+  "jtenner/starshine/lib",
+}
+
 // Values
 
 // Errors
@@ -12,6 +16,7 @@ pub struct BinaryExpr {
   right : ExprId
   result_type : WasmType
 }
+pub fn BinaryExpr::new(BinaryOp, ExprId, ExprId, WasmType) -> Self
 pub impl Eq for BinaryExpr
 pub impl Show for BinaryExpr
 
@@ -75,8 +80,66 @@ pub enum BinaryOp {
   DivFloat32
   DivFloat64
 }
+pub fn BinaryOp::add_float32() -> Self
+pub fn BinaryOp::add_float64() -> Self
+pub fn BinaryOp::add_int32() -> Self
+pub fn BinaryOp::add_int64() -> Self
+pub fn BinaryOp::and_int32() -> Self
+pub fn BinaryOp::and_int64() -> Self
+pub fn BinaryOp::div_float32() -> Self
+pub fn BinaryOp::div_float64() -> Self
+pub fn BinaryOp::div_s_int32() -> Self
+pub fn BinaryOp::div_s_int64() -> Self
+pub fn BinaryOp::div_u_int32() -> Self
+pub fn BinaryOp::div_u_int64() -> Self
+pub fn BinaryOp::eq_int32() -> Self
+pub fn BinaryOp::eq_int64() -> Self
+pub fn BinaryOp::ge_s_int32() -> Self
+pub fn BinaryOp::ge_s_int64() -> Self
+pub fn BinaryOp::ge_u_int32() -> Self
+pub fn BinaryOp::ge_u_int64() -> Self
 pub fn BinaryOp::get_opposite(Self) -> Self?
+pub fn BinaryOp::gt_s_int32() -> Self
+pub fn BinaryOp::gt_s_int64() -> Self
+pub fn BinaryOp::gt_u_int32() -> Self
+pub fn BinaryOp::gt_u_int64() -> Self
 pub fn BinaryOp::is_relational(Self) -> Bool
+pub fn BinaryOp::le_s_int32() -> Self
+pub fn BinaryOp::le_s_int64() -> Self
+pub fn BinaryOp::le_u_int32() -> Self
+pub fn BinaryOp::le_u_int64() -> Self
+pub fn BinaryOp::lt_s_int32() -> Self
+pub fn BinaryOp::lt_s_int64() -> Self
+pub fn BinaryOp::lt_u_int32() -> Self
+pub fn BinaryOp::lt_u_int64() -> Self
+pub fn BinaryOp::mul_float32() -> Self
+pub fn BinaryOp::mul_float64() -> Self
+pub fn BinaryOp::mul_int32() -> Self
+pub fn BinaryOp::mul_int64() -> Self
+pub fn BinaryOp::ne_int32() -> Self
+pub fn BinaryOp::ne_int64() -> Self
+pub fn BinaryOp::or_int32() -> Self
+pub fn BinaryOp::or_int64() -> Self
+pub fn BinaryOp::rem_s_int32() -> Self
+pub fn BinaryOp::rem_s_int64() -> Self
+pub fn BinaryOp::rem_u_int32() -> Self
+pub fn BinaryOp::rem_u_int64() -> Self
+pub fn BinaryOp::rot_l_int32() -> Self
+pub fn BinaryOp::rot_l_int64() -> Self
+pub fn BinaryOp::rot_r_int32() -> Self
+pub fn BinaryOp::rot_r_int64() -> Self
+pub fn BinaryOp::shl_int32() -> Self
+pub fn BinaryOp::shl_int64() -> Self
+pub fn BinaryOp::shr_s_int32() -> Self
+pub fn BinaryOp::shr_s_int64() -> Self
+pub fn BinaryOp::shr_u_int32() -> Self
+pub fn BinaryOp::shr_u_int64() -> Self
+pub fn BinaryOp::sub_float32() -> Self
+pub fn BinaryOp::sub_float64() -> Self
+pub fn BinaryOp::sub_int32() -> Self
+pub fn BinaryOp::sub_int64() -> Self
+pub fn BinaryOp::xor_int32() -> Self
+pub fn BinaryOp::xor_int64() -> Self
 pub impl Eq for BinaryOp
 pub impl Show for BinaryOp
 
@@ -85,6 +148,7 @@ pub struct BlockExpr {
   list : Array[ExprId]
   result_type : WasmType
 }
+pub fn BlockExpr::new(String?, Array[ExprId], WasmType) -> Self
 pub impl Eq for BlockExpr
 pub impl Show for BlockExpr
 
@@ -93,6 +157,7 @@ pub struct BreakExpr {
   value : ExprId?
   condition : ExprId?
 }
+pub fn BreakExpr::new(String, ExprId?, ExprId?) -> Self
 pub impl Eq for BreakExpr
 pub impl Show for BreakExpr
 
@@ -101,6 +166,7 @@ pub struct CallExpr {
   operands : Array[ExprId]
   result_type : WasmType
 }
+pub fn CallExpr::new(String, Array[ExprId], WasmType) -> Self
 pub impl Eq for CallExpr
 pub impl Show for CallExpr
 
@@ -113,12 +179,14 @@ pub impl Show for ConstExpr
 pub struct DropExpr {
   value : ExprId
 }
+pub fn DropExpr::new(ExprId) -> Self
 pub impl Eq for DropExpr
 pub impl Show for DropExpr
 
 pub struct ExprId(Int)
 #deprecated
 pub fn ExprId::inner(Self) -> Int
+pub fn ExprId::new(Int) -> Self
 pub impl Compare for ExprId
 pub impl Eq for ExprId
 pub impl Hash for ExprId
@@ -143,7 +211,24 @@ pub enum Expression {
   Return(ReturnExpr)
   Generic(GenericExpr)
 }
+pub fn Expression::binary(BinaryExpr) -> Self
+pub fn Expression::block(BlockExpr) -> Self
+pub fn Expression::break_(BreakExpr) -> Self
+pub fn Expression::call(CallExpr) -> Self
+pub fn Expression::const_(ConstExpr) -> Self
+pub fn Expression::drop(DropExpr) -> Self
+pub fn Expression::generic(GenericExpr) -> Self
 pub fn Expression::get_type(Self) -> WasmType
+pub fn Expression::if_(IfExpr) -> Self
+pub fn Expression::local_get(LocalGetExpr) -> Self
+pub fn Expression::local_set(LocalSetExpr) -> Self
+pub fn Expression::loop_(LoopExpr) -> Self
+pub fn Expression::nop() -> Self
+pub fn Expression::return_(ReturnExpr) -> Self
+pub fn Expression::select(SelectExpr) -> Self
+pub fn Expression::switch(SwitchExpr) -> Self
+pub fn Expression::unary(UnaryExpr) -> Self
+pub fn Expression::unreachable_() -> Self
 pub impl Eq for Expression
 pub impl Show for Expression
 
@@ -181,6 +266,7 @@ pub struct GenericExpr {
   children : Array[ExprId]
   result_type : WasmType
 }
+pub fn GenericExpr::new(Array[ExprId], WasmType) -> Self
 pub impl Eq for GenericExpr
 pub impl Show for GenericExpr
 
@@ -249,6 +335,7 @@ pub struct IfExpr {
   if_false : ExprId?
   result_type : WasmType
 }
+pub fn IfExpr::new(ExprId, ExprId, ExprId?, WasmType) -> Self
 pub impl Eq for IfExpr
 pub impl Show for IfExpr
 
@@ -258,8 +345,13 @@ pub enum Literal {
   LitF32(Float)
   LitF64(Double)
 }
+pub fn Literal::f32(Float) -> Self
+pub fn Literal::f64(Double) -> Self
 pub fn Literal::get_type(Self) -> WasmType
+pub fn Literal::i32(Int) -> Self
+pub fn Literal::i64(Int64) -> Self
 pub fn Literal::make_zero(WasmType) -> Self
+pub fn Literal::to_tinstr(Self) -> @lib.TInstr
 pub impl Eq for Literal
 pub impl Hash for Literal
 pub impl Show for Literal
@@ -267,6 +359,7 @@ pub impl Show for Literal
 pub struct LocalGetExpr {
   index : Int
 }
+pub fn LocalGetExpr::new(Int) -> Self
 pub impl Eq for LocalGetExpr
 pub impl Show for LocalGetExpr
 
@@ -281,6 +374,7 @@ pub struct LocalSetExpr {
   value : ExprId
   is_tee : Bool
 }
+pub fn LocalSetExpr::new(Int, ExprId, Bool) -> Self
 pub impl Eq for LocalSetExpr
 pub impl Show for LocalSetExpr
 
@@ -289,6 +383,7 @@ pub struct LoopExpr {
   body : ExprId
   result_type : WasmType
 }
+pub fn LoopExpr::new(String?, ExprId, WasmType) -> Self
 pub impl Eq for LoopExpr
 pub impl Show for LoopExpr
 
@@ -331,6 +426,7 @@ pub fn Node::returns_i1(Self) -> Bool
 pub struct NodeId(Int)
 #deprecated
 pub fn NodeId::inner(Self) -> Int
+pub fn NodeId::new(Int) -> Self
 pub impl Compare for NodeId
 pub impl Eq for NodeId
 pub impl Hash for NodeId
@@ -364,6 +460,7 @@ pub impl Show for NodeType
 pub struct ReturnExpr {
   value : ExprId?
 }
+pub fn ReturnExpr::new(ExprId?) -> Self
 pub impl Eq for ReturnExpr
 pub impl Show for ReturnExpr
 
@@ -373,6 +470,7 @@ pub struct SelectExpr {
   condition : ExprId
   result_type : WasmType
 }
+pub fn SelectExpr::new(ExprId, ExprId, ExprId, WasmType) -> Self
 pub impl Eq for SelectExpr
 pub impl Show for SelectExpr
 
@@ -381,6 +479,7 @@ pub struct SwitchExpr {
   targets : Array[String]
   default : String
 }
+pub fn SwitchExpr::new(ExprId, Array[String], String) -> Self
 pub impl Eq for SwitchExpr
 pub impl Show for SwitchExpr
 
@@ -389,6 +488,7 @@ pub struct UnaryExpr {
   value : ExprId
   result_type : WasmType
 }
+pub fn UnaryExpr::new(UnaryOp, ExprId, WasmType) -> Self
 pub impl Eq for UnaryExpr
 pub impl Show for UnaryExpr
 
@@ -409,7 +509,22 @@ pub enum UnaryOp {
   AbsFloat32
   AbsFloat64
 }
+pub fn UnaryOp::abs_float32() -> Self
+pub fn UnaryOp::abs_float64() -> Self
+pub fn UnaryOp::clz_int32() -> Self
+pub fn UnaryOp::clz_int64() -> Self
+pub fn UnaryOp::ctz_int32() -> Self
+pub fn UnaryOp::ctz_int64() -> Self
+pub fn UnaryOp::eq_z_int32() -> Self
+pub fn UnaryOp::eq_z_int64() -> Self
+pub fn UnaryOp::extend_s_int32() -> Self
+pub fn UnaryOp::extend_u_int32() -> Self
 pub fn UnaryOp::is_relational(Self) -> Bool
+pub fn UnaryOp::neg_float32() -> Self
+pub fn UnaryOp::neg_float64() -> Self
+pub fn UnaryOp::popcnt_int32() -> Self
+pub fn UnaryOp::popcnt_int64() -> Self
+pub fn UnaryOp::wrap_int64() -> Self
 pub impl Eq for UnaryOp
 pub impl Show for UnaryOp
 
@@ -425,8 +540,17 @@ pub enum WasmType {
   None
 }
 pub fn WasmType::bit_size(Self) -> Int
+pub fn WasmType::extern_ref() -> Self
+pub fn WasmType::f32() -> Self
+pub fn WasmType::f64() -> Self
+pub fn WasmType::func_ref() -> Self
+pub fn WasmType::i32() -> Self
+pub fn WasmType::i64() -> Self
 pub fn WasmType::is_concrete(Self) -> Bool
 pub fn WasmType::is_integer(Self) -> Bool
+pub fn WasmType::none() -> Self
+pub fn WasmType::unreachable() -> Self
+pub fn WasmType::v128() -> Self
 pub impl Eq for WasmType
 pub impl Hash for WasmType
 pub impl Show for WasmType

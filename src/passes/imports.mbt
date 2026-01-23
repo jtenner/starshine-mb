@@ -2,20 +2,14 @@
 using @lib {
   type Env,
   expand_locals,
-  change,
-  unchanged,
   single_rec_type,
   comp_type_sub_type,
   struct_comp_type,
   func_idx,
   func_comp_type,
   table_idx,
-  uses,
-  defs,
   tlocals_to_locals,
   type AbsHeapType,
-  type ModuleTransformer,
-  type TransformerResult,
   type TInstr,
   type LocalIdx,
   type ValType,
@@ -96,4 +90,11 @@ using @dataflow {
   type LoopExpr,
   type BreakExpr,
   type SwitchExpr,
+}
+
+using @transformer {
+  type ModuleTransformer,
+  type TransformerResult,
+  change,
+  unchanged,
 }

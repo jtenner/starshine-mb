@@ -2,26 +2,37 @@
 package "jtenner/starshine/passes"
 
 import {
+  "jtenner/starshine/dataflow",
   "jtenner/starshine/lib",
+  "jtenner/starshine/transformer",
   "moonbitlang/core/hashmap",
+  "moonbitlang/core/set",
 }
 
 // Values
-pub fn alignment_lowering_pass() -> @lib.ModuleTransformer[AlignmentLoweringContext]
+pub fn alignment_lowering_pass() -> @transformer.ModuleTransformer[AlignmentLoweringContext]
 
-pub fn code_folding_pass() -> @lib.ModuleTransformer[CodeFoldingState]
+pub fn code_folding_pass() -> @transformer.ModuleTransformer[CodeFoldingState]
 
-pub fn code_pushing_pass() -> @lib.ModuleTransformer[Unit]
+pub fn code_pushing_pass() -> @transformer.ModuleTransformer[Unit]
 
-pub fn const_hoisting_pass() -> @lib.ModuleTransformer[ConstHoistingState]
+pub fn const_hoisting_pass() -> @transformer.ModuleTransformer[ConstHoistingState]
 
-pub fn constant_field_propagation_pass() -> @lib.ModuleTransformer[CFPState]
+pub fn constant_field_propagation_pass() -> @transformer.ModuleTransformer[CFPState]
+
+pub fn defs(@lib.TInstr) -> @set.Set[@lib.LocalIdx]
 
 pub fn directize_module(@lib.Module, Bool) -> Result[@lib.Module, String]
 
-pub fn lift_to_texpr_pass() -> @lib.ModuleTransformer[Unit]
+pub fn gvn_pass(@dataflow.Graph) -> Unit
 
-pub fn lower_to_expr_pass() -> @lib.ModuleTransformer[Unit]
+pub fn lift_to_texpr_pass() -> @transformer.ModuleTransformer[Unit]
+
+pub fn lower_to_expr_pass() -> @transformer.ModuleTransformer[Unit]
+
+pub fn optimize(@dataflow.Graph) -> Unit
+
+pub fn optimize_graph(@dataflow.Graph) -> Unit
 
 pub fn propagate_to_supertypes(CFPState) -> Unit
 
@@ -30,6 +41,8 @@ pub fn run_constant_field_propagation(@lib.Module) -> Result[@lib.Module, String
 pub fn run_denam(@lib.Module) -> Result[@lib.Module, String]
 
 pub fn run_lower_to_expr_pass(@lib.Module) -> @lib.Module
+
+pub fn uses(@lib.TInstr) -> @set.Set[@lib.LocalIdx]
 
 // Errors
 
@@ -68,6 +81,10 @@ pub enum FieldValue {
 }
 pub impl Eq for FieldValue
 
+type GVNKey
+pub impl Eq for GVNKey
+pub impl Hash for GVNKey
+
 pub struct Literal(LiteralKind, Bytes)
 
 
@@ -87,6 +104,15 @@ pub impl Compare for LiteralKind
 pub impl Eq for LiteralKind
 pub impl Hash for LiteralKind
 pub impl Show for LiteralKind
+
+type NodeUsers
+pub fn NodeUsers::add_user(Self, @dataflow.NodeId, @dataflow.NodeId) -> Unit
+pub fn NodeUsers::build(@dataflow.Graph) -> Self
+pub fn NodeUsers::get_users(Self, @dataflow.NodeId) -> Array[@dataflow.NodeId]
+pub fn NodeUsers::new() -> Self
+pub fn NodeUsers::num_uses(Self, @dataflow.NodeId) -> Int
+pub fn NodeUsers::remove_all_uses_of(Self, @dataflow.NodeId) -> Unit
+pub fn NodeUsers::remove_user(Self, @dataflow.NodeId, @dataflow.NodeId) -> Unit
 
 pub struct SquareMatrix[T] {
   storage : Map[UInt64, T]

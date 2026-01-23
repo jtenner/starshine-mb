@@ -4,7 +4,6 @@ package "jtenner/starshine/lib"
 import {
   "moonbitlang/core/quickcheck",
   "moonbitlang/core/quickcheck/splitmix",
-  "moonbitlang/core/set",
 }
 
 // Values
@@ -12,17 +11,11 @@ pub fn array_comp_type(FieldType) -> CompType
 
 pub fn[T : @quickcheck.Arbitrary] array_of_arbitrary(UInt, Int, @splitmix.RandomState) -> Array[T]
 
-pub fn[T, Elem] change(T, Elem) -> Result[(T, Elem)?, String]
-
 pub fn comp_type_sub_type(CompType) -> SubType
-
-pub fn defs(TInstr) -> @set.Set[LocalIdx]
 
 pub fn empty_env() -> Env
 
 pub fn[T : Eq] equals(Array[T], Array[T]) -> Bool
-
-pub fn[T, Elem] error(String) -> Result[(T, Elem)?, String]
 
 pub fn expand_locals(Array[Locals]) -> Result[Array[ValType], String]
 
@@ -79,10 +72,6 @@ pub fn tag_extern_type(TagType) -> ExternType
 pub fn tag_type(TypeIdx) -> TagType
 
 pub fn tlocals_to_locals(Array[ValType]) -> Array[Locals]
-
-pub fn[T, Elem] unchanged() -> Result[(T, Elem)?, String]
-
-pub fn uses(TInstr) -> @set.Set[LocalIdx]
 
 // Errors
 
@@ -2086,12 +2075,6 @@ pub impl Eq for LoadOp
 pub impl Hash for LoadOp
 pub impl Show for LoadOp
 
-pub struct LocalGraph {
-  get_sets : Map[Int, @set.Set[LocalSet]]
-}
-pub fn LocalGraph::get_sets(Self, Int) -> @set.Set[LocalSet]
-pub fn LocalGraph::new(Array[TInstr]) -> Self
-
 pub struct LocalIdx(UInt)
 #deprecated
 pub fn LocalIdx::inner(Self) -> UInt
@@ -2100,13 +2083,6 @@ pub impl Eq for LocalIdx
 pub impl Hash for LocalIdx
 pub impl Show for LocalIdx
 pub impl @quickcheck.Arbitrary for LocalIdx
-
-pub enum LocalSet {
-  InitValue
-  Set(LocalIdx, TInstr)
-}
-pub impl Eq for LocalSet
-pub impl Hash for LocalSet
 
 pub struct Locals(UInt, ValType)
 
@@ -2169,7 +2145,7 @@ pub struct Module {
   code_sec : CodeSec?
   data_sec : DataSec?
 }
-pub fn Module::new() -> Self
+pub fn Module::new(custom_secs? : Array[CustomSec], type_sec? : TypeSec?, import_sec? : ImportSec?, func_sec? : FuncSec?, table_sec? : TableSec?, mem_sec? : MemSec?, tag_sec? : TagSec?, global_sec? : GlobalSec?, export_sec? : ExportSec?, start_sec? : StartSec?, elem_sec? : ElemSec?, data_cnt_sec? : DataCntSec?, code_sec? : CodeSec?, data_sec? : DataSec?) -> Self
 pub fn Module::with_code_sec(Self, CodeSec) -> Self
 pub fn Module::with_custom_secs(Self, Array[CustomSec]) -> Self
 pub fn Module::with_data_cnt_sec(Self, DataCntSec) -> Self
@@ -2188,180 +2164,6 @@ pub impl Eq for Module
 pub impl Hash for Module
 pub impl Show for Module
 pub impl @quickcheck.Arbitrary for Module
-
-pub(all) struct ModuleTransformer[T] {
-  on_module : ((ModuleTransformer[T], T, Module) -> Result[(T, Module)?, String])?
-  on_typesec : ((ModuleTransformer[T], T, TypeSec) -> Result[(T, TypeSec)?, String])?
-  on_funcsec : ((ModuleTransformer[T], T, FuncSec) -> Result[(T, FuncSec)?, String])?
-  on_tablesec : ((ModuleTransformer[T], T, TableSec) -> Result[(T, TableSec)?, String])?
-  on_memsec : ((ModuleTransformer[T], T, MemSec) -> Result[(T, MemSec)?, String])?
-  on_tagsec : ((ModuleTransformer[T], T, TagSec) -> Result[(T, TagSec)?, String])?
-  on_globalsec : ((ModuleTransformer[T], T, GlobalSec) -> Result[(T, GlobalSec)?, String])?
-  on_exportsec : ((ModuleTransformer[T], T, ExportSec) -> Result[(T, ExportSec)?, String])?
-  on_startsec : ((ModuleTransformer[T], T, StartSec) -> Result[(T, StartSec)?, String])?
-  on_elemsec : ((ModuleTransformer[T], T, ElemSec) -> Result[(T, ElemSec)?, String])?
-  on_elemkind : ((ModuleTransformer[T], T, ElemKind) -> Result[(T, ElemKind)?, String])?
-  on_datacntsec : ((ModuleTransformer[T], T, DataCntSec) -> Result[(T, DataCntSec)?, String])?
-  on_codesec : ((ModuleTransformer[T], T, CodeSec) -> Result[(T, CodeSec)?, String])?
-  on_datasec : ((ModuleTransformer[T], T, DataSec) -> Result[(T, DataSec)?, String])?
-  on_instruction : ((ModuleTransformer[T], T, Instruction) -> Result[(T, Instruction)?, String])?
-  on_tinstruction : ((ModuleTransformer[T], T, TInstr) -> Result[(T, TInstr)?, String])?
-  on_expr : ((ModuleTransformer[T], T, Expr) -> Result[(T, Expr)?, String])?
-  on_texpr : ((ModuleTransformer[T], T, TExpr) -> Result[(T, TExpr)?, String])?
-  on_table : ((ModuleTransformer[T], T, Table) -> Result[(T, Table)?, String])?
-  on_valtype : ((ModuleTransformer[T], T, ValType) -> Result[(T, ValType)?, String])?
-  on_numtype : ((ModuleTransformer[T], T, NumType) -> Result[(T, NumType)?, String])?
-  on_rectype : ((ModuleTransformer[T], T, RecType) -> Result[(T, RecType)?, String])?
-  on_subtype : ((ModuleTransformer[T], T, SubType) -> Result[(T, SubType)?, String])?
-  on_comptype : ((ModuleTransformer[T], T, CompType) -> Result[(T, CompType)?, String])?
-  on_reftype : ((ModuleTransformer[T], T, RefType) -> Result[(T, RefType)?, String])?
-  on_heaptype : ((ModuleTransformer[T], T, HeapType) -> Result[(T, HeapType)?, String])?
-  on_blocktype : ((ModuleTransformer[T], T, BlockType) -> Result[(T, BlockType)?, String])?
-  on_funcidx : ((ModuleTransformer[T], T, FuncIdx) -> Result[(T, FuncIdx)?, String])?
-  on_typeidx : ((ModuleTransformer[T], T, TypeIdx) -> Result[(T, TypeIdx)?, String])?
-  on_laneidx : ((ModuleTransformer[T], T, LaneIdx) -> Result[(T, LaneIdx)?, String])?
-  on_localidx : ((ModuleTransformer[T], T, LocalIdx) -> Result[(T, LocalIdx)?, String])?
-  on_globalidx : ((ModuleTransformer[T], T, GlobalIdx) -> Result[(T, GlobalIdx)?, String])?
-  on_tableidx : ((ModuleTransformer[T], T, TableIdx) -> Result[(T, TableIdx)?, String])?
-  on_memidx : ((ModuleTransformer[T], T, MemIdx) -> Result[(T, MemIdx)?, String])?
-  on_labelidx : ((ModuleTransformer[T], T, LabelIdx) -> Result[(T, LabelIdx)?, String])?
-  on_dataidx : ((ModuleTransformer[T], T, DataIdx) -> Result[(T, DataIdx)?, String])?
-  on_elemidx : ((ModuleTransformer[T], T, ElemIdx) -> Result[(T, ElemIdx)?, String])?
-  on_tagidx : ((ModuleTransformer[T], T, TagIdx) -> Result[(T, TagIdx)?, String])?
-  on_name : ((ModuleTransformer[T], T, Name) -> Result[(T, Name)?, String])?
-  on_externtype : ((ModuleTransformer[T], T, ExternType) -> Result[(T, ExternType)?, String])?
-  on_limits : ((ModuleTransformer[T], T, Limits) -> Result[(T, Limits)?, String])?
-  on_memtype : ((ModuleTransformer[T], T, MemType) -> Result[(T, MemType)?, String])?
-  on_tagtype : ((ModuleTransformer[T], T, TagType) -> Result[(T, TagType)?, String])?
-  on_export : ((ModuleTransformer[T], T, Export) -> Result[(T, Export)?, String])?
-  on_global : ((ModuleTransformer[T], T, Global) -> Result[(T, Global)?, String])?
-  on_globaltype : ((ModuleTransformer[T], T, GlobalType) -> Result[(T, GlobalType)?, String])?
-  on_func : ((ModuleTransformer[T], T, Func) -> Result[(T, Func)?, String])?
-  on_locals : ((ModuleTransformer[T], T, Array[Locals]) -> Result[(T, Array[Locals])?, String])?
-  on_externidx : ((ModuleTransformer[T], T, ExternIdx) -> Result[(T, ExternIdx)?, String])?
-  on_fieldtype : ((ModuleTransformer[T], T, FieldType) -> Result[(T, FieldType)?, String])?
-  on_storagetype : ((ModuleTransformer[T], T, StorageType) -> Result[(T, StorageType)?, String])?
-  on_unaryop : ((ModuleTransformer[T], T, UnaryOp) -> Result[(T, UnaryOp)?, String])?
-  on_binaryop : ((ModuleTransformer[T], T, BinaryOp) -> Result[(T, BinaryOp)?, String])?
-  on_storeop : ((ModuleTransformer[T], T, StoreOp) -> Result[(T, StoreOp)?, String])?
-  on_loadop : ((ModuleTransformer[T], T, LoadOp) -> Result[(T, LoadOp)?, String])?
-  on_extractlaneop : ((ModuleTransformer[T], T, ExtractLaneOp) -> Result[(T, ExtractLaneOp)?, String])?
-  on_replacelaneop : ((ModuleTransformer[T], T, ReplaceLaneOp) -> Result[(T, ReplaceLaneOp)?, String])?
-  on_v128shiftop : ((ModuleTransformer[T], T, V128ShiftOp) -> Result[(T, V128ShiftOp)?, String])?
-  on_v128ternaryop : ((ModuleTransformer[T], T, V128TernaryOp) -> Result[(T, V128TernaryOp)?, String])?
-  on_v128loadlaneop : ((ModuleTransformer[T], T, V128LoadLaneOp) -> Result[(T, V128LoadLaneOp)?, String])?
-  on_v128storelaneop : ((ModuleTransformer[T], T, V128StoreLaneOp) -> Result[(T, V128StoreLaneOp)?, String])?
-  on_memarg : ((ModuleTransformer[T], T, MemArg) -> Result[(T, MemArg)?, String])?
-}
-pub fn[T] ModuleTransformer::new() -> Self[T]
-pub fn[T, E] ModuleTransformer::walk_array(Self[T], T, (Self[T], T, E) -> Result[(T, E)?, String], Array[E]) -> Result[(T, Array[E])?, String]
-pub fn[T] ModuleTransformer::walk_binaryop(Self[T], T, BinaryOp) -> Result[(T, BinaryOp)?, String]
-pub fn[T] ModuleTransformer::walk_blocktype(Self[T], T, BlockType) -> Result[(T, BlockType)?, String]
-pub fn[T] ModuleTransformer::walk_blocktype_default(Self[T], T, BlockType) -> Result[(T, BlockType)?, String]
-pub fn[T] ModuleTransformer::walk_catch(Self[T], T, Catch) -> Result[(T, Catch)?, String]
-pub fn[T] ModuleTransformer::walk_codesec(Self[T], T, CodeSec) -> Result[(T, CodeSec)?, String]
-pub fn[T] ModuleTransformer::walk_codesec_default(Self[T], T, CodeSec) -> Result[(T, CodeSec)?, String]
-pub fn[T] ModuleTransformer::walk_comptype(Self[T], T, CompType) -> Result[(T, CompType)?, String]
-pub fn[T] ModuleTransformer::walk_comptype_default(Self[T], T, CompType) -> Result[(T, CompType)?, String]
-pub fn[T] ModuleTransformer::walk_customsec(Self[T], T, CustomSec) -> Result[(T, CustomSec)?, String]
-pub fn[T] ModuleTransformer::walk_customsecs(Self[T], T, Array[CustomSec]) -> Result[(T, Array[CustomSec])?, String]
-pub fn[T] ModuleTransformer::walk_data(Self[T], T, Data) -> Result[(T, Data)?, String]
-pub fn[T] ModuleTransformer::walk_datacntsec(Self[T], T, DataCntSec) -> Result[(T, DataCntSec)?, String]
-pub fn[T] ModuleTransformer::walk_dataidx(Self[T], T, DataIdx) -> Result[(T, DataIdx)?, String]
-pub fn[T] ModuleTransformer::walk_datamode(Self[T], T, DataMode) -> Result[(T, DataMode)?, String]
-pub fn[T] ModuleTransformer::walk_datasec(Self[T], T, DataSec) -> Result[(T, DataSec)?, String]
-pub fn[T] ModuleTransformer::walk_datasec_default(Self[T], T, DataSec) -> Result[(T, DataSec)?, String]
-pub fn[T] ModuleTransformer::walk_elem(Self[T], T, Elem) -> Result[(T, Elem)?, String]
-pub fn[T] ModuleTransformer::walk_elemidx(Self[T], T, ElemIdx) -> Result[(T, ElemIdx)?, String]
-pub fn[T] ModuleTransformer::walk_elemkind(Self[T], T, ElemKind) -> Result[(T, ElemKind)?, String]
-pub fn[T] ModuleTransformer::walk_elemkind_default(Self[T], T, ElemKind) -> Result[(T, ElemKind)?, String]
-pub fn[T] ModuleTransformer::walk_elemmode(Self[T], T, ElemMode) -> Result[(T, ElemMode)?, String]
-pub fn[T] ModuleTransformer::walk_elemsec(Self[T], T, ElemSec) -> Result[(T, ElemSec)?, String]
-pub fn[T] ModuleTransformer::walk_elemsec_default(Self[T], T, ElemSec) -> Result[(T, ElemSec)?, String]
-pub fn[T] ModuleTransformer::walk_export(Self[T], T, Export) -> Result[(T, Export)?, String]
-pub fn[T] ModuleTransformer::walk_export_default(Self[T], T, Export) -> Result[(T, Export)?, String]
-pub fn[T] ModuleTransformer::walk_exportsec(Self[T], T, ExportSec) -> Result[(T, ExportSec)?, String]
-pub fn[T] ModuleTransformer::walk_exportsec_default(Self[T], T, ExportSec) -> Result[(T, ExportSec)?, String]
-pub fn[T] ModuleTransformer::walk_expr(Self[T], T, Expr) -> Result[(T, Expr)?, String]
-pub fn[T] ModuleTransformer::walk_expr_default(Self[T], T, Expr) -> Result[(T, Expr)?, String]
-pub fn[T] ModuleTransformer::walk_externidx(Self[T], T, ExternIdx) -> Result[(T, ExternIdx)?, String]
-pub fn[T] ModuleTransformer::walk_externidx_default(Self[T], T, ExternIdx) -> Result[(T, ExternIdx)?, String]
-pub fn[T] ModuleTransformer::walk_externtype(Self[T], T, ExternType) -> Result[(T, ExternType)?, String]
-pub fn[T] ModuleTransformer::walk_extractlaneop(Self[T], T, ExtractLaneOp) -> Result[(T, ExtractLaneOp)?, String]
-pub fn[T] ModuleTransformer::walk_fieldtype(Self[T], T, FieldType) -> Result[(T, FieldType)?, String]
-pub fn[T] ModuleTransformer::walk_fieldtype_default(Self[T], T, FieldType) -> Result[(T, FieldType)?, String]
-pub fn[T] ModuleTransformer::walk_func(Self[T], T, Func) -> Result[(T, Func)?, String]
-pub fn[T] ModuleTransformer::walk_func_default(Self[T], T, Func) -> Result[(T, Func)?, String]
-pub fn[T] ModuleTransformer::walk_funcidx(Self[T], T, FuncIdx) -> Result[(T, FuncIdx)?, String]
-pub fn[T] ModuleTransformer::walk_funcsec(Self[T], T, FuncSec) -> Result[(T, FuncSec)?, String]
-pub fn[T] ModuleTransformer::walk_funcsec_default(Self[T], T, FuncSec) -> Result[(T, FuncSec)?, String]
-pub fn[T] ModuleTransformer::walk_global(Self[T], T, Global) -> Result[(T, Global)?, String]
-pub fn[T] ModuleTransformer::walk_global_default(Self[T], T, Global) -> Result[(T, Global)?, String]
-pub fn[T] ModuleTransformer::walk_globalidx(Self[T], T, GlobalIdx) -> Result[(T, GlobalIdx)?, String]
-pub fn[T] ModuleTransformer::walk_globalsec(Self[T], T, GlobalSec) -> Result[(T, GlobalSec)?, String]
-pub fn[T] ModuleTransformer::walk_globalsec_default(Self[T], T, GlobalSec) -> Result[(T, GlobalSec)?, String]
-pub fn[T] ModuleTransformer::walk_globaltype(Self[T], T, GlobalType) -> Result[(T, GlobalType)?, String]
-pub fn[T] ModuleTransformer::walk_globaltype_default(Self[T], T, GlobalType) -> Result[(T, GlobalType)?, String]
-pub fn[T] ModuleTransformer::walk_heaptype(Self[T], T, HeapType) -> Result[(T, HeapType)?, String]
-pub fn[T] ModuleTransformer::walk_heaptype_default(Self[T], T, HeapType) -> Result[(T, HeapType)?, String]
-pub fn[T] ModuleTransformer::walk_import(Self[T], T, Import) -> Result[(T, Import)?, String]
-pub fn[T] ModuleTransformer::walk_importsec(Self[T], T, ImportSec) -> Result[(T, ImportSec)?, String]
-pub fn[T] ModuleTransformer::walk_instruction(Self[T], T, Instruction) -> Result[(T, Instruction)?, String]
-pub fn[T] ModuleTransformer::walk_instruction_default(Self[T], T, Instruction) -> Result[(T, Instruction)?, String]
-pub fn[T] ModuleTransformer::walk_labelidx(Self[T], T, LabelIdx) -> Result[(T, LabelIdx)?, String]
-pub fn[T] ModuleTransformer::walk_laneidx(Self[T], T, LaneIdx) -> Result[(T, LaneIdx)?, String]
-pub fn[T] ModuleTransformer::walk_limits(Self[T], T, Limits) -> Result[(T, Limits)?, String]
-pub fn[T] ModuleTransformer::walk_loadop(Self[T], T, LoadOp) -> Result[(T, LoadOp)?, String]
-pub fn[T] ModuleTransformer::walk_localidx(Self[T], T, LocalIdx) -> Result[(T, LocalIdx)?, String]
-pub fn[T] ModuleTransformer::walk_locals(Self[T], T, Array[Locals]) -> Result[(T, Array[Locals])?, String]
-pub fn[T] ModuleTransformer::walk_locals_default(Self[T], T, Array[Locals]) -> Result[(T, Array[Locals])?, String]
-pub fn[T] ModuleTransformer::walk_memarg(Self[T], T, MemArg) -> Result[(T, MemArg)?, String]
-pub fn[T] ModuleTransformer::walk_memidx(Self[T], T, MemIdx) -> Result[(T, MemIdx)?, String]
-pub fn[T] ModuleTransformer::walk_memsec(Self[T], T, MemSec) -> Result[(T, MemSec)?, String]
-pub fn[T] ModuleTransformer::walk_memsec_default(Self[T], T, MemSec) -> Result[(T, MemSec)?, String]
-pub fn[T] ModuleTransformer::walk_memtype(Self[T], T, MemType) -> Result[(T, MemType)?, String]
-pub fn[T] ModuleTransformer::walk_memtype_default(Self[T], T, MemType) -> Result[(T, MemType)?, String]
-pub fn[T] ModuleTransformer::walk_module(Self[T], T, Module) -> Result[(T, Module)?, String]
-pub fn[T] ModuleTransformer::walk_name(Self[T], T, Name) -> Result[(T, Name)?, String]
-pub fn[T] ModuleTransformer::walk_numtype(Self[T], T, NumType) -> Result[(T, NumType)?, String]
-pub fn[T] ModuleTransformer::walk_rectype(Self[T], T, RecType) -> Result[(T, RecType)?, String]
-pub fn[T] ModuleTransformer::walk_rectype_default(Self[T], T, RecType) -> Result[(T, RecType)?, String]
-pub fn[T] ModuleTransformer::walk_reftype(Self[T], T, RefType) -> Result[(T, RefType)?, String]
-pub fn[T] ModuleTransformer::walk_reftype_default(Self[T], T, RefType) -> Result[(T, RefType)?, String]
-pub fn[T] ModuleTransformer::walk_replacelaneop(Self[T], T, ReplaceLaneOp) -> Result[(T, ReplaceLaneOp)?, String]
-pub fn[T] ModuleTransformer::walk_single_local(Self[T], T, Locals) -> Result[(T, Locals)?, String]
-pub fn[T] ModuleTransformer::walk_startsec(Self[T], T, StartSec) -> Result[(T, StartSec)?, String]
-pub fn[T] ModuleTransformer::walk_startsec_default(Self[T], T, StartSec) -> Result[(T, StartSec)?, String]
-pub fn[T] ModuleTransformer::walk_storagetype(Self[T], T, StorageType) -> Result[(T, StorageType)?, String]
-pub fn[T] ModuleTransformer::walk_storagetype_default(Self[T], T, StorageType) -> Result[(T, StorageType)?, String]
-pub fn[T] ModuleTransformer::walk_storeop(Self[T], T, StoreOp) -> Result[(T, StoreOp)?, String]
-pub fn[T] ModuleTransformer::walk_subtype(Self[T], T, SubType) -> Result[(T, SubType)?, String]
-pub fn[T] ModuleTransformer::walk_subtype_default(Self[T], T, SubType) -> Result[(T, SubType)?, String]
-pub fn[T] ModuleTransformer::walk_table(Self[T], T, Table) -> Result[(T, Table)?, String]
-pub fn[T] ModuleTransformer::walk_table_default(Self[T], T, Table) -> Result[(T, Table)?, String]
-pub fn[T] ModuleTransformer::walk_tableidx(Self[T], T, TableIdx) -> Result[(T, TableIdx)?, String]
-pub fn[T] ModuleTransformer::walk_tablesec(Self[T], T, TableSec) -> Result[(T, TableSec)?, String]
-pub fn[T] ModuleTransformer::walk_tablesec_default(Self[T], T, TableSec) -> Result[(T, TableSec)?, String]
-pub fn[T] ModuleTransformer::walk_tabletype(Self[T], T, TableType) -> Result[(T, TableType)?, String]
-pub fn[T] ModuleTransformer::walk_tagidx(Self[T], T, TagIdx) -> Result[(T, TagIdx)?, String]
-pub fn[T] ModuleTransformer::walk_tagsec(Self[T], T, TagSec) -> Result[(T, TagSec)?, String]
-pub fn[T] ModuleTransformer::walk_tagsec_default(Self[T], T, TagSec) -> Result[(T, TagSec)?, String]
-pub fn[T] ModuleTransformer::walk_tagtype(Self[T], T, TagType) -> Result[(T, TagType)?, String]
-pub fn[T] ModuleTransformer::walk_tagtype_default(Self[T], T, TagType) -> Result[(T, TagType)?, String]
-pub fn[T] ModuleTransformer::walk_texpr(Self[T], T, TExpr) -> Result[(T, TExpr)?, String]
-pub fn[T] ModuleTransformer::walk_texpr_default(Self[T], T, TExpr) -> Result[(T, TExpr)?, String]
-pub fn[T] ModuleTransformer::walk_tinstruction(Self[T], T, TInstr) -> Result[(T, TInstr)?, String]
-pub fn[T] ModuleTransformer::walk_tinstruction_default(Self[T], T, TInstr) -> Result[(T, TInstr)?, String]
-pub fn[T] ModuleTransformer::walk_typeidx(Self[T], T, TypeIdx) -> Result[(T, TypeIdx)?, String]
-pub fn[T] ModuleTransformer::walk_typesec(Self[T], T, TypeSec) -> Result[(T, TypeSec)?, String]
-pub fn[T] ModuleTransformer::walk_typesec_default(Self[T], T, TypeSec) -> Result[(T, TypeSec)?, String]
-pub fn[T] ModuleTransformer::walk_unaryop(Self[T], T, UnaryOp) -> Result[(T, UnaryOp)?, String]
-pub fn[T] ModuleTransformer::walk_v128loadlaneop(Self[T], T, V128LoadLaneOp) -> Result[(T, V128LoadLaneOp)?, String]
-pub fn[T] ModuleTransformer::walk_v128shiftop(Self[T], T, V128ShiftOp) -> Result[(T, V128ShiftOp)?, String]
-pub fn[T] ModuleTransformer::walk_v128storelaneop(Self[T], T, V128StoreLaneOp) -> Result[(T, V128StoreLaneOp)?, String]
-pub fn[T] ModuleTransformer::walk_v128ternaryop(Self[T], T, V128TernaryOp) -> Result[(T, V128TernaryOp)?, String]
-pub fn[T] ModuleTransformer::walk_valtype(Self[T], T, ValType) -> Result[(T, ValType)?, String]
-pub fn[T] ModuleTransformer::walk_valtype_default(Self[T], T, ValType) -> Result[(T, ValType)?, String]
 
 pub(all) enum Mut {
   Const
@@ -3200,8 +3002,6 @@ pub impl @quickcheck.Arbitrary for ValType
 
 // Type aliases
 pub type ResultType = Array[ValType]
-
-pub type TransformerResult[T, Elem] = Result[(T, Elem)?, String]
 
 // Traits
 

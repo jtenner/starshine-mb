@@ -247,6 +247,40 @@ pub struct Module {
   data_sec : DataSec?
 } derive(Hash)
 
+pub fn Module::new(
+  custom_secs~ : Array[CustomSec] = [],
+  type_sec~ : TypeSec? = None,
+  import_sec~ : ImportSec? = None,
+  func_sec~ : FuncSec? = None,
+  table_sec~ : TableSec? = None,
+  mem_sec~ : MemSec? = None,
+  tag_sec~ : TagSec? = None,
+  global_sec~ : GlobalSec? = None,
+  export_sec~ : ExportSec? = None,
+  start_sec~ : StartSec? = None,
+  elem_sec~ : ElemSec? = None,
+  data_cnt_sec~ : DataCntSec? = None,
+  code_sec~ : CodeSec? = None,
+  data_sec~ : DataSec? = None,
+) -> Module {
+  Module::{
+    custom_secs,
+    type_sec,
+    import_sec,
+    func_sec,
+    table_sec,
+    mem_sec,
+    tag_sec,
+    global_sec,
+    export_sec,
+    start_sec,
+    elem_sec,
+    data_cnt_sec,
+    code_sec,
+    data_sec,
+  }
+}
+
 ///|
 pub struct FuncType(Array[ValType], Array[ValType]) derive(Hash, Eq)
 

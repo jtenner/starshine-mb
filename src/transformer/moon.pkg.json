@@ -1,0 +1,9 @@
+{
+    "name": "transformer",
+    "import": [
+      {
+        "alias": "lib",
+        "path": "jtenner/starshine/lib"
+      },
+    ]
+}

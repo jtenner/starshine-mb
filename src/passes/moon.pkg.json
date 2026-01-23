@@ -5,6 +5,7 @@
     "jtenner/starshine/binary",
     "jtenner/starshine/dataflow",
     "jtenner/starshine/local_graph",
+    "jtenner/starshine/transformer",
     "moonbitlang/core/buffer",
     "moonbitlang/core/hashmap",
     "moonbitlang/core/cmp",
