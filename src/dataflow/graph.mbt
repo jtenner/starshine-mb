@@ -2,19 +2,23 @@
 // dataflow/graph.mbt - Main DataFlow Graph
 // ============================================================================
 
+///|
 /// Local state: mapping from local index to the node containing its value
 pub type Locals = Array[NodeId]
 
+///|
 /// Flow state includes locals and an optional condition
 pub struct FlowState {
   locals : Locals
   condition : NodeId
 }
 
+///|
 pub fn FlowState::new(locals : Locals, condition : NodeId) -> FlowState {
   { locals, condition }
 }
 
+///|
 /// The main DataFlow Graph
 pub struct Graph {
   /// Node storage
@@ -43,6 +47,7 @@ pub struct Graph {
   mut mod : Module?
 }
 
+///|
 pub fn Graph::new() -> Graph {
   {
     node_store: NodeStore::new(),
@@ -60,27 +65,29 @@ pub fn Graph::new() -> Graph {
   }
 }
 
+///|
 /// Check if we're in unreachable code
 pub fn Graph::is_in_unreachable(self : Graph) -> Bool {
   self.locals.length() == 0
 }
 
+///|
 pub fn Graph::is_locals_unreachable(_ : Graph, state : Locals) -> Bool {
   state.length() == 0
 }
 
-pub fn Graph::is_flow_state_unreachable(
-  _ : Graph,
-  state : FlowState
-) -> Bool {
+///|
+pub fn Graph::is_flow_state_unreachable(_ : Graph, state : FlowState) -> Bool {
   state.locals.length() == 0
 }
 
+///|
 /// Set state to unreachable
 pub fn Graph::set_in_unreachable(self : Graph) -> Unit {
   self.locals.clear()
 }
 
+///|
 /// Set state to reachable with proper size
 pub fn Graph::set_in_reachable(self : Graph) -> Unit {
   match self.func {
@@ -92,11 +99,13 @@ pub fn Graph::set_in_reachable(self : Graph) -> Unit {
   }
 }
 
+///|
 /// Check if a type is relevant for dataflow analysis
 pub fn Graph::is_relevant_type(_ : Graph, wasm_type : WasmType) -> Bool {
   wasm_type.is_integer()
 }
 
+///|
 /// Check if a local is relevant
 pub fn Graph::is_relevant_local(self : Graph, index : Int) -> Bool {
   match self.func {
@@ -105,16 +114,19 @@ pub fn Graph::is_relevant_local(self : Graph, index : Int) -> Bool {
   }
 }
 
+///|
 /// Get the bad node
 pub fn Graph::bad(self : Graph) -> NodeId {
   self.node_store.bad()
 }
 
+///|
 /// Add a node to the graph
 pub fn Graph::add_node(self : Graph, node : Node) -> NodeId {
   self.node_store.add_node(node)
 }
 
+///|
 /// Make a Var node representing an unknown value
 pub fn Graph::make_var(self : Graph, wasm_type : WasmType) -> NodeId {
   if self.is_relevant_type(wasm_type) {
@@ -125,13 +137,14 @@ pub fn Graph::make_var(self : Graph, wasm_type : WasmType) -> NodeId {
   }
 }
 
+///|
 /// Make a constant node
 pub fn Graph::make_const(self : Graph, value : Literal) -> NodeId {
   match self.constant_nodes.get(value) {
     Some(id) => id
     None => {
       let id = NodeId(self.node_store.len())
-      let expr = Const({ value })
+      let expr = Const({ value, })
       let node = Node::make_expr(id, expr, None)
       let node_id = self.add_node(node)
       self.constant_nodes[value] = node_id
@@ -140,17 +153,19 @@ pub fn Graph::make_const(self : Graph, value : Literal) -> NodeId {
   }
 }
 
+///|
 /// Make a zero constant
 pub fn Graph::make_zero(self : Graph, wasm_type : WasmType) -> NodeId {
   self.make_const(Literal::make_zero(wasm_type))
 }
 
+///|
 /// Create a zero comparison node
 pub fn Graph::make_zero_comp(
   self : Graph,
   node : NodeId,
   equal : Bool,
-  origin : ExprId?
+  origin : ExprId?,
 ) -> NodeId {
   if self.node_store.is_bad(node) {
     return self.bad()
@@ -176,11 +191,12 @@ pub fn Graph::make_zero_comp(
   self.add_node(check_node)
 }
 
+///|
 /// Expand an i1 result to full width if needed
 pub fn Graph::expand_from_i1(
   self : Graph,
   node : NodeId,
-  origin : ExprId?
+  origin : ExprId?,
 ) -> NodeId {
   if self.node_store.is_bad(node) {
     return node
@@ -197,11 +213,12 @@ pub fn Graph::expand_from_i1(
   }
 }
 
+///|
 /// Ensure a node returns i1
 pub fn Graph::ensure_i1(
   self : Graph,
   node : NodeId,
-  origin : ExprId?
+  origin : ExprId?,
 ) -> NodeId {
   if self.node_store.is_bad(node) {
     return node

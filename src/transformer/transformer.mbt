@@ -2190,7 +2190,8 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
             Ok(Some((t, catches))) =>
               match self.walk_expr(t, body) {
                 Err(e) => Err(e)
-                Ok(None) => Ok(Some((t, Instruction::try_table(bt, catches, body))))
+                Ok(None) =>
+                  Ok(Some((t, Instruction::try_table(bt, catches, body))))
                 Ok(Some((t, body))) =>
                   Ok(Some((t, Instruction::try_table(bt, catches, body))))
               }
@@ -2201,14 +2202,16 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
             Ok(None) =>
               match self.walk_expr(t, body) {
                 Err(e) => Err(e)
-                Ok(None) => Ok(Some((t, Instruction::try_table(bt, catches, body))))
+                Ok(None) =>
+                  Ok(Some((t, Instruction::try_table(bt, catches, body))))
                 Ok(Some((t, body))) =>
                   Ok(Some((t, Instruction::try_table(bt, catches, body))))
               }
             Ok(Some((t, catches))) =>
               match self.walk_expr(t, body) {
                 Err(e) => Err(e)
-                Ok(None) => Ok(Some((t, Instruction::try_table(bt, catches, body))))
+                Ok(None) =>
+                  Ok(Some((t, Instruction::try_table(bt, catches, body))))
                 Ok(Some((t, body))) =>
                   Ok(Some((t, Instruction::try_table(bt, catches, body))))
               }
@@ -2235,13 +2238,15 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
           match self.walk_labelidx(t, default) {
             Err(e) => Err(e)
             Ok(None) => Ok(None)
-            Ok(Some((t, default))) => Ok(Some((t, Instruction::br_table(labels, default))))
+            Ok(Some((t, default))) =>
+              Ok(Some((t, Instruction::br_table(labels, default))))
           }
         Ok(Some((t, labels))) =>
           match self.walk_labelidx(t, default) {
             Err(e) => Err(e)
             Ok(None) => Ok(Some((t, Instruction::br_table(labels, default))))
-            Ok(Some((t, default))) => Ok(Some((t, Instruction::br_table(labels, default))))
+            Ok(Some((t, default))) =>
+              Ok(Some((t, Instruction::br_table(labels, default))))
           }
       }
     BrOnNull(l) =>
@@ -2679,7 +2684,8 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
           match self.walk_array(t, ModuleTransformer::walk_valtype, types) {
             Err(e) => Err(e)
             Ok(None) => Ok(None)
-            Ok(Some((t, types))) => Ok(Some((t, Instruction::select(types = Some(types)))))
+            Ok(Some((t, types))) =>
+              Ok(Some((t, Instruction::select(types=Some(types)))))
           }
       }
 
@@ -3204,20 +3210,20 @@ pub fn[T] ModuleTransformer::walk_module(
       (
         t,
         Module::new(
-          custom_secs = custom_secs,
-          type_sec = type_sec,
-          import_sec = import_sec,
-          func_sec = func_sec,
-          table_sec = table_sec,
-          mem_sec = mem_sec,
-          tag_sec = tag_sec,
-          global_sec = global_sec,
-          export_sec = export_sec,
-          start_sec = start_sec,
-          elem_sec = elem_sec,
-          data_cnt_sec = data_cnt_sec,
-          code_sec = code_sec,
-          data_sec = data_sec,
+          custom_secs~,
+          type_sec~,
+          import_sec~,
+          func_sec~,
+          table_sec~,
+          mem_sec~,
+          tag_sec~,
+          global_sec~,
+          export_sec~,
+          start_sec~,
+          elem_sec~,
+          data_cnt_sec~,
+          code_sec~,
+          data_sec~,
         ),
       ),
     ),

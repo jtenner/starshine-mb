@@ -2,12 +2,9 @@
 // dataflow/graph_build.mbt - Graph building from function
 // ============================================================================
 
+///|
 /// Build the dataflow graph from a function
-pub fn Graph::build(
-  self : Graph,
-  func : Function,
-  mod : Module
-) -> Unit {
+pub fn Graph::build(self : Graph, func : Function, mod : Module) -> Unit {
   self.func = Some(func)
   self.mod = Some(mod)
   let num_locals = func.get_num_locals()
@@ -35,6 +32,7 @@ pub fn Graph::build(
   }
 }
 
+///|
 /// Main visitor dispatch
 pub fn Graph::visit(self : Graph, expr_id : ExprId) -> NodeId {
   let func = match self.func {
@@ -47,11 +45,12 @@ pub fn Graph::visit(self : Graph, expr_id : ExprId) -> NodeId {
   }
 }
 
+///|
 /// Visit an expression and return its node
 pub fn Graph::visit_expression(
   self : Graph,
   expr : Expression,
-  expr_id : ExprId
+  expr_id : ExprId,
 ) -> NodeId {
   match expr {
     Block(b) => self.do_visit_block(b, expr_id)

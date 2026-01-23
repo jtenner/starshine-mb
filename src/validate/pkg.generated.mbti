@@ -9,6 +9,8 @@ import {
 // Values
 pub fn diff(@lib.RefType, @lib.RefType) -> Result[@lib.RefType, String]
 
+pub fn empty_env() -> Env
+
 pub fn gen_side_effect_tinstr(GenValidContext, Int, label_depth? : Int) -> @lib.TInstr
 
 pub fn gen_tinstr_of_type(GenValidContext, @lib.ValType) -> @lib.TInstr
@@ -23,41 +25,102 @@ pub fn gen_valid_tfunc(GenValidContext, Array[@lib.ValType], Array[@lib.ValType]
 
 pub fn gen_valid_valtype(GenValidContext) -> @lib.ValType
 
-pub fn validate_codesec(@lib.CodeSec?, @lib.FuncSec?, @lib.Env) -> Result[Unit, String]
+pub fn to_texpr(@lib.Expr, Env) -> Result[@lib.TExpr, String]
+
+pub fn validate_codesec(@lib.CodeSec?, @lib.FuncSec?, Env) -> Result[Unit, String]
 
 pub fn validate_datacnt(@lib.DataCntSec?, @lib.DataSec?) -> Result[Unit, String]
 
-pub fn validate_datasec(@lib.DataSec?, @lib.Env) -> Result[@lib.Env, String]
+pub fn validate_datasec(@lib.DataSec?, Env) -> Result[Env, String]
 
-pub fn validate_elemsec(@lib.ElemSec?, @lib.Env) -> Result[@lib.Env, String]
+pub fn validate_elemsec(@lib.ElemSec?, Env) -> Result[Env, String]
 
-pub fn validate_exportsec(@lib.ExportSec?, @lib.Env) -> Result[Unit, String]
+pub fn validate_exportsec(@lib.ExportSec?, Env) -> Result[Unit, String]
 
-pub fn validate_funcsec(@lib.FuncSec?, @lib.Env) -> Result[@lib.Env, String]
+pub fn validate_funcsec(@lib.FuncSec?, Env) -> Result[Env, String]
 
-pub fn validate_globalsec(@lib.GlobalSec?, @lib.Env) -> Result[@lib.Env, String]
+pub fn validate_globalsec(@lib.GlobalSec?, Env) -> Result[Env, String]
 
-pub fn validate_importsec(@lib.ImportSec?, @lib.Env) -> Result[@lib.Env, String]
+pub fn validate_importsec(@lib.ImportSec?, Env) -> Result[Env, String]
 
-pub fn validate_memsec(@lib.MemSec?, @lib.Env) -> Result[@lib.Env, String]
+pub fn validate_memsec(@lib.MemSec?, Env) -> Result[Env, String]
 
 pub fn validate_module(@lib.Module) -> Result[Unit, String]
 
-pub fn validate_startsec(@lib.StartSec?, @lib.Env) -> Result[Unit, String]
+pub fn validate_startsec(@lib.StartSec?, Env) -> Result[Unit, String]
 
-pub fn validate_tablesec(@lib.TableSec?, @lib.Env) -> Result[@lib.Env, String]
+pub fn validate_tablesec(@lib.TableSec?, Env) -> Result[Env, String]
 
-pub fn validate_tagsec(@lib.TagSec?, @lib.Env) -> Result[@lib.Env, String]
+pub fn validate_tagsec(@lib.TagSec?, Env) -> Result[Env, String]
 
-pub fn validate_typesec(@lib.TypeSec?, @lib.Env) -> Result[@lib.Env, String]
+pub fn validate_typesec(@lib.TypeSec?, Env) -> Result[Env, String]
 
 // Errors
 
 // Types and methods
+pub(all) struct Env {
+  global_types : Array[@lib.SubType]
+  rec_stack : Array[Array[@lib.SubType]]
+  funcs : Array[@lib.FuncType]
+  tables : Array[@lib.TableType]
+  mems : Array[@lib.MemType]
+  globals : Array[@lib.GlobalType]
+  elems : Array[@lib.Elem]
+  datas : Array[@lib.Data]
+  tags : Array[@lib.TagType]
+  locals : Array[@lib.ValType]
+  labels : Array[Array[@lib.ValType]]
+  return_type : Array[@lib.ValType]?
+}
+pub fn Env::append_rectype_types(Self, @lib.RecType) -> Self
+pub fn Env::expand_blocktype(Self, @lib.BlockType) -> Result[(Array[@lib.ValType], Array[@lib.ValType]), String]
+pub fn Env::get_elem(Self, @lib.ElemIdx) -> @lib.Elem?
+pub fn Env::get_functype_by_funcidx(Self, @lib.FuncIdx) -> @lib.FuncType?
+pub fn Env::get_global_type(Self, @lib.GlobalIdx) -> @lib.GlobalType?
+pub fn Env::get_label(Self, @lib.LabelIdx) -> Array[@lib.ValType]?
+pub fn Env::get_label_types(Self, @lib.LabelIdx) -> Array[@lib.ValType]?
+pub fn Env::get_local_type(Self, @lib.LocalIdx) -> @lib.ValType?
+pub fn Env::get_memtype(Self, @lib.MemIdx) -> @lib.MemType?
+pub fn Env::get_table_type(Self, @lib.TableIdx) -> @lib.TableType?
+pub fn Env::get_tag(Self, @lib.TagIdx) -> @lib.TagType?
+pub fn Env::has_data(Self, @lib.DataIdx) -> Bool
+pub fn Env::has_func(Self, @lib.FuncIdx) -> Bool
+pub fn Env::new() -> Self
+pub fn Env::push_data(Self, @lib.Data) -> Self
+pub fn Env::push_elem(Self, @lib.Elem) -> Self
+pub fn Env::push_func(Self, @lib.FuncType) -> Self
+pub fn Env::push_global(Self, @lib.GlobalType) -> Self
+pub fn Env::push_mem(Self, @lib.MemType) -> Self
+pub fn Env::push_table(Self, @lib.TableType) -> Self
+pub fn Env::push_tag(Self, @lib.TagType) -> Self
+pub fn Env::resolve_array_field(Self, @lib.TypeIdx) -> Result[@lib.FieldType, String]
+pub fn Env::resolve_comptype(Self, @lib.TypeIdx) -> @lib.CompType?
+pub fn Env::resolve_functype(Self, @lib.TypeIdx) -> @lib.FuncType?
+pub fn Env::resolve_heaptype_subtype(Self, @lib.HeapType) -> @lib.SubType?
+pub fn Env::resolve_struct_fields(Self, @lib.TypeIdx) -> Result[Array[@lib.FieldType], String]
+pub fn Env::resolve_subtype(Self, @lib.TypeIdx) -> @lib.SubType?
+pub fn Env::resolve_tag_functype(Self, @lib.TagIdx) -> @lib.FuncType?
+pub fn Env::resolve_typeidx_subtype(Self, @lib.TypeIdx) -> @lib.SubType?
+pub fn Env::with_elems(Self, Array[@lib.Elem]) -> Self
+pub fn Env::with_funcs(Self, Array[@lib.FuncType]) -> Self
+pub fn Env::with_globals(Self, Array[@lib.GlobalType]) -> Self
+pub fn Env::with_label(Self, Array[@lib.ValType]) -> Self
+pub fn Env::with_labels(Self, Array[Array[@lib.ValType]]) -> Self
+pub fn Env::with_locals(Self, Array[@lib.ValType]) -> Self
+pub fn Env::with_mems(Self, Array[@lib.MemType]) -> Self
+pub fn Env::with_module(Self, @lib.Module) -> Self
+pub fn Env::with_rectype(Self, @lib.RecType) -> Self
+pub fn Env::with_return_type(Self, Array[@lib.ValType]?) -> Self
+pub fn Env::with_tables(Self, Array[@lib.TableType]) -> Self
+pub fn Env::with_tags(Self, Array[@lib.TagType]) -> Self
+pub fn Env::with_types(Self, Array[@lib.SubType]) -> Self
+pub impl Hash for Env
+pub impl Show for Env
+
 type GenValidContext
 
 pub struct TcState {
-  env : @lib.Env
+  env : Env
   stack : Array[@lib.ValType]
   reachable : Bool
 }
@@ -70,11 +133,11 @@ pub type TcResult = Result[TcState, String]
 
 // Traits
 pub trait DeclMatch {
-  matches_decl(Self, Self, @lib.Env) -> Bool
+  matches_decl(Self, Self, Env) -> Bool
 }
 
 pub trait Match {
-  matches(Self, Self, @lib.Env) -> Bool
+  matches(Self, Self, Env) -> Bool
 }
 pub impl Match for @lib.AbsHeapType
 pub impl Match for @lib.CompType
@@ -101,7 +164,7 @@ pub impl Typecheck for @lib.TExpr
 pub impl Typecheck for @lib.TInstr
 
 pub trait Validate {
-  validate(Self, @lib.Env) -> Result[Unit, String]
+  validate(Self, Env) -> Result[Unit, String]
 }
 pub impl Validate for @lib.AbsHeapType
 pub impl Validate for @lib.BlockType
@@ -140,7 +203,7 @@ pub impl Validate for @lib.ValType
 pub impl[T : Validate] Validate for Array[T]
 
 pub trait ValidateMax {
-  validate_max(Self, @lib.Env, UInt64) -> Result[Unit, String]
+  validate_max(Self, Env, UInt64) -> Result[Unit, String]
 }
 pub impl ValidateMax for @lib.Limits
 

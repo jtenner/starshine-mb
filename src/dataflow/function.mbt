@@ -2,6 +2,7 @@
 // dataflow/function.mbt - Function representation
 // ============================================================================
 
+///|
 /// Local variable information
 pub struct LocalInfo {
   local_type : WasmType
@@ -9,6 +10,7 @@ pub struct LocalInfo {
   name : String?
 }
 
+///|
 /// Function representation
 pub struct Function {
   name : String
@@ -19,6 +21,7 @@ pub struct Function {
   expressions : ExpressionStore
 }
 
+///|
 pub fn Function::new(name : String) -> Function {
   {
     name,
@@ -30,10 +33,12 @@ pub fn Function::new(name : String) -> Function {
   }
 }
 
+///|
 pub fn Function::get_num_locals(self : Function) -> Int {
   self.locals.length()
 }
 
+///|
 pub fn Function::get_local_type(self : Function, index : Int) -> WasmType {
   if index >= 0 && index < self.locals.length() {
     self.locals[index].local_type
@@ -42,6 +47,7 @@ pub fn Function::get_local_type(self : Function, index : Int) -> WasmType {
   }
 }
 
+///|
 pub fn Function::is_param(self : Function, index : Int) -> Bool {
   if index >= 0 && index < self.locals.length() {
     self.locals[index].is_param
@@ -50,6 +56,7 @@ pub fn Function::is_param(self : Function, index : Int) -> Bool {
   }
 }
 
+///|
 pub fn Function::add_param(self : Function, param_type : WasmType) -> Int {
   let index = self.locals.length()
   self.locals.push({ local_type: param_type, is_param: true, name: None })
@@ -57,26 +64,30 @@ pub fn Function::add_param(self : Function, param_type : WasmType) -> Int {
   index
 }
 
+///|
 pub fn Function::add_local(
   self : Function,
   local_type : WasmType,
-  name : String?
+  name : String?,
 ) -> Int {
   let index = self.locals.length()
   self.locals.push({ local_type, is_param: false, name })
   index
 }
 
+///|
 /// Module representation
 pub struct Module {
   functions : Map[String, Function]
   name : String?
 }
 
+///|
 pub fn Module::new() -> Module {
   { functions: {}, name: None }
 }
 
+///|
 pub fn Module::add_function(self : Module, func : Function) -> Unit {
   self.functions[func.name] = func
 }

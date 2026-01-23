@@ -2,10 +2,11 @@
 // dataflow/graph_visitors.mbt - Expression visitors
 // ============================================================================
 
+///|
 pub fn Graph::do_visit_block(
   self : Graph,
   block : BlockExpr,
-  expr_id : ExprId
+  expr_id : ExprId,
 ) -> NodeId {
   let old_parent = self.parent
   match old_parent {
@@ -16,6 +17,7 @@ pub fn Graph::do_visit_block(
   // Visit all children
   for child in block.list {
     let _ = self.visit(child)
+
   }
   // Merge the outputs
   match block.name {
@@ -36,7 +38,12 @@ pub fn Graph::do_visit_block(
   self.bad()
 }
 
-pub fn Graph::do_visit_if(self : Graph, iff : IfExpr, expr_id : ExprId) -> NodeId {
+///|
+pub fn Graph::do_visit_if(
+  self : Graph,
+  iff : IfExpr,
+  expr_id : ExprId,
+) -> NodeId {
   let old_parent = self.parent
   match old_parent {
     Some(p) => self.expression_parent_map[expr_id] = p
@@ -55,22 +62,21 @@ pub fn Graph::do_visit_if(self : Graph, iff : IfExpr, expr_id : ExprId) -> NodeI
       let _ = self.visit(if_false_id)
       let after_if_false_state = self.locals.copy()
       self.merge_if(
-        after_if_true_state,
-        after_if_false_state,
-        condition,
-        expr_id,
+        after_if_true_state, after_if_false_state, condition, expr_id,
       )
     }
-    None => self.merge_if(initial_state, after_if_true_state, condition, expr_id)
+    None =>
+      self.merge_if(initial_state, after_if_true_state, condition, expr_id)
   }
   self.parent = old_parent
   self.bad()
 }
 
+///|
 pub fn Graph::do_visit_loop(
   self : Graph,
   loop_ : LoopExpr,
-  expr_id : ExprId
+  expr_id : ExprId,
 ) -> NodeId {
   let old_parent = self.parent
   let func = match self.func {
@@ -128,13 +134,12 @@ pub fn Graph::do_visit_loop(
           // Undo the Var for this local
           for j = first_node_from_loop; j < self.node_store.len(); j = j + 1 {
             match self.node_store.get_mut(NodeId(j)) {
-              Some(node) => {
+              Some(node) =>
                 for k = 0; k < node.values.length(); k = k + 1 {
                   if node.values[k] == var {
                     node.values[k] = proper
                   }
                 }
-              }
               None => ()
             }
           }
@@ -151,6 +156,7 @@ pub fn Graph::do_visit_loop(
   }
 }
 
+///|
 pub fn Graph::do_visit_break(self : Graph, brk : BreakExpr) -> NodeId {
   if not(self.is_in_unreachable()) {
     match self.break_states.get(brk.name) {
@@ -162,11 +168,13 @@ pub fn Graph::do_visit_break(self : Graph, brk : BreakExpr) -> NodeId {
     None => self.set_in_unreachable()
     Some(cond) => {
       let _ = self.visit(cond)
+
     }
   }
   self.bad()
 }
 
+///|
 pub fn Graph::do_visit_switch(self : Graph, sw : SwitchExpr) -> NodeId {
   let _ = self.visit(sw.condition)
   if not(self.is_in_unreachable()) {
@@ -187,6 +195,7 @@ pub fn Graph::do_visit_switch(self : Graph, sw : SwitchExpr) -> NodeId {
   self.bad()
 }
 
+///|
 pub fn Graph::do_visit_local_get(self : Graph, get : LocalGetExpr) -> NodeId {
   if not(self.is_relevant_local(get.index)) || self.is_in_unreachable() {
     return self.bad()
@@ -194,10 +203,11 @@ pub fn Graph::do_visit_local_get(self : Graph, get : LocalGetExpr) -> NodeId {
   self.locals[get.index]
 }
 
+///|
 pub fn Graph::do_visit_local_set(
   self : Graph,
   set : LocalSetExpr,
-  expr_id : ExprId
+  expr_id : ExprId,
 ) -> NodeId {
   if not(self.is_relevant_local(set.index)) || self.is_in_unreachable() {
     return self.bad()
@@ -219,14 +229,16 @@ pub fn Graph::do_visit_local_set(
   self.bad()
 }
 
+///|
 pub fn Graph::do_visit_const(self : Graph, c : ConstExpr) -> NodeId {
   self.make_const(c.value)
 }
 
+///|
 pub fn Graph::do_visit_unary(
   self : Graph,
   unary : UnaryExpr,
-  expr_id : ExprId
+  expr_id : ExprId,
 ) -> NodeId {
   match unary.op {
     ClzInt32 | ClzInt64 | CtzInt32 | CtzInt64 | PopcntInt32 | PopcntInt64 => {
@@ -250,19 +262,55 @@ pub fn Graph::do_visit_unary(
   }
 }
 
+///|
 pub fn Graph::do_visit_binary(
   self : Graph,
   binary : BinaryExpr,
-  expr_id : ExprId
+  expr_id : ExprId,
 ) -> NodeId {
   match binary.op {
-    AddInt32 | AddInt64 | SubInt32 | SubInt64 | MulInt32 | MulInt64 |
-    DivSInt32 | DivSInt64 | DivUInt32 | DivUInt64 | RemSInt32 | RemSInt64 |
-    RemUInt32 | RemUInt64 | AndInt32 | AndInt64 | OrInt32 | OrInt64 | XorInt32 |
-    XorInt64 | ShlInt32 | ShlInt64 | ShrUInt32 | ShrUInt64 | ShrSInt32 |
-    ShrSInt64 | RotLInt32 | RotLInt64 | RotRInt32 | RotRInt64 | EqInt32 |
-    EqInt64 | NeInt32 | NeInt64 | LtSInt32 | LtSInt64 | LtUInt32 | LtUInt64 |
-    LeSInt32 | LeSInt64 | LeUInt32 | LeUInt64 => {
+    AddInt32
+    | AddInt64
+    | SubInt32
+    | SubInt64
+    | MulInt32
+    | MulInt64
+    | DivSInt32
+    | DivSInt64
+    | DivUInt32
+    | DivUInt64
+    | RemSInt32
+    | RemSInt64
+    | RemUInt32
+    | RemUInt64
+    | AndInt32
+    | AndInt64
+    | OrInt32
+    | OrInt64
+    | XorInt32
+    | XorInt64
+    | ShlInt32
+    | ShlInt64
+    | ShrUInt32
+    | ShrUInt64
+    | ShrSInt32
+    | ShrSInt64
+    | RotLInt32
+    | RotLInt64
+    | RotRInt32
+    | RotRInt64
+    | EqInt32
+    | EqInt64
+    | NeInt32
+    | NeInt64
+    | LtSInt32
+    | LtSInt64
+    | LtUInt32
+    | LtUInt64
+    | LeSInt32
+    | LeSInt64
+    | LeUInt32
+    | LeUInt64 => {
       let left = self.expand_from_i1(self.visit(binary.left), Some(expr_id))
       if self.node_store.is_bad(left) {
         return left
@@ -277,8 +325,14 @@ pub fn Graph::do_visit_binary(
       ret.add_value(right)
       self.add_node(ret)
     }
-    GtSInt32 | GtSInt64 | GeSInt32 | GeSInt64 | GtUInt32 | GtUInt64 | GeUInt32 |
-    GeUInt64 =>
+    GtSInt32
+    | GtSInt64
+    | GeSInt32
+    | GeSInt64
+    | GtUInt32
+    | GtUInt64
+    | GeUInt32
+    | GeUInt64 =>
       // Flip operands and use the opposite comparison
       match binary.op.get_opposite() {
         Some(opposite) => {
@@ -288,7 +342,10 @@ pub fn Graph::do_visit_binary(
             right: binary.left,
             result_type: binary.result_type,
           }
-          let left = self.expand_from_i1(self.visit(flipped.left), Some(expr_id))
+          let left = self.expand_from_i1(
+            self.visit(flipped.left),
+            Some(expr_id),
+          )
           if self.node_store.is_bad(left) {
             return left
           }
@@ -312,10 +369,11 @@ pub fn Graph::do_visit_binary(
   }
 }
 
+///|
 pub fn Graph::do_visit_select(
   self : Graph,
   select : SelectExpr,
-  expr_id : ExprId
+  expr_id : ExprId,
 ) -> NodeId {
   let if_true = self.expand_from_i1(self.visit(select.if_true), Some(expr_id))
   if self.node_store.is_bad(if_true) {
@@ -337,25 +395,28 @@ pub fn Graph::do_visit_select(
   self.add_node(ret)
 }
 
+///|
 pub fn Graph::do_visit_unreachable(self : Graph) -> NodeId {
   self.set_in_unreachable()
   self.bad()
 }
 
+///|
 pub fn Graph::do_visit_drop(
   self : Graph,
   drop : DropExpr,
-  expr_id : ExprId
+  expr_id : ExprId,
 ) -> NodeId {
   let _ = self.visit(drop.value)
   self.expression_parent_map[drop.value] = expr_id
   self.bad()
 }
 
+///|
 pub fn Graph::do_visit_generic(
   self : Graph,
   expr : Expression,
-  _expr_id : ExprId
+  _expr_id : ExprId,
 ) -> NodeId {
   // Visit children to note gets
   let children = match expr {
@@ -370,6 +431,7 @@ pub fn Graph::do_visit_generic(
   }
   for child in children {
     let _ = self.visit(child)
+
   }
   self.make_var(expr.get_type())
 }

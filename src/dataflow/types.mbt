@@ -2,6 +2,7 @@
 // dataflow/types.mbt - Core type definitions
 // ============================================================================
 
+///|
 /// Wasm value types
 pub enum WasmType {
   I32
@@ -15,35 +16,52 @@ pub enum WasmType {
   None
 } derive(Eq, Hash, Show)
 
+///|
 pub fn WasmType::i32() -> WasmType {
   I32
 }
+
+///|
 pub fn WasmType::i64() -> WasmType {
   I64
 }
+
+///|
 pub fn WasmType::f32() -> WasmType {
   F32
 }
+
+///|
 pub fn WasmType::f64() -> WasmType {
   F64
 }
+
+///|
 pub fn WasmType::v128() -> WasmType {
   V128
 }
+
+///|
 pub fn WasmType::func_ref() -> WasmType {
   FuncRef
 }
+
+///|
 pub fn WasmType::extern_ref() -> WasmType {
   ExternRef
 }
+
+///|
 pub fn WasmType::unreachable() -> WasmType {
   Unreachable
 }
+
+///|
 pub fn WasmType::none() -> WasmType {
   None
 }
 
-
+///|
 pub fn WasmType::is_integer(self : WasmType) -> Bool {
   match self {
     I32 | I64 => true
@@ -51,6 +69,7 @@ pub fn WasmType::is_integer(self : WasmType) -> Bool {
   }
 }
 
+///|
 pub fn WasmType::is_concrete(self : WasmType) -> Bool {
   match self {
     Unreachable | None => false
@@ -58,6 +77,7 @@ pub fn WasmType::is_concrete(self : WasmType) -> Bool {
   }
 }
 
+///|
 pub fn WasmType::bit_size(self : WasmType) -> Int {
   match self {
     I32 | F32 => 32
@@ -67,6 +87,7 @@ pub fn WasmType::bit_size(self : WasmType) -> Int {
   }
 }
 
+///|
 /// Binary operations
 pub enum BinaryOp {
   AddInt32
@@ -129,191 +150,324 @@ pub enum BinaryOp {
   DivFloat64
 } derive(Eq, Show)
 
+///|
 pub fn BinaryOp::add_int32() -> BinaryOp {
   AddInt32
 }
+
+///|
 pub fn BinaryOp::add_int64() -> BinaryOp {
   AddInt64
 }
+
+///|
 pub fn BinaryOp::sub_int32() -> BinaryOp {
   SubInt32
 }
+
+///|
 pub fn BinaryOp::sub_int64() -> BinaryOp {
   SubInt64
 }
+
+///|
 pub fn BinaryOp::mul_int32() -> BinaryOp {
   MulInt32
 }
+
+///|
 pub fn BinaryOp::mul_int64() -> BinaryOp {
   MulInt64
 }
+
+///|
 pub fn BinaryOp::div_s_int32() -> BinaryOp {
   DivSInt32
 }
+
+///|
 pub fn BinaryOp::div_s_int64() -> BinaryOp {
   DivSInt64
 }
+
+///|
 pub fn BinaryOp::div_u_int32() -> BinaryOp {
   DivUInt32
 }
+
+///|
 pub fn BinaryOp::div_u_int64() -> BinaryOp {
   DivUInt64
 }
+
+///|
 pub fn BinaryOp::rem_s_int32() -> BinaryOp {
   RemSInt32
 }
+
+///|
 pub fn BinaryOp::rem_s_int64() -> BinaryOp {
   RemSInt64
 }
+
+///|
 pub fn BinaryOp::rem_u_int32() -> BinaryOp {
   RemUInt32
 }
+
+///|
 pub fn BinaryOp::rem_u_int64() -> BinaryOp {
   RemUInt64
 }
+
+///|
 pub fn BinaryOp::and_int32() -> BinaryOp {
   AndInt32
 }
+
+///|
 pub fn BinaryOp::and_int64() -> BinaryOp {
   AndInt64
 }
+
+///|
 pub fn BinaryOp::or_int32() -> BinaryOp {
   OrInt32
 }
+
+///|
 pub fn BinaryOp::or_int64() -> BinaryOp {
   OrInt64
 }
+
+///|
 pub fn BinaryOp::xor_int32() -> BinaryOp {
   XorInt32
 }
+
+///|
 pub fn BinaryOp::xor_int64() -> BinaryOp {
   XorInt64
 }
+
+///|
 pub fn BinaryOp::shl_int32() -> BinaryOp {
   ShlInt32
 }
+
+///|
 pub fn BinaryOp::shl_int64() -> BinaryOp {
   ShlInt64
 }
+
+///|
 pub fn BinaryOp::shr_u_int32() -> BinaryOp {
   ShrUInt32
 }
+
+///|
 pub fn BinaryOp::shr_u_int64() -> BinaryOp {
   ShrUInt64
 }
+
+///|
 pub fn BinaryOp::shr_s_int32() -> BinaryOp {
   ShrSInt32
 }
+
+///|
 pub fn BinaryOp::shr_s_int64() -> BinaryOp {
   ShrSInt64
 }
+
+///|
 pub fn BinaryOp::rot_l_int32() -> BinaryOp {
   RotLInt32
 }
+
+///|
 pub fn BinaryOp::rot_l_int64() -> BinaryOp {
   RotLInt64
 }
+
+///|
 pub fn BinaryOp::rot_r_int32() -> BinaryOp {
   RotRInt32
 }
+
+///|
 pub fn BinaryOp::rot_r_int64() -> BinaryOp {
   RotRInt64
 }
+
+///|
 pub fn BinaryOp::eq_int32() -> BinaryOp {
   EqInt32
 }
+
+///|
 pub fn BinaryOp::eq_int64() -> BinaryOp {
   EqInt64
 }
+
+///|
 pub fn BinaryOp::ne_int32() -> BinaryOp {
   NeInt32
 }
+
+///|
 pub fn BinaryOp::ne_int64() -> BinaryOp {
   NeInt64
 }
+
+///|
 pub fn BinaryOp::lt_s_int32() -> BinaryOp {
   LtSInt32
 }
+
+///|
 pub fn BinaryOp::lt_s_int64() -> BinaryOp {
   LtSInt64
 }
+
+///|
 pub fn BinaryOp::lt_u_int32() -> BinaryOp {
   LtUInt32
 }
+
+///|
 pub fn BinaryOp::lt_u_int64() -> BinaryOp {
   LtUInt64
 }
+
+///|
 pub fn BinaryOp::le_s_int32() -> BinaryOp {
   LeSInt32
 }
+
+///|
 pub fn BinaryOp::le_s_int64() -> BinaryOp {
   LeSInt64
 }
+
+///|
 pub fn BinaryOp::le_u_int32() -> BinaryOp {
   LeUInt32
 }
+
+///|
 pub fn BinaryOp::le_u_int64() -> BinaryOp {
   LeUInt64
 }
+
+///|
 pub fn BinaryOp::gt_s_int32() -> BinaryOp {
   GtSInt32
 }
+
+///|
 pub fn BinaryOp::gt_s_int64() -> BinaryOp {
   GtSInt64
 }
+
+///|
 pub fn BinaryOp::gt_u_int32() -> BinaryOp {
   GtUInt32
 }
+
+///|
 pub fn BinaryOp::gt_u_int64() -> BinaryOp {
   GtUInt64
 }
+
+///|
 pub fn BinaryOp::ge_s_int32() -> BinaryOp {
   GeSInt32
 }
+
+///|
 pub fn BinaryOp::ge_s_int64() -> BinaryOp {
   GeSInt64
 }
+
+///|
 pub fn BinaryOp::ge_u_int32() -> BinaryOp {
   GeUInt32
 }
+
+///|
 pub fn BinaryOp::ge_u_int64() -> BinaryOp {
   GeUInt64
 }
+
+///|
 pub fn BinaryOp::add_float32() -> BinaryOp {
   AddFloat32
 }
+
+///|
 pub fn BinaryOp::add_float64() -> BinaryOp {
   AddFloat64
 }
+
+///|
 pub fn BinaryOp::sub_float32() -> BinaryOp {
   SubFloat32
 }
+
+///|
 pub fn BinaryOp::sub_float64() -> BinaryOp {
   SubFloat64
 }
+
+///|
 pub fn BinaryOp::mul_float32() -> BinaryOp {
   MulFloat32
 }
+
+///|
 pub fn BinaryOp::mul_float64() -> BinaryOp {
   MulFloat64
 }
+
+///|
 pub fn BinaryOp::div_float32() -> BinaryOp {
   DivFloat32
 }
+
+///|
 pub fn BinaryOp::div_float64() -> BinaryOp {
   DivFloat64
 }
 
-
+///|
 pub fn BinaryOp::is_relational(self : BinaryOp) -> Bool {
   match self {
-    EqInt32 | EqInt64 | NeInt32 | NeInt64 | LtSInt32 | LtSInt64 | LtUInt32 |
-    LtUInt64 | LeSInt32 | LeSInt64 | LeUInt32 | LeUInt64 | GtSInt32 | GtSInt64 |
-    GtUInt32 | GtUInt64 | GeSInt32 | GeSInt64 | GeUInt32 | GeUInt64 => true
+    EqInt32
+    | EqInt64
+    | NeInt32
+    | NeInt64
+    | LtSInt32
+    | LtSInt64
+    | LtUInt32
+    | LtUInt64
+    | LeSInt32
+    | LeSInt64
+    | LeUInt32
+    | LeUInt64
+    | GtSInt32
+    | GtSInt64
+    | GtUInt32
+    | GtUInt64
+    | GeSInt32
+    | GeSInt64
+    | GeUInt32
+    | GeUInt64 => true
     _ => false
   }
 }
 
+///|
 pub fn BinaryOp::get_opposite(self : BinaryOp) -> BinaryOp? {
   match self {
     GtSInt32 => Some(LtSInt32)
@@ -328,6 +482,7 @@ pub fn BinaryOp::get_opposite(self : BinaryOp) -> BinaryOp? {
   }
 }
 
+///|
 /// Unary operations
 pub enum UnaryOp {
   ClzInt32
@@ -347,66 +502,82 @@ pub enum UnaryOp {
   AbsFloat64
 } derive(Eq, Show)
 
+///|
 pub fn UnaryOp::clz_int32() -> UnaryOp {
   ClzInt32
 }
 
+///|
 pub fn UnaryOp::clz_int64() -> UnaryOp {
   ClzInt64
 }
 
+///|
 pub fn UnaryOp::ctz_int32() -> UnaryOp {
   CtzInt32
 }
 
+///|
 pub fn UnaryOp::ctz_int64() -> UnaryOp {
   CtzInt64
 }
 
+///|
 pub fn UnaryOp::popcnt_int32() -> UnaryOp {
   PopcntInt32
 }
 
+///|
 pub fn UnaryOp::popcnt_int64() -> UnaryOp {
   PopcntInt64
 }
 
+///|
 pub fn UnaryOp::eq_z_int32() -> UnaryOp {
   EqZInt32
 }
 
+///|
 pub fn UnaryOp::eq_z_int64() -> UnaryOp {
   EqZInt64
 }
 
+///|
 pub fn UnaryOp::extend_s_int32() -> UnaryOp {
   ExtendSInt32
 }
 
+///|
 pub fn UnaryOp::extend_u_int32() -> UnaryOp {
   ExtendUInt32
 }
 
+///|
 pub fn UnaryOp::wrap_int64() -> UnaryOp {
   WrapInt64
 }
 
+///|
 pub fn UnaryOp::neg_float32() -> UnaryOp {
   NegFloat32
 }
 
+///|
 pub fn UnaryOp::neg_float64() -> UnaryOp {
   NegFloat64
 }
 
+///|
 pub fn UnaryOp::abs_float32() -> UnaryOp {
   AbsFloat32
 }
 
+///|
 pub fn UnaryOp::abs_float64() -> UnaryOp {
   AbsFloat64
 }
 
+///|
 pub fn UnaryOp::is_relational(self : UnaryOp) -> Bool {
   match self {
     EqZInt32 | EqZInt64 => true
@@ -414,6 +585,7 @@ pub fn UnaryOp::is_relational(self : UnaryOp) -> Bool {
   }
 }
 
+///|
 /// Literal values
 pub enum Literal {
   LitI32(Int)
@@ -422,19 +594,27 @@ pub enum Literal {
   LitF64(Double)
 } derive(Eq, Hash, Show)
 
+///|
 pub fn Literal::i32(val : Int) -> Literal {
   LitI32(val)
 }
+
+///|
 pub fn Literal::i64(val : Int64) -> Literal {
   LitI64(val)
 }
+
+///|
 pub fn Literal::f32(val : Float) -> Literal {
   LitF32(val)
 }
+
+///|
 pub fn Literal::f64(val : Double) -> Literal {
   LitF64(val)
 }
 
+///|
 pub fn Literal::make_zero(wasm_type : WasmType) -> Literal {
   match wasm_type {
     I32 => LitI32(0)
@@ -445,6 +625,7 @@ pub fn Literal::make_zero(wasm_type : WasmType) -> Literal {
   }
 }
 
+///|
 pub fn Literal::get_type(self : Literal) -> WasmType {
   match self {
     LitI32(_) => I32
@@ -454,6 +635,7 @@ pub fn Literal::get_type(self : Literal) -> WasmType {
   }
 }
 
+///|
 pub fn Literal::to_tinstr(self : Literal) -> @lib.TInstr {
   match self {
     LitI32(x) => @lib.TInstr::i32_const(x)

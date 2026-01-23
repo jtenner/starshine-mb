@@ -40,7 +40,6 @@ pub fn[T : Default] SquareMatrix::get_or_default(
   SquareMatrix::get_or(self, T::default(), x, y)
 }
 
-
 ///|
 pub fn uses(instr : TInstr) -> Set[LocalIdx] {
   let result = Set::new()
@@ -109,4 +108,3 @@ test "liveness: nested expressions propagate uses" {
   assert_true(u.contains(y))
   assert_true(d.is_empty())
 }
-

@@ -26,11 +26,6 @@ pub trait Typecheck {
 }
 
 ///|
-fn empty_env() -> Env {
-  Env::new()
-}
-
-///|
 fn TcState::with_stack(st : TcState, stack : Array[ValType]) -> TcState {
   TcState::{ ..st, stack, }
 }

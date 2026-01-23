@@ -24,7 +24,6 @@ using @lib {
   type ElemKind,
   type ElemMode,
   type ElemSec,
-  type Env,
   type Export,
   type ExportSec,
   type Expr,
@@ -78,12 +77,16 @@ using @lib {
   type U32,
   type UnaryOp,
   type ValType,
+  type V128LoadLaneOp,
+  type V128StoreLaneOp,
+  type ExtractLaneOp,
+  type ReplaceLaneOp,
+  type V128ShiftOp,
+  type V128TernaryOp,
 }
 
-using @transformer {
-  type ModuleTransformer,
-  type TransformerResult,
-}
+///|
+using @transformer {type ModuleTransformer, type TransformerResult}
 
 ///|
 using @splitmix {type RandomState}

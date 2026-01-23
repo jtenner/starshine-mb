@@ -2,16 +2,19 @@
 // dataflow/graph_utils.mbt - Utility functions
 // ============================================================================
 
+///|
 /// Get the LocalSet for a node
 pub fn Graph::get_set_for_node(self : Graph, node : NodeId) -> ExprId? {
   self.node_parent_map.get(node)
 }
 
+///|
 /// Get the parent expression
 pub fn Graph::get_parent(self : Graph, expr : ExprId) -> ExprId? {
   self.expression_parent_map.get(expr)
 }
 
+///|
 /// Get the set for an expression if it exists
 pub fn Graph::get_set_for_expr(self : Graph, expr : ExprId) -> ExprId? {
   match self.get_parent(expr) {
@@ -29,15 +32,15 @@ pub fn Graph::get_set_for_expr(self : Graph, expr : ExprId) -> ExprId? {
   }
 }
 
+///|
 /// Create an expression that uses a node (for code generation)
 pub fn Graph::make_use(self : Graph, node_id : NodeId) -> Expression? {
   match self.node_store.get(node_id) {
     Some(node) =>
       match node.node_type {
-        Phi => {
+        Phi =>
           // Get from the phi's associated local
           Some(LocalGet({ index: node.index }))
-        }
         Expr =>
           match node.expr {
             Some(Const(c)) => Some(Const(c))
@@ -79,16 +82,19 @@ pub fn Graph::make_use(self : Graph, node_id : NodeId) -> Expression? {
   }
 }
 
+///|
 /// Get all sets in the graph
 pub fn Graph::get_sets(self : Graph) -> Array[ExprId] {
   self.sets.copy()
 }
 
+///|
 /// Get the node for a set
 pub fn Graph::get_node_for_set(self : Graph, set_id : ExprId) -> NodeId? {
   self.set_node_map.get(set_id)
 }
 
+///|
 /// Get conditions for an expression
 pub fn Graph::get_conditions(self : Graph, expr : ExprId) -> Array[NodeId] {
   match self.expression_condition_map.get(expr) {
@@ -97,6 +103,7 @@ pub fn Graph::get_conditions(self : Graph, expr : ExprId) -> Array[NodeId] {
   }
 }
 
+///|
 /// Debug: print the graph
 pub fn Graph::debug_print(self : Graph) -> String {
   let mut result = "DataFlow Graph:\n"

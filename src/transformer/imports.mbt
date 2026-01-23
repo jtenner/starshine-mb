@@ -1,5 +1,5 @@
+///|
 using @lib {
-  type Env,
   type TInstr,
   type LocalIdx,
   type ValType,

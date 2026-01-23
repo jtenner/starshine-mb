@@ -1,6 +1,5 @@
 ///|
 using @lib {
-  type Env,
   expand_locals,
   single_rec_type,
   comp_type_sub_type,
@@ -57,23 +56,28 @@ using @lib {
   type GlobalSec,
 }
 
-using @local_graph {
-  type LocalGraph,
-  type LocalSet,
-}
+///|
+using @local_graph {type LocalGraph, type LocalSet}
 
 ///|
 using @binary {size_signed}
 
+///|
+type DataFlowLiteral = @dataflow.Literal
+
+///|
+type DataFlowUnaryOp = @dataflow.UnaryOp
+
+///|
+type DataFlowBinaryOp = @dataflow.BinaryOp
+
+///|
 using @dataflow {
   type NodeId,
   type Node,
   type Graph,
   type Expression,
-  type Literal as DataFlowLiteral,
   type WasmType,
-  type UnaryOp as DataFlowUnaryOp,
-  type BinaryOp as DataFlowBinaryOp,
   type LocalGetExpr,
   type LocalSetExpr,
   type ConstExpr,
@@ -92,9 +96,13 @@ using @dataflow {
   type SwitchExpr,
 }
 
+///|
 using @transformer {
   type ModuleTransformer,
   type TransformerResult,
   change,
   unchanged,
 }
+
+///|
+using @validate {type Env, to_texpr}

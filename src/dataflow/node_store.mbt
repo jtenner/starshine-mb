@@ -2,12 +2,14 @@
 // dataflow/node_store.mbt - Node storage and management
 // ============================================================================
 
+///|
 /// Storage for all nodes with ID-based access
 pub struct NodeStore {
   nodes : Array[Node]
   mut bad_node_id : NodeId
 }
 
+///|
 pub fn NodeStore::new() -> NodeStore {
   let store : NodeStore = { nodes: [], bad_node_id: NodeId(0) }
   // Create the canonical bad node
@@ -15,6 +17,7 @@ pub fn NodeStore::new() -> NodeStore {
   store
 }
 
+///|
 fn NodeStore::add_node_internal(self : NodeStore, node : Node) -> NodeId {
   let id = NodeId(self.nodes.length())
   let node_with_id = node
@@ -23,10 +26,12 @@ fn NodeStore::add_node_internal(self : NodeStore, node : Node) -> NodeId {
   id
 }
 
+///|
 pub fn NodeStore::add_node(self : NodeStore, node : Node) -> NodeId {
   self.add_node_internal(node)
 }
 
+///|
 pub fn NodeStore::get(self : NodeStore, id : NodeId) -> Node? {
   let NodeId(idx) = id
   if idx >= 0 && idx < self.nodes.length() {
@@ -36,6 +41,7 @@ pub fn NodeStore::get(self : NodeStore, id : NodeId) -> Node? {
   }
 }
 
+///|
 pub fn NodeStore::get_mut(self : NodeStore, id : NodeId) -> Node? {
   let NodeId(idx) = id
   if idx >= 0 && idx < self.nodes.length() {
@@ -45,10 +51,12 @@ pub fn NodeStore::get_mut(self : NodeStore, id : NodeId) -> Node? {
   }
 }
 
+///|
 pub fn NodeStore::bad(self : NodeStore) -> NodeId {
   self.bad_node_id
 }
 
+///|
 pub fn NodeStore::is_bad(self : NodeStore, id : NodeId) -> Bool {
   match self.get(id) {
     Some(node) => node.is_bad()
@@ -56,10 +64,12 @@ pub fn NodeStore::is_bad(self : NodeStore, id : NodeId) -> Bool {
   }
 }
 
+///|
 pub fn NodeStore::len(self : NodeStore) -> Int {
   self.nodes.length()
 }
 
+///|
 /// Get the wasm type of a node
 pub fn NodeStore::get_wasm_type(self : NodeStore, id : NodeId) -> WasmType {
   match self.get(id) {

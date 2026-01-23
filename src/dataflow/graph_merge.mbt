@@ -2,13 +2,14 @@
 // dataflow/graph_merge.mbt - Merging control flow
 // ============================================================================
 
+///|
 /// Merge local state for an if, creating conditions
 pub fn Graph::merge_if(
   self : Graph,
   a_state : Locals,
   b_state : Locals,
   condition : NodeId,
-  expr_id : ExprId
+  expr_id : ExprId,
 ) -> Unit {
   let (if_true, if_false) = if not(self.node_store.is_bad(condition)) {
     // Generate boolean conditions for the two branches
@@ -31,6 +32,7 @@ pub fn Graph::merge_if(
   self.merge(states)
 }
 
+///|
 /// Merge local state for a block
 pub fn Graph::merge_block(self : Graph, localses : Array[Locals]) -> Unit {
   let states : Array[FlowState] = []
@@ -40,6 +42,7 @@ pub fn Graph::merge_block(self : Graph, localses : Array[Locals]) -> Unit {
   self.merge(states)
 }
 
+///|
 /// Merge multiple control flow paths, creating phis as needed
 pub fn Graph::merge(self : Graph, states : Array[FlowState]) -> Unit {
   let func = match self.func {

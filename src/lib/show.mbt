@@ -2124,32 +2124,3 @@ pub impl Show for FuncType with output(self, logger) {
   results.output(logger)
   logger.write_string("\n}")
 }
-
-///|
-pub impl Show for Env with output(self, logger) {
-  logger.write_string("Env {\n  global_types : ")
-  self.global_types.output(logger)
-  logger.write_string("\n  rec_stack : ")
-  self.rec_stack.output(logger)
-  logger.write_string("\n  funcs : ")
-  self.funcs.output(logger)
-  logger.write_string("\n  tables : ")
-  self.tables.output(logger)
-  logger.write_string("\n  mems : ")
-  self.mems.output(logger)
-  logger.write_string("\n  globals : ")
-  self.globals.output(logger)
-  logger.write_string("\n  elems : ")
-  self.elems.output(logger)
-  logger.write_string("\n  datas : ")
-  self.datas.output(logger)
-  logger.write_string("\n  tags : ")
-  self.tags.output(logger)
-  logger.write_string("\n  locals : ")
-  self.locals.output(logger)
-  logger.write_string("\n  labels : ")
-  self.labels.output(logger)
-  logger.write_string("\n  return_type : ")
-  self.return_type.output(logger)
-  logger.write_string("\n}")
-}

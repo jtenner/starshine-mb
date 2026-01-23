@@ -13,8 +13,6 @@ pub fn[T : @quickcheck.Arbitrary] array_of_arbitrary(UInt, Int, @splitmix.Random
 
 pub fn comp_type_sub_type(CompType) -> SubType
 
-pub fn empty_env() -> Env
-
 pub fn[T : Eq] equals(Array[T], Array[T]) -> Bool
 
 pub fn expand_locals(Array[Locals]) -> Result[Array[ValType], String]
@@ -694,65 +692,6 @@ pub impl Hash for ElemSec
 pub impl Show for ElemSec
 pub impl @quickcheck.Arbitrary for ElemSec
 
-pub(all) struct Env {
-  global_types : Array[SubType]
-  rec_stack : Array[Array[SubType]]
-  funcs : Array[FuncType]
-  tables : Array[TableType]
-  mems : Array[MemType]
-  globals : Array[GlobalType]
-  elems : Array[Elem]
-  datas : Array[Data]
-  tags : Array[TagType]
-  locals : Array[ValType]
-  labels : Array[Array[ValType]]
-  return_type : Array[ValType]?
-}
-pub fn Env::append_rectype_types(Self, RecType) -> Self
-pub fn Env::expand_blocktype(Self, BlockType) -> Result[(Array[ValType], Array[ValType]), String]
-pub fn Env::get_elem(Self, ElemIdx) -> Elem?
-pub fn Env::get_functype_by_funcidx(Self, FuncIdx) -> FuncType?
-pub fn Env::get_global_type(Self, GlobalIdx) -> GlobalType?
-pub fn Env::get_label(Self, LabelIdx) -> Array[ValType]?
-pub fn Env::get_label_types(Self, LabelIdx) -> Array[ValType]?
-pub fn Env::get_local_type(Self, LocalIdx) -> ValType?
-pub fn Env::get_memtype(Self, MemIdx) -> MemType?
-pub fn Env::get_table_type(Self, TableIdx) -> TableType?
-pub fn Env::get_tag(Self, TagIdx) -> TagType?
-pub fn Env::has_data(Self, DataIdx) -> Bool
-pub fn Env::has_func(Self, FuncIdx) -> Bool
-pub fn Env::new() -> Self
-pub fn Env::push_data(Self, Data) -> Self
-pub fn Env::push_elem(Self, Elem) -> Self
-pub fn Env::push_func(Self, FuncType) -> Self
-pub fn Env::push_global(Self, GlobalType) -> Self
-pub fn Env::push_mem(Self, MemType) -> Self
-pub fn Env::push_table(Self, TableType) -> Self
-pub fn Env::push_tag(Self, TagType) -> Self
-pub fn Env::resolve_array_field(Self, TypeIdx) -> Result[FieldType, String]
-pub fn Env::resolve_comptype(Self, TypeIdx) -> CompType?
-pub fn Env::resolve_functype(Self, TypeIdx) -> FuncType?
-pub fn Env::resolve_heaptype_subtype(Self, HeapType) -> SubType?
-pub fn Env::resolve_struct_fields(Self, TypeIdx) -> Result[Array[FieldType], String]
-pub fn Env::resolve_subtype(Self, TypeIdx) -> SubType?
-pub fn Env::resolve_tag_functype(Self, TagIdx) -> FuncType?
-pub fn Env::resolve_typeidx_subtype(Self, TypeIdx) -> SubType?
-pub fn Env::with_elems(Self, Array[Elem]) -> Self
-pub fn Env::with_funcs(Self, Array[FuncType]) -> Self
-pub fn Env::with_globals(Self, Array[GlobalType]) -> Self
-pub fn Env::with_label(Self, Array[ValType]) -> Self
-pub fn Env::with_labels(Self, Array[Array[ValType]]) -> Self
-pub fn Env::with_locals(Self, Array[ValType]) -> Self
-pub fn Env::with_mems(Self, Array[MemType]) -> Self
-pub fn Env::with_module(Self, Module) -> Self
-pub fn Env::with_rectype(Self, RecType) -> Self
-pub fn Env::with_return_type(Self, Array[ValType]?) -> Self
-pub fn Env::with_tables(Self, Array[TableType]) -> Self
-pub fn Env::with_tags(Self, Array[TagType]) -> Self
-pub fn Env::with_types(Self, Array[SubType]) -> Self
-pub impl Hash for Env
-pub impl Show for Env
-
 pub struct Export(Name, ExternIdx)
 
 
@@ -775,7 +714,6 @@ pub struct Expr(Array[Instruction])
 #deprecated
 pub fn Expr::inner(Self) -> Array[Instruction]
 pub fn Expr::new(Array[Instruction]) -> Self
-pub fn Expr::to_texpr(Self, Env) -> Result[TExpr, String]
 pub impl Eq for Expr
 pub impl Hash for Expr
 pub impl Show for Expr

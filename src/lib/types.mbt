@@ -247,21 +247,22 @@ pub struct Module {
   data_sec : DataSec?
 } derive(Hash)
 
+///|
 pub fn Module::new(
-  custom_secs~ : Array[CustomSec] = [],
-  type_sec~ : TypeSec? = None,
-  import_sec~ : ImportSec? = None,
-  func_sec~ : FuncSec? = None,
-  table_sec~ : TableSec? = None,
-  mem_sec~ : MemSec? = None,
-  tag_sec~ : TagSec? = None,
-  global_sec~ : GlobalSec? = None,
-  export_sec~ : ExportSec? = None,
-  start_sec~ : StartSec? = None,
-  elem_sec~ : ElemSec? = None,
-  data_cnt_sec~ : DataCntSec? = None,
-  code_sec~ : CodeSec? = None,
-  data_sec~ : DataSec? = None,
+  custom_secs? : Array[CustomSec] = [],
+  type_sec? : TypeSec? = None,
+  import_sec? : ImportSec? = None,
+  func_sec? : FuncSec? = None,
+  table_sec? : TableSec? = None,
+  mem_sec? : MemSec? = None,
+  tag_sec? : TagSec? = None,
+  global_sec? : GlobalSec? = None,
+  export_sec? : ExportSec? = None,
+  start_sec? : StartSec? = None,
+  elem_sec? : ElemSec? = None,
+  data_cnt_sec? : DataCntSec? = None,
+  code_sec? : CodeSec? = None,
+  data_sec? : DataSec? = None,
 ) -> Module {
   Module::{
     custom_secs,
@@ -283,22 +284,6 @@ pub fn Module::new(
 
 ///|
 pub struct FuncType(Array[ValType], Array[ValType]) derive(Hash, Eq)
-
-///|
-pub(all) struct Env {
-  global_types : Array[SubType]
-  rec_stack : Stack[Array[SubType]]
-  funcs : Array[FuncType]
-  tables : Array[TableType]
-  mems : Array[MemType]
-  globals : Array[GlobalType]
-  elems : Array[Elem]
-  datas : Array[Data]
-  tags : Array[TagType]
-  locals : Array[ValType]
-  labels : Stack[Array[ValType]]
-  return_type : Array[ValType]?
-} derive(Hash)
 
 ///|
 pub enum Func {
