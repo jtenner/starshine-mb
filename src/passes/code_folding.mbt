@@ -121,13 +121,11 @@ fn measure(instr : TInstr) -> Int {
   // Simple heuristic: count 1 for each instruction node
   // This is a simplified version of Binaryen's Measurer
   let mut count = 1
-  let walker = ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_tinstruction: Some(fn(self, c, i) {
+  let walker = ModuleTransformer::new()
+    .on_tinstruction_evt(fn(self, c, i) {
       count += 1
       self.walk_tinstruction_default(c, i)
-    }),
-  }
+    })
   ignore(walker.walk_tinstruction((), instr))
   count
 }
@@ -146,9 +144,8 @@ fn measure_all(instrs : Array[TInstr]) -> Int {
 /// Get all branch targets (labels) that appear in an instruction
 fn get_branch_targets(instr : TInstr) -> Set[LabelIdx] {
   let targets = Set::new()
-  let walker = ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_tinstruction: Some(fn(self, _, i) {
+  let walker = ModuleTransformer::new()
+    .on_tinstruction_evt(fn(self, _, i) {
       match i {
         TBr(label, _) => targets.add(label)
         TBrIf(label, _, _) => targets.add(label)
@@ -165,8 +162,7 @@ fn get_branch_targets(instr : TInstr) -> Set[LabelIdx] {
         _ => ()
       }
       self.walk_tinstruction_default((), i)
-    }),
-  }
+    })
   ignore(walker.walk_tinstruction((), instr))
   targets
 }
@@ -553,9 +549,8 @@ fn process_if(
 ///|
 /// Main code folding pass
 pub fn code_folding_pass() -> ModuleTransformer[CodeFoldingState] {
-  ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_tinstruction: Some(fn(self, state, instr) {
+  ModuleTransformer::new()
+    .on_tinstruction_evt(fn(self, state, instr) {
       // Process blocks and ifs for tail merging
       match instr {
         TBlock(bt, body) =>
@@ -609,8 +604,8 @@ pub fn code_folding_pass() -> ModuleTransformer[CodeFoldingState] {
           }
         _ => self.walk_tinstruction_default(state, instr)
       }
-    }),
-    on_func: Some(fn(self, state, func) {
+    })
+    .on_func_evt(fn(self, state, func) {
       match func {
         Func(_) => unchanged()
         TFunc(locals, body) => {
@@ -677,8 +672,7 @@ pub fn code_folding_pass() -> ModuleTransformer[CodeFoldingState] {
           }
         }
       }
-    }),
-  }
+    })
 }
 
 ///|

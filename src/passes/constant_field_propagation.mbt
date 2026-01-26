@@ -275,9 +275,8 @@ fn get_field_value(
 /// This is a two-phase pass. Call run_constant_field_propagation for full optimization.
 /// The pass itself just scans for struct operations.
 pub fn constant_field_propagation_pass() -> ModuleTransformer[CFPState] {
-  ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_func: Some(fn(_self, state, func) {
+  ModuleTransformer::new()
+    .on_func_evt(fn(_self, state, func) {
       match func {
         Func(_, _) => unchanged()
         TFunc(_, body) => {
@@ -286,8 +285,7 @@ pub fn constant_field_propagation_pass() -> ModuleTransformer[CFPState] {
           unchanged()
         }
       }
-    }),
-  }
+    })
 }
 
 ///|
@@ -326,9 +324,8 @@ pub fn run_constant_field_propagation(m : Module) -> Result[Module, String] {
 ///|
 /// Create an optimizer that replaces struct.get with constants
 fn make_cfp_optimizer(state : CFPState) -> ModuleTransformer[Unit] {
-  ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_tinstruction: Some(fn(self, _, instr) {
+  ModuleTransformer::new()
+    .on_tinstruction_evt(fn(self, _, instr) {
       match instr {
         TStructGet(type_idx, field_idx, ref_instr)
         | TStructGetS(type_idx, field_idx, ref_instr)
@@ -382,8 +379,7 @@ fn make_cfp_optimizer(state : CFPState) -> ModuleTransformer[Unit] {
           }
         _ => self.walk_tinstruction_default((), instr)
       }
-    }),
-  }
+    })
 }
 
 ///|

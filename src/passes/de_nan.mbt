@@ -91,17 +91,16 @@ fn produces_f64(i : TInstr) -> Bool {
 
 ///|
 fn make_denam_transformer() -> ModuleTransformer[DeNaNState] {
-  ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_func: Some(fn(self, st, func) {
+  ModuleTransformer::new()
+    .on_func_evt(fn(self, st, func : Func) {
       match func {
         TFunc(params, _) => {
           // FIX: Check parameters to determine if helpers are needed for sanitization
           let mut st = st
           for param in params {
             match param {
-              NumTypeValType(F32NumType) => st = { ..st, need_f32: true }
-              NumTypeValType(F64NumType) => st = { ..st, need_f64: true }
+              NumTypeValType(F32NumType) => st = DeNaNState::{ ..st, need_f32: true }
+              NumTypeValType(F64NumType) => st = DeNaNState::{ ..st, need_f64: true }
               _ => ()
             }
           }
@@ -115,8 +114,8 @@ fn make_denam_transformer() -> ModuleTransformer[DeNaNState] {
         }
         _ => Ok(None)
       }
-    }),
-    on_tinstruction: Some(fn(self, st, instr) {
+    })
+    .on_tinstruction_evt(fn(self, st, instr) {
       match instr {
         // f32 NaN constant → 0
         TF32Const(f) =>
@@ -169,8 +168,7 @@ fn make_denam_transformer() -> ModuleTransformer[DeNaNState] {
         }
         _ => self.walk_tinstruction_default(st, instr)
       }
-    }),
-  }
+    })
 }
 
 ///|

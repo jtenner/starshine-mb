@@ -2,9 +2,8 @@
 /// Increment all indices of a specific type to cause out-of-bounds errors
 fn make_funcidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   let target = offset + 0x7FFFFFFF
-  ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_funcidx: Some(fn(
+  ModuleTransformer::new()
+    .on_funcidx_evt(fn(
       _ : ModuleTransformer[Unit],
       _ctx : Unit,
       idx : FuncIdx,
@@ -16,16 +15,14 @@ fn make_funcidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
       } else {
         Ok(Some(((), FuncIdx::new(i + target))))
       }
-    }),
-  }
+    })
 }
 
 ///|
 fn make_typeidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   let target = offset + 0x7FFFFFFF
-  ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_typeidx: Some(fn(
+  ModuleTransformer::new()
+    .on_typeidx_evt(fn(
       _ : ModuleTransformer[Unit],
       _ctx : Unit,
       idx : TypeIdx,
@@ -44,16 +41,14 @@ fn make_typeidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
             Ok(Some(((), TypeIdx::rec(i + target))))
           }
       }
-    }),
-  }
+    })
 }
 
 ///|
 fn make_localidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   let target = offset + 0x7FFFFFFF
-  ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_localidx: Some(fn(
+  ModuleTransformer::new()
+    .on_localidx_evt(fn(
       _ : ModuleTransformer[Unit],
       _ctx : Unit,
       idx : LocalIdx,
@@ -64,16 +59,14 @@ fn make_localidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
       } else {
         Ok(Some(((), LocalIdx::new(i + target))))
       }
-    }),
-  }
+    })
 }
 
 ///|
 fn make_globalidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   let target = offset + 0x7FFFFFFF
-  ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_globalidx: Some(fn(
+  ModuleTransformer::new()
+    .on_globalidx_evt(fn(
       _ : ModuleTransformer[Unit],
       _ctx : Unit,
       idx : GlobalIdx,
@@ -84,16 +77,14 @@ fn make_globalidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
       } else {
         Ok(Some(((), GlobalIdx::new(i + target))))
       }
-    }),
-  }
+    })
 }
 
 ///|
 fn make_labelidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   let target = offset + 0x7FFFFFFF
-  ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_labelidx: Some(fn(
+  ModuleTransformer::new()
+    .on_labelidx_evt(fn(
       _ : ModuleTransformer[Unit],
       _ctx : Unit,
       idx : LabelIdx,
@@ -104,16 +95,14 @@ fn make_labelidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
       } else {
         Ok(Some(((), LabelIdx::new(i + target))))
       }
-    }),
-  }
+    })
 }
 
 ///|
 fn make_tableidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   let target = offset + 0x7FFFFFFF
-  ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_tableidx: Some(fn(
+  ModuleTransformer::new()
+    .on_tableidx_evt(fn(
       _ : ModuleTransformer[Unit],
       _ctx : Unit,
       idx : TableIdx,
@@ -124,16 +113,14 @@ fn make_tableidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
       } else {
         Ok(Some(((), TableIdx::new(i + target))))
       }
-    }),
-  }
+    })
 }
 
 ///|
 fn make_memidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   let target = offset + 0x7FFFFFFF
-  ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_memidx: Some(fn(
+  ModuleTransformer::new()
+    .on_memidx_evt(fn(
       _ : ModuleTransformer[Unit],
       _ctx : Unit,
       idx : MemIdx,
@@ -144,16 +131,14 @@ fn make_memidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
       } else {
         Ok(Some(((), MemIdx::new(i + target))))
       }
-    }),
-  }
+    })
 }
 
 ///|
 fn make_dataidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   let target = offset + 0x7FFFFFFF
-  ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_dataidx: Some(fn(
+  ModuleTransformer::new()
+    .on_dataidx_evt(fn(
       _ : ModuleTransformer[Unit],
       _ctx : Unit,
       idx : DataIdx,
@@ -164,16 +149,14 @@ fn make_dataidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
       } else {
         Ok(Some(((), DataIdx::new(i + target))))
       }
-    }),
-  }
+    })
 }
 
 ///|
 fn make_elemidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   let target = offset + 0x7FFFFFFF
-  ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_elemidx: Some(fn(
+  ModuleTransformer::new()
+    .on_elemidx_evt(fn(
       _ : ModuleTransformer[Unit],
       _ctx : Unit,
       idx : ElemIdx,
@@ -184,16 +167,14 @@ fn make_elemidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
       } else {
         Ok(Some(((), ElemIdx::new(i + target))))
       }
-    }),
-  }
+    })
 }
 
 ///|
 fn make_tagidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
   let target = offset + 0x7FFFFFFF
-  ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_tagidx: Some(fn(
+  ModuleTransformer::new()
+    .on_tagidx_evt(fn(
       _ : ModuleTransformer[Unit],
       _ctx : Unit,
       idx : TagIdx,
@@ -204,16 +185,14 @@ fn make_tagidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
       } else {
         Ok(Some(((), TagIdx::new(i + target))))
       }
-    }),
-  }
+    })
 }
 
 ///|
 /// Use Bool context to track if we've already corrupted an expr
 fn make_type_corruption_transformer() -> ModuleTransformer[Bool] {
-  ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_expr: Some(fn(
+  ModuleTransformer::new()
+    .on_expr_evt(fn(
       _ : ModuleTransformer[Bool],
       done : Bool,
       expr : Expr,
@@ -231,18 +210,13 @@ fn make_type_corruption_transformer() -> ModuleTransformer[Bool] {
         new_instrs.push(i)
       }
       Ok(Some((true, Expr::new(new_instrs))))
-    }),
-  }
+    })
 }
 
 ///|
 fn make_numtype_swap_transformer() -> ModuleTransformer[Unit] {
-  ModuleTransformer::{
-    ..ModuleTransformer::new()
-    // Only swap the VALUE TYPES, not the instructions
-    // This creates mismatches between declared types and instruction semantics
-    ,
-    on_valtype: Some(fn(
+  ModuleTransformer::new()
+    .on_valtype_evt(fn(
       _ : ModuleTransformer[Unit],
       _ctx : Unit,
       vt : ValType,
@@ -254,17 +228,15 @@ fn make_numtype_swap_transformer() -> ModuleTransformer[Unit] {
         NumTypeValType(F64NumType) => Ok(Some(((), ValType::i32())))
         _ => Ok(None)
       }
-    }),
-  }
+    })
 }
 
 ///|
 /// Aggressive nullability flip - make ALL ref types non-nullable
 /// This will fail if there's any ref.null, table without init, or nullable parameter
 fn make_nullability_flip_transformer() -> ModuleTransformer[Unit] {
-  ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_reftype: Some(fn(
+  ModuleTransformer::new()
+    .on_reftype_evt(fn(
       _ : ModuleTransformer[Unit],
       _ctx : Unit,
       rt : RefType,
@@ -323,9 +295,8 @@ fn make_nullability_flip_transformer() -> ModuleTransformer[Unit] {
           // These shorthands are nullable, make them non-null with explicit form
           Ok(Some(((), RefType::new(false, HeapType::abs(aht)))))
       }
-    }),
-    // Also corrupt ref.null to create definite type errors
-    on_instruction: Some(fn(
+    })
+    .on_instruction_evt(fn(
       _ : ModuleTransformer[Unit],
       _ctx : Unit,
       instr : Instruction,
@@ -338,17 +309,15 @@ fn make_nullability_flip_transformer() -> ModuleTransformer[Unit] {
         RefIsNull => Ok(Some(((), Instruction::i64_const(I64(0L))))) // Expects ref, we removed it
         _ => Ok(None)
       }
-    }),
-  }
+    })
 }
 
 ///|
 /// Alternative strategy: corrupt ONLY type declarations, not code
 /// This creates inconsistency between what's declared and what's executed
 fn make_signature_corruption_transformer() -> ModuleTransformer[Unit] {
-  ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_comptype: Some(fn(
+  ModuleTransformer::new()
+    .on_comptype_evt(fn(
       _ : ModuleTransformer[Unit],
       _ctx : Unit,
       ct : CompType,
@@ -402,16 +371,14 @@ fn make_signature_corruption_transformer() -> ModuleTransformer[Unit] {
           Ok(Some(((), CompType::array(FieldType::new(new_st, mutability)))))
         }
       }
-    }),
-  }
+    })
 }
 
 ///|
 /// Strategy that corrupts global initializers to not match declared types
 fn make_global_init_mismatch_transformer() -> ModuleTransformer[Unit] {
-  ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_global: Some(fn(
+  ModuleTransformer::new()
+    .on_global_evt(fn(
       _ : ModuleTransformer[Unit],
       _ctx : Unit,
       g : Global,
@@ -432,16 +399,14 @@ fn make_global_init_mismatch_transformer() -> ModuleTransformer[Unit] {
         BotValType => return Ok(None)
       }
       Ok(Some(((), Global::new(GlobalType::new(vt, mutable), wrong_init))))
-    }),
-  }
+    })
 }
 
 ///|
 /// Strategy that corrupts table initializers
 fn make_table_init_mismatch_transformer() -> ModuleTransformer[Unit] {
-  ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_table: Some(fn(
+  ModuleTransformer::new()
+    .on_table_evt(fn(
       _ : ModuleTransformer[Unit],
       _ctx : Unit,
       t : Table,
@@ -456,16 +421,14 @@ fn make_table_init_mismatch_transformer() -> ModuleTransformer[Unit] {
           ),
         ),
       )
-    }),
-  }
+    })
 }
 
 ///|
 /// More aggressive drop insertion - prepend Drop to cause stack underflow
 fn make_drop_insertion_transformer() -> ModuleTransformer[Bool] {
-  ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_expr: Some(fn(
+  ModuleTransformer::new()
+    .on_expr_evt(fn(
       _ : ModuleTransformer[Bool],
       done : Bool,
       expr : Expr,
@@ -487,16 +450,14 @@ fn make_drop_insertion_transformer() -> ModuleTransformer[Bool] {
         new_instrs.push(i)
       }
       Ok(Some((true, Expr::new(new_instrs))))
-    }),
-  }
+    })
 }
 
 ///|
 /// Remove block ends / corrupt block structure - use Bool to do once
 fn make_block_corruption_transformer() -> ModuleTransformer[Bool] {
-  ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_expr: Some(fn(
+  ModuleTransformer::new()
+    .on_expr_evt(fn(
       _ : ModuleTransformer[Bool],
       done : Bool,
       expr : Expr,
@@ -514,8 +475,7 @@ fn make_block_corruption_transformer() -> ModuleTransformer[Bool] {
       } else {
         Ok(None)
       }
-    }),
-  }
+    })
 }
 
 ///|
@@ -535,9 +495,8 @@ fn corrupt_blocktype(bt : BlockType) -> BlockType {
 ///|
 /// Block type mismatch - insert blocks with wrong types or corrupt existing ones
 fn make_blocktype_mismatch_transformer() -> ModuleTransformer[Bool] {
-  ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_instruction: Some(fn(
+  ModuleTransformer::new()
+    .on_instruction_evt(fn(
       _ : ModuleTransformer[Bool],
       done : Bool,
       ins : Instruction,
@@ -661,8 +620,7 @@ fn make_blocktype_mismatch_transformer() -> ModuleTransformer[Bool] {
 
         _ => Ok(None)
       }
-    }),
-  }
+    })
 }
 
 ///|

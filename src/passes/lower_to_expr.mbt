@@ -1,8 +1,7 @@
 ///|
 pub fn lower_to_expr_pass() -> ModuleTransformer[Unit] {
-  ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_func: Some(fn(
+  ModuleTransformer::new()
+    .on_func_evt(fn(
       _ : ModuleTransformer[Unit],
       _ : Unit,
       f : Func,
@@ -15,8 +14,7 @@ pub fn lower_to_expr_pass() -> ModuleTransformer[Unit] {
         }
         Func(_, _) => unchanged()
       }
-    }),
-  }
+    })
 }
 
 ///|

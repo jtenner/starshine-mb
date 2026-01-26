@@ -1,8 +1,7 @@
 ///|
 pub fn lift_to_texpr_pass() -> ModuleTransformer[Unit] {
-  ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_func: Some(fn(
+  ModuleTransformer::new()
+    .on_func_evt(fn(
       _ : ModuleTransformer[Unit],
       _ : Unit,
       f : Func,
@@ -19,6 +18,5 @@ pub fn lift_to_texpr_pass() -> ModuleTransformer[Unit] {
           }
         TFunc(_, _) => unchanged()
       }
-    }),
-  }
+    })
 }

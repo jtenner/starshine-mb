@@ -563,16 +563,14 @@ fn count_gets_in_instr(state : PushingState, instr : TInstr) -> Unit {
     }
     _ => {
       // Use a walker to find all local.gets
-      let walker = ModuleTransformer::{
-        ..ModuleTransformer::new(),
-        on_tinstruction: Some(fn(self, _, i) {
+      let walker = ModuleTransformer::new()
+        .on_tinstruction_evt(fn(self, _, i) {
           match i {
             TLocalGet(idx) => count_local_get(state, idx)
             _ => ()
           }
           self.walk_tinstruction_default((), i)
-        }),
-      }
+        })
       ignore(walker.walk_tinstruction((), instr))
     }
   }
@@ -896,9 +894,8 @@ fn push_code_in_block(list : Array[TInstr], state : PushingState) -> Unit {
 ///|
 /// Main code pushing pass
 pub fn code_pushing_pass() -> ModuleTransformer[Unit] {
-  ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_func: Some(fn(_self, _state, func) {
+  ModuleTransformer::new()
+    .on_func_evt(fn(_self, _state, func) {
       match func {
         Func(_, _) => unchanged()
         TFunc(params, body) => {
@@ -930,8 +927,7 @@ pub fn code_pushing_pass() -> ModuleTransformer[Unit] {
           }
         }
       }
-    }),
-  }
+    })
 }
 
 ///|

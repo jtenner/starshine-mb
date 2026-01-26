@@ -771,9 +771,8 @@ fn compute_interferences(instrs : Array[TInstr]) -> Set[(LocalIdx, LocalIdx)] {
 
 ///|
 fn coalesce_locals() -> ModuleTransformer[Unit] {
-  ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_func: Some(fn(_, _, func) {
+  ModuleTransformer::new()
+    .on_func_evt(fn(_, _, func) {
       match func {
         Func(_) => unchanged()
         TFunc(locals, body) => {
@@ -793,15 +792,13 @@ fn coalesce_locals() -> ModuleTransformer[Unit] {
           change((), Func::t_func(new_locals, new_body))
         }
       }
-    }),
-  }
+    })
 }
 
 ///|
 fn rewrite_instr_locals(instr : TInstr, mapping : LocalMap) -> TInstr {
-  let walker = ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_tinstruction: Some(fn(_, _, i) {
+  let walker = ModuleTransformer::new()
+    .on_tinstruction_evt(fn(_, _, i) {
       match i {
         TInstr::TLocalGet(idx) =>
           change((), TInstr::local_get(mapping.get(idx).unwrap()))
@@ -811,8 +808,7 @@ fn rewrite_instr_locals(instr : TInstr, mapping : LocalMap) -> TInstr {
           change((), TInstr::local_tee(mapping.get(idx).unwrap(), value))
         _ => unchanged()
       }
-    }),
-  }
+    })
   let (_, expr) = walker
     .walk_texpr_default((), TExpr::new([instr]))
     .unwrap()

@@ -32,9 +32,8 @@ priv enum IndirectTargetInfo {
 
 ///|
 fn make_table_write_analyzer(infos : TableInfoMap) -> ModuleTransformer[Unit] {
-  ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_tinstruction: Some(fn(_, _, instr) {
+  ModuleTransformer::new()
+    .on_tinstruction_evt(fn(_, _, instr : TInstr) {
       match instr {
         // Any runtime write invalidates entry-based initialization
         TTableSet(table_idx, _, _)
@@ -69,8 +68,7 @@ fn make_table_write_analyzer(infos : TableInfoMap) -> ModuleTransformer[Unit] {
         _ => ()
       }
       Ok(None)
-    }),
-  }
+    })
 }
 
 ///|
@@ -320,9 +318,8 @@ fn make_directize_transformer(
   tables : TableInfoMap,
   env : Env,
 ) -> ModuleTransformer[Unit] {
-  return ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_tinstruction: Some(fn(_, _, instr) {
+  ModuleTransformer::new()
+    .on_tinstruction_evt(fn(_, _, instr) {
       match instr {
         TCallIndirect(type_idx, table_idx, args, index) =>
           match tables.get(table_idx) {
@@ -366,8 +363,7 @@ fn make_directize_transformer(
           }
         _ => unchanged()
       }
-    }),
-  }
+    })
 }
 
 ///|

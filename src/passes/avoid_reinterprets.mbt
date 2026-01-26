@@ -65,21 +65,15 @@ fn get_single_load_from_local(
 
 ///|
 fn avoid_reinterprets() -> ModuleTransformer[(LocalGraph, Int)] {
-  ModuleTransformer::{
-    ..ModuleTransformer::new()
-
-    // Phase 1: build LocalGraph
-    ,
-    on_func: Some(fn(self, _, func) {
+  ModuleTransformer::new()
+    .on_func_evt(fn(self, _, func) {
       match func {
         Func(_) => Err("Expected TFunc")
         TFunc(_, body) =>
           self.walk_func_default((LocalGraph::new(body.0), 0), func)
       }
-    }),
-
-    // Phase 2: rewrite
-    on_tinstruction: Some(fn(_, state, instr) {
+    })
+    .on_tinstruction_evt(fn(_, state, instr) {
       let (graph, idx) = state
       let cur_idx = idx
       let next_state = match instr {
@@ -106,8 +100,7 @@ fn avoid_reinterprets() -> ModuleTransformer[(LocalGraph, Int)] {
           }
         _ => unchanged()
       }
-    }),
-  }
+    })
 }
 
 ///|

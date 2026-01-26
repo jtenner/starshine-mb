@@ -175,9 +175,8 @@ fn v128_lit(
 
 ///|
 fn replace_literal_pass() -> ModuleTransformer[Map[Literal, LocalIdx]] {
-  ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_tinstruction: Some(fn(self, t, i) {
+  ModuleTransformer::new()
+    .on_tinstruction_evt(fn(self, t, i) {
       match i {
         TI32Const(I32(val)) => {
           let lit = i32_lit(val)
@@ -242,15 +241,13 @@ fn replace_literal_pass() -> ModuleTransformer[Map[Literal, LocalIdx]] {
         }
         _ => self.walk_tinstruction_default(t, i)
       }
-    }),
-  }
+    })
 }
 
 ///|
 pub fn const_hoisting_pass() -> ModuleTransformer[ConstHoistingState] {
-  ModuleTransformer::{
-    ..ModuleTransformer::new(),
-    on_func: Some(fn(self, t, func) {
+  ModuleTransformer::new()
+    .on_func_evt(fn(self, t : ConstHoistingState, func) {
       // reset uses of consts per function
       t.usage.clear()
       let (t, func) = match self.walk_func_default(t, func) {
@@ -293,8 +290,8 @@ pub fn const_hoisting_pass() -> ModuleTransformer[ConstHoistingState] {
         body.0.insert(0, TInstr::local_set(idx, con))
       }
       change(t, Func::t_func(locals, body))
-    }),
-    on_tinstruction: Some(fn(self, t, i) {
+    })
+    .on_tinstruction_evt(fn(self, t, i) {
       match i {
         TI32Const(I32(val)) => t.uses(i32_lit(val))
         TI64Const(I64(val)) => t.uses(i64_lit(val))
@@ -306,8 +303,7 @@ pub fn const_hoisting_pass() -> ModuleTransformer[ConstHoistingState] {
         _ => ()
       }
       self.walk_tinstruction_default(t, i)
-    }),
-  }
+    })
 }
 
 ///|
