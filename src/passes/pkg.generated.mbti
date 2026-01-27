@@ -38,6 +38,8 @@ pub fn optimize_graph(@dataflow.Graph) -> Unit
 
 pub fn propagate_to_supertypes(CFPState) -> Unit
 
+pub fn remove_unused(@lib.Module) -> Result[@lib.Module, String]
+
 pub fn run_constant_field_propagation(@lib.Module) -> Result[@lib.Module, String]
 
 pub fn run_denam(@lib.Module) -> Result[@lib.Module, String]
@@ -79,6 +81,12 @@ type ConstKey
 pub impl Eq for ConstKey
 pub impl Hash for ConstKey
 
+pub struct DCEState {
+  used : UsedIndices
+  remap : Remappings
+  imports : ImportCounts
+}
+
 pub enum FieldValue {
   Uninitialized
   Constant(@lib.TInstr)
@@ -89,6 +97,8 @@ pub impl Eq for FieldValue
 type GVNKey
 pub impl Eq for GVNKey
 pub impl Hash for GVNKey
+
+type ImportCounts
 
 pub struct Literal(LiteralKind, Bytes)
 
@@ -119,6 +129,8 @@ pub fn NodeUsers::num_uses(Self, @dataflow.NodeId) -> Int
 pub fn NodeUsers::remove_all_uses_of(Self, @dataflow.NodeId) -> Unit
 pub fn NodeUsers::remove_user(Self, @dataflow.NodeId, @dataflow.NodeId) -> Unit
 
+type Remappings
+
 pub struct SquareMatrix[T] {
   storage : Map[UInt64, T]
   n : UInt
@@ -129,6 +141,8 @@ pub fn[T] SquareMatrix::new(size? : UInt) -> Self[T]
 
 type Tail
 pub impl Eq for Tail
+
+type UsedIndices
 
 // Type aliases
 

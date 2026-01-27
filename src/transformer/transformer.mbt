@@ -43,6 +43,10 @@ pub struct ModuleTransformer[T] {
     T,
     ExportSec,
   ])?
+  on_importsec : ((ModuleTransformer[T], T, ImportSec) -> TransformerResult[
+    T,
+    ImportSec,
+  ])?
   on_startsec : ((ModuleTransformer[T], T, StartSec) -> TransformerResult[
     T,
     StartSec,
@@ -235,6 +239,7 @@ pub fn[T] ModuleTransformer::new() -> ModuleTransformer[T] {
     on_memsec: None,
     on_tagsec: None,
     on_globalsec: None,
+    on_importsec: None,
     on_exportsec: None,
     on_startsec: None,
     on_elemsec: None,
@@ -316,6 +321,9 @@ pub fn [T] ModuleTransformer::on_globalsec_evt(self : ModuleTransformer[T], evt 
 }
 pub fn [T] ModuleTransformer::on_exportsec_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, ExportSec) -> TransformerResult[T, ExportSec]) -> ModuleTransformer[T] {
   ModuleTransformer::{ ..self, on_exportsec: Some(evt) }
+}
+pub fn [T] ModuleTransformer::on_importsec_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, ImportSec) -> TransformerResult[T, ImportSec]) -> ModuleTransformer[T] {
+  ModuleTransformer::{ ..self, on_importsec: Some(evt) }
 }
 pub fn [T] ModuleTransformer::on_startsec_evt(self : ModuleTransformer[T], evt : (ModuleTransformer[T], T, StartSec) -> TransformerResult[T, StartSec]) -> ModuleTransformer[T] {
   ModuleTransformer::{ ..self, on_startsec: Some(evt) }
@@ -3573,6 +3581,20 @@ pub fn[T] ModuleTransformer::walk_exportsec(
 }
 
 ///|
+pub fn[T] ModuleTransformer::walk_importsec_default(
+  self : ModuleTransformer[T],
+  t : T,
+  es : ImportSec,
+) -> TransformerResult[T, ImportSec] {
+  let ImportSec(ims) = es
+  match self.walk_array(t, ModuleTransformer::walk_import, ims) {
+    Err(e) => Err(e)
+    Ok(None) => Ok(None)
+    Ok(Some((t, ims))) => Ok(Some((t, ImportSec::new(ims))))
+  }
+}
+
+///|
 pub fn[T] ModuleTransformer::walk_exportsec_default(
   self : ModuleTransformer[T],
   t : T,
@@ -3777,11 +3799,14 @@ pub fn[T] ModuleTransformer::walk_importsec(
   t : T,
   ims : ImportSec,
 ) -> TransformerResult[T, ImportSec] {
-  let ImportSec(ims) = ims
-  match self.walk_array(t, ModuleTransformer::walk_import, ims) {
-    Err(e) => Err(e)
-    Ok(None) => Ok(None)
-    Ok(Some((t, ims))) => Ok(Some((t, ImportSec::new(ims))))
+  match self.on_importsec {
+    Some(f) =>
+      match f(self, t, ims) {
+        Err(e) => Err(e)
+        Ok(None) => self.walk_importsec_default(t, ims)
+        ok => ok
+      }
+    None => self.walk_importsec_default(t, ims)
   }
 }
 

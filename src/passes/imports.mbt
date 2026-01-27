@@ -57,6 +57,20 @@ using @lib {
   type SubType,
   type CompType,
   type FuncType,
+  type ImportSec,
+  type MemSec,
+  type TagIdx,
+  type DataIdx,
+  type DataSec,
+  type TagSec,
+  type ExportSec,
+  type StartSec,
+  type ExternType,
+  type Import,
+  type DataCntSec,
+  type ExternIdx,
+  type Export,
+  type Name,
 }
 
 ///|

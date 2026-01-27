@@ -24,6 +24,7 @@ pub struct ModuleTransformer[T] {
   on_tagsec : ((ModuleTransformer[T], T, @lib.TagSec) -> Result[(T, @lib.TagSec)?, String])?
   on_globalsec : ((ModuleTransformer[T], T, @lib.GlobalSec) -> Result[(T, @lib.GlobalSec)?, String])?
   on_exportsec : ((ModuleTransformer[T], T, @lib.ExportSec) -> Result[(T, @lib.ExportSec)?, String])?
+  on_importsec : ((ModuleTransformer[T], T, @lib.ImportSec) -> Result[(T, @lib.ImportSec)?, String])?
   on_startsec : ((ModuleTransformer[T], T, @lib.StartSec) -> Result[(T, @lib.StartSec)?, String])?
   on_elemsec : ((ModuleTransformer[T], T, @lib.ElemSec) -> Result[(T, @lib.ElemSec)?, String])?
   on_elemkind : ((ModuleTransformer[T], T, @lib.ElemKind) -> Result[(T, @lib.ElemKind)?, String])?
@@ -105,6 +106,7 @@ pub fn[T] ModuleTransformer::on_globalidx_evt(Self[T], (Self[T], T, @lib.GlobalI
 pub fn[T] ModuleTransformer::on_globalsec_evt(Self[T], (Self[T], T, @lib.GlobalSec) -> Result[(T, @lib.GlobalSec)?, String]) -> Self[T]
 pub fn[T] ModuleTransformer::on_globaltype_evt(Self[T], (Self[T], T, @lib.GlobalType) -> Result[(T, @lib.GlobalType)?, String]) -> Self[T]
 pub fn[T] ModuleTransformer::on_heaptype_evt(Self[T], (Self[T], T, @lib.HeapType) -> Result[(T, @lib.HeapType)?, String]) -> Self[T]
+pub fn[T] ModuleTransformer::on_importsec_evt(Self[T], (Self[T], T, @lib.ImportSec) -> Result[(T, @lib.ImportSec)?, String]) -> Self[T]
 pub fn[T] ModuleTransformer::on_instruction_evt(Self[T], (Self[T], T, @lib.Instruction) -> Result[(T, @lib.Instruction)?, String]) -> Self[T]
 pub fn[T] ModuleTransformer::on_labelidx_evt(Self[T], (Self[T], T, @lib.LabelIdx) -> Result[(T, @lib.LabelIdx)?, String]) -> Self[T]
 pub fn[T] ModuleTransformer::on_laneidx_evt(Self[T], (Self[T], T, @lib.LaneIdx) -> Result[(T, @lib.LaneIdx)?, String]) -> Self[T]
@@ -194,6 +196,7 @@ pub fn[T] ModuleTransformer::walk_heaptype(Self[T], T, @lib.HeapType) -> Result[
 pub fn[T] ModuleTransformer::walk_heaptype_default(Self[T], T, @lib.HeapType) -> Result[(T, @lib.HeapType)?, String]
 pub fn[T] ModuleTransformer::walk_import(Self[T], T, @lib.Import) -> Result[(T, @lib.Import)?, String]
 pub fn[T] ModuleTransformer::walk_importsec(Self[T], T, @lib.ImportSec) -> Result[(T, @lib.ImportSec)?, String]
+pub fn[T] ModuleTransformer::walk_importsec_default(Self[T], T, @lib.ImportSec) -> Result[(T, @lib.ImportSec)?, String]
 pub fn[T] ModuleTransformer::walk_instruction(Self[T], T, @lib.Instruction) -> Result[(T, @lib.Instruction)?, String]
 pub fn[T] ModuleTransformer::walk_instruction_default(Self[T], T, @lib.Instruction) -> Result[(T, @lib.Instruction)?, String]
 pub fn[T] ModuleTransformer::walk_labelidx(Self[T], T, @lib.LabelIdx) -> Result[(T, @lib.LabelIdx)?, String]

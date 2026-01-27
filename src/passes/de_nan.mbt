@@ -329,10 +329,6 @@ pub fn run_denam(m : @lib.Module) -> Result[@lib.Module, String] {
 // Test Helpers
 // ============================================
 
-///|
-fn make_empty_module() -> @lib.Module {
-  @lib.Module::new()
-}
 
 ///|
 fn make_module_with_code(funcs : Array[Func]) -> @lib.Module {
@@ -861,7 +857,7 @@ test "deNan32 helper has correct structure" {
 
 ///|
 test "empty module is unchanged" {
-  let mod = make_empty_module()
+  let mod = Module::new()
   let result = run_denam(mod)
 
   // Should return the module unchanged
