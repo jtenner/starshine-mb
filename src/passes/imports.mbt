@@ -54,6 +54,8 @@ using @lib {
   type TypeSec,
   type FuncSec,
   type GlobalSec,
+  type SubType,
+  type CompType,
 }
 
 ///|
@@ -105,4 +107,8 @@ using @transformer {
 }
 
 ///|
-using @validate {type Env, to_texpr}
+using @validate {
+  type Env,
+  to_texpr,
+  trait Match,
+}
