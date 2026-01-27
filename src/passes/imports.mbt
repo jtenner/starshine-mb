@@ -56,6 +56,7 @@ using @lib {
   type GlobalSec,
   type SubType,
   type CompType,
+  type FuncType,
 }
 
 ///|

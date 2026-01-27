@@ -159,7 +159,7 @@ fn transform_tinstr(
       match transformer.walk_texpr(new_state, body) {
         Ok(Some((final_state, new_body))) =>
           change(final_state.reset_flow(), TInstr::block(ty, new_body))
-        _ => unchanged()
+        _ => change(ctx.reset_flow(), instr) // Preserve state even if unchanged
       }
     }
 
@@ -169,7 +169,7 @@ fn transform_tinstr(
         Ok(Some((final_state, new_body))) =>
           change(final_state.reset_flow(), TInstr::loop_(ty, new_body))
         Err(e) => Err(e)
-        _ => unchanged()
+        _ => change(ctx.reset_flow(), instr)
       }
     }
 
@@ -306,8 +306,6 @@ fn transform_tinstr(
         _ => (state1, TExpr::new(values))
       }
       
-      // After br_on_null, if we continue, the value is non-null
-      // We could potentially record this, but for now just reset
       change(
         new_state.reset_flow(),
         TInstr::br_on_null(label, new_value, new_values.0),
@@ -435,11 +433,24 @@ fn transform_tinstr(
 
     TUnreachable => change(ctx.reset_flow(), TInstr::unreachable_())
 
-    // Default: use default walking behavior
-    _ => transformer.walk_tinstruction_default(ctx, instr)
+    // FIX: Handle all other instructions explicitly to ensure state propagation
+    // Walk children and always return change() to preserve state threading
+    _ => walk_with_state_propagation(transformer, ctx, instr)
   }
 }
 
+/// Helper to walk an instruction with the default walker while preserving state
+fn walk_with_state_propagation(
+  transformer : ModuleTransformer[CastOptState],
+  ctx : CastOptState,
+  instr : TInstr
+) -> TransformerResult[CastOptState, TInstr] {
+  match transformer.walk_tinstruction_default(ctx, instr) {
+    Ok(Some((new_state, new_instr))) => change(new_state, new_instr)
+    Ok(None) => change(ctx, instr) // Key fix: preserve state even when unchanged
+    Err(e) => Err(e)
+  }
+}
 /// Merge states from two branches, keeping new_locals from both
 fn merge_branch_states(s1 : CastOptState, s2 : CastOptState) -> CastOptState {
   // Take the longer new_locals array (they should be compatible)
@@ -489,6 +500,7 @@ fn transform_local_get(
       }
   }
 }
+
 
 /// Transform a ref.cast instruction
 fn transform_ref_cast(
@@ -540,7 +552,7 @@ fn transform_ref_cast(
     // For local.tee that wraps a cast (from our transformation)
     TLocalTee(_, inner) =>
       match inner {
-        TRefCast(inner_nullable, inner_ht, TLocalGet(idx)) => {
+        TRefCast(inner_nullable, inner_ht, TLocalGet(_)) => {
           let inner_type = RefType::new(inner_nullable, inner_ht)
           if is_subtype(inner_type, cast_type, state_after_operand.env) {
             // Inner cast is already more refined, outer cast is redundant
@@ -558,6 +570,21 @@ fn transform_ref_cast(
             TInstr::ref_cast(nullable, ht, transformed_operand),
           )
       }
+    
+    // FIX: Handle nested ref.cast - eliminate outer cast if inner is more refined
+    TRefCast(inner_nullable, inner_ht, _) => {
+      let inner_type = RefType::new(inner_nullable, inner_ht)
+      if is_subtype(inner_type, cast_type, state_after_operand.env) {
+        // Inner cast is already more refined, outer cast is redundant
+        change(state_after_operand, transformed_operand)
+      } else {
+        change(
+          state_after_operand,
+          TInstr::ref_cast(nullable, ht, transformed_operand),
+        )
+      }
+    }
+    
     _ =>
       change(
         state_after_operand,
@@ -660,23 +687,7 @@ fn invalidate_local(state : CastOptState, idx : LocalIdx) -> CastOptState {
 // test_optimize_casts.mbt
 // 
 // Tests for the cast optimization pass
-// ============================================================================
-
-
-// Helper to create a non-nullable ref type
-fn ref_nn(heap_type : HeapType) -> RefType {
-  RefType::new(false, heap_type)
-}
-
-// Helper to create a nullable ref type  
-fn ref_null(heap_type : HeapType) -> RefType {
-  RefType::new(true, heap_type)
-}
-
-// Helper to create ValType from RefType
-fn vt_ref(rt : RefType) -> ValType {
-  ValType::ref_type(rt)
-}
+// ============================================================================}
 
 // Create a minimal module with a type hierarchy for testing
 // Type 0: base struct
@@ -715,25 +726,24 @@ fn make_test_module_with_hierarchy() -> Module {
 // ============================================================================
 test "cast propagation to subsequent local.get" {
   // Input:
-  //   local.get $0
-  //   ref.cast (ref $1)
+  //   ref.cast (ref $1) (local.get $0)
   //   drop
-  //   local.get $0   ; should get cast applied
+  //   local.get $0   ; first use - allocates temp, becomes local.tee
+  //   drop
+  //   local.get $0   ; second use - uses temp, becomes local.get $temp
   //
-  // Expected output:
-  //   local.get $0
-  //   ref.cast (ref $1)
-  //   local.tee $temp
-  //   drop
-  //   local.get $temp  ; uses temp instead
+  // The first local.get after a cast becomes local.tee to save the casted value.
+  // Subsequent local.gets use the temp directly.
 
   let mod = make_test_module_with_hierarchy()
   let local_type = ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(0))))  // (ref null $0)
   
   let body = TExpr::new([
     TInstr::ref_cast(false, HeapType::new(TypeIdx::new(1)), TInstr::local_get(LocalIdx::new(0))),
-    TInstr::drop(TInstr::nop()), // placeholder - drop consumes the cast result
-    TInstr::local_get(LocalIdx::new(0)),
+    TInstr::drop(TInstr::nop()),
+    TInstr::local_get(LocalIdx::new(0)),  // First use after cast -> local.tee
+    TInstr::drop(TInstr::nop()),
+    TInstr::local_get(LocalIdx::new(0)),  // Second use -> local.get $temp
   ])
   
   let func = Func::t_func([local_type], body)
@@ -741,23 +751,40 @@ test "cast propagation to subsequent local.get" {
   
   let result = optimize_casts(mod_with_func)
   
-  // Verify the second local.get was transformed
+  // Verify the transformations
   let result_func = get_func_from_module(result, 0)
   match result_func {
     Some(TFunc(locals, body)) => {
       // Should have allocated a new temp local
       assert_true(locals.length() > 1)
       
-      // The second local.get should now be local.get $temp
       let instrs = body.0
-      assert_true(instrs.length() >= 3)
+      assert_true(instrs.length() >= 5)
       
+      // instrs[2]: First local.get $0 should become local.tee $temp (ref.cast ... (local.get $0))
       match instrs[2] {
-        TLocalGet(idx) => {
-          // Should be getting from temp local, not original
-          assert_true(idx.0.reinterpret_as_int() >= 1)
+        TLocalTee(temp_idx, inner) => {
+          // Temp local should be >= 1 (original local is 0)
+          assert_true(temp_idx.0.reinterpret_as_int() >= 1)
+          
+          // Inner should be ref.cast wrapping local.get $0
+          match inner {
+            TRefCast(_, _, TLocalGet(orig_idx)) => {
+              assert_eq(orig_idx.0.reinterpret_as_int(), 0)
+            }
+            _ => assert_true(false) // Expected ref.cast(local.get $0)
+          }
+          
+          // instrs[4]: Second local.get $0 should become local.get $temp
+          match instrs[4] {
+            TLocalGet(idx) => {
+              // Should be getting from temp local, not original
+              assert_eq(idx.0.reinterpret_as_int(), temp_idx.0.reinterpret_as_int())
+            }
+            _ => assert_true(false) // Expected local.get $temp
+          }
         }
-        _ => assert_true(false) // Expected local.get
+        _ => assert_true(false) // Expected local.tee
       }
     }
     _ => assert_true(false)
@@ -895,14 +922,14 @@ test "cast tracking reset at block boundary" {
   // Expected: local.get inside block unchanged
 
   let mod = make_test_module_with_hierarchy()
-  let local_type = vt_ref(ref_null(ht(0)))
+  let local_type = ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(0))))
   
   let body = TExpr::new([
-    TInstr::ref_cast(false, ht(1), TInstr::local_get(local_idx(0))),
+    TInstr::ref_cast(false, HeapType::new(TypeIdx::new(1)), TInstr::local_get(LocalIdx::new(0))),
     TInstr::drop(TInstr::nop()),
     TInstr::block(
-      BlockType::VoidBlockType,
-      TExpr::new([TInstr::local_get(local_idx(0))])
+      BlockType::void_(),
+      TExpr::new([TInstr::local_get(LocalIdx::new(0))])
     ),
   ])
   
@@ -942,14 +969,14 @@ test "cast tracking reset at loop boundary" {
   // Same as block test but with loop
   
   let mod = make_test_module_with_hierarchy()
-  let local_type = vt_ref(ref_null(ht(0)))
+  let local_type = ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(0))))
   
   let body = TExpr::new([
-    TInstr::ref_cast(false, ht(1), TInstr::local_get(local_idx(0))),
+    TInstr::ref_cast(false, HeapType::new(TypeIdx::new(1)), TInstr::local_get(LocalIdx::new(0))),
     TInstr::drop(TInstr::nop()),
     TInstr::loop_(
-      BlockType::VoidBlockType,
-      TExpr::new([TInstr::local_get(local_idx(0))])
+      BlockType::void_(),
+      TExpr::new([TInstr::local_get(LocalIdx::new(0))])
     ),
   ])
   
@@ -989,14 +1016,14 @@ test "local.set invalidates cast tracking" {
   //   local.get $0         ; should NOT get automatic cast
   
   let mod = make_test_module_with_hierarchy()
-  let local_type = vt_ref(ref_null(ht(0)))
-  
+  let local_type = ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(0))))
+  let ht = HeapType::new(TypeIdx::new(1))
   let body = TExpr::new([
     TInstr::local_set(
-      local_idx(0),
-      TInstr::ref_cast(false, ht(1), TInstr::local_get(local_idx(0)))
+      LocalIdx::new(0),
+      TInstr::ref_cast(false, ht, TInstr::local_get(LocalIdx::new(0)))
     ),
-    TInstr::local_get(local_idx(0)),
+    TInstr::local_get(LocalIdx::new(0)),
   ])
   
   let func = Func::t_func([local_type], body)
@@ -1006,7 +1033,7 @@ test "local.set invalidates cast tracking" {
   
   let result_func = get_func_from_module(result, 0)
   match result_func {
-    Some(TFunc(locals, body)) => {
+    Some(TFunc(_, body)) => {
       // Should NOT have allocated a temp (cast knowledge was invalidated)
       let instrs = body.0
       match instrs[instrs.length() - 1] {
@@ -1026,17 +1053,17 @@ test "local.set invalidates cast tracking" {
 // ============================================================================
 test "local.tee invalidates cast tracking" {
   let mod = make_test_module_with_hierarchy()
-  let local_type = vt_ref(ref_null(ht(0)))
-  
+  let local_type = ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(0))))
+  let ht = HeapType::new(TypeIdx::new(1))
   let body = TExpr::new([
-    TInstr::ref_cast(false, ht(1), TInstr::local_get(local_idx(0))),
+    TInstr::ref_cast(false, ht, TInstr::local_get(LocalIdx::new(0))),
     TInstr::drop(TInstr::nop()),
     TInstr::local_tee(
-      local_idx(0),
-      TInstr::ref_null(ht(0))  // tee a null value
+      LocalIdx::new(0),
+      TInstr::ref_null(HeapType::new(TypeIdx::new(0)))  // tee a null value
     ),
     TInstr::drop(TInstr::nop()),
-    TInstr::local_get(local_idx(0)),  // should not get cast
+    TInstr::local_get(LocalIdx::new(0)),  // should not get cast
   ])
   
   let func = Func::t_func([local_type], body)
@@ -1046,7 +1073,7 @@ test "local.tee invalidates cast tracking" {
   
   // Verify final local.get is not using a cast temp
   let result_func = get_func_from_module(result, 0)
-  assert_true(result_func.is_some())
+  assert_true(result_func is Some(_))
 }
 
 // ============================================================================
@@ -1056,16 +1083,16 @@ test "if branches have independent cast tracking" {
   // Cast before if should not propagate into branches
   
   let mod = make_test_module_with_hierarchy()
-  let local_type = vt_ref(ref_null(ht(0)))
+  let local_type = ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(0))))
   
   let body = TExpr::new([
-    TInstr::ref_cast(false, ht(1), TInstr::local_get(local_idx(0))),
+    TInstr::ref_cast(false, HeapType::new(TypeIdx::new(1)), TInstr::local_get(LocalIdx::new(0))),
     TInstr::drop(TInstr::nop()),
     TInstr::if_(
-      BlockType::VoidBlockType,
+      BlockType::void_(),
       TInstr::i32_const(1),
-      TExpr::new([TInstr::local_get(local_idx(0))]),  // then branch
-      Some(TExpr::new([TInstr::local_get(local_idx(0))]))  // else branch
+      TExpr::new([TInstr::local_get(LocalIdx::new(0))]),  // then branch
+      Some(TExpr::new([TInstr::local_get(LocalIdx::new(0))]))  // else branch
     ),
   ])
   
@@ -1076,7 +1103,7 @@ test "if branches have independent cast tracking" {
   
   // Both branches should have plain local.get $0
   let result_func = get_func_from_module(result, 0)
-  assert_true(result_func.is_some())
+  assert_true(result_func is Some(_))
 }
 
 // ============================================================================
@@ -1091,16 +1118,16 @@ test "nullable to non-null cast refinement" {
   // The second cast is more refined and should be used
 
   let mod = make_test_module_with_hierarchy()
-  let local_type = vt_ref(ref_null(ht(0)))
+  let local_type = ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(0))))
   
   let body = TExpr::new([
     TInstr::ref_cast(
       false,  // non-nullable outer
-      ht(1),
+      HeapType::new(TypeIdx::new(1)),
       TInstr::ref_cast(
         true,   // nullable inner
-        ht(1),
-        TInstr::local_get(local_idx(0))
+        HeapType::new(TypeIdx::new(1)),
+        TInstr::local_get(LocalIdx::new(0))
       )
     ),
   ])
@@ -1111,7 +1138,7 @@ test "nullable to non-null cast refinement" {
   let result = optimize_casts(mod_with_func)
   
   // Result should preserve non-null (more refined) cast
-  assert_true(get_func_from_module(result, 0).is_some())
+  assert_true(get_func_from_module(result, 0) is Some(_))
 }
 
 // ============================================================================
@@ -1129,16 +1156,16 @@ test "multiple uses after cast all use temp" {
   // All subsequent uses should use the temp
 
   let mod = make_test_module_with_hierarchy()
-  let local_type = vt_ref(ref_null(ht(0)))
+  let local_type = ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(0))))
   
   let body = TExpr::new([
-    TInstr::ref_cast(false, ht(1), TInstr::local_get(local_idx(0))),
+    TInstr::ref_cast(false, HeapType::new(TypeIdx::new(1)), TInstr::local_get(LocalIdx::new(0))),
     TInstr::drop(TInstr::nop()),
-    TInstr::local_get(local_idx(0)),
+    TInstr::local_get(LocalIdx::new(0)),
     TInstr::drop(TInstr::nop()),
-    TInstr::local_get(local_idx(0)),
+    TInstr::local_get(LocalIdx::new(0)),
     TInstr::drop(TInstr::nop()),
-    TInstr::local_get(local_idx(0)),
+    TInstr::local_get(LocalIdx::new(0)),
   ])
   
   let func = Func::t_func([local_type], body)
@@ -1182,16 +1209,19 @@ test "different locals tracked independently" {
   //   local.get $1   ; should use $2 cast
 
   let mod = make_test_module_with_hierarchy()
-  let local_type_0 = vt_ref(ref_null(ht(0)))
-  let local_type_1 = vt_ref(ref_null(ht(0)))
+  let ht0 = HeapType::new(TypeIdx::new(0))
+  let ht1 = HeapType::new(TypeIdx::new(1))
+  let ht2 = HeapType::new(TypeIdx::new(2))
+  let local_type_0 = ValType::ref_type(RefType::new(true, ht0))
+  let local_type_1 = ValType::ref_type(RefType::new(true, ht0))
   
   let body = TExpr::new([
-    TInstr::ref_cast(false, ht(1), TInstr::local_get(local_idx(0))),
+    TInstr::ref_cast(false, ht1, TInstr::local_get(LocalIdx::new(0))),
     TInstr::drop(TInstr::nop()),
-    TInstr::ref_cast(false, ht(2), TInstr::local_get(local_idx(1))),
+    TInstr::ref_cast(false, ht2, TInstr::local_get(LocalIdx::new(1))),
     TInstr::drop(TInstr::nop()),
-    TInstr::local_get(local_idx(0)),
-    TInstr::local_get(local_idx(1)),
+    TInstr::local_get(LocalIdx::new(0)),
+    TInstr::local_get(LocalIdx::new(1)),
   ])
   
   let func = Func::t_func([local_type_0, local_type_1], body)
@@ -1214,12 +1244,12 @@ test "different locals tracked independently" {
 // ============================================================================
 test "no transformation without casts" {
   let mod = make_test_module_with_hierarchy()
-  let local_type = ValType::I32
+  let local_type = ValType::i32()
   
   let body = TExpr::new([
-    TInstr::local_get(local_idx(0)),
-    TInstr::local_get(local_idx(0)),
-    TInstr::i32_add(TInstr::nop(), TInstr::nop()),
+    TInstr::local_get(LocalIdx::new(0)),
+    TInstr::local_get(LocalIdx::new(0)),
+    TInstr::binary(BinaryOp::i32_add(), TInstr::nop(), TInstr::nop()),
   ])
   
   let func = Func::t_func([local_type], body)
@@ -1246,14 +1276,14 @@ test "cast in nested expression context" {
   //   local.get $0   ; should get cast applied
   
   let mod = make_test_module_with_hierarchy()
-  let local_type = vt_ref(ref_null(ht(0)))
+  let local_type = ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(0))))
   
   let body = TExpr::new([
     TInstr::call(
       FuncIdx::new(0),
-      [TInstr::ref_cast(false, ht(1), TInstr::local_get(local_idx(0)))]
+      [TInstr::ref_cast(false, HeapType::new(TypeIdx::new(1)), TInstr::local_get(LocalIdx::new(0)))]
     ),
-    TInstr::local_get(local_idx(0)),
+    TInstr::local_get(LocalIdx::new(0)),
   ])
   
   let func = Func::t_func([local_type], body)
@@ -1262,7 +1292,7 @@ test "cast in nested expression context" {
   let result = optimize_casts(mod_with_func)
   
   // Should still track the cast even in nested context
-  assert_true(get_func_from_module(result, 0).is_some())
+  assert_true(get_func_from_module(result, 0) is Some(_))
 }
 
 // ============================================================================
@@ -1272,16 +1302,16 @@ test "br_if resets cast tracking" {
   // After br_if, we can't assume the cast holds (branch might have been taken)
   
   let mod = make_test_module_with_hierarchy()
-  let local_type = vt_ref(ref_null(ht(0)))
+  let local_type = ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(0))))
   
   let body = TExpr::new([
     TInstr::block(
-      BlockType::VoidBlockType,
+      BlockType::void_(),
       TExpr::new([
-        TInstr::ref_cast(false, ht(1), TInstr::local_get(local_idx(0))),
+        TInstr::ref_cast(false, HeapType::new(TypeIdx::new(1)), TInstr::local_get(LocalIdx::new(0))),
         TInstr::drop(TInstr::nop()),
         TInstr::br_if(LabelIdx::new(0), TInstr::i32_const(1), []),
-        TInstr::local_get(local_idx(0)),  // after br_if - cast tracking reset
+        TInstr::local_get(LocalIdx::new(0)),  // after br_if - cast tracking reset
       ])
     ),
   ])
@@ -1291,7 +1321,7 @@ test "br_if resets cast tracking" {
   
   let result = optimize_casts(mod_with_func)
   
-  assert_true(get_func_from_module(result, 0).is_some())
+  assert_true(get_func_from_module(result, 0) is Some(_))
 }
 
 // ============================================================================
@@ -1299,12 +1329,12 @@ test "br_if resets cast tracking" {
 // ============================================================================
 test "instructions after return unreachable" {
   let mod = make_test_module_with_hierarchy()
-  let local_type = vt_ref(ref_null(ht(0)))
+  let local_type = ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(0))))
   
   let body = TExpr::new([
-    TInstr::ref_cast(false, ht(1), TInstr::local_get(local_idx(0))),
+    TInstr::ref_cast(false, HeapType::new(TypeIdx::new(1)), TInstr::local_get(LocalIdx::new(0))),
     TInstr::return_([]),
-    TInstr::local_get(local_idx(0)),  // unreachable but still processed
+    TInstr::local_get(LocalIdx::new(0)),  // unreachable but still processed
   ])
   
   let func = Func::t_func([local_type], body)
@@ -1312,7 +1342,7 @@ test "instructions after return unreachable" {
   
   let result = optimize_casts(mod_with_func)
   
-  assert_true(get_func_from_module(result, 0).is_some())
+  assert_true(get_func_from_module(result, 0) is Some(_))
 }
 
 // ============================================================================
@@ -1322,10 +1352,10 @@ test "ref.as_non_null on non_null type is eliminated" {
   // If local is already declared non-null, ref.as_non_null is redundant
   
   let mod = make_test_module_with_hierarchy()
-  let local_type = vt_ref(ref_nn(ht(0)))  // non-nullable!
+  let local_type = ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx::new(0))))  // non-nullable!
   
   let body = TExpr::new([
-    TInstr::ref_as_non_null(TInstr::local_get(local_idx(0))),
+    TInstr::ref_as_non_null(TInstr::local_get(LocalIdx::new(0))),
   ])
   
   let func = Func::t_func([local_type], body)
@@ -1352,11 +1382,11 @@ test "ref.as_non_null on non_null type is eliminated" {
 // ============================================================================
 test "repeated ref.as_non_null eliminated" {
   let mod = make_test_module_with_hierarchy()
-  let local_type = vt_ref(ref_null(ht(0)))
+  let local_type = ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(0))))
   
   let body = TExpr::new([
     TInstr::ref_as_non_null(
-      TInstr::ref_as_non_null(TInstr::local_get(local_idx(0)))
+      TInstr::ref_as_non_null(TInstr::local_get(LocalIdx::new(0)))
     ),
   ])
   
@@ -1397,14 +1427,14 @@ test "more refined cast replaces less refined in tracking" {
   //   local.get $0       ; should use $2 cast, not $1
   
   let mod = make_test_module_with_hierarchy()
-  let local_type = vt_ref(ref_null(ht(0)))
+  let local_type = ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(0))))
   
   let body = TExpr::new([
-    TInstr::ref_cast(false, ht(1), TInstr::local_get(local_idx(0))),
+    TInstr::ref_cast(false, HeapType::new(TypeIdx::new(1)), TInstr::local_get(LocalIdx::new(0))),
     TInstr::drop(TInstr::nop()),
-    TInstr::ref_cast(false, ht(2), TInstr::local_get(local_idx(0))),
+    TInstr::ref_cast(false, HeapType::new(TypeIdx::new(2)), TInstr::local_get(LocalIdx::new(0))),
     TInstr::drop(TInstr::nop()),
-    TInstr::local_get(local_idx(0)),
+    TInstr::local_get(LocalIdx::new(0)),
   ])
   
   let func = Func::t_func([local_type], body)
@@ -1414,7 +1444,7 @@ test "more refined cast replaces less refined in tracking" {
   
   // The final local.get should be using the type $2 cast
   let result_func = get_func_from_module(result, 0)
-  assert_true(result_func.is_some())
+  assert_true(result_func is Some(_))
 }
 
 // ============================================================================
@@ -1422,20 +1452,20 @@ test "more refined cast replaces less refined in tracking" {
 // ============================================================================
 test "unreachable resets cast tracking" {
   let mod = make_test_module_with_hierarchy()
-  let local_type = vt_ref(ref_null(ht(0)))
+  let local_type = ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(0))))
   
   let body = TExpr::new([
-    TInstr::ref_cast(false, ht(1), TInstr::local_get(local_idx(0))),
+    TInstr::ref_cast(false, HeapType::new(TypeIdx::new(1)), TInstr::local_get(LocalIdx::new(0))),
     TInstr::drop(TInstr::nop()),
     TInstr::unreachable_(),
-    TInstr::local_get(local_idx(0)),  // dead code but processed
+    TInstr::local_get(LocalIdx::new(0)),  // dead code but processed
   ])
   
   let func = Func::t_func([local_type], body)
   let mod_with_func = add_func_to_module(mod, func)
   
   let result = optimize_casts(mod_with_func)
-  assert_true(get_func_from_module(result, 0).is_some())
+  assert_true(get_func_from_module(result, 0) is Some(_))
 }
 
 // ============================================================================
@@ -1455,35 +1485,30 @@ fn add_func_to_module(mod : Module, func : Func) -> Module {
   let type_sec = match mod.type_sec {
     Some(TypeSec(recs)) => {
       let new_recs = recs.copy()
-      new_recs.push(RecType::single(SubType::sub_type(
+      new_recs.push(RecType::new(SubType::new(
         true,
         [],
-        CompType::func_(func_type.0, func_type.1)
+        CompType::func(func_type.0, func_type.1)
       )))
-      Some(TypeSec(new_recs))
+      TypeSec::new(new_recs)
     }
-    None => Some(TypeSec([RecType::single(SubType::sub_type(
+    None => TypeSec::new([RecType::new(SubType::new(
       true,
       [],
-      CompType::func_(func_type.0, func_type.1)
-    ))]))
+      CompType::func(func_type.0, func_type.1)
+    ))])
   }
   
-  let func_type_idx = match type_sec {
-    Some(TypeSec(recs)) => type_idx(recs.length() - 1)
-    None => type_idx(0)
-  }
+  let func_type_idx = TypeIdx::new(type_sec.0.length().reinterpret_as_uint() - 1)
   
-  let func_sec = Some(FuncSec([func_type_idx]))
+  let func_sec = FuncSec::new([func_type_idx])
   
-  let code_sec = Some(CodeSec([func]))
+  let code_sec = CodeSec::new([func])
   
-  Module::{
-    ..mod,
-    type_sec,
-    func_sec,
-    code_sec,
-  }
+  mod
+    .with_type_sec(type_sec)
+    .with_func_sec(func_sec)
+    .with_code_sec(code_sec)
 }
 
 fn get_func_from_module(mod : Module, idx : Int) -> Func? {
@@ -1503,23 +1528,24 @@ test "br_on_cast_fail continuation knows cast succeeded" {
   // This could be tracked but currently resets flow
   
   let mod = make_test_module_with_hierarchy()
-  let local_type = vt_ref(ref_null(ht(0)))
+  let local_type = ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(0))))
   
   let body = TExpr::new([
     TInstr::block(
-      BlockType::VoidBlockType,
+      BlockType::void_(),
       TExpr::new([
         TInstr::br_on_cast_fail(
           LabelIdx::new(0),
-          (true, true),   // nullabilities
-          ht(0),
-          ht(1),
-          TInstr::local_get(local_idx(0)),
+          true,   // nullabilities
+          HeapType::new(TypeIdx::new(0)),
+          true,
+          HeapType::new(TypeIdx::new(1)),
+          TInstr::local_get(LocalIdx::new(0)),
           []
         ),
         // If we reach here, the value IS (ref $1)
         TInstr::drop(TInstr::nop()),
-        TInstr::local_get(local_idx(0)),  // Could use refined type
+        TInstr::local_get(LocalIdx::new(0)),  // Could use refined type
       ])
     ),
   ])
@@ -1529,7 +1555,7 @@ test "br_on_cast_fail continuation knows cast succeeded" {
   
   let result = optimize_casts(mod_with_func)
   // Currently this won't optimize, but it should in the future
-  assert_true(get_func_from_module(result, 0).is_some())
+  assert_true(get_func_from_module(result, 0) is Some(_))
 }
 
 // Test: br_on_null continuation knows value is non-null
@@ -1537,20 +1563,20 @@ test "br_on_null continuation knows non_null" {
   // After br_on_null, if we continue, the value is non-null
   
   let mod = make_test_module_with_hierarchy()
-  let local_type = vt_ref(ref_null(ht(0)))
+  let local_type = ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(0))))
   
   let body = TExpr::new([
     TInstr::block(
-      BlockType::VoidBlockType,
+      BlockType::void_(),
       TExpr::new([
         TInstr::br_on_null(
           LabelIdx::new(0),
-          TInstr::local_get(local_idx(0)),
+          TInstr::local_get(LocalIdx::new(0)),
           []
         ),
         // If we reach here, $0 is non-null
         TInstr::drop(TInstr::nop()),
-        TInstr::ref_as_non_null(TInstr::local_get(local_idx(0))),  // redundant
+        TInstr::ref_as_non_null(TInstr::local_get(LocalIdx::new(0))),  // redundant
       ])
     ),
   ])
@@ -1559,7 +1585,7 @@ test "br_on_null continuation knows non_null" {
   let mod_with_func = add_func_to_module(mod, func)
   
   let result = optimize_casts(mod_with_func)
-  assert_true(get_func_from_module(result, 0).is_some())
+  assert_true(get_func_from_module(result, 0) is Some(_))
 }
 
 // Test: struct.get/array.get on casted reference  
@@ -1568,10 +1594,10 @@ test "field access on casted ref uses refined type" {
   // (This is more about type propagation than cast optimization)
   
   let mod = make_test_module_with_hierarchy()
-  let local_type = vt_ref(ref_null(ht(0)))
+  let local_type = ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(0))))
   
   let body = TExpr::new([
-    TInstr::ref_cast(false, ht(1), TInstr::local_get(local_idx(0))),
+    TInstr::ref_cast(false, HeapType::new(TypeIdx::new(1)), TInstr::local_get(LocalIdx::new(0))),
     TInstr::drop(TInstr::nop()),
     // Now accessing fields of local $0 should use refined type knowledge
     // Even without explicit cast on this local.get
@@ -1581,7 +1607,7 @@ test "field access on casted ref uses refined type" {
   let mod_with_func = add_func_to_module(mod, func)
   
   let result = optimize_casts(mod_with_func)
-  assert_true(get_func_from_module(result, 0).is_some())
+  assert_true(get_func_from_module(result, 0) is Some(_))
 }
 
 // Test: Cast removal when target type equals source type
@@ -1589,10 +1615,10 @@ test "cast to same type removed" {
   // ref.cast (ref $0) on a value already known to be (ref $0) is redundant
   
   let mod = make_test_module_with_hierarchy()
-  let local_type = vt_ref(ref_nn(ht(1)))  // Already (ref $1)
+  let local_type = ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(1))))  // Already (ref $1)
   
   let body = TExpr::new([
-    TInstr::ref_cast(false, ht(1), TInstr::local_get(local_idx(0))),  // redundant
+    TInstr::ref_cast(false, HeapType::new(TypeIdx::new(1)), TInstr::local_get(LocalIdx::new(0))),  // redundant
   ])
   
   let func = Func::t_func([local_type], body)

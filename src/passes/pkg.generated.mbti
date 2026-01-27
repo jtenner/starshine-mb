@@ -32,6 +32,8 @@ pub fn lower_to_expr_pass() -> @transformer.ModuleTransformer[Unit]
 
 pub fn optimize(@dataflow.Graph) -> Unit
 
+pub fn optimize_casts(@lib.Module) -> @lib.Module
+
 pub fn optimize_graph(@dataflow.Graph) -> Unit
 
 pub fn propagate_to_supertypes(CFPState) -> Unit
@@ -62,6 +64,9 @@ pub struct CFPState {
 }
 pub fn CFPState::from_module(@lib.Module) -> Self
 pub fn CFPState::new() -> Self
+
+type CastOptState
+pub impl Show for CastOptState
 
 type CodeFoldingState
 
