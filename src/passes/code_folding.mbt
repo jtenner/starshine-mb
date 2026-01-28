@@ -121,11 +121,10 @@ fn measure(instr : TInstr) -> Int {
   // Simple heuristic: count 1 for each instruction node
   // This is a simplified version of Binaryen's Measurer
   let mut count = 1
-  let walker = ModuleTransformer::new()
-    .on_tinstruction_evt(fn(self, c, i) {
-      count += 1
-      self.walk_tinstruction_default(c, i)
-    })
+  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, c, i) {
+    count += 1
+    self.walk_tinstruction_default(c, i)
+  })
   ignore(walker.walk_tinstruction((), instr))
   count
 }
@@ -144,25 +143,24 @@ fn measure_all(instrs : Array[TInstr]) -> Int {
 /// Get all branch targets (labels) that appear in an instruction
 fn get_branch_targets(instr : TInstr) -> Set[LabelIdx] {
   let targets = Set::new()
-  let walker = ModuleTransformer::new()
-    .on_tinstruction_evt(fn(self, _, i) {
-      match i {
-        TBr(label, _) => targets.add(label)
-        TBrIf(label, _, _) => targets.add(label)
-        TBrTable(labels, default, _, _) => {
-          for label in labels {
-            targets.add(label)
-          }
-          targets.add(default)
+  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, i) {
+    match i {
+      TBr(label, _) => targets.add(label)
+      TBrIf(label, _, _) => targets.add(label)
+      TBrTable(labels, default, _, _) => {
+        for label in labels {
+          targets.add(label)
         }
-        TBrOnNull(label, _, _) => targets.add(label)
-        TBrOnNonNull(label, _, _) => targets.add(label)
-        TBrOnCast(label, _, _, _, _, _) => targets.add(label)
-        TBrOnCastFail(label, _, _, _, _, _) => targets.add(label)
-        _ => ()
+        targets.add(default)
       }
-      self.walk_tinstruction_default((), i)
-    })
+      TBrOnNull(label, _, _) => targets.add(label)
+      TBrOnNonNull(label, _, _) => targets.add(label)
+      TBrOnCast(label, _, _, _, _, _) => targets.add(label)
+      TBrOnCastFail(label, _, _, _, _, _) => targets.add(label)
+      _ => ()
+    }
+    self.walk_tinstruction_default((), i)
+  })
   ignore(walker.walk_tinstruction((), instr))
   targets
 }
@@ -550,129 +548,129 @@ fn process_if(
 /// Main code folding pass
 pub fn code_folding_pass() -> ModuleTransformer[CodeFoldingState] {
   ModuleTransformer::new()
-    .on_tinstruction_evt(fn(self, state, instr) {
-      // Process blocks and ifs for tail merging
-      match instr {
-        TBlock(bt, body) =>
-          // First recurse into children
-          match self.walk_tinstruction_default(state, instr) {
-            Ok(Some((new_state, new_instr))) =>
-              match new_instr {
-                TBlock(_, new_body) =>
-                  // Try to optimize the block's tails
-                  match process_block(new_state, LabelIdx::new(0), new_body.0) {
-                    Some(_) =>
-                      // Block was modified
-                      change(new_state, TInstr::block(bt, new_body))
-                    None => change(new_state, new_instr)
-                  }
-                _ => change(new_state, new_instr)
-              }
-            Ok(None) =>
-              // Try to optimize unchanged block
-              match process_block(state, LabelIdx::new(0), body.0) {
-                Some(_) => change(state, instr)
-                None => unchanged()
-              }
-            Err(e) => Err(e)
-          }
-        TIf(bt, cond, then_body, else_body) =>
-          // First recurse into children
-          match self.walk_tinstruction_default(state, instr) {
-            Ok(Some((new_state, new_instr))) =>
-              match new_instr {
-                TIf(_, new_cond, new_then, new_else) =>
-                  // Try to optimize the if's tails
-                  match process_if(new_state, new_cond, new_then, new_else) {
-                    Some(_) =>
-                      // If was modified
-                      change(
-                        new_state,
-                        TInstr::if_(bt, new_cond, new_then, new_else),
-                      )
-                    None => change(new_state, new_instr)
-                  }
-                _ => change(new_state, new_instr)
-              }
-            Ok(None) =>
-              // Try to optimize unchanged if
-              match process_if(state, cond, then_body, else_body) {
-                Some(_) => change(state, instr)
-                None => unchanged()
-              }
-            Err(e) => Err(e)
-          }
-        _ => self.walk_tinstruction_default(state, instr)
-      }
-    })
-    .on_func_evt(fn(self, state, func) {
-      match func {
-        Func(_) => unchanged()
-        TFunc(locals, body) => {
-          // Run multiple passes until no more changes
-          let mut current_func = func
-          let mut current_locals = locals
-          let mut current_body = body
-          state.another_pass = true
-          while state.another_pass {
-            state.another_pass = false
-            state.clear()
-
-            // Collect tails from function body
-            collect_block_tails(state, current_body.0)
-
-            // Try terminating tail optimization (returns/unreachables)
-            match
-              optimize_terminating_tails(
-                state,
-                state.return_tails.copy(),
-                current_body.0,
-              ) {
-              Some(new_body_instrs) => {
-                current_body = TExpr::new(new_body_instrs)
-                current_func = Func::t_func(current_locals, current_body)
-              }
-              None =>
-                // Try unreachable tails
-                match
-                  optimize_terminating_tails(
-                    state,
-                    state.unreachable_tails.copy(),
-                    current_body.0,
-                  ) {
-                  Some(new_body_instrs) => {
-                    current_body = TExpr::new(new_body_instrs)
-                    current_func = Func::t_func(current_locals, current_body)
-                  }
-                  None => ()
+  .on_tinstruction_evt(fn(self, state, instr) {
+    // Process blocks and ifs for tail merging
+    match instr {
+      TBlock(bt, body) =>
+        // First recurse into children
+        match self.walk_tinstruction_default(state, instr) {
+          Ok(Some((new_state, new_instr))) =>
+            match new_instr {
+              TBlock(_, new_body) =>
+                // Try to optimize the block's tails
+                match process_block(new_state, LabelIdx::new(0), new_body.0) {
+                  Some(_) =>
+                    // Block was modified
+                    change(new_state, TInstr::block(bt, new_body))
+                  None => change(new_state, new_instr)
                 }
+              _ => change(new_state, new_instr)
             }
-
-            // Process the function with collected information
-            match self.walk_func_default(state, current_func) {
-              Ok(Some((new_state, new_func))) => {
-                state.another_pass = new_state.another_pass
-                current_func = new_func
-                match current_func {
-                  TFunc(l, b) => {
-                    current_locals = l
-                    current_body = b
-                  }
-                  _ => ()
+          Ok(None) =>
+            // Try to optimize unchanged block
+            match process_block(state, LabelIdx::new(0), body.0) {
+              Some(_) => change(state, instr)
+              None => unchanged()
+            }
+          Err(e) => Err(e)
+        }
+      TIf(bt, cond, then_body, else_body) =>
+        // First recurse into children
+        match self.walk_tinstruction_default(state, instr) {
+          Ok(Some((new_state, new_instr))) =>
+            match new_instr {
+              TIf(_, new_cond, new_then, new_else) =>
+                // Try to optimize the if's tails
+                match process_if(new_state, new_cond, new_then, new_else) {
+                  Some(_) =>
+                    // If was modified
+                    change(
+                      new_state,
+                      TInstr::if_(bt, new_cond, new_then, new_else),
+                    )
+                  None => change(new_state, new_instr)
                 }
-              }
-              Ok(None) => ()
-              Err(e) => return Err(e)
+              _ => change(new_state, new_instr)
             }
+          Ok(None) =>
+            // Try to optimize unchanged if
+            match process_if(state, cond, then_body, else_body) {
+              Some(_) => change(state, instr)
+              None => unchanged()
+            }
+          Err(e) => Err(e)
+        }
+      _ => self.walk_tinstruction_default(state, instr)
+    }
+  })
+  .on_func_evt(fn(self, state, func) {
+    match func {
+      Func(_) => unchanged()
+      TFunc(locals, body) => {
+        // Run multiple passes until no more changes
+        let mut current_func = func
+        let mut current_locals = locals
+        let mut current_body = body
+        state.another_pass = true
+        while state.another_pass {
+          state.another_pass = false
+          state.clear()
+
+          // Collect tails from function body
+          collect_block_tails(state, current_body.0)
+
+          // Try terminating tail optimization (returns/unreachables)
+          match
+            optimize_terminating_tails(
+              state,
+              state.return_tails.copy(),
+              current_body.0,
+            ) {
+            Some(new_body_instrs) => {
+              current_body = TExpr::new(new_body_instrs)
+              current_func = Func::t_func(current_locals, current_body)
+            }
+            None =>
+              // Try unreachable tails
+              match
+                optimize_terminating_tails(
+                  state,
+                  state.unreachable_tails.copy(),
+                  current_body.0,
+                ) {
+                Some(new_body_instrs) => {
+                  current_body = TExpr::new(new_body_instrs)
+                  current_func = Func::t_func(current_locals, current_body)
+                }
+                None => ()
+              }
           }
-          if current_func == func {
-            unchanged()
-          } else {
-            change(state, current_func)
+
+          // Process the function with collected information
+          match self.walk_func_default(state, current_func) {
+            Ok(Some((new_state, new_func))) => {
+              state.another_pass = new_state.another_pass
+              current_func = new_func
+              match current_func {
+                TFunc(l, b) => {
+                  current_locals = l
+                  current_body = b
+                }
+                _ => ()
+              }
+            }
+            Ok(None) => ()
+            Err(e) => return Err(e)
           }
         }
+        if current_func == func {
+          unchanged()
+        } else {
+          change(state, current_func)
+        }
       }
-    })
+    }
+  })
 }
 
 ///|

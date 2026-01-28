@@ -85,7 +85,7 @@ pub enum Opcode {
   RefNull
   RefIsNull
   RefFunc
-  RefExtern  // For test results
+  RefExtern // For test results
 
   // ========== Parametric Instructions ==========
   Drop
@@ -629,11 +629,10 @@ pub enum TokenType {
   AssertExhaustion
   NanCanonical
   NanArithmetic
-  
-  // Memory arg tokens
-  OffsetEqNat  // offset=N
-  AlignEqNat   // align=N
 
+  // Memory arg tokens
+  OffsetEqNat // offset=N
+  AlignEqNat // align=N
   SimdShapeToken(SimdShape)
 } derive(Show)
 

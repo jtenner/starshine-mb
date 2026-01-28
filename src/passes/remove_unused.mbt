@@ -1,4 +1,5 @@
 // Counts of each import type for index calculations
+///|
 struct ImportCounts {
   funcs : UInt
   tables : UInt
@@ -8,6 +9,8 @@ struct ImportCounts {
 }
 
 // All used indices discovered during analysis
+
+///|
 struct UsedIndices {
   funcs : Set[FuncIdx]
   types : Set[TypeIdx]
@@ -19,6 +22,7 @@ struct UsedIndices {
   tags : Set[TagIdx]
 }
 
+///|
 fn UsedIndices::new() -> UsedIndices {
   {
     funcs: Set::new(),
@@ -33,6 +37,8 @@ fn UsedIndices::new() -> UsedIndices {
 }
 
 // Remappings from old indices to new indices
+
+///|
 struct Remappings {
   mut funcs : Map[FuncIdx, FuncIdx]
   mut types : Map[TypeIdx, TypeIdx]
@@ -44,6 +50,7 @@ struct Remappings {
   mut tags : Map[TagIdx, TagIdx]
 }
 
+///|
 fn Remappings::new() -> Remappings {
   {
     funcs: Map::new(),
@@ -58,6 +65,8 @@ fn Remappings::new() -> Remappings {
 }
 
 // State passed through the transformer
+
+///|
 pub struct DCEState {
   used : UsedIndices
   remap : Remappings
@@ -68,13 +77,13 @@ pub struct DCEState {
 // Analysis Phase
 // ============================================================================
 
+///|
 fn count_imports(mod : Module) -> ImportCounts {
   let mut funcs : UInt = 0
   let mut tables : UInt = 0
   let mut mems : UInt = 0
   let mut globals : UInt = 0
   let mut tags : UInt = 0
-
   match mod.import_sec {
     Some(sec) =>
       for imp in sec.0 {
@@ -91,10 +100,10 @@ fn count_imports(mod : Module) -> ImportCounts {
       }
     None => ()
   }
-
   { funcs, tables, mems, globals, tags }
 }
 
+///|
 priv struct AnalysisContext {
   used : UsedIndices
   imports : ImportCounts
@@ -106,6 +115,7 @@ priv struct AnalysisContext {
   mod : Module
 }
 
+///|
 fn AnalysisContext::new(mod : Module) -> AnalysisContext {
   {
     used: UsedIndices::new(),
@@ -113,11 +123,13 @@ fn AnalysisContext::new(mod : Module) -> AnalysisContext {
     func_worklist: [],
     global_worklist: [],
     elem_worklist: [],
-    mod: mod,
+    mod,
   }
 }
 
 // Mark functions
+
+///|
 fn mark_func(ctx : AnalysisContext, idx : FuncIdx) -> Unit {
   if not(ctx.used.funcs.contains(idx)) {
     ctx.used.funcs.add(idx)
@@ -125,20 +137,24 @@ fn mark_func(ctx : AnalysisContext, idx : FuncIdx) -> Unit {
   }
 }
 
+///|
 fn mark_type(ctx : AnalysisContext, idx : TypeIdx) -> Unit {
   ctx.used.types.add(idx)
   // Types can reference other types via supertypes in GC
   // We'd need to scan the type section for this
 }
 
+///|
 fn mark_table(ctx : AnalysisContext, idx : TableIdx) -> Unit {
   ctx.used.tables.add(idx)
 }
 
+///|
 fn mark_mem(ctx : AnalysisContext, idx : MemIdx) -> Unit {
   ctx.used.mems.add(idx)
 }
 
+///|
 fn mark_global(ctx : AnalysisContext, idx : GlobalIdx) -> Unit {
   if not(ctx.used.globals.contains(idx)) {
     ctx.used.globals.add(idx)
@@ -146,6 +162,7 @@ fn mark_global(ctx : AnalysisContext, idx : GlobalIdx) -> Unit {
   }
 }
 
+///|
 fn mark_elem(ctx : AnalysisContext, idx : ElemIdx) -> Unit {
   if not(ctx.used.elems.contains(idx)) {
     ctx.used.elems.add(idx)
@@ -153,15 +170,19 @@ fn mark_elem(ctx : AnalysisContext, idx : ElemIdx) -> Unit {
   }
 }
 
+///|
 fn mark_data(ctx : AnalysisContext, idx : DataIdx) -> Unit {
   ctx.used.datas.add(idx)
 }
 
+///|
 fn mark_tag(ctx : AnalysisContext, idx : TagIdx) -> Unit {
   ctx.used.tags.add(idx)
 }
 
 // Mark from block type
+
+///|
 fn mark_blocktype(ctx : AnalysisContext, bt : BlockType) -> Unit {
   match bt {
     TypeIdxBlockType(idx) => mark_type(ctx, idx)
@@ -170,6 +191,8 @@ fn mark_blocktype(ctx : AnalysisContext, bt : BlockType) -> Unit {
 }
 
 // Mark from heap type
+
+///|
 fn mark_heaptype(ctx : AnalysisContext, ht : HeapType) -> Unit {
   match ht {
     HeapType(idx) => mark_type(ctx, idx)
@@ -178,6 +201,8 @@ fn mark_heaptype(ctx : AnalysisContext, ht : HeapType) -> Unit {
 }
 
 // Mark from ref type
+
+///|
 fn mark_reftype(ctx : AnalysisContext, rt : RefType) -> Unit {
   match rt {
     HeapTypeRefType(_, ht) => mark_heaptype(ctx, ht)
@@ -186,6 +211,8 @@ fn mark_reftype(ctx : AnalysisContext, rt : RefType) -> Unit {
 }
 
 // Mark from val type
+
+///|
 fn mark_valtype(ctx : AnalysisContext, vt : ValType) -> Unit {
   match vt {
     RefTypeValType(rt) => mark_reftype(ctx, rt)
@@ -194,6 +221,8 @@ fn mark_valtype(ctx : AnalysisContext, vt : ValType) -> Unit {
 }
 
 // Analyze roots: exports, start, active segments
+
+///|
 fn analyze_roots(ctx : AnalysisContext) -> Unit {
   let mod = ctx.mod
 
@@ -257,6 +286,8 @@ fn analyze_roots(ctx : AnalysisContext) -> Unit {
 }
 
 // Process function worklist
+
+///|
 fn process_func_worklist(ctx : AnalysisContext) -> Unit {
   let code_sec = match ctx.mod.code_sec {
     Some(cs) => cs.0
@@ -266,11 +297,9 @@ fn process_func_worklist(ctx : AnalysisContext) -> Unit {
     Some(fs) => fs.0
     None => return
   }
-
   while ctx.func_worklist.length() > 0 {
     let func_idx = ctx.func_worklist.pop().unwrap()
     let FuncIdx(idx_val) = func_idx
-
     if idx_val >= ctx.imports.funcs {
       // Defined function
       let def_idx = (idx_val - ctx.imports.funcs).reinterpret_as_int()
@@ -321,16 +350,16 @@ fn process_func_worklist(ctx : AnalysisContext) -> Unit {
 }
 
 // Process global worklist
+
+///|
 fn process_global_worklist(ctx : AnalysisContext) -> Unit {
   let global_sec = match ctx.mod.global_sec {
     Some(gs) => gs.0
     None => return
   }
-
   while ctx.global_worklist.length() > 0 {
     let global_idx = ctx.global_worklist.pop().unwrap()
     let GlobalIdx(idx_val) = global_idx
-
     if idx_val >= ctx.imports.globals {
       let def_idx = (idx_val - ctx.imports.globals).reinterpret_as_int()
       if def_idx >= 0 && def_idx < global_sec.length() {
@@ -346,17 +375,17 @@ fn process_global_worklist(ctx : AnalysisContext) -> Unit {
 }
 
 // Process element worklist
+
+///|
 fn process_elem_worklist(ctx : AnalysisContext) -> Unit {
   let elem_sec = match ctx.mod.elem_sec {
     Some(es) => es.0
     None => return
   }
-
   while ctx.elem_worklist.length() > 0 {
     let elem_idx = ctx.elem_worklist.pop().unwrap()
     let ElemIdx(idx_val) = elem_idx
     let idx = idx_val.reinterpret_as_int()
-
     if idx >= 0 && idx < elem_sec.length() {
       match elem_sec[idx] {
         Elem(mode, kind) => {
@@ -390,6 +419,8 @@ fn process_elem_worklist(ctx : AnalysisContext) -> Unit {
 }
 
 // Main analysis loop
+
+///|
 fn analyze(ctx : AnalysisContext) -> Unit {
   analyze_roots(ctx)
 
@@ -407,7 +438,9 @@ fn analyze(ctx : AnalysisContext) -> Unit {
   match ctx.mod.table_sec {
     Some(sec) =>
       for i = 0; i < sec.0.length(); i = i + 1 {
-        let table_idx = TableIdx::new(ctx.imports.tables + i.reinterpret_as_uint())
+        let table_idx = TableIdx::new(
+          ctx.imports.tables + i.reinterpret_as_uint(),
+        )
         if ctx.used.tables.contains(table_idx) {
           match sec.0[i] {
             Table(TableType(rt, _), _) => mark_reftype(ctx, rt)
@@ -435,6 +468,7 @@ fn analyze(ctx : AnalysisContext) -> Unit {
   analyze_type_dependencies(ctx)
 }
 
+///|
 fn analyze_type_dependencies(ctx : AnalysisContext) -> Unit {
   match ctx.mod.type_sec {
     Some(sec) => {
@@ -447,8 +481,7 @@ fn analyze_type_dependencies(ctx : AnalysisContext) -> Unit {
           let type_idx = TypeIdx::new(i.reinterpret_as_uint())
           if ctx.used.types.contains(type_idx) {
             match types[i] {
-
-              SingleRecType(st) => {
+              SingleRecType(st) =>
                 match st {
                   SubType(_, supers, comp_type) => {
                     for super_idx in supers {
@@ -462,8 +495,7 @@ fn analyze_type_dependencies(ctx : AnalysisContext) -> Unit {
                   }
                   CompTypeSubType(ct) => scan_comptype_for_types(ctx, ct)
                 }
-              }
-              GroupRecType(sts) => {
+              GroupRecType(sts) =>
                 for st in sts {
                   match st {
                     SubType(_, supers, comp_type) => {
@@ -478,7 +510,6 @@ fn analyze_type_dependencies(ctx : AnalysisContext) -> Unit {
                     CompTypeSubType(ct) => scan_comptype_for_types(ctx, ct)
                   }
                 }
-              }
             }
           }
         }
@@ -488,6 +519,7 @@ fn analyze_type_dependencies(ctx : AnalysisContext) -> Unit {
   }
 }
 
+///|
 fn scan_comptype_for_types(ctx : AnalysisContext, ct : CompType) -> Unit {
   match ct {
     FuncCompType(params, results) => {
@@ -519,12 +551,14 @@ fn scan_comptype_for_types(ctx : AnalysisContext, ct : CompType) -> Unit {
 // Instruction Scanning
 // ============================================================================
 
+///|
 fn scan_texpr(ctx : AnalysisContext, texpr : TExpr) -> Unit {
   for instr in texpr.0 {
     scan_tinstr(ctx, instr)
   }
 }
 
+///|
 fn scan_tinstr(ctx : AnalysisContext, instr : TInstr) -> Unit {
   match instr {
     // Function references
@@ -706,9 +740,9 @@ fn scan_tinstr(ctx : AnalysisContext, instr : TInstr) -> Unit {
       }
     }
     TStructNewDefault(type_idx) => mark_type(ctx, type_idx)
-    TStructGet(type_idx, _, arg) |
-    TStructGetS(type_idx, _, arg) |
-    TStructGetU(type_idx, _, arg) => {
+    TStructGet(type_idx, _, arg)
+    | TStructGetS(type_idx, _, arg)
+    | TStructGetU(type_idx, _, arg) => {
       mark_type(ctx, type_idx)
       scan_tinstr(ctx, arg)
     }
@@ -744,9 +778,9 @@ fn scan_tinstr(ctx : AnalysisContext, instr : TInstr) -> Unit {
       scan_tinstr(ctx, a)
       scan_tinstr(ctx, b)
     }
-    TArrayGet(type_idx, arr, idx) |
-    TArrayGetS(type_idx, arr, idx) |
-    TArrayGetU(type_idx, arr, idx) => {
+    TArrayGet(type_idx, arr, idx)
+    | TArrayGetS(type_idx, arr, idx)
+    | TArrayGetU(type_idx, arr, idx) => {
       mark_type(ctx, type_idx)
       scan_tinstr(ctx, arr)
       scan_tinstr(ctx, idx)
@@ -797,8 +831,8 @@ fn scan_tinstr(ctx : AnalysisContext, instr : TInstr) -> Unit {
       mark_heaptype(ctx, ht)
       scan_tinstr(ctx, arg)
     }
-    TBrOnCast(_, _, ht1, ht2, arg, args) |
-    TBrOnCastFail(_, _, ht1, ht2, arg, args) => {
+    TBrOnCast(_, _, ht1, ht2, arg, args)
+    | TBrOnCastFail(_, _, ht1, ht2, arg, args) => {
       mark_heaptype(ctx, ht1)
       mark_heaptype(ctx, ht2)
       scan_tinstr(ctx, arg)
@@ -826,13 +860,19 @@ fn scan_tinstr(ctx : AnalysisContext, instr : TInstr) -> Unit {
   }
 }
 
+///|
 fn scan_tinstr_children(ctx : AnalysisContext, instr : TInstr) -> Unit {
   match instr {
     TLocalSet(_, arg) | TLocalTee(_, arg) => scan_tinstr(ctx, arg)
-    TUnary(_, arg) | TDrop(arg) | TRefIsNull(arg) | TRefAsNonNull(arg) |
-    TAnyConvertExtern(arg) | TExternConvertAny(arg) |
-    TI31GetS(arg) | TI31GetU(arg) | TRefI31(arg) =>
-      scan_tinstr(ctx, arg)
+    TUnary(_, arg)
+    | TDrop(arg)
+    | TRefIsNull(arg)
+    | TRefAsNonNull(arg)
+    | TAnyConvertExtern(arg)
+    | TExternConvertAny(arg)
+    | TI31GetS(arg)
+    | TI31GetU(arg)
+    | TRefI31(arg) => scan_tinstr(ctx, arg)
     TBinary(_, a, b) | TRefEq(a, b) => {
       scan_tinstr(ctx, a)
       scan_tinstr(ctx, b)
@@ -872,13 +912,18 @@ fn scan_tinstr_children(ctx : AnalysisContext, instr : TInstr) -> Unit {
       scan_tinstr(ctx, b)
       scan_tinstr(ctx, c)
     }
-    TI8x16Shuffle(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, a, b) | TI8x16Swizzle(a, b) | TI8x16RelaxedSwizzle(a, b) => {
+    TI8x16Shuffle(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, a, b)
+    | TI8x16Swizzle(a, b)
+    | TI8x16RelaxedSwizzle(a, b) => {
       scan_tinstr(ctx, a)
       scan_tinstr(ctx, b)
     }
-    TI8x16Splat(a) | TI16x8Splat(a) | TI32x4Splat(a) | TI64x2Splat(a) |
-    TF32x4Splat(a) | TF64x2Splat(a) =>
-      scan_tinstr(ctx, a)
+    TI8x16Splat(a)
+    | TI16x8Splat(a)
+    | TI32x4Splat(a)
+    | TI64x2Splat(a)
+    | TF32x4Splat(a)
+    | TF64x2Splat(a) => scan_tinstr(ctx, a)
     TExtractLane(_, _, a) => scan_tinstr(ctx, a)
     TReplaceLane(_, _, vec, val) => {
       scan_tinstr(ctx, vec)
@@ -888,16 +933,19 @@ fn scan_tinstr_children(ctx : AnalysisContext, instr : TInstr) -> Unit {
   }
 }
 
+///|
 fn scan_expr(ctx : AnalysisContext, expr : Expr) -> Unit {
   for instr in expr.0 {
     scan_instr(ctx, instr)
   }
 }
 
+///|
 fn scan_instr(ctx : AnalysisContext, instr : Instruction) -> Unit {
   match instr {
     Call(idx) | ReturnCall(idx) | RefFunc(idx) => mark_func(ctx, idx)
-    CallIndirect(type_idx, table_idx) | ReturnCallIndirect(type_idx, table_idx) => {
+    CallIndirect(type_idx, table_idx)
+    | ReturnCallIndirect(type_idx, table_idx) => {
       mark_type(ctx, type_idx)
       mark_table(ctx, table_idx)
     }
@@ -931,8 +979,11 @@ fn scan_instr(ctx : AnalysisContext, instr : Instruction) -> Unit {
     }
     Throw(tag_idx) => mark_tag(ctx, tag_idx)
     GlobalGet(idx) | GlobalSet(idx) => mark_global(ctx, idx)
-    TableGet(idx) | TableSet(idx) | TableGrow(idx) | TableSize(idx) | TableFill(idx) =>
-      mark_table(ctx, idx)
+    TableGet(idx)
+    | TableSet(idx)
+    | TableGrow(idx)
+    | TableSize(idx)
+    | TableFill(idx) => mark_table(ctx, idx)
     TableCopy(idx1, idx2) => {
       mark_table(ctx, idx1)
       mark_table(ctx, idx2)
@@ -953,13 +1004,18 @@ fn scan_instr(ctx : AnalysisContext, instr : Instruction) -> Unit {
     }
     DataDrop(idx) => mark_data(ctx, idx)
     StructNew(type_idx) | StructNewDefault(type_idx) => mark_type(ctx, type_idx)
-    StructGet(type_idx, _) | StructGetS(type_idx, _) | StructGetU(type_idx, _) |
-    StructSet(type_idx, _) =>
-      mark_type(ctx, type_idx)
-    ArrayNew(type_idx) | ArrayNewDefault(type_idx) | ArrayNewFixed(type_idx, _) |
-    ArrayGet(type_idx) | ArrayGetS(type_idx) | ArrayGetU(type_idx) |
-    ArraySet(type_idx) | ArrayFill(type_idx) =>
-      mark_type(ctx, type_idx)
+    StructGet(type_idx, _)
+    | StructGetS(type_idx, _)
+    | StructGetU(type_idx, _)
+    | StructSet(type_idx, _) => mark_type(ctx, type_idx)
+    ArrayNew(type_idx)
+    | ArrayNewDefault(type_idx)
+    | ArrayNewFixed(type_idx, _)
+    | ArrayGet(type_idx)
+    | ArrayGetS(type_idx)
+    | ArrayGetU(type_idx)
+    | ArraySet(type_idx)
+    | ArrayFill(type_idx) => mark_type(ctx, type_idx)
     ArrayNewData(type_idx, data_idx) | ArrayInitData(type_idx, data_idx) => {
       mark_type(ctx, type_idx)
       mark_data(ctx, data_idx)
@@ -1020,7 +1076,7 @@ fn scan_instr(ctx : AnalysisContext, instr : Instruction) -> Unit {
     | V128Load16Splat(ma)
     | V128Load32Splat(ma)
     | V128Load64Splat(ma)
-    | V128Store(ma) 
+    | V128Store(ma)
     | V128Load8Lane(ma, _)
     | V128Load16Lane(ma, _)
     | V128Load32Lane(ma, _)
@@ -1030,11 +1086,7 @@ fn scan_instr(ctx : AnalysisContext, instr : Instruction) -> Unit {
     | V128Store32Lane(ma, _)
     | V128Store64Lane(ma, _)
     | V128Load32Zero(ma)
-    | V128Load64Zero(ma) => {
-      if ma.1 is Some(idx) {
-        mark_mem(ctx, idx)
-      }
-    }
+    | V128Load64Zero(ma) => if ma.1 is Some(idx) { mark_mem(ctx, idx) }
     _ => ()
   }
 }
@@ -1043,16 +1095,17 @@ fn scan_instr(ctx : AnalysisContext, instr : Instruction) -> Unit {
 // Build Remappings
 // ============================================================================
 // Helper to build a sorted remapping (can fail if extract fails)
-fn [T : Hash + Eq] build_map(
+
+///|
+fn[T : Hash + Eq] build_map(
   used_set : Set[T],
   import_count : UInt,
   extract : (T) -> Result[UInt, String],
-  construct : (UInt) -> T
+  construct : (UInt) -> T,
 ) -> Result[Map[T, T], String] {
   let map : Map[T, T] = Map::new()
   let imports : Array[(T, UInt)] = []
   let defined : Array[(T, UInt)] = []
-
   for idx in used_set {
     let v = match extract(idx) {
       Ok(v) => v
@@ -1064,10 +1117,8 @@ fn [T : Hash + Eq] build_map(
       imports.push((idx, v))
     }
   }
-
   imports.sort_by(fn(a, b) { a.1.compare(b.1) })
   defined.sort_by(fn(a, b) { a.1.compare(b.1) })
-
   let mut next : UInt = 0
   for pair in imports {
     map.set(pair.0, construct(next))
@@ -1077,100 +1128,128 @@ fn [T : Hash + Eq] build_map(
     map.set(pair.0, construct(next))
     next += 1
   }
-
   Ok(map)
 }
 
-fn build_remappings(used : UsedIndices, imports : ImportCounts) -> Result[Remappings, String] {
+///|
+fn build_remappings(
+  used : UsedIndices,
+  imports : ImportCounts,
+) -> Result[Remappings, String] {
   let remap = Remappings::new()
 
   // Build each remapping
-  remap.funcs = match build_map(
-    used.funcs,
-    imports.funcs,
-    fn(idx) { let FuncIdx(v) = idx; Ok(v) },
-    FuncIdx::new,
-  ) {
+  remap.funcs = match
+    build_map(
+      used.funcs,
+      imports.funcs,
+      fn(idx) {
+        let FuncIdx(v) = idx
+        Ok(v)
+      },
+      FuncIdx::new,
+    ) {
     Ok(m) => m
     Err(e) => return Err(e)
   }
-
-  remap.tables = match build_map(
-    used.tables,
-    imports.tables,
-    fn(idx) { let TableIdx(v) = idx; Ok(v) },
-    TableIdx::new,
-  ) {
+  remap.tables = match
+    build_map(
+      used.tables,
+      imports.tables,
+      fn(idx) {
+        let TableIdx(v) = idx
+        Ok(v)
+      },
+      TableIdx::new,
+    ) {
     Ok(m) => m
     Err(e) => return Err(e)
   }
-
-  remap.mems = match build_map(
-    used.mems,
-    imports.mems,
-    fn(idx) { let MemIdx(v) = idx; Ok(v) },
-    MemIdx::new,
-  ) {
+  remap.mems = match
+    build_map(
+      used.mems,
+      imports.mems,
+      fn(idx) {
+        let MemIdx(v) = idx
+        Ok(v)
+      },
+      MemIdx::new,
+    ) {
     Ok(m) => m
     Err(e) => return Err(e)
   }
-
-  remap.globals = match build_map(
-    used.globals,
-    imports.globals,
-    fn(idx) { let GlobalIdx(v) = idx; Ok(v) },
-    GlobalIdx::new,
-  ) {
+  remap.globals = match
+    build_map(
+      used.globals,
+      imports.globals,
+      fn(idx) {
+        let GlobalIdx(v) = idx
+        Ok(v)
+      },
+      GlobalIdx::new,
+    ) {
     Ok(m) => m
     Err(e) => return Err(e)
   }
-
-  remap.tags = match build_map(
-    used.tags,
-    imports.tags,
-    fn(idx) { let TagIdx(v) = idx; Ok(v) },
-    TagIdx::new,
-  ) {
+  remap.tags = match
+    build_map(
+      used.tags,
+      imports.tags,
+      fn(idx) {
+        let TagIdx(v) = idx
+        Ok(v)
+      },
+      TagIdx::new,
+    ) {
     Ok(m) => m
     Err(e) => return Err(e)
   }
 
   // Types, elems, datas have no imports
-  remap.types = match build_map(
-    used.types,
-    0,
-    fn(idx) {
-      match idx {
-        TypeIdx(v) => Ok(v)
-        RecIdx(_) => Err("unexpected RecIdx in type remapping (RecIdx is only used during validation)")
-      }
-    },
-    TypeIdx::new,
-  ) {
+  remap.types = match
+    build_map(
+      used.types,
+      0,
+      fn(idx) {
+        match idx {
+          TypeIdx(v) => Ok(v)
+          RecIdx(_) =>
+            Err(
+              "unexpected RecIdx in type remapping (RecIdx is only used during validation)",
+            )
+        }
+      },
+      TypeIdx::new,
+    ) {
     Ok(m) => m
     Err(e) => return Err(e)
   }
-
-  remap.elems = match build_map(
-    used.elems,
-    0,
-    fn(idx) { let ElemIdx(v) = idx; Ok(v) },
-    ElemIdx::new,
-  ) {
+  remap.elems = match
+    build_map(
+      used.elems,
+      0,
+      fn(idx) {
+        let ElemIdx(v) = idx
+        Ok(v)
+      },
+      ElemIdx::new,
+    ) {
     Ok(m) => m
     Err(e) => return Err(e)
   }
-
-  remap.datas = match build_map(
-    used.datas,
-    0,
-    fn(idx) { let DataIdx(v) = idx; Ok(v) },
-    DataIdx::new,
-  ) {
+  remap.datas = match
+    build_map(
+      used.datas,
+      0,
+      fn(idx) {
+        let DataIdx(v) = idx
+        Ok(v)
+      },
+      DataIdx::new,
+    ) {
     Ok(m) => m
     Err(e) => return Err(e)
   }
-
   Ok(remap)
 }
 
@@ -1178,6 +1257,7 @@ fn build_remappings(used : UsedIndices, imports : ImportCounts) -> Result[Remapp
 // Transformation Phase using ModuleTransformer
 // ============================================================================
 
+///|
 pub fn remove_unused(mod : Module) -> Result[Module, String] {
   // Phase 1: Analysis
   let ctx = AnalysisContext::new(mod)
@@ -1221,15 +1301,14 @@ pub fn remove_unused(mod : Module) -> Result[Module, String] {
       Some(ts) => ts.0.length().reinterpret_as_uint()
       None => 0
     })
-
   if ctx.used.funcs.length().reinterpret_as_uint() == total_funcs &&
-     ctx.used.types.length().reinterpret_as_uint() == total_types &&
-     ctx.used.tables.length().reinterpret_as_uint() == total_tables &&
-     ctx.used.mems.length().reinterpret_as_uint() == total_mems &&
-     ctx.used.globals.length().reinterpret_as_uint() == total_globals &&
-     ctx.used.elems.length().reinterpret_as_uint() == total_elems &&
-     ctx.used.datas.length().reinterpret_as_uint() == total_datas &&
-     ctx.used.tags.length().reinterpret_as_uint() == total_tags {
+    ctx.used.types.length().reinterpret_as_uint() == total_types &&
+    ctx.used.tables.length().reinterpret_as_uint() == total_tables &&
+    ctx.used.mems.length().reinterpret_as_uint() == total_mems &&
+    ctx.used.globals.length().reinterpret_as_uint() == total_globals &&
+    ctx.used.elems.length().reinterpret_as_uint() == total_elems &&
+    ctx.used.datas.length().reinterpret_as_uint() == total_datas &&
+    ctx.used.tags.length().reinterpret_as_uint() == total_tags {
     // Nothing to remove
     return Ok(mod)
   }
@@ -1244,7 +1323,11 @@ pub fn remove_unused(mod : Module) -> Result[Module, String] {
   // Phase 3: Transform using ModuleTransformer
   let transformer = ModuleTransformer::new()
     // Remap all index types
-    .on_funcidx_evt(fn(_t : ModuleTransformer[DCEState], s : DCEState, idx : FuncIdx) {
+    .on_funcidx_evt(fn(
+      _t : ModuleTransformer[DCEState],
+      s : DCEState,
+      idx : FuncIdx,
+    ) {
       match s.remap.funcs.get(idx) {
         Some(new_idx) => change(s, new_idx)
         None => unchanged()
@@ -1295,25 +1378,26 @@ pub fn remove_unused(mod : Module) -> Result[Module, String] {
     // Also remap heap types that reference type indices
     .on_heaptype_evt(fn(_t, s : DCEState, ht : HeapType) {
       match ht {
-        HeapType(idx) => {
+        HeapType(idx) =>
           match s.remap.types.get(idx) {
             Some(new_idx) => change(s, HeapType::new(new_idx))
             None => unchanged()
           }
-        }
-        
         _ => unchanged()
       }
     })
     // Filter import section
-    .on_importsec_evt(fn(_t : ModuleTransformer[DCEState], s : DCEState, imp_sec : ImportSec) {
+    .on_importsec_evt(fn(
+      _t : ModuleTransformer[DCEState],
+      s : DCEState,
+      imp_sec : ImportSec,
+    ) {
       let new_imports = []
       let mut func_idx : UInt = 0
       let mut table_idx : UInt = 0
       let mut mem_idx : UInt = 0
       let mut global_idx : UInt = 0
       let mut tag_idx : UInt = 0
-
       for imp in imp_sec.0 {
         match imp {
           Import(mod_name, name, extern_type) => {
@@ -1359,14 +1443,16 @@ pub fn remove_unused(mod : Module) -> Result[Module, String] {
           }
         }
       }
-
       change(s, ImportSec::new(new_imports))
     })
     // Filter type section
-    .on_typesec_evt(fn(_t : ModuleTransformer[DCEState], s : DCEState, type_sec : TypeSec) {
+    .on_typesec_evt(fn(
+      _t : ModuleTransformer[DCEState],
+      s : DCEState,
+      type_sec : TypeSec,
+    ) {
       let new_types = []
       let types = type_sec.0
-
       for i = 0; i < types.length(); i = i + 1 {
         let type_idx = TypeIdx::new(i.reinterpret_as_uint())
         if s.used.types.contains(type_idx) {
@@ -1376,14 +1462,16 @@ pub fn remove_unused(mod : Module) -> Result[Module, String] {
           new_types.push(rec_type)
         }
       }
-
       change(s, TypeSec::new(new_types))
     })
     // Filter func section (type indices for defined functions)
-    .on_funcsec_evt(fn(_t : ModuleTransformer[DCEState], s : DCEState, func_sec : FuncSec) {
+    .on_funcsec_evt(fn(
+      _t : ModuleTransformer[DCEState],
+      s : DCEState,
+      func_sec : FuncSec,
+    ) {
       let new_types = []
       let types = func_sec.0
-
       for i = 0; i < types.length(); i = i + 1 {
         let func_idx = FuncIdx::new(s.imports.funcs + i.reinterpret_as_uint())
         if s.used.funcs.contains(func_idx) {
@@ -1394,105 +1482,122 @@ pub fn remove_unused(mod : Module) -> Result[Module, String] {
           }
         }
       }
-
       change(s, FuncSec::new(new_types))
     })
     // Filter code section
-    .on_codesec_evt(fn(_t : ModuleTransformer[DCEState], s : DCEState, code_sec : CodeSec) {
+    .on_codesec_evt(fn(
+      _t : ModuleTransformer[DCEState],
+      s : DCEState,
+      code_sec : CodeSec,
+    ) {
       let new_funcs = []
       let funcs = code_sec.0
-
       for i = 0; i < funcs.length(); i = i + 1 {
         let func_idx = FuncIdx::new(s.imports.funcs + i.reinterpret_as_uint())
         if s.used.funcs.contains(func_idx) {
           new_funcs.push(funcs[i])
         }
       }
-
       change(s, CodeSec::new(new_funcs))
     })
     // Filter table section
-    .on_tablesec_evt(fn(_t : ModuleTransformer[DCEState], s : DCEState, table_sec : TableSec) {
+    .on_tablesec_evt(fn(
+      _t : ModuleTransformer[DCEState],
+      s : DCEState,
+      table_sec : TableSec,
+    ) {
       let new_tables = []
       let tables = table_sec.0
-
       for i = 0; i < tables.length(); i = i + 1 {
-        let table_idx = TableIdx::new(s.imports.tables + i.reinterpret_as_uint())
+        let table_idx = TableIdx::new(
+          s.imports.tables + i.reinterpret_as_uint(),
+        )
         if s.used.tables.contains(table_idx) {
           new_tables.push(tables[i])
         }
       }
-
       change(s, TableSec::new(new_tables))
     })
     // Filter memory section
-    .on_memsec_evt(fn(_t : ModuleTransformer[DCEState], s : DCEState, mem_sec : MemSec) {
+    .on_memsec_evt(fn(
+      _t : ModuleTransformer[DCEState],
+      s : DCEState,
+      mem_sec : MemSec,
+    ) {
       let new_mems = []
       let mems = mem_sec.0
-
       for i = 0; i < mems.length(); i = i + 1 {
         let mem_idx = MemIdx::new(s.imports.mems + i.reinterpret_as_uint())
         if s.used.mems.contains(mem_idx) {
           new_mems.push(mems[i])
         }
       }
-
       change(s, MemSec::new(new_mems))
     })
     // Filter global section
-    .on_globalsec_evt(fn(_t : ModuleTransformer[DCEState], s : DCEState, global_sec : GlobalSec) {
+    .on_globalsec_evt(fn(
+      _t : ModuleTransformer[DCEState],
+      s : DCEState,
+      global_sec : GlobalSec,
+    ) {
       let new_globals = []
       let globals = global_sec.0
-
       for i = 0; i < globals.length(); i = i + 1 {
-        let global_idx = GlobalIdx::new(s.imports.globals + i.reinterpret_as_uint())
+        let global_idx = GlobalIdx::new(
+          s.imports.globals + i.reinterpret_as_uint(),
+        )
         if s.used.globals.contains(global_idx) {
           new_globals.push(globals[i])
         }
       }
-
       change(s, GlobalSec::new(new_globals))
     })
     // Filter tag section
-    .on_tagsec_evt(fn(_t : ModuleTransformer[DCEState], s : DCEState, tag_sec : TagSec) {
+    .on_tagsec_evt(fn(
+      _t : ModuleTransformer[DCEState],
+      s : DCEState,
+      tag_sec : TagSec,
+    ) {
       let new_tags = []
       let tags = tag_sec.0
-
       for i = 0; i < tags.length(); i = i + 1 {
         let tag_idx = TagIdx::new(s.imports.tags + i.reinterpret_as_uint())
         if s.used.tags.contains(tag_idx) {
           new_tags.push(tags[i])
         }
       }
-
       change(s, TagSec::new(new_tags))
     })
     // Filter element section
-    .on_elemsec_evt(fn(_t : ModuleTransformer[DCEState], s : DCEState, elem_sec : ElemSec) {
+    .on_elemsec_evt(fn(
+      _t : ModuleTransformer[DCEState],
+      s : DCEState,
+      elem_sec : ElemSec,
+    ) {
       let new_elems = []
       let elems = elem_sec.0
-
       for i = 0; i < elems.length(); i = i + 1 {
         let elem_idx = ElemIdx::new(i.reinterpret_as_uint())
         if s.used.elems.contains(elem_idx) {
           new_elems.push(elems[i])
         }
       }
-
       change(s, ElemSec::new(new_elems))
     })
     // Filter data section
-    .on_datasec_evt(fn(_t : ModuleTransformer[DCEState], s : DCEState, data_sec : DataSec) {
+    .on_datasec_evt(fn(
+      _t : ModuleTransformer[DCEState],
+      s : DCEState,
+      data_sec : DataSec,
+    ) {
       let new_datas = []
       let datas = data_sec.0
-
       for i = 0; i < datas.length(); i = i + 1 {
         let data_idx = DataIdx::new(i.reinterpret_as_uint())
         if s.used.datas.contains(data_idx) {
           new_datas.push(datas[i])
         }
       }
-
       change(s, DataSec::new(new_datas))
     })
     // Update data count section
@@ -1501,9 +1606,12 @@ pub fn remove_unused(mod : Module) -> Result[Module, String] {
       change(s, DataCntSec::new(count))
     })
     // Filter exports to only include used items
-    .on_exportsec_evt(fn(_t : ModuleTransformer[DCEState], s : DCEState, export_sec : ExportSec) {
+    .on_exportsec_evt(fn(
+      _t : ModuleTransformer[DCEState],
+      s : DCEState,
+      export_sec : ExportSec,
+    ) {
       let new_exports = []
-
       for exp in export_sec.0 {
         match exp {
           Export(name, extern_idx) => {
@@ -1560,19 +1668,23 @@ pub fn remove_unused(mod : Module) -> Result[Module, String] {
           }
         }
       }
-
       change(s, ExportSec::new(new_exports))
     })
     // Update start section
-    .on_startsec_evt(fn(t_ : ModuleTransformer[DCEState], s : DCEState, start_sec : StartSec) {
+    .on_startsec_evt(fn(
+      t_ : ModuleTransformer[DCEState],
+      s : DCEState,
+      start_sec : StartSec,
+    ) {
       let func_idx = start_sec.0
       match s.remap.funcs.get(func_idx) {
         Some(new_idx) => change(s, StartSec::new(new_idx))
         None => unchanged()
       }
     })
-
-  transformer.walk_module(state, mod).map(fn(pair : (DCEState, Module)?) {
+  transformer
+  .walk_module(state, mod)
+  .map(fn(pair : (DCEState, Module)?) {
     match pair {
       Some((_, mod)) => mod
       None => mod
@@ -1584,16 +1696,21 @@ pub fn remove_unused(mod : Module) -> Result[Module, String] {
 // Test Helpers
 // ============================================================================
 
+///|
 /// Creates a simple function type: [] -> []
 fn make_void_func_type() -> RecType {
   RecType::new(SubType::comp_type(CompType::func([], [])))
 }
 
+///|
 /// Creates a function type: [i32] -> [i32]
 fn make_i32_to_i32_func_type() -> RecType {
-  RecType::new(SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])))
+  RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
+  )
 }
 
+///|
 /// Creates a simple function body that just returns
 fn make_empty_func_body() -> Func {
   Func::t_func([], TExpr::new([TInstr::return_([])]))
@@ -1603,10 +1720,10 @@ fn make_empty_func_body() -> Func {
 // Basic Tests
 // ============================================================================
 
+///|
 test "empty module unchanged" {
   let mod = Module::new()
   let result = remove_unused(mod)
-  
   match result {
     Ok(new_mod) => {
       // Empty module should be unchanged
@@ -1618,23 +1735,21 @@ test "empty module unchanged" {
   }
 }
 
+///|
 test "single exported function kept" {
   // Module with one function that is exported
   let type_sec = TypeSec::new([make_void_func_type()])
   let func_sec = FuncSec::new([TypeIdx::new(0)])
   let code_sec = CodeSec::new([make_empty_func_body()])
   let export_sec = ExportSec::new([
-    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0)))
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
   ])
-  
   let mod = Module::new()
     .with_type_sec(type_sec)
     .with_func_sec(func_sec)
     .with_code_sec(code_sec)
     .with_export_sec(export_sec)
-  
   let result = remove_unused(mod)
-  
   match result {
     Ok(new_mod) => {
       // Function and type should be kept
@@ -1649,22 +1764,21 @@ test "single exported function kept" {
   }
 }
 
+///|
 test "unused function removed" {
   // Module with two functions, only one exported
   let type_sec = TypeSec::new([make_void_func_type()])
   let func_sec = FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)])
   let code_sec = CodeSec::new([make_empty_func_body(), make_empty_func_body()])
   let export_sec = ExportSec::new([
-    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0)))
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
   ])
   let mod = Module::new()
     .with_type_sec(type_sec)
     .with_func_sec(func_sec)
     .with_code_sec(code_sec)
     .with_export_sec(export_sec)
-  
   let result = remove_unused(mod)
-  
   match result {
     Ok(new_mod) => {
       // Only one function should remain
@@ -1675,6 +1789,7 @@ test "unused function removed" {
   }
 }
 
+///|
 test "unused type removed" {
   // Module with two types, only one used
   let type_sec = TypeSec::new([
@@ -1684,22 +1799,18 @@ test "unused type removed" {
   let func_sec = FuncSec::new([TypeIdx::new(0)])
   let code_sec = CodeSec::new([make_empty_func_body()])
   let export_sec = ExportSec::new([
-    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0)))
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
   ])
-
   let mod = Module::new()
     .with_type_sec(type_sec)
     .with_func_sec(func_sec)
     .with_code_sec(code_sec)
     .with_export_sec(export_sec)
-  
   let result = remove_unused(mod)
-  
   match result {
-    Ok(new_mod) => {
+    Ok(new_mod) =>
       // Only one type should remain
       assert_eq(new_mod.type_sec.unwrap().0.length(), 1)
-    }
     Err(e) => fail("unexpected error: \{e}")
   }
 }
@@ -1708,6 +1819,7 @@ test "unused type removed" {
 // Index Remapping Tests
 // ============================================================================
 
+///|
 test "function index remapped after removal" {
   // func 0: unused
   // func 1: exported -> should become func 0
@@ -1715,17 +1827,14 @@ test "function index remapped after removal" {
   let func_sec = FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)])
   let code_sec = CodeSec::new([make_empty_func_body(), make_empty_func_body()])
   let export_sec = ExportSec::new([
-    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(1)))
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(1))),
   ])
-  
   let mod = Module::new()
     .with_type_sec(type_sec)
     .with_func_sec(func_sec)
     .with_code_sec(code_sec)
     .with_export_sec(export_sec)
-  
   let result = remove_unused(mod)
-  
   match result {
     Ok(new_mod) => {
       // Export should now reference func 0
@@ -1742,27 +1851,25 @@ test "function index remapped after removal" {
   }
 }
 
+///|
 test "type index remapped in function after type removal" {
   // type 0: unused
   // type 1: used by func -> should become type 0
   let type_sec = TypeSec::new([
     make_i32_to_i32_func_type(), // unused
-    make_void_func_type(),       // used
+    make_void_func_type(), // used
   ])
   let func_sec = FuncSec::new([TypeIdx::new(1)])
   let code_sec = CodeSec::new([make_empty_func_body()])
   let export_sec = ExportSec::new([
-    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0)))
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
   ])
-  
   let mod = Module::new()
     .with_type_sec(type_sec)
     .with_func_sec(func_sec)
     .with_code_sec(code_sec)
     .with_export_sec(export_sec)
-  
   let result = remove_unused(mod)
-  
   match result {
     Ok(new_mod) => {
       // Type count should be 1
@@ -1781,31 +1888,27 @@ test "type index remapped in function after type removal" {
 // Transitive Reachability Tests
 // ============================================================================
 
+///|
 test "called function kept transitively" {
   // func 0: exported, calls func 1
   // func 1: called by func 0 -> should be kept
   let type_sec = TypeSec::new([make_void_func_type()])
   let func_sec = FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)])
-  
-  let func0_body = Func::t_func([], TExpr::new([
-    TInstr::call(FuncIdx::new(1), []),
-    TInstr::return_([])
-  ]))
+  let func0_body = Func::t_func(
+    [],
+    TExpr::new([TInstr::call(FuncIdx::new(1), []), TInstr::return_([])]),
+  )
   let func1_body = make_empty_func_body()
-  
   let code_sec = CodeSec::new([func0_body, func1_body])
   let export_sec = ExportSec::new([
-    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0)))
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
   ])
-  
   let mod = Module::new()
     .with_type_sec(type_sec)
     .with_func_sec(func_sec)
     .with_code_sec(code_sec)
     .with_export_sec(export_sec)
-  
   let result = remove_unused(mod)
-  
   match result {
     Ok(new_mod) => {
       // Both functions should be kept
@@ -1816,34 +1919,36 @@ test "called function kept transitively" {
   }
 }
 
+///|
 test "referenced global kept" {
   // func 0: exported, references global 0
   // global 0: should be kept
   let type_sec = TypeSec::new([make_void_func_type()])
   let func_sec = FuncSec::new([TypeIdx::new(0)])
   let global_sec = GlobalSec::new([
-    Global::new(GlobalType::new(ValType::i32(), false), Expr::new([Instruction::i32_const(42)]))
+    Global::new(
+      GlobalType::new(ValType::i32(), false),
+      Expr::new([Instruction::i32_const(42)]),
+    ),
   ])
-  
-  let func_body = Func::t_func([], TExpr::new([
-    TInstr::drop(TInstr::global_get(GlobalIdx::new(0))),
-    TInstr::return_([])
-  ]))
-  
+  let func_body = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::drop(TInstr::global_get(GlobalIdx::new(0))),
+      TInstr::return_([]),
+    ]),
+  )
   let code_sec = CodeSec::new([func_body])
   let export_sec = ExportSec::new([
-    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0)))
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
   ])
-  
   let mod = Module::new()
     .with_type_sec(type_sec)
     .with_func_sec(func_sec)
     .with_global_sec(global_sec)
     .with_export_sec(export_sec)
     .with_code_sec(code_sec)
-  
   let result = remove_unused(mod)
-  
   match result {
     Ok(new_mod) => {
       // Global should be kept
@@ -1854,35 +1959,34 @@ test "referenced global kept" {
   }
 }
 
+///|
 test "unused global removed" {
   let type_sec = TypeSec::new([make_void_func_type()])
   let func_sec = FuncSec::new([TypeIdx::new(0)])
   let global_sec = GlobalSec::new([
-    Global::new(GlobalType::new(ValType::i32(), false), Expr::new([Instruction::i32_const(42)]))
+    Global::new(
+      GlobalType::new(ValType::i32(), false),
+      Expr::new([Instruction::i32_const(42)]),
+    ),
   ])
-  
   let code_sec = CodeSec::new([make_empty_func_body()])
   let export_sec = ExportSec::new([
-    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0)))
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
   ])
-  
   let mod = Module::new()
     .with_type_sec(type_sec)
     .with_func_sec(func_sec)
     .with_global_sec(global_sec)
     .with_export_sec(export_sec)
     .with_code_sec(code_sec)
-  
   let result = remove_unused(mod)
-  
   match result {
-    Ok(new_mod) => {
+    Ok(new_mod) =>
       // Global should be removed (empty section or None)
       match new_mod.global_sec {
         Some(sec) => assert_eq(sec.0.length(), 0)
         None => () // Also acceptable
       }
-    }
     Err(e) => fail("unexpected error: \{e}")
   }
 }
@@ -1891,20 +1995,18 @@ test "unused global removed" {
 // Start Function Tests
 // ============================================================================
 
+///|
 test "start function kept" {
   let type_sec = TypeSec::new([make_void_func_type()])
   let func_sec = FuncSec::new([TypeIdx::new(0)])
   let code_sec = CodeSec::new([make_empty_func_body()])
   let start_sec = StartSec::new(FuncIdx::new(0))
-  
   let mod = Module::new()
     .with_type_sec(type_sec)
     .with_func_sec(func_sec)
     .with_code_sec(code_sec)
     .with_start_sec(start_sec)
-  
   let result = remove_unused(mod)
-  
   match result {
     Ok(new_mod) => {
       // Function should be kept due to start section
@@ -1919,32 +2021,33 @@ test "start function kept" {
 // Active Segment Tests
 // ============================================================================
 
+///|
 test "active element segment keeps table and functions" {
   let type_sec = TypeSec::new([make_void_func_type()])
   let func_sec = FuncSec::new([TypeIdx::new(0)])
   let code_sec = CodeSec::new([make_empty_func_body()])
   let table_sec = TableSec::new([
     Table::new(
-      TableType::new(RefType::new(true, HeapType::abs(AbsHeapType::func())), Limits::i32(1, Some(1))),
-      None
-    )
+      TableType::new(
+        RefType::new(true, HeapType::abs(AbsHeapType::func())),
+        Limits::i32(1, Some(1)),
+      ),
+      None,
+    ),
   ])
   let elem_sec = ElemSec::new([
     Elem::new(
       ElemMode::active(TableIdx::new(0), Expr::new([Instruction::i32_const(0)])),
-      ElemKind::funcs([FuncIdx::new(0)])
-    )
+      ElemKind::funcs([FuncIdx::new(0)]),
+    ),
   ])
-  
   let mod = Module::new()
     .with_type_sec(type_sec)
     .with_func_sec(func_sec)
     .with_code_sec(code_sec)
     .with_table_sec(table_sec)
     .with_elem_sec(elem_sec)
-  
   let result = remove_unused(mod)
-  
   match result {
     Ok(new_mod) => {
       // Table, elem, and function should all be kept
@@ -1956,6 +2059,7 @@ test "active element segment keeps table and functions" {
   }
 }
 
+///|
 test "active data segment keeps memory" {
   let type_sec = TypeSec::new([make_void_func_type()])
   let func_sec = FuncSec::new([TypeIdx::new(0)])
@@ -1964,15 +2068,13 @@ test "active data segment keeps memory" {
   let data_sec = DataSec::new([
     Data::new(
       DataMode::active(MemIdx::new(0), Expr::new([Instruction::i32_const(0)])),
-      b"hello"
-    )
+      b"hello",
+    ),
   ])
   let export_sec = ExportSec::new([
-    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0)))
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
   ])
-  
   let data_cnt_sec = DataCntSec::new(1)
-
   let mod = Module::new()
     .with_type_sec(type_sec)
     .with_func_sec(func_sec)
@@ -1981,9 +2083,7 @@ test "active data segment keeps memory" {
     .with_data_sec(data_sec)
     .with_data_cnt_sec(data_cnt_sec)
     .with_export_sec(export_sec)
-  
   let result = remove_unused(mod)
-  
   match result {
     Ok(new_mod) => {
       // Memory and data should be kept
@@ -1998,33 +2098,37 @@ test "active data segment keeps memory" {
 // Import Tests
 // ============================================================================
 
+///|
 test "used imported function kept" {
   let type_sec = TypeSec::new([make_void_func_type()])
   let import_sec = ImportSec::new([
-    Import::new(Name::new("env"), Name::new("log"), ExternType::func(TypeIdx::new(0)))
+    Import::new(
+      Name::new("env"),
+      Name::new("log"),
+      ExternType::func(TypeIdx::new(0)),
+    ),
   ])
   let func_sec = FuncSec::new([TypeIdx::new(0)])
-  
+
   // Defined func calls imported func
-  let func_body = Func::t_func([], TExpr::new([
-    TInstr::call(FuncIdx::new(0), []), // call imported func
-    TInstr::return_([])
-  ]))
-  
+  let func_body = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::call(FuncIdx::new(0), []), // call imported func
+      TInstr::return_([]),
+    ]),
+  )
   let code_sec = CodeSec::new([func_body])
   let export_sec = ExportSec::new([
-    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(1))) // export defined func
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(1))), // export defined func
   ])
-
   let mod = Module::new()
     .with_type_sec(type_sec)
     .with_import_sec(import_sec)
     .with_func_sec(func_sec)
     .with_code_sec(code_sec)
     .with_export_sec(export_sec)
-  
   let result = remove_unused(mod)
-  
   match result {
     Ok(new_mod) => {
       // Import should be kept
@@ -2035,26 +2139,28 @@ test "used imported function kept" {
   }
 }
 
+///|
 test "unused imported function removed" {
   let type_sec = TypeSec::new([make_void_func_type()])
   let import_sec = ImportSec::new([
-    Import::new(Name::new("env"), Name::new("unused"), ExternType::func(TypeIdx::new(0)))
+    Import::new(
+      Name::new("env"),
+      Name::new("unused"),
+      ExternType::func(TypeIdx::new(0)),
+    ),
   ])
   let func_sec = FuncSec::new([TypeIdx::new(0)])
   let code_sec = CodeSec::new([make_empty_func_body()])
   let export_sec = ExportSec::new([
-    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(1))) // export defined func (index 1 because import is index 0)
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(1))), // export defined func (index 1 because import is index 0)
   ])
-  
   let mod = Module::new()
     .with_type_sec(type_sec)
     .with_import_sec(import_sec)
     .with_func_sec(func_sec)
     .with_code_sec(code_sec)
     .with_export_sec(export_sec)
-  
   let result = remove_unused(mod)
-  
   match result {
     Ok(new_mod) => {
       // Import should be removed
@@ -2080,31 +2186,36 @@ test "unused imported function removed" {
 // Memory Instruction Tests
 // ============================================================================
 
+///|
 test "memory kept when used by load instruction" {
   let type_sec = TypeSec::new([
-    RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()])))
+    RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
   ])
   let func_sec = FuncSec::new([TypeIdx::new(0)])
   let mem_sec = MemSec::new([MemType::new(Limits::i32(1, None))])
-  
-  let func_body = Func::t_func([], TExpr::new([
-    TInstr::return_([TInstr::load(LoadOp::i32_load(), MemArg::new(0, None, 0), TInstr::i32_const(I32(0)))])
-  ]))
-  
+  let func_body = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::return_([
+        TInstr::load(
+          LoadOp::i32_load(),
+          MemArg::new(0, None, 0),
+          TInstr::i32_const(I32(0)),
+        ),
+      ]),
+    ]),
+  )
   let code_sec = CodeSec::new([func_body])
   let export_sec = ExportSec::new([
-    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0)))
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
   ])
-
   let mod = Module::new()
     .with_type_sec(type_sec)
     .with_func_sec(func_sec)
     .with_mem_sec(mem_sec)
     .with_code_sec(code_sec)
     .with_export_sec(export_sec)
-  
   let result = remove_unused(mod)
-  
   match result {
     Ok(new_mod) => {
       assert_true(new_mod.mem_sec is Some(_))
@@ -2118,39 +2229,46 @@ test "memory kept when used by load instruction" {
 // GC Type Tests
 // ============================================================================
 
+///|
 test "struct type kept when used" {
-  let struct_type = RecType::new(SubType::comp_type(
-    CompType::struct_([FieldType::new(StorageType::val_type(ValType::i32()), Const)])
-  ))
-  let func_type = RecType::new(SubType::comp_type(
-    CompType::func([], [ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(0))))])
-  ))
-  
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
+        FieldType::new(StorageType::val_type(ValType::i32()), Const),
+      ]),
+    ),
+  )
+  let func_type = RecType::new(
+    SubType::comp_type(
+      CompType::func([], [
+        ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(0)))),
+      ]),
+    ),
+  )
   let type_sec = TypeSec::new([struct_type, func_type])
   let func_sec = FuncSec::new([TypeIdx::new(1)])
-  
-  let func_body = Func::t_func([], TExpr::new([
-    TInstr::return_([TInstr::struct_new(TypeIdx::new(0), [TInstr::i32_const(42)])])
-  ]))
-  
+  let func_body = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::return_([
+        TInstr::struct_new(TypeIdx::new(0), [TInstr::i32_const(42)]),
+      ]),
+    ]),
+  )
   let code_sec = CodeSec::new([func_body])
   let export_sec = ExportSec::new([
-    Export::new(Name::new("make_struct"), ExternIdx::func(FuncIdx::new(0)))
+    Export::new(Name::new("make_struct"), ExternIdx::func(FuncIdx::new(0))),
   ])
-  
   let mod = Module::new()
     .with_type_sec(type_sec)
     .with_func_sec(func_sec)
     .with_code_sec(code_sec)
     .with_export_sec(export_sec)
-  
   let result = remove_unused(mod)
-  
   match result {
-    Ok(new_mod) => {
+    Ok(new_mod) =>
       // Both types should be kept
       assert_eq(new_mod.type_sec.unwrap().0.length(), 2)
-    }
     Err(e) => fail("unexpected error: \{e}")
   }
 }
@@ -2159,35 +2277,42 @@ test "struct type kept when used" {
 // Call Indirect Tests
 // ============================================================================
 
+///|
 test "call_indirect keeps type and table" {
   let type_sec = TypeSec::new([make_void_func_type()])
   let func_sec = FuncSec::new([TypeIdx::new(0)])
   let table_sec = TableSec::new([
     Table::new(
-      TableType::new(RefType::new(true, HeapType::abs(AbsHeapType::func())), Limits::i32(1, None)),
-      None
-    )
+      TableType::new(
+        RefType::new(true, HeapType::abs(AbsHeapType::func())),
+        Limits::i32(1, None),
+      ),
+      None,
+    ),
   ])
-  
-  let func_body = Func::t_func([], TExpr::new([
-    TInstr::call_indirect(TypeIdx::new(0), TableIdx::new(0), [], TInstr::i32_const(0)),
-    TInstr::return_([])
-  ]))
-  
+  let func_body = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::call_indirect(
+        TypeIdx::new(0),
+        TableIdx::new(0),
+        [],
+        TInstr::i32_const(0),
+      ),
+      TInstr::return_([]),
+    ]),
+  )
   let code_sec = CodeSec::new([func_body])
   let export_sec = ExportSec::new([
-    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0)))
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
   ])
-  
   let mod = Module::new()
     .with_type_sec(type_sec)
     .with_func_sec(func_sec)
     .with_table_sec(table_sec)
     .with_code_sec(code_sec)
     .with_export_sec(export_sec)
-
   let result = remove_unused(mod)
-  
   match result {
     Ok(new_mod) => {
       assert_true(new_mod.table_sec is Some(_))
@@ -2201,30 +2326,27 @@ test "call_indirect keeps type and table" {
 // Tag Tests (Exception Handling)
 // ============================================================================
 
+///|
 test "tag kept when used in throw" {
   let func_type = make_void_func_type()
   let type_sec = TypeSec::new([func_type])
   let func_sec = FuncSec::new([TypeIdx::new(0)])
   let tag_sec = TagSec::new([TagType::new(TypeIdx::new(0))])
-  
-  let func_body = Func::t_func([], TExpr::new([
-    TInstr::throw_(TagIdx::new(0), [])
-  ]))
-  
+  let func_body = Func::t_func(
+    [],
+    TExpr::new([TInstr::throw_(TagIdx::new(0), [])]),
+  )
   let code_sec = CodeSec::new([func_body])
   let export_sec = ExportSec::new([
-    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0)))
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
   ])
-
   let mod = Module::new()
     .with_type_sec(type_sec)
     .with_func_sec(func_sec)
     .with_code_sec(code_sec)
     .with_export_sec(export_sec)
     .with_tag_sec(tag_sec)
-  
   let result = remove_unused(mod)
-  
   match result {
     Ok(new_mod) => {
       assert_true(new_mod.tag_sec is Some(_))
@@ -2238,6 +2360,7 @@ test "tag kept when used in throw" {
 // Complex Remapping Tests
 // ============================================================================
 
+///|
 test "multiple removals with complex remapping" {
   // Setup:
   // type 0: unused
@@ -2247,49 +2370,45 @@ test "multiple removals with complex remapping" {
   // func 0: unused
   // func 1: exported -> remaps to func 0
   // func 2: called by func 1 -> remaps to func 1
-  
+
   let type_sec = TypeSec::new([
     make_i32_to_i32_func_type(), // 0: unused
-    make_void_func_type(),       // 1: used
+    make_void_func_type(), // 1: used
     make_i32_to_i32_func_type(), // 2: unused
-    make_void_func_type(),       // 3: used
+    make_void_func_type(), // 3: used
   ])
-  
   let func_sec = FuncSec::new([
     TypeIdx::new(1), // func 0: uses type 1
     TypeIdx::new(1), // func 1: uses type 1
     TypeIdx::new(3), // func 2: uses type 3
   ])
-  
   let func0_body = make_empty_func_body() // unused
-  let func1_body = Func::t_func([], TExpr::new([     // calls func 2
-    TInstr::call(FuncIdx::new(2), []),
-    TInstr::return_([])
-  ]))
+  let func1_body = Func::t_func(
+    [],
+    TExpr::new([ // calls func 2
+      TInstr::call(FuncIdx::new(2), []),
+      TInstr::return_([]),
+    ]),
+  )
   let func2_body = make_empty_func_body()
-  
   let code_sec = CodeSec::new([func0_body, func1_body, func2_body])
   let export_sec = ExportSec::new([
-    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(1)))
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(1))),
   ])
-  
   let mod = Module::new()
     .with_type_sec(type_sec)
     .with_func_sec(func_sec)
     .with_code_sec(code_sec)
     .with_export_sec(export_sec)
-    
-  
   let result = remove_unused(mod)
-  
   match result {
     Ok(new_mod) => {
       // Should have 2 types (type 1 and 3 -> remapped to 0 and 1)
       assert_eq(new_mod.type_sec.unwrap().0.length(), 2)
-      
+
       // Should have 2 funcs (func 1 and 2 -> remapped to 0 and 1)
       assert_eq(new_mod.func_sec.unwrap().0.length(), 2)
-      
+
       // Export should reference func 0
       let exports = new_mod.export_sec.unwrap().0
       match exports[0] {
@@ -2308,23 +2427,25 @@ test "multiple removals with complex remapping" {
 // Data Count Section Tests
 // ============================================================================
 
+///|
 test "data count section updated correctly" {
   let type_sec = TypeSec::new([make_void_func_type()])
   let func_sec = FuncSec::new([TypeIdx::new(0)])
   let mem_sec = MemSec::new([MemType::new(Limits::i32(1, None))])
-  
+
   // Create 3 data segments, only 1 is active
   let data_sec = DataSec::new([
     Data::new(DataMode::passive(), b"unused1"),
-    Data::new(DataMode::active(MemIdx::new(0), Expr::new([Instruction::i32_const(0)])), b"used"),
+    Data::new(
+      DataMode::active(MemIdx::new(0), Expr::new([Instruction::i32_const(0)])),
+      b"used",
+    ),
     Data::new(DataMode::passive(), b"unused2"),
   ])
-  
   let code_sec = CodeSec::new([make_empty_func_body()])
   let export_sec = ExportSec::new([
-    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0)))
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
   ])
-
   let data_cnt_sec = DataCntSec::new(3)
   let mod = Module::new()
     .with_type_sec(type_sec)
@@ -2334,9 +2455,7 @@ test "data count section updated correctly" {
     .with_export_sec(export_sec)
     .with_data_sec(data_sec)
     .with_data_cnt_sec(data_cnt_sec)
-
   let result = remove_unused(mod)
-  
   match result {
     Ok(new_mod) => {
       // Only 1 data segment should remain

@@ -563,14 +563,13 @@ fn count_gets_in_instr(state : PushingState, instr : TInstr) -> Unit {
     }
     _ => {
       // Use a walker to find all local.gets
-      let walker = ModuleTransformer::new()
-        .on_tinstruction_evt(fn(self, _, i) {
-          match i {
-            TLocalGet(idx) => count_local_get(state, idx)
-            _ => ()
-          }
-          self.walk_tinstruction_default((), i)
-        })
+      let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, i) {
+        match i {
+          TLocalGet(idx) => count_local_get(state, idx)
+          _ => ()
+        }
+        self.walk_tinstruction_default((), i)
+      })
       ignore(walker.walk_tinstruction((), instr))
     }
   }
@@ -894,40 +893,39 @@ fn push_code_in_block(list : Array[TInstr], state : PushingState) -> Unit {
 ///|
 /// Main code pushing pass
 pub fn code_pushing_pass() -> ModuleTransformer[Unit] {
-  ModuleTransformer::new()
-    .on_func_evt(fn(_self, _state, func) {
-      match func {
-        Func(_, _) => unchanged()
-        TFunc(params, body) => {
-          let num_locals = params.length()
-          if num_locals == 0 {
-            return unchanged()
-          }
+  ModuleTransformer::new().on_func_evt(fn(_self, _state, func) {
+    match func {
+      Func(_, _) => unchanged()
+      TFunc(params, body) => {
+        let num_locals = params.length()
+        if num_locals == 0 {
+          return unchanged()
+        }
 
-          // Analyze the function
-          let analyzer = analyze_function(func)
+        // Analyze the function
+        let analyzer = analyze_function(func)
 
-          // Create pushing state
-          let push_state = PushingState::{
-            analyzer,
-            num_gets_so_far: Array::make(num_locals, 0),
-            changed: false,
-          }
+        // Create pushing state
+        let push_state = PushingState::{
+          analyzer,
+          num_gets_so_far: Array::make(num_locals, 0),
+          changed: false,
+        }
 
-          // Process the function body
-          let body_instrs = body.0.copy()
-          push_code_in_block(body_instrs, push_state)
+        // Process the function body
+        let body_instrs = body.0.copy()
+        push_code_in_block(body_instrs, push_state)
 
-          // Also process nested blocks
-          process_nested_blocks(body_instrs, push_state)
-          if push_state.changed {
-            Ok(Some(((), Func::t_func(params, TExpr::new(body_instrs)))))
-          } else {
-            unchanged()
-          }
+        // Also process nested blocks
+        process_nested_blocks(body_instrs, push_state)
+        if push_state.changed {
+          Ok(Some(((), Func::t_func(params, TExpr::new(body_instrs)))))
+        } else {
+          unchanged()
         }
       }
-    })
+    }
+  })
 }
 
 ///|

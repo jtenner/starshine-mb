@@ -275,17 +275,16 @@ fn get_field_value(
 /// This is a two-phase pass. Call run_constant_field_propagation for full optimization.
 /// The pass itself just scans for struct operations.
 pub fn constant_field_propagation_pass() -> ModuleTransformer[CFPState] {
-  ModuleTransformer::new()
-    .on_func_evt(fn(_self, state, func) {
-      match func {
-        Func(_, _) => unchanged()
-        TFunc(_, body) => {
-          // Scan the function for struct.new operations
-          scan_for_struct_news(state, body)
-          unchanged()
-        }
+  ModuleTransformer::new().on_func_evt(fn(_self, state, func) {
+    match func {
+      Func(_, _) => unchanged()
+      TFunc(_, body) => {
+        // Scan the function for struct.new operations
+        scan_for_struct_news(state, body)
+        unchanged()
       }
-    })
+    }
+  })
 }
 
 ///|
@@ -324,62 +323,61 @@ pub fn run_constant_field_propagation(m : Module) -> Result[Module, String] {
 ///|
 /// Create an optimizer that replaces struct.get with constants
 fn make_cfp_optimizer(state : CFPState) -> ModuleTransformer[Unit] {
-  ModuleTransformer::new()
-    .on_tinstruction_evt(fn(self, _, instr) {
-      match instr {
-        TStructGet(type_idx, field_idx, ref_instr)
-        | TStructGetS(type_idx, field_idx, ref_instr)
-        | TStructGetU(type_idx, field_idx, ref_instr) => {
-          let type_id = type_idx_to_int(type_idx)
-          let U32(field_id_uint) = field_idx
-          let field_id = field_id_uint.reinterpret_as_int()
-          let field_value = get_field_value(state, type_id, field_id)
-          match field_value.get_constant() {
-            Some(constant) => {
-              // Replace with: (drop ref) ; constant
-              // We need to keep the ref for side effects (null trap)
-              let drop_ref = TInstr::drop(ref_instr)
-              // Create a block to hold both instructions
-              let result = TInstr::block(
-                BlockType::void_(),
-                TExpr::new([drop_ref, constant]),
-              )
-              change((), result)
-            }
-            None => self.walk_tinstruction_default((), instr)
+  ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+    match instr {
+      TStructGet(type_idx, field_idx, ref_instr)
+      | TStructGetS(type_idx, field_idx, ref_instr)
+      | TStructGetU(type_idx, field_idx, ref_instr) => {
+        let type_id = type_idx_to_int(type_idx)
+        let U32(field_id_uint) = field_idx
+        let field_id = field_id_uint.reinterpret_as_int()
+        let field_value = get_field_value(state, type_id, field_id)
+        match field_value.get_constant() {
+          Some(constant) => {
+            // Replace with: (drop ref) ; constant
+            // We need to keep the ref for side effects (null trap)
+            let drop_ref = TInstr::drop(ref_instr)
+            // Create a block to hold both instructions
+            let result = TInstr::block(
+              BlockType::void_(),
+              TExpr::new([drop_ref, constant]),
+            )
+            change((), result)
           }
+          None => self.walk_tinstruction_default((), instr)
         }
-        // Optimize ref.test when the input is a struct.get from a known ref.null field
-        TRefTest(_, _, inner) =>
-          match inner {
-            TStructGet(type_idx, field_idx, ref_instr)
-            | TStructGetS(type_idx, field_idx, ref_instr)
-            | TStructGetU(type_idx, field_idx, ref_instr) => {
-              let type_id = type_idx_to_int(type_idx)
-              let U32(field_id_uint) = field_idx
-              let field_id = field_id_uint.reinterpret_as_int()
-              let field_value = get_field_value(state, type_id, field_id)
-              match field_value.get_constant() {
-                Some(constant) =>
-                  if is_ref_null(constant) {
-                    // ref.test on ref.null always returns 0 (false)
-                    let drop_ref = TInstr::drop(ref_instr)
-                    let result = TInstr::block(
-                      BlockType::void_(),
-                      TExpr::new([drop_ref, TInstr::i32_const(I32(0))]),
-                    )
-                    change((), result)
-                  } else {
-                    self.walk_tinstruction_default((), instr)
-                  }
-                None => self.walk_tinstruction_default((), instr)
-              }
-            }
-            _ => self.walk_tinstruction_default((), instr)
-          }
-        _ => self.walk_tinstruction_default((), instr)
       }
-    })
+      // Optimize ref.test when the input is a struct.get from a known ref.null field
+      TRefTest(_, _, inner) =>
+        match inner {
+          TStructGet(type_idx, field_idx, ref_instr)
+          | TStructGetS(type_idx, field_idx, ref_instr)
+          | TStructGetU(type_idx, field_idx, ref_instr) => {
+            let type_id = type_idx_to_int(type_idx)
+            let U32(field_id_uint) = field_idx
+            let field_id = field_id_uint.reinterpret_as_int()
+            let field_value = get_field_value(state, type_id, field_id)
+            match field_value.get_constant() {
+              Some(constant) =>
+                if is_ref_null(constant) {
+                  // ref.test on ref.null always returns 0 (false)
+                  let drop_ref = TInstr::drop(ref_instr)
+                  let result = TInstr::block(
+                    BlockType::void_(),
+                    TExpr::new([drop_ref, TInstr::i32_const(I32(0))]),
+                  )
+                  change((), result)
+                } else {
+                  self.walk_tinstruction_default((), instr)
+                }
+              None => self.walk_tinstruction_default((), instr)
+            }
+          }
+          _ => self.walk_tinstruction_default((), instr)
+        }
+      _ => self.walk_tinstruction_default((), instr)
+    }
+  })
 }
 
 ///|

@@ -1,20 +1,19 @@
 ///|
 pub fn lower_to_expr_pass() -> ModuleTransformer[Unit] {
-  ModuleTransformer::new()
-    .on_func_evt(fn(
-      _ : ModuleTransformer[Unit],
-      _ : Unit,
-      f : Func,
-    ) -> TransformerResult[Unit, Func] {
-      match f {
-        TFunc(l, t) => {
-          let locals = tlocals_to_locals(l)
-          let expr = t.to_expr()
-          change((), Func::new(locals, expr))
-        }
-        Func(_, _) => unchanged()
+  ModuleTransformer::new().on_func_evt(fn(
+    _ : ModuleTransformer[Unit],
+    _ : Unit,
+    f : Func,
+  ) -> TransformerResult[Unit, Func] {
+    match f {
+      TFunc(l, t) => {
+        let locals = tlocals_to_locals(l)
+        let expr = t.to_expr()
+        change((), Func::new(locals, expr))
       }
-    })
+      Func(_, _) => unchanged()
+    }
+  })
 }
 
 ///|

@@ -771,44 +771,42 @@ fn compute_interferences(instrs : Array[TInstr]) -> Set[(LocalIdx, LocalIdx)] {
 
 ///|
 fn coalesce_locals() -> ModuleTransformer[Unit] {
-  ModuleTransformer::new()
-    .on_func_evt(fn(_, _, func) {
-      match func {
-        Func(_) => unchanged()
-        TFunc(locals, body) => {
-          let instrs = body.0
-          let blocks = build_cfg(instrs)
-          let (inter, _, values_out) = compute_interferences_cfg(blocks, locals)
-          let liveness = compute_cfg_liveness(build_cfg(instrs))
-          let copies = find_copies(instrs)
-          let freq = copy_frequency(copies)
-          let order = compute_coalesce_order(locals, freq)
-          let mapping = compute_coalescing(
-            locals, inter, order, blocks, values_out, liveness,
-          )
-          let (new_locals, rep_to_new) = compute_new_locals(locals, mapping)
-          let final_map = compose_maps(mapping, rep_to_new)
-          let new_body = rewrite_body_locals(body, final_map)
-          change((), Func::t_func(new_locals, new_body))
-        }
+  ModuleTransformer::new().on_func_evt(fn(_, _, func) {
+    match func {
+      Func(_) => unchanged()
+      TFunc(locals, body) => {
+        let instrs = body.0
+        let blocks = build_cfg(instrs)
+        let (inter, _, values_out) = compute_interferences_cfg(blocks, locals)
+        let liveness = compute_cfg_liveness(build_cfg(instrs))
+        let copies = find_copies(instrs)
+        let freq = copy_frequency(copies)
+        let order = compute_coalesce_order(locals, freq)
+        let mapping = compute_coalescing(
+          locals, inter, order, blocks, values_out, liveness,
+        )
+        let (new_locals, rep_to_new) = compute_new_locals(locals, mapping)
+        let final_map = compose_maps(mapping, rep_to_new)
+        let new_body = rewrite_body_locals(body, final_map)
+        change((), Func::t_func(new_locals, new_body))
       }
-    })
+    }
+  })
 }
 
 ///|
 fn rewrite_instr_locals(instr : TInstr, mapping : LocalMap) -> TInstr {
-  let walker = ModuleTransformer::new()
-    .on_tinstruction_evt(fn(_, _, i) {
-      match i {
-        TInstr::TLocalGet(idx) =>
-          change((), TInstr::local_get(mapping.get(idx).unwrap()))
-        TInstr::TLocalSet(idx, value) =>
-          change((), TInstr::local_set(mapping.get(idx).unwrap(), value))
-        TInstr::TLocalTee(idx, value) =>
-          change((), TInstr::local_tee(mapping.get(idx).unwrap(), value))
-        _ => unchanged()
-      }
-    })
+  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(_, _, i) {
+    match i {
+      TInstr::TLocalGet(idx) =>
+        change((), TInstr::local_get(mapping.get(idx).unwrap()))
+      TInstr::TLocalSet(idx, value) =>
+        change((), TInstr::local_set(mapping.get(idx).unwrap(), value))
+      TInstr::TLocalTee(idx, value) =>
+        change((), TInstr::local_tee(mapping.get(idx).unwrap(), value))
+      _ => unchanged()
+    }
+  })
   let (_, expr) = walker
     .walk_texpr_default((), TExpr::new([instr]))
     .unwrap()

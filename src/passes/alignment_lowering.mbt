@@ -388,313 +388,291 @@ fn load_or_op(stack_size : StackSize, l : TInstr, r : TInstr) -> TInstr {
 ///|
 pub fn alignment_lowering_pass() -> ModuleTransformer[AlignmentLoweringContext] {
   ModuleTransformer::new()
-    .on_func_evt(fn(self,  t : AlignmentLoweringContext, i) {
-      match i {
-        Func(_) => Err("Expected TFunc")
-        TFunc(locals, b) => {
-          t.locals = locals
-          match self.walk_func_default(t, Func::t_func(locals, b)) {
-            Ok(Some((t, func))) =>
-              match func {
-                TFunc(_, b) => change(t, Func::t_func(t.locals, b))
-                _ => Err("Expected TFunc")
-              }
-            Err(t) => Err(t)
-            Ok(None) => unchanged()
-          }
+  .on_func_evt(fn(self, t : AlignmentLoweringContext, i) {
+    match i {
+      Func(_) => Err("Expected TFunc")
+      TFunc(locals, b) => {
+        t.locals = locals
+        match self.walk_func_default(t, Func::t_func(locals, b)) {
+          Ok(Some((t, func))) =>
+            match func {
+              TFunc(_, b) => change(t, Func::t_func(t.locals, b))
+              _ => Err("Expected TFunc")
+            }
+          Err(t) => Err(t)
+          Ok(None) => unchanged()
         }
       }
-    })
-    .on_tinstruction_evt(fn(self, t, i) {
-      match i {
-        TLoad(op, MemArg(U32(align), mem_option, U64(offset)), a) => {
-          let a = match self.walk_tinstruction_default(t, a) {
-            Ok(Some((_, a))) => a
-            Ok(None) => a
-            Err(e) => return Err(e)
-          }
-          let op_size = size_of_load_op(op)
-          if op_size > 8 {
-            return change(
-              t,
-              TInstr::load(
-                op,
-                MemArg::new(U32(align), mem_option, U64(offset)),
-                a,
-              ),
-            )
-          }
-          let effective_align = @cmp.minimum(align, op_size)
-          let c = chunks(op_size, effective_align, offset)
-          if c.length() == 1 {
-            return change(
-              t,
-              TInstr::load(
-                op,
-                MemArg::new(U32(align), mem_option, U64(offset)),
-                a,
-              ),
-            )
-          }
-          let mem_idx = match mem_option {
-            Some(MemIdx(mem_idx)) => mem_idx.reinterpret_as_int()
-            None => 0
-          }
-          let ptr_valtype = match t.memories.get(mem_idx) {
-            Some(mem_type) => mem_type.0.addr_valtype()
-            None => return Err("Invalid memory index")
-          }
-          let next = t.locals.length().reinterpret_as_uint()
-          t.locals.push(ptr_valtype)
-          let local_idx = LocalIdx::new(next)
-          let ptr_start_set = TInstr::local_tee(local_idx, a)
-          let value_stack_size = load_op_stack_size(op)
-          let first = c[0]
-          let chunk_byte_count = first.0.byte_count()
-          let load_op = match
-            load_op_with_chunk_size(value_stack_size, first.0) {
-            Ok(t) => t
-            Err(e) => return Err(e)
-          }
-          let first_load = TInstr::load(
-            load_op,
-            MemArg::new(
-              U32(chunk_byte_count),
-              mem_option,
-              U64(offset + first.1),
-            ),
-            ptr_start_set,
-          )
-          let mut acc = load_shift_op(value_stack_size, first.1, first_load)
-          loop 1 {
-            n if c.get(n) is Some((chunk_size, relative_offset)) => {
-              let chunk_byte_count = chunk_size.byte_count()
-              let load_op = match
-                load_op_with_chunk_size(value_stack_size, chunk_size) {
-                Ok(t) => t
-                Err(e) => return Err(e)
-              }
-              let load_instr = TInstr::load(
-                load_op,
-                MemArg::new(
-                  U32(chunk_byte_count),
-                  mem_option,
-                  U64(relative_offset + offset),
-                ),
-                TInstr::local_get(local_idx),
-              )
-              let shift_op = load_shift_op(
-                value_stack_size, relative_offset, load_instr,
-              )
-              acc = load_or_op(value_stack_size, shift_op, acc)
-              continue n + 1
-            }
-            _ => break change(t, finalize_load_op(op, acc))
-          }
+    }
+  })
+  .on_tinstruction_evt(fn(self, t, i) {
+    match i {
+      TLoad(op, MemArg(U32(align), mem_option, U64(offset)), a) => {
+        let a = match self.walk_tinstruction_default(t, a) {
+          Ok(Some((_, a))) => a
+          Ok(None) => a
+          Err(e) => return Err(e)
         }
-        TStore(op, MemArg(U32(align), mem_option, U64(offset)), a, b) => {
-          let a = match self.walk_tinstruction(t, a) {
-            Ok(Some((_, a))) => a
-            Ok(None) => a
-            Err(e) => return Err(e)
-          }
-          let b = match self.walk_tinstruction(t, b) {
-            Ok(Some((_, b))) => b
-            Ok(None) => b
-            Err(e) => return Err(e)
-          }
-          let op_size = size_of_store_op(op)
-          if op_size > 8 {
-            return change(
-              t,
-              TInstr::store(
-                op,
-                MemArg::new(U32(align), mem_option, U64(offset)),
-                a,
-                b,
-              ),
-            )
-          }
-          let effective_align = @cmp.minimum(align, op_size)
-          let c = chunks(op_size, effective_align, offset)
-          if c.length() == 1 {
-            return change(
-              t,
-              TInstr::store(
-                op,
-                MemArg::new(U32(align), mem_option, U64(offset)),
-                a,
-                b,
-              ),
-            )
-          }
-
-          // Need locals for both pointer and value
-          let mem_idx = match mem_option {
-            Some(MemIdx(mem_idx)) => mem_idx.reinterpret_as_int()
-            None => 0
-          }
-          let ptr_valtype = match t.memories.get(mem_idx) {
-            Some(mem_type) => mem_type.0.addr_valtype()
-            None => return Err("Invalid memory index")
-          }
-          let ptr_local_idx = t.locals.length().reinterpret_as_uint()
-          t.locals.push(ptr_valtype)
-          let ptr_local = LocalIdx::new(ptr_local_idx)
-          let value_stack_size = store_op_stack_size(op)
-          let value_valtype = match value_stack_size {
-            StackSize32 => ValType::i32()
-            StackSize64 => ValType::i64()
-          }
-          let value_local_idx = t.locals.length().reinterpret_as_uint()
-          t.locals.push(value_valtype)
-          let value_local = LocalIdx::new(value_local_idx)
-
-          // Prepare the value (reinterpret floats to ints)
-          let prepared_value = prepare_store_value(op, b)
-
-          // Build a block containing all the stores
-          let stores : Array[TInstr] = []
-
-          // First instruction: set both locals
-          // We'll use TLocalSet for ptr and TLocalTee for value, then drop
-          stores.push(TInstr::local_set(ptr_local, a))
-          stores.push(TInstr::local_set(value_local, prepared_value))
-          for i = 0; i < c.length(); i = i + 1 {
-            let (chunk_size, relative_offset) = c[i]
-            let chunk_byte_count = chunk_size.byte_count()
-            let store_op = match
-              store_op_with_chunk_size(value_stack_size, chunk_size) {
-              Ok(t) => t
-              Err(e) => return Err(e)
-            }
-            let shifted_value = store_shift_op(
-              value_stack_size,
-              relative_offset,
-              TInstr::local_get(value_local),
-            )
-            let store_instr = TInstr::store(
-              store_op,
-              MemArg::new(
-                U32(chunk_byte_count),
-                mem_option,
-                U64(offset + relative_offset),
-              ),
-              TInstr::local_get(ptr_local),
-              shifted_value,
-            )
-            stores.push(store_instr)
-          }
-
-          // Wrap in a block with empty result type
-          change(t, TInstr::block(BlockType::void_(), TExpr::new(stores)))
-        }
-        TV128LoadLane(
-          op,
-          MemArg(U32(align), mem_option, U64(offset)),
-          lane,
-          a,
-          b
-        ) => {
-          let op_size = size_of_v128_load_lane_op(op)
-          let effective_align = @cmp.minimum(align, op_size)
-          let a = match self.walk_tinstruction_default(t, a) {
-            Ok(Some((_, a))) => a
-            Ok(None) => a
-            Err(e) => return Err(e)
-          }
-          let b = match self.walk_tinstruction_default(t, b) {
-            Ok(Some((_, b))) => b
-            Ok(None) => b
-            Err(e) => return Err(e)
-          }
-          let c = chunks(op_size, effective_align, offset)
-          if c.length() == 1 {
-            return change(
-              t,
-              TInstr::v128_load_lane(
-                op,
-                MemArg::new(U32(align), mem_option, U64(offset)),
-                lane,
-                a,
-                b,
-              ),
-            )
-          }
-
-          // For V128LoadLane with unaligned access, we load the value using
-          // regular unaligned load logic, then use replace_lane
-          let mem_idx = match mem_option {
-            Some(MemIdx(mem_idx)) => mem_idx.reinterpret_as_int()
-            None => 0
-          }
-          let ptr_valtype = match t.memories.get(mem_idx) {
-            Some(mem_type) => mem_type.0.addr_valtype()
-            None => return Err("Invalid memory index")
-          }
-          let ptr_local_idx = t.locals.length().reinterpret_as_uint()
-          t.locals.push(ptr_valtype)
-          let ptr_local = LocalIdx::new(ptr_local_idx)
-
-          // Determine the load operation based on lane size
-          let (replace_op, stack_size) = match op {
-            V128Load8LaneOp =>
-              (ReplaceLaneOp::i8x16_replace_lane(), StackSize32)
-            V128Load16LaneOp =>
-              (ReplaceLaneOp::i16x8_replace_lane(), StackSize32)
-            V128Load32LaneOp =>
-              (ReplaceLaneOp::i32x4_replace_lane(), StackSize32)
-            V128Load64LaneOp =>
-              (ReplaceLaneOp::i64x2_replace_lane(), StackSize64)
-          }
-
-          // Build the chunked load
-          let first = c[0]
-          let chunk_byte_count = first.0.byte_count()
-          let chunk_load_op = match
-            load_op_with_chunk_size(stack_size, first.0) {
-            Ok(t) => t
-            Err(e) => return Err(e)
-          }
-          let first_load = TInstr::load(
-            chunk_load_op,
-            MemArg::new(
-              U32(chunk_byte_count),
-              mem_option,
-              U64(offset + first.1),
+        let op_size = size_of_load_op(op)
+        if op_size > 8 {
+          return change(
+            t,
+            TInstr::load(
+              op,
+              MemArg::new(U32(align), mem_option, U64(offset)),
+              a,
             ),
-            TInstr::local_tee(ptr_local, a),
           )
-          let mut acc = load_shift_op(stack_size, first.1, first_load)
-          for i = 1; i < c.length(); i = i + 1 {
-            let (chunk_size, relative_offset) = c[i]
+        }
+        let effective_align = @cmp.minimum(align, op_size)
+        let c = chunks(op_size, effective_align, offset)
+        if c.length() == 1 {
+          return change(
+            t,
+            TInstr::load(
+              op,
+              MemArg::new(U32(align), mem_option, U64(offset)),
+              a,
+            ),
+          )
+        }
+        let mem_idx = match mem_option {
+          Some(MemIdx(mem_idx)) => mem_idx.reinterpret_as_int()
+          None => 0
+        }
+        let ptr_valtype = match t.memories.get(mem_idx) {
+          Some(mem_type) => mem_type.0.addr_valtype()
+          None => return Err("Invalid memory index")
+        }
+        let next = t.locals.length().reinterpret_as_uint()
+        t.locals.push(ptr_valtype)
+        let local_idx = LocalIdx::new(next)
+        let ptr_start_set = TInstr::local_tee(local_idx, a)
+        let value_stack_size = load_op_stack_size(op)
+        let first = c[0]
+        let chunk_byte_count = first.0.byte_count()
+        let load_op = match load_op_with_chunk_size(value_stack_size, first.0) {
+          Ok(t) => t
+          Err(e) => return Err(e)
+        }
+        let first_load = TInstr::load(
+          load_op,
+          MemArg::new(U32(chunk_byte_count), mem_option, U64(offset + first.1)),
+          ptr_start_set,
+        )
+        let mut acc = load_shift_op(value_stack_size, first.1, first_load)
+        loop 1 {
+          n if c.get(n) is Some((chunk_size, relative_offset)) => {
             let chunk_byte_count = chunk_size.byte_count()
-            let chunk_load_op = match
-              load_op_with_chunk_size(stack_size, chunk_size) {
+            let load_op = match
+              load_op_with_chunk_size(value_stack_size, chunk_size) {
               Ok(t) => t
               Err(e) => return Err(e)
             }
             let load_instr = TInstr::load(
-              chunk_load_op,
+              load_op,
               MemArg::new(
                 U32(chunk_byte_count),
                 mem_option,
                 U64(relative_offset + offset),
               ),
-              TInstr::local_get(ptr_local),
+              TInstr::local_get(local_idx),
             )
             let shift_op = load_shift_op(
-              stack_size, relative_offset, load_instr,
+              value_stack_size, relative_offset, load_instr,
             )
-            acc = load_or_op(stack_size, shift_op, acc)
+            acc = load_or_op(value_stack_size, shift_op, acc)
+            continue n + 1
           }
-
-          // Use replace_lane to put the loaded value into the vector
-          change(t, TInstr::replace_lane(replace_op, lane, b, acc))
+          _ => break change(t, finalize_load_op(op, acc))
         }
-        _ => self.walk_tinstruction_default(t, i)
       }
-    })
+      TStore(op, MemArg(U32(align), mem_option, U64(offset)), a, b) => {
+        let a = match self.walk_tinstruction(t, a) {
+          Ok(Some((_, a))) => a
+          Ok(None) => a
+          Err(e) => return Err(e)
+        }
+        let b = match self.walk_tinstruction(t, b) {
+          Ok(Some((_, b))) => b
+          Ok(None) => b
+          Err(e) => return Err(e)
+        }
+        let op_size = size_of_store_op(op)
+        if op_size > 8 {
+          return change(
+            t,
+            TInstr::store(
+              op,
+              MemArg::new(U32(align), mem_option, U64(offset)),
+              a,
+              b,
+            ),
+          )
+        }
+        let effective_align = @cmp.minimum(align, op_size)
+        let c = chunks(op_size, effective_align, offset)
+        if c.length() == 1 {
+          return change(
+            t,
+            TInstr::store(
+              op,
+              MemArg::new(U32(align), mem_option, U64(offset)),
+              a,
+              b,
+            ),
+          )
+        }
+
+        // Need locals for both pointer and value
+        let mem_idx = match mem_option {
+          Some(MemIdx(mem_idx)) => mem_idx.reinterpret_as_int()
+          None => 0
+        }
+        let ptr_valtype = match t.memories.get(mem_idx) {
+          Some(mem_type) => mem_type.0.addr_valtype()
+          None => return Err("Invalid memory index")
+        }
+        let ptr_local_idx = t.locals.length().reinterpret_as_uint()
+        t.locals.push(ptr_valtype)
+        let ptr_local = LocalIdx::new(ptr_local_idx)
+        let value_stack_size = store_op_stack_size(op)
+        let value_valtype = match value_stack_size {
+          StackSize32 => ValType::i32()
+          StackSize64 => ValType::i64()
+        }
+        let value_local_idx = t.locals.length().reinterpret_as_uint()
+        t.locals.push(value_valtype)
+        let value_local = LocalIdx::new(value_local_idx)
+
+        // Prepare the value (reinterpret floats to ints)
+        let prepared_value = prepare_store_value(op, b)
+
+        // Build a block containing all the stores
+        let stores : Array[TInstr] = []
+
+        // First instruction: set both locals
+        // We'll use TLocalSet for ptr and TLocalTee for value, then drop
+        stores.push(TInstr::local_set(ptr_local, a))
+        stores.push(TInstr::local_set(value_local, prepared_value))
+        for i = 0; i < c.length(); i = i + 1 {
+          let (chunk_size, relative_offset) = c[i]
+          let chunk_byte_count = chunk_size.byte_count()
+          let store_op = match
+            store_op_with_chunk_size(value_stack_size, chunk_size) {
+            Ok(t) => t
+            Err(e) => return Err(e)
+          }
+          let shifted_value = store_shift_op(
+            value_stack_size,
+            relative_offset,
+            TInstr::local_get(value_local),
+          )
+          let store_instr = TInstr::store(
+            store_op,
+            MemArg::new(
+              U32(chunk_byte_count),
+              mem_option,
+              U64(offset + relative_offset),
+            ),
+            TInstr::local_get(ptr_local),
+            shifted_value,
+          )
+          stores.push(store_instr)
+        }
+
+        // Wrap in a block with empty result type
+        change(t, TInstr::block(BlockType::void_(), TExpr::new(stores)))
+      }
+      TV128LoadLane(op, MemArg(U32(align), mem_option, U64(offset)), lane, a, b) => {
+        let op_size = size_of_v128_load_lane_op(op)
+        let effective_align = @cmp.minimum(align, op_size)
+        let a = match self.walk_tinstruction_default(t, a) {
+          Ok(Some((_, a))) => a
+          Ok(None) => a
+          Err(e) => return Err(e)
+        }
+        let b = match self.walk_tinstruction_default(t, b) {
+          Ok(Some((_, b))) => b
+          Ok(None) => b
+          Err(e) => return Err(e)
+        }
+        let c = chunks(op_size, effective_align, offset)
+        if c.length() == 1 {
+          return change(
+            t,
+            TInstr::v128_load_lane(
+              op,
+              MemArg::new(U32(align), mem_option, U64(offset)),
+              lane,
+              a,
+              b,
+            ),
+          )
+        }
+
+        // For V128LoadLane with unaligned access, we load the value using
+        // regular unaligned load logic, then use replace_lane
+        let mem_idx = match mem_option {
+          Some(MemIdx(mem_idx)) => mem_idx.reinterpret_as_int()
+          None => 0
+        }
+        let ptr_valtype = match t.memories.get(mem_idx) {
+          Some(mem_type) => mem_type.0.addr_valtype()
+          None => return Err("Invalid memory index")
+        }
+        let ptr_local_idx = t.locals.length().reinterpret_as_uint()
+        t.locals.push(ptr_valtype)
+        let ptr_local = LocalIdx::new(ptr_local_idx)
+
+        // Determine the load operation based on lane size
+        let (replace_op, stack_size) = match op {
+          V128Load8LaneOp => (ReplaceLaneOp::i8x16_replace_lane(), StackSize32)
+          V128Load16LaneOp => (ReplaceLaneOp::i16x8_replace_lane(), StackSize32)
+          V128Load32LaneOp => (ReplaceLaneOp::i32x4_replace_lane(), StackSize32)
+          V128Load64LaneOp => (ReplaceLaneOp::i64x2_replace_lane(), StackSize64)
+        }
+
+        // Build the chunked load
+        let first = c[0]
+        let chunk_byte_count = first.0.byte_count()
+        let chunk_load_op = match load_op_with_chunk_size(stack_size, first.0) {
+          Ok(t) => t
+          Err(e) => return Err(e)
+        }
+        let first_load = TInstr::load(
+          chunk_load_op,
+          MemArg::new(U32(chunk_byte_count), mem_option, U64(offset + first.1)),
+          TInstr::local_tee(ptr_local, a),
+        )
+        let mut acc = load_shift_op(stack_size, first.1, first_load)
+        for i = 1; i < c.length(); i = i + 1 {
+          let (chunk_size, relative_offset) = c[i]
+          let chunk_byte_count = chunk_size.byte_count()
+          let chunk_load_op = match
+            load_op_with_chunk_size(stack_size, chunk_size) {
+            Ok(t) => t
+            Err(e) => return Err(e)
+          }
+          let load_instr = TInstr::load(
+            chunk_load_op,
+            MemArg::new(
+              U32(chunk_byte_count),
+              mem_option,
+              U64(relative_offset + offset),
+            ),
+            TInstr::local_get(ptr_local),
+          )
+          let shift_op = load_shift_op(stack_size, relative_offset, load_instr)
+          acc = load_or_op(stack_size, shift_op, acc)
+        }
+
+        // Use replace_lane to put the loaded value into the vector
+        change(t, TInstr::replace_lane(replace_op, lane, b, acc))
+      }
+      _ => self.walk_tinstruction_default(t, i)
+    }
+  })
 }
 
 // alignment_lowering_test.mbt

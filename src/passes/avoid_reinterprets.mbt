@@ -66,41 +66,41 @@ fn get_single_load_from_local(
 ///|
 fn avoid_reinterprets() -> ModuleTransformer[(LocalGraph, Int)] {
   ModuleTransformer::new()
-    .on_func_evt(fn(self, _, func) {
-      match func {
-        Func(_) => Err("Expected TFunc")
-        TFunc(_, body) =>
-          self.walk_func_default((LocalGraph::new(body.0), 0), func)
-      }
-    })
-    .on_tinstruction_evt(fn(_, state, instr) {
-      let (graph, idx) = state
-      let cur_idx = idx
-      let next_state = match instr {
-        TInstr::TUnary(_, TInstr::TLocalGet(_)) => (graph, idx + 1)
-        _ => (graph, idx)
-      }
+  .on_func_evt(fn(self, _, func) {
+    match func {
+      Func(_) => Err("Expected TFunc")
+      TFunc(_, body) =>
+        self.walk_func_default((LocalGraph::new(body.0), 0), func)
+    }
+  })
+  .on_tinstruction_evt(fn(_, state, instr) {
+    let (graph, idx) = state
+    let cur_idx = idx
+    let next_state = match instr {
+      TInstr::TUnary(_, TInstr::TLocalGet(_)) => (graph, idx + 1)
+      _ => (graph, idx)
+    }
 
-      // Case A: reinterpret(load)
-      if rewrite_reinterpret_of_load(instr) is Some(new_instr) {
-        return change(next_state, new_instr)
-      }
+    // Case A: reinterpret(load)
+    if rewrite_reinterpret_of_load(instr) is Some(new_instr) {
+      return change(next_state, new_instr)
+    }
 
-      // Case B: reinterpret(local.get)
-      match instr {
-        TInstr::TUnary(op, TInstr::TLocalGet(_)) if is_reinterpret(op) =>
-          match get_single_load_from_local(graph, cur_idx) {
-            Some((load_op, memarg, ptr)) =>
-              match reinterpret_load_op(load_op) {
-                Some(new_op) =>
-                  change(next_state, TInstr::load(new_op, memarg, ptr))
-                None => change(next_state, instr)
-              }
-            None => change(next_state, instr)
-          }
-        _ => unchanged()
-      }
-    })
+    // Case B: reinterpret(local.get)
+    match instr {
+      TInstr::TUnary(op, TInstr::TLocalGet(_)) if is_reinterpret(op) =>
+        match get_single_load_from_local(graph, cur_idx) {
+          Some((load_op, memarg, ptr)) =>
+            match reinterpret_load_op(load_op) {
+              Some(new_op) =>
+                change(next_state, TInstr::load(new_op, memarg, ptr))
+              None => change(next_state, instr)
+            }
+          None => change(next_state, instr)
+        }
+      _ => unchanged()
+    }
+  })
 }
 
 ///|

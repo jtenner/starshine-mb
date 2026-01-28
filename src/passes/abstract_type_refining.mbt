@@ -58,23 +58,25 @@ fn build_subtypes(mod : Module) -> SubTypes {
 ///|
 fn collect_created_types(mod : Module) -> HeapTypeSet {
   let set = Set::new()
-  let transformer = ModuleTransformer::new()
-    .on_tinstruction_evt(fn(_, _, instr) {
-      match instr {
-        // ---- structs ----
-        TStructNew(type_idx, _) => set.add(HeapType::new(type_idx))
+  let transformer = ModuleTransformer::new().on_tinstruction_evt(fn(
+    _,
+    _,
+    instr,
+  ) {
+    match instr {
+      // ---- structs ----
+      TStructNew(type_idx, _) => set.add(HeapType::new(type_idx))
 
-        // ---- arrays ----
-        TArrayNew(type_idx, _, _)
-        | TArrayNewDefault(type_idx, _)
-        | TArrayNewFixed(type_idx, _)
-        | TArrayNewData(type_idx, _, _, _)
-        | TArrayNewElem(type_idx, _, _, _) => set.add(HeapType::new(type_idx))
-        _ => ()
-      }
-      unchanged()
-    })
-  
+      // ---- arrays ----
+      TArrayNew(type_idx, _, _)
+      | TArrayNewDefault(type_idx, _)
+      | TArrayNewFixed(type_idx, _)
+      | TArrayNewData(type_idx, _, _, _)
+      | TArrayNewElem(type_idx, _, _, _) => set.add(HeapType::new(type_idx))
+      _ => ()
+    }
+    unchanged()
+  })
   ignore(transformer.walk_module((), mod))
   set
 }
@@ -268,23 +270,23 @@ fn rewrite_descriptor_exact_br_on_cast(
 ///|
 fn abstract_type_refining() -> ModuleTransformer[ATRState] {
   ModuleTransformer::new()
-    .on_tinstruction_evt(fn(_, state : ATRState, instr) {
-      let instr = rewrite_cast(instr, state.mapping)
-      let instr = rewrite_descriptor_exact_ref_cast(
-        instr,
-        state.mapping,
-        state.traps_never_happen,
-      )
-      let instr = rewrite_descriptor_exact_br_on_cast(
-        instr,
-        state.mapping,
-        state.traps_never_happen,
-      )
-      change(state, instr)
-    })
-    .on_heaptype_evt(fn(_, state, ht) {
-      change(state, rewrite_heaptype(ht, state.mapping))
-    })
+  .on_tinstruction_evt(fn(_, state : ATRState, instr) {
+    let instr = rewrite_cast(instr, state.mapping)
+    let instr = rewrite_descriptor_exact_ref_cast(
+      instr,
+      state.mapping,
+      state.traps_never_happen,
+    )
+    let instr = rewrite_descriptor_exact_br_on_cast(
+      instr,
+      state.mapping,
+      state.traps_never_happen,
+    )
+    change(state, instr)
+  })
+  .on_heaptype_evt(fn(_, state, ht) {
+    change(state, rewrite_heaptype(ht, state.mapping))
+  })
 }
 
 ///|

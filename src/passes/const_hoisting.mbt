@@ -175,135 +175,134 @@ fn v128_lit(
 
 ///|
 fn replace_literal_pass() -> ModuleTransformer[Map[Literal, LocalIdx]] {
-  ModuleTransformer::new()
-    .on_tinstruction_evt(fn(self, t, i) {
-      match i {
-        TI32Const(I32(val)) => {
-          let lit = i32_lit(val)
-          if t.get(lit) is Some(idx) {
-            change(t, TInstr::local_get(idx))
-          } else {
-            unchanged()
-          }
+  ModuleTransformer::new().on_tinstruction_evt(fn(self, t, i) {
+    match i {
+      TI32Const(I32(val)) => {
+        let lit = i32_lit(val)
+        if t.get(lit) is Some(idx) {
+          change(t, TInstr::local_get(idx))
+        } else {
+          unchanged()
         }
-        TI64Const(I64(val)) => {
-          let lit = i64_lit(val)
-          if t.get(lit) is Some(idx) {
-            change(t, TInstr::local_get(idx))
-          } else {
-            unchanged()
-          }
-        }
-        TF32Const(F32(val)) => {
-          let lit = f32_lit(val)
-          if t.get(lit) is Some(idx) {
-            change(t, TInstr::local_get(idx))
-          } else {
-            unchanged()
-          }
-        }
-        TF64Const(F64(val)) => {
-          let lit = f64_lit(val)
-          if t.get(lit) is Some(idx) {
-            change(t, TInstr::local_get(idx))
-          } else {
-            unchanged()
-          }
-        }
-
-        // this is likely not to be used because v128 consts are hardly worth hoisting
-        TV128Const(
-          b0,
-          b1,
-          b2,
-          b3,
-          b4,
-          b5,
-          b6,
-          b7,
-          b8,
-          b9,
-          b10,
-          b11,
-          b12,
-          b13,
-          b14,
-          b15
-        ) => {
-          let lit = v128_lit(
-            b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15,
-          )
-          if t.get(lit) is Some(idx) {
-            change(t, TInstr::local_get(idx))
-          } else {
-            unchanged()
-          }
-        }
-        _ => self.walk_tinstruction_default(t, i)
       }
-    })
+      TI64Const(I64(val)) => {
+        let lit = i64_lit(val)
+        if t.get(lit) is Some(idx) {
+          change(t, TInstr::local_get(idx))
+        } else {
+          unchanged()
+        }
+      }
+      TF32Const(F32(val)) => {
+        let lit = f32_lit(val)
+        if t.get(lit) is Some(idx) {
+          change(t, TInstr::local_get(idx))
+        } else {
+          unchanged()
+        }
+      }
+      TF64Const(F64(val)) => {
+        let lit = f64_lit(val)
+        if t.get(lit) is Some(idx) {
+          change(t, TInstr::local_get(idx))
+        } else {
+          unchanged()
+        }
+      }
+
+      // this is likely not to be used because v128 consts are hardly worth hoisting
+      TV128Const(
+        b0,
+        b1,
+        b2,
+        b3,
+        b4,
+        b5,
+        b6,
+        b7,
+        b8,
+        b9,
+        b10,
+        b11,
+        b12,
+        b13,
+        b14,
+        b15
+      ) => {
+        let lit = v128_lit(
+          b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15,
+        )
+        if t.get(lit) is Some(idx) {
+          change(t, TInstr::local_get(idx))
+        } else {
+          unchanged()
+        }
+      }
+      _ => self.walk_tinstruction_default(t, i)
+    }
+  })
 }
 
 ///|
 pub fn const_hoisting_pass() -> ModuleTransformer[ConstHoistingState] {
   ModuleTransformer::new()
-    .on_func_evt(fn(self, t : ConstHoistingState, func) {
-      // reset uses of consts per function
-      t.usage.clear()
-      let (t, func) = match self.walk_func_default(t, func) {
-        Ok(Some((t, func))) => (t, func)
-        Ok(None) => (t, func)
-        Err(t) => return Err(t)
-      }
-      let (locals, body) = match func {
-        Func(_) =>
-          return Err(
-            "Invalid transformer state. Expected TFunc but received Func",
-          )
-        TFunc(locals, body) => (locals, body)
-      }
-      let replacer_pass = replace_literal_pass()
-      let replacers = Map::new()
-      for k in t.usage.iter() {
-        let lit = k.0
-        let count = k.1
-        if count >= MIN_USES {
-          let size = lit.byte_size()
-          let before = count * (size + 1)
-          let after = size + 2 + 2 * count
-          if after < before {
-            let next = locals.length().reinterpret_as_uint()
-            locals.push(lit.0.get_valtype())
-            replacers.set(lit, LocalIdx::new(next))
-          }
+  .on_func_evt(fn(self, t : ConstHoistingState, func) {
+    // reset uses of consts per function
+    t.usage.clear()
+    let (t, func) = match self.walk_func_default(t, func) {
+      Ok(Some((t, func))) => (t, func)
+      Ok(None) => (t, func)
+      Err(t) => return Err(t)
+    }
+    let (locals, body) = match func {
+      Func(_) =>
+        return Err(
+          "Invalid transformer state. Expected TFunc but received Func",
+        )
+      TFunc(locals, body) => (locals, body)
+    }
+    let replacer_pass = replace_literal_pass()
+    let replacers = Map::new()
+    for k in t.usage.iter() {
+      let lit = k.0
+      let count = k.1
+      if count >= MIN_USES {
+        let size = lit.byte_size()
+        let before = count * (size + 1)
+        let after = size + 2 + 2 * count
+        if after < before {
+          let next = locals.length().reinterpret_as_uint()
+          locals.push(lit.0.get_valtype())
+          replacers.set(lit, LocalIdx::new(next))
         }
       }
-      let body = match replacer_pass.walk_texpr_default(replacers, body) {
-        Ok(Some((_, body))) => body
-        Ok(None) => body
-        Err(t) => return Err(t)
-      }
-      for k in replacers {
-        let lit = k.0
-        let idx = k.1
-        let con = lit.get_tinst()
-        body.0.insert(0, TInstr::local_set(idx, con))
-      }
-      change(t, Func::t_func(locals, body))
-    })
-    .on_tinstruction_evt(fn(self, t, i) {
-      match i {
-        TI32Const(I32(val)) => t.uses(i32_lit(val))
-        TI64Const(I64(val)) => t.uses(i64_lit(val))
-        TF32Const(F32(val)) => t.uses(f32_lit(val))
-        TF64Const(F64(val)) => t.uses(f64_lit(val))
-        // In the case of v128 constants, simd locals are expensive and encoding is tricky
-        // TV128Const(b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15) => 
-        //   t.uses(v128_lit(b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15))
-        _ => ()
-      }
-      self.walk_tinstruction_default(t, i)
-    })
+    }
+    let body = match replacer_pass.walk_texpr_default(replacers, body) {
+      Ok(Some((_, body))) => body
+      Ok(None) => body
+      Err(t) => return Err(t)
+    }
+    for k in replacers {
+      let lit = k.0
+      let idx = k.1
+      let con = lit.get_tinst()
+      body.0.insert(0, TInstr::local_set(idx, con))
+    }
+    change(t, Func::t_func(locals, body))
+  })
+  .on_tinstruction_evt(fn(self, t, i) {
+    match i {
+      TI32Const(I32(val)) => t.uses(i32_lit(val))
+      TI64Const(I64(val)) => t.uses(i64_lit(val))
+      TF32Const(F32(val)) => t.uses(f32_lit(val))
+      TF64Const(F64(val)) => t.uses(f64_lit(val))
+      // In the case of v128 constants, simd locals are expensive and encoding is tricky
+      // TV128Const(b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15) => 
+      //   t.uses(v128_lit(b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15))
+      _ => ()
+    }
+    self.walk_tinstruction_default(t, i)
+  })
 }
 
 ///|

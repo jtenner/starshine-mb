@@ -32,43 +32,42 @@ priv enum IndirectTargetInfo {
 
 ///|
 fn make_table_write_analyzer(infos : TableInfoMap) -> ModuleTransformer[Unit] {
-  ModuleTransformer::new()
-    .on_tinstruction_evt(fn(_, _, instr : TInstr) {
-      match instr {
-        // Any runtime write invalidates entry-based initialization
-        TTableSet(table_idx, _, _)
-        | TTableFill(table_idx, _, _, _)
-        | TTableInit(_, table_idx, _, _, _)
-        | TTableCopy(table_idx, _, _, _, _) =>
-          match infos.get(table_idx) {
-            Some(info) =>
-              infos.set(table_idx, TableInfo::{
-                flat_names: info.flat_names,
-                may_overwrite_entries: true,
-                may_grow: info.may_grow,
-                initial_contents_immutable: info.initial_contents_immutable,
-                initialization_complete: false,
-              })
-            None => ()
-          }
+  ModuleTransformer::new().on_tinstruction_evt(fn(_, _, instr : TInstr) {
+    match instr {
+      // Any runtime write invalidates entry-based initialization
+      TTableSet(table_idx, _, _)
+      | TTableFill(table_idx, _, _, _)
+      | TTableInit(_, table_idx, _, _, _)
+      | TTableCopy(table_idx, _, _, _, _) =>
+        match infos.get(table_idx) {
+          Some(info) =>
+            infos.set(table_idx, TableInfo::{
+              flat_names: info.flat_names,
+              may_overwrite_entries: true,
+              may_grow: info.may_grow,
+              initial_contents_immutable: info.initial_contents_immutable,
+              initialization_complete: false,
+            })
+          None => ()
+        }
 
-        // Growing the table invalidates completeness but not existing writes
-        TTableGrow(table_idx, _, _) =>
-          match infos.get(table_idx) {
-            Some(info) =>
-              infos.set(table_idx, TableInfo::{
-                flat_names: info.flat_names,
-                may_overwrite_entries: info.may_overwrite_entries,
-                may_grow: true,
-                initial_contents_immutable: info.initial_contents_immutable,
-                initialization_complete: false,
-              })
-            None => ()
-          }
-        _ => ()
-      }
-      Ok(None)
-    })
+      // Growing the table invalidates completeness but not existing writes
+      TTableGrow(table_idx, _, _) =>
+        match infos.get(table_idx) {
+          Some(info) =>
+            infos.set(table_idx, TableInfo::{
+              flat_names: info.flat_names,
+              may_overwrite_entries: info.may_overwrite_entries,
+              may_grow: true,
+              initial_contents_immutable: info.initial_contents_immutable,
+              initialization_complete: false,
+            })
+          None => ()
+        }
+      _ => ()
+    }
+    Ok(None)
+  })
 }
 
 ///|
@@ -318,52 +317,50 @@ fn make_directize_transformer(
   tables : TableInfoMap,
   env : Env,
 ) -> ModuleTransformer[Unit] {
-  ModuleTransformer::new()
-    .on_tinstruction_evt(fn(_, _, instr) {
-      match instr {
-        TCallIndirect(type_idx, table_idx, args, index) =>
-          match tables.get(table_idx) {
-            Some(table) if table.can_optimize_by_entry() =>
-              match index {
-                TSelect(_, then_idx, else_idx, cond) =>
-                  match
-                    rewrite_select_call_indirect(
-                      type_idx, table, args, then_idx, else_idx, cond, env,
-                    ) {
-                    Some(i) => change((), i)
-                    None => unchanged()
-                  }
-                TBrTable(labels, default_label, idx, carried) =>
-                  match
-                    rewrite_br_table_call_indirect(
-                      type_idx, table, args, labels, default_label, idx, carried,
-                      env,
-                    ) {
-                    Some(i) => change((), i)
-                    None => unchanged()
-                  }
-                _ =>
-                  match get_target_info(index, table, type_idx, env) {
-                    Known(f) => change((), TInstr::call(f, args))
-                    Trap => change((), TInstr::unreachable_())
-                    Unknown => unchanged()
-                  }
-              }
-            _ => Ok(None)
-          }
-        TReturnCallIndirect(type_idx, table_idx, args, index) =>
-          match tables.get(table_idx) {
-            Some(table) if table.can_optimize_by_entry() =>
-              match get_target_info(index, table, type_idx, env) {
-                Known(f) => change((), TInstr::return_call(f, args))
-                Trap => change((), TInstr::unreachable_())
-                Unknown => unchanged()
-              }
-            _ => unchanged()
-          }
-        _ => unchanged()
-      }
-    })
+  ModuleTransformer::new().on_tinstruction_evt(fn(_, _, instr) {
+    match instr {
+      TCallIndirect(type_idx, table_idx, args, index) =>
+        match tables.get(table_idx) {
+          Some(table) if table.can_optimize_by_entry() =>
+            match index {
+              TSelect(_, then_idx, else_idx, cond) =>
+                match
+                  rewrite_select_call_indirect(
+                    type_idx, table, args, then_idx, else_idx, cond, env,
+                  ) {
+                  Some(i) => change((), i)
+                  None => unchanged()
+                }
+              TBrTable(labels, default_label, idx, carried) =>
+                match
+                  rewrite_br_table_call_indirect(
+                    type_idx, table, args, labels, default_label, idx, carried, env,
+                  ) {
+                  Some(i) => change((), i)
+                  None => unchanged()
+                }
+              _ =>
+                match get_target_info(index, table, type_idx, env) {
+                  Known(f) => change((), TInstr::call(f, args))
+                  Trap => change((), TInstr::unreachable_())
+                  Unknown => unchanged()
+                }
+            }
+          _ => Ok(None)
+        }
+      TReturnCallIndirect(type_idx, table_idx, args, index) =>
+        match tables.get(table_idx) {
+          Some(table) if table.can_optimize_by_entry() =>
+            match get_target_info(index, table, type_idx, env) {
+              Known(f) => change((), TInstr::return_call(f, args))
+              Trap => change((), TInstr::unreachable_())
+              Unknown => unchanged()
+            }
+          _ => unchanged()
+        }
+      _ => unchanged()
+    }
+  })
 }
 
 ///|

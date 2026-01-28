@@ -92,83 +92,85 @@ fn produces_f64(i : TInstr) -> Bool {
 ///|
 fn make_denam_transformer() -> ModuleTransformer[DeNaNState] {
   ModuleTransformer::new()
-    .on_func_evt(fn(self, st, func : Func) {
-      match func {
-        TFunc(params, _) => {
-          // FIX: Check parameters to determine if helpers are needed for sanitization
-          let mut st = st
-          for param in params {
-            match param {
-              NumTypeValType(F32NumType) => st = DeNaNState::{ ..st, need_f32: true }
-              NumTypeValType(F64NumType) => st = DeNaNState::{ ..st, need_f64: true }
-              _ => ()
-            }
+  .on_func_evt(fn(self, st, func : Func) {
+    match func {
+      TFunc(params, _) => {
+        // FIX: Check parameters to determine if helpers are needed for sanitization
+        let mut st = st
+        for param in params {
+          match param {
+            NumTypeValType(F32NumType) =>
+              st = DeNaNState::{ ..st, need_f32: true }
+            NumTypeValType(F64NumType) =>
+              st = DeNaNState::{ ..st, need_f64: true }
+            _ => ()
           }
-          let st = DeNaNState::{ ..st, in_func: true }
-          let (st, func) = match self.walk_func_default(st, func) {
-            Ok(Some(t)) => t
-            Ok(None) => (st, func)
-            Err(t) => return Err(t)
-          }
-          change(DeNaNState::{ ..st, in_func: false }, func)
         }
-        _ => Ok(None)
+        let st = DeNaNState::{ ..st, in_func: true }
+        let (st, func) = match self.walk_func_default(st, func) {
+          Ok(Some(t)) => t
+          Ok(None) => (st, func)
+          Err(t) => return Err(t)
+        }
+        change(DeNaNState::{ ..st, in_func: false }, func)
       }
-    })
-    .on_tinstruction_evt(fn(self, st, instr) {
-      match instr {
-        // f32 NaN constant → 0
-        TF32Const(f) =>
-          if is_f32_nan(f) {
-            Ok(Some((st, TInstr::f32_const(F32(0.0)))))
-          } else {
-            Ok(None)
-          }
-
-        // f64 NaN constant → 0
-        TF64Const(f) =>
-          if is_f64_nan(f) {
-            Ok(Some((st, TInstr::f64_const(F64(0.0)))))
-          } else {
-            Ok(None)
-          }
-
-        // wrap f32 producers
-        _ if st.in_func && produces_f32(instr) => {
-          let st = DeNaNState::{ ..st, need_f32: true }
-          match st.deNan32 {
-            Some(idx) => {
-              let (st, processed_instr) = match
-                self.walk_tinstruction_default(st, instr) {
-                Ok(Some(pair)) => pair
-                Ok(None) => (st, instr)
-                Err(e) => return Err(e)
-              }
-              Ok(Some((st, TInstr::call(idx, [processed_instr]))))
-            }
-            None => self.walk_tinstruction_default(st, instr)
-          }
+      _ => Ok(None)
+    }
+  })
+  .on_tinstruction_evt(fn(self, st, instr) {
+    match instr {
+      // f32 NaN constant → 0
+      TF32Const(f) =>
+        if is_f32_nan(f) {
+          Ok(Some((st, TInstr::f32_const(F32(0.0)))))
+        } else {
+          Ok(None)
         }
 
-        // wrap f64 producers
-        _ if st.in_func && produces_f64(instr) => {
-          let st = DeNaNState::{ ..st, need_f64: true }
-          match st.deNan64 {
-            Some(idx) => {
-              let (st, processed_instr) = match
-                self.walk_tinstruction_default(st, instr) {
-                Ok(Some(pair)) => pair
-                Ok(None) => (st, instr)
-                Err(e) => return Err(e)
-              }
-              Ok(Some((st, TInstr::call(idx, [processed_instr]))))
-            }
-            None => self.walk_tinstruction_default(st, instr)
-          }
+      // f64 NaN constant → 0
+      TF64Const(f) =>
+        if is_f64_nan(f) {
+          Ok(Some((st, TInstr::f64_const(F64(0.0)))))
+        } else {
+          Ok(None)
         }
-        _ => self.walk_tinstruction_default(st, instr)
+
+      // wrap f32 producers
+      _ if st.in_func && produces_f32(instr) => {
+        let st = DeNaNState::{ ..st, need_f32: true }
+        match st.deNan32 {
+          Some(idx) => {
+            let (st, processed_instr) = match
+              self.walk_tinstruction_default(st, instr) {
+              Ok(Some(pair)) => pair
+              Ok(None) => (st, instr)
+              Err(e) => return Err(e)
+            }
+            Ok(Some((st, TInstr::call(idx, [processed_instr]))))
+          }
+          None => self.walk_tinstruction_default(st, instr)
+        }
       }
-    })
+
+      // wrap f64 producers
+      _ if st.in_func && produces_f64(instr) => {
+        let st = DeNaNState::{ ..st, need_f64: true }
+        match st.deNan64 {
+          Some(idx) => {
+            let (st, processed_instr) = match
+              self.walk_tinstruction_default(st, instr) {
+              Ok(Some(pair)) => pair
+              Ok(None) => (st, instr)
+              Err(e) => return Err(e)
+            }
+            Ok(Some((st, TInstr::call(idx, [processed_instr]))))
+          }
+          None => self.walk_tinstruction_default(st, instr)
+        }
+      }
+      _ => self.walk_tinstruction_default(st, instr)
+    }
+  })
 }
 
 ///|
@@ -328,7 +330,6 @@ pub fn run_denam(m : @lib.Module) -> Result[@lib.Module, String] {
 // ============================================
 // Test Helpers
 // ============================================
-
 
 ///|
 fn make_module_with_code(funcs : Array[Func]) -> @lib.Module {
