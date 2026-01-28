@@ -176,6 +176,31 @@ pub struct BlockType {
   type_use : TypeUse?
 }
 
+// ============================================================================
+// instruction.mbt - Extended Instruction AST for SIMD
+// ============================================================================
+
+///|
+pub struct V128Const {
+  shape : SimdShape
+  values : Array[String]
+}
+
+///|
+pub enum SimdShape {
+  I8x16
+  I16x8
+  I32x4
+  I64x2
+  F32x4
+  F64x2
+} derive (Show, Eq)
+
+///|
+pub struct ShuffleLanes {
+  lanes : FixedArray[UInt] // 16 lane indices
+}
+
 ///|
 pub enum Instruction {
   // Control
@@ -234,6 +259,151 @@ pub enum Instruction {
   RefNull(ValueType)
   RefIsNull
   RefFunc(Index)
+
+  // ========== SIMD Instructions ==========
+  
+  // V128 Const
+  V128Const(V128Const)
+  
+  // V128 Memory
+  V128Load(MemArg)
+  V128Load8x8S(MemArg)
+  V128Load8x8U(MemArg)
+  V128Load16x4S(MemArg)
+  V128Load16x4U(MemArg)
+  V128Load32x2S(MemArg)
+  V128Load32x2U(MemArg)
+  V128Load8Splat(MemArg)
+  V128Load16Splat(MemArg)
+  V128Load32Splat(MemArg)
+  V128Load64Splat(MemArg)
+  V128Load32Zero(MemArg)
+  V128Load64Zero(MemArg)
+  V128Store(MemArg)
+  V128Load8Lane(MemArg, UInt)   // memarg, lane
+  V128Load16Lane(MemArg, UInt)
+  V128Load32Lane(MemArg, UInt)
+  V128Load64Lane(MemArg, UInt)
+  V128Store8Lane(MemArg, UInt)
+  V128Store16Lane(MemArg, UInt)
+  V128Store32Lane(MemArg, UInt)
+  V128Store64Lane(MemArg, UInt)
+  
+  // V128 Shuffle/Swizzle
+  I8x16Shuffle(ShuffleLanes)
+  I8x16Swizzle
+  
+  // V128 Splat
+  I8x16Splat
+  I16x8Splat
+  I32x4Splat
+  I64x2Splat
+  F32x4Splat
+  F64x2Splat
+  
+  // V128 Extract/Replace Lane
+  I8x16ExtractLaneS(UInt)
+  I8x16ExtractLaneU(UInt)
+  I8x16ReplaceLane(UInt)
+  I16x8ExtractLaneS(UInt)
+  I16x8ExtractLaneU(UInt)
+  I16x8ReplaceLane(UInt)
+  I32x4ExtractLane(UInt)
+  I32x4ReplaceLane(UInt)
+  I64x2ExtractLane(UInt)
+  I64x2ReplaceLane(UInt)
+  F32x4ExtractLane(UInt)
+  F32x4ReplaceLane(UInt)
+  F64x2ExtractLane(UInt)
+  F64x2ReplaceLane(UInt)
+  
+  // V128 Unary operations (no operands beyond the v128)
+  SimdUnary(Opcode)
+  
+  // V128 Binary operations
+  SimdBinary(Opcode)
+  
+  // V128 Ternary operations (bitselect, relaxed laneselect, fma)
+  SimdTernary(Opcode)
+  
+  // V128 Shift operations (take i32 shift amount)
+  SimdShift(Opcode)
+  
+  // V128 Test operations (return i32)
+  SimdTest(Opcode)
+  
+  // V128 Comparison operations (return v128 mask)
+  SimdCompare(Opcode)
+  
+  // V128 Conversion operations
+  SimdConvert(Opcode)
+  
+  // Relaxed SIMD
+  SimdRelaxed(Opcode)
+}
+
+///|
+pub enum WastValue {
+  I32(String)
+  I64(String)
+  F32(String)
+  F64(String)
+  V128(String)
+  RefNull(ValueType)
+  RefFunc
+  RefExtern
+}
+
+///|
+pub enum WastResult {
+  Value(WastValue)
+  F32NanCanonical
+  F32NanArithmetic
+  F64NanCanonical
+  F64NanArithmetic
+  RefNull(ValueType?)
+  RefFunc
+  RefExtern
+}
+
+///|
+pub struct WastAction {
+  module_name : String?
+  name : String
+  args : Array[WastValue]
+}
+
+///|
+pub enum WastActionType {
+  Invoke(WastAction)
+  Get(String?, String)  // module_name?, global_name
+}
+
+///|
+pub enum WastCommand {
+  Module(Module)
+  ModuleBinary(String?, Bytes)
+  ModuleQuote(String?, Array[String])
+  Register(String, String?)  // name, module_id
+  Action(WastActionType)
+  AssertReturn(WastActionType, Array[WastResult])
+  AssertTrap(WastActionType, String)
+  AssertExhaustion(WastActionType, String)
+  AssertMalformed(WastModuleDef, String)
+  AssertInvalid(WastModuleDef, String)
+  AssertUnlinkable(WastModuleDef, String)
+}
+
+///|
+pub enum WastModuleDef {
+  Inline(Module)
+  Binary(Bytes)
+  Quote(Array[String])
+}
+
+///|
+pub struct WastScript {
+  commands : Array[WastCommand]
 }
 
 // ============================================================================
@@ -1230,7 +1400,9 @@ fn WastParser::parse_opcode_instruction(
     }
     Opcode::RefIsNull => Instruction::RefIsNull
     Opcode::RefFunc => Instruction::RefFunc(self.parse_index())
-    _ => raise InvalidInstruction("unknown opcode")
+    
+    // SIMD - delegate to SIMD parser
+    _ => self.parse_simd_instruction(op)
   }
 }
 
@@ -1532,6 +1704,365 @@ fn WastParser::parse_export(self : WastParser) -> Export raise ParserError {
 }
 
 ///|
+pub fn WastParser::parse_script(self : WastParser) -> WastScript raise ParserError {
+  let commands : Array[WastCommand] = []
+  while not(self.check(Eof)) {
+    self.expect_lpar()
+    let cmd = self.parse_command()
+    commands.push(cmd)
+    self.expect_rpar()
+  }
+  { commands }
+}
+
+///|
+fn WastParser::parse_command(self : WastParser) -> WastCommand raise ParserError {
+  match self.current.token_type {
+    Module => self.parse_module_command()
+    Register => self.parse_register_command()
+    Invoke => WastCommand::Action(self.parse_action())
+    Get => WastCommand::Action(self.parse_action())
+    AssertReturn => self.parse_assert_return()
+    AssertTrap => self.parse_assert_trap()
+    AssertExhaustion => self.parse_assert_exhaustion()
+    AssertMalformed => self.parse_assert_malformed()
+    AssertInvalid => self.parse_assert_invalid()
+    AssertUnlinkable => self.parse_assert_unlinkable()
+    _ => raise UnexpectedToken(self.current, "expected WAST command")
+  }
+}
+
+///|
+fn WastParser::parse_module_command(self : WastParser) -> WastCommand raise ParserError {
+  let _ = self.expect(Module, "expected 'module'")
+  
+  // Check for optional module id
+  let id : String? = if self.current.token_type is Var {
+    let token = self.advance()
+    Some(self.get_text(token))
+  } else {
+    None
+  }
+  
+  // Check for binary or quote form
+  match self.current.token_type {
+    Binary => {
+      let _ = self.advance()
+      let data = self.parse_data_strings()
+      WastCommand::ModuleBinary(id, data)
+    }
+    Quote => {
+      let _ = self.advance()
+      let strings = self.parse_quote_strings()
+      WastCommand::ModuleQuote(id, strings)
+    }
+    _ => {
+      // Regular module - parse fields
+      let fields : Array[ModuleField] = []
+      while self.check(Lpar) {
+        self.expect_lpar()
+        fields.push(self.parse_module_field())
+        self.expect_rpar()
+      }
+      WastCommand::Module({ id, fields })
+    }
+  }
+}
+
+///|
+fn WastParser::parse_data_strings(self : WastParser) -> Bytes {
+  let buf = @buffer.new()
+  while self.check(Text) {
+    let token = self.advance()
+    let text = self.get_text(token)
+    let decoded = self.decode_string(text)
+    buf.write_bytes(decoded)
+  }
+  buf.to_bytes()
+}
+
+///|
+fn WastParser::parse_quote_strings(self : WastParser) -> Array[String] {
+  let strings : Array[String] = []
+  while self.check(Text) {
+    let token = self.advance()
+    strings.push(self.strip_quotes(self.get_text(token)))
+  }
+  strings
+}
+
+///|
+fn WastParser::parse_register_command(self : WastParser) -> WastCommand raise ParserError {
+  let _ = self.expect(Register, "expected 'register'")
+  let name_token = self.expect(Text, "expected register name")
+  let name = self.strip_quotes(self.get_text(name_token))
+  let module_id : String? = if self.current.token_type is Var {
+    let token = self.advance()
+    Some(self.get_text(token))
+  } else {
+    None
+  }
+  WastCommand::Register(name, module_id)
+}
+
+///|
+fn WastParser::parse_action(self : WastParser) -> WastActionType raise ParserError {
+  match self.current.token_type {
+    Invoke => {
+      let _ = self.advance()
+      let module_name : String? = if self.current.token_type is Var {
+        let token = self.advance()
+        Some(self.get_text(token))
+      } else {
+        None
+      }
+      let name_token = self.expect(Text, "expected function name")
+      let name = self.strip_quotes(self.get_text(name_token))
+      let args = self.parse_wast_values()
+      WastActionType::Invoke({ module_name, name, args })
+    }
+    Get => {
+      let _ = self.advance()
+      let module_name : String? = if self.current.token_type is Var {
+        let token = self.advance()
+        Some(self.get_text(token))
+      } else {
+        None
+      }
+      let name_token = self.expect(Text, "expected global name")
+      let name = self.strip_quotes(self.get_text(name_token))
+      WastActionType::Get(module_name, name)
+    }
+    _ => raise UnexpectedToken(self.current, "expected 'invoke' or 'get'")
+  }
+}
+
+///|
+fn WastParser::parse_wast_values(self : WastParser) -> Array[WastValue] raise ParserError {
+  let values : Array[WastValue] = []
+  while self.check(Lpar) {
+    self.expect_lpar()
+    let value = self.parse_wast_value()
+    values.push(value)
+    self.expect_rpar()
+  }
+  values
+}
+
+///|
+fn WastParser::parse_wast_value(self : WastParser) -> WastValue raise ParserError {
+  match self.current.token_type {
+    Opcode(I32Const) => {
+      let _ = self.advance()
+      let token = self.advance()
+      WastValue::I32(self.get_literal_text(token))
+    }
+    Opcode(I64Const) => {
+      let _ = self.advance()
+      let token = self.advance()
+      WastValue::I64(self.get_literal_text(token))
+    }
+    Opcode(F32Const) => {
+      let _ = self.advance()
+      let token = self.advance()
+      WastValue::F32(self.get_literal_text(token))
+    }
+    Opcode(F64Const) => {
+      let _ = self.advance()
+      let token = self.advance()
+      WastValue::F64(self.get_literal_text(token))
+    }
+    Opcode(RefNull) => {
+      let _ = self.advance()
+      let vt = self.parse_value_type()
+      WastValue::RefNull(vt)
+    }
+    Opcode(RefFunc) => {
+      let _ = self.advance()
+      WastValue::RefFunc
+    }
+    _ => raise UnexpectedToken(self.current, "expected const instruction")
+  }
+}
+
+///|
+fn WastParser::parse_wast_results(self : WastParser) -> Array[WastResult] raise ParserError {
+  let results : Array[WastResult] = []
+  while self.check(Lpar) {
+    self.expect_lpar()
+    let result = self.parse_wast_result()
+    results.push(result)
+    self.expect_rpar()
+  }
+  results
+}
+
+///|
+fn WastParser::parse_wast_result(self : WastParser) -> WastResult raise ParserError {
+  match self.current.token_type {
+    Opcode(I32Const) => {
+      let _ = self.advance()
+      let token = self.advance()
+      WastResult::Value(WastValue::I32(self.get_literal_text(token)))
+    }
+    Opcode(I64Const) => {
+      let _ = self.advance()
+      let token = self.advance()
+      WastResult::Value(WastValue::I64(self.get_literal_text(token)))
+    }
+    Opcode(F32Const) => {
+      let _ = self.advance()
+      let token = self.advance()
+      let text = self.get_literal_text(token)
+      if text == "nan:canonical" {
+        WastResult::F32NanCanonical
+      } else if text == "nan:arithmetic" {
+        WastResult::F32NanArithmetic
+      } else {
+        WastResult::Value(WastValue::F32(text))
+      }
+    }
+    Opcode(F64Const) => {
+      let _ = self.advance()
+      let token = self.advance()
+      let text = self.get_literal_text(token)
+      if text == "nan:canonical" {
+        WastResult::F64NanCanonical
+      } else if text == "nan:arithmetic" {
+        WastResult::F64NanArithmetic
+      } else {
+        WastResult::Value(WastValue::F64(text))
+      }
+    }
+    Opcode(RefNull) => {
+      let _ = self.advance()
+      let vt : ValueType? = if self.current.token_type is ValueType(_) {
+        Some(self.parse_value_type())
+      } else {
+        None
+      }
+      WastResult::RefNull(vt)
+    }
+    Opcode(RefFunc) => {
+      let _ = self.advance()
+      WastResult::RefFunc
+    }
+    // ref.extern result
+    _ => raise UnexpectedToken(self.current, "expected result value")
+  }
+}
+
+///|
+fn WastParser::parse_assert_return(self : WastParser) -> WastCommand raise ParserError {
+  let _ = self.expect(AssertReturn, "expected 'assert_return'")
+  self.expect_lpar()
+  let action = self.parse_action()
+  self.expect_rpar()
+  let results = self.parse_wast_results()
+  WastCommand::AssertReturn(action, results)
+}
+
+///|
+fn WastParser::parse_assert_trap(self : WastParser) -> WastCommand raise ParserError {
+  let _ = self.expect(AssertTrap, "expected 'assert_trap'")
+  self.expect_lpar()
+  
+  // Can be either an action or a module
+  if self.check(Invoke) || self.check(Get) {
+    let action = self.parse_action()
+    self.expect_rpar()
+    let msg_token = self.expect(Text, "expected trap message")
+    let msg = self.strip_quotes(self.get_text(msg_token))
+    WastCommand::AssertTrap(action, msg)
+  } else {
+    // Module trap - treat as module definition that traps on instantiation
+    let module_def = self.parse_module_def()
+    self.expect_rpar()
+    let msg_token = self.expect(Text, "expected trap message")
+    let msg = self.strip_quotes(self.get_text(msg_token))
+    // For module traps, we use AssertTrap with a dummy action
+    // This could be refined with a separate AST variant
+    WastCommand::AssertUnlinkable(module_def, msg)
+  }
+}
+
+///|
+fn WastParser::parse_assert_exhaustion(self : WastParser) -> WastCommand raise ParserError {
+  let _ = self.expect(AssertExhaustion, "expected 'assert_exhaustion'")
+  self.expect_lpar()
+  let action = self.parse_action()
+  self.expect_rpar()
+  let msg_token = self.expect(Text, "expected exhaustion message")
+  let msg = self.strip_quotes(self.get_text(msg_token))
+  WastCommand::AssertExhaustion(action, msg)
+}
+
+///|
+fn WastParser::parse_module_def(self : WastParser) -> WastModuleDef raise ParserError {
+  let _ = self.expect(Module, "expected 'module'")
+  
+  // Skip optional id
+  if self.current.token_type is Var {
+    let _ = self.advance()
+  }
+  
+  match self.current.token_type {
+    Binary => {
+      let _ = self.advance()
+      let data = self.parse_data_strings()
+      WastModuleDef::Binary(data)
+    }
+    Quote => {
+      let _ = self.advance()
+      let strings = self.parse_quote_strings()
+      WastModuleDef::Quote(strings)
+    }
+    _ => {
+      let fields : Array[ModuleField] = []
+      while self.check(Lpar) {
+        self.expect_lpar()
+        fields.push(self.parse_module_field())
+        self.expect_rpar()
+      }
+      WastModuleDef::Inline({ id: None, fields })
+    }
+  }
+}
+
+///|
+fn WastParser::parse_assert_malformed(self : WastParser) -> WastCommand raise ParserError {
+  let _ = self.expect(AssertMalformed, "expected 'assert_malformed'")
+  self.expect_lpar()
+  let module_def = self.parse_module_def()
+  self.expect_rpar()
+  let msg_token = self.expect(Text, "expected error message")
+  let msg = self.strip_quotes(self.get_text(msg_token))
+  WastCommand::AssertMalformed(module_def, msg)
+}
+
+///|
+fn WastParser::parse_assert_invalid(self : WastParser) -> WastCommand raise ParserError {
+  let _ = self.expect(AssertInvalid, "expected 'assert_invalid'")
+  self.expect_lpar()
+  let module_def = self.parse_module_def()
+  self.expect_rpar()
+  let msg_token = self.expect(Text, "expected error message")
+  let msg = self.strip_quotes(self.get_text(msg_token))
+  WastCommand::AssertInvalid(module_def, msg)
+}
+
+///|
+fn WastParser::parse_assert_unlinkable(self : WastParser) -> WastCommand raise ParserError {
+  let _ = self.expect(AssertUnlinkable, "expected 'assert_unlinkable'")
+  self.expect_lpar()
+  let module_def = self.parse_module_def()
+  self.expect_rpar()
+  let msg_token = self.expect(Text, "expected error message")
+  let msg = self.strip_quotes(self.get_text(msg_token))
+  WastCommand::AssertUnlinkable(module_def, msg)
+}
+
+///|
 fn WastParser::parse_start(self : WastParser) -> Start raise ParserError {
   let _ = self.expect(Start, "expected 'start'")
   let func_index = self.parse_index()
@@ -1629,6 +2160,414 @@ fn WastParser::parse_module_field(
     Elem => ModuleField::ElemField(self.parse_elem())
     Data => ModuleField::DataField(self.parse_data())
     _ => raise UnexpectedToken(self.current, "expected module field")
+  }
+}
+
+///|
+fn WastParser::parse_v128_const(self : WastParser) -> V128Const raise ParserError {
+  // v128.const can have multiple forms:
+  // v128.const i8x16 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15
+  // v128.const i16x8 0 1 2 3 4 5 6 7
+  // v128.const i32x4 0 1 2 3
+  // v128.const i64x2 0 1
+  // v128.const f32x4 0.0 1.0 2.0 3.0
+  // v128.const f64x2 0.0 1.0
+  
+  let shape = self.parse_simd_shape()
+  let count = match shape {
+    I8x16 => 16
+    I16x8 => 8
+    I32x4 => 4
+    I64x2 => 2
+    F32x4 => 4
+    F64x2 => 2
+  }
+  
+  let values : Array[String] = []
+  for i = 0; i < count; i = i + 1 {
+    let token = self.advance()
+    let text = match token.token_type {
+      Nat | Int | Float => self.get_literal_text(token)
+      _ => raise UnexpectedToken(token, "expected numeric literal")
+    }
+    values.push(text)
+  }
+  { shape, values }
+}
+
+///|
+fn WastParser::parse_simd_shape(self : WastParser) -> SimdShape raise ParserError {
+  match self.current.token_type {
+    SimdShapeToken(shape) => {
+      let _ = self.advance()
+      shape
+    }
+    _ => raise UnexpectedToken(self.current, "expected SIMD shape (i8x16, i16x8, etc.)")
+  }
+}
+
+///|
+fn WastParser::try_parse_simd_shape(self : WastParser) -> SimdShape? {
+  match self.current.token_type {
+    SimdShapeToken(shape) => {
+      let _ = self.advance()
+      Some(shape)
+    }
+    _ => None
+  }
+}
+
+///|
+fn WastParser::parse_lane_index(self : WastParser) -> UInt raise ParserError {
+  let token = self.expect(Nat, "expected lane index")
+  parse_uint(self.get_literal_text(token))
+}
+
+///|
+fn WastParser::parse_shuffle_lanes(self : WastParser) -> ShuffleLanes raise ParserError {
+  let lanes : FixedArray[UInt] = FixedArray::make(16, 0U)
+  for i = 0; i < 16; i = i + 1 {
+    let token = self.expect(Nat, "expected shuffle lane index")
+    lanes[i] = parse_uint(self.get_literal_text(token))
+  }
+  { lanes }
+}
+
+///|
+fn WastParser::parse_simd_mem_arg(
+  self : WastParser,
+  default_align : UInt,
+) -> MemArg {
+  self.parse_mem_arg(default_align)
+}
+
+///|
+fn WastParser::parse_simd_instruction(
+  self : WastParser,
+  op : Opcode,
+) -> Instruction raise ParserError {
+  match op {
+    // V128 Const
+    Opcode::V128Const => {
+      let v128_const = self.parse_v128_const()
+      Instruction::V128Const(v128_const)
+    }
+    
+    // V128 Memory - Load
+    Opcode::V128Load => Instruction::V128Load(self.parse_simd_mem_arg(16))
+    Opcode::V128Load8x8S => Instruction::V128Load8x8S(self.parse_simd_mem_arg(8))
+    Opcode::V128Load8x8U => Instruction::V128Load8x8U(self.parse_simd_mem_arg(8))
+    Opcode::V128Load16x4S => Instruction::V128Load16x4S(self.parse_simd_mem_arg(8))
+    Opcode::V128Load16x4U => Instruction::V128Load16x4U(self.parse_simd_mem_arg(8))
+    Opcode::V128Load32x2S => Instruction::V128Load32x2S(self.parse_simd_mem_arg(8))
+    Opcode::V128Load32x2U => Instruction::V128Load32x2U(self.parse_simd_mem_arg(8))
+    Opcode::V128Load8Splat => Instruction::V128Load8Splat(self.parse_simd_mem_arg(1))
+    Opcode::V128Load16Splat => Instruction::V128Load16Splat(self.parse_simd_mem_arg(2))
+    Opcode::V128Load32Splat => Instruction::V128Load32Splat(self.parse_simd_mem_arg(4))
+    Opcode::V128Load64Splat => Instruction::V128Load64Splat(self.parse_simd_mem_arg(8))
+    Opcode::V128Load32Zero => Instruction::V128Load32Zero(self.parse_simd_mem_arg(4))
+    Opcode::V128Load64Zero => Instruction::V128Load64Zero(self.parse_simd_mem_arg(8))
+    Opcode::V128Store => Instruction::V128Store(self.parse_simd_mem_arg(16))
+    
+    // V128 Memory - Lane operations
+    Opcode::V128Load8Lane => {
+      let memarg = self.parse_simd_mem_arg(1)
+      let lane = self.parse_lane_index()
+      Instruction::V128Load8Lane(memarg, lane)
+    }
+    Opcode::V128Load16Lane => {
+      let memarg = self.parse_simd_mem_arg(2)
+      let lane = self.parse_lane_index()
+      Instruction::V128Load16Lane(memarg, lane)
+    }
+    Opcode::V128Load32Lane => {
+      let memarg = self.parse_simd_mem_arg(4)
+      let lane = self.parse_lane_index()
+      Instruction::V128Load32Lane(memarg, lane)
+    }
+    Opcode::V128Load64Lane => {
+      let memarg = self.parse_simd_mem_arg(8)
+      let lane = self.parse_lane_index()
+      Instruction::V128Load64Lane(memarg, lane)
+    }
+    Opcode::V128Store8Lane => {
+      let memarg = self.parse_simd_mem_arg(1)
+      let lane = self.parse_lane_index()
+      Instruction::V128Store8Lane(memarg, lane)
+    }
+    Opcode::V128Store16Lane => {
+      let memarg = self.parse_simd_mem_arg(2)
+      let lane = self.parse_lane_index()
+      Instruction::V128Store16Lane(memarg, lane)
+    }
+    Opcode::V128Store32Lane => {
+      let memarg = self.parse_simd_mem_arg(4)
+      let lane = self.parse_lane_index()
+      Instruction::V128Store32Lane(memarg, lane)
+    }
+    Opcode::V128Store64Lane => {
+      let memarg = self.parse_simd_mem_arg(8)
+      let lane = self.parse_lane_index()
+      Instruction::V128Store64Lane(memarg, lane)
+    }
+    
+    // Shuffle
+    Opcode::I8x16Shuffle => {
+      let lanes = self.parse_shuffle_lanes()
+      Instruction::I8x16Shuffle(lanes)
+    }
+    Opcode::I8x16Swizzle => Instruction::I8x16Swizzle
+    
+    // Splat
+    Opcode::I8x16Splat => Instruction::I8x16Splat
+    Opcode::I16x8Splat => Instruction::I16x8Splat
+    Opcode::I32x4Splat => Instruction::I32x4Splat
+    Opcode::I64x2Splat => Instruction::I64x2Splat
+    Opcode::F32x4Splat => Instruction::F32x4Splat
+    Opcode::F64x2Splat => Instruction::F64x2Splat
+    
+    // Extract lane
+    Opcode::I8x16ExtractLaneS => Instruction::I8x16ExtractLaneS(self.parse_lane_index())
+    Opcode::I8x16ExtractLaneU => Instruction::I8x16ExtractLaneU(self.parse_lane_index())
+    Opcode::I16x8ExtractLaneS => Instruction::I16x8ExtractLaneS(self.parse_lane_index())
+    Opcode::I16x8ExtractLaneU => Instruction::I16x8ExtractLaneU(self.parse_lane_index())
+    Opcode::I32x4ExtractLane => Instruction::I32x4ExtractLane(self.parse_lane_index())
+    Opcode::I64x2ExtractLane => Instruction::I64x2ExtractLane(self.parse_lane_index())
+    Opcode::F32x4ExtractLane => Instruction::F32x4ExtractLane(self.parse_lane_index())
+    Opcode::F64x2ExtractLane => Instruction::F64x2ExtractLane(self.parse_lane_index())
+    
+    // Replace lane
+    Opcode::I8x16ReplaceLane => Instruction::I8x16ReplaceLane(self.parse_lane_index())
+    Opcode::I16x8ReplaceLane => Instruction::I16x8ReplaceLane(self.parse_lane_index())
+    Opcode::I32x4ReplaceLane => Instruction::I32x4ReplaceLane(self.parse_lane_index())
+    Opcode::I64x2ReplaceLane => Instruction::I64x2ReplaceLane(self.parse_lane_index())
+    Opcode::F32x4ReplaceLane => Instruction::F32x4ReplaceLane(self.parse_lane_index())
+    Opcode::F64x2ReplaceLane => Instruction::F64x2ReplaceLane(self.parse_lane_index())
+    
+    // Unary operations
+    Opcode::I8x16Abs
+    | Opcode::I8x16Neg
+    | Opcode::I8x16Popcnt
+    | Opcode::I16x8Abs
+    | Opcode::I16x8Neg
+    | Opcode::I32x4Abs
+    | Opcode::I32x4Neg
+    | Opcode::I64x2Abs
+    | Opcode::I64x2Neg
+    | Opcode::F32x4Abs
+    | Opcode::F32x4Neg
+    | Opcode::F32x4Sqrt
+    | Opcode::F32x4Ceil
+    | Opcode::F32x4Floor
+    | Opcode::F32x4Trunc
+    | Opcode::F32x4Nearest
+    | Opcode::F64x2Abs
+    | Opcode::F64x2Neg
+    | Opcode::F64x2Sqrt
+    | Opcode::F64x2Ceil
+    | Opcode::F64x2Floor
+    | Opcode::F64x2Trunc
+    | Opcode::F64x2Nearest
+    | Opcode::V128Not => Instruction::SimdUnary(op)
+    
+    // Binary operations
+    Opcode::I8x16Add
+    | Opcode::I8x16AddSatS
+    | Opcode::I8x16AddSatU
+    | Opcode::I8x16Sub
+    | Opcode::I8x16SubSatS
+    | Opcode::I8x16SubSatU
+    | Opcode::I8x16MinS
+    | Opcode::I8x16MinU
+    | Opcode::I8x16MaxS
+    | Opcode::I8x16MaxU
+    | Opcode::I8x16AvgrU
+    | Opcode::I16x8Add
+    | Opcode::I16x8AddSatS
+    | Opcode::I16x8AddSatU
+    | Opcode::I16x8Sub
+    | Opcode::I16x8SubSatS
+    | Opcode::I16x8SubSatU
+    | Opcode::I16x8Mul
+    | Opcode::I16x8MinS
+    | Opcode::I16x8MinU
+    | Opcode::I16x8MaxS
+    | Opcode::I16x8MaxU
+    | Opcode::I16x8AvgrU
+    | Opcode::I16x8Q15mulrSatS
+    | Opcode::I32x4Add
+    | Opcode::I32x4Sub
+    | Opcode::I32x4Mul
+    | Opcode::I32x4MinS
+    | Opcode::I32x4MinU
+    | Opcode::I32x4MaxS
+    | Opcode::I32x4MaxU
+    | Opcode::I32x4DotI16x8S
+    | Opcode::I64x2Add
+    | Opcode::I64x2Sub
+    | Opcode::I64x2Mul
+    | Opcode::F32x4Add
+    | Opcode::F32x4Sub
+    | Opcode::F32x4Mul
+    | Opcode::F32x4Div
+    | Opcode::F32x4Min
+    | Opcode::F32x4Max
+    | Opcode::F32x4Pmin
+    | Opcode::F32x4Pmax
+    | Opcode::F64x2Add
+    | Opcode::F64x2Sub
+    | Opcode::F64x2Mul
+    | Opcode::F64x2Div
+    | Opcode::F64x2Min
+    | Opcode::F64x2Max
+    | Opcode::F64x2Pmin
+    | Opcode::F64x2Pmax
+    | Opcode::V128And
+    | Opcode::V128AndNot
+    | Opcode::V128Or
+    | Opcode::V128Xor
+    | Opcode::I8x16NarrowI16x8S
+    | Opcode::I8x16NarrowI16x8U
+    | Opcode::I16x8NarrowI32x4S
+    | Opcode::I16x8NarrowI32x4U
+    | Opcode::I16x8ExtmulLowI8x16S
+    | Opcode::I16x8ExtmulHighI8x16S
+    | Opcode::I16x8ExtmulLowI8x16U
+    | Opcode::I16x8ExtmulHighI8x16U
+    | Opcode::I32x4ExtmulLowI16x8S
+    | Opcode::I32x4ExtmulHighI16x8S
+    | Opcode::I32x4ExtmulLowI16x8U
+    | Opcode::I32x4ExtmulHighI16x8U
+    | Opcode::I64x2ExtmulLowI32x4S
+    | Opcode::I64x2ExtmulHighI32x4S
+    | Opcode::I64x2ExtmulLowI32x4U
+    | Opcode::I64x2ExtmulHighI32x4U => Instruction::SimdBinary(op)
+    
+    // Ternary operations
+    Opcode::V128Bitselect
+    | Opcode::F32x4RelaxedMadd
+    | Opcode::F32x4RelaxedNmadd
+    | Opcode::F64x2RelaxedMadd
+    | Opcode::F64x2RelaxedNmadd
+    | Opcode::I8x16RelaxedLaneselect
+    | Opcode::I16x8RelaxedLaneselect
+    | Opcode::I32x4RelaxedLaneselect
+    | Opcode::I64x2RelaxedLaneselect => Instruction::SimdTernary(op)
+    
+    // Shift operations
+    Opcode::I8x16Shl
+    | Opcode::I8x16ShrS
+    | Opcode::I8x16ShrU
+    | Opcode::I16x8Shl
+    | Opcode::I16x8ShrS
+    | Opcode::I16x8ShrU
+    | Opcode::I32x4Shl
+    | Opcode::I32x4ShrS
+    | Opcode::I32x4ShrU
+    | Opcode::I64x2Shl
+    | Opcode::I64x2ShrS
+    | Opcode::I64x2ShrU => Instruction::SimdShift(op)
+    
+    // Test operations (return i32)
+    Opcode::V128AnyTrue
+    | Opcode::I8x16AllTrue
+    | Opcode::I8x16Bitmask
+    | Opcode::I16x8AllTrue
+    | Opcode::I16x8Bitmask
+    | Opcode::I32x4AllTrue
+    | Opcode::I32x4Bitmask
+    | Opcode::I64x2AllTrue
+    | Opcode::I64x2Bitmask => Instruction::SimdTest(op)
+    
+    // Comparison operations
+    Opcode::I8x16Eq
+    | Opcode::I8x16Ne
+    | Opcode::I8x16LtS
+    | Opcode::I8x16LtU
+    | Opcode::I8x16GtS
+    | Opcode::I8x16GtU
+    | Opcode::I8x16LeS
+    | Opcode::I8x16LeU
+    | Opcode::I8x16GeS
+    | Opcode::I8x16GeU
+    | Opcode::I16x8Eq
+    | Opcode::I16x8Ne
+    | Opcode::I16x8LtS
+    | Opcode::I16x8LtU
+    | Opcode::I16x8GtS
+    | Opcode::I16x8GtU
+    | Opcode::I16x8LeS
+    | Opcode::I16x8LeU
+    | Opcode::I16x8GeS
+    | Opcode::I16x8GeU
+    | Opcode::I32x4Eq
+    | Opcode::I32x4Ne
+    | Opcode::I32x4LtS
+    | Opcode::I32x4LtU
+    | Opcode::I32x4GtS
+    | Opcode::I32x4GtU
+    | Opcode::I32x4LeS
+    | Opcode::I32x4LeU
+    | Opcode::I32x4GeS
+    | Opcode::I32x4GeU
+    | Opcode::I64x2Eq
+    | Opcode::I64x2Ne
+    | Opcode::I64x2LtS
+    | Opcode::I64x2GtS
+    | Opcode::I64x2LeS
+    | Opcode::I64x2GeS
+    | Opcode::F32x4Eq
+    | Opcode::F32x4Ne
+    | Opcode::F32x4Lt
+    | Opcode::F32x4Gt
+    | Opcode::F32x4Le
+    | Opcode::F32x4Ge
+    | Opcode::F64x2Eq
+    | Opcode::F64x2Ne
+    | Opcode::F64x2Lt
+    | Opcode::F64x2Gt
+    | Opcode::F64x2Le
+    | Opcode::F64x2Ge => Instruction::SimdCompare(op)
+    
+    // Conversion operations
+    Opcode::I16x8ExtendLowI8x16S
+    | Opcode::I16x8ExtendHighI8x16S
+    | Opcode::I16x8ExtendLowI8x16U
+    | Opcode::I16x8ExtendHighI8x16U
+    | Opcode::I32x4ExtendLowI16x8S
+    | Opcode::I32x4ExtendHighI16x8S
+    | Opcode::I32x4ExtendLowI16x8U
+    | Opcode::I32x4ExtendHighI16x8U
+    | Opcode::I64x2ExtendLowI32x4S
+    | Opcode::I64x2ExtendHighI32x4S
+    | Opcode::I64x2ExtendLowI32x4U
+    | Opcode::I64x2ExtendHighI32x4U
+    | Opcode::I32x4TruncSatF32x4S
+    | Opcode::I32x4TruncSatF32x4U
+    | Opcode::I32x4TruncSatF64x2SZero
+    | Opcode::I32x4TruncSatF64x2UZero
+    | Opcode::F32x4ConvertI32x4S
+    | Opcode::F32x4ConvertI32x4U
+    | Opcode::F32x4DemoteF64x2Zero
+    | Opcode::F64x2ConvertLowI32x4S
+    | Opcode::F64x2ConvertLowI32x4U
+    | Opcode::F64x2PromoteLowF32x4 => Instruction::SimdConvert(op)
+    
+    // Relaxed SIMD
+    Opcode::I8x16RelaxedSwizzle
+    | Opcode::I32x4RelaxedTruncF32x4S
+    | Opcode::I32x4RelaxedTruncF32x4U
+    | Opcode::I32x4RelaxedTruncF64x2SZero
+    | Opcode::I32x4RelaxedTruncF64x2UZero
+    | Opcode::F32x4RelaxedMin
+    | Opcode::F32x4RelaxedMax
+    | Opcode::F64x2RelaxedMin
+    | Opcode::F64x2RelaxedMax
+    | Opcode::I16x8RelaxedQ15mulrS
+    | Opcode::I16x8RelaxedDotI8x16I7x16S
+    | Opcode::I32x4RelaxedDotI8x16I7x16AddS => Instruction::SimdRelaxed(op)
+    
+    _ => raise InvalidInstruction("unhandled SIMD opcode")
   }
 }
 

@@ -14,7 +14,7 @@ fn KeywordTable::new() -> KeywordTable {
   let map = @hashmap.new(capacity=512)
 
   // Module structure
-  map.set("module", Module)
+  map.set("module", TokenType::Module)
   map.set("type", Type)
   map.set("func", Func)
   map.set("param", Param)
@@ -295,6 +295,137 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("i64.trunc_sat_f32_u", Opcode(I64TruncSatF32U))
   map.set("i64.trunc_sat_f64_s", Opcode(I64TruncSatF64S))
   map.set("i64.trunc_sat_f64_u", Opcode(I64TruncSatF64U))
+
+  // Additional keywords that may be missing
+  map.set("nan:canonical", NanCanonical)  // Add to TokenType enum
+  map.set("nan:arithmetic", NanArithmetic) // Add to TokenType enum
+  map.set("ref.extern", Opcode(RefExtern)) // Add RefExtern to Opcode enum
+  map.set("extern", ValueType(ExternRef))  // Alias for externref
+  
+  // ==========================================================================
+  // SIMD Shapes
+  // ==========================================================================
+  map.set("i8x16", SimdShapeToken(I8x16))
+  map.set("i16x8", SimdShapeToken(I16x8))
+  map.set("i32x4", SimdShapeToken(I32x4))
+  map.set("i64x2", SimdShapeToken(I64x2))
+  map.set("f32x4", SimdShapeToken(F32x4))
+  map.set("f64x2", SimdShapeToken(F64x2))
+
+  // ==========================================================================
+  // v128 Const & Memory
+  // ==========================================================================
+  map.set("v128.const", Opcode(V128Const))
+  map.set("v128.load", Opcode(V128Load))
+  map.set("v128.store", Opcode(V128Store))
+
+  map.set("v128.load8x8_s", Opcode(V128Load8x8S))
+  map.set("v128.load8x8_u", Opcode(V128Load8x8U))
+  map.set("v128.load16x4_s", Opcode(V128Load16x4S))
+  map.set("v128.load16x4_u", Opcode(V128Load16x4U))
+  map.set("v128.load32x2_s", Opcode(V128Load32x2S))
+  map.set("v128.load32x2_u", Opcode(V128Load32x2U))
+
+  map.set("v128.load8_splat", Opcode(V128Load8Splat))
+  map.set("v128.load16_splat", Opcode(V128Load16Splat))
+  map.set("v128.load32_splat", Opcode(V128Load32Splat))
+  map.set("v128.load64_splat", Opcode(V128Load64Splat))
+  map.set("v128.load32_zero", Opcode(V128Load32Zero))
+  map.set("v128.load64_zero", Opcode(V128Load64Zero))
+
+  // Lane loads/stores
+  map.set("v128.load8_lane", Opcode(V128Load8Lane))
+  map.set("v128.load16_lane", Opcode(V128Load16Lane))
+  map.set("v128.load32_lane", Opcode(V128Load32Lane))
+  map.set("v128.load64_lane", Opcode(V128Load64Lane))
+  map.set("v128.store8_lane", Opcode(V128Store8Lane))
+  map.set("v128.store16_lane", Opcode(V128Store16Lane))
+  map.set("v128.store32_lane", Opcode(V128Store32Lane))
+  map.set("v128.store64_lane", Opcode(V128Store64Lane))
+
+  // ==========================================================================
+  // v128 Bitwise / Test
+  // ==========================================================================
+  map.set("v128.not", Opcode(V128Not))
+  map.set("v128.and", Opcode(V128And))
+  map.set("v128.andnot", Opcode(V128AndNot))
+  map.set("v128.or", Opcode(V128Or))
+  map.set("v128.xor", Opcode(V128Xor))
+  map.set("v128.bitselect", Opcode(V128Bitselect))
+  map.set("v128.any_true", Opcode(V128AnyTrue))
+
+  // ==========================================================================
+  // i8x16
+  // ==========================================================================
+  map.set("i8x16.shuffle", Opcode(I8x16Shuffle))
+  map.set("i8x16.swizzle", Opcode(I8x16Swizzle))
+  map.set("i8x16.splat", Opcode(I8x16Splat))
+  map.set("i8x16.extract_lane_s", Opcode(I8x16ExtractLaneS))
+  map.set("i8x16.extract_lane_u", Opcode(I8x16ExtractLaneU))
+  map.set("i8x16.replace_lane", Opcode(I8x16ReplaceLane))
+  map.set("i8x16.eq", Opcode(I8x16Eq))
+  map.set("i8x16.ne", Opcode(I8x16Ne))
+  map.set("i8x16.lt_s", Opcode(I8x16LtS))
+  map.set("i8x16.lt_u", Opcode(I8x16LtU))
+  map.set("i8x16.gt_s", Opcode(I8x16GtS))
+  map.set("i8x16.gt_u", Opcode(I8x16GtU))
+  map.set("i8x16.le_s", Opcode(I8x16LeS))
+  map.set("i8x16.le_u", Opcode(I8x16LeU))
+  map.set("i8x16.ge_s", Opcode(I8x16GeS))
+  map.set("i8x16.ge_u", Opcode(I8x16GeU))
+  map.set("i8x16.abs", Opcode(I8x16Abs))
+  map.set("i8x16.neg", Opcode(I8x16Neg))
+  map.set("i8x16.popcnt", Opcode(I8x16Popcnt))
+  map.set("i8x16.all_true", Opcode(I8x16AllTrue))
+  map.set("i8x16.bitmask", Opcode(I8x16Bitmask))
+  map.set("i8x16.narrow_i16x8_s", Opcode(I8x16NarrowI16x8S))
+  map.set("i8x16.narrow_i16x8_u", Opcode(I8x16NarrowI16x8U))
+  map.set("i8x16.shl", Opcode(I8x16Shl))
+  map.set("i8x16.shr_s", Opcode(I8x16ShrS))
+  map.set("i8x16.shr_u", Opcode(I8x16ShrU))
+  map.set("i8x16.add", Opcode(I8x16Add))
+  map.set("i8x16.add_sat_s", Opcode(I8x16AddSatS))
+  map.set("i8x16.add_sat_u", Opcode(I8x16AddSatU))
+  map.set("i8x16.sub", Opcode(I8x16Sub))
+  map.set("i8x16.sub_sat_s", Opcode(I8x16SubSatS))
+  map.set("i8x16.sub_sat_u", Opcode(I8x16SubSatU))
+  map.set("i8x16.min_s", Opcode(I8x16MinS))
+  map.set("i8x16.min_u", Opcode(I8x16MinU))
+  map.set("i8x16.max_s", Opcode(I8x16MaxS))
+  map.set("i8x16.max_u", Opcode(I8x16MaxU))
+  map.set("i8x16.avgr_u", Opcode(I8x16AvgrU))
+
+  map.set("i8x16.relaxed_swizzle", Opcode(I8x16RelaxedSwizzle))
+  map.set("i8x16.relaxed_laneselect", Opcode(I8x16RelaxedLaneselect))
+  map.set("i16x8.relaxed_laneselect", Opcode(I16x8RelaxedLaneselect))
+  map.set("i32x4.relaxed_laneselect", Opcode(I32x4RelaxedLaneselect))
+  map.set("i64x2.relaxed_laneselect", Opcode(I64x2RelaxedLaneselect))
+
+  map.set("i32x4.relaxed_trunc_f32x4_s", Opcode(I32x4RelaxedTruncF32x4S))
+  map.set("i32x4.relaxed_trunc_f32x4_u", Opcode(I32x4RelaxedTruncF32x4U))
+  map.set("i32x4.relaxed_trunc_f64x2_s_zero", Opcode(I32x4RelaxedTruncF64x2SZero))
+  map.set("i32x4.relaxed_trunc_f64x2_u_zero", Opcode(I32x4RelaxedTruncF64x2UZero))
+
+  map.set("f32x4.relaxed_madd", Opcode(F32x4RelaxedMadd))
+  map.set("f32x4.relaxed_nmadd", Opcode(F32x4RelaxedNmadd))
+  map.set("f64x2.relaxed_madd", Opcode(F64x2RelaxedMadd))
+  map.set("f64x2.relaxed_nmadd", Opcode(F64x2RelaxedNmadd))
+
+  map.set("f32x4.relaxed_min", Opcode(F32x4RelaxedMin))
+  map.set("f32x4.relaxed_max", Opcode(F32x4RelaxedMax))
+  map.set("f64x2.relaxed_min", Opcode(F64x2RelaxedMin))
+  map.set("f64x2.relaxed_max", Opcode(F64x2RelaxedMax))
+
+  map.set("i16x8.relaxed_q15mulr_s", Opcode(I16x8RelaxedQ15mulrS))
+  map.set(
+    "i16x8.relaxed_dot_i8x16_i7x16_s",
+    Opcode(I16x8RelaxedDotI8x16I7x16S),
+  )
+  map.set(
+    "i32x4.relaxed_dot_i8x16_i7x16_add_s",
+    Opcode(I32x4RelaxedDotI8x16I7x16AddS),
+  )
+
   { map, }
 }
 

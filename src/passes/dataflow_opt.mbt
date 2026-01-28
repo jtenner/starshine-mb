@@ -404,7 +404,7 @@ fn try_strength_reduce(
   users : NodeUsers,
   node : Node,
   bin : BinaryExpr,
-  work : @set.Set[NodeId],
+  work : Set[NodeId],
 ) -> Bool {
   match bin.op {
     // x * 2^n => x << n
@@ -563,7 +563,7 @@ fn try_simplify_binary(
   users : NodeUsers,
   node : Node,
   bin : BinaryExpr,
-  work : @set.Set[NodeId],
+  work : Set[NodeId],
 ) -> Bool {
   let left_node = graph.node_store.get(node.values[0])
   let right_node = graph.node_store.get(node.values[1])
@@ -855,7 +855,7 @@ fn try_simplify_unary(
   users : NodeUsers,
   node : Node,
   un : UnaryExpr,
-  work : @set.Set[NodeId],
+  work : Set[NodeId],
 ) -> Bool {
   // Double negation: neg(neg(x)) => x
   match un.op {
@@ -984,7 +984,7 @@ fn try_simplify_if(
   users : NodeUsers,
   node : Node,
   if_expr : IfExpr,
-  work : @set.Set[NodeId],
+  work : Set[NodeId],
 ) -> Bool {
   // if(const_true, t, f) => t
   // if(const_false, t, f) => f
@@ -1045,7 +1045,7 @@ fn try_simplify_switch(
   users : NodeUsers,
   node : Node,
   switch_expr : SwitchExpr,
-  work : @set.Set[NodeId],
+  work : Set[NodeId],
 ) -> Bool {
   // switch with constant condition => jump directly to target
   match get_const_value(graph, node.values[0]) {
@@ -1090,7 +1090,7 @@ fn try_simplify_block(
   users : NodeUsers,
   node : Node,
   block_expr : BlockExpr,
-  work : @set.Set[NodeId],
+  work : Set[NodeId],
 ) -> Bool {
   // Empty block with no result => can potentially be eliminated
   // (depends on context, may need to check for side effects)
@@ -1142,7 +1142,7 @@ fn try_simplify_loop(
   users : NodeUsers,
   node : Node,
   loop_expr : LoopExpr,
-  work : @set.Set[NodeId],
+  work : Set[NodeId],
 ) -> Bool {
   // Loop with no continues (no references to its label) => execute body once
   if node.values.length() > 0 {
@@ -1175,10 +1175,10 @@ fn try_simplify_break(
   users : NodeUsers,
   node : Node,
   break_expr : BreakExpr,
-  work : @set.Set[NodeId],
+  work : Set[NodeId],
 ) -> Bool {
   // Conditional break with constant condition
-  if break_expr.condition.is_some() && node.values.length() >= 2 {
+  if break_expr.condition is Some(_) && node.values.length() >= 2 {
     // Assuming values[0] = condition, values[1] = value (if any)
     match get_const_value(graph, node.values[0]) {
       Some(LitI32(0)) => {
@@ -1208,7 +1208,7 @@ fn try_simplify_drop(
   graph : Graph,
   users : NodeUsers,
   node : Node,
-  work : @set.Set[NodeId],
+  work : Set[NodeId],
 ) -> Bool {
   if node.values.is_empty() {
     return false
@@ -1260,7 +1260,7 @@ fn try_simplify_local_set(
   users : NodeUsers,
   node : Node,
   local_set : LocalSetExpr,
-  work : @set.Set[NodeId],
+  work : Set[NodeId],
 ) -> Bool {
   // local.set followed by local.get of same local with no intervening writes
   // This requires more complex analysis (use-def chains)
@@ -1286,7 +1286,7 @@ fn try_simplify_return(
   graph : Graph,
   users : NodeUsers,
   node : Node,
-  work : @set.Set[NodeId],
+  work : Set[NodeId],
 ) -> Bool {
   // Return expressions don't have much to optimize directly,
   // but we can propagate constants through them
@@ -1300,7 +1300,7 @@ fn try_simplify_generic(
   users : NodeUsers,
   node : Node,
   generic : GenericExpr,
-  work : @set.Set[NodeId],
+  work : Set[NodeId],
 ) -> Bool {
   // GenericExpr optimization depends on what it represents
   // Common patterns:
@@ -1699,7 +1699,7 @@ pub fn gvn_pass(graph : Graph) -> Unit {
         match value_map.get(key) {
           Some(existing) if existing != node.id => {
             // Found duplicate - replace uses
-            let work : @set.Set[NodeId] = @set.Set::new()
+            let work : Set[NodeId] = Set::new()
             replace_all_uses(graph, users, node.id, existing, work)
           }
           _ => value_map.set(key, node.id)
