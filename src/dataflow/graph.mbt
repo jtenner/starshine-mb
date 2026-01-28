@@ -46,6 +46,7 @@ pub struct Graph {
   /// The module being processed
   mut mod : Module?
   mut mssa : MemorySSA?
+  mut dom_info : DominatorInfo?
 }
 
 ///|
@@ -64,7 +65,25 @@ pub fn Graph::new() -> Graph {
     func: None,
     mod: None,
     mssa: None,
+    dom_info: None,
   }
+}
+
+// Cached version:
+pub fn Graph::get_dom_info(self : Graph) -> DominatorInfo {
+  match self.dom_info {
+    Some(info) => info
+    None => {
+      let info = compute_dominators(self)
+      self.dom_info = Some(info)
+      info
+    }
+  }
+}
+
+// Invalidate cache when graph changes:
+pub fn Graph::invalidate_dom_info(self : Graph) -> Unit {
+  self.dom_info = None
 }
 
 ///|
@@ -280,14 +299,11 @@ pub fn Graph::get_block_of_node(self : Graph, node_id : NodeId) -> NodeId {
 }
 
 
-///|
-/// Check if node a dominates node b in the graph
 pub fn Graph::dominates(self : Graph, a : NodeId, b : NodeId) -> Bool {
   if a == b {
     return true
   }
   
-  // Get the origin expressions for both nodes
   let a_origin = match self.node_store.get(a) {
     Some(node) => node.origin
     None => return false
@@ -301,25 +317,14 @@ pub fn Graph::dominates(self : Graph, a : NodeId, b : NodeId) -> Bool {
   match (a_origin, b_origin) {
     (Some(a_expr), Some(b_expr)) => {
       if a_expr == b_expr {
-        // Same expression - check node ordering within expression
-        // For simplicity, assume nodes created earlier dominate later ones
         return a.0 <= b.0
       }
-      
-      // Compute dominators if not cached, then check
-      let info = compute_dominators(self)
+      let info = self.get_dom_info()
       expr_dominates(info, a_expr, b_expr)
     }
-    (None, Some(_)) => {
-      // Node a has no origin (e.g., constant) - constants dominate everything
-      // in their scope since they're available everywhere
-      true
-    }
+    (None, Some(_)) => true
     (Some(_), None) => false
-    (None, None) => {
-      // Both have no origin - fall back to ID ordering
-      a.0 <= b.0
-    }
+    (None, None) => a.0 <= b.0
   }
 }
 
