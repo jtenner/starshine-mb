@@ -1285,7 +1285,7 @@ fn try_eliminate_dead_store(
   mssa : MemorySSA,
   users : NodeUsers,
   node : Node,
-  store : StoreExpr,
+  _store : StoreExpr,
   work : Set[NodeId],
 ) -> Bool {
   let our_access = match get_access_info(graph, node) {
@@ -1293,9 +1293,14 @@ fn try_eliminate_dead_store(
     None => return false
   }
   
-  // Check if there's a subsequent store that overwrites this one
-  // without any intervening read
-  for user_id in users.get_users(node.id) {
+  // Get the memory state defined by this store
+  let our_mem_state = match mssa.get_defining_access(node.id) {
+    Some(s) => s
+    None => return false
+  }
+  
+  // Check all users of the memory state this store defines
+  for user_id in users.get_users(our_mem_state) {
     match graph.node_store.get(user_id) {
       Some(user_node) => {
         match user_node.expr {
@@ -1306,11 +1311,20 @@ fn try_eliminate_dead_store(
             }
             match check_alias(graph, our_access, user_access) {
               MustAlias => {
+                // Found a store that overwrites this one
                 if no_intervening_loads(graph, mssa, node.id, user_id, our_access) {
-                  // Actually remove the dead store
+                  // Safe to remove this dead store
+                  // First, update memory SSA - users of our state should use our input state
+                  let our_input_state = match mssa.get_defining_access(node.id) {
+                    Some(s) => s
+                    None => return false
+                  }
+                  
+                  // Remove the store node
                   graph.node_store.remove(node.id)
                   users.remove_all_uses_of(node.id)
-                  // Add users of our inputs to worklist (they may become dead)
+                  
+                  // Add our value inputs to worklist - they may become dead
                   for v in node.values {
                     work.add(v)
                   }
@@ -1321,14 +1335,14 @@ fn try_eliminate_dead_store(
             }
           }
           Some(Load(_)) => {
-            // There's a load that might read this store
+            // Check if this load reads from our store
             let user_access = match get_access_info(graph, user_node) {
               Some(a) => a
               None => continue
             }
             match check_alias(graph, our_access, user_access) {
-              NoAlias => continue  // Load doesn't read our store
-              _ => return false    // Store might be read
+              NoAlias => continue
+              _ => return false // Store may be read - not dead
             }
           }
           _ => ()
@@ -1337,6 +1351,7 @@ fn try_eliminate_dead_store(
       None => ()
     }
   }
+  
   false
 }
 
