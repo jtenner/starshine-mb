@@ -369,6 +369,10 @@ pub struct ConstExpr {
   value : Literal
 } derive(Eq, Show)
 
+pub fn ConstExpr::new(value : Literal) -> ConstExpr {
+  ConstExpr::{ value }
+}
+
 ///|
 pub struct UnaryExpr {
   op : UnaryOp

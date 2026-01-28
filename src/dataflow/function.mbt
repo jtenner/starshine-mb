@@ -17,7 +17,7 @@ pub struct Function {
   params : Array[WasmType]
   results : Array[WasmType]
   locals : Array[LocalInfo]
-  body : ExprId?
+  mut body : ExprId?
   expressions : ExpressionStore
 }
 
@@ -31,6 +31,10 @@ pub fn Function::new(name : String) -> Function {
     body: None,
     expressions: ExpressionStore::new(),
   }
+}
+
+pub fn Function::set_body(self : Function, body : ExprId) -> Unit {
+  self.body = Some(body)
 }
 
 ///|

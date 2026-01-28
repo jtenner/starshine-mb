@@ -84,14 +84,9 @@ using @local_graph {type LocalGraph, type LocalSet}
 ///|
 using @binary {size_signed}
 
-///|
-type DataFlowLiteral = @dataflow.Literal
 
-///|
-type DataFlowUnaryOp = @dataflow.UnaryOp
 
-///|
-type DataFlowBinaryOp = @dataflow.BinaryOp
+
 
 ///|
 using @dataflow {
@@ -122,6 +117,13 @@ using @dataflow {
   type GVN,
   type DominatorGVN,
   type PhiWebGVN,
+  type Function,
+  type Module as DataFlowModule,
+  type ConstExpr,
+  type Literal as DataFlowLiteral,
+  type UnaryOp as DataFlowUnaryOp,
+  type BinaryOp as DataFlowBinaryOp,
+  
 }
 
 ///|
