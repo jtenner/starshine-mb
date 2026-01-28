@@ -874,13 +874,13 @@ fn WastParser::parse_folded_instruction(
       let _ = self.advance()
       let block_type = self.parse_block_type()
       let body = self.parse_instructions()
-      [Instruction::Block(block_type, body)]
+      [Block(block_type, body)]
     }
     Loop => {
       let _ = self.advance()
       let block_type = self.parse_block_type()
       let body = self.parse_instructions()
-      [Instruction::Loop(block_type, body)]
+      [Loop(block_type, body)]
     }
     If => {
       let _ = self.advance()
@@ -985,14 +985,14 @@ fn WastParser::try_parse_plain_instruction(
       let block_type = self.parse_block_type()
       let body = self.parse_block_body()
       let _ = self.expect(End, "expected 'end'")
-      Some(Instruction::Block(block_type, body))
+      Some(Block(block_type, body))
     }
     Loop => {
       let _ = self.advance()
       let block_type = self.parse_block_type()
       let body = self.parse_block_body()
       let _ = self.expect(End, "expected 'end'")
-      Some(Instruction::Loop(block_type, body))
+      Some(Loop(block_type, body))
     }
     If => {
       let _ = self.advance()
@@ -1056,7 +1056,7 @@ fn WastParser::try_parse_plain_instruction(
         let _ = self.expect(End, "expected 'end'")
 
       }
-      Some(Instruction::If(block_type, then_body, else_body))
+      Some(If(block_type, then_body, else_body))
     }
     Opcode(op) => {
       let _ = self.advance()
@@ -1108,11 +1108,11 @@ fn WastParser::parse_opcode_instruction(
 ) -> Instruction raise ParserError {
   match op {
     // Control
-    Opcode::Unreachable => Instruction::Unreachable
-    Opcode::Nop => Instruction::Nop
-    Opcode::Br => Instruction::Br(self.parse_index())
-    Opcode::BrIf => Instruction::BrIf(self.parse_index())
-    Opcode::BrTable => {
+    Unreachable => Unreachable
+    Nop => Nop
+    Br => Br(self.parse_index())
+    BrIf => BrIf(self.parse_index())
+    BrTable => {
       let indices : Array[Index] = []
       while self.current.token_type is (Nat | Var) {
         indices.push(self.parse_index())
@@ -1121,19 +1121,19 @@ fn WastParser::parse_opcode_instruction(
         raise Custom("br_table requires at least one index")
       }
       let default = indices.pop().unwrap()
-      Instruction::BrTable(indices, default)
+      BrTable(indices, default)
     }
-    Opcode::Return => Instruction::Return
-    Opcode::Call => Instruction::Call(self.parse_index())
-    Opcode::CallIndirect => {
+    Return => Return
+    Call => Call(self.parse_index())
+    CallIndirect => {
       let table_index = self.try_parse_index().unwrap_or(Index::Num(0))
       let type_use = self.parse_type_use()
-      Instruction::CallIndirect(table_index, type_use)
+      CallIndirect(table_index, type_use)
     }
 
     // Parametric
-    Opcode::Drop => Instruction::Drop
-    Opcode::Select => {
+    Drop => Drop
+    Select => {
       // Check for typed select
       let types : Array[ValueType]? = if self.check(Lpar) {
         let saved_state = self.save_lexer_state()
@@ -1155,33 +1155,28 @@ fn WastParser::parse_opcode_instruction(
       } else {
         None
       }
-      Instruction::Select(types)
+      Select(types)
     }
 
     // Variable
-    Opcode::LocalGet => Instruction::LocalGet(self.parse_index())
-    Opcode::LocalSet => Instruction::LocalSet(self.parse_index())
-    Opcode::LocalTee => Instruction::LocalTee(self.parse_index())
-    Opcode::GlobalGet => Instruction::GlobalGet(self.parse_index())
-    Opcode::GlobalSet => Instruction::GlobalSet(self.parse_index())
+    LocalGet => LocalGet(self.parse_index())
+    LocalSet => LocalSet(self.parse_index())
+    LocalTee => LocalTee(self.parse_index())
+    GlobalGet => GlobalGet(self.parse_index())
+    GlobalSet => GlobalSet(self.parse_index())
 
     // Table
-    Opcode::TableGet =>
-      Instruction::TableGet(self.try_parse_index().unwrap_or(Index::Num(0)))
-    Opcode::TableSet =>
-      Instruction::TableSet(self.try_parse_index().unwrap_or(Index::Num(0)))
-    Opcode::TableSize =>
-      Instruction::TableSize(self.try_parse_index().unwrap_or(Index::Num(0)))
-    Opcode::TableGrow =>
-      Instruction::TableGrow(self.try_parse_index().unwrap_or(Index::Num(0)))
-    Opcode::TableFill =>
-      Instruction::TableFill(self.try_parse_index().unwrap_or(Index::Num(0)))
-    Opcode::TableCopy => {
+    TableGet => TableGet(self.try_parse_index().unwrap_or(Index::Num(0)))
+    TableSet => TableSet(self.try_parse_index().unwrap_or(Index::Num(0)))
+    TableSize => TableSize(self.try_parse_index().unwrap_or(Index::Num(0)))
+    TableGrow => TableGrow(self.try_parse_index().unwrap_or(Index::Num(0)))
+    TableFill => TableFill(self.try_parse_index().unwrap_or(Index::Num(0)))
+    TableCopy => {
       let dst = self.try_parse_index().unwrap_or(Index::Num(0))
       let src = self.try_parse_index().unwrap_or(Index::Num(0))
-      Instruction::TableCopy(dst, src)
+      TableCopy(dst, src)
     }
-    Opcode::TableInit => {
+    TableInit => {
       // table.init can have either:
       //   table.init elemidx           -> table defaults to 0
       //   table.init tableidx elemidx  -> explicit table index
@@ -1190,216 +1185,209 @@ fn WastParser::parse_opcode_instruction(
         Some(idx1) => {
           let second = self.try_parse_index()
           match second {
-            Some(idx2) => Instruction::TableInit(idx1, idx2) // tableidx, elemidx
-            None => Instruction::TableInit(Index::Num(0), idx1) // default table 0, elemidx
+            Some(idx2) => TableInit(idx1, idx2) // tableidx, elemidx
+            None => TableInit(Index::Num(0), idx1) // default table 0, elemidx
           }
         }
         None => raise Custom("table.init requires at least one index")
       }
     }
-    Opcode::ElemDrop => Instruction::ElemDrop(self.parse_index())
+    ElemDrop => ElemDrop(self.parse_index())
 
     // Memory
-    Opcode::I32Load => Instruction::Load(op, self.parse_mem_arg(4))
-    Opcode::I64Load => Instruction::Load(op, self.parse_mem_arg(8))
-    Opcode::F32Load => Instruction::Load(op, self.parse_mem_arg(4))
-    Opcode::F64Load => Instruction::Load(op, self.parse_mem_arg(8))
-    Opcode::I32Load8S | Opcode::I32Load8U =>
-      Instruction::Load(op, self.parse_mem_arg(1))
-    Opcode::I32Load16S | Opcode::I32Load16U =>
-      Instruction::Load(op, self.parse_mem_arg(2))
-    Opcode::I64Load8S | Opcode::I64Load8U =>
-      Instruction::Load(op, self.parse_mem_arg(1))
-    Opcode::I64Load16S | Opcode::I64Load16U =>
-      Instruction::Load(op, self.parse_mem_arg(2))
-    Opcode::I64Load32S | Opcode::I64Load32U =>
-      Instruction::Load(op, self.parse_mem_arg(4))
-    Opcode::I32Store => Instruction::Store(op, self.parse_mem_arg(4))
-    Opcode::I64Store => Instruction::Store(op, self.parse_mem_arg(8))
-    Opcode::F32Store => Instruction::Store(op, self.parse_mem_arg(4))
-    Opcode::F64Store => Instruction::Store(op, self.parse_mem_arg(8))
-    Opcode::I32Store8 | Opcode::I64Store8 =>
-      Instruction::Store(op, self.parse_mem_arg(1))
-    Opcode::I32Store16 | Opcode::I64Store16 =>
-      Instruction::Store(op, self.parse_mem_arg(2))
-    Opcode::I64Store32 => Instruction::Store(op, self.parse_mem_arg(4))
-    Opcode::MemorySize => Instruction::MemorySize
-    Opcode::MemoryGrow => Instruction::MemoryGrow
-    Opcode::MemoryFill => Instruction::MemoryFill
-    Opcode::MemoryCopy => Instruction::MemoryCopy
-    Opcode::MemoryInit => Instruction::MemoryInit(self.parse_index())
-    Opcode::DataDrop => Instruction::DataDrop(self.parse_index())
+    I32Load => Load(op, self.parse_mem_arg(4))
+    I64Load => Load(op, self.parse_mem_arg(8))
+    F32Load => Load(op, self.parse_mem_arg(4))
+    F64Load => Load(op, self.parse_mem_arg(8))
+    I32Load8S | I32Load8U => Load(op, self.parse_mem_arg(1))
+    I32Load16S | I32Load16U => Load(op, self.parse_mem_arg(2))
+    I64Load8S | I64Load8U => Load(op, self.parse_mem_arg(1))
+    I64Load16S | I64Load16U => Load(op, self.parse_mem_arg(2))
+    I64Load32S | I64Load32U => Load(op, self.parse_mem_arg(4))
+    I32Store => Store(op, self.parse_mem_arg(4))
+    I64Store => Store(op, self.parse_mem_arg(8))
+    F32Store => Store(op, self.parse_mem_arg(4))
+    F64Store => Store(op, self.parse_mem_arg(8))
+    I32Store8 | I64Store8 => Store(op, self.parse_mem_arg(1))
+    I32Store16 | I64Store16 => Store(op, self.parse_mem_arg(2))
+    I64Store32 => Store(op, self.parse_mem_arg(4))
+    MemorySize => MemorySize
+    MemoryGrow => MemoryGrow
+    MemoryFill => MemoryFill
+    MemoryCopy => MemoryCopy
+    MemoryInit => MemoryInit(self.parse_index())
+    DataDrop => DataDrop(self.parse_index())
 
     // Const
-    Opcode::I32Const | Opcode::I64Const => {
+    I32Const | I64Const => {
       let token = self.advance()
       let text = match token.token_type {
         Nat | Int => self.get_literal_text(token)
         _ => "0"
       }
-      Instruction::Const(op, text)
+      Const(op, text)
     }
-    Opcode::F32Const | Opcode::F64Const => {
+    F32Const | F64Const => {
       let token = self.advance()
       let text = match token.token_type {
         Nat | Int | Float => self.get_literal_text(token)
         _ => "0"
       }
-      Instruction::Const(op, text)
+      Const(op, text)
     }
 
     // Unary
-    Opcode::I32Clz
-    | Opcode::I32Ctz
-    | Opcode::I32Popcnt
-    | Opcode::I64Clz
-    | Opcode::I64Ctz
-    | Opcode::I64Popcnt
-    | Opcode::F32Abs
-    | Opcode::F32Neg
-    | Opcode::F32Ceil
-    | Opcode::F32Floor
-    | Opcode::F32Trunc
-    | Opcode::F32Nearest
-    | Opcode::F32Sqrt
-    | Opcode::F64Abs
-    | Opcode::F64Neg
-    | Opcode::F64Ceil
-    | Opcode::F64Floor
-    | Opcode::F64Trunc
-    | Opcode::F64Nearest
-    | Opcode::F64Sqrt
-    | Opcode::I32Extend8S
-    | Opcode::I32Extend16S
-    | Opcode::I64Extend8S
-    | Opcode::I64Extend16S
-    | Opcode::I64Extend32S => Instruction::Unary(op)
+    I32Clz
+    | I32Ctz
+    | I32Popcnt
+    | I64Clz
+    | I64Ctz
+    | I64Popcnt
+    | F32Abs
+    | F32Neg
+    | F32Ceil
+    | F32Floor
+    | F32Trunc
+    | F32Nearest
+    | F32Sqrt
+    | F64Abs
+    | F64Neg
+    | F64Ceil
+    | F64Floor
+    | F64Trunc
+    | F64Nearest
+    | F64Sqrt
+    | I32Extend8S
+    | I32Extend16S
+    | I64Extend8S
+    | I64Extend16S
+    | I64Extend32S => Unary(op)
 
     // Binary
-    Opcode::I32Add
-    | Opcode::I32Sub
-    | Opcode::I32Mul
-    | Opcode::I32DivS
-    | Opcode::I32DivU
-    | Opcode::I32RemS
-    | Opcode::I32RemU
-    | Opcode::I32And
-    | Opcode::I32Or
-    | Opcode::I32Xor
-    | Opcode::I32Shl
-    | Opcode::I32ShrS
-    | Opcode::I32ShrU
-    | Opcode::I32Rotl
-    | Opcode::I32Rotr
-    | Opcode::I64Add
-    | Opcode::I64Sub
-    | Opcode::I64Mul
-    | Opcode::I64DivS
-    | Opcode::I64DivU
-    | Opcode::I64RemS
-    | Opcode::I64RemU
-    | Opcode::I64And
-    | Opcode::I64Or
-    | Opcode::I64Xor
-    | Opcode::I64Shl
-    | Opcode::I64ShrS
-    | Opcode::I64ShrU
-    | Opcode::I64Rotl
-    | Opcode::I64Rotr
-    | Opcode::F32Add
-    | Opcode::F32Sub
-    | Opcode::F32Mul
-    | Opcode::F32Div
-    | Opcode::F32Min
-    | Opcode::F32Max
-    | Opcode::F32Copysign
-    | Opcode::F64Add
-    | Opcode::F64Sub
-    | Opcode::F64Mul
-    | Opcode::F64Div
-    | Opcode::F64Min
-    | Opcode::F64Max
-    | Opcode::F64Copysign => Instruction::Binary(op)
+    I32Add
+    | I32Sub
+    | I32Mul
+    | I32DivS
+    | I32DivU
+    | I32RemS
+    | I32RemU
+    | I32And
+    | I32Or
+    | I32Xor
+    | I32Shl
+    | I32ShrS
+    | I32ShrU
+    | I32Rotl
+    | I32Rotr
+    | I64Add
+    | I64Sub
+    | I64Mul
+    | I64DivS
+    | I64DivU
+    | I64RemS
+    | I64RemU
+    | I64And
+    | I64Or
+    | I64Xor
+    | I64Shl
+    | I64ShrS
+    | I64ShrU
+    | I64Rotl
+    | I64Rotr
+    | F32Add
+    | F32Sub
+    | F32Mul
+    | F32Div
+    | F32Min
+    | F32Max
+    | F32Copysign
+    | F64Add
+    | F64Sub
+    | F64Mul
+    | F64Div
+    | F64Min
+    | F64Max
+    | F64Copysign => Binary(op)
 
     // Test
-    Opcode::I32Eqz | Opcode::I64Eqz => Instruction::Test(op)
+    I32Eqz | I64Eqz => Test(op)
 
     // Compare
-    Opcode::I32Eq
-    | Opcode::I32Ne
-    | Opcode::I32LtS
-    | Opcode::I32LtU
-    | Opcode::I32GtS
-    | Opcode::I32GtU
-    | Opcode::I32LeS
-    | Opcode::I32LeU
-    | Opcode::I32GeS
-    | Opcode::I32GeU
-    | Opcode::I64Eq
-    | Opcode::I64Ne
-    | Opcode::I64LtS
-    | Opcode::I64LtU
-    | Opcode::I64GtS
-    | Opcode::I64GtU
-    | Opcode::I64LeS
-    | Opcode::I64LeU
-    | Opcode::I64GeS
-    | Opcode::I64GeU
-    | Opcode::F32Eq
-    | Opcode::F32Ne
-    | Opcode::F32Lt
-    | Opcode::F32Gt
-    | Opcode::F32Le
-    | Opcode::F32Ge
-    | Opcode::F64Eq
-    | Opcode::F64Ne
-    | Opcode::F64Lt
-    | Opcode::F64Gt
-    | Opcode::F64Le
-    | Opcode::F64Ge => Instruction::Compare(op)
+    I32Eq
+    | I32Ne
+    | I32LtS
+    | I32LtU
+    | I32GtS
+    | I32GtU
+    | I32LeS
+    | I32LeU
+    | I32GeS
+    | I32GeU
+    | I64Eq
+    | I64Ne
+    | I64LtS
+    | I64LtU
+    | I64GtS
+    | I64GtU
+    | I64LeS
+    | I64LeU
+    | I64GeS
+    | I64GeU
+    | F32Eq
+    | F32Ne
+    | F32Lt
+    | F32Gt
+    | F32Le
+    | F32Ge
+    | F64Eq
+    | F64Ne
+    | F64Lt
+    | F64Gt
+    | F64Le
+    | F64Ge => Compare(op)
 
     // Conversion
-    Opcode::I32WrapI64
-    | Opcode::I32TruncF32S
-    | Opcode::I32TruncF32U
-    | Opcode::I32TruncF64S
-    | Opcode::I32TruncF64U
-    | Opcode::I64ExtendI32S
-    | Opcode::I64ExtendI32U
-    | Opcode::I64TruncF32S
-    | Opcode::I64TruncF32U
-    | Opcode::I64TruncF64S
-    | Opcode::I64TruncF64U
-    | Opcode::F32ConvertI32S
-    | Opcode::F32ConvertI32U
-    | Opcode::F32ConvertI64S
-    | Opcode::F32ConvertI64U
-    | Opcode::F32DemoteF64
-    | Opcode::F64ConvertI32S
-    | Opcode::F64ConvertI32U
-    | Opcode::F64ConvertI64S
-    | Opcode::F64ConvertI64U
-    | Opcode::F64PromoteF32
-    | Opcode::I32ReinterpretF32
-    | Opcode::I64ReinterpretF64
-    | Opcode::F32ReinterpretI32
-    | Opcode::F64ReinterpretI64
-    | Opcode::I32TruncSatF32S
-    | Opcode::I32TruncSatF32U
-    | Opcode::I32TruncSatF64S
-    | Opcode::I32TruncSatF64U
-    | Opcode::I64TruncSatF32S
-    | Opcode::I64TruncSatF32U
-    | Opcode::I64TruncSatF64S
-    | Opcode::I64TruncSatF64U => Instruction::Convert(op)
+    I32WrapI64
+    | I32TruncF32S
+    | I32TruncF32U
+    | I32TruncF64S
+    | I32TruncF64U
+    | I64ExtendI32S
+    | I64ExtendI32U
+    | I64TruncF32S
+    | I64TruncF32U
+    | I64TruncF64S
+    | I64TruncF64U
+    | F32ConvertI32S
+    | F32ConvertI32U
+    | F32ConvertI64S
+    | F32ConvertI64U
+    | F32DemoteF64
+    | F64ConvertI32S
+    | F64ConvertI32U
+    | F64ConvertI64S
+    | F64ConvertI64U
+    | F64PromoteF32
+    | I32ReinterpretF32
+    | I64ReinterpretF64
+    | F32ReinterpretI32
+    | F64ReinterpretI64
+    | I32TruncSatF32S
+    | I32TruncSatF32U
+    | I32TruncSatF64S
+    | I32TruncSatF64U
+    | I64TruncSatF32S
+    | I64TruncSatF32U
+    | I64TruncSatF64S
+    | I64TruncSatF64U => Convert(op)
 
     // Reference
-    Opcode::RefNull => {
+    RefNull => {
       let vt = self.parse_value_type()
-      Instruction::RefNull(vt)
+      RefNull(vt)
     }
-    Opcode::RefIsNull => Instruction::RefIsNull
-    Opcode::RefFunc => Instruction::RefFunc(self.parse_index())
+    RefIsNull => RefIsNull
+    RefFunc => RefFunc(self.parse_index())
 
     // SIMD - delegate to SIMD parser
     _ => self.parse_simd_instruction(op)
@@ -2289,350 +2277,324 @@ fn WastParser::parse_simd_instruction(
 ) -> Instruction raise ParserError {
   match op {
     // V128 Const
-    Opcode::V128Const => {
+    V128Const => {
       let v128_const = self.parse_v128_const()
-      Instruction::V128Const(v128_const)
+      V128Const(v128_const)
     }
 
     // V128 Memory - Load
-    Opcode::V128Load => Instruction::V128Load(self.parse_simd_mem_arg(16))
-    Opcode::V128Load8x8S =>
-      Instruction::V128Load8x8S(self.parse_simd_mem_arg(8))
-    Opcode::V128Load8x8U =>
-      Instruction::V128Load8x8U(self.parse_simd_mem_arg(8))
-    Opcode::V128Load16x4S =>
-      Instruction::V128Load16x4S(self.parse_simd_mem_arg(8))
-    Opcode::V128Load16x4U =>
-      Instruction::V128Load16x4U(self.parse_simd_mem_arg(8))
-    Opcode::V128Load32x2S =>
-      Instruction::V128Load32x2S(self.parse_simd_mem_arg(8))
-    Opcode::V128Load32x2U =>
-      Instruction::V128Load32x2U(self.parse_simd_mem_arg(8))
-    Opcode::V128Load8Splat =>
-      Instruction::V128Load8Splat(self.parse_simd_mem_arg(1))
-    Opcode::V128Load16Splat =>
-      Instruction::V128Load16Splat(self.parse_simd_mem_arg(2))
-    Opcode::V128Load32Splat =>
-      Instruction::V128Load32Splat(self.parse_simd_mem_arg(4))
-    Opcode::V128Load64Splat =>
-      Instruction::V128Load64Splat(self.parse_simd_mem_arg(8))
-    Opcode::V128Load32Zero =>
-      Instruction::V128Load32Zero(self.parse_simd_mem_arg(4))
-    Opcode::V128Load64Zero =>
-      Instruction::V128Load64Zero(self.parse_simd_mem_arg(8))
-    Opcode::V128Store => Instruction::V128Store(self.parse_simd_mem_arg(16))
+    V128Load => V128Load(self.parse_simd_mem_arg(16))
+    V128Load8x8S => V128Load8x8S(self.parse_simd_mem_arg(8))
+    V128Load8x8U => V128Load8x8U(self.parse_simd_mem_arg(8))
+    V128Load16x4S => V128Load16x4S(self.parse_simd_mem_arg(8))
+    V128Load16x4U => V128Load16x4U(self.parse_simd_mem_arg(8))
+    V128Load32x2S => V128Load32x2S(self.parse_simd_mem_arg(8))
+    V128Load32x2U => V128Load32x2U(self.parse_simd_mem_arg(8))
+    V128Load8Splat => V128Load8Splat(self.parse_simd_mem_arg(1))
+    V128Load16Splat => V128Load16Splat(self.parse_simd_mem_arg(2))
+    V128Load32Splat => V128Load32Splat(self.parse_simd_mem_arg(4))
+    V128Load64Splat => V128Load64Splat(self.parse_simd_mem_arg(8))
+    V128Load32Zero => V128Load32Zero(self.parse_simd_mem_arg(4))
+    V128Load64Zero => V128Load64Zero(self.parse_simd_mem_arg(8))
+    V128Store => V128Store(self.parse_simd_mem_arg(16))
 
     // V128 Memory - Lane operations
-    Opcode::V128Load8Lane => {
+    V128Load8Lane => {
       let memarg = self.parse_simd_mem_arg(1)
       let lane = self.parse_lane_index()
-      Instruction::V128Load8Lane(memarg, lane)
+      V128Load8Lane(memarg, lane)
     }
-    Opcode::V128Load16Lane => {
+    V128Load16Lane => {
       let memarg = self.parse_simd_mem_arg(2)
       let lane = self.parse_lane_index()
-      Instruction::V128Load16Lane(memarg, lane)
+      V128Load16Lane(memarg, lane)
     }
-    Opcode::V128Load32Lane => {
+    V128Load32Lane => {
       let memarg = self.parse_simd_mem_arg(4)
       let lane = self.parse_lane_index()
-      Instruction::V128Load32Lane(memarg, lane)
+      V128Load32Lane(memarg, lane)
     }
-    Opcode::V128Load64Lane => {
+    V128Load64Lane => {
       let memarg = self.parse_simd_mem_arg(8)
       let lane = self.parse_lane_index()
-      Instruction::V128Load64Lane(memarg, lane)
+      V128Load64Lane(memarg, lane)
     }
-    Opcode::V128Store8Lane => {
+    V128Store8Lane => {
       let memarg = self.parse_simd_mem_arg(1)
       let lane = self.parse_lane_index()
-      Instruction::V128Store8Lane(memarg, lane)
+      V128Store8Lane(memarg, lane)
     }
-    Opcode::V128Store16Lane => {
+    V128Store16Lane => {
       let memarg = self.parse_simd_mem_arg(2)
       let lane = self.parse_lane_index()
-      Instruction::V128Store16Lane(memarg, lane)
+      V128Store16Lane(memarg, lane)
     }
-    Opcode::V128Store32Lane => {
+    V128Store32Lane => {
       let memarg = self.parse_simd_mem_arg(4)
       let lane = self.parse_lane_index()
-      Instruction::V128Store32Lane(memarg, lane)
+      V128Store32Lane(memarg, lane)
     }
-    Opcode::V128Store64Lane => {
+    V128Store64Lane => {
       let memarg = self.parse_simd_mem_arg(8)
       let lane = self.parse_lane_index()
-      Instruction::V128Store64Lane(memarg, lane)
+      V128Store64Lane(memarg, lane)
     }
 
     // Shuffle
-    Opcode::I8x16Shuffle => {
+    I8x16Shuffle => {
       let lanes = self.parse_shuffle_lanes()
-      Instruction::I8x16Shuffle(lanes)
+      I8x16Shuffle(lanes)
     }
-    Opcode::I8x16Swizzle => Instruction::I8x16Swizzle
+    I8x16Swizzle => I8x16Swizzle
 
     // Splat
-    Opcode::I8x16Splat => Instruction::I8x16Splat
-    Opcode::I16x8Splat => Instruction::I16x8Splat
-    Opcode::I32x4Splat => Instruction::I32x4Splat
-    Opcode::I64x2Splat => Instruction::I64x2Splat
-    Opcode::F32x4Splat => Instruction::F32x4Splat
-    Opcode::F64x2Splat => Instruction::F64x2Splat
+    I8x16Splat => I8x16Splat
+    I16x8Splat => I16x8Splat
+    I32x4Splat => I32x4Splat
+    I64x2Splat => I64x2Splat
+    F32x4Splat => F32x4Splat
+    F64x2Splat => F64x2Splat
 
     // Extract lane
-    Opcode::I8x16ExtractLaneS =>
-      Instruction::I8x16ExtractLaneS(self.parse_lane_index())
-    Opcode::I8x16ExtractLaneU =>
-      Instruction::I8x16ExtractLaneU(self.parse_lane_index())
-    Opcode::I16x8ExtractLaneS =>
-      Instruction::I16x8ExtractLaneS(self.parse_lane_index())
-    Opcode::I16x8ExtractLaneU =>
-      Instruction::I16x8ExtractLaneU(self.parse_lane_index())
-    Opcode::I32x4ExtractLane =>
-      Instruction::I32x4ExtractLane(self.parse_lane_index())
-    Opcode::I64x2ExtractLane =>
-      Instruction::I64x2ExtractLane(self.parse_lane_index())
-    Opcode::F32x4ExtractLane =>
-      Instruction::F32x4ExtractLane(self.parse_lane_index())
-    Opcode::F64x2ExtractLane =>
-      Instruction::F64x2ExtractLane(self.parse_lane_index())
+    I8x16ExtractLaneS => I8x16ExtractLaneS(self.parse_lane_index())
+    I8x16ExtractLaneU => I8x16ExtractLaneU(self.parse_lane_index())
+    I16x8ExtractLaneS => I16x8ExtractLaneS(self.parse_lane_index())
+    I16x8ExtractLaneU => I16x8ExtractLaneU(self.parse_lane_index())
+    I32x4ExtractLane => I32x4ExtractLane(self.parse_lane_index())
+    I64x2ExtractLane => I64x2ExtractLane(self.parse_lane_index())
+    F32x4ExtractLane => F32x4ExtractLane(self.parse_lane_index())
+    F64x2ExtractLane => F64x2ExtractLane(self.parse_lane_index())
 
     // Replace lane
-    Opcode::I8x16ReplaceLane =>
-      Instruction::I8x16ReplaceLane(self.parse_lane_index())
-    Opcode::I16x8ReplaceLane =>
-      Instruction::I16x8ReplaceLane(self.parse_lane_index())
-    Opcode::I32x4ReplaceLane =>
-      Instruction::I32x4ReplaceLane(self.parse_lane_index())
-    Opcode::I64x2ReplaceLane =>
-      Instruction::I64x2ReplaceLane(self.parse_lane_index())
-    Opcode::F32x4ReplaceLane =>
-      Instruction::F32x4ReplaceLane(self.parse_lane_index())
-    Opcode::F64x2ReplaceLane =>
-      Instruction::F64x2ReplaceLane(self.parse_lane_index())
+    I8x16ReplaceLane => I8x16ReplaceLane(self.parse_lane_index())
+    I16x8ReplaceLane => I16x8ReplaceLane(self.parse_lane_index())
+    I32x4ReplaceLane => I32x4ReplaceLane(self.parse_lane_index())
+    I64x2ReplaceLane => I64x2ReplaceLane(self.parse_lane_index())
+    F32x4ReplaceLane => F32x4ReplaceLane(self.parse_lane_index())
+    F64x2ReplaceLane => F64x2ReplaceLane(self.parse_lane_index())
 
     // Unary operations
-    Opcode::I8x16Abs
-    | Opcode::I8x16Neg
-    | Opcode::I8x16Popcnt
-    | Opcode::I16x8Abs
-    | Opcode::I16x8Neg
-    | Opcode::I32x4Abs
-    | Opcode::I32x4Neg
-    | Opcode::I64x2Abs
-    | Opcode::I64x2Neg
-    | Opcode::F32x4Abs
-    | Opcode::F32x4Neg
-    | Opcode::F32x4Sqrt
-    | Opcode::F32x4Ceil
-    | Opcode::F32x4Floor
-    | Opcode::F32x4Trunc
-    | Opcode::F32x4Nearest
-    | Opcode::F64x2Abs
-    | Opcode::F64x2Neg
-    | Opcode::F64x2Sqrt
-    | Opcode::F64x2Ceil
-    | Opcode::F64x2Floor
-    | Opcode::F64x2Trunc
-    | Opcode::F64x2Nearest
-    | Opcode::V128Not => Instruction::SimdUnary(op)
+    I8x16Abs
+    | I8x16Neg
+    | I8x16Popcnt
+    | I16x8Abs
+    | I16x8Neg
+    | I32x4Abs
+    | I32x4Neg
+    | I64x2Abs
+    | I64x2Neg
+    | F32x4Abs
+    | F32x4Neg
+    | F32x4Sqrt
+    | F32x4Ceil
+    | F32x4Floor
+    | F32x4Trunc
+    | F32x4Nearest
+    | F64x2Abs
+    | F64x2Neg
+    | F64x2Sqrt
+    | F64x2Ceil
+    | F64x2Floor
+    | F64x2Trunc
+    | F64x2Nearest
+    | V128Not => SimdUnary(op)
 
     // Binary operations
-    Opcode::I8x16Add
-    | Opcode::I8x16AddSatS
-    | Opcode::I8x16AddSatU
-    | Opcode::I8x16Sub
-    | Opcode::I8x16SubSatS
-    | Opcode::I8x16SubSatU
-    | Opcode::I8x16MinS
-    | Opcode::I8x16MinU
-    | Opcode::I8x16MaxS
-    | Opcode::I8x16MaxU
-    | Opcode::I8x16AvgrU
-    | Opcode::I16x8Add
-    | Opcode::I16x8AddSatS
-    | Opcode::I16x8AddSatU
-    | Opcode::I16x8Sub
-    | Opcode::I16x8SubSatS
-    | Opcode::I16x8SubSatU
-    | Opcode::I16x8Mul
-    | Opcode::I16x8MinS
-    | Opcode::I16x8MinU
-    | Opcode::I16x8MaxS
-    | Opcode::I16x8MaxU
-    | Opcode::I16x8AvgrU
-    | Opcode::I16x8Q15mulrSatS
-    | Opcode::I32x4Add
-    | Opcode::I32x4Sub
-    | Opcode::I32x4Mul
-    | Opcode::I32x4MinS
-    | Opcode::I32x4MinU
-    | Opcode::I32x4MaxS
-    | Opcode::I32x4MaxU
-    | Opcode::I32x4DotI16x8S
-    | Opcode::I64x2Add
-    | Opcode::I64x2Sub
-    | Opcode::I64x2Mul
-    | Opcode::F32x4Add
-    | Opcode::F32x4Sub
-    | Opcode::F32x4Mul
-    | Opcode::F32x4Div
-    | Opcode::F32x4Min
-    | Opcode::F32x4Max
-    | Opcode::F32x4Pmin
-    | Opcode::F32x4Pmax
-    | Opcode::F64x2Add
-    | Opcode::F64x2Sub
-    | Opcode::F64x2Mul
-    | Opcode::F64x2Div
-    | Opcode::F64x2Min
-    | Opcode::F64x2Max
-    | Opcode::F64x2Pmin
-    | Opcode::F64x2Pmax
-    | Opcode::V128And
-    | Opcode::V128AndNot
-    | Opcode::V128Or
-    | Opcode::V128Xor
-    | Opcode::I8x16NarrowI16x8S
-    | Opcode::I8x16NarrowI16x8U
-    | Opcode::I16x8NarrowI32x4S
-    | Opcode::I16x8NarrowI32x4U
-    | Opcode::I16x8ExtmulLowI8x16S
-    | Opcode::I16x8ExtmulHighI8x16S
-    | Opcode::I16x8ExtmulLowI8x16U
-    | Opcode::I16x8ExtmulHighI8x16U
-    | Opcode::I32x4ExtmulLowI16x8S
-    | Opcode::I32x4ExtmulHighI16x8S
-    | Opcode::I32x4ExtmulLowI16x8U
-    | Opcode::I32x4ExtmulHighI16x8U
-    | Opcode::I64x2ExtmulLowI32x4S
-    | Opcode::I64x2ExtmulHighI32x4S
-    | Opcode::I64x2ExtmulLowI32x4U
-    | Opcode::I64x2ExtmulHighI32x4U => Instruction::SimdBinary(op)
+    I8x16Add
+    | I8x16AddSatS
+    | I8x16AddSatU
+    | I8x16Sub
+    | I8x16SubSatS
+    | I8x16SubSatU
+    | I8x16MinS
+    | I8x16MinU
+    | I8x16MaxS
+    | I8x16MaxU
+    | I8x16AvgrU
+    | I16x8Add
+    | I16x8AddSatS
+    | I16x8AddSatU
+    | I16x8Sub
+    | I16x8SubSatS
+    | I16x8SubSatU
+    | I16x8Mul
+    | I16x8MinS
+    | I16x8MinU
+    | I16x8MaxS
+    | I16x8MaxU
+    | I16x8AvgrU
+    | I16x8Q15mulrSatS
+    | I32x4Add
+    | I32x4Sub
+    | I32x4Mul
+    | I32x4MinS
+    | I32x4MinU
+    | I32x4MaxS
+    | I32x4MaxU
+    | I32x4DotI16x8S
+    | I64x2Add
+    | I64x2Sub
+    | I64x2Mul
+    | F32x4Add
+    | F32x4Sub
+    | F32x4Mul
+    | F32x4Div
+    | F32x4Min
+    | F32x4Max
+    | F32x4Pmin
+    | F32x4Pmax
+    | F64x2Add
+    | F64x2Sub
+    | F64x2Mul
+    | F64x2Div
+    | F64x2Min
+    | F64x2Max
+    | F64x2Pmin
+    | F64x2Pmax
+    | V128And
+    | V128AndNot
+    | V128Or
+    | V128Xor
+    | I8x16NarrowI16x8S
+    | I8x16NarrowI16x8U
+    | I16x8NarrowI32x4S
+    | I16x8NarrowI32x4U
+    | I16x8ExtmulLowI8x16S
+    | I16x8ExtmulHighI8x16S
+    | I16x8ExtmulLowI8x16U
+    | I16x8ExtmulHighI8x16U
+    | I32x4ExtmulLowI16x8S
+    | I32x4ExtmulHighI16x8S
+    | I32x4ExtmulLowI16x8U
+    | I32x4ExtmulHighI16x8U
+    | I64x2ExtmulLowI32x4S
+    | I64x2ExtmulHighI32x4S
+    | I64x2ExtmulLowI32x4U
+    | I64x2ExtmulHighI32x4U => SimdBinary(op)
 
     // Ternary operations
-    Opcode::V128Bitselect
-    | Opcode::F32x4RelaxedMadd
-    | Opcode::F32x4RelaxedNmadd
-    | Opcode::F64x2RelaxedMadd
-    | Opcode::F64x2RelaxedNmadd
-    | Opcode::I8x16RelaxedLaneselect
-    | Opcode::I16x8RelaxedLaneselect
-    | Opcode::I32x4RelaxedLaneselect
-    | Opcode::I64x2RelaxedLaneselect => Instruction::SimdTernary(op)
+    V128Bitselect
+    | F32x4RelaxedMadd
+    | F32x4RelaxedNmadd
+    | F64x2RelaxedMadd
+    | F64x2RelaxedNmadd
+    | I8x16RelaxedLaneselect
+    | I16x8RelaxedLaneselect
+    | I32x4RelaxedLaneselect
+    | I64x2RelaxedLaneselect => SimdTernary(op)
 
     // Shift operations
-    Opcode::I8x16Shl
-    | Opcode::I8x16ShrS
-    | Opcode::I8x16ShrU
-    | Opcode::I16x8Shl
-    | Opcode::I16x8ShrS
-    | Opcode::I16x8ShrU
-    | Opcode::I32x4Shl
-    | Opcode::I32x4ShrS
-    | Opcode::I32x4ShrU
-    | Opcode::I64x2Shl
-    | Opcode::I64x2ShrS
-    | Opcode::I64x2ShrU => Instruction::SimdShift(op)
+    I8x16Shl
+    | I8x16ShrS
+    | I8x16ShrU
+    | I16x8Shl
+    | I16x8ShrS
+    | I16x8ShrU
+    | I32x4Shl
+    | I32x4ShrS
+    | I32x4ShrU
+    | I64x2Shl
+    | I64x2ShrS
+    | I64x2ShrU => SimdShift(op)
 
     // Test operations (return i32)
-    Opcode::V128AnyTrue
-    | Opcode::I8x16AllTrue
-    | Opcode::I8x16Bitmask
-    | Opcode::I16x8AllTrue
-    | Opcode::I16x8Bitmask
-    | Opcode::I32x4AllTrue
-    | Opcode::I32x4Bitmask
-    | Opcode::I64x2AllTrue
-    | Opcode::I64x2Bitmask => Instruction::SimdTest(op)
+    V128AnyTrue
+    | I8x16AllTrue
+    | I8x16Bitmask
+    | I16x8AllTrue
+    | I16x8Bitmask
+    | I32x4AllTrue
+    | I32x4Bitmask
+    | I64x2AllTrue
+    | I64x2Bitmask => SimdTest(op)
 
     // Comparison operations
-    Opcode::I8x16Eq
-    | Opcode::I8x16Ne
-    | Opcode::I8x16LtS
-    | Opcode::I8x16LtU
-    | Opcode::I8x16GtS
-    | Opcode::I8x16GtU
-    | Opcode::I8x16LeS
-    | Opcode::I8x16LeU
-    | Opcode::I8x16GeS
-    | Opcode::I8x16GeU
-    | Opcode::I16x8Eq
-    | Opcode::I16x8Ne
-    | Opcode::I16x8LtS
-    | Opcode::I16x8LtU
-    | Opcode::I16x8GtS
-    | Opcode::I16x8GtU
-    | Opcode::I16x8LeS
-    | Opcode::I16x8LeU
-    | Opcode::I16x8GeS
-    | Opcode::I16x8GeU
-    | Opcode::I32x4Eq
-    | Opcode::I32x4Ne
-    | Opcode::I32x4LtS
-    | Opcode::I32x4LtU
-    | Opcode::I32x4GtS
-    | Opcode::I32x4GtU
-    | Opcode::I32x4LeS
-    | Opcode::I32x4LeU
-    | Opcode::I32x4GeS
-    | Opcode::I32x4GeU
-    | Opcode::I64x2Eq
-    | Opcode::I64x2Ne
-    | Opcode::I64x2LtS
-    | Opcode::I64x2GtS
-    | Opcode::I64x2LeS
-    | Opcode::I64x2GeS
-    | Opcode::F32x4Eq
-    | Opcode::F32x4Ne
-    | Opcode::F32x4Lt
-    | Opcode::F32x4Gt
-    | Opcode::F32x4Le
-    | Opcode::F32x4Ge
-    | Opcode::F64x2Eq
-    | Opcode::F64x2Ne
-    | Opcode::F64x2Lt
-    | Opcode::F64x2Gt
-    | Opcode::F64x2Le
-    | Opcode::F64x2Ge => Instruction::SimdCompare(op)
+    I8x16Eq
+    | I8x16Ne
+    | I8x16LtS
+    | I8x16LtU
+    | I8x16GtS
+    | I8x16GtU
+    | I8x16LeS
+    | I8x16LeU
+    | I8x16GeS
+    | I8x16GeU
+    | I16x8Eq
+    | I16x8Ne
+    | I16x8LtS
+    | I16x8LtU
+    | I16x8GtS
+    | I16x8GtU
+    | I16x8LeS
+    | I16x8LeU
+    | I16x8GeS
+    | I16x8GeU
+    | I32x4Eq
+    | I32x4Ne
+    | I32x4LtS
+    | I32x4LtU
+    | I32x4GtS
+    | I32x4GtU
+    | I32x4LeS
+    | I32x4LeU
+    | I32x4GeS
+    | I32x4GeU
+    | I64x2Eq
+    | I64x2Ne
+    | I64x2LtS
+    | I64x2GtS
+    | I64x2LeS
+    | I64x2GeS
+    | F32x4Eq
+    | F32x4Ne
+    | F32x4Lt
+    | F32x4Gt
+    | F32x4Le
+    | F32x4Ge
+    | F64x2Eq
+    | F64x2Ne
+    | F64x2Lt
+    | F64x2Gt
+    | F64x2Le
+    | F64x2Ge => SimdCompare(op)
 
     // Conversion operations
-    Opcode::I16x8ExtendLowI8x16S
-    | Opcode::I16x8ExtendHighI8x16S
-    | Opcode::I16x8ExtendLowI8x16U
-    | Opcode::I16x8ExtendHighI8x16U
-    | Opcode::I32x4ExtendLowI16x8S
-    | Opcode::I32x4ExtendHighI16x8S
-    | Opcode::I32x4ExtendLowI16x8U
-    | Opcode::I32x4ExtendHighI16x8U
-    | Opcode::I64x2ExtendLowI32x4S
-    | Opcode::I64x2ExtendHighI32x4S
-    | Opcode::I64x2ExtendLowI32x4U
-    | Opcode::I64x2ExtendHighI32x4U
-    | Opcode::I32x4TruncSatF32x4S
-    | Opcode::I32x4TruncSatF32x4U
-    | Opcode::I32x4TruncSatF64x2SZero
-    | Opcode::I32x4TruncSatF64x2UZero
-    | Opcode::F32x4ConvertI32x4S
-    | Opcode::F32x4ConvertI32x4U
-    | Opcode::F32x4DemoteF64x2Zero
-    | Opcode::F64x2ConvertLowI32x4S
-    | Opcode::F64x2ConvertLowI32x4U
-    | Opcode::F64x2PromoteLowF32x4 => Instruction::SimdConvert(op)
+    I16x8ExtendLowI8x16S
+    | I16x8ExtendHighI8x16S
+    | I16x8ExtendLowI8x16U
+    | I16x8ExtendHighI8x16U
+    | I32x4ExtendLowI16x8S
+    | I32x4ExtendHighI16x8S
+    | I32x4ExtendLowI16x8U
+    | I32x4ExtendHighI16x8U
+    | I64x2ExtendLowI32x4S
+    | I64x2ExtendHighI32x4S
+    | I64x2ExtendLowI32x4U
+    | I64x2ExtendHighI32x4U
+    | I32x4TruncSatF32x4S
+    | I32x4TruncSatF32x4U
+    | I32x4TruncSatF64x2SZero
+    | I32x4TruncSatF64x2UZero
+    | F32x4ConvertI32x4S
+    | F32x4ConvertI32x4U
+    | F32x4DemoteF64x2Zero
+    | F64x2ConvertLowI32x4S
+    | F64x2ConvertLowI32x4U
+    | F64x2PromoteLowF32x4 => SimdConvert(op)
 
     // Relaxed SIMD
-    Opcode::I8x16RelaxedSwizzle
-    | Opcode::I32x4RelaxedTruncF32x4S
-    | Opcode::I32x4RelaxedTruncF32x4U
-    | Opcode::I32x4RelaxedTruncF64x2SZero
-    | Opcode::I32x4RelaxedTruncF64x2UZero
-    | Opcode::F32x4RelaxedMin
-    | Opcode::F32x4RelaxedMax
-    | Opcode::F64x2RelaxedMin
-    | Opcode::F64x2RelaxedMax
-    | Opcode::I16x8RelaxedQ15mulrS
-    | Opcode::I16x8RelaxedDotI8x16I7x16S
-    | Opcode::I32x4RelaxedDotI8x16I7x16AddS => Instruction::SimdRelaxed(op)
+    I8x16RelaxedSwizzle
+    | I32x4RelaxedTruncF32x4S
+    | I32x4RelaxedTruncF32x4U
+    | I32x4RelaxedTruncF64x2SZero
+    | I32x4RelaxedTruncF64x2UZero
+    | F32x4RelaxedMin
+    | F32x4RelaxedMax
+    | F64x2RelaxedMin
+    | F64x2RelaxedMax
+    | I16x8RelaxedQ15mulrS
+    | I16x8RelaxedDotI8x16I7x16S
+    | I32x4RelaxedDotI8x16I7x16AddS => SimdRelaxed(op)
     _ => raise InvalidInstruction("unhandled SIMD opcode")
   }
 }

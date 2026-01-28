@@ -1,4 +1,5 @@
 // Counts of each import type for index calculations
+
 ///|
 struct ImportCounts {
   funcs : UInt

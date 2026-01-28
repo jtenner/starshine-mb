@@ -1614,7 +1614,7 @@ test "br_on_null continuation knows non_null" {
   assert_true(get_func_from_module(result, 0) is Some(_))
 }
 
-// Test: struct.get/array.get on casted reference  
+// Test: struct.get/array.get on casted reference
 
 ///|
 test "field access on casted ref uses refined type" {
