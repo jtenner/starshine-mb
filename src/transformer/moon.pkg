@@ -1,0 +1,3 @@
+import {
+  "jtenner/starshine/lib" as @lib
+}

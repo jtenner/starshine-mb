@@ -1043,7 +1043,7 @@ fn scan_instr(ctx : AnalysisContext, instr : Instruction) -> Unit {
 // Build Remappings
 // ============================================================================
 // Helper to build a sorted remapping (can fail if extract fails)
-fn build_map[T : Hash + Eq](
+fn [T : Hash + Eq] build_map(
   used_set : Set[T],
   import_count : UInt,
   extract : (T) -> Result[UInt, String],
@@ -1193,9 +1193,43 @@ pub fn remove_unused(mod : Module) -> Result[Module, String] {
     Some(ts) => ts.0.length().reinterpret_as_uint()
     None => 0
   }
+  let total_tables = ctx.imports.tables +
+    (match mod.table_sec {
+      Some(ts) => ts.0.length().reinterpret_as_uint()
+      None => 0
+    })
+  let total_mems = ctx.imports.mems +
+    (match mod.mem_sec {
+      Some(ms) => ms.0.length().reinterpret_as_uint()
+      None => 0
+    })
+  let total_globals = ctx.imports.globals +
+    (match mod.global_sec {
+      Some(gs) => gs.0.length().reinterpret_as_uint()
+      None => 0
+    })
+  let total_elems = match mod.elem_sec {
+    Some(es) => es.0.length().reinterpret_as_uint()
+    None => 0
+  }
+  let total_datas = match mod.data_sec {
+    Some(ds) => ds.0.length().reinterpret_as_uint()
+    None => 0
+  }
+  let total_tags = ctx.imports.tags +
+    (match mod.tag_sec {
+      Some(ts) => ts.0.length().reinterpret_as_uint()
+      None => 0
+    })
 
   if ctx.used.funcs.length().reinterpret_as_uint() == total_funcs &&
-     ctx.used.types.length().reinterpret_as_uint() == total_types {
+     ctx.used.types.length().reinterpret_as_uint() == total_types &&
+     ctx.used.tables.length().reinterpret_as_uint() == total_tables &&
+     ctx.used.mems.length().reinterpret_as_uint() == total_mems &&
+     ctx.used.globals.length().reinterpret_as_uint() == total_globals &&
+     ctx.used.elems.length().reinterpret_as_uint() == total_elems &&
+     ctx.used.datas.length().reinterpret_as_uint() == total_datas &&
+     ctx.used.tags.length().reinterpret_as_uint() == total_tags {
     // Nothing to remove
     return Ok(mod)
   }
@@ -1530,7 +1564,7 @@ pub fn remove_unused(mod : Module) -> Result[Module, String] {
       change(s, ExportSec::new(new_exports))
     })
     // Update start section
-    .on_startsec_evt(fn(t : ModuleTransformer[DCEState], s : DCEState, start_sec : StartSec) {
+    .on_startsec_evt(fn(t_ : ModuleTransformer[DCEState], s : DCEState, start_sec : StartSec) {
       let func_idx = start_sec.0
       match s.remap.funcs.get(func_idx) {
         Some(new_idx) => change(s, StartSec::new(new_idx))
@@ -1563,11 +1597,6 @@ fn make_i32_to_i32_func_type() -> RecType {
 /// Creates a simple function body that just returns
 fn make_empty_func_body() -> Func {
   Func::t_func([], TExpr::new([TInstr::return_([])]))
-}
-
-/// Creates a function body: local.get 0
-fn make_identity_func_body() -> Func {
-  Func::t_func([], TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]))
 }
 
 // ============================================================================
@@ -1686,25 +1715,14 @@ test "function index remapped after removal" {
   let func_sec = FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)])
   let code_sec = CodeSec::new([make_empty_func_body(), make_empty_func_body()])
   let export_sec = ExportSec::new([
-    Export::new("main", ExternIdx::func(FuncIdx::new(1)))
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(1)))
   ])
   
-  let mod = Module::new(
-    None,
-    Some(type_sec),
-    None,
-    Some(func_sec),
-    None,
-    None,
-    None,
-    Some(export_sec),
-    None,
-    None,
-    Some(code_sec),
-    None,
-    None,
-    None,
-  )
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(func_sec)
+    .with_code_sec(code_sec)
+    .with_export_sec(export_sec)
   
   let result = remove_unused(mod)
   
@@ -1715,12 +1733,12 @@ test "function index remapped after removal" {
       match exports[0] {
         Export(_, FuncExternIdx(idx)) => {
           let FuncIdx(v) = idx
-          assert_eq!(v, 0)
+          assert_eq(v, 0)
         }
-        _ => fail!("expected function export")
+        _ => fail("expected function export")
       }
     }
-    Err(e) => fail!("unexpected error: \{e}")
+    Err(e) => fail("unexpected error: \{e}")
   }
 }
 
@@ -1734,37 +1752,28 @@ test "type index remapped in function after type removal" {
   let func_sec = FuncSec::new([TypeIdx::new(1)])
   let code_sec = CodeSec::new([make_empty_func_body()])
   let export_sec = ExportSec::new([
-    Export::new("main", ExternIdx::func(FuncIdx::new(0)))
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0)))
   ])
   
-  let mod = Module::new(
-    None,
-    Some(type_sec),
-    None,
-    Some(func_sec),
-    None,
-    None,
-    None,
-    Some(export_sec),
-    None,
-    None,
-    Some(code_sec),
-    None,
-    None,
-    None,
-  )
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(func_sec)
+    .with_code_sec(code_sec)
+    .with_export_sec(export_sec)
   
   let result = remove_unused(mod)
   
   match result {
     Ok(new_mod) => {
       // Type count should be 1
-      assert_eq!(new_mod.type_sec.unwrap().0.length(), 1)
+      assert_eq(new_mod.type_sec.unwrap().0.length(), 1)
       // Func should reference type 0
-      let TypeIdx(type_v) = new_mod.func_sec.unwrap().0[0]
-      assert_eq!(type_v, 0)
+      match new_mod.func_sec.unwrap().0[0] {
+        TypeIdx(v) => assert_eq(v, 0)
+        _ => fail("expected type index, not recursive idx")
+      }
     }
-    Err(e) => fail!("unexpected error: \{e}")
+    Err(e) => fail("unexpected error: \{e}")
   }
 }
 
@@ -1778,43 +1787,32 @@ test "called function kept transitively" {
   let type_sec = TypeSec::new([make_void_func_type()])
   let func_sec = FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)])
   
-  let func0_body = TFunc([], TExpr([
-    TCall(FuncIdx::new(1), []),
-    TReturn([])
+  let func0_body = Func::t_func([], TExpr::new([
+    TInstr::call(FuncIdx::new(1), []),
+    TInstr::return_([])
   ]))
   let func1_body = make_empty_func_body()
   
   let code_sec = CodeSec::new([func0_body, func1_body])
   let export_sec = ExportSec::new([
-    Export::new("main", ExternIdx::func(FuncIdx::new(0)))
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0)))
   ])
   
-  let mod = Module::new(
-    None,
-    Some(type_sec),
-    None,
-    Some(func_sec),
-    None,
-    None,
-    None,
-    Some(export_sec),
-    None,
-    None,
-    Some(code_sec),
-    None,
-    None,
-    None,
-  )
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(func_sec)
+    .with_code_sec(code_sec)
+    .with_export_sec(export_sec)
   
   let result = remove_unused(mod)
   
   match result {
     Ok(new_mod) => {
       // Both functions should be kept
-      assert_eq!(new_mod.func_sec.unwrap().0.length(), 2)
-      assert_eq!(new_mod.code_sec.unwrap().0.length(), 2)
+      assert_eq(new_mod.func_sec.unwrap().0.length(), 2)
+      assert_eq(new_mod.code_sec.unwrap().0.length(), 2)
     }
-    Err(e) => fail!("unexpected error: \{e}")
+    Err(e) => fail("unexpected error: \{e}")
   }
 }
 
@@ -1824,45 +1822,35 @@ test "referenced global kept" {
   let type_sec = TypeSec::new([make_void_func_type()])
   let func_sec = FuncSec::new([TypeIdx::new(0)])
   let global_sec = GlobalSec::new([
-    Global::new(GlobalType::new(I32ValType, Const), Expr::new([I32Const(42)]))
+    Global::new(GlobalType::new(ValType::i32(), false), Expr::new([Instruction::i32_const(42)]))
   ])
   
-  let func_body = TFunc([], TExpr([
-    TDrop(TGlobalGet(GlobalIdx::new(0))),
-    TReturn([])
+  let func_body = Func::t_func([], TExpr::new([
+    TInstr::drop(TInstr::global_get(GlobalIdx::new(0))),
+    TInstr::return_([])
   ]))
   
   let code_sec = CodeSec::new([func_body])
   let export_sec = ExportSec::new([
-    Export::new("main", ExternIdx::func(FuncIdx::new(0)))
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0)))
   ])
   
-  let mod = Module::new(
-    None,
-    Some(type_sec),
-    None,
-    Some(func_sec),
-    None,
-    None,
-    Some(global_sec),
-    Some(export_sec),
-    None,
-    None,
-    Some(code_sec),
-    None,
-    None,
-    None,
-  )
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(func_sec)
+    .with_global_sec(global_sec)
+    .with_export_sec(export_sec)
+    .with_code_sec(code_sec)
   
   let result = remove_unused(mod)
   
   match result {
     Ok(new_mod) => {
       // Global should be kept
-      assert_true(new_mod.global_sec.is_some())
-      assert_eq!(new_mod.global_sec.unwrap().0.length(), 1)
+      assert_true(new_mod.global_sec is Some(_))
+      assert_eq(new_mod.global_sec.unwrap().0.length(), 1)
     }
-    Err(e) => fail!("unexpected error: \{e}")
+    Err(e) => fail("unexpected error: \{e}")
   }
 }
 
@@ -1870,30 +1858,20 @@ test "unused global removed" {
   let type_sec = TypeSec::new([make_void_func_type()])
   let func_sec = FuncSec::new([TypeIdx::new(0)])
   let global_sec = GlobalSec::new([
-    Global::new(GlobalType::new(I32ValType, Const), Expr::new([I32Const(42)]))
+    Global::new(GlobalType::new(ValType::i32(), false), Expr::new([Instruction::i32_const(42)]))
   ])
   
   let code_sec = CodeSec::new([make_empty_func_body()])
   let export_sec = ExportSec::new([
-    Export::new("main", ExternIdx::func(FuncIdx::new(0)))
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0)))
   ])
   
-  let mod = Module::new(
-    None,
-    Some(type_sec),
-    None,
-    Some(func_sec),
-    None,
-    None,
-    Some(global_sec),
-    Some(export_sec),
-    None,
-    None,
-    Some(code_sec),
-    None,
-    None,
-    None,
-  )
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(func_sec)
+    .with_global_sec(global_sec)
+    .with_export_sec(export_sec)
+    .with_code_sec(code_sec)
   
   let result = remove_unused(mod)
   
@@ -1901,11 +1879,11 @@ test "unused global removed" {
     Ok(new_mod) => {
       // Global should be removed (empty section or None)
       match new_mod.global_sec {
-        Some(sec) => assert_eq!(sec.0.length(), 0)
+        Some(sec) => assert_eq(sec.0.length(), 0)
         None => () // Also acceptable
       }
     }
-    Err(e) => fail!("unexpected error: \{e}")
+    Err(e) => fail("unexpected error: \{e}")
   }
 }
 
@@ -1919,32 +1897,21 @@ test "start function kept" {
   let code_sec = CodeSec::new([make_empty_func_body()])
   let start_sec = StartSec::new(FuncIdx::new(0))
   
-  let mod = Module::new(
-    None,
-    Some(type_sec),
-    None,
-    Some(func_sec),
-    None,
-    None,
-    None,
-    None,
-    Some(start_sec),
-    None,
-    Some(code_sec),
-    None,
-    None,
-    None,
-  )
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(func_sec)
+    .with_code_sec(code_sec)
+    .with_start_sec(start_sec)
   
   let result = remove_unused(mod)
   
   match result {
     Ok(new_mod) => {
       // Function should be kept due to start section
-      assert_eq!(new_mod.func_sec.unwrap().0.length(), 1)
-      assert_true(new_mod.start_sec.is_some())
+      assert_eq(new_mod.func_sec.unwrap().0.length(), 1)
+      assert_true(new_mod.start_sec is Some(_))
     }
-    Err(e) => fail!("unexpected error: \{e}")
+    Err(e) => fail("unexpected error: \{e}")
   }
 }
 
@@ -1958,44 +1925,34 @@ test "active element segment keeps table and functions" {
   let code_sec = CodeSec::new([make_empty_func_body()])
   let table_sec = TableSec::new([
     Table::new(
-      TableType::new(HeapTypeRefType(Nullable, FuncHeapType), Limits::new(1, Some(1))),
+      TableType::new(RefType::new(true, HeapType::abs(AbsHeapType::func())), Limits::i32(1, Some(1))),
       None
     )
   ])
   let elem_sec = ElemSec::new([
     Elem::new(
-      Active(TableIdx::new(0), Expr::new([I32Const(0)])),
-      FuncsElemKind([FuncIdx::new(0)])
+      ElemMode::active(TableIdx::new(0), Expr::new([Instruction::i32_const(0)])),
+      ElemKind::funcs([FuncIdx::new(0)])
     )
   ])
   
-  let mod = Module::new(
-    None,
-    Some(type_sec),
-    None,
-    Some(func_sec),
-    Some(table_sec),
-    None,
-    None,
-    None,
-    None,
-    Some(elem_sec),
-    Some(code_sec),
-    None,
-    None,
-    None,
-  )
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(func_sec)
+    .with_code_sec(code_sec)
+    .with_table_sec(table_sec)
+    .with_elem_sec(elem_sec)
   
   let result = remove_unused(mod)
   
   match result {
     Ok(new_mod) => {
       // Table, elem, and function should all be kept
-      assert_true(new_mod.table_sec.is_some())
-      assert_true(new_mod.elem_sec.is_some())
-      assert_eq!(new_mod.func_sec.unwrap().0.length(), 1)
+      assert_true(new_mod.table_sec is Some(_))
+      assert_true(new_mod.elem_sec is Some(_))
+      assert_eq(new_mod.func_sec.unwrap().0.length(), 1)
     }
-    Err(e) => fail!("unexpected error: \{e}")
+    Err(e) => fail("unexpected error: \{e}")
   }
 }
 
@@ -2003,43 +1960,37 @@ test "active data segment keeps memory" {
   let type_sec = TypeSec::new([make_void_func_type()])
   let func_sec = FuncSec::new([TypeIdx::new(0)])
   let code_sec = CodeSec::new([make_empty_func_body()])
-  let mem_sec = MemSec::new([MemType::new(Limits::new(1, Some(1)))])
+  let mem_sec = MemSec::new([MemType::new(Limits::i32(1, Some(1)))])
   let data_sec = DataSec::new([
     Data::new(
-      Active(MemIdx::new(0), Expr::new([I32Const(0)])),
+      DataMode::active(MemIdx::new(0), Expr::new([Instruction::i32_const(0)])),
       b"hello"
     )
   ])
   let export_sec = ExportSec::new([
-    Export::new("main", ExternIdx::func(FuncIdx::new(0)))
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0)))
   ])
   
-  let mod = Module::new(
-    None,
-    Some(type_sec),
-    None,
-    Some(func_sec),
-    None,
-    Some(mem_sec),
-    None,
-    Some(export_sec),
-    None,
-    None,
-    Some(code_sec),
-    Some(data_sec),
-    Some(DataCntSec::new(1)),
-    None,
-  )
+  let data_cnt_sec = DataCntSec::new(1)
+
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(func_sec)
+    .with_code_sec(code_sec)
+    .with_mem_sec(mem_sec)
+    .with_data_sec(data_sec)
+    .with_data_cnt_sec(data_cnt_sec)
+    .with_export_sec(export_sec)
   
   let result = remove_unused(mod)
   
   match result {
     Ok(new_mod) => {
       // Memory and data should be kept
-      assert_true(new_mod.mem_sec.is_some())
-      assert_true(new_mod.data_sec.is_some())
+      assert_true(new_mod.mem_sec is Some(_))
+      assert_true(new_mod.data_sec is Some(_))
     }
-    Err(e) => fail!("unexpected error: \{e}")
+    Err(e) => fail("unexpected error: \{e}")
   }
 }
 
@@ -2050,77 +2001,57 @@ test "active data segment keeps memory" {
 test "used imported function kept" {
   let type_sec = TypeSec::new([make_void_func_type()])
   let import_sec = ImportSec::new([
-    Import::new("env", "log", ExternType::func(TypeIdx::new(0)))
+    Import::new(Name::new("env"), Name::new("log"), ExternType::func(TypeIdx::new(0)))
   ])
   let func_sec = FuncSec::new([TypeIdx::new(0)])
   
   // Defined func calls imported func
-  let func_body = TFunc([], TExpr([
-    TCall(FuncIdx::new(0), []), // call imported func
-    TReturn([])
+  let func_body = Func::t_func([], TExpr::new([
+    TInstr::call(FuncIdx::new(0), []), // call imported func
+    TInstr::return_([])
   ]))
   
   let code_sec = CodeSec::new([func_body])
   let export_sec = ExportSec::new([
-    Export::new("main", ExternIdx::func(FuncIdx::new(1))) // export defined func
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(1))) // export defined func
   ])
-  
-  let mod = Module::new(
-    None,
-    Some(type_sec),
-    Some(import_sec),
-    Some(func_sec),
-    None,
-    None,
-    None,
-    Some(export_sec),
-    None,
-    None,
-    Some(code_sec),
-    None,
-    None,
-    None,
-  )
+
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_import_sec(import_sec)
+    .with_func_sec(func_sec)
+    .with_code_sec(code_sec)
+    .with_export_sec(export_sec)
   
   let result = remove_unused(mod)
   
   match result {
     Ok(new_mod) => {
       // Import should be kept
-      assert_true(new_mod.import_sec.is_some())
-      assert_eq!(new_mod.import_sec.unwrap().0.length(), 1)
+      assert_true(new_mod.import_sec is Some(_))
+      assert_eq(new_mod.import_sec.unwrap().0.length(), 1)
     }
-    Err(e) => fail!("unexpected error: \{e}")
+    Err(e) => fail("unexpected error: \{e}")
   }
 }
 
 test "unused imported function removed" {
   let type_sec = TypeSec::new([make_void_func_type()])
   let import_sec = ImportSec::new([
-    Import::new("env", "unused", ExternType::func(TypeIdx::new(0)))
+    Import::new(Name::new("env"), Name::new("unused"), ExternType::func(TypeIdx::new(0)))
   ])
   let func_sec = FuncSec::new([TypeIdx::new(0)])
   let code_sec = CodeSec::new([make_empty_func_body()])
   let export_sec = ExportSec::new([
-    Export::new("main", ExternIdx::func(FuncIdx::new(1))) // export defined func (index 1 because import is index 0)
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(1))) // export defined func (index 1 because import is index 0)
   ])
   
-  let mod = Module::new(
-    None,
-    Some(type_sec),
-    Some(import_sec),
-    Some(func_sec),
-    None,
-    None,
-    None,
-    Some(export_sec),
-    None,
-    None,
-    Some(code_sec),
-    None,
-    None,
-    None,
-  )
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_import_sec(import_sec)
+    .with_func_sec(func_sec)
+    .with_code_sec(code_sec)
+    .with_export_sec(export_sec)
   
   let result = remove_unused(mod)
   
@@ -2128,7 +2059,7 @@ test "unused imported function removed" {
     Ok(new_mod) => {
       // Import should be removed
       match new_mod.import_sec {
-        Some(sec) => assert_eq!(sec.0.length(), 0)
+        Some(sec) => assert_eq(sec.0.length(), 0)
         None => () // Also acceptable
       }
       // Export index should be remapped to 0
@@ -2136,12 +2067,12 @@ test "unused imported function removed" {
       match exports[0] {
         Export(_, FuncExternIdx(idx)) => {
           let FuncIdx(v) = idx
-          assert_eq!(v, 0)
+          assert_eq(v, 0)
         }
-        _ => fail!("expected function export")
+        _ => fail("expected function export")
       }
     }
-    Err(e) => fail!("unexpected error: \{e}")
+    Err(e) => fail("unexpected error: \{e}")
   }
 }
 
@@ -2151,45 +2082,35 @@ test "unused imported function removed" {
 
 test "memory kept when used by load instruction" {
   let type_sec = TypeSec::new([
-    SingleRecType(CompTypeSubType(FuncCompType([], [I32ValType])))
+    RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()])))
   ])
   let func_sec = FuncSec::new([TypeIdx::new(0)])
-  let mem_sec = MemSec::new([MemType::new(Limits::new(1, None))])
+  let mem_sec = MemSec::new([MemType::new(Limits::i32(1, None))])
   
-  let func_body = TFunc([], TExpr([
-    TReturn([TLoad(I32Load_, (MemArg::new(0, 0), None), TI32Const(0))])
+  let func_body = Func::t_func([], TExpr::new([
+    TInstr::return_([TInstr::load(LoadOp::i32_load(), MemArg::new(0, None, 0), TInstr::i32_const(I32(0)))])
   ]))
   
   let code_sec = CodeSec::new([func_body])
   let export_sec = ExportSec::new([
-    Export::new("main", ExternIdx::func(FuncIdx::new(0)))
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0)))
   ])
-  
-  let mod = Module::new(
-    None,
-    Some(type_sec),
-    None,
-    Some(func_sec),
-    None,
-    Some(mem_sec),
-    None,
-    Some(export_sec),
-    None,
-    None,
-    Some(code_sec),
-    None,
-    None,
-    None,
-  )
+
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(func_sec)
+    .with_mem_sec(mem_sec)
+    .with_code_sec(code_sec)
+    .with_export_sec(export_sec)
   
   let result = remove_unused(mod)
   
   match result {
     Ok(new_mod) => {
-      assert_true(new_mod.mem_sec.is_some())
-      assert_eq!(new_mod.mem_sec.unwrap().0.length(), 1)
+      assert_true(new_mod.mem_sec is Some(_))
+      assert_eq(new_mod.mem_sec.unwrap().0.length(), 1)
     }
-    Err(e) => fail!("unexpected error: \{e}")
+    Err(e) => fail("unexpected error: \{e}")
   }
 }
 
@@ -2198,50 +2119,39 @@ test "memory kept when used by load instruction" {
 // ============================================================================
 
 test "struct type kept when used" {
-  let struct_type = SingleRecType(CompTypeSubType(
-    StructCompType([FieldType::new(ValTypeStorageType(I32ValType), Const)])
+  let struct_type = RecType::new(SubType::comp_type(
+    CompType::struct_([FieldType::new(StorageType::val_type(ValType::i32()), Const)])
   ))
-  let func_type = SingleRecType(CompTypeSubType(
-    FuncCompType([], [RefTypeValType(HeapTypeRefType(Nullable, HeapType::new(TypeIdx::new(0))))])
+  let func_type = RecType::new(SubType::comp_type(
+    CompType::func([], [ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(0))))])
   ))
   
   let type_sec = TypeSec::new([struct_type, func_type])
   let func_sec = FuncSec::new([TypeIdx::new(1)])
   
-  let func_body = TFunc([], TExpr([
-    TReturn([TStructNew(TypeIdx::new(0), [TI32Const(42)])])
+  let func_body = Func::t_func([], TExpr::new([
+    TInstr::return_([TInstr::struct_new(TypeIdx::new(0), [TInstr::i32_const(42)])])
   ]))
   
   let code_sec = CodeSec::new([func_body])
   let export_sec = ExportSec::new([
-    Export::new("make_struct", ExternIdx::func(FuncIdx::new(0)))
+    Export::new(Name::new("make_struct"), ExternIdx::func(FuncIdx::new(0)))
   ])
   
-  let mod = Module::new(
-    None,
-    Some(type_sec),
-    None,
-    Some(func_sec),
-    None,
-    None,
-    None,
-    Some(export_sec),
-    None,
-    None,
-    Some(code_sec),
-    None,
-    None,
-    None,
-  )
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(func_sec)
+    .with_code_sec(code_sec)
+    .with_export_sec(export_sec)
   
   let result = remove_unused(mod)
   
   match result {
     Ok(new_mod) => {
       // Both types should be kept
-      assert_eq!(new_mod.type_sec.unwrap().0.length(), 2)
+      assert_eq(new_mod.type_sec.unwrap().0.length(), 2)
     }
-    Err(e) => fail!("unexpected error: \{e}")
+    Err(e) => fail("unexpected error: \{e}")
   }
 }
 
@@ -2254,46 +2164,36 @@ test "call_indirect keeps type and table" {
   let func_sec = FuncSec::new([TypeIdx::new(0)])
   let table_sec = TableSec::new([
     Table::new(
-      TableType::new(HeapTypeRefType(Nullable, FuncHeapType), Limits::new(1, None)),
+      TableType::new(RefType::new(true, HeapType::abs(AbsHeapType::func())), Limits::i32(1, None)),
       None
     )
   ])
   
-  let func_body = TFunc([], TExpr([
-    TCallIndirect(TypeIdx::new(0), TableIdx::new(0), [], TI32Const(0)),
-    TReturn([])
+  let func_body = Func::t_func([], TExpr::new([
+    TInstr::call_indirect(TypeIdx::new(0), TableIdx::new(0), [], TInstr::i32_const(0)),
+    TInstr::return_([])
   ]))
   
   let code_sec = CodeSec::new([func_body])
   let export_sec = ExportSec::new([
-    Export::new("main", ExternIdx::func(FuncIdx::new(0)))
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0)))
   ])
   
-  let mod = Module::new(
-    None,
-    Some(type_sec),
-    None,
-    Some(func_sec),
-    Some(table_sec),
-    None,
-    None,
-    Some(export_sec),
-    None,
-    None,
-    Some(code_sec),
-    None,
-    None,
-    None,
-  )
-  
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(func_sec)
+    .with_table_sec(table_sec)
+    .with_code_sec(code_sec)
+    .with_export_sec(export_sec)
+
   let result = remove_unused(mod)
   
   match result {
     Ok(new_mod) => {
-      assert_true(new_mod.table_sec.is_some())
-      assert_eq!(new_mod.table_sec.unwrap().0.length(), 1)
+      assert_true(new_mod.table_sec is Some(_))
+      assert_eq(new_mod.table_sec.unwrap().0.length(), 1)
     }
-    Err(e) => fail!("unexpected error: \{e}")
+    Err(e) => fail("unexpected error: \{e}")
   }
 }
 
@@ -2307,40 +2207,30 @@ test "tag kept when used in throw" {
   let func_sec = FuncSec::new([TypeIdx::new(0)])
   let tag_sec = TagSec::new([TagType::new(TypeIdx::new(0))])
   
-  let func_body = TFunc([], TExpr([
-    TThrow(TagIdx::new(0), [])
+  let func_body = Func::t_func([], TExpr::new([
+    TInstr::throw_(TagIdx::new(0), [])
   ]))
   
   let code_sec = CodeSec::new([func_body])
   let export_sec = ExportSec::new([
-    Export::new("main", ExternIdx::func(FuncIdx::new(0)))
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0)))
   ])
-  
-  let mod = Module::new(
-    None,
-    Some(type_sec),
-    None,
-    Some(func_sec),
-    None,
-    None,
-    None,
-    Some(export_sec),
-    None,
-    None,
-    Some(code_sec),
-    None,
-    None,
-    Some(tag_sec),
-  )
+
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(func_sec)
+    .with_code_sec(code_sec)
+    .with_export_sec(export_sec)
+    .with_tag_sec(tag_sec)
   
   let result = remove_unused(mod)
   
   match result {
     Ok(new_mod) => {
-      assert_true(new_mod.tag_sec.is_some())
-      assert_eq!(new_mod.tag_sec.unwrap().0.length(), 1)
+      assert_true(new_mod.tag_sec is Some(_))
+      assert_eq(new_mod.tag_sec.unwrap().0.length(), 1)
     }
-    Err(e) => fail!("unexpected error: \{e}")
+    Err(e) => fail("unexpected error: \{e}")
   }
 }
 
@@ -2372,55 +2262,45 @@ test "multiple removals with complex remapping" {
   ])
   
   let func0_body = make_empty_func_body() // unused
-  let func1_body = TFunc([], TExpr([     // calls func 2
-    TCall(FuncIdx::new(2), []),
-    TReturn([])
+  let func1_body = Func::t_func([], TExpr::new([     // calls func 2
+    TInstr::call(FuncIdx::new(2), []),
+    TInstr::return_([])
   ]))
   let func2_body = make_empty_func_body()
   
   let code_sec = CodeSec::new([func0_body, func1_body, func2_body])
   let export_sec = ExportSec::new([
-    Export::new("main", ExternIdx::func(FuncIdx::new(1)))
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(1)))
   ])
   
-  let mod = Module::new(
-    None,
-    Some(type_sec),
-    None,
-    Some(func_sec),
-    None,
-    None,
-    None,
-    Some(export_sec),
-    None,
-    None,
-    Some(code_sec),
-    None,
-    None,
-    None,
-  )
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(func_sec)
+    .with_code_sec(code_sec)
+    .with_export_sec(export_sec)
+    
   
   let result = remove_unused(mod)
   
   match result {
     Ok(new_mod) => {
       // Should have 2 types (type 1 and 3 -> remapped to 0 and 1)
-      assert_eq!(new_mod.type_sec.unwrap().0.length(), 2)
+      assert_eq(new_mod.type_sec.unwrap().0.length(), 2)
       
       // Should have 2 funcs (func 1 and 2 -> remapped to 0 and 1)
-      assert_eq!(new_mod.func_sec.unwrap().0.length(), 2)
+      assert_eq(new_mod.func_sec.unwrap().0.length(), 2)
       
       // Export should reference func 0
       let exports = new_mod.export_sec.unwrap().0
       match exports[0] {
         Export(_, FuncExternIdx(idx)) => {
           let FuncIdx(v) = idx
-          assert_eq!(v, 0)
+          assert_eq(v, 0)
         }
-        _ => fail!("expected function export")
+        _ => fail("expected function export")
       }
     }
-    Err(e) => fail!("unexpected error: \{e}")
+    Err(e) => fail("unexpected error: \{e}")
   }
 }
 
@@ -2431,46 +2311,39 @@ test "multiple removals with complex remapping" {
 test "data count section updated correctly" {
   let type_sec = TypeSec::new([make_void_func_type()])
   let func_sec = FuncSec::new([TypeIdx::new(0)])
-  let mem_sec = MemSec::new([MemType::new(Limits::new(1, None))])
+  let mem_sec = MemSec::new([MemType::new(Limits::i32(1, None))])
   
   // Create 3 data segments, only 1 is active
   let data_sec = DataSec::new([
-    Data::new(Passive, b"unused1"),
-    Data::new(Active(MemIdx::new(0), Expr::new([I32Const(0)])), b"used"),
-    Data::new(Passive, b"unused2"),
+    Data::new(DataMode::passive(), b"unused1"),
+    Data::new(DataMode::active(MemIdx::new(0), Expr::new([Instruction::i32_const(0)])), b"used"),
+    Data::new(DataMode::passive(), b"unused2"),
   ])
   
   let code_sec = CodeSec::new([make_empty_func_body()])
   let export_sec = ExportSec::new([
-    Export::new("main", ExternIdx::func(FuncIdx::new(0)))
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0)))
   ])
-  
-  let mod = Module::new(
-    None,
-    Some(type_sec),
-    None,
-    Some(func_sec),
-    None,
-    Some(mem_sec),
-    None,
-    Some(export_sec),
-    None,
-    None,
-    Some(code_sec),
-    Some(data_sec),
-    Some(DataCntSec::new(3)),
-    None,
-  )
-  
+
+  let data_cnt_sec = DataCntSec::new(3)
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(func_sec)
+    .with_mem_sec(mem_sec)
+    .with_code_sec(code_sec)
+    .with_export_sec(export_sec)
+    .with_data_sec(data_sec)
+    .with_data_cnt_sec(data_cnt_sec)
+
   let result = remove_unused(mod)
   
   match result {
     Ok(new_mod) => {
       // Only 1 data segment should remain
-      assert_eq!(new_mod.data_sec.unwrap().0.length(), 1)
+      assert_eq(new_mod.data_sec.unwrap().0.length(), 1)
       // Data count should be updated
-      assert_eq!(new_mod.data_cnt_sec.unwrap().inner(), 1)
+      assert_eq(new_mod.data_cnt_sec.unwrap().0, 1)
     }
-    Err(e) => fail!("unexpected error: \{e}")
+    Err(e) => fail("unexpected error: \{e}")
   }
 }

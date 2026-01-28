@@ -71,6 +71,11 @@ using @lib {
   type ExternIdx,
   type Export,
   type Name,
+  type Data,
+  type DataMode,
+  type FieldType,
+  type StorageType,
+  type TagType,
 }
 
 ///|
@@ -95,15 +100,9 @@ using @dataflow {
   type Graph,
   type Expression,
   type WasmType,
-  type LocalGetExpr,
   type LocalSetExpr,
-  type ConstExpr,
   type UnaryExpr,
   type BinaryExpr,
-  type SelectExpr,
-  type DropExpr,
-  type CallExpr,
-  type ReturnExpr,
   type GenericExpr,
   type ExprId,
   type IfExpr,

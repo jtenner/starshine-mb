@@ -1,0 +1,5 @@
+import {
+  "moonbitlang/core/buffer" as @buffer,
+  "moonbitlang/core/quickcheck" as @quickcheck,
+  "moonbitlang/core/quickcheck/splitmix" as @splitmix,
+}

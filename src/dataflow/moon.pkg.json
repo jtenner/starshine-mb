@@ -1,6 +1,0 @@
-{
-    "name": "dataflow",
-    "import": [
-        "jtenner/starshine/lib"
-    ]
-}

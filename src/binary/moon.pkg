@@ -1,0 +1,8 @@
+import {
+  "jtenner/starshine/lib" as @lib,
+  "moonbitlang/core/buffer" as @buffer,
+  "moonbitlang/core/encoding/utf8" as @utf8,
+  "moonbitlang/core/list" as @list,
+  "moonbitlang/core/quickcheck" as @quickcheck,
+  "moonbitlang/core/quickcheck/splitmix" as @splitmix,
+}
