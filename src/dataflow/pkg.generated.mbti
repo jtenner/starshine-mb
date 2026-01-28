@@ -3,6 +3,7 @@ package "jtenner/starshine/dataflow"
 
 import {
   "jtenner/starshine/lib",
+  "moonbitlang/core/set",
 }
 
 // Values
@@ -79,6 +80,24 @@ pub enum BinaryOp {
   MulFloat64
   DivFloat32
   DivFloat64
+  MinFloat32
+  MaxFloat32
+  CopysignFloat32
+  EqFloat32
+  NeFloat32
+  LtFloat32
+  LeFloat32
+  GtFloat32
+  GeFloat32
+  MinFloat64
+  MaxFloat64
+  CopysignFloat64
+  EqFloat64
+  NeFloat64
+  LtFloat64
+  LeFloat64
+  GtFloat64
+  GeFloat64
 }
 pub fn BinaryOp::add_float32() -> Self
 pub fn BinaryOp::add_float64() -> Self
@@ -86,36 +105,55 @@ pub fn BinaryOp::add_int32() -> Self
 pub fn BinaryOp::add_int64() -> Self
 pub fn BinaryOp::and_int32() -> Self
 pub fn BinaryOp::and_int64() -> Self
+pub fn BinaryOp::copysign_float32() -> Self
+pub fn BinaryOp::copysign_float64() -> Self
 pub fn BinaryOp::div_float32() -> Self
 pub fn BinaryOp::div_float64() -> Self
 pub fn BinaryOp::div_s_int32() -> Self
 pub fn BinaryOp::div_s_int64() -> Self
 pub fn BinaryOp::div_u_int32() -> Self
 pub fn BinaryOp::div_u_int64() -> Self
+pub fn BinaryOp::eq_float32() -> Self
+pub fn BinaryOp::eq_float64() -> Self
 pub fn BinaryOp::eq_int32() -> Self
 pub fn BinaryOp::eq_int64() -> Self
+pub fn BinaryOp::ge_float32() -> Self
+pub fn BinaryOp::ge_float64() -> Self
 pub fn BinaryOp::ge_s_int32() -> Self
 pub fn BinaryOp::ge_s_int64() -> Self
 pub fn BinaryOp::ge_u_int32() -> Self
 pub fn BinaryOp::ge_u_int64() -> Self
 pub fn BinaryOp::get_opposite(Self) -> Self?
+pub fn BinaryOp::gt_float32() -> Self
+pub fn BinaryOp::gt_float64() -> Self
 pub fn BinaryOp::gt_s_int32() -> Self
 pub fn BinaryOp::gt_s_int64() -> Self
 pub fn BinaryOp::gt_u_int32() -> Self
 pub fn BinaryOp::gt_u_int64() -> Self
+pub fn BinaryOp::is_associative(Self) -> Bool
 pub fn BinaryOp::is_relational(Self) -> Bool
+pub fn BinaryOp::le_float32() -> Self
+pub fn BinaryOp::le_float64() -> Self
 pub fn BinaryOp::le_s_int32() -> Self
 pub fn BinaryOp::le_s_int64() -> Self
 pub fn BinaryOp::le_u_int32() -> Self
 pub fn BinaryOp::le_u_int64() -> Self
+pub fn BinaryOp::lt_float32() -> Self
+pub fn BinaryOp::lt_float64() -> Self
 pub fn BinaryOp::lt_s_int32() -> Self
 pub fn BinaryOp::lt_s_int64() -> Self
 pub fn BinaryOp::lt_u_int32() -> Self
 pub fn BinaryOp::lt_u_int64() -> Self
+pub fn BinaryOp::max_float32() -> Self
+pub fn BinaryOp::max_float64() -> Self
+pub fn BinaryOp::min_float32() -> Self
+pub fn BinaryOp::min_float64() -> Self
 pub fn BinaryOp::mul_float32() -> Self
 pub fn BinaryOp::mul_float64() -> Self
 pub fn BinaryOp::mul_int32() -> Self
 pub fn BinaryOp::mul_int64() -> Self
+pub fn BinaryOp::ne_float32() -> Self
+pub fn BinaryOp::ne_float64() -> Self
 pub fn BinaryOp::ne_int32() -> Self
 pub fn BinaryOp::ne_int64() -> Self
 pub fn BinaryOp::or_int32() -> Self
@@ -176,6 +214,14 @@ pub struct ConstExpr {
 pub impl Eq for ConstExpr
 pub impl Show for ConstExpr
 
+type DominatorGVN
+pub fn DominatorGVN::new() -> Self
+pub fn DominatorGVN::process_block(Self, Graph, Node, NodeUsers, Array[(NodeId, NodeId)]) -> Unit
+pub fn DominatorGVN::process_if(Self, Graph, IfExpr, NodeUsers, Array[(NodeId, NodeId)]) -> Unit
+pub fn DominatorGVN::process_node(Self, Graph, Node) -> NodeId?
+
+type DominatorInfo
+
 pub struct DropExpr {
   value : ExprId
 }
@@ -210,6 +256,10 @@ pub enum Expression {
   Call(CallExpr)
   Return(ReturnExpr)
   Generic(GenericExpr)
+  Load(LoadExpr)
+  Store(StoreExpr)
+  MemorySize(MemorySizeExpr)
+  MemoryGrow(MemoryGrowExpr)
 }
 pub fn Expression::binary(BinaryExpr) -> Self
 pub fn Expression::block(BlockExpr) -> Self
@@ -220,12 +270,16 @@ pub fn Expression::drop(DropExpr) -> Self
 pub fn Expression::generic(GenericExpr) -> Self
 pub fn Expression::get_type(Self) -> WasmType
 pub fn Expression::if_(IfExpr) -> Self
+pub fn Expression::load(LoadExpr) -> Self
 pub fn Expression::local_get(LocalGetExpr) -> Self
 pub fn Expression::local_set(LocalSetExpr) -> Self
 pub fn Expression::loop_(LoopExpr) -> Self
+pub fn Expression::memory_grow(MemoryGrowExpr) -> Self
+pub fn Expression::memory_size(MemorySizeExpr) -> Self
 pub fn Expression::nop() -> Self
 pub fn Expression::return_(ReturnExpr) -> Self
 pub fn Expression::select(SelectExpr) -> Self
+pub fn Expression::store(StoreExpr) -> Self
 pub fn Expression::switch(SwitchExpr) -> Self
 pub fn Expression::unary(UnaryExpr) -> Self
 pub fn Expression::unreachable_() -> Self
@@ -262,6 +316,23 @@ pub fn Function::get_num_locals(Self) -> Int
 pub fn Function::is_param(Self, Int) -> Bool
 pub fn Function::new(String) -> Self
 
+pub struct GVN {
+  value_number : Map[NodeId, NodeId]
+  expr_to_leader : Map[GVNKey, NodeId]
+  in_progress : @set.Set[NodeId]
+  mut iteration : Int
+  mut changed : Bool
+}
+pub fn GVN::get_value_number(Self, NodeId) -> NodeId
+pub fn GVN::has_self_reference(Self, Node) -> Bool
+pub fn GVN::new() -> Self
+pub fn GVN::process_node_optimistic(Self, Graph, Node) -> Unit
+pub fn GVN::reprocess_node(Self, Graph, Node) -> Unit
+pub fn GVN::set_changed(Self, Bool) -> Unit
+pub fn GVN::set_iteration(Self, Int) -> Unit
+
+type GVNKey
+
 pub struct GenericExpr {
   children : Array[ExprId]
   result_type : WasmType
@@ -283,6 +354,7 @@ pub struct Graph {
   mut parent : ExprId?
   mut func : Function?
   mut mod : Module?
+  mut mssa : MemorySSA?
 }
 pub fn Graph::add_node(Self, Node) -> NodeId
 pub fn Graph::bad(Self) -> NodeId
@@ -291,20 +363,28 @@ pub fn Graph::debug_print(Self) -> String
 pub fn Graph::do_visit_binary(Self, BinaryExpr, ExprId) -> NodeId
 pub fn Graph::do_visit_block(Self, BlockExpr, ExprId) -> NodeId
 pub fn Graph::do_visit_break(Self, BreakExpr) -> NodeId
+pub fn Graph::do_visit_call(Self, CallExpr, ExprId) -> NodeId
 pub fn Graph::do_visit_const(Self, ConstExpr) -> NodeId
 pub fn Graph::do_visit_drop(Self, DropExpr, ExprId) -> NodeId
 pub fn Graph::do_visit_generic(Self, Expression, ExprId) -> NodeId
 pub fn Graph::do_visit_if(Self, IfExpr, ExprId) -> NodeId
+pub fn Graph::do_visit_load(Self, LoadExpr, ExprId) -> NodeId
 pub fn Graph::do_visit_local_get(Self, LocalGetExpr) -> NodeId
 pub fn Graph::do_visit_local_set(Self, LocalSetExpr, ExprId) -> NodeId
 pub fn Graph::do_visit_loop(Self, LoopExpr, ExprId) -> NodeId
+pub fn Graph::do_visit_memory_grow(Self, MemoryGrowExpr, ExprId) -> NodeId
+pub fn Graph::do_visit_memory_size(Self, MemorySizeExpr, ExprId) -> NodeId
 pub fn Graph::do_visit_select(Self, SelectExpr, ExprId) -> NodeId
+pub fn Graph::do_visit_store(Self, StoreExpr, ExprId) -> NodeId
 pub fn Graph::do_visit_switch(Self, SwitchExpr) -> NodeId
 pub fn Graph::do_visit_unary(Self, UnaryExpr, ExprId) -> NodeId
 pub fn Graph::do_visit_unreachable(Self) -> NodeId
+pub fn Graph::dominates(Self, NodeId, NodeId) -> Bool
 pub fn Graph::ensure_i1(Self, NodeId, ExprId?) -> NodeId
 pub fn Graph::expand_from_i1(Self, NodeId, ExprId?) -> NodeId
+pub fn Graph::get_block_of_node(Self, NodeId) -> NodeId
 pub fn Graph::get_conditions(Self, ExprId) -> Array[NodeId]
+pub fn Graph::get_dominator_info(Self) -> DominatorInfo
 pub fn Graph::get_node_for_set(Self, ExprId) -> NodeId?
 pub fn Graph::get_parent(Self, ExprId) -> ExprId?
 pub fn Graph::get_set_for_expr(Self, ExprId) -> ExprId?
@@ -324,6 +404,7 @@ pub fn Graph::merge(Self, Array[FlowState]) -> Unit
 pub fn Graph::merge_block(Self, Array[Array[NodeId]]) -> Unit
 pub fn Graph::merge_if(Self, Array[NodeId], Array[NodeId], NodeId, ExprId) -> Unit
 pub fn Graph::new() -> Self
+pub fn Graph::replace_all_uses(Self, NodeUsers, NodeId, NodeId, @set.Set[NodeId]) -> Unit
 pub fn Graph::set_in_reachable(Self) -> Unit
 pub fn Graph::set_in_unreachable(Self) -> Unit
 pub fn Graph::visit(Self, ExprId) -> NodeId
@@ -356,6 +437,50 @@ pub impl Eq for Literal
 pub impl Hash for Literal
 pub impl Show for Literal
 
+pub struct LoadExpr {
+  op : LoadOp
+  ptr : ExprId
+  offset : Int
+  align : Int
+  result_type : WasmType
+}
+pub fn LoadExpr::new(LoadOp, ExprId, Int, Int, WasmType) -> Self
+pub impl Eq for LoadExpr
+pub impl Show for LoadExpr
+
+pub enum LoadOp {
+  LoadI32
+  Load8SI32
+  Load8UI32
+  Load16SI32
+  Load16UI32
+  LoadI64
+  Load8SI64
+  Load8UI64
+  Load16SI64
+  Load16UI64
+  Load32SI64
+  Load32UI64
+  LoadF32
+  LoadF64
+}
+pub fn LoadOp::load16si32() -> Self
+pub fn LoadOp::load16si64() -> Self
+pub fn LoadOp::load16ui32() -> Self
+pub fn LoadOp::load16ui64() -> Self
+pub fn LoadOp::load32si64() -> Self
+pub fn LoadOp::load32ui64() -> Self
+pub fn LoadOp::load8si32() -> Self
+pub fn LoadOp::load8si64() -> Self
+pub fn LoadOp::load8ui32() -> Self
+pub fn LoadOp::load8ui64() -> Self
+pub fn LoadOp::load_f32() -> Self
+pub fn LoadOp::load_f64() -> Self
+pub fn LoadOp::load_i32() -> Self
+pub fn LoadOp::load_i64() -> Self
+pub impl Eq for LoadOp
+pub impl Show for LoadOp
+
 pub struct LocalGetExpr {
   index : Int
 }
@@ -387,6 +512,54 @@ pub fn LoopExpr::new(String?, ExprId, WasmType) -> Self
 pub impl Eq for LoopExpr
 pub impl Show for LoopExpr
 
+pub struct MemoryGrowExpr {
+  memory_index : Int
+  delta : ExprId
+}
+pub fn MemoryGrowExpr::new(Int, ExprId) -> Self
+pub impl Eq for MemoryGrowExpr
+pub impl Show for MemoryGrowExpr
+
+pub struct MemoryNode {
+  id : NodeId
+  node_type : MemoryNodeType
+  defining_access : NodeId?
+  expr_id : ExprId?
+}
+pub fn MemoryNode::new(NodeId, MemoryNodeType, NodeId?, ExprId?) -> Self
+
+pub enum MemoryNodeType {
+  MemoryDef
+  MemoryUse
+  MemoryPhi
+}
+pub fn MemoryNodeType::memory_def() -> Self
+pub fn MemoryNodeType::memory_phi() -> Self
+pub fn MemoryNodeType::memory_use() -> Self
+
+type MemorySSA
+pub fn MemorySSA::get_current_state(Self) -> NodeId
+pub fn MemorySSA::get_defining_access(Self, NodeId) -> NodeId?
+pub fn MemorySSA::merge_states(Self, Graph, Array[NodeId], ExprId) -> Unit
+pub fn MemorySSA::new(Graph) -> Self
+pub fn MemorySSA::record_call(Self, Graph, NodeId, ExprId) -> Unit
+pub fn MemorySSA::record_load(Self, Graph, NodeId, ExprId) -> Unit
+pub fn MemorySSA::record_memory_grow(Self, Graph, NodeId, ExprId) -> Unit
+pub fn MemorySSA::record_store(Self, Graph, NodeId, ExprId) -> Unit
+pub fn MemorySSA::set_current_state(Self, NodeId) -> Unit
+
+pub struct MemorySizeExpr {
+  memory_index : Int
+}
+pub fn MemorySizeExpr::new(Int) -> Self
+pub impl Eq for MemorySizeExpr
+pub impl Show for MemorySizeExpr
+
+pub struct MemoryState {
+  current : NodeId
+}
+pub fn MemoryState::new(NodeId) -> Self
+
 pub struct Module {
   functions : Map[String, Function]
   name : String?
@@ -397,7 +570,7 @@ pub fn Module::new() -> Self
 pub struct Node {
   mut id : NodeId
   node_type : NodeType
-  wasm_type : WasmType
+  mut wasm_type : WasmType
   expr : Expression?
   mut index : Int
   mut origin : ExprId?
@@ -405,18 +578,24 @@ pub struct Node {
 }
 pub fn Node::add_value(Self, NodeId) -> Unit
 pub fn Node::get_value(Self, Int) -> NodeId?
+pub fn Node::has_side_effects(Self) -> Bool
 pub fn Node::is_bad(Self) -> Bool
 pub fn Node::is_block(Self) -> Bool
 pub fn Node::is_cond(Self) -> Bool
 pub fn Node::is_const(Self) -> Bool
 pub fn Node::is_expr(Self) -> Bool
+pub fn Node::is_memory_def(Self) -> Bool
+pub fn Node::is_memory_phi(Self) -> Bool
 pub fn Node::is_phi(Self) -> Bool
+pub fn Node::is_root(Self) -> Bool
 pub fn Node::is_var(Self) -> Bool
 pub fn Node::is_zext(Self) -> Bool
 pub fn Node::make_bad(NodeId) -> Self
 pub fn Node::make_block(NodeId) -> Self
 pub fn Node::make_cond(NodeId, NodeId, Int, NodeId) -> Self
 pub fn Node::make_expr(NodeId, Expression, ExprId?) -> Self
+pub fn Node::make_memory_def(NodeId, NodeId?) -> Self
+pub fn Node::make_memory_phi(NodeId, Array[NodeId]) -> Self
 pub fn Node::make_phi(NodeId, NodeId, Int) -> Self
 pub fn Node::make_var(NodeId, WasmType) -> Self
 pub fn Node::make_zext(NodeId, NodeId, ExprId?) -> Self
@@ -433,7 +612,7 @@ pub impl Hash for NodeId
 pub impl Show for NodeId
 
 pub struct NodeStore {
-  nodes : Array[Node]
+  mut nodes : Array[Node]
   mut bad_node_id : NodeId
 }
 pub fn NodeStore::add_node(Self, Node) -> NodeId
@@ -444,6 +623,7 @@ pub fn NodeStore::get_wasm_type(Self, NodeId) -> WasmType
 pub fn NodeStore::is_bad(Self, NodeId) -> Bool
 pub fn NodeStore::len(Self) -> Int
 pub fn NodeStore::new() -> Self
+pub fn NodeStore::remove(Self, NodeId) -> Unit
 
 pub enum NodeType {
   Var
@@ -453,9 +633,37 @@ pub enum NodeType {
   Block
   Zext
   Bad
+  MemoryDef
+  MemoryPhi
 }
 pub impl Eq for NodeType
 pub impl Show for NodeType
+
+type NodeUsers
+pub fn NodeUsers::add_user(Self, NodeId, NodeId) -> Unit
+pub fn NodeUsers::build(Graph) -> Self
+pub fn NodeUsers::get_users(Self, NodeId) -> Array[NodeId]
+pub fn NodeUsers::new() -> Self
+pub fn NodeUsers::num_uses(Self, NodeId) -> Int
+pub fn NodeUsers::remove_all_uses_of(Self, NodeId) -> Unit
+pub fn NodeUsers::remove_user(Self, NodeId, NodeId) -> Unit
+
+pub struct PhiCongruence {
+  class_rep : Map[NodeId, NodeId]
+  class_members : Map[NodeId, Array[NodeId]]
+}
+pub fn PhiCongruence::find(Self, NodeId) -> NodeId
+pub fn PhiCongruence::new() -> Self
+pub fn PhiCongruence::union(Self, NodeId, NodeId) -> Unit
+
+pub struct PhiWebGVN {
+  gvn : GVN
+  congruence : PhiCongruence
+  worklist : Array[(NodeId, NodeId)]
+}
+pub fn PhiWebGVN::check_phi_congruence(Self, Graph, Node, Node) -> Bool
+pub fn PhiWebGVN::compute_congruence(Self, Graph) -> Unit
+pub fn PhiWebGVN::new() -> Self
 
 pub struct ReturnExpr {
   value : ExprId?
@@ -473,6 +681,40 @@ pub struct SelectExpr {
 pub fn SelectExpr::new(ExprId, ExprId, ExprId, WasmType) -> Self
 pub impl Eq for SelectExpr
 pub impl Show for SelectExpr
+
+pub struct StoreExpr {
+  op : StoreOp
+  ptr : ExprId
+  value : ExprId
+  offset : Int
+  align : Int
+}
+pub fn StoreExpr::new(StoreOp, ExprId, ExprId, Int, Int) -> Self
+pub impl Eq for StoreExpr
+pub impl Show for StoreExpr
+
+pub enum StoreOp {
+  StoreI32
+  Store8I32
+  Store16I32
+  StoreI64
+  Store8I64
+  Store16I64
+  Store32I64
+  StoreF32
+  StoreF64
+}
+pub fn StoreOp::store16_i32() -> Self
+pub fn StoreOp::store16_i64() -> Self
+pub fn StoreOp::store32_i64() -> Self
+pub fn StoreOp::store8_i32() -> Self
+pub fn StoreOp::store_8i64() -> Self
+pub fn StoreOp::store_f32() -> Self
+pub fn StoreOp::store_f64() -> Self
+pub fn StoreOp::store_i32() -> Self
+pub fn StoreOp::store_i64() -> Self
+pub impl Eq for StoreOp
+pub impl Show for StoreOp
 
 pub struct SwitchExpr {
   condition : ExprId
@@ -508,22 +750,86 @@ pub enum UnaryOp {
   NegFloat64
   AbsFloat32
   AbsFloat64
+  SqrtFloat32
+  CeilFloat32
+  FloorFloat32
+  TruncFloat32
+  NearestFloat32
+  SqrtFloat64
+  CeilFloat64
+  FloorFloat64
+  TruncFloat64
+  NearestFloat64
+  TruncSFloat32ToInt32
+  TruncUFloat32ToInt32
+  TruncSFloat64ToInt32
+  TruncUFloat64ToInt32
+  TruncSFloat32ToInt64
+  TruncUFloat32ToInt64
+  TruncSFloat64ToInt64
+  TruncUFloat64ToInt64
+  ConvertSInt32ToFloat32
+  ConvertUInt32ToFloat32
+  ConvertSInt64ToFloat32
+  ConvertUInt64ToFloat32
+  ConvertSInt32ToFloat64
+  ConvertUInt32ToFloat64
+  ConvertSInt64ToFloat64
+  ConvertUInt64ToFloat64
+  PromoteFloat32
+  DemoteFloat64
+  ReinterpretFloat32
+  ReinterpretFloat64
+  ReinterpretInt32
+  ReinterpretInt64
 }
 pub fn UnaryOp::abs_float32() -> Self
 pub fn UnaryOp::abs_float64() -> Self
+pub fn UnaryOp::ceil_float32() -> Self
+pub fn UnaryOp::ceil_float64() -> Self
 pub fn UnaryOp::clz_int32() -> Self
 pub fn UnaryOp::clz_int64() -> Self
+pub fn UnaryOp::convert_s_int32_to_float32() -> Self
+pub fn UnaryOp::convert_s_int32_to_float64() -> Self
+pub fn UnaryOp::convert_s_int64_to_float32() -> Self
+pub fn UnaryOp::convert_s_int64_to_float64() -> Self
+pub fn UnaryOp::convert_u_int32_to_float32() -> Self
+pub fn UnaryOp::convert_u_int32_to_float64() -> Self
+pub fn UnaryOp::convert_u_int64_to_float32() -> Self
+pub fn UnaryOp::convert_u_int64_to_float64() -> Self
 pub fn UnaryOp::ctz_int32() -> Self
 pub fn UnaryOp::ctz_int64() -> Self
+pub fn UnaryOp::demote_float64() -> Self
 pub fn UnaryOp::eq_z_int32() -> Self
 pub fn UnaryOp::eq_z_int64() -> Self
 pub fn UnaryOp::extend_s_int32() -> Self
 pub fn UnaryOp::extend_u_int32() -> Self
+pub fn UnaryOp::floor_float32() -> Self
+pub fn UnaryOp::floor_float64() -> Self
 pub fn UnaryOp::is_relational(Self) -> Bool
+pub fn UnaryOp::nearest_float32() -> Self
+pub fn UnaryOp::nearest_float64() -> Self
 pub fn UnaryOp::neg_float32() -> Self
 pub fn UnaryOp::neg_float64() -> Self
 pub fn UnaryOp::popcnt_int32() -> Self
 pub fn UnaryOp::popcnt_int64() -> Self
+pub fn UnaryOp::promote_float32() -> Self
+pub fn UnaryOp::reinterpret_float32() -> Self
+pub fn UnaryOp::reinterpret_float64() -> Self
+pub fn UnaryOp::reinterpret_int32() -> Self
+pub fn UnaryOp::reinterpret_int64() -> Self
+pub fn UnaryOp::sqrt_float32() -> Self
+pub fn UnaryOp::sqrt_float64() -> Self
+pub fn UnaryOp::trunc_float32() -> Self
+pub fn UnaryOp::trunc_float64() -> Self
+pub fn UnaryOp::trunc_s_float32_to_int32() -> Self
+pub fn UnaryOp::trunc_s_float32_to_int64() -> Self
+pub fn UnaryOp::trunc_s_float64_to_int32() -> Self
+pub fn UnaryOp::trunc_s_float64_to_int64() -> Self
+pub fn UnaryOp::trunc_u_float32_to_int32() -> Self
+pub fn UnaryOp::trunc_u_float32_to_int64() -> Self
+pub fn UnaryOp::trunc_u_float64_to_int32() -> Self
+pub fn UnaryOp::trunc_u_float64_to_int64() -> Self
 pub fn UnaryOp::wrap_int64() -> Self
 pub impl Eq for UnaryOp
 pub impl Show for UnaryOp
@@ -549,7 +855,7 @@ pub fn WasmType::i64() -> Self
 pub fn WasmType::is_concrete(Self) -> Bool
 pub fn WasmType::is_integer(Self) -> Bool
 pub fn WasmType::none() -> Self
-pub fn WasmType::unreachable() -> Self
+pub fn WasmType::unreachable_() -> Self
 pub fn WasmType::v128() -> Self
 pub impl Eq for WasmType
 pub impl Hash for WasmType

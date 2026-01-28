@@ -110,6 +110,18 @@ using @dataflow {
   type LoopExpr,
   type BreakExpr,
   type SwitchExpr,
+  type DropExpr,
+  type LoadExpr,
+  type StoreExpr,
+  type CallExpr,
+  type ReturnExpr,
+  type MemoryGrowExpr,
+  type MemorySizeExpr,
+  type MemorySSA,
+  type NodeUsers,
+  type GVN,
+  type DominatorGVN,
+  type PhiWebGVN,
 }
 
 ///|

@@ -23,6 +23,10 @@ pub enum NodeType {
   Zext
   /// Something we can't handle and should ignore
   Bad
+  // defines memory state
+  MemoryDef   
+  // merges memory states
+  MemoryPhi   
 } derive(Eq, Show)
 
 ///|
@@ -31,7 +35,7 @@ pub struct Node {
   mut id : NodeId
   node_type : NodeType
   /// For Var: the wasm type; For Expr: stored separately
-  wasm_type : WasmType
+  mut wasm_type : WasmType
   /// For Expr: the expression
   expr : Expression?
   /// For Phi and Cond: local index for phi, block index for cond
@@ -115,6 +119,25 @@ pub fn Node::make_zext(id : NodeId, child : NodeId, origin : ExprId?) -> Node {
 }
 
 ///|
+pub fn Node::make_memory_def(id : NodeId, clobbers : NodeId?) -> Self {
+  let node = Node::new(id, MemoryDef)
+  match clobbers {
+    Some(c) => node.values.push(c)
+    None => ()
+  }
+  node
+}
+
+///|
+pub fn Node::make_memory_phi(id : NodeId, incoming : Array[NodeId]) -> Self {
+  let node = Node::new(id, MemoryPhi)
+  for inc in incoming {
+    node.values.push(inc)
+  }
+  node
+}
+
+///|
 pub fn Node::make_bad(id : NodeId) -> Node {
   Node::new(id, Bad)
 }
@@ -155,6 +178,16 @@ pub fn Node::is_bad(self : Node) -> Bool {
 }
 
 ///|
+pub fn Node::is_memory_def(self : Node) -> Bool {
+  self.node_type == MemoryDef
+}
+
+///|
+pub fn Node::is_memory_phi(self : Node) -> Bool {
+  self.node_type == MemoryPhi
+}
+
+///|
 pub fn Node::is_const(self : Node) -> Bool {
   match self.expr {
     Some(Const(_)) => true
@@ -182,6 +215,47 @@ pub fn Node::returns_i1(self : Node) -> Bool {
   match self.expr {
     Some(Binary(b)) => b.op.is_relational()
     Some(Unary(u)) => u.op.is_relational()
+    _ => false
+  }
+}
+
+///|
+/// Check if this node is a root (must be preserved regardless of uses)
+pub fn Node::is_root(self : Node) -> Bool {
+  match self.node_type {
+    // Block nodes are structural roots
+    Block => true
+    // Bad nodes should be preserved (we can't analyze them)
+    Bad => true
+    Expr =>
+      match self.expr {
+        // Return statements are roots
+        Some(Return(_)) => true
+        // Unreachable is a root (control flow terminator)
+        Some(Unreachable) => true
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
+/// Check if this node has side effects (must be preserved even if unused)
+pub fn Node::has_side_effects(self : Node) -> Bool {
+  match self.node_type {
+    Bad => true
+    Expr =>
+      match self.expr {
+        Some(Store(_)) => true
+        Some(Call(_)) => true // Assume calls have side effects
+        Some(MemoryGrow(_)) => true
+        Some(LocalSet(_)) => true
+        Some(Drop(_)) => false // Drop itself has no side effect
+        Some(Return(_)) => true // Control flow effect
+        Some(Break(_)) => true // Control flow effect
+        Some(Unreachable) => true // Control flow effect
+        _ => false
+      }
     _ => false
   }
 }

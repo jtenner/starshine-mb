@@ -5,7 +5,7 @@
 ///|
 /// Storage for all nodes with ID-based access
 pub struct NodeStore {
-  nodes : Array[Node]
+  mut nodes : Array[Node]
   mut bad_node_id : NodeId
 }
 
@@ -96,4 +96,9 @@ pub fn NodeStore::get_wasm_type(self : NodeStore, id : NodeId) -> WasmType {
       }
     None => Unreachable
   }
+}
+
+pub fn NodeStore::remove(self : NodeStore, id : NodeId) -> Unit {
+  self.nodes = self.nodes.filter(fn(n) { n.id != id })
+  
 }

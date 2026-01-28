@@ -7,6 +7,7 @@
 pub fn Graph::build(self : Graph, func : Function, mod : Module) -> Unit {
   self.func = Some(func)
   self.mod = Some(mod)
+  self.mssa = Some(MemorySSA::new(self))
   let num_locals = func.get_num_locals()
   if num_locals == 0 {
     return
@@ -53,19 +54,27 @@ pub fn Graph::visit_expression(
   expr_id : ExprId,
 ) -> NodeId {
   match expr {
+    Nop => self.bad()
     Block(b) => self.do_visit_block(b, expr_id)
     If(i) => self.do_visit_if(i, expr_id)
     Loop(l) => self.do_visit_loop(l, expr_id)
-    LocalGet(g) => self.do_visit_local_get(g)
-    LocalSet(s) => self.do_visit_local_set(s, expr_id)
     Break(b) => self.do_visit_break(b)
     Switch(s) => self.do_visit_switch(s)
+    LocalGet(g) => self.do_visit_local_get(g)
+    LocalSet(s) => self.do_visit_local_set(s, expr_id)
     Const(c) => self.do_visit_const(c)
     Unary(u) => self.do_visit_unary(u, expr_id)
     Binary(b) => self.do_visit_binary(b, expr_id)
     Select(s) => self.do_visit_select(s, expr_id)
-    Unreachable => self.do_visit_unreachable()
     Drop(d) => self.do_visit_drop(d, expr_id)
-    _ => self.do_visit_generic(expr, expr_id)
+    Unreachable => self.do_visit_unreachable()
+    Call(ce) => self.do_visit_call(ce, expr_id)
+    Return(_) => self.do_visit_generic(expr, expr_id)
+    Generic(_) => self.do_visit_generic(expr, expr_id)
+    // Memory operations
+    Load(l) => self.do_visit_load(l, expr_id)
+    Store(s) => self.do_visit_store(s, expr_id)
+    MemorySize(m) => self.do_visit_memory_size(m, expr_id)
+    MemoryGrow(m) => self.do_visit_memory_grow(m, expr_id)
   }
 }

@@ -1504,7 +1504,7 @@ test "unreachable resets cast tracking" {
 fn add_func_to_module(mod : Module, func : Func) -> Module {
   // Add a function type for the func
   let func_type = match func {
-    TFunc(locals, _) =>
+    TFunc(_, _) =>
       // For simplicity, assume void -> void function
       FuncType::new([], [])
     _ => FuncType::new([], [])

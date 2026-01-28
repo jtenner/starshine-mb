@@ -119,12 +119,12 @@ pub fn Graph::do_visit_loop(
           continue
         }
         let mut need_phi = false
-        let var = vars[i]
+        let vi = vars[i]
         let proper = previous[i]
         for other in breaks {
           if not(self.is_locals_unreachable(other)) {
             let curr = other[i]
-            if curr != var && curr != proper {
+            if curr != vi && curr != proper {
               need_phi = true
               break
             }
@@ -136,7 +136,7 @@ pub fn Graph::do_visit_loop(
             match self.node_store.get_mut(NodeId(j)) {
               Some(node) =>
                 for k = 0; k < node.values.length(); k = k + 1 {
-                  if node.values[k] == var {
+                  if node.values[k] == vi {
                     node.values[k] = proper
                   }
                 }
@@ -144,7 +144,7 @@ pub fn Graph::do_visit_loop(
             }
           }
           for k = 0; k < self.locals.length(); k = k + 1 {
-            if self.locals[k] == var {
+            if self.locals[k] == vi {
               self.locals[k] = proper
             }
           }
@@ -434,4 +434,199 @@ pub fn Graph::do_visit_generic(
 
   }
   self.make_var(expr.get_type())
+}
+
+///|
+pub fn Graph::do_visit_load(
+  self : Graph,
+  load : LoadExpr,
+  expr_id : ExprId,
+) -> NodeId {
+  // Visit pointer operand
+  let ptr = self.expand_from_i1(self.visit(load.ptr), Some(expr_id))
+  if self.node_store.is_bad(ptr) {
+    return self.bad()
+  }
+
+  // Create the load expression
+  let expr = Expression::load(
+    LoadExpr::new(load.op, load.ptr, load.offset, load.align, load.result_type),
+  )
+
+  // Create the node
+  let node_id = self.add_node(
+    Node::make_expr(NodeId::new(0), expr, Some(expr_id)),
+  )
+
+  // Add operands to the node
+  match self.node_store.get_mut(node_id) {
+    Some(n) => {
+      n.values.push(ptr)
+      n.wasm_type = load.result_type
+    }
+    None => ()
+  }
+
+  // Record in Memory SSA
+  match self.mssa {
+    Some(mssa) => mssa.record_load(self, node_id, expr_id)
+    None => ()
+  }
+
+  node_id
+}
+///|
+pub fn Graph::do_visit_store(
+  self : Graph,
+  store : StoreExpr,
+  expr_id : ExprId,
+) -> NodeId {
+  // Visit pointer and value operands
+  let ptr = self.expand_from_i1(self.visit(store.ptr), Some(expr_id))
+  if self.node_store.is_bad(ptr) {
+    return self.bad()
+  }
+  let value = self.expand_from_i1(self.visit(store.value), Some(expr_id))
+  if self.node_store.is_bad(value) {
+    return self.bad()
+  }
+
+  // Create the store expression
+  let expr = Expression::store(
+    StoreExpr::new(store.op, store.ptr, store.value, store.offset, store.align),
+  )
+
+  // Create the node - stores don't produce a value
+  let node_id = self.add_node(
+    Node::make_expr(NodeId::new(0), expr, Some(expr_id)),
+  )
+
+  // Add operands to the node
+  match self.node_store.get_mut(node_id) {
+    Some(n) => {
+      n.values.push(ptr)
+      n.values.push(value)
+      n.wasm_type = WasmType::none()
+    }
+    None => ()
+  }
+
+  // Record in Memory SSA
+  match self.mssa {
+    Some(mssa) => mssa.record_store(self, node_id, expr_id)
+    None => ()
+  }
+
+  node_id
+}
+
+///|
+pub fn Graph::do_visit_memory_size(
+  self : Graph,
+  mem_size : MemorySizeExpr,
+  expr_id : ExprId,
+) -> NodeId {
+  // Create the memory.size expression - no operands
+  let expr = Expression::memory_size(
+    MemorySizeExpr::new(mem_size.memory_index),
+  )
+
+  // Create the node - memory.size returns i32
+  let node_id = self.add_node(
+    Node::make_expr(NodeId::new(0), expr, Some(expr_id)),
+  )
+
+  match self.node_store.get_mut(node_id) {
+    Some(n) => n.wasm_type = WasmType::i32()
+    None => ()
+  }
+
+  // memory.size is a read of memory state but doesn't modify it
+  // We could track it as a MemoryUse if we want to optimize it
+  
+  node_id
+}
+
+///|
+pub fn Graph::do_visit_memory_grow(
+  self : Graph,
+  mem_grow : MemoryGrowExpr,
+  expr_id : ExprId,
+) -> NodeId {
+  // Visit delta operand
+  let delta = self.expand_from_i1(self.visit(mem_grow.delta), Some(expr_id))
+  if self.node_store.is_bad(delta) {
+    return self.bad()
+  }
+
+  // Create the memory.grow expression
+  let expr = Expression::memory_grow(
+    MemoryGrowExpr::new(mem_grow.memory_index, mem_grow.delta),
+  )
+
+  // Create the node - memory.grow returns i32 (previous size or -1)
+  let node_id = self.add_node(
+    Node::make_expr(NodeId::new(0), expr, Some(expr_id)),
+  )
+
+  match self.node_store.get_mut(node_id) {
+    Some(n) => {
+      n.values.push(delta)
+      n.wasm_type = WasmType::i32()
+    }
+    None => ()
+  }
+
+  // Record in Memory SSA - memory.grow clobbers memory state
+  match self.mssa {
+    Some(mssa) => mssa.record_memory_grow(self, node_id, expr_id)
+    None => ()
+  }
+
+  node_id
+}
+
+///|
+pub fn Graph::do_visit_call(
+  self : Graph,
+  call : CallExpr,
+  expr_id : ExprId,
+) -> NodeId {
+  // Visit all operands
+  let operand_nodes : Array[NodeId] = []
+  for operand in call.operands {
+    let op_node = self.expand_from_i1(self.visit(operand), Some(expr_id))
+    if self.node_store.is_bad(op_node) {
+      return self.bad()
+    }
+    operand_nodes.push(op_node)
+  }
+
+  // Create the call expression
+  let expr = Expression::call(
+    CallExpr::new(call.target, call.operands, call.result_type),
+  )
+
+  // Create the node
+  let node_id = self.add_node(
+    Node::make_expr(NodeId::new(0), expr, Some(expr_id)),
+  )
+
+  match self.node_store.get_mut(node_id) {
+    Some(n) => {
+      for op in operand_nodes {
+        n.values.push(op)
+      }
+      n.wasm_type = call.result_type
+    }
+    None => ()
+  }
+
+  // Record in Memory SSA - calls conservatively clobber all memory
+  match self.mssa {
+    Some(mssa) => mssa.record_call(self, node_id, expr_id)
+    None => ()
+  }
+
+  node_id
 }

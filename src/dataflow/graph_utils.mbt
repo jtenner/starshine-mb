@@ -120,6 +120,8 @@ pub fn Graph::debug_print(self : Graph) -> String {
           Block => "Block"
           Zext => "Zext"
           Bad => "Bad"
+          MemoryDef => "MemoryDef"
+          MemoryPhi => "MemoryPhi"
         }
         result = result + "  [\{i}] \{type_str}"
         if node.values.length() > 0 {

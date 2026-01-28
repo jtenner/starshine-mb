@@ -1673,7 +1673,7 @@ pub fn remove_unused(mod : Module) -> Result[Module, String] {
     })
     // Update start section
     .on_startsec_evt(fn(
-      t_ : ModuleTransformer[DCEState],
+      _t : ModuleTransformer[DCEState],
       s : DCEState,
       start_sec : StartSec,
     ) {

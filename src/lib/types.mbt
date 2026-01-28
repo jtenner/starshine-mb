@@ -887,9 +887,6 @@ pub enum Instruction {
 } derive(Eq, Hash)
 
 ///|
-type Stack[T] = Array[T]
-
-///|
 pub fn Limits::mem_addr_bits(lim : Limits) -> Int {
   match lim {
     I32Limits(_, _) => 32

@@ -45,6 +45,7 @@ pub struct Graph {
   mut func : Function?
   /// The module being processed
   mut mod : Module?
+  mut mssa : MemorySSA?
 }
 
 ///|
@@ -62,6 +63,7 @@ pub fn Graph::new() -> Graph {
     parent: None,
     func: None,
     mod: None,
+    mssa: None,
   }
 }
 
@@ -233,3 +235,97 @@ pub fn Graph::ensure_i1(
     None => node
   }
 }
+
+///|
+pub fn Graph::replace_all_uses(
+  self : Graph,
+  users : NodeUsers,
+  from : NodeId,
+  to : NodeId,
+  work : Set[NodeId],
+) -> Unit {
+  if from == to {
+    return
+  }
+  for user in users.get_users(from) {
+    work.add(user)
+    let n = match self.node_store.get_mut(user) {
+      Some(n) => n
+      None => continue
+    }
+    for i in 0..<n.values.length() {
+      if n.values[i] == from {
+        n.values[i] = to
+        users.add_user(to, user)
+      }
+    }
+  }
+  users.remove_all_uses_of(from)
+}
+
+///|
+pub fn Graph::get_block_of_node(self : Graph, node_id : NodeId) -> NodeId {
+  match self.node_parent_map.get(node_id) {
+    Some(expr_id) =>
+      match self.get_set_for_expr(expr_id) {
+        Some(block_expr) =>
+          match self.get_node_for_set(block_expr) {
+            Some(block_node) => block_node
+            None => self.node_store.bad()
+          }
+        None => self.node_store.bad()
+      }
+    None => self.node_store.bad()
+  }
+}
+
+
+///|
+/// Check if node a dominates node b in the graph
+pub fn Graph::dominates(self : Graph, a : NodeId, b : NodeId) -> Bool {
+  if a == b {
+    return true
+  }
+  
+  // Get the origin expressions for both nodes
+  let a_origin = match self.node_store.get(a) {
+    Some(node) => node.origin
+    None => return false
+  }
+  
+  let b_origin = match self.node_store.get(b) {
+    Some(node) => node.origin
+    None => return false
+  }
+  
+  match (a_origin, b_origin) {
+    (Some(a_expr), Some(b_expr)) => {
+      if a_expr == b_expr {
+        // Same expression - check node ordering within expression
+        // For simplicity, assume nodes created earlier dominate later ones
+        return a.0 <= b.0
+      }
+      
+      // Compute dominators if not cached, then check
+      let info = compute_dominators(self)
+      expr_dominates(info, a_expr, b_expr)
+    }
+    (None, Some(_)) => {
+      // Node a has no origin (e.g., constant) - constants dominate everything
+      // in their scope since they're available everywhere
+      true
+    }
+    (Some(_), None) => false
+    (None, None) => {
+      // Both have no origin - fall back to ID ordering
+      a.0 <= b.0
+    }
+  }
+}
+
+///|
+/// Cached dominator computation on Graph
+pub fn Graph::get_dominator_info(self : Graph) -> DominatorInfo {
+  compute_dominators(self)
+}
+
