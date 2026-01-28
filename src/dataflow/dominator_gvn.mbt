@@ -1,4 +1,3 @@
-
 ///|
 /// Dominator-based GVN for more precise results
 /// This version respects control flow and only replaces when the leader dominates
@@ -28,6 +27,7 @@ fn DominatorGVN::push_scope(self : DominatorGVN) -> Unit {
 fn DominatorGVN::pop_scope(self : DominatorGVN) -> Unit {
   if self.scope_stack.length() > 1 {
     let _ = self.scope_stack.pop()
+
   }
 }
 
@@ -46,7 +46,11 @@ fn DominatorGVN::lookup(self : DominatorGVN, key : GVNKey) -> NodeId? {
 
 ///|
 /// Insert a key into the current scope
-fn DominatorGVN::insert(self : DominatorGVN, key : GVNKey, leader : NodeId) -> Unit {
+fn DominatorGVN::insert(
+  self : DominatorGVN,
+  key : GVNKey,
+  leader : NodeId,
+) -> Unit {
   self.current_scope().set(key, leader)
 }
 
@@ -63,14 +67,14 @@ pub fn DominatorGVN::process_node(
       match graph.node_store.get(v) {
         Some(operand_node) => {
           let _ = self.process_node(graph, operand_node)
+
         }
         None => ()
       }
     }
   }
-
   match self.gvn.make_key(graph, node) {
-    Some(key) => {
+    Some(key) =>
       match self.lookup(key) {
         Some(leader) => {
           self.gvn.set_value_number(node.id, leader)
@@ -82,7 +86,6 @@ pub fn DominatorGVN::process_node(
           None
         }
       }
-    }
     None => {
       self.gvn.set_value_number(node.id, node.id)
       None
@@ -100,7 +103,7 @@ pub fn DominatorGVN::process_block(
   replacements : Array[(NodeId, NodeId)],
 ) -> Unit {
   match block_node.expr {
-    Some(Block(block)) => {
+    Some(Block(block)) =>
       for expr_id in block.list {
         // Find node for this expression
         match graph.get_node_for_set(expr_id) {
@@ -116,7 +119,6 @@ pub fn DominatorGVN::process_block(
           None => ()
         }
       }
-    }
     _ => ()
   }
 }
@@ -149,7 +151,7 @@ pub fn DominatorGVN::process_if(
   match graph.get_node_for_set(if_expr.if_true) {
     Some(true_node_id) =>
       match graph.node_store.get(true_node_id) {
-        Some(true_node) => {
+        Some(true_node) =>
           match true_node.expr {
             Some(Block(_)) =>
               self.process_block(graph, true_node, users, replacements)
@@ -159,7 +161,6 @@ pub fn DominatorGVN::process_if(
                 None => ()
               }
           }
-        }
         None => ()
       }
     None => ()
@@ -173,7 +174,7 @@ pub fn DominatorGVN::process_if(
       match graph.get_node_for_set(false_expr) {
         Some(false_node_id) =>
           match graph.node_store.get(false_node_id) {
-            Some(false_node) => {
+            Some(false_node) =>
               match false_node.expr {
                 Some(Block(_)) =>
                   self.process_block(graph, false_node, users, replacements)
@@ -183,7 +184,6 @@ pub fn DominatorGVN::process_if(
                     None => ()
                   }
               }
-            }
             None => ()
           }
         None => ()
@@ -193,5 +193,3 @@ pub fn DominatorGVN::process_if(
     None => ()
   }
 }
-
-

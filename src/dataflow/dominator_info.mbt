@@ -18,13 +18,12 @@ fn DominatorInfo::new() -> DominatorInfo {
 /// Compute dominator information for the graph
 fn compute_dominators(graph : Graph) -> DominatorInfo {
   let info = DominatorInfo::new()
-  
+
   // Find the entry point (function body)
   let entry = match graph.func {
     Some(f) => f.body
     None => None
   }
-  
   match entry {
     Some(entry_id) => {
       info.entry = Some(entry_id)
@@ -33,7 +32,6 @@ fn compute_dominators(graph : Graph) -> DominatorInfo {
     }
     None => ()
   }
-  
   info
 }
 
@@ -42,33 +40,31 @@ fn compute_dom_recursive(
   graph : Graph,
   info : DominatorInfo,
   expr_id : ExprId,
-  depth : Int
+  depth : Int,
 ) -> Unit {
   let func = match graph.func {
     Some(f) => f
     None => return
   }
-  
   match func.expressions.get(expr_id) {
-    Some(Block(block)) => {
+    Some(Block(block)) =>
       // Each expression in the block is dominated by the block
       for child_id in block.list {
         info.idom.set(child_id, expr_id)
         info.dom_depth.set(child_id, depth + 1)
         compute_dom_recursive(graph, info, child_id, depth + 1)
       }
-    }
     Some(If(if_expr)) => {
       // Condition is dominated by the if
       info.idom.set(if_expr.condition, expr_id)
       info.dom_depth.set(if_expr.condition, depth + 1)
       compute_dom_recursive(graph, info, if_expr.condition, depth + 1)
-      
+
       // True branch is dominated by the if
       info.idom.set(if_expr.if_true, expr_id)
       info.dom_depth.set(if_expr.if_true, depth + 1)
       compute_dom_recursive(graph, info, if_expr.if_true, depth + 1)
-      
+
       // False branch is dominated by the if
       match if_expr.if_false {
         Some(false_id) => {
@@ -113,7 +109,7 @@ fn expr_dominates(info : DominatorInfo, a : ExprId, b : ExprId) -> Bool {
   if a == b {
     return true
   }
-  
+
   // Walk up the dominator tree from b to see if we reach a
   let mut current = b
   loop () {

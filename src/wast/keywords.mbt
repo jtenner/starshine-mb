@@ -468,7 +468,7 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("i16x8.extmul_low_i8x16_u", Opcode(I16x8ExtmulLowI8x16U))
   map.set("i16x8.extmul_high_i8x16_u", Opcode(I16x8ExtmulHighI8x16U))
 
-// ========== SIMD - i32x4 Operations ==========
+  // ========== SIMD - i32x4 Operations ==========
   map.set("i32x4.splat", Opcode(I32x4Splat))
   map.set("i32x4.extract_lane", Opcode(I32x4ExtractLane))
   map.set("i32x4.replace_lane", Opcode(I32x4ReplaceLane))
@@ -510,7 +510,7 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("i32x4.trunc_sat_f64x2_s_zero", Opcode(I32x4TruncSatF64x2SZero))
   map.set("i32x4.trunc_sat_f64x2_u_zero", Opcode(I32x4TruncSatF64x2UZero))
 
-// ========== SIMD - i64x2 Operations ==========
+  // ========== SIMD - i64x2 Operations ==========
   map.set("i64x2.splat", Opcode(I64x2Splat))
   map.set("i64x2.extract_lane", Opcode(I64x2ExtractLane))
   map.set("i64x2.replace_lane", Opcode(I64x2ReplaceLane))
@@ -539,7 +539,7 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("i64x2.extmul_low_i32x4_u", Opcode(I64x2ExtmulLowI32x4U))
   map.set("i64x2.extmul_high_i32x4_u", Opcode(I64x2ExtmulHighI32x4U))
 
-// ========== SIMD - f32x4 Operations ==========
+  // ========== SIMD - f32x4 Operations ==========
   map.set("f32x4.splat", Opcode(F32x4Splat))
   map.set("f32x4.extract_lane", Opcode(F32x4ExtractLane))
   map.set("f32x4.replace_lane", Opcode(F32x4ReplaceLane))
@@ -568,7 +568,7 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("f32x4.convert_i32x4_u", Opcode(F32x4ConvertI32x4U))
   map.set("f32x4.demote_f64x2_zero", Opcode(F32x4DemoteF64x2Zero))
 
-// ========== SIMD - f64x2 Operations ==========
+  // ========== SIMD - f64x2 Operations ==========
   map.set("f64x2.splat", Opcode(F64x2Splat))
   map.set("f64x2.extract_lane", Opcode(F64x2ExtractLane))
   map.set("f64x2.replace_lane", Opcode(F64x2ReplaceLane))
@@ -596,7 +596,6 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("f64x2.convert_low_i32x4_s", Opcode(F64x2ConvertLowI32x4S))
   map.set("f64x2.convert_low_i32x4_u", Opcode(F64x2ConvertLowI32x4U))
   map.set("f64x2.promote_low_f32x4", Opcode(F64x2PromoteLowF32x4))
-
   { map, }
 }
 

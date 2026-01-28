@@ -168,6 +168,7 @@ pub enum BinaryOp {
   GeFloat64
 } derive(Eq, Show)
 
+///|
 pub fn BinaryOp::is_associative(self : BinaryOp) -> Bool {
   match self {
     // Integer arithmetic
@@ -477,59 +478,94 @@ pub fn BinaryOp::div_float64() -> BinaryOp {
   DivFloat64
 }
 
+///|
 pub fn BinaryOp::min_float32() -> BinaryOp {
   MinFloat32
 }
+
+///|
 pub fn BinaryOp::max_float32() -> BinaryOp {
-    MaxFloat32
+  MaxFloat32
 }
+
+///|
 pub fn BinaryOp::copysign_float32() -> BinaryOp {
-    CopysignFloat32
+  CopysignFloat32
 }
+
+///|
 pub fn BinaryOp::eq_float32() -> BinaryOp {
-    EqFloat32
+  EqFloat32
 }
+
+///|
 pub fn BinaryOp::ne_float32() -> BinaryOp {
-    NeFloat32
+  NeFloat32
 }
+
+///|
 pub fn BinaryOp::lt_float32() -> BinaryOp {
-    LtFloat32
+  LtFloat32
 }
+
+///|
 pub fn BinaryOp::le_float32() -> BinaryOp {
-    LeFloat32
+  LeFloat32
 }
+
+///|
 pub fn BinaryOp::gt_float32() -> BinaryOp {
-    GtFloat32
+  GtFloat32
 }
+
+///|
 pub fn BinaryOp::ge_float32() -> BinaryOp {
-    GeFloat32
+  GeFloat32
 }
+
+///|
 pub fn BinaryOp::min_float64() -> BinaryOp {
-    MinFloat64
+  MinFloat64
 }
+
+///|
 pub fn BinaryOp::max_float64() -> BinaryOp {
-    MaxFloat64
+  MaxFloat64
 }
+
+///|
 pub fn BinaryOp::copysign_float64() -> BinaryOp {
-    CopysignFloat64
+  CopysignFloat64
 }
+
+///|
 pub fn BinaryOp::eq_float64() -> BinaryOp {
-    EqFloat64
+  EqFloat64
 }
+
+///|
 pub fn BinaryOp::ne_float64() -> BinaryOp {
-    NeFloat64
+  NeFloat64
 }
+
+///|
 pub fn BinaryOp::lt_float64() -> BinaryOp {
-    LtFloat64
+  LtFloat64
 }
+
+///|
 pub fn BinaryOp::le_float64() -> BinaryOp {
-    LeFloat64
+  LeFloat64
 }
+
+///|
 pub fn BinaryOp::gt_float64() -> BinaryOp {
-    GtFloat64
+  GtFloat64
 }
+
+///|
 pub fn BinaryOp::ge_float64() -> BinaryOp {
-    GeFloat64
+  GeFloat64
 }
 
 ///|
@@ -701,101 +737,164 @@ pub fn UnaryOp::abs_float64() -> UnaryOp {
   AbsFloat64
 }
 
+///|
 pub fn UnaryOp::sqrt_float32() -> UnaryOp {
   SqrtFloat32
 }
+
+///|
 pub fn UnaryOp::ceil_float32() -> UnaryOp {
-    CeilFloat32
+  CeilFloat32
 }
+
+///|
 pub fn UnaryOp::floor_float32() -> UnaryOp {
-    FloorFloat32
+  FloorFloat32
 }
+
+///|
 pub fn UnaryOp::trunc_float32() -> UnaryOp {
-    TruncFloat32
+  TruncFloat32
 }
+
+///|
 pub fn UnaryOp::nearest_float32() -> UnaryOp {
-    NearestFloat32
+  NearestFloat32
 }
+
+///|
 pub fn UnaryOp::sqrt_float64() -> UnaryOp {
-    SqrtFloat64
+  SqrtFloat64
 }
+
+///|
 pub fn UnaryOp::ceil_float64() -> UnaryOp {
-    CeilFloat64
+  CeilFloat64
 }
+
+///|
 pub fn UnaryOp::floor_float64() -> UnaryOp {
-    FloorFloat64
+  FloorFloat64
 }
+
+///|
 pub fn UnaryOp::trunc_float64() -> UnaryOp {
-    TruncFloat64
+  TruncFloat64
 }
+
+///|
 pub fn UnaryOp::nearest_float64() -> UnaryOp {
-    NearestFloat64
+  NearestFloat64
 }
+
+///|
 pub fn UnaryOp::trunc_s_float32_to_int32() -> UnaryOp {
-    TruncSFloat32ToInt32
+  TruncSFloat32ToInt32
 }
+
+///|
 pub fn UnaryOp::trunc_u_float32_to_int32() -> UnaryOp {
-    TruncUFloat32ToInt32
+  TruncUFloat32ToInt32
 }
+
+///|
 pub fn UnaryOp::trunc_s_float64_to_int32() -> UnaryOp {
-    TruncSFloat64ToInt32
+  TruncSFloat64ToInt32
 }
+
+///|
 pub fn UnaryOp::trunc_u_float64_to_int32() -> UnaryOp {
-    TruncUFloat64ToInt32
+  TruncUFloat64ToInt32
 }
+
+///|
 pub fn UnaryOp::trunc_s_float32_to_int64() -> UnaryOp {
-    TruncSFloat32ToInt64
+  TruncSFloat32ToInt64
 }
+
+///|
 pub fn UnaryOp::trunc_u_float32_to_int64() -> UnaryOp {
-    TruncUFloat32ToInt64
+  TruncUFloat32ToInt64
 }
+
+///|
 pub fn UnaryOp::trunc_s_float64_to_int64() -> UnaryOp {
-    TruncSFloat64ToInt64
+  TruncSFloat64ToInt64
 }
+
+///|
 pub fn UnaryOp::trunc_u_float64_to_int64() -> UnaryOp {
-    TruncUFloat64ToInt64
+  TruncUFloat64ToInt64
 }
+
+///|
 pub fn UnaryOp::convert_s_int32_to_float32() -> UnaryOp {
-    ConvertSInt32ToFloat32
+  ConvertSInt32ToFloat32
 }
+
+///|
 pub fn UnaryOp::convert_u_int32_to_float32() -> UnaryOp {
-    ConvertUInt32ToFloat32
+  ConvertUInt32ToFloat32
 }
+
+///|
 pub fn UnaryOp::convert_s_int64_to_float32() -> UnaryOp {
-    ConvertSInt64ToFloat32
+  ConvertSInt64ToFloat32
 }
+
+///|
 pub fn UnaryOp::convert_u_int64_to_float32() -> UnaryOp {
-    ConvertUInt64ToFloat32
+  ConvertUInt64ToFloat32
 }
+
+///|
 pub fn UnaryOp::convert_s_int32_to_float64() -> UnaryOp {
-    ConvertSInt32ToFloat64
+  ConvertSInt32ToFloat64
 }
+
+///|
 pub fn UnaryOp::convert_u_int32_to_float64() -> UnaryOp {
-    ConvertUInt32ToFloat64
+  ConvertUInt32ToFloat64
 }
+
+///|
 pub fn UnaryOp::convert_s_int64_to_float64() -> UnaryOp {
-    ConvertSInt64ToFloat64
+  ConvertSInt64ToFloat64
 }
+
+///|
 pub fn UnaryOp::convert_u_int64_to_float64() -> UnaryOp {
-    ConvertUInt64ToFloat64
+  ConvertUInt64ToFloat64
 }
+
+///|
 pub fn UnaryOp::promote_float32() -> UnaryOp {
-    PromoteFloat32
+  PromoteFloat32
 }
+
+///|
 pub fn UnaryOp::demote_float64() -> UnaryOp {
-    DemoteFloat64
+  DemoteFloat64
 }
+
+///|
 pub fn UnaryOp::reinterpret_float32() -> UnaryOp {
-    ReinterpretFloat32
+  ReinterpretFloat32
 }
+
+///|
 pub fn UnaryOp::reinterpret_float64() -> UnaryOp {
-    ReinterpretFloat64
+  ReinterpretFloat64
 }
+
+///|
 pub fn UnaryOp::reinterpret_int32() -> UnaryOp {
-    ReinterpretInt32
+  ReinterpretInt32
 }
+
+///|
 pub fn UnaryOp::reinterpret_int64() -> UnaryOp {
-    ReinterpretInt64
+  ReinterpretInt64
 }
 
 ///|

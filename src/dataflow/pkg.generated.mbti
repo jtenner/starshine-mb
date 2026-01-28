@@ -355,6 +355,7 @@ pub struct Graph {
   mut func : Function?
   mut mod : Module?
   mut mssa : MemorySSA?
+  mut dom_info : DominatorInfo?
 }
 pub fn Graph::add_node(Self, Node) -> NodeId
 pub fn Graph::bad(Self) -> NodeId
@@ -384,12 +385,14 @@ pub fn Graph::ensure_i1(Self, NodeId, ExprId?) -> NodeId
 pub fn Graph::expand_from_i1(Self, NodeId, ExprId?) -> NodeId
 pub fn Graph::get_block_of_node(Self, NodeId) -> NodeId
 pub fn Graph::get_conditions(Self, ExprId) -> Array[NodeId]
+pub fn Graph::get_dom_info(Self) -> DominatorInfo
 pub fn Graph::get_dominator_info(Self) -> DominatorInfo
 pub fn Graph::get_node_for_set(Self, ExprId) -> NodeId?
 pub fn Graph::get_parent(Self, ExprId) -> ExprId?
 pub fn Graph::get_set_for_expr(Self, ExprId) -> ExprId?
 pub fn Graph::get_set_for_node(Self, NodeId) -> ExprId?
 pub fn Graph::get_sets(Self) -> Array[ExprId]
+pub fn Graph::invalidate_dom_info(Self) -> Unit
 pub fn Graph::is_flow_state_unreachable(Self, FlowState) -> Bool
 pub fn Graph::is_in_unreachable(Self) -> Bool
 pub fn Graph::is_locals_unreachable(Self, Array[NodeId]) -> Bool

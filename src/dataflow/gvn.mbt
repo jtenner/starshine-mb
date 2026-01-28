@@ -1,12 +1,11 @@
-
 ///|
 /// Represents a canonical expression key for value numbering.
 /// Two expressions with the same key compute the same value.
 enum GVNKey {
   ConstKey(Literal)
-  UnaryKey(UnaryOp, NodeId)  // (op, value-numbered operand)
-  BinaryKey(BinaryOp, NodeId, NodeId)  // (op, vn(left), vn(right))
-  SelectKey(NodeId, NodeId, NodeId)  // (cond, true, false)
+  UnaryKey(UnaryOp, NodeId) // (op, value-numbered operand)
+  BinaryKey(BinaryOp, NodeId, NodeId) // (op, vn(left), vn(right))
+  SelectKey(NodeId, NodeId, NodeId) // (cond, true, false)
   // Memory operations are not value-numbered (they depend on memory state)
   // Calls are not value-numbered (may have side effects)
   // Phi key: (block, sorted value-numbered operands)
@@ -263,10 +262,12 @@ pub fn GVN::new() -> GVN {
   }
 }
 
+///|
 pub fn GVN::set_iteration(self : GVN, iteration : Int) -> Unit {
   self.iteration = iteration
 }
 
+///|
 pub fn GVN::set_changed(self : GVN, changed : Bool) -> Unit {
   self.changed = changed
 }
@@ -302,27 +303,26 @@ fn GVN::set_value_number(self : GVN, node_id : NodeId, leader : NodeId) -> Unit 
   }
 }
 
+///|
 fn GVN::make_phi_key(self : GVN, node : Node) -> GVNKey? {
   if node.values.length() < 1 {
     return None
   }
-  
   let block = node.values[0]
   let operands : Array[NodeId] = []
-  
+
   // Get value numbers for all phi operands (skip block at index 0)
   for i = 1; i < node.values.length(); i = i + 1 {
     let vn = self.get_value_number(node.values[i])
     operands.push(vn)
   }
-  
   Some(PhiKey(block, operands))
 }
 
 ///|
 /// Create a canonical key for an expression, using value-numbered operands
 fn GVN::make_key(self : GVN, _graph : Graph, node : Node) -> GVNKey? {
-   match node.node_type {
+  match node.node_type {
     Phi => self.make_phi_key(node)
     Zext => {
       if node.values.length() < 1 {
@@ -374,10 +374,10 @@ fn GVN::is_trivial_phi(self : GVN, node : Node) -> NodeId? {
   if node.values.length() <= 1 {
     return None
   }
-  
+
   // Get value number of first operand
   let first_vn = self.get_value_number(node.values[1])
-  
+
   // Check if all other operands have the same value number
   for i = 2; i < node.values.length(); i = i + 1 {
     let vn = self.get_value_number(node.values[i])
@@ -385,7 +385,7 @@ fn GVN::is_trivial_phi(self : GVN, node : Node) -> NodeId? {
       return None
     }
   }
-  
+
   // All operands are equivalent, phi can be replaced with this value
   Some(first_vn)
 }
@@ -408,7 +408,6 @@ pub fn GVN::has_self_reference(self : GVN, node : Node) -> Bool {
 fn GVN::get_phi_single_non_self_value(self : GVN, node : Node) -> NodeId? {
   let node_vn = self.get_value_number(node.id)
   let mut non_self_value : NodeId? = None
-  
   for i = 1; i < node.values.length(); i = i + 1 {
     let vn = self.get_value_number(node.values[i])
     if vn != node_vn {
@@ -419,7 +418,6 @@ fn GVN::get_phi_single_non_self_value(self : GVN, node : Node) -> NodeId? {
       }
     }
   }
-  
   non_self_value
 }
 
@@ -435,9 +433,8 @@ pub fn GVN::process_node_optimistic(
     // In a cycle, optimistically assume it equals itself for now
     return
   }
-  
   self.in_progress.add(node.id)
-  
+
   // Process operands first
   for v in node.values {
     if not(self.value_number.contains(v)) {
@@ -447,9 +444,8 @@ pub fn GVN::process_node_optimistic(
       }
     }
   }
-  
   self.in_progress.remove(node.id)
-  
+
   // Handle phi nodes specially
   if node.is_phi() {
     // First check for trivial phi (all same inputs)
@@ -460,7 +456,7 @@ pub fn GVN::process_node_optimistic(
       }
       None => ()
     }
-    
+
     // Check for phi with only self-references and one other value
     // phi(x, phi, phi) = x
     match self.get_phi_single_non_self_value(node) {
@@ -471,7 +467,7 @@ pub fn GVN::process_node_optimistic(
       None => ()
     }
   }
-  
+
   // Try to find or create a key
   match self.make_key(graph, node) {
     Some(key) =>
@@ -499,7 +495,6 @@ pub fn GVN::reprocess_node(self : GVN, graph : Graph, node : Node) -> Unit {
       }
       None => ()
     }
-    
     match self.get_phi_single_non_self_value(node) {
       Some(single_value) => {
         self.set_value_number(node.id, single_value)
@@ -508,15 +503,13 @@ pub fn GVN::reprocess_node(self : GVN, graph : Graph, node : Node) -> Unit {
       None => ()
     }
   }
-  
   match self.make_key(graph, node) {
     Some(key) =>
       match self.expr_to_leader.get(key) {
         Some(leader) => self.set_value_number(node.id, leader)
-        None => {
+        None =>
           // Key might have changed, update mapping
           self.expr_to_leader.set(key, self.get_value_number(node.id))
-        }
       }
     None => ()
   }

@@ -50,8 +50,6 @@ fn[T : Eq + Hash] set_pop_any(s : @set.Set[T]) -> T {
   v
 }
 
-
-
 ///|
 fn eval_unary(op : DataFlowUnaryOp, lit : DataFlowLiteral) -> DataFlowLiteral? {
   match (op, lit) {
@@ -149,7 +147,8 @@ fn eval_unary(op : DataFlowUnaryOp, lit : DataFlowLiteral) -> DataFlowLiteral? {
       Some(DataFlowLiteral::f64(x.reinterpret_as_uint64().to_double()))
     // Float promotions/demotions
     (PromoteFloat32, LitF32(x)) => Some(DataFlowLiteral::f64(x.to_double()))
-    (DemoteFloat64, LitF64(x)) => Some(DataFlowLiteral::f32(Float::from_double(x)))
+    (DemoteFloat64, LitF64(x)) =>
+      Some(DataFlowLiteral::f32(Float::from_double(x)))
     // Reinterpret
     (ReinterpretFloat32, LitF32(x)) =>
       Some(DataFlowLiteral::i32(x.reinterpret_as_int()))
@@ -695,9 +694,9 @@ fn try_reassociate(
     None => return false
   }
   match left_node.expr {
-    Some(Binary(left_bin)) if left_bin.op == bin.op && bin.op.is_associative() => {
+    Some(Binary(left_bin)) if left_bin.op == bin.op && bin.op.is_associative() =>
       match get_const_value(graph, left_node.values[1]) {
-        Some(left_const) => {
+        Some(left_const) =>
           // Fold the two constants
           match eval_binary(bin.op, left_const, right_const) {
             Some(folded) => {
@@ -720,15 +719,13 @@ fn try_reassociate(
                 }
                 None => ()
               }
-              graph.replace_all_uses( users, node.id, new_node, work)
+              graph.replace_all_uses(users, node.id, new_node, work)
               return true
             }
             None => ()
           }
-        }
         None => ()
       }
-    }
     _ => ()
   }
   false
@@ -760,7 +757,7 @@ fn try_simplify_binary(
     | (AddInt64, _, Some({ expr: Some(Const({ value: LitI64(0L) })), .. }))
     | (AddFloat32, _, Some({ expr: Some(Const({ value: LitF32(0.0) })), .. }))
     | (AddFloat64, _, Some({ expr: Some(Const({ value: LitF64(0.0) })), .. })) => {
-      graph.replace_all_uses( users, node.id, node.values[0], work)
+      graph.replace_all_uses(users, node.id, node.values[0], work)
       return true
     }
     // 0 + x => x
@@ -1093,6 +1090,7 @@ fn try_simplify_binary(
 }
 
 // Truncation/extension chain simplification
+
 ///|
 fn try_simplify_conversion_chain(
   graph : Graph,
@@ -1227,7 +1225,6 @@ fn try_fold_phi(
   true
 }
 
-
 ///|
 fn try_eliminate_redundant_load(
   graph : Graph,
@@ -1241,15 +1238,14 @@ fn try_eliminate_redundant_load(
     Some(s) => s
     None => return false
   }
-  
   let our_access = match get_access_info(graph, node) {
     Some(a) => a
     None => return false
   }
-  
+
   // Walk back through memory state looking for a store to the same location
   match graph.node_store.get(mem_state) {
-    Some(def_node) if def_node.is_memory_def() => {
+    Some(def_node) if def_node.is_memory_def() =>
       // Check if this is a store to the same location
       match def_node.expr {
         Some(Store(store)) => {
@@ -1261,7 +1257,7 @@ fn try_eliminate_redundant_load(
             MustAlias => {
               // The load reads what was just stored
               // Replace load with the stored value
-              let stored_value = def_node.values[1]  // store's value operand
+              let stored_value = def_node.values[1] // store's value operand
               graph.replace_all_uses(users, node.id, stored_value, work)
               return true
             }
@@ -1270,10 +1266,9 @@ fn try_eliminate_redundant_load(
         }
         _ => ()
       }
-    }
     _ => ()
   }
-  
+
   // Look for a previous load from the same location with same memory state
   // This requires walking users of the memory state
   false
@@ -1292,17 +1287,17 @@ fn try_eliminate_dead_store(
     Some(a) => a
     None => return false
   }
-  
+
   // Get the memory state defined by this store
   let our_mem_state = match mssa.get_defining_access(node.id) {
     Some(s) => s
     None => return false
   }
-  
+
   // Check all users of the memory state this store defines
   for user_id in users.get_users(our_mem_state) {
     match graph.node_store.get(user_id) {
-      Some(user_node) => {
+      Some(user_node) =>
         match user_node.expr {
           Some(Store(_)) => {
             let user_access = match get_access_info(graph, user_node) {
@@ -1310,27 +1305,33 @@ fn try_eliminate_dead_store(
               None => continue
             }
             match check_alias(graph, our_access, user_access) {
-              MustAlias => {
+              MustAlias =>
                 // Found a store that overwrites this one
-                if no_intervening_loads(graph, mssa, node.id, user_id, our_access) {
+                if no_intervening_loads(
+                    graph,
+                    mssa,
+                    node.id,
+                    user_id,
+                    our_access,
+                  ) {
                   // Safe to remove this dead store
                   // First, update memory SSA - users of our state should use our input state
-                  let our_input_state = match mssa.get_defining_access(node.id) {
+                  let our_input_state = match
+                    mssa.get_defining_access(node.id) {
                     Some(s) => s
                     None => return false
                   }
-                  
+
                   // Remove the store node
                   graph.node_store.remove(node.id)
                   users.remove_all_uses_of(node.id)
-                  
+
                   // Add our value inputs to worklist - they may become dead
                   for v in node.values {
                     work.add(v)
                   }
                   return true
                 }
-              }
               _ => ()
             }
           }
@@ -1347,11 +1348,9 @@ fn try_eliminate_dead_store(
           }
           _ => ()
         }
-      }
       None => ()
     }
   }
-  
   false
 }
 
@@ -1367,45 +1366,37 @@ fn no_intervening_loads(
     Some(id) => id
     None => return false
   }
-
   let to_mem = match mssa.get_defining_access(to) {
     Some(id) => id
     None => return false
   }
-
   let work : Array[NodeId] = [from_mem]
   let visited : Set[NodeId] = Set::new()
-
   while work.length() > 0 {
     let mem_id = work.pop().unwrap()
-
     if visited.contains(mem_id) {
       continue
     }
     visited.add(mem_id)
-
     for user in graph.node_store.get(mem_id).unwrap().values {
       match graph.node_store.get(user) {
         Some(node) => {
           if user == to_mem {
             continue
           }
-
           match node.expr {
             Some(Load(_)) => {
               let load_access = match get_access_info(graph, node) {
                 Some(a) => a
                 None => return false
               }
-
               match check_alias(graph, access, load_access) {
                 NoAlias => ()
-                _ => {
+                _ =>
                   // If load is NOT dominated by `to`, then store is observable
                   if not(graph.dominates(to, node.id)) {
                     return false
                   }
-                }
               }
             }
             Some(Store(_)) => {
@@ -1413,28 +1404,22 @@ fn no_intervening_loads(
                 Some(a) => a
                 None => return false
               }
-
               match check_alias(graph, access, store_access) {
-                MustAlias => {
-                  if graph.dominates(node.id, to) {
-                    continue
-                  }
-                }
+                MustAlias => if graph.dominates(node.id, to) { continue }
                 _ => ()
               }
             }
             _ => ()
           }
-
           work.push(user)
         }
         None => ()
       }
     }
   }
-
   true
 }
+
 ///|
 /// Run Global Value Numbering on the graph
 
@@ -1443,7 +1428,7 @@ fn no_intervening_loads(
 fn run_gvn(graph : Graph) -> Unit {
   let gvn = GVN::new()
   let users = NodeUsers::build(graph)
-  
+
   // Collect all phi nodes for iterative processing
   let phi_nodes : Array[NodeId] = []
   for node in graph.node_store.nodes {
@@ -1451,31 +1436,30 @@ fn run_gvn(graph : Graph) -> Unit {
       phi_nodes.push(node.id)
     }
   }
-  
+
   // First pass: process all nodes optimistically
   for node in graph.node_store.nodes {
     gvn.process_node_optimistic(graph, node)
   }
-  
+
   // Fixed-point iteration for phi nodes
   let max_iterations = 10
   for iter = 0; iter < max_iterations; iter = iter + 1 {
     gvn.set_changed(false)
     gvn.set_iteration(iter)
-    
+
     // Clear and rebuild expression map for this iteration
     gvn.expr_to_leader.clear()
-    
+
     // Reprocess all nodes with current value numbers
     for node in graph.node_store.nodes {
       gvn.reprocess_node(graph, node)
     }
-    
     if not(gvn.changed) {
       break
     }
   }
-  
+
   // Collect replacements
   let replacements : Array[(NodeId, NodeId)] = []
   for node in graph.node_store.nodes {
@@ -1484,20 +1468,21 @@ fn run_gvn(graph : Graph) -> Unit {
       replacements.push((node.id, vn))
     }
   }
-  
+
   // Apply replacements
   let work : @set.Set[NodeId] = @set.Set::new()
   for replacement in replacements {
     let (from, to) = replacement
     graph.replace_all_uses(users, from, to, work)
   }
-  
+
   // Run simplification on affected nodes
   while not(work.is_empty()) {
     let node_id = set_pop_any(work)
     match graph.node_store.get(node_id) {
       Some(node) => {
         let _ = simplify_node(graph, users, node, work)
+
       }
       None => ()
     }
@@ -1509,20 +1494,20 @@ fn run_gvn(graph : Graph) -> Unit {
 pub fn run_phi_web_gvn(graph : Graph) -> Unit {
   let web_gvn = PhiWebGVN::new()
   let users = NodeUsers::build(graph)
-  
+
   // First run basic GVN for non-phi nodes
   for node in graph.node_store.nodes {
     if not(node.is_phi()) {
       web_gvn.gvn.process_node_optimistic(graph, node)
     }
   }
-  
+
   // Compute phi congruence classes
   web_gvn.compute_congruence(graph)
-  
+
   // Collect replacements based on congruence classes
   let replacements : Array[(NodeId, NodeId)] = []
-  
+
   // For each phi, replace with its class representative if different
   for node in graph.node_store.nodes {
     if node.is_phi() {
@@ -1537,25 +1522,27 @@ pub fn run_phi_web_gvn(graph : Graph) -> Unit {
       }
     }
   }
-  
+
   // Apply replacements
   let work : @set.Set[NodeId] = @set.Set::new()
   for replacement in replacements {
     let (from, to) = replacement
     graph.replace_all_uses(users, from, to, work)
   }
-  
+
   // Cleanup
   while not(work.is_empty()) {
     let node_id = set_pop_any(work)
     match graph.node_store.get(node_id) {
       Some(node) => {
         let _ = simplify_node(graph, users, node, work)
+
       }
       None => ()
     }
   }
 }
+
 ///|
 /// Run dominator-based GVN
 pub fn run_dominator_gvn(graph : Graph) -> Unit {
@@ -1568,10 +1555,8 @@ pub fn run_dominator_gvn(graph : Graph) -> Unit {
   // processes nodes in order
   for node in graph.node_store.nodes {
     match node.expr {
-      Some(If(if_expr)) =>
-        dgvn.process_if(graph, if_expr, users, replacements)
-      Some(Block(_)) =>
-        dgvn.process_block(graph, node, users, replacements)
+      Some(If(if_expr)) => dgvn.process_if(graph, if_expr, users, replacements)
+      Some(Block(_)) => dgvn.process_block(graph, node, users, replacements)
       _ =>
         match dgvn.process_node(graph, node) {
           Some(leader) => replacements.push((node.id, leader))
@@ -1593,6 +1578,7 @@ pub fn run_dominator_gvn(graph : Graph) -> Unit {
     match graph.node_store.get(node_id) {
       Some(node) => {
         let _ = simplify_node(graph, users, node, work)
+
       }
       None => ()
     }
@@ -1715,19 +1701,15 @@ fn simplify_node(
   false
 }
 
-
 ///|
 priv enum AliasResult {
-  MustAlias     // Definitely the same location
-  MayAlias      // Could be the same location
-  NoAlias       // Definitely different locations
+  MustAlias // Definitely the same location
+  MayAlias // Could be the same location
+  NoAlias // Definitely different locations
 }
 
 ///|
-fn get_access_info(
-  _graph : Graph, 
-  node : Node
-) -> (NodeId, Int, Int)? {
+fn get_access_info(_graph : Graph, node : Node) -> (NodeId, Int, Int)? {
   // Returns (base_ptr, offset, size) for a memory access
   match node.expr {
     Some(Load(load)) => {
@@ -1756,25 +1738,25 @@ fn get_access_info(
 fn check_alias(
   graph : Graph,
   access1 : (NodeId, Int, Int),
-  access2 : (NodeId, Int, Int)
+  access2 : (NodeId, Int, Int),
 ) -> AliasResult {
   let (ptr1, offset1, size1) = access1
   let (ptr2, offset2, size2) = access2
-  
+
   // If base pointers are the same node
   if ptr1 == ptr2 {
     // Check if offset ranges overlap
     let end1 = offset1 + size1
     let end2 = offset2 + size2
     if offset1 >= end2 || offset2 >= end1 {
-      return NoAlias  // Non-overlapping ranges
+      return NoAlias // Non-overlapping ranges
     }
     if offset1 == offset2 && size1 == size2 {
       return MustAlias
     }
-    return MayAlias  // Overlapping but not identical
+    return MayAlias // Overlapping but not identical
   }
-  
+
   // Check if both are constant pointers
   match (get_const_value(graph, ptr1), get_const_value(graph, ptr2)) {
     (Some(LitI32(p1)), Some(LitI32(p2))) => {
@@ -1790,7 +1772,7 @@ fn check_alias(
       }
       return MayAlias
     }
-    _ => MayAlias  // Conservative: unknown pointers may alias
+    _ => MayAlias // Conservative: unknown pointers may alias
   }
 }
 
@@ -1798,16 +1780,15 @@ fn check_alias(
 fn optimize(graph : Graph) -> Unit {
   let users = NodeUsers::build(graph)
   let work : Set[NodeId] = Set::new()
-
   for node in graph.node_store.nodes {
     work.add(node.id)
   }
-
   while not(work.is_empty()) {
     let node_id = set_pop_any(work)
     match graph.node_store.get(node_id) {
       Some(node) => {
         let _ = simplify_node(graph, users, node, work)
+
       }
       None => ()
     }
@@ -1826,15 +1807,13 @@ fn try_simplify_drop(
   // drop(pure_expr) => remove
   let value_id = node.values[0]
   match graph.node_store.get(value_id) {
-    Some(value_node) if value_node.is_const() => {
+    Some(value_node) if value_node.is_const() =>
       // The drop of a constant has no effect - mark for removal
       // Replace with a nop or just let DCE handle it
       return false // Let DCE clean this up
-    }
-    Some(value_node) if not(value_node.has_side_effects()) => {
+    Some(value_node) if not(value_node.has_side_effects()) =>
       // Dropping a pure expression - let DCE handle it
       return false
-    }
     _ => ()
   }
   false
@@ -1906,11 +1885,10 @@ fn try_simplify_memory_grow(
   // memory.grow(0) returns current size but doesn't grow
   // Could potentially optimize, but has side effects (returns -1 on failure)
   match get_const_value(graph, node.values[0]) {
-    Some(LitI32(0)) => {
+    Some(LitI32(0)) =>
       // memory.grow(0) is equivalent to memory.size but returns i32
       // Can't easily simplify without changing to memory.size
       ()
-    }
     _ => ()
   }
   false
@@ -1974,16 +1952,15 @@ pub fn run_eliminate_redundant_computations(graph : Graph) -> Unit {
   // Run multiple passes until no changes
   for _pass = 0; _pass < 10; _pass = _pass + 1 {
     let initial_count = graph.node_store.nodes.length()
-    
+
     // Run GVN first to eliminate redundant computations
     run_gvn(graph)
-    
+
     // Then run local optimizations
     optimize(graph)
-    
+
     // Finally eliminate dead code
     eliminate_dead_code(graph)
-    
     let final_count = graph.node_store.nodes.length()
     if initial_count == final_count {
       break

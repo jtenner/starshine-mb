@@ -70,6 +70,8 @@ pub fn Graph::new() -> Graph {
 }
 
 // Cached version:
+
+///|
 pub fn Graph::get_dom_info(self : Graph) -> DominatorInfo {
   match self.dom_info {
     Some(info) => info
@@ -82,6 +84,8 @@ pub fn Graph::get_dom_info(self : Graph) -> DominatorInfo {
 }
 
 // Invalidate cache when graph changes:
+
+///|
 pub fn Graph::invalidate_dom_info(self : Graph) -> Unit {
   self.dom_info = None
 }
@@ -298,22 +302,19 @@ pub fn Graph::get_block_of_node(self : Graph, node_id : NodeId) -> NodeId {
   }
 }
 
-
+///|
 pub fn Graph::dominates(self : Graph, a : NodeId, b : NodeId) -> Bool {
   if a == b {
     return true
   }
-  
   let a_origin = match self.node_store.get(a) {
     Some(node) => node.origin
     None => return false
   }
-  
   let b_origin = match self.node_store.get(b) {
     Some(node) => node.origin
     None => return false
   }
-  
   match (a_origin, b_origin) {
     (Some(a_expr), Some(b_expr)) => {
       if a_expr == b_expr {
@@ -333,4 +334,3 @@ pub fn Graph::dominates(self : Graph, a : NodeId, b : NodeId) -> Bool {
 pub fn Graph::get_dominator_info(self : Graph) -> DominatorInfo {
   compute_dominators(self)
 }
-

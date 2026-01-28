@@ -472,9 +472,9 @@ pub fn Graph::do_visit_load(
     Some(mssa) => mssa.record_load(self, node_id, expr_id)
     None => ()
   }
-
   node_id
 }
+
 ///|
 pub fn Graph::do_visit_store(
   self : Graph,
@@ -516,7 +516,6 @@ pub fn Graph::do_visit_store(
     Some(mssa) => mssa.record_store(self, node_id, expr_id)
     None => ()
   }
-
   node_id
 }
 
@@ -527,15 +526,12 @@ pub fn Graph::do_visit_memory_size(
   expr_id : ExprId,
 ) -> NodeId {
   // Create the memory.size expression - no operands
-  let expr = Expression::memory_size(
-    MemorySizeExpr::new(mem_size.memory_index),
-  )
+  let expr = Expression::memory_size(MemorySizeExpr::new(mem_size.memory_index))
 
   // Create the node - memory.size returns i32
   let node_id = self.add_node(
     Node::make_expr(NodeId::new(0), expr, Some(expr_id)),
   )
-
   match self.node_store.get_mut(node_id) {
     Some(n) => n.wasm_type = WasmType::i32()
     None => ()
@@ -543,7 +539,7 @@ pub fn Graph::do_visit_memory_size(
 
   // memory.size is a read of memory state but doesn't modify it
   // We could track it as a MemoryUse if we want to optimize it
-  
+
   node_id
 }
 
@@ -568,7 +564,6 @@ pub fn Graph::do_visit_memory_grow(
   let node_id = self.add_node(
     Node::make_expr(NodeId::new(0), expr, Some(expr_id)),
   )
-
   match self.node_store.get_mut(node_id) {
     Some(n) => {
       n.values.push(delta)
@@ -582,7 +577,6 @@ pub fn Graph::do_visit_memory_grow(
     Some(mssa) => mssa.record_memory_grow(self, node_id, expr_id)
     None => ()
   }
-
   node_id
 }
 
@@ -611,7 +605,6 @@ pub fn Graph::do_visit_call(
   let node_id = self.add_node(
     Node::make_expr(NodeId::new(0), expr, Some(expr_id)),
   )
-
   match self.node_store.get_mut(node_id) {
     Some(n) => {
       for op in operand_nodes {
@@ -627,6 +620,5 @@ pub fn Graph::do_visit_call(
     Some(mssa) => mssa.record_call(self, node_id, expr_id)
     None => ()
   }
-
   node_id
 }

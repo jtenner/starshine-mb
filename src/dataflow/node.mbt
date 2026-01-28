@@ -24,9 +24,9 @@ pub enum NodeType {
   /// Something we can't handle and should ignore
   Bad
   // defines memory state
-  MemoryDef   
+  MemoryDef
   // merges memory states
-  MemoryPhi   
+  MemoryPhi
 } derive(Eq, Show)
 
 ///|

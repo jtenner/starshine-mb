@@ -98,7 +98,7 @@ pub fn NodeStore::get_wasm_type(self : NodeStore, id : NodeId) -> WasmType {
   }
 }
 
+///|
 pub fn NodeStore::remove(self : NodeStore, id : NodeId) -> Unit {
   self.nodes = self.nodes.filter(fn(n) { n.id != id })
-  
 }

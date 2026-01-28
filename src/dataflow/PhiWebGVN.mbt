@@ -37,15 +37,13 @@ pub fn PhiCongruence::union(
 ) -> Unit {
   let rep_a = self.find(a)
   let rep_b = self.find(b)
-  
   if rep_a == rep_b {
     return
   }
-  
+
   // Merge smaller class into larger
   let members_a = self.class_members.get(rep_a).unwrap_or([])
   let members_b = self.class_members.get(rep_b).unwrap_or([])
-  
   if members_a.length() >= members_b.length() {
     // Merge b into a
     self.class_rep.set(rep_b, rep_a)
@@ -77,11 +75,7 @@ pub struct PhiWebGVN {
 
 ///|
 pub fn PhiWebGVN::new() -> PhiWebGVN {
-  {
-    gvn: GVN::new(),
-    congruence: PhiCongruence::new(),
-    worklist: [],
-  }
+  { gvn: GVN::new(), congruence: PhiCongruence::new(), worklist: [] }
 }
 
 ///|
@@ -99,12 +93,11 @@ fn PhiWebGVN::phis_structurally_similar(
   if phi1.values[0] != phi2.values[0] {
     return false
   }
-  
+
   // Must have same number of operands
   if phi1.values.length() != phi2.values.length() {
     return false
   }
-  
   true
 }
 
@@ -119,20 +112,17 @@ pub fn PhiWebGVN::check_phi_congruence(
   if not(self.phis_structurally_similar(graph, phi1, phi2)) {
     return false
   }
-  
+
   // Check if corresponding operands are in the same congruence class
   for i = 1; i < phi1.values.length(); i = i + 1 {
     let op1 = phi1.values[i]
     let op2 = phi2.values[i]
-    
     let class1 = self.congruence.find(op1)
     let class2 = self.congruence.find(op2)
-    
     if class1 != class2 {
       return false
     }
   }
-  
   true
 }
 
@@ -142,7 +132,6 @@ pub fn PhiWebGVN::check_phi_congruence(
 fn PhiWebGVN::initialize(self : PhiWebGVN, graph : Graph) -> Unit {
   // Group phis by block and number of operands
   let phi_groups : Map[Int, Array[NodeId]] = Map::new()
-  
   for node in graph.node_store.nodes {
     if node.is_phi() && node.values.length() > 0 {
       // Key: block_id * 1000 + num_operands (simple grouping)
@@ -152,9 +141,10 @@ fn PhiWebGVN::initialize(self : PhiWebGVN, graph : Graph) -> Unit {
     } else {
       // Non-phi nodes start in their own class
       let _ = self.congruence.find(node.id)
+
     }
   }
-  
+
   // For each group of structurally similar phis, add pairs to worklist
   for entry in phi_groups.iter() {
     let phis = entry.1
@@ -173,23 +163,22 @@ fn PhiWebGVN::initialize(self : PhiWebGVN, graph : Graph) -> Unit {
 /// Run the phi web congruence algorithm
 pub fn PhiWebGVN::compute_congruence(self : PhiWebGVN, graph : Graph) -> Unit {
   self.initialize(graph)
-  
+
   // Process worklist until empty
   while self.worklist.length() > 0 {
     let pair = self.worklist.pop().unwrap()
     let (phi1_id, phi2_id) = pair
-    
+
     // Skip if already in same class
     if self.congruence.find(phi1_id) == self.congruence.find(phi2_id) {
       continue
     }
-    
     match (graph.node_store.get(phi1_id), graph.node_store.get(phi2_id)) {
       (Some(phi1), Some(phi2)) =>
         if self.check_phi_congruence(graph, phi1, phi2) {
           // Merge congruence classes
           self.congruence.union(phi1_id, phi2_id)
-          
+
           // Add users of these phis to worklist if they're also phis
           // (their congruence might now be affected)
         }
