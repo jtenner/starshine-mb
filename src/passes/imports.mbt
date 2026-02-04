@@ -123,6 +123,8 @@ using @dataflow {
   type Literal as DataFlowLiteral,
   type UnaryOp as DataFlowUnaryOp,
   type BinaryOp as DataFlowBinaryOp,
+  type LocalGetExpr,
+  type SelectExpr,
   
 }
 

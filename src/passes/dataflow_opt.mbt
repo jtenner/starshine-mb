@@ -2720,12 +2720,12 @@ test "constant_fold_wrap_i64" {
   func.results.push(WasmType::i32())
   
   let const_big = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(0x1_0000_0005L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(0x1_0000_0005L))),
     WasmType::i64(),
   )
   let wrap = func.expressions.add(
     Expression::unary(
-      UnaryExpr::new(UnaryOp::wrap_int64(), const_big, WasmType::i32()),
+      UnaryExpr::new(DataFlowUnaryOp::wrap_int64(), const_big, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -2733,9 +2733,9 @@ test "constant_fold_wrap_i64" {
     Expression::return_(ReturnExpr::new(Some(wrap))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -2766,12 +2766,12 @@ test "simplify_add_zero_i32" {
     WasmType::i32(),
   )
   let const0 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(0))),
     WasmType::i32(),
   )
   let add = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::add_int32(), get_x, const0, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::add_int32(), get_x, const0, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -2779,9 +2779,9 @@ test "simplify_add_zero_i32" {
     Expression::return_(ReturnExpr::new(Some(add))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -2810,12 +2810,12 @@ test "simplify_sub_zero_i32" {
     WasmType::i32(),
   )
   let const0 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(0))),
     WasmType::i32(),
   )
   let sub = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::sub_int32(), get_x, const0, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::sub_int32(), get_x, const0, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -2823,9 +2823,9 @@ test "simplify_sub_zero_i32" {
     Expression::return_(ReturnExpr::new(Some(sub))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -2852,12 +2852,12 @@ test "simplify_mul_one_i32" {
     WasmType::i32(),
   )
   let const1 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(1) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(1))),
     WasmType::i32(),
   )
   let mul = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::mul_int32(), get_x, const1, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::mul_int32(), get_x, const1, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -2865,9 +2865,9 @@ test "simplify_mul_one_i32" {
     Expression::return_(ReturnExpr::new(Some(mul))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -2894,12 +2894,12 @@ test "simplify_mul_zero_i32" {
     WasmType::i32(),
   )
   let const0 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(0))),
     WasmType::i32(),
   )
   let mul = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::mul_int32(), get_x, const0, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::mul_int32(), get_x, const0, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -2907,9 +2907,9 @@ test "simplify_mul_zero_i32" {
     Expression::return_(ReturnExpr::new(Some(mul))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -2937,12 +2937,12 @@ test "simplify_div_one_i32" {
     WasmType::i32(),
   )
   let const1 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(1) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(1))),
     WasmType::i32(),
   )
   let div = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::div_s_int32(), get_x, const1, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::div_s_int32(), get_x, const1, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -2950,9 +2950,9 @@ test "simplify_div_one_i32" {
     Expression::return_(ReturnExpr::new(Some(div))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -2979,22 +2979,22 @@ test "simplify_and_zero_i32" {
     WasmType::i32(),
   )
   let const0 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(0))),
     WasmType::i32(),
   )
-  let and = func.expressions.add(
+  let a = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::and_int32(), get_x, const0, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::and_int32(), get_x, const0, WasmType::i32()),
     ),
     WasmType::i32(),
   )
   let ret = func.expressions.add(
-    Expression::return_(ReturnExpr::new(Some(and))),
+    Expression::return_(ReturnExpr::new(Some(a))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -3021,22 +3021,22 @@ test "simplify_and_all_ones_i32" {
     WasmType::i32(),
   )
   let const_neg1 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(-1) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(-1))),
     WasmType::i32(),
   )
-  let and = func.expressions.add(
+  let a = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::and_int32(), get_x, const_neg1, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::and_int32(), get_x, const_neg1, WasmType::i32()),
     ),
     WasmType::i32(),
   )
   let ret = func.expressions.add(
-    Expression::return_(ReturnExpr::new(Some(and))),
+    Expression::return_(ReturnExpr::new(Some(a))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -3063,12 +3063,12 @@ test "simplify_or_zero_i32" {
     WasmType::i32(),
   )
   let const0 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(0))),
     WasmType::i32(),
   )
   let or = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::or_int32(), get_x, const0, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::or_int32(), get_x, const0, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -3076,9 +3076,9 @@ test "simplify_or_zero_i32" {
     Expression::return_(ReturnExpr::new(Some(or))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -3105,12 +3105,12 @@ test "simplify_xor_zero_i32" {
     WasmType::i32(),
   )
   let const0 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(0))),
     WasmType::i32(),
   )
   let xor = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::xor_int32(), get_x, const0, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::xor_int32(), get_x, const0, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -3118,9 +3118,9 @@ test "simplify_xor_zero_i32" {
     Expression::return_(ReturnExpr::new(Some(xor))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -3147,12 +3147,12 @@ test "simplify_shift_zero_i32" {
     WasmType::i32(),
   )
   let const0 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(0))),
     WasmType::i32(),
   )
   let shl = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::shl_int32(), get_x, const0, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::shl_int32(), get_x, const0, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -3160,9 +3160,9 @@ test "simplify_shift_zero_i32" {
     Expression::return_(ReturnExpr::new(Some(shl))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -3195,7 +3195,7 @@ test "simplify_sub_self_i32" {
   // x - x should be 0 (uses same expression)
   let sub = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::sub_int32(), get_x, get_x, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::sub_int32(), get_x, get_x, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -3203,9 +3203,9 @@ test "simplify_sub_self_i32" {
     Expression::return_(ReturnExpr::new(Some(sub))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -3236,7 +3236,7 @@ test "simplify_xor_self_i32" {
   )
   let xor = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::xor_int32(), get_x, get_x, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::xor_int32(), get_x, get_x, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -3244,9 +3244,9 @@ test "simplify_xor_self_i32" {
     Expression::return_(ReturnExpr::new(Some(xor))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -3272,19 +3272,19 @@ test "simplify_and_self_i32" {
     Expression::local_get(LocalGetExpr::new(param_idx)),
     WasmType::i32(),
   )
-  let and = func.expressions.add(
+  let a = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::and_int32(), get_x, get_x, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::and_int32(), get_x, get_x, WasmType::i32()),
     ),
     WasmType::i32(),
   )
   let ret = func.expressions.add(
-    Expression::return_(ReturnExpr::new(Some(and))),
+    Expression::return_(ReturnExpr::new(Some(a))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -3313,7 +3313,7 @@ test "simplify_or_self_i32" {
   )
   let or = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::or_int32(), get_x, get_x, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::or_int32(), get_x, get_x, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -3321,9 +3321,9 @@ test "simplify_or_self_i32" {
     Expression::return_(ReturnExpr::new(Some(or))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -3351,7 +3351,7 @@ test "simplify_eq_self_i32" {
   )
   let eq = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::eq_int32(), get_x, get_x, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::eq_int32(), get_x, get_x, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -3359,9 +3359,9 @@ test "simplify_eq_self_i32" {
     Expression::return_(ReturnExpr::new(Some(eq))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -3390,7 +3390,7 @@ test "simplify_ne_self_i32" {
   )
   let ne = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::ne_int32(), get_x, get_x, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::ne_int32(), get_x, get_x, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -3398,9 +3398,9 @@ test "simplify_ne_self_i32" {
     Expression::return_(ReturnExpr::new(Some(ne))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -3429,7 +3429,7 @@ test "simplify_le_self_i32" {
   )
   let le = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::le_s_int32(), get_x, get_x, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::le_s_int32(), get_x, get_x, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -3437,9 +3437,9 @@ test "simplify_le_self_i32" {
     Expression::return_(ReturnExpr::new(Some(le))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -3468,7 +3468,7 @@ test "simplify_lt_self_i32" {
   )
   let lt = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::lt_s_int32(), get_x, get_x, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::lt_s_int32(), get_x, get_x, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -3476,9 +3476,9 @@ test "simplify_lt_self_i32" {
     Expression::return_(ReturnExpr::new(Some(lt))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -3510,13 +3510,13 @@ test "strength_reduce_mul_power_of_2_i32" {
     WasmType::i32(),
   )
   let const8 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(8) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(8))),
     WasmType::i32(),
   )
   // x * 8 should become x << 3
   let mul = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::mul_int32(), get_x, const8, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::mul_int32(), get_x, const8, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -3524,9 +3524,9 @@ test "strength_reduce_mul_power_of_2_i32" {
     Expression::return_(ReturnExpr::new(Some(mul))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -3557,13 +3557,13 @@ test "strength_reduce_div_u_power_of_2_i32" {
     WasmType::i32(),
   )
   let const16 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(16) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(16))),
     WasmType::i32(),
   )
   // x / 16 (unsigned) should become x >> 4
   let div = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::div_u_int32(), get_x, const16, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::div_u_int32(), get_x, const16, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -3571,9 +3571,9 @@ test "strength_reduce_div_u_power_of_2_i32" {
     Expression::return_(ReturnExpr::new(Some(div))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -3603,13 +3603,13 @@ test "strength_reduce_rem_u_power_of_2_i32" {
     WasmType::i32(),
   )
   let const32 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(32) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(32))),
     WasmType::i32(),
   )
   // x % 32 (unsigned) should become x & 31
   let rem = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::rem_u_int32(), get_x, const32, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::rem_u_int32(), get_x, const32, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -3617,9 +3617,9 @@ test "strength_reduce_rem_u_power_of_2_i32" {
     Expression::return_(ReturnExpr::new(Some(rem))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -3657,7 +3657,7 @@ test "simplify_select_constant_true" {
     WasmType::i32(),
   )
   let const1 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(1) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(1))),
     WasmType::i32(),
   )
   // select(1, a, b) => a
@@ -3669,9 +3669,9 @@ test "simplify_select_constant_true" {
     Expression::return_(ReturnExpr::new(Some(sel))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -3703,7 +3703,7 @@ test "simplify_select_constant_false" {
     WasmType::i32(),
   )
   let const0 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(0))),
     WasmType::i32(),
   )
   // select(0, a, b) => b
@@ -3715,9 +3715,9 @@ test "simplify_select_constant_false" {
     Expression::return_(ReturnExpr::new(Some(sel))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -3757,9 +3757,9 @@ test "simplify_select_same_operands" {
     Expression::return_(ReturnExpr::new(Some(sel))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -3792,7 +3792,7 @@ test "simplify_select_nonzero_condition" {
   )
   // Any non-zero constant is truthy
   let const42 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(42) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(42))),
     WasmType::i32(),
   )
   let sel = func.expressions.add(
@@ -3803,9 +3803,9 @@ test "simplify_select_nonzero_condition" {
     Expression::return_(ReturnExpr::new(Some(sel))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -3838,13 +3838,13 @@ test "simplify_wrap_extend_s" {
   // wrap(extend_s(x)) => x
   let extend = func.expressions.add(
     Expression::unary(
-      UnaryExpr::new(UnaryOp::extend_s_int32(), get_x, WasmType::i64()),
+      UnaryExpr::new(DataFlowUnaryOp::extend_s_int32(), get_x, WasmType::i64()),
     ),
     WasmType::i64(),
   )
   let wrap = func.expressions.add(
     Expression::unary(
-      UnaryExpr::new(UnaryOp::wrap_int64(), extend, WasmType::i32()),
+      UnaryExpr::new(DataFlowUnaryOp::wrap_int64(), extend, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -3852,9 +3852,9 @@ test "simplify_wrap_extend_s" {
     Expression::return_(ReturnExpr::new(Some(wrap))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -3886,13 +3886,13 @@ test "simplify_wrap_extend_u" {
   // wrap(extend_u(x)) => x
   let extend = func.expressions.add(
     Expression::unary(
-      UnaryExpr::new(UnaryOp::extend_u_int32(), get_x, WasmType::i64()),
+      UnaryExpr::new(DataFlowUnaryOp::extend_u_int32(), get_x, WasmType::i64()),
     ),
     WasmType::i64(),
   )
   let wrap = func.expressions.add(
     Expression::unary(
-      UnaryExpr::new(UnaryOp::wrap_int64(), extend, WasmType::i32()),
+      UnaryExpr::new(DataFlowUnaryOp::wrap_int64(), extend, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -3900,9 +3900,9 @@ test "simplify_wrap_extend_u" {
     Expression::return_(ReturnExpr::new(Some(wrap))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -3931,13 +3931,13 @@ test "simplify_demote_promote" {
   // demote(promote(x)) => x
   let promote = func.expressions.add(
     Expression::unary(
-      UnaryExpr::new(UnaryOp::promote_float32(), get_x, WasmType::f64()),
+      UnaryExpr::new(DataFlowUnaryOp::promote_float32(), get_x, WasmType::f64()),
     ),
     WasmType::f64(),
   )
   let demote = func.expressions.add(
     Expression::unary(
-      UnaryExpr::new(UnaryOp::demote_float64(), promote, WasmType::f32()),
+      UnaryExpr::new(DataFlowUnaryOp::demote_float64(), promote, WasmType::f32()),
     ),
     WasmType::f32(),
   )
@@ -3945,9 +3945,9 @@ test "simplify_demote_promote" {
     Expression::return_(ReturnExpr::new(Some(demote))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -3978,12 +3978,12 @@ test "simplify_add_zero_i64" {
     WasmType::i64(),
   )
   let const0 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(0L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(0L))),
     WasmType::i64(),
   )
   let add = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::add_int64(), get_x, const0, WasmType::i64()),
+      BinaryExpr::new(DataFlowBinaryOp::add_int64(), get_x, const0, WasmType::i64()),
     ),
     WasmType::i64(),
   )
@@ -3991,9 +3991,9 @@ test "simplify_add_zero_i64" {
     Expression::return_(ReturnExpr::new(Some(add))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -4020,12 +4020,12 @@ test "simplify_mul_one_i64" {
     WasmType::i64(),
   )
   let const1 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(1L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(1L))),
     WasmType::i64(),
   )
   let mul = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::mul_int64(), get_x, const1, WasmType::i64()),
+      BinaryExpr::new(DataFlowBinaryOp::mul_int64(), get_x, const1, WasmType::i64()),
     ),
     WasmType::i64(),
   )
@@ -4033,9 +4033,9 @@ test "simplify_mul_one_i64" {
     Expression::return_(ReturnExpr::new(Some(mul))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -4062,12 +4062,12 @@ test "simplify_mul_zero_i64" {
     WasmType::i64(),
   )
   let const0 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(0L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(0L))),
     WasmType::i64(),
   )
   let mul = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::mul_int64(), get_x, const0, WasmType::i64()),
+      BinaryExpr::new(DataFlowBinaryOp::mul_int64(), get_x, const0, WasmType::i64()),
     ),
     WasmType::i64(),
   )
@@ -4075,9 +4075,9 @@ test "simplify_mul_zero_i64" {
     Expression::return_(ReturnExpr::new(Some(mul))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -4104,22 +4104,22 @@ test "simplify_and_zero_i64" {
     WasmType::i64(),
   )
   let const0 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(0L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(0L))),
     WasmType::i64(),
   )
-  let and = func.expressions.add(
+  let a = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::and_int64(), get_x, const0, WasmType::i64()),
+      BinaryExpr::new(DataFlowBinaryOp::and_int64(), get_x, const0, WasmType::i64()),
     ),
     WasmType::i64(),
   )
   let ret = func.expressions.add(
-    Expression::return_(ReturnExpr::new(Some(and))),
+    Expression::return_(ReturnExpr::new(Some(a))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -4146,13 +4146,13 @@ test "simplify_or_all_ones_i64" {
     WasmType::i64(),
   )
   let const_neg1 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(-1L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(-1L))),
     WasmType::i64(),
   )
   // x | -1 => -1
   let or = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::or_int64(), get_x, const_neg1, WasmType::i64()),
+      BinaryExpr::new(DataFlowBinaryOp::or_int64(), get_x, const_neg1, WasmType::i64()),
     ),
     WasmType::i64(),
   )
@@ -4160,9 +4160,9 @@ test "simplify_or_all_ones_i64" {
     Expression::return_(ReturnExpr::new(Some(or))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -4189,12 +4189,12 @@ test "simplify_shift_zero_i64" {
     WasmType::i64(),
   )
   let const0 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(0L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(0L))),
     WasmType::i64(),
   )
   let shl = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::shl_int64(), get_x, const0, WasmType::i64()),
+      BinaryExpr::new(DataFlowBinaryOp::shl_int64(), get_x, const0, WasmType::i64()),
     ),
     WasmType::i64(),
   )
@@ -4202,9 +4202,9 @@ test "simplify_shift_zero_i64" {
     Expression::return_(ReturnExpr::new(Some(shl))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -4235,12 +4235,12 @@ test "simplify_add_zero_f32" {
     WasmType::f32(),
   )
   let const0 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::f32(0.0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::f32(0.0))),
     WasmType::f32(),
   )
   let add = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::add_float32(), get_x, const0, WasmType::f32()),
+      BinaryExpr::new(DataFlowBinaryOp::add_float32(), get_x, const0, WasmType::f32()),
     ),
     WasmType::f32(),
   )
@@ -4248,9 +4248,9 @@ test "simplify_add_zero_f32" {
     Expression::return_(ReturnExpr::new(Some(add))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -4277,12 +4277,12 @@ test "simplify_add_zero_f64" {
     WasmType::f64(),
   )
   let const0 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::f64(0.0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::f64(0.0))),
     WasmType::f64(),
   )
   let add = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::add_float64(), get_x, const0, WasmType::f64()),
+      BinaryExpr::new(DataFlowBinaryOp::add_float64(), get_x, const0, WasmType::f64()),
     ),
     WasmType::f64(),
   )
@@ -4290,9 +4290,9 @@ test "simplify_add_zero_f64" {
     Expression::return_(ReturnExpr::new(Some(add))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -4319,12 +4319,12 @@ test "simplify_mul_one_f32" {
     WasmType::f32(),
   )
   let const1 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::f32(1.0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::f32(1.0))),
     WasmType::f32(),
   )
   let mul = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::mul_float32(), get_x, const1, WasmType::f32()),
+      BinaryExpr::new(DataFlowBinaryOp::mul_float32(), get_x, const1, WasmType::f32()),
     ),
     WasmType::f32(),
   )
@@ -4332,9 +4332,9 @@ test "simplify_mul_one_f32" {
     Expression::return_(ReturnExpr::new(Some(mul))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -4361,13 +4361,13 @@ test "simplify_mul_neg_one_f32" {
     WasmType::f32(),
   )
   let const_neg1 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::f32(-1.0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::f32(-1.0))),
     WasmType::f32(),
   )
   // x * -1 => -x
   let mul = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::mul_float32(), get_x, const_neg1, WasmType::f32()),
+      BinaryExpr::new(DataFlowBinaryOp::mul_float32(), get_x, const_neg1, WasmType::f32()),
     ),
     WasmType::f32(),
   )
@@ -4375,9 +4375,9 @@ test "simplify_mul_neg_one_f32" {
     Expression::return_(ReturnExpr::new(Some(mul))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -4408,12 +4408,12 @@ test "simplify_mul_neg_one_f64" {
     WasmType::f64(),
   )
   let const_neg1 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::f64(-1.0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::f64(-1.0))),
     WasmType::f64(),
   )
   let mul = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::mul_float64(), get_x, const_neg1, WasmType::f64()),
+      BinaryExpr::new(DataFlowBinaryOp::mul_float64(), get_x, const_neg1, WasmType::f64()),
     ),
     WasmType::f64(),
   )
@@ -4421,9 +4421,9 @@ test "simplify_mul_neg_one_f64" {
     Expression::return_(ReturnExpr::new(Some(mul))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -4453,12 +4453,12 @@ test "simplify_div_one_f32" {
     WasmType::f32(),
   )
   let const1 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::f32(1.0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::f32(1.0))),
     WasmType::f32(),
   )
   let div = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::div_float32(), get_x, const1, WasmType::f32()),
+      BinaryExpr::new(DataFlowBinaryOp::div_float32(), get_x, const1, WasmType::f32()),
     ),
     WasmType::f32(),
   )
@@ -4466,9 +4466,9 @@ test "simplify_div_one_f32" {
     Expression::return_(ReturnExpr::new(Some(div))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -4496,7 +4496,7 @@ test "simplify_sub_self_f32" {
   )
   let sub = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::sub_float32(), get_x, get_x, WasmType::f32()),
+      BinaryExpr::new(DataFlowBinaryOp::sub_float32(), get_x, get_x, WasmType::f32()),
     ),
     WasmType::f32(),
   )
@@ -4504,9 +4504,9 @@ test "simplify_sub_self_f32" {
     Expression::return_(ReturnExpr::new(Some(sub))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -4533,16 +4533,16 @@ test "constant_fold_mul_f32" {
   func.results.push(WasmType::f32())
   
   let const2 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::f32(2.0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::f32(2.0))),
     WasmType::f32(),
   )
   let const3 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::f32(3.0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::f32(3.0))),
     WasmType::f32(),
   )
   let mul = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::mul_float32(), const2, const3, WasmType::f32()),
+      BinaryExpr::new(DataFlowBinaryOp::mul_float32(), const2, const3, WasmType::f32()),
     ),
     WasmType::f32(),
   )
@@ -4550,9 +4550,9 @@ test "constant_fold_mul_f32" {
     Expression::return_(ReturnExpr::new(Some(mul))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -4574,16 +4574,16 @@ test "constant_fold_div_f64" {
   func.results.push(WasmType::f64())
   
   let const10 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::f64(10.0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::f64(10.0))),
     WasmType::f64(),
   )
   let const2 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::f64(2.0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::f64(2.0))),
     WasmType::f64(),
   )
   let div = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::div_float64(), const10, const2, WasmType::f64()),
+      BinaryExpr::new(DataFlowBinaryOp::div_float64(), const10, const2, WasmType::f64()),
     ),
     WasmType::f64(),
   )
@@ -4591,9 +4591,9 @@ test "constant_fold_div_f64" {
     Expression::return_(ReturnExpr::new(Some(div))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -4615,12 +4615,12 @@ test "constant_fold_abs_f32" {
   func.results.push(WasmType::f32())
   
   let const_neg = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::f32(-3.5) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::f32(-3.5))),
     WasmType::f32(),
   )
   let abs = func.expressions.add(
     Expression::unary(
-      UnaryExpr::new(UnaryOp::abs_float32(), const_neg, WasmType::f32()),
+      UnaryExpr::new(DataFlowUnaryOp::abs_float32(), const_neg, WasmType::f32()),
     ),
     WasmType::f32(),
   )
@@ -4628,9 +4628,9 @@ test "constant_fold_abs_f32" {
     Expression::return_(ReturnExpr::new(Some(abs))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -4652,12 +4652,12 @@ test "constant_fold_sqrt_f64" {
   func.results.push(WasmType::f64())
   
   let const16 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::f64(16.0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::f64(16.0))),
     WasmType::f64(),
   )
   let sqrt = func.expressions.add(
     Expression::unary(
-      UnaryExpr::new(UnaryOp::sqrt_float64(), const16, WasmType::f64()),
+      UnaryExpr::new(DataFlowUnaryOp::sqrt_float64(), const16, WasmType::f64()),
     ),
     WasmType::f64(),
   )
@@ -4665,9 +4665,9 @@ test "constant_fold_sqrt_f64" {
     Expression::return_(ReturnExpr::new(Some(sqrt))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -4689,12 +4689,12 @@ test "constant_fold_floor_f64" {
   func.results.push(WasmType::f64())
   
   let const_frac = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::f64(3.7) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::f64(3.7))),
     WasmType::f64(),
   )
   let floor = func.expressions.add(
     Expression::unary(
-      UnaryExpr::new(UnaryOp::floor_float64(), const_frac, WasmType::f64()),
+      UnaryExpr::new(DataFlowUnaryOp::floor_float64(), const_frac, WasmType::f64()),
     ),
     WasmType::f64(),
   )
@@ -4702,9 +4702,9 @@ test "constant_fold_floor_f64" {
     Expression::return_(ReturnExpr::new(Some(floor))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -4726,12 +4726,12 @@ test "constant_fold_ceil_f64" {
   func.results.push(WasmType::f64())
   
   let const_frac = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::f64(3.2) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::f64(3.2))),
     WasmType::f64(),
   )
   let ceil = func.expressions.add(
     Expression::unary(
-      UnaryExpr::new(UnaryOp::ceil_float64(), const_frac, WasmType::f64()),
+      UnaryExpr::new(DataFlowUnaryOp::ceil_float64(), const_frac, WasmType::f64()),
     ),
     WasmType::f64(),
   )
@@ -4739,9 +4739,9 @@ test "constant_fold_ceil_f64" {
     Expression::return_(ReturnExpr::new(Some(ceil))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -4767,16 +4767,16 @@ test "constant_fold_lt_f32_true" {
   func.results.push(WasmType::i32())
   
   let const1 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::f32(1.0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::f32(1.0))),
     WasmType::f32(),
   )
   let const2 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::f32(2.0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::f32(2.0))),
     WasmType::f32(),
   )
   let lt = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::lt_float32(), const1, const2, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::lt_float32(), const1, const2, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -4784,9 +4784,9 @@ test "constant_fold_lt_f32_true" {
     Expression::return_(ReturnExpr::new(Some(lt))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -4808,16 +4808,16 @@ test "constant_fold_ge_i64" {
   func.results.push(WasmType::i32())
   
   let const10 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(10L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(10L))),
     WasmType::i64(),
   )
   let const5 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(5L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(5L))),
     WasmType::i64(),
   )
   let ge = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::ge_s_int64(), const10, const5, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::ge_s_int64(), const10, const5, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -4825,9 +4825,9 @@ test "constant_fold_ge_i64" {
     Expression::return_(ReturnExpr::new(Some(ge))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -4858,13 +4858,13 @@ test "strength_reduce_mul_power_of_2_i64" {
     WasmType::i64(),
   )
   let const16 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(16L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(16L))),
     WasmType::i64(),
   )
   // x * 16 should become x << 4
   let mul = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::mul_int64(), get_x, const16, WasmType::i64()),
+      BinaryExpr::new(DataFlowBinaryOp::mul_int64(), get_x, const16, WasmType::i64()),
     ),
     WasmType::i64(),
   )
@@ -4872,9 +4872,9 @@ test "strength_reduce_mul_power_of_2_i64" {
     Expression::return_(ReturnExpr::new(Some(mul))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -4904,12 +4904,12 @@ test "strength_reduce_div_u_power_of_2_i64" {
     WasmType::i64(),
   )
   let const8 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(8L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(8L))),
     WasmType::i64(),
   )
   let div = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::div_u_int64(), get_x, const8, WasmType::i64()),
+      BinaryExpr::new(DataFlowBinaryOp::div_u_int64(), get_x, const8, WasmType::i64()),
     ),
     WasmType::i64(),
   )
@@ -4917,9 +4917,9 @@ test "strength_reduce_div_u_power_of_2_i64" {
     Expression::return_(ReturnExpr::new(Some(div))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -4949,13 +4949,13 @@ test "strength_reduce_rem_u_power_of_2_i64" {
     WasmType::i64(),
   )
   let const64 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(64L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(64L))),
     WasmType::i64(),
   )
   // x % 64 => x & 63
   let rem = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::rem_u_int64(), get_x, const64, WasmType::i64()),
+      BinaryExpr::new(DataFlowBinaryOp::rem_u_int64(), get_x, const64, WasmType::i64()),
     ),
     WasmType::i64(),
   )
@@ -4963,9 +4963,9 @@ test "strength_reduce_rem_u_power_of_2_i64" {
     Expression::return_(ReturnExpr::new(Some(rem))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -4999,23 +4999,23 @@ test "reassociate_add_constants_i32" {
     WasmType::i32(),
   )
   let const5 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(5) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(5))),
     WasmType::i32(),
   )
   let const10 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(10) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(10))),
     WasmType::i32(),
   )
   // (x + 5) + 10 => x + 15
   let add1 = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::add_int32(), get_x, const5, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::add_int32(), get_x, const5, WasmType::i32()),
     ),
     WasmType::i32(),
   )
   let add2 = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::add_int32(), add1, const10, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::add_int32(), add1, const10, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -5023,9 +5023,9 @@ test "reassociate_add_constants_i32" {
     Expression::return_(ReturnExpr::new(Some(add2))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -5053,23 +5053,23 @@ test "reassociate_mul_constants_i32" {
     WasmType::i32(),
   )
   let const3 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(3) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(3))),
     WasmType::i32(),
   )
   let const4 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(4) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(4))),
     WasmType::i32(),
   )
   // (x * 3) * 4 => x * 12
   let mul1 = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::mul_int32(), get_x, const3, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::mul_int32(), get_x, const3, WasmType::i32()),
     ),
     WasmType::i32(),
   )
   let mul2 = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::mul_int32(), mul1, const4, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::mul_int32(), mul1, const4, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -5077,9 +5077,9 @@ test "reassociate_mul_constants_i32" {
     Expression::return_(ReturnExpr::new(Some(mul2))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -5106,16 +5106,16 @@ test "constant_fold_rotl_i32" {
   
   // rotl(0x12345678, 8) = 0x34567812
   let const_val = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(0x12345678) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(0x12345678))),
     WasmType::i32(),
   )
   let const8 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(8) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(8))),
     WasmType::i32(),
   )
   let rotl = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::rotl_int32(), const_val, const8, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::rot_l_int32(), const_val, const8, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -5123,9 +5123,9 @@ test "constant_fold_rotl_i32" {
     Expression::return_(ReturnExpr::new(Some(rotl))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -5148,16 +5148,16 @@ test "constant_fold_rotr_i32" {
   
   // rotr(0x12345678, 8) = 0x78123456
   let const_val = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(0x12345678) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(0x12345678))),
     WasmType::i32(),
   )
   let const8 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(8) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(8))),
     WasmType::i32(),
   )
   let rotr = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::rotr_int32(), const_val, const8, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::rot_r_int32(), const_val, const8, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -5165,9 +5165,9 @@ test "constant_fold_rotr_i32" {
     Expression::return_(ReturnExpr::new(Some(rotr))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -5190,12 +5190,12 @@ test "constant_fold_ctz_i32" {
   
   // ctz(0b1000) = ctz(8) = 3
   let const8 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(8) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(8))),
     WasmType::i32(),
   )
   let ctz = func.expressions.add(
     Expression::unary(
-      UnaryExpr::new(UnaryOp::ctz_int32(), const8, WasmType::i32()),
+      UnaryExpr::new(DataFlowUnaryOp::ctz_int32(), const8, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -5203,9 +5203,9 @@ test "constant_fold_ctz_i32" {
     Expression::return_(ReturnExpr::new(Some(ctz))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -5228,12 +5228,12 @@ test "constant_fold_popcnt_i32" {
   
   // popcnt(0b10101010) = popcnt(170) = 4
   let const170 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(170) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(170))),
     WasmType::i32(),
   )
   let popcnt = func.expressions.add(
     Expression::unary(
-      UnaryExpr::new(UnaryOp::popcnt_int32(), const170, WasmType::i32()),
+      UnaryExpr::new(DataFlowUnaryOp::popcnt_int32(), const170, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -5241,9 +5241,9 @@ test "constant_fold_popcnt_i32" {
     Expression::return_(ReturnExpr::new(Some(popcnt))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -5269,16 +5269,16 @@ test "constant_fold_div_u_i32" {
   func.results.push(WasmType::i32())
   
   let const100 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(100) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(100))),
     WasmType::i32(),
   )
   let const5 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(5) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(5))),
     WasmType::i32(),
   )
   let div = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::div_u_int32(), const100, const5, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::div_u_int32(), const100, const5, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -5286,9 +5286,9 @@ test "constant_fold_div_u_i32" {
     Expression::return_(ReturnExpr::new(Some(div))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -5310,16 +5310,16 @@ test "constant_fold_rem_s_i32" {
   func.results.push(WasmType::i32())
   
   let const17 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(17) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(17))),
     WasmType::i32(),
   )
   let const5 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(5) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(5))),
     WasmType::i32(),
   )
   let rem = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::rem_s_int32(), const17, const5, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::rem_s_int32(), const17, const5, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -5327,9 +5327,9 @@ test "constant_fold_rem_s_i32" {
     Expression::return_(ReturnExpr::new(Some(rem))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -5351,16 +5351,16 @@ test "constant_fold_rem_u_i32" {
   func.results.push(WasmType::i32())
   
   let const23 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(23) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(23))),
     WasmType::i32(),
   )
   let const7 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(7) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(7))),
     WasmType::i32(),
   )
   let rem = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::rem_u_int32(), const23, const7, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::rem_u_int32(), const23, const7, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -5368,9 +5368,9 @@ test "constant_fold_rem_u_i32" {
     Expression::return_(ReturnExpr::new(Some(rem))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -5393,16 +5393,16 @@ test "constant_fold_shr_s_i32" {
   
   // -16 >> 2 = -4 (arithmetic shift)
   let const_neg16 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(-16) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(-16))),
     WasmType::i32(),
   )
   let const2 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(2) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(2))),
     WasmType::i32(),
   )
   let shr = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::shr_s_int32(), const_neg16, const2, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::shr_s_int32(), const_neg16, const2, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -5410,9 +5410,9 @@ test "constant_fold_shr_s_i32" {
     Expression::return_(ReturnExpr::new(Some(shr))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -5434,16 +5434,16 @@ test "constant_fold_shr_u_i32" {
   func.results.push(WasmType::i32())
   
   let const64 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(64) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(64))),
     WasmType::i32(),
   )
   let const3 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(3) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(3))),
     WasmType::i32(),
   )
   let shr = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::shr_u_int32(), const64, const3, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::shr_u_int32(), const64, const3, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -5451,9 +5451,9 @@ test "constant_fold_shr_u_i32" {
     Expression::return_(ReturnExpr::new(Some(shr))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -5479,16 +5479,16 @@ test "constant_fold_sub_i64" {
   func.results.push(WasmType::i64())
   
   let const100 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(100L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(100L))),
     WasmType::i64(),
   )
   let const30 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(30L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(30L))),
     WasmType::i64(),
   )
   let sub = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::sub_int64(), const100, const30, WasmType::i64()),
+      BinaryExpr::new(DataFlowBinaryOp::sub_int64(), const100, const30, WasmType::i64()),
     ),
     WasmType::i64(),
   )
@@ -5496,9 +5496,9 @@ test "constant_fold_sub_i64" {
     Expression::return_(ReturnExpr::new(Some(sub))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -5520,16 +5520,16 @@ test "constant_fold_mul_i64" {
   func.results.push(WasmType::i64())
   
   let const7 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(7L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(7L))),
     WasmType::i64(),
   )
   let const8 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(8L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(8L))),
     WasmType::i64(),
   )
   let mul = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::mul_int64(), const7, const8, WasmType::i64()),
+      BinaryExpr::new(DataFlowBinaryOp::mul_int64(), const7, const8, WasmType::i64()),
     ),
     WasmType::i64(),
   )
@@ -5537,9 +5537,9 @@ test "constant_fold_mul_i64" {
     Expression::return_(ReturnExpr::new(Some(mul))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -5561,16 +5561,16 @@ test "constant_fold_div_s_i64" {
   func.results.push(WasmType::i64())
   
   let const_neg100 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(-100L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(-100L))),
     WasmType::i64(),
   )
   let const5 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(5L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(5L))),
     WasmType::i64(),
   )
   let div = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::div_s_int64(), const_neg100, const5, WasmType::i64()),
+      BinaryExpr::new(DataFlowBinaryOp::div_s_int64(), const_neg100, const5, WasmType::i64()),
     ),
     WasmType::i64(),
   )
@@ -5578,9 +5578,9 @@ test "constant_fold_div_s_i64" {
     Expression::return_(ReturnExpr::new(Some(div))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -5602,16 +5602,16 @@ test "constant_fold_and_i64" {
   func.results.push(WasmType::i64())
   
   let const0xFF = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(0xFFL) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(0xFFL))),
     WasmType::i64(),
   )
   let const0x0F = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(0x0FL) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(0x0FL))),
     WasmType::i64(),
   )
   let and_op = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::and_int64(), const0xFF, const0x0F, WasmType::i64()),
+      BinaryExpr::new(DataFlowBinaryOp::and_int64(), const0xFF, const0x0F, WasmType::i64()),
     ),
     WasmType::i64(),
   )
@@ -5619,9 +5619,9 @@ test "constant_fold_and_i64" {
     Expression::return_(ReturnExpr::new(Some(and_op))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -5643,16 +5643,16 @@ test "constant_fold_or_i64" {
   func.results.push(WasmType::i64())
   
   let const0xF0 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(0xF0L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(0xF0L))),
     WasmType::i64(),
   )
   let const0x0F = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(0x0FL) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(0x0FL))),
     WasmType::i64(),
   )
   let or_op = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::or_int64(), const0xF0, const0x0F, WasmType::i64()),
+      BinaryExpr::new(DataFlowBinaryOp::or_int64(), const0xF0, const0x0F, WasmType::i64()),
     ),
     WasmType::i64(),
   )
@@ -5660,9 +5660,9 @@ test "constant_fold_or_i64" {
     Expression::return_(ReturnExpr::new(Some(or_op))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -5684,16 +5684,16 @@ test "constant_fold_xor_i64" {
   func.results.push(WasmType::i64())
   
   let const0xFF = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(0xFFL) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(0xFFL))),
     WasmType::i64(),
   )
   let const0xAA = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(0xAAL) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(0xAAL))),
     WasmType::i64(),
   )
   let xor_op = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::xor_int64(), const0xFF, const0xAA, WasmType::i64()),
+      BinaryExpr::new(DataFlowBinaryOp::xor_int64(), const0xFF, const0xAA, WasmType::i64()),
     ),
     WasmType::i64(),
   )
@@ -5701,9 +5701,9 @@ test "constant_fold_xor_i64" {
     Expression::return_(ReturnExpr::new(Some(xor_op))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -5725,16 +5725,16 @@ test "constant_fold_shl_i64" {
   func.results.push(WasmType::i64())
   
   let const1 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(1L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(1L))),
     WasmType::i64(),
   )
   let const10 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(10L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(10L))),
     WasmType::i64(),
   )
   let shl = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::shl_int64(), const1, const10, WasmType::i64()),
+      BinaryExpr::new(DataFlowBinaryOp::shl_int64(), const1, const10, WasmType::i64()),
     ),
     WasmType::i64(),
   )
@@ -5742,9 +5742,9 @@ test "constant_fold_shl_i64" {
     Expression::return_(ReturnExpr::new(Some(shl))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -5766,16 +5766,16 @@ test "constant_fold_rotl_i64" {
   func.results.push(WasmType::i64())
   
   let const1 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(1L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(1L))),
     WasmType::i64(),
   )
   let const4 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(4L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(4L))),
     WasmType::i64(),
   )
   let rotl = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::rotl_int64(), const1, const4, WasmType::i64()),
+      BinaryExpr::new(DataFlowBinaryOp::rot_l_int64(), const1, const4, WasmType::i64()),
     ),
     WasmType::i64(),
   )
@@ -5783,9 +5783,9 @@ test "constant_fold_rotl_i64" {
     Expression::return_(ReturnExpr::new(Some(rotl))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -5807,16 +5807,16 @@ test "constant_fold_rotr_i64" {
   func.results.push(WasmType::i64())
   
   let const16 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(16L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(16L))),
     WasmType::i64(),
   )
   let const4 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(4L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(4L))),
     WasmType::i64(),
   )
   let rotr = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::rotr_int64(), const16, const4, WasmType::i64()),
+      BinaryExpr::new(DataFlowBinaryOp::rot_r_int64(), const16, const4, WasmType::i64()),
     ),
     WasmType::i64(),
   )
@@ -5824,9 +5824,9 @@ test "constant_fold_rotr_i64" {
     Expression::return_(ReturnExpr::new(Some(rotr))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -5848,12 +5848,12 @@ test "constant_fold_eqz_i64_true" {
   func.results.push(WasmType::i32())
   
   let const0 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(0L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(0L))),
     WasmType::i64(),
   )
   let eqz = func.expressions.add(
     Expression::unary(
-      UnaryExpr::new(UnaryOp::eqz_int64(), const0, WasmType::i32()),
+      UnaryExpr::new(DataFlowUnaryOp::eq_z_int64(), const0, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -5861,9 +5861,9 @@ test "constant_fold_eqz_i64_true" {
     Expression::return_(ReturnExpr::new(Some(eqz))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -5885,12 +5885,12 @@ test "constant_fold_eqz_i64_false" {
   func.results.push(WasmType::i32())
   
   let const42 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(42L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(42L))),
     WasmType::i64(),
   )
   let eqz = func.expressions.add(
     Expression::unary(
-      UnaryExpr::new(UnaryOp::eqz_int64(), const42, WasmType::i32()),
+      UnaryExpr::new(DataFlowUnaryOp::eq_z_int64(), const42, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -5898,9 +5898,9 @@ test "constant_fold_eqz_i64_false" {
     Expression::return_(ReturnExpr::new(Some(eqz))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -5923,12 +5923,12 @@ test "constant_fold_clz_i64" {
   
   // clz(1) = 63 for i64
   let const1 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(1L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(1L))),
     WasmType::i64(),
   )
   let clz = func.expressions.add(
     Expression::unary(
-      UnaryExpr::new(UnaryOp::clz_int64(), const1, WasmType::i64()),
+      UnaryExpr::new(DataFlowUnaryOp::clz_int64(), const1, WasmType::i64()),
     ),
     WasmType::i64(),
   )
@@ -5936,9 +5936,9 @@ test "constant_fold_clz_i64" {
     Expression::return_(ReturnExpr::new(Some(clz))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -5961,12 +5961,12 @@ test "constant_fold_ctz_i64" {
   
   // ctz(8) = 3
   let const8 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(8L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(8L))),
     WasmType::i64(),
   )
   let ctz = func.expressions.add(
     Expression::unary(
-      UnaryExpr::new(UnaryOp::ctz_int64(), const8, WasmType::i64()),
+      UnaryExpr::new(DataFlowUnaryOp::ctz_int64(), const8, WasmType::i64()),
     ),
     WasmType::i64(),
   )
@@ -5974,9 +5974,9 @@ test "constant_fold_ctz_i64" {
     Expression::return_(ReturnExpr::new(Some(ctz))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -5999,12 +5999,12 @@ test "constant_fold_popcnt_i64" {
   
   // popcnt(0x0F) = 4
   let const0x0F = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(0x0FL) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(0x0FL))),
     WasmType::i64(),
   )
   let popcnt = func.expressions.add(
     Expression::unary(
-      UnaryExpr::new(UnaryOp::popcnt_int64(), const0x0F, WasmType::i64()),
+      UnaryExpr::new(DataFlowUnaryOp::popcnt_int64(), const0x0F, WasmType::i64()),
     ),
     WasmType::i64(),
   )
@@ -6012,9 +6012,9 @@ test "constant_fold_popcnt_i64" {
     Expression::return_(ReturnExpr::new(Some(popcnt))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -6040,16 +6040,16 @@ test "constant_fold_eq_i64" {
   func.results.push(WasmType::i32())
   
   let const42 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(42L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(42L))),
     WasmType::i64(),
   )
   let const42_2 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(42L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(42L))),
     WasmType::i64(),
   )
   let eq = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::eq_int64(), const42, const42_2, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::eq_int64(), const42, const42_2, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -6057,9 +6057,9 @@ test "constant_fold_eq_i64" {
     Expression::return_(ReturnExpr::new(Some(eq))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -6081,16 +6081,16 @@ test "constant_fold_ne_i64" {
   func.results.push(WasmType::i32())
   
   let const10 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(10L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(10L))),
     WasmType::i64(),
   )
   let const20 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(20L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(20L))),
     WasmType::i64(),
   )
   let ne = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::ne_int64(), const10, const20, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::ne_int64(), const10, const20, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -6098,9 +6098,9 @@ test "constant_fold_ne_i64" {
     Expression::return_(ReturnExpr::new(Some(ne))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -6122,16 +6122,16 @@ test "constant_fold_lt_s_i64" {
   func.results.push(WasmType::i32())
   
   let const_neg5 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(-5L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(-5L))),
     WasmType::i64(),
   )
   let const5 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(5L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(5L))),
     WasmType::i64(),
   )
   let lt = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::lt_s_int64(), const_neg5, const5, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::lt_s_int64(), const_neg5, const5, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -6139,9 +6139,9 @@ test "constant_fold_lt_s_i64" {
     Expression::return_(ReturnExpr::new(Some(lt))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -6163,16 +6163,16 @@ test "constant_fold_gt_u_i64" {
   func.results.push(WasmType::i32())
   
   let const100 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(100L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(100L))),
     WasmType::i64(),
   )
   let const50 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(50L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(50L))),
     WasmType::i64(),
   )
   let gt = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::gt_u_int64(), const100, const50, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::gt_u_int64(), const100, const50, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -6180,9 +6180,9 @@ test "constant_fold_gt_u_i64" {
     Expression::return_(ReturnExpr::new(Some(gt))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -6204,16 +6204,16 @@ test "constant_fold_le_s_i64" {
   func.results.push(WasmType::i32())
   
   let const5 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(5L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(5L))),
     WasmType::i64(),
   )
   let const5_2 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i64(5L) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i64(5L))),
     WasmType::i64(),
   )
   let le = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::le_s_int64(), const5, const5_2, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::le_s_int64(), const5, const5_2, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -6221,9 +6221,9 @@ test "constant_fold_le_s_i64" {
     Expression::return_(ReturnExpr::new(Some(le))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -6249,16 +6249,16 @@ test "constant_fold_sub_f32" {
   func.results.push(WasmType::f32())
   
   let const10 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::f32(10.0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::f32(10.0))),
     WasmType::f32(),
   )
   let const3 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::f32(3.0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::f32(3.0))),
     WasmType::f32(),
   )
   let sub = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::sub_float32(), const10, const3, WasmType::f32()),
+      BinaryExpr::new(DataFlowBinaryOp::sub_float32(), const10, const3, WasmType::f32()),
     ),
     WasmType::f32(),
   )
@@ -6266,9 +6266,9 @@ test "constant_fold_sub_f32" {
     Expression::return_(ReturnExpr::new(Some(sub))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -6290,16 +6290,16 @@ test "constant_fold_sub_f64" {
   func.results.push(WasmType::f64())
   
   let const100 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::f64(100.0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::f64(100.0))),
     WasmType::f64(),
   )
   let const25 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::f64(25.0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::f64(25.0))),
     WasmType::f64(),
   )
   let sub = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::sub_float64(), const100, const25, WasmType::f64()),
+      BinaryExpr::new(DataFlowBinaryOp::sub_float64(), const100, const25, WasmType::f64()),
     ),
     WasmType::f64(),
   )
@@ -6307,9 +6307,9 @@ test "constant_fold_sub_f64" {
     Expression::return_(ReturnExpr::new(Some(sub))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -6331,16 +6331,16 @@ test "constant_fold_mul_f64" {
   func.results.push(WasmType::f64())
   
   let const6 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::f64(6.0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::f64(6.0))),
     WasmType::f64(),
   )
   let const7 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::f64(7.0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::f64(7.0))),
     WasmType::f64(),
   )
   let mul = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::mul_float64(), const6, const7, WasmType::f64()),
+      BinaryExpr::new(DataFlowBinaryOp::mul_float64(), const6, const7, WasmType::f64()),
     ),
     WasmType::f64(),
   )
@@ -6348,9 +6348,9 @@ test "constant_fold_mul_f64" {
     Expression::return_(ReturnExpr::new(Some(mul))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -6372,16 +6372,16 @@ test "constant_fold_div_f32" {
   func.results.push(WasmType::f32())
   
   let const10 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::f32(10.0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::f32(10.0))),
     WasmType::f32(),
   )
   let const2 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::f32(2.0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::f32(2.0))),
     WasmType::f32(),
   )
   let div = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::div_float32(), const10, const2, WasmType::f32()),
+      BinaryExpr::new(DataFlowBinaryOp::div_float32(), const10, const2, WasmType::f32()),
     ),
     WasmType::f32(),
   )
@@ -6389,9 +6389,9 @@ test "constant_fold_div_f32" {
     Expression::return_(ReturnExpr::new(Some(div))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -6413,16 +6413,16 @@ test "constant_fold_min_f32" {
   func.results.push(WasmType::f32())
   
   let const5 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::f32(5.0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::f32(5.0))),
     WasmType::f32(),
   )
   let const3 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::f32(3.0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::f32(3.0))),
     WasmType::f32(),
   )
   let min = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::min_float32(), const5, const3, WasmType::f32()),
+      BinaryExpr::new(DataFlowBinaryOp::min_float32(), const5, const3, WasmType::f32()),
     ),
     WasmType::f32(),
   )
@@ -6430,9 +6430,9 @@ test "constant_fold_min_f32" {
     Expression::return_(ReturnExpr::new(Some(min))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -6454,16 +6454,16 @@ test "constant_fold_max_f32" {
   func.results.push(WasmType::f32())
   
   let const5 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::f32(5.0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::f32(5.0))),
     WasmType::f32(),
   )
   let const3 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::f32(3.0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::f32(3.0))),
     WasmType::f32(),
   )
   let max = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::max_float32(), const5, const3, WasmType::f32()),
+      BinaryExpr::new(DataFlowBinaryOp::max_float32(), const5, const3, WasmType::f32()),
     ),
     WasmType::f32(),
   )
@@ -6471,9 +6471,9 @@ test "constant_fold_max_f32" {
     Expression::return_(ReturnExpr::new(Some(max))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -6495,16 +6495,16 @@ test "constant_fold_min_f64" {
   func.results.push(WasmType::f64())
   
   let const100 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::f64(100.0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::f64(100.0))),
     WasmType::f64(),
   )
   let const_neg50 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::f64(-50.0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::f64(-50.0))),
     WasmType::f64(),
   )
   let min = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::min_float64(), const100, const_neg50, WasmType::f64()),
+      BinaryExpr::new(DataFlowBinaryOp::min_float64(), const100, const_neg50, WasmType::f64()),
     ),
     WasmType::f64(),
   )
@@ -6512,9 +6512,9 @@ test "constant_fold_min_f64" {
     Expression::return_(ReturnExpr::new(Some(min))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -6536,16 +6536,16 @@ test "constant_fold_max_f64" {
   func.results.push(WasmType::f64())
   
   let const_neg10 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::f64(-10.0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::f64(-10.0))),
     WasmType::f64(),
   )
   let const_neg5 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::f64(-5.0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::f64(-5.0))),
     WasmType::f64(),
   )
   let max = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::max_float64(), const_neg10, const_neg5, WasmType::f64()),
+      BinaryExpr::new(DataFlowBinaryOp::max_float64(), const_neg10, const_neg5, WasmType::f64()),
     ),
     WasmType::f64(),
   )
@@ -6553,9 +6553,9 @@ test "constant_fold_max_f64" {
     Expression::return_(ReturnExpr::new(Some(max))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -6577,12 +6577,12 @@ test "constant_fold_neg_f64" {
   func.results.push(WasmType::f64())
   
   let const42 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::f64(42.0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::f64(42.0))),
     WasmType::f64(),
   )
   let neg = func.expressions.add(
     Expression::unary(
-      UnaryExpr::new(UnaryOp::neg_float64(), const42, WasmType::f64()),
+      UnaryExpr::new(DataFlowUnaryOp::neg_float64(), const42, WasmType::f64()),
     ),
     WasmType::f64(),
   )
@@ -6590,9 +6590,9 @@ test "constant_fold_neg_f64" {
     Expression::return_(ReturnExpr::new(Some(neg))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -6614,12 +6614,12 @@ test "constant_fold_abs_f64" {
   func.results.push(WasmType::f64())
   
   let const_neg42 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::f64(-42.0) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::f64(-42.0))),
     WasmType::f64(),
   )
   let abs = func.expressions.add(
     Expression::unary(
-      UnaryExpr::new(UnaryOp::abs_float64(), const_neg42, WasmType::f64()),
+      UnaryExpr::new(DataFlowUnaryOp::abs_float64(), const_neg42, WasmType::f64()),
     ),
     WasmType::f64(),
   )
@@ -6627,9 +6627,9 @@ test "constant_fold_abs_f64" {
     Expression::return_(ReturnExpr::new(Some(abs))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -7853,16 +7853,16 @@ test "constant_fold_rotl_full_rotation" {
   func.results.push(WasmType::i32())
   
   let const_val = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(0xF0F0F0F0u.reinterpret_as_int()) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(0xF0F0F0F0u.reinterpret_as_int()))),
     WasmType::i32(),
   )
   let const32 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(32) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(32))),
     WasmType::i32(),
   )
   let rotl = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::rotl_int32(), const_val, const32, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::rotl_int32(), const_val, const32, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -7870,9 +7870,9 @@ test "constant_fold_rotl_full_rotation" {
     Expression::return_(ReturnExpr::new(Some(rotl))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -7944,24 +7944,24 @@ test "select_with_computed_true_condition" {
   func.results.push(WasmType::i32())
   
   let const1a = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(1) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(1))),
     WasmType::i32(),
   )
   let const1b = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(1) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(1))),
     WasmType::i32(),
   )
   let const100 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(100) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(100))),
     WasmType::i32(),
   )
   let const200 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(200) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(200))),
     WasmType::i32(),
   )
   let cond = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::eq_int32(), const1a, const1b, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::eq_int32(), const1a, const1b, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -7973,9 +7973,9 @@ test "select_with_computed_true_condition" {
     Expression::return_(ReturnExpr::new(Some(select))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -7985,7 +7985,7 @@ test "select_with_computed_true_condition" {
   let mut found_100 = false
   for node in graph.node_store.nodes {
     match node.expr {
-      Some(Const({ value: LitI32(100) })) => found_100 = true
+      Some(Const({ value: DataFlowLiteral::i32(100) })) => found_100 = true
       _ => ()
     }
   }
@@ -7998,24 +7998,24 @@ test "select_with_computed_false_condition" {
   func.results.push(WasmType::i32())
   
   let const5 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(5) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(5))),
     WasmType::i32(),
   )
   let const10 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(10) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(10))),
     WasmType::i32(),
   )
   let const100 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(100) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(100))),
     WasmType::i32(),
   )
   let const200 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(200) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(200))),
     WasmType::i32(),
   )
   let cond = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::gt_s_int32(), const5, const10, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::gt_s_int32(), const5, const10, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -8027,9 +8027,9 @@ test "select_with_computed_false_condition" {
     Expression::return_(ReturnExpr::new(Some(select))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -8039,7 +8039,7 @@ test "select_with_computed_false_condition" {
   let mut found_200 = false
   for node in graph.node_store.nodes {
     match node.expr {
-      Some(Const({ value: LitI32(200) })) => found_200 = true
+      Some(Const({ value: DataFlowLiteral::i32(200) })) => found_200 = true
       _ => ()
     }
   }
@@ -11153,12 +11153,12 @@ test "strength_reduce_mul_by_1" {
     WasmType::i32(),
   )
   let one = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(1) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(1))),
     WasmType::i32(),
   )
   let mul = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::mul_int32(), x, one, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::mul_int32(), x, one, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -11166,9 +11166,9 @@ test "strength_reduce_mul_by_1" {
     Expression::return_(ReturnExpr::new(Some(mul))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -11190,12 +11190,12 @@ test "strength_reduce_mul_by_large_power_of_2" {
     WasmType::i32(),
   )
   let large = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(-2147483648) }), // 2^31 as signed
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(-2147483648))), // 2^31 as signed
     WasmType::i32(),
   )
   let mul = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::mul_int32(), x, large, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::mul_int32(), x, large, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -11203,9 +11203,9 @@ test "strength_reduce_mul_by_large_power_of_2" {
     Expression::return_(ReturnExpr::new(Some(mul))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -11227,12 +11227,12 @@ test "strength_reduce_mul_non_power_of_2" {
     WasmType::i32(),
   )
   let seven = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(7) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(7))),
     WasmType::i32(),
   )
   let mul = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::mul_int32(), x, seven, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::mul_int32(), x, seven, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -11240,9 +11240,9 @@ test "strength_reduce_mul_non_power_of_2" {
     Expression::return_(ReturnExpr::new(Some(mul))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -11265,12 +11265,12 @@ test "strength_reduce_div_s_not_applied" {
     WasmType::i32(),
   )
   let four = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(4) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(4))),
     WasmType::i32(),
   )
   let div = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::div_s_int32(), x, four, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::div_s_int32(), x, four, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -11278,9 +11278,9 @@ test "strength_reduce_div_s_not_applied" {
     Expression::return_(ReturnExpr::new(Some(div))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -12928,12 +12928,12 @@ test "gvn_bitwise_and_redundant" {
     WasmType::i32(),
   )
   let mask1 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(0xFF) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(0xFF))),
     WasmType::i32(),
   )
   let and1 = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::and_int32(), x1, mask1, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::and_int32(), x1, mask1, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -12942,18 +12942,18 @@ test "gvn_bitwise_and_redundant" {
     WasmType::i32(),
   )
   let mask2 = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(0xFF) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(0xFF))),
     WasmType::i32(),
   )
   let and2 = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::and_int32(), x2, mask2, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::and_int32(), x2, mask2, WasmType::i32()),
     ),
     WasmType::i32(),
   )
   let add = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::add_int32(), and1, and2, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::add_int32(), and1, and2, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -12961,9 +12961,9 @@ test "gvn_bitwise_and_redundant" {
     Expression::return_(ReturnExpr::new(Some(add))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -12974,7 +12974,7 @@ test "gvn_bitwise_and_redundant" {
   let mut and_count = 0
   for node in graph.node_store.nodes {
     match node.expr {
-      Some(Binary(bin)) if bin.op == BinaryOp::and_int32() => and_count = and_count + 1
+      Some(Binary(bin)) if bin.op == DataFlowBinaryOp::and_int32() => and_count = and_count + 1
       _ => ()
     }
   }
@@ -13221,11 +13221,11 @@ test "phi_with_constant_inputs_fold" {
   // If both branches of phi have same constant, fold
   // This requires control flow setup
   let const5_a = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(5) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(5))),
     WasmType::i32(),
   )
   let const5_b = func.expressions.add(
-    Expression::const_(ConstExpr::{ value: Literal::i32(5) }),
+    Expression::const_(ConstExpr::new(DataFlowLiteral::i32(5))),
     WasmType::i32(),
   )
   
@@ -13234,9 +13234,9 @@ test "phi_with_constant_inputs_fold" {
     Expression::return_(ReturnExpr::new(Some(const5_a))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)
@@ -13251,7 +13251,7 @@ test "phi_with_constant_inputs_fold" {
       // Find the constant nodes
       for node in graph.node_store.nodes {
         match node.expr {
-          Some(Const({ value: LitI32(5) })) => n.values.push(node.id)
+          Some(Const({ value: DataFlowLiteral::i32(5) })) => n.values.push(node.id)
           _ => ()
         }
       }
@@ -13275,22 +13275,22 @@ test "absorption_and_or_i32" {
   func.results.push(WasmType::i32())
   
   let x = func.expressions.add(
-    Expression::local_get(LocalGetExpr::new(LocalId::new(0))),
+    Expression::local_get(LocalGetExpr::new(0)),
     WasmType::i32(),
   )
   let y = func.expressions.add(
-    Expression::local_get(LocalGetExpr::new(LocalId::new(1))),
+    Expression::local_get(LocalGetExpr::new(1)),
     WasmType::i32(),
   )
   let or_xy = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::or_int32(), x, y, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::or_int32(), x, y, WasmType::i32()),
     ),
     WasmType::i32(),
   )
   let and_x_orxy = func.expressions.add(
     Expression::binary(
-      BinaryExpr::new(BinaryOp::and_int32(), x, or_xy, WasmType::i32()),
+      BinaryExpr::new(DataFlowBinaryOp::and_int32(), x, or_xy, WasmType::i32()),
     ),
     WasmType::i32(),
   )
@@ -13298,9 +13298,9 @@ test "absorption_and_or_i32" {
     Expression::return_(ReturnExpr::new(Some(and_x_orxy))),
     WasmType::none(),
   )
-  func.body = Some(ret)
+  func.set_body(ret)
   
-  let mod = Module::new()
+  let mod = DataFlowModule::new()
   mod.add_function(func)
   let graph = make_test_graph()
   graph.build(func, mod)

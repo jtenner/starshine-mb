@@ -207,7 +207,7 @@ pub impl Decode for SubType with decode(buf, i) {
           }
         Err(err) => Err(err)
       }
-    // CompType, don't consume the character
+    // CompType, defer to comp type decoder
     Some(_) =>
       match Decode::decode(buf, i) {
         Ok((ct, i)) => Ok((SubType::comp_type(ct), i))
