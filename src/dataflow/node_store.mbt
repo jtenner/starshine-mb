@@ -7,7 +7,7 @@
 pub struct NodeStore {
   mut nodes : Array[Node]
   mut bad_node_id : NodeId
-}
+} derive(Show)
 
 ///|
 pub fn NodeStore::new() -> NodeStore {

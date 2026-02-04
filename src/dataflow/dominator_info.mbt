@@ -7,7 +7,7 @@ struct DominatorInfo {
   dom_depth : Map[ExprId, Int]
   // Entry expression
   mut entry : ExprId?
-}
+} derive(Show)
 
 ///|
 fn DominatorInfo::new() -> DominatorInfo {

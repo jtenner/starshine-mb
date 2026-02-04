@@ -3,7 +3,7 @@ pub enum MemoryNodeType {
   MemoryDef // Store, call, memory.grow - defines new memory state
   MemoryUse // Load - uses memory state
   MemoryPhi // Merge point for memory states
-}
+} derive(Show)
 
 ///|
 pub fn MemoryNodeType::memory_def() -> MemoryNodeType {
@@ -36,7 +36,7 @@ pub struct MemoryNode {
   node_type : MemoryNodeType
   defining_access : NodeId? // Which memory state this uses/clobbers
   expr_id : ExprId? // The original expression (load/store/call)
-}
+} derive(Show)
 
 ///|
 pub fn MemoryNode::new(
@@ -58,7 +58,7 @@ struct MemorySSA {
   mut current_state : NodeId
   // Memory phi nodes at block merges
   memory_phis : Map[ExprId, NodeId]
-}
+} derive(Show)
 
 ///|
 pub fn MemorySSA::new(graph : Graph) -> Self {

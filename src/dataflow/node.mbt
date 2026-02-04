@@ -49,7 +49,7 @@ pub struct Node {
   /// For Block: list of Conds
   /// For Zext: the value we extend
   values : Array[NodeId]
-}
+} derive(Show)
 
 ///|
 pub fn Node::new(id : NodeId, node_type : NodeType) -> Node {

@@ -8,7 +8,7 @@ pub struct LocalInfo {
   local_type : WasmType
   is_param : Bool
   name : String?
-}
+} derive(Show)
 
 ///|
 /// Function representation
@@ -19,7 +19,7 @@ pub struct Function {
   locals : Array[LocalInfo]
   mut body : ExprId?
   expressions : ExpressionStore
-}
+} derive(Show)
 
 ///|
 pub fn Function::new(name : String) -> Function {
@@ -84,7 +84,7 @@ pub fn Function::add_local(
 pub struct Module {
   functions : Map[String, Function]
   name : String?
-}
+} derive(Show)
 
 ///|
 pub fn Module::new() -> Module {

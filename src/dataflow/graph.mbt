@@ -47,7 +47,7 @@ pub struct Graph {
   mut mod : Module?
   mut mssa : MemorySSA?
   mut dom_info : DominatorInfo?
-}
+} derive (Show)
 
 ///|
 pub fn Graph::new() -> Graph {

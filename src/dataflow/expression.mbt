@@ -507,7 +507,7 @@ pub fn Expression::get_type(self : Expression) -> WasmType {
 pub struct ExpressionStore {
   expressions : Array[Expression]
   types : Array[WasmType]
-}
+} derive(Show)
 
 ///|
 pub fn ExpressionStore::new() -> ExpressionStore {

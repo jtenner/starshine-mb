@@ -127,7 +127,6 @@ using @dataflow {
   type SelectExpr,
   type StoreOp as DataFlowStoreOp,
   type LoadOp as DataFlowLoadOp,
-  type LocalId,
 }
 
 ///|
