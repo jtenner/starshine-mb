@@ -1,0 +1,4 @@
+import {
+  "moonbitlang/core/set",
+  "jtenner/starshine/lib" as @lib
+}

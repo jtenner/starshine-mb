@@ -1,0 +1,296 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "jtenner/starshine/ir"
+
+import {
+  "jtenner/starshine/lib",
+  "moonbitlang/core/set",
+}
+
+// Values
+pub fn build_cfg(@lib.TExpr) -> CFG
+
+pub fn build_use_def(SSACFG) -> UseDefInfo
+
+pub fn cfg_to_ssa(CFG, Map[BlockId, BlockId], Map[BlockId, @set.Set[BlockId]], Int) -> SSACFG
+
+pub fn compute_liveness(SSACFG) -> LivenessInfo
+
+pub fn infer_ssa_types(SSACFG, TypeContext) -> SSATypeInfo
+
+pub fn run_gvn(SSACFG, Map[BlockId, BlockId]) -> SSACFG
+
+pub fn split_critical_edges(SSACFG) -> SSACFG
+
+pub fn ssa_to_cfg(SSACFG, Int) -> CFG
+
+// Errors
+
+// Types and methods
+pub struct BasicBlock {
+  id : BlockId
+  instrs : Array[@lib.TInstr]
+  terminator : Terminator
+}
+pub impl Show for BasicBlock
+
+pub struct BlockId(Int)
+#deprecated
+pub fn BlockId::inner(Self) -> Int
+pub impl Compare for BlockId
+pub impl Eq for BlockId
+pub impl Hash for BlockId
+pub impl Show for BlockId
+
+pub struct CFG {
+  entry : BlockId
+  blocks : Map[BlockId, BasicBlock]
+  preds : Map[BlockId, Array[BlockId]]
+}
+pub fn CFG::block(Self, BlockId) -> BasicBlock?
+pub fn CFG::dominance_frontier(Self) -> Map[BlockId, @set.Set[BlockId]]
+pub fn CFG::dominates(Self, BlockId, BlockId) -> Bool
+pub fn CFG::dominators(Self) -> Map[BlockId, BlockId]
+pub fn CFG::entry(Self) -> BlockId
+pub fn CFG::predecessors(Self, BlockId) -> Array[BlockId]
+pub fn CFG::strict_dominates(Self, BlockId, BlockId) -> Bool
+pub fn CFG::successors(Self, BlockId) -> Array[BlockId]
+pub fn CFG::validate(Self) -> Result[Unit, String]
+pub impl Show for CFG
+
+type GVNCheckpoint
+
+pub enum GVNKey {
+  Const32(Int)
+  Const64(Int64)
+  ConstF32(Float)
+  ConstF64(Double)
+  Unary(@lib.UnaryOp, SSAValue)
+  Binary(@lib.BinaryOp, SSAValue, SSAValue)
+  Load(@lib.LoadOp, @lib.MemArg, SSAValue)
+  RefNull(@lib.HeapType)
+  RefFunc(@lib.FuncIdx)
+  GlobalGet(@lib.GlobalIdx)
+  StructGet(@lib.TypeIdx, @lib.U32, SSAValue)
+  ArrayGet(@lib.TypeIdx, SSAValue, SSAValue)
+}
+pub impl Eq for GVNKey
+pub impl Hash for GVNKey
+
+pub struct GVNState {
+  value_map : Map[GVNKey, SSAValue]
+  replacements : Map[SSAValue, SSAValue]
+}
+
+pub struct LivenessInfo {
+  live_in : Map[BlockId, @set.Set[SSAValue]]
+  live_out : Map[BlockId, @set.Set[SSAValue]]
+}
+pub fn LivenessInfo::get_live_in(Self, BlockId) -> @set.Set[SSAValue]
+pub fn LivenessInfo::get_live_out(Self, BlockId) -> @set.Set[SSAValue]
+pub fn LivenessInfo::is_live_in(Self, BlockId, SSAValue) -> Bool
+pub fn LivenessInfo::is_live_out(Self, BlockId, SSAValue) -> Bool
+
+pub struct PhiNode {
+  local_idx : @lib.LocalIdx
+  result : SSAValue
+  args : Map[BlockId, SSAValue]
+}
+pub impl Show for PhiNode
+
+pub struct SSABlock {
+  id : BlockId
+  phis : Array[PhiNode]
+  instrs : Array[SSAInstr]
+  terminator : SSATerminator
+}
+pub impl Show for SSABlock
+
+pub struct SSACFG {
+  entry : BlockId
+  blocks : Map[BlockId, SSABlock]
+  preds : Map[BlockId, Array[BlockId]]
+  param_values : Map[@lib.LocalIdx, SSAValue]
+  next_value : Int
+}
+pub impl Show for SSACFG
+
+pub enum SSADef {
+  Param(@lib.LocalIdx)
+  Phi(@lib.LocalIdx)
+  Instr(Int)
+}
+
+pub struct SSADestructor {
+  value_to_local : Map[SSAValue, @lib.LocalIdx]
+  mut next_local : UInt
+}
+
+pub enum SSAInstr {
+  Assign(SSAValue, SSAOp)
+  Effect(SSAOp)
+}
+pub impl Show for SSAInstr
+
+pub enum SSAOp {
+  I32Const(@lib.I32)
+  I64Const(@lib.I64)
+  F32Const(@lib.F32)
+  F64Const(@lib.F64)
+  RefNull(@lib.HeapType)
+  RefFunc(@lib.FuncIdx)
+  V128Const(Bytes)
+  Copy(SSAValue)
+  Binary(@lib.BinaryOp, SSAValue, SSAValue)
+  Unary(@lib.UnaryOp, SSAValue)
+  Load(@lib.LoadOp, @lib.MemArg, SSAValue)
+  Store(@lib.StoreOp, @lib.MemArg, SSAValue, SSAValue)
+  MemorySize(@lib.MemIdx)
+  MemoryGrow(@lib.MemIdx, SSAValue)
+  MemoryFill(@lib.MemIdx, SSAValue, SSAValue, SSAValue)
+  MemoryCopy(@lib.MemIdx, @lib.MemIdx, SSAValue, SSAValue, SSAValue)
+  MemoryInit(@lib.DataIdx, @lib.MemIdx, SSAValue, SSAValue, SSAValue)
+  DataDrop(@lib.DataIdx)
+  GlobalGet(@lib.GlobalIdx)
+  GlobalSet(@lib.GlobalIdx, SSAValue)
+  TableGet(@lib.TableIdx, SSAValue)
+  TableSet(@lib.TableIdx, SSAValue, SSAValue)
+  TableSize(@lib.TableIdx)
+  TableGrow(@lib.TableIdx, SSAValue, SSAValue)
+  TableFill(@lib.TableIdx, SSAValue, SSAValue, SSAValue)
+  TableCopy(@lib.TableIdx, @lib.TableIdx, SSAValue, SSAValue, SSAValue)
+  TableInit(@lib.ElemIdx, @lib.TableIdx, SSAValue, SSAValue, SSAValue)
+  ElemDrop(@lib.ElemIdx)
+  Call(@lib.FuncIdx, Array[SSAValue])
+  CallIndirect(@lib.TypeIdx, @lib.TableIdx, Array[SSAValue], SSAValue)
+  CallRef(@lib.TypeIdx, Array[SSAValue], SSAValue)
+  RefIsNull(SSAValue)
+  RefEq(SSAValue, SSAValue)
+  RefAsNonNull(SSAValue)
+  RefI31(SSAValue)
+  I31GetS(SSAValue)
+  I31GetU(SSAValue)
+  RefTest(Bool, @lib.HeapType, SSAValue)
+  RefCast(Bool, @lib.HeapType, SSAValue)
+  AnyConvertExtern(SSAValue)
+  ExternConvertAny(SSAValue)
+  StructNew(@lib.TypeIdx, Array[SSAValue])
+  StructNewDefault(@lib.TypeIdx)
+  StructGet(@lib.TypeIdx, @lib.U32, SSAValue)
+  StructGetS(@lib.TypeIdx, @lib.U32, SSAValue)
+  StructGetU(@lib.TypeIdx, @lib.U32, SSAValue)
+  StructSet(@lib.TypeIdx, @lib.U32, SSAValue, SSAValue)
+  ArrayNew(@lib.TypeIdx, SSAValue, SSAValue)
+  ArrayNewDefault(@lib.TypeIdx, SSAValue)
+  ArrayNewFixed(@lib.TypeIdx, Array[SSAValue])
+  ArrayNewData(@lib.TypeIdx, @lib.DataIdx, SSAValue, SSAValue)
+  ArrayNewElem(@lib.TypeIdx, @lib.ElemIdx, SSAValue, SSAValue)
+  ArrayGet(@lib.TypeIdx, SSAValue, SSAValue)
+  ArrayGetS(@lib.TypeIdx, SSAValue, SSAValue)
+  ArrayGetU(@lib.TypeIdx, SSAValue, SSAValue)
+  ArraySet(@lib.TypeIdx, SSAValue, SSAValue, SSAValue)
+  ArrayLen(SSAValue)
+  ArrayFill(@lib.TypeIdx, SSAValue, SSAValue, SSAValue, SSAValue)
+  ArrayCopy(@lib.TypeIdx, @lib.TypeIdx, SSAValue, SSAValue, SSAValue, SSAValue, SSAValue)
+  ArrayInitData(@lib.TypeIdx, @lib.DataIdx, SSAValue, SSAValue, SSAValue, SSAValue)
+  ArrayInitElem(@lib.TypeIdx, @lib.ElemIdx, SSAValue, SSAValue, SSAValue, SSAValue)
+  Splat(SplatOp, SSAValue)
+  ExtractLane(@lib.ExtractLaneOp, @lib.LaneIdx, SSAValue)
+  ReplaceLane(@lib.ReplaceLaneOp, @lib.LaneIdx, SSAValue, SSAValue)
+  Shuffle(Array[@lib.LaneIdx], SSAValue, SSAValue)
+  Swizzle(SSAValue, SSAValue)
+  V128Shift(@lib.V128ShiftOp, SSAValue, SSAValue)
+  V128Ternary(@lib.V128TernaryOp, SSAValue, SSAValue, SSAValue)
+  V128LoadLane(@lib.V128LoadLaneOp, @lib.MemArg, @lib.LaneIdx, SSAValue, SSAValue)
+  V128StoreLane(@lib.V128StoreLaneOp, @lib.MemArg, @lib.LaneIdx, SSAValue, SSAValue)
+  Select(Array[@lib.ValType]?, SSAValue, SSAValue, SSAValue)
+  Throw(@lib.TagIdx, Array[SSAValue])
+}
+pub impl Show for SSAOp
+
+pub enum SSATerminator {
+  Br(BlockId)
+  BrIf(SSAValue, BlockId, BlockId)
+  BrTable(SSAValue, Array[BlockId], BlockId)
+  BrOnNull(SSAValue, BlockId, BlockId)
+  BrOnNonNull(SSAValue, BlockId, BlockId)
+  BrOnCast(@lib.CastOp, @lib.HeapType, @lib.HeapType, SSAValue, BlockId, BlockId)
+  BrOnCastFail(@lib.CastOp, @lib.HeapType, @lib.HeapType, SSAValue, BlockId, BlockId)
+  Return(Array[SSAValue])
+  ReturnCall(@lib.FuncIdx, Array[SSAValue])
+  ReturnCallIndirect(@lib.TypeIdx, @lib.TableIdx, Array[SSAValue], SSAValue)
+  ReturnCallRef(@lib.TypeIdx, Array[SSAValue], SSAValue)
+  ThrowRef(SSAValue)
+  Unreachable
+}
+pub impl Show for SSATerminator
+
+pub struct SSATypeInfo {
+  value_types : Map[SSAValue, @lib.ValType]
+}
+pub fn SSATypeInfo::get(Self, SSAValue) -> @lib.ValType?
+
+pub enum SSAUse {
+  InInstr(BlockId, Int)
+  InPhi(BlockId, @lib.LocalIdx, BlockId)
+  InTerminator(BlockId)
+}
+
+pub struct SSAValue(Int)
+#deprecated
+pub fn SSAValue::inner(Self) -> Int
+pub impl Compare for SSAValue
+pub impl Eq for SSAValue
+pub impl Hash for SSAValue
+pub impl Show for SSAValue
+
+pub enum SplatOp {
+  I8x16Splat
+  I16x8Splat
+  I32x4Splat
+  I64x2Splat
+  F32x4Splat
+  F64x2Splat
+}
+pub impl Eq for SplatOp
+pub impl Hash for SplatOp
+pub impl Show for SplatOp
+
+pub enum Terminator {
+  Br(BlockId)
+  BrIf(@lib.TInstr, BlockId, BlockId)
+  BrTable(@lib.TInstr, Array[BlockId], BlockId)
+  BrOnNull(@lib.TInstr, BlockId, BlockId)
+  BrOnNonNull(@lib.TInstr, BlockId, BlockId)
+  BrOnCast(@lib.CastOp, @lib.HeapType, @lib.HeapType, @lib.TInstr, BlockId, BlockId)
+  BrOnCastFail(@lib.CastOp, @lib.HeapType, @lib.HeapType, @lib.TInstr, BlockId, BlockId)
+  Return(Array[@lib.TInstr])
+  ReturnCall(@lib.FuncIdx, Array[@lib.TInstr])
+  ReturnCallIndirect(@lib.TypeIdx, @lib.TableIdx, Array[@lib.TInstr], @lib.TInstr)
+  ReturnCallRef(@lib.TypeIdx, Array[@lib.TInstr], @lib.TInstr)
+  ThrowRef(@lib.TInstr)
+  Unreachable
+}
+pub impl Show for Terminator
+
+pub struct TypeContext {
+  func_types : Array[@lib.FuncType]
+  global_types : Array[@lib.GlobalType]
+  table_types : Array[@lib.TableType]
+  struct_types : Array[Array[@lib.FieldType]]
+  array_types : Array[@lib.FieldType]
+  tag_types : Array[@lib.TagType]
+  local_types : Array[@lib.ValType]
+}
+
+pub struct UseDefInfo {
+  defs : Map[SSAValue, (BlockId, SSADef)]
+  uses : Map[SSAValue, Array[SSAUse]]
+}
+pub fn UseDefInfo::get_def(Self, SSAValue) -> (BlockId, SSADef)?
+pub fn UseDefInfo::get_uses(Self, SSAValue) -> Array[SSAUse]
+pub fn UseDefInfo::is_dead(Self, SSAValue) -> Bool
+
+// Type aliases
+
+// Traits
+
