@@ -139,3 +139,7 @@ using @transformer {
 
 ///|
 using @validate {type Env, to_texpr, trait Match}
+
+using @ir {
+  type IRContext,
+}

@@ -3,6 +3,7 @@ package "jtenner/starshine/passes"
 
 import {
   "jtenner/starshine/dataflow",
+  "jtenner/starshine/ir",
   "jtenner/starshine/lib",
   "jtenner/starshine/transformer",
   "moonbitlang/core/hashmap",
@@ -10,7 +11,7 @@ import {
 }
 
 // Values
-pub fn alignment_lowering_pass() -> @transformer.ModuleTransformer[AlignmentLoweringContext]
+pub fn alignment_lowering_pass(@lib.Module) -> @transformer.ModuleTransformer[@ir.IRContext]
 
 pub fn code_folding_pass() -> @transformer.ModuleTransformer[CodeFoldingState]
 
@@ -29,6 +30,8 @@ pub fn lift_to_texpr_pass() -> @transformer.ModuleTransformer[Unit]
 pub fn lower_to_expr_pass() -> @transformer.ModuleTransformer[Unit]
 
 pub fn optimize_casts(@lib.Module) -> @lib.Module
+
+pub fn optimize_module(@lib.Module, Array[ModulePass]) -> Result[@lib.Module, String]
 
 pub fn propagate_to_supertypes(CFPState) -> Unit
 
@@ -51,11 +54,9 @@ pub fn uses(@lib.TInstr) -> @set.Set[@lib.LocalIdx]
 // Errors
 
 // Types and methods
-pub struct AlignmentLoweringContext {
-  mut locals : Array[@lib.ValType]
-  memories : Array[@lib.MemType]
+pub(all) struct AbstractTypeRefiningPassProps {
+  traps_never_happen : Bool
 }
-pub fn AlignmentLoweringContext::new(Array[@lib.MemType]) -> Self
 
 type BlockLiveness
 pub impl Show for BlockLiveness
@@ -120,6 +121,11 @@ pub impl Compare for LiteralKind
 pub impl Eq for LiteralKind
 pub impl Hash for LiteralKind
 pub impl Show for LiteralKind
+
+pub(all) enum ModulePass {
+  AbstractTypeRefining(AbstractTypeRefiningPassProps)
+  AlignmentLowering
+}
 
 type Remappings
 

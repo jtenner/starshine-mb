@@ -39,4 +39,7 @@ using @lib {
   type FieldType,
   type BlockType,
   type LabelIdx,
+  type Module,
+  type SubType,
+  type CompType,
 }

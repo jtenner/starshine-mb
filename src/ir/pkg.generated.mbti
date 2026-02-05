@@ -79,6 +79,31 @@ pub struct GVNState {
   replacements : Map[SSAValue, SSAValue]
 }
 
+pub struct IRContext {
+  mut mod : @lib.Module
+  mut cfg : CFG?
+  mut ssa : SSACFG?
+  mut usedef : UseDefInfo?
+  mut liveness : LivenessInfo?
+  mut types : SSATypeInfo?
+  mut gvn : SSACFG?
+}
+pub fn IRContext::cfg_dirty(Self) -> Unit
+pub fn IRContext::get_cfg(Self) -> CFG
+pub fn IRContext::get_gvn(Self) -> SSACFG
+pub fn IRContext::get_liveness(Self) -> LivenessInfo
+pub fn IRContext::get_mod(Self) -> @lib.Module
+pub fn IRContext::get_ssa(Self) -> SSACFG
+pub fn IRContext::get_types(Self) -> SSATypeInfo
+pub fn IRContext::get_usedef(Self) -> UseDefInfo
+pub fn IRContext::gvn_dirty(Self) -> Unit
+pub fn IRContext::liveness_dirty(Self) -> Unit
+pub fn IRContext::new(@lib.Module) -> Self
+pub fn IRContext::set_mod(Self, @lib.Module) -> Unit
+pub fn IRContext::ssa_dirty(Self) -> Unit
+pub fn IRContext::types_dirty(Self) -> Unit
+pub fn IRContext::usedef_dirty(Self) -> Unit
+
 pub struct LivenessInfo {
   live_in : Map[BlockId, @set.Set[SSAValue]]
   live_out : Map[BlockId, @set.Set[SSAValue]]

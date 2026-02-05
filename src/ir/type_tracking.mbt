@@ -12,6 +12,18 @@ pub struct TypeContext {
   local_types: Array[ValType]  // For the current function
 }
 
+pub fn TypeContext::empty() -> Self {
+  {
+    func_types: [],
+    global_types: [],
+    table_types: [],
+    struct_types: [],
+    array_types: [],
+    tag_types: [],
+    local_types: [],
+  }
+}
+
 pub fn infer_ssa_types(cfg : SSACFG, ctx : TypeContext) -> SSATypeInfo {
   let types : Map[SSAValue, ValType] = Map::new()
   
