@@ -57,8 +57,6 @@ pub fn CFG::successors(Self, BlockId) -> Array[BlockId]
 pub fn CFG::validate(Self) -> Result[Unit, String]
 pub impl Show for CFG
 
-type GVNCheckpoint
-
 pub enum GVNKey {
   Const32(Int)
   Const64(Int64)
