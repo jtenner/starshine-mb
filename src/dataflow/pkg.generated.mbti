@@ -211,6 +211,7 @@ pub impl Show for CallExpr
 pub struct ConstExpr {
   value : Literal
 }
+pub fn ConstExpr::new(Literal) -> Self
 pub impl Eq for ConstExpr
 pub impl Show for ConstExpr
 
@@ -221,6 +222,7 @@ pub fn DominatorGVN::process_if(Self, Graph, IfExpr, NodeUsers, Array[(NodeId, N
 pub fn DominatorGVN::process_node(Self, Graph, Node) -> NodeId?
 
 type DominatorInfo
+pub impl Show for DominatorInfo
 
 pub struct DropExpr {
   value : ExprId
@@ -294,6 +296,7 @@ pub fn ExpressionStore::add(Self, Expression, WasmType) -> ExprId
 pub fn ExpressionStore::get(Self, ExprId) -> Expression?
 pub fn ExpressionStore::get_type(Self, ExprId) -> WasmType
 pub fn ExpressionStore::new() -> Self
+pub impl Show for ExpressionStore
 
 pub struct FlowState {
   locals : Array[NodeId]
@@ -306,7 +309,7 @@ pub struct Function {
   params : Array[WasmType]
   results : Array[WasmType]
   locals : Array[LocalInfo]
-  body : ExprId?
+  mut body : ExprId?
   expressions : ExpressionStore
 }
 pub fn Function::add_local(Self, WasmType, String?) -> Int
@@ -315,6 +318,8 @@ pub fn Function::get_local_type(Self, Int) -> WasmType
 pub fn Function::get_num_locals(Self) -> Int
 pub fn Function::is_param(Self, Int) -> Bool
 pub fn Function::new(String) -> Self
+pub fn Function::set_body(Self, ExprId) -> Unit
+pub impl Show for Function
 
 pub struct GVN {
   value_number : Map[NodeId, NodeId]
@@ -412,6 +417,7 @@ pub fn Graph::set_in_reachable(Self) -> Unit
 pub fn Graph::set_in_unreachable(Self) -> Unit
 pub fn Graph::visit(Self, ExprId) -> NodeId
 pub fn Graph::visit_expression(Self, Expression, ExprId) -> NodeId
+pub impl Show for Graph
 
 pub struct IfExpr {
   condition : ExprId
@@ -496,6 +502,7 @@ pub struct LocalInfo {
   is_param : Bool
   name : String?
 }
+pub impl Show for LocalInfo
 
 pub struct LocalSetExpr {
   index : Int
@@ -530,6 +537,7 @@ pub struct MemoryNode {
   expr_id : ExprId?
 }
 pub fn MemoryNode::new(NodeId, MemoryNodeType, NodeId?, ExprId?) -> Self
+pub impl Show for MemoryNode
 
 pub enum MemoryNodeType {
   MemoryDef
@@ -539,6 +547,7 @@ pub enum MemoryNodeType {
 pub fn MemoryNodeType::memory_def() -> Self
 pub fn MemoryNodeType::memory_phi() -> Self
 pub fn MemoryNodeType::memory_use() -> Self
+pub impl Show for MemoryNodeType
 
 type MemorySSA
 pub fn MemorySSA::get_current_state(Self) -> NodeId
@@ -550,6 +559,7 @@ pub fn MemorySSA::record_load(Self, Graph, NodeId, ExprId) -> Unit
 pub fn MemorySSA::record_memory_grow(Self, Graph, NodeId, ExprId) -> Unit
 pub fn MemorySSA::record_store(Self, Graph, NodeId, ExprId) -> Unit
 pub fn MemorySSA::set_current_state(Self, NodeId) -> Unit
+pub impl Show for MemorySSA
 
 pub struct MemorySizeExpr {
   memory_index : Int
@@ -569,6 +579,7 @@ pub struct Module {
 }
 pub fn Module::add_function(Self, Function) -> Unit
 pub fn Module::new() -> Self
+pub impl Show for Module
 
 pub struct Node {
   mut id : NodeId
@@ -604,6 +615,7 @@ pub fn Node::make_var(NodeId, WasmType) -> Self
 pub fn Node::make_zext(NodeId, NodeId, ExprId?) -> Self
 pub fn Node::new(NodeId, NodeType) -> Self
 pub fn Node::returns_i1(Self) -> Bool
+pub impl Show for Node
 
 pub struct NodeId(Int)
 #deprecated
@@ -627,6 +639,7 @@ pub fn NodeStore::is_bad(Self, NodeId) -> Bool
 pub fn NodeStore::len(Self) -> Int
 pub fn NodeStore::new() -> Self
 pub fn NodeStore::remove(Self, NodeId) -> Unit
+pub impl Show for NodeStore
 
 pub enum NodeType {
   Var

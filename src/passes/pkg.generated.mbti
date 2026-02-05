@@ -99,6 +99,11 @@ type ImportCounts
 pub struct Literal(LiteralKind, Bytes)
 
 
+pub fn Literal::f32(Float) -> Self
+pub fn Literal::f64(Double) -> Self
+pub fn Literal::i32(Int) -> Self
+pub fn Literal::i64(Int64) -> Self
+pub fn Literal::v128(Bytes) -> Self
 pub impl Compare for Literal
 pub impl Eq for Literal
 pub impl Hash for Literal
