@@ -1,0 +1,125 @@
+# Agent Tasks
+
+- [ ] switch passes in `./src/passes/*.mbt` to use `IRContext` from `./src/ir/ir_context.mbt`
+  - [ ] `./src/passes/coalesce_locals.mbt`
+  - [ ] `./src/passes/code_folding.mbt`
+  - [ ] `./src/passes/code_pushing.mbt`
+  - [ ] `./src/passes/const_hoisting.mbt`
+  - [ ] `./src/passes/constant_field_propagation.mbt`
+  - [ ] `./src/passes/dataflow_opt.mbt` 
+  - [ ] `./src/passes/de_nan.mbt`
+  - [ ] `./src/passes/directize.mbt`
+  - [ ] `./src/passes/optimize_casts.mbt`
+  - [ ] `./src/passes/remove_unused.mbt`
+- [ ] `./src/passes/dataflow_opt.mbt` has about 150+ tests failing because of underlying data structure issues, likely related to the above tasks
+- [ ] add binaryen passes to `./src/passes/`. Some of these passes may not make sense in our setting, because they are emscripten specific like `LLVMMemoryCopyFillLowering`, but they may be useful.
+  - [ ] Binaryen Pass : Asyncify.cpp
+  - [ ] Binaryen Pass : DeAlign.cpp
+  - [ ] Binaryen Pass : DeNaN.cpp
+  - [ ] Binaryen Pass : DeadCodeElimination.cpp
+  - [ ] Binaryen Pass : DuplicateFunctionElimination.cpp
+  - [ ] Binaryen Pass : DuplicateImportElimination.cpp
+  - [ ] Binaryen Pass : EncloseWorld.cpp
+  - [ ] Binaryen Pass : ExtractFunction.cpp
+  - [ ] Binaryen Pass : Flatten.cpp
+  - [ ] Binaryen Pass : FuncCastEmulation.cpp
+  - [ ] Binaryen Pass : GUFA.cpp
+  - [ ] Binaryen Pass : GenerateDynCalls.cpp
+  - [ ] Binaryen Pass : GlobalEffects.cpp
+  - [ ] Binaryen Pass : GlobalRefining.cpp
+  - [ ] Binaryen Pass : GlobalStructInference.cpp
+  - [ ] Binaryen Pass : GlobalTypeOptimization.cpp
+  - [ ] Binaryen Pass : Heap2Local.cpp
+  - [ ] Binaryen Pass : HeapStoreOptimization.cpp
+  - [ ] Binaryen Pass : I64ToI32Lowering.cpp
+  - [ ] Binaryen Pass : Inlining.cpp
+  - [ ] Binaryen Pass : InstrumentBranchHints.cpp
+  - [ ] Binaryen Pass : InstrumentLocals.cpp
+  - [ ] Binaryen Pass : InstrumentMemory.cpp
+  - [ ] Binaryen Pass : Intrinsics.cpp
+  - [ ] Binaryen Pass : J2CLItableMerging.cpp
+  - [ ] Binaryen Pass : J2CLOpts.cpp
+  - [ ] Binaryen Pass : LLVMMemoryCopyFillLowering.cpp
+  - [ ] Binaryen Pass : LLVMNontrappingFPToIntLowering.cpp
+  - [ ] Binaryen Pass : LegalizeJSInterface.cpp
+  - [ ] Binaryen Pass : LimitSegments.cpp
+  - [ ] Binaryen Pass : LocalCSE.cpp
+  - [ ] Binaryen Pass : LocalSubtyping.cpp
+  - [ ] Binaryen Pass : LoopInvariantCodeMotion.cpp
+  - [ ] Binaryen Pass : Memory64Lowering.cpp
+  - [ ] Binaryen Pass : MemoryPacking.cpp
+  - [ ] Binaryen Pass : MergeBlocks.cpp
+  - [ ] Binaryen Pass : MergeLocals.cpp
+  - [ ] Binaryen Pass : MergeSimilarFunctions.cpp
+  - [ ] Binaryen Pass : Metrics.cpp
+  - [ ] Binaryen Pass : MinifyImportsAndExports.cpp
+  - [ ] Binaryen Pass : MinimizeRecGroups.cpp
+  - [ ] Binaryen Pass : Monomorphize.cpp
+  - [ ] Binaryen Pass : MultiMemoryLowering.cpp
+  - [ ] Binaryen Pass : NoInline.cpp
+  - [ ] Binaryen Pass : OnceReduction.cpp
+  - [ ] Binaryen Pass : OptimizeAddedConstants.cpp
+  - [ ] Binaryen Pass : OptimizeCasts.cpp
+  - [ ] Binaryen Pass : OptimizeForJS.cpp
+  - [ ] Binaryen Pass : OptimizeInstructions.cpp
+  - [ ] Binaryen Pass : Outlining.cpp
+  - [ ] Binaryen Pass : PickLoadSigns.cpp
+  - [ ] Binaryen Pass : Poppify.cpp
+  - [ ] Binaryen Pass : Precompute.cpp
+  - [ ] Binaryen Pass : RandomizeBranchHints.cpp
+  - [ ] Binaryen Pass : ReReloop.cpp
+  - [ ] Binaryen Pass : RedundantSetElimination.cpp
+  - [ ] Binaryen Pass : RemoveImports.cpp
+  - [ ] Binaryen Pass : RemoveMemoryInit.cpp
+  - [ ] Binaryen Pass : RemoveNonJSOps.cpp
+  - [ ] Binaryen Pass : RemoveUnusedBrs.cpp
+  - [ ] Binaryen Pass : RemoveUnusedModuleElements.cpp
+  - [ ] Binaryen Pass : RemoveUnusedNames.cpp
+  - [ ] Binaryen Pass : RemoveUnusedTypes.cpp
+  - [ ] Binaryen Pass : ReorderFunctions.cpp
+  - [ ] Binaryen Pass : ReorderGlobals.cpp
+  - [ ] Binaryen Pass : ReorderLocals.cpp
+  - [ ] Binaryen Pass : ReorderTypes.cpp
+  - [ ] Binaryen Pass : RoundTrip.cpp
+  - [ ] Binaryen Pass : SSAify.cpp
+  - [ ] Binaryen Pass : SafeHeap.cpp
+  - [ ] Binaryen Pass : SeparateDataSegments.cpp
+  - [ ] Binaryen Pass : SetGlobals.cpp
+  - [ ] Binaryen Pass : SignExtLowering.cpp
+  - [ ] Binaryen Pass : SignaturePruning.cpp
+  - [ ] Binaryen Pass : SignatureReUse `TExpr` enum for easy conversionfining.cpp
+  - [ ] Binaryen Pass : SimplifyGlobals.cpp
+  - [ ] Binaryen Pass : SimplifyLocals.cpp
+  - [ ] Binaryen Pass : Souperify.cpp
+  - [ ] Binaryen Pass : SpillPointers.cpp
+  - [ ] Binaryen Pass : StackCheck.cpp
+  - [ ] Binaryen Pass : StringLifting.cpp
+  - [ ] Binaryen Pass : StringLowering.cpp
+  - [ ] Binaryen Pass : Strip.cpp
+  - [ ] Binaryen Pass : StripEH.cpp
+  - [ ] Binaryen Pass : StripTargetFeatures.cpp
+  - [ ] Binaryen Pass : TraceCalls.cpp
+  - [ ] Binaryen Pass : TranslateEH.cpp
+  - [ ] Binaryen Pass : TrapMode.cpp
+  - [ ] Binaryen Pass : TupleOptimization.cpp
+  - [ ] Binaryen Pass : TypeFinalizing.cpp
+  - [ ] Binaryen Pass : TypeGeneralizing.cpp
+  - [ ] Binaryen Pass : TypeMerging.cpp
+  - [ ] Binaryen Pass : TypeRefining.cpp
+  - [ ] Binaryen Pass : TypeSSA.cpp
+  - [ ] Binaryen Pass : Unsubtyping.cpp
+  - [ ] Binaryen Pass : Untee.cpp
+  - [ ] Binaryen Pass : Vacuum.cpp
+- [ ] Improve `./src/lib/show.mbt` trait definitions for pretty printing module outputs
+- [ ] Implement `./src/wast/*.mbt` to be able to parse and pretty print the s-expression text format of WebAssembly
+  - [ ] Add more complete tests
+  - [ ] Fix pretty printing of modules to match the s-expression text format of WebAssembly
+  - [ ] WAST to WAT functions
+  - [ ] WAST to WASM types functions (Use `TExpr` enum for easy conversion)
+- [ ] Implement `./src/wat/*.mbt` to be able to parse and pretty print text format standard for wasm 3.0
+  - [ ] Lexer and tests
+  - [ ] Parser and tests
+  - [ ] Printer and tests
+  - [ ] WAT to WAST functions
+  - [ ] WAT to WASM types functions (Use `Instruction` enum for easy conversion)
+- [ ] `./src/transformer/transformer.mbt` needs tests

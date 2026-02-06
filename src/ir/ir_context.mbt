@@ -1,15 +1,3 @@
-pub struct IRContext {
-  mut mod_ : Module?
-  mut body : TExpr
-  mut locals : Array[ValType]
-  mut type_ctx : Option[TypeContext]
-  mut cfg : CFG?
-  mut ssa : SSACFG?
-  mut usedef : UseDefInfo?
-  mut liveness : LivenessInfo?
-  mut types : SSATypeInfo?
-  mut gvn : SSACFG?
-}
 
 pub fn IRContext::new() -> Self {
   {
@@ -23,6 +11,7 @@ pub fn IRContext::new() -> Self {
     liveness: None,
     types: None,
     gvn: None,
+    local_graph: None,
   }
 }
 
@@ -41,7 +30,20 @@ pub fn IRContext::set_mod(self : Self, mod_ : @lib.Module) -> Unit {
   self.cfg_dirty()
 }
 
+
+
 // --------------- Lazy getters ---------------
+
+pub fn IRContext::get_local_graph(self : Self) -> LocalGraph {
+  match self.local_graph {
+    Some(val) => val
+    None => {
+      let lg = LocalGraph::new(self.body.0)
+      self.local_graph = Some(lg)
+      lg
+    }
+  }
+}
 
 pub fn IRContext::get_cfg(self : Self) -> CFG {
   match self.cfg {
@@ -138,6 +140,7 @@ pub fn IRContext::ssa_dirty(self : Self) -> Unit {
   self.liveness_dirty()
   self.types_dirty()
   self.gvn_dirty()
+  self.local_graph_dirty()
 }
 
 pub fn IRContext::usedef_dirty(self : Self) -> Unit {
@@ -154,6 +157,10 @@ pub fn IRContext::types_dirty(self : Self) -> Unit {
 
 pub fn IRContext::gvn_dirty(self : Self) -> Unit {
   self.gvn = None
+}
+
+pub fn IRContext::local_graph_dirty(self : Self) -> Unit {
+  self.local_graph = None
 }
 
 // --------------- Additional helpers ---------------

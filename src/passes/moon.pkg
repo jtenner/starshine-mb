@@ -2,7 +2,6 @@ import {
   "jtenner/starshine/lib" as @lib,
   "jtenner/starshine/binary" as @binary,
   "jtenner/starshine/dataflow" as @dataflow,
-  "jtenner/starshine/local_graph" as @local_graph,
   "jtenner/starshine/ir" as @ir,
   "jtenner/starshine/transformer" as @transformer,
   "jtenner/starshine/validate" as @validate,
@@ -11,5 +10,5 @@ import {
   "moonbitlang/core/hashmap" as @hashmap,
   "moonbitlang/core/cmp" as @cmp,
   "moonbitlang/core/set" as @set,
-
+  "moonbitlang/core/float" as @float,
 }

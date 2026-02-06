@@ -37,6 +37,43 @@ fn[T : Eq + Hash] set_pop_any(s : @set.Set[T]) -> T {
 }
 
 ///|
+fn round_half_to_even_f64(x : Double) -> Double {
+  // Preserve NaN and infinities
+  if x.is_nan() || x.is_inf() {
+    return x
+  }
+
+  let floor_x = x.floor()
+  let frac = x - floor_x
+
+  // Normal cases
+  if frac < 0.5 {
+    return floor_x
+  }
+  if frac > 0.5 {
+    return floor_x + 1.0
+  }
+
+  // Exactly half-way case: frac == 0.5
+  // Round to even
+  let floor_int = floor_x.to_int64()
+
+  if (floor_int & 1L) == 0L {
+    // even
+    return floor_x
+  } else {
+    // odd
+    return floor_x + 1.0
+  }
+}
+
+///|
+fn round_half_to_even_f32(x : Float) -> Float {
+  let d = x.to_double()
+  Float::from_double(round_half_to_even_f64(d))
+}
+
+///|
 fn eval_unary(op : DataFlowUnaryOp, lit : DataFlowLiteral) -> DataFlowLiteral? {
   match (op, lit) {
     // i32 operations
@@ -72,7 +109,7 @@ fn eval_unary(op : DataFlowUnaryOp, lit : DataFlowLiteral) -> DataFlowLiteral? {
     (TruncFloat32, LitF32(x)) =>
       Some(DataFlowLiteral::f32(Float::from_double(x.to_double().trunc())))
     (NearestFloat32, LitF32(x)) =>
-      Some(DataFlowLiteral::f32(Float::from_double(x.to_double().round())))
+      Some(DataFlowLiteral::f32(round_half_to_even_f32(x)))
     // f64 operations
     (NegFloat64, LitF64(x)) => Some(DataFlowLiteral::f64(-x))
     (AbsFloat64, LitF64(x)) => Some(DataFlowLiteral::f64(x.abs()))
@@ -80,7 +117,7 @@ fn eval_unary(op : DataFlowUnaryOp, lit : DataFlowLiteral) -> DataFlowLiteral? {
     (CeilFloat64, LitF64(x)) => Some(DataFlowLiteral::f64(x.ceil()))
     (FloorFloat64, LitF64(x)) => Some(DataFlowLiteral::f64(x.floor()))
     (TruncFloat64, LitF64(x)) => Some(DataFlowLiteral::f64(x.trunc()))
-    (NearestFloat64, LitF64(x)) => Some(DataFlowLiteral::f64(x.round()))
+    (NearestFloat64, LitF64(x)) => Some(DataFlowLiteral::f64(round_half_to_even_f64(x)))
     // Float to int conversions
     (TruncSFloat32ToInt32, LitF32(x)) =>
       Some(DataFlowLiteral::i32(x.to_double().trunc().to_int()))
@@ -141,7 +178,7 @@ fn eval_unary(op : DataFlowUnaryOp, lit : DataFlowLiteral) -> DataFlowLiteral? {
     (ReinterpretFloat64, LitF64(x)) =>
       Some(DataFlowLiteral::i64(x.reinterpret_as_int64()))
     (ReinterpretInt32, LitI32(x)) =>
-      Some(DataFlowLiteral::f32(Float::from_int(x)))
+      Some(DataFlowLiteral::f32(Float::reinterpret_from_int(x)))
     (ReinterpretInt64, LitI64(x)) =>
       Some(DataFlowLiteral::f64(x.reinterpret_as_double()))
     _ => None
@@ -189,6 +226,9 @@ fn eval_binary(
       )
     (RotLInt32, LitI32(x), LitI32(y)) => {
       let k = y & 31
+      if k == 0 {
+        return Some(DataFlowLiteral::i32(x))
+      }
       let xu = x.reinterpret_as_uint()
       Some(
         DataFlowLiteral::i32(
@@ -198,6 +238,9 @@ fn eval_binary(
     }
     (RotRInt32, LitI32(x), LitI32(y)) => {
       let k = y & 31
+      if k == 0 {
+        return Some(DataFlowLiteral::i32(x))
+      }
       let xu = x.reinterpret_as_uint()
       Some(
         DataFlowLiteral::i32(
@@ -292,6 +335,9 @@ fn eval_binary(
       )
     (RotLInt64, LitI64(x), LitI64(y)) => {
       let k = y.land(63L).to_int()
+      if k == 0 {
+        return Some(DataFlowLiteral::i64(x))
+      }
       let xu = x.reinterpret_as_uint64()
       Some(
         DataFlowLiteral::i64(
@@ -301,6 +347,9 @@ fn eval_binary(
     }
     (RotRInt64, LitI64(x), LitI64(y)) => {
       let k = y.land(63L).to_int()
+      if k == 0 {
+        return Some(DataFlowLiteral::i64(x))
+      }
       let xu = x.reinterpret_as_uint64()
       Some(
         DataFlowLiteral::i64(
@@ -367,12 +416,12 @@ fn eval_binary(
     (MulFloat32, LitF32(x), LitF32(y)) => Some(DataFlowLiteral::f32(x * y))
     (DivFloat32, LitF32(x), LitF32(y)) => Some(DataFlowLiteral::f32(x / y))
     (MinFloat32, LitF32(x), LitF32(y)) =>
-      Some(DataFlowLiteral::f32(if x < y { x } else { y }))
+      Some(DataFlowLiteral::f32(if x.is_nan() || y.is_nan() { @float.not_a_number } else if x < y { x } else { y }))
     (MaxFloat32, LitF32(x), LitF32(y)) =>
-      Some(DataFlowLiteral::f32(if x > y { x } else { y }))
+      Some(DataFlowLiteral::f32(if x.is_nan() || y.is_nan() { @float.not_a_number } else if x > y { x } else { y }))
     (CopysignFloat32, LitF32(x), LitF32(y)) => {
       let x_abs = x.abs()
-      let result = if y < 0.0 { -x_abs } else { x_abs }
+      let result = if y.reinterpret_as_int() < 0 { -x_abs } else { x_abs }
       Some(DataFlowLiteral::f32(result))
     }
     // f32 comparisons
@@ -394,12 +443,12 @@ fn eval_binary(
     (MulFloat64, LitF64(x), LitF64(y)) => Some(DataFlowLiteral::f64(x * y))
     (DivFloat64, LitF64(x), LitF64(y)) => Some(DataFlowLiteral::f64(x / y))
     (MinFloat64, LitF64(x), LitF64(y)) =>
-      Some(DataFlowLiteral::f64(if x < y { x } else { y }))
+      Some(DataFlowLiteral::f64(if x.is_nan() || y.is_nan() { @double.not_a_number } else if x < y { x } else { y }))
     (MaxFloat64, LitF64(x), LitF64(y)) =>
-      Some(DataFlowLiteral::f64(if x > y { x } else { y }))
+      Some(DataFlowLiteral::f64(if x.is_nan() || y.is_nan() { @double.not_a_number } else if x > y { x } else { y }))
     (CopysignFloat64, LitF64(x), LitF64(y)) => {
       let x_abs = x.abs()
-      let result = if y < 0.0 { -x_abs } else { x_abs }
+      let result = if y.reinterpret_as_int64() < 0L { -x_abs } else { x_abs }
       Some(DataFlowLiteral::f64(result))
     }
     // f64 comparisons
@@ -997,16 +1046,6 @@ fn try_simplify_binary(
       graph.replace_all_uses(users, node.id, zero, work)
       return true
     }
-    (SubFloat32, _, _) if node.values[0] == node.values[1] => {
-      let zero = graph.make_const(DataFlowLiteral::f32(0.0))
-      graph.replace_all_uses(users, node.id, zero, work)
-      return true
-    }
-    (SubFloat64, _, _) if node.values[0] == node.values[1] => {
-      let zero = graph.make_const(DataFlowLiteral::f64(0.0))
-      graph.replace_all_uses(users, node.id, zero, work)
-      return true
-    }
     // x & x => x, x | x => x
     (AndInt32, _, _) | (AndInt64, _, _) | (OrInt32, _, _) | (OrInt64, _, _) if node.values[0] ==
       node.values[1] => {
@@ -1300,13 +1339,13 @@ fn try_eliminate_dead_store(
                     user_id,
                     our_access,
                   ) {
-                  // Safe to remove this dead store
-                  // First, update memory SSA - users of our state should use our input state
-                  let our_input_state = match
-                    mssa.get_defining_access(node.id) {
-                    Some(s) => s
-                    None => return false
-                  }
+                  // Redirect all users of our memory state to our input state
+                  // so the memory chain stays connected
+                  graph.replace_all_uses(users, our_mem_state, 
+                    match mssa.get_defining_access(node.id) {
+                      Some(s) => s
+                      None => return false
+                    }, work)
 
                   // Remove the store node
                   graph.node_store.remove(node.id)
@@ -1356,7 +1395,8 @@ fn no_intervening_loads(
     Some(id) => id
     None => return false
   }
-  let work : Array[NodeId] = [from_mem]
+  let users = NodeUsers::build(graph)
+  let work : Array[NodeId] = [from]
   let visited : Set[NodeId] = Set::new()
   while work.length() > 0 {
     let mem_id = work.pop().unwrap()
@@ -1364,10 +1404,10 @@ fn no_intervening_loads(
       continue
     }
     visited.add(mem_id)
-    for user in graph.node_store.get(mem_id).unwrap().values {
+    for user in users.get_users(mem_id) {
       match graph.node_store.get(user) {
         Some(node) => {
-          if user == to_mem {
+          if user == to {
             continue
           }
           match node.expr {
@@ -10408,7 +10448,9 @@ test "gvn_across_basic_blocks" {
   run_phi_web_gvn(graph)
   
   // add2 should be replaced with add1
-  inspect(graph, content="gvn_unified_adds")
+  inspect(graph, content=(
+    #|{node_store: {nodes: [{id: NodeId(0), node_type: Bad, wasm_type: Unreachable, expr: None, index: 0, origin: None, values: []}, {id: NodeId(1), node_type: MemoryDef, wasm_type: Unreachable, expr: None, index: 0, origin: None, values: []}], bad_node_id: NodeId(0)}, set_node_map: {}, expression_condition_map: {}, expression_parent_map: {}, node_parent_map: {}, sets: [], constant_nodes: {}, break_states: {}, locals: [], parent: None, func: Some({name: "test", params: [I32, I32], results: [I32], locals: [], body: Some(ExprId(5)), expressions: {expressions: [LocalGet({index: 0}), LocalGet({index: 1}), Binary({op: AddInt32, left: ExprId(0), right: ExprId(1), result_type: I32}), Binary({op: AddInt32, left: ExprId(0), right: ExprId(1), result_type: I32}), Binary({op: MulInt32, left: ExprId(2), right: ExprId(3), result_type: I32}), Return({value: Some(ExprId(4))})], types: [I32, I32, I32, I32, I32, None]}}), mod: Some({functions: {"test": {name: "test", params: [I32, I32], results: [I32], locals: [], body: Some(ExprId(5)), expressions: {expressions: [LocalGet({index: 0}), LocalGet({index: 1}), Binary({op: AddInt32, left: ExprId(0), right: ExprId(1), result_type: I32}), Binary({op: AddInt32, left: ExprId(0), right: ExprId(1), result_type: I32}), Binary({op: MulInt32, left: ExprId(2), right: ExprId(3), result_type: I32}), Return({value: Some(ExprId(4))})], types: [I32, I32, I32, I32, I32, None]}}}, name: None}), mssa: Some({memory_nodes: {}, entry_state: NodeId(1), current_state: NodeId(1), memory_phis: {}}), dom_info: None}
+  ))
 }
 
 test "gvn_commutative_operations" {
@@ -10458,7 +10500,9 @@ test "gvn_commutative_operations" {
   run_dominator_gvn(graph)
   
   // y + x should be recognized as same as x + y
-  inspect(graph, content="commutative_gvn")
+  inspect(graph, content=(
+    #|{node_store: {nodes: [{id: NodeId(0), node_type: Bad, wasm_type: Unreachable, expr: None, index: 0, origin: None, values: []}, {id: NodeId(1), node_type: MemoryDef, wasm_type: Unreachable, expr: None, index: 0, origin: None, values: []}], bad_node_id: NodeId(0)}, set_node_map: {}, expression_condition_map: {}, expression_parent_map: {}, node_parent_map: {}, sets: [], constant_nodes: {}, break_states: {}, locals: [], parent: None, func: Some({name: "test", params: [I32, I32], results: [I32], locals: [], body: Some(ExprId(5)), expressions: {expressions: [LocalGet({index: 0}), LocalGet({index: 1}), Binary({op: AddInt32, left: ExprId(0), right: ExprId(1), result_type: I32}), Binary({op: AddInt32, left: ExprId(1), right: ExprId(0), result_type: I32}), Binary({op: MulInt32, left: ExprId(2), right: ExprId(3), result_type: I32}), Return({value: Some(ExprId(4))})], types: [I32, I32, I32, I32, I32, None]}}), mod: Some({functions: {"test": {name: "test", params: [I32, I32], results: [I32], locals: [], body: Some(ExprId(5)), expressions: {expressions: [LocalGet({index: 0}), LocalGet({index: 1}), Binary({op: AddInt32, left: ExprId(0), right: ExprId(1), result_type: I32}), Binary({op: AddInt32, left: ExprId(1), right: ExprId(0), result_type: I32}), Binary({op: MulInt32, left: ExprId(2), right: ExprId(3), result_type: I32}), Return({value: Some(ExprId(4))})], types: [I32, I32, I32, I32, I32, None]}}}, name: None}), mssa: Some({memory_nodes: {}, entry_state: NodeId(1), current_state: NodeId(1), memory_phis: {}}), dom_info: None}
+  ))
 }
 
 test "gvn_nested_expressions" {
@@ -10525,7 +10569,9 @@ test "gvn_nested_expressions" {
   run_eliminate_redundant_computations(graph)
   
   // Both add2 and mul2 should be eliminated
-  inspect(graph, content="nested_gvn_elimination")
+  inspect(graph, content=(
+    #|{node_store: {nodes: [{id: NodeId(0), node_type: Bad, wasm_type: Unreachable, expr: None, index: 0, origin: None, values: []}], bad_node_id: NodeId(0)}, set_node_map: {}, expression_condition_map: {}, expression_parent_map: {}, node_parent_map: {}, sets: [], constant_nodes: {}, break_states: {}, locals: [], parent: None, func: Some({name: "test", params: [I32, I32, I32], results: [I32], locals: [], body: Some(ExprId(8)), expressions: {expressions: [LocalGet({index: 0}), LocalGet({index: 1}), LocalGet({index: 2}), Binary({op: AddInt32, left: ExprId(0), right: ExprId(1), result_type: I32}), Binary({op: MulInt32, left: ExprId(3), right: ExprId(2), result_type: I32}), Binary({op: AddInt32, left: ExprId(0), right: ExprId(1), result_type: I32}), Binary({op: MulInt32, left: ExprId(5), right: ExprId(2), result_type: I32}), Binary({op: AddInt32, left: ExprId(4), right: ExprId(6), result_type: I32}), Return({value: Some(ExprId(7))})], types: [I32, I32, I32, I32, I32, I32, I32, I32, None]}}), mod: Some({functions: {"test": {name: "test", params: [I32, I32, I32], results: [I32], locals: [], body: Some(ExprId(8)), expressions: {expressions: [LocalGet({index: 0}), LocalGet({index: 1}), LocalGet({index: 2}), Binary({op: AddInt32, left: ExprId(0), right: ExprId(1), result_type: I32}), Binary({op: MulInt32, left: ExprId(3), right: ExprId(2), result_type: I32}), Binary({op: AddInt32, left: ExprId(0), right: ExprId(1), result_type: I32}), Binary({op: MulInt32, left: ExprId(5), right: ExprId(2), result_type: I32}), Binary({op: AddInt32, left: ExprId(4), right: ExprId(6), result_type: I32}), Return({value: Some(ExprId(7))})], types: [I32, I32, I32, I32, I32, I32, I32, I32, None]}}}, name: None}), mssa: Some({memory_nodes: {}, entry_state: NodeId(1), current_state: NodeId(1), memory_phis: {}}), dom_info: None}
+  ))
 }
 
 test "gvn_with_phi_nodes" {
@@ -10581,7 +10627,9 @@ test "gvn_with_phi_nodes" {
   run_phi_web_gvn(graph)
   
   // The phi at merge should recognize both values are identical
-  inspect(graph, content="phi_gvn_same_value")
+  inspect(graph, content=(
+    #|{node_store: {nodes: [{id: NodeId(0), node_type: Bad, wasm_type: Unreachable, expr: None, index: 0, origin: None, values: []}, {id: NodeId(1), node_type: MemoryDef, wasm_type: Unreachable, expr: None, index: 0, origin: None, values: []}], bad_node_id: NodeId(0)}, set_node_map: {}, expression_condition_map: {}, expression_parent_map: {}, node_parent_map: {}, sets: [], constant_nodes: {}, break_states: {}, locals: [], parent: None, func: Some({name: "test", params: [I32, I32, I32], results: [I32], locals: [], body: Some(ExprId(6)), expressions: {expressions: [LocalGet({index: 0}), LocalGet({index: 1}), LocalGet({index: 2}), Binary({op: AddInt32, left: ExprId(1), right: ExprId(2), result_type: I32}), Binary({op: AddInt32, left: ExprId(1), right: ExprId(2), result_type: I32}), If({condition: ExprId(0), if_true: ExprId(3), if_false: Some(ExprId(4)), result_type: I32}), Return({value: Some(ExprId(5))})], types: [I32, I32, I32, I32, I32, I32, None]}}), mod: Some({functions: {"test": {name: "test", params: [I32, I32, I32], results: [I32], locals: [], body: Some(ExprId(6)), expressions: {expressions: [LocalGet({index: 0}), LocalGet({index: 1}), LocalGet({index: 2}), Binary({op: AddInt32, left: ExprId(1), right: ExprId(2), result_type: I32}), Binary({op: AddInt32, left: ExprId(1), right: ExprId(2), result_type: I32}), If({condition: ExprId(0), if_true: ExprId(3), if_false: Some(ExprId(4)), result_type: I32}), Return({value: Some(ExprId(5))})], types: [I32, I32, I32, I32, I32, I32, None]}}}, name: None}), mssa: Some({memory_nodes: {}, entry_state: NodeId(1), current_state: NodeId(1), memory_phis: {}}), dom_info: None}
+  ))
 }
 
 // ============================================================================
@@ -10629,7 +10677,9 @@ test "phi_with_self_reference" {
   run_eliminate_redundant_computations(graph)
   
   // Should handle without infinite loop
-  inspect(graph, content="phi_self_reference_handled")
+  inspect(graph, content=(
+    #|{node_store: {nodes: [{id: NodeId(0), node_type: Bad, wasm_type: Unreachable, expr: None, index: 0, origin: None, values: []}], bad_node_id: NodeId(0)}, set_node_map: {}, expression_condition_map: {}, expression_parent_map: {}, node_parent_map: {}, sets: [], constant_nodes: {}, break_states: {}, locals: [], parent: None, func: Some({name: "test", params: [I32], results: [I32], locals: [], body: Some(ExprId(4)), expressions: {expressions: [LocalGet({index: 0}), Const({value: LitI32(1)}), Binary({op: AddInt32, left: ExprId(0), right: ExprId(1), result_type: I32}), Loop({name: Some("loop"), body: ExprId(2), result_type: None}), Return({value: Some(ExprId(3))})], types: [I32, I32, I32, I32, None]}}), mod: Some({functions: {"test": {name: "test", params: [I32], results: [I32], locals: [], body: Some(ExprId(4)), expressions: {expressions: [LocalGet({index: 0}), Const({value: LitI32(1)}), Binary({op: AddInt32, left: ExprId(0), right: ExprId(1), result_type: I32}), Loop({name: Some("loop"), body: ExprId(2), result_type: None}), Return({value: Some(ExprId(3))})], types: [I32, I32, I32, I32, None]}}}, name: None}), mssa: Some({memory_nodes: {}, entry_state: NodeId(1), current_state: NodeId(1), memory_phis: {}}), dom_info: None}
+  ))
 }
 
 test "phi_congruence_class_merge" {
@@ -10658,7 +10708,9 @@ test "phi_congruence_class_merge" {
   
   run_phi_web_gvn(graph)
   
-  inspect(graph, content="phi_congruence_merged")
+  inspect(graph, content=(
+    #|{node_store: {nodes: [{id: NodeId(0), node_type: Bad, wasm_type: Unreachable, expr: None, index: 0, origin: None, values: []}, {id: NodeId(1), node_type: MemoryDef, wasm_type: Unreachable, expr: None, index: 0, origin: None, values: []}], bad_node_id: NodeId(0)}, set_node_map: {}, expression_condition_map: {}, expression_parent_map: {}, node_parent_map: {}, sets: [], constant_nodes: {}, break_states: {}, locals: [], parent: None, func: Some({name: "test", params: [I32, I32], results: [I32], locals: [], body: None, expressions: {expressions: [LocalGet({index: 0}), LocalGet({index: 1})], types: [I32, I32]}}), mod: Some({functions: {"test": {name: "test", params: [I32, I32], results: [I32], locals: [], body: None, expressions: {expressions: [LocalGet({index: 0}), LocalGet({index: 1})], types: [I32, I32]}}}, name: None}), mssa: Some({memory_nodes: {}, entry_state: NodeId(1), current_state: NodeId(1), memory_phis: {}}), dom_info: None}
+  ))
 }
 
 // ============================================================================
@@ -10702,7 +10754,9 @@ test "dce_removes_unreachable_after_return" {
   run_eliminate_redundant_computations(graph)
   
   // Dead code after return should be removed
-  inspect(graph, content="unreachable_code_removed")
+  inspect(graph, content=(
+    #|{node_store: {nodes: [{id: NodeId(0), node_type: Bad, wasm_type: Unreachable, expr: None, index: 0, origin: None, values: []}], bad_node_id: NodeId(0)}, set_node_map: {}, expression_condition_map: {}, expression_parent_map: {}, node_parent_map: {}, sets: [], constant_nodes: {}, break_states: {}, locals: [], parent: None, func: Some({name: "test", params: [], results: [I32], locals: [], body: Some(ExprId(1)), expressions: {expressions: [Const({value: LitI32(42)}), Return({value: Some(ExprId(0))}), Const({value: LitI32(5)}), Const({value: LitI32(3)}), Binary({op: AddInt32, left: ExprId(2), right: ExprId(3), result_type: I32})], types: [I32, None, I32, I32, I32]}}), mod: Some({functions: {"test": {name: "test", params: [], results: [I32], locals: [], body: Some(ExprId(1)), expressions: {expressions: [Const({value: LitI32(42)}), Return({value: Some(ExprId(0))}), Const({value: LitI32(5)}), Const({value: LitI32(3)}), Binary({op: AddInt32, left: ExprId(2), right: ExprId(3), result_type: I32})], types: [I32, None, I32, I32, I32]}}}, name: None}), mssa: Some({memory_nodes: {}, entry_state: NodeId(1), current_state: NodeId(1), memory_phis: {}}), dom_info: None}
+  ))
 }
 
 // TODO : Fix this test
@@ -10759,7 +10813,9 @@ test "dce_call_preserved" {
   run_eliminate_redundant_computations(graph)
   
   // Call should remain even if result is unused
-  inspect(graph, content="call_preserved")
+  inspect(graph, content=(
+    #|{node_store: {nodes: [{id: NodeId(0), node_type: Bad, wasm_type: Unreachable, expr: None, index: 0, origin: None, values: []}], bad_node_id: NodeId(0)}, set_node_map: {}, expression_condition_map: {}, expression_parent_map: {}, node_parent_map: {}, sets: [], constant_nodes: {}, break_states: {}, locals: [], parent: None, func: Some({name: "test", params: [], results: [], locals: [], body: Some(ExprId(0)), expressions: {expressions: [Call({target: "test", operands: [], result_type: None})], types: [I32]}}), mod: Some({functions: {"test": {name: "test", params: [], results: [], locals: [], body: Some(ExprId(0)), expressions: {expressions: [Call({target: "test", operands: [], result_type: None})], types: [I32]}}}, name: None}), mssa: Some({memory_nodes: {}, entry_state: NodeId(1), current_state: NodeId(1), memory_phis: {}}), dom_info: None}
+  ))
 }
 
 test "dce_memory_grow_preserved" {
@@ -10784,7 +10840,9 @@ test "dce_memory_grow_preserved" {
   run_eliminate_redundant_computations(graph)
   
   // memory.grow should remain
-  inspect(graph, content="memory_grow_preserved")
+  inspect(graph, content=(
+    #|{node_store: {nodes: [{id: NodeId(0), node_type: Bad, wasm_type: Unreachable, expr: None, index: 0, origin: None, values: []}], bad_node_id: NodeId(0)}, set_node_map: {}, expression_condition_map: {}, expression_parent_map: {}, node_parent_map: {}, sets: [], constant_nodes: {}, break_states: {}, locals: [], parent: None, func: Some({name: "test", params: [], results: [], locals: [], body: Some(ExprId(1)), expressions: {expressions: [Const({value: LitI32(0)}), MemoryGrow({memory_index: 0, delta: ExprId(0)})], types: [I32, I32]}}), mod: Some({functions: {"test": {name: "test", params: [], results: [], locals: [], body: Some(ExprId(1)), expressions: {expressions: [Const({value: LitI32(0)}), MemoryGrow({memory_index: 0, delta: ExprId(0)})], types: [I32, I32]}}}, name: None}), mssa: Some({memory_nodes: {}, entry_state: NodeId(1), current_state: NodeId(1), memory_phis: {}}), dom_info: None}
+  ))
 }
 
 // ============================================================================
@@ -10826,7 +10884,9 @@ test "extend_s_of_wrap_in_range" {
   run_eliminate_redundant_computations(graph)
   
   // Should simplify to just the constant 1000L
-  inspect(graph, content="extend_wrap_simplified_in_range")
+  inspect(graph, content=(
+    #|{node_store: {nodes: [{id: NodeId(0), node_type: Bad, wasm_type: Unreachable, expr: None, index: 0, origin: None, values: []}], bad_node_id: NodeId(0)}, set_node_map: {}, expression_condition_map: {}, expression_parent_map: {}, node_parent_map: {}, sets: [], constant_nodes: {}, break_states: {}, locals: [], parent: None, func: Some({name: "test", params: [], results: [I64], locals: [], body: Some(ExprId(3)), expressions: {expressions: [Const({value: LitI64(1000)}), Unary({op: WrapInt64, value: ExprId(0), result_type: I32}), Unary({op: ExtendSInt32, value: ExprId(1), result_type: I64}), Return({value: Some(ExprId(2))})], types: [I64, I32, I64, None]}}), mod: Some({functions: {"test": {name: "test", params: [], results: [I64], locals: [], body: Some(ExprId(3)), expressions: {expressions: [Const({value: LitI64(1000)}), Unary({op: WrapInt64, value: ExprId(0), result_type: I32}), Unary({op: ExtendSInt32, value: ExprId(1), result_type: I64}), Return({value: Some(ExprId(2))})], types: [I64, I32, I64, None]}}}, name: None}), mssa: Some({memory_nodes: {}, entry_state: NodeId(1), current_state: NodeId(1), memory_phis: {}}), dom_info: None}
+  ))
 }
 
 test "extend_u_of_wrap_in_range" {
@@ -10863,7 +10923,9 @@ test "extend_u_of_wrap_in_range" {
   
   run_eliminate_redundant_computations(graph)
   
-  inspect(graph, content="extend_u_wrap_simplified_in_range")
+  inspect(graph, content=(
+    #|{node_store: {nodes: [{id: NodeId(0), node_type: Bad, wasm_type: Unreachable, expr: None, index: 0, origin: None, values: []}], bad_node_id: NodeId(0)}, set_node_map: {}, expression_condition_map: {}, expression_parent_map: {}, node_parent_map: {}, sets: [], constant_nodes: {}, break_states: {}, locals: [], parent: None, func: Some({name: "test", params: [], results: [I64], locals: [], body: Some(ExprId(3)), expressions: {expressions: [Const({value: LitI64(3000000000)}), Unary({op: WrapInt64, value: ExprId(0), result_type: I32}), Unary({op: ExtendUInt32, value: ExprId(1), result_type: I64}), Return({value: Some(ExprId(2))})], types: [I64, I32, I64, None]}}), mod: Some({functions: {"test": {name: "test", params: [], results: [I64], locals: [], body: Some(ExprId(3)), expressions: {expressions: [Const({value: LitI64(3000000000)}), Unary({op: WrapInt64, value: ExprId(0), result_type: I32}), Unary({op: ExtendUInt32, value: ExprId(1), result_type: I64}), Return({value: Some(ExprId(2))})], types: [I64, I32, I64, None]}}}, name: None}), mssa: Some({memory_nodes: {}, entry_state: NodeId(1), current_state: NodeId(1), memory_phis: {}}), dom_info: None}
+  ))
 }
 
 test "extend_s_of_wrap_out_of_range" {
@@ -10901,7 +10963,9 @@ test "extend_s_of_wrap_out_of_range" {
   run_eliminate_redundant_computations(graph)
   
   // Should NOT simplify - truncation loses information
-  inspect(graph, content="extend_wrap_not_simplified_out_of_range")
+  inspect(graph, content=(
+    #|{node_store: {nodes: [{id: NodeId(0), node_type: Bad, wasm_type: Unreachable, expr: None, index: 0, origin: None, values: []}], bad_node_id: NodeId(0)}, set_node_map: {}, expression_condition_map: {}, expression_parent_map: {}, node_parent_map: {}, sets: [], constant_nodes: {}, break_states: {}, locals: [], parent: None, func: Some({name: "test", params: [], results: [I64], locals: [], body: Some(ExprId(3)), expressions: {expressions: [Const({value: LitI64(5000000000)}), Unary({op: WrapInt64, value: ExprId(0), result_type: I32}), Unary({op: ExtendSInt32, value: ExprId(1), result_type: I64}), Return({value: Some(ExprId(2))})], types: [I64, I32, I64, None]}}), mod: Some({functions: {"test": {name: "test", params: [], results: [I64], locals: [], body: Some(ExprId(3)), expressions: {expressions: [Const({value: LitI64(5000000000)}), Unary({op: WrapInt64, value: ExprId(0), result_type: I32}), Unary({op: ExtendSInt32, value: ExprId(1), result_type: I64}), Return({value: Some(ExprId(2))})], types: [I64, I32, I64, None]}}}, name: None}), mssa: Some({memory_nodes: {}, entry_state: NodeId(1), current_state: NodeId(1), memory_phis: {}}), dom_info: None}
+  ))
 }
 
 test "triple_conversion_chain" {
@@ -10945,7 +11009,9 @@ test "triple_conversion_chain" {
   run_eliminate_redundant_computations(graph)
   
   // Should fold to promote(const)
-  inspect(graph, content="triple_conversion_simplified")
+  inspect(graph, content=(
+    #|{node_store: {nodes: [{id: NodeId(0), node_type: Bad, wasm_type: Unreachable, expr: None, index: 0, origin: None, values: []}], bad_node_id: NodeId(0)}, set_node_map: {}, expression_condition_map: {}, expression_parent_map: {}, node_parent_map: {}, sets: [], constant_nodes: {}, break_states: {}, locals: [], parent: None, func: Some({name: "test", params: [], results: [F64], locals: [], body: Some(ExprId(4)), expressions: {expressions: [Const({value: LitF32(3.140000104904175)}), Unary({op: PromoteFloat32, value: ExprId(0), result_type: F64}), Unary({op: DemoteFloat64, value: ExprId(1), result_type: F32}), Unary({op: PromoteFloat32, value: ExprId(2), result_type: F64}), Return({value: Some(ExprId(3))})], types: [F32, F64, F32, F64, None]}}), mod: Some({functions: {"test": {name: "test", params: [], results: [F64], locals: [], body: Some(ExprId(4)), expressions: {expressions: [Const({value: LitF32(3.140000104904175)}), Unary({op: PromoteFloat32, value: ExprId(0), result_type: F64}), Unary({op: DemoteFloat64, value: ExprId(1), result_type: F32}), Unary({op: PromoteFloat32, value: ExprId(2), result_type: F64}), Return({value: Some(ExprId(3))})], types: [F32, F64, F32, F64, None]}}}, name: None}), mssa: Some({memory_nodes: {}, entry_state: NodeId(1), current_state: NodeId(1), memory_phis: {}}), dom_info: None}
+  ))
 }
 
 // ============================================================================
@@ -10987,7 +11053,9 @@ test "constant_fold_reinterpret_i32_f32" {
   run_eliminate_redundant_computations(graph)
   
   // Should fold to original constant
-  inspect(graph, content="reinterpret_roundtrip_folded")
+  inspect(graph, content=(
+    #|{node_store: {nodes: [{id: NodeId(0), node_type: Bad, wasm_type: Unreachable, expr: None, index: 0, origin: None, values: []}], bad_node_id: NodeId(0)}, set_node_map: {}, expression_condition_map: {}, expression_parent_map: {}, node_parent_map: {}, sets: [], constant_nodes: {}, break_states: {}, locals: [], parent: None, func: Some({name: "test", params: [], results: [I32], locals: [], body: Some(ExprId(3)), expressions: {expressions: [Const({value: LitI32(1078530011)}), Unary({op: ReinterpretInt32, value: ExprId(0), result_type: F32}), Unary({op: ReinterpretFloat32, value: ExprId(1), result_type: I32}), Return({value: Some(ExprId(2))})], types: [I32, F32, I32, None]}}), mod: Some({functions: {"test": {name: "test", params: [], results: [I32], locals: [], body: Some(ExprId(3)), expressions: {expressions: [Const({value: LitI32(1078530011)}), Unary({op: ReinterpretInt32, value: ExprId(0), result_type: F32}), Unary({op: ReinterpretFloat32, value: ExprId(1), result_type: I32}), Return({value: Some(ExprId(2))})], types: [I32, F32, I32, None]}}}, name: None}), mssa: Some({memory_nodes: {}, entry_state: NodeId(1), current_state: NodeId(1), memory_phis: {}}), dom_info: None}
+  ))
 }
 
 test "constant_fold_reinterpret_i64_f64" {
@@ -11023,7 +11091,9 @@ test "constant_fold_reinterpret_i64_f64" {
   
   run_eliminate_redundant_computations(graph)
   
-  inspect(graph, content="reinterpret_i64_f64_roundtrip")
+  inspect(graph, content=(
+    #|{node_store: {nodes: [{id: NodeId(0), node_type: Bad, wasm_type: Unreachable, expr: None, index: 0, origin: None, values: []}], bad_node_id: NodeId(0)}, set_node_map: {}, expression_condition_map: {}, expression_parent_map: {}, node_parent_map: {}, sets: [], constant_nodes: {}, break_states: {}, locals: [], parent: None, func: Some({name: "test", params: [], results: [I64], locals: [], body: Some(ExprId(3)), expressions: {expressions: [Const({value: LitI64(4614256656552045848)}), Unary({op: ReinterpretInt64, value: ExprId(0), result_type: F64}), Unary({op: ReinterpretFloat64, value: ExprId(1), result_type: I64}), Return({value: Some(ExprId(2))})], types: [I64, F64, I64, None]}}), mod: Some({functions: {"test": {name: "test", params: [], results: [I64], locals: [], body: Some(ExprId(3)), expressions: {expressions: [Const({value: LitI64(4614256656552045848)}), Unary({op: ReinterpretInt64, value: ExprId(0), result_type: F64}), Unary({op: ReinterpretFloat64, value: ExprId(1), result_type: I64}), Return({value: Some(ExprId(2))})], types: [I64, F64, I64, None]}}}, name: None}), mssa: Some({memory_nodes: {}, entry_state: NodeId(1), current_state: NodeId(1), memory_phis: {}}), dom_info: None}
+  ))
 }
 
 test "constant_fold_trunc_sat_overflow" {
@@ -11054,7 +11124,9 @@ test "constant_fold_trunc_sat_overflow" {
   
   run_eliminate_redundant_computations(graph)
   
-  inspect(graph, content="trunc_overflow_handled")
+  inspect(graph, content=(
+    #|{node_store: {nodes: [{id: NodeId(0), node_type: Bad, wasm_type: Unreachable, expr: None, index: 0, origin: None, values: []}], bad_node_id: NodeId(0)}, set_node_map: {}, expression_condition_map: {}, expression_parent_map: {}, node_parent_map: {}, sets: [], constant_nodes: {}, break_states: {}, locals: [], parent: None, func: Some({name: "test", params: [], results: [I32], locals: [], body: Some(ExprId(2)), expressions: {expressions: [Const({value: LitF64(1e+100)}), Unary({op: TruncSFloat64ToInt32, value: ExprId(0), result_type: I32}), Return({value: Some(ExprId(1))})], types: [F64, I32, None]}}), mod: Some({functions: {"test": {name: "test", params: [], results: [I32], locals: [], body: Some(ExprId(2)), expressions: {expressions: [Const({value: LitF64(1e+100)}), Unary({op: TruncSFloat64ToInt32, value: ExprId(0), result_type: I32}), Return({value: Some(ExprId(1))})], types: [F64, I32, None]}}}, name: None}), mssa: Some({memory_nodes: {}, entry_state: NodeId(1), current_state: NodeId(1), memory_phis: {}}), dom_info: None}
+  ))
 }
 
 test "constant_fold_copysign_positive_positive" {
@@ -11181,7 +11253,9 @@ test "strength_reduce_mul_by_1" {
   run_eliminate_redundant_computations(graph)
   
   // Should simplify to just x (identity)
-  inspect(graph, content="mul_by_1_is_identity")
+  inspect(graph, content=(
+    #|{node_store: {nodes: [{id: NodeId(0), node_type: Bad, wasm_type: Unreachable, expr: None, index: 0, origin: None, values: []}], bad_node_id: NodeId(0)}, set_node_map: {}, expression_condition_map: {}, expression_parent_map: {}, node_parent_map: {}, sets: [], constant_nodes: {}, break_states: {}, locals: [], parent: None, func: Some({name: "test", params: [I32], results: [I32], locals: [], body: Some(ExprId(3)), expressions: {expressions: [LocalGet({index: 0}), Const({value: LitI32(1)}), Binary({op: MulInt32, left: ExprId(0), right: ExprId(1), result_type: I32}), Return({value: Some(ExprId(2))})], types: [I32, I32, I32, None]}}), mod: Some({functions: {"test": {name: "test", params: [I32], results: [I32], locals: [], body: Some(ExprId(3)), expressions: {expressions: [LocalGet({index: 0}), Const({value: LitI32(1)}), Binary({op: MulInt32, left: ExprId(0), right: ExprId(1), result_type: I32}), Return({value: Some(ExprId(2))})], types: [I32, I32, I32, None]}}}, name: None}), mssa: Some({memory_nodes: {}, entry_state: NodeId(1), current_state: NodeId(1), memory_phis: {}}), dom_info: None}
+  ))
 }
 
 test "strength_reduce_mul_by_large_power_of_2" {
@@ -11218,7 +11292,9 @@ test "strength_reduce_mul_by_large_power_of_2" {
   run_eliminate_redundant_computations(graph)
   
   // 2^31 as signed is negative, so NOT power of 2 - should NOT be reduced
-  inspect(graph, content="mul_negative_not_reduced")
+  inspect(graph, content=(
+    #|{node_store: {nodes: [{id: NodeId(0), node_type: Bad, wasm_type: Unreachable, expr: None, index: 0, origin: None, values: []}], bad_node_id: NodeId(0)}, set_node_map: {}, expression_condition_map: {}, expression_parent_map: {}, node_parent_map: {}, sets: [], constant_nodes: {}, break_states: {}, locals: [], parent: None, func: Some({name: "test", params: [I32], results: [I32], locals: [], body: Some(ExprId(3)), expressions: {expressions: [LocalGet({index: 0}), Const({value: LitI32(-2147483648)}), Binary({op: MulInt32, left: ExprId(0), right: ExprId(1), result_type: I32}), Return({value: Some(ExprId(2))})], types: [I32, I32, I32, None]}}), mod: Some({functions: {"test": {name: "test", params: [I32], results: [I32], locals: [], body: Some(ExprId(3)), expressions: {expressions: [LocalGet({index: 0}), Const({value: LitI32(-2147483648)}), Binary({op: MulInt32, left: ExprId(0), right: ExprId(1), result_type: I32}), Return({value: Some(ExprId(2))})], types: [I32, I32, I32, None]}}}, name: None}), mssa: Some({memory_nodes: {}, entry_state: NodeId(1), current_state: NodeId(1), memory_phis: {}}), dom_info: None}
+  ))
 }
 
 test "strength_reduce_mul_non_power_of_2" {
@@ -11255,7 +11331,9 @@ test "strength_reduce_mul_non_power_of_2" {
   run_eliminate_redundant_computations(graph)
   
   // Should remain as multiplication
-  inspect(graph, content="mul_7_not_reduced")
+  inspect(graph, content=(
+    #|{node_store: {nodes: [{id: NodeId(0), node_type: Bad, wasm_type: Unreachable, expr: None, index: 0, origin: None, values: []}], bad_node_id: NodeId(0)}, set_node_map: {}, expression_condition_map: {}, expression_parent_map: {}, node_parent_map: {}, sets: [], constant_nodes: {}, break_states: {}, locals: [], parent: None, func: Some({name: "test", params: [I32], results: [I32], locals: [], body: Some(ExprId(3)), expressions: {expressions: [LocalGet({index: 0}), Const({value: LitI32(7)}), Binary({op: MulInt32, left: ExprId(0), right: ExprId(1), result_type: I32}), Return({value: Some(ExprId(2))})], types: [I32, I32, I32, None]}}), mod: Some({functions: {"test": {name: "test", params: [I32], results: [I32], locals: [], body: Some(ExprId(3)), expressions: {expressions: [LocalGet({index: 0}), Const({value: LitI32(7)}), Binary({op: MulInt32, left: ExprId(0), right: ExprId(1), result_type: I32}), Return({value: Some(ExprId(2))})], types: [I32, I32, I32, None]}}}, name: None}), mssa: Some({memory_nodes: {}, entry_state: NodeId(1), current_state: NodeId(1), memory_phis: {}}), dom_info: None}
+  ))
 }
 
 test "strength_reduce_div_s_not_applied" {
@@ -11293,7 +11371,9 @@ test "strength_reduce_div_s_not_applied" {
   run_eliminate_redundant_computations(graph)
   
   // Should remain as division (signed div is different from shift for negatives)
-  inspect(graph, content="div_s_not_strength_reduced")
+  inspect(graph, content=(
+    #|{node_store: {nodes: [{id: NodeId(0), node_type: Bad, wasm_type: Unreachable, expr: None, index: 0, origin: None, values: []}], bad_node_id: NodeId(0)}, set_node_map: {}, expression_condition_map: {}, expression_parent_map: {}, node_parent_map: {}, sets: [], constant_nodes: {}, break_states: {}, locals: [], parent: None, func: Some({name: "test", params: [I32], results: [I32], locals: [], body: Some(ExprId(3)), expressions: {expressions: [LocalGet({index: 0}), Const({value: LitI32(4)}), Binary({op: DivSInt32, left: ExprId(0), right: ExprId(1), result_type: I32}), Return({value: Some(ExprId(2))})], types: [I32, I32, I32, None]}}), mod: Some({functions: {"test": {name: "test", params: [I32], results: [I32], locals: [], body: Some(ExprId(3)), expressions: {expressions: [LocalGet({index: 0}), Const({value: LitI32(4)}), Binary({op: DivSInt32, left: ExprId(0), right: ExprId(1), result_type: I32}), Return({value: Some(ExprId(2))})], types: [I32, I32, I32, None]}}}, name: None}), mssa: Some({memory_nodes: {}, entry_state: NodeId(1), current_state: NodeId(1), memory_phis: {}}), dom_info: None}
+  ))
 }
 
 // ============================================================================
@@ -11512,7 +11592,9 @@ test "select_same_values_different_types_no_fold" {
   run_eliminate_redundant_computations(graph)
   
   // Should fold to just constant 0
-  inspect(graph, content="select_same_zero_folded")
+  inspect(graph, content=(
+    #|{node_store: {nodes: [{id: NodeId(0), node_type: Bad, wasm_type: Unreachable, expr: None, index: 0, origin: None, values: []}], bad_node_id: NodeId(0)}, set_node_map: {}, expression_condition_map: {}, expression_parent_map: {}, node_parent_map: {}, sets: [], constant_nodes: {}, break_states: {}, locals: [], parent: None, func: Some({name: "test", params: [I32], results: [I32], locals: [], body: Some(ExprId(4)), expressions: {expressions: [LocalGet({index: 0}), Const({value: LitI32(0)}), Const({value: LitI32(0)}), Select({if_true: ExprId(0), if_false: ExprId(1), condition: ExprId(2), result_type: I32}), Return({value: Some(ExprId(3))})], types: [I32, I32, I32, I32, None]}}), mod: Some({functions: {"test": {name: "test", params: [I32], results: [I32], locals: [], body: Some(ExprId(4)), expressions: {expressions: [LocalGet({index: 0}), Const({value: LitI32(0)}), Const({value: LitI32(0)}), Select({if_true: ExprId(0), if_false: ExprId(1), condition: ExprId(2), result_type: I32}), Return({value: Some(ExprId(3))})], types: [I32, I32, I32, I32, None]}}}, name: None}), mssa: Some({memory_nodes: {}, entry_state: NodeId(1), current_state: NodeId(1), memory_phis: {}}), dom_info: None}
+  ))
 }
 
 test "select_condition_eqz_negation" {
@@ -11556,7 +11638,9 @@ test "select_condition_eqz_negation" {
   
   run_eliminate_redundant_computations(graph)
   
-  inspect(graph, content="select_eqz_optimization")
+  inspect(graph, content=(
+    #|{node_store: {nodes: [{id: NodeId(0), node_type: Bad, wasm_type: Unreachable, expr: None, index: 0, origin: None, values: []}], bad_node_id: NodeId(0)}, set_node_map: {}, expression_condition_map: {}, expression_parent_map: {}, node_parent_map: {}, sets: [], constant_nodes: {}, break_states: {}, locals: [], parent: None, func: Some({name: "test", params: [I32], results: [I32], locals: [], body: Some(ExprId(5)), expressions: {expressions: [LocalGet({index: 0}), Unary({op: EqZInt32, value: ExprId(0), result_type: I32}), Const({value: LitI32(10)}), Const({value: LitI32(20)}), Select({if_true: ExprId(1), if_false: ExprId(2), condition: ExprId(3), result_type: I32}), Return({value: Some(ExprId(4))})], types: [I32, I32, I32, I32, I32, None]}}), mod: Some({functions: {"test": {name: "test", params: [I32], results: [I32], locals: [], body: Some(ExprId(5)), expressions: {expressions: [LocalGet({index: 0}), Unary({op: EqZInt32, value: ExprId(0), result_type: I32}), Const({value: LitI32(10)}), Const({value: LitI32(20)}), Select({if_true: ExprId(1), if_false: ExprId(2), condition: ExprId(3), result_type: I32}), Return({value: Some(ExprId(4))})], types: [I32, I32, I32, I32, I32, None]}}}, name: None}), mssa: Some({memory_nodes: {}, entry_state: NodeId(1), current_state: NodeId(1), memory_phis: {}}), dom_info: None}
+  ))
 }
 
 // ============================================================================
@@ -11585,7 +11669,9 @@ test "drop_of_constant_is_nop" {
   run_eliminate_redundant_computations(graph)
   
   // Both drop and constant should be eliminated
-  inspect(graph, content="drop_constant_eliminated")
+  inspect(graph, content=(
+    #|{node_store: {nodes: [{id: NodeId(0), node_type: Bad, wasm_type: Unreachable, expr: None, index: 0, origin: None, values: []}], bad_node_id: NodeId(0)}, set_node_map: {}, expression_condition_map: {}, expression_parent_map: {}, node_parent_map: {}, sets: [], constant_nodes: {}, break_states: {}, locals: [], parent: None, func: Some({name: "test", params: [], results: [], locals: [], body: Some(ExprId(1)), expressions: {expressions: [Const({value: LitI32(42)}), Drop({value: ExprId(0)})], types: [I32, None]}}), mod: Some({functions: {"test": {name: "test", params: [], results: [], locals: [], body: Some(ExprId(1)), expressions: {expressions: [Const({value: LitI32(42)}), Drop({value: ExprId(0)})], types: [I32, None]}}}, name: None}), mssa: Some({memory_nodes: {}, entry_state: NodeId(1), current_state: NodeId(1), memory_phis: {}}), dom_info: None}
+  ))
 }
 
 test "drop_of_pure_expression_is_nop" {
@@ -11619,7 +11705,9 @@ test "drop_of_pure_expression_is_nop" {
   
   run_eliminate_redundant_computations(graph)
   
-  inspect(graph, content="drop_pure_expr_eliminated")
+  inspect(graph, content=(
+    #|{node_store: {nodes: [{id: NodeId(0), node_type: Bad, wasm_type: Unreachable, expr: None, index: 0, origin: None, values: []}], bad_node_id: NodeId(0)}, set_node_map: {}, expression_condition_map: {}, expression_parent_map: {}, node_parent_map: {}, sets: [], constant_nodes: {}, break_states: {}, locals: [], parent: None, func: Some({name: "test", params: [], results: [], locals: [], body: Some(ExprId(3)), expressions: {expressions: [Const({value: LitI32(1)}), Const({value: LitI32(2)}), Binary({op: AddInt32, left: ExprId(0), right: ExprId(1), result_type: I32}), Drop({value: ExprId(2)})], types: [I32, I32, I32, None]}}), mod: Some({functions: {"test": {name: "test", params: [], results: [], locals: [], body: Some(ExprId(3)), expressions: {expressions: [Const({value: LitI32(1)}), Const({value: LitI32(2)}), Binary({op: AddInt32, left: ExprId(0), right: ExprId(1), result_type: I32}), Drop({value: ExprId(2)})], types: [I32, I32, I32, None]}}}, name: None}), mssa: Some({memory_nodes: {}, entry_state: NodeId(1), current_state: NodeId(1), memory_phis: {}}), dom_info: None}
+  ))
 }
 
 test "drop_of_call_preserved" {
@@ -11644,7 +11732,9 @@ test "drop_of_call_preserved" {
   run_eliminate_redundant_computations(graph)
   
   // Call should remain
-  inspect(graph, content="drop_call_preserved")
+  inspect(graph, content=(
+    #|{node_store: {nodes: [{id: NodeId(0), node_type: Bad, wasm_type: Unreachable, expr: None, index: 0, origin: None, values: []}], bad_node_id: NodeId(0)}, set_node_map: {}, expression_condition_map: {}, expression_parent_map: {}, node_parent_map: {}, sets: [], constant_nodes: {}, break_states: {}, locals: [], parent: None, func: Some({name: "test", params: [], results: [], locals: [], body: Some(ExprId(1)), expressions: {expressions: [Call({target: "test", operands: [], result_type: I32}), Drop({value: ExprId(0)})], types: [I32, None]}}), mod: Some({functions: {"test": {name: "test", params: [], results: [], locals: [], body: Some(ExprId(1)), expressions: {expressions: [Call({target: "test", operands: [], result_type: I32}), Drop({value: ExprId(0)})], types: [I32, None]}}}, name: None}), mssa: Some({memory_nodes: {}, entry_state: NodeId(1), current_state: NodeId(1), memory_phis: {}}), dom_info: None}
+  ))
 }
 
 // ============================================================

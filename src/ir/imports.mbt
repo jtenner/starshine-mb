@@ -43,3 +43,5 @@ using @lib {
   type SubType,
   type CompType,
 }
+
+using @transformer {type ModuleTransformer, type TransformerResult}

@@ -254,3 +254,57 @@ pub struct LivenessInfo {
   live_in : Map[BlockId, @set.Set[SSAValue]]
   live_out : Map[BlockId, @set.Set[SSAValue]]
 }
+
+///|
+/// Represents the possible writers to a local.get
+pub enum LocalSet {
+  InitValue // implicit initial value
+  Set(LocalIdx, TInstr) // actual local.set
+} derive(Eq, Hash)
+
+///|
+pub struct LocalGraph {
+  /// Map each local.get instruction (by id) to its possible sets
+  get_sets : Map[Int, Set[LocalSet]]
+}
+
+///|
+priv struct Block {
+  id : Int
+  instr_ids : Array[Int]
+  preds : Array[Int]
+}
+
+///|
+priv struct BlockBuilder {
+  id : Int
+  instr_ids : Array[Int]
+}
+
+///|
+priv struct BlockInfo {
+  /// Actions in this block, in program order
+  actions : Array[Action]
+  /// For each local, the last local.set in this block (instr id)
+  last_sets : Map[LocalIdx, Int]
+}
+
+///|
+priv enum Action {
+  Get(LocalIdx, Int, Int) // local, instr_id (unused), action_index
+  Set(LocalIdx, Int)
+}
+
+pub struct IRContext {
+  mut mod_ : Module?
+  mut body : TExpr
+  mut locals : Array[ValType]
+  mut type_ctx : Option[TypeContext]
+  mut cfg : CFG?
+  mut ssa : SSACFG?
+  mut usedef : UseDefInfo?
+  mut liveness : LivenessInfo?
+  mut types : SSATypeInfo?
+  mut gvn : SSACFG?
+  mut local_graph : LocalGraph?
+}

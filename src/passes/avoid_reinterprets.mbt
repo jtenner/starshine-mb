@@ -64,27 +64,33 @@ fn get_single_load_from_local(
 }
 
 ///|
-fn avoid_reinterprets() -> ModuleTransformer[(LocalGraph, Int)] {
+fn avoid_reinterprets() -> ModuleTransformer[IRContext] {
+  let mut idx = 0
   ModuleTransformer::new()
-  .on_func_evt(fn(self, _, func) {
+  .on_func_evt(fn(self, state : IRContext, func) {
     match func {
       Func(_) => Err("Expected TFunc")
-      TFunc(_, body) =>
-        self.walk_func_default((LocalGraph::new(body.0), 0), func)
+      TFunc(_, body) => {
+        state.set_body(body)
+        self.walk_func_default(state, func)
+      }
     }
   })
-  .on_tinstruction_evt(fn(_, state, instr) {
-    let (graph, idx) = state
+  .on_tinstruction_evt(fn(_self, state, instr) {
+    
     let cur_idx = idx
-    let next_state = match instr {
-      TInstr::TUnary(_, TInstr::TLocalGet(_)) => (graph, idx + 1)
-      _ => (graph, idx)
+    match instr {
+      TInstr::TUnary(_, TInstr::TLocalGet(_)) => {
+        idx += 1
+      }
+      _ => ()
     }
 
     // Case A: reinterpret(load)
     if rewrite_reinterpret_of_load(instr) is Some(new_instr) {
-      return change(next_state, new_instr)
+      return change(state, new_instr)
     }
+    let graph = state.get_local_graph()
 
     // Case B: reinterpret(local.get)
     match instr {
@@ -93,10 +99,10 @@ fn avoid_reinterprets() -> ModuleTransformer[(LocalGraph, Int)] {
           Some((load_op, memarg, ptr)) =>
             match reinterpret_load_op(load_op) {
               Some(new_op) =>
-                change(next_state, TInstr::load(new_op, memarg, ptr))
-              None => change(next_state, instr)
+                change(state, TInstr::load(new_op, memarg, ptr))
+              None => change(state, instr)
             }
-          None => change(next_state, instr)
+          None => change(state, instr)
         }
       _ => unchanged()
     }
@@ -116,8 +122,9 @@ test "AvoidReinterprets: rewrite reinterpret(load)" {
   let expr = TExpr::new([instr])
   let func = Func::t_func([], expr)
   let pass = avoid_reinterprets()
+  let state = IRContext::new()
   let (_, new_func) = pass
-    .walk_func((LocalGraph::new(expr.0), 0), func)
+    .walk_func(state, func)
     .unwrap()
     .unwrap()
   match new_func {
@@ -148,8 +155,7 @@ test "AvoidReinterprets: rewrite reinterpret(local.get) with single load" {
   let func = Func::t_func([], expr)
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let pass = avoid_reinterprets()
-  let dummy_graph = LocalGraph::new([])
-  let initial_state = (dummy_graph, 0)
+  let initial_state = IRContext::new()
   let (_, new_module) = pass.walk_module(initial_state, mod).unwrap().unwrap()
   let CodeSec(funcs) = new_module.code_sec.unwrap()
   let new_func = funcs[0]
@@ -188,8 +194,9 @@ test "AvoidReinterprets: do not rewrite when multiple defining loads exist" {
   let expr = TExpr::new(instrs)
   let func = Func::t_func([], expr)
   let pass = avoid_reinterprets()
+  let state = IRContext::new()
   let (_, new_func) = pass
-    .walk_func((LocalGraph::new(expr.0), 0), func)
+    .walk_func(state, func)
     .unwrap()
     .unwrap()
   match new_func {
@@ -208,8 +215,9 @@ test "AvoidReinterprets: unrelated instructions are unchanged" {
   let expr = TExpr::new([instr])
   let func = Func::t_func([], expr)
   let pass = avoid_reinterprets()
+  let state = IRContext::new()
   let (_, new_func) = pass
-    .walk_func((LocalGraph::new(expr.0), 0), func)
+    .walk_func(state, func)
     .unwrap()
     .unwrap()
   assert_eq(new_func, func)
@@ -224,8 +232,9 @@ test "AvoidReinterprets: reinterpret of non-load is unchanged" {
   let expr = TExpr::new([instr])
   let func = Func::t_func([], expr)
   let pass = avoid_reinterprets()
+  let state = IRContext::new()
   let (_, new_func) = pass
-    .walk_func((LocalGraph::new(expr.0), 0), func)
+    .walk_func(state, func)
     .unwrap()
     .unwrap()
   assert_eq(new_func, func)
@@ -244,8 +253,9 @@ test "AvoidReinterprets: reinterpret with mismatched load type is unchanged" {
   let expr = TExpr::new([instr])
   let func = Func::t_func([], expr)
   let pass = avoid_reinterprets()
+  let state = IRContext::new()
   let (_, new_func) = pass
-    .walk_func((LocalGraph::new(expr.0), 0), func)
+    .walk_func(state, func)
     .unwrap()
     .unwrap()
   assert_eq(new_func, func)
@@ -272,8 +282,9 @@ test "AvoidReinterprets: reinterpret(local.get) inside expression" {
   let expr = TExpr::new(instrs)
   let func = Func::t_func([], expr)
   let pass = avoid_reinterprets()
+  let state = IRContext::new()
   let (_, new_func) = pass
-    .walk_func((LocalGraph::new(expr.0), 0), func)
+    .walk_func(state, func)
     .unwrap()
     .unwrap()
   match new_func {

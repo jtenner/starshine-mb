@@ -79,14 +79,7 @@ using @lib {
 }
 
 ///|
-using @local_graph {type LocalGraph, type LocalSet}
-
-///|
 using @binary {size_signed}
-
-
-
-
 
 ///|
 using @dataflow {
@@ -142,4 +135,6 @@ using @validate {type Env, to_texpr, trait Match}
 
 using @ir {
   type IRContext,
+  type LocalGraph,
+  type LocalSet,
 }
