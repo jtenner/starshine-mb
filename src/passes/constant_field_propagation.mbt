@@ -381,6 +381,25 @@ fn make_cfp_optimizer(state : CFPState) -> ModuleTransformer[Unit] {
 }
 
 ///|
+fn constant_field_propagation_ir_pass(
+  mod : Module,
+) -> ModuleTransformer[IRContext] {
+  let state = CFPState::from_module(mod)
+  match mod.code_sec {
+    None => ()
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        match func {
+          Func(_, _) => ()
+          TFunc(_, body) => scan_for_struct_news(state, body)
+        }
+      }
+  }
+  propagate_to_supertypes(state)
+  wrap_unit_func_pass(make_cfp_optimizer(state))
+}
+
+///|
 /// Scan a function body for struct.new operations
 fn scan_for_struct_news(state : CFPState, body : TExpr) -> Unit {
   for instr in body.0 {

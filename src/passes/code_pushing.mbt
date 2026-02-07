@@ -929,6 +929,11 @@ pub fn code_pushing_pass() -> ModuleTransformer[Unit] {
 }
 
 ///|
+fn code_pushing_ir_pass(_mod : Module) -> ModuleTransformer[IRContext] {
+  wrap_unit_func_pass(code_pushing_pass())
+}
+
+///|
 /// Recursively process nested blocks
 fn process_nested_blocks(instrs : Array[TInstr], state : PushingState) -> Unit {
   for i = 0; i < instrs.length(); i = i + 1 {

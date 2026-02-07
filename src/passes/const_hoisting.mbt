@@ -339,6 +339,18 @@ pub fn const_hoisting_pass() -> ModuleTransformer[ConstHoistingState] {
 }
 
 ///|
+fn const_hoisting_ir_pass(_mod : Module) -> ModuleTransformer[IRContext] {
+  let pass = const_hoisting_pass()
+  ModuleTransformer::new().on_func_evt(fn(_, ctx : IRContext, func : Func) {
+    match pass.walk_func(ConstHoistingState::new(), func) {
+      Ok(Some((_, new_func))) => change(ctx, new_func)
+      Ok(None) => unchanged()
+      Err(e) => Err(e)
+    }
+  })
+}
+
+///|
 fn run_hoist(f : Func) -> Func raise {
   let pass = const_hoisting_pass()
   let empty_state = ConstHoistingState::new()

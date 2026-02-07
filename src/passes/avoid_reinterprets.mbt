@@ -106,6 +106,11 @@ fn avoid_reinterprets() -> ModuleTransformer[IRContext] {
 }
 
 ///|
+fn avoid_reinterprets_pass(_mod : Module) -> ModuleTransformer[IRContext] {
+  avoid_reinterprets()
+}
+
+///|
 test "AvoidReinterprets: rewrite reinterpret(load)" {
   let instr = TInstr::unary(
     UnaryOp::i32_reinterpret_f32(),

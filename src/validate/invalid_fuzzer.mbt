@@ -162,18 +162,18 @@ fn make_elemidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
 }
 
 ///|
-fn make_tagidx_oob_transformer(offset : UInt) -> ModuleTransformer[Unit] {
+fn make_tagidx_oob_transformer(offset : UInt) -> ModuleTransformer[Bool] {
   let target = offset + 0x7FFFFFFF
   ModuleTransformer::new().on_tagidx_evt(fn(
-    _ : ModuleTransformer[Unit],
-    _ctx : Unit,
+    _ : ModuleTransformer[Bool],
+    _ctx : Bool,
     idx : TagIdx,
-  ) -> TransformerResult[Unit, TagIdx] {
+  ) -> TransformerResult[Bool, TagIdx] {
     let TagIdx(i) = idx
     if i >= target {
       Ok(None)
     } else {
-      Ok(Some(((), TagIdx::new(i + target))))
+      Ok(Some((true, TagIdx::new(i + target))))
     }
   })
 }
@@ -655,8 +655,8 @@ fn apply_strategy(
         _ => (false, mod_)
       }
     TagIdxOOB(n) =>
-      match make_tagidx_oob_transformer(n).walk_module((), mod_) {
-        Ok(Some((_, new_mod))) => (true, new_mod)
+      match make_tagidx_oob_transformer(n).walk_module(false, mod_) {
+        Ok(Some((changed, new_mod))) if changed => (true, new_mod)
         _ => (false, mod_)
       }
     NumTypeSwap =>
@@ -894,4 +894,40 @@ test "Exn to Any swap - verify these are actually different hierarchies" {
     HeapType::abs(AbsHeapType::exn()),
     HeapType::abs(AbsHeapType::any()),
   )
+}
+
+///|
+test "TagIdxOOB arithmetic produces a large index delta" {
+  let target = 1U + 0x7FFFFFFF
+  assert_true(target > 1000U)
+}
+
+///|
+test "TagIdxOOB rejects a module with throw/catch tag uses" {
+  let tag_sig = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let func_sig = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([tag_sig, func_sig]))
+    .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(0))]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::try_table(
+              BlockType::void_(),
+              [Catch::new(TagIdx::new(0), LabelIdx::new(1U))],
+              TExpr::new([TInstr::throw_(TagIdx::new(0), [])]),
+            ),
+            TInstr::return_([]),
+          ]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let (modified, invalid_mod) = apply_strategy(TagIdxOOB(1), mod)
+  assert_true(modified)
+  assert_not_eq(invalid_mod, mod)
+  assert_err(validate_module(invalid_mod))
 }

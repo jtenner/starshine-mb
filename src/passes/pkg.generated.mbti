@@ -120,7 +120,17 @@ pub impl Show for LiteralKind
 pub(all) enum ModulePass {
   AbstractTypeRefining(AbstractTypeRefiningPassProps)
   AlignmentLowering
+  AvoidReinterprets
+  CoalesceLocals
+  CodeFolding
+  CodePushing
+  ConstHoisting
+  ConstantFieldPropagation
   DataflowOptimization
+  Directize(Bool)
+  OptimizeCasts
+  DeNaN
+  RemoveUnused
 }
 
 type Remappings

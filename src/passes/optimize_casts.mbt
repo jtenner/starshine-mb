@@ -119,15 +119,25 @@ fn is_heap_subtype(sub : HeapType, sup : HeapType, env : Env) -> Bool {
 // ============================================================================
 
 ///|
-/// The main optimization pass
-pub fn optimize_casts(mod : Module) -> Module {
-  // Build environment from module
+fn optimize_casts_ir_pass(mod : Module) -> ModuleTransformer[IRContext] {
   let env = Env::new().with_module(mod)
-  match
-    ModuleTransformer::new()
+  let pass = ModuleTransformer::new()
     .on_func_evt(transform_func)
     .on_tinstruction_evt(transform_tinstr)
-    .walk_module(CastOptState::new(env, 0), mod) {
+  ModuleTransformer::new().on_func_evt(fn(_, ctx : IRContext, func : Func) {
+    match pass.walk_func(CastOptState::new(env, 0), func) {
+      Ok(Some((_, new_func))) => change(ctx, new_func)
+      Ok(None) => unchanged()
+      Err(e) => Err(e)
+    }
+  })
+}
+
+///|
+/// The main optimization pass
+pub fn optimize_casts(mod : Module) -> Module {
+  let pass = optimize_casts_ir_pass(mod)
+  match pass.walk_module(IRContext::new(), mod) {
     Ok(Some((_, mod))) => mod
     _ => mod
   }

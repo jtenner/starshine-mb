@@ -77,3 +77,22 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
 - `src/transformer/*.mbt` contains the `ModuleTransformer` struct and utilities for building module passes
 - `src/dataflow/*.mbt` contains a fragmented implementation of a dataflow framework for building dataflow analyses and optimizations, but is not well-integrated with the rest of the IR passes and utilities. Should be deprecated and integrated into `IRContext` instead
 
+## Pass pipeline notes (learned)
+
+- `src/passes/optimize.mbt` is the central pass scheduler. `optimize_module` first runs `lift_to_texpr_pass()`, then executes the selected `ModulePass` variants in order.
+- The preferred pass integration pattern is: each pass file exposes a small constructor that returns `ModuleTransformer[IRContext]` (or `Result[ModuleTransformer[IRContext], String]` when setup can fail), and `optimize_module` just dispatches to those constructors.
+- The following adapter constructors exist in pass files for this pattern:
+  - `avoid_reinterprets_pass`
+  - `coalesce_locals_pass`
+  - `code_folding_ir_pass`
+  - `code_pushing_ir_pass`
+  - `const_hoisting_ir_pass`
+  - `constant_field_propagation_ir_pass`
+  - `directize_ir_pass`
+  - `optimize_casts_ir_pass`
+- `src/passes/util.mbt` contains `wrap_unit_func_pass` for adapting `ModuleTransformer[Unit]` function-level passes into `ModuleTransformer[IRContext]`.
+- `src/passes/dataflow_opt.mbt` is SSA-backed: it uses `IRContext.optimize_body_with_ssa()` and is the intended replacement path over the deprecated `src/dataflow/*` package.
+
+## Local toolchain note
+
+- In this workspace, `moon` may not be on `PATH` in non-interactive shells. Use `/home/jtenner/.moon/bin/moon` for `moon test`, `moon info`, and `moon fmt` when needed.

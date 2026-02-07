@@ -1005,6 +1005,9 @@ fn tag_payload_types(env : Env, tag : TagIdx) -> Array[ValType] {
 fn typecheck_catch_clause(st : TcState, c : Catch) -> TcResult {
   match c {
     Catch(tag, lbl) => {
+      if Validate::validate(tag, st.env) is Err(e) {
+        return Err(e)
+      }
       // label must expect tag's payload types
       let label_idx = lbl.0.reinterpret_as_int()
       let label_types = match st.env.labels.get(label_idx) {
@@ -1018,6 +1021,9 @@ fn typecheck_catch_clause(st : TcState, c : Catch) -> TcResult {
       Ok(st)
     }
     CatchRef(tag, lbl) => {
+      if Validate::validate(tag, st.env) is Err(e) {
+        return Err(e)
+      }
       // label must expect tag's payload types + exnref
       let label_idx = lbl.0.reinterpret_as_int()
       let label_types = match st.env.labels.get(label_idx) {
@@ -1031,7 +1037,7 @@ fn typecheck_catch_clause(st : TcState, c : Catch) -> TcResult {
           RefType::new(false, HeapType::abs(AbsHeapType::exn())),
         ),
       )
-      if not(Match::matches(payload, label_types, st.env)) {
+      if not(Match::matches(expected, label_types, st.env)) {
         return Err(
           "catch_ref types (payload + exnref) do not match label types",
         )
@@ -7199,6 +7205,42 @@ test "Typecheck TryTable with result" {
   )
   let final_state = assert_ok(result)
   assert_stack(final_state, [ValType::i32()])
+}
+
+///|
+test "Typecheck TryTable catch rejects invalid tag index" {
+  let tag_sig = SubType::comp_type(CompType::func([], []))
+  let env = { ..empty_env(), global_types: [tag_sig] }.push_tag(
+    TagType::new(TypeIdx::new(0)),
+  )
+  let state = make_state(env, [])
+  let result = Typecheck::typecheck(
+    Instruction::try_table(
+      BlockType::void_(),
+      [Catch::new(TagIdx::new(1), LabelIdx::new(0))],
+      Expr::new([Instruction::nop()]),
+    ),
+    state,
+  )
+  assert_err(result)
+}
+
+///|
+test "Typecheck TryTable catch_ref rejects invalid tag index" {
+  let tag_sig = SubType::comp_type(CompType::func([], []))
+  let env = { ..empty_env(), global_types: [tag_sig] }.push_tag(
+    TagType::new(TypeIdx::new(0)),
+  )
+  let state = make_state(env, [])
+  let result = Typecheck::typecheck(
+    Instruction::try_table(
+      BlockType::void_(),
+      [Catch::ref_(TagIdx::new(1), LabelIdx::new(0))],
+      Expr::new([Instruction::nop()]),
+    ),
+    state,
+  )
+  assert_err(result)
 }
 
 // =============================================================================

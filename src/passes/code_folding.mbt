@@ -674,6 +674,18 @@ pub fn code_folding_pass() -> ModuleTransformer[CodeFoldingState] {
 }
 
 ///|
+fn code_folding_ir_pass(_mod : Module) -> ModuleTransformer[IRContext] {
+  let pass = code_folding_pass()
+  ModuleTransformer::new().on_func_evt(fn(_, ctx : IRContext, func : Func) {
+    match pass.walk_func(CodeFoldingState::new(), func) {
+      Ok(Some((_, new_func))) => change(ctx, new_func)
+      Ok(None) => unchanged()
+      Err(e) => Err(e)
+    }
+  })
+}
+
+///|
 test "code_folding_pass can be created" {
   let pass = code_folding_pass()
   let state = CodeFoldingState::{

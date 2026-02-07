@@ -795,6 +795,11 @@ fn coalesce_locals() -> ModuleTransformer[Unit] {
 }
 
 ///|
+fn coalesce_locals_pass(_mod : Module) -> ModuleTransformer[IRContext] {
+  wrap_unit_func_pass(coalesce_locals())
+}
+
+///|
 fn rewrite_instr_locals(instr : TInstr, mapping : LocalMap) -> TInstr {
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(_, _, i) {
     match i {

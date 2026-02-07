@@ -65,6 +65,19 @@ pub fn defs(instr : TInstr) -> Set[LocalIdx] {
 }
 
 ///|
+fn wrap_unit_func_pass(
+  pass : ModuleTransformer[Unit],
+) -> ModuleTransformer[IRContext] {
+  ModuleTransformer::new().on_func_evt(fn(_, ctx : IRContext, func : Func) {
+    match pass.walk_func((), func) {
+      Ok(Some((_, new_func))) => change(ctx, new_func)
+      Ok(None) => unchanged()
+      Err(e) => Err(e)
+    }
+  })
+}
+
+///|
 test "liveness: local.get is a use" {
   let x = LocalIdx::new(0)
   let instr = TInstr::local_get(x)

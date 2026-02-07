@@ -364,17 +364,28 @@ fn make_directize_transformer(
 }
 
 ///|
+fn directize_ir_pass(
+  mod : Module,
+  initial_immutable : Bool,
+) -> Result[ModuleTransformer[IRContext], String] {
+  let env = Env::new().with_module(mod)
+  let tables = match compute_table_info(mod, initial_immutable) {
+    Err(t) => return Err(t)
+    Ok(tables) => tables
+  }
+  Ok(wrap_unit_func_pass(make_directize_transformer(tables, env)))
+}
+
+///|
 pub fn directize_module(
   m : Module,
   initial_immutable : Bool,
 ) -> Result[Module, String] {
-  let env = Env::new().with_module(m)
-  let tables = match compute_table_info(m, initial_immutable) {
-    Err(t) => return Err(t)
-    Ok(tables) => tables
+  let pass = match directize_ir_pass(m, initial_immutable) {
+    Ok(pass) => pass
+    Err(e) => return Err(e)
   }
-  let transformer = make_directize_transformer(tables, env)
-  match transformer.walk_module((), m) {
+  match pass.walk_module(IRContext::new(), m) {
     Ok(Some((_, new_m))) => Ok(new_m)
     Ok(None) => Ok(m)
     Err(e) => Err(e)
