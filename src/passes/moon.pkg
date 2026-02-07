@@ -1,7 +1,6 @@
 import {
   "jtenner/starshine/lib" as @lib,
   "jtenner/starshine/binary" as @binary,
-  "jtenner/starshine/dataflow" as @dataflow,
   "jtenner/starshine/ir" as @ir,
   "jtenner/starshine/transformer" as @transformer,
   "jtenner/starshine/validate" as @validate,

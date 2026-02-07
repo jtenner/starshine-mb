@@ -95,6 +95,7 @@ pub struct IRContext {
   mut local_graph : LocalGraph?
 }
 pub fn IRContext::apply_gvn(Self) -> Unit
+pub fn IRContext::apply_ssa_optimize(Self) -> Unit
 pub fn IRContext::cfg_dirty(Self) -> Unit
 pub fn IRContext::get_cfg(Self) -> CFG
 pub fn IRContext::get_gvn(Self) -> SSACFG
@@ -110,6 +111,7 @@ pub fn IRContext::liveness_dirty(Self) -> Unit
 pub fn IRContext::local_graph_dirty(Self) -> Unit
 pub fn IRContext::lower_to_cfg(Self) -> CFG
 pub fn IRContext::new() -> Self
+pub fn IRContext::optimize_body_with_ssa(Self) -> @lib.TExpr?
 pub fn IRContext::set_body(Self, @lib.TExpr) -> Unit
 pub fn IRContext::set_locals(Self, Array[@lib.ValType]) -> Unit
 pub fn IRContext::set_mod(Self, @lib.Module) -> Unit

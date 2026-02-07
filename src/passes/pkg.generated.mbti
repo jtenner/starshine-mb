@@ -2,7 +2,6 @@
 package "jtenner/starshine/passes"
 
 import {
-  "jtenner/starshine/dataflow",
   "jtenner/starshine/ir",
   "jtenner/starshine/lib",
   "jtenner/starshine/transformer",
@@ -43,13 +42,7 @@ pub fn run_constant_field_propagation(@lib.Module) -> Result[@lib.Module, String
 
 pub fn run_denam(@lib.Module) -> Result[@lib.Module, String]
 
-pub fn run_dominator_gvn(@dataflow.Graph) -> Unit
-
-pub fn run_eliminate_redundant_computations(@dataflow.Graph) -> Unit
-
 pub fn run_lower_to_expr_pass(@lib.Module) -> @lib.Module
-
-pub fn run_phi_web_gvn(@dataflow.Graph) -> Unit
 
 pub fn uses(@lib.TInstr) -> @set.Set[@lib.LocalIdx]
 

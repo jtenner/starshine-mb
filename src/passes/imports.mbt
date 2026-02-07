@@ -82,47 +82,6 @@ using @lib {
 using @binary {size_signed}
 
 ///|
-using @dataflow {
-  type NodeId,
-  type Node,
-  type Graph,
-  type Expression,
-  type WasmType,
-  type LocalSetExpr,
-  type UnaryExpr,
-  type BinaryExpr,
-  type GenericExpr,
-  type ExprId,
-  type IfExpr,
-  type BlockExpr,
-  type LoopExpr,
-  type BreakExpr,
-  type SwitchExpr,
-  type DropExpr,
-  type LoadExpr,
-  type StoreExpr,
-  type CallExpr,
-  type ReturnExpr,
-  type MemoryGrowExpr,
-  type MemorySizeExpr,
-  type MemorySSA,
-  type NodeUsers,
-  type GVN,
-  type DominatorGVN,
-  type PhiWebGVN,
-  type Function,
-  type Module as DataFlowModule,
-  type ConstExpr,
-  type Literal as DataFlowLiteral,
-  type UnaryOp as DataFlowUnaryOp,
-  type BinaryOp as DataFlowBinaryOp,
-  type LocalGetExpr,
-  type SelectExpr,
-  type StoreOp as DataFlowStoreOp,
-  type LoadOp as DataFlowLoadOp,
-}
-
-///|
 using @transformer {
   type ModuleTransformer,
   type TransformerResult,
