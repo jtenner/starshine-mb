@@ -1,3 +1,4 @@
+///|
 using @lib {
   type TInstr,
   type TExpr,
@@ -44,4 +45,5 @@ using @lib {
   type CompType,
 }
 
+///|
 using @transformer {type ModuleTransformer, type TransformerResult}

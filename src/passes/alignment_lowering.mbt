@@ -379,7 +379,6 @@ pub fn alignment_lowering_pass(mod : Module) -> ModuleTransformer[IRContext] {
     None => []
   }
   let mut temp_locals : Array[ValType] = []
-
   ModuleTransformer::new()
   .on_func_evt(fn(self, t : IRContext, i) {
     match i {
@@ -680,8 +679,7 @@ fn make_i32_mem() -> Array[MemType] {
 
 ///|
 fn make_test_module(memories : Array[MemType]) -> Module {
-  Module::new()
-    .with_mem_sec(MemSec::new(memories))
+  Module::new().with_mem_sec(MemSec::new(memories))
 }
 
 ///|
@@ -712,8 +710,7 @@ fn run_func_pass(
   let pass = alignment_lowering_pass(mod)
   let func = Func::t_func(locals, TExpr::new(body))
   match pass.walk_func(ctx, func) {
-    Ok(Some((_, TFunc(new_locals, new_body)))) =>
-      Ok((new_locals, new_body))
+    Ok(Some((_, TFunc(new_locals, new_body)))) => Ok((new_locals, new_body))
     Ok(None) => Ok((locals, TExpr::new(body)))
     Ok(Some(_)) => Err("Expected TFunc")
     Err(e) => Err(e)
@@ -1114,8 +1111,7 @@ test "unaligned f32 store produces block with reinterpret" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TBlock(VoidBlockType, TExpr(instrs))) =>
-      assert_true(instrs.length() > 2)
+    Ok(TBlock(VoidBlockType, TExpr(instrs))) => assert_true(instrs.length() > 2)
     Ok(TStore(_, _, _, _)) => fail("Expected block with split stores")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
@@ -1132,8 +1128,7 @@ test "unaligned f64 store produces block with reinterpret" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TBlock(VoidBlockType, TExpr(instrs))) =>
-      assert_true(instrs.length() > 2)
+    Ok(TBlock(VoidBlockType, TExpr(instrs))) => assert_true(instrs.length() > 2)
     Ok(TStore(_, _, _, _)) => fail("Expected block with split stores")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
@@ -1238,8 +1233,7 @@ test "v128.load64_splat unaligned produces splat wrapper" {
   let result = run_pass(make_i32_mem(), instr)
   match result {
     Ok(TI64x2Splat(_)) => ()
-    Ok(TLoad(V128Load64SplatOp, _, _)) =>
-      fail("Expected unaligned to be split")
+    Ok(TLoad(V128Load64SplatOp, _, _)) => fail("Expected unaligned to be split")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
   }
@@ -1255,8 +1249,7 @@ test "v128.load32_splat unaligned produces splat wrapper" {
   let result = run_pass(make_i32_mem(), instr)
   match result {
     Ok(TI32x4Splat(_)) => ()
-    Ok(TLoad(V128Load32SplatOp, _, _)) =>
-      fail("Expected unaligned to be split")
+    Ok(TLoad(V128Load32SplatOp, _, _)) => fail("Expected unaligned to be split")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
   }
@@ -1276,8 +1269,7 @@ test "v128.load64_zero unaligned produces replace_lane" {
   let result = run_pass(make_i32_mem(), instr)
   match result {
     Ok(TReplaceLane(I64x2ReplaceLaneOp, LaneIdx(0), _, _)) => ()
-    Ok(TLoad(V128Load64ZeroOp, _, _)) =>
-      fail("Expected unaligned to be split")
+    Ok(TLoad(V128Load64ZeroOp, _, _)) => fail("Expected unaligned to be split")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
   }
@@ -1293,8 +1285,7 @@ test "v128.load32_zero unaligned produces replace_lane" {
   let result = run_pass(make_i32_mem(), instr)
   match result {
     Ok(TReplaceLane(I32x4ReplaceLaneOp, LaneIdx(0), _, _)) => ()
-    Ok(TLoad(V128Load32ZeroOp, _, _)) =>
-      fail("Expected unaligned to be split")
+    Ok(TLoad(V128Load32ZeroOp, _, _)) => fail("Expected unaligned to be split")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
   }
@@ -1332,8 +1323,7 @@ test "v128.load16_lane unaligned produces replace_lane" {
   let result = run_pass(make_i32_mem(), instr)
   match result {
     Ok(TReplaceLane(I16x8ReplaceLaneOp, LaneIdx(0), _, _)) => ()
-    Ok(TV128LoadLane(_, _, _, _, _)) =>
-      fail("Expected unaligned to be split")
+    Ok(TV128LoadLane(_, _, _, _, _)) => fail("Expected unaligned to be split")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
   }
@@ -1351,8 +1341,7 @@ test "v128.load32_lane unaligned produces replace_lane" {
   let result = run_pass(make_i32_mem(), instr)
   match result {
     Ok(TReplaceLane(I32x4ReplaceLaneOp, LaneIdx(0), _, _)) => ()
-    Ok(TV128LoadLane(_, _, _, _, _)) =>
-      fail("Expected unaligned to be split")
+    Ok(TV128LoadLane(_, _, _, _, _)) => fail("Expected unaligned to be split")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
   }
@@ -1370,8 +1359,7 @@ test "v128.load64_lane unaligned produces replace_lane" {
   let result = run_pass(make_i32_mem(), instr)
   match result {
     Ok(TReplaceLane(I64x2ReplaceLaneOp, LaneIdx(0), _, _)) => ()
-    Ok(TV128LoadLane(_, _, _, _, _)) =>
-      fail("Expected unaligned to be split")
+    Ok(TV128LoadLane(_, _, _, _, _)) => fail("Expected unaligned to be split")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
   }

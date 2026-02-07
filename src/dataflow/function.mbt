@@ -33,6 +33,7 @@ pub fn Function::new(name : String) -> Function {
   }
 }
 
+///|
 pub fn Function::set_body(self : Function, body : ExprId) -> Unit {
   self.body = Some(body)
 }

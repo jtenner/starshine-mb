@@ -354,7 +354,7 @@ pub struct DataSec(Array[Data]) derive(Eq, Hash)
 ///|
 pub struct CastOp(Bool, Bool) derive(Eq, Arbitrary, Show, Hash)
 
-
+///|
 enum Option[T] { // Nullable<T>
   Some(T) // Some value of type T
   None // Null

@@ -1,11 +1,14 @@
-pub struct BlockId(Int) derive (Eq, Hash, Show, Compare)
+///|
+pub struct BlockId(Int) derive(Eq, Hash, Show, Compare)
 
+///|
 pub struct BasicBlock {
   id : BlockId
   instrs : Array[TInstr]
   terminator : Terminator
-} derive (Show)
+} derive(Show)
 
+///|
 pub enum Terminator {
   Br(BlockId)
   BrIf(TInstr, BlockId, BlockId)
@@ -22,30 +25,36 @@ pub enum Terminator {
   Unreachable
 } derive(Show)
 
+///|
 pub struct CFG {
   entry : BlockId
   blocks : Map[BlockId, BasicBlock]
   preds : Map[BlockId, Array[BlockId]]
-} derive (Show)
+} derive(Show)
 
+///|
 priv struct CFGBuilder {
   mut next_block : Int
   blocks : Map[BlockId, BasicBlock]
 }
 
+///|
 priv struct BlockContext {
   id : BlockId
   instrs : Array[TInstr]
 }
 
+///|
 pub struct SSAValue(Int) derive(Eq, Hash, Show, Compare)
 
+///|
 pub struct PhiNode {
   local_idx : LocalIdx
   result : SSAValue
   args : Map[BlockId, SSAValue]
 } derive(Show)
 
+///|
 pub struct SSABlock {
   id : BlockId
   phis : Array[PhiNode]
@@ -53,6 +62,7 @@ pub struct SSABlock {
   terminator : SSATerminator
 } derive(Show)
 
+///|
 pub enum SSAInstr {
   // v = op(args...)
   Assign(SSAValue, SSAOp)
@@ -60,6 +70,7 @@ pub enum SSAInstr {
   Effect(SSAOp)
 } derive(Show)
 
+///|
 pub enum SSAOp {
   // Constants
   I32Const(I32)
@@ -69,28 +80,28 @@ pub enum SSAOp {
   RefNull(HeapType)
   RefFunc(FuncIdx)
   V128Const(Bytes)
-  
+
   // Copy (replaces local.get/set/tee)
   Copy(SSAValue)
-  
+
   // Arithmetic
   Binary(BinaryOp, SSAValue, SSAValue)
   Unary(UnaryOp, SSAValue)
-  
+
   // Memory
-  Load(LoadOp, MemArg, SSAValue)  // addr
-  Store(StoreOp, MemArg, SSAValue, SSAValue)  // addr, value
+  Load(LoadOp, MemArg, SSAValue) // addr
+  Store(StoreOp, MemArg, SSAValue, SSAValue) // addr, value
   MemorySize(MemIdx)
   MemoryGrow(MemIdx, SSAValue)
   MemoryFill(MemIdx, SSAValue, SSAValue, SSAValue)
   MemoryCopy(MemIdx, MemIdx, SSAValue, SSAValue, SSAValue)
   MemoryInit(DataIdx, MemIdx, SSAValue, SSAValue, SSAValue)
   DataDrop(DataIdx)
-  
+
   // Globals
   GlobalGet(GlobalIdx)
   GlobalSet(GlobalIdx, SSAValue)
-  
+
   // Tables
   TableGet(TableIdx, SSAValue)
   TableSet(TableIdx, SSAValue, SSAValue)
@@ -100,12 +111,12 @@ pub enum SSAOp {
   TableCopy(TableIdx, TableIdx, SSAValue, SSAValue, SSAValue)
   TableInit(ElemIdx, TableIdx, SSAValue, SSAValue, SSAValue)
   ElemDrop(ElemIdx)
-  
+
   // Calls
   Call(FuncIdx, Array[SSAValue])
   CallIndirect(TypeIdx, TableIdx, Array[SSAValue], SSAValue)
   CallRef(TypeIdx, Array[SSAValue], SSAValue)
-  
+
   // References
   RefIsNull(SSAValue)
   RefEq(SSAValue, SSAValue)
@@ -117,7 +128,7 @@ pub enum SSAOp {
   RefCast(Bool, HeapType, SSAValue)
   AnyConvertExtern(SSAValue)
   ExternConvertAny(SSAValue)
-  
+
   // Structs
   StructNew(TypeIdx, Array[SSAValue])
   StructNewDefault(TypeIdx)
@@ -125,7 +136,7 @@ pub enum SSAOp {
   StructGetS(TypeIdx, U32, SSAValue)
   StructGetU(TypeIdx, U32, SSAValue)
   StructSet(TypeIdx, U32, SSAValue, SSAValue)
-  
+
   // Arrays
   ArrayNew(TypeIdx, SSAValue, SSAValue)
   ArrayNewDefault(TypeIdx, SSAValue)
@@ -141,7 +152,7 @@ pub enum SSAOp {
   ArrayCopy(TypeIdx, TypeIdx, SSAValue, SSAValue, SSAValue, SSAValue, SSAValue)
   ArrayInitData(TypeIdx, DataIdx, SSAValue, SSAValue, SSAValue, SSAValue)
   ArrayInitElem(TypeIdx, ElemIdx, SSAValue, SSAValue, SSAValue, SSAValue)
-  
+
   // SIMD
   Splat(SplatOp, SSAValue)
   ExtractLane(ExtractLaneOp, LaneIdx, SSAValue)
@@ -152,14 +163,15 @@ pub enum SSAOp {
   V128Ternary(V128TernaryOp, SSAValue, SSAValue, SSAValue)
   V128LoadLane(V128LoadLaneOp, MemArg, LaneIdx, SSAValue, SSAValue)
   V128StoreLane(V128StoreLaneOp, MemArg, LaneIdx, SSAValue, SSAValue)
-  
+
   // Select
   Select(Array[ValType]?, SSAValue, SSAValue, SSAValue)
-  
+
   // Exceptions
   Throw(TagIdx, Array[SSAValue])
 } derive(Show)
 
+///|
 pub enum SplatOp {
   I8x16Splat
   I16x8Splat
@@ -169,11 +181,12 @@ pub enum SplatOp {
   F64x2Splat
 } derive(Show, Eq, Hash)
 
+///|
 pub enum SSATerminator {
   Br(BlockId)
   BrIf(SSAValue, BlockId, BlockId)
   BrTable(SSAValue, Array[BlockId], BlockId)
-  BrOnNull(SSAValue, BlockId, BlockId)  // null_target, non_null_target
+  BrOnNull(SSAValue, BlockId, BlockId) // null_target, non_null_target
   BrOnNonNull(SSAValue, BlockId, BlockId)
   BrOnCast(CastOp, HeapType, HeapType, SSAValue, BlockId, BlockId)
   BrOnCastFail(CastOp, HeapType, HeapType, SSAValue, BlockId, BlockId)
@@ -185,6 +198,7 @@ pub enum SSATerminator {
   Unreachable
 } derive(Show)
 
+///|
 pub struct SSACFG {
   entry : BlockId
   blocks : Map[BlockId, SSABlock]
@@ -197,6 +211,7 @@ pub struct SSACFG {
 // SSA Builder
 // ============================================
 
+///|
 priv struct SSABuilder {
   mut next_value : Int
   // Current stacks for each local (for renaming)
@@ -205,28 +220,33 @@ priv struct SSABuilder {
   pushed_per_block : Array[(LocalIdx, SSAValue)]
 }
 
+///|
 pub enum SSAUse {
-  InInstr(BlockId, Int)                    // Block, instruction index
-  InPhi(BlockId, LocalIdx, BlockId)        // Block, phi's local, from predecessor
+  InInstr(BlockId, Int) // Block, instruction index
+  InPhi(BlockId, LocalIdx, BlockId) // Block, phi's local, from predecessor
   InTerminator(BlockId)
 }
 
+///|
 pub struct UseDefInfo {
-  defs: Map[SSAValue, (BlockId, SSADef)]
-  uses: Map[SSAValue, Array[SSAUse]]
+  defs : Map[SSAValue, (BlockId, SSADef)]
+  uses : Map[SSAValue, Array[SSAUse]]
 }
 
+///|
 pub enum SSADef {
   Param(LocalIdx)
   Phi(LocalIdx)
-  Instr(Int)  // Instruction index in block
+  Instr(Int) // Instruction index in block
 }
 
+///|
 pub struct SSADestructor {
-  value_to_local: Map[SSAValue, LocalIdx]
-  mut next_local: UInt
+  value_to_local : Map[SSAValue, LocalIdx]
+  mut next_local : UInt
 }
 
+///|
 /// Hash key for expressions - represents the "value" of an operation
 pub enum GVNKey {
   Const32(Int)
@@ -235,21 +255,22 @@ pub enum GVNKey {
   ConstF64(Double)
   Unary(UnaryOp, SSAValue)
   Binary(BinaryOp, SSAValue, SSAValue)
-  Load(LoadOp, MemArg, SSAValue)  // Careful: only valid if no intervening stores
+  Load(LoadOp, MemArg, SSAValue) // Careful: only valid if no intervening stores
   RefNull(HeapType)
   RefFunc(FuncIdx)
-  GlobalGet(GlobalIdx)  // Only for immutable globals
+  GlobalGet(GlobalIdx) // Only for immutable globals
   StructGet(TypeIdx, U32, SSAValue)
   ArrayGet(TypeIdx, SSAValue, SSAValue)
-} derive (Eq, Hash)
+} derive(Eq, Hash)
 
-
+///|
 pub struct GVNState {
-  value_map: Map[GVNKey, SSAValue]
+  value_map : Map[GVNKey, SSAValue]
   // Track which values should be replaced
-  replacements: Map[SSAValue, SSAValue]
+  replacements : Map[SSAValue, SSAValue]
 }
 
+///|
 pub struct LivenessInfo {
   live_in : Map[BlockId, @set.Set[SSAValue]]
   live_out : Map[BlockId, @set.Set[SSAValue]]
@@ -295,11 +316,12 @@ priv enum Action {
   Set(LocalIdx, Int)
 }
 
+///|
 pub struct IRContext {
   mut mod_ : Module?
   mut body : TExpr
   mut locals : Array[ValType]
-  mut type_ctx : Option[TypeContext]
+  mut type_ctx : TypeContext?
   mut cfg : CFG?
   mut ssa : SSACFG?
   mut usedef : UseDefInfo?

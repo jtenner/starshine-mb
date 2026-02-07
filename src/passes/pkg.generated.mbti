@@ -21,6 +21,8 @@ pub fn const_hoisting_pass() -> @transformer.ModuleTransformer[ConstHoistingStat
 
 pub fn constant_field_propagation_pass() -> @transformer.ModuleTransformer[CFPState]
 
+pub fn dataflow_optimization_pass(@lib.Module) -> @transformer.ModuleTransformer[@ir.IRContext]
+
 pub fn defs(@lib.TInstr) -> @set.Set[@lib.LocalIdx]
 
 pub fn directize_module(@lib.Module, Bool) -> Result[@lib.Module, String]
@@ -125,6 +127,7 @@ pub impl Show for LiteralKind
 pub(all) enum ModulePass {
   AbstractTypeRefining(AbstractTypeRefiningPassProps)
   AlignmentLowering
+  DataflowOptimization
 }
 
 type Remappings

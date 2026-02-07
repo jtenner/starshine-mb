@@ -1,5 +1,3 @@
-
-
 ///|
 fn build_blocks(instrs : Array[TInstr]) -> Array[Block] {
   let blocks = Array::new()

@@ -80,29 +80,41 @@ pub struct GVNState {
 }
 
 pub struct IRContext {
-  mut mod : @lib.Module
+  mut mod_ : @lib.Module?
+  mut body : @lib.TExpr
+  mut locals : Array[@lib.ValType]
+  mut type_ctx : TypeContext?
   mut cfg : CFG?
   mut ssa : SSACFG?
   mut usedef : UseDefInfo?
   mut liveness : LivenessInfo?
   mut types : SSATypeInfo?
   mut gvn : SSACFG?
+  mut local_graph : LocalGraph?
 }
+pub fn IRContext::apply_gvn(Self) -> Unit
 pub fn IRContext::cfg_dirty(Self) -> Unit
 pub fn IRContext::get_cfg(Self) -> CFG
 pub fn IRContext::get_gvn(Self) -> SSACFG
 pub fn IRContext::get_liveness(Self) -> LivenessInfo
-pub fn IRContext::get_mod(Self) -> @lib.Module
+pub fn IRContext::get_local_graph(Self) -> LocalGraph
+pub fn IRContext::get_mod(Self) -> @lib.Module?
 pub fn IRContext::get_ssa(Self) -> SSACFG
-pub fn IRContext::get_types(Self) -> SSATypeInfo
+pub fn IRContext::get_type_ctx(Self) -> Result[TypeContext, String]
+pub fn IRContext::get_types(Self) -> SSATypeInfo?
 pub fn IRContext::get_usedef(Self) -> UseDefInfo
 pub fn IRContext::gvn_dirty(Self) -> Unit
 pub fn IRContext::liveness_dirty(Self) -> Unit
-pub fn IRContext::new(@lib.Module) -> Self
+pub fn IRContext::local_graph_dirty(Self) -> Unit
+pub fn IRContext::lower_to_cfg(Self) -> CFG
+pub fn IRContext::new() -> Self
+pub fn IRContext::set_body(Self, @lib.TExpr) -> Unit
+pub fn IRContext::set_locals(Self, Array[@lib.ValType]) -> Unit
 pub fn IRContext::set_mod(Self, @lib.Module) -> Unit
 pub fn IRContext::ssa_dirty(Self) -> Unit
 pub fn IRContext::types_dirty(Self) -> Unit
 pub fn IRContext::usedef_dirty(Self) -> Unit
+pub fn IRContext::validate(Self) -> Result[Unit, String]
 
 pub struct LivenessInfo {
   live_in : Map[BlockId, @set.Set[SSAValue]]
@@ -112,6 +124,19 @@ pub fn LivenessInfo::get_live_in(Self, BlockId) -> @set.Set[SSAValue]
 pub fn LivenessInfo::get_live_out(Self, BlockId) -> @set.Set[SSAValue]
 pub fn LivenessInfo::is_live_in(Self, BlockId, SSAValue) -> Bool
 pub fn LivenessInfo::is_live_out(Self, BlockId, SSAValue) -> Bool
+
+pub struct LocalGraph {
+  get_sets : Map[Int, @set.Set[LocalSet]]
+}
+pub fn LocalGraph::get_sets(Self, Int) -> @set.Set[LocalSet]
+pub fn LocalGraph::new(Array[@lib.TInstr]) -> Self
+
+pub enum LocalSet {
+  InitValue
+  Set(@lib.LocalIdx, @lib.TInstr)
+}
+pub impl Eq for LocalSet
+pub impl Hash for LocalSet
 
 pub struct PhiNode {
   local_idx : @lib.LocalIdx
@@ -304,6 +329,8 @@ pub struct TypeContext {
   tag_types : Array[@lib.TagType]
   local_types : Array[@lib.ValType]
 }
+pub fn TypeContext::empty() -> Self
+pub fn TypeContext::from_module(@lib.Module, Array[@lib.ValType]) -> Self
 
 pub struct UseDefInfo {
   defs : Map[SSAValue, (BlockId, SSADef)]

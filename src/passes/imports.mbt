@@ -133,8 +133,5 @@ using @transformer {
 ///|
 using @validate {type Env, to_texpr, trait Match}
 
-using @ir {
-  type IRContext,
-  type LocalGraph,
-  type LocalSet,
-}
+///|
+using @ir {type IRContext, type LocalGraph, type LocalSet}

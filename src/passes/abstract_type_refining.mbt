@@ -4,7 +4,10 @@ type HeapTypeSet = Set[HeapType]
 ///|
 type HeapTypeMap = Map[HeapType, HeapType]
 
-pub (all) struct  AbstractTypeRefiningPassProps { traps_never_happen : Bool }
+///|
+pub(all) struct AbstractTypeRefiningPassProps {
+  traps_never_happen : Bool
+}
 
 ///|
 priv struct ATRState {
@@ -269,6 +272,7 @@ fn rewrite_descriptor_exact_br_on_cast(
   }
 }
 
+///|
 fn run_abstract_type_refining_pass(
   mod : Module,
   props : AbstractTypeRefiningPassProps,
@@ -278,9 +282,7 @@ fn run_abstract_type_refining_pass(
   ctx.set_mod(mod)
   let pass = abstract_type_refining(mod, props.traps_never_happen)
   match pass.walk_module(ctx, mod) {
-    Ok(Some((_, final_mod))) => {
-      mod = final_mod
-    }
+    Ok(Some((_, final_mod))) => mod = final_mod
     Ok(None) => ()
     Err(e) => return Err(e)
   }
@@ -288,7 +290,10 @@ fn run_abstract_type_refining_pass(
 }
 
 ///|
-fn abstract_type_refining(mod : Module, traps_never_happen : Bool) -> ModuleTransformer[IRContext] {
+fn abstract_type_refining(
+  mod : Module,
+  traps_never_happen : Bool,
+) -> ModuleTransformer[IRContext] {
   let state = compute_atr_state(mod, traps_never_happen)
   ModuleTransformer::new()
   .on_tinstruction_evt(fn(_, ctx : IRContext, instr) {
@@ -331,7 +336,9 @@ test "abstract struct usage becomes bottom" {
         ),
       ]),
     )
-  let new_mod = run_abstract_type_refining_pass(mod, { traps_never_happen: true })
+  let new_mod = run_abstract_type_refining_pass(mod, {
+    traps_never_happen: true,
+  })
   let CodeSec(funcs) = new_mod.unwrap().code_sec.unwrap()
   let instrs = match funcs[0] {
     Func(_) => fail("Expected tfunc")
@@ -482,7 +489,9 @@ test "abstract struct does not trap when traps may happen" {
         ),
       ]),
     )
-  let new_mod = run_abstract_type_refining_pass(mod, { traps_never_happen: false })
+  let new_mod = run_abstract_type_refining_pass(mod, {
+    traps_never_happen: false,
+  })
   let CodeSec(funcs) = new_mod.unwrap().code_sec.unwrap()
   let instrs = match funcs[0] {
     Func(_) => fail("Expected tfunc")

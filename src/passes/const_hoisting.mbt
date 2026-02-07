@@ -13,29 +13,38 @@ pub enum LiteralKind {
 ///|
 pub struct Literal(LiteralKind, Bytes) derive(Eq, Hash, Show)
 
+///|
 pub fn Literal::i32(val : Int) -> Literal {
   let buf = @buffer.new(size_hint=4)
   buf.write_int_le(val)
   Literal(I32LiteralKind, buf.to_bytes())
-} 
+}
+
+///|
 pub fn Literal::i64(val : Int64) -> Literal {
   let buf = @buffer.new(size_hint=8)
   buf.write_int64_le(val)
   Literal(I64LiteralKind, buf.to_bytes())
-} 
+}
+
+///|
 pub fn Literal::f32(val : Float) -> Literal {
   let buf = @buffer.new(size_hint=4)
   buf.write_float_le(val)
   Literal(F32LiteralKind, buf.to_bytes())
-} 
+}
+
+///|
 pub fn Literal::f64(val : Double) -> Literal {
   let buf = @buffer.new(size_hint=8)
   buf.write_double_le(val)
   Literal(F64LiteralKind, buf.to_bytes())
-} 
+}
+
+///|
 pub fn Literal::v128(val : Bytes) -> Literal {
   Literal(V128LiteralKind, val)
-} 
+}
 
 ///|
 fn Literal::byte_size(self : Literal) -> Int {

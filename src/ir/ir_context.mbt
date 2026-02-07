@@ -1,4 +1,4 @@
-
+///|
 pub fn IRContext::new() -> Self {
   {
     mod_: None,
@@ -15,25 +15,27 @@ pub fn IRContext::new() -> Self {
   }
 }
 
+///|
 pub fn IRContext::get_mod(self : Self) -> Module? {
   self.mod_
 }
 
+///|
 pub fn IRContext::set_body(self : Self, body : TExpr) -> Unit {
   self.body = body
   self.cfg_dirty()
 }
 
+///|
 pub fn IRContext::set_mod(self : Self, mod_ : @lib.Module) -> Unit {
   self.mod_ = Some(mod_)
   // Module change invalidates everything
   self.cfg_dirty()
 }
 
-
-
 // --------------- Lazy getters ---------------
 
+///|
 pub fn IRContext::get_local_graph(self : Self) -> LocalGraph {
   match self.local_graph {
     Some(val) => val
@@ -45,6 +47,7 @@ pub fn IRContext::get_local_graph(self : Self) -> LocalGraph {
   }
 }
 
+///|
 pub fn IRContext::get_cfg(self : Self) -> CFG {
   match self.cfg {
     Some(val) => val
@@ -56,6 +59,7 @@ pub fn IRContext::get_cfg(self : Self) -> CFG {
   }
 }
 
+///|
 pub fn IRContext::get_ssa(self : Self) -> SSACFG {
   match self.ssa {
     Some(val) => val
@@ -71,6 +75,7 @@ pub fn IRContext::get_ssa(self : Self) -> SSACFG {
   }
 }
 
+///|
 pub fn IRContext::get_usedef(self : Self) -> UseDefInfo {
   match self.usedef {
     Some(val) => val
@@ -83,6 +88,7 @@ pub fn IRContext::get_usedef(self : Self) -> UseDefInfo {
   }
 }
 
+///|
 pub fn IRContext::get_liveness(self : Self) -> LivenessInfo {
   match self.liveness {
     Some(val) => val
@@ -95,7 +101,8 @@ pub fn IRContext::get_liveness(self : Self) -> LivenessInfo {
   }
 }
 
-pub fn IRContext::get_types(self : Self) -> Option[SSATypeInfo] {
+///|
+pub fn IRContext::get_types(self : Self) -> SSATypeInfo? {
   match self.types {
     Some(val) => Some(val)
     None => {
@@ -111,6 +118,7 @@ pub fn IRContext::get_types(self : Self) -> Option[SSATypeInfo] {
   }
 }
 
+///|
 pub fn IRContext::get_gvn(self : Self) -> SSACFG {
   match self.gvn {
     Some(val) => val
@@ -127,12 +135,14 @@ pub fn IRContext::get_gvn(self : Self) -> SSACFG {
 
 // --------------- Cascading dirty flags ---------------
 
+///|
 /// Invalidates CFG and everything downstream.
 pub fn IRContext::cfg_dirty(self : Self) -> Unit {
   self.cfg = None
   self.ssa_dirty()
 }
 
+///|
 /// Invalidates SSA and everything that depends on it.
 pub fn IRContext::ssa_dirty(self : Self) -> Unit {
   self.ssa = None
@@ -143,34 +153,41 @@ pub fn IRContext::ssa_dirty(self : Self) -> Unit {
   self.local_graph_dirty()
 }
 
+///|
 pub fn IRContext::usedef_dirty(self : Self) -> Unit {
   self.usedef = None
 }
 
+///|
 pub fn IRContext::liveness_dirty(self : Self) -> Unit {
   self.liveness = None
 }
 
+///|
 pub fn IRContext::types_dirty(self : Self) -> Unit {
   self.types = None
 }
 
+///|
 pub fn IRContext::gvn_dirty(self : Self) -> Unit {
   self.gvn = None
 }
 
+///|
 pub fn IRContext::local_graph_dirty(self : Self) -> Unit {
   self.local_graph = None
 }
 
 // --------------- Additional helpers ---------------
 
+///|
 /// Lowers the (possibly GVN-optimized) SSA back to a CFG.
 pub fn IRContext::lower_to_cfg(self : Self) -> CFG {
   let ssa = self.get_gvn()
   ssa_to_cfg(ssa, self.locals.length())
 }
 
+///|
 /// Applies GVN, replaces the cached SSA with the optimized version,
 /// and invalidates downstream analyses so they're recomputed on demand.
 pub fn IRContext::apply_gvn(self : Self) -> Unit {
@@ -183,19 +200,19 @@ pub fn IRContext::apply_gvn(self : Self) -> Unit {
   self.types = None
 }
 
+///|
 /// Validates the current CFG, returning an error string on failure.
 pub fn IRContext::validate(self : Self) -> Result[Unit, String] {
   self.get_cfg().validate()
 }
 
-pub fn IRContext::set_locals(
-  self : Self,
-  locals : Array[ValType]
-) -> Unit {
+///|
+pub fn IRContext::set_locals(self : Self, locals : Array[ValType]) -> Unit {
   self.locals = locals
   self.ssa_dirty()
 }
 
+///|
 fn extract_comp_type(sub_type : SubType) -> CompType {
   match sub_type {
     SubType(_, _, comp) => comp
@@ -203,10 +220,8 @@ fn extract_comp_type(sub_type : SubType) -> CompType {
   }
 }
 
-fn resolve_func_type(
-  comp_types : Array[CompType],
-  idx : TypeIdx
-) -> FuncType {
+///|
+fn resolve_func_type(comp_types : Array[CompType], idx : TypeIdx) -> FuncType {
   let i = match idx {
     TypeIdx(n) => n
     RecIdx(n) => n
@@ -217,9 +232,10 @@ fn resolve_func_type(
   }
 }
 
+///|
 pub fn TypeContext::from_module(
   mod_ : Module,
-  locals : Array[ValType]
+  locals : Array[ValType],
 ) -> TypeContext {
   // 1. Flatten type section into CompTypes indexed by type index
   let comp_types : Array[CompType] = []
@@ -307,7 +323,6 @@ pub fn TypeContext::from_module(
       FuncCompType(_, _) => ()
     }
   }
-
   {
     func_types,
     global_types,
@@ -319,6 +334,7 @@ pub fn TypeContext::from_module(
   }
 }
 
+///|
 pub fn IRContext::get_type_ctx(self : Self) -> Result[TypeContext, String] {
   match self.type_ctx {
     Some(ctx) => Ok(ctx)

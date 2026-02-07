@@ -18,9 +18,15 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
 - MoonBit code is organized in block style, each block is separated by `///|`,
   the order of each block is irrelevant. In some refactorings, you can process
   block by block independently.
-
 - Try to keep deprecated blocks in file called `deprecated.mbt` in each
   directory, with each function marked with `#deprecated` comment.
+- Prefer using constructor methods instead of open structs directly
+  ```mbt
+  let a = A::{x: 1, y: 2} // bad
+  let a = A::new(1, 2) // good
+  ``` 
+- If a data structure is needed for optimization, it should be added to `IRContext` instead of being passed around as parameters, especially if it can be used for other passes.
+- "Pass" parameters can be passed to the function that construct the pass, but should be immutable, and enclosed over via the `ModuleTransformer` event functions 
 
 ## Tooling
 
@@ -71,12 +77,3 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
 - `src/transformer/*.mbt` contains the `ModuleTransformer` struct and utilities for building module passes
 - `src/dataflow/*.mbt` contains a fragmented implementation of a dataflow framework for building dataflow analyses and optimizations, but is not well-integrated with the rest of the IR passes and utilities. Should be deprecated and integrated into `IRContext` instead
 
-## Coding conventions
-
-- Prefer using constructor methods instead of open structs directly
-  ```mbt
-  let a = A::{x: 1, y: 2} // bad
-  let a = A::new(1, 2) // good
-  ```
-- If a data structure is needed for optimization, it should be added to `IRContext` instead of being passed around as parameters, especially if it can be used for other passes.
-- "Pass" parameters can be passed to the function that construct the pass, but should be immutable, and enclosed over via the `ModuleTransformer` event functions 

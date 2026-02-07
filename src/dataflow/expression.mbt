@@ -369,8 +369,9 @@ pub struct ConstExpr {
   value : Literal
 } derive(Eq, Show)
 
+///|
 pub fn ConstExpr::new(value : Literal) -> ConstExpr {
-  ConstExpr::{ value }
+  ConstExpr::{ value, }
 }
 
 ///|
