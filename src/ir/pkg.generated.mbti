@@ -17,6 +17,8 @@ pub fn compute_liveness(SSACFG) -> LivenessInfo
 
 pub fn infer_ssa_types(SSACFG, TypeContext) -> SSATypeInfo
 
+pub fn optimize_ssa(SSACFG) -> SSACFG
+
 pub fn run_gvn(SSACFG, Map[BlockId, BlockId]) -> SSACFG
 
 pub fn split_critical_edges(SSACFG) -> SSACFG
@@ -179,6 +181,10 @@ pub enum SSAInstr {
 }
 pub impl Show for SSAInstr
 
+type SSALiteral
+pub impl Eq for SSALiteral
+pub impl Show for SSALiteral
+
 pub enum SSAOp {
   I32Const(@lib.I32)
   I64Const(@lib.I64)
@@ -254,6 +260,8 @@ pub enum SSAOp {
   Throw(@lib.TagIdx, Array[SSAValue])
 }
 pub impl Show for SSAOp
+
+type SSAOptCtx
 
 pub enum SSATerminator {
   Br(BlockId)
