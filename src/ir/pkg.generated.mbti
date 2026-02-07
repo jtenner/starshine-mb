@@ -261,8 +261,6 @@ pub enum SSAOp {
 }
 pub impl Show for SSAOp
 
-type SSAOptCtx
-
 pub enum SSATerminator {
   Br(BlockId)
   BrIf(SSAValue, BlockId, BlockId)

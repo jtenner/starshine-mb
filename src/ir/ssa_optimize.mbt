@@ -567,13 +567,14 @@ fn try_strength_reduce_ssa(
 ) -> Bool {
   match op {
     I32MulOp => {
+      // x * (2^k) → x << k
       match ctx.get_const(right) {
         Some(LitI32(c)) if is_power_of_2_i32(c) => {
           let shift = log2_i32(c)
           let shift_v = ctx.make_const(LitI32(shift))
           ctx.def_map[result] = SSAOp::Binary(
             BinaryOp::i32_shl(),
-            left,
+            left, // ✅ use the non-const operand
             shift_v,
           )
           ctx.changed = true
@@ -581,13 +582,15 @@ fn try_strength_reduce_ssa(
         }
         _ => ()
       }
+
+      // (2^k) * x → x << k
       match ctx.get_const(left) {
         Some(LitI32(c)) if is_power_of_2_i32(c) => {
           let shift = log2_i32(c)
           let shift_v = ctx.make_const(LitI32(shift))
           ctx.def_map[result] = SSAOp::Binary(
             BinaryOp::i32_shl(),
-            right,
+            right, // ✅ use the non-const operand
             shift_v,
           )
           ctx.changed = true
@@ -598,13 +601,14 @@ fn try_strength_reduce_ssa(
       false
     }
     I64MulOp => {
+      // x * (2^k) → x << k
       match ctx.get_const(right) {
         Some(LitI64(c)) if is_power_of_2_i64(c) => {
           let shift = log2_i64(c)
           let shift_v = ctx.make_const(LitI64(shift))
           ctx.def_map[result] = SSAOp::Binary(
             BinaryOp::i64_shl(),
-            left,
+            left, // ✅ shift the non-const operand
             shift_v,
           )
           ctx.changed = true
@@ -612,13 +616,15 @@ fn try_strength_reduce_ssa(
         }
         _ => ()
       }
+
+      // (2^k) * x → x << k
       match ctx.get_const(left) {
         Some(LitI64(c)) if is_power_of_2_i64(c) => {
           let shift = log2_i64(c)
           let shift_v = ctx.make_const(LitI64(shift))
           ctx.def_map[result] = SSAOp::Binary(
             BinaryOp::i64_shl(),
-            right,
+            right, // ✅ shift the non-const operand
             shift_v,
           )
           ctx.changed = true
@@ -631,6 +637,11 @@ fn try_strength_reduce_ssa(
     I32DivUOp =>
       match ctx.get_const(right) {
         Some(LitI32(c)) if is_power_of_2_i32(c) => {
+          if c == 1 {
+            ctx.replace(result, left)
+            ctx.changed = true
+            return true
+          }
           let shift = log2_i32(c)
           let shift_v = ctx.make_const(LitI32(shift))
           ctx.def_map[result] = SSAOp::Binary(
@@ -646,6 +657,11 @@ fn try_strength_reduce_ssa(
     I64DivUOp =>
       match ctx.get_const(right) {
         Some(LitI64(c)) if is_power_of_2_i64(c) => {
+          if c == 1L {
+            ctx.replace(result, left)
+            ctx.changed = true
+            return true
+          }
           let shift = log2_i64(c)
           let shift_v = ctx.make_const(LitI64(shift))
           ctx.def_map[result] = SSAOp::Binary(
@@ -1650,14 +1666,19 @@ pub fn optimize_ssa(ssa : SSACFG) -> SSACFG {
     // Phase 1: Local instruction-level optimization
     // ----------------------------------------------------------
 
+    // Store optimized terminators from Phase 1
+    let optimized_terminators : Map[BlockId, SSATerminator] = {}
+
+    // ----------------------------------------------------------
+    // Phase 1: Local instruction-level optimization
+    // ----------------------------------------------------------
     for b in current.blocks {
-      let (_, block) = b
-      // Phis
+      let (bid, block) = b
+
+      // Phis and instructions...
       for phi in block.phis {
         optimize_phi(ctx, phi)
       }
-
-      // Instructions
       for instr in block.instrs {
         match instr {
           Assign(v, op) => optimize_assign(ctx, v, op)
@@ -1665,15 +1686,13 @@ pub fn optimize_ssa(ssa : SSACFG) -> SSACFG {
         }
       }
 
-      // Terminators
-      let _ = optimize_terminator(ctx, block.terminator)
-
+      // Terminators - store the result!
+      let opt_term = optimize_terminator(ctx, block.terminator)
+      let new_term = ctx.rewrite_terminator(opt_term)
+      ctx.mark_terminator_uses(new_term)
+      optimized_terminators[bid] = new_term
     }
-
-    // No changes => fixed point
-    if not(ctx.changed) {
-      break
-    }
+    let mut iteration_changed = ctx.changed
 
     // ----------------------------------------------------------
     // Phase 2: Rewrite SSA using replacement map
@@ -1696,7 +1715,7 @@ pub fn optimize_ssa(ssa : SSACFG) -> SSACFG {
       }
 
       // Rewrite terminator
-      let new_term = ctx.rewrite_terminator(block.terminator)
+      let new_term = optimized_terminators[bid]
       ctx.mark_terminator_uses(new_term)
 
       // Rewrite instructions (keep all for now)
@@ -1705,10 +1724,13 @@ pub fn optimize_ssa(ssa : SSACFG) -> SSACFG {
         match instr {
           Assign(v, op) =>
             if ctx.replacements.contains(v) {
-              // Eliminated by replacement
-              ()
+              () // Eliminated by replacement
             } else {
-              let new_op = ctx.rewrite_op(op)
+              let effective_op = match ctx.def_map.get(v) {
+                Some(new_op) => new_op
+                None => op
+              }
+              let new_op = ctx.rewrite_op(effective_op)
               rewritten.push(Assign(v, new_op))
             }
           Effect(op) => {
@@ -1724,16 +1746,24 @@ pub fn optimize_ssa(ssa : SSACFG) -> SSACFG {
       // ------------------------------------------------------
 
       let final_instrs : Array[SSAInstr] = []
-      for instr in rewritten {
-        match instr {
+      for i = rewritten.length() - 1; i >= 0; i = i - 1 {
+        match rewritten[i] {
           Assign(v, op) =>
             if has_side_effects(op) || ctx.used.contains(v) {
               ctx.mark_op_uses(op)
-              final_instrs.push(instr)
+              final_instrs.push(rewritten[i])
             }
-          Effect(_) => final_instrs.push(instr)
+          Effect(op) => {
+            ctx.mark_op_uses(op)
+            final_instrs.push(rewritten[i])
+          }
         }
       }
+      if final_instrs.length() != rewritten.length() {
+        iteration_changed = true
+      }
+      // Reverse back to original order
+      final_instrs.rev_in_place()
       new_blocks[bid] = {
         id: bid,
         phis: new_phis,
@@ -1762,6 +1792,7 @@ pub fn optimize_ssa(ssa : SSACFG) -> SSACFG {
             ctx.used.contains(v) &&
             not(entry_block.instrs.any(predicate)) {
             new_instrs.insert(0, Assign(v, op))
+            iteration_changed = true
           }
         }
         new_blocks[entry] = {
@@ -1779,6 +1810,9 @@ pub fn optimize_ssa(ssa : SSACFG) -> SSACFG {
     // ----------------------------------------------------------
 
     current = { ..current, blocks: new_blocks, next_value: ctx.next_value }
+    if not(iteration_changed) {
+      break
+    }
   }
   current
 }
