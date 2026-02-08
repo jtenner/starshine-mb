@@ -68,8 +68,15 @@
   - [x] Binaryen Pass : GlobalRefining.cpp
   - [x] Binaryen Pass : GlobalStructInference.cpp
   - [x] Binaryen Pass : GlobalTypeOptimization.cpp
-  - [ ] Binaryen Pass : Heap2Local.cpp
-  - [ ] Binaryen Pass : HeapStoreOptimization.cpp
+  - [x] Binaryen Pass : Heap2Local.cpp
+    - [ ] Heap2Local parity follow-ups:
+      - [ ] Escape/exclusivity analysis parity: model parent-child flow/branch targets (including mixed-flow rejection) instead of local-use shape heuristics
+      - [ ] Descriptor-aware parity: support `struct.new` descriptor flows and `ref.cast_desc_eq` / `ref.get_desc` rewrites
+      - [ ] RMW parity: support `struct.rmw`, `struct.cmpxchg`, `array.rmw`, `array.cmpxchg` lowering behavior
+      - [ ] Array coverage parity: support additional non-escaping fixed-size array forms (`array.new_data`, `array.new_elem`) and associated rewrite paths
+      - [ ] Control-flow parity: add explicit EH pop-fixup + branch-sensitive movement checks equivalent to Binaryen `canMoveSet` style safety
+      - [ ] Multi-round optimization parity: evaluate iterative Heap2Local + cleanup interleaving (vacuum-style) for nested allocation cases
+  - [x] Binaryen Pass : HeapStoreOptimization.cpp
   - [ ] Binaryen Pass : I64ToI32Lowering.cpp
   - [ ] Binaryen Pass : Inlining.cpp
   - [ ] Binaryen Pass : InstrumentBranchHints.cpp

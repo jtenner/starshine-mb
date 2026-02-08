@@ -146,6 +146,8 @@ pub(all) enum ModulePass {
   GlobalStructInference
   GlobalStructInferenceDescCast
   GlobalTypeOptimization
+  Heap2Local
+  HeapStoreOptimization
   GUFA
   GUFAOptimizing
   GUFACastAll

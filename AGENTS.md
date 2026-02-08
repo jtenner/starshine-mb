@@ -89,6 +89,8 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
   - `const_hoisting_ir_pass`
   - `constant_field_propagation_ir_pass`
   - `directize_ir_pass`
+  - `heap2local_ir_pass`
+  - `heap_store_optimization_ir_pass`
   - `optimize_casts_ir_pass`
 - `src/passes/util.mbt` contains `wrap_unit_func_pass` for adapting `ModuleTransformer[Unit]` function-level passes into `ModuleTransformer[IRContext]`.
 - `src/passes/dataflow_opt.mbt` is SSA-backed: it uses `IRContext.optimize_body_with_ssa()` and is the intended replacement path over the deprecated `src/dataflow/*` package.
@@ -114,6 +116,46 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
   - `struct.get*` / `struct.set` field indices are remapped
   - removed `struct.set` operations are replaced with side-effect-preserving drops and null-trap preservation
 - Module-level `Expr` initializers are rewritten by converting through `to_texpr` / `TExpr::to_expr`; removed potentially-trapping initializer operands are preserved by synthesizing extra immutable globals.
+
+## Heap2Local notes (learned)
+
+- `src/passes/heap2local.mbt` is integrated as `ModulePass::Heap2Local` in `src/passes/optimize.mbt`.
+- The pass is conservative and local-based:
+  - candidate allocations are tracked from `local.set` of `struct.new` / `struct.new_default` and fixed-size `array.new*` forms
+  - locals are optimized only when all `local.get` uses are exclusive/safe (`struct.get/set`, fixed-index `array.get/set`, `array.len`, dropped gets)
+  - any escaping or mixed local usage (calls, non-constant array indexes, non-allocation writes, tees) blocks optimization for that local
+- Rewriting lowers heap fields/elements to dedicated locals:
+  - allocation sites become field/element local initialization blocks
+  - `struct.get/set` and fixed-index `array.get/set` become `local.get/set`
+  - `array.len` becomes a constant
+  - dropped allocation references become `nop`
+- Packed storage is now supported in local form:
+  - `struct.get_s/u` / `array.get_s/u` are preserved via explicit sign/zero-extension on local reads
+  - packed writes are masked on local stores so slot values match wasm packed field semantics.
+- `Heap2Local` now rewrites additional non-escaping ref uses:
+  - `ref.is_null` on optimized allocations to `i32.const 0`
+  - `ref.eq` on optimized allocations to constant outcomes with side-effect preservation for non-local operands.
+- Candidate acceptance now includes a `LocalGraph` influence check:
+  - each `local.get` for a candidate local must trace only to matching allocation-producing sets
+  - candidate locals are rejected if a get can see `InitValue` or non-matching sets.
+- Additional safety filter rejects candidates with non-uniform conditional sets:
+  - if a candidate local is assigned in only one arm of an `if`, it is not optimized.
+- Fixed-size array OOB constant-index accesses are now lowered with trap-preserving rewrites:
+  - `array.get*` OOB becomes `unreachable`
+  - `array.set` OOB becomes `block(drop(value), unreachable)` so value side effects are preserved.
+
+## Heap Store Optimization notes (learned)
+
+- `src/passes/heap_store_optimization.mbt` is integrated as `ModulePass::HeapStoreOptimization` in `src/passes/optimize.mbt`.
+- The pass currently implements Binaryen-style folding of `struct.set` into an immediately-related `struct.new`:
+  - nested tee pattern: `struct.set(..., local.tee $x (struct.new ...), value)`
+  - list pattern: `local.set $x (struct.new ...)` followed by one or more `struct.set (local.get $x) ...`
+- The pass performs conservative effect checks before reordering/folding:
+  - local read/write conflicts on the reference local
+  - conflicts with later `struct.new` operands crossed by moved values
+  - fallback preservation of replaced operand side effects via `drop(old), new` sequences
+- `struct.new_default` is materialized to explicit defaults when folding.
+- Current implementation includes a conservative branch-safety approximation for skipping-`local.set` hazards (safer but potentially less optimizing than Binaryen's full `canMoveSet` analysis).
 
 ## GUFA notes (learned)
 

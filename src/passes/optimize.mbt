@@ -16,6 +16,8 @@ pub(all) enum ModulePass {
   GlobalStructInference
   GlobalStructInferenceDescCast
   GlobalTypeOptimization
+  Heap2Local
+  HeapStoreOptimization
   GUFA
   GUFAOptimizing
   GUFACastAll
@@ -179,6 +181,21 @@ pub fn optimize_module_with_options(
         }
       GlobalTypeOptimization =>
         match global_type_optimization(mod) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      Heap2Local =>
+        match apply_ir_transformer_pass(ctx, mod, heap2local_ir_pass(mod)) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      HeapStoreOptimization =>
+        match
+          apply_ir_transformer_pass(
+            ctx,
+            mod,
+            heap_store_optimization_ir_pass(mod),
+          ) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }
@@ -615,6 +632,99 @@ test "optimize_module runs GlobalTypeOptimization pass" {
         _ => fail("expected optimized struct type")
       }
     _ => fail("expected type section")
+  }
+}
+
+///|
+test "optimize_module runs Heap2Local pass" {
+  let struct_type = single_rec_type(
+    comp_type_sub_type(
+      struct_comp_type([
+        FieldType::new(StorageType::val_type(ValType::i32()), Var),
+      ]),
+    ),
+  )
+  let local_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([struct_type]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [local_ref],
+          TExpr::new([
+            TInstr::local_set(
+              LocalIdx::new(0),
+              TInstr::struct_new(TypeIdx::new(0), [TInstr::i32_const(I32(1))]),
+            ),
+            TInstr::struct_set(
+              TypeIdx::new(0),
+              @lib.U32(0),
+              TInstr::local_get(LocalIdx::new(0)),
+              TInstr::i32_const(I32(3)),
+            ),
+            TInstr::drop(
+              TInstr::struct_get(
+                TypeIdx::new(0),
+                @lib.U32(0),
+                TInstr::local_get(LocalIdx::new(0)),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match optimize_module(mod, [Heap2Local]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, body)])) => assert_eq(h2l_count_gc_ops(body), 0)
+    _ => fail("expected optimized function")
+  }
+}
+
+///|
+test "optimize_module runs HeapStoreOptimization pass" {
+  let struct_type = single_rec_type(
+    comp_type_sub_type(
+      struct_comp_type([
+        FieldType::new(StorageType::val_type(ValType::i32()), Var),
+      ]),
+    ),
+  )
+  let local_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([struct_type]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [local_ref],
+          TExpr::new([
+            TInstr::local_set(
+              LocalIdx::new(0),
+              TInstr::struct_new(TypeIdx::new(0), [TInstr::i32_const(I32(1))]),
+            ),
+            TInstr::struct_set(
+              TypeIdx::new(0),
+              @lib.U32(0),
+              TInstr::local_get(LocalIdx::new(0)),
+              TInstr::i32_const(I32(9)),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match optimize_module(mod, [HeapStoreOptimization]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, body)])) => assert_eq(hso_count_struct_sets(body), 0)
+    _ => fail("expected optimized function")
   }
 }
 
