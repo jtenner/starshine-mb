@@ -3,10 +3,20 @@ package "jtenner/starshine/wast"
 
 import {
   "moonbitlang/core/hashmap",
+  "moonbitlang/core/quickcheck",
+  "moonbitlang/core/quickcheck/splitmix",
 }
 
 // Values
 pub fn lookup_keyword(String) -> TokenType?
+
+pub fn module_to_wast(Module) -> Result[String, String]
+
+pub fn script_to_wast(WastScript) -> Result[String, String]
+
+pub fn wast_to_module(String, filename? : String) -> Result[Module, String]
+
+pub fn wast_to_script(String, filename? : String) -> Result[WastScript, String]
 
 // Errors
 pub suberror ParserError {
@@ -16,11 +26,16 @@ pub suberror ParserError {
 }
 pub impl Show for ParserError
 
+pub suberror WastTextError {
+  Unsupported(String)
+}
+
 // Types and methods
 pub struct BlockType {
   label : String?
   type_use : TypeUse?
 }
+pub impl @quickcheck.Arbitrary for BlockType
 
 pub struct DataSegment {
   id : String?
@@ -28,6 +43,7 @@ pub struct DataSegment {
   offset : Array[Instruction]
   data : Bytes
 }
+pub impl @quickcheck.Arbitrary for DataSegment
 
 pub struct ElemSegment {
   id : String?
@@ -35,6 +51,7 @@ pub struct ElemSegment {
   offset : Array[Instruction]
   func_indices : Array[Index]
 }
+pub impl @quickcheck.Arbitrary for ElemSegment
 
 pub enum ErrorLevel {
   Error
@@ -44,6 +61,7 @@ pub struct Export {
   name : String
   desc : ExportDesc
 }
+pub impl @quickcheck.Arbitrary for Export
 
 pub enum ExportDesc {
   Func(Index)
@@ -51,6 +69,7 @@ pub enum ExportDesc {
   Memory(Index)
   Global(Index)
 }
+pub impl @quickcheck.Arbitrary for ExportDesc
 
 pub struct Func {
   id : String?
@@ -59,11 +78,13 @@ pub struct Func {
   locals : Array[Local]
   body : Array[Instruction]
 }
+pub impl @quickcheck.Arbitrary for Func
 
 pub struct FuncType {
   params : Array[ValueType]
   results : Array[ValueType]
 }
+pub impl @quickcheck.Arbitrary for FuncType
 
 pub struct Global {
   id : String?
@@ -71,11 +92,13 @@ pub struct Global {
   global_type : GlobalType
   init : Array[Instruction]
 }
+pub impl @quickcheck.Arbitrary for Global
 
 pub struct GlobalType {
   val_type : ValueType
   mutable_ : Bool
 }
+pub impl @quickcheck.Arbitrary for GlobalType
 
 pub struct Import {
   module_name : String
@@ -83,6 +106,7 @@ pub struct Import {
   desc : ImportDesc
   id : String?
 }
+pub impl @quickcheck.Arbitrary for Import
 
 pub enum ImportDesc {
   Func(TypeUse)
@@ -90,15 +114,18 @@ pub enum ImportDesc {
   Memory(MemoryType)
   Global(GlobalType)
 }
+pub impl @quickcheck.Arbitrary for ImportDesc
 
 pub enum Index {
   Num(UInt)
   Id(String)
 }
+pub impl @quickcheck.Arbitrary for Index
 
 pub enum InlineExport {
   Export(String)
 }
+pub impl @quickcheck.Arbitrary for InlineExport
 
 pub enum Instruction {
   Unreachable
@@ -198,6 +225,7 @@ pub enum Instruction {
   SimdConvert(Opcode)
   SimdRelaxed(Opcode)
 }
+pub impl @quickcheck.Arbitrary for Instruction
 
 pub struct KeywordTable {
   map : @hashmap.HashMap[String, TokenType]
@@ -220,6 +248,7 @@ pub struct Limits {
   min : UInt
   max : UInt?
 }
+pub impl @quickcheck.Arbitrary for Limits
 
 pub struct Literal {
   literal_type : LiteralType
@@ -240,6 +269,7 @@ pub struct Local {
   id : String?
   val_type : ValueType
 }
+pub impl @quickcheck.Arbitrary for Local
 
 pub struct Location {
   filename : String
@@ -253,21 +283,25 @@ pub struct MemArg {
   align : UInt
   offset : UInt
 }
+pub impl @quickcheck.Arbitrary for MemArg
 
 pub struct Memory {
   id : String?
   exports : Array[InlineExport]
   memory_type : MemoryType
 }
+pub impl @quickcheck.Arbitrary for Memory
 
 pub struct MemoryType(Limits)
 #deprecated
 pub fn MemoryType::inner(Self) -> Limits
+pub impl @quickcheck.Arbitrary for MemoryType
 
 pub struct Module {
   id : String?
   fields : Array[ModuleField]
 }
+pub impl @quickcheck.Arbitrary for Module
 
 pub enum ModuleField {
   TypeField(TypeDef)
@@ -281,6 +315,7 @@ pub enum ModuleField {
   ElemField(ElemSegment)
   DataField(DataSegment)
 }
+pub impl @quickcheck.Arbitrary for ModuleField
 
 pub enum Opcode {
   Unreachable
@@ -734,6 +769,7 @@ pub enum Opcode {
 }
 pub impl Eq for Opcode
 pub impl Show for Opcode
+pub impl @quickcheck.Arbitrary for Opcode
 
 pub struct ParseError {
   location : Location
@@ -743,6 +779,7 @@ pub struct ParseError {
 pub struct ShuffleLanes {
   lanes : FixedArray[UInt]
 }
+pub impl @quickcheck.Arbitrary for ShuffleLanes
 
 pub enum SimdShape {
   I8x16
@@ -754,21 +791,25 @@ pub enum SimdShape {
 }
 pub impl Eq for SimdShape
 pub impl Show for SimdShape
+pub impl @quickcheck.Arbitrary for SimdShape
 
 pub struct Start {
   func_index : Index
 }
+pub impl @quickcheck.Arbitrary for Start
 
 pub struct Table {
   id : String?
   exports : Array[InlineExport]
   table_type : TableType
 }
+pub impl @quickcheck.Arbitrary for Table
 
 pub struct TableType {
   limits : Limits
   elem_type : ValueType
 }
+pub impl @quickcheck.Arbitrary for TableType
 
 pub struct Token {
   location : Location
@@ -849,16 +890,19 @@ pub struct TypeDef {
   id : String?
   func_type : FuncType
 }
+pub impl @quickcheck.Arbitrary for TypeDef
 
 pub struct TypeUse {
   type_index : Index?
   func_type : FuncType
 }
+pub impl @quickcheck.Arbitrary for TypeUse
 
 pub struct V128Const {
   shape : SimdShape
   values : Array[String]
 }
+pub impl @quickcheck.Arbitrary for V128Const
 
 pub enum ValueType {
   I32
@@ -870,17 +914,20 @@ pub enum ValueType {
   ExternRef
 }
 pub impl Show for ValueType
+pub impl @quickcheck.Arbitrary for ValueType
 
 pub struct WastAction {
   module_name : String?
   name : String
   args : Array[WastValue]
 }
+pub impl @quickcheck.Arbitrary for WastAction
 
 pub enum WastActionType {
   Invoke(WastAction)
   Get(String?, String)
 }
+pub impl @quickcheck.Arbitrary for WastActionType
 
 pub enum WastCommand {
   Module(Module)
@@ -895,6 +942,7 @@ pub enum WastCommand {
   AssertInvalid(WastModuleDef, String)
   AssertUnlinkable(WastModuleDef, String)
 }
+pub impl @quickcheck.Arbitrary for WastCommand
 
 pub struct WastLexer {
   buffer : Bytes
@@ -915,6 +963,7 @@ pub enum WastModuleDef {
   Binary(Bytes)
   Quote(Array[String])
 }
+pub impl @quickcheck.Arbitrary for WastModuleDef
 
 pub struct WastParser {
   lexer : WastLexer
@@ -936,10 +985,12 @@ pub enum WastResult {
   RefNull(ValueType?)
   RefFunc
 }
+pub impl @quickcheck.Arbitrary for WastResult
 
 pub struct WastScript {
   commands : Array[WastCommand]
 }
+pub impl @quickcheck.Arbitrary for WastScript
 
 pub enum WastValue {
   I32(String)
@@ -949,6 +1000,7 @@ pub enum WastValue {
   RefNull(ValueType)
   RefFunc
 }
+pub impl @quickcheck.Arbitrary for WastValue
 
 // Type aliases
 
