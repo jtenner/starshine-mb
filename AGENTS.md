@@ -96,12 +96,24 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
 - Dead argument elimination handles "unseen" call edges (exports/start/table/ref.func) by keeping original signatures stable and creating internal optimized clones plus adapter thunks, then remapping direct calls to the cloned targets.
 - `src/passes/optimize.mbt` now includes these additional `ModulePass` variants and dispatch paths:
   - `DuplicateImportElimination`
+  - `GlobalTypeOptimization`
   - `GUFA`
   - `GUFAOptimizing`
   - `GUFACastAll`
 - `GUFAOptimizing` currently runs GUFA and then follows up with:
   - `dead_code_elimination_ir_pass`
   - `code_folding_ir_pass`
+
+## Global Type Optimization notes (learned)
+
+- `src/passes/global_type_optimization.mbt` implements a Binaryen-style whole-module struct field optimizer and is wired into `ModulePass::GlobalTypeOptimization`.
+- Analysis currently tracks field reads/writes from `struct.get*` / `struct.set` and propagates that data across supertypes/subtypes before deciding immutability/removals.
+- The pass skips public-facing heap types (derived from imports/exports signatures and exported externs) to avoid changing external type contracts.
+- Field removals update both type definitions and instruction uses:
+  - `struct.new` operands are removed/reordered
+  - `struct.get*` / `struct.set` field indices are remapped
+  - removed `struct.set` operations are replaced with side-effect-preserving drops and null-trap preservation
+- Module-level `Expr` initializers are rewritten by converting through `to_texpr` / `TExpr::to_expr`; removed potentially-trapping initializer operands are preserved by synthesizing extra immutable globals.
 
 ## GUFA notes (learned)
 

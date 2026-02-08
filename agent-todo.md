@@ -67,7 +67,7 @@
   - [x] Binaryen Pass : GUFA.cpp
   - [x] Binaryen Pass : GlobalRefining.cpp
   - [x] Binaryen Pass : GlobalStructInference.cpp
-  - [ ] Binaryen Pass : GlobalTypeOptimization.cpp
+  - [x] Binaryen Pass : GlobalTypeOptimization.cpp
   - [ ] Binaryen Pass : Heap2Local.cpp
   - [ ] Binaryen Pass : HeapStoreOptimization.cpp
   - [ ] Binaryen Pass : I64ToI32Lowering.cpp

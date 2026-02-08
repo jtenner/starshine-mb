@@ -15,6 +15,7 @@ pub(all) enum ModulePass {
   GlobalRefining
   GlobalStructInference
   GlobalStructInferenceDescCast
+  GlobalTypeOptimization
   GUFA
   GUFAOptimizing
   GUFACastAll
@@ -173,6 +174,11 @@ pub fn optimize_module_with_options(
         }
       GlobalStructInferenceDescCast =>
         match run_global_struct_inference(mod, true) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      GlobalTypeOptimization =>
+        match global_type_optimization(mod) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }
@@ -562,6 +568,53 @@ test "optimize_module runs GlobalStructInferenceDescCast pass" {
       )
     ) => assert_eq(v, 42)
     _ => fail("expected struct.get rewrite in desc-cast pipeline variant")
+  }
+}
+
+///|
+test "optimize_module runs GlobalTypeOptimization pass" {
+  let struct_type = single_rec_type(
+    comp_type_sub_type(
+      struct_comp_type([
+        FieldType::new(StorageType::val_type(ValType::i32()), Var),
+        FieldType::new(StorageType::val_type(ValType::i32()), Var),
+      ]),
+    ),
+  )
+  let func_type = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([struct_type, func_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::drop(
+              TInstr::struct_get(
+                TypeIdx::new(0),
+                @lib.U32(1),
+                TInstr::struct_new(TypeIdx::new(0), [
+                  TInstr::i32_const(I32(11)),
+                  TInstr::i32_const(I32(22)),
+                ]),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match optimize_module(mod, [GlobalTypeOptimization]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.type_sec {
+    Some(TypeSec([SingleRecType(st), _])) =>
+      match st.get_comptype() {
+        StructCompType(fields) => assert_eq(fields.length(), 1)
+        _ => fail("expected optimized struct type")
+      }
+    _ => fail("expected type section")
   }
 }
 
