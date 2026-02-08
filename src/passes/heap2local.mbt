@@ -16,6 +16,7 @@ priv enum H2LUse {
   ArraySet(TypeIdx, Int)
   ArrayLen
   RefIsNull
+  RefTest
   RefEq
   DropOnly
 }
@@ -184,6 +185,38 @@ fn h2l_extract_shape(env : Env, value : TInstr) -> H2LShape? {
         }
         Err(_) => None
       }
+    TArrayNewData(type_idx, _, offset, len) =>
+      match
+        (
+          env.resolve_array_field(type_idx),
+          h2l_const_i32_nonneg(offset),
+          h2l_const_i32_nonneg(len),
+        ) {
+        (Ok(field), Some(_), Some(size)) =>
+          if h2l_field_has_local_representation(field) &&
+            h2l_is_valid_array_size(size) {
+            Some(ArrayShape(type_idx, field, size))
+          } else {
+            None
+          }
+        _ => None
+      }
+    TArrayNewElem(type_idx, _, offset, len) =>
+      match
+        (
+          env.resolve_array_field(type_idx),
+          h2l_const_i32_nonneg(offset),
+          h2l_const_i32_nonneg(len),
+        ) {
+        (Ok(field), Some(_), Some(size)) =>
+          if h2l_field_has_local_representation(field) &&
+            h2l_is_valid_array_size(size) {
+            Some(ArrayShape(type_idx, field, size))
+          } else {
+            None
+          }
+        _ => None
+      }
     _ => None
   }
 }
@@ -239,7 +272,17 @@ fn h2l_scan_body(env : Env, body : TExpr) -> H2LAnalyzeState {
         h2l_inc_count(s.safe_get_counts, idx)
         h2l_add_use(s.uses, idx, H2LUse::StructGet(type_idx, field_idx))
       }
+      TStructGet(type_idx, field_idx, TRefAsNonNull(TLocalGet(loc))) => {
+        let idx = h2l_local_to_int(loc)
+        h2l_inc_count(s.safe_get_counts, idx)
+        h2l_add_use(s.uses, idx, H2LUse::StructGet(type_idx, field_idx))
+      }
       TStructGetS(type_idx, field_idx, TLocalGet(loc)) => {
+        let idx = h2l_local_to_int(loc)
+        h2l_inc_count(s.safe_get_counts, idx)
+        h2l_add_use(s.uses, idx, H2LUse::StructGetS(type_idx, field_idx))
+      }
+      TStructGetS(type_idx, field_idx, TRefAsNonNull(TLocalGet(loc))) => {
         let idx = h2l_local_to_int(loc)
         h2l_inc_count(s.safe_get_counts, idx)
         h2l_add_use(s.uses, idx, H2LUse::StructGetS(type_idx, field_idx))
@@ -249,12 +292,31 @@ fn h2l_scan_body(env : Env, body : TExpr) -> H2LAnalyzeState {
         h2l_inc_count(s.safe_get_counts, idx)
         h2l_add_use(s.uses, idx, H2LUse::StructGetU(type_idx, field_idx))
       }
+      TStructGetU(type_idx, field_idx, TRefAsNonNull(TLocalGet(loc))) => {
+        let idx = h2l_local_to_int(loc)
+        h2l_inc_count(s.safe_get_counts, idx)
+        h2l_add_use(s.uses, idx, H2LUse::StructGetU(type_idx, field_idx))
+      }
       TStructSet(type_idx, field_idx, TLocalGet(loc), _) => {
         let idx = h2l_local_to_int(loc)
         h2l_inc_count(s.safe_get_counts, idx)
         h2l_add_use(s.uses, idx, H2LUse::StructSet(type_idx, field_idx))
       }
+      TStructSet(type_idx, field_idx, TRefAsNonNull(TLocalGet(loc)), _) => {
+        let idx = h2l_local_to_int(loc)
+        h2l_inc_count(s.safe_get_counts, idx)
+        h2l_add_use(s.uses, idx, H2LUse::StructSet(type_idx, field_idx))
+      }
       TArrayGet(type_idx, TLocalGet(loc), index) =>
+        match h2l_const_i32_nonneg(index) {
+          Some(i) => {
+            let idx = h2l_local_to_int(loc)
+            h2l_inc_count(s.safe_get_counts, idx)
+            h2l_add_use(s.uses, idx, H2LUse::ArrayGet(type_idx, i))
+          }
+          None => ()
+        }
+      TArrayGet(type_idx, TRefAsNonNull(TLocalGet(loc)), index) =>
         match h2l_const_i32_nonneg(index) {
           Some(i) => {
             let idx = h2l_local_to_int(loc)
@@ -272,7 +334,25 @@ fn h2l_scan_body(env : Env, body : TExpr) -> H2LAnalyzeState {
           }
           None => ()
         }
+      TArrayGetS(type_idx, TRefAsNonNull(TLocalGet(loc)), index) =>
+        match h2l_const_i32_nonneg(index) {
+          Some(i) => {
+            let idx = h2l_local_to_int(loc)
+            h2l_inc_count(s.safe_get_counts, idx)
+            h2l_add_use(s.uses, idx, H2LUse::ArrayGetS(type_idx, i))
+          }
+          None => ()
+        }
       TArrayGetU(type_idx, TLocalGet(loc), index) =>
+        match h2l_const_i32_nonneg(index) {
+          Some(i) => {
+            let idx = h2l_local_to_int(loc)
+            h2l_inc_count(s.safe_get_counts, idx)
+            h2l_add_use(s.uses, idx, H2LUse::ArrayGetU(type_idx, i))
+          }
+          None => ()
+        }
+      TArrayGetU(type_idx, TRefAsNonNull(TLocalGet(loc)), index) =>
         match h2l_const_i32_nonneg(index) {
           Some(i) => {
             let idx = h2l_local_to_int(loc)
@@ -290,7 +370,21 @@ fn h2l_scan_body(env : Env, body : TExpr) -> H2LAnalyzeState {
           }
           None => ()
         }
+      TArraySet(type_idx, TRefAsNonNull(TLocalGet(loc)), index, _) =>
+        match h2l_const_i32_nonneg(index) {
+          Some(i) => {
+            let idx = h2l_local_to_int(loc)
+            h2l_inc_count(s.safe_get_counts, idx)
+            h2l_add_use(s.uses, idx, H2LUse::ArraySet(type_idx, i))
+          }
+          None => ()
+        }
       TArrayLen(TLocalGet(loc)) => {
+        let idx = h2l_local_to_int(loc)
+        h2l_inc_count(s.safe_get_counts, idx)
+        h2l_add_use(s.uses, idx, H2LUse::ArrayLen)
+      }
+      TArrayLen(TRefAsNonNull(TLocalGet(loc))) => {
         let idx = h2l_local_to_int(loc)
         h2l_inc_count(s.safe_get_counts, idx)
         h2l_add_use(s.uses, idx, H2LUse::ArrayLen)
@@ -300,10 +394,25 @@ fn h2l_scan_body(env : Env, body : TExpr) -> H2LAnalyzeState {
         h2l_inc_count(s.safe_get_counts, idx)
         h2l_add_use(s.uses, idx, H2LUse::DropOnly)
       }
+      TDrop(TRefAsNonNull(TLocalGet(loc))) => {
+        let idx = h2l_local_to_int(loc)
+        h2l_inc_count(s.safe_get_counts, idx)
+        h2l_add_use(s.uses, idx, H2LUse::DropOnly)
+      }
       TRefIsNull(TLocalGet(loc)) => {
         let idx = h2l_local_to_int(loc)
         h2l_inc_count(s.safe_get_counts, idx)
         h2l_add_use(s.uses, idx, H2LUse::RefIsNull)
+      }
+      TRefIsNull(TRefAsNonNull(TLocalGet(loc))) => {
+        let idx = h2l_local_to_int(loc)
+        h2l_inc_count(s.safe_get_counts, idx)
+        h2l_add_use(s.uses, idx, H2LUse::RefIsNull)
+      }
+      TRefTest(_, _, TLocalGet(loc)) => {
+        let idx = h2l_local_to_int(loc)
+        h2l_inc_count(s.safe_get_counts, idx)
+        h2l_add_use(s.uses, idx, H2LUse::RefTest)
       }
       TRefEq(TLocalGet(left), right) => {
         let idx = h2l_local_to_int(left)
@@ -376,7 +485,7 @@ fn h2l_uses_compatible(shape : H2LShape, uses : Array[H2LUse]) -> Bool {
               return false
             }
           }
-          H2LUse::RefIsNull | H2LUse::RefEq => ()
+          H2LUse::RefIsNull | H2LUse::RefEq | H2LUse::RefTest => ()
           H2LUse::DropOnly => ()
           _ => return false
         }
@@ -395,6 +504,7 @@ fn h2l_uses_compatible(shape : H2LShape, uses : Array[H2LUse]) -> Bool {
             }
           H2LUse::ArrayLen
           | H2LUse::RefIsNull
+          | H2LUse::RefTest
           | H2LUse::RefEq
           | H2LUse::DropOnly => ()
           _ => return false
@@ -616,6 +726,99 @@ fn h2l_filter_nonuniform_if_sets(
 }
 
 ///|
+fn h2l_instr_transfers_control_flow(instr : TInstr) -> Bool {
+  let transfers = Ref::new(false)
+  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+    match curr {
+      TBr(_, _)
+      | TBrIf(_, _, _)
+      | TBrTable(_, _, _, _)
+      | TBrOnNull(_, _, _)
+      | TBrOnNonNull(_, _, _)
+      | TBrOnCast(_, _, _, _, _, _)
+      | TBrOnCastFail(_, _, _, _, _, _)
+      | TReturn(_)
+      | TThrow(_, _)
+      | TThrowRef(_)
+      | TReturnCall(_, _)
+      | TReturnCallIndirect(_, _, _, _)
+      | TReturnCallRef(_, _, _) => transfers.update(fn(_) { true })
+      _ => ()
+    }
+    self.walk_tinstruction_default((), curr)
+  })
+  ignore(walker.walk_texpr((), TExpr::new([instr])))
+  transfers.val
+}
+
+///|
+fn h2l_tinstr_has_local_get_for(instr : TInstr, target : LocalIdx) -> Bool {
+  let found = Ref::new(false)
+  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+    match curr {
+      TLocalGet(idx) if idx == target => found.update(fn(_) { true })
+      _ => ()
+    }
+    self.walk_tinstruction_default((), curr)
+  })
+  ignore(walker.walk_texpr((), TExpr::new([instr])))
+  found.val
+}
+
+///|
+fn h2l_tinstr_has_branchy_set_for(
+  instr : TInstr,
+  target : LocalIdx,
+  shape : H2LShape,
+  env : Env,
+) -> Bool {
+  let found = Ref::new(false)
+  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+    match curr {
+      TLocalSet(idx, value) =>
+        if idx == target &&
+          h2l_shape_matches_allocation_value(env, shape, value) &&
+          h2l_instr_transfers_control_flow(value) {
+          found.update(fn(_) { true })
+        }
+      _ => ()
+    }
+    self.walk_tinstruction_default((), curr)
+  })
+  ignore(walker.walk_texpr((), TExpr::new([instr])))
+  found.val
+}
+
+///|
+fn h2l_filter_branchy_sets(
+  env : Env,
+  body : TExpr,
+  candidates : Map[Int, H2LShape],
+) -> Map[Int, H2LShape] {
+  let out : Map[Int, H2LShape] = Map::new()
+  let flat = h2l_flatten_instrs(body.0)
+  for entry in candidates {
+    let (loc, shape) = entry
+    let target = LocalIdx::new(loc.reinterpret_as_uint())
+    let mut seen_branchy_set = false
+    let mut ok = true
+    for instr in flat {
+      if h2l_tinstr_has_branchy_set_for(instr, target, shape, env) {
+        seen_branchy_set = true
+      }
+      if seen_branchy_set && h2l_tinstr_has_local_get_for(instr, target) {
+        ok = false
+        break
+      }
+    }
+    if ok {
+      out[loc] = shape
+    }
+  }
+  out
+}
+
+///|
 fn h2l_default_tinstr(vt : ValType) -> TInstr? {
   match vt {
     NumTypeValType(nt) =>
@@ -635,6 +838,239 @@ fn h2l_default_tinstr(vt : ValType) -> TInstr? {
       }
     BotValType => None
   }
+}
+
+///|
+fn h2l_shape_heap_type(shape : H2LShape) -> HeapType {
+  match shape {
+    StructShape(type_idx, _) | ArrayShape(type_idx, _, _) =>
+      HeapType::new(type_idx)
+  }
+}
+
+///|
+fn h2l_is_indexed_heap_subtype(
+  env : Env,
+  sub : TypeIdx,
+  target : TypeIdx,
+) -> Bool {
+  if sub == target {
+    return true
+  }
+  match env.resolve_subtype(sub) {
+    Some(st) => {
+      for super_idx in st.super_types() {
+        if h2l_is_indexed_heap_subtype(env, super_idx, target) {
+          return true
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+fn h2l_is_heap_subtype(env : Env, sub : HeapType, target : HeapType) -> Bool {
+  if sub == target {
+    return true
+  }
+  match target {
+    AbsHeapTypeHeapType(AnyAbsHeapType) => true
+    AbsHeapTypeHeapType(EqAbsHeapType) => sub.is_gc_aggregate()
+    AbsHeapTypeHeapType(StructAbsHeapType) => sub.is_struct()
+    AbsHeapTypeHeapType(ArrayAbsHeapType) => sub.is_array()
+    AbsHeapTypeHeapType(_) => false
+    HeapType(target_idx) =>
+      match sub {
+        HeapType(sub_idx) =>
+          h2l_is_indexed_heap_subtype(env, sub_idx, target_idx)
+        _ => false
+      }
+    DefTypeHeapType(_) => false
+  }
+}
+
+///|
+priv enum H2LArrayInitResult {
+  Init(Array[TInstr])
+  Trap
+}
+
+///|
+fn h2l_data_idx_to_int(idx : DataIdx) -> Int {
+  let DataIdx(i) = idx
+  i.reinterpret_as_int()
+}
+
+///|
+fn h2l_read_u32_le(bytes : Bytes, at : Int) -> UInt {
+  bytes[at].to_uint() |
+  (bytes[at + 1].to_uint() << 8) |
+  (bytes[at + 2].to_uint() << 16) |
+  (bytes[at + 3].to_uint() << 24)
+}
+
+///|
+fn h2l_read_u64_le(bytes : Bytes, at : Int) -> UInt64 {
+  bytes[at].to_uint64() |
+  (bytes[at + 1].to_uint64() << 8) |
+  (bytes[at + 2].to_uint64() << 16) |
+  (bytes[at + 3].to_uint64() << 24) |
+  (bytes[at + 4].to_uint64() << 32) |
+  (bytes[at + 5].to_uint64() << 40) |
+  (bytes[at + 6].to_uint64() << 48) |
+  (bytes[at + 7].to_uint64() << 56)
+}
+
+///|
+fn h2l_array_new_data_init(
+  mod : Module,
+  field : FieldType,
+  data_idx : DataIdx,
+  offset : Int,
+  len : Int,
+) -> H2LArrayInitResult? {
+  let bytes = match mod.data_sec {
+    Some(DataSec(datas)) =>
+      match datas.get(h2l_data_idx_to_int(data_idx)) {
+        Some(Data(_, content)) => content
+        None => return None
+      }
+    None => return None
+  }
+  let width = match field.get_storage_type() {
+    PackTypeStorageType(I8PackType) => 1
+    PackTypeStorageType(I16PackType) => 2
+    ValTypeStorageType(vt) =>
+      match vt {
+        NumTypeValType(I32NumType) => 4
+        NumTypeValType(I64NumType) => 8
+        NumTypeValType(F32NumType) => 4
+        NumTypeValType(F64NumType) => 8
+        _ => return None
+      }
+  }
+  if offset < 0 || len < 0 {
+    return None
+  }
+  let end = offset + len * width
+  if end > bytes.length() {
+    return Some(H2LArrayInitResult::Trap)
+  }
+  let out : Array[TInstr] = []
+  for i in 0..<len {
+    let at = offset + i * width
+    match field.get_storage_type() {
+      PackTypeStorageType(I8PackType) =>
+        out.push(TInstr::i32_const(I32(bytes[at].to_int())))
+      PackTypeStorageType(I16PackType) =>
+        out.push(
+          TInstr::i32_const(
+            I32(bytes[at].to_int() | (bytes[at + 1].to_int() << 8)),
+          ),
+        )
+      ValTypeStorageType(vt) =>
+        match vt {
+          NumTypeValType(I32NumType) =>
+            out.push(
+              TInstr::i32_const(
+                I32(h2l_read_u32_le(bytes, at).reinterpret_as_int()),
+              ),
+            )
+          NumTypeValType(I64NumType) =>
+            out.push(
+              TInstr::i64_const(
+                I64(h2l_read_u64_le(bytes, at).reinterpret_as_int64()),
+              ),
+            )
+          NumTypeValType(F32NumType) =>
+            out.push(
+              TInstr::f32_const(
+                F32(Float::reinterpret_from_uint(h2l_read_u32_le(bytes, at))),
+              ),
+            )
+          NumTypeValType(F64NumType) =>
+            out.push(
+              TInstr::f64_const(
+                F64(h2l_read_u64_le(bytes, at).reinterpret_as_double()),
+              ),
+            )
+          _ => return None
+        }
+    }
+  }
+  Some(H2LArrayInitResult::Init(out))
+}
+
+///|
+fn h2l_const_expr_to_tinstr(expr : Expr, env : Env) -> TInstr? {
+  match to_texpr(expr, env) {
+    Ok(TExpr(instrs)) =>
+      if instrs.length() == 1 {
+        match instrs[0] {
+          TRefNull(_) | TRefFunc(_) => Some(instrs[0])
+          _ => None
+        }
+      } else {
+        None
+      }
+    Err(_) => None
+  }
+}
+
+///|
+fn h2l_array_new_elem_init(
+  env : Env,
+  elem_idx : ElemIdx,
+  offset : Int,
+  len : Int,
+) -> H2LArrayInitResult? {
+  if offset < 0 || len < 0 {
+    return None
+  }
+  let values = match env.get_elem(elem_idx) {
+    Some(Elem(_, kind)) =>
+      match kind {
+        FuncsElemKind(funcs) => {
+          let out : Array[TInstr] = []
+          for fi in funcs {
+            out.push(TInstr::ref_func(fi))
+          }
+          out
+        }
+        FuncExprsElemKind(exprs) => {
+          let out : Array[TInstr] = []
+          for expr in exprs {
+            match h2l_const_expr_to_tinstr(expr, env) {
+              Some(value) => out.push(value)
+              None => return None
+            }
+          }
+          out
+        }
+        TypedExprsElemKind(_, exprs) => {
+          let out : Array[TInstr] = []
+          for expr in exprs {
+            match h2l_const_expr_to_tinstr(expr, env) {
+              Some(value) => out.push(value)
+              None => return None
+            }
+          }
+          out
+        }
+      }
+    None => return None
+  }
+  let end = offset + len
+  if end > values.length() {
+    return Some(H2LArrayInitResult::Trap)
+  }
+  let out : Array[TInstr] = []
+  for i in offset..<end {
+    out.push(values[i])
+  }
+  Some(H2LArrayInitResult::Init(out))
 }
 
 ///|
@@ -739,6 +1175,8 @@ fn h2l_rewrite_struct_local_set(
 fn h2l_rewrite_array_local_set(
   state : H2LRewriteState,
   plan : H2LPlan,
+  env : Env,
+  mod : Module,
   type_idx : TypeIdx,
   value : TInstr,
 ) -> (H2LRewriteState, TInstr)? {
@@ -806,6 +1244,64 @@ fn h2l_rewrite_array_local_set(
           }
           Some((state, h2l_void_block(out)))
         }
+        TArrayNewData(set_type_idx, data_idx, offset, len) => {
+          if set_type_idx != shape_type_idx {
+            return None
+          }
+          let offset_val = match h2l_const_i32_nonneg(offset) {
+            Some(v) => v
+            None => return None
+          }
+          if h2l_const_i32_nonneg(len) != Some(size) {
+            return None
+          }
+          match
+            h2l_array_new_data_init(mod, field, data_idx, offset_val, size) {
+            Some(H2LArrayInitResult::Trap) =>
+              Some((state, TInstr::unreachable_()))
+            Some(H2LArrayInitResult::Init(values)) => {
+              if values.length() != size {
+                return None
+              }
+              for i in 0..<plan.slots.length() {
+                out.push(
+                  TInstr::local_set(
+                    plan.slots[i],
+                    h2l_pack_for_store(values[i], field),
+                  ),
+                )
+              }
+              Some((state, h2l_void_block(out)))
+            }
+            None => None
+          }
+        }
+        TArrayNewElem(set_type_idx, elem_idx, offset, len) => {
+          if set_type_idx != shape_type_idx {
+            return None
+          }
+          let offset_val = match h2l_const_i32_nonneg(offset) {
+            Some(v) => v
+            None => return None
+          }
+          if h2l_const_i32_nonneg(len) != Some(size) {
+            return None
+          }
+          match h2l_array_new_elem_init(env, elem_idx, offset_val, size) {
+            Some(H2LArrayInitResult::Trap) =>
+              Some((state, TInstr::unreachable_()))
+            Some(H2LArrayInitResult::Init(values)) => {
+              if values.length() != size {
+                return None
+              }
+              for i in 0..<plan.slots.length() {
+                out.push(TInstr::local_set(plan.slots[i], values[i]))
+              }
+              Some((state, h2l_void_block(out)))
+            }
+            None => None
+          }
+        }
         _ => None
       }
     }
@@ -817,6 +1313,8 @@ fn h2l_rewrite_array_local_set(
 fn h2l_rewrite_tinstr(
   transformer : ModuleTransformer[H2LRewriteState],
   state : H2LRewriteState,
+  env : Env,
+  mod : Module,
   instr : TInstr,
 ) -> TransformerResult[H2LRewriteState, TInstr] {
   let (state_after_walk, walked, walked_changed) = match
@@ -846,7 +1344,7 @@ fn h2l_rewrite_tinstr(
             ArrayShape(type_idx, _, _) =>
               match
                 h2l_rewrite_array_local_set(
-                  state_after_walk, plan, type_idx, value,
+                  state_after_walk, plan, env, mod, type_idx, value,
                 ) {
                 Some((next_state, rewritten)) => change(next_state, rewritten)
                 None =>
@@ -897,7 +1395,80 @@ fn h2l_rewrite_tinstr(
             unchanged()
           }
       }
+    TStructGet(type_idx, field_idx, TRefAsNonNull(TLocalGet(loc))) =>
+      match h2l_plan_for(state_after_walk, loc) {
+        Some(plan) =>
+          match plan.shape {
+            StructShape(shape_type_idx, fields) =>
+              if type_idx == shape_type_idx {
+                let idx = h2l_u32_to_int(field_idx)
+                if idx >= 0 && idx < fields.length() {
+                  change(state_after_walk, TInstr::local_get(plan.slots[idx]))
+                } else if walked_changed {
+                  change(state_after_walk, walked)
+                } else {
+                  unchanged()
+                }
+              } else if walked_changed {
+                change(state_after_walk, walked)
+              } else {
+                unchanged()
+              }
+            _ =>
+              if walked_changed {
+                change(state_after_walk, walked)
+              } else {
+                unchanged()
+              }
+          }
+        None =>
+          if walked_changed {
+            change(state_after_walk, walked)
+          } else {
+            unchanged()
+          }
+      }
     TStructGetS(type_idx, field_idx, TLocalGet(loc)) =>
+      match h2l_plan_for(state_after_walk, loc) {
+        Some(plan) =>
+          match plan.shape {
+            StructShape(shape_type_idx, fields) =>
+              if type_idx == shape_type_idx {
+                let idx = h2l_u32_to_int(field_idx)
+                if idx >= 0 && idx < fields.length() {
+                  change(
+                    state_after_walk,
+                    h2l_unpack_from_slot(
+                      TInstr::local_get(plan.slots[idx]),
+                      fields[idx],
+                      true,
+                    ),
+                  )
+                } else if walked_changed {
+                  change(state_after_walk, walked)
+                } else {
+                  unchanged()
+                }
+              } else if walked_changed {
+                change(state_after_walk, walked)
+              } else {
+                unchanged()
+              }
+            _ =>
+              if walked_changed {
+                change(state_after_walk, walked)
+              } else {
+                unchanged()
+              }
+          }
+        None =>
+          if walked_changed {
+            change(state_after_walk, walked)
+          } else {
+            unchanged()
+          }
+      }
+    TStructGetS(type_idx, field_idx, TRefAsNonNull(TLocalGet(loc))) =>
       match h2l_plan_for(state_after_walk, loc) {
         Some(plan) =>
           match plan.shape {
@@ -977,7 +1548,86 @@ fn h2l_rewrite_tinstr(
             unchanged()
           }
       }
+    TStructGetU(type_idx, field_idx, TRefAsNonNull(TLocalGet(loc))) =>
+      match h2l_plan_for(state_after_walk, loc) {
+        Some(plan) =>
+          match plan.shape {
+            StructShape(shape_type_idx, fields) =>
+              if type_idx == shape_type_idx {
+                let idx = h2l_u32_to_int(field_idx)
+                if idx >= 0 && idx < fields.length() {
+                  change(
+                    state_after_walk,
+                    h2l_unpack_from_slot(
+                      TInstr::local_get(plan.slots[idx]),
+                      fields[idx],
+                      false,
+                    ),
+                  )
+                } else if walked_changed {
+                  change(state_after_walk, walked)
+                } else {
+                  unchanged()
+                }
+              } else if walked_changed {
+                change(state_after_walk, walked)
+              } else {
+                unchanged()
+              }
+            _ =>
+              if walked_changed {
+                change(state_after_walk, walked)
+              } else {
+                unchanged()
+              }
+          }
+        None =>
+          if walked_changed {
+            change(state_after_walk, walked)
+          } else {
+            unchanged()
+          }
+      }
     TStructSet(type_idx, field_idx, TLocalGet(loc), value) =>
+      match h2l_plan_for(state_after_walk, loc) {
+        Some(plan) =>
+          match plan.shape {
+            StructShape(shape_type_idx, fields) =>
+              if type_idx == shape_type_idx {
+                let idx = h2l_u32_to_int(field_idx)
+                if idx >= 0 && idx < fields.length() {
+                  change(
+                    state_after_walk,
+                    TInstr::local_set(
+                      plan.slots[idx],
+                      h2l_pack_for_store(value, fields[idx]),
+                    ),
+                  )
+                } else if walked_changed {
+                  change(state_after_walk, walked)
+                } else {
+                  unchanged()
+                }
+              } else if walked_changed {
+                change(state_after_walk, walked)
+              } else {
+                unchanged()
+              }
+            _ =>
+              if walked_changed {
+                change(state_after_walk, walked)
+              } else {
+                unchanged()
+              }
+          }
+        None =>
+          if walked_changed {
+            change(state_after_walk, walked)
+          } else {
+            unchanged()
+          }
+      }
+    TStructSet(type_idx, field_idx, TRefAsNonNull(TLocalGet(loc)), value) =>
       match h2l_plan_for(state_after_walk, loc) {
         Some(plan) =>
           match plan.shape {
@@ -1046,6 +1696,36 @@ fn h2l_rewrite_tinstr(
             unchanged()
           }
       }
+    TArrayGet(type_idx, TRefAsNonNull(TLocalGet(loc)), index) =>
+      match (h2l_plan_for(state_after_walk, loc), h2l_const_i32_nonneg(index)) {
+        (Some(plan), Some(idx)) =>
+          match plan.shape {
+            ArrayShape(shape_type_idx, _, size) =>
+              if type_idx == shape_type_idx {
+                if idx < size {
+                  change(state_after_walk, TInstr::local_get(plan.slots[idx]))
+                } else {
+                  change(state_after_walk, TInstr::unreachable_())
+                }
+              } else if walked_changed {
+                change(state_after_walk, walked)
+              } else {
+                unchanged()
+              }
+            _ =>
+              if walked_changed {
+                change(state_after_walk, walked)
+              } else {
+                unchanged()
+              }
+          }
+        _ =>
+          if walked_changed {
+            change(state_after_walk, walked)
+          } else {
+            unchanged()
+          }
+      }
     TArrayGetS(type_idx, TLocalGet(loc), index) =>
       match (h2l_plan_for(state_after_walk, loc), h2l_const_i32_nonneg(index)) {
         (Some(plan), Some(idx)) =>
@@ -1083,7 +1763,81 @@ fn h2l_rewrite_tinstr(
             unchanged()
           }
       }
+    TArrayGetS(type_idx, TRefAsNonNull(TLocalGet(loc)), index) =>
+      match (h2l_plan_for(state_after_walk, loc), h2l_const_i32_nonneg(index)) {
+        (Some(plan), Some(idx)) =>
+          match plan.shape {
+            ArrayShape(shape_type_idx, field, size) =>
+              if type_idx == shape_type_idx {
+                if idx < size {
+                  change(
+                    state_after_walk,
+                    h2l_unpack_from_slot(
+                      TInstr::local_get(plan.slots[idx]),
+                      field,
+                      true,
+                    ),
+                  )
+                } else {
+                  change(state_after_walk, TInstr::unreachable_())
+                }
+              } else if walked_changed {
+                change(state_after_walk, walked)
+              } else {
+                unchanged()
+              }
+            _ =>
+              if walked_changed {
+                change(state_after_walk, walked)
+              } else {
+                unchanged()
+              }
+          }
+        _ =>
+          if walked_changed {
+            change(state_after_walk, walked)
+          } else {
+            unchanged()
+          }
+      }
     TArrayGetU(type_idx, TLocalGet(loc), index) =>
+      match (h2l_plan_for(state_after_walk, loc), h2l_const_i32_nonneg(index)) {
+        (Some(plan), Some(idx)) =>
+          match plan.shape {
+            ArrayShape(shape_type_idx, field, size) =>
+              if type_idx == shape_type_idx {
+                if idx < size {
+                  change(
+                    state_after_walk,
+                    h2l_unpack_from_slot(
+                      TInstr::local_get(plan.slots[idx]),
+                      field,
+                      false,
+                    ),
+                  )
+                } else {
+                  change(state_after_walk, TInstr::unreachable_())
+                }
+              } else if walked_changed {
+                change(state_after_walk, walked)
+              } else {
+                unchanged()
+              }
+            _ =>
+              if walked_changed {
+                change(state_after_walk, walked)
+              } else {
+                unchanged()
+              }
+          }
+        _ =>
+          if walked_changed {
+            change(state_after_walk, walked)
+          } else {
+            unchanged()
+          }
+      }
+    TArrayGetU(type_idx, TRefAsNonNull(TLocalGet(loc)), index) =>
       match (h2l_plan_for(state_after_walk, loc), h2l_const_i32_nonneg(index)) {
         (Some(plan), Some(idx)) =>
           match plan.shape {
@@ -1162,7 +1916,69 @@ fn h2l_rewrite_tinstr(
             unchanged()
           }
       }
+    TArraySet(type_idx, TRefAsNonNull(TLocalGet(loc)), index, value) =>
+      match (h2l_plan_for(state_after_walk, loc), h2l_const_i32_nonneg(index)) {
+        (Some(plan), Some(idx)) =>
+          match plan.shape {
+            ArrayShape(shape_type_idx, field, size) =>
+              if type_idx == shape_type_idx {
+                if idx < size {
+                  change(
+                    state_after_walk,
+                    TInstr::local_set(
+                      plan.slots[idx],
+                      h2l_pack_for_store(value, field),
+                    ),
+                  )
+                } else {
+                  change(
+                    state_after_walk,
+                    TInstr::block(
+                      BlockType::void_(),
+                      TExpr::new([TInstr::drop(value), TInstr::unreachable_()]),
+                    ),
+                  )
+                }
+              } else if walked_changed {
+                change(state_after_walk, walked)
+              } else {
+                unchanged()
+              }
+            _ =>
+              if walked_changed {
+                change(state_after_walk, walked)
+              } else {
+                unchanged()
+              }
+          }
+        _ =>
+          if walked_changed {
+            change(state_after_walk, walked)
+          } else {
+            unchanged()
+          }
+      }
     TArrayLen(TLocalGet(loc)) =>
+      match h2l_plan_for(state_after_walk, loc) {
+        Some(plan) =>
+          match plan.shape {
+            ArrayShape(_, _, size) =>
+              change(state_after_walk, TInstr::i32_const(I32(size)))
+            _ =>
+              if walked_changed {
+                change(state_after_walk, walked)
+              } else {
+                unchanged()
+              }
+          }
+        None =>
+          if walked_changed {
+            change(state_after_walk, walked)
+          } else {
+            unchanged()
+          }
+      }
+    TArrayLen(TRefAsNonNull(TLocalGet(loc))) =>
       match h2l_plan_for(state_after_walk, loc) {
         Some(plan) =>
           match plan.shape {
@@ -1190,6 +2006,14 @@ fn h2l_rewrite_tinstr(
       } else {
         unchanged()
       }
+    TDrop(TRefAsNonNull(TLocalGet(loc))) =>
+      if h2l_plan_for(state_after_walk, loc) is Some(_) {
+        change(state_after_walk, TInstr::nop())
+      } else if walked_changed {
+        change(state_after_walk, walked)
+      } else {
+        unchanged()
+      }
     TRefIsNull(TLocalGet(loc)) =>
       if h2l_plan_for(state_after_walk, loc) is Some(_) {
         change(state_after_walk, TInstr::i32_const(I32(0)))
@@ -1197,6 +2021,66 @@ fn h2l_rewrite_tinstr(
         change(state_after_walk, walked)
       } else {
         unchanged()
+      }
+    TRefIsNull(TRefAsNonNull(TLocalGet(loc))) =>
+      if h2l_plan_for(state_after_walk, loc) is Some(_) {
+        change(state_after_walk, TInstr::i32_const(I32(0)))
+      } else if walked_changed {
+        change(state_after_walk, walked)
+      } else {
+        unchanged()
+      }
+    TRefTest(_, target_ht, TLocalGet(loc)) =>
+      match h2l_plan_for(state_after_walk, loc) {
+        Some(plan) =>
+          change(
+            state_after_walk,
+            TInstr::i32_const(
+              I32(
+                if h2l_is_heap_subtype(
+                    env,
+                    h2l_shape_heap_type(plan.shape),
+                    target_ht,
+                  ) {
+                  1
+                } else {
+                  0
+                },
+              ),
+            ),
+          )
+        None =>
+          if walked_changed {
+            change(state_after_walk, walked)
+          } else {
+            unchanged()
+          }
+      }
+    TRefTest(_, target_ht, TRefAsNonNull(TLocalGet(loc))) =>
+      match h2l_plan_for(state_after_walk, loc) {
+        Some(plan) =>
+          change(
+            state_after_walk,
+            TInstr::i32_const(
+              I32(
+                if h2l_is_heap_subtype(
+                    env,
+                    h2l_shape_heap_type(plan.shape),
+                    target_ht,
+                  ) {
+                  1
+                } else {
+                  0
+                },
+              ),
+            ),
+          )
+        None =>
+          if walked_changed {
+            change(state_after_walk, walked)
+          } else {
+            unchanged()
+          }
       }
     TRefEq(TLocalGet(left), TLocalGet(right)) =>
       match
@@ -1257,13 +2141,19 @@ fn h2l_rewrite_tinstr(
 }
 
 ///|
-fn h2l_optimize_func(func : Func, env : Env, graph : LocalGraph?) -> Func? {
+fn h2l_optimize_func_once(
+  func : Func,
+  env : Env,
+  mod : Module,
+  graph : LocalGraph?,
+) -> Func? {
   match func {
     Func(_) => None
     TFunc(locals, body) => {
       let analysis = h2l_scan_body(env.with_locals(locals), body)
       let candidates = h2l_collect_candidates(analysis)
       let candidates = h2l_filter_nonuniform_if_sets(body, candidates)
+      let candidates = h2l_filter_branchy_sets(analysis.env, body, candidates)
       let candidates = match graph {
         Some(g) => h2l_filter_by_local_graph(analysis.env, body, g, candidates)
         None => candidates
@@ -1272,9 +2162,13 @@ fn h2l_optimize_func(func : Func, env : Env, graph : LocalGraph?) -> Func? {
         return None
       }
       let state = h2l_new_state(locals, candidates)
-      let rewrite = ModuleTransformer::new().on_tinstruction_evt(
-        h2l_rewrite_tinstr,
-      )
+      let rewrite = ModuleTransformer::new().on_tinstruction_evt(fn(
+        transformer,
+        st,
+        instr,
+      ) {
+        h2l_rewrite_tinstr(transformer, st, analysis.env, mod, instr)
+      })
       let (final_state, rewritten, changed_body) = match
         rewrite.walk_texpr(state, body) {
         Ok(Some((s, expr))) => (s, expr, true)
@@ -1294,23 +2188,36 @@ fn h2l_optimize_func(func : Func, env : Env, graph : LocalGraph?) -> Func? {
 }
 
 ///|
+fn h2l_optimize_func(func : Func, env : Env, mod : Module) -> Func? {
+  let mut curr = func
+  let mut changed = false
+  for _ in 0..<4 {
+    let graph = match curr {
+      TFunc(_, body) => Some(LocalGraph::new(body.0))
+      _ => None
+    }
+    match h2l_optimize_func_once(curr, env, mod, graph) {
+      Some(next) => {
+        curr = next
+        changed = true
+      }
+      None => break
+    }
+  }
+  if changed {
+    Some(curr)
+  } else {
+    None
+  }
+}
+
+///|
 fn heap2local_ir_pass(mod : Module) -> ModuleTransformer[IRContext] {
   let env = Env::new().with_module(mod)
   ModuleTransformer::new().on_func_evt(fn(_, ctx, func) {
-    match func {
-      TFunc(_, body) => {
-        ctx.set_body(body)
-        let graph = ctx.get_local_graph()
-        match h2l_optimize_func(func, env, Some(graph)) {
-          Some(new_func) => change(ctx, new_func)
-          None => unchanged()
-        }
-      }
-      _ =>
-        match h2l_optimize_func(func, env, None) {
-          Some(new_func) => change(ctx, new_func)
-          None => unchanged()
-        }
+    match h2l_optimize_func(func, env, mod) {
+      Some(new_func) => change(ctx, new_func)
+      None => unchanged()
     }
   })
 }
@@ -1385,6 +2292,20 @@ fn h2l_has_unreachable(body : TExpr) -> Bool {
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
     match instr {
       TUnreachable => found.update(fn(_) { true })
+      _ => ()
+    }
+    self.walk_tinstruction_default((), instr)
+  })
+  ignore(walker.walk_texpr((), body))
+  found.val
+}
+
+///|
+fn h2l_has_i32_const(body : TExpr, target : Int) -> Bool {
+  let found = Ref::new(false)
+  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+    match instr {
+      TI32Const(I32(v)) if v == target => found.update(fn(_) { true })
       _ => ()
     }
     self.walk_tinstruction_default((), instr)
@@ -1917,5 +2838,289 @@ test "heap2local masks packed writes" {
     Some(CodeSec([TFunc(_, body)])) =>
       assert_true(h2l_has_binary(body, BinaryOp::i32_and()))
     _ => fail("expected transformed function")
+  }
+}
+
+///|
+test "heap2local rewrites ref.test and ref.as_non_null wrapped accesses" {
+  let struct_ty = single_rec_type(
+    comp_type_sub_type(
+      struct_comp_type([
+        FieldType::new(StorageType::val_type(ValType::i32()), Var),
+      ]),
+    ),
+  )
+  let local_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let func = Func::t_func(
+    [local_ref],
+    TExpr::new([
+      TInstr::local_set(
+        LocalIdx::new(0),
+        TInstr::struct_new(TypeIdx::new(0), [TInstr::i32_const(I32(10))]),
+      ),
+      TInstr::drop(
+        TInstr::ref_test(
+          false,
+          HeapType::new(TypeIdx::new(0)),
+          TInstr::local_get(LocalIdx::new(0)),
+        ),
+      ),
+      TInstr::drop(
+        TInstr::struct_get(
+          TypeIdx::new(0),
+          @lib.U32(0),
+          TInstr::ref_as_non_null(TInstr::local_get(LocalIdx::new(0))),
+        ),
+      ),
+    ]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([struct_ty]))
+    .with_code_sec(CodeSec::new([func]))
+  let out = run_heap2local(mod)
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, body)])) => {
+      assert_eq(h2l_count_gc_ops(body), 0)
+      assert_true(h2l_has_i32_const(body, 1))
+    }
+    _ => fail("expected transformed function")
+  }
+}
+
+///|
+test "heap2local rewrites ref.test false case to i32.const 0" {
+  let struct_ty = single_rec_type(
+    comp_type_sub_type(
+      struct_comp_type([
+        FieldType::new(StorageType::val_type(ValType::i32()), Var),
+      ]),
+    ),
+  )
+  let local_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let func = Func::t_func(
+    [local_ref],
+    TExpr::new([
+      TInstr::local_set(
+        LocalIdx::new(0),
+        TInstr::struct_new(TypeIdx::new(0), [TInstr::i32_const(I32(3))]),
+      ),
+      TInstr::drop(
+        TInstr::ref_test(
+          false,
+          HeapType::abs(AbsHeapType::array()),
+          TInstr::local_get(LocalIdx::new(0)),
+        ),
+      ),
+    ]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([struct_ty]))
+    .with_code_sec(CodeSec::new([func]))
+  let out = run_heap2local(mod)
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, body)])) => {
+      assert_eq(h2l_count_gc_ops(body), 0)
+      assert_true(h2l_has_i32_const(body, 0))
+    }
+    _ => fail("expected transformed function")
+  }
+}
+
+///|
+test "heap2local rewrites array.new_data for fixed-size nonescaping arrays" {
+  let array_ty = single_rec_type(
+    comp_type_sub_type(
+      @lib.array_comp_type(
+        FieldType::new(StorageType::pack_type(PackType::i8()), Var),
+      ),
+    ),
+  )
+  let local_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let data = Data::new(DataMode::passive(), [
+    (9).to_byte(),
+    (20).to_byte(),
+    (30).to_byte(),
+    (40).to_byte(),
+  ])
+  let func = Func::t_func(
+    [local_ref],
+    TExpr::new([
+      TInstr::local_set(
+        LocalIdx::new(0),
+        TInstr::array_new_data(
+          TypeIdx::new(0),
+          DataIdx::new(0),
+          TInstr::i32_const(I32(1)),
+          TInstr::i32_const(I32(2)),
+        ),
+      ),
+      TInstr::drop(
+        TInstr::array_get_u(
+          TypeIdx::new(0),
+          TInstr::local_get(LocalIdx::new(0)),
+          TInstr::i32_const(I32(0)),
+        ),
+      ),
+      TInstr::drop(
+        TInstr::array_get_u(
+          TypeIdx::new(0),
+          TInstr::local_get(LocalIdx::new(0)),
+          TInstr::i32_const(I32(1)),
+        ),
+      ),
+    ]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([array_ty]))
+    .with_data_sec(DataSec::new([data]))
+    .with_code_sec(CodeSec::new([func]))
+  let out = run_heap2local(mod)
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, body)])) => {
+      assert_eq(h2l_count_gc_ops(body), 0)
+      assert_true(h2l_has_i32_const(body, 20))
+      assert_true(h2l_has_i32_const(body, 30))
+    }
+    _ => fail("expected transformed function")
+  }
+}
+
+///|
+test "heap2local rewrites OOB array.new_data to trap" {
+  let array_ty = single_rec_type(
+    comp_type_sub_type(
+      @lib.array_comp_type(
+        FieldType::new(StorageType::val_type(ValType::i32()), Var),
+      ),
+    ),
+  )
+  let local_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let data = Data::new(DataMode::passive(), [(1).to_byte(), (2).to_byte()])
+  let func = Func::t_func(
+    [local_ref],
+    TExpr::new([
+      TInstr::local_set(
+        LocalIdx::new(0),
+        TInstr::array_new_data(
+          TypeIdx::new(0),
+          DataIdx::new(0),
+          TInstr::i32_const(I32(0)),
+          TInstr::i32_const(I32(3)),
+        ),
+      ),
+    ]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([array_ty]))
+    .with_data_sec(DataSec::new([data]))
+    .with_code_sec(CodeSec::new([func]))
+  let out = run_heap2local(mod)
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, body)])) => {
+      assert_eq(h2l_count_gc_ops(body), 0)
+      assert_true(h2l_has_unreachable(body))
+    }
+    _ => fail("expected transformed function")
+  }
+}
+
+///|
+test "heap2local rewrites array.new_elem for fixed-size nonescaping arrays" {
+  let array_ty = single_rec_type(
+    comp_type_sub_type(
+      @lib.array_comp_type(
+        FieldType::new(StorageType::val_type(ValType::funcref()), Var),
+      ),
+    ),
+  )
+  let elem = Elem::new(
+    ElemMode::passive(),
+    ElemKind::funcs([FuncIdx::new(0), FuncIdx::new(0)]),
+  )
+  let local_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let func = Func::t_func(
+    [local_ref],
+    TExpr::new([
+      TInstr::local_set(
+        LocalIdx::new(0),
+        TInstr::array_new_elem(
+          TypeIdx::new(0),
+          ElemIdx::new(0),
+          TInstr::i32_const(I32(0)),
+          TInstr::i32_const(I32(2)),
+        ),
+      ),
+      TInstr::drop(
+        TInstr::array_get(
+          TypeIdx::new(0),
+          TInstr::local_get(LocalIdx::new(0)),
+          TInstr::i32_const(I32(1)),
+        ),
+      ),
+    ]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([array_ty]))
+    .with_elem_sec(ElemSec::new([elem]))
+    .with_code_sec(CodeSec::new([func]))
+  let out = run_heap2local(mod)
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, body)])) => assert_eq(h2l_count_gc_ops(body), 0)
+    _ => fail("expected transformed function")
+  }
+}
+
+///|
+test "heap2local rejects branchy allocation sets with later gets" {
+  let struct_ty = single_rec_type(
+    comp_type_sub_type(
+      struct_comp_type([
+        FieldType::new(StorageType::val_type(ValType::i32()), Var),
+      ]),
+    ),
+  )
+  let local_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let func = Func::t_func(
+    [local_ref],
+    TExpr::new([
+      TInstr::block(
+        BlockType::void_(),
+        TExpr::new([
+          TInstr::local_set(
+            LocalIdx::new(0),
+            TInstr::struct_new(TypeIdx::new(0), [
+              TInstr::br(LabelIdx::new(0), []),
+            ]),
+          ),
+        ]),
+      ),
+      TInstr::drop(
+        TInstr::struct_get(
+          TypeIdx::new(0),
+          @lib.U32(0),
+          TInstr::local_get(LocalIdx::new(0)),
+        ),
+      ),
+    ]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([struct_ty]))
+    .with_code_sec(CodeSec::new([func]))
+  let out = run_heap2local(mod)
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, body)])) => assert_true(h2l_count_gc_ops(body) > 0)
+    _ => fail("expected function")
   }
 }

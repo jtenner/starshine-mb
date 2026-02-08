@@ -143,6 +143,17 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
 - Fixed-size array OOB constant-index accesses are now lowered with trap-preserving rewrites:
   - `array.get*` OOB becomes `unreachable`
   - `array.set` OOB becomes `block(drop(value), unreachable)` so value side effects are preserved.
+- Heap2Local now supports additional non-escaping fixed-size array initializers:
+  - `array.new_data` with constant offset/len is lowered into local slot initialization by decoding passive data segment bytes for supported storage types (`i8/i16` packed, `i32/i64/f32/f64`)
+  - `array.new_elem` with constant offset/len is lowered into local slot initialization for function/constant ref element entries
+  - constant out-of-bounds `array.new_data`/`array.new_elem` initializers are folded to `unreachable` (trap parity).
+- Additional ref-use parity in current IR scope:
+  - wrapped references via `ref.as_non_null(local.get ...)` are now handled for struct/array get/set/len and drop/is-null patterns
+  - `ref.test` on optimized allocations is folded to `i32.const 0/1` via heap-type compatibility checks.
+- Candidate safety is stricter for control flow:
+  - locals are rejected when allocation-producing `local.set` values can transfer control flow and the local may be read later.
+- Heap2Local now runs iteratively (bounded rounds) per function, re-running analysis/rewrite to pick up opportunities created by prior rewrites.
+- Descriptor-specific Binaryen behavior (`ref.cast_desc_eq`, `ref.get_desc`, descriptor-bearing `struct.new`) is currently out of scope because those ops are not present in this project’s wasm3.0 IR surface.
 
 ## Heap Store Optimization notes (learned)
 

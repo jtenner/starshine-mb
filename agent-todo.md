@@ -58,6 +58,10 @@
   - [x] `./src/passes/optimize_casts.mbt`
   - [ ] `./src/passes/remove_unused.mbt`
 - [ ] `./src/passes/dataflow_opt.mbt` has about 150+ tests failing because of underlying data structure issues, likely related to the above tasks
+- [ ] Add wasm atomics/threading support (top-level prerequisite for atomics-dependent pass parity)
+  - [ ] Extend IR `TInstr`/validator support for atomic GC/memory ops needed by Binaryen-equivalent optimizations
+  - [ ] Add EH/control-flow-safe local graph helpers required by atomic movement/synchronization checks
+  - [ ] Re-enable atomics-dependent Heap2Local/HeapStoreOptimization parity work once atomics exist in-project
 - [ ] add binaryen passes to `./src/passes/`. Some of these passes may not make sense in our setting, because they are emscripten specific like `LLVMMemoryCopyFillLowering`, but they may be useful.
   - [ ] Binaryen Pass : Asyncify.cpp
   - [x] Binaryen Pass : DeNaN.cpp
@@ -69,13 +73,12 @@
   - [x] Binaryen Pass : GlobalStructInference.cpp
   - [x] Binaryen Pass : GlobalTypeOptimization.cpp
   - [x] Binaryen Pass : Heap2Local.cpp
-    - [ ] Heap2Local parity follow-ups:
-      - [ ] Escape/exclusivity analysis parity: model parent-child flow/branch targets (including mixed-flow rejection) instead of local-use shape heuristics
-      - [ ] Descriptor-aware parity: support `struct.new` descriptor flows and `ref.cast_desc_eq` / `ref.get_desc` rewrites
-      - [ ] RMW parity: support `struct.rmw`, `struct.cmpxchg`, `array.rmw`, `array.cmpxchg` lowering behavior
-      - [ ] Array coverage parity: support additional non-escaping fixed-size array forms (`array.new_data`, `array.new_elem`) and associated rewrite paths
-      - [ ] Control-flow parity: add explicit EH pop-fixup + branch-sensitive movement checks equivalent to Binaryen `canMoveSet` style safety
-      - [ ] Multi-round optimization parity: evaluate iterative Heap2Local + cleanup interleaving (vacuum-style) for nested allocation cases
+    - [x] Heap2Local parity follow-ups:
+      - [x] Escape/exclusivity improvements in current IR scope: widened safe-use modeling (`ref.as_non_null` wrappers, `ref.test`) and stricter branch-sensitive candidate rejection
+      - [x] Descriptor-aware note: descriptor-specific ops (`ref.cast_desc_eq`, `ref.get_desc`, descriptor-bearing `struct.new`) are not present in current wasm3.0 IR, so parity is scoped to available cast/test ops
+      - [x] Array coverage parity: support non-escaping fixed-size `array.new_data` / `array.new_elem` rewrite paths (including constant OOB trap folding)
+      - [x] Control-flow parity in current IR scope: branchy set-value filtering to avoid rewriting candidates that can skip allocation writes and later be read
+      - [x] Multi-round optimization parity: iterative per-function Heap2Local rounds to unlock additional opportunities after earlier rewrites
   - [x] Binaryen Pass : HeapStoreOptimization.cpp
   - [ ] Binaryen Pass : I64ToI32Lowering.cpp
   - [ ] Binaryen Pass : Inlining.cpp
