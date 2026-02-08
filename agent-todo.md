@@ -66,7 +66,7 @@
   - [x] Binaryen Pass : DuplicateImportElimination.cpp
   - [x] Binaryen Pass : GUFA.cpp
   - [x] Binaryen Pass : GlobalRefining.cpp
-  - [ ] Binaryen Pass : GlobalStructInference.cpp
+  - [x] Binaryen Pass : GlobalStructInference.cpp
   - [ ] Binaryen Pass : GlobalTypeOptimization.cpp
   - [ ] Binaryen Pass : Heap2Local.cpp
   - [ ] Binaryen Pass : HeapStoreOptimization.cpp

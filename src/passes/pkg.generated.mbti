@@ -141,6 +141,8 @@ pub(all) enum ModulePass {
   DeadArgumentElimination
   DuplicateImportElimination
   GlobalRefining
+  GlobalStructInference
+  GlobalStructInferenceDescCast
   GUFA
   GUFAOptimizing
   GUFACastAll

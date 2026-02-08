@@ -13,6 +13,8 @@ pub(all) enum ModulePass {
   DeadArgumentElimination
   DuplicateImportElimination
   GlobalRefining
+  GlobalStructInference
+  GlobalStructInferenceDescCast
   GUFA
   GUFAOptimizing
   GUFACastAll
@@ -161,6 +163,16 @@ pub fn optimize_module_with_options(
         }
       GlobalRefining =>
         match global_refining(mod) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      GlobalStructInference =>
+        match run_global_struct_inference(mod, false) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      GlobalStructInferenceDescCast =>
+        match run_global_struct_inference(mod, true) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }
@@ -428,6 +440,128 @@ test "optimize_module runs GlobalRefining pass" {
       )
     }
     _ => fail("expected one refined global")
+  }
+}
+
+///|
+test "optimize_module runs GlobalStructInference pass" {
+  let field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
+  let ty = single_rec_type(comp_type_sub_type(struct_comp_type([field])))
+  let global_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([ty]))
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(global_ref, false),
+          Expr::new([
+            Instruction::i32_const(I32(42)),
+            Instruction::struct_new(TypeIdx::new(0)),
+          ]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [global_ref],
+          TExpr::new([
+            TInstr::drop(
+              TInstr::struct_get(
+                TypeIdx::new(0),
+                U32(0),
+                TInstr::local_get(LocalIdx::new(0)),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match optimize_module(mod, [GlobalStructInference]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            TExpr(
+              [
+                TDrop(
+                  TBlock(_, TExpr([TDrop(TRefAsNonNull(_)), TI32Const(I32(v))]))
+                ),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => assert_eq(v, 42)
+    _ => fail("expected struct.get rewrite in pipeline")
+  }
+}
+
+///|
+test "optimize_module runs GlobalStructInferenceDescCast pass" {
+  let field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
+  let ty = single_rec_type(comp_type_sub_type(struct_comp_type([field])))
+  let global_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([ty]))
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(global_ref, false),
+          Expr::new([
+            Instruction::i32_const(I32(42)),
+            Instruction::struct_new(TypeIdx::new(0)),
+          ]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [global_ref],
+          TExpr::new([
+            TInstr::drop(
+              TInstr::struct_get(
+                TypeIdx::new(0),
+                U32(0),
+                TInstr::local_get(LocalIdx::new(0)),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match optimize_module(mod, [GlobalStructInferenceDescCast]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            TExpr(
+              [
+                TDrop(
+                  TBlock(_, TExpr([TDrop(TRefAsNonNull(_)), TI32Const(I32(v))]))
+                ),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => assert_eq(v, 42)
+    _ => fail("expected struct.get rewrite in desc-cast pipeline variant")
   }
 }
 
