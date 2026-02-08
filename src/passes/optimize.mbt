@@ -11,10 +11,25 @@ pub(all) enum ModulePass {
   DataflowOptimization
   DeadCodeElimination
   DeadArgumentElimination
+  DuplicateFunctionElimination
   Directize(Bool)
   OptimizeCasts
   DeNaN
   RemoveUnused
+}
+
+///|
+pub struct OptimizeOptions {
+  optimize_level : Int
+  shrink_level : Int
+}
+
+///|
+pub fn OptimizeOptions::new(
+  optimize_level? : Int = 0,
+  shrink_level? : Int = 0,
+) -> OptimizeOptions {
+  { optimize_level, shrink_level }
 }
 
 ///|
@@ -34,6 +49,15 @@ fn apply_ir_transformer_pass(
 pub fn optimize_module(
   mod : Module,
   passes : Array[ModulePass],
+) -> Result[Module, String] {
+  optimize_module_with_options(mod, passes, OptimizeOptions::new())
+}
+
+///|
+pub fn optimize_module_with_options(
+  mod : Module,
+  passes : Array[ModulePass],
+  options : OptimizeOptions,
 ) -> Result[Module, String] {
   let mut mod = mod
   let ctx = IRContext::new()
@@ -122,6 +146,11 @@ pub fn optimize_module(
       DeadArgumentElimination =>
         match
           apply_ir_transformer_pass(ctx, mod, dead_argument_elim_pass(mod)) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      DuplicateFunctionElimination =>
+        match duplicate_function_elimination(mod, options) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }
@@ -242,5 +271,79 @@ test "optimize_module runs DeadCodeElimination pass" {
   match optimized.code_sec {
     Some(CodeSec([TFunc(_, TExpr([TUnreachable]))])) => ()
     _ => fail("expected dead tail after unreachable to be removed")
+  }
+}
+
+///|
+test "optimize_module runs DuplicateFunctionElimination pass" {
+  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let root = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::call(FuncIdx::new(1), []),
+      TInstr::call(FuncIdx::new(2), []),
+    ]),
+  )
+  let dup_a = Func::t_func([], TExpr::new([TInstr::nop()]))
+  let dup_b = Func::t_func([], TExpr::new([TInstr::nop()]))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_void]))
+    .with_func_sec(
+      FuncSec::new([TypeIdx::new(0), TypeIdx::new(0), TypeIdx::new(0)]),
+    )
+    .with_code_sec(CodeSec::new([root, dup_a, dup_b]))
+  let optimized = match optimize_module(mod, [DuplicateFunctionElimination]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec(funcs)) => assert_eq(funcs.length(), 2)
+    None => fail("expected code section")
+  }
+}
+
+///|
+test "optimize_module_with_options controls DuplicateFunctionElimination iterations" {
+  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let a1 = Func::t_func([], TExpr::new([TInstr::call(FuncIdx::new(2), [])]))
+  let a2 = Func::t_func([], TExpr::new([TInstr::call(FuncIdx::new(3), [])]))
+  let b1 = Func::t_func([], TExpr::new([TInstr::nop()]))
+  let b2 = Func::t_func([], TExpr::new([TInstr::nop()]))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_void]))
+    .with_func_sec(
+      FuncSec::new([
+        TypeIdx::new(0),
+        TypeIdx::new(0),
+        TypeIdx::new(0),
+        TypeIdx::new(0),
+      ]),
+    )
+    .with_code_sec(CodeSec::new([a1, a2, b1, b2]))
+  let low = match
+    optimize_module_with_options(
+      mod,
+      [DuplicateFunctionElimination],
+      OptimizeOptions::new(optimize_level=0, shrink_level=0),
+    ) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module_with_options error: \{e}")
+  }
+  match low.code_sec {
+    Some(CodeSec(funcs)) => assert_eq(funcs.length(), 3)
+    None => fail("expected code section")
+  }
+  let high = match
+    optimize_module_with_options(
+      mod,
+      [DuplicateFunctionElimination],
+      OptimizeOptions::new(optimize_level=2, shrink_level=0),
+    ) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module_with_options error: \{e}")
+  }
+  match high.code_sec {
+    Some(CodeSec(funcs)) => assert_eq(funcs.length(), 2)
+    None => fail("expected code section")
   }
 }

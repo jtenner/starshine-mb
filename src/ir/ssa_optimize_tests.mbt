@@ -1524,7 +1524,6 @@ test "optimize_ssa mul by power of 2 becomes shl" {
   }
   match find_assign(result, 0, rv.0) {
     Some(Binary(op, left, right)) => {
-      println((left, op, right))
       assert_eq(op, BinaryOp::i32_shl())
       assert_eq(left, SSAValue(10))
       // optional: check shift amount == 3

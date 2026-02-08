@@ -34,6 +34,8 @@ pub fn optimize_casts(@lib.Module) -> @lib.Module
 
 pub fn optimize_module(@lib.Module, Array[ModulePass]) -> Result[@lib.Module, String]
 
+pub fn optimize_module_with_options(@lib.Module, Array[ModulePass], OptimizeOptions) -> Result[@lib.Module, String]
+
 pub fn propagate_to_supertypes(CFPState) -> Unit
 
 pub fn remove_unused(@lib.Module) -> Result[@lib.Module, String]
@@ -87,6 +89,10 @@ pub struct DCEState {
   imports : ImportCounts
 }
 
+type DFEKey
+pub impl Eq for DFEKey
+pub impl Hash for DFEKey
+
 pub enum FieldValue {
   Uninitialized
   Constant(@lib.TInstr)
@@ -133,11 +139,18 @@ pub(all) enum ModulePass {
   DataflowOptimization
   DeadCodeElimination
   DeadArgumentElimination
+  DuplicateFunctionElimination
   Directize(Bool)
   OptimizeCasts
   DeNaN
   RemoveUnused
 }
+
+pub struct OptimizeOptions {
+  optimize_level : Int
+  shrink_level : Int
+}
+pub fn OptimizeOptions::new(optimize_level? : Int, shrink_level? : Int) -> Self
 
 type Remappings
 

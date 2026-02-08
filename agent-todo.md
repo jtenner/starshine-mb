@@ -16,8 +16,8 @@
   - [ ] Binaryen Pass : Asyncify.cpp
   - [ ] Binaryen Pass : DeAlign.cpp
   - [ ] Binaryen Pass : DeNaN.cpp
-  - [ ] Binaryen Pass : DeadCodeElimination.cpp
-  - [ ] Binaryen Pass : DuplicateFunctionElimination.cpp
+  - [x] Binaryen Pass : DeadCodeElimination.cpp
+  - [x] Binaryen Pass : DuplicateFunctionElimination.cpp
   - [ ] Binaryen Pass : DuplicateImportElimination.cpp
   - [ ] Binaryen Pass : EncloseWorld.cpp
   - [ ] Binaryen Pass : ExtractFunction.cpp
@@ -123,3 +123,14 @@
   - [ ] WAT to WAST functions
   - [ ] WAT to WASM types functions (Use `Instruction` enum for easy conversion)
 - [ ] `./src/transformer/transformer.mbt` needs tests
+
+- [ ] resolve current `moon check` warnings (currently 18)
+  - [ ] `./src/ir/imports.mbt`: remove unused `TransformerResult` import
+  - [ ] `./src/ir/ssa_optimize_tests.mbt`: remove/consume unused `right` variable in test pattern
+  - [ ] `./src/ir/types.mbt`: either construct `Load` in IR generation or remove/deprecate the unused `Load` constructor
+  - [ ] `./src/ir/types.mbt`: remove or use the unused `instr_id` field in `Get(LocalIdx, Int, Int)`
+  - [ ] `./src/lib/types.mbt`: remove or repurpose unused local `Option[T]` enum definition
+  - [ ] `./src/passes/coalesce_locals.mbt`: remove or use `is_loop_header`
+  - [ ] `./src/passes/optimize_casts.mbt`: remove or use `CastOptState::with_locals`
+  - [ ] `./src/wast/parser.mbt`: remove or implement currently-unused variants (`V128`, `RefExtern`, `UnexpectedEof`, `InvalidType`) and helper functions (`error`, `try_parse_simd_shape`)
+  - [ ] `./src/wast/types.mbt`: remove or use currently-unused variants (`Warning`, `Func`, `Extern`) and `KeywordEntry`
