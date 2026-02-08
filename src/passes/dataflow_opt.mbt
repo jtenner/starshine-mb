@@ -108,3 +108,17 @@ test "dataflow optimization pass simplifies const multi-block if" {
     Err(e) => fail("Unexpected error: \{e}")
   }
 }
+
+///|
+test "dataflow optimization pass errors on non-texpr Func bodies" {
+  let mod = Module::new().with_code_sec(
+    CodeSec::new([Func::new([], Expr::new([Instruction::nop()]))]),
+  )
+  let pass = dataflow_optimization_pass(mod)
+  let ctx = IRContext::new()
+  let result = pass.walk_module(ctx, mod)
+  match result {
+    Err(e) => assert_eq(e, "Expected TFunc")
+    _ => fail("expected non-TFunc input to return an error")
+  }
+}

@@ -74,6 +74,7 @@ using @lib {
   type Name,
   type Data,
   type DataMode,
+  type Locals,
   type FieldType,
   type StorageType,
   type TagType,

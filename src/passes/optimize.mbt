@@ -11,6 +11,10 @@ pub(all) enum ModulePass {
   DataflowOptimization
   DeadCodeElimination
   DeadArgumentElimination
+  DuplicateImportElimination
+  GUFA
+  GUFAOptimizing
+  GUFACastAll
   DuplicateFunctionElimination
   Directize(Bool)
   OptimizeCasts
@@ -146,6 +150,47 @@ pub fn optimize_module_with_options(
       DeadArgumentElimination =>
         match
           apply_ir_transformer_pass(ctx, mod, dead_argument_elim_pass(mod)) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      DuplicateImportElimination =>
+        match duplicate_import_elimination(mod) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      GUFA =>
+        match apply_ir_transformer_pass(ctx, mod, gufa_ir_pass(mod, false)) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      GUFAOptimizing =>
+        match apply_ir_transformer_pass(ctx, mod, gufa_ir_pass(mod, false)) {
+          Ok(gufa_mod) => {
+            ctx.set_mod(gufa_mod)
+            let after_dce = match
+              apply_ir_transformer_pass(
+                ctx,
+                gufa_mod,
+                dead_code_elimination_ir_pass(gufa_mod),
+              ) {
+              Ok(new_mod) => new_mod
+              Err(e) => return Err(e)
+            }
+            ctx.set_mod(after_dce)
+            match
+              apply_ir_transformer_pass(
+                ctx,
+                after_dce,
+                code_folding_ir_pass(after_dce),
+              ) {
+              Ok(new_mod) => new_mod
+              Err(e) => return Err(e)
+            }
+          }
+          Err(e) => return Err(e)
+        }
+      GUFACastAll =>
+        match apply_ir_transformer_pass(ctx, mod, gufa_ir_pass(mod, true)) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }
@@ -299,6 +344,197 @@ test "optimize_module runs DuplicateFunctionElimination pass" {
   match optimized.code_sec {
     Some(CodeSec(funcs)) => assert_eq(funcs.length(), 2)
     None => fail("expected code section")
+  }
+}
+
+///|
+test "optimize_module runs DuplicateImportElimination pass" {
+  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_void]))
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("env"),
+          Name::new("foo"),
+          ExternType::func(TypeIdx::new(0)),
+        ),
+        Import::new(
+          Name::new("env"),
+          Name::new("foo"),
+          ExternType::func(TypeIdx::new(0)),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func([], TExpr::new([TInstr::call(FuncIdx::new(1), [])])),
+      ]),
+    )
+  let optimized = match optimize_module(mod, [DuplicateImportElimination]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.import_sec {
+    Some(ImportSec(imps)) => assert_eq(imps.length(), 1)
+    None => fail("expected import section")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TCall(FuncIdx(i), [])]))])) =>
+      assert_eq(i, 0U)
+    _ => fail("expected call index remapped to canonical import")
+  }
+}
+
+///|
+test "optimize_module runs GUFA pass" {
+  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let root = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::drop(
+        TInstr::ref_eq(
+          TInstr::ref_func(FuncIdx::new(1)),
+          TInstr::ref_func(FuncIdx::new(2)),
+        ),
+      ),
+    ]),
+  )
+  let f1 = Func::t_func([], TExpr::new([TInstr::nop()]))
+  let f2 = Func::t_func([], TExpr::new([TInstr::nop()]))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_void]))
+    .with_func_sec(
+      FuncSec::new([TypeIdx::new(0), TypeIdx::new(0), TypeIdx::new(0)]),
+    )
+    .with_code_sec(CodeSec::new([root, f1, f2]))
+  let optimized = match optimize_module(mod, [GUFA]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TDrop(TBlock(_, TExpr(seq)))])), _, _])) =>
+      match seq[seq.length() - 1] {
+        TI32Const(I32(v)) => assert_eq(v, 0)
+        _ => fail("expected ref.eq replacement to end with i32.const 0")
+      }
+    _ => fail("expected transformed root function")
+  }
+}
+
+///|
+test "optimize_module runs GUFAOptimizing followup DCE" {
+  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let body = TExpr::new([
+    TInstr::drop(
+      TInstr::ref_cast(
+        false,
+        HeapType::abs(AbsHeapType::func()),
+        TInstr::ref_null(HeapType::abs(AbsHeapType::func())),
+      ),
+    ),
+    TInstr::i32_const(I32(7)),
+  ])
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_void]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], body)]))
+  let optimized = match optimize_module(mod, [GUFAOptimizing]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr(instrs))])) => {
+      assert_eq(instrs.length(), 1)
+      match instrs[0] {
+        TUnreachable => ()
+        TDrop(TBlock(_, TExpr(seq))) =>
+          match seq[seq.length() - 1] {
+            TUnreachable => ()
+            _ => fail("expected impossible cast to become unreachable")
+          }
+        TBlock(_, TExpr(seq)) =>
+          match seq[seq.length() - 1] {
+            TUnreachable => ()
+            _ => fail("expected impossible cast to become unreachable")
+          }
+        _ => fail("expected GUFAOptimizing to keep only unreachable prefix")
+      }
+    }
+    _ => fail("expected transformed function body")
+  }
+}
+
+///|
+test "optimize_module runs GUFACastAll pass" {
+  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let body = TExpr::new([TInstr::drop(TInstr::global_get(GlobalIdx::new(0)))])
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_void]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(ValType::funcref(), false),
+          Expr::new([Instruction::ref_func(FuncIdx::new(0))]),
+        ),
+      ]),
+    )
+    .with_code_sec(CodeSec::new([Func::t_func([], body)]))
+  let optimized = match optimize_module(mod, [GUFACastAll]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TDrop(instr)]))])) =>
+      match instr {
+        TRefCast(false, HeapType(TypeIdx(i)), TGlobalGet(GlobalIdx(g))) => {
+          assert_eq(i.reinterpret_as_int(), 0)
+          assert_eq(g.reinterpret_as_int(), 0)
+        }
+        TRefCast(false, HeapType(TypeIdx(i)), TRefFunc(FuncIdx(f))) => {
+          assert_eq(i.reinterpret_as_int(), 0)
+          assert_eq(f.reinterpret_as_int(), 0)
+        }
+        TRefFunc(FuncIdx(f)) => assert_eq(f.reinterpret_as_int(), 0)
+        _ => fail("expected GUFACastAll to insert cast around global.get")
+      }
+    _ => fail("expected transformed function body")
+  }
+}
+
+///|
+test "optimize_module runs DataflowOptimization pass" {
+  let body = TExpr::new([
+    TInstr::local_set(
+      LocalIdx::new(0),
+      TInstr::binary(
+        BinaryOp::i32_add(),
+        TInstr::i32_const(I32(40)),
+        TInstr::i32_const(I32(2)),
+      ),
+    ),
+    TInstr::return_([TInstr::local_get(LocalIdx::new(0))]),
+  ])
+  let func = Func::t_func([ValType::i32()], body)
+  let mod = Module::new().with_code_sec(CodeSec::new([func]))
+  let optimized = match optimize_module(mod, [DataflowOptimization]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr(instrs))])) => {
+      let mut found = false
+      for instr in instrs {
+        match instr {
+          TLocalSet(_, TI32Const(I32(42))) => found = true
+          _ => ()
+        }
+      }
+      assert_true(found)
+    }
+    _ => fail("expected optimized TFunc")
   }
 }
 

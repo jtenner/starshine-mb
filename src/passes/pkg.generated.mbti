@@ -139,6 +139,10 @@ pub(all) enum ModulePass {
   DataflowOptimization
   DeadCodeElimination
   DeadArgumentElimination
+  DuplicateImportElimination
+  GUFA
+  GUFAOptimizing
+  GUFACastAll
   DuplicateFunctionElimination
   Directize(Bool)
   OptimizeCasts

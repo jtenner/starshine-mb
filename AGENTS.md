@@ -94,6 +94,45 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
 - `src/passes/dataflow_opt.mbt` is SSA-backed: it uses `IRContext.optimize_body_with_ssa()` and is the intended replacement path over the deprecated `src/dataflow/*` package.
 - `src/passes/dead_argument_elim.mbt` is integrated into `ModulePass::DeadArgumentElimination` and follows the same transformer-constructor pattern.
 - Dead argument elimination handles "unseen" call edges (exports/start/table/ref.func) by keeping original signatures stable and creating internal optimized clones plus adapter thunks, then remapping direct calls to the cloned targets.
+- `src/passes/optimize.mbt` now includes these additional `ModulePass` variants and dispatch paths:
+  - `DuplicateImportElimination`
+  - `GUFA`
+  - `GUFAOptimizing`
+  - `GUFACastAll`
+- `GUFAOptimizing` currently runs GUFA and then follows up with:
+  - `dead_code_elimination_ir_pass`
+  - `code_folding_ir_pass`
+
+## GUFA notes (learned)
+
+- `src/passes/gufa.mbt` now uses a local `ContentOracle` + `PossibleContents` domain to infer:
+  - unreachable values
+  - scalar constants (currently `i32`, `f32`, `f64`)
+  - reference singleton values (`ref.null`, `ref.func`)
+  - refined reference types (`PCRefType`)
+- The oracle is intentionally local/flow-sensitive in function traversal:
+  - local contents are tracked across `local.set` / `local.tee`
+  - local contents are cleared at control-flow boundaries (`block`, `loop`, `if`, `try_table`) to avoid unsound merges
+- GUFA optimizations now use oracle queries where applicable:
+  - `ref.eq`, `ref.test`, `ref.cast`, `ref.as_non_null`
+  - `ref.is_null`
+  - `i32.eqz`
+  - leaf replacement for `local.get` / `global.get` when content is known and type-compatible
+- `GUFACastAll` adds casts when inferred ref type is a strict subtype of declared ref type.
+
+## Pass testing notes (learned)
+
+- Most large passes already have substantial inline tests (notably `alignment_lowering`, `directize`, `optimize_casts`, `remove_unused`).
+- Sparse-pass coverage has been expanded with targeted tests in:
+  - `duplicate_import_elimination.mbt`
+  - `duplicate_function_elimination.mbt`
+  - `dataflow_opt.mbt`
+  - `util.mbt`
+  - `lift_to_texpr.mbt`
+  - `lower_to_expr.mbt`
+  - `optimize.mbt` (dispatch/integration)
+  - `gufa.mbt`
+- For future work, prioritize property-style/randomized tests for structural passes where combinatorial CFG/typing interactions are large.
 
 ## Local toolchain note
 

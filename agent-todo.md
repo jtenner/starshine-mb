@@ -1,5 +1,41 @@
 # Agent Tasks
 
+- [x] pass coverage audit + incremental test expansion (2026-02-08)
+  - [x] Inspect every pass in `./src/passes/*.mbt`
+  - [x] Add new tests to sparse pass files:
+    - [x] `./src/passes/duplicate_import_elimination.mbt`
+    - [x] `./src/passes/duplicate_function_elimination.mbt`
+    - [x] `./src/passes/dataflow_opt.mbt`
+    - [x] `./src/passes/util.mbt`
+    - [x] `./src/passes/lift_to_texpr.mbt`
+    - [x] `./src/passes/lower_to_expr.mbt`
+    - [x] `./src/passes/optimize.mbt` (pipeline dispatch coverage)
+    - [x] `./src/passes/gufa.mbt` (oracle + cast-all cases)
+  - [x] Pass-by-pass inspection status:
+    - [x] `abstract_type_refining.mbt`
+    - [x] `alignment_lowering.mbt`
+    - [x] `avoid_reinterprets.mbt`
+    - [x] `coalesce_locals.mbt`
+    - [x] `code_folding.mbt`
+    - [x] `code_pushing.mbt`
+    - [x] `constant_field_propagation.mbt`
+    - [x] `const_hoisting.mbt`
+    - [x] `dataflow_opt.mbt`
+    - [x] `dead_argument_elim.mbt`
+    - [x] `dead_code_elimination.mbt`
+    - [x] `de_nan.mbt`
+    - [x] `directize.mbt`
+    - [x] `duplicate_function_elimination.mbt`
+    - [x] `duplicate_import_elimination.mbt`
+    - [x] `gufa.mbt`
+    - [x] `lift_to_texpr.mbt`
+    - [x] `lower_to_expr.mbt`
+    - [x] `optimize_casts.mbt`
+    - [x] `remove_unused.mbt`
+    - [x] `optimize.mbt`
+    - [x] `util.mbt`
+  - [ ] Continue with deeper, property-style/randomized optimization tests for large passes (`alignment_lowering`, `directize`, `optimize_casts`, `remove_unused`)
+
 - [x] coverage: add comprehensive tests for uncovered, important functions (2026-02-08)
   - [x] `./src/binary/decode.mbt`: `decode_unsigned`, `decode_signed`, `Decode for Bool` edge/error paths
   - [x] `./src/dataflow/graph_utils.mbt`: `Graph::make_use` behavior for `Var`, `Expr`, and `Zext` nodes
@@ -28,12 +64,12 @@
   - [ ] Binaryen Pass : DeNaN.cpp
   - [x] Binaryen Pass : DeadCodeElimination.cpp
   - [x] Binaryen Pass : DuplicateFunctionElimination.cpp
-  - [ ] Binaryen Pass : DuplicateImportElimination.cpp
+  - [x] Binaryen Pass : DuplicateImportElimination.cpp
   - [ ] Binaryen Pass : EncloseWorld.cpp
   - [ ] Binaryen Pass : ExtractFunction.cpp
   - [ ] Binaryen Pass : Flatten.cpp
   - [ ] Binaryen Pass : FuncCastEmulation.cpp
-  - [ ] Binaryen Pass : GUFA.cpp
+  - [x] Binaryen Pass : GUFA.cpp
   - [ ] Binaryen Pass : GenerateDynCalls.cpp
   - [ ] Binaryen Pass : GlobalEffects.cpp
   - [ ] Binaryen Pass : GlobalRefining.cpp

@@ -381,3 +381,35 @@ test "duplicate function elimination uses shrink level for multi-iteration" {
     None => fail("expected code section")
   }
 }
+
+///|
+test "duplicate function elimination does not merge equal bodies with different types" {
+  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_i32_void = single_rec_type(
+    comp_type_sub_type(func_comp_type([ValType::i32()], [])),
+  )
+  let root = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::call(FuncIdx::new(1), []),
+      TInstr::call(FuncIdx::new(2), [TInstr::i32_const(I32(7))]),
+    ]),
+  )
+  let f_void = Func::t_func([], TExpr::new([TInstr::nop()]))
+  let f_i32_void = Func::t_func([], TExpr::new([TInstr::nop()]))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_void, t_i32_void]))
+    .with_func_sec(
+      FuncSec::new([TypeIdx::new(0), TypeIdx::new(0), TypeIdx::new(1)]),
+    )
+    .with_code_sec(CodeSec::new([root, f_void, f_i32_void]))
+  let optimized = match
+    duplicate_function_elimination(mod, OptimizeOptions::new()) {
+    Ok(m) => m
+    Err(e) => fail("unexpected duplicate_function_elimination error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec(funcs)) => assert_eq(funcs.length(), 3)
+    None => fail("expected code section")
+  }
+}

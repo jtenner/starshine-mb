@@ -118,3 +118,28 @@ test "liveness: nested expressions propagate uses" {
   assert_true(u.contains(y))
   assert_true(d.is_empty())
 }
+
+///|
+test "SquareMatrix::get_or returns bounds error" {
+  let matrix : SquareMatrix[Int] = SquareMatrix::new(size=2)
+  match matrix.get_or(0, 2, 0) {
+    Ok(_) => fail("expected out-of-bounds access to return error")
+    Err(e) => assert_eq(e, "Index out of bounds")
+  }
+}
+
+///|
+test "wrap_unit_func_pass propagates wrapped pass errors" {
+  let bad = ModuleTransformer::new().on_func_evt(fn(_, _, _ : Func) {
+    Err("boom")
+  })
+  let wrapped = wrap_unit_func_pass(bad)
+  let mod = Module::new().with_code_sec(
+    CodeSec::new([Func::t_func([], TExpr::new([TInstr::nop()]))]),
+  )
+  let ctx = IRContext::new()
+  match wrapped.walk_module(ctx, mod) {
+    Err(e) => assert_eq(e, "boom")
+    _ => fail("expected wrapped pass error to propagate")
+  }
+}
