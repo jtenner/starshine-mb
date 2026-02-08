@@ -15,9 +15,9 @@
 
 ## 2) Parity Backlog For Implemented Binaryen Passes
 
-- [ ] `Binaryen Pass: DeNaN.cpp` parity hardening
-  - [ ] Expand NaN-producing expression coverage beyond current scalar-op subset (loads/select/call results/local/global flows)
-  - [ ] Implement idempotency regression test (`running pass twice produces same result`) with helper/index stability assertions
+- [x] `Binaryen Pass: DeNaN.cpp` parity hardening
+  - [x] Expand NaN-producing expression coverage beyond current scalar-op subset (loads/select/call results/local/global flows)
+  - [x] Implement idempotency regression test (`running pass twice produces same result`) with helper/index stability assertions
 
 - [ ] `Binaryen Pass: GlobalRefining.cpp` parity hardening
   - [ ] Broaden observed-type inference across additional expression forms and control-flow merges
