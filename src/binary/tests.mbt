@@ -189,6 +189,48 @@ test "sleb allows extra sign extension within bound" {
 }
 
 ///|
+test "decode helpers reject invalid bit widths and truncated inputs" {
+  match decode_unsigned(b"\x00", 0, 0) {
+    Ok(_) => fail("expected invalid nbits error for uleb nbits=0")
+    Err(_) => ()
+  }
+  match decode_unsigned(b"\x00", 0, 65) {
+    Ok(_) => fail("expected invalid nbits error for uleb nbits=65")
+    Err(_) => ()
+  }
+  match decode_unsigned(b"\x80", 0, 8) {
+    Ok(_) => fail("expected EOF error for unterminated uleb")
+    Err(_) => ()
+  }
+  match decode_signed(b"\x00", 0, 0) {
+    Ok(_) => fail("expected invalid nbits error for sleb nbits=0")
+    Err(_) => ()
+  }
+  match decode_signed(b"\x00", 0, 65) {
+    Ok(_) => fail("expected invalid nbits error for sleb nbits=65")
+    Err(_) => ()
+  }
+  match decode_signed(b"\x80", 0, 8) {
+    Ok(_) => fail("expected EOF error for unterminated sleb")
+    Err(_) => ()
+  }
+}
+
+///|
+test "bool decode rejects invalid byte and out of bounds" {
+  let invalid : Result[(Bool, Int), String] = Decode::decode(b"\x02", 0)
+  match invalid {
+    Ok(_) => fail("expected invalid bool byte error")
+    Err(_) => ()
+  }
+  let oob : Result[(Bool, Int), String] = Decode::decode(b"", 0)
+  match oob {
+    Ok(_) => fail("expected bool decode out-of-bounds error")
+    Err(_) => ()
+  }
+}
+
+///|
 test "uleb encoder never exceeds ceil(nbits/7)" {
   let buf = @buffer.new()
   encode_unsigned((1UL << 33) - 1UL, buf, 33).unwrap()

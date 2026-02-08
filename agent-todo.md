@@ -1,5 +1,15 @@
 # Agent Tasks
 
+- [x] coverage: add comprehensive tests for uncovered, important functions (2026-02-08)
+  - [x] `./src/binary/decode.mbt`: `decode_unsigned`, `decode_signed`, `Decode for Bool` edge/error paths
+  - [x] `./src/dataflow/graph_utils.mbt`: `Graph::make_use` behavior for `Var`, `Expr`, and `Zext` nodes
+  - [x] `./src/ir/cfg.mbt`: `build_cfg`, `CFG::successors`, `CFG::predecessors`, `CFG::dominators`
+  - [x] `./src/lib/util.mbt` + `./src/lib/texpr.mbt`: `expand_locals`, `tlocals_to_locals`, `TExpr::to_expr`
+  - [x] `./src/passes/lift_to_texpr.mbt` + `./src/passes/lower_to_expr.mbt`: lift/lower pass conversion behavior
+  - [x] `./src/transformer/transformer.mbt`: `change`, `unchanged`, `ModuleTransformer::walk_module` rewrite/error flow
+  - [x] `./src/validate/env.mbt`: `Env::get_label_types`, `Env::expand_blocktype`, `Env::resolve_heaptype_subtype`
+  - [x] `./src/wast/module_wast.mbt`: `wast_to_module`, `script_to_wast`, `wast_to_script` error/escape paths
+
 - [ ] switch passes in `./src/passes/*.mbt` to use `IRContext` from `./src/ir/ir_context.mbt`
   - [x] `./src/passes/coalesce_locals.mbt`
   - [x] `./src/passes/code_folding.mbt`

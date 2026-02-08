@@ -75,3 +75,64 @@ test "binary op flip" {
   assert_eq(GeUInt64.get_opposite(), Some(LeUInt64))
   assert_eq(AddInt32.get_opposite(), None)
 }
+
+///|
+test "Graph.make_use returns synthetic call for Var nodes" {
+  let graph = Graph::new()
+  let var_node = graph.make_var(I32)
+  match graph.make_use(var_node) {
+    Some(Call(call)) => {
+      assert_eq(call.target, "fake$dfo$call")
+      assert_eq(call.operands.length(), 0)
+      assert_eq(call.result_type, I32)
+    }
+    _ => fail("expected synthetic call expression for Var node")
+  }
+}
+
+///|
+test "Graph get_set helpers resolve LocalSet parent chain" {
+  let graph = Graph::new()
+  let func = Function::new("test")
+  let value_expr = func.expressions.add(
+    Expression::const_(ConstExpr::new(Literal::i32(1))),
+    I32,
+  )
+  let set_expr = func.expressions.add(
+    Expression::local_set(LocalSetExpr::new(3, value_expr, false)),
+    WasmType::none(),
+  )
+  graph.func = Some(func)
+  let expr_node_id = graph.add_node(
+    Node::make_expr(
+      NodeId(graph.node_store.len()),
+      Expression::generic(GenericExpr::new([], I32)),
+      Some(value_expr),
+    ),
+  )
+  graph.node_parent_map[expr_node_id] = set_expr
+  graph.expression_parent_map[value_expr] = set_expr
+  assert_eq(graph.get_set_for_expr(value_expr), Some(set_expr))
+  assert_eq(graph.get_set_for_node(expr_node_id), Some(set_expr))
+  match graph.make_use(expr_node_id) {
+    Some(LocalGet(get_expr)) => assert_eq(get_expr.index, 3)
+    _ => fail("expected local.get reconstructed from LocalSet parent")
+  }
+}
+
+///|
+test "Graph.make_use collapses zext to child use" {
+  let graph = Graph::new()
+  let const_id = graph.make_const(Literal::i32(9))
+  let zext_id = graph.add_node(
+    Node::make_zext(NodeId(graph.node_store.len()), const_id, None),
+  )
+  match graph.make_use(zext_id) {
+    Some(Const(c)) =>
+      match c.value {
+        LitI32(v) => assert_eq(v, 9)
+        _ => fail("expected i32 const from zext child")
+      }
+    _ => fail("expected zext use to resolve to child const expression")
+  }
+}
