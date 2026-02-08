@@ -36,6 +36,7 @@ using @lib {
   type TableSec,
   type Table,
   type BlockType,
+  type Catch,
   type BinaryOp,
   type MemArg,
   type ExtractLaneOp,

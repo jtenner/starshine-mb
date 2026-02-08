@@ -131,6 +131,7 @@ pub(all) enum ModulePass {
   ConstHoisting
   ConstantFieldPropagation
   DataflowOptimization
+  DeadCodeElimination
   DeadArgumentElimination
   Directize(Bool)
   OptimizeCasts

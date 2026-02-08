@@ -9,6 +9,7 @@ pub(all) enum ModulePass {
   ConstHoisting
   ConstantFieldPropagation
   DataflowOptimization
+  DeadCodeElimination
   DeadArgumentElimination
   Directize(Bool)
   OptimizeCasts
@@ -105,6 +106,16 @@ pub fn optimize_module(
       DataflowOptimization =>
         match
           apply_ir_transformer_pass(ctx, mod, dataflow_optimization_pass(mod)) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      DeadCodeElimination =>
+        match
+          apply_ir_transformer_pass(
+            ctx,
+            mod,
+            dead_code_elimination_ir_pass(mod),
+          ) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }
@@ -214,5 +225,22 @@ test "optimize_module runs DeadArgumentElimination pass" {
       assert_true(found)
     }
     _ => fail("expected rewritten call")
+  }
+}
+
+///|
+test "optimize_module runs DeadCodeElimination pass" {
+  let func = Func::t_func(
+    [],
+    TExpr::new([TInstr::unreachable_(), TInstr::i32_const(I32(7))]),
+  )
+  let mod = Module::new().with_code_sec(CodeSec::new([func]))
+  let optimized = match optimize_module(mod, [DeadCodeElimination]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TUnreachable]))])) => ()
+    _ => fail("expected dead tail after unreachable to be removed")
   }
 }
