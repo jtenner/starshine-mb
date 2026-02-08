@@ -140,6 +140,7 @@ pub(all) enum ModulePass {
   DeadCodeElimination
   DeadArgumentElimination
   DuplicateImportElimination
+  GlobalRefining
   GUFA
   GUFAOptimizing
   GUFACastAll

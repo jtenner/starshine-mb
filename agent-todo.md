@@ -60,19 +60,12 @@
 - [ ] `./src/passes/dataflow_opt.mbt` has about 150+ tests failing because of underlying data structure issues, likely related to the above tasks
 - [ ] add binaryen passes to `./src/passes/`. Some of these passes may not make sense in our setting, because they are emscripten specific like `LLVMMemoryCopyFillLowering`, but they may be useful.
   - [ ] Binaryen Pass : Asyncify.cpp
-  - [ ] Binaryen Pass : DeAlign.cpp
-  - [ ] Binaryen Pass : DeNaN.cpp
+  - [x] Binaryen Pass : DeNaN.cpp
   - [x] Binaryen Pass : DeadCodeElimination.cpp
   - [x] Binaryen Pass : DuplicateFunctionElimination.cpp
   - [x] Binaryen Pass : DuplicateImportElimination.cpp
-  - [ ] Binaryen Pass : EncloseWorld.cpp
-  - [ ] Binaryen Pass : ExtractFunction.cpp
-  - [ ] Binaryen Pass : Flatten.cpp
-  - [ ] Binaryen Pass : FuncCastEmulation.cpp
   - [x] Binaryen Pass : GUFA.cpp
-  - [ ] Binaryen Pass : GenerateDynCalls.cpp
-  - [ ] Binaryen Pass : GlobalEffects.cpp
-  - [ ] Binaryen Pass : GlobalRefining.cpp
+  - [x] Binaryen Pass : GlobalRefining.cpp
   - [ ] Binaryen Pass : GlobalStructInference.cpp
   - [ ] Binaryen Pass : GlobalTypeOptimization.cpp
   - [ ] Binaryen Pass : Heap2Local.cpp

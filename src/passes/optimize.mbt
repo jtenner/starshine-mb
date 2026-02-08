@@ -12,6 +12,7 @@ pub(all) enum ModulePass {
   DeadCodeElimination
   DeadArgumentElimination
   DuplicateImportElimination
+  GlobalRefining
   GUFA
   GUFAOptimizing
   GUFACastAll
@@ -155,6 +156,11 @@ pub fn optimize_module_with_options(
         }
       DuplicateImportElimination =>
         match duplicate_import_elimination(mod) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      GlobalRefining =>
+        match global_refining(mod) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }
@@ -384,6 +390,44 @@ test "optimize_module runs DuplicateImportElimination pass" {
     Some(CodeSec([TFunc(_, TExpr([TCall(FuncIdx(i), [])]))])) =>
       assert_eq(i, 0U)
     _ => fail("expected call index remapped to canonical import")
+  }
+}
+
+///|
+test "optimize_module runs GlobalRefining pass" {
+  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t0]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(ValType::anyref(), false),
+          Expr::new([Instruction::ref_func(FuncIdx::new(0))]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      ExportSec::new([
+        Export::new(Name::new("g"), ExternIdx::global(GlobalIdx::new(0))),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([Func::t_func([], TExpr::new([TInstr::nop()]))]),
+    )
+  let optimized = match optimize_module(mod, [GlobalRefining]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.global_sec {
+    Some(GlobalSec([Global(GlobalType(vt, is_mut), _)])) => {
+      assert_false(is_mut)
+      assert_eq(
+        vt,
+        ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx::new(0)))),
+      )
+    }
+    _ => fail("expected one refined global")
   }
 }
 
