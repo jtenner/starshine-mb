@@ -15,7 +15,6 @@ priv struct Block {
   instrs : Array[TInstr]
   preds : Array[Int]
   succs : Array[Int]
-  is_loop_header : Bool
 }
 
 ///|
@@ -498,7 +497,6 @@ fn build_cfg(instrs : Array[TInstr]) -> Array[Block] {
       instrs: Array::new(),
       preds: Array::new(),
       succs: Array::new(),
-      is_loop_header: false,
     }
     next_id = next_id + 1
     b
@@ -540,7 +538,7 @@ fn build_cfg(instrs : Array[TInstr]) -> Array[Block] {
       // loop introduces backedge
       TInstr::TLoop(_, body) => {
         current.instrs.push(instr)
-        let loop_body = Block::{ ..new_block(), is_loop_header: true }
+        let loop_body = new_block()
         let after_loop = new_block()
         current.succs.push(loop_body.id)
         loop_body.preds.push(current.id)

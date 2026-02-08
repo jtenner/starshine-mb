@@ -46,4 +46,4 @@ using @lib {
 }
 
 ///|
-using @transformer {type ModuleTransformer, type TransformerResult}
+using @transformer {type ModuleTransformer}

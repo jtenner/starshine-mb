@@ -11,9 +11,7 @@ pub fn lookup_keyword(String) -> TokenType?
 // Errors
 pub suberror ParserError {
   UnexpectedToken(Token, String)
-  UnexpectedEof
   InvalidInstruction(String)
-  InvalidType(String)
   Custom(String)
 }
 pub impl Show for ParserError
@@ -40,7 +38,6 @@ pub struct ElemSegment {
 
 pub enum ErrorLevel {
   Error
-  Warning
 }
 
 pub struct Export {
@@ -201,8 +198,6 @@ pub enum Instruction {
   SimdConvert(Opcode)
   SimdRelaxed(Opcode)
 }
-
-type KeywordEntry
 
 pub struct KeywordTable {
   map : @hashmap.HashMap[String, TokenType]
@@ -873,8 +868,6 @@ pub enum ValueType {
   V128
   FuncRef
   ExternRef
-  Func
-  Extern
 }
 pub impl Show for ValueType
 
@@ -942,7 +935,6 @@ pub enum WastResult {
   F64NanArithmetic
   RefNull(ValueType?)
   RefFunc
-  RefExtern
 }
 
 pub struct WastScript {
@@ -954,10 +946,8 @@ pub enum WastValue {
   I64(String)
   F32(String)
   F64(String)
-  V128(String)
   RefNull(ValueType)
   RefFunc
-  RefExtern
 }
 
 // Type aliases

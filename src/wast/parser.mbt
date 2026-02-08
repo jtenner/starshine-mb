@@ -348,10 +348,8 @@ pub enum WastValue {
   I64(String)
   F32(String)
   F64(String)
-  V128(String)
   RefNull(ValueType)
   RefFunc
-  RefExtern
 }
 
 ///|
@@ -363,7 +361,6 @@ pub enum WastResult {
   F64NanArithmetic
   RefNull(ValueType?)
   RefFunc
-  RefExtern
 }
 
 ///|
@@ -419,9 +416,7 @@ pub struct ParseError {
 ///|
 pub suberror ParserError {
   UnexpectedToken(Token, String)
-  UnexpectedEof
   InvalidInstruction(String)
-  InvalidType(String)
   Custom(String)
 } derive(Show)
 
@@ -546,11 +541,6 @@ fn WastParser::expect_lpar(self : WastParser) -> Unit raise ParserError {
 fn WastParser::expect_rpar(self : WastParser) -> Unit raise ParserError {
   let _ = self.expect(Rpar, "expected ')'")
 
-}
-
-///|
-fn WastParser::error(self : WastParser, message : String) -> Unit {
-  self.errors.push({ location: self.current.location, message })
 }
 
 ///|
@@ -2234,17 +2224,6 @@ fn WastParser::parse_simd_shape(
 }
 
 ///|
-fn WastParser::try_parse_simd_shape(self : WastParser) -> SimdShape? {
-  match self.current.token_type {
-    SimdShapeToken(shape) => {
-      let _ = self.advance()
-      Some(shape)
-    }
-    _ => None
-  }
-}
-
-///|
 fn WastParser::parse_lane_index(self : WastParser) -> UInt raise ParserError {
   let token = self.expect(Nat, "expected lane index")
   parse_uint(self.get_literal_text(token))
@@ -2742,6 +2721,15 @@ test "parse simple module" {
   let mod = parser.parse_module()
   assert_false(parser.has_errors())
   assert_eq(mod.fields.length(), 1)
+}
+
+///|
+test "parse error struct can be constructed" {
+  let err : ParseError = {
+    location: { filename: "test", line: 1, first_column: 1, last_column: 1 },
+    message: "example",
+  }
+  assert_eq(err.message, "example")
 }
 
 ///|

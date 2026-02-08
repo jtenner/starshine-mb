@@ -224,6 +224,18 @@ test "BlockId and SSAValue hashing" {
 }
 
 ///|
+test "GVNKey Load hashing" {
+  let key = GVNKey::Load(
+    LoadOp::i32_load(),
+    MemArg::new(0, None, 0),
+    SSAValue(0),
+  )
+  let map : Map[GVNKey, Int] = {}
+  map[key] = 7
+  assert_eq(map[key], 7)
+}
+
+///|
 test "infer_ssa_types" {
   let expr = TExpr::new([
     TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(42)),

@@ -10,7 +10,6 @@ pub enum LiteralType {
 ///|
 pub enum ErrorLevel {
   Error
-  Warning
 }
 
 // ============================================================================
@@ -61,8 +60,6 @@ pub enum ValueType {
   V128
   FuncRef
   ExternRef
-  Func
-  Extern
 } derive(Show)
 
 // ============================================================================
@@ -644,16 +641,6 @@ pub enum TokenValue {
   ValueType(ValueType)
   Opcode(Opcode)
 } derive(Show)
-
-// ============================================================================
-// Keyword Entry and Hash Table
-// ============================================================================
-
-///|
-struct KeywordEntry {
-  keyword : String
-  token_type : TokenType
-}
 
 // ============================================================================
 // WastLexer

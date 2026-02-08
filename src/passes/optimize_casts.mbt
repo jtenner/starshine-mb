@@ -87,15 +87,6 @@ fn CastOptState::get_local_type(
   self.env.get_local_type(idx)
 }
 
-///|
-/// Update the environment's locals (for when we're processing a function)
-fn CastOptState::with_locals(
-  self : CastOptState,
-  locals : Array[ValType],
-) -> CastOptState {
-  { ..self, env: self.env.with_locals(locals) }
-}
-
 // ============================================================================
 // Subtype checking
 // ============================================================================

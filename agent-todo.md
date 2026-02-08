@@ -1,15 +1,15 @@
 # Agent Tasks
 
 - [ ] switch passes in `./src/passes/*.mbt` to use `IRContext` from `./src/ir/ir_context.mbt`
-  - [ ] `./src/passes/coalesce_locals.mbt`
-  - [ ] `./src/passes/code_folding.mbt`
-  - [ ] `./src/passes/code_pushing.mbt`
-  - [ ] `./src/passes/const_hoisting.mbt`
-  - [ ] `./src/passes/constant_field_propagation.mbt`
-  - [ ] `./src/passes/dataflow_opt.mbt` 
+  - [x] `./src/passes/coalesce_locals.mbt`
+  - [x] `./src/passes/code_folding.mbt`
+  - [x] `./src/passes/code_pushing.mbt`
+  - [x] `./src/passes/const_hoisting.mbt`
+  - [x] `./src/passes/constant_field_propagation.mbt`
+  - [x] `./src/passes/dataflow_opt.mbt` 
   - [ ] `./src/passes/de_nan.mbt`
-  - [ ] `./src/passes/directize.mbt`
-  - [ ] `./src/passes/optimize_casts.mbt`
+  - [x] `./src/passes/directize.mbt`
+  - [x] `./src/passes/optimize_casts.mbt`
   - [ ] `./src/passes/remove_unused.mbt`
 - [ ] `./src/passes/dataflow_opt.mbt` has about 150+ tests failing because of underlying data structure issues, likely related to the above tasks
 - [ ] add binaryen passes to `./src/passes/`. Some of these passes may not make sense in our setting, because they are emscripten specific like `LLVMMemoryCopyFillLowering`, but they may be useful.
@@ -124,13 +124,14 @@
   - [ ] WAT to WASM types functions (Use `Instruction` enum for easy conversion)
 - [ ] `./src/transformer/transformer.mbt` needs tests
 
-- [ ] resolve current `moon check` warnings (currently 18)
-  - [ ] `./src/ir/imports.mbt`: remove unused `TransformerResult` import
-  - [ ] `./src/ir/ssa_optimize_tests.mbt`: remove/consume unused `right` variable in test pattern
-  - [ ] `./src/ir/types.mbt`: either construct `Load` in IR generation or remove/deprecate the unused `Load` constructor
-  - [ ] `./src/ir/types.mbt`: remove or use the unused `instr_id` field in `Get(LocalIdx, Int, Int)`
-  - [ ] `./src/lib/types.mbt`: remove or repurpose unused local `Option[T]` enum definition
-  - [ ] `./src/passes/coalesce_locals.mbt`: remove or use `is_loop_header`
-  - [ ] `./src/passes/optimize_casts.mbt`: remove or use `CastOptState::with_locals`
-  - [ ] `./src/wast/parser.mbt`: remove or implement currently-unused variants (`V128`, `RefExtern`, `UnexpectedEof`, `InvalidType`) and helper functions (`error`, `try_parse_simd_shape`)
-  - [ ] `./src/wast/types.mbt`: remove or use currently-unused variants (`Warning`, `Func`, `Extern`) and `KeywordEntry`
+- [x] resolve current `moon check` warnings (was 18, now 0)
+  - [x] `./src/ir/imports.mbt`: remove unused `TransformerResult` import
+  - [x] `./src/ir/ssa_optimize_tests.mbt`: remove/consume unused `right` variable in test pattern
+  - [x] `./src/ir/types.mbt`: either construct `Load` in IR generation or remove/deprecate the unused `Load` constructor
+  - [x] `./src/ir/types.mbt`: remove or use the unused `instr_id` field in `Get(LocalIdx, Int, Int)`
+  - [x] `./src/lib/types.mbt`: remove or repurpose unused local `Option[T]` enum definition
+  - [x] `./src/passes/coalesce_locals.mbt`: remove or use `is_loop_header`
+  - [x] `./src/passes/optimize_casts.mbt`: remove or use `CastOptState::with_locals`
+  - [x] `./src/wast/parser.mbt`: remove or implement currently-unused variants (`V128`, `RefExtern`, `UnexpectedEof`, `InvalidType`) and helper functions (`error`, `try_parse_simd_shape`)
+  - [x] `./src/wast/types.mbt`: remove or use currently-unused variants (`Warning`, `Func`, `Extern`) and `KeywordEntry`
+- [ ] add a CI/job gate that runs `moon check` and fails on warnings regression

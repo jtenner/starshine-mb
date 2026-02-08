@@ -1523,7 +1523,7 @@ test "optimize_ssa mul by power of 2 becomes shl" {
     _ => fail("Expected Return terminator")
   }
   match find_assign(result, 0, rv.0) {
-    Some(Binary(op, left, right)) => {
+    Some(Binary(op, left, _)) => {
       assert_eq(op, BinaryOp::i32_shl())
       assert_eq(left, SSAValue(10))
       // optional: check shift amount == 3

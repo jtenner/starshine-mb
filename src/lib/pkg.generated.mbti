@@ -2138,8 +2138,6 @@ pub impl Hash for NumType
 pub impl Show for NumType
 pub impl @quickcheck.Arbitrary for NumType
 
-type Option[T]
-
 pub enum PackType {
   I16PackType
   I8PackType

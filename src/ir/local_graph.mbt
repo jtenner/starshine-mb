@@ -50,7 +50,7 @@ fn extract_actions_from_instr(
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, i) {
     match i {
       TInstr::TLocalGet(idx) => {
-        actions.push(Action::Get(idx, instr_id, action_index_ref.val))
+        actions.push(Action::Get(idx, action_index_ref.val))
         action_index_ref.update(fn(n) { n + 1 })
       }
       TInstr::TLocalSet(idx, _) => {
@@ -130,7 +130,7 @@ fn compute_get_sets_cfg(
     // collect gets in this block
     for action in info.actions {
       match action {
-        Action::Get(idx, _, get_action_index) => {
+        Action::Get(idx, get_action_index) => {
           // scan backward inside block
           let mut found = false
           let mut i = get_action_index - 1
