@@ -1,186 +1,166 @@
 # Agent Tasks
 
-- [x] pass coverage audit + incremental test expansion (2026-02-08)
-  - [x] Inspect every pass in `./src/passes/*.mbt`
-  - [x] Add new tests to sparse pass files:
-    - [x] `./src/passes/duplicate_import_elimination.mbt`
-    - [x] `./src/passes/duplicate_function_elimination.mbt`
-    - [x] `./src/passes/dataflow_opt.mbt`
-    - [x] `./src/passes/util.mbt`
-    - [x] `./src/passes/lift_to_texpr.mbt`
-    - [x] `./src/passes/lower_to_expr.mbt`
-    - [x] `./src/passes/optimize.mbt` (pipeline dispatch coverage)
-    - [x] `./src/passes/gufa.mbt` (oracle + cast-all cases)
-  - [x] Pass-by-pass inspection status:
-    - [x] `abstract_type_refining.mbt`
-    - [x] `alignment_lowering.mbt`
-    - [x] `avoid_reinterprets.mbt`
-    - [x] `coalesce_locals.mbt`
-    - [x] `code_folding.mbt`
-    - [x] `code_pushing.mbt`
-    - [x] `constant_field_propagation.mbt`
-    - [x] `const_hoisting.mbt`
-    - [x] `dataflow_opt.mbt`
-    - [x] `dead_argument_elim.mbt`
-    - [x] `dead_code_elimination.mbt`
-    - [x] `de_nan.mbt`
-    - [x] `directize.mbt`
-    - [x] `duplicate_function_elimination.mbt`
-    - [x] `duplicate_import_elimination.mbt`
-    - [x] `gufa.mbt`
-    - [x] `lift_to_texpr.mbt`
-    - [x] `lower_to_expr.mbt`
-    - [x] `optimize_casts.mbt`
-    - [x] `remove_unused.mbt`
-    - [x] `optimize.mbt`
-    - [x] `util.mbt`
-  - [ ] Continue with deeper, property-style/randomized optimization tests for large passes (`alignment_lowering`, `directize`, `optimize_casts`, `remove_unused`)
+## 1) Core Project Prerequisites
 
-- [x] coverage: add comprehensive tests for uncovered, important functions (2026-02-08)
-  - [x] `./src/binary/decode.mbt`: `decode_unsigned`, `decode_signed`, `Decode for Bool` edge/error paths
-  - [x] `./src/dataflow/graph_utils.mbt`: `Graph::make_use` behavior for `Var`, `Expr`, and `Zext` nodes
-  - [x] `./src/ir/cfg.mbt`: `build_cfg`, `CFG::successors`, `CFG::predecessors`, `CFG::dominators`
-  - [x] `./src/lib/util.mbt` + `./src/lib/texpr.mbt`: `expand_locals`, `tlocals_to_locals`, `TExpr::to_expr`
-  - [x] `./src/passes/lift_to_texpr.mbt` + `./src/passes/lower_to_expr.mbt`: lift/lower pass conversion behavior
-  - [x] `./src/transformer/transformer.mbt`: `change`, `unchanged`, `ModuleTransformer::walk_module` rewrite/error flow
-  - [x] `./src/validate/env.mbt`: `Env::get_label_types`, `Env::expand_blocktype`, `Env::resolve_heaptype_subtype`
-  - [x] `./src/wast/module_wast.mbt`: `wast_to_module`, `script_to_wast`, `wast_to_script` error/escape paths
+- [ ] Stabilize IRContext + dataflow foundations
+  - [ ] Migrate remaining passes to IRContext usage:
+    - [ ] `src/passes/de_nan.mbt`
+    - [ ] `src/passes/remove_unused.mbt`
+  - [ ] Resolve underlying data-structure issues behind `src/passes/dataflow_opt.mbt` test instability
 
-- [ ] switch passes in `./src/passes/*.mbt` to use `IRContext` from `./src/ir/ir_context.mbt`
-  - [x] `./src/passes/coalesce_locals.mbt`
-  - [x] `./src/passes/code_folding.mbt`
-  - [x] `./src/passes/code_pushing.mbt`
-  - [x] `./src/passes/const_hoisting.mbt`
-  - [x] `./src/passes/constant_field_propagation.mbt`
-  - [x] `./src/passes/dataflow_opt.mbt` 
-  - [ ] `./src/passes/de_nan.mbt`
-  - [x] `./src/passes/directize.mbt`
-  - [x] `./src/passes/optimize_casts.mbt`
-  - [ ] `./src/passes/remove_unused.mbt`
-- [ ] `./src/passes/dataflow_opt.mbt` has about 150+ tests failing because of underlying data structure issues, likely related to the above tasks
-- [ ] Add wasm atomics/threading support (top-level prerequisite for atomics-dependent pass parity)
-  - [ ] Extend IR `TInstr`/validator support for atomic GC/memory ops needed by Binaryen-equivalent optimizations
-  - [ ] Add EH/control-flow-safe local graph helpers required by atomic movement/synchronization checks
-  - [ ] Re-enable atomics-dependent Heap2Local/HeapStoreOptimization parity work once atomics exist in-project
-- [ ] add binaryen passes to `./src/passes/`. Some of these passes may not make sense in our setting, because they are emscripten specific like `LLVMMemoryCopyFillLowering`, but they may be useful.
-  - [ ] Binaryen Pass : Asyncify.cpp
-  - [x] Binaryen Pass : DeNaN.cpp
-  - [x] Binaryen Pass : DeadCodeElimination.cpp
-  - [x] Binaryen Pass : DuplicateFunctionElimination.cpp
-  - [x] Binaryen Pass : DuplicateImportElimination.cpp
-  - [x] Binaryen Pass : GUFA.cpp
-  - [x] Binaryen Pass : GlobalRefining.cpp
-  - [x] Binaryen Pass : GlobalStructInference.cpp
-  - [x] Binaryen Pass : GlobalTypeOptimization.cpp
-  - [x] Binaryen Pass : Heap2Local.cpp
-    - [x] Heap2Local parity follow-ups:
-      - [x] Escape/exclusivity improvements in current IR scope: widened safe-use modeling (`ref.as_non_null` wrappers, `ref.test`) and stricter branch-sensitive candidate rejection
-      - [x] Descriptor-aware note: descriptor-specific ops (`ref.cast_desc_eq`, `ref.get_desc`, descriptor-bearing `struct.new`) are not present in current wasm3.0 IR, so parity is scoped to available cast/test ops
-      - [x] Array coverage parity: support non-escaping fixed-size `array.new_data` / `array.new_elem` rewrite paths (including constant OOB trap folding)
-      - [x] Control-flow parity in current IR scope: branchy set-value filtering to avoid rewriting candidates that can skip allocation writes and later be read
-      - [x] Multi-round optimization parity: iterative per-function Heap2Local rounds to unlock additional opportunities after earlier rewrites
-  - [x] Binaryen Pass : HeapStoreOptimization.cpp
-  - [ ] Binaryen Pass : I64ToI32Lowering.cpp
-  - [ ] Binaryen Pass : Inlining.cpp
-  - [ ] Binaryen Pass : InstrumentBranchHints.cpp
-  - [ ] Binaryen Pass : InstrumentLocals.cpp
-  - [ ] Binaryen Pass : InstrumentMemory.cpp
-  - [ ] Binaryen Pass : Intrinsics.cpp
-  - [ ] Binaryen Pass : J2CLItableMerging.cpp
-  - [ ] Binaryen Pass : J2CLOpts.cpp
-  - [ ] Binaryen Pass : LLVMMemoryCopyFillLowering.cpp
-  - [ ] Binaryen Pass : LLVMNontrappingFPToIntLowering.cpp
-  - [ ] Binaryen Pass : LegalizeJSInterface.cpp
-  - [ ] Binaryen Pass : LimitSegments.cpp
-  - [ ] Binaryen Pass : LocalCSE.cpp
-  - [ ] Binaryen Pass : LocalSubtyping.cpp
-  - [ ] Binaryen Pass : LoopInvariantCodeMotion.cpp
-  - [ ] Binaryen Pass : Memory64Lowering.cpp
-  - [ ] Binaryen Pass : MemoryPacking.cpp
-  - [ ] Binaryen Pass : MergeBlocks.cpp
-  - [ ] Binaryen Pass : MergeLocals.cpp
-  - [ ] Binaryen Pass : MergeSimilarFunctions.cpp
-  - [ ] Binaryen Pass : Metrics.cpp
-  - [ ] Binaryen Pass : MinifyImportsAndExports.cpp
-  - [ ] Binaryen Pass : MinimizeRecGroups.cpp
-  - [ ] Binaryen Pass : Monomorphize.cpp
-  - [ ] Binaryen Pass : MultiMemoryLowering.cpp
-  - [ ] Binaryen Pass : NoInline.cpp
-  - [ ] Binaryen Pass : OnceReduction.cpp
-  - [ ] Binaryen Pass : OptimizeAddedConstants.cpp
-  - [ ] Binaryen Pass : OptimizeCasts.cpp
-  - [ ] Binaryen Pass : OptimizeForJS.cpp
-  - [ ] Binaryen Pass : OptimizeInstructions.cpp
-  - [ ] Binaryen Pass : Outlining.cpp
-  - [ ] Binaryen Pass : PickLoadSigns.cpp
-  - [ ] Binaryen Pass : Poppify.cpp
-  - [ ] Binaryen Pass : Precompute.cpp
-  - [ ] Binaryen Pass : RandomizeBranchHints.cpp
-  - [ ] Binaryen Pass : ReReloop.cpp
-  - [ ] Binaryen Pass : RedundantSetElimination.cpp
-  - [ ] Binaryen Pass : RemoveImports.cpp
-  - [ ] Binaryen Pass : RemoveMemoryInit.cpp
-  - [ ] Binaryen Pass : RemoveNonJSOps.cpp
-  - [ ] Binaryen Pass : RemoveUnusedBrs.cpp
-  - [ ] Binaryen Pass : RemoveUnusedModuleElements.cpp
-  - [ ] Binaryen Pass : RemoveUnusedNames.cpp
-  - [ ] Binaryen Pass : RemoveUnusedTypes.cpp
-  - [ ] Binaryen Pass : ReorderFunctions.cpp
-  - [ ] Binaryen Pass : ReorderGlobals.cpp
-  - [ ] Binaryen Pass : ReorderLocals.cpp
-  - [ ] Binaryen Pass : ReorderTypes.cpp
-  - [ ] Binaryen Pass : RoundTrip.cpp
-  - [ ] Binaryen Pass : SSAify.cpp
-  - [ ] Binaryen Pass : SafeHeap.cpp
-  - [ ] Binaryen Pass : SeparateDataSegments.cpp
-  - [ ] Binaryen Pass : SetGlobals.cpp
-  - [ ] Binaryen Pass : SignExtLowering.cpp
-  - [ ] Binaryen Pass : SignaturePruning.cpp
-  - [ ] Binaryen Pass : SignatureReUse `TExpr` enum for easy conversionfining.cpp
-  - [ ] Binaryen Pass : SimplifyGlobals.cpp
-  - [ ] Binaryen Pass : SimplifyLocals.cpp
-  - [ ] Binaryen Pass : Souperify.cpp
-  - [ ] Binaryen Pass : SpillPointers.cpp
-  - [ ] Binaryen Pass : StackCheck.cpp
-  - [ ] Binaryen Pass : StringLifting.cpp
-  - [ ] Binaryen Pass : StringLowering.cpp
-  - [ ] Binaryen Pass : Strip.cpp
-  - [ ] Binaryen Pass : StripEH.cpp
-  - [ ] Binaryen Pass : StripTargetFeatures.cpp
-  - [ ] Binaryen Pass : TraceCalls.cpp
-  - [ ] Binaryen Pass : TranslateEH.cpp
-  - [ ] Binaryen Pass : TrapMode.cpp
-  - [ ] Binaryen Pass : TupleOptimization.cpp
-  - [ ] Binaryen Pass : TypeFinalizing.cpp
-  - [ ] Binaryen Pass : TypeGeneralizing.cpp
-  - [ ] Binaryen Pass : TypeMerging.cpp
-  - [ ] Binaryen Pass : TypeRefining.cpp
-  - [ ] Binaryen Pass : TypeSSA.cpp
-  - [ ] Binaryen Pass : Unsubtyping.cpp
-  - [ ] Binaryen Pass : Untee.cpp
-  - [ ] Binaryen Pass : Vacuum.cpp
-- [ ] Improve `./src/lib/show.mbt` trait definitions for pretty printing module outputs
-- [ ] Implement `./src/wast/*.mbt` to be able to parse and pretty print the s-expression text format of WebAssembly
-  - [ ] Add more complete tests
-  - [ ] Fix pretty printing of modules to match the s-expression text format of WebAssembly
-  - [ ] WAST to WAT functions
-  - [ ] WAST to WASM types functions (Use `TExpr` enum for easy conversion)
-- [ ] Implement `./src/wat/*.mbt` to be able to parse and pretty print text format standard for wasm 3.0
-  - [ ] Lexer and tests
-  - [ ] Parser and tests
-  - [ ] Printer and tests
-  - [ ] WAT to WAST functions
-  - [ ] WAT to WASM types functions (Use `Instruction` enum for easy conversion)
-- [ ] `./src/transformer/transformer.mbt` needs tests
+- [ ] Add wasm atomics/threading support (prerequisite for atomics-dependent parity)
+  - [ ] Extend IR `TInstr` + validator surface for required atomic GC/memory operations
+  - [ ] Add EH/control-flow-safe LocalGraph helpers needed by movement/synchronization checks
+  - [ ] Re-enable atomics-dependent parity work in Heap2Local / HeapStoreOptimization when atomics are available
 
-- [x] resolve current `moon check` warnings (was 18, now 0)
-  - [x] `./src/ir/imports.mbt`: remove unused `TransformerResult` import
-  - [x] `./src/ir/ssa_optimize_tests.mbt`: remove/consume unused `right` variable in test pattern
-  - [x] `./src/ir/types.mbt`: either construct `Load` in IR generation or remove/deprecate the unused `Load` constructor
-  - [x] `./src/ir/types.mbt`: remove or use the unused `instr_id` field in `Get(LocalIdx, Int, Int)`
-  - [x] `./src/lib/types.mbt`: remove or repurpose unused local `Option[T]` enum definition
-  - [x] `./src/passes/coalesce_locals.mbt`: remove or use `is_loop_header`
-  - [x] `./src/passes/optimize_casts.mbt`: remove or use `CastOptState::with_locals`
-  - [x] `./src/wast/parser.mbt`: remove or implement currently-unused variants (`V128`, `RefExtern`, `UnexpectedEof`, `InvalidType`) and helper functions (`error`, `try_parse_simd_shape`)
-  - [x] `./src/wast/types.mbt`: remove or use currently-unused variants (`Warning`, `Func`, `Extern`) and `KeywordEntry`
-- [ ] add a CI/job gate that runs `moon check` and fails on warnings regression
+## 2) Parity Backlog For Implemented Binaryen Passes
+
+- [ ] `Binaryen Pass: DeNaN.cpp` parity hardening
+  - [ ] Expand NaN-producing expression coverage beyond current scalar-op subset (loads/select/call results/local/global flows)
+  - [ ] Implement idempotency regression test (`running pass twice produces same result`) with helper/index stability assertions
+
+- [ ] `Binaryen Pass: GlobalRefining.cpp` parity hardening
+  - [ ] Broaden observed-type inference across additional expression forms and control-flow merges
+
+- [ ] `Binaryen Pass: GlobalStructInference.cpp` parity hardening
+  - [ ] Implement descriptor-cast mode behavior once descriptor ops exist in IR (flag is wired but currently no-op)
+  - [ ] Add descriptor-mode parity tests when IR support lands
+
+- [ ] `Binaryen Pass: GUFA.cpp` parity hardening
+  - [ ] Extend oracle domain/rewrites beyond current scalar+ref subset
+  - [ ] Add safe merge semantics across control-flow boundaries (less conservative than full state reset)
+
+- [ ] `Binaryen Pass: GlobalTypeOptimization.cpp` parity hardening
+  - [ ] Add additional parity tests around tricky type-hierarchy removal/reordering edge cases and public-type constraints
+
+- [ ] `Binaryen Pass: Heap2Local.cpp` parity hardening
+  - [ ] Descriptor-specific parity (`ref.cast_desc_eq`, `ref.get_desc`, descriptor-bearing `struct.new`) when/if descriptor ops are added to IR
+  - [ ] Atomics-dependent parity (`struct/array rmw/cmpxchg`, synchronization-sensitive cases) after atomics support lands
+  - [ ] Add more branch/CFG stress tests to validate escape/exclusivity precision on complex control flow
+
+- [ ] `Binaryen Pass: HeapStoreOptimization.cpp` parity hardening
+  - [ ] Replace conservative “branchy value + later local.get” guard with LocalGraph/`canMoveSet`-equivalent `canSkipLocalSet` logic
+  - [ ] Add CFG/basic-block-scoped action traversal parity (not only linear list scanning)
+  - [ ] Add explicit `struct.new` invalidation checks equivalent to Binaryen `ShallowEffectAnalyzer(new_).invalidates(setValueEffects)`
+  - [ ] Expand parity tests for:
+    - [ ] legal branch-skip cases currently rejected
+    - [ ] required rejection cases
+    - [ ] reordering across mixed locals/globals/memory/call/trap effects
+
+- [ ] `Binaryen Pass: DeadCodeElimination.cpp` parity hardening
+  - [ ] Add parity-focused tests for EH/branch interaction and block/loop/try_table corner cases
+
+- [ ] `Binaryen Pass: DuplicateFunctionElimination.cpp` parity hardening
+  - [ ] Add parity tests for advanced signature/feature interactions and index remapping edge cases
+
+- [ ] `Binaryen Pass: DuplicateImportElimination.cpp` parity hardening
+  - [ ] Add parity tests for mixed extern kinds and import/export remapping edge cases
+
+## 3) Binaryen Passes Still To Implement
+
+### A) Primary Optimization / Analysis Passes
+- [ ] Binaryen Pass: Asyncify.cpp
+- [ ] Binaryen Pass: I64ToI32Lowering.cpp
+- [ ] Binaryen Pass: Inlining.cpp
+- [ ] Binaryen Pass: LocalCSE.cpp
+- [ ] Binaryen Pass: LocalSubtyping.cpp
+- [ ] Binaryen Pass: LoopInvariantCodeMotion.cpp
+- [ ] Binaryen Pass: MemoryPacking.cpp
+- [ ] Binaryen Pass: MergeBlocks.cpp
+- [ ] Binaryen Pass: MergeLocals.cpp
+- [ ] Binaryen Pass: MergeSimilarFunctions.cpp
+- [ ] Binaryen Pass: OnceReduction.cpp
+- [ ] Binaryen Pass: OptimizeAddedConstants.cpp
+- [ ] Binaryen Pass: OptimizeCasts.cpp
+- [ ] Binaryen Pass: OptimizeInstructions.cpp
+- [ ] Binaryen Pass: PickLoadSigns.cpp
+- [ ] Binaryen Pass: Precompute.cpp
+- [ ] Binaryen Pass: RedundantSetElimination.cpp
+- [ ] Binaryen Pass: RemoveUnusedBrs.cpp
+- [ ] Binaryen Pass: RemoveUnusedModuleElements.cpp
+- [ ] Binaryen Pass: RemoveUnusedNames.cpp
+- [ ] Binaryen Pass: RemoveUnusedTypes.cpp
+- [ ] Binaryen Pass: ReorderFunctions.cpp
+- [ ] Binaryen Pass: ReorderGlobals.cpp
+- [ ] Binaryen Pass: ReorderLocals.cpp
+- [ ] Binaryen Pass: ReorderTypes.cpp
+- [ ] Binaryen Pass: SSAify.cpp
+- [ ] Binaryen Pass: SignaturePruning.cpp
+- [ ] Binaryen Pass: SimplifyGlobals.cpp
+- [ ] Binaryen Pass: SimplifyLocals.cpp
+- [ ] Binaryen Pass: TypeFinalizing.cpp
+- [ ] Binaryen Pass: TypeGeneralizing.cpp
+- [ ] Binaryen Pass: TypeMerging.cpp
+- [ ] Binaryen Pass: TypeRefining.cpp
+- [ ] Binaryen Pass: TypeSSA.cpp
+- [ ] Binaryen Pass: Unsubtyping.cpp
+- [ ] Binaryen Pass: Untee.cpp
+- [ ] Binaryen Pass: Vacuum.cpp
+
+### B) Lowering / Legalization / Platform Passes
+- [ ] Binaryen Pass: LLVMMemoryCopyFillLowering.cpp
+- [ ] Binaryen Pass: LLVMNontrappingFPToIntLowering.cpp
+- [ ] Binaryen Pass: LegalizeJSInterface.cpp
+- [ ] Binaryen Pass: Memory64Lowering.cpp
+- [ ] Binaryen Pass: MultiMemoryLowering.cpp
+- [ ] Binaryen Pass: RemoveMemoryInit.cpp
+- [ ] Binaryen Pass: RemoveNonJSOps.cpp
+- [ ] Binaryen Pass: SignExtLowering.cpp
+- [ ] Binaryen Pass: StripEH.cpp
+- [ ] Binaryen Pass: StripTargetFeatures.cpp
+- [ ] Binaryen Pass: TranslateEH.cpp
+
+### C) Instrumentation / Metrics / Diagnostics
+- [ ] Binaryen Pass: InstrumentBranchHints.cpp
+- [ ] Binaryen Pass: InstrumentLocals.cpp
+- [ ] Binaryen Pass: InstrumentMemory.cpp
+- [ ] Binaryen Pass: Metrics.cpp
+- [ ] Binaryen Pass: RandomizeBranchHints.cpp
+- [ ] Binaryen Pass: TraceCalls.cpp
+
+### D) JS / Tooling / Specialty Passes
+- [ ] Binaryen Pass: Intrinsics.cpp
+- [ ] Binaryen Pass: J2CLItableMerging.cpp
+- [ ] Binaryen Pass: J2CLOpts.cpp
+- [ ] Binaryen Pass: LimitSegments.cpp
+- [ ] Binaryen Pass: MinifyImportsAndExports.cpp
+- [ ] Binaryen Pass: MinimizeRecGroups.cpp
+- [ ] Binaryen Pass: Monomorphize.cpp
+- [ ] Binaryen Pass: NoInline.cpp
+- [ ] Binaryen Pass: OptimizeForJS.cpp
+- [ ] Binaryen Pass: Outlining.cpp
+- [ ] Binaryen Pass: Poppify.cpp
+- [ ] Binaryen Pass: ReReloop.cpp
+- [ ] Binaryen Pass: RemoveImports.cpp
+- [ ] Binaryen Pass: RoundTrip.cpp
+- [ ] Binaryen Pass: SafeHeap.cpp
+- [ ] Binaryen Pass: SeparateDataSegments.cpp
+- [ ] Binaryen Pass: SetGlobals.cpp
+- [ ] Binaryen Pass: SignatureRefining.cpp
+- [ ] Binaryen Pass: Souperify.cpp
+- [ ] Binaryen Pass: SpillPointers.cpp
+- [ ] Binaryen Pass: StackCheck.cpp
+- [ ] Binaryen Pass: StringLifting.cpp
+- [ ] Binaryen Pass: StringLowering.cpp
+- [ ] Binaryen Pass: Strip.cpp
+- [ ] Binaryen Pass: TrapMode.cpp
+- [ ] Binaryen Pass: TupleOptimization.cpp
+
+## 4) Supporting Non-Pass Work
+
+- [ ] Improve `src/lib/show.mbt` trait definitions for pretty-printing module outputs
+
+- [ ] Complete `src/wast/*.mbt` support
+  - [ ] Add complete tests
+  - [ ] Fix module pretty-printing to match wasm s-expression text format
+  - [ ] Implement WAST -> WAT conversion helpers
+  - [ ] Implement WAST -> wasm types conversion helpers (via `TExpr` where appropriate)
+
+- [ ] Complete `src/wat/*.mbt` support (wasm 3.0 text format)
+  - [ ] Lexer + tests
+  - [ ] Parser + tests
+  - [ ] Printer + tests
+  - [ ] WAT -> WAST conversion helpers
+  - [ ] WAT -> wasm types conversion helpers
+
+- [ ] Add CI gate for `moon check` warning regression
