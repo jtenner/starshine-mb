@@ -63,6 +63,10 @@ pub struct CFPState {
 pub fn CFPState::from_module(@lib.Module) -> Self
 pub fn CFPState::new() -> Self
 
+type CallSite
+pub impl Eq for CallSite
+pub impl Show for CallSite
+
 type CastOptState
 pub impl Show for CastOptState
 
@@ -127,6 +131,7 @@ pub(all) enum ModulePass {
   ConstHoisting
   ConstantFieldPropagation
   DataflowOptimization
+  DeadArgumentElimination
   Directize(Bool)
   OptimizeCasts
   DeNaN

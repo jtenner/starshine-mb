@@ -92,6 +92,8 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
   - `optimize_casts_ir_pass`
 - `src/passes/util.mbt` contains `wrap_unit_func_pass` for adapting `ModuleTransformer[Unit]` function-level passes into `ModuleTransformer[IRContext]`.
 - `src/passes/dataflow_opt.mbt` is SSA-backed: it uses `IRContext.optimize_body_with_ssa()` and is the intended replacement path over the deprecated `src/dataflow/*` package.
+- `src/passes/dead_argument_elim.mbt` is integrated into `ModulePass::DeadArgumentElimination` and follows the same transformer-constructor pattern.
+- Dead argument elimination handles "unseen" call edges (exports/start/table/ref.func) by keeping original signatures stable and creating internal optimized clones plus adapter thunks, then remapping direct calls to the cloned targets.
 
 ## Local toolchain note
 
