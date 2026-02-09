@@ -511,7 +511,39 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
   - optimization iterates until global-set cardinality stops increasing; summaries are monotonic unions.
 - Threading model note for this codebase/pass:
   - current implementation is deterministic single-threaded; maps are pre-created for all functions/globals and mutated in module order.
-  - no atomic wrappers are needed in current runner usage; if pass execution becomes parallel, per-function scanner/optimizer state must stay thread-local and only pre-initialized shared tables should be merged.
+- no atomic wrappers are needed in current runner usage; if pass execution becomes parallel, per-function scanner/optimizer state must stay thread-local and only pre-initialized shared tables should be merged.
+
+## OptimizeAddedConstants notes (learned)
+
+- `src/passes/optimize_added_constants.mbt` is integrated in `src/passes/optimize.mbt` as:
+  - `ModulePass::OptimizeAddedConstants`
+  - `ModulePass::OptimizeAddedConstantsPropagate`
+- Hard gate behavior:
+  - pass returns the exact error string
+    `"OptimizeAddedConstants can only be run when the --low-memory-unused flag is set."`
+    unless `OptimizeOptions.low_memory_unused == true`.
+  - low-memory safety bound is configured by `OptimizeOptions.low_memory_bound` (default `1024`).
+- Core fold safety condition (preserved from Binaryen behavior):
+  - fold `add const` into memory offset only when
+    - `const_value < low_memory_bound`
+    - `existing_offset + const_value < low_memory_bound`.
+- Constant-pointer normalization logic:
+  - if pointer is constant and offset is non-zero, fold offset into pointer and clear offset only on non-overflowing arithmetic.
+  - memory32 mode: requires total pointer value to stay within 32-bit address range.
+  - memory64 mode: requires uint64 addition to not overflow.
+- Propagation mode conservatism:
+  - only considers `local.set x (i32.add ..., const)` candidates.
+  - candidate is propagatable only if all influenced `local.get x` uses have immediate parent `load` or `store`.
+  - use-site still requires exactly one reaching set for the pointer `local.get`.
+- Helper-local semantics in propagation:
+  - when non-constant add operand is not safely reusable (non-SSA/stability unclear), pass allocates an i32 helper local.
+  - defining set is rewritten to capture operand first:
+    - `local.set helper <operand>`
+    - then original add uses `local.get helper`.
+  - this avoids observing operand mutation between original set and memory access use.
+- Iteration/fixpoint behavior:
+  - pass loops while propagation succeeded in the last round.
+  - each round rebuilds propagation analysis and applies cleanup of now-unneeded `local.set` writes before next iteration.
 
 ## Pass testing notes (learned)
 

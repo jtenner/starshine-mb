@@ -258,6 +258,20 @@
 - [x] docs updates (`AGENTS.md`, `README.mbt.md`, `agent-todo.md`)
 - [x] `moon check`, `moon test`, `moon info && moon fmt` all green
 
+## OptimizeAddedConstants pass
+
+- [x] pass implementation + registration (`src/passes/optimize_added_constants.mbt`, `ModulePass::OptimizeAddedConstants`, `ModulePass::OptimizeAddedConstantsPropagate`)
+- [x] low-memory gate and bound semantics wired via `OptimizeOptions.low_memory_unused` / `OptimizeOptions.low_memory_bound`
+- [x] add-const fold for both `load` and `store` pointers with `low_memory_bound` safety checks
+- [x] const-pointer + offset normalization with memory32/memory64 overflow guards
+- [x] conservative propagate mode with:
+  - [x] `GetParents` helper for `local.get` immediate parent checks
+  - [x] propagatable-set filtering (all influenced gets must be under load/store parents)
+  - [x] single-reaching-set use-site gating
+  - [x] helper-local insertion for non-SSA/non-stable bases
+- [x] iterative rerun to fixpoint when propagation succeeds + cleanup of unneeded sets between rounds
+- [x] tests added for fold basics, safety bounds, const-pointer normalization, propagate success/rejection/helper behavior, multi-iteration behavior, and low-memory gating failure
+
 ## Asyncify pass
 
 - [x] pass skeleton + registration (`src/passes/asyncify.mbt`, `ModulePass::Asyncify(AsyncifyPassProps)`)
@@ -290,7 +304,7 @@
 - [x] Binaryen Pass: MergeLocals.cpp
 - [x] Binaryen Pass: MergeSimilarFunctions.cpp
 - [x] Binaryen Pass: OnceReduction.cpp
-- [ ] Binaryen Pass: OptimizeAddedConstants.cpp
+- [x] Binaryen Pass: OptimizeAddedConstants.cpp
 - [ ] Binaryen Pass: OptimizeCasts.cpp
 - [ ] Binaryen Pass: OptimizeInstructions.cpp
 - [ ] Binaryen Pass: PickLoadSigns.cpp

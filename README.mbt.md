@@ -39,6 +39,7 @@ This repository is intended for compiler and tooling work around WebAssembly 3.0
   - MergeSimilarFunctions
   - MergeBlocks
   - MemoryPacking
+  - OptimizeAddedConstants (`OptimizeAddedConstants`, `OptimizeAddedConstantsPropagate`)
   - MinimizeRecGroups
   - Code folding/pushing
   - Const hoisting
@@ -250,6 +251,23 @@ fn run_memory_packing(mod : Module) -> Module {
   }
 }
 ```
+
+OptimizeAddedConstants notes:
+- Integrated as `ModulePass::OptimizeAddedConstants` and `ModulePass::OptimizeAddedConstantsPropagate`.
+- Hard-gated by `OptimizeOptions.low_memory_unused`; the pass returns:
+  - `"OptimizeAddedConstants can only be run when the --low-memory-unused flag is set."`
+  when not enabled.
+- Safety condition for folding add-const into memory offset:
+  - folded constant `C` must satisfy `C < low_memory_bound`
+  - and `existing_offset + C < low_memory_bound`
+- Handles both `load` and `store` pointer rewrites, and normalizes `const_ptr + offset` into a single pointer constant when non-overflowing:
+  - memory32: only if sum stays in `[0, 2^32)`
+  - memory64: only if uint64 addition does not overflow
+- Propagation mode (`OptimizeAddedConstantsPropagate`) is conservative:
+  - only propagates from `local.set x (i32.add ... const)` when all influenced `local.get x` parents are `load`/`store`
+  - requires a single reaching set for the pointer `local.get`
+  - introduces helper i32 locals when the non-constant add operand is not safely reusable (non-SSA/stability uncertainty), then rewrites the defining set to capture that operand before use.
+- Runs iteratively to a fixpoint when propagation succeeds, with per-iteration cleanup of now-unneeded sets.
 
 MinimizeRecGroups notes:
 - Purpose: minimize private heap-type recursion groups by splitting them into SCC-based groups while preserving wasm validation constraints.

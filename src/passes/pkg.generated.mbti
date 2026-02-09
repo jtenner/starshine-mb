@@ -26,6 +26,10 @@ pub fn constant_field_propagation_pass() -> @transformer.ModuleTransformer[CFPSt
 
 pub fn createAsyncifyPass(props? : AsyncifyPassProps) -> ModulePass
 
+pub fn createOptimizeAddedConstantsPass() -> ModulePass
+
+pub fn createOptimizeAddedConstantsPropagatePass() -> ModulePass
+
 pub fn dataflow_optimization_pass(@lib.Module) -> @transformer.ModuleTransformer[@ir.IRContext]
 
 pub fn defs(@lib.TInstr) -> @set.Set[@lib.LocalIdx]
@@ -261,6 +265,8 @@ pub(all) enum ModulePass {
   Monomorphize
   MonomorphizeAlways
   MemoryPacking(MemoryPackingPassProps)
+  OptimizeAddedConstants
+  OptimizeAddedConstantsPropagate
   GUFA
   GUFAOptimizing
   GUFACastAll
@@ -277,8 +283,10 @@ pub struct OptimizeOptions {
   shrink_level : Int
   inlining : InliningOptions
   monomorphize_min_benefit : Int
+  low_memory_unused : Bool
+  low_memory_bound : UInt64
 }
-pub fn OptimizeOptions::new(optimize_level? : Int, shrink_level? : Int, inlining? : InliningOptions, monomorphize_min_benefit? : Int) -> Self
+pub fn OptimizeOptions::new(optimize_level? : Int, shrink_level? : Int, inlining? : InliningOptions, monomorphize_min_benefit? : Int, low_memory_unused? : Bool, low_memory_bound? : UInt64) -> Self
 
 type ParamInfo
 pub impl Eq for ParamInfo

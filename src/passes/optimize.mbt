@@ -33,6 +33,8 @@ pub(all) enum ModulePass {
   Monomorphize
   MonomorphizeAlways
   MemoryPacking(MemoryPackingPassProps)
+  OptimizeAddedConstants
+  OptimizeAddedConstantsPropagate
   GUFA
   GUFAOptimizing
   GUFACastAll
@@ -79,6 +81,8 @@ pub struct OptimizeOptions {
   shrink_level : Int
   inlining : InliningOptions
   monomorphize_min_benefit : Int
+  low_memory_unused : Bool
+  low_memory_bound : UInt64
 }
 
 ///|
@@ -87,8 +91,17 @@ pub fn OptimizeOptions::new(
   shrink_level? : Int = 0,
   inlining? : InliningOptions = InliningOptions::new(),
   monomorphize_min_benefit? : Int = 5,
+  low_memory_unused? : Bool = false,
+  low_memory_bound? : UInt64 = 1024UL,
 ) -> OptimizeOptions {
-  { optimize_level, shrink_level, inlining, monomorphize_min_benefit }
+  {
+    optimize_level,
+    shrink_level,
+    inlining,
+    monomorphize_min_benefit,
+    low_memory_unused,
+    low_memory_bound,
+  }
 }
 
 ///|
@@ -336,6 +349,26 @@ pub fn optimize_module_with_options(
         }
       MemoryPacking(props) =>
         match memory_packing(mod, props) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      OptimizeAddedConstants =>
+        match
+          apply_ir_transformer_pass(
+            ctx,
+            mod,
+            optimize_added_constants_ir_pass(mod, options, false),
+          ) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      OptimizeAddedConstantsPropagate =>
+        match
+          apply_ir_transformer_pass(
+            ctx,
+            mod,
+            optimize_added_constants_ir_pass(mod, options, true),
+          ) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }
