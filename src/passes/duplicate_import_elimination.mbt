@@ -279,3 +279,104 @@ test "duplicate import elimination ignores non-function imports" {
     None => fail("expected import section")
   }
 }
+
+///|
+test "duplicate import elimination handles mixed extern kinds and remaps exports" {
+  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let imports = ImportSec::new([
+    Import::new(
+      Name::new("env"),
+      Name::new("foo"),
+      ExternType::func(TypeIdx::new(0)),
+    ),
+    Import::new(
+      Name::new("env"),
+      Name::new("foo"),
+      ExternType::global(GlobalType::new(ValType::i32(), false)),
+    ),
+    Import::new(
+      Name::new("env"),
+      Name::new("foo"),
+      ExternType::func(TypeIdx::new(0)),
+    ),
+    Import::new(
+      Name::new("env"),
+      Name::new("mem"),
+      ExternType::mem(MemType::new(Limits::i32(1, None))),
+    ),
+    Import::new(
+      Name::new("env"),
+      Name::new("bar"),
+      ExternType::func(TypeIdx::new(0)),
+    ),
+  ])
+  let root = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::call(FuncIdx::new(1), []),
+      TInstr::call(FuncIdx::new(2), []),
+      TInstr::call(FuncIdx::new(4), []),
+    ]),
+  )
+  let callee = Func::t_func([], TExpr::new([TInstr::nop()]))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t0]))
+    .with_import_sec(imports)
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
+    .with_code_sec(CodeSec::new([root, callee]))
+    .with_export_sec(
+      ExportSec::new([
+        Export::new(Name::new("callee"), ExternIdx::func(FuncIdx::new(4))),
+      ]),
+    )
+  let optimized = match duplicate_import_elimination(mod) {
+    Ok(m) => m
+    Err(e) => fail("unexpected duplicate_import_elimination error: \{e}")
+  }
+  match optimized.import_sec {
+    Some(ImportSec(imps)) => {
+      assert_eq(imps.length(), 4)
+      let mut func_count = 0
+      let mut global_count = 0
+      let mut mem_count = 0
+      for imp in imps {
+        let Import(_, _, ex) = imp
+        match ex {
+          FuncExternType(_) => func_count += 1
+          GlobalExternType(_) => global_count += 1
+          MemExternType(_) => mem_count += 1
+          _ => ()
+        }
+      }
+      assert_eq(func_count, 2)
+      assert_eq(global_count, 1)
+      assert_eq(mem_count, 1)
+    }
+    None => fail("expected import section")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr(instrs)), _])) => {
+      assert_eq(instrs.length(), 3)
+      match instrs[0] {
+        TCall(FuncIdx(i), []) => assert_eq(i, 0U)
+        _ => fail("expected duplicate foo import call to remap to canonical")
+      }
+      match instrs[1] {
+        TCall(FuncIdx(i), []) => assert_eq(i, 1U)
+        _ => fail("expected bar import call to keep compacted index")
+      }
+      match instrs[2] {
+        TCall(FuncIdx(i), []) => assert_eq(i, 3U)
+        _ =>
+          fail(
+            "expected defined function call index to shift by removed function import",
+          )
+      }
+    }
+    _ => fail("expected code section")
+  }
+  match optimized.export_sec {
+    Some(ExportSec([Export(_, FuncExternIdx(FuncIdx(i)))])) => assert_eq(i, 3U)
+    _ => fail("expected exported defined function index to be remapped")
+  }
+}

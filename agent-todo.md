@@ -50,14 +50,14 @@
     - [ ] required rejection cases
     - [ ] reordering across mixed locals/globals/memory/call/trap effects
 
-- [ ] `Binaryen Pass: DeadCodeElimination.cpp` parity hardening
-  - [ ] Add parity-focused tests for EH/branch interaction and block/loop/try_table corner cases
+- [x] `Binaryen Pass: DeadCodeElimination.cpp` parity hardening
+  - [x] Add parity-focused tests for EH/branch interaction and block/loop/try_table corner cases
 
-- [ ] `Binaryen Pass: DuplicateFunctionElimination.cpp` parity hardening
-  - [ ] Add parity tests for advanced signature/feature interactions and index remapping edge cases
+- [x] `Binaryen Pass: DuplicateFunctionElimination.cpp` parity hardening
+  - [x] Add parity tests for advanced signature/feature interactions and index remapping edge cases
 
-- [ ] `Binaryen Pass: DuplicateImportElimination.cpp` parity hardening
-  - [ ] Add parity tests for mixed extern kinds and import/export remapping edge cases
+- [x] `Binaryen Pass: DuplicateImportElimination.cpp` parity hardening
+  - [x] Add parity tests for mixed extern kinds and import/export remapping edge cases
 
 - [x] `Binaryen Pass: I64ToI32Lowering.cpp` parity hardening
   - [x] Expand comprehensive feature coverage tests across call/call_indirect/call_ref + return_call* + control-flow/result typing + global/error guard paths

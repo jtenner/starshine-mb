@@ -510,3 +510,60 @@ test "dead code elim propagates unreachable through try_table" {
     _ => fail("expected try_table(unreachable body) to make continuation dead")
   }
 }
+
+///|
+test "dead code elim keeps outer continuation for try_table catch escape" {
+  let input = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::try_table(
+          BlockType::void_(),
+          [Catch::all(LabelIdx::new(1))],
+          TExpr::new([TInstr::unreachable_(), TInstr::i32_const(I32(1))]),
+        ),
+        TInstr::i32_const(I32(9)),
+      ]),
+    ),
+    TInstr::i32_const(I32(2)),
+  ])
+  let out = run_dce_on_texpr(input)
+  match out.0 {
+    [
+      TBlock(_, TExpr([TTryTable(_, _, TExpr([TUnreachable]))])),
+      TI32Const(I32(2)),
+    ] => ()
+    _ =>
+      fail(
+        "expected try_table catch targeting enclosing block to preserve outer continuation",
+      )
+  }
+}
+
+///|
+test "dead code elim keeps enclosing block reachable for loop branch escape" {
+  let input = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::loop_(
+          BlockType::void_(),
+          TExpr::new([
+            TInstr::br(LabelIdx::new(1), []),
+            TInstr::i32_const(I32(1)),
+          ]),
+        ),
+        TInstr::i32_const(I32(9)),
+      ]),
+    ),
+    TInstr::i32_const(I32(2)),
+  ])
+  let out = run_dce_on_texpr(input)
+  match out.0 {
+    [TBlock(_, TExpr([TLoop(_, TExpr([TBr(_, _)]))])), TI32Const(I32(2))] => ()
+    _ =>
+      fail(
+        "expected loop branch to enclosing block to keep continuation after block reachable",
+      )
+  }
+}
