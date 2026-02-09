@@ -41,14 +41,14 @@
   - [ ] Atomics-dependent parity (`struct/array rmw/cmpxchg`, synchronization-sensitive cases) after atomics support lands
   - [ ] Add more branch/CFG stress tests to validate escape/exclusivity precision on complex control flow
 
-- [ ] `Binaryen Pass: HeapStoreOptimization.cpp` parity hardening
-  - [ ] Replace conservative “branchy value + later local.get” guard with LocalGraph/`canMoveSet`-equivalent `canSkipLocalSet` logic
-  - [ ] Add CFG/basic-block-scoped action traversal parity (not only linear list scanning)
-  - [ ] Add explicit `struct.new` invalidation checks equivalent to Binaryen `ShallowEffectAnalyzer(new_).invalidates(setValueEffects)`
-  - [ ] Expand parity tests for:
-    - [ ] legal branch-skip cases currently rejected
-    - [ ] required rejection cases
-    - [ ] reordering across mixed locals/globals/memory/call/trap effects
+- [x] `Binaryen Pass: HeapStoreOptimization.cpp` parity hardening
+  - [x] Replace conservative “branchy value + later local.get” guard with LocalGraph/`canMoveSet`-equivalent `canSkipLocalSet` logic
+  - [x] Add CFG/basic-block-scoped action traversal parity (not only linear list scanning)
+  - [x] Add explicit `struct.new` invalidation checks equivalent to Binaryen `ShallowEffectAnalyzer(new_).invalidates(setValueEffects)`
+  - [x] Expand parity tests for:
+    - [x] legal branch-skip cases currently rejected
+    - [x] required rejection cases
+    - [x] reordering across mixed locals/globals/memory/call/trap effects
 
 - [x] `Binaryen Pass: DeadCodeElimination.cpp` parity hardening
   - [x] Add parity-focused tests for EH/branch interaction and block/loop/try_table corner cases

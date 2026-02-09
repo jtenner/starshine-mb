@@ -166,7 +166,15 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
   - conflicts with later `struct.new` operands crossed by moved values
   - fallback preservation of replaced operand side effects via `drop(old), new` sequences
 - `struct.new_default` is materialized to explicit defaults when folding.
-- Current implementation includes a conservative branch-safety approximation for skipping-`local.set` hazards (safer but potentially less optimizing than Binaryen's full `canMoveSet` analysis).
+- Branchy-value local-set skipping now uses a `LocalGraph`-based `canSkipLocalSet` check:
+  - candidate folds are allowed when later `local.get`s cannot read the would-be-skipped `local.set`
+  - this replaces the previous purely linear “any later local.get blocks branchy folds” guard.
+- Added explicit `struct.new` shallow invalidation checks against folded `set_value` effects (Binaryen-style `ShallowEffectAnalyzer(new_).invalidates(setValueEffects)` parity intent):
+  - rejects reordering when `set_value` has memory/global/call/trap-relevant effects that cannot move safely ahead of allocation/trap points.
+- Inline parity tests now cover:
+  - legal branchy skip cases that were previously rejected due linear local.get scanning
+  - required rejection cases when later reads can still observe the skipped local-set value
+  - mixed-effect reorder hazards (call/global side effects) that must block folding.
 
 ## GUFA notes (learned)
 
