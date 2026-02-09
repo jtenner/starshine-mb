@@ -258,10 +258,28 @@
 - [x] docs updates (`AGENTS.md`, `README.mbt.md`, `agent-todo.md`)
 - [x] `moon check`, `moon test`, `moon info && moon fmt` all green
 
+## Asyncify pass
+
+- [x] pass skeleton + registration (`src/passes/asyncify.mbt`, `ModulePass::Asyncify(AsyncifyPassProps)`)
+- [x] asyncify pass-arg parsing scaffold (`asyncify_apply_arguments`) including import/ignore/indirect/assert/list/memory/global flags and aliases
+- [x] memory selection implemented (single-memory default, multi-memory export selection, optional secondary memory) with wasm32/wasm64 pointer type handling
+- [x] `PatternMatcher` wildcard matching and deterministic matcher usage in add/remove/only/import lists
+- [x] `ModuleAnalyzer` implemented for callgraph propagation, top-most/bottom-most runtime classification, and instrumentation eligibility
+- [x] `AsyncifyBuilder` implemented (`make_get_stack_pos`, `make_inc_stack_pos`, `make_state_check`) with pointer-size-aware loads/stores
+- [x] flow instrumentation implemented (`AsyncifyFlow`-style rewrite) for calls/if/block/loop/try plus per-function call-index assignment
+- [x] fake-global path implemented (`FakeGlobalHelper`) and lowered back to locals in locals stage
+- [x] locals stage implemented (`AsyncifyLocals`-style lowering) for intrinsic lowering, save/restore of relevant locals, unwind block form, and stack pos updates
+- [x] runtime API emitted (`__asyncify_state`, `__asyncify_data`, `asyncify_start_unwind`, `asyncify_stop_unwind`, `asyncify_start_rewind`, `asyncify_stop_rewind`, `asyncify_get_state`)
+- [x] assert-mode instrumentation implemented for non-instrumented functions (`AsyncifyAssertInNonInstrumented`)
+- [x] tests added for direct/indirect instrumentation, fake-global lowering, selective import behavior, list controls, runtime API/global creation, local save/restore relevance, and assert guards
+- [ ] catch-block unwind assertion parity (`AsyncifyAssertUnwindCorrectness` in explicit catch-body form) is limited by current IR’s `try_table` catch representation
+- [x] docs updated (`AGENTS.md`, `README.mbt.md`, `agent-todo.md`)
+- [x] `moon check`, `moon test` green (follow-up `moon info && moon fmt` pending final step)
+
 ## 3) Binaryen Passes Still To Implement
 
 ### A) Primary Optimization / Analysis Passes
-- [ ] Binaryen Pass: Asyncify.cpp
+- [x] Binaryen Pass: Asyncify.cpp
 - [x] Binaryen Pass: I64ToI32Lowering.cpp
 - [x] Binaryen Pass: Inlining.cpp
 - [x] Binaryen Pass: LocalCSE.cpp

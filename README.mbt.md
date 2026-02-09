@@ -46,6 +46,7 @@ This repository is intended for compiler and tooling work around WebAssembly 3.0
   - Directize
   - Optimize casts
   - Alignment lowering
+  - Asyncify
 
 ### Core Compiler/IR Capabilities
 - CFG construction, SSA conversion, use-def, liveness, type inference, GVN, and SSA optimization hooks
@@ -173,6 +174,18 @@ fn run_inlining(mod : Module) -> Module {
 Inlining notes:
 - Callsite planning is reachability-aware (calls in unreachable tails are not considered inline candidates).
 - Try-context tail-call hoisting is supported for `return_call`, `return_call_indirect`, and `return_call_ref` wrappers.
+
+Asyncify notes:
+- Integrated as `ModulePass::Asyncify(AsyncifyPassProps)` and available through `createAsyncifyPass(...)`.
+- Uses staged intrinsics during transformation (`__asyncify_unwind`, `__asyncify_get_call_index`, `__asyncify_check_call_index`) then lowers them in the locals stage.
+- Implements runtime API/globals:
+  - globals: `__asyncify_state` (`0=normal`, `1=unwinding`, `2=rewinding`) and `__asyncify_data` (pointer to asyncify data block)
+  - exports: `asyncify_start_unwind`, `asyncify_stop_unwind`, `asyncify_start_rewind`, `asyncify_stop_rewind`, `asyncify_get_state`
+- Supports asyncify memory selection and pointer-size-aware stack layout:
+  - wasm32 layout: `bstack_pos` at offset `0`, `bstack_end` at offset `4`
+  - wasm64 layout: `bstack_pos` at offset `0`, `bstack_end` at offset `8`
+- Flow stage requires flattened/control-linearized handling shape and rewrites call sites with call indices for unwind/rewind control.
+- Fake globals are used as a temporary bridge for call-result local sets during flow instrumentation and are lowered back to locals in the locals stage.
 
 LocalCSE notes:
 - Works on repeated whole expression trees within linear/basic-block-like regions.

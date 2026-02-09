@@ -28,6 +28,7 @@ pub(all) enum ModulePass {
   MergeSimilarFunctions
   MergeBlocks
   OnceReduction
+  Asyncify(AsyncifyPassProps)
   MinimizeRecGroups
   Monomorphize
   MonomorphizeAlways
@@ -310,6 +311,11 @@ pub fn optimize_module_with_options(
         }
       OnceReduction =>
         match once_reduction(mod) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      Asyncify(props) =>
+        match asyncify(mod, props~, optimize_level=options.optimize_level) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }

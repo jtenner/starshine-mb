@@ -12,6 +12,10 @@ import {
 // Values
 pub fn alignment_lowering_pass(@lib.Module) -> @transformer.ModuleTransformer[@ir.IRContext]
 
+pub fn asyncify(@lib.Module, props? : AsyncifyPassProps, optimize_level? : Int) -> Result[@lib.Module, String]
+
+pub fn asyncify_apply_arguments(AsyncifyPassProps, Array[String]) -> Result[AsyncifyPassProps, String]
+
 pub fn code_folding_pass() -> @transformer.ModuleTransformer[CodeFoldingState]
 
 pub fn code_pushing_pass() -> @transformer.ModuleTransformer[Unit]
@@ -19,6 +23,8 @@ pub fn code_pushing_pass() -> @transformer.ModuleTransformer[Unit]
 pub fn const_hoisting_pass() -> @transformer.ModuleTransformer[ConstHoistingState]
 
 pub fn constant_field_propagation_pass() -> @transformer.ModuleTransformer[CFPState]
+
+pub fn createAsyncifyPass(props? : AsyncifyPassProps) -> ModulePass
 
 pub fn dataflow_optimization_pass(@lib.Module) -> @transformer.ModuleTransformer[@ir.IRContext]
 
@@ -72,6 +78,25 @@ pub fn uses(@lib.TInstr) -> @set.Set[@lib.LocalIdx]
 pub(all) struct AbstractTypeRefiningPassProps {
   traps_never_happen : Bool
 }
+
+pub(all) struct AsyncifyPassProps {
+  imports : Array[String]
+  ignore_imports : Bool
+  ignore_indirect : Bool
+  asserts : Bool
+  ignore_unwind_from_catch : Bool
+  verbose : Bool
+  memory : String?
+  removelist : Array[String]
+  addlist : Array[String]
+  propagate_addlist : Bool
+  onlylist : Array[String]
+  import_globals : Bool
+  export_globals : Bool
+  in_secondary_memory : Bool
+  secondary_memory_size : UInt64
+}
+pub fn AsyncifyPassProps::new(imports? : Array[String], ignore_imports? : Bool, ignore_indirect? : Bool, asserts? : Bool, ignore_unwind_from_catch? : Bool, verbose? : Bool, memory? : String?, removelist? : Array[String], addlist? : Array[String], propagate_addlist? : Bool, onlylist? : Array[String], import_globals? : Bool, export_globals? : Bool, in_secondary_memory? : Bool, secondary_memory_size? : UInt64) -> Self
 
 type BlockLiveness
 pub impl Show for BlockLiveness
@@ -231,6 +256,7 @@ pub(all) enum ModulePass {
   MergeSimilarFunctions
   MergeBlocks
   OnceReduction
+  Asyncify(AsyncifyPassProps)
   MinimizeRecGroups
   Monomorphize
   MonomorphizeAlways

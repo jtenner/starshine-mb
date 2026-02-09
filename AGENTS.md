@@ -111,6 +111,27 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
   - `dead_code_elimination_ir_pass`
   - `code_folding_ir_pass`
 
+## Asyncify notes (learned)
+
+- `src/passes/asyncify.mbt` is integrated in `src/passes/optimize.mbt` as:
+  - `ModulePass::Asyncify(AsyncifyPassProps)`
+  - helper constructor `createAsyncifyPass(...)`
+- Transformation is staged and intrinsic-driven:
+  - flow stage introduces `__asyncify_unwind`, `__asyncify_get_call_index`, `__asyncify_check_call_index`
+  - locals stage lowers intrinsics to concrete `br`/load/store/equality logic and emits save/restore code around unwind/rewind control flow
+- Fake globals are used as an intermediate bridge for `local.set(call(...))` patterns during flow instrumentation, then rewritten back to locals in the locals stage.
+- Runtime contract emitted by the pass:
+  - mutable globals: `__asyncify_state` (`0=Normal`, `1=Unwinding`, `2=Rewinding`) and `__asyncify_data` (pointer)
+  - exported API: `asyncify_start_unwind`, `asyncify_stop_unwind`, `asyncify_start_rewind`, `asyncify_stop_rewind`, `asyncify_get_state`
+- Asyncify data memory layout (stack grows upward):
+  - wasm32 pointer mode: `bstack_pos @ +0`, `bstack_end @ +4`
+  - wasm64 pointer mode: `bstack_pos @ +0`, `bstack_end @ +8`
+- Memory selection supports:
+  - default single-memory mode
+  - explicit exported-memory selection for multi-memory modules (`asyncify-memory@...`)
+  - optional dedicated secondary memory (`asyncify-in-secondary-memory`)
+- Flatten/control-linearized structure is important before flow rewrite so call-site instrumentation can assign deterministic call indices and skip non-state-changing regions safely during rewinding.
+
 ## Global Type Optimization notes (learned)
 
 - `src/passes/global_type_optimization.mbt` implements a Binaryen-style whole-module struct field optimizer and is wired into `ModulePass::GlobalTypeOptimization`.
