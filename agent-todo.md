@@ -93,6 +93,13 @@
   - [x] Wire `ModulePass::LocalSubtyping` into `src/passes/optimize.mbt` dispatch and add optimize integration test
   - [x] Update docs/bookkeeping (`README.mbt.md`, `AGENTS.md`, `agent-todo.md`)
 
+- [x] `Binaryen Pass: OptimizeCasts.cpp` implementation + parity coverage
+  - [x] Implement Binaryen-shaped two-stage flow: early cast movement + best-cast reuse
+  - [x] Add effect/barrier-based movement invalidation for cast hoisting safety
+  - [x] Add temp-local tee rewriting for refined-cast reuse
+  - [x] Add focused pass tests for early movement, refinement preference, non-null handling, and boundary conservatism
+  - [x] Update docs/bookkeeping (`AGENTS.md`, `agent-todo.md`)
+
 ## MemoryPacking pass
 
 - [x] Preconditions: skip when module has 0 memories or more than 1 memory
@@ -305,7 +312,7 @@
 - [x] Binaryen Pass: MergeSimilarFunctions.cpp
 - [x] Binaryen Pass: OnceReduction.cpp
 - [x] Binaryen Pass: OptimizeAddedConstants.cpp
-- [ ] Binaryen Pass: OptimizeCasts.cpp
+- [x] Binaryen Pass: OptimizeCasts.cpp
 - [ ] Binaryen Pass: OptimizeInstructions.cpp
 - [ ] Binaryen Pass: PickLoadSigns.cpp
 - [ ] Binaryen Pass: Precompute.cpp

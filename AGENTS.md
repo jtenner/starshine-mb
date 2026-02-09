@@ -545,6 +545,22 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
   - pass loops while propagation succeeded in the last round.
   - each round rebuilds propagation analysis and applies cleanup of now-unneeded `local.set` writes before next iteration.
 
+## OptimizeCasts notes (learned)
+
+- `src/passes/optimize_casts.mbt` is integrated in `src/passes/optimize.mbt` as `ModulePass::OptimizeCasts`.
+- Current implementation follows Binaryen-style staged flow:
+  - Early cast movement analysis (`EarlyCastFinder`) and duplication (`EarlyCastApplier`) for `ref.cast` and `ref.as_non_null`.
+  - Best-cast reuse analysis (`BestCastFinder`) and rewrite (`FindingApplier`) by teeing refined values to temp locals and remapping less-refined `local.get` uses.
+- Early cast movement uses shallow effect invalidation barriers equivalent in intent to `EffectAnalyzer` + `ShallowEffectAnalyzer`:
+  - traps and side effects block moving casts earlier.
+  - non-linear/control-transfer boundaries flush pending movement state.
+- Cast selection rules:
+  - only move casts that are subtype-compatible with the target `local.get` declared type.
+  - prefer strictly more refined casts over less refined candidates.
+  - `ref.as_non_null` handling is limited to the non-null refinement operation (extern-conversion ref-as ops are not part of cast movement).
+- Best-cast reuse remains local/basic-block-scoped and tracks invalidation on local writes (`local.set`/`local.tee`) and non-linear boundaries.
+- No GC feature gate is applied in this codebase for this pass; parity work targets wasm3.0 IR behavior directly.
+
 ## Pass testing notes (learned)
 
 - Most large passes already have substantial inline tests (notably `alignment_lowering`, `directize`, `optimize_casts`, `remove_unused`).

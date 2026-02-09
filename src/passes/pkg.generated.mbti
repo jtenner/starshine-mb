@@ -116,9 +116,6 @@ type CallSite
 pub impl Eq for CallSite
 pub impl Show for CallSite
 
-type CastOptState
-pub impl Show for CastOptState
-
 type CodeFoldingState
 
 pub struct ConstHoistingState {
