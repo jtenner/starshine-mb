@@ -23,6 +23,7 @@ pub(all) enum ModulePass {
   InlineMain
   LocalCSE
   LocalSubtyping
+  MergeBlocks
   MemoryPacking(MemoryPackingPassProps)
   GUFA
   GUFAOptimizing
@@ -260,6 +261,16 @@ pub fn optimize_module_with_options(
         }
       LocalSubtyping =>
         match local_subtyping(mod) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      MergeBlocks =>
+        match
+          apply_ir_transformer_pass(
+            ctx,
+            mod,
+            merge_blocks_ir_pass(mod, options~),
+          ) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }
@@ -1195,6 +1206,31 @@ test "optimize_module runs LocalSubtyping pass" {
     Some(CodeSec([TFunc([RefTypeValType(rt)], _)])) =>
       assert_false(rt.is_nullable())
     _ => fail("expected refined local type")
+  }
+}
+
+///|
+test "optimize_module runs MergeBlocks pass" {
+  let mod = Module::new().with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [],
+        TExpr::new([
+          TInstr::block(
+            BlockType::void_(),
+            TExpr::new([TInstr::i32_const(I32(9)), TInstr::nop()]),
+          ),
+        ]),
+      ),
+    ]),
+  )
+  let optimized = match optimize_module(mod, [MergeBlocks]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TDrop(TI32Const(I32(9))), TNop]))])) => ()
+    _ => fail("expected merged block body")
   }
 }
 

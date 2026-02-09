@@ -329,6 +329,22 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
   - `/home/jtenner/.moon/bin/moon test`
   - `/home/jtenner/.moon/bin/moon info && /home/jtenner/.moon/bin/moon fmt`
 
+## MergeBlocks notes (learned)
+
+- `src/passes/merge_blocks.mbt` implements the MergeBlocks pass and keeps pass-focused tests inline in the same file.
+- Registration is in `src/passes/optimize.mbt` as:
+  - `ModulePass::MergeBlocks`
+  - dispatch arm calling `merge_blocks_ir_pass(mod, options=options)` through `apply_ir_transformer_pass`.
+- Function-level entrypoint is `run_on_function`; the pass runs block-list merge rounds to convergence and applies a final refinalization pass when needed.
+- Important helpers used by this pass:
+  - `BranchCache` + `has_branch` for reusable branch-target queries
+  - `compute_effects` / `invalidates` for safe expression restructuring reordering checks
+  - `problem_finder` + `break_value_dropper` for safe dropped-block break-value rewrites
+- Required local validation workflow remains:
+  - `/home/jtenner/.moon/bin/moon check`
+  - `/home/jtenner/.moon/bin/moon test`
+  - `/home/jtenner/.moon/bin/moon info && /home/jtenner/.moon/bin/moon fmt`
+
 ## Pass testing notes (learned)
 
 - Most large passes already have substantial inline tests (notably `alignment_lowering`, `directize`, `optimize_casts`, `remove_unused`).

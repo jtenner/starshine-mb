@@ -32,6 +32,7 @@ This repository is intended for compiler and tooling work around WebAssembly 3.0
   - Inlining (`Inlining`, `InliningOptimizing`, `InlineMain`)
   - LocalCSE
   - LocalSubtyping
+  - MergeBlocks
   - MemoryPacking
   - Code folding/pushing
   - Const hoisting
@@ -213,6 +214,17 @@ fn run_memory_packing(mod : Module) -> Module {
   }
 }
 ```
+
+MergeBlocks notes:
+- Merges nested `block` nodes into parent block lists, including safe loop-tail extraction from `loop` bodies of the form `loop(block(...))`.
+- Optimizes `drop(block(...))` by pushing `drop` inward and removing/rewriting break values when safety checks pass.
+- Includes conservative `ProblemFinder` checks for break-value removal:
+  - rejects side-effecting break values
+  - rejects unsupported origin-targeting branch forms
+  - handles `try_table` origin-target catches only in safe cases
+- Performs expression restructuring to expose additional merge opportunities by pulling block prefixes out of child operands when effect reordering is valid.
+- Preserves safety by respecting branch targets and effect invalidation constraints; it does not reorder invalidating operations.
+- Run it via `ModulePass::MergeBlocks` in `optimize_module(...)` / `optimize_module_with_options(...)`.
 
 ### 2) Validate a module
 ```mbt

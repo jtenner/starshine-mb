@@ -125,6 +125,41 @@
 - [x] Full MemoryPacking test suite added
 - [x] Documentation updated (`README.mbt.md` + `AGENTS.md` + `agent-todo.md`)
 
+## MergeBlocks pass
+
+- [x] Merge nested blocks into parent block lists (head/tail safe merging with convergence loop)
+- [x] Skip merging child blocks that contain dead code after unreachable (`hasDeadCode`)
+- [x] Respect branch targets when merging named-equivalent blocks (merge only prefix before first branch to self)
+- [x] Skip named-equivalent concrete-typed block merging (value-carrying breaks not handled)
+- [x] Wrap concrete values moved into non-final parent positions with `drop`
+- [x] Finalize block types after block-list modifications
+- [x] Run function-level ReFinalize when transformations require global re-typing
+- [x] Merge loop-body block tails into parent blocks when safe
+- [x] Do not move loop-tail items containing branches to loop label
+- [x] Skip partial loop-tail merges when loop has flowing concrete value
+- [x] Optimize `(drop (block ...))` by pushing `drop` inward and removing outer `drop`
+- [x] Handle dropped named-equivalent blocks by safely removing break values when allowed
+- [x] Implement `ProblemFinder` safety checks for break-value removal
+- [x] Block break-value removal when `br`/`br_if` sent values have side effects
+- [x] Block break-value removal on `br_if` value-use count mismatch (all origin-targeting `br_if` values must be dropped)
+- [x] Handle `try_table` origin-target catches: allow only `catch_all_ref` or `catch_ref` of zero-param tags
+- [x] Block break-value removal for unsupported origin-targeting branch-like ops (`br_table` / `br_on*` / etc.)
+- [x] Implement `BreakValueDropper` rewrite for `br`/`br_if` origin-target values
+- [x] Rewrite drops of non-concrete values to the value itself during break-value dropping
+- [x] Rewrite `try_table` catches targeting origin to stop sending refs
+- [x] Re-run block merge optimization on blocks touched by break-value dropping
+- [x] Implement expression restructuring to pull block prefixes outward from child operands
+- [x] Restrict restructuring to unnamed blocks with >=2 items, matching block/back type, and non-unreachable back
+- [x] Preserve operation ordering with effect analysis (`compute_effects`/`invalidates`) while restructuring
+- [x] Apply `if` restructuring only to condition child
+- [x] Apply conservative `throw` restructuring (skip when any throw operand has side effects)
+- [x] Implement reusable branch-target cache helper (`has_branch` caching)
+- [x] New file created: `src/passes/merge_blocks.mbt`
+- [x] Pass registered in pipeline (`ModulePass` + `optimize_module` dispatch)
+- [x] Full MergeBlocks test suite added
+- [x] README updated for MergeBlocks
+- [x] AGENTS.md updated with MergeBlocks context
+
 ## 3) Binaryen Passes Still To Implement
 
 ### A) Primary Optimization / Analysis Passes
@@ -135,7 +170,7 @@
 - [x] Binaryen Pass: LocalSubtyping.cpp
 - [ ] Binaryen Pass: LoopInvariantCodeMotion.cpp
 - [x] Binaryen Pass: MemoryPacking.cpp
-- [ ] Binaryen Pass: MergeBlocks.cpp
+- [x] Binaryen Pass: MergeBlocks.cpp
 - [ ] Binaryen Pass: MergeLocals.cpp
 - [ ] Binaryen Pass: MergeSimilarFunctions.cpp
 - [ ] Binaryen Pass: OnceReduction.cpp
