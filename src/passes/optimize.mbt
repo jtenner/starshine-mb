@@ -23,6 +23,7 @@ pub(all) enum ModulePass {
   InlineMain
   LocalCSE
   LocalSubtyping
+  MergeLocals
   MergeBlocks
   MemoryPacking(MemoryPackingPassProps)
   GUFA
@@ -261,6 +262,16 @@ pub fn optimize_module_with_options(
         }
       LocalSubtyping =>
         match local_subtyping(mod) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      MergeLocals =>
+        match
+          apply_ir_transformer_pass(
+            ctx,
+            mod,
+            merge_locals_ir_pass(mod, options~),
+          ) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }

@@ -345,6 +345,20 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
   - `/home/jtenner/.moon/bin/moon test`
   - `/home/jtenner/.moon/bin/moon info && /home/jtenner/.moon/bin/moon fmt`
 
+## MergeLocals notes (learned)
+
+- `src/passes/merge_locals.mbt` is integrated in `src/passes/optimize.mbt` as `ModulePass::MergeLocals`.
+- Existing generic LocalGraph lives in `src/ir/local_graph.mbt` and exposes `get_sets(get_id)`, but MergeLocals currently builds its own eager per-function snapshot to track both:
+  - reaching sets for each `local.get`
+  - reverse set influences (`set -> gets`) used for rewrite eligibility and post-verify undo.
+- MergeLocals instruments copy sites as `local.set x (local.tee y (local.get y))`, runs rewrite analysis, then always removes trivial tees before returning.
+- Reaching-set safety in this pass is enforced as:
+  - no-phi/merge check: rewritten gets must have exactly one reaching set
+  - exact type-equality check: target local type must equal the get's local type.
+- Local index rewrites are done by get-id mapping (analysis snapshot + rewrite pass) rather than mutating nodes ad hoc, then validated with a fresh post-analysis snapshot; failing copy-direction rewrites are rolled back.
+- Dedicated pass tests live in `src/passes/merge_locals_tests.mbt`; run with:
+  - `/home/jtenner/.moon/bin/moon test`
+
 ## Pass testing notes (learned)
 
 - Most large passes already have substantial inline tests (notably `alignment_lowering`, `directize`, `optimize_casts`, `remove_unused`).

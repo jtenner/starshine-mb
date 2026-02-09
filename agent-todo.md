@@ -160,6 +160,25 @@
 - [x] README updated for MergeBlocks
 - [x] AGENTS.md updated with MergeBlocks context
 
+## MergeLocals pass
+
+- [x] Detect local-to-local copies (`local.set x (local.get y)` with `x != y`) and instrument with trivial `local.tee`
+- [x] Preserve types during instrumentation and keep IR valid
+- [x] Build eager pre-state local-flow snapshot and compute set influences
+- [x] Implement optimize-to-copy (`y -> x`) with all-or-nothing rewrite per copy
+- [x] Implement optimize-to-trivial (`x -> y`) with all-or-nothing rewrite per copy
+- [x] Enforce no-phi/merge guard via reaching-set size (`== 1`) on rewritten gets
+- [x] Enforce exact local type equality checks before rewrites
+- [x] Build post-state snapshot and verify each rewrite direction
+- [x] Undo rewrite direction per-copy when post verification fails
+- [x] Remove temporary trivial instrumentation tees at pass end
+- [x] Ensure idempotent behavior across repeated runs
+- [x] New file created: `src/passes/merge_locals.mbt`
+- [x] Pass registered in pipeline (`ModulePass::MergeLocals` + `optimize_module` dispatch)
+- [x] Dedicated test suite added: `src/passes/merge_locals_tests.mbt`
+- [x] README updated
+- [x] AGENTS.md updated
+
 ## 3) Binaryen Passes Still To Implement
 
 ### A) Primary Optimization / Analysis Passes
@@ -171,7 +190,7 @@
 - [ ] Binaryen Pass: LoopInvariantCodeMotion.cpp
 - [x] Binaryen Pass: MemoryPacking.cpp
 - [x] Binaryen Pass: MergeBlocks.cpp
-- [ ] Binaryen Pass: MergeLocals.cpp
+- [x] Binaryen Pass: MergeLocals.cpp
 - [ ] Binaryen Pass: MergeSimilarFunctions.cpp
 - [ ] Binaryen Pass: OnceReduction.cpp
 - [ ] Binaryen Pass: OptimizeAddedConstants.cpp

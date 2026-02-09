@@ -184,6 +184,7 @@ pub(all) enum ModulePass {
   InlineMain
   LocalCSE
   LocalSubtyping
+  MergeLocals
   MergeBlocks
   MemoryPacking(MemoryPackingPassProps)
   GUFA

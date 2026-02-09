@@ -32,6 +32,7 @@ This repository is intended for compiler and tooling work around WebAssembly 3.0
   - Inlining (`Inlining`, `InliningOptimizing`, `InlineMain`)
   - LocalCSE
   - LocalSubtyping
+  - MergeLocals
   - MergeBlocks
   - MemoryPacking
   - Code folding/pushing
@@ -225,6 +226,16 @@ MergeBlocks notes:
 - Performs expression restructuring to expose additional merge opportunities by pulling block prefixes out of child operands when effect reordering is valid.
 - Preserves safety by respecting branch targets and effect invalidation constraints; it does not reorder invalidating operations.
 - Run it via `ModulePass::MergeBlocks` in `optimize_module(...)` / `optimize_module_with_options(...)`.
+
+MergeLocals notes:
+- Rewrites `local.get` indices around local-to-local copies (`local.set x (local.get y)`) to reduce interference for later coalescing.
+- It does not remove locals or delete the copy statement itself; it only rewrites eligible `local.get` uses.
+- Safety constraints:
+  - requires single reaching writer (`getSets(get).length() == 1`) for rewritten gets
+  - requires exact local type equality (no subtype-only relaxation)
+  - performs pre-state analysis on instrumented copies, then post-state verification, and undoes per-direction rewrites that do not verify.
+- Instrumentation is temporary (`local.tee y (local.get y)`) and is removed before pass completion.
+- Run it via `ModulePass::MergeLocals` in `optimize_module(...)` / `optimize_module_with_options(...)`.
 
 ### 2) Validate a module
 ```mbt
