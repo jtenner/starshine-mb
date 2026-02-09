@@ -82,6 +82,17 @@
   - [x] Add full pass tests for repeated whole-trees, boundary isolation, child-request suppression, memory interference invalidation, trap-only candidate handling, shrink-level gating, and idempotency
   - [x] Wire `ModulePass::LocalCSE` into `src/passes/optimize.mbt` dispatch and integration tests
 
+- [x] `Binaryen Pass: LocalSubtyping.cpp` implementation + parity coverage
+  - [x] Restrict analysis/refinement to reference-typed var locals (ignore non-ref locals and params)
+  - [x] Scan function bodies for `local.get` / `local.set` / `local.tee` and build per-local set/get buckets
+  - [x] Compute "cannot become non-nullable" locals using local-flow reachability (`LocalGraph` init-value visibility) plus structural dominance fallback checks
+  - [x] Implement iterative local-type refinement to LUB of assigned value types until convergence
+  - [x] Enforce refinement safety constraints (`new <: old`, non-`none`, defaultability, non-nullability relaxation to nullable when unsafe)
+  - [x] Include tee assignments in refinement and keep tree IR node typing coherent (implicit in `TInstr` + local signature updates)
+  - [x] Add full inline pass tests (LUB refinement, safe/unsafe non-nullability, defaultability guard, tee handling, iterative convergence, no-op cases, validation check)
+  - [x] Wire `ModulePass::LocalSubtyping` into `src/passes/optimize.mbt` dispatch and add optimize integration test
+  - [x] Update docs/bookkeeping (`README.mbt.md`, `AGENTS.md`, `agent-todo.md`)
+
 ## 3) Binaryen Passes Still To Implement
 
 ### A) Primary Optimization / Analysis Passes
@@ -89,7 +100,7 @@
 - [x] Binaryen Pass: I64ToI32Lowering.cpp
 - [x] Binaryen Pass: Inlining.cpp
 - [x] Binaryen Pass: LocalCSE.cpp
-- [ ] Binaryen Pass: LocalSubtyping.cpp
+- [x] Binaryen Pass: LocalSubtyping.cpp
 - [ ] Binaryen Pass: LoopInvariantCodeMotion.cpp
 - [ ] Binaryen Pass: MemoryPacking.cpp
 - [ ] Binaryen Pass: MergeBlocks.cpp

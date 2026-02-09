@@ -2167,7 +2167,10 @@ pub enum RefType {
 }
 pub fn RefType::abs(AbsHeapType) -> Self
 pub fn RefType::get_heap_type(Self) -> HeapType
+pub fn RefType::is_defaultable(Self) -> Bool
+pub fn RefType::is_non_nullable(Self) -> Bool
 pub fn RefType::is_nullable(Self) -> Bool
+pub fn RefType::make_nullable(Self) -> Self
 pub fn RefType::new(Bool, HeapType) -> Self
 pub impl Eq for RefType
 pub impl Hash for RefType
@@ -2925,6 +2928,7 @@ pub fn ValType::i31ref() -> Self
 pub fn ValType::i31ref_nullable() -> Self
 pub fn ValType::i32() -> Self
 pub fn ValType::i64() -> Self
+pub fn ValType::is_ref_type(Self) -> Bool
 pub fn ValType::num_type(NumType) -> Self
 pub fn ValType::ref_array_nonnull(TypeIdx) -> Self
 pub fn ValType::ref_array_nullable(TypeIdx) -> Self

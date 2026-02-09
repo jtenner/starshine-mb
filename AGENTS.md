@@ -103,6 +103,7 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
   - `GUFAOptimizing`
   - `GUFACastAll`
   - `LocalCSE`
+  - `LocalSubtyping`
 - `GUFAOptimizing` currently runs GUFA and then follows up with:
   - `dead_code_elimination_ir_pass`
   - `code_folding_ir_pass`
@@ -289,6 +290,21 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
 - Child-request suppression is implemented for direct children of repeated parents to avoid unsafe/undesired subtree reuse interactions.
 - Current pass behavior follows optimize options for relevance gating:
   - `shrink_level > 0` requires larger measured expressions before CSE.
+
+## Local Subtyping notes (learned)
+
+- `src/passes/local_subtyping.mbt` is integrated in `src/passes/optimize.mbt` as `ModulePass::LocalSubtyping`.
+- The pass refines only function var locals declared with reference types; non-ref locals and parameters are ignored.
+- Analysis tracks per-local assignments (`local.set` + `local.tee`) and uses (`local.get`) and computes assigned-value LUBs iteratively until convergence.
+- Non-nullability safety uses two checks:
+  - `LocalGraph` reachability (`InitValue` visibility blocks non-nullable refinement)
+  - a structural dominance/definite-assignment fallback traversal for branch-sensitive cases (notably one-armed `if` flows).
+- Refinement guards enforced per candidate:
+  - non-`none` type
+  - `new_type <: old_type`
+  - defaultability unless explicit safe non-nullable case
+  - unsafe non-nullable candidates are relaxed to nullable before subtype/default checks.
+- In current tree IR (`TInstr`), local/get/tee node types are implicit from the function local signature, so updates are applied by rewriting local type declarations.
 
 ## Pass testing notes (learned)
 

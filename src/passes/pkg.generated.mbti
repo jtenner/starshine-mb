@@ -170,6 +170,7 @@ pub(all) enum ModulePass {
   InliningOptimizing
   InlineMain
   LocalCSE
+  LocalSubtyping
   GUFA
   GUFAOptimizing
   GUFACastAll

@@ -903,11 +903,29 @@ pub fn RefType::is_nullable(rt : RefType) -> Bool {
 }
 
 ///|
+pub fn RefType::is_non_nullable(rt : RefType) -> Bool {
+  !rt.is_nullable()
+}
+
+///|
 pub fn RefType::get_heap_type(rt : RefType) -> HeapType {
   match rt {
     HeapTypeRefType(_, ht) => ht
     AbsHeapTypeRefType(ahs) => AbsHeapTypeHeapType(ahs)
   }
+}
+
+///|
+pub fn RefType::make_nullable(rt : RefType) -> RefType {
+  match rt {
+    AbsHeapTypeRefType(ahs) => AbsHeapTypeRefType(ahs)
+    HeapTypeRefType(_, ht) => HeapTypeRefType(true, ht)
+  }
+}
+
+///|
+pub fn RefType::is_defaultable(rt : RefType) -> Bool {
+  rt.is_nullable()
 }
 
 ///|
@@ -977,6 +995,14 @@ pub fn ValType::num_type(t : NumType) -> ValType {
 ///|
 pub fn ValType::ref_type(rt : RefType) -> ValType {
   RefTypeValType(rt)
+}
+
+///|
+pub fn ValType::is_ref_type(vt : ValType) -> Bool {
+  match vt {
+    RefTypeValType(_) => true
+    _ => false
+  }
 }
 
 ///|

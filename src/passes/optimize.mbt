@@ -22,6 +22,7 @@ pub(all) enum ModulePass {
   InliningOptimizing
   InlineMain
   LocalCSE
+  LocalSubtyping
   GUFA
   GUFAOptimizing
   GUFACastAll
@@ -253,6 +254,11 @@ pub fn optimize_module_with_options(
       LocalCSE =>
         match
           apply_ir_transformer_pass(ctx, mod, local_cse_ir_pass(mod, options)) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      LocalSubtyping =>
+        match local_subtyping(mod) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }
@@ -1149,5 +1155,39 @@ test "optimize_module runs LocalCSE pass" {
   match optimized.code_sec {
     Some(CodeSec([TFunc(_, body)])) => assert_true(count_local_tees(body) >= 1)
     _ => fail("expected transformed function body")
+  }
+}
+
+///|
+test "optimize_module runs LocalSubtyping pass" {
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([single_rec_type(comp_type_sub_type(func_comp_type([], [])))]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::funcref()],
+          TExpr::new([
+            TInstr::local_set(
+              LocalIdx::new(0),
+              TInstr::ref_as_non_null(
+                TInstr::ref_null(HeapType::new(TypeIdx::new(0))),
+              ),
+            ),
+            TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match optimize_module(mod, [LocalSubtyping]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc([RefTypeValType(rt)], _)])) =>
+      assert_false(rt.is_nullable())
+    _ => fail("expected refined local type")
   }
 }

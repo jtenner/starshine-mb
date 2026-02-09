@@ -31,6 +31,7 @@ This repository is intended for compiler and tooling work around WebAssembly 3.0
   - HeapStoreOptimization
   - Inlining (`Inlining`, `InliningOptimizing`, `InlineMain`)
   - LocalCSE
+  - LocalSubtyping
   - Code folding/pushing
   - Const hoisting
   - Constant field propagation
@@ -170,6 +171,13 @@ LocalCSE notes:
 - Uses a 3-phase pipeline (`Scanner`, `Checker`, `Applier`) to request, validate via effect interference, and apply rewrites.
 - Rewrites first occurrences to `local.tee` on fresh temps and later repeats to `local.get`.
 - Active CSE state is cleared at non-linear boundaries (`if`/`block`/`loop`/`try_table` and branch-like control transfers).
+
+LocalSubtyping notes:
+- Refines reference-typed local variable declarations to tighter subtypes inferred from assigned values.
+- Uses iterative LUB-based refinement and stops at convergence.
+- Non-nullable narrowing is only applied when local-flow checks show default/null cannot be observed; otherwise candidates are relaxed to nullable.
+- Refinements are validated by subtype/defaultability guards (`new <: old`, non-`none`, safe defaultability).
+- Run it via `ModulePass::LocalSubtyping` in `optimize_module(...)` / `optimize_module_with_options(...)`.
 
 ### 2) Validate a module
 ```mbt
