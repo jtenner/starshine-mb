@@ -172,16 +172,20 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
 
 - `src/passes/gufa.mbt` now uses a local `ContentOracle` + `PossibleContents` domain to infer:
   - unreachable values
-  - scalar constants (currently `i32`, `f32`, `f64`)
+  - scalar constants (currently `i32`, `i64`, `f32`, `f64`)
   - reference singleton values (`ref.null`, `ref.func`)
   - refined reference types (`PCRefType`)
 - The oracle is intentionally local/flow-sensitive in function traversal:
   - local contents are tracked across `local.set` / `local.tee`
-  - local contents are cleared at control-flow boundaries (`block`, `loop`, `if`, `try_table`) to avoid unsound merges
+  - local contents are merged across `if` boundaries by intersecting per-branch known bindings (and for no-`else`, intersecting `then` with pre-branch state)
+  - local contents are still cleared at `block` / `loop` / `try_table` boundaries to avoid unsound merges
+- Immutable globals with constant initializers now contribute known oracle contents for:
+  - `i32.const`, `i64.const`, `f32.const`, `f64.const`
+  - `ref.null`, `ref.func`
 - GUFA optimizations now use oracle queries where applicable:
   - `ref.eq`, `ref.test`, `ref.cast`, `ref.as_non_null`
   - `ref.is_null`
-  - `i32.eqz`
+  - `i32.eqz`, `i64.eqz`
   - leaf replacement for `local.get` / `global.get` when content is known and type-compatible
 - `GUFACastAll` adds casts when inferred ref type is a strict subtype of declared ref type.
 

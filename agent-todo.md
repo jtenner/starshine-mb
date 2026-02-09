@@ -29,9 +29,9 @@
   - [ ] Implement descriptor-cast mode behavior once descriptor ops exist in IR (flag is wired but currently no-op)
   - [ ] Add descriptor-mode parity tests when IR support lands
 
-- [ ] `Binaryen Pass: GUFA.cpp` parity hardening
-  - [ ] Extend oracle domain/rewrites beyond current scalar+ref subset
-  - [ ] Add safe merge semantics across control-flow boundaries (less conservative than full state reset)
+- [x] `Binaryen Pass: GUFA.cpp` parity hardening
+  - [x] Extend oracle domain/rewrites beyond current scalar+ref subset
+  - [x] Add safe merge semantics across control-flow boundaries (less conservative than full state reset)
 
 - [ ] `Binaryen Pass: GlobalTypeOptimization.cpp` parity hardening
   - [ ] Add additional parity tests around tricky type-hierarchy removal/reordering edge cases and public-type constraints
