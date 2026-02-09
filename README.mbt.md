@@ -182,7 +182,6 @@ Use:
 
 ## Low-Hanging Fruit (Quick Improvements)
 
-- Finish `de_nan` idempotency regression test and broaden float-producer coverage
 - Replace simplified cost model in `code_folding` with a closer Binaryen-style measurer
 - Improve `optimize_casts` flow tracking through `br_on_cast` / `br_on_cast_fail`
 - Add CFG/LocalGraph-based `canMoveSet` parity logic to `heap_store_optimization`

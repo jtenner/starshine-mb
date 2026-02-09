@@ -15,6 +15,22 @@ fn gr_count_imported_globals(mod : Module) -> UInt {
 }
 
 ///|
+fn gr_count_imported_funcs(mod : Module) -> UInt {
+  let mut n : UInt = 0
+  match mod.import_sec {
+    Some(ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          Import(_, _, FuncExternType(_)) => n += 1
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  n
+}
+
+///|
 fn gr_collect_exported_globals(mod : Module) -> Set[GlobalIdx] {
   let out : Set[GlobalIdx] = Set::new()
   match mod.export_sec {
@@ -90,6 +106,18 @@ fn gr_common_ref_heap_supertype(
   b : HeapType,
   env : Env,
 ) -> HeapType? {
+  fn is_func_heap(ht : HeapType) -> Bool {
+    match ht {
+      AbsHeapTypeHeapType(FuncAbsHeapType) => true
+      HeapType(tidx) =>
+        match env.resolve_comptype(tidx) {
+          Some(FuncCompType(_, _)) => true
+          _ => false
+        }
+      _ => false
+    }
+  }
+
   if Match::matches(a, b, env) {
     return Some(b)
   }
@@ -111,6 +139,9 @@ fn gr_common_ref_heap_supertype(
     if Match::matches(a, super_ht, env) && Match::matches(b, super_ht, env) {
       return Some(super_ht)
     }
+  }
+  if is_func_heap(a) && is_func_heap(b) {
+    return Some(HeapType::abs(AbsHeapType::func()))
   }
   None
 }
@@ -135,32 +166,38 @@ fn gr_common_ref_type_supertype(
 }
 
 ///|
+fn gr_common_val_supertype(a : ValType, b : ValType, env : Env) -> ValType? {
+  if Match::matches(a, b, env) {
+    return Some(b)
+  }
+  if Match::matches(b, a, env) {
+    return Some(a)
+  }
+  match (a, b) {
+    (RefTypeValType(r0), RefTypeValType(r1)) =>
+      match gr_common_ref_type_supertype(r0, r1, env) {
+        Some(rt) => Some(ValType::ref_type(rt))
+        None => None
+      }
+    _ => None
+  }
+}
+
+///|
 fn gr_lub_for_refining(
   a : ValType,
   b : ValType,
   old_type : ValType,
   env : Env,
 ) -> ValType {
-  if Match::matches(a, b, env) {
-    return b
-  }
-  if Match::matches(b, a, env) {
-    return a
-  }
-  match (a, b) {
-    (RefTypeValType(r0), RefTypeValType(r1)) =>
-      match gr_common_ref_type_supertype(r0, r1, env) {
-        Some(rt) => {
-          let candidate = ValType::ref_type(rt)
-          if Match::matches(candidate, old_type, env) {
-            candidate
-          } else {
-            old_type
-          }
-        }
-        None => old_type
+  match gr_common_val_supertype(a, b, env) {
+    Some(candidate) =>
+      if Match::matches(candidate, old_type, env) {
+        candidate
+      } else {
+        old_type
       }
-    _ => old_type
+    None => old_type
   }
 }
 
@@ -185,6 +222,26 @@ fn gr_infer_tinstr_type(
   env : Env,
   func_type_idx_by_func : Map[FuncIdx, TypeIdx],
 ) -> ValType? {
+  fn single_result_of_blocktype(bt : BlockType) -> ValType? {
+    match env.expand_blocktype(bt) {
+      Ok((_, [vt])) => Some(vt)
+      _ => None
+    }
+  }
+
+  fn infer_texpr_type(texpr : TExpr) -> ValType? {
+    let TExpr(instrs) = texpr
+    if instrs.is_empty() {
+      None
+    } else {
+      gr_infer_tinstr_type(
+        instrs[instrs.length() - 1],
+        env,
+        func_type_idx_by_func,
+      )
+    }
+  }
+
   match instr {
     TI32Const(_) => Some(ValType::i32())
     TI64Const(_) => Some(ValType::i64())
@@ -215,7 +272,60 @@ fn gr_infer_tinstr_type(
       }
     TRefCast(nullable, ht, _) =>
       Some(ValType::ref_type(RefType::new(nullable, ht)))
-    TSelect(Some(types), _, _, _) if types.length() == 1 => Some(types[0])
+    TStructNew(type_idx, _)
+    | TStructNewDefault(type_idx)
+    | TArrayNew(type_idx, _, _)
+    | TArrayNewDefault(type_idx, _)
+    | TArrayNewFixed(type_idx, _)
+    | TArrayNewData(type_idx, _, _, _)
+    | TArrayNewElem(type_idx, _, _, _) =>
+      Some(ValType::ref_type(RefType::new(false, HeapType::new(type_idx))))
+    TStructGet(type_idx, field_idx, _)
+    | TStructGetS(type_idx, field_idx, _)
+    | TStructGetU(type_idx, field_idx, _) =>
+      match env.resolve_struct_fields(type_idx) {
+        Ok(fields) =>
+          match field_idx {
+            U32(raw_idx) =>
+              match fields.get(raw_idx.reinterpret_as_int()) {
+                Some(field_ty) => Some(field_ty.unpack())
+                None => None
+              }
+          }
+        Err(_) => None
+      }
+    TArrayGet(type_idx, _, _)
+    | TArrayGetS(type_idx, _, _)
+    | TArrayGetU(type_idx, _, _) =>
+      match env.resolve_array_field(type_idx) {
+        Ok(field_ty) => Some(field_ty.unpack())
+        Err(_) => None
+      }
+    TSelect(types, _, if_true, if_false) => {
+      let from_decl = match types {
+        Some(vts) if vts.length() == 1 => Some(vts[0])
+        _ => None
+      }
+      let from_branches = match
+        (
+          gr_infer_tinstr_type(if_true, env, func_type_idx_by_func),
+          gr_infer_tinstr_type(if_false, env, func_type_idx_by_func),
+        ) {
+        (Some(t), Some(f)) => gr_common_val_supertype(t, f, env)
+        _ => None
+      }
+      match (from_branches, from_decl) {
+        (Some(t), Some(vt)) =>
+          if Match::matches(t, vt, env) {
+            Some(t)
+          } else {
+            Some(vt)
+          }
+        (Some(t), None) => Some(t)
+        (None, Some(vt)) => Some(vt)
+        _ => None
+      }
+    }
     TCall(target, _) =>
       match env.get_functype_by_funcidx(target) {
         Some(FuncType(_, [r])) => Some(r)
@@ -226,11 +336,43 @@ fn gr_infer_tinstr_type(
         Some(FuncType(_, [r])) => Some(r)
         _ => None
       }
-    TBlock(bt, _) | TLoop(bt, _) | TIf(bt, _, _, _) | TTryTable(bt, _, _) =>
-      match env.expand_blocktype(bt) {
-        Ok((_, [vt])) => Some(vt)
+    TBlock(bt, body) | TLoop(bt, body) | TTryTable(bt, _, body) => {
+      let from_body = infer_texpr_type(body)
+      let from_bt = single_result_of_blocktype(bt)
+      match (from_body, from_bt) {
+        (Some(t), Some(vt)) =>
+          if Match::matches(t, vt, env) {
+            Some(t)
+          } else {
+            Some(vt)
+          }
+        (Some(t), None) => Some(t)
+        (None, Some(vt)) => Some(vt)
         _ => None
       }
+    }
+    TIf(bt, _, then_, else_) => {
+      let from_bt = single_result_of_blocktype(bt)
+      let from_branches = match else_ {
+        Some(else_expr) =>
+          match (infer_texpr_type(then_), infer_texpr_type(else_expr)) {
+            (Some(t), Some(e)) => gr_common_val_supertype(t, e, env)
+            _ => None
+          }
+        None => None
+      }
+      match (from_branches, from_bt) {
+        (Some(t), Some(vt)) =>
+          if Match::matches(t, vt, env) {
+            Some(t)
+          } else {
+            Some(vt)
+          }
+        (Some(t), None) => Some(t)
+        (None, Some(vt)) => Some(vt)
+        _ => None
+      }
+    }
     _ => None
   }
 }
@@ -263,6 +405,7 @@ fn global_refining(mod : Module) -> Result[Module, String] {
   }
   let env = Env::new().with_module(mod)
   let imported_globals = gr_count_imported_globals(mod)
+  let imported_funcs = gr_count_imported_funcs(mod)
   let exported_globals = gr_collect_exported_globals(mod)
   let func_type_idx_by_func = gr_collect_func_type_idx_by_func(mod)
   let optimizable : Set[GlobalIdx] = Set::new()
@@ -301,10 +444,17 @@ fn global_refining(mod : Module) -> Result[Module, String] {
   })
   match mod.code_sec {
     Some(CodeSec(funcs)) =>
-      for func in funcs {
+      for i, func in funcs {
+        let func_idx = FuncIdx::new(imported_funcs + i.reinterpret_as_uint())
         match func {
           TFunc(locals, body) => {
-            let local_env = env.with_locals(locals)
+            let func_params = match env.get_functype_by_funcidx(func_idx) {
+              Some(FuncType(params, _)) => params
+              None => []
+            }
+            let all_locals = func_params.copy()
+            all_locals.append(locals)
+            let local_env = env.with_locals(all_locals)
             ignore(set_walker.walk_texpr(local_env, body))
           }
           Func(_, _) => return Err("global_refining: expected TFunc")
@@ -470,6 +620,123 @@ test "global refining refines exported immutable globals when refined type is pu
   match optimized.global_sec {
     Some(GlobalSec([Global(GlobalType(vt, is_mut), _)])) => {
       assert_false(is_mut)
+      assert_eq(
+        vt,
+        ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx::new(0)))),
+      )
+    }
+    _ => fail("expected one refined global")
+  }
+}
+
+///|
+test "global refining infers immutable global init from struct.new" {
+  let struct_type = single_rec_type(comp_type_sub_type(struct_comp_type([])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([struct_type]))
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(ValType::anyref(), false),
+          Expr::new([Instruction::struct_new(TypeIdx::new(0))]),
+        ),
+      ]),
+    )
+  let optimized = match global_refining(mod) {
+    Ok(m) => m
+    Err(e) => fail("unexpected global_refining error: \{e}")
+  }
+  match optimized.global_sec {
+    Some(GlobalSec([Global(GlobalType(vt, is_mut), _)])) => {
+      assert_false(is_mut)
+      assert_eq(
+        vt,
+        ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx::new(0)))),
+      )
+    }
+    _ => fail("expected one refined global")
+  }
+}
+
+///|
+test "global refining narrows broad typed select using branch merge" {
+  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t0]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(ValType::anyref(), false),
+          Expr::new([
+            Instruction::ref_func(FuncIdx::new(0)),
+            Instruction::ref_func(FuncIdx::new(0)),
+            Instruction::i32_const(I32(1)),
+            Instruction::select(types=Some([ValType::anyref()])),
+          ]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([Func::t_func([], TExpr::new([TInstr::nop()]))]),
+    )
+  let optimized = match global_refining(mod) {
+    Ok(m) => m
+    Err(e) => fail("unexpected global_refining error: \{e}")
+  }
+  match optimized.global_sec {
+    Some(GlobalSec([Global(GlobalType(vt, _), _)])) =>
+      assert_eq(
+        vt,
+        ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx::new(0)))),
+      )
+    _ => fail("expected one refined global")
+  }
+}
+
+///|
+test "global refining uses function param types for local.get global.set flows" {
+  let t_target = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_setter = single_rec_type(
+    comp_type_sub_type(
+      func_comp_type(
+        [ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx::new(0))))],
+        [],
+      ),
+    ),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_target, t_setter]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(ValType::anyref(), true),
+          Expr::new([Instruction::ref_func(FuncIdx::new(0))]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func([], TExpr::new([TInstr::nop()])),
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::global_set(
+              GlobalIdx::new(0),
+              TInstr::local_get(LocalIdx::new(0)),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match global_refining(mod) {
+    Ok(m) => m
+    Err(e) => fail("unexpected global_refining error: \{e}")
+  }
+  match optimized.global_sec {
+    Some(GlobalSec([Global(GlobalType(vt, is_mut), _)])) => {
+      assert_true(is_mut)
       assert_eq(
         vt,
         ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx::new(0)))),

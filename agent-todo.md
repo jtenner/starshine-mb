@@ -19,8 +19,8 @@
   - [x] Expand NaN-producing expression coverage beyond current scalar-op subset (loads/select/call results/local/global flows)
   - [x] Implement idempotency regression test (`running pass twice produces same result`) with helper/index stability assertions
 
-- [ ] `Binaryen Pass: GlobalRefining.cpp` parity hardening
-  - [ ] Broaden observed-type inference across additional expression forms and control-flow merges
+- [x] `Binaryen Pass: GlobalRefining.cpp` parity hardening
+  - [x] Broaden observed-type inference across additional expression forms and control-flow merges
 
 - [ ] `Binaryen Pass: GlobalStructInference.cpp` parity hardening
   - [ ] Implement descriptor-cast mode behavior once descriptor ops exist in IR (flag is wired but currently no-op)
