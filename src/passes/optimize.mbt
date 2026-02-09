@@ -23,6 +23,7 @@ pub(all) enum ModulePass {
   InlineMain
   LocalCSE
   LocalSubtyping
+  LoopInvariantCodeMotion
   MergeLocals
   MergeSimilarFunctions
   MergeBlocks
@@ -269,6 +270,16 @@ pub fn optimize_module_with_options(
         }
       LocalSubtyping =>
         match local_subtyping(mod) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      LoopInvariantCodeMotion =>
+        match
+          apply_ir_transformer_pass(
+            ctx,
+            mod,
+            loop_invariant_code_motion_ir_pass(mod),
+          ) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }
@@ -1249,6 +1260,44 @@ test "optimize_module runs LocalSubtyping pass" {
     Some(CodeSec([TFunc([RefTypeValType(rt)], _)])) =>
       assert_false(rt.is_nullable())
     _ => fail("expected refined local type")
+  }
+}
+
+///|
+test "optimize_module runs LoopInvariantCodeMotion pass" {
+  let mod = Module::new().with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [ValType::i32(), ValType::i32()],
+        TExpr::new([
+          TInstr::loop_(
+            BlockType::void_(),
+            TExpr::new([
+              TInstr::local_set(
+                LocalIdx::new(1),
+                TInstr::binary(
+                  BinaryOp::i32_add(),
+                  TInstr::local_get(LocalIdx::new(0)),
+                  TInstr::i32_const(I32(1)),
+                ),
+              ),
+            ]),
+          ),
+        ]),
+      ),
+    ]),
+  )
+  let optimized = match optimize_module(mod, [LoopInvariantCodeMotion]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TBlock(_, TExpr(items))]))])) =>
+      match items {
+        [TLocalSet(_, _), TLoop(_, _)] => ()
+        _ => fail("expected LICM preheader block shape")
+      }
+    _ => fail("expected transformed loop")
   }
 }
 

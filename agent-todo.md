@@ -246,6 +246,18 @@
 - [x] AGENTS.md updated
 - [x] `moon check`, `moon test`, `moon info && moon fmt` all green
 
+## LoopInvariantCodeMotion pass
+
+- [x] pass skeleton + registration (`src/passes/loop_invariant_code_motion.mbt`, `ModulePass::LoopInvariantCodeMotion`)
+- [x] loop entrance traversal + stop on transfer-control effects
+- [x] effect safety checks (global-state writes, invalidation against `effectsSoFar`, loop read/write interaction, throws conservatism)
+- [x] `LocalGraph` integration + local.get dependency checks via `get_sets(get_id)`
+- [x] local-set interference accounting (`numSetsForIndex` decrement/check/restore flow)
+- [x] rewriting to preheader block shape (`block(moved..., loop)` preserving loop block type)
+- [x] comprehensive tests covering LICM A-J scenarios + crash-safety + idempotency
+- [x] docs updates (`AGENTS.md`, `README.mbt.md`, `agent-todo.md`)
+- [x] `moon check`, `moon test`, `moon info && moon fmt` all green
+
 ## 3) Binaryen Passes Still To Implement
 
 ### A) Primary Optimization / Analysis Passes
@@ -254,7 +266,7 @@
 - [x] Binaryen Pass: Inlining.cpp
 - [x] Binaryen Pass: LocalCSE.cpp
 - [x] Binaryen Pass: LocalSubtyping.cpp
-- [ ] Binaryen Pass: LoopInvariantCodeMotion.cpp
+- [x] Binaryen Pass: LoopInvariantCodeMotion.cpp
 - [x] Binaryen Pass: MemoryPacking.cpp
 - [x] Binaryen Pass: MergeBlocks.cpp
 - [x] Binaryen Pass: MergeLocals.cpp

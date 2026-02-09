@@ -32,6 +32,7 @@ This repository is intended for compiler and tooling work around WebAssembly 3.0
   - Inlining (`Inlining`, `InliningOptimizing`, `InlineMain`)
   - LocalCSE
   - LocalSubtyping
+  - LoopInvariantCodeMotion
   - MergeLocals
   - Monomorphize (`Monomorphize`, `MonomorphizeAlways`)
   - OnceReduction
@@ -185,6 +186,23 @@ LocalSubtyping notes:
 - Non-nullable narrowing is only applied when local-flow checks show default/null cannot be observed; otherwise candidates are relaxed to nullable.
 - Refinements are validated by subtype/defaultability guards (`new <: old`, non-`none`, safe defaultability).
 - Run it via `ModulePass::LocalSubtyping` in `optimize_module(...)` / `optimize_module_with_options(...)`.
+
+LoopInvariantCodeMotion notes:
+- Purpose: conservative simple LICM for `loop` bodies.
+- What it hoists:
+  - none-typed, non-`nop`/`block`/`loop` entrance expressions that pass safety checks.
+  - excludes trivial `local.set` copy/const chains.
+- Safety checks include:
+  - no global-state writes in moved expression
+  - no invalidating reordering against earlier non-moved entrance effects
+  - no read-vs-write global-state conflict against whole-loop effects
+  - no exceptions (`throws`) in candidate or loop effects
+  - local-flow safety via `LocalGraph::get_sets(get_id)` against in-loop sets
+  - local-set interference guard (`numSetsForIndex`) for moved `local.set`/`local.tee`.
+- Rewriting shape:
+  - `loop(...)` becomes `block(moved..., loop(...))` with preserved loop block type and original moved sites replaced by `nop`.
+- Flattening helps expose more opportunities, but is not required; the pass itself only reasons about unconditional block-list entrances.
+- Run it via `ModulePass::LoopInvariantCodeMotion` in `optimize_module(...)` / `optimize_module_with_options(...)`.
 
 MemoryPacking notes:
 - Splits data segments around large zero spans to reduce encoded binary size.

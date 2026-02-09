@@ -309,6 +309,29 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
   - unsafe non-nullable candidates are relaxed to nullable before subtype/default checks.
 - In current tree IR (`TInstr`), local/get/tee node types are implicit from the function local signature, so updates are applied by rewriting local type declarations.
 
+## Loop Invariant Code Motion notes (learned)
+
+- `src/passes/loop_invariant_code_motion.mbt` is integrated in `src/passes/optimize.mbt` as `ModulePass::LoopInvariantCodeMotion`.
+- The pass currently implements conservative Binaryen-style simple LICM over `loop` entrance regions:
+  - scans only unconditional prefix paths (linear list + nested `block` lists from index 0)
+  - stops scanning when an instruction’s effects transfer control flow (`branches` / `throws`).
+- Effect API usage in this pass:
+  - `licm_collect_effects(instr)` builds `LICMEffects`
+  - `LICMEffects::invalidates(...)` is used for reordering safety against `effectsSoFar`
+  - `writes_global_state` / `reads_mutable_global_state` / `throws` checks gate hoisting conservatively.
+- Local dependency safety API usage:
+  - per-round function snapshot uses `LocalGraph::new(body.0)`
+  - candidate `local.get` ids are mapped in traversal order and checked with `LocalGraph::get_sets(get_id)`
+  - any influencing in-loop `local.set` root blocks hoisting.
+- Local-set interference handling:
+  - pass tracks `numSetsForIndex` for loop-local `local.set`/`local.tee`
+  - when considering a move, candidate-local set counts are decremented temporarily
+  - if any affected index still has remaining in-loop sets, move is rejected and counts are restored.
+- Safe IR mutation patterns used by LICM:
+  - hoisted originals are replaced with `TInstr::nop()`
+  - moved code is emitted as `TInstr::block(loop_type, TExpr::new([moved..., TInstr::loop_(...) ]))` to preserve loop result type
+  - transformer rewrites use `change(...)` / `unchanged()` (the MoonBit equivalent of replace-current behavior).
+
 ## MemoryPacking notes (learned)
 
 - `src/passes/memory_packing.mbt` implements the MemoryPacking pass and keeps pass-specific tests inline in the same file.

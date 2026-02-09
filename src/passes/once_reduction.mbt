@@ -414,13 +414,9 @@ fn or_lower_texpr(
   body : TExpr,
   start : ORBlockId,
   state : ORBuildState,
-) -> (ORBlockId, Bool) {
+) -> ORBlockId {
   let mut current = start
-  let mut terminated = false
   for instr in body.0 {
-    if terminated {
-      break
-    }
     match instr {
       TIf(_, _, then_body, else_body) => {
         let then_block = or_make_block(state)
@@ -428,36 +424,22 @@ fn or_lower_texpr(
         let merge_block = or_make_block(state)
         or_add_edge(state, current, then_block)
         or_add_edge(state, current, else_block)
-        let (then_end, then_terminated) = or_lower_texpr(
-          then_body, then_block, state,
-        )
-        if !then_terminated {
-          or_add_edge(state, then_end, merge_block)
-        }
-        let (else_end, else_terminated) = match else_body {
-          Some(other) => or_lower_texpr(other, else_block, state)
-          None => (else_block, false)
-        }
-        if !else_terminated {
-          or_add_edge(state, else_end, merge_block)
+        let then_end = or_lower_texpr(then_body, then_block, state)
+        or_add_edge(state, then_end, merge_block)
+        match else_body {
+          Some(other) => {
+            let else_end = or_lower_texpr(other, else_block, state)
+            or_add_edge(state, else_end, merge_block)
+          }
+          None => or_add_edge(state, else_block, merge_block)
         }
         current = merge_block
-        terminated = then_terminated && else_terminated
       }
-      TBlock(_, nested) | TLoop(_, nested) | TTryTable(_, _, nested) => {
-        let (next, nested_terminated) = or_lower_texpr(nested, current, state)
-        current = next
-        terminated = nested_terminated
-      }
-      _ => {
-        or_record_side_effect_event(state, current, instr)
-        if is_unreachable_instr(instr) {
-          terminated = true
-        }
-      }
+      TReturn(_) => return current
+      _ => or_record_side_effect_event(state, current, instr)
     }
   }
-  (current, terminated)
+  current
 }
 
 ///|
@@ -1245,6 +1227,37 @@ test "once_reduction honors dominance across branches" {
     _ =>
       fail(
         "expected post-merge call to remain when prior call does not dominate",
+      )
+  }
+}
+
+///|
+test "once_reduction keeps block-nested call semantics aligned with canonical cfg" {
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([or_type([], []), or_type([], [])]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
+    .with_global_sec(GlobalSec::new([or_i32_global(0, true)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::block(
+              BlockType::void_(),
+              TExpr::new([TInstr::call(FuncIdx::new(1), [])]),
+            ),
+            TInstr::call(FuncIdx::new(1), []),
+          ]),
+        ),
+        Func::t_func([], or_once_body(0, 1, [TInstr::nop()])),
+      ]),
+    )
+  let out = or_run(mod)
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TBlock(_, _), TCall(_, _)])), _])) => ()
+    _ =>
+      fail(
+        "expected second call to remain; nested block call is not split in canonical cfg lowering",
       )
   }
 }

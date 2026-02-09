@@ -226,6 +226,7 @@ pub(all) enum ModulePass {
   InlineMain
   LocalCSE
   LocalSubtyping
+  LoopInvariantCodeMotion
   MergeLocals
   MergeSimilarFunctions
   MergeBlocks
