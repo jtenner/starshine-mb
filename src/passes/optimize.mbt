@@ -18,6 +18,10 @@ pub(all) enum ModulePass {
   GlobalTypeOptimization
   Heap2Local
   HeapStoreOptimization
+  Inlining
+  InliningOptimizing
+  InlineMain
+  LocalCSE
   GUFA
   GUFAOptimizing
   GUFACastAll
@@ -30,17 +34,48 @@ pub(all) enum ModulePass {
 }
 
 ///|
+pub struct InliningOptions {
+  always_inline_max_size : Int
+  one_caller_inline_max_size : Int
+  flexible_inline_max_size : Int
+  max_combined_binary_size : Int
+  allow_functions_with_loops : Bool
+  partial_inlining_ifs : Int
+}
+
+///|
+pub fn InliningOptions::new(
+  always_inline_max_size? : Int = 2,
+  one_caller_inline_max_size? : Int = -1,
+  flexible_inline_max_size? : Int = 20,
+  max_combined_binary_size? : Int = 400 * 1024,
+  allow_functions_with_loops? : Bool = false,
+  partial_inlining_ifs? : Int = 0,
+) -> InliningOptions {
+  {
+    always_inline_max_size,
+    one_caller_inline_max_size,
+    flexible_inline_max_size,
+    max_combined_binary_size,
+    allow_functions_with_loops,
+    partial_inlining_ifs,
+  }
+}
+
+///|
 pub struct OptimizeOptions {
   optimize_level : Int
   shrink_level : Int
+  inlining : InliningOptions
 }
 
 ///|
 pub fn OptimizeOptions::new(
   optimize_level? : Int = 0,
   shrink_level? : Int = 0,
+  inlining? : InliningOptions = InliningOptions::new(),
 ) -> OptimizeOptions {
-  { optimize_level, shrink_level }
+  { optimize_level, shrink_level, inlining }
 }
 
 ///|
@@ -197,6 +232,27 @@ pub fn optimize_module_with_options(
             mod,
             heap_store_optimization_ir_pass(mod),
           ) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      Inlining =>
+        match inlining(mod, options, false) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      InliningOptimizing =>
+        match inlining(mod, options, true) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      InlineMain =>
+        match inline_main(mod, options) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      LocalCSE =>
+        match
+          apply_ir_transformer_pass(ctx, mod, local_cse_ir_pass(mod, options)) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }
@@ -969,5 +1025,129 @@ test "optimize_module_with_options controls DuplicateFunctionElimination iterati
   match high.code_sec {
     Some(CodeSec(funcs)) => assert_eq(funcs.length(), 2)
     None => fail("expected code section")
+  }
+}
+
+///|
+test "optimize_module runs Inlining pass" {
+  let t0 = single_rec_type(
+    comp_type_sub_type(func_comp_type([], [ValType::i32()])),
+  )
+  let t1 = single_rec_type(
+    comp_type_sub_type(func_comp_type([ValType::i32()], [ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t0, t1]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::call(FuncIdx::new(1), [TInstr::i32_const(I32(5))]),
+          ]),
+        ),
+        Func::t_func([], TExpr::new([TInstr::local_get(LocalIdx::new(0))])),
+      ]),
+    )
+  let optimized = match optimize_module(mod, [Inlining]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, body), _])) => {
+      let mut direct_calls = 0
+      let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
+        self,
+        _,
+        instr,
+      ) {
+        match instr {
+          TCall(FuncIdx(raw), _) =>
+            if raw.reinterpret_as_int() == 1 {
+              direct_calls += 1
+            }
+          _ => ()
+        }
+        self.walk_tinstruction_default((), instr)
+      })
+      ignore(walker.walk_texpr((), body))
+      assert_eq(direct_calls, 0)
+    }
+    _ => fail("expected rewritten caller")
+  }
+}
+
+///|
+test "optimize_module runs InlineMain pass" {
+  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t0]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
+    .with_export_sec(
+      ExportSec::new([
+        Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
+        Export::new(
+          Name::new("__original_main"),
+          ExternIdx::func(FuncIdx::new(1)),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func([], TExpr::new([TInstr::call(FuncIdx::new(1), [])])),
+        Func::t_func([], TExpr::new([TInstr::nop()])),
+      ]),
+    )
+  let optimized = match optimize_module(mod, [InlineMain]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, body), _])) => {
+      let mut direct_calls = 0
+      let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
+        self,
+        _,
+        instr,
+      ) {
+        match instr {
+          TCall(FuncIdx(raw), _) =>
+            if raw.reinterpret_as_int() == 1 {
+              direct_calls += 1
+            }
+          _ => ()
+        }
+        self.walk_tinstruction_default((), instr)
+      })
+      ignore(walker.walk_texpr((), body))
+      assert_eq(direct_calls, 0)
+    }
+    _ => fail("expected rewritten main")
+  }
+}
+
+///|
+test "optimize_module runs LocalCSE pass" {
+  let repeated = TInstr::binary(
+    BinaryOp::i32_add(),
+    TInstr::local_get(LocalIdx::new(0)),
+    TInstr::i32_const(I32(1)),
+  )
+  let mod = Module::new().with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [ValType::i32()],
+        TExpr::new([TInstr::drop(repeated), TInstr::drop(repeated)]),
+      ),
+    ]),
+  )
+  let optimized = match optimize_module(mod, [LocalCSE]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, body)])) => assert_true(count_local_tees(body) >= 1)
+    _ => fail("expected transformed function body")
   }
 }

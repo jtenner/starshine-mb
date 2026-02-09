@@ -29,6 +29,8 @@ This repository is intended for compiler and tooling work around WebAssembly 3.0
   - GUFA (+ variants)
   - Heap2Local
   - HeapStoreOptimization
+  - Inlining (`Inlining`, `InliningOptimizing`, `InlineMain`)
+  - LocalCSE
   - Code folding/pushing
   - Const hoisting
   - Constant field propagation
@@ -124,6 +126,50 @@ fn run_opts(mod : Module) -> Module {
   }
 }
 ```
+
+### 1b) Configure inlining options
+```mbt
+using @passes {
+  optimize_module_with_options,
+  OptimizeOptions,
+  InliningOptions,
+  ModulePass
+}
+
+fn run_inlining(mod : Module) -> Module {
+  let inlining = InliningOptions::new(
+    always_inline_max_size=2,
+    one_caller_inline_max_size=-1,
+    flexible_inline_max_size=20,
+    max_combined_binary_size=400 * 1024,
+    allow_functions_with_loops=false,
+    partial_inlining_ifs=2,
+  )
+  let options = OptimizeOptions::new(
+    optimize_level=3,
+    shrink_level=0,
+    inlining=inlining,
+  )
+  match optimize_module_with_options(mod, [
+    ModulePass::Inlining,
+    ModulePass::InliningOptimizing,
+    ModulePass::InlineMain,
+  ], options) {
+    Ok(out) => out
+    Err(_) => mod
+  }
+}
+```
+
+Inlining notes:
+- Callsite planning is reachability-aware (calls in unreachable tails are not considered inline candidates).
+- Try-context tail-call hoisting is supported for `return_call`, `return_call_indirect`, and `return_call_ref` wrappers.
+
+LocalCSE notes:
+- Works on repeated whole expression trees within linear/basic-block-like regions.
+- Uses a 3-phase pipeline (`Scanner`, `Checker`, `Applier`) to request, validate via effect interference, and apply rewrites.
+- Rewrites first occurrences to `local.tee` on fresh temps and later repeats to `local.get`.
+- Active CSE state is cleared at non-linear boundaries (`if`/`block`/`loop`/`try_table` and branch-like control transfers).
 
 ### 2) Validate a module
 ```mbt

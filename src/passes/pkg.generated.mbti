@@ -104,7 +104,23 @@ pub enum FieldValue {
 }
 pub impl Eq for FieldValue
 
+type ILCallKind
+pub impl Eq for ILCallKind
+
+type ILTrivialKind
+pub impl Eq for ILTrivialKind
+
 type ImportCounts
+
+pub struct InliningOptions {
+  always_inline_max_size : Int
+  one_caller_inline_max_size : Int
+  flexible_inline_max_size : Int
+  max_combined_binary_size : Int
+  allow_functions_with_loops : Bool
+  partial_inlining_ifs : Int
+}
+pub fn InliningOptions::new(always_inline_max_size? : Int, one_caller_inline_max_size? : Int, flexible_inline_max_size? : Int, max_combined_binary_size? : Int, allow_functions_with_loops? : Bool, partial_inlining_ifs? : Int) -> Self
 
 pub struct Literal(LiteralKind, Bytes)
 
@@ -150,6 +166,10 @@ pub(all) enum ModulePass {
   GlobalTypeOptimization
   Heap2Local
   HeapStoreOptimization
+  Inlining
+  InliningOptimizing
+  InlineMain
+  LocalCSE
   GUFA
   GUFAOptimizing
   GUFACastAll
@@ -164,8 +184,9 @@ pub(all) enum ModulePass {
 pub struct OptimizeOptions {
   optimize_level : Int
   shrink_level : Int
+  inlining : InliningOptions
 }
-pub fn OptimizeOptions::new(optimize_level? : Int, shrink_level? : Int) -> Self
+pub fn OptimizeOptions::new(optimize_level? : Int, shrink_level? : Int, inlining? : InliningOptions) -> Self
 
 type Remappings
 

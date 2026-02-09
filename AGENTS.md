@@ -102,6 +102,7 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
   - `GUFA`
   - `GUFAOptimizing`
   - `GUFACastAll`
+  - `LocalCSE`
 - `GUFAOptimizing` currently runs GUFA and then follows up with:
   - `dead_code_elimination_ir_pass`
   - `code_folding_ir_pass`
@@ -239,6 +240,55 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
   - imported i64 globals
   - multi-value i64 function results (only the single-result i64 ABI form is lowered)
   - i64 global initializers are only supported for top-level `i64.const` and `global.get` forms.
+
+## Inlining notes (learned)
+
+- `src/passes/inlining.mbt` now provides:
+  - `inlining(mod, options, optimizing)` for full inlining
+  - `inline_main(mod, options)` for the `main` / `__original_main` special-case flow
+- `src/passes/optimize.mbt` integration:
+  - `ModulePass::Inlining`
+  - `ModulePass::InliningOptimizing`
+  - `ModulePass::InlineMain`
+- `OptimizeOptions` now embeds `InliningOptions` with Binaryen-compatible defaults:
+  - `always_inline_max_size = 2`
+  - `one_caller_inline_max_size = -1`
+  - `flexible_inline_max_size = 20`
+  - `max_combined_binary_size = 400 * 1024`
+  - `allow_functions_with_loops = false`
+  - `partial_inlining_ifs = 0`
+- Current inlining model is iterative and deterministic:
+  - recomputes per-function info and callsites each iteration
+  - plans callsites only in reachable code (unreachable tails are ignored for inlining decisions)
+  - enforces a growth cap via estimated module size + per-inline growth
+  - avoids same-iteration races by skipping actions where the caller is also selected as an inlined callee in that iteration
+  - caps per-caller inlining pressure with an `inlined-into` count guard
+- The transform currently assumes de-Bruijn labels and fixes nested branch depths by shifting callee labels when wrapping inlined bodies.
+- Tail-call inlining behavior in try context:
+  - `return_call*` wrappers inlined at callsites under `try_table` use a hoist path that localizes operands and emits a follow-up guarded tail call after the wrapped original body.
+  - hoist path currently supports `return_call`, `return_call_indirect`, and `return_call_ref`.
+- Partial/split inlining support is enabled behind:
+  - `optimize_level >= 3`
+  - `shrink_level == 0`
+  - `inlining.partial_inlining_ifs > 0`
+  Pattern A and Pattern B split helpers are created conservatively; Pattern B includes a local dependency rejection guard for trailing items.
+- `InliningOptimizing` currently runs post-inline cleanup using:
+  - `dead_code_elimination_ir_pass`
+  - `code_folding_ir_pass`
+
+## Local CSE notes (learned)
+
+- `src/passes/local_cse.mbt` is integrated in `src/passes/optimize.mbt` as `ModulePass::LocalCSE`.
+- Current implementation is a 3-phase pipeline:
+  - `Scanner` records repeated whole-tree expressions and request links (`repeat -> original` plus original request counts).
+  - `Checker` walks linearly again and invalidates active originals when intervening shallow effects conflict.
+  - `Applier` inserts `local.tee` on originals with live requests and rewrites repeats to `local.get`.
+- Candidate matching uses digest-bucketed lookup plus structural equality checks on `TInstr`.
+- CSE scope is intentionally linear/basic-block-local:
+  - active expression/original state is cleared at non-linear boundaries (`block`, `loop`, `if`, `try_table`, and branch-like control transfers).
+- Child-request suppression is implemented for direct children of repeated parents to avoid unsafe/undesired subtree reuse interactions.
+- Current pass behavior follows optimize options for relevance gating:
+  - `shrink_level > 0` requires larger measured expressions before CSE.
 
 ## Pass testing notes (learned)
 

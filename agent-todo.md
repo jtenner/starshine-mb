@@ -65,13 +65,30 @@
   - [x] Add support for i64-block-result control-flow lowering (`block`/`loop`/`if`/`try_table` typed to i64)
   - [x] Add parity support for unsupported-at-source i64 binary ops when not removed earlier (`mul/div/rem/rot`, `ctz/popcnt`)
 
+- [x] `Binaryen Pass: Inlining.cpp` implementation + parity coverage
+  - [x] Add `InliningOptions` defaults matching Binaryen (`alwaysInlineMaxSize`, `oneCallerInlineMaxSize`, `flexibleInlineMaxSize`, `maxCombinedBinarySize`, `allowFunctionsWithLoops`, `partialInliningIfs`)
+  - [x] Wire options through `OptimizeOptions` and pass scheduling
+  - [x] Add `ModulePass::Inlining` and `ModulePass::InliningOptimizing`
+  - [x] Add `ModulePass::InlineMain` (`main`/`__original_main` single-call inlining)
+  - [x] Implement iterative full inlining with size/call/loop guards, reachability-safe callsite planning, and growth cap
+  - [x] Implement callsite inlining transform with local remap, default-only local init, return/return_call rewriting (including hoist path for `return_call*` under `try_table`), and label-depth fixups
+  - [x] Add split inlining support for Pattern A and Pattern B (with dependency-based rejection guard)
+  - [x] Add focused tests covering always-inline, one-caller thresholding, multi-use behavior, growth cap, return/return_call handling, split behavior, and inline-main cases
+
+- [x] `Binaryen Pass: LocalCSE.cpp` implementation + parity coverage
+  - [x] Implement 3-phase local CSE pipeline (`Scanner` / `Checker` / `Applier`) over tree IR
+  - [x] Restrict CSE connectivity to basic-block-like linear regions (clear active state on non-linear boundaries)
+  - [x] Add effect-based request invalidation between original/repeat pairs
+  - [x] Add full pass tests for repeated whole-trees, boundary isolation, child-request suppression, memory interference invalidation, trap-only candidate handling, shrink-level gating, and idempotency
+  - [x] Wire `ModulePass::LocalCSE` into `src/passes/optimize.mbt` dispatch and integration tests
+
 ## 3) Binaryen Passes Still To Implement
 
 ### A) Primary Optimization / Analysis Passes
 - [ ] Binaryen Pass: Asyncify.cpp
 - [x] Binaryen Pass: I64ToI32Lowering.cpp
-- [ ] Binaryen Pass: Inlining.cpp
-- [ ] Binaryen Pass: LocalCSE.cpp
+- [x] Binaryen Pass: Inlining.cpp
+- [x] Binaryen Pass: LocalCSE.cpp
 - [ ] Binaryen Pass: LocalSubtyping.cpp
 - [ ] Binaryen Pass: LoopInvariantCodeMotion.cpp
 - [ ] Binaryen Pass: MemoryPacking.cpp
