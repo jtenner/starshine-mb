@@ -179,6 +179,20 @@
 - [x] README updated
 - [x] AGENTS.md updated
 
+## MergeSimilarFunctions pass
+
+- [x] A) Identify candidate functions and group (defined-only, same signature/locals, hash buckets + equivalence refine)
+- [x] B) Derive parameterization plan (const/call-target sites, diff vectors, parameter reuse, param limit guard)
+- [x] C) Profitability heuristic (merge only when estimated removal beats thunk/shared overhead)
+- [x] D) Create shared implementation (extra params, site replacement, call->call_ref rewrite, var-local reindexing)
+- [x] E) Replace originals with thunks (forward original params + per-function constants/ref.func values; signatures preserved)
+- [x] F) Safety + determinism invariants (imports untouched, call target type checks, reject non-const/non-call diffs, stable class ordering)
+- [x] New file created and pass registered (`src/passes/merge_similar_functions.mbt`, `ModulePass::MergeSimilarFunctions` dispatch)
+- [x] Full test suite added (positive + negative + determinism + local-shift + validation checks)
+- [x] README updated
+- [x] AGENTS.md updated
+- [x] `moon check`, `moon test`, `moon info && moon fmt` all green
+
 ## 3) Binaryen Passes Still To Implement
 
 ### A) Primary Optimization / Analysis Passes
@@ -191,7 +205,7 @@
 - [x] Binaryen Pass: MemoryPacking.cpp
 - [x] Binaryen Pass: MergeBlocks.cpp
 - [x] Binaryen Pass: MergeLocals.cpp
-- [ ] Binaryen Pass: MergeSimilarFunctions.cpp
+- [x] Binaryen Pass: MergeSimilarFunctions.cpp
 - [ ] Binaryen Pass: OnceReduction.cpp
 - [ ] Binaryen Pass: OptimizeAddedConstants.cpp
 - [ ] Binaryen Pass: OptimizeCasts.cpp

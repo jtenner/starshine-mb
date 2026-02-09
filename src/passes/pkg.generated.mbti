@@ -103,6 +103,10 @@ type DFEKey
 pub impl Eq for DFEKey
 pub impl Hash for DFEKey
 
+type EquivalentClass
+pub impl Eq for EquivalentClass
+pub impl Show for EquivalentClass
+
 pub enum FieldValue {
   Uninitialized
   Constant(@lib.TInstr)
@@ -153,6 +157,36 @@ pub impl Eq for LiteralKind
 pub impl Hash for LiteralKind
 pub impl Show for LiteralKind
 
+type MSFCallSite
+pub impl Eq for MSFCallSite
+pub impl Hash for MSFCallSite
+pub impl Show for MSFCallSite
+
+type MSFDefinedFunc
+pub impl Eq for MSFDefinedFunc
+pub impl Show for MSFDefinedFunc
+
+type MSFHashBucketKey
+pub impl Eq for MSFHashBucketKey
+pub impl Hash for MSFHashBucketKey
+
+type MSFHashState
+pub impl Show for MSFHashState
+
+type MSFParamKey
+pub impl Eq for MSFParamKey
+pub impl Hash for MSFParamKey
+
+type MSFParamKind
+pub impl Eq for MSFParamKind
+pub impl Hash for MSFParamKind
+pub impl Show for MSFParamKind
+
+type MSFSiteValue
+pub impl Eq for MSFSiteValue
+pub impl Hash for MSFSiteValue
+pub impl Show for MSFSiteValue
+
 pub(all) struct MemoryPackingPassProps {
   zero_filled_memory : Bool
   traps_never_happen : Bool
@@ -185,6 +219,7 @@ pub(all) enum ModulePass {
   LocalCSE
   LocalSubtyping
   MergeLocals
+  MergeSimilarFunctions
   MergeBlocks
   MemoryPacking(MemoryPackingPassProps)
   GUFA
@@ -204,6 +239,11 @@ pub struct OptimizeOptions {
   inlining : InliningOptions
 }
 pub fn OptimizeOptions::new(optimize_level? : Int, shrink_level? : Int, inlining? : InliningOptions) -> Self
+
+type ParamInfo
+pub impl Eq for ParamInfo
+pub impl Hash for ParamInfo
+pub impl Show for ParamInfo
 
 type Remappings
 

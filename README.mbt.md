@@ -33,6 +33,7 @@ This repository is intended for compiler and tooling work around WebAssembly 3.0
   - LocalCSE
   - LocalSubtyping
   - MergeLocals
+  - MergeSimilarFunctions
   - MergeBlocks
   - MemoryPacking
   - Code folding/pushing
@@ -236,6 +237,22 @@ MergeLocals notes:
   - performs pre-state analysis on instrumented copies, then post-state verification, and undoes per-direction rewrites that do not verify.
 - Instrumentation is temporary (`local.tee y (local.get y)`) and is removed before pass completion.
 - Run it via `ModulePass::MergeLocals` in `optimize_module(...)` / `optimize_module_with_options(...)`.
+
+MergeSimilarFunctions notes:
+- Purpose: whole-module post-link merge of structurally equivalent defined functions that differ only at constant sites and/or direct-call targets.
+- Output shape:
+  - appends one shared implementation function with extra synthesized params
+  - rewrites each original function into a thin forwarding thunk that keeps the original signature.
+- Rewriting details:
+  - differing const sites become extra params and are read via `local.get`
+  - differing direct-call targets are parameterized through a function-ref arg; shared body rewrites direct calls to `call_ref` / `return_call_ref` (with `ref.cast` to the expected `TypeIdx` in current IR typing model)
+  - var-local indices in the shared clone are shifted by `derived_param_count` so original vars do not alias new params.
+- Safety/selection:
+  - only defined functions are candidates
+  - requires identical function signature and local layout
+  - call-target differences require matching callee function types
+  - merge is gated by an estimated profitability score and a synthetic-param cap (`MSF_MAX_SYNTHETIC_FUNCTION_PARAMS`).
+- Run it via `ModulePass::MergeSimilarFunctions` in `optimize_module(...)` / `optimize_module_with_options(...)`.
 
 ### 2) Validate a module
 ```mbt

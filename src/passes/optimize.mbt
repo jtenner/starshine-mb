@@ -24,6 +24,7 @@ pub(all) enum ModulePass {
   LocalCSE
   LocalSubtyping
   MergeLocals
+  MergeSimilarFunctions
   MergeBlocks
   MemoryPacking(MemoryPackingPassProps)
   GUFA
@@ -272,6 +273,11 @@ pub fn optimize_module_with_options(
             mod,
             merge_locals_ir_pass(mod, options~),
           ) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      MergeSimilarFunctions =>
+        match merge_similar_functions(mod) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }
@@ -1242,6 +1248,65 @@ test "optimize_module runs MergeBlocks pass" {
   match optimized.code_sec {
     Some(CodeSec([TFunc(_, TExpr([TDrop(TI32Const(I32(9))), TNop]))])) => ()
     _ => fail("expected merged block body")
+  }
+}
+
+///|
+test "optimize_module runs MergeSimilarFunctions pass" {
+  let t = single_rec_type(
+    comp_type_sub_type(func_comp_type([ValType::i32()], [ValType::i32()])),
+  )
+  let f0 = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::return_([
+        TInstr::binary(
+          BinaryOp::i32_add(),
+          TInstr::binary(
+            BinaryOp::i32_mul(),
+            TInstr::local_get(LocalIdx::new(0)),
+            TInstr::i32_const(I32(42)),
+          ),
+          TInstr::binary(
+            BinaryOp::i32_add(),
+            TInstr::i32_const(I32(10)),
+            TInstr::i32_const(I32(7)),
+          ),
+        ),
+      ]),
+    ]),
+  )
+  let f1 = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::return_([
+        TInstr::binary(
+          BinaryOp::i32_add(),
+          TInstr::binary(
+            BinaryOp::i32_mul(),
+            TInstr::local_get(LocalIdx::new(0)),
+            TInstr::i32_const(I32(43)),
+          ),
+          TInstr::binary(
+            BinaryOp::i32_add(),
+            TInstr::i32_const(I32(10)),
+            TInstr::i32_const(I32(7)),
+          ),
+        ),
+      ]),
+    ]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
+    .with_code_sec(CodeSec::new([f0, f1]))
+  let optimized = match optimize_module(mod, [MergeSimilarFunctions]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec(funcs)) => assert_eq(funcs.length(), 3)
+    _ => fail("expected shared function append")
   }
 }
 

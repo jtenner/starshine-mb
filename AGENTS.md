@@ -359,6 +359,30 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
 - Dedicated pass tests live in `src/passes/merge_locals_tests.mbt`; run with:
   - `/home/jtenner/.moon/bin/moon test`
 
+## MergeSimilarFunctions notes (learned)
+
+- `src/passes/merge_similar_functions.mbt` is integrated in `src/passes/optimize.mbt` as `ModulePass::MergeSimilarFunctions`.
+- Hashing/equivalence in current implementation uses normalized tree comparison:
+  - normalize constants to typed zero values and direct-call targets to a canonical index with `ModuleTransformer::on_tinstruction_evt(...)`
+  - bucket by digest, then refine with normalized `TExpr` equality plus per-callsite callee-type checks.
+- Expression cloning/rewrite is done with `on_tinstruction_evt` + `walk_tinstruction_default`:
+  - assign deterministic pre-order node ids during traversal
+  - use node-id maps to replace selected const/call sites
+  - perform local var index shifts (`local.get/set/tee`) in the same rewrite pass.
+- Function-ref / `call_ref` typing in this codebase:
+  - `ref.func` typechecks as `ValType::funcref()`
+  - `call_ref` expects `(ref null (typeidx))`
+  - so parameterized call targets are threaded as `funcref` params and cast at use sites with `ref.cast` to the call’s `TypeIdx`.
+- Function insertion/update pattern for whole-module passes:
+  - append new function type to `type_sec`
+  - append new `TypeIdx` entry to `func_sec`
+  - append new function body to `code_sec`
+  - this IR has no internal function-name map; deterministic behavior comes from stable class ordering and append order.
+- Validation workflow for this pass:
+  - `/home/jtenner/.moon/bin/moon check`
+  - `/home/jtenner/.moon/bin/moon test`
+  - `/home/jtenner/.moon/bin/moon info && /home/jtenner/.moon/bin/moon fmt`
+
 ## Pass testing notes (learned)
 
 - Most large passes already have substantial inline tests (notably `alignment_lowering`, `directize`, `optimize_casts`, `remove_unused`).
