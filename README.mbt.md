@@ -34,6 +34,7 @@ This repository is intended for compiler and tooling work around WebAssembly 3.0
   - LocalSubtyping
   - MergeLocals
   - Monomorphize (`Monomorphize`, `MonomorphizeAlways`)
+  - OnceReduction
   - MergeSimilarFunctions
   - MergeBlocks
   - MemoryPacking
@@ -305,6 +306,27 @@ fn run_monomorphize(mod : Module) -> Module {
   }
 }
 ```
+
+OnceReduction notes:
+- Purpose: remove redundant "run-once" behavior by tracking once-guard globals and once functions.
+- Once global (conservative):
+  - mutable integer global
+  - not imported/exported
+  - only reachable writes are non-zero integer constants
+  - reads outside recognized once-function guard contexts disqualify it.
+- Once function (canonical pattern):
+  - void->void function body starts with:
+    - `if (global.get g) return`
+    - `global.set g (const nonzero)`
+  - then optional payload.
+- Optimization behavior:
+  - nops dominated redundant `call` instructions to once functions (zero-arg direct calls)
+  - nops dominated redundant `global.set` writes to once globals (non-zero const writes)
+  - runs iterative summary propagation across direct calls to reach fixed point.
+- Cleanup behavior:
+  - if a once function has only guard+set, body is reduced to `nop`
+  - if payload is exactly `call` to another once function, guard+set can be nopped, with deterministic cycle safety (at most one side of a trivial cycle is stripped).
+- Run it via `ModulePass::OnceReduction` in `optimize_module(...)` / `optimize_module_with_options(...)`.
 
 ### 2) Validate a module
 ```mbt

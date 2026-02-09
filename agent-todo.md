@@ -233,6 +233,19 @@
 - [x] AGENTS.md updated
 - [x] `moon check`, `moon test`, `moon info && moon fmt` all green
 
+## OnceReduction pass
+
+- [x] New file + pass registration (`src/passes/once_reduction.mbt`, `ModulePass::OnceReduction`)
+- [x] Scanner implemented (global read/write rules, canonical once-function pattern detection, read-guard exemption)
+- [x] Once global eligibility initialization implemented (integer mutable globals, imported/exported filtering)
+- [x] CFG + dominator-based optimizer implemented (redundant once call and redundant set nopping)
+- [x] Fixed-point propagation implemented (`once_globals_set_in_funcs` summaries across call graph)
+- [x] Deterministic module-order once-body cleanup implemented (no-payload and call-only cleanup with cycle guard)
+- [x] Full OnceReduction tests added (A-M coverage: removals, disqualifiers, propagation, dominance, cleanup, cycle safety, determinism)
+- [x] README updated
+- [x] AGENTS.md updated
+- [x] `moon check`, `moon test`, `moon info && moon fmt` all green
+
 ## 3) Binaryen Passes Still To Implement
 
 ### A) Primary Optimization / Analysis Passes
@@ -246,7 +259,7 @@
 - [x] Binaryen Pass: MergeBlocks.cpp
 - [x] Binaryen Pass: MergeLocals.cpp
 - [x] Binaryen Pass: MergeSimilarFunctions.cpp
-- [ ] Binaryen Pass: OnceReduction.cpp
+- [x] Binaryen Pass: OnceReduction.cpp
 - [ ] Binaryen Pass: OptimizeAddedConstants.cpp
 - [ ] Binaryen Pass: OptimizeCasts.cpp
 - [ ] Binaryen Pass: OptimizeInstructions.cpp

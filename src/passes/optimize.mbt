@@ -26,6 +26,7 @@ pub(all) enum ModulePass {
   MergeLocals
   MergeSimilarFunctions
   MergeBlocks
+  OnceReduction
   MinimizeRecGroups
   Monomorphize
   MonomorphizeAlways
@@ -293,6 +294,11 @@ pub fn optimize_module_with_options(
             mod,
             merge_blocks_ir_pass(mod, options~),
           ) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      OnceReduction =>
+        match once_reduction(mod) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }

@@ -42,6 +42,8 @@ pub fn monomorphize(@lib.Module, options? : OptimizeOptions, always? : Bool) -> 
 
 pub fn monomorphize_apply_arguments(OptimizeOptions, Array[String]) -> OptimizeOptions
 
+pub fn once_reduction(@lib.Module) -> Result[@lib.Module, String]
+
 pub fn optimize_casts(@lib.Module) -> @lib.Module
 
 pub fn optimize_module(@lib.Module, Array[ModulePass]) -> Result[@lib.Module, String]
@@ -227,6 +229,7 @@ pub(all) enum ModulePass {
   MergeLocals
   MergeSimilarFunctions
   MergeBlocks
+  OnceReduction
   MinimizeRecGroups
   Monomorphize
   MonomorphizeAlways

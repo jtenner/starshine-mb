@@ -104,6 +104,7 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
   - `GUFACastAll`
   - `LocalCSE`
   - `LocalSubtyping`
+  - `OnceReduction`
   - `Monomorphize`
   - `MonomorphizeAlways`
 - `GUFAOptimizing` currently runs GUFA and then follows up with:
@@ -444,6 +445,29 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
   - expression/body cost lives in `mn_cost_instr` and `cost` in `src/passes/monomorphize.mbt`
   - empirical decision uses `benefit = 100 - (100 * costAfter / costBefore)` and accepts only when `benefit > monomorphize_min_benefit`
   - add/adjust operation weights in `mn_cost_instr` when refining monomorphize profitability behavior.
+
+## OnceReduction notes (learned)
+
+- `src/passes/once_reduction.mbt` is integrated in `src/passes/optimize.mbt` as `ModulePass::OnceReduction`.
+- Canonical IR shapes used by the pass:
+  - guard read: `TGlobalGet(GlobalIdx)`
+  - once write: `TGlobalSet(GlobalIdx, TI32Const(_)/TI64Const(_))` with non-zero constant
+  - guard branch: `TIf(_, TGlobalGet(g), TExpr([TReturn([])]), None)`
+  - callsite candidate: `TCall(FuncIdx, [])`
+  - canonical once wrapper: `TExpr([TBlock(_, TExpr(items))])` where first two items are guard `if` then once `global.set`.
+- Safe removal strategy:
+  - redundant calls/sets are replaced with `TInstr::nop()` (not physically removed) to avoid control-flow restructuring risk.
+  - pass only nops side-effect-free once candidates (`call` with zero operands to known once funcs; `global.set` to non-zero integer const).
+- CFG/dominator behavior in this implementation:
+  - pass builds a per-function internal CFG over structured `TExpr` sequencing, splitting on `if` and propagating idom state in reverse-postorder.
+  - each block stores ordered event ids for relevant `call` / `global.set` instructions.
+  - block facts use immediate dominator propagation (`written[block] = written[idom(block)]`) and then intra-block updates.
+- Propagation/fixed-point model:
+  - `once_globals_set_in_funcs : Map[FuncIdx, Set[GlobalIdx]]` is pre-initialized for all function indices.
+  - optimization iterates until global-set cardinality stops increasing; summaries are monotonic unions.
+- Threading model note for this codebase/pass:
+  - current implementation is deterministic single-threaded; maps are pre-created for all functions/globals and mutated in module order.
+  - no atomic wrappers are needed in current runner usage; if pass execution becomes parallel, per-function scanner/optimizer state must stay thread-local and only pre-initialized shared tables should be merged.
 
 ## Pass testing notes (learned)
 
