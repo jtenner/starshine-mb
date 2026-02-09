@@ -12,6 +12,12 @@ priv enum GSIGlobalInit {
 }
 
 ///|
+priv enum GSIReadValue {
+  GSIConstValue(TInstr)
+  GSIValueFromGlobal(GlobalIdx)
+}
+
+///|
 priv struct GSIAnalysis {
   type_globals : Map[TypeIdx, Array[GlobalIdx]]
   global_inits : Map[GlobalIdx, GSIGlobalInit]
@@ -313,6 +319,21 @@ fn gsi_apply_packed_get(
 }
 
 ///|
+fn gsi_emit_global_field_read(
+  type_idx : TypeIdx,
+  field_idx : @lib.U32,
+  kind : GSIGetKind,
+  global_idx : GlobalIdx,
+) -> TInstr {
+  let ref_ = TInstr::global_get(global_idx)
+  match kind {
+    NormalGet => TInstr::struct_get(type_idx, field_idx, ref_)
+    SignedGet => TInstr::struct_get_s(type_idx, field_idx, ref_)
+    UnsignedGet => TInstr::struct_get_u(type_idx, field_idx, ref_)
+  }
+}
+
+///|
 fn gsi_normalize_global_field_value(
   raw : TInstr,
   field : FieldType,
@@ -347,7 +368,7 @@ fn gsi_read_value_from_global(
   kind : GSIGetKind,
   analysis : GSIAnalysis,
   env : Env,
-) -> TInstr? {
+) -> GSIReadValue? {
   let @lib.U32(field_idx_u) = field_idx
   let raw = match analysis.global_inits.get(global_idx) {
     Some(GSIInitNew(operands)) => operands.get(field_idx_u.reinterpret_as_int())
@@ -358,8 +379,53 @@ fn gsi_read_value_from_global(
     None => None
   }
   match raw {
-    Some(v) => gsi_normalize_global_field_value(v, field, kind, env)
+    Some(v) =>
+      match gsi_normalize_global_field_value(v, field, kind, env) {
+        Some(normalized) => Some(GSIConstValue(normalized))
+        None => Some(GSIValueFromGlobal(global_idx))
+      }
     None => None
+  }
+}
+
+///|
+fn gsi_read_const_value_from_global(
+  global_idx : GlobalIdx,
+  field : FieldType,
+  field_idx : @lib.U32,
+  kind : GSIGetKind,
+  analysis : GSIAnalysis,
+  env : Env,
+) -> TInstr? {
+  match
+    gsi_read_value_from_global(
+      global_idx, field, field_idx, kind, analysis, env,
+    ) {
+    Some(GSIConstValue(value)) => Some(value)
+    _ => None
+  }
+}
+
+///|
+fn gsi_emit_read_value(
+  value : GSIReadValue,
+  type_idx : TypeIdx,
+  field_idx : @lib.U32,
+  kind : GSIGetKind,
+) -> TInstr {
+  match value {
+    GSIConstValue(instr) => instr
+    GSIValueFromGlobal(global_idx) =>
+      gsi_emit_global_field_read(type_idx, field_idx, kind, global_idx)
+  }
+}
+
+///|
+fn gsi_read_values_equal(a : GSIReadValue, b : GSIReadValue) -> Bool {
+  match (a, b) {
+    (GSIConstValue(v0), GSIConstValue(v1)) => v0 == v1
+    (GSIValueFromGlobal(g0), GSIValueFromGlobal(g1)) => g0 == g1
+    _ => false
   }
 }
 
@@ -371,8 +437,8 @@ fn gsi_collect_values_for_globals(
   kind : GSIGetKind,
   analysis : GSIAnalysis,
   env : Env,
-) -> (Array[TInstr], Array[Array[GlobalIdx]])? {
-  let values : Array[TInstr] = []
+) -> (Array[GSIReadValue], Array[Array[GlobalIdx]])? {
+  let values : Array[GSIReadValue] = []
   let groups : Array[Array[GlobalIdx]] = []
   for global_idx in globals {
     let value = match
@@ -384,7 +450,7 @@ fn gsi_collect_values_for_globals(
     }
     let mut grouped = false
     for i = 0; i < values.length(); i = i + 1 {
-      if values[i] == value {
+      if gsi_read_values_equal(values[i], value) {
         groups[i].push(global_idx)
         grouped = true
         break
@@ -522,7 +588,7 @@ fn gsi_optimize_struct_get(
   match ref_ {
     TGlobalGet(global_idx) if gsi_is_global_immutable(state.env, global_idx) =>
       match
-        gsi_read_value_from_global(
+        gsi_read_const_value_from_global(
           global_idx,
           field,
           field_idx,
@@ -552,7 +618,24 @@ fn gsi_optimize_struct_get(
       Some(value) => value
       None => return None
     }
-    return gsi_drop_and_value(ref_, value, state.env)
+    match ref_ {
+      TGlobalGet(ref_global) =>
+        match value {
+          GSIValueFromGlobal(value_global) =>
+            if ref_global == value_global {
+              return None
+            } else {
+              ()
+            }
+          _ => ()
+        }
+      _ => ()
+    }
+    return gsi_drop_and_value(
+      ref_,
+      gsi_emit_read_value(value, type_idx, field_idx, kind),
+      state.env,
+    )
   }
   let (values, groups) = match
     gsi_collect_values_for_globals(
@@ -566,10 +649,22 @@ fn gsi_optimize_struct_get(
     Some(pair) => pair
     None => return None
   }
-  if values.length() == 1 {
-    return gsi_drop_and_value(ref_, values[0], state.env)
+  let materialized_values : Array[TInstr] = []
+  for value in values {
+    materialized_values.push(
+      gsi_emit_read_value(value, type_idx, field_idx, kind),
+    )
   }
-  gsi_select_for_two_values(values, groups, result_vt, ref_, state.env)
+  if materialized_values.length() == 1 {
+    return gsi_drop_and_value(ref_, materialized_values[0], state.env)
+  }
+  gsi_select_for_two_values(
+    materialized_values,
+    groups,
+    result_vt,
+    ref_,
+    state.env,
+  )
 }
 
 ///|
@@ -1105,5 +1200,597 @@ test "global struct inference does not optimize mutable struct fields" {
   match optimized.code_sec {
     Some(CodeSec([TFunc(_, TExpr([instr]))])) => assert_eq(instr, get_instr)
     _ => fail("expected unoptimized mutable-field struct.get")
+  }
+}
+
+///|
+test "global struct inference does not optimize when struct type is created in code" {
+  let field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
+  let ty = single_rec_type(comp_type_sub_type(struct_comp_type([field])))
+  let global_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let get_instr = TInstr::struct_get(
+    TypeIdx::new(0),
+    U32(0),
+    TInstr::local_get(LocalIdx::new(0)),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([ty]))
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(global_ref, false),
+          Expr::new([
+            Instruction::i32_const(I32(3)),
+            Instruction::struct_new(TypeIdx::new(0)),
+          ]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::drop(
+              TInstr::struct_new(TypeIdx::new(0), [TInstr::i32_const(I32(9))]),
+            ),
+          ]),
+        ),
+        Func::t_func([global_ref], TExpr::new([get_instr])),
+      ]),
+    )
+  let optimized = match run_global_struct_inference(mod, false) {
+    Ok(m) => m
+    Err(e) => fail("unexpected global_struct_inference error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([_, TFunc(_, TExpr([instr]))])) => assert_eq(instr, get_instr)
+    _ =>
+      fail(
+        "expected unoptimized struct.get when matching struct.new exists in code",
+      )
+  }
+}
+
+///|
+test "global struct inference does not optimize when source global is mutable" {
+  let field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
+  let ty = single_rec_type(comp_type_sub_type(struct_comp_type([field])))
+  let global_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let get_instr = TInstr::struct_get(
+    TypeIdx::new(0),
+    U32(0),
+    TInstr::local_get(LocalIdx::new(0)),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([ty]))
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(global_ref, true),
+          Expr::new([
+            Instruction::i32_const(I32(7)),
+            Instruction::struct_new(TypeIdx::new(0)),
+          ]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([Func::t_func([global_ref], TExpr::new([get_instr]))]),
+    )
+  let optimized = match run_global_struct_inference(mod, false) {
+    Ok(m) => m
+    Err(e) => fail("unexpected global_struct_inference error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([instr]))])) => assert_eq(instr, get_instr)
+    _ => fail("expected unoptimized struct.get for mutable source global")
+  }
+}
+
+///|
+test "global struct inference does not optimize with more than two unique values" {
+  let field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
+  let ty = single_rec_type(comp_type_sub_type(struct_comp_type([field])))
+  let global_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let get_instr = TInstr::struct_get(
+    TypeIdx::new(0),
+    U32(0),
+    TInstr::local_get(LocalIdx::new(0)),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([ty]))
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(global_ref, false),
+          Expr::new([
+            Instruction::i32_const(I32(1)),
+            Instruction::struct_new(TypeIdx::new(0)),
+          ]),
+        ),
+        Global::new(
+          GlobalType::new(global_ref, false),
+          Expr::new([
+            Instruction::i32_const(I32(2)),
+            Instruction::struct_new(TypeIdx::new(0)),
+          ]),
+        ),
+        Global::new(
+          GlobalType::new(global_ref, false),
+          Expr::new([
+            Instruction::i32_const(I32(3)),
+            Instruction::struct_new(TypeIdx::new(0)),
+          ]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([Func::t_func([global_ref], TExpr::new([get_instr]))]),
+    )
+  let optimized = match run_global_struct_inference(mod, false) {
+    Ok(m) => m
+    Err(e) => fail("unexpected global_struct_inference error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([instr]))])) => assert_eq(instr, get_instr)
+    _ => fail("expected unoptimized struct.get with >2 distinct values")
+  }
+}
+
+///|
+test "global struct inference folds direct immutable global struct.get to constant" {
+  let field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
+  let ty = single_rec_type(comp_type_sub_type(struct_comp_type([field])))
+  let global_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([ty]))
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(global_ref, false),
+          Expr::new([
+            Instruction::i32_const(I32(99)),
+            Instruction::struct_new(TypeIdx::new(0)),
+          ]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::struct_get(
+              TypeIdx::new(0),
+              U32(0),
+              TInstr::global_get(GlobalIdx::new(0)),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match run_global_struct_inference(mod, false) {
+    Ok(m) => m
+    Err(e) => fail("unexpected global_struct_inference error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TI32Const(I32(v))]))])) => assert_eq(v, 99)
+    _ => fail("expected direct global struct.get to fold to constant")
+  }
+}
+
+///|
+test "global struct inference rewrites singleton non-constant values via known global read" {
+  let outer_field = FieldType::new(
+    StorageType::val_type(
+      ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(1)))),
+    ),
+    Const,
+  )
+  let inner_field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
+  let outer_ty = single_rec_type(
+    comp_type_sub_type(struct_comp_type([outer_field])),
+  )
+  let inner_ty = single_rec_type(
+    comp_type_sub_type(struct_comp_type([inner_field])),
+  )
+  let outer_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([outer_ty, inner_ty]))
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(outer_ref, false),
+          Expr::new([
+            Instruction::i32_const(I32(9)),
+            Instruction::struct_new(TypeIdx::new(1)),
+            Instruction::struct_new(TypeIdx::new(0)),
+          ]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [outer_ref],
+          TExpr::new([
+            TInstr::drop(
+              TInstr::struct_get(
+                TypeIdx::new(0),
+                U32(0),
+                TInstr::local_get(LocalIdx::new(0)),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match run_global_struct_inference(mod, false) {
+    Ok(m) => m
+    Err(e) => fail("unexpected global_struct_inference error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            TExpr(
+              [
+                TDrop(
+                  TBlock(
+                    _,
+                    TExpr(
+                      [TDrop(TRefAsNonNull(_)), TStructGet(_, _, TGlobalGet(_))]
+                    )
+                  )
+                ),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => ()
+    _ =>
+      fail(
+        "expected singleton non-constant rewrite to read value from inferred global",
+      )
+  }
+}
+
+///|
+test "global struct inference rewrites non-constant two-value case to select" {
+  let outer_field = FieldType::new(
+    StorageType::val_type(
+      ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(1)))),
+    ),
+    Const,
+  )
+  let inner_field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
+  let outer_ty = single_rec_type(
+    comp_type_sub_type(struct_comp_type([outer_field])),
+  )
+  let inner_ty = single_rec_type(
+    comp_type_sub_type(struct_comp_type([inner_field])),
+  )
+  let outer_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([outer_ty, inner_ty]))
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(outer_ref, false),
+          Expr::new([
+            Instruction::i32_const(I32(1)),
+            Instruction::struct_new(TypeIdx::new(1)),
+            Instruction::struct_new(TypeIdx::new(0)),
+          ]),
+        ),
+        Global::new(
+          GlobalType::new(outer_ref, false),
+          Expr::new([
+            Instruction::i32_const(I32(2)),
+            Instruction::struct_new(TypeIdx::new(1)),
+            Instruction::struct_new(TypeIdx::new(0)),
+          ]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [outer_ref],
+          TExpr::new([
+            TInstr::drop(
+              TInstr::struct_get(
+                TypeIdx::new(0),
+                U32(0),
+                TInstr::local_get(LocalIdx::new(0)),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match run_global_struct_inference(mod, false) {
+    Ok(m) => m
+    Err(e) => fail("unexpected global_struct_inference error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            TExpr(
+              [
+                TDrop(
+                  TSelect(
+                    _,
+                    TRefEq(TRefAsNonNull(_), TGlobalGet(_)),
+                    TStructGet(_, _, TGlobalGet(_)),
+                    TStructGet(_, _, TGlobalGet(_))
+                  )
+                ),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => ()
+    _ =>
+      fail(
+        "expected non-constant two-value rewrite to select/ref.eq with global field reads",
+      )
+  }
+}
+
+///|
+test "global struct inference avoids direct-global non-constant pessimization" {
+  let outer_field = FieldType::new(
+    StorageType::val_type(
+      ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(1)))),
+    ),
+    Const,
+  )
+  let inner_field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
+  let outer_ty = single_rec_type(
+    comp_type_sub_type(struct_comp_type([outer_field])),
+  )
+  let inner_ty = single_rec_type(
+    comp_type_sub_type(struct_comp_type([inner_field])),
+  )
+  let outer_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let get_instr = TInstr::struct_get(
+    TypeIdx::new(0),
+    U32(0),
+    TInstr::global_get(GlobalIdx::new(0)),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([outer_ty, inner_ty]))
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(outer_ref, false),
+          Expr::new([
+            Instruction::i32_const(I32(9)),
+            Instruction::struct_new(TypeIdx::new(1)),
+            Instruction::struct_new(TypeIdx::new(0)),
+          ]),
+        ),
+      ]),
+    )
+    .with_code_sec(CodeSec::new([Func::t_func([], TExpr::new([get_instr]))]))
+  let optimized = match run_global_struct_inference(mod, false) {
+    Ok(m) => m
+    Err(e) => fail("unexpected global_struct_inference error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([instr]))])) => assert_eq(instr, get_instr)
+    _ => fail("expected direct-global non-constant read to stay unchanged")
+  }
+}
+
+///|
+test "global struct inference handles struct.get_u defaults for packed fields" {
+  let packed_field = FieldType::new(
+    StorageType::pack_type(PackType::i8()),
+    Const,
+  )
+  let ty = single_rec_type(comp_type_sub_type(struct_comp_type([packed_field])))
+  let global_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([ty]))
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(global_ref, false),
+          Expr::new([Instruction::struct_new_default(TypeIdx::new(0))]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [global_ref],
+          TExpr::new([
+            TInstr::drop(
+              TInstr::struct_get_u(
+                TypeIdx::new(0),
+                U32(0),
+                TInstr::local_get(LocalIdx::new(0)),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let original_get = TInstr::struct_get_u(
+    TypeIdx::new(0),
+    U32(0),
+    TInstr::local_get(LocalIdx::new(0)),
+  )
+  let optimized = match run_global_struct_inference(mod, false) {
+    Ok(m) => m
+    Err(e) => fail("unexpected global_struct_inference error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            TExpr(
+              [TDrop(TBlock(_, TExpr([TDrop(TRefAsNonNull(_)), read_value])))]
+            )
+          ),
+        ]
+      )
+    ) => assert_true(read_value != original_get)
+    _ => fail("expected packed default get_u rewrite through inferred globals")
+  }
+}
+
+///|
+test "global struct inference does not optimize non-eqref declared globals" {
+  let field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
+  let ty = single_rec_type(comp_type_sub_type(struct_comp_type([field])))
+  let struct_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let get_instr = TInstr::struct_get(
+    TypeIdx::new(0),
+    U32(0),
+    TInstr::local_get(LocalIdx::new(0)),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([ty]))
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(ValType::anyref(), false),
+          Expr::new([
+            Instruction::i32_const(I32(7)),
+            Instruction::struct_new(TypeIdx::new(0)),
+          ]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([Func::t_func([struct_ref], TExpr::new([get_instr]))]),
+    )
+  let optimized = match run_global_struct_inference(mod, false) {
+    Ok(m) => m
+    Err(e) => fail("unexpected global_struct_inference error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([instr]))])) => assert_eq(instr, get_instr)
+    _ => fail("expected no rewrite for non-eqref declared source global")
+  }
+}
+
+///|
+test "global struct inference propagates unoptimizable subtypes to supertypes" {
+  let super_field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
+  let super_st = SubType::comp_type(struct_comp_type([super_field]))
+  let sub_st = SubType::new(
+    false,
+    [TypeIdx::new(0)],
+    struct_comp_type([super_field]),
+  )
+  let super_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let sub_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(1))),
+  )
+  let get_instr = TInstr::struct_get(
+    TypeIdx::new(0),
+    U32(0),
+    TInstr::local_get(LocalIdx::new(0)),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([RecType::new(super_st), RecType::new(sub_st)]))
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(sub_ref, false),
+          Expr::new([
+            Instruction::i32_const(I32(5)),
+            Instruction::struct_new(TypeIdx::new(1)),
+          ]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::drop(
+              TInstr::struct_new(TypeIdx::new(1), [TInstr::i32_const(I32(7))]),
+            ),
+          ]),
+        ),
+        Func::t_func([super_ref], TExpr::new([get_instr])),
+      ]),
+    )
+  let optimized = match run_global_struct_inference(mod, false) {
+    Ok(m) => m
+    Err(e) => fail("unexpected global_struct_inference error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([_, TFunc(_, TExpr([instr]))])) => assert_eq(instr, get_instr)
+    _ =>
+      fail(
+        "expected supertype read to remain when subtype can be created in code",
+      )
+  }
+}
+
+///|
+test "global struct inference descriptor mode remains a no-op without desc ops" {
+  let field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
+  let ty = single_rec_type(comp_type_sub_type(struct_comp_type([field])))
+  let cast_instr = TInstr::ref_cast(
+    false,
+    HeapType::new(TypeIdx::new(0)),
+    TInstr::local_get(LocalIdx::new(0)),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([ty]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::anyref()],
+          TExpr::new([TInstr::drop(cast_instr)]),
+        ),
+      ]),
+    )
+  let optimized = match run_global_struct_inference(mod, true) {
+    Ok(m) => m
+    Err(e) => fail("unexpected global_struct_inference error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TDrop(instr)]))])) =>
+      assert_eq(instr, cast_instr)
+    _ => fail("expected descriptor-mode ref.cast behavior to be unchanged")
   }
 }

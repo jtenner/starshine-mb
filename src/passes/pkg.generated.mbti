@@ -28,6 +28,8 @@ pub fn directize_module(@lib.Module, Bool) -> Result[@lib.Module, String]
 
 pub fn global_type_optimization(@lib.Module) -> Result[@lib.Module, String]
 
+pub fn i64_to_i32_lowering(@lib.Module) -> Result[@lib.Module, String]
+
 pub fn lift_to_texpr_pass() -> @transformer.ModuleTransformer[Unit]
 
 pub fn lower_to_expr_pass() -> @transformer.ModuleTransformer[Unit]
@@ -151,6 +153,7 @@ pub(all) enum ModulePass {
   GUFA
   GUFAOptimizing
   GUFACastAll
+  I64ToI32Lowering
   DuplicateFunctionElimination
   Directize(Bool)
   OptimizeCasts

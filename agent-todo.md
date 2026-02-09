@@ -23,6 +23,9 @@
   - [x] Broaden observed-type inference across additional expression forms and control-flow merges
 
 - [ ] `Binaryen Pass: GlobalStructInference.cpp` parity hardening
+  - [x] Implement closed-world `struct.get*` inference across singleton/two-value cases with constant grouping and non-constant global-field reads
+  - [x] Expand parity tests for guard conditions (mutable globals/fields, in-function creators, non-eqref globals, >2 distinct values) and subtype propagation behavior
+  - [x] Add descriptor-mode regression coverage documenting current no-op behavior in this IR
   - [ ] Implement descriptor-cast mode behavior once descriptor ops exist in IR (flag is wired but currently no-op)
   - [ ] Add descriptor-mode parity tests when IR support lands
 
@@ -56,11 +59,16 @@
 - [ ] `Binaryen Pass: DuplicateImportElimination.cpp` parity hardening
   - [ ] Add parity tests for mixed extern kinds and import/export remapping edge cases
 
+- [ ] `Binaryen Pass: I64ToI32Lowering.cpp` parity hardening
+  - [x] Add wasm2js-style parity for conversion/reinterpret/trunc i64 ops (`f*.convert_i64*`, `i64.trunc_*`, `reinterpret`) using scratch-memory lowering
+  - [ ] Add support for i64-block-result control-flow lowering (`block`/`loop`/`if`/`try_table` typed to i64)
+  - [ ] Add parity support for unsupported-at-source i64 binary ops when not removed earlier (`mul/div/rem/rot`, `ctz/popcnt`)
+
 ## 3) Binaryen Passes Still To Implement
 
 ### A) Primary Optimization / Analysis Passes
 - [ ] Binaryen Pass: Asyncify.cpp
-- [ ] Binaryen Pass: I64ToI32Lowering.cpp
+- [x] Binaryen Pass: I64ToI32Lowering.cpp
 - [ ] Binaryen Pass: Inlining.cpp
 - [ ] Binaryen Pass: LocalCSE.cpp
 - [ ] Binaryen Pass: LocalSubtyping.cpp

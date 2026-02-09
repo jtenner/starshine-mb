@@ -21,6 +21,7 @@ pub(all) enum ModulePass {
   GUFA
   GUFAOptimizing
   GUFACastAll
+  I64ToI32Lowering
   DuplicateFunctionElimination
   Directize(Bool)
   OptimizeCasts
@@ -232,6 +233,11 @@ pub fn optimize_module_with_options(
         }
       GUFACastAll =>
         match apply_ir_transformer_pass(ctx, mod, gufa_ir_pass(mod, true)) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      I64ToI32Lowering =>
+        match i64_to_i32_lowering(mod) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }
@@ -842,6 +848,47 @@ test "optimize_module runs GUFACastAll pass" {
         _ => fail("expected GUFACastAll to insert cast around global.get")
       }
     _ => fail("expected transformed function body")
+  }
+}
+
+///|
+test "optimize_module runs I64ToI32Lowering pass" {
+  let ty = single_rec_type(
+    comp_type_sub_type(func_comp_type([ValType::i64()], [ValType::i64()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([ty]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i64()],
+          TExpr::new([
+            TInstr::binary(
+              BinaryOp::i64_add(),
+              TInstr::local_get(LocalIdx::new(0)),
+              TInstr::i64_const(I64(1L)),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match optimize_module(mod, [I64ToI32Lowering]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.type_sec {
+    Some(
+      TypeSec([SingleRecType(CompTypeSubType(FuncCompType(params, results)))])
+    ) => {
+      assert_eq(params, [ValType::i32(), ValType::i32()])
+      assert_eq(results, [ValType::i32()])
+    }
+    _ => fail("expected lowered i64 signature")
+  }
+  match optimized.global_sec {
+    Some(GlobalSec(gs)) => assert_true(gs.length() >= 1)
+    _ => fail("expected return-high global")
   }
 }
 

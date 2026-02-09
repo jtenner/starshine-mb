@@ -185,6 +185,46 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
   - leaf replacement for `local.get` / `global.get` when content is known and type-compatible
 - `GUFACastAll` adds casts when inferred ref type is a strict subtype of declared ref type.
 
+## Global Struct Inference notes (learned)
+
+- `src/passes/global_struct_inference.mbt` is integrated in `src/passes/optimize.mbt` as:
+  - `ModulePass::GlobalStructInference`
+  - `ModulePass::GlobalStructInferenceDescCast`
+- Analysis is closed-world style in current pipeline behavior:
+  - tracks struct types created in function bodies and marks them unoptimizable
+  - tracks immutable-global root `struct.new` / `struct.new_default` initializers as candidates
+  - rejects candidate roots when global declared type is not `eqref`-compatible or when the global is mutable
+  - propagates both candidate globals and unoptimizable status through the subtype/supertype graph.
+- Rewriting currently targets `struct.get`, `struct.get_s`, `struct.get_u` on immutable fields and supports:
+  - singleton/global-known replacement with null-trap preservation (`ref.as_non_null` + `drop`)
+  - two-value `select` + `ref.eq` rewrites with constant-value grouping
+  - non-constant field-value handling by materializing reads from known immutable globals (`struct.get* (global.get ...)`) instead of adding new globals.
+- Descriptor-cast mode flag is intentionally wired for parity but is currently a no-op in this IR surface (no descriptor instructions exposed yet); explicit regression tests now document that behavior.
+
+## I64 To I32 Lowering notes (learned)
+
+- `src/passes/i64_to_i32_lowering.mbt` is integrated in `src/passes/optimize.mbt` as `ModulePass::I64ToI32Lowering`.
+- The pass lowers i64 ABI/storage to i32 pairs in current IR by:
+  - rewriting function signatures (`i64` params -> two `i32`s, single `i64` return -> `i32`)
+  - splitting defined i64 globals into low/high i32 globals, plus appending a mutable return-high global
+  - rewriting function bodies with a per-function i32 stash local for high bits, and extra temp locals as needed for evaluation order.
+- Implemented instruction-level lowering includes:
+  - `local.get/set/tee`, `global.get/set`, direct/indirect/ref calls (including i64 arg expansion and i64 return stashing)
+  - i64 const, load/store, `select` (typed + untyped numeric i64), `return`
+  - i64 unary/binary core subset (`eqz`, `extend_i32s/u`, `wrap_i64`, `extend8/16/32s`, `clz`, arithmetic/bitwise/shift/compare families used by wasm32 pair-lowering)
+  - float/int cross-lowering parity for i64 conversion families:
+    - `i64.trunc_f32/f64_{s,u}` lowered via split high/low arithmetic
+    - `f32/f64.convert_i64_{s,u}` lowered via `f64` recomposition then optional demotion
+    - `i64.reinterpret_f64` / `f64.reinterpret_i64` lowered through scratch memory at address 0.
+- Additional behavior constraints learned:
+  - untyped numeric `select` must be lowered for i64 and preserve Wasm operand evaluation order (`if_true`, `if_false`, then `condition`)
+  - explicit `return`-terminated i64 functions must not receive an extra implicit tail wrapper.
+- Current explicit limitations (return `Err(...)`):
+  - imported i64 globals
+  - i64-block-result control flow (`block`/`loop`/`if`/`try_table`)
+  - i64 trunc-saturating family (`i64.trunc_sat_*`)
+  - i64 ops expected to be removed earlier in pipeline (`mul/div/rem/rot`, `ctz/popcnt`).
+
 ## Pass testing notes (learned)
 
 - Most large passes already have substantial inline tests (notably `alignment_lowering`, `directize`, `optimize_casts`, `remove_unused`).
