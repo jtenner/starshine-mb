@@ -36,6 +36,7 @@ This repository is intended for compiler and tooling work around WebAssembly 3.0
   - MergeSimilarFunctions
   - MergeBlocks
   - MemoryPacking
+  - MinimizeRecGroups
   - Code folding/pushing
   - Const hoisting
   - Constant field propagation
@@ -216,6 +217,23 @@ fn run_memory_packing(mod : Module) -> Module {
   }
 }
 ```
+
+MinimizeRecGroups notes:
+- Purpose: minimize private heap-type recursion groups by splitting them into SCC-based groups while preserving wasm validation constraints.
+- Scope:
+  - rewrites private heap types only
+  - public-facing types are left unchanged and their rec-group shapes are reserved
+- Ordering constraints in each produced rec group:
+  - supertype-before-subtype
+  - described-before-descriptor ordering hook is present (currently no descriptor-op edges in this IR surface)
+- Type-identity preservation:
+  - detects rec-group shape collisions
+  - first tries valid topological permutations inside the group
+  - falls back to prepending brand types when permutations cannot make shapes distinct (including automorphism-heavy groups)
+- Rewriting:
+  - rebuilds the type section with new rec groups
+  - remaps all module type uses (`TypeIdx` / heap-type references) to the new indices
+- Run it via `ModulePass::MinimizeRecGroups` in `optimize_module(...)` / `optimize_module_with_options(...)`.
 
 MergeBlocks notes:
 - Merges nested `block` nodes into parent block lists, including safe loop-tail extraction from `loop` bodies of the form `loop(block(...))`.

@@ -26,6 +26,7 @@ pub(all) enum ModulePass {
   MergeLocals
   MergeSimilarFunctions
   MergeBlocks
+  MinimizeRecGroups
   MemoryPacking(MemoryPackingPassProps)
   GUFA
   GUFAOptimizing
@@ -288,6 +289,11 @@ pub fn optimize_module_with_options(
             mod,
             merge_blocks_ir_pass(mod, options~),
           ) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      MinimizeRecGroups =>
+        match minimize_rec_groups(mod) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }
@@ -1248,6 +1254,48 @@ test "optimize_module runs MergeBlocks pass" {
   match optimized.code_sec {
     Some(CodeSec([TFunc(_, TExpr([TDrop(TI32Const(I32(9))), TNop]))])) => ()
     _ => fail("expected merged block body")
+  }
+}
+
+///|
+test "optimize_module runs MinimizeRecGroups pass" {
+  let t0 = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
+        FieldType::new(StorageType::val_type(ValType::i32()), Const),
+      ]),
+    ),
+  )
+  let t1 = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
+        FieldType::new(StorageType::val_type(ValType::i32()), Const),
+      ]),
+    ),
+  )
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t0, t1, t_void]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(2)]))
+    .with_code_sec(
+      CodeSec::new([Func::t_func([], TExpr::new([TInstr::nop()]))]),
+    )
+  let optimized = match optimize_module(mod, [MinimizeRecGroups]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.type_sec {
+    Some(TypeSec(recs)) => {
+      let mut total = 0
+      for rec in recs {
+        match rec {
+          SingleRecType(_) => total += 1
+          GroupRecType(sts) => total += sts.length()
+        }
+      }
+      assert_true(total >= 3)
+    }
+    None => fail("expected type section")
   }
 }
 

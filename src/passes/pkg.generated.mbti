@@ -36,6 +36,8 @@ pub fn lower_to_expr_pass() -> @transformer.ModuleTransformer[Unit]
 
 pub fn memory_packing(@lib.Module, MemoryPackingPassProps) -> Result[@lib.Module, String]
 
+pub fn minimize_rec_groups(@lib.Module) -> Result[@lib.Module, String]
+
 pub fn optimize_casts(@lib.Module) -> @lib.Module
 
 pub fn optimize_module(@lib.Module, Array[ModulePass]) -> Result[@lib.Module, String]
@@ -221,6 +223,7 @@ pub(all) enum ModulePass {
   MergeLocals
   MergeSimilarFunctions
   MergeBlocks
+  MinimizeRecGroups
   MemoryPacking(MemoryPackingPassProps)
   GUFA
   GUFAOptimizing

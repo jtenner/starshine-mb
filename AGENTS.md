@@ -383,6 +383,32 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
   - `/home/jtenner/.moon/bin/moon test`
   - `/home/jtenner/.moon/bin/moon info && /home/jtenner/.moon/bin/moon fmt`
 
+## MinimizeRecGroups notes (learned)
+
+- `src/passes/minimize_rec_groups.mbt` is integrated as `ModulePass::MinimizeRecGroups` in `src/passes/optimize.mbt`.
+- Heap types / rec groups in this codebase:
+  - `TypeSec` stores `Array[RecType]`; each `RecType` is `SingleRecType(SubType)` or `GroupRecType(Array[SubType])`.
+  - Flattened subtype indices are used by `TypeIdx`; `RecIdx` is local to the current rec group during validation.
+- Private/public classification:
+  - Public roots are collected from import/export signatures (`func`, `table`, `global`, `tag`) and closed transitively through supertype edges and heap-type references in subtype definitions.
+  - If any subtype in an original rec group is public-facing, the whole original group is treated as public (not rewritten).
+- Referenced-heap-type collection for graph/SCC work:
+  - Include `SubType.super_types()`.
+  - Include heap refs in `FuncCompType` params/results, `StructCompType` fields, and `ArrayCompType` field storage.
+  - Resolve `TypeIdx` vs `RecIdx` with original `group_start` per flattened subtype.
+- Shape definition/comparison:
+  - Group shapes are compared via deterministic structural keys over normalized subtypes (internal refs normalized to `RecIdx`, external refs normalized with a global type-order map).
+  - Collision handling reserves public-group shapes and disambiguates private groups via constrained permutation first, then brand-type fallback.
+- Rec-group rebuild / rewrite flow:
+  - Build produced groups from private SCCs + unchanged public groups.
+  - Order output groups by dependency topological order.
+  - Rebuild `TypeSec` with rewritten `SubType` references (`RecIdx` for intra-group refs, remapped `TypeIdx` for external refs).
+  - Apply module-wide type-use remap with `ModuleTransformer` (`on_typeidx_evt`, `on_heaptype_evt`) while replacing the entire type section with `on_typesec_evt`.
+- Validation/test commands for this pass remain:
+  - `/home/jtenner/.moon/bin/moon check`
+  - `/home/jtenner/.moon/bin/moon test`
+  - `/home/jtenner/.moon/bin/moon info && /home/jtenner/.moon/bin/moon fmt`
+
 ## Pass testing notes (learned)
 
 - Most large passes already have substantial inline tests (notably `alignment_lowering`, `directize`, `optimize_casts`, `remove_unused`).

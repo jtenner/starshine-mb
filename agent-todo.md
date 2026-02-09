@@ -193,6 +193,23 @@
 - [x] AGENTS.md updated
 - [x] `moon check`, `moon test`, `moon info && moon fmt` all green
 
+## MinimizeRecGroups pass
+
+- [x] A) Collect and classify heap types (private/public) and reserve public rec-group shapes
+- [x] B) Build private type graph, compute SCCs, and establish initial in-group topo ordering constraints
+- [x] C) Implement rec-group shape and comparable-shape construction for deterministic collision checks
+- [x] D) Maintain incremental shape collision handling with shape map + DSU classes + work stack
+- [x] E) Implement permutation-first disambiguation with constrained topological-order enumeration
+- [x] F) Implement canonical permutation derivation for nontrivial collision classes
+- [x] G) Implement brand-type fallback (including singleton non-equality guard and permutation reset)
+- [x] H) Implement collision category handling logic (public conflicts, same/different class conflicts, union cases)
+- [x] I) Rewrite module heap types into rebuilt rec groups and remap all module type uses deterministically
+- [x] New file created + pass registered (`src/passes/minimize_rec_groups.mbt`, `ModulePass::MinimizeRecGroups`)
+- [x] Full MinimizeRecGroups test suite implemented
+- [x] README updated
+- [x] AGENTS.md updated
+- [x] `moon check`, `moon test`, `moon info && moon fmt` all green
+
 ## 3) Binaryen Passes Still To Implement
 
 ### A) Primary Optimization / Analysis Passes
@@ -261,7 +278,7 @@
 - [ ] Binaryen Pass: J2CLOpts.cpp
 - [ ] Binaryen Pass: LimitSegments.cpp
 - [ ] Binaryen Pass: MinifyImportsAndExports.cpp
-- [ ] Binaryen Pass: MinimizeRecGroups.cpp
+- [x] Binaryen Pass: MinimizeRecGroups.cpp
 - [ ] Binaryen Pass: Monomorphize.cpp
 - [ ] Binaryen Pass: NoInline.cpp
 - [ ] Binaryen Pass: OptimizeForJS.cpp
