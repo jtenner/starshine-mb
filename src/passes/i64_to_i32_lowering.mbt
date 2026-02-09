@@ -362,6 +362,14 @@ fn i64l_type_is_i64_block(bt : BlockType) -> Bool {
 }
 
 ///|
+fn i64l_old_typeidx_result_is_i64(ctx : I64LFuncCtx, tidx : TypeIdx) -> Bool {
+  match ctx.info.old_type_func_types.get(tidx) {
+    Some(FuncType(_, [vt])) => i64l_is_i64(vt)
+    _ => false
+  }
+}
+
+///|
 fn i64l_local_to_int(idx : LocalIdx) -> Int {
   let LocalIdx(i) = idx
   i.reinterpret_as_int()
@@ -487,7 +495,10 @@ fn i64l_old_instr_is_i64(ctx : I64LFuncCtx, instr : TInstr) -> Bool {
     TSelect(Some([vt]), _, _, _) => i64l_is_i64(vt)
     TSelect(None, _, if_true, _) => i64l_old_instr_is_i64(ctx, if_true)
     TBlock(bt, _) | TLoop(bt, _) | TIf(bt, _, _, _) | TTryTable(bt, _, _) =>
-      i64l_type_is_i64_block(bt)
+      match bt {
+        TypeIdxBlockType(tidx) => i64l_old_typeidx_result_is_i64(ctx, tidx)
+        _ => i64l_type_is_i64_block(bt)
+      }
     _ => false
   }
 }
@@ -507,6 +518,553 @@ fn i64l_capture_i64_operand(
     low_tmp,
     high_tmp,
   )
+}
+
+///|
+fn i64l_emit_udivrem_core(
+  result : Array[TInstr],
+  n_lo : LocalIdx,
+  n_hi : LocalIdx,
+  d_lo : LocalIdx,
+  d_hi : LocalIdx,
+  q_lo : LocalIdx,
+  q_hi : LocalIdx,
+  r_lo : LocalIdx,
+  r_hi : LocalIdx,
+  sub_lo : LocalIdx,
+  borrow : LocalIdx,
+  sub_hi : LocalIdx,
+) -> Unit {
+  // Trap on division by zero.
+  result.push(
+    TInstr::drop(
+      TInstr::binary(
+        BinaryOp::i32_div_u(),
+        TInstr::i32_const(I32(1)),
+        TInstr::binary(
+          BinaryOp::i32_or(),
+          TInstr::local_get(d_lo),
+          TInstr::local_get(d_hi),
+        ),
+      ),
+    ),
+  )
+  result.push(TInstr::local_set(q_lo, TInstr::i32_const(I32(0))))
+  result.push(TInstr::local_set(q_hi, TInstr::i32_const(I32(0))))
+  result.push(TInstr::local_set(r_lo, TInstr::i32_const(I32(0))))
+  result.push(TInstr::local_set(r_hi, TInstr::i32_const(I32(0))))
+  for step = 0; step < 64; step = step + 1 {
+    let i = 63 - step
+    let bit = if i >= 32 {
+      TInstr::binary(
+        BinaryOp::i32_and(),
+        TInstr::binary(
+          BinaryOp::i32_shr_u(),
+          TInstr::local_get(n_hi),
+          TInstr::i32_const(I32(i - 32)),
+        ),
+        TInstr::i32_const(I32(1)),
+      )
+    } else {
+      TInstr::binary(
+        BinaryOp::i32_and(),
+        TInstr::binary(
+          BinaryOp::i32_shr_u(),
+          TInstr::local_get(n_lo),
+          TInstr::i32_const(I32(i)),
+        ),
+        TInstr::i32_const(I32(1)),
+      )
+    }
+    result.push(
+      TInstr::local_set(
+        r_hi,
+        TInstr::binary(
+          BinaryOp::i32_or(),
+          TInstr::binary(
+            BinaryOp::i32_shl(),
+            TInstr::local_get(r_hi),
+            TInstr::i32_const(I32(1)),
+          ),
+          TInstr::binary(
+            BinaryOp::i32_shr_u(),
+            TInstr::local_get(r_lo),
+            TInstr::i32_const(I32(31)),
+          ),
+        ),
+      ),
+    )
+    result.push(
+      TInstr::local_set(
+        r_lo,
+        TInstr::binary(
+          BinaryOp::i32_or(),
+          TInstr::binary(
+            BinaryOp::i32_shl(),
+            TInstr::local_get(r_lo),
+            TInstr::i32_const(I32(1)),
+          ),
+          bit,
+        ),
+      ),
+    )
+    let ge = TInstr::binary(
+      BinaryOp::i32_or(),
+      TInstr::binary(
+        BinaryOp::i32_gt_u(),
+        TInstr::local_get(r_hi),
+        TInstr::local_get(d_hi),
+      ),
+      TInstr::binary(
+        BinaryOp::i32_and(),
+        TInstr::binary(
+          BinaryOp::i32_eq(),
+          TInstr::local_get(r_hi),
+          TInstr::local_get(d_hi),
+        ),
+        TInstr::binary(
+          BinaryOp::i32_ge_u(),
+          TInstr::local_get(r_lo),
+          TInstr::local_get(d_lo),
+        ),
+      ),
+    )
+    let q_target = if i >= 32 { q_hi } else { q_lo }
+    let q_shift = if i >= 32 { i - 32 } else { i }
+    result.push(
+      TInstr::if_(
+        BlockType::void_(),
+        ge,
+        TExpr::new([
+          TInstr::local_set(
+            sub_lo,
+            TInstr::binary(
+              BinaryOp::i32_sub(),
+              TInstr::local_get(r_lo),
+              TInstr::local_get(d_lo),
+            ),
+          ),
+          TInstr::local_set(
+            borrow,
+            TInstr::binary(
+              BinaryOp::i32_lt_u(),
+              TInstr::local_get(r_lo),
+              TInstr::local_get(d_lo),
+            ),
+          ),
+          TInstr::local_set(
+            sub_hi,
+            TInstr::binary(
+              BinaryOp::i32_sub(),
+              TInstr::binary(
+                BinaryOp::i32_sub(),
+                TInstr::local_get(r_hi),
+                TInstr::local_get(d_hi),
+              ),
+              TInstr::local_get(borrow),
+            ),
+          ),
+          TInstr::local_set(r_lo, TInstr::local_get(sub_lo)),
+          TInstr::local_set(r_hi, TInstr::local_get(sub_hi)),
+          TInstr::local_set(
+            q_target,
+            TInstr::binary(
+              BinaryOp::i32_or(),
+              TInstr::local_get(q_target),
+              TInstr::binary(
+                BinaryOp::i32_shl(),
+                TInstr::i32_const(I32(1)),
+                TInstr::i32_const(I32(q_shift)),
+              ),
+            ),
+          ),
+        ]),
+        None,
+      ),
+    )
+  }
+}
+
+///|
+fn i64l_emit_negate_pair(
+  out : Array[TInstr],
+  lo : LocalIdx,
+  hi : LocalIdx,
+  tmp_lo : LocalIdx,
+  tmp_hi : LocalIdx,
+  borrow : LocalIdx,
+) -> Unit {
+  out.push(
+    TInstr::local_set(
+      tmp_lo,
+      TInstr::binary(
+        BinaryOp::i32_sub(),
+        TInstr::i32_const(I32(0)),
+        TInstr::local_get(lo),
+      ),
+    ),
+  )
+  out.push(
+    TInstr::local_set(
+      borrow,
+      TInstr::binary(
+        BinaryOp::i32_ne(),
+        TInstr::local_get(lo),
+        TInstr::i32_const(I32(0)),
+      ),
+    ),
+  )
+  out.push(
+    TInstr::local_set(
+      tmp_hi,
+      TInstr::binary(
+        BinaryOp::i32_sub(),
+        TInstr::binary(
+          BinaryOp::i32_sub(),
+          TInstr::i32_const(I32(0)),
+          TInstr::local_get(hi),
+        ),
+        TInstr::local_get(borrow),
+      ),
+    ),
+  )
+  out.push(TInstr::local_set(lo, TInstr::local_get(tmp_lo)))
+  out.push(TInstr::local_set(hi, TInstr::local_get(tmp_hi)))
+}
+
+///|
+fn i64l_build_udivrem(
+  ctx : I64LFuncCtx,
+  prefix : Array[TInstr],
+  n_lo : LocalIdx,
+  n_hi : LocalIdx,
+  d_lo : LocalIdx,
+  d_hi : LocalIdx,
+  return_rem : Bool,
+) -> TInstr {
+  let q_lo = i64l_alloc_temp(ctx, ValType::i32())
+  let q_hi = i64l_alloc_temp(ctx, ValType::i32())
+  let r_lo = i64l_alloc_temp(ctx, ValType::i32())
+  let r_hi = i64l_alloc_temp(ctx, ValType::i32())
+  let sub_lo = i64l_alloc_temp(ctx, ValType::i32())
+  let borrow = i64l_alloc_temp(ctx, ValType::i32())
+  let sub_hi = i64l_alloc_temp(ctx, ValType::i32())
+  let out = prefix.copy()
+  i64l_emit_udivrem_core(
+    out, n_lo, n_hi, d_lo, d_hi, q_lo, q_hi, r_lo, r_hi, sub_lo, borrow, sub_hi,
+  )
+  if return_rem {
+    out.push(i64l_stash_set(ctx, TInstr::local_get(r_hi)))
+    out.push(TInstr::local_get(r_lo))
+  } else {
+    out.push(i64l_stash_set(ctx, TInstr::local_get(q_hi)))
+    out.push(TInstr::local_get(q_lo))
+  }
+  i64l_make_block_i32(out)
+}
+
+///|
+fn i64l_build_sdivrem(
+  ctx : I64LFuncCtx,
+  prefix : Array[TInstr],
+  left_lo : LocalIdx,
+  left_hi : LocalIdx,
+  right_lo : LocalIdx,
+  right_hi : LocalIdx,
+  return_rem : Bool,
+) -> TInstr {
+  let n_lo = i64l_alloc_temp(ctx, ValType::i32())
+  let n_hi = i64l_alloc_temp(ctx, ValType::i32())
+  let d_lo = i64l_alloc_temp(ctx, ValType::i32())
+  let d_hi = i64l_alloc_temp(ctx, ValType::i32())
+  let sign_n = i64l_alloc_temp(ctx, ValType::i32())
+  let sign_d = i64l_alloc_temp(ctx, ValType::i32())
+  let q_lo = i64l_alloc_temp(ctx, ValType::i32())
+  let q_hi = i64l_alloc_temp(ctx, ValType::i32())
+  let r_lo = i64l_alloc_temp(ctx, ValType::i32())
+  let r_hi = i64l_alloc_temp(ctx, ValType::i32())
+  let sub_lo = i64l_alloc_temp(ctx, ValType::i32())
+  let borrow = i64l_alloc_temp(ctx, ValType::i32())
+  let sub_hi = i64l_alloc_temp(ctx, ValType::i32())
+  let neg_lo = i64l_alloc_temp(ctx, ValType::i32())
+  let neg_hi = i64l_alloc_temp(ctx, ValType::i32())
+  let out = prefix.copy()
+  out.push(TInstr::local_set(n_lo, TInstr::local_get(left_lo)))
+  out.push(TInstr::local_set(n_hi, TInstr::local_get(left_hi)))
+  out.push(TInstr::local_set(d_lo, TInstr::local_get(right_lo)))
+  out.push(TInstr::local_set(d_hi, TInstr::local_get(right_hi)))
+  out.push(
+    TInstr::local_set(
+      sign_n,
+      TInstr::binary(
+        BinaryOp::i32_shr_s(),
+        TInstr::local_get(n_hi),
+        TInstr::i32_const(I32(31)),
+      ),
+    ),
+  )
+  out.push(
+    TInstr::local_set(
+      sign_d,
+      TInstr::binary(
+        BinaryOp::i32_shr_s(),
+        TInstr::local_get(d_hi),
+        TInstr::i32_const(I32(31)),
+      ),
+    ),
+  )
+  if !return_rem {
+    out.push(
+      TInstr::if_(
+        BlockType::void_(),
+        TInstr::binary(
+          BinaryOp::i32_and(),
+          TInstr::binary(
+            BinaryOp::i32_and(),
+            TInstr::binary(
+              BinaryOp::i32_eq(),
+              TInstr::local_get(n_hi),
+              TInstr::i32_const(I32(-2147483648)),
+            ),
+            TInstr::binary(
+              BinaryOp::i32_eq(),
+              TInstr::local_get(n_lo),
+              TInstr::i32_const(I32(0)),
+            ),
+          ),
+          TInstr::binary(
+            BinaryOp::i32_and(),
+            TInstr::binary(
+              BinaryOp::i32_eq(),
+              TInstr::local_get(d_hi),
+              TInstr::i32_const(I32(-1)),
+            ),
+            TInstr::binary(
+              BinaryOp::i32_eq(),
+              TInstr::local_get(d_lo),
+              TInstr::i32_const(I32(-1)),
+            ),
+          ),
+        ),
+        TExpr::new([TInstr::unreachable_()]),
+        None,
+      ),
+    )
+  }
+  let neg_n_body : Array[TInstr] = []
+  i64l_emit_negate_pair(neg_n_body, n_lo, n_hi, neg_lo, neg_hi, borrow)
+  out.push(
+    TInstr::if_(
+      BlockType::void_(),
+      TInstr::binary(
+        BinaryOp::i32_ne(),
+        TInstr::local_get(sign_n),
+        TInstr::i32_const(I32(0)),
+      ),
+      TExpr::new(neg_n_body),
+      None,
+    ),
+  )
+  let neg_d_body : Array[TInstr] = []
+  i64l_emit_negate_pair(neg_d_body, d_lo, d_hi, neg_lo, neg_hi, borrow)
+  out.push(
+    TInstr::if_(
+      BlockType::void_(),
+      TInstr::binary(
+        BinaryOp::i32_ne(),
+        TInstr::local_get(sign_d),
+        TInstr::i32_const(I32(0)),
+      ),
+      TExpr::new(neg_d_body),
+      None,
+    ),
+  )
+  i64l_emit_udivrem_core(
+    out, n_lo, n_hi, d_lo, d_hi, q_lo, q_hi, r_lo, r_hi, sub_lo, borrow, sub_hi,
+  )
+  if return_rem {
+    let neg_r_body : Array[TInstr] = []
+    i64l_emit_negate_pair(neg_r_body, r_lo, r_hi, neg_lo, neg_hi, borrow)
+    out.push(
+      TInstr::if_(
+        BlockType::void_(),
+        TInstr::binary(
+          BinaryOp::i32_ne(),
+          TInstr::local_get(sign_n),
+          TInstr::i32_const(I32(0)),
+        ),
+        TExpr::new(neg_r_body),
+        None,
+      ),
+    )
+    out.push(i64l_stash_set(ctx, TInstr::local_get(r_hi)))
+    out.push(TInstr::local_get(r_lo))
+  } else {
+    let neg_q_body : Array[TInstr] = []
+    i64l_emit_negate_pair(neg_q_body, q_lo, q_hi, neg_lo, neg_hi, borrow)
+    out.push(
+      TInstr::if_(
+        BlockType::void_(),
+        TInstr::binary(
+          BinaryOp::i32_ne(),
+          TInstr::binary(
+            BinaryOp::i32_xor(),
+            TInstr::local_get(sign_n),
+            TInstr::local_get(sign_d),
+          ),
+          TInstr::i32_const(I32(0)),
+        ),
+        TExpr::new(neg_q_body),
+        None,
+      ),
+    )
+    out.push(i64l_stash_set(ctx, TInstr::local_get(q_hi)))
+    out.push(TInstr::local_get(q_lo))
+  }
+  i64l_make_block_i32(out)
+}
+
+///|
+fn i64l_build_mul(
+  ctx : I64LFuncCtx,
+  prefix : Array[TInstr],
+  left_lo : LocalIdx,
+  left_hi : LocalIdx,
+  right_lo : LocalIdx,
+  right_hi : LocalIdx,
+) -> TInstr {
+  let x_lo = i64l_alloc_temp(ctx, ValType::i32())
+  let x_hi = i64l_alloc_temp(ctx, ValType::i32())
+  let y_lo = i64l_alloc_temp(ctx, ValType::i32())
+  let y_hi = i64l_alloc_temp(ctx, ValType::i32())
+  let acc_lo = i64l_alloc_temp(ctx, ValType::i32())
+  let acc_hi = i64l_alloc_temp(ctx, ValType::i32())
+  let tmp_lo = i64l_alloc_temp(ctx, ValType::i32())
+  let carry = i64l_alloc_temp(ctx, ValType::i32())
+  let tmp_hi = i64l_alloc_temp(ctx, ValType::i32())
+  let new_y_lo = i64l_alloc_temp(ctx, ValType::i32())
+  let new_y_hi = i64l_alloc_temp(ctx, ValType::i32())
+  let new_x_lo = i64l_alloc_temp(ctx, ValType::i32())
+  let new_x_hi = i64l_alloc_temp(ctx, ValType::i32())
+  let out = prefix.copy()
+  out.push(TInstr::local_set(x_lo, TInstr::local_get(left_lo)))
+  out.push(TInstr::local_set(x_hi, TInstr::local_get(left_hi)))
+  out.push(TInstr::local_set(y_lo, TInstr::local_get(right_lo)))
+  out.push(TInstr::local_set(y_hi, TInstr::local_get(right_hi)))
+  out.push(TInstr::local_set(acc_lo, TInstr::i32_const(I32(0))))
+  out.push(TInstr::local_set(acc_hi, TInstr::i32_const(I32(0))))
+  for iter = 0; iter < 64; iter = iter + 1 {
+    out.push(
+      TInstr::if_(
+        BlockType::void_(),
+        TInstr::binary(
+          BinaryOp::i32_ne(),
+          TInstr::binary(
+            BinaryOp::i32_and(),
+            TInstr::local_get(y_lo),
+            TInstr::i32_const(I32(1)),
+          ),
+          TInstr::i32_const(I32(0)),
+        ),
+        TExpr::new([
+          TInstr::local_set(
+            tmp_lo,
+            TInstr::binary(
+              BinaryOp::i32_add(),
+              TInstr::local_get(acc_lo),
+              TInstr::local_get(x_lo),
+            ),
+          ),
+          TInstr::local_set(
+            carry,
+            TInstr::binary(
+              BinaryOp::i32_lt_u(),
+              TInstr::local_get(tmp_lo),
+              TInstr::local_get(acc_lo),
+            ),
+          ),
+          TInstr::local_set(
+            tmp_hi,
+            TInstr::binary(
+              BinaryOp::i32_add(),
+              TInstr::binary(
+                BinaryOp::i32_add(),
+                TInstr::local_get(acc_hi),
+                TInstr::local_get(x_hi),
+              ),
+              TInstr::local_get(carry),
+            ),
+          ),
+          TInstr::local_set(acc_lo, TInstr::local_get(tmp_lo)),
+          TInstr::local_set(acc_hi, TInstr::local_get(tmp_hi)),
+        ]),
+        None,
+      ),
+    )
+    out.push(
+      TInstr::local_set(
+        new_y_lo,
+        TInstr::binary(
+          BinaryOp::i32_or(),
+          TInstr::binary(
+            BinaryOp::i32_shr_u(),
+            TInstr::local_get(y_lo),
+            TInstr::i32_const(I32(1)),
+          ),
+          TInstr::binary(
+            BinaryOp::i32_shl(),
+            TInstr::local_get(y_hi),
+            TInstr::i32_const(I32(31)),
+          ),
+        ),
+      ),
+    )
+    out.push(
+      TInstr::local_set(
+        new_y_hi,
+        TInstr::binary(
+          BinaryOp::i32_shr_u(),
+          TInstr::local_get(y_hi),
+          TInstr::i32_const(I32(1)),
+        ),
+      ),
+    )
+    out.push(TInstr::local_set(y_lo, TInstr::local_get(new_y_lo)))
+    out.push(TInstr::local_set(y_hi, TInstr::local_get(new_y_hi)))
+    out.push(
+      TInstr::local_set(
+        new_x_hi,
+        TInstr::binary(
+          BinaryOp::i32_or(),
+          TInstr::binary(
+            BinaryOp::i32_shl(),
+            TInstr::local_get(x_hi),
+            TInstr::i32_const(I32(1)),
+          ),
+          TInstr::binary(
+            BinaryOp::i32_shr_u(),
+            TInstr::local_get(x_lo),
+            TInstr::i32_const(I32(31)),
+          ),
+        ),
+      ),
+    )
+    out.push(
+      TInstr::local_set(
+        new_x_lo,
+        TInstr::binary(
+          BinaryOp::i32_shl(),
+          TInstr::local_get(x_lo),
+          TInstr::i32_const(I32(1)),
+        ),
+      ),
+    )
+    out.push(TInstr::local_set(x_lo, TInstr::local_get(new_x_lo)))
+    out.push(TInstr::local_set(x_hi, TInstr::local_get(new_x_hi)))
+  }
+  out.push(i64l_stash_set(ctx, TInstr::local_get(acc_hi)))
+  out.push(TInstr::local_get(acc_lo))
+  i64l_make_block_i32(out)
 }
 
 ///|
@@ -712,38 +1270,55 @@ fn i64l_rewrite_tinstruction(
       }
     TReturnCall(target, args) =>
       match ctx.info.old_func_types.get(target) {
-        Some(ft) => {
+        Some(ft) =>
           if i64l_is_i64_result(ft) {
-            return Err(
-              "i64_to_i32_lowering: return_call with i64 result is unsupported",
-            )
+            let FuncType(params, _) = ft
+            let lowered_args = match i64l_lower_call_args(args, params, ctx) {
+              Ok(a) => a
+              Err(e) => return Err(e)
+            }
+            let low_tmp = i64l_alloc_temp(ctx, ValType::i32())
+            i64l_make_block_void([
+              TInstr::local_set(low_tmp, TInstr::call(target, lowered_args)),
+              TInstr::return_([TInstr::local_get(low_tmp)]),
+            ])
+          } else {
+            let FuncType(params, _) = ft
+            let lowered_args = match i64l_lower_call_args(args, params, ctx) {
+              Ok(a) => a
+              Err(e) => return Err(e)
+            }
+            TInstr::return_call(target, lowered_args)
           }
-          let FuncType(params, _) = ft
-          let lowered_args = match i64l_lower_call_args(args, params, ctx) {
-            Ok(a) => a
-            Err(e) => return Err(e)
-          }
-          TInstr::return_call(target, lowered_args)
-        }
         None => return Err("i64_to_i32_lowering: missing return_call signature")
       }
     TReturnCallIndirect(type_idx, table_idx, args, target) =>
       match ctx.info.old_type_func_types.get(type_idx) {
-        Some(ft) => {
+        Some(ft) =>
           if i64l_is_i64_result(ft) {
-            return Err(
-              "i64_to_i32_lowering: return_call_indirect with i64 result is unsupported",
+            let FuncType(params, _) = ft
+            let lowered_args = match i64l_lower_call_args(args, params, ctx) {
+              Ok(a) => a
+              Err(e) => return Err(e)
+            }
+            let low_tmp = i64l_alloc_temp(ctx, ValType::i32())
+            i64l_make_block_void([
+              TInstr::local_set(
+                low_tmp,
+                TInstr::call_indirect(type_idx, table_idx, lowered_args, target),
+              ),
+              TInstr::return_([TInstr::local_get(low_tmp)]),
+            ])
+          } else {
+            let FuncType(params, _) = ft
+            let lowered_args = match i64l_lower_call_args(args, params, ctx) {
+              Ok(a) => a
+              Err(e) => return Err(e)
+            }
+            TInstr::return_call_indirect(
+              type_idx, table_idx, lowered_args, target,
             )
           }
-          let FuncType(params, _) = ft
-          let lowered_args = match i64l_lower_call_args(args, params, ctx) {
-            Ok(a) => a
-            Err(e) => return Err(e)
-          }
-          TInstr::return_call_indirect(
-            type_idx, table_idx, lowered_args, target,
-          )
-        }
         None =>
           return Err(
             "i64_to_i32_lowering: missing return_call_indirect signature",
@@ -751,19 +1326,29 @@ fn i64l_rewrite_tinstruction(
       }
     TReturnCallRef(type_idx, args, ref_) =>
       match ctx.info.old_type_func_types.get(type_idx) {
-        Some(ft) => {
+        Some(ft) =>
           if i64l_is_i64_result(ft) {
-            return Err(
-              "i64_to_i32_lowering: return_call_ref with i64 result is unsupported",
-            )
+            let FuncType(params, _) = ft
+            let lowered_args = match i64l_lower_call_args(args, params, ctx) {
+              Ok(a) => a
+              Err(e) => return Err(e)
+            }
+            let low_tmp = i64l_alloc_temp(ctx, ValType::i32())
+            i64l_make_block_void([
+              TInstr::local_set(
+                low_tmp,
+                TInstr::call_ref(type_idx, lowered_args, ref_),
+              ),
+              TInstr::return_([TInstr::local_get(low_tmp)]),
+            ])
+          } else {
+            let FuncType(params, _) = ft
+            let lowered_args = match i64l_lower_call_args(args, params, ctx) {
+              Ok(a) => a
+              Err(e) => return Err(e)
+            }
+            TInstr::return_call_ref(type_idx, lowered_args, ref_)
           }
-          let FuncType(params, _) = ft
-          let lowered_args = match i64l_lower_call_args(args, params, ctx) {
-            Ok(a) => a
-            Err(e) => return Err(e)
-          }
-          TInstr::return_call_ref(type_idx, lowered_args, ref_)
-        }
         None =>
           return Err("i64_to_i32_lowering: missing return_call_ref signature")
       }
@@ -926,19 +1511,82 @@ fn i64l_rewrite_tinstruction(
             ),
           ])
         }
-        I64CtzOp =>
-          return Err("i64_to_i32_lowering: unsupported i64 op i64.ctz")
-        I64PopcntOp =>
-          return Err("i64_to_i32_lowering: unsupported i64 op i64.popcnt")
-        I64TruncF32SOp | I64TruncF32UOp | I64TruncF64SOp | I64TruncF64UOp => {
+        I64CtzOp => {
+          let low_tmp = i64l_alloc_temp(ctx, ValType::i32())
+          let high_tmp = i64l_alloc_temp(ctx, ValType::i32())
+          i64l_make_block_i32([
+            TInstr::local_set(low_tmp, value),
+            TInstr::local_set(high_tmp, i64l_stash_get(ctx)),
+            i64l_stash_set(ctx, TInstr::i32_const(I32(0))),
+            TInstr::if_(
+              BlockType::val_type(ValType::i32()),
+              TInstr::binary(
+                BinaryOp::i32_ne(),
+                TInstr::local_get(low_tmp),
+                TInstr::i32_const(I32(0)),
+              ),
+              TExpr::new([
+                TInstr::unary(UnaryOp::i32_ctz(), TInstr::local_get(low_tmp)),
+              ]),
+              Some(
+                TExpr::new([
+                  TInstr::binary(
+                    BinaryOp::i32_add(),
+                    TInstr::unary(
+                      UnaryOp::i32_ctz(),
+                      TInstr::local_get(high_tmp),
+                    ),
+                    TInstr::i32_const(I32(32)),
+                  ),
+                ]),
+              ),
+            ),
+          ])
+        }
+        I64PopcntOp => {
+          let high_tmp = i64l_alloc_temp(ctx, ValType::i32())
+          i64l_make_block_i32([
+            TInstr::local_set(high_tmp, i64l_stash_get(ctx)),
+            i64l_stash_set(ctx, TInstr::i32_const(I32(0))),
+            TInstr::binary(
+              BinaryOp::i32_add(),
+              TInstr::unary(UnaryOp::i32_popcnt(), value),
+              TInstr::unary(UnaryOp::i32_popcnt(), TInstr::local_get(high_tmp)),
+            ),
+          ])
+        }
+        I64TruncF32SOp
+        | I64TruncF32UOp
+        | I64TruncF64SOp
+        | I64TruncF64UOp
+        | I64TruncSatF32SOp
+        | I64TruncSatF32UOp
+        | I64TruncSatF64SOp
+        | I64TruncSatF64UOp => {
           let is_f32 = match op {
-            I64TruncF32SOp | I64TruncF32UOp => true
+            I64TruncF32SOp
+            | I64TruncF32UOp
+            | I64TruncSatF32SOp
+            | I64TruncSatF32UOp => true
+            _ => false
+          }
+          let is_sat = match op {
+            I64TruncSatF32SOp
+            | I64TruncSatF32UOp
+            | I64TruncSatF64SOp
+            | I64TruncSatF64UOp => true
             _ => false
           }
           let tmp_ty = if is_f32 { ValType::f32() } else { ValType::f64() }
           let f_tmp = i64l_alloc_temp(ctx, tmp_ty)
           let trunc_u = if is_f32 {
-            UnaryOp::i32_trunc_f32u()
+            if is_sat {
+              UnaryOp::i32_trunc_sat_f32u()
+            } else {
+              UnaryOp::i32_trunc_f32u()
+            }
+          } else if is_sat {
+            UnaryOp::i32_trunc_sat_f64u()
           } else {
             UnaryOp::i32_trunc_f64u()
           }
@@ -1155,23 +1803,25 @@ fn i64l_rewrite_tinstruction(
             ]),
           )
         }
-        I64TruncSatF32SOp
-        | I64TruncSatF32UOp
-        | I64TruncSatF64SOp
-        | I64TruncSatF64UOp =>
-          return Err("i64_to_i32_lowering: unsupported i64 op i64.trunc_sat_*")
         _ => curr
       }
     TBinary(op, left, right) =>
       match op {
         I64AddOp
         | I64SubOp
+        | I64MulOp
+        | I64DivSOp
+        | I64DivUOp
+        | I64RemSOp
+        | I64RemUOp
         | I64AndOp
         | I64OrOp
         | I64XorOp
         | I64ShlOp
         | I64ShrSOp
         | I64ShrUOp
+        | I64RotlOp
+        | I64RotrOp
         | I64EqOp
         | I64NeOp
         | I64LtUOp
@@ -1285,6 +1935,10 @@ fn i64l_rewrite_tinstruction(
               result.push(TInstr::local_get(low_tmp))
               i64l_make_block_i32(result)
             }
+            I64MulOp =>
+              i64l_build_mul(
+                ctx, prefix, left_low, left_high, right_low, right_high,
+              )
             I64AndOp | I64OrOp | I64XorOp => {
               let op32 = match op {
                 I64AndOp => BinaryOp::i32_and()
@@ -1456,6 +2110,221 @@ fn i64l_rewrite_tinstruction(
               result.push(TInstr::local_get(low_tmp))
               i64l_make_block_i32(result)
             }
+            I64RotlOp | I64RotrOp => {
+              let shift_tmp = i64l_alloc_temp(ctx, ValType::i32())
+              let high_tmp = i64l_alloc_temp(ctx, ValType::i32())
+              let low_tmp = i64l_alloc_temp(ctx, ValType::i32())
+              let result = prefix.copy()
+              result.push(
+                TInstr::local_set(
+                  shift_tmp,
+                  TInstr::binary(
+                    BinaryOp::i32_and(),
+                    TInstr::local_get(right_low),
+                    TInstr::i32_const(I32(63)),
+                  ),
+                ),
+              )
+              let small_shift = TInstr::binary(
+                BinaryOp::i32_and(),
+                TInstr::local_get(shift_tmp),
+                TInstr::i32_const(I32(31)),
+              )
+              let width_minus_shift = TInstr::binary(
+                BinaryOp::i32_sub(),
+                TInstr::i32_const(I32(32)),
+                small_shift,
+              )
+              let shift_mask = TInstr::binary(
+                BinaryOp::i32_sub(),
+                TInstr::binary(
+                  BinaryOp::i32_shl(),
+                  TInstr::i32_const(I32(1)),
+                  small_shift,
+                ),
+                TInstr::i32_const(I32(1)),
+              )
+              let large = TInstr::binary(
+                BinaryOp::i32_ge_u(),
+                TInstr::local_get(shift_tmp),
+                TInstr::i32_const(I32(32)),
+              )
+              let (large_low, large_high, small_low, small_high) = match op {
+                I64RotlOp =>
+                  (
+                    TInstr::binary(
+                      BinaryOp::i32_or(),
+                      TInstr::binary(
+                        BinaryOp::i32_shl(),
+                        TInstr::local_get(left_high),
+                        small_shift,
+                      ),
+                      TInstr::binary(
+                        BinaryOp::i32_shl(),
+                        TInstr::binary(
+                          BinaryOp::i32_and(),
+                          shift_mask,
+                          TInstr::local_get(left_low),
+                        ),
+                        width_minus_shift,
+                      ),
+                    ),
+                    TInstr::binary(
+                      BinaryOp::i32_or(),
+                      TInstr::binary(
+                        BinaryOp::i32_shl(),
+                        TInstr::local_get(left_low),
+                        small_shift,
+                      ),
+                      TInstr::binary(
+                        BinaryOp::i32_shl(),
+                        TInstr::binary(
+                          BinaryOp::i32_and(),
+                          shift_mask,
+                          TInstr::local_get(left_high),
+                        ),
+                        width_minus_shift,
+                      ),
+                    ),
+                    TInstr::binary(
+                      BinaryOp::i32_or(),
+                      TInstr::binary(
+                        BinaryOp::i32_shl(),
+                        TInstr::local_get(left_low),
+                        small_shift,
+                      ),
+                      TInstr::binary(
+                        BinaryOp::i32_shl(),
+                        TInstr::binary(
+                          BinaryOp::i32_and(),
+                          shift_mask,
+                          TInstr::local_get(left_high),
+                        ),
+                        width_minus_shift,
+                      ),
+                    ),
+                    TInstr::binary(
+                      BinaryOp::i32_or(),
+                      TInstr::binary(
+                        BinaryOp::i32_shl(),
+                        TInstr::local_get(left_high),
+                        small_shift,
+                      ),
+                      TInstr::binary(
+                        BinaryOp::i32_shl(),
+                        TInstr::binary(
+                          BinaryOp::i32_and(),
+                          shift_mask,
+                          TInstr::local_get(left_low),
+                        ),
+                        width_minus_shift,
+                      ),
+                    ),
+                  )
+                _ =>
+                  (
+                    TInstr::binary(
+                      BinaryOp::i32_or(),
+                      TInstr::binary(
+                        BinaryOp::i32_shr_u(),
+                        TInstr::local_get(left_high),
+                        small_shift,
+                      ),
+                      TInstr::binary(
+                        BinaryOp::i32_shl(),
+                        TInstr::binary(
+                          BinaryOp::i32_and(),
+                          shift_mask,
+                          TInstr::local_get(left_low),
+                        ),
+                        width_minus_shift,
+                      ),
+                    ),
+                    TInstr::binary(
+                      BinaryOp::i32_or(),
+                      TInstr::binary(
+                        BinaryOp::i32_shr_u(),
+                        TInstr::local_get(left_low),
+                        small_shift,
+                      ),
+                      TInstr::binary(
+                        BinaryOp::i32_shl(),
+                        TInstr::binary(
+                          BinaryOp::i32_and(),
+                          shift_mask,
+                          TInstr::local_get(left_high),
+                        ),
+                        width_minus_shift,
+                      ),
+                    ),
+                    TInstr::binary(
+                      BinaryOp::i32_or(),
+                      TInstr::binary(
+                        BinaryOp::i32_shr_u(),
+                        TInstr::local_get(left_low),
+                        small_shift,
+                      ),
+                      TInstr::binary(
+                        BinaryOp::i32_shl(),
+                        TInstr::binary(
+                          BinaryOp::i32_and(),
+                          shift_mask,
+                          TInstr::local_get(left_high),
+                        ),
+                        width_minus_shift,
+                      ),
+                    ),
+                    TInstr::binary(
+                      BinaryOp::i32_or(),
+                      TInstr::binary(
+                        BinaryOp::i32_shr_u(),
+                        TInstr::local_get(left_high),
+                        small_shift,
+                      ),
+                      TInstr::binary(
+                        BinaryOp::i32_shl(),
+                        TInstr::binary(
+                          BinaryOp::i32_and(),
+                          shift_mask,
+                          TInstr::local_get(left_low),
+                        ),
+                        width_minus_shift,
+                      ),
+                    ),
+                  )
+              }
+              result.push(
+                TInstr::local_set(
+                  low_tmp,
+                  TInstr::select(None, large, large_low, small_low),
+                ),
+              )
+              result.push(
+                TInstr::local_set(
+                  high_tmp,
+                  TInstr::select(None, large, large_high, small_high),
+                ),
+              )
+              result.push(i64l_stash_set(ctx, TInstr::local_get(high_tmp)))
+              result.push(TInstr::local_get(low_tmp))
+              i64l_make_block_i32(result)
+            }
+            I64DivUOp =>
+              i64l_build_udivrem(
+                ctx, prefix, left_low, left_high, right_low, right_high, false,
+              )
+            I64RemUOp =>
+              i64l_build_udivrem(
+                ctx, prefix, left_low, left_high, right_low, right_high, true,
+              )
+            I64DivSOp =>
+              i64l_build_sdivrem(
+                ctx, prefix, left_low, left_high, right_low, right_high, false,
+              )
+            I64RemSOp =>
+              i64l_build_sdivrem(
+                ctx, prefix, left_low, left_high, right_low, right_high, true,
+              )
             I64EqOp | I64NeOp => {
               let is_eq = match op {
                 I64EqOp => true
@@ -1554,16 +2423,6 @@ fn i64l_rewrite_tinstruction(
             }
           }
         }
-        I64MulOp
-        | I64DivSOp
-        | I64DivUOp
-        | I64RemSOp
-        | I64RemUOp
-        | I64RotlOp
-        | I64RotrOp =>
-          return Err(
-            "i64_to_i32_lowering: unsupported i64 op unsupported i64 binary op",
-          )
         _ => curr
       }
     TSelect(_, cond, if_true, if_false) => {
@@ -1619,11 +2478,27 @@ fn i64l_rewrite_tinstruction(
       } else {
         curr
       }
-    TBlock(bt, _) | TLoop(bt, _) | TIf(bt, _, _, _) | TTryTable(bt, _, _) =>
+    TBlock(bt, body) =>
       if i64l_type_is_i64_block(bt) {
-        return Err(
-          "i64_to_i32_lowering: block/loop/if/try with i64 result is unsupported",
-        )
+        TInstr::block(BlockType::val_type(ValType::i32()), body)
+      } else {
+        curr
+      }
+    TLoop(bt, body) =>
+      if i64l_type_is_i64_block(bt) {
+        TInstr::loop_(BlockType::val_type(ValType::i32()), body)
+      } else {
+        curr
+      }
+    TIf(bt, cond, then_, else_) =>
+      if i64l_type_is_i64_block(bt) {
+        TInstr::if_(BlockType::val_type(ValType::i32()), cond, then_, else_)
+      } else {
+        curr
+      }
+    TTryTable(bt, catches, body) =>
+      if i64l_type_is_i64_block(bt) {
+        TInstr::try_table(BlockType::val_type(ValType::i32()), catches, body)
       } else {
         curr
       }
@@ -2298,6 +3173,95 @@ test "i64_to_i32_lowering lowers call_ref i64 args and results" {
 }
 
 ///|
+test "i64_to_i32_lowering lowers call_indirect i64 args and results" {
+  let t_sig = single_rec_type(
+    comp_type_sub_type(func_comp_type([ValType::i64()], [ValType::i64()])),
+  )
+  let t_caller = single_rec_type(
+    comp_type_sub_type(func_comp_type([], [ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_sig, t_caller]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i64()],
+          TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
+        ),
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::call_indirect(
+              TypeIdx::new(0),
+              TableIdx::new(0),
+              [TInstr::i64_const(I64(11L))],
+              TInstr::i32_const(I32(0)),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let lowered = match i64_to_i32_lowering(mod) {
+    Ok(m) => m
+    Err(e) => fail("unexpected i64_to_i32_lowering error: \{e}")
+  }
+  let shown = "\{lowered}"
+  assert_false(shown.contains("I64NumType"))
+  assert_false(
+    shown.contains("TCallIndirect(TypeIdx(0), TableIdx(0), [TI64Const"),
+  )
+}
+
+///|
+test "i64_to_i32_lowering lowers return_call_indirect/ref with i64 result" {
+  let t_sig = single_rec_type(
+    comp_type_sub_type(func_comp_type([], [ValType::i64()])),
+  )
+  let t_caller = single_rec_type(
+    comp_type_sub_type(func_comp_type([], [ValType::i64()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_sig, t_caller]))
+    .with_func_sec(
+      FuncSec::new([TypeIdx::new(0), TypeIdx::new(1), TypeIdx::new(1)]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func([], TExpr::new([TInstr::i64_const(I64(7L))])),
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::return_call_indirect(
+              TypeIdx::new(0),
+              TableIdx::new(0),
+              [],
+              TInstr::i32_const(I32(0)),
+            ),
+          ]),
+        ),
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::return_call_ref(
+              TypeIdx::new(0),
+              [],
+              TInstr::ref_func(FuncIdx::new(0)),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let lowered = match i64_to_i32_lowering(mod) {
+    Ok(m) => m
+    Err(e) => fail("unexpected i64_to_i32_lowering error: \{e}")
+  }
+  let shown = "\{lowered}"
+  assert_false(shown.contains("TReturnCallIndirect("))
+  assert_false(shown.contains("TReturnCallRef("))
+}
+
+///|
 test "i64_to_i32_lowering preserves explicit i64 return without extra tail wrap" {
   let ty = single_rec_type(
     comp_type_sub_type(func_comp_type([], [ValType::i64()])),
@@ -2324,6 +3288,47 @@ test "i64_to_i32_lowering preserves explicit i64 return without extra tail wrap"
 }
 
 ///|
+test "i64_to_i32_lowering handles implicit i64 return from typeidx block" {
+  let ret_i64 = single_rec_type(
+    comp_type_sub_type(func_comp_type([], [ValType::i64()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([ret_i64]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::block(
+              BlockType::type_idx(TypeIdx::new(0)),
+              TExpr::new([TInstr::i64_const(I64(9L))]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let lowered = match i64_to_i32_lowering(mod) {
+    Ok(m) => m
+    Err(e) => fail("unexpected i64_to_i32_lowering error: \{e}")
+  }
+  match lowered.code_sec {
+    Some(CodeSec([TFunc(_, TExpr(instrs))])) => {
+      let mut saw_high_set = false
+      let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, i) {
+        if i is TGlobalSet(GlobalIdx(0), _) {
+          saw_high_set = true
+        }
+        self.walk_tinstruction_default((), i)
+      })
+      ignore(walker.walk_texpr((), TExpr::new(instrs)))
+      assert_true(saw_high_set)
+    }
+    _ => fail("expected lowered function body")
+  }
+}
+
+///|
 test "i64_to_i32_lowering rejects imported i64 globals" {
   let mod = Module::new().with_import_sec(
     ImportSec::new([
@@ -2341,29 +3346,236 @@ test "i64_to_i32_lowering rejects imported i64 globals" {
 }
 
 ///|
-test "i64_to_i32_lowering rejects unsupported i64 trunc_sat" {
-  let body = TExpr::new([
-    TInstr::unary(UnaryOp::i64_trunc_sat_f64u(), TInstr::f64_const(F64(1.0))),
-  ])
-  let mod = Module::new().with_code_sec(CodeSec::new([Func::t_func([], body)]))
+test "i64_to_i32_lowering rejects multi-value i64 function results" {
+  let ty = single_rec_type(
+    comp_type_sub_type(
+      func_comp_type([ValType::i32()], [ValType::i64(), ValType::i32()]),
+    ),
+  )
+  let mod = Module::new().with_type_sec(TypeSec::new([ty]))
   match i64_to_i32_lowering(mod) {
-    Ok(_) => fail("expected unsupported i64.trunc_sat to fail")
-    Err(e) => assert_true(e.contains("i64.trunc_sat"))
+    Ok(_) => fail("expected multi-value i64 results to be rejected")
+    Err(e) => assert_true(e.contains("multi-value i64 results"))
   }
 }
 
 ///|
-test "i64_to_i32_lowering rejects unsupported i64 mul" {
+test "i64_to_i32_lowering rejects unsupported i64 global init roots" {
+  let mod = Module::new().with_global_sec(
+    GlobalSec::new([
+      Global::new(
+        GlobalType::new(ValType::i64(), false),
+        Expr::new([
+          Instruction::i64_const(I64(1L)),
+          Instruction::i64_const(I64(2L)),
+          Instruction::i64_add(),
+        ]),
+      ),
+    ]),
+  )
+  match i64_to_i32_lowering(mod) {
+    Ok(_) => fail("expected unsupported i64 global init root to be rejected")
+    Err(e) => assert_true(e.contains("unsupported i64 global init"))
+  }
+}
+
+///|
+test "i64_to_i32_lowering lowers i64 trunc_sat ops" {
   let body = TExpr::new([
-    TInstr::binary(
-      BinaryOp::i64_mul(),
-      TInstr::i64_const(I64(2L)),
-      TInstr::i64_const(I64(3L)),
+    TInstr::unary(UnaryOp::i64_trunc_sat_f64u(), TInstr::f64_const(F64(1.0))),
+    TInstr::unary(UnaryOp::i64_trunc_sat_f32s(), TInstr::f32_const(F32(-2.5))),
+  ])
+  let mod = Module::new().with_code_sec(CodeSec::new([Func::t_func([], body)]))
+  let lowered = match i64_to_i32_lowering(mod) {
+    Ok(m) => m
+    Err(e) => fail("unexpected i64_to_i32_lowering error: \{e}")
+  }
+  let shown = "\{lowered}"
+  assert_false(shown.contains("I64TruncSatF64UOp"))
+  assert_false(shown.contains("I64TruncSatF32SOp"))
+}
+
+///|
+test "i64_to_i32_lowering lowers i64 mul/div/rem/rot and ctz/popcnt" {
+  let body = TExpr::new([
+    TInstr::drop(
+      TInstr::binary(
+        BinaryOp::i64_mul(),
+        TInstr::i64_const(I64(2L)),
+        TInstr::i64_const(I64(3L)),
+      ),
+    ),
+    TInstr::drop(
+      TInstr::binary(
+        BinaryOp::i64_div_u(),
+        TInstr::i64_const(I64(100L)),
+        TInstr::i64_const(I64(9L)),
+      ),
+    ),
+    TInstr::drop(
+      TInstr::binary(
+        BinaryOp::i64_rem_s(),
+        TInstr::i64_const(I64(-100L)),
+        TInstr::i64_const(I64(9L)),
+      ),
+    ),
+    TInstr::drop(
+      TInstr::binary(
+        BinaryOp::i64_rotl(),
+        TInstr::i64_const(I64(5L)),
+        TInstr::i64_const(I64(33L)),
+      ),
+    ),
+    TInstr::drop(
+      TInstr::binary(
+        BinaryOp::i64_rotr(),
+        TInstr::i64_const(I64(5L)),
+        TInstr::i64_const(I64(17L)),
+      ),
+    ),
+    TInstr::drop(TInstr::unary(UnaryOp::i64_ctz(), TInstr::i64_const(I64(8L)))),
+    TInstr::drop(
+      TInstr::unary(UnaryOp::i64_popcnt(), TInstr::i64_const(I64(15L))),
     ),
   ])
   let mod = Module::new().with_code_sec(CodeSec::new([Func::t_func([], body)]))
-  match i64_to_i32_lowering(mod) {
-    Ok(_) => fail("expected unsupported i64.mul to fail")
-    Err(e) => assert_true(e.contains("unsupported i64 binary op"))
+  let lowered = match i64_to_i32_lowering(mod) {
+    Ok(m) => m
+    Err(e) => fail("unexpected i64_to_i32_lowering error: \{e}")
+  }
+  let shown = "\{lowered}"
+  assert_false(shown.contains("I64MulOp"))
+  assert_false(shown.contains("I64DivUOp"))
+  assert_false(shown.contains("I64RemSOp"))
+  assert_false(shown.contains("I64RotlOp"))
+  assert_false(shown.contains("I64RotrOp"))
+  assert_false(shown.contains("I64CtzOp"))
+  assert_false(shown.contains("I64PopcntOp"))
+}
+
+///|
+test "i64_to_i32_lowering lowers return_call with i64 result" {
+  let t_callee = single_rec_type(
+    comp_type_sub_type(func_comp_type([], [ValType::i64()])),
+  )
+  let t_caller = single_rec_type(
+    comp_type_sub_type(func_comp_type([], [ValType::i64()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_callee, t_caller]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func([], TExpr::new([TInstr::i64_const(I64(7L))])),
+        Func::t_func([], TExpr::new([TInstr::return_call(FuncIdx::new(0), [])])),
+      ]),
+    )
+  let lowered = match i64_to_i32_lowering(mod) {
+    Ok(m) => m
+    Err(e) => fail("unexpected i64_to_i32_lowering error: \{e}")
+  }
+  let shown = "\{lowered}"
+  assert_false(shown.contains("TReturnCall("))
+}
+
+///|
+test "i64_to_i32_lowering lowers i64 control-flow block result types" {
+  let body = TExpr::new([
+    TInstr::drop(
+      TInstr::block(
+        BlockType::val_type(ValType::i64()),
+        TExpr::new([TInstr::i64_const(I64(1L))]),
+      ),
+    ),
+    TInstr::drop(
+      TInstr::if_(
+        BlockType::val_type(ValType::i64()),
+        TInstr::i32_const(I32(1)),
+        TExpr::new([TInstr::i64_const(I64(2L))]),
+        Some(TExpr::new([TInstr::i64_const(I64(3L))])),
+      ),
+    ),
+    TInstr::drop(
+      TInstr::loop_(
+        BlockType::val_type(ValType::i64()),
+        TExpr::new([TInstr::br(LabelIdx::new(0), [TInstr::i64_const(I64(4L))])]),
+      ),
+    ),
+  ])
+  let mod = Module::new().with_code_sec(CodeSec::new([Func::t_func([], body)]))
+  let lowered = match i64_to_i32_lowering(mod) {
+    Ok(m) => m
+    Err(e) => fail("unexpected i64_to_i32_lowering error: \{e}")
+  }
+  let shown = "\{lowered}"
+  assert_false(shown.contains("ValTypeBlockType(NumTypeValType(I64NumType))"))
+}
+
+///|
+test "i64_to_i32_lowering preserves signed div/rem overflow edge semantics" {
+  let body = TExpr::new([
+    TInstr::drop(
+      TInstr::binary(
+        BinaryOp::i64_div_s(),
+        TInstr::i64_const(I64(-9223372036854775808L)),
+        TInstr::i64_const(I64(-1L)),
+      ),
+    ),
+    TInstr::drop(
+      TInstr::binary(
+        BinaryOp::i64_rem_s(),
+        TInstr::i64_const(I64(-9223372036854775808L)),
+        TInstr::i64_const(I64(-1L)),
+      ),
+    ),
+  ])
+  let mod = Module::new().with_code_sec(CodeSec::new([Func::t_func([], body)]))
+  let lowered = match i64_to_i32_lowering(mod) {
+    Ok(m) => m
+    Err(e) => fail("unexpected i64_to_i32_lowering error: \{e}")
+  }
+  let shown = "\{lowered}"
+  assert_false(shown.contains("I64DivSOp"))
+  assert_false(shown.contains("I64RemSOp"))
+  // signed division overflow should still trap
+  assert_true(shown.contains("TUnreachable"))
+}
+
+///|
+test "i64_to_i32_lowering handles branch-value-heavy i64 cfg and validates" {
+  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let body = TExpr::new([
+    TInstr::drop(
+      TInstr::block(
+        BlockType::val_type(ValType::i64()),
+        TExpr::new([
+          TInstr::br_if(LabelIdx::new(0), TInstr::i32_const(I32(0)), [
+            TInstr::i64_const(I64(0x100000001L)),
+          ]),
+          TInstr::br_table(
+            [LabelIdx::new(0), LabelIdx::new(0)],
+            LabelIdx::new(0),
+            TInstr::i32_const(I32(1)),
+            [TInstr::i64_const(I64(0x200000002L))],
+          ),
+          TInstr::i64_const(I64(0x300000003L)),
+        ]),
+      ),
+    ),
+  ])
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t0]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], body)]))
+  let lowered = match i64_to_i32_lowering(mod) {
+    Ok(m) => m
+    Err(e) => fail("unexpected i64_to_i32_lowering error: \{e}")
+  }
+  let shown = "\{lowered}"
+  assert_false(shown.contains("I64NumType"))
+  assert_false(shown.contains("TI64Const("))
+  match @validate.validate_module(lowered) {
+    Ok(_) => ()
+    Err(e) => fail("lowered branch-heavy cfg module should validate: \{e}")
   }
 }

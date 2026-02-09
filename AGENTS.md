@@ -210,20 +210,23 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
   - rewriting function bodies with a per-function i32 stash local for high bits, and extra temp locals as needed for evaluation order.
 - Implemented instruction-level lowering includes:
   - `local.get/set/tee`, `global.get/set`, direct/indirect/ref calls (including i64 arg expansion and i64 return stashing)
+  - i64-result `return_call` / `return_call_indirect` / `return_call_ref` are lowered to non-tail call+return forms
   - i64 const, load/store, `select` (typed + untyped numeric i64), `return`
-  - i64 unary/binary core subset (`eqz`, `extend_i32s/u`, `wrap_i64`, `extend8/16/32s`, `clz`, arithmetic/bitwise/shift/compare families used by wasm32 pair-lowering)
+  - i64 unary/binary lowering now includes `ctz`, `popcnt`, `mul`, `div_{s,u}`, `rem_{s,u}`, `rotl`, `rotr` in addition to arithmetic/bitwise/shift/compare families
   - float/int cross-lowering parity for i64 conversion families:
     - `i64.trunc_f32/f64_{s,u}` lowered via split high/low arithmetic
+    - `i64.trunc_sat_f32/f64_{s,u}` lowered via non-trapping split high/low arithmetic
     - `f32/f64.convert_i64_{s,u}` lowered via `f64` recomposition then optional demotion
     - `i64.reinterpret_f64` / `f64.reinterpret_i64` lowered through scratch memory at address 0.
 - Additional behavior constraints learned:
   - untyped numeric `select` must be lowered for i64 and preserve Wasm operand evaluation order (`if_true`, `if_false`, then `condition`)
+  - typed i64 control-flow results (`block` / `loop` / `if` / `try_table`) are rewritten to i32 result types while preserving high bits in the stash
+  - implicit i64 tail-return detection must consider `TypeIdx` block types using pre-lowering type signatures; relying only on `ValTypeBlockType` misses real i64-return paths
   - explicit `return`-terminated i64 functions must not receive an extra implicit tail wrapper.
 - Current explicit limitations (return `Err(...)`):
   - imported i64 globals
-  - i64-block-result control flow (`block`/`loop`/`if`/`try_table`)
-  - i64 trunc-saturating family (`i64.trunc_sat_*`)
-  - i64 ops expected to be removed earlier in pipeline (`mul/div/rem/rot`, `ctz/popcnt`).
+  - multi-value i64 function results (only the single-result i64 ABI form is lowered)
+  - i64 global initializers are only supported for top-level `i64.const` and `global.get` forms.
 
 ## Pass testing notes (learned)
 

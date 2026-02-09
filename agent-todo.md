@@ -59,10 +59,11 @@
 - [ ] `Binaryen Pass: DuplicateImportElimination.cpp` parity hardening
   - [ ] Add parity tests for mixed extern kinds and import/export remapping edge cases
 
-- [ ] `Binaryen Pass: I64ToI32Lowering.cpp` parity hardening
+- [x] `Binaryen Pass: I64ToI32Lowering.cpp` parity hardening
+  - [x] Expand comprehensive feature coverage tests across call/call_indirect/call_ref + return_call* + control-flow/result typing + global/error guard paths
   - [x] Add wasm2js-style parity for conversion/reinterpret/trunc i64 ops (`f*.convert_i64*`, `i64.trunc_*`, `reinterpret`) using scratch-memory lowering
-  - [ ] Add support for i64-block-result control-flow lowering (`block`/`loop`/`if`/`try_table` typed to i64)
-  - [ ] Add parity support for unsupported-at-source i64 binary ops when not removed earlier (`mul/div/rem/rot`, `ctz/popcnt`)
+  - [x] Add support for i64-block-result control-flow lowering (`block`/`loop`/`if`/`try_table` typed to i64)
+  - [x] Add parity support for unsupported-at-source i64 binary ops when not removed earlier (`mul/div/rem/rot`, `ctz/popcnt`)
 
 ## 3) Binaryen Passes Still To Implement
 
