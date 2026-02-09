@@ -34,6 +34,8 @@ pub fn lift_to_texpr_pass() -> @transformer.ModuleTransformer[Unit]
 
 pub fn lower_to_expr_pass() -> @transformer.ModuleTransformer[Unit]
 
+pub fn memory_packing(@lib.Module, MemoryPackingPassProps) -> Result[@lib.Module, String]
+
 pub fn optimize_casts(@lib.Module) -> @lib.Module
 
 pub fn optimize_module(@lib.Module, Array[ModulePass]) -> Result[@lib.Module, String]
@@ -49,6 +51,10 @@ pub fn run_constant_field_propagation(@lib.Module) -> Result[@lib.Module, String
 pub fn run_denam(@lib.Module) -> Result[@lib.Module, String]
 
 pub fn run_lower_to_expr_pass(@lib.Module) -> @lib.Module
+
+pub fn run_memory_paacking_on_module(@lib.Module, MemoryPackingPassProps) -> Result[@lib.Module, String]
+
+pub fn run_memory_packing_on_module(@lib.Module, MemoryPackingPassProps) -> Result[@lib.Module, String]
 
 pub fn uses(@lib.TInstr) -> @set.Set[@lib.LocalIdx]
 
@@ -147,6 +153,13 @@ pub impl Eq for LiteralKind
 pub impl Hash for LiteralKind
 pub impl Show for LiteralKind
 
+pub(all) struct MemoryPackingPassProps {
+  zero_filled_memory : Bool
+  traps_never_happen : Bool
+  max_data_segments : Int
+}
+pub fn MemoryPackingPassProps::new(zero_filled_memory? : Bool, traps_never_happen? : Bool, max_data_segments? : Int) -> Self
+
 pub(all) enum ModulePass {
   AbstractTypeRefining(AbstractTypeRefiningPassProps)
   AlignmentLowering
@@ -171,6 +184,7 @@ pub(all) enum ModulePass {
   InlineMain
   LocalCSE
   LocalSubtyping
+  MemoryPacking(MemoryPackingPassProps)
   GUFA
   GUFAOptimizing
   GUFACastAll

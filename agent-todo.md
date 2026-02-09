@@ -93,6 +93,38 @@
   - [x] Wire `ModulePass::LocalSubtyping` into `src/passes/optimize.mbt` dispatch and add optimize integration test
   - [x] Update docs/bookkeeping (`README.mbt.md`, `AGENTS.md`, `agent-todo.md`)
 
+## MemoryPacking pass
+
+- [x] Preconditions: skip when module has 0 memories or more than 1 memory
+- [x] Preconditions: imported sole memory requires `zeroFilledMemory=true`
+- [x] Preconditions: skip when multiple segments and any active segment has non-constant offset
+- [x] Preconditions: skip when active constant-offset segments overlap
+- [x] Segment splitting: skip empty segments
+- [x] Segment splitting: skip `__llvm*` named segments
+- [x] Segment splitting: skip segments referenced by GC data ops (`array.new_data` / `array.init_data`)
+- [x] Segment splitting: skip passive segment splitting when any `memory.init` ref has non-constant offset/size
+- [x] Segment splitting: compute full alternating zero/non-zero ranges
+- [x] Active trap parity: preserve startup OOB trap byte when `trapsNeverHappen=false`
+- [x] Passive thresholds: apply metadata/referrer-based threshold and edge-threshold merging
+- [x] Active thresholds: apply fixed zero-span threshold heuristic
+- [x] Segment limit handling: cap splits at max data segment count by merging remaining ranges
+- [x] Segment creation: emit non-zero ranges only and compute active offsets with saturating addition
+- [x] Segment rewrite: replace module data segment list and keep data-count section in sync
+- [x] Segment-op optimization: rewrite `data.drop` on active segments to `nop`
+- [x] Segment-op optimization: simplify `memory.init` must-trap/must-nop cases (bulk-memory semantics)
+- [x] Referrer collection: gather `memory.init`, `data.drop`, and GC data-op referrers
+- [x] Unused segment dropping: remove passive segments only referenced by `data.drop` and nop those drops
+- [x] Replacements: rewrite transformed passive `memory.init` into `memory.init` + `memory.fill` sequences
+- [x] Replacements: rewrite transformed `data.drop` into per-split drops
+- [x] Replacements: preserve zero-length `memory.init` trap semantics
+- [x] Drop-state global: lazily create and use `__mem_segment_drop_state` only when needed
+- [x] Rewriter implementation: use lazy/function-local replacement with temp-local stashing for non-const dest
+- [x] Rewriter implementation: rewrite `array.new_data` / `array.init_data` data indices after segment remap
+- [x] File created: `src/passes/memory_packing.mbt`
+- [x] Pass wired into scheduler/registry (`ModulePass` + `optimize_module` dispatch)
+- [x] Full MemoryPacking test suite added
+- [x] Documentation updated (`README.mbt.md` + `AGENTS.md` + `agent-todo.md`)
+
 ## 3) Binaryen Passes Still To Implement
 
 ### A) Primary Optimization / Analysis Passes
@@ -102,7 +134,7 @@
 - [x] Binaryen Pass: LocalCSE.cpp
 - [x] Binaryen Pass: LocalSubtyping.cpp
 - [ ] Binaryen Pass: LoopInvariantCodeMotion.cpp
-- [ ] Binaryen Pass: MemoryPacking.cpp
+- [x] Binaryen Pass: MemoryPacking.cpp
 - [ ] Binaryen Pass: MergeBlocks.cpp
 - [ ] Binaryen Pass: MergeLocals.cpp
 - [ ] Binaryen Pass: MergeSimilarFunctions.cpp

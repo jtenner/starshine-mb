@@ -23,6 +23,7 @@ pub(all) enum ModulePass {
   InlineMain
   LocalCSE
   LocalSubtyping
+  MemoryPacking(MemoryPackingPassProps)
   GUFA
   GUFAOptimizing
   GUFACastAll
@@ -259,6 +260,11 @@ pub fn optimize_module_with_options(
         }
       LocalSubtyping =>
         match local_subtyping(mod) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      MemoryPacking(props) =>
+        match memory_packing(mod, props) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }
@@ -1189,5 +1195,41 @@ test "optimize_module runs LocalSubtyping pass" {
     Some(CodeSec([TFunc([RefTypeValType(rt)], _)])) =>
       assert_false(rt.is_nullable())
     _ => fail("expected refined local type")
+  }
+}
+
+///|
+test "optimize_module runs MemoryPacking pass" {
+  let data = Data::new(
+    DataMode::passive(),
+    b"\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02",
+  )
+  let body = TExpr::new([
+    TInstr::memory_init(
+      DataIdx::new(0),
+      MemIdx::new(0),
+      TInstr::i32_const(I32(0)),
+      TInstr::i32_const(I32(0)),
+      TInstr::i32_const(I32(32)),
+    ),
+  ])
+  let mod = Module::new()
+    .with_mem_sec(MemSec::new([MemType::new(Limits::i32(1, None))]))
+    .with_data_sec(DataSec::new([data]))
+    .with_type_sec(
+      TypeSec::new([single_rec_type(comp_type_sub_type(func_comp_type([], [])))]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], body)]))
+  let optimized = match
+    optimize_module(mod, [
+      MemoryPacking(MemoryPackingPassProps::new(zero_filled_memory=true)),
+    ]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.data_sec {
+    Some(DataSec(datas)) => assert_eq(datas.length(), 2)
+    _ => fail("expected data section")
   }
 }

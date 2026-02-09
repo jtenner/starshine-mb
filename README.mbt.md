@@ -32,6 +32,7 @@ This repository is intended for compiler and tooling work around WebAssembly 3.0
   - Inlining (`Inlining`, `InliningOptimizing`, `InlineMain`)
   - LocalCSE
   - LocalSubtyping
+  - MemoryPacking
   - Code folding/pushing
   - Const hoisting
   - Constant field propagation
@@ -178,6 +179,40 @@ LocalSubtyping notes:
 - Non-nullable narrowing is only applied when local-flow checks show default/null cannot be observed; otherwise candidates are relaxed to nullable.
 - Refinements are validated by subtype/defaultability guards (`new <: old`, non-`none`, safe defaultability).
 - Run it via `ModulePass::LocalSubtyping` in `optimize_module(...)` / `optimize_module_with_options(...)`.
+
+MemoryPacking notes:
+- Splits data segments around large zero spans to reduce encoded binary size.
+- Preconditions:
+  - Requires exactly one memory (no multi-memory support).
+  - If that memory is imported, enable `zero_filled_memory=true`.
+  - Skips optimization when active-segment safety checks fail (non-constant offsets across multi-segment startup init or overlapping active spans).
+- Passive vs active handling:
+  - Passive segments can be split and instruction referrers are rewritten.
+  - Active segments are split only at constant offsets, and startup-trap parity is preserved (including preserving one trailing write byte when needed).
+- Rewritten instructions:
+  - `memory.init` may become sequences of `memory.init` + `memory.fill`.
+  - `data.drop` may become split-segment drops (or `nop` when removable).
+  - GC data-op referrers (`array.new_data`, `array.init_data`) are remapped for segment index changes.
+- Invoke with `ModulePass::MemoryPacking(MemoryPackingPassProps::new(...))`.
+
+Example:
+```mbt
+using @passes { optimize_module, ModulePass, MemoryPackingPassProps }
+
+fn run_memory_packing(mod : Module) -> Module {
+  match optimize_module(mod, [
+    ModulePass::MemoryPacking(
+      MemoryPackingPassProps::new(
+        zero_filled_memory=true,
+        traps_never_happen=false,
+      ),
+    ),
+  ]) {
+    Ok(out) => out
+    Err(_) => mod
+  }
+}
+```
 
 ### 2) Validate a module
 ```mbt

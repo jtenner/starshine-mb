@@ -306,6 +306,29 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
   - unsafe non-nullable candidates are relaxed to nullable before subtype/default checks.
 - In current tree IR (`TInstr`), local/get/tee node types are implicit from the function local signature, so updates are applied by rewriting local type declarations.
 
+## MemoryPacking notes (learned)
+
+- `src/passes/memory_packing.mbt` implements the MemoryPacking pass and keeps pass-specific tests inline in the same file.
+- Registration is in `src/passes/optimize.mbt` as:
+  - `ModulePass::MemoryPacking(MemoryPackingPassProps)`
+  - dispatch arm calling `memory_packing(mod, props)`
+- Main execution phases in `run_memory_packing_on_module` are:
+  - `optimize_segment_ops`
+  - `collect_segment_referrers`
+  - `drop_unused_segments`
+  - split/segment rebuild (`mp_build_transforms_and_segments`)
+  - instruction remap/rewrite (`create_replacements` + `apply_replacements`)
+- Relevant IR helpers/builders used heavily:
+  - `TInstr::memory_init`, `TInstr::memory_fill`, `TInstr::data_drop`
+  - `TInstr::block`, `TInstr::if_`, `TInstr::unreachable_`, `TInstr::drop`
+  - `ModuleTransformer::on_tinstruction_evt(...)` for both analysis and rewriting
+- Current IR constraint: data segment names are not modeled in `Data`, so `__llvm*` protection is represented as a per-segment feature flag in pass logic rather than direct `Data` metadata.
+- Max split cap is controlled by `MemoryPackingPassProps.max_data_segments` (default `100000`), and segment count syncing updates `DataCntSec` when present.
+- To verify pass changes locally, run:
+  - `/home/jtenner/.moon/bin/moon check`
+  - `/home/jtenner/.moon/bin/moon test`
+  - `/home/jtenner/.moon/bin/moon info && /home/jtenner/.moon/bin/moon fmt`
+
 ## Pass testing notes (learned)
 
 - Most large passes already have substantial inline tests (notably `alignment_lowering`, `directize`, `optimize_casts`, `remove_unused`).
