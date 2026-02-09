@@ -104,6 +104,8 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
   - `GUFACastAll`
   - `LocalCSE`
   - `LocalSubtyping`
+  - `Monomorphize`
+  - `MonomorphizeAlways`
 - `GUFAOptimizing` currently runs GUFA and then follows up with:
   - `dead_code_elimination_ir_pass`
   - `code_folding_ir_pass`
@@ -408,6 +410,40 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
   - `/home/jtenner/.moon/bin/moon check`
   - `/home/jtenner/.moon/bin/moon test`
   - `/home/jtenner/.moon/bin/moon info && /home/jtenner/.moon/bin/moon fmt`
+
+## Monomorphize notes (learned)
+
+- `src/passes/monomorphize.mbt` is integrated in `src/passes/optimize.mbt` as:
+  - `ModulePass::Monomorphize` (empirical gate)
+  - `ModulePass::MonomorphizeAlways` (testing variant)
+- IR call/drop representation used by this pass:
+  - direct call: `TCall(target, args)`
+  - dropped call: `TDrop(TCall(target, args))`
+  - dropped-specialized callees use `none` result type (`[]`) and return rewrites to `TReturn([])`.
+  - unreachable filtering uses `is_unreachable_instr(...)` and callee result checks (`[BotValType]`).
+- Callsite replacement strategy is deterministic and ID-based (no pointer mutation):
+  - `find_calls_and_drops` assigns stable `call_id` in evaluation order
+  - accepted rewrites are recorded in `Map[Int, MonoRewriteAction]`
+  - `update_call` rebuilds the caller body and applies replacements by matching `call_id`.
+- Effect/movability analysis is implemented locally in this pass:
+  - `MonoEffects` tracks local/global/memory/call/branch/trap/throw effects
+  - `mn_collect_shallow_effects` + `mn_collect_effects` provide shallow/full effect sets
+  - context building runs Binaryen-style two-phase logic: post-order collect, reverse immovable marking with `invalidates`, then pre-order copy with placeholder `local.get`s and `new_operands`.
+- Structural context identity and memoization:
+  - `MonoCallContext`/`MonoMemoKey` derive `Eq`/`Hash`
+  - `hash_call_context` mixes per-operand structural digests (`lcs_digest`) plus dropped flag.
+- Specialized clone/signature rewrite flow:
+  - `make_mono_function_with_context` shifts cloned local indices by new param count
+  - old params become vars at indices `new_param_count + old_param_index`
+  - context prelude emits `local.set(mapped_local, context_operand)`
+  - module appends new type/func/code entries via `mn_append_specialized_function`.
+- Nested optimization hook details:
+  - `do_opts(func, mod, params=...)` constructs full local typing (`params + vars`) before `IRContext.optimize_body_with_ssa()`
+  - then applies `code_folding_pass`, `run_dce_on_texpr`, and cleanup (`mn_cleanup_body`) safely on the isolated function body.
+- Cost model location/extension points:
+  - expression/body cost lives in `mn_cost_instr` and `cost` in `src/passes/monomorphize.mbt`
+  - empirical decision uses `benefit = 100 - (100 * costAfter / costBefore)` and accepts only when `benefit > monomorphize_min_benefit`
+  - add/adjust operation weights in `mn_cost_instr` when refining monomorphize profitability behavior.
 
 ## Pass testing notes (learned)
 

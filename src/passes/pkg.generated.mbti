@@ -38,6 +38,10 @@ pub fn memory_packing(@lib.Module, MemoryPackingPassProps) -> Result[@lib.Module
 
 pub fn minimize_rec_groups(@lib.Module) -> Result[@lib.Module, String]
 
+pub fn monomorphize(@lib.Module, options? : OptimizeOptions, always? : Bool) -> Result[@lib.Module, String]
+
+pub fn monomorphize_apply_arguments(OptimizeOptions, Array[String]) -> OptimizeOptions
+
 pub fn optimize_casts(@lib.Module) -> @lib.Module
 
 pub fn optimize_module(@lib.Module, Array[ModulePass]) -> Result[@lib.Module, String]
@@ -224,6 +228,8 @@ pub(all) enum ModulePass {
   MergeSimilarFunctions
   MergeBlocks
   MinimizeRecGroups
+  Monomorphize
+  MonomorphizeAlways
   MemoryPacking(MemoryPackingPassProps)
   GUFA
   GUFAOptimizing
@@ -240,8 +246,9 @@ pub struct OptimizeOptions {
   optimize_level : Int
   shrink_level : Int
   inlining : InliningOptions
+  monomorphize_min_benefit : Int
 }
-pub fn OptimizeOptions::new(optimize_level? : Int, shrink_level? : Int, inlining? : InliningOptions) -> Self
+pub fn OptimizeOptions::new(optimize_level? : Int, shrink_level? : Int, inlining? : InliningOptions, monomorphize_min_benefit? : Int) -> Self
 
 type ParamInfo
 pub impl Eq for ParamInfo

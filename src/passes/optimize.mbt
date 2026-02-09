@@ -27,6 +27,8 @@ pub(all) enum ModulePass {
   MergeSimilarFunctions
   MergeBlocks
   MinimizeRecGroups
+  Monomorphize
+  MonomorphizeAlways
   MemoryPacking(MemoryPackingPassProps)
   GUFA
   GUFAOptimizing
@@ -73,6 +75,7 @@ pub struct OptimizeOptions {
   optimize_level : Int
   shrink_level : Int
   inlining : InliningOptions
+  monomorphize_min_benefit : Int
 }
 
 ///|
@@ -80,8 +83,9 @@ pub fn OptimizeOptions::new(
   optimize_level? : Int = 0,
   shrink_level? : Int = 0,
   inlining? : InliningOptions = InliningOptions::new(),
+  monomorphize_min_benefit? : Int = 5,
 ) -> OptimizeOptions {
-  { optimize_level, shrink_level, inlining }
+  { optimize_level, shrink_level, inlining, monomorphize_min_benefit }
 }
 
 ///|
@@ -294,6 +298,16 @@ pub fn optimize_module_with_options(
         }
       MinimizeRecGroups =>
         match minimize_rec_groups(mod) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      Monomorphize =>
+        match monomorphize(mod, options~, always=false) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      MonomorphizeAlways =>
+        match monomorphize(mod, options~, always=true) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }

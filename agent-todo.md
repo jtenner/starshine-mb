@@ -210,6 +210,29 @@
 - [x] AGENTS.md updated
 - [x] `moon check`, `moon test`, `moon info && moon fmt` all green
 
+## Monomorphize pass
+
+- [x] New file + pass registration (`src/passes/monomorphize.mbt`, `ModulePass::Monomorphize`, `ModulePass::MonomorphizeAlways`)
+- [x] Pass argument support for `--pass-arg=monomorphize-min-benefit@N` via `monomorphize_apply_arguments`
+- [x] Max parameter cap enforced for specializations (`MONO_MAX_PARAMS = 20`)
+- [x] Direct-call discovery + dropped-call detection (`drop(call ...)`) with unreachable-site filtering
+- [x] CallContext build implemented (reverse-inlined operands + dropped flag)
+- [x] Movability and ordering checks implemented (effects/control-flow/locals/calls/tuple-child and reverse invalidation walk)
+- [x] Trivial-context suppression implemented and memoized to no-op
+- [x] Structural context hashing/equality for memoization and specialization reuse
+- [x] Specialized clone builder implemented (new signature, param->var rewrite, local index remap, prelude insertion)
+- [x] Dropped-result specialization support (`none` result + return-value removal rewrite)
+- [x] Callsite updater implemented (retarget call, new operand list, dropped-drop elimination)
+- [x] Skip guards implemented (imports, direct recursion, unreachable operands/targets)
+- [x] Empirical mode cost gate implemented (`benefit > monomorphize_min_benefit`)
+- [x] `MonomorphizeAlways` mode implemented (accept all non-trivial legal contexts)
+- [x] Optimizer hook implemented (`do_opts`) with nested-safe function-level cleanup
+- [x] Deterministic behavior enforced (snapshot function iteration, stable append order, deterministic context keying)
+- [x] Full test suite added (always + empirical + drops + memoization + thresholds + determinism + parser + skips + bounds)
+- [x] README updated
+- [x] AGENTS.md updated
+- [x] `moon check`, `moon test`, `moon info && moon fmt` all green
+
 ## 3) Binaryen Passes Still To Implement
 
 ### A) Primary Optimization / Analysis Passes
@@ -279,7 +302,7 @@
 - [ ] Binaryen Pass: LimitSegments.cpp
 - [ ] Binaryen Pass: MinifyImportsAndExports.cpp
 - [x] Binaryen Pass: MinimizeRecGroups.cpp
-- [ ] Binaryen Pass: Monomorphize.cpp
+- [x] Binaryen Pass: Monomorphize.cpp
 - [ ] Binaryen Pass: NoInline.cpp
 - [ ] Binaryen Pass: OptimizeForJS.cpp
 - [ ] Binaryen Pass: Outlining.cpp

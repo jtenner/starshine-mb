@@ -33,6 +33,7 @@ This repository is intended for compiler and tooling work around WebAssembly 3.0
   - LocalCSE
   - LocalSubtyping
   - MergeLocals
+  - Monomorphize (`Monomorphize`, `MonomorphizeAlways`)
   - MergeSimilarFunctions
   - MergeBlocks
   - MemoryPacking
@@ -271,6 +272,39 @@ MergeSimilarFunctions notes:
   - call-target differences require matching callee function types
   - merge is gated by an estimated profitability score and a synthetic-param cap (`MSF_MAX_SYNTHETIC_FUNCTION_PARAMS`).
 - Run it via `ModulePass::MergeSimilarFunctions` in `optimize_module(...)` / `optimize_module_with_options(...)`.
+
+Monomorphize notes:
+- Purpose: specialize direct call targets using callsite context ("reverse-inlined" operands) and optionally dropped-result context.
+- Variants:
+  - `ModulePass::Monomorphize`: empirical mode, only keeps specializations when measured benefit passes threshold.
+  - `ModulePass::MonomorphizeAlways`: testing mode, keeps all legal non-trivial specializations.
+- Empirical gate:
+  - `OptimizeOptions.monomorphize_min_benefit` controls minimum required benefit percent.
+  - acceptance rule is strict: `benefit > monomorphize_min_benefit`.
+  - current benefit formula: `100 - (100 * costAfter / costBefore)`.
+- Constraints/safety:
+  - specialized params are capped at `MONO_MAX_PARAMS = 20`
+  - skips imported targets and direct-recursive callsites
+  - skips unreachable callsites/operands
+  - dropped call contexts (`drop(call ...)`) can produce `none`-result specializations and remove the caller-side `drop` when accepted.
+- Pass arg:
+  - parser helper supports `--pass-arg=monomorphize-min-benefit@N` style arguments (mapped to `OptimizeOptions.monomorphize_min_benefit`).
+- Run via pipeline:
+  - include `ModulePass::Monomorphize` or `ModulePass::MonomorphizeAlways` in `optimize_module(...)` / `optimize_module_with_options(...)`.
+
+Example:
+```mbt
+using @lib { type Module }
+using @passes { optimize_module_with_options, OptimizeOptions, ModulePass }
+
+fn run_monomorphize(mod : Module) -> Module {
+  let options = OptimizeOptions::new(monomorphize_min_benefit=5)
+  match optimize_module_with_options(mod, [ModulePass::Monomorphize], options) {
+    Ok(out) => out
+    Err(_) => mod
+  }
+}
+```
 
 ### 2) Validate a module
 ```mbt
