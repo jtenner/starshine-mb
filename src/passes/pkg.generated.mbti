@@ -271,6 +271,7 @@ pub(all) enum ModulePass {
   OptimizeInstructions
   Precompute
   PrecomputePropagate
+  RedundantSetElimination
   PickLoadSigns
   GUFA
   GUFAOptimizing

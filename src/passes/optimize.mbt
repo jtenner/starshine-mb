@@ -38,6 +38,7 @@ pub(all) enum ModulePass {
   OptimizeInstructions
   Precompute
   PrecomputePropagate
+  RedundantSetElimination
   PickLoadSigns
   GUFA
   GUFAOptimizing
@@ -402,6 +403,16 @@ pub fn optimize_module_with_options(
             ctx,
             mod,
             precompute_ir_pass(mod, options, true),
+          ) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      RedundantSetElimination =>
+        match
+          apply_ir_transformer_pass(
+            ctx,
+            mod,
+            redundant_set_elimination_ir_pass(mod),
           ) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
@@ -1341,6 +1352,29 @@ test "optimize_module runs LocalCSE pass" {
   match optimized.code_sec {
     Some(CodeSec([TFunc(_, body)])) => assert_true(count_local_tees(body) >= 1)
     _ => fail("expected transformed function body")
+  }
+}
+
+///|
+test "optimize_module runs RedundantSetElimination pass" {
+  let mod = Module::new().with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [ValType::i32()],
+        TExpr::new([
+          TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(5))),
+          TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(5))),
+        ]),
+      ),
+    ]),
+  )
+  let optimized = match optimize_module(mod, [RedundantSetElimination]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TLocalSet(_, _), TDrop(_)]))])) => ()
+    _ => fail("expected second redundant set to be removed")
   }
 }
 

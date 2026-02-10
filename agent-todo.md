@@ -354,6 +354,21 @@
 - [x] Optimize pipeline integration test added in `src/passes/optimize.mbt`
 - [x] Bookkeeping updated (`AGENTS.md`, `agent-todo.md`)
 
+## RedundantSetElimination pass
+
+- [x] pass skeleton + registration (`src/passes/redundant_set_elimination.mbt`, `ModulePass::RedundantSetElimination`)
+- [x] CFG/event traversal implemented for structured tree IR (`if` branch split + merge, nested block/loop/try conservatism, return/unreachable tail handling)
+- [x] local-value numbering implemented with unique/unseen values and per-block merge values for multi-pred joins
+- [x] entry-state initialization parity implemented (params start as unique unknown values; vars start as type-zero when defaultable, otherwise unique)
+- [x] fixed-point flow implemented over CFG with deferred queue scheduling and convergence checks via end-state deltas
+- [x] redundant `local.set` elimination implemented (`local.set x v` where value number unchanged -> `drop(v)`)
+- [x] redundant `local.tee` elimination implemented (`local.tee x v` where value number unchanged -> `v`)
+- [x] `local.get` refinement implemented (retarget to equal-value local with strictly more-refined reference type using `Match::matches`)
+- [x] rewrite pass implemented with event-id stability across analysis/rewrite to keep CFG decisions aligned with transformed IR
+- [x] comprehensive inline test suite added (straight-line, tee, zero-init, param-unknown, branch-merge keep/remove, refinement + validate, nested-block conservatism, idempotency)
+- [x] optimize pipeline integration test added in `src/passes/optimize.mbt`
+- [x] docs/bookkeeping updated (`AGENTS.md`, `agent-todo.md`)
+
 ## 3) Binaryen Passes Still To Implement
 
 ### A) Primary Optimization / Analysis Passes
@@ -373,7 +388,7 @@
 - [x] Binaryen Pass: OptimizeInstructions.cpp
 - [x] Binaryen Pass: PickLoadSigns.cpp
 - [x] Binaryen Pass: Precompute.cpp
-- [ ] Binaryen Pass: RedundantSetElimination.cpp
+- [x] Binaryen Pass: RedundantSetElimination.cpp
 - [ ] Binaryen Pass: RemoveUnusedBrs.cpp
 - [ ] Binaryen Pass: RemoveUnusedModuleElements.cpp
 - [ ] Binaryen Pass: RemoveUnusedNames.cpp

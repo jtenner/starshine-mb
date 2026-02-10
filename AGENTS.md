@@ -105,6 +105,7 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
   - `LocalCSE`
   - `LocalSubtyping`
   - `OnceReduction`
+  - `RedundantSetElimination`
   - `Monomorphize`
   - `MonomorphizeAlways`
 - `GUFAOptimizing` currently runs GUFA and then follows up with:
@@ -628,6 +629,28 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
 - Tests:
   - a dedicated inline suite lives in `src/passes/precompute.mbt` covering normal mode, propagate mode, fixpoint behavior, safety guards, partial select precompute, and idempotency.
   - pipeline integration coverage was added to `src/passes/optimize.mbt`.
+
+## RedundantSetElimination notes (learned)
+
+- `src/passes/redundant_set_elimination.mbt` is integrated in `src/passes/optimize.mbt` as `ModulePass::RedundantSetElimination`.
+- Current implementation is CFG/event driven per function over structured tree IR:
+  - records `local.get` / `local.set` / `local.tee` events in deterministic traversal order
+  - splits `if` into then/else/merge blocks for dataflow joins
+  - treats nested `block`/`loop`/`try_table` bodies conservatively (not split into CFG here)
+  - stops event collection on `return` and unreachable tails.
+- Value flow model:
+  - each local tracks a value number (`unseen=0`, unique values start at `1`)
+  - entry block initializes params as unique unknowns and vars as typed zeros when defaultable (otherwise unique unknowns)
+  - merge blocks with conflicting predecessor values allocate stable block-local merge value numbers.
+- Rewrites currently implemented:
+  - redundant `local.set` to same value-number becomes `drop(value)` (side effects preserved)
+  - redundant `local.tee` to same value-number becomes `value`
+  - `local.get` may retarget to an equivalent-value local with a stricter ref subtype (`Match::matches`-based check).
+- Rewrite safety detail:
+  - analysis and rewrite both use the same event-id ordering so elimination/refinement actions remain aligned after recursive rewrites.
+- Tests:
+  - inline suite covers straight-line elimination, tee elimination, param-vs-var initialization behavior, merge keep/remove cases, subtype get-refinement + module validation, nested-block conservatism, and idempotency
+  - optimize-dispatch integration test added in `src/passes/optimize.mbt`.
 
 ## Pass testing notes (learned)
 
