@@ -586,7 +586,7 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
 - `src/passes/pick_load_signs.mbt` is integrated in `src/passes/optimize.mbt` as `ModulePass::PickLoadSigns`.
 - Implementation follows a two-pass per-function strategy over `TExpr`:
   - analysis pass gathers candidate loads from `local.set` of sign-relevant `TLoad` ops and tracks per-local usage stats.
-  - rewrite pass flips only selected load nodes by instruction pre-order id.
+  - rewrite pass flips selected loads by replaying candidate-load encounter order (analysis + rewrite use the same candidate traversal filter).
 - Candidate discovery parity:
   - only `local.set` producers are considered; `local.tee` producers are ignored.
   - sign-relevant load families are `i32.load8/16_{s,u}`, `i64.load8/16/32_{s,u}`.

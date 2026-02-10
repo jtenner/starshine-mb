@@ -953,7 +953,9 @@ test "optimize_module runs PickLoadSigns pass" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TLocalSet(_, TLoad(I32Load16UOp, _, _)), _]))])) => ()
+    Some(
+      CodeSec([TFunc(_, TExpr([TLocalSet(_, TLoad(I32Load16UOp, _, _)), _]))])
+    ) => ()
     _ => fail("expected i32.load16_s to become i32.load16_u")
   }
 }

@@ -22,12 +22,13 @@ fn PLSUsage::new() -> PLSUsage {
 priv struct PLSCandidateLoad {
   local_idx : Int
   load_bits : Int
+  current_signed : Bool
 }
 
 ///|
 priv struct PLSAnalysis {
   usage_by_local : Map[Int, PLSUsage]
-  candidates_by_id : Map[Int, PLSCandidateLoad]
+  candidates : Array[PLSCandidateLoad]
 }
 
 ///|
@@ -291,39 +292,51 @@ fn pls_get_parent_from_end(
 }
 
 ///|
+fn pls_candidate_load(
+  curr : TInstr,
+  parent_stack : Array[TInstr],
+) -> PLSCandidateLoad? {
+  match curr {
+    TLoad(op, _, _) =>
+      match pls_sign_relevant_load_info(op) {
+        Some((current_signed, load_bits)) =>
+          match parent_stack.last() {
+            Some(TLocalSet(local_idx, _)) =>
+              Some({
+                local_idx: pls_local_idx_to_int(local_idx),
+                load_bits,
+                current_signed,
+              })
+            _ => None
+          }
+        None => None
+      }
+    _ => None
+  }
+}
+
+///|
 fn pls_analyze_body(body : TExpr) -> Result[PLSAnalysis, String] {
   let usage_by_local : Map[Int, PLSUsage] = Map::new()
-  let candidates_by_id : Map[Int, PLSCandidateLoad] = Map::new()
+  let candidates : Array[PLSCandidateLoad] = []
   let parent_stack : Array[TInstr] = []
-  let mut next_id = 0
   let scanner = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
-    let curr_id = next_id
-    next_id += 1
+    match pls_candidate_load(curr, parent_stack) {
+      Some(candidate) => candidates.push(candidate)
+      None => ()
+    }
     match curr {
-      TLoad(op, _, _) =>
-        match pls_sign_relevant_load_info(op) {
-          Some((_, load_bits)) =>
-            match parent_stack.last() {
-              Some(TLocalSet(local_idx, _)) =>
-                candidates_by_id[curr_id] = {
-                  local_idx: pls_local_idx_to_int(local_idx),
-                  load_bits,
-                }
-              _ => ()
-            }
-          None => ()
-        }
       TLocalGet(local_idx) => {
         let local_int = pls_local_idx_to_int(local_idx)
         let usage = pls_get_usage(usage_by_local, local_int)
         usage.total_usages += 1
         usage_by_local[local_int] = usage
-
         for depth in [1, 2] {
           match pls_get_parent_from_end(parent_stack, depth) {
             Some(parent) =>
               match pls_zero_ext_bits(parent, curr) {
-                Some(bits) => pls_record_unsigned_usage(usage_by_local, local_int, bits)
+                Some(bits) =>
+                  pls_record_unsigned_usage(usage_by_local, local_int, bits)
                 None =>
                   match pls_sign_ext_bits(parent, curr) {
                     Some(bits) =>
@@ -343,26 +356,26 @@ fn pls_analyze_body(body : TExpr) -> Result[PLSAnalysis, String] {
     out
   })
   match scanner.walk_texpr((), body) {
-    Ok(_) => Ok({ usage_by_local, candidates_by_id })
+    Ok(_) => Ok({ usage_by_local, candidates })
     Err(e) => Err(e)
   }
 }
 
 ///|
-fn pls_plan_rewrites(analysis : PLSAnalysis) -> Map[Int, Bool] {
-  let decisions : Map[Int, Bool] = Map::new()
-  for load_id, candidate in analysis.candidates_by_id {
-    let usage = analysis.usage_by_local.get(candidate.local_idx).unwrap_or(
-      PLSUsage::new(),
-    )
+fn pls_plan_rewrites(analysis : PLSAnalysis) -> Array[Bool] {
+  let decisions : Array[Bool] = []
+  for candidate in analysis.candidates {
+    let usage = analysis.usage_by_local
+      .get(candidate.local_idx)
+      .unwrap_or(PLSUsage::new())
     if usage.total_usages == 0 ||
       usage.signed_usages + usage.unsigned_usages != usage.total_usages ||
       (usage.signed_usages != 0 && usage.signed_bits != candidate.load_bits) ||
-      (usage.unsigned_usages != 0 &&
-      usage.unsigned_bits != candidate.load_bits) {
+      (usage.unsigned_usages != 0 && usage.unsigned_bits != candidate.load_bits) {
+      decisions.push(candidate.current_signed)
       continue
     }
-    decisions[load_id] = usage.signed_usages * 2 >= usage.unsigned_usages
+    decisions.push(usage.signed_usages * 2 >= usage.unsigned_usages)
   }
   decisions
 }
@@ -370,22 +383,30 @@ fn pls_plan_rewrites(analysis : PLSAnalysis) -> Map[Int, Bool] {
 ///|
 fn pls_rewrite_body(
   body : TExpr,
-  decisions : Map[Int, Bool],
+  decisions : Array[Bool],
 ) -> Result[TExpr, String] {
   if decisions.is_empty() {
     return Ok(body)
   }
-  let mut next_id = 0
-  let rewriter = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
-    let curr_id = next_id
-    next_id += 1
+  let parent_stack : Array[TInstr] = []
+  let next_candidate = Ref::new(0)
+  let rewriter = ModuleTransformer::new().on_tinstruction_evt(fn(
+    self,
+    _,
+    curr,
+  ) {
+    let candidate = pls_candidate_load(curr, parent_stack)
+    parent_stack.push(curr)
     let walked = match self.walk_tinstruction_default((), curr) {
       Ok(Some((_, out))) => out
       Ok(None) => curr
       Err(e) => return Err(e)
     }
-    let output = match decisions.get(curr_id) {
-      Some(target_signed) =>
+    ignore(parent_stack.pop())
+    let output = match candidate {
+      Some(_) => {
+        let target_signed = decisions[next_candidate.val]
+        next_candidate.update(fn(n) { n + 1 })
         match walked {
           TLoad(op, memarg, ptr) =>
             match pls_load_with_signedness(op, target_signed) {
@@ -394,6 +415,7 @@ fn pls_rewrite_body(
             }
           _ => walked
         }
+      }
       None => walked
     }
     if output == curr {
@@ -496,10 +518,7 @@ test "pick_load_signs picks unsigned for i32.load8 when unsigned dominates" {
   )
   let out = pls_run_func(func)
   match out {
-    TFunc(
-      _,
-      TExpr([TLocalSet(_, TLoad(I32Load8UOp, _, _)), _, _]),
-    ) => ()
+    TFunc(_, TExpr([TLocalSet(_, TLoad(I32Load8UOp, _, _)), _, _])) => ()
     _ => fail("expected i32.load8_s to become i32.load8_u")
   }
 }
@@ -532,10 +551,7 @@ test "pick_load_signs picks signed when signed uses are weighted higher" {
   )
   let out = pls_run_func(func)
   match out {
-    TFunc(
-      _,
-      TExpr([TLocalSet(_, TLoad(I32Load8SOp, _, _)), _, _]),
-    ) => ()
+    TFunc(_, TExpr([TLocalSet(_, TLoad(I32Load8SOp, _, _)), _, _])) => ()
     _ => fail("expected i32.load8_u to become i32.load8_s")
   }
 }
@@ -566,10 +582,7 @@ test "pick_load_signs requires all loc.get uses to be sign-or-zero extensions" {
   )
   let out = pls_run_func(func)
   match out {
-    TFunc(
-      _,
-      TExpr([TLocalSet(_, TLoad(I32Load8SOp, _, _)), _, _]),
-    ) => ()
+    TFunc(_, TExpr([TLocalSet(_, TLoad(I32Load8SOp, _, _)), _, _])) => ()
     _ => fail("expected load op to stay signed due non-extension use")
   }
 }
@@ -595,10 +608,7 @@ test "pick_load_signs requires extension bits to match load bits" {
   )
   let out = pls_run_func(func)
   match out {
-    TFunc(
-      _,
-      TExpr([TLocalSet(_, TLoad(I32Load8UOp, _, _)), _]),
-    ) => ()
+    TFunc(_, TExpr([TLocalSet(_, TLoad(I32Load8UOp, _, _)), _])) => ()
     _ => fail("expected no rewrite when sign extension width mismatches")
   }
 }
@@ -627,10 +637,7 @@ test "pick_load_signs rejects inconsistent signed extension widths" {
   )
   let out = pls_run_func(func)
   match out {
-    TFunc(
-      _,
-      TExpr([TLocalSet(_, TLoad(I32Load8SOp, _, _)), _, _]),
-    ) => ()
+    TFunc(_, TExpr([TLocalSet(_, TLoad(I32Load8SOp, _, _)), _, _])) => ()
     _ => fail("expected no rewrite with inconsistent signed widths")
   }
 }
@@ -664,10 +671,7 @@ test "pick_load_signs recognizes nested shift-based zero extension on grandparen
   )
   let out = pls_run_func(func)
   match out {
-    TFunc(
-      _,
-      TExpr([TLocalSet(_, TLoad(I32Load16UOp, _, _)), _]),
-    ) => ()
+    TFunc(_, TExpr([TLocalSet(_, TLoad(I32Load16UOp, _, _)), _])) => ()
     _ => fail("expected i32.load16_s to become i32.load16_u")
   }
 }
@@ -699,10 +703,7 @@ test "pick_load_signs ignores loc.tee load producers" {
   )
   let out = pls_run_func(func)
   match out {
-    TFunc(
-      _,
-      TExpr([TDrop(TLocalTee(_, TLoad(I32Load8SOp, _, _))), _]),
-    ) => ()
+    TFunc(_, TExpr([TDrop(TLocalTee(_, TLoad(I32Load8SOp, _, _))), _])) => ()
     _ => fail("expected tee load to remain unchanged")
   }
 }
@@ -726,10 +727,7 @@ test "pick_load_signs skips loads with no loc.get usages" {
   )
   let out = pls_run_func(func)
   match out {
-    TFunc(
-      _,
-      TExpr([TLocalSet(_, TLoad(I32Load8SOp, _, _)), _]),
-    ) => ()
+    TFunc(_, TExpr([TLocalSet(_, TLoad(I32Load8SOp, _, _)), _])) => ()
     _ => fail("expected no rewrite with zero usages")
   }
 }
@@ -755,10 +753,7 @@ test "pick_load_signs rewrites i64.load32 based on i64.extend32_s usage" {
   )
   let out = pls_run_func(func)
   match out {
-    TFunc(
-      _,
-      TExpr([TLocalSet(_, TLoad(I64Load32SOp, _, _)), _]),
-    ) => ()
+    TFunc(_, TExpr([TLocalSet(_, TLoad(I64Load32SOp, _, _)), _])) => ()
     _ => fail("expected i64.load32_u to become i64.load32_s")
   }
 }
@@ -788,10 +783,7 @@ test "pick_load_signs rewrites i64.load32 to unsigned for i64.and mask usage" {
   )
   let out = pls_run_func(func)
   match out {
-    TFunc(
-      _,
-      TExpr([TLocalSet(_, TLoad(I64Load32UOp, _, _)), _]),
-    ) => ()
+    TFunc(_, TExpr([TLocalSet(_, TLoad(I64Load32UOp, _, _)), _])) => ()
     _ => fail("expected i64.load32_s to become i64.load32_u")
   }
 }
@@ -799,55 +791,60 @@ test "pick_load_signs rewrites i64.load32 to unsigned for i64.and mask usage" {
 ///|
 test "pick_load_signs rewrites all candidate loads mapped to the same loc" {
   let loc = LocalIdx::new(0)
-  let func = Func::t_func(
-    [ValType::i32()],
-    TExpr::new([
-      TInstr::local_set(
-        loc,
-        TInstr::load(
-          LoadOp::i32_load8s(),
-          MemArg::new(0, None, 0),
-          pls_i32_const_instr(0),
-        ),
+  let body = TExpr::new([
+    TInstr::local_set(
+      loc,
+      TInstr::load(
+        LoadOp::i32_load8s(),
+        MemArg::new(0, None, 0),
+        pls_i32_const_instr(0),
       ),
-      TInstr::drop(
-        TInstr::binary(
-          BinaryOp::i32_and(),
-          TInstr::local_get(loc),
-          pls_i32_const_instr(255),
-        ),
+    ),
+    TInstr::drop(
+      TInstr::binary(
+        BinaryOp::i32_and(),
+        TInstr::local_get(loc),
+        pls_i32_const_instr(255),
       ),
-      TInstr::local_set(
-        loc,
-        TInstr::load(
-          LoadOp::i32_load8s(),
-          MemArg::new(0, None, 4),
-          pls_i32_const_instr(0),
-        ),
+    ),
+    TInstr::local_set(
+      loc,
+      TInstr::load(
+        LoadOp::i32_load8s(),
+        MemArg::new(0, None, 4),
+        pls_i32_const_instr(0),
       ),
-      TInstr::drop(
-        TInstr::binary(
-          BinaryOp::i32_and(),
-          TInstr::local_get(loc),
-          pls_i32_const_instr(255),
-        ),
+    ),
+    TInstr::drop(
+      TInstr::binary(
+        BinaryOp::i32_and(),
+        TInstr::local_get(loc),
+        pls_i32_const_instr(255),
       ),
-    ]),
-  )
+    ),
+  ])
+  let analysis = match pls_analyze_body(body) {
+    Ok(a) => a
+    Err(e) => fail("unexpected analysis error: \{e}")
+  }
+  assert_eq(analysis.candidates.length(), 2)
+  let func = Func::t_func([ValType::i32()], body)
   let out = pls_run_func(func)
   match out {
-    TFunc(
-      _,
-      TExpr(
-        [
-          TLocalSet(_, TLoad(I32Load8UOp, _, _)),
-          _,
-          TLocalSet(_, TLoad(I32Load8UOp, _, _)),
-          _,
-        ]
-      ),
-    ) => ()
-    _ => fail("expected both candidate loads to become i32.load8_u")
+    TFunc(_, TExpr(instrs)) => {
+      let mut signed_count = 0
+      let mut unsigned_count = 0
+      for instr in instrs {
+        match instr {
+          TLocalSet(_, TLoad(I32Load8SOp, _, _)) => signed_count += 1
+          TLocalSet(_, TLoad(I32Load8UOp, _, _)) => unsigned_count += 1
+          _ => ()
+        }
+      }
+      assert_eq(unsigned_count, 2)
+      assert_eq(signed_count, 0)
+    }
+    _ => fail("expected transformed function")
   }
 }
 

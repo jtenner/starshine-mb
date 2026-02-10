@@ -314,6 +314,7 @@
   - [x] `i64.load8_{s,u}`
   - [x] `i64.load16_{s,u}`
   - [x] `i64.load32_{s,u}`
+- [x] Multi-candidate/local parity: all eligible `local.set(load)` candidates in a function are rewritten consistently using deterministic candidate encounter order
 - [x] Atomic-load guard parity accounted for current IR surface (no atomic `LoadOp` variants present yet, so pass naturally only sees non-atomic loads)
 - [x] Comprehensive inline test suite added (positive, negative, nested-parent, width-mismatch, tee-ignore, multi-candidate, i64 coverage, idempotency)
 - [x] Optimize pipeline integration test added in `src/passes/optimize.mbt`

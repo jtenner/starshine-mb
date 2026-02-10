@@ -265,6 +265,7 @@ pub(all) enum ModulePass {
   OptimizeAddedConstants
   OptimizeAddedConstantsPropagate
   OptimizeInstructions
+  PickLoadSigns
   GUFA
   GUFAOptimizing
   GUFACastAll
