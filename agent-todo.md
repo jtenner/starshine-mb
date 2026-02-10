@@ -100,6 +100,15 @@
   - [x] Add focused pass tests for early movement, refinement preference, non-null handling, and boundary conservatism
   - [x] Update docs/bookkeeping (`AGENTS.md`, `agent-todo.md`)
 
+- [x] `Binaryen Pass: RemoveUnusedModuleElements.cpp` implementation + parity coverage
+  - [x] Add closed-world reference-vs-use modeling for functions (`ref.func` can keep function without marking body reachable)
+  - [x] Add open-world mode toggle so `ref.func` conservatively marks function targets as used
+  - [x] Track callable signatures from `call_ref` and `call_indirect` and promote matching referenced function targets to used
+  - [x] Keep referenced-only functions in output while rewriting their bodies to `unreachable`
+  - [x] Add root-all-functions mode (`remove_unused_non_function_elements`) to preserve all functions while trimming other module elements
+  - [x] Expand test suite with parity-focused scenarios: closed/open world behavior, call_ref promotion, call_indirect promotion, referenced-only body rewriting, and root-all mode
+  - [x] Verify via `/home/jtenner/.moon/bin/moon test src/passes`
+
 ## MemoryPacking pass
 
 - [x] Preconditions: skip when module has 0 memories or more than 1 memory
@@ -390,7 +399,7 @@
 - [x] Binaryen Pass: Precompute.cpp
 - [x] Binaryen Pass: RedundantSetElimination.cpp
 - [ ] Binaryen Pass: RemoveUnusedBrs.cpp
-- [ ] Binaryen Pass: RemoveUnusedModuleElements.cpp
+- [x] Binaryen Pass: RemoveUnusedModuleElements.cpp
 - [ ] Binaryen Pass: RemoveUnusedNames.cpp
 - [ ] Binaryen Pass: RemoveUnusedTypes.cpp
 - [ ] Binaryen Pass: ReorderFunctions.cpp

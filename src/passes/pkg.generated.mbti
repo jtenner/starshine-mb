@@ -131,12 +131,6 @@ type ConstKey
 pub impl Eq for ConstKey
 pub impl Hash for ConstKey
 
-pub struct DCEState {
-  used : UsedIndices
-  remap : Remappings
-  imports : ImportCounts
-}
-
 type DFEKey
 pub impl Eq for DFEKey
 pub impl Hash for DFEKey
@@ -157,8 +151,6 @@ pub impl Eq for ILCallKind
 
 type ILTrivialKind
 pub impl Eq for ILTrivialKind
-
-type ImportCounts
 
 pub struct InliningOptions {
   always_inline_max_size : Int
@@ -299,8 +291,6 @@ pub impl Eq for ParamInfo
 pub impl Hash for ParamInfo
 pub impl Show for ParamInfo
 
-type Remappings
-
 pub struct SquareMatrix[T] {
   storage : Map[UInt64, T]
   n : UInt
@@ -311,8 +301,6 @@ pub fn[T] SquareMatrix::new(size? : UInt) -> Self[T]
 
 type Tail
 pub impl Eq for Tail
-
-type UsedIndices
 
 // Type aliases
 

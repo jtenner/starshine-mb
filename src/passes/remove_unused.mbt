@@ -1,7 +1,7 @@
 // Counts of each import type for index calculations
 
 ///|
-struct ImportCounts {
+priv struct ImportCounts {
   funcs : UInt
   tables : UInt
   mems : UInt
@@ -12,7 +12,7 @@ struct ImportCounts {
 // All used indices discovered during analysis
 
 ///|
-struct UsedIndices {
+priv struct UsedIndices {
   funcs : Set[FuncIdx]
   types : Set[TypeIdx]
   tables : Set[TableIdx]
@@ -40,7 +40,7 @@ fn UsedIndices::new() -> UsedIndices {
 // Remappings from old indices to new indices
 
 ///|
-struct Remappings {
+priv struct Remappings {
   mut funcs : Map[FuncIdx, FuncIdx]
   mut types : Map[TypeIdx, TypeIdx]
   mut tables : Map[TableIdx, TableIdx]
@@ -68,10 +68,25 @@ fn Remappings::new() -> Remappings {
 // State passed through the transformer
 
 ///|
-pub struct DCEState {
+priv struct DCEState {
   used : UsedIndices
   remap : Remappings
   imports : ImportCounts
+  referenced_only_funcs : Set[FuncIdx]
+}
+
+///|
+priv struct RemoveUnusedProps {
+  closed_world : Bool
+  root_all_functions : Bool
+}
+
+///|
+fn RemoveUnusedProps::new(
+  closed_world? : Bool = true,
+  root_all_functions? : Bool = false,
+) -> RemoveUnusedProps {
+  { closed_world, root_all_functions }
 }
 
 // ============================================================================
@@ -105,9 +120,43 @@ fn count_imports(mod : Module) -> ImportCounts {
 }
 
 ///|
+fn collect_func_type_indices(mod : Module) -> Map[FuncIdx, TypeIdx] {
+  let out : Map[FuncIdx, TypeIdx] = Map::new()
+  let mut next_idx : UInt = 0
+  match mod.import_sec {
+    Some(ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          Import(_, _, FuncExternType(type_idx)) => {
+            out[FuncIdx::new(next_idx)] = type_idx
+            next_idx += 1
+          }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod.func_sec {
+    Some(FuncSec(type_idxs)) =>
+      for type_idx in type_idxs {
+        out[FuncIdx::new(next_idx)] = type_idx
+        next_idx += 1
+      }
+    None => ()
+  }
+  out
+}
+
+///|
 priv struct AnalysisContext {
   used : UsedIndices
   imports : ImportCounts
+  props : RemoveUnusedProps
+  env : Env
+  func_type_by_func : Map[FuncIdx, TypeIdx]
+  referenced_funcs : Set[FuncIdx]
+  called_ref_types : Set[TypeIdx]
+  uncalled_ref_funcs_by_type : Map[TypeIdx, Set[FuncIdx]]
   // Worklists
   func_worklist : Array[FuncIdx]
   global_worklist : Array[GlobalIdx]
@@ -117,10 +166,19 @@ priv struct AnalysisContext {
 }
 
 ///|
-fn AnalysisContext::new(mod : Module) -> AnalysisContext {
+fn AnalysisContext::new(
+  mod : Module,
+  props : RemoveUnusedProps,
+) -> AnalysisContext {
   {
     used: UsedIndices::new(),
     imports: count_imports(mod),
+    props,
+    env: Env::new().with_module(mod),
+    func_type_by_func: collect_func_type_indices(mod),
+    referenced_funcs: Set::new(),
+    called_ref_types: Set::new(),
+    uncalled_ref_funcs_by_type: Map::new(),
     func_worklist: [],
     global_worklist: [],
     elem_worklist: [],
@@ -135,6 +193,75 @@ fn mark_func(ctx : AnalysisContext, idx : FuncIdx) -> Unit {
   if not(ctx.used.funcs.contains(idx)) {
     ctx.used.funcs.add(idx)
     ctx.func_worklist.push(idx)
+  }
+}
+
+///|
+fn reference_func(ctx : AnalysisContext, idx : FuncIdx) -> Unit {
+  ctx.referenced_funcs.add(idx)
+}
+
+///|
+fn func_type_is_callable_by(ctx : AnalysisContext, f_ty : TypeIdx) -> Bool {
+  for called_ty in ctx.called_ref_types {
+    if Match::matches(HeapType::new(f_ty), HeapType::new(called_ty), ctx.env) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn promote_uncalled_ref_funcs(ctx : AnalysisContext) -> Unit {
+  let promoted : Array[TypeIdx] = []
+  for entry in ctx.uncalled_ref_funcs_by_type {
+    let (func_ty, funcs) = entry
+    if func_type_is_callable_by(ctx, func_ty) {
+      for func_idx in funcs {
+        mark_func(ctx, func_idx)
+      }
+      promoted.push(func_ty)
+    }
+  }
+  for func_ty in promoted {
+    ignore(ctx.uncalled_ref_funcs_by_type.remove(func_ty))
+  }
+}
+
+///|
+fn mark_called_signature(ctx : AnalysisContext, type_idx : TypeIdx) -> Unit {
+  if not(ctx.called_ref_types.contains(type_idx)) {
+    ctx.called_ref_types.add(type_idx)
+  }
+  if !ctx.props.closed_world {
+    return
+  }
+  promote_uncalled_ref_funcs(ctx)
+}
+
+///|
+fn note_ref_func(ctx : AnalysisContext, idx : FuncIdx) -> Unit {
+  if !ctx.props.closed_world {
+    mark_func(ctx, idx)
+    return
+  }
+  match ctx.func_type_by_func.get(idx) {
+    Some(type_idx) => {
+      mark_type(ctx, type_idx)
+      if func_type_is_callable_by(ctx, type_idx) {
+        mark_func(ctx, idx)
+      } else {
+        reference_func(ctx, idx)
+        let refs = ctx.uncalled_ref_funcs_by_type
+          .get(type_idx)
+          .unwrap_or(Set::new())
+        if !refs.contains(idx) {
+          refs.add(idx)
+          ctx.uncalled_ref_funcs_by_type[type_idx] = refs
+        }
+      }
+    }
+    None => mark_func(ctx, idx)
   }
 }
 
@@ -249,6 +376,15 @@ fn analyze_roots(ctx : AnalysisContext) -> Unit {
   match mod.start_sec {
     Some(sec) => mark_func(ctx, sec.0)
     None => ()
+  }
+
+  // Optional mode: keep all functions, but still trim other module elements.
+  if ctx.props.root_all_functions {
+    for entry in ctx.func_type_by_func {
+      let (func_idx, type_idx) = entry
+      mark_type(ctx, type_idx)
+      mark_func(ctx, func_idx)
+    }
   }
 
   // Active element segments (executed at instantiation)
@@ -400,7 +536,7 @@ fn process_elem_worklist(ctx : AnalysisContext) -> Unit {
           match kind {
             FuncsElemKind(funcs) =>
               for f in funcs {
-                mark_func(ctx, f)
+                note_ref_func(ctx, f)
               }
             FuncExprsElemKind(exprs) =>
               for expr in exprs {
@@ -569,12 +705,13 @@ fn scan_tinstr(ctx : AnalysisContext, instr : TInstr) -> Unit {
         scan_tinstr(ctx, a)
       }
     }
-    TRefFunc(idx) => mark_func(ctx, idx)
+    TRefFunc(idx) => note_ref_func(ctx, idx)
 
     // Type references
     TCallIndirect(type_idx, table_idx, args, idx_instr) => {
       mark_type(ctx, type_idx)
       mark_table(ctx, table_idx)
+      mark_called_signature(ctx, type_idx)
       for a in args {
         scan_tinstr(ctx, a)
       }
@@ -583,6 +720,7 @@ fn scan_tinstr(ctx : AnalysisContext, instr : TInstr) -> Unit {
     TReturnCallIndirect(type_idx, table_idx, args, idx_instr) => {
       mark_type(ctx, type_idx)
       mark_table(ctx, table_idx)
+      mark_called_signature(ctx, type_idx)
       for a in args {
         scan_tinstr(ctx, a)
       }
@@ -590,6 +728,7 @@ fn scan_tinstr(ctx : AnalysisContext, instr : TInstr) -> Unit {
     }
     TCallRef(type_idx, args, rf) => {
       mark_type(ctx, type_idx)
+      mark_called_signature(ctx, type_idx)
       for a in args {
         scan_tinstr(ctx, a)
       }
@@ -597,6 +736,7 @@ fn scan_tinstr(ctx : AnalysisContext, instr : TInstr) -> Unit {
     }
     TReturnCallRef(type_idx, args, rf) => {
       mark_type(ctx, type_idx)
+      mark_called_signature(ctx, type_idx)
       for a in args {
         scan_tinstr(ctx, a)
       }
@@ -944,13 +1084,18 @@ fn scan_expr(ctx : AnalysisContext, expr : Expr) -> Unit {
 ///|
 fn scan_instr(ctx : AnalysisContext, instr : Instruction) -> Unit {
   match instr {
-    Call(idx) | ReturnCall(idx) | RefFunc(idx) => mark_func(ctx, idx)
+    Call(idx) | ReturnCall(idx) => mark_func(ctx, idx)
+    RefFunc(idx) => note_ref_func(ctx, idx)
     CallIndirect(type_idx, table_idx)
     | ReturnCallIndirect(type_idx, table_idx) => {
       mark_type(ctx, type_idx)
       mark_table(ctx, table_idx)
+      mark_called_signature(ctx, type_idx)
     }
-    CallRef(type_idx) | ReturnCallRef(type_idx) => mark_type(ctx, type_idx)
+    CallRef(type_idx) | ReturnCallRef(type_idx) => {
+      mark_type(ctx, type_idx)
+      mark_called_signature(ctx, type_idx)
+    }
     Block(bt, expr) | Loop(bt, expr) => {
       mark_blocktype(ctx, bt)
       scan_expr(ctx, expr)
@@ -1259,10 +1404,36 @@ fn build_remappings(
 // ============================================================================
 
 ///|
-pub fn remove_unused(mod : Module) -> Result[Module, String] {
+fn make_func_unreachable(func : Func) -> Func {
+  match func {
+    TFunc(_, _) => Func::t_func([], TExpr::new([TInstr::unreachable_()]))
+    Func(_, _) => Func::new([], Expr::new([Instruction::unreachable_()]))
+  }
+}
+
+///|
+fn remove_unused_with_props(
+  mod : Module,
+  props : RemoveUnusedProps,
+) -> Result[Module, String] {
   // Phase 1: Analysis
-  let ctx = AnalysisContext::new(mod)
+  let ctx = AnalysisContext::new(mod, props)
   analyze(ctx)
+
+  let referenced_only_funcs : Set[FuncIdx] = Set::new()
+  for func_idx in ctx.referenced_funcs {
+    if not(ctx.used.funcs.contains(func_idx)) {
+      referenced_only_funcs.add(func_idx)
+      ctx.used.funcs.add(func_idx)
+      match ctx.func_type_by_func.get(func_idx) {
+        Some(type_idx) => mark_type(ctx, type_idx)
+        None => ()
+      }
+    }
+  }
+
+  // Ensure transitive type dependencies for referenced-only functions.
+  analyze_type_dependencies(ctx)
 
   // Check if everything is used
   let total_funcs = ctx.imports.funcs +
@@ -1309,7 +1480,8 @@ pub fn remove_unused(mod : Module) -> Result[Module, String] {
     ctx.used.globals.length().reinterpret_as_uint() == total_globals &&
     ctx.used.elems.length().reinterpret_as_uint() == total_elems &&
     ctx.used.datas.length().reinterpret_as_uint() == total_datas &&
-    ctx.used.tags.length().reinterpret_as_uint() == total_tags {
+    ctx.used.tags.length().reinterpret_as_uint() == total_tags &&
+    referenced_only_funcs.is_empty() {
     // Nothing to remove
     return Ok(mod)
   }
@@ -1319,7 +1491,12 @@ pub fn remove_unused(mod : Module) -> Result[Module, String] {
     Ok(m) => m
     Err(e) => return Err(e)
   }
-  let state : DCEState = { used: ctx.used, remap, imports: ctx.imports }
+  let state : DCEState = {
+    used: ctx.used,
+    remap,
+    imports: ctx.imports,
+    referenced_only_funcs,
+  }
 
   // Phase 3: Transform using ModuleTransformer
   let transformer = ModuleTransformer::new()
@@ -1496,7 +1673,11 @@ pub fn remove_unused(mod : Module) -> Result[Module, String] {
       for i = 0; i < funcs.length(); i = i + 1 {
         let func_idx = FuncIdx::new(s.imports.funcs + i.reinterpret_as_uint())
         if s.used.funcs.contains(func_idx) {
-          new_funcs.push(funcs[i])
+          if s.referenced_only_funcs.contains(func_idx) {
+            new_funcs.push(make_func_unreachable(funcs[i]))
+          } else {
+            new_funcs.push(funcs[i])
+          }
         }
       }
       change(s, CodeSec::new(new_funcs))
@@ -1693,6 +1874,16 @@ pub fn remove_unused(mod : Module) -> Result[Module, String] {
   })
 }
 
+///|
+fn remove_unused_non_function_elements(mod : Module) -> Result[Module, String] {
+  remove_unused_with_props(mod, RemoveUnusedProps::new(root_all_functions=true))
+}
+
+///|
+pub fn remove_unused(mod : Module) -> Result[Module, String] {
+  remove_unused_with_props(mod, RemoveUnusedProps::new())
+}
+
 // ============================================================================
 // Test Helpers
 // ============================================================================
@@ -1715,6 +1906,35 @@ fn make_i32_to_i32_func_type() -> RecType {
 /// Creates a simple function body that just returns
 fn make_empty_func_body() -> Func {
   Func::t_func([], TExpr::new([TInstr::return_([])]))
+}
+
+///|
+fn func_body_is_unreachable(func : Func) -> Bool {
+  match func {
+    TFunc(_, TExpr(instrs)) => instrs.length() == 1 && instrs[0] is TUnreachable
+    Func(_, Expr(instrs)) => instrs.length() == 1 && instrs[0] is Unreachable
+  }
+}
+
+///|
+fn func_body_has_direct_call_to(func : Func, target : FuncIdx) -> Bool {
+  match func {
+    TFunc(_, TExpr(instrs)) =>
+      for instr in instrs {
+        match instr {
+          TCall(idx, _) | TReturnCall(idx, _) if idx == target => return true
+          _ => ()
+        }
+      }
+    Func(_, Expr(instrs)) =>
+      for instr in instrs {
+        match instr {
+          Call(idx) | ReturnCall(idx) if idx == target => return true
+          _ => ()
+        }
+      }
+  }
+  false
 }
 
 // ============================================================================
@@ -2463,6 +2683,230 @@ test "data count section updated correctly" {
       assert_eq(new_mod.data_sec.unwrap().0.length(), 1)
       // Data count should be updated
       assert_eq(new_mod.data_cnt_sec.unwrap().0, 1)
+    }
+    Err(e) => fail("unexpected error: \{e}")
+  }
+}
+
+// ============================================================================
+// Binaryen RemoveUnusedElements Parity Tests
+// ============================================================================
+
+///|
+fn make_ref_func_reachability_module() -> Module {
+  let type_sec = TypeSec::new([make_void_func_type()])
+  let func_sec = FuncSec::new([
+    TypeIdx::new(0),
+    TypeIdx::new(0),
+    TypeIdx::new(0),
+  ])
+  let main_body = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::drop(TInstr::ref_func(FuncIdx::new(1))),
+      TInstr::return_([]),
+    ]),
+  )
+  let referenced_body = Func::t_func(
+    [],
+    TExpr::new([TInstr::call(FuncIdx::new(2), []), TInstr::return_([])]),
+  )
+  let transitive_body = make_empty_func_body()
+  let code_sec = CodeSec::new([main_body, referenced_body, transitive_body])
+  let export_sec = ExportSec::new([
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
+  ])
+  Module::new()
+  .with_type_sec(type_sec)
+  .with_func_sec(func_sec)
+  .with_code_sec(code_sec)
+  .with_export_sec(export_sec)
+}
+
+///|
+test "closed world keeps ref.func target but rewrites body to unreachable" {
+  let mod = make_ref_func_reachability_module()
+  let result = remove_unused(mod)
+  match result {
+    Ok(new_mod) => {
+      assert_eq(new_mod.func_sec.unwrap().0.length(), 2)
+      assert_eq(new_mod.code_sec.unwrap().0.length(), 2)
+      assert_true(func_body_is_unreachable(new_mod.code_sec.unwrap().0[1]))
+    }
+    Err(e) => fail("unexpected error: \{e}")
+  }
+}
+
+///|
+test "open world treats ref.func target as used and preserves transitive calls" {
+  let mod = make_ref_func_reachability_module()
+  let result = remove_unused_with_props(
+    mod,
+    RemoveUnusedProps::new(closed_world=false),
+  )
+  match result {
+    Ok(new_mod) => {
+      assert_eq(new_mod.func_sec.unwrap().0.length(), 3)
+      assert_eq(new_mod.code_sec.unwrap().0.length(), 3)
+      assert_true(
+        func_body_has_direct_call_to(
+          new_mod.code_sec.unwrap().0[1],
+          FuncIdx::new(2),
+        ),
+      )
+    }
+    Err(e) => fail("unexpected error: \{e}")
+  }
+}
+
+///|
+test "call_ref promotes previously referenced ref.func target to used" {
+  let type_sec = TypeSec::new([make_void_func_type()])
+  let func_sec = FuncSec::new([
+    TypeIdx::new(0),
+    TypeIdx::new(0),
+    TypeIdx::new(0),
+  ])
+  let main_body = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::drop(TInstr::ref_func(FuncIdx::new(1))),
+      TInstr::call_ref(TypeIdx::new(0), [], TInstr::ref_func(FuncIdx::new(1))),
+      TInstr::return_([]),
+    ]),
+  )
+  let callee_body = Func::t_func(
+    [],
+    TExpr::new([TInstr::call(FuncIdx::new(2), []), TInstr::return_([])]),
+  )
+  let transitive_body = make_empty_func_body()
+  let code_sec = CodeSec::new([main_body, callee_body, transitive_body])
+  let export_sec = ExportSec::new([
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
+  ])
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(func_sec)
+    .with_code_sec(code_sec)
+    .with_export_sec(export_sec)
+  let result = remove_unused(mod)
+  match result {
+    Ok(new_mod) => {
+      assert_eq(new_mod.func_sec.unwrap().0.length(), 3)
+      assert_true(
+        func_body_has_direct_call_to(
+          new_mod.code_sec.unwrap().0[1],
+          FuncIdx::new(2),
+        ),
+      )
+      assert_true(!func_body_is_unreachable(new_mod.code_sec.unwrap().0[1]))
+    }
+    Err(e) => fail("unexpected error: \{e}")
+  }
+}
+
+///|
+test "call_indirect promotes element ref.func targets to used" {
+  let type_sec = TypeSec::new([make_void_func_type()])
+  let func_sec = FuncSec::new([
+    TypeIdx::new(0),
+    TypeIdx::new(0),
+    TypeIdx::new(0),
+  ])
+  let table_sec = TableSec::new([
+    Table::new(
+      TableType::new(
+        RefType::new(true, HeapType::abs(AbsHeapType::func())),
+        Limits::i32(1, Some(1)),
+      ),
+      None,
+    ),
+  ])
+  let elem_sec = ElemSec::new([
+    Elem::new(
+      ElemMode::active(TableIdx::new(0), Expr::new([Instruction::i32_const(0)])),
+      ElemKind::funcs([FuncIdx::new(1)]),
+    ),
+  ])
+  let main_body = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::call_indirect(
+        TypeIdx::new(0),
+        TableIdx::new(0),
+        [],
+        TInstr::i32_const(I32(0)),
+      ),
+      TInstr::return_([]),
+    ]),
+  )
+  let table_target_body = Func::t_func(
+    [],
+    TExpr::new([TInstr::call(FuncIdx::new(2), []), TInstr::return_([])]),
+  )
+  let transitive_body = make_empty_func_body()
+  let code_sec = CodeSec::new([main_body, table_target_body, transitive_body])
+  let export_sec = ExportSec::new([
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
+  ])
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(func_sec)
+    .with_table_sec(table_sec)
+    .with_elem_sec(elem_sec)
+    .with_code_sec(code_sec)
+    .with_export_sec(export_sec)
+  let result = remove_unused(mod)
+  match result {
+    Ok(new_mod) => {
+      assert_eq(new_mod.func_sec.unwrap().0.length(), 3)
+      assert_true(
+        func_body_has_direct_call_to(
+          new_mod.code_sec.unwrap().0[1],
+          FuncIdx::new(2),
+        ),
+      )
+      assert_true(!func_body_is_unreachable(new_mod.code_sec.unwrap().0[1]))
+    }
+    Err(e) => fail("unexpected error: \{e}")
+  }
+}
+
+///|
+test "root_all_functions mode keeps functions while pruning other elements" {
+  let type_sec = TypeSec::new([make_void_func_type()])
+  let func_sec = FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)])
+  let code_sec = CodeSec::new([make_empty_func_body(), make_empty_func_body()])
+  let global_sec = GlobalSec::new([
+    Global::new(
+      GlobalType::new(ValType::i32(), false),
+      Expr::new([Instruction::i32_const(1)]),
+    ),
+  ])
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(func_sec)
+    .with_code_sec(code_sec)
+    .with_global_sec(global_sec)
+
+  let default_result = remove_unused(mod)
+  match default_result {
+    Ok(new_mod) =>
+      match new_mod.func_sec {
+        Some(sec) => assert_eq(sec.0.length(), 0)
+        None => ()
+      }
+    Err(e) => fail("unexpected error: \{e}")
+  }
+
+  let root_all_result = remove_unused_non_function_elements(mod)
+  match root_all_result {
+    Ok(new_mod) => {
+      assert_eq(new_mod.func_sec.unwrap().0.length(), 2)
+      match new_mod.global_sec {
+        Some(sec) => assert_eq(sec.0.length(), 0)
+        None => ()
+      }
     }
     Err(e) => fail("unexpected error: \{e}")
   }

@@ -652,6 +652,27 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
   - inline suite covers straight-line elimination, tee elimination, param-vs-var initialization behavior, merge keep/remove cases, subtype get-refinement + module validation, nested-block conservatism, and idempotency
   - optimize-dispatch integration test added in `src/passes/optimize.mbt`.
 
+## RemoveUnused notes (learned)
+
+- `src/passes/remove_unused.mbt` now models Binaryen-style function reachability distinction:
+  - `used` functions: reached by direct call roots or promoted from callable function references.
+  - `referenced-only` functions: reached by `ref.func` but not proven callable in closed world.
+- New internal pass props drive behavior:
+  - `closed_world` (default `true`): when `false`, `ref.func` is treated as a direct use.
+  - `root_all_functions` (used by `remove_unused_non_function_elements`): preserves all functions while still removing unused non-function module elements.
+- `call_ref` and `call_indirect` now register callable signatures and promote matching previously-referenced function targets to used (signature compatibility uses `Match::matches` on heap types with `Env::with_module`).
+- Element segment `FuncsElemKind` entries are now tracked as `ref.func` references (not immediate uses), then promoted when callable signatures are observed.
+- Referenced-only functions are preserved in output but rewritten to minimal unreachable bodies:
+  - `TFunc(_, _) -> TFunc([], [TUnreachable])`
+  - `Func(_, _) -> Func([], [Unreachable])`
+  This keeps IR references valid while allowing transitive body dependencies to be removed.
+- Expanded pass tests in `src/passes/remove_unused.mbt` now cover:
+  - closed-world referenced-only behavior
+  - open-world behavior
+  - `call_ref` promotion
+  - `call_indirect` promotion from table element refs
+  - root-all-functions mode behavior
+
 ## Pass testing notes (learned)
 
 - Most large passes already have substantial inline tests (notably `alignment_lowering`, `directize`, `optimize_casts`, `remove_unused`).
