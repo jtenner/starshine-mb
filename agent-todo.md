@@ -109,6 +109,18 @@
   - [x] Expand test suite with parity-focused scenarios: closed/open world behavior, call_ref promotion, call_indirect promotion, referenced-only body rewriting, and root-all mode
   - [x] Verify via `/home/jtenner/.moon/bin/moon test src/passes`
 
+- [x] `Binaryen Pass: RemoveUnusedBrs.cpp` implementation + parity coverage
+  - [x] Add `src/passes/remove_unused_brs.mbt` with fixed-point function-level branch simplification pass
+  - [x] Wire `ModulePass::RemoveUnusedBrs` in `src/passes/optimize.mbt` dispatch and add optimize integration test
+  - [x] Remove trailing redundant control flow at scope exits (`br 0`, `return`) and trailing `nop`s where safe
+  - [x] Convert one-armed `if` branch patterns to `br_if` and fold nested one-armed `if` conditions through `select`
+  - [x] Simplify `br_table`/switch patterns: trim trailing/leading defaults and lower default-only or singleton tables
+  - [x] Combine adjacent branch patterns (`br_if + br`, adjacent shrink-mode `br_if`s) when effect-safe
+  - [x] Fold constant `br_if` conditions to unconditional branches or fallthrough with side-effect preservation
+  - [x] Optimize block tails where dropped `br_if` value duplicates final fallthrough value
+  - [x] Add comprehensive inline pass tests (behavioral cases + idempotency)
+  - [x] Verify via `/home/jtenner/.moon/bin/moon test src/passes`
+
 ## MemoryPacking pass
 
 - [x] Preconditions: skip when module has 0 memories or more than 1 memory
@@ -398,7 +410,7 @@
 - [x] Binaryen Pass: PickLoadSigns.cpp
 - [x] Binaryen Pass: Precompute.cpp
 - [x] Binaryen Pass: RedundantSetElimination.cpp
-- [ ] Binaryen Pass: RemoveUnusedBrs.cpp
+- [x] Binaryen Pass: RemoveUnusedBrs.cpp
 - [x] Binaryen Pass: RemoveUnusedModuleElements.cpp
 - [ ] Binaryen Pass: RemoveUnusedNames.cpp
 - [ ] Binaryen Pass: RemoveUnusedTypes.cpp

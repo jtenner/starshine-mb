@@ -673,6 +673,26 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
   - `call_indirect` promotion from table element refs
   - root-all-functions mode behavior
 
+## RemoveUnusedBrs notes (learned)
+
+- `src/passes/remove_unused_brs.mbt` implements a fixed-point branch-cleanup pass and is integrated in `src/passes/optimize.mbt` as:
+  - `ModulePass::RemoveUnusedBrs`
+  - dispatch arm calling `remove_unused_brs(mod, options=options)`.
+- Current implemented rewrite families include:
+  - trailing control-flow cleanup in linear tails: removes redundant trailing `br 0`, forwards single-value trailing `br 0` / `return`, and trims trailing `nop`s.
+  - one-armed `if` to `br_if` conversion when value/effect ordering is safe (`rub_can_turn_if_into_br_if`).
+  - nested one-armed `if` condition collapsing using `select`.
+  - `br_table` simplification: trailing/leading-default trimming plus lowering of default-only and single-target forms.
+  - adjacent branch simplifications (`br_if + br`, shrink-mode adjacent `br_if`s).
+  - constant-condition `br_if` folding and dropped-`br_if` tail-value de-dup pattern.
+- Safety constraints in current implementation:
+  - rewrites that splice branch bodies out of `if` arms are only done when the moved arm is branch-free, avoiding de-Bruijn label-depth retargeting hazards.
+  - unconditionalization is guarded by effect/cost checks (via local effect analysis + shrink-level-aware heuristics).
+- Test coverage added in `src/passes/remove_unused_brs.mbt` includes:
+  - all implemented rewrite families above
+  - idempotency regression (`run pass twice yields stable output`)
+  - optimize-pipeline integration coverage in `src/passes/optimize.mbt`.
+
 ## Pass testing notes (learned)
 
 - Most large passes already have substantial inline tests (notably `alignment_lowering`, `directize`, `optimize_casts`, `remove_unused`).

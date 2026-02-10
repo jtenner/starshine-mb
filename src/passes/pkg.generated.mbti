@@ -68,6 +68,8 @@ pub fn propagate_to_supertypes(CFPState) -> Unit
 
 pub fn remove_unused(@lib.Module) -> Result[@lib.Module, String]
 
+pub fn remove_unused_brs(@lib.Module, options? : OptimizeOptions) -> Result[@lib.Module, String]
+
 pub fn run_constant_field_propagation(@lib.Module) -> Result[@lib.Module, String]
 
 pub fn run_denam(@lib.Module) -> Result[@lib.Module, String]
@@ -273,6 +275,7 @@ pub(all) enum ModulePass {
   Directize(Bool)
   OptimizeCasts
   DeNaN
+  RemoveUnusedBrs
   RemoveUnused
 }
 

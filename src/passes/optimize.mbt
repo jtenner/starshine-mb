@@ -48,6 +48,7 @@ pub(all) enum ModulePass {
   Directize(Bool)
   OptimizeCasts
   DeNaN
+  RemoveUnusedBrs
   RemoveUnused
 }
 
@@ -485,6 +486,11 @@ pub fn optimize_module_with_options(
         }
       DeNaN =>
         match run_denam(mod) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      RemoveUnusedBrs =>
+        match remove_unused_brs(mod, options~) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }
@@ -1639,5 +1645,28 @@ test "optimize_module runs Precompute and PrecomputePropagate passes" {
     Some(CodeSec([TFunc(_, TExpr([TLocalSet(_, _), TI32Const(I32(v))]))])) =>
       assert_eq(v, 10)
     _ => fail("expected propagated+precomputed constant expression")
+  }
+}
+
+///|
+test "optimize_module runs RemoveUnusedBrs pass" {
+  let func = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::block(
+        BlockType::void_(),
+        TExpr::new([TInstr::i32_const(I32(1)), TInstr::br(LabelIdx::new(0), [])]),
+      ),
+    ]),
+  )
+  let mod = Module::new().with_code_sec(CodeSec::new([func]))
+  let optimized = match optimize_module(mod, [RemoveUnusedBrs]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TBlock(_, TExpr([TI32Const(I32(1))]))]))])) =>
+      ()
+    _ => fail("expected RemoveUnusedBrs to remove trailing br 0")
   }
 }
