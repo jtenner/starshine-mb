@@ -1429,7 +1429,7 @@ pub impl Decode for Bytes with decode(bytes, i) {
     Ok((@lib.U32(len), i)) if len + i.reinterpret_as_uint() <=
       bytes.length().reinterpret_as_uint() => {
       let next = i + len.reinterpret_as_int()
-      let val = bytes.sub(start=i, end=next).to_bytes()
+      let val = bytes[i:next].to_bytes()
       Ok((val, next))
     }
     Ok(_) => Err("Invalid offset.")

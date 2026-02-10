@@ -791,7 +791,6 @@ fn typecheck_br_on_null(st : TcState, l : LabelIdx) -> TcResult {
       Err(e) => return Err(e)
       Ok(_) => ()
     }
-
   }
 
   // Fallthrough refines to non-null (ref ht)
@@ -827,8 +826,9 @@ fn typecheck_br_on_non_null(st : TcState, l : LabelIdx) -> TcResult {
     return Err("br_on_non_null label must end with non-nullable ref type")
   }
   if st.reachable {
-    let prefix = label_ts.sub(start=0, end=label_ts.length() - 1)
-    if st1.pop_types(prefix.to_array()) is Err(t) {
+    let end = label_ts.length() - 1
+    let prefix = label_ts[0:end].to_array()
+    if st1.pop_types(prefix) is Err(t) {
       return Err(t)
     }
   }
@@ -880,12 +880,12 @@ fn typecheck_br_on_cast(
   if st.reachable {
     // Check label args excluding rt_label (because branch keeps rt2 / rt_label)
     // Per spec, label is t* rt, so the remaining stack must have t*
-    let prefix = label_ts.sub(start=0, end=label_ts.length() - 1) // adjust if no slice
-    let _ = match st1.pop_types(prefix.to_array()) {
+    let end = label_ts.length() - 1
+    let prefix = label_ts[0:end].to_array()
+    let _ = match st1.pop_types(prefix) {
       Err(e) => return Err(e)
       Ok(_) => ()
     }
-
   }
 
   // push (rt1 \ rt2)
@@ -941,12 +941,12 @@ fn typecheck_br_on_cast_fail(
     Ok(s) => s
   }
   if st.reachable {
-    let prefix = label_ts.sub(start=0, end=label_ts.length() - 1)
-    let _ = match st1.pop_types(prefix.to_array()) {
+    let end = label_ts.length() - 1
+    let prefix = label_ts[0:end].to_array()
+    let _ = match st1.pop_types(prefix) {
       Err(e) => return Err(e)
       Ok(_) => ()
     }
-
   }
   Ok(st1.push1(ValType::ref_type(rt2)))
 }

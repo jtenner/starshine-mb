@@ -1,5 +1,5 @@
 import {
-  "jtenner/starshine/lib" as @lib,
-  "jtenner/starshine/transformer" as @transformer,
-  "moonbitlang/core/quickcheck/splitmix" as @splitmix,
+  "jtenner/starshine/lib",
+  "jtenner/starshine/transformer",
+  "moonbitlang/core/quickcheck/splitmix",
 }
