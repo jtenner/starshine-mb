@@ -581,6 +581,30 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
 - Test strategy and location:
   - pass-focused tests are inline in `src/passes/optimize_instructions.mbt` and cover each rewrite family plus idempotency/fixpoint behavior.
 
+## PickLoadSigns notes (learned)
+
+- `src/passes/pick_load_signs.mbt` is integrated in `src/passes/optimize.mbt` as `ModulePass::PickLoadSigns`.
+- Implementation follows a two-pass per-function strategy over `TExpr`:
+  - analysis pass gathers candidate loads from `local.set` of sign-relevant `TLoad` ops and tracks per-local usage stats.
+  - rewrite pass flips only selected load nodes by instruction pre-order id.
+- Candidate discovery parity:
+  - only `local.set` producers are considered; `local.tee` producers are ignored.
+  - sign-relevant load families are `i32.load8/16_{s,u}`, `i64.load8/16/32_{s,u}`.
+- Usage classification parity:
+  - each `local.get` contributes to `total_usages`.
+  - sign/zero usage detection checks immediate parent and grandparent contexts (Binaryen-style two-level look-through).
+  - currently recognized patterns:
+    - sign: unary sign-extend ops + `(x << k) >>_s k`
+    - zero: low-bit mask (`x & mask`) + `(x << k) >>_u k`
+- Decision rule parity:
+  - rewrite only when all uses are classified sign/zero usages and extension bits agree with load width.
+  - chosen signedness uses Binaryen weighting: prefer signed when `signed_usages * 2 >= unsigned_usages`.
+- Atomic note:
+  - this IR surface has no atomic load variants in `LoadOp`; atomic skip behavior is therefore implicitly satisfied (no atomic candidates observed).
+- Test coverage:
+  - pass file includes positive/negative tests for width checks, mixed/non-extension uses, nested shift forms, tee exclusion, i64 load32 handling, multi-candidate locals, and idempotency.
+  - optimize dispatch has a dedicated integration test in `src/passes/optimize.mbt`.
+
 ## Pass testing notes (learned)
 
 - Most large passes already have substantial inline tests (notably `alignment_lowering`, `directize`, `optimize_casts`, `remove_unused`).

@@ -295,6 +295,30 @@
 - [x] docs/bookkeeping updated (`AGENTS.md`, `agent-todo.md`)
 - [x] `moon test` green after integration
 
+## PickLoadSigns pass
+
+- [x] New file + pass registration (`src/passes/pick_load_signs.mbt`, `ModulePass::PickLoadSigns`)
+- [x] Candidate discovery implemented for `local.set` of sign-relevant integer loads (non-tee only)
+- [x] Usage accounting implemented per local (`total`, `signed`, `unsigned`, and consistent extension-bit tracking)
+- [x] Sign-usage detection implemented for unary sign-extends and two-level shift sign-extension forms (`x << k >>_s k`)
+- [x] Zero-usage detection implemented for low-mask forms (`x & mask` / `mask & x`) and two-level shift zero-extension forms (`x << k >>_u k`)
+- [x] Optimization gating implemented with Binaryen parity conditions:
+  - [x] skip when there are zero uses
+  - [x] skip when any use is not classified as sign/zero extension
+  - [x] skip when observed extension bits do not match load width
+  - [x] skip when mixed extension widths are inconsistent
+- [x] Signedness choice heuristic implemented with Binaryen weighting (`signed_uses * 2 >= unsigned_uses`)
+- [x] Load-op rewrite parity implemented for all sign-relevant load pairs:
+  - [x] `i32.load8_{s,u}`
+  - [x] `i32.load16_{s,u}`
+  - [x] `i64.load8_{s,u}`
+  - [x] `i64.load16_{s,u}`
+  - [x] `i64.load32_{s,u}`
+- [x] Atomic-load guard parity accounted for current IR surface (no atomic `LoadOp` variants present yet, so pass naturally only sees non-atomic loads)
+- [x] Comprehensive inline test suite added (positive, negative, nested-parent, width-mismatch, tee-ignore, multi-candidate, i64 coverage, idempotency)
+- [x] Optimize pipeline integration test added in `src/passes/optimize.mbt`
+- [x] Bookkeeping updated (`AGENTS.md`, `agent-todo.md`)
+
 ## Asyncify pass
 
 - [x] pass skeleton + registration (`src/passes/asyncify.mbt`, `ModulePass::Asyncify(AsyncifyPassProps)`)
@@ -330,7 +354,7 @@
 - [x] Binaryen Pass: OptimizeAddedConstants.cpp
 - [x] Binaryen Pass: OptimizeCasts.cpp
 - [x] Binaryen Pass: OptimizeInstructions.cpp
-- [ ] Binaryen Pass: PickLoadSigns.cpp
+- [x] Binaryen Pass: PickLoadSigns.cpp
 - [ ] Binaryen Pass: Precompute.cpp
 - [ ] Binaryen Pass: RedundantSetElimination.cpp
 - [ ] Binaryen Pass: RemoveUnusedBrs.cpp

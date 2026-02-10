@@ -36,6 +36,7 @@ pub(all) enum ModulePass {
   OptimizeAddedConstants
   OptimizeAddedConstantsPropagate
   OptimizeInstructions
+  PickLoadSigns
   GUFA
   GUFAOptimizing
   GUFACastAll
@@ -380,6 +381,12 @@ pub fn optimize_module_with_options(
             mod,
             optimize_instructions_ir_pass(mod, options),
           ) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      PickLoadSigns =>
+        match
+          apply_ir_transformer_pass(ctx, mod, pick_load_signs_ir_pass(mod)) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }
@@ -914,6 +921,40 @@ test "optimize_module runs HeapStoreOptimization pass" {
   match optimized.code_sec {
     Some(CodeSec([TFunc(_, body)])) => assert_eq(hso_count_struct_sets(body), 0)
     _ => fail("expected optimized function")
+  }
+}
+
+///|
+test "optimize_module runs PickLoadSigns pass" {
+  let loc = LocalIdx::new(0)
+  let func = Func::t_func(
+    [ValType::i32()],
+    TExpr::new([
+      TInstr::local_set(
+        loc,
+        TInstr::load(
+          LoadOp::i32_load16s(),
+          MemArg::new(0, None, 0),
+          TInstr::i32_const(I32(0)),
+        ),
+      ),
+      TInstr::drop(
+        TInstr::binary(
+          BinaryOp::i32_and(),
+          TInstr::local_get(loc),
+          TInstr::i32_const(I32(65535)),
+        ),
+      ),
+    ]),
+  )
+  let mod = Module::new().with_code_sec(CodeSec::new([func]))
+  let optimized = match optimize_module(mod, [PickLoadSigns]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TLocalSet(_, TLoad(I32Load16UOp, _, _)), _]))])) => ()
+    _ => fail("expected i32.load16_s to become i32.load16_u")
   }
 }
 
