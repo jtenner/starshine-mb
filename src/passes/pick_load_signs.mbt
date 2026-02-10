@@ -300,12 +300,16 @@ fn pls_analyze_body(body : TExpr) -> Result[PLSAnalysis, String] {
     let curr_id = next_id
     next_id += 1
     match curr {
-      TLocalSet(local_idx, TLoad(op, _, _)) =>
+      TLoad(op, _, _) =>
         match pls_sign_relevant_load_info(op) {
           Some((_, load_bits)) =>
-            candidates_by_id[curr_id] = {
-              local_idx: pls_local_idx_to_int(local_idx),
-              load_bits,
+            match parent_stack.last() {
+              Some(TLocalSet(local_idx, _)) =>
+                candidates_by_id[curr_id] = {
+                  local_idx: pls_local_idx_to_int(local_idx),
+                  load_bits,
+                }
+              _ => ()
             }
           None => ()
         }
