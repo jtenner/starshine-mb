@@ -40,6 +40,7 @@ This repository is intended for compiler and tooling work around WebAssembly 3.0
   - MergeBlocks
   - MemoryPacking
   - OptimizeAddedConstants (`OptimizeAddedConstants`, `OptimizeAddedConstantsPropagate`)
+  - Precompute (`Precompute`, `PrecomputePropagate`)
   - MinimizeRecGroups
   - Code folding/pushing
   - Const hoisting

@@ -338,6 +338,22 @@
 - [x] docs updated (`AGENTS.md`, `README.mbt.md`, `agent-todo.md`)
 - [x] `moon check`, `moon test` green (follow-up `moon info && moon fmt` pending final step)
 
+## Precompute pass
+
+- [x] pass skeleton + registration (`src/passes/precompute.mbt`, `ModulePass::Precompute`, `ModulePass::PrecomputePropagate`)
+- [x] Constant-expression evaluator implemented for scalar ops (`unary`/`binary`) and basic ref constants (`ref.null`, `ref.func`, `ref.eq`, `ref.is_null`)
+- [x] Immutable global constant folding implemented (`global.get` of immutable literal initializers)
+- [x] Propagation mode implemented with LocalGraph-backed fixed-point analysis (`local.set` constants -> `local.get` replacement)
+- [x] Propagation safety guards implemented:
+  - [x] trap-aware constant evaluation (e.g. divide-by-zero and signed-overflow div not folded)
+  - [x] branchy-local conservatism (locals written in `if` arms are not propagated)
+- [x] Partial precompute implemented for select lifting through parent ops:
+  - [x] `unary(select(...))` -> `select(unary(...), unary(...), cond)`
+  - [x] `binary(select(...), const_like)` / `binary(const_like, select(...))` arm precompute
+- [x] Full Precompute test suite added inline in `src/passes/precompute.mbt`
+- [x] Optimize pipeline integration test added in `src/passes/optimize.mbt`
+- [x] Bookkeeping updated (`AGENTS.md`, `agent-todo.md`)
+
 ## 3) Binaryen Passes Still To Implement
 
 ### A) Primary Optimization / Analysis Passes
@@ -356,7 +372,7 @@
 - [x] Binaryen Pass: OptimizeCasts.cpp
 - [x] Binaryen Pass: OptimizeInstructions.cpp
 - [x] Binaryen Pass: PickLoadSigns.cpp
-- [ ] Binaryen Pass: Precompute.cpp
+- [x] Binaryen Pass: Precompute.cpp
 - [ ] Binaryen Pass: RedundantSetElimination.cpp
 - [ ] Binaryen Pass: RemoveUnusedBrs.cpp
 - [ ] Binaryen Pass: RemoveUnusedModuleElements.cpp

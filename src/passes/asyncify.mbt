@@ -179,19 +179,33 @@ fn af_split_csv(s : String) -> Array[String] {
     return []
   }
   let out : Array[String] = []
-  let mut start = 0
+  let mut part = StringBuilder::new()
+  let mut has_part = false
   for i = 0; i < s.length(); i = i + 1 {
     if s[i] == ',' {
-      if i > start {
-        out.push(s.substring(start~, end=i))
+      if has_part {
+        out.push(part.to_string())
+        part = StringBuilder::new()
+        has_part = false
       }
-      start = i + 1
+    } else {
+      part.write_char(s[i].unsafe_to_char())
+      has_part = true
     }
   }
-  if start < s.length() {
-    out.push(s.substring(start~, end=s.length()))
+  if has_part {
+    out.push(part.to_string())
   }
   out
+}
+
+///|
+fn af_suffix(s : String, start : Int) -> String {
+  let out = StringBuilder::new()
+  for i = start; i < s.length(); i = i + 1 {
+    out.write_char(s[i].unsafe_to_char())
+  }
+  out.to_string()
 }
 
 ///|
@@ -235,7 +249,7 @@ fn af_parse_list_arg(arg : String, prefix : String) -> Array[String]? {
   if !matched {
     return None
   }
-  Some(af_split_csv(arg.substring(start=prefix.length(), end=arg.length())))
+  Some(af_split_csv(af_suffix(arg, prefix.length())))
 }
 
 ///|

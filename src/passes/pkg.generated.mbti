@@ -30,6 +30,10 @@ pub fn createOptimizeAddedConstantsPass() -> ModulePass
 
 pub fn createOptimizeAddedConstantsPropagatePass() -> ModulePass
 
+pub fn createPrecomputePass() -> ModulePass
+
+pub fn createPrecomputePropagatePass() -> ModulePass
+
 pub fn dataflow_optimization_pass(@lib.Module) -> @transformer.ModuleTransformer[@ir.IRContext]
 
 pub fn defs(@lib.TInstr) -> @set.Set[@lib.LocalIdx]
@@ -265,6 +269,8 @@ pub(all) enum ModulePass {
   OptimizeAddedConstants
   OptimizeAddedConstantsPropagate
   OptimizeInstructions
+  Precompute
+  PrecomputePropagate
   PickLoadSigns
   GUFA
   GUFAOptimizing

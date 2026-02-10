@@ -36,6 +36,8 @@ pub(all) enum ModulePass {
   OptimizeAddedConstants
   OptimizeAddedConstantsPropagate
   OptimizeInstructions
+  Precompute
+  PrecomputePropagate
   PickLoadSigns
   GUFA
   GUFAOptimizing
@@ -380,6 +382,26 @@ pub fn optimize_module_with_options(
             ctx,
             mod,
             optimize_instructions_ir_pass(mod, options),
+          ) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      Precompute =>
+        match
+          apply_ir_transformer_pass(
+            ctx,
+            mod,
+            precompute_ir_pass(mod, options, false),
+          ) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      PrecomputePropagate =>
+        match
+          apply_ir_transformer_pass(
+            ctx,
+            mod,
+            precompute_ir_pass(mod, options, true),
           ) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
@@ -1553,5 +1575,35 @@ test "optimize_module runs MemoryPacking pass" {
   match optimized.data_sec {
     Some(DataSec(datas)) => assert_eq(datas.length(), 2)
     _ => fail("expected data section")
+  }
+}
+
+///|
+test "optimize_module runs Precompute and PrecomputePropagate passes" {
+  let x = LocalIdx::new(0)
+  let mod = Module::new().with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [ValType::i32()],
+        TExpr::new([
+          TInstr::local_set(x, TInstr::i32_const(I32(9))),
+          TInstr::binary(
+            BinaryOp::i32_add(),
+            TInstr::local_get(x),
+            TInstr::i32_const(I32(1)),
+          ),
+        ]),
+      ),
+    ]),
+  )
+  let optimized = match
+    optimize_module(mod, [PrecomputePropagate, Precompute]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TLocalSet(_, _), TI32Const(I32(v))]))])) =>
+      assert_eq(v, 10)
+    _ => fail("expected propagated+precomputed constant expression")
   }
 }

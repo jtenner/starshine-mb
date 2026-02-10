@@ -605,6 +605,30 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
   - pass file includes positive/negative tests for width checks, mixed/non-extension uses, nested shift forms, tee exclusion, i64 load32 handling, multi-candidate locals, and idempotency.
   - optimize dispatch has a dedicated integration test in `src/passes/optimize.mbt`.
 
+## Precompute notes (learned)
+
+- `src/passes/precompute.mbt` is integrated in `src/passes/optimize.mbt` as:
+  - `ModulePass::Precompute`
+  - `ModulePass::PrecomputePropagate`
+- Current implementation is split into two stages:
+  - optional propagation stage (for `PrecomputePropagate`) computes constant `local.get` values by fixed-point iteration over `LocalGraph` set/get relations.
+  - post-order rewrite stage folds constant expressions and applies partial select precompute patterns.
+- Constant evaluation coverage currently includes:
+  - scalar unary/binary ops for `i32`/`i64`/`f32`/`f64`
+  - `ref.null`/`ref.func`-based `ref.eq` and `ref.is_null`
+  - `global.get` folding only for immutable globals with literal initializer expressions.
+- Safety/guard behavior:
+  - trap-producing folds are blocked (e.g. integer divide-by-zero and signed div overflow edge cases).
+  - propagation is conservative on branchy locals: any local written inside an `if` arm is excluded from propagation to avoid unsound merges with current `LocalGraph` precision.
+  - constant replacement is gated by effect checks (`lcs_collect_effects`) so side-effecting/trapping/global/memory-observing expressions are not blindly replaced by literals.
+- Partial precompute currently implements select-arm lifting for:
+  - `unary(select(...))`
+  - `binary(select(...), const_like)` and `binary(const_like, select(...))`
+  when both arms and the non-select sibling are constant-like.
+- Tests:
+  - a dedicated inline suite lives in `src/passes/precompute.mbt` covering normal mode, propagate mode, fixpoint behavior, safety guards, partial select precompute, and idempotency.
+  - pipeline integration coverage was added to `src/passes/optimize.mbt`.
+
 ## Pass testing notes (learned)
 
 - Most large passes already have substantial inline tests (notably `alignment_lowering`, `directize`, `optimize_casts`, `remove_unused`).
