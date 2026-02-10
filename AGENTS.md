@@ -561,6 +561,26 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
 - Best-cast reuse remains local/basic-block-scoped and tracks invalidation on local writes (`local.set`/`local.tee`) and non-linear boundaries.
 - No GC feature gate is applied in this codebase for this pass; parity work targets wasm3.0 IR behavior directly.
 
+## OptimizeInstructions notes (learned)
+
+- `src/passes/optimize_instructions.mbt` is integrated in `src/passes/optimize.mbt` as `ModulePass::OptimizeInstructions`.
+- Entry pattern follows the standard IR pass adapter flow:
+  - constructor `optimize_instructions_ir_pass(mod, options)` returns `ModuleTransformer[IRContext]`
+  - per-function execution runs a local rewrite loop to fixpoint before rebuilding `Expr` from `TExpr`.
+- Current implementation is intentionally peephole-focused and effect-aware:
+  - binary/unary/select/if rewrites are guarded by side-effect and reordering checks (via shared effect helpers).
+  - canonicalization prefers stable const-on-right forms before downstream simplifications.
+- Implemented rewrite groups include:
+  - arithmetic/bitwise/relational simplifications, shift-mask collapsing, and power-of-two mul/div/rem lowering
+  - `eqz` / wrap-extend / reinterpret / rounding conversion simplifications
+  - boolean-context simplifications for `if`, `select`, and `br_if`
+  - memory rewrites: memarg offset folding, store-value truncation cleanup, and const-size bulk-memory lowering
+  - `call_ref` directization when target statically resolves to `ref.func` or `table.get`.
+- Local metadata usage:
+  - pass scans function locals to track conservative max-bit and sign-extension properties used by later rewrites.
+- Test strategy and location:
+  - pass-focused tests are inline in `src/passes/optimize_instructions.mbt` and cover each rewrite family plus idempotency/fixpoint behavior.
+
 ## Pass testing notes (learned)
 
 - Most large passes already have substantial inline tests (notably `alignment_lowering`, `directize`, `optimize_casts`, `remove_unused`).

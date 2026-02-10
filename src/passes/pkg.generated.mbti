@@ -264,6 +264,7 @@ pub(all) enum ModulePass {
   MemoryPacking(MemoryPackingPassProps)
   OptimizeAddedConstants
   OptimizeAddedConstantsPropagate
+  OptimizeInstructions
   GUFA
   GUFAOptimizing
   GUFACastAll

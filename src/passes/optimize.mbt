@@ -35,6 +35,7 @@ pub(all) enum ModulePass {
   MemoryPacking(MemoryPackingPassProps)
   OptimizeAddedConstants
   OptimizeAddedConstantsPropagate
+  OptimizeInstructions
   GUFA
   GUFAOptimizing
   GUFACastAll
@@ -368,6 +369,16 @@ pub fn optimize_module_with_options(
             ctx,
             mod,
             optimize_added_constants_ir_pass(mod, options, true),
+          ) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      OptimizeInstructions =>
+        match
+          apply_ir_transformer_pass(
+            ctx,
+            mod,
+            optimize_instructions_ir_pass(mod, options),
           ) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)

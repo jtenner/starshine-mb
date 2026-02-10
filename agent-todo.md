@@ -279,6 +279,22 @@
 - [x] iterative rerun to fixpoint when propagation succeeds + cleanup of unneeded sets between rounds
 - [x] tests added for fold basics, safety bounds, const-pointer normalization, propagate success/rejection/helper behavior, multi-iteration behavior, and low-memory gating failure
 
+## OptimizeInstructions pass
+
+- [x] new file + pass registration (`src/passes/optimize_instructions.mbt`, `ModulePass::OptimizeInstructions`)
+- [x] IRContext transformer integration via `optimize_instructions_ir_pass` and function-level fixpoint rewrite loop
+- [x] local metadata scan for max-bits / sign-extension-informed simplifications
+- [x] canonicalization and effect-safe child reordering for symmetric/relational binaries
+- [x] binary peephole parity coverage for arithmetic/bitwise/shift/relational patterns (including power-of-two division/multiply lowering)
+- [x] unary peephole parity coverage for `eqz` patterns, wrap/extend reductions, reinterpret pair elimination, rounding/conversion and unary dedup rules
+- [x] select/if/boolean-context simplifications and equal-arm folding
+- [x] memory access/store rewrites: ptr+offset folding, truncation masks, wrap/reinterpret store canonicalization
+- [x] bulk memory instruction rewrites for const-size `memory.copy` and `memory.fill`
+- [x] `call_ref` directization rewrites for `ref.func` and `table.get` call targets
+- [x] comprehensive inline test suite added for binary, unary, control-flow, memory, call, and idempotency behavior
+- [x] docs/bookkeeping updated (`AGENTS.md`, `agent-todo.md`)
+- [x] `moon test` green after integration
+
 ## Asyncify pass
 
 - [x] pass skeleton + registration (`src/passes/asyncify.mbt`, `ModulePass::Asyncify(AsyncifyPassProps)`)
@@ -313,7 +329,7 @@
 - [x] Binaryen Pass: OnceReduction.cpp
 - [x] Binaryen Pass: OptimizeAddedConstants.cpp
 - [x] Binaryen Pass: OptimizeCasts.cpp
-- [ ] Binaryen Pass: OptimizeInstructions.cpp
+- [x] Binaryen Pass: OptimizeInstructions.cpp
 - [ ] Binaryen Pass: PickLoadSigns.cpp
 - [ ] Binaryen Pass: Precompute.cpp
 - [ ] Binaryen Pass: RedundantSetElimination.cpp
