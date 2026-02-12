@@ -10,7 +10,7 @@ fn optimize_tfunc_with_ssa(
 }
 
 ///|
-pub fn dataflow_optimization_pass(mod : Module) -> ModuleTransformer[IRContext] {
+fn dataflow_optimization_pass(mod : Module) -> ModuleTransformer[IRContext] {
   ignore(mod)
   ModuleTransformer::new().on_func_evt(fn(
     _self : ModuleTransformer[IRContext],

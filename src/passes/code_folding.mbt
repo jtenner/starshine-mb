@@ -55,7 +55,7 @@ fn Tail::is_fallthrough(self : Tail) -> Bool {
 
 ///|
 /// State for the code folding pass
-struct CodeFoldingState {
+priv struct CodeFoldingState {
   mut another_pass : Bool
   break_tails : Map[LabelIdx, Array[Tail]]
   unreachable_tails : Array[Tail]
@@ -546,7 +546,7 @@ fn process_if(
 
 ///|
 /// Main code folding pass
-pub fn code_folding_pass() -> ModuleTransformer[CodeFoldingState] {
+fn code_folding_pass() -> ModuleTransformer[CodeFoldingState] {
   ModuleTransformer::new()
   .on_tinstruction_evt(fn(self, state, instr) {
     // Process blocks and ifs for tail merging

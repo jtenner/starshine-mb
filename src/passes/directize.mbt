@@ -377,7 +377,7 @@ fn directize_ir_pass(
 }
 
 ///|
-pub fn directize_module(
+fn directize_module(
   m : Module,
   initial_immutable : Bool,
 ) -> Result[Module, String] {

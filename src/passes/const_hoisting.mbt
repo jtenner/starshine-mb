@@ -14,35 +14,55 @@ pub enum LiteralKind {
 pub struct Literal(LiteralKind, Bytes) derive(Eq, Hash, Show)
 
 ///|
-pub fn Literal::i32(val : Int) -> Literal {
+fn Literal::i32(val : Int) -> Literal {
   let buf = @buffer.new(size_hint=4)
   buf.write_int_le(val)
   Literal(I32LiteralKind, buf.to_bytes())
 }
 
 ///|
-pub fn Literal::i64(val : Int64) -> Literal {
+fn Literal::i64(val : Int64) -> Literal {
   let buf = @buffer.new(size_hint=8)
   buf.write_int64_le(val)
   Literal(I64LiteralKind, buf.to_bytes())
 }
 
 ///|
-pub fn Literal::f32(val : Float) -> Literal {
+fn Literal::f32(val : Float) -> Literal {
   let buf = @buffer.new(size_hint=4)
   buf.write_float_le(val)
   Literal(F32LiteralKind, buf.to_bytes())
 }
 
 ///|
-pub fn Literal::f64(val : Double) -> Literal {
+fn Literal::f64(val : Double) -> Literal {
   let buf = @buffer.new(size_hint=8)
   buf.write_double_le(val)
   Literal(F64LiteralKind, buf.to_bytes())
 }
 
 ///|
-pub fn Literal::v128(val : Bytes) -> Literal {
+fn Literal::v128(
+  a : Byte,
+  b : Byte,
+  c : Byte,
+  d : Byte,
+  e : Byte,
+  f : Byte,
+  g : Byte,
+  h : Byte,
+  i : Byte,
+  j : Byte,
+  k : Byte,
+  l : Byte,
+  m : Byte,
+  n : Byte,
+  o : Byte,
+  p : Byte,
+) -> Literal {
+  let val = Bytes::from_array([
+    a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p,
+  ])
   Literal(V128LiteralKind, val)
 }
 
@@ -140,7 +160,7 @@ pub struct ConstHoistingState {
 }
 
 ///|
-pub fn ConstHoistingState::new() -> ConstHoistingState {
+fn ConstHoistingState::new() -> ConstHoistingState {
   ConstHoistingState::{ usage: Map::new() }
 }
 
@@ -154,64 +174,11 @@ fn ConstHoistingState::uses(self : Self, literal : Literal) -> Unit {
 }
 
 ///|
-fn i32_lit(val : Int) -> Literal {
-  let b = @buffer.new(size_hint=4)
-  b.write_int_le(val)
-  Literal(I32LiteralKind, b.to_bytes())
-}
-
-///|
-fn i64_lit(val : Int64) -> Literal {
-  let b = @buffer.new(size_hint=8)
-  b.write_int64_le(val)
-  Literal(I64LiteralKind, b.to_bytes())
-}
-
-///|
-fn f32_lit(val : Float) -> Literal {
-  let b = @buffer.new(size_hint=4)
-  b.write_float_le(val)
-  Literal(F32LiteralKind, b.to_bytes())
-}
-
-///|
-fn f64_lit(val : Double) -> Literal {
-  let b = @buffer.new(size_hint=8)
-  b.write_double_le(val)
-  Literal(F64LiteralKind, b.to_bytes())
-}
-
-///|
-fn v128_lit(
-  b0 : Byte,
-  b1 : Byte,
-  b2 : Byte,
-  b3 : Byte,
-  b4 : Byte,
-  b5 : Byte,
-  b6 : Byte,
-  b7 : Byte,
-  b8 : Byte,
-  b9 : Byte,
-  b10 : Byte,
-  b11 : Byte,
-  b12 : Byte,
-  b13 : Byte,
-  b14 : Byte,
-  b15 : Byte,
-) -> Literal {
-  let b = Bytes::from_array([
-    b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15,
-  ])
-  Literal(V128LiteralKind, b)
-}
-
-///|
 fn replace_literal_pass() -> ModuleTransformer[Map[Literal, LocalIdx]] {
   ModuleTransformer::new().on_tinstruction_evt(fn(self, t, i) {
     match i {
       TI32Const(I32(val)) => {
-        let lit = i32_lit(val)
+        let lit = Literal::i32(val)
         if t.get(lit) is Some(idx) {
           change(t, TInstr::local_get(idx))
         } else {
@@ -219,7 +186,7 @@ fn replace_literal_pass() -> ModuleTransformer[Map[Literal, LocalIdx]] {
         }
       }
       TI64Const(I64(val)) => {
-        let lit = i64_lit(val)
+        let lit = Literal::i64(val)
         if t.get(lit) is Some(idx) {
           change(t, TInstr::local_get(idx))
         } else {
@@ -227,7 +194,7 @@ fn replace_literal_pass() -> ModuleTransformer[Map[Literal, LocalIdx]] {
         }
       }
       TF32Const(F32(val)) => {
-        let lit = f32_lit(val)
+        let lit = Literal::f32(val)
         if t.get(lit) is Some(idx) {
           change(t, TInstr::local_get(idx))
         } else {
@@ -235,7 +202,7 @@ fn replace_literal_pass() -> ModuleTransformer[Map[Literal, LocalIdx]] {
         }
       }
       TF64Const(F64(val)) => {
-        let lit = f64_lit(val)
+        let lit = Literal::f64(val)
         if t.get(lit) is Some(idx) {
           change(t, TInstr::local_get(idx))
         } else {
@@ -262,7 +229,7 @@ fn replace_literal_pass() -> ModuleTransformer[Map[Literal, LocalIdx]] {
         b14,
         b15
       ) => {
-        let lit = v128_lit(
+        let lit = Literal::v128(
           b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15,
         )
         if t.get(lit) is Some(idx) {
@@ -277,7 +244,7 @@ fn replace_literal_pass() -> ModuleTransformer[Map[Literal, LocalIdx]] {
 }
 
 ///|
-pub fn const_hoisting_pass() -> ModuleTransformer[ConstHoistingState] {
+fn const_hoisting_pass() -> ModuleTransformer[ConstHoistingState] {
   ModuleTransformer::new()
   .on_func_evt(fn(self, t : ConstHoistingState, func) {
     // reset uses of consts per function
@@ -325,10 +292,10 @@ pub fn const_hoisting_pass() -> ModuleTransformer[ConstHoistingState] {
   })
   .on_tinstruction_evt(fn(self, t, i) {
     match i {
-      TI32Const(I32(val)) => t.uses(i32_lit(val))
-      TI64Const(I64(val)) => t.uses(i64_lit(val))
-      TF32Const(F32(val)) => t.uses(f32_lit(val))
-      TF64Const(F64(val)) => t.uses(f64_lit(val))
+      TI32Const(I32(val)) => t.uses(Literal::i32(val))
+      TI64Const(I64(val)) => t.uses(Literal::i64(val))
+      TF32Const(F32(val)) => t.uses(Literal::f32(val))
+      TF64Const(F64(val)) => t.uses(Literal::f64(val))
       // In the case of v128 constants, simd locals are expensive and encoding is tricky
       // TV128Const(b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15) => 
       //   t.uses(v128_lit(b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15))

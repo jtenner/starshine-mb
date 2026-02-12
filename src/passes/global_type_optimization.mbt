@@ -1585,7 +1585,7 @@ fn gto_update_instructions(
 }
 
 ///|
-pub fn global_type_optimization(mod : Module) -> Result[Module, String] {
+fn global_type_optimization(mod : Module) -> Result[Module, String] {
   let type_sec = match mod.type_sec {
     Some(type_sec) => type_sec
     None => return Ok(mod)

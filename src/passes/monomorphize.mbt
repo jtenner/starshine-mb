@@ -644,7 +644,7 @@ fn mn_parse_nonneg_int_from(s : String, start : Int) -> Int? {
 }
 
 ///|
-pub fn monomorphize_apply_arguments(
+fn monomorphize_apply_arguments(
   options : OptimizeOptions,
   args : Array[String],
 ) -> OptimizeOptions {
@@ -1436,7 +1436,7 @@ fn monomorphize_run(
 }
 
 ///|
-pub fn monomorphize(
+fn monomorphize(
   mod : Module,
   options? : OptimizeOptions = OptimizeOptions::new(),
   always? : Bool = false,

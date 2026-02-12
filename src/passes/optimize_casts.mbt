@@ -925,7 +925,7 @@ fn optimize_casts_ir_pass(mod : Module) -> ModuleTransformer[IRContext] {
 }
 
 ///|
-pub fn optimize_casts(mod : Module) -> Module {
+fn optimize_casts(mod : Module) -> Module {
   let pass = optimize_casts_ir_pass(mod)
   match pass.walk_module(IRContext::new(), mod) {
     Ok(Some((_, out))) => out

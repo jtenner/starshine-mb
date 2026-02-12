@@ -373,7 +373,7 @@ fn load_or_op(stack_size : StackSize, l : TInstr, r : TInstr) -> TInstr {
 }
 
 ///|
-pub fn alignment_lowering_pass(mod : Module) -> ModuleTransformer[IRContext] {
+fn alignment_lowering_pass(mod : Module) -> ModuleTransformer[IRContext] {
   let memories = match mod.mem_sec {
     Some(sec) => sec.0
     None => []

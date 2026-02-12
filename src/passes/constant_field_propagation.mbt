@@ -77,13 +77,13 @@ pub struct CFPState {
 }
 
 ///|
-pub fn CFPState::new() -> CFPState {
+fn CFPState::new() -> CFPState {
   CFPState::{ field_values: @hashmap.new(), type_sec: None }
 }
 
 ///|
 /// Create a CFPState with type information from a module
-pub fn CFPState::from_module(m : Module) -> CFPState {
+fn CFPState::from_module(m : Module) -> CFPState {
   CFPState::{ field_values: @hashmap.new(), type_sec: m.type_sec }
 }
 
@@ -199,7 +199,7 @@ fn get_super_types(
 /// Propagate field values from subtypes to supertypes
 /// If a subtype writes a different constant to a field than the supertype,
 /// the supertype's field becomes Unknown (since we can't distinguish at runtime)
-pub fn propagate_to_supertypes(state : CFPState) -> Unit {
+fn propagate_to_supertypes(state : CFPState) -> Unit {
   // For each type that has a supertype, propagate its field values
   match state.type_sec {
     None => ()
@@ -274,7 +274,7 @@ fn get_field_value(
 /// Main constant field propagation pass
 /// This is a two-phase pass. Call run_constant_field_propagation for full optimization.
 /// The pass itself just scans for struct operations.
-pub fn constant_field_propagation_pass() -> ModuleTransformer[CFPState] {
+fn constant_field_propagation_pass() -> ModuleTransformer[CFPState] {
   ModuleTransformer::new().on_func_evt(fn(_self, state, func) {
     match func {
       Func(_, _) => unchanged()
@@ -285,39 +285,6 @@ pub fn constant_field_propagation_pass() -> ModuleTransformer[CFPState] {
       }
     }
   })
-}
-
-///|
-/// Run constant field propagation on a module
-/// This is a three-phase optimization:
-/// 1. Scan all functions to collect field values
-/// 2. Propagate values through type hierarchy
-/// 3. Replace struct.get operations with constants where possible
-pub fn run_constant_field_propagation(m : Module) -> Result[Module, String] {
-  // Phase 1: Scan all functions to collect field values
-  // Use from_module to get type information for struct.new.default handling
-  let state = CFPState::from_module(m)
-  match m.code_sec {
-    None => return Ok(m) // No functions to optimize
-    Some(CodeSec(funcs)) =>
-      for func in funcs {
-        match func {
-          Func(_, _) => ()
-          TFunc(_, body) => scan_for_struct_news(state, body)
-        }
-      }
-  }
-
-  // Phase 2: Propagate values through type hierarchy
-  propagate_to_supertypes(state)
-
-  // Phase 3: Optimize struct.get operations
-  let optimizer = make_cfp_optimizer(state)
-  match optimizer.walk_module((), m) {
-    Ok(Some((_, new_m))) => Ok(new_m)
-    Ok(None) => Ok(m)
-    Err(e) => Err(e)
-  }
 }
 
 ///|

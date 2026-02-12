@@ -1,5 +1,5 @@
 ///|
-pub fn lift_to_texpr_pass() -> ModuleTransformer[Unit] {
+fn lift_to_texpr_pass() -> ModuleTransformer[Unit] {
   ModuleTransformer::new().on_func_evt(fn(
     _ : ModuleTransformer[Unit],
     _ : Unit,

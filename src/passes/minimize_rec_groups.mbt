@@ -2497,7 +2497,7 @@ fn mrg_run(mod : Module) -> Result[Module, String] {
 }
 
 ///|
-pub fn minimize_rec_groups(mod : Module) -> Result[Module, String] {
+fn minimize_rec_groups(mod : Module) -> Result[Module, String] {
   mrg_run(mod)
 }
 

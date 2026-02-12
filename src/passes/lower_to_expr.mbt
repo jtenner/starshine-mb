@@ -1,5 +1,5 @@
 ///|
-pub fn lower_to_expr_pass() -> ModuleTransformer[Unit] {
+fn lower_to_expr_pass() -> ModuleTransformer[Unit] {
   ModuleTransformer::new().on_func_evt(fn(
     _ : ModuleTransformer[Unit],
     _ : Unit,
@@ -17,7 +17,7 @@ pub fn lower_to_expr_pass() -> ModuleTransformer[Unit] {
 }
 
 ///|
-pub fn run_lower_to_expr_pass(mod : Module) -> Module {
+fn run_lower_to_expr_pass(mod : Module) -> Module {
   let t = lower_to_expr_pass()
   let (_, mod) = t.walk_module((), mod).unwrap().unwrap()
   mod

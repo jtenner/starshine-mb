@@ -6,7 +6,7 @@ pub(all) struct MemoryPackingPassProps {
 }
 
 ///|
-pub fn MemoryPackingPassProps::new(
+fn MemoryPackingPassProps::new(
   zero_filled_memory? : Bool = false,
   traps_never_happen? : Bool = false,
   max_data_segments? : Int = 100000,
@@ -1576,7 +1576,7 @@ fn mp_build_transforms_and_segments(
 }
 
 ///|
-pub fn run_memory_packing_on_module(
+fn run_memory_packing_on_module(
   mod : Module,
   options : MemoryPackingPassProps,
 ) -> Result[Module, String] {
@@ -1596,16 +1596,7 @@ pub fn run_memory_packing_on_module(
 }
 
 ///|
-pub fn run_memory_paacking_on_module(
-  mod : Module,
-  options : MemoryPackingPassProps,
-) -> Result[Module, String] {
-  // Backward-compatible typo alias requested by task prompt.
-  run_memory_packing_on_module(mod, options)
-}
-
-///|
-pub fn memory_packing(
+fn memory_packing(
   mod : Module,
   options : MemoryPackingPassProps,
 ) -> Result[Module, String] {

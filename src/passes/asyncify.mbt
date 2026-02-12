@@ -18,7 +18,7 @@ pub(all) struct AsyncifyPassProps {
 }
 
 ///|
-pub fn AsyncifyPassProps::new(
+fn AsyncifyPassProps::new(
   imports? : Array[String] = [],
   ignore_imports? : Bool = false,
   ignore_indirect? : Bool = false,
@@ -253,7 +253,7 @@ fn af_parse_list_arg(arg : String, prefix : String) -> Array[String]? {
 }
 
 ///|
-pub fn asyncify_apply_arguments(
+fn asyncify_apply_arguments(
   props : AsyncifyPassProps,
   args : Array[String],
 ) -> Result[AsyncifyPassProps, String] {
@@ -2549,7 +2549,7 @@ fn af_assert_unwind_catch(mod : Module, runtime : AFApi) -> Module {
 }
 
 ///|
-pub fn asyncify(
+fn asyncify(
   mod : Module,
   props? : AsyncifyPassProps = AsyncifyPassProps::new(),
   optimize_level? : Int = 0,
@@ -2617,13 +2617,6 @@ pub fn asyncify(
   }
   ignore(optimize_level)
   Ok(out)
-}
-
-///|
-pub fn createAsyncifyPass(
-  props? : AsyncifyPassProps = AsyncifyPassProps::new(),
-) -> ModulePass {
-  ModulePass::Asyncify(props)
 }
 
 ///|

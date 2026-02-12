@@ -1154,12 +1154,12 @@ fn precompute_ir_pass(
 }
 
 ///|
-pub fn createPrecomputePass() -> ModulePass {
+fn createPrecomputePass() -> ModulePass {
   ModulePass::Precompute
 }
 
 ///|
-pub fn createPrecomputePropagatePass() -> ModulePass {
+fn createPrecomputePropagatePass() -> ModulePass {
   ModulePass::PrecomputePropagate
 }
 

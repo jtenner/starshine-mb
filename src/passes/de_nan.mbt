@@ -558,7 +558,7 @@ fn make_denam64_func() -> Func {
 }
 
 ///|
-pub fn run_denam(m : @lib.Module) -> Result[@lib.Module, String] {
+fn run_denam(m : @lib.Module) -> Result[@lib.Module, String] {
   let env0 = Env::new().with_module(m)
   let imported = imported_func_count(m)
   let (existing_32, existing_64) = find_existing_denan_helpers(m)

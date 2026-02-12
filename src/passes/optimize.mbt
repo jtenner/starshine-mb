@@ -63,7 +63,7 @@ pub struct InliningOptions {
 }
 
 ///|
-pub fn InliningOptions::new(
+fn InliningOptions::new(
   always_inline_max_size? : Int = 2,
   one_caller_inline_max_size? : Int = -1,
   flexible_inline_max_size? : Int = 20,
@@ -92,7 +92,7 @@ pub struct OptimizeOptions {
 }
 
 ///|
-pub fn OptimizeOptions::new(
+fn OptimizeOptions::new(
   optimize_level? : Int = 0,
   shrink_level? : Int = 0,
   inlining? : InliningOptions = InliningOptions::new(),

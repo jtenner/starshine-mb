@@ -2,85 +2,14 @@
 package "jtenner/starshine/passes"
 
 import {
-  "jtenner/starshine/ir",
   "jtenner/starshine/lib",
-  "jtenner/starshine/transformer",
   "moonbitlang/core/hashmap",
-  "moonbitlang/core/set",
 }
 
 // Values
-pub fn alignment_lowering_pass(@lib.Module) -> @transformer.ModuleTransformer[@ir.IRContext]
-
-pub fn asyncify(@lib.Module, props? : AsyncifyPassProps, optimize_level? : Int) -> Result[@lib.Module, String]
-
-pub fn asyncify_apply_arguments(AsyncifyPassProps, Array[String]) -> Result[AsyncifyPassProps, String]
-
-pub fn code_folding_pass() -> @transformer.ModuleTransformer[CodeFoldingState]
-
-pub fn code_pushing_pass() -> @transformer.ModuleTransformer[Unit]
-
-pub fn const_hoisting_pass() -> @transformer.ModuleTransformer[ConstHoistingState]
-
-pub fn constant_field_propagation_pass() -> @transformer.ModuleTransformer[CFPState]
-
-pub fn createAsyncifyPass(props? : AsyncifyPassProps) -> ModulePass
-
-pub fn createOptimizeAddedConstantsPass() -> ModulePass
-
-pub fn createOptimizeAddedConstantsPropagatePass() -> ModulePass
-
-pub fn createPrecomputePass() -> ModulePass
-
-pub fn createPrecomputePropagatePass() -> ModulePass
-
-pub fn dataflow_optimization_pass(@lib.Module) -> @transformer.ModuleTransformer[@ir.IRContext]
-
-pub fn defs(@lib.TInstr) -> @set.Set[@lib.LocalIdx]
-
-pub fn directize_module(@lib.Module, Bool) -> Result[@lib.Module, String]
-
-pub fn global_type_optimization(@lib.Module) -> Result[@lib.Module, String]
-
-pub fn i64_to_i32_lowering(@lib.Module) -> Result[@lib.Module, String]
-
-pub fn lift_to_texpr_pass() -> @transformer.ModuleTransformer[Unit]
-
-pub fn lower_to_expr_pass() -> @transformer.ModuleTransformer[Unit]
-
-pub fn memory_packing(@lib.Module, MemoryPackingPassProps) -> Result[@lib.Module, String]
-
-pub fn minimize_rec_groups(@lib.Module) -> Result[@lib.Module, String]
-
-pub fn monomorphize(@lib.Module, options? : OptimizeOptions, always? : Bool) -> Result[@lib.Module, String]
-
-pub fn monomorphize_apply_arguments(OptimizeOptions, Array[String]) -> OptimizeOptions
-
-pub fn once_reduction(@lib.Module) -> Result[@lib.Module, String]
-
-pub fn optimize_casts(@lib.Module) -> @lib.Module
-
 pub fn optimize_module(@lib.Module, Array[ModulePass]) -> Result[@lib.Module, String]
 
 pub fn optimize_module_with_options(@lib.Module, Array[ModulePass], OptimizeOptions) -> Result[@lib.Module, String]
-
-pub fn propagate_to_supertypes(CFPState) -> Unit
-
-pub fn remove_unused(@lib.Module) -> Result[@lib.Module, String]
-
-pub fn remove_unused_brs(@lib.Module, options? : OptimizeOptions) -> Result[@lib.Module, String]
-
-pub fn run_constant_field_propagation(@lib.Module) -> Result[@lib.Module, String]
-
-pub fn run_denam(@lib.Module) -> Result[@lib.Module, String]
-
-pub fn run_lower_to_expr_pass(@lib.Module) -> @lib.Module
-
-pub fn run_memory_paacking_on_module(@lib.Module, MemoryPackingPassProps) -> Result[@lib.Module, String]
-
-pub fn run_memory_packing_on_module(@lib.Module, MemoryPackingPassProps) -> Result[@lib.Module, String]
-
-pub fn uses(@lib.TInstr) -> @set.Set[@lib.LocalIdx]
 
 // Errors
 
@@ -106,7 +35,6 @@ pub(all) struct AsyncifyPassProps {
   in_secondary_memory : Bool
   secondary_memory_size : UInt64
 }
-pub fn AsyncifyPassProps::new(imports? : Array[String], ignore_imports? : Bool, ignore_indirect? : Bool, asserts? : Bool, ignore_unwind_from_catch? : Bool, verbose? : Bool, memory? : String?, removelist? : Array[String], addlist? : Array[String], propagate_addlist? : Bool, onlylist? : Array[String], import_globals? : Bool, export_globals? : Bool, in_secondary_memory? : Bool, secondary_memory_size? : UInt64) -> Self
 
 type BlockLiveness
 pub impl Show for BlockLiveness
@@ -115,19 +43,14 @@ pub struct CFPState {
   field_values : @hashmap.HashMap[(Int, Int), FieldValue]
   type_sec : @lib.TypeSec?
 }
-pub fn CFPState::from_module(@lib.Module) -> Self
-pub fn CFPState::new() -> Self
 
 type CallSite
 pub impl Eq for CallSite
 pub impl Show for CallSite
 
-type CodeFoldingState
-
 pub struct ConstHoistingState {
   usage : Map[Literal, Int]
 }
-pub fn ConstHoistingState::new() -> Self
 
 type ConstKey
 pub impl Eq for ConstKey
@@ -162,16 +85,10 @@ pub struct InliningOptions {
   allow_functions_with_loops : Bool
   partial_inlining_ifs : Int
 }
-pub fn InliningOptions::new(always_inline_max_size? : Int, one_caller_inline_max_size? : Int, flexible_inline_max_size? : Int, max_combined_binary_size? : Int, allow_functions_with_loops? : Bool, partial_inlining_ifs? : Int) -> Self
 
 pub struct Literal(LiteralKind, Bytes)
 
 
-pub fn Literal::f32(Float) -> Self
-pub fn Literal::f64(Double) -> Self
-pub fn Literal::i32(Int) -> Self
-pub fn Literal::i64(Int64) -> Self
-pub fn Literal::v128(Bytes) -> Self
 pub impl Compare for Literal
 pub impl Eq for Literal
 pub impl Hash for Literal
@@ -224,7 +141,6 @@ pub(all) struct MemoryPackingPassProps {
   traps_never_happen : Bool
   max_data_segments : Int
 }
-pub fn MemoryPackingPassProps::new(zero_filled_memory? : Bool, traps_never_happen? : Bool, max_data_segments? : Int) -> Self
 
 pub(all) enum ModulePass {
   AbstractTypeRefining(AbstractTypeRefiningPassProps)
@@ -287,7 +203,6 @@ pub struct OptimizeOptions {
   low_memory_unused : Bool
   low_memory_bound : UInt64
 }
-pub fn OptimizeOptions::new(optimize_level? : Int, shrink_level? : Int, inlining? : InliningOptions, monomorphize_min_benefit? : Int, low_memory_unused? : Bool, low_memory_bound? : UInt64) -> Self
 
 type ParamInfo
 pub impl Eq for ParamInfo
@@ -298,9 +213,6 @@ pub struct SquareMatrix[T] {
   storage : Map[UInt64, T]
   n : UInt
 }
-pub fn[T] SquareMatrix::get_or(Self[T], T, UInt, UInt) -> Result[T, String]
-pub fn[T : Default] SquareMatrix::get_or_default(Self[T], UInt, UInt) -> Result[T, String]
-pub fn[T] SquareMatrix::new(size? : UInt) -> Self[T]
 
 type Tail
 pub impl Eq for Tail

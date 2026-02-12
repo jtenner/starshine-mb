@@ -766,7 +766,7 @@ fn or_cleanup_once_bodies(mod : Module, info : OROptInfo) -> Module {
 }
 
 ///|
-pub fn once_reduction(mod : Module) -> Result[Module, String] {
+fn once_reduction(mod : Module) -> Result[Module, String] {
   let mut mod = mod
   let info = {
     once_globals: Map::new(),

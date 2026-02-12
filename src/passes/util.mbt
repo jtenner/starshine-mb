@@ -5,7 +5,7 @@ pub struct SquareMatrix[T] {
 }
 
 ///|
-pub fn[T] SquareMatrix::new(size? : UInt = 0) -> Self[T] {
+fn[T] SquareMatrix::new(size? : UInt = 0) -> Self[T] {
   SquareMatrix::{
     storage: Map::new(capacity=(size * size).reinterpret_as_int()),
     n: size,
@@ -13,7 +13,7 @@ pub fn[T] SquareMatrix::new(size? : UInt = 0) -> Self[T] {
 }
 
 ///|
-pub fn[T] SquareMatrix::get_or(
+fn[T] SquareMatrix::get_or(
   self : SquareMatrix[T],
   or : T,
   x : UInt,
@@ -32,16 +32,7 @@ pub fn[T] SquareMatrix::get_or(
 }
 
 ///|
-pub fn[T : Default] SquareMatrix::get_or_default(
-  self : SquareMatrix[T],
-  x : UInt,
-  y : UInt,
-) -> Result[T, String] {
-  SquareMatrix::get_or(self, T::default(), x, y)
-}
-
-///|
-pub fn uses(instr : TInstr) -> Set[LocalIdx] {
+fn uses(instr : TInstr) -> Set[LocalIdx] {
   let result = Set::new()
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, i) {
     match i {
@@ -55,7 +46,7 @@ pub fn uses(instr : TInstr) -> Set[LocalIdx] {
 }
 
 ///|
-pub fn defs(instr : TInstr) -> Set[LocalIdx] {
+fn defs(instr : TInstr) -> Set[LocalIdx] {
   let result = Set::new()
   match instr {
     TInstr::TLocalSet(idx, _) => result.add(idx)

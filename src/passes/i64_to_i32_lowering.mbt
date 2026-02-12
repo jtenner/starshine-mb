@@ -2727,7 +2727,7 @@ fn i64l_rewrite_globals(
 }
 
 ///|
-pub fn i64_to_i32_lowering(mod : Module) -> Result[Module, String] {
+fn i64_to_i32_lowering(mod : Module) -> Result[Module, String] {
   let old_func_types = i64l_collect_old_func_types(mod)
   let old_type_func_types = i64l_collect_old_type_func_types(mod)
   let mod = match i64l_lower_type_sec(mod) {

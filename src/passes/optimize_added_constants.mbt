@@ -889,16 +889,6 @@ fn optimize_added_constants_ir_pass(
 }
 
 ///|
-pub fn createOptimizeAddedConstantsPass() -> ModulePass {
-  ModulePass::OptimizeAddedConstants
-}
-
-///|
-pub fn createOptimizeAddedConstantsPropagatePass() -> ModulePass {
-  ModulePass::OptimizeAddedConstantsPropagate
-}
-
-///|
 fn oac_run_func(
   body : Array[TInstr],
   locals? : Array[ValType] = [],

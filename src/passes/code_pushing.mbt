@@ -892,7 +892,7 @@ fn push_code_in_block(list : Array[TInstr], state : PushingState) -> Unit {
 
 ///|
 /// Main code pushing pass
-pub fn code_pushing_pass() -> ModuleTransformer[Unit] {
+fn code_pushing_pass() -> ModuleTransformer[Unit] {
   ModuleTransformer::new().on_func_evt(fn(_self, _state, func) {
     match func {
       Func(_, _) => unchanged()

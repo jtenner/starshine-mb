@@ -1880,7 +1880,7 @@ fn remove_unused_non_function_elements(mod : Module) -> Result[Module, String] {
 }
 
 ///|
-pub fn remove_unused(mod : Module) -> Result[Module, String] {
+fn remove_unused(mod : Module) -> Result[Module, String] {
   remove_unused_with_props(mod, RemoveUnusedProps::new())
 }
 

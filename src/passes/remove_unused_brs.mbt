@@ -694,7 +694,7 @@ fn remove_unused_brs_pass(options : OptimizeOptions) -> ModuleTransformer[Bool] 
 }
 
 ///|
-pub fn remove_unused_brs(
+fn remove_unused_brs(
   mod : Module,
   options? : OptimizeOptions = OptimizeOptions::new(),
 ) -> Result[Module, String] {
