@@ -108,7 +108,7 @@ This repository is intended for compiler and tooling work around WebAssembly 3.0
 
 ### `jtenner/starshine/ir`
 - `build_cfg(texpr)`
-- `cfg_to_ssa(...)`, `ssa_to_cfg(...)`
+- `cfg.to_ssa(...)`, `ssa.to_cfg(...)`
 - `build_use_def(ssa_cfg)`
 - `compute_liveness(ssa_cfg)`
 - `run_gvn(ssa_cfg, idom)`

@@ -47,13 +47,13 @@ fn get_ssa_successors(term : SSATerminator) -> Array[BlockId] {
 
 ///|
 /// Split critical edges by inserting intermediate blocks
-pub fn split_critical_edges(cfg : SSACFG) -> SSACFG {
+pub fn SSACFG::split_critical_edges(self : SSACFG) -> SSACFG {
   let new_blocks : Map[BlockId, SSABlock] = Map::new()
   let new_preds : Map[BlockId, Array[BlockId]] = Map::new()
   let mut next_id = 0
 
   // Find max block id
-  for entry in cfg.blocks {
+  for entry in self.blocks {
     let (BlockId(id), _) = entry
     if id >= next_id {
       next_id = id + 1
@@ -64,11 +64,11 @@ pub fn split_critical_edges(cfg : SSACFG) -> SSACFG {
   let split_blocks : Map[(BlockId, BlockId), BlockId] = Map::new()
 
   // First pass: identify critical edges
-  for entry in cfg.blocks {
+  for entry in self.blocks {
     let (block_id, block) = entry
     let succs = get_ssa_successors(block.terminator)
     for succ in succs {
-      if is_critical_edge(cfg, block_id, succ) {
+      if is_critical_edge(self, block_id, succ) {
         let new_id = BlockId(next_id)
         next_id = next_id + 1
         split_blocks[(block_id, succ)] = new_id
@@ -77,7 +77,7 @@ pub fn split_critical_edges(cfg : SSACFG) -> SSACFG {
   }
 
   // Second pass: create new blocks and update terminators
-  for entry in cfg.blocks {
+  for entry in self.blocks {
     let (block_id, block) = entry
 
     // Update terminator to point to split blocks
@@ -141,43 +141,41 @@ pub fn split_critical_edges(cfg : SSACFG) -> SSACFG {
     }
   }
   SSACFG::{
-    entry: cfg.entry,
+    entry: self.entry,
     blocks: new_blocks,
     preds: new_preds,
-    param_values: cfg.param_values,
-    next_value: cfg.next_value,
+    param_values: self.param_values,
+    next_value: self.next_value,
   }
 }
 
 ///|
 /// Convert SSA back to CFG with explicit locals
-pub fn ssa_to_cfg(ssa : SSACFG, param_count : Int) -> CFG {
+pub fn SSACFG::to_cfg(self : SSACFG, param_count : Int) -> CFG {
   let destructor = SSADestructor::new(param_count)
   let blocks : Map[BlockId, BasicBlock] = Map::new()
 
   // First pass: assign locals to all SSA values
-  for entry in ssa.param_values {
+  for entry in self.param_values {
     let (local_idx, val) = entry
     destructor.value_to_local[val] = local_idx
   }
 
   // Assign locals to all defined values
-  for entry in ssa.blocks {
+  for entry in self.blocks {
     let (_, block) = entry
     for phi in block.phis {
       let _ = destructor.get_local(phi.result)
-
     }
     for instr in block.instrs {
       if instr is SSAInstr::Assign(result, _) {
-        let _ = destructor.get_local(result)
-
+        ignore(destructor.get_local(result))
       }
     }
   }
 
   // Second pass: convert blocks
-  for entry in ssa.blocks {
+  for entry in self.blocks {
     let (block_id, block) = entry
     let instrs : Array[TInstr] = []
 
@@ -205,7 +203,7 @@ pub fn ssa_to_cfg(ssa : SSACFG, param_count : Int) -> CFG {
   }
 
   // Third pass: insert phi copies at end of predecessor blocks
-  for entry in ssa.blocks {
+  for entry in self.blocks {
     let (_, block) = entry
     for phi in block.phis {
       let dest_local = destructor.get_local(phi.result)
@@ -222,7 +220,7 @@ pub fn ssa_to_cfg(ssa : SSACFG, param_count : Int) -> CFG {
     }
   }
   let preds = compute_predecessors(blocks)
-  CFG::{ entry: ssa.entry, blocks, preds }
+  CFG::{ entry: self.entry, blocks, preds }
 }
 
 ///|

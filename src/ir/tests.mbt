@@ -1,8 +1,8 @@
 ///|
-test "build_cfg from simple expression" {
+test "CFG::build from simple expression" {
   // Simple constant return
   let expr = TExpr::new([TInstr::return_([TInstr::i32_const(42)])])
-  let cfg = build_cfg(expr)
+  let cfg = CFG::build(expr)
 
   // Should have an entry block
   assert_true(cfg.block(cfg.entry()) is Some(_))
@@ -12,7 +12,7 @@ test "build_cfg from simple expression" {
 }
 
 ///|
-test "build_cfg with conditional branch" {
+test "CFG::build with conditional branch" {
   // if (local.get 0) { return 1 } else { return 0 }
   let expr = TExpr::new([
     TInstr::if_(
@@ -23,14 +23,14 @@ test "build_cfg with conditional branch" {
     ),
     TInstr::return_([]),
   ])
-  let cfg = build_cfg(expr)
+  let cfg = CFG::build(expr)
   assert_eq(cfg.validate(), Ok(()))
   // Should have multiple blocks for the if/else
   assert_true(cfg.blocks.length() >= 2)
 }
 
 ///|
-test "build_cfg with loop" {
+test "CFG::build with loop" {
   // loop { br 0 }
   let expr = TExpr::new([
     TInstr::loop_(
@@ -38,14 +38,14 @@ test "build_cfg with loop" {
       TExpr::new([TInstr::br(LabelIdx::new(0), [])]),
     ),
   ])
-  let cfg = build_cfg(expr)
+  let cfg = CFG::build(expr)
   assert_eq(cfg.validate(), Ok(()))
 }
 
 ///|
 test "cfg dominators" {
   let expr = TExpr::new([TInstr::return_([TInstr::i32_const(0)])])
-  let cfg = build_cfg(expr)
+  let cfg = CFG::build(expr)
   let _ = cfg.dominators()
 
   // Entry block should dominate itself
@@ -64,7 +64,7 @@ test "cfg dominance frontier" {
     ),
     TInstr::return_([TInstr::i32_const(0)]),
   ])
-  let cfg = build_cfg(expr)
+  let cfg = CFG::build(expr)
   let df = cfg.dominance_frontier()
 
   // Should compute dominance frontier for all blocks
@@ -79,10 +79,10 @@ test "cfg_to_ssa conversion" {
     TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(42)),
     TInstr::return_([TInstr::local_get(LocalIdx::new(0))]),
   ])
-  let cfg = build_cfg(expr)
+  let cfg = CFG::build(expr)
   let doms = cfg.dominators()
   let df = cfg.dominance_frontier()
-  let ssa_cfg = cfg_to_ssa(cfg, doms, df, 1) // 1 local
+  let ssa_cfg = cfg.to_ssa(doms, df, 1) // 1 local
 
   // SSA should preserve entry
   assert_eq(ssa_cfg.entry, cfg.entry())
@@ -94,11 +94,11 @@ test "ssa_to_cfg roundtrip" {
     TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(42)),
     TInstr::return_([TInstr::local_get(LocalIdx::new(0))]),
   ])
-  let cfg = build_cfg(expr)
+  let cfg = CFG::build(expr)
   let doms = cfg.dominators()
   let df = cfg.dominance_frontier()
-  let ssa_cfg = cfg_to_ssa(cfg, doms, df, 1)
-  let cfg2 = ssa_to_cfg(ssa_cfg, 1)
+  let ssa_cfg = cfg.to_ssa(doms, df, 1)
+  let cfg2 = ssa_cfg.to_cfg(1)
   assert_eq(cfg2.validate(), Ok(()))
 }
 
@@ -109,17 +109,16 @@ test "compute_liveness" {
     TInstr::local_set(LocalIdx::new(1), TInstr::local_get(LocalIdx::new(0))),
     TInstr::return_([TInstr::local_get(LocalIdx::new(1))]),
   ])
-  let cfg = build_cfg(expr)
+  let cfg = CFG::build(expr)
   let doms = cfg.dominators()
   let df = cfg.dominance_frontier()
-  let ssa_cfg = cfg_to_ssa(cfg, doms, df, 2)
-  let liveness = compute_liveness(ssa_cfg)
+  let ssa_cfg = cfg.to_ssa(doms, df, 2)
+  let liveness = ssa_cfg.compute_liveness()
 
   // Should have liveness info for all blocks
   for block_id in ssa_cfg.blocks.keys() {
     let _ = liveness.get_live_in(block_id)
     let _ = liveness.get_live_out(block_id)
-
   }
 }
 
@@ -135,11 +134,11 @@ test "build_use_def" {
       ),
     ]),
   ])
-  let cfg = build_cfg(expr)
+  let cfg = CFG::build(expr)
   let doms = cfg.dominators()
   let df = cfg.dominance_frontier()
-  let ssa_cfg = cfg_to_ssa(cfg, doms, df, 1)
-  let use_def = build_use_def(ssa_cfg)
+  let ssa_cfg = cfg.to_ssa(doms, df, 1)
+  let use_def = ssa_cfg.build_use_def()
 
   // Check that param values have definitions
   for entry in ssa_cfg.param_values {
@@ -160,14 +159,14 @@ test "split_critical_edges" {
     ),
     TInstr::return_([TInstr::i32_const(0)]),
   ])
-  let cfg = build_cfg(expr)
+  let cfg = CFG::build(expr)
   let doms = cfg.dominators()
   let df = cfg.dominance_frontier()
-  let ssa_cfg = cfg_to_ssa(cfg, doms, df, 1)
-  let split_cfg = split_critical_edges(ssa_cfg)
+  let ssa_cfg = cfg.to_ssa(doms, df, 1)
+  let split_cfg = ssa_cfg.split_critical_edges()
 
   // Should still be valid
-  let back_to_cfg = ssa_to_cfg(split_cfg, 1)
+  let back_to_cfg = split_cfg.to_cfg(1)
   assert_eq(back_to_cfg.validate(), Ok(()))
 }
 
@@ -185,14 +184,14 @@ test "run_gvn optimization" {
       ),
     ]),
   ])
-  let cfg = build_cfg(expr)
+  let cfg = CFG::build(expr)
   let doms = cfg.dominators()
   let df = cfg.dominance_frontier()
-  let ssa_cfg = cfg_to_ssa(cfg, doms, df, 2)
+  let ssa_cfg = cfg.to_ssa(doms, df, 2)
   let optimized = run_gvn(ssa_cfg, doms)
 
   // Should still produce valid CFG
-  let back_to_cfg = ssa_to_cfg(optimized, 2)
+  let back_to_cfg = optimized.to_cfg(2)
   assert_eq(back_to_cfg.validate(), Ok(()))
 }
 
@@ -241,10 +240,10 @@ test "infer_ssa_types" {
     TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(42)),
     TInstr::return_([TInstr::local_get(LocalIdx::new(0))]),
   ])
-  let cfg = build_cfg(expr)
+  let cfg = CFG::build(expr)
   let doms = cfg.dominators()
   let df = cfg.dominance_frontier()
-  let ssa_cfg = cfg_to_ssa(cfg, doms, df, 1)
+  let ssa_cfg = cfg.to_ssa(doms, df, 1)
   let type_ctx : TypeContext = {
     func_types: [],
     global_types: [],
@@ -269,11 +268,11 @@ test "UseDefInfo dead code detection" {
     TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(100)), // Potentially dead if not used
     TInstr::return_([TInstr::i32_const(0)]),
   ])
-  let cfg = build_cfg(expr)
+  let cfg = CFG::build(expr)
   let doms = cfg.dominators()
   let df = cfg.dominance_frontier()
-  let ssa_cfg = cfg_to_ssa(cfg, doms, df, 1)
-  let use_def = build_use_def(ssa_cfg)
+  let ssa_cfg = cfg.to_ssa(doms, df, 1)
+  let use_def = ssa_cfg.build_use_def()
 
   // Find values and check if any are dead
   for block in ssa_cfg.blocks.values() {
@@ -283,7 +282,6 @@ test "UseDefInfo dead code detection" {
           let is_dead = use_def.is_dead(val)
           // Just verify the method works
           let _ = is_dead
-
         }
         Effect(_) => ()
       }
@@ -302,7 +300,7 @@ test "CFG predecessors and successors" {
     ),
     TInstr::return_([TInstr::i32_const(0)]),
   ])
-  let cfg = build_cfg(expr)
+  let cfg = CFG::build(expr)
 
   // Entry should have no predecessors
   assert_eq(cfg.predecessors(cfg.entry()).length(), 0)
@@ -319,11 +317,11 @@ test "LivenessInfo queries" {
     TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(1)),
     TInstr::return_([TInstr::local_get(LocalIdx::new(0))]),
   ])
-  let cfg = build_cfg(expr)
+  let cfg = CFG::build(expr)
   let doms = cfg.dominators()
   let df = cfg.dominance_frontier()
-  let ssa_cfg = cfg_to_ssa(cfg, doms, df, 1)
-  let liveness = compute_liveness(ssa_cfg)
+  let ssa_cfg = cfg.to_ssa(doms, df, 1)
+  let liveness = ssa_cfg.compute_liveness()
   let entry = ssa_cfg.entry
   let _ = liveness.get_live_in(entry)
   let _ = liveness.get_live_out(entry)
@@ -333,6 +331,5 @@ test "LivenessInfo queries" {
     let (_, val) = entry
     let _ = liveness.is_live_in(ssa_cfg.entry, val)
     let _ = liveness.is_live_out(ssa_cfg.entry, val)
-
   }
 }

@@ -534,13 +534,11 @@ fn WastParser::expect(
 ///|
 fn WastParser::expect_lpar(self : WastParser) -> Unit raise ParserError {
   let _ = self.expect(Lpar, "expected '('")
-
 }
 
 ///|
 fn WastParser::expect_rpar(self : WastParser) -> Unit raise ParserError {
   let _ = self.expect(Rpar, "expected ')'")
-
 }
 
 ///|
@@ -901,7 +899,7 @@ fn WastParser::parse_folded_instruction(
         self.expect_rpar()
       }
       let has_folded_then = self.check(Lpar) &&
-        {
+        ({
           let saved = self.save_lexer_state()
           let saved_token = self.current
           self.expect_lpar()
@@ -909,7 +907,7 @@ fn WastParser::parse_folded_instruction(
           self.restore_lexer_state(saved)
           self.current = saved_token
           is_then
-        }
+        })
       let mut then_body : Array[Instruction] = []
       let mut else_body : Array[Instruction] = []
       if has_folded_then {
@@ -940,7 +938,6 @@ fn WastParser::parse_folded_instruction(
           []
         }
         let _ = self.expect(End, "expected 'end'")
-
       }
       result.push(If(block_type, then_body, else_body))
       result
@@ -1044,7 +1041,6 @@ fn WastParser::try_parse_plain_instruction(
       // Only expect 'end' for flat form (no explicit then/else blocks)
       if not(used_explicit_syntax) {
         let _ = self.expect(End, "expected 'end'")
-
       }
       Some(If(block_type, then_body, else_body))
     }
@@ -2008,7 +2004,6 @@ fn WastParser::parse_module_def(
   // Skip optional id
   if self.current.token_type is Var {
     let _ = self.advance()
-
   }
   match self.current.token_type {
     Binary => {
@@ -2097,7 +2092,6 @@ fn WastParser::parse_data(self : WastParser) -> DataSegment raise ParserError {
     self.expect_lpar()
     if self.check(Offset) {
       let _ = self.advance()
-
     }
     let instrs = self.parse_instructions()
     self.expect_rpar()
@@ -2133,7 +2127,6 @@ fn WastParser::parse_elem(self : WastParser) -> ElemSegment raise ParserError {
     self.expect_lpar()
     if self.check(Offset) {
       let _ = self.advance()
-
     }
     let instrs = self.parse_instructions()
     self.expect_rpar()

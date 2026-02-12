@@ -27,7 +27,6 @@ fn DominatorGVN::push_scope(self : DominatorGVN) -> Unit {
 fn DominatorGVN::pop_scope(self : DominatorGVN) -> Unit {
   if self.scope_stack.length() > 1 {
     let _ = self.scope_stack.pop()
-
   }
 }
 
@@ -67,7 +66,6 @@ pub fn DominatorGVN::process_node(
       match graph.node_store.get(v) {
         Some(operand_node) => {
           let _ = self.process_node(graph, operand_node)
-
         }
         None => ()
       }

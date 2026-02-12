@@ -1,5 +1,5 @@
 ///|
-pub fn build_use_def(cfg : SSACFG) -> UseDefInfo {
+pub fn SSACFG::build_use_def(cfg : SSACFG) -> UseDefInfo {
   let defs : Map[SSAValue, (BlockId, SSADef)] = Map::new()
   let uses : Map[SSAValue, Array[SSAUse]] = Map::new()
 

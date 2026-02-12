@@ -60,9 +60,7 @@ fn Literal::v128(
   o : Byte,
   p : Byte,
 ) -> Literal {
-  let val = Bytes::from_array([
-    a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p,
-  ])
+  let val = Bytes::from_array([a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p])
   Literal(V128LiteralKind, val)
 }
 

@@ -38,7 +38,6 @@ fn SSABuilder::restore_checkpoint(self : SSABuilder, checkpoint : Int) -> Unit {
   while self.pushed_per_block.length() > checkpoint {
     let (l, _) = self.pushed_per_block.pop().unwrap()
     let _ = self.stacks[l].pop()
-
   }
 }
 
@@ -1417,7 +1416,6 @@ fn rename_block(
   let instrs : Array[SSAInstr] = []
   for instr in block.instrs {
     let _ = rename_instr(instr, builder, instrs)
-
   }
 
   // Rename terminator
@@ -1555,8 +1553,8 @@ fn fill_phi_args(
 // ============================================
 
 ///|
-pub fn cfg_to_ssa(
-  cfg : CFG,
+pub fn CFG::to_ssa(
+  self : CFG,
   dom : Map[BlockId, BlockId],
   df : Map[BlockId, Set[BlockId]],
   param_count : Int,
@@ -1573,11 +1571,11 @@ pub fn cfg_to_ssa(
   }
 
   // Place phi nodes
-  let phi_placements = place_phi_nodes(cfg, df)
+  let phi_placements = place_phi_nodes(self, df)
 
   // Build dominator tree (children map)
   let dom_children : Map[BlockId, Array[BlockId]] = Map::new()
-  for entry in cfg.blocks {
+  for entry in self.blocks {
     let (id, _) = entry
     dom_children[id] = []
   }
@@ -1594,8 +1592,8 @@ pub fn cfg_to_ssa(
   // Rename variables via DFS
   let ssa_blocks : Map[BlockId, SSABlock] = Map::new()
   rename_block(
-    cfg,
-    cfg.entry,
+    self,
+    self.entry,
     builder,
     phi_placements,
     dom_children,
@@ -1612,17 +1610,17 @@ pub fn cfg_to_ssa(
     }
   }
   fill_phi_args(
-    cfg,
+    self,
     ssa_blocks,
     phi_placements,
     builder2,
     dom_children,
-    cfg.entry,
+    self.entry,
   )
   SSACFG::{
-    entry: cfg.entry,
+    entry: self.entry,
     blocks: ssa_blocks,
-    preds: cfg.preds,
+    preds: self.preds,
     param_values,
     next_value: builder.next_value,
   }

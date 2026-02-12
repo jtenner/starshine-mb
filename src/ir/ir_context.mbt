@@ -52,7 +52,7 @@ pub fn IRContext::get_cfg(self : Self) -> CFG {
   match self.cfg {
     Some(val) => val
     None => {
-      let cfg = build_cfg(self.body)
+      let cfg = CFG::build(self.body)
       self.cfg = Some(cfg)
       cfg
     }
@@ -67,8 +67,8 @@ pub fn IRContext::get_ssa(self : Self) -> SSACFG {
       let cfg = self.get_cfg()
       let doms = cfg.dominators()
       let df = cfg.dominance_frontier()
-      let ssa = cfg_to_ssa(cfg, doms, df, self.locals.length())
-      let ssa = split_critical_edges(ssa)
+      let ssa = cfg.to_ssa(doms, df, self.locals.length())
+      let ssa = ssa.split_critical_edges()
       self.ssa = Some(ssa)
       ssa
     }
@@ -81,7 +81,7 @@ pub fn IRContext::get_usedef(self : Self) -> UseDefInfo {
     Some(val) => val
     None => {
       let ssa = self.get_ssa()
-      let ud = build_use_def(ssa)
+      let ud = ssa.build_use_def()
       self.usedef = Some(ud)
       ud
     }
@@ -94,7 +94,7 @@ pub fn IRContext::get_liveness(self : Self) -> LivenessInfo {
     Some(val) => val
     None => {
       let ssa = self.get_ssa()
-      let li = compute_liveness(ssa)
+      let li = ssa.compute_liveness()
       self.liveness = Some(li)
       li
     }
@@ -184,7 +184,7 @@ pub fn IRContext::local_graph_dirty(self : Self) -> Unit {
 /// Lowers the (possibly GVN-optimized) SSA back to a CFG.
 pub fn IRContext::lower_to_cfg(self : Self) -> CFG {
   let ssa = self.get_gvn()
-  ssa_to_cfg(ssa, self.locals.length())
+  ssa.to_cfg(self.locals.length())
 }
 
 ///|
@@ -204,7 +204,7 @@ pub fn IRContext::apply_gvn(self : Self) -> Unit {
 /// Applies SSA optimization, updates cached SSA, and invalidates downstream
 /// analyses that depend on SSA contents.
 pub fn IRContext::apply_ssa_optimize(self : Self) -> Unit {
-  let optimized = optimize_ssa(self.get_ssa())
+  let optimized = self.get_ssa().optimize()
   self.ssa = Some(optimized)
   self.gvn = None
   self.usedef = None
@@ -585,7 +585,7 @@ fn cfg_to_texpr(cfg : CFG) -> TExpr? {
 pub fn IRContext::optimize_body_with_ssa(self : Self) -> TExpr? {
   self.apply_ssa_optimize()
   let ssa = self.get_ssa()
-  let cfg = ssa_to_cfg(ssa, self.locals.length())
+  let cfg = ssa.to_cfg(self.locals.length())
   cfg_to_texpr(cfg)
 }
 

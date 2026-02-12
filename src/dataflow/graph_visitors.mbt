@@ -17,7 +17,6 @@ pub fn Graph::do_visit_block(
   // Visit all children
   for child in block.list {
     let _ = self.visit(child)
-
   }
   // Merge the outputs
   match block.name {
@@ -168,7 +167,6 @@ pub fn Graph::do_visit_break(self : Graph, brk : BreakExpr) -> NodeId {
     None => self.set_in_unreachable()
     Some(cond) => {
       let _ = self.visit(cond)
-
     }
   }
   self.bad()
@@ -431,7 +429,6 @@ pub fn Graph::do_visit_generic(
   }
   for child in children {
     let _ = self.visit(child)
-
   }
   self.make_var(expr.get_type())
 }

@@ -1655,8 +1655,8 @@ fn optimize_phi(ctx : SSAOptCtx, phi : PhiNode) -> Unit {
 
 ///|
 /// Run SSA optimization passes until convergence
-pub fn optimize_ssa(ssa : SSACFG) -> SSACFG {
-  let mut current = ssa
+pub fn SSACFG::optimize(self : SSACFG) -> SSACFG {
+  let mut current = self
 
   // Limit iterations to avoid pathological cases
   for _iter = 0; _iter < 10; _iter = _iter + 1 {

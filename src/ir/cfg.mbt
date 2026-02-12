@@ -175,7 +175,7 @@ fn compute_rpo(cfg : CFG) -> Array[BlockId] {
 }
 
 ///|
-pub fn build_cfg(expr : TExpr) -> CFG {
+pub fn CFG::build(expr : TExpr) -> CFG {
   let builder = CFGBuilder::new()
   let entry = builder.block()
   let entry_ctx = BlockContext::{ id: entry, instrs: [] }

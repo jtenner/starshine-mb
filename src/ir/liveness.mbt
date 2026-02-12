@@ -298,14 +298,14 @@ fn get_block_successors(term : SSATerminator) -> Array[BlockId] {
 
 ///|
 /// Compute liveness using iterative dataflow analysis
-pub fn compute_liveness(cfg : SSACFG) -> LivenessInfo {
+pub fn SSACFG::compute_liveness(self : SSACFG) -> LivenessInfo {
   let live_in : Map[BlockId, Set[SSAValue]] = Map::new()
   let live_out : Map[BlockId, Set[SSAValue]] = Map::new()
 
   // Precompute use/def sets for each block
   let block_uses : Map[BlockId, Set[SSAValue]] = Map::new()
   let block_defs : Map[BlockId, Set[SSAValue]] = Map::new()
-  for entry in cfg.blocks {
+  for entry in self.blocks {
     let (id, block) = entry
     let (uses, defs) = compute_block_use_def(block)
     block_uses[id] = uses
@@ -317,7 +317,7 @@ pub fn compute_liveness(cfg : SSACFG) -> LivenessInfo {
   // Add phi uses to predecessor's live_out
   // (handled specially - phi args are live at end of corresponding predecessor)
   let phi_uses : Map[BlockId, Map[BlockId, Set[SSAValue]]] = Map::new()
-  for entry in cfg.blocks {
+  for entry in self.blocks {
     let (id, block) = entry
     for phi in block.phis {
       for arg_entry in phi.args {
@@ -336,7 +336,7 @@ pub fn compute_liveness(cfg : SSACFG) -> LivenessInfo {
     changed = false
 
     // Process all blocks (could use reverse postorder for efficiency)
-    for entry in cfg.blocks {
+    for entry in self.blocks {
       let (id, block) = entry
 
       // live_out[B] = union of live_in[S] for all successors S

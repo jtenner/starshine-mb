@@ -141,7 +141,6 @@ fn PhiWebGVN::initialize(self : PhiWebGVN, graph : Graph) -> Unit {
     } else {
       // Non-phi nodes start in their own class
       let _ = self.congruence.find(node.id)
-
     }
   }
 

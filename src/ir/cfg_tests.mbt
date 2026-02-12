@@ -9,7 +9,7 @@ test "build_cfg lowers if into branch blocks and merge" {
     ),
     TInstr::nop(),
   ])
-  let cfg = build_cfg(expr)
+  let cfg = CFG::build(expr)
   let entry = cfg.entry()
   let entry_succs = cfg.successors(entry)
   assert_eq(entry_succs.length(), 2)

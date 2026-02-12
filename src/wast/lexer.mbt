@@ -234,7 +234,6 @@ fn WastLexer::read_line_comment(self : WastLexer) -> Bool {
         // '\r'
         if self.peek_char() == 0x0A {
           let _ = self.read_char()
-
         }
         self.newline()
         return true
@@ -257,7 +256,6 @@ fn WastLexer::read_whitespace(self : WastLexer) -> Unit {
       0x20 | 0x09 | 0x0D => {
         // ' ', '\t', '\r'
         let _ = self.read_char()
-
       }
       0x0A => {
         // '\n'
@@ -305,7 +303,6 @@ fn WastLexer::read_sign(self : WastLexer) -> Unit {
   if c == 0x2B || c == 0x2D {
     // '+' or '-'
     let _ = self.read_char()
-
   }
 }
 
@@ -373,7 +370,6 @@ fn WastLexer::get_string_token(self : WastLexer) -> Token {
           c if is_hex_digit(c) =>
             if is_hex_digit(self.peek_char()) {
               let _ = self.read_char()
-
             } else {
               self.token_start = self.cursor - 2
               self.error("bad escape")

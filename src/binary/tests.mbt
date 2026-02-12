@@ -265,13 +265,11 @@ test "Heap Types" {
 ///|
 test "Type Indexes" {
   let _ : Array[TypeIdx] = roundtrip_arbitrary(50)
-
 }
 
 ///|
 test "Ref Types" {
   let _ : Array[RefType] = roundtrip_arbitrary(20)
-
 }
 
 ///|
@@ -298,13 +296,11 @@ test "Comp Types" {
     ]),
   )
   let _ : Array[CompType] = roundtrip_arbitrary(30)
-
 }
 
 ///|
 test "Storage Type" {
   let _ : Array[StorageType] = roundtrip_arbitrary(30)
-
 }
 
 ///|
@@ -334,49 +330,41 @@ test "SubTypes" {
 ///|
 test "SubTypes arbitrary" {
   let _ : Array[SubType] = roundtrip_arbitrary(100)
-
 }
 
 ///|
 test "RecTypes arbitrary" {
   let _ : Array[RecType] = roundtrip_arbitrary(100)
-
 }
 
 ///|
 test "TagTypes arbitrary" {
   let _ : Array[TagType] = roundtrip_arbitrary(100)
-
 }
 
 ///|
 test "MemTypes arbitrary" {
   let _ : Array[MemType] = roundtrip_arbitrary(100)
-
 }
 
 ///|
 test "TableTypes arbitrary" {
   let _ : Array[TableType] = roundtrip_arbitrary(100)
-
 }
 
 ///|
 test "ExternTypes arbitrary" {
   let _ : Array[TableType] = roundtrip_arbitrary(100)
-
 }
 
 ///|
 test "MemArg arbitrary" {
   let _ : Array[MemArg] = roundtrip_arbitrary(100)
-
 }
 
 ///|
 test "LaneIdx" {
   let _ : Array[LaneIdx] = roundtrip_arbitrary(100)
-
 }
 
 ///|
@@ -387,25 +375,21 @@ test "Float specific edge case?" {
 ///|
 test "Floats arbitrary" {
   let _ : Array[F32] = roundtrip_arbitrary(10000)
-
 }
 
 ///|
 test "Doubles arbitrary" {
   let _ : Array[F64] = roundtrip_arbitrary(10000)
-
 }
 
 ///|
 test "Signed integers" {
   let _ : Array[I64] = roundtrip_arbitrary(100000)
-
 }
 
 ///|
 test "Block Types" {
   let _ : Array[BlockType] = roundtrip_arbitrary(1000)
-
 }
 
 ///|

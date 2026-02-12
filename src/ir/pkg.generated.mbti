@@ -7,23 +7,9 @@ import {
 }
 
 // Values
-pub fn build_cfg(@lib.TExpr) -> CFG
-
-pub fn build_use_def(SSACFG) -> UseDefInfo
-
-pub fn cfg_to_ssa(CFG, Map[BlockId, BlockId], Map[BlockId, @set.Set[BlockId]], Int) -> SSACFG
-
-pub fn compute_liveness(SSACFG) -> LivenessInfo
-
 pub fn infer_ssa_types(SSACFG, TypeContext) -> SSATypeInfo
 
-pub fn optimize_ssa(SSACFG) -> SSACFG
-
 pub fn run_gvn(SSACFG, Map[BlockId, BlockId]) -> SSACFG
-
-pub fn split_critical_edges(SSACFG) -> SSACFG
-
-pub fn ssa_to_cfg(SSACFG, Int) -> CFG
 
 // Errors
 
@@ -49,6 +35,7 @@ pub struct CFG {
   preds : Map[BlockId, Array[BlockId]]
 }
 pub fn CFG::block(Self, BlockId) -> BasicBlock?
+pub fn CFG::build(@lib.TExpr) -> Self
 pub fn CFG::dominance_frontier(Self) -> Map[BlockId, @set.Set[BlockId]]
 pub fn CFG::dominates(Self, BlockId, BlockId) -> Bool
 pub fn CFG::dominators(Self) -> Map[BlockId, BlockId]
@@ -56,6 +43,7 @@ pub fn CFG::entry(Self) -> BlockId
 pub fn CFG::predecessors(Self, BlockId) -> Array[BlockId]
 pub fn CFG::strict_dominates(Self, BlockId, BlockId) -> Bool
 pub fn CFG::successors(Self, BlockId) -> Array[BlockId]
+pub fn CFG::to_ssa(Self, Map[BlockId, BlockId], Map[BlockId, @set.Set[BlockId]], Int) -> SSACFG
 pub fn CFG::validate(Self) -> Result[Unit, String]
 pub impl Show for CFG
 
@@ -164,6 +152,11 @@ pub struct SSACFG {
   param_values : Map[@lib.LocalIdx, SSAValue]
   next_value : Int
 }
+pub fn SSACFG::build_use_def(Self) -> UseDefInfo
+pub fn SSACFG::compute_liveness(Self) -> LivenessInfo
+pub fn SSACFG::optimize(Self) -> Self
+pub fn SSACFG::split_critical_edges(Self) -> Self
+pub fn SSACFG::to_cfg(Self, Int) -> CFG
 pub impl Show for SSACFG
 
 pub enum SSADef {

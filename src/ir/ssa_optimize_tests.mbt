@@ -1198,7 +1198,7 @@ test "optimize_ssa constant folds i32 add" {
     SSATerminator::Return([SSAValue(2)]),
     3,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   // The return should now reference a constant 7
   match get_terminator(result, 0) {
     Some(Return(vs)) => {
@@ -1230,7 +1230,7 @@ test "optimize_ssa constant folds unary i32eqz" {
     SSATerminator::Return([SSAValue(1)]),
     2,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   // Should fold to constant 1
   match get_terminator(result, 0) {
     Some(Return(vs)) => {
@@ -1265,7 +1265,7 @@ test "optimize_ssa copy propagation" {
     SSATerminator::Return([SSAValue(1)]),
     2,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   match get_terminator(result, 0) {
     Some(Return(vs)) => {
       assert_eq(vs.length(), 1)
@@ -1298,7 +1298,7 @@ test "optimize_ssa x + 0 = x" {
     SSATerminator::Return([SSAValue(1)]),
     20,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   match get_terminator(result, 0) {
     Some(Return(vs)) =>
       // Should be simplified to SSAValue(10)
@@ -1318,7 +1318,7 @@ test "optimize_ssa x * 1 = x (semantic)" {
     SSATerminator::Return([SSAValue(2)]),
     3,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   let rv = match get_terminator(result, 0) {
     Some(Return(vs)) => vs[0]
     _ => fail("Expected Return")
@@ -1342,7 +1342,7 @@ test "optimize_ssa x * 0 = 0" {
     SSATerminator::Return([SSAValue(1)]),
     20,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   match get_terminator(result, 0) {
     Some(Return(vs)) => {
       let rv = vs[0]
@@ -1373,7 +1373,7 @@ test "optimize_ssa x & -1 = x" {
     SSATerminator::Return([SSAValue(1)]),
     20,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   match get_terminator(result, 0) {
     Some(Return(vs)) => assert_eq(vs[0], SSAValue(10))
     _ => fail("Expected Return terminator")
@@ -1392,7 +1392,7 @@ test "optimize_ssa x ^ x = 0" {
     SSATerminator::Return([SSAValue(1)]),
     20,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   match get_terminator(result, 0) {
     Some(Return(vs)) => {
       let rv = vs[0]
@@ -1422,7 +1422,7 @@ test "optimize_ssa x - x = 0" {
     SSATerminator::Return([SSAValue(1)]),
     20,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   match get_terminator(result, 0) {
     Some(Return(vs)) => {
       let rv = vs[0]
@@ -1452,7 +1452,7 @@ test "optimize_ssa x == x = 1" {
     SSATerminator::Return([SSAValue(1)]),
     20,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   match get_terminator(result, 0) {
     Some(Return(vs)) => {
       let rv = vs[0]
@@ -1482,7 +1482,7 @@ test "optimize_ssa x < x = 0" {
     SSATerminator::Return([SSAValue(1)]),
     20,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   match get_terminator(result, 0) {
     Some(Return(vs)) => {
       let rv = vs[0]
@@ -1517,7 +1517,7 @@ test "optimize_ssa mul by power of 2 becomes shl" {
     SSATerminator::Return([SSAValue(1)]),
     20,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   let rv = match get_terminator(result, 0) {
     Some(Return(vs)) => vs[0]
     _ => fail("Expected Return terminator")
@@ -1545,7 +1545,7 @@ test "optimize_ssa div_u by power of 2 becomes shr_u" {
     SSATerminator::Return([SSAValue(1)]),
     20,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   match find_assign(result, 0, 1) {
     Some(Binary(op, left, _)) => {
       assert_eq(op, BinaryOp::i32_shr_u())
@@ -1568,7 +1568,7 @@ test "optimize_ssa rem_u by power of 2 becomes and" {
     SSATerminator::Return([SSAValue(1)]),
     20,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   match find_assign(result, 0, 1) {
     Some(Binary(op, left, _)) => {
       assert_eq(op, BinaryOp::i32_and())
@@ -1593,7 +1593,7 @@ test "optimize_ssa select with const true" {
     SSATerminator::Return([SSAValue(1)]),
     20,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   match get_terminator(result, 0) {
     Some(Return(vs)) => assert_eq(vs[0], SSAValue(10))
     _ => fail("Expected Return terminator")
@@ -1611,7 +1611,7 @@ test "optimize_ssa select with const false" {
     SSATerminator::Return([SSAValue(1)]),
     20,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   match get_terminator(result, 0) {
     Some(Return(vs)) => assert_eq(vs[0], SSAValue(11))
     _ => fail("Expected Return terminator")
@@ -1629,7 +1629,7 @@ test "optimize_ssa BrIf with const true becomes Br" {
     SSATerminator::BrIf(SSAValue(0), BlockId(1), BlockId(2)),
     1,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   match get_terminator(result, 0) {
     Some(Br(bid)) => assert_eq(bid, BlockId(1))
     _ => fail("Expected unconditional Br to block 1")
@@ -1643,7 +1643,7 @@ test "optimize_ssa BrIf with const false becomes Br" {
     SSATerminator::BrIf(SSAValue(0), BlockId(1), BlockId(2)),
     1,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   match get_terminator(result, 0) {
     Some(Br(bid)) => assert_eq(bid, BlockId(2))
     _ => fail("Expected unconditional Br to block 2")
@@ -1661,7 +1661,7 @@ test "optimize_ssa BrTable with const index" {
     ),
     1,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   match get_terminator(result, 0) {
     Some(Br(bid)) => assert_eq(bid, BlockId(11))
     _ => fail("Expected unconditional Br to block 11")
@@ -1675,7 +1675,7 @@ test "optimize_ssa BrTable with out-of-range index goes to default" {
     SSATerminator::BrTable(SSAValue(0), [BlockId(10), BlockId(11)], BlockId(99)),
     1,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   match get_terminator(result, 0) {
     Some(Br(bid)) => assert_eq(bid, BlockId(99))
     _ => fail("Expected unconditional Br to default block 99")
@@ -1698,7 +1698,7 @@ test "optimize_ssa removes dead pure instructions" {
     SSATerminator::Return([SSAValue(1)]),
     2,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   let block = result.blocks[BlockId(0)]
   // v0 should be removed, only v1 remains
   let mut has_42 = false
@@ -1722,7 +1722,7 @@ test "optimize_ssa keeps side-effecting dead instructions" {
     SSATerminator::Return([]),
     1,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   let block = result.blocks[BlockId(0)]
   // Call should be kept even though result is unused
   assert_eq(block.instrs.length(), 1)
@@ -1738,7 +1738,7 @@ test "optimize_ssa keeps Effect instructions" {
     SSATerminator::Return([]),
     1,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   let block = result.blocks[BlockId(0)]
   let mut has_effect = false
   for instr in block.instrs {
@@ -1780,7 +1780,7 @@ test "optimize_ssa simplifies trivial phi" {
     0,
     3,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   // Return should reference v0 directly, phi eliminated
   match get_terminator(result, 1) {
     Some(Return(vs)) => assert_eq(vs[0], SSAValue(0))
@@ -1807,7 +1807,7 @@ test "optimize_ssa cascading constant fold" {
     SSATerminator::Return([SSAValue(4)]),
     5,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   match get_terminator(result, 0) {
     Some(Return(vs)) => {
       let rv = vs[0]
@@ -1874,7 +1874,7 @@ test "optimize_assign copy propagation" {
     SSATerminator::Return([SSAValue(1)]),
     2,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   match get_terminator(result, 0) {
     Some(Return(vs)) => assert_eq(vs[0], SSAValue(0))
     _ => fail("Expected Return")
@@ -1892,7 +1892,7 @@ test "optimize_assign constant folding binary" {
     SSATerminator::Return([SSAValue(2)]),
     3,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   let block = result.blocks[BlockId(0)]
   assert_true(
     block.instrs.any(fn(i) {
@@ -1917,7 +1917,7 @@ test "strength reduction prefers shift over mul" {
     SSATerminator::Return([SSAValue(1)]),
     11,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   match find_assign(result, 0, 1) {
     Some(Binary(op, _, _)) => assert_eq(op, BinaryOp::i32_shl())
     _ => fail("Expected shift-left")
@@ -1937,7 +1937,7 @@ test "strength reduction does not apply for non-powers" {
     SSATerminator::Return([SSAValue(1)]),
     11,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   match find_assign(result, 0, 1) {
     Some(Binary(op, _, _)) => assert_eq(op, BinaryOp::i32_mul())
     _ => fail("Expected mul")
@@ -1951,7 +1951,7 @@ test "optimize_ssa BrIf non-const unchanged" {
     SSATerminator::BrIf(SSAValue(10), BlockId(1), BlockId(2)),
     0,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   match get_terminator(result, 0) {
     Some(BrIf(_, _, _)) => ()
     _ => fail("Expected BrIf unchanged")
@@ -1965,7 +1965,7 @@ test "optimize_ssa BrTable negative index goes default" {
     SSATerminator::BrTable(SSAValue(0), [BlockId(1), BlockId(2)], BlockId(99)),
     1,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   match get_terminator(result, 0) {
     Some(Br(b)) => assert_eq(b, BlockId(99))
     _ => fail("Expected default branch")
@@ -1983,7 +1983,7 @@ test "DCE removes chained unused pure instructions" {
     SSATerminator::Return([]),
     3,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   assert_eq(count_instrs(result, 0), 0)
 }
 
@@ -1997,7 +1997,7 @@ test "DCE preserves effectful chain" {
     SSATerminator::Return([]),
     2,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   assert_eq(count_instrs(result, 0), 2)
 }
 
@@ -2018,7 +2018,7 @@ test "phi with self reference preserved" {
     0,
     2,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   match get_terminator(result, 0) {
     Some(Return(vs)) => assert_eq(vs[0], SSAValue(1))
     _ => fail("Expected Return")
@@ -2047,7 +2047,7 @@ test "phi not simplified with differing inputs" {
     0,
     3,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   match get_terminator(result, 2) {
     Some(Return(vs)) => assert_eq(vs[0], SSAValue(2))
     _ => fail("Expected phi preserved")
@@ -2065,7 +2065,7 @@ test "optimize_ssa converges on chained simplifications" {
     SSATerminator::Return([SSAValue(2)]),
     3,
   )
-  let result = optimize_ssa(ssa)
+  let result = ssa.optimize()
   let block = result.blocks[BlockId(0)]
   assert_true(
     block.instrs.any(fn(i) {
