@@ -131,3 +131,5 @@
 - [x] Added pass-level and scheduler-level tests for static-use-count ordering and `FuncIdx` remapping across calls/start/exports/elements.
 - [x] Implemented `src/passes/reorder_globals.mbt` and wired it via `ModulePass::ReorderGlobals` and `ModulePass::ReorderGlobalsAlways` in `src/passes/optimize.mbt`.
 - [x] Added pass-level and scheduler-level tests for dependency-constrained global ordering and `GlobalIdx` remapping.
+- [x] Fixed transformer bug where `ModuleTransformer::walk_module` ignored `on_module_evt`; added regression test in `src/transformer/tests.mbt`.
+- [x] Audited `ModuleTransformer` hook dispatch coverage and added broad regression tests in `src/transformer/tests.mbt` to assert section/core walk functions invoke their corresponding `on_*` events.

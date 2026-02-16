@@ -83,7 +83,8 @@ In this workspace, use absolute moon path when needed:
 - This IR does not retain symbolic function names in `Func`, so `ReorderFunctionsByName` currently preserves existing order.
 - `ReorderGlobals` reorders defined globals by static `global.get`/`global.set` usage plus dependency-constrained topological ordering, then remaps `GlobalIdx` users module-wide.
 - `ReorderGlobalsAlways` uses smooth per-index cost weighting (`1 + i / 128`) for size estimation so it still reorders below 128 globals.
-- `ModuleTransformer::on_module_evt` is currently not invoked by `walk_module`; module-level passes should dispatch directly in scheduler or use section/function events.
+- `ModuleTransformer::walk_module` dispatches `on_module_evt` before default traversal (consistent with other `walk_*` hooks).
+- Audit note: every current `on_*` hook in `ModuleTransformer` has a corresponding `walk_*` dispatcher path; regression tests now cover section dispatchers and core/leaf hook dispatch.
 
 ## Current Gaps / Ongoing Work
 - Migrate remaining non-IRContext-shaped passes (`de_nan`, `remove_unused`).

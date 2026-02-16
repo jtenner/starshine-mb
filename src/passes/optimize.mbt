@@ -513,12 +513,22 @@ pub fn optimize_module_with_options(
           Err(e) => return Err(e)
         }
       ReorderGlobals =>
-        match reorder_globals(mod) {
+        match
+          apply_ir_transformer_pass(
+            ctx,
+            mod,
+            reorder_globals_ir_pass(mod, false),
+          ) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }
       ReorderGlobalsAlways =>
-        match reorder_globals_always(mod) {
+        match
+          apply_ir_transformer_pass(
+            ctx,
+            mod,
+            reorder_globals_ir_pass(mod, true),
+          ) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }

@@ -3612,6 +3612,23 @@ pub fn[T] ModuleTransformer::walk_module(
   t : T,
   mod : Module,
 ) -> TransformerResult[T, Module] {
+  match self.on_module {
+    Some(f) =>
+      match f(self, t, mod) {
+        Err(e) => Err(e)
+        Ok(None) => self.walk_module_default(t, mod)
+        ok => ok
+      }
+    None => self.walk_module_default(t, mod)
+  }
+}
+
+///|
+pub fn[T] ModuleTransformer::walk_module_default(
+  self : ModuleTransformer[T],
+  t : T,
+  mod : Module,
+) -> TransformerResult[T, Module] {
   let {
     custom_secs,
     type_sec,

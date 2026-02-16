@@ -382,25 +382,23 @@ fn reorder_globals_impl(mod : Module, always : Bool) -> Result[Module, String] {
 }
 
 ///|
-fn reorder_globals(mod : Module) -> Result[Module, String] {
-  match reorder_globals_impl(mod, false) {
-    Ok(out) => Ok(out)
-    Err(e) => Err(e)
-  }
+fn reorder_globals_ir_pass(
+  _mod : Module,
+  always : Bool,
+) -> ModuleTransformer[IRContext] {
+  ModuleTransformer::new().on_module_evt(fn(_, ctx, mod) {
+    match reorder_globals_impl(mod, always) {
+      Ok(next) => if next == mod { unchanged() } else { change(ctx, next) }
+      Err(e) => Err(e)
+    }
+  })
 }
 
-///|
-fn reorder_globals_always(mod : Module) -> Result[Module, String] {
-  match reorder_globals_impl(mod, true) {
-    Ok(out) => Ok(out)
-    Err(e) => Err(e)
-  }
-}
-
-///|
 fn rg_run_reorder_globals(mod : Module, always : Bool) -> Module {
-  match reorder_globals_impl(mod, always) {
-    Ok(out) => out
+  let pass = reorder_globals_ir_pass(mod, always)
+  match pass.walk_module(IRContext::new(), mod) {
+    Ok(Some((_, out))) => out
+    Ok(None) => mod
     Err(e) => abort("reorder_globals pass failed: \{e}")
   }
 }
