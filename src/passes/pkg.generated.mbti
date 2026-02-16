@@ -192,6 +192,7 @@ pub(all) enum ModulePass {
   OptimizeCasts
   DeNaN
   RemoveUnusedBrs
+  RemoveUnusedNames
   RemoveUnused
 }
 

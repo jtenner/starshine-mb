@@ -33,7 +33,7 @@
 ## 3) Binaryen Passes Still To Implement
 
 ### A) Primary Optimization / Analysis Passes
-- [ ] Binaryen Pass: RemoveUnusedNames.cpp
+- [x] Binaryen Pass: RemoveUnusedNames.cpp
 - [ ] Binaryen Pass: RemoveUnusedTypes.cpp
 - [ ] Binaryen Pass: ReorderFunctions.cpp
 - [ ] Binaryen Pass: ReorderGlobals.cpp
@@ -117,3 +117,9 @@
   - [ ] WAT -> wasm types conversion helpers
 
 - [ ] Add CI gate for `moon check` warning regression
+
+## 5) Recently Completed
+
+- [x] Implemented `src/passes/remove_unused_names.mbt` using `ModuleTransformer[IRContext]` and wired it via `ModulePass::RemoveUnusedNames` in `src/passes/optimize.mbt`.
+- [x] Added pass-level tests covering nested-block merging, label-depth retargeting, and loop-to-block rewrite behavior.
+- [x] Added scheduler-level dispatch test in `src/passes/optimize.mbt` and documented the pass in `README.md`.

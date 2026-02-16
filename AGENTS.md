@@ -54,7 +54,7 @@ In this workspace, use absolute moon path when needed:
 ## ModulePass Registry (Current)
 
 ### IR and canonicalization
-- `AlignmentLowering`, `AvoidReinterprets`, `CoalesceLocals`, `CodeFolding`, `CodePushing`, `ConstHoisting`, `ConstantFieldPropagation`, `DeadCodeElimination`, `OptimizeInstructions`, `Precompute`, `PrecomputePropagate`, `OptimizeAddedConstants`, `OptimizeAddedConstantsPropagate`, `RedundantSetElimination`, `PickLoadSigns`, `RemoveUnusedBrs`
+- `AlignmentLowering`, `AvoidReinterprets`, `CoalesceLocals`, `CodeFolding`, `CodePushing`, `ConstHoisting`, `ConstantFieldPropagation`, `DeadCodeElimination`, `OptimizeInstructions`, `Precompute`, `PrecomputePropagate`, `OptimizeAddedConstants`, `OptimizeAddedConstantsPropagate`, `RedundantSetElimination`, `PickLoadSigns`, `RemoveUnusedBrs`, `RemoveUnusedNames`
 
 ### Global/type/ref analysis
 - `AbstractTypeRefining(AbstractTypeRefiningPassProps)`, `GlobalRefining`, `GlobalStructInference`, `GlobalStructInferenceDescCast`, `GlobalTypeOptimization`, `MinimizeRecGroups`
@@ -76,6 +76,7 @@ In this workspace, use absolute moon path when needed:
 - `Asyncify` is staged and emits runtime globals/APIs (`__asyncify_state`, `__asyncify_data`, `asyncify_*`).
 - `MemoryPacking` rewrites segment refs/ops and maintains data-count consistency.
 - `I64ToI32Lowering` is integrated; explicit limitations remain for certain global/result shapes.
+- `RemoveUnusedNames` is implemented as a depth-based `LabelIdx` adaptation of Binaryen's name-based pass (this IR does not preserve symbolic block names in `TInstr`).
 
 ## Current Gaps / Ongoing Work
 - Migrate remaining non-IRContext-shaped passes (`de_nan`, `remove_unused`).

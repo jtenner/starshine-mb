@@ -49,6 +49,7 @@ pub(all) enum ModulePass {
   OptimizeCasts
   DeNaN
   RemoveUnusedBrs
+  RemoveUnusedNames
   RemoveUnused
 }
 
@@ -491,6 +492,12 @@ pub fn optimize_module_with_options(
         }
       RemoveUnusedBrs =>
         match remove_unused_brs(mod, options~) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      RemoveUnusedNames =>
+        match
+          apply_ir_transformer_pass(ctx, mod, remove_unused_names_ir_pass(mod)) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }
@@ -1668,5 +1675,33 @@ test "optimize_module runs RemoveUnusedBrs pass" {
     Some(CodeSec([TFunc(_, TExpr([TBlock(_, TExpr([TI32Const(I32(1))]))]))])) =>
       ()
     _ => fail("expected RemoveUnusedBrs to remove trailing br 0")
+  }
+}
+
+///|
+test "optimize_module runs RemoveUnusedNames pass" {
+  let func = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::block(
+        BlockType::void_(),
+        TExpr::new([
+          TInstr::block(
+            BlockType::void_(),
+            TExpr::new([TInstr::i32_const(I32(5))]),
+          ),
+        ]),
+      ),
+    ]),
+  )
+  let mod = Module::new().with_code_sec(CodeSec::new([func]))
+  let optimized = match optimize_module(mod, [RemoveUnusedNames]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TBlock(_, TExpr([TI32Const(I32(5))]))]))])) =>
+      ()
+    _ => fail("expected RemoveUnusedNames to merge single-child blocks")
   }
 }
