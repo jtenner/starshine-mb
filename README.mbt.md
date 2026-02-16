@@ -1,98 +1,50 @@
 # Starshine
 
 ## High-Level Overview
-Starshine is a MoonBit-based WebAssembly toolchain focused on typed IR transforms, validation, optimization passes, and binary/text conversion utilities. The project includes:
-
-- A rich core wasm type and instruction model (`lib`)
-- Binary codec support for wasm modules (`binary`)
-- A validation and typed-expression pipeline (`validate`)
-- An event-driven transformation framework (`transformer`)
-- SSA/CFG IR infrastructure (`ir`)
-- A growing set of Binaryen-inspired optimization passes (`passes`)
-- WAST parsing/printing utilities (`wast`)
-- A legacy/in-progress dataflow framework (`dataflow`)
-
-This repository is intended for compiler and tooling work around WebAssembly 3.0-oriented features, especially GC-related transforms and pass pipelines.
+Starshine is a MoonBit-based WebAssembly toolchain centered on typed IR transforms, validation, optimization, and binary/text conversion. It targets WebAssembly 3.0-era features (including GC-heavy workloads) and follows a pass-pipeline model similar to Binaryen.
 
 ## Current Primary Features
 
 ### Optimization Pipeline
-- Central pass scheduler via `optimize_module` / `optimize_module_with_options`
-- Lift-to-typed-expression preprocessing and pass chaining
-- Implemented pass families include:
-  - Dead code elimination
-  - Duplicate import/function elimination
-  - DeNaN
-  - Global refining
-  - Global struct inference
-  - Global type optimization
-  - GUFA (+ variants)
-  - Heap2Local
-  - HeapStoreOptimization
-  - Inlining (`Inlining`, `InliningOptimizing`, `InlineMain`)
-  - LocalCSE
-  - LocalSubtyping
-  - LoopInvariantCodeMotion
-  - MergeLocals
-  - Monomorphize (`Monomorphize`, `MonomorphizeAlways`)
-  - OnceReduction
-  - MergeSimilarFunctions
-  - MergeBlocks
-  - MemoryPacking
-  - OptimizeAddedConstants (`OptimizeAddedConstants`, `OptimizeAddedConstantsPropagate`)
-  - Precompute (`Precompute`, `PrecomputePropagate`)
-  - MinimizeRecGroups
-  - Code folding/pushing
-  - Const hoisting
-  - Constant field propagation
-  - Directize
-  - Optimize casts
-  - Alignment lowering
-  - Asyncify
+- Central scheduler: `optimize_module` / `optimize_module_with_options` in `src/passes/optimize.mbt`.
+- Pipeline always starts with `lift_to_texpr_pass()` and then runs selected `ModulePass` variants in order.
+- Passes are primarily implemented as `ModuleTransformer[IRContext]` adapters.
 
 ### Core Compiler/IR Capabilities
-- CFG construction, SSA conversion, use-def, liveness, type inference, GVN, and SSA optimization hooks
-- IRContext-driven cached analyses for passes
-- Local graph support for local flow constraints in passes
+- Typed tree IR (`TExpr`/`TInstr`) and linear IR conversion support.
+- CFG/SSA infrastructure and analyses in `src/ir/*`.
+- `IRContext` analysis caching for multi-pass workflows.
+- `LocalGraph` utilities used by control/data-flow-sensitive passes.
 
 ### Validation & Typing
-- Module-level validation against wasm structures
-- Expression-to-typed-expression conversion (`to_texpr`)
-- Type matching/compatibility traits and helpers
-- Random valid-module generation helpers for fuzz-style testing
+- Wasm module validation utilities in `src/validate/*`.
+- Typed conversion and compatibility helpers (`to_texpr`, matching/typing traits).
 
 ### Binary and WAST Utilities
-- Binary encode/decode traits covering module structures
-- LEB size helpers (`size_signed`, `size_unsigned`)
-- WAST-to-module and module-to-WAST conversion entry points
+- Binary encode/decode in `src/binary/*`.
+- WAST parsing/printing in `src/wast/*`.
 
 ## Project Layout
-
-- `src/lib`: Core wasm model (`Module`, `Instruction`, `TInstr`, types, constructors, utilities)
-- `src/binary`: Binary wasm codec
-- `src/validate`: Typechecking/validation + typed conversion
-- `src/transformer`: Generic `ModuleTransformer` framework
-- `src/ir`: CFG/SSA/analysis infrastructure
-- `src/passes`: Optimization passes + pipeline scheduler
-- `src/wast`: WAST parser/printer/conversion helpers
-- `src/dataflow`: Legacy/experimental dataflow framework (partial)
+- `src/lib`: Core wasm model/types/helpers.
+- `src/ir`: CFG/SSA/dataflow-style analysis helpers + IR context.
+- `src/passes`: Optimization and transform passes.
+- `src/transformer`: Event-based module transformer framework.
+- `src/validate`: Validation/typechecking.
+- `src/binary`: Wasm binary codec.
+- `src/wast`: WAST parser/printer.
+- `src/dataflow`: Legacy/partial framework, being replaced by `IRContext`-backed flow.
 
 ## Primary Functions (Most Important Entry Points)
 
 ### `jtenner/starshine/passes`
 - `optimize_module(mod, passes)`
 - `optimize_module_with_options(mod, passes, options)`
-- `global_type_optimization(mod)`
-- `run_denam(mod)`
-- `remove_unused(mod)`
-- `dataflow_optimization_pass(mod)`
-- `alignment_lowering_pass(mod)`
+- `InliningOptions::new(...)`
+- `OptimizeOptions::new(...)`
 
 ### `jtenner/starshine/validate`
 - `validate_module(mod)`
 - `to_texpr(expr, env)`
-- `validate_typesec/validate_importsec/...` section validators
-- `gen_valid_module(random_state)`
 
 ### `jtenner/starshine/binary`
 - `Decode::decode(bytes, offset)`
@@ -117,7 +69,75 @@ This repository is intended for compiler and tooling work around WebAssembly 3.0
 ### `jtenner/starshine/transformer`
 - `ModuleTransformer::new()`
 - `change(...)`, `unchanged()`, `error(...)`
-- `walk_module(...)`, `walk_tinstruction(...)`, and event hooks
+- `walk_module(...)`, `walk_tinstruction(...)`, event hooks
+
+## Pass Registry (Authoritative)
+Current `ModulePass` variants in `src/passes/optimize.mbt`:
+
+### IR / Canonicalization / Folding
+- `AlignmentLowering`
+- `AvoidReinterprets`
+- `CoalesceLocals`
+- `CodeFolding`
+- `CodePushing`
+- `ConstHoisting`
+- `ConstantFieldPropagation`
+- `DeadCodeElimination`
+- `OptimizeInstructions`
+- `Precompute`
+- `PrecomputePropagate`
+- `OptimizeAddedConstants`
+- `OptimizeAddedConstantsPropagate`
+- `RedundantSetElimination`
+- `PickLoadSigns`
+- `RemoveUnusedBrs`
+
+### Global / Type / Ref Inference
+- `AbstractTypeRefining(AbstractTypeRefiningPassProps)`
+- `GlobalRefining`
+- `GlobalStructInference`
+- `GlobalStructInferenceDescCast`
+- `GlobalTypeOptimization`
+- `MinimizeRecGroups`
+
+### Heap / GC / Ref Optimizations
+- `Heap2Local`
+- `HeapStoreOptimization`
+- `OptimizeCasts`
+- `GUFA`
+- `GUFAOptimizing`
+- `GUFACastAll`
+
+### Callgraph / Whole-Module / Function-shape
+- `DeadArgumentElimination`
+- `DuplicateImportElimination`
+- `DuplicateFunctionElimination`
+- `Directize(Bool)`
+- `MergeLocals`
+- `MergeBlocks`
+- `MergeSimilarFunctions`
+- `Monomorphize`
+- `MonomorphizeAlways`
+- `Inlining`
+- `InliningOptimizing`
+- `InlineMain`
+- `OnceReduction`
+- `RemoveUnused`
+
+### Lowering / Runtime / Memory
+- `DataflowOptimization`
+- `I64ToI32Lowering`
+- `Asyncify(AsyncifyPassProps)`
+- `MemoryPacking(MemoryPackingPassProps)`
+- `DeNaN`
+
+## High-Impact Pass Notes
+- `Asyncify`: staged transform, emits runtime globals/API (`__asyncify_state`, `__asyncify_data`, asyncify_* exports).
+- `I64ToI32Lowering`: lowers i64 ABI/storage to i32 pairs (single-result i64 path supported; explicit limitations remain).
+- `Inlining`: supports full, optimizing, and `InlineMain` modes; options are exposed via `InliningOptions` in `OptimizeOptions`.
+- `Heap2Local` / `HeapStoreOptimization`: conservative, LocalGraph/effect-aware rewrites with trap/side-effect parity handling.
+- `GlobalTypeOptimization` / `GlobalStructInference` / `MinimizeRecGroups`: whole-module type and struct transformations with external-contract safety guards.
+- `Monomorphize`: empirical and always-on variants, with `OptimizeOptions.monomorphize_min_benefit` gating empirical mode.
 
 ## Example Usage
 
@@ -139,16 +159,17 @@ fn run_opts(mod : Module) -> Module {
 }
 ```
 
-### 1b) Configure inlining options
+### 2) Configure optimize options (inlining + monomorphize + low-memory)
 ```mbt
+using @lib { type Module }
 using @passes {
   optimize_module_with_options,
   OptimizeOptions,
   InliningOptions,
-  ModulePass
+  ModulePass,
 }
 
-fn run_inlining(mod : Module) -> Module {
+fn run_configured(mod : Module) -> Module {
   let inlining = InliningOptions::new(
     always_inline_max_size=2,
     one_caller_inline_max_size=-1,
@@ -161,11 +182,14 @@ fn run_inlining(mod : Module) -> Module {
     optimize_level=3,
     shrink_level=0,
     inlining=inlining,
+    monomorphize_min_benefit=5,
+    low_memory_unused=true,
+    low_memory_bound=1024UL,
   )
   match optimize_module_with_options(mod, [
-    ModulePass::Inlining,
     ModulePass::InliningOptimizing,
-    ModulePass::InlineMain,
+    ModulePass::Monomorphize,
+    ModulePass::OptimizeAddedConstants,
   ], options) {
     Ok(out) => out
     Err(_) => mod
@@ -173,212 +197,7 @@ fn run_inlining(mod : Module) -> Module {
 }
 ```
 
-Inlining notes:
-- Callsite planning is reachability-aware (calls in unreachable tails are not considered inline candidates).
-- Try-context tail-call hoisting is supported for `return_call`, `return_call_indirect`, and `return_call_ref` wrappers.
-
-Asyncify notes:
-- Integrated as `ModulePass::Asyncify(AsyncifyPassProps)` and available through `createAsyncifyPass(...)`.
-- Uses staged intrinsics during transformation (`__asyncify_unwind`, `__asyncify_get_call_index`, `__asyncify_check_call_index`) then lowers them in the locals stage.
-- Implements runtime API/globals:
-  - globals: `__asyncify_state` (`0=normal`, `1=unwinding`, `2=rewinding`) and `__asyncify_data` (pointer to asyncify data block)
-  - exports: `asyncify_start_unwind`, `asyncify_stop_unwind`, `asyncify_start_rewind`, `asyncify_stop_rewind`, `asyncify_get_state`
-- Supports asyncify memory selection and pointer-size-aware stack layout:
-  - wasm32 layout: `bstack_pos` at offset `0`, `bstack_end` at offset `4`
-  - wasm64 layout: `bstack_pos` at offset `0`, `bstack_end` at offset `8`
-- Flow stage requires flattened/control-linearized handling shape and rewrites call sites with call indices for unwind/rewind control.
-- Fake globals are used as a temporary bridge for call-result local sets during flow instrumentation and are lowered back to locals in the locals stage.
-
-LocalCSE notes:
-- Works on repeated whole expression trees within linear/basic-block-like regions.
-- Uses a 3-phase pipeline (`Scanner`, `Checker`, `Applier`) to request, validate via effect interference, and apply rewrites.
-- Rewrites first occurrences to `local.tee` on fresh temps and later repeats to `local.get`.
-- Active CSE state is cleared at non-linear boundaries (`if`/`block`/`loop`/`try_table` and branch-like control transfers).
-
-LocalSubtyping notes:
-- Refines reference-typed local variable declarations to tighter subtypes inferred from assigned values.
-- Uses iterative LUB-based refinement and stops at convergence.
-- Non-nullable narrowing is only applied when local-flow checks show default/null cannot be observed; otherwise candidates are relaxed to nullable.
-- Refinements are validated by subtype/defaultability guards (`new <: old`, non-`none`, safe defaultability).
-- Run it via `ModulePass::LocalSubtyping` in `optimize_module(...)` / `optimize_module_with_options(...)`.
-
-LoopInvariantCodeMotion notes:
-- Purpose: conservative simple LICM for `loop` bodies.
-- What it hoists:
-  - none-typed, non-`nop`/`block`/`loop` entrance expressions that pass safety checks.
-  - excludes trivial `local.set` copy/const chains.
-- Safety checks include:
-  - no global-state writes in moved expression
-  - no invalidating reordering against earlier non-moved entrance effects
-  - no read-vs-write global-state conflict against whole-loop effects
-  - no exceptions (`throws`) in candidate or loop effects
-  - local-flow safety via `LocalGraph::get_sets(get_id)` against in-loop sets
-  - local-set interference guard (`numSetsForIndex`) for moved `local.set`/`local.tee`.
-- Rewriting shape:
-  - `loop(...)` becomes `block(moved..., loop(...))` with preserved loop block type and original moved sites replaced by `nop`.
-- Flattening helps expose more opportunities, but is not required; the pass itself only reasons about unconditional block-list entrances.
-- Run it via `ModulePass::LoopInvariantCodeMotion` in `optimize_module(...)` / `optimize_module_with_options(...)`.
-
-MemoryPacking notes:
-- Splits data segments around large zero spans to reduce encoded binary size.
-- Preconditions:
-  - Requires exactly one memory (no multi-memory support).
-  - If that memory is imported, enable `zero_filled_memory=true`.
-  - Skips optimization when active-segment safety checks fail (non-constant offsets across multi-segment startup init or overlapping active spans).
-- Passive vs active handling:
-  - Passive segments can be split and instruction referrers are rewritten.
-  - Active segments are split only at constant offsets, and startup-trap parity is preserved (including preserving one trailing write byte when needed).
-- Rewritten instructions:
-  - `memory.init` may become sequences of `memory.init` + `memory.fill`.
-  - `data.drop` may become split-segment drops (or `nop` when removable).
-  - GC data-op referrers (`array.new_data`, `array.init_data`) are remapped for segment index changes.
-- Invoke with `ModulePass::MemoryPacking(MemoryPackingPassProps::new(...))`.
-
-Example:
-```mbt
-using @passes { optimize_module, ModulePass, MemoryPackingPassProps }
-
-fn run_memory_packing(mod : Module) -> Module {
-  match optimize_module(mod, [
-    ModulePass::MemoryPacking(
-      MemoryPackingPassProps::new(
-        zero_filled_memory=true,
-        traps_never_happen=false,
-      ),
-    ),
-  ]) {
-    Ok(out) => out
-    Err(_) => mod
-  }
-}
-```
-
-OptimizeAddedConstants notes:
-- Integrated as `ModulePass::OptimizeAddedConstants` and `ModulePass::OptimizeAddedConstantsPropagate`.
-- Hard-gated by `OptimizeOptions.low_memory_unused`; the pass returns:
-  - `"OptimizeAddedConstants can only be run when the --low-memory-unused flag is set."`
-  when not enabled.
-- Safety condition for folding add-const into memory offset:
-  - folded constant `C` must satisfy `C < low_memory_bound`
-  - and `existing_offset + C < low_memory_bound`
-- Handles both `load` and `store` pointer rewrites, and normalizes `const_ptr + offset` into a single pointer constant when non-overflowing:
-  - memory32: only if sum stays in `[0, 2^32)`
-  - memory64: only if uint64 addition does not overflow
-- Propagation mode (`OptimizeAddedConstantsPropagate`) is conservative:
-  - only propagates from `local.set x (i32.add ... const)` when all influenced `local.get x` parents are `load`/`store`
-  - requires a single reaching set for the pointer `local.get`
-  - introduces helper i32 locals when the non-constant add operand is not safely reusable (non-SSA/stability uncertainty), then rewrites the defining set to capture that operand before use.
-- Runs iteratively to a fixpoint when propagation succeeds, with per-iteration cleanup of now-unneeded sets.
-
-MinimizeRecGroups notes:
-- Purpose: minimize private heap-type recursion groups by splitting them into SCC-based groups while preserving wasm validation constraints.
-- Scope:
-  - rewrites private heap types only
-  - public-facing types are left unchanged and their rec-group shapes are reserved
-- Ordering constraints in each produced rec group:
-  - supertype-before-subtype
-  - described-before-descriptor ordering hook is present (currently no descriptor-op edges in this IR surface)
-- Type-identity preservation:
-  - detects rec-group shape collisions
-  - first tries valid topological permutations inside the group
-  - falls back to prepending brand types when permutations cannot make shapes distinct (including automorphism-heavy groups)
-- Rewriting:
-  - rebuilds the type section with new rec groups
-  - remaps all module type uses (`TypeIdx` / heap-type references) to the new indices
-- Run it via `ModulePass::MinimizeRecGroups` in `optimize_module(...)` / `optimize_module_with_options(...)`.
-
-MergeBlocks notes:
-- Merges nested `block` nodes into parent block lists, including safe loop-tail extraction from `loop` bodies of the form `loop(block(...))`.
-- Optimizes `drop(block(...))` by pushing `drop` inward and removing/rewriting break values when safety checks pass.
-- Includes conservative `ProblemFinder` checks for break-value removal:
-  - rejects side-effecting break values
-  - rejects unsupported origin-targeting branch forms
-  - handles `try_table` origin-target catches only in safe cases
-- Performs expression restructuring to expose additional merge opportunities by pulling block prefixes out of child operands when effect reordering is valid.
-- Preserves safety by respecting branch targets and effect invalidation constraints; it does not reorder invalidating operations.
-- Run it via `ModulePass::MergeBlocks` in `optimize_module(...)` / `optimize_module_with_options(...)`.
-
-MergeLocals notes:
-- Rewrites `local.get` indices around local-to-local copies (`local.set x (local.get y)`) to reduce interference for later coalescing.
-- It does not remove locals or delete the copy statement itself; it only rewrites eligible `local.get` uses.
-- Safety constraints:
-  - requires single reaching writer (`getSets(get).length() == 1`) for rewritten gets
-  - requires exact local type equality (no subtype-only relaxation)
-  - performs pre-state analysis on instrumented copies, then post-state verification, and undoes per-direction rewrites that do not verify.
-- Instrumentation is temporary (`local.tee y (local.get y)`) and is removed before pass completion.
-- Run it via `ModulePass::MergeLocals` in `optimize_module(...)` / `optimize_module_with_options(...)`.
-
-MergeSimilarFunctions notes:
-- Purpose: whole-module post-link merge of structurally equivalent defined functions that differ only at constant sites and/or direct-call targets.
-- Output shape:
-  - appends one shared implementation function with extra synthesized params
-  - rewrites each original function into a thin forwarding thunk that keeps the original signature.
-- Rewriting details:
-  - differing const sites become extra params and are read via `local.get`
-  - differing direct-call targets are parameterized through a function-ref arg; shared body rewrites direct calls to `call_ref` / `return_call_ref` (with `ref.cast` to the expected `TypeIdx` in current IR typing model)
-  - var-local indices in the shared clone are shifted by `derived_param_count` so original vars do not alias new params.
-- Safety/selection:
-  - only defined functions are candidates
-  - requires identical function signature and local layout
-  - call-target differences require matching callee function types
-  - merge is gated by an estimated profitability score and a synthetic-param cap (`MSF_MAX_SYNTHETIC_FUNCTION_PARAMS`).
-- Run it via `ModulePass::MergeSimilarFunctions` in `optimize_module(...)` / `optimize_module_with_options(...)`.
-
-Monomorphize notes:
-- Purpose: specialize direct call targets using callsite context ("reverse-inlined" operands) and optionally dropped-result context.
-- Variants:
-  - `ModulePass::Monomorphize`: empirical mode, only keeps specializations when measured benefit passes threshold.
-  - `ModulePass::MonomorphizeAlways`: testing mode, keeps all legal non-trivial specializations.
-- Empirical gate:
-  - `OptimizeOptions.monomorphize_min_benefit` controls minimum required benefit percent.
-  - acceptance rule is strict: `benefit > monomorphize_min_benefit`.
-  - current benefit formula: `100 - (100 * costAfter / costBefore)`.
-- Constraints/safety:
-  - specialized params are capped at `MONO_MAX_PARAMS = 20`
-  - skips imported targets and direct-recursive callsites
-  - skips unreachable callsites/operands
-  - dropped call contexts (`drop(call ...)`) can produce `none`-result specializations and remove the caller-side `drop` when accepted.
-- Pass arg:
-  - parser helper supports `--pass-arg=monomorphize-min-benefit@N` style arguments (mapped to `OptimizeOptions.monomorphize_min_benefit`).
-- Run via pipeline:
-  - include `ModulePass::Monomorphize` or `ModulePass::MonomorphizeAlways` in `optimize_module(...)` / `optimize_module_with_options(...)`.
-
-Example:
-```mbt
-using @lib { type Module }
-using @passes { optimize_module_with_options, OptimizeOptions, ModulePass }
-
-fn run_monomorphize(mod : Module) -> Module {
-  let options = OptimizeOptions::new(monomorphize_min_benefit=5)
-  match optimize_module_with_options(mod, [ModulePass::Monomorphize], options) {
-    Ok(out) => out
-    Err(_) => mod
-  }
-}
-```
-
-OnceReduction notes:
-- Purpose: remove redundant "run-once" behavior by tracking once-guard globals and once functions.
-- Once global (conservative):
-  - mutable integer global
-  - not imported/exported
-  - only reachable writes are non-zero integer constants
-  - reads outside recognized once-function guard contexts disqualify it.
-- Once function (canonical pattern):
-  - void->void function body starts with:
-    - `if (global.get g) return`
-    - `global.set g (const nonzero)`
-  - then optional payload.
-- Optimization behavior:
-  - nops dominated redundant `call` instructions to once functions (zero-arg direct calls)
-  - nops dominated redundant `global.set` writes to once globals (non-zero const writes)
-  - runs iterative summary propagation across direct calls to reach fixed point.
-- Cleanup behavior:
-  - if a once function has only guard+set, body is reduced to `nop`
-  - if payload is exactly `call` to another once function, guard+set can be nopped, with deterministic cycle safety (at most one side of a trivial cycle is stripped).
-- Run it via `ModulePass::OnceReduction` in `optimize_module(...)` / `optimize_module_with_options(...)`.
-
-### 2) Validate a module
+### 3) Validate a module
 ```mbt
 using @validate { validate_module }
 using @lib { type Module }
@@ -391,7 +210,7 @@ fn checked(mod : Module) -> Bool {
 }
 ```
 
-### 3) Decode + encode wasm binary
+### 4) Decode + encode wasm binary
 ```mbt
 using @binary { trait Decode, trait Encode }
 using @lib { type Module }
@@ -410,7 +229,7 @@ fn roundtrip(bytes : Bytes) -> Bytes? {
 }
 ```
 
-### 4) Parse WAST to module
+### 5) Parse WAST to module
 ```mbt
 using @wast { wast_to_module }
 
@@ -422,39 +241,25 @@ fn parse_wast(text : String) -> Bool {
 }
 ```
 
-## Build, Check, and Test
-
-In this workspace, `moon` may not be on `PATH` in non-interactive shells.
-Use:
-
-```bash
-/home/jtenner/.moon/bin/moon check
-/home/jtenner/.moon/bin/moon test
-/home/jtenner/.moon/bin/moon info && /home/jtenner/.moon/bin/moon fmt
-```
-
 ## Low-Hanging Fruit (Quick Improvements)
-
-- Replace simplified cost model in `code_folding` with a closer Binaryen-style measurer
-- Improve `optimize_casts` flow tracking through `br_on_cast` / `br_on_cast_fail`
-- Add CFG/LocalGraph-based `canMoveSet` parity logic to `heap_store_optimization`
-- Migrate remaining passes to full `IRContext` usage (`de_nan`, `remove_unused`)
-- Add CI gate that fails on `moon check` warnings regressions
-- Add more parity stress tests for complex CFG in `heap2local`, `global_type_optimization`, and `dead_code_elimination`
+- Migrate remaining non-IRContext passes (`de_nan`, `remove_unused`) to the IRContext transformer pattern.
+- Stabilize `DataflowOptimization` internals and fix the underlying data-structure issues causing test instability.
+- Implement descriptor-aware mode for `GlobalStructInferenceDescCast` once descriptor ops exist in this IR.
+- Expand parity stress tests for complex CFG/type-hierarchy edge cases in:
+  - `Heap2Local`
+  - `GlobalTypeOptimization`
+  - `RemoveUnusedBrs`
+- Add atomics/threading support in core IR + validator, then enable atomics-dependent parity work in heap passes.
+- Add CI gating for `moon check` warning regressions.
 
 ## Navigation Tips
-
-- Start at `src/passes/optimize.mbt` to understand pass scheduling
-- Use `src/passes/pkg.generated.mbti` to discover public pass APIs quickly
-- Use `src/lib/types.mbt` and `src/lib/texpr.mbt` for core IR/model understanding
-- Use `src/ir/ir_context.mbt` to understand analysis caching and pass dataflow
+- Start at `src/passes/optimize.mbt` for pass scheduling and dispatch.
+- Use `src/passes/pkg.generated.mbti` for exported pass APIs.
+- Use `src/ir/ir_context.mbt` for analysis caching and pass state.
+- Use `src/lib/types.mbt` and `src/lib/texpr.mbt` for core IR model definitions.
 
 ## License
-
-This repository currently includes an Apache-2.0 `LICENSE` file and `moon.mod.json` metadata set to `Apache-2.0`.
-
-MIT license note: if you intend to distribute under MIT, update both `LICENSE` and `moon.mod.json` to keep licensing metadata consistent.
+Repository metadata is currently Apache-2.0 (`LICENSE` and `moon.mod.json`).
 
 ## Attribution
-
-This project was written and tested by `GPT-5.3-Codex` and inspected by Joshua Tenner for quality.
+Project authored and maintained by Joshua Tenner, with AI-assisted development support.
