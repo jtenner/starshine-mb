@@ -32,72 +32,64 @@
 
 ## 3) Binaryen Passes Still To Implement
 
-### A) Primary Optimization / Analysis Passes
-- [x] Binaryen Pass: RemoveUnusedNames.cpp
-- [x] Binaryen Pass: RemoveUnusedTypes.cpp
-- [x] Binaryen Pass: ReorderFunctions.cpp
-- [x] Binaryen Pass: ReorderGlobals.cpp
-- [ ] Binaryen Pass: ReorderLocals.cpp
-- [ ] Binaryen Pass: ReorderTypes.cpp
-- [ ] Binaryen Pass: SSAify.cpp
-- [x] Binaryen Pass: SignaturePruning.cpp
-- [ ] Binaryen Pass: SimplifyGlobals.cpp
-- [ ] Binaryen Pass: SimplifyLocals.cpp
-- [ ] Binaryen Pass: TypeFinalizing.cpp
-- [ ] Binaryen Pass: TypeGeneralizing.cpp
-- [ ] Binaryen Pass: TypeMerging.cpp
-- [x] Binaryen Pass: TypeRefining.cpp
-- [ ] Binaryen Pass: TypeSSA.cpp
-- [ ] Binaryen Pass: Unsubtyping.cpp
-- [ ] Binaryen Pass: Untee.cpp
-- [ ] Binaryen Pass: Vacuum.cpp
+1) General optimization & canonical IR improvements (good “implement first” set)
 
-### B) Lowering / Legalization / Platform Passes
-- [ ] Binaryen Pass: LLVMMemoryCopyFillLowering.cpp
-- [ ] Binaryen Pass: LLVMNontrappingFPToIntLowering.cpp
-- [ ] Binaryen Pass: LegalizeJSInterface.cpp
-- [ ] Binaryen Pass: Memory64Lowering.cpp
-- [ ] Binaryen Pass: MultiMemoryLowering.cpp
-- [ ] Binaryen Pass: RemoveMemoryInit.cpp
-- [ ] Binaryen Pass: RemoveNonJSOps.cpp
-- [ ] Binaryen Pass: SignExtLowering.cpp
-- [ ] Binaryen Pass: StripEH.cpp
-- [ ] Binaryen Pass: StripTargetFeatures.cpp
-- [ ] Binaryen Pass: TranslateEH.cpp
+- [x] ReorderLocals.cpp
+- [x] ReorderTypes.cpp
+- [ ] SimplifyGlobals.cpp (general canonicalization / simplification)
+- [ ] SimplifyLocals.cpp (general canonicalization / simplification)
+- [ ] SSAify.cpp (enabling transform; often prerequisite for SSA-based opts)
+- [ ] Untee.cpp (canonicalization: removes tee patterns / simplifies local.set+use forms)
+- [ ] Vacuum.cpp (general cleanup of unreachable/unused IR “dust”; canonical-ish)
 
-### C) Instrumentation / Metrics / Diagnostics
-- [ ] Binaryen Pass: InstrumentBranchHints.cpp
-- [ ] Binaryen Pass: InstrumentLocals.cpp
-- [ ] Binaryen Pass: InstrumentMemory.cpp
-- [ ] Binaryen Pass: Metrics.cpp
-- [ ] Binaryen Pass: RandomizeBranchHints.cpp
-- [ ] Binaryen Pass: TraceCalls.cpp
+### Low Priority
 
-### D) JS / Tooling / Specialty Passes
-- [ ] Binaryen Pass: Intrinsics.cpp
-- [ ] Binaryen Pass: J2CLItableMerging.cpp
-- [ ] Binaryen Pass: J2CLOpts.cpp
-- [ ] Binaryen Pass: LimitSegments.cpp
-- [ ] Binaryen Pass: MinifyImportsAndExports.cpp
-- [ ] Binaryen Pass: NoInline.cpp
-- [ ] Binaryen Pass: OptimizeForJS.cpp
-- [ ] Binaryen Pass: Outlining.cpp
-- [ ] Binaryen Pass: Poppify.cpp
-- [ ] Binaryen Pass: ReReloop.cpp
-- [ ] Binaryen Pass: RemoveImports.cpp
-- [ ] Binaryen Pass: RoundTrip.cpp
-- [ ] Binaryen Pass: SafeHeap.cpp
-- [ ] Binaryen Pass: SeparateDataSegments.cpp
-- [ ] Binaryen Pass: SetGlobals.cpp
-- [ ] Binaryen Pass: SignatureRefining.cpp
-- [ ] Binaryen Pass: Souperify.cpp
-- [ ] Binaryen Pass: SpillPointers.cpp
-- [ ] Binaryen Pass: StackCheck.cpp
-- [ ] Binaryen Pass: StringLifting.cpp
-- [ ] Binaryen Pass: StringLowering.cpp
-- [ ] Binaryen Pass: Strip.cpp
-- [ ] Binaryen Pass: TrapMode.cpp
-- [ ] Binaryen Pass: TupleOptimization.cpp
+- [ ] InstrumentBranchHints.cpp
+- [ ] InstrumentLocals.cpp
+- [ ] InstrumentMemory.cpp
+- [ ] Intrinsics.cpp (toolchain-specific intrinsics handling)
+- [ ] J2CLItableMerging.cpp
+- [ ] J2CLOpts.cpp
+- [ ] LegalizeJSInterface.cpp
+- [ ] LimitSegments.cpp (special constraints / tool output shaping)
+- [ ] LLVMMemoryCopyFillLowering.cpp
+- [ ] LLVMNontrappingFPToIntLowering.cpp
+- [ ] Memory64Lowering.cpp
+- [ ] Metrics.cpp
+- [ ] MinifyImportsAndExports.cpp (size/tooling)
+- [ ] MultiMemoryLowering.cpp
+- [ ] NoInline.cpp (policy pass)
+- [ ] OptimizeForJS.cpp (JS environment heuristics)
+- [ ] Outlining.cpp (size/codeshape; specialty)
+- [ ] Poppify.cpp (codeshape / specialty)
+- [ ] RandomizeBranchHints.cpp
+- [ ] RemoveImports.cpp (tooling / linking pipeline)
+- [ ] RemoveMemoryInit.cpp
+- [ ] RemoveNonJSOps.cpp
+- [ ] ReReloop.cpp (control-flow restructuring; specialty/structural)
+- [ ] RoundTrip.cpp (testing/tooling)
+- [ ] SafeHeap.cpp (hardening/instrumentation-ish; specialty)
+- [ ] SeparateDataSegments.cpp (layout/tooling)
+- [ ] SetGlobals.cpp (tooling / transformation utility)
+- [ ] SignatureRefining.cpp (type/signature shaping; closer to type system)
+- [ ] SignExtLowering.cpp
+- [ ] Souperify.cpp (external superoptimizer integration; specialty)
+- [ ] SpillPointers.cpp (GC/pointer mgmt strategy; niche)
+- [ ] StackCheck.cpp (instrumentation / safety)
+- [ ] StringLifting.cpp (feature transform; string/GC proposal adjacent)
+- [ ] StringLowering.cpp (lowering counterpart)
+- [ ] Strip.cpp (tooling; remove names/debug/sections)
+- [ ] StripEH.cpp
+- [ ] StripTargetFeatures.cpp
+- [ ] TraceCalls.cpp
+- [ ] TranslateEH.cpp
+- [ ] TrapMode.cpp (policy/environment constraints)
+- [ ] TupleOptimization.cpp (feature-specific; multivalue/tuple patterns)
+- [ ] TypeFinalizing.cpp (final/open toggling; workflow / canonicalization; GC-specific)
+- [ ] TypeGeneralizing.cpp (type relaxation/widening; type-system transform)
+- [ ] TypeMerging.cpp (structural merging; type graph rewrite)
+- [ ] TypeSSA.cpp (SSA-like form for types; enabling for type passes; niche)
+- [ ] Unsubtyping.cpp (removes subtyping relations / flattens lattice; type graph rewrite)
 
 ## 4) Supporting Non-Pass Work
 
@@ -131,6 +123,10 @@
 - [x] Added pass-level and scheduler-level tests for static-use-count ordering and `FuncIdx` remapping across calls/start/exports/elements.
 - [x] Implemented `src/passes/reorder_globals.mbt` and wired it via `ModulePass::ReorderGlobals` and `ModulePass::ReorderGlobalsAlways` in `src/passes/optimize.mbt`.
 - [x] Added pass-level and scheduler-level tests for dependency-constrained global ordering and `GlobalIdx` remapping.
+- [x] Implemented `src/passes/reorder_locals.mbt` and wired it via `ModulePass::ReorderLocals` in `src/passes/optimize.mbt`.
+- [x] Added pass-level and scheduler-level tests for local-use-count ordering, first-use tie-breaking, parameter-index preservation, and dropping/remapping unused locals.
+- [x] Implemented `src/passes/reorder_types.mbt` and wired it via `ModulePass::ReorderTypes` in `src/passes/optimize.mbt`.
+- [x] Added pass-level and scheduler-level tests for private-group type reordering, public-group preservation, and `TypeIdx` remapping under LEB-cost pressure.
 - [x] Implemented `src/passes/signature_pruning.mbt` and wired it via `ModulePass::SignaturePruning` in `src/passes/optimize.mbt`.
 - [x] Added pass-level tests for shared-signature pruning, `call_ref` signature/arg rewriting, table-section bailout, and scheduler-level dispatch coverage.
 - [x] Fixed transformer bug where `ModuleTransformer::walk_module` ignored `on_module_evt`; added regression test in `src/transformer/tests.mbt`.

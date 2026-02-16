@@ -52,6 +52,8 @@ pub(all) enum ModulePass {
   DeNaN
   RemoveUnusedBrs
   RemoveUnusedNames
+  ReorderLocals
+  ReorderTypes
   ReorderGlobals
   ReorderGlobalsAlways
   ReorderFunctions
@@ -516,6 +518,16 @@ pub fn optimize_module_with_options(
       RemoveUnusedNames =>
         match
           apply_ir_transformer_pass(ctx, mod, remove_unused_names_ir_pass(mod)) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      ReorderLocals =>
+        match apply_ir_transformer_pass(ctx, mod, reorder_locals_ir_pass(mod)) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      ReorderTypes =>
+        match reorder_types(mod) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }
@@ -1904,6 +1916,71 @@ test "optimize_module runs ReorderFunctions pass" {
   match optimized.start_sec {
     Some(StartSec(FuncIdx(i))) => assert_eq(i, 2U)
     _ => fail("expected ReorderFunctions to rewrite start index")
+  }
+}
+
+///|
+test "optimize_module runs ReorderLocals pass" {
+  let mod = Module::new().with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [ValType::i32(), ValType::i64()],
+        TExpr::new([
+          TInstr::drop(TInstr::local_get(LocalIdx::new(1))),
+          TInstr::drop(TInstr::local_get(LocalIdx::new(1))),
+        ]),
+      ),
+    ]),
+  )
+  let optimized = match optimize_module(mod, [ReorderLocals]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(locals, TExpr(instrs))])) => {
+      assert_eq(locals, [ValType::i64()])
+      match instrs {
+        [TDrop(TLocalGet(LocalIdx(i0))), TDrop(TLocalGet(LocalIdx(i1)))] => {
+          assert_eq(i0, 0U)
+          assert_eq(i1, 0U)
+        }
+        _ => fail("expected local indices to be remapped after local reorder")
+      }
+    }
+    _ => fail("expected ReorderLocals to drop and remap locals")
+  }
+}
+
+///|
+test "optimize_module runs ReorderTypes pass" {
+  let private_types : Array[SubType] = []
+  for _ in 0..<130 {
+    private_types.push(SubType::comp_type(CompType::struct_([])))
+  }
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([RecType::group(private_types), rt_single_void_type()]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(130)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::drop(TInstr::struct_new(TypeIdx::new(129), [])),
+            TInstr::drop(TInstr::struct_new(TypeIdx::new(129), [])),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match optimize_module(mod, [ReorderTypes]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TDrop(TStructNew(TypeIdx(i0), [])), ..]))])) =>
+      assert_true(i0 < 128U)
+    _ => fail("expected ReorderTypes to remap hot type below LEB boundary")
   }
 }
 

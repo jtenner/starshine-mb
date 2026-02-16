@@ -54,7 +54,7 @@ In this workspace, use absolute moon path when needed:
 ## ModulePass Registry (Current)
 
 ### IR and canonicalization
-- `AlignmentLowering`, `AvoidReinterprets`, `CoalesceLocals`, `CodeFolding`, `CodePushing`, `ConstHoisting`, `ConstantFieldPropagation`, `DeadCodeElimination`, `OptimizeInstructions`, `Precompute`, `PrecomputePropagate`, `OptimizeAddedConstants`, `OptimizeAddedConstantsPropagate`, `RedundantSetElimination`, `PickLoadSigns`, `RemoveUnusedBrs`, `RemoveUnusedNames`, `ReorderGlobals`, `ReorderGlobalsAlways`, `ReorderFunctions`, `ReorderFunctionsByName`, `RemoveUnusedTypes`
+- `AlignmentLowering`, `AvoidReinterprets`, `CoalesceLocals`, `CodeFolding`, `CodePushing`, `ConstHoisting`, `ConstantFieldPropagation`, `DeadCodeElimination`, `OptimizeInstructions`, `Precompute`, `PrecomputePropagate`, `OptimizeAddedConstants`, `OptimizeAddedConstantsPropagate`, `RedundantSetElimination`, `PickLoadSigns`, `RemoveUnusedBrs`, `RemoveUnusedNames`, `ReorderLocals`, `ReorderTypes`, `ReorderGlobals`, `ReorderGlobalsAlways`, `ReorderFunctions`, `ReorderFunctionsByName`, `RemoveUnusedTypes`
 
 ### Global/type/ref analysis
 - `AbstractTypeRefining(AbstractTypeRefiningPassProps)`, `GlobalRefining`, `GlobalStructInference`, `GlobalStructInferenceDescCast`, `GlobalTypeOptimization`, `TypeRefining`, `MinimizeRecGroups`
@@ -63,7 +63,7 @@ In this workspace, use absolute moon path when needed:
 - `Heap2Local`, `HeapStoreOptimization`, `OptimizeCasts`, `GUFA`, `GUFAOptimizing`, `GUFACastAll`
 
 ### Callgraph/whole-module
-- `DeadArgumentElimination`, `SignaturePruning`, `DuplicateImportElimination`, `DuplicateFunctionElimination`, `Directize(Bool)`, `ReorderGlobals`, `ReorderGlobalsAlways`, `ReorderFunctions`, `ReorderFunctionsByName`, `MergeLocals`, `MergeBlocks`, `MergeSimilarFunctions`, `Monomorphize`, `MonomorphizeAlways`, `Inlining`, `InliningOptimizing`, `InlineMain`, `OnceReduction`, `RemoveUnused`
+- `DeadArgumentElimination`, `SignaturePruning`, `DuplicateImportElimination`, `DuplicateFunctionElimination`, `Directize(Bool)`, `ReorderLocals`, `ReorderTypes`, `ReorderGlobals`, `ReorderGlobalsAlways`, `ReorderFunctions`, `ReorderFunctionsByName`, `MergeLocals`, `MergeBlocks`, `MergeSimilarFunctions`, `Monomorphize`, `MonomorphizeAlways`, `Inlining`, `InliningOptimizing`, `InlineMain`, `OnceReduction`, `RemoveUnused`
 
 ### Lowering/runtime/memory
 - `DataflowOptimization`, `I64ToI32Lowering`, `Asyncify(AsyncifyPassProps)`, `MemoryPacking(MemoryPackingPassProps)`, `DeNaN`
@@ -83,6 +83,8 @@ In this workspace, use absolute moon path when needed:
 - This IR does not retain symbolic function names in `Func`, so `ReorderFunctionsByName` currently preserves existing order.
 - `ReorderGlobals` reorders defined globals by static `global.get`/`global.set` usage plus dependency-constrained topological ordering, then remaps `GlobalIdx` users module-wide.
 - `ReorderGlobalsAlways` uses smooth per-index cost weighting (`1 + i / 128`) for size estimation so it still reorders below 128 globals.
+- `ReorderLocals` uses function-signature param counts from `func_sec`/`type_sec` to keep params fixed, then sorts non-param locals by `local.get`/`local.set`/`local.tee` usage frequency and first-use order, dropping trailing unused locals and remapping `LocalIdx` uses.
+- `ReorderTypes` reorders private members inside GC recursion groups by weighted use counts plus dependency-aware ordering; it scans multiple successor-weight factors, picks the lowest modeled LEB cost order, rewrites group-local `RecIdx`/external `TypeIdx` references, and remaps module-wide type uses.
 - `SignaturePruning` is implemented as a closed-world, no-table transform over function `TypeIdx` groups; it prunes uniformly unused/constant parameters across all funcs sharing a signature and rewrites direct `call`/`call_ref` uses plus affected function-local param indexing.
 - `ModuleTransformer::walk_module` dispatches `on_module_evt` before default traversal (consistent with other `walk_*` hooks).
 - Audit note: every current `on_*` hook in `ModuleTransformer` has a corresponding `walk_*` dispatcher path; regression tests now cover section dispatchers and core/leaf hook dispatch.
