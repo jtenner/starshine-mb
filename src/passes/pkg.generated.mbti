@@ -194,6 +194,10 @@ pub(all) enum ModulePass {
   DeNaN
   RemoveUnusedBrs
   RemoveUnusedNames
+  ReorderGlobals
+  ReorderGlobalsAlways
+  ReorderFunctions
+  ReorderFunctionsByName
   RemoveUnusedTypes
   RemoveUnused
 }

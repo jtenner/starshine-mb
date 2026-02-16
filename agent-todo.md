@@ -35,8 +35,8 @@
 ### A) Primary Optimization / Analysis Passes
 - [x] Binaryen Pass: RemoveUnusedNames.cpp
 - [x] Binaryen Pass: RemoveUnusedTypes.cpp
-- [ ] Binaryen Pass: ReorderFunctions.cpp
-- [ ] Binaryen Pass: ReorderGlobals.cpp
+- [x] Binaryen Pass: ReorderFunctions.cpp
+- [x] Binaryen Pass: ReorderGlobals.cpp
 - [ ] Binaryen Pass: ReorderLocals.cpp
 - [ ] Binaryen Pass: ReorderTypes.cpp
 - [ ] Binaryen Pass: SSAify.cpp
@@ -127,3 +127,7 @@
 - [x] Added pass-level tests for direct-callsite parameter refinement and param-fixup local rewriting when refined params are assigned less-specific values.
 - [x] Implemented `src/passes/remove_unused_types.mbt` and wired it via `ModulePass::RemoveUnusedTypes` in `src/passes/optimize.mbt`.
 - [x] Added tests for dropping unreachable GC types, keeping transitive type dependencies, and remapping `TypeIdx` uses after deletions.
+- [x] Implemented `src/passes/reorder_functions.mbt` and wired it via `ModulePass::ReorderFunctions` and `ModulePass::ReorderFunctionsByName` in `src/passes/optimize.mbt`.
+- [x] Added pass-level and scheduler-level tests for static-use-count ordering and `FuncIdx` remapping across calls/start/exports/elements.
+- [x] Implemented `src/passes/reorder_globals.mbt` and wired it via `ModulePass::ReorderGlobals` and `ModulePass::ReorderGlobalsAlways` in `src/passes/optimize.mbt`.
+- [x] Added pass-level and scheduler-level tests for dependency-constrained global ordering and `GlobalIdx` remapping.

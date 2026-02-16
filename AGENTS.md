@@ -54,7 +54,7 @@ In this workspace, use absolute moon path when needed:
 ## ModulePass Registry (Current)
 
 ### IR and canonicalization
-- `AlignmentLowering`, `AvoidReinterprets`, `CoalesceLocals`, `CodeFolding`, `CodePushing`, `ConstHoisting`, `ConstantFieldPropagation`, `DeadCodeElimination`, `OptimizeInstructions`, `Precompute`, `PrecomputePropagate`, `OptimizeAddedConstants`, `OptimizeAddedConstantsPropagate`, `RedundantSetElimination`, `PickLoadSigns`, `RemoveUnusedBrs`, `RemoveUnusedNames`, `RemoveUnusedTypes`
+- `AlignmentLowering`, `AvoidReinterprets`, `CoalesceLocals`, `CodeFolding`, `CodePushing`, `ConstHoisting`, `ConstantFieldPropagation`, `DeadCodeElimination`, `OptimizeInstructions`, `Precompute`, `PrecomputePropagate`, `OptimizeAddedConstants`, `OptimizeAddedConstantsPropagate`, `RedundantSetElimination`, `PickLoadSigns`, `RemoveUnusedBrs`, `RemoveUnusedNames`, `ReorderGlobals`, `ReorderGlobalsAlways`, `ReorderFunctions`, `ReorderFunctionsByName`, `RemoveUnusedTypes`
 
 ### Global/type/ref analysis
 - `AbstractTypeRefining(AbstractTypeRefiningPassProps)`, `GlobalRefining`, `GlobalStructInference`, `GlobalStructInferenceDescCast`, `GlobalTypeOptimization`, `TypeRefining`, `MinimizeRecGroups`
@@ -63,7 +63,7 @@ In this workspace, use absolute moon path when needed:
 - `Heap2Local`, `HeapStoreOptimization`, `OptimizeCasts`, `GUFA`, `GUFAOptimizing`, `GUFACastAll`
 
 ### Callgraph/whole-module
-- `DeadArgumentElimination`, `DuplicateImportElimination`, `DuplicateFunctionElimination`, `Directize(Bool)`, `MergeLocals`, `MergeBlocks`, `MergeSimilarFunctions`, `Monomorphize`, `MonomorphizeAlways`, `Inlining`, `InliningOptimizing`, `InlineMain`, `OnceReduction`, `RemoveUnused`
+- `DeadArgumentElimination`, `DuplicateImportElimination`, `DuplicateFunctionElimination`, `Directize(Bool)`, `ReorderGlobals`, `ReorderGlobalsAlways`, `ReorderFunctions`, `ReorderFunctionsByName`, `MergeLocals`, `MergeBlocks`, `MergeSimilarFunctions`, `Monomorphize`, `MonomorphizeAlways`, `Inlining`, `InliningOptimizing`, `InlineMain`, `OnceReduction`, `RemoveUnused`
 
 ### Lowering/runtime/memory
 - `DataflowOptimization`, `I64ToI32Lowering`, `Asyncify(AsyncifyPassProps)`, `MemoryPacking(MemoryPackingPassProps)`, `DeNaN`
@@ -79,6 +79,11 @@ In this workspace, use absolute moon path when needed:
 - `RemoveUnusedNames` is implemented as a depth-based `LabelIdx` adaptation of Binaryen's name-based pass (this IR does not preserve symbolic block names in `TInstr`).
 - `TypeRefining` is implemented with direct-callsite param type refinement and Binaryen-style param fixup locals when refined params are assigned less-specific values in function bodies.
 - `RemoveUnusedTypes` rebuilds `type_sec` from non-type-section roots plus transitive subtype/signature/field references, then rewrites module `TypeIdx`/`HeapType` references.
+- `ReorderFunctions` counts direct `call` usage plus start/export/element `FuncsElemKind` references, then reorders defined functions and remaps `FuncIdx` users.
+- This IR does not retain symbolic function names in `Func`, so `ReorderFunctionsByName` currently preserves existing order.
+- `ReorderGlobals` reorders defined globals by static `global.get`/`global.set` usage plus dependency-constrained topological ordering, then remaps `GlobalIdx` users module-wide.
+- `ReorderGlobalsAlways` uses smooth per-index cost weighting (`1 + i / 128`) for size estimation so it still reorders below 128 globals.
+- `ModuleTransformer::on_module_evt` is currently not invoked by `walk_module`; module-level passes should dispatch directly in scheduler or use section/function events.
 
 ## Current Gaps / Ongoing Work
 - Migrate remaining non-IRContext-shaped passes (`de_nan`, `remove_unused`).

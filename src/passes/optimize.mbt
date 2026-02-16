@@ -51,6 +51,10 @@ pub(all) enum ModulePass {
   DeNaN
   RemoveUnusedBrs
   RemoveUnusedNames
+  ReorderGlobals
+  ReorderGlobalsAlways
+  ReorderFunctions
+  ReorderFunctionsByName
   RemoveUnusedTypes
   RemoveUnused
 }
@@ -505,6 +509,26 @@ pub fn optimize_module_with_options(
       RemoveUnusedNames =>
         match
           apply_ir_transformer_pass(ctx, mod, remove_unused_names_ir_pass(mod)) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      ReorderGlobals =>
+        match reorder_globals(mod) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      ReorderGlobalsAlways =>
+        match reorder_globals_always(mod) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      ReorderFunctions =>
+        match reorder_functions(mod) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      ReorderFunctionsByName =>
+        match reorder_functions_by_name(mod) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }
@@ -1776,5 +1800,99 @@ test "optimize_module runs RemoveUnusedNames pass" {
     Some(CodeSec([TFunc(_, TExpr([TBlock(_, TExpr([TI32Const(I32(5))]))]))])) =>
       ()
     _ => fail("expected RemoveUnusedNames to merge single-child blocks")
+  }
+}
+
+///|
+test "optimize_module runs ReorderFunctions pass" {
+  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let root = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::call(FuncIdx::new(2), []),
+      TInstr::call(FuncIdx::new(2), []),
+    ]),
+  )
+  let most_used = Func::t_func([], TExpr::new([TInstr::nop()]))
+  let less_used = Func::t_func(
+    [],
+    TExpr::new([TInstr::drop(TInstr::i32_const(I32(7)))]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_void]))
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("env"),
+          Name::new("imp"),
+          ExternType::func(TypeIdx::new(0)),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      FuncSec::new([TypeIdx::new(0), TypeIdx::new(0), TypeIdx::new(0)]),
+    )
+    .with_code_sec(CodeSec::new([root, most_used, less_used]))
+    .with_start_sec(StartSec::new(FuncIdx::new(3)))
+  let optimized = match optimize_module(mod, [ReorderFunctions]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TNop])), _, _])) => ()
+    _ => fail("expected ReorderFunctions to move highest-used function first")
+  }
+  match optimized.start_sec {
+    Some(StartSec(FuncIdx(i))) => assert_eq(i, 2U)
+    _ => fail("expected ReorderFunctions to rewrite start index")
+  }
+}
+
+///|
+test "optimize_module runs ReorderGlobalsAlways pass" {
+  let imported = Import::new(
+    Name::new("env"),
+    Name::new("gimp"),
+    ExternType::global(GlobalType::new(ValType::i32(), true)),
+  )
+  let g0 = Global::new(
+    GlobalType::new(ValType::i32(), true),
+    Expr::new([Instruction::i32_const(I32(1))]),
+  )
+  let g1 = Global::new(
+    GlobalType::new(ValType::i32(), true),
+    Expr::new([Instruction::global_get(GlobalIdx::new(1))]),
+  )
+  let g2 = Global::new(
+    GlobalType::new(ValType::i32(), true),
+    Expr::new([Instruction::i32_const(I32(2))]),
+  )
+  let mod = Module::new()
+    .with_import_sec(ImportSec::new([imported]))
+    .with_global_sec(GlobalSec::new([g0, g1, g2]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::drop(TInstr::global_get(GlobalIdx::new(3))),
+            TInstr::drop(TInstr::global_get(GlobalIdx::new(3))),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match optimize_module(mod, [ReorderGlobalsAlways]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.global_sec {
+    Some(GlobalSec(globals)) => {
+      assert_eq(globals.length(), 3)
+      match globals[0] {
+        Global(_, Expr([I32Const(I32(v))])) => assert_eq(v, 2)
+        _ => fail("expected first reordered global to be the most-used one")
+      }
+    }
+    _ => fail("expected ReorderGlobalsAlways to move most-used global first")
   }
 }

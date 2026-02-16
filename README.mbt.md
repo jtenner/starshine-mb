@@ -92,6 +92,10 @@ Current `ModulePass` variants in `src/passes/optimize.mbt`:
 - `PickLoadSigns`
 - `RemoveUnusedBrs`
 - `RemoveUnusedNames`
+- `ReorderGlobals`
+- `ReorderGlobalsAlways`
+- `ReorderFunctions`
+- `ReorderFunctionsByName`
 - `RemoveUnusedTypes`
 
 ### Global / Type / Ref Inference
@@ -116,6 +120,10 @@ Current `ModulePass` variants in `src/passes/optimize.mbt`:
 - `DuplicateImportElimination`
 - `DuplicateFunctionElimination`
 - `Directize(Bool)`
+- `ReorderGlobals`
+- `ReorderGlobalsAlways`
+- `ReorderFunctions`
+- `ReorderFunctionsByName`
 - `MergeLocals`
 - `MergeBlocks`
 - `MergeSimilarFunctions`
