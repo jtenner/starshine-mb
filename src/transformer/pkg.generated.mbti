@@ -213,6 +213,7 @@ pub fn[T] ModuleTransformer::walk_memsec_default(Self[T], T, @lib.MemSec) -> Res
 pub fn[T] ModuleTransformer::walk_memtype(Self[T], T, @lib.MemType) -> Result[(T, @lib.MemType)?, String]
 pub fn[T] ModuleTransformer::walk_memtype_default(Self[T], T, @lib.MemType) -> Result[(T, @lib.MemType)?, String]
 pub fn[T] ModuleTransformer::walk_module(Self[T], T, @lib.Module) -> Result[(T, @lib.Module)?, String]
+pub fn[T] ModuleTransformer::walk_module_default(Self[T], T, @lib.Module) -> Result[(T, @lib.Module)?, String]
 pub fn[T] ModuleTransformer::walk_name(Self[T], T, @lib.Name) -> Result[(T, @lib.Name)?, String]
 pub fn[T] ModuleTransformer::walk_numtype(Self[T], T, @lib.NumType) -> Result[(T, @lib.NumType)?, String]
 pub fn[T] ModuleTransformer::walk_rectype(Self[T], T, @lib.RecType) -> Result[(T, @lib.RecType)?, String]

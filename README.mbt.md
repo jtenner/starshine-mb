@@ -117,6 +117,7 @@ Current `ModulePass` variants in `src/passes/optimize.mbt`:
 
 ### Callgraph / Whole-Module / Function-shape
 - `DeadArgumentElimination`
+- `SignaturePruning`
 - `DuplicateImportElimination`
 - `DuplicateFunctionElimination`
 - `Directize(Bool)`

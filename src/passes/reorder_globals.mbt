@@ -394,6 +394,7 @@ fn reorder_globals_ir_pass(
   })
 }
 
+///|
 fn rg_run_reorder_globals(mod : Module, always : Bool) -> Module {
   let pass = reorder_globals_ir_pass(mod, always)
   match pass.walk_module(IRContext::new(), mod) {
