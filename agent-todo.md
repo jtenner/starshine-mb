@@ -37,7 +37,7 @@
 - [x] ReorderLocals.cpp
 - [x] ReorderTypes.cpp
 - [x] SimplifyGlobals.cpp (general canonicalization / simplification)
-- [ ] SimplifyLocals.cpp (general canonicalization / simplification)
+- [x] SimplifyLocals.cpp (general canonicalization / simplification)
 - [ ] SSAify.cpp (enabling transform; often prerequisite for SSA-based opts)
 - [ ] Untee.cpp (canonicalization: removes tee patterns / simplifies local.set+use forms)
 - [ ] Vacuum.cpp (general cleanup of unreachable/unused IR “dust”; canonical-ish)
@@ -132,5 +132,9 @@
 - [x] Added pass-level and scheduler-level tests for private-group type reordering, public-group preservation, and `TypeIdx` remapping under LEB-cost pressure.
 - [x] Implemented `src/passes/signature_pruning.mbt` and wired it via `ModulePass::SignaturePruning` in `src/passes/optimize.mbt`.
 - [x] Added pass-level tests for shared-signature pruning, `call_ref` signature/arg rewriting, table-section bailout, and scheduler-level dispatch coverage.
+- [x] Implemented `src/passes/simplify_locals.mbt` and wired it via `ModulePass::SimplifyLocals`, `ModulePass::SimplifyLocalsNoTee`, `ModulePass::SimplifyLocalsNoStructure`, `ModulePass::SimplifyLocalsNoTeeNoStructure`, and `ModulePass::SimplifyLocalsNoNesting` in `src/passes/optimize.mbt`.
+- [x] Expanded `simplify_locals` parity with structural `block`/`loop` return coalescing, conditional-break (`br_if`) value coalescing behavior, and late equivalent-local canonicalization.
+- [x] Added/expanded pass-level tests for block/loop coalescing, direct structure rewrite invariants, late canonicalization behavior, and structure-gated equivalent-set removal behavior.
+- [x] Added scheduler-level dispatch coverage in `src/passes/optimize.mbt` and documented simplify-locals variants in `README.md` and `README.mbt.md`.
 - [x] Fixed transformer bug where `ModuleTransformer::walk_module` ignored `on_module_evt`; added regression test in `src/transformer/tests.mbt`.
 - [x] Audited `ModuleTransformer` hook dispatch coverage and added broad regression tests in `src/transformer/tests.mbt` to assert section/core walk functions invoke their corresponding `on_*` events.

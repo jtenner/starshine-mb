@@ -92,6 +92,11 @@ Current `ModulePass` variants in `src/passes/optimize.mbt`:
 - `PickLoadSigns`
 - `RemoveUnusedBrs`
 - `RemoveUnusedNames`
+- `SimplifyLocals`
+- `SimplifyLocalsNoTee`
+- `SimplifyLocalsNoStructure`
+- `SimplifyLocalsNoTeeNoStructure`
+- `SimplifyLocalsNoNesting`
 - `ReorderLocals`
 - `ReorderTypes`
 - `ReorderGlobals`
@@ -157,6 +162,7 @@ Current `ModulePass` variants in `src/passes/optimize.mbt`:
 - `Heap2Local` / `HeapStoreOptimization`: conservative, LocalGraph/effect-aware rewrites with trap/side-effect parity handling.
 - `GlobalTypeOptimization` / `GlobalStructInference` / `MinimizeRecGroups`: whole-module type and struct transformations with external-contract safety guards.
 - `SimplifyGlobals`: iteratively makes unobservable globals immutable, drops unneeded `global.set`s, prefers earlier immutable copies, and propagates global constants to init code and typed function IR (`SimplifyGlobalsOptimizing` runs extra cleanup passes afterward).
+- `SimplifyLocals`: sinks `local.set` operations to use sites, supports tee/no-tee and structural/non-structural modes, forms result-typed `if`/`block`/`loop` values from coalesced local writes, and runs late equivalent-local canonicalization plus dead local-set/tee cleanup in iterative cycles.
 - `Monomorphize`: empirical and always-on variants, with `OptimizeOptions.monomorphize_min_benefit` gating empirical mode.
 
 ## Example Usage

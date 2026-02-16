@@ -54,7 +54,7 @@ In this workspace, use absolute moon path when needed:
 ## ModulePass Registry (Current)
 
 ### IR and canonicalization
-- `AlignmentLowering`, `AvoidReinterprets`, `CoalesceLocals`, `CodeFolding`, `CodePushing`, `ConstHoisting`, `ConstantFieldPropagation`, `DeadCodeElimination`, `OptimizeInstructions`, `Precompute`, `PrecomputePropagate`, `OptimizeAddedConstants`, `OptimizeAddedConstantsPropagate`, `RedundantSetElimination`, `PickLoadSigns`, `RemoveUnusedBrs`, `RemoveUnusedNames`, `ReorderLocals`, `ReorderTypes`, `ReorderGlobals`, `ReorderGlobalsAlways`, `ReorderFunctions`, `ReorderFunctionsByName`, `RemoveUnusedTypes`
+- `AlignmentLowering`, `AvoidReinterprets`, `CoalesceLocals`, `CodeFolding`, `CodePushing`, `ConstHoisting`, `ConstantFieldPropagation`, `DeadCodeElimination`, `OptimizeInstructions`, `Precompute`, `PrecomputePropagate`, `OptimizeAddedConstants`, `OptimizeAddedConstantsPropagate`, `RedundantSetElimination`, `PickLoadSigns`, `RemoveUnusedBrs`, `RemoveUnusedNames`, `SimplifyLocals`, `SimplifyLocalsNoTee`, `SimplifyLocalsNoStructure`, `SimplifyLocalsNoTeeNoStructure`, `SimplifyLocalsNoNesting`, `ReorderLocals`, `ReorderTypes`, `ReorderGlobals`, `ReorderGlobalsAlways`, `ReorderFunctions`, `ReorderFunctionsByName`, `RemoveUnusedTypes`
 
 ### Global/type/ref analysis
 - `AbstractTypeRefining(AbstractTypeRefiningPassProps)`, `GlobalRefining`, `GlobalStructInference`, `GlobalStructInferenceDescCast`, `GlobalTypeOptimization`, `SimplifyGlobals`, `SimplifyGlobalsOptimizing`, `PropagateGlobalsGlobally`, `TypeRefining`, `MinimizeRecGroups`
@@ -87,6 +87,7 @@ In this workspace, use absolute moon path when needed:
 - `ReorderTypes` reorders private members inside GC recursion groups by weighted use counts plus dependency-aware ordering; it scans multiple successor-weight factors, picks the lowest modeled LEB cost order, rewrites group-local `RecIdx`/external `TypeIdx` references, and remaps module-wide type uses.
 - `SignaturePruning` is implemented as a closed-world, no-table transform over function `TypeIdx` groups; it prunes uniformly unused/constant parameters across all funcs sharing a signature and rewrites direct `call`/`call_ref` uses plus affected function-local param indexing.
 - `SimplifyGlobals` is implemented as an iterative module pass that combines write/read analysis, immutable-copy preference, dead `global.set` removal, and constant propagation across global inits/module offsets/typed code; `SimplifyGlobalsOptimizing` adds `OptimizeInstructions + DeadCodeElimination + CodeFolding` follow-up.
+- `SimplifyLocals` is implemented as an iterative typed-function pass with Binaryen-style variants (`NoTee`, `NoStructure`, `NoTeeNoStructure`, `NoNesting`), including linear `local.set` sinking, structural `if`/`block`/`loop` return formation, and late equivalent-local canonicalization plus dead local-set/tee cleanup.
 - `ModuleTransformer::walk_module` dispatches `on_module_evt` before default traversal (consistent with other `walk_*` hooks).
 - Audit note: every current `on_*` hook in `ModuleTransformer` has a corresponding `walk_*` dispatcher path; regression tests now cover section dispatchers and core/leaf hook dispatch.
 

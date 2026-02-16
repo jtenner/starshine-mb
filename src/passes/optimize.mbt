@@ -55,6 +55,11 @@ pub(all) enum ModulePass {
   DeNaN
   RemoveUnusedBrs
   RemoveUnusedNames
+  SimplifyLocals
+  SimplifyLocalsNoTee
+  SimplifyLocalsNoStructure
+  SimplifyLocalsNoTeeNoStructure
+  SimplifyLocalsNoNesting
   ReorderLocals
   ReorderTypes
   ReorderGlobals
@@ -551,6 +556,56 @@ pub fn optimize_module_with_options(
       RemoveUnusedNames =>
         match
           apply_ir_transformer_pass(ctx, mod, remove_unused_names_ir_pass(mod)) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      SimplifyLocals =>
+        match
+          apply_ir_transformer_pass(
+            ctx,
+            mod,
+            simplify_locals_ir_pass(mod, true, true, true),
+          ) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      SimplifyLocalsNoTee =>
+        match
+          apply_ir_transformer_pass(
+            ctx,
+            mod,
+            simplify_locals_ir_pass(mod, false, true, true),
+          ) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      SimplifyLocalsNoStructure =>
+        match
+          apply_ir_transformer_pass(
+            ctx,
+            mod,
+            simplify_locals_ir_pass(mod, true, false, true),
+          ) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      SimplifyLocalsNoTeeNoStructure =>
+        match
+          apply_ir_transformer_pass(
+            ctx,
+            mod,
+            simplify_locals_ir_pass(mod, false, false, true),
+          ) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      SimplifyLocalsNoNesting =>
+        match
+          apply_ir_transformer_pass(
+            ctx,
+            mod,
+            simplify_locals_ir_pass(mod, false, false, false),
+          ) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }
@@ -1904,6 +1959,34 @@ test "optimize_module runs RemoveUnusedNames pass" {
     Some(CodeSec([TFunc(_, TExpr([TBlock(_, TExpr([TI32Const(I32(5))]))]))])) =>
       ()
     _ => fail("expected RemoveUnusedNames to merge single-child blocks")
+  }
+}
+
+///|
+test "optimize_module runs SimplifyLocals pass" {
+  let mod = Module::new().with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [ValType::i32()],
+        TExpr::new([
+          TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(42))),
+          TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+        ]),
+      ),
+    ]),
+  )
+  let optimized = match optimize_module(mod, [SimplifyLocals]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr(instrs))])) =>
+      match instrs {
+        [TDrop(TI32Const(I32(v)))] => assert_eq(v, 42)
+        _ =>
+          fail("expected local.set/local.get pair to simplify into direct drop")
+      }
+    _ => fail("expected SimplifyLocals to run on typed function")
   }
 }
 

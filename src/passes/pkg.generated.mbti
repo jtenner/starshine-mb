@@ -198,6 +198,11 @@ pub(all) enum ModulePass {
   DeNaN
   RemoveUnusedBrs
   RemoveUnusedNames
+  SimplifyLocals
+  SimplifyLocalsNoTee
+  SimplifyLocalsNoStructure
+  SimplifyLocalsNoTeeNoStructure
+  SimplifyLocalsNoNesting
   ReorderLocals
   ReorderTypes
   ReorderGlobals
