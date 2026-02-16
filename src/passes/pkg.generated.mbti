@@ -203,6 +203,8 @@ pub(all) enum ModulePass {
   SimplifyLocalsNoStructure
   SimplifyLocalsNoTeeNoStructure
   SimplifyLocalsNoNesting
+  Untee
+  Vacuum
   ReorderLocals
   ReorderTypes
   ReorderGlobals

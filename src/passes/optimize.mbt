@@ -60,6 +60,8 @@ pub(all) enum ModulePass {
   SimplifyLocalsNoStructure
   SimplifyLocalsNoTeeNoStructure
   SimplifyLocalsNoNesting
+  Untee
+  Vacuum
   ReorderLocals
   ReorderTypes
   ReorderGlobals
@@ -606,6 +608,16 @@ pub fn optimize_module_with_options(
             mod,
             simplify_locals_ir_pass(mod, false, false, false),
           ) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      Untee =>
+        match apply_ir_transformer_pass(ctx, mod, untee_ir_pass(mod)) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      Vacuum =>
+        match apply_ir_transformer_pass(ctx, mod, vacuum_ir_pass(mod)) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }
@@ -1644,6 +1656,47 @@ test "optimize_module runs RedundantSetElimination pass" {
   match optimized.code_sec {
     Some(CodeSec([TFunc(_, TExpr([TLocalSet(_, _), TDrop(_)]))])) => ()
     _ => fail("expected second redundant set to be removed")
+  }
+}
+
+///|
+test "optimize_module runs Untee pass" {
+  let mod = Module::new().with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [ValType::i32()],
+        TExpr::new([
+          TInstr::drop(
+            TInstr::local_tee(LocalIdx::new(0), TInstr::i32_const(I32(6))),
+          ),
+        ]),
+      ),
+    ]),
+  )
+  let optimized = match optimize_module(mod, [Untee]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, body)])) => assert_eq(count_local_tees(body), 0)
+    _ => fail("expected transformed function body")
+  }
+}
+
+///|
+test "optimize_module runs Vacuum pass" {
+  let mod = Module::new().with_code_sec(
+    CodeSec::new([
+      Func::t_func([], TExpr::new([TInstr::drop(TInstr::i32_const(I32(3)))])),
+    ]),
+  )
+  let optimized = match optimize_module(mod, [Vacuum]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TNop]))])) => ()
+    _ => fail("expected vacuum to remove pure dropped const")
   }
 }
 

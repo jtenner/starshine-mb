@@ -38,9 +38,8 @@
 - [x] ReorderTypes.cpp
 - [x] SimplifyGlobals.cpp (general canonicalization / simplification)
 - [x] SimplifyLocals.cpp (general canonicalization / simplification)
-- [ ] SSAify.cpp (enabling transform; often prerequisite for SSA-based opts)
-- [ ] Untee.cpp (canonicalization: removes tee patterns / simplifies local.set+use forms)
-- [ ] Vacuum.cpp (general cleanup of unreachable/unused IR “dust”; canonical-ish)
+- [x] Untee.cpp (canonicalization: removes tee patterns / simplifies local.set+use forms)
+- [x] Vacuum.cpp (general cleanup of unreachable/unused IR “dust”; canonical-ish)
 
 ### Low Priority
 
@@ -136,5 +135,11 @@
 - [x] Expanded `simplify_locals` parity with structural `block`/`loop` return coalescing, conditional-break (`br_if`) value coalescing behavior, and late equivalent-local canonicalization.
 - [x] Added/expanded pass-level tests for block/loop coalescing, direct structure rewrite invariants, late canonicalization behavior, and structure-gated equivalent-set removal behavior.
 - [x] Added scheduler-level dispatch coverage in `src/passes/optimize.mbt` and documented simplify-locals variants in `README.md` and `README.mbt.md`.
+- [x] Implemented `src/passes/untee.mbt` using the `ModuleTransformer[IRContext]` pass pattern and wired it via `ModulePass::Untee` in `src/passes/optimize.mbt`.
+- [x] Added pass-level tests for `local.tee -> block(local.set, local.get)` rewriting, unreachable-tee dropping, and parameter-typed block-result behavior; plus scheduler-level dispatch coverage in `src/passes/optimize.mbt`.
+- [x] Updated pass registry/docs for `Untee` in `README.mbt.md` and `AGENTS.md`.
+- [x] Implemented `src/passes/vacuum.mbt` using the `ModuleTransformer[IRContext]` pass pattern and wired it via `ModulePass::Vacuum` in `src/passes/optimize.mbt`.
+- [x] Added pass-level tests covering drop/if/loop/block/try_table/function cleanup behaviors plus scheduler-level dispatch coverage for `ModulePass::Vacuum`.
+- [x] Updated pass registry/docs for `Vacuum` in `README.mbt.md` and `AGENTS.md`.
 - [x] Fixed transformer bug where `ModuleTransformer::walk_module` ignored `on_module_evt`; added regression test in `src/transformer/tests.mbt`.
 - [x] Audited `ModuleTransformer` hook dispatch coverage and added broad regression tests in `src/transformer/tests.mbt` to assert section/core walk functions invoke their corresponding `on_*` events.
