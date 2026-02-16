@@ -92,6 +92,7 @@ Current `ModulePass` variants in `src/passes/optimize.mbt`:
 - `PickLoadSigns`
 - `RemoveUnusedBrs`
 - `RemoveUnusedNames`
+- `RemoveUnusedTypes`
 
 ### Global / Type / Ref Inference
 - `AbstractTypeRefining(AbstractTypeRefiningPassProps)`

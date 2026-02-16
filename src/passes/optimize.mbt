@@ -51,6 +51,7 @@ pub(all) enum ModulePass {
   DeNaN
   RemoveUnusedBrs
   RemoveUnusedNames
+  RemoveUnusedTypes
   RemoveUnused
 }
 
@@ -507,6 +508,11 @@ pub fn optimize_module_with_options(
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }
+      RemoveUnusedTypes =>
+        match remove_unused_types(mod) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
       RemoveUnused =>
         match remove_unused(mod) {
           Ok(new_mod) => new_mod
@@ -626,6 +632,29 @@ test "optimize_module runs TypeRefining pass" {
   match optimized.func_sec {
     Some(FuncSec([_, TypeIdx(2)])) => ()
     _ => fail("expected callee to receive refined appended type")
+  }
+}
+
+///|
+test "optimize_module runs RemoveUnusedTypes pass" {
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        single_rec_type(comp_type_sub_type(func_comp_type([], []))),
+        single_rec_type(comp_type_sub_type(struct_comp_type([]))),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([Func::t_func([], TExpr::new([TInstr::nop()]))]),
+    )
+  let optimized = match optimize_module(mod, [RemoveUnusedTypes]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.type_sec {
+    Some(TypeSec(recs)) => assert_eq(recs.length(), 1)
+    None => fail("expected type section")
   }
 }
 

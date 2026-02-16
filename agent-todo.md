@@ -34,7 +34,7 @@
 
 ### A) Primary Optimization / Analysis Passes
 - [x] Binaryen Pass: RemoveUnusedNames.cpp
-- [ ] Binaryen Pass: RemoveUnusedTypes.cpp
+- [x] Binaryen Pass: RemoveUnusedTypes.cpp
 - [ ] Binaryen Pass: ReorderFunctions.cpp
 - [ ] Binaryen Pass: ReorderGlobals.cpp
 - [ ] Binaryen Pass: ReorderLocals.cpp
@@ -125,3 +125,5 @@
 - [x] Added scheduler-level dispatch test in `src/passes/optimize.mbt` and documented the pass in `README.md`.
 - [x] Implemented `src/passes/type_refining.mbt` and wired it via `ModulePass::TypeRefining` in `src/passes/optimize.mbt`.
 - [x] Added pass-level tests for direct-callsite parameter refinement and param-fixup local rewriting when refined params are assigned less-specific values.
+- [x] Implemented `src/passes/remove_unused_types.mbt` and wired it via `ModulePass::RemoveUnusedTypes` in `src/passes/optimize.mbt`.
+- [x] Added tests for dropping unreachable GC types, keeping transitive type dependencies, and remapping `TypeIdx` uses after deletions.

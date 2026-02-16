@@ -54,7 +54,7 @@ In this workspace, use absolute moon path when needed:
 ## ModulePass Registry (Current)
 
 ### IR and canonicalization
-- `AlignmentLowering`, `AvoidReinterprets`, `CoalesceLocals`, `CodeFolding`, `CodePushing`, `ConstHoisting`, `ConstantFieldPropagation`, `DeadCodeElimination`, `OptimizeInstructions`, `Precompute`, `PrecomputePropagate`, `OptimizeAddedConstants`, `OptimizeAddedConstantsPropagate`, `RedundantSetElimination`, `PickLoadSigns`, `RemoveUnusedBrs`, `RemoveUnusedNames`
+- `AlignmentLowering`, `AvoidReinterprets`, `CoalesceLocals`, `CodeFolding`, `CodePushing`, `ConstHoisting`, `ConstantFieldPropagation`, `DeadCodeElimination`, `OptimizeInstructions`, `Precompute`, `PrecomputePropagate`, `OptimizeAddedConstants`, `OptimizeAddedConstantsPropagate`, `RedundantSetElimination`, `PickLoadSigns`, `RemoveUnusedBrs`, `RemoveUnusedNames`, `RemoveUnusedTypes`
 
 ### Global/type/ref analysis
 - `AbstractTypeRefining(AbstractTypeRefiningPassProps)`, `GlobalRefining`, `GlobalStructInference`, `GlobalStructInferenceDescCast`, `GlobalTypeOptimization`, `TypeRefining`, `MinimizeRecGroups`
@@ -78,6 +78,7 @@ In this workspace, use absolute moon path when needed:
 - `I64ToI32Lowering` is integrated; explicit limitations remain for certain global/result shapes.
 - `RemoveUnusedNames` is implemented as a depth-based `LabelIdx` adaptation of Binaryen's name-based pass (this IR does not preserve symbolic block names in `TInstr`).
 - `TypeRefining` is implemented with direct-callsite param type refinement and Binaryen-style param fixup locals when refined params are assigned less-specific values in function bodies.
+- `RemoveUnusedTypes` rebuilds `type_sec` from non-type-section roots plus transitive subtype/signature/field references, then rewrites module `TypeIdx`/`HeapType` references.
 
 ## Current Gaps / Ongoing Work
 - Migrate remaining non-IRContext-shaped passes (`de_nan`, `remove_unused`).

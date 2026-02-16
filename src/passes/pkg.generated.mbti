@@ -194,6 +194,7 @@ pub(all) enum ModulePass {
   DeNaN
   RemoveUnusedBrs
   RemoveUnusedNames
+  RemoveUnusedTypes
   RemoveUnused
 }
 
