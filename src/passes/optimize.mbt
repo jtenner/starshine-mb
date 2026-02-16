@@ -112,6 +112,13 @@ pub struct OptimizeOptions {
 }
 
 ///|
+fn AbstractTypeRefiningPassProps::new(
+  traps_never_happen? : Bool = false,
+) -> AbstractTypeRefiningPassProps {
+  { traps_never_happen, }
+}
+
+///|
 fn OptimizeOptions::new(
   optimize_level? : Int = 0,
   shrink_level? : Int = 0,
@@ -675,6 +682,597 @@ pub fn optimize_module_with_options(
     ctx.set_mod(mod)
   }
   Ok(mod)
+}
+
+///|
+fn default_opts_has_gc_aggregates(mod : Module) -> Bool {
+  match mod.type_sec {
+    Some(TypeSec(recs)) => {
+      for rec in recs {
+        match rec {
+          SingleRecType(st) =>
+            match st.get_comptype() {
+              StructCompType(_) | ArrayCompType(_) => return true
+              _ => ()
+            }
+          GroupRecType(sts) =>
+            for st in sts {
+              match st.get_comptype() {
+                StructCompType(_) | ArrayCompType(_) => return true
+                _ => ()
+              }
+            }
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+fn default_opts_has_multivalue(mod : Module) -> Bool {
+  match mod.type_sec {
+    Some(TypeSec(recs)) => {
+      for rec in recs {
+        match rec {
+          SingleRecType(st) =>
+            match st.get_comptype() {
+              FuncCompType(_, results) if results.length() > 1 => return true
+              _ => ()
+            }
+          GroupRecType(sts) =>
+            for st in sts {
+              match st.get_comptype() {
+                FuncCompType(_, results) if results.length() > 1 => return true
+                _ => ()
+              }
+            }
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+pub fn default_function_optimization_passes(
+  mod : Module,
+  options : OptimizeOptions,
+) -> Array[ModulePass] {
+  // Intentionally mirrors Binaryen's no-DWARF path.
+  let has_gc = default_opts_has_gc_aggregates(mod)
+  let has_multivalue = default_opts_has_multivalue(mod)
+  let passes : Array[ModulePass] = []
+
+  if options.optimize_level >= 3 || options.shrink_level >= 1 {
+    // TODO(binaryen parity): ssa-nomerge is not implemented yet.
+  }
+  if options.optimize_level >= 4 {
+    // TODO(binaryen parity): flatten is not implemented yet.
+    passes.push(SimplifyLocalsNoTeeNoStructure)
+    passes.push(LocalCSE)
+    // TODO(binaryen parity): rereloop is not implemented yet.
+  }
+
+  passes.push(DeadCodeElimination)
+  passes.push(RemoveUnusedNames)
+  passes.push(RemoveUnusedBrs)
+  passes.push(RemoveUnusedNames)
+  passes.push(OptimizeInstructions)
+  if has_gc {
+    passes.push(HeapStoreOptimization)
+  }
+  if options.optimize_level >= 2 || options.shrink_level >= 2 {
+    passes.push(PickLoadSigns)
+  }
+  if options.optimize_level >= 3 || options.shrink_level >= 2 {
+    passes.push(PrecomputePropagate)
+  } else {
+    passes.push(Precompute)
+  }
+  if options.low_memory_unused {
+    if options.optimize_level >= 3 || options.shrink_level >= 1 {
+      passes.push(OptimizeAddedConstantsPropagate)
+    } else {
+      passes.push(OptimizeAddedConstants)
+    }
+  }
+  if options.optimize_level >= 2 || options.shrink_level >= 2 {
+    passes.push(CodePushing)
+  }
+  if has_multivalue {
+    // TODO(binaryen parity): tuple-optimization is not implemented yet.
+  }
+  passes.push(SimplifyLocalsNoStructure)
+  passes.push(Vacuum)
+  passes.push(ReorderLocals)
+  passes.push(RemoveUnusedBrs)
+  if options.optimize_level > 1 && has_gc {
+    passes.push(Heap2Local)
+  }
+  if options.optimize_level >= 3 || options.shrink_level >= 2 {
+    passes.push(MergeLocals)
+  }
+  if options.optimize_level > 1 && has_gc {
+    passes.push(OptimizeCasts)
+    passes.push(LocalSubtyping)
+  }
+  passes.push(CoalesceLocals)
+  if options.optimize_level >= 3 || options.shrink_level >= 1 {
+    passes.push(LocalCSE)
+  }
+  passes.push(SimplifyLocals)
+  passes.push(Vacuum)
+  passes.push(ReorderLocals)
+  passes.push(CoalesceLocals)
+  passes.push(ReorderLocals)
+  passes.push(Vacuum)
+  if options.optimize_level >= 3 || options.shrink_level >= 1 {
+    passes.push(CodeFolding)
+  }
+  passes.push(MergeBlocks)
+  passes.push(RemoveUnusedBrs)
+  passes.push(RemoveUnusedNames)
+  passes.push(MergeBlocks)
+  if options.optimize_level >= 3 || options.shrink_level >= 2 {
+    passes.push(PrecomputePropagate)
+  } else {
+    passes.push(Precompute)
+  }
+  passes.push(OptimizeInstructions)
+  if has_gc {
+    passes.push(HeapStoreOptimization)
+  }
+  if options.optimize_level >= 2 || options.shrink_level >= 1 {
+    passes.push(RedundantSetElimination)
+  }
+  passes.push(Vacuum)
+  passes
+}
+
+///|
+pub fn default_global_optimization_pre_passes(
+  mod : Module,
+  options : OptimizeOptions,
+  closed_world? : Bool = true,
+) -> Array[ModulePass] {
+  // Intentionally mirrors Binaryen's no-DWARF path.
+  let has_gc = default_opts_has_gc_aggregates(mod)
+  let passes : Array[ModulePass] = []
+
+  passes.push(DuplicateFunctionElimination)
+  if options.optimize_level >= 2 {
+    if closed_world {
+      passes.push(RemoveUnused)
+    } else {
+      // TODO(binaryen parity): expose open-world remove-unused-module-elements mode.
+    }
+  }
+  passes.push(MemoryPacking(MemoryPackingPassProps::new()))
+  if options.optimize_level >= 2 {
+    passes.push(OnceReduction)
+  }
+
+  if has_gc && options.optimize_level >= 2 {
+    if closed_world {
+      passes.push(TypeRefining)
+      passes.push(SignaturePruning)
+      // TODO(binaryen parity): signature-refining is not implemented yet.
+    }
+    passes.push(GlobalRefining)
+    if closed_world {
+      passes.push(GlobalTypeOptimization)
+    }
+    if closed_world {
+      passes.push(RemoveUnused)
+    } else {
+      // TODO(binaryen parity): expose open-world remove-unused-module-elements mode.
+    }
+    if closed_world {
+      passes.push(RemoveUnusedTypes)
+      if options.optimize_level >= 3 {
+        // TODO(binaryen parity): cfp-reftest mode is not implemented; using cfp.
+      }
+      passes.push(ConstantFieldPropagation)
+    }
+    passes.push(GlobalStructInference)
+    if closed_world {
+      passes.push(
+        AbstractTypeRefining(
+          AbstractTypeRefiningPassProps::new(traps_never_happen=false),
+        ),
+      )
+      // TODO(binaryen parity): unsubtyping is not implemented yet.
+    }
+  }
+
+  // TODO(binaryen parity): generate-global-effects is not implemented yet.
+  passes
+}
+
+///|
+fn default_count_module_passes(
+  passes : Array[ModulePass],
+  pred : (ModulePass) -> Bool,
+) -> Int {
+  let mut count = 0
+  for pass in passes {
+    if pred(pass) {
+      count += 1
+    }
+  }
+  count
+}
+
+///|
+test "default function optimization passes gate low-level and gc-only passes" {
+  let passes = default_function_optimization_passes(
+    Module::new(),
+    OptimizeOptions::new(),
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        Precompute => true
+        _ => false
+      }
+    }),
+    2,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        PrecomputePropagate => true
+        _ => false
+      }
+    }),
+    0,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        PickLoadSigns => true
+        _ => false
+      }
+    }),
+    0,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        HeapStoreOptimization => true
+        _ => false
+      }
+    }),
+    0,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        Vacuum => true
+        _ => false
+      }
+    }),
+    4,
+  )
+}
+
+///|
+test "default function optimization passes include propagate and gc passes when enabled" {
+  let gc_mod = Module::new().with_type_sec(
+    TypeSec::new([
+      single_rec_type(
+        comp_type_sub_type(
+          struct_comp_type([
+            FieldType::new(StorageType::val_type(ValType::i32()), Var),
+          ]),
+        ),
+      ),
+      single_rec_type(comp_type_sub_type(func_comp_type([], [ValType::i32()]))),
+      single_rec_type(
+        comp_type_sub_type(func_comp_type([], [ValType::i32(), ValType::i32()])),
+      ),
+    ]),
+  )
+  let options = OptimizeOptions::new(
+    optimize_level=3,
+    shrink_level=2,
+    low_memory_unused=true,
+  )
+  let passes = default_function_optimization_passes(gc_mod, options)
+
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        PrecomputePropagate => true
+        _ => false
+      }
+    }),
+    2,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        Precompute => true
+        _ => false
+      }
+    }),
+    0,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        OptimizeAddedConstantsPropagate => true
+        _ => false
+      }
+    }),
+    1,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        HeapStoreOptimization => true
+        _ => false
+      }
+    }),
+    2,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        Heap2Local => true
+        _ => false
+      }
+    }),
+    1,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        OptimizeCasts => true
+        _ => false
+      }
+    }),
+    1,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        LocalSubtyping => true
+        _ => false
+      }
+    }),
+    1,
+  )
+}
+
+///|
+test "default global optimization pre passes for non-gc module stay minimal" {
+  let passes = default_global_optimization_pre_passes(
+    Module::new(),
+    OptimizeOptions::new(optimize_level=0),
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        DuplicateFunctionElimination => true
+        _ => false
+      }
+    }),
+    1,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        MemoryPacking(_) => true
+        _ => false
+      }
+    }),
+    1,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        RemoveUnused => true
+        _ => false
+      }
+    }),
+    0,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        OnceReduction => true
+        _ => false
+      }
+    }),
+    0,
+  )
+}
+
+///|
+test "default global optimization pre passes include closed-world gc passes" {
+  let gc_mod = Module::new().with_type_sec(
+    TypeSec::new([
+      single_rec_type(
+        comp_type_sub_type(
+          struct_comp_type([
+            FieldType::new(StorageType::val_type(ValType::i32()), Var),
+          ]),
+        ),
+      ),
+    ]),
+  )
+  let passes = default_global_optimization_pre_passes(
+    gc_mod,
+    OptimizeOptions::new(optimize_level=2),
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        RemoveUnused => true
+        _ => false
+      }
+    }),
+    2,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        TypeRefining => true
+        _ => false
+      }
+    }),
+    1,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        SignaturePruning => true
+        _ => false
+      }
+    }),
+    1,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        GlobalTypeOptimization => true
+        _ => false
+      }
+    }),
+    1,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        RemoveUnusedTypes => true
+        _ => false
+      }
+    }),
+    1,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        ConstantFieldPropagation => true
+        _ => false
+      }
+    }),
+    1,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        AbstractTypeRefining(_) => true
+        _ => false
+      }
+    }),
+    1,
+  )
+}
+
+///|
+test "default global optimization pre passes honor closed_world=false gating" {
+  let gc_mod = Module::new().with_type_sec(
+    TypeSec::new([
+      single_rec_type(
+        comp_type_sub_type(
+          struct_comp_type([
+            FieldType::new(StorageType::val_type(ValType::i32()), Var),
+          ]),
+        ),
+      ),
+    ]),
+  )
+  let passes = default_global_optimization_pre_passes(
+    gc_mod,
+    OptimizeOptions::new(optimize_level=2),
+    closed_world=false,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        TypeRefining => true
+        _ => false
+      }
+    }),
+    0,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        SignaturePruning => true
+        _ => false
+      }
+    }),
+    0,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        GlobalTypeOptimization => true
+        _ => false
+      }
+    }),
+    0,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        RemoveUnused => true
+        _ => false
+      }
+    }),
+    0,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        RemoveUnusedTypes => true
+        _ => false
+      }
+    }),
+    0,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        ConstantFieldPropagation => true
+        _ => false
+      }
+    }),
+    0,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        AbstractTypeRefining(_) => true
+        _ => false
+      }
+    }),
+    0,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        GlobalRefining => true
+        _ => false
+      }
+    }),
+    1,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        GlobalStructInference => true
+        _ => false
+      }
+    }),
+    1,
+  )
 }
 
 ///|

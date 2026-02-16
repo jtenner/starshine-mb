@@ -7,6 +7,10 @@ import {
 }
 
 // Values
+pub fn default_function_optimization_passes(@lib.Module, OptimizeOptions) -> Array[ModulePass]
+
+pub fn default_global_optimization_pre_passes(@lib.Module, OptimizeOptions, closed_world? : Bool) -> Array[ModulePass]
+
 pub fn optimize_module(@lib.Module, Array[ModulePass]) -> Result[@lib.Module, String]
 
 pub fn optimize_module_with_options(@lib.Module, Array[ModulePass], OptimizeOptions) -> Result[@lib.Module, String]
