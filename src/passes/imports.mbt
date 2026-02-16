@@ -18,6 +18,8 @@ using @lib {
   type V128LoadLaneOp,
   type MemType,
   type TExpr,
+  type I32,
+  type I64,
   type F32,
   type F64,
   type FuncIdx,

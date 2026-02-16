@@ -160,6 +160,9 @@ pub(all) enum ModulePass {
   GlobalStructInference
   GlobalStructInferenceDescCast
   GlobalTypeOptimization
+  SimplifyGlobals
+  SimplifyGlobalsOptimizing
+  PropagateGlobalsGlobally
   TypeRefining
   Heap2Local
   HeapStoreOptimization

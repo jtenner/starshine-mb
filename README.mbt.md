@@ -106,6 +106,9 @@ Current `ModulePass` variants in `src/passes/optimize.mbt`:
 - `GlobalStructInference`
 - `GlobalStructInferenceDescCast`
 - `GlobalTypeOptimization`
+- `SimplifyGlobals`
+- `SimplifyGlobalsOptimizing`
+- `PropagateGlobalsGlobally`
 - `TypeRefining`
 - `MinimizeRecGroups`
 
@@ -153,6 +156,7 @@ Current `ModulePass` variants in `src/passes/optimize.mbt`:
 - `Inlining`: supports full, optimizing, and `InlineMain` modes; options are exposed via `InliningOptions` in `OptimizeOptions`.
 - `Heap2Local` / `HeapStoreOptimization`: conservative, LocalGraph/effect-aware rewrites with trap/side-effect parity handling.
 - `GlobalTypeOptimization` / `GlobalStructInference` / `MinimizeRecGroups`: whole-module type and struct transformations with external-contract safety guards.
+- `SimplifyGlobals`: iteratively makes unobservable globals immutable, drops unneeded `global.set`s, prefers earlier immutable copies, and propagates global constants to init code and typed function IR (`SimplifyGlobalsOptimizing` runs extra cleanup passes afterward).
 - `Monomorphize`: empirical and always-on variants, with `OptimizeOptions.monomorphize_min_benefit` gating empirical mode.
 
 ## Example Usage

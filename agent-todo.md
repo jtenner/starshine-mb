@@ -36,7 +36,7 @@
 
 - [x] ReorderLocals.cpp
 - [x] ReorderTypes.cpp
-- [ ] SimplifyGlobals.cpp (general canonicalization / simplification)
+- [x] SimplifyGlobals.cpp (general canonicalization / simplification)
 - [ ] SimplifyLocals.cpp (general canonicalization / simplification)
 - [ ] SSAify.cpp (enabling transform; often prerequisite for SSA-based opts)
 - [ ] Untee.cpp (canonicalization: removes tee patterns / simplifies local.set+use forms)
@@ -112,6 +112,9 @@
 
 ## 5) Recently Completed
 
+- [x] Implemented `src/passes/simplify_globals.mbt` and wired it via `ModulePass::SimplifyGlobals`, `ModulePass::SimplifyGlobalsOptimizing`, and `ModulePass::PropagateGlobalsGlobally` in `src/passes/optimize.mbt`.
+- [x] Added pass-level tests for dead global-write removal, immutable-copy/constant propagation, linear trace global-set propagation, read-only-to-write detection, and global-init/data-offset propagation.
+- [x] Added scheduler-level dispatch coverage in `src/passes/optimize.mbt` and documented simplify-globals variants in `README.mbt.md`.
 - [x] Implemented `src/passes/remove_unused_names.mbt` using `ModuleTransformer[IRContext]` and wired it via `ModulePass::RemoveUnusedNames` in `src/passes/optimize.mbt`.
 - [x] Added pass-level tests covering nested-block merging, label-depth retargeting, and loop-to-block rewrite behavior.
 - [x] Added scheduler-level dispatch test in `src/passes/optimize.mbt` and documented the pass in `README.md`.

@@ -17,6 +17,9 @@ pub(all) enum ModulePass {
   GlobalStructInference
   GlobalStructInferenceDescCast
   GlobalTypeOptimization
+  SimplifyGlobals
+  SimplifyGlobalsOptimizing
+  PropagateGlobalsGlobally
   TypeRefining
   Heap2Local
   HeapStoreOptimization
@@ -265,6 +268,36 @@ pub fn optimize_module_with_options(
         }
       GlobalTypeOptimization =>
         match global_type_optimization(mod) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      SimplifyGlobals =>
+        match
+          apply_ir_transformer_pass(
+            ctx,
+            mod,
+            simplify_globals_ir_pass(mod, false),
+          ) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      SimplifyGlobalsOptimizing =>
+        match
+          apply_ir_transformer_pass(
+            ctx,
+            mod,
+            simplify_globals_ir_pass(mod, true),
+          ) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      PropagateGlobalsGlobally =>
+        match
+          apply_ir_transformer_pass(
+            ctx,
+            mod,
+            propagate_globals_globally_ir_pass(mod),
+          ) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }
@@ -2030,5 +2063,37 @@ test "optimize_module runs ReorderGlobalsAlways pass" {
       }
     }
     _ => fail("expected ReorderGlobalsAlways to move most-used global first")
+  }
+}
+
+///|
+test "optimize_module runs SimplifyGlobals pass" {
+  let mod = Module::new()
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(ValType::i32(), true),
+          Expr::new([Instruction::i32_const(I32(0))]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::global_set(GlobalIdx::new(0), TInstr::i32_const(I32(9))),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match optimize_module(mod, [SimplifyGlobals]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TDrop(TI32Const(I32(v)))]))])) =>
+      assert_eq(v, 9)
+    _ => fail("expected SimplifyGlobals to remove dead global.set")
   }
 }
