@@ -16,6 +16,7 @@ pub(all) enum ModulePass {
   GlobalStructInference
   GlobalStructInferenceDescCast
   GlobalTypeOptimization
+  TypeRefining
   Heap2Local
   HeapStoreOptimization
   Inlining
@@ -250,6 +251,11 @@ pub fn optimize_module_with_options(
         }
       GlobalTypeOptimization =>
         match global_type_optimization(mod) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      TypeRefining =>
+        match type_refining(mod) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }
@@ -582,6 +588,44 @@ test "optimize_module runs DeadArgumentElimination pass" {
       assert_true(found)
     }
     _ => fail("expected rewritten call")
+  }
+}
+
+///|
+test "optimize_module runs TypeRefining pass" {
+  let non_null_funcref = ValType::ref_type(
+    RefType::new(false, HeapType::abs(AbsHeapType::func())),
+  )
+  let nullable_funcref = ValType::ref_type(
+    RefType::new(true, HeapType::abs(AbsHeapType::func())),
+  )
+  let caller = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
+    ]),
+  )
+  let callee = Func::t_func([], TExpr::new([TInstr::return_([])]))
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        single_rec_type(
+          comp_type_sub_type(func_comp_type([non_null_funcref], [])),
+        ),
+        single_rec_type(
+          comp_type_sub_type(func_comp_type([nullable_funcref], [])),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
+    .with_code_sec(CodeSec::new([caller, callee]))
+  let optimized = match optimize_module(mod, [TypeRefining]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.func_sec {
+    Some(FuncSec([_, TypeIdx(2)])) => ()
+    _ => fail("expected callee to receive refined appended type")
   }
 }
 

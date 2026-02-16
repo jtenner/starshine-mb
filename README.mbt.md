@@ -99,6 +99,7 @@ Current `ModulePass` variants in `src/passes/optimize.mbt`:
 - `GlobalStructInference`
 - `GlobalStructInferenceDescCast`
 - `GlobalTypeOptimization`
+- `TypeRefining`
 - `MinimizeRecGroups`
 
 ### Heap / GC / Ref Optimizations

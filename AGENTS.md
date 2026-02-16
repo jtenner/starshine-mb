@@ -57,7 +57,7 @@ In this workspace, use absolute moon path when needed:
 - `AlignmentLowering`, `AvoidReinterprets`, `CoalesceLocals`, `CodeFolding`, `CodePushing`, `ConstHoisting`, `ConstantFieldPropagation`, `DeadCodeElimination`, `OptimizeInstructions`, `Precompute`, `PrecomputePropagate`, `OptimizeAddedConstants`, `OptimizeAddedConstantsPropagate`, `RedundantSetElimination`, `PickLoadSigns`, `RemoveUnusedBrs`, `RemoveUnusedNames`
 
 ### Global/type/ref analysis
-- `AbstractTypeRefining(AbstractTypeRefiningPassProps)`, `GlobalRefining`, `GlobalStructInference`, `GlobalStructInferenceDescCast`, `GlobalTypeOptimization`, `MinimizeRecGroups`
+- `AbstractTypeRefining(AbstractTypeRefiningPassProps)`, `GlobalRefining`, `GlobalStructInference`, `GlobalStructInferenceDescCast`, `GlobalTypeOptimization`, `TypeRefining`, `MinimizeRecGroups`
 
 ### Heap/ref and GC-related
 - `Heap2Local`, `HeapStoreOptimization`, `OptimizeCasts`, `GUFA`, `GUFAOptimizing`, `GUFACastAll`
@@ -77,6 +77,7 @@ In this workspace, use absolute moon path when needed:
 - `MemoryPacking` rewrites segment refs/ops and maintains data-count consistency.
 - `I64ToI32Lowering` is integrated; explicit limitations remain for certain global/result shapes.
 - `RemoveUnusedNames` is implemented as a depth-based `LabelIdx` adaptation of Binaryen's name-based pass (this IR does not preserve symbolic block names in `TInstr`).
+- `TypeRefining` is implemented with direct-callsite param type refinement and Binaryen-style param fixup locals when refined params are assigned less-specific values in function bodies.
 
 ## Current Gaps / Ongoing Work
 - Migrate remaining non-IRContext-shaped passes (`de_nan`, `remove_unused`).

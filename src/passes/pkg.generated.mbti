@@ -159,6 +159,7 @@ pub(all) enum ModulePass {
   GlobalStructInference
   GlobalStructInferenceDescCast
   GlobalTypeOptimization
+  TypeRefining
   Heap2Local
   HeapStoreOptimization
   Inlining

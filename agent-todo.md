@@ -46,7 +46,7 @@
 - [ ] Binaryen Pass: TypeFinalizing.cpp
 - [ ] Binaryen Pass: TypeGeneralizing.cpp
 - [ ] Binaryen Pass: TypeMerging.cpp
-- [ ] Binaryen Pass: TypeRefining.cpp
+- [x] Binaryen Pass: TypeRefining.cpp
 - [ ] Binaryen Pass: TypeSSA.cpp
 - [ ] Binaryen Pass: Unsubtyping.cpp
 - [ ] Binaryen Pass: Untee.cpp
@@ -123,3 +123,5 @@
 - [x] Implemented `src/passes/remove_unused_names.mbt` using `ModuleTransformer[IRContext]` and wired it via `ModulePass::RemoveUnusedNames` in `src/passes/optimize.mbt`.
 - [x] Added pass-level tests covering nested-block merging, label-depth retargeting, and loop-to-block rewrite behavior.
 - [x] Added scheduler-level dispatch test in `src/passes/optimize.mbt` and documented the pass in `README.md`.
+- [x] Implemented `src/passes/type_refining.mbt` and wired it via `ModulePass::TypeRefining` in `src/passes/optimize.mbt`.
+- [x] Added pass-level tests for direct-callsite parameter refinement and param-fixup local rewriting when refined params are assigned less-specific values.
