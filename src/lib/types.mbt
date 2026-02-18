@@ -1,23 +1,23 @@
 ///|
-pub(all) struct S33(UInt) derive(Eq, Hash)
+pub(all) struct S33(UInt) derive(Eq, Hash, Debug)
 
 ///|
-pub(all) struct I32(Int) derive(Eq, Arbitrary, Hash)
+pub(all) struct I32(Int) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub(all) struct I64(Int64) derive(Eq, Arbitrary, Hash)
+pub(all) struct I64(Int64) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub(all) struct F32(Float) derive(Eq, Arbitrary, Hash)
+pub(all) struct F32(Float) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub(all) struct F64(Double) derive(Eq, Arbitrary, Hash)
+pub(all) struct F64(Double) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub(all) struct U32(UInt) derive(Eq, Arbitrary, Hash)
+pub(all) struct U32(UInt) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub(all) struct U64(UInt64) derive(Eq, Arbitrary, Hash)
+pub(all) struct U64(UInt64) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
 pub enum NumType {
@@ -25,7 +25,7 @@ pub enum NumType {
   F64NumType
   I32NumType
   I64NumType
-} derive(Eq, Arbitrary, Hash)
+} derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
 pub enum AbsHeapType {
@@ -41,20 +41,20 @@ pub enum AbsHeapType {
   NoExternAbsHeapType
   NoFuncAbsHeapType
   NoExnAbsHeapType
-} derive(Eq, Arbitrary, Hash)
+} derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
 pub enum HeapType {
   AbsHeapTypeHeapType(AbsHeapType)
   HeapType(TypeIdx)
   DefTypeHeapType(DefType)
-} derive(Eq, Hash)
+} derive(Eq, Hash, Debug)
 
 ///|
 pub enum RefType {
   HeapTypeRefType(Bool, HeapType)
   AbsHeapTypeRefType(AbsHeapType)
-} derive(Arbitrary, Hash)
+} derive(Arbitrary, Hash, Debug)
 
 ///|
 pub enum ValType {
@@ -62,7 +62,7 @@ pub enum ValType {
   VecTypeValType
   RefTypeValType(RefType)
   BotValType
-} derive(Eq, Hash)
+} derive(Eq, Hash, Debug)
 
 ///|
 pub type ResultType = Array[ValType]
@@ -71,98 +71,98 @@ pub type ResultType = Array[ValType]
 pub enum PackType {
   I16PackType
   I8PackType
-} derive(Eq, Arbitrary, Hash)
+} derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
 pub enum StorageType {
   ValTypeStorageType(ValType)
   PackTypeStorageType(PackType)
-} derive(Eq, Arbitrary, Hash)
+} derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct FieldType(StorageType, Mut) derive(Eq, Arbitrary, Hash)
+pub struct FieldType(StorageType, Mut) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
 pub(all) enum Mut {
   Const
   Var
-} derive(Arbitrary, Eq, Hash)
+} derive(Arbitrary, Eq, Hash, Debug)
 
 ///|
 pub enum TypeIdx {
   TypeIdx(UInt)
   RecIdx(UInt)
-} derive(Eq, Hash)
+} derive(Eq, Hash, Debug)
 
 ///|
-pub struct FuncIdx(UInt) derive(Eq, Arbitrary, Hash)
+pub struct FuncIdx(UInt) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct TableIdx(UInt) derive(Eq, Arbitrary, Hash)
+pub struct TableIdx(UInt) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct MemIdx(UInt) derive(Eq, Arbitrary, Hash)
+pub struct MemIdx(UInt) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct GlobalIdx(UInt) derive(Eq, Arbitrary, Hash)
+pub struct GlobalIdx(UInt) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct TagIdx(UInt) derive(Eq, Arbitrary, Hash)
+pub struct TagIdx(UInt) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct ElemIdx(UInt) derive(Eq, Arbitrary, Hash)
+pub struct ElemIdx(UInt) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct DataIdx(UInt) derive(Eq, Arbitrary, Hash)
+pub struct DataIdx(UInt) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct LocalIdx(UInt) derive(Eq, Arbitrary, Hash)
+pub struct LocalIdx(UInt) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct LabelIdx(UInt) derive(Eq, Arbitrary, Hash)
+pub struct LabelIdx(UInt) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct LaneIdx(Byte) derive(Eq, Hash)
+pub struct LaneIdx(Byte) derive(Eq, Hash, Debug)
 
 ///|
 pub enum CompType {
   ArrayCompType(FieldType)
   StructCompType(Array[FieldType])
   FuncCompType(ResultType, ResultType)
-} derive(Eq, Hash)
+} derive(Eq, Hash, Debug)
 
 ///|
 pub enum SubType {
   SubType(Bool, Array[TypeIdx], CompType)
   CompTypeSubType(CompType)
-} derive(Eq, Hash)
+} derive(Eq, Hash, Debug)
 
 ///|
 pub enum RecType {
   SingleRecType(SubType)
   GroupRecType(Array[SubType])
-} derive(Hash)
+} derive(Hash, Debug)
 
 ///|
-pub struct DefType(RecType, UInt) derive(Eq, Hash)
+pub struct DefType(RecType, UInt) derive(Eq, Hash, Debug)
 
 ///|
 pub enum Limits {
   I32Limits(UInt, UInt?)
   I64Limits(UInt64, UInt64?)
-} derive(Eq, Hash)
+} derive(Eq, Hash, Debug)
 
 ///|
-pub struct TagType(TypeIdx) derive(Eq, Arbitrary, Hash)
+pub struct TagType(TypeIdx) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct GlobalType(ValType, Bool) derive(Eq, Arbitrary, Hash)
+pub struct GlobalType(ValType, Bool) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct MemType(Limits) derive(Eq, Arbitrary, Hash)
+pub struct MemType(Limits) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct TableType(RefType, Limits) derive(Eq, Arbitrary, Hash)
+pub struct TableType(RefType, Limits) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
 pub enum ExternType {
@@ -171,7 +171,7 @@ pub enum ExternType {
   MemExternType(MemType)
   GlobalExternType(GlobalType)
   TagExternType(TagType)
-} derive(Eq, Arbitrary, Hash)
+} derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
 pub enum ExternIdx {
@@ -180,54 +180,54 @@ pub enum ExternIdx {
   MemExternIdx(MemIdx)
   GlobalExternIdx(GlobalIdx)
   TagExternIdx(TagIdx)
-} derive(Eq, Arbitrary, Hash)
+} derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
 pub enum ElemMode {
   Passive
   Active(TableIdx, Expr)
   Declarative
-} derive(Eq, Arbitrary, Hash)
+} derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
 pub enum ElemKind {
   FuncsElemKind(Array[FuncIdx])
   FuncExprsElemKind(Array[Expr])
   TypedExprsElemKind(RefType, Array[Expr])
-} derive(Eq, Arbitrary, Hash)
+} derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct Elem(ElemMode, ElemKind) derive(Eq, Hash)
+pub struct Elem(ElemMode, ElemKind) derive(Eq, Hash, Debug)
 
 ///|
-pub struct Expr(Array[Instruction]) derive(Eq, Hash)
+pub struct Expr(Array[Instruction]) derive(Eq, Hash, Debug)
 
 ///|
-pub struct Import(Name, Name, ExternType) derive(Eq, Arbitrary, Hash)
+pub struct Import(Name, Name, ExternType) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct Table(TableType, Expr?) derive(Eq, Arbitrary, Hash)
+pub struct Table(TableType, Expr?) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct Global(GlobalType, Expr) derive(Eq, Arbitrary, Hash)
+pub struct Global(GlobalType, Expr) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct Export(Name, ExternIdx) derive(Eq, Arbitrary, Hash)
+pub struct Export(Name, ExternIdx) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct Locals(UInt, ValType) derive(Eq, Hash)
+pub struct Locals(UInt, ValType) derive(Eq, Hash, Debug)
 
 ///|
 pub enum DataMode {
   Active(MemIdx, Expr)
   Passive
-} derive(Eq, Arbitrary, Hash)
+} derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct Data(DataMode, Bytes) derive(Eq, Hash)
+pub struct Data(DataMode, Bytes) derive(Eq, Hash, Debug)
 
 ///|
-pub struct Name(StringView) derive(Eq, Hash)
+pub struct Name(StringView) derive(Eq, Hash, Debug)
 
 ///|
 pub struct Module {
@@ -245,7 +245,7 @@ pub struct Module {
   data_cnt_sec : DataCntSec?
   code_sec : CodeSec?
   data_sec : DataSec?
-} derive(Hash)
+} derive(Hash, Debug)
 
 ///|
 pub fn Module::new(
@@ -283,59 +283,59 @@ pub fn Module::new(
 }
 
 ///|
-pub struct FuncType(Array[ValType], Array[ValType]) derive(Hash, Eq)
+pub struct FuncType(Array[ValType], Array[ValType]) derive(Hash, Eq, Debug)
 
 ///|
 pub enum Func {
   Func(Array[Locals], Expr)
   TFunc(Array[ValType], TExpr)
-} derive(Eq, Hash)
+} derive(Eq, Hash, Debug)
 
 ///|
-pub struct CustomSec(Name, Bytes) derive(Eq, Hash)
+pub struct CustomSec(Name, Bytes) derive(Eq, Hash, Debug)
 
 ///|
-pub struct TypeSec(Array[RecType]) derive(Eq, Arbitrary, Hash)
+pub struct TypeSec(Array[RecType]) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct ImportSec(Array[Import]) derive(Eq, Arbitrary, Hash)
+pub struct ImportSec(Array[Import]) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct FuncSec(Array[TypeIdx]) derive(Eq, Arbitrary, Hash)
+pub struct FuncSec(Array[TypeIdx]) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct TableSec(Array[Table]) derive(Eq, Arbitrary, Hash)
+pub struct TableSec(Array[Table]) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct MemSec(Array[MemType]) derive(Eq, Arbitrary, Hash)
+pub struct MemSec(Array[MemType]) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct GlobalSec(Array[Global]) derive(Eq, Arbitrary, Hash)
+pub struct GlobalSec(Array[Global]) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct ExportSec(Array[Export]) derive(Eq, Arbitrary, Hash)
+pub struct ExportSec(Array[Export]) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct StartSec(FuncIdx) derive(Eq, Arbitrary, Hash)
+pub struct StartSec(FuncIdx) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct ElemSec(Array[Elem]) derive(Eq, Hash)
+pub struct ElemSec(Array[Elem]) derive(Eq, Hash, Debug)
 
 ///|
-pub struct DataCntSec(U32) derive(Eq, Arbitrary, Hash)
+pub struct DataCntSec(U32) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct TagSec(Array[TagType]) derive(Eq, Arbitrary, Hash)
+pub struct TagSec(Array[TagType]) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct MemArg(U32, MemIdx?, U64) derive(Hash)
+pub struct MemArg(U32, MemIdx?, U64) derive(Hash, Debug)
 
 ///|
 pub enum BlockType {
   VoidBlockType
   ValTypeBlockType(ValType)
   TypeIdxBlockType(TypeIdx)
-} derive(Eq, Arbitrary, Hash)
+} derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
 pub enum Catch {
@@ -343,16 +343,16 @@ pub enum Catch {
   CatchRef(TagIdx, LabelIdx)
   CatchAll(LabelIdx)
   CatchAllRef(LabelIdx)
-} derive(Eq, Arbitrary, Hash)
+} derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct CodeSec(Array[Func]) derive(Eq, Hash)
+pub struct CodeSec(Array[Func]) derive(Eq, Hash, Debug)
 
 ///|
-pub struct DataSec(Array[Data]) derive(Eq, Hash)
+pub struct DataSec(Array[Data]) derive(Eq, Hash, Debug)
 
 ///|
-pub struct CastOp(Bool, Bool) derive(Eq, Arbitrary, Show, Hash)
+pub struct CastOp(Bool, Bool) derive(Eq, Arbitrary, Show, Hash, Debug)
 
 ///|
 pub enum Instruction {
@@ -884,7 +884,7 @@ pub enum Instruction {
   I16x8RelaxedQ15mulrS
   I16x8RelaxedDotI8x16I7x16S
   I32x4RelaxedDotI8x16I7x16AddS
-} derive(Eq, Hash)
+} derive(Eq, Hash, Debug)
 
 ///|
 pub fn Limits::mem_addr_bits(lim : Limits) -> Int {
@@ -1180,7 +1180,7 @@ pub fn ValType::ref_null_array_of(x : TypeIdx) -> ValType {
 ///|
 /// A tree-based expression where operands are explicit children rather than implicit stack values.
 /// Each TInstr node contains its consumed operands as children.
-pub struct TExpr(Array[TInstr]) derive(Eq, Show, Hash)
+pub struct TExpr(Array[TInstr]) derive(Eq, Show, Hash, Debug)
 
 ///|
 /// A tree-based instruction with explicit operands
@@ -1365,7 +1365,7 @@ pub enum TInstr {
 
   // === SIMD: Lane store (v128, addr -> void) ===
   TV128StoreLane(V128StoreLaneOp, MemArg, LaneIdx, TInstr, TInstr)
-} derive(Eq, Show, Hash)
+} derive(Eq, Show, Hash, Debug)
 
 ///|
 /// Unary operations
@@ -1506,7 +1506,7 @@ pub enum UnaryOp {
   I32x4RelaxedTruncF32x4UOp
   I32x4RelaxedTruncZeroF64x2SOp
   I32x4RelaxedTruncZeroF64x2UOp
-} derive(Eq, Show, Hash)
+} derive(Eq, Show, Hash, Debug)
 
 ///|
 /// Binary operations
@@ -1741,7 +1741,7 @@ pub enum BinaryOp {
   F64x2RelaxedMaxOp
   I16x8RelaxedQ15mulrSOp
   I16x8RelaxedDotI8x16I7x16SOp
-} derive(Eq, Show, Hash)
+} derive(Eq, Show, Hash, Debug)
 
 ///|
 pub enum LoadOp {
@@ -1775,7 +1775,7 @@ pub enum LoadOp {
   V128Load64SplatOp
   V128Load32ZeroOp
   V128Load64ZeroOp
-} derive(Eq, Show, Hash)
+} derive(Eq, Show, Hash, Debug)
 
 ///|
 /// Store operations
@@ -1793,7 +1793,7 @@ pub enum StoreOp {
 
   // === SIMD ===
   V128StoreOp
-} derive(Eq, Show, Hash)
+} derive(Eq, Show, Hash, Debug)
 
 ///|
 /// Extract lane operations (v128 -> scalar)
@@ -1806,7 +1806,7 @@ pub enum ExtractLaneOp {
   I64x2ExtractLaneOp
   F32x4ExtractLaneOp
   F64x2ExtractLaneOp
-} derive(Eq, Show, Hash)
+} derive(Eq, Show, Hash, Debug)
 
 ///|
 /// Replace lane operations (v128, scalar -> v128)
@@ -1817,7 +1817,7 @@ pub enum ReplaceLaneOp {
   I64x2ReplaceLaneOp
   F32x4ReplaceLaneOp
   F64x2ReplaceLaneOp
-} derive(Eq, Show, Hash)
+} derive(Eq, Show, Hash, Debug)
 
 ///|
 /// V128 shift operations (v128, i32 -> v128)
@@ -1834,7 +1834,7 @@ pub enum V128ShiftOp {
   I64x2ShlOp
   I64x2ShrSOp
   I64x2ShrUOp
-} derive(Eq, Show, Hash)
+} derive(Eq, Show, Hash, Debug)
 
 ///|
 /// V128 ternary operations (v128, v128, v128 -> v128)
@@ -1849,7 +1849,7 @@ pub enum V128TernaryOp {
   F64x2RelaxedMaddOp
   F64x2RelaxedNmaddOp
   I32x4RelaxedDotI8x16I7x16AddSOp
-} derive(Eq, Show, Hash)
+} derive(Eq, Show, Hash, Debug)
 
 ///|
 /// V128 lane load operations
@@ -1858,7 +1858,7 @@ pub enum V128LoadLaneOp {
   V128Load16LaneOp
   V128Load32LaneOp
   V128Load64LaneOp
-} derive(Eq, Show, Hash)
+} derive(Eq, Show, Hash, Debug)
 
 ///|
 /// V128 lane store operations
@@ -1867,7 +1867,7 @@ pub enum V128StoreLaneOp {
   V128Store16LaneOp
   V128Store32LaneOp
   V128Store64LaneOp
-} derive(Eq, Show, Hash)
+} derive(Eq, Show, Hash, Debug)
 
 ///|
 pub fn AbsHeapType::exn() -> AbsHeapType {

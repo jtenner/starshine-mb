@@ -2,6 +2,8 @@
 package "jtenner/starshine/wast"
 
 import {
+  "jtenner/starshine/lib",
+  "moonbitlang/core/debug",
   "moonbitlang/core/hashmap",
   "moonbitlang/core/quickcheck",
   "moonbitlang/core/quickcheck/splitmix",
@@ -12,7 +14,11 @@ pub fn lookup_keyword(String) -> TokenType?
 
 pub fn module_to_wast(Module) -> Result[String, String]
 
+pub fn module_to_wast_with_context(Module, @lib.PrettyPrintContext) -> Result[String, String]
+
 pub fn script_to_wast(WastScript) -> Result[String, String]
+
+pub fn script_to_wast_with_context(WastScript, @lib.PrettyPrintContext) -> Result[String, String]
 
 pub fn wast_to_module(String, filename? : String) -> Result[Module, String]
 
@@ -24,7 +30,9 @@ pub suberror ParserError {
   InvalidInstruction(String)
   Custom(String)
 }
+pub impl @lib.PrettyPrint for ParserError
 pub impl Show for ParserError
+pub impl @debug.Debug for ParserError
 
 pub suberror WastTextError {
   Unsupported(String)
@@ -35,6 +43,9 @@ pub struct BlockType {
   label : String?
   type_use : TypeUse?
 }
+pub impl @lib.PrettyPrint for BlockType
+pub impl Show for BlockType
+pub impl @debug.Debug for BlockType
 pub impl @quickcheck.Arbitrary for BlockType
 
 pub struct DataSegment {
@@ -43,6 +54,9 @@ pub struct DataSegment {
   offset : Array[Instruction]
   data : Bytes
 }
+pub impl @lib.PrettyPrint for DataSegment
+pub impl Show for DataSegment
+pub impl @debug.Debug for DataSegment
 pub impl @quickcheck.Arbitrary for DataSegment
 
 pub struct ElemSegment {
@@ -51,16 +65,25 @@ pub struct ElemSegment {
   offset : Array[Instruction]
   func_indices : Array[Index]
 }
+pub impl @lib.PrettyPrint for ElemSegment
+pub impl Show for ElemSegment
+pub impl @debug.Debug for ElemSegment
 pub impl @quickcheck.Arbitrary for ElemSegment
 
 pub enum ErrorLevel {
   Error
 }
+pub impl @lib.PrettyPrint for ErrorLevel
+pub impl Show for ErrorLevel
+pub impl @debug.Debug for ErrorLevel
 
 pub struct Export {
   name : String
   desc : ExportDesc
 }
+pub impl @lib.PrettyPrint for Export
+pub impl Show for Export
+pub impl @debug.Debug for Export
 pub impl @quickcheck.Arbitrary for Export
 
 pub enum ExportDesc {
@@ -69,6 +92,9 @@ pub enum ExportDesc {
   Memory(Index)
   Global(Index)
 }
+pub impl @lib.PrettyPrint for ExportDesc
+pub impl Show for ExportDesc
+pub impl @debug.Debug for ExportDesc
 pub impl @quickcheck.Arbitrary for ExportDesc
 
 pub struct Func {
@@ -78,12 +104,18 @@ pub struct Func {
   locals : Array[Local]
   body : Array[Instruction]
 }
+pub impl @lib.PrettyPrint for Func
+pub impl Show for Func
+pub impl @debug.Debug for Func
 pub impl @quickcheck.Arbitrary for Func
 
 pub struct FuncType {
   params : Array[ValueType]
   results : Array[ValueType]
 }
+pub impl @lib.PrettyPrint for FuncType
+pub impl Show for FuncType
+pub impl @debug.Debug for FuncType
 pub impl @quickcheck.Arbitrary for FuncType
 
 pub struct Global {
@@ -92,12 +124,18 @@ pub struct Global {
   global_type : GlobalType
   init : Array[Instruction]
 }
+pub impl @lib.PrettyPrint for Global
+pub impl Show for Global
+pub impl @debug.Debug for Global
 pub impl @quickcheck.Arbitrary for Global
 
 pub struct GlobalType {
   val_type : ValueType
   mutable_ : Bool
 }
+pub impl @lib.PrettyPrint for GlobalType
+pub impl Show for GlobalType
+pub impl @debug.Debug for GlobalType
 pub impl @quickcheck.Arbitrary for GlobalType
 
 pub struct Import {
@@ -106,6 +144,9 @@ pub struct Import {
   desc : ImportDesc
   id : String?
 }
+pub impl @lib.PrettyPrint for Import
+pub impl Show for Import
+pub impl @debug.Debug for Import
 pub impl @quickcheck.Arbitrary for Import
 
 pub enum ImportDesc {
@@ -114,17 +155,26 @@ pub enum ImportDesc {
   Memory(MemoryType)
   Global(GlobalType)
 }
+pub impl @lib.PrettyPrint for ImportDesc
+pub impl Show for ImportDesc
+pub impl @debug.Debug for ImportDesc
 pub impl @quickcheck.Arbitrary for ImportDesc
 
 pub enum Index {
   Num(UInt)
   Id(String)
 }
+pub impl @lib.PrettyPrint for Index
+pub impl Show for Index
+pub impl @debug.Debug for Index
 pub impl @quickcheck.Arbitrary for Index
 
 pub enum InlineExport {
   Export(String)
 }
+pub impl @lib.PrettyPrint for InlineExport
+pub impl Show for InlineExport
+pub impl @debug.Debug for InlineExport
 pub impl @quickcheck.Arbitrary for InlineExport
 
 pub enum Instruction {
@@ -225,6 +275,9 @@ pub enum Instruction {
   SimdConvert(Opcode)
   SimdRelaxed(Opcode)
 }
+pub impl @lib.PrettyPrint for Instruction
+pub impl Show for Instruction
+pub impl @debug.Debug for Instruction
 pub impl @quickcheck.Arbitrary for Instruction
 
 pub struct KeywordTable {
@@ -237,6 +290,9 @@ pub struct LexerError {
   location : Location
   message : String
 }
+pub impl @lib.PrettyPrint for LexerError
+pub impl Show for LexerError
+pub impl @debug.Debug for LexerError
 
 pub struct LexerState {
   cursor : Int
@@ -248,13 +304,18 @@ pub struct Limits {
   min : UInt
   max : UInt?
 }
+pub impl @lib.PrettyPrint for Limits
+pub impl Show for Limits
+pub impl @debug.Debug for Limits
 pub impl @quickcheck.Arbitrary for Limits
 
 pub struct Literal {
   literal_type : LiteralType
   text : String
 }
+pub impl @lib.PrettyPrint for Literal
 pub impl Show for Literal
+pub impl @debug.Debug for Literal
 
 pub enum LiteralType {
   Int
@@ -263,12 +324,17 @@ pub enum LiteralType {
   Infinity
   Nan
 }
+pub impl @lib.PrettyPrint for LiteralType
 pub impl Show for LiteralType
+pub impl @debug.Debug for LiteralType
 
 pub struct Local {
   id : String?
   val_type : ValueType
 }
+pub impl @lib.PrettyPrint for Local
+pub impl Show for Local
+pub impl @debug.Debug for Local
 pub impl @quickcheck.Arbitrary for Local
 
 pub struct Location {
@@ -277,12 +343,17 @@ pub struct Location {
   first_column : Int
   last_column : Int
 }
+pub impl @lib.PrettyPrint for Location
 pub impl Show for Location
+pub impl @debug.Debug for Location
 
 pub struct MemArg {
   align : UInt
   offset : UInt
 }
+pub impl @lib.PrettyPrint for MemArg
+pub impl Show for MemArg
+pub impl @debug.Debug for MemArg
 pub impl @quickcheck.Arbitrary for MemArg
 
 pub struct Memory {
@@ -290,17 +361,26 @@ pub struct Memory {
   exports : Array[InlineExport]
   memory_type : MemoryType
 }
+pub impl @lib.PrettyPrint for Memory
+pub impl Show for Memory
+pub impl @debug.Debug for Memory
 pub impl @quickcheck.Arbitrary for Memory
 
 pub struct MemoryType(Limits)
 #deprecated
 pub fn MemoryType::inner(Self) -> Limits
+pub impl @lib.PrettyPrint for MemoryType
+pub impl Show for MemoryType
+pub impl @debug.Debug for MemoryType
 pub impl @quickcheck.Arbitrary for MemoryType
 
 pub struct Module {
   id : String?
   fields : Array[ModuleField]
 }
+pub impl @lib.PrettyPrint for Module
+pub impl Show for Module
+pub impl @debug.Debug for Module
 pub impl @quickcheck.Arbitrary for Module
 
 pub enum ModuleField {
@@ -315,6 +395,9 @@ pub enum ModuleField {
   ElemField(ElemSegment)
   DataField(DataSegment)
 }
+pub impl @lib.PrettyPrint for ModuleField
+pub impl Show for ModuleField
+pub impl @debug.Debug for ModuleField
 pub impl @quickcheck.Arbitrary for ModuleField
 
 pub enum Opcode {
@@ -767,18 +850,26 @@ pub enum Opcode {
   I16x8RelaxedDotI8x16I7x16S
   I32x4RelaxedDotI8x16I7x16AddS
 }
+pub impl @lib.PrettyPrint for Opcode
 pub impl Eq for Opcode
 pub impl Show for Opcode
+pub impl @debug.Debug for Opcode
 pub impl @quickcheck.Arbitrary for Opcode
 
 pub struct ParseError {
   location : Location
   message : String
 }
+pub impl @lib.PrettyPrint for ParseError
+pub impl Show for ParseError
+pub impl @debug.Debug for ParseError
 
 pub struct ShuffleLanes {
   lanes : FixedArray[UInt]
 }
+pub impl @lib.PrettyPrint for ShuffleLanes
+pub impl Show for ShuffleLanes
+pub impl @debug.Debug for ShuffleLanes
 pub impl @quickcheck.Arbitrary for ShuffleLanes
 
 pub enum SimdShape {
@@ -789,13 +880,18 @@ pub enum SimdShape {
   F32x4
   F64x2
 }
+pub impl @lib.PrettyPrint for SimdShape
 pub impl Eq for SimdShape
 pub impl Show for SimdShape
+pub impl @debug.Debug for SimdShape
 pub impl @quickcheck.Arbitrary for SimdShape
 
 pub struct Start {
   func_index : Index
 }
+pub impl @lib.PrettyPrint for Start
+pub impl Show for Start
+pub impl @debug.Debug for Start
 pub impl @quickcheck.Arbitrary for Start
 
 pub struct Table {
@@ -803,12 +899,18 @@ pub struct Table {
   exports : Array[InlineExport]
   table_type : TableType
 }
+pub impl @lib.PrettyPrint for Table
+pub impl Show for Table
+pub impl @debug.Debug for Table
 pub impl @quickcheck.Arbitrary for Table
 
 pub struct TableType {
   limits : Limits
   elem_type : ValueType
 }
+pub impl @lib.PrettyPrint for TableType
+pub impl Show for TableType
+pub impl @debug.Debug for TableType
 pub impl @quickcheck.Arbitrary for TableType
 
 pub struct Token {
@@ -816,7 +918,9 @@ pub struct Token {
   token_type : TokenType
   value : TokenValue
 }
+pub impl @lib.PrettyPrint for Token
 pub impl Show for Token
+pub impl @debug.Debug for Token
 
 pub enum TokenType {
   Eof
@@ -875,7 +979,9 @@ pub enum TokenType {
   AlignEqNat
   SimdShapeToken(SimdShape)
 }
+pub impl @lib.PrettyPrint for TokenType
 pub impl Show for TokenType
+pub impl @debug.Debug for TokenType
 
 pub enum TokenValue {
   None
@@ -884,24 +990,35 @@ pub enum TokenValue {
   ValueType(ValueType)
   Opcode(Opcode)
 }
+pub impl @lib.PrettyPrint for TokenValue
 pub impl Show for TokenValue
+pub impl @debug.Debug for TokenValue
 
 pub struct TypeDef {
   id : String?
   func_type : FuncType
 }
+pub impl @lib.PrettyPrint for TypeDef
+pub impl Show for TypeDef
+pub impl @debug.Debug for TypeDef
 pub impl @quickcheck.Arbitrary for TypeDef
 
 pub struct TypeUse {
   type_index : Index?
   func_type : FuncType
 }
+pub impl @lib.PrettyPrint for TypeUse
+pub impl Show for TypeUse
+pub impl @debug.Debug for TypeUse
 pub impl @quickcheck.Arbitrary for TypeUse
 
 pub struct V128Const {
   shape : SimdShape
   values : Array[String]
 }
+pub impl @lib.PrettyPrint for V128Const
+pub impl Show for V128Const
+pub impl @debug.Debug for V128Const
 pub impl @quickcheck.Arbitrary for V128Const
 
 pub enum ValueType {
@@ -913,7 +1030,9 @@ pub enum ValueType {
   FuncRef
   ExternRef
 }
+pub impl @lib.PrettyPrint for ValueType
 pub impl Show for ValueType
+pub impl @debug.Debug for ValueType
 pub impl @quickcheck.Arbitrary for ValueType
 
 pub struct WastAction {
@@ -921,12 +1040,18 @@ pub struct WastAction {
   name : String
   args : Array[WastValue]
 }
+pub impl @lib.PrettyPrint for WastAction
+pub impl Show for WastAction
+pub impl @debug.Debug for WastAction
 pub impl @quickcheck.Arbitrary for WastAction
 
 pub enum WastActionType {
   Invoke(WastAction)
   Get(String?, String)
 }
+pub impl @lib.PrettyPrint for WastActionType
+pub impl Show for WastActionType
+pub impl @debug.Debug for WastActionType
 pub impl @quickcheck.Arbitrary for WastActionType
 
 pub enum WastCommand {
@@ -942,6 +1067,9 @@ pub enum WastCommand {
   AssertInvalid(WastModuleDef, String)
   AssertUnlinkable(WastModuleDef, String)
 }
+pub impl @lib.PrettyPrint for WastCommand
+pub impl Show for WastCommand
+pub impl @debug.Debug for WastCommand
 pub impl @quickcheck.Arbitrary for WastCommand
 
 pub struct WastLexer {
@@ -963,6 +1091,9 @@ pub enum WastModuleDef {
   Binary(Bytes)
   Quote(Array[String])
 }
+pub impl @lib.PrettyPrint for WastModuleDef
+pub impl Show for WastModuleDef
+pub impl @debug.Debug for WastModuleDef
 pub impl @quickcheck.Arbitrary for WastModuleDef
 
 pub struct WastParser {
@@ -985,11 +1116,17 @@ pub enum WastResult {
   RefNull(ValueType?)
   RefFunc
 }
+pub impl @lib.PrettyPrint for WastResult
+pub impl Show for WastResult
+pub impl @debug.Debug for WastResult
 pub impl @quickcheck.Arbitrary for WastResult
 
 pub struct WastScript {
   commands : Array[WastCommand]
 }
+pub impl @lib.PrettyPrint for WastScript
+pub impl Show for WastScript
+pub impl @debug.Debug for WastScript
 pub impl @quickcheck.Arbitrary for WastScript
 
 pub enum WastValue {
@@ -1000,6 +1137,9 @@ pub enum WastValue {
   RefNull(ValueType)
   RefFunc
 }
+pub impl @lib.PrettyPrint for WastValue
+pub impl Show for WastValue
+pub impl @debug.Debug for WastValue
 pub impl @quickcheck.Arbitrary for WastValue
 
 // Type aliases

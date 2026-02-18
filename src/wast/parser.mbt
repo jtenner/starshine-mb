@@ -6,30 +6,30 @@
 pub enum Index {
   Num(UInt)
   Id(String)
-}
+} derive(Show, Debug)
 
 ///|
 pub struct Limits {
   min : UInt
   max : UInt?
-}
+} derive(Show, Debug)
 
 ///|
 pub struct FuncType {
   params : Array[ValueType]
   results : Array[ValueType]
-}
+} derive(Show, Debug)
 
 ///|
 pub struct TypeUse {
   type_index : Index?
   func_type : FuncType
-}
+} derive(Show, Debug)
 
 ///|
 pub enum InlineExport {
   Export(String)
-}
+} derive(Show, Debug)
 
 ///|
 pub enum ImportDesc {
@@ -37,7 +37,7 @@ pub enum ImportDesc {
   Table(TableType)
   Memory(MemoryType)
   Global(GlobalType)
-}
+} derive(Show, Debug)
 
 ///|
 pub struct Import {
@@ -45,7 +45,7 @@ pub struct Import {
   field_name : String
   desc : ImportDesc
   id : String?
-}
+} derive(Show, Debug)
 
 ///|
 pub enum ExportDesc {
@@ -53,34 +53,34 @@ pub enum ExportDesc {
   Table(Index)
   Memory(Index)
   Global(Index)
-}
+} derive(Show, Debug)
 
 ///|
 pub struct Export {
   name : String
   desc : ExportDesc
-}
+} derive(Show, Debug)
 
 ///|
 pub struct TableType {
   limits : Limits
   elem_type : ValueType
-}
+} derive(Show, Debug)
 
 ///|
-pub struct MemoryType(Limits)
+pub struct MemoryType(Limits) derive(Show, Debug)
 
 ///|
 pub struct GlobalType {
   val_type : ValueType
   mutable_ : Bool
-}
+} derive(Show, Debug)
 
 ///|
 pub struct Local {
   id : String?
   val_type : ValueType
-}
+} derive(Show, Debug)
 
 ///|
 pub struct Func {
@@ -89,7 +89,7 @@ pub struct Func {
   type_use : TypeUse
   locals : Array[Local]
   body : Array[Instruction]
-}
+} derive(Show, Debug)
 
 ///|
 pub struct Global {
@@ -97,27 +97,27 @@ pub struct Global {
   exports : Array[InlineExport]
   global_type : GlobalType
   init : Array[Instruction]
-}
+} derive(Show, Debug)
 
 ///|
 pub struct Table {
   id : String?
   exports : Array[InlineExport]
   table_type : TableType
-}
+} derive(Show, Debug)
 
 ///|
 pub struct Memory {
   id : String?
   exports : Array[InlineExport]
   memory_type : MemoryType
-}
+} derive(Show, Debug)
 
 ///|
 pub struct TypeDef {
   id : String?
   func_type : FuncType
-}
+} derive(Show, Debug)
 
 ///|
 pub struct DataSegment {
@@ -125,7 +125,7 @@ pub struct DataSegment {
   memory_index : Index
   offset : Array[Instruction]
   data : Bytes
-}
+} derive(Show, Debug)
 
 ///|
 pub struct ElemSegment {
@@ -133,12 +133,12 @@ pub struct ElemSegment {
   table_index : Index
   offset : Array[Instruction]
   func_indices : Array[Index]
-}
+} derive(Show, Debug)
 
 ///|
 pub struct Start {
   func_index : Index
-}
+} derive(Show, Debug)
 
 ///|
 pub enum ModuleField {
@@ -152,13 +152,13 @@ pub enum ModuleField {
   StartField(Start)
   ElemField(ElemSegment)
   DataField(DataSegment)
-}
+} derive(Show, Debug)
 
 ///|
 pub struct Module {
   id : String?
   fields : Array[ModuleField]
-}
+} derive(Debug)
 
 // ============================================================================
 // Instruction AST
@@ -168,13 +168,13 @@ pub struct Module {
 pub struct MemArg {
   align : UInt
   offset : UInt
-}
+} derive(Show, Debug)
 
 ///|
 pub struct BlockType {
   label : String?
   type_use : TypeUse?
-}
+} derive(Show, Debug)
 
 // ============================================================================
 // instruction.mbt - Extended Instruction AST for SIMD
@@ -184,7 +184,7 @@ pub struct BlockType {
 pub struct V128Const {
   shape : SimdShape
   values : Array[String]
-}
+} derive(Show, Debug)
 
 ///|
 pub enum SimdShape {
@@ -194,12 +194,12 @@ pub enum SimdShape {
   I64x2
   F32x4
   F64x2
-} derive(Show, Eq)
+} derive(Show, Eq, Debug)
 
 ///|
 pub struct ShuffleLanes {
   lanes : FixedArray[UInt] // 16 lane indices
-}
+} derive(Show, Debug)
 
 ///|
 pub enum Instruction {
@@ -340,7 +340,7 @@ pub enum Instruction {
 
   // Relaxed SIMD
   SimdRelaxed(Opcode)
-}
+} derive(Show, Debug)
 
 ///|
 pub enum WastValue {
@@ -350,7 +350,7 @@ pub enum WastValue {
   F64(String)
   RefNull(ValueType)
   RefFunc
-}
+} derive(Show, Debug)
 
 ///|
 pub enum WastResult {
@@ -361,20 +361,20 @@ pub enum WastResult {
   F64NanArithmetic
   RefNull(ValueType?)
   RefFunc
-}
+} derive(Show, Debug)
 
 ///|
 pub struct WastAction {
   module_name : String?
   name : String
   args : Array[WastValue]
-}
+} derive(Show, Debug)
 
 ///|
 pub enum WastActionType {
   Invoke(WastAction)
   Get(String?, String) // module_name?, global_name
-}
+} derive(Show, Debug)
 
 ///|
 pub enum WastCommand {
@@ -389,19 +389,19 @@ pub enum WastCommand {
   AssertMalformed(WastModuleDef, String)
   AssertInvalid(WastModuleDef, String)
   AssertUnlinkable(WastModuleDef, String)
-}
+} derive(Show, Debug)
 
 ///|
 pub enum WastModuleDef {
   Inline(Module)
   Binary(Bytes)
   Quote(Array[String])
-}
+} derive(Show, Debug)
 
 ///|
 pub struct WastScript {
   commands : Array[WastCommand]
-}
+} derive(Debug)
 
 // ============================================================================
 // Parser Error Types
@@ -411,14 +411,14 @@ pub struct WastScript {
 pub struct ParseError {
   location : Location
   message : String
-}
+} derive(Show, Debug)
 
 ///|
 pub suberror ParserError {
   UnexpectedToken(Token, String)
   InvalidInstruction(String)
   Custom(String)
-} derive(Show)
+} derive(Show, Debug)
 
 // ============================================================================
 // Lexer State for Rollback

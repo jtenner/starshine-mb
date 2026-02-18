@@ -786,9 +786,54 @@ pub fn module_to_wast(mod : Module) -> Result[String, String] {
 }
 
 ///|
+pub fn module_to_wast_with_context(
+  mod : Module,
+  ctx : PrettyPrintContext,
+) -> Result[String, String] {
+  match module_to_wast(mod) {
+    Ok(text) => Ok(apply_pretty_context(text, ctx))
+    Err(msg) => Err(msg)
+  }
+}
+
+///|
 pub fn script_to_wast(script : WastScript) -> Result[String, String] {
   Result::Ok(render_script(script)) catch {
     WastTextError::Unsupported(msg) => Err(msg)
+  }
+}
+
+///|
+pub fn script_to_wast_with_context(
+  script : WastScript,
+  ctx : PrettyPrintContext,
+) -> Result[String, String] {
+  match script_to_wast(script) {
+    Ok(text) => Ok(apply_pretty_context(text, ctx))
+    Err(msg) => Err(msg)
+  }
+}
+
+///|
+pub impl Show for Module with output(self, logger) {
+  match module_to_wast(self) {
+    Ok(text) => logger.write_string(text)
+    Err(msg) => {
+      logger.write_string("(module ;; ")
+      logger.write_string(msg)
+      logger.write_string(")")
+    }
+  }
+}
+
+///|
+pub impl Show for WastScript with output(self, logger) {
+  match script_to_wast(self) {
+    Ok(text) => logger.write_string(text)
+    Err(msg) => {
+      logger.write_string(";; ")
+      logger.write_string(msg)
+    }
   }
 }
 

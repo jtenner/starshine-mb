@@ -2,11 +2,14 @@
 package "jtenner/starshine/lib"
 
 import {
+  "moonbitlang/core/debug",
   "moonbitlang/core/quickcheck",
   "moonbitlang/core/quickcheck/splitmix",
 }
 
 // Values
+pub fn apply_pretty_context(String, PrettyPrintContext) -> String
+
 pub fn array_comp_type(FieldType) -> CompType
 
 pub fn[T : @quickcheck.Arbitrary] array_of_arbitrary(UInt, Int, @splitmix.RandomState) -> Array[T]
@@ -38,6 +41,12 @@ pub fn global_type(ValType, Bool) -> GlobalType
 pub fn group_rec_type(Array[SubType]) -> RecType
 
 pub fn has_default(ValType) -> Bool
+
+#callsite(autofill(args_loc, loc))
+pub fn inspect_debug(&@debug.Debug, content? : String, loc~ : SourceLoc, args_loc~ : ArgsLoc) -> Unit raise InspectError
+
+#callsite(autofill(args_loc, loc))
+pub fn[T : PrettyPrint] inspect_pretty_print(T, content? : String, ctx? : PrettyPrintContext, loc~ : SourceLoc, args_loc~ : ArgsLoc) -> Unit raise InspectError
 
 pub fn mem_extern_idx(MemIdx) -> ExternIdx
 
@@ -100,9 +109,11 @@ pub fn AbsHeapType::no_extern() -> Self
 pub fn AbsHeapType::no_func() -> Self
 pub fn AbsHeapType::none() -> Self
 pub fn AbsHeapType::struct_() -> Self
+pub impl PrettyPrint for AbsHeapType
 pub impl Eq for AbsHeapType
 pub impl Hash for AbsHeapType
 pub impl Show for AbsHeapType
+pub impl @debug.Debug for AbsHeapType
 pub impl @quickcheck.Arbitrary for AbsHeapType
 
 pub enum BinaryOp {
@@ -509,9 +520,11 @@ pub fn BinaryOp::v128_and() -> Self
 pub fn BinaryOp::v128_andnot() -> Self
 pub fn BinaryOp::v128_or() -> Self
 pub fn BinaryOp::v128_xor() -> Self
+pub impl PrettyPrint for BinaryOp
 pub impl Eq for BinaryOp
 pub impl Hash for BinaryOp
 pub impl Show for BinaryOp
+pub impl @debug.Debug for BinaryOp
 
 pub enum BlockType {
   VoidBlockType
@@ -521,18 +534,22 @@ pub enum BlockType {
 pub fn BlockType::type_idx(TypeIdx) -> Self
 pub fn BlockType::val_type(ValType) -> Self
 pub fn BlockType::void_() -> Self
+pub impl PrettyPrint for BlockType
 pub impl Eq for BlockType
 pub impl Hash for BlockType
 pub impl Show for BlockType
+pub impl @debug.Debug for BlockType
 pub impl @quickcheck.Arbitrary for BlockType
 
 pub struct CastOp(Bool, Bool)
 
 
 pub fn CastOp::new(Bool, Bool) -> Self
+pub impl PrettyPrint for CastOp
 pub impl Eq for CastOp
 pub impl Hash for CastOp
 pub impl Show for CastOp
+pub impl @debug.Debug for CastOp
 pub impl @quickcheck.Arbitrary for CastOp
 
 pub enum Catch {
@@ -545,18 +562,22 @@ pub fn Catch::all(LabelIdx) -> Self
 pub fn Catch::all_ref(LabelIdx) -> Self
 pub fn Catch::new(TagIdx, LabelIdx) -> Self
 pub fn Catch::ref_(TagIdx, LabelIdx) -> Self
+pub impl PrettyPrint for Catch
 pub impl Eq for Catch
 pub impl Hash for Catch
 pub impl Show for Catch
+pub impl @debug.Debug for Catch
 pub impl @quickcheck.Arbitrary for Catch
 
 pub struct CodeSec(Array[Func])
 #deprecated
 pub fn CodeSec::inner(Self) -> Array[Func]
 pub fn CodeSec::new(Array[Func]) -> Self
+pub impl PrettyPrint for CodeSec
 pub impl Eq for CodeSec
 pub impl Hash for CodeSec
 pub impl Show for CodeSec
+pub impl @debug.Debug for CodeSec
 pub impl @quickcheck.Arbitrary for CodeSec
 
 pub enum CompType {
@@ -567,45 +588,55 @@ pub enum CompType {
 pub fn CompType::array(FieldType) -> Self
 pub fn CompType::func(Array[ValType], Array[ValType]) -> Self
 pub fn CompType::struct_(Array[FieldType]) -> Self
+pub impl PrettyPrint for CompType
 pub impl Eq for CompType
 pub impl Hash for CompType
 pub impl Show for CompType
+pub impl @debug.Debug for CompType
 pub impl @quickcheck.Arbitrary for CompType
 
 pub struct CustomSec(Name, Bytes)
 
 
 pub fn CustomSec::new(Name, Bytes) -> Self
+pub impl PrettyPrint for CustomSec
 pub impl Eq for CustomSec
 pub impl Hash for CustomSec
 pub impl Show for CustomSec
+pub impl @debug.Debug for CustomSec
 pub impl @quickcheck.Arbitrary for CustomSec
 
 pub struct Data(DataMode, Bytes)
 
 
 pub fn Data::new(DataMode, Bytes) -> Self
+pub impl PrettyPrint for Data
 pub impl Eq for Data
 pub impl Hash for Data
 pub impl Show for Data
+pub impl @debug.Debug for Data
 pub impl @quickcheck.Arbitrary for Data
 
 pub struct DataCntSec(U32)
 #deprecated
 pub fn DataCntSec::inner(Self) -> U32
 pub fn DataCntSec::new(U32) -> Self
+pub impl PrettyPrint for DataCntSec
 pub impl Eq for DataCntSec
 pub impl Hash for DataCntSec
 pub impl Show for DataCntSec
+pub impl @debug.Debug for DataCntSec
 pub impl @quickcheck.Arbitrary for DataCntSec
 
 pub struct DataIdx(UInt)
 #deprecated
 pub fn DataIdx::inner(Self) -> UInt
 pub fn DataIdx::new(UInt) -> Self
+pub impl PrettyPrint for DataIdx
 pub impl Eq for DataIdx
 pub impl Hash for DataIdx
 pub impl Show for DataIdx
+pub impl @debug.Debug for DataIdx
 pub impl @quickcheck.Arbitrary for DataIdx
 
 pub enum DataMode {
@@ -614,18 +645,22 @@ pub enum DataMode {
 }
 pub fn DataMode::active(MemIdx, Expr) -> Self
 pub fn DataMode::passive() -> Self
+pub impl PrettyPrint for DataMode
 pub impl Eq for DataMode
 pub impl Hash for DataMode
 pub impl Show for DataMode
+pub impl @debug.Debug for DataMode
 pub impl @quickcheck.Arbitrary for DataMode
 
 pub struct DataSec(Array[Data])
 #deprecated
 pub fn DataSec::inner(Self) -> Array[Data]
 pub fn DataSec::new(Array[Data]) -> Self
+pub impl PrettyPrint for DataSec
 pub impl Eq for DataSec
 pub impl Hash for DataSec
 pub impl Show for DataSec
+pub impl @debug.Debug for DataSec
 pub impl @quickcheck.Arbitrary for DataSec
 
 pub struct DefType(RecType, UInt)
@@ -633,9 +668,11 @@ pub struct DefType(RecType, UInt)
 
 pub fn DefType::new(RecType, UInt) -> Self
 pub fn DefType::project(Self) -> SubType?
+pub impl PrettyPrint for DefType
 pub impl Eq for DefType
 pub impl Hash for DefType
 pub impl Show for DefType
+pub impl @debug.Debug for DefType
 pub impl @quickcheck.Arbitrary for DefType
 
 pub struct Elem(ElemMode, ElemKind)
@@ -643,18 +680,22 @@ pub struct Elem(ElemMode, ElemKind)
 
 pub fn Elem::new(ElemMode, ElemKind) -> Self
 pub fn Elem::reftype(Self) -> RefType
+pub impl PrettyPrint for Elem
 pub impl Eq for Elem
 pub impl Hash for Elem
 pub impl Show for Elem
+pub impl @debug.Debug for Elem
 pub impl @quickcheck.Arbitrary for Elem
 
 pub struct ElemIdx(UInt)
 #deprecated
 pub fn ElemIdx::inner(Self) -> UInt
 pub fn ElemIdx::new(UInt) -> Self
+pub impl PrettyPrint for ElemIdx
 pub impl Eq for ElemIdx
 pub impl Hash for ElemIdx
 pub impl Show for ElemIdx
+pub impl @debug.Debug for ElemIdx
 pub impl @quickcheck.Arbitrary for ElemIdx
 
 pub enum ElemKind {
@@ -665,9 +706,11 @@ pub enum ElemKind {
 pub fn ElemKind::func_exprs(Array[Expr]) -> Self
 pub fn ElemKind::funcs(Array[FuncIdx]) -> Self
 pub fn ElemKind::typed_exprs(RefType, Array[Expr]) -> Self
+pub impl PrettyPrint for ElemKind
 pub impl Eq for ElemKind
 pub impl Hash for ElemKind
 pub impl Show for ElemKind
+pub impl @debug.Debug for ElemKind
 pub impl @quickcheck.Arbitrary for ElemKind
 
 pub enum ElemMode {
@@ -678,45 +721,55 @@ pub enum ElemMode {
 pub fn ElemMode::active(TableIdx, Expr) -> Self
 pub fn ElemMode::declarative() -> Self
 pub fn ElemMode::passive() -> Self
+pub impl PrettyPrint for ElemMode
 pub impl Eq for ElemMode
 pub impl Hash for ElemMode
 pub impl Show for ElemMode
+pub impl @debug.Debug for ElemMode
 pub impl @quickcheck.Arbitrary for ElemMode
 
 pub struct ElemSec(Array[Elem])
 #deprecated
 pub fn ElemSec::inner(Self) -> Array[Elem]
 pub fn ElemSec::new(Array[Elem]) -> Self
+pub impl PrettyPrint for ElemSec
 pub impl Eq for ElemSec
 pub impl Hash for ElemSec
 pub impl Show for ElemSec
+pub impl @debug.Debug for ElemSec
 pub impl @quickcheck.Arbitrary for ElemSec
 
 pub struct Export(Name, ExternIdx)
 
 
 pub fn Export::new(Name, ExternIdx) -> Self
+pub impl PrettyPrint for Export
 pub impl Eq for Export
 pub impl Hash for Export
 pub impl Show for Export
+pub impl @debug.Debug for Export
 pub impl @quickcheck.Arbitrary for Export
 
 pub struct ExportSec(Array[Export])
 #deprecated
 pub fn ExportSec::inner(Self) -> Array[Export]
 pub fn ExportSec::new(Array[Export]) -> Self
+pub impl PrettyPrint for ExportSec
 pub impl Eq for ExportSec
 pub impl Hash for ExportSec
 pub impl Show for ExportSec
+pub impl @debug.Debug for ExportSec
 pub impl @quickcheck.Arbitrary for ExportSec
 
 pub struct Expr(Array[Instruction])
 #deprecated
 pub fn Expr::inner(Self) -> Array[Instruction]
 pub fn Expr::new(Array[Instruction]) -> Self
+pub impl PrettyPrint for Expr
 pub impl Eq for Expr
 pub impl Hash for Expr
 pub impl Show for Expr
+pub impl @debug.Debug for Expr
 pub impl @quickcheck.Arbitrary for Expr
 
 pub enum ExternIdx {
@@ -731,9 +784,11 @@ pub fn ExternIdx::global(GlobalIdx) -> Self
 pub fn ExternIdx::mem(MemIdx) -> Self
 pub fn ExternIdx::table(TableIdx) -> Self
 pub fn ExternIdx::tag(TagIdx) -> Self
+pub impl PrettyPrint for ExternIdx
 pub impl Eq for ExternIdx
 pub impl Hash for ExternIdx
 pub impl Show for ExternIdx
+pub impl @debug.Debug for ExternIdx
 pub impl @quickcheck.Arbitrary for ExternIdx
 
 pub enum ExternType {
@@ -748,9 +803,11 @@ pub fn ExternType::global(GlobalType) -> Self
 pub fn ExternType::mem(MemType) -> Self
 pub fn ExternType::table(TableType) -> Self
 pub fn ExternType::tag(TagType) -> Self
+pub impl PrettyPrint for ExternType
 pub impl Eq for ExternType
 pub impl Hash for ExternType
 pub impl Show for ExternType
+pub impl @debug.Debug for ExternType
 pub impl @quickcheck.Arbitrary for ExternType
 
 pub enum ExtractLaneOp {
@@ -771,24 +828,30 @@ pub fn ExtractLaneOp::i32x4_extract_lane() -> Self
 pub fn ExtractLaneOp::i64x2_extract_lane() -> Self
 pub fn ExtractLaneOp::i8x16_extract_lane_s() -> Self
 pub fn ExtractLaneOp::i8x16_extract_lane_u() -> Self
+pub impl PrettyPrint for ExtractLaneOp
 pub impl Eq for ExtractLaneOp
 pub impl Hash for ExtractLaneOp
 pub impl Show for ExtractLaneOp
+pub impl @debug.Debug for ExtractLaneOp
 
 pub(all) struct F32(Float)
 #deprecated
 pub fn F32::inner(Self) -> Float
+pub impl PrettyPrint for F32
 pub impl Eq for F32
 pub impl Hash for F32
 pub impl Show for F32
+pub impl @debug.Debug for F32
 pub impl @quickcheck.Arbitrary for F32
 
 pub(all) struct F64(Double)
 #deprecated
 pub fn F64::inner(Self) -> Double
+pub impl PrettyPrint for F64
 pub impl Eq for F64
 pub impl Hash for F64
 pub impl Show for F64
+pub impl @debug.Debug for F64
 pub impl @quickcheck.Arbitrary for F64
 
 pub struct FieldType(StorageType, Mut)
@@ -798,9 +861,11 @@ pub fn FieldType::get_storage_type(Self) -> StorageType
 pub fn FieldType::is_mutable(Self) -> Bool
 pub fn FieldType::new(StorageType, Mut) -> Self
 pub fn FieldType::unpack(Self) -> ValType
+pub impl PrettyPrint for FieldType
 pub impl Eq for FieldType
 pub impl Hash for FieldType
 pub impl Show for FieldType
+pub impl @debug.Debug for FieldType
 pub impl @quickcheck.Arbitrary for FieldType
 
 pub enum Func {
@@ -809,71 +874,87 @@ pub enum Func {
 }
 pub fn Func::new(Array[Locals], Expr) -> Self
 pub fn Func::t_func(Array[ValType], TExpr) -> Self
+pub impl PrettyPrint for Func
 pub impl Eq for Func
 pub impl Hash for Func
 pub impl Show for Func
+pub impl @debug.Debug for Func
 pub impl @quickcheck.Arbitrary for Func
 
 pub struct FuncIdx(UInt)
 #deprecated
 pub fn FuncIdx::inner(Self) -> UInt
 pub fn FuncIdx::new(UInt) -> Self
+pub impl PrettyPrint for FuncIdx
 pub impl Eq for FuncIdx
 pub impl Hash for FuncIdx
 pub impl Show for FuncIdx
+pub impl @debug.Debug for FuncIdx
 pub impl @quickcheck.Arbitrary for FuncIdx
 
 pub struct FuncSec(Array[TypeIdx])
 #deprecated
 pub fn FuncSec::inner(Self) -> Array[TypeIdx]
 pub fn FuncSec::new(Array[TypeIdx]) -> Self
+pub impl PrettyPrint for FuncSec
 pub impl Eq for FuncSec
 pub impl Hash for FuncSec
 pub impl Show for FuncSec
+pub impl @debug.Debug for FuncSec
 pub impl @quickcheck.Arbitrary for FuncSec
 
 pub struct FuncType(Array[ValType], Array[ValType])
 
 
 pub fn FuncType::new(Array[ValType], Array[ValType]) -> Self
+pub impl PrettyPrint for FuncType
 pub impl Eq for FuncType
 pub impl Hash for FuncType
 pub impl Show for FuncType
+pub impl @debug.Debug for FuncType
 
 pub struct Global(GlobalType, Expr)
 
 
 pub fn Global::new(GlobalType, Expr) -> Self
+pub impl PrettyPrint for Global
 pub impl Eq for Global
 pub impl Hash for Global
 pub impl Show for Global
+pub impl @debug.Debug for Global
 pub impl @quickcheck.Arbitrary for Global
 
 pub struct GlobalIdx(UInt)
 #deprecated
 pub fn GlobalIdx::inner(Self) -> UInt
 pub fn GlobalIdx::new(UInt) -> Self
+pub impl PrettyPrint for GlobalIdx
 pub impl Eq for GlobalIdx
 pub impl Hash for GlobalIdx
 pub impl Show for GlobalIdx
+pub impl @debug.Debug for GlobalIdx
 pub impl @quickcheck.Arbitrary for GlobalIdx
 
 pub struct GlobalSec(Array[Global])
 #deprecated
 pub fn GlobalSec::inner(Self) -> Array[Global]
 pub fn GlobalSec::new(Array[Global]) -> Self
+pub impl PrettyPrint for GlobalSec
 pub impl Eq for GlobalSec
 pub impl Hash for GlobalSec
 pub impl Show for GlobalSec
+pub impl @debug.Debug for GlobalSec
 pub impl @quickcheck.Arbitrary for GlobalSec
 
 pub struct GlobalType(ValType, Bool)
 
 
 pub fn GlobalType::new(ValType, Bool) -> Self
+pub impl PrettyPrint for GlobalType
 pub impl Eq for GlobalType
 pub impl Hash for GlobalType
 pub impl Show for GlobalType
+pub impl @debug.Debug for GlobalType
 pub impl @quickcheck.Arbitrary for GlobalType
 
 pub enum HeapType {
@@ -888,43 +969,53 @@ pub fn HeapType::is_array(Self) -> Bool
 pub fn HeapType::is_gc_aggregate(Self) -> Bool
 pub fn HeapType::is_struct(Self) -> Bool
 pub fn HeapType::new(TypeIdx) -> Self
+pub impl PrettyPrint for HeapType
 pub impl Eq for HeapType
 pub impl Hash for HeapType
 pub impl Show for HeapType
+pub impl @debug.Debug for HeapType
 pub impl @quickcheck.Arbitrary for HeapType
 
 pub(all) struct I32(Int)
 #deprecated
 pub fn I32::inner(Self) -> Int
+pub impl PrettyPrint for I32
 pub impl Eq for I32
 pub impl Hash for I32
 pub impl Show for I32
+pub impl @debug.Debug for I32
 pub impl @quickcheck.Arbitrary for I32
 
 pub(all) struct I64(Int64)
 #deprecated
 pub fn I64::inner(Self) -> Int64
+pub impl PrettyPrint for I64
 pub impl Eq for I64
 pub impl Hash for I64
 pub impl Show for I64
+pub impl @debug.Debug for I64
 pub impl @quickcheck.Arbitrary for I64
 
 pub struct Import(Name, Name, ExternType)
 
 
 pub fn Import::new(Name, Name, ExternType) -> Self
+pub impl PrettyPrint for Import
 pub impl Eq for Import
 pub impl Hash for Import
 pub impl Show for Import
+pub impl @debug.Debug for Import
 pub impl @quickcheck.Arbitrary for Import
 
 pub struct ImportSec(Array[Import])
 #deprecated
 pub fn ImportSec::inner(Self) -> Array[Import]
 pub fn ImportSec::new(Array[Import]) -> Self
+pub impl PrettyPrint for ImportSec
 pub impl Eq for ImportSec
 pub impl Hash for ImportSec
 pub impl Show for ImportSec
+pub impl @debug.Debug for ImportSec
 pub impl @quickcheck.Arbitrary for ImportSec
 
 pub enum Instruction {
@@ -1917,27 +2008,33 @@ pub fn Instruction::v128_store32_lane(MemArg, LaneIdx) -> Self
 pub fn Instruction::v128_store64_lane(MemArg, LaneIdx) -> Self
 pub fn Instruction::v128_store8_lane(MemArg, LaneIdx) -> Self
 pub fn Instruction::v128_xor() -> Self
+pub impl PrettyPrint for Instruction
 pub impl Eq for Instruction
 pub impl Hash for Instruction
 pub impl Show for Instruction
+pub impl @debug.Debug for Instruction
 pub impl @quickcheck.Arbitrary for Instruction
 
 pub struct LabelIdx(UInt)
 #deprecated
 pub fn LabelIdx::inner(Self) -> UInt
 pub fn LabelIdx::new(UInt) -> Self
+pub impl PrettyPrint for LabelIdx
 pub impl Eq for LabelIdx
 pub impl Hash for LabelIdx
 pub impl Show for LabelIdx
+pub impl @debug.Debug for LabelIdx
 pub impl @quickcheck.Arbitrary for LabelIdx
 
 pub struct LaneIdx(Byte)
 #deprecated
 pub fn LaneIdx::inner(Self) -> Byte
 pub fn LaneIdx::new(Byte) -> Self
+pub impl PrettyPrint for LaneIdx
 pub impl Eq for LaneIdx
 pub impl Hash for LaneIdx
 pub impl Show for LaneIdx
+pub impl @debug.Debug for LaneIdx
 pub impl @quickcheck.Arbitrary for LaneIdx
 
 pub enum Limits {
@@ -1948,9 +2045,11 @@ pub fn Limits::addr_valtype(Self) -> ValType
 pub fn Limits::i32(UInt, UInt?) -> Self
 pub fn Limits::i64(UInt64, UInt64?) -> Self
 pub fn Limits::mem_addr_bits(Self) -> Int
+pub impl PrettyPrint for Limits
 pub impl Eq for Limits
 pub impl Hash for Limits
 pub impl Show for Limits
+pub impl @debug.Debug for Limits
 pub impl @quickcheck.Arbitrary for Limits
 
 pub enum LoadOp {
@@ -2009,62 +2108,76 @@ pub fn LoadOp::v128_load64_zero() -> Self
 pub fn LoadOp::v128_load8_splat() -> Self
 pub fn LoadOp::v128_load8x8s() -> Self
 pub fn LoadOp::v128_load8x8u() -> Self
+pub impl PrettyPrint for LoadOp
 pub impl Eq for LoadOp
 pub impl Hash for LoadOp
 pub impl Show for LoadOp
+pub impl @debug.Debug for LoadOp
 
 pub struct LocalIdx(UInt)
 #deprecated
 pub fn LocalIdx::inner(Self) -> UInt
 pub fn LocalIdx::new(UInt) -> Self
+pub impl PrettyPrint for LocalIdx
 pub impl Eq for LocalIdx
 pub impl Hash for LocalIdx
 pub impl Show for LocalIdx
+pub impl @debug.Debug for LocalIdx
 pub impl @quickcheck.Arbitrary for LocalIdx
 
 pub struct Locals(UInt, ValType)
 
 
 pub fn Locals::new(UInt, ValType) -> Self
+pub impl PrettyPrint for Locals
 pub impl Eq for Locals
 pub impl Hash for Locals
 pub impl Show for Locals
+pub impl @debug.Debug for Locals
 pub impl @quickcheck.Arbitrary for Locals
 
 pub struct MemArg(U32, MemIdx?, U64)
 
 
 pub fn MemArg::new(U32, MemIdx?, U64) -> Self
+pub impl PrettyPrint for MemArg
 pub impl Eq for MemArg
 pub impl Hash for MemArg
 pub impl Show for MemArg
+pub impl @debug.Debug for MemArg
 pub impl @quickcheck.Arbitrary for MemArg
 
 pub struct MemIdx(UInt)
 #deprecated
 pub fn MemIdx::inner(Self) -> UInt
 pub fn MemIdx::new(UInt) -> Self
+pub impl PrettyPrint for MemIdx
 pub impl Eq for MemIdx
 pub impl Hash for MemIdx
 pub impl Show for MemIdx
+pub impl @debug.Debug for MemIdx
 pub impl @quickcheck.Arbitrary for MemIdx
 
 pub struct MemSec(Array[MemType])
 #deprecated
 pub fn MemSec::inner(Self) -> Array[MemType]
 pub fn MemSec::new(Array[MemType]) -> Self
+pub impl PrettyPrint for MemSec
 pub impl Eq for MemSec
 pub impl Hash for MemSec
 pub impl Show for MemSec
+pub impl @debug.Debug for MemSec
 pub impl @quickcheck.Arbitrary for MemSec
 
 pub struct MemType(Limits)
 #deprecated
 pub fn MemType::inner(Self) -> Limits
 pub fn MemType::new(Limits) -> Self
+pub impl PrettyPrint for MemType
 pub impl Eq for MemType
 pub impl Hash for MemType
 pub impl Show for MemType
+pub impl @debug.Debug for MemType
 pub impl @quickcheck.Arbitrary for MemType
 
 pub struct Module {
@@ -2098,9 +2211,11 @@ pub fn Module::with_start_sec(Self, StartSec) -> Self
 pub fn Module::with_table_sec(Self, TableSec) -> Self
 pub fn Module::with_tag_sec(Self, TagSec) -> Self
 pub fn Module::with_type_sec(Self, TypeSec) -> Self
+pub impl PrettyPrint for Module
 pub impl Eq for Module
 pub impl Hash for Module
 pub impl Show for Module
+pub impl @debug.Debug for Module
 pub impl @quickcheck.Arbitrary for Module
 
 pub(all) enum Mut {
@@ -2109,18 +2224,22 @@ pub(all) enum Mut {
 }
 pub fn Mut::const_() -> Self
 pub fn Mut::var_() -> Self
+pub impl PrettyPrint for Mut
 pub impl Eq for Mut
 pub impl Hash for Mut
 pub impl Show for Mut
+pub impl @debug.Debug for Mut
 pub impl @quickcheck.Arbitrary for Mut
 
 pub struct Name(StringView)
 #deprecated
 pub fn Name::inner(Self) -> StringView
 pub fn Name::new(StringView) -> Self
+pub impl PrettyPrint for Name
 pub impl Eq for Name
 pub impl Hash for Name
 pub impl Show for Name
+pub impl @debug.Debug for Name
 pub impl @quickcheck.Arbitrary for Name
 
 pub enum NumType {
@@ -2133,9 +2252,11 @@ pub fn NumType::f32() -> Self
 pub fn NumType::f64() -> Self
 pub fn NumType::i32() -> Self
 pub fn NumType::i64() -> Self
+pub impl PrettyPrint for NumType
 pub impl Eq for NumType
 pub impl Hash for NumType
 pub impl Show for NumType
+pub impl @debug.Debug for NumType
 pub impl @quickcheck.Arbitrary for NumType
 
 pub enum PackType {
@@ -2144,10 +2265,26 @@ pub enum PackType {
 }
 pub fn PackType::i16() -> Self
 pub fn PackType::i8() -> Self
+pub impl PrettyPrint for PackType
 pub impl Eq for PackType
 pub impl Hash for PackType
 pub impl Show for PackType
+pub impl @debug.Debug for PackType
 pub impl @quickcheck.Arbitrary for PackType
+
+pub struct PrettyPrintContext {
+  max_line_width : UInt
+  tabs_or_spaces : TabsOrSpaces
+  tab_width : UInt
+  continuation_indent : UInt
+  source_indent_width : UInt
+}
+pub fn PrettyPrintContext::indent(Self, UInt) -> String
+pub fn PrettyPrintContext::indent_unit(Self) -> String
+pub fn PrettyPrintContext::new(max_line_width? : UInt, tabs_or_spaces? : TabsOrSpaces, tab_width? : UInt, continuation_indent? : UInt, source_indent_width? : UInt) -> Self
+pub impl Eq for PrettyPrintContext
+pub impl Show for PrettyPrintContext
+pub impl @debug.Debug for PrettyPrintContext
 
 pub enum RecType {
   SingleRecType(SubType)
@@ -2156,9 +2293,11 @@ pub enum RecType {
 pub fn RecType::get_subtype(Self, UInt) -> SubType?
 pub fn RecType::group(Array[SubType]) -> Self
 pub fn RecType::new(SubType) -> Self
+pub impl PrettyPrint for RecType
 pub impl Eq for RecType
 pub impl Hash for RecType
 pub impl Show for RecType
+pub impl @debug.Debug for RecType
 pub impl @quickcheck.Arbitrary for RecType
 
 pub enum RefType {
@@ -2172,9 +2311,11 @@ pub fn RefType::is_non_nullable(Self) -> Bool
 pub fn RefType::is_nullable(Self) -> Bool
 pub fn RefType::make_nullable(Self) -> Self
 pub fn RefType::new(Bool, HeapType) -> Self
+pub impl PrettyPrint for RefType
 pub impl Eq for RefType
 pub impl Hash for RefType
 pub impl Show for RefType
+pub impl @debug.Debug for RefType
 pub impl @quickcheck.Arbitrary for RefType
 
 pub enum ReplaceLaneOp {
@@ -2191,24 +2332,30 @@ pub fn ReplaceLaneOp::i16x8_replace_lane() -> Self
 pub fn ReplaceLaneOp::i32x4_replace_lane() -> Self
 pub fn ReplaceLaneOp::i64x2_replace_lane() -> Self
 pub fn ReplaceLaneOp::i8x16_replace_lane() -> Self
+pub impl PrettyPrint for ReplaceLaneOp
 pub impl Eq for ReplaceLaneOp
 pub impl Hash for ReplaceLaneOp
 pub impl Show for ReplaceLaneOp
+pub impl @debug.Debug for ReplaceLaneOp
 
 pub(all) struct S33(UInt)
 #deprecated
 pub fn S33::inner(Self) -> UInt
+pub impl PrettyPrint for S33
 pub impl Eq for S33
 pub impl Hash for S33
 pub impl Show for S33
+pub impl @debug.Debug for S33
 
 pub struct StartSec(FuncIdx)
 #deprecated
 pub fn StartSec::inner(Self) -> FuncIdx
 pub fn StartSec::new(FuncIdx) -> Self
+pub impl PrettyPrint for StartSec
 pub impl Eq for StartSec
 pub impl Hash for StartSec
 pub impl Show for StartSec
+pub impl @debug.Debug for StartSec
 pub impl @quickcheck.Arbitrary for StartSec
 
 pub enum StorageType {
@@ -2219,9 +2366,11 @@ pub fn StorageType::is_packed(Self) -> Bool
 pub fn StorageType::pack_type(PackType) -> Self
 pub fn StorageType::unpack(Self) -> ValType
 pub fn StorageType::val_type(ValType) -> Self
+pub impl PrettyPrint for StorageType
 pub impl Eq for StorageType
 pub impl Hash for StorageType
 pub impl Show for StorageType
+pub impl @debug.Debug for StorageType
 pub impl @quickcheck.Arbitrary for StorageType
 
 pub enum StoreOp {
@@ -2246,9 +2395,11 @@ pub fn StoreOp::i64_store16() -> Self
 pub fn StoreOp::i64_store32() -> Self
 pub fn StoreOp::i64_store8() -> Self
 pub fn StoreOp::v128_store() -> Self
+pub impl PrettyPrint for StoreOp
 pub impl Eq for StoreOp
 pub impl Hash for StoreOp
 pub impl Show for StoreOp
+pub impl @debug.Debug for StoreOp
 
 pub enum SubType {
   SubType(Bool, Array[TypeIdx], CompType)
@@ -2258,9 +2409,11 @@ pub fn SubType::comp_type(CompType) -> Self
 pub fn SubType::get_comptype(Self) -> CompType
 pub fn SubType::new(Bool, Array[TypeIdx], CompType) -> Self
 pub fn SubType::super_types(Self) -> Array[TypeIdx]
+pub impl PrettyPrint for SubType
 pub impl Eq for SubType
 pub impl Hash for SubType
 pub impl Show for SubType
+pub impl @debug.Debug for SubType
 pub impl @quickcheck.Arbitrary for SubType
 
 pub struct TExpr(Array[TInstr])
@@ -2268,9 +2421,11 @@ pub struct TExpr(Array[TInstr])
 pub fn TExpr::inner(Self) -> Array[TInstr]
 pub fn TExpr::new(Array[TInstr]) -> Self
 pub fn TExpr::to_expr(Self) -> Expr
+pub impl PrettyPrint for TExpr
 pub impl Eq for TExpr
 pub impl Hash for TExpr
 pub impl Show for TExpr
+pub impl @debug.Debug for TExpr
 
 pub enum TInstr {
   TI32Const(I32)
@@ -2472,71 +2627,97 @@ pub fn TInstr::v128_load_lane(V128LoadLaneOp, MemArg, LaneIdx, Self, Self) -> Se
 pub fn TInstr::v128_shift(V128ShiftOp, Self, Self) -> Self
 pub fn TInstr::v128_store_lane(V128StoreLaneOp, MemArg, LaneIdx, Self, Self) -> Self
 pub fn TInstr::v128_ternary(V128TernaryOp, Self, Self, Self) -> Self
+pub impl PrettyPrint for TInstr
 pub impl Eq for TInstr
 pub impl Hash for TInstr
 pub impl Show for TInstr
+pub impl @debug.Debug for TInstr
 
 pub struct Table(TableType, Expr?)
 
 
 pub fn Table::new(TableType, Expr?) -> Self
+pub impl PrettyPrint for Table
 pub impl Eq for Table
 pub impl Hash for Table
 pub impl Show for Table
+pub impl @debug.Debug for Table
 pub impl @quickcheck.Arbitrary for Table
 
 pub struct TableIdx(UInt)
 #deprecated
 pub fn TableIdx::inner(Self) -> UInt
 pub fn TableIdx::new(UInt) -> Self
+pub impl PrettyPrint for TableIdx
 pub impl Eq for TableIdx
 pub impl Hash for TableIdx
 pub impl Show for TableIdx
+pub impl @debug.Debug for TableIdx
 pub impl @quickcheck.Arbitrary for TableIdx
 
 pub struct TableSec(Array[Table])
 #deprecated
 pub fn TableSec::inner(Self) -> Array[Table]
 pub fn TableSec::new(Array[Table]) -> Self
+pub impl PrettyPrint for TableSec
 pub impl Eq for TableSec
 pub impl Hash for TableSec
 pub impl Show for TableSec
+pub impl @debug.Debug for TableSec
 pub impl @quickcheck.Arbitrary for TableSec
 
 pub struct TableType(RefType, Limits)
 
 
 pub fn TableType::new(RefType, Limits) -> Self
+pub impl PrettyPrint for TableType
 pub impl Eq for TableType
 pub impl Hash for TableType
 pub impl Show for TableType
+pub impl @debug.Debug for TableType
 pub impl @quickcheck.Arbitrary for TableType
+
+pub enum TabsOrSpaces {
+  Tabs
+  Spaces
+}
+pub fn TabsOrSpaces::spaces() -> Self
+pub fn TabsOrSpaces::tabs() -> Self
+pub impl Eq for TabsOrSpaces
+pub impl Show for TabsOrSpaces
+pub impl @debug.Debug for TabsOrSpaces
 
 pub struct TagIdx(UInt)
 #deprecated
 pub fn TagIdx::inner(Self) -> UInt
 pub fn TagIdx::new(UInt) -> Self
+pub impl PrettyPrint for TagIdx
 pub impl Eq for TagIdx
 pub impl Hash for TagIdx
 pub impl Show for TagIdx
+pub impl @debug.Debug for TagIdx
 pub impl @quickcheck.Arbitrary for TagIdx
 
 pub struct TagSec(Array[TagType])
 #deprecated
 pub fn TagSec::inner(Self) -> Array[TagType]
 pub fn TagSec::new(Array[TagType]) -> Self
+pub impl PrettyPrint for TagSec
 pub impl Eq for TagSec
 pub impl Hash for TagSec
 pub impl Show for TagSec
+pub impl @debug.Debug for TagSec
 pub impl @quickcheck.Arbitrary for TagSec
 
 pub struct TagType(TypeIdx)
 #deprecated
 pub fn TagType::inner(Self) -> TypeIdx
 pub fn TagType::new(TypeIdx) -> Self
+pub impl PrettyPrint for TagType
 pub impl Eq for TagType
 pub impl Hash for TagType
 pub impl Show for TagType
+pub impl @debug.Debug for TagType
 pub impl @quickcheck.Arbitrary for TagType
 
 pub enum TypeIdx {
@@ -2545,34 +2726,42 @@ pub enum TypeIdx {
 }
 pub fn TypeIdx::new(UInt) -> Self
 pub fn TypeIdx::rec(UInt) -> Self
+pub impl PrettyPrint for TypeIdx
 pub impl Eq for TypeIdx
 pub impl Hash for TypeIdx
 pub impl Show for TypeIdx
+pub impl @debug.Debug for TypeIdx
 pub impl @quickcheck.Arbitrary for TypeIdx
 
 pub struct TypeSec(Array[RecType])
 #deprecated
 pub fn TypeSec::inner(Self) -> Array[RecType]
 pub fn TypeSec::new(Array[RecType]) -> Self
+pub impl PrettyPrint for TypeSec
 pub impl Eq for TypeSec
 pub impl Hash for TypeSec
 pub impl Show for TypeSec
+pub impl @debug.Debug for TypeSec
 pub impl @quickcheck.Arbitrary for TypeSec
 
 pub(all) struct U32(UInt)
 #deprecated
 pub fn U32::inner(Self) -> UInt
+pub impl PrettyPrint for U32
 pub impl Eq for U32
 pub impl Hash for U32
 pub impl Show for U32
+pub impl @debug.Debug for U32
 pub impl @quickcheck.Arbitrary for U32
 
 pub(all) struct U64(UInt64)
 #deprecated
 pub fn U64::inner(Self) -> UInt64
+pub impl PrettyPrint for U64
 pub impl Eq for U64
 pub impl Hash for U64
 pub impl Show for U64
+pub impl @debug.Debug for U64
 pub impl @quickcheck.Arbitrary for U64
 
 pub enum UnaryOp {
@@ -2823,9 +3012,11 @@ pub fn UnaryOp::i8x16_neg() -> Self
 pub fn UnaryOp::i8x16_popcnt() -> Self
 pub fn UnaryOp::v128_any_true() -> Self
 pub fn UnaryOp::v128_not() -> Self
+pub impl PrettyPrint for UnaryOp
 pub impl Eq for UnaryOp
 pub impl Hash for UnaryOp
 pub impl Show for UnaryOp
+pub impl @debug.Debug for UnaryOp
 
 pub enum V128LoadLaneOp {
   V128Load8LaneOp
@@ -2837,9 +3028,11 @@ pub fn V128LoadLaneOp::v128_load16_lane() -> Self
 pub fn V128LoadLaneOp::v128_load32_lane() -> Self
 pub fn V128LoadLaneOp::v128_load64_lane() -> Self
 pub fn V128LoadLaneOp::v128_load8_lane() -> Self
+pub impl PrettyPrint for V128LoadLaneOp
 pub impl Eq for V128LoadLaneOp
 pub impl Hash for V128LoadLaneOp
 pub impl Show for V128LoadLaneOp
+pub impl @debug.Debug for V128LoadLaneOp
 
 pub enum V128ShiftOp {
   I8x16ShlOp
@@ -2867,9 +3060,11 @@ pub fn V128ShiftOp::i64x2_shr_u() -> Self
 pub fn V128ShiftOp::i8x16_shl() -> Self
 pub fn V128ShiftOp::i8x16_shr_s() -> Self
 pub fn V128ShiftOp::i8x16_shr_u() -> Self
+pub impl PrettyPrint for V128ShiftOp
 pub impl Eq for V128ShiftOp
 pub impl Hash for V128ShiftOp
 pub impl Show for V128ShiftOp
+pub impl @debug.Debug for V128ShiftOp
 
 pub enum V128StoreLaneOp {
   V128Store8LaneOp
@@ -2881,9 +3076,11 @@ pub fn V128StoreLaneOp::v128_store16_lane() -> Self
 pub fn V128StoreLaneOp::v128_store32_lane() -> Self
 pub fn V128StoreLaneOp::v128_store64_lane() -> Self
 pub fn V128StoreLaneOp::v128_store8_lane() -> Self
+pub impl PrettyPrint for V128StoreLaneOp
 pub impl Eq for V128StoreLaneOp
 pub impl Hash for V128StoreLaneOp
 pub impl Show for V128StoreLaneOp
+pub impl @debug.Debug for V128StoreLaneOp
 
 pub enum V128TernaryOp {
   V128BitselectOp
@@ -2907,9 +3104,11 @@ pub fn V128TernaryOp::i32x4_relaxed_laneselect() -> Self
 pub fn V128TernaryOp::i64x2_relaxed_laneselect() -> Self
 pub fn V128TernaryOp::i8x16_relaxed_laneselect() -> Self
 pub fn V128TernaryOp::v128_bitselect() -> Self
+pub impl PrettyPrint for V128TernaryOp
 pub impl Eq for V128TernaryOp
 pub impl Hash for V128TernaryOp
 pub impl Show for V128TernaryOp
+pub impl @debug.Debug for V128TernaryOp
 
 pub enum ValType {
   NumTypeValType(NumType)
@@ -2937,13 +3136,18 @@ pub fn ValType::ref_null_array_of(TypeIdx) -> Self
 pub fn ValType::ref_null_exn() -> Self
 pub fn ValType::ref_type(RefType) -> Self
 pub fn ValType::v128() -> Self
+pub impl PrettyPrint for ValType
 pub impl Eq for ValType
 pub impl Hash for ValType
 pub impl Show for ValType
+pub impl @debug.Debug for ValType
 pub impl @quickcheck.Arbitrary for ValType
 
 // Type aliases
 pub type ResultType = Array[ValType]
 
 // Traits
+pub(open) trait PrettyPrint {
+  pretty_print(Self, PrettyPrintContext) -> String
+}
 
