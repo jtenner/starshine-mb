@@ -74,6 +74,14 @@ In this workspace, use absolute moon path when needed:
 - `OptimizeAddedConstants*` is gated by `OptimizeOptions.low_memory_unused`.
 - `Monomorphize` empirical mode uses `OptimizeOptions.monomorphize_min_benefit`.
 - `Asyncify` is staged and emits runtime globals/APIs (`__asyncify_state`, `__asyncify_data`, `asyncify_*`).
+- `Asyncify` rewrites wasm-internal `asyncify.*` imports (`start_unwind`/`stop_unwind`/`start_rewind`/`stop_rewind`/`get_state`) to direct calls to generated runtime functions and removes those imports with full `FuncIdx` remapping.
+- `Asyncify` now pushes the actual unwind call index onto the asyncify stack (instead of a constant), preserving multi-call rewind fidelity.
+- `Asyncify` local save/restore relevance now includes locals read anywhere in rewritten function bodies (not just call arguments), fixing zero-arg-call resume cases.
+- `AsyncifyAssertUnwindCorrectness` now models `try_table` catch continuations via catch-target depth propagation instead of a plain lexical try-depth heuristic, avoiding blanket guarding of all try bodies.
+- `AsyncifyAssertUnwindCorrectness` precision now also covers embedded `try_table` control-flow placements (for example inside value trees such as `local.set` values) without forcing blanket guards.
+- `Asyncify` now supports `asyncify-import-globals` / `asyncify-relocatable` parity by importing mutable `env.__asyncify_state` (`i32`) and `env.__asyncify_data` (pointer-width) globals.
+- `Asyncify` now lowers fake call-result globals to typed temp locals for all supported result value types and removes those temporary globals from the final module after lowering.
+- `Asyncify` now guards unwind call-index pushes with a stack-end bounds check (`stack_pos + 4 > stack_end -> unreachable`) before writing.
 - `MemoryPacking` rewrites segment refs/ops and maintains data-count consistency.
 - `I64ToI32Lowering` is integrated; explicit limitations remain for certain global/result shapes.
 - `RemoveUnusedNames` is implemented as a depth-based `LabelIdx` adaptation of Binaryen's name-based pass (this IR does not preserve symbolic block names in `TInstr`).
@@ -101,6 +109,7 @@ In this workspace, use absolute moon path when needed:
 - Stabilize legacy/dataflow replacement path where tests are still unstable.
 - Descriptor-mode behavior for `GlobalStructInferenceDescCast` is wired but effectively no-op until descriptor ops exist in IR.
 - Atomics-dependent parity work in heap passes remains blocked on atomics/threading IR+validator support.
+- `Asyncify` parity follow-up remaining gaps are now mostly around wider Binaryen feature surface beyond current staged implementation (for example additional optimizer-stage parity and advanced unsupported value categories).
 
 ## Test/Validation Expectations for Pass Changes
 - Update inline/dispatch tests in the pass file and/or `src/passes/optimize.mbt`.

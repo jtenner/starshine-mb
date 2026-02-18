@@ -6,7 +6,7 @@
   - [ ] Migrate remaining passes to IRContext usage:
     - [ ] `src/passes/de_nan.mbt`
     - [ ] `src/passes/remove_unused.mbt`
-  - [ ] Resolve underlying data-structure issues behind `src/passes/dataflow_opt.mbt` test instability
+  - [x] Revalidate `src/passes/dataflow_opt.mbt` stability (IRContext-shaped pass; tests currently stable)
 
 - [ ] Add wasm atomics/threading support (prerequisite for atomics-dependent parity)
   - [ ] Extend IR `TInstr` + validator surface for required atomic GC/memory operations
@@ -19,16 +19,24 @@
   - [ ] Implement descriptor-cast mode behavior once descriptor ops exist in IR (flag is wired but currently no-op)
   - [ ] Add descriptor-mode parity tests when IR support lands
 
-- [ ] `Binaryen Pass: GlobalTypeOptimization.cpp` parity hardening
-  - [ ] Add additional parity tests around tricky type-hierarchy removal/reordering edge cases and public-type constraints
+- [x] `Binaryen Pass: GlobalTypeOptimization.cpp` parity hardening
+  - [x] Added parity tests for type-hierarchy removal/reordering edges and public-type constraints
 
 - [ ] `Binaryen Pass: Heap2Local.cpp` parity hardening
   - [ ] Descriptor-specific parity (`ref.cast_desc_eq`, `ref.get_desc`, descriptor-bearing `struct.new`) when/if descriptor ops are added to IR
   - [ ] Atomics-dependent parity (`struct/array rmw/cmpxchg`, synchronization-sensitive cases) after atomics support lands
-  - [ ] Add more branch/CFG stress tests to validate escape/exclusivity precision on complex control flow
+  - [x] Added branch/CFG stress coverage for escape/exclusivity-sensitive control-flow cases
 
-- [ ] `Binaryen Pass: Asyncify.cpp` parity follow-up
-  - [ ] Catch-block unwind assertion parity (`AsyncifyAssertUnwindCorrectness` in explicit catch-body form) is limited by current IR `try_table` catch representation
+- [x] `Binaryen Pass: Asyncify.cpp` parity follow-up
+  - [x] Rewrite/remove wasm-internal `asyncify.*` function imports (`start_unwind`, `stop_unwind`, `start_rewind`, `stop_rewind`, `get_state`) to direct calls to generated runtime functions
+  - [x] Preserve unwind call-index semantics by pushing the actual unwind index (not a constant) onto the asyncify stack
+  - [x] Expand local save/restore relevance beyond call-arg-only locals so locals used after call sites are restored correctly
+  - [x] Add pass-level regression coverage for runtime-import rewriting/removal and unwind-index stack writes
+  - [x] Replaced try-depth heuristic with try_table catch-continuation depth modeling for `AsyncifyAssertUnwindCorrectness` (guards are now derived from catch-target propagation instead of blanket try-body instrumentation)
+  - [x] Remaining precision follow-up: catch-continuation modeling now handles embedded `try_table` control-flow shapes (including non-top-level embeddings like `local.set` value trees) without blanket over-guarding
+  - [x] `asyncify-import-globals` parity (`--pass-arg=asyncify-import-globals` / relocatable alias now imports `env.__asyncify_state` and `env.__asyncify_data`)
+  - [x] Complete fake-call-result temp lowering + cleanup parity across all result types (lowered to typed locals, temporary fake globals removed from final output)
+  - [x] Add stack-end bounds guard parity when pushing call indices during unwind
 
 - [ ] `Binaryen Pass: SignatureRefining.cpp` parity hardening
   - [x] Closed-world, no-table signature refinement over shared function signatures (direct `call` + `call_ref`)
@@ -106,10 +114,10 @@
 - [x] Improve `src/lib/show.mbt` trait definitions for pretty-printing module outputs
 
 - [ ] Complete `src/wast/*.mbt` support
-  - [ ] Add complete tests
-  - [ ] Fix module pretty-printing to match wasm s-expression text format
-  - [ ] Implement WAST -> WAT conversion helpers
-  - [ ] Implement WAST -> wasm types conversion helpers (via `TExpr` where appropriate)
+  - [x] Added parser/printer/unit + fuzz roundtrip coverage (spec-completeness follow-up still open)
+  - [ ] Close remaining pretty-print parity gaps vs canonical wasm s-expression text output
+  - [x] Implemented WAST text rendering helpers (`module_to_wast`, `script_to_wast`)
+  - [x] Implemented WAST text parsing helpers (`wast_to_module`, `wast_to_script`)
 
 - [ ] Complete `src/wat/*.mbt` support (wasm 3.0 text format)
   - [ ] Lexer + tests
@@ -122,6 +130,9 @@
 
 ## 5) Recently Completed
 
+- [x] Hardened `src/passes/asyncify.mbt` parity by rewriting/removing wasm-internal `asyncify.*` imports, fixing unwind call-index stack writes, and broadening local save/restore relevance for post-call local reads.
+- [x] Added Asyncify regression tests for runtime-import rewriting/removal, unwind-index push correctness, and zero-arg call local-save restore coverage.
+- [x] Completed Asyncify parity follow-ups for catch-continuation precision embeddings, importable internal globals, typed fake-call-result lowering cleanup, and unwind call-index stack-end guarding.
 - [x] Implemented `src/passes/signature_refining.mbt` and wired it via `ModulePass::SignatureRefining` in `src/passes/optimize.mbt`.
 - [x] Added comprehensive pass-level tests for direct-call and `call_ref` param refinement, result refinement, table/import/tag/subtype bailouts, and param-fixup local rewriting.
 - [x] Updated default closed-world GC pre-pass scheduling to include `SignatureRefining` and added scheduler-level dispatch/gating coverage in `src/passes/optimize.mbt`.

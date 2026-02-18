@@ -658,6 +658,29 @@ fn af_append_export_global(
 }
 
 ///|
+fn af_append_import_global(
+  mod : Module,
+  module_name : String,
+  base_name : String,
+  ty : ValType,
+  mutable : Bool,
+) -> (Module, GlobalIdx) {
+  let imports = match mod.import_sec {
+    Some(ImportSec(xs)) => xs.copy()
+    None => []
+  }
+  let idx = GlobalIdx::new(af_count_imported_globals(mod))
+  imports.push(
+    Import::new(
+      Name::new(module_name),
+      Name::new(base_name),
+      ExternType::global(GlobalType::new(ty, mutable)),
+    ),
+  )
+  (mod.with_import_sec(ImportSec::new(imports)), idx)
+}
+
+///|
 priv struct AFMemoryChoice {
   mem_idx : MemIdx
   pointer_type : ValType
@@ -818,6 +841,7 @@ priv struct AFApi {
   runtime_stop_unwind : FuncIdx
   runtime_start_rewind : FuncIdx
   runtime_stop_rewind : FuncIdx
+  runtime_get_state : FuncIdx
   intr_unwind : FuncIdx
   intr_get_call_index : FuncIdx
   intr_check_call_index : FuncIdx
@@ -911,6 +935,20 @@ fn AsyncifyBuilder::make_get_stack_pos(self : AsyncifyBuilder) -> TInstr {
 }
 
 ///|
+fn AsyncifyBuilder::make_get_stack_end(self : AsyncifyBuilder) -> TInstr {
+  let offset = af_ptr_size(self.pointer_type)
+  TInstr::load(
+    af_ptr_load_op(self.pointer_type),
+    MemArg::new(
+      U32(af_ptr_align(self.pointer_type).reinterpret_as_uint()),
+      Some(self.memory),
+      U64(offset.reinterpret_as_uint().to_uint64()),
+    ),
+    TInstr::global_get(self.data_global),
+  )
+}
+
+///|
 fn AsyncifyBuilder::make_inc_stack_pos(
   self : AsyncifyBuilder,
   by : Int,
@@ -948,17 +986,37 @@ fn af_add_asyncify_api(
   mod : Module,
   pointer_type : ValType,
   memory : MemIdx,
+  import_globals : Bool,
   export_globals : Bool,
 ) -> Result[(Module, AFApi), String] {
-  let (mod, state_global) = af_append_global(
-    mod,
-    ValType::i32(),
-    true,
-    TInstr::i32_const(I32(AF_STATE_NORMAL)),
-  )
-  let (mod, data_global) = match af_make_zero(pointer_type) {
-    Some(zero) => af_append_global(mod, pointer_type, true, zero)
-    None => return Err("asyncify: pointer type has no default value")
+  let (mod, state_global, data_global) = if import_globals {
+    let (mod, state_global) = af_append_import_global(
+      mod,
+      "env",
+      AF_GLOBAL_STATE,
+      ValType::i32(),
+      true,
+    )
+    let (mod, data_global) = af_append_import_global(
+      mod,
+      "env",
+      AF_GLOBAL_DATA,
+      pointer_type,
+      true,
+    )
+    (mod, state_global, data_global)
+  } else {
+    let (mod, state_global) = af_append_global(
+      mod,
+      ValType::i32(),
+      true,
+      TInstr::i32_const(I32(AF_STATE_NORMAL)),
+    )
+    let (mod, data_global) = match af_make_zero(pointer_type) {
+      Some(zero) => af_append_global(mod, pointer_type, true, zero)
+      None => return Err("asyncify: pointer type has no default value")
+    }
+    (mod, state_global, data_global)
   }
   let mod = if export_globals {
     af_append_export_global(
@@ -1049,7 +1107,7 @@ fn af_add_asyncify_api(
     [],
     stop_rewind_body,
   )
-  let (mod, _runtime_get_state) = af_append_exported_function(
+  let (mod, runtime_get_state) = af_append_exported_function(
     mod,
     AF_RUNTIME_GET_STATE,
     [],
@@ -1089,12 +1147,212 @@ fn af_add_asyncify_api(
         runtime_stop_unwind,
         runtime_start_rewind,
         runtime_stop_rewind,
+        runtime_get_state,
         intr_unwind,
         intr_get_call_index,
         intr_check_call_index,
       },
     ),
   )
+}
+
+///|
+fn af_remap_func_indices(
+  mod : Module,
+  remap : Map[FuncIdx, FuncIdx],
+) -> Result[Module, String] {
+  if remap.is_empty() {
+    return Ok(mod)
+  }
+  let transformer = ModuleTransformer::new().on_funcidx_evt(fn(_, _, idx) {
+    match remap.get(idx) {
+      Some(new_idx) =>
+        if new_idx != idx {
+          change((), new_idx)
+        } else {
+          unchanged()
+        }
+      None => unchanged()
+    }
+  })
+  match transformer.walk_module((), mod) {
+    Ok(Some((_, next_mod))) => Ok(next_mod)
+    Ok(None) => Ok(mod)
+    Err(e) => Err(e)
+  }
+}
+
+///|
+fn af_remap_global_indices(
+  mod : Module,
+  remap : Map[GlobalIdx, GlobalIdx],
+) -> Result[Module, String] {
+  if remap.is_empty() {
+    return Ok(mod)
+  }
+  let transformer = ModuleTransformer::new().on_globalidx_evt(fn(_, _, idx) {
+    match remap.get(idx) {
+      Some(new_idx) =>
+        if new_idx != idx {
+          change((), new_idx)
+        } else {
+          unchanged()
+        }
+      None => unchanged()
+    }
+  })
+  match transformer.walk_module((), mod) {
+    Ok(Some((_, next_mod))) => Ok(next_mod)
+    Ok(None) => Ok(mod)
+    Err(e) => Err(e)
+  }
+}
+
+///|
+fn af_remap_runtime_idx(
+  remap : Map[FuncIdx, FuncIdx],
+  idx : FuncIdx,
+) -> FuncIdx {
+  match remap.get(idx) {
+    Some(next) => next
+    None => idx
+  }
+}
+
+///|
+fn af_runtime_redirect_target(runtime : AFApi, base_name : String) -> FuncIdx? {
+  if base_name == "start_unwind" {
+    return Some(runtime.runtime_start_unwind)
+  }
+  if base_name == "stop_unwind" {
+    return Some(runtime.runtime_stop_unwind)
+  }
+  if base_name == "start_rewind" {
+    return Some(runtime.runtime_start_rewind)
+  }
+  if base_name == "stop_rewind" {
+    return Some(runtime.runtime_stop_rewind)
+  }
+  if base_name == "get_state" {
+    return Some(runtime.runtime_get_state)
+  }
+  None
+}
+
+///|
+fn af_rewrite_asyncify_runtime_imports(
+  mod : Module,
+  runtime : AFApi,
+) -> Result[(Module, AFApi), String] {
+  let imports = match mod.import_sec {
+    Some(ImportSec(xs)) => xs
+    None => return Ok((mod, runtime))
+  }
+  let imported_func_count = af_count_imported_funcs(mod).reinterpret_as_int()
+  if imported_func_count <= 0 {
+    return Ok((mod, runtime))
+  }
+  let redirect_target : Array[FuncIdx?] = Array::make(imported_func_count, None)
+  let new_imports : Array[Import] = []
+  let mut removed_count = 0
+  let mut func_import_idx = 0
+  for import_ in imports {
+    match import_ {
+      Import(module_name, base_name, FuncExternType(_)) => {
+        let module_s = af_name_to_string(module_name)
+        let base_s = af_name_to_string(base_name)
+        let redirected = if module_s == "asyncify" {
+          af_runtime_redirect_target(runtime, base_s)
+        } else {
+          None
+        }
+        match redirected {
+          Some(target) => {
+            if func_import_idx < 0 ||
+              func_import_idx >= redirect_target.length() {
+              return Err(
+                "asyncify: invalid function import index while rewriting runtime imports",
+              )
+            }
+            redirect_target[func_import_idx] = Some(target)
+            removed_count += 1
+          }
+          None => new_imports.push(import_)
+        }
+        func_import_idx += 1
+      }
+      _ => new_imports.push(import_)
+    }
+  }
+  if removed_count == 0 {
+    return Ok((mod, runtime))
+  }
+  let total_funcs = Env::new().with_module(mod).funcs.length()
+  let remap : Map[FuncIdx, FuncIdx] = Map::new()
+  let mut removed_before = 0
+  for old_idx = 0; old_idx < imported_func_count; old_idx = old_idx + 1 {
+    let old = FuncIdx::new(old_idx.reinterpret_as_uint())
+    match redirect_target[old_idx] {
+      Some(target_old) => {
+        let target_new = af_func_idx_to_int(target_old) - removed_count
+        if target_new < 0 {
+          return Err(
+            "asyncify: invalid remap target while removing runtime imports",
+          )
+        }
+        remap[old] = FuncIdx::new(target_new.reinterpret_as_uint())
+        removed_before += 1
+      }
+      None => {
+        let new_idx = old_idx - removed_before
+        remap[old] = FuncIdx::new(new_idx.reinterpret_as_uint())
+      }
+    }
+  }
+  for old_idx = imported_func_count
+      old_idx < total_funcs
+      old_idx = old_idx + 1 {
+    let new_idx = old_idx - removed_count
+    remap[FuncIdx::new(old_idx.reinterpret_as_uint())] = FuncIdx::new(
+      new_idx.reinterpret_as_uint(),
+    )
+  }
+  let mod = mod.with_import_sec(ImportSec::new(new_imports))
+  let mod = match af_remap_func_indices(mod, remap) {
+    Ok(next) => next
+    Err(e) => return Err(e)
+  }
+  let runtime = {
+    state_global: runtime.state_global,
+    data_global: runtime.data_global,
+    runtime_start_unwind: af_remap_runtime_idx(
+      remap,
+      runtime.runtime_start_unwind,
+    ),
+    runtime_stop_unwind: af_remap_runtime_idx(
+      remap,
+      runtime.runtime_stop_unwind,
+    ),
+    runtime_start_rewind: af_remap_runtime_idx(
+      remap,
+      runtime.runtime_start_rewind,
+    ),
+    runtime_stop_rewind: af_remap_runtime_idx(
+      remap,
+      runtime.runtime_stop_rewind,
+    ),
+    runtime_get_state: af_remap_runtime_idx(remap, runtime.runtime_get_state),
+    intr_unwind: af_remap_runtime_idx(remap, runtime.intr_unwind),
+    intr_get_call_index: af_remap_runtime_idx(
+      remap,
+      runtime.intr_get_call_index,
+    ),
+    intr_check_call_index: af_remap_runtime_idx(
+      remap,
+      runtime.intr_check_call_index,
+    ),
+  }
+  Ok((mod, runtime))
 }
 
 ///|
@@ -1176,6 +1434,82 @@ fn FakeGlobalHelper::get_type_or_none(
   idx : GlobalIdx,
 ) -> ValType? {
   self.type_by_global.get(idx)
+}
+
+///|
+fn FakeGlobalHelper::all_global_indices(
+  self : FakeGlobalHelper,
+) -> Array[GlobalIdx] {
+  let out : Array[GlobalIdx] = []
+  for pair in self.type_by_global {
+    let (idx, _) = pair
+    out.push(idx)
+  }
+  out
+}
+
+///|
+fn af_module_references_any_global(
+  mod : Module,
+  targets : Set[GlobalIdx],
+) -> Result[Bool, String] {
+  if targets.is_empty() {
+    return Ok(false)
+  }
+  let found = Ref::new(false)
+  let walker = ModuleTransformer::new().on_globalidx_evt(fn(_, _, idx) {
+    if targets.contains(idx) {
+      found.update(fn(_) { true })
+    }
+    unchanged()
+  })
+  match walker.walk_module((), mod) {
+    Ok(_) => Ok(found.val)
+    Err(e) => Err(e)
+  }
+}
+
+///|
+fn af_remove_fake_globals(
+  mod : Module,
+  fake_globals : FakeGlobalHelper,
+) -> Result[Module, String] {
+  let fake_indices = fake_globals.all_global_indices()
+  if fake_indices.is_empty() {
+    return Ok(mod)
+  }
+  let targets = Set::new()
+  for idx in fake_indices {
+    targets.add(idx)
+  }
+  match af_module_references_any_global(mod, targets) {
+    Ok(true) =>
+      return Err("asyncify: fake call-result globals remained after lowering")
+    Ok(false) => ()
+    Err(e) => return Err(e)
+  }
+  let imported_globals = af_count_imported_globals(mod).reinterpret_as_int()
+  let globals = match mod.global_sec {
+    Some(GlobalSec(items)) => items
+    None => return Ok(mod)
+  }
+  let kept : Array[Global] = []
+  let remap : Map[GlobalIdx, GlobalIdx] = Map::new()
+  for i = 0; i < globals.length(); i = i + 1 {
+    let old_idx = GlobalIdx::new((imported_globals + i).reinterpret_as_uint())
+    // Fake call-result globals are temporary implementation details and must
+    // be removed from the final module.
+    if targets.contains(old_idx) {
+      continue
+    }
+    let new_idx = GlobalIdx::new(
+      (imported_globals + kept.length()).reinterpret_as_uint(),
+    )
+    remap[old_idx] = new_idx
+    kept.push(globals[i])
+  }
+  let next_mod = mod.with_global_sec(GlobalSec::new(kept))
+  af_remap_global_indices(next_mod, remap)
 }
 
 ///|
@@ -2044,42 +2378,12 @@ fn af_align_up(v : Int, align : Int) -> Int {
 
 ///|
 fn af_collect_live_like_locals(body : TExpr) -> Set[LocalIdx] {
-  // Conservative approximation: locals used in instrumented call wrappers.
+  // Conservative approximation: any local read in the rewritten function body.
   let out = Set::new()
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TCall(_, args) =>
-        for arg in args {
-          let uses_ = uses(arg)
-          for idx in uses_ {
-            out.add(idx)
-          }
-        }
-      TCallIndirect(_, _, args, idx_expr) => {
-        for arg in args {
-          let uses_ = uses(arg)
-          for idx in uses_ {
-            out.add(idx)
-          }
-        }
-        let uses_idx = uses(idx_expr)
-        for idx in uses_idx {
-          out.add(idx)
-        }
-      }
-      TCallRef(_, args, ref_) => {
-        for arg in args {
-          let uses_ = uses(arg)
-          for idx in uses_ {
-            out.add(idx)
-          }
-        }
-        let uses_ref = uses(ref_)
-        for idx in uses_ref {
-          out.add(idx)
-        }
-      }
-      _ => ()
+    let used = uses(instr)
+    for idx in used {
+      out.add(idx)
     }
     self.walk_tinstruction_default((), instr)
   })
@@ -2101,17 +2405,24 @@ fn af_lower_intrinsics_and_locals(
       let unwind_idx_local = LocalIdx::new(
         (locals.length() + 1).reinterpret_as_uint(),
       )
-      let call_tmp_i32 = LocalIdx::new(
-        (locals.length() + 2).reinterpret_as_uint(),
-      )
       let extended_locals = locals.copy()
       extended_locals.push(builder.pointer_type)
       extended_locals.push(ValType::i32())
-      extended_locals.push(ValType::i32())
-      let load_seq : Array[TInstr] = []
-      load_seq.push(
-        TInstr::local_set(stack_ptr_local, builder.make_get_stack_pos()),
-      )
+      let fake_tmp_by_global : Map[GlobalIdx, LocalIdx] = Map::new()
+      let fake_tmp_for = fn(gidx : GlobalIdx, vt : ValType) -> LocalIdx {
+        match fake_tmp_by_global.get(gidx) {
+          Some(idx) => idx
+          None => {
+            let idx = LocalIdx::new(
+              extended_locals.length().reinterpret_as_uint(),
+            )
+            extended_locals.push(vt)
+            fake_tmp_by_global[gidx] = idx
+            idx
+          }
+        }
+      }
+      let load_ops : Array[TInstr] = []
       let mut cursor = 0
       for idx in relevant {
         let LocalIdx(raw) = idx
@@ -2128,7 +2439,7 @@ fn af_lower_intrinsics_and_locals(
             )
         }
         let aligned = af_align_up(cursor, AF_STACK_ALIGN.reinterpret_as_int())
-        load_seq.push(
+        load_ops.push(
           TInstr::local_set(
             idx,
             TInstr::load(
@@ -2152,8 +2463,15 @@ fn af_lower_intrinsics_and_locals(
         )
         cursor = aligned + sz
       }
+      let load_seq : Array[TInstr] = []
       if cursor > 0 {
         load_seq.push(builder.make_inc_stack_pos(-cursor))
+      }
+      load_seq.push(
+        TInstr::local_set(stack_ptr_local, builder.make_get_stack_pos()),
+      )
+      for op in load_ops {
+        load_seq.push(op)
       }
       let save_seq : Array[TInstr] = []
       save_seq.push(
@@ -2240,22 +2558,18 @@ fn af_lower_intrinsics_and_locals(
             )
           TGlobalSet(gidx, value) =>
             match fake_globals.get_type_or_none(gidx) {
-              Some(vt) =>
-                if vt == ValType::i32() {
-                  change((), TInstr::local_set(call_tmp_i32, value))
-                } else {
-                  self.walk_tinstruction_default((), instr)
-                }
+              Some(vt) => {
+                let tmp = fake_tmp_for(gidx, vt)
+                change((), TInstr::local_set(tmp, value))
+              }
               None => self.walk_tinstruction_default((), instr)
             }
           TGlobalGet(gidx) =>
             match fake_globals.get_type_or_none(gidx) {
-              Some(vt) =>
-                if vt == ValType::i32() {
-                  change((), TInstr::local_get(call_tmp_i32))
-                } else {
-                  unchanged()
-                }
+              Some(vt) => {
+                let tmp = fake_tmp_for(gidx, vt)
+                change((), TInstr::local_get(tmp))
+              }
               None => unchanged()
             }
           _ => self.walk_tinstruction_default((), instr)
@@ -2276,12 +2590,15 @@ fn af_lower_intrinsics_and_locals(
         ),
       )
       final_instrs.push(
-        TInstr::block(
-          BlockType::val_type(ValType::i32()),
-          TExpr::new([
-            TInstr::block(BlockType::void_(), lowered_body),
-            TInstr::i32_const(I32(0)),
-          ]),
+        TInstr::local_set(
+          unwind_idx_local,
+          TInstr::block(
+            BlockType::val_type(ValType::i32()),
+            TExpr::new([
+              TInstr::block(BlockType::void_(), lowered_body),
+              TInstr::i32_const(I32(0)),
+            ]),
+          ),
         ),
       )
       final_instrs.push(
@@ -2289,12 +2606,29 @@ fn af_lower_intrinsics_and_locals(
           BlockType::void_(),
           builder.make_state_check(AF_STATE_UNWINDING),
           TExpr::new([
+            // Binaryen parity: trap if writing the call index would exceed the
+            // configured asyncify stack end.
+            TInstr::if_(
+              BlockType::void_(),
+              af_ptr_gt_u(
+                builder.pointer_type,
+                af_ptr_add(
+                  builder.pointer_type,
+                  builder.make_get_stack_pos(),
+                  af_ptr_const(builder.pointer_type, 4),
+                ),
+                builder.make_get_stack_end(),
+              ),
+              TExpr::new([TInstr::unreachable_()]),
+              None,
+            ),
             TInstr::store(
               StoreOp::i32_store(),
               MemArg::new(U32(4), Some(builder.memory), U64(0UL)),
               builder.make_get_stack_pos(),
-              TInstr::i32_const(I32(0)),
+              TInstr::local_get(unwind_idx_local),
             ),
+            builder.make_inc_stack_pos(4),
             TInstr::block(BlockType::void_(), TExpr::new(save_seq)),
           ]),
           None,
@@ -2385,7 +2719,6 @@ fn af_assert_non_instrumented(
 priv struct AFCatchAssertCtx {
   env : Env
   state_global : GlobalIdx
-  mut try_depth : Int
   base_local_count : Int
   temp_by_type : Map[ValType, LocalIdx]
   extra_locals : Array[ValType]
@@ -2460,6 +2793,209 @@ fn af_catch_wrap_guarded_call(ctx : AFCatchAssertCtx, call : TInstr) -> TInstr {
 }
 
 ///|
+fn af_catch_wrap_calls_in_instr(
+  ctx : AFCatchAssertCtx,
+  instr : TInstr,
+) -> TInstr {
+  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+    match curr {
+      TReturnCall(_, _)
+      | TReturnCallIndirect(_, _, _, _)
+      | TReturnCallRef(_, _, _) => unchanged()
+      TCall(_, _) | TCallIndirect(_, _, _, _) | TCallRef(_, _, _) =>
+        change((), af_catch_wrap_guarded_call(ctx, curr))
+      _ => self.walk_tinstruction_default((), curr)
+    }
+  })
+  match walker.walk_tinstruction((), instr) {
+    Ok(Some((_, out))) => out
+    Ok(None) => instr
+    Err(_) => instr
+  }
+}
+
+///|
+fn af_catch_target_depth(catch_ : Catch) -> Int? {
+  let label = match catch_ {
+    Catch(_, label)
+    | CatchRef(_, label)
+    | CatchAll(label)
+    | CatchAllRef(label) => label
+  }
+  let LabelIdx(raw) = label
+  if raw > 0x7FFFFFFFU {
+    None
+  } else {
+    Some(raw.reinterpret_as_int())
+  }
+}
+
+///|
+fn af_catch_add_escapes(escapes : Set[Int], src : Set[Int]) -> Unit {
+  for depth in src {
+    escapes.add(depth)
+  }
+}
+
+///|
+fn af_catch_add_scope_shifted_escapes(
+  escapes : Set[Int],
+  src : Set[Int],
+  preserve_zero? : Bool = true,
+) -> Unit {
+  for depth in src {
+    if depth == 0 {
+      if preserve_zero {
+        escapes.add(0)
+      }
+    } else if depth > 0 {
+      escapes.add(depth - 1)
+    }
+  }
+}
+
+///|
+fn af_rewrite_catch_instr(
+  ctx : AFCatchAssertCtx,
+  instr : TInstr,
+  in_catch_continuation : Bool,
+) -> (TInstr, Set[Int]) {
+  // Escape depths model "exceptional branches from try_table catches" where:
+  // depth == 0 means control can continue immediately after this instruction in
+  // the current expression list, and depth > 0 means one or more enclosing
+  // labels are targeted.
+  match instr {
+    TBlock(bt, body) => {
+      let (next_body, body_escapes) = af_rewrite_catch_texpr(
+        ctx, body, in_catch_continuation,
+      )
+      let escapes = Set::new()
+      af_catch_add_scope_shifted_escapes(escapes, body_escapes)
+      (TInstr::block(bt, next_body), escapes)
+    }
+    TIf(bt, cond, then_, else_) => {
+      let next_cond = if in_catch_continuation {
+        af_catch_wrap_calls_in_instr(ctx, cond)
+      } else {
+        cond
+      }
+      let (next_then, then_escapes) = af_rewrite_catch_texpr(
+        ctx, then_, in_catch_continuation,
+      )
+      let next_else_and_escapes = match else_ {
+        Some(other) =>
+          Some(af_rewrite_catch_texpr(ctx, other, in_catch_continuation))
+        None => None
+      }
+      let escapes = Set::new()
+      af_catch_add_scope_shifted_escapes(escapes, then_escapes)
+      let next_else = match next_else_and_escapes {
+        Some((rewritten_else, else_escapes)) => {
+          af_catch_add_scope_shifted_escapes(escapes, else_escapes)
+          Some(rewritten_else)
+        }
+        None => None
+      }
+      (TInstr::if_(bt, next_cond, next_then, next_else), escapes)
+    }
+    TLoop(bt, body) => {
+      let (next_body, body_escapes) = af_rewrite_catch_texpr(
+        ctx, body, in_catch_continuation,
+      )
+      let escapes = Set::new()
+      // loop label 0 branches to the loop head, not to code after the loop.
+      af_catch_add_scope_shifted_escapes(
+        escapes,
+        body_escapes,
+        preserve_zero=false,
+      )
+      (TInstr::loop_(bt, next_body), escapes)
+    }
+    TTryTable(bt, catches, body) => {
+      // Keep current catch-context when rewriting the try body. If we are
+      // already in a catch continuation from an outer try_table, calls here are
+      // still inside catch-driven control flow and must be guarded.
+      let (next_body, body_escapes) = af_rewrite_catch_texpr(
+        ctx, body, in_catch_continuation,
+      )
+      let raw_escapes = Set::new()
+      af_catch_add_escapes(raw_escapes, body_escapes)
+      for catch_ in catches {
+        match af_catch_target_depth(catch_) {
+          Some(depth) if depth >= 0 => raw_escapes.add(depth)
+          _ => ()
+        }
+      }
+      let escapes = Set::new()
+      af_catch_add_scope_shifted_escapes(escapes, raw_escapes)
+      (TInstr::try_table(bt, catches, next_body), escapes)
+    }
+    TLocalSet(idx, value) => {
+      let (next_value, escapes) = af_rewrite_catch_instr(
+        ctx, value, in_catch_continuation,
+      )
+      (TInstr::local_set(idx, next_value), escapes)
+    }
+    TLocalTee(idx, value) => {
+      let (next_value, escapes) = af_rewrite_catch_instr(
+        ctx, value, in_catch_continuation,
+      )
+      (TInstr::local_tee(idx, next_value), escapes)
+    }
+    TDrop(value) => {
+      let (next_value, escapes) = af_rewrite_catch_instr(
+        ctx, value, in_catch_continuation,
+      )
+      (TInstr::drop(next_value), escapes)
+    }
+    TGlobalSet(idx, value) => {
+      let (next_value, escapes) = af_rewrite_catch_instr(
+        ctx, value, in_catch_continuation,
+      )
+      (TInstr::global_set(idx, next_value), escapes)
+    }
+    _ =>
+      if in_catch_continuation {
+        (af_catch_wrap_calls_in_instr(ctx, instr), Set::new())
+      } else {
+        (instr, Set::new())
+      }
+  }
+}
+
+///|
+fn af_rewrite_catch_texpr(
+  ctx : AFCatchAssertCtx,
+  body : TExpr,
+  in_catch_continuation : Bool,
+) -> (TExpr, Set[Int]) {
+  // This is the representation fix for try_table catches in Asyncify asserts:
+  // we materialize an explicit "catch continuation" state in list order based on
+  // catch-target depth propagation, instead of using a plain lexical try-depth.
+  let out : Array[TInstr] = []
+  let escapes = Set::new()
+  let mut in_catch = in_catch_continuation
+  let TExpr(instrs) = body
+  for instr in instrs {
+    let (next_instr, instr_escapes) = af_rewrite_catch_instr(
+      ctx, instr, in_catch,
+    )
+    out.push(next_instr)
+    let mut opens_catch_here = false
+    for depth in instr_escapes {
+      escapes.add(depth)
+      if depth == 0 {
+        opens_catch_here = true
+      }
+    }
+    if opens_catch_here {
+      in_catch = true
+    }
+  }
+  (TExpr::new(out), escapes)
+}
+
+///|
 fn af_assert_unwind_catch(mod : Module, runtime : AFApi) -> Module {
   let imported = af_count_imported_funcs(mod).reinterpret_as_int()
   let funcs = match mod.code_sec {
@@ -2485,57 +3021,11 @@ fn af_assert_unwind_catch(mod : Module, runtime : AFApi) -> Module {
         let ctx : AFCatchAssertCtx = {
           env: full_env,
           state_global: runtime.state_global,
-          try_depth: 0,
           base_local_count: func_locals.length(),
           temp_by_type: Map::new(),
           extra_locals: [],
         }
-        let rewriter = ModuleTransformer::new().on_tinstruction_evt(fn(
-          self,
-          ctx : AFCatchAssertCtx,
-          instr,
-        ) {
-          match instr {
-            TTryTable(bt, catches, try_body) => {
-              ctx.try_depth += 1
-              let walked = match self.walk_texpr(ctx, try_body) {
-                Ok(Some((_, out))) => out
-                Ok(None) => try_body
-                Err(e) => {
-                  ctx.try_depth -= 1
-                  return Err(e)
-                }
-              }
-              ctx.try_depth -= 1
-              let next = TInstr::try_table(bt, catches, walked)
-              if next != instr {
-                change(ctx, next)
-              } else {
-                unchanged()
-              }
-            }
-            TReturnCall(_, _)
-            | TReturnCallIndirect(_, _, _, _)
-            | TReturnCallRef(_, _, _) => unchanged()
-            TCall(_, _) | TCallIndirect(_, _, _, _) | TCallRef(_, _, _) =>
-              if ctx.try_depth > 0 {
-                let walked = match self.walk_tinstruction_default(ctx, instr) {
-                  Ok(Some((_, out))) => out
-                  Ok(None) => instr
-                  Err(e) => return Err(e)
-                }
-                change(ctx, af_catch_wrap_guarded_call(ctx, walked))
-              } else {
-                self.walk_tinstruction_default(ctx, instr)
-              }
-            _ => self.walk_tinstruction_default(ctx, instr)
-          }
-        })
-        let next_body = match rewriter.walk_texpr(ctx, body) {
-          Ok(Some((_, out))) => out
-          Ok(None) => body
-          Err(_) => body
-        }
+        let (next_body, _) = af_rewrite_catch_texpr(ctx, body, false)
         let next_locals = func_locals.copy()
         for vt in ctx.extra_locals {
           next_locals.push(vt)
@@ -2554,9 +3044,6 @@ fn asyncify(
   props? : AsyncifyPassProps = AsyncifyPassProps::new(),
   optimize_level? : Int = 0,
 ) -> Result[Module, String] {
-  if props.import_globals {
-    return Err("asyncify: asyncify-import-globals is not supported in this IR")
-  }
   let (mod, memory) = match af_memory_choice(mod, props) {
     Ok(v) => v
     Err(e) => return Err(e)
@@ -2566,8 +3053,13 @@ fn asyncify(
       mod,
       memory.pointer_type,
       memory.mem_idx,
+      props.import_globals,
       props.export_globals,
     ) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let (mod, runtime) = match af_rewrite_asyncify_runtime_imports(mod, runtime) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -2614,6 +3106,10 @@ fn asyncify(
     if !props.ignore_unwind_from_catch {
       out = af_assert_unwind_catch(out, runtime)
     }
+  }
+  out = match af_remove_fake_globals(out, fake_globals) {
+    Ok(next) => next
+    Err(e) => return Err(e)
   }
   ignore(optimize_level)
   Ok(out)
@@ -2733,6 +3229,89 @@ fn af_has_state_assert_guard(body : TExpr) -> Bool {
 }
 
 ///|
+fn af_has_i32_store_const_zero(body : TExpr) -> Bool {
+  let found = Ref::new(false)
+  for instr in body.0 {
+    af_walk_instr(instr, fn(curr) {
+      match curr {
+        TStore(I32StoreOp, _, _, TI32Const(I32(v))) if v == 0 =>
+          found.update(fn(_) { true })
+        _ => ()
+      }
+    })
+  }
+  found.val
+}
+
+///|
+fn af_has_i32_store_local(body : TExpr) -> Bool {
+  let found = Ref::new(false)
+  for instr in body.0 {
+    af_walk_instr(instr, fn(curr) {
+      match curr {
+        TStore(I32StoreOp, _, _, TLocalGet(_)) => found.update(fn(_) { true })
+        _ => ()
+      }
+    })
+  }
+  found.val
+}
+
+///|
+fn af_find_exported_func_idx(mod : Module, export_name : String) -> FuncIdx? {
+  match mod.export_sec {
+    Some(ExportSec(exports)) =>
+      for export_ in exports {
+        match export_ {
+          Export(Name(name), FuncExternIdx(idx)) =>
+            if name.to_string() == export_name {
+              return Some(idx)
+            }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  None
+}
+
+///|
+fn af_count_catch_state_guards(body : TExpr) -> Int {
+  let count = Ref::new(0)
+  for instr in body.0 {
+    af_walk_instr(instr, fn(curr) {
+      match curr {
+        TIf(
+          _,
+          TBinary(I32NeOp, TGlobalGet(_), TI32Const(I32(v))),
+          TExpr([TUnreachable]),
+          None
+        ) if v == AF_STATE_NORMAL => count.update(fn(c) { c + 1 })
+        _ => ()
+      }
+    })
+  }
+  count.val
+}
+
+///|
+fn af_has_unwind_push_stack_end_guard(body : TExpr) -> Bool {
+  let found = Ref::new(false)
+  for instr in body.0 {
+    af_walk_instr(instr, fn(curr) {
+      match curr {
+        TIf(_, TBinary(I32GtUOp, _, _), TExpr([TUnreachable]), None) =>
+          found.update(fn(_) { true })
+        TIf(_, TBinary(I64GtUOp, _, _), TExpr([TUnreachable]), None) =>
+          found.update(fn(_) { true })
+        _ => ()
+      }
+    })
+  }
+  found.val
+}
+
+///|
 test "asyncify_apply_arguments parses core flags" {
   let props = AsyncifyPassProps::new()
   let updated = match
@@ -2808,6 +3387,41 @@ test "asyncify creates runtime globals and exports" {
   assert_true(saw_start_rewind)
   assert_true(saw_stop_rewind)
   assert_true(saw_get_state)
+}
+
+///|
+test "asyncify import-globals imports internal asyncify globals" {
+  let mod = Module::new().with_code_sec(
+    CodeSec::new([Func::t_func([], TExpr::new([TInstr::nop()]))]),
+  )
+  let out = match
+    asyncify(mod, props=AsyncifyPassProps::new(import_globals=true)) {
+    Ok(m) => m
+    Err(e) => fail("unexpected asyncify import-globals error: \{e}")
+  }
+  let mut saw_state_import = false
+  let mut saw_data_import = false
+  match out.import_sec {
+    Some(ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          Import(Name(module_name), Name(base_name), GlobalExternType(_)) => {
+            if module_name.to_string() == "env" &&
+              base_name.to_string() == AF_GLOBAL_STATE {
+              saw_state_import = true
+            }
+            if module_name.to_string() == "env" &&
+              base_name.to_string() == AF_GLOBAL_DATA {
+              saw_data_import = true
+            }
+          }
+          _ => ()
+        }
+      }
+    None => fail("expected import section")
+  }
+  assert_true(saw_state_import)
+  assert_true(saw_data_import)
 }
 
 ///|
@@ -2899,6 +3513,46 @@ test "asyncify lowers call result local.set through locals temp" {
       assert_true(seen.val)
     }
     _ => fail("expected transformed body")
+  }
+}
+
+///|
+test "asyncify lowers fake call-result globals for i64 and removes temporary globals" {
+  let t_ret_i64 = single_rec_type(
+    comp_type_sub_type(func_comp_type([], [ValType::i64()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_ret_i64]))
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("env"),
+          Name::new("get64"),
+          ExternType::func(TypeIdx::new(0)),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i64()],
+          TExpr::new([
+            TInstr::local_set(
+              LocalIdx::new(0),
+              TInstr::call(FuncIdx::new(0), []),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let out = match af_test_run(mod) {
+    Ok(m) => m
+    Err(e) => fail("unexpected asyncify error: \{e}")
+  }
+  match out.global_sec {
+    Some(GlobalSec(globals)) => assert_eq(globals.length(), 2)
+    None => fail("expected runtime globals")
   }
 }
 
@@ -3135,6 +3789,180 @@ test "asyncify local save/restore tracks relevant locals" {
 }
 
 ///|
+test "asyncify local save/restore keeps local used after zero-arg call" {
+  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t0]))
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("env"),
+          Name::new("sleep"),
+          ExternType::func(TypeIdx::new(0)),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32()],
+          TExpr::new([
+            TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(7))),
+            TInstr::call(FuncIdx::new(0), []),
+            TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+          ]),
+        ),
+      ]),
+    )
+  let out = match af_test_run(mod) {
+    Ok(m) => m
+    Err(e) => fail("unexpected asyncify error: \{e}")
+  }
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, body), ..])) =>
+      assert_true(af_has_local_set_load(body, LocalIdx::new(0)))
+    _ => fail("expected transformed body")
+  }
+}
+
+///|
+test "asyncify rewrites asyncify imports to runtime calls and removes imports" {
+  let t_ptr = single_rec_type(
+    comp_type_sub_type(func_comp_type([ValType::i32()], [])),
+  )
+  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_ptr, t_void]))
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("asyncify"),
+          Name::new("start_unwind"),
+          ExternType::func(TypeIdx::new(0)),
+        ),
+        Import::new(
+          Name::new("env"),
+          Name::new("sleep"),
+          ExternType::func(TypeIdx::new(1)),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::call(FuncIdx::new(0), [TInstr::i32_const(I32(0))]),
+            TInstr::call(FuncIdx::new(1), []),
+          ]),
+        ),
+      ]),
+    )
+  let out = match af_test_run(mod) {
+    Ok(m) => m
+    Err(e) => fail("unexpected asyncify error: \{e}")
+  }
+  match out.import_sec {
+    Some(ImportSec(imports)) => {
+      let mut saw_asyncify_import = false
+      for import_ in imports {
+        match import_ {
+          Import(Name(module_name), _, FuncExternType(_)) =>
+            if module_name.to_string() == "asyncify" {
+              saw_asyncify_import = true
+            }
+          _ => ()
+        }
+      }
+      assert_false(saw_asyncify_import)
+    }
+    None => ()
+  }
+  let runtime_start_unwind = match
+    af_find_exported_func_idx(out, AF_RUNTIME_START_UNWIND) {
+    Some(idx) => idx
+    None => fail("expected asyncify_start_unwind export")
+  }
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, body), ..])) =>
+      assert_true(af_count_calls(body, runtime_start_unwind) > 0)
+    _ => fail("expected code section")
+  }
+}
+
+///|
+test "asyncify stores unwind call index instead of constant zero" {
+  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t0]))
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("env"),
+          Name::new("sleep"),
+          ExternType::func(TypeIdx::new(0)),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::call(FuncIdx::new(0), []),
+            TInstr::call(FuncIdx::new(0), []),
+          ]),
+        ),
+      ]),
+    )
+  let out = match af_test_run(mod) {
+    Ok(m) => m
+    Err(e) => fail("unexpected asyncify error: \{e}")
+  }
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, body), ..])) => {
+      assert_true(af_has_i32_store_local(body))
+      assert_false(af_has_i32_store_const_zero(body))
+    }
+    _ => fail("expected transformed body")
+  }
+}
+
+///|
+test "asyncify adds stack-end guard before unwind call-index push" {
+  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t0]))
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("env"),
+          Name::new("sleep"),
+          ExternType::func(TypeIdx::new(0)),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func([], TExpr::new([TInstr::call(FuncIdx::new(0), [])])),
+      ]),
+    )
+  let out = match af_test_run(mod) {
+    Ok(m) => m
+    Err(e) => fail("unexpected asyncify error: \{e}")
+  }
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, body), ..])) =>
+      assert_true(af_has_unwind_push_stack_end_guard(body))
+    _ => fail("expected transformed body")
+  }
+}
+
+///|
 test "asyncify asserts add non-instrumented state guard" {
   let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
   let mod = Module::new()
@@ -3170,7 +3998,63 @@ test "asyncify asserts add non-instrumented state guard" {
 }
 
 ///|
-test "asyncify asserts guard calls inside try_table when enabled" {
+test "asyncify asserts guard calls in try_table catch continuation when enabled" {
+  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t0]))
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("env"),
+          Name::new("sleep"),
+          ExternType::func(TypeIdx::new(0)),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::try_table(
+              BlockType::void_(),
+              [Catch::all(LabelIdx::new(0))],
+              TExpr::new([TInstr::nop()]),
+            ),
+            TInstr::call(FuncIdx::new(0), []),
+          ]),
+        ),
+      ]),
+    )
+  let out = match af_test_run(mod, props=AsyncifyPassProps::new(asserts=true)) {
+    Ok(m) => m
+    Err(e) => fail("unexpected asyncify error: \{e}")
+  }
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, body), ..])) => {
+      let saw_guard = Ref::new(false)
+      for instr in body.0 {
+        af_walk_instr(instr, fn(curr) {
+          match curr {
+            TIf(
+              _,
+              TBinary(I32NeOp, TGlobalGet(_), TI32Const(I32(v))),
+              TExpr([TUnreachable]),
+              None
+            ) if v == AF_STATE_NORMAL => saw_guard.update(fn(_) { true })
+            _ => ()
+          }
+        })
+      }
+      assert_true(saw_guard.val)
+    }
+    _ => fail("expected code section")
+  }
+}
+
+///|
+test "asyncify asserts do not guard try_table body calls by default" {
   let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t0]))
@@ -3218,8 +4102,58 @@ test "asyncify asserts guard calls inside try_table when enabled" {
           }
         })
       }
-      assert_true(saw_guard.val)
+      assert_false(saw_guard.val)
     }
+    _ => fail("expected code section")
+  }
+}
+
+///|
+test "asyncify catch continuation precision handles try_table embedded in local.set value" {
+  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t0]))
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("env"),
+          Name::new("sleep"),
+          ExternType::func(TypeIdx::new(0)),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32()],
+          TExpr::new([
+            TInstr::local_set(
+              LocalIdx::new(0),
+              TInstr::block(
+                BlockType::val_type(ValType::i32()),
+                TExpr::new([
+                  TInstr::try_table(
+                    BlockType::void_(),
+                    [Catch::all(LabelIdx::new(0))],
+                    TExpr::new([TInstr::call(FuncIdx::new(0), [])]),
+                  ),
+                  TInstr::call(FuncIdx::new(0), []),
+                  TInstr::i32_const(I32(0)),
+                ]),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let out = match af_test_run(mod, props=AsyncifyPassProps::new(asserts=true)) {
+    Ok(m) => m
+    Err(e) => fail("unexpected asyncify error: \{e}")
+  }
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, body), ..])) =>
+      assert_eq(af_count_catch_state_guards(body), 1)
     _ => fail("expected code section")
   }
 }
@@ -3247,8 +4181,9 @@ test "asyncify ignore-unwind-from-catch disables try_table call guard" {
             TInstr::try_table(
               BlockType::void_(),
               [Catch::all(LabelIdx::new(0))],
-              TExpr::new([TInstr::call(FuncIdx::new(0), [])]),
+              TExpr::new([TInstr::nop()]),
             ),
+            TInstr::call(FuncIdx::new(0), []),
           ]),
         ),
       ]),
