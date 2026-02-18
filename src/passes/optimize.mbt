@@ -12,6 +12,7 @@ pub(all) enum ModulePass {
   DeadCodeElimination
   DeadArgumentElimination
   SignaturePruning
+  SignatureRefining
   DuplicateImportElimination
   GlobalRefining
   GlobalStructInference
@@ -257,6 +258,11 @@ pub fn optimize_module_with_options(
       SignaturePruning =>
         match
           apply_ir_transformer_pass(ctx, mod, signature_pruning_ir_pass(mod)) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
+      SignatureRefining =>
+        match signature_refining(mod) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }
@@ -859,7 +865,7 @@ pub fn default_global_optimization_pre_passes(
     if closed_world {
       passes.push(TypeRefining)
       passes.push(SignaturePruning)
-      // TODO(binaryen parity): signature-refining is not implemented yet.
+      passes.push(SignatureRefining)
     }
     passes.push(GlobalRefining)
     if closed_world {
@@ -1139,6 +1145,15 @@ test "default global optimization pre passes include closed-world gc passes" {
   assert_eq(
     default_count_module_passes(passes, fn(pass) {
       match pass {
+        SignatureRefining => true
+        _ => false
+      }
+    }),
+    1,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
         GlobalTypeOptimization => true
         _ => false
       }
@@ -1205,6 +1220,15 @@ test "default global optimization pre passes honor closed_world=false gating" {
     default_count_module_passes(passes, fn(pass) {
       match pass {
         SignaturePruning => true
+        _ => false
+      }
+    }),
+    0,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        SignatureRefining => true
         _ => false
       }
     }),
@@ -1387,6 +1411,52 @@ test "optimize_module runs SignaturePruning pass" {
       assert_true(found)
     }
     _ => fail("expected rewritten call")
+  }
+}
+
+///|
+test "optimize_module runs SignatureRefining pass" {
+  let non_null_funcref = ValType::ref_type(
+    RefType::new(false, HeapType::abs(AbsHeapType::func())),
+  )
+  let nullable_funcref = ValType::ref_type(
+    RefType::new(true, HeapType::abs(AbsHeapType::func())),
+  )
+  let caller = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
+    ]),
+  )
+  let callee = Func::t_func([], TExpr::new([TInstr::nop()]))
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        single_rec_type(
+          comp_type_sub_type(func_comp_type([non_null_funcref], [])),
+        ),
+        single_rec_type(
+          comp_type_sub_type(func_comp_type([nullable_funcref], [])),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
+    .with_code_sec(CodeSec::new([caller, callee]))
+  let optimized = match optimize_module(mod, [SignatureRefining]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  let env = Env::new().with_module(optimized)
+  let ft = match env.resolve_functype(TypeIdx::new(1)) {
+    Some(ft) => ft
+    None => fail("expected refined function type")
+  }
+  match ft {
+    FuncType(params, _) => {
+      assert_eq(params.length(), 1)
+      assert_true(params[0] != nullable_funcref)
+      assert_true(Match::matches(params[0], nullable_funcref, env))
+    }
   }
 }
 

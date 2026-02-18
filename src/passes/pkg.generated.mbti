@@ -159,6 +159,7 @@ pub(all) enum ModulePass {
   DeadCodeElimination
   DeadArgumentElimination
   SignaturePruning
+  SignatureRefining
   DuplicateImportElimination
   GlobalRefining
   GlobalStructInference

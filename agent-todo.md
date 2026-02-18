@@ -30,6 +30,17 @@
 - [ ] `Binaryen Pass: Asyncify.cpp` parity follow-up
   - [ ] Catch-block unwind assertion parity (`AsyncifyAssertUnwindCorrectness` in explicit catch-body form) is limited by current IR `try_table` catch representation
 
+- [ ] `Binaryen Pass: SignatureRefining.cpp` parity hardening
+  - [x] Closed-world, no-table signature refinement over shared function signatures (direct `call` + `call_ref`)
+  - [x] Signature-level result refinement across all functions sharing a type
+  - [x] Conservative bailouts for imported/public/tag/subtyped/supertyped signatures
+  - [x] Parameter-fixup local rewriting for refined params with incompatible `local.set`/`local.tee` writes
+  - [x] Scheduler integration via `ModulePass::SignatureRefining` and default GC pre-pass inclusion
+  - [x] Intrinsic parity for `call.without.effects` dual-signature handling
+  - [x] JS-called/signature-called parity for params-only refinement blocking via unseen-call/public-reference gating
+  - [x] Full `ModuleUtils::getPublicHeapTypes()`-equivalent external-observability gating for function signatures
+  - [x] Type-rewrite/refinalize parity for typed-body exactness under this validator
+
 ## 3) Binaryen Passes Still To Implement
 
 1) General optimization & canonical IR improvements (good “implement first” set)
@@ -70,7 +81,7 @@
 - [ ] SafeHeap.cpp (hardening/instrumentation-ish; specialty)
 - [ ] SeparateDataSegments.cpp (layout/tooling)
 - [ ] SetGlobals.cpp (tooling / transformation utility)
-- [ ] SignatureRefining.cpp (type/signature shaping; closer to type system)
+- [x] SignatureRefining.cpp (type/signature shaping; closer to type system)
 - [ ] SignExtLowering.cpp
 - [ ] Souperify.cpp (external superoptimizer integration; specialty)
 - [ ] SpillPointers.cpp (GC/pointer mgmt strategy; niche)
@@ -111,6 +122,9 @@
 
 ## 5) Recently Completed
 
+- [x] Implemented `src/passes/signature_refining.mbt` and wired it via `ModulePass::SignatureRefining` in `src/passes/optimize.mbt`.
+- [x] Added comprehensive pass-level tests for direct-call and `call_ref` param refinement, result refinement, table/import/tag/subtype bailouts, and param-fixup local rewriting.
+- [x] Updated default closed-world GC pre-pass scheduling to include `SignatureRefining` and added scheduler-level dispatch/gating coverage in `src/passes/optimize.mbt`.
 - [x] Implemented `src/passes/simplify_globals.mbt` and wired it via `ModulePass::SimplifyGlobals`, `ModulePass::SimplifyGlobalsOptimizing`, and `ModulePass::PropagateGlobalsGlobally` in `src/passes/optimize.mbt`.
 - [x] Added pass-level tests for dead global-write removal, immutable-copy/constant propagation, linear trace global-set propagation, read-only-to-write detection, and global-init/data-offset propagation.
 - [x] Added scheduler-level dispatch coverage in `src/passes/optimize.mbt` and documented simplify-globals variants in `README.mbt.md`.
