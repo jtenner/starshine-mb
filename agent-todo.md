@@ -103,7 +103,7 @@
 
 ## 4) Supporting Non-Pass Work
 
-- [ ] Improve `src/lib/show.mbt` trait definitions for pretty-printing module outputs
+- [x] Improve `src/lib/show.mbt` trait definitions for pretty-printing module outputs
 
 - [ ] Complete `src/wast/*.mbt` support
   - [ ] Add complete tests
