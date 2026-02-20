@@ -71,6 +71,7 @@ pub(all) enum ModulePass {
   ReorderFunctionsByName
   RemoveUnusedTypes
   RemoveUnused
+  RemoveUnusedNonFunctionElements
 }
 
 ///|
@@ -684,6 +685,11 @@ pub fn optimize_module_with_options(
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }
+      RemoveUnusedNonFunctionElements =>
+        match remove_unused_non_function_elements(mod) {
+          Ok(new_mod) => new_mod
+          Err(e) => return Err(e)
+        }
     }
     ctx.set_mod(mod)
   }
@@ -853,7 +859,7 @@ pub fn default_global_optimization_pre_passes(
     if closed_world {
       passes.push(RemoveUnused)
     } else {
-      // TODO(binaryen parity): expose open-world remove-unused-module-elements mode.
+      passes.push(RemoveUnusedNonFunctionElements)
     }
   }
   passes.push(MemoryPacking(MemoryPackingPassProps::new()))
@@ -874,7 +880,7 @@ pub fn default_global_optimization_pre_passes(
     if closed_world {
       passes.push(RemoveUnused)
     } else {
-      // TODO(binaryen parity): expose open-world remove-unused-module-elements mode.
+      passes.push(RemoveUnusedNonFunctionElements)
     }
     if closed_world {
       passes.push(RemoveUnusedTypes)
@@ -910,6 +916,41 @@ fn default_count_module_passes(
     }
   }
   count
+}
+
+///|
+fn opt_scheduler_remove_unused_dispatch_module() -> Module {
+  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let keep_a = Func::t_func([], TExpr::new([TInstr::nop()]))
+  let keep_b = Func::t_func([], TExpr::new([TInstr::nop()]))
+  Module::new()
+  .with_type_sec(TypeSec::new([t_void]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
+  .with_code_sec(CodeSec::new([keep_a, keep_b]))
+  .with_global_sec(
+    GlobalSec::new([
+      Global::new(
+        GlobalType::new(ValType::i32(), false),
+        Expr::new([Instruction::i32_const(I32(7))]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn opt_scheduler_func_count(mod : Module) -> Int {
+  match mod.func_sec {
+    Some(FuncSec(funcs)) => funcs.length()
+    None => 0
+  }
+}
+
+///|
+fn opt_scheduler_global_count(mod : Module) -> Int {
+  match mod.global_sec {
+    Some(GlobalSec(globals)) => globals.length()
+    None => 0
+  }
 }
 
 ///|
@@ -1246,6 +1287,15 @@ test "default global optimization pre passes honor closed_world=false gating" {
   assert_eq(
     default_count_module_passes(passes, fn(pass) {
       match pass {
+        RemoveUnusedNonFunctionElements => true
+        _ => false
+      }
+    }),
+    2,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
         RemoveUnused => true
         _ => false
       }
@@ -1297,6 +1347,24 @@ test "default global optimization pre passes honor closed_world=false gating" {
     }),
     1,
   )
+}
+
+///|
+test "optimize_module dispatches closed-world vs open-world remove_unused modes" {
+  let mod = opt_scheduler_remove_unused_dispatch_module()
+  let closed_world = match optimize_module(mod, [RemoveUnused]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  let open_world = match
+    optimize_module(mod, [RemoveUnusedNonFunctionElements]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  assert_eq(opt_scheduler_func_count(closed_world), 0)
+  assert_eq(opt_scheduler_global_count(closed_world), 0)
+  assert_eq(opt_scheduler_func_count(open_world), 2)
+  assert_eq(opt_scheduler_global_count(open_world), 0)
 }
 
 ///|

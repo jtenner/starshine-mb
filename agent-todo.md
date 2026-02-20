@@ -6,9 +6,9 @@
   - [ ] Add warning-regression gating for `moon check`.
   - [ ] Keep Copilot setup workflow separate from validation/test workflows.
 
-- [ ] Expose open-world `remove_unused` mode in default scheduler wiring.
-  - [ ] Add option/path in `default_global_optimization_pre_passes(...)` to schedule open-world behavior.
-  - [ ] Add scheduler-level tests for closed-world vs open-world dispatch.
+- [x] Expose open-world `remove_unused` mode in default scheduler wiring.
+  - [x] Add option/path in `default_global_optimization_pre_passes(...)` to schedule open-world behavior.
+  - [x] Add scheduler-level tests for closed-world vs open-world dispatch.
 
 - [x] Fix SSA truncation constant-folding semantics and test coverage.
   - [x] Audit `I64TruncF32S/U` and adjacent float-to-int folds in `src/ir/ssa_optimize.mbt`.
