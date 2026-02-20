@@ -413,6 +413,143 @@ test "eval_ssa_unary i32trunc_f64s" {
 }
 
 ///|
+test "eval_ssa_unary i64extend_i32 conversions" {
+  assert_eq(
+    eval_ssa_unary(UnaryOp::i64_extend_i32s(), LitI32(-42)),
+    Some(LitI64(-42L)),
+  )
+  assert_eq(
+    eval_ssa_unary(UnaryOp::i64_extend_i32u(), LitI32(-1)),
+    Some(LitI64(4294967295L)),
+  )
+}
+
+///|
+test "eval_ssa_unary i64 trunc_f32 handles values beyond i32 width" {
+  let big = Float::from_double(3000000000.0)
+  let neg_big = Float::from_double(-3000000000.0)
+  assert_eq(
+    eval_ssa_unary(UnaryOp::i64_trunc_f32s(), LitF32(big)),
+    Some(LitI64(3000000000L)),
+  )
+  assert_eq(
+    eval_ssa_unary(UnaryOp::i64_trunc_f32s(), LitF32(neg_big)),
+    Some(LitI64(-3000000000L)),
+  )
+  assert_eq(
+    eval_ssa_unary(UnaryOp::i64_trunc_f32u(), LitF32(big)),
+    Some(LitI64(3000000000L)),
+  )
+}
+
+///|
+test "eval_ssa_unary i64 trunc_f64 folds signed and unsigned" {
+  assert_eq(
+    eval_ssa_unary(UnaryOp::i64_trunc_f64s(), LitF64(-42.9)),
+    Some(LitI64(-42L)),
+  )
+  assert_eq(
+    eval_ssa_unary(UnaryOp::i64_trunc_f64u(), LitF64(42.9)),
+    Some(LitI64(42L)),
+  )
+  assert_eq(
+    eval_ssa_unary(UnaryOp::i64_trunc_f64u(), LitF64(3000000000.0)),
+    Some(LitI64(3000000000L)),
+  )
+}
+
+///|
+test "eval_ssa_unary float-to-int trunc returns None on NaN and infinities" {
+  let nan32 = Float::from_double(@double.not_a_number)
+  let inf32 = Float::from_double(@double.infinity)
+  let ninf32 = Float::from_double(@double.neg_infinity)
+  let f32_ops : Array[UnaryOp] = [
+    UnaryOp::i32_trunc_f32s(),
+    UnaryOp::i32_trunc_f32u(),
+    UnaryOp::i64_trunc_f32s(),
+    UnaryOp::i64_trunc_f32u(),
+  ]
+  for op in f32_ops {
+    assert_eq(eval_ssa_unary(op, LitF32(nan32)), None)
+    assert_eq(eval_ssa_unary(op, LitF32(inf32)), None)
+    assert_eq(eval_ssa_unary(op, LitF32(ninf32)), None)
+  }
+
+  let f64_ops : Array[UnaryOp] = [
+    UnaryOp::i32_trunc_f64s(),
+    UnaryOp::i32_trunc_f64u(),
+    UnaryOp::i64_trunc_f64s(),
+    UnaryOp::i64_trunc_f64u(),
+  ]
+  for op in f64_ops {
+    assert_eq(eval_ssa_unary(op, LitF64(@double.not_a_number)), None)
+    assert_eq(eval_ssa_unary(op, LitF64(@double.infinity)), None)
+    assert_eq(eval_ssa_unary(op, LitF64(@double.neg_infinity)), None)
+  }
+}
+
+///|
+test "eval_ssa_unary float-to-int trunc bound and trap parity checks" {
+  // Signed i32 bounds: [-2^31, 2^31)
+  assert_eq(
+    eval_ssa_unary(UnaryOp::i32_trunc_f64s(), LitF64(-2147483648.0)),
+    Some(LitI32(-2147483648)),
+  )
+  assert_eq(
+    eval_ssa_unary(UnaryOp::i32_trunc_f64s(), LitF64(2147483647.0)),
+    Some(LitI32(2147483647)),
+  )
+  assert_eq(
+    eval_ssa_unary(UnaryOp::i32_trunc_f64s(), LitF64(2147483648.0)),
+    None,
+  )
+  assert_eq(
+    eval_ssa_unary(UnaryOp::i32_trunc_f64s(), LitF64(-2147483649.0)),
+    None,
+  )
+
+  // Unsigned i32 bounds: trunc can map (-1, 0) to 0.
+  assert_eq(
+    eval_ssa_unary(UnaryOp::i32_trunc_f64u(), LitF64(-0.9)),
+    Some(LitI32(0)),
+  )
+  assert_eq(
+    eval_ssa_unary(UnaryOp::i32_trunc_f64u(), LitF64(4294967295.0)),
+    Some(LitI32(-1)),
+  )
+  assert_eq(eval_ssa_unary(UnaryOp::i32_trunc_f64u(), LitF64(-1.0)), None)
+  assert_eq(
+    eval_ssa_unary(UnaryOp::i32_trunc_f64u(), LitF64(4294967296.0)),
+    None,
+  )
+
+  // Signed i64 bounds: [-2^63, 2^63)
+  assert_eq(
+    eval_ssa_unary(UnaryOp::i64_trunc_f64s(), LitF64(-9223372036854775808.0)),
+    Some(LitI64(-9223372036854775808L)),
+  )
+  assert_eq(
+    eval_ssa_unary(UnaryOp::i64_trunc_f64s(), LitF64(9007199254740991.0)),
+    Some(LitI64(9007199254740991L)),
+  )
+  assert_eq(
+    eval_ssa_unary(UnaryOp::i64_trunc_f64s(), LitF64(9223372036854775808.0)),
+    None,
+  )
+
+  // Unsigned i64 bounds: [0, 2^64), with (-1, 0) truncating to 0.
+  assert_eq(
+    eval_ssa_unary(UnaryOp::i64_trunc_f64u(), LitF64(-0.7)),
+    Some(LitI64(0L)),
+  )
+  assert_eq(eval_ssa_unary(UnaryOp::i64_trunc_f64u(), LitF64(-1.0)), None)
+  assert_eq(
+    eval_ssa_unary(UnaryOp::i64_trunc_f64u(), LitF64(18446744073709551616.0)),
+    None,
+  )
+}
+
+///|
 test "eval_ssa_unary type mismatch returns None" {
   // Applying i32 op to i64 literal
   assert_eq(eval_ssa_unary(UnaryOp::i32_eqz(), LitI64(0L)), None)

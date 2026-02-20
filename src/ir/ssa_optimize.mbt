@@ -54,6 +54,58 @@ fn round_half_to_even_f64(x : Double) -> Double {
 }
 
 ///|
+fn trunc_f64_to_i32_s(x : Double) -> Int? {
+  if x.is_nan() || x.is_inf() {
+    return None
+  }
+  let t = x.trunc()
+  if t < -2147483648.0 || t >= 2147483648.0 {
+    None
+  } else {
+    Some(t.to_int())
+  }
+}
+
+///|
+fn trunc_f64_to_i32_u(x : Double) -> Int? {
+  if x.is_nan() || x.is_inf() {
+    return None
+  }
+  let t = x.trunc()
+  if t < 0.0 || t >= 4294967296.0 {
+    None
+  } else {
+    Some(t.to_uint().reinterpret_as_int())
+  }
+}
+
+///|
+fn trunc_f64_to_i64_s(x : Double) -> Int64? {
+  if x.is_nan() || x.is_inf() {
+    return None
+  }
+  let t = x.trunc()
+  if t < -9223372036854775808.0 || t >= 9223372036854775808.0 {
+    None
+  } else {
+    Some(t.to_int64())
+  }
+}
+
+///|
+fn trunc_f64_to_i64_u(x : Double) -> Int64? {
+  if x.is_nan() || x.is_inf() {
+    return None
+  }
+  let t = x.trunc()
+  if t < 0.0 || t >= 18446744073709551616.0 {
+    None
+  } else {
+    Some(t.to_uint64().reinterpret_as_int64())
+  }
+}
+
+///|
 /// Constant literal extracted from SSA ops
 enum SSALiteral {
   LitI32(Int)
@@ -217,19 +269,49 @@ fn eval_ssa_unary(op : UnaryOp, lit : SSALiteral) -> SSALiteral? {
     (F64TruncOp, LitF64(x)) => Some(LitF64(x.trunc()))
     (F64NearestOp, LitF64(x)) => Some(LitF64(round_half_to_even_f64(x)))
     // Float to int conversions
-    (I32TruncF32SOp, LitF32(x)) => Some(LitI32(x.to_double().trunc().to_int()))
+    (I32TruncF32SOp, LitF32(x)) =>
+      match trunc_f64_to_i32_s(x.to_double()) {
+        Some(v) => Some(LitI32(v))
+        None => None
+      }
     (I32TruncF32UOp, LitF32(x)) =>
-      Some(LitI32(x.to_double().trunc().to_uint().reinterpret_as_int()))
-    (I32TruncF64SOp, LitF64(x)) => Some(LitI32(x.trunc().to_int()))
+      match trunc_f64_to_i32_u(x.to_double()) {
+        Some(v) => Some(LitI32(v))
+        None => None
+      }
+    (I32TruncF64SOp, LitF64(x)) =>
+      match trunc_f64_to_i32_s(x) {
+        Some(v) => Some(LitI32(v))
+        None => None
+      }
     (I32TruncF64UOp, LitF64(x)) =>
-      Some(LitI32(x.trunc().to_uint().reinterpret_as_int()))
-    (I64ExtendI32SOp, LitF32(x)) =>
-      Some(LitI64(x.to_double().trunc().to_int64()))
-    (I64ExtendI32UOp, LitF32(x)) =>
-      Some(LitI64(x.to_double().trunc().to_uint64().reinterpret_as_int64()))
-    // TODO: Check these truncation operations
-    (I64TruncF32SOp, LitF32(x)) => Some(LitI64(x.trunc().to_int().to_int64()))
-    (I64TruncF32UOp, LitF32(x)) => Some(LitI64(x.trunc().to_int().to_int64()))
+      match trunc_f64_to_i32_u(x) {
+        Some(v) => Some(LitI32(v))
+        None => None
+      }
+    (I64ExtendI32SOp, LitI32(x)) => Some(LitI64(x.to_int64()))
+    (I64ExtendI32UOp, LitI32(x)) =>
+      Some(LitI64(x.reinterpret_as_uint().to_uint64().reinterpret_as_int64()))
+    (I64TruncF32SOp, LitF32(x)) =>
+      match trunc_f64_to_i64_s(x.to_double()) {
+        Some(v) => Some(LitI64(v))
+        None => None
+      }
+    (I64TruncF32UOp, LitF32(x)) =>
+      match trunc_f64_to_i64_u(x.to_double()) {
+        Some(v) => Some(LitI64(v))
+        None => None
+      }
+    (I64TruncF64SOp, LitF64(x)) =>
+      match trunc_f64_to_i64_s(x) {
+        Some(v) => Some(LitI64(v))
+        None => None
+      }
+    (I64TruncF64UOp, LitF64(x)) =>
+      match trunc_f64_to_i64_u(x) {
+        Some(v) => Some(LitI64(v))
+        None => None
+      }
     // Int to float conversions
     (F32ConvertI32SOp, LitI32(x)) =>
       Some(LitF32(Float::from_double(x.to_double())))

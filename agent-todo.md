@@ -10,9 +10,9 @@
   - [ ] Add option/path in `default_global_optimization_pre_passes(...)` to schedule open-world behavior.
   - [ ] Add scheduler-level tests for closed-world vs open-world dispatch.
 
-- [ ] Fix SSA truncation constant-folding semantics and test coverage.
-  - [ ] Audit `I64TruncF32S/U` and adjacent float-to-int folds in `src/ir/ssa_optimize.mbt`.
-  - [ ] Add edge-case tests (NaN, infinities, signed/unsigned bounds, trap semantics parity).
+- [x] Fix SSA truncation constant-folding semantics and test coverage.
+  - [x] Audit `I64TruncF32S/U` and adjacent float-to-int folds in `src/ir/ssa_optimize.mbt`.
+  - [x] Add edge-case tests (NaN, infinities, signed/unsigned bounds, trap semantics parity).
 
 - [ ] Complete `AlignmentLowering` parity for V128 extending loads.
   - [ ] Finish lowering support in `src/passes/alignment_lowering.mbt`.
