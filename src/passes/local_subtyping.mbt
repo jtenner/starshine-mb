@@ -427,7 +427,10 @@ fn ls_eval_children(instr : TInstr) -> Array[TInstr] {
     | TF64x2Splat(child)
     | TExtractLane(_, _, child)
     | TRefTest(_, _, child)
-    | TRefCast(_, _, child) => [child]
+    | TRefCast(_, _, child)
+    | TRefGetDesc(child)
+    | TRefTestDesc(_, _, child)
+    | TRefCastDescEq(_, _, child) => [child]
     TBinary(_, left, right)
     | TRefEq(left, right)
     | TStore(_, _, left, right)

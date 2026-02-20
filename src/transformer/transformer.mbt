@@ -2256,6 +2256,14 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
     }
 
     // === GC: Casts ===
+    TRefGetDesc(i) => {
+      let (t, i) = match self.walk_tinstruction(t, i) {
+        Ok(None) => (t, i)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      Ok(Some((t, TInstr::ref_get_desc(i))))
+    }
     TRefTest(b, ht, i) => {
       let (t, ht) = match self.walk_heaptype(t, ht) {
         Ok(None) => (t, ht)
@@ -2281,6 +2289,32 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Err(t) => return Err(t)
       }
       Ok(Some((t, TInstr::ref_cast(b, ht, i))))
+    }
+    TRefTestDesc(b, ht, i) => {
+      let (t, ht) = match self.walk_heaptype(t, ht) {
+        Ok(None) => (t, ht)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      let (t, i) = match self.walk_tinstruction(t, i) {
+        Ok(None) => (t, i)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      Ok(Some((t, TInstr::ref_test_desc(b, ht, i))))
+    }
+    TRefCastDescEq(b, ht, i) => {
+      let (t, ht) = match self.walk_heaptype(t, ht) {
+        Ok(None) => (t, ht)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      let (t, i) = match self.walk_tinstruction(t, i) {
+        Ok(None) => (t, i)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      Ok(Some((t, TInstr::ref_cast_desc_eq(b, ht, i))))
     }
 
     // === SIMD: Splat (scalar -> v128) ===
@@ -3015,6 +3049,21 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
         Err(e) => Err(e)
         Ok(None) => Ok(None)
         Ok(Some((t, ht))) => Ok(Some((t, Instruction::ref_cast(nullable, ht))))
+      }
+    RefGetDesc => Ok(Some((t, Instruction::ref_get_desc())))
+    RefTestDesc(nullable, ht) =>
+      match self.walk_heaptype(t, ht) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ht))) =>
+          Ok(Some((t, Instruction::ref_test_desc(nullable, ht))))
+      }
+    RefCastDescEq(nullable, ht) =>
+      match self.walk_heaptype(t, ht) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ht))) =>
+          Ok(Some((t, Instruction::ref_cast_desc_eq(nullable, ht))))
       }
 
     // Struct/Array instructions

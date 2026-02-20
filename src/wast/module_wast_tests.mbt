@@ -24,3 +24,29 @@ test "script_to_wast escapes register names and can be parsed back" {
   }
   assert_eq(parsed.commands.length(), 1)
 }
+
+///|
+test "module_to_wast preserves descriptor instruction keywords" {
+  let src =
+    #|(module
+    #|  (func (param funcref) (result i32)
+    #|    (drop (ref.get_desc (local.get 0)))
+    #|    (drop (ref.test_desc 0 (local.get 0)))
+    #|    (drop (ref.test_desc_null 0 (local.get 0)))
+    #|    (drop (ref.cast_desc_eq 0 (local.get 0)))
+    #|    (drop (ref.cast_desc_eq_null 0 (local.get 0)))
+    #|    (i32.const 0)))
+  let mod = match wast_to_module(src) {
+    Ok(m) => m
+    Err(e) => fail("unexpected parse error: \{e}")
+  }
+  let text = match module_to_wast(mod) {
+    Ok(t) => t
+    Err(e) => fail("unexpected print error: \{e}")
+  }
+  assert_true(text.contains("ref.get_desc"))
+  assert_true(text.contains("ref.test_desc 0"))
+  assert_true(text.contains("ref.test_desc_null 0"))
+  assert_true(text.contains("ref.cast_desc_eq 0"))
+  assert_true(text.contains("ref.cast_desc_eq_null 0"))
+}

@@ -893,21 +893,24 @@ fn lcs_shallow_hash(instr : TInstr) -> UInt64 {
     TArrayInitElem(_, _, _, _, _, _) => 82UL
     TRefTest(_, _, _) => 83UL
     TRefCast(_, _, _) => 84UL
-    TI8x16Splat(_) => 85UL
-    TI16x8Splat(_) => 86UL
-    TI32x4Splat(_) => 87UL
-    TI64x2Splat(_) => 88UL
-    TF32x4Splat(_) => 89UL
-    TF64x2Splat(_) => 90UL
-    TExtractLane(_, _, _) => 91UL
-    TReplaceLane(_, _, _, _) => 92UL
-    TI8x16Shuffle(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => 93UL
-    TI8x16Swizzle(_, _) => 94UL
-    TI8x16RelaxedSwizzle(_, _) => 95UL
-    TV128Shift(_, _, _) => 96UL
-    TV128Ternary(_, _, _, _) => 97UL
-    TV128LoadLane(_, _, _, _, _) => 98UL
-    TV128StoreLane(_, _, _, _, _) => 99UL
+    TRefGetDesc(_) => 85UL
+    TRefTestDesc(_, _, _) => 86UL
+    TRefCastDescEq(_, _, _) => 87UL
+    TI8x16Splat(_) => 88UL
+    TI16x8Splat(_) => 89UL
+    TI32x4Splat(_) => 90UL
+    TI64x2Splat(_) => 91UL
+    TF32x4Splat(_) => 92UL
+    TF64x2Splat(_) => 93UL
+    TExtractLane(_, _, _) => 94UL
+    TReplaceLane(_, _, _, _) => 95UL
+    TI8x16Shuffle(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => 96UL
+    TI8x16Swizzle(_, _) => 97UL
+    TI8x16RelaxedSwizzle(_, _) => 98UL
+    TV128Shift(_, _, _) => 99UL
+    TV128Ternary(_, _, _, _) => 100UL
+    TV128LoadLane(_, _, _, _, _) => 101UL
+    TV128StoreLane(_, _, _, _, _) => 102UL
   }
   tag * 11400714819323198485UL
 }
@@ -1278,6 +1281,11 @@ fn lcs_rebuild_non_control(instr : TInstr, children : Array[TInstr]) -> TInstr {
     TExtractLane(op, lane, _) => TInstr::extract_lane(op, lane, children[0])
     TRefTest(nullable, ht, _) => TInstr::ref_test(nullable, ht, children[0])
     TRefCast(nullable, ht, _) => TInstr::ref_cast(nullable, ht, children[0])
+    TRefGetDesc(_) => TInstr::ref_get_desc(children[0])
+    TRefTestDesc(nullable, ht, _) =>
+      TInstr::ref_test_desc(nullable, ht, children[0])
+    TRefCastDescEq(nullable, ht, _) =>
+      TInstr::ref_cast_desc_eq(nullable, ht, children[0])
 
     // Two operands.
     TBinary(op, _, _) => TInstr::binary(op, children[0], children[1])

@@ -1226,6 +1226,7 @@ pub impl Show for Instruction with output(self, logger) {
       n.output(logger)
       logger.write_char(')')
     }
+    RefGetDesc => logger.write_string("ref.get_desc")
     RefTest(n, ht) => {
       logger.write_string("(ref.test ")
       HeapTypeRefType(n, ht).output(logger)
@@ -1233,6 +1234,16 @@ pub impl Show for Instruction with output(self, logger) {
     }
     RefCast(n, ht) => {
       logger.write_string("(ref.cast ")
+      HeapTypeRefType(n, ht).output(logger)
+      logger.write_char(')')
+    }
+    RefTestDesc(n, ht) => {
+      logger.write_string("(ref.test_desc ")
+      HeapTypeRefType(n, ht).output(logger)
+      logger.write_char(')')
+    }
+    RefCastDescEq(n, ht) => {
+      logger.write_string("(ref.cast_desc_eq ")
       HeapTypeRefType(n, ht).output(logger)
       logger.write_char(')')
     }

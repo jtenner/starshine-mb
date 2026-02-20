@@ -9,6 +9,11 @@ pub trait DeclMatch {
 }
 
 ///|
+pub fn descriptor_compatible(r0 : RefType, r1 : RefType, env : Env) -> Bool {
+  Match::matches(r0, r1, env) || Match::matches(r1, r0, env)
+}
+
+///|
 pub impl[T : Match] Match for Array[T] with matches(self, other, env) {
   if self.length() != other.length() {
     return false

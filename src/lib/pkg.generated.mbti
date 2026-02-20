@@ -1230,8 +1230,11 @@ pub enum Instruction {
   ArrayCopy(TypeIdx, TypeIdx)
   ArrayInitData(TypeIdx, DataIdx)
   ArrayInitElem(TypeIdx, ElemIdx)
+  RefGetDesc
   RefTest(Bool, HeapType)
   RefCast(Bool, HeapType)
+  RefTestDesc(Bool, HeapType)
+  RefCastDescEq(Bool, HeapType)
   BrOnCast(LabelIdx, CastOp, HeapType, HeapType)
   BrOnCastFail(LabelIdx, CastOp, HeapType, HeapType)
   AnyConvertExtern
@@ -1950,12 +1953,15 @@ pub fn Instruction::memory_size(MemIdx) -> Self
 pub fn Instruction::nop() -> Self
 pub fn Instruction::ref_as_non_null() -> Self
 pub fn Instruction::ref_cast(Bool, HeapType) -> Self
+pub fn Instruction::ref_cast_desc_eq(Bool, HeapType) -> Self
 pub fn Instruction::ref_eq() -> Self
 pub fn Instruction::ref_func(FuncIdx) -> Self
+pub fn Instruction::ref_get_desc() -> Self
 pub fn Instruction::ref_i31() -> Self
 pub fn Instruction::ref_is_null() -> Self
 pub fn Instruction::ref_null(HeapType) -> Self
 pub fn Instruction::ref_test(Bool, HeapType) -> Self
+pub fn Instruction::ref_test_desc(Bool, HeapType) -> Self
 pub fn Instruction::return_() -> Self
 pub fn Instruction::return_call(FuncIdx) -> Self
 pub fn Instruction::return_call_indirect(TypeIdx, TableIdx) -> Self
@@ -2510,8 +2516,11 @@ pub enum TInstr {
   TArrayCopy(TypeIdx, TypeIdx, TInstr, TInstr, TInstr, TInstr, TInstr)
   TArrayInitData(TypeIdx, DataIdx, TInstr, TInstr, TInstr, TInstr)
   TArrayInitElem(TypeIdx, ElemIdx, TInstr, TInstr, TInstr, TInstr)
+  TRefGetDesc(TInstr)
   TRefTest(Bool, HeapType, TInstr)
   TRefCast(Bool, HeapType, TInstr)
+  TRefTestDesc(Bool, HeapType, TInstr)
+  TRefCastDescEq(Bool, HeapType, TInstr)
   TI8x16Splat(TInstr)
   TI16x8Splat(TInstr)
   TI32x4Splat(TInstr)
@@ -2591,12 +2600,15 @@ pub fn TInstr::memory_size(MemIdx) -> Self
 pub fn TInstr::nop() -> Self
 pub fn TInstr::ref_as_non_null(Self) -> Self
 pub fn TInstr::ref_cast(Bool, HeapType, Self) -> Self
+pub fn TInstr::ref_cast_desc_eq(Bool, HeapType, Self) -> Self
 pub fn TInstr::ref_eq(Self, Self) -> Self
 pub fn TInstr::ref_func(FuncIdx) -> Self
+pub fn TInstr::ref_get_desc(Self) -> Self
 pub fn TInstr::ref_i31(Self) -> Self
 pub fn TInstr::ref_is_null(Self) -> Self
 pub fn TInstr::ref_null(HeapType) -> Self
 pub fn TInstr::ref_test(Bool, HeapType, Self) -> Self
+pub fn TInstr::ref_test_desc(Bool, HeapType, Self) -> Self
 pub fn TInstr::replace_lane(ReplaceLaneOp, LaneIdx, Self, Self) -> Self
 pub fn TInstr::return_(Array[Self]) -> Self
 pub fn TInstr::return_call(FuncIdx, Array[Self]) -> Self

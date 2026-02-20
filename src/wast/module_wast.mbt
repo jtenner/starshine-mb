@@ -297,6 +297,11 @@ fn render_instruction_head(instr : Instruction) -> String raise WastTextError {
     RefNull(vt) => "ref.null \{keyword_from_value_type(vt)}"
     RefIsNull => "ref.is_null"
     RefFunc(idx) => "ref.func \{index_text(idx)}"
+    RefGetDesc => "ref.get_desc"
+    RefTestDesc(false, idx) => "ref.test_desc \{index_text(idx)}"
+    RefTestDesc(true, idx) => "ref.test_desc_null \{index_text(idx)}"
+    RefCastDescEq(false, idx) => "ref.cast_desc_eq \{index_text(idx)}"
+    RefCastDescEq(true, idx) => "ref.cast_desc_eq_null \{index_text(idx)}"
     V128Const(v) => render_v128_const(v)
     V128Load(ma) => "v128.load\{render_memarg(ma)}"
     V128Load8x8S(ma) => "v128.load8x8_s\{render_memarg(ma)}"

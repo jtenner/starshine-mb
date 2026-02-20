@@ -1442,6 +1442,22 @@ fn typecheck_ref_eq(st : TcState) -> TcResult {
 }
 
 ///|
+fn typecheck_ref_get_desc(st : TcState) -> TcResult {
+  let (st1, rt_in_opt) = match st.pop_ref_or_bot() {
+    Err(e) => return Err(e)
+    Ok(x) => x
+  }
+  match rt_in_opt {
+    None => return Ok(st1.push1(st.env.descriptor_result_type()))
+    Some(rt_in) =>
+      if rt_in.is_nullable() {
+        return Err("ref.get_desc expects a non-null reference operand")
+      }
+  }
+  Ok(st1.push1(st.env.descriptor_result_type()))
+}
+
+///|
 fn typecheck_ref_test(st : TcState, nullable : Bool, ht : HeapType) -> TcResult {
   let rt = RefType::new(nullable, ht)
   if Validate::validate(rt, st.env) is Err(t) {
@@ -1478,6 +1494,54 @@ fn typecheck_ref_cast(st : TcState, nullable : Bool, ht : HeapType) -> TcResult 
     Some(rt_in) =>
       if !Match::matches(rt, rt_in, st.env) {
         return Err("ref.cast target does not match operand type")
+      }
+  }
+  Ok(st1.push1(ValType::ref_type(rt)))
+}
+
+///|
+fn typecheck_ref_test_desc(
+  st : TcState,
+  nullable : Bool,
+  ht : HeapType,
+) -> TcResult {
+  let rt = match st.env.resolve_descriptor_target_ref_type(nullable, ht) {
+    Ok(t) => t
+    Err(e) => return Err(e)
+  }
+  let (st1, v) = match st.pop1() {
+    Err(e) => return Err(e)
+    Ok(pair) => pair
+  }
+  let rt_in = match v {
+    RefTypeValType(r) => r
+    _ => return Err("ref.test_desc expects a reference operand")
+  }
+  if !descriptor_compatible(rt, rt_in, st.env) {
+    return Err("ref.test_desc target does not match operand type")
+  }
+  Ok(st1.push1(ValType::i32()))
+}
+
+///|
+fn typecheck_ref_cast_desc_eq(
+  st : TcState,
+  nullable : Bool,
+  ht : HeapType,
+) -> TcResult {
+  let rt = match st.env.resolve_descriptor_target_ref_type(nullable, ht) {
+    Ok(t) => t
+    Err(e) => return Err(e)
+  }
+  let (st1, rt_in_opt) = match st.pop_ref_or_bot() {
+    Err(e) => return Err(e)
+    Ok(x) => x
+  }
+  match rt_in_opt {
+    None => ()
+    Some(rt_in) =>
+      if !descriptor_compatible(rt, rt_in, st.env) {
+        return Err("ref.cast_desc_eq target does not match operand type")
       }
   }
   Ok(st1.push1(ValType::ref_type(rt)))
@@ -2468,8 +2532,11 @@ pub impl Typecheck for Instruction with typecheck(self, st) {
     RefFunc(f) => typecheck_ref_func(st, f)
     RefAsNonNull => typecheck_ref_as_non_null(st)
     RefEq => typecheck_ref_eq(st)
+    RefGetDesc => typecheck_ref_get_desc(st)
     RefTest(nullable, ht) => typecheck_ref_test(st, nullable, ht)
     RefCast(nullable, ht) => typecheck_ref_cast(st, nullable, ht)
+    RefTestDesc(nullable, ht) => typecheck_ref_test_desc(st, nullable, ht)
+    RefCastDescEq(nullable, ht) => typecheck_ref_cast_desc_eq(st, nullable, ht)
     AnyConvertExtern => typecheck_any_convert_extern(st)
     ExternConvertAny => typecheck_extern_convert_any(st)
     RefI31 => typecheck_ref_i31(st)
@@ -4295,6 +4362,13 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
     }
 
     // === GC: Casts ===
+    TRefGetDesc(child) => {
+      let st1 = match Typecheck::typecheck(child, st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_ref_get_desc(st1)
+    }
     TRefTest(nullable, ht, child) => {
       let st1 = match Typecheck::typecheck(child, st) {
         Ok(st) => st
@@ -4308,6 +4382,20 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
         Err(t) => return Err(t)
       }
       typecheck_ref_cast(st1, nullable, ht)
+    }
+    TRefTestDesc(nullable, ht, child) => {
+      let st1 = match Typecheck::typecheck(child, st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_ref_test_desc(st1, nullable, ht)
+    }
+    TRefCastDescEq(nullable, ht, child) => {
+      let st1 = match Typecheck::typecheck(child, st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_ref_cast_desc_eq(st1, nullable, ht)
     }
 
     // === SIMD: Splat ===
@@ -7101,6 +7189,41 @@ test "Typecheck RefCast non-nullable" {
   let state = make_state(env, [anyref_type()])
   let result = Typecheck::typecheck(
     Instruction::ref_cast(false, HeapType::abs(AbsHeapType::i31())),
+    state,
+  )
+  let final_state = assert_ok(result)
+  assert_eq(final_state.stack.length(), 1)
+}
+
+///|
+test "Typecheck RefGetDesc stack effect" {
+  let env = empty_env()
+  let state = make_state(env, [
+    ValType::ref_type(RefType::new(false, HeapType::abs(AbsHeapType::i31()))),
+  ])
+  let result = Typecheck::typecheck(Instruction::ref_get_desc(), state)
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [ValType::i32()])
+}
+
+///|
+test "Typecheck RefTestDesc stack effect" {
+  let env = empty_env()
+  let state = make_state(env, [anyref_type()])
+  let result = Typecheck::typecheck(
+    Instruction::ref_test_desc(true, HeapType::abs(AbsHeapType::eq())),
+    state,
+  )
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [ValType::i32()])
+}
+
+///|
+test "Typecheck RefCastDescEq stack effect" {
+  let env = empty_env()
+  let state = make_state(env, [anyref_type()])
+  let result = Typecheck::typecheck(
+    Instruction::ref_cast_desc_eq(true, HeapType::abs(AbsHeapType::eq())),
     state,
   )
   let final_state = assert_ok(result)

@@ -221,6 +221,9 @@ pub enum Instruction {
   RefNull(ValueType)
   RefIsNull
   RefFunc(Index)
+  RefGetDesc
+  RefTestDesc(Bool, Index)
+  RefCastDescEq(Bool, Index)
   V128Const(V128Const)
   V128Load(MemArg)
   V128Load8x8S(MemArg)
@@ -412,6 +415,11 @@ pub enum Opcode {
   RefNull
   RefIsNull
   RefFunc
+  RefGetDesc
+  RefTestDesc
+  RefTestDescNull
+  RefCastDescEq
+  RefCastDescEqNull
   RefExtern
   Drop
   Select

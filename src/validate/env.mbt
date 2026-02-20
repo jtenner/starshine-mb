@@ -253,6 +253,24 @@ pub fn Env::resolve_struct_fields(
 }
 
 ///|
+pub fn Env::resolve_descriptor_target_ref_type(
+  env : Env,
+  nullable : Bool,
+  ht : HeapType,
+) -> Result[RefType, String] {
+  let rt = RefType::new(nullable, ht)
+  match Validate::validate(rt, env) {
+    Ok(_) => Ok(rt)
+    Err(t) => Err("invalid descriptor target reftype: " + t)
+  }
+}
+
+///|
+pub fn Env::descriptor_result_type(_env : Env) -> ValType {
+  ValType::i32()
+}
+
+///|
 pub fn Env::has_data(env : Env, idx : DataIdx) -> Bool {
   let DataIdx(i) = idx
   i < env.datas.length().reinterpret_as_uint()
@@ -2848,6 +2866,13 @@ fn instr_to_tinstr(
     }
 
     // === GC: Casts ===
+    RefGetDesc => {
+      let ref_ = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      stack.push(TInstr::ref_get_desc(ref_))
+    }
     RefTest(nullable, ht) => {
       let ref_ = match pop(stack) {
         Ok(t) => t
@@ -2861,6 +2886,20 @@ fn instr_to_tinstr(
         Err(t) => return Err(t)
       }
       stack.push(TInstr::ref_cast(nullable, ht, ref_))
+    }
+    RefTestDesc(nullable, ht) => {
+      let ref_ = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      stack.push(TInstr::ref_test_desc(nullable, ht, ref_))
+    }
+    RefCastDescEq(nullable, ht) => {
+      let ref_ = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      stack.push(TInstr::ref_cast_desc_eq(nullable, ht, ref_))
     }
 
     // === SIMD ===

@@ -1967,7 +1967,10 @@ fn mb_eval_children(instr : TInstr) -> Array[TInstr] {
     | TF64x2Splat(child)
     | TExtractLane(_, _, child)
     | TRefTest(_, _, child)
-    | TRefCast(_, _, child) => [child]
+    | TRefCast(_, _, child)
+    | TRefGetDesc(child)
+    | TRefTestDesc(_, _, child)
+    | TRefCastDescEq(_, _, child) => [child]
 
     // Two operands.
     TBinary(_, left, right)
@@ -2104,6 +2107,11 @@ fn mb_rebuild_non_control(instr : TInstr, children : Array[TInstr]) -> TInstr {
     TExtractLane(op, lane, _) => TInstr::extract_lane(op, lane, children[0])
     TRefTest(nullable, ht, _) => TInstr::ref_test(nullable, ht, children[0])
     TRefCast(nullable, ht, _) => TInstr::ref_cast(nullable, ht, children[0])
+    TRefGetDesc(_) => TInstr::ref_get_desc(children[0])
+    TRefTestDesc(nullable, ht, _) =>
+      TInstr::ref_test_desc(nullable, ht, children[0])
+    TRefCastDescEq(nullable, ht, _) =>
+      TInstr::ref_cast_desc_eq(nullable, ht, children[0])
 
     // Two operands.
     TBinary(op, _, _) => TInstr::binary(op, children[0], children[1])

@@ -2200,6 +2200,27 @@ pub impl Decode for Instruction with decode(bytes, i) {
         Ok((U32(28), i)) => Ok((Instruction::ref_i31(), i))
         Ok((U32(29), i)) => Ok((Instruction::i31_get_s(), i))
         Ok((U32(30), i)) => Ok((Instruction::i31_get_u(), i))
+        Ok((U32(31), i)) => Ok((Instruction::ref_get_desc(), i))
+        Ok((@lib.U32(32), i)) =>
+          match Decode::decode(bytes, i) {
+            Ok((ht, i)) => Ok((Instruction::ref_test_desc(false, ht), i))
+            Err(t) => Err(t)
+          }
+        Ok((@lib.U32(33), i)) =>
+          match Decode::decode(bytes, i) {
+            Ok((ht, i)) => Ok((Instruction::ref_test_desc(true, ht), i))
+            Err(t) => Err(t)
+          }
+        Ok((@lib.U32(34), i)) =>
+          match Decode::decode(bytes, i) {
+            Ok((ht, i)) => Ok((Instruction::ref_cast_desc_eq(false, ht), i))
+            Err(t) => Err(t)
+          }
+        Ok((@lib.U32(35), i)) =>
+          match Decode::decode(bytes, i) {
+            Ok((ht, i)) => Ok((Instruction::ref_cast_desc_eq(true, ht), i))
+            Err(t) => Err(t)
+          }
         Err(t) => Err(t)
         _ => Err("Invalid instruction")
       }

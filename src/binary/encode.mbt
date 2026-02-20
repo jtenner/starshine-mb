@@ -1903,6 +1903,48 @@ pub impl Encode for Instruction with encode(val, buf) {
         return Err(t)
       }
     }
+    RefGetDesc => {
+      buf.write_byte(0xFB)
+      if Encode::encode(@lib.U32(31), buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    RefTestDesc(false, ht) => {
+      buf.write_byte(0xFB)
+      if Encode::encode(@lib.U32(32), buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(ht, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    RefTestDesc(true, ht) => {
+      buf.write_byte(0xFB)
+      if Encode::encode(@lib.U32(33), buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(ht, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    RefCastDescEq(false, ht) => {
+      buf.write_byte(0xFB)
+      if Encode::encode(@lib.U32(34), buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(ht, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    RefCastDescEq(true, ht) => {
+      buf.write_byte(0xFB)
+      if Encode::encode(@lib.U32(35), buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(ht, buf) is Err(t) {
+        return Err(t)
+      }
+    }
     BrOnCast(l, castop, ht0, ht1) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(24), buf) is Err(t) {

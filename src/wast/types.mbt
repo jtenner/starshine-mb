@@ -82,6 +82,11 @@ pub enum Opcode {
   RefNull
   RefIsNull
   RefFunc
+  RefGetDesc
+  RefTestDesc
+  RefTestDescNull
+  RefCastDescEq
+  RefCastDescEqNull
   RefExtern // For test results
 
   // ========== Parametric Instructions ==========

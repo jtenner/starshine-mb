@@ -453,6 +453,10 @@ fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
     }
 
     // === GC: Casts ===
+    TRefGetDesc(ref_) => {
+      tinstr_to_instr(ref_, instrs)
+      instrs.push(RefGetDesc)
+    }
     TRefTest(nullable, ht, ref_) => {
       tinstr_to_instr(ref_, instrs)
       instrs.push(RefTest(nullable, ht))
@@ -460,6 +464,14 @@ fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
     TRefCast(nullable, ht, ref_) => {
       tinstr_to_instr(ref_, instrs)
       instrs.push(RefCast(nullable, ht))
+    }
+    TRefTestDesc(nullable, ht, ref_) => {
+      tinstr_to_instr(ref_, instrs)
+      instrs.push(RefTestDesc(nullable, ht))
+    }
+    TRefCastDescEq(nullable, ht, ref_) => {
+      tinstr_to_instr(ref_, instrs)
+      instrs.push(RefCastDescEq(nullable, ht))
     }
 
     // === SIMD: Splat ===

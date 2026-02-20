@@ -259,6 +259,9 @@ pub enum Instruction {
   RefNull(ValueType)
   RefIsNull
   RefFunc(Index)
+  RefGetDesc
+  RefTestDesc(Bool, Index)
+  RefCastDescEq(Bool, Index)
 
   // ========== SIMD Instructions ==========
 
@@ -1116,6 +1119,11 @@ fn WastParser::parse_opcode_instruction(
       let type_use = self.parse_type_use()
       CallIndirect(table_index, type_use)
     }
+    RefGetDesc => RefGetDesc
+    RefTestDesc => RefTestDesc(false, self.parse_index())
+    RefTestDescNull => RefTestDesc(true, self.parse_index())
+    RefCastDescEq => RefCastDescEq(false, self.parse_index())
+    RefCastDescEqNull => RefCastDescEq(true, self.parse_index())
 
     // Parametric
     Drop => Drop
@@ -3707,6 +3715,31 @@ test "parse ref func" {
     #|(module
     #|  (func $f)
     #|  (func (result funcref) (ref.func $f)))
+  let lexer = make_lexer(source)
+  let parser = WastParser::new(lexer)
+  let _ = parser.parse_module()
+  assert_false(parser.has_errors())
+}
+
+///|
+test "parse ref get desc" {
+  let source = "(module (func (param funcref) (result i32) (ref.get_desc (local.get 0))))"
+  let lexer = make_lexer(source)
+  let parser = WastParser::new(lexer)
+  let _ = parser.parse_module()
+  assert_false(parser.has_errors())
+}
+
+///|
+test "parse ref test desc and cast desc eq" {
+  let source =
+    #|(module
+    #|  (func (param funcref) (result i32)
+    #|    (drop (ref.test_desc 0 (local.get 0)))
+    #|    (drop (ref.test_desc_null 0 (local.get 0)))
+    #|    (drop (ref.cast_desc_eq 0 (local.get 0)))
+    #|    (drop (ref.cast_desc_eq_null 0 (local.get 0)))
+    #|    (i32.const 0)))
   let lexer = make_lexer(source)
   let parser = WastParser::new(lexer)
   let _ = parser.parse_module()

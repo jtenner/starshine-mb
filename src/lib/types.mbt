@@ -567,8 +567,11 @@ pub enum Instruction {
   ArrayCopy(TypeIdx, TypeIdx)
   ArrayInitData(TypeIdx, DataIdx)
   ArrayInitElem(TypeIdx, ElemIdx)
+  RefGetDesc
   RefTest(Bool, HeapType)
   RefCast(Bool, HeapType)
+  RefTestDesc(Bool, HeapType)
+  RefCastDescEq(Bool, HeapType)
   BrOnCast(LabelIdx, CastOp, HeapType, HeapType)
   BrOnCastFail(LabelIdx, CastOp, HeapType, HeapType)
   AnyConvertExtern
@@ -1311,8 +1314,11 @@ pub enum TInstr {
   TArrayInitElem(TypeIdx, ElemIdx, TInstr, TInstr, TInstr, TInstr)
 
   // === GC: Casts ===
+  TRefGetDesc(TInstr)
   TRefTest(Bool, HeapType, TInstr)
   TRefCast(Bool, HeapType, TInstr)
+  TRefTestDesc(Bool, HeapType, TInstr)
+  TRefCastDescEq(Bool, HeapType, TInstr)
 
   // === SIMD: Splat (scalar -> v128) ===
   TI8x16Splat(TInstr)
@@ -3262,6 +3268,11 @@ pub fn Instruction::array_init_elem(ti : TypeIdx, ei : ElemIdx) -> Instruction {
 }
 
 ///|
+pub fn Instruction::ref_get_desc() -> Instruction {
+  RefGetDesc
+}
+
+///|
 pub fn Instruction::ref_test(nullable : Bool, ht : HeapType) -> Instruction {
   RefTest(nullable, ht)
 }
@@ -3269,6 +3280,22 @@ pub fn Instruction::ref_test(nullable : Bool, ht : HeapType) -> Instruction {
 ///|
 pub fn Instruction::ref_cast(nullable : Bool, ht : HeapType) -> Instruction {
   RefCast(nullable, ht)
+}
+
+///|
+pub fn Instruction::ref_test_desc(
+  nullable : Bool,
+  ht : HeapType,
+) -> Instruction {
+  RefTestDesc(nullable, ht)
+}
+
+///|
+pub fn Instruction::ref_cast_desc_eq(
+  nullable : Bool,
+  ht : HeapType,
+) -> Instruction {
+  RefCastDescEq(nullable, ht)
 }
 
 ///|
@@ -5301,6 +5328,11 @@ pub fn TInstr::array_init_elem(
 }
 
 ///|
+pub fn TInstr::ref_get_desc(i : TInstr) -> TInstr {
+  TRefGetDesc(i)
+}
+
+///|
 pub fn TInstr::ref_test(nullable : Bool, ht : HeapType, i : TInstr) -> TInstr {
   TRefTest(nullable, ht, i)
 }
@@ -5308,6 +5340,24 @@ pub fn TInstr::ref_test(nullable : Bool, ht : HeapType, i : TInstr) -> TInstr {
 ///|
 pub fn TInstr::ref_cast(nullable : Bool, ht : HeapType, i : TInstr) -> TInstr {
   TRefCast(nullable, ht, i)
+}
+
+///|
+pub fn TInstr::ref_test_desc(
+  nullable : Bool,
+  ht : HeapType,
+  i : TInstr,
+) -> TInstr {
+  TRefTestDesc(nullable, ht, i)
+}
+
+///|
+pub fn TInstr::ref_cast_desc_eq(
+  nullable : Bool,
+  ht : HeapType,
+  i : TInstr,
+) -> TInstr {
+  TRefCastDescEq(nullable, ht, i)
 }
 
 // === SIMD: Splat (scalar -> v128) ===

@@ -219,7 +219,11 @@ fn collect_instr_locals(instr : TInstr, locals : Set[LocalIdx]) -> Unit {
       collect_instr_locals(c, locals)
       collect_instr_locals(d, locals)
     }
-    TRefTest(_, _, a) | TRefCast(_, _, a) => collect_instr_locals(a, locals)
+    TRefGetDesc(a)
+    | TRefTest(_, _, a)
+    | TRefCast(_, _, a)
+    | TRefTestDesc(_, _, a)
+    | TRefCastDescEq(_, _, a) => collect_instr_locals(a, locals)
     TSelect(_, a, b, c) => {
       collect_instr_locals(a, locals)
       collect_instr_locals(b, locals)
@@ -847,6 +851,21 @@ fn rename_instr(
           out.push(SSAInstr::Assign(v, SSAOp::RefCast(nullable, ht, av)))
           Some(v)
         }
+        None => None
+      }
+    TRefGetDesc(a) =>
+      match rename_instr(a, builder, out) {
+        Some(_) => None
+        None => None
+      }
+    TRefTestDesc(_, _, a) =>
+      match rename_instr(a, builder, out) {
+        Some(_) => None
+        None => None
+      }
+    TRefCastDescEq(_, _, a) =>
+      match rename_instr(a, builder, out) {
+        Some(_) => None
         None => None
       }
     TAnyConvertExtern(a) =>

@@ -393,6 +393,19 @@ test "Block Types" {
 }
 
 ///|
+test "Descriptor instruction roundtrip" {
+  roundtrip(Instruction::ref_get_desc())
+  roundtrip(Instruction::ref_test_desc(true, HeapType::abs(AbsHeapType::eq())))
+  roundtrip(Instruction::ref_test_desc(false, HeapType::new(TypeIdx::new(0))))
+  roundtrip(
+    Instruction::ref_cast_desc_eq(true, HeapType::abs(AbsHeapType::struct_())),
+  )
+  roundtrip(
+    Instruction::ref_cast_desc_eq(false, HeapType::new(TypeIdx::new(2))),
+  )
+}
+
+///|
 test "Instructions arbitrary" {
   let st = @splitmix.new()
   loop 1000000 {

@@ -1339,6 +1339,18 @@ test "local.set instruction" {
 }
 
 ///|
+test "descriptor reference opcodes" {
+  let lexer = make_lexer(
+    "ref.get_desc ref.test_desc ref.test_desc_null ref.cast_desc_eq ref.cast_desc_eq_null",
+  )
+  assert_token_type(lexer.get_token(), Opcode(RefGetDesc))
+  assert_token_type(lexer.get_token(), Opcode(RefTestDesc))
+  assert_token_type(lexer.get_token(), Opcode(RefTestDescNull))
+  assert_token_type(lexer.get_token(), Opcode(RefCastDescEq))
+  assert_token_type(lexer.get_token(), Opcode(RefCastDescEqNull))
+}
+
+///|
 test "call instruction" {
   let lexer = make_lexer("call")
   let token = lexer.get_token()

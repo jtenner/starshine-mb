@@ -79,6 +79,11 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("ref.null", Opcode(RefNull))
   map.set("ref.is_null", Opcode(RefIsNull))
   map.set("ref.func", Opcode(RefFunc))
+  map.set("ref.get_desc", Opcode(RefGetDesc))
+  map.set("ref.test_desc", Opcode(RefTestDesc))
+  map.set("ref.test_desc_null", Opcode(RefTestDescNull))
+  map.set("ref.cast_desc_eq", Opcode(RefCastDescEq))
+  map.set("ref.cast_desc_eq_null", Opcode(RefCastDescEqNull))
 
   // Parametric instructions
   map.set("drop", Opcode(Drop))

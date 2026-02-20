@@ -7,6 +7,8 @@ import {
 }
 
 // Values
+pub fn descriptor_compatible(@lib.RefType, @lib.RefType, Env) -> Bool
+
 pub fn diff(@lib.RefType, @lib.RefType) -> Result[@lib.RefType, String]
 
 pub fn empty_env() -> Env
@@ -73,6 +75,7 @@ pub(all) struct Env {
   return_type : Array[@lib.ValType]?
 }
 pub fn Env::append_rectype_types(Self, @lib.RecType) -> Self
+pub fn Env::descriptor_result_type(Self) -> @lib.ValType
 pub fn Env::expand_blocktype(Self, @lib.BlockType) -> Result[(Array[@lib.ValType], Array[@lib.ValType]), String]
 pub fn Env::get_elem(Self, @lib.ElemIdx) -> @lib.Elem?
 pub fn Env::get_functype_by_funcidx(Self, @lib.FuncIdx) -> @lib.FuncType?
@@ -95,6 +98,7 @@ pub fn Env::push_table(Self, @lib.TableType) -> Self
 pub fn Env::push_tag(Self, @lib.TagType) -> Self
 pub fn Env::resolve_array_field(Self, @lib.TypeIdx) -> Result[@lib.FieldType, String]
 pub fn Env::resolve_comptype(Self, @lib.TypeIdx) -> @lib.CompType?
+pub fn Env::resolve_descriptor_target_ref_type(Self, Bool, @lib.HeapType) -> Result[@lib.RefType, String]
 pub fn Env::resolve_functype(Self, @lib.TypeIdx) -> @lib.FuncType?
 pub fn Env::resolve_heaptype_subtype(Self, @lib.HeapType) -> @lib.SubType?
 pub fn Env::resolve_struct_fields(Self, @lib.TypeIdx) -> Result[Array[@lib.FieldType], String]
