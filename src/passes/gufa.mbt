@@ -222,7 +222,8 @@ fn declared_ref_type(instr : TInstr, state : GUFAState) -> RefType? {
         Some(rt) => Some(RefType::new(false, rt.get_heap_type()))
         None => None
       }
-    TRefCast(nullable, ht, _) => Some(RefType::new(nullable, ht))
+    TRefCast(nullable, ht, _) | TRefCastDescEq(nullable, ht, _) =>
+      Some(RefType::new(nullable, ht))
     TCall(func_idx, _) =>
       match state.env.get_functype_by_funcidx(func_idx) {
         Some(FuncType(_, [RefTypeValType(rt)])) => Some(rt)
@@ -344,6 +345,12 @@ fn gufa_get_contents(instr : TInstr, state : GUFAState) -> PossibleContents {
           }
         _ => PCUnknown
       }
+    TRefTestDesc(nullable, _, value) =>
+      match gufa_get_contents(value, state) {
+        PCUnreachable => PCUnreachable
+        PCRef(KRNull(_)) => PCI32(if nullable { 1 } else { 0 })
+        _ => PCUnknown
+      }
     TRefCast(nullable, target_ht, value) =>
       match gufa_get_contents(value, state) {
         PCUnreachable => PCUnreachable
@@ -370,6 +377,17 @@ fn gufa_get_contents(instr : TInstr, state : GUFAState) -> PossibleContents {
             PCUnknown
           }
         }
+        _ => PCUnknown
+      }
+    TRefCastDescEq(nullable, target_ht, value) =>
+      match gufa_get_contents(value, state) {
+        PCUnreachable => PCUnreachable
+        PCRef(KRNull(_)) =>
+          if nullable {
+            known_ref_to_contents(KRNull(target_ht))
+          } else {
+            PCUnreachable
+          }
         _ => PCUnknown
       }
     _ => PCUnknown
@@ -668,6 +686,58 @@ fn optimize_ref_cast(
 }
 
 ///|
+fn optimize_ref_test_desc(
+  nullable : Bool,
+  _target_ht : HeapType,
+  value : TInstr,
+  state : GUFAState,
+) -> TInstr? {
+  let out_type = BlockType::val_type(ValType::i32())
+  match oracle_contents(value, state) {
+    PCUnreachable =>
+      Some(drop_children_and_append([value], TInstr::unreachable_(), out_type))
+    PCRef(KRNull(_)) =>
+      Some(
+        drop_children_and_append(
+          [value],
+          TInstr::i32_const(I32(if nullable { 1 } else { 0 })),
+          out_type,
+        ),
+      )
+    _ => None
+  }
+}
+
+///|
+fn optimize_ref_cast_desc_eq(
+  nullable : Bool,
+  target_ht : HeapType,
+  value : TInstr,
+  state : GUFAState,
+) -> TInstr? {
+  let out_type = ref_block_type(nullable, target_ht)
+  match oracle_contents(value, state) {
+    PCUnreachable =>
+      Some(drop_children_and_append([value], TInstr::unreachable_(), out_type))
+    PCRef(KRNull(_)) =>
+      if nullable {
+        Some(
+          drop_children_and_append(
+            [value],
+            TInstr::ref_null(target_ht),
+            out_type,
+          ),
+        )
+      } else {
+        Some(
+          drop_children_and_append([value], TInstr::unreachable_(), out_type),
+        )
+      }
+    _ => None
+  }
+}
+
+///|
 fn optimize_ref_as_non_null(value : TInstr, state : GUFAState) -> TInstr? {
   match oracle_contents(value, state) {
     PCUnreachable => Some(value)
@@ -796,7 +866,7 @@ fn maybe_add_cast_all(instr : TInstr, state : GUFAState) -> TInstr {
   }
   match instr {
     // Existing casts are handled by ref.cast simplification/refinement.
-    TRefCast(_, _, _) => return instr
+    TRefCast(_, _, _) | TRefCastDescEq(_, _, _) => return instr
     _ => ()
   }
   let declared = match declared_ref_type(instr, state) {
@@ -829,6 +899,16 @@ fn gufa_optimize_tinstr(instr : TInstr, state : GUFAState) -> TInstr {
       }
     TRefCast(nullable, target_ht, value) =>
       match optimize_ref_cast(nullable, target_ht, value, state) {
+        Some(opt) => opt
+        None => instr
+      }
+    TRefTestDesc(nullable, target_ht, value) =>
+      match optimize_ref_test_desc(nullable, target_ht, value, state) {
+        Some(opt) => opt
+        None => instr
+      }
+    TRefCastDescEq(nullable, target_ht, value) =>
+      match optimize_ref_cast_desc_eq(nullable, target_ht, value, state) {
         Some(opt) => opt
         None => instr
       }
@@ -1162,6 +1242,66 @@ test "gufa impossible ref.cast becomes unreachable" {
       match seq[seq.length() - 1] {
         TUnreachable => ()
         _ => fail("expected impossible cast to become unreachable")
+      }
+    _ => fail("expected transformed function body")
+  }
+}
+
+///|
+test "gufa ref.test_desc of null against non-null target becomes const false" {
+  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let body = TExpr::new([
+    TInstr::drop(
+      TInstr::ref_test_desc(
+        false,
+        HeapType::abs(AbsHeapType::func()),
+        TInstr::ref_null(HeapType::abs(AbsHeapType::func())),
+      ),
+    ),
+  ])
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_void]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], body)]))
+  let optimized = match run_gufa_module(mod) {
+    Ok(m) => m
+    Err(e) => fail("unexpected gufa error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TDrop(TBlock(_, TExpr(seq)))]))])) =>
+      match seq[seq.length() - 1] {
+        TI32Const(I32(v)) => assert_eq(v, 0)
+        _ => fail("expected ref.test_desc replacement to end with i32.const 0")
+      }
+    _ => fail("expected transformed function body")
+  }
+}
+
+///|
+test "gufa impossible ref.cast_desc_eq becomes unreachable" {
+  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let body = TExpr::new([
+    TInstr::drop(
+      TInstr::ref_cast_desc_eq(
+        false,
+        HeapType::abs(AbsHeapType::func()),
+        TInstr::ref_null(HeapType::abs(AbsHeapType::func())),
+      ),
+    ),
+  ])
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_void]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], body)]))
+  let optimized = match run_gufa_module(mod) {
+    Ok(m) => m
+    Err(e) => fail("unexpected gufa error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TDrop(TBlock(_, TExpr(seq)))]))])) =>
+      match seq[seq.length() - 1] {
+        TUnreachable => ()
+        _ => fail("expected impossible descriptor cast to become unreachable")
       }
     _ => fail("expected transformed function body")
   }

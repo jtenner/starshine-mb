@@ -154,7 +154,8 @@ fn oc_collect_shallow_effects_into(
       effects.branches = true
     }
     TUnreachable => effects.traps = true
-    TRefAsNonNull(_) | TRefCast(_, _, _) => effects.traps = true
+    TRefAsNonNull(_) | TRefCast(_, _, _) | TRefCastDescEq(_, _, _) =>
+      effects.traps = true
     _ => ()
   }
 }

@@ -1767,6 +1767,135 @@ test "optimize_module runs GlobalStructInferenceDescCast pass" {
 }
 
 ///|
+test "optimize_module GlobalStructInferenceDescCast rewrites ref.cast to ref.cast_desc_eq" {
+  let field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
+  let ty = single_rec_type(comp_type_sub_type(struct_comp_type([field])))
+  let global_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([ty]))
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(global_ref, false),
+          Expr::new([
+            Instruction::i32_const(I32(3)),
+            Instruction::struct_new(TypeIdx::new(0)),
+          ]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::anyref()],
+          TExpr::new([
+            TInstr::drop(
+              TInstr::ref_cast(
+                false,
+                HeapType::new(TypeIdx::new(0)),
+                TInstr::local_get(LocalIdx::new(0)),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match optimize_module(mod, [GlobalStructInferenceDescCast]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            TExpr([TDrop(TRefCastDescEq(false, HeapType(TypeIdx(i)), _))])
+          ),
+        ]
+      )
+    ) => assert_eq(i.reinterpret_as_int(), 0)
+    _ => fail("expected ref.cast_desc_eq rewrite in desc-cast pipeline variant")
+  }
+}
+
+///|
+test "optimize_module GlobalStructInferenceDescCast rewrites ref.get_desc with select grouping" {
+  let field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
+  let super_st = SubType::comp_type(struct_comp_type([field]))
+  let sub_st = SubType::new(false, [TypeIdx::new(0)], struct_comp_type([field]))
+  let super_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let sub_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(1))),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([RecType::new(super_st), RecType::new(sub_st)]))
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(sub_ref, false),
+          Expr::new([
+            Instruction::i32_const(I32(1)),
+            Instruction::struct_new(TypeIdx::new(1)),
+          ]),
+        ),
+        Global::new(
+          GlobalType::new(super_ref, false),
+          Expr::new([
+            Instruction::i32_const(I32(2)),
+            Instruction::struct_new(TypeIdx::new(0)),
+          ]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [super_ref],
+          TExpr::new([
+            TInstr::drop(
+              TInstr::ref_get_desc(TInstr::local_get(LocalIdx::new(0))),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match optimize_module(mod, [GlobalStructInferenceDescCast]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            TExpr(
+              [
+                TDrop(
+                  TSelect(
+                    Some([NumTypeValType(I32NumType)]),
+                    TRefEq(_, _),
+                    TRefGetDesc(_),
+                    TRefGetDesc(_)
+                  )
+                ),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => ()
+    _ =>
+      fail("expected ref.get_desc select rewrite in desc-cast pipeline variant")
+  }
+}
+
+///|
 test "optimize_module runs GlobalTypeOptimization pass" {
   let struct_type = single_rec_type(
     comp_type_sub_type(

@@ -41,7 +41,7 @@
 - [x] `Binaryen Pass: GlobalStructInference.cpp` parity hardening.
   - [x] Implemented descriptor-mode `ref.cast` optimization path (conservative singleton-global lowering in current IR surface).
   - [x] Added descriptor-mode parity tests for rewrite and safety gating behavior.
-  - [ ] Complete full descriptor parity (IR enablement + opcode parity).
+  - [x] Complete full descriptor parity (IR enablement + opcode parity).
     - [x] Extend core IR model with descriptor operations:
       - [x] Add typed instruction variants for descriptor reads (`ref.get_desc`) and descriptor-equality casts (`ref.cast_desc_eq` / `ref.test_desc`) in `src/lib/types.mbt`.
       - [x] Add corresponding constructors/helpers and traversal hooks in `src/lib/types.mbt`, `src/lib/texpr.mbt`, and `src/transformer/transformer.mbt`.
@@ -53,13 +53,13 @@
       - [x] Decode/encode opcodes and immediates in `src/binary/decode.mbt` and `src/binary/encode.mbt`.
       - [x] Add WAST parser/printer/keywords support in `src/wast/*.mbt`.
       - [x] Add binary roundtrip and parser/printer regression tests.
-    - [ ] Implement full `GlobalStructInferenceDescCast` parity on top of new IR ops:
-      - [ ] Optimize `ref.cast` -> descriptor-equality cast when descriptor global is singleton and subtype constraints allow.
-      - [ ] Optimize descriptor reads (`ref.get_desc`) using global-struct inference (including constant/select grouping behavior).
-      - [ ] Preserve exact-cast / strict-subtype safety and null-trap behavior parity.
-    - [ ] Integrate cross-pass compatibility for new IR surface:
-      - [ ] Audit/update major passes that pattern-match `TInstr` (for example `optimize_casts`, `gufa`, `merge_blocks`, `local_cse`) to either preserve or reason about descriptor ops.
-      - [ ] Add scheduler-level regression coverage in `src/passes/optimize.mbt` for descriptor-mode pipelines.
+    - [x] Implement full `GlobalStructInferenceDescCast` parity on top of new IR ops:
+      - [x] Optimize `ref.cast` -> descriptor-equality cast when descriptor global is singleton and subtype constraints allow.
+      - [x] Optimize descriptor reads (`ref.get_desc`) using global-struct inference (including constant/select grouping behavior).
+      - [x] Preserve exact-cast / strict-subtype safety and null-trap behavior parity.
+    - [x] Integrate cross-pass compatibility for new IR surface:
+      - [x] Audit/update major passes that pattern-match `TInstr` (for example `optimize_casts`, `gufa`, `merge_blocks`, `local_cse`) to either preserve or reason about descriptor ops.
+      - [x] Add scheduler-level regression coverage in `src/passes/optimize.mbt` for descriptor-mode pipelines.
 
 - [ ] `Binaryen Pass: Heap2Local.cpp` parity hardening.
   - [ ] Descriptor-specific parity (`ref.cast_desc_eq`, `ref.get_desc`, descriptor-bearing `struct.new`) when descriptor ops are available.
