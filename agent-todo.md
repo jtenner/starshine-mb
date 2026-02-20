@@ -2,10 +2,6 @@
 
 ## 0) Immediate High-Value Changes (Repo Audit)
 
-- [ ] Add CI quality gates for `moon info && moon fmt`, `moon check`, and `moon test` on PRs/main.
-  - [ ] Add warning-regression gating for `moon check`.
-  - [ ] Keep Copilot setup workflow separate from validation/test workflows.
-
 - [x] Expose open-world `remove_unused` mode in default scheduler wiring.
   - [x] Add option/path in `default_global_optimization_pre_passes(...)` to schedule open-world behavior.
   - [x] Add scheduler-level tests for closed-world vs open-world dispatch.
