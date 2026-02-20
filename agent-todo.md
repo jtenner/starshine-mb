@@ -14,9 +14,9 @@
   - [x] Audit `I64TruncF32S/U` and adjacent float-to-int folds in `src/ir/ssa_optimize.mbt`.
   - [x] Add edge-case tests (NaN, infinities, signed/unsigned bounds, trap semantics parity).
 
-- [ ] Complete `AlignmentLowering` parity for V128 extending loads.
-  - [ ] Finish lowering support in `src/passes/alignment_lowering.mbt`.
-  - [ ] Add signed/unsigned regression tests for all V128 extending-load variants.
+- [x] Complete `AlignmentLowering` parity for V128 extending loads.
+  - [x] Finish lowering support in `src/passes/alignment_lowering.mbt`.
+  - [x] Add signed/unsigned regression tests for all V128 extending-load variants.
 
 - [ ] Add targeted pass coverage in high-uncovered/high-risk optimizer files.
   - [ ] `src/passes/heap2local.mbt`

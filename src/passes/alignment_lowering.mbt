@@ -262,73 +262,27 @@ fn prepare_store_value(op : StoreOp, value : TInstr) -> TInstr {
 }
 
 ///|
-fn finalize_v128_extending_load(
-  op : LoadOp,
-  stack_size : StackSize,
-  i : TInstr,
-  is_signed : Bool,
-) -> TInstr {
-  let chunk_idx = match op {
-    V128Load8x8SOp | V128Load8x8UOp => 8U
-    V128Load16x4SOp | V128Load16x4UOp => 4U
-    V128Load32x2SOp | V128Load32x2UOp => 2U
-    _ => 0U // Should not happen
-  }
-
-  // The byte offset where the value is located
-  let byte_offset = chunk_idx * 8U - 8U
-  let shift = byte_offset.reinterpret_as_int() * 8
-
-  // Extract the value at the correct position
-  let extracted = TInstr::extract_lane(
-    ExtractLaneOp::i8x16_extract_lane_u(),
-    LaneIdx::new(byte_offset.to_byte()),
+fn finalize_v128_extending_load(op : LoadOp, i : TInstr) -> TInstr {
+  let low64_in_v128 = TInstr::replace_lane(
+    ReplaceLaneOp::i64x2_replace_lane(),
+    LaneIdx::new(0),
+    TInstr::v128_const(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
     i,
   )
-  match stack_size {
-    StackSize32 => {
-      let shifted = TInstr::binary(
-        BinaryOp::i32_shl(),
-        extracted,
-        TInstr::i32_const(I32(shift)),
-      )
-      if is_signed {
-        let sign_mask = TInstr::binary(
-          BinaryOp::i32_shl(),
-          TInstr::binary(
-            BinaryOp::i32_shr_s(),
-            extracted,
-            TInstr::i32_const(I32(7)),
-          ),
-          TInstr::i32_const(I32(shift)),
-        )
-        TInstr::binary(BinaryOp::i32_or(), shifted, sign_mask)
-      } else {
-        shifted
-      }
-    }
-    StackSize64 => {
-      let extracted_i64 = TInstr::unary(UnaryOp::i64_extend16s(), extracted)
-      let shifted = TInstr::binary(
-        BinaryOp::i64_shl(),
-        extracted_i64,
-        TInstr::i64_const(I64(shift.to_int64())),
-      )
-      if is_signed {
-        let sign_mask = TInstr::binary(
-          BinaryOp::i64_shl(),
-          TInstr::binary(
-            BinaryOp::i64_shr_s(),
-            TInstr::unary(UnaryOp::i64_extend_i32s(), extracted),
-            TInstr::i64_const(I64(7)),
-          ),
-          TInstr::i64_const(I64(shift.to_int64())),
-        )
-        TInstr::binary(BinaryOp::i64_or(), shifted, sign_mask)
-      } else {
-        shifted
-      }
-    }
+  match op {
+    V128Load8x8SOp =>
+      TInstr::unary(UnaryOp::i16x8_extend_low_i8x16s(), low64_in_v128)
+    V128Load8x8UOp =>
+      TInstr::unary(UnaryOp::i16x8_extend_low_i8x16u(), low64_in_v128)
+    V128Load16x4SOp =>
+      TInstr::unary(UnaryOp::i32x4_extend_low_i16x8s(), low64_in_v128)
+    V128Load16x4UOp =>
+      TInstr::unary(UnaryOp::i32x4_extend_low_i16x8u(), low64_in_v128)
+    V128Load32x2SOp =>
+      TInstr::unary(UnaryOp::i64x2_extend_low_i32x4s(), low64_in_v128)
+    V128Load32x2UOp =>
+      TInstr::unary(UnaryOp::i64x2_extend_low_i32x4u(), low64_in_v128)
+    _ => low64_in_v128
   }
 }
 
@@ -375,21 +329,12 @@ fn finalize_load_op(op : LoadOp, i : TInstr) -> TInstr {
     I64AtomicLoadOp => i
     I32LoadOp => i
     I32AtomicLoadOp => i
-    // TODO: V128 extending loads need more work
-    // Signed extending loads
-    V128Load32x2SOp =>
-      finalize_v128_extending_load(op, load_op_stack_size(op), i, true)
-    V128Load16x4SOp =>
-      finalize_v128_extending_load(op, load_op_stack_size(op), i, true)
-    V128Load8x8SOp =>
-      finalize_v128_extending_load(op, load_op_stack_size(op), i, true)
-    // Unsigned extending loads
-    V128Load32x2UOp =>
-      finalize_v128_extending_load(op, load_op_stack_size(op), i, false)
-    V128Load16x4UOp =>
-      finalize_v128_extending_load(op, load_op_stack_size(op), i, false)
-    V128Load8x8UOp =>
-      finalize_v128_extending_load(op, load_op_stack_size(op), i, false)
+    V128Load32x2SOp => finalize_v128_extending_load(op, i)
+    V128Load16x4SOp => finalize_v128_extending_load(op, i)
+    V128Load8x8SOp => finalize_v128_extending_load(op, i)
+    V128Load32x2UOp => finalize_v128_extending_load(op, i)
+    V128Load16x4UOp => finalize_v128_extending_load(op, i)
+    V128Load8x8UOp => finalize_v128_extending_load(op, i)
   }
 }
 
@@ -743,6 +688,42 @@ fn run_func_pass(
     Ok(None) => Ok((locals, TExpr::new(body)))
     Ok(Some(_)) => Err("Expected TFunc")
     Err(e) => Err(e)
+  }
+}
+
+///|
+fn assert_v128_extending_load_passes_through(
+  op : LoadOp,
+) -> Result[Unit, String] {
+  let instr = TInstr::load(
+    op,
+    MemArg::new(U32(8), None, U64(0)),
+    TInstr::local_get(LocalIdx::new(0)),
+  )
+  let result = run_pass(make_i32_mem(), instr)
+  match result {
+    Ok(TLoad(load_op, _, _)) if load_op == op => Ok(())
+    Ok(other) =>
+      Err("Expected aligned extending load to pass through: \{other}")
+    Err(e) => Err("Error: \{e}")
+  }
+}
+
+///|
+fn assert_v128_extending_load_is_lowered(
+  op : LoadOp,
+  expected_unary : UnaryOp,
+  memarg : MemArg,
+) -> Result[Unit, String] {
+  let instr = TInstr::load(op, memarg, TInstr::local_get(LocalIdx::new(0)))
+  let result = run_pass(make_i32_mem(), instr)
+  match result {
+    Ok(TUnary(unary_op, TReplaceLane(I64x2ReplaceLaneOp, LaneIdx(0), _, _))) if unary_op ==
+      expected_unary => Ok(())
+    Ok(TLoad(load_op, _, _)) if load_op == op =>
+      Err("Expected extending load to be lowered")
+    Ok(other) => Err("Unexpected result: \{other}")
+    Err(e) => Err("Error: \{e}")
   }
 }
 
@@ -1317,6 +1298,152 @@ test "v128.load32_zero unaligned produces replace_lane" {
     Ok(TLoad(V128Load32ZeroOp, _, _)) => fail("Expected unaligned to be split")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
+  }
+}
+
+///|
+test "v128 extending loads aligned pass through for all variants" {
+  match assert_v128_extending_load_passes_through(LoadOp::v128_load8x8s()) {
+    Ok(_) => ()
+    Err(e) => fail(e)
+  }
+  match assert_v128_extending_load_passes_through(LoadOp::v128_load8x8u()) {
+    Ok(_) => ()
+    Err(e) => fail(e)
+  }
+  match assert_v128_extending_load_passes_through(LoadOp::v128_load16x4s()) {
+    Ok(_) => ()
+    Err(e) => fail(e)
+  }
+  match assert_v128_extending_load_passes_through(LoadOp::v128_load16x4u()) {
+    Ok(_) => ()
+    Err(e) => fail(e)
+  }
+  match assert_v128_extending_load_passes_through(LoadOp::v128_load32x2s()) {
+    Ok(_) => ()
+    Err(e) => fail(e)
+  }
+  match assert_v128_extending_load_passes_through(LoadOp::v128_load32x2u()) {
+    Ok(_) => ()
+    Err(e) => fail(e)
+  }
+}
+
+///|
+test "v128 extending loads unaligned use extend-low lowering" {
+  let unaligned = MemArg::new(U32(1), None, U64(0))
+  match
+    assert_v128_extending_load_is_lowered(
+      LoadOp::v128_load8x8s(),
+      UnaryOp::i16x8_extend_low_i8x16s(),
+      unaligned,
+    ) {
+    Ok(_) => ()
+    Err(e) => fail(e)
+  }
+  match
+    assert_v128_extending_load_is_lowered(
+      LoadOp::v128_load8x8u(),
+      UnaryOp::i16x8_extend_low_i8x16u(),
+      unaligned,
+    ) {
+    Ok(_) => ()
+    Err(e) => fail(e)
+  }
+  match
+    assert_v128_extending_load_is_lowered(
+      LoadOp::v128_load16x4s(),
+      UnaryOp::i32x4_extend_low_i16x8s(),
+      unaligned,
+    ) {
+    Ok(_) => ()
+    Err(e) => fail(e)
+  }
+  match
+    assert_v128_extending_load_is_lowered(
+      LoadOp::v128_load16x4u(),
+      UnaryOp::i32x4_extend_low_i16x8u(),
+      unaligned,
+    ) {
+    Ok(_) => ()
+    Err(e) => fail(e)
+  }
+  match
+    assert_v128_extending_load_is_lowered(
+      LoadOp::v128_load32x2s(),
+      UnaryOp::i64x2_extend_low_i32x4s(),
+      unaligned,
+    ) {
+    Ok(_) => ()
+    Err(e) => fail(e)
+  }
+  match
+    assert_v128_extending_load_is_lowered(
+      LoadOp::v128_load32x2u(),
+      UnaryOp::i64x2_extend_low_i32x4u(),
+      unaligned,
+    ) {
+    Ok(_) => ()
+    Err(e) => fail(e)
+  }
+}
+
+///|
+test "v128 extending loads lower on offset misalignment with max align" {
+  let offset_unaligned = MemArg::new(U32(8), None, U64(1))
+  match
+    assert_v128_extending_load_is_lowered(
+      LoadOp::v128_load8x8s(),
+      UnaryOp::i16x8_extend_low_i8x16s(),
+      offset_unaligned,
+    ) {
+    Ok(_) => ()
+    Err(e) => fail(e)
+  }
+  match
+    assert_v128_extending_load_is_lowered(
+      LoadOp::v128_load8x8u(),
+      UnaryOp::i16x8_extend_low_i8x16u(),
+      offset_unaligned,
+    ) {
+    Ok(_) => ()
+    Err(e) => fail(e)
+  }
+  match
+    assert_v128_extending_load_is_lowered(
+      LoadOp::v128_load16x4s(),
+      UnaryOp::i32x4_extend_low_i16x8s(),
+      offset_unaligned,
+    ) {
+    Ok(_) => ()
+    Err(e) => fail(e)
+  }
+  match
+    assert_v128_extending_load_is_lowered(
+      LoadOp::v128_load16x4u(),
+      UnaryOp::i32x4_extend_low_i16x8u(),
+      offset_unaligned,
+    ) {
+    Ok(_) => ()
+    Err(e) => fail(e)
+  }
+  match
+    assert_v128_extending_load_is_lowered(
+      LoadOp::v128_load32x2s(),
+      UnaryOp::i64x2_extend_low_i32x4s(),
+      offset_unaligned,
+    ) {
+    Ok(_) => ()
+    Err(e) => fail(e)
+  }
+  match
+    assert_v128_extending_load_is_lowered(
+      LoadOp::v128_load32x2u(),
+      UnaryOp::i64x2_extend_low_i32x4u(),
+      offset_unaligned,
+    ) {
+    Ok(_) => ()
+    Err(e) => fail(e)
   }
 }
 
