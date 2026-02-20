@@ -18,11 +18,11 @@
   - [x] Finish lowering support in `src/passes/alignment_lowering.mbt`.
   - [x] Add signed/unsigned regression tests for all V128 extending-load variants.
 
-- [ ] Add targeted pass coverage in high-uncovered/high-risk optimizer files.
-  - [ ] `src/passes/heap2local.mbt`
-  - [ ] `src/passes/merge_blocks.mbt`
-  - [ ] `src/passes/remove_unused.mbt`
-  - [ ] `src/passes/signature_refining.mbt`
+- [x] Add targeted pass coverage in high-uncovered/high-risk optimizer files.
+  - [x] `src/passes/heap2local.mbt`
+  - [x] `src/passes/merge_blocks.mbt`
+  - [x] `src/passes/remove_unused.mbt`
+  - [x] `src/passes/signature_refining.mbt`
 
 ## 1) Core Project Prerequisites
 
@@ -30,17 +30,17 @@
   - [x] Delete `src/dataflow/*` package files.
   - [x] Remove stale references and confirm `moon check` + `moon test` are green.
 
-- [ ] Stabilize IRContext foundations.
-  - [ ] Unify pass execution model in `src/passes/optimize.mbt` by context kind (do not force `IRContext` for all passes).
-    - [ ] Add scheduler-level pass context categories: `IRContext` transformer pass, `Unit` transformer pass, and module-level runner pass.
-    - [ ] Add generic scheduler helpers for transformer/module-runner dispatch so `apply_ir_transformer_pass` is not the only path.
-    - [ ] Add scheduler tests that assert each context kind is dispatched correctly.
-  - [ ] Keep `src/passes/de_nan.mbt` as a module-level pass (no IRContext migration).
-    - [ ] Preserve its two-stage module behavior: detect float-producing ops/constants, then wrap + sanitize params + append/reuse helper funcs.
-    - [ ] Add/keep scheduler-level tests to ensure `ModulePass::DeNaN` runs through module-runner dispatch.
-  - [ ] Keep `src/passes/remove_unused.mbt` as a module-level pass (no IRContext migration).
-    - [ ] Preserve whole-module root/worklist analysis + cross-section remapping semantics (func/type/table/mem/global/elem/data/tag).
-    - [ ] Add/keep scheduler-level tests to ensure `ModulePass::RemoveUnused` runs through module-runner dispatch.
+- [x] Stabilize IRContext foundations.
+  - [x] Unify pass execution model in `src/passes/optimize.mbt` by context kind (do not force `IRContext` for all passes).
+    - [x] Add scheduler-level pass context categories: `IRContext` transformer pass, `Unit` transformer pass, and module-level runner pass.
+    - [x] Add generic scheduler helpers for transformer/module-runner dispatch so `apply_ir_transformer_pass` is not the only path.
+    - [x] Add scheduler tests that assert each context kind is dispatched correctly.
+  - [x] Keep `src/passes/de_nan.mbt` as a module-level pass (no IRContext migration).
+    - [x] Preserve its two-stage module behavior: detect float-producing ops/constants, then wrap + sanitize params + append/reuse helper funcs.
+    - [x] Add/keep scheduler-level tests to ensure `ModulePass::DeNaN` runs through module-runner dispatch.
+  - [x] Keep `src/passes/remove_unused.mbt` as a module-level pass (no IRContext migration).
+    - [x] Preserve whole-module root/worklist analysis + cross-section remapping semantics (func/type/table/mem/global/elem/data/tag).
+    - [x] Add/keep scheduler-level tests to ensure `ModulePass::RemoveUnused` runs through module-runner dispatch.
   - [x] Clarify optimization-context status explicitly.
     - [x] Keep SSA/CFG `IRContext` as the canonical optimization context for IR-driven passes.
     - [x] Remove the legacy `src/dataflow/*` package and references.

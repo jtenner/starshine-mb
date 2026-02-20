@@ -140,15 +140,348 @@ fn OptimizeOptions::new(
 }
 
 ///|
+priv enum SchedulerPassContextKind {
+  IRContextTransformerPass
+  UnitTransformerPass
+  ModuleRunnerPass
+}
+
+///|
+fn[T] apply_transformer_pass(
+  state : T,
+  mod : Module,
+  pass : ModuleTransformer[T],
+) -> Result[Module, String] {
+  match pass.walk_module(state, mod) {
+    Ok(Some((_, new_mod))) => Ok(new_mod)
+    Ok(None) => Ok(mod)
+    Err(e) => Err(e)
+  }
+}
+
+///|
 fn apply_ir_transformer_pass(
   ctx : IRContext,
   mod : Module,
   pass : ModuleTransformer[IRContext],
 ) -> Result[Module, String] {
-  match pass.walk_module(ctx, mod) {
-    Ok(Some((_, new_mod))) => Ok(new_mod)
-    Ok(None) => Ok(mod)
-    Err(e) => Err(e)
+  apply_transformer_pass(ctx, mod, pass)
+}
+
+///|
+fn apply_unit_transformer_pass(
+  mod : Module,
+  pass : ModuleTransformer[Unit],
+) -> Result[Module, String] {
+  apply_transformer_pass((), mod, pass)
+}
+
+///|
+fn apply_module_runner_pass(
+  mod : Module,
+  runner : (Module) -> Result[Module, String],
+) -> Result[Module, String] {
+  runner(mod)
+}
+
+///|
+fn module_pass_context_kind(pass : ModulePass) -> SchedulerPassContextKind {
+  match pass {
+    DeadCodeElimination => UnitTransformerPass
+    SignatureRefining
+    | DuplicateImportElimination
+    | GlobalRefining
+    | GlobalStructInference
+    | GlobalStructInferenceDescCast
+    | GlobalTypeOptimization
+    | TypeRefining
+    | Inlining
+    | InliningOptimizing
+    | InlineMain
+    | LocalSubtyping
+    | MergeSimilarFunctions
+    | OnceReduction
+    | Asyncify(_)
+    | MinimizeRecGroups
+    | Monomorphize
+    | MonomorphizeAlways
+    | MemoryPacking(_)
+    | I64ToI32Lowering
+    | DuplicateFunctionElimination
+    | DeNaN
+    | RemoveUnusedBrs
+    | ReorderTypes
+    | ReorderFunctions
+    | ReorderFunctionsByName
+    | RemoveUnusedTypes
+    | RemoveUnused
+    | RemoveUnusedNonFunctionElements => ModuleRunnerPass
+    _ => IRContextTransformerPass
+  }
+}
+
+///|
+fn run_ir_context_transformer_scheduler_pass(
+  ctx : IRContext,
+  mod : Module,
+  pass : ModulePass,
+  options : OptimizeOptions,
+) -> Result[Module, String] {
+  match pass {
+    AbstractTypeRefining(props) =>
+      apply_ir_transformer_pass(
+        ctx,
+        mod,
+        abstract_type_refining(mod, props.traps_never_happen),
+      )
+    AlignmentLowering =>
+      apply_ir_transformer_pass(ctx, mod, alignment_lowering_pass(mod))
+    AvoidReinterprets =>
+      apply_ir_transformer_pass(ctx, mod, avoid_reinterprets_pass(mod))
+    CoalesceLocals =>
+      apply_ir_transformer_pass(ctx, mod, coalesce_locals_pass(mod))
+    CodeFolding =>
+      apply_ir_transformer_pass(ctx, mod, code_folding_ir_pass(mod))
+    CodePushing =>
+      apply_ir_transformer_pass(ctx, mod, code_pushing_ir_pass(mod))
+    ConstHoisting =>
+      apply_ir_transformer_pass(ctx, mod, const_hoisting_ir_pass(mod))
+    ConstantFieldPropagation =>
+      apply_ir_transformer_pass(
+        ctx,
+        mod,
+        constant_field_propagation_ir_pass(mod),
+      )
+    DataflowOptimization =>
+      apply_ir_transformer_pass(ctx, mod, dataflow_optimization_pass(mod))
+    DeadArgumentElimination =>
+      apply_ir_transformer_pass(ctx, mod, dead_argument_elim_pass(mod))
+    SignaturePruning =>
+      apply_ir_transformer_pass(ctx, mod, signature_pruning_ir_pass(mod))
+    SimplifyGlobals =>
+      apply_ir_transformer_pass(ctx, mod, simplify_globals_ir_pass(mod, false))
+    SimplifyGlobalsOptimizing =>
+      apply_ir_transformer_pass(ctx, mod, simplify_globals_ir_pass(mod, true))
+    PropagateGlobalsGlobally =>
+      apply_ir_transformer_pass(
+        ctx,
+        mod,
+        propagate_globals_globally_ir_pass(mod),
+      )
+    Heap2Local => apply_ir_transformer_pass(ctx, mod, heap2local_ir_pass(mod))
+    HeapStoreOptimization =>
+      apply_ir_transformer_pass(ctx, mod, heap_store_optimization_ir_pass(mod))
+    LocalCSE =>
+      apply_ir_transformer_pass(ctx, mod, local_cse_ir_pass(mod, options))
+    LoopInvariantCodeMotion =>
+      apply_ir_transformer_pass(
+        ctx,
+        mod,
+        loop_invariant_code_motion_ir_pass(mod),
+      )
+    MergeLocals =>
+      apply_ir_transformer_pass(ctx, mod, merge_locals_ir_pass(mod, options~))
+    MergeBlocks =>
+      apply_ir_transformer_pass(ctx, mod, merge_blocks_ir_pass(mod, options~))
+    OptimizeAddedConstants =>
+      apply_ir_transformer_pass(
+        ctx,
+        mod,
+        optimize_added_constants_ir_pass(mod, options, false),
+      )
+    OptimizeAddedConstantsPropagate =>
+      apply_ir_transformer_pass(
+        ctx,
+        mod,
+        optimize_added_constants_ir_pass(mod, options, true),
+      )
+    OptimizeInstructions =>
+      apply_ir_transformer_pass(
+        ctx,
+        mod,
+        optimize_instructions_ir_pass(mod, options),
+      )
+    Precompute =>
+      apply_ir_transformer_pass(
+        ctx,
+        mod,
+        precompute_ir_pass(mod, options, false),
+      )
+    PrecomputePropagate =>
+      apply_ir_transformer_pass(
+        ctx,
+        mod,
+        precompute_ir_pass(mod, options, true),
+      )
+    RedundantSetElimination =>
+      apply_ir_transformer_pass(
+        ctx,
+        mod,
+        redundant_set_elimination_ir_pass(mod),
+      )
+    PickLoadSigns =>
+      apply_ir_transformer_pass(ctx, mod, pick_load_signs_ir_pass(mod))
+    GUFA => apply_ir_transformer_pass(ctx, mod, gufa_ir_pass(mod, false))
+    GUFAOptimizing =>
+      match apply_ir_transformer_pass(ctx, mod, gufa_ir_pass(mod, false)) {
+        Ok(gufa_mod) => {
+          let after_dce = match
+            apply_unit_transformer_pass(gufa_mod, dead_code_elimination_pass()) {
+            Ok(new_mod) => new_mod
+            Err(e) => return Err(e)
+          }
+          ctx.set_mod(after_dce)
+          apply_ir_transformer_pass(
+            ctx,
+            after_dce,
+            code_folding_ir_pass(after_dce),
+          )
+        }
+        Err(e) => Err(e)
+      }
+    GUFACastAll => apply_ir_transformer_pass(ctx, mod, gufa_ir_pass(mod, true))
+    Directize(initial_immutable) =>
+      match directize_ir_pass(mod, initial_immutable) {
+        Ok(ir_pass) => apply_ir_transformer_pass(ctx, mod, ir_pass)
+        Err(e) => Err(e)
+      }
+    OptimizeCasts =>
+      apply_ir_transformer_pass(ctx, mod, optimize_casts_ir_pass(mod))
+    RemoveUnusedNames =>
+      apply_ir_transformer_pass(ctx, mod, remove_unused_names_ir_pass(mod))
+    SimplifyLocals =>
+      apply_ir_transformer_pass(
+        ctx,
+        mod,
+        simplify_locals_ir_pass(mod, true, true, true),
+      )
+    SimplifyLocalsNoTee =>
+      apply_ir_transformer_pass(
+        ctx,
+        mod,
+        simplify_locals_ir_pass(mod, false, true, true),
+      )
+    SimplifyLocalsNoStructure =>
+      apply_ir_transformer_pass(
+        ctx,
+        mod,
+        simplify_locals_ir_pass(mod, true, false, true),
+      )
+    SimplifyLocalsNoTeeNoStructure =>
+      apply_ir_transformer_pass(
+        ctx,
+        mod,
+        simplify_locals_ir_pass(mod, false, false, true),
+      )
+    SimplifyLocalsNoNesting =>
+      apply_ir_transformer_pass(
+        ctx,
+        mod,
+        simplify_locals_ir_pass(mod, false, false, false),
+      )
+    Untee => apply_ir_transformer_pass(ctx, mod, untee_ir_pass(mod))
+    Vacuum => apply_ir_transformer_pass(ctx, mod, vacuum_ir_pass(mod))
+    ReorderLocals =>
+      apply_ir_transformer_pass(ctx, mod, reorder_locals_ir_pass(mod))
+    ReorderGlobals =>
+      apply_ir_transformer_pass(ctx, mod, reorder_globals_ir_pass(mod, false))
+    ReorderGlobalsAlways =>
+      apply_ir_transformer_pass(ctx, mod, reorder_globals_ir_pass(mod, true))
+    _ => Err("optimize scheduler bug: expected IRContext transformer pass")
+  }
+}
+
+///|
+fn run_unit_transformer_scheduler_pass(
+  mod : Module,
+  pass : ModulePass,
+) -> Result[Module, String] {
+  match pass {
+    DeadCodeElimination =>
+      apply_unit_transformer_pass(mod, dead_code_elimination_pass())
+    _ => Err("optimize scheduler bug: expected Unit transformer pass")
+  }
+}
+
+///|
+fn run_module_runner_scheduler_pass(
+  mod : Module,
+  pass : ModulePass,
+  options : OptimizeOptions,
+) -> Result[Module, String] {
+  match pass {
+    SignatureRefining =>
+      apply_module_runner_pass(mod, fn(mod) { signature_refining(mod) })
+    DuplicateImportElimination =>
+      apply_module_runner_pass(mod, fn(mod) {
+        duplicate_import_elimination(mod)
+      })
+    GlobalRefining =>
+      apply_module_runner_pass(mod, fn(mod) { global_refining(mod) })
+    GlobalStructInference =>
+      apply_module_runner_pass(mod, fn(mod) {
+        run_global_struct_inference(mod, false)
+      })
+    GlobalStructInferenceDescCast =>
+      apply_module_runner_pass(mod, fn(mod) {
+        run_global_struct_inference(mod, true)
+      })
+    GlobalTypeOptimization =>
+      apply_module_runner_pass(mod, fn(mod) { global_type_optimization(mod) })
+    TypeRefining =>
+      apply_module_runner_pass(mod, fn(mod) { type_refining(mod) })
+    Inlining =>
+      apply_module_runner_pass(mod, fn(mod) { inlining(mod, options, false) })
+    InliningOptimizing =>
+      apply_module_runner_pass(mod, fn(mod) { inlining(mod, options, true) })
+    InlineMain =>
+      apply_module_runner_pass(mod, fn(mod) { inline_main(mod, options) })
+    LocalSubtyping =>
+      apply_module_runner_pass(mod, fn(mod) { local_subtyping(mod) })
+    MergeSimilarFunctions =>
+      apply_module_runner_pass(mod, fn(mod) { merge_similar_functions(mod) })
+    OnceReduction =>
+      apply_module_runner_pass(mod, fn(mod) { once_reduction(mod) })
+    Asyncify(props) =>
+      apply_module_runner_pass(mod, fn(mod) {
+        asyncify(mod, props~, optimize_level=options.optimize_level)
+      })
+    MinimizeRecGroups =>
+      apply_module_runner_pass(mod, fn(mod) { minimize_rec_groups(mod) })
+    Monomorphize =>
+      apply_module_runner_pass(mod, fn(mod) {
+        monomorphize(mod, options~, always=false)
+      })
+    MonomorphizeAlways =>
+      apply_module_runner_pass(mod, fn(mod) {
+        monomorphize(mod, options~, always=true)
+      })
+    MemoryPacking(props) =>
+      apply_module_runner_pass(mod, fn(mod) { memory_packing(mod, props) })
+    I64ToI32Lowering =>
+      apply_module_runner_pass(mod, fn(mod) { i64_to_i32_lowering(mod) })
+    DuplicateFunctionElimination =>
+      apply_module_runner_pass(mod, fn(mod) {
+        duplicate_function_elimination(mod, options)
+      })
+    DeNaN => apply_module_runner_pass(mod, fn(mod) { run_denam(mod) })
+    RemoveUnusedBrs =>
+      apply_module_runner_pass(mod, fn(mod) { remove_unused_brs(mod, options~) })
+    ReorderTypes =>
+      apply_module_runner_pass(mod, fn(mod) { reorder_types(mod) })
+    ReorderFunctions =>
+      apply_module_runner_pass(mod, fn(mod) { reorder_functions(mod) })
+    ReorderFunctionsByName =>
+      apply_module_runner_pass(mod, fn(mod) { reorder_functions_by_name(mod) })
+    RemoveUnusedTypes =>
+      apply_module_runner_pass(mod, fn(mod) { remove_unused_types(mod) })
+    RemoveUnused =>
+      apply_module_runner_pass(mod, fn(mod) { remove_unused(mod) })
+    RemoveUnusedNonFunctionElements =>
+      apply_module_runner_pass(mod, fn(mod) {
+        remove_unused_non_function_elements(mod)
+      })
+    _ => Err("optimize scheduler bug: expected module-runner pass")
   }
 }
 
@@ -169,524 +502,27 @@ pub fn optimize_module_with_options(
   let mut mod = mod
   let ctx = IRContext::new()
   ctx.set_mod(mod)
-  mod = match
-    apply_ir_transformer_pass(
-      ctx,
-      mod,
-      wrap_unit_func_pass(lift_to_texpr_pass()),
-    ) {
+  mod = match apply_unit_transformer_pass(mod, lift_to_texpr_pass()) {
     Ok(new_mod) => new_mod
     Err(e) => return Err(e)
   }
   ctx.set_mod(mod)
   for pass in passes {
     ctx.set_mod(mod)
-    mod = match pass {
-      AbstractTypeRefining(props) =>
+    mod = match module_pass_context_kind(pass) {
+      IRContextTransformerPass =>
         match
-          apply_ir_transformer_pass(
-            ctx,
-            mod,
-            abstract_type_refining(mod, props.traps_never_happen),
-          ) {
+          run_ir_context_transformer_scheduler_pass(ctx, mod, pass, options) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }
-      AlignmentLowering =>
-        match
-          apply_ir_transformer_pass(ctx, mod, alignment_lowering_pass(mod)) {
+      UnitTransformerPass =>
+        match run_unit_transformer_scheduler_pass(mod, pass) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }
-      AvoidReinterprets =>
-        match
-          apply_ir_transformer_pass(ctx, mod, avoid_reinterprets_pass(mod)) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      CoalesceLocals =>
-        match apply_ir_transformer_pass(ctx, mod, coalesce_locals_pass(mod)) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      CodeFolding =>
-        match apply_ir_transformer_pass(ctx, mod, code_folding_ir_pass(mod)) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      CodePushing =>
-        match apply_ir_transformer_pass(ctx, mod, code_pushing_ir_pass(mod)) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      ConstHoisting =>
-        match apply_ir_transformer_pass(ctx, mod, const_hoisting_ir_pass(mod)) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      ConstantFieldPropagation =>
-        match
-          apply_ir_transformer_pass(
-            ctx,
-            mod,
-            constant_field_propagation_ir_pass(mod),
-          ) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      DataflowOptimization =>
-        match
-          apply_ir_transformer_pass(ctx, mod, dataflow_optimization_pass(mod)) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      DeadCodeElimination =>
-        match
-          apply_ir_transformer_pass(
-            ctx,
-            mod,
-            dead_code_elimination_ir_pass(mod),
-          ) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      DeadArgumentElimination =>
-        match
-          apply_ir_transformer_pass(ctx, mod, dead_argument_elim_pass(mod)) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      SignaturePruning =>
-        match
-          apply_ir_transformer_pass(ctx, mod, signature_pruning_ir_pass(mod)) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      SignatureRefining =>
-        match signature_refining(mod) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      DuplicateImportElimination =>
-        match duplicate_import_elimination(mod) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      GlobalRefining =>
-        match global_refining(mod) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      GlobalStructInference =>
-        match run_global_struct_inference(mod, false) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      GlobalStructInferenceDescCast =>
-        match run_global_struct_inference(mod, true) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      GlobalTypeOptimization =>
-        match global_type_optimization(mod) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      SimplifyGlobals =>
-        match
-          apply_ir_transformer_pass(
-            ctx,
-            mod,
-            simplify_globals_ir_pass(mod, false),
-          ) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      SimplifyGlobalsOptimizing =>
-        match
-          apply_ir_transformer_pass(
-            ctx,
-            mod,
-            simplify_globals_ir_pass(mod, true),
-          ) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      PropagateGlobalsGlobally =>
-        match
-          apply_ir_transformer_pass(
-            ctx,
-            mod,
-            propagate_globals_globally_ir_pass(mod),
-          ) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      TypeRefining =>
-        match type_refining(mod) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      Heap2Local =>
-        match apply_ir_transformer_pass(ctx, mod, heap2local_ir_pass(mod)) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      HeapStoreOptimization =>
-        match
-          apply_ir_transformer_pass(
-            ctx,
-            mod,
-            heap_store_optimization_ir_pass(mod),
-          ) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      Inlining =>
-        match inlining(mod, options, false) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      InliningOptimizing =>
-        match inlining(mod, options, true) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      InlineMain =>
-        match inline_main(mod, options) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      LocalCSE =>
-        match
-          apply_ir_transformer_pass(ctx, mod, local_cse_ir_pass(mod, options)) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      LocalSubtyping =>
-        match local_subtyping(mod) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      LoopInvariantCodeMotion =>
-        match
-          apply_ir_transformer_pass(
-            ctx,
-            mod,
-            loop_invariant_code_motion_ir_pass(mod),
-          ) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      MergeLocals =>
-        match
-          apply_ir_transformer_pass(
-            ctx,
-            mod,
-            merge_locals_ir_pass(mod, options~),
-          ) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      MergeSimilarFunctions =>
-        match merge_similar_functions(mod) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      MergeBlocks =>
-        match
-          apply_ir_transformer_pass(
-            ctx,
-            mod,
-            merge_blocks_ir_pass(mod, options~),
-          ) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      OnceReduction =>
-        match once_reduction(mod) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      Asyncify(props) =>
-        match asyncify(mod, props~, optimize_level=options.optimize_level) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      MinimizeRecGroups =>
-        match minimize_rec_groups(mod) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      Monomorphize =>
-        match monomorphize(mod, options~, always=false) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      MonomorphizeAlways =>
-        match monomorphize(mod, options~, always=true) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      MemoryPacking(props) =>
-        match memory_packing(mod, props) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      OptimizeAddedConstants =>
-        match
-          apply_ir_transformer_pass(
-            ctx,
-            mod,
-            optimize_added_constants_ir_pass(mod, options, false),
-          ) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      OptimizeAddedConstantsPropagate =>
-        match
-          apply_ir_transformer_pass(
-            ctx,
-            mod,
-            optimize_added_constants_ir_pass(mod, options, true),
-          ) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      OptimizeInstructions =>
-        match
-          apply_ir_transformer_pass(
-            ctx,
-            mod,
-            optimize_instructions_ir_pass(mod, options),
-          ) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      Precompute =>
-        match
-          apply_ir_transformer_pass(
-            ctx,
-            mod,
-            precompute_ir_pass(mod, options, false),
-          ) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      PrecomputePropagate =>
-        match
-          apply_ir_transformer_pass(
-            ctx,
-            mod,
-            precompute_ir_pass(mod, options, true),
-          ) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      RedundantSetElimination =>
-        match
-          apply_ir_transformer_pass(
-            ctx,
-            mod,
-            redundant_set_elimination_ir_pass(mod),
-          ) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      PickLoadSigns =>
-        match
-          apply_ir_transformer_pass(ctx, mod, pick_load_signs_ir_pass(mod)) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      GUFA =>
-        match apply_ir_transformer_pass(ctx, mod, gufa_ir_pass(mod, false)) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      GUFAOptimizing =>
-        match apply_ir_transformer_pass(ctx, mod, gufa_ir_pass(mod, false)) {
-          Ok(gufa_mod) => {
-            ctx.set_mod(gufa_mod)
-            let after_dce = match
-              apply_ir_transformer_pass(
-                ctx,
-                gufa_mod,
-                dead_code_elimination_ir_pass(gufa_mod),
-              ) {
-              Ok(new_mod) => new_mod
-              Err(e) => return Err(e)
-            }
-            ctx.set_mod(after_dce)
-            match
-              apply_ir_transformer_pass(
-                ctx,
-                after_dce,
-                code_folding_ir_pass(after_dce),
-              ) {
-              Ok(new_mod) => new_mod
-              Err(e) => return Err(e)
-            }
-          }
-          Err(e) => return Err(e)
-        }
-      GUFACastAll =>
-        match apply_ir_transformer_pass(ctx, mod, gufa_ir_pass(mod, true)) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      I64ToI32Lowering =>
-        match i64_to_i32_lowering(mod) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      DuplicateFunctionElimination =>
-        match duplicate_function_elimination(mod, options) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      Directize(initial_immutable) =>
-        match directize_ir_pass(mod, initial_immutable) {
-          Ok(pass) =>
-            match apply_ir_transformer_pass(ctx, mod, pass) {
-              Ok(new_mod) => new_mod
-              Err(e) => return Err(e)
-            }
-          Err(e) => return Err(e)
-        }
-      OptimizeCasts =>
-        match apply_ir_transformer_pass(ctx, mod, optimize_casts_ir_pass(mod)) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      DeNaN =>
-        match run_denam(mod) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      RemoveUnusedBrs =>
-        match remove_unused_brs(mod, options~) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      RemoveUnusedNames =>
-        match
-          apply_ir_transformer_pass(ctx, mod, remove_unused_names_ir_pass(mod)) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      SimplifyLocals =>
-        match
-          apply_ir_transformer_pass(
-            ctx,
-            mod,
-            simplify_locals_ir_pass(mod, true, true, true),
-          ) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      SimplifyLocalsNoTee =>
-        match
-          apply_ir_transformer_pass(
-            ctx,
-            mod,
-            simplify_locals_ir_pass(mod, false, true, true),
-          ) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      SimplifyLocalsNoStructure =>
-        match
-          apply_ir_transformer_pass(
-            ctx,
-            mod,
-            simplify_locals_ir_pass(mod, true, false, true),
-          ) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      SimplifyLocalsNoTeeNoStructure =>
-        match
-          apply_ir_transformer_pass(
-            ctx,
-            mod,
-            simplify_locals_ir_pass(mod, false, false, true),
-          ) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      SimplifyLocalsNoNesting =>
-        match
-          apply_ir_transformer_pass(
-            ctx,
-            mod,
-            simplify_locals_ir_pass(mod, false, false, false),
-          ) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      Untee =>
-        match apply_ir_transformer_pass(ctx, mod, untee_ir_pass(mod)) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      Vacuum =>
-        match apply_ir_transformer_pass(ctx, mod, vacuum_ir_pass(mod)) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      ReorderLocals =>
-        match apply_ir_transformer_pass(ctx, mod, reorder_locals_ir_pass(mod)) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      ReorderTypes =>
-        match reorder_types(mod) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      ReorderGlobals =>
-        match
-          apply_ir_transformer_pass(
-            ctx,
-            mod,
-            reorder_globals_ir_pass(mod, false),
-          ) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      ReorderGlobalsAlways =>
-        match
-          apply_ir_transformer_pass(
-            ctx,
-            mod,
-            reorder_globals_ir_pass(mod, true),
-          ) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      ReorderFunctions =>
-        match reorder_functions(mod) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      ReorderFunctionsByName =>
-        match reorder_functions_by_name(mod) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      RemoveUnusedTypes =>
-        match remove_unused_types(mod) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      RemoveUnused =>
-        match remove_unused(mod) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      RemoveUnusedNonFunctionElements =>
-        match remove_unused_non_function_elements(mod) {
+      ModuleRunnerPass =>
+        match run_module_runner_scheduler_pass(mod, pass, options) {
           Ok(new_mod) => new_mod
           Err(e) => return Err(e)
         }
@@ -938,6 +774,15 @@ fn opt_scheduler_remove_unused_dispatch_module() -> Module {
 }
 
 ///|
+fn opt_scheduler_denan_dispatch_module() -> Module {
+  let nan_bits : UInt = 0x7FC00000
+  let nan = @lib.F32(Float::reinterpret_from_uint(nan_bits))
+  Module::new().with_code_sec(
+    CodeSec::new([Func::t_func([], TExpr::new([TInstr::f32_const(nan)]))]),
+  )
+}
+
+///|
 fn opt_scheduler_func_count(mod : Module) -> Int {
   match mod.func_sec {
     Some(FuncSec(funcs)) => funcs.length()
@@ -950,6 +795,19 @@ fn opt_scheduler_global_count(mod : Module) -> Int {
   match mod.global_sec {
     Some(GlobalSec(globals)) => globals.length()
     None => 0
+  }
+}
+
+///|
+fn assert_pass_context_kind(
+  pass : ModulePass,
+  expected : SchedulerPassContextKind,
+) -> Bool {
+  match (module_pass_context_kind(pass), expected) {
+    (IRContextTransformerPass, IRContextTransformerPass)
+    | (UnitTransformerPass, UnitTransformerPass)
+    | (ModuleRunnerPass, ModuleRunnerPass) => true
+    _ => false
   }
 }
 
@@ -1350,7 +1208,94 @@ test "default global optimization pre passes honor closed_world=false gating" {
 }
 
 ///|
+test "optimize scheduler classifies module pass context kinds" {
+  assert_true(
+    assert_pass_context_kind(RemoveUnusedNames, IRContextTransformerPass),
+  )
+  assert_true(
+    assert_pass_context_kind(DeadCodeElimination, UnitTransformerPass),
+  )
+  assert_true(assert_pass_context_kind(DeNaN, ModuleRunnerPass))
+}
+
+///|
+test "optimize_module dispatches IRContext and Unit transformer pass kinds" {
+  assert_true(
+    assert_pass_context_kind(RemoveUnusedNames, IRContextTransformerPass),
+  )
+  assert_true(
+    assert_pass_context_kind(DeadCodeElimination, UnitTransformerPass),
+  )
+
+  let ir_mod = Module::new().with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [],
+        TExpr::new([
+          TInstr::block(
+            BlockType::void_(),
+            TExpr::new([
+              TInstr::block(
+                BlockType::void_(),
+                TExpr::new([TInstr::i32_const(I32(5))]),
+              ),
+            ]),
+          ),
+        ]),
+      ),
+    ]),
+  )
+  let ir_optimized = match optimize_module(ir_mod, [RemoveUnusedNames]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match ir_optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TBlock(_, TExpr([TI32Const(I32(5))]))]))])) =>
+      ()
+    _ => fail("expected RemoveUnusedNames to run through IRContext dispatch")
+  }
+
+  let unit_mod = Module::new().with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [],
+        TExpr::new([
+          TInstr::unreachable_(),
+          TInstr::drop(TInstr::i32_const(I32(1))),
+        ]),
+      ),
+    ]),
+  )
+  let unit_optimized = match optimize_module(unit_mod, [DeadCodeElimination]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match unit_optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TUnreachable]))])) => ()
+    _ => fail("expected DeadCodeElimination to run through Unit dispatch")
+  }
+}
+
+///|
+test "optimize_module dispatches DeNaN through module-runner kind" {
+  assert_true(assert_pass_context_kind(DeNaN, ModuleRunnerPass))
+  let mod = opt_scheduler_denan_dispatch_module()
+  let optimized = match optimize_module(mod, [DeNaN]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TF32Const(F32(v))]))])) => assert_eq(v, 0.0)
+    _ => fail("expected DeNaN to sanitize NaN constants via module-runner path")
+  }
+}
+
+///|
 test "optimize_module dispatches closed-world vs open-world remove_unused modes" {
+  assert_true(assert_pass_context_kind(RemoveUnused, ModuleRunnerPass))
+  assert_true(
+    assert_pass_context_kind(RemoveUnusedNonFunctionElements, ModuleRunnerPass),
+  )
   let mod = opt_scheduler_remove_unused_dispatch_module()
   let closed_world = match optimize_module(mod, [RemoveUnused]) {
     Ok(m) => m
