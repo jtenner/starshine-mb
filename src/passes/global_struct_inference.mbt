@@ -21,12 +21,14 @@ priv enum GSIReadValue {
 priv struct GSIAnalysis {
   type_globals : Map[TypeIdx, Array[GlobalIdx]]
   global_inits : Map[GlobalIdx, GSIGlobalInit]
+  types_with_strict_subtypes : Set[TypeIdx]
 }
 
 ///|
 priv struct GSIRewriteState {
   env : Env
   analysis : GSIAnalysis
+  optimize_to_desc_casts : Bool
 }
 
 ///|
@@ -214,6 +216,32 @@ fn gsi_propagate_globals_to_supers(
       }
     }
   }
+}
+
+///|
+fn gsi_collect_types_with_strict_subtypes(
+  env : Env,
+  all_types : Array[TypeIdx],
+) -> Set[TypeIdx] {
+  let out : Set[TypeIdx] = Set::new()
+  for type_idx in all_types {
+    let queue : Array[TypeIdx] = gsi_get_super_types(env, type_idx).copy()
+    let seen : Set[TypeIdx] = Set::new()
+    let mut i = 0
+    while i < queue.length() {
+      let curr = queue[i]
+      i += 1
+      if seen.contains(curr) {
+        continue
+      }
+      seen.add(curr)
+      out.add(curr)
+      for super_type in gsi_get_super_types(env, curr) {
+        queue.push(super_type)
+      }
+    }
+  }
+  out
 }
 
 ///|
@@ -668,6 +696,54 @@ fn gsi_optimize_struct_get(
 }
 
 ///|
+fn gsi_optimize_ref_cast_desc_mode(
+  nullable : Bool,
+  target_ht : HeapType,
+  ref_ : TInstr,
+  state : GSIRewriteState,
+) -> TInstr? {
+  if !state.optimize_to_desc_casts {
+    return None
+  }
+  // Without descriptor instructions, only optimize the non-null cast form.
+  // The nullable form needs a single-evaluation lowering with temp locals.
+  if nullable {
+    return None
+  }
+  let target_type_idx = match target_ht {
+    HeapType(type_idx) => type_idx
+    _ => return None
+  }
+  if state.analysis.types_with_strict_subtypes.contains(target_type_idx) {
+    return None
+  }
+  let globals = match state.analysis.type_globals.get(target_type_idx) {
+    Some(globals) if globals.length() == 1 => globals
+    _ => return None
+  }
+  let global_idx = globals[0]
+  let checked_ref = match gsi_ref_with_trap_semantics(ref_, state.env) {
+    Some(v) => v
+    None => return None
+  }
+  let success_value = match
+    gsi_ref_with_trap_semantics(TInstr::global_get(global_idx), state.env) {
+    Some(v) => v
+    None => return None
+  }
+  let cond = TInstr::ref_eq(checked_ref, TInstr::global_get(global_idx))
+  let result_vt = ValType::ref_type(RefType::new(false, target_ht))
+  Some(
+    TInstr::if_(
+      BlockType::val_type(result_vt),
+      cond,
+      TExpr::new([success_value]),
+      Some(TExpr::new([TInstr::unreachable_()])),
+    ),
+  )
+}
+
+///|
 fn gsi_optimize_tinstruction(instr : TInstr, state : GSIRewriteState) -> TInstr {
   match instr {
     TStructGet(type_idx, field_idx, ref_) =>
@@ -685,6 +761,11 @@ fn gsi_optimize_tinstruction(instr : TInstr, state : GSIRewriteState) -> TInstr 
     TStructGetU(type_idx, field_idx, ref_) =>
       match
         gsi_optimize_struct_get(type_idx, field_idx, ref_, UnsignedGet, state) {
+        Some(new_instr) => new_instr
+        None => instr
+      }
+    TRefCast(nullable, target_ht, ref_) =>
+      match gsi_optimize_ref_cast_desc_mode(nullable, target_ht, ref_, state) {
         Some(new_instr) => new_instr
         None => instr
       }
@@ -809,8 +890,11 @@ fn analyze_global_struct_inference(mod : Module) -> Result[GSIAnalysis, String] 
     ignore(type_globals.remove(type_idx))
   }
   let all_types = gsi_collect_all_type_indices(mod)
+  let types_with_strict_subtypes = gsi_collect_types_with_strict_subtypes(
+    env, all_types,
+  )
   gsi_propagate_globals_to_supers(type_globals, unoptimizable, env, all_types)
-  Ok({ type_globals, global_inits })
+  Ok({ type_globals, global_inits, types_with_strict_subtypes })
 }
 
 ///|
@@ -823,10 +907,11 @@ fn run_global_struct_inference(
     Err(e) => return Err(e)
   }
 
-  // This IR does not expose descriptor-cast instructions. Keep this
-  // compatibility flag wired for pipeline parity.
-  ignore(optimize_to_desc_casts)
-  let state = GSIRewriteState::{ env: Env::new().with_module(mod), analysis }
+  let state = GSIRewriteState::{
+    env: Env::new().with_module(mod),
+    analysis,
+    optimize_to_desc_casts,
+  }
   let pass = ModuleTransformer::new()
     .on_func_evt(gsi_rewrite_func)
     .on_tinstruction_evt(gsi_rewrite_tinstruction)
@@ -1766,9 +1851,12 @@ test "global struct inference propagates unoptimizable subtypes to supertypes" {
 }
 
 ///|
-test "global struct inference descriptor mode remains a no-op without desc ops" {
+test "global struct inference descriptor mode rewrites singleton non-null ref.cast" {
   let field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
   let ty = single_rec_type(comp_type_sub_type(struct_comp_type([field])))
+  let global_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
   let cast_instr = TInstr::ref_cast(
     false,
     HeapType::new(TypeIdx::new(0)),
@@ -1776,6 +1864,83 @@ test "global struct inference descriptor mode remains a no-op without desc ops" 
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([ty]))
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(global_ref, false),
+          Expr::new([
+            Instruction::i32_const(I32(17)),
+            Instruction::struct_new(TypeIdx::new(0)),
+          ]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::anyref()],
+          TExpr::new([TInstr::drop(cast_instr)]),
+        ),
+      ]),
+    )
+  let optimized = match run_global_struct_inference(mod, true) {
+    Ok(m) => m
+    Err(e) => fail("unexpected global_struct_inference error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TDrop(instr)]))])) => {
+      assert_true(instr != cast_instr)
+      let mut has_ref_eq = false
+      let mut has_global_get = false
+      let mut has_unreachable = false
+      let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
+        self,
+        _,
+        curr,
+      ) {
+        match curr {
+          TRefEq(_, _) => has_ref_eq = true
+          TGlobalGet(_) => has_global_get = true
+          TUnreachable => has_unreachable = true
+          _ => ()
+        }
+        self.walk_tinstruction_default((), curr)
+      })
+      ignore(walker.walk_tinstruction((), instr))
+      assert_true(has_ref_eq)
+      assert_true(has_global_get)
+      assert_true(has_unreachable)
+    }
+    _ =>
+      fail("expected descriptor-mode ref.cast rewrite to conditional trap form")
+  }
+}
+
+///|
+test "global struct inference descriptor mode keeps nullable ref.cast unchanged" {
+  let field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
+  let ty = single_rec_type(comp_type_sub_type(struct_comp_type([field])))
+  let cast_instr = TInstr::ref_cast(
+    true,
+    HeapType::new(TypeIdx::new(0)),
+    TInstr::local_get(LocalIdx::new(0)),
+  )
+  let global_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([ty]))
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(global_ref, false),
+          Expr::new([
+            Instruction::i32_const(I32(11)),
+            Instruction::struct_new(TypeIdx::new(0)),
+          ]),
+        ),
+      ]),
+    )
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
@@ -1791,6 +1956,57 @@ test "global struct inference descriptor mode remains a no-op without desc ops" 
   match optimized.code_sec {
     Some(CodeSec([TFunc(_, TExpr([TDrop(instr)]))])) =>
       assert_eq(instr, cast_instr)
-    _ => fail("expected descriptor-mode ref.cast behavior to be unchanged")
+    _ =>
+      fail("expected nullable ref.cast to remain unchanged in descriptor mode")
+  }
+}
+
+///|
+test "global struct inference descriptor mode requires no strict subtypes" {
+  let super_field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
+  let super_st = SubType::comp_type(struct_comp_type([super_field]))
+  let sub_st = SubType::new(
+    false,
+    [TypeIdx::new(0)],
+    struct_comp_type([super_field]),
+  )
+  let cast_instr = TInstr::ref_cast(
+    false,
+    HeapType::new(TypeIdx::new(0)),
+    TInstr::local_get(LocalIdx::new(0)),
+  )
+  let super_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([RecType::new(super_st), RecType::new(sub_st)]))
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(super_ref, false),
+          Expr::new([
+            Instruction::i32_const(I32(3)),
+            Instruction::struct_new(TypeIdx::new(0)),
+          ]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::anyref()],
+          TExpr::new([TInstr::drop(cast_instr)]),
+        ),
+      ]),
+    )
+  let optimized = match run_global_struct_inference(mod, true) {
+    Ok(m) => m
+    Err(e) => fail("unexpected global_struct_inference error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TDrop(instr)]))])) =>
+      assert_eq(instr, cast_instr)
+    _ =>
+      fail("expected ref.cast unchanged when target type has strict subtypes")
   }
 }
