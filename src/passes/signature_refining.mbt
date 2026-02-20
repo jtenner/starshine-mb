@@ -556,13 +556,9 @@ fn sr_mark_elem_unseen(mod : Module, has_unseen : Array[Bool]) -> Unit {
 ///|
 fn sr_collect_global_types(mod : Module) -> Array[ValType] {
   let out : Array[ValType] = []
-  match mod.global_sec {
-    Some(GlobalSec(globals)) =>
-      for global in globals {
-        let Global(GlobalType(vt, _), _) = global
-        out.push(vt)
-      }
-    None => ()
+  for global_type in sr_collect_all_global_types(mod) {
+    let GlobalType(vt, _) = global_type
+    out.push(vt)
   }
   out
 }
@@ -1598,6 +1594,205 @@ test "signature refining does not modify publicly-observable function type via e
         Export::new(Name::new("g"), ExternIdx::global(GlobalIdx::new(0))),
       ]),
     )
+    .with_code_sec(CodeSec::new([caller, callee]))
+
+  let out = run_signature_refining(mod)
+  let env = Env::new().with_module(out)
+  let ft = match env.resolve_functype(TypeIdx::new(1)) {
+    Some(ft) => ft
+    None => fail("expected target function type")
+  }
+  match ft {
+    FuncType(params, _) => {
+      assert_eq(params.length(), 1)
+      assert_eq(params[0], nullable_funcref)
+    }
+  }
+}
+
+///|
+test "signature refining refines parameter types from imported global.get call arguments" {
+  let non_null_funcref = ValType::ref_type(
+    RefType::new(false, HeapType::abs(AbsHeapType::func())),
+  )
+  let nullable_funcref = ValType::ref_type(
+    RefType::new(true, HeapType::abs(AbsHeapType::func())),
+  )
+  let t_void = sr_make_func_type([], [])
+  let t_target = sr_make_func_type([nullable_funcref], [])
+
+  let caller = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::call(FuncIdx::new(1), [TInstr::global_get(GlobalIdx::new(0))]),
+    ]),
+  )
+  let callee = Func::t_func([], TExpr::new([TInstr::nop()]))
+
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_void, t_target]))
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("env"),
+          Name::new("g"),
+          ExternType::global(GlobalType::new(non_null_funcref, false)),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
+    .with_code_sec(CodeSec::new([caller, callee]))
+
+  let out = run_signature_refining(mod)
+  let env = Env::new().with_module(out)
+  let ft = match env.resolve_functype(TypeIdx::new(1)) {
+    Some(ft) => ft
+    None => fail("expected target function type")
+  }
+  match ft {
+    FuncType(params, _) => {
+      assert_eq(params.length(), 1)
+      assert_eq(params[0], non_null_funcref)
+    }
+  }
+}
+
+///|
+test "signature refining does not modify publicly-observable function type via imported global ref" {
+  let non_null_funcref = ValType::ref_type(
+    RefType::new(false, HeapType::abs(AbsHeapType::func())),
+  )
+  let nullable_funcref = ValType::ref_type(
+    RefType::new(true, HeapType::abs(AbsHeapType::func())),
+  )
+  let public_target_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(1))),
+  )
+
+  let t_caller = sr_make_func_type([non_null_funcref], [])
+  let t_target = sr_make_func_type([nullable_funcref], [])
+
+  let caller = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
+    ]),
+  )
+  let callee = Func::t_func([], TExpr::new([TInstr::nop()]))
+
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_caller, t_target]))
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("env"),
+          Name::new("g"),
+          ExternType::global(GlobalType::new(public_target_ref, false)),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
+    .with_code_sec(CodeSec::new([caller, callee]))
+
+  let out = run_signature_refining(mod)
+  let env = Env::new().with_module(out)
+  let ft = match env.resolve_functype(TypeIdx::new(1)) {
+    Some(ft) => ft
+    None => fail("expected target function type")
+  }
+  match ft {
+    FuncType(params, _) => {
+      assert_eq(params.length(), 1)
+      assert_eq(params[0], nullable_funcref)
+    }
+  }
+}
+
+///|
+test "signature refining does not modify publicly-observable function type via imported table reftype" {
+  let non_null_funcref = ValType::ref_type(
+    RefType::new(false, HeapType::abs(AbsHeapType::func())),
+  )
+  let nullable_funcref = ValType::ref_type(
+    RefType::new(true, HeapType::abs(AbsHeapType::func())),
+  )
+
+  let t_caller = sr_make_func_type([non_null_funcref], [])
+  let t_target = sr_make_func_type([nullable_funcref], [])
+
+  let caller = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
+    ]),
+  )
+  let callee = Func::t_func([], TExpr::new([TInstr::nop()]))
+
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_caller, t_target]))
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("env"),
+          Name::new("table"),
+          ExternType::table(
+            TableType::new(
+              RefType::new(true, HeapType::new(TypeIdx::new(1))),
+              Limits::i32(1, None),
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
+    .with_code_sec(CodeSec::new([caller, callee]))
+
+  let out = run_signature_refining(mod)
+  let env = Env::new().with_module(out)
+  let ft = match env.resolve_functype(TypeIdx::new(1)) {
+    Some(ft) => ft
+    None => fail("expected target function type")
+  }
+  match ft {
+    FuncType(params, _) => {
+      assert_eq(params.length(), 1)
+      assert_eq(params[0], nullable_funcref)
+    }
+  }
+}
+
+///|
+test "signature refining does not modify publicly-observable function type via imported tag type" {
+  let non_null_funcref = ValType::ref_type(
+    RefType::new(false, HeapType::abs(AbsHeapType::func())),
+  )
+  let nullable_funcref = ValType::ref_type(
+    RefType::new(true, HeapType::abs(AbsHeapType::func())),
+  )
+
+  let t_caller = sr_make_func_type([non_null_funcref], [])
+  let t_target = sr_make_func_type([nullable_funcref], [])
+
+  let caller = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
+    ]),
+  )
+  let callee = Func::t_func([], TExpr::new([TInstr::nop()]))
+
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_caller, t_target]))
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("env"),
+          Name::new("tag"),
+          ExternType::tag(TagType::new(TypeIdx::new(1))),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
     .with_code_sec(CodeSec::new([caller, callee]))
 
   let out = run_signature_refining(mod)

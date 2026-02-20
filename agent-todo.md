@@ -79,8 +79,8 @@
   - [x] Descriptor-specific parity (`ref.cast_desc_eq`, `ref.get_desc`, descriptor-bearing `struct.new`) when descriptor ops are available.
   - [x] Atomics-dependent parity (`struct/array rmw/cmpxchg`, synchronization-sensitive cases) now that threads atomics support has landed.
 
-- [ ] `Binaryen Pass: SignatureRefining.cpp` parity hardening follow-up.
-  - [ ] Add targeted coverage for uncovered paths and external-observability edge cases.
+- [x] `Binaryen Pass: SignatureRefining.cpp` parity hardening follow-up.
+  - [x] Add targeted coverage for uncovered paths and external-observability edge cases.
 
 ## 3) Scheduler / Feature Parity Gaps (`src/passes/optimize.mbt`)
 
