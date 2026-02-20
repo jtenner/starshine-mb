@@ -17,6 +17,9 @@ priv enum H2LUse {
   ArrayLen
   RefIsNull
   RefTest
+  RefGetDesc
+  RefTestDesc
+  RefCastDescEq
   RefEq
   DropOnly
 }
@@ -455,6 +458,36 @@ fn h2l_scan_body(env : Env, body : TExpr) -> H2LAnalyzeState {
         h2l_inc_count(s.safe_get_counts, idx)
         h2l_add_use(s.uses, idx, H2LUse::RefTest)
       }
+      TRefGetDesc(TLocalGet(loc)) => {
+        let idx = h2l_local_to_int(loc)
+        h2l_inc_count(s.safe_get_counts, idx)
+        h2l_add_use(s.uses, idx, H2LUse::RefGetDesc)
+      }
+      TRefGetDesc(TRefAsNonNull(TLocalGet(loc))) => {
+        let idx = h2l_local_to_int(loc)
+        h2l_inc_count(s.safe_get_counts, idx)
+        h2l_add_use(s.uses, idx, H2LUse::RefGetDesc)
+      }
+      TRefTestDesc(_, _, TLocalGet(loc)) => {
+        let idx = h2l_local_to_int(loc)
+        h2l_inc_count(s.safe_get_counts, idx)
+        h2l_add_use(s.uses, idx, H2LUse::RefTestDesc)
+      }
+      TRefTestDesc(_, _, TRefAsNonNull(TLocalGet(loc))) => {
+        let idx = h2l_local_to_int(loc)
+        h2l_inc_count(s.safe_get_counts, idx)
+        h2l_add_use(s.uses, idx, H2LUse::RefTestDesc)
+      }
+      TRefCastDescEq(_, _, TLocalGet(loc)) => {
+        let idx = h2l_local_to_int(loc)
+        h2l_inc_count(s.safe_get_counts, idx)
+        h2l_add_use(s.uses, idx, H2LUse::RefCastDescEq)
+      }
+      TRefCastDescEq(_, _, TRefAsNonNull(TLocalGet(loc))) => {
+        let idx = h2l_local_to_int(loc)
+        h2l_inc_count(s.safe_get_counts, idx)
+        h2l_add_use(s.uses, idx, H2LUse::RefCastDescEq)
+      }
       TRefEq(TLocalGet(left), right) => {
         let idx = h2l_local_to_int(left)
         h2l_inc_count(s.safe_get_counts, idx)
@@ -526,7 +559,12 @@ fn h2l_uses_compatible(shape : H2LShape, uses : Array[H2LUse]) -> Bool {
               return false
             }
           }
-          H2LUse::RefIsNull | H2LUse::RefEq | H2LUse::RefTest => ()
+          H2LUse::RefIsNull
+          | H2LUse::RefEq
+          | H2LUse::RefTest
+          | H2LUse::RefGetDesc
+          | H2LUse::RefTestDesc
+          | H2LUse::RefCastDescEq => ()
           H2LUse::DropOnly => ()
           _ => return false
         }
@@ -546,6 +584,9 @@ fn h2l_uses_compatible(shape : H2LShape, uses : Array[H2LUse]) -> Bool {
           H2LUse::ArrayLen
           | H2LUse::RefIsNull
           | H2LUse::RefTest
+          | H2LUse::RefGetDesc
+          | H2LUse::RefTestDesc
+          | H2LUse::RefCastDescEq
           | H2LUse::RefEq
           | H2LUse::DropOnly => ()
           _ => return false
@@ -1155,6 +1196,26 @@ fn h2l_void_block(instrs : Array[TInstr]) -> TInstr {
     TInstr::nop()
   } else {
     TInstr::block(BlockType::void_(), TExpr::new(instrs))
+  }
+}
+
+///|
+fn h2l_materialize_plan_ref(plan : H2LPlan) -> TInstr {
+  match plan.shape {
+    StructShape(type_idx, fields) => {
+      let operands : Array[TInstr] = []
+      for i in 0..<fields.length() {
+        operands.push(TInstr::local_get(plan.slots[i]))
+      }
+      TInstr::struct_new(type_idx, operands)
+    }
+    ArrayShape(type_idx, _, size) => {
+      let values : Array[TInstr] = []
+      for i in 0..<size {
+        values.push(TInstr::local_get(plan.slots[i]))
+      }
+      TInstr::array_new_fixed(type_idx, values)
+    }
   }
 }
 
@@ -2074,6 +2135,34 @@ fn h2l_rewrite_tinstr(
       } else {
         unchanged()
       }
+    TRefGetDesc(TLocalGet(loc)) =>
+      match h2l_plan_for(state_after_walk, loc) {
+        Some(plan) =>
+          change(
+            state_after_walk,
+            TInstr::ref_get_desc(h2l_materialize_plan_ref(plan)),
+          )
+        None =>
+          if walked_changed {
+            change(state_after_walk, walked)
+          } else {
+            unchanged()
+          }
+      }
+    TRefGetDesc(TRefAsNonNull(TLocalGet(loc))) =>
+      match h2l_plan_for(state_after_walk, loc) {
+        Some(plan) =>
+          change(
+            state_after_walk,
+            TInstr::ref_get_desc(h2l_materialize_plan_ref(plan)),
+          )
+        None =>
+          if walked_changed {
+            change(state_after_walk, walked)
+          } else {
+            unchanged()
+          }
+      }
     TRefTest(_, target_ht, TLocalGet(loc)) =>
       match h2l_plan_for(state_after_walk, loc) {
         Some(plan) =>
@@ -2119,6 +2208,96 @@ fn h2l_rewrite_tinstr(
               ),
             ),
           )
+        None =>
+          if walked_changed {
+            change(state_after_walk, walked)
+          } else {
+            unchanged()
+          }
+      }
+    TRefTestDesc(_, target_ht, TLocalGet(loc)) =>
+      match h2l_plan_for(state_after_walk, loc) {
+        Some(plan) =>
+          change(
+            state_after_walk,
+            TInstr::i32_const(
+              I32(
+                if h2l_is_heap_subtype(
+                    env,
+                    h2l_shape_heap_type(plan.shape),
+                    target_ht,
+                  ) {
+                  1
+                } else {
+                  0
+                },
+              ),
+            ),
+          )
+        None =>
+          if walked_changed {
+            change(state_after_walk, walked)
+          } else {
+            unchanged()
+          }
+      }
+    TRefTestDesc(_, target_ht, TRefAsNonNull(TLocalGet(loc))) =>
+      match h2l_plan_for(state_after_walk, loc) {
+        Some(plan) =>
+          change(
+            state_after_walk,
+            TInstr::i32_const(
+              I32(
+                if h2l_is_heap_subtype(
+                    env,
+                    h2l_shape_heap_type(plan.shape),
+                    target_ht,
+                  ) {
+                  1
+                } else {
+                  0
+                },
+              ),
+            ),
+          )
+        None =>
+          if walked_changed {
+            change(state_after_walk, walked)
+          } else {
+            unchanged()
+          }
+      }
+    TRefCastDescEq(_, target_ht, TLocalGet(loc)) =>
+      match h2l_plan_for(state_after_walk, loc) {
+        Some(plan) =>
+          if h2l_is_heap_subtype(
+              env,
+              h2l_shape_heap_type(plan.shape),
+              target_ht,
+            ) {
+            change(state_after_walk, h2l_materialize_plan_ref(plan))
+          } else {
+            change(state_after_walk, TInstr::unreachable_())
+          }
+        None =>
+          if walked_changed {
+            change(state_after_walk, walked)
+          } else {
+            unchanged()
+          }
+      }
+    TRefCastDescEq(_, target_ht, TRefAsNonNull(TLocalGet(loc))) =>
+      match h2l_plan_for(state_after_walk, loc) {
+        Some(plan) =>
+          if h2l_is_heap_subtype(
+              env,
+              h2l_shape_heap_type(plan.shape),
+              target_ht,
+            ) {
+            change(state_after_walk, h2l_materialize_plan_ref(plan))
+          } else {
+            change(state_after_walk, TInstr::unreachable_())
+          }
         None =>
           if walked_changed {
             change(state_after_walk, walked)
@@ -2350,6 +2529,34 @@ fn h2l_has_i32_const(body : TExpr, target : Int) -> Bool {
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
     match instr {
       TI32Const(I32(v)) if v == target => found.update(fn(_) { true })
+      _ => ()
+    }
+    self.walk_tinstruction_default((), instr)
+  })
+  ignore(walker.walk_texpr((), body))
+  found.val
+}
+
+///|
+fn h2l_has_local_get(body : TExpr, idx : UInt) -> Bool {
+  let found = Ref::new(false)
+  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+    match instr {
+      TLocalGet(LocalIdx(i)) if i == idx => found.update(fn(_) { true })
+      _ => ()
+    }
+    self.walk_tinstruction_default((), instr)
+  })
+  ignore(walker.walk_texpr((), body))
+  found.val
+}
+
+///|
+fn h2l_has_ref_get_desc(body : TExpr) -> Bool {
+  let found = Ref::new(false)
+  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+    match instr {
+      TRefGetDesc(_) => found.update(fn(_) { true })
       _ => ()
     }
     self.walk_tinstruction_default((), instr)
@@ -2971,6 +3178,157 @@ test "heap2local rewrites ref.test false case to i32.const 0" {
       assert_true(h2l_has_i32_const(body, 0))
     }
     _ => fail("expected transformed function")
+  }
+}
+
+///|
+test "heap2local preserves optimization with ref.get_desc uses" {
+  let struct_ty = single_rec_type(
+    comp_type_sub_type(
+      struct_comp_type([
+        FieldType::new(StorageType::val_type(ValType::i32()), Var),
+      ]),
+    ),
+  )
+  let local_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let func = Func::t_func(
+    [local_ref],
+    TExpr::new([
+      TInstr::local_set(
+        LocalIdx::new(0),
+        TInstr::struct_new(TypeIdx::new(0), [TInstr::i32_const(I32(14))]),
+      ),
+      TInstr::drop(TInstr::ref_get_desc(TInstr::local_get(LocalIdx::new(0)))),
+      TInstr::drop(
+        TInstr::struct_get(
+          TypeIdx::new(0),
+          @lib.U32(0),
+          TInstr::local_get(LocalIdx::new(0)),
+        ),
+      ),
+    ]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([struct_ty]))
+    .with_code_sec(CodeSec::new([func]))
+  let out = run_heap2local(mod)
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, body)])) => {
+      assert_true(h2l_has_ref_get_desc(body))
+      assert_false(h2l_has_local_get(body, 0U))
+    }
+    _ => fail("expected transformed function")
+  }
+}
+
+///|
+test "heap2local rewrites ref.test_desc with known allocation type" {
+  let struct_ty = single_rec_type(
+    comp_type_sub_type(
+      struct_comp_type([
+        FieldType::new(StorageType::val_type(ValType::i32()), Var),
+      ]),
+    ),
+  )
+  let local_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let func = Func::t_func(
+    [local_ref],
+    TExpr::new([
+      TInstr::local_set(
+        LocalIdx::new(0),
+        TInstr::struct_new(TypeIdx::new(0), [TInstr::i32_const(I32(21))]),
+      ),
+      TInstr::drop(
+        TInstr::ref_test_desc(
+          false,
+          HeapType::new(TypeIdx::new(0)),
+          TInstr::local_get(LocalIdx::new(0)),
+        ),
+      ),
+      TInstr::drop(
+        TInstr::ref_test_desc(
+          false,
+          HeapType::abs(AbsHeapType::array()),
+          TInstr::ref_as_non_null(TInstr::local_get(LocalIdx::new(0))),
+        ),
+      ),
+    ]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([struct_ty]))
+    .with_code_sec(CodeSec::new([func]))
+  let out = run_heap2local(mod)
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, body)])) => {
+      assert_eq(h2l_count_gc_ops(body), 0)
+      assert_true(h2l_has_i32_const(body, 1))
+      assert_true(h2l_has_i32_const(body, 0))
+      assert_false(h2l_has_local_get(body, 0U))
+    }
+    _ => fail("expected transformed function")
+  }
+}
+
+///|
+test "heap2local rewrites ref.cast_desc_eq outcomes for known allocation type" {
+  let struct_ty = single_rec_type(
+    comp_type_sub_type(
+      struct_comp_type([
+        FieldType::new(StorageType::val_type(ValType::i32()), Var),
+      ]),
+    ),
+  )
+  let local_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let impossible = Func::t_func(
+    [local_ref],
+    TExpr::new([
+      TInstr::local_set(
+        LocalIdx::new(0),
+        TInstr::struct_new(TypeIdx::new(0), [TInstr::i32_const(I32(31))]),
+      ),
+      TInstr::drop(
+        TInstr::ref_cast_desc_eq(
+          false,
+          HeapType::abs(AbsHeapType::array()),
+          TInstr::local_get(LocalIdx::new(0)),
+        ),
+      ),
+    ]),
+  )
+  let compatible = Func::t_func(
+    [local_ref],
+    TExpr::new([
+      TInstr::local_set(
+        LocalIdx::new(0),
+        TInstr::struct_new(TypeIdx::new(0), [TInstr::i32_const(I32(32))]),
+      ),
+      TInstr::drop(
+        TInstr::ref_cast_desc_eq(
+          false,
+          HeapType::new(TypeIdx::new(0)),
+          TInstr::ref_as_non_null(TInstr::local_get(LocalIdx::new(0))),
+        ),
+      ),
+    ]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([struct_ty]))
+    .with_code_sec(CodeSec::new([impossible, compatible]))
+  let out = run_heap2local(mod)
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, impossible_body), TFunc(_, compatible_body)])) => {
+      assert_true(h2l_has_unreachable(impossible_body))
+      assert_false(h2l_has_local_get(impossible_body, 0U))
+      assert_true(h2l_count_gc_ops(compatible_body) > 0)
+      assert_false(h2l_has_local_get(compatible_body, 0U))
+    }
+    _ => fail("expected transformed functions")
   }
 }
 
