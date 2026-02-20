@@ -28,6 +28,8 @@ using @lib {
   type V128TernaryOp,
   type V128LoadLaneOp,
   type V128StoreLaneOp,
+  type AtomicRmwOp,
+  type AtomicCmpxchgOp,
   type ValType,
   type TagIdx,
   type CastOp,

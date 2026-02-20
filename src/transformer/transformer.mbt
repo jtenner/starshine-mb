@@ -1214,6 +1214,42 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::store(op, ma, i1, i2))))
     }
+    TMemoryAtomicNotify(ma, i1, i2) => {
+      let (t, ma) = match self.walk_memarg(t, ma) {
+        Ok(None) => (t, ma)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      let (t, i1) = match self.walk_tinstruction(t, i1) {
+        Ok(None) => (t, i1)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      let (t, i2) = match self.walk_tinstruction(t, i2) {
+        Ok(None) => (t, i2)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      Ok(Some((t, TInstr::memory_atomic_notify(ma, i1, i2))))
+    }
+    TAtomicRmw(op, ma, i1, i2) => {
+      let (t, ma) = match self.walk_memarg(t, ma) {
+        Ok(None) => (t, ma)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      let (t, i1) = match self.walk_tinstruction(t, i1) {
+        Ok(None) => (t, i1)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      let (t, i2) = match self.walk_tinstruction(t, i2) {
+        Ok(None) => (t, i2)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      Ok(Some((t, TInstr::atomic_rmw(op, ma, i1, i2))))
+    }
 
     // === Load (1 child - address) ===
     TLoad(op, ma, i) => {
@@ -1234,6 +1270,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::load(op, ma, i))))
     }
+    TAtomicFence => Ok(Some((t, TInstr::atomic_fence())))
 
     // === Memory operations ===
     TMemoryGrow(mi, i) => {
@@ -1327,6 +1364,75 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Err(t) => return Err(t)
       }
       Ok(Some((t, TInstr::memory_init(di, mi, i1, i2, i3))))
+    }
+    TMemoryAtomicWait32(ma, i1, i2, i3) => {
+      let (t, ma) = match self.walk_memarg(t, ma) {
+        Ok(None) => (t, ma)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      let (t, i1) = match self.walk_tinstruction(t, i1) {
+        Ok(None) => (t, i1)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      let (t, i2) = match self.walk_tinstruction(t, i2) {
+        Ok(None) => (t, i2)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      let (t, i3) = match self.walk_tinstruction(t, i3) {
+        Ok(None) => (t, i3)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      Ok(Some((t, TInstr::memory_atomic_wait32(ma, i1, i2, i3))))
+    }
+    TMemoryAtomicWait64(ma, i1, i2, i3) => {
+      let (t, ma) = match self.walk_memarg(t, ma) {
+        Ok(None) => (t, ma)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      let (t, i1) = match self.walk_tinstruction(t, i1) {
+        Ok(None) => (t, i1)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      let (t, i2) = match self.walk_tinstruction(t, i2) {
+        Ok(None) => (t, i2)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      let (t, i3) = match self.walk_tinstruction(t, i3) {
+        Ok(None) => (t, i3)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      Ok(Some((t, TInstr::memory_atomic_wait64(ma, i1, i2, i3))))
+    }
+    TAtomicCmpxchg(op, ma, i1, i2, i3) => {
+      let (t, ma) = match self.walk_memarg(t, ma) {
+        Ok(None) => (t, ma)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      let (t, i1) = match self.walk_tinstruction(t, i1) {
+        Ok(None) => (t, i1)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      let (t, i2) = match self.walk_tinstruction(t, i2) {
+        Ok(None) => (t, i2)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      let (t, i3) = match self.walk_tinstruction(t, i3) {
+        Ok(None) => (t, i3)
+        Ok(Some(t)) => t
+        Err(t) => return Err(t)
+      }
+      Ok(Some((t, TInstr::atomic_cmpxchg(op, ma, i1, i2, i3))))
     }
     TDataDrop(di) => {
       let (t, di) = match self.walk_dataidx(t, di) {
@@ -3211,6 +3317,124 @@ pub fn[T] ModuleTransformer::walk_instruction_default(
     }
 
     // Memory instructions
+    MemoryAtomicNotify(ma) =>
+      match self.walk_memarg(t, ma) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ma))) =>
+          Ok(Some((t, Instruction::memory_atomic_notify(ma))))
+      }
+    MemoryAtomicWait32(ma) =>
+      match self.walk_memarg(t, ma) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ma))) =>
+          Ok(Some((t, Instruction::memory_atomic_wait32(ma))))
+      }
+    MemoryAtomicWait64(ma) =>
+      match self.walk_memarg(t, ma) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ma))) =>
+          Ok(Some((t, Instruction::memory_atomic_wait64(ma))))
+      }
+    AtomicFence => Ok(Some((t, Instruction::atomic_fence())))
+    I32AtomicLoad(ma) =>
+      match self.walk_memarg(t, ma) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ma))) => Ok(Some((t, Instruction::i32_atomic_load(ma))))
+      }
+    I64AtomicLoad(ma) =>
+      match self.walk_memarg(t, ma) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ma))) => Ok(Some((t, Instruction::i64_atomic_load(ma))))
+      }
+    I32AtomicLoad8U(ma) =>
+      match self.walk_memarg(t, ma) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ma))) => Ok(Some((t, Instruction::i32_atomic_load8_u(ma))))
+      }
+    I32AtomicLoad16U(ma) =>
+      match self.walk_memarg(t, ma) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ma))) => Ok(Some((t, Instruction::i32_atomic_load16_u(ma))))
+      }
+    I64AtomicLoad8U(ma) =>
+      match self.walk_memarg(t, ma) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ma))) => Ok(Some((t, Instruction::i64_atomic_load8_u(ma))))
+      }
+    I64AtomicLoad16U(ma) =>
+      match self.walk_memarg(t, ma) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ma))) => Ok(Some((t, Instruction::i64_atomic_load16_u(ma))))
+      }
+    I64AtomicLoad32U(ma) =>
+      match self.walk_memarg(t, ma) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ma))) => Ok(Some((t, Instruction::i64_atomic_load32_u(ma))))
+      }
+    I32AtomicStore(ma) =>
+      match self.walk_memarg(t, ma) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ma))) => Ok(Some((t, Instruction::i32_atomic_store(ma))))
+      }
+    I64AtomicStore(ma) =>
+      match self.walk_memarg(t, ma) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ma))) => Ok(Some((t, Instruction::i64_atomic_store(ma))))
+      }
+    I32AtomicStore8(ma) =>
+      match self.walk_memarg(t, ma) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ma))) => Ok(Some((t, Instruction::i32_atomic_store8(ma))))
+      }
+    I32AtomicStore16(ma) =>
+      match self.walk_memarg(t, ma) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ma))) => Ok(Some((t, Instruction::i32_atomic_store16(ma))))
+      }
+    I64AtomicStore8(ma) =>
+      match self.walk_memarg(t, ma) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ma))) => Ok(Some((t, Instruction::i64_atomic_store8(ma))))
+      }
+    I64AtomicStore16(ma) =>
+      match self.walk_memarg(t, ma) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ma))) => Ok(Some((t, Instruction::i64_atomic_store16(ma))))
+      }
+    I64AtomicStore32(ma) =>
+      match self.walk_memarg(t, ma) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ma))) => Ok(Some((t, Instruction::i64_atomic_store32(ma))))
+      }
+    AtomicRmw(op, ma) =>
+      match self.walk_memarg(t, ma) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ma))) => Ok(Some((t, Instruction::atomic_rmw(op, ma))))
+      }
+    AtomicCmpxchg(op, ma) =>
+      match self.walk_memarg(t, ma) {
+        Err(e) => Err(e)
+        Ok(None) => Ok(None)
+        Ok(Some((t, ma))) => Ok(Some((t, Instruction::atomic_cmpxchg(op, ma))))
+      }
     MemorySize(m) =>
       match self.walk_memidx(t, m) {
         Err(e) => Err(e)

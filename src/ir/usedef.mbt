@@ -102,6 +102,25 @@ fn collect_op_uses(
       record(uses, val, use_)
     }
     SSAOp::MemoryGrow(_, v) => record(uses, v, use_)
+    SSAOp::MemoryAtomicNotify(_, addr, count) => {
+      record(uses, addr, use_)
+      record(uses, count, use_)
+    }
+    SSAOp::MemoryAtomicWait32(_, addr, expected, timeout)
+    | SSAOp::MemoryAtomicWait64(_, addr, expected, timeout) => {
+      record(uses, addr, use_)
+      record(uses, expected, use_)
+      record(uses, timeout, use_)
+    }
+    SSAOp::AtomicRmw(_, _, addr, val) => {
+      record(uses, addr, use_)
+      record(uses, val, use_)
+    }
+    SSAOp::AtomicCmpxchg(_, _, addr, expected, replacement) => {
+      record(uses, addr, use_)
+      record(uses, expected, use_)
+      record(uses, replacement, use_)
+    }
     SSAOp::MemoryFill(_, d, v, l) => {
       record(uses, d, use_)
       record(uses, v, use_)
@@ -251,6 +270,7 @@ fn collect_op_uses(
     | SSAOp::RefFunc(_)
     | SSAOp::GlobalGet(_)
     | SSAOp::MemorySize(_)
+    | SSAOp::AtomicFence
     | SSAOp::TableSize(_)
     | SSAOp::DataDrop(_)
     | SSAOp::ElemDrop(_)

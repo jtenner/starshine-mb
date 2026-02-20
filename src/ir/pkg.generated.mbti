@@ -195,6 +195,12 @@ pub enum SSAOp {
   Store(@lib.StoreOp, @lib.MemArg, SSAValue, SSAValue)
   MemorySize(@lib.MemIdx)
   MemoryGrow(@lib.MemIdx, SSAValue)
+  MemoryAtomicNotify(@lib.MemArg, SSAValue, SSAValue)
+  MemoryAtomicWait32(@lib.MemArg, SSAValue, SSAValue, SSAValue)
+  MemoryAtomicWait64(@lib.MemArg, SSAValue, SSAValue, SSAValue)
+  AtomicFence
+  AtomicRmw(@lib.AtomicRmwOp, @lib.MemArg, SSAValue, SSAValue)
+  AtomicCmpxchg(@lib.AtomicCmpxchgOp, @lib.MemArg, SSAValue, SSAValue, SSAValue)
   MemoryFill(@lib.MemIdx, SSAValue, SSAValue, SSAValue)
   MemoryCopy(@lib.MemIdx, @lib.MemIdx, SSAValue, SSAValue, SSAValue)
   MemoryInit(@lib.DataIdx, @lib.MemIdx, SSAValue, SSAValue, SSAValue)

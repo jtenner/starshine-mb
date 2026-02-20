@@ -20,6 +20,25 @@ fn collect_op_values(op : SSAOp, out : Set[SSAValue]) -> Unit {
       out.add(val)
     }
     SSAOp::MemoryGrow(_, v) => out.add(v)
+    SSAOp::MemoryAtomicNotify(_, addr, count) => {
+      out.add(addr)
+      out.add(count)
+    }
+    SSAOp::MemoryAtomicWait32(_, addr, expected, timeout)
+    | SSAOp::MemoryAtomicWait64(_, addr, expected, timeout) => {
+      out.add(addr)
+      out.add(expected)
+      out.add(timeout)
+    }
+    SSAOp::AtomicRmw(_, _, addr, val) => {
+      out.add(addr)
+      out.add(val)
+    }
+    SSAOp::AtomicCmpxchg(_, _, addr, expected, replacement) => {
+      out.add(addr)
+      out.add(expected)
+      out.add(replacement)
+    }
     SSAOp::MemoryFill(_, d, v, l) => {
       out.add(d)
       out.add(v)
@@ -182,6 +201,7 @@ fn collect_op_values(op : SSAOp, out : Set[SSAValue]) -> Unit {
     | SSAOp::RefFunc(_)
     | SSAOp::GlobalGet(_)
     | SSAOp::MemorySize(_)
+    | SSAOp::AtomicFence
     | SSAOp::TableSize(_)
     | SSAOp::DataDrop(_)
     | SSAOp::ElemDrop(_)

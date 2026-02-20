@@ -113,6 +113,7 @@ fn apply_gvn_to_op(op : SSAOp, state : GVNState) -> SSAOp {
     | SSAOp::RefFunc(_)
     | SSAOp::GlobalGet(_)
     | SSAOp::MemorySize(_)
+    | SSAOp::AtomicFence
     | SSAOp::TableSize(_)
     | SSAOp::DataDrop(_)
     | SSAOp::ElemDrop(_)
@@ -125,6 +126,16 @@ fn apply_gvn_to_op(op : SSAOp, state : GVNState) -> SSAOp {
     SSAOp::Store(sop, memarg, addr, val) =>
       SSAOp::Store(sop, memarg, r(addr), r(val))
     SSAOp::MemoryGrow(idx, v) => SSAOp::MemoryGrow(idx, r(v))
+    SSAOp::MemoryAtomicNotify(memarg, addr, count) =>
+      SSAOp::MemoryAtomicNotify(memarg, r(addr), r(count))
+    SSAOp::MemoryAtomicWait32(memarg, addr, expected, timeout) =>
+      SSAOp::MemoryAtomicWait32(memarg, r(addr), r(expected), r(timeout))
+    SSAOp::MemoryAtomicWait64(memarg, addr, expected, timeout) =>
+      SSAOp::MemoryAtomicWait64(memarg, r(addr), r(expected), r(timeout))
+    SSAOp::AtomicRmw(op, memarg, addr, val) =>
+      SSAOp::AtomicRmw(op, memarg, r(addr), r(val))
+    SSAOp::AtomicCmpxchg(op, memarg, addr, expected, replacement) =>
+      SSAOp::AtomicCmpxchg(op, memarg, r(addr), r(expected), r(replacement))
     SSAOp::MemoryFill(idx, d, v, l) => SSAOp::MemoryFill(idx, r(d), r(v), r(l))
     SSAOp::MemoryCopy(di, si, d, s, l) =>
       SSAOp::MemoryCopy(di, si, r(d), r(s), r(l))
@@ -295,8 +306,14 @@ fn has_side_effects(op : SSAOp) -> Bool {
     | SSAOp::V128LoadLane(_, _, _, _, _) => true
 
     // All writes have side effects
-    SSAOp::GlobalSet(_, _)
+    SSAOp::AtomicFence
+    | SSAOp::GlobalSet(_, _)
     | SSAOp::Store(_, _, _, _)
+    | SSAOp::MemoryAtomicNotify(_, _, _)
+    | SSAOp::MemoryAtomicWait32(_, _, _, _)
+    | SSAOp::MemoryAtomicWait64(_, _, _, _)
+    | SSAOp::AtomicRmw(_, _, _, _)
+    | SSAOp::AtomicCmpxchg(_, _, _, _, _)
     | SSAOp::MemoryGrow(_, _)
     | SSAOp::MemoryFill(_, _, _, _)
     | SSAOp::MemoryCopy(_, _, _, _, _)
@@ -341,6 +358,12 @@ fn invalidate_for_side_effects(op : SSAOp, state : GVNState) -> Unit {
   match op {
     // Memory writes invalidate all loads
     SSAOp::Store(_, _, _, _)
+    | SSAOp::AtomicFence
+    | SSAOp::MemoryAtomicNotify(_, _, _)
+    | SSAOp::MemoryAtomicWait32(_, _, _, _)
+    | SSAOp::MemoryAtomicWait64(_, _, _, _)
+    | SSAOp::AtomicRmw(_, _, _, _)
+    | SSAOp::AtomicCmpxchg(_, _, _, _, _)
     | SSAOp::MemoryFill(_, _, _, _)
     | SSAOp::MemoryCopy(_, _, _, _, _)
     | SSAOp::MemoryInit(_, _, _, _, _) => {

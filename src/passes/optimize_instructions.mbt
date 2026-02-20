@@ -993,10 +993,14 @@ fn oi_fold_const_ptr_offset(
 ///|
 fn oi_store_bytes(op : StoreOp) -> Int {
   match op {
-    I32Store8Op | I64Store8Op => 1
-    I32Store16Op | I64Store16Op => 2
-    I32StoreOp | F32StoreOp | I64Store32Op => 4
-    I64StoreOp | F64StoreOp => 8
+    I32Store8Op | I64Store8Op | I32AtomicStore8Op | I64AtomicStore8Op => 1
+    I32Store16Op | I64Store16Op | I32AtomicStore16Op | I64AtomicStore16Op => 2
+    I32StoreOp
+    | F32StoreOp
+    | I64Store32Op
+    | I32AtomicStoreOp
+    | I64AtomicStore32Op => 4
+    I64StoreOp | F64StoreOp | I64AtomicStoreOp => 8
     V128StoreOp => 16
   }
 }

@@ -1125,6 +1125,7 @@ fn SSAOptCtx::rewrite_op(self : SSAOptCtx, op : SSAOp) -> SSAOp {
     | RefFunc(_)
     | V128Const(_)
     | MemorySize(_)
+    | AtomicFence
     | DataDrop(_)
     | GlobalGet(_)
     | TableSize(_)
@@ -1138,6 +1139,36 @@ fn SSAOptCtx::rewrite_op(self : SSAOptCtx, op : SSAOp) -> SSAOp {
     Store(sop, ma, a, b) =>
       Store(sop, ma, self.rewrite_value(a), self.rewrite_value(b))
     MemoryGrow(idx, a) => MemoryGrow(idx, self.rewrite_value(a))
+    MemoryAtomicNotify(ma, addr, count) =>
+      MemoryAtomicNotify(
+        ma,
+        self.rewrite_value(addr),
+        self.rewrite_value(count),
+      )
+    MemoryAtomicWait32(ma, addr, expected, timeout) =>
+      MemoryAtomicWait32(
+        ma,
+        self.rewrite_value(addr),
+        self.rewrite_value(expected),
+        self.rewrite_value(timeout),
+      )
+    MemoryAtomicWait64(ma, addr, expected, timeout) =>
+      MemoryAtomicWait64(
+        ma,
+        self.rewrite_value(addr),
+        self.rewrite_value(expected),
+        self.rewrite_value(timeout),
+      )
+    AtomicRmw(op, ma, addr, val) =>
+      AtomicRmw(op, ma, self.rewrite_value(addr), self.rewrite_value(val))
+    AtomicCmpxchg(op, ma, addr, expected, replacement) =>
+      AtomicCmpxchg(
+        op,
+        ma,
+        self.rewrite_value(addr),
+        self.rewrite_value(expected),
+        self.rewrite_value(replacement),
+      )
     MemoryFill(idx, a, b, c) =>
       MemoryFill(
         idx,
@@ -1361,6 +1392,7 @@ fn SSAOptCtx::mark_op_uses(self : SSAOptCtx, op : SSAOp) -> Unit {
     | RefFunc(_)
     | V128Const(_)
     | MemorySize(_)
+    | AtomicFence
     | DataDrop(_)
     | GlobalGet(_)
     | TableSize(_)
@@ -1378,6 +1410,25 @@ fn SSAOptCtx::mark_op_uses(self : SSAOptCtx, op : SSAOp) -> Unit {
       self.mark_value_used(b)
     }
     MemoryGrow(_, a) => self.mark_value_used(a)
+    MemoryAtomicNotify(_, addr, count) => {
+      self.mark_value_used(addr)
+      self.mark_value_used(count)
+    }
+    MemoryAtomicWait32(_, addr, expected, timeout)
+    | MemoryAtomicWait64(_, addr, expected, timeout) => {
+      self.mark_value_used(addr)
+      self.mark_value_used(expected)
+      self.mark_value_used(timeout)
+    }
+    AtomicRmw(_, _, addr, val) => {
+      self.mark_value_used(addr)
+      self.mark_value_used(val)
+    }
+    AtomicCmpxchg(_, _, addr, expected, replacement) => {
+      self.mark_value_used(addr)
+      self.mark_value_used(expected)
+      self.mark_value_used(replacement)
+    }
     MemoryFill(_, a, b, c)
     | MemoryCopy(_, _, a, b, c)
     | MemoryInit(_, _, a, b, c)

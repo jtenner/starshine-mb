@@ -103,12 +103,14 @@ In this workspace, use absolute moon path when needed:
 - `Vacuum` is implemented as a typed-function cleanup pass that performs Binaryen-style dead-wrapper elimination (`optimize` peeling through effectful children), block list compaction/truncation after `unreachable`, constant/unreachable `if` simplification, `drop` canonicalization (including tee lowering and nested-drop cleanup), loop-nop elimination, and throw-free `try_table` elimination.
 - `ModuleTransformer::walk_module` dispatches `on_module_evt` before default traversal (consistent with other `walk_*` hooks).
 - Audit note: every current `on_*` hook in `ModuleTransformer` has a corresponding `walk_*` dispatcher path; regression tests now cover section dispatchers and core/leaf hook dispatch.
+- Threads atomics instruction support is implemented across `lib`/`binary`/`validate`/`ir`/`transformer`, including opcode coverage for `0xFE` `0..78` (`memory.atomic.{notify,wait32,wait64}`, `atomic.fence`, atomic load/store variants, all `atomic.rmw.*`, and all `atomic.rmw*.cmpxchg` forms).
+- IR SSA now models atomics explicitly (`MemoryAtomicNotify/Wait32/Wait64`, `AtomicFence`, `AtomicRmw`, `AtomicCmpxchg`), and downstream passes were updated to preserve/rewrite atomic nodes conservatively.
 
 ## Current Gaps / Ongoing Work
 - Migrate remaining non-IRContext-shaped passes (`de_nan`, `remove_unused`).
 - Stabilize legacy/dataflow replacement path where tests are still unstable.
 - `GlobalStructInferenceDescCast` now includes a conservative singleton-global `ref.cast` lowering path; full opcode-level descriptor parity (`ref.get_desc` / descriptor-eq casts) still depends on descriptor IR support.
-- Atomics-dependent parity work in heap passes remains blocked on atomics/threading IR+validator support.
+- Atomics/threading core instruction support is complete; remaining parity work is pass-specific atomics optimization behavior in heap passes.
 - `Asyncify` parity follow-up remaining gaps are now mostly around wider Binaryen feature surface beyond current staged implementation (for example additional optimizer-stage parity and advanced unsupported value categories).
 
 ## Test/Validation Expectations for Pass Changes

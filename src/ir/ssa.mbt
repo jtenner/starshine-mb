@@ -97,6 +97,29 @@ fn collect_instr_locals(instr : TInstr, locals : Set[LocalIdx]) -> Unit {
     }
     TLoad(_, _, addr) => collect_instr_locals(addr, locals)
     TMemoryGrow(_, a) => collect_instr_locals(a, locals)
+    TMemoryAtomicNotify(_, addr, count) => {
+      collect_instr_locals(addr, locals)
+      collect_instr_locals(count, locals)
+    }
+    TMemoryAtomicWait32(_, addr, expected, timeout) => {
+      collect_instr_locals(addr, locals)
+      collect_instr_locals(expected, locals)
+      collect_instr_locals(timeout, locals)
+    }
+    TMemoryAtomicWait64(_, addr, expected, timeout) => {
+      collect_instr_locals(addr, locals)
+      collect_instr_locals(expected, locals)
+      collect_instr_locals(timeout, locals)
+    }
+    TAtomicRmw(_, _, addr, value) => {
+      collect_instr_locals(addr, locals)
+      collect_instr_locals(value, locals)
+    }
+    TAtomicCmpxchg(_, _, addr, expected, replacement) => {
+      collect_instr_locals(addr, locals)
+      collect_instr_locals(expected, locals)
+      collect_instr_locals(replacement, locals)
+    }
     TMemoryFill(_, a, b, c) => {
       collect_instr_locals(a, locals)
       collect_instr_locals(b, locals)
@@ -329,6 +352,7 @@ fn collect_instr_locals(instr : TInstr, locals : Set[LocalIdx]) -> Unit {
     | TNop
     | TGlobalGet(_)
     | TMemorySize(_)
+    | TAtomicFence
     | TTableSize(_)
     | TDataDrop(_)
     | TElemDrop(_)
@@ -611,6 +635,79 @@ fn rename_instr(
         }
         None => None
       }
+    TMemoryAtomicNotify(memarg, addr, count) => {
+      let addr_v = rename_instr(addr, builder, out)
+      let count_v = rename_instr(count, builder, out)
+      match (addr_v, count_v) {
+        (Some(a), Some(c)) => {
+          let v = builder.fresh()
+          out.push(SSAInstr::Assign(v, SSAOp::MemoryAtomicNotify(memarg, a, c)))
+          Some(v)
+        }
+        _ => None
+      }
+    }
+    TMemoryAtomicWait32(memarg, addr, expected, timeout) => {
+      let addr_v = rename_instr(addr, builder, out)
+      let expected_v = rename_instr(expected, builder, out)
+      let timeout_v = rename_instr(timeout, builder, out)
+      match (addr_v, expected_v, timeout_v) {
+        (Some(a), Some(e), Some(t)) => {
+          let v = builder.fresh()
+          out.push(
+            SSAInstr::Assign(v, SSAOp::MemoryAtomicWait32(memarg, a, e, t)),
+          )
+          Some(v)
+        }
+        _ => None
+      }
+    }
+    TMemoryAtomicWait64(memarg, addr, expected, timeout) => {
+      let addr_v = rename_instr(addr, builder, out)
+      let expected_v = rename_instr(expected, builder, out)
+      let timeout_v = rename_instr(timeout, builder, out)
+      match (addr_v, expected_v, timeout_v) {
+        (Some(a), Some(e), Some(t)) => {
+          let v = builder.fresh()
+          out.push(
+            SSAInstr::Assign(v, SSAOp::MemoryAtomicWait64(memarg, a, e, t)),
+          )
+          Some(v)
+        }
+        _ => None
+      }
+    }
+    TAtomicFence => {
+      out.push(SSAInstr::Effect(SSAOp::AtomicFence))
+      None
+    }
+    TAtomicRmw(op, memarg, addr, value) => {
+      let addr_v = rename_instr(addr, builder, out)
+      let value_v = rename_instr(value, builder, out)
+      match (addr_v, value_v) {
+        (Some(a), Some(vv)) => {
+          let v = builder.fresh()
+          out.push(SSAInstr::Assign(v, SSAOp::AtomicRmw(op, memarg, a, vv)))
+          Some(v)
+        }
+        _ => None
+      }
+    }
+    TAtomicCmpxchg(op, memarg, addr, expected, replacement) => {
+      let addr_v = rename_instr(addr, builder, out)
+      let expected_v = rename_instr(expected, builder, out)
+      let replacement_v = rename_instr(replacement, builder, out)
+      match (addr_v, expected_v, replacement_v) {
+        (Some(a), Some(e), Some(r)) => {
+          let v = builder.fresh()
+          out.push(
+            SSAInstr::Assign(v, SSAOp::AtomicCmpxchg(op, memarg, a, e, r)),
+          )
+          Some(v)
+        }
+        _ => None
+      }
+    }
     TLoad(op, memarg, addr) =>
       match rename_instr(addr, builder, out) {
         Some(av) => {

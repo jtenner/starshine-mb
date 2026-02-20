@@ -282,6 +282,12 @@ fn msf_tag_hash(instr : TInstr) -> UInt64 {
     TStore(_, _, _, _) => 30UL
     TLoad(_, _, _) => 31UL
     TMemoryGrow(_, _) => 32UL
+    TMemoryAtomicNotify(_, _, _) => 200UL
+    TMemoryAtomicWait32(_, _, _, _) => 201UL
+    TMemoryAtomicWait64(_, _, _, _) => 202UL
+    TAtomicFence => 203UL
+    TAtomicRmw(_, _, _, _) => 204UL
+    TAtomicCmpxchg(_, _, _, _, _) => 205UL
     TMemoryFill(_, _, _, _) => 33UL
     TMemoryCopy(_, _, _, _, _) => 34UL
     TMemoryInit(_, _, _, _, _) => 35UL

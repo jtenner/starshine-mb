@@ -159,6 +159,35 @@ fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
       instrs.push(MemoryInit(data_idx, mem_idx))
     }
     TDataDrop(idx) => instrs.push(DataDrop(idx))
+    TMemoryAtomicNotify(memarg, addr, count) => {
+      tinstr_to_instr(addr, instrs)
+      tinstr_to_instr(count, instrs)
+      instrs.push(MemoryAtomicNotify(memarg))
+    }
+    TMemoryAtomicWait32(memarg, addr, expected, timeout) => {
+      tinstr_to_instr(addr, instrs)
+      tinstr_to_instr(expected, instrs)
+      tinstr_to_instr(timeout, instrs)
+      instrs.push(MemoryAtomicWait32(memarg))
+    }
+    TMemoryAtomicWait64(memarg, addr, expected, timeout) => {
+      tinstr_to_instr(addr, instrs)
+      tinstr_to_instr(expected, instrs)
+      tinstr_to_instr(timeout, instrs)
+      instrs.push(MemoryAtomicWait64(memarg))
+    }
+    TAtomicFence => instrs.push(AtomicFence)
+    TAtomicRmw(op, memarg, addr, value) => {
+      tinstr_to_instr(addr, instrs)
+      tinstr_to_instr(value, instrs)
+      instrs.push(AtomicRmw(op, memarg))
+    }
+    TAtomicCmpxchg(op, memarg, addr, expected, replacement) => {
+      tinstr_to_instr(addr, instrs)
+      tinstr_to_instr(expected, instrs)
+      tinstr_to_instr(replacement, instrs)
+      instrs.push(AtomicCmpxchg(op, memarg))
+    }
 
     // === Table operations ===
     TTableGet(idx, i) => {
@@ -963,6 +992,13 @@ fn load_op_to_instr(op : LoadOp, memarg : MemArg) -> Instruction {
     I64Load16UOp => I64Load16U(memarg)
     I64Load32SOp => I64Load32S(memarg)
     I64Load32UOp => I64Load32U(memarg)
+    I32AtomicLoadOp => I32AtomicLoad(memarg)
+    I64AtomicLoadOp => I64AtomicLoad(memarg)
+    I32AtomicLoad8UOp => I32AtomicLoad8U(memarg)
+    I32AtomicLoad16UOp => I32AtomicLoad16U(memarg)
+    I64AtomicLoad8UOp => I64AtomicLoad8U(memarg)
+    I64AtomicLoad16UOp => I64AtomicLoad16U(memarg)
+    I64AtomicLoad32UOp => I64AtomicLoad32U(memarg)
     V128LoadOp => V128Load(memarg)
     V128Load8x8SOp => V128Load8x8S(memarg)
     V128Load8x8UOp => V128Load8x8U(memarg)
@@ -991,6 +1027,13 @@ fn store_op_to_instr(op : StoreOp, memarg : MemArg) -> Instruction {
     I64Store8Op => I64Store8(memarg)
     I64Store16Op => I64Store16(memarg)
     I64Store32Op => I64Store32(memarg)
+    I32AtomicStoreOp => I32AtomicStore(memarg)
+    I64AtomicStoreOp => I64AtomicStore(memarg)
+    I32AtomicStore8Op => I32AtomicStore8(memarg)
+    I32AtomicStore16Op => I32AtomicStore16(memarg)
+    I64AtomicStore8Op => I64AtomicStore8(memarg)
+    I64AtomicStore16Op => I64AtomicStore16(memarg)
+    I64AtomicStore32Op => I64AtomicStore32(memarg)
     V128StoreOp => V128Store(memarg)
   }
 }

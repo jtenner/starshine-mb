@@ -2065,6 +2065,55 @@ fn instr_to_tinstr(
       }
       stack.push(TInstr::load(LoadOp::i64_load32u(), memarg, addr))
     }
+    I32AtomicLoad(memarg) => {
+      let addr = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      stack.push(TInstr::load(LoadOp::i32_atomic_load(), memarg, addr))
+    }
+    I64AtomicLoad(memarg) => {
+      let addr = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      stack.push(TInstr::load(LoadOp::i64_atomic_load(), memarg, addr))
+    }
+    I32AtomicLoad8U(memarg) => {
+      let addr = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      stack.push(TInstr::load(LoadOp::i32_atomic_load8_u(), memarg, addr))
+    }
+    I32AtomicLoad16U(memarg) => {
+      let addr = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      stack.push(TInstr::load(LoadOp::i32_atomic_load16_u(), memarg, addr))
+    }
+    I64AtomicLoad8U(memarg) => {
+      let addr = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      stack.push(TInstr::load(LoadOp::i64_atomic_load8_u(), memarg, addr))
+    }
+    I64AtomicLoad16U(memarg) => {
+      let addr = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      stack.push(TInstr::load(LoadOp::i64_atomic_load16_u(), memarg, addr))
+    }
+    I64AtomicLoad32U(memarg) => {
+      let addr = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      stack.push(TInstr::load(LoadOp::i64_atomic_load32_u(), memarg, addr))
+    }
 
     // === Stores ===
     I32Store(memarg) => {
@@ -2166,6 +2215,97 @@ fn instr_to_tinstr(
       }
       stack.push(TInstr::store(StoreOp::i64_store32(), memarg, addr, value))
     }
+    I32AtomicStore(memarg) => {
+      let value = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      let addr = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      stack.push(
+        TInstr::store(StoreOp::i32_atomic_store(), memarg, addr, value),
+      )
+    }
+    I64AtomicStore(memarg) => {
+      let value = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      let addr = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      stack.push(
+        TInstr::store(StoreOp::i64_atomic_store(), memarg, addr, value),
+      )
+    }
+    I32AtomicStore8(memarg) => {
+      let value = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      let addr = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      stack.push(
+        TInstr::store(StoreOp::i32_atomic_store8(), memarg, addr, value),
+      )
+    }
+    I32AtomicStore16(memarg) => {
+      let value = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      let addr = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      stack.push(
+        TInstr::store(StoreOp::i32_atomic_store16(), memarg, addr, value),
+      )
+    }
+    I64AtomicStore8(memarg) => {
+      let value = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      let addr = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      stack.push(
+        TInstr::store(StoreOp::i64_atomic_store8(), memarg, addr, value),
+      )
+    }
+    I64AtomicStore16(memarg) => {
+      let value = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      let addr = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      stack.push(
+        TInstr::store(StoreOp::i64_atomic_store16(), memarg, addr, value),
+      )
+    }
+    I64AtomicStore32(memarg) => {
+      let value = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      let addr = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      stack.push(
+        TInstr::store(StoreOp::i64_atomic_store32(), memarg, addr, value),
+      )
+    }
 
     // === Memory operations ===
     MemoryGrow(idx) => {
@@ -2221,6 +2361,76 @@ fn instr_to_tinstr(
       stack.push(TInstr::memory_init(data_idx, mem_idx, dst, src, len))
     }
     DataDrop(idx) => stack.push(TInstr::data_drop(idx))
+    MemoryAtomicNotify(memarg) => {
+      let count = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      let addr = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      stack.push(TInstr::memory_atomic_notify(memarg, addr, count))
+    }
+    MemoryAtomicWait32(memarg) => {
+      let timeout = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      let expected = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      let addr = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      stack.push(TInstr::memory_atomic_wait32(memarg, addr, expected, timeout))
+    }
+    MemoryAtomicWait64(memarg) => {
+      let timeout = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      let expected = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      let addr = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      stack.push(TInstr::memory_atomic_wait64(memarg, addr, expected, timeout))
+    }
+    AtomicFence => stack.push(TInstr::atomic_fence())
+    AtomicRmw(op, memarg) => {
+      let value = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      let addr = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      stack.push(TInstr::atomic_rmw(op, memarg, addr, value))
+    }
+    AtomicCmpxchg(op, memarg) => {
+      let replacement = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      let expected = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      let addr = match pop(stack) {
+        Ok(t) => t
+        Err(t) => return Err(t)
+      }
+      stack.push(
+        TInstr::atomic_cmpxchg(op, memarg, addr, expected, replacement),
+      )
+    }
 
     // === Table operations ===
     TableGet(idx) => {

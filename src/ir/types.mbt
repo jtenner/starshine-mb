@@ -93,6 +93,12 @@ pub enum SSAOp {
   Store(StoreOp, MemArg, SSAValue, SSAValue) // addr, value
   MemorySize(MemIdx)
   MemoryGrow(MemIdx, SSAValue)
+  MemoryAtomicNotify(MemArg, SSAValue, SSAValue) // addr, count
+  MemoryAtomicWait32(MemArg, SSAValue, SSAValue, SSAValue) // addr, expected, timeout
+  MemoryAtomicWait64(MemArg, SSAValue, SSAValue, SSAValue) // addr, expected, timeout
+  AtomicFence
+  AtomicRmw(AtomicRmwOp, MemArg, SSAValue, SSAValue) // addr, value
+  AtomicCmpxchg(AtomicCmpxchgOp, MemArg, SSAValue, SSAValue, SSAValue) // addr, expected, replacement
   MemoryFill(MemIdx, SSAValue, SSAValue, SSAValue)
   MemoryCopy(MemIdx, MemIdx, SSAValue, SSAValue, SSAValue)
   MemoryInit(DataIdx, MemIdx, SSAValue, SSAValue, SSAValue)

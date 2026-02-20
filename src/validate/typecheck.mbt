@@ -1330,6 +1330,101 @@ fn typecheck_store(
 }
 
 ///|
+fn typecheck_atomic_notify(st : TcState, ma : MemArg) -> TcResult {
+  let (_mem, lim) = match memarg_check(st, ma, MemIdx::new(0), 32) {
+    Err(e) => return Err(e)
+    Ok(x) => x
+  }
+  let at = lim.addr_valtype()
+  let st1 = match st.pop_expect(ValType::i32()) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  let st2 = match st1.pop_expect(at) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  Ok(st2.push1(ValType::i32()))
+}
+
+///|
+fn typecheck_atomic_wait(
+  st : TcState,
+  ma : MemArg,
+  nbits : Int,
+  expected : ValType,
+) -> TcResult {
+  let (_mem, lim) = match memarg_check(st, ma, MemIdx::new(0), nbits) {
+    Err(e) => return Err(e)
+    Ok(x) => x
+  }
+  let at = lim.addr_valtype()
+  let st1 = match st.pop_expect(ValType::i64()) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  let st2 = match st1.pop_expect(expected) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  let st3 = match st2.pop_expect(at) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  Ok(st3.push1(ValType::i32()))
+}
+
+///|
+fn typecheck_atomic_rmw(
+  st : TcState,
+  ma : MemArg,
+  nbits : Int,
+  ty : ValType,
+) -> TcResult {
+  let (_mem, lim) = match memarg_check(st, ma, MemIdx::new(0), nbits) {
+    Err(e) => return Err(e)
+    Ok(x) => x
+  }
+  let at = lim.addr_valtype()
+  let st1 = match st.pop_expect(ty) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  let st2 = match st1.pop_expect(at) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  Ok(st2.push1(ty))
+}
+
+///|
+fn typecheck_atomic_cmpxchg(
+  st : TcState,
+  ma : MemArg,
+  nbits : Int,
+  ty : ValType,
+) -> TcResult {
+  let (_mem, lim) = match memarg_check(st, ma, MemIdx::new(0), nbits) {
+    Err(e) => return Err(e)
+    Ok(x) => x
+  }
+  let at = lim.addr_valtype()
+  let st1 = match st.pop_expect(ty) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  let st2 = match st1.pop_expect(ty) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  let st3 = match st2.pop_expect(at) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  Ok(st3.push1(ty))
+}
+
+///|
 fn typecheck_loop(st : TcState, bt : BlockType, body : Expr) -> TcResult {
   let (params, results) = match st.env.expand_blocktype(bt) {
     Err(e) => return Err(e)
@@ -2475,6 +2570,13 @@ pub impl Typecheck for Instruction with typecheck(self, st) {
     I64Load16U(ma) => typecheck_load(st, ma, 16, ValType::i64())
     I64Load32S(ma) => typecheck_load(st, ma, 32, ValType::i64())
     I64Load32U(ma) => typecheck_load(st, ma, 32, ValType::i64())
+    I32AtomicLoad(ma) => typecheck_load(st, ma, 32, ValType::i32())
+    I64AtomicLoad(ma) => typecheck_load(st, ma, 64, ValType::i64())
+    I32AtomicLoad8U(ma) => typecheck_load(st, ma, 8, ValType::i32())
+    I32AtomicLoad16U(ma) => typecheck_load(st, ma, 16, ValType::i32())
+    I64AtomicLoad8U(ma) => typecheck_load(st, ma, 8, ValType::i64())
+    I64AtomicLoad16U(ma) => typecheck_load(st, ma, 16, ValType::i64())
+    I64AtomicLoad32U(ma) => typecheck_load(st, ma, 32, ValType::i64())
     I32Store(ma) => typecheck_store(st, ma, 32, ValType::i32())
     I64Store(ma) => typecheck_store(st, ma, 64, ValType::i64())
     F32Store(ma) => typecheck_store(st, ma, 32, ValType::f32())
@@ -2484,6 +2586,13 @@ pub impl Typecheck for Instruction with typecheck(self, st) {
     I64Store8(ma) => typecheck_store(st, ma, 8, ValType::i64())
     I64Store16(ma) => typecheck_store(st, ma, 16, ValType::i64())
     I64Store32(ma) => typecheck_store(st, ma, 32, ValType::i64())
+    I32AtomicStore(ma) => typecheck_store(st, ma, 32, ValType::i32())
+    I64AtomicStore(ma) => typecheck_store(st, ma, 64, ValType::i64())
+    I32AtomicStore8(ma) => typecheck_store(st, ma, 8, ValType::i32())
+    I32AtomicStore16(ma) => typecheck_store(st, ma, 16, ValType::i32())
+    I64AtomicStore8(ma) => typecheck_store(st, ma, 8, ValType::i64())
+    I64AtomicStore16(ma) => typecheck_store(st, ma, 16, ValType::i64())
+    I64AtomicStore32(ma) => typecheck_store(st, ma, 32, ValType::i64())
     Drop => typecheck_drop(st)
     Select(None) => typecheck_select_untyped(st)
     Select(Some(ts)) => typecheck_select_typed(st, ts)
@@ -2502,10 +2611,79 @@ pub impl Typecheck for Instruction with typecheck(self, st) {
     ElemDrop(y) => typecheck_elem_drop(st, y)
     MemorySize(m) => typecheck_memory_size(st, m)
     MemoryGrow(m) => typecheck_memory_grow(st, m)
+    MemoryAtomicNotify(ma) => typecheck_atomic_notify(st, ma)
+    MemoryAtomicWait32(ma) => typecheck_atomic_wait(st, ma, 32, ValType::i32())
+    MemoryAtomicWait64(ma) => typecheck_atomic_wait(st, ma, 64, ValType::i64())
+    AtomicFence => Ok(st)
     MemoryInit(d, m) => typecheck_memory_init(st, d, m)
     DataDrop(d) => typecheck_data_drop(st, d)
     MemoryCopy(d, s) => typecheck_memory_copy(st, d, s)
     MemoryFill(m) => typecheck_memory_fill(st, m)
+    AtomicRmw(op, ma) =>
+      match op {
+        I32AtomicRmwAddOp => typecheck_atomic_rmw(st, ma, 32, ValType::i32())
+        I64AtomicRmwAddOp => typecheck_atomic_rmw(st, ma, 64, ValType::i64())
+        I32AtomicRmw8AddUOp => typecheck_atomic_rmw(st, ma, 8, ValType::i32())
+        I32AtomicRmw16AddUOp => typecheck_atomic_rmw(st, ma, 16, ValType::i32())
+        I64AtomicRmw8AddUOp => typecheck_atomic_rmw(st, ma, 8, ValType::i64())
+        I64AtomicRmw16AddUOp => typecheck_atomic_rmw(st, ma, 16, ValType::i64())
+        I64AtomicRmw32AddUOp => typecheck_atomic_rmw(st, ma, 32, ValType::i64())
+        I32AtomicRmwSubOp => typecheck_atomic_rmw(st, ma, 32, ValType::i32())
+        I64AtomicRmwSubOp => typecheck_atomic_rmw(st, ma, 64, ValType::i64())
+        I32AtomicRmw8SubUOp => typecheck_atomic_rmw(st, ma, 8, ValType::i32())
+        I32AtomicRmw16SubUOp => typecheck_atomic_rmw(st, ma, 16, ValType::i32())
+        I64AtomicRmw8SubUOp => typecheck_atomic_rmw(st, ma, 8, ValType::i64())
+        I64AtomicRmw16SubUOp => typecheck_atomic_rmw(st, ma, 16, ValType::i64())
+        I64AtomicRmw32SubUOp => typecheck_atomic_rmw(st, ma, 32, ValType::i64())
+        I32AtomicRmwAndOp => typecheck_atomic_rmw(st, ma, 32, ValType::i32())
+        I64AtomicRmwAndOp => typecheck_atomic_rmw(st, ma, 64, ValType::i64())
+        I32AtomicRmw8AndUOp => typecheck_atomic_rmw(st, ma, 8, ValType::i32())
+        I32AtomicRmw16AndUOp => typecheck_atomic_rmw(st, ma, 16, ValType::i32())
+        I64AtomicRmw8AndUOp => typecheck_atomic_rmw(st, ma, 8, ValType::i64())
+        I64AtomicRmw16AndUOp => typecheck_atomic_rmw(st, ma, 16, ValType::i64())
+        I64AtomicRmw32AndUOp => typecheck_atomic_rmw(st, ma, 32, ValType::i64())
+        I32AtomicRmwOrOp => typecheck_atomic_rmw(st, ma, 32, ValType::i32())
+        I64AtomicRmwOrOp => typecheck_atomic_rmw(st, ma, 64, ValType::i64())
+        I32AtomicRmw8OrUOp => typecheck_atomic_rmw(st, ma, 8, ValType::i32())
+        I32AtomicRmw16OrUOp => typecheck_atomic_rmw(st, ma, 16, ValType::i32())
+        I64AtomicRmw8OrUOp => typecheck_atomic_rmw(st, ma, 8, ValType::i64())
+        I64AtomicRmw16OrUOp => typecheck_atomic_rmw(st, ma, 16, ValType::i64())
+        I64AtomicRmw32OrUOp => typecheck_atomic_rmw(st, ma, 32, ValType::i64())
+        I32AtomicRmwXorOp => typecheck_atomic_rmw(st, ma, 32, ValType::i32())
+        I64AtomicRmwXorOp => typecheck_atomic_rmw(st, ma, 64, ValType::i64())
+        I32AtomicRmw8XorUOp => typecheck_atomic_rmw(st, ma, 8, ValType::i32())
+        I32AtomicRmw16XorUOp => typecheck_atomic_rmw(st, ma, 16, ValType::i32())
+        I64AtomicRmw8XorUOp => typecheck_atomic_rmw(st, ma, 8, ValType::i64())
+        I64AtomicRmw16XorUOp => typecheck_atomic_rmw(st, ma, 16, ValType::i64())
+        I64AtomicRmw32XorUOp => typecheck_atomic_rmw(st, ma, 32, ValType::i64())
+        I32AtomicRmwXchgOp => typecheck_atomic_rmw(st, ma, 32, ValType::i32())
+        I64AtomicRmwXchgOp => typecheck_atomic_rmw(st, ma, 64, ValType::i64())
+        I32AtomicRmw8XchgUOp => typecheck_atomic_rmw(st, ma, 8, ValType::i32())
+        I32AtomicRmw16XchgUOp =>
+          typecheck_atomic_rmw(st, ma, 16, ValType::i32())
+        I64AtomicRmw8XchgUOp => typecheck_atomic_rmw(st, ma, 8, ValType::i64())
+        I64AtomicRmw16XchgUOp =>
+          typecheck_atomic_rmw(st, ma, 16, ValType::i64())
+        I64AtomicRmw32XchgUOp =>
+          typecheck_atomic_rmw(st, ma, 32, ValType::i64())
+      }
+    AtomicCmpxchg(op, ma) =>
+      match op {
+        I32AtomicRmwCmpxchgOp =>
+          typecheck_atomic_cmpxchg(st, ma, 32, ValType::i32())
+        I64AtomicRmwCmpxchgOp =>
+          typecheck_atomic_cmpxchg(st, ma, 64, ValType::i64())
+        I32AtomicRmw8CmpxchgUOp =>
+          typecheck_atomic_cmpxchg(st, ma, 8, ValType::i32())
+        I32AtomicRmw16CmpxchgUOp =>
+          typecheck_atomic_cmpxchg(st, ma, 16, ValType::i32())
+        I64AtomicRmw8CmpxchgUOp =>
+          typecheck_atomic_cmpxchg(st, ma, 8, ValType::i64())
+        I64AtomicRmw16CmpxchgUOp =>
+          typecheck_atomic_cmpxchg(st, ma, 16, ValType::i64())
+        I64AtomicRmw32CmpxchgUOp =>
+          typecheck_atomic_cmpxchg(st, ma, 32, ValType::i64())
+      }
     Br(l) => typecheck_br(st, l)
     Block(bt, e) => typecheck_block(st, bt, e)
     If(bt, th, el) => typecheck_if(st, bt, th, el)
@@ -3545,6 +3723,13 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
         I64Store8Op => typecheck_store(st2, ma, 8, ValType::i64())
         I64Store16Op => typecheck_store(st2, ma, 16, ValType::i64())
         I64Store32Op => typecheck_store(st2, ma, 32, ValType::i64())
+        I32AtomicStoreOp => typecheck_store(st2, ma, 32, ValType::i32())
+        I64AtomicStoreOp => typecheck_store(st2, ma, 64, ValType::i64())
+        I32AtomicStore8Op => typecheck_store(st2, ma, 8, ValType::i32())
+        I32AtomicStore16Op => typecheck_store(st2, ma, 16, ValType::i32())
+        I64AtomicStore8Op => typecheck_store(st2, ma, 8, ValType::i64())
+        I64AtomicStore16Op => typecheck_store(st2, ma, 16, ValType::i64())
+        I64AtomicStore32Op => typecheck_store(st2, ma, 32, ValType::i64())
         V128StoreOp => typecheck_v128_mem_store(st2, ma, 128)
       }
     }
@@ -3570,6 +3755,13 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
         I64Load16UOp => typecheck_load(st1, ma, 16, ValType::i64())
         I64Load32SOp => typecheck_load(st1, ma, 32, ValType::i64())
         I64Load32UOp => typecheck_load(st1, ma, 32, ValType::i64())
+        I32AtomicLoadOp => typecheck_load(st1, ma, 32, ValType::i32())
+        I64AtomicLoadOp => typecheck_load(st1, ma, 64, ValType::i64())
+        I32AtomicLoad8UOp => typecheck_load(st1, ma, 8, ValType::i32())
+        I32AtomicLoad16UOp => typecheck_load(st1, ma, 16, ValType::i32())
+        I64AtomicLoad8UOp => typecheck_load(st1, ma, 8, ValType::i64())
+        I64AtomicLoad16UOp => typecheck_load(st1, ma, 16, ValType::i64())
+        I64AtomicLoad32UOp => typecheck_load(st1, ma, 32, ValType::i64())
         V128LoadOp => typecheck_v128_mem_load(st1, ma, 128)
         V128Load8x8SOp => typecheck_v128_mem_load_extend64(st1, ma)
         V128Load8x8UOp => typecheck_v128_mem_load_extend64(st1, ma)
@@ -3640,6 +3832,147 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       typecheck_memory_init(st3, d, m)
     }
     TDataDrop(d) => typecheck_data_drop(st, d)
+    TMemoryAtomicNotify(ma, addr, count) => {
+      let st1 = match Typecheck::typecheck(addr, st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match Typecheck::typecheck(count, st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_atomic_notify(st2, ma)
+    }
+    TMemoryAtomicWait32(ma, addr, expected, timeout) => {
+      let st1 = match Typecheck::typecheck(addr, st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match Typecheck::typecheck(expected, st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st3 = match Typecheck::typecheck(timeout, st2) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_atomic_wait(st3, ma, 32, ValType::i32())
+    }
+    TMemoryAtomicWait64(ma, addr, expected, timeout) => {
+      let st1 = match Typecheck::typecheck(addr, st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match Typecheck::typecheck(expected, st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st3 = match Typecheck::typecheck(timeout, st2) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      typecheck_atomic_wait(st3, ma, 64, ValType::i64())
+    }
+    TAtomicFence => Ok(st)
+    TAtomicRmw(op, ma, addr, value) => {
+      let st1 = match Typecheck::typecheck(addr, st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match Typecheck::typecheck(value, st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      match op {
+        I32AtomicRmwAddOp => typecheck_atomic_rmw(st2, ma, 32, ValType::i32())
+        I64AtomicRmwAddOp => typecheck_atomic_rmw(st2, ma, 64, ValType::i64())
+        I32AtomicRmw8AddUOp => typecheck_atomic_rmw(st2, ma, 8, ValType::i32())
+        I32AtomicRmw16AddUOp =>
+          typecheck_atomic_rmw(st2, ma, 16, ValType::i32())
+        I64AtomicRmw8AddUOp => typecheck_atomic_rmw(st2, ma, 8, ValType::i64())
+        I64AtomicRmw16AddUOp =>
+          typecheck_atomic_rmw(st2, ma, 16, ValType::i64())
+        I64AtomicRmw32AddUOp =>
+          typecheck_atomic_rmw(st2, ma, 32, ValType::i64())
+        I32AtomicRmwSubOp => typecheck_atomic_rmw(st2, ma, 32, ValType::i32())
+        I64AtomicRmwSubOp => typecheck_atomic_rmw(st2, ma, 64, ValType::i64())
+        I32AtomicRmw8SubUOp => typecheck_atomic_rmw(st2, ma, 8, ValType::i32())
+        I32AtomicRmw16SubUOp =>
+          typecheck_atomic_rmw(st2, ma, 16, ValType::i32())
+        I64AtomicRmw8SubUOp => typecheck_atomic_rmw(st2, ma, 8, ValType::i64())
+        I64AtomicRmw16SubUOp =>
+          typecheck_atomic_rmw(st2, ma, 16, ValType::i64())
+        I64AtomicRmw32SubUOp =>
+          typecheck_atomic_rmw(st2, ma, 32, ValType::i64())
+        I32AtomicRmwAndOp => typecheck_atomic_rmw(st2, ma, 32, ValType::i32())
+        I64AtomicRmwAndOp => typecheck_atomic_rmw(st2, ma, 64, ValType::i64())
+        I32AtomicRmw8AndUOp => typecheck_atomic_rmw(st2, ma, 8, ValType::i32())
+        I32AtomicRmw16AndUOp =>
+          typecheck_atomic_rmw(st2, ma, 16, ValType::i32())
+        I64AtomicRmw8AndUOp => typecheck_atomic_rmw(st2, ma, 8, ValType::i64())
+        I64AtomicRmw16AndUOp =>
+          typecheck_atomic_rmw(st2, ma, 16, ValType::i64())
+        I64AtomicRmw32AndUOp =>
+          typecheck_atomic_rmw(st2, ma, 32, ValType::i64())
+        I32AtomicRmwOrOp => typecheck_atomic_rmw(st2, ma, 32, ValType::i32())
+        I64AtomicRmwOrOp => typecheck_atomic_rmw(st2, ma, 64, ValType::i64())
+        I32AtomicRmw8OrUOp => typecheck_atomic_rmw(st2, ma, 8, ValType::i32())
+        I32AtomicRmw16OrUOp => typecheck_atomic_rmw(st2, ma, 16, ValType::i32())
+        I64AtomicRmw8OrUOp => typecheck_atomic_rmw(st2, ma, 8, ValType::i64())
+        I64AtomicRmw16OrUOp => typecheck_atomic_rmw(st2, ma, 16, ValType::i64())
+        I64AtomicRmw32OrUOp => typecheck_atomic_rmw(st2, ma, 32, ValType::i64())
+        I32AtomicRmwXorOp => typecheck_atomic_rmw(st2, ma, 32, ValType::i32())
+        I64AtomicRmwXorOp => typecheck_atomic_rmw(st2, ma, 64, ValType::i64())
+        I32AtomicRmw8XorUOp => typecheck_atomic_rmw(st2, ma, 8, ValType::i32())
+        I32AtomicRmw16XorUOp =>
+          typecheck_atomic_rmw(st2, ma, 16, ValType::i32())
+        I64AtomicRmw8XorUOp => typecheck_atomic_rmw(st2, ma, 8, ValType::i64())
+        I64AtomicRmw16XorUOp =>
+          typecheck_atomic_rmw(st2, ma, 16, ValType::i64())
+        I64AtomicRmw32XorUOp =>
+          typecheck_atomic_rmw(st2, ma, 32, ValType::i64())
+        I32AtomicRmwXchgOp => typecheck_atomic_rmw(st2, ma, 32, ValType::i32())
+        I64AtomicRmwXchgOp => typecheck_atomic_rmw(st2, ma, 64, ValType::i64())
+        I32AtomicRmw8XchgUOp => typecheck_atomic_rmw(st2, ma, 8, ValType::i32())
+        I32AtomicRmw16XchgUOp =>
+          typecheck_atomic_rmw(st2, ma, 16, ValType::i32())
+        I64AtomicRmw8XchgUOp => typecheck_atomic_rmw(st2, ma, 8, ValType::i64())
+        I64AtomicRmw16XchgUOp =>
+          typecheck_atomic_rmw(st2, ma, 16, ValType::i64())
+        I64AtomicRmw32XchgUOp =>
+          typecheck_atomic_rmw(st2, ma, 32, ValType::i64())
+      }
+    }
+    TAtomicCmpxchg(op, ma, addr, expected, replacement) => {
+      let st1 = match Typecheck::typecheck(addr, st) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st2 = match Typecheck::typecheck(expected, st1) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      let st3 = match Typecheck::typecheck(replacement, st2) {
+        Ok(st) => st
+        Err(t) => return Err(t)
+      }
+      match op {
+        I32AtomicRmwCmpxchgOp =>
+          typecheck_atomic_cmpxchg(st3, ma, 32, ValType::i32())
+        I64AtomicRmwCmpxchgOp =>
+          typecheck_atomic_cmpxchg(st3, ma, 64, ValType::i64())
+        I32AtomicRmw8CmpxchgUOp =>
+          typecheck_atomic_cmpxchg(st3, ma, 8, ValType::i32())
+        I32AtomicRmw16CmpxchgUOp =>
+          typecheck_atomic_cmpxchg(st3, ma, 16, ValType::i32())
+        I64AtomicRmw8CmpxchgUOp =>
+          typecheck_atomic_cmpxchg(st3, ma, 8, ValType::i64())
+        I64AtomicRmw16CmpxchgUOp =>
+          typecheck_atomic_cmpxchg(st3, ma, 16, ValType::i64())
+        I64AtomicRmw32CmpxchgUOp =>
+          typecheck_atomic_cmpxchg(st3, ma, 32, ValType::i64())
+      }
+    }
 
     // === Table ops ===
     TTableGet(t, idx) => {

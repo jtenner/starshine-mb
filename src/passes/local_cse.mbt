@@ -841,76 +841,82 @@ fn lcs_shallow_hash(instr : TInstr) -> UInt64 {
     TStore(_, _, _, _) => 30UL
     TLoad(_, _, _) => 31UL
     TMemoryGrow(_, _) => 32UL
-    TMemoryFill(_, _, _, _) => 33UL
-    TMemoryCopy(_, _, _, _, _) => 34UL
-    TMemoryInit(_, _, _, _, _) => 35UL
-    TDataDrop(_) => 36UL
-    TTableGet(_, _) => 37UL
-    TTableSet(_, _, _) => 38UL
-    TTableGrow(_, _, _) => 39UL
-    TTableFill(_, _, _, _) => 40UL
-    TTableCopy(_, _, _, _, _) => 41UL
-    TTableInit(_, _, _, _, _) => 42UL
-    TElemDrop(_) => 43UL
-    TCall(_, _) => 44UL
-    TCallIndirect(_, _, _, _) => 45UL
-    TCallRef(_, _, _) => 46UL
-    TReturnCall(_, _) => 47UL
-    TReturnCallIndirect(_, _, _, _) => 48UL
-    TReturnCallRef(_, _, _) => 49UL
-    TBlock(_, _) => 50UL
-    TLoop(_, _) => 51UL
-    TIf(_, _, _, _) => 52UL
-    TTryTable(_, _, _) => 53UL
-    TThrow(_, _) => 54UL
-    TBr(_, _) => 55UL
-    TBrIf(_, _, _) => 56UL
-    TBrTable(_, _, _, _) => 57UL
-    TBrOnNull(_, _, _) => 58UL
-    TBrOnNonNull(_, _, _) => 59UL
-    TBrOnCast(_, _, _, _, _, _) => 60UL
-    TBrOnCastFail(_, _, _, _, _, _) => 61UL
-    TReturn(_) => 62UL
-    TSelect(_, _, _, _) => 63UL
-    TStructNew(_, _) => 64UL
-    TStructNewDefault(_) => 65UL
-    TStructGet(_, _, _) => 66UL
-    TStructGetS(_, _, _) => 67UL
-    TStructGetU(_, _, _) => 68UL
-    TStructSet(_, _, _, _) => 69UL
-    TArrayNew(_, _, _) => 70UL
-    TArrayNewDefault(_, _) => 71UL
-    TArrayNewFixed(_, _) => 72UL
-    TArrayNewData(_, _, _, _) => 73UL
-    TArrayNewElem(_, _, _, _) => 74UL
-    TArrayGet(_, _, _) => 75UL
-    TArrayGetS(_, _, _) => 76UL
-    TArrayGetU(_, _, _) => 77UL
-    TArraySet(_, _, _, _) => 78UL
-    TArrayFill(_, _, _, _, _) => 79UL
-    TArrayCopy(_, _, _, _, _, _, _) => 80UL
-    TArrayInitData(_, _, _, _, _, _) => 81UL
-    TArrayInitElem(_, _, _, _, _, _) => 82UL
-    TRefTest(_, _, _) => 83UL
-    TRefCast(_, _, _) => 84UL
-    TRefGetDesc(_) => 85UL
-    TRefTestDesc(_, _, _) => 86UL
-    TRefCastDescEq(_, _, _) => 87UL
-    TI8x16Splat(_) => 88UL
-    TI16x8Splat(_) => 89UL
-    TI32x4Splat(_) => 90UL
-    TI64x2Splat(_) => 91UL
-    TF32x4Splat(_) => 92UL
-    TF64x2Splat(_) => 93UL
-    TExtractLane(_, _, _) => 94UL
-    TReplaceLane(_, _, _, _) => 95UL
-    TI8x16Shuffle(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => 96UL
-    TI8x16Swizzle(_, _) => 97UL
-    TI8x16RelaxedSwizzle(_, _) => 98UL
-    TV128Shift(_, _, _) => 99UL
-    TV128Ternary(_, _, _, _) => 100UL
-    TV128LoadLane(_, _, _, _, _) => 101UL
-    TV128StoreLane(_, _, _, _, _) => 102UL
+    TMemoryAtomicNotify(_, _, _) => 33UL
+    TMemoryAtomicWait32(_, _, _, _) => 34UL
+    TMemoryAtomicWait64(_, _, _, _) => 35UL
+    TAtomicFence => 36UL
+    TAtomicRmw(_, _, _, _) => 37UL
+    TAtomicCmpxchg(_, _, _, _, _) => 38UL
+    TMemoryFill(_, _, _, _) => 39UL
+    TMemoryCopy(_, _, _, _, _) => 40UL
+    TMemoryInit(_, _, _, _, _) => 41UL
+    TDataDrop(_) => 42UL
+    TTableGet(_, _) => 43UL
+    TTableSet(_, _, _) => 44UL
+    TTableGrow(_, _, _) => 45UL
+    TTableFill(_, _, _, _) => 46UL
+    TTableCopy(_, _, _, _, _) => 47UL
+    TTableInit(_, _, _, _, _) => 48UL
+    TElemDrop(_) => 49UL
+    TCall(_, _) => 50UL
+    TCallIndirect(_, _, _, _) => 51UL
+    TCallRef(_, _, _) => 52UL
+    TReturnCall(_, _) => 53UL
+    TReturnCallIndirect(_, _, _, _) => 54UL
+    TReturnCallRef(_, _, _) => 55UL
+    TBlock(_, _) => 56UL
+    TLoop(_, _) => 57UL
+    TIf(_, _, _, _) => 58UL
+    TTryTable(_, _, _) => 59UL
+    TThrow(_, _) => 60UL
+    TBr(_, _) => 61UL
+    TBrIf(_, _, _) => 62UL
+    TBrTable(_, _, _, _) => 63UL
+    TBrOnNull(_, _, _) => 64UL
+    TBrOnNonNull(_, _, _) => 65UL
+    TBrOnCast(_, _, _, _, _, _) => 66UL
+    TBrOnCastFail(_, _, _, _, _, _) => 67UL
+    TReturn(_) => 68UL
+    TSelect(_, _, _, _) => 69UL
+    TStructNew(_, _) => 70UL
+    TStructNewDefault(_) => 71UL
+    TStructGet(_, _, _) => 72UL
+    TStructGetS(_, _, _) => 73UL
+    TStructGetU(_, _, _) => 74UL
+    TStructSet(_, _, _, _) => 75UL
+    TArrayNew(_, _, _) => 76UL
+    TArrayNewDefault(_, _) => 77UL
+    TArrayNewFixed(_, _) => 78UL
+    TArrayNewData(_, _, _, _) => 79UL
+    TArrayNewElem(_, _, _, _) => 80UL
+    TArrayGet(_, _, _) => 81UL
+    TArrayGetS(_, _, _) => 82UL
+    TArrayGetU(_, _, _) => 83UL
+    TArraySet(_, _, _, _) => 84UL
+    TArrayFill(_, _, _, _, _) => 85UL
+    TArrayCopy(_, _, _, _, _, _, _) => 86UL
+    TArrayInitData(_, _, _, _, _, _) => 87UL
+    TArrayInitElem(_, _, _, _, _, _) => 88UL
+    TRefTest(_, _, _) => 89UL
+    TRefCast(_, _, _) => 90UL
+    TRefGetDesc(_) => 91UL
+    TRefTestDesc(_, _, _) => 92UL
+    TRefCastDescEq(_, _, _) => 93UL
+    TI8x16Splat(_) => 94UL
+    TI16x8Splat(_) => 95UL
+    TI32x4Splat(_) => 96UL
+    TI64x2Splat(_) => 97UL
+    TF32x4Splat(_) => 98UL
+    TF64x2Splat(_) => 99UL
+    TExtractLane(_, _, _) => 100UL
+    TReplaceLane(_, _, _, _) => 101UL
+    TI8x16Shuffle(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => 102UL
+    TI8x16Swizzle(_, _) => 103UL
+    TI8x16RelaxedSwizzle(_, _) => 104UL
+    TV128Shift(_, _, _) => 105UL
+    TV128Ternary(_, _, _, _) => 106UL
+    TV128LoadLane(_, _, _, _, _) => 107UL
+    TV128StoreLane(_, _, _, _, _) => 108UL
   }
   tag * 11400714819323198485UL
 }
@@ -1241,6 +1247,7 @@ fn lcs_rebuild_non_control(instr : TInstr, children : Array[TInstr]) -> TInstr {
     | TLocalGet(_)
     | TGlobalGet(_)
     | TMemorySize(_)
+    | TAtomicFence
     | TTableSize(_)
     | TDataDrop(_)
     | TElemDrop(_)
@@ -1292,6 +1299,10 @@ fn lcs_rebuild_non_control(instr : TInstr, children : Array[TInstr]) -> TInstr {
     TRefEq(_, _) => TInstr::ref_eq(children[0], children[1])
     TStore(op, memarg, _, _) =>
       TInstr::store(op, memarg, children[0], children[1])
+    TMemoryAtomicNotify(memarg, _, _) =>
+      TInstr::memory_atomic_notify(memarg, children[0], children[1])
+    TAtomicRmw(op, memarg, _, _) =>
+      TInstr::atomic_rmw(op, memarg, children[0], children[1])
     TTableSet(table_idx, _, _) =>
       TInstr::table_set(table_idx, children[0], children[1])
     TTableGrow(table_idx, _, _) =>
@@ -1334,6 +1345,22 @@ fn lcs_rebuild_non_control(instr : TInstr, children : Array[TInstr]) -> TInstr {
         children[1],
         children[2],
       )
+    TMemoryAtomicWait32(memarg, _, _, _) =>
+      TInstr::memory_atomic_wait32(
+        memarg,
+        children[0],
+        children[1],
+        children[2],
+      )
+    TMemoryAtomicWait64(memarg, _, _, _) =>
+      TInstr::memory_atomic_wait64(
+        memarg,
+        children[0],
+        children[1],
+        children[2],
+      )
+    TAtomicCmpxchg(op, memarg, _, _, _) =>
+      TInstr::atomic_cmpxchg(op, memarg, children[0], children[1], children[2])
     TTableFill(table_idx, _, _, _) =>
       TInstr::table_fill(table_idx, children[0], children[1], children[2])
     TTableCopy(dst, src, _, _, _) =>

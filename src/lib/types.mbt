@@ -408,6 +408,26 @@ pub enum Instruction {
   I64Store32(MemArg)
   MemorySize(MemIdx)
   MemoryGrow(MemIdx)
+  MemoryAtomicNotify(MemArg)
+  MemoryAtomicWait32(MemArg)
+  MemoryAtomicWait64(MemArg)
+  AtomicFence
+  I32AtomicLoad(MemArg)
+  I64AtomicLoad(MemArg)
+  I32AtomicLoad8U(MemArg)
+  I32AtomicLoad16U(MemArg)
+  I64AtomicLoad8U(MemArg)
+  I64AtomicLoad16U(MemArg)
+  I64AtomicLoad32U(MemArg)
+  I32AtomicStore(MemArg)
+  I64AtomicStore(MemArg)
+  I32AtomicStore8(MemArg)
+  I32AtomicStore16(MemArg)
+  I64AtomicStore8(MemArg)
+  I64AtomicStore16(MemArg)
+  I64AtomicStore32(MemArg)
+  AtomicRmw(AtomicRmwOp, MemArg)
+  AtomicCmpxchg(AtomicCmpxchgOp, MemArg)
   I32Const(I32)
   I64Const(I64)
   F32Const(F32)
@@ -1252,6 +1272,12 @@ pub enum TInstr {
   TMemoryCopy(MemIdx, MemIdx, TInstr, TInstr, TInstr) // dest, src, len
   TMemoryInit(DataIdx, MemIdx, TInstr, TInstr, TInstr)
   TDataDrop(DataIdx)
+  TMemoryAtomicNotify(MemArg, TInstr, TInstr) // addr, count
+  TMemoryAtomicWait32(MemArg, TInstr, TInstr, TInstr) // addr, expected, timeout
+  TMemoryAtomicWait64(MemArg, TInstr, TInstr, TInstr) // addr, expected, timeout
+  TAtomicFence
+  TAtomicRmw(AtomicRmwOp, MemArg, TInstr, TInstr) // addr, value
+  TAtomicCmpxchg(AtomicCmpxchgOp, MemArg, TInstr, TInstr, TInstr) // addr, expected, replacement
 
   // === Table operations ===
   TTableGet(TableIdx, TInstr)
@@ -1766,6 +1792,13 @@ pub enum LoadOp {
   I64Load16UOp
   I64Load32SOp
   I64Load32UOp
+  I32AtomicLoadOp
+  I64AtomicLoadOp
+  I32AtomicLoad8UOp
+  I32AtomicLoad16UOp
+  I64AtomicLoad8UOp
+  I64AtomicLoad16UOp
+  I64AtomicLoad32UOp
 
   // === SIMD ===
   V128LoadOp
@@ -1796,9 +1829,73 @@ pub enum StoreOp {
   I64Store8Op
   I64Store16Op
   I64Store32Op
+  I32AtomicStoreOp
+  I64AtomicStoreOp
+  I32AtomicStore8Op
+  I32AtomicStore16Op
+  I64AtomicStore8Op
+  I64AtomicStore16Op
+  I64AtomicStore32Op
 
   // === SIMD ===
   V128StoreOp
+} derive(Eq, Show, Hash, Debug)
+
+///|
+pub enum AtomicRmwOp {
+  I32AtomicRmwAddOp
+  I64AtomicRmwAddOp
+  I32AtomicRmw8AddUOp
+  I32AtomicRmw16AddUOp
+  I64AtomicRmw8AddUOp
+  I64AtomicRmw16AddUOp
+  I64AtomicRmw32AddUOp
+  I32AtomicRmwSubOp
+  I64AtomicRmwSubOp
+  I32AtomicRmw8SubUOp
+  I32AtomicRmw16SubUOp
+  I64AtomicRmw8SubUOp
+  I64AtomicRmw16SubUOp
+  I64AtomicRmw32SubUOp
+  I32AtomicRmwAndOp
+  I64AtomicRmwAndOp
+  I32AtomicRmw8AndUOp
+  I32AtomicRmw16AndUOp
+  I64AtomicRmw8AndUOp
+  I64AtomicRmw16AndUOp
+  I64AtomicRmw32AndUOp
+  I32AtomicRmwOrOp
+  I64AtomicRmwOrOp
+  I32AtomicRmw8OrUOp
+  I32AtomicRmw16OrUOp
+  I64AtomicRmw8OrUOp
+  I64AtomicRmw16OrUOp
+  I64AtomicRmw32OrUOp
+  I32AtomicRmwXorOp
+  I64AtomicRmwXorOp
+  I32AtomicRmw8XorUOp
+  I32AtomicRmw16XorUOp
+  I64AtomicRmw8XorUOp
+  I64AtomicRmw16XorUOp
+  I64AtomicRmw32XorUOp
+  I32AtomicRmwXchgOp
+  I64AtomicRmwXchgOp
+  I32AtomicRmw8XchgUOp
+  I32AtomicRmw16XchgUOp
+  I64AtomicRmw8XchgUOp
+  I64AtomicRmw16XchgUOp
+  I64AtomicRmw32XchgUOp
+} derive(Eq, Show, Hash, Debug)
+
+///|
+pub enum AtomicCmpxchgOp {
+  I32AtomicRmwCmpxchgOp
+  I64AtomicRmwCmpxchgOp
+  I32AtomicRmw8CmpxchgUOp
+  I32AtomicRmw16CmpxchgUOp
+  I64AtomicRmw8CmpxchgUOp
+  I64AtomicRmw16CmpxchgUOp
+  I64AtomicRmw32CmpxchgUOp
 } derive(Eq, Show, Hash, Debug)
 
 ///|
@@ -2470,6 +2567,109 @@ pub fn Instruction::memory_size(mi : MemIdx) -> Instruction {
 ///|
 pub fn Instruction::memory_grow(mi : MemIdx) -> Instruction {
   MemoryGrow(mi)
+}
+
+///|
+pub fn Instruction::memory_atomic_notify(ma : MemArg) -> Instruction {
+  MemoryAtomicNotify(ma)
+}
+
+///|
+pub fn Instruction::memory_atomic_wait32(ma : MemArg) -> Instruction {
+  MemoryAtomicWait32(ma)
+}
+
+///|
+pub fn Instruction::memory_atomic_wait64(ma : MemArg) -> Instruction {
+  MemoryAtomicWait64(ma)
+}
+
+///|
+pub fn Instruction::atomic_fence() -> Instruction {
+  AtomicFence
+}
+
+///|
+pub fn Instruction::i32_atomic_load(ma : MemArg) -> Instruction {
+  I32AtomicLoad(ma)
+}
+
+///|
+pub fn Instruction::i64_atomic_load(ma : MemArg) -> Instruction {
+  I64AtomicLoad(ma)
+}
+
+///|
+pub fn Instruction::i32_atomic_load8_u(ma : MemArg) -> Instruction {
+  I32AtomicLoad8U(ma)
+}
+
+///|
+pub fn Instruction::i32_atomic_load16_u(ma : MemArg) -> Instruction {
+  I32AtomicLoad16U(ma)
+}
+
+///|
+pub fn Instruction::i64_atomic_load8_u(ma : MemArg) -> Instruction {
+  I64AtomicLoad8U(ma)
+}
+
+///|
+pub fn Instruction::i64_atomic_load16_u(ma : MemArg) -> Instruction {
+  I64AtomicLoad16U(ma)
+}
+
+///|
+pub fn Instruction::i64_atomic_load32_u(ma : MemArg) -> Instruction {
+  I64AtomicLoad32U(ma)
+}
+
+///|
+pub fn Instruction::i32_atomic_store(ma : MemArg) -> Instruction {
+  I32AtomicStore(ma)
+}
+
+///|
+pub fn Instruction::i64_atomic_store(ma : MemArg) -> Instruction {
+  I64AtomicStore(ma)
+}
+
+///|
+pub fn Instruction::i32_atomic_store8(ma : MemArg) -> Instruction {
+  I32AtomicStore8(ma)
+}
+
+///|
+pub fn Instruction::i32_atomic_store16(ma : MemArg) -> Instruction {
+  I32AtomicStore16(ma)
+}
+
+///|
+pub fn Instruction::i64_atomic_store8(ma : MemArg) -> Instruction {
+  I64AtomicStore8(ma)
+}
+
+///|
+pub fn Instruction::i64_atomic_store16(ma : MemArg) -> Instruction {
+  I64AtomicStore16(ma)
+}
+
+///|
+pub fn Instruction::i64_atomic_store32(ma : MemArg) -> Instruction {
+  I64AtomicStore32(ma)
+}
+
+///|
+pub fn Instruction::atomic_rmw(op : AtomicRmwOp, ma : MemArg) -> Instruction {
+  AtomicRmw(op, ma)
+}
+
+///|
+pub fn Instruction::atomic_cmpxchg(
+  op : AtomicCmpxchgOp,
+  ma : MemArg,
+) -> Instruction {
+  AtomicCmpxchg(op, ma)
 }
 
 ///|
@@ -4976,6 +5176,61 @@ pub fn TInstr::data_drop(di : DataIdx) -> TInstr {
 }
 
 ///|
+pub fn TInstr::memory_atomic_notify(
+  ma : MemArg,
+  i0 : TInstr,
+  i1 : TInstr,
+) -> TInstr {
+  TMemoryAtomicNotify(ma, i0, i1)
+}
+
+///|
+pub fn TInstr::memory_atomic_wait32(
+  ma : MemArg,
+  i0 : TInstr,
+  i1 : TInstr,
+  i2 : TInstr,
+) -> TInstr {
+  TMemoryAtomicWait32(ma, i0, i1, i2)
+}
+
+///|
+pub fn TInstr::memory_atomic_wait64(
+  ma : MemArg,
+  i0 : TInstr,
+  i1 : TInstr,
+  i2 : TInstr,
+) -> TInstr {
+  TMemoryAtomicWait64(ma, i0, i1, i2)
+}
+
+///|
+pub fn TInstr::atomic_fence() -> TInstr {
+  TAtomicFence
+}
+
+///|
+pub fn TInstr::atomic_rmw(
+  op : AtomicRmwOp,
+  ma : MemArg,
+  i0 : TInstr,
+  i1 : TInstr,
+) -> TInstr {
+  TAtomicRmw(op, ma, i0, i1)
+}
+
+///|
+pub fn TInstr::atomic_cmpxchg(
+  op : AtomicCmpxchgOp,
+  ma : MemArg,
+  i0 : TInstr,
+  i1 : TInstr,
+  i2 : TInstr,
+) -> TInstr {
+  TAtomicCmpxchg(op, ma, i0, i1, i2)
+}
+
+///|
 pub fn TInstr::table_get(ti : TableIdx, i : TInstr) -> TInstr {
   TTableGet(ti, i)
 }
@@ -7176,6 +7431,41 @@ pub fn LoadOp::i64_load32u() -> LoadOp {
 }
 
 ///|
+pub fn LoadOp::i32_atomic_load() -> LoadOp {
+  I32AtomicLoadOp
+}
+
+///|
+pub fn LoadOp::i64_atomic_load() -> LoadOp {
+  I64AtomicLoadOp
+}
+
+///|
+pub fn LoadOp::i32_atomic_load8_u() -> LoadOp {
+  I32AtomicLoad8UOp
+}
+
+///|
+pub fn LoadOp::i32_atomic_load16_u() -> LoadOp {
+  I32AtomicLoad16UOp
+}
+
+///|
+pub fn LoadOp::i64_atomic_load8_u() -> LoadOp {
+  I64AtomicLoad8UOp
+}
+
+///|
+pub fn LoadOp::i64_atomic_load16_u() -> LoadOp {
+  I64AtomicLoad16UOp
+}
+
+///|
+pub fn LoadOp::i64_atomic_load32_u() -> LoadOp {
+  I64AtomicLoad32UOp
+}
+
+///|
 pub fn LoadOp::v128_load() -> LoadOp {
   V128LoadOp
 }
@@ -7286,8 +7576,288 @@ pub fn StoreOp::i64_store32() -> StoreOp {
 }
 
 ///|
+pub fn StoreOp::i32_atomic_store() -> StoreOp {
+  I32AtomicStoreOp
+}
+
+///|
+pub fn StoreOp::i64_atomic_store() -> StoreOp {
+  I64AtomicStoreOp
+}
+
+///|
+pub fn StoreOp::i32_atomic_store8() -> StoreOp {
+  I32AtomicStore8Op
+}
+
+///|
+pub fn StoreOp::i32_atomic_store16() -> StoreOp {
+  I32AtomicStore16Op
+}
+
+///|
+pub fn StoreOp::i64_atomic_store8() -> StoreOp {
+  I64AtomicStore8Op
+}
+
+///|
+pub fn StoreOp::i64_atomic_store16() -> StoreOp {
+  I64AtomicStore16Op
+}
+
+///|
+pub fn StoreOp::i64_atomic_store32() -> StoreOp {
+  I64AtomicStore32Op
+}
+
+///|
 pub fn StoreOp::v128_store() -> StoreOp {
   V128StoreOp
+}
+
+///|
+pub fn AtomicRmwOp::i32_add() -> AtomicRmwOp {
+  I32AtomicRmwAddOp
+}
+
+///|
+pub fn AtomicRmwOp::i64_add() -> AtomicRmwOp {
+  I64AtomicRmwAddOp
+}
+
+///|
+pub fn AtomicRmwOp::i32_8_add_u() -> AtomicRmwOp {
+  I32AtomicRmw8AddUOp
+}
+
+///|
+pub fn AtomicRmwOp::i32_16_add_u() -> AtomicRmwOp {
+  I32AtomicRmw16AddUOp
+}
+
+///|
+pub fn AtomicRmwOp::i64_8_add_u() -> AtomicRmwOp {
+  I64AtomicRmw8AddUOp
+}
+
+///|
+pub fn AtomicRmwOp::i64_16_add_u() -> AtomicRmwOp {
+  I64AtomicRmw16AddUOp
+}
+
+///|
+pub fn AtomicRmwOp::i64_32_add_u() -> AtomicRmwOp {
+  I64AtomicRmw32AddUOp
+}
+
+///|
+pub fn AtomicRmwOp::i32_sub() -> AtomicRmwOp {
+  I32AtomicRmwSubOp
+}
+
+///|
+pub fn AtomicRmwOp::i64_sub() -> AtomicRmwOp {
+  I64AtomicRmwSubOp
+}
+
+///|
+pub fn AtomicRmwOp::i32_8_sub_u() -> AtomicRmwOp {
+  I32AtomicRmw8SubUOp
+}
+
+///|
+pub fn AtomicRmwOp::i32_16_sub_u() -> AtomicRmwOp {
+  I32AtomicRmw16SubUOp
+}
+
+///|
+pub fn AtomicRmwOp::i64_8_sub_u() -> AtomicRmwOp {
+  I64AtomicRmw8SubUOp
+}
+
+///|
+pub fn AtomicRmwOp::i64_16_sub_u() -> AtomicRmwOp {
+  I64AtomicRmw16SubUOp
+}
+
+///|
+pub fn AtomicRmwOp::i64_32_sub_u() -> AtomicRmwOp {
+  I64AtomicRmw32SubUOp
+}
+
+///|
+pub fn AtomicRmwOp::i32_and() -> AtomicRmwOp {
+  I32AtomicRmwAndOp
+}
+
+///|
+pub fn AtomicRmwOp::i64_and() -> AtomicRmwOp {
+  I64AtomicRmwAndOp
+}
+
+///|
+pub fn AtomicRmwOp::i32_8_and_u() -> AtomicRmwOp {
+  I32AtomicRmw8AndUOp
+}
+
+///|
+pub fn AtomicRmwOp::i32_16_and_u() -> AtomicRmwOp {
+  I32AtomicRmw16AndUOp
+}
+
+///|
+pub fn AtomicRmwOp::i64_8_and_u() -> AtomicRmwOp {
+  I64AtomicRmw8AndUOp
+}
+
+///|
+pub fn AtomicRmwOp::i64_16_and_u() -> AtomicRmwOp {
+  I64AtomicRmw16AndUOp
+}
+
+///|
+pub fn AtomicRmwOp::i64_32_and_u() -> AtomicRmwOp {
+  I64AtomicRmw32AndUOp
+}
+
+///|
+pub fn AtomicRmwOp::i32_or() -> AtomicRmwOp {
+  I32AtomicRmwOrOp
+}
+
+///|
+pub fn AtomicRmwOp::i64_or() -> AtomicRmwOp {
+  I64AtomicRmwOrOp
+}
+
+///|
+pub fn AtomicRmwOp::i32_8_or_u() -> AtomicRmwOp {
+  I32AtomicRmw8OrUOp
+}
+
+///|
+pub fn AtomicRmwOp::i32_16_or_u() -> AtomicRmwOp {
+  I32AtomicRmw16OrUOp
+}
+
+///|
+pub fn AtomicRmwOp::i64_8_or_u() -> AtomicRmwOp {
+  I64AtomicRmw8OrUOp
+}
+
+///|
+pub fn AtomicRmwOp::i64_16_or_u() -> AtomicRmwOp {
+  I64AtomicRmw16OrUOp
+}
+
+///|
+pub fn AtomicRmwOp::i64_32_or_u() -> AtomicRmwOp {
+  I64AtomicRmw32OrUOp
+}
+
+///|
+pub fn AtomicRmwOp::i32_xor() -> AtomicRmwOp {
+  I32AtomicRmwXorOp
+}
+
+///|
+pub fn AtomicRmwOp::i64_xor() -> AtomicRmwOp {
+  I64AtomicRmwXorOp
+}
+
+///|
+pub fn AtomicRmwOp::i32_8_xor_u() -> AtomicRmwOp {
+  I32AtomicRmw8XorUOp
+}
+
+///|
+pub fn AtomicRmwOp::i32_16_xor_u() -> AtomicRmwOp {
+  I32AtomicRmw16XorUOp
+}
+
+///|
+pub fn AtomicRmwOp::i64_8_xor_u() -> AtomicRmwOp {
+  I64AtomicRmw8XorUOp
+}
+
+///|
+pub fn AtomicRmwOp::i64_16_xor_u() -> AtomicRmwOp {
+  I64AtomicRmw16XorUOp
+}
+
+///|
+pub fn AtomicRmwOp::i64_32_xor_u() -> AtomicRmwOp {
+  I64AtomicRmw32XorUOp
+}
+
+///|
+pub fn AtomicRmwOp::i32_xchg() -> AtomicRmwOp {
+  I32AtomicRmwXchgOp
+}
+
+///|
+pub fn AtomicRmwOp::i64_xchg() -> AtomicRmwOp {
+  I64AtomicRmwXchgOp
+}
+
+///|
+pub fn AtomicRmwOp::i32_8_xchg_u() -> AtomicRmwOp {
+  I32AtomicRmw8XchgUOp
+}
+
+///|
+pub fn AtomicRmwOp::i32_16_xchg_u() -> AtomicRmwOp {
+  I32AtomicRmw16XchgUOp
+}
+
+///|
+pub fn AtomicRmwOp::i64_8_xchg_u() -> AtomicRmwOp {
+  I64AtomicRmw8XchgUOp
+}
+
+///|
+pub fn AtomicRmwOp::i64_16_xchg_u() -> AtomicRmwOp {
+  I64AtomicRmw16XchgUOp
+}
+
+///|
+pub fn AtomicRmwOp::i64_32_xchg_u() -> AtomicRmwOp {
+  I64AtomicRmw32XchgUOp
+}
+
+///|
+pub fn AtomicCmpxchgOp::i32() -> AtomicCmpxchgOp {
+  I32AtomicRmwCmpxchgOp
+}
+
+///|
+pub fn AtomicCmpxchgOp::i64() -> AtomicCmpxchgOp {
+  I64AtomicRmwCmpxchgOp
+}
+
+///|
+pub fn AtomicCmpxchgOp::i32_8_u() -> AtomicCmpxchgOp {
+  I32AtomicRmw8CmpxchgUOp
+}
+
+///|
+pub fn AtomicCmpxchgOp::i32_16_u() -> AtomicCmpxchgOp {
+  I32AtomicRmw16CmpxchgUOp
+}
+
+///|
+pub fn AtomicCmpxchgOp::i64_8_u() -> AtomicCmpxchgOp {
+  I64AtomicRmw8CmpxchgUOp
+}
+
+///|
+pub fn AtomicCmpxchgOp::i64_16_u() -> AtomicCmpxchgOp {
+  I64AtomicRmw16CmpxchgUOp
+}
+
+///|
+pub fn AtomicCmpxchgOp::i64_32_u() -> AtomicCmpxchgOp {
+  I64AtomicRmw32CmpxchgUOp
 }
 
 ///|

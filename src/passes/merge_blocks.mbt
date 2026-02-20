@@ -1932,6 +1932,7 @@ fn mb_eval_children(instr : TInstr) -> Array[TInstr] {
     | TLocalGet(_)
     | TGlobalGet(_)
     | TMemorySize(_)
+    | TAtomicFence
     | TTableSize(_)
     | TDataDrop(_)
     | TElemDrop(_)
@@ -1976,6 +1977,8 @@ fn mb_eval_children(instr : TInstr) -> Array[TInstr] {
     TBinary(_, left, right)
     | TRefEq(left, right)
     | TStore(_, _, left, right)
+    | TMemoryAtomicNotify(_, left, right)
+    | TAtomicRmw(_, _, left, right)
     | TTableSet(_, left, right)
     | TTableGrow(_, left, right)
     | TStructSet(_, _, left, right)
@@ -1996,6 +1999,9 @@ fn mb_eval_children(instr : TInstr) -> Array[TInstr] {
     TMemoryFill(_, a, b, c)
     | TMemoryCopy(_, _, a, b, c)
     | TMemoryInit(_, _, a, b, c)
+    | TMemoryAtomicWait32(_, a, b, c)
+    | TMemoryAtomicWait64(_, a, b, c)
+    | TAtomicCmpxchg(_, _, a, b, c)
     | TTableFill(_, a, b, c)
     | TTableCopy(_, _, a, b, c)
     | TTableInit(_, _, a, b, c)
@@ -2067,6 +2073,7 @@ fn mb_rebuild_non_control(instr : TInstr, children : Array[TInstr]) -> TInstr {
     | TLocalGet(_)
     | TGlobalGet(_)
     | TMemorySize(_)
+    | TAtomicFence
     | TTableSize(_)
     | TDataDrop(_)
     | TElemDrop(_)
@@ -2118,6 +2125,10 @@ fn mb_rebuild_non_control(instr : TInstr, children : Array[TInstr]) -> TInstr {
     TRefEq(_, _) => TInstr::ref_eq(children[0], children[1])
     TStore(op, memarg, _, _) =>
       TInstr::store(op, memarg, children[0], children[1])
+    TMemoryAtomicNotify(memarg, _, _) =>
+      TInstr::memory_atomic_notify(memarg, children[0], children[1])
+    TAtomicRmw(op, memarg, _, _) =>
+      TInstr::atomic_rmw(op, memarg, children[0], children[1])
     TTableSet(table_idx, _, _) =>
       TInstr::table_set(table_idx, children[0], children[1])
     TTableGrow(table_idx, _, _) =>
@@ -2160,6 +2171,22 @@ fn mb_rebuild_non_control(instr : TInstr, children : Array[TInstr]) -> TInstr {
         children[1],
         children[2],
       )
+    TMemoryAtomicWait32(memarg, _, _, _) =>
+      TInstr::memory_atomic_wait32(
+        memarg,
+        children[0],
+        children[1],
+        children[2],
+      )
+    TMemoryAtomicWait64(memarg, _, _, _) =>
+      TInstr::memory_atomic_wait64(
+        memarg,
+        children[0],
+        children[1],
+        children[2],
+      )
+    TAtomicCmpxchg(op, memarg, _, _, _) =>
+      TInstr::atomic_cmpxchg(op, memarg, children[0], children[1], children[2])
     TTableFill(table_idx, _, _, _) =>
       TInstr::table_fill(table_idx, children[0], children[1], children[2])
     TTableCopy(dst, src, _, _, _) =>

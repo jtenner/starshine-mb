@@ -68,6 +68,8 @@ using @lib {
   type BlockType,
   type Catch,
   type MemArg,
+  type AtomicRmwOp,
+  type AtomicCmpxchgOp,
   tlocals_to_locals,
   type NumType,
   type ElemKind,

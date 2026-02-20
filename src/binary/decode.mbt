@@ -2306,6 +2306,170 @@ pub impl Decode for Instruction with decode(bytes, i) {
         _ => Err("Invalid Instruction")
       }
 
+    // Section: Threads atomics
+    Some(0xFE) =>
+      match Decode::decode(bytes, i + 1) {
+        Ok((@lib.U32(0), i)) =>
+          match Decode::decode(bytes, i) {
+            Ok((m, i)) => Ok((Instruction::memory_atomic_notify(m), i))
+            Err(t) => Err(t)
+          }
+        Ok((@lib.U32(1), i)) =>
+          match Decode::decode(bytes, i) {
+            Ok((m, i)) => Ok((Instruction::memory_atomic_wait32(m), i))
+            Err(t) => Err(t)
+          }
+        Ok((@lib.U32(2), i)) =>
+          match Decode::decode(bytes, i) {
+            Ok((m, i)) => Ok((Instruction::memory_atomic_wait64(m), i))
+            Err(t) => Err(t)
+          }
+        Ok((@lib.U32(3), i)) =>
+          match bytes.get(i) {
+            Some(0x00) => Ok((Instruction::atomic_fence(), i + 1))
+            _ => Err("Invalid atomic.fence immediate")
+          }
+        Ok((@lib.U32(16), i)) =>
+          match Decode::decode(bytes, i) {
+            Ok((m, i)) => Ok((Instruction::i32_atomic_load(m), i))
+            Err(t) => Err(t)
+          }
+        Ok((@lib.U32(17), i)) =>
+          match Decode::decode(bytes, i) {
+            Ok((m, i)) => Ok((Instruction::i64_atomic_load(m), i))
+            Err(t) => Err(t)
+          }
+        Ok((@lib.U32(18), i)) =>
+          match Decode::decode(bytes, i) {
+            Ok((m, i)) => Ok((Instruction::i32_atomic_load8_u(m), i))
+            Err(t) => Err(t)
+          }
+        Ok((@lib.U32(19), i)) =>
+          match Decode::decode(bytes, i) {
+            Ok((m, i)) => Ok((Instruction::i32_atomic_load16_u(m), i))
+            Err(t) => Err(t)
+          }
+        Ok((@lib.U32(20), i)) =>
+          match Decode::decode(bytes, i) {
+            Ok((m, i)) => Ok((Instruction::i64_atomic_load8_u(m), i))
+            Err(t) => Err(t)
+          }
+        Ok((@lib.U32(21), i)) =>
+          match Decode::decode(bytes, i) {
+            Ok((m, i)) => Ok((Instruction::i64_atomic_load16_u(m), i))
+            Err(t) => Err(t)
+          }
+        Ok((@lib.U32(22), i)) =>
+          match Decode::decode(bytes, i) {
+            Ok((m, i)) => Ok((Instruction::i64_atomic_load32_u(m), i))
+            Err(t) => Err(t)
+          }
+        Ok((@lib.U32(23), i)) =>
+          match Decode::decode(bytes, i) {
+            Ok((m, i)) => Ok((Instruction::i32_atomic_store(m), i))
+            Err(t) => Err(t)
+          }
+        Ok((@lib.U32(24), i)) =>
+          match Decode::decode(bytes, i) {
+            Ok((m, i)) => Ok((Instruction::i64_atomic_store(m), i))
+            Err(t) => Err(t)
+          }
+        Ok((@lib.U32(25), i)) =>
+          match Decode::decode(bytes, i) {
+            Ok((m, i)) => Ok((Instruction::i32_atomic_store8(m), i))
+            Err(t) => Err(t)
+          }
+        Ok((@lib.U32(26), i)) =>
+          match Decode::decode(bytes, i) {
+            Ok((m, i)) => Ok((Instruction::i32_atomic_store16(m), i))
+            Err(t) => Err(t)
+          }
+        Ok((@lib.U32(27), i)) =>
+          match Decode::decode(bytes, i) {
+            Ok((m, i)) => Ok((Instruction::i64_atomic_store8(m), i))
+            Err(t) => Err(t)
+          }
+        Ok((@lib.U32(28), i)) =>
+          match Decode::decode(bytes, i) {
+            Ok((m, i)) => Ok((Instruction::i64_atomic_store16(m), i))
+            Err(t) => Err(t)
+          }
+        Ok((@lib.U32(29), i)) =>
+          match Decode::decode(bytes, i) {
+            Ok((m, i)) => Ok((Instruction::i64_atomic_store32(m), i))
+            Err(t) => Err(t)
+          }
+        Ok((@lib.U32(id), i)) if id >= 30 && id <= 71 =>
+          match Decode::decode(bytes, i) {
+            Ok((m, i)) => {
+              let op : AtomicRmwOp = match id {
+                30 => AtomicRmwOp::i32_add()
+                31 => AtomicRmwOp::i64_add()
+                32 => AtomicRmwOp::i32_8_add_u()
+                33 => AtomicRmwOp::i32_16_add_u()
+                34 => AtomicRmwOp::i64_8_add_u()
+                35 => AtomicRmwOp::i64_16_add_u()
+                36 => AtomicRmwOp::i64_32_add_u()
+                37 => AtomicRmwOp::i32_sub()
+                38 => AtomicRmwOp::i64_sub()
+                39 => AtomicRmwOp::i32_8_sub_u()
+                40 => AtomicRmwOp::i32_16_sub_u()
+                41 => AtomicRmwOp::i64_8_sub_u()
+                42 => AtomicRmwOp::i64_16_sub_u()
+                43 => AtomicRmwOp::i64_32_sub_u()
+                44 => AtomicRmwOp::i32_and()
+                45 => AtomicRmwOp::i64_and()
+                46 => AtomicRmwOp::i32_8_and_u()
+                47 => AtomicRmwOp::i32_16_and_u()
+                48 => AtomicRmwOp::i64_8_and_u()
+                49 => AtomicRmwOp::i64_16_and_u()
+                50 => AtomicRmwOp::i64_32_and_u()
+                51 => AtomicRmwOp::i32_or()
+                52 => AtomicRmwOp::i64_or()
+                53 => AtomicRmwOp::i32_8_or_u()
+                54 => AtomicRmwOp::i32_16_or_u()
+                55 => AtomicRmwOp::i64_8_or_u()
+                56 => AtomicRmwOp::i64_16_or_u()
+                57 => AtomicRmwOp::i64_32_or_u()
+                58 => AtomicRmwOp::i32_xor()
+                59 => AtomicRmwOp::i64_xor()
+                60 => AtomicRmwOp::i32_8_xor_u()
+                61 => AtomicRmwOp::i32_16_xor_u()
+                62 => AtomicRmwOp::i64_8_xor_u()
+                63 => AtomicRmwOp::i64_16_xor_u()
+                64 => AtomicRmwOp::i64_32_xor_u()
+                65 => AtomicRmwOp::i32_xchg()
+                66 => AtomicRmwOp::i64_xchg()
+                67 => AtomicRmwOp::i32_8_xchg_u()
+                68 => AtomicRmwOp::i32_16_xchg_u()
+                69 => AtomicRmwOp::i64_8_xchg_u()
+                70 => AtomicRmwOp::i64_16_xchg_u()
+                _ => AtomicRmwOp::i64_32_xchg_u()
+              }
+              Ok((Instruction::atomic_rmw(op, m), i))
+            }
+            Err(t) => Err(t)
+          }
+        Ok((@lib.U32(id), i)) if id >= 72 && id <= 78 =>
+          match Decode::decode(bytes, i) {
+            Ok((m, i)) => {
+              let op : AtomicCmpxchgOp = match id {
+                72 => AtomicCmpxchgOp::i32()
+                73 => AtomicCmpxchgOp::i64()
+                74 => AtomicCmpxchgOp::i32_8_u()
+                75 => AtomicCmpxchgOp::i32_16_u()
+                76 => AtomicCmpxchgOp::i64_8_u()
+                77 => AtomicCmpxchgOp::i64_16_u()
+                _ => AtomicCmpxchgOp::i64_32_u()
+              }
+              Ok((Instruction::atomic_cmpxchg(op, m), i))
+            }
+            Err(t) => Err(t)
+          }
+        Err(t) => Err(t)
+        _ => Err("Invalid atomic instruction")
+      }
+
     // Section: Vector
     Some(0xFD) =>
       match Decode::decode(bytes, i + 1) {

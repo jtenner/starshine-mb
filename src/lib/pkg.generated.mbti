@@ -116,6 +116,118 @@ pub impl Show for AbsHeapType
 pub impl @debug.Debug for AbsHeapType
 pub impl @quickcheck.Arbitrary for AbsHeapType
 
+pub enum AtomicCmpxchgOp {
+  I32AtomicRmwCmpxchgOp
+  I64AtomicRmwCmpxchgOp
+  I32AtomicRmw8CmpxchgUOp
+  I32AtomicRmw16CmpxchgUOp
+  I64AtomicRmw8CmpxchgUOp
+  I64AtomicRmw16CmpxchgUOp
+  I64AtomicRmw32CmpxchgUOp
+}
+pub fn AtomicCmpxchgOp::i32() -> Self
+pub fn AtomicCmpxchgOp::i32_16_u() -> Self
+pub fn AtomicCmpxchgOp::i32_8_u() -> Self
+pub fn AtomicCmpxchgOp::i64() -> Self
+pub fn AtomicCmpxchgOp::i64_16_u() -> Self
+pub fn AtomicCmpxchgOp::i64_32_u() -> Self
+pub fn AtomicCmpxchgOp::i64_8_u() -> Self
+pub impl Eq for AtomicCmpxchgOp
+pub impl Hash for AtomicCmpxchgOp
+pub impl Show for AtomicCmpxchgOp
+pub impl @debug.Debug for AtomicCmpxchgOp
+
+pub enum AtomicRmwOp {
+  I32AtomicRmwAddOp
+  I64AtomicRmwAddOp
+  I32AtomicRmw8AddUOp
+  I32AtomicRmw16AddUOp
+  I64AtomicRmw8AddUOp
+  I64AtomicRmw16AddUOp
+  I64AtomicRmw32AddUOp
+  I32AtomicRmwSubOp
+  I64AtomicRmwSubOp
+  I32AtomicRmw8SubUOp
+  I32AtomicRmw16SubUOp
+  I64AtomicRmw8SubUOp
+  I64AtomicRmw16SubUOp
+  I64AtomicRmw32SubUOp
+  I32AtomicRmwAndOp
+  I64AtomicRmwAndOp
+  I32AtomicRmw8AndUOp
+  I32AtomicRmw16AndUOp
+  I64AtomicRmw8AndUOp
+  I64AtomicRmw16AndUOp
+  I64AtomicRmw32AndUOp
+  I32AtomicRmwOrOp
+  I64AtomicRmwOrOp
+  I32AtomicRmw8OrUOp
+  I32AtomicRmw16OrUOp
+  I64AtomicRmw8OrUOp
+  I64AtomicRmw16OrUOp
+  I64AtomicRmw32OrUOp
+  I32AtomicRmwXorOp
+  I64AtomicRmwXorOp
+  I32AtomicRmw8XorUOp
+  I32AtomicRmw16XorUOp
+  I64AtomicRmw8XorUOp
+  I64AtomicRmw16XorUOp
+  I64AtomicRmw32XorUOp
+  I32AtomicRmwXchgOp
+  I64AtomicRmwXchgOp
+  I32AtomicRmw8XchgUOp
+  I32AtomicRmw16XchgUOp
+  I64AtomicRmw8XchgUOp
+  I64AtomicRmw16XchgUOp
+  I64AtomicRmw32XchgUOp
+}
+pub fn AtomicRmwOp::i32_16_add_u() -> Self
+pub fn AtomicRmwOp::i32_16_and_u() -> Self
+pub fn AtomicRmwOp::i32_16_or_u() -> Self
+pub fn AtomicRmwOp::i32_16_sub_u() -> Self
+pub fn AtomicRmwOp::i32_16_xchg_u() -> Self
+pub fn AtomicRmwOp::i32_16_xor_u() -> Self
+pub fn AtomicRmwOp::i32_8_add_u() -> Self
+pub fn AtomicRmwOp::i32_8_and_u() -> Self
+pub fn AtomicRmwOp::i32_8_or_u() -> Self
+pub fn AtomicRmwOp::i32_8_sub_u() -> Self
+pub fn AtomicRmwOp::i32_8_xchg_u() -> Self
+pub fn AtomicRmwOp::i32_8_xor_u() -> Self
+pub fn AtomicRmwOp::i32_add() -> Self
+pub fn AtomicRmwOp::i32_and() -> Self
+pub fn AtomicRmwOp::i32_or() -> Self
+pub fn AtomicRmwOp::i32_sub() -> Self
+pub fn AtomicRmwOp::i32_xchg() -> Self
+pub fn AtomicRmwOp::i32_xor() -> Self
+pub fn AtomicRmwOp::i64_16_add_u() -> Self
+pub fn AtomicRmwOp::i64_16_and_u() -> Self
+pub fn AtomicRmwOp::i64_16_or_u() -> Self
+pub fn AtomicRmwOp::i64_16_sub_u() -> Self
+pub fn AtomicRmwOp::i64_16_xchg_u() -> Self
+pub fn AtomicRmwOp::i64_16_xor_u() -> Self
+pub fn AtomicRmwOp::i64_32_add_u() -> Self
+pub fn AtomicRmwOp::i64_32_and_u() -> Self
+pub fn AtomicRmwOp::i64_32_or_u() -> Self
+pub fn AtomicRmwOp::i64_32_sub_u() -> Self
+pub fn AtomicRmwOp::i64_32_xchg_u() -> Self
+pub fn AtomicRmwOp::i64_32_xor_u() -> Self
+pub fn AtomicRmwOp::i64_8_add_u() -> Self
+pub fn AtomicRmwOp::i64_8_and_u() -> Self
+pub fn AtomicRmwOp::i64_8_or_u() -> Self
+pub fn AtomicRmwOp::i64_8_sub_u() -> Self
+pub fn AtomicRmwOp::i64_8_xchg_u() -> Self
+pub fn AtomicRmwOp::i64_8_xor_u() -> Self
+pub fn AtomicRmwOp::i64_add() -> Self
+pub fn AtomicRmwOp::i64_and() -> Self
+pub fn AtomicRmwOp::i64_or() -> Self
+pub fn AtomicRmwOp::i64_sub() -> Self
+pub fn AtomicRmwOp::i64_xchg() -> Self
+pub fn AtomicRmwOp::i64_xor() -> Self
+pub impl Eq for AtomicRmwOp
+pub impl Hash for AtomicRmwOp
+pub impl Show for AtomicRmwOp
+pub impl @debug.Debug for AtomicRmwOp
+
 pub enum BinaryOp {
   I32EqOp
   I32NeOp
@@ -1071,6 +1183,26 @@ pub enum Instruction {
   I64Store32(MemArg)
   MemorySize(MemIdx)
   MemoryGrow(MemIdx)
+  MemoryAtomicNotify(MemArg)
+  MemoryAtomicWait32(MemArg)
+  MemoryAtomicWait64(MemArg)
+  AtomicFence
+  I32AtomicLoad(MemArg)
+  I64AtomicLoad(MemArg)
+  I32AtomicLoad8U(MemArg)
+  I32AtomicLoad16U(MemArg)
+  I64AtomicLoad8U(MemArg)
+  I64AtomicLoad16U(MemArg)
+  I64AtomicLoad32U(MemArg)
+  I32AtomicStore(MemArg)
+  I64AtomicStore(MemArg)
+  I32AtomicStore8(MemArg)
+  I32AtomicStore16(MemArg)
+  I64AtomicStore8(MemArg)
+  I64AtomicStore16(MemArg)
+  I64AtomicStore32(MemArg)
+  AtomicRmw(AtomicRmwOp, MemArg)
+  AtomicCmpxchg(AtomicCmpxchgOp, MemArg)
   I32Const(I32)
   I64Const(I64)
   F32Const(F32)
@@ -1532,6 +1664,9 @@ pub fn Instruction::array_new_default(TypeIdx) -> Self
 pub fn Instruction::array_new_elem(TypeIdx, ElemIdx) -> Self
 pub fn Instruction::array_new_fixed(TypeIdx, U32) -> Self
 pub fn Instruction::array_set(TypeIdx) -> Self
+pub fn Instruction::atomic_cmpxchg(AtomicCmpxchgOp, MemArg) -> Self
+pub fn Instruction::atomic_fence() -> Self
+pub fn Instruction::atomic_rmw(AtomicRmwOp, MemArg) -> Self
 pub fn Instruction::block(BlockType, Expr) -> Self
 pub fn Instruction::br(LabelIdx) -> Self
 pub fn Instruction::br_if(LabelIdx) -> Self
@@ -1722,6 +1857,12 @@ pub fn Instruction::i31_get_s() -> Self
 pub fn Instruction::i31_get_u() -> Self
 pub fn Instruction::i32_add() -> Self
 pub fn Instruction::i32_and() -> Self
+pub fn Instruction::i32_atomic_load(MemArg) -> Self
+pub fn Instruction::i32_atomic_load16_u(MemArg) -> Self
+pub fn Instruction::i32_atomic_load8_u(MemArg) -> Self
+pub fn Instruction::i32_atomic_store(MemArg) -> Self
+pub fn Instruction::i32_atomic_store16(MemArg) -> Self
+pub fn Instruction::i32_atomic_store8(MemArg) -> Self
 pub fn Instruction::i32_clz() -> Self
 pub fn Instruction::i32_const(I32) -> Self
 pub fn Instruction::i32_ctz() -> Self
@@ -1820,6 +1961,14 @@ pub fn Instruction::i32x4_trunc_sat_f64x2s_zero() -> Self
 pub fn Instruction::i32x4_trunc_sat_f64x2u_zero() -> Self
 pub fn Instruction::i64_add() -> Self
 pub fn Instruction::i64_and() -> Self
+pub fn Instruction::i64_atomic_load(MemArg) -> Self
+pub fn Instruction::i64_atomic_load16_u(MemArg) -> Self
+pub fn Instruction::i64_atomic_load32_u(MemArg) -> Self
+pub fn Instruction::i64_atomic_load8_u(MemArg) -> Self
+pub fn Instruction::i64_atomic_store(MemArg) -> Self
+pub fn Instruction::i64_atomic_store16(MemArg) -> Self
+pub fn Instruction::i64_atomic_store32(MemArg) -> Self
+pub fn Instruction::i64_atomic_store8(MemArg) -> Self
 pub fn Instruction::i64_clz() -> Self
 pub fn Instruction::i64_const(I64) -> Self
 pub fn Instruction::i64_ctz() -> Self
@@ -1945,6 +2094,9 @@ pub fn Instruction::local_get(LocalIdx) -> Self
 pub fn Instruction::local_set(LocalIdx) -> Self
 pub fn Instruction::local_tee(LocalIdx) -> Self
 pub fn Instruction::loop_(BlockType, Expr) -> Self
+pub fn Instruction::memory_atomic_notify(MemArg) -> Self
+pub fn Instruction::memory_atomic_wait32(MemArg) -> Self
+pub fn Instruction::memory_atomic_wait64(MemArg) -> Self
 pub fn Instruction::memory_copy(MemIdx, MemIdx) -> Self
 pub fn Instruction::memory_fill(MemIdx) -> Self
 pub fn Instruction::memory_grow(MemIdx) -> Self
@@ -2073,6 +2225,13 @@ pub enum LoadOp {
   I64Load16UOp
   I64Load32SOp
   I64Load32UOp
+  I32AtomicLoadOp
+  I64AtomicLoadOp
+  I32AtomicLoad8UOp
+  I32AtomicLoad16UOp
+  I64AtomicLoad8UOp
+  I64AtomicLoad16UOp
+  I64AtomicLoad32UOp
   V128LoadOp
   V128Load8x8SOp
   V128Load8x8UOp
@@ -2089,11 +2248,18 @@ pub enum LoadOp {
 }
 pub fn LoadOp::f32_load() -> Self
 pub fn LoadOp::f64_load() -> Self
+pub fn LoadOp::i32_atomic_load() -> Self
+pub fn LoadOp::i32_atomic_load16_u() -> Self
+pub fn LoadOp::i32_atomic_load8_u() -> Self
 pub fn LoadOp::i32_load() -> Self
 pub fn LoadOp::i32_load16s() -> Self
 pub fn LoadOp::i32_load16u() -> Self
 pub fn LoadOp::i32_load8s() -> Self
 pub fn LoadOp::i32_load8u() -> Self
+pub fn LoadOp::i64_atomic_load() -> Self
+pub fn LoadOp::i64_atomic_load16_u() -> Self
+pub fn LoadOp::i64_atomic_load32_u() -> Self
+pub fn LoadOp::i64_atomic_load8_u() -> Self
 pub fn LoadOp::i64_load() -> Self
 pub fn LoadOp::i64_load16s() -> Self
 pub fn LoadOp::i64_load16u() -> Self
@@ -2389,13 +2555,27 @@ pub enum StoreOp {
   I64Store8Op
   I64Store16Op
   I64Store32Op
+  I32AtomicStoreOp
+  I64AtomicStoreOp
+  I32AtomicStore8Op
+  I32AtomicStore16Op
+  I64AtomicStore8Op
+  I64AtomicStore16Op
+  I64AtomicStore32Op
   V128StoreOp
 }
 pub fn StoreOp::f32_store() -> Self
 pub fn StoreOp::f64_store() -> Self
+pub fn StoreOp::i32_atomic_store() -> Self
+pub fn StoreOp::i32_atomic_store16() -> Self
+pub fn StoreOp::i32_atomic_store8() -> Self
 pub fn StoreOp::i32_store() -> Self
 pub fn StoreOp::i32_store16() -> Self
 pub fn StoreOp::i32_store8() -> Self
+pub fn StoreOp::i64_atomic_store() -> Self
+pub fn StoreOp::i64_atomic_store16() -> Self
+pub fn StoreOp::i64_atomic_store32() -> Self
+pub fn StoreOp::i64_atomic_store8() -> Self
 pub fn StoreOp::i64_store() -> Self
 pub fn StoreOp::i64_store16() -> Self
 pub fn StoreOp::i64_store32() -> Self
@@ -2470,6 +2650,12 @@ pub enum TInstr {
   TMemoryCopy(MemIdx, MemIdx, TInstr, TInstr, TInstr)
   TMemoryInit(DataIdx, MemIdx, TInstr, TInstr, TInstr)
   TDataDrop(DataIdx)
+  TMemoryAtomicNotify(MemArg, TInstr, TInstr)
+  TMemoryAtomicWait32(MemArg, TInstr, TInstr, TInstr)
+  TMemoryAtomicWait64(MemArg, TInstr, TInstr, TInstr)
+  TAtomicFence
+  TAtomicRmw(AtomicRmwOp, MemArg, TInstr, TInstr)
+  TAtomicCmpxchg(AtomicCmpxchgOp, MemArg, TInstr, TInstr, TInstr)
   TTableGet(TableIdx, TInstr)
   TTableSet(TableIdx, TInstr, TInstr)
   TTableGrow(TableIdx, TInstr, TInstr)
@@ -2552,6 +2738,9 @@ pub fn TInstr::array_new_default(TypeIdx, Self) -> Self
 pub fn TInstr::array_new_elem(TypeIdx, ElemIdx, Self, Self) -> Self
 pub fn TInstr::array_new_fixed(TypeIdx, Array[Self]) -> Self
 pub fn TInstr::array_set(TypeIdx, Self, Self, Self) -> Self
+pub fn TInstr::atomic_cmpxchg(AtomicCmpxchgOp, MemArg, Self, Self, Self) -> Self
+pub fn TInstr::atomic_fence() -> Self
+pub fn TInstr::atomic_rmw(AtomicRmwOp, MemArg, Self, Self) -> Self
 pub fn TInstr::binary(BinaryOp, Self, Self) -> Self
 pub fn TInstr::block(BlockType, TExpr) -> Self
 pub fn TInstr::br(LabelIdx, Array[Self]) -> Self
@@ -2592,6 +2781,9 @@ pub fn TInstr::local_get(LocalIdx) -> Self
 pub fn TInstr::local_set(LocalIdx, Self) -> Self
 pub fn TInstr::local_tee(LocalIdx, Self) -> Self
 pub fn TInstr::loop_(BlockType, TExpr) -> Self
+pub fn TInstr::memory_atomic_notify(MemArg, Self, Self) -> Self
+pub fn TInstr::memory_atomic_wait32(MemArg, Self, Self, Self) -> Self
+pub fn TInstr::memory_atomic_wait64(MemArg, Self, Self, Self) -> Self
 pub fn TInstr::memory_copy(MemIdx, MemIdx, Self, Self, Self) -> Self
 pub fn TInstr::memory_fill(MemIdx, Self, Self, Self) -> Self
 pub fn TInstr::memory_grow(MemIdx, Self) -> Self

@@ -1156,6 +1156,76 @@ fn simd_inst(id : UInt, buf : @buffer.Buffer) -> Result[Unit, String] {
 }
 
 ///|
+fn atomic_inst(id : UInt, buf : @buffer.Buffer) -> Result[Unit, String] {
+  buf.write_byte(0xFE)
+  if Encode::encode(@lib.U32(id), buf) is Err(t) {
+    return Err(t)
+  }
+  Ok(())
+}
+
+///|
+fn atomic_rmw_op_id(op : AtomicRmwOp) -> UInt {
+  match op {
+    I32AtomicRmwAddOp => 30
+    I64AtomicRmwAddOp => 31
+    I32AtomicRmw8AddUOp => 32
+    I32AtomicRmw16AddUOp => 33
+    I64AtomicRmw8AddUOp => 34
+    I64AtomicRmw16AddUOp => 35
+    I64AtomicRmw32AddUOp => 36
+    I32AtomicRmwSubOp => 37
+    I64AtomicRmwSubOp => 38
+    I32AtomicRmw8SubUOp => 39
+    I32AtomicRmw16SubUOp => 40
+    I64AtomicRmw8SubUOp => 41
+    I64AtomicRmw16SubUOp => 42
+    I64AtomicRmw32SubUOp => 43
+    I32AtomicRmwAndOp => 44
+    I64AtomicRmwAndOp => 45
+    I32AtomicRmw8AndUOp => 46
+    I32AtomicRmw16AndUOp => 47
+    I64AtomicRmw8AndUOp => 48
+    I64AtomicRmw16AndUOp => 49
+    I64AtomicRmw32AndUOp => 50
+    I32AtomicRmwOrOp => 51
+    I64AtomicRmwOrOp => 52
+    I32AtomicRmw8OrUOp => 53
+    I32AtomicRmw16OrUOp => 54
+    I64AtomicRmw8OrUOp => 55
+    I64AtomicRmw16OrUOp => 56
+    I64AtomicRmw32OrUOp => 57
+    I32AtomicRmwXorOp => 58
+    I64AtomicRmwXorOp => 59
+    I32AtomicRmw8XorUOp => 60
+    I32AtomicRmw16XorUOp => 61
+    I64AtomicRmw8XorUOp => 62
+    I64AtomicRmw16XorUOp => 63
+    I64AtomicRmw32XorUOp => 64
+    I32AtomicRmwXchgOp => 65
+    I64AtomicRmwXchgOp => 66
+    I32AtomicRmw8XchgUOp => 67
+    I32AtomicRmw16XchgUOp => 68
+    I64AtomicRmw8XchgUOp => 69
+    I64AtomicRmw16XchgUOp => 70
+    I64AtomicRmw32XchgUOp => 71
+  }
+}
+
+///|
+fn atomic_cmpxchg_op_id(op : AtomicCmpxchgOp) -> UInt {
+  match op {
+    I32AtomicRmwCmpxchgOp => 72
+    I64AtomicRmwCmpxchgOp => 73
+    I32AtomicRmw8CmpxchgUOp => 74
+    I32AtomicRmw16CmpxchgUOp => 75
+    I64AtomicRmw8CmpxchgUOp => 76
+    I64AtomicRmw16CmpxchgUOp => 77
+    I64AtomicRmw32CmpxchgUOp => 78
+  }
+}
+
+///|
 pub impl Encode for Instruction with encode(val, buf) {
   match val {
     Unreachable => buf.write_byte(0x00)
@@ -1477,6 +1547,164 @@ pub impl Encode for Instruction with encode(val, buf) {
     }
     MemoryGrow(m) => {
       buf.write_byte(0x40)
+      if Encode::encode(m, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    MemoryAtomicNotify(m) => {
+      if atomic_inst(0, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(m, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    MemoryAtomicWait32(m) => {
+      if atomic_inst(1, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(m, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    MemoryAtomicWait64(m) => {
+      if atomic_inst(2, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(m, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    AtomicFence => {
+      if atomic_inst(3, buf) is Err(t) {
+        return Err(t)
+      }
+      buf.write_byte(0x00)
+    }
+    I32AtomicLoad(m) => {
+      if atomic_inst(16, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(m, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    I64AtomicLoad(m) => {
+      if atomic_inst(17, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(m, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    I32AtomicLoad8U(m) => {
+      if atomic_inst(18, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(m, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    I32AtomicLoad16U(m) => {
+      if atomic_inst(19, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(m, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    I64AtomicLoad8U(m) => {
+      if atomic_inst(20, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(m, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    I64AtomicLoad16U(m) => {
+      if atomic_inst(21, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(m, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    I64AtomicLoad32U(m) => {
+      if atomic_inst(22, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(m, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    I32AtomicStore(m) => {
+      if atomic_inst(23, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(m, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    I64AtomicStore(m) => {
+      if atomic_inst(24, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(m, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    I32AtomicStore8(m) => {
+      if atomic_inst(25, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(m, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    I32AtomicStore16(m) => {
+      if atomic_inst(26, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(m, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    I64AtomicStore8(m) => {
+      if atomic_inst(27, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(m, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    I64AtomicStore16(m) => {
+      if atomic_inst(28, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(m, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    I64AtomicStore32(m) => {
+      if atomic_inst(29, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(m, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    AtomicRmw(op, m) => {
+      if atomic_inst(atomic_rmw_op_id(op), buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(m, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    AtomicCmpxchg(op, m) => {
+      if atomic_inst(atomic_cmpxchg_op_id(op), buf) is Err(t) {
+        return Err(t)
+      }
       if Encode::encode(m, buf) is Err(t) {
         return Err(t)
       }

@@ -271,6 +271,33 @@ fn convert_ssa_op_to_tinstr(op : SSAOp, d : SSADestructor) -> TInstr {
       TInstr::store(op, memarg, get(d, addr), get(d, val))
     SSAOp::MemorySize(idx) => TInstr::memory_size(idx)
     SSAOp::MemoryGrow(idx, v) => TInstr::memory_grow(idx, get(d, v))
+    SSAOp::MemoryAtomicNotify(memarg, addr, count) =>
+      TInstr::memory_atomic_notify(memarg, get(d, addr), get(d, count))
+    SSAOp::MemoryAtomicWait32(memarg, addr, expected, timeout) =>
+      TInstr::memory_atomic_wait32(
+        memarg,
+        get(d, addr),
+        get(d, expected),
+        get(d, timeout),
+      )
+    SSAOp::MemoryAtomicWait64(memarg, addr, expected, timeout) =>
+      TInstr::memory_atomic_wait64(
+        memarg,
+        get(d, addr),
+        get(d, expected),
+        get(d, timeout),
+      )
+    SSAOp::AtomicFence => TInstr::atomic_fence()
+    SSAOp::AtomicRmw(op, memarg, addr, val) =>
+      TInstr::atomic_rmw(op, memarg, get(d, addr), get(d, val))
+    SSAOp::AtomicCmpxchg(op, memarg, addr, expected, replacement) =>
+      TInstr::atomic_cmpxchg(
+        op,
+        memarg,
+        get(d, addr),
+        get(d, expected),
+        get(d, replacement),
+      )
     SSAOp::MemoryFill(idx, dest, val, len) =>
       TInstr::memory_fill(idx, get(d, dest), get(d, val), get(d, len))
     SSAOp::MemoryCopy(dst, src, d_, s, l) =>

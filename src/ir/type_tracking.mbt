@@ -100,6 +100,11 @@ fn infer_op_type(
     SSAOp::Load(op, _, _) => Some(load_result_type(op))
     SSAOp::MemorySize(_) => Some(ValType::i32())
     SSAOp::MemoryGrow(_, _) => Some(ValType::i32())
+    SSAOp::MemoryAtomicNotify(_, _, _) => Some(ValType::i32())
+    SSAOp::MemoryAtomicWait32(_, _, _, _) => Some(ValType::i32())
+    SSAOp::MemoryAtomicWait64(_, _, _, _) => Some(ValType::i32())
+    SSAOp::AtomicRmw(op, _, _, _) => Some(atomic_rmw_result_type(op))
+    SSAOp::AtomicCmpxchg(op, _, _, _, _) => Some(atomic_cmpxchg_result_type(op))
     SSAOp::TableSize(_) => Some(ValType::i32())
     SSAOp::TableGet(idx, _) => {
       let i = idx.0.reinterpret_as_int()
@@ -199,6 +204,7 @@ fn infer_op_type(
     // Effects - no result type
     SSAOp::GlobalSet(_, _)
     | SSAOp::Store(_, _, _, _)
+    | SSAOp::AtomicFence
     | SSAOp::MemoryFill(_, _, _, _)
     | SSAOp::MemoryCopy(_, _, _, _, _)
     | SSAOp::MemoryInit(_, _, _, _, _)
@@ -373,15 +379,25 @@ fn binary_result_type(op : BinaryOp) -> ValType {
 ///|
 fn load_result_type(op : LoadOp) -> ValType {
   match op {
-    I32LoadOp | I32Load8SOp | I32Load8UOp | I32Load16SOp | I32Load16UOp =>
-      ValType::i32()
+    I32LoadOp
+    | I32Load8SOp
+    | I32Load8UOp
+    | I32Load16SOp
+    | I32Load16UOp
+    | I32AtomicLoadOp
+    | I32AtomicLoad8UOp
+    | I32AtomicLoad16UOp => ValType::i32()
     I64LoadOp
     | I64Load8SOp
     | I64Load8UOp
     | I64Load16SOp
     | I64Load16UOp
     | I64Load32SOp
-    | I64Load32UOp => ValType::i64()
+    | I64Load32UOp
+    | I64AtomicLoadOp
+    | I64AtomicLoad8UOp
+    | I64AtomicLoad16UOp
+    | I64AtomicLoad32UOp => ValType::i64()
     F32LoadOp => ValType::f32()
     F64LoadOp => ValType::f64()
     V128LoadOp
@@ -397,6 +413,67 @@ fn load_result_type(op : LoadOp) -> ValType {
     | V128Load32x2UOp
     | V128Load32x2SOp
     | V128Load64ZeroOp => ValType::v128()
+  }
+}
+
+///|
+fn atomic_rmw_result_type(op : AtomicRmwOp) -> ValType {
+  match op {
+    I32AtomicRmwAddOp
+    | I32AtomicRmw8AddUOp
+    | I32AtomicRmw16AddUOp
+    | I32AtomicRmwSubOp
+    | I32AtomicRmw8SubUOp
+    | I32AtomicRmw16SubUOp
+    | I32AtomicRmwAndOp
+    | I32AtomicRmw8AndUOp
+    | I32AtomicRmw16AndUOp
+    | I32AtomicRmwOrOp
+    | I32AtomicRmw8OrUOp
+    | I32AtomicRmw16OrUOp
+    | I32AtomicRmwXorOp
+    | I32AtomicRmw8XorUOp
+    | I32AtomicRmw16XorUOp
+    | I32AtomicRmwXchgOp
+    | I32AtomicRmw8XchgUOp
+    | I32AtomicRmw16XchgUOp => ValType::i32()
+    I64AtomicRmwAddOp
+    | I64AtomicRmw8AddUOp
+    | I64AtomicRmw16AddUOp
+    | I64AtomicRmw32AddUOp
+    | I64AtomicRmwSubOp
+    | I64AtomicRmw8SubUOp
+    | I64AtomicRmw16SubUOp
+    | I64AtomicRmw32SubUOp
+    | I64AtomicRmwAndOp
+    | I64AtomicRmw8AndUOp
+    | I64AtomicRmw16AndUOp
+    | I64AtomicRmw32AndUOp
+    | I64AtomicRmwOrOp
+    | I64AtomicRmw8OrUOp
+    | I64AtomicRmw16OrUOp
+    | I64AtomicRmw32OrUOp
+    | I64AtomicRmwXorOp
+    | I64AtomicRmw8XorUOp
+    | I64AtomicRmw16XorUOp
+    | I64AtomicRmw32XorUOp
+    | I64AtomicRmwXchgOp
+    | I64AtomicRmw8XchgUOp
+    | I64AtomicRmw16XchgUOp
+    | I64AtomicRmw32XchgUOp => ValType::i64()
+  }
+}
+
+///|
+fn atomic_cmpxchg_result_type(op : AtomicCmpxchgOp) -> ValType {
+  match op {
+    I32AtomicRmwCmpxchgOp
+    | I32AtomicRmw8CmpxchgUOp
+    | I32AtomicRmw16CmpxchgUOp => ValType::i32()
+    I64AtomicRmwCmpxchgOp
+    | I64AtomicRmw8CmpxchgUOp
+    | I64AtomicRmw16CmpxchgUOp
+    | I64AtomicRmw32CmpxchgUOp => ValType::i64()
   }
 }
 

@@ -939,6 +939,106 @@ pub impl Show for Instruction with output(self, logger) {
       m.output(logger)
       logger.write_char(')')
     }
+    MemoryAtomicNotify(m) => {
+      logger.write_string("(memory.atomic.notify ")
+      m.output(logger)
+      logger.write_char(')')
+    }
+    MemoryAtomicWait32(m) => {
+      logger.write_string("(memory.atomic.wait32 ")
+      m.output(logger)
+      logger.write_char(')')
+    }
+    MemoryAtomicWait64(m) => {
+      logger.write_string("(memory.atomic.wait64 ")
+      m.output(logger)
+      logger.write_char(')')
+    }
+    AtomicFence => logger.write_string("atomic.fence")
+    I32AtomicLoad(m) => {
+      logger.write_string("(i32.atomic.load ")
+      m.output(logger)
+      logger.write_char(')')
+    }
+    I64AtomicLoad(m) => {
+      logger.write_string("(i64.atomic.load ")
+      m.output(logger)
+      logger.write_char(')')
+    }
+    I32AtomicLoad8U(m) => {
+      logger.write_string("(i32.atomic.load8_u ")
+      m.output(logger)
+      logger.write_char(')')
+    }
+    I32AtomicLoad16U(m) => {
+      logger.write_string("(i32.atomic.load16_u ")
+      m.output(logger)
+      logger.write_char(')')
+    }
+    I64AtomicLoad8U(m) => {
+      logger.write_string("(i64.atomic.load8_u ")
+      m.output(logger)
+      logger.write_char(')')
+    }
+    I64AtomicLoad16U(m) => {
+      logger.write_string("(i64.atomic.load16_u ")
+      m.output(logger)
+      logger.write_char(')')
+    }
+    I64AtomicLoad32U(m) => {
+      logger.write_string("(i64.atomic.load32_u ")
+      m.output(logger)
+      logger.write_char(')')
+    }
+    I32AtomicStore(m) => {
+      logger.write_string("(i32.atomic.store ")
+      m.output(logger)
+      logger.write_char(')')
+    }
+    I64AtomicStore(m) => {
+      logger.write_string("(i64.atomic.store ")
+      m.output(logger)
+      logger.write_char(')')
+    }
+    I32AtomicStore8(m) => {
+      logger.write_string("(i32.atomic.store8 ")
+      m.output(logger)
+      logger.write_char(')')
+    }
+    I32AtomicStore16(m) => {
+      logger.write_string("(i32.atomic.store16 ")
+      m.output(logger)
+      logger.write_char(')')
+    }
+    I64AtomicStore8(m) => {
+      logger.write_string("(i64.atomic.store8 ")
+      m.output(logger)
+      logger.write_char(')')
+    }
+    I64AtomicStore16(m) => {
+      logger.write_string("(i64.atomic.store16 ")
+      m.output(logger)
+      logger.write_char(')')
+    }
+    I64AtomicStore32(m) => {
+      logger.write_string("(i64.atomic.store32 ")
+      m.output(logger)
+      logger.write_char(')')
+    }
+    AtomicRmw(op, m) => {
+      logger.write_string("(atomic.rmw ")
+      op.output(logger)
+      logger.write_char(' ')
+      m.output(logger)
+      logger.write_char(')')
+    }
+    AtomicCmpxchg(op, m) => {
+      logger.write_string("(atomic.cmpxchg ")
+      op.output(logger)
+      logger.write_char(' ')
+      m.output(logger)
+      logger.write_char(')')
+    }
     I32Const(c) => {
       logger.write_string("(i32.const ")
       c.output(logger)

@@ -26,9 +26,13 @@ fn ChunkSize::byte_count(self : ChunkSize) -> UInt {
 fn store_op_stack_size(op : StoreOp) -> StackSize {
   match op {
     I64StoreOp => StackSize64
+    I64AtomicStoreOp => StackSize64
     I64Store32Op => StackSize64
+    I64AtomicStore32Op => StackSize64
     I64Store16Op => StackSize64
+    I64AtomicStore16Op => StackSize64
     I64Store8Op => StackSize64
+    I64AtomicStore8Op => StackSize64
     F64StoreOp => StackSize64
     _ => StackSize32
   }
@@ -87,13 +91,17 @@ fn load_op_stack_size(op : LoadOp) -> StackSize {
   match op {
     V128Load64SplatOp => StackSize64
     I64Load32UOp => StackSize64
+    I64AtomicLoad32UOp => StackSize64
     I64Load32SOp => StackSize64
     I64Load16UOp => StackSize64
+    I64AtomicLoad16UOp => StackSize64
     I64Load16SOp => StackSize64
     I64Load8UOp => StackSize64
+    I64AtomicLoad8UOp => StackSize64
     I64Load8SOp => StackSize64
     F64LoadOp => StackSize64
     I64LoadOp => StackSize64
+    I64AtomicLoadOp => StackSize64
     V128Load64ZeroOp => StackSize64
     V128Load8x8SOp => StackSize64
     V128Load8x8UOp => StackSize64
@@ -140,19 +148,26 @@ fn size_of_load_op(t : LoadOp) -> UInt {
     V128Load8x8SOp => 8
     V128LoadOp => 16
     I64Load32UOp => 4
+    I64AtomicLoad32UOp => 4
     I64Load32SOp => 4
     I64Load16UOp => 2
+    I64AtomicLoad16UOp => 2
     I64Load16SOp => 2
     I64Load8UOp => 1
+    I64AtomicLoad8UOp => 1
     I64Load8SOp => 1
     I32Load16UOp => 2
+    I32AtomicLoad16UOp => 2
     I32Load16SOp => 2
     I32Load8UOp => 1
+    I32AtomicLoad8UOp => 1
     I32Load8SOp => 1
     F64LoadOp => 8
     F32LoadOp => 4
     I64LoadOp => 8
+    I64AtomicLoadOp => 8
     I32LoadOp => 4
+    I32AtomicLoadOp => 4
     V128Load64ZeroOp => 8
   }
 }
@@ -161,14 +176,21 @@ fn size_of_load_op(t : LoadOp) -> UInt {
 fn size_of_store_op(t : StoreOp) -> UInt {
   match t {
     I64Store32Op => 4
+    I64AtomicStore32Op => 4
     I64Store16Op => 2
+    I64AtomicStore16Op => 2
     I64Store8Op => 1
+    I64AtomicStore8Op => 1
     I32Store16Op => 2
+    I32AtomicStore16Op => 2
     I32Store8Op => 1
+    I32AtomicStore8Op => 1
     F64StoreOp => 8
     F32StoreOp => 4
     I64StoreOp => 8
+    I64AtomicStoreOp => 8
     I32StoreOp => 4
+    I32AtomicStoreOp => 4
     V128StoreOp => 16
   }
 }
@@ -333,19 +355,26 @@ fn finalize_load_op(op : LoadOp, i : TInstr) -> TInstr {
       )
     V128LoadOp => i
     I64Load32UOp => i
+    I64AtomicLoad32UOp => i
     I64Load32SOp => TInstr::unary(UnaryOp::i64_extend32s(), i)
     I64Load16UOp => i
+    I64AtomicLoad16UOp => i
     I64Load16SOp => TInstr::unary(UnaryOp::i64_extend16s(), i)
     I64Load8UOp => i
+    I64AtomicLoad8UOp => i
     I64Load8SOp => TInstr::unary(UnaryOp::i64_extend8s(), i)
     I32Load16UOp => i
+    I32AtomicLoad16UOp => i
     I32Load16SOp => TInstr::unary(UnaryOp::i32_extend16s(), i)
     I32Load8UOp => i
+    I32AtomicLoad8UOp => i
     I32Load8SOp => TInstr::unary(UnaryOp::i32_extend8s(), i)
     F64LoadOp => TInstr::unary(UnaryOp::f64_reinterpret_i64(), i)
     F32LoadOp => TInstr::unary(UnaryOp::f32_reinterpret_i32(), i)
     I64LoadOp => i
+    I64AtomicLoadOp => i
     I32LoadOp => i
+    I32AtomicLoadOp => i
     // TODO: V128 extending loads need more work
     // Signed extending loads
     V128Load32x2SOp =>
