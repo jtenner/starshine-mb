@@ -3254,3 +3254,93 @@ test "heap2local skips optimization when atomic.rmw appears in function" {
     _ => fail("expected function")
   }
 }
+
+///|
+test "heap2local skips optimization when atomic load/store appears in function" {
+  let struct_ty = single_rec_type(
+    comp_type_sub_type(
+      struct_comp_type([
+        FieldType::new(StorageType::val_type(ValType::i32()), Var),
+      ]),
+    ),
+  )
+  let ma = MemArg::new(0, None, 0)
+  let local_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let func = Func::t_func(
+    [local_ref],
+    TExpr::new([
+      TInstr::local_set(
+        LocalIdx::new(0),
+        TInstr::struct_new(TypeIdx::new(0), [TInstr::i32_const(I32(11))]),
+      ),
+      TInstr::drop(
+        TInstr::load(LoadOp::i32_atomic_load(), ma, TInstr::i32_const(I32(0))),
+      ),
+      TInstr::store(
+        StoreOp::i32_atomic_store(),
+        ma,
+        TInstr::i32_const(I32(0)),
+        TInstr::i32_const(I32(1)),
+      ),
+      TInstr::drop(
+        TInstr::struct_get(
+          TypeIdx::new(0),
+          @lib.U32(0),
+          TInstr::local_get(LocalIdx::new(0)),
+        ),
+      ),
+    ]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([struct_ty]))
+    .with_mem_sec(MemSec::new([MemType::new(Limits::i32(1, None))]))
+    .with_code_sec(CodeSec::new([func]))
+  let out = run_heap2local(mod)
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, body)])) => assert_true(h2l_count_gc_ops(body) > 0)
+    _ => fail("expected function")
+  }
+}
+
+///|
+test "heap2local rejects candidate local when local.tee is used" {
+  let struct_ty = single_rec_type(
+    comp_type_sub_type(
+      struct_comp_type([
+        FieldType::new(StorageType::val_type(ValType::i32()), Var),
+      ]),
+    ),
+  )
+  let local_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let func = Func::t_func(
+    [local_ref],
+    TExpr::new([
+      TInstr::local_set(
+        LocalIdx::new(0),
+        TInstr::struct_new(TypeIdx::new(0), [TInstr::i32_const(I32(13))]),
+      ),
+      TInstr::drop(
+        TInstr::local_tee(LocalIdx::new(0), TInstr::local_get(LocalIdx::new(0))),
+      ),
+      TInstr::drop(
+        TInstr::struct_get(
+          TypeIdx::new(0),
+          @lib.U32(0),
+          TInstr::local_get(LocalIdx::new(0)),
+        ),
+      ),
+    ]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([struct_ty]))
+    .with_code_sec(CodeSec::new([func]))
+  let out = run_heap2local(mod)
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, body)])) => assert_true(h2l_count_gc_ops(body) > 0)
+    _ => fail("expected function")
+  }
+}

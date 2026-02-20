@@ -2928,3 +2928,29 @@ test "merge blocks: transformed output stays typable and pass is idempotent" {
   let twice = run_merge_blocks(once)
   assert_eq(once, twice)
 }
+
+///|
+test "merge blocks: trap-only effects invalidate movement" {
+  let trap_a = compute_effects(TInstr::unreachable_())
+  let trap_b = compute_effects(
+    TInstr::ref_as_non_null(
+      TInstr::ref_null(HeapType::abs(AbsHeapType::func())),
+    ),
+  )
+  assert_true(invalidates(trap_a, trap_b))
+  assert_true(invalidates(trap_b, trap_a))
+}
+
+///|
+test "merge blocks: call effects invalidate memory effects" {
+  let call_fx = compute_effects(TInstr::call(FuncIdx::new(0), []))
+  let load_fx = compute_effects(
+    TInstr::load(
+      LoadOp::i32_load(),
+      MemArg::new(0, None, 0),
+      TInstr::i32_const(I32(0)),
+    ),
+  )
+  assert_true(invalidates(call_fx, load_fx))
+  assert_true(invalidates(load_fx, call_fx))
+}

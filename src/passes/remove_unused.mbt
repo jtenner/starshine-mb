@@ -2911,3 +2911,94 @@ test "root_all_functions mode keeps functions while pruning other elements" {
     Err(e) => fail("unexpected error: \{e}")
   }
 }
+
+///|
+test "start function is remapped after imported function removal" {
+  let type_sec = TypeSec::new([make_void_func_type()])
+  let import_sec = ImportSec::new([
+    Import::new(
+      Name::new("env"),
+      Name::new("unused_import"),
+      ExternType::func(TypeIdx::new(0)),
+    ),
+  ])
+  let func_sec = FuncSec::new([TypeIdx::new(0)])
+  let code_sec = CodeSec::new([make_empty_func_body()])
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_import_sec(import_sec)
+    .with_func_sec(func_sec)
+    .with_code_sec(code_sec)
+    .with_start_sec(StartSec::new(FuncIdx::new(1)))
+
+  let result = remove_unused(mod)
+  match result {
+    Ok(new_mod) => {
+      assert_eq(new_mod.func_sec.unwrap().0.length(), 1)
+      match new_mod.start_sec {
+        Some(StartSec(FuncIdx(v))) => assert_eq(v, 0)
+        None => fail("expected remapped start function")
+      }
+    }
+    Err(e) => fail("unexpected error: \{e}")
+  }
+}
+
+///|
+test "typed element expressions keep referenced funcs and rewrite body in closed world" {
+  let type_sec = TypeSec::new([make_void_func_type()])
+  let func_sec = FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)])
+  let table_sec = TableSec::new([
+    Table::new(
+      TableType::new(
+        RefType::new(true, HeapType::abs(AbsHeapType::func())),
+        Limits::i32(1, Some(1)),
+      ),
+      None,
+    ),
+  ])
+  let elem_sec = ElemSec::new([
+    Elem::new(
+      ElemMode::passive(),
+      ElemKind::typed_exprs(
+        RefType::new(true, HeapType::abs(AbsHeapType::func())),
+        [Expr::new([Instruction::ref_func(FuncIdx::new(1))])],
+      ),
+    ),
+  ])
+  let main_body = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::table_init(
+        ElemIdx::new(0),
+        TableIdx::new(0),
+        TInstr::i32_const(I32(0)),
+        TInstr::i32_const(I32(0)),
+        TInstr::i32_const(I32(1)),
+      ),
+      TInstr::return_([]),
+    ]),
+  )
+  let referenced_body = make_empty_func_body()
+  let code_sec = CodeSec::new([main_body, referenced_body])
+  let export_sec = ExportSec::new([
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
+  ])
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(func_sec)
+    .with_table_sec(table_sec)
+    .with_elem_sec(elem_sec)
+    .with_code_sec(code_sec)
+    .with_export_sec(export_sec)
+
+  let result = remove_unused(mod)
+  match result {
+    Ok(new_mod) => {
+      assert_eq(new_mod.func_sec.unwrap().0.length(), 2)
+      assert_eq(new_mod.elem_sec.unwrap().0.length(), 1)
+      assert_true(func_body_is_unreachable(new_mod.code_sec.unwrap().0[1]))
+    }
+    Err(e) => fail("unexpected error: \{e}")
+  }
+}

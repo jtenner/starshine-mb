@@ -2130,3 +2130,144 @@ test "signature refining updates shared result type from function bodies" {
     }
   }
 }
+
+///|
+test "signature refining does not refine start function parameter types" {
+  let non_null_funcref = ValType::ref_type(
+    RefType::new(false, HeapType::abs(AbsHeapType::func())),
+  )
+  let nullable_funcref = ValType::ref_type(
+    RefType::new(true, HeapType::abs(AbsHeapType::func())),
+  )
+  let t_caller = sr_make_func_type([non_null_funcref], [])
+  let t_start = sr_make_func_type([nullable_funcref], [])
+
+  let caller = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
+    ]),
+  )
+  let start_func = Func::t_func([], TExpr::new([TInstr::nop()]))
+
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_caller, t_start]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
+    .with_code_sec(CodeSec::new([caller, start_func]))
+    .with_start_sec(StartSec::new(FuncIdx::new(1)))
+
+  let out = run_signature_refining(mod)
+  let env = Env::new().with_module(out)
+  let ft = match env.resolve_functype(TypeIdx::new(1)) {
+    Some(ft) => ft
+    None => fail("expected start function type")
+  }
+  match ft {
+    FuncType(params, _) => {
+      assert_eq(params.length(), 1)
+      assert_eq(params[0], nullable_funcref)
+    }
+  }
+}
+
+///|
+test "signature refining does not refine params when ref.func escapes in typed elem expr" {
+  let non_null_funcref = ValType::ref_type(
+    RefType::new(false, HeapType::abs(AbsHeapType::func())),
+  )
+  let nullable_funcref = ValType::ref_type(
+    RefType::new(true, HeapType::abs(AbsHeapType::func())),
+  )
+  let t_caller = sr_make_func_type([non_null_funcref], [])
+  let t_target = sr_make_func_type([nullable_funcref], [])
+
+  let caller = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
+    ]),
+  )
+  let callee = Func::t_func([], TExpr::new([TInstr::nop()]))
+
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_caller, t_target]))
+    .with_elem_sec(
+      ElemSec::new([
+        Elem::new(
+          ElemMode::declarative(),
+          ElemKind::typed_exprs(
+            RefType::new(true, HeapType::abs(AbsHeapType::func())),
+            [Expr::new([Instruction::ref_func(FuncIdx::new(1))])],
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
+    .with_code_sec(CodeSec::new([caller, callee]))
+
+  let out = run_signature_refining(mod)
+  let env = Env::new().with_module(out)
+  let ft = match env.resolve_functype(TypeIdx::new(1)) {
+    Some(ft) => ft
+    None => fail("expected target function type")
+  }
+  match ft {
+    FuncType(params, _) => {
+      assert_eq(params.length(), 1)
+      assert_eq(params[0], nullable_funcref)
+    }
+  }
+}
+
+///|
+test "signature refining uses binaryen-intrinsics-optimized call.without.effects alias" {
+  let non_null_funcref = ValType::ref_type(
+    RefType::new(false, HeapType::abs(AbsHeapType::func())),
+  )
+  let nullable_funcref = ValType::ref_type(
+    RefType::new(true, HeapType::abs(AbsHeapType::func())),
+  )
+  let funcref = ValType::funcref()
+
+  let t_intrinsic = sr_make_func_type([nullable_funcref, funcref], [])
+  let t_caller = sr_make_func_type([non_null_funcref], [])
+  let t_target = sr_make_func_type([nullable_funcref], [])
+
+  let caller = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::call(FuncIdx::new(0), [
+        TInstr::local_get(LocalIdx::new(0)),
+        TInstr::ref_func(FuncIdx::new(2)),
+      ]),
+    ]),
+  )
+  let callee = Func::t_func([], TExpr::new([TInstr::nop()]))
+
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_intrinsic, t_caller, t_target]))
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("binaryen-intrinsics-optimized"),
+          Name::new("call.without.effects"),
+          ExternType::func(TypeIdx::new(0)),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(1), TypeIdx::new(2)]))
+    .with_code_sec(CodeSec::new([caller, callee]))
+
+  let out = run_signature_refining(mod)
+  let env = Env::new().with_module(out)
+  let ft = match env.resolve_functype(TypeIdx::new(2)) {
+    Some(ft) => ft
+    None => fail("expected target function type")
+  }
+  match ft {
+    FuncType(params, _) => {
+      assert_eq(params.length(), 1)
+      assert_eq(params[0], non_null_funcref)
+    }
+  }
+}
