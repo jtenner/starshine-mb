@@ -15,6 +15,8 @@ using @lib {
   type Func,
   type LoadOp,
   type StoreOp,
+  type AtomicRmwOp,
+  type AtomicCmpxchgOp,
   type V128LoadLaneOp,
   type MemType,
   type TExpr,

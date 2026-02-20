@@ -30,6 +30,7 @@ priv struct H2LAnalyzeState {
   total_get_counts : Map[Int, Int]
   safe_get_counts : Map[Int, Int]
   uses : Map[Int, Array[H2LUse]]
+  mut has_sync_atomic : Bool
 }
 
 ///|
@@ -67,6 +68,34 @@ fn h2l_const_i32_nonneg(instr : TInstr) -> Int? {
   match instr {
     TI32Const(I32(v)) => if v >= 0 { Some(v) } else { None }
     _ => None
+  }
+}
+
+///|
+fn h2l_load_is_atomic(op : LoadOp) -> Bool {
+  match op {
+    I32AtomicLoadOp
+    | I64AtomicLoadOp
+    | I32AtomicLoad8UOp
+    | I32AtomicLoad16UOp
+    | I64AtomicLoad8UOp
+    | I64AtomicLoad16UOp
+    | I64AtomicLoad32UOp => true
+    _ => false
+  }
+}
+
+///|
+fn h2l_store_is_atomic(op : StoreOp) -> Bool {
+  match op {
+    I32AtomicStoreOp
+    | I64AtomicStoreOp
+    | I32AtomicStore8Op
+    | I32AtomicStore16Op
+    | I64AtomicStore8Op
+    | I64AtomicStore16Op
+    | I64AtomicStore32Op => true
+    _ => false
   }
 }
 
@@ -246,6 +275,7 @@ fn h2l_scan_body(env : Env, body : TExpr) -> H2LAnalyzeState {
     total_get_counts: Map::new(),
     safe_get_counts: Map::new(),
     uses: Map::new(),
+    has_sync_atomic: false,
   }
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
     self,
@@ -253,6 +283,17 @@ fn h2l_scan_body(env : Env, body : TExpr) -> H2LAnalyzeState {
     instr : TInstr,
   ) {
     match instr {
+      TLoad(op, _, _) => if h2l_load_is_atomic(op) { s.has_sync_atomic = true }
+      TStore(op, _, _, _) =>
+        if h2l_store_is_atomic(op) {
+          s.has_sync_atomic = true
+        }
+      TMemoryAtomicNotify(_, _, _)
+      | TMemoryAtomicWait32(_, _, _, _)
+      | TMemoryAtomicWait64(_, _, _, _)
+      | TAtomicFence
+      | TAtomicRmw(_, _, _, _)
+      | TAtomicCmpxchg(_, _, _, _, _) => s.has_sync_atomic = true
       TLocalSet(loc, value) => {
         let idx = h2l_local_to_int(loc)
         h2l_inc_count(s.set_counts, idx)
@@ -518,6 +559,9 @@ fn h2l_uses_compatible(shape : H2LShape, uses : Array[H2LUse]) -> Bool {
 ///|
 fn h2l_collect_candidates(analysis : H2LAnalyzeState) -> Map[Int, H2LShape] {
   let out : Map[Int, H2LShape] = Map::new()
+  if analysis.has_sync_atomic {
+    return out
+  }
   for entry in analysis.shapes {
     let (loc, shape) = entry
     if analysis.invalid.contains(loc) {
@@ -3105,6 +3149,92 @@ test "heap2local rejects branchy allocation sets with later gets" {
             ]),
           ),
         ]),
+      ),
+      TInstr::drop(
+        TInstr::struct_get(
+          TypeIdx::new(0),
+          @lib.U32(0),
+          TInstr::local_get(LocalIdx::new(0)),
+        ),
+      ),
+    ]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([struct_ty]))
+    .with_code_sec(CodeSec::new([func]))
+  let out = run_heap2local(mod)
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, body)])) => assert_true(h2l_count_gc_ops(body) > 0)
+    _ => fail("expected function")
+  }
+}
+
+///|
+test "heap2local skips optimization in synchronization-sensitive atomic contexts" {
+  let struct_ty = single_rec_type(
+    comp_type_sub_type(
+      struct_comp_type([
+        FieldType::new(StorageType::val_type(ValType::i32()), Var),
+      ]),
+    ),
+  )
+  let local_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let func = Func::t_func(
+    [local_ref],
+    TExpr::new([
+      TInstr::local_set(
+        LocalIdx::new(0),
+        TInstr::struct_new(TypeIdx::new(0), [TInstr::i32_const(I32(4))]),
+      ),
+      TInstr::atomic_fence(),
+      TInstr::drop(
+        TInstr::struct_get(
+          TypeIdx::new(0),
+          @lib.U32(0),
+          TInstr::local_get(LocalIdx::new(0)),
+        ),
+      ),
+    ]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([struct_ty]))
+    .with_code_sec(CodeSec::new([func]))
+  let out = run_heap2local(mod)
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, body)])) => assert_true(h2l_count_gc_ops(body) > 0)
+    _ => fail("expected function")
+  }
+}
+
+///|
+test "heap2local skips optimization when atomic.rmw appears in function" {
+  let struct_ty = single_rec_type(
+    comp_type_sub_type(
+      struct_comp_type([
+        FieldType::new(StorageType::val_type(ValType::i32()), Var),
+      ]),
+    ),
+  )
+  let ma = MemArg::new(0, None, 0)
+  let local_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let func = Func::t_func(
+    [local_ref],
+    TExpr::new([
+      TInstr::local_set(
+        LocalIdx::new(0),
+        TInstr::struct_new(TypeIdx::new(0), [TInstr::i32_const(I32(7))]),
+      ),
+      TInstr::drop(
+        TInstr::atomic_rmw(
+          AtomicRmwOp::i32_add(),
+          ma,
+          TInstr::i32_const(I32(0)),
+          TInstr::i32_const(I32(1)),
+        ),
       ),
       TInstr::drop(
         TInstr::struct_get(

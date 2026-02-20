@@ -34,7 +34,7 @@
 - [x] Add wasm atomics/threading support (threads proposal core instruction surface).
   - [x] Extend IR/typed instruction + validator + binary + transformer support for full threads atomics instruction set (wait/notify/fence/load/store/rmw/cmpxchg).
   - [x] Add IR/optimizer compatibility coverage for atomic instruction variants (SSA, alignment lowering, local CSE, merge/dead-code/simplification pipelines).
-  - [ ] Re-enable atomics-dependent parity work in Heap2Local / HeapStoreOptimization (now unblocked by core instruction support).
+  - [x] Re-enable atomics-dependent parity work in Heap2Local / HeapStoreOptimization (now unblocked by core instruction support).
 
 ## 2) Parity Backlog For Implemented Binaryen Passes
 
@@ -63,7 +63,7 @@
 
 - [ ] `Binaryen Pass: Heap2Local.cpp` parity hardening.
   - [ ] Descriptor-specific parity (`ref.cast_desc_eq`, `ref.get_desc`, descriptor-bearing `struct.new`) when descriptor ops are available.
-  - [ ] Atomics-dependent parity (`struct/array rmw/cmpxchg`, synchronization-sensitive cases) now that threads atomics support has landed.
+  - [x] Atomics-dependent parity (`struct/array rmw/cmpxchg`, synchronization-sensitive cases) now that threads atomics support has landed.
 
 - [ ] `Binaryen Pass: SignatureRefining.cpp` parity hardening follow-up.
   - [ ] Add targeted coverage for uncovered paths and external-observability edge cases.

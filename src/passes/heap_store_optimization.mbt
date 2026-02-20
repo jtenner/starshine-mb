@@ -145,6 +145,20 @@ fn hso_collect_effects(instr : TInstr) -> HSOEffects {
         effects.writes_memory = true
       }
       TDataDrop(_) => effects.writes_memory = true
+      TMemoryAtomicNotify(_, _, _)
+      | TMemoryAtomicWait32(_, _, _, _)
+      | TMemoryAtomicWait64(_, _, _, _) => {
+        effects.reads_memory = true
+        effects.traps = true
+      }
+      TAtomicRmw(_, _, _, _) | TAtomicCmpxchg(_, _, _, _, _) => {
+        effects.reads_memory = true
+        effects.writes_memory = true
+        effects.traps = true
+      }
+      TAtomicFence =>
+        // Keep ordering-sensitive synchronization effects as memory reads.
+        effects.reads_memory = true
       TTableSet(_, _, _) | TTableGrow(_, _, _) | TTableFill(_, _, _, _) =>
         effects.writes_memory = true
       TTableGet(_, _) | TTableSize(_) => effects.reads_memory = true
@@ -1297,5 +1311,220 @@ test "heap store optimization rejects global side effects in set value due inval
   match out.code_sec {
     Some(CodeSec([TFunc(_, body)])) => assert_eq(hso_count_struct_sets(body), 1)
     _ => fail("expected global-side-effect set to remain due invalidation")
+  }
+}
+
+///|
+test "heap store optimization rejects atomic.rmw set value due invalidation" {
+  let struct_type = single_rec_type(
+    comp_type_sub_type(
+      struct_comp_type([
+        FieldType::new(StorageType::val_type(ValType::i32()), Var),
+      ]),
+    ),
+  )
+  let ma = MemArg::new(0, None, 0)
+  let ref_local = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let func = Func::t_func(
+    [ref_local],
+    TExpr::new([
+      TInstr::local_set(
+        LocalIdx::new(0),
+        TInstr::struct_new(TypeIdx::new(0), [TInstr::i32_const(I32(1))]),
+      ),
+      TInstr::struct_set(
+        TypeIdx::new(0),
+        @lib.U32(0),
+        TInstr::local_get(LocalIdx::new(0)),
+        TInstr::atomic_rmw(
+          AtomicRmwOp::i32_add(),
+          ma,
+          TInstr::i32_const(I32(0)),
+          TInstr::i32_const(I32(1)),
+        ),
+      ),
+    ]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([struct_type]))
+    .with_code_sec(CodeSec::new([func]))
+  let out = run_heap_store_optimization(mod)
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, body)])) => assert_eq(hso_count_struct_sets(body), 1)
+    _ => fail("expected atomic.rmw set to remain due invalidation")
+  }
+}
+
+///|
+test "heap store optimization rejects atomic.cmpxchg set value due invalidation" {
+  let struct_type = single_rec_type(
+    comp_type_sub_type(
+      struct_comp_type([
+        FieldType::new(StorageType::val_type(ValType::i32()), Var),
+      ]),
+    ),
+  )
+  let ma = MemArg::new(0, None, 0)
+  let ref_local = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let func = Func::t_func(
+    [ref_local],
+    TExpr::new([
+      TInstr::local_set(
+        LocalIdx::new(0),
+        TInstr::struct_new(TypeIdx::new(0), [TInstr::i32_const(I32(1))]),
+      ),
+      TInstr::struct_set(
+        TypeIdx::new(0),
+        @lib.U32(0),
+        TInstr::local_get(LocalIdx::new(0)),
+        TInstr::atomic_cmpxchg(
+          AtomicCmpxchgOp::i32(),
+          ma,
+          TInstr::i32_const(I32(0)),
+          TInstr::i32_const(I32(1)),
+          TInstr::i32_const(I32(2)),
+        ),
+      ),
+    ]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([struct_type]))
+    .with_code_sec(CodeSec::new([func]))
+  let out = run_heap_store_optimization(mod)
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, body)])) => assert_eq(hso_count_struct_sets(body), 1)
+    _ => fail("expected atomic.cmpxchg set to remain due invalidation")
+  }
+}
+
+///|
+test "heap store optimization rejects memory.atomic.wait32 set value due invalidation" {
+  let struct_type = single_rec_type(
+    comp_type_sub_type(
+      struct_comp_type([
+        FieldType::new(StorageType::val_type(ValType::i32()), Var),
+      ]),
+    ),
+  )
+  let ma = MemArg::new(0, None, 0)
+  let ref_local = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let func = Func::t_func(
+    [ref_local],
+    TExpr::new([
+      TInstr::local_set(
+        LocalIdx::new(0),
+        TInstr::struct_new(TypeIdx::new(0), [TInstr::i32_const(I32(1))]),
+      ),
+      TInstr::struct_set(
+        TypeIdx::new(0),
+        @lib.U32(0),
+        TInstr::local_get(LocalIdx::new(0)),
+        TInstr::memory_atomic_wait32(
+          ma,
+          TInstr::i32_const(I32(0)),
+          TInstr::i32_const(I32(1)),
+          TInstr::i64_const(I64(2L)),
+        ),
+      ),
+    ]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([struct_type]))
+    .with_code_sec(CodeSec::new([func]))
+  let out = run_heap_store_optimization(mod)
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, body)])) => assert_eq(hso_count_struct_sets(body), 1)
+    _ => fail("expected memory.atomic.wait32 set to remain due invalidation")
+  }
+}
+
+///|
+test "heap store optimization rejects fence-valued block due synchronization effects" {
+  let struct_type = single_rec_type(
+    comp_type_sub_type(
+      struct_comp_type([
+        FieldType::new(StorageType::val_type(ValType::i32()), Var),
+      ]),
+    ),
+  )
+  let ref_local = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let func = Func::t_func(
+    [ref_local],
+    TExpr::new([
+      TInstr::local_set(
+        LocalIdx::new(0),
+        TInstr::struct_new(TypeIdx::new(0), [TInstr::i32_const(I32(1))]),
+      ),
+      TInstr::struct_set(
+        TypeIdx::new(0),
+        @lib.U32(0),
+        TInstr::local_get(LocalIdx::new(0)),
+        TInstr::block(
+          BlockType::val_type(ValType::i32()),
+          TExpr::new([TInstr::atomic_fence(), TInstr::i32_const(I32(9))]),
+        ),
+      ),
+    ]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([struct_type]))
+    .with_code_sec(CodeSec::new([func]))
+  let out = run_heap_store_optimization(mod)
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, body)])) => assert_eq(hso_count_struct_sets(body), 1)
+    _ => fail("expected fence-valued set to remain due synchronization effects")
+  }
+}
+
+///|
+test "heap store optimization does not swap struct.new past atomic notify" {
+  let struct_type = single_rec_type(
+    comp_type_sub_type(
+      struct_comp_type([
+        FieldType::new(StorageType::val_type(ValType::i32()), Var),
+      ]),
+    ),
+  )
+  let ma = MemArg::new(0, None, 0)
+  let ref_local = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let func = Func::t_func(
+    [ref_local],
+    TExpr::new([
+      TInstr::local_set(
+        LocalIdx::new(0),
+        TInstr::struct_new(TypeIdx::new(0), [TInstr::i32_const(I32(1))]),
+      ),
+      TInstr::drop(
+        TInstr::memory_atomic_notify(
+          ma,
+          TInstr::i32_const(I32(0)),
+          TInstr::i32_const(I32(1)),
+        ),
+      ),
+      TInstr::struct_set(
+        TypeIdx::new(0),
+        @lib.U32(0),
+        TInstr::local_get(LocalIdx::new(0)),
+        TInstr::i32_const(I32(5)),
+      ),
+    ]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([struct_type]))
+    .with_code_sec(CodeSec::new([func]))
+  let out = run_heap_store_optimization(mod)
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, body)])) => assert_eq(hso_count_struct_sets(body), 1)
+    _ => fail("expected no swap/fold across atomic notify")
   }
 }
