@@ -26,10 +26,24 @@
 
 ## 1) Core Project Prerequisites
 
-- [ ] Stabilize IRContext + dataflow foundations.
-  - [ ] Migrate remaining passes to IRContext usage:
-    - [ ] `src/passes/de_nan.mbt`
-    - [ ] `src/passes/remove_unused.mbt`
+- [x] Remove legacy `src/dataflow` package (redundant with `src/ir` + `IRContext` SSA/CFG pipeline).
+  - [x] Delete `src/dataflow/*` package files.
+  - [x] Remove stale references and confirm `moon check` + `moon test` are green.
+
+- [ ] Stabilize IRContext foundations.
+  - [ ] Unify pass execution model in `src/passes/optimize.mbt` by context kind (do not force `IRContext` for all passes).
+    - [ ] Add scheduler-level pass context categories: `IRContext` transformer pass, `Unit` transformer pass, and module-level runner pass.
+    - [ ] Add generic scheduler helpers for transformer/module-runner dispatch so `apply_ir_transformer_pass` is not the only path.
+    - [ ] Add scheduler tests that assert each context kind is dispatched correctly.
+  - [ ] Keep `src/passes/de_nan.mbt` as a module-level pass (no IRContext migration).
+    - [ ] Preserve its two-stage module behavior: detect float-producing ops/constants, then wrap + sanitize params + append/reuse helper funcs.
+    - [ ] Add/keep scheduler-level tests to ensure `ModulePass::DeNaN` runs through module-runner dispatch.
+  - [ ] Keep `src/passes/remove_unused.mbt` as a module-level pass (no IRContext migration).
+    - [ ] Preserve whole-module root/worklist analysis + cross-section remapping semantics (func/type/table/mem/global/elem/data/tag).
+    - [ ] Add/keep scheduler-level tests to ensure `ModulePass::RemoveUnused` runs through module-runner dispatch.
+  - [x] Clarify optimization-context status explicitly.
+    - [x] Keep SSA/CFG `IRContext` as the canonical optimization context for IR-driven passes.
+    - [x] Remove the legacy `src/dataflow/*` package and references.
 
 - [x] Add wasm atomics/threading support (threads proposal core instruction surface).
   - [x] Extend IR/typed instruction + validator + binary + transformer support for full threads atomics instruction set (wait/notify/fence/load/store/rmw/cmpxchg).

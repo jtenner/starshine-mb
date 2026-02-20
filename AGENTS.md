@@ -41,7 +41,6 @@ In this workspace, use absolute moon path when needed:
 - `src/validate/*.mbt`: wasm validation/typechecking
 - `src/binary/*.mbt`: wasm binary encoding/decoding
 - `src/wast/*.mbt`: s-expression text parsing/printing
-- `src/dataflow/*.mbt`: legacy/fragmented framework (prefer IRContext-backed paths)
 
 ## Pass Pipeline (Compressed)
 - Canonical scheduler: `src/passes/optimize.mbt`.
@@ -108,7 +107,7 @@ In this workspace, use absolute moon path when needed:
 
 ## Current Gaps / Ongoing Work
 - Migrate remaining non-IRContext-shaped passes (`de_nan`, `remove_unused`).
-- Stabilize legacy/dataflow replacement path where tests are still unstable.
+- Keep `IRContext`/SSA/CFG as the canonical optimization context for IR-driven passes.
 - `GlobalStructInferenceDescCast` now includes a conservative singleton-global `ref.cast` lowering path; full opcode-level descriptor parity (`ref.get_desc` / descriptor-eq casts) still depends on descriptor IR support.
 - Atomics/threading core instruction support is complete; remaining parity work is pass-specific atomics optimization behavior in heap passes.
 - `Asyncify` parity follow-up remaining gaps are now mostly around wider Binaryen feature surface beyond current staged implementation (for example additional optimizer-stage parity and advanced unsupported value categories).

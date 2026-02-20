@@ -32,7 +32,6 @@ Starshine is a MoonBit-based WebAssembly toolchain centered on typed IR transfor
 - `src/validate`: Validation/typechecking.
 - `src/binary`: Wasm binary codec.
 - `src/wast`: WAST parser/printer.
-- `src/dataflow`: Legacy/partial framework, being replaced by `IRContext`-backed flow.
 
 ## Primary Functions (Most Important Entry Points)
 
@@ -273,7 +272,6 @@ fn parse_wast(text : String) -> Bool {
 
 ## Low-Hanging Fruit (Quick Improvements)
 - Migrate remaining non-IRContext passes (`de_nan`, `remove_unused`) to the IRContext transformer pattern.
-- Stabilize `DataflowOptimization` internals and fix the underlying data-structure issues causing test instability.
 - Expand descriptor-op IR support (`ref.get_desc`, descriptor-eq casts) to unlock full descriptor parity beyond current `GlobalStructInferenceDescCast` lowering.
 - Expand parity stress tests for complex CFG/type-hierarchy edge cases in:
   - `Heap2Local`
