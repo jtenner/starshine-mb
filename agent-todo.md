@@ -6,9 +6,9 @@
   - [x] `src/validate/env.mbt` targeted tests for `with_module`, recursive `TypeIdx/RecIdx` resolution, and `to_texpr` stack-error branches (`1375` uncovered lines).
   - [x] `src/validate/typecheck.mbt` targeted negative tests for descriptor ops, atomics, and multi-value/control-flow error paths (`618` uncovered lines).
   - [x] `src/transformer/transformer.mbt` expand `walk_*` callback dispatch/error propagation tests over less-used `TInstr` variants (`643` uncovered lines).
-- [ ] P1: Harden binary codec correctness under invalid input and unsupported encodings.
-  - [ ] `src/binary/decode.mbt` add EOF/invalid-byte/error-bubbling tests through `src/binary/tests.mbt` (`410` uncovered lines).
-  - [ ] `src/binary/encode.mbt` add unsupported-type/index rejection tests and section payload propagation tests (`444` uncovered lines).
+- [x] P1: Harden binary codec correctness under invalid input and unsupported encodings.
+  - [x] `src/binary/decode.mbt` add EOF/invalid-byte/error-bubbling tests through `src/binary/tests.mbt` (`410` uncovered lines).
+  - [x] `src/binary/encode.mbt` add unsupported-type/index rejection tests and section payload propagation tests (`444` uncovered lines).
 - [ ] P1: Add direct IR core analysis tests (currently mostly integration-driven coverage).
   - [ ] Add dedicated tests for `src/ir/ssa.mbt`, `src/ir/ssa_destruction.mbt`, `src/ir/gvn.mbt`, `src/ir/liveness.mbt`, and `src/ir/type_tracking.mbt`.
   - [ ] Add invariants/tests around `src/ir/usedef.mbt` and `src/ir/types.mbt` for def-use and typed index consistency.

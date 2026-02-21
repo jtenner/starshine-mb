@@ -56,6 +56,28 @@ fn[T : Encode + Decode + Eq + Show + @quickcheck.Arbitrary] roundtrip_arbitrary(
 }
 
 ///|
+fn[T] assert_decode_err_contains(
+  result : Result[(T, Int), String],
+  needle : String,
+) -> Unit raise {
+  match result {
+    Ok(_) => fail("expected decode failure containing \{needle}")
+    Err(msg) => assert_true(msg.contains(needle))
+  }
+}
+
+///|
+fn assert_encode_err_contains(
+  result : Result[Unit, String],
+  needle : String,
+) -> Unit raise {
+  match result {
+    Ok(_) => fail("expected encode failure containing \{needle}")
+    Err(msg) => assert_true(msg.contains(needle))
+  }
+}
+
+///|
 test "uleb roundtrip u33" {
   let vals : Array[UInt64] = [0, 1, 127, 128, 129, 0xffff, 0xffffffff]
   for v in vals {
@@ -228,6 +250,116 @@ test "bool decode rejects invalid byte and out of bounds" {
     Ok(_) => fail("expected bool decode out-of-bounds error")
     Err(_) => ()
   }
+}
+
+///|
+test "decode reports invalid bytes for instruction and lane index" {
+  assert_decode_err_contains(
+    (Decode::decode(b"\xFF", 0) : Result[(Instruction, Int), String]),
+    "Invalid Instruction",
+  )
+  assert_decode_err_contains(
+    (Decode::decode(b"\x10", 0) : Result[(LaneIdx, Int), String]),
+    "Invalid Lane Index",
+  )
+}
+
+///|
+test "decode reports invalid atomic.fence immediate" {
+  assert_decode_err_contains(
+    (Decode::decode(b"\xFE\x03\x01", 0) : Result[(Instruction, Int), String]),
+    "Invalid atomic.fence immediate",
+  )
+}
+
+///|
+test "type section decode reports payload EOF and trailing bytes" {
+  assert_decode_err_contains(
+    (Decode::decode(b"\x01\x03\x00", 0) : Result[(TypeSec, Int), String]),
+    "payload length out of range",
+  )
+  assert_decode_err_contains(
+    (Decode::decode(b"\x01\x02\x00\x00", 0) : Result[(TypeSec, Int), String]),
+    "Invalid section - didn't consume all bytes",
+  )
+}
+
+///|
+test "module decode bubbles section errors instead of generic invalid module" {
+  assert_decode_err_contains(
+    (
+      Decode::decode(b"\x00\x61\x73\x6D\x01\x00\x00\x00\x00\x02\x00", 0) :
+      Result[(Module, Int), String]),
+    "payload length out of range",
+  )
+  assert_decode_err_contains(
+    (
+      Decode::decode(b"\x00\x61\x73\x6D\x01\x00\x00\x00\x01\x02\x01\xFF", 0) :
+      Result[(Module, Int), String]),
+    "Invalid Comp Type",
+  )
+}
+
+///|
+test "encode rejects unsupported type/index forms" {
+  assert_encode_err_contains(
+    Encode::encode(TypeIdx::rec(0), @buffer.new()),
+    "non standard type index",
+  )
+  assert_encode_err_contains(
+    Encode::encode(HeapType::new(TypeIdx::rec(0)), @buffer.new()),
+    "recursive indexes",
+  )
+  assert_encode_err_contains(
+    Encode::encode(ValType::bottom(), @buffer.new()),
+    "bottom type",
+  )
+  assert_encode_err_contains(
+    Encode::encode(BlockType::type_idx(TypeIdx::rec(0)), @buffer.new()),
+    "recursive indexes",
+  )
+}
+
+///|
+test "encode section payload errors propagate from nested values" {
+  let bad_type_sec = TypeSec::new([
+    RecType::new(SubType::comp_type(CompType::func([ValType::bottom()], []))),
+  ])
+  assert_encode_err_contains(
+    Encode::encode(bad_type_sec, @buffer.new()),
+    "bottom type",
+  )
+
+  let bad_import_sec = ImportSec::new([
+    Import::new(
+      Name::new("m"),
+      Name::new("f"),
+      ExternType::func(TypeIdx::rec(0)),
+    ),
+  ])
+  assert_encode_err_contains(
+    Encode::encode(bad_import_sec, @buffer.new()),
+    "non standard type index",
+  )
+
+  let bad_code_sec = CodeSec::new([
+    Func::new(
+      [],
+      Expr::new([
+        Instruction::block(BlockType::type_idx(TypeIdx::rec(0)), Expr::new([])),
+      ]),
+    ),
+  ])
+  assert_encode_err_contains(
+    Encode::encode(bad_code_sec, @buffer.new()),
+    "recursive indexes",
+  )
+
+  let bad_module = Module::new().with_type_sec(bad_type_sec)
+  assert_encode_err_contains(
+    Encode::encode(bad_module, @buffer.new()),
+    "bottom type",
+  )
 }
 
 ///|
