@@ -2959,3 +2959,144 @@ test "minimize_rec_groups mixed stress module validates and has no remaining col
   assert_true(mrg_has_unique_group_shapes(out))
   assert_eq(@validate.validate_module(out), Ok(()))
 }
+
+///|
+test "minimize_rec_groups helper index resolution and dsu operations cover edge cases" {
+  assert_eq(mrg_resolve_type_idx(TypeIdx::new(0), 0, 1), Some(0))
+  assert_eq(mrg_resolve_type_idx(TypeIdx::new(2), 0, 2), None)
+  assert_eq(mrg_resolve_type_idx(TypeIdx::rec(1), 3, 8), Some(4))
+  assert_eq(mrg_resolve_type_idx(TypeIdx::rec(8), 0, 4), None)
+
+  let dsu = DSU::new(3)
+  let root_01 = dsu.union(0, 1)
+  assert_eq(dsu.find(0), root_01)
+  assert_eq(dsu.find(1), root_01)
+  assert_eq(dsu.class_size(0), 2)
+  // Re-unioning the same class should return immediately.
+  assert_eq(dsu.union(0, 1), root_01)
+}
+
+///|
+test "minimize_rec_groups helper ref collectors handle non-ref and oob references" {
+  let refs : Array[Int] = []
+  mrg_collect_valtype_refs(
+    refs,
+    ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(0)))),
+    0,
+    1,
+  )
+  mrg_collect_valtype_refs(
+    refs,
+    ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(10)))),
+    0,
+    1,
+  )
+  mrg_collect_valtype_refs(
+    refs,
+    ValType::ref_type(RefType::abs(AbsHeapType::func())),
+    0,
+    1,
+  )
+  mrg_collect_valtype_refs(refs, ValType::i32(), 0, 1)
+  assert_eq(refs, [0])
+
+  mrg_collect_storage_type_refs(
+    refs,
+    StorageType::pack_type(PackType::i8()),
+    0,
+    1,
+  )
+  assert_eq(refs, [0])
+
+  let array_ref_subtype = SubType::new(
+    false,
+    [TypeIdx::new(99)],
+    CompType::array(
+      FieldType::new(
+        StorageType::val_type(
+          ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(0)))),
+        ),
+        Const,
+      ),
+    ),
+  )
+  assert_eq(mrg_collect_subtype_refs(array_ref_subtype, 0, 1), [0])
+}
+
+///|
+test "minimize_rec_groups helper import and public markers include mixed section sources" {
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(SubType::comp_type(CompType::struct_([]))),
+        mrg_void_func_type(),
+      ]),
+    )
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("env"),
+          Name::new("f"),
+          ExternType::func(TypeIdx::new(1)),
+        ),
+        Import::new(
+          Name::new("env"),
+          Name::new("g"),
+          ExternType::global(GlobalType::new(ValType::i32(), false)),
+        ),
+        Import::new(
+          Name::new("env"),
+          Name::new("t"),
+          ExternType::table(
+            TableType::new(
+              RefType::new(true, HeapType::new(TypeIdx::new(0))),
+              Limits::i32(1, None),
+            ),
+          ),
+        ),
+        Import::new(
+          Name::new("env"),
+          Name::new("tag"),
+          ExternType::tag(TagType::new(TypeIdx::new(1))),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
+    .with_table_sec(
+      TableSec::new([
+        Table::new(
+          TableType::new(
+            RefType::new(true, HeapType::new(TypeIdx::new(0))),
+            Limits::i32(1, None),
+          ),
+          None,
+        ),
+      ]),
+    )
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(ValType::i64(), true),
+          Expr::new([Instruction::i64_const(I64(0))]),
+        ),
+      ]),
+    )
+    .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(1))]))
+
+  let func_type_by_func = mrg_collect_func_type_idx_by_func(mod)
+  assert_eq(func_type_by_func.length(), 2)
+  assert_true(func_type_by_func.contains(FuncIdx::new(0)))
+  assert_true(func_type_by_func.contains(FuncIdx::new(1)))
+
+  assert_eq(mrg_collect_all_global_types(mod).length(), 2)
+  assert_eq(mrg_collect_all_table_types(mod).length(), 2)
+  assert_eq(mrg_collect_all_tag_types(mod).length(), 2)
+
+  let flat = mrg_flatten_types(
+    TypeSec::new([RecType::new(SubType::comp_type(CompType::struct_([])))]),
+  )
+  let public_types : Set[Int] = Set::new()
+  mrg_mark_public_reftype(public_types, flat, RefType::abs(AbsHeapType::func()))
+  mrg_mark_public_valtype(public_types, flat, ValType::i32())
+  assert_eq(public_types.length(), 0)
+}

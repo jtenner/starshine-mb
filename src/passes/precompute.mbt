@@ -1188,6 +1188,14 @@ fn pc_single_func_module(
 }
 
 ///|
+fn pc_expect_literal(actual : PCLiteral?, expected : PCLiteral) -> Unit raise {
+  match actual {
+    Some(v) => assert_true(v == expected)
+    None => fail("expected literal result")
+  }
+}
+
+///|
 test "precompute constructors return expected module pass variants" {
   match createPrecomputePass() {
     ModulePass::Precompute => ()
@@ -1514,4 +1522,140 @@ test "precompute pass is idempotent in propagate mode" {
   let once = pc_run_module(mod, propagate=true).unwrap()
   let twice = pc_run_module(once, propagate=true).unwrap()
   assert_eq(once, twice)
+}
+
+///|
+test "precompute helper rounding and literal conversion paths" {
+  assert_eq(pc_wrap_i64(-1L), -1L)
+  assert_eq(pc_round_half_to_even_f64(2.5), 2.0)
+  assert_eq(pc_round_half_to_even_f64(3.5), 4.0)
+  assert_eq(pc_round_half_to_even_f32(2.5), 2.0)
+
+  pc_expect_literal(
+    pc_literal_from_instr(TInstr::i64_const(I64(9L))),
+    PCI64(9L),
+  )
+  assert_eq(pc_instr_from_literal(PCI64(9L)), TInstr::i64_const(I64(9L)))
+}
+
+///|
+test "precompute immutable global collection includes all literal kinds and import offset" {
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
+    )
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("env"),
+          Name::new("f"),
+          ExternType::func(TypeIdx::new(0)),
+        ),
+        Import::new(
+          Name::new("env"),
+          Name::new("g"),
+          ExternType::global(GlobalType::new(ValType::i32(), false)),
+        ),
+      ]),
+    )
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(ValType::i64(), false),
+          Expr::new([Instruction::i64_const(I64(1))]),
+        ),
+        Global::new(
+          GlobalType::new(ValType::f32(), false),
+          Expr::new([Instruction::f32_const(F32(1.25))]),
+        ),
+        Global::new(
+          GlobalType::new(ValType::f64(), false),
+          Expr::new([Instruction::f64_const(F64(2.5))]),
+        ),
+        Global::new(
+          GlobalType::new(
+            ValType::ref_type(RefType::abs(AbsHeapType::func())),
+            false,
+          ),
+          Expr::new([Instruction::ref_null(HeapType::abs(AbsHeapType::func()))]),
+        ),
+        Global::new(
+          GlobalType::new(
+            ValType::ref_type(RefType::abs(AbsHeapType::func())),
+            false,
+          ),
+          Expr::new([Instruction::ref_func(FuncIdx::new(0))]),
+        ),
+        Global::new(
+          GlobalType::new(ValType::i32(), true),
+          Expr::new([Instruction::i32_const(I32(99))]),
+        ),
+      ]),
+    )
+  assert_eq(pc_imported_global_count(mod), 1U)
+  let imm = pc_collect_immutable_globals(mod)
+  assert_eq(imm.length(), 5)
+  assert_true(imm.contains(GlobalIdx::new(1)))
+  assert_true(imm.contains(GlobalIdx::new(2)))
+  assert_true(imm.contains(GlobalIdx::new(3)))
+  assert_true(imm.contains(GlobalIdx::new(4)))
+  assert_true(imm.contains(GlobalIdx::new(5)))
+}
+
+///|
+test "precompute unary and binary evaluators cover i64 float conversion and trap guards" {
+  pc_expect_literal(pc_eval_unary(UnaryOp::i32_clz(), PCI32(1)), PCI32(31))
+  pc_expect_literal(
+    pc_eval_unary(UnaryOp::i64_extend_i32u(), PCI32(-1)),
+    PCI64(4294967295L),
+  )
+  pc_expect_literal(
+    pc_eval_unary(UnaryOp::f32_reinterpret_i32(), PCI32(0)),
+    PCF32(Float::reinterpret_from_int(0)),
+  )
+  pc_expect_literal(
+    pc_eval_unary(UnaryOp::f64_convert_i32u(), PCI32(-1)),
+    PCF64(4294967295.0),
+  )
+
+  pc_expect_literal(
+    pc_eval_binary(BinaryOp::i32_sub(), PCI32(9), PCI32(4)),
+    PCI32(5),
+  )
+  match pc_eval_binary(BinaryOp::i32_div_s(), PCI32(9), PCI32(0)) {
+    None => ()
+    _ => fail("expected i32.div_s by zero to remain non-foldable")
+  }
+  pc_expect_literal(
+    pc_eval_binary(BinaryOp::i32_div_s(), PCI32(9), PCI32(3)),
+    PCI32(3),
+  )
+  match pc_eval_binary(BinaryOp::i32_div_u(), PCI32(9), PCI32(0)) {
+    None => ()
+    _ => fail("expected i32.div_u by zero to remain non-foldable")
+  }
+  match pc_eval_binary(BinaryOp::i32_rem_s(), PCI32(9), PCI32(0)) {
+    None => ()
+    _ => fail("expected i32.rem_s by zero to remain non-foldable")
+  }
+  match pc_eval_binary(BinaryOp::i32_rem_u(), PCI32(9), PCI32(0)) {
+    None => ()
+    _ => fail("expected i32.rem_u by zero to remain non-foldable")
+  }
+  pc_expect_literal(
+    pc_eval_binary(BinaryOp::i32_and(), PCI32(6), PCI32(3)),
+    PCI32(2),
+  )
+  pc_expect_literal(
+    pc_eval_binary(BinaryOp::i32_shr_u(), PCI32(-2), PCI32(1)),
+    PCI32(2147483647),
+  )
+  pc_expect_literal(
+    pc_eval_binary(BinaryOp::i32_rotr(), PCI32(1), PCI32(0)),
+    PCI32(1),
+  )
+  pc_expect_literal(
+    pc_eval_binary(BinaryOp::i32_eq(), PCI32(7), PCI32(7)),
+    PCI32(1),
+  )
 }

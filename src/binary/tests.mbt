@@ -78,6 +78,19 @@ fn assert_encode_err_contains(
 }
 
 ///|
+priv struct FailingEncodeToken(Int)
+
+///|
+impl Encode for FailingEncodeToken with encode(val, _buf) {
+  let FailingEncodeToken(tag) = val
+  if tag < 0 {
+    Err("forced token encode failure")
+  } else {
+    Ok(())
+  }
+}
+
+///|
 test "uleb roundtrip u33" {
   let vals : Array[UInt64] = [0, 1, 127, 128, 129, 0xffff, 0xffffffff]
   for v in vals {
@@ -357,6 +370,101 @@ test "invalid decode vectors are table-driven across decoders" {
 }
 
 ///|
+test "decode primitive error branches include oob and nested failures" {
+  assert_decode_err_contains(
+    (Decode::decode(b"", 0) : Result[(NumType, Int), String]),
+    "Index out of bounds",
+  )
+  assert_decode_err_contains(
+    (Decode::decode(b"", 0) : Result[(AbsHeapType, Int), String]),
+    "Index out of bounds",
+  )
+  assert_decode_err_contains(
+    (Decode::decode(b"", 0) : Result[(RefType, Int), String]),
+    "Index out of bounds",
+  )
+  assert_decode_err_contains(
+    (Decode::decode(b"\x63", 0) : Result[(RefType, Int), String]),
+    "unexpected EOF",
+  )
+  assert_decode_err_contains(
+    (Decode::decode(b"\x64", 0) : Result[(RefType, Int), String]),
+    "unexpected EOF",
+  )
+  assert_decode_err_contains(
+    (Decode::decode(b"", 0) : Result[(ValType, Int), String]),
+    "Index out of bounds",
+  )
+  assert_decode_err_contains(
+    (Decode::decode(b"", 0) : Result[(CompType, Int), String]),
+    "Index out of bounds",
+  )
+  assert_decode_err_contains(
+    (Decode::decode(b"", 0) : Result[(Mut, Int), String]),
+    "unexpected EOF decoding mut",
+  )
+  assert_decode_err_contains(
+    (Decode::decode(b"\x02", 0) : Result[(Mut, Int), String]),
+    "invalid mut byte",
+  )
+  assert_decode_err_contains(
+    (Decode::decode(b"\x79", 0) : Result[(StorageType, Int), String]),
+    "Invalid StorageType",
+  )
+  assert_decode_err_contains(
+    (Decode::decode(b"\x79", 0) : Result[(PackType, Int), String]),
+    "Invalid Packed Type",
+  )
+  assert_decode_err_contains(
+    (Decode::decode(b"", 0) : Result[(RecType, Int), String]),
+    "Index out of bounds",
+  )
+  assert_decode_err_contains(
+    (Decode::decode(b"\x4E", 0) : Result[(RecType, Int), String]),
+    "unexpected EOF",
+  )
+  assert_decode_err_contains(
+    (Decode::decode(b"", 0) : Result[(SubType, Int), String]),
+    "Index out of bounds",
+  )
+  assert_decode_err_contains(
+    (Decode::decode(b"\x4F", 0) : Result[(SubType, Int), String]),
+    "unexpected EOF",
+  )
+}
+
+///|
+test "generic list decode and encode propagate nested failures" {
+  assert_decode_err_contains(
+    (Decode::decode(b"", 0) : Result[(@list.List[Bool], Int), String]),
+    "unexpected EOF",
+  )
+  assert_decode_err_contains(
+    (Decode::decode(b"\x01\x02", 0) : Result[(@list.List[Bool], Int), String]),
+    "Invalid bool",
+  )
+  match
+    (
+      Decode::decode(b"\x02\x00\x01", 0) :
+      Result[(@list.List[Bool], Int), String]) {
+    Ok((decoded, i)) => {
+      assert_eq(i, 3)
+      assert_eq(decoded.to_array(), [false, true])
+    }
+    Err(e) => fail("unexpected list decode failure: \{e}")
+  }
+
+  let bad_list = @list.List::from_array([
+    FailingEncodeToken(1),
+    FailingEncodeToken(-1),
+  ])
+  assert_encode_err_contains(
+    Encode::encode(bad_list, @buffer.new()),
+    "forced token encode failure",
+  )
+}
+
+///|
 test "encode rejects unsupported type/index forms" {
   assert_encode_err_contains(
     Encode::encode(TypeIdx::rec(0), @buffer.new()),
@@ -423,6 +531,43 @@ test "uleb encoder never exceeds ceil(nbits/7)" {
   let buf = @buffer.new()
   encode_unsigned((1UL << 33) - 1UL, buf, 33).unwrap()
   assert_true(buf.to_bytes().length() <= max_leb_bytes(33))
+}
+
+///|
+test "leb sizing and encoding reject invalid bit widths and ranges" {
+  assert_encode_err_contains(
+    encode_unsigned(1UL, @buffer.new(), 0),
+    "invalid nbits for uleb",
+  )
+  assert_encode_err_contains(
+    encode_unsigned(256UL, @buffer.new(), 8),
+    "out of range",
+  )
+  assert_encode_err_contains(
+    encode_signed(1L, @buffer.new(), 0),
+    "invalid nbits for sleb",
+  )
+  assert_encode_err_contains(
+    encode_signed(200L, @buffer.new(), 8),
+    "out of range",
+  )
+
+  match size_unsigned(1UL, 0) {
+    Ok(_) => fail("expected invalid nbits for size_unsigned")
+    Err(e) => assert_true(e.contains("invalid nbits for uleb"))
+  }
+  match size_unsigned(300UL, 8) {
+    Ok(_) => fail("expected out-of-range size_unsigned")
+    Err(e) => assert_true(e.contains("out of range"))
+  }
+  match size_signed(1L, 0) {
+    Ok(_) => fail("expected invalid nbits for size_signed")
+    Err(e) => assert_true(e.contains("invalid nbits for sleb"))
+  }
+  match size_signed(200L, 8) {
+    Ok(_) => fail("expected out-of-range size_signed")
+    Err(e) => assert_true(e.contains("out of range"))
+  }
 }
 
 ///|

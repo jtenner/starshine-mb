@@ -2028,3 +2028,152 @@ test "local cse is idempotent" {
   let twice = run_local_cse(once)
   assert_eq(once, twice)
 }
+
+///|
+test "local cse LCSEffects invalidation matrix covers globals calls control flow and traps" {
+  let w_local = LCSEffects::new()
+  w_local.locals_written.add(LocalIdx::new(0))
+  let r_local = LCSEffects::new()
+  r_local.locals_read.add(LocalIdx::new(0))
+  assert_true(w_local.invalidates(r_local))
+
+  let disjoint_a = LCSEffects::new()
+  disjoint_a.locals_written.add(LocalIdx::new(0))
+  let disjoint_b = LCSEffects::new()
+  disjoint_b.locals_read.add(LocalIdx::new(1))
+  assert_false(disjoint_a.invalidates(disjoint_b))
+
+  let w_global = LCSEffects::new()
+  w_global.writes_globals = true
+  let r_global = LCSEffects::new()
+  r_global.reads_globals = true
+  assert_true(w_global.invalidates(r_global))
+
+  let call_effect = LCSEffects::new()
+  call_effect.calls = true
+  let mem_effect = LCSEffects::new()
+  mem_effect.reads_memory = true
+  assert_true(call_effect.invalidates(mem_effect))
+
+  let branch_effect = LCSEffects::new()
+  branch_effect.branches = true
+  assert_true(branch_effect.invalidates(LCSEffects::new()))
+
+  let trap_effect = LCSEffects::new()
+  trap_effect.traps = true
+  let side_effect = LCSEffects::new()
+  side_effect.locals_written.add(LocalIdx::new(0))
+  assert_true(trap_effect.invalidates(side_effect))
+}
+
+///|
+test "local cse shallow effect collection covers memory table throw and gc forms" {
+  let g = lcs_collect_shallow_effects(TInstr::global_get(GlobalIdx::new(0)))
+  assert_true(g.reads_globals)
+
+  let mg = lcs_collect_shallow_effects(
+    TInstr::memory_grow(MemIdx::new(0), TInstr::i32_const(I32(1))),
+  )
+  assert_true(mg.writes_memory)
+
+  let mf = lcs_collect_shallow_effects(
+    TInstr::memory_fill(
+      MemIdx::new(0),
+      TInstr::i32_const(I32(0)),
+      TInstr::i32_const(I32(0)),
+      TInstr::i32_const(I32(1)),
+    ),
+  )
+  assert_true(mf.writes_memory)
+
+  let dd = lcs_collect_shallow_effects(TInstr::data_drop(DataIdx::new(0)))
+  assert_true(dd.writes_memory)
+
+  let ts = lcs_collect_shallow_effects(
+    TInstr::table_set(
+      TableIdx::new(0),
+      TInstr::i32_const(I32(0)),
+      TInstr::ref_null(HeapType::abs(AbsHeapType::func())),
+    ),
+  )
+  assert_true(ts.writes_memory)
+
+  let rc = lcs_collect_shallow_effects(TInstr::return_call(FuncIdx::new(0), []))
+  assert_true(rc.calls)
+  assert_true(rc.branches)
+
+  let thr = lcs_collect_shallow_effects(
+    TInstr::throw_ref(TInstr::ref_null(HeapType::abs(AbsHeapType::exn()))),
+  )
+  assert_true(thr.throws)
+  assert_true(thr.branches)
+
+  let rasn = lcs_collect_shallow_effects(
+    TInstr::ref_as_non_null(
+      TInstr::ref_null(HeapType::abs(AbsHeapType::func())),
+    ),
+  )
+  assert_true(rasn.traps)
+
+  let sset = lcs_collect_shallow_effects(
+    TInstr::struct_set(
+      TypeIdx::new(0),
+      0,
+      TInstr::ref_null(HeapType::new(TypeIdx::new(0))),
+      TInstr::i32_const(I32(1)),
+    ),
+  )
+  assert_true(sset.writes_memory)
+  assert_true(sset.traps)
+
+  let anew = lcs_collect_shallow_effects(
+    TInstr::array_new_elem(
+      TypeIdx::new(0),
+      ElemIdx::new(0),
+      TInstr::i32_const(I32(0)),
+      TInstr::i32_const(I32(1)),
+    ),
+  )
+  assert_true(anew.writes_memory)
+  assert_true(anew.traps)
+
+  let alen = lcs_collect_shallow_effects(
+    TInstr::array_len(TInstr::ref_null(HeapType::new(TypeIdx::new(0)))),
+  )
+  assert_true(alen.reads_memory)
+  assert_true(alen.traps)
+
+  let ainit = lcs_collect_shallow_effects(
+    TInstr::array_init_elem(
+      TypeIdx::new(0),
+      ElemIdx::new(0),
+      TInstr::ref_null(HeapType::new(TypeIdx::new(0))),
+      TInstr::i32_const(I32(0)),
+      TInstr::i32_const(I32(0)),
+      TInstr::i32_const(I32(1)),
+    ),
+  )
+  assert_true(ainit.reads_memory)
+  assert_true(ainit.writes_memory)
+  assert_true(ainit.traps)
+
+  let trunc = lcs_collect_shallow_effects(
+    TInstr::unary(UnaryOp::i64_trunc_f64u(), TInstr::f64_const(F64(1.5))),
+  )
+  assert_true(trunc.traps)
+}
+
+///|
+test "local cse measurement and utility helpers cover unreachable and bottom locals" {
+  let measured = lcs_measure_texpr(
+    TExpr::new([
+      TInstr::block(
+        BlockType::void_(),
+        TExpr::new([TInstr::drop(TInstr::i32_const(I32(1))), TInstr::nop()]),
+      ),
+    ]),
+  )
+  assert_true(measured > 0)
+  assert_eq(lcs_cost(TInstr::unreachable_()), 0)
+  assert_false(lcs_can_handle_as_local(ValType::bottom()))
+}

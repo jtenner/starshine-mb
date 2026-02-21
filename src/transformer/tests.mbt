@@ -869,3 +869,73 @@ test "walk_tinstruction preserves array_copy final operand when unchanged" {
     _ => fail("expected rewritten array_copy")
   }
 }
+
+///|
+test "walk_expr and walk_texpr propagate event hook errors" {
+  let expr_transformer = ModuleTransformer::new().on_expr_evt(fn(_, _, _) {
+    error("expr boom")
+  })
+  match expr_transformer.walk_expr((), Expr::new([Instruction::nop()])) {
+    Err(msg) => assert_eq(msg, "expr boom")
+    _ => fail("expected walk_expr to forward on_expr error")
+  }
+
+  let texpr_transformer = ModuleTransformer::new().on_texpr_evt(fn(_, _, _) {
+    error("texpr boom")
+  })
+  match texpr_transformer.walk_texpr((), TExpr::new([TInstr::nop()])) {
+    Err(msg) => assert_eq(msg, "texpr boom")
+    _ => fail("expected walk_texpr to forward on_texpr error")
+  }
+}
+
+///|
+test "walk_expr_default forwards instruction walker errors" {
+  let transformer = ModuleTransformer::new().on_instruction_evt(fn(_, _, _) {
+    error("instruction boom")
+  })
+  match transformer.walk_expr_default((), Expr::new([Instruction::nop()])) {
+    Err(msg) => assert_eq(msg, "instruction boom")
+    _ => fail("expected walk_expr_default to propagate instruction error")
+  }
+}
+
+///|
+test "walk_tinstruction_default forwards index child and heaptype errors" {
+  let heap_error = ModuleTransformer::new().on_heaptype_evt(fn(_, _, _) {
+    error("heap boom")
+  })
+  match
+    heap_error.walk_tinstruction_default(
+      (),
+      TInstr::ref_null(HeapType::new(TypeIdx::new(0))),
+    ) {
+    Err(msg) => assert_eq(msg, "heap boom")
+    _ => fail("expected heaptype error propagation")
+  }
+
+  let local_error = ModuleTransformer::new().on_localidx_evt(fn(_, _, _) {
+    error("local boom")
+  })
+  match
+    local_error.walk_tinstruction_default(
+      (),
+      TInstr::unary(UnaryOp::i32_eqz(), TInstr::local_get(LocalIdx::new(0))),
+    ) {
+    Err(msg) => assert_eq(msg, "local boom")
+    _ => fail("expected child localidx error propagation")
+  }
+
+  let heap_rewrite = ModuleTransformer::new().on_heaptype_evt(fn(_, _, _) {
+    change((), HeapType::new(TypeIdx::new(3)))
+  })
+  match
+    heap_rewrite.walk_tinstruction_default(
+      (),
+      TInstr::ref_null(HeapType::new(TypeIdx::new(0))),
+    ) {
+    Ok(Some((_, rewritten))) =>
+      assert_eq(rewritten, TInstr::ref_null(HeapType::new(TypeIdx::new(3))))
+    _ => fail("expected rewritten ref.null heap type")
+  }
+}

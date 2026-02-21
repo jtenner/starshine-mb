@@ -2170,3 +2170,122 @@ test "optimize instructions call_ref direct simplifications" {
     _ => fail("expected call_ref(ref.func) => call")
   }
 }
+
+///|
+test "optimize instructions helper arithmetic and relational utilities cover i64 and negative paths" {
+  assert_true(oi_is_power_of_2_i64(8L))
+  assert_false(oi_is_power_of_2_i64(0L))
+  assert_eq(oi_log2_i64(8L), 3L)
+  assert_eq(oi_wrap_i64(-1L), -1L)
+
+  assert_eq(oi_const_i32(TInstr::i32_const(I32(11))), Some(11))
+  assert_eq(oi_const_i32(TInstr::i64_const(I64(11L))), None)
+
+  assert_eq(
+    oi_reverse_relational(BinaryOp::i32_lt_s()),
+    Some(BinaryOp::i32_gt_s()),
+  )
+  assert_eq(oi_invert_relational(BinaryOp::i32_eq()), Some(BinaryOp::i32_ne()))
+  assert_eq(oi_invert_relational(BinaryOp::i32_add()), None)
+
+  assert_true(oi_is_i64_shift(BinaryOp::i64_shl()))
+  assert_false(oi_is_i32_shift(BinaryOp::i64_shl()))
+  assert_true(oi_negate_const(TInstr::i64_const(I64(5L))) is Some(_))
+}
+
+///|
+test "optimize instructions helper sequencing boolean and reorder checks" {
+  let env = Env::new()
+  assert_eq(oi_instr_stmt(TInstr::nop(), env), TInstr::nop())
+  assert_eq(oi_seq([], TInstr::nop(), env), TInstr::nop())
+  match oi_seq([TInstr::i32_const(I32(1))], TInstr::nop(), env) {
+    TBlock(VoidBlockType, TExpr([_, TNop])) => ()
+    _ => fail("expected oi_seq to emit block for non-empty statements")
+  }
+
+  assert_true(
+    oi_can_reorder(TInstr::i32_const(I32(1)), TInstr::i32_const(I32(2))),
+  )
+  assert_false(
+    oi_can_reorder(
+      TInstr::global_set(GlobalIdx::new(0), TInstr::i32_const(I32(1))),
+      TInstr::global_get(GlobalIdx::new(0)),
+    ),
+  )
+
+  let eqz_eqz = oi_optimize_boolean(
+    TInstr::unary(
+      UnaryOp::i32_eqz(),
+      TInstr::unary(UnaryOp::i32_eqz(), TInstr::local_get(LocalIdx::new(0))),
+    ),
+    env,
+    OptimizeOptions::new(),
+  )
+  assert_eq(eqz_eqz, TInstr::local_get(LocalIdx::new(0)))
+
+  let eqz_const = oi_optimize_boolean(
+    TInstr::unary(UnaryOp::i32_eqz(), TInstr::i32_const(I32(0))),
+    env,
+    OptimizeOptions::new(),
+  )
+  assert_eq(eqz_const, TInstr::i32_const(I32(1)))
+}
+
+///|
+test "optimize instructions i64 constant-right simplifications mirror i32 coverage" {
+  let body = oi_run_func(
+    [
+      TInstr::binary(
+        BinaryOp::i64_div_u(),
+        TInstr::local_get(LocalIdx::new(0)),
+        TInstr::i64_const(I64(8L)),
+      ),
+      TInstr::binary(
+        BinaryOp::i64_rem_u(),
+        TInstr::local_get(LocalIdx::new(0)),
+        TInstr::i64_const(I64(8L)),
+      ),
+      TInstr::binary(
+        BinaryOp::i64_ge_u(),
+        TInstr::local_get(LocalIdx::new(0)),
+        TInstr::i64_const(I64(0L)),
+      ),
+      TInstr::binary(
+        BinaryOp::i64_lt_u(),
+        TInstr::local_get(LocalIdx::new(0)),
+        TInstr::i64_const(I64(-1L)),
+      ),
+      TInstr::binary(
+        BinaryOp::i64_mul(),
+        TInstr::local_get(LocalIdx::new(0)),
+        TInstr::i64_const(I64(-1L)),
+      ),
+    ],
+    locals=[ValType::i64()],
+  )
+  match body {
+    TExpr([a0, a1, a2, a3, a4]) => {
+      match a0 {
+        TBinary(I64ShrUOp, _, TI64Const(I64(v))) => assert_eq(v, 3L)
+        _ => fail("expected i64.div_u by pow2 => shr_u")
+      }
+      match a1 {
+        TBinary(I64AndOp, _, TI64Const(I64(v))) => assert_eq(v, 7L)
+        _ => fail("expected i64.rem_u by pow2 => and")
+      }
+      match a2 {
+        TBlock(_, TExpr([TDrop(_), TI32Const(I32(v))])) => assert_eq(v, 1)
+        _ => fail("expected i64.ge_u 0 => true with dropped lhs")
+      }
+      match a3 {
+        TBinary(I64NeOp, _, TI64Const(I64(v))) => assert_eq(v, -1L)
+        _ => fail("expected i64.lt_u -1 => ne -1")
+      }
+      match a4 {
+        TBinary(I64SubOp, TI64Const(I64(0L)), _) => ()
+        _ => fail("expected i64.mul -1 => 0 - x")
+      }
+    }
+    _ => fail("expected five rewritten i64 instructions")
+  }
+}

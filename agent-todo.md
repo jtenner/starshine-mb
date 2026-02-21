@@ -47,17 +47,17 @@
 
 ## 2) Coverage + Quality Work
 
-- [ ] Raise coverage in core infrastructure hotspots.
-  - [ ] `src/validate/env.mbt`
-  - [ ] `src/transformer/transformer.mbt`
-  - [ ] `src/binary/decode.mbt`
-  - [ ] `src/binary/encode.mbt`
+- [x] Raise coverage in core infrastructure hotspots.
+  - [x] `src/validate/env.mbt`
+  - [x] `src/transformer/transformer.mbt`
+  - [x] `src/binary/decode.mbt`
+  - [x] `src/binary/encode.mbt`
 
-- [ ] Add coverage-driven targets for additional optimizer hotspots.
-  - [ ] `src/passes/minimize_rec_groups.mbt`
-  - [ ] `src/passes/local_cse.mbt`
-  - [ ] `src/passes/optimize_instructions.mbt`
-  - [ ] `src/passes/precompute.mbt`
+- [x] Add coverage-driven targets for additional optimizer hotspots.
+  - [x] `src/passes/minimize_rec_groups.mbt`
+  - [x] `src/passes/local_cse.mbt`
+  - [x] `src/passes/optimize_instructions.mbt`
+  - [x] `src/passes/precompute.mbt`
 
 - [ ] Add a lightweight optimizer perf baseline.
   - [ ] Track compile time and output size on representative modules.

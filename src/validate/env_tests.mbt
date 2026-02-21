@@ -427,3 +427,99 @@ test "to_texpr return underflow uses configured return_type arity" {
       assert_eq(e, "Stack underflow: need 1 values but only 0 available")
   }
 }
+
+///|
+test "Env.resolve_heaptype_subtype projects DefType heap types" {
+  let st = SubType::comp_type(CompType::struct_([]))
+  let dt = DefType::new(RecType::new(st), 0)
+  let env = Env::new()
+  assert_true(
+    env.resolve_heaptype_subtype(HeapType::def_type(dt))
+    is Some(CompTypeSubType(StructCompType(_))),
+  )
+  assert_eq(env.descriptor_result_type(), ValType::i32())
+}
+
+///|
+test "block_type_inputs handles void, value, and unresolved typeidx forms" {
+  let empty_env = Env::new()
+  assert_eq(block_type_inputs(BlockType::void_(), empty_env), 0)
+  assert_eq(
+    block_type_inputs(BlockType::val_type(ValType::i64()), empty_env),
+    0,
+  )
+  assert_eq(
+    block_type_inputs(BlockType::type_idx(TypeIdx::new(0)), empty_env),
+    0,
+  )
+
+  let env = Env::new().with_rectype(
+    RecType::new(
+      SubType::comp_type(
+        CompType::func([ValType::i32(), ValType::i64()], [ValType::i32()]),
+      ),
+    ),
+  )
+  assert_eq(block_type_inputs(BlockType::type_idx(TypeIdx::new(0)), env), 2)
+}
+
+///|
+test "instr_to_tinstr covers additional const nullary and unary branches" {
+  let env = Env::new()
+
+  let const_stack : Array[TInstr] = []
+  ignore(instr_to_tinstr(Instruction::f32_const(F32(1.5)), const_stack, env))
+  ignore(instr_to_tinstr(Instruction::f64_const(F64(2.5)), const_stack, env))
+  ignore(
+    instr_to_tinstr(
+      Instruction::v128_const(
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+      ),
+      const_stack,
+      env,
+    ),
+  )
+  ignore(instr_to_tinstr(Instruction::unreachable_(), const_stack, env))
+  ignore(
+    instr_to_tinstr(
+      Instruction::global_get(GlobalIdx::new(0)),
+      const_stack,
+      env,
+    ),
+  )
+  ignore(
+    instr_to_tinstr(Instruction::memory_size(MemIdx::new(0)), const_stack, env),
+  )
+  ignore(
+    instr_to_tinstr(Instruction::table_size(TableIdx::new(0)), const_stack, env),
+  )
+  assert_eq(const_stack.length(), 7)
+
+  let unary_instrs = [
+    Instruction::i64_eqz(),
+    Instruction::i32_clz(),
+    Instruction::i32_ctz(),
+    Instruction::i32_popcnt(),
+    Instruction::i64_clz(),
+    Instruction::i64_ctz(),
+    Instruction::i64_popcnt(),
+    Instruction::f32_abs(),
+    Instruction::f32_neg(),
+    Instruction::f32_ceil(),
+    Instruction::f32_floor(),
+    Instruction::f32_trunc(),
+    Instruction::f32_nearest(),
+    Instruction::f32_sqrt(),
+    Instruction::f64_abs(),
+    Instruction::f64_neg(),
+    Instruction::f64_ceil(),
+    Instruction::f64_floor(),
+  ]
+  for instr in unary_instrs {
+    let stack = [TInstr::i32_const(I32(7))]
+    match instr_to_tinstr(instr, stack, env) {
+      Ok(_) => assert_eq(stack.length(), 1)
+      Err(e) => fail("unexpected unary conversion failure: \{e}")
+    }
+  }
+}
