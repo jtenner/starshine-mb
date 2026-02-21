@@ -1,84 +1,40 @@
 # Agent Tasks
 
-## 0) Immediate High-Value Changes (Repo Audit)
+## 0) Highest Priority (Cross-Package Audit: 2026-02-20)
 
-- [x] Expose open-world `remove_unused` mode in default scheduler wiring.
-  - [x] Add option/path in `default_global_optimization_pre_passes(...)` to schedule open-world behavior.
-  - [x] Add scheduler-level tests for closed-world vs open-world dispatch.
+- [ ] P0: Close validation/transformer core gaps before adding new pass features.
+  - [x] `src/validate/env.mbt` targeted tests for `with_module`, recursive `TypeIdx/RecIdx` resolution, and `to_texpr` stack-error branches (`1375` uncovered lines).
+  - [x] `src/validate/typecheck.mbt` targeted negative tests for descriptor ops, atomics, and multi-value/control-flow error paths (`618` uncovered lines).
+  - [ ] `src/transformer/transformer.mbt` expand `walk_*` callback dispatch/error propagation tests over less-used `TInstr` variants (`643` uncovered lines).
+- [ ] P1: Harden binary codec correctness under invalid input and unsupported encodings.
+  - [ ] `src/binary/decode.mbt` add EOF/invalid-byte/error-bubbling tests through `src/binary/tests.mbt` (`410` uncovered lines).
+  - [ ] `src/binary/encode.mbt` add unsupported-type/index rejection tests and section payload propagation tests (`444` uncovered lines).
+- [ ] P1: Add direct IR core analysis tests (currently mostly integration-driven coverage).
+  - [ ] Add dedicated tests for `src/ir/ssa.mbt`, `src/ir/ssa_destruction.mbt`, `src/ir/gvn.mbt`, `src/ir/liveness.mbt`, and `src/ir/type_tracking.mbt`.
+  - [ ] Add invariants/tests around `src/ir/usedef.mbt` and `src/ir/types.mbt` for def-use and typed index consistency.
+- [ ] P1: Keep scheduler parity delivery moving after core infra hardening.
+  - [ ] Implement + test missing `src/passes/optimize.mbt` parity modes: `ssa-nomerge`, `flatten`, `rereloop`, `tuple-optimization`, `cfp-reftest`, `unsubtyping`, `generate-global-effects`.
 
-- [x] Fix SSA truncation constant-folding semantics and test coverage.
-  - [x] Audit `I64TruncF32S/U` and adjacent float-to-int folds in `src/ir/ssa_optimize.mbt`.
-  - [x] Add edge-case tests (NaN, infinities, signed/unsigned bounds, trap semantics parity).
+## 0.5) Low-Hanging Fruit (Fast Test Wins)
 
-- [x] Complete `AlignmentLowering` parity for V128 extending loads.
-  - [x] Finish lowering support in `src/passes/alignment_lowering.mbt`.
-  - [x] Add signed/unsigned regression tests for all V128 extending-load variants.
+- [ ] Add direct tests for high-impact modules with no dedicated test file.
+  - [ ] `src/transformer/transformer.mbt`: add `Err` propagation + `Ok(None)` fallthrough tests in `src/transformer/tests.mbt`.
+  - [ ] `src/lib/types.mbt` + `src/lib/texpr.mbt`: add constructor/match/roundtrip smoke tests.
+  - [ ] `src/wast/keywords.mbt` + `src/wast/types.mbt`: add keyword classification + parser boundary tests.
+- [ ] Expand existing harnesses rather than adding new infra.
+  - [ ] Extend `src/binary/tests.mbt` with table-driven invalid-decode vectors.
+  - [ ] Extend `src/validate/env_tests.mbt` with import/type-stack edge cases.
+  - [ ] Extend `src/wast/module_wast_tests.mbt` with malformed module fixtures.
+- [ ] Add one actionable audit item per `src/*` package to prevent regressions.
+  - [ ] `src/binary`: decode/encode negative-path coverage expansion.
+  - [ ] `src/ir`: dedicated SSA/GVN/liveness unit tests.
+  - [ ] `src/lib`: types/texpr/pretty-print direct tests.
+  - [ ] `src/passes`: close remaining optimize parity TODO flags + branch tests.
+  - [ ] `src/transformer`: walk-dispatch variant coverage.
+  - [ ] `src/validate`: env/typecheck edge-case coverage.
+  - [ ] `src/wast`: parser/keywords/pretty-print edge-case coverage.
 
-- [x] Add targeted pass coverage in high-uncovered/high-risk optimizer files.
-  - [x] `src/passes/heap2local.mbt`
-  - [x] `src/passes/merge_blocks.mbt`
-  - [x] `src/passes/remove_unused.mbt`
-  - [x] `src/passes/signature_refining.mbt`
-
-## 1) Core Project Prerequisites
-
-- [x] Remove legacy `src/dataflow` package (redundant with `src/ir` + `IRContext` SSA/CFG pipeline).
-  - [x] Delete `src/dataflow/*` package files.
-  - [x] Remove stale references and confirm `moon check` + `moon test` are green.
-
-- [x] Stabilize IRContext foundations.
-  - [x] Unify pass execution model in `src/passes/optimize.mbt` by context kind (do not force `IRContext` for all passes).
-    - [x] Add scheduler-level pass context categories: `IRContext` transformer pass, `Unit` transformer pass, and module-level runner pass.
-    - [x] Add generic scheduler helpers for transformer/module-runner dispatch so `apply_ir_transformer_pass` is not the only path.
-    - [x] Add scheduler tests that assert each context kind is dispatched correctly.
-  - [x] Keep `src/passes/de_nan.mbt` as a module-level pass (no IRContext migration).
-    - [x] Preserve its two-stage module behavior: detect float-producing ops/constants, then wrap + sanitize params + append/reuse helper funcs.
-    - [x] Add/keep scheduler-level tests to ensure `ModulePass::DeNaN` runs through module-runner dispatch.
-  - [x] Keep `src/passes/remove_unused.mbt` as a module-level pass (no IRContext migration).
-    - [x] Preserve whole-module root/worklist analysis + cross-section remapping semantics (func/type/table/mem/global/elem/data/tag).
-    - [x] Add/keep scheduler-level tests to ensure `ModulePass::RemoveUnused` runs through module-runner dispatch.
-  - [x] Clarify optimization-context status explicitly.
-    - [x] Keep SSA/CFG `IRContext` as the canonical optimization context for IR-driven passes.
-    - [x] Remove the legacy `src/dataflow/*` package and references.
-
-- [x] Add wasm atomics/threading support (threads proposal core instruction surface).
-  - [x] Extend IR/typed instruction + validator + binary + transformer support for full threads atomics instruction set (wait/notify/fence/load/store/rmw/cmpxchg).
-  - [x] Add IR/optimizer compatibility coverage for atomic instruction variants (SSA, alignment lowering, local CSE, merge/dead-code/simplification pipelines).
-  - [x] Re-enable atomics-dependent parity work in Heap2Local / HeapStoreOptimization (now unblocked by core instruction support).
-
-## 2) Parity Backlog For Implemented Binaryen Passes
-
-- [x] `Binaryen Pass: GlobalStructInference.cpp` parity hardening.
-  - [x] Implemented descriptor-mode `ref.cast` optimization path (conservative singleton-global lowering in current IR surface).
-  - [x] Added descriptor-mode parity tests for rewrite and safety gating behavior.
-  - [x] Complete full descriptor parity (IR enablement + opcode parity).
-    - [x] Extend core IR model with descriptor operations:
-      - [x] Add typed instruction variants for descriptor reads (`ref.get_desc`) and descriptor-equality casts (`ref.cast_desc_eq` / `ref.test_desc`) in `src/lib/types.mbt`.
-      - [x] Add corresponding constructors/helpers and traversal hooks in `src/lib/types.mbt`, `src/lib/texpr.mbt`, and `src/transformer/transformer.mbt`.
-    - [x] Extend validator/typechecker for descriptor op semantics:
-      - [x] Add typing rules and stack effects in `src/validate/typecheck.mbt`.
-      - [x] Add environment/type-resolution helpers needed for descriptor typing in `src/validate/env.mbt`.
-      - [x] Add subtyping/matching coverage updates in `src/validate/match.mbt` as needed.
-    - [x] Extend binary and text-format support for descriptor ops:
-      - [x] Decode/encode opcodes and immediates in `src/binary/decode.mbt` and `src/binary/encode.mbt`.
-      - [x] Add WAST parser/printer/keywords support in `src/wast/*.mbt`.
-      - [x] Add binary roundtrip and parser/printer regression tests.
-    - [x] Implement full `GlobalStructInferenceDescCast` parity on top of new IR ops:
-      - [x] Optimize `ref.cast` -> descriptor-equality cast when descriptor global is singleton and subtype constraints allow.
-      - [x] Optimize descriptor reads (`ref.get_desc`) using global-struct inference (including constant/select grouping behavior).
-      - [x] Preserve exact-cast / strict-subtype safety and null-trap behavior parity.
-    - [x] Integrate cross-pass compatibility for new IR surface:
-      - [x] Audit/update major passes that pattern-match `TInstr` (for example `optimize_casts`, `gufa`, `merge_blocks`, `local_cse`) to either preserve or reason about descriptor ops.
-      - [x] Add scheduler-level regression coverage in `src/passes/optimize.mbt` for descriptor-mode pipelines.
-
-- [x] `Binaryen Pass: Heap2Local.cpp` parity hardening.
-  - [x] Descriptor-specific parity (`ref.cast_desc_eq`, `ref.get_desc`, descriptor-bearing `struct.new`) when descriptor ops are available.
-  - [x] Atomics-dependent parity (`struct/array rmw/cmpxchg`, synchronization-sensitive cases) now that threads atomics support has landed.
-
-- [x] `Binaryen Pass: SignatureRefining.cpp` parity hardening follow-up.
-  - [x] Add targeted coverage for uncovered paths and external-observability edge cases.
-
-## 3) Scheduler / Feature Parity Gaps (`src/passes/optimize.mbt`)
+## 1) Scheduler / Feature Parity Gaps (`src/passes/optimize.mbt`)
 
 - [ ] `ssa-nomerge`
 - [ ] `flatten`
@@ -89,7 +45,7 @@
 - [ ] `unsubtyping`
 - [ ] `generate-global-effects`
 
-## 4) Coverage + Quality Work
+## 2) Coverage + Quality Work
 
 - [ ] Raise coverage in core infrastructure hotspots.
   - [ ] `src/validate/env.mbt`
@@ -107,7 +63,7 @@
   - [ ] Track compile time and output size on representative modules.
   - [ ] Start as non-blocking CI report, then graduate to threshold gating.
 
-## 5) Refactorability / Maintainability
+## 3) Refactorability / Maintainability
 
 - [ ] Split very large files into focused units with colocated tests.
   - [ ] `src/validate/typecheck.mbt`
@@ -118,7 +74,7 @@
 
 - [ ] Standardize shared helpers for repeated unreachable-analysis patterns across passes.
 
-## 6) Supporting Non-Pass Work
+## 4) Supporting Non-Pass Work
 
 - [ ] Complete `src/wast/*.mbt` support.
   - [ ] Close remaining pretty-print parity gaps vs canonical wasm s-expression text output.
@@ -130,7 +86,7 @@
   - [ ] WAT -> WAST conversion helpers
   - [ ] WAT -> wasm types conversion helpers
 
-## 7) Long-Tail Binaryen Backlog (Lower Priority)
+## 5) Long-Tail Binaryen Backlog (Lower Priority)
 
 - [ ] InstrumentBranchHints.cpp
 - [ ] InstrumentLocals.cpp
@@ -180,4 +136,4 @@
 
 ---
 
-Completed items were intentionally removed from this file to keep it actionable and current.
+Completed items are intentionally removed from this file to keep it actionable and current.

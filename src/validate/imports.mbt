@@ -7,6 +7,8 @@ using @lib {
   min_addr_valtype,
   min_addr,
   type AbsHeapType,
+  type AtomicCmpxchgOp,
+  type AtomicRmwOp,
   type BinaryOp,
   type BlockType,
   type CastOp,
