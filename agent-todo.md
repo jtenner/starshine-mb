@@ -14,10 +14,10 @@
 
 ## 0) Highest Priority
 
-- [ ] P0: Harden validation and typed-conversion core before adding new pass features.
-  - [ ] `src/validate/env.mbt`: table-driven `instr_to_tinstr` error-path coverage (stack underflow/empty stack pops, `RecIdx` resolution, type-resolution failures).
-  - [ ] `src/validate/typecheck.mbt`: add negative-path tests for branch/label errors, `expand_blocktype` failures, and unreachable merge normalization.
-  - [ ] Add regression tests proving typed conversion and typecheck consistency on shared fixtures (`to_texpr` then `Typecheck::typecheck`).
+- [x] P0: Harden validation and typed-conversion core before adding new pass features.
+  - [x] `src/validate/env.mbt`: table-driven `instr_to_tinstr` error-path coverage (stack underflow/empty stack pops, `RecIdx` resolution, type-resolution failures).
+  - [x] `src/validate/typecheck.mbt`: add negative-path tests for branch/label errors, `expand_blocktype` failures, and unreachable merge normalization.
+  - [x] Add regression tests proving typed conversion and typecheck consistency on shared fixtures (`to_texpr` then `Typecheck::typecheck`).
 
 - [ ] P0: Close transformer traversal blind spots.
   - [ ] `src/transformer/transformer.mbt`: add callback matrix tests for `Ok(None)`, `Ok(Some(...))`, and `Err(...)` across less-used ops (atomics, i31, extern/any converts, `throw_ref`, branch-on-cast variants).
