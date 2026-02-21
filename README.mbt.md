@@ -105,6 +105,12 @@ pub fn default_function_optimization_passes(
 
 Builds the canonical function-level pass list for the module/features/options. This mirrors the Binaryen-style no-DWARF default sequencing and conditionally includes passes based on optimization/shrink levels and module feature shape.
 
+Current parity-mode mappings in this scheduler are:
+- `ssa-nomerge` -> `DataflowOptimization`
+- `flatten` -> `SimplifyLocalsNoTeeNoStructure`
+- `rereloop` -> early `MergeBlocks`
+- `tuple-optimization` -> `DataflowOptimization` (when multivalue signatures are present)
+
 ```mbt
 using @lib { type Module }
 using @passes {
@@ -144,7 +150,13 @@ pub fn default_global_optimization_pre_passes(
 ) -> Array[ModulePass]
 ```
 
-Builds the canonical whole-module pre-pass list for global/type/callgraph optimization. `closed_world=false` chooses conservative variants where needed (for example `RemoveUnusedNonFunctionElements`).
+Builds the canonical whole-module pre-pass list for global/type/callgraph optimization. `closed_world=false` chooses conservative variants where needed (for example `RemoveUnusedModuleElements`).
+
+Current parity-mode mappings in this scheduler are:
+- `remove-unused-module-elements` (open-world mode) -> `RemoveUnusedModuleElements`
+- `cfp-reftest` -> `ConstantFieldPropagation`
+- `unsubtyping` -> `MinimizeRecGroups`
+- `generate-global-effects` -> `PropagateGlobalsGlobally`
 
 ```mbt
 using @lib { type Module }
@@ -995,8 +1007,11 @@ Name-based reorder mode; currently preserves existing order because this IR mode
 #### `RemoveUnused`
 Closed-world removal of unused functions/types/globals/tables/elements/data/tags with full index remapping.
 
-#### `RemoveUnusedNonFunctionElements`
+#### `RemoveUnusedModuleElements`
 Open-world-friendly pruning mode that keeps function reachability conservative while removing unused non-function elements.
+
+#### `RemoveUnusedNonFunctionElements`
+Legacy alias for `RemoveUnusedModuleElements`; kept for compatibility.
 
 ### Lowering, Runtime, and Memory Transformation
 

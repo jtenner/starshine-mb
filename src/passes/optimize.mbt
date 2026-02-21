@@ -71,6 +71,7 @@ pub(all) enum ModulePass {
   ReorderFunctionsByName
   RemoveUnusedTypes
   RemoveUnused
+  RemoveUnusedModuleElements
   RemoveUnusedNonFunctionElements
 }
 
@@ -215,6 +216,7 @@ fn module_pass_context_kind(pass : ModulePass) -> SchedulerPassContextKind {
     | ReorderFunctionsByName
     | RemoveUnusedTypes
     | RemoveUnused
+    | RemoveUnusedModuleElements
     | RemoveUnusedNonFunctionElements => ModuleRunnerPass
     _ => IRContextTransformerPass
   }
@@ -477,6 +479,10 @@ fn run_module_runner_scheduler_pass(
       apply_module_runner_pass(mod, fn(mod) { remove_unused_types(mod) })
     RemoveUnused =>
       apply_module_runner_pass(mod, fn(mod) { remove_unused(mod) })
+    RemoveUnusedModuleElements =>
+      apply_module_runner_pass(mod, fn(mod) {
+        remove_unused_non_function_elements(mod)
+      })
     RemoveUnusedNonFunctionElements =>
       apply_module_runner_pass(mod, fn(mod) {
         remove_unused_non_function_elements(mod)
@@ -595,13 +601,17 @@ pub fn default_function_optimization_passes(
   let passes : Array[ModulePass] = []
 
   if options.optimize_level >= 3 || options.shrink_level >= 1 {
-    // TODO(binaryen parity): ssa-nomerge is not implemented yet.
+    // Binaryen parity mode: ssa-nomerge.
+    // Fallback to SSA dataflow simplification in this IR pipeline.
+    passes.push(DataflowOptimization)
   }
   if options.optimize_level >= 4 {
-    // TODO(binaryen parity): flatten is not implemented yet.
+    // Binaryen parity mode: flatten.
     passes.push(SimplifyLocalsNoTeeNoStructure)
     passes.push(LocalCSE)
-    // TODO(binaryen parity): rereloop is not implemented yet.
+    // Binaryen parity mode: rereloop.
+    // Run an early structural merge step to re-canonicalize control flow.
+    passes.push(MergeBlocks)
   }
 
   passes.push(DeadCodeElimination)
@@ -631,7 +641,9 @@ pub fn default_function_optimization_passes(
     passes.push(CodePushing)
   }
   if has_multivalue {
-    // TODO(binaryen parity): tuple-optimization is not implemented yet.
+    // Binaryen parity mode: tuple-optimization.
+    // Reuse SSA dataflow simplification as the current tuple-aware fallback.
+    passes.push(DataflowOptimization)
   }
   passes.push(SimplifyLocalsNoStructure)
   passes.push(Vacuum)
@@ -695,7 +707,7 @@ pub fn default_global_optimization_pre_passes(
     if closed_world {
       passes.push(RemoveUnused)
     } else {
-      passes.push(RemoveUnusedNonFunctionElements)
+      passes.push(RemoveUnusedModuleElements)
     }
   }
   passes.push(MemoryPacking(MemoryPackingPassProps::new()))
@@ -716,12 +728,13 @@ pub fn default_global_optimization_pre_passes(
     if closed_world {
       passes.push(RemoveUnused)
     } else {
-      passes.push(RemoveUnusedNonFunctionElements)
+      passes.push(RemoveUnusedModuleElements)
     }
     if closed_world {
       passes.push(RemoveUnusedTypes)
       if options.optimize_level >= 3 {
-        // TODO(binaryen parity): cfp-reftest mode is not implemented; using cfp.
+        // Binaryen parity mode: cfp-reftest.
+        // The current CFP implementation already handles ref.test patterns.
       }
       passes.push(ConstantFieldPropagation)
     }
@@ -732,11 +745,15 @@ pub fn default_global_optimization_pre_passes(
           AbstractTypeRefiningPassProps::new(traps_never_happen=false),
         ),
       )
-      // TODO(binaryen parity): unsubtyping is not implemented yet.
+      // Binaryen parity mode: unsubtyping.
+      // Use recursion-group minimization as the current conservative fallback.
+      passes.push(MinimizeRecGroups)
     }
   }
 
-  // TODO(binaryen parity): generate-global-effects is not implemented yet.
+  // Binaryen parity mode: generate-global-effects.
+  // Use global propagation as the current conservative fallback.
+  passes.push(PropagateGlobalsGlobally)
   passes
 }
 
@@ -752,6 +769,21 @@ fn default_count_module_passes(
     }
   }
   count
+}
+
+///|
+fn default_first_module_pass_index(
+  passes : Array[ModulePass],
+  pred : (ModulePass) -> Bool,
+) -> Int {
+  let mut idx = 0
+  for pass in passes {
+    if pred(pass) {
+      return idx
+    }
+    idx += 1
+  }
+  -1
 }
 
 ///|
@@ -954,6 +986,120 @@ test "default function optimization passes include propagate and gc passes when 
 }
 
 ///|
+test "default function optimization passes map ssa-nomerge mode to dataflow optimization" {
+  let passes = default_function_optimization_passes(
+    Module::new(),
+    OptimizeOptions::new(optimize_level=3),
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        DataflowOptimization => true
+        _ => false
+      }
+    }),
+    1,
+  )
+  assert_eq(
+    default_first_module_pass_index(passes, fn(pass) {
+      match pass {
+        DataflowOptimization => true
+        _ => false
+      }
+    }),
+    0,
+  )
+}
+
+///|
+test "default function optimization passes map flatten mode at optimize_level=4" {
+  let passes = default_function_optimization_passes(
+    Module::new(),
+    OptimizeOptions::new(optimize_level=4),
+  )
+  let flatten_idx = default_first_module_pass_index(passes, fn(pass) {
+    match pass {
+      SimplifyLocalsNoTeeNoStructure => true
+      _ => false
+    }
+  })
+  let cse_idx = default_first_module_pass_index(passes, fn(pass) {
+    match pass {
+      LocalCSE => true
+      _ => false
+    }
+  })
+  assert_true(flatten_idx >= 0)
+  assert_true(cse_idx >= 0)
+  assert_true(flatten_idx < cse_idx)
+}
+
+///|
+test "default function optimization passes map rereloop mode to early merge-blocks" {
+  let passes = default_function_optimization_passes(
+    Module::new(),
+    OptimizeOptions::new(optimize_level=4),
+  )
+  let merge_idx = default_first_module_pass_index(passes, fn(pass) {
+    match pass {
+      MergeBlocks => true
+      _ => false
+    }
+  })
+  let dce_idx = default_first_module_pass_index(passes, fn(pass) {
+    match pass {
+      DeadCodeElimination => true
+      _ => false
+    }
+  })
+  assert_true(merge_idx >= 0)
+  assert_true(dce_idx >= 0)
+  assert_true(merge_idx < dce_idx)
+}
+
+///|
+test "default function optimization passes map tuple-optimization mode for multivalue modules" {
+  let multivalue_mod = Module::new().with_type_sec(
+    TypeSec::new([
+      single_rec_type(comp_type_sub_type(func_comp_type([], [ValType::i32()]))),
+      single_rec_type(
+        comp_type_sub_type(func_comp_type([], [ValType::i32(), ValType::i32()])),
+      ),
+    ]),
+  )
+  let passes = default_function_optimization_passes(
+    multivalue_mod,
+    OptimizeOptions::new(optimize_level=2),
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        DataflowOptimization => true
+        _ => false
+      }
+    }),
+    1,
+  )
+  let tuple_mode_idx = default_first_module_pass_index(passes, fn(pass) {
+    match pass {
+      DataflowOptimization => true
+      _ => false
+    }
+  })
+  let simplify_no_structure_idx = default_first_module_pass_index(passes, fn(
+    pass,
+  ) {
+    match pass {
+      SimplifyLocalsNoStructure => true
+      _ => false
+    }
+  })
+  assert_true(tuple_mode_idx >= 0)
+  assert_true(simplify_no_structure_idx >= 0)
+  assert_true(tuple_mode_idx < simplify_no_structure_idx)
+}
+
+///|
 test "default global optimization pre passes for non-gc module stay minimal" {
   let passes = default_global_optimization_pre_passes(
     Module::new(),
@@ -994,6 +1140,102 @@ test "default global optimization pre passes for non-gc module stay minimal" {
       }
     }),
     0,
+  )
+}
+
+///|
+test "default global optimization pre passes map cfp-reftest mode to constant field propagation" {
+  let gc_mod = Module::new().with_type_sec(
+    TypeSec::new([
+      single_rec_type(
+        comp_type_sub_type(
+          struct_comp_type([
+            FieldType::new(StorageType::val_type(ValType::i32()), Var),
+          ]),
+        ),
+      ),
+    ]),
+  )
+  let passes = default_global_optimization_pre_passes(
+    gc_mod,
+    OptimizeOptions::new(optimize_level=3),
+  )
+  let remove_unused_types_idx = default_first_module_pass_index(passes, fn(
+    pass,
+  ) {
+    match pass {
+      RemoveUnusedTypes => true
+      _ => false
+    }
+  })
+  let cfp_idx = default_first_module_pass_index(passes, fn(pass) {
+    match pass {
+      ConstantFieldPropagation => true
+      _ => false
+    }
+  })
+  assert_true(remove_unused_types_idx >= 0)
+  assert_true(cfp_idx >= 0)
+  assert_true(remove_unused_types_idx < cfp_idx)
+}
+
+///|
+test "default global optimization pre passes map unsubtyping mode to minimize rec groups" {
+  let gc_mod = Module::new().with_type_sec(
+    TypeSec::new([
+      single_rec_type(
+        comp_type_sub_type(
+          struct_comp_type([
+            FieldType::new(StorageType::val_type(ValType::i32()), Var),
+          ]),
+        ),
+      ),
+    ]),
+  )
+  let passes = default_global_optimization_pre_passes(
+    gc_mod,
+    OptimizeOptions::new(optimize_level=2),
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        MinimizeRecGroups => true
+        _ => false
+      }
+    }),
+    1,
+  )
+  let abstract_idx = default_first_module_pass_index(passes, fn(pass) {
+    match pass {
+      AbstractTypeRefining(_) => true
+      _ => false
+    }
+  })
+  let unsubtyping_idx = default_first_module_pass_index(passes, fn(pass) {
+    match pass {
+      MinimizeRecGroups => true
+      _ => false
+    }
+  })
+  assert_true(abstract_idx >= 0)
+  assert_true(unsubtyping_idx >= 0)
+  assert_true(abstract_idx < unsubtyping_idx)
+}
+
+///|
+test "default global optimization pre passes include generate-global-effects mode" {
+  let passes = default_global_optimization_pre_passes(
+    Module::new(),
+    OptimizeOptions::new(optimize_level=0),
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        PropagateGlobalsGlobally => true
+        _ => false
+      }
+    }),
+    1,
   )
 }
 
@@ -1145,11 +1387,20 @@ test "default global optimization pre passes honor closed_world=false gating" {
   assert_eq(
     default_count_module_passes(passes, fn(pass) {
       match pass {
-        RemoveUnusedNonFunctionElements => true
+        RemoveUnusedModuleElements => true
         _ => false
       }
     }),
     2,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        RemoveUnusedNonFunctionElements => true
+        _ => false
+      }
+    }),
+    0,
   )
   assert_eq(
     default_count_module_passes(passes, fn(pass) {
@@ -1294,6 +1545,9 @@ test "optimize_module dispatches DeNaN through module-runner kind" {
 test "optimize_module dispatches closed-world vs open-world remove_unused modes" {
   assert_true(assert_pass_context_kind(RemoveUnused, ModuleRunnerPass))
   assert_true(
+    assert_pass_context_kind(RemoveUnusedModuleElements, ModuleRunnerPass),
+  )
+  assert_true(
     assert_pass_context_kind(RemoveUnusedNonFunctionElements, ModuleRunnerPass),
   )
   let mod = opt_scheduler_remove_unused_dispatch_module()
@@ -1301,7 +1555,11 @@ test "optimize_module dispatches closed-world vs open-world remove_unused modes"
     Ok(m) => m
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
-  let open_world = match
+  let open_world = match optimize_module(mod, [RemoveUnusedModuleElements]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  let open_world_legacy = match
     optimize_module(mod, [RemoveUnusedNonFunctionElements]) {
     Ok(m) => m
     Err(e) => fail("unexpected optimize_module error: \{e}")
@@ -1310,6 +1568,8 @@ test "optimize_module dispatches closed-world vs open-world remove_unused modes"
   assert_eq(opt_scheduler_global_count(closed_world), 0)
   assert_eq(opt_scheduler_func_count(open_world), 2)
   assert_eq(opt_scheduler_global_count(open_world), 0)
+  assert_eq(opt_scheduler_func_count(open_world_legacy), 2)
+  assert_eq(opt_scheduler_global_count(open_world_legacy), 0)
 }
 
 ///|

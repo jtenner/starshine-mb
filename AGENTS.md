@@ -62,7 +62,7 @@ In this workspace, use absolute moon path when needed:
 - `Heap2Local`, `HeapStoreOptimization`, `OptimizeCasts`, `GUFA`, `GUFAOptimizing`, `GUFACastAll`
 
 ### Callgraph/whole-module
-- `DeadArgumentElimination`, `SignaturePruning`, `SignatureRefining`, `DuplicateImportElimination`, `DuplicateFunctionElimination`, `Directize(Bool)`, `ReorderLocals`, `ReorderTypes`, `ReorderGlobals`, `ReorderGlobalsAlways`, `ReorderFunctions`, `ReorderFunctionsByName`, `MergeLocals`, `MergeBlocks`, `MergeSimilarFunctions`, `Monomorphize`, `MonomorphizeAlways`, `Inlining`, `InliningOptimizing`, `InlineMain`, `OnceReduction`, `RemoveUnused`
+- `DeadArgumentElimination`, `SignaturePruning`, `SignatureRefining`, `DuplicateImportElimination`, `DuplicateFunctionElimination`, `Directize(Bool)`, `ReorderLocals`, `ReorderTypes`, `ReorderGlobals`, `ReorderGlobalsAlways`, `ReorderFunctions`, `ReorderFunctionsByName`, `MergeLocals`, `MergeBlocks`, `MergeSimilarFunctions`, `Monomorphize`, `MonomorphizeAlways`, `Inlining`, `InliningOptimizing`, `InlineMain`, `OnceReduction`, `RemoveUnused`, `RemoveUnusedModuleElements`, `RemoveUnusedNonFunctionElements`
 
 ### Lowering/runtime/memory
 - `DataflowOptimization`, `I64ToI32Lowering`, `Asyncify(AsyncifyPassProps)`, `MemoryPacking(MemoryPackingPassProps)`, `DeNaN`
@@ -72,6 +72,7 @@ In this workspace, use absolute moon path when needed:
 - `InliningOptions` defaults are Binaryen-aligned (`2, -1, 20, 400*1024, false, 0`).
 - `OptimizeAddedConstants*` is gated by `OptimizeOptions.low_memory_unused`.
 - `Monomorphize` empirical mode uses `OptimizeOptions.monomorphize_min_benefit`.
+- Scheduler parity mappings now include conservative mode fallbacks in `src/passes/optimize.mbt`: `ssa-nomerge -> DataflowOptimization`, `flatten -> SimplifyLocalsNoTeeNoStructure`, `rereloop -> early MergeBlocks`, `tuple-optimization -> DataflowOptimization` (multivalue only), open-world `remove-unused-module-elements -> RemoveUnusedModuleElements`, `cfp-reftest -> ConstantFieldPropagation`, `unsubtyping -> MinimizeRecGroups`, `generate-global-effects -> PropagateGlobalsGlobally`.
 - `Asyncify` is staged and emits runtime globals/APIs (`__asyncify_state`, `__asyncify_data`, `asyncify_*`).
 - `Asyncify` rewrites wasm-internal `asyncify.*` imports (`start_unwind`/`stop_unwind`/`start_rewind`/`stop_rewind`/`get_state`) to direct calls to generated runtime functions and removes those imports with full `FuncIdx` remapping.
 - `Asyncify` now pushes the actual unwind call index onto the asyncify stack (instead of a constant), preserving multi-call rewind fidelity.

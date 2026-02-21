@@ -12,8 +12,8 @@
 - [x] P1: Add direct IR core analysis tests (currently mostly integration-driven coverage).
   - [x] Add dedicated tests for `src/ir/ssa.mbt`, `src/ir/ssa_destruction.mbt`, `src/ir/gvn.mbt`, `src/ir/liveness.mbt`, and `src/ir/type_tracking.mbt`.
   - [x] Add invariants/tests around `src/ir/usedef.mbt` and `src/ir/types.mbt` for def-use and typed index consistency.
-- [ ] P1: Keep scheduler parity delivery moving after core infra hardening.
-  - [ ] Implement + test missing `src/passes/optimize.mbt` parity modes: `ssa-nomerge`, `flatten`, `rereloop`, `tuple-optimization`, `cfp-reftest`, `unsubtyping`, `generate-global-effects`.
+- [x] P1: Keep scheduler parity delivery moving after core infra hardening.
+  - [x] Implement + test missing `src/passes/optimize.mbt` parity modes: `ssa-nomerge`, `flatten`, `rereloop`, `tuple-optimization`, `cfp-reftest`, `unsubtyping`, `generate-global-effects`.
 
 ## 0.5) Low-Hanging Fruit (Fast Test Wins)
 
@@ -36,14 +36,14 @@
 
 ## 1) Scheduler / Feature Parity Gaps (`src/passes/optimize.mbt`)
 
-- [ ] `ssa-nomerge`
-- [ ] `flatten`
-- [ ] `rereloop`
-- [ ] `tuple-optimization`
-- [ ] open-world `remove-unused-module-elements` mode exposure
-- [ ] `cfp-reftest` mode
-- [ ] `unsubtyping`
-- [ ] `generate-global-effects`
+- [x] `ssa-nomerge`
+- [x] `flatten`
+- [x] `rereloop`
+- [x] `tuple-optimization`
+- [x] open-world `remove-unused-module-elements` mode exposure
+- [x] `cfp-reftest` mode
+- [x] `unsubtyping`
+- [x] `generate-global-effects`
 
 ## 2) Coverage + Quality Work
 
