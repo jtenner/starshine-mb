@@ -92,6 +92,26 @@ pub fn SSACFG::split_critical_edges(self : SSACFG) -> SSACFG {
         let new_f = split_blocks.get((block_id, f)).unwrap_or(f)
         SSATerminator::BrIf(cond, new_t, new_f)
       }
+      SSATerminator::BrOnNull(val, t, f) => {
+        let new_t = split_blocks.get((block_id, t)).unwrap_or(t)
+        let new_f = split_blocks.get((block_id, f)).unwrap_or(f)
+        SSATerminator::BrOnNull(val, new_t, new_f)
+      }
+      SSATerminator::BrOnNonNull(val, t, f) => {
+        let new_t = split_blocks.get((block_id, t)).unwrap_or(t)
+        let new_f = split_blocks.get((block_id, f)).unwrap_or(f)
+        SSATerminator::BrOnNonNull(val, new_t, new_f)
+      }
+      SSATerminator::BrOnCast(cop, ht1, ht2, val, t, f) => {
+        let new_t = split_blocks.get((block_id, t)).unwrap_or(t)
+        let new_f = split_blocks.get((block_id, f)).unwrap_or(f)
+        SSATerminator::BrOnCast(cop, ht1, ht2, val, new_t, new_f)
+      }
+      SSATerminator::BrOnCastFail(cop, ht1, ht2, val, t, f) => {
+        let new_t = split_blocks.get((block_id, t)).unwrap_or(t)
+        let new_f = split_blocks.get((block_id, f)).unwrap_or(f)
+        SSATerminator::BrOnCastFail(cop, ht1, ht2, val, new_t, new_f)
+      }
       SSATerminator::BrTable(cond, targets, d) => {
         let new_targets = targets.map(fn(t) {
           split_blocks.get((block_id, t)).unwrap_or(t)

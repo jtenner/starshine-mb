@@ -104,6 +104,9 @@ In this workspace, use absolute moon path when needed:
 - Audit note: every current `on_*` hook in `ModuleTransformer` has a corresponding `walk_*` dispatcher path; regression tests now cover section dispatchers and core/leaf hook dispatch.
 - `ModuleTransformer::walk_tinstruction_default` `TArrayCopy` now preserves its final operand when unchanged (`i4` no longer aliases `i3`), and tests now cover less-used callback/error paths (atomics, descriptor casts, `br_on_cast_fail`, `array_copy`, lane ops).
 - Binary decode section parsers now perform payload-length bounds checks before slicing, and module decode now bubbles concrete section/custom decode errors instead of collapsing malformed sections into a generic `Invalid module`.
+- `CFG::to_ssa` now records pending phi arguments for not-yet-visited successors during dominator DFS and applies them when successor blocks are materialized, so merge-block phi nodes receive complete predecessor argument maps.
+- `SSACFG::split_critical_edges` now rewires split edges for `BrOnNull`/`BrOnNonNull`/`BrOnCast`/`BrOnCastFail` terminators (not just `Br`/`BrIf`/`BrTable`), eliminating remaining critical edges for branch-on-ref terminators.
+- `infer_ssa_types` now bounds-checks `param_values` local indices and treats empty `Select` type annotations as unknown type (`None`) instead of indexing into an empty type list.
 - Threads atomics instruction support is implemented across `lib`/`binary`/`validate`/`ir`/`transformer`, including opcode coverage for `0xFE` `0..78` (`memory.atomic.{notify,wait32,wait64}`, `atomic.fence`, atomic load/store variants, all `atomic.rmw.*`, and all `atomic.rmw*.cmpxchg` forms).
 - IR SSA now models atomics explicitly (`MemoryAtomicNotify/Wait32/Wait64`, `AtomicFence`, `AtomicRmw`, `AtomicCmpxchg`), and downstream passes were updated to preserve/rewrite atomic nodes conservatively.
 

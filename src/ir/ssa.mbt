@@ -1511,6 +1511,7 @@ fn rename_block(
   phi_placements : Map[BlockId, Set[LocalIdx]],
   dom_children : Map[BlockId, Array[BlockId]],
   ssa_blocks : Map[BlockId, SSABlock],
+  pending_phi_args : Map[BlockId, Map[(LocalIdx, BlockId), SSAValue]],
 ) -> Unit {
   let checkpoint = builder.save_checkpoint()
   let block = cfg.blocks[block_id]
@@ -1539,6 +1540,21 @@ fn rename_block(
 
   // Create SSA block
   let ssa_block = SSABlock::{ id: block_id, phis, instrs, terminator }
+
+  // Apply pending phi args recorded by previously processed predecessors.
+  match pending_phi_args.get(block_id) {
+    Some(pending) =>
+      for entry in pending {
+        let ((local_idx, pred_id), val) = entry
+        for phi in ssa_block.phis {
+          if phi.local_idx == local_idx && !phi.args.contains(pred_id) {
+            phi.args[pred_id] = val
+          }
+        }
+      }
+    None => ()
+  }
+  pending_phi_args.remove(block_id)
   ssa_blocks[block_id] = ssa_block
 
   // Fill in phi arguments for successors
@@ -1557,7 +1573,10 @@ fn rename_block(
                       phi.args[block_id] = val
                     }
                   }
-                None => () // Successor not yet processed, will be filled later
+                None =>
+                  pending_phi_args.get_or_init(succ, fn() { Map::new() })[(
+                    l, block_id,
+                  )] = val
               }
             None => ()
           }
@@ -1571,7 +1590,7 @@ fn rename_block(
     Some(children) =>
       for child in children {
         rename_block(
-          cfg, child, builder, phi_placements, dom_children, ssa_blocks,
+          cfg, child, builder, phi_placements, dom_children, ssa_blocks, pending_phi_args,
         )
       }
     None => ()
@@ -1707,6 +1726,7 @@ pub fn CFG::to_ssa(
 
   // Rename variables via DFS
   let ssa_blocks : Map[BlockId, SSABlock] = Map::new()
+  let pending_phi_args : Map[BlockId, Map[(LocalIdx, BlockId), SSAValue]] = Map::new()
   rename_block(
     self,
     self.entry,
@@ -1714,6 +1734,7 @@ pub fn CFG::to_ssa(
     phi_placements,
     dom_children,
     ssa_blocks,
+    pending_phi_args,
   )
 
   // Second pass to fill any remaining phi arguments

@@ -34,7 +34,10 @@ pub fn infer_ssa_types(cfg : SSACFG, ctx : TypeContext) -> SSATypeInfo {
   // Type parameters
   for entry in cfg.param_values {
     let (local_idx, val) = entry
-    types[val] = ctx.local_types[local_idx.0.reinterpret_as_int()]
+    let i = local_idx.0.reinterpret_as_int()
+    if i >= 0 && i < ctx.local_types.length() {
+      types[val] = ctx.local_types[i]
+    }
   }
 
   // Walk blocks and type each instruction
@@ -87,7 +90,7 @@ fn infer_op_type(
     SSAOp::Select(tys, _, _, _) =>
       match tys {
         None => None
-        Some(tys) => Some(tys[0])
+        Some(tys) => if tys.is_empty() { None } else { Some(tys[0]) }
       }
     SSAOp::GlobalGet(idx) => {
       let i = idx.0.reinterpret_as_int()

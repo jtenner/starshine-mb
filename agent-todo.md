@@ -9,9 +9,9 @@
 - [x] P1: Harden binary codec correctness under invalid input and unsupported encodings.
   - [x] `src/binary/decode.mbt` add EOF/invalid-byte/error-bubbling tests through `src/binary/tests.mbt` (`410` uncovered lines).
   - [x] `src/binary/encode.mbt` add unsupported-type/index rejection tests and section payload propagation tests (`444` uncovered lines).
-- [ ] P1: Add direct IR core analysis tests (currently mostly integration-driven coverage).
-  - [ ] Add dedicated tests for `src/ir/ssa.mbt`, `src/ir/ssa_destruction.mbt`, `src/ir/gvn.mbt`, `src/ir/liveness.mbt`, and `src/ir/type_tracking.mbt`.
-  - [ ] Add invariants/tests around `src/ir/usedef.mbt` and `src/ir/types.mbt` for def-use and typed index consistency.
+- [x] P1: Add direct IR core analysis tests (currently mostly integration-driven coverage).
+  - [x] Add dedicated tests for `src/ir/ssa.mbt`, `src/ir/ssa_destruction.mbt`, `src/ir/gvn.mbt`, `src/ir/liveness.mbt`, and `src/ir/type_tracking.mbt`.
+  - [x] Add invariants/tests around `src/ir/usedef.mbt` and `src/ir/types.mbt` for def-use and typed index consistency.
 - [ ] P1: Keep scheduler parity delivery moving after core infra hardening.
   - [ ] Implement + test missing `src/passes/optimize.mbt` parity modes: `ssa-nomerge`, `flatten`, `rereloop`, `tuple-optimization`, `cfp-reftest`, `unsubtyping`, `generate-global-effects`.
 
