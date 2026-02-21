@@ -70,5 +70,125 @@
 - [ ] Build a non-blocking optimizer perf baseline (compile time and output size) on representative modules.
 - [ ] Continue long-tail Binaryen parity only after core coverage hotspots are reduced.
 
+## 2) Requested Backlog Additions
+
+### 2.1 Architectural & Refactoring Suggestions (High Impact: Improves Maintainability)
+
+- [ ] Split the giant parser file (`parser.mbt`) into smaller modules:
+  - [ ] `lexer.mbt`
+  - [ ] `parser_types.mbt`
+  - [ ] `parser_instructions.mbt`
+  - [ ] `parser_folded.mbt`
+  - [ ] `parser_gc.mbt`
+  - [ ] `parser_tests.mbt`
+  - Effort: `2–3 hours`
+  - Rationale: Reduces complexity as the project grows.
+- [ ] Split instruction decoder (`decode_instruction` in `decode.mbt`) into helpers:
+  - [ ] `decode_core_opcode`
+  - [ ] `decode_extended_0xFB`
+  - [ ] `decode_extended_0xFC`
+  - [ ] `decode_extended_0xFD`
+  - [ ] `decode_extended_0xFE`
+  - Effort: `1–2 hours`
+  - Rationale: Mirrors existing encode helper pattern (for example `simd_inst`) and improves readability.
+- [ ] Extract `write_section` helper in `encode.mbt` to unify section id/length/payload encoding.
+  - Effort: `30 minutes`
+  - Rationale: Cleans up encode-side symmetry.
+- [ ] Turn validator into a `ModuleTransformer`:
+  - [ ] Implement `Validator` struct with hooks such as `on_func_evt`, `on_tinstruction_evt`, and `on_global_evt`.
+  - [ ] Add `validate_module(mod: Module) -> Result[Unit, ValidationError]`.
+  - Effort: `2–3 hours`
+  - Rationale: Reuses existing traversal and location context; improves composition with optimizers.
+- [ ] Replace lexer backtracking (`save/restore_lexer_state`) with one-token lookahead:
+  - [ ] Introduce `Parser { peeked: Token? }` or add zero-cost `peek()/consume()` to `WastLexer`.
+  - Effort: `1 hour`
+  - Rationale: Reduces fragility and parsing allocations.
+
+### 2.2 Performance & Allocation Optimizations (Medium Impact: Scales to Large Modules)
+
+- [ ] Add capacity reservations in hot paths (`parse_instructions`, expr decoding, and similar array builds).
+  - Effort: `30 minutes`
+  - Rationale: Avoids reallocations on large modules.
+- [ ] Use unchecked indexing in core decode loops after upfront length validation.
+  - Effort: `1 hour`
+  - Rationale: Reduces bounds-check overhead in tight loops.
+- [ ] Avoid temporary `Module` copies in decoder:
+  - [ ] Use mutable builder flow or single record update at the end.
+  - Effort: `30 minutes`
+  - Rationale: Reduces copies of large structs.
+- [ ] Create a `WastWriter` trait:
+  - [ ] Support `StringBuilder`, `Vec<u8>`, and streaming sinks.
+  - [ ] Reuse one `StringBuilder` across module rendering.
+  - Effort: `1 hour`
+  - Rationale: Improves writer efficiency and flexibility.
+- [ ] Add `quick_mode: Bool` to generator to reduce types/locals/segments for fast fuzzing.
+  - Effort: `30 minutes`
+  - Rationale: Speeds test cycles while retaining useful coverage.
+
+### 2.3 Testing & Fuzzing Enhancements (High Impact: Strengthens Reliability)
+
+- [ ] Enhance generator with additional edge cases:
+  - [ ] Recursive/self-referencing struct types
+  - [ ] Deep `block`/`loop`/`if` nesting
+  - [ ] Functions with `0–16` returns (multi-value)
+  - [ ] Large local counts
+  - Effort: `1–2 hours`
+  - Rationale: Better stress for GC, exceptions, and encoding paths.
+- [ ] Add more fuzz coverage to validate invalid modules.
+
+### 2.4 Error Handling & API Improvements (Medium Impact: User-Friendliness)
+
+- [ ] Replace string decode errors with a typed `DecodeError` enum:
+  - [ ] Example variants: `UnexpectedEof { offset: Int, section: String }`, `InvalidOpcode { offset: Int, byte: Byte }`
+  - [ ] Mirror the same enum-based approach for `ValidationError`.
+  - Effort: `1 hour`
+  - Rationale: Improves testability and downstream tooling with stable structured context.
+- [ ] Expose binary public APIs:
+  - [ ] `decode_module(bytes: Bytes) -> Result[Module, DecodeError]`
+  - [ ] `encode_module(mod: Module) -> Result[Bytes, EncodeError]`
+  - Effort: `30 minutes`
+  - Rationale: Improves library usability.
+- [ ] Add streaming/zero-copy decoder API via cursor-based `Decoder` struct.
+  - Effort: `1 hour`
+  - Rationale: Aligns with current index-passing design while reducing copies.
+- [ ] Switch negative tests to enum-based error assertions instead of string matching.
+  - Effort: `1 hour`
+  - Rationale: Prevents brittle tests during message refactors.
+
+### 2.5 Code Generation & Automation (Low Impact: Long-Term Maintainability)
+
+- [ ] Generate keyword/opcode tables from a small DSL or MoonBit macros (with manual exception overrides).
+  - Effort: `2 hours`
+  - Rationale: Keeps mapping logic DRY as opcode surface evolves.
+- [ ] Make max LEB constants compile-time (`MAX_LEB128_BYTES_32 = 5`, etc., including `1..64` table if useful).
+  - Effort: `15 minutes`
+  - Rationale: Removes runtime overhead.
+- [ ] Use `@moonbitlang/coreFixedArray` for fixed 16-lane shuffle data.
+  - Effort: `30 minutes`
+  - Rationale: Better fixed-size performance than general arrays.
+- [ ] Add `derive(Show, Debug, Eq)` across structs/enums where missing.
+  - Effort: `15 minutes`
+  - Rationale: Improves diagnostics and test debugging.
+
+### 2.6 Roadmap & Next Steps (High Impact: Project Momentum)
+
+- [ ] Build a tiny CLI (`moonbit-wasm`) with subcommands:
+  - [ ] `wat2wasm`
+  - [ ] `wasm2wat`
+  - [ ] `opt --inline --dce`
+  - [ ] `--validate`
+  - Effort: `2–3 hours`
+  - Rationale: Dogfoods and demonstrates the project.
+- [ ] Implement one real optimizer pass using transformer (constant folding + DCE).
+  - Effort: `1–2 hours`
+  - Rationale: Validates architecture with practical results.
+- [ ] Wire full text/binary roundtrip test:
+  - [ ] `wast_to_module -> module_to_binary -> binary_to_module -> module_to_wast` plus normalization.
+  - Effort: `1 hour`
+  - Rationale: Provides end-to-end correctness coverage.
+- [ ] Run and adapt the official WASM spec test suite in MoonBit pipeline.
+  - Effort: `2 hours`
+  - Rationale: Highest-confidence compatibility validation.
+
 ---
 Completed items are intentionally removed to keep this backlog actionable.
