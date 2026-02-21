@@ -351,3 +351,79 @@ test "to_texpr throw conversion uses tag payload arity" {
       assert_eq(e, "Stack underflow: need 2 values but only 1 available")
   }
 }
+
+///|
+test "to_texpr call conversion uses imported and defined function arities from with_module" {
+  let import_type = RecType::new(env_test_func_subtype([ValType::i32()], []))
+  let defined_type = RecType::new(
+    env_test_func_subtype([ValType::i32(), ValType::i64()], []),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([import_type, defined_type]))
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("env"),
+          Name::new("imported"),
+          ExternType::func(TypeIdx::new(0)),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
+
+  let env = Env::new().with_module(mod)
+  let expr = Expr::new([
+    Instruction::i32_const(I32(11)),
+    Instruction::call(FuncIdx::new(0)),
+    Instruction::i32_const(I32(21)),
+    Instruction::i64_const(I64(22)),
+    Instruction::call(FuncIdx::new(1)),
+  ])
+  match to_texpr(expr, env) {
+    Err(e) => fail("unexpected call conversion error: \{e}")
+    Ok(TExpr(instrs)) => {
+      assert_eq(instrs.length(), 2)
+      match instrs[0] {
+        TCall(FuncIdx(i), args) => {
+          assert_eq(i, 0U)
+          assert_eq(args.length(), 1)
+        }
+        _ => fail("expected imported call conversion")
+      }
+      match instrs[1] {
+        TCall(FuncIdx(i), args) => {
+          assert_eq(i, 1U)
+          assert_eq(args.length(), 2)
+        }
+        _ => fail("expected defined call conversion")
+      }
+    }
+  }
+}
+
+///|
+test "to_texpr call_indirect underflow uses type-index parameter arity" {
+  let env = Env::new().with_rectype(
+    RecType::new(env_test_func_subtype([ValType::i32(), ValType::i64()], [])),
+  )
+  let expr = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::call_indirect(TypeIdx::new(0), TableIdx::new(0)),
+  ])
+  match to_texpr(expr, env) {
+    Ok(_) => fail("expected call_indirect argument underflow")
+    Err(e) =>
+      assert_eq(e, "Stack underflow: need 2 values but only 0 available")
+  }
+}
+
+///|
+test "to_texpr return underflow uses configured return_type arity" {
+  let env = Env::new().with_return_type(Some([ValType::i64()]))
+  let expr = Expr::new([Instruction::return_()])
+  match to_texpr(expr, env) {
+    Ok(_) => fail("expected return underflow")
+    Err(e) =>
+      assert_eq(e, "Stack underflow: need 1 values but only 0 available")
+  }
+}

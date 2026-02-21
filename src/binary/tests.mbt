@@ -301,6 +301,62 @@ test "module decode bubbles section errors instead of generic invalid module" {
 }
 
 ///|
+test "invalid decode vectors are table-driven across decoders" {
+  let module_vectors : Array[(String, Bytes, String)] = [
+    (
+      "bad magic header", b"\x01\x61\x73\x6D\x01\x00\x00\x00", "Invalid magic header",
+    ),
+    (
+      "module trailing bytes", b"\x00\x61\x73\x6D\x01\x00\x00\x00\x7F", "Invalid module",
+    ),
+    (
+      "custom section payload overflow", b"\x00\x61\x73\x6D\x01\x00\x00\x00\x00\x02\x00",
+      "payload length out of range",
+    ),
+    (
+      "type section invalid payload content", b"\x00\x61\x73\x6D\x01\x00\x00\x00\x01\x02\x01\xFF",
+      "Invalid Comp Type",
+    ),
+  ]
+  for vector in module_vectors {
+    let (name, bytes, needle) = vector
+    match (Decode::decode(bytes, 0) : Result[(Module, Int), String]) {
+      Ok(_) => fail("expected module decode failure for vector '\{name}'")
+      Err(msg) => assert_true(msg.contains(needle))
+    }
+  }
+
+  let type_sec_vectors : Array[(String, Bytes, String)] = [
+    ("wrong section header", b"\x02\x00", "Invalid section header"),
+    ("payload length overflow", b"\x01\x03\x00", "payload length out of range"),
+    (
+      "unconsumed payload bytes", b"\x01\x02\x00\x00", "Invalid section - didn't consume all bytes",
+    ),
+  ]
+  for vector in type_sec_vectors {
+    let (name, bytes, needle) = vector
+    match (Decode::decode(bytes, 0) : Result[(TypeSec, Int), String]) {
+      Ok(_) => fail("expected TypeSec decode failure for vector '\{name}'")
+      Err(msg) => assert_true(msg.contains(needle))
+    }
+  }
+
+  let instruction_vectors : Array[(String, Bytes, String)] = [
+    ("unknown opcode", b"\xFF", "Invalid Instruction"),
+    (
+      "atomic.fence with non-zero immediate", b"\xFE\x03\x01", "Invalid atomic.fence immediate",
+    ),
+  ]
+  for vector in instruction_vectors {
+    let (name, bytes, needle) = vector
+    match (Decode::decode(bytes, 0) : Result[(Instruction, Int), String]) {
+      Ok(_) => fail("expected Instruction decode failure for vector '\{name}'")
+      Err(msg) => assert_true(msg.contains(needle))
+    }
+  }
+}
+
+///|
 test "encode rejects unsupported type/index forms" {
   assert_encode_err_contains(
     Encode::encode(TypeIdx::rec(0), @buffer.new()),

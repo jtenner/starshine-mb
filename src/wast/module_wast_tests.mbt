@@ -50,3 +50,38 @@ test "module_to_wast preserves descriptor instruction keywords" {
   assert_true(text.contains("ref.cast_desc_eq 0"))
   assert_true(text.contains("ref.cast_desc_eq_null 0"))
 }
+
+///|
+test "wast_to_module malformed fixtures return targeted parse diagnostics" {
+  let fixtures : Array[(String, String, String, String)] = [
+    (
+      "unknown module field", "(module (oops))", "expected module field", "field-fixture.wast",
+    ),
+    (
+      "import missing descriptor", "(module (import \"env\" \"f\" ()))", "expected import descriptor",
+      "import-fixture.wast",
+    ),
+    (
+      "memory missing minimum limit", "(module (memory))", "expected minimum limit",
+      "memory-fixture.wast",
+    ),
+    (
+      "mutable global missing value type", "(module (global (mut) (i32.const 0)))",
+      "expected value type", "global-fixture.wast",
+    ),
+    (
+      "incomplete module expression", "(module (func", "expected ')'", "eof-fixture.wast",
+    ),
+  ]
+  for fixture in fixtures {
+    let (name, source, detail, filename) = fixture
+    match wast_to_module(source, filename~) {
+      Ok(_) => fail("expected malformed module fixture '\{name}' to fail")
+      Err(msg) => {
+        assert_true(msg.contains(detail))
+        assert_true(msg.contains(filename))
+        assert_true(msg.contains(":1"))
+      }
+    }
+  }
+}

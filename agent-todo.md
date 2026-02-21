@@ -21,10 +21,10 @@
   - [x] `src/transformer/transformer.mbt`: add `Err` propagation + `Ok(None)` fallthrough tests in `src/transformer/tests.mbt`.
   - [x] `src/lib/types.mbt` + `src/lib/texpr.mbt`: add constructor/match/roundtrip smoke tests.
   - [x] `src/wast/keywords.mbt` + `src/wast/types.mbt`: add keyword classification + parser boundary tests.
-- [ ] Expand existing harnesses rather than adding new infra.
-  - [ ] Extend `src/binary/tests.mbt` with table-driven invalid-decode vectors.
-  - [ ] Extend `src/validate/env_tests.mbt` with import/type-stack edge cases.
-  - [ ] Extend `src/wast/module_wast_tests.mbt` with malformed module fixtures.
+- [x] Expand existing harnesses rather than adding new infra.
+  - [x] Extend `src/binary/tests.mbt` with table-driven invalid-decode vectors.
+  - [x] Extend `src/validate/env_tests.mbt` with import/type-stack edge cases.
+  - [x] Extend `src/wast/module_wast_tests.mbt` with malformed module fixtures.
 - [ ] Add one actionable audit item per `src/*` package to prevent regressions.
   - [ ] `src/binary`: decode/encode negative-path coverage expansion.
   - [ ] `src/ir`: dedicated SSA/GVN/liveness unit tests.
