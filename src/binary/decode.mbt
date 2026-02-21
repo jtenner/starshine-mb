@@ -346,7 +346,7 @@ fn decode_signed(
 pub impl Decode for S33 with decode(bytes, i) {
   match decode_signed(bytes, i, 33) {
     Err(err) => Err(err)
-    Ok((val, i)) if val >= 0 && val < 4294967295 =>
+    Ok((val, i)) if val >= 0 && val <= 4294967295 =>
       Ok((S33(val.to_int().reinterpret_as_uint()), i))
     Ok(_) => Err("Invalid S33 Range")
   }

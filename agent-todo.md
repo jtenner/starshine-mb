@@ -1,139 +1,74 @@
 # Agent Tasks
 
-## 0) Highest Priority (Cross-Package Audit: 2026-02-20)
+## Audit Snapshot (2026-02-21)
 
-- [x] P0: Close validation/transformer core gaps before adding new pass features.
-  - [x] `src/validate/env.mbt` targeted tests for `with_module`, recursive `TypeIdx/RecIdx` resolution, and `to_texpr` stack-error branches (`1375` uncovered lines).
-  - [x] `src/validate/typecheck.mbt` targeted negative tests for descriptor ops, atomics, and multi-value/control-flow error paths (`618` uncovered lines).
-  - [x] `src/transformer/transformer.mbt` expand `walk_*` callback dispatch/error propagation tests over less-used `TInstr` variants (`643` uncovered lines).
-- [x] P1: Harden binary codec correctness under invalid input and unsupported encodings.
-  - [x] `src/binary/decode.mbt` add EOF/invalid-byte/error-bubbling tests through `src/binary/tests.mbt` (`410` uncovered lines).
-  - [x] `src/binary/encode.mbt` add unsupported-type/index rejection tests and section payload propagation tests (`444` uncovered lines).
-- [x] P1: Add direct IR core analysis tests (currently mostly integration-driven coverage).
-  - [x] Add dedicated tests for `src/ir/ssa.mbt`, `src/ir/ssa_destruction.mbt`, `src/ir/gvn.mbt`, `src/ir/liveness.mbt`, and `src/ir/type_tracking.mbt`.
-  - [x] Add invariants/tests around `src/ir/usedef.mbt` and `src/ir/types.mbt` for def-use and typed index consistency.
-- [x] P1: Keep scheduler parity delivery moving after core infra hardening.
-  - [x] Implement + test missing `src/passes/optimize.mbt` parity modes: `ssa-nomerge`, `flatten`, `rereloop`, `tuple-optimization`, `cfp-reftest`, `unsubtyping`, `generate-global-effects`.
+- `moon check`: passes (1 warning)
+- `moon test`: `2060` passed, `0` failed
+- `moon coverage analyze`: `10980` uncovered lines in `96` files
+- Largest uncovered hotspots:
+  - validate: `src/validate/env.mbt` (`1328`), `src/validate/typecheck.mbt` (`579`)
+  - transformer: `src/transformer/transformer.mbt` (`624`)
+  - binary: `src/binary/encode.mbt` (`423`), `src/binary/decode.mbt` (`374`)
+  - passes: `src/passes/heap2local.mbt` (`366`), `src/passes/merge_blocks.mbt` (`306`), `src/passes/asyncify.mbt` (`242`)
+  - IR: `src/ir/ssa.mbt` (`267`), `src/ir/ssa_optimize.mbt` (`216`)
 
-## 0.5) Low-Hanging Fruit (Fast Test Wins)
+## 0) Highest Priority
 
-- [x] Add direct tests for high-impact modules with no dedicated test file.
-  - [x] `src/transformer/transformer.mbt`: add `Err` propagation + `Ok(None)` fallthrough tests in `src/transformer/tests.mbt`.
-  - [x] `src/lib/types.mbt` + `src/lib/texpr.mbt`: add constructor/match/roundtrip smoke tests.
-  - [x] `src/wast/keywords.mbt` + `src/wast/types.mbt`: add keyword classification + parser boundary tests.
-- [x] Expand existing harnesses rather than adding new infra.
-  - [x] Extend `src/binary/tests.mbt` with table-driven invalid-decode vectors.
-  - [x] Extend `src/validate/env_tests.mbt` with import/type-stack edge cases.
-  - [x] Extend `src/wast/module_wast_tests.mbt` with malformed module fixtures.
-- [ ] Add one actionable audit item per `src/*` package to prevent regressions.
-  - [ ] `src/binary`: decode/encode negative-path coverage expansion.
-  - [ ] `src/ir`: dedicated SSA/GVN/liveness unit tests.
-  - [ ] `src/lib`: types/texpr/pretty-print direct tests.
-  - [ ] `src/passes`: close remaining optimize parity TODO flags + branch tests.
-  - [ ] `src/transformer`: walk-dispatch variant coverage.
-  - [ ] `src/validate`: env/typecheck edge-case coverage.
-  - [ ] `src/wast`: parser/keywords/pretty-print edge-case coverage.
+- [ ] P0: Harden validation and typed-conversion core before adding new pass features.
+  - [ ] `src/validate/env.mbt`: table-driven `instr_to_tinstr` error-path coverage (stack underflow/empty stack pops, `RecIdx` resolution, type-resolution failures).
+  - [ ] `src/validate/typecheck.mbt`: add negative-path tests for branch/label errors, `expand_blocktype` failures, and unreachable merge normalization.
+  - [ ] Add regression tests proving typed conversion and typecheck consistency on shared fixtures (`to_texpr` then `Typecheck::typecheck`).
 
-## 1) Scheduler / Feature Parity Gaps (`src/passes/optimize.mbt`)
+- [ ] P0: Close transformer traversal blind spots.
+  - [ ] `src/transformer/transformer.mbt`: add callback matrix tests for `Ok(None)`, `Ok(Some(...))`, and `Err(...)` across less-used ops (atomics, i31, extern/any converts, `throw_ref`, branch-on-cast variants).
+  - [ ] Add focused tests for index/heaptype remap propagation on nested instructions.
 
-- [x] `ssa-nomerge`
-- [x] `flatten`
-- [x] `rereloop`
-- [x] `tuple-optimization`
-- [x] open-world `remove-unused-module-elements` mode exposure
-- [x] `cfp-reftest` mode
-- [x] `unsubtyping`
-- [x] `generate-global-effects`
+- [ ] P0: Harden binary codec error handling.
+  - [ ] `src/binary/encode.mbt`: cover unsupported encodings (`DefTypeHeapType`, recursive index rejections), section payload error propagation, and LEB max-byte guards.
+  - [ ] `src/binary/decode.mbt`: expand malformed vectors for terminal-unused-bits checks, sign-extension edge cases, optional decode fallthrough, and OOB numeric loads.
 
-## 2) Coverage + Quality Work
+- [ ] P1: Raise IR SSA and analysis confidence on complex instruction families.
+  - [ ] `src/ir/ssa.mbt` + `src/ir/ssa_optimize.mbt`: cover local collection and phi handling for atomics, table ops, array ops, and `call_ref`/`return_call_ref`.
+  - [ ] `src/ir/liveness.mbt`, `src/ir/type_tracking.mbt`, `src/ir/usedef.mbt`: add edge tests involving branch-on-ref plus atomic instructions.
 
-- [x] Raise coverage in core infrastructure hotspots.
-  - [x] `src/validate/env.mbt`
-  - [x] `src/transformer/transformer.mbt`
-  - [x] `src/binary/decode.mbt`
-  - [x] `src/binary/encode.mbt`
+- [ ] P1: Attack high-uncovered optimization passes (`>= 150` uncovered lines).
+  - [ ] `src/passes/heap2local.mbt`
+  - [ ] `src/passes/merge_blocks.mbt`
+  - [ ] `src/passes/asyncify.mbt`
+  - [ ] `src/passes/i64_to_i32_lowering.mbt`
+  - [ ] `src/passes/global_type_optimization.mbt`
+  - [ ] `src/passes/minimize_rec_groups.mbt`
+  - [ ] `src/passes/remove_unused.mbt`
+  - [ ] `src/passes/local_cse.mbt`
+  - [ ] `src/passes/optimize_instructions.mbt`
+  - [ ] `src/passes/precompute.mbt`
+  - [ ] For each pass above: add one invariant test proving module validity and stable index remapping.
 
-- [x] Add coverage-driven targets for additional optimizer hotspots.
-  - [x] `src/passes/minimize_rec_groups.mbt`
-  - [x] `src/passes/local_cse.mbt`
-  - [x] `src/passes/optimize_instructions.mbt`
-  - [x] `src/passes/precompute.mbt`
+- [ ] P1: Resolve known feature and architecture debt.
+  - [ ] `src/passes/i64_to_i32_lowering.mbt`: remove unsupported cases (`multi-value i64 results`, imported i64 globals, non-canonical i64 global-init roots) or gate pass preconditions at scheduler entry.
+  - [ ] `src/passes/asyncify.mbt`: handle tail calls (or add explicit required lowering prepass with diagnostics).
+  - [ ] Migrate `de_nan` and `remove_unused` to IRContext-shaped integration.
 
-- [ ] Add a lightweight optimizer perf baseline.
-  - [ ] Track compile time and output size on representative modules.
-  - [ ] Start as non-blocking CI report, then graduate to threshold gating.
+## 0.5) Low-Hanging Fruit
 
-## 3) Refactorability / Maintainability
+- [ ] Remove current warning: drop unused `ExtractLaneOp` import in `src/passes/imports.mbt`.
+- [ ] Add small constructor/util coverage tests for common helpers in `src/lib/types.mbt` (`Limits::mem_addr_bits`, `min_addr`, `has_default`, constructor shorthands).
+- [ ] Add `Show`/pretty-print smoke tests for `src/lib/show.mbt` and `src/lib/pretty_print_impls.mbt`.
+- [ ] Add targeted tests for `asyncify_apply_arguments` parser branches (`blacklist`/`whitelist`, secondary-memory-size parsing, conflicting `onlylist` combinations).
+- [ ] Add targeted tests for `MBEffects` helper logic in `src/passes/merge_blocks.mbt` (`merge`, `invalidates`, `mb_collect_shallow_effects`).
+- [ ] Add one test covering `TypeIdx`/`RecIdx` resolution fallback in `src/validate/env.mbt` when `rec_stack` is empty.
+- [ ] Add a tiny coverage-report script that emits top uncovered files from `moon coverage analyze` and tracks deltas in CI.
 
-- [ ] Split very large files into focused units with colocated tests.
+## 1) Secondary Backlog
+
+- [ ] Split oversized files for maintainability and faster targeted testing:
   - [ ] `src/validate/typecheck.mbt`
   - [ ] `src/validate/env.mbt`
   - [ ] `src/transformer/transformer.mbt`
   - [ ] `src/passes/optimize.mbt`
   - [ ] `src/passes/remove_unused.mbt`
-
-- [ ] Standardize shared helpers for repeated unreachable-analysis patterns across passes.
-
-## 4) Supporting Non-Pass Work
-
-- [ ] Complete `src/wast/*.mbt` support.
-  - [ ] Close remaining pretty-print parity gaps vs canonical wasm s-expression text output.
-
-- [ ] Complete `src/wat/*.mbt` support (wasm 3.0 text format).
-  - [ ] Lexer + tests
-  - [ ] Parser + tests
-  - [ ] Printer + tests
-  - [ ] WAT -> WAST conversion helpers
-  - [ ] WAT -> wasm types conversion helpers
-
-## 5) Long-Tail Binaryen Backlog (Lower Priority)
-
-- [ ] InstrumentBranchHints.cpp
-- [ ] InstrumentLocals.cpp
-- [ ] InstrumentMemory.cpp
-- [ ] Intrinsics.cpp (toolchain-specific intrinsics handling)
-- [ ] J2CLItableMerging.cpp
-- [ ] J2CLOpts.cpp
-- [ ] LegalizeJSInterface.cpp
-- [ ] LimitSegments.cpp (special constraints / tool output shaping)
-- [ ] LLVMMemoryCopyFillLowering.cpp
-- [ ] LLVMNontrappingFPToIntLowering.cpp
-- [ ] Memory64Lowering.cpp
-- [ ] Metrics.cpp
-- [ ] MinifyImportsAndExports.cpp (size/tooling)
-- [ ] MultiMemoryLowering.cpp
-- [ ] NoInline.cpp (policy pass)
-- [ ] OptimizeForJS.cpp (JS environment heuristics)
-- [ ] Outlining.cpp (size/codeshape; specialty)
-- [ ] Poppify.cpp (codeshape / specialty)
-- [ ] RandomizeBranchHints.cpp
-- [ ] RemoveImports.cpp (tooling / linking pipeline)
-- [ ] RemoveMemoryInit.cpp
-- [ ] RemoveNonJSOps.cpp
-- [ ] ReReloop.cpp (control-flow restructuring; specialty/structural)
-- [ ] RoundTrip.cpp (testing/tooling)
-- [ ] SafeHeap.cpp (hardening/instrumentation-ish; specialty)
-- [ ] SeparateDataSegments.cpp (layout/tooling)
-- [ ] SetGlobals.cpp (tooling / transformation utility)
-- [ ] SignExtLowering.cpp
-- [ ] Souperify.cpp (external superoptimizer integration; specialty)
-- [ ] SpillPointers.cpp (GC/pointer mgmt strategy; niche)
-- [ ] StackCheck.cpp (instrumentation / safety)
-- [ ] StringLifting.cpp (feature transform; string/GC proposal adjacent)
-- [ ] StringLowering.cpp (lowering counterpart)
-- [ ] Strip.cpp (tooling; remove names/debug/sections)
-- [ ] StripEH.cpp
-- [ ] StripTargetFeatures.cpp
-- [ ] TraceCalls.cpp
-- [ ] TranslateEH.cpp
-- [ ] TrapMode.cpp (policy/environment constraints)
-- [ ] TupleOptimization.cpp (feature-specific; multivalue/tuple patterns)
-- [ ] TypeFinalizing.cpp (final/open toggling; workflow / canonicalization; GC-specific)
-- [ ] TypeGeneralizing.cpp (type relaxation/widening; type-system transform)
-- [ ] TypeMerging.cpp (structural merging; type graph rewrite)
-- [ ] TypeSSA.cpp (SSA-like form for types; enabling for type passes; niche)
-- [ ] Unsubtyping.cpp (removes subtyping relations / flattens lattice; type graph rewrite)
+- [ ] Build a non-blocking optimizer perf baseline (compile time and output size) on representative modules.
+- [ ] Continue long-tail Binaryen parity only after core coverage hotspots are reduced.
 
 ---
-
-Completed items are intentionally removed from this file to keep it actionable and current.
+Completed items are intentionally removed to keep this backlog actionable.

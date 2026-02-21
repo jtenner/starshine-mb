@@ -209,6 +209,30 @@ test "sleb s33 boundaries roundtrip" {
 }
 
 ///|
+test "decode S33 accepts full unsigned upper bound" {
+  let max_u32_in_s33 : Int64 = (1L << 32) - 1L
+  let buf = @buffer.new()
+  encode_signed(max_u32_in_s33, buf, 33).unwrap()
+  let bytes = buf.to_bytes()
+  let decoded : Result[(S33, Int), String] = Decode::decode(bytes, 0)
+  match decoded {
+    Ok((S33(v), i)) => {
+      assert_eq(v, 0xffffffff)
+      assert_eq(i, bytes.length())
+    }
+    Err(e) => fail("expected S33 upper bound to decode, got error: \{e}")
+  }
+}
+
+///|
+test "S33 roundtrip includes upper bound" {
+  let values : Array[S33] = [S33(0), S33(1), S33(0xffffffff)]
+  for value in values {
+    roundtrip(value)
+  }
+}
+
+///|
 test "sleb s33 rejects too many bytes" {
   match decode_signed(b"\x80\x80\x80\x80\x80\x00", 0, 33) {
     Ok(_) => fail("expected error")
