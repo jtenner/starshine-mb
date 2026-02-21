@@ -17,10 +17,10 @@
 
 ## 0.5) Low-Hanging Fruit (Fast Test Wins)
 
-- [ ] Add direct tests for high-impact modules with no dedicated test file.
-  - [ ] `src/transformer/transformer.mbt`: add `Err` propagation + `Ok(None)` fallthrough tests in `src/transformer/tests.mbt`.
-  - [ ] `src/lib/types.mbt` + `src/lib/texpr.mbt`: add constructor/match/roundtrip smoke tests.
-  - [ ] `src/wast/keywords.mbt` + `src/wast/types.mbt`: add keyword classification + parser boundary tests.
+- [x] Add direct tests for high-impact modules with no dedicated test file.
+  - [x] `src/transformer/transformer.mbt`: add `Err` propagation + `Ok(None)` fallthrough tests in `src/transformer/tests.mbt`.
+  - [x] `src/lib/types.mbt` + `src/lib/texpr.mbt`: add constructor/match/roundtrip smoke tests.
+  - [x] `src/wast/keywords.mbt` + `src/wast/types.mbt`: add keyword classification + parser boundary tests.
 - [ ] Expand existing harnesses rather than adding new infra.
   - [ ] Extend `src/binary/tests.mbt` with table-driven invalid-decode vectors.
   - [ ] Extend `src/validate/env_tests.mbt` with import/type-stack edge cases.

@@ -65,6 +65,58 @@ test "walk_module forwards event errors" {
 }
 
 ///|
+test "walk_module propagates on_module errors before traversal" {
+  let mut visited_tinstruction = false
+  let transformer = ModuleTransformer::new()
+    .on_module_evt(fn(_, _, _) { error("module boom") })
+    .on_tinstruction_evt(fn(_, _, _) {
+      visited_tinstruction = true
+      unchanged()
+    })
+  let mod = Module::new().with_code_sec(
+    CodeSec::new([Func::t_func([], TExpr::new([TInstr::nop()]))]),
+  )
+  match transformer.walk_module((), mod) {
+    Ok(_) => fail("expected walk_module to return Err")
+    Err(msg) => assert_eq(msg, "module boom")
+  }
+  assert_false(visited_tinstruction)
+}
+
+///|
+test "walk_module falls through on_module Ok(None) to default traversal" {
+  let mut module_hook_called = false
+  let transformer = ModuleTransformer::new()
+    .on_module_evt(fn(_, _, _) {
+      module_hook_called = true
+      unchanged()
+    })
+    .on_tinstruction_evt(fn(self, _, instr) {
+      match instr {
+        TLocalGet(LocalIdx(i)) if i == 0U =>
+          change((), TInstr::local_get(LocalIdx::new(2)))
+        _ => self.walk_tinstruction_default((), instr)
+      }
+    })
+  let mod = Module::new().with_code_sec(
+    CodeSec::new([
+      Func::t_func([], TExpr::new([TInstr::local_get(LocalIdx::new(0))])),
+    ]),
+  )
+  let rewritten = match transformer.walk_module((), mod) {
+    Ok(Some((_, m))) => m
+    Ok(None) => fail("expected transformed module from fallback traversal")
+    Err(e) => fail("unexpected walk_module error: \{e}")
+  }
+  assert_true(module_hook_called)
+  match rewritten.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TLocalGet(LocalIdx(i))]))])) =>
+      assert_eq(i, 2U)
+    _ => fail("expected local.get index rewrite from fallback traversal")
+  }
+}
+
+///|
 test "walk_module invokes on_module event hook" {
   let transformer = ModuleTransformer::new().on_module_evt(fn(_, _, mod) {
     change(
