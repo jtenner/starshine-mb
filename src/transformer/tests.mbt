@@ -578,3 +578,242 @@ test "core walkers dispatch corresponding hooks" {
   assert_true(hit_expr)
   assert_true(hit_texpr)
 }
+
+///|
+test "walk_tinstruction dispatches less-used variant callbacks" {
+  let mut memarg_hits = 0
+  let mut heaptype_hits = 0
+  let mut labelidx_hits = 0
+  let mut typeidx_hits = 0
+  let mut elemidx_hits = 0
+  let mut laneidx_hits = 0
+  let transformer = ModuleTransformer::new()
+    .on_memarg_evt(fn(_, _, _) {
+      memarg_hits += 1
+      unchanged()
+    })
+    .on_heaptype_evt(fn(_, _, _) {
+      heaptype_hits += 1
+      unchanged()
+    })
+    .on_labelidx_evt(fn(_, _, _) {
+      labelidx_hits += 1
+      unchanged()
+    })
+    .on_typeidx_evt(fn(_, _, _) {
+      typeidx_hits += 1
+      unchanged()
+    })
+    .on_elemidx_evt(fn(_, _, _) {
+      elemidx_hits += 1
+      unchanged()
+    })
+    .on_laneidx_evt(fn(_, _, _) {
+      laneidx_hits += 1
+      unchanged()
+    })
+  let memarg = MemArg::new(0, None, 0)
+  let ht0 = HeapType::new(TypeIdx::new(0))
+  let ht1 = HeapType::new(TypeIdx::new(1))
+  let i0 = TInstr::i32_const(I32(10))
+  let i1 = TInstr::i32_const(I32(11))
+  let i2 = TInstr::i32_const(I32(12))
+  let i3 = TInstr::i32_const(I32(13))
+  let i4 = TInstr::i32_const(I32(14))
+  ignore(
+    transformer.walk_tinstruction(
+      (),
+      TInstr::memory_atomic_wait64(memarg, i0, i1, i2),
+    ),
+  )
+  ignore(
+    transformer.walk_tinstruction(
+      (),
+      TInstr::atomic_cmpxchg(AtomicCmpxchgOp::i32(), memarg, i0, i1, i2),
+    ),
+  )
+  ignore(
+    transformer.walk_tinstruction((), TInstr::ref_cast_desc_eq(true, ht0, i0)),
+  )
+  ignore(
+    transformer.walk_tinstruction(
+      (),
+      TInstr::br_on_cast_fail(
+        LabelIdx::new(0),
+        false,
+        ht0,
+        true,
+        ht1,
+        TInstr::local_get(LocalIdx::new(0)),
+        [TInstr::i32_const(I32(1))],
+      ),
+    ),
+  )
+  ignore(
+    transformer.walk_tinstruction(
+      (),
+      TInstr::array_copy(TypeIdx::new(0), TypeIdx::new(1), i0, i1, i2, i3, i4),
+    ),
+  )
+  ignore(
+    transformer.walk_tinstruction(
+      (),
+      TInstr::array_init_elem(TypeIdx::new(0), ElemIdx::new(0), i0, i1, i2, i3),
+    ),
+  )
+  ignore(
+    transformer.walk_tinstruction(
+      (),
+      TInstr::v128_load_lane(
+        V128LoadLaneOp::v128_load8_lane(),
+        memarg,
+        LaneIdx::new(0),
+        i0,
+        i1,
+      ),
+    ),
+  )
+  ignore(
+    transformer.walk_tinstruction(
+      (),
+      TInstr::v128_store_lane(
+        V128StoreLaneOp::v128_store8_lane(),
+        memarg,
+        LaneIdx::new(1),
+        i0,
+        i1,
+      ),
+    ),
+  )
+  ignore(
+    transformer.walk_tinstruction(
+      (),
+      TInstr::i8x16_shuffle(
+        LaneIdx::new(0),
+        LaneIdx::new(1),
+        LaneIdx::new(2),
+        LaneIdx::new(3),
+        LaneIdx::new(4),
+        LaneIdx::new(5),
+        LaneIdx::new(6),
+        LaneIdx::new(7),
+        LaneIdx::new(8),
+        LaneIdx::new(9),
+        LaneIdx::new(10),
+        LaneIdx::new(11),
+        LaneIdx::new(12),
+        LaneIdx::new(13),
+        LaneIdx::new(14),
+        LaneIdx::new(15),
+        i0,
+        i1,
+      ),
+    ),
+  )
+  assert_true(memarg_hits >= 4)
+  assert_true(heaptype_hits >= 3)
+  assert_true(labelidx_hits >= 1)
+  assert_true(typeidx_hits >= 4)
+  assert_true(elemidx_hits >= 1)
+  assert_true(laneidx_hits >= 18)
+}
+
+///|
+test "walk_tinstruction forwards callback errors for less-used variants" {
+  let memarg_error = ModuleTransformer::new().on_memarg_evt(fn(_, _, _) {
+    error("memarg boom")
+  })
+  match
+    memarg_error.walk_tinstruction(
+      (),
+      TInstr::memory_atomic_wait64(
+        MemArg::new(0, None, 0),
+        TInstr::i32_const(I32(1)),
+        TInstr::i64_const(I64(2)),
+        TInstr::i64_const(I64(3)),
+      ),
+    ) {
+    Err(msg) => assert_eq(msg, "memarg boom")
+    _ => fail("expected memarg hook error to propagate")
+  }
+
+  let label_error = ModuleTransformer::new().on_labelidx_evt(fn(_, _, _) {
+    error("label boom")
+  })
+  match
+    label_error.walk_tinstruction(
+      (),
+      TInstr::br_on_cast_fail(
+        LabelIdx::new(0),
+        false,
+        HeapType::new(TypeIdx::new(0)),
+        true,
+        HeapType::new(TypeIdx::new(1)),
+        TInstr::local_get(LocalIdx::new(0)),
+        [TInstr::i32_const(I32(1))],
+      ),
+    ) {
+    Err(msg) => assert_eq(msg, "label boom")
+    _ => fail("expected label hook error to propagate")
+  }
+
+  let lane_error = ModuleTransformer::new().on_laneidx_evt(fn(_, _, _) {
+    error("lane boom")
+  })
+  match
+    lane_error.walk_tinstruction(
+      (),
+      TInstr::i8x16_shuffle(
+        LaneIdx::new(0),
+        LaneIdx::new(1),
+        LaneIdx::new(2),
+        LaneIdx::new(3),
+        LaneIdx::new(4),
+        LaneIdx::new(5),
+        LaneIdx::new(6),
+        LaneIdx::new(7),
+        LaneIdx::new(8),
+        LaneIdx::new(9),
+        LaneIdx::new(10),
+        LaneIdx::new(11),
+        LaneIdx::new(12),
+        LaneIdx::new(13),
+        LaneIdx::new(14),
+        LaneIdx::new(15),
+        TInstr::v128_const(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+        TInstr::v128_const(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
+      ),
+    ) {
+    Err(msg) => assert_eq(msg, "lane boom")
+    _ => fail("expected lane hook error to propagate")
+  }
+}
+
+///|
+test "walk_tinstruction preserves array_copy final operand when unchanged" {
+  let transformer = ModuleTransformer::new()
+  let i0 = TInstr::i32_const(I32(10))
+  let i1 = TInstr::i32_const(I32(11))
+  let i2 = TInstr::i32_const(I32(12))
+  let i3 = TInstr::i32_const(I32(13))
+  let i4 = TInstr::i32_const(I32(14))
+  let instr = TInstr::array_copy(
+    TypeIdx::new(0),
+    TypeIdx::new(1),
+    i0,
+    i1,
+    i2,
+    i3,
+    i4,
+  )
+  let rewritten = match transformer.walk_tinstruction((), instr) {
+    Ok(Some((_, out))) => out
+    Ok(None) => fail("expected walk_tinstruction to rebuild array_copy")
+    Err(e) => fail("unexpected walk_tinstruction error: \{e}")
+  }
+  match rewritten {
+    TArrayCopy(_, _, _, _, _, _, got_i4) =>
+      assert_eq(got_i4, TInstr::i32_const(I32(14)))
+    _ => fail("expected rewritten array_copy")
+  }
+}

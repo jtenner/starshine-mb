@@ -2288,7 +2288,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
         Err(t) => return Err(t)
       }
       let (t, i4) = match self.walk_tinstruction(t, i4) {
-        Ok(None) => (t, i3)
+        Ok(None) => (t, i4)
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }

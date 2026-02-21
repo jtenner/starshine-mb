@@ -14,6 +14,7 @@ using @lib {
   type BlockType,
   type BinaryOp,
   type MemArg,
+  type AtomicCmpxchgOp,
   type ExtractLaneOp,
   type LaneIdx,
   type ReplaceLaneOp,

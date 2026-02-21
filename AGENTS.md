@@ -102,6 +102,7 @@ In this workspace, use absolute moon path when needed:
 - `Vacuum` is implemented as a typed-function cleanup pass that performs Binaryen-style dead-wrapper elimination (`optimize` peeling through effectful children), block list compaction/truncation after `unreachable`, constant/unreachable `if` simplification, `drop` canonicalization (including tee lowering and nested-drop cleanup), loop-nop elimination, and throw-free `try_table` elimination.
 - `ModuleTransformer::walk_module` dispatches `on_module_evt` before default traversal (consistent with other `walk_*` hooks).
 - Audit note: every current `on_*` hook in `ModuleTransformer` has a corresponding `walk_*` dispatcher path; regression tests now cover section dispatchers and core/leaf hook dispatch.
+- `ModuleTransformer::walk_tinstruction_default` `TArrayCopy` now preserves its final operand when unchanged (`i4` no longer aliases `i3`), and tests now cover less-used callback/error paths (atomics, descriptor casts, `br_on_cast_fail`, `array_copy`, lane ops).
 - Threads atomics instruction support is implemented across `lib`/`binary`/`validate`/`ir`/`transformer`, including opcode coverage for `0xFE` `0..78` (`memory.atomic.{notify,wait32,wait64}`, `atomic.fence`, atomic load/store variants, all `atomic.rmw.*`, and all `atomic.rmw*.cmpxchg` forms).
 - IR SSA now models atomics explicitly (`MemoryAtomicNotify/Wait32/Wait64`, `AtomicFence`, `AtomicRmw`, `AtomicCmpxchg`), and downstream passes were updated to preserve/rewrite atomic nodes conservatively.
 

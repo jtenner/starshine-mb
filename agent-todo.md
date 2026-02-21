@@ -2,10 +2,10 @@
 
 ## 0) Highest Priority (Cross-Package Audit: 2026-02-20)
 
-- [ ] P0: Close validation/transformer core gaps before adding new pass features.
+- [x] P0: Close validation/transformer core gaps before adding new pass features.
   - [x] `src/validate/env.mbt` targeted tests for `with_module`, recursive `TypeIdx/RecIdx` resolution, and `to_texpr` stack-error branches (`1375` uncovered lines).
   - [x] `src/validate/typecheck.mbt` targeted negative tests for descriptor ops, atomics, and multi-value/control-flow error paths (`618` uncovered lines).
-  - [ ] `src/transformer/transformer.mbt` expand `walk_*` callback dispatch/error propagation tests over less-used `TInstr` variants (`643` uncovered lines).
+  - [x] `src/transformer/transformer.mbt` expand `walk_*` callback dispatch/error propagation tests over less-used `TInstr` variants (`643` uncovered lines).
 - [ ] P1: Harden binary codec correctness under invalid input and unsupported encodings.
   - [ ] `src/binary/decode.mbt` add EOF/invalid-byte/error-bubbling tests through `src/binary/tests.mbt` (`410` uncovered lines).
   - [ ] `src/binary/encode.mbt` add unsupported-type/index rejection tests and section payload propagation tests (`444` uncovered lines).
