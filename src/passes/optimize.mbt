@@ -33,6 +33,7 @@ pub(all) enum ModulePass {
   MergeLocals
   MergeSimilarFunctions
   MergeBlocks
+  Flatten
   OnceReduction
   Asyncify(AsyncifyPassProps)
   MinimizeRecGroups
@@ -285,6 +286,7 @@ fn run_ir_context_transformer_scheduler_pass(
       apply_ir_transformer_pass(ctx, mod, merge_locals_ir_pass(mod, options~))
     MergeBlocks =>
       apply_ir_transformer_pass(ctx, mod, merge_blocks_ir_pass(mod, options~))
+    Flatten => apply_ir_transformer_pass(ctx, mod, flatten_ir_pass(mod))
     OptimizeAddedConstants =>
       apply_ir_transformer_pass(
         ctx,
@@ -607,7 +609,7 @@ pub fn default_function_optimization_passes(
   }
   if options.optimize_level >= 4 {
     // Binaryen parity mode: flatten.
-    passes.push(SimplifyLocalsNoTeeNoStructure)
+    passes.push(Flatten)
     passes.push(LocalCSE)
     // Binaryen parity mode: rereloop.
     // Run an early structural merge step to re-canonicalize control flow.
@@ -1019,7 +1021,7 @@ test "default function optimization passes map flatten mode at optimize_level=4"
   )
   let flatten_idx = default_first_module_pass_index(passes, fn(pass) {
     match pass {
-      SimplifyLocalsNoTeeNoStructure => true
+      Flatten => true
       _ => false
     }
   })
@@ -1463,6 +1465,7 @@ test "optimize scheduler classifies module pass context kinds" {
   assert_true(
     assert_pass_context_kind(RemoveUnusedNames, IRContextTransformerPass),
   )
+  assert_true(assert_pass_context_kind(Flatten, IRContextTransformerPass))
   assert_true(
     assert_pass_context_kind(DeadCodeElimination, UnitTransformerPass),
   )
@@ -2864,6 +2867,35 @@ test "optimize_module runs MergeBlocks pass" {
   match optimized.code_sec {
     Some(CodeSec([TFunc(_, TExpr([TDrop(TI32Const(I32(9))), TNop]))])) => ()
     _ => fail("expected merged block body")
+  }
+}
+
+///|
+test "optimize_module runs Flatten pass" {
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([single_rec_type(comp_type_sub_type(func_comp_type([], [])))]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32()],
+          TExpr::new([
+            TInstr::drop(
+              TInstr::local_tee(LocalIdx::new(0), TInstr::i32_const(I32(3))),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match optimize_module(mod, [Flatten]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, body)])) => assert_eq(fl_count_local_tees(body), 0)
+    _ => fail("expected flattened typed function")
   }
 }
 

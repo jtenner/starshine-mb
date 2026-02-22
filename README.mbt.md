@@ -42,10 +42,24 @@ using @passes { optimize_module, ModulePass }
 
 fn run_basic_pipeline(mod : Module) -> Result[Module, String] {
   optimize_module(mod, [
+    ModulePass::Flatten,
     ModulePass::DeadCodeElimination,
     ModulePass::SimplifyLocals,
     ModulePass::Vacuum,
   ])
+}
+```
+
+#### Using `Flatten` directly
+
+`Flatten` rewrites expression trees into a flatter, temp-local-oriented form that is easier for downstream local canonicalization and CSE-style passes.
+
+```mbt
+using @lib { type Module }
+using @passes { optimize_module, ModulePass }
+
+fn run_flatten_only(mod : Module) -> Result[Module, String] {
+  optimize_module(mod, [ModulePass::Flatten])
 }
 ```
 
@@ -107,7 +121,7 @@ Builds the canonical function-level pass list for the module/features/options. T
 
 Current parity-mode mappings in this scheduler are:
 - `ssa-nomerge` -> `DataflowOptimization`
-- `flatten` -> `SimplifyLocalsNoTeeNoStructure`
+- `flatten` -> `Flatten`
 - `rereloop` -> early `MergeBlocks`
 - `tuple-optimization` -> `DataflowOptimization` (when multivalue signatures are present)
 
@@ -826,6 +840,9 @@ Hoists loop-invariant expressions out of loop bodies when side effects and trap 
 
 #### `MergeBlocks`
 Compacts nested/adjacent block structures and rewrites equivalent control trees into shorter structured forms.
+
+#### `Flatten`
+Flattens typed expression trees by hoisting side-effectful subexpressions into explicit prelude statements with temp locals, producing a flatter IR shape for follow-up optimizations.
 
 #### `MergeLocals`
 Merges compatible locals and rewrites local usage to reduce local count and local-section/code-size overhead.
