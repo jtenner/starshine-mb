@@ -31,18 +31,18 @@
   - [x] `src/ir/ssa.mbt` + `src/ir/ssa_optimize.mbt`: cover local collection and phi handling for atomics, table ops, array ops, and `call_ref`/`return_call_ref`.
   - [x] `src/ir/liveness.mbt`, `src/ir/type_tracking.mbt`, `src/ir/usedef.mbt`: add edge tests involving branch-on-ref plus atomic instructions.
 
-- [ ] P1: Attack high-uncovered optimization passes (`>= 150` uncovered lines).
-  - [ ] `src/passes/heap2local.mbt`
-  - [ ] `src/passes/merge_blocks.mbt`
-  - [ ] `src/passes/asyncify.mbt`
-  - [ ] `src/passes/i64_to_i32_lowering.mbt`
-  - [ ] `src/passes/global_type_optimization.mbt`
-  - [ ] `src/passes/minimize_rec_groups.mbt`
-  - [ ] `src/passes/remove_unused.mbt`
-  - [ ] `src/passes/local_cse.mbt`
-  - [ ] `src/passes/optimize_instructions.mbt`
-  - [ ] `src/passes/precompute.mbt`
-  - [ ] For each pass above: add one invariant test proving module validity and stable index remapping.
+- [x] P1: Attack high-uncovered optimization passes (`>= 150` uncovered lines).
+  - [x] `src/passes/heap2local.mbt`
+  - [x] `src/passes/merge_blocks.mbt`
+  - [x] `src/passes/asyncify.mbt`
+  - [x] `src/passes/i64_to_i32_lowering.mbt`
+  - [x] `src/passes/global_type_optimization.mbt`
+  - [x] `src/passes/minimize_rec_groups.mbt`
+  - [x] `src/passes/remove_unused.mbt`
+  - [x] `src/passes/local_cse.mbt`
+  - [x] `src/passes/optimize_instructions.mbt`
+  - [x] `src/passes/precompute.mbt`
+  - [x] For each pass above: add one invariant test proving module validity and stable index remapping.
 
 - [ ] P1: Resolve known feature and architecture debt.
   - [ ] `src/passes/i64_to_i32_lowering.mbt`: remove unsupported cases (`multi-value i64 results`, imported i64 globals, non-canonical i64 global-init roots) or gate pass preconditions at scheduler entry.

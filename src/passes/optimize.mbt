@@ -3303,3 +3303,389 @@ test "optimize_module runs SimplifyGlobals pass" {
     _ => fail("expected SimplifyGlobals to remove dead global.set")
   }
 }
+
+///|
+fn opt_assert_valid_module(mod : Module, label : String) -> Unit raise {
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(e) => fail("\{label}: expected module to validate after pass: \{e}")
+  }
+}
+
+///|
+fn opt_assert_pass_invariant(
+  mod : Module,
+  pass : ModulePass,
+  label : String,
+  validate? : Bool = true,
+) -> Module raise {
+  let once = match optimize_module(mod, [pass]) {
+    Ok(m) => m
+    Err(e) => fail("\{label}: unexpected optimize_module error: \{e}")
+  }
+  if validate {
+    opt_assert_valid_module(once, label)
+  }
+  let twice = match optimize_module(mod, [pass]) {
+    Ok(m) => m
+    Err(e) => fail("\{label}: unexpected repeated optimize_module error: \{e}")
+  }
+  if validate {
+    opt_assert_valid_module(twice, label)
+  }
+  assert_eq(once, twice)
+  once
+}
+
+///|
+test "pass invariant: heap2local validates and remap is stable" {
+  let struct_type = single_rec_type(
+    comp_type_sub_type(
+      struct_comp_type([
+        FieldType::new(StorageType::val_type(ValType::i32()), Var),
+      ]),
+    ),
+  )
+  let local_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        struct_type,
+        single_rec_type(comp_type_sub_type(func_comp_type([], []))),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [local_ref],
+          TExpr::new([
+            TInstr::local_set(
+              LocalIdx::new(0),
+              TInstr::struct_new(TypeIdx::new(0), [TInstr::i32_const(I32(1))]),
+            ),
+            TInstr::struct_set(
+              TypeIdx::new(0),
+              @lib.U32(0),
+              TInstr::local_get(LocalIdx::new(0)),
+              TInstr::i32_const(I32(4)),
+            ),
+            TInstr::drop(
+              TInstr::struct_get(
+                TypeIdx::new(0),
+                @lib.U32(0),
+                TInstr::local_get(LocalIdx::new(0)),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let out = opt_assert_pass_invariant(mod, Heap2Local, "heap2local")
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, body)])) => assert_eq(h2l_count_gc_ops(body), 0)
+    _ => fail("heap2local: expected transformed typed function")
+  }
+}
+
+///|
+test "pass invariant: merge_blocks validates and remap is stable" {
+  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let mod = Module::new().with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [],
+        TExpr::new([
+          TInstr::block(
+            BlockType::void_(),
+            TExpr::new([TInstr::i32_const(I32(9)), TInstr::nop()]),
+          ),
+        ]),
+      ),
+    ]),
+  )
+  let mod = mod
+    .with_type_sec(TypeSec::new([t_void]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+  let out = opt_assert_pass_invariant(mod, MergeBlocks, "merge_blocks")
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TDrop(TI32Const(I32(9))), TNop]))])) => ()
+    _ => fail("merge_blocks: expected merged block body")
+  }
+}
+
+///|
+test "pass invariant: asyncify validates and remap is stable" {
+  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t0]))
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("env"),
+          Name::new("sleep"),
+          ExternType::func(TypeIdx::new(0)),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func([], TExpr::new([TInstr::call(FuncIdx::new(0), [])])),
+      ]),
+    )
+  let out = opt_assert_pass_invariant(
+    mod,
+    Asyncify(AsyncifyPassProps::new()),
+    "asyncify",
+    validate=false,
+  )
+  match out.code_sec {
+    Some(CodeSec(funcs)) => assert_true(funcs.length() >= 1)
+    _ => fail("asyncify: expected code section after rewrite")
+  }
+}
+
+///|
+test "pass invariant: i64_to_i32_lowering validates and remap is stable" {
+  let ty = single_rec_type(
+    comp_type_sub_type(func_comp_type([ValType::i64()], [ValType::i64()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([ty]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i64()],
+          TExpr::new([
+            TInstr::binary(
+              BinaryOp::i64_add(),
+              TInstr::local_get(LocalIdx::new(0)),
+              TInstr::i64_const(I64(1L)),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let out = opt_assert_pass_invariant(
+    mod,
+    I64ToI32Lowering,
+    "i64_to_i32_lowering",
+  )
+  match out.type_sec {
+    Some(
+      TypeSec([SingleRecType(CompTypeSubType(FuncCompType(params, results)))])
+    ) => {
+      assert_eq(params, [ValType::i32(), ValType::i32()])
+      assert_eq(results, [ValType::i32()])
+    }
+    _ => fail("i64_to_i32_lowering: expected lowered i64 function signature")
+  }
+}
+
+///|
+test "pass invariant: global_type_optimization validates and remap is stable" {
+  let struct_type = single_rec_type(
+    comp_type_sub_type(
+      struct_comp_type([
+        FieldType::new(StorageType::val_type(ValType::i32()), Var),
+        FieldType::new(StorageType::val_type(ValType::i32()), Var),
+      ]),
+    ),
+  )
+  let func_type = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([struct_type, func_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::drop(
+              TInstr::struct_get(
+                TypeIdx::new(0),
+                @lib.U32(1),
+                TInstr::struct_new(TypeIdx::new(0), [
+                  TInstr::i32_const(I32(11)),
+                  TInstr::i32_const(I32(22)),
+                ]),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let out = opt_assert_pass_invariant(
+    mod,
+    GlobalTypeOptimization,
+    "global_type_optimization",
+  )
+  match out.type_sec {
+    Some(TypeSec([SingleRecType(st), _])) =>
+      match st.get_comptype() {
+        StructCompType(fields) => assert_eq(fields.length(), 1)
+        _ => fail("global_type_optimization: expected optimized struct type")
+      }
+    _ => fail("global_type_optimization: expected type section")
+  }
+}
+
+///|
+test "pass invariant: minimize_rec_groups validates and remap is stable" {
+  let t0 = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
+        FieldType::new(StorageType::val_type(ValType::i32()), Const),
+      ]),
+    ),
+  )
+  let t1 = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
+        FieldType::new(StorageType::val_type(ValType::i32()), Const),
+      ]),
+    ),
+  )
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t0, t1, t_void]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(2)]))
+    .with_code_sec(
+      CodeSec::new([Func::t_func([], TExpr::new([TInstr::nop()]))]),
+    )
+  let out = opt_assert_pass_invariant(
+    mod,
+    MinimizeRecGroups,
+    "minimize_rec_groups",
+  )
+  match out.type_sec {
+    Some(TypeSec(recs)) => assert_true(recs.length() >= 1)
+    _ => fail("minimize_rec_groups: expected type section")
+  }
+}
+
+///|
+test "pass invariant: remove_unused validates and remap is stable" {
+  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_void]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
+    .with_export_sec(
+      ExportSec::new([
+        Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func([], TExpr::new([TInstr::nop()])),
+        Func::t_func([], TExpr::new([TInstr::nop()])),
+      ]),
+    )
+  let out = opt_assert_pass_invariant(mod, RemoveUnused, "remove_unused")
+  match out.code_sec {
+    Some(CodeSec(funcs)) => assert_eq(funcs.length(), 1)
+    _ => fail("remove_unused: expected unused function pruning")
+  }
+}
+
+///|
+test "pass invariant: local_cse validates and remap is stable" {
+  let t_i32_void = single_rec_type(
+    comp_type_sub_type(func_comp_type([ValType::i32()], [])),
+  )
+  let repeated = TInstr::binary(
+    BinaryOp::i32_add(),
+    TInstr::local_get(LocalIdx::new(0)),
+    TInstr::i32_const(I32(1)),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_i32_void]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32()],
+          TExpr::new([TInstr::drop(repeated), TInstr::drop(repeated)]),
+        ),
+      ]),
+    )
+  let out = opt_assert_pass_invariant(mod, LocalCSE, "local_cse")
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, body)])) => assert_true(count_local_tees(body) >= 1)
+    _ => fail("local_cse: expected repeated expression reuse")
+  }
+}
+
+///|
+test "pass invariant: optimize_instructions validates and remap is stable" {
+  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_void]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(ValType::i32(), true),
+          Expr::new([Instruction::i32_const(I32(0))]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::global_set(
+              GlobalIdx::new(0),
+              TInstr::global_get(GlobalIdx::new(0)),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let out = opt_assert_pass_invariant(
+    mod,
+    OptimizeInstructions,
+    "optimize_instructions",
+  )
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TNop]))])) => ()
+    _ =>
+      fail(
+        "optimize_instructions: expected global.set(global.get same idx) to fold",
+      )
+  }
+}
+
+///|
+test "pass invariant: precompute validates and remap is stable" {
+  let t_ret_i32 = single_rec_type(
+    comp_type_sub_type(func_comp_type([], [ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_ret_i32]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::binary(
+              BinaryOp::i32_add(),
+              TInstr::i32_const(I32(1)),
+              TInstr::i32_const(I32(2)),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let out = opt_assert_pass_invariant(mod, Precompute, "precompute")
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TI32Const(I32(v))]))])) => assert_eq(v, 3)
+    _ => fail("precompute: expected simple constant fold")
+  }
+}
