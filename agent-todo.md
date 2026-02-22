@@ -23,9 +23,9 @@
   - [x] `src/transformer/transformer.mbt`: add callback matrix tests for `Ok(None)`, `Ok(Some(...))`, and `Err(...)` across less-used ops (atomics, i31, extern/any converts, `throw_ref`, branch-on-cast variants).
   - [x] Add focused tests for index/heaptype remap propagation on nested instructions.
 
-- [ ] P0: Harden binary codec error handling.
-  - [ ] `src/binary/encode.mbt`: cover unsupported encodings (`DefTypeHeapType`, recursive index rejections), section payload error propagation, and LEB max-byte guards.
-  - [ ] `src/binary/decode.mbt`: expand malformed vectors for terminal-unused-bits checks, sign-extension edge cases, optional decode fallthrough, and OOB numeric loads.
+- [x] P0: Harden binary codec error handling.
+  - [x] `src/binary/encode.mbt`: cover unsupported encodings (`DefTypeHeapType`, recursive index rejections), section payload error propagation, and LEB max-byte guards.
+  - [x] `src/binary/decode.mbt`: expand malformed vectors for terminal-unused-bits checks, sign-extension edge cases, optional decode fallthrough, and OOB numeric loads.
 
 - [ ] P1: Raise IR SSA and analysis confidence on complex instruction families.
   - [ ] `src/ir/ssa.mbt` + `src/ir/ssa_optimize.mbt`: cover local collection and phi handling for atomics, table ops, array ops, and `call_ref`/`return_call_ref`.
