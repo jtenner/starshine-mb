@@ -61,6 +61,16 @@ test "Env.resolve_subtype and resolve_typeidx_subtype return none for RecIdx wit
 }
 
 ///|
+test "Env type index resolution falls back to globals while RecIdx is none without rec stack" {
+  let subtype = env_test_func_subtype([], [ValType::i32()])
+  let env = Env::new().with_types([subtype])
+  assert_true(env.resolve_subtype(TypeIdx::new(0)) is Some(_))
+  assert_true(env.resolve_typeidx_subtype(TypeIdx::new(0)) is Some(_))
+  assert_eq(env.resolve_subtype(TypeIdx::rec(0)), None)
+  assert_eq(env.resolve_typeidx_subtype(TypeIdx::rec(0)), None)
+}
+
+///|
 test "Env.with_rectype group supports RecIdx lookups and function resolution" {
   let st_func = env_test_func_subtype([ValType::i32()], [ValType::i64()])
   let st_struct = SubType::comp_type(CompType::struct_([]))

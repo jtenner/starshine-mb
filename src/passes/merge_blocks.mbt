@@ -2954,3 +2954,67 @@ test "merge blocks: call effects invalidate memory effects" {
   assert_true(invalidates(call_fx, load_fx))
   assert_true(invalidates(load_fx, call_fx))
 }
+
+///|
+test "merge blocks: MBEffects merge unions local sets and side-effect flags" {
+  let lhs = MBEffects::new()
+  lhs.locals_read.add(LocalIdx::new(0))
+  lhs.reads_memory = true
+
+  let rhs = MBEffects::new()
+  rhs.locals_written.add(LocalIdx::new(1))
+  rhs.writes_globals = true
+  rhs.calls = true
+
+  lhs.merge(rhs)
+  assert_true(lhs.locals_read.contains(LocalIdx::new(0)))
+  assert_true(lhs.locals_written.contains(LocalIdx::new(1)))
+  assert_true(lhs.reads_memory)
+  assert_true(lhs.writes_globals)
+  assert_true(lhs.calls)
+}
+
+///|
+test "merge blocks: MBEffects invalidates on local read-write hazards only" {
+  let reads = MBEffects::new()
+  reads.locals_read.add(LocalIdx::new(2))
+  let writes = MBEffects::new()
+  writes.locals_written.add(LocalIdx::new(2))
+  assert_true(invalidates(reads, writes))
+  assert_true(invalidates(writes, reads))
+
+  let disjoint = MBEffects::new()
+  disjoint.locals_read.add(LocalIdx::new(3))
+  assert_false(invalidates(reads, disjoint))
+}
+
+///|
+test "merge blocks: mb_collect_shallow_effects marks instruction-specific flags" {
+  let local_fx = MBEffects::new()
+  mb_collect_shallow_effects(
+    TInstr::local_tee(LocalIdx::new(0), TInstr::i32_const(I32(1))),
+    local_fx,
+  )
+  assert_true(local_fx.locals_read.contains(LocalIdx::new(0)))
+  assert_true(local_fx.locals_written.contains(LocalIdx::new(0)))
+
+  let load_fx = MBEffects::new()
+  mb_collect_shallow_effects(
+    TInstr::load(
+      LoadOp::i32_load(),
+      MemArg::new(0, None, 0),
+      TInstr::i32_const(I32(0)),
+    ),
+    load_fx,
+  )
+  assert_true(load_fx.reads_memory)
+  assert_true(load_fx.traps)
+
+  let throw_fx = MBEffects::new()
+  mb_collect_shallow_effects(
+    TInstr::throw_ref(TInstr::ref_null(HeapType::abs(AbsHeapType::exn()))),
+    throw_fx,
+  )
+  assert_true(throw_fx.throws)
+  assert_true(throw_fx.branches)
+}

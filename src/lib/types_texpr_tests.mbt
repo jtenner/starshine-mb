@@ -74,3 +74,49 @@ test "TExpr.to_expr lowers nested if with explicit operand order" {
     _ => fail("expected lowered if instruction with both branches")
   }
 }
+
+///|
+test "limits helpers report address width and minimum address domain" {
+  let lim32 = Limits::i32(1U, Some(8U))
+  let lim64_a = Limits::i64(2UL, Some(16UL))
+  let lim64_b = Limits::i64(3UL, None)
+
+  assert_eq(lim32.mem_addr_bits(), 32)
+  assert_eq(lim64_a.mem_addr_bits(), 64)
+
+  assert_eq(min_addr(lim32, lim64_a), lim32)
+  assert_eq(min_addr(lim64_a, lim32), lim32)
+  assert_eq(min_addr(lim64_a, lim64_b), lim64_a)
+}
+
+///|
+test "has_default handles numeric vector and ref nullability cases" {
+  assert_true(has_default(ValType::i64()))
+  assert_true(has_default(ValType::v128()))
+  assert_true(has_default(ValType::bottom()))
+  assert_true(has_default(ValType::ref_null(HeapType::new(TypeIdx::new(0)))))
+  assert_false(
+    has_default(
+      ValType::ref_type(RefType::new(false, HeapType::abs(AbsHeapType::func()))),
+    ),
+  )
+}
+
+///|
+test "constructor shorthands map to expected variants" {
+  assert_eq(TypeIdx::rec(3U), rec_idx(3U))
+  assert_eq(
+    HeapType::abs(AbsHeapType::extern_()),
+    AbsHeapTypeHeapType(ExternAbsHeapType),
+  )
+  assert_eq(
+    RefType::abs(AbsHeapType::no_func()),
+    AbsHeapTypeRefType(NoFuncAbsHeapType),
+  )
+  assert_eq(Mut::const_(), Const)
+  assert_eq(Mut::var_(), Var)
+  assert_eq(
+    StorageType::pack_type(PackType::i8()),
+    PackTypeStorageType(I8PackType),
+  )
+}

@@ -3346,6 +3346,67 @@ test "asyncify_apply_arguments parses core flags" {
 }
 
 ///|
+test "asyncify_apply_arguments supports blacklist and whitelist aliases" {
+  let props = AsyncifyPassProps::new()
+  let from_blacklist = match
+    asyncify_apply_arguments(props, ["asyncify-blacklist@foo,bar,foo"]) {
+    Ok(p) => p
+    Err(e) => fail("unexpected asyncify alias parse error: \{e}")
+  }
+  assert_eq(from_blacklist.removelist, ["foo", "bar"])
+  assert_eq(from_blacklist.onlylist.length(), 0)
+
+  let from_whitelist = match
+    asyncify_apply_arguments(props, ["asyncify-whitelist@keep,keep"]) {
+    Ok(p) => p
+    Err(e) => fail("unexpected asyncify whitelist parse error: \{e}")
+  }
+  assert_eq(from_whitelist.removelist.length(), 0)
+  assert_eq(from_whitelist.onlylist, ["keep"])
+}
+
+///|
+test "asyncify_apply_arguments parses secondary memory size and ignores invalid values" {
+  let props = AsyncifyPassProps::new()
+  let updated = match
+    asyncify_apply_arguments(props, [
+      "asyncify-in-secondary-memory", "asyncify-secondary-memory-size@4096", "asyncify-secondary-memory-size@4k",
+      "asyncify-secondary-memory-size@",
+    ]) {
+    Ok(p) => p
+    Err(e) =>
+      fail("unexpected asyncify secondary-memory-size parse error: \{e}")
+  }
+  assert_true(updated.in_secondary_memory)
+  assert_eq(updated.secondary_memory_size, 4096UL)
+}
+
+///|
+test "asyncify_apply_arguments rejects onlylist combined with addlist or removelist" {
+  let props = AsyncifyPassProps::new()
+  match
+    asyncify_apply_arguments(props, [
+      "asyncify-onlylist@foo", "asyncify-addlist@bar",
+    ]) {
+    Ok(_) => fail("expected onlylist/addlist conflict")
+    Err(e) =>
+      assert_eq(
+        e, "asyncify: onlylist cannot be combined with addlist/removelist",
+      )
+  }
+  match
+    asyncify_apply_arguments(props, [
+      "asyncify-onlylist@foo", "asyncify-removelist@bar",
+    ]) {
+    Ok(_) => fail("expected onlylist/removelist conflict")
+    Err(e) =>
+      assert_eq(
+        e, "asyncify: onlylist cannot be combined with addlist/removelist",
+      )
+  }
+}
+
+///|
 test "asyncify creates runtime globals and exports" {
   let mod = Module::new().with_code_sec(
     CodeSec::new([Func::t_func([], TExpr::new([TInstr::nop()]))]),

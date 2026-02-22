@@ -51,13 +51,13 @@
 
 ## 0.5) Low-Hanging Fruit
 
-- [ ] Remove current warning: drop unused `ExtractLaneOp` import in `src/passes/imports.mbt`.
-- [ ] Add small constructor/util coverage tests for common helpers in `src/lib/types.mbt` (`Limits::mem_addr_bits`, `min_addr`, `has_default`, constructor shorthands).
-- [ ] Add `Show`/pretty-print smoke tests for `src/lib/show.mbt` and `src/lib/pretty_print_impls.mbt`.
-- [ ] Add targeted tests for `asyncify_apply_arguments` parser branches (`blacklist`/`whitelist`, secondary-memory-size parsing, conflicting `onlylist` combinations).
-- [ ] Add targeted tests for `MBEffects` helper logic in `src/passes/merge_blocks.mbt` (`merge`, `invalidates`, `mb_collect_shallow_effects`).
-- [ ] Add one test covering `TypeIdx`/`RecIdx` resolution fallback in `src/validate/env.mbt` when `rec_stack` is empty.
-- [ ] Add a tiny coverage-report script that emits top uncovered files from `moon coverage analyze` and tracks deltas in CI.
+- [x] Remove current warning: drop unused `ExtractLaneOp` import in `src/passes/imports.mbt`.
+- [x] Add small constructor/util coverage tests for common helpers in `src/lib/types.mbt` (`Limits::mem_addr_bits`, `min_addr`, `has_default`, constructor shorthands).
+- [x] Add `Show`/pretty-print smoke tests for `src/lib/show.mbt` and `src/lib/pretty_print_impls.mbt`.
+- [x] Add targeted tests for `asyncify_apply_arguments` parser branches (`blacklist`/`whitelist`, secondary-memory-size parsing, conflicting `onlylist` combinations).
+- [x] Add targeted tests for `MBEffects` helper logic in `src/passes/merge_blocks.mbt` (`merge`, `invalidates`, `mb_collect_shallow_effects`).
+- [x] Add one test covering `TypeIdx`/`RecIdx` resolution fallback in `src/validate/env.mbt` when `rec_stack` is empty.
+- [x] Add a tiny coverage-report script that emits top uncovered files from `moon coverage analyze` and tracks deltas in CI.
 
 ## 1) Secondary Backlog
 

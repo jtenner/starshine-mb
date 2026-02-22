@@ -1,0 +1,42 @@
+name: "Coverage Report"
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "src/**"
+      - "scripts/coverage_report.sh"
+      - ".github/coverage-baseline.txt"
+      - ".github/workflows/coverage-report.yml"
+      - "moon.mod.json"
+      - "moon.pkg.json"
+  push:
+    branches:
+      - main
+    paths:
+      - "src/**"
+      - "scripts/coverage_report.sh"
+      - ".github/coverage-baseline.txt"
+      - ".github/workflows/coverage-report.yml"
+      - "moon.mod.json"
+      - "moon.pkg.json"
+
+jobs:
+  coverage-report:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: Coverage delta report
+        run: |
+          bash scripts/coverage_report.sh \
+            --top 15 \
+            --baseline .github/coverage-baseline.txt
