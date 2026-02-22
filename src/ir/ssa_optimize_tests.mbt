@@ -1925,6 +1925,112 @@ test "optimize_ssa simplifies trivial phi" {
   }
 }
 
+///|
+test "optimize_ssa rewrites phi uses across atomic table array call_ref families" {
+  let memarg = MemArg::new(U32(0), None, U64(0))
+  let phi : PhiNode = {
+    local_idx: LocalIdx::new(0U),
+    result: SSAValue(2),
+    args: {
+      let m : Map[BlockId, SSAValue] = {}
+      m[BlockId(0)] = SSAValue(0)
+      m[BlockId(2)] = SSAValue(0)
+      m
+    },
+  }
+  let ssa = make_multi_block_ssa(
+    [
+      (0, [], [], SSATerminator::Br(BlockId(1))),
+      (
+        1,
+        [phi],
+        [
+          Assign(
+            SSAValue(3),
+            SSAOp::AtomicRmw(
+              AtomicRmwOp::i32_add(),
+              memarg,
+              SSAValue(2),
+              SSAValue(2),
+            ),
+          ),
+          Effect(SSAOp::TableSet(TableIdx::new(0U), SSAValue(2), SSAValue(2))),
+          Effect(
+            SSAOp::ArraySet(
+              TypeIdx::new(0U),
+              SSAValue(2),
+              SSAValue(2),
+              SSAValue(2),
+            ),
+          ),
+          Assign(
+            SSAValue(4),
+            SSAOp::CallRef(TypeIdx::new(0U), [SSAValue(2)], SSAValue(2)),
+          ),
+        ],
+        SSATerminator::ReturnCallRef(
+          TypeIdx::new(0U),
+          [SSAValue(4), SSAValue(2)],
+          SSAValue(2),
+        ),
+      ),
+      (2, [], [], SSATerminator::Br(BlockId(1))),
+    ],
+    [(0, []), (1, [0, 2]), (2, [1])],
+    0,
+    5,
+  )
+
+  let result = ssa.optimize()
+  let block = result.blocks[BlockId(1)]
+  assert_eq(block.phis.length(), 0)
+
+  let mut saw_atomic = false
+  let mut saw_table = false
+  let mut saw_array = false
+  let mut saw_call_ref = false
+  for instr in block.instrs {
+    match instr {
+      Assign(_, SSAOp::AtomicRmw(_, _, addr, value)) => {
+        assert_eq(addr, SSAValue(0))
+        assert_eq(value, SSAValue(0))
+        saw_atomic = true
+      }
+      Effect(SSAOp::TableSet(_, idx, value)) => {
+        assert_eq(idx, SSAValue(0))
+        assert_eq(value, SSAValue(0))
+        saw_table = true
+      }
+      Effect(SSAOp::ArraySet(_, arr, idx, value)) => {
+        assert_eq(arr, SSAValue(0))
+        assert_eq(idx, SSAValue(0))
+        assert_eq(value, SSAValue(0))
+        saw_array = true
+      }
+      Assign(_, SSAOp::CallRef(_, args, func)) => {
+        assert_eq(args.length(), 1)
+        assert_eq(args[0], SSAValue(0))
+        assert_eq(func, SSAValue(0))
+        saw_call_ref = true
+      }
+      _ => ()
+    }
+  }
+  assert_true(saw_atomic)
+  assert_true(saw_table)
+  assert_true(saw_array)
+  assert_true(saw_call_ref)
+
+  match block.terminator {
+    SSATerminator::ReturnCallRef(_, args, func) => {
+      assert_eq(args.length(), 2)
+      assert_eq(args[1], SSAValue(0))
+      assert_eq(func, SSAValue(0))
+    }
+    _ => fail("Expected ReturnCallRef terminator")
+  }
+}
+
 // ============================================================
 // Tests: Multi-iteration convergence
 // ============================================================

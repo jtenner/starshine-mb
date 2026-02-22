@@ -27,9 +27,9 @@
   - [x] `src/binary/encode.mbt`: cover unsupported encodings (`DefTypeHeapType`, recursive index rejections), section payload error propagation, and LEB max-byte guards.
   - [x] `src/binary/decode.mbt`: expand malformed vectors for terminal-unused-bits checks, sign-extension edge cases, optional decode fallthrough, and OOB numeric loads.
 
-- [ ] P1: Raise IR SSA and analysis confidence on complex instruction families.
-  - [ ] `src/ir/ssa.mbt` + `src/ir/ssa_optimize.mbt`: cover local collection and phi handling for atomics, table ops, array ops, and `call_ref`/`return_call_ref`.
-  - [ ] `src/ir/liveness.mbt`, `src/ir/type_tracking.mbt`, `src/ir/usedef.mbt`: add edge tests involving branch-on-ref plus atomic instructions.
+- [x] P1: Raise IR SSA and analysis confidence on complex instruction families.
+  - [x] `src/ir/ssa.mbt` + `src/ir/ssa_optimize.mbt`: cover local collection and phi handling for atomics, table ops, array ops, and `call_ref`/`return_call_ref`.
+  - [x] `src/ir/liveness.mbt`, `src/ir/type_tracking.mbt`, `src/ir/usedef.mbt`: add edge tests involving branch-on-ref plus atomic instructions.
 
 - [ ] P1: Attack high-uncovered optimization passes (`>= 150` uncovered lines).
   - [ ] `src/passes/heap2local.mbt`

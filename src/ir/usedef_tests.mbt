@@ -128,3 +128,88 @@ test "build_use_def marks unreferenced assigned values as dead" {
   assert_false(use_def.is_dead(v0))
   assert_true(use_def.is_dead(v1))
 }
+
+///|
+test "build_use_def captures branch-on-ref and atomic use sites" {
+  let b0 = BlockId(0)
+  let b1 = BlockId(1)
+  let b2 = BlockId(2)
+  let memarg = MemArg::new(U32(0), None, U64(0))
+
+  let v_addr = SSAValue(0)
+  let v_expected = SSAValue(1)
+  let v_timeout = SSAValue(2)
+  let v_wait = SSAValue(3)
+  let v_cmp = SSAValue(4)
+  let v_ref = SSAValue(5)
+
+  let blocks : Map[BlockId, SSABlock] = {}
+  blocks[b0] = SSABlock::{
+    id: b0,
+    phis: [],
+    instrs: [
+      Assign(v_addr, SSAOp::I32Const(I32(0))),
+      Assign(v_expected, SSAOp::I32Const(I32(1))),
+      Assign(v_timeout, SSAOp::I64Const(I64(9L))),
+      Assign(
+        v_wait,
+        SSAOp::MemoryAtomicWait64(memarg, v_addr, v_expected, v_timeout),
+      ),
+      Assign(
+        v_cmp,
+        SSAOp::AtomicCmpxchg(
+          AtomicCmpxchgOp::i32(),
+          memarg,
+          v_addr,
+          v_expected,
+          v_wait,
+        ),
+      ),
+      Assign(v_ref, SSAOp::RefNull(HeapType::abs(AbsHeapType::extern_()))),
+    ],
+    terminator: SSATerminator::BrOnCastFail(
+      CastOp::new(false, false),
+      HeapType::abs(AbsHeapType::any()),
+      HeapType::abs(AbsHeapType::extern_()),
+      v_ref,
+      b1,
+      b2,
+    ),
+  }
+  blocks[b1] = SSABlock::{
+    id: b1,
+    phis: [],
+    instrs: [],
+    terminator: SSATerminator::Return([v_cmp]),
+  }
+  blocks[b2] = SSABlock::{
+    id: b2,
+    phis: [],
+    instrs: [],
+    terminator: SSATerminator::Return([v_wait]),
+  }
+
+  let preds : Map[BlockId, Array[BlockId]] = {}
+  preds[b0] = []
+  preds[b1] = [b0]
+  preds[b2] = [b0]
+
+  let ssa = SSACFG::{
+    entry: b0,
+    blocks,
+    preds,
+    param_values: {},
+    next_value: 6,
+  }
+  let use_def = ssa.build_use_def()
+
+  assert_true(has_instr_use(use_def.get_uses(v_addr), b0, 3))
+  assert_true(has_instr_use(use_def.get_uses(v_addr), b0, 4))
+  assert_true(has_instr_use(use_def.get_uses(v_wait), b0, 4))
+  assert_true(has_terminator_use(use_def.get_uses(v_ref), b0))
+  assert_true(has_terminator_use(use_def.get_uses(v_wait), b2))
+  match use_def.get_def(v_cmp) {
+    Some((def_block, SSADef::Instr(4))) => assert_eq(def_block, b0)
+    _ => fail("expected instruction definition for v_cmp")
+  }
+}
