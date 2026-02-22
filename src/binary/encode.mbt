@@ -1,6 +1,23 @@
 ///|
+pub suberror BinaryEncodeError {
+  CannotEncodeRecursiveIndexHeapType
+  CannotEncodeDefTypeHeapType
+  CannotEncodeBottomValType
+  InvalidUnsignedLebBitWidth
+  UnsignedLebValueOutOfRange
+  InvalidSignedLebBitWidth
+  SignedLebValueOutOfRange
+  UnsignedLebExceedsMaxByteLimit
+  SignedLebExceedsMaxByteLimit
+  CannotEncodeNonStandardTypeIndex
+  CannotEncodeRecursiveIndexBlockType
+  InvalidMemArgEncoding
+  InvalidActiveElemSequence
+} derive(Eq, Show, Debug)
+
+///|
 pub trait Encode {
-  encode(Self, @buffer.Buffer) -> Result[Unit, String]
+  encode(Self, @buffer.Buffer) -> Result[Unit, BinaryEncodeError]
 }
 
 ///|
@@ -19,8 +36,9 @@ pub impl Encode for HeapType with encode(val, buf) {
   match val {
     AbsHeapTypeHeapType(ht) => Encode::encode(ht, buf)
     HeapType(TypeIdx(i)) => Encode::encode(@lib.S33(i), buf)
-    HeapType(RecIdx(_)) => Err("Cannot encode recursive indexes")
-    DefTypeHeapType(_) => Err("Cannot encode deftypes")
+    HeapType(RecIdx(_)) =>
+      Err(BinaryEncodeError::CannotEncodeRecursiveIndexHeapType)
+    DefTypeHeapType(_) => Err(BinaryEncodeError::CannotEncodeDefTypeHeapType)
   }
 }
 
@@ -67,7 +85,7 @@ pub impl Encode for ValType with encode(val, buf) {
     }
     NumTypeValType(num) => Encode::encode(num, buf)
     RefTypeValType(rt) => Encode::encode(rt, buf)
-    BotValType => Err("Cannot encode bottom type.")
+    BotValType => Err(BinaryEncodeError::CannotEncodeBottomValType)
   }
 }
 
@@ -206,14 +224,17 @@ pub impl Encode for ExternIdx with encode(val, buf) {
 }
 
 ///|
-pub fn size_unsigned(val : UInt64, nbits : Int) -> Result[Int, String] {
+pub fn size_unsigned(
+  val : UInt64,
+  nbits : Int,
+) -> Result[Int, BinaryEncodeError] {
   if nbits <= 0 || nbits > 64 {
-    return Err("invalid nbits for uleb")
+    return Err(BinaryEncodeError::InvalidUnsignedLebBitWidth)
   }
   if nbits < 64 {
     let max = (1UL << nbits) - 1UL
     if val > max {
-      return Err("uleb value out of range")
+      return Err(BinaryEncodeError::UnsignedLebValueOutOfRange)
     }
   }
   let mut x = val
@@ -229,15 +250,15 @@ pub fn size_unsigned(val : UInt64, nbits : Int) -> Result[Int, String] {
 }
 
 ///|
-pub fn size_signed(val : Int64, nbits : Int) -> Result[Int, String] {
+pub fn size_signed(val : Int64, nbits : Int) -> Result[Int, BinaryEncodeError] {
   if nbits <= 0 || nbits > 64 {
-    return Err("invalid nbits for sleb")
+    return Err(BinaryEncodeError::InvalidSignedLebBitWidth)
   }
   if nbits < 64 {
     let min = -1L << (nbits - 1)
     let max = (1L << (nbits - 1)) - 1
     if val < min || val > max {
-      return Err("sleb value out of range")
+      return Err(BinaryEncodeError::SignedLebValueOutOfRange)
     }
   }
   let rem = nbits % 7
@@ -271,14 +292,14 @@ fn encode_unsigned(
   val : UInt64,
   buf : @buffer.Buffer,
   nbits : Int,
-) -> Result[Unit, String] {
+) -> Result[Unit, BinaryEncodeError] {
   if nbits <= 0 || nbits > 64 {
-    return Err("invalid nbits for uleb")
+    return Err(BinaryEncodeError::InvalidUnsignedLebBitWidth)
   }
   if nbits < 64 {
     let max = (1UL << nbits) - 1UL
     if val > max {
-      return Err("uleb value out of range")
+      return Err(BinaryEncodeError::UnsignedLebValueOutOfRange)
     }
   }
   let max_bytes = max_leb_bytes(nbits)
@@ -286,7 +307,7 @@ fn encode_unsigned(
   let mut count = 0
   while true {
     if count >= max_bytes {
-      return Err("uleb encode exceeds max bytes")
+      return Err(BinaryEncodeError::UnsignedLebExceedsMaxByteLimit)
     }
     let payload = x & 0x7fUL
     x = x >> 7
@@ -305,15 +326,15 @@ fn encode_signed(
   val : Int64,
   buf : @buffer.Buffer,
   nbits : Int,
-) -> Result[Unit, String] {
+) -> Result[Unit, BinaryEncodeError] {
   if nbits <= 0 || nbits > 64 {
-    return Err("invalid nbits for sleb")
+    return Err(BinaryEncodeError::InvalidSignedLebBitWidth)
   }
   if nbits < 64 {
     let min = -1L << (nbits - 1)
     let max = (1L << (nbits - 1)) - 1
     if val < min || val > max {
-      return Err("sleb value out of range")
+      return Err(BinaryEncodeError::SignedLebValueOutOfRange)
     }
   }
   let max_bytes = max_leb_bytes(nbits)
@@ -324,7 +345,7 @@ fn encode_signed(
   let mut count = 0
   while true {
     if count >= max_bytes {
-      return Err("sleb encode exceeds max bytes")
+      return Err(BinaryEncodeError::SignedLebExceedsMaxByteLimit)
     }
     let payload_u = (x & 0x7f).reinterpret_as_uint64()
     let sign_bit = (payload_u & 0x40UL) != 0UL
@@ -424,7 +445,7 @@ pub impl[T : Encode] Encode for T? with encode(val, buf) {
 pub impl Encode for TypeIdx with encode(val, buf) {
   match val {
     TypeIdx(id) => encode_unsigned(id.to_uint64(), buf, 32)
-    _ => Err("Cannot encode non standard type index ")
+    _ => Err(BinaryEncodeError::CannotEncodeNonStandardTypeIndex)
   }
 }
 
@@ -868,9 +889,7 @@ pub impl Encode for Elem with encode(val, buf) {
       Encode::encode(es, buf)
     }
     Elem(Active(_), TypedExprsElemKind(_)) =>
-      Err(
-        "Invalid Active Sequence. Active Sequences must be func refs or indicies.",
-      )
+      Err(BinaryEncodeError::InvalidActiveElemSequence)
   }
 }
 
@@ -1067,7 +1086,7 @@ pub impl Encode for BlockType with encode(val, buf) {
     }
     ValTypeBlockType(vt) => Encode::encode(vt, buf)
     TypeIdxBlockType(TypeIdx(idx)) => Encode::encode(@lib.S33(idx), buf)
-    _ => Err("Cannot encode recursive indexes")
+    _ => Err(BinaryEncodeError::CannotEncodeRecursiveIndexBlockType)
   }
 }
 
@@ -1141,13 +1160,16 @@ pub impl Encode for MemArg with encode(val, buf) {
         return Err(t)
       }
     }
-    _ => return Err("Invalid Memarg")
+    _ => return Err(BinaryEncodeError::InvalidMemArgEncoding)
   }
   Ok(())
 }
 
 ///|
-fn simd_inst(id : UInt, buf : @buffer.Buffer) -> Result[Unit, String] {
+fn simd_inst(
+  id : UInt,
+  buf : @buffer.Buffer,
+) -> Result[Unit, BinaryEncodeError] {
   buf.write_byte(0xFD)
   if Encode::encode(@lib.U32(id), buf) is Err(t) {
     return Err(t)
@@ -1156,7 +1178,10 @@ fn simd_inst(id : UInt, buf : @buffer.Buffer) -> Result[Unit, String] {
 }
 
 ///|
-fn atomic_inst(id : UInt, buf : @buffer.Buffer) -> Result[Unit, String] {
+fn atomic_inst(
+  id : UInt,
+  buf : @buffer.Buffer,
+) -> Result[Unit, BinaryEncodeError] {
   buf.write_byte(0xFE)
   if Encode::encode(@lib.U32(id), buf) is Err(t) {
     return Err(t)

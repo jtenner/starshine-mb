@@ -1,6 +1,7 @@
 ///|
 using @lib {
   type HeapType,
+  type DefType,
   type S33,
   type F32,
   type F64,

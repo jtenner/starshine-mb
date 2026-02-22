@@ -43,7 +43,6 @@ using @lib {
   type Catch,
   type BinaryOp,
   type MemArg,
-  type ExtractLaneOp,
   type LaneIdx,
   type ReplaceLaneOp,
   type UnaryOp,

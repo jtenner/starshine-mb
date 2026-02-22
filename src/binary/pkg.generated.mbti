@@ -4,15 +4,85 @@ package "jtenner/starshine/binary"
 import {
   "jtenner/starshine/lib",
   "moonbitlang/core/buffer",
+  "moonbitlang/core/debug",
   "moonbitlang/core/list",
 }
 
 // Values
-pub fn size_signed(Int64, Int) -> Result[Int, String]
+pub fn size_signed(Int64, Int) -> Result[Int, BinaryEncodeError]
 
-pub fn size_unsigned(UInt64, Int) -> Result[Int, String]
+pub fn size_unsigned(UInt64, Int) -> Result[Int, BinaryEncodeError]
 
 // Errors
+pub suberror BinaryDecodeError {
+  IndexOutOfBounds
+  InvalidNumTypeByte
+  InvalidAbstractHeapType
+  InvalidValType
+  InvalidCompType
+  UnexpectedEofDecodingMut
+  InvalidMutByte
+  InvalidStorageType
+  InvalidPackedType
+  InvalidUnsignedLebBitWidth
+  UnexpectedEofInUnsignedLeb
+  UnsignedLebTooManyBytes
+  UnsignedLebOutOfRangeForBitWidth
+  UnsignedLebTerminalHasNonZeroUnusedBits
+  UnreachableDecodeState
+  InvalidSignedLebBitWidth
+  UnexpectedEofInSignedLeb
+  SignedLebTooManyBytes
+  SignedLebOutOfRangeForBitWidth
+  SignedLebPositiveTerminalHasNonZeroUnusedBits
+  SignedLebTerminalHasWrongSignExtensionBits
+  InvalidS33Range
+  InvalidBoolByte
+  InvalidLaneIndex
+  NegativeNameLength
+  InvalidSectionHeader
+  SectionPayloadLengthOutOfRange
+  InvalidSectionPayloadTrailingBytes
+  InvalidMagicHeader
+  InvalidModule
+  InvalidElemHeader
+  InvalidDataHeader
+  CustomSectionPayloadLengthOutOfRange
+  InvalidLimits
+  InvalidTagType
+  InvalidExternTypeHeader
+  InvalidBlockType
+  InvalidExternIndex
+  InvalidOffset
+  InvalidCatch
+  InvalidCastOp
+  InvalidMemArg
+  InvalidInstruction
+  InvalidAtomicFenceImmediate
+  InvalidAtomicInstruction
+}
+pub impl Eq for BinaryDecodeError
+pub impl Show for BinaryDecodeError
+pub impl @debug.Debug for BinaryDecodeError
+
+pub suberror BinaryEncodeError {
+  CannotEncodeRecursiveIndexHeapType
+  CannotEncodeDefTypeHeapType
+  CannotEncodeBottomValType
+  InvalidUnsignedLebBitWidth
+  UnsignedLebValueOutOfRange
+  InvalidSignedLebBitWidth
+  SignedLebValueOutOfRange
+  UnsignedLebExceedsMaxByteLimit
+  SignedLebExceedsMaxByteLimit
+  CannotEncodeNonStandardTypeIndex
+  CannotEncodeRecursiveIndexBlockType
+  InvalidMemArgEncoding
+  InvalidActiveElemSequence
+}
+pub impl Eq for BinaryEncodeError
+pub impl Show for BinaryEncodeError
+pub impl @debug.Debug for BinaryEncodeError
 
 // Types and methods
 
@@ -20,7 +90,7 @@ pub fn size_unsigned(UInt64, Int) -> Result[Int, String]
 
 // Traits
 pub trait Decode {
-  decode(Bytes, Int) -> Result[(Self, Int), String]
+  decode(Bytes, Int) -> Result[(Self, Int), BinaryDecodeError]
 }
 pub impl Decode for Bool
 pub impl[T : Decode] Decode for T?
@@ -96,7 +166,7 @@ pub impl[T : Decode] Decode for Array[T]
 pub impl[T : Decode] Decode for @list.List[T]
 
 pub trait Encode {
-  encode(Self, @buffer.Buffer) -> Result[Unit, String]
+  encode(Self, @buffer.Buffer) -> Result[Unit, BinaryEncodeError]
 }
 pub impl Encode for Bool
 pub impl[T : Encode] Encode for T?

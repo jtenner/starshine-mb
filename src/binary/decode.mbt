@@ -1,6 +1,55 @@
 ///|
+pub suberror BinaryDecodeError {
+  IndexOutOfBounds
+  InvalidNumTypeByte
+  InvalidAbstractHeapType
+  InvalidValType
+  InvalidCompType
+  UnexpectedEofDecodingMut
+  InvalidMutByte
+  InvalidStorageType
+  InvalidPackedType
+  InvalidUnsignedLebBitWidth
+  UnexpectedEofInUnsignedLeb
+  UnsignedLebTooManyBytes
+  UnsignedLebOutOfRangeForBitWidth
+  UnsignedLebTerminalHasNonZeroUnusedBits
+  UnreachableDecodeState
+  InvalidSignedLebBitWidth
+  UnexpectedEofInSignedLeb
+  SignedLebTooManyBytes
+  SignedLebOutOfRangeForBitWidth
+  SignedLebPositiveTerminalHasNonZeroUnusedBits
+  SignedLebTerminalHasWrongSignExtensionBits
+  InvalidS33Range
+  InvalidBoolByte
+  InvalidLaneIndex
+  NegativeNameLength
+  InvalidSectionHeader
+  SectionPayloadLengthOutOfRange
+  InvalidSectionPayloadTrailingBytes
+  InvalidMagicHeader
+  InvalidModule
+  InvalidElemHeader
+  InvalidDataHeader
+  CustomSectionPayloadLengthOutOfRange
+  InvalidLimits
+  InvalidTagType
+  InvalidExternTypeHeader
+  InvalidBlockType
+  InvalidExternIndex
+  InvalidOffset
+  InvalidCatch
+  InvalidCastOp
+  InvalidMemArg
+  InvalidInstruction
+  InvalidAtomicFenceImmediate
+  InvalidAtomicInstruction
+} derive(Eq, Show, Debug)
+
+///|
 pub trait Decode {
-  decode(Bytes, Int) -> Result[(Self, Int), String]
+  decode(Bytes, Int) -> Result[(Self, Int), BinaryDecodeError]
 }
 
 ///|
@@ -10,8 +59,8 @@ pub impl Decode for NumType with decode(buf, idx) {
     Some(0x7D) => Ok((NumType::f32(), idx + 1))
     Some(0x7E) => Ok((NumType::i64(), idx + 1))
     Some(0x7F) => Ok((NumType::i32(), idx + 1))
-    Some(_) => Err("Invalid NumType Byte")
-    None => Err("Index out of bounds")
+    Some(_) => Err(BinaryDecodeError::InvalidNumTypeByte)
+    None => Err(BinaryDecodeError::IndexOutOfBounds)
   }
 }
 
@@ -42,15 +91,15 @@ pub impl Decode for AbsHeapType with decode(bytes, i) {
     Some(0x72) => Ok((AbsHeapType::no_extern(), i + 1))
     Some(0x73) => Ok((AbsHeapType::no_func(), i + 1))
     Some(0x74) => Ok((AbsHeapType::no_exn(), i + 1))
-    Some(_) => Err("Invalid Abstract Heap Type")
-    None => Err("Index out of bounds")
+    Some(_) => Err(BinaryDecodeError::InvalidAbstractHeapType)
+    None => Err(BinaryDecodeError::IndexOutOfBounds)
   }
 }
 
 ///|
 pub impl Decode for RefType with decode(bytes, i) {
   match bytes.get(i) {
-    None => Err("Index out of bounds")
+    None => Err(BinaryDecodeError::IndexOutOfBounds)
     Some(0x63) =>
       match Decode::decode(bytes, i + 1) {
         Err(err) => Err(err)
@@ -72,7 +121,7 @@ pub impl Decode for RefType with decode(bytes, i) {
 ///|
 pub impl Decode for ValType with decode(bytes, i) {
   match bytes.get(i) {
-    None => Err("Index out of bounds")
+    None => Err(BinaryDecodeError::IndexOutOfBounds)
     Some(0x7B) => Ok((ValType::v128(), i + 1))
     Some(_) =>
       match Decode::decode(bytes, i) {
@@ -80,7 +129,7 @@ pub impl Decode for ValType with decode(bytes, i) {
         _ =>
           match Decode::decode(bytes, i) {
             Ok((rt, i)) => Ok((ValType::ref_type(rt), i))
-            _ => Err("Invalid ValType")
+            _ => Err(BinaryDecodeError::InvalidValType)
           }
       }
   }
@@ -108,7 +157,7 @@ pub impl[T : Decode] Decode for @list.List[T] with decode(bytes, i) {
 ///|
 pub impl Decode for CompType with decode(bytes, i) {
   match bytes.get(i) {
-    None => Err("Index out of bounds")
+    None => Err(BinaryDecodeError::IndexOutOfBounds)
     Some(0x5E) =>
       match Decode::decode(bytes, i + 1) {
         Ok((ft, i)) => Ok((CompType::array(ft), i))
@@ -128,20 +177,20 @@ pub impl Decode for CompType with decode(bytes, i) {
           }
         Err(err) => Err(err)
       }
-    Some(_) => Err("Invalid Comp Type")
+    Some(_) => Err(BinaryDecodeError::InvalidCompType)
   }
 }
 
 ///|
 pub impl Decode for Mut with decode(bytes, i) {
   if i >= bytes.length() {
-    return Err("unexpected EOF decoding mut")
+    return Err(BinaryDecodeError::UnexpectedEofDecodingMut)
   }
   let b = bytes[i]
   match b {
     0x00 => Ok((Const, i + 1))
     0x01 => Ok((Var, i + 1))
-    _ => Err("invalid mut byte")
+    _ => Err(BinaryDecodeError::InvalidMutByte)
   }
 }
 
@@ -152,7 +201,7 @@ pub impl Decode for StorageType with decode(bytes, i) {
     Err(_) =>
       match Decode::decode(bytes, i) {
         Ok((pt, i)) => Ok((StorageType::pack_type(pt), i))
-        Err(_) => Err("Invalid StorageType")
+        Err(_) => Err(BinaryDecodeError::InvalidStorageType)
       }
   }
 }
@@ -162,15 +211,15 @@ pub impl Decode for PackType with decode(bytes, i) {
   match bytes.get(i) {
     Some(0x77) => Ok((PackType::i16(), i + 1))
     Some(0x78) => Ok((PackType::i8(), i + 1))
-    Some(_) => Err("Invalid Packed Type")
-    None => Err("Index out of bounds")
+    Some(_) => Err(BinaryDecodeError::InvalidPackedType)
+    None => Err(BinaryDecodeError::IndexOutOfBounds)
   }
 }
 
 ///|
 pub impl Decode for RecType with decode(buf, i) {
   match buf.get(i) {
-    None => Err("Index out of bounds")
+    None => Err(BinaryDecodeError::IndexOutOfBounds)
     Some(0x4E) =>
       match Decode::decode(buf, i + 1) {
         Ok((sts, i)) => Ok((RecType::group(sts), i))
@@ -213,7 +262,7 @@ pub impl Decode for SubType with decode(buf, i) {
         Ok((ct, i)) => Ok((SubType::comp_type(ct), i))
         Err(err) => Err(err)
       }
-    None => Err("Index out of bounds")
+    None => Err(BinaryDecodeError::IndexOutOfBounds)
   }
 }
 
@@ -222,9 +271,9 @@ fn decode_unsigned(
   bytes : Bytes,
   index : Int,
   nbits : Int,
-) -> Result[(UInt64, Int), String] {
+) -> Result[(UInt64, Int), BinaryDecodeError] {
   if nbits <= 0 || nbits > 64 {
-    return Err("invalid nbits for uleb")
+    return Err(BinaryDecodeError::InvalidUnsignedLebBitWidth)
   }
   let max_bytes = max_leb_bytes(nbits)
   let mut i = index
@@ -233,10 +282,10 @@ fn decode_unsigned(
   let mut count = 0
   while true {
     if i >= bytes.length() {
-      return Err("unexpected EOF in uleb")
+      return Err(BinaryDecodeError::UnexpectedEofInUnsignedLeb)
     }
     if count >= max_bytes {
-      return Err("uleb too many bytes")
+      return Err(BinaryDecodeError::UnsignedLebTooManyBytes)
     }
     let byte_u : UInt64 = bytes[i].to_uint64()
     i += 1
@@ -250,7 +299,7 @@ fn decode_unsigned(
       if nbits < 64 {
         let max_val = (1UL << nbits) - 1UL
         if acc > max_val {
-          return Err("uleb out of range for bit width")
+          return Err(BinaryDecodeError::UnsignedLebOutOfRangeForBitWidth)
         }
       }
 
@@ -260,14 +309,16 @@ fn decode_unsigned(
         if rem != 0 {
           let limit = 1UL << rem
           if payload >= limit {
-            return Err("uleb terminal byte has non-zero unused bits")
+            return Err(
+              BinaryDecodeError::UnsignedLebTerminalHasNonZeroUnusedBits,
+            )
           }
         }
       }
       return Ok((acc, i))
     }
   }
-  Err("unreachable")
+  Err(BinaryDecodeError::UnreachableDecodeState)
 }
 
 ///|
@@ -275,9 +326,9 @@ fn decode_signed(
   bytes : Bytes,
   index : Int,
   nbits : Int,
-) -> Result[(Int64, Int), String] {
+) -> Result[(Int64, Int), BinaryDecodeError] {
   if nbits <= 0 || nbits > 64 {
-    return Err("invalid nbits for sleb")
+    return Err(BinaryDecodeError::InvalidSignedLebBitWidth)
   }
   let max_bytes = max_leb_bytes(nbits)
   let mut i = index
@@ -287,10 +338,10 @@ fn decode_signed(
   let mut last_byte : UInt64 = 0
   while true {
     if i >= bytes.length() {
-      return Err("unexpected EOF in sleb")
+      return Err(BinaryDecodeError::UnexpectedEofInSignedLeb)
     }
     if count >= max_bytes {
-      return Err("sleb too many bytes")
+      return Err(BinaryDecodeError::SignedLebTooManyBytes)
     }
     let byte_u = bytes[i].to_uint64()
     last_byte = byte_u
@@ -315,7 +366,7 @@ fn decode_signed(
     let min = (-1 : Int64) << (nbits - 1)
     let max = ((1 : Int64) << (nbits - 1)) - 1
     if acc < min || acc > max {
-      return Err("sleb out of range for bit width")
+      return Err(BinaryDecodeError::SignedLebOutOfRangeForBitWidth)
     }
   }
 
@@ -329,12 +380,16 @@ fn decode_signed(
       let unused = payload_u & inv_used
       if acc >= 0 {
         if unused != 0 {
-          return Err("sleb terminal byte has non-zero unused bits for positive")
+          return Err(
+            BinaryDecodeError::SignedLebPositiveTerminalHasNonZeroUnusedBits,
+          )
         }
       } else {
         let want = inv_used
         if unused != want {
-          return Err("sleb terminal byte has wrong sign-extension bits")
+          return Err(
+            BinaryDecodeError::SignedLebTerminalHasWrongSignExtensionBits,
+          )
         }
       }
     }
@@ -348,7 +403,7 @@ pub impl Decode for S33 with decode(bytes, i) {
     Err(err) => Err(err)
     Ok((val, i)) if val >= 0 && val <= 4294967295 =>
       Ok((S33(val.to_int().reinterpret_as_uint()), i))
-    Ok(_) => Err("Invalid S33 Range")
+    Ok(_) => Err(BinaryDecodeError::InvalidS33Range)
   }
 }
 
@@ -393,7 +448,7 @@ pub impl Decode for F32 with decode(bytes, i) {
       bytes.unsafe_get(i).to_int()
     Ok((F32(Float::reinterpret_from_int(value)), i + 4))
   } else {
-    Err("Index out of bounds")
+    Err(BinaryDecodeError::IndexOutOfBounds)
   }
 }
 
@@ -410,7 +465,7 @@ pub impl Decode for F64 with decode(bytes, i) {
       bytes.unsafe_get(i).to_int64()
     Ok((F64(value.reinterpret_as_double()), i + 8))
   } else {
-    Err("Index out of bounds")
+    Err(BinaryDecodeError::IndexOutOfBounds)
   }
 }
 
@@ -419,8 +474,8 @@ pub impl Decode for Bool with decode(bytes, i) {
   match bytes.get(i) {
     Some(0x00) => Ok((false, i + 1))
     Some(0x01) => Ok((true, i + 1))
-    Some(_) => Err("Invalid bool")
-    None => Err("Index out of bounds")
+    Some(_) => Err(BinaryDecodeError::InvalidBoolByte)
+    None => Err(BinaryDecodeError::IndexOutOfBounds)
   }
 }
 
@@ -509,7 +564,7 @@ pub impl Decode for LaneIdx with decode(bytes, i) {
   if bytes.get(i) is Some(n) && n < 16 {
     Ok((LaneIdx::new(n), i + 1))
   } else {
-    Err("Invalid Lane Index")
+    Err(BinaryDecodeError::InvalidLaneIndex)
   }
 }
 
@@ -529,11 +584,11 @@ pub impl Decode for Name with decode(bytes, i) {
   }
   let len = len_u.reinterpret_as_int()
   if len < 0 {
-    return Err("negative name length")
+    return Err(BinaryDecodeError::NegativeNameLength)
   }
   let end = j + len
   if end > bytes.length() {
-    return Err("Index out of bounds")
+    return Err(BinaryDecodeError::IndexOutOfBounds)
   }
   let name = @utf8.decode_lossy(bytes[j:end]).to_string_view()
   Ok((Name::new(name), end))
@@ -544,9 +599,9 @@ fn[T : Decode] decode_section_vector_payload(
   bytes : Bytes,
   i : Int,
   section_id : Byte,
-) -> Result[(Array[T], Int), String] {
+) -> Result[(Array[T], Int), BinaryDecodeError] {
   if bytes.get(i) != Some(section_id) {
-    return Err("Invalid section header")
+    return Err(BinaryDecodeError::InvalidSectionHeader)
   }
   let (@lib.U32(len_u), payload_start) = match Decode::decode(bytes, i + 1) {
     Ok(t) => t
@@ -555,7 +610,7 @@ fn[T : Decode] decode_section_vector_payload(
   let len = len_u.reinterpret_as_int()
   let payload_end = payload_start + len
   if payload_end > bytes.length() {
-    return Err("Section payload length out of range")
+    return Err(BinaryDecodeError::SectionPayloadLengthOutOfRange)
   }
   let payload = bytes[payload_start:payload_end].to_bytes()
   let (content, consumed) = match Decode::decode(payload, 0) {
@@ -565,7 +620,7 @@ fn[T : Decode] decode_section_vector_payload(
   if consumed == len {
     Ok((content, payload_end))
   } else {
-    Err("Invalid section - didn't consume all bytes")
+    Err(BinaryDecodeError::InvalidSectionPayloadTrailingBytes)
   }
 }
 
@@ -574,7 +629,7 @@ fn decode_custom_sections(
   bytes : Bytes,
   i : Int,
   out : Array[CustomSec],
-) -> Result[Int, String] {
+) -> Result[Int, BinaryDecodeError] {
   let mut i = i
   while bytes.get(i) == Some(0) {
     match Decode::decode(bytes, i) {
@@ -593,7 +648,7 @@ fn[T : Decode] decode_optional_section(
   bytes : Bytes,
   i : Int,
   section_id : Byte,
-) -> Result[(T?, Int), String] {
+) -> Result[(T?, Int), BinaryDecodeError] {
   if bytes.get(i) != Some(section_id) {
     return Ok((None, i))
   }
@@ -610,7 +665,7 @@ pub impl Decode for Module with decode(bytes, i) {
   let mut mod = Module::new()
   for b in [0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00] {
     if bytes.get(i) != Some(b.to_byte()) {
-      return Err("Invalid magic header")
+      return Err(BinaryDecodeError::InvalidMagicHeader)
     }
     i = i + 1
   }
@@ -792,7 +847,7 @@ pub impl Decode for Module with decode(bytes, i) {
   if i == bytes.length() {
     Ok((mod, i))
   } else {
-    Err("Invalid module")
+    Err(BinaryDecodeError::InvalidModule)
   }
 }
 
@@ -825,7 +880,7 @@ pub impl Decode for Elem with decode(bytes, i) {
               Ok((Elem::new(ElemMode::passive(), ElemKind::funcs(fidxs)), i))
             Err(t) => Err(t)
           }
-        _ => Err("Invalid elem header")
+        _ => Err(BinaryDecodeError::InvalidElemHeader)
       }
     Some(0x02) =>
       match Decode::decode(bytes, i + 1) {
@@ -847,7 +902,7 @@ pub impl Decode for Elem with decode(bytes, i) {
                       )
                     Err(t) => Err(t)
                   }
-                _ => Err("Invalid elem header")
+                _ => Err(BinaryDecodeError::InvalidElemHeader)
               }
             Err(t) => Err(t)
           }
@@ -863,7 +918,7 @@ pub impl Decode for Elem with decode(bytes, i) {
               )
             Err(t) => Err(t)
           }
-        _ => Err("Invalid elem header")
+        _ => Err(BinaryDecodeError::InvalidElemHeader)
       }
     Some(0x04) =>
       match Decode::decode(bytes, i + 1) {
@@ -941,8 +996,8 @@ pub impl Decode for Elem with decode(bytes, i) {
           }
         Err(t) => Err(t)
       }
-    Some(_) => Err("Invalid elem header")
-    None => Err("Index out of bounds")
+    Some(_) => Err(BinaryDecodeError::InvalidElemHeader)
+    None => Err(BinaryDecodeError::IndexOutOfBounds)
   }
 }
 
@@ -957,7 +1012,7 @@ pub impl Decode for ElemSec with decode(bytes, i) {
 ///|
 pub impl Decode for DataCntSec with decode(bytes, i) {
   if bytes.get(i) != Some(12) {
-    return Err("Invalid section header")
+    return Err(BinaryDecodeError::InvalidSectionHeader)
   }
   match Decode::decode(bytes, i + 1) {
     Ok((@lib.U32(count), i)) => Ok((DataCntSec::new(count), i))
@@ -996,7 +1051,7 @@ pub impl Decode for Func with decode(bytes, i) {
 ///|
 pub impl Decode for CodeSec with decode(bytes, i) {
   if bytes.get(i) != Some(10) {
-    return Err("Invalid section header")
+    return Err(BinaryDecodeError::InvalidSectionHeader)
   }
   match Decode::decode(bytes, i + 1) {
     Ok((funcs, i)) => Ok((CodeSec::new(funcs), i))
@@ -1036,8 +1091,8 @@ pub impl Decode for Data with decode(bytes, i) {
           }
         Err(t) => Err(t)
       }
-    Some(_) => Err("Invalid data header")
-    None => Err("Index out of bounds")
+    Some(_) => Err(BinaryDecodeError::InvalidDataHeader)
+    None => Err(BinaryDecodeError::IndexOutOfBounds)
   }
 }
 
@@ -1052,7 +1107,7 @@ pub impl Decode for DataSec with decode(bytes, i) {
 ///|
 pub impl Decode for CustomSec with decode(bytes, i) {
   if bytes.get(i) != Some(0) {
-    return Err("Invalid section header")
+    return Err(BinaryDecodeError::InvalidSectionHeader)
   }
   let (@lib.U32(len), i1) = match Decode::decode(bytes, i + 1) {
     Ok(t) => t
@@ -1061,7 +1116,7 @@ pub impl Decode for CustomSec with decode(bytes, i) {
   let len = len.reinterpret_as_int()
   let end = i1 + len
   if end > bytes.length() {
-    return Err("Custom section payload length out of range")
+    return Err(BinaryDecodeError::CustomSectionPayloadLengthOutOfRange)
   }
   let view = bytes[i1:end].to_bytes()
   let (name, j) = match Decode::decode(view, 0) {
@@ -1099,7 +1154,7 @@ pub impl Decode for Import with decode(bytes, i) {
 ///|
 pub impl Decode for Limits with decode(bytes, i) {
   match bytes.get(i) {
-    None => Err("Index out of bounds")
+    None => Err(BinaryDecodeError::IndexOutOfBounds)
     Some(0x00) =>
       match Decode::decode(bytes, i + 1) {
         Ok((@lib.U64(n), i)) => Ok((Limits::i32(n.to_uint(), None), i))
@@ -1129,7 +1184,7 @@ pub impl Decode for Limits with decode(bytes, i) {
           }
         Err(t) => Err(t)
       }
-    Some(_) => Err("Invalid Limits")
+    Some(_) => Err(BinaryDecodeError::InvalidLimits)
   }
 }
 
@@ -1168,7 +1223,7 @@ pub impl Decode for GlobalType with decode(bytes, i) {
 ///|
 pub impl Decode for TagType with decode(bytes, i) {
   if bytes.get(i) != Some(0x00) {
-    return Err("Invalid TagType")
+    return Err(BinaryDecodeError::InvalidTagType)
   }
   match Decode::decode(bytes, i + 1) {
     Ok((idx, i)) => Ok((TagType::new(idx), i))
@@ -1204,8 +1259,8 @@ pub impl Decode for ExternType with decode(bytes, i) {
         Ok((tt, i)) => Ok((ExternType::tag(tt), i))
         Err(t) => Err(t)
       }
-    Some(_) => Err("Invalid ExternType Header")
-    None => Err("Index out of bounds")
+    Some(_) => Err(BinaryDecodeError::InvalidExternTypeHeader)
+    None => Err(BinaryDecodeError::IndexOutOfBounds)
   }
 }
 
@@ -1238,7 +1293,7 @@ pub impl Decode for BlockType with decode(bytes, i) {
   if Decode::decode(bytes, i) is Ok((@lib.S33(idx), i)) {
     return Ok((BlockType::type_idx(TypeIdx::new(idx)), i))
   }
-  Err("Invalid block type")
+  Err(BinaryDecodeError::InvalidBlockType)
 }
 
 ///|
@@ -1318,8 +1373,8 @@ pub impl Decode for ExternIdx with decode(bytes, i) {
         Ok((idx, i)) => Ok((ExternIdx::tag(idx), i))
         Err(t) => Err(t)
       }
-    Some(_) => Err("Invalid extern index")
-    None => Err("Index out of bounds")
+    Some(_) => Err(BinaryDecodeError::InvalidExternIndex)
+    None => Err(BinaryDecodeError::IndexOutOfBounds)
   }
 }
 
@@ -1378,7 +1433,7 @@ pub impl Decode for ExportSec with decode(bytes, i) {
 ///|
 pub impl Decode for StartSec with decode(bytes, i) {
   if bytes.get(i) != Some(8) {
-    return Err("Invalid section header")
+    return Err(BinaryDecodeError::InvalidSectionHeader)
   }
   match Decode::decode(bytes, i + 1) {
     Err(t) => Err(t)
@@ -1396,7 +1451,7 @@ pub impl Decode for Bytes with decode(bytes, i) {
       let val = bytes[i:next].to_bytes()
       Ok((val, next))
     }
-    Ok(_) => Err("Invalid offset.")
+    Ok(_) => Err(BinaryDecodeError::InvalidOffset)
   }
 }
 
@@ -1431,7 +1486,7 @@ pub impl Decode for Catch with decode(bytes, i) {
         Ok((idx, i)) => Ok((Catch::all_ref(idx), i))
         Err(t) => Err(t)
       }
-    _ => Err("Invalid catch")
+    _ => Err(BinaryDecodeError::InvalidCatch)
   }
 }
 
@@ -1442,7 +1497,7 @@ pub impl Decode for CastOp with decode(bytes, i) {
     Some(0x01) => Ok((CastOp::new(true, false), i + 1))
     Some(0x02) => Ok((CastOp::new(false, true), i + 1))
     Some(0x03) => Ok((CastOp::new(true, true), i + 1))
-    _ => Err("Invalid castop")
+    _ => Err(BinaryDecodeError::InvalidCastOp)
   }
 }
 
@@ -1464,7 +1519,7 @@ pub impl Decode for MemArg with decode(bytes, i) {
         Err(t) => Err(t)
       }
     Err(t) => Err(t)
-    _ => Err("Invalid memarg")
+    _ => Err(BinaryDecodeError::InvalidMemArg)
   }
 }
 
@@ -2107,7 +2162,9 @@ pub impl Decode for Instruction with decode(bytes, i) {
             Err(t) => Err(t)
           }
         Ok((U32(24), i)) => {
-          let castop : Result[(CastOp, Int), String] = Decode::decode(bytes, i)
+          let castop : Result[(CastOp, Int), BinaryDecodeError] = Decode::decode(
+            bytes, i,
+          )
           match castop {
             Ok((c, i)) =>
               match Decode::decode(bytes, i) {
@@ -2129,7 +2186,9 @@ pub impl Decode for Instruction with decode(bytes, i) {
           }
         }
         Ok((U32(25), i)) => {
-          let castop : Result[(CastOp, Int), String] = Decode::decode(bytes, i)
+          let castop : Result[(CastOp, Int), BinaryDecodeError] = Decode::decode(
+            bytes, i,
+          )
           match castop {
             Ok((c, i)) =>
               match Decode::decode(bytes, i) {
@@ -2186,7 +2245,7 @@ pub impl Decode for Instruction with decode(bytes, i) {
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
-        _ => Err("Invalid instruction")
+        _ => Err(BinaryDecodeError::InvalidInstruction)
       }
 
     // Section: Memory/Table/Elem
@@ -2267,7 +2326,7 @@ pub impl Decode for Instruction with decode(bytes, i) {
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
-        _ => Err("Invalid Instruction")
+        _ => Err(BinaryDecodeError::InvalidInstruction)
       }
 
     // Section: Threads atomics
@@ -2291,7 +2350,7 @@ pub impl Decode for Instruction with decode(bytes, i) {
         Ok((@lib.U32(3), i)) =>
           match bytes.get(i) {
             Some(0x00) => Ok((Instruction::atomic_fence(), i + 1))
-            _ => Err("Invalid atomic.fence immediate")
+            _ => Err(BinaryDecodeError::InvalidAtomicFenceImmediate)
           }
         Ok((@lib.U32(16), i)) =>
           match Decode::decode(bytes, i) {
@@ -2431,7 +2490,7 @@ pub impl Decode for Instruction with decode(bytes, i) {
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
-        _ => Err("Invalid atomic instruction")
+        _ => Err(BinaryDecodeError::InvalidAtomicInstruction)
       }
 
     // Section: Vector
@@ -2524,7 +2583,7 @@ pub impl Decode for Instruction with decode(bytes, i) {
               ),
             )
           } else {
-            Err("Invalid Instruction")
+            Err(BinaryDecodeError::InvalidInstruction)
           }
         Ok((U32(13), i)) =>
           match Decode::decode(bytes, i) {
@@ -3050,9 +3109,9 @@ pub impl Decode for Instruction with decode(bytes, i) {
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
-        _ => Err("Invalid Instruction")
+        _ => Err(BinaryDecodeError::InvalidInstruction)
       }
-    _ => Err("Invalid Instruction")
+    _ => Err(BinaryDecodeError::InvalidInstruction)
   }
 }
 

@@ -1,11 +1,11 @@
 ///|
 priv suberror EncodingFailed {
-  EncodingFailed(String)
+  EncodingFailed(BinaryEncodeError)
 }
 
 ///|
 priv suberror DecodingFailed {
-  DecodingFailed(String)
+  DecodingFailed(BinaryDecodeError)
 }
 
 ///|
@@ -57,37 +57,36 @@ fn[T : Encode + Decode + Eq + Show + @quickcheck.Arbitrary] roundtrip_arbitrary(
 
 ///|
 fn[T] assert_decode_err_contains(
-  result : Result[(T, Int), String],
-  needle : String,
+  result : Result[(T, Int), BinaryDecodeError],
+  expected : BinaryDecodeError,
 ) -> Unit raise {
   match result {
-    Ok(_) => fail("expected decode failure containing \{needle}")
-    Err(msg) => assert_true(msg.contains(needle))
+    Ok(_) => fail("expected decode failure: \{expected}")
+    Err(err) => assert_eq(err, expected)
   }
 }
 
 ///|
 fn assert_encode_err_contains(
-  result : Result[Unit, String],
-  needle : String,
+  result : Result[Unit, BinaryEncodeError],
+  expected : BinaryEncodeError,
 ) -> Unit raise {
   match result {
-    Ok(_) => fail("expected encode failure containing \{needle}")
-    Err(msg) => assert_true(msg.contains(needle))
+    Ok(_) => fail("expected encode failure: \{expected}")
+    Err(err) => assert_eq(err, expected)
   }
 }
 
 ///|
-priv struct FailingEncodeToken(Int)
-
-///|
-impl Encode for FailingEncodeToken with encode(val, _buf) {
-  let FailingEncodeToken(tag) = val
-  if tag < 0 {
-    Err("forced token encode failure")
-  } else {
-    Ok(())
-  }
+test "binary codec errors derive eq show debug" {
+  let enc = BinaryEncodeError::CannotEncodeDefTypeHeapType
+  let dec = BinaryDecodeError::InvalidCompType
+  assert_eq(enc, BinaryEncodeError::CannotEncodeDefTypeHeapType)
+  assert_eq(dec, BinaryDecodeError::InvalidCompType)
+  inspect(enc, content="CannotEncodeDefTypeHeapType")
+  inspect(dec, content="InvalidCompType")
+  debug_inspect(enc, content="CannotEncodeDefTypeHeapType")
+  debug_inspect(dec, content="InvalidCompType")
 }
 
 ///|
@@ -119,11 +118,14 @@ test "sleb roundtrip s33 boundary" {
 }
 
 ///|
-test "uleb u33 rejects terminal unused bits" {
-  let bytes : Bytes = [0x80, 0x80, 0x80, 0x80, 0x20]
-  match decode_unsigned(bytes, 0, 33) {
+test "uleb rejects terminal unused bits at max width" {
+  let bytes : Bytes = [
+    0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x02,
+  ]
+  match decode_unsigned(bytes, 0, 64) {
     Ok(_) => fail("expected error")
-    Err(_) => ()
+    Err(err) =>
+      assert_eq(err, BinaryDecodeError::UnsignedLebTerminalHasNonZeroUnusedBits)
   }
 }
 
@@ -140,7 +142,7 @@ test "uleb u33 rejects too many bytes" {
   let bytes : Bytes = [0x80, 0x80, 0x80, 0x80, 0x80, 0x00]
   match decode_unsigned(bytes, 0, 33) {
     Ok(_) => fail("expected error")
-    Err(_) => ()
+    Err(err) => assert_eq(err, BinaryDecodeError::UnsignedLebTooManyBytes)
   }
 }
 
@@ -214,7 +216,7 @@ test "decode S33 accepts full unsigned upper bound" {
   let buf = @buffer.new()
   encode_signed(max_u32_in_s33, buf, 33).unwrap()
   let bytes = buf.to_bytes()
-  let decoded : Result[(S33, Int), String] = Decode::decode(bytes, 0)
+  let decoded : Result[(S33, Int), BinaryDecodeError] = Decode::decode(bytes, 0)
   match decoded {
     Ok((S33(v), i)) => {
       assert_eq(v, 0xffffffff)
@@ -236,7 +238,7 @@ test "S33 roundtrip includes upper bound" {
 test "sleb s33 rejects too many bytes" {
   match decode_signed(b"\x80\x80\x80\x80\x80\x00", 0, 33) {
     Ok(_) => fail("expected error")
-    Err(_) => ()
+    Err(err) => assert_eq(err, BinaryDecodeError::SignedLebTooManyBytes)
   }
 }
 
@@ -248,76 +250,114 @@ test "sleb allows extra sign extension within bound" {
 }
 
 ///|
+test "sleb rejects malformed sign-extension bits" {
+  match decode_signed(b"\xff\xff\xff\xff\x5f", 0, 33) {
+    Ok(_) => fail("expected malformed sign-extension error")
+    Err(err) =>
+      assert_eq(err, BinaryDecodeError::SignedLebOutOfRangeForBitWidth)
+  }
+}
+
+///|
+test "optional decode fallthrough keeps cursor on decode failure" {
+  let (none1, i1) = (
+    Decode::decode(b"\x02", 0) : Result[(Bool?, Int), BinaryDecodeError]).unwrap()
+  assert_eq(none1, None)
+  assert_eq(i1, 0)
+
+  let (none2, i2) = (
+    Decode::decode(b"", 0) : Result[(Bool?, Int), BinaryDecodeError]).unwrap()
+  assert_eq(none2, None)
+  assert_eq(i2, 0)
+}
+
+///|
+test "numeric decoders reject out-of-bounds fixed-width loads" {
+  assert_decode_err_contains(
+    (Decode::decode(b"\x00\x00\x00", 0) : Result[(F32, Int), BinaryDecodeError]),
+    BinaryDecodeError::IndexOutOfBounds,
+  )
+  assert_decode_err_contains(
+    (
+      Decode::decode(b"\x00\x00\x00\x00\x00\x00\x00", 0) :
+      Result[(F64, Int), BinaryDecodeError]),
+    BinaryDecodeError::IndexOutOfBounds,
+  )
+}
+
+///|
 test "decode helpers reject invalid bit widths and truncated inputs" {
   match decode_unsigned(b"\x00", 0, 0) {
     Ok(_) => fail("expected invalid nbits error for uleb nbits=0")
-    Err(_) => ()
+    Err(err) => assert_eq(err, BinaryDecodeError::InvalidUnsignedLebBitWidth)
   }
   match decode_unsigned(b"\x00", 0, 65) {
     Ok(_) => fail("expected invalid nbits error for uleb nbits=65")
-    Err(_) => ()
+    Err(err) => assert_eq(err, BinaryDecodeError::InvalidUnsignedLebBitWidth)
   }
   match decode_unsigned(b"\x80", 0, 8) {
     Ok(_) => fail("expected EOF error for unterminated uleb")
-    Err(_) => ()
+    Err(err) => assert_eq(err, BinaryDecodeError::UnexpectedEofInUnsignedLeb)
   }
   match decode_signed(b"\x00", 0, 0) {
     Ok(_) => fail("expected invalid nbits error for sleb nbits=0")
-    Err(_) => ()
+    Err(err) => assert_eq(err, BinaryDecodeError::InvalidSignedLebBitWidth)
   }
   match decode_signed(b"\x00", 0, 65) {
     Ok(_) => fail("expected invalid nbits error for sleb nbits=65")
-    Err(_) => ()
+    Err(err) => assert_eq(err, BinaryDecodeError::InvalidSignedLebBitWidth)
   }
   match decode_signed(b"\x80", 0, 8) {
     Ok(_) => fail("expected EOF error for unterminated sleb")
-    Err(_) => ()
+    Err(err) => assert_eq(err, BinaryDecodeError::UnexpectedEofInSignedLeb)
   }
 }
 
 ///|
 test "bool decode rejects invalid byte and out of bounds" {
-  let invalid : Result[(Bool, Int), String] = Decode::decode(b"\x02", 0)
-  match invalid {
-    Ok(_) => fail("expected invalid bool byte error")
-    Err(_) => ()
-  }
-  let oob : Result[(Bool, Int), String] = Decode::decode(b"", 0)
-  match oob {
-    Ok(_) => fail("expected bool decode out-of-bounds error")
-    Err(_) => ()
-  }
+  let invalid : Result[(Bool, Int), BinaryDecodeError] = Decode::decode(
+    b"\x02", 0,
+  )
+  assert_decode_err_contains(invalid, BinaryDecodeError::InvalidBoolByte)
+  let oob : Result[(Bool, Int), BinaryDecodeError] = Decode::decode(b"", 0)
+  assert_decode_err_contains(oob, BinaryDecodeError::IndexOutOfBounds)
 }
 
 ///|
 test "decode reports invalid bytes for instruction and lane index" {
   assert_decode_err_contains(
-    (Decode::decode(b"\xFF", 0) : Result[(Instruction, Int), String]),
-    "Invalid Instruction",
+    (Decode::decode(b"\xFF", 0) : Result[(Instruction, Int), BinaryDecodeError]),
+    BinaryDecodeError::InvalidInstruction,
   )
   assert_decode_err_contains(
-    (Decode::decode(b"\x10", 0) : Result[(LaneIdx, Int), String]),
-    "Invalid Lane Index",
+    (Decode::decode(b"\x10", 0) : Result[(LaneIdx, Int), BinaryDecodeError]),
+    BinaryDecodeError::InvalidLaneIndex,
   )
 }
 
 ///|
 test "decode reports invalid atomic.fence immediate" {
   assert_decode_err_contains(
-    (Decode::decode(b"\xFE\x03\x01", 0) : Result[(Instruction, Int), String]),
-    "Invalid atomic.fence immediate",
+    (
+      Decode::decode(b"\xFE\x03\x01", 0) :
+      Result[(Instruction, Int), BinaryDecodeError]),
+    BinaryDecodeError::InvalidAtomicFenceImmediate,
   )
 }
 
 ///|
 test "type section decode reports payload EOF and trailing bytes" {
   assert_decode_err_contains(
-    (Decode::decode(b"\x01\x03\x00", 0) : Result[(TypeSec, Int), String]),
-    "payload length out of range",
+    (
+      Decode::decode(b"\x01\x03\x00", 0) :
+      Result[(TypeSec, Int), BinaryDecodeError]),
+    BinaryDecodeError::SectionPayloadLengthOutOfRange,
   )
   assert_decode_err_contains(
-    (Decode::decode(b"\x01\x02\x00\x00", 0) : Result[(TypeSec, Int), String]),
-    "Invalid section - didn't consume all bytes",
+    (
+      Decode::decode(b"\x01\x02\x00\x00", 0) :
+      Result[(TypeSec, Int), BinaryDecodeError]),
+    BinaryDecodeError::InvalidSectionPayloadTrailingBytes,
   )
 }
 
@@ -326,69 +366,90 @@ test "module decode bubbles section errors instead of generic invalid module" {
   assert_decode_err_contains(
     (
       Decode::decode(b"\x00\x61\x73\x6D\x01\x00\x00\x00\x00\x02\x00", 0) :
-      Result[(Module, Int), String]),
-    "payload length out of range",
+      Result[(Module, Int), BinaryDecodeError]),
+    BinaryDecodeError::CustomSectionPayloadLengthOutOfRange,
   )
   assert_decode_err_contains(
     (
       Decode::decode(b"\x00\x61\x73\x6D\x01\x00\x00\x00\x01\x02\x01\xFF", 0) :
-      Result[(Module, Int), String]),
-    "Invalid Comp Type",
+      Result[(Module, Int), BinaryDecodeError]),
+    BinaryDecodeError::InvalidCompType,
   )
 }
 
 ///|
 test "invalid decode vectors are table-driven across decoders" {
-  let module_vectors : Array[(String, Bytes, String)] = [
+  let module_vectors : Array[(String, Bytes, BinaryDecodeError)] = [
     (
-      "bad magic header", b"\x01\x61\x73\x6D\x01\x00\x00\x00", "Invalid magic header",
+      "bad magic header",
+      b"\x01\x61\x73\x6D\x01\x00\x00\x00",
+      BinaryDecodeError::InvalidMagicHeader,
     ),
     (
-      "module trailing bytes", b"\x00\x61\x73\x6D\x01\x00\x00\x00\x7F", "Invalid module",
+      "module trailing bytes",
+      b"\x00\x61\x73\x6D\x01\x00\x00\x00\x7F",
+      BinaryDecodeError::InvalidModule,
     ),
     (
-      "custom section payload overflow", b"\x00\x61\x73\x6D\x01\x00\x00\x00\x00\x02\x00",
-      "payload length out of range",
+      "custom section payload overflow",
+      b"\x00\x61\x73\x6D\x01\x00\x00\x00\x00\x02\x00",
+      BinaryDecodeError::CustomSectionPayloadLengthOutOfRange,
     ),
     (
-      "type section invalid payload content", b"\x00\x61\x73\x6D\x01\x00\x00\x00\x01\x02\x01\xFF",
-      "Invalid Comp Type",
+      "type section invalid payload content",
+      b"\x00\x61\x73\x6D\x01\x00\x00\x00\x01\x02\x01\xFF",
+      BinaryDecodeError::InvalidCompType,
     ),
   ]
   for vector in module_vectors {
-    let (name, bytes, needle) = vector
-    match (Decode::decode(bytes, 0) : Result[(Module, Int), String]) {
+    let (name, bytes, expected) = vector
+    match
+      (Decode::decode(bytes, 0) : Result[(Module, Int), BinaryDecodeError]) {
       Ok(_) => fail("expected module decode failure for vector '\{name}'")
-      Err(msg) => assert_true(msg.contains(needle))
+      Err(err) => assert_eq(err, expected)
     }
   }
 
-  let type_sec_vectors : Array[(String, Bytes, String)] = [
-    ("wrong section header", b"\x02\x00", "Invalid section header"),
-    ("payload length overflow", b"\x01\x03\x00", "payload length out of range"),
+  let type_sec_vectors : Array[(String, Bytes, BinaryDecodeError)] = [
     (
-      "unconsumed payload bytes", b"\x01\x02\x00\x00", "Invalid section - didn't consume all bytes",
+      "wrong section header",
+      b"\x02\x00",
+      BinaryDecodeError::InvalidSectionHeader,
+    ),
+    (
+      "payload length overflow",
+      b"\x01\x03\x00",
+      BinaryDecodeError::SectionPayloadLengthOutOfRange,
+    ),
+    (
+      "unconsumed payload bytes",
+      b"\x01\x02\x00\x00",
+      BinaryDecodeError::InvalidSectionPayloadTrailingBytes,
     ),
   ]
   for vector in type_sec_vectors {
-    let (name, bytes, needle) = vector
-    match (Decode::decode(bytes, 0) : Result[(TypeSec, Int), String]) {
+    let (name, bytes, expected) = vector
+    match
+      (Decode::decode(bytes, 0) : Result[(TypeSec, Int), BinaryDecodeError]) {
       Ok(_) => fail("expected TypeSec decode failure for vector '\{name}'")
-      Err(msg) => assert_true(msg.contains(needle))
+      Err(err) => assert_eq(err, expected)
     }
   }
 
-  let instruction_vectors : Array[(String, Bytes, String)] = [
-    ("unknown opcode", b"\xFF", "Invalid Instruction"),
+  let instruction_vectors : Array[(String, Bytes, BinaryDecodeError)] = [
+    ("unknown opcode", b"\xFF", BinaryDecodeError::InvalidInstruction),
     (
-      "atomic.fence with non-zero immediate", b"\xFE\x03\x01", "Invalid atomic.fence immediate",
+      "atomic.fence with non-zero immediate",
+      b"\xFE\x03\x01",
+      BinaryDecodeError::InvalidAtomicFenceImmediate,
     ),
   ]
   for vector in instruction_vectors {
-    let (name, bytes, needle) = vector
-    match (Decode::decode(bytes, 0) : Result[(Instruction, Int), String]) {
+    let (name, bytes, expected) = vector
+    match
+      (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]) {
       Ok(_) => fail("expected Instruction decode failure for vector '\{name}'")
-      Err(msg) => assert_true(msg.contains(needle))
+      Err(err) => assert_eq(err, expected)
     }
   }
 }
@@ -396,81 +457,83 @@ test "invalid decode vectors are table-driven across decoders" {
 ///|
 test "decode primitive error branches include oob and nested failures" {
   assert_decode_err_contains(
-    (Decode::decode(b"", 0) : Result[(NumType, Int), String]),
-    "Index out of bounds",
+    (Decode::decode(b"", 0) : Result[(NumType, Int), BinaryDecodeError]),
+    BinaryDecodeError::IndexOutOfBounds,
   )
   assert_decode_err_contains(
-    (Decode::decode(b"", 0) : Result[(AbsHeapType, Int), String]),
-    "Index out of bounds",
+    (Decode::decode(b"", 0) : Result[(AbsHeapType, Int), BinaryDecodeError]),
+    BinaryDecodeError::IndexOutOfBounds,
   )
   assert_decode_err_contains(
-    (Decode::decode(b"", 0) : Result[(RefType, Int), String]),
-    "Index out of bounds",
+    (Decode::decode(b"", 0) : Result[(RefType, Int), BinaryDecodeError]),
+    BinaryDecodeError::IndexOutOfBounds,
   )
   assert_decode_err_contains(
-    (Decode::decode(b"\x63", 0) : Result[(RefType, Int), String]),
-    "unexpected EOF",
+    (Decode::decode(b"\x63", 0) : Result[(RefType, Int), BinaryDecodeError]),
+    BinaryDecodeError::UnexpectedEofInSignedLeb,
   )
   assert_decode_err_contains(
-    (Decode::decode(b"\x64", 0) : Result[(RefType, Int), String]),
-    "unexpected EOF",
+    (Decode::decode(b"\x64", 0) : Result[(RefType, Int), BinaryDecodeError]),
+    BinaryDecodeError::UnexpectedEofInSignedLeb,
   )
   assert_decode_err_contains(
-    (Decode::decode(b"", 0) : Result[(ValType, Int), String]),
-    "Index out of bounds",
+    (Decode::decode(b"", 0) : Result[(ValType, Int), BinaryDecodeError]),
+    BinaryDecodeError::IndexOutOfBounds,
   )
   assert_decode_err_contains(
-    (Decode::decode(b"", 0) : Result[(CompType, Int), String]),
-    "Index out of bounds",
+    (Decode::decode(b"", 0) : Result[(CompType, Int), BinaryDecodeError]),
+    BinaryDecodeError::IndexOutOfBounds,
   )
   assert_decode_err_contains(
-    (Decode::decode(b"", 0) : Result[(Mut, Int), String]),
-    "unexpected EOF decoding mut",
+    (Decode::decode(b"", 0) : Result[(Mut, Int), BinaryDecodeError]),
+    BinaryDecodeError::UnexpectedEofDecodingMut,
   )
   assert_decode_err_contains(
-    (Decode::decode(b"\x02", 0) : Result[(Mut, Int), String]),
-    "invalid mut byte",
+    (Decode::decode(b"\x02", 0) : Result[(Mut, Int), BinaryDecodeError]),
+    BinaryDecodeError::InvalidMutByte,
   )
   assert_decode_err_contains(
-    (Decode::decode(b"\x79", 0) : Result[(StorageType, Int), String]),
-    "Invalid StorageType",
+    (Decode::decode(b"\x79", 0) : Result[(StorageType, Int), BinaryDecodeError]),
+    BinaryDecodeError::InvalidStorageType,
   )
   assert_decode_err_contains(
-    (Decode::decode(b"\x79", 0) : Result[(PackType, Int), String]),
-    "Invalid Packed Type",
+    (Decode::decode(b"\x79", 0) : Result[(PackType, Int), BinaryDecodeError]),
+    BinaryDecodeError::InvalidPackedType,
   )
   assert_decode_err_contains(
-    (Decode::decode(b"", 0) : Result[(RecType, Int), String]),
-    "Index out of bounds",
+    (Decode::decode(b"", 0) : Result[(RecType, Int), BinaryDecodeError]),
+    BinaryDecodeError::IndexOutOfBounds,
   )
   assert_decode_err_contains(
-    (Decode::decode(b"\x4E", 0) : Result[(RecType, Int), String]),
-    "unexpected EOF",
+    (Decode::decode(b"\x4E", 0) : Result[(RecType, Int), BinaryDecodeError]),
+    BinaryDecodeError::UnexpectedEofInUnsignedLeb,
   )
   assert_decode_err_contains(
-    (Decode::decode(b"", 0) : Result[(SubType, Int), String]),
-    "Index out of bounds",
+    (Decode::decode(b"", 0) : Result[(SubType, Int), BinaryDecodeError]),
+    BinaryDecodeError::IndexOutOfBounds,
   )
   assert_decode_err_contains(
-    (Decode::decode(b"\x4F", 0) : Result[(SubType, Int), String]),
-    "unexpected EOF",
+    (Decode::decode(b"\x4F", 0) : Result[(SubType, Int), BinaryDecodeError]),
+    BinaryDecodeError::UnexpectedEofInUnsignedLeb,
   )
 }
 
 ///|
 test "generic list decode and encode propagate nested failures" {
   assert_decode_err_contains(
-    (Decode::decode(b"", 0) : Result[(@list.List[Bool], Int), String]),
-    "unexpected EOF",
+    (Decode::decode(b"", 0) : Result[(@list.List[Bool], Int), BinaryDecodeError]),
+    BinaryDecodeError::UnexpectedEofInUnsignedLeb,
   )
   assert_decode_err_contains(
-    (Decode::decode(b"\x01\x02", 0) : Result[(@list.List[Bool], Int), String]),
-    "Invalid bool",
+    (
+      Decode::decode(b"\x01\x02", 0) :
+      Result[(@list.List[Bool], Int), BinaryDecodeError]),
+    BinaryDecodeError::InvalidBoolByte,
   )
   match
     (
       Decode::decode(b"\x02\x00\x01", 0) :
-      Result[(@list.List[Bool], Int), String]) {
+      Result[(@list.List[Bool], Int), BinaryDecodeError]) {
     Ok((decoded, i)) => {
       assert_eq(i, 3)
       assert_eq(decoded.to_array(), [false, true])
@@ -478,13 +541,10 @@ test "generic list decode and encode propagate nested failures" {
     Err(e) => fail("unexpected list decode failure: \{e}")
   }
 
-  let bad_list = @list.List::from_array([
-    FailingEncodeToken(1),
-    FailingEncodeToken(-1),
-  ])
+  let bad_list = @list.List::from_array([TypeIdx::new(0), TypeIdx::rec(0)])
   assert_encode_err_contains(
     Encode::encode(bad_list, @buffer.new()),
-    "forced token encode failure",
+    BinaryEncodeError::CannotEncodeNonStandardTypeIndex,
   )
 }
 
@@ -492,19 +552,30 @@ test "generic list decode and encode propagate nested failures" {
 test "encode rejects unsupported type/index forms" {
   assert_encode_err_contains(
     Encode::encode(TypeIdx::rec(0), @buffer.new()),
-    "non standard type index",
+    BinaryEncodeError::CannotEncodeNonStandardTypeIndex,
   )
   assert_encode_err_contains(
     Encode::encode(HeapType::new(TypeIdx::rec(0)), @buffer.new()),
-    "recursive indexes",
+    BinaryEncodeError::CannotEncodeRecursiveIndexHeapType,
   )
   assert_encode_err_contains(
     Encode::encode(ValType::bottom(), @buffer.new()),
-    "bottom type",
+    BinaryEncodeError::CannotEncodeBottomValType,
   )
   assert_encode_err_contains(
     Encode::encode(BlockType::type_idx(TypeIdx::rec(0)), @buffer.new()),
-    "recursive indexes",
+    BinaryEncodeError::CannotEncodeRecursiveIndexBlockType,
+  )
+  assert_encode_err_contains(
+    Encode::encode(
+      HeapType::def_type(DefType::new(RecType::group([]), 0)),
+      @buffer.new(),
+    ),
+    BinaryEncodeError::CannotEncodeDefTypeHeapType,
+  )
+  assert_encode_err_contains(
+    Encode::encode(MemArg::new(64, None, 0), @buffer.new()),
+    BinaryEncodeError::InvalidMemArgEncoding,
   )
 }
 
@@ -515,7 +586,7 @@ test "encode section payload errors propagate from nested values" {
   ])
   assert_encode_err_contains(
     Encode::encode(bad_type_sec, @buffer.new()),
-    "bottom type",
+    BinaryEncodeError::CannotEncodeBottomValType,
   )
 
   let bad_import_sec = ImportSec::new([
@@ -527,7 +598,7 @@ test "encode section payload errors propagate from nested values" {
   ])
   assert_encode_err_contains(
     Encode::encode(bad_import_sec, @buffer.new()),
-    "non standard type index",
+    BinaryEncodeError::CannotEncodeNonStandardTypeIndex,
   )
 
   let bad_code_sec = CodeSec::new([
@@ -540,13 +611,13 @@ test "encode section payload errors propagate from nested values" {
   ])
   assert_encode_err_contains(
     Encode::encode(bad_code_sec, @buffer.new()),
-    "recursive indexes",
+    BinaryEncodeError::CannotEncodeRecursiveIndexBlockType,
   )
 
   let bad_module = Module::new().with_type_sec(bad_type_sec)
   assert_encode_err_contains(
     Encode::encode(bad_module, @buffer.new()),
-    "bottom type",
+    BinaryEncodeError::CannotEncodeBottomValType,
   )
 }
 
@@ -558,39 +629,46 @@ test "uleb encoder never exceeds ceil(nbits/7)" {
 }
 
 ///|
+test "sleb encoder never exceeds ceil(nbits/7)" {
+  let buf = @buffer.new()
+  encode_signed(-1L << 32, buf, 33).unwrap()
+  assert_true(buf.to_bytes().length() <= max_leb_bytes(33))
+}
+
+///|
 test "leb sizing and encoding reject invalid bit widths and ranges" {
   assert_encode_err_contains(
     encode_unsigned(1UL, @buffer.new(), 0),
-    "invalid nbits for uleb",
+    BinaryEncodeError::InvalidUnsignedLebBitWidth,
   )
   assert_encode_err_contains(
     encode_unsigned(256UL, @buffer.new(), 8),
-    "out of range",
+    BinaryEncodeError::UnsignedLebValueOutOfRange,
   )
   assert_encode_err_contains(
     encode_signed(1L, @buffer.new(), 0),
-    "invalid nbits for sleb",
+    BinaryEncodeError::InvalidSignedLebBitWidth,
   )
   assert_encode_err_contains(
     encode_signed(200L, @buffer.new(), 8),
-    "out of range",
+    BinaryEncodeError::SignedLebValueOutOfRange,
   )
 
   match size_unsigned(1UL, 0) {
     Ok(_) => fail("expected invalid nbits for size_unsigned")
-    Err(e) => assert_true(e.contains("invalid nbits for uleb"))
+    Err(e) => assert_eq(e, BinaryEncodeError::InvalidUnsignedLebBitWidth)
   }
   match size_unsigned(300UL, 8) {
     Ok(_) => fail("expected out-of-range size_unsigned")
-    Err(e) => assert_true(e.contains("out of range"))
+    Err(e) => assert_eq(e, BinaryEncodeError::UnsignedLebValueOutOfRange)
   }
   match size_signed(1L, 0) {
     Ok(_) => fail("expected invalid nbits for size_signed")
-    Err(e) => assert_true(e.contains("invalid nbits for sleb"))
+    Err(e) => assert_eq(e, BinaryEncodeError::InvalidSignedLebBitWidth)
   }
   match size_signed(200L, 8) {
     Ok(_) => fail("expected out-of-range size_signed")
-    Err(e) => assert_true(e.contains("out of range"))
+    Err(e) => assert_eq(e, BinaryEncodeError::SignedLebValueOutOfRange)
   }
 }
 
