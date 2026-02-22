@@ -1,4 +1,4 @@
-Total: 10980 uncovered line(s) in 96 file(s)
+Total: 10901 uncovered line(s) in 97 file(s)
 
 374 uncovered line(s) in src/binary/decode.mbt:
 
@@ -212,7 +212,7 @@ Total: 10980 uncovered line(s) in 96 file(s)
      | pub impl Decode for S33 with decode(bytes, i) {
      |   match decode_signed(bytes, i, 33) {
      |     Err(err) => Err(err)
-     |     Ok((val, i)) if val >= 0 && val < 4294967295 =>
+     |     Ok((val, i)) if val >= 0 && val <= 4294967295 =>
      |       Ok((S33(val.to_int().reinterpret_as_uint()), i))
  351 |     Ok(_) => Err("Invalid S33 Range")
      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
@@ -6306,65 +6306,65 @@ Total: 10980 uncovered line(s) in 96 file(s)
 
 8 uncovered line(s) in src/binary/tests.mbt:
 
-    | fn[T : Encode + Decode + Eq + Show] roundtrip(x : T) -> Unit raise {
-    |   let buf = @buffer.new()
-    |   match Encode::encode(x, buf) {
-    |     Ok(_) => ()
- 16 |     Err(t) => raise EncodingFailed(t)
-    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-    |   }
-    |   let bytes = buf.to_bytes()
-    |   let (y, i2) = match Decode::decode(bytes, 0) {
-    |     Ok(t) => t
- 21 |     Err(t) => raise DecodingFailed(t)
-    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-    |   }
-    |   if bytes.length() != i2 {
- 24 |     println(("Failed: Byte Length Mismatch", bytes.length(), i2))
-    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-    |   }
-    |   if y != x {
- 27 |     println(("Failed", x))
-    |     ^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-    |     println(("Byte Representation", bytes.to_array()))
-    |     let compare = @buffer.new()
-    |     match Encode::encode(y, compare) {
-    |       Ok(_) =>
- 32 |         println(("Decoded byte representation", compare.to_bytes().to_array()))
-    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-    |       Err(t) => println("Could not re-encode actual value \{t}")
-    |     }
- 35 |     println(("Decoded", y))
-    |     ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-    |   }
-    |   assert_eq(i2, bytes.length())
-    |   assert_eq(y, x)
-    | }
-    …
+     | fn[T : Encode + Decode + Eq + Show] roundtrip(x : T) -> Unit raise {
+     |   let buf = @buffer.new()
+     |   match Encode::encode(x, buf) {
+     |     Ok(_) => ()
+  16 |     Err(t) => raise EncodingFailed(t)
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |   }
+     |   let bytes = buf.to_bytes()
+     |   let (y, i2) = match Decode::decode(bytes, 0) {
+     |     Ok(t) => t
+  21 |     Err(t) => raise DecodingFailed(t)
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |   }
+     |   if bytes.length() != i2 {
+  24 |     println(("Failed: Byte Length Mismatch", bytes.length(), i2))
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |   }
+     |   if y != x {
+  27 |     println(("Failed", x))
+     |     ^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     println(("Byte Representation", bytes.to_array()))
+     |     let compare = @buffer.new()
+     |     match Encode::encode(y, compare) {
+     |       Ok(_) =>
+  32 |         println(("Decoded byte representation", compare.to_bytes().to_array()))
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       Err(t) => println("Could not re-encode actual value \{t}")
+     |     }
+  35 |     println(("Decoded", y))
+     |     ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |   }
+     |   assert_eq(i2, bytes.length())
+     |   assert_eq(y, x)
+     | }
+     …
 
-    | fn[T] assert_decode_err_contains(
-    |   result : Result[(T, Int), String],
-    |   needle : String,
-    | ) -> Unit raise {
-    |   match result {
- 64 |     Ok(_) => fail("expected decode failure containing \{needle}")
-    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-    |     Err(msg) => assert_true(msg.contains(needle))
-    |   }
-    | }
-    …
+     | fn[T] assert_decode_err_contains(
+     |   result : Result[(T, Int), String],
+     |   needle : String,
+     | ) -> Unit raise {
+     |   match result {
+  64 |     Ok(_) => fail("expected decode failure containing \{needle}")
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     Err(msg) => assert_true(msg.contains(needle))
+     |   }
+     | }
+     …
 
-    | fn assert_encode_err_contains(
-    |   result : Result[Unit, String],
-    |   needle : String,
-    | ) -> Unit raise {
-    |   match result {
- 75 |     Ok(_) => fail("expected encode failure containing \{needle}")
-    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-    |     Err(msg) => assert_true(msg.contains(needle))
-    |   }
-    | }
-    …
+     | fn assert_encode_err_contains(
+     |   result : Result[Unit, String],
+     |   needle : String,
+     | ) -> Unit raise {
+     |   match result {
+  75 |     Ok(_) => fail("expected encode failure containing \{needle}")
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     Err(msg) => assert_true(msg.contains(needle))
+     |   }
+     | }
+     …
 
 6 uncovered line(s) in src/ir/cfg.mbt:
 
@@ -18757,7 +18757,7 @@ Total: 10980 uncovered line(s) in 96 file(s)
      | }
      …
 
-353 uncovered line(s) in src/lib/types.mbt:
+336 uncovered line(s) in src/lib/types.mbt:
 
      | pub fn Limits::mem_addr_bits(lim : Limits) -> Int {
      |   match lim {
@@ -19052,132 +19052,6 @@ Total: 10980 uncovered line(s) in 96 file(s)
      | pub fn Instruction::i64_atomic_store32(ma : MemArg) -> Instruction {
 2659 |   I64AtomicStore32(ma)
      |   ^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     | }
-     …
-
-     | pub fn TInstr::i31_get_s(i : TInstr) -> TInstr {
-5078 |   TI31GetS(i)
-     |   ^^^^^^^^^^^ 	<-- UNCOVERED
-     | }
-     …
-
-     | pub fn TInstr::i31_get_u(i : TInstr) -> TInstr {
-5083 |   TI31GetU(i)
-     |   ^^^^^^^^^^^ 	<-- UNCOVERED
-     | }
-     …
-
-     | pub fn TInstr::ref_i31(i : TInstr) -> TInstr {
-5088 |   TRefI31(i)
-     |   ^^^^^^^^^^ 	<-- UNCOVERED
-     | }
-     …
-
-     | pub fn TInstr::any_convert_extern(i : TInstr) -> TInstr {
-5098 |   TAnyConvertExtern(i)
-     |   ^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     | }
-     …
-
-     | pub fn TInstr::extern_convert_any(i : TInstr) -> TInstr {
-5103 |   TExternConvertAny(i)
-     |   ^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     | }
-     …
-
-     | pub fn TInstr::br_on_null(
-     |   li : LabelIdx,
-     |   i0 : TInstr,
-     |   i : Array[TInstr],
-     | ) -> TInstr {
-5389 |   TBrOnNull(li, i0, i)
-     |   ^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     | }
-     …
-
-     | pub fn TInstr::br_on_non_null(
-     |   li : LabelIdx,
-     |   i0 : TInstr,
-     |   i : Array[TInstr],
-     | ) -> TInstr {
-5398 |   TBrOnNonNull(li, i0, i)
-     |   ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     | }
-     …
-
-     | pub fn TInstr::array_init_data(
-     |   ti : TypeIdx,
-     |   di : DataIdx,
-     |   i0 : TInstr,
-     |   i1 : TInstr,
-     |   i2 : TInstr,
-     |   i3 : TInstr,
-     | ) -> TInstr {
-5570 |   TArrayInitData(ti, di, i0, i1, i2, i3)
-     |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     | }
-     …
-
-     | pub fn TInstr::i8x16_splat(i : TInstr) -> TInstr {
-5622 |   TI8x16Splat(i)
-     |   ^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     | }
-     …
-
-     | pub fn TInstr::i16x8_splat(i : TInstr) -> TInstr {
-5627 |   TI16x8Splat(i)
-     |   ^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     | }
-     …
-
-     | pub fn TInstr::f32x4_splat(i : TInstr) -> TInstr {
-5642 |   TF32x4Splat(i)
-     |   ^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     | }
-     …
-
-     | pub fn TInstr::f64x2_splat(i : TInstr) -> TInstr {
-5647 |   TF64x2Splat(i)
-     |   ^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     | }
-     …
-
-     | pub fn TInstr::extract_lane(
-     |   op : ExtractLaneOp,
-     |   li : LaneIdx,
-     |   i : TInstr,
-     | ) -> TInstr {
-5656 |   TExtractLane(op, li, i)
-     |   ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     | }
-     …
-
-     | pub fn TInstr::i8x16_swizzle(i0 : TInstr, i1 : TInstr) -> TInstr {
-5698 |   TI8x16Swizzle(i0, i1)
-     |   ^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     | }
-     …
-
-     | pub fn TInstr::i8x16_relaxed_swizzle(i0 : TInstr, i1 : TInstr) -> TInstr {
-5703 |   TI8x16RelaxedSwizzle(i0, i1)
-     |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     | }
-     …
-
-     | pub fn TInstr::v128_shift(op : V128ShiftOp, i0 : TInstr, i1 : TInstr) -> TInstr {
-5708 |   TV128Shift(op, i0, i1)
-     |   ^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     | }
-     …
-
-     | pub fn TInstr::v128_ternary(
-     |   op : V128TernaryOp,
-     |   i0 : TInstr,
-     |   i1 : TInstr,
-     |   i2 : TInstr,
-     | ) -> TInstr {
-5718 |   TV128Ternary(op, i0, i1, i2)
-     |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      | }
      …
 
@@ -73282,7 +73156,7 @@ Total: 10980 uncovered line(s) in 96 file(s)
     | }
     …
 
-624 uncovered line(s) in src/transformer/transformer.mbt:
+595 uncovered line(s) in src/transformer/transformer.mbt:
 
      | pub fn[T] ModuleTransformer::walk_tinstruction_default(
      |   self : ModuleTransformer[T],
@@ -73351,9 +73225,9 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     TUnary(op, i) => {
      |       let (t, op) = match self.walk_unaryop(t, op) {
      |         Ok(None) => (t, op)
-1032 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+1033 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i) = match self.walk_tinstruction(t, i) {
      |         Ok(None) => (t, i)
@@ -73389,9 +73263,9 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     TLocalTee(li, i) => {
      |       let (t, li) = match self.walk_localidx(t, li) {
      |         Ok(None) => (t, li)
-1066 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+1067 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i) = match self.walk_tinstruction(t, i) {
      |         Ok(None) => (t, i)
@@ -73436,35 +73310,32 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |       }
      |       Ok(Some((t, TInstr::ref_as_non_null(i))))
      |     }
-1105 |     TI31GetS(i) => {
-     |     ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     TI31GetS(i) => {
      |       let (t, i) = match self.walk_tinstruction(t, i) {
      |         Ok(None) => (t, i)
      |         Ok(Some(t)) => t
-     |         Err(t) => return Err(t)
+1109 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
-1111 |       Ok(Some((t, TInstr::i31_get_s(i))))
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       Ok(Some((t, TInstr::i31_get_s(i))))
      |     }
-1113 |     TI31GetU(i) => {
-     |     ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     TI31GetU(i) => {
      |       let (t, i) = match self.walk_tinstruction(t, i) {
      |         Ok(None) => (t, i)
-     |         Ok(Some(t)) => t
+1116 |         Ok(Some(t)) => t
+     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
-1119 |       Ok(Some((t, TInstr::i31_get_u(i))))
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       Ok(Some((t, TInstr::i31_get_u(i))))
      |     }
-1121 |     TRefI31(i) => {
-     |     ^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     TRefI31(i) => {
      |       let (t, i) = match self.walk_tinstruction(t, i) {
      |         Ok(None) => (t, i)
-     |         Ok(Some(t)) => t
+1124 |         Ok(Some(t)) => t
+     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
-1127 |       Ok(Some((t, TInstr::ref_i31(i))))
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       Ok(Some((t, TInstr::ref_i31(i))))
      |     }
      |     TArrayLen(i) => {
      |       let (t, i) = match self.walk_tinstruction(t, i) {
@@ -73476,25 +73347,25 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |       }
      |       Ok(Some((t, TInstr::array_len(i))))
      |     }
-1137 |     TAnyConvertExtern(i) => {
-     |     ^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     TAnyConvertExtern(i) => {
      |       let (t, i) = match self.walk_tinstruction(t, i) {
-     |         Ok(None) => (t, i)
+1139 |         Ok(None) => (t, i)
+     |         ^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         Ok(Some(t)) => t
-     |         Err(t) => return Err(t)
+1141 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
-1143 |       Ok(Some((t, TInstr::any_convert_extern(i))))
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       Ok(Some((t, TInstr::any_convert_extern(i))))
      |     }
-1145 |     TExternConvertAny(i) => {
-     |     ^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     TExternConvertAny(i) => {
      |       let (t, i) = match self.walk_tinstruction(t, i) {
-     |         Ok(None) => (t, i)
+1147 |         Ok(None) => (t, i)
+     |         ^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         Ok(Some(t)) => t
-     |         Err(t) => return Err(t)
+1149 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
-1151 |       Ok(Some((t, TInstr::extern_convert_any(i))))
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       Ok(Some((t, TInstr::extern_convert_any(i))))
      |     }
      |     TThrowRef(i) => {
      |       let (t, i) = match self.walk_tinstruction(t, i) {
@@ -73511,9 +73382,9 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     TBinary(op, i1, i2) => {
      |       let (t, op) = match self.walk_binaryop(t, op) {
      |         Ok(None) => (t, op)
-1166 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+1167 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i1) = match self.walk_tinstruction(t, i1) {
      |         Ok(None) => (t, i1)
@@ -73549,15 +73420,15 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     TStore(op, ma, i1, i2) => {
      |       let (t, op) = match self.walk_storeop(t, op) {
      |         Ok(None) => (t, op)
-1197 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+1198 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, ma) = match self.walk_memarg(t, ma) {
      |         Ok(None) => (t, ma)
-1202 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+1203 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i1) = match self.walk_tinstruction(t, i1) {
      |         Ok(None) => (t, i1)
@@ -73576,9 +73447,9 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     TMemoryAtomicNotify(ma, i1, i2) => {
      |       let (t, ma) = match self.walk_memarg(t, ma) {
      |         Ok(None) => (t, ma)
-1220 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+1221 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i1) = match self.walk_tinstruction(t, i1) {
      |         Ok(None) => (t, i1)
@@ -73620,15 +73491,15 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     TLoad(op, ma, i) => {
      |       let (t, op) = match self.walk_loadop(t, op) {
      |         Ok(None) => (t, op)
-1258 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+1259 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, ma) = match self.walk_memarg(t, ma) {
      |         Ok(None) => (t, ma)
-1263 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+1264 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i) = match self.walk_tinstruction(t, i) {
      |         Ok(None) => (t, i)
@@ -73752,15 +73623,15 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     TMemoryAtomicWait32(ma, i1, i2, i3) => {
      |       let (t, ma) = match self.walk_memarg(t, ma) {
      |         Ok(None) => (t, ma)
-1371 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+1372 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i1) = match self.walk_tinstruction(t, i1) {
      |         Ok(None) => (t, i1)
-1376 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+1377 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i2) = match self.walk_tinstruction(t, i2) {
      |         Ok(None) => (t, i2)
@@ -73779,8 +73650,7 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     TMemoryAtomicWait64(ma, i1, i2, i3) => {
      |       let (t, ma) = match self.walk_memarg(t, ma) {
      |         Ok(None) => (t, ma)
-1394 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |         Ok(Some(t)) => t
      |         Err(t) => return Err(t)
      |       }
      |       let (t, i1) = match self.walk_tinstruction(t, i1) {
@@ -73806,9 +73676,9 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     TAtomicCmpxchg(op, ma, i1, i2, i3) => {
      |       let (t, ma) = match self.walk_memarg(t, ma) {
      |         Ok(None) => (t, ma)
-1417 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+1418 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i1) = match self.walk_tinstruction(t, i1) {
      |         Ok(None) => (t, i1)
@@ -73870,8 +73740,7 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i2) = match self.walk_tinstruction(t, i2) {
-1472 |         Ok(None) => (t, i2)
-     |         ^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |         Ok(None) => (t, i2)
      |         Ok(Some(t)) => t
 1474 |         Err(t) => return Err(t)
      |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
@@ -73886,8 +73755,7 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i1) = match self.walk_tinstruction(t, i1) {
-1485 |         Ok(None) => (t, i1)
-     |         ^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |         Ok(None) => (t, i1)
      |         Ok(Some(t)) => t
 1487 |         Err(t) => return Err(t)
      |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
@@ -73903,9 +73771,9 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     TTableFill(ti, i1, i2, i3) => {
      |       let (t, ti) = match self.walk_tableidx(t, ti) {
      |         Ok(None) => (t, ti)
-1499 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+1500 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i1) = match self.walk_tinstruction(t, i1) {
      |         Ok(None) => (t, i1)
@@ -73914,8 +73782,7 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |         Err(t) => return Err(t)
      |       }
      |       let (t, i2) = match self.walk_tinstruction(t, i2) {
-1508 |         Ok(None) => (t, i2)
-     |         ^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |         Ok(None) => (t, i2)
      |         Ok(Some(t)) => t
 1510 |         Err(t) => return Err(t)
      |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
@@ -73931,15 +73798,15 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     TTableCopy(ti1, ti2, i1, i2, i3) => {
      |       let (t, ti1) = match self.walk_tableidx(t, ti1) {
      |         Ok(None) => (t, ti1)
-1522 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+1523 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, ti2) = match self.walk_tableidx(t, ti2) {
      |         Ok(None) => (t, ti2)
-1527 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+1528 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i1) = match self.walk_tinstruction(t, i1) {
      |         Ok(None) => (t, i1)
@@ -73964,15 +73831,15 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     TTableInit(ei, ti, i1, i2, i3) => {
      |       let (t, ei) = match self.walk_elemidx(t, ei) {
      |         Ok(None) => (t, ei)
-1550 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+1551 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, ti) = match self.walk_tableidx(t, ti) {
      |         Ok(None) => (t, ti)
-1555 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+1556 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i1) = match self.walk_tinstruction(t, i1) {
      |         Ok(None) => (t, i1)
@@ -74052,9 +73919,9 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     TCallRef(tyi, i0, i) => {
      |       let (t, tyi) = match self.walk_typeidx(t, tyi) {
      |         Ok(None) => (t, tyi)
-1626 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+1627 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i0) = match
      |         self.walk_array(t, ModuleTransformer::walk_tinstruction, i0) {
@@ -74075,9 +73942,9 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     TReturnCall(fi, i) => {
      |       let (t, fi) = match self.walk_funcidx(t, fi) {
      |         Ok(None) => (t, fi)
-1645 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+1646 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i) = match
      |         self.walk_array(t, ModuleTransformer::walk_tinstruction, i) {
@@ -74091,15 +73958,15 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     TReturnCallIndirect(tyi, tai, i0, i) => {
      |       let (t, tyi) = match self.walk_typeidx(t, tyi) {
      |         Ok(None) => (t, tyi)
-1659 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+1660 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, tai) = match self.walk_tableidx(t, tai) {
      |         Ok(None) => (t, tai)
-1664 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+1665 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i0) = match
      |         self.walk_array(t, ModuleTransformer::walk_tinstruction, i0) {
@@ -74119,9 +73986,9 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     TReturnCallRef(tyi, i0, i) => {
      |       let (t, tyi) = match self.walk_typeidx(t, tyi) {
      |         Ok(None) => (t, tyi)
-1683 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+1684 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i0) = match
      |         self.walk_array(t, ModuleTransformer::walk_tinstruction, i0) {
@@ -74144,9 +74011,9 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     TBlock(bt, e) => {
      |       let (t, bt) = match self.walk_blocktype(t, bt) {
      |         Ok(None) => (t, bt)
-1704 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+1705 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, e) = match self.walk_texpr(t, e) {
 1708 |         Ok(None) => (t, e)
@@ -74160,9 +74027,9 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     TLoop(bt, e) => {
      |       let (t, bt) = match self.walk_blocktype(t, bt) {
      |         Ok(None) => (t, bt)
-1717 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+1718 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, e) = match self.walk_texpr(t, e) {
 1721 |         Ok(None) => (t, e)
@@ -74176,9 +74043,9 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     TIf(bt, i_if, e_then, e_else_option) => {
      |       let (t, bt) = match self.walk_blocktype(t, bt) {
      |         Ok(None) => (t, bt)
-1730 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+1731 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i_if) = match self.walk_tinstruction(t, i_if) {
      |         Ok(None) => (t, i_if)
@@ -74209,9 +74076,9 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     TTryTable(bt, c, e) => {
      |       let (t, bt) = match self.walk_blocktype(t, bt) {
      |         Ok(None) => (t, bt)
-1757 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+1758 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, c) = match self.walk_array(t, ModuleTransformer::walk_catch, c) {
      |         Ok(None) => (t, c)
@@ -74313,105 +74180,104 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |       }
      |       Ok(Some((t, TInstr::br_table(ls, li, i0, i))))
      |     }
-1846 |     TBrOnNull(li, i0, i) => {
-     |     ^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     TBrOnNull(li, i0, i) => {
      |       let (t, li) = match self.walk_labelidx(t, li) {
      |         Ok(None) => (t, li)
      |         Ok(Some(t)) => t
-     |         Err(t) => return Err(t)
+1850 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
-1852 |       let (t, i0) = match self.walk_tinstruction(t, i0) {
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Ok(None) => (t, i0)
+     |       let (t, i0) = match self.walk_tinstruction(t, i0) {
+1853 |         Ok(None) => (t, i0)
+     |         ^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         Ok(Some(t)) => t
-     |         Err(t) => return Err(t)
+1855 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i) = match
-1858 |         self.walk_array(t, ModuleTransformer::walk_tinstruction, i) {
-     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |         self.walk_array(t, ModuleTransformer::walk_tinstruction, i) {
      |         Ok(None) => (t, i)
-     |         Ok(Some(t)) => t
+1860 |         Ok(Some(t)) => t
+     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
-1863 |       Ok(Some((t, TInstr::br_on_null(li, i0, i))))
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       Ok(Some((t, TInstr::br_on_null(li, i0, i))))
      |     }
-1865 |     TBrOnNonNull(li, i0, i) => {
-     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     TBrOnNonNull(li, i0, i) => {
      |       let (t, li) = match self.walk_labelidx(t, li) {
      |         Ok(None) => (t, li)
      |         Ok(Some(t)) => t
-     |         Err(t) => return Err(t)
+1869 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
-1871 |       let (t, i0) = match self.walk_tinstruction(t, i0) {
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Ok(None) => (t, i0)
+     |       let (t, i0) = match self.walk_tinstruction(t, i0) {
+1872 |         Ok(None) => (t, i0)
+     |         ^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         Ok(Some(t)) => t
-     |         Err(t) => return Err(t)
+1874 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i) = match
-1877 |         self.walk_array(t, ModuleTransformer::walk_tinstruction, i) {
-     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |         self.walk_array(t, ModuleTransformer::walk_tinstruction, i) {
      |         Ok(None) => (t, i)
-     |         Ok(Some(t)) => t
+1879 |         Ok(Some(t)) => t
+     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
-1882 |       Ok(Some((t, TInstr::br_on_non_null(li, i0, i))))
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       Ok(Some((t, TInstr::br_on_non_null(li, i0, i))))
      |     }
-1884 |     TBrOnCast(li, co, ht0, ht1, i0, i) => {
-     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     TBrOnCast(li, co, ht0, ht1, i0, i) => {
      |       let (t, li) = match self.walk_labelidx(t, li) {
      |         Ok(None) => (t, li)
      |         Ok(Some(t)) => t
-     |         Err(t) => return Err(t)
+1888 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
-1890 |       let (t, ht0) = match self.walk_heaptype(t, ht0) {
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       let (t, ht0) = match self.walk_heaptype(t, ht0) {
      |         Ok(None) => (t, ht0)
      |         Ok(Some(t)) => t
-     |         Err(t) => return Err(t)
+1893 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
-1895 |       let (t, ht1) = match self.walk_heaptype(t, ht1) {
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       let (t, ht1) = match self.walk_heaptype(t, ht1) {
      |         Ok(None) => (t, ht1)
      |         Ok(Some(t)) => t
-     |         Err(t) => return Err(t)
+1898 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
-1900 |       let (t, i0) = match self.walk_tinstruction(t, i0) {
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Ok(None) => (t, i0)
+     |       let (t, i0) = match self.walk_tinstruction(t, i0) {
+1901 |         Ok(None) => (t, i0)
+     |         ^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         Ok(Some(t)) => t
-     |         Err(t) => return Err(t)
+1903 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i) = match
-1906 |         self.walk_array(t, ModuleTransformer::walk_tinstruction, i) {
-     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |         self.walk_array(t, ModuleTransformer::walk_tinstruction, i) {
      |         Ok(None) => (t, i)
      |         Ok(Some(t)) => t
-     |         Err(t) => return Err(t)
+1909 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
-1911 |       Ok(Some((t, TInstr::br_on_cast(li, co.0, ht0, co.1, ht1, i0, i))))
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       Ok(Some((t, TInstr::br_on_cast(li, co.0, ht0, co.1, ht1, i0, i))))
      |     }
      |     TBrOnCastFail(li, co, ht0, ht1, i0, i) => {
      |       let (t, li) = match self.walk_labelidx(t, li) {
      |         Ok(None) => (t, li)
-1916 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |         Ok(Some(t)) => t
      |         Err(t) => return Err(t)
      |       }
      |       let (t, ht0) = match self.walk_heaptype(t, ht0) {
      |         Ok(None) => (t, ht0)
-1921 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+1922 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, ht1) = match self.walk_heaptype(t, ht1) {
      |         Ok(None) => (t, ht1)
-1926 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+1927 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i0) = match self.walk_tinstruction(t, i0) {
 1930 |         Ok(None) => (t, i0)
@@ -74423,9 +74289,9 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |       let (t, i) = match
      |         self.walk_array(t, ModuleTransformer::walk_tinstruction, i) {
      |         Ok(None) => (t, i)
-1937 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+1938 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       Ok(Some((t, TInstr::br_on_cast_fail(li, co.0, ht0, co.1, ht1, i0, i))))
      |     }
@@ -74445,9 +74311,9 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |       let (t, vts_option) = if vts_option is Some(vts) {
      |         match self.walk_array(t, ModuleTransformer::walk_valtype, vts) {
      |           Ok(None) => (t, vts_option)
-1957 |           Ok(Some((t, vts))) => (t, Some(vts))
-     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |           Err(t) => return Err(t)
+     |           Ok(Some((t, vts))) => (t, Some(vts))
+1958 |           Err(t) => return Err(t)
+     |           ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         }
      |       } else {
      |         (t, vts_option)
@@ -74493,9 +74359,9 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     TStructNewDefault(ti) => {
      |       let (t, ti) = match self.walk_typeidx(t, ti) {
      |         Ok(None) => (t, ti)
-1999 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+2000 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       Ok(Some((t, TInstr::struct_new_default(ti))))
      |     }
@@ -74534,9 +74400,9 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     TStructGetU(ti, f, i) => {
      |       let (t, ti) = match self.walk_typeidx(t, ti) {
      |         Ok(None) => (t, ti)
-2033 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+2034 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i) = match self.walk_tinstruction(t, i) {
 2037 |         Ok(None) => (t, i)
@@ -74626,15 +74492,15 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     TArrayNewData(ti, di, i0, i1) => {
      |       let (t, ti) = match self.walk_typeidx(t, ti) {
      |         Ok(None) => (t, ti)
-2111 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+2112 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, di) = match self.walk_dataidx(t, di) {
      |         Ok(None) => (t, di)
-2116 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+2117 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i0) = match self.walk_tinstruction(t, i0) {
      |         Ok(None) => (t, i0)
@@ -74653,15 +74519,15 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     TArrayNewElem(ti, ei, i0, i1) => {
      |       let (t, ti) = match self.walk_typeidx(t, ti) {
      |         Ok(None) => (t, ti)
-2134 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+2135 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, ei) = match self.walk_elemidx(t, ei) {
      |         Ok(None) => (t, ei)
-2139 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+2140 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i0) = match self.walk_tinstruction(t, i0) {
      |         Ok(None) => (t, i0)
@@ -74724,9 +74590,9 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     TArrayGetU(ti, i0, i1) => {
      |       let (t, ti) = match self.walk_typeidx(t, ti) {
      |         Ok(None) => (t, ti)
-2193 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+2194 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i0) = match self.walk_tinstruction(t, i0) {
 2197 |         Ok(None) => (t, i0)
@@ -74850,64 +74716,64 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |       }
      |       Ok(Some((t, TInstr::array_copy(ti0, ti1, i0, i1, i2, i3, i4))))
      |     }
-2297 |     TArrayInitData(ti, di, i0, i1, i2, i3) => {
-     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     TArrayInitData(ti, di, i0, i1, i2, i3) => {
      |       let (t, ti) = match self.walk_typeidx(t, ti) {
      |         Ok(None) => (t, ti)
      |         Ok(Some(t)) => t
-     |         Err(t) => return Err(t)
+2301 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
-2303 |       let (t, di) = match self.walk_dataidx(t, di) {
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       let (t, di) = match self.walk_dataidx(t, di) {
      |         Ok(None) => (t, di)
      |         Ok(Some(t)) => t
-     |         Err(t) => return Err(t)
+2306 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
-2308 |       let (t, i0) = match self.walk_tinstruction(t, i0) {
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Ok(None) => (t, i0)
+     |       let (t, i0) = match self.walk_tinstruction(t, i0) {
+2309 |         Ok(None) => (t, i0)
+     |         ^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         Ok(Some(t)) => t
-     |         Err(t) => return Err(t)
+2311 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
-2313 |       let (t, i1) = match self.walk_tinstruction(t, i1) {
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       let (t, i1) = match self.walk_tinstruction(t, i1) {
      |         Ok(None) => (t, i1)
-     |         Ok(Some(t)) => t
+2315 |         Ok(Some(t)) => t
+     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
-2318 |       let (t, i2) = match self.walk_tinstruction(t, i2) {
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       let (t, i2) = match self.walk_tinstruction(t, i2) {
      |         Ok(None) => (t, i2)
-     |         Ok(Some(t)) => t
+2320 |         Ok(Some(t)) => t
+     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
-2323 |       let (t, i3) = match self.walk_tinstruction(t, i3) {
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       let (t, i3) = match self.walk_tinstruction(t, i3) {
      |         Ok(None) => (t, i3)
-     |         Ok(Some(t)) => t
+2325 |         Ok(Some(t)) => t
+     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
-2328 |       Ok(Some((t, TInstr::array_init_data(ti, di, i0, i1, i2, i3))))
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       Ok(Some((t, TInstr::array_init_data(ti, di, i0, i1, i2, i3))))
      |     }
      |     TArrayInitElem(ti, ei, i0, i1, i2, i3) => {
      |       let (t, ti) = match self.walk_typeidx(t, ti) {
      |         Ok(None) => (t, ti)
-2333 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+2334 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, ei) = match self.walk_elemidx(t, ei) {
      |         Ok(None) => (t, ei)
-2338 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+2339 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i0) = match self.walk_tinstruction(t, i0) {
      |         Ok(None) => (t, i0)
-2343 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+2344 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i1) = match self.walk_tinstruction(t, i1) {
      |         Ok(None) => (t, i1)
@@ -74960,9 +74826,9 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     TRefCast(b, ht, i) => {
      |       let (t, ht) = match self.walk_heaptype(t, ht) {
      |         Ok(None) => (t, ht)
-2389 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+2390 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i) = match self.walk_tinstruction(t, i) {
 2393 |         Ok(None) => (t, i)
@@ -74976,9 +74842,9 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     TRefTestDesc(b, ht, i) => {
      |       let (t, ht) = match self.walk_heaptype(t, ht) {
      |         Ok(None) => (t, ht)
-2402 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+2403 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i) = match self.walk_tinstruction(t, i) {
 2406 |         Ok(None) => (t, i)
@@ -74992,9 +74858,9 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     TRefCastDescEq(b, ht, i) => {
      |       let (t, ht) = match self.walk_heaptype(t, ht) {
      |         Ok(None) => (t, ht)
-2415 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+2416 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i) = match self.walk_tinstruction(t, i) {
      |         Ok(None) => (t, i)
@@ -75006,119 +74872,111 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     }
      | 
      |     // === SIMD: Splat (scalar -> v128) ===
-2427 |     TI8x16Splat(i) => {
-     |     ^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     TI8x16Splat(i) => {
      |       let (t, i) = match self.walk_tinstruction(t, i) {
      |         Ok(None) => (t, i)
-     |         Ok(Some(t)) => t
+2430 |         Ok(Some(t)) => t
+     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
-2433 |       Ok(Some((t, TInstr::i8x16_splat(i))))
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       Ok(Some((t, TInstr::i8x16_splat(i))))
      |     }
-2435 |     TI16x8Splat(i) => {
-     |     ^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     TI16x8Splat(i) => {
      |       let (t, i) = match self.walk_tinstruction(t, i) {
      |         Ok(None) => (t, i)
-     |         Ok(Some(t)) => t
+2438 |         Ok(Some(t)) => t
+     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
-2441 |       Ok(Some((t, TInstr::i16x8_splat(i))))
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       Ok(Some((t, TInstr::i16x8_splat(i))))
      |     }
-2443 |     TI32x4Splat(i) => {
-     |     ^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     TI32x4Splat(i) => {
      |       let (t, i) = match self.walk_tinstruction(t, i) {
      |         Ok(None) => (t, i)
-     |         Ok(Some(t)) => t
+2446 |         Ok(Some(t)) => t
+     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
-2449 |       Ok(Some((t, TInstr::i32x4_splat(i))))
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       Ok(Some((t, TInstr::i32x4_splat(i))))
      |     }
-2451 |     TI64x2Splat(i) => {
-     |     ^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     TI64x2Splat(i) => {
      |       let (t, i) = match self.walk_tinstruction(t, i) {
      |         Ok(None) => (t, i)
-     |         Ok(Some(t)) => t
+2454 |         Ok(Some(t)) => t
+     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
-2457 |       Ok(Some((t, TInstr::i64x2_splat(i))))
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       Ok(Some((t, TInstr::i64x2_splat(i))))
      |     }
-2459 |     TF32x4Splat(i) => {
-     |     ^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     TF32x4Splat(i) => {
      |       let (t, i) = match self.walk_tinstruction(t, i) {
      |         Ok(None) => (t, i)
-     |         Ok(Some(t)) => t
+2462 |         Ok(Some(t)) => t
+     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
-2465 |       Ok(Some((t, TInstr::f32x4_splat(i))))
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       Ok(Some((t, TInstr::f32x4_splat(i))))
      |     }
-2467 |     TF64x2Splat(i) => {
-     |     ^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     TF64x2Splat(i) => {
      |       let (t, i) = match self.walk_tinstruction(t, i) {
      |         Ok(None) => (t, i)
-     |         Ok(Some(t)) => t
+2470 |         Ok(Some(t)) => t
+     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
-2473 |       Ok(Some((t, TInstr::f64x2_splat(i))))
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       Ok(Some((t, TInstr::f64x2_splat(i))))
      |     }
      | 
      |     // === SIMD: Extract lane (v128 -> scalar) ===
-2477 |     TExtractLane(op, li, i) => {
-     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     TExtractLane(op, li, i) => {
      |       let (t, op) = match self.walk_extractlaneop(t, op) {
      |         Ok(None) => (t, op)
      |         Ok(Some(t)) => t
-     |         Err(t) => return Err(t)
+2481 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
-2483 |       let (t, li) = match self.walk_laneidx(t, li) {
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       let (t, li) = match self.walk_laneidx(t, li) {
      |         Ok(None) => (t, li)
      |         Ok(Some(t)) => t
-     |         Err(t) => return Err(t)
+2486 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
-2488 |       let (t, i) = match self.walk_tinstruction(t, i) {
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       let (t, i) = match self.walk_tinstruction(t, i) {
      |         Ok(None) => (t, i)
-     |         Ok(Some(t)) => t
+2490 |         Ok(Some(t)) => t
+     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
-2493 |       Ok(Some((t, TInstr::extract_lane(op, li, i))))
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       Ok(Some((t, TInstr::extract_lane(op, li, i))))
      |     }
      | 
      |     // === SIMD: Replace lane (v128, scalar -> v128) ===
-2497 |     TReplaceLane(op, li, i0, i1) => {
-     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     TReplaceLane(op, li, i0, i1) => {
      |       let (t, op) = match self.walk_replacelaneop(t, op) {
      |         Ok(None) => (t, op)
      |         Ok(Some(t)) => t
-     |         Err(t) => return Err(t)
+2501 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
-2503 |       let (t, li) = match self.walk_laneidx(t, li) {
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       let (t, li) = match self.walk_laneidx(t, li) {
      |         Ok(None) => (t, li)
      |         Ok(Some(t)) => t
-     |         Err(t) => return Err(t)
+2506 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
-2508 |       let (t, i0) = match self.walk_tinstruction(t, i0) {
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       let (t, i0) = match self.walk_tinstruction(t, i0) {
      |         Ok(None) => (t, i0)
-     |         Ok(Some(t)) => t
+2510 |         Ok(Some(t)) => t
+     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
-2513 |       let (t, i1) = match self.walk_tinstruction(t, i1) {
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       let (t, i1) = match self.walk_tinstruction(t, i1) {
      |         Ok(None) => (t, i1)
-     |         Ok(Some(t)) => t
+2515 |         Ok(Some(t)) => t
+     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
-2518 |       Ok(Some((t, TInstr::replace_lane(op, li, i0, i1))))
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       Ok(Some((t, TInstr::replace_lane(op, li, i0, i1))))
      |     }
      | 
      |     // === SIMD: Shuffle (v128, v128 -> v128 with 16 lane indices) ===
@@ -75144,99 +75002,98 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     ) => {
      |       let (t, li0) = match self.walk_laneidx(t, li0) {
      |         Ok(None) => (t, li0)
-2544 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |         Ok(Some(t)) => t
      |         Err(t) => return Err(t)
      |       }
      |       let (t, li1) = match self.walk_laneidx(t, li1) {
      |         Ok(None) => (t, li1)
-2549 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+2550 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, li2) = match self.walk_laneidx(t, li2) {
      |         Ok(None) => (t, li2)
-2554 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+2555 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, li3) = match self.walk_laneidx(t, li3) {
      |         Ok(None) => (t, li3)
-2559 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+2560 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, li4) = match self.walk_laneidx(t, li4) {
      |         Ok(None) => (t, li4)
-2564 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+2565 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, li5) = match self.walk_laneidx(t, li5) {
      |         Ok(None) => (t, li5)
-2569 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+2570 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, li6) = match self.walk_laneidx(t, li6) {
      |         Ok(None) => (t, li6)
-2574 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+2575 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, li7) = match self.walk_laneidx(t, li7) {
      |         Ok(None) => (t, li7)
-2579 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+2580 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, li8) = match self.walk_laneidx(t, li8) {
      |         Ok(None) => (t, li8)
-2584 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+2585 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, li9) = match self.walk_laneidx(t, li9) {
      |         Ok(None) => (t, li9)
-2589 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+2590 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, li10) = match self.walk_laneidx(t, li10) {
      |         Ok(None) => (t, li10)
-2594 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+2595 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, li11) = match self.walk_laneidx(t, li11) {
      |         Ok(None) => (t, li11)
-2599 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+2600 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, li12) = match self.walk_laneidx(t, li12) {
      |         Ok(None) => (t, li12)
-2604 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+2605 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, li13) = match self.walk_laneidx(t, li13) {
      |         Ok(None) => (t, li13)
-2609 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+2610 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, li14) = match self.walk_laneidx(t, li14) {
      |         Ok(None) => (t, li14)
-2614 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+2615 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, li15) = match self.walk_laneidx(t, li15) {
      |         Ok(None) => (t, li15)
-2619 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+2620 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i0) = match self.walk_tinstruction(t, i0) {
      |         Ok(None) => (t, i0)
@@ -75264,112 +75121,108 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     }
      | 
      |     // === SIMD: Swizzle (v128, v128 -> v128) ===
-2646 |     TI8x16Swizzle(i0, i1) => {
-     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     TI8x16Swizzle(i0, i1) => {
      |       let (t, i0) = match self.walk_tinstruction(t, i0) {
      |         Ok(None) => (t, i0)
-     |         Ok(Some(t)) => t
+2649 |         Ok(Some(t)) => t
+     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
-2652 |       let (t, i1) = match self.walk_tinstruction(t, i1) {
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       let (t, i1) = match self.walk_tinstruction(t, i1) {
      |         Ok(None) => (t, i1)
-     |         Ok(Some(t)) => t
+2654 |         Ok(Some(t)) => t
+     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
-2657 |       Ok(Some((t, TInstr::i8x16_swizzle(i0, i1))))
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       Ok(Some((t, TInstr::i8x16_swizzle(i0, i1))))
      |     }
-2659 |     TI8x16RelaxedSwizzle(i0, i1) => {
-     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     TI8x16RelaxedSwizzle(i0, i1) => {
      |       let (t, i0) = match self.walk_tinstruction(t, i0) {
      |         Ok(None) => (t, i0)
-     |         Ok(Some(t)) => t
+2662 |         Ok(Some(t)) => t
+     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
-2665 |       let (t, i1) = match self.walk_tinstruction(t, i1) {
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       let (t, i1) = match self.walk_tinstruction(t, i1) {
      |         Ok(None) => (t, i1)
-     |         Ok(Some(t)) => t
+2667 |         Ok(Some(t)) => t
+     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
-2670 |       Ok(Some((t, TInstr::i8x16_relaxed_swizzle(i0, i1))))
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       Ok(Some((t, TInstr::i8x16_relaxed_swizzle(i0, i1))))
      |     }
      | 
      |     // === SIMD: Shift (v128, i32 -> v128) ===
-2674 |     TV128Shift(op, i0, i1) => {
-     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     TV128Shift(op, i0, i1) => {
      |       let (t, op) = match self.walk_v128shiftop(t, op) {
      |         Ok(None) => (t, op)
      |         Ok(Some(t)) => t
-     |         Err(t) => return Err(t)
+2678 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
-2680 |       let (t, i0) = match self.walk_tinstruction(t, i0) {
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       let (t, i0) = match self.walk_tinstruction(t, i0) {
      |         Ok(None) => (t, i0)
-     |         Ok(Some(t)) => t
+2682 |         Ok(Some(t)) => t
+     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
-2685 |       let (t, i1) = match self.walk_tinstruction(t, i1) {
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       let (t, i1) = match self.walk_tinstruction(t, i1) {
      |         Ok(None) => (t, i1)
-     |         Ok(Some(t)) => t
+2687 |         Ok(Some(t)) => t
+     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
-2690 |       Ok(Some((t, TInstr::v128_shift(op, i0, i1))))
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       Ok(Some((t, TInstr::v128_shift(op, i0, i1))))
      |     }
      | 
      |     // === SIMD: Ternary (v128, v128, v128 -> v128) ===
-2694 |     TV128Ternary(op, i0, i1, i2) => {
-     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     TV128Ternary(op, i0, i1, i2) => {
      |       let (t, op) = match self.walk_v128ternaryop(t, op) {
      |         Ok(None) => (t, op)
      |         Ok(Some(t)) => t
-     |         Err(t) => return Err(t)
+2698 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
-2700 |       let (t, i0) = match self.walk_tinstruction(t, i0) {
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       let (t, i0) = match self.walk_tinstruction(t, i0) {
      |         Ok(None) => (t, i0)
-     |         Ok(Some(t)) => t
+2702 |         Ok(Some(t)) => t
+     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
-2705 |       let (t, i1) = match self.walk_tinstruction(t, i1) {
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       let (t, i1) = match self.walk_tinstruction(t, i1) {
      |         Ok(None) => (t, i1)
-     |         Ok(Some(t)) => t
+2707 |         Ok(Some(t)) => t
+     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
-2710 |       let (t, i2) = match self.walk_tinstruction(t, i2) {
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       let (t, i2) = match self.walk_tinstruction(t, i2) {
      |         Ok(None) => (t, i2)
-     |         Ok(Some(t)) => t
+2712 |         Ok(Some(t)) => t
+     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
-2715 |       Ok(Some((t, TInstr::v128_ternary(op, i0, i1, i2))))
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       Ok(Some((t, TInstr::v128_ternary(op, i0, i1, i2))))
      |     }
      | 
      |     // === SIMD: Lane load (v128, addr -> v128) ===
      |     TV128LoadLane(op, ma, li, i0, i1) => {
      |       let (t, op) = match self.walk_v128loadlaneop(t, op) {
      |         Ok(None) => (t, op)
-2722 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+2723 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, ma) = match self.walk_memarg(t, ma) {
      |         Ok(None) => (t, ma)
-2727 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+2728 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, li) = match self.walk_laneidx(t, li) {
      |         Ok(None) => (t, li)
-2732 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+2733 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i0) = match self.walk_tinstruction(t, i0) {
      |         Ok(None) => (t, i0)
@@ -75390,21 +75243,21 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     TV128StoreLane(op, ma, li, i0, i1) => {
      |       let (t, op) = match self.walk_v128storelaneop(t, op) {
      |         Ok(None) => (t, op)
-2752 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+2753 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, ma) = match self.walk_memarg(t, ma) {
      |         Ok(None) => (t, ma)
-2757 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+2758 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, li) = match self.walk_laneidx(t, li) {
      |         Ok(None) => (t, li)
-2762 |         Ok(Some(t)) => t
-     |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Err(t) => return Err(t)
+     |         Ok(Some(t)) => t
+2763 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let (t, i0) = match self.walk_tinstruction(t, i0) {
      |         Ok(None) => (t, i0)
@@ -76296,8 +76149,7 @@ Total: 10980 uncovered line(s) in 96 file(s)
 3524 |         Err(e) => Err(e)
      |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         Ok(None) => self.walk_blocktype_default(t, bt)
-3526 |         ok => ok
-     |         ^^^^^^^^ 	<-- UNCOVERED
+     |         ok => ok
      |       }
      |     None => self.walk_blocktype_default(t, bt)
      |   }
@@ -76374,8 +76226,7 @@ Total: 10980 uncovered line(s) in 96 file(s)
 3590 |         Err(e) => Err(e)
      |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         Ok(None) => Ok(None)
-3592 |         Ok(Some((t, label))) => Ok(Some((t, Catch::all(label))))
-     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |         Ok(Some((t, label))) => Ok(Some((t, Catch::all(label))))
      |       }
      |     CatchAllRef(label) =>
 3595 |       match self.walk_labelidx(t, label) {
@@ -76384,19 +76235,6 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |         Ok(None) => Ok(None)
      |         Ok(Some((t, label))) => Ok(Some((t, Catch::all_ref(label))))
      |       }
-     |   }
-     | }
-     …
-
-     | pub fn[T] ModuleTransformer::walk_laneidx(
-     |   self : ModuleTransformer[T],
-     |   t : T,
-     |   idx : LaneIdx,
-     | ) -> TransformerResult[T, LaneIdx] {
-     |   match self.on_laneidx {
-     |     Some(f) => f(self, t, idx)
-3697 |     None => Ok(None)
-     |     ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |   }
      | }
      …
@@ -76493,8 +76331,7 @@ Total: 10980 uncovered line(s) in 96 file(s)
 3849 |         Err(e) => Err(e)
      |         ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         Ok(None) => Ok(None)
-3851 |         Ok(Some((t, ty))) => Ok(Some((t, HeapType::new(ty))))
-     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |         Ok(Some((t, ty))) => Ok(Some((t, HeapType::new(ty))))
      |       }
      |     _ => Ok(None)
      |   }
@@ -77892,59 +77729,7 @@ Total: 10980 uncovered line(s) in 96 file(s)
      | }
      …
 
-     | pub fn[T] ModuleTransformer::walk_extractlaneop(
-     |   self : ModuleTransformer[T],
-     |   t : T,
-     |   op : ExtractLaneOp,
-     | ) -> TransformerResult[T, ExtractLaneOp] {
-     |   match self.on_extractlaneop {
-     |     Some(f) => f(self, t, op)
-5287 |     None => Ok(None)
-     |     ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |   }
-     | }
-     …
-
-     | pub fn[T] ModuleTransformer::walk_replacelaneop(
-     |   self : ModuleTransformer[T],
-     |   t : T,
-     |   op : ReplaceLaneOp,
-     | ) -> TransformerResult[T, ReplaceLaneOp] {
-     |   match self.on_replacelaneop {
-     |     Some(f) => f(self, t, op)
-5299 |     None => Ok(None)
-     |     ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |   }
-     | }
-     …
-
-     | pub fn[T] ModuleTransformer::walk_v128shiftop(
-     |   self : ModuleTransformer[T],
-     |   t : T,
-     |   op : V128ShiftOp,
-     | ) -> TransformerResult[T, V128ShiftOp] {
-     |   match self.on_v128shiftop {
-     |     Some(f) => f(self, t, op)
-5311 |     None => Ok(None)
-     |     ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |   }
-     | }
-     …
-
-     | pub fn[T] ModuleTransformer::walk_v128ternaryop(
-     |   self : ModuleTransformer[T],
-     |   t : T,
-     |   op : V128TernaryOp,
-     | ) -> TransformerResult[T, V128TernaryOp] {
-     |   match self.on_v128ternaryop {
-     |     Some(f) => f(self, t, op)
-5323 |     None => Ok(None)
-     |     ^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |   }
-     | }
-     …
-
-1328 uncovered line(s) in src/validate/env.mbt:
+1305 uncovered line(s) in src/validate/env.mbt:
 
      | pub fn Env::resolve_subtype(env : Env, idx : TypeIdx) -> SubType? {
      |   match idx {
@@ -78253,14 +78038,13 @@ Total: 10980 uncovered line(s) in 96 file(s)
  793 |       stack.push(TInstr::unary(UnaryOp::i32_trunc_f64u(), op))
      |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |     }
- 795 |     I64ExtendI32S => {
-     |     ^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     I64ExtendI32S => {
      |       let op = match pop(stack) {
      |         Ok(t) => t
-     |         Err(t) => return Err(t)
+ 798 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
- 800 |       stack.push(TInstr::unary(UnaryOp::i64_extend_i32s(), op))
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       stack.push(TInstr::unary(UnaryOp::i64_extend_i32s(), op))
      |     }
  802 |     I64ExtendI32U => {
      |     ^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
@@ -79000,24 +78784,21 @@ Total: 10980 uncovered line(s) in 96 file(s)
 1378 |       stack.push(TInstr::binary(BinaryOp::f64_ge(), lhs, rhs))
      |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |     }
-1380 |     I32Add => {
-     |     ^^^^^^^^^^^ 	<-- UNCOVERED
+     |     I32Add => {
      |       let rhs = match pop(stack) {
      |         Ok(t) => t
      |         Err(t) => return Err(t)
      |       }
-1385 |       let lhs = match pop(stack) {
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       let lhs = match pop(stack) {
      |         Ok(t) => t
      |         Err(t) => return Err(t)
      |       }
-1389 |       stack.push(TInstr::binary(BinaryOp::i32_add(), lhs, rhs))
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       stack.push(TInstr::binary(BinaryOp::i32_add(), lhs, rhs))
      |     }
-1391 |     I32Sub => {
-     |     ^^^^^^^^^^^ 	<-- UNCOVERED
+     |     I32Sub => {
      |       let rhs = match pop(stack) {
-     |         Ok(t) => t
+1393 |         Ok(t) => t
+     |         ^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
 1396 |       let lhs = match pop(stack) {
@@ -79028,10 +78809,10 @@ Total: 10980 uncovered line(s) in 96 file(s)
 1400 |       stack.push(TInstr::binary(BinaryOp::i32_sub(), lhs, rhs))
      |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |     }
-1402 |     I32Mul => {
-     |     ^^^^^^^^^^^ 	<-- UNCOVERED
+     |     I32Mul => {
      |       let rhs = match pop(stack) {
-     |         Ok(t) => t
+1404 |         Ok(t) => t
+     |         ^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
 1407 |       let lhs = match pop(stack) {
@@ -79098,10 +78879,10 @@ Total: 10980 uncovered line(s) in 96 file(s)
 1455 |       stack.push(TInstr::binary(BinaryOp::i32_rem_u(), lhs, rhs))
      |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |     }
-1457 |     I32And => {
-     |     ^^^^^^^^^^^ 	<-- UNCOVERED
+     |     I32And => {
      |       let rhs = match pop(stack) {
-     |         Ok(t) => t
+1459 |         Ok(t) => t
+     |         ^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
 1462 |       let lhs = match pop(stack) {
@@ -79112,10 +78893,10 @@ Total: 10980 uncovered line(s) in 96 file(s)
 1466 |       stack.push(TInstr::binary(BinaryOp::i32_and(), lhs, rhs))
      |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |     }
-1468 |     I32Or => {
-     |     ^^^^^^^^^^ 	<-- UNCOVERED
+     |     I32Or => {
      |       let rhs = match pop(stack) {
-     |         Ok(t) => t
+1470 |         Ok(t) => t
+     |         ^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
 1473 |       let lhs = match pop(stack) {
@@ -79140,10 +78921,10 @@ Total: 10980 uncovered line(s) in 96 file(s)
 1488 |       stack.push(TInstr::binary(BinaryOp::i32_xor(), lhs, rhs))
      |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |     }
-1490 |     I32Shl => {
-     |     ^^^^^^^^^^^ 	<-- UNCOVERED
+     |     I32Shl => {
      |       let rhs = match pop(stack) {
-     |         Ok(t) => t
+1492 |         Ok(t) => t
+     |         ^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
 1495 |       let lhs = match pop(stack) {
@@ -79213,8 +78994,7 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     I64Add => {
      |       let rhs = match pop(stack) {
      |         Ok(t) => t
-1548 |         Err(t) => return Err(t)
-     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |         Err(t) => return Err(t)
      |       }
      |       let lhs = match pop(stack) {
      |         Ok(t) => t
@@ -79223,19 +79003,17 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |       }
      |       stack.push(TInstr::binary(BinaryOp::i64_add(), lhs, rhs))
      |     }
-1556 |     I64Sub => {
-     |     ^^^^^^^^^^^ 	<-- UNCOVERED
+     |     I64Sub => {
      |       let rhs = match pop(stack) {
      |         Ok(t) => t
      |         Err(t) => return Err(t)
      |       }
-1561 |       let lhs = match pop(stack) {
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       let lhs = match pop(stack) {
      |         Ok(t) => t
-     |         Err(t) => return Err(t)
+1563 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
-1565 |       stack.push(TInstr::binary(BinaryOp::i64_sub(), lhs, rhs))
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       stack.push(TInstr::binary(BinaryOp::i64_sub(), lhs, rhs))
      |     }
 1567 |     I64Mul => {
      |     ^^^^^^^^^^^ 	<-- UNCOVERED
@@ -79419,19 +79197,17 @@ Total: 10980 uncovered line(s) in 96 file(s)
 1708 |       stack.push(TInstr::binary(BinaryOp::i64_rotr(), lhs, rhs))
      |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |     }
-1710 |     F32Add => {
-     |     ^^^^^^^^^^^ 	<-- UNCOVERED
+     |     F32Add => {
      |       let rhs = match pop(stack) {
      |         Ok(t) => t
      |         Err(t) => return Err(t)
      |       }
-1715 |       let lhs = match pop(stack) {
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       let lhs = match pop(stack) {
      |         Ok(t) => t
-     |         Err(t) => return Err(t)
+1717 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
-1719 |       stack.push(TInstr::binary(BinaryOp::f32_add(), lhs, rhs))
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       stack.push(TInstr::binary(BinaryOp::f32_add(), lhs, rhs))
      |     }
 1721 |     F32Sub => {
      |     ^^^^^^^^^^^ 	<-- UNCOVERED
@@ -79545,10 +79321,10 @@ Total: 10980 uncovered line(s) in 96 file(s)
 1807 |       stack.push(TInstr::binary(BinaryOp::f64_sub(), lhs, rhs))
      |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |     }
-1809 |     F64Mul => {
-     |     ^^^^^^^^^^^ 	<-- UNCOVERED
+     |     F64Mul => {
      |       let rhs = match pop(stack) {
-     |         Ok(t) => t
+1811 |         Ok(t) => t
+     |         ^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
 1814 |       let lhs = match pop(stack) {
@@ -79620,32 +79396,30 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     Drop => {
      |       let op = match pop(stack) {
      |         Ok(t) => t
-1869 |         Err(t) => return Err(t)
-     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |         Err(t) => return Err(t)
      |       }
      |       stack.push(TInstr::drop(op))
      |     }
      |     LocalSet(idx) => {
      |       let op = match pop(stack) {
      |         Ok(t) => t
-1876 |         Err(t) => return Err(t)
-     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |         Err(t) => return Err(t)
      |       }
      |       stack.push(TInstr::local_set(idx, op))
      |     }
-1880 |     LocalTee(idx) => {
-     |     ^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     LocalTee(idx) => {
      |       let op = match pop(stack) {
-     |         Ok(t) => t
+1882 |         Ok(t) => t
+     |         ^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
 1885 |       stack.push(TInstr::local_tee(idx, op))
      |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |     }
-1887 |     GlobalSet(idx) => {
-     |     ^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     GlobalSet(idx) => {
      |       let op = match pop(stack) {
-     |         Ok(t) => t
+1889 |         Ok(t) => t
+     |         ^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
 1892 |       stack.push(TInstr::global_set(idx, op))
@@ -79747,10 +79521,10 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     }
      | 
      |     // === Loads ===
-1970 |     I32Load(memarg) => {
-     |     ^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     I32Load(memarg) => {
      |       let addr = match pop(stack) {
-     |         Ok(t) => t
+1972 |         Ok(t) => t
+     |         ^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
 1975 |       stack.push(TInstr::load(LoadOp::i32_load(), memarg, addr))
@@ -79938,15 +79712,14 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     }
      | 
      |     // === Stores ===
-2119 |     I32Store(memarg) => {
-     |     ^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     I32Store(memarg) => {
      |       let value = match pop(stack) {
      |         Ok(t) => t
      |         Err(t) => return Err(t)
      |       }
-2124 |       let addr = match pop(stack) {
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Ok(t) => t
+     |       let addr = match pop(stack) {
+2125 |         Ok(t) => t
+     |         ^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
 2128 |       stack.push(TInstr::store(StoreOp::i32_store(), memarg, addr, value))
@@ -80436,8 +80209,7 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     Select(types) => {
      |       let cond = match pop(stack) {
      |         Ok(t) => t
-2516 |         Err(t) => return Err(t)
-     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |         Err(t) => return Err(t)
      |       }
      |       let val2 = match pop(stack) {
      |         Ok(t) => t
@@ -80446,8 +80218,7 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |       }
      |       let val1 = match pop(stack) {
      |         Ok(t) => t
-2524 |         Err(t) => return Err(t)
-     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |         Err(t) => return Err(t)
      |       }
      |       stack.push(TInstr::select(types, cond, val1, val2))
      |     }
@@ -80457,8 +80228,7 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |       let n_inputs = block_type_inputs(bt, env)
      |       let inputs = match pop_n(stack, n_inputs) {
      |         Ok(t) => t
-2534 |         Err(t) => return Err(t)
-     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |         Err(t) => return Err(t)
      |       }
      |       // Create a new stack with inputs for the block body
      |       let body_stack : Array[TInstr] = []
@@ -80496,17 +80266,17 @@ Total: 10980 uncovered line(s) in 96 file(s)
 2565 |       stack.push(TInstr::loop_(bt, TExpr::new(body_stack)))
      |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |     }
-2567 |     If(bt, then_branch, else_branch) => {
-     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     If(bt, then_branch, else_branch) => {
      |       let cond = match pop(stack) {
      |         Ok(t) => t
-     |         Err(t) => return Err(t)
+2570 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
-2572 |       let n_inputs = block_type_inputs(bt, env)
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       let n_inputs = block_type_inputs(bt, env)
      |       let inputs = match pop_n(stack, n_inputs) {
      |         Ok(t) => t
-     |         Err(t) => return Err(t)
+2575 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       let then_stack : Array[TInstr] = []
      |       for input in inputs {
@@ -80514,14 +80284,13 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |         ^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
      |       for instr in then_branch {
-2582 |         match instr_to_tinstr(instr, then_stack, env) {
-     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |         match instr_to_tinstr(instr, then_stack, env) {
      |           Ok(_) => ()
-     |           Err(t) => return Err(t)
+2584 |           Err(t) => return Err(t)
+     |           ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |         }
      |       }
-2587 |       let else_texpr : TExpr? = match else_branch {
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       let else_texpr : TExpr? = match else_branch {
      |         Some(else_instrs) => {
      |           let else_stack : Array[TInstr] = []
      |           for input in inputs {
@@ -80529,20 +80298,18 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |             ^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |           }
      |           for instr in else_instrs {
-2594 |             match instr_to_tinstr(instr, else_stack, env) {
-     |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |             match instr_to_tinstr(instr, else_stack, env) {
      |               Ok(_) => ()
-     |               Err(t) => return Err(t)
+2596 |               Err(t) => return Err(t)
+     |               ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |             }
      |           }
-2599 |           Some(TExpr::new(else_stack))
-     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |           Some(TExpr::new(else_stack))
      |         }
 2601 |         None => None
      |         ^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
-2603 |       stack.push(TInstr::if_(bt, cond, TExpr::new(then_stack), else_texpr))
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       stack.push(TInstr::if_(bt, cond, TExpr::new(then_stack), else_texpr))
      |     }
 2605 |     TryTable(bt, catches, body) => {
      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
@@ -80636,10 +80403,10 @@ Total: 10980 uncovered line(s) in 96 file(s)
 2676 |       stack.push(TInstr::br_table(labels, default, idx, values))
      |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |     }
-2678 |     BrOnNull(label) => {
-     |     ^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     BrOnNull(label) => {
      |       let ref_ = match pop(stack) {
-     |         Ok(t) => t
+2680 |         Ok(t) => t
+     |         ^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
 2683 |       let arity = match env.get_label(label) {
@@ -80655,10 +80422,10 @@ Total: 10980 uncovered line(s) in 96 file(s)
 2691 |       stack.push(TInstr::br_on_null(label, ref_, values))
      |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |     }
-2693 |     BrOnNonNull(label) => {
-     |     ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     BrOnNonNull(label) => {
      |       let ref_ = match pop(stack) {
-     |         Ok(t) => t
+2695 |         Ok(t) => t
+     |         ^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
 2698 |       let arity = match env.get_label(label) {
@@ -80674,10 +80441,10 @@ Total: 10980 uncovered line(s) in 96 file(s)
 2706 |       stack.push(TInstr::br_on_non_null(label, ref_, values))
      |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |     }
-2708 |     BrOnCast(label, castop, ht1, ht2) => {
-     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     BrOnCast(label, castop, ht1, ht2) => {
      |       let ref_ = match pop(stack) {
-     |         Ok(t) => t
+2710 |         Ok(t) => t
+     |         ^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
 2713 |       let arity = match env.get_label(label) {
@@ -80695,10 +80462,10 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |         TInstr::br_on_cast(label, castop.0, ht1, castop.1, ht2, ref_, values),
      |       )
      |     }
-2725 |     BrOnCastFail(label, castop, ht1, ht2) => {
-     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     BrOnCastFail(label, castop, ht1, ht2) => {
      |       let ref_ = match pop(stack) {
-     |         Ok(t) => t
+2727 |         Ok(t) => t
+     |         ^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
 2730 |       let arity = match env.get_label(label) {
@@ -80743,8 +80510,7 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     Call(func_idx) => {
      |       let n_args = match env.funcs.get(func_idx.0.reinterpret_as_int()) {
      |         Some(FuncType(params, _)) => params.length()
-2766 |         None => 0
-     |         ^^^^^^^^^ 	<-- UNCOVERED
+     |         None => 0
      |       }
      |       let args = match pop_n(stack, n_args) {
      |         Ok(t) => t
@@ -80760,16 +80526,13 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |       }
      |       let n_args = match env.resolve_functype(type_idx) {
      |         Some(FuncType(params, _)) => params.length()
-2781 |         None => 0
-     |         ^^^^^^^^^ 	<-- UNCOVERED
+     |         None => 0
      |       }
      |       let args = match pop_n(stack, n_args) {
-2784 |         Ok(t) => t
-     |         ^^^^^^^^^^ 	<-- UNCOVERED
+     |         Ok(t) => t
      |         Err(t) => return Err(t)
      |       }
-2787 |       stack.push(TInstr::call_indirect(type_idx, table_idx, args, idx))
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       stack.push(TInstr::call_indirect(type_idx, table_idx, args, idx))
      |     }
 2789 |     CallRef(type_idx) => {
      |     ^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
@@ -84360,20 +84123,19 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     }
      | 
      |     // === SIMD: Ternary (v128, v128, v128 -> v128) ===
-5650 |     V128Bitselect => {
-     |     ^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     V128Bitselect => {
      |       let c = match pop(stack) {
      |         Ok(t) => t
      |         Err(t) => return Err(t)
      |       }
-5655 |       let v2 = match pop(stack) {
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       let v2 = match pop(stack) {
      |         Ok(t) => t
-     |         Err(t) => return Err(t)
+5657 |         Err(t) => return Err(t)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
      |       }
-5659 |       let v1 = match pop(stack) {
-     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-     |         Ok(t) => t
+     |       let v1 = match pop(stack) {
+5660 |         Ok(t) => t
+     |         ^^^^^^^^^^ 	<-- UNCOVERED
      |         Err(t) => return Err(t)
      |       }
 5663 |       stack.push(
@@ -84597,6 +84359,49 @@ Total: 10980 uncovered line(s) in 96 file(s)
      |     }
      |   }
      |   Ok(())
+     | }
+     …
+
+6 uncovered line(s) in src/validate/env_tests.mbt:
+
+     | fn env_assert_expr_texpr_consistent(
+     |   env : Env,
+     |   init_stack : Array[ValType],
+     |   expr : Expr,
+     | ) -> Unit {
+     |   let texpr = match to_texpr(expr, env) {
+     |     Ok(te) => te
+1006 |     Err(e) => abort("to_texpr failed on shared fixture: \{e}")
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |   }
+     |   let init_state = make_state(env, init_stack)
+     |   let expr_result = Typecheck::typecheck(expr, init_state)
+     |   let texpr_result = Typecheck::typecheck(texpr, init_state)
+     |   match (expr_result, texpr_result) {
+     |     (Ok(st_expr), Ok(st_texpr)) => {
+     |       if st_expr.reachable != st_texpr.reachable {
+1014 |         abort(
+     |         ^^^^^^ 	<-- UNCOVERED
+     |           "reachable mismatch: expr=\{st_expr.reachable}, texpr=\{st_texpr.reachable}",
+     |         )
+     |       }
+     |       if st_expr.stack != st_texpr.stack {
+1019 |         abort("stack mismatch: expr=\{st_expr.stack}, texpr=\{st_texpr.stack}")
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       }
+     |     }
+     |     (Err(e1), Err(e2)) =>
+     |       if e1 != e2 {
+1024 |         abort("error mismatch: expr=\{e1}, texpr=\{e2}")
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |       }
+     |     (Ok(st), Err(e)) =>
+1027 |       abort("expr typecheck passed but texpr failed (\{e}); expr state: \{st}")
+     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |     (Err(e), Ok(st)) =>
+1029 |       abort("expr typecheck failed (\{e}) but texpr passed; texpr state: \{st}")
+     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+     |   }
      | }
      …
 
@@ -86890,7 +86695,7 @@ Total: 10980 uncovered line(s) in 96 file(s)
      | }
      …
 
-579 uncovered line(s) in src/validate/typecheck.mbt:
+563 uncovered line(s) in src/validate/typecheck.mbt:
 
       | pub impl Show for TcState with output(self, logger) {
    10 |   logger.write_string("TcState {\n")
@@ -87106,24 +86911,9 @@ Total: 10980 uncovered line(s) in 96 file(s)
       | }
       …
 
-      | fn typecheck_br(st : TcState, l : LabelIdx) -> TcResult {
-      |   let ts = match st.env.get_label_types(l) {
-      |     None => return Err("invalid label index")
-      |     Some(x) => x
-      |   }
-      |   let st1 = match st.pop_types(ts) {
-  365 |     Err(e) => return Err(e)
-      |     ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-      |     Ok(s) => s
-      |   }
-      |   Ok(st1.set_unreachable())
-      | }
-      …
-
       | fn typecheck_block(st : TcState, bt : BlockType, body : Expr) -> TcResult {
       |   let (params, results) = match st.env.expand_blocktype(bt) {
-  374 |     Err(e) => return Err(e)
-      |     ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+      |     Err(e) => return Err(e)
       |     Ok(x) => x
       |   }
       | 
@@ -87139,21 +86929,18 @@ Total: 10980 uncovered line(s) in 96 file(s)
       |   let env2 = st1.env.with_label(results)
       |   let st_body0 = TcState::{ ..st1, env: env2 }
       |   let st_body = match Typecheck::typecheck(body, st_body0) {
-  389 |     Err(e) => return Err(e)
-      |     ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+      |     Err(e) => return Err(e)
       |     Ok(s) => s
       |   }
       | 
       |   // If reachable, enforce results on top
       |   let st2 = if st_body.reachable {
       |     match st_body.pop_types(results) {
-  396 |       Err(e) => return Err(e)
-      |       ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+      |       Err(e) => return Err(e)
       |       Ok(s) => s
       |     }
       |   } else {
-  400 |     st_body
-      |     ^^^^^^^ 	<-- UNCOVERED
+      |     st_body
       |   }
       | 
       |   // Now drop any extra stack above base_len (polymorphic details omitted for now)
@@ -87177,8 +86964,7 @@ Total: 10980 uncovered line(s) in 96 file(s)
       |   else_instrs_opt : Array[Instruction]?,
       | ) -> TcResult {
       |   let (params, results) = match st.env.expand_blocktype(bt) {
-  423 |     Err(e) => return Err(e)
-      |     ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+      |     Err(e) => return Err(e)
       |     Ok(x) => x
       |   }
       | 
@@ -87226,13 +87012,11 @@ Total: 10980 uncovered line(s) in 96 file(s)
       |         Ok(s) => s
       |       }
       |     } else {
-  467 |       sb
-      |       ^^ 	<-- UNCOVERED
+      |       sb
       |     }
       |     let stack2 = sb2.stack.copy()
       |     while stack2.length() > base_len {
-  471 |       ignore(stack2.pop())
-      |       ^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+      |       ignore(stack2.pop())
       |     }
       |     Ok((sb2.reachable, stack2))
       |   }
@@ -87252,8 +87036,7 @@ Total: 10980 uncovered line(s) in 96 file(s)
       |   let merged_stack = match (then_reach, else_reach) {
       |     (true, true) => {
       |       if then_stack != else_stack {
-  489 |         return Err("if branch stack mismatch")
-      |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+      |         return Err("if branch stack mismatch")
       |       }
       |       then_stack
       |     }
@@ -87280,8 +87063,7 @@ Total: 10980 uncovered line(s) in 96 file(s)
       | 
       |   // Pop condition first
       |   let st1 = match st.pop_expect(ValType::i32()) {
-  515 |     Err(e) => return Err(e)
-      |     ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+      |     Err(e) => return Err(e)
       |     Ok(s) => s
       |   }
       | 
@@ -87300,21 +87082,6 @@ Total: 10980 uncovered line(s) in 96 file(s)
       | 
       |   // Not-taken path continues with the stack after popping only the condition
       |   Ok(st1)
-      | }
-      …
-
-      | fn typecheck_return(st : TcState) -> TcResult {
-      |   let ts = match st.env.return_type {
-  577 |     None => return Err("return used with no function return type in context")
-      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-      |     Some(t) => t
-      |   }
-      |   let st1 = match st.pop_types(ts) {
-  581 |     Err(e) => return Err(e)
-      |     ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-      |     Ok(s) => s
-      |   }
-      |   Ok(st1.set_unreachable())
       | }
       …
 
@@ -87859,8 +87626,7 @@ Total: 10980 uncovered line(s) in 96 file(s)
       |   body : Expr,
       | ) -> TcResult {
       |   let (params, results) = match st.env.expand_blocktype(bt) { // assuming you made it a method
- 1087 |     Err(e) => return Err(e)
-      |     ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+      |     Err(e) => return Err(e)
       |     Ok(x) => x
       |   }
       | 
@@ -88237,8 +88003,7 @@ Total: 10980 uncovered line(s) in 96 file(s)
 
       | fn typecheck_loop(st : TcState, bt : BlockType, body : Expr) -> TcResult {
       |   let (params, results) = match st.env.expand_blocktype(bt) {
- 1430 |     Err(e) => return Err(e)
-      |     ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+      |     Err(e) => return Err(e)
       |     Ok(x) => x
       |   }
       | 
@@ -90090,8 +89855,7 @@ Total: 10980 uncovered line(s) in 96 file(s)
       |       ^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
       | 
       |     // === Nullary ===
- 3223 |     TUnreachable => Ok(TcState::{ ..st, reachable: false })
-      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+      |     TUnreachable => Ok(TcState::{ ..st, reachable: false })
       |     TNop => Ok(st)
       |     TLocalGet(i) => typecheck_local_get(st, i)
       |     TGlobalGet(i) => typecheck_global_get(st, i)
@@ -90452,9 +90216,9 @@ Total: 10980 uncovered line(s) in 96 file(s)
       |         I32RotlOp => typecheck_binary(st2, ValType::i32(), ValType::i32())
       |         I32RotrOp => typecheck_binary(st2, ValType::i32(), ValType::i32())
       |         I64AddOp => typecheck_binary(st2, ValType::i64(), ValType::i64())
- 3539 |         I64SubOp => typecheck_binary(st2, ValType::i64(), ValType::i64())
+      |         I64SubOp => typecheck_binary(st2, ValType::i64(), ValType::i64())
+ 3540 |         I64MulOp => typecheck_binary(st2, ValType::i64(), ValType::i64())
       |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
-      |         I64MulOp => typecheck_binary(st2, ValType::i64(), ValType::i64())
       |         I64DivSOp => typecheck_binary(st2, ValType::i64(), ValType::i64())
       |         I64DivUOp => typecheck_binary(st2, ValType::i64(), ValType::i64())
       |         I64RemSOp => typecheck_binary(st2, ValType::i64(), ValType::i64())
@@ -91144,8 +90908,7 @@ Total: 10980 uncovered line(s) in 96 file(s)
       |         Ok(x) => x
       |       }
       |       let st1 = match st.pop_types(params) {
- 4139 |         Err(e) => return Err(e)
-      |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+      |         Err(e) => return Err(e)
       |         Ok(s) => s
       |       }
       |       let base_len = st1.stack.length()
@@ -91494,25 +91257,25 @@ Total: 10980 uncovered line(s) in 96 file(s)
       |     }
       | 
       |     // === Select ===
- 4449 |     TSelect(ty_opt, cond, t, f) => {
-      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+      |     TSelect(ty_opt, cond, t, f) => {
       |       let st_f = match Typecheck::typecheck(f, st) {
       |         Ok(st) => st
-      |         Err(t) => return Err(t)
+ 4452 |         Err(t) => return Err(t)
+      |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
       |       }
- 4454 |       let st_t = match Typecheck::typecheck(t, st_f) {
-      |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+      |       let st_t = match Typecheck::typecheck(t, st_f) {
       |         Ok(st) => st
-      |         Err(t) => return Err(t)
+ 4456 |         Err(t) => return Err(t)
+      |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
       |       }
- 4458 |       let st_cond = match Typecheck::typecheck(cond, st_t) {
-      |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
+      |       let st_cond = match Typecheck::typecheck(cond, st_t) {
       |         Ok(st) => st
-      |         Err(t) => return Err(t)
+ 4460 |         Err(t) => return Err(t)
+      |         ^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
       |       }
- 4462 |       match ty_opt {
-      |       ^^^^^^^^^^^^^^ 	<-- UNCOVERED
-      |         None => typecheck_select_untyped(st_cond)
+      |       match ty_opt {
+ 4463 |         None => typecheck_select_untyped(st_cond)
+      |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 	<-- UNCOVERED
       |         Some(ts) => typecheck_select_typed(st_cond, ts)
       |       }
       |     }
@@ -97066,4 +96829,4 @@ Total: 10980 uncovered line(s) in 96 file(s)
     | }
     …
 
-Total: 10980 uncovered line(s) in 96 file(s)
+Total: 10901 uncovered line(s) in 97 file(s)

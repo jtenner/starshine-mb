@@ -19,9 +19,9 @@
   - [x] `src/validate/typecheck.mbt`: add negative-path tests for branch/label errors, `expand_blocktype` failures, and unreachable merge normalization.
   - [x] Add regression tests proving typed conversion and typecheck consistency on shared fixtures (`to_texpr` then `Typecheck::typecheck`).
 
-- [ ] P0: Close transformer traversal blind spots.
-  - [ ] `src/transformer/transformer.mbt`: add callback matrix tests for `Ok(None)`, `Ok(Some(...))`, and `Err(...)` across less-used ops (atomics, i31, extern/any converts, `throw_ref`, branch-on-cast variants).
-  - [ ] Add focused tests for index/heaptype remap propagation on nested instructions.
+- [x] P0: Close transformer traversal blind spots.
+  - [x] `src/transformer/transformer.mbt`: add callback matrix tests for `Ok(None)`, `Ok(Some(...))`, and `Err(...)` across less-used ops (atomics, i31, extern/any converts, `throw_ref`, branch-on-cast variants).
+  - [x] Add focused tests for index/heaptype remap propagation on nested instructions.
 
 - [ ] P0: Harden binary codec error handling.
   - [ ] `src/binary/encode.mbt`: cover unsupported encodings (`DefTypeHeapType`, recursive index rejections), section payload error propagation, and LEB max-byte guards.

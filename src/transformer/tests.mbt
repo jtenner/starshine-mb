@@ -939,3 +939,780 @@ test "walk_tinstruction_default forwards index child and heaptype errors" {
     _ => fail("expected rewritten ref.null heap type")
   }
 }
+
+///|
+test "walk_tinstruction callback matrix Ok(None) uses default traversal for less-used variants" {
+  let mut top_level_hits = 0
+  let transformer = ModuleTransformer::new()
+    .on_tinstruction_evt(fn(_, _, instr) {
+      match instr {
+        TMemoryAtomicWait32(_, _, _, _) => top_level_hits += 1
+        TI31GetS(_) => top_level_hits += 1
+        TAnyConvertExtern(_) => top_level_hits += 1
+        TExternConvertAny(_) => top_level_hits += 1
+        TThrowRef(_) => top_level_hits += 1
+        TBrOnCast(_, _, _, _, _, _) => top_level_hits += 1
+        TBrOnCastFail(_, _, _, _, _, _) => top_level_hits += 1
+        _ => ()
+      }
+      unchanged()
+    })
+    .on_memarg_evt(fn(_, _, _) { change((), MemArg::new(2, None, 17)) })
+    .on_localidx_evt(fn(_, _, _) { change((), LocalIdx::new(7)) })
+    .on_heaptype_evt(fn(_, _, _) { change((), HeapType::new(TypeIdx::new(9))) })
+    .on_labelidx_evt(fn(_, _, _) { change((), LabelIdx::new(8)) })
+
+  let rewritten_atomic = match
+    transformer.walk_tinstruction(
+      (),
+      TInstr::memory_atomic_wait32(
+        MemArg::new(0, None, 0),
+        TInstr::local_get(LocalIdx::new(0)),
+        TInstr::i32_const(I32(10)),
+        TInstr::i64_const(I64(11)),
+      ),
+    ) {
+    Ok(Some((_, out))) => out
+    Ok(None) =>
+      fail("expected rewritten memory.atomic.wait32 from callback fallback")
+    Err(e) => fail("unexpected wait32 error: \{e}")
+  }
+  assert_eq(
+    rewritten_atomic,
+    TInstr::memory_atomic_wait32(
+      MemArg::new(2, None, 17),
+      TInstr::local_get(LocalIdx::new(7)),
+      TInstr::i32_const(I32(10)),
+      TInstr::i64_const(I64(11)),
+    ),
+  )
+
+  let rewritten_i31 = match
+    transformer.walk_tinstruction(
+      (),
+      TInstr::i31_get_s(TInstr::local_get(LocalIdx::new(0))),
+    ) {
+    Ok(Some((_, out))) => out
+    Ok(None) => fail("expected rewritten i31.get_s from callback fallback")
+    Err(e) => fail("unexpected i31.get_s error: \{e}")
+  }
+  assert_eq(
+    rewritten_i31,
+    TInstr::i31_get_s(TInstr::local_get(LocalIdx::new(7))),
+  )
+
+  let rewritten_any_convert = match
+    transformer.walk_tinstruction(
+      (),
+      TInstr::any_convert_extern(TInstr::local_get(LocalIdx::new(0))),
+    ) {
+    Ok(Some((_, out))) => out
+    Ok(None) =>
+      fail("expected rewritten any.convert_extern from callback fallback")
+    Err(e) => fail("unexpected any.convert_extern error: \{e}")
+  }
+  assert_eq(
+    rewritten_any_convert,
+    TInstr::any_convert_extern(TInstr::local_get(LocalIdx::new(7))),
+  )
+
+  let rewritten_extern_convert = match
+    transformer.walk_tinstruction(
+      (),
+      TInstr::extern_convert_any(TInstr::local_get(LocalIdx::new(0))),
+    ) {
+    Ok(Some((_, out))) => out
+    Ok(None) =>
+      fail("expected rewritten extern.convert_any from callback fallback")
+    Err(e) => fail("unexpected extern.convert_any error: \{e}")
+  }
+  assert_eq(
+    rewritten_extern_convert,
+    TInstr::extern_convert_any(TInstr::local_get(LocalIdx::new(7))),
+  )
+
+  let rewritten_throw_ref = match
+    transformer.walk_tinstruction(
+      (),
+      TInstr::throw_ref(TInstr::local_get(LocalIdx::new(0))),
+    ) {
+    Ok(Some((_, out))) => out
+    Ok(None) => fail("expected rewritten throw_ref from callback fallback")
+    Err(e) => fail("unexpected throw_ref error: \{e}")
+  }
+  assert_eq(
+    rewritten_throw_ref,
+    TInstr::throw_ref(TInstr::local_get(LocalIdx::new(7))),
+  )
+
+  let rewritten_br_on_cast = match
+    transformer.walk_tinstruction(
+      (),
+      TInstr::br_on_cast(
+        LabelIdx::new(0),
+        false,
+        HeapType::new(TypeIdx::new(1)),
+        true,
+        HeapType::new(TypeIdx::new(2)),
+        TInstr::local_get(LocalIdx::new(0)),
+        [TInstr::local_get(LocalIdx::new(0))],
+      ),
+    ) {
+    Ok(Some((_, out))) => out
+    Ok(None) => fail("expected rewritten br_on_cast from callback fallback")
+    Err(e) => fail("unexpected br_on_cast error: \{e}")
+  }
+  assert_eq(
+    rewritten_br_on_cast,
+    TInstr::br_on_cast(
+      LabelIdx::new(8),
+      false,
+      HeapType::new(TypeIdx::new(9)),
+      true,
+      HeapType::new(TypeIdx::new(9)),
+      TInstr::local_get(LocalIdx::new(7)),
+      [TInstr::local_get(LocalIdx::new(7))],
+    ),
+  )
+
+  let rewritten_br_on_cast_fail = match
+    transformer.walk_tinstruction(
+      (),
+      TInstr::br_on_cast_fail(
+        LabelIdx::new(1),
+        true,
+        HeapType::new(TypeIdx::new(3)),
+        false,
+        HeapType::new(TypeIdx::new(4)),
+        TInstr::local_get(LocalIdx::new(0)),
+        [TInstr::local_get(LocalIdx::new(0))],
+      ),
+    ) {
+    Ok(Some((_, out))) => out
+    Ok(None) =>
+      fail("expected rewritten br_on_cast_fail from callback fallback")
+    Err(e) => fail("unexpected br_on_cast_fail error: \{e}")
+  }
+  assert_eq(
+    rewritten_br_on_cast_fail,
+    TInstr::br_on_cast_fail(
+      LabelIdx::new(8),
+      true,
+      HeapType::new(TypeIdx::new(9)),
+      false,
+      HeapType::new(TypeIdx::new(9)),
+      TInstr::local_get(LocalIdx::new(7)),
+      [TInstr::local_get(LocalIdx::new(7))],
+    ),
+  )
+
+  assert_eq(top_level_hits, 7)
+}
+
+///|
+test "walk_tinstruction callback matrix Ok(Some) short-circuits less-used variants" {
+  let mut top_level_hits = 0
+  let transformer = ModuleTransformer::new()
+    .on_tinstruction_evt(fn(_, _, instr) {
+      match instr {
+        TMemoryAtomicNotify(_, _, _) => {
+          top_level_hits += 1
+          change((), TInstr::nop())
+        }
+        TI31GetU(_) => {
+          top_level_hits += 1
+          change((), TInstr::nop())
+        }
+        TAnyConvertExtern(_) => {
+          top_level_hits += 1
+          change((), TInstr::nop())
+        }
+        TExternConvertAny(_) => {
+          top_level_hits += 1
+          change((), TInstr::nop())
+        }
+        TThrowRef(_) => {
+          top_level_hits += 1
+          change((), TInstr::nop())
+        }
+        TBrOnCast(_, _, _, _, _, _) => {
+          top_level_hits += 1
+          change((), TInstr::nop())
+        }
+        TBrOnCastFail(_, _, _, _, _, _) => {
+          top_level_hits += 1
+          change((), TInstr::nop())
+        }
+        _ => unchanged()
+      }
+    })
+    .on_memarg_evt(fn(_, _, _) {
+      error("memarg hook should not run when on_tinstruction returns Some")
+    })
+    .on_localidx_evt(fn(_, _, _) {
+      error("localidx hook should not run when on_tinstruction returns Some")
+    })
+    .on_heaptype_evt(fn(_, _, _) {
+      error("heaptype hook should not run when on_tinstruction returns Some")
+    })
+    .on_labelidx_evt(fn(_, _, _) {
+      error("labelidx hook should not run when on_tinstruction returns Some")
+    })
+
+  let rewrites = [
+    transformer.walk_tinstruction(
+      (),
+      TInstr::memory_atomic_notify(
+        MemArg::new(0, None, 0),
+        TInstr::local_get(LocalIdx::new(0)),
+        TInstr::i32_const(I32(1)),
+      ),
+    ),
+    transformer.walk_tinstruction(
+      (),
+      TInstr::i31_get_u(TInstr::local_get(LocalIdx::new(0))),
+    ),
+    transformer.walk_tinstruction(
+      (),
+      TInstr::any_convert_extern(TInstr::local_get(LocalIdx::new(0))),
+    ),
+    transformer.walk_tinstruction(
+      (),
+      TInstr::extern_convert_any(TInstr::local_get(LocalIdx::new(0))),
+    ),
+    transformer.walk_tinstruction(
+      (),
+      TInstr::throw_ref(TInstr::local_get(LocalIdx::new(0))),
+    ),
+    transformer.walk_tinstruction(
+      (),
+      TInstr::br_on_cast(
+        LabelIdx::new(0),
+        false,
+        HeapType::new(TypeIdx::new(1)),
+        true,
+        HeapType::new(TypeIdx::new(2)),
+        TInstr::local_get(LocalIdx::new(0)),
+        [TInstr::local_get(LocalIdx::new(0))],
+      ),
+    ),
+    transformer.walk_tinstruction(
+      (),
+      TInstr::br_on_cast_fail(
+        LabelIdx::new(1),
+        true,
+        HeapType::new(TypeIdx::new(3)),
+        false,
+        HeapType::new(TypeIdx::new(4)),
+        TInstr::local_get(LocalIdx::new(0)),
+        [TInstr::local_get(LocalIdx::new(0))],
+      ),
+    ),
+  ]
+  for result in rewrites {
+    match result {
+      Ok(Some((_, out))) => assert_eq(out, TInstr::nop())
+      Ok(None) => fail("expected direct on_tinstruction rewrite result")
+      Err(e) => fail("unexpected short-circuit rewrite error: \{e}")
+    }
+  }
+  assert_eq(top_level_hits, 7)
+}
+
+///|
+test "walk_tinstruction callback matrix Err propagates on less-used variants" {
+  let transformer = ModuleTransformer::new().on_tinstruction_evt(fn(
+    _,
+    _,
+    instr,
+  ) {
+    match instr {
+      TMemoryAtomicNotify(_, _, _) => error("matrix atomic err")
+      TI31GetU(_) => error("matrix i31 err")
+      TAnyConvertExtern(_) => error("matrix any err")
+      TExternConvertAny(_) => error("matrix extern err")
+      TThrowRef(_) => error("matrix throw_ref err")
+      TBrOnCast(_, _, _, _, _, _) => error("matrix br_on_cast err")
+      TBrOnCastFail(_, _, _, _, _, _) => error("matrix br_on_cast_fail err")
+      _ => unchanged()
+    }
+  })
+
+  match
+    transformer.walk_tinstruction(
+      (),
+      TInstr::memory_atomic_notify(
+        MemArg::new(0, None, 0),
+        TInstr::local_get(LocalIdx::new(0)),
+        TInstr::i32_const(I32(1)),
+      ),
+    ) {
+    Err(msg) => assert_eq(msg, "matrix atomic err")
+    _ => fail("expected matrix atomic error")
+  }
+  match
+    transformer.walk_tinstruction(
+      (),
+      TInstr::i31_get_u(TInstr::local_get(LocalIdx::new(0))),
+    ) {
+    Err(msg) => assert_eq(msg, "matrix i31 err")
+    _ => fail("expected matrix i31 error")
+  }
+  match
+    transformer.walk_tinstruction(
+      (),
+      TInstr::any_convert_extern(TInstr::local_get(LocalIdx::new(0))),
+    ) {
+    Err(msg) => assert_eq(msg, "matrix any err")
+    _ => fail("expected matrix any error")
+  }
+  match
+    transformer.walk_tinstruction(
+      (),
+      TInstr::extern_convert_any(TInstr::local_get(LocalIdx::new(0))),
+    ) {
+    Err(msg) => assert_eq(msg, "matrix extern err")
+    _ => fail("expected matrix extern error")
+  }
+  match
+    transformer.walk_tinstruction(
+      (),
+      TInstr::throw_ref(TInstr::local_get(LocalIdx::new(0))),
+    ) {
+    Err(msg) => assert_eq(msg, "matrix throw_ref err")
+    _ => fail("expected matrix throw_ref error")
+  }
+  match
+    transformer.walk_tinstruction(
+      (),
+      TInstr::br_on_cast(
+        LabelIdx::new(0),
+        false,
+        HeapType::new(TypeIdx::new(1)),
+        true,
+        HeapType::new(TypeIdx::new(2)),
+        TInstr::local_get(LocalIdx::new(0)),
+        [TInstr::local_get(LocalIdx::new(0))],
+      ),
+    ) {
+    Err(msg) => assert_eq(msg, "matrix br_on_cast err")
+    _ => fail("expected matrix br_on_cast error")
+  }
+  match
+    transformer.walk_tinstruction(
+      (),
+      TInstr::br_on_cast_fail(
+        LabelIdx::new(1),
+        true,
+        HeapType::new(TypeIdx::new(3)),
+        false,
+        HeapType::new(TypeIdx::new(4)),
+        TInstr::local_get(LocalIdx::new(0)),
+        [TInstr::local_get(LocalIdx::new(0))],
+      ),
+    ) {
+    Err(msg) => assert_eq(msg, "matrix br_on_cast_fail err")
+    _ => fail("expected matrix br_on_cast_fail error")
+  }
+}
+
+///|
+test "walk_tinstruction remaps nested index and heaptype values in branch payloads" {
+  let mut heaptype_hits = 0
+  let transformer = ModuleTransformer::new()
+    .on_heaptype_evt(fn(_, _, _) {
+      heaptype_hits += 1
+      unchanged()
+    })
+    .on_typeidx_evt(fn(_, _, _) { change((), TypeIdx::new(20)) })
+    .on_labelidx_evt(fn(_, _, idx) {
+      let LabelIdx(i) = idx
+      change((), LabelIdx::new(i + 10U))
+    })
+    .on_elemidx_evt(fn(_, _, idx) {
+      let ElemIdx(i) = idx
+      change((), ElemIdx::new(i + 30U))
+    })
+    .on_localidx_evt(fn(_, _, idx) {
+      let LocalIdx(i) = idx
+      change((), LocalIdx::new(i + 40U))
+    })
+
+  let nested = TInstr::block(
+    BlockType::void_(),
+    TExpr::new([
+      TInstr::br_on_cast(
+        LabelIdx::new(0),
+        false,
+        HeapType::new(TypeIdx::new(1)),
+        true,
+        HeapType::new(TypeIdx::new(2)),
+        TInstr::local_get(LocalIdx::new(0)),
+        [
+          TInstr::ref_cast_desc_eq(
+            true,
+            HeapType::new(TypeIdx::new(3)),
+            TInstr::ref_null(HeapType::new(TypeIdx::new(4))),
+          ),
+        ],
+      ),
+      TInstr::br_on_cast_fail(
+        LabelIdx::new(1),
+        true,
+        HeapType::new(TypeIdx::new(5)),
+        false,
+        HeapType::new(TypeIdx::new(6)),
+        TInstr::local_get(LocalIdx::new(1)),
+        [
+          TInstr::array_init_elem(
+            TypeIdx::new(7),
+            ElemIdx::new(8),
+            TInstr::local_get(LocalIdx::new(2)),
+            TInstr::i32_const(I32(1)),
+            TInstr::i32_const(I32(2)),
+            TInstr::i32_const(I32(3)),
+          ),
+        ],
+      ),
+    ]),
+  )
+  let rewritten = match transformer.walk_tinstruction((), nested) {
+    Ok(Some((_, out))) => out
+    Ok(None) => fail("expected nested remap rewrite")
+    Err(e) => fail("unexpected nested remap error: \{e}")
+  }
+
+  let expected = TInstr::block(
+    BlockType::void_(),
+    TExpr::new([
+      TInstr::br_on_cast(
+        LabelIdx::new(10),
+        false,
+        HeapType::new(TypeIdx::new(20)),
+        true,
+        HeapType::new(TypeIdx::new(20)),
+        TInstr::local_get(LocalIdx::new(40)),
+        [
+          TInstr::ref_cast_desc_eq(
+            true,
+            HeapType::new(TypeIdx::new(20)),
+            TInstr::ref_null(HeapType::new(TypeIdx::new(20))),
+          ),
+        ],
+      ),
+      TInstr::br_on_cast_fail(
+        LabelIdx::new(11),
+        true,
+        HeapType::new(TypeIdx::new(20)),
+        false,
+        HeapType::new(TypeIdx::new(20)),
+        TInstr::local_get(LocalIdx::new(41)),
+        [
+          TInstr::array_init_elem(
+            TypeIdx::new(20),
+            ElemIdx::new(38),
+            TInstr::local_get(LocalIdx::new(42)),
+            TInstr::i32_const(I32(1)),
+            TInstr::i32_const(I32(2)),
+            TInstr::i32_const(I32(3)),
+          ),
+        ],
+      ),
+    ]),
+  )
+  assert_eq(rewritten, expected)
+  assert_eq(heaptype_hits, 6)
+}
+
+///|
+test "walk_tinstruction remaps nested branch-on-cast-fail inside wrappers" {
+  let transformer = ModuleTransformer::new()
+    .on_labelidx_evt(fn(_, _, idx) {
+      let LabelIdx(i) = idx
+      change((), LabelIdx::new(i + 2U))
+    })
+    .on_typeidx_evt(fn(_, _, _) { change((), TypeIdx::new(3)) })
+    .on_localidx_evt(fn(_, _, idx) {
+      let LocalIdx(i) = idx
+      change((), LocalIdx::new(i + 4U))
+    })
+
+  let wrapped = TInstr::drop(
+    TInstr::br_on_cast_fail(
+      LabelIdx::new(0),
+      false,
+      HeapType::new(TypeIdx::new(1)),
+      true,
+      HeapType::new(TypeIdx::new(2)),
+      TInstr::local_get(LocalIdx::new(0)),
+      [
+        TInstr::local_get(LocalIdx::new(1)),
+        TInstr::ref_test_desc(
+          true,
+          HeapType::new(TypeIdx::new(3)),
+          TInstr::local_get(LocalIdx::new(2)),
+        ),
+      ],
+    ),
+  )
+  let rewritten = match transformer.walk_tinstruction((), wrapped) {
+    Ok(Some((_, out))) => out
+    Ok(None) => fail("expected nested wrapper rewrite")
+    Err(e) => fail("unexpected nested wrapper error: \{e}")
+  }
+
+  let expected = TInstr::drop(
+    TInstr::br_on_cast_fail(
+      LabelIdx::new(2),
+      false,
+      HeapType::new(TypeIdx::new(3)),
+      true,
+      HeapType::new(TypeIdx::new(3)),
+      TInstr::local_get(LocalIdx::new(4)),
+      [
+        TInstr::local_get(LocalIdx::new(5)),
+        TInstr::ref_test_desc(
+          true,
+          HeapType::new(TypeIdx::new(3)),
+          TInstr::local_get(LocalIdx::new(6)),
+        ),
+      ],
+    ),
+  )
+  assert_eq(rewritten, expected)
+}
+
+///|
+fn transformer_tinstruction_corpus() -> Array[TInstr] {
+  let memarg = MemArg::new(0, None, 0)
+  let ht0 = HeapType::new(TypeIdx::new(0))
+  let ht1 = HeapType::new(TypeIdx::new(1))
+  let i0 = TInstr::local_get(LocalIdx::new(0))
+  let i1 = TInstr::i32_const(I32(1))
+  let i2 = TInstr::i32_const(I32(2))
+  let i3 = TInstr::i32_const(I32(3))
+  let i4 = TInstr::i32_const(I32(4))
+  let i64v = TInstr::i64_const(I64(5))
+  let v0 = TInstr::v128_const(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+  let v1 = TInstr::v128_const(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1)
+  [
+    TInstr::unreachable_(),
+    TInstr::nop(),
+    TInstr::ref_null(ht0),
+    TInstr::ref_func(FuncIdx::new(0)),
+    TInstr::v128_const(9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9),
+    TInstr::local_get(LocalIdx::new(0)),
+    TInstr::global_get(GlobalIdx::new(0)),
+    TInstr::memory_size(MemIdx::new(0)),
+    TInstr::table_size(TableIdx::new(0)),
+    TInstr::unary(UnaryOp::i32_eqz(), i1),
+    TInstr::drop(i1),
+    TInstr::local_set(LocalIdx::new(0), i1),
+    TInstr::local_tee(LocalIdx::new(0), i1),
+    TInstr::global_set(GlobalIdx::new(0), i1),
+    TInstr::ref_is_null(i0),
+    TInstr::ref_as_non_null(i0),
+    TInstr::i31_get_s(i1),
+    TInstr::i31_get_u(i1),
+    TInstr::ref_i31(i1),
+    TInstr::array_len(i0),
+    TInstr::any_convert_extern(i0),
+    TInstr::extern_convert_any(i0),
+    TInstr::throw_ref(i0),
+    TInstr::binary(BinaryOp::i32_add(), i1, i2),
+    TInstr::ref_eq(i0, i0),
+    TInstr::store(StoreOp::i32_store(), memarg, i1, i2),
+    TInstr::load(LoadOp::i32_load(), memarg, i1),
+    TInstr::memory_grow(MemIdx::new(0), i1),
+    TInstr::memory_fill(MemIdx::new(0), i1, i2, i3),
+    TInstr::memory_copy(MemIdx::new(0), MemIdx::new(1), i1, i2, i3),
+    TInstr::memory_init(DataIdx::new(0), MemIdx::new(0), i1, i2, i3),
+    TInstr::data_drop(DataIdx::new(0)),
+    TInstr::memory_atomic_notify(memarg, i1, i2),
+    TInstr::memory_atomic_wait32(memarg, i1, i2, i64v),
+    TInstr::memory_atomic_wait64(memarg, i1, i64v, i64v),
+    TInstr::atomic_fence(),
+    TInstr::atomic_cmpxchg(AtomicCmpxchgOp::i32(), memarg, i1, i2, i3),
+    TInstr::table_get(TableIdx::new(0), i1),
+    TInstr::table_set(TableIdx::new(0), i1, i2),
+    TInstr::table_grow(TableIdx::new(0), i1, i2),
+    TInstr::table_fill(TableIdx::new(0), i1, i2, i3),
+    TInstr::table_copy(TableIdx::new(0), TableIdx::new(1), i1, i2, i3),
+    TInstr::table_init(ElemIdx::new(0), TableIdx::new(0), i1, i2, i3),
+    TInstr::elem_drop(ElemIdx::new(0)),
+    TInstr::call(FuncIdx::new(0), [i1, i2]),
+    TInstr::call_indirect(TypeIdx::new(0), TableIdx::new(0), [i1], i0),
+    TInstr::call_ref(TypeIdx::new(0), [i1], i0),
+    TInstr::return_call(FuncIdx::new(0), [i1, i2]),
+    TInstr::return_call_indirect(TypeIdx::new(0), TableIdx::new(0), [i1], i0),
+    TInstr::return_call_ref(TypeIdx::new(0), [i1], i0),
+    TInstr::block(BlockType::void_(), TExpr::new([i1])),
+    TInstr::loop_(BlockType::void_(), TExpr::new([i1])),
+    TInstr::if_(
+      BlockType::void_(),
+      i1,
+      TExpr::new([i2]),
+      Some(TExpr::new([i3])),
+    ),
+    TInstr::try_table(
+      BlockType::void_(),
+      [
+        Catch::new(TagIdx::new(0), LabelIdx::new(0)),
+        Catch::all(LabelIdx::new(1)),
+      ],
+      TExpr::new([TInstr::nop()]),
+    ),
+    TInstr::throw_(TagIdx::new(0), [i1, i2]),
+    TInstr::br(LabelIdx::new(0), [i1]),
+    TInstr::br_if(LabelIdx::new(0), i1, [i2]),
+    TInstr::br_table(
+      [LabelIdx::new(0), LabelIdx::new(1)],
+      LabelIdx::new(2),
+      i1,
+      [i2],
+    ),
+    TInstr::br_on_null(LabelIdx::new(0), i0, [i1]),
+    TInstr::br_on_non_null(LabelIdx::new(0), i0, [i1]),
+    TInstr::br_on_cast(LabelIdx::new(0), false, ht0, true, ht1, i0, [i1]),
+    TInstr::br_on_cast_fail(LabelIdx::new(0), true, ht1, false, ht0, i0, [i1]),
+    TInstr::return_([i1, i2]),
+    TInstr::select(Some([ValType::i32()]), i1, i2, i3),
+    TInstr::select(None, i1, i2, i3),
+    TInstr::struct_new(TypeIdx::new(0), [i1, i2]),
+    TInstr::struct_new_default(TypeIdx::new(0)),
+    TInstr::struct_get(TypeIdx::new(0), 0, i0),
+    TInstr::struct_get_s(TypeIdx::new(0), 1, i0),
+    TInstr::struct_get_u(TypeIdx::new(0), 2, i0),
+    TInstr::struct_set(TypeIdx::new(0), 0, i0, i1),
+    TInstr::array_new(TypeIdx::new(0), i1, i2),
+    TInstr::array_new_default(TypeIdx::new(0), i1),
+    TInstr::array_new_fixed(TypeIdx::new(0), [i1, i2]),
+    TInstr::array_new_data(TypeIdx::new(0), DataIdx::new(0), i1, i2),
+    TInstr::array_new_elem(TypeIdx::new(0), ElemIdx::new(0), i1, i2),
+    TInstr::array_get(TypeIdx::new(0), i0, i1),
+    TInstr::array_get_s(TypeIdx::new(0), i0, i1),
+    TInstr::array_get_u(TypeIdx::new(0), i0, i1),
+    TInstr::array_set(TypeIdx::new(0), i0, i1, i2),
+    TInstr::array_fill(TypeIdx::new(0), i0, i1, i2, i3),
+    TInstr::array_copy(TypeIdx::new(0), TypeIdx::new(1), i0, i1, i2, i3, i4),
+    TInstr::array_init_data(TypeIdx::new(0), DataIdx::new(0), i0, i1, i2, i3),
+    TInstr::array_init_elem(TypeIdx::new(0), ElemIdx::new(0), i0, i1, i2, i3),
+    TInstr::ref_get_desc(i0),
+    TInstr::ref_test(true, ht0, i0),
+    TInstr::ref_cast(true, ht1, i0),
+    TInstr::ref_test_desc(false, ht1, i0),
+    TInstr::ref_cast_desc_eq(false, ht0, i0),
+    TInstr::i8x16_splat(i1),
+    TInstr::i16x8_splat(i1),
+    TInstr::i32x4_splat(i1),
+    TInstr::i64x2_splat(i64v),
+    TInstr::f32x4_splat(i1),
+    TInstr::f64x2_splat(i64v),
+    TInstr::extract_lane(
+      ExtractLaneOp::i8x16_extract_lane_s(),
+      LaneIdx::new(0),
+      v0,
+    ),
+    TInstr::replace_lane(
+      ReplaceLaneOp::i8x16_replace_lane(),
+      LaneIdx::new(0),
+      v0,
+      i1,
+    ),
+    TInstr::i8x16_shuffle(
+      LaneIdx::new(0),
+      LaneIdx::new(1),
+      LaneIdx::new(2),
+      LaneIdx::new(3),
+      LaneIdx::new(4),
+      LaneIdx::new(5),
+      LaneIdx::new(6),
+      LaneIdx::new(7),
+      LaneIdx::new(8),
+      LaneIdx::new(9),
+      LaneIdx::new(10),
+      LaneIdx::new(11),
+      LaneIdx::new(12),
+      LaneIdx::new(13),
+      LaneIdx::new(14),
+      LaneIdx::new(15),
+      v0,
+      v1,
+    ),
+    TInstr::i8x16_swizzle(v0, v1),
+    TInstr::i8x16_relaxed_swizzle(v0, v1),
+    TInstr::v128_shift(V128ShiftOp::i8x16_shl(), v0, i1),
+    TInstr::v128_ternary(V128TernaryOp::v128_bitselect(), v0, v1, v0),
+    TInstr::v128_load_lane(
+      V128LoadLaneOp::v128_load8_lane(),
+      memarg,
+      LaneIdx::new(0),
+      i1,
+      v0,
+    ),
+    TInstr::v128_store_lane(
+      V128StoreLaneOp::v128_store8_lane(),
+      memarg,
+      LaneIdx::new(1),
+      i1,
+      v0,
+    ),
+  ]
+}
+
+///|
+test "walk_tinstruction traverses broad constructor corpus without remaps" {
+  let transformer = ModuleTransformer::new()
+  for instr in transformer_tinstruction_corpus() {
+    match transformer.walk_tinstruction((), instr) {
+      Ok(_) => ()
+      Err(e) => fail("unexpected corpus traversal error: \{e}")
+    }
+  }
+}
+
+///|
+test "walk_tinstruction traverses broad constructor corpus with remap hooks" {
+  let transformer = ModuleTransformer::new()
+    .on_funcidx_evt(fn(_, _, _) { change((), FuncIdx::new(1)) })
+    .on_typeidx_evt(fn(_, _, _) { change((), TypeIdx::new(2)) })
+    .on_localidx_evt(fn(_, _, _) { change((), LocalIdx::new(3)) })
+    .on_globalidx_evt(fn(_, _, _) { change((), GlobalIdx::new(4)) })
+    .on_tableidx_evt(fn(_, _, _) { change((), TableIdx::new(5)) })
+    .on_memidx_evt(fn(_, _, _) { change((), MemIdx::new(6)) })
+    .on_labelidx_evt(fn(_, _, _) { change((), LabelIdx::new(7)) })
+    .on_dataidx_evt(fn(_, _, _) { change((), DataIdx::new(8)) })
+    .on_elemidx_evt(fn(_, _, _) { change((), ElemIdx::new(9)) })
+    .on_tagidx_evt(fn(_, _, _) { change((), TagIdx::new(10)) })
+    .on_laneidx_evt(fn(_, _, _) { change((), LaneIdx::new(11)) })
+    .on_unaryop_evt(fn(_, _, _) { change((), UnaryOp::i32_eqz()) })
+    .on_binaryop_evt(fn(_, _, _) { change((), BinaryOp::i32_add()) })
+    .on_storeop_evt(fn(_, _, _) { change((), StoreOp::i32_store()) })
+    .on_loadop_evt(fn(_, _, _) { change((), LoadOp::i32_load()) })
+    .on_extractlaneop_evt(fn(_, _, _) {
+      change((), ExtractLaneOp::i8x16_extract_lane_s())
+    })
+    .on_replacelaneop_evt(fn(_, _, _) {
+      change((), ReplaceLaneOp::i8x16_replace_lane())
+    })
+    .on_v128shiftop_evt(fn(_, _, _) { change((), V128ShiftOp::i8x16_shl()) })
+    .on_v128ternaryop_evt(fn(_, _, _) {
+      change((), V128TernaryOp::v128_bitselect())
+    })
+    .on_v128loadlaneop_evt(fn(_, _, _) {
+      change((), V128LoadLaneOp::v128_load8_lane())
+    })
+    .on_v128storelaneop_evt(fn(_, _, _) {
+      change((), V128StoreLaneOp::v128_store8_lane())
+    })
+    .on_memarg_evt(fn(_, _, _) { change((), MemArg::new(1, None, 1)) })
+    .on_heaptype_evt(fn(_, _, _) { change((), HeapType::new(TypeIdx::new(12))) })
+    .on_valtype_evt(fn(_, _, _) { change((), ValType::i32()) })
+    .on_blocktype_evt(fn(_, _, _) { change((), BlockType::void_()) })
+  for instr in transformer_tinstruction_corpus() {
+    match transformer.walk_tinstruction((), instr) {
+      Ok(_) => ()
+      Err(e) => fail("unexpected remap corpus traversal error: \{e}")
+    }
+  }
+}
