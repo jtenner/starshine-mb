@@ -227,7 +227,7 @@ Scope notes:
 
 - [x] `Flatten`
 - [x] `TupleOptimization`
-- [ ] `TypeGeneralizing`
+- [x] `TypeGeneralizing`
 - [ ] `TypeMerging`
 - [ ] `TypeFinalizing`
 - [ ] `Unsubtyping`

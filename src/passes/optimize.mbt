@@ -22,6 +22,7 @@ pub(all) enum ModulePass {
   SimplifyGlobalsOptimizing
   PropagateGlobalsGlobally
   TypeRefining
+  TypeGeneralizing
   Heap2Local
   HeapStoreOptimization
   Inlining
@@ -198,6 +199,7 @@ fn module_pass_context_kind(pass : ModulePass) -> SchedulerPassContextKind {
     | GlobalStructInferenceDescCast
     | GlobalTypeOptimization
     | TypeRefining
+    | TypeGeneralizing
     | Inlining
     | InliningOptimizing
     | InlineMain
@@ -437,6 +439,8 @@ fn run_module_runner_scheduler_pass(
       apply_module_runner_pass(mod, fn(mod) { global_type_optimization(mod) })
     TypeRefining =>
       apply_module_runner_pass(mod, fn(mod) { type_refining(mod) })
+    TypeGeneralizing =>
+      apply_module_runner_pass(mod, fn(mod) { type_generalizing(mod) })
     Inlining =>
       apply_module_runner_pass(mod, fn(mod) { inlining(mod, options, false) })
     InliningOptimizing =>
@@ -815,6 +819,22 @@ fn opt_scheduler_denan_dispatch_module() -> Module {
   let nan = @lib.F32(Float::reinterpret_from_uint(nan_bits))
   Module::new().with_code_sec(
     CodeSec::new([Func::t_func([], TExpr::new([TInstr::f32_const(nan)]))]),
+  )
+}
+
+///|
+fn opt_scheduler_type_generalizing_dispatch_module() -> Module {
+  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  Module::new()
+  .with_type_sec(TypeSec::new([t_void]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [ValType::ref_null(HeapType::new(TypeIdx::new(0)))],
+        TExpr::new([TInstr::nop()]),
+      ),
+    ]),
   )
 }
 
@@ -1481,6 +1501,7 @@ test "optimize scheduler classifies module pass context kinds" {
     assert_pass_context_kind(DeadCodeElimination, UnitTransformerPass),
   )
   assert_true(assert_pass_context_kind(DeNaN, ModuleRunnerPass))
+  assert_true(assert_pass_context_kind(TypeGeneralizing, ModuleRunnerPass))
 }
 
 ///|
@@ -1552,6 +1573,20 @@ test "optimize_module dispatches DeNaN through module-runner kind" {
   match optimized.code_sec {
     Some(CodeSec([TFunc(_, TExpr([TF32Const(F32(v))]))])) => assert_eq(v, 0.0)
     _ => fail("expected DeNaN to sanitize NaN constants via module-runner path")
+  }
+}
+
+///|
+test "optimize_module dispatches TypeGeneralizing through module-runner kind" {
+  assert_true(assert_pass_context_kind(TypeGeneralizing, ModuleRunnerPass))
+  let mod = opt_scheduler_type_generalizing_dispatch_module()
+  let optimized = match optimize_module(mod, [TypeGeneralizing]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc([vt], _)])) => assert_eq(vt, ValType::funcref())
+    _ => fail("expected TypeGeneralizing to run through module-runner dispatch")
   }
 }
 

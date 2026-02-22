@@ -24,6 +24,7 @@ using @lib {
   type I64,
   type F32,
   type F64,
+  type U32,
   type FuncIdx,
   type TableIdx,
   type TypeIdx,
