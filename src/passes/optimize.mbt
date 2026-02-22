@@ -34,6 +34,7 @@ pub(all) enum ModulePass {
   MergeSimilarFunctions
   MergeBlocks
   Flatten
+  TupleOptimization
   OnceReduction
   Asyncify(AsyncifyPassProps)
   MinimizeRecGroups
@@ -287,6 +288,8 @@ fn run_ir_context_transformer_scheduler_pass(
     MergeBlocks =>
       apply_ir_transformer_pass(ctx, mod, merge_blocks_ir_pass(mod, options~))
     Flatten => apply_ir_transformer_pass(ctx, mod, flatten_ir_pass(mod))
+    TupleOptimization =>
+      apply_ir_transformer_pass(ctx, mod, tuple_optimization_ir_pass(mod))
     OptimizeAddedConstants =>
       apply_ir_transformer_pass(
         ctx,
@@ -644,8 +647,7 @@ pub fn default_function_optimization_passes(
   }
   if has_multivalue {
     // Binaryen parity mode: tuple-optimization.
-    // Reuse SSA dataflow simplification as the current tuple-aware fallback.
-    passes.push(DataflowOptimization)
+    passes.push(TupleOptimization)
   }
   passes.push(SimplifyLocalsNoStructure)
   passes.push(Vacuum)
@@ -1076,15 +1078,24 @@ test "default function optimization passes map tuple-optimization mode for multi
   assert_eq(
     default_count_module_passes(passes, fn(pass) {
       match pass {
-        DataflowOptimization => true
+        TupleOptimization => true
         _ => false
       }
     }),
     1,
   )
-  let tuple_mode_idx = default_first_module_pass_index(passes, fn(pass) {
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        DataflowOptimization => true
+        _ => false
+      }
+    }),
+    0,
+  )
+  let tuple_opt_idx = default_first_module_pass_index(passes, fn(pass) {
     match pass {
-      DataflowOptimization => true
+      TupleOptimization => true
       _ => false
     }
   })
@@ -1096,9 +1107,9 @@ test "default function optimization passes map tuple-optimization mode for multi
       _ => false
     }
   })
-  assert_true(tuple_mode_idx >= 0)
+  assert_true(tuple_opt_idx >= 0)
   assert_true(simplify_no_structure_idx >= 0)
-  assert_true(tuple_mode_idx < simplify_no_structure_idx)
+  assert_true(tuple_opt_idx < simplify_no_structure_idx)
 }
 
 ///|

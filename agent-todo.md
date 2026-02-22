@@ -226,7 +226,7 @@ Scope notes:
 #### 4.1 High Priority (General-Purpose Optimization / Canonicalization)
 
 - [x] `Flatten`
-- [ ] `TupleOptimization`
+- [x] `TupleOptimization`
 - [ ] `TypeGeneralizing`
 - [ ] `TypeMerging`
 - [ ] `TypeFinalizing`

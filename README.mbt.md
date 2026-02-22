@@ -123,7 +123,7 @@ Current parity-mode mappings in this scheduler are:
 - `ssa-nomerge` -> `DataflowOptimization`
 - `flatten` -> `Flatten`
 - `rereloop` -> early `MergeBlocks`
-- `tuple-optimization` -> `DataflowOptimization` (when multivalue signatures are present)
+- `tuple-optimization` -> `TupleOptimization` (when multivalue signatures are present)
 
 ```mbt
 using @lib { type Module }
