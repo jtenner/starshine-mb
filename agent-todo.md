@@ -197,5 +197,83 @@
 - [ ] JS Test Failure: [jtenner/starshine] test passes/de_nan.mbt:1597 ("is_f32_nan correctly identifies NaN") failed: passes/de_nan.mbt:1600:3-1600:66@jtenner/starshine FAILED: Should detect quiet NaN
 - [ ] JS Test Failure: [jtenner/starshine] test passes/de_nan.mbt:1610 ("is_f32_nan correctly rejects non-NaN") failed: passes/de_nan.mbt:1611:3-1611:63@jtenner/starshine FAILED: 0.0 is not NaN
 
+### 4) Binaryen Pass Parity Triage (Unimplemented Passes Only)
+
+Scope notes:
+- Implemented passes are intentionally omitted from this list.
+- On-demand SSA/CFG/meta passes are intentionally ignored: `SSAify`, `TypeSSA`.
+
+#### 4.1 High Priority (General-Purpose Optimization / Canonicalization)
+
+- [ ] `Flatten`
+- [ ] `TupleOptimization`
+- [ ] `TypeGeneralizing`
+- [ ] `TypeMerging`
+- [ ] `TypeFinalizing`
+- [ ] `Unsubtyping`
+- [ ] `GlobalEffects`
+- [ ] `Poppify`
+- [ ] `ReReloop`
+- [ ] `Outlining`
+
+#### 4.2 Medium Priority (Useful, But More Situational or Feature-Lowering)
+
+- [ ] `DeAlign`
+- [ ] `EncloseWorld`
+- [ ] `ExtractFunction`
+- [ ] `FuncCastEmulation`
+- [ ] `GenerateDynCalls`
+- [ ] `LimitSegments`
+- [ ] `Memory64Lowering`
+- [ ] `MultiMemoryLowering`
+- [ ] `NoInline`
+- [ ] `RemoveImports`
+- [ ] `RemoveMemoryInit`
+- [ ] `RemoveRelaxedSIMD`
+- [ ] `SafeHeap`
+- [ ] `SeparateDataSegments`
+- [ ] `SetGlobals`
+- [ ] `SignExtLowering`
+- [ ] `Souperify`
+- [ ] `SpillPointers`
+- [ ] `StringLifting`
+- [ ] `StringLowering`
+- [ ] `StripEH`
+- [ ] `TranslateEH`
+- [ ] `TrapMode`
+- [ ] `MinifyImportsAndExports`
+
+#### 4.3 Low Priority (Tooling, Instrumentation, Platform-Specific, or Binaryen-Specific)
+
+- [ ] `DWARF`
+- [ ] `DebugLocationPropagation`
+- [ ] `InstrumentBranchHints`
+- [ ] `InstrumentLocals`
+- [ ] `InstrumentMemory`
+- [ ] `Intrinsics`
+- [ ] `J2CLItableMerging`
+- [ ] `J2CLOpts`
+- [ ] `LLVMMemoryCopyFillLowering`
+- [ ] `LLVMNontrappingFPToIntLowering`
+- [ ] `LegalizeJSInterface`
+- [ ] `LogExecution`
+- [ ] `Metrics`
+- [ ] `NameList`
+- [ ] `NameTypes`
+- [ ] `OptimizeForJS`
+- [ ] `PostEmscripten`
+- [ ] `Print`
+- [ ] `PrintCallGraph`
+- [ ] `PrintFeatures`
+- [ ] `PrintFunctionMap`
+- [ ] `RandomizeBranchHints`
+- [ ] `RemoveNonJSOps`
+- [ ] `RoundTrip`
+- [ ] `StackCheck`
+- [ ] `Strip`
+- [ ] `StripTargetFeatures`
+- [ ] `StripToolchainAnnotations`
+- [ ] `TraceCalls`
+
 ---
 Completed items are intentionally removed to keep this backlog actionable.
