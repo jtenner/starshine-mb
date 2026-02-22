@@ -172,13 +172,6 @@
 
 ### 2.6 Roadmap & Next Steps (High Impact: Project Momentum)
 
-- [ ] Build a tiny CLI (`moonbit-wasm`) with subcommands:
-  - [ ] `wat2wasm`
-  - [ ] `wasm2wat`
-  - [ ] `opt --inline --dce`
-  - [ ] `--validate`
-  - Effort: `2–3 hours`
-  - Rationale: Dogfoods and demonstrates the project.
 - [ ] Implement one real optimizer pass using transformer (constant folding + DCE).
   - Effort: `1–2 hours`
   - Rationale: Validates architecture with practical results.
@@ -189,6 +182,33 @@
 - [ ] Run and adapt the official WASM spec test suite in MoonBit pipeline.
   - Effort: `2 hours`
   - Rationale: Highest-confidence compatibility validation.
+
+### 2.7 CLI Feature Plan (High Priority)
+
+- [ ] P0: Implement local `Glob` matcher and expansion utility (no external dependency).
+  - [ ] Support wildcard and recursive matching needed by CLI input globs.
+  - [ ] Add deterministic ordering and stable duplicate handling.
+  - [ ] Add focused tests for edge cases and cross-platform path normalization.
+- [ ] Define CLI input source handling for file types: `wasm`, `wat`, `wast`.
+- [ ] Support stdin input with explicit `--format` (`wasm|wat|wast`).
+- [ ] Support positional input file arguments as globs.
+- [ ] Support config-driven input via `--config` / `-c "config.json"`.
+  - [ ] Publish a public JSON config schema for CLI config files.
+  - [ ] Use default config path `starshine.config.json` when no config path is provided.
+- [ ] Support env-driven input via `STARSHINE_INPUT` (comma-separated globs).
+- [ ] Support stdout output via `--stdout` / `-s`.
+- [ ] Support single-file output via `--out` / `-o "file"`.
+- [ ] Support directory output via `--out-dir` / `-d "dir"` (reuse input basename, change extension).
+- [ ] Allow multiple output targets in one run (for example stdout + file + dir).
+- [ ] Add one long-form kebab-case flag per pass.
+  - [ ] Example: `--validate`
+  - [ ] Example: `--souperfy`
+  - [ ] Example: `--abstract-type-refining`
+- [ ] Enforce pass execution order from flag order on the command line.
+- [ ] Add basic optimize presets that run optimization passes first.
+  - [ ] `--optimize` (basic optimization profile aligned with Binaryen defaults)
+  - [ ] `--shrink` (basic size-optimization profile aligned with Binaryen defaults)
+  - [ ] Support C-compiler-style optimization flags (for example `-O3z`).
 
 ### 3) Compatibility Improvements
 
