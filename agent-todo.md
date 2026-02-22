@@ -190,5 +190,12 @@
   - Effort: `2 hours`
   - Rationale: Highest-confidence compatibility validation.
 
+### 3) Compatibility Improvements
+
+- [ ] JS Test Failure: [jtenner/starshine] test ir/ssa_optimize_tests.mbt:428 ("eval_ssa_unary i64 trunc_f32 handles values beyond i32 width") failed: ir/ssa_optimize_tests.mbt:431:3-434:4@jtenner/starshine FAILED: `Some(LitI64(3000000000)) != Some(LitI64(3000000000))`
+- [ ] JS Test Failure: [jtenner/starshine] test ir/ssa_optimize_tests.mbt:492 ("eval_ssa_unary float-to-int trunc bound and trap parity checks") failed: ir/ssa_optimize_tests.mbt:531:3-534:4@jtenner/starshine FAILED: `Some(LitI64(9007199254740991)) != Some(LitI64(9007199254740991))`
+- [ ] JS Test Failure: [jtenner/starshine] test passes/de_nan.mbt:1597 ("is_f32_nan correctly identifies NaN") failed: passes/de_nan.mbt:1600:3-1600:66@jtenner/starshine FAILED: Should detect quiet NaN
+- [ ] JS Test Failure: [jtenner/starshine] test passes/de_nan.mbt:1610 ("is_f32_nan correctly rejects non-NaN") failed: passes/de_nan.mbt:1611:3-1611:63@jtenner/starshine FAILED: 0.0 is not NaN
+
 ---
 Completed items are intentionally removed to keep this backlog actionable.
