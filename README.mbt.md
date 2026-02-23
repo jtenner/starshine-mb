@@ -11,6 +11,7 @@ The optimizer is organized around `ModulePass` scheduling in `src/passes/optimiz
 - Threads proposal atomics: atomic memory ops (`memory.atomic.notify`, `memory.atomic.wait32/64`, `atomic.fence`, `atomic.rmw.*`, `atomic.rmw*.cmpxchg`) are supported across `lib`, `binary`, `validate`, `ir`, and `transformer`.
 - Asyncify: staged transform with runtime state/data globals and import/global modes for integration styles.
 - SIMD, exceptions, tables/memory/data/tag sections: represented throughout model + parser/validator + binary support.
+- Binary section framing parity: `StartSec`, `CodeSec`, and `DataCntSec` are encoded as canonical wasm sections (`id + payload_len + payload`) and decoded with strict payload-boundary checks.
 
 ## Project Layout
 - `src/lib`: core Wasm model (`Module`, sections, `Instruction`, `TInstr`, utility constructors/traits).

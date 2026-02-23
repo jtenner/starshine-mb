@@ -12,6 +12,8 @@ pub fn cli_config_schema_json() -> String
 
 pub fn expand_globs(Array[String], Array[String]) -> Array[String]
 
+pub fn expand_globs_with_adapter(Array[String], () -> Array[String]) -> Array[String]
+
 pub fn glob_match(String, String) -> Bool
 
 pub fn infer_input_format(String) -> CliInputFormat?
@@ -21,6 +23,8 @@ pub fn normalize_cli_path(String) -> String
 pub fn parse_cli_args(Array[String], starshine_input? : String?) -> Result[CliParseResult, CliParseError]
 
 pub fn parse_starshine_input_env(String?) -> Array[String]
+
+pub fn resolve_pass_flags(CliParseResult) -> Array[String]
 
 // Errors
 

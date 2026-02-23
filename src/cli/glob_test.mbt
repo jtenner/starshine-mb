@@ -49,3 +49,19 @@ test "expand_globs keeps first-match stability while deduplicating overlaps" {
   ])
   assert_eq(out, ["src/a.wasm", "src/b.wasm", "src/c.wasm", "src/nested/z.wasm"])
 }
+
+///|
+test "expand_globs_with_adapter expands matches from filesystem candidates" {
+  let out = expand_globs_with_adapter(["src/**/*.wasm"], fn() {
+    ["src\\\\b.wasm", "src/a.wat", "src/nested/c.wasm", "src/b.wasm"]
+  })
+  assert_eq(out, ["src/b.wasm", "src/nested/c.wasm"])
+}
+
+///|
+test "expand_globs_with_adapter preserves first-pattern match order semantics" {
+  let out = expand_globs_with_adapter(["src/*.wasm", "src/**/*.wasm"], fn() {
+    ["src/c.wasm", "src/nested/z.wasm", "src/a.wasm", "src/b.wasm"]
+  })
+  assert_eq(out, ["src/a.wasm", "src/b.wasm", "src/c.wasm", "src/nested/z.wasm"])
+}

@@ -507,6 +507,76 @@ test "to_texpr return recovers multi-value typed if producer" {
 }
 
 ///|
+test "to_texpr return recovers multi-value typed loop producer" {
+  let env = Env::new()
+    .with_rectype(
+      RecType::new(
+        SubType::comp_type(CompType::func([], [ValType::i32(), ValType::i64()])),
+      ),
+    )
+    .with_return_type(Some([ValType::i32(), ValType::i64()]))
+  let expr = Expr::new([
+    Instruction::loop_(
+      BlockType::type_idx(TypeIdx::new(0)),
+      Expr::new([
+        Instruction::i32_const(I32(21)),
+        Instruction::i64_const(I64(22L)),
+      ]),
+    ),
+    Instruction::return_(),
+  ])
+  match to_texpr(expr, env) {
+    Err(e) => fail("unexpected to_texpr failure: \{e}")
+    Ok(TExpr(instrs)) => {
+      assert_eq(instrs.length(), 1)
+      match instrs[0] {
+        TReturn([TLoop(bt, TExpr(values))]) => {
+          assert_eq(bt, BlockType::type_idx(TypeIdx::new(0)))
+          assert_eq(values.length(), 2)
+        }
+        _ => fail("expected return carrying one typed loop producer")
+      }
+    }
+  }
+}
+
+///|
+test "to_texpr return recovers multi-value typed try_table producer" {
+  let env = Env::new()
+    .with_rectype(
+      RecType::new(
+        SubType::comp_type(CompType::func([], [ValType::i32(), ValType::i64()])),
+      ),
+    )
+    .with_return_type(Some([ValType::i32(), ValType::i64()]))
+  let expr = Expr::new([
+    Instruction::try_table(
+      BlockType::type_idx(TypeIdx::new(0)),
+      [],
+      Expr::new([
+        Instruction::i32_const(I32(31)),
+        Instruction::i64_const(I64(32L)),
+      ]),
+    ),
+    Instruction::return_(),
+  ])
+  match to_texpr(expr, env) {
+    Err(e) => fail("unexpected to_texpr failure: \{e}")
+    Ok(TExpr(instrs)) => {
+      assert_eq(instrs.length(), 1)
+      match instrs[0] {
+        TReturn([TTryTable(bt, catches, TExpr(values))]) => {
+          assert_eq(bt, BlockType::type_idx(TypeIdx::new(0)))
+          assert_eq(catches.length(), 0)
+          assert_eq(values.length(), 2)
+        }
+        _ => fail("expected return carrying one typed try_table producer")
+      }
+    }
+  }
+}
+
+///|
 test "Env.resolve_heaptype_subtype projects DefType heap types" {
   let st = SubType::comp_type(CompType::struct_([]))
   let dt = DefType::new(RecType::new(st), 0)

@@ -741,8 +741,8 @@ pub impl Encode for Export with encode(val, buf) {
 
 ///|
 pub impl Encode for StartSec with encode(val, buf) {
-  buf.write_byte(0x08)
-  Encode::encode(val.0, buf)
+  // Canonical section framing: id + payload_len + payload.
+  write_section(8, buf, fn(payload) { Encode::encode(val.0, payload) })
 }
 
 ///|
@@ -836,8 +836,8 @@ pub impl Encode for Elem with encode(val, buf) {
 ///|
 pub impl Encode for CodeSec with encode(val, buf) {
   let CodeSec(fns) = val
-  buf.write_byte(0x0A)
-  Encode::encode(fns, buf)
+  // Canonical section framing: id + payload_len + payload.
+  write_section(10, buf, fn(payload) { Encode::encode(fns, payload) })
 }
 
 ///|
@@ -911,11 +911,8 @@ pub impl Encode for Locals with encode(val, buf) {
 ///|
 pub impl Encode for DataCntSec with encode(val, buf) {
   let DataCntSec(count) = val
-  buf.write_byte(12)
-  if Encode::encode(count, buf) is Err(t) {
-    return Err(t)
-  }
-  Ok(())
+  // Canonical section framing: id + payload_len + payload.
+  write_section(12, buf, fn(payload) { Encode::encode(count, payload) })
 }
 
 ///|

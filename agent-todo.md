@@ -1,5 +1,9 @@
 # Agent Tasks
 
+## Blockers
+
+- None currently.
+
 ## Audit Snapshot (2026-02-23)
 
 - `moon check`: `Finished. moon: no work to do`
@@ -23,14 +27,14 @@
 
 ## Low Hanging Fruit
 
-- [ ] Add scheduler-level regression coverage for `default_global_optimization_pre_passes` to assert `AbstractTypeRefiningPassProps.traps_never_happen` is sourced from `OptimizeOptions`.
-- [ ] Extend `to_texpr` multi-value return-recovery tests for typed `loop` and `try_table` producers.
-- [ ] Add preset expansion semantics and tests proving optimize presets run before explicitly listed pass flags.
-- [ ] Add filesystem adapter tests for glob expansion once runtime integration layer is introduced.
-- [ ] Document and/or align non-standard section payload-length encoding for `StartSec`/`CodeSec`/`DataCntSec`.
-  - [ ] Add explicit codec tests and parity note if the current encoding shape is intentional.
-- [ ] Use `@moonbitlang/coreFixedArray` for fixed 16-lane shuffle data.
-- [ ] Add `derive(Show, Debug, Eq)` across structs/enums where missing.
+- [x] Add scheduler-level regression coverage for `default_global_optimization_pre_passes` to assert `AbstractTypeRefiningPassProps.traps_never_happen` is sourced from `OptimizeOptions`.
+- [x] Extend `to_texpr` multi-value return-recovery tests for typed `loop` and `try_table` producers.
+- [x] Add preset expansion semantics and tests proving optimize presets run before explicitly listed pass flags.
+- [x] Add filesystem adapter tests for glob expansion once runtime integration layer is introduced.
+- [x] Document and/or align non-standard section payload-length encoding for `StartSec`/`CodeSec`/`DataCntSec`.
+  - [x] Add explicit codec tests and parity note if the current encoding shape is intentional.
+- [x] Use `@moonbitlang/coreFixedArray` for fixed 16-lane shuffle data.
+- [x] Add `derive(Show, Debug, Eq)` across structs/enums where missing.
 
 ## High Priority
 
@@ -44,6 +48,9 @@
 ### CLI Pipeline Completion
 
 - [ ] Wire parsed pass flags and optimize presets into concrete optimizer pipeline scheduling (`ModulePass`) with strict unknown-pass diagnostics.
+  - [ ] Consume `resolve_pass_flags(...)` output in CLI execution path and translate preset markers to concrete scheduler pipelines.
+  - [ ] Hook `expand_globs_with_adapter(...)` into the eventual runtime filesystem input-expansion path.
+  - [ ] Decide and codify duplicate handling when preset-expanded passes overlap explicit pass flags (preserve repeats vs dedupe), with regression tests.
 - [ ] Implement JSON config file loading/validation and precedence merge (`CLI args > env > config defaults`) on top of current schema.
 
 ### Multi-Value and Trap-Mode Safety

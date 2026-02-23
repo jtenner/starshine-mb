@@ -142,6 +142,28 @@ test "parse_cli_args parses optimize presets and -O flags" {
 }
 
 ///|
+test "resolve_pass_flags expands optimize presets before explicit pass flags" {
+  let parsed = parse_ok([
+    "--validate", "--code-folding", "--optimize", "--shrink", "--vacuum",
+  ])
+  assert_eq(resolve_pass_flags(parsed), [
+    "optimize", "shrink", "validate", "code-folding", "vacuum",
+  ])
+}
+
+///|
+test "resolve_pass_flags keeps explicit pass order when no presets are set" {
+  let parsed = parse_ok(["--vacuum", "--code-folding", "--validate"])
+  assert_eq(resolve_pass_flags(parsed), ["vacuum", "code-folding", "validate"])
+}
+
+///|
+test "resolve_pass_flags ignores -O level flags for preset pass expansion" {
+  let parsed = parse_ok(["-O3z", "--flatten"])
+  assert_eq(resolve_pass_flags(parsed), ["flatten"])
+}
+
+///|
 test "parse_cli_args rejects invalid -O flag" {
   assert_eq(
     parse_err(["-Ozz"]),

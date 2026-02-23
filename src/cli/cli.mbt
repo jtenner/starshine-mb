@@ -579,3 +579,19 @@ pub fn parse_cli_args(
   }
   Ok(parsed)
 }
+
+///|
+pub fn resolve_pass_flags(parsed : CliParseResult) -> Array[String] {
+  let resolved = Array::new()
+  for flag in parsed.optimize_flags {
+    match flag {
+      OptimizePreset => resolved.push("optimize")
+      ShrinkPreset => resolved.push("shrink")
+      OLevel(_, _) => ()
+    }
+  }
+  for flag in parsed.pass_flags {
+    resolved.push(flag)
+  }
+  resolved
+}

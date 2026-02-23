@@ -212,3 +212,11 @@ pub fn expand_globs(
   }
   out
 }
+
+///|
+pub fn expand_globs_with_adapter(
+  patterns : Array[String],
+  list_candidates : () -> Array[String],
+) -> Array[String] {
+  expand_globs(patterns, list_candidates())
+}

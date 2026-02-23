@@ -625,6 +625,36 @@ fn[T : Decode] decode_section_vector_payload(
 }
 
 ///|
+fn[T : Decode] decode_section_payload(
+  bytes : Bytes,
+  i : Int,
+  section_id : Byte,
+) -> Result[(T, Int), BinaryDecodeError] {
+  if bytes.get(i) != Some(section_id) {
+    return Err(BinaryDecodeError::InvalidSectionHeader)
+  }
+  let (@lib.U32(len_u), payload_start) = match Decode::decode(bytes, i + 1) {
+    Ok(t) => t
+    Err(t) => return Err(t)
+  }
+  let len = len_u.reinterpret_as_int()
+  let payload_end = payload_start + len
+  if payload_end > bytes.length() {
+    return Err(BinaryDecodeError::SectionPayloadLengthOutOfRange)
+  }
+  let payload = bytes[payload_start:payload_end].to_bytes()
+  let (content, consumed) = match Decode::decode(payload, 0) {
+    Ok(t) => t
+    Err(t) => return Err(t)
+  }
+  if consumed == len {
+    Ok((content, payload_end))
+  } else {
+    Err(BinaryDecodeError::InvalidSectionPayloadTrailingBytes)
+  }
+}
+
+///|
 fn decode_custom_sections(
   bytes : Bytes,
   i : Int,
@@ -1011,11 +1041,11 @@ pub impl Decode for ElemSec with decode(bytes, i) {
 
 ///|
 pub impl Decode for DataCntSec with decode(bytes, i) {
-  if bytes.get(i) != Some(12) {
-    return Err(BinaryDecodeError::InvalidSectionHeader)
-  }
-  match Decode::decode(bytes, i + 1) {
-    Ok((@lib.U32(count), i)) => Ok((DataCntSec::new(count), i))
+  match
+    (
+      decode_section_payload(bytes, i, 12) :
+      Result[(@lib.U32, Int), BinaryDecodeError]) {
+    Ok((count, i)) => Ok((DataCntSec::new(count), i))
     Err(t) => Err(t)
   }
 }
@@ -1050,11 +1080,8 @@ pub impl Decode for Func with decode(bytes, i) {
 
 ///|
 pub impl Decode for CodeSec with decode(bytes, i) {
-  if bytes.get(i) != Some(10) {
-    return Err(BinaryDecodeError::InvalidSectionHeader)
-  }
-  match Decode::decode(bytes, i + 1) {
-    Ok((funcs, i)) => Ok((CodeSec::new(funcs), i))
+  match decode_section_vector_payload(bytes, i, 10) {
+    Ok((funcs, next)) => Ok((CodeSec::new(funcs), next))
     Err(t) => Err(t)
   }
 }
@@ -1432,12 +1459,12 @@ pub impl Decode for ExportSec with decode(bytes, i) {
 
 ///|
 pub impl Decode for StartSec with decode(bytes, i) {
-  if bytes.get(i) != Some(8) {
-    return Err(BinaryDecodeError::InvalidSectionHeader)
-  }
-  match Decode::decode(bytes, i + 1) {
+  match
+    (
+      decode_section_payload(bytes, i, 8) :
+      Result[(FuncIdx, Int), BinaryDecodeError]) {
+    Ok((idx, next)) => Ok((StartSec::new(idx), next))
     Err(t) => Err(t)
-    Ok((idx, i)) => Ok((StartSec::new(idx), i))
   }
 }
 
@@ -1521,6 +1548,48 @@ pub impl Decode for MemArg with decode(bytes, i) {
     Err(t) => Err(t)
     _ => Err(BinaryDecodeError::InvalidMemArg)
   }
+}
+
+///|
+fn decode_i8x16_shuffle_lanes(
+  bytes : Bytes,
+  i : Int,
+) -> Result[(FixedArray[LaneIdx], Int), BinaryDecodeError] {
+  let lanes : FixedArray[LaneIdx] = FixedArray::make(16, LaneIdx::new(0))
+  let mut next = i
+  for lane_i in 0..<16 {
+    match
+      (Decode::decode(bytes, next) : Result[(LaneIdx, Int), BinaryDecodeError]) {
+      Ok((lane, consumed)) => {
+        lanes[lane_i] = lane
+        next = consumed
+      }
+      Err(t) => return Err(t)
+    }
+  }
+  Ok((lanes, next))
+}
+
+///|
+fn i8x16_shuffle_from_lanes(lanes : FixedArray[LaneIdx]) -> Instruction {
+  Instruction::i8x16_shuffle(
+    lanes[0],
+    lanes[1],
+    lanes[2],
+    lanes[3],
+    lanes[4],
+    lanes[5],
+    lanes[6],
+    lanes[7],
+    lanes[8],
+    lanes[9],
+    lanes[10],
+    lanes[11],
+    lanes[12],
+    lanes[13],
+    lanes[14],
+    lanes[15],
+  )
 }
 
 ///|
@@ -2586,113 +2655,8 @@ pub impl Decode for Instruction with decode(bytes, i) {
             Err(BinaryDecodeError::InvalidInstruction)
           }
         Ok((U32(13), i)) =>
-          match Decode::decode(bytes, i) {
-            Ok((l0, i)) =>
-              match Decode::decode(bytes, i) {
-                Ok((l1, i)) =>
-                  match Decode::decode(bytes, i) {
-                    Ok((l2, i)) =>
-                      match Decode::decode(bytes, i) {
-                        Ok((l3, i)) =>
-                          match Decode::decode(bytes, i) {
-                            Ok((l4, i)) =>
-                              match Decode::decode(bytes, i) {
-                                Ok((l5, i)) =>
-                                  match Decode::decode(bytes, i) {
-                                    Ok((l6, i)) =>
-                                      match Decode::decode(bytes, i) {
-                                        Ok((l7, i)) =>
-                                          match Decode::decode(bytes, i) {
-                                            Ok((l8, i)) =>
-                                              match Decode::decode(bytes, i) {
-                                                Ok((l9, i)) =>
-                                                  match
-                                                    Decode::decode(bytes, i) {
-                                                    Ok((l10, i)) =>
-                                                      match
-                                                        Decode::decode(bytes, i) {
-                                                        Ok((l11, i)) =>
-                                                          match
-                                                            Decode::decode(
-                                                              bytes, i,
-                                                            ) {
-                                                            Ok((l12, i)) =>
-                                                              match
-                                                                Decode::decode(
-                                                                  bytes, i,
-                                                                ) {
-                                                                Ok((l13, i)) =>
-                                                                  match
-                                                                    Decode::decode(
-                                                                      bytes, i,
-                                                                    ) {
-                                                                    Ok((l14, i)) =>
-                                                                      match
-                                                                        Decode::decode(
-                                                                          bytes,
-                                                                          i,
-                                                                        ) {
-                                                                        Ok(
-                                                                          (
-                                                                            l15,
-                                                                            i,
-                                                                          )
-                                                                        ) =>
-                                                                          Ok(
-                                                                            (
-                                                                              Instruction::i8x16_shuffle(
-                                                                                l0,
-                                                                                l1,
-                                                                                l2,
-                                                                                l3,
-                                                                                l4,
-                                                                                l5,
-                                                                                l6,
-                                                                                l7,
-                                                                                l8,
-                                                                                l9,
-                                                                                l10,
-                                                                                l11,
-                                                                                l12,
-                                                                                l13,
-                                                                                l14,
-                                                                                l15,
-                                                                              ),
-                                                                              i,
-                                                                            ),
-                                                                          )
-                                                                        Err(t) =>
-                                                                          Err(t)
-                                                                      }
-                                                                    Err(t) =>
-                                                                      Err(t)
-                                                                  }
-                                                                Err(t) => Err(t)
-                                                              }
-                                                            Err(t) => Err(t)
-                                                          }
-                                                        Err(t) => Err(t)
-                                                      }
-                                                    Err(t) => Err(t)
-                                                  }
-                                                Err(t) => Err(t)
-                                              }
-                                            Err(t) => Err(t)
-                                          }
-                                        Err(t) => Err(t)
-                                      }
-                                    Err(t) => Err(t)
-                                  }
-                                Err(t) => Err(t)
-                              }
-                            Err(t) => Err(t)
-                          }
-                        Err(t) => Err(t)
-                      }
-                    Err(t) => Err(t)
-                  }
-                Err(t) => Err(t)
-              }
+          match decode_i8x16_shuffle_lanes(bytes, i) {
+            Ok((lanes, next)) => Ok((i8x16_shuffle_from_lanes(lanes), next))
             Err(t) => Err(t)
           }
         Ok((@lib.U32(14), i)) => Ok((Instruction::i8x16_swizzle(), i))

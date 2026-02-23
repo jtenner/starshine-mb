@@ -5,12 +5,12 @@ pub enum LiteralType {
   Hexfloat
   Infinity
   Nan
-} derive(Show, Debug)
+} derive(Eq, Show, Debug)
 
 ///|
 pub enum ErrorLevel {
   Error
-} derive(Show, Debug)
+} derive(Eq, Show, Debug)
 
 // ============================================================================
 // Core Structures
@@ -22,27 +22,27 @@ pub struct Location {
   line : Int
   first_column : Int
   last_column : Int
-} derive(Show, Debug)
+} derive(Eq, Show, Debug)
 
 ///|
 pub struct Literal {
   literal_type : LiteralType
   text : String
-} derive(Show, Debug)
+} derive(Eq, Show, Debug)
 
 ///|
 pub struct Token {
   location : Location
   token_type : TokenType
   value : TokenValue
-} derive(Show, Debug)
+} derive(Eq, Show, Debug)
 
 ///|
 pub struct LexerError {
   level : ErrorLevel
   location : Location
   message : String
-} derive(Show, Debug)
+} derive(Eq, Show, Debug)
 
 ///|
 priv enum ReservedChars {
@@ -60,7 +60,7 @@ pub enum ValueType {
   V128
   FuncRef
   ExternRef
-} derive(Show, Debug)
+} derive(Eq, Show, Debug)
 
 // ============================================================================
 // opcode.mbt - Complete Opcode Enumeration for WASM 3.0
@@ -636,7 +636,7 @@ pub enum TokenType {
   OffsetEqNat // offset=N
   AlignEqNat // align=N
   SimdShapeToken(SimdShape)
-} derive(Show, Debug)
+} derive(Eq, Show, Debug)
 
 ///|
 pub enum TokenValue {
@@ -645,7 +645,7 @@ pub enum TokenValue {
   Literal(Literal)
   ValueType(ValueType)
   Opcode(Opcode)
-} derive(Show, Debug)
+} derive(Eq, Show, Debug)
 
 // ============================================================================
 // WastLexer

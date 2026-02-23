@@ -815,6 +815,17 @@ fn default_first_module_pass_index(
 }
 
 ///|
+fn default_extract_atr_traps_never_happen(passes : Array[ModulePass]) -> Bool? {
+  for pass in passes {
+    match pass {
+      AbstractTypeRefining(props) => return Some(props.traps_never_happen)
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
 fn opt_scheduler_remove_unused_dispatch_module() -> Module {
   let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
   let keep_a = Func::t_func([], TExpr::new([TInstr::nop()]))
@@ -1339,6 +1350,32 @@ test "default global optimization pre passes map unsubtyping mode to type mergin
   assert_true(abstract_idx >= 0)
   assert_true(unsubtyping_idx >= 0)
   assert_true(abstract_idx < unsubtyping_idx)
+}
+
+///|
+test "default global optimization pre passes thread traps_never_happen into AbstractTypeRefining props" {
+  let gc_mod = Module::new().with_type_sec(
+    TypeSec::new([
+      single_rec_type(
+        comp_type_sub_type(
+          struct_comp_type([
+            FieldType::new(StorageType::val_type(ValType::i32()), Var),
+          ]),
+        ),
+      ),
+    ]),
+  )
+  let default_passes = default_global_optimization_pre_passes(
+    gc_mod,
+    OptimizeOptions::new(optimize_level=2, traps_never_happen=false),
+  )
+  assert_eq(default_extract_atr_traps_never_happen(default_passes), Some(false))
+
+  let tnh_passes = default_global_optimization_pre_passes(
+    gc_mod,
+    OptimizeOptions::new(optimize_level=2, traps_never_happen=true),
+  )
+  assert_eq(default_extract_atr_traps_never_happen(tnh_passes), Some(true))
 }
 
 ///|

@@ -336,6 +336,42 @@ test "decode reports invalid bytes for instruction and lane index" {
 }
 
 ///|
+test "decode i8x16.shuffle preserves all 16 lane indices in order" {
+  let bytes : Bytes = [
+    0xFD, 0x0D, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A,
+    0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
+  ]
+  match
+    (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]) {
+    Ok((instr, next)) => {
+      assert_eq(
+        instr,
+        Instruction::i8x16_shuffle(
+          LaneIdx::new(0),
+          LaneIdx::new(1),
+          LaneIdx::new(2),
+          LaneIdx::new(3),
+          LaneIdx::new(4),
+          LaneIdx::new(5),
+          LaneIdx::new(6),
+          LaneIdx::new(7),
+          LaneIdx::new(8),
+          LaneIdx::new(9),
+          LaneIdx::new(10),
+          LaneIdx::new(11),
+          LaneIdx::new(12),
+          LaneIdx::new(13),
+          LaneIdx::new(14),
+          LaneIdx::new(15),
+        ),
+      )
+      assert_eq(next, bytes.length())
+    }
+    Err(e) => fail("unexpected shuffle decode failure: \{e}")
+  }
+}
+
+///|
 test "decode reports invalid atomic.fence immediate" {
   assert_decode_err_contains(
     (
@@ -704,6 +740,81 @@ test "write_section helper propagates payload errors" {
       Err(BinaryEncodeError::CannotEncodeBottomValType)
     }),
     BinaryEncodeError::CannotEncodeBottomValType,
+  )
+}
+
+///|
+test "start code and data count sections encode with canonical payload lengths" {
+  let start_buf = @buffer.new()
+  match Encode::encode(StartSec::new(FuncIdx::new(0)), start_buf) {
+    Ok(_) => assert_eq(start_buf.to_bytes().to_array(), [0x08, 0x01, 0x00])
+    Err(e) => fail("unexpected start section encode failure: \{e}")
+  }
+
+  let code_buf = @buffer.new()
+  match Encode::encode(CodeSec::new([]), code_buf) {
+    Ok(_) => assert_eq(code_buf.to_bytes().to_array(), [0x0A, 0x01, 0x00])
+    Err(e) => fail("unexpected code section encode failure: \{e}")
+  }
+
+  let data_cnt_buf = @buffer.new()
+  match Encode::encode(DataCntSec::new(U32(0)), data_cnt_buf) {
+    Ok(_) => assert_eq(data_cnt_buf.to_bytes().to_array(), [0x0C, 0x01, 0x00])
+    Err(e) => fail("unexpected data count section encode failure: \{e}")
+  }
+}
+
+///|
+test "start code and data count sections decode canonical payload wrappers" {
+  match
+    (
+      Decode::decode(b"\x08\x01\x00", 0) :
+      Result[(StartSec, Int), BinaryDecodeError]) {
+    Ok((start, next)) => {
+      assert_eq(start, StartSec::new(FuncIdx::new(0)))
+      assert_eq(next, 3)
+    }
+    Err(e) => fail("unexpected start section decode failure: \{e}")
+  }
+
+  match
+    (
+      Decode::decode(b"\x0A\x01\x00", 0) :
+      Result[(CodeSec, Int), BinaryDecodeError]) {
+    Ok((code, next)) => {
+      assert_eq(code, CodeSec::new([]))
+      assert_eq(next, 3)
+    }
+    Err(e) => fail("unexpected code section decode failure: \{e}")
+  }
+
+  match
+    (
+      Decode::decode(b"\x0C\x01\x00", 0) :
+      Result[(DataCntSec, Int), BinaryDecodeError]) {
+    Ok((data_count, next)) => {
+      assert_eq(data_count, DataCntSec::new(U32(0)))
+      assert_eq(next, 3)
+    }
+    Err(e) => fail("unexpected data count section decode failure: \{e}")
+  }
+}
+
+///|
+test "start code and data count sections reject legacy non-length encoding forms" {
+  assert_decode_err_contains(
+    (Decode::decode(b"\x08\x00", 0) : Result[(StartSec, Int), BinaryDecodeError]),
+    BinaryDecodeError::UnexpectedEofInUnsignedLeb,
+  )
+  assert_decode_err_contains(
+    (Decode::decode(b"\x0A\x00", 0) : Result[(CodeSec, Int), BinaryDecodeError]),
+    BinaryDecodeError::UnexpectedEofInUnsignedLeb,
+  )
+  assert_decode_err_contains(
+    (
+      Decode::decode(b"\x0C\x00", 0) :
+      Result[(DataCntSec, Int), BinaryDecodeError]),
+    BinaryDecodeError::UnexpectedEofInUnsignedLeb,
   )
 }
 
