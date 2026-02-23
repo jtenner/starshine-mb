@@ -203,30 +203,36 @@
 
 ### 2.7 CLI Feature Plan (High Priority)
 
-- [ ] P0: Implement local `Glob` matcher and expansion utility (no external dependency).
-  - [ ] Support wildcard and recursive matching needed by CLI input globs.
-  - [ ] Add deterministic ordering and stable duplicate handling.
-  - [ ] Add focused tests for edge cases and cross-platform path normalization.
-- [ ] Define CLI input source handling for file types: `wasm`, `wat`, `wast`.
-- [ ] Support stdin input with explicit `--format` (`wasm|wat|wast`).
-- [ ] Support positional input file arguments as globs.
-- [ ] Support config-driven input via `--config` / `-c "config.json"`.
-  - [ ] Publish a public JSON config schema for CLI config files.
-  - [ ] Use default config path `starshine.config.json` when no config path is provided.
-- [ ] Support env-driven input via `STARSHINE_INPUT` (comma-separated globs).
-- [ ] Support stdout output via `--stdout` / `-s`.
-- [ ] Support single-file output via `--out` / `-o "file"`.
-- [ ] Support directory output via `--out-dir` / `-d "dir"` (reuse input basename, change extension).
-- [ ] Allow multiple output targets in one run (for example stdout + file + dir).
-- [ ] Add one long-form kebab-case flag per pass.
-  - [ ] Example: `--validate`
-  - [ ] Example: `--souperfy`
-  - [ ] Example: `--abstract-type-refining`
-- [ ] Enforce pass execution order from flag order on the command line.
-- [ ] Add basic optimize presets that run optimization passes first.
-  - [ ] `--optimize` (basic optimization profile aligned with Binaryen defaults)
-  - [ ] `--shrink` (basic size-optimization profile aligned with Binaryen defaults)
-  - [ ] Support C-compiler-style optimization flags (for example `-O3z`).
+- [x] P0: Implement local `Glob` matcher and expansion utility (no external dependency).
+  - [x] Support wildcard and recursive matching needed by CLI input globs.
+  - [x] Add deterministic ordering and stable duplicate handling.
+  - [x] Add focused tests for edge cases and cross-platform path normalization.
+- [x] Define CLI input source handling for file types: `wasm`, `wat`, `wast`.
+- [x] Support stdin input with explicit `--format` (`wasm|wat|wast`).
+- [x] Support positional input file arguments as globs.
+- [x] Support config-driven input via `--config` / `-c "config.json"`.
+  - [x] Publish a public JSON config schema for CLI config files.
+  - [x] Use default config path `starshine.config.json` when no config path is provided.
+- [x] Support env-driven input via `STARSHINE_INPUT` (comma-separated globs).
+- [x] Support stdout output via `--stdout` / `-s`.
+- [x] Support single-file output via `--out` / `-o "file"`.
+- [x] Support directory output via `--out-dir` / `-d "dir"` (reuse input basename, change extension).
+- [x] Allow multiple output targets in one run (for example stdout + file + dir).
+- [x] Add one long-form kebab-case flag per pass.
+  - [x] Example: `--validate`
+  - [x] Example: `--souperfy`
+  - [x] Example: `--abstract-type-refining`
+- [x] Enforce pass execution order from flag order on the command line.
+- [x] Add basic optimize preset flag parsing.
+  - [x] `--optimize` (basic optimization profile aligned with Binaryen defaults)
+  - [x] `--shrink` (basic size-optimization profile aligned with Binaryen defaults)
+  - [x] Support C-compiler-style optimization flags (for example `-O3z`).
+
+2.7 follow-up tasks (reprioritized after parser + glob foundation):
+- [ ] P0: Wire parsed pass flags and optimize presets into concrete optimizer pipeline scheduling (`ModulePass`) with strict unknown-pass diagnostics.
+- [ ] P0: Implement JSON config file loading/validation and precedence merge (`CLI args > env > config defaults`) on top of current schema.
+- [ ] P1: Add preset expansion semantics and tests proving optimize presets run before explicitly listed pass flags in execution plans.
+- [ ] P1: Add filesystem adapter tests for glob expansion once runtime integration layer is introduced (current package intentionally remains syscall-free).
 
 ### 3) Compatibility Improvements
 
