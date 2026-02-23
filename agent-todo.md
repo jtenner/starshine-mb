@@ -1,258 +1,61 @@
 # Agent Tasks
 
-## Audit Snapshot (2026-02-21)
+## Audit Snapshot (2026-02-23)
 
-- `moon check`: passes (1 warning)
-- `moon test`: `2060` passed, `0` failed
-- `moon coverage analyze`: `10980` uncovered lines in `96` files
+- `moon check`: `Finished. moon: no work to do`
+- `moon test`: `2247` passed, `0` failed
+- `moon coverage analyze`: `11078` uncovered line(s) in `103` file(s)
+- Delta vs `2026-02-21` snapshot:
+  - Tests: `2060 -> 2247` (`+187`)
+  - Uncovered lines: `10980 -> 11078` (`+98`)
+  - Files with uncovered lines: `96 -> 103` (`+7`)
 - Largest uncovered hotspots:
-  - validate: `src/validate/env.mbt` (`1328`), `src/validate/typecheck.mbt` (`579`)
-  - transformer: `src/transformer/transformer.mbt` (`624`)
-  - binary: `src/binary/encode.mbt` (`423`), `src/binary/decode.mbt` (`374`)
-  - passes: `src/passes/heap2local.mbt` (`366`), `src/passes/merge_blocks.mbt` (`306`), `src/passes/asyncify.mbt` (`242`)
-  - IR: `src/ir/ssa.mbt` (`267`), `src/ir/ssa_optimize.mbt` (`216`)
+  - `src/validate/env.mbt` (`1307`)
+  - `src/transformer/transformer.mbt` (`593`)
+  - `src/validate/typecheck.mbt` (`559`)
+  - `src/binary/encode.mbt` (`403`)
+  - `src/binary/decode.mbt` (`371`)
+  - `src/passes/heap2local.mbt` (`366`)
+  - `src/lib/types.mbt` (`329`)
+  - `src/passes/merge_blocks.mbt` (`286`)
+  - `src/lib/show.mbt` (`271`)
+  - `src/ir/ssa.mbt` (`252`)
 
-## 0) Highest Priority
+## Low Hanging Fruit
 
-- [x] P0: Harden validation and typed-conversion core before adding new pass features.
-  - [x] `src/validate/env.mbt`: table-driven `instr_to_tinstr` error-path coverage (stack underflow/empty stack pops, `RecIdx` resolution, type-resolution failures).
-  - [x] `src/validate/typecheck.mbt`: add negative-path tests for branch/label errors, `expand_blocktype` failures, and unreachable merge normalization.
-  - [x] Add regression tests proving typed conversion and typecheck consistency on shared fixtures (`to_texpr` then `Typecheck::typecheck`).
-
-- [x] P0: Close transformer traversal blind spots.
-  - [x] `src/transformer/transformer.mbt`: add callback matrix tests for `Ok(None)`, `Ok(Some(...))`, and `Err(...)` across less-used ops (atomics, i31, extern/any converts, `throw_ref`, branch-on-cast variants).
-  - [x] Add focused tests for index/heaptype remap propagation on nested instructions.
-
-- [x] P0: Harden binary codec error handling.
-  - [x] `src/binary/encode.mbt`: cover unsupported encodings (`DefTypeHeapType`, recursive index rejections), section payload error propagation, and LEB max-byte guards.
-  - [x] `src/binary/decode.mbt`: expand malformed vectors for terminal-unused-bits checks, sign-extension edge cases, optional decode fallthrough, and OOB numeric loads.
-
-- [x] P1: Raise IR SSA and analysis confidence on complex instruction families.
-  - [x] `src/ir/ssa.mbt` + `src/ir/ssa_optimize.mbt`: cover local collection and phi handling for atomics, table ops, array ops, and `call_ref`/`return_call_ref`.
-  - [x] `src/ir/liveness.mbt`, `src/ir/type_tracking.mbt`, `src/ir/usedef.mbt`: add edge tests involving branch-on-ref plus atomic instructions.
-
-- [x] P1: Attack high-uncovered optimization passes (`>= 150` uncovered lines).
-  - [x] `src/passes/heap2local.mbt`
-  - [x] `src/passes/merge_blocks.mbt`
-  - [x] `src/passes/asyncify.mbt`
-  - [x] `src/passes/i64_to_i32_lowering.mbt`
-  - [x] `src/passes/global_type_optimization.mbt`
-  - [x] `src/passes/minimize_rec_groups.mbt`
-  - [x] `src/passes/remove_unused.mbt`
-  - [x] `src/passes/local_cse.mbt`
-  - [x] `src/passes/optimize_instructions.mbt`
-  - [x] `src/passes/precompute.mbt`
-  - [x] For each pass above: add one invariant test proving module validity and stable index remapping.
-
-- [x] P1: Resolve known feature and architecture debt.
-  - [x] `src/passes/i64_to_i32_lowering.mbt`: gate pass preconditions at scheduler entry for unsupported cases (`multi-value i64 results`, imported i64 globals, non-canonical i64 global-init roots).
-  - [x] `src/passes/asyncify.mbt`: add explicit required lowering prepass diagnostics for tail-call usage.
-  - [x] Migrate `de_nan` and `remove_unused` to IRContext-shaped integration.
-
-- [x] P1 follow-up: reduce repeated i64 lowering precondition work.
-  - [x] Thread validated/lowered precondition artifacts from scheduler into `i64_to_i32_lowering` to avoid duplicate type/global scans.
-
-- [x] P1 follow-up: harden new IRContext wrappers with direct constructor tests.
-  - [x] Add focused behavior-path test for `de_nan_ir_pass`.
-  - [x] Add focused error-propagation test for `de_nan_ir_pass`.
-  - [x] Add focused behavior-path test for `remove_unused_ir_pass`.
-  - [x] Add focused error-propagation test for `remove_unused_ir_pass`.
-
-- [x] P1 follow-up: provide an optional automatic tail-call lowering path for asyncify.
-  - [x] Add a scheduler-level or prepass option to lower tail calls before asyncify instead of requiring manual pipeline wiring.
-
-- [x] P1 follow-up: extend asyncify auto tail-call lowering to multi-value return signatures.
-  - [x] Add lowering support for multi-value `return_call`/`return_call_indirect`/`return_call_ref` (or explicit fallback pass wiring) and parity tests.
-
-- [x] P1 follow-up: harden `i64_to_i32_lowering_prepare` artifact API tests.
-  - [x] Add focused equivalence/error-propagation tests for `i64_to_i32_lowering_prepare` + `i64_to_i32_lowering_from_prepared` outside scheduler integration.
-
-- [x] P1 follow-up: validate/codegen parity for auto-lowered multi-value tail-call rewrites.
-  - [x] Add focused roundtrip/validator tests for `return(call*)` rewrites in multi-value function signatures.
-
-- [x] P1 follow-up: align inlining tail-call rewrite parity with asyncify multi-value support.
-  - [x] Remove current multi-value `return_call*` rewrite limitations in `src/passes/inlining.mbt` or add a shared fallback lowering path.
-
-- [x] P1 follow-up: generalize `to_texpr` multi-value `return` recovery beyond `call*` producers.
-  - [x] Add focused tests for multi-value `return` with non-call producers (for example typed `block`/`if`) and either support or explicit diagnostics.
-
-- [x] P1 follow-up: restore hoisted try-context tail-wrapper inlining for multi-value callers.
-  - [x] Replace current non-hoist fallback with a typed multi-value hoist path (for example `BlockType::type_idx`) and parity tests.
-
-- [ ] P1 follow-up: broaden multi-value hoist parity and fallback safety.
-  - [ ] Add focused tests for hoisted multi-value try-tail wrappers when callers have parameters and ensure typed-wrapper selection remains valid.
-  - [ ] Add focused tests that non-defaultable result types (for example non-null refs) stay on the non-hoist fallback path without introducing validator errors.
-
-- [ ] P1 follow-up: extend `to_texpr` multi-value return-recovery test matrix for additional typed producers.
-  - [ ] Add focused tests for multi-value `return` recovery with typed `loop` and `try_table` producers.
-
-## 0.5) Low-Hanging Fruit
-
-- [x] Remove current warning: drop unused `ExtractLaneOp` import in `src/passes/imports.mbt`.
-- [x] Add small constructor/util coverage tests for common helpers in `src/lib/types.mbt` (`Limits::mem_addr_bits`, `min_addr`, `has_default`, constructor shorthands).
-- [x] Add `Show`/pretty-print smoke tests for `src/lib/show.mbt` and `src/lib/pretty_print_impls.mbt`.
-- [x] Add targeted tests for `asyncify_apply_arguments` parser branches (`blacklist`/`whitelist`, secondary-memory-size parsing, conflicting `onlylist` combinations).
-- [x] Add targeted tests for `MBEffects` helper logic in `src/passes/merge_blocks.mbt` (`merge`, `invalidates`, `mb_collect_shallow_effects`).
-- [x] Add one test covering `TypeIdx`/`RecIdx` resolution fallback in `src/validate/env.mbt` when `rec_stack` is empty.
-- [x] Add a tiny coverage-report script that emits top uncovered files from `moon coverage analyze` and tracks deltas in CI.
-
-## 1) Secondary Backlog
-
-- [ ] Split oversized files for maintainability and faster targeted testing:
-  - [ ] `src/validate/typecheck.mbt`
-  - [ ] `src/validate/env.mbt`
-  - [ ] `src/transformer/transformer.mbt`
-  - [ ] `src/passes/optimize.mbt`
-  - [ ] `src/passes/remove_unused.mbt`
-- [ ] Build a non-blocking optimizer perf baseline (compile time and output size) on representative modules.
-- [ ] Continue long-tail Binaryen parity only after core coverage hotspots are reduced.
-
-## 2) Requested Backlog Additions
-
-### 2.1 Architectural & Refactoring Suggestions (High Impact: Improves Maintainability)
-
-- [ ] Split the giant parser file (`parser.mbt`) into smaller modules:
-  - [ ] `lexer.mbt`
-  - [ ] `parser_types.mbt`
-  - [ ] `parser_instructions.mbt`
-  - [ ] `parser_folded.mbt`
-  - [ ] `parser_gc.mbt`
-  - [ ] `parser_tests.mbt`
-  - Rationale: Reduces complexity as the project grows.
-- [ ] Split instruction decoder (`decode_instruction` in `decode.mbt`) into helpers:
-  - [ ] `decode_core_opcode`
-  - [ ] `decode_extended_0xFB`
-  - [ ] `decode_extended_0xFC`
-  - [ ] `decode_extended_0xFD`
-  - [ ] `decode_extended_0xFE`
-  - Rationale: Mirrors existing encode helper pattern (for example `simd_inst`) and improves readability.
-- [x] Extract `write_section` helper in `encode.mbt` to unify section id/length/payload encoding.
-  - Rationale: Cleans up encode-side symmetry.
-- [ ] Turn validator into a `ModuleTransformer`:
-  - [ ] Implement `Validator` struct with hooks such as `on_func_evt`, `on_tinstruction_evt`, and `on_global_evt`.
-  - [ ] Add `validate_module(mod: Module) -> Result[Unit, ValidationError]`.
-  - Rationale: Reuses existing traversal and location context; improves composition with optimizers.
-- [ ] Replace lexer backtracking (`save/restore_lexer_state`) with one-token lookahead:
-  - [ ] Introduce `Parser { peeked: Token? }` or add zero-cost `peek()/consume()` to `WastLexer`.
-  - Rationale: Reduces fragility and parsing allocations.
-
-### 2.2 Performance & Allocation Optimizations (Medium Impact: Scales to Large Modules)
-
-- [ ] Add capacity reservations in hot paths (`parse_instructions`, expr decoding, and similar array builds).
-  - Rationale: Avoids reallocations on large modules.
-- [ ] Use unchecked indexing in core decode loops after upfront length validation.
-  - Rationale: Reduces bounds-check overhead in tight loops.
-- [ ] Avoid temporary `Module` copies in decoder:
-  - [ ] Use mutable builder flow or single record update at the end.
-  - Rationale: Reduces copies of large structs.
-- [ ] Create a `WastWriter` trait:
-  - [ ] Support `StringBuilder`, `Vec<u8>`, and streaming sinks.
-  - [ ] Reuse one `StringBuilder` across module rendering.
-  - Rationale: Improves writer efficiency and flexibility.
-- [ ] Add `quick_mode: Bool` to generator to reduce types/locals/segments for fast fuzzing.
-  - Rationale: Speeds test cycles while retaining useful coverage.
-
-### 2.3 Testing & Fuzzing Enhancements (High Impact: Strengthens Reliability)
-
-- [ ] Enhance generator with additional edge cases:
-  - [ ] Recursive/self-referencing struct types
-  - [ ] Deep `block`/`loop`/`if` nesting
-  - [ ] Functions with `0–16` returns (multi-value)
-  - [ ] Large local counts
-  - Rationale: Better stress for GC, exceptions, and encoding paths.
-- [ ] Add more fuzz coverage to validate invalid modules.
-
-### 2.4 Error Handling & API Improvements (Medium Impact: User-Friendliness)
-
-- [ ] Replace string decode errors with a typed `DecodeError` enum:
-  - [ ] Example variants: `UnexpectedEof { offset: Int, section: String }`, `InvalidOpcode { offset: Int, byte: Byte }`
-  - [ ] Mirror the same enum-based approach for `ValidationError`.
-  - Rationale: Improves testability and downstream tooling with stable structured context.
-- [ ] Expose binary public APIs:
-  - [ ] `decode_module(bytes: Bytes) -> Result[Module, DecodeError]`
-  - [ ] `encode_module(mod: Module) -> Result[Bytes, EncodeError]`
-  - Rationale: Improves library usability.
-- [ ] Add streaming/zero-copy decoder API via cursor-based `Decoder` struct.
-  - Rationale: Aligns with current index-passing design while reducing copies.
-- [ ] Switch negative tests to enum-based error assertions instead of string matching.
-  - Rationale: Prevents brittle tests during message refactors.
-
-### 2.5 Code Generation & Automation (Low Impact: Long-Term Maintainability)
-
-- [ ] Generate keyword/opcode tables from a small DSL or MoonBit macros (with manual exception overrides).
-  - Rationale: Keeps mapping logic DRY as opcode surface evolves.
-- [x] Make max LEB constants compile-time (`MAX_LEB128_BYTES_32 = 5`, etc., including `1..64` table if useful).
-  - Rationale: Removes runtime overhead.
-
-- [ ] Follow-up: document and/or align non-standard section payload-length encoding for `StartSec`/`CodeSec`/`DataCntSec`.
-  - [ ] Add explicit codec tests and parity note if this encoding shape is intentional.
+- [ ] Add scheduler-level regression coverage for `default_global_optimization_pre_passes` to assert `AbstractTypeRefiningPassProps.traps_never_happen` is sourced from `OptimizeOptions`.
+- [ ] Extend `to_texpr` multi-value return-recovery tests for typed `loop` and `try_table` producers.
+- [ ] Add preset expansion semantics and tests proving optimize presets run before explicitly listed pass flags.
+- [ ] Add filesystem adapter tests for glob expansion once runtime integration layer is introduced.
+- [ ] Document and/or align non-standard section payload-length encoding for `StartSec`/`CodeSec`/`DataCntSec`.
+  - [ ] Add explicit codec tests and parity note if the current encoding shape is intentional.
 - [ ] Use `@moonbitlang/coreFixedArray` for fixed 16-lane shuffle data.
-  - Rationale: Better fixed-size performance than general arrays.
 - [ ] Add `derive(Show, Debug, Eq)` across structs/enums where missing.
-  - Rationale: Improves diagnostics and test debugging.
 
-### 2.6 Roadmap & Next Steps (High Impact: Project Momentum)
+## High Priority
 
-- [ ] Implement one real optimizer pass using transformer (constant folding + DCE).
-  - Rationale: Validates architecture with practical results.
-- [ ] Wire full text/binary roundtrip test:
-  - [ ] `wast_to_module -> module_to_binary -> binary_to_module -> module_to_wast` plus normalization.
-  - Rationale: Provides end-to-end correctness coverage.
-- [ ] Run and adapt the official WASM spec test suite in MoonBit pipeline.
-  - Rationale: Highest-confidence compatibility validation.
+### Correctness and Regressions
 
-### 2.7 CLI Feature Plan (High Priority)
+- [ ] Fix JS failure in `ir/ssa_optimize_tests.mbt:428` (`eval_ssa_unary i64 trunc_f32 handles values beyond i32 width`).
+- [ ] Fix JS failure in `ir/ssa_optimize_tests.mbt:492` (`eval_ssa_unary float-to-int trunc bound and trap parity checks`).
+- [ ] Fix JS failure in `passes/de_nan.mbt:1597` (`is_f32_nan correctly identifies NaN`).
+- [ ] Fix JS failure in `passes/de_nan.mbt:1610` (`is_f32_nan correctly rejects non-NaN`).
 
-- [x] P0: Implement local `Glob` matcher and expansion utility (no external dependency).
-  - [x] Support wildcard and recursive matching needed by CLI input globs.
-  - [x] Add deterministic ordering and stable duplicate handling.
-  - [x] Add focused tests for edge cases and cross-platform path normalization.
-- [x] Define CLI input source handling for file types: `wasm`, `wat`, `wast`.
-- [x] Support stdin input with explicit `--format` (`wasm|wat|wast`).
-- [x] Support positional input file arguments as globs.
-- [x] Support config-driven input via `--config` / `-c "config.json"`.
-  - [x] Publish a public JSON config schema for CLI config files.
-  - [x] Use default config path `starshine.config.json` when no config path is provided.
-- [x] Support env-driven input via `STARSHINE_INPUT` (comma-separated globs).
-- [x] Support stdout output via `--stdout` / `-s`.
-- [x] Support single-file output via `--out` / `-o "file"`.
-- [x] Support directory output via `--out-dir` / `-d "dir"` (reuse input basename, change extension).
-- [x] Allow multiple output targets in one run (for example stdout + file + dir).
-- [x] Add one long-form kebab-case flag per pass.
-  - [x] Example: `--validate`
-  - [x] Example: `--souperfy`
-  - [x] Example: `--abstract-type-refining`
-- [x] Enforce pass execution order from flag order on the command line.
-- [x] Add basic optimize preset flag parsing.
-  - [x] `--optimize` (basic optimization profile aligned with Binaryen defaults)
-  - [x] `--shrink` (basic size-optimization profile aligned with Binaryen defaults)
-  - [x] Support C-compiler-style optimization flags (for example `-O3z`).
+### CLI Pipeline Completion
 
-2.7 follow-up tasks (reprioritized after parser + glob foundation):
-- [ ] P0: Wire parsed pass flags and optimize presets into concrete optimizer pipeline scheduling (`ModulePass`) with strict unknown-pass diagnostics.
-- [ ] P0: Implement JSON config file loading/validation and precedence merge (`CLI args > env > config defaults`) on top of current schema.
-- [ ] P1: Add preset expansion semantics and tests proving optimize presets run before explicitly listed pass flags in execution plans.
-- [ ] P1: Add filesystem adapter tests for glob expansion once runtime integration layer is introduced (current package intentionally remains syscall-free).
+- [ ] Wire parsed pass flags and optimize presets into concrete optimizer pipeline scheduling (`ModulePass`) with strict unknown-pass diagnostics.
+- [ ] Implement JSON config file loading/validation and precedence merge (`CLI args > env > config defaults`) on top of current schema.
 
-### 3) Compatibility Improvements
+### Multi-Value and Trap-Mode Safety
 
-- [ ] JS Test Failure: [jtenner/starshine] test ir/ssa_optimize_tests.mbt:428 ("eval_ssa_unary i64 trunc_f32 handles values beyond i32 width") failed: ir/ssa_optimize_tests.mbt:431:3-434:4@jtenner/starshine FAILED: `Some(LitI64(3000000000)) != Some(LitI64(3000000000))`
-- [ ] JS Test Failure: [jtenner/starshine] test ir/ssa_optimize_tests.mbt:492 ("eval_ssa_unary float-to-int trunc bound and trap parity checks") failed: ir/ssa_optimize_tests.mbt:531:3-534:4@jtenner/starshine FAILED: `Some(LitI64(9007199254740991)) != Some(LitI64(9007199254740991))`
-- [ ] JS Test Failure: [jtenner/starshine] test passes/de_nan.mbt:1597 ("is_f32_nan correctly identifies NaN") failed: passes/de_nan.mbt:1600:3-1600:66@jtenner/starshine FAILED: Should detect quiet NaN
-- [ ] JS Test Failure: [jtenner/starshine] test passes/de_nan.mbt:1610 ("is_f32_nan correctly rejects non-NaN") failed: passes/de_nan.mbt:1611:3-1611:63@jtenner/starshine FAILED: 0.0 is not NaN
+- [ ] Broaden multi-value hoist parity and fallback safety.
+  - [ ] Add focused tests for hoisted multi-value try-tail wrappers when callers have parameters, ensuring typed-wrapper selection stays valid.
+  - [ ] Add focused tests that non-defaultable result types (for example non-null refs) stay on the non-hoist fallback path without validator errors.
+- [ ] Add user-facing optimize option plumbing (`TrapMode`/CLI flags) for `OptimizeOptions.traps_never_happen` so scheduler trap mode is configurable in end-to-end tool flows.
+- [ ] Clarify and codify `br_on_cast` exact-flag semantics in IR docs/types (separate from nullability) and add mixed exact/non-exact branch parity fixtures.
 
-### 4) Binaryen Pass Parity Triage (Unimplemented Passes Only)
+### Binaryen Pass Parity (High)
 
-Scope notes:
-- Implemented passes are intentionally omitted from this list.
-- On-demand SSA/CFG/meta passes are intentionally ignored: `SSAify`, `TypeSSA`.
-
-#### 4.1 High Priority (General-Purpose Optimization / Canonicalization)
-
-- [x] `Flatten`
-- [x] `TupleOptimization`
-- [x] `TypeGeneralizing`
-- [x] `TypeMerging`
 - [ ] `TypeFinalizing`
 - [ ] `Unsubtyping`
 - [ ] `GlobalEffects`
@@ -260,17 +63,72 @@ Scope notes:
 - [ ] `ReReloop`
 - [ ] `Outlining`
 
-TypeMerging follow-up tasks (reprioritized after initial landing):
-- [x] Add `traps_never_happen` / `call_indirect` gating parity and explicit tests for trap-mode-sensitive mergeability.
-- [x] Add exact-cast parity constraints (including branch-on-cast exactness equivalents) so cast-observable types are never merged.
-- [x] Replace current iterative shape matching with DFA partition refinement parity for nested heap-type children, then add regression tests for formerly over-conservative sibling merges.
-- [x] Thread `traps_never_happen` through optimize scheduler/options so trap-mode-sensitive behavior is configurable outside direct pass invocation tests.
-- [x] Revisit conservative `br_on_cast` exactness heuristic once IR models explicit exact-cast flags; tighten or relax with validator-backed parity tests.
-- [ ] Add user-facing optimize option plumbing (`TrapMode`/CLI flags) for `OptimizeOptions.traps_never_happen` so scheduler trap mode is configurable in end-to-end tool flows.
-- [ ] Add scheduler-level regression coverage for `default_global_optimization_pre_passes` to assert `AbstractTypeRefiningPassProps.traps_never_happen` is sourced from `OptimizeOptions`.
-- [ ] Clarify and codify `br_on_cast` exact-flag semantics in IR docs/types (separate from nullability) and add mixed exact/non-exact branch parity fixtures.
+## Medium Priority
 
-#### 4.2 Medium Priority (Useful, But More Situational or Feature-Lowering)
+### Architecture and Refactoring
+
+- [ ] Split oversized files for maintainability and faster targeted testing.
+  - [ ] `src/validate/typecheck.mbt`
+  - [ ] `src/validate/env.mbt`
+  - [ ] `src/transformer/transformer.mbt`
+  - [ ] `src/passes/optimize.mbt`
+  - [ ] `src/passes/remove_unused.mbt`
+- [ ] Split the giant parser file (`parser.mbt`) into smaller modules.
+  - [ ] `lexer.mbt`
+  - [ ] `parser_types.mbt`
+  - [ ] `parser_instructions.mbt`
+  - [ ] `parser_folded.mbt`
+  - [ ] `parser_gc.mbt`
+  - [ ] `parser_tests.mbt`
+- [ ] Split instruction decoder (`decode_instruction` in `decode.mbt`) into helpers.
+  - [ ] `decode_core_opcode`
+  - [ ] `decode_extended_0xFB`
+  - [ ] `decode_extended_0xFC`
+  - [ ] `decode_extended_0xFD`
+  - [ ] `decode_extended_0xFE`
+- [ ] Turn validator into a `ModuleTransformer`.
+  - [ ] Implement `Validator` struct with hooks such as `on_func_evt`, `on_tinstruction_evt`, and `on_global_evt`.
+  - [ ] Add `validate_module(mod: Module) -> Result[Unit, ValidationError]`.
+- [ ] Replace lexer backtracking (`save/restore_lexer_state`) with one-token lookahead.
+  - [ ] Introduce `Parser { peeked: Token? }` or add zero-cost `peek()/consume()` to `WastLexer`.
+
+### Performance and Allocation
+
+- [ ] Add capacity reservations in hot paths (`parse_instructions`, expr decoding, and similar array builds).
+- [ ] Use unchecked indexing in core decode loops after upfront length validation.
+- [ ] Avoid temporary `Module` copies in decoder.
+  - [ ] Use mutable builder flow or single record update at the end.
+- [ ] Create a `WastWriter` trait.
+  - [ ] Support `StringBuilder`, `Vec<u8>`, and streaming sinks.
+  - [ ] Reuse one `StringBuilder` across module rendering.
+- [ ] Add `quick_mode: Bool` to generator to reduce types/locals/segments for fast fuzzing.
+- [ ] Build a non-blocking optimizer perf baseline (compile time and output size) on representative modules.
+
+### Testing, Fuzzing, and Reliability
+
+- [ ] Enhance generator with additional edge cases.
+  - [ ] Recursive/self-referencing struct types.
+  - [ ] Deep `block`/`loop`/`if` nesting.
+  - [ ] Functions with `0-16` returns (multi-value).
+  - [ ] Large local counts.
+- [ ] Add more fuzz coverage to validate invalid modules.
+- [ ] Implement one real optimizer pass using transformer (constant folding + DCE).
+- [ ] Wire full text/binary roundtrip test.
+  - [ ] `wast_to_module -> module_to_binary -> binary_to_module -> module_to_wast` plus normalization.
+- [ ] Run and adapt the official WASM spec test suite in the MoonBit pipeline.
+
+### Error Handling and Public APIs
+
+- [ ] Replace string decode errors with a typed `DecodeError` enum.
+  - [ ] Add variants such as `UnexpectedEof { offset: Int, section: String }` and `InvalidOpcode { offset: Int, byte: Byte }`.
+  - [ ] Mirror the same enum-based approach for `ValidationError`.
+- [ ] Expose binary public APIs.
+  - [ ] `decode_module(bytes: Bytes) -> Result[Module, DecodeError]`
+  - [ ] `encode_module(mod: Module) -> Result[Bytes, EncodeError]`
+- [ ] Add streaming/zero-copy decoder API via cursor-based `Decoder` struct.
+- [ ] Switch negative tests to enum-based error assertions instead of string matching.
+
+### Binaryen Pass Parity (Medium)
 
 - [ ] `DeAlign`
 - [ ] `EncloseWorld`
@@ -297,7 +155,12 @@ TypeMerging follow-up tasks (reprioritized after initial landing):
 - [ ] `TrapMode`
 - [ ] `MinifyImportsAndExports`
 
-#### 4.3 Low Priority (Tooling, Instrumentation, Platform-Specific, or Binaryen-Specific)
+## Low Priority
+
+- [ ] Generate keyword/opcode tables from a small DSL or MoonBit macros (with manual exception overrides).
+- [ ] Continue long-tail Binaryen parity only after core coverage hotspots are reduced.
+
+### Binaryen Pass Parity (Low)
 
 - [ ] `DWARF`
 - [ ] `DebugLocationPropagation`
@@ -330,4 +193,4 @@ TypeMerging follow-up tasks (reprioritized after initial landing):
 - [ ] `TraceCalls`
 
 ---
-Completed items are intentionally removed to keep this backlog actionable.
+Completed tasks were removed to keep this list focused on open work.
