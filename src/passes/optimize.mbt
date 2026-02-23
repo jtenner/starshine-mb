@@ -213,15 +213,11 @@ fn module_pass_context_kind(pass : ModulePass) -> SchedulerPassContextKind {
     | MemoryPacking(_)
     | I64ToI32Lowering
     | DuplicateFunctionElimination
-    | DeNaN
     | RemoveUnusedBrs
     | ReorderTypes
     | ReorderFunctions
     | ReorderFunctionsByName
-    | RemoveUnusedTypes
-    | RemoveUnused
-    | RemoveUnusedModuleElements
-    | RemoveUnusedNonFunctionElements => ModuleRunnerPass
+    | RemoveUnusedTypes => ModuleRunnerPass
     _ => IRContextTransformerPass
   }
 }
@@ -356,8 +352,23 @@ fn run_ir_context_transformer_scheduler_pass(
       }
     OptimizeCasts =>
       apply_ir_transformer_pass(ctx, mod, optimize_casts_ir_pass(mod))
+    DeNaN => apply_ir_transformer_pass(ctx, mod, de_nan_ir_pass(mod))
     RemoveUnusedNames =>
       apply_ir_transformer_pass(ctx, mod, remove_unused_names_ir_pass(mod))
+    RemoveUnused =>
+      apply_ir_transformer_pass(ctx, mod, remove_unused_ir_pass(mod))
+    RemoveUnusedModuleElements =>
+      apply_ir_transformer_pass(
+        ctx,
+        mod,
+        remove_unused_ir_pass(mod, root_all_functions=true),
+      )
+    RemoveUnusedNonFunctionElements =>
+      apply_ir_transformer_pass(
+        ctx,
+        mod,
+        remove_unused_ir_pass(mod, root_all_functions=true),
+      )
     SimplifyLocals =>
       apply_ir_transformer_pass(
         ctx,
@@ -470,12 +481,20 @@ fn run_module_runner_scheduler_pass(
     MemoryPacking(props) =>
       apply_module_runner_pass(mod, fn(mod) { memory_packing(mod, props) })
     I64ToI32Lowering =>
-      apply_module_runner_pass(mod, fn(mod) { i64_to_i32_lowering(mod) })
+      match i64_to_i32_lowering_prepare(mod) {
+        Ok(prepared) =>
+          apply_module_runner_pass(mod, fn(_) {
+            i64_to_i32_lowering_from_prepared(prepared)
+          })
+        Err(e) =>
+          Err(
+            "optimize scheduler: i64_to_i32_lowering precondition failed: \{e}",
+          )
+      }
     DuplicateFunctionElimination =>
       apply_module_runner_pass(mod, fn(mod) {
         duplicate_function_elimination(mod, options)
       })
-    DeNaN => apply_module_runner_pass(mod, fn(mod) { run_denam(mod) })
     RemoveUnusedBrs =>
       apply_module_runner_pass(mod, fn(mod) { remove_unused_brs(mod, options~) })
     ReorderTypes =>
@@ -486,16 +505,6 @@ fn run_module_runner_scheduler_pass(
       apply_module_runner_pass(mod, fn(mod) { reorder_functions_by_name(mod) })
     RemoveUnusedTypes =>
       apply_module_runner_pass(mod, fn(mod) { remove_unused_types(mod) })
-    RemoveUnused =>
-      apply_module_runner_pass(mod, fn(mod) { remove_unused(mod) })
-    RemoveUnusedModuleElements =>
-      apply_module_runner_pass(mod, fn(mod) {
-        remove_unused_non_function_elements(mod)
-      })
-    RemoveUnusedNonFunctionElements =>
-      apply_module_runner_pass(mod, fn(mod) {
-        remove_unused_non_function_elements(mod)
-      })
     _ => Err("optimize scheduler bug: expected module-runner pass")
   }
 }
@@ -1500,7 +1509,20 @@ test "optimize scheduler classifies module pass context kinds" {
   assert_true(
     assert_pass_context_kind(DeadCodeElimination, UnitTransformerPass),
   )
-  assert_true(assert_pass_context_kind(DeNaN, ModuleRunnerPass))
+  assert_true(assert_pass_context_kind(DeNaN, IRContextTransformerPass))
+  assert_true(assert_pass_context_kind(RemoveUnused, IRContextTransformerPass))
+  assert_true(
+    assert_pass_context_kind(
+      RemoveUnusedModuleElements,
+      IRContextTransformerPass,
+    ),
+  )
+  assert_true(
+    assert_pass_context_kind(
+      RemoveUnusedNonFunctionElements,
+      IRContextTransformerPass,
+    ),
+  )
   assert_true(assert_pass_context_kind(TypeGeneralizing, ModuleRunnerPass))
 }
 
@@ -1563,8 +1585,8 @@ test "optimize_module dispatches IRContext and Unit transformer pass kinds" {
 }
 
 ///|
-test "optimize_module dispatches DeNaN through module-runner kind" {
-  assert_true(assert_pass_context_kind(DeNaN, ModuleRunnerPass))
+test "optimize_module dispatches DeNaN through IRContext kind" {
+  assert_true(assert_pass_context_kind(DeNaN, IRContextTransformerPass))
   let mod = opt_scheduler_denan_dispatch_module()
   let optimized = match optimize_module(mod, [DeNaN]) {
     Ok(m) => m
@@ -1572,7 +1594,7 @@ test "optimize_module dispatches DeNaN through module-runner kind" {
   }
   match optimized.code_sec {
     Some(CodeSec([TFunc(_, TExpr([TF32Const(F32(v))]))])) => assert_eq(v, 0.0)
-    _ => fail("expected DeNaN to sanitize NaN constants via module-runner path")
+    _ => fail("expected DeNaN to sanitize NaN constants via IRContext dispatch")
   }
 }
 
@@ -1592,12 +1614,18 @@ test "optimize_module dispatches TypeGeneralizing through module-runner kind" {
 
 ///|
 test "optimize_module dispatches closed-world vs open-world remove_unused modes" {
-  assert_true(assert_pass_context_kind(RemoveUnused, ModuleRunnerPass))
+  assert_true(assert_pass_context_kind(RemoveUnused, IRContextTransformerPass))
   assert_true(
-    assert_pass_context_kind(RemoveUnusedModuleElements, ModuleRunnerPass),
+    assert_pass_context_kind(
+      RemoveUnusedModuleElements,
+      IRContextTransformerPass,
+    ),
   )
   assert_true(
-    assert_pass_context_kind(RemoveUnusedNonFunctionElements, ModuleRunnerPass),
+    assert_pass_context_kind(
+      RemoveUnusedNonFunctionElements,
+      IRContextTransformerPass,
+    ),
   )
   let mod = opt_scheduler_remove_unused_dispatch_module()
   let closed_world = match optimize_module(mod, [RemoveUnused]) {
@@ -2549,6 +2577,108 @@ test "optimize_module runs I64ToI32Lowering pass" {
     Some(GlobalSec(gs)) => assert_true(gs.length() >= 1)
     _ => fail("expected return-high global")
   }
+}
+
+///|
+test "optimize_module I64ToI32Lowering precondition gates imported i64 globals" {
+  let mod = Module::new().with_import_sec(
+    ImportSec::new([
+      Import::new(
+        Name::new("m"),
+        Name::new("g"),
+        ExternType::global(GlobalType::new(ValType::i64(), false)),
+      ),
+    ]),
+  )
+  match optimize_module(mod, [I64ToI32Lowering]) {
+    Ok(_) => fail("expected optimize scheduler i64 precondition error")
+    Err(e) => {
+      assert_true(
+        e.contains(
+          "optimize scheduler: i64_to_i32_lowering precondition failed",
+        ),
+      )
+      assert_true(e.contains("imported i64 globals are unsupported"))
+    }
+  }
+}
+
+///|
+test "optimize_module I64ToI32Lowering precondition gates multi-value i64 results" {
+  let ty = single_rec_type(
+    comp_type_sub_type(
+      func_comp_type([ValType::i32()], [ValType::i64(), ValType::i32()]),
+    ),
+  )
+  let mod = Module::new().with_type_sec(TypeSec::new([ty]))
+  match optimize_module(mod, [I64ToI32Lowering]) {
+    Ok(_) => fail("expected optimize scheduler i64 precondition error")
+    Err(e) => {
+      assert_true(
+        e.contains(
+          "optimize scheduler: i64_to_i32_lowering precondition failed",
+        ),
+      )
+      assert_true(e.contains("multi-value i64 results"))
+    }
+  }
+}
+
+///|
+test "optimize_module I64ToI32Lowering precondition gates unsupported i64 global init roots" {
+  let mod = Module::new().with_global_sec(
+    GlobalSec::new([
+      Global::new(
+        GlobalType::new(ValType::i64(), false),
+        Expr::new([
+          Instruction::i64_const(I64(1L)),
+          Instruction::i64_const(I64(2L)),
+          Instruction::i64_add(),
+        ]),
+      ),
+    ]),
+  )
+  match optimize_module(mod, [I64ToI32Lowering]) {
+    Ok(_) => fail("expected optimize scheduler i64 precondition error")
+    Err(e) => {
+      assert_true(
+        e.contains(
+          "optimize scheduler: i64_to_i32_lowering precondition failed",
+        ),
+      )
+      assert_true(e.contains("unsupported i64 global init"))
+    }
+  }
+}
+
+///|
+test "optimize_module I64ToI32Lowering avoids duplicate global precondition rewrite scans" {
+  let ty = single_rec_type(
+    comp_type_sub_type(func_comp_type([ValType::i64()], [ValType::i64()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([ty]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i64()],
+          TExpr::new([
+            TInstr::binary(
+              BinaryOp::i64_add(),
+              TInstr::local_get(LocalIdx::new(0)),
+              TInstr::i64_const(I64(1L)),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  i64l_test_reset_rewrite_globals_counter()
+  match optimize_module(mod, [I64ToI32Lowering]) {
+    Ok(_) => ()
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  assert_eq(i64l_test_get_rewrite_globals_counter(), 1)
 }
 
 ///|

@@ -673,6 +673,41 @@ test "leb sizing and encoding reject invalid bit widths and ranges" {
 }
 
 ///|
+test "max leb constants match common widths" {
+  assert_eq(MAX_LEB128_BYTES_32, 5)
+  assert_eq(MAX_LEB128_BYTES_33, 5)
+  assert_eq(MAX_LEB128_BYTES_64, 10)
+  assert_eq(max_leb_bytes(32), MAX_LEB128_BYTES_32)
+  assert_eq(max_leb_bytes(33), MAX_LEB128_BYTES_33)
+  assert_eq(max_leb_bytes(64), MAX_LEB128_BYTES_64)
+}
+
+///|
+test "write_section helper writes id length and payload" {
+  let buf = @buffer.new()
+  match
+    write_section(42, buf, fn(payload) {
+      payload.write_byte(0xAB)
+      payload.write_byte(0xCD)
+      Ok(())
+    }) {
+    Ok(_) => assert_eq(buf.to_bytes().to_array(), [42, 2, 0xAB, 0xCD])
+    Err(e) => fail("unexpected write_section error: \{e}")
+  }
+}
+
+///|
+test "write_section helper propagates payload errors" {
+  let buf = @buffer.new()
+  assert_encode_err_contains(
+    write_section(1, buf, fn(_) {
+      Err(BinaryEncodeError::CannotEncodeBottomValType)
+    }),
+    BinaryEncodeError::CannotEncodeBottomValType,
+  )
+}
+
+///|
 test "numtype valtype" {
   roundtrip(NumType::f32())
   roundtrip(NumType::f64())

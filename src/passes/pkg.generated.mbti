@@ -38,6 +38,7 @@ pub(all) struct AsyncifyPassProps {
   export_globals : Bool
   in_secondary_memory : Bool
   secondary_memory_size : UInt64
+  auto_lower_tail_calls : Bool
 }
 
 type BlockLiveness

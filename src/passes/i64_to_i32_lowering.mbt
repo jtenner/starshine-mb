@@ -20,6 +20,29 @@ priv struct I64LFuncCtx {
 }
 
 ///|
+priv struct I64LPrepared {
+  mod : Module
+  old_func_types : Map[FuncIdx, FuncType]
+  old_type_func_types : Map[TypeIdx, FuncType]
+  i64_global_hi : Map[GlobalIdx, GlobalIdx]
+  return_high_global : GlobalIdx
+  default_mem_is_i64 : Bool
+}
+
+///|
+let i64l_rewrite_globals_counter : Array[Int] = [0]
+
+///|
+fn i64l_test_reset_rewrite_globals_counter() -> Unit {
+  i64l_rewrite_globals_counter[0] = 0
+}
+
+///|
+fn i64l_test_get_rewrite_globals_counter() -> Int {
+  i64l_rewrite_globals_counter[0]
+}
+
+///|
 fn i64l_is_i64(vt : ValType) -> Bool {
   match vt {
     NumTypeValType(I64NumType) => true
@@ -2630,6 +2653,7 @@ fn i64l_rewrite_one_func(
 fn i64l_rewrite_globals(
   mod : Module,
 ) -> Result[(Module, Map[GlobalIdx, GlobalIdx], GlobalIdx), String] {
+  i64l_rewrite_globals_counter[0] = i64l_rewrite_globals_counter[0] + 1
   let imported_globals = i64l_count_imported_globals(mod)
   match mod.import_sec {
     Some(ImportSec(imports)) =>
@@ -2727,7 +2751,7 @@ fn i64l_rewrite_globals(
 }
 
 ///|
-fn i64_to_i32_lowering(mod : Module) -> Result[Module, String] {
+fn i64_to_i32_lowering_prepare(mod : Module) -> Result[I64LPrepared, String] {
   let old_func_types = i64l_collect_old_func_types(mod)
   let old_type_func_types = i64l_collect_old_type_func_types(mod)
   let mod = match i64l_lower_type_sec(mod) {
@@ -2738,15 +2762,31 @@ fn i64_to_i32_lowering(mod : Module) -> Result[Module, String] {
     Ok(v) => v
     Err(e) => return Err(e)
   }
-  let needs_scratch_memory = [false]
-  let info : I64LModuleInfo = {
+  let default_mem_is_i64 = i64l_default_mem_is_i64(mod)
+  Ok({
+    mod,
     old_func_types,
     old_type_func_types,
     i64_global_hi: hi_map,
     return_high_global: return_hi,
-    default_mem_is_i64: i64l_default_mem_is_i64(mod),
+    default_mem_is_i64,
+  })
+}
+
+///|
+fn i64_to_i32_lowering_from_prepared(
+  prepared : I64LPrepared,
+) -> Result[Module, String] {
+  let needs_scratch_memory = [false]
+  let info : I64LModuleInfo = {
+    old_func_types: prepared.old_func_types,
+    old_type_func_types: prepared.old_type_func_types,
+    i64_global_hi: prepared.i64_global_hi,
+    return_high_global: prepared.return_high_global,
+    default_mem_is_i64: prepared.default_mem_is_i64,
     needs_scratch_memory,
   }
+  let mod = prepared.mod
   let lowered = match mod.code_sec {
     Some(CodeSec(funcs)) => {
       let imported_funcs = i64l_count_imported_funcs(mod)
@@ -2763,6 +2803,15 @@ fn i64_to_i32_lowering(mod : Module) -> Result[Module, String] {
     None => mod
   }
   Ok(i64l_ensure_scratch_memory(lowered, info.needs_scratch_memory[0]))
+}
+
+///|
+fn i64_to_i32_lowering(mod : Module) -> Result[Module, String] {
+  let prepared = match i64_to_i32_lowering_prepare(mod) {
+    Ok(next) => next
+    Err(e) => return Err(e)
+  }
+  i64_to_i32_lowering_from_prepared(prepared)
 }
 
 ///|

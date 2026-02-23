@@ -44,10 +44,28 @@
   - [x] `src/passes/precompute.mbt`
   - [x] For each pass above: add one invariant test proving module validity and stable index remapping.
 
-- [ ] P1: Resolve known feature and architecture debt.
-  - [ ] `src/passes/i64_to_i32_lowering.mbt`: remove unsupported cases (`multi-value i64 results`, imported i64 globals, non-canonical i64 global-init roots) or gate pass preconditions at scheduler entry.
-  - [ ] `src/passes/asyncify.mbt`: handle tail calls (or add explicit required lowering prepass with diagnostics).
-  - [ ] Migrate `de_nan` and `remove_unused` to IRContext-shaped integration.
+- [x] P1: Resolve known feature and architecture debt.
+  - [x] `src/passes/i64_to_i32_lowering.mbt`: gate pass preconditions at scheduler entry for unsupported cases (`multi-value i64 results`, imported i64 globals, non-canonical i64 global-init roots).
+  - [x] `src/passes/asyncify.mbt`: add explicit required lowering prepass diagnostics for tail-call usage.
+  - [x] Migrate `de_nan` and `remove_unused` to IRContext-shaped integration.
+
+- [x] P1 follow-up: reduce repeated i64 lowering precondition work.
+  - [x] Thread validated/lowered precondition artifacts from scheduler into `i64_to_i32_lowering` to avoid duplicate type/global scans.
+
+- [x] P1 follow-up: harden new IRContext wrappers with direct constructor tests.
+  - [x] Add focused behavior-path test for `de_nan_ir_pass`.
+  - [x] Add focused error-propagation test for `de_nan_ir_pass`.
+  - [x] Add focused behavior-path test for `remove_unused_ir_pass`.
+  - [x] Add focused error-propagation test for `remove_unused_ir_pass`.
+
+- [x] P1 follow-up: provide an optional automatic tail-call lowering path for asyncify.
+  - [x] Add a scheduler-level or prepass option to lower tail calls before asyncify instead of requiring manual pipeline wiring.
+
+- [ ] P1 follow-up: extend asyncify auto tail-call lowering to multi-value return signatures.
+  - [ ] Add lowering support for multi-value `return_call`/`return_call_indirect`/`return_call_ref` (or explicit fallback pass wiring) and parity tests.
+
+- [ ] P1 follow-up: harden `i64_to_i32_lowering_prepare` artifact API tests.
+  - [ ] Add focused equivalence/error-propagation tests for `i64_to_i32_lowering_prepare` + `i64_to_i32_lowering_from_prepared` outside scheduler integration.
 
 ## 0.5) Low-Hanging Fruit
 
@@ -91,7 +109,7 @@
   - [ ] `decode_extended_0xFE`
   - Effort: `1–2 hours`
   - Rationale: Mirrors existing encode helper pattern (for example `simd_inst`) and improves readability.
-- [ ] Extract `write_section` helper in `encode.mbt` to unify section id/length/payload encoding.
+- [x] Extract `write_section` helper in `encode.mbt` to unify section id/length/payload encoding.
   - Effort: `30 minutes`
   - Rationale: Cleans up encode-side symmetry.
 - [ ] Turn validator into a `ModuleTransformer`:
@@ -160,9 +178,12 @@
 - [ ] Generate keyword/opcode tables from a small DSL or MoonBit macros (with manual exception overrides).
   - Effort: `2 hours`
   - Rationale: Keeps mapping logic DRY as opcode surface evolves.
-- [ ] Make max LEB constants compile-time (`MAX_LEB128_BYTES_32 = 5`, etc., including `1..64` table if useful).
+- [x] Make max LEB constants compile-time (`MAX_LEB128_BYTES_32 = 5`, etc., including `1..64` table if useful).
   - Effort: `15 minutes`
   - Rationale: Removes runtime overhead.
+
+- [ ] Follow-up: document and/or align non-standard section payload-length encoding for `StartSec`/`CodeSec`/`DataCntSec`.
+  - [ ] Add explicit codec tests and parity note if this encoding shape is intentional.
 - [ ] Use `@moonbitlang/coreFixedArray` for fixed 16-lane shuffle data.
   - Effort: `30 minutes`
   - Rationale: Better fixed-size performance than general arrays.

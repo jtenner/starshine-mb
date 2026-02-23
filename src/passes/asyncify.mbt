@@ -15,6 +15,7 @@ pub(all) struct AsyncifyPassProps {
   export_globals : Bool
   in_secondary_memory : Bool
   secondary_memory_size : UInt64
+  auto_lower_tail_calls : Bool
 }
 
 ///|
@@ -34,6 +35,7 @@ fn AsyncifyPassProps::new(
   export_globals? : Bool = false,
   in_secondary_memory? : Bool = false,
   secondary_memory_size? : UInt64 = 1024UL,
+  auto_lower_tail_calls? : Bool = false,
 ) -> AsyncifyPassProps {
   {
     imports,
@@ -51,6 +53,7 @@ fn AsyncifyPassProps::new(
     export_globals,
     in_secondary_memory,
     secondary_memory_size,
+    auto_lower_tail_calls,
   }
 }
 
@@ -272,6 +275,7 @@ fn asyncify_apply_arguments(
   let mut export_globals = props.export_globals
   let mut in_secondary_memory = props.in_secondary_memory
   let mut secondary_memory_size = props.secondary_memory_size
+  let mut auto_lower_tail_calls = props.auto_lower_tail_calls
   for arg in args {
     if arg == "asyncify-ignore-imports" {
       ignore_imports = true
@@ -307,6 +311,10 @@ fn asyncify_apply_arguments(
     }
     if arg == "asyncify-in-secondary-memory" {
       in_secondary_memory = true
+      continue
+    }
+    if arg == "asyncify-lower-tail-calls" {
+      auto_lower_tail_calls = true
       continue
     }
     match af_parse_list_arg(arg, "asyncify-imports@") {
@@ -408,6 +416,7 @@ fn asyncify_apply_arguments(
       export_globals~,
       in_secondary_memory~,
       secondary_memory_size~,
+      auto_lower_tail_calls~,
     ),
   )
 }
@@ -3048,11 +3057,244 @@ fn af_assert_unwind_catch(mod : Module, runtime : AFApi) -> Module {
 }
 
 ///|
+fn af_instr_has_tail_call(instr : TInstr) -> Bool {
+  match instr {
+    TReturnCall(_, _)
+    | TReturnCallIndirect(_, _, _, _)
+    | TReturnCallRef(_, _, _) => true
+    TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) => {
+      for item in body.0 {
+        if af_instr_has_tail_call(item) {
+          return true
+        }
+      }
+      false
+    }
+    TIf(_, cond, then_, else_) => {
+      if af_instr_has_tail_call(cond) {
+        return true
+      }
+      for item in then_.0 {
+        if af_instr_has_tail_call(item) {
+          return true
+        }
+      }
+      match else_ {
+        Some(other) =>
+          for item in other.0 {
+            if af_instr_has_tail_call(item) {
+              return true
+            }
+          }
+        None => ()
+      }
+      false
+    }
+    _ => {
+      for child in af_eval_children(instr) {
+        if af_instr_has_tail_call(child) {
+          return true
+        }
+      }
+      false
+    }
+  }
+}
+
+///|
+fn af_tail_call_result_count_for_func(
+  env : Env,
+  target : FuncIdx,
+) -> Result[Int, String] {
+  match env.get_functype_by_funcidx(target) {
+    Some(FuncType(_, results)) => Ok(results.length())
+    None => Err("asyncify: tail-call lowering missing return_call signature")
+  }
+}
+
+///|
+fn af_tail_call_result_count_for_type(
+  env : Env,
+  type_idx : TypeIdx,
+  kind : String,
+) -> Result[Int, String] {
+  match env.resolve_functype(type_idx) {
+    Some(FuncType(_, results)) => Ok(results.length())
+    None => Err("asyncify: tail-call lowering missing \{kind} signature")
+  }
+}
+
+///|
+fn af_rewrite_tail_call_to_non_tail(
+  instr : TInstr,
+  env : Env,
+) -> Result[TInstr, String] {
+  match instr {
+    TReturnCall(target, args) => {
+      let result_count = match af_tail_call_result_count_for_func(env, target) {
+        Ok(n) => n
+        Err(e) => return Err(e)
+      }
+      if result_count == 0 {
+        return Ok(
+          TInstr::block(
+            BlockType::void_(),
+            TExpr::new([TInstr::call(target, args), TInstr::return_([])]),
+          ),
+        )
+      }
+      if result_count == 1 {
+        return Ok(TInstr::return_([TInstr::call(target, args)]))
+      }
+      Err(
+        "asyncify: tail-call lowering for return_call with multi-value results is unsupported",
+      )
+    }
+    TReturnCallIndirect(type_idx, table_idx, args, idx) => {
+      let result_count = match
+        af_tail_call_result_count_for_type(
+          env, type_idx, "return_call_indirect",
+        ) {
+        Ok(n) => n
+        Err(e) => return Err(e)
+      }
+      if result_count == 0 {
+        return Ok(
+          TInstr::block(
+            BlockType::void_(),
+            TExpr::new([
+              TInstr::call_indirect(type_idx, table_idx, args, idx),
+              TInstr::return_([]),
+            ]),
+          ),
+        )
+      }
+      if result_count == 1 {
+        return Ok(
+          TInstr::return_([
+            TInstr::call_indirect(type_idx, table_idx, args, idx),
+          ]),
+        )
+      }
+      Err(
+        "asyncify: tail-call lowering for return_call_indirect with multi-value results is unsupported",
+      )
+    }
+    TReturnCallRef(type_idx, args, ref_) => {
+      let result_count = match
+        af_tail_call_result_count_for_type(env, type_idx, "return_call_ref") {
+        Ok(n) => n
+        Err(e) => return Err(e)
+      }
+      if result_count == 0 {
+        return Ok(
+          TInstr::block(
+            BlockType::void_(),
+            TExpr::new([
+              TInstr::call_ref(type_idx, args, ref_),
+              TInstr::return_([]),
+            ]),
+          ),
+        )
+      }
+      if result_count == 1 {
+        return Ok(TInstr::return_([TInstr::call_ref(type_idx, args, ref_)]))
+      }
+      Err(
+        "asyncify: tail-call lowering for return_call_ref with multi-value results is unsupported",
+      )
+    }
+    _ => Ok(instr)
+  }
+}
+
+///|
+fn af_lower_tail_calls_prepass(mod : Module) -> Result[Module, String] {
+  let env = Env::new().with_module(mod)
+  let funcs = match mod.code_sec {
+    Some(CodeSec(items)) => items.copy()
+    None => return Ok(mod)
+  }
+  let rewritten : Array[Func] = []
+  for func in funcs {
+    match func {
+      TFunc(locals, body) => {
+        let pass = ModuleTransformer::new().on_tinstruction_evt(fn(
+          self,
+          env,
+          instr,
+        ) {
+          let walked = match self.walk_tinstruction_default(env, instr) {
+            Ok(Some((_, next))) => next
+            Ok(None) => instr
+            Err(e) => return Err(e)
+          }
+          let rewritten_instr = match
+            af_rewrite_tail_call_to_non_tail(walked, env) {
+            Ok(next) => next
+            Err(e) => return Err(e)
+          }
+          if rewritten_instr == instr {
+            unchanged()
+          } else {
+            change(env, rewritten_instr)
+          }
+        })
+        let next_body = match pass.walk_texpr(env, body) {
+          Ok(Some((_, out))) => out
+          Ok(None) => body
+          Err(e) => return Err(e)
+        }
+        rewritten.push(Func::t_func(locals, next_body))
+      }
+      _ => rewritten.push(func)
+    }
+  }
+  Ok(mod.with_code_sec(CodeSec::new(rewritten)))
+}
+
+///|
+fn af_require_tail_call_lowering_prepass(mod : Module) -> Result[Unit, String] {
+  let imported = af_count_imported_funcs(mod).reinterpret_as_int()
+  match mod.code_sec {
+    Some(CodeSec(funcs)) =>
+      for i = 0; i < funcs.length(); i = i + 1 {
+        match funcs[i] {
+          TFunc(_, body) =>
+            for instr in body.0 {
+              if af_instr_has_tail_call(instr) {
+                let func_idx = imported + i
+                return Err(
+                  "asyncify: tail calls are not supported; run a tail-call lowering prepass before asyncify (function \{func_idx})",
+                )
+              }
+            }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  Ok(())
+}
+
+///|
 fn asyncify(
   mod : Module,
   props? : AsyncifyPassProps = AsyncifyPassProps::new(),
   optimize_level? : Int = 0,
 ) -> Result[Module, String] {
+  let mod = if props.auto_lower_tail_calls {
+    match af_lower_tail_calls_prepass(mod) {
+      Ok(next) => next
+      Err(e) => return Err(e)
+    }
+  } else {
+    mod
+  }
+  match af_require_tail_call_lowering_prepass(mod) {
+    Ok(_) => ()
+    Err(e) => return Err(e)
+  }
   let (mod, memory) = match af_memory_choice(mod, props) {
     Ok(v) => v
     Err(e) => return Err(e)
@@ -3321,6 +3563,16 @@ fn af_has_unwind_push_stack_end_guard(body : TExpr) -> Bool {
 }
 
 ///|
+fn af_has_tail_call(body : TExpr) -> Bool {
+  for instr in body.0 {
+    if af_instr_has_tail_call(instr) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 test "asyncify_apply_arguments parses core flags" {
   let props = AsyncifyPassProps::new()
   let updated = match
@@ -3403,6 +3655,105 @@ test "asyncify_apply_arguments rejects onlylist combined with addlist or removel
       assert_eq(
         e, "asyncify: onlylist cannot be combined with addlist/removelist",
       )
+  }
+}
+
+///|
+test "asyncify rejects tail calls with required lowering prepass diagnostic" {
+  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t0]))
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("env"),
+          Name::new("sleep"),
+          ExternType::func(TypeIdx::new(0)),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func([], TExpr::new([TInstr::return_call(FuncIdx::new(0), [])])),
+      ]),
+    )
+  match af_test_run(mod) {
+    Ok(_) => fail("expected asyncify to reject tail calls")
+    Err(e) => {
+      assert_true(e.contains("tail calls are not supported"))
+      assert_true(e.contains("tail-call lowering prepass"))
+      assert_true(e.contains("function 1"))
+    }
+  }
+}
+
+///|
+test "asyncify optional tail-call lowering flag rewrites return_call" {
+  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t0]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func([], TExpr::new([TInstr::nop()])),
+        Func::t_func([], TExpr::new([TInstr::return_call(FuncIdx::new(0), [])])),
+      ]),
+    )
+  let props = match
+    asyncify_apply_arguments(AsyncifyPassProps::new(), [
+      "asyncify-lower-tail-calls",
+    ]) {
+    Ok(next) => next
+    Err(e) => fail("unexpected asyncify arg parse error: \{e}")
+  }
+  let out = match af_test_run(mod, props~) {
+    Ok(m) => m
+    Err(e) => fail("unexpected asyncify tail-call-lowering error: \{e}")
+  }
+  match out.code_sec {
+    Some(CodeSec([_, TFunc(_, body), ..])) =>
+      assert_false(af_has_tail_call(body))
+    _ => fail("expected rewritten caller body")
+  }
+}
+
+///|
+test "asyncify optional tail-call lowering flag rewrites return_call_ref" {
+  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t0]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func([], TExpr::new([TInstr::nop()])),
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::return_call_ref(
+              TypeIdx::new(0),
+              [],
+              TInstr::ref_func(FuncIdx::new(0)),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let props = match
+    asyncify_apply_arguments(AsyncifyPassProps::new(), [
+      "asyncify-lower-tail-calls",
+    ]) {
+    Ok(next) => next
+    Err(e) => fail("unexpected asyncify arg parse error: \{e}")
+  }
+  let out = match af_test_run(mod, props~) {
+    Ok(m) => m
+    Err(e) => fail("unexpected asyncify tail-call-lowering error: \{e}")
+  }
+  match out.code_sec {
+    Some(CodeSec([_, TFunc(_, body), ..])) =>
+      assert_false(af_has_tail_call(body))
+    _ => fail("expected rewritten caller body")
   }
 }
 

@@ -375,8 +375,22 @@ fn ceil_div(a : Int, b : Int) -> Int {
 }
 
 ///|
+const MAX_LEB128_BYTES_32 : Int = 5
+
+///|
+const MAX_LEB128_BYTES_33 : Int = 5
+
+///|
+const MAX_LEB128_BYTES_64 : Int = 10
+
+///|
 fn max_leb_bytes(nbits : Int) -> Int {
-  ceil_div(nbits, 7)
+  match nbits {
+    32 => MAX_LEB128_BYTES_32
+    33 => MAX_LEB128_BYTES_33
+    64 => MAX_LEB128_BYTES_64
+    _ => ceil_div(nbits, 7)
+  }
 }
 
 ///|
@@ -524,53 +538,45 @@ pub impl Encode for Name with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for CustomSec with encode(val, buf) {
-  let CustomSec(name, bytes) = val
-  buf.write_byte(0)
-  let payload_buff = @buffer.new()
-  if Encode::encode(name, payload_buff) is Err(t) {
+fn write_section(
+  section_id : Int,
+  buf : @buffer.Buffer,
+  write_payload : (@buffer.Buffer) -> Result[Unit, BinaryEncodeError],
+) -> Result[Unit, BinaryEncodeError] {
+  buf.write_byte(section_id.to_byte())
+  let payload = @buffer.new()
+  if write_payload(payload) is Err(t) {
     return Err(t)
   }
-  payload_buff.write_bytes(bytes)
-  let payload_bytes = payload_buff.to_bytes()
+  let payload_bytes = payload.to_bytes()
   if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf)
     is Err(t) {
     return Err(t)
   }
   buf.write_bytes(payload_bytes)
   Ok(())
+}
+
+///|
+pub impl Encode for CustomSec with encode(val, buf) {
+  let CustomSec(name, bytes) = val
+  write_section(0, buf, fn(payload) {
+    if Encode::encode(name, payload) is Err(t) {
+      return Err(t)
+    }
+    payload.write_bytes(bytes)
+    Ok(())
+  })
 }
 
 ///|
 pub impl Encode for TypeSec with encode(val, buf) {
-  buf.write_byte(1)
-  let payload = @buffer.new()
-  if Encode::encode(val.0, payload) is Err(t) {
-    return Err(t)
-  }
-  let payload_bytes = payload.to_bytes()
-  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf)
-    is Err(t) {
-    return Err(t)
-  }
-  buf.write_bytes(payload_bytes)
-  Ok(())
+  write_section(1, buf, fn(payload) { Encode::encode(val.0, payload) })
 }
 
 ///|
 pub impl Encode for ImportSec with encode(val, buf) {
-  buf.write_byte(2)
-  let payload = @buffer.new()
-  if Encode::encode(val.0, payload) is Err(t) {
-    return Err(t)
-  }
-  let payload_bytes = payload.to_bytes()
-  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf)
-    is Err(t) {
-    return Err(t)
-  }
-  buf.write_bytes(payload_bytes)
-  Ok(())
+  write_section(2, buf, fn(payload) { Encode::encode(val.0, payload) })
 }
 
 ///|
@@ -676,34 +682,12 @@ pub impl Encode for TagType with encode(val, buf) {
 
 ///|
 pub impl Encode for FuncSec with encode(val, buf) {
-  buf.write_byte(3)
-  let payload = @buffer.new()
-  if Encode::encode(val.0, payload) is Err(t) {
-    return Err(t)
-  }
-  let payload_bytes = payload.to_bytes()
-  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf)
-    is Err(t) {
-    return Err(t)
-  }
-  buf.write_bytes(payload_bytes)
-  Ok(())
+  write_section(3, buf, fn(payload) { Encode::encode(val.0, payload) })
 }
 
 ///|
 pub impl Encode for TableSec with encode(val, buf) {
-  buf.write_byte(4)
-  let payload = @buffer.new()
-  if Encode::encode(val.0, payload) is Err(t) {
-    return Err(t)
-  }
-  let payload_bytes = payload.to_bytes()
-  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf)
-    is Err(t) {
-    return Err(t)
-  }
-  buf.write_bytes(payload_bytes)
-  Ok(())
+  write_section(4, buf, fn(payload) { Encode::encode(val.0, payload) })
 }
 
 ///|
@@ -722,34 +706,12 @@ pub impl Encode for Table with encode(val, buf) {
 
 ///|
 pub impl Encode for MemSec with encode(val, buf) {
-  buf.write_byte(5)
-  let payload = @buffer.new()
-  if Encode::encode(val.0, payload) is Err(t) {
-    return Err(t)
-  }
-  let payload_bytes = payload.to_bytes()
-  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf)
-    is Err(t) {
-    return Err(t)
-  }
-  buf.write_bytes(payload_bytes)
-  Ok(())
+  write_section(5, buf, fn(payload) { Encode::encode(val.0, payload) })
 }
 
 ///|
 pub impl Encode for GlobalSec with encode(val, buf) {
-  buf.write_byte(6)
-  let payload = @buffer.new()
-  if Encode::encode(val.0, payload) is Err(t) {
-    return Err(t)
-  }
-  let payload_bytes = payload.to_bytes()
-  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf)
-    is Err(t) {
-    return Err(t)
-  }
-  buf.write_bytes(payload_bytes)
-  Ok(())
+  write_section(6, buf, fn(payload) { Encode::encode(val.0, payload) })
 }
 
 ///|
@@ -764,18 +726,7 @@ pub impl Encode for Global with encode(val, buf) {
 
 ///|
 pub impl Encode for ExportSec with encode(val, buf) {
-  buf.write_byte(7)
-  let payload = @buffer.new()
-  if Encode::encode(val.0, payload) is Err(t) {
-    return Err(t)
-  }
-  let payload_bytes = payload.to_bytes()
-  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf)
-    is Err(t) {
-    return Err(t)
-  }
-  buf.write_bytes(payload_bytes)
-  Ok(())
+  write_section(7, buf, fn(payload) { Encode::encode(val.0, payload) })
 }
 
 ///|
@@ -796,18 +747,7 @@ pub impl Encode for StartSec with encode(val, buf) {
 
 ///|
 pub impl Encode for ElemSec with encode(val, buf) {
-  buf.write_byte(9)
-  let payload = @buffer.new()
-  if Encode::encode(val.0, payload) is Err(t) {
-    return Err(t)
-  }
-  let payload_bytes = payload.to_bytes()
-  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf)
-    is Err(t) {
-    return Err(t)
-  }
-  buf.write_bytes(payload_bytes)
-  Ok(())
+  write_section(9, buf, fn(payload) { Encode::encode(val.0, payload) })
 }
 
 ///|
@@ -928,18 +868,7 @@ pub impl Encode for Func with encode(val, buf) {
 
 ///|
 pub impl Encode for DataSec with encode(val, buf) {
-  buf.write_byte(11)
-  let payload = @buffer.new()
-  if Encode::encode(val.0, payload) is Err(t) {
-    return Err(t)
-  }
-  let payload_bytes = payload.to_bytes()
-  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf)
-    is Err(t) {
-    return Err(t)
-  }
-  buf.write_bytes(payload_bytes)
-  Ok(())
+  write_section(11, buf, fn(payload) { Encode::encode(val.0, payload) })
 }
 
 ///|
@@ -991,18 +920,7 @@ pub impl Encode for DataCntSec with encode(val, buf) {
 
 ///|
 pub impl Encode for TagSec with encode(val, buf) {
-  buf.write_byte(13)
-  let payload = @buffer.new()
-  if Encode::encode(val.0, payload) is Err(t) {
-    return Err(t)
-  }
-  let payload_bytes = payload.to_bytes()
-  if Encode::encode(@lib.U32(payload_bytes.length().reinterpret_as_uint()), buf)
-    is Err(t) {
-    return Err(t)
-  }
-  buf.write_bytes(payload_bytes)
-  Ok(())
+  write_section(13, buf, fn(payload) { Encode::encode(val.0, payload) })
 }
 
 ///|

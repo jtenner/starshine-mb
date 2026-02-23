@@ -667,6 +667,22 @@ fn run_denam(m : @lib.Module) -> Result[@lib.Module, String] {
   }
   Ok(final_mod)
 }
+
+///|
+fn de_nan_ir_pass(_mod : Module) -> ModuleTransformer[IRContext] {
+  ModuleTransformer::new().on_module_evt(fn(_, ctx : IRContext, mod : Module) {
+    match run_denam(mod) {
+      Ok(next_mod) =>
+        if next_mod == mod {
+          unchanged()
+        } else {
+          change(ctx, next_mod)
+        }
+      Err(e) => Err(e)
+    }
+  })
+}
+
 // test_denan.mbt
 
 // ============================================
@@ -1631,4 +1647,45 @@ test "is_f64_nan correctly identifies NaN" {
 test "is_f64_nan correctly rejects non-NaN" {
   assert_eq(is_f64_nan(F64(0.0)), false, msg="0.0 is not NaN")
   assert_eq(is_f64_nan(F64(1.0)), false, msg="1.0 is not NaN")
+}
+
+///|
+test "de_nan_ir_pass rewrites module through IRContext wrapper" {
+  let nan_bits : UInt = 0x7FC00000
+  let nan = @lib.F32(Float::reinterpret_from_uint(nan_bits))
+  let mod = Module::new().with_code_sec(
+    CodeSec::new([Func::t_func([], TExpr::new([TInstr::f32_const(nan)]))]),
+  )
+  let ctx = IRContext::new()
+  match de_nan_ir_pass(mod).walk_module(ctx, mod) {
+    Ok(Some((_, out))) =>
+      match out.code_sec {
+        Some(CodeSec([TFunc(_, TExpr([TF32Const(F32(v))]))])) =>
+          assert_eq(v, 0.0)
+        _ => fail("expected rewritten f32 NaN constant")
+      }
+    Ok(None) => fail("expected de_nan_ir_pass to report rewritten module")
+    Err(e) => fail("unexpected de_nan_ir_pass error: \{e}")
+  }
+}
+
+///|
+test "de_nan_ir_pass propagates run_denam errors" {
+  let mod = Module::new()
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::unary(UnaryOp::f32_sqrt(), TInstr::f32_const(F32(1.0))),
+          ]),
+        ),
+      ]),
+    )
+  let ctx = IRContext::new()
+  match de_nan_ir_pass(mod).walk_module(ctx, mod) {
+    Ok(_) => fail("expected de_nan_ir_pass to propagate run_denam error")
+    Err(e) => assert_true(e.contains("func_sec exists but type_sec is missing"))
+  }
 }

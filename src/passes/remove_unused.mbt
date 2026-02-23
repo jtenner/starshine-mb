@@ -1875,6 +1875,26 @@ fn remove_unused_with_props(
 }
 
 ///|
+fn remove_unused_ir_pass(
+  _mod : Module,
+  closed_world? : Bool = true,
+  root_all_functions? : Bool = false,
+) -> ModuleTransformer[IRContext] {
+  let props = RemoveUnusedProps::new(closed_world~, root_all_functions~)
+  ModuleTransformer::new().on_module_evt(fn(_, ctx : IRContext, mod : Module) {
+    match remove_unused_with_props(mod, props) {
+      Ok(next_mod) =>
+        if next_mod == mod {
+          unchanged()
+        } else {
+          change(ctx, next_mod)
+        }
+      Err(e) => Err(e)
+    }
+  })
+}
+
+///|
 fn remove_unused_non_function_elements(mod : Module) -> Result[Module, String] {
   remove_unused_with_props(mod, RemoveUnusedProps::new(root_all_functions=true))
 }
@@ -3000,5 +3020,52 @@ test "typed element expressions keep referenced funcs and rewrite body in closed
       assert_true(func_body_is_unreachable(new_mod.code_sec.unwrap().0[1]))
     }
     Err(e) => fail("unexpected error: \{e}")
+  }
+}
+
+///|
+test "remove_unused_ir_pass rewrites module through IRContext wrapper" {
+  let type_sec = TypeSec::new([make_void_func_type()])
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([make_empty_func_body(), make_empty_func_body()]),
+    )
+    .with_export_sec(
+      ExportSec::new([
+        Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
+      ]),
+    )
+  let ctx = IRContext::new()
+  match remove_unused_ir_pass(mod).walk_module(ctx, mod) {
+    Ok(Some((_, out))) =>
+      match out.func_sec {
+        Some(FuncSec(funcs)) => assert_eq(funcs.length(), 1)
+        None => fail("expected rewritten function section")
+      }
+    Ok(None) => fail("expected remove_unused_ir_pass to report changes")
+    Err(e) => fail("unexpected remove_unused_ir_pass error: \{e}")
+  }
+}
+
+///|
+test "remove_unused_ir_pass propagates remap errors" {
+  let rec_func_type = RecType::new(
+    SubType::new(false, [TypeIdx::rec(0)], CompType::func([], [])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([rec_func_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(CodeSec::new([make_empty_func_body()]))
+    .with_export_sec(
+      ExportSec::new([
+        Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
+      ]),
+    )
+  let ctx = IRContext::new()
+  match remove_unused_ir_pass(mod).walk_module(ctx, mod) {
+    Ok(_) => fail("expected remove_unused_ir_pass to propagate remap error")
+    Err(e) => assert_true(e.contains("unexpected RecIdx in type remapping"))
   }
 }
