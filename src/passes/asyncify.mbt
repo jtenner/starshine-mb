@@ -3732,20 +3732,26 @@ test "asyncify optional tail-call lowering rewrites multi-value return_call" {
         Func::t_func([], TExpr::new([TInstr::return_call(FuncIdx::new(0), [])])),
       ]),
     )
-  let props = match
-    asyncify_apply_arguments(AsyncifyPassProps::new(), [
-      "asyncify-lower-tail-calls",
-    ]) {
-    Ok(next) => next
-    Err(e) => fail("unexpected asyncify arg parse error: \{e}")
-  }
-  let out = match af_test_run(mod, props~) {
+  let out = match af_lower_tail_calls_prepass(mod) {
     Ok(m) => m
-    Err(e) => fail("unexpected asyncify tail-call-lowering error: \{e}")
+    Err(e) => fail("unexpected asyncify tail-call-lowering prepass error: \{e}")
   }
+  assert_eq(validate_module(out), Ok(()))
   match out.code_sec {
-    Some(CodeSec([_, TFunc(_, body), ..])) =>
+    Some(CodeSec([_, TFunc(locals, body), ..])) => {
       assert_false(af_has_tail_call(body))
+      let env = Env::new()
+        .with_module(out)
+        .with_locals(locals)
+        .with_return_type(Some([ValType::i32(), ValType::i32()]))
+      match to_texpr(body.to_expr(), env) {
+        Ok(_) => ()
+        Err(e) =>
+          fail(
+            "expected multi-value return_call rewrite to roundtrip through to_expr/to_texpr: \{e}",
+          )
+      }
+    }
     _ => fail("expected rewritten caller body")
   }
 }
@@ -3758,6 +3764,28 @@ test "asyncify optional tail-call lowering rewrites multi-value return_call_indi
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_multi]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
+    .with_table_sec(
+      TableSec::new([
+        Table::new(
+          TableType::new(
+            RefType::new(true, HeapType::abs(AbsHeapType::func())),
+            Limits::i32(1, Some(1)),
+          ),
+          None,
+        ),
+      ]),
+    )
+    .with_elem_sec(
+      ElemSec::new([
+        Elem::new(
+          ElemMode::active(
+            TableIdx::new(0),
+            Expr::new([Instruction::i32_const(I32(0))]),
+          ),
+          ElemKind::funcs([FuncIdx::new(0)]),
+        ),
+      ]),
+    )
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
@@ -3782,20 +3810,26 @@ test "asyncify optional tail-call lowering rewrites multi-value return_call_indi
         ),
       ]),
     )
-  let props = match
-    asyncify_apply_arguments(AsyncifyPassProps::new(), [
-      "asyncify-lower-tail-calls",
-    ]) {
-    Ok(next) => next
-    Err(e) => fail("unexpected asyncify arg parse error: \{e}")
-  }
-  let out = match af_test_run(mod, props~) {
+  let out = match af_lower_tail_calls_prepass(mod) {
     Ok(m) => m
-    Err(e) => fail("unexpected asyncify tail-call-lowering error: \{e}")
+    Err(e) => fail("unexpected asyncify tail-call-lowering prepass error: \{e}")
   }
+  assert_eq(validate_module(out), Ok(()))
   match out.code_sec {
-    Some(CodeSec([_, TFunc(_, body), ..])) =>
+    Some(CodeSec([_, TFunc(locals, body), ..])) => {
       assert_false(af_has_tail_call(body))
+      let env = Env::new()
+        .with_module(out)
+        .with_locals(locals)
+        .with_return_type(Some([ValType::i32(), ValType::i32()]))
+      match to_texpr(body.to_expr(), env) {
+        Ok(_) => ()
+        Err(e) =>
+          fail(
+            "expected multi-value return_call_indirect rewrite to roundtrip through to_expr/to_texpr: \{e}",
+          )
+      }
+    }
     _ => fail("expected rewritten caller body")
   }
 }
@@ -3804,6 +3838,9 @@ test "asyncify optional tail-call lowering rewrites multi-value return_call_indi
 test "asyncify optional tail-call lowering rewrites multi-value return_call_ref" {
   let t_multi = single_rec_type(
     comp_type_sub_type(func_comp_type([], [ValType::i32(), ValType::i32()])),
+  )
+  let typed_funcref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_multi]))
@@ -3820,31 +3857,37 @@ test "asyncify optional tail-call lowering rewrites multi-value return_call_ref"
           ]),
         ),
         Func::t_func(
-          [],
+          [typed_funcref],
           TExpr::new([
             TInstr::return_call_ref(
               TypeIdx::new(0),
               [],
-              TInstr::ref_func(FuncIdx::new(0)),
+              TInstr::local_get(LocalIdx::new(0)),
             ),
           ]),
         ),
       ]),
     )
-  let props = match
-    asyncify_apply_arguments(AsyncifyPassProps::new(), [
-      "asyncify-lower-tail-calls",
-    ]) {
-    Ok(next) => next
-    Err(e) => fail("unexpected asyncify arg parse error: \{e}")
-  }
-  let out = match af_test_run(mod, props~) {
+  let out = match af_lower_tail_calls_prepass(mod) {
     Ok(m) => m
-    Err(e) => fail("unexpected asyncify tail-call-lowering error: \{e}")
+    Err(e) => fail("unexpected asyncify tail-call-lowering prepass error: \{e}")
   }
+  assert_eq(validate_module(out), Ok(()))
   match out.code_sec {
-    Some(CodeSec([_, TFunc(_, body), ..])) =>
+    Some(CodeSec([_, TFunc(locals, body), ..])) => {
       assert_false(af_has_tail_call(body))
+      let env = Env::new()
+        .with_module(out)
+        .with_locals(locals)
+        .with_return_type(Some([ValType::i32(), ValType::i32()]))
+      match to_texpr(body.to_expr(), env) {
+        Ok(_) => ()
+        Err(e) =>
+          fail(
+            "expected multi-value return_call_ref rewrite to roundtrip through to_expr/to_texpr: \{e}",
+          )
+      }
+    }
     _ => fail("expected rewritten caller body")
   }
 }

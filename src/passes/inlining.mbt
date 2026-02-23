@@ -689,11 +689,48 @@ fn il_zero_of_type(vt : ValType) -> TInstr? {
 }
 
 ///|
+fn il_hoist_placeholder_values(results : Array[ValType]) -> Array[TInstr]? {
+  let placeholders : Array[TInstr] = []
+  for vt in results {
+    match il_zero_of_type(vt) {
+      Some(zero) => placeholders.push(zero)
+      None => return None
+    }
+  }
+  Some(placeholders)
+}
+
+///|
 fn il_make_block_type(results : Array[ValType]) -> BlockType? {
   match results {
     [] => Some(BlockType::void_())
     [r] => Some(BlockType::val_type(r))
     _ => None
+  }
+}
+
+///|
+fn il_make_hoist_wrapper_block_type(
+  caller_results : Array[ValType],
+  caller_type_idx : TypeIdx?,
+  env : Env,
+) -> BlockType? {
+  match il_make_block_type(caller_results) {
+    Some(bt) => Some(bt)
+    None =>
+      match caller_type_idx {
+        Some(type_idx) =>
+          match env.resolve_functype(type_idx) {
+            Some(FuncType(params, results)) =>
+              if params.is_empty() && results == caller_results {
+                Some(BlockType::type_idx(type_idx))
+              } else {
+                None
+              }
+            _ => None
+          }
+        None => None
+      }
   }
 }
 
@@ -1027,6 +1064,8 @@ fn il_prepare_hoisted_tail_call(
   caller_locals : Array[ValType],
   env : Env,
   func_types : Array[FuncType],
+  hoist_block_type : BlockType,
+  hoist_placeholders : Array[TInstr],
 ) -> Result[(TInstr, TInstr, TInstr), String] {
   let inlined = match il_inline_tail_wrapper_call(callee_func, call_args) {
     Ok(Some(instr)) => instr
@@ -1060,7 +1099,10 @@ fn il_prepare_hoisted_tail_call(
       let flag_init = TInstr::local_set(flag_local, TInstr::i32_const(I32(0)))
       stores.push(TInstr::local_set(flag_local, TInstr::i32_const(I32(1))))
       stores.push(TInstr::unreachable_())
-      let replacement = TInstr::block(BlockType::void_(), TExpr::new(stores))
+      for placeholder in hoist_placeholders {
+        stores.push(placeholder)
+      }
+      let replacement = TInstr::block(hoist_block_type, TExpr::new(stores))
       let followup = TInstr::if_(
         BlockType::void_(),
         TInstr::local_get(flag_local),
@@ -1101,7 +1143,10 @@ fn il_prepare_hoisted_tail_call(
       let flag_init = TInstr::local_set(flag_local, TInstr::i32_const(I32(0)))
       stores.push(TInstr::local_set(flag_local, TInstr::i32_const(I32(1))))
       stores.push(TInstr::unreachable_())
-      let replacement = TInstr::block(BlockType::void_(), TExpr::new(stores))
+      for placeholder in hoist_placeholders {
+        stores.push(placeholder)
+      }
+      let replacement = TInstr::block(hoist_block_type, TExpr::new(stores))
       let followup = TInstr::if_(
         BlockType::void_(),
         TInstr::local_get(flag_local),
@@ -1147,7 +1192,10 @@ fn il_prepare_hoisted_tail_call(
       let flag_init = TInstr::local_set(flag_local, TInstr::i32_const(I32(0)))
       stores.push(TInstr::local_set(flag_local, TInstr::i32_const(I32(1))))
       stores.push(TInstr::unreachable_())
-      let replacement = TInstr::block(BlockType::void_(), TExpr::new(stores))
+      for placeholder in hoist_placeholders {
+        stores.push(placeholder)
+      }
+      let replacement = TInstr::block(hoist_block_type, TExpr::new(stores))
       let followup = TInstr::if_(
         BlockType::void_(),
         TInstr::local_get(flag_local),
@@ -1172,6 +1220,7 @@ fn il_prepare_hoisted_tail_call(
 ///|
 fn il_apply_actions_to_func(
   caller_type : FuncType,
+  caller_type_idx : TypeIdx?,
   caller_func : Func,
   actions : Map[Int, ILInlineAction],
   funcs_by_abs : Array[Func?],
@@ -1186,6 +1235,10 @@ fn il_apply_actions_to_func(
     TFunc(locals, body) => {
       let caller_locals = locals.copy()
       let FuncType(_, caller_results) = caller_type
+      let hoist_wrapper_type = il_make_hoist_wrapper_block_type(
+        caller_results, caller_type_idx, env,
+      )
+      let hoist_placeholders = il_hoist_placeholder_values(caller_results)
       let mut next_id = 0
       let mut applied = 0
       let mut changed = false
@@ -1262,23 +1315,58 @@ fn il_apply_actions_to_func(
                   match funcs_by_abs[action.callee_abs_idx] {
                     Some(callee_func) =>
                       if action.kind == ILReturnCall && action.try_depth > 0 {
-                        match
-                          il_prepare_hoisted_tail_call(
-                            callee_func,
-                            call_args,
-                            caller_params.length(),
-                            caller_locals,
-                            env,
-                            func_types,
-                          ) {
-                          Ok((replacement, init, followup)) => {
-                            hoisted_inits.push(init)
-                            hoisted_followups.push(followup)
-                            changed = true
-                            applied += 1
-                            change((), replacement)
-                          }
-                          Err(e) => Err(e)
+                        match (hoist_wrapper_type, hoist_placeholders) {
+                          (Some(wrapper_type), Some(placeholders)) =>
+                            match
+                              il_prepare_hoisted_tail_call(
+                                callee_func,
+                                call_args,
+                                caller_params.length(),
+                                caller_locals,
+                                env,
+                                func_types,
+                                wrapper_type,
+                                placeholders,
+                              ) {
+                              Ok((replacement, init, followup)) => {
+                                hoisted_inits.push(init)
+                                hoisted_followups.push(followup)
+                                changed = true
+                                applied += 1
+                                change((), replacement)
+                              }
+                              Err(e) => Err(e)
+                            }
+                          _ =>
+                            match
+                              il_inline_at_callsite(
+                                ILInlineAction::{
+                                  callsite_id: action.callsite_id,
+                                  caller_abs_idx: action.caller_abs_idx,
+                                  callee_abs_idx: action.callee_abs_idx,
+                                  kind: action.kind,
+                                  try_depth: action.try_depth,
+                                  force_unreachable: action.force_unreachable,
+                                },
+                                callee_func,
+                                func_types[action.callee_abs_idx],
+                                call_args,
+                                caller_params.length(),
+                                caller_locals,
+                              ) {
+                              Ok(Some(replacement)) => {
+                                changed = true
+                                applied += 1
+                                change((), replacement)
+                              }
+                              Ok(None) =>
+                                if walked == instr {
+                                  unchanged()
+                                } else {
+                                  change((), walked)
+                                }
+                              Err(e) => Err(e)
+                            }
                         }
                       } else {
                         match
@@ -1333,11 +1421,12 @@ fn il_apply_actions_to_func(
       let final_body = if hoisted_followups.is_empty() {
         new_body
       } else {
-        let wrapper_type = match il_make_block_type(caller_results) {
+        let wrapper_type = match
+          il_make_hoist_wrapper_block_type(caller_results, caller_type_idx, env) {
           Some(bt) => bt
           None =>
             return Err(
-              "inlining: hoisted tail-call rewrite does not support multi-value results",
+              "inlining: hoisted tail-call rewrite has no available wrapper block type",
             )
         }
         let wrapped_instrs = hoisted_inits.copy()
@@ -1611,7 +1700,12 @@ fn il_plan_actions(
         continue
       }
       let callee_info = infos[callee_abs]
-      if !il_worth_full_inlining(
+      let FuncType(_, callee_results) = callee_info.func_type
+      let allow_multivalue_tail_wrapper = site.kind == ILReturnCall &&
+        callee_info.tail_wrapper &&
+        callee_results.length() > 1
+      if !allow_multivalue_tail_wrapper &&
+        !il_worth_full_inlining(
           callee_info,
           incoming_counts[callee_abs],
           options,
@@ -1679,6 +1773,10 @@ fn il_apply_actions_iteration(
   for i = 0; i < funcs.length(); i = i + 1 {
     applied_by_def.push(0)
   }
+  let defined_type_idxs = match mod.func_sec {
+    Some(FuncSec(items)) => items.copy()
+    None => []
+  }
   let mut changed = false
   let env = Env::new().with_module(mod)
   for def_idx = 0; def_idx < funcs.length(); def_idx = def_idx + 1 {
@@ -1690,6 +1788,7 @@ fn il_apply_actions_iteration(
     let result = match
       il_apply_actions_to_func(
         func_types[abs_idx],
+        defined_type_idxs.get(def_idx),
         funcs[def_idx],
         actions_for_func,
         funcs_by_abs,
@@ -1825,6 +1924,10 @@ fn inline_main(
     Some(CodeSec(items)) => items.copy()
     None => return Ok(mod)
   }
+  let main_type_idx = match mod.func_sec {
+    Some(FuncSec(items)) => items.get(main_def)
+    None => None
+  }
   if main_def < 0 || main_def >= funcs.length() {
     return Ok(mod)
   }
@@ -1857,6 +1960,7 @@ fn inline_main(
   let applied = match
     il_apply_actions_to_func(
       func_types[main_abs],
+      main_type_idx,
       funcs[main_def],
       action_map,
       funcs_by_abs,
@@ -2480,6 +2584,194 @@ test "inlining hoists tail-call-ref inlining out of try_table context" {
       match body.0 {
         [TBlock(_, _), TIf(_, _, _, _)] => ()
         _ => fail("expected hoisted control flow shape for try tail-call-ref")
+      }
+    }
+    _ => fail("expected caller body")
+  }
+}
+
+///|
+test "inlining hoists multi-value tail-call wrapper out of try_table context" {
+  let t_multi = il_make_type([], [ValType::i32(), ValType::i32()])
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_multi]))
+    .with_func_sec(
+      FuncSec::new([TypeIdx::new(0), TypeIdx::new(0), TypeIdx::new(0)]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::try_table(
+              BlockType::type_idx(TypeIdx::new(0)),
+              [],
+              TExpr::new([TInstr::return_call(FuncIdx::new(1), [])]),
+            ),
+          ]),
+        ),
+        Func::t_func([], TExpr::new([TInstr::return_call(FuncIdx::new(2), [])])),
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::return_([
+              TInstr::i32_const(I32(31)),
+              TInstr::i32_const(I32(32)),
+            ]),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match inlining(mod, OptimizeOptions::new(), false) {
+    Ok(m) => m
+    Err(e) => fail("unexpected inlining error: \{e}")
+  }
+  assert_eq(validate_module(optimized), Ok(()))
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, body), _, _])) => {
+      assert_eq(il_count_return_calls(body, FuncIdx::new(1)), 0)
+      assert_true(il_count_return_calls(body, FuncIdx::new(2)) > 0)
+      match body.0 {
+        [TBlock(bt, _), TIf(_, _, _, _)] =>
+          match bt {
+            TypeIdxBlockType(_) => ()
+            _ => fail("expected typed block wrapper for multi-value hoist")
+          }
+        _ =>
+          fail(
+            "expected hoisted control flow shape for try multi-value tail-call",
+          )
+      }
+    }
+    _ => fail("expected caller body")
+  }
+}
+
+///|
+test "inlining hoists multi-value tail-call-indirect wrapper out of try_table context" {
+  let t_multi = il_make_type([], [ValType::i32(), ValType::i32()])
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_multi]))
+    .with_func_sec(
+      FuncSec::new([TypeIdx::new(0), TypeIdx::new(0), TypeIdx::new(0)]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::try_table(
+              BlockType::type_idx(TypeIdx::new(0)),
+              [],
+              TExpr::new([TInstr::return_call(FuncIdx::new(1), [])]),
+            ),
+          ]),
+        ),
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::return_call_indirect(
+              TypeIdx::new(0),
+              TableIdx::new(0),
+              [],
+              TInstr::i32_const(I32(0)),
+            ),
+          ]),
+        ),
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::return_([
+              TInstr::i32_const(I32(41)),
+              TInstr::i32_const(I32(42)),
+            ]),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match inlining(mod, OptimizeOptions::new(), false) {
+    Ok(m) => m
+    Err(e) => fail("unexpected inlining error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, body), _, _])) => {
+      assert_eq(il_count_return_calls(body, FuncIdx::new(1)), 0)
+      assert_true(il_count_return_call_indirects(body) > 0)
+      match body.0 {
+        [TBlock(bt, _), TIf(_, _, _, _)] =>
+          match bt {
+            TypeIdxBlockType(_) => ()
+            _ => fail("expected typed block wrapper for multi-value hoist")
+          }
+        _ =>
+          fail(
+            "expected hoisted control flow shape for try multi-value tail-call-indirect",
+          )
+      }
+    }
+    _ => fail("expected caller body")
+  }
+}
+
+///|
+test "inlining hoists multi-value tail-call-ref wrapper out of try_table context" {
+  let t_multi = il_make_type([], [ValType::i32(), ValType::i32()])
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_multi]))
+    .with_func_sec(
+      FuncSec::new([TypeIdx::new(0), TypeIdx::new(0), TypeIdx::new(0)]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::try_table(
+              BlockType::type_idx(TypeIdx::new(0)),
+              [],
+              TExpr::new([TInstr::return_call(FuncIdx::new(1), [])]),
+            ),
+          ]),
+        ),
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::return_call_ref(
+              TypeIdx::new(0),
+              [],
+              TInstr::ref_func(FuncIdx::new(2)),
+            ),
+          ]),
+        ),
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::return_([
+              TInstr::i32_const(I32(51)),
+              TInstr::i32_const(I32(52)),
+            ]),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match inlining(mod, OptimizeOptions::new(), false) {
+    Ok(m) => m
+    Err(e) => fail("unexpected inlining error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, body), _, _])) => {
+      assert_eq(il_count_return_calls(body, FuncIdx::new(1)), 0)
+      assert_true(il_count_return_call_refs(body) > 0)
+      match body.0 {
+        [TBlock(bt, _), TIf(_, _, _, _)] =>
+          match bt {
+            TypeIdxBlockType(_) => ()
+            _ => fail("expected typed block wrapper for multi-value hoist")
+          }
+        _ =>
+          fail(
+            "expected hoisted control flow shape for try multi-value tail-call-ref",
+          )
       }
     }
     _ => fail("expected caller body")

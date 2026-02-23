@@ -9,6 +9,8 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
 - Common test suffixes:
   - blackbox: `_test.mbt`
   - whitebox: `_wbtest.mbt`
+- Project hasn't been released yet, breaking api changes are okay.
+- Imports from other modules should exist in `package*/imports.mbt`
 
 ## Coding Convention
 - MoonBit code is block-structured with `///|`; block order is not semantically relevant.
@@ -20,8 +22,8 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
 ## Tooling
 - Format: `moon fmt`
 - Interface refresh: `moon info`
-- Lint/check: `moon check`
-- Tests: `moon test` (`moon test --update` for snapshot updates)
+- Lint/check: `moon check` (not very useful, runs as part of "test")
+- Tests: `moon test` (`moon test --update` for snapshot updates) (also runs "check" as byproduct)
 - Coverage helper: `moon coverage analyze > uncovered.log`
 - Preferred final local check sequence:
   - `moon info && moon fmt`
@@ -29,7 +31,6 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
   - `moon test`
 
 In this workspace, use absolute moon path when needed:
-- `/home/jtenner/.moon/bin/moon check`
 - `/home/jtenner/.moon/bin/moon test`
 - `/home/jtenner/.moon/bin/moon info && /home/jtenner/.moon/bin/moon fmt`
 

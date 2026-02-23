@@ -67,11 +67,24 @@
 - [x] P1 follow-up: harden `i64_to_i32_lowering_prepare` artifact API tests.
   - [x] Add focused equivalence/error-propagation tests for `i64_to_i32_lowering_prepare` + `i64_to_i32_lowering_from_prepared` outside scheduler integration.
 
-- [ ] P1 follow-up: validate/codegen parity for auto-lowered multi-value tail-call rewrites.
-  - [ ] Add focused roundtrip/validator tests for `return(call*)` rewrites in multi-value function signatures.
+- [x] P1 follow-up: validate/codegen parity for auto-lowered multi-value tail-call rewrites.
+  - [x] Add focused roundtrip/validator tests for `return(call*)` rewrites in multi-value function signatures.
 
-- [ ] P1 follow-up: align inlining tail-call rewrite parity with asyncify multi-value support.
-  - [ ] Remove current multi-value `return_call*` rewrite limitations in `src/passes/inlining.mbt` or add a shared fallback lowering path.
+- [x] P1 follow-up: align inlining tail-call rewrite parity with asyncify multi-value support.
+  - [x] Remove current multi-value `return_call*` rewrite limitations in `src/passes/inlining.mbt` or add a shared fallback lowering path.
+
+- [x] P1 follow-up: generalize `to_texpr` multi-value `return` recovery beyond `call*` producers.
+  - [x] Add focused tests for multi-value `return` with non-call producers (for example typed `block`/`if`) and either support or explicit diagnostics.
+
+- [x] P1 follow-up: restore hoisted try-context tail-wrapper inlining for multi-value callers.
+  - [x] Replace current non-hoist fallback with a typed multi-value hoist path (for example `BlockType::type_idx`) and parity tests.
+
+- [ ] P1 follow-up: broaden multi-value hoist parity and fallback safety.
+  - [ ] Add focused tests for hoisted multi-value try-tail wrappers when callers have parameters and ensure typed-wrapper selection remains valid.
+  - [ ] Add focused tests that non-defaultable result types (for example non-null refs) stay on the non-hoist fallback path without introducing validator errors.
+
+- [ ] P1 follow-up: extend `to_texpr` multi-value return-recovery test matrix for additional typed producers.
+  - [ ] Add focused tests for multi-value `return` recovery with typed `loop` and `try_table` producers.
 
 ## 0.5) Low-Hanging Fruit
 

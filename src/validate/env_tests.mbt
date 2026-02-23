@@ -439,6 +439,74 @@ test "to_texpr return underflow uses configured return_type arity" {
 }
 
 ///|
+test "to_texpr return recovers multi-value typed block producer" {
+  let env = Env::new()
+    .with_rectype(
+      RecType::new(
+        SubType::comp_type(CompType::func([], [ValType::i32(), ValType::i64()])),
+      ),
+    )
+    .with_return_type(Some([ValType::i32(), ValType::i64()]))
+  let expr = Expr::new([
+    Instruction::block(
+      BlockType::type_idx(TypeIdx::new(0)),
+      Expr::new([
+        Instruction::i32_const(I32(11)),
+        Instruction::i64_const(I64(12L)),
+      ]),
+    ),
+    Instruction::return_(),
+  ])
+  match to_texpr(expr, env) {
+    Err(e) => fail("unexpected to_texpr failure: \{e}")
+    Ok(TExpr(instrs)) => {
+      assert_eq(instrs.length(), 1)
+      match instrs[0] {
+        TReturn([TBlock(bt, TExpr(values))]) => {
+          assert_eq(bt, BlockType::type_idx(TypeIdx::new(0)))
+          assert_eq(values.length(), 2)
+        }
+        _ => fail("expected return carrying one typed block producer")
+      }
+    }
+  }
+}
+
+///|
+test "to_texpr return recovers multi-value typed if producer" {
+  let env = Env::new()
+    .with_rectype(
+      RecType::new(
+        SubType::comp_type(CompType::func([], [ValType::i32(), ValType::i64()])),
+      ),
+    )
+    .with_return_type(Some([ValType::i32(), ValType::i64()]))
+  let expr = Expr::new([
+    Instruction::i32_const(I32(1)),
+    Instruction::if_(
+      BlockType::type_idx(TypeIdx::new(0)),
+      [Instruction::i32_const(I32(7)), Instruction::i64_const(I64(8L))],
+      Some([Instruction::i32_const(I32(9)), Instruction::i64_const(I64(10L))]),
+    ),
+    Instruction::return_(),
+  ])
+  match to_texpr(expr, env) {
+    Err(e) => fail("unexpected to_texpr failure: \{e}")
+    Ok(TExpr(instrs)) => {
+      assert_eq(instrs.length(), 1)
+      match instrs[0] {
+        TReturn([TIf(bt, _, TExpr(if_true), Some(TExpr(if_false)))]) => {
+          assert_eq(bt, BlockType::type_idx(TypeIdx::new(0)))
+          assert_eq(if_true.length(), 2)
+          assert_eq(if_false.length(), 2)
+        }
+        _ => fail("expected return carrying one typed if producer")
+      }
+    }
+  }
+}
+
+///|
 test "Env.resolve_heaptype_subtype projects DefType heap types" {
   let st = SubType::comp_type(CompType::struct_([]))
   let dt = DefType::new(RecType::new(st), 0)

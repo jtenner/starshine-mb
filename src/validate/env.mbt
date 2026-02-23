@@ -542,6 +542,47 @@ fn pop_n(stack : Array[TInstr], n : Int) -> Result[Array[TInstr], String] {
 }
 
 ///|
+fn tinstr_result_arity(instr : TInstr, env : Env) -> Int {
+  match instr {
+    TCall(func_idx, _) =>
+      match env.get_functype_by_funcidx(func_idx) {
+        Some(FuncType(_, results)) => results.length()
+        None => 0
+      }
+    TCallIndirect(type_idx, _, _, _) | TCallRef(type_idx, _, _) =>
+      match env.resolve_functype(type_idx) {
+        Some(FuncType(_, results)) => results.length()
+        None => 0
+      }
+    TBlock(bt, _) | TLoop(bt, _) | TIf(bt, _, _, _) | TTryTable(bt, _, _) =>
+      match env.expand_blocktype(bt) {
+        Ok((_, results)) => results.length()
+        Err(_) => 0
+      }
+    _ => 0
+  }
+}
+
+///|
+fn pop_return_values(
+  stack : Array[TInstr],
+  arity : Int,
+  env : Env,
+) -> Result[Array[TInstr], String] {
+  if stack.length() >= arity {
+    return pop_n(stack, arity)
+  }
+  if arity > 1 && stack.length() == 1 {
+    if tinstr_result_arity(stack[0], env) == arity {
+      return Ok([stack.pop().unwrap()])
+    }
+  }
+  Err(
+    "Stack underflow: need \{arity} values but only \{stack.length()} available",
+  )
+}
+
+///|
 fn block_type_inputs(bt : BlockType, env : Env) -> Int {
   match bt {
     VoidBlockType => 0
@@ -2752,7 +2793,7 @@ fn instr_to_tinstr(
         Some(types) => types.length()
         None => 0
       }
-      let values = match pop_n(stack, arity) {
+      let values = match pop_return_values(stack, arity, env) {
         Ok(t) => t
         Err(t) => return Err(t)
       }
