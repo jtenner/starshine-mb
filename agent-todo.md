@@ -61,11 +61,17 @@
 - [x] P1 follow-up: provide an optional automatic tail-call lowering path for asyncify.
   - [x] Add a scheduler-level or prepass option to lower tail calls before asyncify instead of requiring manual pipeline wiring.
 
-- [ ] P1 follow-up: extend asyncify auto tail-call lowering to multi-value return signatures.
-  - [ ] Add lowering support for multi-value `return_call`/`return_call_indirect`/`return_call_ref` (or explicit fallback pass wiring) and parity tests.
+- [x] P1 follow-up: extend asyncify auto tail-call lowering to multi-value return signatures.
+  - [x] Add lowering support for multi-value `return_call`/`return_call_indirect`/`return_call_ref` (or explicit fallback pass wiring) and parity tests.
 
-- [ ] P1 follow-up: harden `i64_to_i32_lowering_prepare` artifact API tests.
-  - [ ] Add focused equivalence/error-propagation tests for `i64_to_i32_lowering_prepare` + `i64_to_i32_lowering_from_prepared` outside scheduler integration.
+- [x] P1 follow-up: harden `i64_to_i32_lowering_prepare` artifact API tests.
+  - [x] Add focused equivalence/error-propagation tests for `i64_to_i32_lowering_prepare` + `i64_to_i32_lowering_from_prepared` outside scheduler integration.
+
+- [ ] P1 follow-up: validate/codegen parity for auto-lowered multi-value tail-call rewrites.
+  - [ ] Add focused roundtrip/validator tests for `return(call*)` rewrites in multi-value function signatures.
+
+- [ ] P1 follow-up: align inlining tail-call rewrite parity with asyncify multi-value support.
+  - [ ] Remove current multi-value `return_call*` rewrite limitations in `src/passes/inlining.mbt` or add a shared fallback lowering path.
 
 ## 0.5) Low-Hanging Fruit
 
@@ -99,7 +105,6 @@
   - [ ] `parser_folded.mbt`
   - [ ] `parser_gc.mbt`
   - [ ] `parser_tests.mbt`
-  - Effort: `2–3 hours`
   - Rationale: Reduces complexity as the project grows.
 - [ ] Split instruction decoder (`decode_instruction` in `decode.mbt`) into helpers:
   - [ ] `decode_core_opcode`
@@ -107,40 +112,31 @@
   - [ ] `decode_extended_0xFC`
   - [ ] `decode_extended_0xFD`
   - [ ] `decode_extended_0xFE`
-  - Effort: `1–2 hours`
   - Rationale: Mirrors existing encode helper pattern (for example `simd_inst`) and improves readability.
 - [x] Extract `write_section` helper in `encode.mbt` to unify section id/length/payload encoding.
-  - Effort: `30 minutes`
   - Rationale: Cleans up encode-side symmetry.
 - [ ] Turn validator into a `ModuleTransformer`:
   - [ ] Implement `Validator` struct with hooks such as `on_func_evt`, `on_tinstruction_evt`, and `on_global_evt`.
   - [ ] Add `validate_module(mod: Module) -> Result[Unit, ValidationError]`.
-  - Effort: `2–3 hours`
   - Rationale: Reuses existing traversal and location context; improves composition with optimizers.
 - [ ] Replace lexer backtracking (`save/restore_lexer_state`) with one-token lookahead:
   - [ ] Introduce `Parser { peeked: Token? }` or add zero-cost `peek()/consume()` to `WastLexer`.
-  - Effort: `1 hour`
   - Rationale: Reduces fragility and parsing allocations.
 
 ### 2.2 Performance & Allocation Optimizations (Medium Impact: Scales to Large Modules)
 
 - [ ] Add capacity reservations in hot paths (`parse_instructions`, expr decoding, and similar array builds).
-  - Effort: `30 minutes`
   - Rationale: Avoids reallocations on large modules.
 - [ ] Use unchecked indexing in core decode loops after upfront length validation.
-  - Effort: `1 hour`
   - Rationale: Reduces bounds-check overhead in tight loops.
 - [ ] Avoid temporary `Module` copies in decoder:
   - [ ] Use mutable builder flow or single record update at the end.
-  - Effort: `30 minutes`
   - Rationale: Reduces copies of large structs.
 - [ ] Create a `WastWriter` trait:
   - [ ] Support `StringBuilder`, `Vec<u8>`, and streaming sinks.
   - [ ] Reuse one `StringBuilder` across module rendering.
-  - Effort: `1 hour`
   - Rationale: Improves writer efficiency and flexibility.
 - [ ] Add `quick_mode: Bool` to generator to reduce types/locals/segments for fast fuzzing.
-  - Effort: `30 minutes`
   - Rationale: Speeds test cycles while retaining useful coverage.
 
 ### 2.3 Testing & Fuzzing Enhancements (High Impact: Strengthens Reliability)
@@ -150,7 +146,6 @@
   - [ ] Deep `block`/`loop`/`if` nesting
   - [ ] Functions with `0–16` returns (multi-value)
   - [ ] Large local counts
-  - Effort: `1–2 hours`
   - Rationale: Better stress for GC, exceptions, and encoding paths.
 - [ ] Add more fuzz coverage to validate invalid modules.
 
@@ -159,49 +154,38 @@
 - [ ] Replace string decode errors with a typed `DecodeError` enum:
   - [ ] Example variants: `UnexpectedEof { offset: Int, section: String }`, `InvalidOpcode { offset: Int, byte: Byte }`
   - [ ] Mirror the same enum-based approach for `ValidationError`.
-  - Effort: `1 hour`
   - Rationale: Improves testability and downstream tooling with stable structured context.
 - [ ] Expose binary public APIs:
   - [ ] `decode_module(bytes: Bytes) -> Result[Module, DecodeError]`
   - [ ] `encode_module(mod: Module) -> Result[Bytes, EncodeError]`
-  - Effort: `30 minutes`
   - Rationale: Improves library usability.
 - [ ] Add streaming/zero-copy decoder API via cursor-based `Decoder` struct.
-  - Effort: `1 hour`
   - Rationale: Aligns with current index-passing design while reducing copies.
 - [ ] Switch negative tests to enum-based error assertions instead of string matching.
-  - Effort: `1 hour`
   - Rationale: Prevents brittle tests during message refactors.
 
 ### 2.5 Code Generation & Automation (Low Impact: Long-Term Maintainability)
 
 - [ ] Generate keyword/opcode tables from a small DSL or MoonBit macros (with manual exception overrides).
-  - Effort: `2 hours`
   - Rationale: Keeps mapping logic DRY as opcode surface evolves.
 - [x] Make max LEB constants compile-time (`MAX_LEB128_BYTES_32 = 5`, etc., including `1..64` table if useful).
-  - Effort: `15 minutes`
   - Rationale: Removes runtime overhead.
 
 - [ ] Follow-up: document and/or align non-standard section payload-length encoding for `StartSec`/`CodeSec`/`DataCntSec`.
   - [ ] Add explicit codec tests and parity note if this encoding shape is intentional.
 - [ ] Use `@moonbitlang/coreFixedArray` for fixed 16-lane shuffle data.
-  - Effort: `30 minutes`
   - Rationale: Better fixed-size performance than general arrays.
 - [ ] Add `derive(Show, Debug, Eq)` across structs/enums where missing.
-  - Effort: `15 minutes`
   - Rationale: Improves diagnostics and test debugging.
 
 ### 2.6 Roadmap & Next Steps (High Impact: Project Momentum)
 
 - [ ] Implement one real optimizer pass using transformer (constant folding + DCE).
-  - Effort: `1–2 hours`
   - Rationale: Validates architecture with practical results.
 - [ ] Wire full text/binary roundtrip test:
   - [ ] `wast_to_module -> module_to_binary -> binary_to_module -> module_to_wast` plus normalization.
-  - Effort: `1 hour`
   - Rationale: Provides end-to-end correctness coverage.
 - [ ] Run and adapt the official WASM spec test suite in MoonBit pipeline.
-  - Effort: `2 hours`
   - Rationale: Highest-confidence compatibility validation.
 
 ### 2.7 CLI Feature Plan (High Priority)

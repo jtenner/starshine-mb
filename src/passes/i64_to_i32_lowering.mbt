@@ -2815,6 +2815,63 @@ fn i64_to_i32_lowering(mod : Module) -> Result[Module, String] {
 }
 
 ///|
+test "i64_to_i32_lowering prepare artifact path matches direct lowering" {
+  let ty = single_rec_type(
+    comp_type_sub_type(func_comp_type([ValType::i64()], [ValType::i64()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([ty]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i64()],
+          TExpr::new([
+            TInstr::binary(
+              BinaryOp::i64_add(),
+              TInstr::local_get(LocalIdx::new(0)),
+              TInstr::i64_const(I64(3L)),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let direct = match i64_to_i32_lowering(mod) {
+    Ok(next) => next
+    Err(e) => fail("unexpected direct lowering error: \{e}")
+  }
+  let prepared = match i64_to_i32_lowering_prepare(mod) {
+    Ok(next) => next
+    Err(e) => fail("unexpected prepare error: \{e}")
+  }
+  let from_prepared = match i64_to_i32_lowering_from_prepared(prepared) {
+    Ok(next) => next
+    Err(e) => fail("unexpected from_prepared error: \{e}")
+  }
+  assert_eq(from_prepared, direct)
+}
+
+///|
+test "i64_to_i32_lowering prepare propagates unsupported-global-init error" {
+  let mod = Module::new().with_global_sec(
+    GlobalSec::new([
+      Global::new(
+        GlobalType::new(ValType::i64(), false),
+        Expr::new([
+          Instruction::i64_const(I64(1L)),
+          Instruction::i64_const(I64(2L)),
+          Instruction::i64_add(),
+        ]),
+      ),
+    ]),
+  )
+  match i64_to_i32_lowering_prepare(mod) {
+    Ok(_) => fail("expected prepare to reject unsupported i64 global init")
+    Err(e) => assert_true(e.contains("unsupported i64 global init"))
+  }
+}
+
+///|
 test "i64_to_i32_lowering lowers i64 globals and global.get/global.set" {
   let mod = Module::new()
     .with_global_sec(

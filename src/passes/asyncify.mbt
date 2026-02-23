@@ -3131,78 +3131,31 @@ fn af_rewrite_tail_call_to_non_tail(
 ) -> Result[TInstr, String] {
   match instr {
     TReturnCall(target, args) => {
-      let result_count = match af_tail_call_result_count_for_func(env, target) {
-        Ok(n) => n
+      match af_tail_call_result_count_for_func(env, target) {
+        Ok(_) => ()
         Err(e) => return Err(e)
       }
-      if result_count == 0 {
-        return Ok(
-          TInstr::block(
-            BlockType::void_(),
-            TExpr::new([TInstr::call(target, args), TInstr::return_([])]),
-          ),
-        )
-      }
-      if result_count == 1 {
-        return Ok(TInstr::return_([TInstr::call(target, args)]))
-      }
-      Err(
-        "asyncify: tail-call lowering for return_call with multi-value results is unsupported",
-      )
+      Ok(TInstr::return_([TInstr::call(target, args)]))
     }
     TReturnCallIndirect(type_idx, table_idx, args, idx) => {
-      let result_count = match
+      match
         af_tail_call_result_count_for_type(
           env, type_idx, "return_call_indirect",
         ) {
-        Ok(n) => n
+        Ok(_) => ()
         Err(e) => return Err(e)
       }
-      if result_count == 0 {
-        return Ok(
-          TInstr::block(
-            BlockType::void_(),
-            TExpr::new([
-              TInstr::call_indirect(type_idx, table_idx, args, idx),
-              TInstr::return_([]),
-            ]),
-          ),
-        )
-      }
-      if result_count == 1 {
-        return Ok(
-          TInstr::return_([
-            TInstr::call_indirect(type_idx, table_idx, args, idx),
-          ]),
-        )
-      }
-      Err(
-        "asyncify: tail-call lowering for return_call_indirect with multi-value results is unsupported",
+      Ok(
+        TInstr::return_([TInstr::call_indirect(type_idx, table_idx, args, idx)]),
       )
     }
     TReturnCallRef(type_idx, args, ref_) => {
-      let result_count = match
+      match
         af_tail_call_result_count_for_type(env, type_idx, "return_call_ref") {
-        Ok(n) => n
+        Ok(_) => ()
         Err(e) => return Err(e)
       }
-      if result_count == 0 {
-        return Ok(
-          TInstr::block(
-            BlockType::void_(),
-            TExpr::new([
-              TInstr::call_ref(type_idx, args, ref_),
-              TInstr::return_([]),
-            ]),
-          ),
-        )
-      }
-      if result_count == 1 {
-        return Ok(TInstr::return_([TInstr::call_ref(type_idx, args, ref_)]))
-      }
-      Err(
-        "asyncify: tail-call lowering for return_call_ref with multi-value results is unsupported",
-      )
+      Ok(TInstr::return_([TInstr::call_ref(type_idx, args, ref_)]))
     }
     _ => Ok(instr)
   }
@@ -3727,6 +3680,145 @@ test "asyncify optional tail-call lowering flag rewrites return_call_ref" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func([], TExpr::new([TInstr::nop()])),
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::return_call_ref(
+              TypeIdx::new(0),
+              [],
+              TInstr::ref_func(FuncIdx::new(0)),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let props = match
+    asyncify_apply_arguments(AsyncifyPassProps::new(), [
+      "asyncify-lower-tail-calls",
+    ]) {
+    Ok(next) => next
+    Err(e) => fail("unexpected asyncify arg parse error: \{e}")
+  }
+  let out = match af_test_run(mod, props~) {
+    Ok(m) => m
+    Err(e) => fail("unexpected asyncify tail-call-lowering error: \{e}")
+  }
+  match out.code_sec {
+    Some(CodeSec([_, TFunc(_, body), ..])) =>
+      assert_false(af_has_tail_call(body))
+    _ => fail("expected rewritten caller body")
+  }
+}
+
+///|
+test "asyncify optional tail-call lowering rewrites multi-value return_call" {
+  let t_multi = single_rec_type(
+    comp_type_sub_type(func_comp_type([], [ValType::i32(), ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_multi]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::return_([
+              TInstr::i32_const(I32(1)),
+              TInstr::i32_const(I32(2)),
+            ]),
+          ]),
+        ),
+        Func::t_func([], TExpr::new([TInstr::return_call(FuncIdx::new(0), [])])),
+      ]),
+    )
+  let props = match
+    asyncify_apply_arguments(AsyncifyPassProps::new(), [
+      "asyncify-lower-tail-calls",
+    ]) {
+    Ok(next) => next
+    Err(e) => fail("unexpected asyncify arg parse error: \{e}")
+  }
+  let out = match af_test_run(mod, props~) {
+    Ok(m) => m
+    Err(e) => fail("unexpected asyncify tail-call-lowering error: \{e}")
+  }
+  match out.code_sec {
+    Some(CodeSec([_, TFunc(_, body), ..])) =>
+      assert_false(af_has_tail_call(body))
+    _ => fail("expected rewritten caller body")
+  }
+}
+
+///|
+test "asyncify optional tail-call lowering rewrites multi-value return_call_indirect" {
+  let t_multi = single_rec_type(
+    comp_type_sub_type(func_comp_type([], [ValType::i32(), ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_multi]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::return_([
+              TInstr::i32_const(I32(5)),
+              TInstr::i32_const(I32(6)),
+            ]),
+          ]),
+        ),
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::return_call_indirect(
+              TypeIdx::new(0),
+              TableIdx::new(0),
+              [],
+              TInstr::i32_const(I32(0)),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let props = match
+    asyncify_apply_arguments(AsyncifyPassProps::new(), [
+      "asyncify-lower-tail-calls",
+    ]) {
+    Ok(next) => next
+    Err(e) => fail("unexpected asyncify arg parse error: \{e}")
+  }
+  let out = match af_test_run(mod, props~) {
+    Ok(m) => m
+    Err(e) => fail("unexpected asyncify tail-call-lowering error: \{e}")
+  }
+  match out.code_sec {
+    Some(CodeSec([_, TFunc(_, body), ..])) =>
+      assert_false(af_has_tail_call(body))
+    _ => fail("expected rewritten caller body")
+  }
+}
+
+///|
+test "asyncify optional tail-call lowering rewrites multi-value return_call_ref" {
+  let t_multi = single_rec_type(
+    comp_type_sub_type(func_comp_type([], [ValType::i32(), ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_multi]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::return_([
+              TInstr::i32_const(I32(9)),
+              TInstr::i32_const(I32(10)),
+            ]),
+          ]),
+        ),
         Func::t_func(
           [],
           TExpr::new([
