@@ -246,13 +246,23 @@ Scope notes:
 - [x] `Flatten`
 - [x] `TupleOptimization`
 - [x] `TypeGeneralizing`
-- [ ] `TypeMerging`
+- [x] `TypeMerging`
 - [ ] `TypeFinalizing`
 - [ ] `Unsubtyping`
 - [ ] `GlobalEffects`
 - [ ] `Poppify`
 - [ ] `ReReloop`
 - [ ] `Outlining`
+
+TypeMerging follow-up tasks (reprioritized after initial landing):
+- [x] Add `traps_never_happen` / `call_indirect` gating parity and explicit tests for trap-mode-sensitive mergeability.
+- [x] Add exact-cast parity constraints (including branch-on-cast exactness equivalents) so cast-observable types are never merged.
+- [x] Replace current iterative shape matching with DFA partition refinement parity for nested heap-type children, then add regression tests for formerly over-conservative sibling merges.
+- [x] Thread `traps_never_happen` through optimize scheduler/options so trap-mode-sensitive behavior is configurable outside direct pass invocation tests.
+- [x] Revisit conservative `br_on_cast` exactness heuristic once IR models explicit exact-cast flags; tighten or relax with validator-backed parity tests.
+- [ ] Add user-facing optimize option plumbing (`TrapMode`/CLI flags) for `OptimizeOptions.traps_never_happen` so scheduler trap mode is configurable in end-to-end tool flows.
+- [ ] Add scheduler-level regression coverage for `default_global_optimization_pre_passes` to assert `AbstractTypeRefiningPassProps.traps_never_happen` is sourced from `OptimizeOptions`.
+- [ ] Clarify and codify `br_on_cast` exact-flag semantics in IR docs/types (separate from nullability) and add mixed exact/non-exact branch parity fixtures.
 
 #### 4.2 Medium Priority (Useful, But More Situational or Feature-Lowering)
 

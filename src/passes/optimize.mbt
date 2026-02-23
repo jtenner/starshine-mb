@@ -39,6 +39,7 @@ pub(all) enum ModulePass {
   OnceReduction
   Asyncify(AsyncifyPassProps)
   MinimizeRecGroups
+  TypeMerging
   Monomorphize
   MonomorphizeAlways
   MemoryPacking(MemoryPackingPassProps)
@@ -115,6 +116,7 @@ pub struct OptimizeOptions {
   monomorphize_min_benefit : Int
   low_memory_unused : Bool
   low_memory_bound : UInt64
+  traps_never_happen : Bool
 }
 
 ///|
@@ -132,6 +134,7 @@ fn OptimizeOptions::new(
   monomorphize_min_benefit? : Int = 5,
   low_memory_unused? : Bool = false,
   low_memory_bound? : UInt64 = 1024UL,
+  traps_never_happen? : Bool = false,
 ) -> OptimizeOptions {
   {
     optimize_level,
@@ -140,6 +143,7 @@ fn OptimizeOptions::new(
     monomorphize_min_benefit,
     low_memory_unused,
     low_memory_bound,
+    traps_never_happen,
   }
 }
 
@@ -208,6 +212,7 @@ fn module_pass_context_kind(pass : ModulePass) -> SchedulerPassContextKind {
     | OnceReduction
     | Asyncify(_)
     | MinimizeRecGroups
+    | TypeMerging
     | Monomorphize
     | MonomorphizeAlways
     | MemoryPacking(_)
@@ -470,6 +475,10 @@ fn run_module_runner_scheduler_pass(
       })
     MinimizeRecGroups =>
       apply_module_runner_pass(mod, fn(mod) { minimize_rec_groups(mod) })
+    TypeMerging =>
+      apply_module_runner_pass(mod, fn(mod) {
+        type_merging(mod, traps_never_happen=options.traps_never_happen)
+      })
     Monomorphize =>
       apply_module_runner_pass(mod, fn(mod) {
         monomorphize(mod, options~, always=false)
@@ -759,12 +768,14 @@ pub fn default_global_optimization_pre_passes(
     if closed_world {
       passes.push(
         AbstractTypeRefining(
-          AbstractTypeRefiningPassProps::new(traps_never_happen=false),
+          AbstractTypeRefiningPassProps::new(
+            traps_never_happen=options.traps_never_happen,
+          ),
         ),
       )
       // Binaryen parity mode: unsubtyping.
-      // Use recursion-group minimization as the current conservative fallback.
-      passes.push(MinimizeRecGroups)
+      // Merge unneeded private subtypes near the end of type-driven global opts.
+      passes.push(TypeMerging)
     }
   }
 
@@ -845,6 +856,72 @@ fn opt_scheduler_type_generalizing_dispatch_module() -> Module {
       ),
     ]),
   )
+}
+
+///|
+fn opt_scheduler_type_merging_dispatch_module() -> Module {
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([
+      single_rec_type(sub_type(false, [], struct_comp_type([]))),
+      single_rec_type(sub_type(false, [TypeIdx::new(0)], struct_comp_type([]))),
+      single_rec_type(comp_type_sub_type(func_comp_type([], []))),
+    ]),
+  )
+  .with_func_sec(FuncSec::new([TypeIdx::new(2)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [],
+        TExpr::new([TInstr::drop(TInstr::struct_new(TypeIdx::new(1), []))]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn opt_scheduler_type_merging_trap_sensitive_module() -> Module {
+  let func_super = single_rec_type(sub_type(false, [], func_comp_type([], [])))
+  let func_sub = single_rec_type(
+    sub_type(false, [TypeIdx::new(1)], func_comp_type([], [])),
+  )
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([
+      single_rec_type(sub_type(false, [], struct_comp_type([]))),
+      func_super,
+      func_sub,
+    ]),
+  )
+  .with_func_sec(FuncSec::new([TypeIdx::new(1), TypeIdx::new(2)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [],
+        TExpr::new([
+          TInstr::call_indirect(
+            TypeIdx::new(2),
+            TableIdx::new(0),
+            [],
+            TInstr::i32_const(I32(0)),
+          ),
+        ]),
+      ),
+      Func::t_func([], TExpr::new([TInstr::nop()])),
+    ]),
+  )
+}
+
+///|
+fn opt_scheduler_run_type_merging_with_traps_never_happen(
+  mod : Module,
+  traps_never_happen : Bool,
+) -> Module raise {
+  let options = OptimizeOptions::new(traps_never_happen~)
+  match optimize_module_with_options(mod, [TypeMerging], options) {
+    Ok(out) => out
+    Err(e) => fail("unexpected optimize_module_with_options error: \{e}")
+  }
 }
 
 ///|
@@ -1222,7 +1299,7 @@ test "default global optimization pre passes map cfp-reftest mode to constant fi
 }
 
 ///|
-test "default global optimization pre passes map unsubtyping mode to minimize rec groups" {
+test "default global optimization pre passes map unsubtyping mode to type merging" {
   let gc_mod = Module::new().with_type_sec(
     TypeSec::new([
       single_rec_type(
@@ -1241,7 +1318,7 @@ test "default global optimization pre passes map unsubtyping mode to minimize re
   assert_eq(
     default_count_module_passes(passes, fn(pass) {
       match pass {
-        MinimizeRecGroups => true
+        TypeMerging => true
         _ => false
       }
     }),
@@ -1255,7 +1332,7 @@ test "default global optimization pre passes map unsubtyping mode to minimize re
   })
   let unsubtyping_idx = default_first_module_pass_index(passes, fn(pass) {
     match pass {
-      MinimizeRecGroups => true
+      TypeMerging => true
       _ => false
     }
   })
@@ -1524,6 +1601,7 @@ test "optimize scheduler classifies module pass context kinds" {
     ),
   )
   assert_true(assert_pass_context_kind(TypeGeneralizing, ModuleRunnerPass))
+  assert_true(assert_pass_context_kind(TypeMerging, ModuleRunnerPass))
 }
 
 ///|
@@ -1609,6 +1687,57 @@ test "optimize_module dispatches TypeGeneralizing through module-runner kind" {
   match optimized.code_sec {
     Some(CodeSec([TFunc([vt], _)])) => assert_eq(vt, ValType::funcref())
     _ => fail("expected TypeGeneralizing to run through module-runner dispatch")
+  }
+}
+
+///|
+test "optimize_module dispatches TypeMerging through module-runner kind" {
+  assert_true(assert_pass_context_kind(TypeMerging, ModuleRunnerPass))
+  let mod = opt_scheduler_type_merging_dispatch_module()
+  let optimized = match optimize_module(mod, [TypeMerging]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TDrop(TStructNew(TypeIdx(0), []))]))])) => ()
+    _ => fail("expected TypeMerging to run through module-runner dispatch")
+  }
+}
+
+///|
+test "optimize_module_with_options threads traps_never_happen into TypeMerging" {
+  let mod = opt_scheduler_type_merging_trap_sensitive_module()
+  let out_default = opt_scheduler_run_type_merging_with_traps_never_happen(
+    mod, false,
+  )
+  match out_default.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TCallIndirect(TypeIdx(2), _, _, _)])), ..])) =>
+      ()
+    _ => fail("expected call_indirect type to remain when traps may happen")
+  }
+
+  let out_tnh = opt_scheduler_run_type_merging_with_traps_never_happen(
+    mod, true,
+  )
+  let mut merged_type_idx : UInt? = None
+  match out_tnh.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TCallIndirect(TypeIdx(i), _, _, _)])), ..])) =>
+      merged_type_idx = Some(i)
+    _ =>
+      fail(
+        "expected call_indirect to remain present after scheduler TypeMerging",
+      )
+  }
+  match (out_tnh.func_sec, merged_type_idx) {
+    (Some(FuncSec([TypeIdx(main_i), TypeIdx(callee_i)])), Some(call_i)) => {
+      assert_eq(main_i, callee_i)
+      assert_eq(call_i, main_i)
+      assert_true(call_i != 2U)
+    }
+    _ =>
+      fail(
+        "expected scheduler TypeMerging to merge call_indirect type when traps_never_happen",
+      )
   }
 }
 

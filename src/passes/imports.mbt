@@ -1,6 +1,7 @@
 ///|
 using @lib {
   expand_locals,
+  sub_type,
   single_rec_type,
   comp_type_sub_type,
   struct_comp_type,

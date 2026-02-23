@@ -187,6 +187,7 @@ pub(all) enum ModulePass {
   OnceReduction
   Asyncify(AsyncifyPassProps)
   MinimizeRecGroups
+  TypeMerging
   Monomorphize
   MonomorphizeAlways
   MemoryPacking(MemoryPackingPassProps)
@@ -233,6 +234,7 @@ pub struct OptimizeOptions {
   monomorphize_min_benefit : Int
   low_memory_unused : Bool
   low_memory_bound : UInt64
+  traps_never_happen : Bool
 }
 
 type ParamInfo
