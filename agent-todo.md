@@ -43,10 +43,12 @@
 
 - [x] Audit exactness handling of descriptor ops in `passes/heap2local.mbt` and `passes/gufa.mbt`; `heap2local` now enforces exact descriptor matching and `gufa` has regression guards to prevent subtype-based folding for exact descriptor ops.
 - [x] Audit `remove_unused_with_props` section-filter callbacks (`type_sec`, `import_sec`, `global_sec`, `elem_sec`, `data_sec`) to ensure nested index remaps are still applied after filtering, with targeted regression tests.
-- [ ] Fix JS failure in `ir/ssa_optimize_tests.mbt:428` (`eval_ssa_unary i64 trunc_f32 handles values beyond i32 width`).
-- [ ] Fix JS failure in `ir/ssa_optimize_tests.mbt:492` (`eval_ssa_unary float-to-int trunc bound and trap parity checks`).
-- [ ] Fix JS failure in `passes/de_nan.mbt:1597` (`is_f32_nan correctly identifies NaN`).
-- [ ] Fix JS failure in `passes/de_nan.mbt:1610` (`is_f32_nan correctly rejects non-NaN`).
+- [x] Fix JS failure in `ir/ssa_optimize_tests.mbt:428` (`eval_ssa_unary i64 trunc_f32 handles values beyond i32 width`).
+- [x] Fix JS failure in `ir/ssa_optimize_tests.mbt:492` (`eval_ssa_unary float-to-int trunc bound and trap parity checks`).
+- [x] Fix JS failure in `passes/de_nan.mbt:1597` (`is_f32_nan correctly identifies NaN`).
+- [x] Fix JS failure in `passes/de_nan.mbt:1610` (`is_f32_nan correctly rejects non-NaN`).
+- [ ] Audit remaining i64 trunc-folding helpers (for example `precompute`) for JS-safe `Double -> Int64` conversion semantics and add shared helper to avoid divergence.
+- [ ] Add a core-runtime compatibility regression that pins `Float::is_nan()` / `Double::is_nan()` JS behavior (or documents backend caveat) so pass logic avoids backend-dependent NaN predicates.
 
 ### CLI Pipeline Completion
 

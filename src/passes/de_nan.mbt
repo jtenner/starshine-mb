@@ -19,14 +19,18 @@ priv struct DeNaNState {
 
 ///|
 fn is_f32_nan(f : F32) -> Bool {
-  let x = f.0
-  x != x
+  let bits = f.0.reinterpret_as_uint()
+  let exp = bits & 0x7F800000U
+  let frac = bits & 0x007FFFFFU
+  exp == 0x7F800000U && frac != 0U
 }
 
 ///|
 fn is_f64_nan(f : F64) -> Bool {
-  let x = f.0
-  x != x
+  let bits = f.0.reinterpret_as_uint64()
+  let exp = bits & 0x7FF0000000000000UL
+  let frac = bits & 0x000FFFFFFFFFFFFFUL
+  exp == 0x7FF0000000000000UL && frac != 0UL
 }
 
 ///|
@@ -1634,6 +1638,26 @@ test "is_f32_nan correctly rejects non-NaN" {
   let neg_inf_bits : UInt = 0xFF800000 // Negative infinity
   let neg_inf = @lib.F32(Float::reinterpret_from_uint(neg_inf_bits))
   assert_eq(is_f32_nan(neg_inf), false, msg="Negative infinity is not NaN")
+}
+
+///|
+test "is_f32_nan handles representative bit patterns" {
+  let cases : Array[(UInt, Bool)] = [
+    (0x00000000, false), // +0.0
+    (0x80000000, false), // -0.0
+    (0x3F800000, false), // 1.0
+    (0x7F7FFFFF, false), // largest finite
+    (0x7F800000, false), // +inf
+    (0xFF800000, false), // -inf
+    (0x7FC00000, true), // quiet NaN
+    (0x7F800001, true), // signaling NaN
+    (0xFFC00000, true), // negative NaN
+  ]
+  for case_ in cases {
+    let (bits, expected) = case_
+    let f = @lib.F32(Float::reinterpret_from_uint(bits))
+    assert_eq(is_f32_nan(f), expected, msg="bit pattern \{bits} NaN mismatch")
+  }
 }
 
 ///|

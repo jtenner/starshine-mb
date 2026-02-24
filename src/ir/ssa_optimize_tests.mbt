@@ -425,9 +425,23 @@ test "eval_ssa_unary i64extend_i32 conversions" {
 }
 
 ///|
+test "trunc_f64_to_i64 signed canonicalizes results for JS equality" {
+  assert_eq(trunc_f64_to_i64_s(3000000000.0), Some(3000000000L))
+  assert_eq(trunc_f64_to_i64_s(-3000000000.0), Some(-3000000000L))
+  assert_eq(trunc_f64_to_i64_s(9007199254740991.0), Some(9007199254740991L))
+}
+
+///|
+test "trunc_f64_to_i64 signed bound checks remain strict" {
+  assert_eq(trunc_f64_to_i64_s(9223372036854775808.0), None)
+  assert_eq(trunc_f64_to_i64_s(-1.0e20), None)
+}
+
+///|
 test "eval_ssa_unary i64 trunc_f32 handles values beyond i32 width" {
   let big = Float::from_double(3000000000.0)
   let neg_big = Float::from_double(-3000000000.0)
+  let edge = Float::from_double(9007199254740991.0)
   assert_eq(
     eval_ssa_unary(UnaryOp::i64_trunc_f32s(), LitF32(big)),
     Some(LitI64(3000000000L)),
@@ -440,6 +454,10 @@ test "eval_ssa_unary i64 trunc_f32 handles values beyond i32 width" {
     eval_ssa_unary(UnaryOp::i64_trunc_f32u(), LitF32(big)),
     Some(LitI64(3000000000L)),
   )
+  assert_eq(
+    eval_ssa_unary(UnaryOp::i64_trunc_f32s(), LitF32(edge)),
+    Some(LitI64(9007199254740992L)),
+  ) // f32 rounding of 2^53-1 rounds up to 2^53
 }
 
 ///|
@@ -531,6 +549,10 @@ test "eval_ssa_unary float-to-int trunc bound and trap parity checks" {
   assert_eq(
     eval_ssa_unary(UnaryOp::i64_trunc_f64s(), LitF64(9007199254740991.0)),
     Some(LitI64(9007199254740991L)),
+  )
+  assert_eq(
+    eval_ssa_unary(UnaryOp::i64_trunc_f64s(), LitF64(3000000000.0)),
+    Some(LitI64(3000000000L)),
   )
   assert_eq(
     eval_ssa_unary(UnaryOp::i64_trunc_f64s(), LitF64(9223372036854775808.0)),
