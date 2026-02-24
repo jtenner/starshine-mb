@@ -168,6 +168,7 @@ pub(all) enum ModulePass {
   GlobalTypeOptimization
   SimplifyGlobals
   SimplifyGlobalsOptimizing
+  GlobalEffects
   PropagateGlobalsGlobally
   TypeRefining
   TypeGeneralizing

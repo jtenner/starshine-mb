@@ -20,6 +20,7 @@ pub(all) enum ModulePass {
   GlobalTypeOptimization
   SimplifyGlobals
   SimplifyGlobalsOptimizing
+  GlobalEffects
   PropagateGlobalsGlobally
   TypeRefining
   TypeGeneralizing
@@ -281,6 +282,8 @@ fn run_ir_context_transformer_scheduler_pass(
         mod,
         propagate_globals_globally_ir_pass(mod),
       )
+    GlobalEffects =>
+      apply_ir_transformer_pass(ctx, mod, global_effects_ir_pass(mod))
     Heap2Local => apply_ir_transformer_pass(ctx, mod, heap2local_ir_pass(mod))
     HeapStoreOptimization =>
       apply_ir_transformer_pass(ctx, mod, heap_store_optimization_ir_pass(mod))
@@ -795,8 +798,7 @@ pub fn default_global_optimization_pre_passes(
   }
 
   // Binaryen parity mode: generate-global-effects.
-  // Use global propagation as the current conservative fallback.
-  passes.push(PropagateGlobalsGlobally)
+  passes.push(GlobalEffects)
   passes
 }
 
@@ -1540,11 +1542,20 @@ test "default global optimization pre passes include generate-global-effects mod
   assert_eq(
     default_count_module_passes(passes, fn(pass) {
       match pass {
-        PropagateGlobalsGlobally => true
+        GlobalEffects => true
         _ => false
       }
     }),
     1,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        PropagateGlobalsGlobally => true
+        _ => false
+      }
+    }),
+    0,
   )
 }
 
@@ -1773,6 +1784,7 @@ test "optimize scheduler classifies module pass context kinds" {
     assert_pass_context_kind(RemoveUnusedNames, IRContextTransformerPass),
   )
   assert_true(assert_pass_context_kind(Flatten, IRContextTransformerPass))
+  assert_true(assert_pass_context_kind(GlobalEffects, IRContextTransformerPass))
   assert_true(
     assert_pass_context_kind(DeadCodeElimination, UnitTransformerPass),
   )
@@ -1866,6 +1878,25 @@ test "optimize_module dispatches DeNaN through IRContext kind" {
   match optimized.code_sec {
     Some(CodeSec([TFunc(_, TExpr([TF32Const(F32(v))]))])) => assert_eq(v, 0.0)
     _ => fail("expected DeNaN to sanitize NaN constants via IRContext dispatch")
+  }
+}
+
+///|
+test "optimize_module runs GlobalEffects pass through IRContext kind" {
+  assert_true(assert_pass_context_kind(GlobalEffects, IRContextTransformerPass))
+  let mod = Module::new().with_code_sec(
+    CodeSec::new([
+      Func::t_func([], TExpr::new([TInstr::call(FuncIdx::new(0), [])])),
+    ]),
+  )
+  let optimized = match optimize_module(mod, [GlobalEffects]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TCall(FuncIdx(i), [])]))])) =>
+      assert_eq(i, 0U)
+    _ => fail("expected GlobalEffects to preserve module body")
   }
 }
 

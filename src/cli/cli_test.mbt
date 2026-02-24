@@ -123,6 +123,12 @@ test "parse_cli_args parses long-form kebab-case pass flags" {
 }
 
 ///|
+test "parse_cli_args accepts global-effects pass flag" {
+  let parsed = parse_ok(["--global-effects"])
+  assert_eq(parsed.pass_flags, ["global-effects"])
+}
+
+///|
 test "parse_cli_args rejects invalid long flag spelling" {
   assert_eq(
     parse_err(["--BadFlag"]),
