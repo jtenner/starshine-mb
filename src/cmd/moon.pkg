@@ -1,0 +1,13 @@
+import {
+  "jtenner/starshine/binary",
+  "jtenner/starshine/cli",
+  "jtenner/starshine/lib",
+  "jtenner/starshine/passes",
+  "moonbitlang/core/buffer",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+}
+
+options(
+  "is-main": true,
+)

@@ -1,0 +1,1110 @@
+///|
+pub enum CmdError {
+  CliParse(CliParseError)
+  UnknownPassFlag(String)
+  InvalidConfig(String)
+  ConfigNotFound(String)
+  ConfigReadFailed(String)
+  InputReadFailed(String)
+  TextLoweringFailed(String)
+  DecodeFailed(String)
+  OptimizeFailed(String)
+  EncodeFailed(String)
+  OutputWriteFailed(String)
+  AmbiguousOutputFile(String)
+  NoInputFiles
+} derive(Eq, Show, Debug)
+
+///|
+pub fn CmdError::unknown_pass_flag(flag : String) -> CmdError {
+  UnknownPassFlag(flag)
+}
+
+///|
+pub fn CmdError::ambiguous_output_file(path : String) -> CmdError {
+  AmbiguousOutputFile(path)
+}
+
+///|
+pub struct CmdIO {
+  get_env : (String) -> String?
+  file_exists : (String) -> Bool
+  read_file : (String) -> Result[Bytes, String]
+  write_file : (String, Bytes) -> Result[Unit, String]
+  write_stdout : (Bytes) -> Result[Unit, String]
+  list_candidates : () -> Array[String]
+  lower_text_module : (String, CliInputFormat, Bytes) -> Result[Bytes, String]
+}
+
+///|
+pub fn CmdIO::new(
+  get_env? : (String) -> String? = fn(_) { None },
+  file_exists? : (String) -> Bool = fn(_) { false },
+  read_file? : (String) -> Result[Bytes, String] = fn(_) {
+    Err("read_file not configured")
+  },
+  write_file? : (String, Bytes) -> Result[Unit, String] = fn(_, _) {
+    Err("write_file not configured")
+  },
+  write_stdout? : (Bytes) -> Result[Unit, String] = fn(_) { Ok(()) },
+  list_candidates? : () -> Array[String] = fn() { [] },
+  lower_text_module? : (String, CliInputFormat, Bytes) -> Result[Bytes, String] = fn(
+    path,
+    format,
+    _,
+  ) {
+    Err("text lowering not configured for \{path} (\{format})")
+  },
+) -> CmdIO {
+  {
+    get_env,
+    file_exists,
+    read_file,
+    write_file,
+    write_stdout,
+    list_candidates,
+    lower_text_module,
+  }
+}
+
+///|
+pub struct CmdRunSummary {
+  input_files : Array[String]
+  output_files : Array[String]
+  resolved_passes : Array[String]
+  optimize_level : Int
+  shrink_level : Int
+  traps_never_happen : Bool
+} derive(Eq, Show, Debug)
+
+///|
+pub fn CmdRunSummary::new(
+  input_files? : Array[String] = [],
+  output_files? : Array[String] = [],
+  resolved_passes? : Array[String] = [],
+  optimize_level? : Int = 0,
+  shrink_level? : Int = 0,
+  traps_never_happen? : Bool = false,
+) -> CmdRunSummary {
+  {
+    input_files,
+    output_files,
+    resolved_passes,
+    optimize_level,
+    shrink_level,
+    traps_never_happen,
+  }
+}
+
+///|
+fn ascii_lower(input : String) -> String {
+  let out = StringBuilder::new()
+  for c in input {
+    if c >= 'A' && c <= 'Z' {
+      out.write_char((c.to_int() + 32).unsafe_to_char())
+    } else {
+      out.write_char(c)
+    }
+  }
+  out.to_string()
+}
+
+///|
+fn parse_bool_string(raw : String) -> Bool? {
+  match ascii_lower(raw.trim().to_string()) {
+    "1" | "true" | "yes" | "on" => Some(true)
+    "0" | "false" | "no" | "off" => Some(false)
+    _ => None
+  }
+}
+
+///|
+fn parse_input_format_name(raw : String) -> CliInputFormat? {
+  match ascii_lower(raw.trim().to_string()) {
+    "wasm" => Some(CliInputFormat::wasm())
+    "wat" => Some(CliInputFormat::wat())
+    "wast" => Some(CliInputFormat::wast())
+    _ => None
+  }
+}
+
+///|
+fn parse_trap_mode_name(raw : String) -> TrapMode? {
+  match ascii_lower(raw.trim().to_string()) {
+    "allow" | "traps-may-happen" => Some(TrapMode::allow())
+    "never" | "traps-never-happen" => Some(TrapMode::never())
+    _ => None
+  }
+}
+
+///|
+fn append_unique_string(out : Array[String], value : String) -> Unit {
+  if !out.contains(value) {
+    out.push(value)
+  }
+}
+
+///|
+fn push_unique_output_target_local(
+  out : Array[CliOutputTarget],
+  target : CliOutputTarget,
+) -> Unit {
+  for existing in out {
+    if existing == target {
+      return
+    }
+  }
+  out.push(target)
+}
+
+///|
+fn has_glob_wildcard(pattern : String) -> Bool {
+  pattern.contains("*") || pattern.contains("?")
+}
+
+///|
+fn basename_of_path(path : String) -> String {
+  let normalized = normalize_cli_path(path)
+  let mut last_sep = -1
+  let mut i = 0
+  while i < normalized.length() {
+    if normalized[i] == '/' {
+      last_sep = i
+    }
+    i += 1
+  }
+  if last_sep < 0 {
+    return normalized
+  }
+  normalized.sub(start=last_sep + 1).to_string() catch {
+    _ => normalized
+  }
+}
+
+///|
+fn path_with_wasm_extension(path : String) -> String {
+  let normalized = normalize_cli_path(path)
+  let mut last_dot = -1
+  let mut i = 0
+  while i < normalized.length() {
+    if normalized[i] == '/' {
+      last_dot = -1
+    } else if normalized[i] == '.' {
+      last_dot = i
+    }
+    i += 1
+  }
+  if last_dot >= 0 {
+    let stem = normalized.sub(end=last_dot).to_string() catch {
+        _ => normalized
+      }
+    "\{stem}.wasm"
+  } else {
+    "\{normalized}.wasm"
+  }
+}
+
+///|
+fn output_basename_for_input(path : String, format : CliInputFormat) -> String {
+  let base = basename_of_path(path)
+  match format {
+    Wasm => base
+    Wat | Wast => path_with_wasm_extension(base)
+  }
+}
+
+///|
+fn join_cli_path(dir : String, file : String) -> String {
+  let normalized_dir = normalize_cli_path(dir)
+  if normalized_dir.length() == 0 || normalized_dir == "." {
+    file
+  } else if normalized_dir[normalized_dir.length() - 1] == '/' {
+    "\{normalized_dir}\{file}"
+  } else {
+    "\{normalized_dir}/\{file}"
+  }
+}
+
+///|
+fn bytes_to_string_lossy(bytes : Bytes) -> String {
+  let out = StringBuilder::new()
+  for b in bytes {
+    let i = b.to_int()
+    if i >= 0 && i <= 127 {
+      out.write_char(i.unsafe_to_char())
+    } else {
+      out.write_char('?')
+    }
+  }
+  out.to_string()
+}
+
+///|
+fn parse_olevel_text(raw : String) -> CliOptimizationFlag? {
+  let trimmed = raw.trim().to_string()
+  if trimmed.length() == 0 {
+    return None
+  }
+  let flag = if trimmed.length() >= 2 && trimmed[0] == '-' && trimmed[1] == 'O' {
+    trimmed
+  } else if trimmed.length() >= 1 && trimmed[0] == 'O' {
+    "-\{trimmed}"
+  } else {
+    ""
+  }
+  if flag.length() == 0 {
+    return None
+  }
+  match parse_cli_args([flag]) {
+    Ok(parsed) =>
+      if parsed.optimize_flags.length() == 1 {
+        Some(parsed.optimize_flags[0])
+      } else {
+        None
+      }
+    Err(_) => None
+  }
+}
+
+///|
+fn parse_pass_list(raw : String) -> Array[String] {
+  let out = Array::new()
+  for part in raw.split(",") {
+    let trimmed = ascii_lower(part.to_string().trim().to_string())
+    if trimmed.length() > 0 {
+      out.push(trimmed)
+    }
+  }
+  out
+}
+
+///|
+fn parse_config_json(text : String) -> Result[CliParseResult, CmdError] {
+  let root = parse(text) catch {
+    e => return Err(CmdError::InvalidConfig("invalid config json: \{e}"))
+  }
+  let input_globs : Array[String] = []
+  let mut read_stdin = false
+  let mut input_format : CliInputFormat? = None
+  let output_targets : Array[CliOutputTarget] = []
+  let pass_flags : Array[String] = []
+  let optimize_flags : Array[CliOptimizationFlag] = []
+  let mut trap_mode : TrapMode? = None
+  let root_obj = match root {
+    Object(obj) => obj
+    _ => return Err(CmdError::InvalidConfig("config root must be an object"))
+  }
+
+  match root_obj.get("inputs") {
+    Some(Object(inputs)) => {
+      match inputs.get("globs") {
+        Some(Array(globs)) =>
+          for glob in globs {
+            match glob {
+              String(raw) => {
+                let normalized = normalize_cli_path(raw.trim().to_string())
+                if normalized.length() > 0 {
+                  append_unique_string(input_globs, normalized)
+                }
+              }
+              _ => ()
+            }
+          }
+        _ => ()
+      }
+      match inputs.get("stdin") {
+        Some(True) => read_stdin = true
+        Some(False) => read_stdin = false
+        _ => ()
+      }
+      match inputs.get("format") {
+        Some(String(raw)) =>
+          match parse_input_format_name(raw) {
+            Some(format) => input_format = Some(format)
+            None => ()
+          }
+        _ => ()
+      }
+    }
+    _ => ()
+  }
+
+  match root_obj.get("outputs") {
+    Some(Object(outputs)) => {
+      match outputs.get("stdout") {
+        Some(True) =>
+          push_unique_output_target_local(
+            output_targets,
+            CliOutputTarget::stdout(),
+          )
+        _ => ()
+      }
+      match outputs.get("out") {
+        Some(String(raw)) => {
+          let trimmed = raw.trim().to_string()
+          if trimmed.length() > 0 {
+            push_unique_output_target_local(
+              output_targets,
+              CliOutputTarget::file(normalize_cli_path(trimmed)),
+            )
+          }
+        }
+        _ => ()
+      }
+      match outputs.get("outDir") {
+        Some(String(raw)) => {
+          let trimmed = raw.trim().to_string()
+          if trimmed.length() > 0 {
+            push_unique_output_target_local(
+              output_targets,
+              CliOutputTarget::dir(normalize_cli_path(trimmed)),
+            )
+          }
+        }
+        _ => ()
+      }
+      match outputs.get("out-dir") {
+        Some(String(raw)) => {
+          let trimmed = raw.trim().to_string()
+          if trimmed.length() > 0 {
+            push_unique_output_target_local(
+              output_targets,
+              CliOutputTarget::dir(normalize_cli_path(trimmed)),
+            )
+          }
+        }
+        _ => ()
+      }
+    }
+    _ => ()
+  }
+
+  match root_obj.get("passes") {
+    Some(Array(passes)) =>
+      for pass in passes {
+        match pass {
+          String(raw) => {
+            let trimmed = ascii_lower(raw.trim().to_string())
+            if trimmed.length() > 0 {
+              pass_flags.push(trimmed)
+            }
+          }
+          _ => ()
+        }
+      }
+    _ => ()
+  }
+
+  match root_obj.get("optimize") {
+    Some(Object(optimize)) => {
+      match optimize.get("preset") {
+        Some(String(raw)) =>
+          match ascii_lower(raw.trim().to_string()) {
+            "optimize" => optimize_flags.push(CliOptimizationFlag::optimize())
+            "shrink" => optimize_flags.push(CliOptimizationFlag::shrink())
+            _ => ()
+          }
+        _ => ()
+      }
+      match optimize.get("olevel") {
+        Some(String(raw)) =>
+          match parse_olevel_text(raw) {
+            Some(flag) => optimize_flags.push(flag)
+            None => ()
+          }
+        _ => ()
+      }
+      let trap_value = match optimize.get("trapMode") {
+        Some(v) => Some(v)
+        None => optimize.get("trap-mode")
+      }
+      match trap_value {
+        Some(String(raw)) =>
+          match parse_trap_mode_name(raw) {
+            Some(mode) => trap_mode = Some(mode)
+            None => ()
+          }
+        _ => ()
+      }
+    }
+    _ => ()
+  }
+  Ok(
+    CliParseResult::new(
+      input_globs~,
+      read_stdin~,
+      input_format~,
+      output_targets~,
+      pass_flags~,
+      optimize_flags~,
+      trap_mode~,
+    ),
+  )
+}
+
+///|
+fn parse_env_overlay(io : CmdIO) -> CliParseResult {
+  let mut input_format : CliInputFormat? = None
+  let output_targets : Array[CliOutputTarget] = []
+  let pass_flags : Array[String] = []
+  let optimize_flags : Array[CliOptimizationFlag] = []
+  let mut trap_mode : TrapMode? = None
+
+  match (io.get_env)("STARSHINE_FORMAT") {
+    Some(raw) =>
+      match parse_input_format_name(raw) {
+        Some(format) => input_format = Some(format)
+        None => ()
+      }
+    None => ()
+  }
+  match (io.get_env)("STARSHINE_OUT") {
+    Some(raw) => {
+      let trimmed = raw.trim().to_string()
+      if trimmed.length() > 0 {
+        push_unique_output_target_local(
+          output_targets,
+          CliOutputTarget::file(normalize_cli_path(trimmed)),
+        )
+      }
+    }
+    None => ()
+  }
+  match (io.get_env)("STARSHINE_OUT_DIR") {
+    Some(raw) => {
+      let trimmed = raw.trim().to_string()
+      if trimmed.length() > 0 {
+        push_unique_output_target_local(
+          output_targets,
+          CliOutputTarget::dir(normalize_cli_path(trimmed)),
+        )
+      }
+    }
+    None => ()
+  }
+  match (io.get_env)("STARSHINE_STDOUT") {
+    Some(raw) =>
+      match parse_bool_string(raw) {
+        Some(true) =>
+          push_unique_output_target_local(
+            output_targets,
+            CliOutputTarget::stdout(),
+          )
+        _ => ()
+      }
+    None => ()
+  }
+  match (io.get_env)("STARSHINE_PASSES") {
+    Some(raw) =>
+      for pass in parse_pass_list(raw) {
+        pass_flags.push(pass)
+      }
+    None => ()
+  }
+  match (io.get_env)("STARSHINE_TRAP_MODE") {
+    Some(raw) =>
+      match parse_trap_mode_name(raw) {
+        Some(mode) => trap_mode = Some(mode)
+        None => ()
+      }
+    None => ()
+  }
+  match (io.get_env)("STARSHINE_OPTIMIZE") {
+    Some(raw) =>
+      for part in parse_pass_list(raw) {
+        match part {
+          "optimize" => optimize_flags.push(CliOptimizationFlag::optimize())
+          "shrink" => optimize_flags.push(CliOptimizationFlag::shrink())
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match (io.get_env)("STARSHINE_PRESET") {
+    Some(raw) =>
+      for part in parse_pass_list(raw) {
+        match part {
+          "optimize" => optimize_flags.push(CliOptimizationFlag::optimize())
+          "shrink" => optimize_flags.push(CliOptimizationFlag::shrink())
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match (io.get_env)("STARSHINE_OLEVEL") {
+    Some(raw) =>
+      match parse_olevel_text(raw) {
+        Some(flag) => optimize_flags.push(flag)
+        None => ()
+      }
+    None => ()
+  }
+  CliParseResult::new(
+    input_format~,
+    output_targets~,
+    pass_flags~,
+    optimize_flags~,
+    trap_mode~,
+  )
+}
+
+///|
+fn merge_parse_results(
+  config : CliParseResult,
+  env : CliParseResult,
+  cli : CliParseResult,
+) -> CliParseResult {
+  let input_globs : Array[String] = []
+
+  for glob in config.input_globs {
+    append_unique_string(input_globs, glob)
+  }
+  for glob in env.input_globs {
+    append_unique_string(input_globs, glob)
+  }
+  for glob in cli.input_globs {
+    append_unique_string(input_globs, glob)
+  }
+
+  let read_stdin = config.read_stdin || env.read_stdin || cli.read_stdin
+
+  let input_format = match cli.input_format {
+    Some(format) => Some(format)
+    None =>
+      match env.input_format {
+        Some(format) => Some(format)
+        None => config.input_format
+      }
+  }
+
+  let output_targets : Array[CliOutputTarget] = []
+  let chosen_outputs = if cli.output_targets.length() > 0 {
+    cli.output_targets
+  } else if env.output_targets.length() > 0 {
+    env.output_targets
+  } else {
+    config.output_targets
+  }
+  for target in chosen_outputs {
+    output_targets.push(target)
+  }
+
+  let pass_flags : Array[String] = []
+  for pass in config.pass_flags {
+    pass_flags.push(pass)
+  }
+  for pass in env.pass_flags {
+    pass_flags.push(pass)
+  }
+  for pass in cli.pass_flags {
+    pass_flags.push(pass)
+  }
+
+  let optimize_flags : Array[CliOptimizationFlag] = []
+  for flag in config.optimize_flags {
+    optimize_flags.push(flag)
+  }
+  for flag in env.optimize_flags {
+    optimize_flags.push(flag)
+  }
+  for flag in cli.optimize_flags {
+    optimize_flags.push(flag)
+  }
+
+  let trap_mode = match cli.trap_mode {
+    Some(mode) => Some(mode)
+    None =>
+      match env.trap_mode {
+        Some(mode) => Some(mode)
+        None => config.trap_mode
+      }
+  }
+  let config_path = match cli.config_path {
+    Some(path) => Some(path)
+    None =>
+      match env.config_path {
+        Some(path) => Some(path)
+        None => config.config_path
+      }
+  }
+  CliParseResult::new(
+    config_path~,
+    input_globs~,
+    read_stdin~,
+    input_format~,
+    output_targets~,
+    pass_flags~,
+    optimize_flags~,
+    trap_mode~,
+  )
+}
+
+///|
+fn resolve_config_path(cli : CliParseResult, io : CmdIO) -> (String?, Bool) {
+  match cli.config_path {
+    Some(path) => return (Some(normalize_cli_path(path)), true)
+    None => ()
+  }
+  match (io.get_env)("STARSHINE_CONFIG") {
+    Some(raw) => {
+      let trimmed = raw.trim().to_string()
+      if trimmed.length() > 0 {
+        return (Some(normalize_cli_path(trimmed)), true)
+      }
+    }
+    None => ()
+  }
+  if (io.file_exists)(@cli.DEFAULT_CONFIG_PATH) {
+    return (Some(@cli.DEFAULT_CONFIG_PATH), false)
+  }
+  (None, false)
+}
+
+///|
+fn resolve_input_files(globs : Array[String], io : CmdIO) -> Array[String] {
+  let literal = Array::new()
+  let patterns = Array::new()
+  for raw in globs {
+    let normalized = normalize_cli_path(raw.trim().to_string())
+    if normalized.length() == 0 {
+      continue
+    }
+    if has_glob_wildcard(normalized) {
+      append_unique_string(patterns, normalized)
+    } else {
+      append_unique_string(literal, normalized)
+    }
+  }
+  let out = Array::new()
+  for value in literal {
+    append_unique_string(out, value)
+  }
+  if patterns.length() > 0 {
+    for value in expand_globs_with_adapter(patterns, io.list_candidates) {
+      append_unique_string(out, value)
+    }
+  }
+  out
+}
+
+///|
+fn max_int(a : Int, b : Int) -> Int {
+  if a > b {
+    a
+  } else {
+    b
+  }
+}
+
+///|
+fn resolve_optimize_levels(flags : Array[CliOptimizationFlag]) -> (Int, Int) {
+  let mut optimize_level = 0
+  let mut shrink_level = 0
+  for flag in flags {
+    match flag {
+      OLevel(level, size_bias) =>
+        if size_bias {
+          shrink_level = max_int(shrink_level, level)
+        } else {
+          optimize_level = max_int(optimize_level, level)
+        }
+      OptimizePreset => optimize_level = max_int(optimize_level, 2)
+      ShrinkPreset => shrink_level = max_int(shrink_level, 2)
+    }
+  }
+  (optimize_level, shrink_level)
+}
+
+///|
+fn default_inlining_options() -> InliningOptions {
+  InliningOptions::new()
+}
+
+///|
+fn make_optimize_options(
+  optimize_level : Int,
+  shrink_level : Int,
+  traps_never_happen : Bool,
+) -> OptimizeOptions {
+  OptimizeOptions::new(
+    optimize_level~,
+    shrink_level~,
+    inlining=default_inlining_options(),
+    monomorphize_min_benefit=5,
+    low_memory_unused=false,
+    low_memory_bound=1024UL,
+    traps_never_happen~,
+  )
+}
+
+///|
+fn resolve_explicit_pass(flag : String) -> ModulePass? {
+  match flag {
+    "alignment-lowering" => Some(ModulePass::AlignmentLowering)
+    "avoid-reinterprets" => Some(ModulePass::AvoidReinterprets)
+    "coalesce-locals" => Some(ModulePass::CoalesceLocals)
+    "code-folding" => Some(ModulePass::CodeFolding)
+    "code-pushing" => Some(ModulePass::CodePushing)
+    "const-hoisting" => Some(ModulePass::ConstHoisting)
+    "constant-field-propagation" => Some(ModulePass::ConstantFieldPropagation)
+    "dataflow-optimization" => Some(ModulePass::DataflowOptimization)
+    "dead-code-elimination" => Some(ModulePass::DeadCodeElimination)
+    "dead-argument-elimination" => Some(ModulePass::DeadArgumentElimination)
+    "signature-pruning" => Some(ModulePass::SignaturePruning)
+    "signature-refining" => Some(ModulePass::SignatureRefining)
+    "duplicate-import-elimination" =>
+      Some(ModulePass::DuplicateImportElimination)
+    "global-refining" => Some(ModulePass::GlobalRefining)
+    "global-struct-inference" => Some(ModulePass::GlobalStructInference)
+    "global-struct-inference-desc-cast" =>
+      Some(ModulePass::GlobalStructInferenceDescCast)
+    "global-type-optimization" => Some(ModulePass::GlobalTypeOptimization)
+    "simplify-globals" => Some(ModulePass::SimplifyGlobals)
+    "simplify-globals-optimizing" => Some(ModulePass::SimplifyGlobalsOptimizing)
+    "global-effects" => Some(ModulePass::GlobalEffects)
+    "propagate-globals-globally" => Some(ModulePass::PropagateGlobalsGlobally)
+    "type-refining" => Some(ModulePass::TypeRefining)
+    "type-generalizing" => Some(ModulePass::TypeGeneralizing)
+    "type-finalizing" => Some(ModulePass::TypeFinalizing)
+    "type-un-finalizing" => Some(ModulePass::TypeUnFinalizing)
+    "unsubtyping" => Some(ModulePass::Unsubtyping)
+    "heap2local" => Some(ModulePass::Heap2Local)
+    "heap-store-optimization" => Some(ModulePass::HeapStoreOptimization)
+    "inlining" => Some(ModulePass::Inlining)
+    "inlining-optimizing" => Some(ModulePass::InliningOptimizing)
+    "inline-main" => Some(ModulePass::InlineMain)
+    "local-cse" => Some(ModulePass::LocalCSE)
+    "local-subtyping" => Some(ModulePass::LocalSubtyping)
+    "loop-invariant-code-motion" => Some(ModulePass::LoopInvariantCodeMotion)
+    "merge-locals" => Some(ModulePass::MergeLocals)
+    "merge-similar-functions" => Some(ModulePass::MergeSimilarFunctions)
+    "merge-blocks" => Some(ModulePass::MergeBlocks)
+    "flatten" => Some(ModulePass::Flatten)
+    "tuple-optimization" => Some(ModulePass::TupleOptimization)
+    "once-reduction" => Some(ModulePass::OnceReduction)
+    "minimize-rec-groups" => Some(ModulePass::MinimizeRecGroups)
+    "type-merging" => Some(ModulePass::TypeMerging)
+    "monomorphize" => Some(ModulePass::Monomorphize)
+    "monomorphize-always" => Some(ModulePass::MonomorphizeAlways)
+    "optimize-added-constants" => Some(ModulePass::OptimizeAddedConstants)
+    "optimize-added-constants-propagate" =>
+      Some(ModulePass::OptimizeAddedConstantsPropagate)
+    "optimize-instructions" => Some(ModulePass::OptimizeInstructions)
+    "precompute" => Some(ModulePass::Precompute)
+    "precompute-propagate" => Some(ModulePass::PrecomputePropagate)
+    "redundant-set-elimination" => Some(ModulePass::RedundantSetElimination)
+    "pick-load-signs" => Some(ModulePass::PickLoadSigns)
+    "gufa" => Some(ModulePass::GUFA)
+    "gufa-optimizing" => Some(ModulePass::GUFAOptimizing)
+    "gufa-cast-all" => Some(ModulePass::GUFACastAll)
+    "i64-to-i32-lowering" => Some(ModulePass::I64ToI32Lowering)
+    "duplicate-function-elimination" =>
+      Some(ModulePass::DuplicateFunctionElimination)
+    "optimize-casts" => Some(ModulePass::OptimizeCasts)
+    "de-nan" => Some(ModulePass::DeNaN)
+    "remove-unused-brs" => Some(ModulePass::RemoveUnusedBrs)
+    "remove-unused-names" => Some(ModulePass::RemoveUnusedNames)
+    "simplify-locals" => Some(ModulePass::SimplifyLocals)
+    "simplify-locals-no-tee" => Some(ModulePass::SimplifyLocalsNoTee)
+    "simplify-locals-no-structure" =>
+      Some(ModulePass::SimplifyLocalsNoStructure)
+    "simplify-locals-no-tee-no-structure" =>
+      Some(ModulePass::SimplifyLocalsNoTeeNoStructure)
+    "simplify-locals-no-nesting" => Some(ModulePass::SimplifyLocalsNoNesting)
+    "untee" => Some(ModulePass::Untee)
+    "vacuum" => Some(ModulePass::Vacuum)
+    "reorder-locals" => Some(ModulePass::ReorderLocals)
+    "reorder-types" => Some(ModulePass::ReorderTypes)
+    "reorder-globals" => Some(ModulePass::ReorderGlobals)
+    "reorder-globals-always" => Some(ModulePass::ReorderGlobalsAlways)
+    "reorder-functions" => Some(ModulePass::ReorderFunctions)
+    "reorder-functions-by-name" => Some(ModulePass::ReorderFunctionsByName)
+    "remove-unused-types" => Some(ModulePass::RemoveUnusedTypes)
+    "remove-unused" => Some(ModulePass::RemoveUnused)
+    "remove-unused-module-elements" =>
+      Some(ModulePass::RemoveUnusedModuleElements)
+    "remove-unused-non-function-elements" =>
+      Some(ModulePass::RemoveUnusedNonFunctionElements)
+    _ => None
+  }
+}
+
+///|
+fn expand_passes_for_module(
+  pass_flags : Array[String],
+  mod : Module,
+  options : OptimizeOptions,
+) -> Result[Array[ModulePass], CmdError] {
+  let out : Array[ModulePass] = []
+  for flag in pass_flags {
+    match flag {
+      "optimize" => {
+        for pass in default_global_optimization_pre_passes(mod, options) {
+          out.push(pass)
+        }
+        for pass in default_function_optimization_passes(mod, options) {
+          out.push(pass)
+        }
+      }
+      "shrink" => {
+        let shrink_options = OptimizeOptions::new(
+          optimize_level=options.optimize_level,
+          shrink_level=max_int(options.shrink_level, 2),
+          inlining=options.inlining,
+          monomorphize_min_benefit=options.monomorphize_min_benefit,
+          low_memory_unused=options.low_memory_unused,
+          low_memory_bound=options.low_memory_bound,
+          traps_never_happen=options.traps_never_happen,
+        )
+        for pass in default_global_optimization_pre_passes(mod, shrink_options) {
+          out.push(pass)
+        }
+        for pass in default_function_optimization_passes(mod, shrink_options) {
+          out.push(pass)
+        }
+      }
+      _ =>
+        match resolve_explicit_pass(flag) {
+          Some(pass) => out.push(pass)
+          None => return Err(CmdError::unknown_pass_flag(flag))
+        }
+    }
+  }
+  Ok(out)
+}
+
+///|
+fn decode_module_for_pipeline(
+  path : String,
+  bytes : Bytes,
+) -> Result[Module, CmdError] {
+  match Decode::decode(bytes, 0) {
+    Ok((mod, idx)) =>
+      if idx == bytes.length() {
+        Ok(mod)
+      } else {
+        Err(CmdError::DecodeFailed("\{path}: trailing bytes after module body"))
+      }
+    Err(e) => Err(CmdError::DecodeFailed("\{path}: \{e}"))
+  }
+}
+
+///|
+fn encode_module_for_pipeline(
+  path : String,
+  mod : Module,
+) -> Result[Bytes, CmdError] {
+  let buf = @buffer.new()
+  match Encode::encode(mod, buf) {
+    Ok(_) => Ok(buf.to_bytes())
+    Err(e) => Err(CmdError::EncodeFailed("\{path}: \{e}"))
+  }
+}
+
+///|
+fn output_path_for_default_target(
+  path : String,
+  format : CliInputFormat,
+) -> String {
+  match format {
+    Wasm => normalize_cli_path(path)
+    Wat | Wast => path_with_wasm_extension(path)
+  }
+}
+
+///|
+pub fn run_cmd_with_adapter(
+  args : Array[String],
+  io : CmdIO,
+) -> Result[CmdRunSummary, CmdError] {
+  let starshine_input = (io.get_env)("STARSHINE_INPUT")
+  let cli = match parse_cli_args(args, starshine_input~) {
+    Ok(parsed) => parsed
+    Err(e) => return Err(CmdError::CliParse(e))
+  }
+
+  let (maybe_config_path, config_required) = resolve_config_path(cli, io)
+  let config = match maybe_config_path {
+    Some(config_path) =>
+      if !(io.file_exists)(config_path) {
+        if config_required {
+          return Err(CmdError::ConfigNotFound(config_path))
+        } else {
+          CliParseResult::new()
+        }
+      } else {
+        let config_bytes = match (io.read_file)(config_path) {
+          Ok(bytes) => bytes
+          Err(e) =>
+            return Err(CmdError::ConfigReadFailed("\{config_path}: \{e}"))
+        }
+        let config_text = bytes_to_string_lossy(config_bytes)
+        match parse_config_json(config_text) {
+          Ok(parsed) => parsed
+          Err(e) => return Err(e)
+        }
+      }
+    None => CliParseResult::new()
+  }
+
+  let env = parse_env_overlay(io)
+  let merged = merge_parse_results(config, env, cli)
+  let input_files = resolve_input_files(merged.input_globs, io)
+  if input_files.length() == 0 {
+    return Err(CmdError::NoInputFiles)
+  }
+
+  let resolved_passes = resolve_pass_flags(merged)
+  let traps_never_happen = resolve_traps_never_happen(merged)
+  let (optimize_level, shrink_level) = resolve_optimize_levels(
+    merged.optimize_flags,
+  )
+  let options = make_optimize_options(
+    optimize_level, shrink_level, traps_never_happen,
+  )
+
+  if input_files.length() > 1 {
+    for target in merged.output_targets {
+      match target {
+        FileOutput(path) => return Err(CmdError::ambiguous_output_file(path))
+        _ => ()
+      }
+    }
+  }
+
+  let output_files : Array[String] = []
+
+  for input_path in input_files {
+    let format = match merged.input_format {
+      Some(format) => format
+      None =>
+        match infer_input_format(input_path) {
+          Some(inferred) => inferred
+          None => CliInputFormat::wasm()
+        }
+    }
+
+    let raw_bytes = match (io.read_file)(input_path) {
+      Ok(bytes) => bytes
+      Err(e) => return Err(CmdError::InputReadFailed("\{input_path}: \{e}"))
+    }
+
+    let wasm_bytes = match format {
+      Wasm => raw_bytes
+      Wat | Wast =>
+        match (io.lower_text_module)(input_path, format, raw_bytes) {
+          Ok(bytes) => bytes
+          Err(e) =>
+            return Err(CmdError::TextLoweringFailed("\{input_path}: \{e}"))
+        }
+    }
+
+    let mod = match decode_module_for_pipeline(input_path, wasm_bytes) {
+      Ok(mod) => mod
+      Err(e) => return Err(e)
+    }
+
+    let passes = match expand_passes_for_module(resolved_passes, mod, options) {
+      Ok(passes) => passes
+      Err(e) => return Err(e)
+    }
+
+    let optimized = match optimize_module_with_options(mod, passes, options) {
+      Ok(out) => out
+      Err(e) => return Err(CmdError::OptimizeFailed("\{input_path}: \{e}"))
+    }
+
+    let out_bytes = match encode_module_for_pipeline(input_path, optimized) {
+      Ok(bytes) => bytes
+      Err(e) => return Err(e)
+    }
+
+    if merged.output_targets.length() == 0 {
+      let out_path = output_path_for_default_target(input_path, format)
+      match (io.write_file)(out_path, out_bytes) {
+        Ok(_) => output_files.push(out_path)
+        Err(e) => return Err(CmdError::OutputWriteFailed("\{out_path}: \{e}"))
+      }
+      continue
+    }
+
+    for target in merged.output_targets {
+      match target {
+        StdoutOutput =>
+          match (io.write_stdout)(out_bytes) {
+            Ok(_) => ()
+            Err(e) =>
+              return Err(
+                CmdError::OutputWriteFailed("stdout for \{input_path}: \{e}"),
+              )
+          }
+        FileOutput(path) => {
+          let out_path = normalize_cli_path(path)
+          match (io.write_file)(out_path, out_bytes) {
+            Ok(_) => output_files.push(out_path)
+            Err(e) =>
+              return Err(CmdError::OutputWriteFailed("\{out_path}: \{e}"))
+          }
+        }
+        DirOutput(dir) => {
+          let basename = output_basename_for_input(input_path, format)
+          let out_path = join_cli_path(dir, basename)
+          match (io.write_file)(out_path, out_bytes) {
+            Ok(_) => output_files.push(out_path)
+            Err(e) =>
+              return Err(CmdError::OutputWriteFailed("\{out_path}: \{e}"))
+          }
+        }
+      }
+    }
+  }
+
+  Ok(
+    CmdRunSummary::new(
+      input_files~,
+      output_files~,
+      resolved_passes~,
+      optimize_level~,
+      shrink_level~,
+      traps_never_happen~,
+    ),
+  )
+}
+
+///|
+fn default_cmd_io() -> CmdIO {
+  CmdIO::new()
+}
+
+///|
+pub fn run_cmd(args : Array[String]) -> Result[CmdRunSummary, CmdError] {
+  run_cmd_with_adapter(args, default_cmd_io())
+}
+
+///|
+#cfg(target="native")
+fn trim_program_name(argv : Array[String]) -> Array[String] {
+  if argv.length() == 0 {
+    return []
+  }
+  let out = Array::new(capacity=argv.length() - 1)
+  let mut i = 1
+  while i < argv.length() {
+    out.push(argv[i])
+    i += 1
+  }
+  out
+}
+
+///|
+#cfg(target="wasm-gc")
+fn main {
+  ()
+}
+
+///|
+#cfg(target="native")
+fn main {
+  let args = trim_program_name(@env.args())
+  ignore(run_cmd(args))
+}

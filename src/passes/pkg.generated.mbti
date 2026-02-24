@@ -90,6 +90,7 @@ pub struct InliningOptions {
   allow_functions_with_loops : Bool
   partial_inlining_ifs : Int
 }
+pub fn InliningOptions::new(always_inline_max_size? : Int, one_caller_inline_max_size? : Int, flexible_inline_max_size? : Int, max_combined_binary_size? : Int, allow_functions_with_loops? : Bool, partial_inlining_ifs? : Int) -> Self
 
 pub struct Literal(LiteralKind, Bytes)
 
@@ -240,6 +241,7 @@ pub struct OptimizeOptions {
   low_memory_bound : UInt64
   traps_never_happen : Bool
 }
+pub fn OptimizeOptions::new(optimize_level? : Int, shrink_level? : Int, inlining? : InliningOptions, monomorphize_min_benefit? : Int, low_memory_unused? : Bool, low_memory_bound? : UInt64, traps_never_happen? : Bool) -> Self
 
 type ParamInfo
 pub impl Eq for ParamInfo

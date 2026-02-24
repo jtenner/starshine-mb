@@ -94,7 +94,7 @@ pub struct InliningOptions {
 }
 
 ///|
-fn InliningOptions::new(
+pub fn InliningOptions::new(
   always_inline_max_size? : Int = 2,
   one_caller_inline_max_size? : Int = -1,
   flexible_inline_max_size? : Int = 20,
@@ -131,7 +131,7 @@ fn AbstractTypeRefiningPassProps::new(
 }
 
 ///|
-fn OptimizeOptions::new(
+pub fn OptimizeOptions::new(
   optimize_level? : Int = 0,
   shrink_level? : Int = 0,
   inlining? : InliningOptions = InliningOptions::new(),

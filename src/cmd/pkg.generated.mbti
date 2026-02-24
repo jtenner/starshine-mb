@@ -1,0 +1,65 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "jtenner/starshine/cmd"
+
+import {
+  "jtenner/starshine/cli",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn run_cmd(Array[String]) -> Result[CmdRunSummary, CmdError]
+
+pub fn run_cmd_with_adapter(Array[String], CmdIO) -> Result[CmdRunSummary, CmdError]
+
+// Errors
+
+// Types and methods
+pub enum CmdError {
+  CliParse(@cli.CliParseError)
+  UnknownPassFlag(String)
+  InvalidConfig(String)
+  ConfigNotFound(String)
+  ConfigReadFailed(String)
+  InputReadFailed(String)
+  TextLoweringFailed(String)
+  DecodeFailed(String)
+  OptimizeFailed(String)
+  EncodeFailed(String)
+  OutputWriteFailed(String)
+  AmbiguousOutputFile(String)
+  NoInputFiles
+}
+pub fn CmdError::ambiguous_output_file(String) -> Self
+pub fn CmdError::unknown_pass_flag(String) -> Self
+pub impl Eq for CmdError
+pub impl Show for CmdError
+pub impl @debug.Debug for CmdError
+
+pub struct CmdIO {
+  get_env : (String) -> String?
+  file_exists : (String) -> Bool
+  read_file : (String) -> Result[Bytes, String]
+  write_file : (String, Bytes) -> Result[Unit, String]
+  write_stdout : (Bytes) -> Result[Unit, String]
+  list_candidates : () -> Array[String]
+  lower_text_module : (String, @cli.CliInputFormat, Bytes) -> Result[Bytes, String]
+}
+pub fn CmdIO::new(get_env? : (String) -> String?, file_exists? : (String) -> Bool, read_file? : (String) -> Result[Bytes, String], write_file? : (String, Bytes) -> Result[Unit, String], write_stdout? : (Bytes) -> Result[Unit, String], list_candidates? : () -> Array[String], lower_text_module? : (String, @cli.CliInputFormat, Bytes) -> Result[Bytes, String]) -> Self
+
+pub struct CmdRunSummary {
+  input_files : Array[String]
+  output_files : Array[String]
+  resolved_passes : Array[String]
+  optimize_level : Int
+  shrink_level : Int
+  traps_never_happen : Bool
+}
+pub fn CmdRunSummary::new(input_files? : Array[String], output_files? : Array[String], resolved_passes? : Array[String], optimize_level? : Int, shrink_level? : Int, traps_never_happen? : Bool) -> Self
+pub impl Eq for CmdRunSummary
+pub impl Show for CmdRunSummary
+pub impl @debug.Debug for CmdRunSummary
+
+// Type aliases
+
+// Traits
+

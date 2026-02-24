@@ -2,16 +2,18 @@
 
 ## Blockers
 
-- None currently.
+- `src/cmd` is now a runnable `is-main` package and native build succeeds, but runtime filesystem/environment/stdout wiring is still adapter-driven (`CmdIO::new()` defaults to stubs).
+  - Action needed: add a concrete native `CmdIO` implementation (or explicit host FFI bindings) so `moon run src/cmd` can read real files/config/env and emit outputs without tests-only adapters.
 
 ## Metadata
 
 - Last updated: `2026-02-24`
 - Scope: Open tasks only (completed items removed)
 - Last audit run: `2026-02-24`
-  - `moon info`: `Finished. moon: ran 2 tasks, now up to date`
-  - `moon fmt`: `Finished. moon: ran 3 tasks, now up to date`
-  - `moon test`: `2356` passed, `0` failed
+  - `moon fmt`: `Finished. moon: ran 2 tasks, now up to date`
+  - `moon info`: `Finished. moon: ran 1 task, now up to date`
+  - `moon test`: `2364` passed, `0` failed
+  - `moon build --target native`: `Finished. moon: ran 3 tasks, now up to date`
   - `moon coverage analyze`: `11223` uncovered line(s) in `105` file(s)
 
 ## Priority 0 (Critical Path)
@@ -19,12 +21,17 @@
 ### CLI Pipeline Completion
 
 - [ ] Wire parsed pass flags and optimize presets into concrete optimizer pipeline scheduling (`ModulePass`) with strict unknown-pass diagnostics.
-  - [ ] Consume `resolve_pass_flags(...)` output in the CLI execution path and translate preset markers to concrete scheduler pipelines.
-  - [ ] Include explicit string-to-`ModulePass` mapping coverage for `global-effects` when the runtime pipeline wiring lands.
-  - [ ] Thread `resolve_traps_never_happen(...)` into the CLI runtime optimize-options builder so `OptimizeOptions.traps_never_happen` is applied during real module runs.
-  - [ ] Hook `expand_globs_with_adapter(...)` into the eventual runtime filesystem input-expansion path.
+  - [x] Consume `resolve_pass_flags(...)` output in the CLI execution path and translate preset markers to concrete scheduler pipelines.
+  - [x] Include explicit string-to-`ModulePass` mapping coverage for `global-effects` when the runtime pipeline wiring lands.
+  - [x] Thread `resolve_traps_never_happen(...)` into the CLI runtime optimize-options builder so `OptimizeOptions.traps_never_happen` is applied during real module runs.
+  - [x] Hook `expand_globs_with_adapter(...)` into the eventual runtime filesystem input-expansion path.
   - [ ] Decide and codify duplicate handling when preset-expanded passes overlap explicit pass flags (preserve repeats vs dedupe), with regression tests.
-- [ ] Implement JSON config file loading/validation and precedence merge (`CLI args > env > config defaults`) on top of current schema.
+- [x] Implement JSON config file loading/validation and precedence merge (`CLI args > env > config defaults`) on top of current schema.
+- [ ] Finish native runtime plumbing for `cmd` (real `CmdIO` for env/files/stdout and optional text-module lowering hook for `.wat`/`.wast` outside tests).
+- [ ] Add focused CLI/runtime tests for:
+  - [ ] optimize/shrink preset expansion behavior under non-zero `-O*` levels.
+  - [ ] duplicate pass handling policy (preserve repeats vs dedupe) and deterministic scheduling order.
+  - [ ] runtime error propagation/exit signaling for config read failures, decode failures, and output write failures.
 
 ### Binaryen Pass Parity (High)
 
