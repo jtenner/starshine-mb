@@ -1009,8 +1009,7 @@ fn typecheck_catch_clause(st : TcState, c : Catch) -> TcResult {
         return Err(e)
       }
       // label must expect tag's payload types
-      let label_idx = lbl.0.reinterpret_as_int()
-      let label_types = match st.env.labels.get(label_idx) {
+      let label_types = match st.env.get_catch_label_types(lbl) {
         Some(label_types) => label_types
         None => return Err("Invalid catch label index")
       }
@@ -1025,8 +1024,7 @@ fn typecheck_catch_clause(st : TcState, c : Catch) -> TcResult {
         return Err(e)
       }
       // label must expect tag's payload types + exnref
-      let label_idx = lbl.0.reinterpret_as_int()
-      let label_types = match st.env.labels.get(label_idx) {
+      let label_types = match st.env.get_catch_label_types(lbl) {
         Some(label_types) => label_types
         None => return Err("Invalid catch label index")
       }
@@ -1046,8 +1044,7 @@ fn typecheck_catch_clause(st : TcState, c : Catch) -> TcResult {
     }
     CatchAll(lbl) => {
       // label must expect empty
-      let label_idx = lbl.0.reinterpret_as_int()
-      let label_types = match st.env.labels.get(label_idx) {
+      let label_types = match st.env.get_catch_label_types(lbl) {
         Some(label_types) => label_types
         None => return Err("Invalid catch label index")
       }
@@ -1058,8 +1055,7 @@ fn typecheck_catch_clause(st : TcState, c : Catch) -> TcResult {
     }
     CatchAllRef(lbl) => {
       // label must expect just exnref
-      let label_idx = lbl.0.reinterpret_as_int()
-      let label_types = match st.env.labels.get(label_idx) {
+      let label_types = match st.env.get_catch_label_types(lbl) {
         Some(label_types) => label_types
         None => return Err("Invalid catch label index")
       }
@@ -7697,6 +7693,44 @@ test "Typecheck TryTable catch_ref rejects invalid tag index" {
     state,
   )
   assert_err(result)
+}
+
+///|
+test "Typecheck TryTable catch label 0 uses innermost depth semantics" {
+  let tag_sig = SubType::comp_type(CompType::func([ValType::i32()], []))
+  let env = { ..empty_env(), global_types: [tag_sig] }
+    .push_tag(TagType::new(TypeIdx::new(0)))
+    .with_labels([[ValType::i64()]])
+  let state = make_state(env, [])
+  let result = Typecheck::typecheck(
+    Instruction::try_table(
+      BlockType::val_type(ValType::i32()),
+      [Catch::new(TagIdx::new(0), LabelIdx::new(0))],
+      Expr::new([Instruction::i32_const(I32(7))]),
+    ),
+    state,
+  )
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [ValType::i32()])
+}
+
+///|
+test "Typecheck TryTable catch label 1 uses outer depth semantics" {
+  let tag_sig = SubType::comp_type(CompType::func([ValType::i64()], []))
+  let env = { ..empty_env(), global_types: [tag_sig] }
+    .push_tag(TagType::new(TypeIdx::new(0)))
+    .with_labels([[ValType::i64()]])
+  let state = make_state(env, [])
+  let result = Typecheck::typecheck(
+    Instruction::try_table(
+      BlockType::val_type(ValType::i32()),
+      [Catch::new(TagIdx::new(0), LabelIdx::new(1))],
+      Expr::new([Instruction::i32_const(I32(9))]),
+    ),
+    state,
+  )
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [ValType::i32()])
 }
 
 // =============================================================================

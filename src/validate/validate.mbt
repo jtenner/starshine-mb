@@ -236,16 +236,32 @@ pub impl Validate for Catch with validate(self, env) {
   match self {
     Catch(t, l) =>
       match Validate::validate(t, env) {
-        Ok(_) => Validate::validate(l, env)
+        Ok(_) =>
+          match env.get_catch_label_types(l) {
+            Some(_) => Ok(())
+            None => Err("Invalid LabelIdx")
+          }
         Err(t) => Err(t)
       }
     CatchRef(t, l) =>
       match Validate::validate(t, env) {
-        Ok(_) => Validate::validate(l, env)
+        Ok(_) =>
+          match env.get_catch_label_types(l) {
+            Some(_) => Ok(())
+            None => Err("Invalid LabelIdx")
+          }
         Err(t) => Err(t)
       }
-    CatchAll(l) => Validate::validate(l, env)
-    CatchAllRef(l) => Validate::validate(l, env)
+    CatchAll(l) =>
+      match env.get_catch_label_types(l) {
+        Some(_) => Ok(())
+        None => Err("Invalid LabelIdx")
+      }
+    CatchAllRef(l) =>
+      match env.get_catch_label_types(l) {
+        Some(_) => Ok(())
+        None => Err("Invalid LabelIdx")
+      }
   }
 }
 

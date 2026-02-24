@@ -569,31 +569,8 @@ fn uf_label_types(env : Env, label : LabelIdx) -> Array[ValType] {
 }
 
 ///|
-fn uf_label_depth(env : Env) -> Int {
-  let mut depth = 0
-  let mut keep_going = true
-  while keep_going {
-    match env.get_label_types(LabelIdx::new(depth.reinterpret_as_uint())) {
-      Some(_) => depth += 1
-      None => keep_going = false
-    }
-  }
-  depth
-}
-
-///|
 fn uf_catch_label_types(env : Env, label : LabelIdx) -> Array[ValType] {
-  let LabelIdx(raw) = label
-  let direct_idx = raw.reinterpret_as_int()
-  if direct_idx < 0 {
-    return []
-  }
-  let depth = uf_label_depth(env)
-  let reverse_idx = depth - 1 - direct_idx
-  if reverse_idx < 0 {
-    return []
-  }
-  match env.get_label_types(LabelIdx::new(reverse_idx.reinterpret_as_uint())) {
+  match env.get_catch_label_types(label) {
     Some(types) => types
     None => []
   }
@@ -1775,7 +1752,7 @@ fn uf_test_try_table_catch_label_constraint_module() -> Module {
   )
   let tag_type = single_rec_type(
     comp_type_sub_type(
-      func_comp_type([ValType::ref_null(HeapType::new(TypeIdx::new(2)))], []),
+      func_comp_type([ValType::ref_null(HeapType::new(TypeIdx::new(1)))], []),
     ),
   )
   let main_type = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
@@ -1793,7 +1770,7 @@ fn uf_test_try_table_catch_label_constraint_module() -> Module {
               BlockType::val_type(
                 ValType::ref_null(HeapType::new(TypeIdx::new(1))),
               ),
-              [Catch::new(TagIdx::new(0), LabelIdx::new(1))],
+              [Catch::new(TagIdx::new(0), LabelIdx::new(0))],
               TExpr::new([
                 TInstr::throw_(TagIdx::new(0), [
                   TInstr::struct_new(TypeIdx::new(2), []),
@@ -1849,6 +1826,78 @@ fn uf_test_try_table_outer_catch_target_constraint_module() -> Module {
                 TInstr::ref_null(HeapType::new(TypeIdx::new(1))),
               ]),
             ),
+          ),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn uf_test_try_table_catch_ref_payload_constraint_module() -> Module {
+  let tag_type = single_rec_type(
+    comp_type_sub_type(func_comp_type([ValType::i64()], [])),
+  )
+  let exnref = ValType::ref_type(
+    RefType::new(false, HeapType::abs(AbsHeapType::exn())),
+  )
+  let main_type = single_rec_type(
+    comp_type_sub_type(func_comp_type([], [ValType::i64(), exnref])),
+  )
+  Module::new()
+  .with_type_sec(TypeSec::new([tag_type, main_type]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
+  .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(0))]))
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [],
+        TExpr::new([
+          TInstr::try_table(
+            BlockType::type_idx(TypeIdx::new(1)),
+            [Catch::ref_(TagIdx::new(0), LabelIdx::new(1))],
+            TExpr::new([
+              TInstr::throw_(TagIdx::new(0), [TInstr::i64_const(I64(9L))]),
+            ]),
+          ),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn uf_test_try_table_catch_all_ref_module() -> Module {
+  let tag_type = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let exnref = ValType::ref_type(
+    RefType::new(false, HeapType::abs(AbsHeapType::exn())),
+  )
+  let main_type = single_rec_type(
+    comp_type_sub_type(func_comp_type([], [exnref])),
+  )
+  Module::new()
+  .with_type_sec(TypeSec::new([tag_type, main_type]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
+  .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(0))]))
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [],
+        TExpr::new([
+          TInstr::try_table(
+            BlockType::type_idx(TypeIdx::new(1)),
+            [Catch::all_ref(LabelIdx::new(0))],
+            TExpr::new([TInstr::throw_(TagIdx::new(0), [])]),
           ),
         ]),
       ),
@@ -2180,6 +2229,52 @@ test "unsubtyping preserves subtype edge required by try_table catch-target labe
       fail("expected try_table outer catch fixture module to validate: \{e}")
   }
   uf_assert_unsubtyping_preserves_mid_edge(mod)
+}
+
+///|
+test "unsubtyping catch_ref payload plus exnref fixture reports stable validation failure" {
+  let mod = uf_test_try_table_catch_ref_payload_constraint_module()
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(e) =>
+      fail("expected try_table catch_ref fixture module to validate: \{e}")
+  }
+  match unsubtyping(mod) {
+    Ok(out) =>
+      match validate_module(out) {
+        Ok(_) =>
+          fail(
+            "expected catch_ref payload plus exnref fixture to remain unsupported",
+          )
+        Err(e) => assert_true(e.contains("type mismatch"))
+      }
+    Err(e) =>
+      assert_true(
+        e.contains("unsubtyping produced invalid module") &&
+        e.contains("type mismatch"),
+      )
+  }
+}
+
+///|
+test "unsubtyping preserves try_table catch_all_ref exnref flow validity" {
+  let mod = uf_test_try_table_catch_all_ref_module()
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(e) =>
+      fail("expected try_table catch_all_ref fixture module to validate: \{e}")
+  }
+  let out = match unsubtyping(mod) {
+    Ok(m) => m
+    Err(e) => fail("unexpected unsubtyping error: \{e}")
+  }
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected catch_all_ref unsubtyping output to remain validator-clean: \{e}",
+      )
+  }
 }
 
 ///|

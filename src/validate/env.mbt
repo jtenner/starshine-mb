@@ -198,6 +198,11 @@ pub fn Env::get_label_types(env : Env, idx : LabelIdx) -> Array[ValType]? {
 }
 
 ///|
+pub fn Env::get_catch_label_types(env : Env, idx : LabelIdx) -> Array[ValType]? {
+  env.get_label_types(idx)
+}
+
+///|
 pub fn Env::expand_blocktype(
   env : Env,
   bt : BlockType,

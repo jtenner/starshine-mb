@@ -571,6 +571,9 @@ fn analyze(ctx : AnalysisContext) -> Unit {
     process_elem_worklist(ctx)
   }
 
+  // Mark type dependencies from used imported externs.
+  mark_used_import_type_dependencies(ctx)
+
   // Mark types used by tables
   match ctx.mod.table_sec {
     Some(sec) =>
@@ -603,6 +606,51 @@ fn analyze(ctx : AnalysisContext) -> Unit {
 
   // Mark types from type section (handle rec types and supertypes)
   analyze_type_dependencies(ctx)
+}
+
+///|
+fn mark_used_import_type_dependencies(ctx : AnalysisContext) -> Unit {
+  match ctx.mod.import_sec {
+    Some(ImportSec(imports)) => {
+      let mut func_idx : UInt = 0
+      let mut table_idx : UInt = 0
+      let mut global_idx : UInt = 0
+      let mut tag_idx : UInt = 0
+      for imp in imports {
+        match imp {
+          Import(_, _, extern_type) =>
+            match extern_type {
+              FuncExternType(type_idx) => {
+                if ctx.used.funcs.contains(FuncIdx::new(func_idx)) {
+                  mark_type(ctx, type_idx)
+                }
+                func_idx += 1
+              }
+              TableExternType(TableType(rt, _)) => {
+                if ctx.used.tables.contains(TableIdx::new(table_idx)) {
+                  mark_reftype(ctx, rt)
+                }
+                table_idx += 1
+              }
+              MemExternType(_) => ()
+              GlobalExternType(GlobalType(vt, _)) => {
+                if ctx.used.globals.contains(GlobalIdx::new(global_idx)) {
+                  mark_valtype(ctx, vt)
+                }
+                global_idx += 1
+              }
+              TagExternType(TagType(type_idx)) => {
+                if ctx.used.tags.contains(TagIdx::new(tag_idx)) {
+                  mark_type(ctx, type_idx)
+                }
+                tag_idx += 1
+              }
+            }
+        }
+      }
+    }
+    None => ()
+  }
 }
 
 ///|
@@ -1561,6 +1609,45 @@ fn remove_unused_with_props(
         None => unchanged()
       }
     })
+    .on_externtype_evt(fn(self : ModuleTransformer[DCEState], s, ex) {
+      match ex {
+        FuncExternType(type_idx) =>
+          match self.walk_typeidx(s, type_idx) {
+            Ok(Some((next_s, next_type_idx))) =>
+              change(next_s, ExternType::func(next_type_idx))
+            Ok(None) => unchanged()
+            Err(e) => Err(e)
+          }
+        TableExternType(table_type) =>
+          match self.walk_tabletype(s, table_type) {
+            Ok(Some((next_s, next_table_type))) =>
+              change(next_s, ExternType::table(next_table_type))
+            Ok(None) => unchanged()
+            Err(e) => Err(e)
+          }
+        MemExternType(mem_type) =>
+          match self.walk_memtype(s, mem_type) {
+            Ok(Some((next_s, next_mem_type))) =>
+              change(next_s, ExternType::mem(next_mem_type))
+            Ok(None) => unchanged()
+            Err(e) => Err(e)
+          }
+        GlobalExternType(global_type) =>
+          match self.walk_globaltype(s, global_type) {
+            Ok(Some((next_s, next_global_type))) =>
+              change(next_s, ExternType::global(next_global_type))
+            Ok(None) => unchanged()
+            Err(e) => Err(e)
+          }
+        TagExternType(tag_type) =>
+          match self.walk_tagtype(s, tag_type) {
+            Ok(Some((next_s, next_tag_type))) =>
+              change(next_s, ExternType::tag(next_tag_type))
+            Ok(None) => unchanged()
+            Err(e) => Err(e)
+          }
+      }
+    })
     // Also remap heap types that reference type indices
     .on_heaptype_evt(fn(_t, s : DCEState, ht : HeapType) {
       match ht {
@@ -1574,7 +1661,7 @@ fn remove_unused_with_props(
     })
     // Filter import section
     .on_importsec_evt(fn(
-      _t : ModuleTransformer[DCEState],
+      self : ModuleTransformer[DCEState],
       s : DCEState,
       imp_sec : ImportSec,
     ) {
@@ -1615,25 +1702,26 @@ fn remove_unused_with_props(
               }
             }
             if keep {
-              // Transform the import to remap type indices
-              let new_extern = match extern_type {
-                FuncExternType(type_idx) =>
-                  match s.remap.types.get(type_idx) {
-                    Some(new_type_idx) => ExternType::func(new_type_idx)
-                    None => extern_type
-                  }
-                _ => extern_type // Other extern types don't need remapping here
-              }
-              new_imports.push(Import::new(mod_name, name, new_extern))
+              new_imports.push(Import::new(mod_name, name, extern_type))
             }
           }
         }
       }
-      change(s, ImportSec::new(new_imports))
+      let filtered = ImportSec::new(new_imports)
+      match self.walk_importsec_default(s, filtered) {
+        Ok(Some((next_s, remapped))) => change(next_s, remapped)
+        Ok(None) =>
+          if filtered == imp_sec {
+            unchanged()
+          } else {
+            change(s, filtered)
+          }
+        Err(e) => Err(e)
+      }
     })
     // Filter type section
     .on_typesec_evt(fn(
-      _t : ModuleTransformer[DCEState],
+      self : ModuleTransformer[DCEState],
       s : DCEState,
       type_sec : TypeSec,
     ) {
@@ -1648,7 +1736,17 @@ fn remove_unused_with_props(
           new_types.push(rec_type)
         }
       }
-      change(s, TypeSec::new(new_types))
+      let filtered = TypeSec::new(new_types)
+      match self.walk_typesec_default(s, filtered) {
+        Ok(Some((next_s, remapped))) => change(next_s, remapped)
+        Ok(None) =>
+          if filtered == type_sec {
+            unchanged()
+          } else {
+            change(s, filtered)
+          }
+        Err(e) => Err(e)
+      }
     })
     // Filter func section (type indices for defined functions)
     .on_funcsec_evt(fn(
@@ -1736,7 +1834,7 @@ fn remove_unused_with_props(
     })
     // Filter global section
     .on_globalsec_evt(fn(
-      _t : ModuleTransformer[DCEState],
+      self : ModuleTransformer[DCEState],
       s : DCEState,
       global_sec : GlobalSec,
     ) {
@@ -1750,7 +1848,17 @@ fn remove_unused_with_props(
           new_globals.push(globals[i])
         }
       }
-      change(s, GlobalSec::new(new_globals))
+      let filtered = GlobalSec::new(new_globals)
+      match self.walk_globalsec_default(s, filtered) {
+        Ok(Some((next_s, remapped))) => change(next_s, remapped)
+        Ok(None) =>
+          if filtered == global_sec {
+            unchanged()
+          } else {
+            change(s, filtered)
+          }
+        Err(e) => Err(e)
+      }
     })
     // Filter tag section
     .on_tagsec_evt(fn(
@@ -1770,7 +1878,7 @@ fn remove_unused_with_props(
     })
     // Filter element section
     .on_elemsec_evt(fn(
-      _t : ModuleTransformer[DCEState],
+      self : ModuleTransformer[DCEState],
       s : DCEState,
       elem_sec : ElemSec,
     ) {
@@ -1782,11 +1890,21 @@ fn remove_unused_with_props(
           new_elems.push(elems[i])
         }
       }
-      change(s, ElemSec::new(new_elems))
+      let filtered = ElemSec::new(new_elems)
+      match self.walk_elemsec_default(s, filtered) {
+        Ok(Some((next_s, remapped))) => change(next_s, remapped)
+        Ok(None) =>
+          if filtered == elem_sec {
+            unchanged()
+          } else {
+            change(s, filtered)
+          }
+        Err(e) => Err(e)
+      }
     })
     // Filter data section
     .on_datasec_evt(fn(
-      _t : ModuleTransformer[DCEState],
+      self : ModuleTransformer[DCEState],
       s : DCEState,
       data_sec : DataSec,
     ) {
@@ -1798,7 +1916,17 @@ fn remove_unused_with_props(
           new_datas.push(datas[i])
         }
       }
-      change(s, DataSec::new(new_datas))
+      let filtered = DataSec::new(new_datas)
+      match self.walk_datasec_default(s, filtered) {
+        Ok(Some((next_s, remapped))) => change(next_s, remapped)
+        Ok(None) =>
+          if filtered == data_sec {
+            unchanged()
+          } else {
+            change(s, filtered)
+          }
+        Err(e) => Err(e)
+      }
     })
     // Update data count section
     .on_datacntsec_evt(fn(_t : ModuleTransformer[DCEState], s : DCEState, _) {
@@ -3282,6 +3410,283 @@ test "typed element expressions keep referenced funcs and rewrite body in closed
       assert_eq(new_mod.func_sec.unwrap().0.length(), 2)
       assert_eq(new_mod.elem_sec.unwrap().0.length(), 1)
       assert_true(func_body_is_unreachable(new_mod.code_sec.unwrap().0[1]))
+    }
+    Err(e) => fail("unexpected error: \{e}")
+  }
+}
+
+///|
+test "type section nested type references are remapped after filtering" {
+  let struct_type = RecType::new(SubType::comp_type(CompType::struct_([])))
+  let result_func_type = RecType::new(
+    SubType::comp_type(
+      CompType::func([], [ValType::ref_null(HeapType::new(TypeIdx::new(1)))]),
+    ),
+  )
+  let type_sec = TypeSec::new([
+    make_i32_to_i32_func_type(), // removed
+    struct_type, // old 1 -> new 0
+    result_func_type, // old 2 -> new 1
+  ])
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(FuncSec::new([TypeIdx::new(2)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::return_([TInstr::ref_null(HeapType::new(TypeIdx::new(1)))]),
+          ]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      ExportSec::new([
+        Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
+      ]),
+    )
+
+  match remove_unused(mod) {
+    Ok(new_mod) => {
+      assert_eq(new_mod.type_sec.unwrap().0.length(), 2)
+      match new_mod.func_sec.unwrap().0[0] {
+        TypeIdx(v) => assert_eq(v, 1)
+        _ => fail("expected defined function type to be remapped")
+      }
+      match new_mod.type_sec.unwrap().0[1] {
+        SingleRecType(st) =>
+          match st.get_comptype() {
+            FuncCompType(_, results) =>
+              match results[0] {
+                RefTypeValType(HeapTypeRefType(_, HeapType(TypeIdx(v)))) =>
+                  assert_eq(v, 0)
+                _ =>
+                  fail(
+                    "expected remapped function result type to reference new struct index",
+                  )
+              }
+            _ => fail("expected remapped type to stay a function type")
+          }
+        _ => fail("expected remapped function type as a single rec entry")
+      }
+      match validate_module(new_mod) {
+        Ok(_) => ()
+        Err(e) =>
+          fail("expected remapped type section output to validate: \{e}")
+      }
+    }
+    Err(e) => fail("unexpected error: \{e}")
+  }
+}
+
+///|
+test "import section remaps nested extern type references after type filtering" {
+  let type_sec = TypeSec::new([
+    make_i32_to_i32_func_type(), // removed
+    make_void_func_type(), // old 1 -> new 0
+  ])
+  let import_sec = ImportSec::new([
+    Import::new(
+      Name::new("env"),
+      Name::new("callee"),
+      ExternType::func(TypeIdx::new(1)),
+    ),
+  ])
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_import_sec(import_sec)
+    .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([TInstr::call(FuncIdx::new(0), []), TInstr::return_([])]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      ExportSec::new([
+        Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(1))),
+      ]),
+    )
+
+  match remove_unused(mod) {
+    Ok(new_mod) => {
+      assert_eq(new_mod.type_sec.unwrap().0.length(), 1)
+      let imports = new_mod.import_sec.unwrap().0
+      assert_eq(imports.length(), 1)
+      match imports[0] {
+        Import(_, _, FuncExternType(TypeIdx(v))) => assert_eq(v, 0)
+        _ => fail("expected function import type index to be remapped")
+      }
+      match new_mod.func_sec.unwrap().0[0] {
+        TypeIdx(v) => assert_eq(v, 0)
+        _ => fail("expected function type index to be remapped")
+      }
+    }
+    Err(e) => fail("unexpected error: \{e}")
+  }
+}
+
+///|
+test "global section remaps nested global indices after import filtering" {
+  let import_sec = ImportSec::new([
+    Import::new(
+      Name::new("env"),
+      Name::new("unused_g"),
+      ExternType::global(GlobalType::new(ValType::i32(), false)),
+    ),
+    Import::new(
+      Name::new("env"),
+      Name::new("used_g"),
+      ExternType::global(GlobalType::new(ValType::i32(), false)),
+    ),
+  ])
+  let global_sec = GlobalSec::new([
+    Global::new(
+      GlobalType::new(ValType::i32(), false),
+      Expr::new([Instruction::global_get(GlobalIdx::new(1))]),
+    ),
+  ])
+  let export_sec = ExportSec::new([
+    Export::new(Name::new("g"), ExternIdx::global(GlobalIdx::new(2))),
+  ])
+  let mod = Module::new()
+    .with_import_sec(import_sec)
+    .with_global_sec(global_sec)
+    .with_export_sec(export_sec)
+
+  match remove_unused(mod) {
+    Ok(new_mod) => {
+      assert_eq(new_mod.import_sec.unwrap().0.length(), 1)
+      assert_eq(new_mod.global_sec.unwrap().0.length(), 1)
+      match new_mod.global_sec.unwrap().0[0] {
+        Global(_, Expr(init)) =>
+          match init[0] {
+            GlobalGet(GlobalIdx(v)) => assert_eq(v, 0)
+            _ =>
+              fail("expected global initializer to reference remapped import")
+          }
+      }
+      match validate_module(new_mod) {
+        Ok(_) => ()
+        Err(e) =>
+          fail("expected remapped global section output to validate: \{e}")
+      }
+    }
+    Err(e) => fail("unexpected error: \{e}")
+  }
+}
+
+///|
+test "element section remaps nested function indices after filtering" {
+  let type_sec = TypeSec::new([make_void_func_type()])
+  let import_sec = ImportSec::new([
+    Import::new(
+      Name::new("env"),
+      Name::new("unused_imported_func"),
+      ExternType::func(TypeIdx::new(0)),
+    ),
+  ])
+  let func_sec = FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)])
+  let table_sec = TableSec::new([
+    Table::new(
+      TableType::new(
+        RefType::new(true, HeapType::abs(AbsHeapType::func())),
+        Limits::i32(1, Some(1)),
+      ),
+      None,
+    ),
+  ])
+  let elem_sec = ElemSec::new([
+    Elem::new(
+      ElemMode::active(TableIdx::new(0), Expr::new([Instruction::i32_const(0)])),
+      ElemKind::funcs([FuncIdx::new(2)]),
+    ),
+  ])
+  let main_body = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::table_init(
+        ElemIdx::new(0),
+        TableIdx::new(0),
+        TInstr::i32_const(I32(0)),
+        TInstr::i32_const(I32(0)),
+        TInstr::i32_const(I32(1)),
+      ),
+      TInstr::return_([]),
+    ]),
+  )
+  let target_body = make_empty_func_body()
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_import_sec(import_sec)
+    .with_func_sec(func_sec)
+    .with_table_sec(table_sec)
+    .with_elem_sec(elem_sec)
+    .with_code_sec(CodeSec::new([main_body, target_body]))
+    .with_export_sec(
+      ExportSec::new([
+        Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(1))),
+      ]),
+    )
+
+  match remove_unused(mod) {
+    Ok(new_mod) => {
+      assert_eq(new_mod.func_sec.unwrap().0.length(), 2)
+      match new_mod.elem_sec.unwrap().0[0] {
+        Elem(_, FuncsElemKind(funcs)) =>
+          match funcs[0] {
+            FuncIdx(v) => assert_eq(v, 1)
+          }
+        _ => fail("expected funcs element segment after remap")
+      }
+      match validate_module(new_mod) {
+        Ok(_) => ()
+        Err(e) =>
+          fail("expected remapped elem section output to validate: \{e}")
+      }
+    }
+    Err(e) => fail("unexpected error: \{e}")
+  }
+}
+
+///|
+test "data section remaps nested memory indices after import filtering" {
+  let mem_type = MemType::new(Limits::i32(1, Some(1)))
+  let import_sec = ImportSec::new([
+    Import::new(
+      Name::new("env"),
+      Name::new("unused_mem"),
+      ExternType::mem(mem_type),
+    ),
+    Import::new(
+      Name::new("env"),
+      Name::new("used_mem"),
+      ExternType::mem(mem_type),
+    ),
+  ])
+  let data_sec = DataSec::new([
+    Data::new(
+      DataMode::active(MemIdx::new(1), Expr::new([Instruction::i32_const(0)])),
+      b"abc",
+    ),
+  ])
+  let mod = Module::new().with_import_sec(import_sec).with_data_sec(data_sec)
+
+  match remove_unused(mod) {
+    Ok(new_mod) => {
+      assert_eq(new_mod.import_sec.unwrap().0.length(), 1)
+      match new_mod.data_sec.unwrap().0[0] {
+        Data(Active(MemIdx(v), _), _) => assert_eq(v, 0)
+        _ => fail("expected active data segment with remapped memory index")
+      }
+      match validate_module(new_mod) {
+        Ok(_) => ()
+        Err(e) =>
+          fail("expected remapped data section output to validate: \{e}")
+      }
     }
     Err(e) => fail("unexpected error: \{e}")
   }

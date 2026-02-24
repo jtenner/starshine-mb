@@ -1700,7 +1700,7 @@ fn atr_typed_payload_catch_module() -> Module {
           TInstr::drop(
             TInstr::try_table(
               BlockType::val_type(ValType::i32()),
-              [Catch::new(TagIdx::new(0), LabelIdx::new(1))],
+              [Catch::new(TagIdx::new(0), LabelIdx::new(0))],
               TExpr::new([
                 TInstr::ref_cast(true, exact_ht, TInstr::ref_null(any_ht)),
                 TInstr::throw_(TagIdx::new(0), [TInstr::i32_const(I32(7))]),

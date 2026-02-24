@@ -2,7 +2,7 @@
 
 ## Blockers
 
-- None currently.
+- `Unsubtyping` still produces invalid output for certain `try_table` `Catch::ref_` payload+`exnref` shapes; current parity fixture pins this as a stable failure (`type mismatch`) until full support lands.
 
 ## Audit Snapshot (2026-02-23)
 
@@ -42,7 +42,7 @@
 ### Correctness and Regressions
 
 - [x] Audit exactness handling of descriptor ops in `passes/heap2local.mbt` and `passes/gufa.mbt`; `heap2local` now enforces exact descriptor matching and `gufa` has regression guards to prevent subtype-based folding for exact descriptor ops.
-- [ ] Audit `remove_unused_with_props` section-filter callbacks (`type_sec`, `import_sec`, `global_sec`, `elem_sec`, `data_sec`) to ensure nested index remaps are still applied after filtering, with targeted regression tests.
+- [x] Audit `remove_unused_with_props` section-filter callbacks (`type_sec`, `import_sec`, `global_sec`, `elem_sec`, `data_sec`) to ensure nested index remaps are still applied after filtering, with targeted regression tests.
 - [ ] Fix JS failure in `ir/ssa_optimize_tests.mbt:428` (`eval_ssa_unary i64 trunc_f32 handles values beyond i32 width`).
 - [ ] Fix JS failure in `ir/ssa_optimize_tests.mbt:492` (`eval_ssa_unary float-to-int trunc bound and trap parity checks`).
 - [ ] Fix JS failure in `passes/de_nan.mbt:1597` (`is_f32_nan correctly identifies NaN`).
@@ -78,8 +78,8 @@
 - [x] Add handler-bearing ATR fixtures with real `throw` paths to ensure cast rewrites remain stable when catches are actually taken.
 - [x] Add handler-bearing ATR fixture variants that use typed tag catches (`Catch::new` / `Catch::ref_`) with non-empty payload signatures, validating rewrite stability under typed exception parameters.
 - [x] Add a targeted regression test for exact `ref_cast` rewrites under `drop` contexts in traps-never-happen mode (either preserving validator-clean lowering or documenting unsupported shape explicitly).
-- [ ] Align `try_table` catch label lookup with depth-based `Env::get_label_types(...)` semantics (currently direct index access), and add regression tests to pin catch-vs-branch label index parity.
-- [ ] Add a dedicated `Env` helper for catch-label type lookup and migrate both validator/typecheck and pass consumers to it (remove duplicated ad-hoc index conversion logic).
+- [x] Align `try_table` catch label lookup with depth-based `Env::get_label_types(...)` semantics (currently direct index access), and add regression tests to pin catch-vs-branch label index parity.
+- [x] Add a dedicated `Env` helper for catch-label type lookup and migrate both validator/typecheck and pass consumers to it (remove duplicated ad-hoc index conversion logic).
 
 ### Binaryen Pass Parity (High)
 
@@ -91,7 +91,8 @@
 - [x] Extend `Unsubtyping` control-flow subtype discovery to `try_table` catch bodies and catch-target label flows, with parity fixtures.
 - [x] Add `Unsubtyping` regression coverage for implicit function-label branch flows (`br` / `br_if` targeting outermost function label).
 - [x] Generalize `Unsubtyping` typed-join subtype discovery beyond single-result joins (multi-value `block` / `loop` / `if`).
-- [ ] Add `Unsubtyping` parity fixtures for `try_table` `Catch::ref_` / `Catch::all_ref` flows to pin payload+`exnref` handling and prevent regressions.
+- [x] Add `Unsubtyping` parity fixtures for `try_table` `Catch::ref_` / `Catch::all_ref` flows to pin payload+`exnref` handling and prevent regressions.
+  - [ ] Follow-up: make `Catch::ref_` payload+`exnref` fixtures pass end-to-end in `unsubtyping` (current fixture intentionally pins stable invalid-output failure mode).
 - [x] Add `RemoveUnused` pipeline-level regression (through `optimize_module` scheduling) proving descriptor-target-only types survive remapping in mixed typed/untyped function bodies.
 - [ ] `GlobalEffects`
 - [ ] `Poppify`
