@@ -1027,6 +1027,7 @@ fn resolve_explicit_pass(flag : String) -> ModulePass? {
     "merge-similar-functions" => Some(ModulePass::MergeSimilarFunctions)
     "merge-blocks" => Some(ModulePass::MergeBlocks)
     "flatten" => Some(ModulePass::Flatten)
+    "re-reloop" => Some(ModulePass::ReReloop)
     "tuple-optimization" => Some(ModulePass::TupleOptimization)
     "once-reduction" => Some(ModulePass::OnceReduction)
     "minimize-rec-groups" => Some(ModulePass::MinimizeRecGroups)

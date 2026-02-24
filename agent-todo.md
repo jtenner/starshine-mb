@@ -9,9 +9,9 @@
 - Last updated: `2026-02-24`
 - Scope: Open tasks plus recently completed checkoffs
 - Last audit run: `2026-02-24`
-  - `moon fmt`: `Finished. moon: ran 3 tasks, now up to date`
-  - `moon info`: `Finished. moon: ran 1 task, now up to date`
-  - `moon test`: `2383` passed, `0` failed
+  - `moon fmt`: `Finished. moon: ran 1 task, now up to date`
+  - `moon info`: `Finished. moon: no work to do`
+  - `moon test`: `2400` passed, `0` failed
   - `moon test src/cmd --target native`: `17` passed, `0` failed
   - `moon build --target native`: `not run in this audit`
   - `moon coverage analyze`: `11223` uncovered line(s) in `105` file(s)
@@ -56,9 +56,18 @@
 ### Binaryen Pass Parity (High)
 
 - [x] `GlobalEffects`
+- [x] `ReReloop`
 - [ ] `Poppify`
-- [ ] `ReReloop`
 - [ ] `Outlining`
+- [ ] ReReloop hardening follow-ups.
+  - [x] Replace current `ReReloop -> merge_blocks` fallback with a dedicated CFG + relooper reconstruction implementation for flattened control flow.
+  - [x] Add explicit `ReReloop` precondition checks and diagnostics for unsupported EH instructions (`try`/`throw`/`rethrow`) to match Binaryen behavior.
+  - [x] Add explicit flatness precondition checks so non-flat control-flow trees are rejected with actionable diagnostics.
+  - [x] Add integration tests covering `--optimize` (`-O4`) default pipeline ordering with `Flatten -> LocalCSE -> ReReloop`.
+  - [x] Expand ReReloop CFG reconstruction coverage beyond current flattened conditional-break blocks (`br_if` shells) to include `br_on*`, `br_table`, and branch-value flows.
+  - [x] Add focused ReReloop loop-region reconstruction tests (flattened `loop` + backedge patterns) and implement matching CFG relayout support.
+  - [ ] Preserve single-evaluation semantics for `br_table` dispatch indices during ReReloop lowering (avoid repeated index expression evaluation in nested-if expansion).
+  - [ ] Extend ReReloop CFG relayout to support non-special branch targets and merge-heavy flattened regions (current lowering focuses on break/continue-to-special-target shells).
 
 ## Priority 1 (High Leverage)
 

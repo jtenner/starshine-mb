@@ -129,6 +129,12 @@ test "parse_cli_args accepts global-effects pass flag" {
 }
 
 ///|
+test "parse_cli_args accepts re-reloop pass flag" {
+  let parsed = parse_ok(["--re-reloop"])
+  assert_eq(parsed.pass_flags, ["re-reloop"])
+}
+
+///|
 test "parse_cli_args rejects invalid long flag spelling" {
   assert_eq(
     parse_err(["--BadFlag"]),

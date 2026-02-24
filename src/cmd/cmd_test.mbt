@@ -8,6 +8,13 @@ using @cli {type CliInputFormat}
 using @lib {type Module, type Func, type CodeSec, type TExpr, type TInstr}
 
 ///|
+using @passes {
+  optimize_module_with_options,
+  type ModulePass,
+  type OptimizeOptions,
+}
+
+///|
 fn bytes_from_string(text : String) -> Bytes {
   let buf = @buffer.new(size_hint=text.length())
   for c in text {
@@ -55,6 +62,23 @@ fn fixture_f32_nan_module() -> Module {
   let nan = @lib.F32(Float::reinterpret_from_uint(nan_bits))
   Module::new().with_code_sec(
     CodeSec::new([Func::t_func([], TExpr::new([TInstr::f32_const(nan)]))]),
+  )
+}
+
+///|
+fn fixture_mergeable_block_module() -> Module {
+  Module::new().with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [],
+        TExpr::new([
+          TInstr::block(
+            @lib.BlockType::void_(),
+            TExpr::new([TInstr::i32_const(@lib.I32(9)), TInstr::nop()]),
+          ),
+        ]),
+      ),
+    ]),
   )
 }
 
@@ -208,6 +232,48 @@ test "run_cmd_with_adapter runs requested passes for each module" {
     }
   }
   assert_true(has_string(summary.resolved_passes, "de-nan"))
+}
+
+///|
+test "run_cmd_with_adapter runs re-reloop when requested" {
+  let input_mod = fixture_mergeable_block_module()
+  let input_wasm = encode_module_bytes(input_mod)
+  let expected_mod = match
+    optimize_module_with_options(
+      input_mod,
+      [ModulePass::ReReloop],
+      OptimizeOptions::new(),
+    ) {
+    Ok(v) => v
+    Err(e) =>
+      fail("expected re_reloop fixture output, got optimize error: \{e}")
+  }
+  let expected_wasm = encode_module_bytes(expected_mod)
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["a.wasm"] },
+    file_exists=fn(path) { path == "a.wasm" },
+    read_file=fn(path) {
+      if path == "a.wasm" {
+        Ok(input_wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(["--re-reloop", "--out", "out.wasm", "a.wasm"], io) {
+    Ok(v) => v
+    Err(e) => fail("unexpected run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["re-reloop"])
+  assert_eq(writes.length(), 1)
+  assert_eq(writes[0].0, "out.wasm")
+  assert_eq(writes[0].1, expected_wasm)
 }
 
 ///|

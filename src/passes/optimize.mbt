@@ -39,6 +39,7 @@ pub(all) enum ModulePass {
   MergeSimilarFunctions
   MergeBlocks
   Flatten
+  ReReloop
   TupleOptimization
   OnceReduction
   Asyncify(AsyncifyPassProps)
@@ -300,6 +301,7 @@ fn run_ir_context_transformer_scheduler_pass(
     MergeBlocks =>
       apply_ir_transformer_pass(ctx, mod, merge_blocks_ir_pass(mod, options~))
     Flatten => apply_ir_transformer_pass(ctx, mod, flatten_ir_pass(mod))
+    ReReloop => apply_ir_transformer_pass(ctx, mod, re_reloop_ir_pass(mod))
     TupleOptimization =>
       apply_ir_transformer_pass(ctx, mod, tuple_optimization_ir_pass(mod))
     OptimizeAddedConstants =>
@@ -656,8 +658,7 @@ pub fn default_function_optimization_passes(
     passes.push(Flatten)
     passes.push(LocalCSE)
     // Binaryen parity mode: rereloop.
-    // Run an early structural merge step to re-canonicalize control flow.
-    passes.push(MergeBlocks)
+    passes.push(ReReloop)
   }
 
   passes.push(DeadCodeElimination)
@@ -1311,14 +1312,14 @@ test "default function optimization passes map flatten mode at optimize_level=4"
 }
 
 ///|
-test "default function optimization passes map rereloop mode to early merge-blocks" {
+test "default function optimization passes map rereloop mode to early re-reloop" {
   let passes = default_function_optimization_passes(
     Module::new(),
     OptimizeOptions::new(optimize_level=4),
   )
-  let merge_idx = default_first_module_pass_index(passes, fn(pass) {
+  let rereloop_idx = default_first_module_pass_index(passes, fn(pass) {
     match pass {
-      MergeBlocks => true
+      ReReloop => true
       _ => false
     }
   })
@@ -1328,9 +1329,40 @@ test "default function optimization passes map rereloop mode to early merge-bloc
       _ => false
     }
   })
-  assert_true(merge_idx >= 0)
+  assert_true(rereloop_idx >= 0)
   assert_true(dce_idx >= 0)
-  assert_true(merge_idx < dce_idx)
+  assert_true(rereloop_idx < dce_idx)
+}
+
+///|
+test "default function optimization passes preserve flatten local-cse rereloop order at optimize_level=4" {
+  let passes = default_function_optimization_passes(
+    Module::new(),
+    OptimizeOptions::new(optimize_level=4),
+  )
+  let flatten_idx = default_first_module_pass_index(passes, fn(pass) {
+    match pass {
+      Flatten => true
+      _ => false
+    }
+  })
+  let cse_idx = default_first_module_pass_index(passes, fn(pass) {
+    match pass {
+      LocalCSE => true
+      _ => false
+    }
+  })
+  let rereloop_idx = default_first_module_pass_index(passes, fn(pass) {
+    match pass {
+      ReReloop => true
+      _ => false
+    }
+  })
+  assert_true(flatten_idx >= 0)
+  assert_true(cse_idx >= 0)
+  assert_true(rereloop_idx >= 0)
+  assert_true(flatten_idx < cse_idx)
+  assert_true(cse_idx < rereloop_idx)
 }
 
 ///|
@@ -1784,6 +1816,7 @@ test "optimize scheduler classifies module pass context kinds" {
     assert_pass_context_kind(RemoveUnusedNames, IRContextTransformerPass),
   )
   assert_true(assert_pass_context_kind(Flatten, IRContextTransformerPass))
+  assert_true(assert_pass_context_kind(ReReloop, IRContextTransformerPass))
   assert_true(assert_pass_context_kind(GlobalEffects, IRContextTransformerPass))
   assert_true(
     assert_pass_context_kind(DeadCodeElimination, UnitTransformerPass),
@@ -3540,6 +3573,31 @@ test "optimize_module runs Flatten pass" {
 }
 
 ///|
+test "optimize_module runs ReReloop pass" {
+  let mod = Module::new().with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [],
+        TExpr::new([
+          TInstr::block(
+            BlockType::void_(),
+            TExpr::new([TInstr::i32_const(I32(9)), TInstr::nop()]),
+          ),
+        ]),
+      ),
+    ]),
+  )
+  let optimized = match optimize_module(mod, [ReReloop]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TDrop(TI32Const(I32(9))), TNop]))])) => ()
+    _ => fail("expected rerelooped function body")
+  }
+}
+
+///|
 test "optimize_module runs MinimizeRecGroups pass" {
   let t0 = RecType::new(
     SubType::comp_type(
@@ -4085,6 +4143,32 @@ test "pass invariant: merge_blocks validates and remap is stable" {
   match out.code_sec {
     Some(CodeSec([TFunc(_, TExpr([TDrop(TI32Const(I32(9))), TNop]))])) => ()
     _ => fail("merge_blocks: expected merged block body")
+  }
+}
+
+///|
+test "pass invariant: re_reloop validates and remap is stable" {
+  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let mod = Module::new().with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [],
+        TExpr::new([
+          TInstr::block(
+            BlockType::void_(),
+            TExpr::new([TInstr::i32_const(I32(9)), TInstr::nop()]),
+          ),
+        ]),
+      ),
+    ]),
+  )
+  let mod = mod
+    .with_type_sec(TypeSec::new([t_void]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+  let out = opt_assert_pass_invariant(mod, ReReloop, "re_reloop")
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TDrop(TI32Const(I32(9))), TNop]))])) => ()
+    _ => fail("re_reloop: expected rerelooped body")
   }
 }
 

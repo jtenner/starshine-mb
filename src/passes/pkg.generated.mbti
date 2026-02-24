@@ -188,6 +188,7 @@ pub(all) enum ModulePass {
   MergeSimilarFunctions
   MergeBlocks
   Flatten
+  ReReloop
   TupleOptimization
   OnceReduction
   Asyncify(AsyncifyPassProps)
