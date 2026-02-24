@@ -142,6 +142,47 @@ test "parse_cli_args parses optimize presets and -O flags" {
 }
 
 ///|
+test "parse_cli_args accepts trap-mode values and keeps them out of pass flags" {
+  let parsed = parse_ok([
+    "--trap-mode=never", "--trap-mode", "allow", "--validate",
+  ])
+  assert_eq(parsed.pass_flags, ["validate"])
+}
+
+///|
+test "parse_cli_args requires explicit trap-mode value" {
+  assert_eq(
+    parse_err(["--trap-mode"]),
+    CliParseError::missing_flag_value("--trap-mode"),
+  )
+}
+
+///|
+test "parse_cli_args rejects invalid trap-mode value" {
+  assert_eq(
+    parse_err(["--trap-mode", "fast-and-loose"]),
+    CliParseError::invalid_trap_mode("fast-and-loose"),
+  )
+}
+
+///|
+test "resolve_pass_flags omits trap-mode toggles from scheduled pass list" {
+  let parsed = parse_ok([
+    "--traps-never-happen", "--traps-may-happen", "--flatten",
+  ])
+  assert_eq(resolve_pass_flags(parsed), ["flatten"])
+}
+
+///|
+test "resolve_traps_never_happen applies trap-mode overrides with last flag winning" {
+  let parsed_never = parse_ok(["--trap-mode=never"])
+  assert_true(resolve_traps_never_happen(parsed_never))
+
+  let parsed_allow = parse_ok(["--traps-never-happen", "--traps-may-happen"])
+  assert_true(!resolve_traps_never_happen(parsed_allow))
+}
+
+///|
 test "resolve_pass_flags expands optimize presets before explicit pass flags" {
   let parsed = parse_ok([
     "--validate", "--code-folding", "--optimize", "--shrink", "--vacuum",
@@ -216,4 +257,5 @@ test "cli_config_schema_json exposes public schema fields" {
   assert_true(schema.contains("\"outputs\""))
   assert_true(schema.contains("\"passes\""))
   assert_true(schema.contains("\"format\""))
+  assert_true(schema.contains("\"trapMode\""))
 }

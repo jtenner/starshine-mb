@@ -71,6 +71,22 @@ pub fn CliOptimizationFlag::olevel(
 }
 
 ///|
+pub enum TrapMode {
+  Allow
+  Never
+} derive(Eq, Show, Debug)
+
+///|
+pub fn TrapMode::allow() -> TrapMode {
+  Allow
+}
+
+///|
+pub fn TrapMode::never() -> TrapMode {
+  Never
+}
+
+///|
 pub enum CliParseError {
   MissingFlagValue(String)
   InvalidInputFormat(String)
@@ -79,6 +95,7 @@ pub enum CliParseError {
   InvalidLongFlag(String)
   UnexpectedFlagValue(String)
   InvalidOptimizationFlag(String)
+  InvalidTrapMode(String)
 } derive(Eq, Show, Debug)
 
 ///|
@@ -117,6 +134,11 @@ pub fn CliParseError::invalid_optimization_flag(flag : String) -> CliParseError 
 }
 
 ///|
+pub fn CliParseError::invalid_trap_mode(mode : String) -> CliParseError {
+  InvalidTrapMode(mode)
+}
+
+///|
 pub struct CliParseResult {
   mut config_path : String?
   input_globs : Array[String]
@@ -125,6 +147,7 @@ pub struct CliParseResult {
   output_targets : Array[CliOutputTarget]
   pass_flags : Array[String]
   optimize_flags : Array[CliOptimizationFlag]
+  mut trap_mode : TrapMode?
 } derive(Eq, Show, Debug)
 
 ///|
@@ -136,6 +159,7 @@ pub fn CliParseResult::new(
   output_targets? : Array[CliOutputTarget] = [],
   pass_flags? : Array[String] = [],
   optimize_flags? : Array[CliOptimizationFlag] = [],
+  trap_mode? : TrapMode? = None,
 ) -> CliParseResult {
   {
     config_path,
@@ -145,6 +169,7 @@ pub fn CliParseResult::new(
     output_targets,
     pass_flags,
     optimize_flags,
+    trap_mode,
   }
 }
 
@@ -167,6 +192,17 @@ fn parse_input_format(raw : String) -> CliInputFormat? {
     "wasm" => Some(CliInputFormat::wasm())
     "wat" => Some(CliInputFormat::wat())
     "wast" => Some(CliInputFormat::wast())
+    _ => None
+  }
+}
+
+///|
+fn parse_trap_mode(raw : String) -> TrapMode? {
+  match ascii_lower(raw) {
+    "allow" => Some(TrapMode::allow())
+    "never" => Some(TrapMode::never())
+    "traps-may-happen" => Some(TrapMode::allow())
+    "traps-never-happen" => Some(TrapMode::never())
     _ => None
   }
 }
@@ -407,7 +443,8 @@ pub fn cli_config_schema_json() -> String {
     #|  "passes": ["validate"],
     #|  "optimize": {
     #|    "preset": "optimize",
-    #|    "olevel": "O2"
+    #|    "olevel": "O2",
+    #|    "trapMode": "allow"
     #|  }
     #|}
   schema
@@ -547,6 +584,43 @@ pub fn parse_cli_args(
             parsed.optimize_flags.push(CliOptimizationFlag::shrink())
             index += 1
           }
+          "trap-mode" => {
+            let (value, consumed_next) = match inline_value {
+              Some(v) if v.length() > 0 => (v, false)
+              Some(_) =>
+                return Err(CliParseError::missing_flag_value("--trap-mode"))
+              None =>
+                if index + 1 < args.length() &&
+                  !looks_like_option_token(args[index + 1]) {
+                  (args[index + 1], true)
+                } else {
+                  return Err(CliParseError::missing_flag_value("--trap-mode"))
+                }
+            }
+            match parse_trap_mode(value) {
+              Some(mode) => parsed.trap_mode = Some(mode)
+              None => return Err(CliParseError::invalid_trap_mode(value))
+            }
+            index += if consumed_next { 2 } else { 1 }
+          }
+          "traps-never-happen" => {
+            if inline_value is Some(_) {
+              return Err(
+                CliParseError::unexpected_flag_value("--traps-never-happen"),
+              )
+            }
+            parsed.trap_mode = Some(TrapMode::never())
+            index += 1
+          }
+          "traps-may-happen" => {
+            if inline_value is Some(_) {
+              return Err(
+                CliParseError::unexpected_flag_value("--traps-may-happen"),
+              )
+            }
+            parsed.trap_mode = Some(TrapMode::allow())
+            index += 1
+          }
           _ => {
             if inline_value is Some(_) {
               return Err(
@@ -594,4 +668,16 @@ pub fn resolve_pass_flags(parsed : CliParseResult) -> Array[String] {
     resolved.push(flag)
   }
   resolved
+}
+
+///|
+pub fn resolve_traps_never_happen(
+  parsed : CliParseResult,
+  default? : Bool = false,
+) -> Bool {
+  match parsed.trap_mode {
+    Some(Never) => true
+    Some(Allow) => false
+    None => default
+  }
 }

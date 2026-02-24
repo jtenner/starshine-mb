@@ -352,6 +352,11 @@ pub struct CodeSec(Array[Func]) derive(Eq, Hash, Debug)
 pub struct DataSec(Array[Data]) derive(Eq, Hash, Debug)
 
 ///|
+
+///| `CastOp` stores `(source_nullable, target_nullable)` for `br_on_cast`
+
+///|
+/// and `br_on_cast_fail`. It does not encode descriptor-cast exactness.
 pub struct CastOp(Bool, Bool) derive(Eq, Arbitrary, Show, Hash, Debug)
 
 ///|
@@ -3501,23 +3506,23 @@ pub fn Instruction::ref_cast_desc_eq(
 ///|
 pub fn Instruction::br_on_cast(
   li : LabelIdx,
-  t_nullable_0 : Bool,
+  source_nullable : Bool,
   ht0 : HeapType,
-  t_nullable_1 : Bool,
+  target_nullable : Bool,
   ht1 : HeapType,
 ) -> Instruction {
-  BrOnCast(li, CastOp(t_nullable_0, t_nullable_1), ht0, ht1)
+  BrOnCast(li, CastOp(source_nullable, target_nullable), ht0, ht1)
 }
 
 ///|
 pub fn Instruction::br_on_cast_fail(
   li : LabelIdx,
-  t_nullable_0 : Bool,
+  source_nullable : Bool,
   ht0 : HeapType,
-  t_nullable_1 : Bool,
+  target_nullable : Bool,
   ht1 : HeapType,
 ) -> Instruction {
-  BrOnCastFail(li, CastOp(t_nullable_0, t_nullable_1), ht0, ht1)
+  BrOnCastFail(li, CastOp(source_nullable, target_nullable), ht0, ht1)
 }
 
 ///|
@@ -5401,27 +5406,27 @@ pub fn TInstr::br_on_non_null(
 ///|
 pub fn TInstr::br_on_cast(
   li : LabelIdx,
-  ht_null_0 : Bool,
+  source_nullable : Bool,
   ht0 : HeapType,
-  ht_null_1 : Bool,
+  target_nullable : Bool,
   ht1 : HeapType,
   i0 : TInstr,
   i : Array[TInstr],
 ) -> TInstr {
-  TBrOnCast(li, CastOp(ht_null_0, ht_null_1), ht0, ht1, i0, i)
+  TBrOnCast(li, CastOp(source_nullable, target_nullable), ht0, ht1, i0, i)
 }
 
 ///|
 pub fn TInstr::br_on_cast_fail(
   li : LabelIdx,
-  ht_null_0 : Bool,
+  source_nullable : Bool,
   ht0 : HeapType,
-  ht_null_1 : Bool,
+  target_nullable : Bool,
   ht1 : HeapType,
   i0 : TInstr,
   i : Array[TInstr],
 ) -> TInstr {
-  TBrOnCastFail(li, CastOp(ht_null_0, ht_null_1), ht0, ht1, i0, i)
+  TBrOnCastFail(li, CastOp(source_nullable, target_nullable), ht0, ht1, i0, i)
 }
 
 ///|
@@ -8128,8 +8133,18 @@ pub fn HeapType::bottom() -> HeapType {
 }
 
 ///|
-pub fn CastOp::new(b0 : Bool, b1 : Bool) -> CastOp {
-  CastOp(b0, b1)
+pub fn CastOp::new(source_nullable : Bool, target_nullable : Bool) -> CastOp {
+  CastOp(source_nullable, target_nullable)
+}
+
+///|
+pub fn CastOp::source_nullable(self : CastOp) -> Bool {
+  self.0
+}
+
+///|
+pub fn CastOp::target_nullable(self : CastOp) -> Bool {
+  self.1
 }
 
 ///|

@@ -441,8 +441,8 @@ fn tm_mark_exact_cast_heaptype(
 }
 
 ///|
-fn tm_br_on_cast_has_exact_flag(exact_flag : Bool) -> Bool {
-  exact_flag
+fn tm_br_on_cast_is_exact(src_ht : HeapType, dst_ht : HeapType) -> Bool {
+  src_ht == dst_ht
 }
 
 ///|
@@ -462,10 +462,10 @@ fn tm_collect_cast_types(
           tm_mark_cast_heaptype(cast_types, heap_type, total)
           tm_mark_exact_cast_heaptype(exact_cast_types, heap_type, total)
         }
-        TBrOnCast(_, cast_op, _, target_ht, _, _)
-        | TBrOnCastFail(_, cast_op, _, target_ht, _, _) => {
+        TBrOnCast(_, _, source_ht, target_ht, _, _)
+        | TBrOnCastFail(_, _, source_ht, target_ht, _, _) => {
           tm_mark_cast_heaptype(cast_types, target_ht, total)
-          if tm_br_on_cast_has_exact_flag(cast_op.1) {
+          if tm_br_on_cast_is_exact(source_ht, target_ht) {
             tm_mark_exact_cast_heaptype(exact_cast_types, target_ht, total)
           }
         }
@@ -486,10 +486,10 @@ fn tm_collect_cast_types(
           tm_mark_cast_heaptype(cast_types, heap_type, total)
           tm_mark_exact_cast_heaptype(exact_cast_types, heap_type, total)
         }
-        BrOnCast(_, cast_op, _, target_ht)
-        | BrOnCastFail(_, cast_op, _, target_ht) => {
+        BrOnCast(_, _, source_ht, target_ht)
+        | BrOnCastFail(_, _, source_ht, target_ht) => {
           tm_mark_cast_heaptype(cast_types, target_ht, total)
-          if tm_br_on_cast_has_exact_flag(cast_op.1) {
+          if tm_br_on_cast_is_exact(source_ht, target_ht) {
             tm_mark_exact_cast_heaptype(exact_cast_types, target_ht, total)
           }
         }
@@ -1530,6 +1530,11 @@ fn tm_assert_valid_module(mod : Module, label : String) -> Unit raise {
 ///|
 fn tm_br_on_cast_exactness_observer(exact : Bool) -> TInstr {
   let super_heap_type = HeapType::new(TypeIdx::new(0))
+  let source_heap_type = if exact {
+    super_heap_type
+  } else {
+    HeapType::abs(AbsHeapType::any())
+  }
   TInstr::drop(
     TInstr::block(
       BlockType::val_type(ValType::ref_null(super_heap_type)),
@@ -1538,10 +1543,10 @@ fn tm_br_on_cast_exactness_observer(exact : Bool) -> TInstr {
           TInstr::br_on_cast(
             LabelIdx::new(0),
             true,
+            source_heap_type,
+            true,
             super_heap_type,
-            exact,
-            super_heap_type,
-            TInstr::ref_null(super_heap_type),
+            TInstr::ref_null(source_heap_type),
             [],
           ),
         ),
@@ -1569,6 +1574,61 @@ fn tm_br_on_cast_exactness_module(exact : Bool) -> Module {
         TExpr::new([
           TInstr::drop(TInstr::struct_new(TypeIdx::new(1), [])),
           tm_br_on_cast_exactness_observer(exact),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn tm_br_on_cast_mixed_observer(
+  src_ht : HeapType,
+  dst_nullable : Bool,
+  dst_ht : HeapType,
+) -> TInstr {
+  TInstr::drop(
+    TInstr::block(
+      BlockType::val_type(ValType::ref_null(dst_ht)),
+      TExpr::new([
+        TInstr::drop(
+          TInstr::br_on_cast(
+            LabelIdx::new(0),
+            true,
+            src_ht,
+            dst_nullable,
+            dst_ht,
+            TInstr::ref_null(src_ht),
+            [],
+          ),
+        ),
+        TInstr::ref_null(dst_ht),
+      ]),
+    ),
+  )
+}
+
+///|
+fn tm_br_on_cast_mixed_exactness_module(
+  src_ht : HeapType,
+  dst_nullable : Bool,
+  dst_ht : HeapType,
+) -> Module {
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([
+      tm_open_empty_struct_type(),
+      tm_open_empty_struct_type(super_types=[TypeIdx::new(0)]),
+      tm_void_func_type(),
+    ]),
+  )
+  .with_func_sec(FuncSec::new([TypeIdx::new(2)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [],
+        TExpr::new([
+          TInstr::drop(TInstr::struct_new(TypeIdx::new(1), [])),
+          tm_br_on_cast_mixed_observer(src_ht, dst_nullable, dst_ht),
         ]),
       ),
     ]),
@@ -1846,7 +1906,7 @@ test "type_merging treats identical br_on_cast source-target as exact cast barri
 }
 
 ///|
-test "type_merging merges identical br_on_cast source-target without exact flag" {
+test "type_merging merges non-exact br_on_cast source-target pairs" {
   let mod = tm_br_on_cast_exactness_module(false)
   tm_assert_valid_module(mod, "br_on_cast non-exact input")
   let out = run_type_merging(mod)
@@ -1856,7 +1916,46 @@ test "type_merging merges identical br_on_cast source-target without exact flag"
       ()
     _ =>
       fail(
-        "expected subtype to merge when identical br_on_cast lacks exact flag",
+        "expected subtype to merge when br_on_cast source-target pair is non-exact",
+      )
+  }
+}
+
+///|
+test "type_merging does not treat nullable br_on_cast targets as exact barriers" {
+  let mod = tm_br_on_cast_mixed_exactness_module(
+    HeapType::abs(AbsHeapType::any()),
+    true,
+    HeapType::new(TypeIdx::new(0)),
+  )
+  tm_assert_valid_module(mod, "br_on_cast nullable non-exact input")
+  let out = run_type_merging(mod)
+  tm_assert_valid_module(out, "br_on_cast nullable non-exact output")
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TDrop(TStructNew(TypeIdx(0), [])), ..]))])) =>
+      ()
+    _ =>
+      fail(
+        "expected subtype to merge when br_on_cast target nullability is not used as exactness",
+      )
+  }
+}
+
+///|
+test "type_merging treats identical br_on_cast heap types as exact regardless of nullability bit" {
+  let super_heap_type = HeapType::new(TypeIdx::new(0))
+  let mod = tm_br_on_cast_mixed_exactness_module(
+    super_heap_type, false, super_heap_type,
+  )
+  tm_assert_valid_module(mod, "br_on_cast identical-heap exact input")
+  let out = run_type_merging(mod)
+  tm_assert_valid_module(out, "br_on_cast identical-heap exact output")
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TDrop(TStructNew(TypeIdx(1), [])), ..]))])) =>
+      ()
+    _ =>
+      fail(
+        "expected subtype to remain distinct when br_on_cast source and target heap types are identical",
       )
   }
 }

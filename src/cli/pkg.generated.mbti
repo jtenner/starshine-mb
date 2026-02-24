@@ -26,6 +26,8 @@ pub fn parse_starshine_input_env(String?) -> Array[String]
 
 pub fn resolve_pass_flags(CliParseResult) -> Array[String]
 
+pub fn resolve_traps_never_happen(CliParseResult, default? : Bool) -> Bool
+
 // Errors
 
 // Types and methods
@@ -73,10 +75,12 @@ pub enum CliParseError {
   InvalidLongFlag(String)
   UnexpectedFlagValue(String)
   InvalidOptimizationFlag(String)
+  InvalidTrapMode(String)
 }
 pub fn CliParseError::invalid_input_format(String) -> Self
 pub fn CliParseError::invalid_long_flag(String) -> Self
 pub fn CliParseError::invalid_optimization_flag(String) -> Self
+pub fn CliParseError::invalid_trap_mode(String) -> Self
 pub fn CliParseError::missing_flag_value(String) -> Self
 pub fn CliParseError::stdin_needs_format() -> Self
 pub fn CliParseError::unexpected_flag_value(String) -> Self
@@ -93,11 +97,22 @@ pub struct CliParseResult {
   output_targets : Array[CliOutputTarget]
   pass_flags : Array[String]
   optimize_flags : Array[CliOptimizationFlag]
+  mut trap_mode : TrapMode?
 }
-pub fn CliParseResult::new(config_path? : String?, input_globs? : Array[String], read_stdin? : Bool, input_format? : CliInputFormat?, output_targets? : Array[CliOutputTarget], pass_flags? : Array[String], optimize_flags? : Array[CliOptimizationFlag]) -> Self
+pub fn CliParseResult::new(config_path? : String?, input_globs? : Array[String], read_stdin? : Bool, input_format? : CliInputFormat?, output_targets? : Array[CliOutputTarget], pass_flags? : Array[String], optimize_flags? : Array[CliOptimizationFlag], trap_mode? : TrapMode?) -> Self
 pub impl Eq for CliParseResult
 pub impl Show for CliParseResult
 pub impl @debug.Debug for CliParseResult
+
+pub enum TrapMode {
+  Allow
+  Never
+}
+pub fn TrapMode::allow() -> Self
+pub fn TrapMode::never() -> Self
+pub impl Eq for TrapMode
+pub impl Show for TrapMode
+pub impl @debug.Debug for TrapMode
 
 // Type aliases
 

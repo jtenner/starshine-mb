@@ -7,7 +7,7 @@
 ## Audit Snapshot (2026-02-23)
 
 - `moon check`: `Finished. moon: no work to do`
-- `moon test`: `2247` passed, `0` failed
+- `moon test`: `2268` passed, `0` failed
 - `moon coverage analyze`: `11078` uncovered line(s) in `103` file(s)
 - Delta vs `2026-02-21` snapshot:
   - Tests: `2060 -> 2247` (`+187`)
@@ -49,17 +49,33 @@
 
 - [ ] Wire parsed pass flags and optimize presets into concrete optimizer pipeline scheduling (`ModulePass`) with strict unknown-pass diagnostics.
   - [ ] Consume `resolve_pass_flags(...)` output in CLI execution path and translate preset markers to concrete scheduler pipelines.
+  - [ ] Thread `resolve_traps_never_happen(...)` into the CLI runtime optimize-options builder so `OptimizeOptions.traps_never_happen` is applied during real module runs.
   - [ ] Hook `expand_globs_with_adapter(...)` into the eventual runtime filesystem input-expansion path.
   - [ ] Decide and codify duplicate handling when preset-expanded passes overlap explicit pass flags (preserve repeats vs dedupe), with regression tests.
 - [ ] Implement JSON config file loading/validation and precedence merge (`CLI args > env > config defaults`) on top of current schema.
 
 ### Multi-Value and Trap-Mode Safety
 
-- [ ] Broaden multi-value hoist parity and fallback safety.
-  - [ ] Add focused tests for hoisted multi-value try-tail wrappers when callers have parameters, ensuring typed-wrapper selection stays valid.
-  - [ ] Add focused tests that non-defaultable result types (for example non-null refs) stay on the non-hoist fallback path without validator errors.
-- [ ] Add user-facing optimize option plumbing (`TrapMode`/CLI flags) for `OptimizeOptions.traps_never_happen` so scheduler trap mode is configurable in end-to-end tool flows.
-- [ ] Clarify and codify `br_on_cast` exact-flag semantics in IR docs/types (separate from nullability) and add mixed exact/non-exact branch parity fixtures.
+- [x] Broaden multi-value hoist parity and fallback safety.
+  - [x] Add focused tests for hoisted multi-value try-tail wrappers when callers have parameters, ensuring typed-wrapper selection stays valid.
+  - [x] Add focused tests that non-defaultable result types (for example non-null refs) stay on the non-hoist fallback path without validator errors.
+- [x] Add user-facing optimize option plumbing (`TrapMode`/CLI flags) for `OptimizeOptions.traps_never_happen` so scheduler trap mode is configurable in end-to-end tool flows.
+- [x] Clarify and codify `br_on_cast` exact-flag semantics in IR docs/types (separate from nullability) and add mixed exact/non-exact branch parity fixtures.
+- [x] Extend multi-value hoist wrapper recovery to synthesize a private zero-param signature when no compatible existing `TypeIdx` is available.
+- [x] Add mirrored mixed exact/non-exact `br_on_cast_fail` parity fixtures in `abstract_type_refining.mbt` to guard rewrite behavior across both branch opcodes.
+- [x] Defer synthetic hoist-wrapper type insertion until a hoist rewrite is confirmed, so failed rewrites cannot leave unused private signatures.
+- [x] Add full-pass (`run_abstract_type_refining_pass`) parity fixtures that assert mixed exact/non-exact `br_on_cast` and `br_on_cast_fail` behavior survives end-to-end traversal.
+- [x] Add multi-caller same-iteration coverage for synthesized hoist wrappers to verify deferred commit index sequencing across successive type insertions.
+- [x] Add nested value-tree full-pass ATR fixtures (for example branch-cast nodes inside `local.set`/`drop` trees) to lock in recursive traversal guarantees.
+- [x] Add a mixed multi-caller reuse fixture where later callers reuse an earlier synthesized wrapper signature instead of adding duplicates.
+- [x] Add deep nested ATR fixtures across `if`/`block`/`try_table` value positions to guard recursive traversal beyond `local.set`/`drop`.
+- [x] Add a mixed-reuse negative fixture where one later caller cannot reuse the earlier synthesized wrapper (different result arity/types), proving no accidental over-reuse.
+- [x] Add ATR deep-nesting fixtures with non-empty `try_table` catches and nested cast nodes in both `then` and `else` trees to lock in traversal across handler-bearing control flow.
+- [x] Add validator-clean handler-bearing ATR fixtures (with label/catch typing that validates) so deep nested catch-path traversal is covered under `validate_module == Ok(())`.
+- [x] Add handler-bearing ATR fixtures with real `throw` paths to ensure cast rewrites remain stable when catches are actually taken.
+- [x] Add handler-bearing ATR fixture variants that use typed tag catches (`Catch::new` / `Catch::ref_`) with non-empty payload signatures, validating rewrite stability under typed exception parameters.
+- [x] Add a targeted regression test for exact `ref_cast` rewrites under `drop` contexts in traps-never-happen mode (either preserving validator-clean lowering or documenting unsupported shape explicitly).
+- [ ] Align `try_table` catch label lookup with depth-based `Env::get_label_types(...)` semantics (currently direct index access), and add regression tests to pin catch-vs-branch label index parity.
 
 ### Binaryen Pass Parity (High)
 

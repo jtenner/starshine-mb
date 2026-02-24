@@ -657,6 +657,8 @@ pub struct CastOp(Bool, Bool)
 
 
 pub fn CastOp::new(Bool, Bool) -> Self
+pub fn CastOp::source_nullable(Self) -> Bool
+pub fn CastOp::target_nullable(Self) -> Bool
 pub impl PrettyPrint for CastOp
 pub impl Eq for CastOp
 pub impl Hash for CastOp
