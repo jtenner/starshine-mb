@@ -60,6 +60,47 @@ fn pc_round_half_to_even_f64(x : Double) -> Double {
 }
 
 ///|
+fn pc_trunc_f64_to_u64_nonneg(x : Double) -> UInt64 {
+  let two_pow_32 = 4294967296.0
+  let hi = (x / two_pow_32).trunc().to_uint64()
+  let lo = (x - hi.to_double() * two_pow_32).to_uint64()
+  (hi << 32) | lo
+}
+
+///|
+fn pc_trunc_f64_to_i64_s(x : Double) -> Int64? {
+  if x.is_nan() || x.is_inf() {
+    return None
+  }
+  let t = x.trunc()
+  if t < -9223372036854775808.0 || t >= 9223372036854775808.0 {
+    None
+  } else if t < 0.0 {
+    if t == -9223372036854775808.0 {
+      Some(-9223372036854775808L)
+    } else {
+      let abs_u = pc_trunc_f64_to_u64_nonneg(-t)
+      Some(-abs_u.reinterpret_as_int64())
+    }
+  } else {
+    Some(pc_trunc_f64_to_u64_nonneg(t).reinterpret_as_int64())
+  }
+}
+
+///|
+fn pc_trunc_f64_to_i64_u(x : Double) -> Int64? {
+  if x.is_nan() || x.is_inf() {
+    return None
+  }
+  let t = x.trunc()
+  if t < 0.0 || t >= 18446744073709551616.0 {
+    None
+  } else {
+    Some(pc_trunc_f64_to_u64_nonneg(t).reinterpret_as_int64())
+  }
+}
+
+///|
 fn pc_literal_from_instr(instr : TInstr) -> PCLiteral? {
   match instr {
     TI32Const(I32(v)) => Some(PCI32(v))
@@ -162,6 +203,26 @@ fn pc_eval_unary(op : UnaryOp, value : PCLiteral) -> PCLiteral? {
     (I64ExtendI32SOp, PCI32(x)) => Some(PCI64(x.to_int64()))
     (I64ExtendI32UOp, PCI32(x)) =>
       Some(PCI64(x.reinterpret_as_uint().to_uint64().reinterpret_as_int64()))
+    (I64TruncF32SOp, PCF32(x)) =>
+      match pc_trunc_f64_to_i64_s(x.to_double()) {
+        Some(v) => Some(PCI64(v))
+        None => None
+      }
+    (I64TruncF32UOp, PCF32(x)) =>
+      match pc_trunc_f64_to_i64_u(x.to_double()) {
+        Some(v) => Some(PCI64(v))
+        None => None
+      }
+    (I64TruncF64SOp, PCF64(x)) =>
+      match pc_trunc_f64_to_i64_s(x) {
+        Some(v) => Some(PCI64(v))
+        None => None
+      }
+    (I64TruncF64UOp, PCF64(x)) =>
+      match pc_trunc_f64_to_i64_u(x) {
+        Some(v) => Some(PCI64(v))
+        None => None
+      }
     (I64Extend8SOp, PCI64(x)) => Some(PCI64(x << 56 >> 56))
     (I64Extend16SOp, PCI64(x)) => Some(PCI64(x << 48 >> 48))
     (I64Extend32SOp, PCI64(x)) => Some(PCI64(x << 32 >> 32))
@@ -1658,4 +1719,47 @@ test "precompute unary and binary evaluators cover i64 float conversion and trap
     pc_eval_binary(BinaryOp::i32_eq(), PCI32(7), PCI32(7)),
     PCI32(1),
   )
+}
+
+///|
+test "precompute unary evaluator folds i64 trunc float conversions with trap guards" {
+  pc_expect_literal(
+    pc_eval_unary(
+      UnaryOp::i64_trunc_f32s(),
+      PCF32(Float::from_double(3000000000.0)),
+    ),
+    PCI64(3000000000L),
+  )
+  pc_expect_literal(
+    pc_eval_unary(
+      UnaryOp::i64_trunc_f32s(),
+      PCF32(Float::from_double(-3000000000.0)),
+    ),
+    PCI64(-3000000000L),
+  )
+  pc_expect_literal(
+    pc_eval_unary(UnaryOp::i64_trunc_f64s(), PCF64(-42.9)),
+    PCI64(-42L),
+  )
+  pc_expect_literal(
+    pc_eval_unary(UnaryOp::i64_trunc_f64u(), PCF64(3000000000.0)),
+    PCI64(3000000000L),
+  )
+  match pc_eval_unary(UnaryOp::i64_trunc_f64s(), PCF64(9223372036854775808.0)) {
+    None => ()
+    _ =>
+      fail("expected i64.trunc_f64_s out-of-range input to remain non-foldable")
+  }
+  match pc_eval_unary(UnaryOp::i64_trunc_f64u(), PCF64(-1.0)) {
+    None => ()
+    _ => fail("expected i64.trunc_f64_u negative input to remain non-foldable")
+  }
+  match
+    pc_eval_unary(
+      UnaryOp::i64_trunc_f32s(),
+      PCF32(Float::from_double(@double.not_a_number)),
+    ) {
+    None => ()
+    _ => fail("expected i64.trunc_f32_s NaN input to remain non-foldable")
+  }
 }

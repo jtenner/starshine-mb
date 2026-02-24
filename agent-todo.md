@@ -2,7 +2,7 @@
 
 ## Blockers
 
-- `Unsubtyping` still produces invalid output for certain `try_table` `Catch::ref_` payload+`exnref` shapes; current parity fixture pins this as a stable failure (`type mismatch`) until full support lands.
+- None currently.
 
 ## Audit Snapshot (2026-02-23)
 
@@ -47,8 +47,9 @@
 - [x] Fix JS failure in `ir/ssa_optimize_tests.mbt:492` (`eval_ssa_unary float-to-int trunc bound and trap parity checks`).
 - [x] Fix JS failure in `passes/de_nan.mbt:1597` (`is_f32_nan correctly identifies NaN`).
 - [x] Fix JS failure in `passes/de_nan.mbt:1610` (`is_f32_nan correctly rejects non-NaN`).
-- [ ] Audit remaining i64 trunc-folding helpers (for example `precompute`) for JS-safe `Double -> Int64` conversion semantics and add shared helper to avoid divergence.
+- [x] Audit remaining i64 trunc-folding helpers (for example `precompute`) for JS-safe `Double -> Int64` conversion semantics and add shared helper to avoid divergence.
 - [ ] Add a core-runtime compatibility regression that pins `Float::is_nan()` / `Double::is_nan()` JS behavior (or documents backend caveat) so pass logic avoids backend-dependent NaN predicates.
+- [ ] Deduplicate JS-safe `Double -> Int64` trunc helpers currently mirrored in `ir/ssa_optimize.mbt` and `passes/precompute.mbt` to a single shared utility.
 
 ### CLI Pipeline Completion
 
@@ -94,7 +95,7 @@
 - [x] Add `Unsubtyping` regression coverage for implicit function-label branch flows (`br` / `br_if` targeting outermost function label).
 - [x] Generalize `Unsubtyping` typed-join subtype discovery beyond single-result joins (multi-value `block` / `loop` / `if`).
 - [x] Add `Unsubtyping` parity fixtures for `try_table` `Catch::ref_` / `Catch::all_ref` flows to pin payload+`exnref` handling and prevent regressions.
-  - [ ] Follow-up: make `Catch::ref_` payload+`exnref` fixtures pass end-to-end in `unsubtyping` (current fixture intentionally pins stable invalid-output failure mode).
+  - [x] Follow-up: make `Catch::ref_` payload+`exnref` fixtures pass end-to-end in `unsubtyping`.
 - [x] Add `RemoveUnused` pipeline-level regression (through `optimize_module` scheduling) proving descriptor-target-only types survive remapping in mixed typed/untyped function bodies.
 - [ ] `GlobalEffects`
 - [ ] `Poppify`

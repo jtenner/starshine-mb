@@ -594,12 +594,12 @@ fn uf_catch_payload_types(catch_ : Catch, env : Env) -> Array[ValType] {
   match catch_ {
     Catch(tag, _) =>
       match env.resolve_tag_functype(tag) {
-        Some(FuncType(params, _)) => params
+        Some(FuncType(params, _)) => params.copy()
         None => []
       }
     CatchRef(tag, _) => {
       let payload = match env.resolve_tag_functype(tag) {
-        Some(FuncType(params, _)) => params
+        Some(FuncType(params, _)) => params.copy()
         None => []
       }
       payload.push(exnref)
@@ -1872,6 +1872,44 @@ fn uf_test_try_table_catch_ref_payload_constraint_module() -> Module {
 }
 
 ///|
+fn uf_test_try_table_catch_ref_to_try_label_module() -> Module {
+  let tag_type = single_rec_type(
+    comp_type_sub_type(func_comp_type([ValType::i64()], [])),
+  )
+  let exnref = ValType::ref_type(
+    RefType::new(false, HeapType::abs(AbsHeapType::exn())),
+  )
+  let main_type = single_rec_type(
+    comp_type_sub_type(func_comp_type([], [ValType::i64(), exnref])),
+  )
+  Module::new()
+  .with_type_sec(TypeSec::new([tag_type, main_type]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
+  .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(0))]))
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [],
+        TExpr::new([
+          TInstr::try_table(
+            BlockType::type_idx(TypeIdx::new(1)),
+            [Catch::ref_(TagIdx::new(0), LabelIdx::new(0))],
+            TExpr::new([
+              TInstr::throw_(TagIdx::new(0), [TInstr::i64_const(I64(11L))]),
+            ]),
+          ),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
 fn uf_test_try_table_catch_all_ref_module() -> Module {
   let tag_type = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
   let exnref = ValType::ref_type(
@@ -2232,26 +2270,65 @@ test "unsubtyping preserves subtype edge required by try_table catch-target labe
 }
 
 ///|
-test "unsubtyping catch_ref payload plus exnref fixture reports stable validation failure" {
+test "unsubtyping preserves try_table catch_ref payload plus exnref flow validity" {
   let mod = uf_test_try_table_catch_ref_payload_constraint_module()
   match validate_module(mod) {
     Ok(_) => ()
     Err(e) =>
       fail("expected try_table catch_ref fixture module to validate: \{e}")
   }
-  match unsubtyping(mod) {
-    Ok(out) =>
-      match validate_module(out) {
-        Ok(_) =>
-          fail(
-            "expected catch_ref payload plus exnref fixture to remain unsupported",
-          )
-        Err(e) => assert_true(e.contains("type mismatch"))
-      }
+  let out = match unsubtyping(mod) {
+    Ok(m) => m
+    Err(e) => fail("unexpected unsubtyping error: \{e}")
+  }
+  match validate_module(out) {
+    Ok(_) => ()
     Err(e) =>
-      assert_true(
-        e.contains("unsubtyping produced invalid module") &&
-        e.contains("type mismatch"),
+      fail(
+        "expected catch_ref payload plus exnref unsubtyping output to remain validator-clean: \{e}",
+      )
+  }
+}
+
+///|
+test "unsubtyping catch_ref analysis does not mutate input module type signatures" {
+  let mod = uf_test_try_table_catch_ref_payload_constraint_module()
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected catch_ref fixture module to validate before unsubtyping: \{e}",
+      )
+  }
+  ignore(unsubtyping(mod))
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected catch_ref fixture module to remain validator-clean after unsubtyping analysis: \{e}",
+      )
+  }
+}
+
+///|
+test "unsubtyping preserves try_table catch_ref to try-label payload plus exnref flow validity" {
+  let mod = uf_test_try_table_catch_ref_to_try_label_module()
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected try_table catch_ref-to-try-label fixture module to validate: \{e}",
+      )
+  }
+  let out = match unsubtyping(mod) {
+    Ok(m) => m
+    Err(e) => fail("unexpected unsubtyping error: \{e}")
+  }
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected catch_ref-to-try-label unsubtyping output to remain validator-clean: \{e}",
       )
   }
 }
