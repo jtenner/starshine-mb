@@ -1122,6 +1122,28 @@ fn expand_passes_for_module(
 }
 
 ///|
+test "expand_passes_for_module preserves preset-plus-explicit multiplicity for overlapping passes" {
+  let mod = Module::new()
+  let expanded = match
+    expand_passes_for_module(
+      ["optimize", "vacuum"],
+      mod,
+      OptimizeOptions::new(),
+    ) {
+    Ok(v) => v
+    Err(e) => fail("expected pass expansion success, got \{e}")
+  }
+  let mut vacuum_count = 0
+  for pass in expanded {
+    match pass {
+      Vacuum => vacuum_count += 1
+      _ => ()
+    }
+  }
+  assert_true(vacuum_count >= 2)
+}
+
+///|
 fn decode_module_for_pipeline(
   path : String,
   bytes : Bytes,
@@ -1146,6 +1168,50 @@ fn encode_module_for_pipeline(
   match Encode::encode(mod, buf) {
     Ok(_) => Ok(buf.to_bytes())
     Err(e) => Err(CmdError::EncodeFailed("\{path}: \{e}"))
+  }
+}
+
+///|
+fn lower_text_module_in_process(
+  path : String,
+  format : CliInputFormat,
+  bytes : Bytes,
+) -> Result[Bytes, String] {
+  match format {
+    Wasm => return Err("expected wat/wast input format")
+    Wat | Wast => ()
+  }
+  let source = bytes_to_string_lossy(bytes)
+  let mod = match @wast.wast_to_binary_module(source, filename=path) {
+    Ok(parsed) => parsed
+    Err(e) => return Err("in-process text parse/lower failed: \{e}")
+  }
+  let buf = @buffer.new()
+  match Encode::encode(mod, buf) {
+    Ok(_) => Ok(buf.to_bytes())
+    Err(e) => Err("in-process text encode failed: \{e}")
+  }
+}
+
+///|
+fn lower_text_module_for_pipeline(
+  io : CmdIO,
+  path : String,
+  format : CliInputFormat,
+  bytes : Bytes,
+) -> Result[Bytes, CmdError] {
+  match (io.lower_text_module)(path, format, bytes) {
+    Ok(out) => Ok(out)
+    Err(adapter_err) =>
+      match lower_text_module_in_process(path, format, bytes) {
+        Ok(out) => Ok(out)
+        Err(in_process_err) =>
+          Err(
+            CmdError::TextLoweringFailed(
+              "\{path}: \{adapter_err}; fallback failed: \{in_process_err}",
+            ),
+          )
+      }
   }
 }
 
@@ -1263,10 +1329,10 @@ pub fn run_cmd_with_adapter(
     let wasm_bytes = match format {
       Wasm => raw_bytes
       Wat | Wast =>
-        match (io.lower_text_module)(input_path, format, raw_bytes) {
+        match
+          lower_text_module_for_pipeline(io, input_path, format, raw_bytes) {
           Ok(bytes) => bytes
-          Err(e) =>
-            return Err(CmdError::TextLoweringFailed("\{input_path}: \{e}"))
+          Err(e) => return Err(e)
         }
     }
 

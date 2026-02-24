@@ -24,6 +24,20 @@ fn bytes_from_string(text : String) -> Bytes {
 }
 
 ///|
+fn bytes_to_ascii_string(bytes : Bytes) -> String {
+  let out = StringBuilder::new()
+  for b in bytes {
+    let i = b.to_int()
+    if i >= 0 && i <= 127 {
+      out.write_char(i.unsafe_to_char())
+    } else {
+      out.write_char('?')
+    }
+  }
+  out.to_string()
+}
+
+///|
 fn encode_module_bytes(mod : Module) -> Bytes {
   let buf = @buffer.new()
   match Encode::encode(mod, buf) {
@@ -193,6 +207,71 @@ test "run_cmd_with_adapter lowers wat and wast inputs through text-module adapte
   ])
   assert_eq(summary.output_files, ["dist/a.wasm", "dist/b.wasm"])
   assert_eq(writes.length(), 2)
+}
+
+///|
+test "run_cmd_with_adapter lowers wat through in-process fallback when adapter is unavailable" {
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == "m.wat" },
+    list_candidates=fn() { ["m.wat"] },
+    read_file=fn(path) {
+      if path == "m.wat" {
+        Ok(bytes_from_string("(module (func (result i32) i32.const 41))"))
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match run_cmd_with_adapter(["m.wat"], io) {
+    Ok(v) => v
+    Err(e) =>
+      fail("expected in-process wat lowering fallback success, got \{e}")
+  }
+  assert_eq(summary.output_files, ["m.wasm"])
+  assert_eq(writes.length(), 1)
+  let mod = decode_module_bytes(writes[0].1)
+  match mod.code_sec {
+    Some(CodeSec([Func(_, Expr([I32Const(I32(v))]))])) => assert_eq(v, 41)
+    _ => fail("expected decoded wasm output from in-process wat fallback")
+  }
+}
+
+///|
+test "run_cmd_with_adapter lowers wast through in-process fallback when adapter is unavailable" {
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == "n.wast" },
+    list_candidates=fn() { ["n.wast"] },
+    read_file=fn(path) {
+      if path == "n.wast" {
+        Ok(bytes_from_string("(module (memory 1) (data (i32.const 0) \"A\"))"))
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match run_cmd_with_adapter(["n.wast"], io) {
+    Ok(v) => v
+    Err(e) =>
+      fail("expected in-process wast lowering fallback success, got \{e}")
+  }
+  assert_eq(summary.output_files, ["n.wasm"])
+  assert_eq(writes.length(), 1)
+  let mod = decode_module_bytes(writes[0].1)
+  match (mod.mem_sec, mod.data_sec) {
+    (Some(_), Some(DataSec([Data(_, bytes)]))) =>
+      assert_eq(bytes_to_ascii_string(bytes), "A")
+    _ => fail("expected decoded wasm output from in-process wast fallback")
+  }
 }
 
 ///|
@@ -530,6 +609,158 @@ test "run_cmd_with_adapter accepts optional inline json config in the same call"
   assert_eq(summary.output_files, ["inline-out/a.wasm"])
   assert_eq(summary.resolved_passes, ["global-effects"])
   assert_true(summary.traps_never_happen)
+}
+
+///|
+test "run_cmd_with_adapter reports config read failures with ConfigReadFailed" {
+  let io = CmdIO::new(file_exists=fn(path) { path == "cfg.json" }, read_file=fn(
+    path,
+  ) {
+    if path == "cfg.json" {
+      Err("permission denied")
+    } else {
+      Err("missing fixture")
+    }
+  })
+  match run_cmd_with_adapter(["--config", "cfg.json"], io) {
+    Ok(summary) => fail("expected config read failure, got summary \{summary}")
+    Err(CmdError::ConfigReadFailed(msg)) => {
+      assert_true(msg.contains("cfg.json"))
+      assert_true(msg.contains("permission denied"))
+    }
+    Err(err) => fail("expected ConfigReadFailed, got \{err}")
+  }
+}
+
+///|
+test "run_cmd_with_adapter reports decode failures with DecodeFailed" {
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == "bad.wasm" },
+    list_candidates=fn() { ["bad.wasm"] },
+    read_file=fn(path) {
+      if path == "bad.wasm" {
+        Ok(bytes_from_string("not-wasm"))
+      } else {
+        Err("missing fixture")
+      }
+    },
+  )
+  match run_cmd_with_adapter(["bad.wasm"], io) {
+    Ok(summary) => fail("expected decode failure, got summary \{summary}")
+    Err(CmdError::DecodeFailed(msg)) => assert_true(msg.contains("bad.wasm"))
+    Err(err) => fail("expected DecodeFailed, got \{err}")
+  }
+}
+
+///|
+test "config pass flags take precedence over env pass overlays when cli pass flags are absent" {
+  let config_json =
+    #|{
+    #|  "inputs": { "globs": ["a.wasm"] },
+    #|  "passes": ["global-effects"]
+    #|}
+  let wasm = encode_module_bytes(fixture_i32_const_module(17))
+  let io = CmdIO::new(
+    get_env=fn(name) {
+      if name == "STARSHINE_PASSES" {
+        Some("vacuum")
+      } else {
+        None
+      }
+    },
+    file_exists=fn(path) { path == "cfg.json" || path == "a.wasm" },
+    list_candidates=fn() { ["a.wasm"] },
+    read_file=fn(path) {
+      match path {
+        "cfg.json" => Ok(bytes_from_string(config_json))
+        "a.wasm" => Ok(wasm)
+        _ => Err("missing fixture")
+      }
+    },
+    write_file=fn(_, _) { Ok(()) },
+  )
+  let summary = match run_cmd_with_adapter(["--config", "cfg.json"], io) {
+    Ok(v) => v
+    Err(e) => fail("unexpected run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["global-effects"])
+}
+
+///|
+test "env optimize and trap overlays take precedence over config values when cli omits options" {
+  let config_json =
+    #|{
+    #|  "inputs": { "globs": ["a.wasm"] },
+    #|  "optimize": { "olevel": "O1", "trapMode": "allow" }
+    #|}
+  let wasm = encode_module_bytes(fixture_i32_const_module(18))
+  let io = CmdIO::new(
+    get_env=fn(name) {
+      match name {
+        "STARSHINE_OLEVEL" => Some("O3")
+        "STARSHINE_TRAP_MODE" => Some("never")
+        _ => None
+      }
+    },
+    file_exists=fn(path) { path == "cfg.json" || path == "a.wasm" },
+    list_candidates=fn() { ["a.wasm"] },
+    read_file=fn(path) {
+      match path {
+        "cfg.json" => Ok(bytes_from_string(config_json))
+        "a.wasm" => Ok(wasm)
+        _ => Err("missing fixture")
+      }
+    },
+    write_file=fn(_, _) { Ok(()) },
+  )
+  let summary = match run_cmd_with_adapter(["--config", "cfg.json"], io) {
+    Ok(v) => v
+    Err(e) => fail("unexpected run failure: \{e}")
+  }
+  assert_eq(summary.optimize_level, 3)
+  assert_true(summary.traps_never_happen)
+}
+
+///|
+test "run_cmd_with_adapter reports unknown pass diagnostics for --help token" {
+  let wasm = encode_module_bytes(fixture_i32_const_module(19))
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == "a.wasm" },
+    list_candidates=fn() { ["a.wasm"] },
+    read_file=fn(path) {
+      if path == "a.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(_, _) { Ok(()) },
+  )
+  match run_cmd_with_adapter(["--help", "a.wasm"], io) {
+    Ok(summary) => fail("expected unknown pass diagnostic, got \{summary}")
+    Err(err) => assert_eq(err, CmdError::unknown_pass_flag("help"))
+  }
+}
+
+///|
+test "run_cmd_with_adapter reports unknown pass diagnostics for --version token" {
+  let wasm = encode_module_bytes(fixture_i32_const_module(20))
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == "a.wasm" },
+    list_candidates=fn() { ["a.wasm"] },
+    read_file=fn(path) {
+      if path == "a.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(_, _) { Ok(()) },
+  )
+  match run_cmd_with_adapter(["--version", "a.wasm"], io) {
+    Ok(summary) => fail("expected unknown pass diagnostic, got \{summary}")
+    Err(err) => assert_eq(err, CmdError::unknown_pass_flag("version"))
+  }
 }
 
 ///|

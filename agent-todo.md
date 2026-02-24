@@ -4,15 +4,16 @@
 Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full native CLI, spec-test passing validator+optimizer, clean public API, and maintainable codebase.
 
 ## Blockers
-- [ ] Native default text lowering still depends on external tools (`wat2wasm` / `wasm-tools parse`); environments without either tool cannot lower `.wat` / `.wast` via `run_cmd`.
+- [x] Native default text lowering still depends on external tools (`wat2wasm` / `wasm-tools parse`); environments without either tool cannot lower `.wat` / `.wast` via `run_cmd`.
+- [x] In-process fallback is blocked by missing lowering bridge from `@wast.Module` (text AST) to binary IR `@lib.Module` (required by `@binary.Encode` in `run_cmd` pipeline).
 
 ## Metadata
 - Last updated: `2026-02-24`
 - Scope: Open tasks plus recently completed checkoffs
 - Last audit run: `2026-02-24`
-- `moon fmt`: `Finished. moon: ran 1 task, now up to date`
-- `moon info`: `Finished. moon: no work to do`
-- `moon test`: `2400` passed, `0` failed
+- `moon fmt`: `Finished. moon: ran 5 tasks, now up to date`
+- `moon info`: `Finished. moon: ran 2 tasks, now up to date`
+- `moon test`: `2414` passed, `0` failed
 - `moon test src/cmd --target native`: `17` passed, `0` failed
 - `moon build --target native`: `not run in this audit`
 - `moon coverage analyze`: `11223` uncovered line(s) in `105` file(s)
@@ -25,11 +26,11 @@ Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full
 - [x] Native default filesystem candidate enumeration for wildcard-glob expansion.
 - [x] Native default `.wat`/`.wast` text-module lowering hook (native external-tool fallback).
 - [ ] Add focused runtime error-path tests:
-  - [ ] config read failures.
-  - [ ] decode failures.
-- [ ] Add scheduler-level tests that assert expanded `ModulePass` multiplicity for preset+explicit overlaps (not only resolved flag queue order).
-- [ ] Add focused env precedence tests for pass/option overlays after config-fallback changes.
-- [ ] Add `--help` and `--version` coverage/polish checks in CLI behavior tests.
+  - [x] config read failures.
+  - [x] decode failures.
+- [x] Add scheduler-level tests that assert expanded `ModulePass` multiplicity for preset+explicit overlaps (not only resolved flag queue order).
+- [x] Add focused env precedence tests for pass/option overlays after config-fallback changes.
+- [x] Add `--help` and `--version` coverage/polish checks in CLI behavior tests.
 
 ### Text frontend unblock
 - [x] Add `src/wat` package with wat-named API parity backed by `src/wast`.
@@ -38,13 +39,18 @@ Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full
 - [x] Backport `WastParser::check` token-family completeness fix to `src/wast/parser.mbt`.
 - [x] Consolidate duplicated text frontend logic by making `src/wat` a thin wrapper.
 - [ ] Add optional native in-process text lowering path (remove external tool dependency).
+  - [x] Design/implement `wast -> lib` lowering bridge (name/index resolution + section construction) so `run_cmd` can encode parser output without shelling out.
+  - [x] Add adapter-level fallback tests that run without `lower_text_module` and still lower `.wat` / `.wast` through the in-process bridge.
+  - [ ] Extend `wast -> lib` lowering coverage for currently unsupported instruction families (SIMD lanes/prefixed op variants and advanced reference/exception forms) so in-process lowering can replace external tools for broader real-world text inputs.
+  - [ ] Broaden grouped recursive type handling in lowering bridge function-signature resolution (currently conservative for grouped rec types).
 
 ### High-impact pass parity
 - [ ] `Poppify`
 - [ ] `Outlining`
 - [ ] ReReloop hardening follow-ups:
-  - [ ] Preserve single-evaluation semantics for `br_table` dispatch indices during lowering.
-  - [ ] Extend CFG relayout to support non-special targets and merge-heavy flattened regions.
+  - [x] Preserve single-evaluation semantics for `br_table` dispatch indices during lowering.
+  - [x] Extend CFG relayout to support non-special targets and merge-heavy flattened regions.
+  - [ ] Add temp-local based single-eval lowering path for non-dup-safe `br_table` indices when targets are not directly label-resolvable.
 
 ### Public API gate
 - [ ] Expose clean public API surface for decode/optimize/encode workflows in package exports and README examples.

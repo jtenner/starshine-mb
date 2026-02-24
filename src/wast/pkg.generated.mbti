@@ -20,6 +20,10 @@ pub fn script_to_wast(WastScript) -> Result[String, String]
 
 pub fn script_to_wast_with_context(WastScript, @lib.PrettyPrintContext) -> Result[String, String]
 
+pub fn wast_ast_to_binary_module(Module) -> Result[@lib.Module, String]
+
+pub fn wast_to_binary_module(String, filename? : String) -> Result[@lib.Module, String]
+
 pub fn wast_to_module(String, filename? : String) -> Result[Module, String]
 
 pub fn wast_to_script(String, filename? : String) -> Result[WastScript, String]

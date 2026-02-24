@@ -259,6 +259,82 @@ fn rr_fixture_branch_value_flow_module() -> Module {
 }
 
 ///|
+fn rr_fixture_brtable_side_effect_index_module() -> Module {
+  let t_i32 = single_rec_type(
+    comp_type_sub_type(func_comp_type([], [ValType::i32()])),
+  )
+  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  Module::new()
+  .with_type_sec(TypeSec::new([t_i32, t_void]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func([], TExpr::new([TInstr::i32_const(I32(1))])),
+      Func::t_func(
+        [],
+        TExpr::new([
+          TInstr::block(
+            BlockType::void_(),
+            TExpr::new([
+              TInstr::br_table(
+                [LabelIdx::new(0), LabelIdx::new(0)],
+                LabelIdx::new(0),
+                TInstr::call(FuncIdx::new(0), []),
+                [],
+              ),
+              TInstr::drop(TInstr::i32_const(I32(44))),
+            ]),
+          ),
+          TInstr::nop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn rr_fixture_non_special_target_merge_module() -> Module {
+  let t_with_conds = single_rec_type(
+    comp_type_sub_type(func_comp_type([ValType::i32(), ValType::i32()], [])),
+  )
+  Module::new()
+  .with_type_sec(TypeSec::new([t_with_conds]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [],
+        TExpr::new([
+          TInstr::block(
+            BlockType::void_(),
+            TExpr::new([
+              TInstr::block(
+                BlockType::void_(),
+                TExpr::new([
+                  TInstr::br_if(
+                    LabelIdx::new(1),
+                    TInstr::local_get(LocalIdx::new(0)),
+                    [],
+                  ),
+                  TInstr::br_if(
+                    LabelIdx::new(0),
+                    TInstr::local_get(LocalIdx::new(1)),
+                    [],
+                  ),
+                  TInstr::drop(TInstr::i32_const(I32(5))),
+                ]),
+              ),
+              TInstr::nop(),
+            ]),
+          ),
+          TInstr::nop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
 fn rr_fixture_loop_backedge_module() -> Module {
   let t_with_cond = single_rec_type(
     comp_type_sub_type(func_comp_type([ValType::i32()], [])),
@@ -615,6 +691,75 @@ test "re_reloop reconstructs flattened br_table shell via cfg relayout" {
     Ok(_) => ()
     Err(e) =>
       fail("re_reloop br_table reconstruction output should validate: \{e}")
+  }
+}
+
+///|
+test "re_reloop preserves single-evaluation semantics for side-effectful br_table index" {
+  let mod = rr_fixture_brtable_side_effect_index_module()
+  let rerelooped = match rr_run_re_reloop(mod) {
+    Ok(next) => next
+    Err(e) =>
+      fail("re_reloop should succeed on side-effectful br_table fixture: \{e}")
+  }
+  match rerelooped.code_sec {
+    Some(CodeSec([_, TFunc(_, body)])) =>
+      assert_eq(
+        rr_texpr_count(body, fn(instr) {
+          match instr {
+            TCall(FuncIdx(idx), _) => idx == 0
+            _ => false
+          }
+        }),
+        1,
+      )
+    _ => fail("expected rerelooped side-effectful br_table fixture body")
+  }
+  match validate_module(rerelooped) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "re_reloop side-effectful br_table reconstruction output should validate: \{e}",
+      )
+  }
+}
+
+///|
+test "re_reloop reconstructs flattened shells with non-special outer-target branches" {
+  let mod = rr_fixture_non_special_target_merge_module()
+  let rerelooped = match rr_run_re_reloop(mod) {
+    Ok(next) => next
+    Err(e) =>
+      fail("re_reloop should succeed on non-special target fixture: \{e}")
+  }
+  match rerelooped.code_sec {
+    Some(CodeSec([TFunc(_, body)])) => {
+      assert_true(
+        rr_texpr_contains(body, fn(instr) {
+          match instr {
+            TIf(_, _, _, _) => true
+            _ => false
+          }
+        }),
+      )
+      assert_eq(
+        rr_texpr_count(body, fn(instr) {
+          match instr {
+            TBrIf(_, _, _) => true
+            _ => false
+          }
+        }),
+        0,
+      )
+    }
+    _ => fail("expected rerelooped non-special target fixture body")
+  }
+  match validate_module(rerelooped) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "re_reloop non-special target reconstruction output should validate: \{e}",
+      )
   }
 }
 
@@ -983,10 +1128,16 @@ fn rr_validate_module_preconditions(mod : Module) -> Result[Unit, String] {
 priv struct RRBlockId(Int) derive(Eq, Hash)
 
 ///|
+priv enum RRJumpTarget {
+  Internal(RRBlockId)
+  External(LabelIdx)
+}
+
+///|
 priv enum RRTerminator {
-  RRBr(RRBlockId, Array[TInstr], Bool)
-  RRBrIf(TInstr, RRBlockId, RRBlockId, Array[TInstr])
-  RRBrTable(TInstr, Array[RRBlockId], RRBlockId, Array[TInstr])
+  RRBr(RRJumpTarget, Array[TInstr], Bool)
+  RRBrIf(TInstr, RRJumpTarget, RRBlockId, Array[TInstr])
+  RRBrTable(TInstr, Array[RRJumpTarget], RRJumpTarget, Array[TInstr])
   RRUnreachable
 }
 
@@ -1024,7 +1175,10 @@ fn rr_append_texpr(dst : Array[TInstr], src : TExpr) -> Unit {
 }
 
 ///|
-fn rr_target_label(target : RRBlockId, state : RRReconstructState) -> LabelIdx? {
+fn rr_internal_target_label(
+  target : RRBlockId,
+  state : RRReconstructState,
+) -> LabelIdx? {
   if target == state.stop {
     return Some(state.break_label)
   }
@@ -1035,17 +1189,91 @@ fn rr_target_label(target : RRBlockId, state : RRReconstructState) -> LabelIdx? 
 }
 
 ///|
+fn rr_target_label(
+  target : RRJumpTarget,
+  state : RRReconstructState,
+) -> LabelIdx? {
+  match target {
+    Internal(block_id) => rr_internal_target_label(block_id, state)
+    External(label) => Some(label)
+  }
+}
+
+///|
+fn rr_dup_safe_expr(expr : TInstr) -> Bool {
+  match expr {
+    TI32Const(_)
+    | TI64Const(_)
+    | TF32Const(_)
+    | TF64Const(_)
+    | TLocalGet(_)
+    | TGlobalGet(_)
+    | TRefNull(_)
+    | TRefFunc(_)
+    | TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => true
+    TUnary(_, child)
+    | TRefIsNull(child)
+    | TRefAsNonNull(child)
+    | TI31GetS(child)
+    | TI31GetU(child)
+    | TRefI31(child)
+    | TAnyConvertExtern(child)
+    | TExternConvertAny(child) => rr_dup_safe_expr(child)
+    TBinary(_, left, right) | TRefEq(left, right) =>
+      rr_dup_safe_expr(left) && rr_dup_safe_expr(right)
+    _ => false
+  }
+}
+
+///|
+fn rr_target_to_label(
+  target : RRJumpTarget,
+  state : RRReconstructState,
+) -> LabelIdx? {
+  rr_target_label(target, state)
+}
+
+///|
+fn rr_try_emit_direct_br_table(
+  instrs : Array[TInstr],
+  index : TInstr,
+  targets : Array[RRJumpTarget],
+  default_target : RRJumpTarget,
+  values : Array[TInstr],
+  state : RRReconstructState,
+) -> Bool {
+  let labels : Array[LabelIdx] = []
+  for target in targets {
+    match rr_target_to_label(target, state) {
+      Some(label) => labels.push(label)
+      None => return false
+    }
+  }
+  let default_label = match rr_target_to_label(default_target, state) {
+    Some(label) => label
+    None => return false
+  }
+  instrs.push(TInstr::br_table(labels, default_label, index, values))
+  true
+}
+
+///|
 fn rr_cfg_target_to_texpr(
   cfg : RRCFG,
-  target : RRBlockId,
+  target : RRJumpTarget,
   branch_values : Array[TInstr],
   state : RRReconstructState,
   depth : Int,
   max_depth : Int,
 ) -> TExpr? {
-  match rr_target_label(target, state) {
-    Some(label) => Some(TExpr::new([TInstr::br(label, branch_values)]))
-    None => rr_cfg_region_to_texpr(cfg, target, state, depth + 1, max_depth)
+  match target {
+    External(label) => Some(TExpr::new([TInstr::br(label, branch_values)]))
+    Internal(block_id) =>
+      match rr_internal_target_label(block_id, state) {
+        Some(label) => Some(TExpr::new([TInstr::br(label, branch_values)]))
+        None =>
+          rr_cfg_region_to_texpr(cfg, block_id, state, depth + 1, max_depth)
+      }
   }
 }
 
@@ -1078,18 +1306,61 @@ fn rr_cfg_region_to_texpr(
           return Some(TExpr::new(instrs))
         }
         None =>
-          match
-            rr_cfg_region_to_texpr(cfg, target, state, depth + 1, max_depth) {
-            Some(tail) => {
-              rr_append_texpr(instrs, tail)
-              return Some(TExpr::new(instrs))
-            }
-            None => return None
+          match target {
+            Internal(next_block) =>
+              match
+                rr_cfg_region_to_texpr(
+                  cfg,
+                  next_block,
+                  state,
+                  depth + 1,
+                  max_depth,
+                ) {
+                Some(tail) => {
+                  rr_append_texpr(instrs, tail)
+                  return Some(TExpr::new(instrs))
+                }
+                None => return None
+              }
+            External(_) => return None
           }
       }
     RRBrIf(cond, then_block, else_block, values) => {
-      if rr_target_label(then_block, state) is None && values.length() != 0 {
-        return None
+      if values.length() != 0 {
+        match then_block {
+          Internal(block_id) =>
+            if rr_internal_target_label(block_id, state) is None {
+              return None
+            }
+          _ => ()
+        }
+      }
+      let then_is_direct_branch = match then_block {
+        External(_) => true
+        Internal(block_id) =>
+          rr_internal_target_label(block_id, state) is Some(_)
+      }
+      if then_is_direct_branch {
+        let then_expr = match
+          rr_cfg_target_to_texpr(
+            cfg,
+            then_block,
+            values,
+            state,
+            depth + 1,
+            max_depth,
+          ) {
+          Some(expr) => expr
+          None => return None
+        }
+        let else_tail = match
+          rr_cfg_region_to_texpr(cfg, else_block, state, depth + 1, max_depth) {
+          Some(expr) => expr
+          None => return None
+        }
+        instrs.push(TInstr::if_(BlockType::void_(), cond, then_expr, None))
+        rr_append_texpr(instrs, else_tail)
+        return Some(TExpr::new(instrs))
       }
       let then_expr = match
         rr_cfg_target_to_texpr(
@@ -1108,20 +1379,23 @@ fn rr_cfg_region_to_texpr(
         Some(expr) => expr
         None => return None
       }
-      if rr_target_label(then_block, state) is Some(_) {
-        instrs.push(TInstr::if_(BlockType::void_(), cond, then_expr, None))
-        rr_append_texpr(instrs, else_tail)
+      let else_opt = if else_tail.0.length() == 0 {
+        None
       } else {
-        let else_opt = if else_tail.0.length() == 0 {
-          None
-        } else {
-          Some(else_tail)
-        }
-        instrs.push(TInstr::if_(BlockType::void_(), cond, then_expr, else_opt))
+        Some(else_tail)
       }
+      instrs.push(TInstr::if_(BlockType::void_(), cond, then_expr, else_opt))
       return Some(TExpr::new(instrs))
     }
     RRBrTable(index, targets, default_target, values) => {
+      if !rr_dup_safe_expr(index) {
+        if rr_try_emit_direct_br_table(
+            instrs, index, targets, default_target, values, state,
+          ) {
+          return Some(TExpr::new(instrs))
+        }
+        return None
+      }
       let dispatch = match
         rr_cfg_target_to_texpr(
           cfg,
@@ -1173,16 +1447,21 @@ fn rr_label_to_target(
   label : LabelIdx,
   entry : RRBlockId,
   exit : RRBlockId,
-) -> RRBlockId? {
+) -> RRJumpTarget {
   match (mode, label) {
-    (BlockFlow, LabelIdx(depth)) => if depth == 0 { Some(exit) } else { None }
+    (BlockFlow, LabelIdx(depth)) =>
+      if depth == 0 {
+        Internal(exit)
+      } else {
+        External(label)
+      }
     (LoopFlow, LabelIdx(depth)) =>
       if depth == 0 {
-        Some(entry)
+        Internal(entry)
       } else if depth == 1 {
-        Some(exit)
+        Internal(exit)
       } else {
-        None
+        External(label)
       }
   }
 }
@@ -1208,124 +1487,101 @@ fn rr_try_build_flat_cfg(
 
   for instr in body.0 {
     match instr {
-      TBr(label, values) =>
-        match rr_label_to_target(mode, label, entry, exit) {
-          Some(target) => {
-            blocks[current] = {
-              instrs: current_instrs,
-              terminator: RRBr(target, values, true),
-            }
-            saw_control = true
-            terminated = true
-          }
-          None => return None
+      TBr(label, values) => {
+        let target = rr_label_to_target(mode, label, entry, exit)
+        blocks[current] = {
+          instrs: current_instrs,
+          terminator: RRBr(target, values, true),
         }
-      TBrIf(label, cond, values) =>
-        match rr_label_to_target(mode, label, entry, exit) {
-          Some(target) => {
-            let fallthrough = fresh()
-            blocks[current] = {
-              instrs: current_instrs,
-              terminator: RRBrIf(cond, target, fallthrough, values),
-            }
-            current = fallthrough
-            current_instrs = []
-            saw_control = true
-          }
-          None => return None
+        saw_control = true
+        terminated = true
+      }
+      TBrIf(label, cond, values) => {
+        let target = rr_label_to_target(mode, label, entry, exit)
+        let fallthrough = fresh()
+        blocks[current] = {
+          instrs: current_instrs,
+          terminator: RRBrIf(cond, target, fallthrough, values),
         }
-      TBrOnNull(label, ref_, values) =>
-        match rr_label_to_target(mode, label, entry, exit) {
-          Some(target) => {
-            let fallthrough = fresh()
-            blocks[current] = {
-              instrs: current_instrs,
-              terminator: RRBrIf(
-                TInstr::ref_is_null(ref_),
-                target,
-                fallthrough,
-                values,
-              ),
-            }
-            current = fallthrough
-            current_instrs = []
-            saw_control = true
-          }
-          None => return None
+        current = fallthrough
+        current_instrs = []
+        saw_control = true
+      }
+      TBrOnNull(label, ref_, values) => {
+        let target = rr_label_to_target(mode, label, entry, exit)
+        let fallthrough = fresh()
+        blocks[current] = {
+          instrs: current_instrs,
+          terminator: RRBrIf(
+            TInstr::ref_is_null(ref_),
+            target,
+            fallthrough,
+            values,
+          ),
         }
-      TBrOnNonNull(label, ref_, values) =>
-        match rr_label_to_target(mode, label, entry, exit) {
-          Some(target) => {
-            let fallthrough = fresh()
-            blocks[current] = {
-              instrs: current_instrs,
-              terminator: RRBrIf(
-                TInstr::unary(UnaryOp::i32_eqz(), TInstr::ref_is_null(ref_)),
-                target,
-                fallthrough,
-                values,
-              ),
-            }
-            current = fallthrough
-            current_instrs = []
-            saw_control = true
-          }
-          None => return None
+        current = fallthrough
+        current_instrs = []
+        saw_control = true
+      }
+      TBrOnNonNull(label, ref_, values) => {
+        let target = rr_label_to_target(mode, label, entry, exit)
+        let fallthrough = fresh()
+        blocks[current] = {
+          instrs: current_instrs,
+          terminator: RRBrIf(
+            TInstr::unary(UnaryOp::i32_eqz(), TInstr::ref_is_null(ref_)),
+            target,
+            fallthrough,
+            values,
+          ),
         }
-      TBrOnCast(label, op, _src_ht, dst_ht, ref_, values) =>
-        match rr_label_to_target(mode, label, entry, exit) {
-          Some(target) => {
-            let fallthrough = fresh()
-            blocks[current] = {
-              instrs: current_instrs,
-              terminator: RRBrIf(
-                TInstr::ref_test(op.1, dst_ht, ref_),
-                target,
-                fallthrough,
-                values,
-              ),
-            }
-            current = fallthrough
-            current_instrs = []
-            saw_control = true
-          }
-          None => return None
+        current = fallthrough
+        current_instrs = []
+        saw_control = true
+      }
+      TBrOnCast(label, op, _src_ht, dst_ht, ref_, values) => {
+        let target = rr_label_to_target(mode, label, entry, exit)
+        let fallthrough = fresh()
+        blocks[current] = {
+          instrs: current_instrs,
+          terminator: RRBrIf(
+            TInstr::ref_test(op.1, dst_ht, ref_),
+            target,
+            fallthrough,
+            values,
+          ),
         }
-      TBrOnCastFail(label, op, _src_ht, dst_ht, ref_, values) =>
-        match rr_label_to_target(mode, label, entry, exit) {
-          Some(target) => {
-            let fallthrough = fresh()
-            blocks[current] = {
-              instrs: current_instrs,
-              terminator: RRBrIf(
-                TInstr::unary(
-                  UnaryOp::i32_eqz(),
-                  TInstr::ref_test(op.1, dst_ht, ref_),
-                ),
-                target,
-                fallthrough,
-                values,
-              ),
-            }
-            current = fallthrough
-            current_instrs = []
-            saw_control = true
-          }
-          None => return None
+        current = fallthrough
+        current_instrs = []
+        saw_control = true
+      }
+      TBrOnCastFail(label, op, _src_ht, dst_ht, ref_, values) => {
+        let target = rr_label_to_target(mode, label, entry, exit)
+        let fallthrough = fresh()
+        blocks[current] = {
+          instrs: current_instrs,
+          terminator: RRBrIf(
+            TInstr::unary(
+              UnaryOp::i32_eqz(),
+              TInstr::ref_test(op.1, dst_ht, ref_),
+            ),
+            target,
+            fallthrough,
+            values,
+          ),
         }
+        current = fallthrough
+        current_instrs = []
+        saw_control = true
+      }
       TBrTable(labels, default_label, index, values) => {
-        let mapped_targets : Array[RRBlockId] = []
+        let mapped_targets : Array[RRJumpTarget] = []
         for label in labels {
-          match rr_label_to_target(mode, label, entry, exit) {
-            Some(target) => mapped_targets.push(target)
-            None => return None
-          }
+          mapped_targets.push(rr_label_to_target(mode, label, entry, exit))
         }
-        let mapped_default = match
-          rr_label_to_target(mode, default_label, entry, exit) {
-          Some(target) => target
-          None => return None
-        }
+        let mapped_default = rr_label_to_target(
+          mode, default_label, entry, exit,
+        )
         blocks[current] = {
           instrs: current_instrs,
           terminator: RRBrTable(index, mapped_targets, mapped_default, values),
@@ -1352,7 +1608,7 @@ fn rr_try_build_flat_cfg(
   if !terminated {
     blocks[current] = {
       instrs: current_instrs,
-      terminator: RRBr(exit, [], false),
+      terminator: RRBr(Internal(exit), [], false),
     }
   }
   blocks[exit] = RRBasicBlock::{ instrs: [], terminator: RRUnreachable }

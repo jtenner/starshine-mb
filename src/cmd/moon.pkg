@@ -3,6 +3,7 @@ import {
   "jtenner/starshine/cli",
   "jtenner/starshine/lib",
   "jtenner/starshine/passes",
+  "jtenner/starshine/wast",
   "moonbitlang/core/buffer",
   "moonbitlang/core/env",
   "moonbitlang/core/json",

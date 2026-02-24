@@ -1,6 +1,7 @@
 import {
   "jtenner/starshine/lib",
   "moonbitlang/core/buffer",
+  "moonbitlang/core/double",
   "moonbitlang/core/hashmap",
   "moonbitlang/core/quickcheck",
   "moonbitlang/core/quickcheck/splitmix",
