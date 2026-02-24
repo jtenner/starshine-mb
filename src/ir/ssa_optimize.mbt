@@ -33,7 +33,7 @@ fn round_half_to_even_f32(x : Float) -> Float {
 
 ///|
 fn round_half_to_even_f64(x : Double) -> Double {
-  if x.is_nan() || x.is_inf() {
+  if compat_is_f64_non_finite(x) {
     return x
   }
   let t = x.trunc()
@@ -55,7 +55,7 @@ fn round_half_to_even_f64(x : Double) -> Double {
 
 ///|
 fn trunc_f64_to_i32_s(x : Double) -> Int? {
-  if x.is_nan() || x.is_inf() {
+  if compat_is_f64_non_finite(x) {
     return None
   }
   let t = x.trunc()
@@ -68,7 +68,7 @@ fn trunc_f64_to_i32_s(x : Double) -> Int? {
 
 ///|
 fn trunc_f64_to_i32_u(x : Double) -> Int? {
-  if x.is_nan() || x.is_inf() {
+  if compat_is_f64_non_finite(x) {
     return None
   }
   let t = x.trunc()
@@ -80,44 +80,13 @@ fn trunc_f64_to_i32_u(x : Double) -> Int? {
 }
 
 ///|
-fn trunc_f64_to_u64_nonneg(x : Double) -> UInt64 {
-  let two_pow_32 = 4294967296.0
-  let hi = (x / two_pow_32).trunc().to_uint64()
-  let lo = (x - hi.to_double() * two_pow_32).to_uint64()
-  (hi << 32) | lo
-}
-
-///|
 fn trunc_f64_to_i64_s(x : Double) -> Int64? {
-  if x.is_nan() || x.is_inf() {
-    return None
-  }
-  let t = x.trunc()
-  if t < -9223372036854775808.0 || t >= 9223372036854775808.0 {
-    None
-  } else if t < 0.0 {
-    if t == -9223372036854775808.0 {
-      Some(-9223372036854775808L)
-    } else {
-      let abs_u = trunc_f64_to_u64_nonneg(-t)
-      Some(-abs_u.reinterpret_as_int64())
-    }
-  } else {
-    Some(trunc_f64_to_u64_nonneg(t).reinterpret_as_int64())
-  }
+  compat_trunc_f64_to_i64_s(x)
 }
 
 ///|
 fn trunc_f64_to_i64_u(x : Double) -> Int64? {
-  if x.is_nan() || x.is_inf() {
-    return None
-  }
-  let t = x.trunc()
-  if t < 0.0 || t >= 18446744073709551616.0 {
-    None
-  } else {
-    Some(trunc_f64_to_u64_nonneg(t).reinterpret_as_int64())
-  }
+  compat_trunc_f64_to_i64_u(x)
 }
 
 ///|
@@ -552,7 +521,7 @@ fn eval_ssa_binary(
     (F32MinOp, LitF32(x), LitF32(y)) =>
       Some(
         LitF32(
-          if x.is_nan() || y.is_nan() {
+          if compat_is_f32_nan(x) || compat_is_f32_nan(y) {
             @float.not_a_number
           } else if x < y {
             x
@@ -564,7 +533,7 @@ fn eval_ssa_binary(
     (F32MaxOp, LitF32(x), LitF32(y)) =>
       Some(
         LitF32(
-          if x.is_nan() || y.is_nan() {
+          if compat_is_f32_nan(x) || compat_is_f32_nan(y) {
             @float.not_a_number
           } else if x > y {
             x
@@ -593,7 +562,7 @@ fn eval_ssa_binary(
     (F64MinOp, LitF64(x), LitF64(y)) =>
       Some(
         LitF64(
-          if x.is_nan() || y.is_nan() {
+          if compat_is_f64_nan(x) || compat_is_f64_nan(y) {
             @double.not_a_number
           } else if x < y {
             x
@@ -605,7 +574,7 @@ fn eval_ssa_binary(
     (F64MaxOp, LitF64(x), LitF64(y)) =>
       Some(
         LitF64(
-          if x.is_nan() || y.is_nan() {
+          if compat_is_f64_nan(x) || compat_is_f64_nan(y) {
             @double.not_a_number
           } else if x > y {
             x

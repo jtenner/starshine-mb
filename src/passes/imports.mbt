@@ -101,4 +101,13 @@ using @transformer {
 using @validate {type Env, to_texpr, validate_module, trait Match}
 
 ///|
-using @ir {type IRContext, type LocalGraph, type LocalSet}
+using @ir {
+  type IRContext,
+  type LocalGraph,
+  type LocalSet,
+  compat_is_f32_nan,
+  compat_is_f64_nan,
+  compat_is_f64_non_finite,
+  compat_trunc_f64_to_i64_s,
+  compat_trunc_f64_to_i64_u,
+}

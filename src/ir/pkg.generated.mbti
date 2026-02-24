@@ -7,6 +7,16 @@ import {
 }
 
 // Values
+pub fn compat_is_f32_nan(Float) -> Bool
+
+pub fn compat_is_f64_nan(Double) -> Bool
+
+pub fn compat_is_f64_non_finite(Double) -> Bool
+
+pub fn compat_trunc_f64_to_i64_s(Double) -> Int64?
+
+pub fn compat_trunc_f64_to_i64_u(Double) -> Int64?
+
 pub fn infer_ssa_types(SSACFG, TypeContext) -> SSATypeInfo
 
 pub fn run_gvn(SSACFG, Map[BlockId, BlockId]) -> SSACFG

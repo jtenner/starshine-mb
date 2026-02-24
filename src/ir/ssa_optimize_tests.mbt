@@ -507,6 +507,41 @@ test "eval_ssa_unary float-to-int trunc returns None on NaN and infinities" {
 }
 
 ///|
+test "eval_ssa_unary float-to-int trunc rejects signaling and signed NaN payloads" {
+  let nan32_payloads : Array[Float] = [
+    Float::reinterpret_from_uint(0x7F800001),
+    Float::reinterpret_from_uint(0xFFC00000),
+  ]
+  let f32_ops : Array[UnaryOp] = [
+    UnaryOp::i32_trunc_f32s(),
+    UnaryOp::i32_trunc_f32u(),
+    UnaryOp::i64_trunc_f32s(),
+    UnaryOp::i64_trunc_f32u(),
+  ]
+  for payload in nan32_payloads {
+    for op in f32_ops {
+      assert_eq(eval_ssa_unary(op, LitF32(payload)), None)
+    }
+  }
+
+  let nan64_payloads : Array[Double] = [
+    0x7FF0000000000001UL.reinterpret_as_double(),
+    0xFFF8000000000000UL.reinterpret_as_double(),
+  ]
+  let f64_ops : Array[UnaryOp] = [
+    UnaryOp::i32_trunc_f64s(),
+    UnaryOp::i32_trunc_f64u(),
+    UnaryOp::i64_trunc_f64s(),
+    UnaryOp::i64_trunc_f64u(),
+  ]
+  for payload in nan64_payloads {
+    for op in f64_ops {
+      assert_eq(eval_ssa_unary(op, LitF64(payload)), None)
+    }
+  }
+}
+
+///|
 test "eval_ssa_unary float-to-int trunc bound and trap parity checks" {
   // Signed i32 bounds: [-2^31, 2^31)
   assert_eq(

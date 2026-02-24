@@ -40,7 +40,7 @@ fn pc_round_half_to_even_f32(x : Float) -> Float {
 
 ///|
 fn pc_round_half_to_even_f64(x : Double) -> Double {
-  if x.is_nan() || x.is_inf() {
+  if compat_is_f64_non_finite(x) {
     return x
   }
   let t = x.trunc()
@@ -60,44 +60,13 @@ fn pc_round_half_to_even_f64(x : Double) -> Double {
 }
 
 ///|
-fn pc_trunc_f64_to_u64_nonneg(x : Double) -> UInt64 {
-  let two_pow_32 = 4294967296.0
-  let hi = (x / two_pow_32).trunc().to_uint64()
-  let lo = (x - hi.to_double() * two_pow_32).to_uint64()
-  (hi << 32) | lo
-}
-
-///|
 fn pc_trunc_f64_to_i64_s(x : Double) -> Int64? {
-  if x.is_nan() || x.is_inf() {
-    return None
-  }
-  let t = x.trunc()
-  if t < -9223372036854775808.0 || t >= 9223372036854775808.0 {
-    None
-  } else if t < 0.0 {
-    if t == -9223372036854775808.0 {
-      Some(-9223372036854775808L)
-    } else {
-      let abs_u = pc_trunc_f64_to_u64_nonneg(-t)
-      Some(-abs_u.reinterpret_as_int64())
-    }
-  } else {
-    Some(pc_trunc_f64_to_u64_nonneg(t).reinterpret_as_int64())
-  }
+  compat_trunc_f64_to_i64_s(x)
 }
 
 ///|
 fn pc_trunc_f64_to_i64_u(x : Double) -> Int64? {
-  if x.is_nan() || x.is_inf() {
-    return None
-  }
-  let t = x.trunc()
-  if t < 0.0 || t >= 18446744073709551616.0 {
-    None
-  } else {
-    Some(pc_trunc_f64_to_u64_nonneg(t).reinterpret_as_int64())
-  }
+  compat_trunc_f64_to_i64_u(x)
 }
 
 ///|
@@ -492,7 +461,7 @@ fn pc_eval_binary(
     (F32MinOp, PCF32(x), PCF32(y)) =>
       Some(
         PCF32(
-          if x.is_nan() || y.is_nan() {
+          if compat_is_f32_nan(x) || compat_is_f32_nan(y) {
             @float.not_a_number
           } else if x < y {
             x
@@ -504,7 +473,7 @@ fn pc_eval_binary(
     (F32MaxOp, PCF32(x), PCF32(y)) =>
       Some(
         PCF32(
-          if x.is_nan() || y.is_nan() {
+          if compat_is_f32_nan(x) || compat_is_f32_nan(y) {
             @float.not_a_number
           } else if x > y {
             x
@@ -530,7 +499,7 @@ fn pc_eval_binary(
     (F64MinOp, PCF64(x), PCF64(y)) =>
       Some(
         PCF64(
-          if x.is_nan() || y.is_nan() {
+          if compat_is_f64_nan(x) || compat_is_f64_nan(y) {
             @double.not_a_number
           } else if x < y {
             x
@@ -542,7 +511,7 @@ fn pc_eval_binary(
     (F64MaxOp, PCF64(x), PCF64(y)) =>
       Some(
         PCF64(
-          if x.is_nan() || y.is_nan() {
+          if compat_is_f64_nan(x) || compat_is_f64_nan(y) {
             @double.not_a_number
           } else if x > y {
             x
@@ -1761,5 +1730,87 @@ test "precompute unary evaluator folds i64 trunc float conversions with trap gua
     ) {
     None => ()
     _ => fail("expected i64.trunc_f32_s NaN input to remain non-foldable")
+  }
+}
+
+///|
+test "precompute unary evaluator rejects signaling and signed NaN payloads for trunc ops" {
+  let nan32_payloads : Array[Float] = [
+    Float::reinterpret_from_uint(0x7F800001),
+    Float::reinterpret_from_uint(0xFFC00000),
+  ]
+  let f32_ops : Array[UnaryOp] = [
+    UnaryOp::i32_trunc_f32s(),
+    UnaryOp::i32_trunc_f32u(),
+    UnaryOp::i64_trunc_f32s(),
+    UnaryOp::i64_trunc_f32u(),
+  ]
+  for payload in nan32_payloads {
+    for op in f32_ops {
+      match pc_eval_unary(op, PCF32(payload)) {
+        None => ()
+        _ => fail("expected f32 NaN payload trunc op to remain non-foldable")
+      }
+    }
+  }
+
+  let nan64_payloads : Array[Double] = [
+    0x7FF0000000000001UL.reinterpret_as_double(),
+    0xFFF8000000000000UL.reinterpret_as_double(),
+  ]
+  let f64_ops : Array[UnaryOp] = [
+    UnaryOp::i32_trunc_f64s(),
+    UnaryOp::i32_trunc_f64u(),
+    UnaryOp::i64_trunc_f64s(),
+    UnaryOp::i64_trunc_f64u(),
+  ]
+  for payload in nan64_payloads {
+    for op in f64_ops {
+      match pc_eval_unary(op, PCF64(payload)) {
+        None => ()
+        _ => fail("expected f64 NaN payload trunc op to remain non-foldable")
+      }
+    }
+  }
+}
+
+///|
+test "precompute binary min/max folds payload NaNs for f32 and f64" {
+  let snan32 = Float::reinterpret_from_uint(0x7F800001)
+  let neg_qnan32 = Float::reinterpret_from_uint(0xFFC00000)
+  let finite32 = Float::reinterpret_from_uint(0x3F800000)
+  let f32_cases : Array[(BinaryOp, Float, Float)] = [
+    (BinaryOp::f32_min(), snan32, finite32),
+    (BinaryOp::f32_max(), finite32, neg_qnan32),
+  ]
+  for case_ in f32_cases {
+    let (op, lhs, rhs) = case_
+    match pc_eval_binary(op, PCF32(lhs), PCF32(rhs)) {
+      Some(PCF32(v)) =>
+        assert_true(
+          compat_is_f32_nan(v),
+          msg="expected f32 min/max with payload NaN to fold to NaN",
+        )
+      _ => fail("expected f32 min/max to fold to f32 NaN literal")
+    }
+  }
+
+  let snan64 = 0x7FF0000000000001UL.reinterpret_as_double()
+  let neg_qnan64 = 0xFFF8000000000000UL.reinterpret_as_double()
+  let finite64 = 1.0
+  let f64_cases : Array[(BinaryOp, Double, Double)] = [
+    (BinaryOp::f64_min(), snan64, finite64),
+    (BinaryOp::f64_max(), finite64, neg_qnan64),
+  ]
+  for case_ in f64_cases {
+    let (op, lhs, rhs) = case_
+    match pc_eval_binary(op, PCF64(lhs), PCF64(rhs)) {
+      Some(PCF64(v)) =>
+        assert_true(
+          compat_is_f64_nan(v),
+          msg="expected f64 min/max with payload NaN to fold to NaN",
+        )
+      _ => fail("expected f64 min/max to fold to f64 NaN literal")
+    }
   }
 }

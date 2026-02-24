@@ -19,18 +19,12 @@ priv struct DeNaNState {
 
 ///|
 fn is_f32_nan(f : F32) -> Bool {
-  let bits = f.0.reinterpret_as_uint()
-  let exp = bits & 0x7F800000U
-  let frac = bits & 0x007FFFFFU
-  exp == 0x7F800000U && frac != 0U
+  compat_is_f32_nan(f.0)
 }
 
 ///|
 fn is_f64_nan(f : F64) -> Bool {
-  let bits = f.0.reinterpret_as_uint64()
-  let exp = bits & 0x7FF0000000000000UL
-  let frac = bits & 0x000FFFFFFFFFFFFFUL
-  exp == 0x7FF0000000000000UL && frac != 0UL
+  compat_is_f64_nan(f.0)
 }
 
 ///|
@@ -1671,6 +1665,31 @@ test "is_f64_nan correctly identifies NaN" {
 test "is_f64_nan correctly rejects non-NaN" {
   assert_eq(is_f64_nan(F64(0.0)), false, msg="0.0 is not NaN")
   assert_eq(is_f64_nan(F64(1.0)), false, msg="1.0 is not NaN")
+}
+
+///|
+test "de_nan NaN helpers stay aligned with shared IR compat classifiers" {
+  let f32_cases : Array[Float] = [
+    Float::reinterpret_from_uint(0x7FC00000),
+    Float::reinterpret_from_uint(0x7F800001),
+    Float::reinterpret_from_uint(0xFFC00000),
+    Float::reinterpret_from_uint(0x7F800000),
+    Float::reinterpret_from_uint(0x3F800000),
+  ]
+  for value in f32_cases {
+    assert_eq(is_f32_nan(F32(value)), compat_is_f32_nan(value))
+  }
+
+  let f64_cases : Array[Double] = [
+    0x7FF8000000000000UL.reinterpret_as_double(),
+    0x7FF0000000000001UL.reinterpret_as_double(),
+    0xFFF8000000000000UL.reinterpret_as_double(),
+    0x7FF0000000000000UL.reinterpret_as_double(),
+    0x3FF0000000000000UL.reinterpret_as_double(),
+  ]
+  for value in f64_cases {
+    assert_eq(is_f64_nan(F64(value)), compat_is_f64_nan(value))
+  }
 }
 
 ///|

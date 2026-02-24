@@ -48,8 +48,10 @@
 - [x] Fix JS failure in `passes/de_nan.mbt:1597` (`is_f32_nan correctly identifies NaN`).
 - [x] Fix JS failure in `passes/de_nan.mbt:1610` (`is_f32_nan correctly rejects non-NaN`).
 - [x] Audit remaining i64 trunc-folding helpers (for example `precompute`) for JS-safe `Double -> Int64` conversion semantics and add shared helper to avoid divergence.
-- [ ] Add a core-runtime compatibility regression that pins `Float::is_nan()` / `Double::is_nan()` JS behavior (or documents backend caveat) so pass logic avoids backend-dependent NaN predicates.
-- [ ] Deduplicate JS-safe `Double -> Int64` trunc helpers currently mirrored in `ir/ssa_optimize.mbt` and `passes/precompute.mbt` to a single shared utility.
+- [x] Add a core-runtime compatibility regression that pins `Float::is_nan()` / `Double::is_nan()` JS behavior (or documents backend caveat) so pass logic avoids backend-dependent NaN predicates.
+- [x] Deduplicate JS-safe `Double -> Int64` trunc helpers currently mirrored in `ir/ssa_optimize.mbt` and `passes/precompute.mbt` to a single shared utility.
+- [x] Deduplicate `passes/de_nan.mbt` bit-pattern NaN helpers onto shared `@ir` compatibility helpers (`compat_is_f32_nan` / `compat_is_f64_nan`) to keep one source of truth.
+- [x] Add payload-NaN `f32.min/max` and `f64.min/max` constant-folding regressions in `passes/precompute.mbt` to mirror SSA NaN payload coverage and prevent drift.
 
 ### CLI Pipeline Completion
 
