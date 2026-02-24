@@ -171,6 +171,9 @@ pub(all) enum ModulePass {
   PropagateGlobalsGlobally
   TypeRefining
   TypeGeneralizing
+  TypeFinalizing
+  TypeUnFinalizing
+  Unsubtyping
   Heap2Local
   HeapStoreOptimization
   Inlining

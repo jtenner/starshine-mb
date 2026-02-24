@@ -23,6 +23,9 @@ pub(all) enum ModulePass {
   PropagateGlobalsGlobally
   TypeRefining
   TypeGeneralizing
+  TypeFinalizing
+  TypeUnFinalizing
+  Unsubtyping
   Heap2Local
   HeapStoreOptimization
   Inlining
@@ -212,6 +215,9 @@ fn module_pass_context_kind(pass : ModulePass) -> SchedulerPassContextKind {
     | OnceReduction
     | Asyncify(_)
     | MinimizeRecGroups
+    | TypeFinalizing
+    | TypeUnFinalizing
+    | Unsubtyping
     | TypeMerging
     | Monomorphize
     | MonomorphizeAlways
@@ -457,6 +463,16 @@ fn run_module_runner_scheduler_pass(
       apply_module_runner_pass(mod, fn(mod) { type_refining(mod) })
     TypeGeneralizing =>
       apply_module_runner_pass(mod, fn(mod) { type_generalizing(mod) })
+    TypeFinalizing =>
+      apply_module_runner_pass(mod, fn(mod) {
+        type_finalizing(mod, finalize=true)
+      })
+    TypeUnFinalizing =>
+      apply_module_runner_pass(mod, fn(mod) { type_unfinalizing(mod) })
+    Unsubtyping =>
+      apply_module_runner_pass(mod, fn(mod) {
+        unsubtyping(mod, traps_never_happen=options.traps_never_happen)
+      })
     Inlining =>
       apply_module_runner_pass(mod, fn(mod) { inlining(mod, options, false) })
     InliningOptimizing =>
@@ -774,8 +790,7 @@ pub fn default_global_optimization_pre_passes(
         ),
       )
       // Binaryen parity mode: unsubtyping.
-      // Merge unneeded private subtypes near the end of type-driven global opts.
-      passes.push(TypeMerging)
+      passes.push(Unsubtyping)
     }
   }
 
@@ -924,6 +939,111 @@ fn opt_scheduler_type_merging_trap_sensitive_module() -> Module {
 }
 
 ///|
+fn opt_scheduler_type_finalizing_dispatch_module() -> Module {
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([
+      single_rec_type(sub_type(false, [], struct_comp_type([]))),
+      single_rec_type(sub_type(false, [TypeIdx::new(0)], struct_comp_type([]))),
+      single_rec_type(comp_type_sub_type(func_comp_type([], []))),
+    ]),
+  )
+  .with_func_sec(FuncSec::new([TypeIdx::new(2)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [ValType::ref_null(HeapType::new(TypeIdx::new(0)))],
+        TExpr::new([
+          TInstr::local_set(
+            LocalIdx::new(0),
+            TInstr::struct_new(TypeIdx::new(1), []),
+          ),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn opt_scheduler_descriptor_target_retention_module() -> Module {
+  let unused_struct = single_rec_type(comp_type_sub_type(struct_comp_type([])))
+  let descriptor_target = single_rec_type(
+    comp_type_sub_type(struct_comp_type([])),
+  )
+  let void_ft = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let typed = Func::t_func(
+    [ValType::anyref()],
+    TExpr::new([
+      TInstr::drop(
+        TInstr::ref_test_desc(
+          true,
+          HeapType::new(TypeIdx::new(1)),
+          TInstr::local_get(LocalIdx::new(0)),
+        ),
+      ),
+      TInstr::call(FuncIdx::new(1), []),
+    ]),
+  )
+  let untyped = Func::new(
+    [],
+    Expr::new([
+      Instruction::ref_null(HeapType::abs(AbsHeapType::any())),
+      Instruction::ref_cast_desc_eq(true, HeapType::new(TypeIdx::new(1))),
+      Instruction::drop(),
+    ]),
+  )
+  Module::new()
+  .with_type_sec(TypeSec::new([unused_struct, descriptor_target, void_ft]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(2), TypeIdx::new(2)]))
+  .with_code_sec(CodeSec::new([typed, untyped]))
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
+    ]),
+  )
+}
+
+///|
+fn opt_scheduler_type_unfinalizing_dispatch_module() -> Module {
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([
+      single_rec_type(comp_type_sub_type(struct_comp_type([]))),
+      single_rec_type(comp_type_sub_type(func_comp_type([], []))),
+    ]),
+  )
+  .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
+  .with_code_sec(CodeSec::new([Func::t_func([], TExpr::new([TInstr::nop()]))]))
+}
+
+///|
+fn opt_scheduler_unsubtyping_dispatch_module() -> Module {
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([
+      single_rec_type(sub_type(false, [], struct_comp_type([]))),
+      single_rec_type(sub_type(false, [TypeIdx::new(0)], struct_comp_type([]))),
+      single_rec_type(sub_type(false, [TypeIdx::new(1)], struct_comp_type([]))),
+      single_rec_type(comp_type_sub_type(func_comp_type([], []))),
+    ]),
+  )
+  .with_func_sec(FuncSec::new([TypeIdx::new(3)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [ValType::ref_null(HeapType::new(TypeIdx::new(0)))],
+        TExpr::new([
+          TInstr::local_set(
+            LocalIdx::new(0),
+            TInstr::struct_new(TypeIdx::new(2), []),
+          ),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
 fn opt_scheduler_run_type_merging_with_traps_never_happen(
   mod : Module,
   traps_never_happen : Bool,
@@ -949,6 +1069,39 @@ fn opt_scheduler_global_count(mod : Module) -> Int {
     Some(GlobalSec(globals)) => globals.length()
     None => 0
   }
+}
+
+///|
+fn opt_scheduler_count_descriptor_target_uses(
+  mod : Module,
+  target : UInt,
+) -> Int {
+  let mut count = 0
+  let walker = ModuleTransformer::new()
+    .on_tinstruction_evt(fn(self, _, instr) {
+      match instr {
+        TRefTestDesc(_, HeapType(TypeIdx(i)), _)
+        | TRefCastDescEq(_, HeapType(TypeIdx(i)), _) =>
+          if i == target {
+            count += 1
+          }
+        _ => ()
+      }
+      self.walk_tinstruction_default((), instr)
+    })
+    .on_instruction_evt(fn(self, _, instr) {
+      match instr {
+        RefTestDesc(_, HeapType(TypeIdx(i)))
+        | RefCastDescEq(_, HeapType(TypeIdx(i))) =>
+          if i == target {
+            count += 1
+          }
+        _ => ()
+      }
+      self.walk_instruction_default((), instr)
+    })
+  ignore(walker.walk_module((), mod))
+  count
 }
 
 ///|
@@ -1310,7 +1463,7 @@ test "default global optimization pre passes map cfp-reftest mode to constant fi
 }
 
 ///|
-test "default global optimization pre passes map unsubtyping mode to type merging" {
+test "default global optimization pre passes map unsubtyping mode to unsubtyping pass" {
   let gc_mod = Module::new().with_type_sec(
     TypeSec::new([
       single_rec_type(
@@ -1329,7 +1482,7 @@ test "default global optimization pre passes map unsubtyping mode to type mergin
   assert_eq(
     default_count_module_passes(passes, fn(pass) {
       match pass {
-        TypeMerging => true
+        Unsubtyping => true
         _ => false
       }
     }),
@@ -1343,7 +1496,7 @@ test "default global optimization pre passes map unsubtyping mode to type mergin
   })
   let unsubtyping_idx = default_first_module_pass_index(passes, fn(pass) {
     match pass {
-      TypeMerging => true
+      Unsubtyping => true
       _ => false
     }
   })
@@ -1638,6 +1791,9 @@ test "optimize scheduler classifies module pass context kinds" {
     ),
   )
   assert_true(assert_pass_context_kind(TypeGeneralizing, ModuleRunnerPass))
+  assert_true(assert_pass_context_kind(TypeFinalizing, ModuleRunnerPass))
+  assert_true(assert_pass_context_kind(TypeUnFinalizing, ModuleRunnerPass))
+  assert_true(assert_pass_context_kind(Unsubtyping, ModuleRunnerPass))
   assert_true(assert_pass_context_kind(TypeMerging, ModuleRunnerPass))
 }
 
@@ -1728,6 +1884,61 @@ test "optimize_module dispatches TypeGeneralizing through module-runner kind" {
 }
 
 ///|
+test "optimize_module dispatches TypeFinalizing through module-runner kind" {
+  assert_true(assert_pass_context_kind(TypeFinalizing, ModuleRunnerPass))
+  let mod = opt_scheduler_type_finalizing_dispatch_module()
+  let optimized = match optimize_module(mod, [TypeFinalizing]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.type_sec {
+    Some(
+      TypeSec(
+        [
+          SingleRecType(SubType(root_final, _, _)),
+          SingleRecType(SubType(child_final, _, _)),
+          ..,
+        ]
+      )
+    ) => {
+      assert_false(root_final)
+      assert_true(child_final)
+    }
+    _ => fail("expected TypeFinalizing to finalize private leaf types")
+  }
+}
+
+///|
+test "optimize_module dispatches TypeUnFinalizing through module-runner kind" {
+  assert_true(assert_pass_context_kind(TypeUnFinalizing, ModuleRunnerPass))
+  let mod = opt_scheduler_type_unfinalizing_dispatch_module()
+  let optimized = match optimize_module(mod, [TypeUnFinalizing]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.type_sec {
+    Some(TypeSec([SingleRecType(SubType(final_, _, _)), ..])) =>
+      assert_false(final_)
+    _ => fail("expected TypeUnFinalizing to open private final types")
+  }
+}
+
+///|
+test "optimize_module dispatches Unsubtyping through module-runner kind" {
+  assert_true(assert_pass_context_kind(Unsubtyping, ModuleRunnerPass))
+  let mod = opt_scheduler_unsubtyping_dispatch_module()
+  let optimized = match optimize_module(mod, [Unsubtyping]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.type_sec {
+    Some(TypeSec([_, _, SingleRecType(SubType(_, [TypeIdx(i)], _)), ..])) =>
+      assert_eq(i, 0U)
+    _ => fail("expected Unsubtyping to bypass unneeded intermediate supertypes")
+  }
+}
+
+///|
 test "optimize_module dispatches TypeMerging through module-runner kind" {
   assert_true(assert_pass_context_kind(TypeMerging, ModuleRunnerPass))
   let mod = opt_scheduler_type_merging_dispatch_module()
@@ -1813,6 +2024,62 @@ test "optimize_module dispatches closed-world vs open-world remove_unused modes"
   assert_eq(opt_scheduler_global_count(open_world), 0)
   assert_eq(opt_scheduler_func_count(open_world_legacy), 2)
   assert_eq(opt_scheduler_global_count(open_world_legacy), 0)
+}
+
+///|
+test "optimize_module keeps descriptor-target-only types through remove-unused scheduling with mixed typed and untyped inputs" {
+  let mod = opt_scheduler_descriptor_target_retention_module()
+  let after_remove_unused = match optimize_module(mod, [RemoveUnused]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module remove_unused error: \{e}")
+  }
+  match after_remove_unused.type_sec {
+    Some(TypeSec([SingleRecType(st0), SingleRecType(st1)])) => {
+      match st0.get_comptype() {
+        StructCompType(_) => ()
+        _ => fail("expected remapped descriptor target type to stay at index 0")
+      }
+      match st1.get_comptype() {
+        FuncCompType(_, _) => ()
+        _ =>
+          fail("expected function signature type to be remapped after struct")
+      }
+    }
+    Some(TypeSec(recs)) => assert_eq(recs.length(), 2)
+    None => fail("expected type section after RemoveUnused")
+  }
+  assert_eq(
+    opt_scheduler_count_descriptor_target_uses(after_remove_unused, 0U),
+    2,
+  )
+  assert_eq(
+    opt_scheduler_count_descriptor_target_uses(after_remove_unused, 1U),
+    0,
+  )
+  let optimized = match
+    optimize_module(mod, [RemoveUnused, RemoveUnusedTypes]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.type_sec {
+    Some(TypeSec(recs)) => assert_eq(recs.length(), 2)
+    None => fail("expected type section after remove-unused scheduling")
+  }
+  match optimized.func_sec {
+    Some(FuncSec([TypeIdx(main_ty), TypeIdx(helper_ty)])) => {
+      assert_eq(main_ty, 1U)
+      assert_eq(helper_ty, 1U)
+    }
+    _ => fail("expected function signature indices to be remapped")
+  }
+  assert_eq(opt_scheduler_count_descriptor_target_uses(optimized, 0U), 2)
+  match validate_module(optimized) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected remove-unused scheduler descriptor-target retention output to validate: \{e}",
+      )
+  }
 }
 
 ///|

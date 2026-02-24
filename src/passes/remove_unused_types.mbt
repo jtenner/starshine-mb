@@ -89,6 +89,22 @@ fn rut_mark_module_roots(mod : Module) -> Set[Int] {
       rut_mark_heaptype(roots, ht)
       unchanged()
     })
+    .on_tinstruction_evt(fn(self, _, instr) {
+      match instr {
+        TRefTestDesc(_, ht, _) | TRefCastDescEq(_, ht, _) =>
+          rut_mark_heaptype(roots, ht)
+        _ => ()
+      }
+      self.walk_tinstruction_default((), instr)
+    })
+    .on_instruction_evt(fn(self, _, instr) {
+      match instr {
+        RefTestDesc(_, ht) | RefCastDescEq(_, ht) =>
+          rut_mark_heaptype(roots, ht)
+        _ => ()
+      }
+      self.walk_instruction_default((), instr)
+    })
   match mod.import_sec {
     Some(sec) => ignore(walker.walk_importsec((), sec))
     None => ()

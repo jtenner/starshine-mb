@@ -1152,6 +1152,37 @@ fn run_gufa_module(
 }
 
 ///|
+fn gufa_descriptor_exact_subtype_fixture(use_cast_desc_eq : Bool) -> Module {
+  let top_ft = single_rec_type(sub_type(false, [], func_comp_type([], [])))
+  let sub_ft = single_rec_type(
+    sub_type(false, [TypeIdx::new(0)], func_comp_type([], [])),
+  )
+  let main_ft = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let probe = if use_cast_desc_eq {
+    TInstr::ref_cast_desc_eq(
+      false,
+      HeapType::new(TypeIdx::new(0)),
+      TInstr::ref_func(FuncIdx::new(1)),
+    )
+  } else {
+    TInstr::ref_test_desc(
+      false,
+      HeapType::new(TypeIdx::new(0)),
+      TInstr::ref_func(FuncIdx::new(1)),
+    )
+  }
+  Module::new()
+  .with_type_sec(TypeSec::new([top_ft, sub_ft, main_ft]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(2), TypeIdx::new(1)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func([], TExpr::new([TInstr::drop(probe)])),
+      Func::t_func([], TExpr::new([TInstr::nop()])),
+    ]),
+  )
+}
+
+///|
 test "gufa ref.eq of distinct ref.func values becomes const false" {
   let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
   let root = Func::t_func(
@@ -1302,6 +1333,52 @@ test "gufa impossible ref.cast_desc_eq becomes unreachable" {
       match seq[seq.length() - 1] {
         TUnreachable => ()
         _ => fail("expected impossible descriptor cast to become unreachable")
+      }
+    _ => fail("expected transformed function body")
+  }
+}
+
+///|
+test "gufa keeps exact ref.test_desc when source is a strict subtype" {
+  let mod = gufa_descriptor_exact_subtype_fixture(false)
+  let optimized = match run_gufa_module(mod) {
+    Ok(m) => m
+    Err(e) => fail("unexpected gufa error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TDrop(instr)])), _])) =>
+      match instr {
+        TRefTestDesc(false, HeapType(TypeIdx(i)), TRefFunc(FuncIdx(f))) => {
+          assert_eq(i.reinterpret_as_int(), 0)
+          assert_eq(f.reinterpret_as_int(), 1)
+        }
+        _ =>
+          fail(
+            "expected strict-subtype descriptor test to remain a runtime exact check",
+          )
+      }
+    _ => fail("expected transformed function body")
+  }
+}
+
+///|
+test "gufa keeps exact ref.cast_desc_eq when source is a strict subtype" {
+  let mod = gufa_descriptor_exact_subtype_fixture(true)
+  let optimized = match run_gufa_module(mod) {
+    Ok(m) => m
+    Err(e) => fail("unexpected gufa error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([TFunc(_, TExpr([TDrop(instr)])), _])) =>
+      match instr {
+        TRefCastDescEq(false, HeapType(TypeIdx(i)), TRefFunc(FuncIdx(f))) => {
+          assert_eq(i.reinterpret_as_int(), 0)
+          assert_eq(f.reinterpret_as_int(), 1)
+        }
+        _ =>
+          fail(
+            "expected strict-subtype descriptor cast to remain a runtime exact check",
+          )
       }
     _ => fail("expected transformed function body")
   }

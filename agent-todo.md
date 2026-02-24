@@ -27,6 +27,7 @@
 
 ## Low Hanging Fruit
 
+- [x] Add `RemoveUnused` descriptor-op coverage (`ref.get_desc`, `ref.test_desc`, `ref.cast_desc_eq`) across both `Instruction` and `TInstr`, including regression tests.
 - [x] Add scheduler-level regression coverage for `default_global_optimization_pre_passes` to assert `AbstractTypeRefiningPassProps.traps_never_happen` is sourced from `OptimizeOptions`.
 - [x] Extend `to_texpr` multi-value return-recovery tests for typed `loop` and `try_table` producers.
 - [x] Add preset expansion semantics and tests proving optimize presets run before explicitly listed pass flags.
@@ -40,6 +41,8 @@
 
 ### Correctness and Regressions
 
+- [x] Audit exactness handling of descriptor ops in `passes/heap2local.mbt` and `passes/gufa.mbt`; `heap2local` now enforces exact descriptor matching and `gufa` has regression guards to prevent subtype-based folding for exact descriptor ops.
+- [ ] Audit `remove_unused_with_props` section-filter callbacks (`type_sec`, `import_sec`, `global_sec`, `elem_sec`, `data_sec`) to ensure nested index remaps are still applied after filtering, with targeted regression tests.
 - [ ] Fix JS failure in `ir/ssa_optimize_tests.mbt:428` (`eval_ssa_unary i64 trunc_f32 handles values beyond i32 width`).
 - [ ] Fix JS failure in `ir/ssa_optimize_tests.mbt:492` (`eval_ssa_unary float-to-int trunc bound and trap parity checks`).
 - [ ] Fix JS failure in `passes/de_nan.mbt:1597` (`is_f32_nan correctly identifies NaN`).
@@ -76,11 +79,20 @@
 - [x] Add handler-bearing ATR fixture variants that use typed tag catches (`Catch::new` / `Catch::ref_`) with non-empty payload signatures, validating rewrite stability under typed exception parameters.
 - [x] Add a targeted regression test for exact `ref_cast` rewrites under `drop` contexts in traps-never-happen mode (either preserving validator-clean lowering or documenting unsupported shape explicitly).
 - [ ] Align `try_table` catch label lookup with depth-based `Env::get_label_types(...)` semantics (currently direct index access), and add regression tests to pin catch-vs-branch label index parity.
+- [ ] Add a dedicated `Env` helper for catch-label type lookup and migrate both validator/typecheck and pass consumers to it (remove duplicated ad-hoc index conversion logic).
 
 ### Binaryen Pass Parity (High)
 
-- [ ] `TypeFinalizing`
-- [ ] `Unsubtyping`
+- [x] `TypeFinalizing`
+- [x] `Unsubtyping`
+- [x] Extend `Unsubtyping` subtype-constraint discovery to cover branch/label flow constraints (`br`, `br_if`, `br_table`, typed `block/loop/if` joins) with focused regression tests.
+- [x] Add `Unsubtyping` trap-mode parity fixtures for `call_indirect` / `return_call_indirect` to lock in `traps_never_happen` behavior against Binaryen expectations.
+- [x] Add descriptor-edge parity for exact descriptor ops by preserving required subtype constraints in `Unsubtyping` (typed + untyped `ref.test_desc` / `ref.cast_desc_eq` fixtures).
+- [x] Extend `Unsubtyping` control-flow subtype discovery to `try_table` catch bodies and catch-target label flows, with parity fixtures.
+- [x] Add `Unsubtyping` regression coverage for implicit function-label branch flows (`br` / `br_if` targeting outermost function label).
+- [x] Generalize `Unsubtyping` typed-join subtype discovery beyond single-result joins (multi-value `block` / `loop` / `if`).
+- [ ] Add `Unsubtyping` parity fixtures for `try_table` `Catch::ref_` / `Catch::all_ref` flows to pin payload+`exnref` handling and prevent regressions.
+- [x] Add `RemoveUnused` pipeline-level regression (through `optimize_module` scheduling) proving descriptor-target-only types survive remapping in mixed typed/untyped function bodies.
 - [ ] `GlobalEffects`
 - [ ] `Poppify`
 - [ ] `ReReloop`

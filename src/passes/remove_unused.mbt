@@ -968,7 +968,11 @@ fn scan_tinstr(ctx : AnalysisContext, instr : TInstr) -> Unit {
 
     // Ref types
     TRefNull(ht) => mark_heaptype(ctx, ht)
-    TRefCast(_, ht, arg) | TRefTest(_, ht, arg) => {
+    TRefGetDesc(arg) => scan_tinstr(ctx, arg)
+    TRefCast(_, ht, arg)
+    | TRefTest(_, ht, arg)
+    | TRefTestDesc(_, ht, arg)
+    | TRefCastDescEq(_, ht, arg) => {
       mark_heaptype(ctx, ht)
       scan_tinstr(ctx, arg)
     }
@@ -1175,7 +1179,11 @@ fn scan_instr(ctx : AnalysisContext, instr : Instruction) -> Unit {
       mark_type(ctx, type_idx2)
     }
     RefNull(ht) => mark_heaptype(ctx, ht)
-    RefCast(_, ht) | RefTest(_, ht) => mark_heaptype(ctx, ht)
+    RefGetDesc => ()
+    RefCast(_, ht)
+    | RefTest(_, ht)
+    | RefTestDesc(_, ht)
+    | RefCastDescEq(_, ht) => mark_heaptype(ctx, ht)
     BrOnCast(_, _, ht1, ht2) | BrOnCastFail(_, _, ht1, ht2) => {
       mark_heaptype(ctx, ht1)
       mark_heaptype(ctx, ht2)
@@ -1664,7 +1672,7 @@ fn remove_unused_with_props(
     })
     // Filter code section
     .on_codesec_evt(fn(
-      _t : ModuleTransformer[DCEState],
+      self : ModuleTransformer[DCEState],
       s : DCEState,
       code_sec : CodeSec,
     ) {
@@ -1680,7 +1688,17 @@ fn remove_unused_with_props(
           }
         }
       }
-      change(s, CodeSec::new(new_funcs))
+      let filtered = CodeSec::new(new_funcs)
+      match self.walk_codesec_default(s, filtered) {
+        Ok(Some((next_s, remapped))) => change(next_s, remapped)
+        Ok(None) =>
+          if filtered == code_sec {
+            unchanged()
+          } else {
+            change(s, filtered)
+          }
+        Err(e) => Err(e)
+      }
     })
     // Filter table section
     .on_tablesec_evt(fn(
@@ -1920,6 +1938,12 @@ fn make_i32_to_i32_func_type() -> RecType {
   RecType::new(
     SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
   )
+}
+
+///|
+/// Creates an empty struct type.
+fn make_empty_struct_type() -> RecType {
+  RecType::new(SubType::comp_type(CompType::struct_([])))
 }
 
 ///|
@@ -2510,6 +2534,246 @@ test "struct type kept when used" {
     Ok(new_mod) =>
       // Both types should be kept
       assert_eq(new_mod.type_sec.unwrap().0.length(), 2)
+    Err(e) => fail("unexpected error: \{e}")
+  }
+}
+
+// ============================================================================
+// Descriptor Instruction Tests
+// ============================================================================
+
+///|
+test "typed ref.get_desc keeps referenced global alive" {
+  let type_sec = TypeSec::new([make_empty_struct_type(), make_void_func_type()])
+  let func_sec = FuncSec::new([TypeIdx::new(1)])
+  let global_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let global_sec = GlobalSec::new([
+    Global::new(
+      GlobalType::new(global_ref, false),
+      Expr::new([Instruction::ref_null(HeapType::new(TypeIdx::new(0)))]),
+    ),
+  ])
+  let code_sec = CodeSec::new([
+    Func::t_func(
+      [],
+      TExpr::new([
+        TInstr::drop(
+          TInstr::ref_get_desc(
+            TInstr::ref_as_non_null(TInstr::global_get(GlobalIdx::new(0))),
+          ),
+        ),
+        TInstr::return_([]),
+      ]),
+    ),
+  ])
+  let export_sec = ExportSec::new([
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
+  ])
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(func_sec)
+    .with_global_sec(global_sec)
+    .with_code_sec(code_sec)
+    .with_export_sec(export_sec)
+  let result = remove_unused(mod)
+  match result {
+    Ok(new_mod) => {
+      assert_true(new_mod.global_sec is Some(_))
+      assert_eq(new_mod.global_sec.unwrap().0.length(), 1)
+      match validate_module(new_mod) {
+        Ok(_) => ()
+        Err(e) => fail("expected descriptor get module to validate: \{e}")
+      }
+    }
+    Err(e) => fail("unexpected error: \{e}")
+  }
+}
+
+///|
+test "untyped ref.get_desc path remains valid" {
+  let type_sec = TypeSec::new([make_empty_struct_type(), make_void_func_type()])
+  let func_sec = FuncSec::new([TypeIdx::new(1)])
+  let code_sec = CodeSec::new([
+    Func::new(
+      [],
+      Expr::new([
+        Instruction::ref_null(HeapType::new(TypeIdx::new(0))),
+        Instruction::ref_as_non_null(),
+        Instruction::ref_get_desc(),
+        Instruction::drop(),
+      ]),
+    ),
+  ])
+  let export_sec = ExportSec::new([
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
+  ])
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(func_sec)
+    .with_code_sec(code_sec)
+    .with_export_sec(export_sec)
+  let result = remove_unused(mod)
+  match result {
+    Ok(new_mod) =>
+      match validate_module(new_mod) {
+        Ok(_) => ()
+        Err(e) =>
+          fail("expected untyped descriptor get module to validate: \{e}")
+      }
+    Err(e) => fail("unexpected error: \{e}")
+  }
+}
+
+///|
+test "typed ref.test_desc keeps target type alive" {
+  let type_sec = TypeSec::new([make_empty_struct_type(), make_void_func_type()])
+  let func_sec = FuncSec::new([TypeIdx::new(1)])
+  let code_sec = CodeSec::new([
+    Func::t_func(
+      [ValType::anyref()],
+      TExpr::new([
+        TInstr::drop(
+          TInstr::ref_test_desc(
+            true,
+            HeapType::new(TypeIdx::new(0)),
+            TInstr::local_get(LocalIdx::new(0)),
+          ),
+        ),
+        TInstr::return_([]),
+      ]),
+    ),
+  ])
+  let export_sec = ExportSec::new([
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
+  ])
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(func_sec)
+    .with_code_sec(code_sec)
+    .with_export_sec(export_sec)
+  let result = remove_unused(mod)
+  match result {
+    Ok(new_mod) => {
+      assert_eq(new_mod.type_sec.unwrap().0.length(), 2)
+      match validate_module(new_mod) {
+        Ok(_) => ()
+        Err(e) => fail("expected descriptor test module to validate: \{e}")
+      }
+    }
+    Err(e) => fail("unexpected error: \{e}")
+  }
+}
+
+///|
+test "typed ref.cast_desc_eq keeps target type alive" {
+  let type_sec = TypeSec::new([make_empty_struct_type(), make_void_func_type()])
+  let func_sec = FuncSec::new([TypeIdx::new(1)])
+  let code_sec = CodeSec::new([
+    Func::t_func(
+      [ValType::anyref()],
+      TExpr::new([
+        TInstr::drop(
+          TInstr::ref_cast_desc_eq(
+            true,
+            HeapType::new(TypeIdx::new(0)),
+            TInstr::local_get(LocalIdx::new(0)),
+          ),
+        ),
+        TInstr::return_([]),
+      ]),
+    ),
+  ])
+  let export_sec = ExportSec::new([
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
+  ])
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(func_sec)
+    .with_code_sec(code_sec)
+    .with_export_sec(export_sec)
+  let result = remove_unused(mod)
+  match result {
+    Ok(new_mod) => {
+      assert_eq(new_mod.type_sec.unwrap().0.length(), 2)
+      match validate_module(new_mod) {
+        Ok(_) => ()
+        Err(e) => fail("expected descriptor cast module to validate: \{e}")
+      }
+    }
+    Err(e) => fail("unexpected error: \{e}")
+  }
+}
+
+///|
+test "untyped ref.test_desc keeps target type alive" {
+  let type_sec = TypeSec::new([make_empty_struct_type(), make_void_func_type()])
+  let func_sec = FuncSec::new([TypeIdx::new(1)])
+  let code_sec = CodeSec::new([
+    Func::new(
+      [],
+      Expr::new([
+        Instruction::ref_null(HeapType::abs(AbsHeapType::any())),
+        Instruction::ref_test_desc(true, HeapType::new(TypeIdx::new(0))),
+        Instruction::drop(),
+      ]),
+    ),
+  ])
+  let export_sec = ExportSec::new([
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
+  ])
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(func_sec)
+    .with_code_sec(code_sec)
+    .with_export_sec(export_sec)
+  let result = remove_unused(mod)
+  match result {
+    Ok(new_mod) => {
+      assert_eq(new_mod.type_sec.unwrap().0.length(), 2)
+      match validate_module(new_mod) {
+        Ok(_) => ()
+        Err(e) =>
+          fail("expected untyped descriptor test module to validate: \{e}")
+      }
+    }
+    Err(e) => fail("unexpected error: \{e}")
+  }
+}
+
+///|
+test "untyped ref.cast_desc_eq keeps target type alive" {
+  let type_sec = TypeSec::new([make_empty_struct_type(), make_void_func_type()])
+  let func_sec = FuncSec::new([TypeIdx::new(1)])
+  let code_sec = CodeSec::new([
+    Func::new(
+      [],
+      Expr::new([
+        Instruction::ref_null(HeapType::abs(AbsHeapType::any())),
+        Instruction::ref_cast_desc_eq(true, HeapType::new(TypeIdx::new(0))),
+        Instruction::drop(),
+      ]),
+    ),
+  ])
+  let export_sec = ExportSec::new([
+    Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
+  ])
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(func_sec)
+    .with_code_sec(code_sec)
+    .with_export_sec(export_sec)
+  let result = remove_unused(mod)
+  match result {
+    Ok(new_mod) => {
+      assert_eq(new_mod.type_sec.unwrap().0.length(), 2)
+      match validate_module(new_mod) {
+        Ok(_) => ()
+        Err(e) =>
+          fail("expected untyped descriptor cast module to validate: \{e}")
+      }
+    }
     Err(e) => fail("unexpected error: \{e}")
   }
 }
