@@ -9,7 +9,7 @@ import {
 // Values
 pub fn run_cmd(Array[String]) -> Result[CmdRunSummary, CmdError]
 
-pub fn run_cmd_with_adapter(Array[String], CmdIO) -> Result[CmdRunSummary, CmdError]
+pub fn run_cmd_with_adapter(Array[String], CmdIO, config_json? : String?) -> Result[CmdRunSummary, CmdError]
 
 // Errors
 
@@ -53,8 +53,11 @@ pub struct CmdRunSummary {
   optimize_level : Int
   shrink_level : Int
   traps_never_happen : Bool
+  monomorphize_min_benefit : Int
+  low_memory_unused : Bool
+  low_memory_bound : UInt64
 }
-pub fn CmdRunSummary::new(input_files? : Array[String], output_files? : Array[String], resolved_passes? : Array[String], optimize_level? : Int, shrink_level? : Int, traps_never_happen? : Bool) -> Self
+pub fn CmdRunSummary::new(input_files? : Array[String], output_files? : Array[String], resolved_passes? : Array[String], optimize_level? : Int, shrink_level? : Int, traps_never_happen? : Bool, monomorphize_min_benefit? : Int, low_memory_unused? : Bool, low_memory_bound? : UInt64) -> Self
 pub impl Eq for CmdRunSummary
 pub impl Show for CmdRunSummary
 pub impl @debug.Debug for CmdRunSummary

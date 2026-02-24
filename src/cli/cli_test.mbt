@@ -139,6 +139,7 @@ test "parse_cli_args rejects invalid long flag spelling" {
 ///|
 test "parse_cli_args parses optimize presets and -O flags" {
   let parsed = parse_ok(["--optimize", "--shrink", "-O3z", "-O0"])
+  assert_eq(parsed.pass_flags, ["optimize", "shrink"])
   assert_eq(parsed.optimize_flags, [
     CliOptimizationFlag::optimize(),
     CliOptimizationFlag::shrink(),
@@ -189,12 +190,12 @@ test "resolve_traps_never_happen applies trap-mode overrides with last flag winn
 }
 
 ///|
-test "resolve_pass_flags expands optimize presets before explicit pass flags" {
+test "resolve_pass_flags preserves cli token order for presets and explicit passes" {
   let parsed = parse_ok([
     "--validate", "--code-folding", "--optimize", "--shrink", "--vacuum",
   ])
   assert_eq(resolve_pass_flags(parsed), [
-    "optimize", "shrink", "validate", "code-folding", "vacuum",
+    "validate", "code-folding", "optimize", "shrink", "vacuum",
   ])
 }
 
@@ -208,6 +209,36 @@ test "resolve_pass_flags keeps explicit pass order when no presets are set" {
 test "resolve_pass_flags ignores -O level flags for preset pass expansion" {
   let parsed = parse_ok(["-O3z", "--flatten"])
   assert_eq(resolve_pass_flags(parsed), ["flatten"])
+}
+
+///|
+test "resolve_pass_flags preserves duplicate pass scheduling from repeated flags" {
+  let parsed = parse_ok([
+    "--vacuum", "--optimize", "--vacuum", "--shrink", "--vacuum",
+  ])
+  assert_eq(resolve_pass_flags(parsed), [
+    "vacuum", "optimize", "vacuum", "shrink", "vacuum",
+  ])
+}
+
+///|
+test "parse_cli_args accepts named optimize and shrink level flags" {
+  let parsed = parse_ok(["--optimize-level", "4", "--shrink-level=2"])
+  assert_eq(parsed.optimize_flags, [
+    CliOptimizationFlag::olevel(4, false),
+    CliOptimizationFlag::olevel(2, true),
+  ])
+}
+
+///|
+test "parse_cli_args accepts named optimization option flags" {
+  let parsed = parse_ok([
+    "--monomorphize-min-benefit", "9", "--low-memory-unused", "--low-memory-bound",
+    "2048", "--no-low-memory-unused",
+  ])
+  assert_eq(parsed.monomorphize_min_benefit, Some(9))
+  assert_eq(parsed.low_memory_bound, Some(2048UL))
+  assert_eq(parsed.low_memory_unused, Some(false))
 }
 
 ///|
@@ -264,4 +295,5 @@ test "cli_config_schema_json exposes public schema fields" {
   assert_true(schema.contains("\"passes\""))
   assert_true(schema.contains("\"format\""))
   assert_true(schema.contains("\"trapMode\""))
+  assert_true(schema.contains("\"trapsNeverHappen\""))
 }

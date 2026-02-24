@@ -148,6 +148,9 @@ pub struct CliParseResult {
   pass_flags : Array[String]
   optimize_flags : Array[CliOptimizationFlag]
   mut trap_mode : TrapMode?
+  mut monomorphize_min_benefit : Int?
+  mut low_memory_unused : Bool?
+  mut low_memory_bound : UInt64?
 } derive(Eq, Show, Debug)
 
 ///|
@@ -160,6 +163,9 @@ pub fn CliParseResult::new(
   pass_flags? : Array[String] = [],
   optimize_flags? : Array[CliOptimizationFlag] = [],
   trap_mode? : TrapMode? = None,
+  monomorphize_min_benefit? : Int? = None,
+  low_memory_unused? : Bool? = None,
+  low_memory_bound? : UInt64? = None,
 ) -> CliParseResult {
   {
     config_path,
@@ -170,6 +176,9 @@ pub fn CliParseResult::new(
     pass_flags,
     optimize_flags,
     trap_mode,
+    monomorphize_min_benefit,
+    low_memory_unused,
+    low_memory_bound,
   }
 }
 
@@ -316,6 +325,22 @@ fn parse_opt_level_flag(
 }
 
 ///|
+fn parse_non_negative_decimal(raw : String) -> Int? {
+  let text = raw.trim().to_string()
+  if text.length() == 0 {
+    return None
+  }
+  let mut value = 0
+  for c in text {
+    if c < '0' || c > '9' {
+      return None
+    }
+    value = value * 10 + (c.to_int() - '0'.to_int())
+  }
+  Some(value)
+}
+
+///|
 fn parse_short_option_cluster(
   args : Array[String],
   index : Int,
@@ -445,6 +470,12 @@ pub fn cli_config_schema_json() -> String {
     #|    "preset": "optimize",
     #|    "olevel": "O2",
     #|    "trapMode": "allow"
+    #|  },
+    #|  "options": {
+    #|    "trapsNeverHappen": false,
+    #|    "monomorphizeMinBenefit": 5,
+    #|    "lowMemoryUnused": false,
+    #|    "lowMemoryBound": 1024
     #|  }
     #|}
   schema
@@ -575,6 +606,7 @@ pub fn parse_cli_args(
               return Err(CliParseError::unexpected_flag_value("--optimize"))
             }
             parsed.optimize_flags.push(CliOptimizationFlag::optimize())
+            parsed.pass_flags.push("optimize")
             index += 1
           }
           "shrink" => {
@@ -582,7 +614,142 @@ pub fn parse_cli_args(
               return Err(CliParseError::unexpected_flag_value("--shrink"))
             }
             parsed.optimize_flags.push(CliOptimizationFlag::shrink())
+            parsed.pass_flags.push("shrink")
             index += 1
+          }
+          "optimize-level" => {
+            let (value, consumed_next) = match inline_value {
+              Some(v) if v.length() > 0 => (v, false)
+              Some(_) =>
+                return Err(
+                  CliParseError::missing_flag_value("--optimize-level"),
+                )
+              None =>
+                if index + 1 < args.length() &&
+                  !looks_like_option_token(args[index + 1]) {
+                  (args[index + 1], true)
+                } else {
+                  return Err(
+                    CliParseError::missing_flag_value("--optimize-level"),
+                  )
+                }
+            }
+            match parse_non_negative_decimal(value) {
+              Some(level) =>
+                parsed.optimize_flags.push(
+                  CliOptimizationFlag::olevel(level, false),
+                )
+              None =>
+                return Err(
+                  CliParseError::invalid_optimization_flag("--optimize-level"),
+                )
+            }
+            index += if consumed_next { 2 } else { 1 }
+          }
+          "shrink-level" => {
+            let (value, consumed_next) = match inline_value {
+              Some(v) if v.length() > 0 => (v, false)
+              Some(_) =>
+                return Err(CliParseError::missing_flag_value("--shrink-level"))
+              None =>
+                if index + 1 < args.length() &&
+                  !looks_like_option_token(args[index + 1]) {
+                  (args[index + 1], true)
+                } else {
+                  return Err(
+                    CliParseError::missing_flag_value("--shrink-level"),
+                  )
+                }
+            }
+            match parse_non_negative_decimal(value) {
+              Some(level) =>
+                parsed.optimize_flags.push(
+                  CliOptimizationFlag::olevel(level, true),
+                )
+              None =>
+                return Err(
+                  CliParseError::invalid_optimization_flag("--shrink-level"),
+                )
+            }
+            index += if consumed_next { 2 } else { 1 }
+          }
+          "monomorphize-min-benefit" => {
+            let (value, consumed_next) = match inline_value {
+              Some(v) if v.length() > 0 => (v, false)
+              Some(_) =>
+                return Err(
+                  CliParseError::missing_flag_value(
+                    "--monomorphize-min-benefit",
+                  ),
+                )
+              None =>
+                if index + 1 < args.length() &&
+                  !looks_like_option_token(args[index + 1]) {
+                  (args[index + 1], true)
+                } else {
+                  return Err(
+                    CliParseError::missing_flag_value(
+                      "--monomorphize-min-benefit",
+                    ),
+                  )
+                }
+            }
+            match parse_non_negative_decimal(value) {
+              Some(parsed_value) =>
+                parsed.monomorphize_min_benefit = Some(parsed_value)
+              None =>
+                return Err(
+                  CliParseError::invalid_optimization_flag(
+                    "--monomorphize-min-benefit",
+                  ),
+                )
+            }
+            index += if consumed_next { 2 } else { 1 }
+          }
+          "low-memory-unused" => {
+            if inline_value is Some(_) {
+              return Err(
+                CliParseError::unexpected_flag_value("--low-memory-unused"),
+              )
+            }
+            parsed.low_memory_unused = Some(true)
+            index += 1
+          }
+          "no-low-memory-unused" => {
+            if inline_value is Some(_) {
+              return Err(
+                CliParseError::unexpected_flag_value("--no-low-memory-unused"),
+              )
+            }
+            parsed.low_memory_unused = Some(false)
+            index += 1
+          }
+          "low-memory-bound" => {
+            let (value, consumed_next) = match inline_value {
+              Some(v) if v.length() > 0 => (v, false)
+              Some(_) =>
+                return Err(
+                  CliParseError::missing_flag_value("--low-memory-bound"),
+                )
+              None =>
+                if index + 1 < args.length() &&
+                  !looks_like_option_token(args[index + 1]) {
+                  (args[index + 1], true)
+                } else {
+                  return Err(
+                    CliParseError::missing_flag_value("--low-memory-bound"),
+                  )
+                }
+            }
+            match parse_non_negative_decimal(value) {
+              Some(parsed_value) =>
+                parsed.low_memory_bound = Some(parsed_value.to_uint64())
+              None =>
+                return Err(
+                  CliParseError::invalid_optimization_flag("--low-memory-bound"),
+                )
+            }
+            index += if consumed_next { 2 } else { 1 }
           }
           "trap-mode" => {
             let (value, consumed_next) = match inline_value {
@@ -657,13 +824,6 @@ pub fn parse_cli_args(
 ///|
 pub fn resolve_pass_flags(parsed : CliParseResult) -> Array[String] {
   let resolved = Array::new()
-  for flag in parsed.optimize_flags {
-    match flag {
-      OptimizePreset => resolved.push("optimize")
-      ShrinkPreset => resolved.push("shrink")
-      OLevel(_, _) => ()
-    }
-  }
   for flag in parsed.pass_flags {
     resolved.push(flag)
   }

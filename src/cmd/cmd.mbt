@@ -75,6 +75,9 @@ pub struct CmdRunSummary {
   optimize_level : Int
   shrink_level : Int
   traps_never_happen : Bool
+  monomorphize_min_benefit : Int
+  low_memory_unused : Bool
+  low_memory_bound : UInt64
 } derive(Eq, Show, Debug)
 
 ///|
@@ -85,6 +88,9 @@ pub fn CmdRunSummary::new(
   optimize_level? : Int = 0,
   shrink_level? : Int = 0,
   traps_never_happen? : Bool = false,
+  monomorphize_min_benefit? : Int = 5,
+  low_memory_unused? : Bool = false,
+  low_memory_bound? : UInt64 = 1024UL,
 ) -> CmdRunSummary {
   {
     input_files,
@@ -93,6 +99,9 @@ pub fn CmdRunSummary::new(
     optimize_level,
     shrink_level,
     traps_never_happen,
+    monomorphize_min_benefit,
+    low_memory_unused,
+    low_memory_bound,
   }
 }
 
@@ -279,6 +288,48 @@ fn parse_pass_list(raw : String) -> Array[String] {
 }
 
 ///|
+fn parse_non_negative_decimal(raw : String) -> Int? {
+  let text = raw.trim().to_string()
+  if text.length() == 0 {
+    return None
+  }
+  let mut value = 0
+  for c in text {
+    if c < '0' || c > '9' {
+      return None
+    }
+    value = value * 10 + (c.to_int() - '0'.to_int())
+  }
+  Some(value)
+}
+
+///|
+fn parse_json_non_negative_int(value : Json) -> Int? {
+  match value {
+    Number(n, ..) => {
+      let int_value = n.to_int()
+      if int_value < 0 || int_value.to_double() != n {
+        None
+      } else {
+        Some(int_value)
+      }
+    }
+    String(raw) => parse_non_negative_decimal(raw)
+    _ => None
+  }
+}
+
+///|
+fn parse_json_bool(value : Json) -> Bool? {
+  match value {
+    True => Some(true)
+    False => Some(false)
+    String(raw) => parse_bool_string(raw)
+    _ => None
+  }
+}
+
+///|
 fn parse_config_json(text : String) -> Result[CliParseResult, CmdError] {
   let root = parse(text) catch {
     e => return Err(CmdError::InvalidConfig("invalid config json: \{e}"))
@@ -290,6 +341,9 @@ fn parse_config_json(text : String) -> Result[CliParseResult, CmdError] {
   let pass_flags : Array[String] = []
   let optimize_flags : Array[CliOptimizationFlag] = []
   let mut trap_mode : TrapMode? = None
+  let mut monomorphize_min_benefit : Int? = None
+  let mut low_memory_unused : Bool? = None
+  let mut low_memory_bound : UInt64? = None
   let root_obj = match root {
     Object(obj) => obj
     _ => return Err(CmdError::InvalidConfig("config root must be an object"))
@@ -387,6 +441,12 @@ fn parse_config_json(text : String) -> Result[CliParseResult, CmdError] {
             let trimmed = ascii_lower(raw.trim().to_string())
             if trimmed.length() > 0 {
               pass_flags.push(trimmed)
+              match trimmed {
+                "optimize" =>
+                  optimize_flags.push(CliOptimizationFlag::optimize())
+                "shrink" => optimize_flags.push(CliOptimizationFlag::shrink())
+                _ => ()
+              }
             }
           }
           _ => ()
@@ -400,19 +460,48 @@ fn parse_config_json(text : String) -> Result[CliParseResult, CmdError] {
       match optimize.get("preset") {
         Some(String(raw)) =>
           match ascii_lower(raw.trim().to_string()) {
-            "optimize" => optimize_flags.push(CliOptimizationFlag::optimize())
-            "shrink" => optimize_flags.push(CliOptimizationFlag::shrink())
+            "optimize" => {
+              pass_flags.push("optimize")
+              optimize_flags.push(CliOptimizationFlag::optimize())
+            }
+            "shrink" => {
+              pass_flags.push("shrink")
+              optimize_flags.push(CliOptimizationFlag::shrink())
+            }
             _ => ()
           }
         _ => ()
       }
-      match optimize.get("olevel") {
+      let olevel_value = match optimize.get("olevel") {
+        Some(v) => Some(v)
+        None => optimize.get("optimizeLevel")
+      }
+      match olevel_value {
         Some(String(raw)) =>
           match parse_olevel_text(raw) {
             Some(flag) => optimize_flags.push(flag)
             None => ()
           }
+        Some(value) =>
+          match parse_json_non_negative_int(value) {
+            Some(level) =>
+              optimize_flags.push(CliOptimizationFlag::olevel(level, false))
+            None => ()
+          }
         _ => ()
+      }
+      let shrink_level_value = match optimize.get("shrinkLevel") {
+        Some(v) => Some(v)
+        None => optimize.get("shrink-level")
+      }
+      match shrink_level_value {
+        Some(value) =>
+          match parse_json_non_negative_int(value) {
+            Some(level) =>
+              optimize_flags.push(CliOptimizationFlag::olevel(level, true))
+            None => ()
+          }
+        None => ()
       }
       let trap_value = match optimize.get("trapMode") {
         Some(v) => Some(v)
@@ -429,6 +518,87 @@ fn parse_config_json(text : String) -> Result[CliParseResult, CmdError] {
     }
     _ => ()
   }
+  match root_obj.get("options") {
+    Some(Object(options)) => {
+      let traps_value = match options.get("trapsNeverHappen") {
+        Some(v) => Some(v)
+        None => options.get("traps-never-happen")
+      }
+      match traps_value {
+        Some(value) =>
+          match parse_json_bool(value) {
+            Some(true) => trap_mode = Some(TrapMode::never())
+            Some(false) => trap_mode = Some(TrapMode::allow())
+            None => ()
+          }
+        None => ()
+      }
+      let optimize_level_value = match options.get("optimizeLevel") {
+        Some(v) => Some(v)
+        None => options.get("optimize-level")
+      }
+      match optimize_level_value {
+        Some(value) =>
+          match parse_json_non_negative_int(value) {
+            Some(level) =>
+              optimize_flags.push(CliOptimizationFlag::olevel(level, false))
+            None => ()
+          }
+        None => ()
+      }
+      let shrink_level_value = match options.get("shrinkLevel") {
+        Some(v) => Some(v)
+        None => options.get("shrink-level")
+      }
+      match shrink_level_value {
+        Some(value) =>
+          match parse_json_non_negative_int(value) {
+            Some(level) =>
+              optimize_flags.push(CliOptimizationFlag::olevel(level, true))
+            None => ()
+          }
+        None => ()
+      }
+      let monomorphize_value = match options.get("monomorphizeMinBenefit") {
+        Some(v) => Some(v)
+        None => options.get("monomorphize-min-benefit")
+      }
+      match monomorphize_value {
+        Some(value) =>
+          match parse_json_non_negative_int(value) {
+            Some(parsed_value) => monomorphize_min_benefit = Some(parsed_value)
+            None => ()
+          }
+        None => ()
+      }
+      let low_memory_unused_value = match options.get("lowMemoryUnused") {
+        Some(v) => Some(v)
+        None => options.get("low-memory-unused")
+      }
+      match low_memory_unused_value {
+        Some(value) =>
+          match parse_json_bool(value) {
+            Some(parsed_value) => low_memory_unused = Some(parsed_value)
+            None => ()
+          }
+        None => ()
+      }
+      let low_memory_bound_value = match options.get("lowMemoryBound") {
+        Some(v) => Some(v)
+        None => options.get("low-memory-bound")
+      }
+      match low_memory_bound_value {
+        Some(value) =>
+          match parse_json_non_negative_int(value) {
+            Some(parsed_value) =>
+              low_memory_bound = Some(parsed_value.to_uint64())
+            None => ()
+          }
+        None => ()
+      }
+    }
+    _ => ()
+  }
   Ok(
     CliParseResult::new(
       input_globs~,
@@ -438,6 +608,9 @@ fn parse_config_json(text : String) -> Result[CliParseResult, CmdError] {
       pass_flags~,
       optimize_flags~,
       trap_mode~,
+      monomorphize_min_benefit~,
+      low_memory_unused~,
+      low_memory_bound~,
     ),
   )
 }
@@ -449,6 +622,9 @@ fn parse_env_overlay(io : CmdIO) -> CliParseResult {
   let pass_flags : Array[String] = []
   let optimize_flags : Array[CliOptimizationFlag] = []
   let mut trap_mode : TrapMode? = None
+  let mut monomorphize_min_benefit : Int? = None
+  let mut low_memory_unused : Bool? = None
+  let mut low_memory_bound : UInt64? = None
 
   match (io.get_env)("STARSHINE_FORMAT") {
     Some(raw) =>
@@ -513,8 +689,14 @@ fn parse_env_overlay(io : CmdIO) -> CliParseResult {
     Some(raw) =>
       for part in parse_pass_list(raw) {
         match part {
-          "optimize" => optimize_flags.push(CliOptimizationFlag::optimize())
-          "shrink" => optimize_flags.push(CliOptimizationFlag::shrink())
+          "optimize" => {
+            pass_flags.push("optimize")
+            optimize_flags.push(CliOptimizationFlag::optimize())
+          }
+          "shrink" => {
+            pass_flags.push("shrink")
+            optimize_flags.push(CliOptimizationFlag::shrink())
+          }
           _ => ()
         }
       }
@@ -524,8 +706,14 @@ fn parse_env_overlay(io : CmdIO) -> CliParseResult {
     Some(raw) =>
       for part in parse_pass_list(raw) {
         match part {
-          "optimize" => optimize_flags.push(CliOptimizationFlag::optimize())
-          "shrink" => optimize_flags.push(CliOptimizationFlag::shrink())
+          "optimize" => {
+            pass_flags.push("optimize")
+            optimize_flags.push(CliOptimizationFlag::optimize())
+          }
+          "shrink" => {
+            pass_flags.push("shrink")
+            optimize_flags.push(CliOptimizationFlag::shrink())
+          }
           _ => ()
         }
       }
@@ -539,12 +727,39 @@ fn parse_env_overlay(io : CmdIO) -> CliParseResult {
       }
     None => ()
   }
+  match (io.get_env)("STARSHINE_MONOMORPHIZE_MIN_BENEFIT") {
+    Some(raw) =>
+      match parse_non_negative_decimal(raw) {
+        Some(parsed_value) => monomorphize_min_benefit = Some(parsed_value)
+        None => ()
+      }
+    None => ()
+  }
+  match (io.get_env)("STARSHINE_LOW_MEMORY_UNUSED") {
+    Some(raw) =>
+      match parse_bool_string(raw) {
+        Some(parsed_value) => low_memory_unused = Some(parsed_value)
+        None => ()
+      }
+    None => ()
+  }
+  match (io.get_env)("STARSHINE_LOW_MEMORY_BOUND") {
+    Some(raw) =>
+      match parse_non_negative_decimal(raw) {
+        Some(parsed_value) => low_memory_bound = Some(parsed_value.to_uint64())
+        None => ()
+      }
+    None => ()
+  }
   CliParseResult::new(
     input_format~,
     output_targets~,
     pass_flags~,
     optimize_flags~,
     trap_mode~,
+    monomorphize_min_benefit~,
+    low_memory_unused~,
+    low_memory_bound~,
   )
 }
 
@@ -590,24 +805,26 @@ fn merge_parse_results(
   }
 
   let pass_flags : Array[String] = []
-  for pass in config.pass_flags {
-    pass_flags.push(pass)
+  let selected_passes = if cli.pass_flags.length() > 0 {
+    cli.pass_flags
+  } else if config.pass_flags.length() > 0 {
+    config.pass_flags
+  } else {
+    env.pass_flags
   }
-  for pass in env.pass_flags {
-    pass_flags.push(pass)
-  }
-  for pass in cli.pass_flags {
+  for pass in selected_passes {
     pass_flags.push(pass)
   }
 
   let optimize_flags : Array[CliOptimizationFlag] = []
-  for flag in config.optimize_flags {
-    optimize_flags.push(flag)
+  let selected_optimize_flags = if cli.optimize_flags.length() > 0 {
+    cli.optimize_flags
+  } else if env.optimize_flags.length() > 0 {
+    env.optimize_flags
+  } else {
+    config.optimize_flags
   }
-  for flag in env.optimize_flags {
-    optimize_flags.push(flag)
-  }
-  for flag in cli.optimize_flags {
+  for flag in selected_optimize_flags {
     optimize_flags.push(flag)
   }
 
@@ -627,6 +844,30 @@ fn merge_parse_results(
         None => config.config_path
       }
   }
+  let monomorphize_min_benefit = match cli.monomorphize_min_benefit {
+    Some(v) => Some(v)
+    None =>
+      match env.monomorphize_min_benefit {
+        Some(v) => Some(v)
+        None => config.monomorphize_min_benefit
+      }
+  }
+  let low_memory_unused = match cli.low_memory_unused {
+    Some(v) => Some(v)
+    None =>
+      match env.low_memory_unused {
+        Some(v) => Some(v)
+        None => config.low_memory_unused
+      }
+  }
+  let low_memory_bound = match cli.low_memory_bound {
+    Some(v) => Some(v)
+    None =>
+      match env.low_memory_bound {
+        Some(v) => Some(v)
+        None => config.low_memory_bound
+      }
+  }
   CliParseResult::new(
     config_path~,
     input_globs~,
@@ -636,6 +877,9 @@ fn merge_parse_results(
     pass_flags~,
     optimize_flags~,
     trap_mode~,
+    monomorphize_min_benefit~,
+    low_memory_unused~,
+    low_memory_bound~,
   )
 }
 
@@ -725,14 +969,17 @@ fn make_optimize_options(
   optimize_level : Int,
   shrink_level : Int,
   traps_never_happen : Bool,
+  monomorphize_min_benefit : Int,
+  low_memory_unused : Bool,
+  low_memory_bound : UInt64,
 ) -> OptimizeOptions {
   OptimizeOptions::new(
     optimize_level~,
     shrink_level~,
     inlining=default_inlining_options(),
-    monomorphize_min_benefit=5,
-    low_memory_unused=false,
-    low_memory_bound=1024UL,
+    monomorphize_min_benefit~,
+    low_memory_unused~,
+    low_memory_bound~,
     traps_never_happen~,
   )
 }
@@ -916,6 +1163,7 @@ fn output_path_for_default_target(
 pub fn run_cmd_with_adapter(
   args : Array[String],
   io : CmdIO,
+  config_json? : String? = None,
 ) -> Result[CmdRunSummary, CmdError] {
   let starshine_input = (io.get_env)("STARSHINE_INPUT")
   let cli = match parse_cli_args(args, starshine_input~) {
@@ -923,28 +1171,37 @@ pub fn run_cmd_with_adapter(
     Err(e) => return Err(CmdError::CliParse(e))
   }
 
-  let (maybe_config_path, config_required) = resolve_config_path(cli, io)
-  let config = match maybe_config_path {
-    Some(config_path) =>
-      if !(io.file_exists)(config_path) {
-        if config_required {
-          return Err(CmdError::ConfigNotFound(config_path))
-        } else {
-          CliParseResult::new()
-        }
-      } else {
-        let config_bytes = match (io.read_file)(config_path) {
-          Ok(bytes) => bytes
-          Err(e) =>
-            return Err(CmdError::ConfigReadFailed("\{config_path}: \{e}"))
-        }
-        let config_text = bytes_to_string_lossy(config_bytes)
-        match parse_config_json(config_text) {
-          Ok(parsed) => parsed
-          Err(e) => return Err(e)
-        }
+  let config = match config_json {
+    Some(config_text) =>
+      match parse_config_json(config_text) {
+        Ok(parsed) => parsed
+        Err(e) => return Err(e)
       }
-    None => CliParseResult::new()
+    None => {
+      let (maybe_config_path, config_required) = resolve_config_path(cli, io)
+      match maybe_config_path {
+        Some(config_path) =>
+          if !(io.file_exists)(config_path) {
+            if config_required {
+              return Err(CmdError::ConfigNotFound(config_path))
+            } else {
+              CliParseResult::new()
+            }
+          } else {
+            let config_bytes = match (io.read_file)(config_path) {
+              Ok(bytes) => bytes
+              Err(e) =>
+                return Err(CmdError::ConfigReadFailed("\{config_path}: \{e}"))
+            }
+            let config_text = bytes_to_string_lossy(config_bytes)
+            match parse_config_json(config_text) {
+              Ok(parsed) => parsed
+              Err(e) => return Err(e)
+            }
+          }
+        None => CliParseResult::new()
+      }
+    }
   }
 
   let env = parse_env_overlay(io)
@@ -959,8 +1216,21 @@ pub fn run_cmd_with_adapter(
   let (optimize_level, shrink_level) = resolve_optimize_levels(
     merged.optimize_flags,
   )
+  let monomorphize_min_benefit = match merged.monomorphize_min_benefit {
+    Some(v) => v
+    None => 5
+  }
+  let low_memory_unused = match merged.low_memory_unused {
+    Some(v) => v
+    None => false
+  }
+  let low_memory_bound = match merged.low_memory_bound {
+    Some(v) => v
+    None => 1024UL
+  }
   let options = make_optimize_options(
-    optimize_level, shrink_level, traps_never_happen,
+    optimize_level, shrink_level, traps_never_happen, monomorphize_min_benefit, low_memory_unused,
+    low_memory_bound,
   )
 
   if input_files.length() > 1 {
@@ -1067,6 +1337,9 @@ pub fn run_cmd_with_adapter(
       optimize_level~,
       shrink_level~,
       traps_never_happen~,
+      monomorphize_min_benefit~,
+      low_memory_unused~,
+      low_memory_bound~,
     ),
   )
 }
