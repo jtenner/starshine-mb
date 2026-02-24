@@ -465,3 +465,311 @@ test "run_cmd_with_adapter accepts optional inline json config in the same call"
   assert_eq(summary.resolved_passes, ["global-effects"])
   assert_true(summary.traps_never_happen)
 }
+
+///|
+#cfg(target="native")
+fn native_c_string(text : String) -> Bytes {
+  let out = @buffer.new(size_hint=text.length() + 1)
+  for c in text {
+    let code = c.to_int()
+    if code >= 0 && code <= 255 {
+      out.write_byte(code.to_byte())
+    } else {
+      out.write_byte('?'.to_int().to_byte())
+    }
+  }
+  out.write_byte(0)
+  out.to_bytes()
+}
+
+///|
+#cfg(target="native")
+#borrow(path, mode)
+extern "c" fn native_fopen(path : Bytes, mode : Bytes) -> Int = "fopen"
+
+///|
+#cfg(target="native")
+extern "c" fn native_fclose(stream : Int) -> Int = "fclose"
+
+///|
+#cfg(target="native")
+extern "c" fn native_fseek(stream : Int, offset : Int, whence : Int) -> Int = "fseek"
+
+///|
+#cfg(target="native")
+extern "c" fn native_ftell(stream : Int) -> Int = "ftell"
+
+///|
+#cfg(target="native")
+#borrow(ptr)
+extern "c" fn native_fread(
+  ptr : Bytes,
+  size : Int,
+  count : Int,
+  stream : Int,
+) -> Int = "fread"
+
+///|
+#cfg(target="native")
+#borrow(ptr)
+extern "c" fn native_fwrite(
+  ptr : Bytes,
+  size : Int,
+  count : Int,
+  stream : Int,
+) -> Int = "fwrite"
+
+///|
+#cfg(target="native")
+#borrow(path)
+extern "c" fn native_remove(path : Bytes) -> Int = "remove"
+
+///|
+#cfg(target="native")
+#borrow(name, value)
+extern "c" fn native_setenv(
+  name : Bytes,
+  value : Bytes,
+  overwrite : Int,
+) -> Int = "setenv"
+
+///|
+#cfg(target="native")
+#borrow(name)
+extern "c" fn native_unsetenv(name : Bytes) -> Int = "unsetenv"
+
+///|
+#cfg(target="native")
+extern "c" fn native_dup(fd : Int) -> Int = "dup"
+
+///|
+#cfg(target="native")
+extern "c" fn native_dup2(old_fd : Int, new_fd : Int) -> Int = "dup2"
+
+///|
+#cfg(target="native")
+extern "c" fn native_close(fd : Int) -> Int = "close"
+
+///|
+#cfg(target="native")
+extern "c" fn native_fflush(stream : Int) -> Int = "fflush"
+
+///|
+#cfg(target="native")
+fn native_remove_if_exists(path : String) -> Unit {
+  ignore(native_remove(native_c_string(path)))
+}
+
+///|
+#cfg(target="native")
+fn native_tmp_file(name : String) -> String {
+  "/tmp/starshine-cmd-\{name}-\{@env.now()}.wasm"
+}
+
+///|
+#cfg(target="native")
+fn native_write_bytes(path : String, bytes : Bytes) -> Bool {
+  let file = native_fopen(native_c_string(path), native_c_string("wb"))
+  if file == 0 {
+    return false
+  }
+  let expected = bytes.length()
+  let wrote = if expected == 0 {
+    0
+  } else {
+    native_fwrite(bytes, 1, expected, file)
+  }
+  let close_code = native_fclose(file)
+  if expected == 0 {
+    close_code == 0
+  } else {
+    wrote == expected && close_code == 0
+  }
+}
+
+///|
+#cfg(target="native")
+fn native_read_bytes(path : String) -> Bytes? {
+  let file = native_fopen(native_c_string(path), native_c_string("rb"))
+  if file == 0 {
+    return None
+  }
+  if native_fseek(file, 0, 2) != 0 {
+    ignore(native_fclose(file))
+    return None
+  }
+  let size = native_ftell(file)
+  if size < 0 {
+    ignore(native_fclose(file))
+    return None
+  }
+  if native_fseek(file, 0, 0) != 0 {
+    ignore(native_fclose(file))
+    return None
+  }
+  let out = Bytes::new(size)
+  if size > 0 {
+    let read = native_fread(out, 1, size, file)
+    if read != size {
+      ignore(native_fclose(file))
+      return None
+    }
+  }
+  if native_fclose(file) != 0 {
+    return None
+  }
+  Some(out)
+}
+
+///|
+#cfg(target="native")
+fn native_set_env(name : String, value : String) -> Bool {
+  native_setenv(native_c_string(name), native_c_string(value), 1) == 0
+}
+
+///|
+#cfg(target="native")
+fn native_unset_env(name : String) -> Unit {
+  ignore(native_unsetenv(native_c_string(name)))
+}
+
+///|
+#cfg(target="native")
+test "run_cmd uses native default io to read inputs and write outputs" {
+  let input_path = native_tmp_file("io-input")
+  let output_path = native_tmp_file("io-output")
+  native_remove_if_exists(input_path)
+  native_remove_if_exists(output_path)
+
+  let wasm = encode_module_bytes(fixture_i32_const_module(13))
+  assert_true(native_write_bytes(input_path, wasm))
+
+  let summary = match run_cmd(["--vacuum", "--out", output_path, input_path]) {
+    Ok(v) => v
+    Err(e) => fail("expected native run_cmd success, got \{e}")
+  }
+  assert_eq(summary.input_files, [input_path])
+  assert_eq(summary.output_files, [output_path])
+
+  match native_read_bytes(output_path) {
+    Some(bytes) => ignore(decode_module_bytes(bytes))
+    None => fail("expected native output file at \{output_path}")
+  }
+
+  native_remove_if_exists(input_path)
+  native_remove_if_exists(output_path)
+}
+
+///|
+#cfg(target="native")
+test "run_cmd reads STARSHINE_INPUT from native environment" {
+  let input_path = native_tmp_file("env-input")
+  let output_path = native_tmp_file("env-output")
+  native_remove_if_exists(input_path)
+  native_remove_if_exists(output_path)
+
+  let wasm = encode_module_bytes(fixture_i32_const_module(14))
+  assert_true(native_write_bytes(input_path, wasm))
+  assert_true(native_set_env("STARSHINE_INPUT", input_path))
+
+  let result = run_cmd(["--vacuum", "--out", output_path])
+  native_unset_env("STARSHINE_INPUT")
+  let summary = match result {
+    Ok(v) => v
+    Err(e) =>
+      fail(
+        "expected native STARSHINE_INPUT wiring to provide inputs, got error \{e}",
+      )
+  }
+  assert_eq(summary.input_files, [input_path])
+  assert_eq(summary.output_files, [output_path])
+
+  native_remove_if_exists(input_path)
+  native_remove_if_exists(output_path)
+}
+
+///|
+#cfg(target="native")
+test "run_cmd uses native stdout wiring and surfaces write failures" {
+  let input_path = native_tmp_file("stdout-input")
+  native_remove_if_exists(input_path)
+  let wasm = encode_module_bytes(fixture_i32_const_module(15))
+  assert_true(native_write_bytes(input_path, wasm))
+
+  let saved_stdout = native_dup(1)
+  if saved_stdout < 0 {
+    native_remove_if_exists(input_path)
+    fail("failed to duplicate stdout fd")
+  }
+  ignore(native_close(1))
+  let result = run_cmd(["--stdout", "--vacuum", input_path])
+  ignore(native_dup2(saved_stdout, 1))
+  ignore(native_close(saved_stdout))
+  ignore(native_fflush(0))
+
+  native_remove_if_exists(input_path)
+
+  match result {
+    Err(CmdError::OutputWriteFailed(msg)) =>
+      assert_true(msg.contains("stdout for"))
+    Ok(summary) =>
+      fail(
+        "expected stdout write failure with closed fd, got summary \{summary}",
+      )
+    Err(err) =>
+      fail("expected OutputWriteFailed when stdout is closed, got \{err}")
+  }
+}
+
+///|
+#cfg(target="native")
+test "run_cmd uses native default candidate enumeration for wildcard input globs" {
+  let prefix = "tmp-starshine-cmd-glob-\{@env.now()}"
+  let input_path = "\{prefix}.wasm"
+  native_remove_if_exists(input_path)
+
+  let wasm = encode_module_bytes(fixture_i32_const_module(16))
+  assert_true(native_write_bytes(input_path, wasm))
+
+  let summary = match run_cmd(["--vacuum", "\{prefix}*.wasm"]) {
+    Ok(v) => v
+    Err(e) => {
+      native_remove_if_exists(input_path)
+      fail(
+        "expected wildcard input to resolve via native list_candidates, got \{e}",
+      )
+    }
+  }
+  assert_eq(summary.input_files, [input_path])
+
+  native_remove_if_exists(input_path)
+}
+
+///|
+#cfg(target="native")
+test "run_cmd wires native default text-lowering hook for wat inputs" {
+  let base = "tmp-starshine-cmd-wat-\{@env.now()}"
+  let wat_path = "\{base}.wat"
+  let out_path = "\{base}.wasm"
+  native_remove_if_exists(wat_path)
+  native_remove_if_exists(out_path)
+  assert_true(native_write_bytes(wat_path, bytes_from_string("(module)")))
+
+  let result = run_cmd([wat_path])
+  match result {
+    Ok(summary) => {
+      assert_eq(summary.input_files, [wat_path])
+      assert_eq(summary.output_files, [out_path])
+      match native_read_bytes(out_path) {
+        Some(bytes) => ignore(decode_module_bytes(bytes))
+        None => fail("expected lowered wasm output at \{out_path}")
+      }
+    }
+    Err(CmdError::TextLoweringFailed(msg)) =>
+      assert_false(msg.contains("text lowering not configured"))
+    Err(e) => fail("unexpected native wat run_cmd failure: \{e}")
+  }
+
+  native_remove_if_exists(wat_path)
+  native_remove_if_exists(out_path)
+}

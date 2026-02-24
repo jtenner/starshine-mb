@@ -1345,6 +1345,367 @@ pub fn run_cmd_with_adapter(
 }
 
 ///|
+#cfg(target="native")
+fn cmd_native_c_string(text : String) -> Bytes {
+  let out = @buffer.new(size_hint=text.length() + 1)
+  for c in text {
+    let code = c.to_int()
+    if code >= 0 && code <= 255 {
+      out.write_byte(code.to_byte())
+    } else {
+      out.write_byte('?'.to_int().to_byte())
+    }
+  }
+  out.write_byte(0)
+  out.to_bytes()
+}
+
+///|
+#cfg(target="native")
+#borrow(path, mode)
+extern "c" fn cmd_native_fopen(path : Bytes, mode : Bytes) -> Int = "fopen"
+
+///|
+#cfg(target="native")
+extern "c" fn cmd_native_fclose(stream : Int) -> Int = "fclose"
+
+///|
+#cfg(target="native")
+extern "c" fn cmd_native_fseek(stream : Int, offset : Int, whence : Int) -> Int = "fseek"
+
+///|
+#cfg(target="native")
+extern "c" fn cmd_native_ftell(stream : Int) -> Int = "ftell"
+
+///|
+#cfg(target="native")
+#borrow(ptr)
+extern "c" fn cmd_native_fread(
+  ptr : Bytes,
+  size : Int,
+  count : Int,
+  stream : Int,
+) -> Int = "fread"
+
+///|
+#cfg(target="native")
+#borrow(ptr)
+extern "c" fn cmd_native_fwrite(
+  ptr : Bytes,
+  size : Int,
+  count : Int,
+  stream : Int,
+) -> Int = "fwrite"
+
+///|
+#cfg(target="native")
+#borrow(path)
+extern "c" fn cmd_native_access(path : Bytes, mode : Int) -> Int = "access"
+
+///|
+#cfg(target="native")
+#borrow(path)
+extern "c" fn cmd_native_getenv(path : Bytes) -> Int = "getenv"
+
+///|
+#cfg(target="native")
+#borrow(command, mode)
+extern "c" fn cmd_native_popen(command : Bytes, mode : Bytes) -> Int = "popen"
+
+///|
+#cfg(target="native")
+extern "c" fn cmd_native_pclose(stream : Int) -> Int = "pclose"
+
+///|
+#cfg(target="native")
+#borrow(command)
+extern "c" fn cmd_native_system(command : Bytes) -> Int = "system"
+
+///|
+#cfg(target="native")
+#borrow(path)
+extern "c" fn cmd_native_remove(path : Bytes) -> Int = "remove"
+
+///|
+#cfg(target="native")
+extern "c" fn cmd_native_getpid() -> Int = "getpid"
+
+///|
+#cfg(target="native")
+extern "c" fn cmd_native_strlen(ptr : Int) -> Int = "strlen"
+
+///|
+#cfg(target="native")
+#borrow(dst)
+extern "c" fn cmd_native_memcpy(dst : Bytes, src : Int, size : Int) -> Int = "memcpy"
+
+///|
+#cfg(target="native")
+#borrow(ptr)
+extern "c" fn cmd_native_write(fd : Int, ptr : Bytes, count : Int) -> Int = "write"
+
+///|
+#cfg(target="native")
+fn cmd_native_file_exists(path : String) -> Bool {
+  cmd_native_access(cmd_native_c_string(path), 0) == 0
+}
+
+///|
+#cfg(target="native")
+fn cmd_native_read_file(path : String) -> Result[Bytes, String] {
+  let file = cmd_native_fopen(
+    cmd_native_c_string(path),
+    cmd_native_c_string("rb"),
+  )
+  if file == 0 {
+    return Err("open failed")
+  }
+  if cmd_native_fseek(file, 0, 2) != 0 {
+    ignore(cmd_native_fclose(file))
+    return Err("seek end failed")
+  }
+  let size = cmd_native_ftell(file)
+  if size < 0 {
+    ignore(cmd_native_fclose(file))
+    return Err("tell failed")
+  }
+  if cmd_native_fseek(file, 0, 0) != 0 {
+    ignore(cmd_native_fclose(file))
+    return Err("seek start failed")
+  }
+  let out = Bytes::new(size)
+  if size > 0 {
+    let read = cmd_native_fread(out, 1, size, file)
+    if read != size {
+      ignore(cmd_native_fclose(file))
+      return Err("read failed")
+    }
+  }
+  if cmd_native_fclose(file) != 0 {
+    return Err("close failed")
+  }
+  Ok(out)
+}
+
+///|
+#cfg(target="native")
+fn cmd_native_write_file(path : String, bytes : Bytes) -> Result[Unit, String] {
+  let file = cmd_native_fopen(
+    cmd_native_c_string(path),
+    cmd_native_c_string("wb"),
+  )
+  if file == 0 {
+    return Err("open failed")
+  }
+  let expected = bytes.length()
+  if expected > 0 {
+    let wrote = cmd_native_fwrite(bytes, 1, expected, file)
+    if wrote != expected {
+      ignore(cmd_native_fclose(file))
+      return Err("write failed")
+    }
+  }
+  if cmd_native_fclose(file) != 0 {
+    return Err("close failed")
+  }
+  Ok(())
+}
+
+///|
+#cfg(target="native")
+fn cmd_native_write_stdout(bytes : Bytes) -> Result[Unit, String] {
+  if bytes.length() == 0 {
+    return Ok(())
+  }
+  let wrote = cmd_native_write(1, bytes, bytes.length())
+  if wrote < 0 {
+    return Err("write failed")
+  }
+  if wrote != bytes.length() {
+    return Err("short write: \{wrote}/\{bytes.length()}")
+  }
+  Ok(())
+}
+
+///|
+#cfg(target="native")
+fn cmd_native_get_env(name : String) -> String? {
+  let ptr = cmd_native_getenv(cmd_native_c_string(name))
+  if ptr == 0 {
+    return None
+  }
+  let len = cmd_native_strlen(ptr)
+  if len < 0 {
+    return None
+  }
+  let out = Bytes::new(len)
+  if len > 0 {
+    ignore(cmd_native_memcpy(out, ptr, len))
+  }
+  Some(bytes_to_string_lossy(out))
+}
+
+///|
+#cfg(target="native")
+fn cmd_native_shell_quote(text : String) -> String {
+  let escaped = text.replace(old="'", new="'\"'\"'")
+  "'\{escaped}'"
+}
+
+///|
+#cfg(target="native")
+fn cmd_native_tmp_path(prefix : String, suffix : String) -> String {
+  "/tmp/starshine-cmd-\{prefix}-\{cmd_native_getpid()}-\{@env.now()}\{suffix}"
+}
+
+///|
+#cfg(target="native")
+fn cmd_native_list_candidates() -> Array[String] {
+  let pipe = cmd_native_popen(
+    cmd_native_c_string("find . -type f -print"),
+    cmd_native_c_string("r"),
+  )
+  if pipe == 0 {
+    return []
+  }
+
+  let buf = Bytes::new(4096)
+  let output = StringBuilder::new()
+  while true {
+    let read = cmd_native_fread(buf, 1, buf.length(), pipe)
+    if read <= 0 {
+      break
+    }
+    let mut i = 0
+    while i < read {
+      let b = buf[i].to_int()
+      if b >= 0 && b <= 127 {
+        output.write_char(b.unsafe_to_char())
+      } else {
+        output.write_char('?')
+      }
+      i += 1
+    }
+  }
+  ignore(cmd_native_pclose(pipe))
+
+  let out : Array[String] = []
+  for line in output.to_string().split("\n") {
+    let raw = line.to_string().trim().to_string()
+    if raw.length() == 0 {
+      continue
+    }
+    let normalized = normalize_cli_path(raw)
+    if normalized.length() == 0 || normalized == "." {
+      continue
+    }
+    let candidate = if normalized.length() >= 2 &&
+      normalized[0] == '.' &&
+      normalized[1] == '/' {
+      normalized.sub(start=2).to_string() catch {
+        _ => normalized
+      }
+    } else {
+      normalized
+    }
+    if candidate.length() > 0 && candidate != "." {
+      out.push(candidate)
+    }
+  }
+  out
+}
+
+///|
+#cfg(target="native")
+fn cmd_native_lower_text_module(
+  path : String,
+  format : CliInputFormat,
+  bytes : Bytes,
+) -> Result[Bytes, String] {
+  match format {
+    Wasm => return Err("expected wat/wast input format")
+    Wat | Wast => ()
+  }
+
+  let in_suffix = match format {
+    Wat => ".wat"
+    Wast => ".wast"
+    Wasm => ".wat"
+  }
+  let in_path = cmd_native_tmp_path("text-in", in_suffix)
+  let out_path = cmd_native_tmp_path("text-out", ".wasm")
+
+  if cmd_native_write_file(in_path, bytes) is Err(e) {
+    ignore(cmd_native_remove(cmd_native_c_string(in_path)))
+    ignore(cmd_native_remove(cmd_native_c_string(out_path)))
+    return Err("failed to stage text input for \{path}: \{e}")
+  }
+
+  let in_q = cmd_native_shell_quote(in_path)
+  let out_q = cmd_native_shell_quote(out_path)
+  let commands = [
+    "wat2wasm \{in_q} -o \{out_q}",
+    "wasm-tools parse \{in_q} -o \{out_q}",
+  ]
+  let mut lowered = false
+  for command in commands {
+    let code = cmd_native_system(cmd_native_c_string(command))
+    if code == 0 && cmd_native_file_exists(out_path) {
+      lowered = true
+      break
+    }
+  }
+
+  let result = if lowered {
+    match cmd_native_read_file(out_path) {
+      Ok(out) => Ok(out)
+      Err(e) => Err("failed to read lowered wasm for \{path}: \{e}")
+    }
+  } else {
+    Err(
+      "failed to lower \{path}: expected native `wat2wasm` or `wasm-tools parse` to be available",
+    )
+  }
+
+  ignore(cmd_native_remove(cmd_native_c_string(in_path)))
+  ignore(cmd_native_remove(cmd_native_c_string(out_path)))
+  result
+}
+
+///|
+#cfg(target="native")
+fn default_cmd_io() -> CmdIO {
+  CmdIO::new(
+    get_env=cmd_native_get_env,
+    file_exists=cmd_native_file_exists,
+    read_file=cmd_native_read_file,
+    write_file=cmd_native_write_file,
+    write_stdout=cmd_native_write_stdout,
+    list_candidates=cmd_native_list_candidates,
+    lower_text_module=cmd_native_lower_text_module,
+  )
+}
+
+///|
+#cfg(target="wasm-gc")
+fn default_cmd_io() -> CmdIO {
+  CmdIO::new()
+}
+
+///|
+#cfg(target="wasm")
+fn default_cmd_io() -> CmdIO {
+  CmdIO::new()
+}
+
+///|
+#cfg(target="js")
+fn default_cmd_io() -> CmdIO {
+  CmdIO::new()
+}
+
+///|
+#cfg(target="llvm")
 fn default_cmd_io() -> CmdIO {
   CmdIO::new()
 }

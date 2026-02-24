@@ -474,40 +474,12 @@ fn WastParser::advance(self : WastParser) -> Token {
 ///|
 fn WastParser::check(self : WastParser, token_type : TokenType) -> Bool {
   match (self.current.token_type, token_type) {
-    (Eof, Eof) => true
-    (Lpar, Lpar) => true
-    (Rpar, Rpar) => true
-    (Nat, Nat) => true
-    (Int, Int) => true
-    (Float, Float) => true
-    (Text, Text) => true
-    (Var, Var) => true
-    (Module, Module) => true
-    (Func, Func) => true
-    (Param, Param) => true
-    (Result, Result) => true
-    (Local, Local) => true
-    (Global, Global) => true
-    (Type, Type) => true
-    (Table, Table) => true
-    (Memory, Memory) => true
-    (Import, Import) => true
-    (Export, Export) => true
-    (Block, Block) => true
-    (Loop, Loop) => true
-    (If, If) => true
-    (Else, Else) => true
-    (End, End) => true
-    (Then, Then) => true
-    (Start, Start) => true
-    (Data, Data) => true
-    (Elem, Elem) => true
-    (Mut, Mut) => true
-    (Offset, Offset) => true
-    (Item, Item) => true
+    // Match token "families" so callers can check ValueType/Opcode kinds
+    // without knowing the exact payload.
     (ValueType(_), ValueType(_)) => true
     (Opcode(_), Opcode(_)) => true
-    _ => false
+    (SimdShapeToken(_), SimdShapeToken(_)) => true
+    _ => self.current.token_type == token_type
   }
 }
 

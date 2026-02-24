@@ -1,0 +1,6 @@
+import {
+  "jtenner/starshine/lib",
+  "jtenner/starshine/wast",
+  "moonbitlang/core/quickcheck",
+  "moonbitlang/core/quickcheck/splitmix",
+}

@@ -2,18 +2,18 @@
 
 ## Blockers
 
-- `src/cmd` is now a runnable `is-main` package and native build succeeds, but runtime filesystem/environment/stdout wiring is still adapter-driven (`CmdIO::new()` defaults to stubs).
-  - Action needed: add a concrete native `CmdIO` implementation (or explicit host FFI bindings) so `moon run src/cmd` can read real files/config/env and emit outputs without tests-only adapters.
+- Native default text lowering now calls external tools (`wat2wasm`/`wasm-tools parse`); environments without either tool still cannot lower `.wat`/`.wast` via `run_cmd`.
 
 ## Metadata
 
 - Last updated: `2026-02-24`
-- Scope: Open tasks only (completed items removed)
+- Scope: Open tasks plus recently completed checkoffs
 - Last audit run: `2026-02-24`
-  - `moon fmt`: `Finished. moon: ran 6 tasks, now up to date`
-  - `moon info`: `Finished. moon: ran 2 tasks, now up to date`
-  - `moon test`: `2371` passed, `0` failed
-  - `moon build --target native`: `Finished. moon: ran 3 tasks, now up to date`
+  - `moon fmt`: `Finished. moon: ran 3 tasks, now up to date`
+  - `moon info`: `Finished. moon: ran 1 task, now up to date`
+  - `moon test`: `2383` passed, `0` failed
+  - `moon test src/cmd --target native`: `17` passed, `0` failed
+  - `moon build --target native`: `not run in this audit`
   - `moon coverage analyze`: `11223` uncovered line(s) in `105` file(s)
 
 ## Priority 0 (Critical Path)
@@ -29,13 +29,29 @@
 - [x] Implement JSON config file loading/validation and precedence merge (`CLI args > env > config defaults`) on top of current schema.
 - [x] Add inline JSON config ingestion to `run_cmd_with_adapter(...)` so callers can pass `argv` and config content in one call.
 - [x] Add explicit CLI optimization-option flags (`--optimize-level`, `--shrink-level`, `--monomorphize-min-benefit`, `--low-memory-unused`, `--no-low-memory-unused`, `--low-memory-bound`) and precedence tests against config `options`.
-- [ ] Finish native runtime plumbing for `cmd` (real `CmdIO` for env/files/stdout and optional text-module lowering hook for `.wat`/`.wast` outside tests).
+- [ ] Finish native runtime plumbing for `cmd`.
+  - [x] Real native `CmdIO` wiring for env/files/stdout in `default_cmd_io()`.
+  - [x] Native runtime regression tests for default `run_cmd` IO path (read/write/env/stdout write-failure propagation).
+  - [x] Add native default filesystem candidate enumeration for wildcard-glob expansion.
+  - [x] Add native default `.wat`/`.wast` text-module lowering hook (native external-tool fallback).
 - [ ] Add focused CLI/runtime tests for:
   - [x] optimize/shrink preset expansion behavior under non-zero `-O*` levels.
   - [x] duplicate pass handling policy (preserve repeats vs dedupe) and deterministic scheduling order.
   - [ ] runtime error propagation/exit signaling for config read failures, decode failures, and output write failures.
+    - [x] native `run_cmd --stdout` output-write failure propagation when stdout fd is closed.
+    - [ ] config read failures.
+    - [ ] decode failures.
   - [ ] assert expanded `ModulePass` multiplicity for preset+explicit overlaps at scheduler level (not only resolved flag queue order).
   - [ ] add focused env precedence tests for pass/option overlays after config-fallback changes.
+
+### Text Frontend (WAT)
+
+- [x] Add a new `src/wat` package with wat-named APIs and behavior parity backed by `src/wast`.
+- [x] Expose wat-named text APIs: `wat_to_module`, `module_to_wat`, `module_to_wat_with_context`, `wat_to_script`, `script_to_wat`, `script_to_wat_with_context`.
+- [x] Add wat package test coverage mirroring wast keyword/module/pretty/fuzz behavior with wat-named entrypoints.
+- [x] Backport the `WastParser::check` token-family completeness fix from `src/wat/parser.mbt` to `src/wast/parser.mbt` so script commands (`register`, `assert_*`, etc.) parse through `expect(...)`.
+- [x] Consolidate duplicated text frontend code between `src/wast` and `src/wat` (make `src/wat` a thin wrapper over `src/wast`).
+- [ ] Add optional native in-process text lowering path (remove external `wat2wasm`/`wasm-tools` dependency for `.wat/.wast` inputs).
 
 ### Binaryen Pass Parity (High)
 
