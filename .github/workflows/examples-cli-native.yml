@@ -47,6 +47,19 @@ jobs:
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
 
+      - name: Install native differential validator tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y binaryen
+          cargo install wasm-tools --locked
+
       - name: Run examples CLI smoke checks (native target)
         run: |
           bash scripts/run_examples_cli_smoke.sh
+
+      - name: Run native fuzz harness differential test
+        run: |
+          moon test --target native \
+            -p jtenner/starshine/cmd \
+            -f fuzz_harness_test.mbt \
+            -F "*differential_validate_wasm agrees with installed wasm-tools and binaryen validators*"

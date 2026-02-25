@@ -348,6 +348,8 @@ fn gen_module(size : Int, st : RandomState) -> Module {
       exports: [],
       table_type: { limits: { min: 1, max: Some(4) }, elem_type: FuncRef },
       elem_init: None,
+      elem_exprs: None,
+      elem_init_type: None,
       elem_offset: None,
     }),
   )
@@ -399,6 +401,8 @@ fn gen_module(size : Int, st : RandomState) -> Module {
         table_index: Num(0),
         offset: [Const(I32Const, "0")],
         func_indices: funcs,
+        elem_exprs: [],
+        elem_type: None,
       }),
     )
   }
@@ -671,6 +675,8 @@ pub impl Arbitrary for Table with arbitrary(size, st) {
     exports: [],
     table_type: Arbitrary::arbitrary(size, st),
     elem_init: None,
+    elem_exprs: None,
+    elem_init_type: None,
     elem_offset: None,
   }
 }
@@ -722,6 +728,8 @@ pub impl Arbitrary for ElemSegment with arbitrary(size, st) {
     table_index: Num(0),
     offset: [Const(I32Const, "0")],
     func_indices: funcs,
+    elem_exprs: [],
+    elem_type: None,
   }
 }
 

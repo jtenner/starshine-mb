@@ -822,6 +822,44 @@ test "run_cmd_with_adapter reports unknown pass diagnostics for --version token"
 }
 
 ///|
+test "run_cmd_exit_code_with_adapter returns zero for successful runs" {
+  let wasm = encode_module_bytes(fixture_i32_const_module(21))
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == "a.wasm" },
+    list_candidates=fn() { ["a.wasm"] },
+    read_file=fn(path) {
+      if path == "a.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(_, _) { Ok(()) },
+  )
+  let code = run_cmd_exit_code_with_adapter(["a.wasm"], io)
+  assert_eq(code, 0)
+}
+
+///|
+test "run_cmd_exit_code_with_adapter returns non-zero for failures" {
+  let wasm = encode_module_bytes(fixture_i32_const_module(22))
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == "a.wasm" },
+    list_candidates=fn() { ["a.wasm"] },
+    read_file=fn(path) {
+      if path == "a.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(_, _) { Ok(()) },
+  )
+  let code = run_cmd_exit_code_with_adapter(["--not-a-real-pass", "a.wasm"], io)
+  assert_eq(code, 1)
+}
+
+///|
 #cfg(target="native")
 fn native_c_string(text : String) -> Bytes {
   let out = @buffer.new(size_hint=text.length() + 1)

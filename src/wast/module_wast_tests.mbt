@@ -52,6 +52,35 @@ test "module_to_wast preserves descriptor instruction keywords" {
 }
 
 ///|
+test "module_to_wast preserves table elem-abbreviation offsets and typed items" {
+  let src =
+    #|(module
+    #|  (func $f)
+    #|  (table 4 funcref (elem (i32.const 2) funcref (item (ref.null func)) (item (ref.func $f)))))
+  let mod = match wast_to_module(src) {
+    Ok(m) => m
+    Err(e) =>
+      fail("unexpected parse error for typed table elem-abbrev fixture: \{e}")
+  }
+  let text = match module_to_wast(mod) {
+    Ok(t) => t
+    Err(e) =>
+      fail("unexpected print error for typed table elem-abbrev fixture: \{e}")
+  }
+  assert_true(text.contains("(i32.const 2)"))
+  assert_true(text.contains("(item"))
+  assert_true(text.contains("ref.null func"))
+  assert_true(text.contains("ref.func $f"))
+  match wast_to_module(text, filename="printed-table-typed-items.wat") {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected module_to_wast typed table elem-abbrev output to parse back: \{e}",
+      )
+  }
+}
+
+///|
 test "wast_to_module malformed fixtures return targeted parse diagnostics" {
   let fixtures : Array[(String, String, String, String)] = [
     (

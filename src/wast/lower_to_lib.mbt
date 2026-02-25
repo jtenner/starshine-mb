@@ -85,6 +85,38 @@ fn wt_ref_heap_type(vt : ValueType) -> @lib.HeapType? {
 }
 
 ///|
+fn wt_ref_type_for_elem_value_type(
+  vt : ValueType,
+) -> Result[@lib.RefType, String] {
+  match wt_ref_heap_type(vt) {
+    Some(ht) => Ok(@lib.RefType::new(true, ht))
+    None =>
+      Err(
+        "elem type must be a reference type, got non-reference value type: \{vt}",
+      )
+  }
+}
+
+///|
+fn wt_elem_item_ref_func_index(item : ElemInitExpr) -> Index? {
+  match item.instrs {
+    [RefFunc(idx)] => Some(idx)
+    _ => None
+  }
+}
+
+///|
+fn wt_elem_item_to_expr(
+  ctx : WTLowerCtx,
+  item : ElemInitExpr,
+) -> Result[@lib.Expr, String] {
+  match wt_instrs_to_lib(ctx, item.instrs, {}, [], wt_default_legacy_ctx()) {
+    Ok(instrs) => Ok(@lib.Expr::new(instrs))
+    Err(e) => Err(e)
+  }
+}
+
+///|
 fn wt_limits(lim : Limits) -> @lib.Limits {
   @lib.Limits::i32(lim.min, lim.max)
 }
@@ -2055,11 +2087,31 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
         }
         match t.elem_init {
           Some(func_indices) => {
+            let elem_exprs = t.elem_exprs.unwrap_or([])
+            let mut has_non_ref_func_item = false
+            let mut i = 0
+            while i < elem_exprs.length() {
+              if wt_elem_item_ref_func_index(elem_exprs[i]) is None {
+                has_non_ref_func_item = true
+              }
+              i += 1
+            }
+            let elem_type : ValueType? = match t.elem_init_type {
+              Some(v) => Some(v)
+              None =>
+                if has_non_ref_func_item {
+                  Some(t.table_type.elem_type)
+                } else {
+                  None
+                }
+            }
             elem_defs_raw.push({
               id: None,
               table_index: Num(table_idx),
               offset: t.elem_offset.unwrap_or([Const(I32Const, "0")]),
               func_indices,
+              elem_exprs,
+              elem_type,
             })
             ctx.next_elem_idx += 1
           }
@@ -2316,7 +2368,7 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
 
   let elems : Array[@lib.Elem] = []
   for e in elem_defs_raw {
-    let funcs : Array[@lib.FuncIdx] = []
+    let funcs_from_indices : Array[@lib.FuncIdx] = []
     for fidx in e.func_indices {
       let fi = match
         wt_resolve_named_or_num_index(
@@ -2328,7 +2380,7 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
         Ok(v) => v
         Err(e) => return Err(e)
       }
-      funcs.push(@lib.FuncIdx::new(fi))
+      funcs_from_indices.push(@lib.FuncIdx::new(fi))
     }
     let mode = if e.offset.length() == 0 {
       @lib.ElemMode::passive()
@@ -2350,7 +2402,88 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
       }
       @lib.ElemMode::active(@lib.TableIdx::new(table_idx), offset)
     }
-    elems.push(@lib.Elem::new(mode, @lib.ElemKind::funcs(funcs)))
+    let elem_type_hint = e.elem_type
+    let elem_exprs = e.elem_exprs
+    let funcs_from_items : Array[@lib.FuncIdx] = []
+    let mut has_non_ref_func_item = false
+    let mut item_i = 0
+    while item_i < elem_exprs.length() {
+      let item = elem_exprs[item_i]
+      match wt_elem_item_ref_func_index(item) {
+        Some(idx) => {
+          let fi = match
+            wt_resolve_named_or_num_index(
+              idx,
+              ctx.func_ids,
+              ctx.next_func_idx,
+              "func",
+            ) {
+            Ok(v) => v
+            Err(e) => return Err(e)
+          }
+          funcs_from_items.push(@lib.FuncIdx::new(fi))
+        }
+        None => has_non_ref_func_item = true
+      }
+      item_i += 1
+    }
+
+    if !has_non_ref_func_item {
+      let funcs : Array[@lib.FuncIdx] = []
+      for fi in funcs_from_indices {
+        funcs.push(fi)
+      }
+      for fi in funcs_from_items {
+        funcs.push(fi)
+      }
+      elems.push(@lib.Elem::new(mode, @lib.ElemKind::funcs(funcs)))
+      continue
+    }
+
+    let exprs : Array[@lib.Expr] = []
+    for fi in funcs_from_indices {
+      exprs.push(@lib.Expr::new([@lib.Instruction::ref_func(fi)]))
+    }
+    let mut expr_i = 0
+    while expr_i < elem_exprs.length() {
+      let item = elem_exprs[expr_i]
+      match wt_elem_item_ref_func_index(item) {
+        Some(idx) => {
+          let fi = match
+            wt_resolve_named_or_num_index(
+              idx,
+              ctx.func_ids,
+              ctx.next_func_idx,
+              "func",
+            ) {
+            Ok(v) => v
+            Err(e) => return Err(e)
+          }
+          exprs.push(
+            @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(fi))]),
+          )
+        }
+        None =>
+          match wt_elem_item_to_expr(ctx, item) {
+            Ok(expr) => exprs.push(expr)
+            Err(e) => return Err(e)
+          }
+      }
+      expr_i += 1
+    }
+
+    let elem_ref_type = match elem_type_hint {
+      Some(vt) =>
+        match wt_ref_type_for_elem_value_type(vt) {
+          Ok(v) => v
+          Err(e) => return Err(e)
+        }
+      None =>
+        @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::func()))
+    }
+    elems.push(
+      @lib.Elem::new(mode, @lib.ElemKind::typed_exprs(elem_ref_type, exprs)),
+    )
   }
 
   let datas : Array[@lib.Data] = []
@@ -3315,6 +3448,90 @@ test "wast_to_binary_module lowers table elem-abbreviation typed ref.func items"
     Ok(_) => ()
     Err(e) =>
       fail("expected typed table elem-abbreviation fixture to validate: \{e}")
+  }
+}
+
+///|
+test "wast_to_binary_module lowers table elem-abbreviation typed ref.null items" {
+  let src =
+    #|(module
+    #|  (func $f)
+    #|  (table 2 funcref (elem funcref (item (ref.null func)) (item (ref.func $f)))))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) =>
+      fail("expected typed ref.null table abbreviation lowering success: \{e}")
+  }
+  let expected = @lib.Elem::new(
+    @lib.ElemMode::active(
+      @lib.TableIdx::new(0),
+      @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+    ),
+    @lib.ElemKind::typed_exprs(
+      @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::func())),
+      [
+        @lib.Expr::new([
+          @lib.Instruction::ref_null(
+            @lib.HeapType::abs(@lib.AbsHeapType::func()),
+          ),
+        ]),
+        @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(0))]),
+      ],
+    ),
+  )
+  match lowered.elem_sec {
+    Some(@lib.ElemSec([elem])) => assert_eq(elem, expected)
+    _ =>
+      fail(
+        "expected lowered typed elem section for table abbreviation ref.null fixture",
+      )
+  }
+  match @validate.validate_module(lowered) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected typed ref.null table abbreviation fixture to validate: \{e}",
+      )
+  }
+}
+
+///|
+test "wast_to_binary_module lowers explicit elem segments with typed item expressions" {
+  let src =
+    #|(module
+    #|  (table 1 funcref)
+    #|  (func $f)
+    #|  (elem (i32.const 0) funcref (item (ref.null func)) (item (ref.func $f))))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) =>
+      fail("expected explicit typed elem-segment lowering success: \{e}")
+  }
+  let expected = @lib.Elem::new(
+    @lib.ElemMode::active(
+      @lib.TableIdx::new(0),
+      @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+    ),
+    @lib.ElemKind::typed_exprs(
+      @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::func())),
+      [
+        @lib.Expr::new([
+          @lib.Instruction::ref_null(
+            @lib.HeapType::abs(@lib.AbsHeapType::func()),
+          ),
+        ]),
+        @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(0))]),
+      ],
+    ),
+  )
+  match lowered.elem_sec {
+    Some(@lib.ElemSec([elem])) => assert_eq(elem, expected)
+    _ => fail("expected lowered typed explicit elem section fixture")
+  }
+  match @validate.validate_module(lowered) {
+    Ok(_) => ()
+    Err(e) =>
+      fail("expected explicit typed elem-segment fixture to validate: \{e}")
   }
 }
 

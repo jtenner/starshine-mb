@@ -1803,6 +1803,23 @@ pub fn run_cmd(args : Array[String]) -> Result[CmdRunSummary, CmdError] {
 }
 
 ///|
+pub fn run_cmd_exit_code_with_adapter(
+  args : Array[String],
+  io : CmdIO,
+  config_json? : String? = None,
+) -> Int {
+  match run_cmd_with_adapter(args, io, config_json~) {
+    Ok(_) => 0
+    Err(_) => 1
+  }
+}
+
+///|
+pub fn run_cmd_exit_code(args : Array[String]) -> Int {
+  run_cmd_exit_code_with_adapter(args, default_cmd_io())
+}
+
+///|
 #cfg(target="native")
 fn trim_program_name(argv : Array[String]) -> Array[String] {
   if argv.length() == 0 {
@@ -1825,7 +1842,14 @@ fn main {
 
 ///|
 #cfg(target="native")
+extern "c" fn cmd_native_exit(code : Int) -> Unit = "exit"
+
+///|
+#cfg(target="native")
 fn main {
   let args = trim_program_name(@env.args())
-  ignore(run_cmd(args))
+  let exit_code = run_cmd_exit_code(args)
+  if exit_code != 0 {
+    cmd_native_exit(exit_code)
+  }
 }

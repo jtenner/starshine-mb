@@ -492,6 +492,59 @@ fn write_inline_exports(
 }
 
 ///|
+fn is_default_elem_offset(offset : Array[Instruction]?) -> Bool {
+  match offset {
+    Some([Const(I32Const, "0")]) => true
+    _ => false
+  }
+}
+
+///|
+fn write_elem_abbrev_offset(
+  out : StringBuilder,
+  offset : Array[Instruction]?,
+) -> Unit raise WastTextError {
+  match offset {
+    Some(instrs) => {
+      if instrs.length() == 0 {
+        return
+      }
+      out.write_string(" (")
+      let mut i = 0
+      while i < instrs.length() {
+        if i > 0 {
+          out.write_char(' ')
+        }
+        out.write_string(render_instruction_head(instrs[i]))
+        i += 1
+      }
+      out.write_char(')')
+    }
+    None => ()
+  }
+}
+
+///|
+fn write_elem_item_inline(
+  out : StringBuilder,
+  item : ElemInitExpr,
+) -> Unit raise WastTextError {
+  if item.explicit_item || item.instrs.length() != 1 {
+    out.write_string("(item")
+    for instr in item.instrs {
+      out.write_string(" (")
+      out.write_string(render_instruction_head(instr))
+      out.write_char(')')
+    }
+    out.write_char(')')
+  } else {
+    out.write_char('(')
+    out.write_string(render_instruction_head(item.instrs[0]))
+    out.write_char(')')
+  }
+}
+
+///|
 fn write_module_field(
   out : StringBuilder,
   field : ModuleField,
@@ -541,9 +594,10 @@ fn write_module_field(
       write_inline_exports(out, tbl.exports)
       match tbl.elem_init {
         Some(func_indices) => {
+          let elem_exprs = tbl.elem_exprs.unwrap_or([])
           let use_short_form = tbl.table_type.limits.max is None &&
             tbl.table_type.limits.min ==
-            func_indices.length().reinterpret_as_uint()
+            (func_indices.length() + elem_exprs.length()).reinterpret_as_uint()
           if use_short_form {
             out.write_string(
               " \{keyword_from_value_type(tbl.table_type.elem_type)} (elem",
@@ -557,9 +611,20 @@ fn write_module_field(
               " \{keyword_from_value_type(tbl.table_type.elem_type)} (elem",
             )
           }
+          if !is_default_elem_offset(tbl.elem_offset) {
+            write_elem_abbrev_offset(out, tbl.elem_offset)
+          }
+          match tbl.elem_init_type {
+            Some(vt) => out.write_string(" \{keyword_from_value_type(vt)}")
+            None => ()
+          }
           for fidx in func_indices {
             out.write_char(' ')
             out.write_string(index_text(fidx))
+          }
+          for item in elem_exprs {
+            out.write_char(' ')
+            write_elem_item_inline(out, item)
           }
           out.write_string("))\n")
         }
@@ -704,9 +769,20 @@ fn write_module_field(
         write_instructions(out, elem.offset, indent + 4)
         out.write_string("\{pad}  )")
       }
+      match elem.elem_type {
+        Some(vt) => {
+          out.write_char(' ')
+          out.write_string(keyword_from_value_type(vt))
+        }
+        None => ()
+      }
       for idx in elem.func_indices {
         out.write_char(' ')
         out.write_string(index_text(idx))
+      }
+      for item in elem.elem_exprs {
+        out.write_char(' ')
+        write_elem_item_inline(out, item)
       }
       out.write_string(")\n")
     }

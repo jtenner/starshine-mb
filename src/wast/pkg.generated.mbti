@@ -82,11 +82,21 @@ pub impl Show for DataSegment
 pub impl @debug.Debug for DataSegment
 pub impl @quickcheck.Arbitrary for DataSegment
 
+pub struct ElemInitExpr {
+  instrs : Array[Instruction]
+  explicit_item : Bool
+}
+pub impl Eq for ElemInitExpr
+pub impl Show for ElemInitExpr
+pub impl @debug.Debug for ElemInitExpr
+
 pub struct ElemSegment {
   id : String?
   table_index : Index
   offset : Array[Instruction]
   func_indices : Array[Index]
+  elem_exprs : Array[ElemInitExpr]
+  elem_type : ValueType?
 }
 pub impl @lib.PrettyPrint for ElemSegment
 pub impl Eq for ElemSegment
@@ -989,6 +999,8 @@ pub struct Table {
   exports : Array[InlineExport]
   table_type : TableType
   elem_init : Array[Index]?
+  elem_exprs : Array[ElemInitExpr]?
+  elem_init_type : ValueType?
   elem_offset : Array[Instruction]?
 }
 pub impl @lib.PrettyPrint for Table

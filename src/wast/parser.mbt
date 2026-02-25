@@ -108,6 +108,8 @@ pub struct Table {
   exports : Array[InlineExport]
   table_type : TableType
   elem_init : Array[Index]?
+  elem_exprs : Array[ElemInitExpr]?
+  elem_init_type : ValueType?
   elem_offset : Array[Instruction]?
 } derive(Eq, Show, Debug)
 
@@ -145,6 +147,14 @@ pub struct ElemSegment {
   table_index : Index
   offset : Array[Instruction]
   func_indices : Array[Index]
+  elem_exprs : Array[ElemInitExpr]
+  elem_type : ValueType?
+} derive(Eq, Show, Debug)
+
+///|
+pub struct ElemInitExpr {
+  instrs : Array[Instruction]
+  explicit_item : Bool
 } derive(Eq, Show, Debug)
 
 ///|
@@ -1988,14 +1998,17 @@ fn WastParser::parse_func(self : WastParser) -> ModuleField raise ParserError {
 ///|
 fn WastParser::parse_elem_item_instrs(
   self : WastParser,
-) -> Array[Instruction] raise ParserError {
+) -> ElemInitExpr raise ParserError {
   self.expect_lpar()
-  if self.check(Item) {
+  let explicit_item = if self.check(Item) {
     let _ = self.advance()
+    true
+  } else {
+    false
   }
   let instrs = self.parse_instructions()
   self.expect_rpar()
-  instrs
+  { instrs, explicit_item }
 }
 
 ///|
@@ -2008,7 +2021,12 @@ fn WastParser::parse_table(self : WastParser) -> Table raise ParserError {
     None
   }
   let exports = self.parse_inline_exports()
-  fn parse_table_elem_init() -> (Array[Index], Array[Instruction]?) raise ParserError {
+  fn parse_table_elem_init() -> (
+    Array[Index],
+    Array[ElemInitExpr],
+    ValueType?,
+    Array[Instruction]?,
+  ) raise ParserError {
     let mut offset : Array[Instruction]? = None
     if self.check(Lpar) {
       let saved_state = self.save_lexer_state()
@@ -2033,16 +2051,22 @@ fn WastParser::parse_table(self : WastParser) -> Table raise ParserError {
       }
     }
 
+    let mut elem_init_type : ValueType? = None
     if self.check(Func) {
       let _ = self.advance()
     } else if self.can_start_value_type() {
       let saved_state = self.save_lexer_state()
       let saved_token = self.current
-      ignore(self.parse_value_type()) catch {
+      let parsed_type : ValueType? = Some(self.parse_value_type()) catch {
         _ => {
           self.restore_lexer_state(saved_state)
           self.current = saved_token
+          None
         }
+      }
+      match parsed_type {
+        Some(v) => elem_init_type = Some(v)
+        None => ()
       }
     }
 
@@ -2050,17 +2074,11 @@ fn WastParser::parse_table(self : WastParser) -> Table raise ParserError {
     while self.current.token_type is (Nat | Var) {
       func_indices.push(self.parse_index())
     }
+    let elem_exprs : Array[ElemInitExpr] = []
     while self.check(Lpar) {
-      let item_instrs = self.parse_elem_item_instrs()
-      match item_instrs {
-        [RefFunc(idx)] => func_indices.push(idx)
-        _ =>
-          raise Custom(
-            "typed elem expressions in table abbreviations currently require ref.func items",
-          )
-      }
+      elem_exprs.push(self.parse_elem_item_instrs())
     }
-    (func_indices, offset)
+    (func_indices, elem_exprs, elem_init_type, offset)
   }
 
   if self.current.token_type is ValueType(_) {
@@ -2068,10 +2086,10 @@ fn WastParser::parse_table(self : WastParser) -> Table raise ParserError {
     let elem_type = self.parse_value_type()
     self.expect_lpar()
     let _ = self.expect(Elem, "expected 'elem' table initializer")
-    let (func_indices, elem_offset) = parse_table_elem_init()
+    let (func_indices, elem_exprs, elem_init_type, elem_offset) = parse_table_elem_init()
     self.expect_rpar()
     let limits : Limits = {
-      min: func_indices.length().reinterpret_as_uint(),
+      min: (func_indices.length() + elem_exprs.length()).reinterpret_as_uint(),
       max: None,
     }
     return {
@@ -2079,35 +2097,50 @@ fn WastParser::parse_table(self : WastParser) -> Table raise ParserError {
       exports,
       table_type: { limits, elem_type },
       elem_init: Some(func_indices),
+      elem_exprs: Some(elem_exprs),
+      elem_init_type,
       elem_offset: Some(elem_offset.unwrap_or([Const(I32Const, "0")])),
     }
   }
 
   let limits = self.parse_limits()
   let elem_type = self.parse_value_type()
-  let (elem_init, elem_offset) : (Array[Index]?, Array[Instruction]?) = if self.check(
-      Lpar,
-    ) {
+  let (elem_init, elem_exprs, elem_init_type, elem_offset) : (
+    Array[Index]?,
+    Array[ElemInitExpr]?,
+    ValueType?,
+    Array[Instruction]?,
+  ) = if self.check(Lpar) {
     let saved_state = self.save_lexer_state()
     let saved_token = self.current
     self.expect_lpar()
     if self.check(Elem) {
       let _ = self.advance()
-      let (func_indices, parsed_offset) = parse_table_elem_init()
+      let (func_indices, parsed_exprs, parsed_elem_type, parsed_offset) = parse_table_elem_init()
       self.expect_rpar()
       (
         Some(func_indices),
+        Some(parsed_exprs),
+        parsed_elem_type,
         Some(parsed_offset.unwrap_or([Const(I32Const, "0")])),
       )
     } else {
       self.restore_lexer_state(saved_state)
       self.current = saved_token
-      (None, None)
+      (None, None, None, None)
     }
   } else {
-    (None, None)
+    (None, None, None, None)
   }
-  { id, exports, table_type: { limits, elem_type }, elem_init, elem_offset }
+  {
+    id,
+    exports,
+    table_type: { limits, elem_type },
+    elem_init,
+    elem_exprs,
+    elem_init_type,
+    elem_offset,
+  }
 }
 
 ///|
@@ -2805,7 +2838,14 @@ fn WastParser::parse_elem(self : WastParser) -> ElemSegment raise ParserError {
     while self.current.token_type is (Nat | Var) {
       func_indices.push(self.parse_index())
     }
-    return { id, table_index: Index::Num(0), offset: [], func_indices }
+    return {
+      id,
+      table_index: Index::Num(0),
+      offset: [],
+      func_indices,
+      elem_exprs: [],
+      elem_type: None,
+    }
   }
 
   let table_index = self.try_parse_index().unwrap_or(Index::Num(0))
@@ -2823,33 +2863,35 @@ fn WastParser::parse_elem(self : WastParser) -> ElemSegment raise ParserError {
     []
   }
 
+  let mut elem_type : ValueType? = None
   if self.check(Func) {
     let _ = self.advance()
   } else if self.can_start_value_type() {
     let saved_state = self.save_lexer_state()
     let saved_token = self.current
-    ignore(self.parse_value_type()) catch {
+    let parsed_type : ValueType? = Some(self.parse_value_type()) catch {
       _ => {
         self.restore_lexer_state(saved_state)
         self.current = saved_token
+        None
       }
+    }
+    match parsed_type {
+      Some(v) => elem_type = Some(v)
+      None => ()
     }
   }
 
-  // Function indices and typed ref.func items
+  // Function indices and typed item expressions
   let func_indices : Array[Index] = []
   while self.current.token_type is (Nat | Var) {
     func_indices.push(self.parse_index())
   }
+  let elem_exprs : Array[ElemInitExpr] = []
   while self.check(Lpar) {
-    let item_instrs = self.parse_elem_item_instrs()
-    match item_instrs {
-      [RefFunc(idx)] => func_indices.push(idx)
-      _ =>
-        raise Custom("typed elem expressions currently require ref.func items")
-    }
+    elem_exprs.push(self.parse_elem_item_instrs())
   }
-  { id, table_index, offset, func_indices }
+  { id, table_index, offset, func_indices, elem_exprs, elem_type }
 }
 
 // ============================================================================
@@ -4727,6 +4769,18 @@ test "parse table elem-abbreviation with typed ref.func items" {
   assert_false(parser.has_errors())
 }
 
+///|
+test "parse table elem-abbreviation with typed ref.null items" {
+  let source =
+    #|(module
+    #|  (func $f)
+    #|  (table 2 funcref (elem funcref (item (ref.null func)) (item (ref.func $f)))))|
+  let lexer = make_lexer(source)
+  let parser = WastParser::new(lexer)
+  let _ = parser.parse_module()
+  assert_false(parser.has_errors())
+}
+
 // ----------------------------------------------------------------------------
 // Global Definition Tests
 // ----------------------------------------------------------------------------
@@ -5021,6 +5075,19 @@ test "parse elem segment multiple funcs" {
 ///|
 test "parse elem segment by index" {
   let source = "(module (table 1 funcref) (func) (elem (i32.const 0) 0))"
+  let lexer = make_lexer(source)
+  let parser = WastParser::new(lexer)
+  let _ = parser.parse_module()
+  assert_false(parser.has_errors())
+}
+
+///|
+test "parse elem segment with typed ref.null item expressions" {
+  let source =
+    #|(module
+    #|  (table 1 funcref)
+    #|  (func $f)
+    #|  (elem (i32.const 0) funcref (item (ref.null func)) (item (ref.func $f))))|
   let lexer = make_lexer(source)
   let parser = WastParser::new(lexer)
   let _ = parser.parse_module()

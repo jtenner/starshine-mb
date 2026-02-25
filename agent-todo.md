@@ -16,39 +16,21 @@ Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full
 
 ### Follow-up tasks from latest implementation
 - [ ] Fix `--optimize`/`coalesce_locals` aborts on representative WAT modules (including `examples/modules/simple.wat`, `feature_mix.wat`, `table_dispatch.wat`, `simd_lane_mix.wat`) and add regression coverage.
-- [ ] Make native CLI `main` return non-zero exit status when `run_cmd` returns `Err(...)` so CI and scripts fail fast on pipeline errors.
-- [x] Extend table abbreviation support to additional text forms used in spec files (`(elem func ...)`, typed ref element expressions, and non-zero active offsets where applicable).
-- [x] Add an end-to-end `re_reloop` fixture that exercises non-direct `RRBrTable` targets via module reconstruction (not only helper-level CFG tests) and keeps scratch-local insertion covered.
-- [x] Add explicit parser/lowering behavior coverage for `(tag (export "...") (import ...))` shorthand (diagnostic or supported lowering), matching `func` shorthand rules.
-- [x] Audit downstream optimizer/type-refinement assumptions after `ref.func` now typechecks as non-null `(ref func)` and update notes/tests accordingly.
-- [ ] Extend table/elem typed-expression lowering beyond `ref.func` items (`ref.null` and additional typed `item` forms) for full spec `elem.wast`/`table_init*.wast` parity.
-- [ ] Update `module_to_wast` table emission for elem-abbreviation offsets/typed items so new parser forms roundtrip without normalization loss.
+- [x] Make native CLI `main` return non-zero exit status when `run_cmd` returns `Err(...)` so CI and scripts fail fast on pipeline errors.
+- [x] Extend table/elem typed-expression lowering beyond `ref.func` items (`ref.null` and additional typed `item` forms) for full spec `elem.wast`/`table_init*.wast` parity.
+- [x] Update `module_to_wast` table emission for elem-abbreviation offsets/typed items so new parser forms roundtrip without normalization loss.
 - [ ] Add stronger end-to-end `re_reloop` assertions for truly internal `RRBrTable` targets once module-level construction can synthesize them directly (helper-level CFG scratch-path coverage already exists).
-- [ ] Add CI coverage for native target `cmd/fuzz_harness_test.mbt` so real `wasm-tools`/Binaryen differential checks run in automation (not only wasm-gc tests).
-- [x] Consolidate duplicated `RRBrTable` dispatch-building logic in `re_reloop` (dup-safe and scratch-local branches) to reduce divergence/regression risk.
-- [x] Decide and document parser behavior for `(func (export "...") (import ...))` shorthand; add explicit parse/lowering diagnostics or support tests.
-- [x] Add lowering + validation regression tests for table abbreviation semantics (implicit active elem segment index ordering with explicit `(elem ...)` segments).
-- [x] Add direct parser/lowering regression tests for legacy invalid-label diagnostics (`delegate` depth/name targets and `rethrow` catch-depth checks), independent of spec-harness fixtures.
-- [x] Add a lightweight corpus/minimizer flow for fuzz-harness failures (persist failing wasm + seed + pass set for deterministic repro).
+- [x] Add CI coverage for native target `cmd/fuzz_harness_test.mbt` so real `wasm-tools`/Binaryen differential checks run in automation (not only wasm-gc tests).
 - [ ] Implement full typed-heap value-type modeling in `wast` AST/lowering (`(ref $t)`/`(ref null $t)` to concrete `TypeIdx` refs), replacing current abstract-funcref approximation.
-- [x] Add focused tests for `try_table` catch label-depth semantics covering numeric and named labels across nested blocks plus implicit function-return label resolution.
-- [x] Add explicit regression tests for inline exports across `func`/`table`/`memory`/`global` fields to lock in the shared inline-export lowering path.
-- [x] Add a native-target CI lane that executes `examples/` CLI workflows end-to-end (`wat` input -> optimize -> wasm output) to keep docs/examples executable in automation.
-- [x] Add a small benchmark script to refresh the README benchmark table from reproducible `moon test` invocations instead of manual copy/update.
-- [x] Extend README API signature guardrail blocks to include `ir`/`transformer`/`wat` once those sections are finalized for long-term stability.
-- [x] Add at least three additional `examples/modules/*.wat` programs demonstrating distinct features (table `call_indirect`, SIMD lane ops, memory64 data offsets).
+- [ ] Preserve explicit typed-element intent in lowering when all init expressions are `ref.func` (currently canonicalized to legacy `funcs` element kind).
+- [ ] Add workflow caching for `cargo install wasm-tools --locked` in native CI to reduce cold-start runtime.
+
 
 ### Release quality gates
-- [x] Add differential testing vs `wasm-tools` / Binaryen.
-- [x] Add wasm-smith fuzz harness (`decode -> validate -> optimize -> encode -> roundtrip`).
 - [ ] Make `module_to_wast` output reliably parser-consumable in roundtrip tests.
 - [ ] Reach `>=75%` line coverage on hot paths (decoder, IR lift, top passes).
 
 ## Priority 1 (Release polish)
-- [x] Expand `README.md` with architecture diagram and benchmark table.
-- [x] Add dedicated CLI command examples (`starshine` flags + config + env overlays).
-- [x] Add generated/verified API drift check so README signatures stay in sync with `pkg.generated.mbti`.
-- [x] Add `examples/` directory with real-world snippets.
 - [ ] Publish first release + MoonBit registry package (`moon publish` + GitHub Release binaries).
 
 ## Deferred After v0.1
