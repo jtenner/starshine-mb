@@ -1227,7 +1227,11 @@ fn WastParser::parse_opcode_instruction(
     | I32Extend16S
     | I64Extend8S
     | I64Extend16S
-    | I64Extend32S => Unary(op)
+    | I64Extend32S
+    | RefAsNonNull
+    | RefI31
+    | I31GetS
+    | I31GetU => Unary(op)
 
     // Binary
     I32Add
@@ -1310,7 +1314,8 @@ fn WastParser::parse_opcode_instruction(
     | F64Lt
     | F64Gt
     | F64Le
-    | F64Ge => Compare(op)
+    | F64Ge
+    | RefEq => Compare(op)
 
     // Conversion
     I32WrapI64
@@ -1345,7 +1350,9 @@ fn WastParser::parse_opcode_instruction(
     | I64TruncSatF32S
     | I64TruncSatF32U
     | I64TruncSatF64S
-    | I64TruncSatF64U => Convert(op)
+    | I64TruncSatF64U
+    | AnyConvertExtern
+    | ExternConvertAny => Convert(op)
 
     // Reference
     RefNull => {

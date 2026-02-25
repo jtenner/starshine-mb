@@ -217,9 +217,93 @@ fn wt_parse_i64(text : String) -> Result[@lib.I64, String] {
 }
 
 ///|
+fn wt_hex_digit_value(c : Int) -> Int {
+  if c >= 0x30 && c <= 0x39 {
+    c - 0x30
+  } else if c >= 0x61 && c <= 0x66 {
+    c - 0x61 + 10
+  } else if c >= 0x41 && c <= 0x46 {
+    c - 0x41 + 10
+  } else {
+    -1
+  }
+}
+
+///|
+fn wt_parse_hex_u64(text : String, kind : String) -> Result[UInt64, String] {
+  if !(text.has_prefix("0x") || text.has_prefix("0X")) {
+    return Err("invalid \{kind} literal: \{text}")
+  }
+  let mut value : UInt64 = 0UL
+  let mut digits = 0
+  for i = 2; i < text.length(); i = i + 1 {
+    let c = text[i]
+    if c == '_' {
+      continue
+    }
+    let digit = wt_hex_digit_value(c.to_int())
+    if digit < 0 {
+      return Err("invalid \{kind} literal: \{text}")
+    }
+    digits = digits + 1
+    if digits > 16 {
+      return Err("invalid \{kind} literal: \{text}")
+    }
+    value = (value << 4) | digit.to_uint64()
+  }
+  if digits == 0 {
+    return Err("invalid \{kind} literal: \{text}")
+  }
+  Ok(value)
+}
+
+///|
+fn wt_parse_u64_decimal(text : String, kind : String) -> Result[UInt64, String] {
+  let mut value : UInt64 = 0UL
+  let mut digits = 0
+  for i = 0; i < text.length(); i = i + 1 {
+    let c = text[i]
+    if c == '_' {
+      continue
+    }
+    let code = c.to_int()
+    if code < 0x30 || code > 0x39 {
+      return Err("invalid \{kind} literal: \{text}")
+    }
+    let digit = (code - 0x30).to_uint64()
+    if value > (18446744073709551615UL - digit) / 10UL {
+      return Err("invalid \{kind} literal: \{text}")
+    }
+    value = value * 10UL + digit
+    digits = digits + 1
+  }
+  if digits == 0 {
+    return Err("invalid \{kind} literal: \{text}")
+  }
+  Ok(value)
+}
+
+///|
+fn wt_parse_u64_literal(text : String, kind : String) -> Result[UInt64, String] {
+  let trimmed = text.trim().to_string()
+  let parsed_signed = @strconv.parse_int64(trimmed) catch {
+    _ =>
+      if trimmed.has_prefix("0x") || trimmed.has_prefix("0X") {
+        return wt_parse_hex_u64(trimmed, kind)
+      } else {
+        return wt_parse_u64_decimal(trimmed, kind)
+      }
+  }
+  Ok(parsed_signed.reinterpret_as_uint64())
+}
+
+///|
 fn wt_parse_f64(text : String) -> Result[@lib.F64, String] {
   let lowered = text.trim().to_string()
   if lowered.has_prefix("nan:") ||
+    lowered == "nan" ||
+    lowered == "+nan" ||
+    lowered == "-nan" ||
     lowered.has_prefix("+nan:") ||
     lowered.has_prefix("-nan:") {
     return Ok(@lib.F64(@double.not_a_number))
@@ -245,6 +329,54 @@ fn wt_parse_i64_literal(text : String, kind : String) -> Result[Int64, String] {
     _ => return Err("invalid \{kind} literal: \{text}")
   }
   Ok(parsed)
+}
+
+///|
+fn wt_parse_nan_payload_bits(
+  text : String,
+  exp_bits : UInt64,
+  quiet_payload : UInt64,
+  payload_mask : UInt64,
+  sign_mask : UInt64,
+  kind : String,
+) -> Result[UInt64?, String] {
+  let trimmed = text.trim().to_string()
+  if trimmed.length() == 0 {
+    return Ok(None)
+  }
+  let mut negative = false
+  let mut body = trimmed
+  if body[0] == '+' {
+    body = body.sub(start=1, end=body.length()).to_string() catch { _ => "" }
+  } else if body[0] == '-' {
+    negative = true
+    body = body.sub(start=1, end=body.length()).to_string() catch { _ => "" }
+  }
+  if body == "nan" {
+    let mut bits = exp_bits | quiet_payload
+    if negative {
+      bits = bits | sign_mask
+    }
+    return Ok(Some(bits))
+  }
+  if body.has_prefix("nan:") {
+    let payload_text = body.sub(start=4, end=body.length()).to_string() catch {
+        _ => ""
+      }
+    let payload = match wt_parse_hex_u64(payload_text, "\{kind} NaN payload") {
+      Ok(v) => v
+      Err(_) => return Err("invalid \{kind} NaN payload literal: \{text}")
+    }
+    if payload == 0UL || payload > payload_mask {
+      return Err("\{kind} NaN payload out of range: \{text}")
+    }
+    let mut bits = exp_bits | payload
+    if negative {
+      bits = bits | sign_mask
+    }
+    return Ok(Some(bits))
+  }
+  Ok(None)
 }
 
 ///|
@@ -293,14 +425,28 @@ fn wt_v128_const_instr(v : V128Const) -> Result[@lib.Instruction, String] {
       }
     I64x2 =>
       for text in v.values {
-        let lane = match wt_parse_i64_literal(text, "i64x2") {
+        let lane = match wt_parse_u64_literal(text, "i64x2") {
           Ok(val) => val
           Err(e) => return Err(e)
         }
-        wt_push_le_bytes(bytes, lane.reinterpret_as_uint64(), 8)
+        wt_push_le_bytes(bytes, lane, 8)
       }
     F32x4 =>
       for text in v.values {
+        let maybe_nan_bits = match
+          wt_parse_nan_payload_bits(
+            text, 0x7f800000UL, 0x00400000UL, 0x007fffffUL, 0x80000000UL, "f32x4",
+          ) {
+          Ok(v) => v
+          Err(e) => return Err(e)
+        }
+        match maybe_nan_bits {
+          Some(bits) => {
+            wt_push_le_bytes(bytes, bits, 4)
+            continue
+          }
+          None => ()
+        }
         let lane = match wt_parse_f32(text) {
           Ok(val) => val
           Err(e) => return Err(e)
@@ -314,6 +460,21 @@ fn wt_v128_const_instr(v : V128Const) -> Result[@lib.Instruction, String] {
       }
     F64x2 =>
       for text in v.values {
+        let maybe_nan_bits = match
+          wt_parse_nan_payload_bits(
+            text, 0x7ff0000000000000UL, 0x0008000000000000UL, 0x000fffffffffffffUL,
+            0x8000000000000000UL, "f64x2",
+          ) {
+          Ok(v) => v
+          Err(e) => return Err(e)
+        }
+        match maybe_nan_bits {
+          Some(bits) => {
+            wt_push_le_bytes(bytes, bits, 8)
+            continue
+          }
+          None => ()
+        }
         let lane = match wt_parse_f64(text) {
           Ok(val) => val
           Err(e) => return Err(e)
@@ -357,6 +518,19 @@ fn wt_shuffle_lane(lane : UInt) -> Result[@lib.LaneIdx, String] {
     Ok(@lib.LaneIdx::new(lane.to_byte()))
   } else {
     Err("i8x16.shuffle lane index out of range: \{lane}")
+  }
+}
+
+///|
+fn wt_lane_idx(
+  op : String,
+  lane : UInt,
+  max_lane : UInt,
+) -> Result[@lib.LaneIdx, String] {
+  if lane <= max_lane {
+    Ok(@lib.LaneIdx::new(lane.to_byte()))
+  } else {
+    Err("\{op} lane index out of range: \{lane}")
   }
 }
 
@@ -553,6 +727,13 @@ fn wt_numeric_noarg(op : Opcode) -> Result[@lib.Instruction, String] {
     I64TruncSatF32U => Ok(@lib.Instruction::i64_trunc_sat_f32u())
     I64TruncSatF64S => Ok(@lib.Instruction::i64_trunc_sat_f64s())
     I64TruncSatF64U => Ok(@lib.Instruction::i64_trunc_sat_f64u())
+    RefEq => Ok(@lib.Instruction::ref_eq())
+    RefAsNonNull => Ok(@lib.Instruction::ref_as_non_null())
+    AnyConvertExtern => Ok(@lib.Instruction::any_convert_extern())
+    ExternConvertAny => Ok(@lib.Instruction::extern_convert_any())
+    RefI31 => Ok(@lib.Instruction::ref_i31())
+    I31GetS => Ok(@lib.Instruction::i31_get_s())
+    I31GetU => Ok(@lib.Instruction::i31_get_u())
     _ => wt_unsupported("\{op}")
   }
 }
@@ -1140,126 +1321,160 @@ fn wt_instr_to_lib(
     I64x2Splat => Ok(@lib.Instruction::i64x2_splat())
     F32x4Splat => Ok(@lib.Instruction::f32x4_splat())
     F64x2Splat => Ok(@lib.Instruction::f64x2_splat())
-    V128Load8Lane(ma, lane) =>
-      Ok(
-        @lib.Instruction::v128_load8_lane(
-          wt_mem_arg(ma),
-          @lib.LaneIdx::new(lane.to_byte()),
-        ),
-      )
-    V128Load16Lane(ma, lane) =>
-      Ok(
-        @lib.Instruction::v128_load16_lane(
-          wt_mem_arg(ma),
-          @lib.LaneIdx::new(lane.to_byte()),
-        ),
-      )
-    V128Load32Lane(ma, lane) =>
-      Ok(
-        @lib.Instruction::v128_load32_lane(
-          wt_mem_arg(ma),
-          @lib.LaneIdx::new(lane.to_byte()),
-        ),
-      )
-    V128Load64Lane(ma, lane) =>
-      Ok(
-        @lib.Instruction::v128_load64_lane(
-          wt_mem_arg(ma),
-          @lib.LaneIdx::new(lane.to_byte()),
-        ),
-      )
-    V128Store8Lane(ma, lane) =>
-      Ok(
-        @lib.Instruction::v128_store8_lane(
-          wt_mem_arg(ma),
-          @lib.LaneIdx::new(lane.to_byte()),
-        ),
-      )
-    V128Store16Lane(ma, lane) =>
-      Ok(
-        @lib.Instruction::v128_store16_lane(
-          wt_mem_arg(ma),
-          @lib.LaneIdx::new(lane.to_byte()),
-        ),
-      )
-    V128Store32Lane(ma, lane) =>
-      Ok(
-        @lib.Instruction::v128_store32_lane(
-          wt_mem_arg(ma),
-          @lib.LaneIdx::new(lane.to_byte()),
-        ),
-      )
-    V128Store64Lane(ma, lane) =>
-      Ok(
-        @lib.Instruction::v128_store64_lane(
-          wt_mem_arg(ma),
-          @lib.LaneIdx::new(lane.to_byte()),
-        ),
-      )
-    I8x16ExtractLaneS(lane) =>
-      Ok(
-        @lib.Instruction::i8x16_extract_lane_s(
-          @lib.LaneIdx::new(lane.to_byte()),
-        ),
-      )
-    I8x16ExtractLaneU(lane) =>
-      Ok(
-        @lib.Instruction::i8x16_extract_lane_u(
-          @lib.LaneIdx::new(lane.to_byte()),
-        ),
-      )
-    I8x16ReplaceLane(lane) =>
-      Ok(
-        @lib.Instruction::i8x16_replace_lane(@lib.LaneIdx::new(lane.to_byte())),
-      )
-    I16x8ExtractLaneS(lane) =>
-      Ok(
-        @lib.Instruction::i16x8_extract_lane_s(
-          @lib.LaneIdx::new(lane.to_byte()),
-        ),
-      )
-    I16x8ExtractLaneU(lane) =>
-      Ok(
-        @lib.Instruction::i16x8_extract_lane_u(
-          @lib.LaneIdx::new(lane.to_byte()),
-        ),
-      )
-    I16x8ReplaceLane(lane) =>
-      Ok(
-        @lib.Instruction::i16x8_replace_lane(@lib.LaneIdx::new(lane.to_byte())),
-      )
-    I32x4ExtractLane(lane) =>
-      Ok(
-        @lib.Instruction::i32x4_extract_lane(@lib.LaneIdx::new(lane.to_byte())),
-      )
-    I32x4ReplaceLane(lane) =>
-      Ok(
-        @lib.Instruction::i32x4_replace_lane(@lib.LaneIdx::new(lane.to_byte())),
-      )
-    I64x2ExtractLane(lane) =>
-      Ok(
-        @lib.Instruction::i64x2_extract_lane(@lib.LaneIdx::new(lane.to_byte())),
-      )
-    I64x2ReplaceLane(lane) =>
-      Ok(
-        @lib.Instruction::i64x2_replace_lane(@lib.LaneIdx::new(lane.to_byte())),
-      )
-    F32x4ExtractLane(lane) =>
-      Ok(
-        @lib.Instruction::f32x4_extract_lane(@lib.LaneIdx::new(lane.to_byte())),
-      )
-    F32x4ReplaceLane(lane) =>
-      Ok(
-        @lib.Instruction::f32x4_replace_lane(@lib.LaneIdx::new(lane.to_byte())),
-      )
-    F64x2ExtractLane(lane) =>
-      Ok(
-        @lib.Instruction::f64x2_extract_lane(@lib.LaneIdx::new(lane.to_byte())),
-      )
-    F64x2ReplaceLane(lane) =>
-      Ok(
-        @lib.Instruction::f64x2_replace_lane(@lib.LaneIdx::new(lane.to_byte())),
-      )
+    V128Load8Lane(ma, lane) => {
+      let li = match wt_lane_idx("v128.load8_lane", lane, 15U) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::v128_load8_lane(wt_mem_arg(ma), li))
+    }
+    V128Load16Lane(ma, lane) => {
+      let li = match wt_lane_idx("v128.load16_lane", lane, 7U) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::v128_load16_lane(wt_mem_arg(ma), li))
+    }
+    V128Load32Lane(ma, lane) => {
+      let li = match wt_lane_idx("v128.load32_lane", lane, 3U) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::v128_load32_lane(wt_mem_arg(ma), li))
+    }
+    V128Load64Lane(ma, lane) => {
+      let li = match wt_lane_idx("v128.load64_lane", lane, 1U) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::v128_load64_lane(wt_mem_arg(ma), li))
+    }
+    V128Store8Lane(ma, lane) => {
+      let li = match wt_lane_idx("v128.store8_lane", lane, 15U) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::v128_store8_lane(wt_mem_arg(ma), li))
+    }
+    V128Store16Lane(ma, lane) => {
+      let li = match wt_lane_idx("v128.store16_lane", lane, 7U) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::v128_store16_lane(wt_mem_arg(ma), li))
+    }
+    V128Store32Lane(ma, lane) => {
+      let li = match wt_lane_idx("v128.store32_lane", lane, 3U) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::v128_store32_lane(wt_mem_arg(ma), li))
+    }
+    V128Store64Lane(ma, lane) => {
+      let li = match wt_lane_idx("v128.store64_lane", lane, 1U) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::v128_store64_lane(wt_mem_arg(ma), li))
+    }
+    I8x16ExtractLaneS(lane) => {
+      let li = match wt_lane_idx("i8x16.extract_lane_s", lane, 15U) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::i8x16_extract_lane_s(li))
+    }
+    I8x16ExtractLaneU(lane) => {
+      let li = match wt_lane_idx("i8x16.extract_lane_u", lane, 15U) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::i8x16_extract_lane_u(li))
+    }
+    I8x16ReplaceLane(lane) => {
+      let li = match wt_lane_idx("i8x16.replace_lane", lane, 15U) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::i8x16_replace_lane(li))
+    }
+    I16x8ExtractLaneS(lane) => {
+      let li = match wt_lane_idx("i16x8.extract_lane_s", lane, 7U) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::i16x8_extract_lane_s(li))
+    }
+    I16x8ExtractLaneU(lane) => {
+      let li = match wt_lane_idx("i16x8.extract_lane_u", lane, 7U) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::i16x8_extract_lane_u(li))
+    }
+    I16x8ReplaceLane(lane) => {
+      let li = match wt_lane_idx("i16x8.replace_lane", lane, 7U) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::i16x8_replace_lane(li))
+    }
+    I32x4ExtractLane(lane) => {
+      let li = match wt_lane_idx("i32x4.extract_lane", lane, 3U) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::i32x4_extract_lane(li))
+    }
+    I32x4ReplaceLane(lane) => {
+      let li = match wt_lane_idx("i32x4.replace_lane", lane, 3U) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::i32x4_replace_lane(li))
+    }
+    I64x2ExtractLane(lane) => {
+      let li = match wt_lane_idx("i64x2.extract_lane", lane, 1U) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::i64x2_extract_lane(li))
+    }
+    I64x2ReplaceLane(lane) => {
+      let li = match wt_lane_idx("i64x2.replace_lane", lane, 1U) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::i64x2_replace_lane(li))
+    }
+    F32x4ExtractLane(lane) => {
+      let li = match wt_lane_idx("f32x4.extract_lane", lane, 3U) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::f32x4_extract_lane(li))
+    }
+    F32x4ReplaceLane(lane) => {
+      let li = match wt_lane_idx("f32x4.replace_lane", lane, 3U) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::f32x4_replace_lane(li))
+    }
+    F64x2ExtractLane(lane) => {
+      let li = match wt_lane_idx("f64x2.extract_lane", lane, 1U) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::f64x2_extract_lane(li))
+    }
+    F64x2ReplaceLane(lane) => {
+      let li = match wt_lane_idx("f64x2.replace_lane", lane, 1U) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::f64x2_replace_lane(li))
+    }
   }
 }
 
@@ -2327,4 +2542,443 @@ test "wast_text_binary_roundtrip preserves descriptor instruction families" {
   assert_true(normalized.contains("ref.get_desc"))
   assert_true(normalized.contains("ref.test_desc 0"))
   assert_true(normalized.contains("ref.cast_desc_eq_null 0"))
+}
+
+///|
+fn wt_lower_error_contains(source : String, needle : String) -> Bool {
+  match wast_to_binary_module(source) {
+    Ok(_) => false
+    Err(e) => e.contains(needle)
+  }
+}
+
+///|
+test "wast_to_binary_module lowers advanced reference no-immediate instructions" {
+  let src =
+    #|(module
+    #|  (func (param externref externref i32 externref)
+    #|    local.get 0
+    #|    local.get 1
+    #|    ref.eq
+    #|    drop
+    #|    local.get 0
+    #|    ref.as_non_null
+    #|    drop
+    #|    local.get 2
+    #|    ref.i31
+    #|    i31.get_s
+    #|    drop
+    #|    local.get 2
+    #|    ref.i31
+    #|    i31.get_u
+    #|    drop
+    #|    local.get 3
+    #|    any.convert_extern
+    #|    extern.convert_any
+    #|    drop))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) => fail("expected advanced reference lowering success: \{e}")
+  }
+  match lowered.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.LocalGet(@lib.LocalIdx(0)),
+                @lib.LocalGet(@lib.LocalIdx(1)),
+                ref_eq_instr,
+                @lib.Drop,
+                @lib.LocalGet(@lib.LocalIdx(0)),
+                ref_as_non_null_instr,
+                @lib.Drop,
+                @lib.LocalGet(@lib.LocalIdx(2)),
+                ref_i31_s_instr,
+                i31_get_s_instr,
+                @lib.Drop,
+                @lib.LocalGet(@lib.LocalIdx(2)),
+                ref_i31_u_instr,
+                i31_get_u_instr,
+                @lib.Drop,
+                @lib.LocalGet(@lib.LocalIdx(3)),
+                any_convert_extern_instr,
+                extern_convert_any_instr,
+                @lib.Drop,
+              ]
+            )
+          ),
+        ]
+      )
+    ) => {
+      assert_eq(ref_eq_instr, @lib.Instruction::ref_eq())
+      assert_eq(ref_as_non_null_instr, @lib.Instruction::ref_as_non_null())
+      assert_eq(ref_i31_s_instr, @lib.Instruction::ref_i31())
+      assert_eq(i31_get_s_instr, @lib.Instruction::i31_get_s())
+      assert_eq(ref_i31_u_instr, @lib.Instruction::ref_i31())
+      assert_eq(i31_get_u_instr, @lib.Instruction::i31_get_u())
+      assert_eq(
+        any_convert_extern_instr,
+        @lib.Instruction::any_convert_extern(),
+      )
+      assert_eq(
+        extern_convert_any_instr,
+        @lib.Instruction::extern_convert_any(),
+      )
+    }
+    _ =>
+      fail(
+        "expected lowered function body containing advanced reference instructions",
+      )
+  }
+}
+
+///|
+test "wast_to_binary_module rejects out-of-range SIMD lane immediates" {
+  assert_true(
+    wt_lower_error_contains(
+      "(module (memory 1) (func (param i32 v128) local.get 0 local.get 1 v128.load8_lane 16 drop))",
+      "v128.load8_lane lane index out of range: 16",
+    ),
+  )
+  assert_true(
+    wt_lower_error_contains(
+      "(module (memory 1) (func (param i32 v128) local.get 0 local.get 1 v128.load16_lane 8 drop))",
+      "v128.load16_lane lane index out of range: 8",
+    ),
+  )
+  assert_true(
+    wt_lower_error_contains(
+      "(module (memory 1) (func (param i32 v128) local.get 0 local.get 1 v128.load32_lane 4 drop))",
+      "v128.load32_lane lane index out of range: 4",
+    ),
+  )
+  assert_true(
+    wt_lower_error_contains(
+      "(module (memory 1) (func (param i32 v128) local.get 0 local.get 1 v128.load64_lane 2 drop))",
+      "v128.load64_lane lane index out of range: 2",
+    ),
+  )
+  assert_true(
+    wt_lower_error_contains(
+      "(module (memory 1) (func (param i32 v128) local.get 0 local.get 1 v128.store8_lane 16))",
+      "v128.store8_lane lane index out of range: 16",
+    ),
+  )
+  assert_true(
+    wt_lower_error_contains(
+      "(module (memory 1) (func (param i32 v128) local.get 0 local.get 1 v128.store16_lane 8))",
+      "v128.store16_lane lane index out of range: 8",
+    ),
+  )
+  assert_true(
+    wt_lower_error_contains(
+      "(module (memory 1) (func (param i32 v128) local.get 0 local.get 1 v128.store32_lane 4))",
+      "v128.store32_lane lane index out of range: 4",
+    ),
+  )
+  assert_true(
+    wt_lower_error_contains(
+      "(module (memory 1) (func (param i32 v128) local.get 0 local.get 1 v128.store64_lane 2))",
+      "v128.store64_lane lane index out of range: 2",
+    ),
+  )
+  assert_true(
+    wt_lower_error_contains(
+      "(module (func (param v128) local.get 0 i8x16.extract_lane_u 16 drop))", "i8x16.extract_lane_u lane index out of range: 16",
+    ),
+  )
+  assert_true(
+    wt_lower_error_contains(
+      "(module (func (param v128 i32) local.get 0 local.get 1 i8x16.replace_lane 16 drop))",
+      "i8x16.replace_lane lane index out of range: 16",
+    ),
+  )
+  assert_true(
+    wt_lower_error_contains(
+      "(module (func (param v128) local.get 0 i16x8.extract_lane_u 8 drop))", "i16x8.extract_lane_u lane index out of range: 8",
+    ),
+  )
+  assert_true(
+    wt_lower_error_contains(
+      "(module (func (param v128 i32) local.get 0 local.get 1 i16x8.replace_lane 8 drop))",
+      "i16x8.replace_lane lane index out of range: 8",
+    ),
+  )
+  assert_true(
+    wt_lower_error_contains(
+      "(module (func (param v128) local.get 0 i32x4.extract_lane 4 drop))", "i32x4.extract_lane lane index out of range: 4",
+    ),
+  )
+  assert_true(
+    wt_lower_error_contains(
+      "(module (func (param v128 i32) local.get 0 local.get 1 i32x4.replace_lane 4 drop))",
+      "i32x4.replace_lane lane index out of range: 4",
+    ),
+  )
+  assert_true(
+    wt_lower_error_contains(
+      "(module (func (param v128) local.get 0 i64x2.extract_lane 2 drop))", "i64x2.extract_lane lane index out of range: 2",
+    ),
+  )
+  assert_true(
+    wt_lower_error_contains(
+      "(module (func (param v128 i64) local.get 0 local.get 1 i64x2.replace_lane 2 drop))",
+      "i64x2.replace_lane lane index out of range: 2",
+    ),
+  )
+  assert_true(
+    wt_lower_error_contains(
+      "(module (func (param v128) local.get 0 f32x4.extract_lane 4 drop))", "f32x4.extract_lane lane index out of range: 4",
+    ),
+  )
+  assert_true(
+    wt_lower_error_contains(
+      "(module (func (param v128 f32) local.get 0 local.get 1 f32x4.replace_lane 4 drop))",
+      "f32x4.replace_lane lane index out of range: 4",
+    ),
+  )
+  assert_true(
+    wt_lower_error_contains(
+      "(module (func (param v128) local.get 0 f64x2.extract_lane 2 drop))", "f64x2.extract_lane lane index out of range: 2",
+    ),
+  )
+  assert_true(
+    wt_lower_error_contains(
+      "(module (func (param v128 f64) local.get 0 local.get 1 f64x2.replace_lane 2 drop))",
+      "f64x2.replace_lane lane index out of range: 2",
+    ),
+  )
+  assert_true(
+    wt_lower_error_contains(
+      "(module (func (param v128 v128) local.get 0 local.get 1 i8x16.shuffle 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 32 drop))",
+      "i8x16.shuffle lane index out of range: 32",
+    ),
+  )
+}
+
+///|
+test "wast_to_binary_module rejects out-of-range SIMD v128.const lane values" {
+  assert_true(
+    wt_lower_error_contains(
+      "(module (func (result v128) v128.const i8x16 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 256))",
+      "i8x16 lane literal out of range: 256",
+    ),
+  )
+  assert_true(
+    wt_lower_error_contains(
+      "(module (func (result v128) v128.const i16x8 0 0 0 0 0 0 0 70000))", "i16x8 lane literal out of range: 70000",
+    ),
+  )
+  assert_true(
+    wt_lower_error_contains(
+      "(module (func (result v128) v128.const i32x4 0 0 0 4294967296))", "i32x4 lane literal out of range: 4294967296",
+    ),
+  )
+}
+
+///|
+test "wast_to_binary_module preserves hexadecimal integer v128.const literals" {
+  let src =
+    #|(module
+    #|  (func (result v128)
+    #|    v128.const i8x16
+    #|      0x00 0x01 0x02 0x03 0x04 0x05 0x06 0x07
+    #|      0x08 0x09 0x0a 0x0b 0x0c 0x0d 0x0e 0x0f)
+    #|  (func (result v128)
+    #|    v128.const i16x8 0x0102 0x0304 0x0506 0x0708 0x090a 0x0b0c 0x0d0e 0x0f10)
+    #|  (func (result v128)
+    #|    v128.const i32x4 0x01020304 0x05060708 0x090a0b0c 0x0d0e0f10)
+    #|  (func (result v128)
+    #|    v128.const i64x2 0xffffffffffffffff 0x8000000000000000))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) =>
+      fail("expected hexadecimal integer v128.const lowering success: \{e}")
+  }
+  match lowered.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      assert_eq(funcs.length(), 4)
+
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr([instr])) =>
+          assert_eq(
+            instr,
+            @lib.Instruction::v128_const(
+              (0x00).to_byte(),
+              (0x01).to_byte(),
+              (0x02).to_byte(),
+              (0x03).to_byte(),
+              (0x04).to_byte(),
+              (0x05).to_byte(),
+              (0x06).to_byte(),
+              (0x07).to_byte(),
+              (0x08).to_byte(),
+              (0x09).to_byte(),
+              (0x0a).to_byte(),
+              (0x0b).to_byte(),
+              (0x0c).to_byte(),
+              (0x0d).to_byte(),
+              (0x0e).to_byte(),
+              (0x0f).to_byte(),
+            ),
+          )
+        _ => fail("expected i8x16 hex v128.const function body")
+      }
+
+      match funcs[1] {
+        @lib.Func(_, @lib.Expr([instr])) =>
+          assert_eq(
+            instr,
+            @lib.Instruction::v128_const(
+              (0x02).to_byte(),
+              (0x01).to_byte(),
+              (0x04).to_byte(),
+              (0x03).to_byte(),
+              (0x06).to_byte(),
+              (0x05).to_byte(),
+              (0x08).to_byte(),
+              (0x07).to_byte(),
+              (0x0a).to_byte(),
+              (0x09).to_byte(),
+              (0x0c).to_byte(),
+              (0x0b).to_byte(),
+              (0x0e).to_byte(),
+              (0x0d).to_byte(),
+              (0x10).to_byte(),
+              (0x0f).to_byte(),
+            ),
+          )
+        _ => fail("expected i16x8 hex v128.const function body")
+      }
+
+      match funcs[2] {
+        @lib.Func(_, @lib.Expr([instr])) =>
+          assert_eq(
+            instr,
+            @lib.Instruction::v128_const(
+              (0x04).to_byte(),
+              (0x03).to_byte(),
+              (0x02).to_byte(),
+              (0x01).to_byte(),
+              (0x08).to_byte(),
+              (0x07).to_byte(),
+              (0x06).to_byte(),
+              (0x05).to_byte(),
+              (0x0c).to_byte(),
+              (0x0b).to_byte(),
+              (0x0a).to_byte(),
+              (0x09).to_byte(),
+              (0x10).to_byte(),
+              (0x0f).to_byte(),
+              (0x0e).to_byte(),
+              (0x0d).to_byte(),
+            ),
+          )
+        _ => fail("expected i32x4 hex v128.const function body")
+      }
+
+      match funcs[3] {
+        @lib.Func(_, @lib.Expr([instr])) =>
+          assert_eq(
+            instr,
+            @lib.Instruction::v128_const(
+              (0xff).to_byte(),
+              (0xff).to_byte(),
+              (0xff).to_byte(),
+              (0xff).to_byte(),
+              (0xff).to_byte(),
+              (0xff).to_byte(),
+              (0xff).to_byte(),
+              (0xff).to_byte(),
+              (0x00).to_byte(),
+              (0x00).to_byte(),
+              (0x00).to_byte(),
+              (0x00).to_byte(),
+              (0x00).to_byte(),
+              (0x00).to_byte(),
+              (0x00).to_byte(),
+              (0x80).to_byte(),
+            ),
+          )
+        _ => fail("expected i64x2 hex v128.const function body")
+      }
+    }
+    _ =>
+      fail("expected lowered module code section for hex v128.const literals")
+  }
+}
+
+///|
+test "wast_to_binary_module preserves NaN payload lanes in v128.const" {
+  let src =
+    #|(module
+    #|  (func (result v128)
+    #|    v128.const f32x4 nan:0x1 -nan:0x400001 +nan:0x7fffff nan:0x123456)
+    #|  (func (result v128)
+    #|    v128.const f64x2 nan:0x1 -nan:0x8000000000001))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) => fail("expected NaN payload v128.const lowering success: \{e}")
+  }
+  match lowered.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      assert_eq(funcs.length(), 2)
+
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr([instr])) =>
+          assert_eq(
+            instr,
+            @lib.Instruction::v128_const(
+              (0x01).to_byte(),
+              (0x00).to_byte(),
+              (0x80).to_byte(),
+              (0x7f).to_byte(),
+              (0x01).to_byte(),
+              (0x00).to_byte(),
+              (0xc0).to_byte(),
+              (0xff).to_byte(),
+              (0xff).to_byte(),
+              (0xff).to_byte(),
+              (0xff).to_byte(),
+              (0x7f).to_byte(),
+              (0x56).to_byte(),
+              (0x34).to_byte(),
+              (0x92).to_byte(),
+              (0x7f).to_byte(),
+            ),
+          )
+        _ => fail("expected f32x4 NaN payload v128.const function body")
+      }
+
+      match funcs[1] {
+        @lib.Func(_, @lib.Expr([instr])) =>
+          assert_eq(
+            instr,
+            @lib.Instruction::v128_const(
+              (0x01).to_byte(),
+              (0x00).to_byte(),
+              (0x00).to_byte(),
+              (0x00).to_byte(),
+              (0x00).to_byte(),
+              (0x00).to_byte(),
+              (0xf0).to_byte(),
+              (0x7f).to_byte(),
+              (0x01).to_byte(),
+              (0x00).to_byte(),
+              (0x00).to_byte(),
+              (0x00).to_byte(),
+              (0x00).to_byte(),
+              (0x00).to_byte(),
+              (0xf8).to_byte(),
+              (0xff).to_byte(),
+            ),
+          )
+        _ => fail("expected f64x2 NaN payload v128.const function body")
+      }
+    }
+    _ => fail("expected lowered module code section for NaN payload v128.const")
+  }
 }

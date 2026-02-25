@@ -1,233 +1,53 @@
 # Agent Tasks
 
-## Blockers
-- [x] None currently active.
-
 ## Goal
 Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full native CLI, spec-test passing validator+optimizer, clean public API, and maintainable codebase.
 
+## Scope
+- This file tracks open work prioritized for v0.1 release.
+- Completed tasks are intentionally removed.
+
 ## Metadata
 - Last updated: `2026-02-25`
-- Scope: Open tasks plus recently completed checkoffs
 - Last audit run: `2026-02-25`
-- `moon fmt`: `Finished. moon: ran 72 tasks, now up to date`
-- `moon info`: `Finished. moon: ran 2 tasks, now up to date`
-- `moon check`: `Finished. moon: no work to do`
-- `moon test`: `2437` passed, `0` failed
-- `moon test src/cmd --target native`: `17` passed, `0` failed
-- `moon test src/wast --target native`: `262` passed, `0` failed
-- `moon build --target native`: `not run in this audit`
-- `moon coverage analyze`: `11223` uncovered line(s) in `105` file(s)
 
-## Priority 0 (Critical Path: ship blockers)
+## Priority 0 (Release blockers)
 
-### CLI/runtime completion
-- [x] Real native `CmdIO` wiring for env/files/stdout in `default_cmd_io()`.
-- [x] Native runtime regression tests for default `run_cmd` IO path (read/write/env/stdout write-failure propagation).
-- [x] Native default filesystem candidate enumeration for wildcard-glob expansion.
-- [x] Native default `.wat`/`.wast` text-module lowering hook (native external-tool fallback).
-- [x] Add focused runtime error-path tests:
-  - [x] config read failures.
-  - [x] decode failures.
-  - [x] input read failures.
-  - [x] encode failures (end-to-end via adapter hook).
-- [x] Add scheduler-level tests that assert expanded `ModulePass` multiplicity for preset+explicit overlaps (not only resolved flag queue order).
-- [x] Add focused env precedence tests for pass/option overlays after config-fallback changes.
-- [x] Add `--help` and `--version` coverage/polish checks in CLI behavior tests.
-- [x] Add CLI integration coverage for `CmdError::EncodeFailed` (currently only pipeline helper path is exercised; no end-to-end fixture reaches encode failure after decode+optimize).
+### Text pipeline parity (native in-process lowering)
+- [ ] Extend `wast -> lib` lowering for advanced exception forms (`throw`, `throw_ref`, `try_table`, catch forms), including parser/model plumbing.
+- [ ] Add parser/lexer regression tests for newly wired advanced reference op keywords and opcode classification paths.
+- [ ] Add negative literal tests for malformed NaN payloads and unsigned `i64x2` overflow boundaries in `v128.const` lowering.
+- [ ] Validate native text pipeline on `.wat`/`.wast` flows without external tool dependency and close regressions.
 
-### Text frontend unblock
-- [x] Add `src/wat` package with wat-named API parity backed by `src/wast`.
-- [x] Expose wat APIs: `wat_to_module`, `module_to_wat`, `module_to_wat_with_context`, `wat_to_script`, `script_to_wat`, `script_to_wat_with_context`.
-- [x] Mirror wast tests with wat-named entrypoints.
-- [x] Backport `WastParser::check` token-family completeness fix to `src/wast/parser.mbt`.
-- [x] Consolidate duplicated text frontend logic by making `src/wat` a thin wrapper.
-- [ ] Add optional native in-process text lowering path (remove external tool dependency).
-  - [x] Design/implement `wast -> lib` lowering bridge (name/index resolution + section construction) so `run_cmd` can encode parser output without shelling out.
-  - [x] Add adapter-level fallback tests that run without `lower_text_module` and still lower `.wat` / `.wast` through the in-process bridge.
-  - [ ] Extend `wast -> lib` lowering coverage for currently unsupported instruction families (SIMD lanes/prefixed op variants and advanced reference/exception forms) so in-process lowering can replace external tools for broader real-world text inputs.
-    - [x] Add SIMD lane lowering support in bridge for `v128.load{8,16,32,64}_lane`, `v128.store{8,16,32,64}_lane`, and `*x*.extract/replace_lane` instruction families.
-    - [x] Add bridge lowering for remaining SIMD text forms still marked unsupported (`v128.const`, shuffle/swizzle, and additional prefixed SIMD forms).
-      - [x] Lower `v128.const` shape forms (`i8x16`, `i16x8`, `i32x4`, `i64x2`, `f32x4`, `f64x2`) into raw 16-byte payloads.
-      - [x] Lower non-lane SIMD memory prefixed ops (`v128.load*`, `v128.store`).
-      - [x] Lower `i8x16.shuffle` and `i8x16.swizzle`.
-      - [x] Lower scalar-to-vector SIMD splats (`i8x16`/`i16x8`/`i32x4`/`i64x2`/`f32x4`/`f64x2.splat`).
-    - [ ] Add bridge lowering for advanced exception/reference families still marked unsupported.
-    - [ ] Follow-up: add explicit negative tests for out-of-range lane/value diagnostics in SIMD bridge lowering (`v128.const` and `i8x16.shuffle`).
-    - [ ] Follow-up: add literal-parity tests for `v128.const` hexadecimal integer and NaN payload lane forms in bridge lowering.
-  - [x] Broaden grouped recursive type handling in lowering bridge function-signature resolution (currently conservative for grouped rec types).
+### Spec harness/runtime parity
+- [ ] Implement runtime execution semantics for `invoke`/`get` actions and `assert_return`/`assert_trap`/`assert_exhaustion`/`assert_exception`.
+- [ ] Implement module instantiation/linking semantics for full `assert_unlinkable` parity.
+- [ ] Remove temporary spec-harness skip classifications by adding:
+  - [ ] Parser support for table element-segment abbreviation forms (for example `(table funcref (elem $f))`).
+  - [ ] Lowering support for named parameter/local references that currently fail with `unknown local id` in numeric/float fixtures.
+  - [ ] Decoder/validator parity for skipped malformed/binary fixtures (`binary-leb128`, descriptor binary fixtures, UTF-8 malformed cases).
+  - [ ] Validator parity for skipped alignment/init-expression diagnostics in `align`/`memory_copy`/`memory_redundancy`/`memory_init` fixtures.
 
-### High-impact pass parity
-- [ ] `Poppify`
-- [ ] `Outlining`
-- [ ] ReReloop hardening follow-ups:
-  - [x] Preserve single-evaluation semantics for `br_table` dispatch indices during lowering.
-  - [x] Extend CFG relayout to support non-special targets and merge-heavy flattened regions.
-  - [ ] Add temp-local based single-eval lowering path for non-dup-safe `br_table` indices when targets are not directly label-resolvable.
+### Optimizer/decoder correctness hardening
+- [ ] ReReloop: add temp-local single-eval lowering path for non-dup-safe `br_table` indices when targets are not directly label-resolvable.
+- [ ] Replace heuristic `decode_module` span attribution with decoder-native section offsets.
 
-### Public API gate
-- [x] Expose clean public API surface for decode/optimize/encode workflows in package exports and README examples.
-
-## Priority 1 (Release readiness: correctness + testing)
-
-### Validation, decoding, and error model
-- [x] Replace string decode errors with typed `DecodeError` enum.
-- [x] Mirror enum-based approach for `ValidationError`.
-- [x] Add richer `DecodeError` variants with source spans (`offset`, `length`) for malformed trailing/section contexts and thread them through `decode_module`.
-- [x] Add source spans (`offset + length`) to public error types where applicable.
-- [x] Switch negative tests from string matching to enum assertions.
-- [x] Migrate remaining `validate_module` callers from wildcard `Err(_)` checks to explicit `ValidationError` variant matching for stronger diagnostics.
-- [x] Add a typed encoder failure hook in `CmdIO` (parallel to `DecodeError`) so adapter-injected encode failures can preserve structured causes instead of string payloads.
-- [ ] Follow-up: replace heuristic `decode_module` span attribution with decoder-native offsets (thread precise section start/end through `BinaryDecodeError` internals).
-- [x] Follow-up: add explicit `ValidationError`-variant assertions in remaining pass tests that still only assert `Ok(())`/generic failure.
-- [x] Expose binary public APIs:
-  - [x] `decode_module(bytes: Bytes) -> Result[Module, DecodeError]`
-  - [x] `encode_module(mod: Module) -> Result[Bytes, EncodeError]`
-
-### Correctness test expansion
-- [ ] Integrate official WebAssembly spec test suite in MoonBit pipeline.
-  - [x] Add `src/wast/spec_harness.mbt` with a script-level harness for `tests/spec`, including static checks for `module`, `assert_malformed`, `assert_invalid`, and parse+validate prechecks for `assert_unlinkable`.
-  - [x] Add suite aggregation APIs (`run_wast_spec_file`, `run_wast_spec_suite`) and regression tests for pass/skip/fail accounting.
-  - [x] Add native integration test that enumerates `tests/spec/**/*.wast` and asserts zero hard harness failures while explicitly skipping unsupported `assert_exception` files and runtime-only assertions.
-  - [ ] Implement runtime execution semantics for `invoke`/`get` actions and `assert_return`/`assert_trap`/`assert_exhaustion`/`assert_exception`.
-  - [ ] Implement module instantiation/linking semantics needed for full `assert_unlinkable` parity (currently only static precheck is enforced).
-  - [ ] Remove temporary harness skip classifications for known parser/lower/validate mismatches in current `tests/spec` sweep and replace them with real support:
-    - [ ] parser support for table element-segment abbreviation forms (for example `(table funcref (elem $f))`).
-    - [ ] lowering support for named parameter/local references that currently fail with `unknown local id` in numeric/float fixtures.
-    - [ ] decoder/validator parity for currently skipped malformed/binary fixtures (`binary-leb128`, custom-descriptor binary fixtures, and UTF-8 malformed cases).
-    - [ ] validator parity for currently skipped alignment/init-expression diagnostics in `align`/`memory_copy`/`memory_redundancy`/`memory_init` fixtures.
-- [ ] Add wasm-smith fuzzing harness (decode -> validate -> optimize -> encode -> roundtrip).
+### Release quality gates
 - [ ] Add differential testing vs `wasm-tools` / Binaryen.
-- [x] Wire full text/binary roundtrip test (`wast_to_module -> module_to_binary -> binary_to_module -> module_to_wast` + normalization).
-- [x] Add more fuzz coverage for invalid modules.
-- [ ] Follow-up: make `module_to_wast` printer output reliably parser-consumable for function-body instruction forms so normalized text can be reparsed directly in roundtrip tests.
-- [ ] Achieve >=75% line coverage on hot paths (decoder, IR lift, top passes).
+- [ ] Add wasm-smith fuzz harness (`decode -> validate -> optimize -> encode -> roundtrip`).
+- [ ] Make `module_to_wast` output reliably parser-consumable in roundtrip tests.
+- [ ] Reach `>=75%` line coverage on hot paths (decoder, IR lift, top passes).
 
-## Priority 2 (Maintainability and architecture)
-
-### Split oversized files
-- [ ] `src/validate/typecheck.mbt`
-- [ ] `src/validate/env.mbt`
-- [ ] `src/transformer/transformer.mbt`
-- [ ] `src/passes/optimize.mbt`
-- [ ] `src/passes/remove_unused.mbt`
-- [ ] `src/wast/parser.mbt` into:
-  - [ ] `lexer.mbt`
-  - [ ] `parser_types.mbt`
-  - [ ] `parser_instructions.mbt`
-  - [ ] `parser_folded.mbt`
-  - [ ] `parser_gc.mbt`
-  - [ ] `parser_tests.mbt`
-- [ ] Split `decode_instruction` in `decode.mbt` into helpers:
-  - [ ] `decode_core_opcode`
-  - [ ] `decode_extended_0xFB`
-  - [ ] `decode_extended_0xFC`
-  - [ ] `decode_extended_0xFD`
-  - [ ] `decode_extended_0xFE`
-
-### Transformer and analysis refactors
-- [ ] Turn validator into a `ModuleTransformer` (`Validator` hooks + `validate_module`).
-- [ ] Expose `GlobalEffects` analysis outputs for downstream pass reuse (via `IRContext` cache or scheduler side-channel).
-- [ ] Consolidate shallow-effect classifiers across passes (`local_cse`, `global_effects`, `loop_invariant_code_motion`, `heap_store_optimization`, `optimize_casts`, `monomorphize`).
-- [ ] Replace parser lexer backtracking (`save/restore_lexer_state`) with one-token lookahead (`peeked: Token?` or lexer `peek()/consume()`).
-
-## Priority 3 (Performance and pass breadth)
-
-### Performance and allocation
-- [ ] Add capacity reservations in hot paths (`parse_instructions`, expr decoding, similar array builds).
-- [ ] Use unchecked indexing in core decode loops after upfront length validation.
-- [ ] Avoid temporary `Module` copies in decoder (builder flow or single record update).
-- [ ] Create a `WastWriter` trait:
-  - [ ] support `StringBuilder`, `Vec<u8>`, streaming sinks
-  - [ ] reuse one `StringBuilder` across module rendering
-- [ ] Add `quick_mode: Bool` to generator for faster fuzzing.
-- [ ] Build non-blocking optimizer perf baseline (compile time and output size) on representative modules.
-
-### Generator/test depth improvements
-- [ ] Add generator edge cases:
-  - [ ] recursive/self-referencing struct types
-  - [ ] deep `block` / `loop` / `if` nesting
-  - [ ] functions with `0-16` returns
-  - [ ] large local counts
-- [ ] Implement one real optimizer pass using transformer (constant folding + DCE).
-
-### Binaryen pass parity (medium)
-- [ ] `DeAlign`
-- [ ] `EncloseWorld`
-- [ ] `ExtractFunction`
-- [ ] `FuncCastEmulation`
-- [ ] `GenerateDynCalls`
-- [ ] `LimitSegments`
-- [ ] `Memory64Lowering`
-- [ ] `MultiMemoryLowering`
-- [ ] `NoInline`
-- [ ] `RemoveImports`
-- [ ] `RemoveMemoryInit`
-- [ ] `RemoveRelaxedSIMD`
-- [ ] `SafeHeap`
-- [ ] `SeparateDataSegments`
-- [ ] `SetGlobals`
-- [ ] `SignExtLowering`
-- [ ] `Souperify`
-- [ ] `SpillPointers`
-- [ ] `StringLifting`
-- [ ] `StringLowering`
-- [ ] `StripEH`
-- [ ] `TranslateEH`
-- [ ] `TrapMode`
-- [ ] `MinifyImportsAndExports`
-
-## Priority 4 (Polish and long-term backlog)
-
-### Productization and docs
-- [ ] Expand `README.md` with architecture diagram, CLI examples, benchmark table, and rationale.
-  - [x] Refresh README API/status sections to match current typed error surfaces and public `wast` spec-harness APIs.
-  - [ ] Add architecture diagram and benchmark table sections.
-  - [ ] Add dedicated CLI command examples (`starshine` flags + config + env overlays).
-  - [ ] Add generated/verified API drift check so README signatures stay in sync with `pkg.generated.mbti`.
+## Priority 1 (Release polish)
+- [ ] Expand `README.md` with architecture diagram and benchmark table.
+- [ ] Add dedicated CLI command examples (`starshine` flags + config + env overlays).
+- [ ] Add generated/verified API drift check so README signatures stay in sync with `pkg.generated.mbti`.
 - [ ] Add `examples/` directory with real-world snippets.
 - [ ] Publish first release + MoonBit registry package (`moon publish` + GitHub Release binaries).
 
-### Platform/features backlog
-- [ ] Component Model / WIT support.
-- [ ] Streaming / zero-copy decoder API.
-- [ ] Custom sections, name section, source maps.
-- [ ] Plugin system for third-party passes.
-
-### Binaryen pass parity (low)
-- [ ] `DWARF`
-- [ ] `DebugLocationPropagation`
-- [ ] `InstrumentBranchHints`
-- [ ] `InstrumentLocals`
-- [ ] `InstrumentMemory`
-- [ ] `Intrinsics`
-- [ ] `J2CLItableMerging`
-- [ ] `J2CLOpts`
-- [ ] `LLVMMemoryCopyFillLowering`
-- [ ] `LLVMNontrappingFPToIntLowering`
-- [ ] `LegalizeJSInterface`
-- [ ] `LogExecution`
-- [ ] `Metrics`
-- [ ] `NameList`
-- [ ] `NameTypes`
-- [ ] `OptimizeForJS`
-- [ ] `PostEmscripten`
-- [ ] `Print`
-- [ ] `PrintCallGraph`
-- [ ] `PrintFeatures`
-- [ ] `PrintFunctionMap`
-- [ ] `RandomizeBranchHints`
-- [ ] `RemoveNonJSOps`
-- [ ] `RoundTrip`
-- [ ] `StackCheck`
-- [ ] `Strip`
-- [ ] `StripTargetFeatures`
-- [ ] `StripToolchainAnnotations`
-- [ ] `TraceCalls`
-
-### Vision (Q2-Q3 2026)
-- [ ] Self-hosting: use Starshine to optimize the MoonBit compiler.
-- [ ] Formal verification of validator.
-- [ ] Benchmark suite vs wasm-opt target envelope.
-- [ ] Security audit.
-- [ ] Community foundation (`CONTRIBUTING.md`, issue templates, Discord/community channel).
+## Deferred After v0.1
+- [ ] `Poppify`
+- [ ] `Outlining` as a standalone pass (beyond current inlining partial-splitting behavior)
+- [ ] Broad Binaryen pass parity backlog (medium/low priority pass list)
+- [ ] Large refactors: file splits (`typecheck`/`env`/`transformer`/`optimize`/`remove_unused`/`parser`) and `decode_instruction` helper decomposition
+- [ ] Long-horizon platform/features: Component Model/WIT, streaming decoder API, custom sections/source maps, plugin system

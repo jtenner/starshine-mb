@@ -82,6 +82,13 @@ pub enum Opcode {
   RefNull
   RefIsNull
   RefFunc
+  RefEq
+  RefAsNonNull
+  AnyConvertExtern
+  ExternConvertAny
+  RefI31
+  I31GetS
+  I31GetU
   RefGetDesc
   RefTestDesc
   RefTestDescNull
