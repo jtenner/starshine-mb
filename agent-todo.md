@@ -10,10 +10,12 @@ Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full
 - Last updated: `2026-02-25`
 - Scope: Open tasks plus recently completed checkoffs
 - Last audit run: `2026-02-25`
-- `moon fmt`: `Finished. moon: ran 1 task, now up to date`
-- `moon info`: `Finished. moon: ran 2 tasks, now up to date`
+- `moon fmt`: `Finished. moon: no work to do`
+- `moon info`: `Finished. moon: no work to do`
+- `moon check`: `Finished. moon: no work to do`
 - `moon test`: `2433` passed, `0` failed
 - `moon test src/cmd --target native`: `17` passed, `0` failed
+- `moon test src/wast --target native`: `262` passed, `0` failed
 - `moon build --target native`: `not run in this audit`
 - `moon coverage analyze`: `11223` uncovered line(s) in `105` file(s)
 
@@ -173,6 +175,10 @@ Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full
 
 ### Productization and docs
 - [ ] Expand `README.md` with architecture diagram, CLI examples, benchmark table, and rationale.
+  - [x] Refresh README API/status sections to match current typed error surfaces and public `wast` spec-harness APIs.
+  - [ ] Add architecture diagram and benchmark table sections.
+  - [ ] Add dedicated CLI command examples (`starshine` flags + config + env overlays).
+  - [ ] Add generated/verified API drift check so README signatures stay in sync with `pkg.generated.mbti`.
 - [ ] Add `examples/` directory with real-world snippets.
 - [ ] Publish first release + MoonBit registry package (`moon publish` + GitHub Release binaries).
 

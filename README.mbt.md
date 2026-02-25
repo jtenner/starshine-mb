@@ -11,6 +11,7 @@ The optimizer is organized around `ModulePass` scheduling in `src/passes/optimiz
 - Threads proposal atomics: atomic memory ops (`memory.atomic.notify`, `memory.atomic.wait32/64`, `atomic.fence`, `atomic.rmw.*`, `atomic.rmw*.cmpxchg`) are supported across `lib`, `binary`, `validate`, `ir`, and `transformer`.
 - Asyncify: staged transform with runtime state/data globals and import/global modes for integration styles.
 - SIMD, exceptions, tables/memory/data/tag sections: represented throughout model + parser/validator + binary support.
+- Spec tests: `src/wast/spec_harness.mbt` provides script-file harness APIs plus a native suite run over `tests/spec` with explicit skip accounting for unsupported runtime/linking semantics.
 - Binary section framing parity: `StartSec`, `CodeSec`, and `DataCntSec` are encoded as canonical wasm sections (`id + payload_len + payload`) and decoded with strict payload-boundary checks.
 
 ## Project Layout
@@ -21,6 +22,9 @@ The optimizer is organized around `ModulePass` scheduling in `src/passes/optimiz
 - `src/transformer`: event-driven `ModuleTransformer` traversal framework.
 - `src/binary`: wasm binary decode/encode.
 - `src/wast`: WAST lexer/parser/printer and text<->module conversion.
+- `src/wat`: thin WAT-named API wrapper over `src/wast`.
+- `src/cmd` and `src/cli`: command/runtime wiring and CLI/config parsing.
+- `tests/spec`: vendored WebAssembly testsuite submodule used by the native spec-harness test.
 
 ## Primary Public Functions
 
@@ -247,19 +251,19 @@ fn typed_nop() -> Result[TExpr, String] {
 #### `validate_module`
 
 ```mbt
-pub fn validate_module(mod : Module) -> Result[Unit, String]
+pub fn validate_module(mod : Module) -> Result[Unit, ValidationError]
 ```
 
-Validates an entire module (all relevant sections and internal typing rules). It returns `Err(String)` with a diagnostic when validation fails.
+Validates an entire module (all relevant sections and internal typing rules). It returns typed `ValidationError` diagnostics.
 
 ```mbt
 using @lib { type Module }
-using @validate { validate_module }
+using @validate { validate_module, ValidationError }
 
-fn is_valid(mod : Module) -> Bool {
+fn validate_or_error(mod : Module) -> Result[Unit, ValidationError] {
   match validate_module(mod) {
-    Ok(()) => true
-    Err(_) => false
+    Ok(()) => Ok(())
+    Err(e) => Err(e)
   }
 }
 ```
@@ -522,6 +526,65 @@ fn pretty_script(text : String, ctx : PrettyPrintContext) -> Result[String, Stri
   }
 }
 ```
+
+#### `wast_to_binary_module`
+
+```mbt
+pub fn wast_to_binary_module(
+  source : String,
+  filename? : String,
+) -> Result[@lib.Module, String]
+```
+
+Parses and lowers WAST module text directly into the binary model (`@lib.Module`), ready for validation/encoding.
+
+```mbt
+using @wast { wast_to_binary_module }
+
+fn parse_binary_model(text : String) -> Result[@lib.Module, String] {
+  wast_to_binary_module(text, filename="module.wast")
+}
+```
+
+#### `wast_text_binary_roundtrip`
+
+```mbt
+pub fn wast_text_binary_roundtrip(
+  source : String,
+  filename? : String,
+) -> Result[(String, @lib.Module), String]
+```
+
+Runs parse -> normalize text -> lower-to-binary and returns `(normalized_text, binary_module)`.
+
+```mbt
+using @wast { wast_text_binary_roundtrip }
+
+fn normalized_binary_pair(text : String) -> Result[(String, @lib.Module), String] {
+  wast_text_binary_roundtrip(text, filename="rt.wast")
+}
+```
+
+#### `run_wast_spec_file`
+
+```mbt
+pub fn run_wast_spec_file(
+  path : String,
+  source : String,
+) -> WastSpecFileReport
+```
+
+Runs one spec script through the current harness and returns pass/skip/fail status with checked/skipped command counts.
+
+#### `run_wast_spec_suite`
+
+```mbt
+pub fn run_wast_spec_suite(
+  files : Array[(String, String)],
+) -> WastSpecRunSummary
+```
+
+Runs a batch of spec script files and aggregates per-file outcomes.
 
 ### `jtenner/starshine/ir`
 
@@ -876,6 +939,12 @@ Compacts nested/adjacent block structures and rewrites equivalent control trees 
 #### `Flatten`
 Flattens typed expression trees by hoisting side-effectful subexpressions into explicit prelude statements with temp locals, producing a flatter IR shape for follow-up optimizations.
 
+#### `ReReloop`
+Rebuilds structured control flow from flattened/normalized forms to improve downstream size/clarity and preserve structured wasm constraints.
+
+#### `TupleOptimization`
+Optimizes multivalue tuple-style producer/consumer patterns when function signatures/results expose multivalue opportunities.
+
 #### `MergeLocals`
 Merges compatible locals and rewrites local usage to reduce local count and local-section/code-size overhead.
 
@@ -953,6 +1022,9 @@ Descriptor-aware global-struct inference mode; adds descriptor-cast-based rewrit
 #### `GlobalTypeOptimization`
 Whole-module global/type optimization stage that coordinates global inference/refinement with section/type rewrite updates.
 
+#### `GlobalEffects`
+Computes and threads global side-effect information used by whole-module scheduling and effect-aware transforms.
+
 #### `SimplifyGlobals`
 Iterative global simplification pass: removes dead writes, prefers immutable-copy patterns, and propagates constant globals into inits/typed bodies when observable behavior is preserved.
 
@@ -964,6 +1036,18 @@ Pushes globally-known immutable values across function boundaries where visibili
 
 #### `TypeRefining`
 Refines function-local and direct-call parameter typing with Binaryen-style fixup-local handling when refined params are assigned less-specific values.
+
+#### `TypeGeneralizing`
+Applies conservative type widening where needed to keep transformed code valid around shared signatures/publicly observable boundaries.
+
+#### `TypeFinalizing`
+Finalizes refined/generalized type information into stable module-level type references.
+
+#### `TypeUnFinalizing`
+Reverses finalized type encodings when subsequent transforms need a less-finalized representation for safe rewrites.
+
+#### `Unsubtyping`
+Rewrites subtype-heavy type graphs toward flatter/simpler equivalent relations while preserving runtime typing behavior.
 
 #### `SignaturePruning`
 Closed-world signature transform that removes uniformly unused/constant parameters across functions sharing the same signature and rewrites call/call_ref sites.
@@ -982,6 +1066,9 @@ Canonicalizes and minimizes GC recursion group structure/order for compact, stab
 
 #### `ReorderTypes`
 Reorders private members inside recursion groups using dependency-aware cost modeling to reduce encoded type-index size.
+
+#### `TypeMerging`
+Merges equivalent/redundant type definitions where canonicalization proves safe, reducing type-section size and remap overhead.
 
 #### `ReorderGlobals`
 Reorders defined globals by usage/dependency constraints and remaps global indices module-wide.
@@ -1081,6 +1168,7 @@ Parameters:
 - `export_globals : Bool`: export generated asyncify globals.
 - `in_secondary_memory : Bool`: use secondary memory configuration.
 - `secondary_memory_size : UInt64`: stack region size for secondary memory mode.
+- `auto_lower_tail_calls : Bool`: optionally lower tail-call forms before asyncify control rewriting.
 
 Transforms synchronous call stacks into async unwind/rewind state machine form, generating and wiring runtime helpers/globals and rewriting asyncify intrinsic imports.
 
@@ -1399,6 +1487,21 @@ fn normalize_script(text : String, ctx : PrettyPrintContext) -> Result[String, S
 }
 ```
 
+#### Run spec harness over in-memory files
+
+```mbt
+using @wast { run_wast_spec_suite }
+
+fn run_small_suite() -> Bool {
+  let files : Array[(String, String)] = [
+    ("a.wast", "(module (func))"),
+    ("b.wast", "(module (func (export \"x\") (result i32) i32.const 1))"),
+  ]
+  let summary = run_wast_spec_suite(files)
+  summary.failed_files == 0
+}
+```
+
 ### IR package examples
 
 #### Build CFG/SSA and run GVN
@@ -1461,9 +1564,10 @@ fn rewrite_nop(instr : TInstr) -> Result[TInstr, String] {
 - `moon info && moon fmt`
 - `moon check`
 - `moon test`
+- `moon test src/wast --target native` (runs native-gated `tests/spec` harness sweep)
 
 ## License
-Project license: MIT.
+Project license: Apache-2.0.
 
 Binaryen-derived pass implementations retain Apache-2.0 attribution labels at pass/file level.
 
