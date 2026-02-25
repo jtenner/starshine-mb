@@ -3335,6 +3335,76 @@ test "wast_to_binary_module lowers throw throw_ref and try_table catch forms" {
 }
 
 ///|
+test "wast_to_binary_module resolves try_table catch labels across nested numeric and named depths" {
+  let src =
+    #|(module
+    #|  (tag $e0) (tag $e1) (tag $e2) (tag $e3) (tag $e4)
+    #|  (func
+    #|    (block $outer
+    #|      (block $inner
+    #|        (try_table
+    #|          (catch $e0 0)
+    #|          (catch $e1 1)
+    #|          (catch $e2 2)
+    #|          (catch $e3 $inner)
+    #|          (catch $e4 $outer)
+    #|          (throw $e0)))))))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) =>
+      fail("expected nested try_table catch-depth lowering success: \{e}")
+  }
+  match lowered.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.Block(
+                  _,
+                  @lib.Expr(
+                    [
+                      @lib.Block(
+                        _,
+                        @lib.Expr([@lib.TryTable(_, catches, @lib.Expr(_))])
+                      ),
+                    ]
+                  )
+                ),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => {
+      assert_eq(catches.length(), 5)
+      assert_eq(catches, [
+        @lib.Catch::new(@lib.TagIdx::new(0), @lib.LabelIdx::new(0)),
+        @lib.Catch::new(@lib.TagIdx::new(1), @lib.LabelIdx::new(1)),
+        @lib.Catch::new(@lib.TagIdx::new(2), @lib.LabelIdx::new(2)),
+        @lib.Catch::new(@lib.TagIdx::new(3), @lib.LabelIdx::new(0)),
+        @lib.Catch::new(@lib.TagIdx::new(4), @lib.LabelIdx::new(1)),
+      ])
+    }
+    _ =>
+      fail(
+        "expected nested try_table lowering with numeric/named catch-depth mapping",
+      )
+  }
+}
+
+///|
+test "wast_to_binary_module rejects try_table catch depth beyond implicit function label" {
+  let src =
+    #|(module
+    #|  (tag $e0)
+    #|  (func (try_table (catch $e0 1) (throw $e0))))
+  assert_true(wt_lower_error_contains(src, "invalid label index: 1"))
+}
+
+///|
 test "wast_to_binary_module lowers inline tag exports into export section" {
   let src =
     #|(module
@@ -3364,6 +3434,52 @@ test "wast_to_binary_module lowers inline tag exports into export section" {
       assert_eq(tag_idx1, 0U)
     }
     _ => fail("expected lowered export section containing inline tag exports")
+  }
+}
+
+///|
+test "wast_to_binary_module lowers inline exports across func table memory and global fields" {
+  let src =
+    #|(module
+    #|  (import "env" "ifunc" (func))
+    #|  (import "env" "itbl" (table 1 funcref))
+    #|  (import "env" "imem" (memory 1))
+    #|  (import "env" "ig" (global i32))
+    #|  (func (export "f"))
+    #|  (table (export "t") 1 funcref)
+    #|  (memory (export "m") 1)
+    #|  (global (export "g") i32 (i32.const 0)))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) =>
+      fail(
+        "expected shared inline export lowering success across field kinds: \{e}",
+      )
+  }
+  match lowered.export_sec {
+    Some(
+      @lib.ExportSec(
+        [
+          @lib.Export(fname, @lib.FuncExternIdx(@lib.FuncIdx(fidx))),
+          @lib.Export(tname, @lib.TableExternIdx(@lib.TableIdx(tidx))),
+          @lib.Export(mname, @lib.MemExternIdx(@lib.MemIdx(midx))),
+          @lib.Export(gname, @lib.GlobalExternIdx(@lib.GlobalIdx(gidx))),
+        ]
+      )
+    ) => {
+      assert_eq(fname.0, "f")
+      assert_eq(tname.0, "t")
+      assert_eq(mname.0, "m")
+      assert_eq(gname.0, "g")
+      assert_eq(fidx, 1U)
+      assert_eq(tidx, 1U)
+      assert_eq(midx, 1U)
+      assert_eq(gidx, 1U)
+    }
+    _ =>
+      fail(
+        "expected export section containing inline exports for func/table/memory/global",
+      )
   }
 }
 

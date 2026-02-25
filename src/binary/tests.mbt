@@ -219,6 +219,37 @@ test "decode_module wraps decode failure variant" {
 }
 
 ///|
+test "decode_module preserves trailing-byte diagnostics for section-order and duplicate-section invalid modules" {
+  let vectors : Array[(String, Bytes, Int, Int)] = [
+    (
+      "duplicate type section", b"\x00\x61\x73\x6d\x01\x00\x00\x00\x01\x01\x00\x01\x01\x00",
+      11, 3,
+    ),
+    (
+      "out-of-order type section after import section", b"\x00\x61\x73\x6d\x01\x00\x00\x00\x02\x01\x00\x01\x01\x00",
+      11, 3,
+    ),
+  ]
+  for vector in vectors {
+    let (name, bytes, expected_offset, expected_len) = vector
+    match
+      (Decode::decode(bytes, 0) : Result[(Module, Int), BinaryDecodeError]) {
+      Ok(_) => fail("expected raw module decode failure for '\{name}'")
+      Err(err) => assert_eq(err, BinaryDecodeError::InvalidModule)
+    }
+    match decode_module(bytes) {
+      Ok(_) => fail("expected wrapper decode failure for '\{name}'")
+      Err(DecodeError::TrailingBytes(offset, len)) => {
+        assert_eq(offset, expected_offset)
+        assert_eq(len, expected_len)
+      }
+      Err(e) =>
+        fail("expected trailing-byte wrapper error for '\{name}', got \{e}")
+    }
+  }
+}
+
+///|
 test "encode_module wraps encode failure variant" {
   let bad = Module::new().with_type_sec(
     TypeSec::new([

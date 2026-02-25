@@ -741,6 +741,67 @@ test "re_reloop preserves single-evaluation semantics for side-effectful br_tabl
 }
 
 ///|
+test "re_reloop cfg br_table fallback preserves single-evaluation semantics for non-direct targets" {
+  let entry = RRBlockId(0)
+  let case_block = RRBlockId(1)
+  let default_block = RRBlockId(2)
+  let stop = RRBlockId(3)
+  let blocks : Map[RRBlockId, RRBasicBlock] = {}
+  blocks[entry] = {
+    instrs: [],
+    terminator: RRBrTable(
+      TInstr::call(FuncIdx::new(0), []),
+      [Internal(case_block)],
+      Internal(default_block),
+      [],
+    ),
+  }
+  blocks[case_block] = {
+    instrs: [TInstr::drop(TInstr::i32_const(I32(7)))],
+    terminator: RRBr(Internal(stop), [], true),
+  }
+  blocks[default_block] = {
+    instrs: [TInstr::drop(TInstr::i32_const(I32(9)))],
+    terminator: RRBr(Internal(stop), [], true),
+  }
+  blocks[stop] = RRBasicBlock::{ instrs: [], terminator: RRUnreachable }
+  let cfg : RRCFG = { entry, blocks }
+  let state : RRReconstructState = {
+    stop,
+    break_label: LabelIdx::new(0),
+    continue_target: None,
+    continue_label: None,
+  }
+  let scratch_used = Ref::new(false)
+  let rebuilt = match
+    rr_cfg_region_to_texpr(
+      cfg,
+      entry,
+      state,
+      0,
+      32,
+      Some(LocalIdx::new(0)),
+      Some(scratch_used),
+    ) {
+    Some(expr) => expr
+    None =>
+      fail(
+        "expected non-direct side-effectful br_table fallback reconstruction",
+      )
+  }
+  assert_true(scratch_used.val)
+  assert_eq(
+    rr_texpr_count(rebuilt, fn(instr) {
+      match instr {
+        TCall(FuncIdx(idx), _) => idx == 0
+        _ => false
+      }
+    }),
+    1,
+  )
+}
+
+///|
 test "re_reloop reconstructs flattened shells with non-special outer-target branches" {
   let mod = rr_fixture_non_special_target_merge_module()
   let rerelooped = match rr_run_re_reloop(mod) {
@@ -1141,6 +1202,23 @@ fn rr_validate_module_preconditions(mod : Module) -> Result[Unit, String] {
 }
 
 ///|
+fn rr_collect_param_counts(mod : Module) -> Array[Int] {
+  let out : Array[Int] = []
+  let env = Env::new().with_module(mod)
+  match mod.func_sec {
+    Some(FuncSec(type_idxs)) =>
+      for tidx in type_idxs {
+        match env.resolve_functype(tidx) {
+          Some(FuncType(params, _)) => out.push(params.length())
+          None => out.push(0)
+        }
+      }
+    None => ()
+  }
+  out
+}
+
+///|
 priv struct RRBlockId(Int) derive(Eq, Hash)
 
 ///|
@@ -1281,6 +1359,8 @@ fn rr_cfg_target_to_texpr(
   state : RRReconstructState,
   depth : Int,
   max_depth : Int,
+  scratch_local : LocalIdx?,
+  scratch_used : Ref[Bool]?,
 ) -> TExpr? {
   match target {
     External(label) => Some(TExpr::new([TInstr::br(label, branch_values)]))
@@ -1288,7 +1368,15 @@ fn rr_cfg_target_to_texpr(
       match rr_internal_target_label(block_id, state) {
         Some(label) => Some(TExpr::new([TInstr::br(label, branch_values)]))
         None =>
-          rr_cfg_region_to_texpr(cfg, block_id, state, depth + 1, max_depth)
+          rr_cfg_region_to_texpr(
+            cfg,
+            block_id,
+            state,
+            depth + 1,
+            max_depth,
+            scratch_local,
+            scratch_used,
+          )
       }
   }
 }
@@ -1300,6 +1388,8 @@ fn rr_cfg_region_to_texpr(
   state : RRReconstructState,
   depth : Int,
   max_depth : Int,
+  scratch_local : LocalIdx?,
+  scratch_used : Ref[Bool]?,
 ) -> TExpr? {
   if depth > max_depth {
     return None
@@ -1331,6 +1421,8 @@ fn rr_cfg_region_to_texpr(
                   state,
                   depth + 1,
                   max_depth,
+                  scratch_local,
+                  scratch_used,
                 ) {
                 Some(tail) => {
                   rr_append_texpr(instrs, tail)
@@ -1365,12 +1457,22 @@ fn rr_cfg_region_to_texpr(
             state,
             depth + 1,
             max_depth,
+            scratch_local,
+            scratch_used,
           ) {
           Some(expr) => expr
           None => return None
         }
         let else_tail = match
-          rr_cfg_region_to_texpr(cfg, else_block, state, depth + 1, max_depth) {
+          rr_cfg_region_to_texpr(
+            cfg,
+            else_block,
+            state,
+            depth + 1,
+            max_depth,
+            scratch_local,
+            scratch_used,
+          ) {
           Some(expr) => expr
           None => return None
         }
@@ -1386,12 +1488,22 @@ fn rr_cfg_region_to_texpr(
           state,
           depth + 1,
           max_depth,
+          scratch_local,
+          scratch_used,
         ) {
         Some(expr) => expr
         None => return None
       }
       let else_tail = match
-        rr_cfg_region_to_texpr(cfg, else_block, state, depth + 1, max_depth) {
+        rr_cfg_region_to_texpr(
+          cfg,
+          else_block,
+          state,
+          depth + 1,
+          max_depth,
+          scratch_local,
+          scratch_used,
+        ) {
         Some(expr) => expr
         None => return None
       }
@@ -1410,7 +1522,54 @@ fn rr_cfg_region_to_texpr(
           ) {
           return Some(TExpr::new(instrs))
         }
-        return None
+        match (scratch_local, scratch_used) {
+          (Some(local_idx), Some(used_ref)) => {
+            used_ref.update(fn(_) { true })
+            instrs.push(TInstr::local_set(local_idx, index))
+            let dispatch = match
+              rr_cfg_target_to_texpr(
+                cfg,
+                default_target,
+                values,
+                state,
+                depth + 1,
+                max_depth,
+                scratch_local,
+                scratch_used,
+              ) {
+              Some(expr) => expr
+              None => return None
+            }
+            let mut dispatch = dispatch
+            for i = targets.length() - 1; i >= 0; i = i - 1 {
+              let then_expr = match
+                rr_cfg_target_to_texpr(
+                  cfg,
+                  targets[i],
+                  values,
+                  state,
+                  depth + 1,
+                  max_depth,
+                  scratch_local,
+                  scratch_used,
+                ) {
+                Some(expr) => expr
+                None => return None
+              }
+              let cond = TInstr::binary(
+                BinaryOp::i32_eq(),
+                TInstr::local_get(local_idx),
+                TInstr::i32_const(I32(i)),
+              )
+              dispatch = TExpr::new([
+                TInstr::if_(BlockType::void_(), cond, then_expr, Some(dispatch)),
+              ])
+            }
+            rr_append_texpr(instrs, dispatch)
+            return Some(TExpr::new(instrs))
+          }
+          _ => return None
+        }
       }
       let dispatch = match
         rr_cfg_target_to_texpr(
@@ -1420,6 +1579,8 @@ fn rr_cfg_region_to_texpr(
           state,
           depth + 1,
           max_depth,
+          scratch_local,
+          scratch_used,
         ) {
         Some(expr) => expr
         None => return None
@@ -1434,6 +1595,8 @@ fn rr_cfg_region_to_texpr(
             state,
             depth + 1,
             max_depth,
+            scratch_local,
+            scratch_used,
           ) {
           Some(expr) => expr
           None => return None
@@ -1636,7 +1799,11 @@ fn rr_try_build_flat_cfg(
 }
 
 ///|
-fn rr_try_reconstruct_flat_block_cfg(body : TExpr) -> TExpr? {
+fn rr_try_reconstruct_flat_block_cfg(
+  body : TExpr,
+  scratch_local : LocalIdx?,
+  scratch_used : Ref[Bool]?,
+) -> TExpr? {
   match rr_try_build_flat_cfg(body, BlockFlow) {
     Some((cfg, stop)) => {
       let max_depth = cfg.blocks.length() * 4 + 16
@@ -1646,14 +1813,26 @@ fn rr_try_reconstruct_flat_block_cfg(body : TExpr) -> TExpr? {
         continue_target: None,
         continue_label: None,
       }
-      rr_cfg_region_to_texpr(cfg, cfg.entry, state, 0, max_depth)
+      rr_cfg_region_to_texpr(
+        cfg,
+        cfg.entry,
+        state,
+        0,
+        max_depth,
+        scratch_local,
+        scratch_used,
+      )
     }
     None => None
   }
 }
 
 ///|
-fn rr_try_reconstruct_flat_loop_cfg(body : TExpr) -> TExpr? {
+fn rr_try_reconstruct_flat_loop_cfg(
+  body : TExpr,
+  scratch_local : LocalIdx?,
+  scratch_used : Ref[Bool]?,
+) -> TExpr? {
   match rr_try_build_flat_cfg(body, LoopFlow) {
     Some((cfg, stop)) => {
       let max_depth = cfg.blocks.length() * 4 + 16
@@ -1663,43 +1842,62 @@ fn rr_try_reconstruct_flat_loop_cfg(body : TExpr) -> TExpr? {
         continue_target: Some(cfg.entry),
         continue_label: Some(LabelIdx::new(0)),
       }
-      rr_cfg_region_to_texpr(cfg, cfg.entry, state, 0, max_depth)
+      rr_cfg_region_to_texpr(
+        cfg,
+        cfg.entry,
+        state,
+        0,
+        max_depth,
+        scratch_local,
+        scratch_used,
+      )
     }
     None => None
   }
 }
 
 ///|
-fn rr_reconstruct_tinstr(instr : TInstr) -> Result[TInstr, String] {
+fn rr_reconstruct_tinstr(
+  instr : TInstr,
+  scratch_local : LocalIdx?,
+  scratch_used : Ref[Bool]?,
+) -> Result[TInstr, String] {
   match instr {
     TBlock(bt, body) => {
-      let next_body = match rr_reconstruct_texpr(body) {
+      let next_body = match
+        rr_reconstruct_texpr(body, scratch_local, scratch_used) {
         Ok(next) => next
         Err(e) => return Err(e)
       }
-      match rr_try_reconstruct_flat_block_cfg(next_body) {
+      match
+        rr_try_reconstruct_flat_block_cfg(
+          next_body, scratch_local, scratch_used,
+        ) {
         Some(rebuilt) => Ok(TInstr::block(bt, rebuilt))
         None => Ok(TInstr::block(bt, next_body))
       }
     }
     TLoop(bt, body) => {
-      let next_body = match rr_reconstruct_texpr(body) {
+      let next_body = match
+        rr_reconstruct_texpr(body, scratch_local, scratch_used) {
         Ok(next) => next
         Err(e) => return Err(e)
       }
-      match rr_try_reconstruct_flat_loop_cfg(next_body) {
+      match
+        rr_try_reconstruct_flat_loop_cfg(next_body, scratch_local, scratch_used) {
         Some(rebuilt) => Ok(TInstr::loop_(bt, rebuilt))
         None => Ok(TInstr::loop_(bt, next_body))
       }
     }
     TIf(bt, cond, then_body, else_body) => {
-      let next_then = match rr_reconstruct_texpr(then_body) {
+      let next_then = match
+        rr_reconstruct_texpr(then_body, scratch_local, scratch_used) {
         Ok(next) => next
         Err(e) => return Err(e)
       }
       let next_else = match else_body {
         Some(other) =>
-          match rr_reconstruct_texpr(other) {
+          match rr_reconstruct_texpr(other, scratch_local, scratch_used) {
             Ok(next) => Some(next)
             Err(e) => return Err(e)
           }
@@ -1712,10 +1910,15 @@ fn rr_reconstruct_tinstr(instr : TInstr) -> Result[TInstr, String] {
 }
 
 ///|
-fn rr_reconstruct_texpr(body : TExpr) -> Result[TExpr, String] {
+fn rr_reconstruct_texpr(
+  body : TExpr,
+  scratch_local : LocalIdx?,
+  scratch_used : Ref[Bool]?,
+) -> Result[TExpr, String] {
   let out : Array[TInstr] = []
   for instr in body.0 {
-    let next_instr = match rr_reconstruct_tinstr(instr) {
+    let next_instr = match
+      rr_reconstruct_tinstr(instr, scratch_local, scratch_used) {
       Ok(next) => next
       Err(e) => return Err(e)
     }
@@ -1726,22 +1929,39 @@ fn rr_reconstruct_texpr(body : TExpr) -> Result[TExpr, String] {
 
 ///|
 fn rr_reconstruct_module_cfg(mod : Module) -> Result[Module, String] {
+  let param_counts = rr_collect_param_counts(mod)
   match mod.code_sec {
     Some(CodeSec(funcs)) => {
       let next_funcs : Array[Func] = []
       let mut changed = false
+      let mut def_idx = 0
       for func in funcs {
+        let param_count = param_counts.get(def_idx).unwrap_or(0)
+        def_idx = def_idx + 1
         match func {
-          TFunc(locals, body) =>
-            match rr_reconstruct_texpr(body) {
+          TFunc(locals, body) => {
+            let scratch_idx = LocalIdx::new(
+              (param_count + locals.length()).reinterpret_as_uint(),
+            )
+            let scratch_used = Ref::new(false)
+            match
+              rr_reconstruct_texpr(body, Some(scratch_idx), Some(scratch_used)) {
               Ok(next_body) => {
-                if next_body != body {
+                let next_locals = if scratch_used.val {
+                  let extended = locals.copy()
+                  extended.push(ValType::i32())
+                  extended
+                } else {
+                  locals
+                }
+                if next_body != body || scratch_used.val {
                   changed = true
                 }
-                next_funcs.push(Func::t_func(locals, next_body))
+                next_funcs.push(Func::t_func(next_locals, next_body))
               }
               Err(e) => return Err(e)
             }
+          }
           _ => next_funcs.push(func)
         }
       }
