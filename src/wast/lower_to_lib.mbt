@@ -6,12 +6,14 @@ priv struct WTLowerCtx {
   table_ids : Map[String, UInt]
   mem_ids : Map[String, UInt]
   global_ids : Map[String, UInt]
+  tag_ids : Map[String, UInt]
   elem_ids : Map[String, UInt]
   data_ids : Map[String, UInt]
   mut next_func_idx : UInt
   mut next_table_idx : UInt
   mut next_mem_idx : UInt
   mut next_global_idx : UInt
+  mut next_tag_idx : UInt
   mut next_elem_idx : UInt
   mut next_data_idx : UInt
 }
@@ -25,12 +27,14 @@ fn wt_new_ctx() -> WTLowerCtx {
     table_ids: {},
     mem_ids: {},
     global_ids: {},
+    tag_ids: {},
     elem_ids: {},
     data_ids: {},
     next_func_idx: 0U,
     next_table_idx: 0U,
     next_mem_idx: 0U,
     next_global_idx: 0U,
+    next_tag_idx: 0U,
     next_elem_idx: 0U,
     next_data_idx: 0U,
   }
@@ -46,6 +50,10 @@ fn wt_value_type(vt : ValueType) -> @lib.ValType {
     V128 => @lib.ValType::v128()
     FuncRef => @lib.ValType::funcref()
     ExternRef => @lib.ValType::externref()
+    ExnRef =>
+      @lib.ValType::ref_type(
+        @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::exn())),
+      )
   }
 }
 
@@ -54,6 +62,7 @@ fn wt_ref_heap_type(vt : ValueType) -> @lib.HeapType? {
   match vt {
     FuncRef => Some(@lib.HeapType::abs(@lib.AbsHeapType::func()))
     ExternRef => Some(@lib.HeapType::abs(@lib.AbsHeapType::extern_()))
+    ExnRef => Some(@lib.HeapType::abs(@lib.AbsHeapType::exn()))
     _ => None
   }
 }
@@ -927,8 +936,93 @@ fn wt_instr_to_lib(
         ),
       )
     }
+    Throw(idx) => {
+      let ti = match
+        wt_resolve_named_or_num_index(idx, ctx.tag_ids, ctx.next_tag_idx, "tag") {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::throw_(@lib.TagIdx::new(ti)))
+    }
+    ThrowRef => Ok(@lib.Instruction::throw_ref())
     Drop => Ok(@lib.Instruction::drop())
     Select(types) => Ok(@lib.Instruction::select(types=wt_select_types(types)))
+    TryTable(bt, catches, body) => {
+      let next_labels = labels.copy()
+      next_labels.push(None)
+      let lib_bt = match wt_block_type(ctx, bt) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      let lib_body = match wt_instrs_to_lib(ctx, body, local_ids, next_labels) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      let lib_catches : Array[@lib.Catch] = []
+      for catch_clause in catches {
+        match catch_clause {
+          CatchClause(tag_idx, label_idx) => {
+            let ti = match
+              wt_resolve_named_or_num_index(
+                tag_idx,
+                ctx.tag_ids,
+                ctx.next_tag_idx,
+                "tag",
+              ) {
+              Ok(v) => v
+              Err(e) => return Err(e)
+            }
+            let li = match wt_resolve_label(label_idx, next_labels) {
+              Ok(v) => v
+              Err(e) => return Err(e)
+            }
+            lib_catches.push(
+              @lib.Catch::new(@lib.TagIdx::new(ti), @lib.LabelIdx::new(li)),
+            )
+          }
+          CatchRefClause(tag_idx, label_idx) => {
+            let ti = match
+              wt_resolve_named_or_num_index(
+                tag_idx,
+                ctx.tag_ids,
+                ctx.next_tag_idx,
+                "tag",
+              ) {
+              Ok(v) => v
+              Err(e) => return Err(e)
+            }
+            let li = match wt_resolve_label(label_idx, next_labels) {
+              Ok(v) => v
+              Err(e) => return Err(e)
+            }
+            lib_catches.push(
+              @lib.Catch::ref_(@lib.TagIdx::new(ti), @lib.LabelIdx::new(li)),
+            )
+          }
+          CatchAllClause(label_idx) => {
+            let li = match wt_resolve_label(label_idx, next_labels) {
+              Ok(v) => v
+              Err(e) => return Err(e)
+            }
+            lib_catches.push(@lib.Catch::all(@lib.LabelIdx::new(li)))
+          }
+          CatchAllRefClause(label_idx) => {
+            let li = match wt_resolve_label(label_idx, next_labels) {
+              Ok(v) => v
+              Err(e) => return Err(e)
+            }
+            lib_catches.push(@lib.Catch::all_ref(@lib.LabelIdx::new(li)))
+          }
+        }
+      }
+      Ok(
+        @lib.Instruction::try_table(
+          lib_bt,
+          lib_catches,
+          @lib.Expr::new(lib_body),
+        ),
+      )
+    }
     LocalGet(idx) => {
       let li = match wt_local_idx(idx, local_ids) {
         Ok(v) => v
@@ -1499,6 +1593,7 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
   let table_defs_raw : Array[Table] = []
   let mem_defs_raw : Array[Memory] = []
   let global_defs_raw : Array[Global] = []
+  let tag_defs_raw : Array[Tag] = []
   let export_defs : Array[Export] = []
   let start_defs : Array[Start] = []
   let elem_defs_raw : Array[ElemSegment] = []
@@ -1581,8 +1676,33 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
             }
             ctx.next_global_idx += 1
           }
+          Tag(type_use) => {
+            let ti = match wt_resolve_type_use(ctx, type_use) {
+              Ok(v) => v
+              Err(e) => return Err(e)
+            }
+            imports.push(
+              @lib.Import::new(
+                @lib.Name::new(im.module_name),
+                @lib.Name::new(im.field_name),
+                @lib.ExternType::tag(@lib.TagType::new(@lib.TypeIdx::new(ti))),
+              ),
+            )
+            match im.id {
+              Some(id) => ctx.tag_ids[id] = ctx.next_tag_idx
+              None => ()
+            }
+            ctx.next_tag_idx += 1
+          }
         }
       FuncField(f) => {
+        let func_idx = ctx.next_func_idx
+        for inline_export in f.exports {
+          match inline_export {
+            Export(name) =>
+              export_defs.push({ name, desc: ExportDesc::Func(Num(func_idx)) })
+          }
+        }
         let ti = match wt_resolve_type_use(ctx, f.type_use) {
           Ok(v) => v
           Err(e) => return Err(e)
@@ -1595,6 +1715,25 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
         ctx.next_func_idx += 1
       }
       TableField(t) => {
+        let table_idx = ctx.next_table_idx
+        for inline_export in t.exports {
+          match inline_export {
+            Export(name) =>
+              export_defs.push({ name, desc: ExportDesc::Table(Num(table_idx)) })
+          }
+        }
+        match t.elem_init {
+          Some(func_indices) => {
+            elem_defs_raw.push({
+              id: None,
+              table_index: Num(table_idx),
+              offset: [Const(I32Const, "0")],
+              func_indices,
+            })
+            ctx.next_elem_idx += 1
+          }
+          None => ()
+        }
         table_defs_raw.push(t)
         match t.id {
           Some(id) => ctx.table_ids[id] = ctx.next_table_idx
@@ -1603,6 +1742,13 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
         ctx.next_table_idx += 1
       }
       MemoryField(m) => {
+        let mem_idx = ctx.next_mem_idx
+        for inline_export in m.exports {
+          match inline_export {
+            Export(name) =>
+              export_defs.push({ name, desc: ExportDesc::Memory(Num(mem_idx)) })
+          }
+        }
         mem_defs_raw.push(m)
         match m.id {
           Some(id) => ctx.mem_ids[id] = ctx.next_mem_idx
@@ -1611,12 +1757,37 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
         ctx.next_mem_idx += 1
       }
       GlobalField(g) => {
+        let global_idx = ctx.next_global_idx
+        for inline_export in g.exports {
+          match inline_export {
+            Export(name) =>
+              export_defs.push({
+                name,
+                desc: ExportDesc::Global(Num(global_idx)),
+              })
+          }
+        }
         global_defs_raw.push(g)
         match g.id {
           Some(id) => ctx.global_ids[id] = ctx.next_global_idx
           None => ()
         }
         ctx.next_global_idx += 1
+      }
+      TagField(t) => {
+        let tag_idx = ctx.next_tag_idx
+        for inline_export in t.exports {
+          match inline_export {
+            Export(name) =>
+              export_defs.push({ name, desc: ExportDesc::Tag(Num(tag_idx)) })
+          }
+        }
+        tag_defs_raw.push(t)
+        match t.id {
+          Some(id) => ctx.tag_ids[id] = ctx.next_tag_idx
+          None => ()
+        }
+        ctx.next_tag_idx += 1
       }
       ExportField(e) => export_defs.push(e)
       StartField(s) => start_defs.push(s)
@@ -1715,6 +1886,15 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
     )
   }
 
+  let tag_defs : Array[@lib.TagType] = []
+  for t in tag_defs_raw {
+    let ti = match wt_resolve_type_use(ctx, t.type_use) {
+      Ok(v) => v
+      Err(e) => return Err(e)
+    }
+    tag_defs.push(@lib.TagType::new(@lib.TypeIdx::new(ti)))
+  }
+
   let exports : Array[@lib.Export] = []
   for ex in export_defs {
     let ext_idx = match ex.desc {
@@ -1760,6 +1940,17 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
             "global",
           ) {
           Ok(v) => @lib.ExternIdx::global(@lib.GlobalIdx::new(v))
+          Err(e) => return Err(e)
+        }
+      Tag(idx) =>
+        match
+          wt_resolve_named_or_num_index(
+            idx,
+            ctx.tag_ids,
+            ctx.next_tag_idx,
+            "tag",
+          ) {
+          Ok(v) => @lib.ExternIdx::tag(@lib.TagIdx::new(v))
           Err(e) => return Err(e)
         }
     }
@@ -1859,6 +2050,9 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
   }
   if mem_defs.length() > 0 {
     out = out.with_mem_sec(@lib.MemSec::new(mem_defs))
+  }
+  if tag_defs.length() > 0 {
+    out = out.with_tag_sec(@lib.TagSec::new(tag_defs))
   }
   if global_defs.length() > 0 {
     out = out.with_global_sec(@lib.GlobalSec::new(global_defs))
@@ -2632,6 +2826,406 @@ test "wast_to_binary_module lowers advanced reference no-immediate instructions"
       fail(
         "expected lowered function body containing advanced reference instructions",
       )
+  }
+}
+
+///|
+test "wast_to_binary_module lowers throw throw_ref and try_table catch forms" {
+  let src =
+    #|(module
+    #|  (type $void (func))
+    #|  (tag $e0 (type $void))
+    #|  (func
+    #|    (block $h
+    #|      (try_table (catch $e0 $h)
+    #|        (throw $e0))
+    #|      (try_table (catch_ref $e0 $h)
+    #|        throw_ref)
+    #|      (try_table (catch_all $h)
+    #|        unreachable)
+    #|      (try_table (catch_all_ref $h)
+    #|        unreachable))))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) => fail("expected exception-form lowering success: \{e}")
+  }
+
+  match lowered.tag_sec {
+    Some(@lib.TagSec([@lib.TagType(@lib.TypeIdx(tag_type_idx))])) =>
+      assert_eq(tag_type_idx, 0U)
+    _ => fail("expected lowered tag section for exception fixture")
+  }
+
+  match lowered.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.Block(
+                  _,
+                  @lib.Expr(
+                    [try_catch, try_catch_ref, try_catch_all, try_catch_all_ref]
+                  )
+                ),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => {
+      match try_catch {
+        @lib.TryTable(
+          _,
+          [@lib.Catch(@lib.TagIdx(catch_tag), @lib.LabelIdx(catch_label))],
+          @lib.Expr([@lib.Throw(@lib.TagIdx(throw_tag))])
+        ) => {
+          assert_eq(catch_tag, 0U)
+          assert_eq(catch_label, 1U)
+          assert_eq(throw_tag, 0U)
+        }
+        _ => fail("expected try_table catch lowering shape")
+      }
+
+      match try_catch_ref {
+        @lib.TryTable(
+          _,
+          [@lib.CatchRef(@lib.TagIdx(catch_tag), @lib.LabelIdx(catch_label))],
+          @lib.Expr([@lib.ThrowRef])
+        ) => {
+          assert_eq(catch_tag, 0U)
+          assert_eq(catch_label, 1U)
+        }
+        _ => fail("expected try_table catch_ref lowering shape")
+      }
+
+      match try_catch_all {
+        @lib.TryTable(
+          _,
+          [@lib.CatchAll(@lib.LabelIdx(catch_label))],
+          @lib.Expr([@lib.Unreachable])
+        ) => assert_eq(catch_label, 1U)
+        _ => fail("expected try_table catch_all lowering shape")
+      }
+
+      match try_catch_all_ref {
+        @lib.TryTable(
+          _,
+          [@lib.CatchAllRef(@lib.LabelIdx(catch_label))],
+          @lib.Expr([@lib.Unreachable])
+        ) => assert_eq(catch_label, 1U)
+        _ => fail("expected try_table catch_all_ref lowering shape")
+      }
+    }
+    _ =>
+      fail(
+        "expected lowered function body containing try_table exception forms",
+      )
+  }
+}
+
+///|
+test "wast_to_binary_module lowers inline tag exports into export section" {
+  let src =
+    #|(module
+    #|  (type $void (func))
+    #|  (tag $e0 (export "e0") (export "e0_alias") (type $void)))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) => fail("expected inline tag export lowering success: \{e}")
+  }
+  match lowered.tag_sec {
+    Some(@lib.TagSec([@lib.TagType(@lib.TypeIdx(type_idx))])) =>
+      assert_eq(type_idx, 0U)
+    _ => fail("expected lowered tag section for inline-export tag fixture")
+  }
+  match lowered.export_sec {
+    Some(
+      @lib.ExportSec(
+        [
+          @lib.Export(name0, @lib.TagExternIdx(@lib.TagIdx(tag_idx0))),
+          @lib.Export(name1, @lib.TagExternIdx(@lib.TagIdx(tag_idx1))),
+        ]
+      )
+    ) => {
+      assert_eq(name0.0, "e0")
+      assert_eq(name1.0, "e0_alias")
+      assert_eq(tag_idx0, 0U)
+      assert_eq(tag_idx1, 0U)
+    }
+    _ => fail("expected lowered export section containing inline tag exports")
+  }
+}
+
+///|
+test "wast_to_binary_module validates catch_ref and catch_all_ref exnref label flows" {
+  let src =
+    #|(module
+    #|  (tag $e0)
+    #|  (func
+    #|    (block $h (result exnref)
+    #|      (try_table (catch_ref $e0 $h) (throw $e0))
+    #|      (unreachable))
+    #|    (drop))
+    #|  (func
+    #|    (block $h (result exnref)
+    #|      (try_table (result exnref) (catch_all_ref $h) (throw $e0)))
+    #|    (drop)))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) =>
+      fail(
+        "expected catch_ref/catch_all_ref exnref flow fixture lowering success: \{e}",
+      )
+  }
+  match lowered.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.Block(_, @lib.Expr([try_catch_ref, @lib.Unreachable])),
+                @lib.Drop,
+              ]
+            )
+          ),
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [@lib.Block(_, @lib.Expr([try_catch_all_ref])), @lib.Drop]
+            )
+          ),
+        ]
+      )
+    ) => {
+      match try_catch_ref {
+        @lib.TryTable(
+          _,
+          [@lib.CatchRef(@lib.TagIdx(catch_tag), @lib.LabelIdx(catch_label))],
+          @lib.Expr([@lib.Throw(@lib.TagIdx(throw_tag))])
+        ) => {
+          assert_eq(catch_tag, 0U)
+          assert_eq(catch_label, 1U)
+          assert_eq(throw_tag, 0U)
+        }
+        _ => fail("expected catch_ref exnref-flow lowering shape")
+      }
+      match try_catch_all_ref {
+        @lib.TryTable(
+          _,
+          [@lib.CatchAllRef(@lib.LabelIdx(catch_label))],
+          @lib.Expr([@lib.Throw(@lib.TagIdx(throw_tag))])
+        ) => {
+          assert_eq(catch_label, 1U)
+          assert_eq(throw_tag, 0U)
+        }
+        _ => fail("expected catch_all_ref exnref-flow lowering shape")
+      }
+    }
+    _ =>
+      fail(
+        "expected lowered code for catch_ref/catch_all_ref exnref flow fixture",
+      )
+  }
+  match @validate.validate_module(lowered) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected catch_ref/catch_all_ref exnref flow fixture to validate: \{e}",
+      )
+  }
+}
+
+///|
+test "wast_to_binary_module keeps imported-tag wiring stable across catch and throw forms" {
+  let src =
+    #|(module
+    #|  (type $void (func))
+    #|  (import "env" "imp0" (tag $imp0 (type $void)))
+    #|  (tag $imp1 (import "env" "imp1") (type $void))
+    #|  (tag $local (type $void))
+    #|  (func
+    #|    (block $h
+    #|      (try_table (catch $imp0 $h) (throw $imp1))
+    #|      (try_table (catch $local $h) (throw $local)))))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) =>
+      fail("expected imported-tag wiring fixture lowering success: \{e}")
+  }
+  match lowered.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr([@lib.Block(_, @lib.Expr([first_try, second_try]))])
+          ),
+        ]
+      )
+    ) => {
+      match first_try {
+        @lib.TryTable(
+          _,
+          [@lib.Catch(@lib.TagIdx(catch_tag), @lib.LabelIdx(catch_label))],
+          @lib.Expr([@lib.Throw(@lib.TagIdx(throw_tag))])
+        ) => {
+          assert_eq(catch_tag, 0U)
+          assert_eq(catch_label, 1U)
+          assert_eq(throw_tag, 1U)
+        }
+        _ => fail("expected first imported-tag try_table lowering shape")
+      }
+      match second_try {
+        @lib.TryTable(
+          _,
+          [@lib.Catch(@lib.TagIdx(catch_tag), @lib.LabelIdx(catch_label))],
+          @lib.Expr([@lib.Throw(@lib.TagIdx(throw_tag))])
+        ) => {
+          assert_eq(catch_tag, 2U)
+          assert_eq(catch_label, 1U)
+          assert_eq(throw_tag, 2U)
+        }
+        _ => fail("expected second imported/local-tag try_table lowering shape")
+      }
+    }
+    _ => fail("expected lowered code for imported-tag wiring fixture")
+  }
+  match @validate.validate_module(lowered) {
+    Ok(_) => ()
+    Err(e) => fail("expected imported-tag wiring fixture to validate: \{e}")
+  }
+}
+
+///|
+test "wast_to_binary_module reports malformed NaN payloads in v128.const" {
+  assert_true(
+    wt_lower_error_contains(
+      "(module (func (result v128) v128.const f32x4 nan:0x 0 0 0))", "invalid f32x4 NaN payload literal: nan:0x",
+    ),
+  )
+  assert_true(
+    wt_lower_error_contains(
+      "(module (func (result v128) v128.const f32x4 nan:0xg 0 0 0))", "invalid f32x4 NaN payload literal: nan:0xg",
+    ),
+  )
+  assert_true(
+    wt_lower_error_contains(
+      "(module (func (result v128) v128.const f64x2 nan:0x 0))", "invalid f64x2 NaN payload literal: nan:0x",
+    ),
+  )
+}
+
+///|
+test "wast_to_binary_module enforces i64x2 unsigned literal boundaries" {
+  let lowered = match
+    wast_to_binary_module(
+      "(module (func (result v128) v128.const i64x2 18446744073709551615 0))",
+    ) {
+    Ok(m) => m
+    Err(e) =>
+      fail(
+        "expected i64x2 v128.const max unsigned literal lowering success: \{e}",
+      )
+  }
+  match lowered.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.V128Const(
+                  b0,
+                  b1,
+                  b2,
+                  b3,
+                  b4,
+                  b5,
+                  b6,
+                  b7,
+                  b8,
+                  b9,
+                  b10,
+                  b11,
+                  b12,
+                  b13,
+                  b14,
+                  b15
+                ),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => {
+      assert_eq(b0, (0xff).to_byte())
+      assert_eq(b1, (0xff).to_byte())
+      assert_eq(b2, (0xff).to_byte())
+      assert_eq(b3, (0xff).to_byte())
+      assert_eq(b4, (0xff).to_byte())
+      assert_eq(b5, (0xff).to_byte())
+      assert_eq(b6, (0xff).to_byte())
+      assert_eq(b7, (0xff).to_byte())
+      assert_eq(b8, (0x00).to_byte())
+      assert_eq(b9, (0x00).to_byte())
+      assert_eq(b10, (0x00).to_byte())
+      assert_eq(b11, (0x00).to_byte())
+      assert_eq(b12, (0x00).to_byte())
+      assert_eq(b13, (0x00).to_byte())
+      assert_eq(b14, (0x00).to_byte())
+      assert_eq(b15, (0x00).to_byte())
+    }
+    _ => fail("expected lowered i64x2 max-literal v128.const function body")
+  }
+
+  assert_true(
+    wt_lower_error_contains(
+      "(module (func (result v128) v128.const i64x2 18446744073709551616 0))", "invalid i64x2 literal: 18446744073709551616",
+    ),
+  )
+  assert_true(
+    wt_lower_error_contains(
+      "(module (func (result v128) v128.const i64x2 0x10000000000000000 0))", "invalid i64x2 literal: 0x10000000000000000",
+    ),
+  )
+}
+
+///|
+test "native text pipeline accepts exception fixtures with .wat and .wast inputs" {
+  let wat_source =
+    #|(module
+    #|  (type (func))
+    #|  (tag (type 0))
+    #|  (func (throw 0)))
+  let wat_module = match
+    wast_to_binary_module(wat_source, filename="exception-fixture.wat") {
+    Ok(m) => m
+    Err(e) => fail("expected native .wat pipeline success: \{e}")
+  }
+  match wat_module.tag_sec {
+    Some(@lib.TagSec([_])) => ()
+    _ => fail("expected .wat pipeline to produce a tag section")
+  }
+
+  let wast_source =
+    #|(module
+    #|  (type (func))
+    #|  (tag (type 0))
+    #|  (func (throw 0)))
+  let report = run_wast_spec_file("exception-fixture.wast", wast_source)
+  match report.status {
+    Passed => assert_true(report.checked_commands >= 1)
+    Skipped(reason) =>
+      fail(
+        "expected native .wast pipeline check to run without skips: \{reason}",
+      )
+    Failed(msg) => fail("expected native .wast pipeline success: \{msg}")
   }
 }
 

@@ -37,6 +37,7 @@ pub enum ImportDesc {
   Table(TableType)
   Memory(MemoryType)
   Global(GlobalType)
+  Tag(TypeUse)
 } derive(Eq, Show, Debug)
 
 ///|
@@ -53,6 +54,7 @@ pub enum ExportDesc {
   Table(Index)
   Memory(Index)
   Global(Index)
+  Tag(Index)
 } derive(Eq, Show, Debug)
 
 ///|
@@ -104,6 +106,7 @@ pub struct Table {
   id : String?
   exports : Array[InlineExport]
   table_type : TableType
+  elem_init : Array[Index]?
 } derive(Eq, Show, Debug)
 
 ///|
@@ -111,6 +114,13 @@ pub struct Memory {
   id : String?
   exports : Array[InlineExport]
   memory_type : MemoryType
+} derive(Eq, Show, Debug)
+
+///|
+pub struct Tag {
+  id : String?
+  exports : Array[InlineExport]
+  type_use : TypeUse
 } derive(Eq, Show, Debug)
 
 ///|
@@ -147,6 +157,7 @@ pub enum ModuleField {
   TableField(Table)
   MemoryField(Memory)
   GlobalField(Global)
+  TagField(Tag)
   ImportField(Import)
   ExportField(Export)
   StartField(Start)
@@ -202,6 +213,14 @@ pub struct ShuffleLanes {
 } derive(Eq, Show, Debug)
 
 ///|
+pub enum CatchClause {
+  CatchClause(Index, Index)
+  CatchRefClause(Index, Index)
+  CatchAllClause(Index)
+  CatchAllRefClause(Index)
+} derive(Eq, Show, Debug)
+
+///|
 pub enum Instruction {
   // Control
   Unreachable
@@ -215,6 +234,9 @@ pub enum Instruction {
   Return
   Call(Index)
   CallIndirect(Index, TypeUse)
+  Throw(Index)
+  ThrowRef
+  TryTable(BlockType, Array[CatchClause], Array[Instruction])
 
   // Parametric
   Drop
@@ -919,6 +941,9 @@ fn WastParser::parse_folded_instruction(
     }
     Opcode(op) => {
       let _ = self.advance()
+      if op is TryTable {
+        return [self.parse_try_table_instruction(false)]
+      }
       let instr = self.parse_opcode_instruction(op)
       // Parse nested operand instructions
       let result : Array[Instruction] = []
@@ -1019,6 +1044,10 @@ fn WastParser::try_parse_plain_instruction(
       }
       Some(If(block_type, then_body, else_body))
     }
+    Opcode(TryTable) => {
+      let _ = self.advance()
+      Some(self.parse_try_table_instruction(true))
+    }
     Opcode(op) => {
       let _ = self.advance()
       Some(self.parse_opcode_instruction(op))
@@ -1063,6 +1092,97 @@ fn WastParser::parse_block_body(
 }
 
 ///|
+fn WastParser::parse_try_table_block_type(
+  self : WastParser,
+) -> BlockType raise ParserError {
+  let type_use : TypeUse? = if self.check(Lpar) {
+    let saved_state = self.save_lexer_state()
+    let saved_token = self.current
+    self.expect_lpar()
+    if self.check(Type) || self.check(Param) || self.check(Result) {
+      self.restore_lexer_state(saved_state)
+      self.current = saved_token
+      Some(self.parse_type_use())
+    } else {
+      self.restore_lexer_state(saved_state)
+      self.current = saved_token
+      None
+    }
+  } else if self.current.token_type is ValueType(_) {
+    let vt = self.parse_value_type()
+    Some({ type_index: None, func_type: { params: [], results: [vt] } })
+  } else {
+    None
+  }
+  { label: None, type_use }
+}
+
+///|
+fn WastParser::parse_try_table_catches(
+  self : WastParser,
+) -> Array[CatchClause] raise ParserError {
+  let catches : Array[CatchClause] = []
+  while self.check(Lpar) {
+    let saved_state = self.save_lexer_state()
+    let saved_token = self.current
+    self.expect_lpar()
+    let parsed : CatchClause? = match self.current.token_type {
+      Catch => {
+        let _ = self.advance()
+        let tag_idx = self.parse_index()
+        let label_idx = self.parse_index()
+        Some(CatchClause::CatchClause(tag_idx, label_idx))
+      }
+      CatchRef => {
+        let _ = self.advance()
+        let tag_idx = self.parse_index()
+        let label_idx = self.parse_index()
+        Some(CatchClause::CatchRefClause(tag_idx, label_idx))
+      }
+      CatchAll => {
+        let _ = self.advance()
+        Some(CatchClause::CatchAllClause(self.parse_index()))
+      }
+      CatchAllRef => {
+        let _ = self.advance()
+        Some(CatchClause::CatchAllRefClause(self.parse_index()))
+      }
+      _ => None
+    }
+    match parsed {
+      Some(catch_clause) => {
+        catches.push(catch_clause)
+        self.expect_rpar()
+      }
+      None => {
+        self.restore_lexer_state(saved_state)
+        self.current = saved_token
+        break
+      }
+    }
+  }
+  catches
+}
+
+///|
+fn WastParser::parse_try_table_instruction(
+  self : WastParser,
+  with_end : Bool,
+) -> Instruction raise ParserError {
+  let block_type = self.parse_try_table_block_type()
+  let catches = self.parse_try_table_catches()
+  let body = if with_end {
+    self.parse_block_body()
+  } else {
+    self.parse_instructions()
+  }
+  if with_end {
+    let _ = self.expect(End, "expected 'end'")
+  }
+  TryTable(block_type, catches, body)
+}
+
+///|
 fn WastParser::parse_opcode_instruction(
   self : WastParser,
   op : Opcode,
@@ -1091,6 +1211,9 @@ fn WastParser::parse_opcode_instruction(
       let type_use = self.parse_type_use()
       CallIndirect(table_index, type_use)
     }
+    Throw => Throw(self.parse_index())
+    ThrowRef => ThrowRef
+    TryTable => self.parse_try_table_instruction(false)
     RefGetDesc => RefGetDesc
     RefTestDesc => RefTestDesc(false, self.parse_index())
     RefTestDescNull => RefTestDesc(true, self.parse_index())
@@ -1515,9 +1638,51 @@ fn WastParser::parse_table(self : WastParser) -> Table raise ParserError {
     None
   }
   let exports = self.parse_inline_exports()
+  if self.current.token_type is ValueType(_) {
+    // Abbreviation: (table funcref (elem ...))
+    let elem_type = self.parse_value_type()
+    self.expect_lpar()
+    let _ = self.expect(Elem, "expected 'elem' table initializer")
+    let func_indices : Array[Index] = []
+    while self.current.token_type is (Nat | Var) {
+      func_indices.push(self.parse_index())
+    }
+    self.expect_rpar()
+    let limits : Limits = {
+      min: func_indices.length().reinterpret_as_uint(),
+      max: None,
+    }
+    return {
+      id,
+      exports,
+      table_type: { limits, elem_type },
+      elem_init: Some(func_indices),
+    }
+  }
+
   let limits = self.parse_limits()
   let elem_type = self.parse_value_type()
-  { id, exports, table_type: { limits, elem_type } }
+  let elem_init : Array[Index]? = if self.check(Lpar) {
+    let saved_state = self.save_lexer_state()
+    let saved_token = self.current
+    self.expect_lpar()
+    if self.check(Elem) {
+      let _ = self.advance()
+      let func_indices : Array[Index] = []
+      while self.current.token_type is (Nat | Var) {
+        func_indices.push(self.parse_index())
+      }
+      self.expect_rpar()
+      Some(func_indices)
+    } else {
+      self.restore_lexer_state(saved_state)
+      self.current = saved_token
+      None
+    }
+  } else {
+    None
+  }
+  { id, exports, table_type: { limits, elem_type }, elem_init }
 }
 
 ///|
@@ -1532,6 +1697,72 @@ fn WastParser::parse_memory(self : WastParser) -> Memory raise ParserError {
   let exports = self.parse_inline_exports()
   let limits = self.parse_limits()
   { id, exports, memory_type: limits }
+}
+
+///|
+fn WastParser::parse_tag_type_use_or_default(
+  self : WastParser,
+) -> TypeUse raise ParserError {
+  if self.check(Lpar) {
+    let saved_state = self.save_lexer_state()
+    let saved_token = self.current
+    self.expect_lpar()
+    if self.check(Type) || self.check(Param) || self.check(Result) {
+      self.restore_lexer_state(saved_state)
+      self.current = saved_token
+      return self.parse_type_use()
+    }
+    self.restore_lexer_state(saved_state)
+    self.current = saved_token
+  }
+  { type_index: None, func_type: { params: [], results: [] } }
+}
+
+///|
+fn WastParser::parse_tag_field(
+  self : WastParser,
+) -> ModuleField raise ParserError {
+  let _ = self.expect(Tag, "expected 'tag'")
+  let id : String? = if self.current.token_type is Var {
+    let token = self.advance()
+    Some(self.get_text(token))
+  } else {
+    None
+  }
+  let exports = self.parse_inline_exports()
+
+  let inline_import : (String, String)? = if self.check(Lpar) {
+    let saved_state = self.save_lexer_state()
+    let saved_token = self.current
+    self.expect_lpar()
+    if self.check(Import) {
+      let _ = self.advance()
+      let module_token = self.expect(Text, "expected module name")
+      let module_name = self.strip_quotes(self.get_text(module_token))
+      let field_token = self.expect(Text, "expected field name")
+      let field_name = self.strip_quotes(self.get_text(field_token))
+      self.expect_rpar()
+      Some((module_name, field_name))
+    } else {
+      self.restore_lexer_state(saved_state)
+      self.current = saved_token
+      None
+    }
+  } else {
+    None
+  }
+
+  let type_use = self.parse_tag_type_use_or_default()
+  match inline_import {
+    Some((module_name, field_name)) =>
+      ModuleField::ImportField({
+        module_name,
+        field_name,
+        desc: ImportDesc::Tag(type_use),
+        id,
+      })
+    None => ModuleField::TagField({ id, exports, type_use })
+  }
 }
 
 ///|
@@ -1629,6 +1860,17 @@ fn WastParser::parse_import(self : WastParser) -> Import raise ParserError {
       }
       (ImportDesc::Global({ val_type, mutable_ }), global_id)
     }
+    Tag => {
+      let _ = self.advance()
+      let tag_id : String? = if self.current.token_type is Var {
+        let token = self.advance()
+        Some(self.get_text(token))
+      } else {
+        None
+      }
+      let type_use = self.parse_tag_type_use_or_default()
+      (ImportDesc::Tag(type_use), tag_id)
+    }
     _ => raise UnexpectedToken(self.current, "expected import descriptor")
   }
   self.expect_rpar()
@@ -1657,6 +1899,10 @@ fn WastParser::parse_export(self : WastParser) -> Export raise ParserError {
     Global => {
       let _ = self.advance()
       ExportDesc::Global(self.parse_index())
+    }
+    Tag => {
+      let _ = self.advance()
+      ExportDesc::Tag(self.parse_index())
     }
     _ => raise UnexpectedToken(self.current, "expected export descriptor")
   }
@@ -2141,6 +2387,7 @@ fn WastParser::parse_module_field(
   match self.current.token_type {
     Type => ModuleField::TypeField(self.parse_type_def())
     Func => ModuleField::FuncField(self.parse_func())
+    Tag => self.parse_tag_field()
     Table => ModuleField::TableField(self.parse_table())
     Memory => ModuleField::MemoryField(self.parse_memory())
     Global => ModuleField::GlobalField(self.parse_global())
@@ -3725,6 +3972,43 @@ test "parse ref test desc and cast desc eq" {
   assert_false(parser.has_errors())
 }
 
+///|
+test "parse tags with throw and throw_ref" {
+  let source =
+    #|(module
+    #|  (type $void (func))
+    #|  (tag $e0 (type $void))
+    #|  (func
+    #|    (throw $e0)
+    #|    throw_ref))
+  let lexer = make_lexer(source)
+  let parser = WastParser::new(lexer)
+  let _ = parser.parse_module()
+  assert_false(parser.has_errors())
+}
+
+///|
+test "parse try_table catch forms" {
+  let source =
+    #|(module
+    #|  (type $void (func))
+    #|  (tag $e0 (type $void))
+    #|  (func
+    #|    (block $h
+    #|      (try_table (catch $e0 $h)
+    #|        (throw $e0))
+    #|      (try_table (catch_ref $e0 $h)
+    #|        throw_ref)
+    #|      (try_table (catch_all $h)
+    #|        unreachable)
+    #|      (try_table (catch_all_ref $h)
+    #|        unreachable))))
+  let lexer = make_lexer(source)
+  let parser = WastParser::new(lexer)
+  let _ = parser.parse_module()
+  assert_false(parser.has_errors())
+}
+
 // ----------------------------------------------------------------------------
 // Parametric Instruction Tests
 // ----------------------------------------------------------------------------
@@ -3832,6 +4116,44 @@ test "parse named table" {
 test "parse table with inline export" {
   let source =
     #|(module (table $tbl (export "table") 1 funcref))|
+  let lexer = make_lexer(source)
+  let parser = WastParser::new(lexer)
+  let _ = parser.parse_module()
+  assert_false(parser.has_errors())
+}
+
+///|
+test "parse table elem-abbreviation with function ids" {
+  let source =
+    #|(module
+    #|  (func $f)
+    #|  (table funcref (elem $f)))|
+  let lexer = make_lexer(source)
+  let parser = WastParser::new(lexer)
+  let _ = parser.parse_module()
+  assert_false(parser.has_errors())
+}
+
+///|
+test "parse table elem-abbreviation with numeric function indices" {
+  let source =
+    #|(module
+    #|  (func)
+    #|  (func)
+    #|  (table funcref (elem 0 1)))|
+  let lexer = make_lexer(source)
+  let parser = WastParser::new(lexer)
+  let _ = parser.parse_module()
+  assert_false(parser.has_errors())
+}
+
+///|
+test "parse table elem-abbreviation with explicit limits" {
+  let source =
+    #|(module
+    #|  (func $a)
+    #|  (func $b)
+    #|  (table 3 funcref (elem $a $b)))|
   let lexer = make_lexer(source)
   let parser = WastParser::new(lexer)
   let _ = parser.parse_module()

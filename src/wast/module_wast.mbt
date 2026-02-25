@@ -133,6 +133,7 @@ fn keyword_from_value_type(vt : ValueType) -> String {
     V128 => "v128"
     FuncRef => "funcref"
     ExternRef => "externref"
+    ExnRef => "exnref"
   }
 }
 
@@ -233,6 +234,18 @@ fn render_shuffle_lanes(lanes : ShuffleLanes) -> String {
 }
 
 ///|
+fn render_catch_clause(catch_clause : CatchClause) -> String {
+  match catch_clause {
+    CatchClause(tag_idx, label_idx) =>
+      "(catch \{index_text(tag_idx)} \{index_text(label_idx)})"
+    CatchRefClause(tag_idx, label_idx) =>
+      "(catch_ref \{index_text(tag_idx)} \{index_text(label_idx)})"
+    CatchAllClause(label_idx) => "(catch_all \{index_text(label_idx)})"
+    CatchAllRefClause(label_idx) => "(catch_all_ref \{index_text(label_idx)})"
+  }
+}
+
+///|
 fn render_instruction_head(instr : Instruction) -> String raise WastTextError {
   match instr {
     Unreachable => "unreachable"
@@ -254,6 +267,8 @@ fn render_instruction_head(instr : Instruction) -> String raise WastTextError {
     Call(idx) => "call \{index_text(idx)}"
     CallIndirect(table_idx, type_use) =>
       "call_indirect \{index_text(table_idx)}\{render_type_use(type_use)}"
+    Throw(idx) => "throw \{index_text(idx)}"
+    ThrowRef => "throw_ref"
     Drop => "drop"
     Select(None) => "select"
     Select(Some(vts)) => {
@@ -355,7 +370,7 @@ fn render_instruction_head(instr : Instruction) -> String raise WastTextError {
     SimdCompare(op) => keyword_from_opcode(op)
     SimdConvert(op) => keyword_from_opcode(op)
     SimdRelaxed(op) => keyword_from_opcode(op)
-    Block(_, _) | Loop(_, _) | If(_, _, _) =>
+    Block(_, _) | Loop(_, _) | If(_, _, _) | TryTable(_, _, _) =>
       raise Unsupported(
         "structured instructions must be rendered with body context",
       )
@@ -387,6 +402,16 @@ fn write_instruction(
         out.write_string("\{pad}else\n")
         write_instructions(out, else_body, indent + 2)
       }
+      out.write_string("\{pad}end\n")
+    }
+    TryTable(bt, catches, body) => {
+      out.write_string("\{pad}try_table\{render_block_type(bt)}")
+      for catch_clause in catches {
+        out.write_char(' ')
+        out.write_string(render_catch_clause(catch_clause))
+      }
+      out.write_char('\n')
+      write_instructions(out, body, indent + 2)
       out.write_string("\{pad}end\n")
     }
     _ => {
@@ -468,13 +493,40 @@ fn write_module_field(
         out.write_string(id)
       }
       write_inline_exports(out, tbl.exports)
-      out.write_string(" \{tbl.table_type.limits.min}")
-      if tbl.table_type.limits.max is Some(max) {
-        out.write_string(" \{max}")
+      match tbl.elem_init {
+        Some(func_indices) => {
+          let use_short_form = tbl.table_type.limits.max is None &&
+            tbl.table_type.limits.min ==
+            func_indices.length().reinterpret_as_uint()
+          if use_short_form {
+            out.write_string(
+              " \{keyword_from_value_type(tbl.table_type.elem_type)} (elem",
+            )
+          } else {
+            out.write_string(" \{tbl.table_type.limits.min}")
+            if tbl.table_type.limits.max is Some(max) {
+              out.write_string(" \{max}")
+            }
+            out.write_string(
+              " \{keyword_from_value_type(tbl.table_type.elem_type)} (elem",
+            )
+          }
+          for fidx in func_indices {
+            out.write_char(' ')
+            out.write_string(index_text(fidx))
+          }
+          out.write_string("))\n")
+        }
+        None => {
+          out.write_string(" \{tbl.table_type.limits.min}")
+          if tbl.table_type.limits.max is Some(max) {
+            out.write_string(" \{max}")
+          }
+          out.write_string(
+            " \{keyword_from_value_type(tbl.table_type.elem_type)})\n",
+          )
+        }
       }
-      out.write_string(
-        " \{keyword_from_value_type(tbl.table_type.elem_type)})\n",
-      )
     }
     MemoryField(mem) => {
       out.write_string("\{pad}(memory")
@@ -509,6 +561,16 @@ fn write_module_field(
       out.write_char('\n')
       write_instructions(out, global.init, indent + 2)
       out.write_string("\{pad})\n")
+    }
+    TagField(tag) => {
+      out.write_string("\{pad}(tag")
+      if tag.id is Some(id) {
+        out.write_char(' ')
+        out.write_string(id)
+      }
+      write_inline_exports(out, tag.exports)
+      out.write_string(render_type_use(tag.type_use))
+      out.write_string(")\n")
     }
     ImportField(im) => {
       out.write_string(
@@ -559,6 +621,14 @@ fn write_module_field(
             out.write_string(" \{keyword_from_value_type(gt.val_type)}")
           }
         }
+        Tag(type_use) => {
+          out.write_string("tag")
+          if im.id is Some(id) {
+            out.write_char(' ')
+            out.write_string(id)
+          }
+          out.write_string(render_type_use(type_use))
+        }
       }
       out.write_string("))\n")
     }
@@ -569,6 +639,7 @@ fn write_module_field(
         Table(idx) => out.write_string("table \{index_text(idx)}")
         Memory(idx) => out.write_string("memory \{index_text(idx)}")
         Global(idx) => out.write_string("global \{index_text(idx)}")
+        Tag(idx) => out.write_string("tag \{index_text(idx)}")
       }
       out.write_string("))\n")
     }

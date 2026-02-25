@@ -21,6 +21,7 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("result", Result)
   map.set("local", Local)
   map.set("global", Global)
+  map.set("tag", Tag)
   map.set("table", Table)
   map.set("memory", Memory)
   map.set("elem", Elem)
@@ -55,6 +56,10 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("then", Then)
   map.set("else", Else)
   map.set("end", End)
+  map.set("catch", Catch)
+  map.set("catch_ref", CatchRef)
+  map.set("catch_all", CatchAll)
+  map.set("catch_all_ref", CatchAllRef)
 
   // Value types
   map.set("i32", ValueType(I32))
@@ -64,6 +69,7 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("v128", ValueType(V128))
   map.set("funcref", ValueType(FuncRef))
   map.set("externref", ValueType(ExternRef))
+  map.set("exnref", ValueType(ExnRef))
 
   // Control instructions
   map.set("unreachable", Opcode(Unreachable))
@@ -74,6 +80,9 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("return", Opcode(Return))
   map.set("call", Opcode(Call))
   map.set("call_indirect", Opcode(CallIndirect))
+  map.set("throw", Opcode(Throw))
+  map.set("throw_ref", Opcode(ThrowRef))
+  map.set("try_table", Opcode(TryTable))
 
   // Reference instructions
   map.set("ref.null", Opcode(RefNull))

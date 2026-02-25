@@ -23,6 +23,21 @@ test "lookup_keyword classifies module/value/opcode and unknown inputs" {
 }
 
 ///|
+test "lookup_keyword classifies advanced reference and exception keywords" {
+  let keywords = [
+    "ref.eq", "ref.as_non_null", "any.convert_extern", "extern.convert_any", "ref.i31",
+    "i31.get_s", "i31.get_u", "throw", "throw_ref", "try_table", "catch", "catch_ref",
+    "catch_all", "catch_all_ref", "tag",
+  ]
+  for keyword in keywords {
+    match lookup_keyword(keyword) {
+      Some(_) => ()
+      None => fail("expected keyword to resolve: \{keyword}")
+    }
+  }
+}
+
+///|
 test "wast_to_script parser boundaries for empty and unknown commands" {
   let empty_script = match wast_to_script("") {
     Ok(script) => script

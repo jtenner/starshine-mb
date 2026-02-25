@@ -48,6 +48,14 @@ pub suberror BinaryDecodeError {
 } derive(Eq, Show, Debug)
 
 ///|
+pub struct ModuleDecodeErrorDetail {
+  err : BinaryDecodeError
+  section_offset : Int?
+  section_len : Int?
+  trailing_offset : Int?
+} derive(Eq, Show, Debug)
+
+///|
 pub trait Decode {
   decode(Bytes, Int) -> Result[(Self, Int), BinaryDecodeError]
 }
@@ -655,229 +663,304 @@ fn[T : Decode] decode_section_payload(
 }
 
 ///|
-fn decode_custom_sections(
+fn module_section_span(bytes : Bytes, section_start : Int) -> (Int, Int) {
+  if section_start < 0 || section_start >= bytes.length() {
+    return (section_start, 0)
+  }
+  let len_result : Result[(@lib.U32, Int), BinaryDecodeError] = Decode::decode(
+    bytes,
+    section_start + 1,
+  )
+  match len_result {
+    Ok((@lib.U32(payload_len_u), payload_start)) => {
+      let payload_len = payload_len_u.reinterpret_as_int()
+      let payload_end = payload_start + payload_len
+      let section_end = if payload_end <= bytes.length() {
+        payload_end
+      } else {
+        bytes.length()
+      }
+      (section_start, section_end - section_start)
+    }
+    Err(_) => (section_start, bytes.length() - section_start)
+  }
+}
+
+///|
+fn module_decode_error(
+  err : BinaryDecodeError,
+  section_offset? : Int? = None,
+  section_len? : Int? = None,
+  trailing_offset? : Int? = None,
+) -> ModuleDecodeErrorDetail {
+  { err, section_offset, section_len, trailing_offset }
+}
+
+///|
+fn module_section_decode_error(
+  bytes : Bytes,
+  section_start : Int,
+  err : BinaryDecodeError,
+) -> ModuleDecodeErrorDetail {
+  let (offset, len) = module_section_span(bytes, section_start)
+  module_decode_error(err, section_offset=Some(offset), section_len=Some(len))
+}
+
+///|
+fn decode_custom_sections_with_detail(
   bytes : Bytes,
   i : Int,
   out : Array[CustomSec],
-) -> Result[Int, BinaryDecodeError] {
+) -> Result[Int, ModuleDecodeErrorDetail] {
   let mut i = i
   while bytes.get(i) == Some(0) {
+    let section_start = i
     match Decode::decode(bytes, i) {
       Ok((sec, next)) => {
         out.push(sec)
         i = next
       }
-      Err(t) => return Err(t)
+      Err(err) =>
+        return Err(module_section_decode_error(bytes, section_start, err))
     }
   }
   Ok(i)
 }
 
 ///|
-fn[T : Decode] decode_optional_section(
+fn[T : Decode] decode_optional_section_with_detail(
   bytes : Bytes,
   i : Int,
   section_id : Byte,
-) -> Result[(T?, Int), BinaryDecodeError] {
+) -> Result[(T?, Int), ModuleDecodeErrorDetail] {
   if bytes.get(i) != Some(section_id) {
     return Ok((None, i))
   }
+  let section_start = i
   match Decode::decode(bytes, i) {
     Ok((sec, next)) => Ok((Some(sec), next))
-    Err(t) => Err(t)
+    Err(err) => Err(module_section_decode_error(bytes, section_start, err))
   }
 }
 
 ///|
-pub impl Decode for Module with decode(bytes, i) {
+pub fn decode_module_with_detail(
+  bytes : Bytes,
+  i : Int,
+) -> Result[(Module, Int), ModuleDecodeErrorDetail] {
   let mut i = i
   let custom = Array::new()
   let mut mod = Module::new()
   for b in [0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00] {
     if bytes.get(i) != Some(b.to_byte()) {
-      return Err(BinaryDecodeError::InvalidMagicHeader)
+      return Err(module_decode_error(BinaryDecodeError::InvalidMagicHeader))
     }
     i = i + 1
   }
-  i = match decode_custom_sections(bytes, i, custom) {
+  i = match decode_custom_sections_with_detail(bytes, i, custom) {
     Ok(next) => next
-    Err(t) => return Err(t)
+    Err(detail) => return Err(detail)
   }
-  let (type_sec, next) = match decode_optional_section(bytes, i, 1) {
+  let (type_sec, next) = match
+    decode_optional_section_with_detail(bytes, i, 1) {
     Ok(t) => t
-    Err(t) => return Err(t)
+    Err(detail) => return Err(detail)
   }
   i = next
   if type_sec is Some(sec) {
     mod = mod.with_type_sec(sec)
   }
 
-  i = match decode_custom_sections(bytes, i, custom) {
+  i = match decode_custom_sections_with_detail(bytes, i, custom) {
     Ok(next) => next
-    Err(t) => return Err(t)
+    Err(detail) => return Err(detail)
   }
-  let (import_sec, next) = match decode_optional_section(bytes, i, 2) {
+  let (import_sec, next) = match
+    decode_optional_section_with_detail(bytes, i, 2) {
     Ok(t) => t
-    Err(t) => return Err(t)
+    Err(detail) => return Err(detail)
   }
   i = next
   if import_sec is Some(sec) {
     mod = mod.with_import_sec(sec)
   }
 
-  i = match decode_custom_sections(bytes, i, custom) {
+  i = match decode_custom_sections_with_detail(bytes, i, custom) {
     Ok(next) => next
-    Err(t) => return Err(t)
+    Err(detail) => return Err(detail)
   }
-  let (func_sec, next) = match decode_optional_section(bytes, i, 3) {
+  let (func_sec, next) = match
+    decode_optional_section_with_detail(bytes, i, 3) {
     Ok(t) => t
-    Err(t) => return Err(t)
+    Err(detail) => return Err(detail)
   }
   i = next
   if func_sec is Some(sec) {
     mod = mod.with_func_sec(sec)
   }
 
-  i = match decode_custom_sections(bytes, i, custom) {
+  i = match decode_custom_sections_with_detail(bytes, i, custom) {
     Ok(next) => next
-    Err(t) => return Err(t)
+    Err(detail) => return Err(detail)
   }
-  let (table_sec, next) = match decode_optional_section(bytes, i, 4) {
+  let (table_sec, next) = match
+    decode_optional_section_with_detail(bytes, i, 4) {
     Ok(t) => t
-    Err(t) => return Err(t)
+    Err(detail) => return Err(detail)
   }
   i = next
   if table_sec is Some(sec) {
     mod = mod.with_table_sec(sec)
   }
 
-  i = match decode_custom_sections(bytes, i, custom) {
+  i = match decode_custom_sections_with_detail(bytes, i, custom) {
     Ok(next) => next
-    Err(t) => return Err(t)
+    Err(detail) => return Err(detail)
   }
-  let (mem_sec, next) = match decode_optional_section(bytes, i, 5) {
+  let (mem_sec, next) = match decode_optional_section_with_detail(bytes, i, 5) {
     Ok(t) => t
-    Err(t) => return Err(t)
+    Err(detail) => return Err(detail)
   }
   i = next
   if mem_sec is Some(sec) {
     mod = mod.with_mem_sec(sec)
   }
 
-  i = match decode_custom_sections(bytes, i, custom) {
+  i = match decode_custom_sections_with_detail(bytes, i, custom) {
     Ok(next) => next
-    Err(t) => return Err(t)
+    Err(detail) => return Err(detail)
   }
-  let (tag_sec, next) = match decode_optional_section(bytes, i, 13) {
+  let (tag_sec, next) = match
+    decode_optional_section_with_detail(bytes, i, 13) {
     Ok(t) => t
-    Err(t) => return Err(t)
+    Err(detail) => return Err(detail)
   }
   i = next
   if tag_sec is Some(sec) {
     mod = mod.with_tag_sec(sec)
   }
 
-  i = match decode_custom_sections(bytes, i, custom) {
+  i = match decode_custom_sections_with_detail(bytes, i, custom) {
     Ok(next) => next
-    Err(t) => return Err(t)
+    Err(detail) => return Err(detail)
   }
-  let (global_sec, next) = match decode_optional_section(bytes, i, 6) {
+  let (global_sec, next) = match
+    decode_optional_section_with_detail(bytes, i, 6) {
     Ok(t) => t
-    Err(t) => return Err(t)
+    Err(detail) => return Err(detail)
   }
   i = next
   if global_sec is Some(sec) {
     mod = mod.with_global_sec(sec)
   }
 
-  i = match decode_custom_sections(bytes, i, custom) {
+  i = match decode_custom_sections_with_detail(bytes, i, custom) {
     Ok(next) => next
-    Err(t) => return Err(t)
+    Err(detail) => return Err(detail)
   }
-  let (export_sec, next) = match decode_optional_section(bytes, i, 7) {
+  let (export_sec, next) = match
+    decode_optional_section_with_detail(bytes, i, 7) {
     Ok(t) => t
-    Err(t) => return Err(t)
+    Err(detail) => return Err(detail)
   }
   i = next
   if export_sec is Some(sec) {
     mod = mod.with_export_sec(sec)
   }
 
-  i = match decode_custom_sections(bytes, i, custom) {
+  i = match decode_custom_sections_with_detail(bytes, i, custom) {
     Ok(next) => next
-    Err(t) => return Err(t)
+    Err(detail) => return Err(detail)
   }
-  let (start_sec, next) = match decode_optional_section(bytes, i, 8) {
+  let (start_sec, next) = match
+    decode_optional_section_with_detail(bytes, i, 8) {
     Ok(t) => t
-    Err(t) => return Err(t)
+    Err(detail) => return Err(detail)
   }
   i = next
   if start_sec is Some(sec) {
     mod = mod.with_start_sec(sec)
   }
 
-  i = match decode_custom_sections(bytes, i, custom) {
+  i = match decode_custom_sections_with_detail(bytes, i, custom) {
     Ok(next) => next
-    Err(t) => return Err(t)
+    Err(detail) => return Err(detail)
   }
-  let (elem_sec, next) = match decode_optional_section(bytes, i, 9) {
+  let (elem_sec, next) = match
+    decode_optional_section_with_detail(bytes, i, 9) {
     Ok(t) => t
-    Err(t) => return Err(t)
+    Err(detail) => return Err(detail)
   }
   i = next
   if elem_sec is Some(sec) {
     mod = mod.with_elem_sec(sec)
   }
 
-  i = match decode_custom_sections(bytes, i, custom) {
+  i = match decode_custom_sections_with_detail(bytes, i, custom) {
     Ok(next) => next
-    Err(t) => return Err(t)
+    Err(detail) => return Err(detail)
   }
-  let (data_cnt_sec, next) = match decode_optional_section(bytes, i, 12) {
+  let (data_cnt_sec, next) = match
+    decode_optional_section_with_detail(bytes, i, 12) {
     Ok(t) => t
-    Err(t) => return Err(t)
+    Err(detail) => return Err(detail)
   }
   i = next
   if data_cnt_sec is Some(sec) {
     mod = mod.with_data_cnt_sec(sec)
   }
 
-  i = match decode_custom_sections(bytes, i, custom) {
+  i = match decode_custom_sections_with_detail(bytes, i, custom) {
     Ok(next) => next
-    Err(t) => return Err(t)
+    Err(detail) => return Err(detail)
   }
-  let (code_sec, next) = match decode_optional_section(bytes, i, 10) {
+  let (code_sec, next) = match
+    decode_optional_section_with_detail(bytes, i, 10) {
     Ok(t) => t
-    Err(t) => return Err(t)
+    Err(detail) => return Err(detail)
   }
   i = next
   if code_sec is Some(sec) {
     mod = mod.with_code_sec(sec)
   }
 
-  i = match decode_custom_sections(bytes, i, custom) {
+  i = match decode_custom_sections_with_detail(bytes, i, custom) {
     Ok(next) => next
-    Err(t) => return Err(t)
+    Err(detail) => return Err(detail)
   }
-  let (data_sec, next) = match decode_optional_section(bytes, i, 11) {
+  let (data_sec, next) = match
+    decode_optional_section_with_detail(bytes, i, 11) {
     Ok(t) => t
-    Err(t) => return Err(t)
+    Err(detail) => return Err(detail)
   }
   i = next
   if data_sec is Some(sec) {
     mod = mod.with_data_sec(sec)
   }
 
-  i = match decode_custom_sections(bytes, i, custom) {
+  i = match decode_custom_sections_with_detail(bytes, i, custom) {
     Ok(next) => next
-    Err(t) => return Err(t)
+    Err(detail) => return Err(detail)
   }
 
   mod = mod.with_custom_secs(custom)
   if i == bytes.length() {
     Ok((mod, i))
   } else {
-    Err(BinaryDecodeError::InvalidModule)
+    Err(
+      module_decode_error(
+        BinaryDecodeError::InvalidModule,
+        trailing_offset=Some(i),
+      ),
+    )
+  }
+}
+
+///|
+pub impl Decode for Module with decode(bytes, i) {
+  match decode_module_with_detail(bytes, i) {
+    Ok(t) => Ok(t)
+    Err(detail) => Err(detail.err)
   }
 }
 

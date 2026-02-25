@@ -60,6 +60,16 @@ pub impl Show for BlockType
 pub impl @debug.Debug for BlockType
 pub impl @quickcheck.Arbitrary for BlockType
 
+pub enum CatchClause {
+  CatchClause(Index, Index)
+  CatchRefClause(Index, Index)
+  CatchAllClause(Index)
+  CatchAllRefClause(Index)
+}
+pub impl Eq for CatchClause
+pub impl Show for CatchClause
+pub impl @debug.Debug for CatchClause
+
 pub struct DataSegment {
   id : String?
   memory_index : Index
@@ -107,6 +117,7 @@ pub enum ExportDesc {
   Table(Index)
   Memory(Index)
   Global(Index)
+  Tag(Index)
 }
 pub impl @lib.PrettyPrint for ExportDesc
 pub impl Eq for ExportDesc
@@ -176,6 +187,7 @@ pub enum ImportDesc {
   Table(TableType)
   Memory(MemoryType)
   Global(GlobalType)
+  Tag(TypeUse)
 }
 pub impl @lib.PrettyPrint for ImportDesc
 pub impl Eq for ImportDesc
@@ -214,6 +226,9 @@ pub enum Instruction {
   Return
   Call(Index)
   CallIndirect(Index, TypeUse)
+  Throw(Index)
+  ThrowRef
+  TryTable(BlockType, Array[CatchClause], Array[Instruction])
   Drop
   Select(Array[ValueType]?)
   LocalGet(Index)
@@ -428,6 +443,7 @@ pub enum ModuleField {
   TableField(Table)
   MemoryField(Memory)
   GlobalField(Global)
+  TagField(Tag)
   ImportField(Import)
   ExportField(Export)
   StartField(Start)
@@ -449,6 +465,9 @@ pub enum Opcode {
   Return
   Call
   CallIndirect
+  Throw
+  ThrowRef
+  TryTable
   RefNull
   RefIsNull
   RefFunc
@@ -953,6 +972,7 @@ pub struct Table {
   id : String?
   exports : Array[InlineExport]
   table_type : TableType
+  elem_init : Array[Index]?
 }
 pub impl @lib.PrettyPrint for Table
 pub impl Eq for Table
@@ -969,6 +989,15 @@ pub impl Eq for TableType
 pub impl Show for TableType
 pub impl @debug.Debug for TableType
 pub impl @quickcheck.Arbitrary for TableType
+
+pub struct Tag {
+  id : String?
+  exports : Array[InlineExport]
+  type_use : TypeUse
+}
+pub impl Eq for Tag
+pub impl Show for Tag
+pub impl @debug.Debug for Tag
 
 pub struct Token {
   location : Location
@@ -999,6 +1028,7 @@ pub enum TokenType {
   Result
   Local
   Global
+  Tag
   Table
   Memory
   Import
@@ -1011,6 +1041,10 @@ pub enum TokenType {
   Then
   Else
   End
+  Catch
+  CatchRef
+  CatchAll
+  CatchAllRef
   Offset
   Item
   Start
@@ -1092,6 +1126,7 @@ pub enum ValueType {
   V128
   FuncRef
   ExternRef
+  ExnRef
 }
 pub impl @lib.PrettyPrint for ValueType
 pub impl Eq for ValueType

@@ -177,6 +177,38 @@ test "decode_module attaches section spans to wrapper decode errors" {
 }
 
 ///|
+test "decode_module reports section span for non-length type section decode errors" {
+  let bad_type_payload = b"\x00\x61\x73\x6d\x01\x00\x00\x00\x01\x03\x01\x00\x00"
+  match decode_module(bad_type_payload) {
+    Ok(_) => fail("expected decode failure for invalid type section payload")
+    Err(DecodeError::DecodeAt(BinaryDecodeError::InvalidCompType, offset, len)) => {
+      assert_eq(offset, 8)
+      assert_eq(len, 5)
+    }
+    Err(e) => fail("expected type-section span decode error, got \{e}")
+  }
+}
+
+///|
+test "decode_module reports section span for non-length custom section decode errors" {
+  let bad_custom_name = b"\x00\x61\x73\x6d\x01\x00\x00\x00\x00\x01\x80"
+  match decode_module(bad_custom_name) {
+    Ok(_) => fail("expected decode failure for malformed custom section name")
+    Err(
+      DecodeError::DecodeAt(
+        BinaryDecodeError::UnexpectedEofInUnsignedLeb,
+        offset,
+        len
+      )
+    ) => {
+      assert_eq(offset, 8)
+      assert_eq(len, 3)
+    }
+    Err(e) => fail("expected custom-section span decode error, got \{e}")
+  }
+}
+
+///|
 test "decode_module wraps decode failure variant" {
   match decode_module(b"not-wasm") {
     Ok(_) => fail("expected decode wrapper failure")

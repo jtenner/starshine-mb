@@ -60,6 +60,7 @@ pub enum ValueType {
   V128
   FuncRef
   ExternRef
+  ExnRef
 } derive(Eq, Show, Debug)
 
 // ============================================================================
@@ -77,6 +78,9 @@ pub enum Opcode {
   Return
   Call
   CallIndirect
+  Throw
+  ThrowRef
+  TryTable
 
   // ========== Reference Instructions ==========
   RefNull
@@ -598,6 +602,7 @@ pub enum TokenType {
   Result
   Local
   Global
+  Tag
   Table
   Memory
   Import
@@ -613,6 +618,10 @@ pub enum TokenType {
   Then
   Else
   End
+  Catch
+  CatchRef
+  CatchAll
+  CatchAllRef
   // Other module keywords
   Offset
   Item

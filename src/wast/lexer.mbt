@@ -508,10 +508,16 @@ fn WastLexer::get_nan_token(self : WastLexer) -> Token {
   if self.match_string("nan") {
     if self.match_char(0x3A) {
       // ':'
-      if self.match_string("0x") &&
-        self.read_hex_num() &&
-        self.no_trailing_reserved_chars() {
-        return self.literal_token(Float, Nan)
+      if self.match_string("0x") {
+        ignore(self.read_reserved_chars())
+        if self.no_trailing_reserved_chars() {
+          return self.literal_token(Float, Nan)
+        }
+      } else {
+        ignore(self.read_reserved_chars())
+        if self.no_trailing_reserved_chars() {
+          return self.literal_token(Float, Nan)
+        }
       }
     } else if self.no_trailing_reserved_chars() {
       return self.literal_token(Float, Nan)
@@ -1348,6 +1354,40 @@ test "descriptor reference opcodes" {
   assert_token_type(lexer.get_token(), Opcode(RefTestDescNull))
   assert_token_type(lexer.get_token(), Opcode(RefCastDescEq))
   assert_token_type(lexer.get_token(), Opcode(RefCastDescEqNull))
+}
+
+///|
+test "advanced reference and exception keyword classification paths" {
+  let lexer = make_lexer(
+    "ref.eq ref.as_non_null any.convert_extern extern.convert_any ref.i31 i31.get_s i31.get_u throw throw_ref try_table catch catch_ref catch_all catch_all_ref tag",
+  )
+
+  assert_token_type(lexer.get_token(), Opcode(RefEq))
+  assert_token_type(lexer.get_token(), Opcode(RefAsNonNull))
+  assert_token_type(lexer.get_token(), Opcode(AnyConvertExtern))
+  assert_token_type(lexer.get_token(), Opcode(ExternConvertAny))
+  assert_token_type(lexer.get_token(), Opcode(RefI31))
+  assert_token_type(lexer.get_token(), Opcode(I31GetS))
+  assert_token_type(lexer.get_token(), Opcode(I31GetU))
+
+  let throw_token = lexer.get_token()
+  assert_true(throw_token.token_type is Opcode(_))
+  let throw_ref_token = lexer.get_token()
+  assert_true(throw_ref_token.token_type is Opcode(_))
+  let try_table_token = lexer.get_token()
+  assert_true(try_table_token.token_type is Opcode(_))
+
+  let catch_token = lexer.get_token()
+  assert_false(catch_token.token_type is Reserved)
+  let catch_ref_token = lexer.get_token()
+  assert_false(catch_ref_token.token_type is Reserved)
+  let catch_all_token = lexer.get_token()
+  assert_false(catch_all_token.token_type is Reserved)
+  let catch_all_ref_token = lexer.get_token()
+  assert_false(catch_all_ref_token.token_type is Reserved)
+
+  let tag_token = lexer.get_token()
+  assert_false(tag_token.token_type is Reserved)
 }
 
 ///|
