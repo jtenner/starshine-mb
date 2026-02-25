@@ -108,6 +108,7 @@ pub struct Table {
   exports : Array[InlineExport]
   table_type : TableType
   elem_init : Array[Index]?
+  elem_offset : Array[Instruction]?
 } derive(Eq, Show, Debug)
 
 ///|
@@ -1935,6 +1936,11 @@ fn WastParser::parse_func(self : WastParser) -> ModuleField raise ParserError {
       let module_name = self.strip_quotes(self.get_text(module_token))
       let field_name = self.strip_quotes(self.get_text(field_token))
       self.expect_rpar()
+      if exports.length() > 0 {
+        raise Custom(
+          "inline exports are not supported on inline func import shorthand; use an explicit (export ...) field",
+        )
+      }
       let type_use = self.parse_type_use()
       return ModuleField::ImportField({
         module_name,
@@ -1980,6 +1986,19 @@ fn WastParser::parse_func(self : WastParser) -> ModuleField raise ParserError {
 }
 
 ///|
+fn WastParser::parse_elem_item_instrs(
+  self : WastParser,
+) -> Array[Instruction] raise ParserError {
+  self.expect_lpar()
+  if self.check(Item) {
+    let _ = self.advance()
+  }
+  let instrs = self.parse_instructions()
+  self.expect_rpar()
+  instrs
+}
+
+///|
 fn WastParser::parse_table(self : WastParser) -> Table raise ParserError {
   let _ = self.expect(Table, "expected 'table'")
   let id : String? = if self.current.token_type is Var {
@@ -1989,15 +2008,67 @@ fn WastParser::parse_table(self : WastParser) -> Table raise ParserError {
     None
   }
   let exports = self.parse_inline_exports()
+  fn parse_table_elem_init() -> (Array[Index], Array[Instruction]?) raise ParserError {
+    let mut offset : Array[Instruction]? = None
+    if self.check(Lpar) {
+      let saved_state = self.save_lexer_state()
+      let saved_token = self.current
+      self.expect_lpar()
+      if self.check(Offset) {
+        let _ = self.advance()
+        offset = Some(self.parse_instructions())
+        self.expect_rpar()
+      } else if self.check(Item) {
+        self.restore_lexer_state(saved_state)
+        self.current = saved_token
+      } else if (match self.current.token_type {
+          Opcode(RefFunc) | Opcode(RefNull) => true
+          _ => false
+        }) {
+        self.restore_lexer_state(saved_state)
+        self.current = saved_token
+      } else {
+        offset = Some(self.parse_instructions())
+        self.expect_rpar()
+      }
+    }
+
+    if self.check(Func) {
+      let _ = self.advance()
+    } else if self.can_start_value_type() {
+      let saved_state = self.save_lexer_state()
+      let saved_token = self.current
+      ignore(self.parse_value_type()) catch {
+        _ => {
+          self.restore_lexer_state(saved_state)
+          self.current = saved_token
+        }
+      }
+    }
+
+    let func_indices : Array[Index] = []
+    while self.current.token_type is (Nat | Var) {
+      func_indices.push(self.parse_index())
+    }
+    while self.check(Lpar) {
+      let item_instrs = self.parse_elem_item_instrs()
+      match item_instrs {
+        [RefFunc(idx)] => func_indices.push(idx)
+        _ =>
+          raise Custom(
+            "typed elem expressions in table abbreviations currently require ref.func items",
+          )
+      }
+    }
+    (func_indices, offset)
+  }
+
   if self.current.token_type is ValueType(_) {
     // Abbreviation: (table funcref (elem ...))
     let elem_type = self.parse_value_type()
     self.expect_lpar()
     let _ = self.expect(Elem, "expected 'elem' table initializer")
-    let func_indices : Array[Index] = []
-    while self.current.token_type is (Nat | Var) {
-      func_indices.push(self.parse_index())
-    }
+    let (func_indices, elem_offset) = parse_table_elem_init()
     self.expect_rpar()
     let limits : Limits = {
       min: func_indices.length().reinterpret_as_uint(),
@@ -2008,32 +2079,35 @@ fn WastParser::parse_table(self : WastParser) -> Table raise ParserError {
       exports,
       table_type: { limits, elem_type },
       elem_init: Some(func_indices),
+      elem_offset: Some(elem_offset.unwrap_or([Const(I32Const, "0")])),
     }
   }
 
   let limits = self.parse_limits()
   let elem_type = self.parse_value_type()
-  let elem_init : Array[Index]? = if self.check(Lpar) {
+  let (elem_init, elem_offset) : (Array[Index]?, Array[Instruction]?) = if self.check(
+      Lpar,
+    ) {
     let saved_state = self.save_lexer_state()
     let saved_token = self.current
     self.expect_lpar()
     if self.check(Elem) {
       let _ = self.advance()
-      let func_indices : Array[Index] = []
-      while self.current.token_type is (Nat | Var) {
-        func_indices.push(self.parse_index())
-      }
+      let (func_indices, parsed_offset) = parse_table_elem_init()
       self.expect_rpar()
-      Some(func_indices)
+      (
+        Some(func_indices),
+        Some(parsed_offset.unwrap_or([Const(I32Const, "0")])),
+      )
     } else {
       self.restore_lexer_state(saved_state)
       self.current = saved_token
-      None
+      (None, None)
     }
   } else {
-    None
+    (None, None)
   }
-  { id, exports, table_type: { limits, elem_type }, elem_init }
+  { id, exports, table_type: { limits, elem_type }, elem_init, elem_offset }
 }
 
 ///|
@@ -2105,13 +2179,19 @@ fn WastParser::parse_tag_field(
 
   let type_use = self.parse_tag_type_use_or_default()
   match inline_import {
-    Some((module_name, field_name)) =>
+    Some((module_name, field_name)) => {
+      if exports.length() > 0 {
+        raise Custom(
+          "inline exports are not supported on inline tag import shorthand; use an explicit (export ...) field",
+        )
+      }
       ModuleField::ImportField({
         module_name,
         field_name,
         desc: ImportDesc::Tag(type_use),
         id,
       })
+    }
     None => ModuleField::TagField({ id, exports, type_use })
   }
 }
@@ -2743,10 +2823,31 @@ fn WastParser::parse_elem(self : WastParser) -> ElemSegment raise ParserError {
     []
   }
 
-  // Function indices
+  if self.check(Func) {
+    let _ = self.advance()
+  } else if self.can_start_value_type() {
+    let saved_state = self.save_lexer_state()
+    let saved_token = self.current
+    ignore(self.parse_value_type()) catch {
+      _ => {
+        self.restore_lexer_state(saved_state)
+        self.current = saved_token
+      }
+    }
+  }
+
+  // Function indices and typed ref.func items
   let func_indices : Array[Index] = []
   while self.current.token_type is (Nat | Var) {
     func_indices.push(self.parse_index())
+  }
+  while self.check(Lpar) {
+    let item_instrs = self.parse_elem_item_instrs()
+    match item_instrs {
+      [RefFunc(idx)] => func_indices.push(idx)
+      _ =>
+        raise Custom("typed elem expressions currently require ref.func items")
+    }
   }
   { id, table_index, offset, func_indices }
 }
@@ -4596,6 +4697,30 @@ test "parse table elem-abbreviation with explicit limits" {
     #|  (func $a)
     #|  (func $b)
     #|  (table 3 funcref (elem $a $b)))|
+  let lexer = make_lexer(source)
+  let parser = WastParser::new(lexer)
+  let _ = parser.parse_module()
+  assert_false(parser.has_errors())
+}
+
+///|
+test "parse table elem-abbreviation with func keyword and non-zero offset" {
+  let source =
+    #|(module
+    #|  (func $f)
+    #|  (table 4 funcref (elem (i32.const 2) func $f)))|
+  let lexer = make_lexer(source)
+  let parser = WastParser::new(lexer)
+  let _ = parser.parse_module()
+  assert_false(parser.has_errors())
+}
+
+///|
+test "parse table elem-abbreviation with typed ref.func items" {
+  let source =
+    #|(module
+    #|  (func $f)
+    #|  (table 2 funcref (elem funcref (ref.func $f) (item (ref.func $f)))))|
   let lexer = make_lexer(source)
   let parser = WastParser::new(lexer)
   let _ = parser.parse_module()

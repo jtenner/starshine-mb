@@ -638,10 +638,9 @@ fn lcs_load_result_type(op : LoadOp) -> ValType {
 
 ///|
 fn lcs_ref_func_type(fi : FuncIdx, env : Env) -> ValType {
-  match env.get_functype_by_funcidx(fi) {
-    Some(_) => ValType::funcref()
-    None => ValType::funcref()
-  }
+  ignore(fi)
+  ignore(env)
+  ValType::ref_type(RefType::new(false, HeapType::abs(AbsHeapType::func())))
 }
 
 ///|
@@ -2192,4 +2191,18 @@ test "local cse measurement and utility helpers cover unreachable and bottom loc
   assert_true(measured > 0)
   assert_eq(lcs_cost(TInstr::unreachable_()), 0)
   assert_false(lcs_can_handle_as_local(ValType::bottom()))
+}
+
+///|
+test "local cse infers ref.func as non-null func reference" {
+  let inferred = lcs_infer_tinstr_type(
+    TInstr::ref_func(FuncIdx::new(0)),
+    Env::new(),
+  )
+  assert_eq(
+    inferred,
+    Some(
+      ValType::ref_type(RefType::new(false, HeapType::abs(AbsHeapType::func()))),
+    ),
+  )
 }

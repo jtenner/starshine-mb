@@ -624,10 +624,9 @@ fn mb_load_result_type(op : LoadOp) -> ValType {
 
 ///|
 fn mb_ref_func_type(fi : FuncIdx, env : Env) -> ValType {
-  match env.get_functype_by_funcidx(fi) {
-    Some(_) => ValType::funcref()
-    None => ValType::funcref()
-  }
+  ignore(fi)
+  ignore(env)
+  ValType::ref_type(RefType::new(false, HeapType::abs(AbsHeapType::func())))
 }
 
 ///|
@@ -3033,4 +3032,18 @@ test "merge blocks: mb_collect_shallow_effects marks instruction-specific flags"
   )
   assert_true(throw_fx.throws)
   assert_true(throw_fx.branches)
+}
+
+///|
+test "merge blocks: infers ref.func as non-null func reference" {
+  let inferred = mb_infer_tinstr_type(
+    TInstr::ref_func(FuncIdx::new(0)),
+    Env::new(),
+  )
+  assert_eq(
+    inferred,
+    Some(
+      ValType::ref_type(RefType::new(false, HeapType::abs(AbsHeapType::func()))),
+    ),
+  )
 }

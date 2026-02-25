@@ -823,8 +823,11 @@ priv struct WTLegacyCtx {
 }
 
 ///|
-fn wt_invalid_legacy_instr() -> @lib.Instruction {
-  @lib.Instruction::br(@lib.LabelIdx::new(0xFFFFFFFFU))
+fn wt_index_text(idx : Index) -> String {
+  match idx {
+    Num(n) => "\{n}"
+    Id(name) => name
+  }
 }
 
 ///|
@@ -856,35 +859,43 @@ fn wt_legacy_delegate_valid(idx : Index, legacy : WTLegacyCtx) -> Bool {
 }
 
 ///|
-fn wt_legacy_instrs_have_invalid(
+fn wt_legacy_instrs_invalid_reason(
   instrs : Array[Instruction],
   legacy : WTLegacyCtx,
-) -> Bool {
+) -> String? {
   for instr in instrs {
-    if wt_legacy_instr_has_invalid(instr, legacy) {
-      return true
+    match wt_legacy_instr_invalid_reason(instr, legacy) {
+      Some(reason) => return Some(reason)
+      None => ()
     }
   }
-  false
+  None
 }
 
 ///|
-fn wt_legacy_instr_has_invalid(
+fn wt_legacy_instr_invalid_reason(
   instr : Instruction,
   legacy : WTLegacyCtx,
-) -> Bool {
+) -> String? {
   match instr {
-    Rethrow(idx) => !wt_legacy_rethrow_valid(idx, legacy)
+    Rethrow(idx) =>
+      if wt_legacy_rethrow_valid(idx, legacy) {
+        None
+      } else {
+        Some("invalid legacy rethrow label: \{wt_index_text(idx)}")
+      }
     Block(_, body) | Loop(_, body) =>
-      wt_legacy_instrs_have_invalid(body, legacy)
+      wt_legacy_instrs_invalid_reason(body, legacy)
     If(_, then_body, else_body) =>
-      wt_legacy_instrs_have_invalid(then_body, legacy) ||
-      wt_legacy_instrs_have_invalid(else_body, legacy)
-    TryTable(_, _, body) => wt_legacy_instrs_have_invalid(body, legacy)
+      match wt_legacy_instrs_invalid_reason(then_body, legacy) {
+        Some(reason) => Some(reason)
+        None => wt_legacy_instrs_invalid_reason(else_body, legacy)
+      }
+    TryTable(_, _, body) => wt_legacy_instrs_invalid_reason(body, legacy)
     TryLegacy(bt, body, catches, delegate_target) => {
       if delegate_target is Some(idx) {
         if !wt_legacy_delegate_valid(idx, legacy) {
-          return true
+          return Some("invalid legacy delegate label: \{wt_index_text(idx)}")
         }
       }
       let nested_labels = legacy.try_labels.copy()
@@ -897,8 +908,9 @@ fn wt_legacy_instr_has_invalid(
         enclosing_try_count: legacy.enclosing_try_count + 1U,
         try_labels: nested_labels,
       }
-      if wt_legacy_instrs_have_invalid(body, nested_base) {
-        return true
+      match wt_legacy_instrs_invalid_reason(body, nested_base) {
+        Some(reason) => return Some(reason)
+        None => ()
       }
       for clause in catches {
         match clause {
@@ -908,15 +920,16 @@ fn wt_legacy_instr_has_invalid(
               enclosing_try_count: nested_base.enclosing_try_count,
               try_labels: nested_base.try_labels,
             }
-            if wt_legacy_instrs_have_invalid(catch_body, catch_ctx) {
-              return true
+            match wt_legacy_instrs_invalid_reason(catch_body, catch_ctx) {
+              Some(reason) => return Some(reason)
+              None => ()
             }
           }
         }
       }
-      false
+      None
     }
-    _ => false
+    _ => None
   }
 }
 
@@ -1138,13 +1151,12 @@ fn wt_instr_to_lib(
       if wt_legacy_rethrow_valid(idx, legacy) {
         Ok(@lib.Instruction::unreachable_())
       } else {
-        Ok(wt_invalid_legacy_instr())
+        Err("invalid legacy rethrow label: \{wt_index_text(idx)}")
       }
     TryLegacy(_, _, _, _) =>
-      if wt_legacy_instr_has_invalid(instr, legacy) {
-        Ok(wt_invalid_legacy_instr())
-      } else {
-        Ok(@lib.Instruction::unreachable_())
+      match wt_legacy_instr_invalid_reason(instr, legacy) {
+        Some(reason) => Err(reason)
+        None => Ok(@lib.Instruction::unreachable_())
       }
     Drop => Ok(@lib.Instruction::drop())
     Select(types) => Ok(@lib.Instruction::select(types=wt_select_types(types)))
@@ -2046,7 +2058,7 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
             elem_defs_raw.push({
               id: None,
               table_index: Num(table_idx),
-              offset: [Const(I32Const, "0")],
+              offset: t.elem_offset.unwrap_or([Const(I32Const, "0")]),
               func_indices,
             })
             ctx.next_elem_idx += 1
@@ -3152,6 +3164,250 @@ fn wt_lower_error_contains(source : String, needle : String) -> Bool {
     Ok(_) => false
     Err(e) => e.contains(needle)
   }
+}
+
+///|
+test "wast_to_binary_module rejects func import shorthand mixed with inline exports" {
+  let src =
+    #|(module
+    #|  (func $f (export "f") (import "env" "f")))
+  assert_true(
+    wt_lower_error_contains(
+      src, "inline exports are not supported on inline func import shorthand",
+    ),
+  )
+}
+
+///|
+test "wast_to_binary_module supports imported funcs exported via explicit export field" {
+  let src =
+    #|(module
+    #|  (func $f (import "env" "f"))
+    #|  (export "f" (func $f)))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) => fail("expected explicit import+export lowering success: \{e}")
+  }
+  match lowered.import_sec {
+    Some(@lib.ImportSec([@lib.Import(_, _, @lib.FuncExternType(_))])) => ()
+    _ => fail("expected lowered import section containing one imported func")
+  }
+  match lowered.export_sec {
+    Some(
+      @lib.ExportSec(
+        [@lib.Export(name, @lib.FuncExternIdx(@lib.FuncIdx(func_idx)))]
+      )
+    ) => {
+      assert_eq(name.0, "f")
+      assert_eq(func_idx, 0U)
+    }
+    _ =>
+      fail("expected lowered export section for explicit import+export fixture")
+  }
+}
+
+///|
+test "wast_to_binary_module rejects tag import shorthand mixed with inline exports" {
+  let src =
+    #|(module
+    #|  (type $t (func))
+    #|  (tag $e (export "e") (import "env" "e") (type $t)))
+  assert_true(
+    wt_lower_error_contains(
+      src, "inline exports are not supported on inline tag import shorthand",
+    ),
+  )
+}
+
+///|
+test "wast_to_binary_module supports imported tags exported via explicit export field" {
+  let src =
+    #|(module
+    #|  (type $t (func))
+    #|  (tag $e (import "env" "e") (type $t))
+    #|  (export "e" (tag $e)))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) => fail("expected explicit tag import+export lowering success: \{e}")
+  }
+  match lowered.import_sec {
+    Some(
+      @lib.ImportSec(
+        [@lib.Import(_, _, @lib.TagExternType(@lib.TagType(@lib.TypeIdx(idx))))]
+      )
+    ) => assert_eq(idx, 0U)
+    _ => fail("expected lowered import section containing one imported tag")
+  }
+  match lowered.export_sec {
+    Some(
+      @lib.ExportSec(
+        [@lib.Export(name, @lib.TagExternIdx(@lib.TagIdx(tag_idx)))]
+      )
+    ) => {
+      assert_eq(name.0, "e")
+      assert_eq(tag_idx, 0U)
+    }
+    _ =>
+      fail(
+        "expected lowered export section for explicit tag import+export fixture",
+      )
+  }
+}
+
+///|
+test "wast_to_binary_module lowers table elem-abbreviation with func keyword and non-zero offset" {
+  let src =
+    #|(module
+    #|  (func $f)
+    #|  (table 4 funcref (elem (i32.const 2) func $f)))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) =>
+      fail("expected func-keyword table abbreviation lowering success: \{e}")
+  }
+  let expected = @lib.Elem::new(
+    @lib.ElemMode::active(
+      @lib.TableIdx::new(0),
+      @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(2))]),
+    ),
+    @lib.ElemKind::funcs([@lib.FuncIdx::new(0)]),
+  )
+  match lowered.elem_sec {
+    Some(@lib.ElemSec([elem])) => assert_eq(elem, expected)
+    _ =>
+      fail(
+        "expected lowered elem section for func-keyword table abbreviation fixture",
+      )
+  }
+  match @validate.validate_module(lowered) {
+    Ok(_) => ()
+    Err(e) =>
+      fail("expected func-keyword table abbreviation fixture to validate: \{e}")
+  }
+}
+
+///|
+test "wast_to_binary_module lowers table elem-abbreviation typed ref.func items" {
+  let src =
+    #|(module
+    #|  (func $f)
+    #|  (table 2 funcref (elem funcref (ref.func $f) (item (ref.func $f)))))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) =>
+      fail("expected typed table elem-abbreviation lowering success: \{e}")
+  }
+  let expected = @lib.Elem::new(
+    @lib.ElemMode::active(
+      @lib.TableIdx::new(0),
+      @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+    ),
+    @lib.ElemKind::funcs([@lib.FuncIdx::new(0), @lib.FuncIdx::new(0)]),
+  )
+  match lowered.elem_sec {
+    Some(@lib.ElemSec([elem])) => assert_eq(elem, expected)
+    _ =>
+      fail(
+        "expected lowered elem section for typed table elem-abbreviation fixture",
+      )
+  }
+  match @validate.validate_module(lowered) {
+    Ok(_) => ()
+    Err(e) =>
+      fail("expected typed table elem-abbreviation fixture to validate: \{e}")
+  }
+}
+
+///|
+test "wast_to_binary_module keeps implicit table-abbrev elem order ahead of explicit elem segments" {
+  let src =
+    #|(module
+    #|  (func $f)
+    #|  (table 3 funcref (elem $f))
+    #|  (elem (i32.const 1) $f)
+    #|  (elem (i32.const 2) $f))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) =>
+      fail(
+        "expected table abbreviation ordering fixture lowering success: \{e}",
+      )
+  }
+  let expected = [
+    @lib.Elem::new(
+      @lib.ElemMode::active(
+        @lib.TableIdx::new(0),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+      ),
+      @lib.ElemKind::funcs([@lib.FuncIdx::new(0)]),
+    ),
+    @lib.Elem::new(
+      @lib.ElemMode::active(
+        @lib.TableIdx::new(0),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(1))]),
+      ),
+      @lib.ElemKind::funcs([@lib.FuncIdx::new(0)]),
+    ),
+    @lib.Elem::new(
+      @lib.ElemMode::active(
+        @lib.TableIdx::new(0),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(2))]),
+      ),
+      @lib.ElemKind::funcs([@lib.FuncIdx::new(0)]),
+    ),
+  ]
+  match lowered.elem_sec {
+    Some(@lib.ElemSec(elems)) => assert_eq(elems, expected)
+    _ => fail("expected lowered elem section in table-abbrev ordering fixture")
+  }
+  match @validate.validate_module(lowered) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected table-abbrev ordering fixture to validate after lowering: \{e}",
+      )
+  }
+}
+
+///|
+test "wast_to_binary_module reports targeted legacy delegate/rethrow label diagnostics" {
+  let invalid_delegate_depth =
+    #|(module
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (delegate 1))))
+  assert_true(
+    wt_lower_error_contains(
+      invalid_delegate_depth, "invalid legacy delegate label",
+    ),
+  )
+
+  let invalid_delegate_name =
+    #|(module
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (delegate $missing))))
+  assert_true(
+    wt_lower_error_contains(
+      invalid_delegate_name, "invalid legacy delegate label",
+    ),
+  )
+
+  let invalid_rethrow_depth =
+    #|(module
+    #|  (tag $e)
+    #|  (func
+    #|    (try
+    #|      (do (throw $e))
+    #|      (catch $e
+    #|        (rethrow 1)))))
+  assert_true(
+    wt_lower_error_contains(
+      invalid_rethrow_depth, "invalid legacy rethrow label",
+    ),
+  )
 }
 
 ///|

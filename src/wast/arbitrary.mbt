@@ -348,6 +348,7 @@ fn gen_module(size : Int, st : RandomState) -> Module {
       exports: [],
       table_type: { limits: { min: 1, max: Some(4) }, elem_type: FuncRef },
       elem_init: None,
+      elem_offset: None,
     }),
   )
 
@@ -670,6 +671,7 @@ pub impl Arbitrary for Table with arbitrary(size, st) {
     exports: [],
     table_type: Arbitrary::arbitrary(size, st),
     elem_init: None,
+    elem_offset: None,
   }
 }
 

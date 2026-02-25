@@ -309,6 +309,44 @@ fn rr_fixture_brtable_side_effect_index_module() -> Module {
 }
 
 ///|
+fn rr_fixture_brtable_non_direct_side_effect_module() -> Module {
+  let t_with_param = single_rec_type(
+    comp_type_sub_type(func_comp_type([ValType::i32()], [])),
+  )
+  Module::new()
+  .with_type_sec(TypeSec::new([t_with_param]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [],
+        TExpr::new([
+          TInstr::block(
+            BlockType::void_(),
+            TExpr::new([
+              TInstr::block(
+                BlockType::void_(),
+                TExpr::new([
+                  TInstr::br_table(
+                    [LabelIdx::new(0), LabelIdx::new(1)],
+                    LabelIdx::new(1),
+                    TInstr::local_get(LocalIdx::new(0)),
+                    [],
+                  ),
+                  TInstr::drop(TInstr::i32_const(I32(66))),
+                ]),
+              ),
+              TInstr::drop(TInstr::i32_const(I32(77))),
+            ]),
+          ),
+          TInstr::nop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
 fn rr_fixture_non_special_target_merge_module() -> Module {
   let t_with_conds = single_rec_type(
     comp_type_sub_type(func_comp_type([ValType::i32(), ValType::i32()], [])),
@@ -799,6 +837,46 @@ test "re_reloop cfg br_table fallback preserves single-evaluation semantics for 
     }),
     1,
   )
+}
+
+///|
+test "re_reloop reconstructs mixed-depth br_table targets end-to-end" {
+  let mod = rr_fixture_brtable_non_direct_side_effect_module()
+  let rerelooped = match rr_run_re_reloop(mod) {
+    Ok(next) => next
+    Err(e) =>
+      fail("re_reloop should succeed on non-direct br_table fixture: \{e}")
+  }
+  match rerelooped.code_sec {
+    Some(CodeSec([TFunc(_, body)])) => {
+      assert_true(
+        rr_texpr_count(body, fn(instr) {
+          match instr {
+            TIf(_, _, _, _) => true
+            _ => false
+          }
+        }) >=
+        1,
+      )
+      assert_eq(
+        rr_texpr_count(body, fn(instr) {
+          match instr {
+            TBrTable(_, _, _, _) => true
+            _ => false
+          }
+        }),
+        0,
+      )
+    }
+    _ => fail("expected rerelooped non-direct br_table fixture body")
+  }
+  match validate_module(rerelooped) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "re_reloop non-direct br_table reconstruction output should validate: \{e}",
+      )
+  }
 }
 
 ///|
@@ -1382,6 +1460,61 @@ fn rr_cfg_target_to_texpr(
 }
 
 ///|
+fn rr_build_br_table_dispatch(
+  cfg : RRCFG,
+  targets : Array[RRJumpTarget],
+  default_target : RRJumpTarget,
+  values : Array[TInstr],
+  state : RRReconstructState,
+  depth : Int,
+  max_depth : Int,
+  index_expr : TInstr,
+  scratch_local : LocalIdx?,
+  scratch_used : Ref[Bool]?,
+) -> TExpr? {
+  let dispatch = match
+    rr_cfg_target_to_texpr(
+      cfg,
+      default_target,
+      values,
+      state,
+      depth + 1,
+      max_depth,
+      scratch_local,
+      scratch_used,
+    ) {
+    Some(expr) => expr
+    None => return None
+  }
+  let mut dispatch = dispatch
+  for i = targets.length() - 1; i >= 0; i = i - 1 {
+    let then_expr = match
+      rr_cfg_target_to_texpr(
+        cfg,
+        targets[i],
+        values,
+        state,
+        depth + 1,
+        max_depth,
+        scratch_local,
+        scratch_used,
+      ) {
+      Some(expr) => expr
+      None => return None
+    }
+    let cond = TInstr::binary(
+      BinaryOp::i32_eq(),
+      index_expr,
+      TInstr::i32_const(I32(i)),
+    )
+    dispatch = TExpr::new([
+      TInstr::if_(BlockType::void_(), cond, then_expr, Some(dispatch)),
+    ])
+  }
+  Some(dispatch)
+}
+
+///|
 fn rr_cfg_region_to_texpr(
   cfg : RRCFG,
   block_id : RRBlockId,
@@ -1527,43 +1660,20 @@ fn rr_cfg_region_to_texpr(
             used_ref.update(fn(_) { true })
             instrs.push(TInstr::local_set(local_idx, index))
             let dispatch = match
-              rr_cfg_target_to_texpr(
+              rr_build_br_table_dispatch(
                 cfg,
+                targets,
                 default_target,
                 values,
                 state,
-                depth + 1,
+                depth,
                 max_depth,
+                TInstr::local_get(local_idx),
                 scratch_local,
                 scratch_used,
               ) {
               Some(expr) => expr
               None => return None
-            }
-            let mut dispatch = dispatch
-            for i = targets.length() - 1; i >= 0; i = i - 1 {
-              let then_expr = match
-                rr_cfg_target_to_texpr(
-                  cfg,
-                  targets[i],
-                  values,
-                  state,
-                  depth + 1,
-                  max_depth,
-                  scratch_local,
-                  scratch_used,
-                ) {
-                Some(expr) => expr
-                None => return None
-              }
-              let cond = TInstr::binary(
-                BinaryOp::i32_eq(),
-                TInstr::local_get(local_idx),
-                TInstr::i32_const(I32(i)),
-              )
-              dispatch = TExpr::new([
-                TInstr::if_(BlockType::void_(), cond, then_expr, Some(dispatch)),
-              ])
             }
             rr_append_texpr(instrs, dispatch)
             return Some(TExpr::new(instrs))
@@ -1572,43 +1682,12 @@ fn rr_cfg_region_to_texpr(
         }
       }
       let dispatch = match
-        rr_cfg_target_to_texpr(
-          cfg,
-          default_target,
-          values,
-          state,
-          depth + 1,
-          max_depth,
-          scratch_local,
+        rr_build_br_table_dispatch(
+          cfg, targets, default_target, values, state, depth, max_depth, index, scratch_local,
           scratch_used,
         ) {
         Some(expr) => expr
         None => return None
-      }
-      let mut dispatch = dispatch
-      for i = targets.length() - 1; i >= 0; i = i - 1 {
-        let then_expr = match
-          rr_cfg_target_to_texpr(
-            cfg,
-            targets[i],
-            values,
-            state,
-            depth + 1,
-            max_depth,
-            scratch_local,
-            scratch_used,
-          ) {
-          Some(expr) => expr
-          None => return None
-        }
-        let cond = TInstr::binary(
-          BinaryOp::i32_eq(),
-          index,
-          TInstr::i32_const(I32(i)),
-        )
-        dispatch = TExpr::new([
-          TInstr::if_(BlockType::void_(), cond, then_expr, Some(dispatch)),
-        ])
       }
       rr_append_texpr(instrs, dispatch)
       return Some(TExpr::new(instrs))

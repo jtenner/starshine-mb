@@ -989,6 +989,7 @@ pub struct Table {
   exports : Array[InlineExport]
   table_type : TableType
   elem_init : Array[Index]?
+  elem_offset : Array[Instruction]?
 }
 pub impl @lib.PrettyPrint for Table
 pub impl Eq for Table
