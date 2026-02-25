@@ -257,6 +257,7 @@ fn run_ir_context_transformer_scheduler_pass(
   mod : Module,
   pass : ModulePass,
   options : OptimizeOptions,
+  trace : (String) -> Unit,
 ) -> Result[Module, String] {
   match pass {
     AbstractTypeRefining(props) =>
@@ -432,7 +433,12 @@ fn run_ir_context_transformer_scheduler_pass(
         simplify_locals_ir_pass(mod, false, false, false),
       )
     Untee => apply_ir_transformer_pass(ctx, mod, untee_ir_pass(mod))
-    Vacuum => apply_ir_transformer_pass(ctx, mod, vacuum_ir_pass(mod))
+    Vacuum =>
+      apply_ir_transformer_pass(
+        ctx,
+        mod,
+        vacuum_ir_pass_with_trace(mod, fn(msg) { trace("vacuum:\{msg}") }),
+      )
     ReorderLocals =>
       apply_ir_transformer_pass(ctx, mod, reorder_locals_ir_pass(mod))
     ReorderGlobals =>
@@ -564,42 +570,113 @@ pub fn optimize_module(
 }
 
 ///|
+fn optimize_trace_noop(_ : String) -> Unit {
+  ()
+}
+
+///|
+fn optimize_trace_context_label(kind : SchedulerPassContextKind) -> String {
+  match kind {
+    IRContextTransformerPass => "ir-transformer"
+    UnitTransformerPass => "unit-transformer"
+    ModuleRunnerPass => "module-runner"
+  }
+}
+
+///|
+fn optimize_module_with_options_internal(
+  mod : Module,
+  passes : Array[ModulePass],
+  options : OptimizeOptions,
+  trace : (String) -> Unit,
+) -> Result[Module, String] {
+  trace("start passes=\{passes.length()}")
+  let mut mod = mod
+  let ctx = IRContext::new()
+  ctx.set_mod(mod)
+  trace("lift_to_texpr:start")
+  mod = match
+    apply_unit_transformer_pass(
+      mod,
+      lift_to_texpr_pass_with_trace(fn(msg) { trace("lift_to_texpr:\{msg}") }),
+    ) {
+    Ok(new_mod) => {
+      trace("lift_to_texpr:done")
+      new_mod
+    }
+    Err(e) => {
+      trace("lift_to_texpr:error \{e}")
+      return Err(e)
+    }
+  }
+  ctx.set_mod(mod)
+  let mut pass_index = 0
+  for pass in passes {
+    pass_index += 1
+    let kind = module_pass_context_kind(pass)
+    trace(
+      "pass[\{pass_index}/\{passes.length()}]:start kind=\{optimize_trace_context_label(kind)}",
+    )
+    ctx.set_mod(mod)
+    mod = match kind {
+      IRContextTransformerPass =>
+        match
+          run_ir_context_transformer_scheduler_pass(
+            ctx,
+            mod,
+            pass,
+            options,
+            fn(msg) {
+              trace("pass[\{pass_index}/\{passes.length()}]:\{msg}")
+            },
+          ) {
+          Ok(new_mod) => new_mod
+          Err(e) => {
+            trace("pass[\{pass_index}/\{passes.length()}]:error \{e}")
+            return Err(e)
+          }
+        }
+      UnitTransformerPass =>
+        match run_unit_transformer_scheduler_pass(mod, pass) {
+          Ok(new_mod) => new_mod
+          Err(e) => {
+            trace("pass[\{pass_index}/\{passes.length()}]:error \{e}")
+            return Err(e)
+          }
+        }
+      ModuleRunnerPass =>
+        match run_module_runner_scheduler_pass(mod, pass, options) {
+          Ok(new_mod) => new_mod
+          Err(e) => {
+            trace("pass[\{pass_index}/\{passes.length()}]:error \{e}")
+            return Err(e)
+          }
+        }
+    }
+    trace("pass[\{pass_index}/\{passes.length()}]:done")
+    ctx.set_mod(mod)
+  }
+  trace("done")
+  Ok(mod)
+}
+
+///|
 pub fn optimize_module_with_options(
   mod : Module,
   passes : Array[ModulePass],
   options : OptimizeOptions,
 ) -> Result[Module, String] {
-  let mut mod = mod
-  let ctx = IRContext::new()
-  ctx.set_mod(mod)
-  mod = match apply_unit_transformer_pass(mod, lift_to_texpr_pass()) {
-    Ok(new_mod) => new_mod
-    Err(e) => return Err(e)
-  }
-  ctx.set_mod(mod)
-  for pass in passes {
-    ctx.set_mod(mod)
-    mod = match module_pass_context_kind(pass) {
-      IRContextTransformerPass =>
-        match
-          run_ir_context_transformer_scheduler_pass(ctx, mod, pass, options) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      UnitTransformerPass =>
-        match run_unit_transformer_scheduler_pass(mod, pass) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-      ModuleRunnerPass =>
-        match run_module_runner_scheduler_pass(mod, pass, options) {
-          Ok(new_mod) => new_mod
-          Err(e) => return Err(e)
-        }
-    }
-    ctx.set_mod(mod)
-  }
-  Ok(mod)
+  optimize_module_with_options_internal(mod, passes, options, optimize_trace_noop)
+}
+
+///|
+pub fn optimize_module_with_options_trace(
+  mod : Module,
+  passes : Array[ModulePass],
+  options : OptimizeOptions,
+  trace : (String) -> Unit,
+) -> Result[Module, String] {
+  optimize_module_with_options_internal(mod, passes, options, trace)
 }
 
 ///|

@@ -80,6 +80,7 @@ test('optimizeDebugWasm writes optimize.error.txt and throws on non-zero optimiz
     const errorPath = path.join(distDir, 'optimize.error.txt');
     assert.equal(fs.existsSync(errorPath), true);
     assert.match(fs.readFileSync(errorPath, 'utf8'), /status=2/);
+    assert.match(fs.readFileSync(errorPath, 'utf8'), /intentional failure/);
   });
 });
 

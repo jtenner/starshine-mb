@@ -29,6 +29,7 @@ using @lib {type Module}
 ///|
 using @passes {
   optimize_module_with_options,
+  optimize_module_with_options_trace,
   default_function_optimization_passes,
   default_global_optimization_pre_passes,
   type ModulePass,

@@ -126,6 +126,15 @@ fn TcState::pop_types(st : TcState, ts : Array[ValType]) -> TcResult {
 }
 
 ///|
+fn tc_stack_from_types(ts : Array[ValType]) -> Array[ValType] {
+  let out : Array[ValType] = []
+  for t in ts {
+    out.push(t)
+  }
+  out
+}
+
+///|
 fn TcState::mem_at_of(st : TcState, mem : MemIdx) -> Result[ValType, String] {
   match st.env.get_memtype(mem) {
     None => Err("invalid memory index")
@@ -375,38 +384,41 @@ fn typecheck_block(st : TcState, bt : BlockType, body : Expr) -> TcResult {
     Ok(x) => x
   }
 
-  // Entry stack height after consuming params
+  // Consume params from the outer stack.
   let st1 = match st.pop_types(params) {
     Err(e) => return Err(e)
     Ok(s) => s
   }
-  let base_len = st1.stack.length()
 
-  // Typecheck body with label = results
+  // Body instructions only see block params above their label boundary.
+  let body_stack = tc_stack_from_types(params)
   let env2 = st1.env.with_label(results)
-  let st_body0 = TcState::{ ..st1, env: env2 }
+  let st_body0 = TcState::{
+    env: env2,
+    stack: body_stack,
+    reachable: st1.reachable,
+  }
   let st_body = match Typecheck::typecheck(body, st_body0) {
     Err(e) => return Err(e)
     Ok(s) => s
   }
 
-  // If reachable, enforce results on top
-  let st2 = if st_body.reachable {
-    match st_body.pop_types(results) {
+  // If reachable, body must leave exactly the declared result tuple.
+  if st_body.reachable {
+    let st_after_results = match st_body.pop_types(results) {
       Err(e) => return Err(e)
       Ok(s) => s
     }
-  } else {
-    st_body
+    if st_after_results.stack.length() != 0 {
+      return Err("type mismatch")
+    }
   }
 
-  // Now drop any extra stack above base_len (polymorphic details omitted for now)
-  let s = st2.stack.copy()
-  while s.length() > base_len {
-    // safe and ignorable because > base_len
-    ignore(s.pop())
+  let out = TcState::{
+    env: st.env,
+    stack: st1.stack.copy(),
+    reachable: st.reachable,
   }
-  let out = TcState::{ ..st, stack: s }
   Ok( // reachability after block is same as entry unless you model merges
     out.push_types(results),
   )
@@ -435,42 +447,50 @@ fn typecheck_if(
     Err(e) => return Err(e)
     Ok(s) => s
   }
-  let base_len = st1.stack.length()
   let else_instrs = match else_instrs_opt {
     None => []
     Some(xs) => xs
   }
 
   // typecheck then branch
+  let branch_stack = tc_stack_from_types(params)
   let env_branch = st1.env.with_label(results)
-  let st_then0 = TcState::{ ..st1, env: env_branch }
+  let st_then0 = TcState::{
+    env: env_branch,
+    stack: branch_stack,
+    reachable: st1.reachable,
+  }
   let st_then = match Typecheck::typecheck(Expr::new(then_instrs), st_then0) {
     Err(e) => return Err(e)
     Ok(s) => s
   }
 
   // typecheck else branch (same starting state!)
-  let st_else0 = TcState::{ ..st1, env: env_branch }
+  let st_else0 = TcState::{
+    env: env_branch,
+    stack: tc_stack_from_types(params),
+    reachable: st1.reachable,
+  }
   let st_else = match Typecheck::typecheck(Expr::new(else_instrs), st_else0) {
     Err(e) => return Err(e)
     Ok(s) => s
   }
 
-  // For each reachable branch: enforce results on top and truncate to base_len.
+  // For each reachable branch: enforce results and ensure no extra values.
   let norm_branch = fn(sb : TcState) -> Result[(Bool, Array[ValType]), String] {
     let sb2 = if sb.reachable {
-      match sb.pop_types(results) {
+      let st_after_results = match sb.pop_types(results) {
         Err(e) => return Err(e)
         Ok(s) => s
       }
+      if st_after_results.stack.length() != 0 {
+        return Err("type mismatch")
+      }
+      st_after_results
     } else {
       sb
     }
-    let stack2 = sb2.stack.copy()
-    while stack2.length() > base_len {
-      ignore(stack2.pop())
-    }
-    Ok((sb2.reachable, stack2))
+    Ok((sb2.reachable, sb2.stack.copy()))
   }
   let (then_reach, then_stack) = match norm_branch(st_then) {
     Err(e) => return Err(e)
@@ -492,12 +512,15 @@ fn typecheck_if(
     }
     (true, false) => then_stack
     (false, true) => else_stack
-    (false, false) => st1.stack.copy() // both unreachable, base is fine
+    (false, false) => [] // both unreachable, branch stack shape is irrelevant
   }
   let merged_reachable = then_reach || else_reach
+  if merged_stack.length() != 0 {
+    return Err("if branch stack mismatch")
+  }
   let out = TcState::{
     env: st.env,
-    stack: merged_stack,
+    stack: st1.stack.copy(),
     reachable: merged_reachable,
   }
   Ok(out.push_types(results))
@@ -1089,11 +1112,14 @@ fn typecheck_try_table(
     Err(e) => return Err(e)
     Ok(s) => s
   }
-  let base_len = st1.stack.length()
 
   // extend context with innermost label = results
   let env2 = st1.env.with_label(results)
-  let st_body0 = TcState::{ ..st1, env: env2 }
+  let st_body0 = TcState::{
+    env: env2,
+    stack: tc_stack_from_types(params),
+    reachable: st1.reachable,
+  }
 
   // body must typecheck under extended env
   let st_body = match Typecheck::typecheck(body, st_body0) {
@@ -1113,22 +1139,24 @@ fn typecheck_try_table(
 
   // if reachable, enforce results on stack top
   let st2 = if st_body.reachable {
-    match st_body.pop_types(results) {
+    let st_after_results = match st_body.pop_types(results) {
       Err(e) => return Err(e)
       Ok(s) => s
     }
+    if st_after_results.stack.length() != 0 {
+      return Err("type mismatch")
+    }
+    st_after_results
   } else {
     st_body
   }
 
-  // truncate back to base_len
-  let stack2 = st2.stack.copy()
-  while stack2.length() > base_len {
-    ignore(stack2.pop())
-  }
-
   // restore outer env (pop the try_table label scope)
-  let out = TcState::{ env: st.env, stack: stack2, reachable: st2.reachable }
+  let out = TcState::{
+    env: st.env,
+    stack: st1.stack.copy(),
+    reachable: st2.reachable,
+  }
   Ok(out.push_types(results))
 }
 
@@ -1433,11 +1461,14 @@ fn typecheck_loop(st : TcState, bt : BlockType, body : Expr) -> TcResult {
     Err(e) => return Err(e)
     Ok(s) => s
   }
-  let base_len = st1.stack.length()
 
   // loop label is params (not results)
   let env2 = st1.env.with_label(params)
-  let st_body0 = TcState::{ ..st1, env: env2 }
+  let st_body0 = TcState::{
+    env: env2,
+    stack: tc_stack_from_types(params),
+    reachable: st1.reachable,
+  }
   let st_body = match Typecheck::typecheck(body, st_body0) {
     Err(e) => return Err(e)
     Ok(s) => s
@@ -1445,22 +1476,24 @@ fn typecheck_loop(st : TcState, bt : BlockType, body : Expr) -> TcResult {
 
   // if reachable, enforce results on top
   let st2 = if st_body.reachable {
-    match st_body.pop_types(results) {
+    let st_after_results = match st_body.pop_types(results) {
       Err(e) => return Err(e)
       Ok(s) => s
     }
+    if st_after_results.stack.length() != 0 {
+      return Err("type mismatch")
+    }
+    st_after_results
   } else {
     st_body
   }
 
-  // truncate back to base_len
-  let stack2 = st2.stack.copy()
-  while stack2.length() > base_len {
-    ignore(stack2.pop())
-  }
-
   // restore outer env (pop label scope)
-  let out = TcState::{ env: st.env, stack: stack2, reachable: st2.reachable }
+  let out = TcState::{
+    env: st.env,
+    stack: st1.stack.copy(),
+    reachable: st2.reachable,
+  }
   Ok(out.push_types(results))
 }
 
@@ -1490,13 +1523,45 @@ fn typecheck_ref_is_null(st : TcState) -> TcResult {
 }
 
 ///|
+fn inferred_ref_func_heap_type(env : Env, f : FuncIdx) -> HeapType {
+  match env.get_functypeidx_by_funcidx(f) {
+    Some(tidx) => return HeapType::new(tidx)
+    None => ()
+  }
+  let ft = match env.get_functype_by_funcidx(f) {
+    Some(ft) => ft
+    None => return HeapType::abs(AbsHeapType::func())
+  }
+  let mut inferred : TypeIdx? = None
+  for i in 0..<env.global_types.length() {
+    match env.global_types[i].get_comptype() {
+      FuncCompType(params, results) => {
+        if FuncType::new(params, results) == ft {
+          let next = TypeIdx::new(i.reinterpret_as_uint())
+          match inferred {
+            None => inferred = Some(next)
+            Some(_) => return HeapType::abs(AbsHeapType::func())
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  match inferred {
+    Some(tidx) => HeapType::new(tidx)
+    None => HeapType::abs(AbsHeapType::func())
+  }
+}
+
+///|
 fn typecheck_ref_func(st : TcState, f : FuncIdx) -> TcResult {
   if !st.env.has_func(f) {
     return Err("invalid function index")
   }
+  let heap_type = inferred_ref_func_heap_type(st.env, f)
   Ok(
     st.push1(
-      ValType::ref_type(RefType::new(false, HeapType::abs(AbsHeapType::func()))),
+      ValType::ref_type(RefType::new(false, heap_type)),
     ),
   )
 }
@@ -4132,17 +4197,16 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
 
     // === Control Flow ===
     TBlock(bt, body) => {
-      let (params, results) = match st.env.expand_blocktype(bt) {
+      let (_params, results) = match st.env.expand_blocktype(bt) {
         Err(e) => return Err(e)
         Ok(x) => x
       }
-      let st1 = match st.pop_types(params) {
-        Err(e) => return Err(e)
-        Ok(s) => s
+      let env2 = st.env.with_label(results)
+      let mut st_body = TcState::{
+        env: env2,
+        stack: [],
+        reachable: st.reachable,
       }
-      let base_len = st1.stack.length()
-      let env2 = st1.env.with_label(results)
-      let mut st_body = TcState::{ ..st1, env: env2 }
       let TExpr(body) = body
       for instr in body {
         st_body = match Typecheck::typecheck(instr, st_body) {
@@ -4150,19 +4214,20 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
           Ok(s) => s
         }
       }
-      let st2 = if st_body.reachable {
-        match st_body.pop_types(results) {
+      if st_body.reachable {
+        let st_after_results = match st_body.pop_types(results) {
           Err(e) => return Err(e)
           Ok(s) => s
         }
-      } else {
-        st_body
+        if st_after_results.stack.length() != 0 {
+          return Err("type mismatch")
+        }
       }
-      let s = st2.stack.copy()
-      while s.length() > base_len {
-        ignore(s.pop())
+      let out = TcState::{
+        env: st.env,
+        stack: st.stack.copy(),
+        reachable: st.reachable,
       }
-      let out = TcState::{ ..st, stack: s }
       Ok(out.push_types(results))
     }
     TLoop(bt, body) => {
@@ -4170,13 +4235,12 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
         Err(e) => return Err(e)
         Ok(x) => x
       }
-      let st1 = match st.pop_types(params) {
-        Err(e) => return Err(e)
-        Ok(s) => s
+      let env2 = st.env.with_label(params)
+      let mut st_body = TcState::{
+        env: env2,
+        stack: [],
+        reachable: st.reachable,
       }
-      let base_len = st1.stack.length()
-      let env2 = st1.env.with_label(params)
-      let mut st_body = TcState::{ ..st1, env: env2 }
       let TExpr(body) = body
       for instr in body {
         st_body = match Typecheck::typecheck(instr, st_body) {
@@ -4185,22 +4249,26 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
         }
       }
       let st2 = if st_body.reachable {
-        match st_body.pop_types(results) {
+        let st_after_results = match st_body.pop_types(results) {
           Err(e) => return Err(e)
           Ok(s) => s
         }
+        if st_after_results.stack.length() != 0 {
+          return Err("type mismatch")
+        }
+        st_after_results
       } else {
         st_body
       }
-      let s = st2.stack.copy()
-      while s.length() > base_len {
-        ignore(s.pop())
+      let out = TcState::{
+        env: st.env,
+        stack: st.stack.copy(),
+        reachable: st2.reachable,
       }
-      let out = TcState::{ ..st, stack: s }
       Ok(out.push_types(results))
     }
     TIf(bt, cond, then_instrs, else_instrs_opt) => {
-      let (params, results) = match st.env.expand_blocktype(bt) {
+      let (_params, results) = match st.env.expand_blocktype(bt) {
         Err(e) => return Err(e)
         Ok(x) => x
       }
@@ -4212,17 +4280,17 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
         Err(e) => return Err(e)
         Ok(s) => s
       }
-      let st1 = match st0.pop_types(params) {
-        Err(e) => return Err(e)
-        Ok(s) => s
-      }
-      let base_len = st1.stack.length()
+      let st1 = st0
       let else_instrs = match else_instrs_opt {
         None => []
         Some(TExpr(xs)) => xs
       }
       let env_branch = st1.env.with_label(results)
-      let st_then0 = TcState::{ ..st1, env: env_branch }
+      let st_then0 = TcState::{
+        env: env_branch,
+        stack: [],
+        reachable: st1.reachable,
+      }
       let mut st_then = st_then0
       let TExpr(then_instrs) = then_instrs
       for instr in then_instrs {
@@ -4231,7 +4299,11 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
           Ok(s) => s
         }
       }
-      let st_else0 = TcState::{ ..st1, env: env_branch }
+      let st_else0 = TcState::{
+        env: env_branch,
+        stack: [],
+        reachable: st1.reachable,
+      }
       let mut st_else = st_else0
       for instr in else_instrs {
         st_else = match Typecheck::typecheck(instr, st_else) {
@@ -4243,18 +4315,18 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
         sb : TcState,
       ) -> Result[(Bool, Array[ValType]), String] {
         let sb2 = if sb.reachable {
-          match sb.pop_types(results) {
+          let st_after_results = match sb.pop_types(results) {
             Err(e) => return Err(e)
             Ok(s) => s
           }
+          if st_after_results.stack.length() != 0 {
+            return Err("type mismatch")
+          }
+          st_after_results
         } else {
           sb
         }
-        let stack2 = sb2.stack.copy()
-        while stack2.length() > base_len {
-          ignore(stack2.pop())
-        }
-        Ok((sb2.reachable, stack2))
+        Ok((sb2.reachable, sb2.stack.copy()))
       }
       let (then_reach, then_stack) = match norm_branch(st_then) {
         Err(e) => return Err(e)
@@ -4273,28 +4345,31 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
         }
         (true, false) => then_stack
         (false, true) => else_stack
-        (false, false) => st1.stack.copy()
+        (false, false) => []
       }
       let merged_reachable = then_reach || else_reach
+      if merged_stack.length() != 0 {
+        return Err("if branch stack mismatch")
+      }
       let out = TcState::{
         env: st.env,
-        stack: merged_stack,
+        stack: st1.stack.copy(),
         reachable: merged_reachable,
       }
       Ok(out.push_types(results))
     }
     TTryTable(bt, catches, body) => {
-      let (params, results) = match st.env.expand_blocktype(bt) {
+      let (_params, results) = match st.env.expand_blocktype(bt) {
         Err(e) => return Err(e)
         Ok(x) => x
       }
-      let st1 = match st.pop_types(params) {
-        Err(e) => return Err(e)
-        Ok(s) => s
+      let st1 = st
+      let env2 = st.env.with_label(results)
+      let st_body0 = TcState::{
+        env: env2,
+        stack: [],
+        reachable: st1.reachable,
       }
-      let base_len = st1.stack.length()
-      let env2 = st1.env.with_label(results)
-      let st_body0 = TcState::{ ..st1, env: env2 }
       let mut st_body = st_body0
       let TExpr(body) = body
       for instr in body {
@@ -4311,20 +4386,20 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
         }
       }
       let st2 = if st_body.reachable {
-        match st_body.pop_types(results) {
+        let st_after_results = match st_body.pop_types(results) {
           Err(e) => return Err(e)
           Ok(s) => s
         }
+        if st_after_results.stack.length() != 0 {
+          return Err("type mismatch")
+        }
+        st_after_results
       } else {
         st_body
       }
-      let stack2 = st2.stack.copy()
-      while stack2.length() > base_len {
-        ignore(stack2.pop())
-      }
       let out = TcState::{
         env: st.env,
-        stack: stack2,
+        stack: st1.stack.copy(),
         reachable: st2.reachable,
       }
       Ok(out.push_types(results))
@@ -7433,6 +7508,44 @@ test "Typecheck RefFunc" {
 }
 
 ///|
+test "Typecheck RefFunc infers concrete function heap type when unique" {
+  let ft = FuncType::new([], [])
+  let st = SubType::comp_type(CompType::func([], []))
+  let env = empty_env().with_types([st]).push_func(ft)
+  let state = make_state(env, [])
+  let result = Typecheck::typecheck(
+    Instruction::ref_func(FuncIdx::new(0)),
+    state,
+  )
+  let final_state = assert_ok(result)
+  assert_stack(
+    final_state,
+    [ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx::new(0))))],
+  )
+}
+
+///|
+test "Typecheck RefFunc prefers declared function type index when available" {
+  let ft = FuncType::new([], [])
+  let st0 = SubType::comp_type(CompType::func([], []))
+  let st1 = SubType::comp_type(CompType::func([], []))
+  let env = empty_env().with_types([st0, st1]).push_func_with_typeidx(
+    ft,
+    Some(TypeIdx::new(1)),
+  )
+  let state = make_state(env, [])
+  let result = Typecheck::typecheck(
+    Instruction::ref_func(FuncIdx::new(0)),
+    state,
+  )
+  let final_state = assert_ok(result)
+  assert_stack(
+    final_state,
+    [ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx::new(1))))],
+  )
+}
+
+///|
 test "Typecheck RefFunc invalid index" {
   let env = empty_env()
   let state = make_state(env, [])
@@ -7662,6 +7775,24 @@ test "Typecheck TryTable with result" {
   )
   let final_state = assert_ok(result)
   assert_stack(final_state, [ValType::i32()])
+}
+
+///|
+test "Typecheck TryTable with param input" {
+  let env = empty_env().with_rectype(
+    RecType::new(SubType::comp_type(CompType::func([ValType::i32()], []))),
+  )
+  let state = make_state(env, [ValType::i32()])
+  let result = Typecheck::typecheck(
+    Instruction::try_table(
+      BlockType::type_idx(TypeIdx::new(0)),
+      [],
+      Expr::new([Instruction::drop()]),
+    ),
+    state,
+  )
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [])
 }
 
 ///|

@@ -789,7 +789,7 @@ pub impl Encode for Elem with encode(val, buf) {
     // Encoder fixes - add funcref reftype
     Elem(Passive, FuncExprsElemKind(es)) => {
       buf.write_byte(0x05)
-      let rt = RefType::new(true, HeapType::abs(AbsHeapType::func()))
+      let rt = RefType::abs(AbsHeapType::func())
       if Encode::encode(rt, buf) is Err(t) {
         return Err(t)
       }
@@ -803,11 +803,14 @@ pub impl Encode for Elem with encode(val, buf) {
       if Encode::encode(e, buf) is Err(t) {
         return Err(t)
       }
-      // DON'T encode reftype - format 6 has implicit (ref null func)
+      let rt = RefType::abs(AbsHeapType::func())
+      if Encode::encode(rt, buf) is Err(t) {
+        return Err(t)
+      }
       Encode::encode(es, buf)
     }
     Elem(Declarative, FuncExprsElemKind(es)) => {
-      let rt = RefType::new(true, HeapType::abs(AbsHeapType::func()))
+      let rt = RefType::abs(AbsHeapType::func())
       buf.write_byte(0x07)
       if Encode::encode(rt, buf) is Err(t) {
         return Err(t)
@@ -828,8 +831,19 @@ pub impl Encode for Elem with encode(val, buf) {
       }
       Encode::encode(es, buf)
     }
-    Elem(Active(_), TypedExprsElemKind(_)) =>
-      Err(BinaryEncodeError::InvalidActiveElemSequence)
+    Elem(Active(ti, e), TypedExprsElemKind(rt, es)) => {
+      buf.write_byte(0x06)
+      if Encode::encode(ti, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(e, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(rt, buf) is Err(t) {
+        return Err(t)
+      }
+      Encode::encode(es, buf)
+    }
   }
 }
 

@@ -1,5 +1,0 @@
-starshine optimize failed for debug wasm
-status=1
-signal=unknown
-input=/home/jtenner/Projects/starshine-mb/node_wasm/dist/starshine.debug.wasm
-output=/home/jtenner/Projects/starshine-mb/node_wasm/dist/starshine.self-optimized.wasm

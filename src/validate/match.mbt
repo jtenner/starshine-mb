@@ -309,6 +309,7 @@ fn env_add_rec_group(env : Env, group : Array[SubType]) -> Env {
     global_types: env.global_types,
     rec_stack: rs,
     funcs: env.funcs,
+    func_type_idxs: env.func_type_idxs,
     tables: env.tables,
     mems: env.mems,
     globals: env.globals,

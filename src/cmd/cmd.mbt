@@ -49,6 +49,7 @@ pub struct CmdIO {
   encode_module : (Module) -> Result[Bytes, CmdEncodeError]
   write_file : (String, Bytes) -> Result[Unit, String]
   write_stdout : (Bytes) -> Result[Unit, String]
+  write_stderr : (Bytes) -> Result[Unit, String]
   list_candidates : () -> Array[String]
   lower_text_module : (String, CliInputFormat, Bytes) -> Result[Bytes, String]
 }
@@ -70,6 +71,7 @@ pub fn CmdIO::new(
     Err("write_file not configured")
   },
   write_stdout? : (Bytes) -> Result[Unit, String] = fn(_) { Ok(()) },
+  write_stderr? : (Bytes) -> Result[Unit, String] = fn(_) { Ok(()) },
   list_candidates? : () -> Array[String] = fn() { [] },
   lower_text_module? : (String, CliInputFormat, Bytes) -> Result[Bytes, String] = fn(
     path,
@@ -86,6 +88,7 @@ pub fn CmdIO::new(
     encode_module,
     write_file,
     write_stdout,
+    write_stderr,
     list_candidates,
     lower_text_module,
   }
@@ -273,6 +276,25 @@ fn bytes_to_string_lossy(bytes : Bytes) -> String {
     }
   }
   out.to_string()
+}
+
+///|
+fn string_to_bytes_lossy(text : String) -> Bytes {
+  let out = @buffer.new(size_hint=text.length())
+  for c in text {
+    let code = c.to_int()
+    if code >= 0 && code <= 255 {
+      out.write_byte(code.to_byte())
+    } else {
+      out.write_byte('?'.to_int().to_byte())
+    }
+  }
+  out.to_bytes()
+}
+
+///|
+fn cmd_error_stderr_bytes(err : CmdError) -> Bytes {
+  string_to_bytes_lossy("error: \{err}\n")
 }
 
 ///|
@@ -1415,6 +1437,26 @@ fn string_to_bytes(text : String) -> Bytes {
 }
 
 ///|
+fn cmd_trace_optimize_enabled(io : CmdIO) -> Bool {
+  match (io.get_env)("STARSHINE_TRACE_OPTIMIZE") {
+    Some(raw) =>
+      match parse_bool_string(raw) {
+        Some(enabled) => enabled
+        None => false
+      }
+    None => false
+  }
+}
+
+///|
+fn cmd_trace_emit(io : CmdIO, enabled : Bool, msg : String) -> Unit {
+  if !enabled {
+    return
+  }
+  ignore((io.write_stderr)(string_to_bytes("[trace] \{msg}\n")))
+}
+
+///|
 fn append_help_line(out : StringBuilder, flag : String, desc : String) -> Unit {
   for c in "  \{flag}\n      \{desc}\n" {
     out.write_char(c)
@@ -1696,10 +1738,16 @@ pub fn run_cmd_with_adapter(
 
   let env = parse_env_overlay(io)
   let merged = merge_parse_results(config, env, cli)
+  let trace_optimize = cmd_trace_optimize_enabled(io)
   let input_files = resolve_input_files(merged.input_globs, io)
   if input_files.length() == 0 {
     return Err(CmdError::NoInputFiles)
   }
+  cmd_trace_emit(
+    io,
+    trace_optimize,
+    "run start inputs=\{input_files.length()} flags=\{merged.pass_flags.length()}",
+  )
 
   let resolved_passes = resolve_pass_flags(merged)
   let traps_never_happen = resolve_traps_never_happen(merged)
@@ -1722,6 +1770,11 @@ pub fn run_cmd_with_adapter(
     optimize_level, shrink_level, traps_never_happen, monomorphize_min_benefit, low_memory_unused,
     low_memory_bound,
   )
+  cmd_trace_emit(
+    io,
+    trace_optimize,
+    "options o=\{optimize_level} z=\{shrink_level} traps_never=\{traps_never_happen}",
+  )
 
   if input_files.length() > 1 {
     for target in merged.output_targets {
@@ -1735,6 +1788,7 @@ pub fn run_cmd_with_adapter(
   let output_files : Array[String] = []
 
   for input_path in input_files {
+    cmd_trace_emit(io, trace_optimize, "input \{input_path}:start")
     let format = match merged.input_format {
       Some(format) => format
       None =>
@@ -1748,6 +1802,11 @@ pub fn run_cmd_with_adapter(
       Ok(bytes) => bytes
       Err(e) => return Err(CmdError::InputReadFailed("\{input_path}: \{e}"))
     }
+    cmd_trace_emit(
+      io,
+      trace_optimize,
+      "input \{input_path}:read bytes=\{raw_bytes.length()}",
+    )
 
     let wasm_bytes = match format {
       Wasm => raw_bytes
@@ -1758,27 +1817,57 @@ pub fn run_cmd_with_adapter(
           Err(e) => return Err(e)
         }
     }
+    cmd_trace_emit(
+      io,
+      trace_optimize,
+      "input \{input_path}:lowered bytes=\{wasm_bytes.length()}",
+    )
 
     let mod = match decode_module_for_pipeline(input_path, wasm_bytes) {
       Ok(mod) => mod
       Err(e) => return Err(e)
     }
+    cmd_trace_emit(io, trace_optimize, "input \{input_path}:decode done")
 
     let passes = match expand_passes_for_module(resolved_passes, mod, options) {
       Ok(passes) => passes
       Err(e) => return Err(e)
     }
+    cmd_trace_emit(
+      io,
+      trace_optimize,
+      "input \{input_path}:pass_count=\{passes.length()} optimize:start",
+    )
 
-    let optimized = match optimize_module_with_options(mod, passes, options) {
-      Ok(out) => out
-      Err(e) => return Err(CmdError::OptimizeFailed("\{input_path}: \{e}"))
+    let optimized = if trace_optimize {
+      match
+        optimize_module_with_options_trace(
+          mod,
+          passes,
+          options,
+          fn(msg) { cmd_trace_emit(io, true, "input \{input_path}:opt \{msg}") },
+        ) {
+        Ok(out) => out
+        Err(e) => return Err(CmdError::OptimizeFailed("\{input_path}: \{e}"))
+      }
+    } else {
+      match optimize_module_with_options(mod, passes, options) {
+        Ok(out) => out
+        Err(e) => return Err(CmdError::OptimizeFailed("\{input_path}: \{e}"))
+      }
     }
+    cmd_trace_emit(io, trace_optimize, "input \{input_path}:optimize done")
 
     let out_bytes = match
       encode_module_for_pipeline(io, input_path, optimized) {
       Ok(bytes) => bytes
       Err(e) => return Err(e)
     }
+    cmd_trace_emit(
+      io,
+      trace_optimize,
+      "input \{input_path}:encode bytes=\{out_bytes.length()}",
+    )
 
     if merged.output_targets.length() == 0 {
       let out_path = output_path_for_default_target(input_path, format)
@@ -1786,6 +1875,11 @@ pub fn run_cmd_with_adapter(
         Ok(_) => output_files.push(out_path)
         Err(e) => return Err(CmdError::OutputWriteFailed("\{out_path}: \{e}"))
       }
+      cmd_trace_emit(
+        io,
+        trace_optimize,
+        "input \{input_path}:write default \{out_path}",
+      )
       continue
     }
 
@@ -1806,6 +1900,11 @@ pub fn run_cmd_with_adapter(
             Err(e) =>
               return Err(CmdError::OutputWriteFailed("\{out_path}: \{e}"))
           }
+          cmd_trace_emit(
+            io,
+            trace_optimize,
+            "input \{input_path}:write file \{out_path}",
+          )
         }
         DirOutput(dir) => {
           let basename = output_basename_for_input(input_path, format)
@@ -1815,6 +1914,11 @@ pub fn run_cmd_with_adapter(
             Err(e) =>
               return Err(CmdError::OutputWriteFailed("\{out_path}: \{e}"))
           }
+          cmd_trace_emit(
+            io,
+            trace_optimize,
+            "input \{input_path}:write dir \{out_path}",
+          )
         }
       }
     }
@@ -1945,6 +2049,16 @@ extern "c" fn cmd_native_write(fd : Int, ptr : Bytes, count : Int) -> Int = "wri
 
 ///|
 #cfg(target="native")
+#borrow(buf)
+extern "c" fn cmd_native_getrlimit(resource : Int, buf : Bytes) -> Int = "getrlimit"
+
+///|
+#cfg(target="native")
+#borrow(buf)
+extern "c" fn cmd_native_setrlimit(resource : Int, buf : Bytes) -> Int = "setrlimit"
+
+///|
+#cfg(target="native")
 fn cmd_native_file_exists(path : String) -> Bool {
   let c_path = cmd_native_c_string(path)
   cmd_native_access(c_path, 0) == 0
@@ -2030,6 +2144,63 @@ fn cmd_native_write_stdout(bytes : Bytes) -> Result[Unit, String] {
     return Err("short write: \{wrote}/\{bytes.length()}")
   }
   Ok(())
+}
+
+///|
+#cfg(target="native")
+fn cmd_native_write_stderr(bytes : Bytes) -> Result[Unit, String] {
+  if bytes.length() == 0 {
+    return Ok(())
+  }
+  let wrote = cmd_native_write(2, bytes, bytes.length())
+  if wrote < 0 {
+    return Err("write failed")
+  }
+  if wrote != bytes.length() {
+    return Err("short write: \{wrote}/\{bytes.length()}")
+  }
+  Ok(())
+}
+
+///|
+#cfg(target="native")
+fn cmd_native_read_u64_le(bytes : Bytes, start : Int) -> UInt64 {
+  let mut out : UInt64 = 0UL
+  let mut i = 0
+  while i < 8 {
+    out = out | (bytes[start + i].to_uint64() << (i * 8))
+    i += 1
+  }
+  out
+}
+
+///|
+#cfg(target="native")
+fn cmd_native_raise_stack_soft_limit() -> Unit {
+  // Linux/macOS RLIMIT_STACK constant.
+  let rlimit_stack = 3
+  // struct rlimit { rlim_t cur; rlim_t max; } with 64-bit rlim_t.
+  let buf = Bytes::new(16)
+  if cmd_native_getrlimit(rlimit_stack, buf) != 0 {
+    return
+  }
+  let cur = cmd_native_read_u64_le(buf, 0)
+  let max = cmd_native_read_u64_le(buf, 8)
+  if cur >= max {
+    return
+  }
+  let set_buf = @buffer.new(size_hint=16)
+  let mut i = 0
+  while i < 8 {
+    set_buf.write_byte(((max >> (i * 8)) & 0xFFUL).to_byte())
+    i += 1
+  }
+  i = 0
+  while i < 8 {
+    set_buf.write_byte(((max >> (i * 8)) & 0xFFUL).to_byte())
+    i += 1
+  }
+  ignore(cmd_native_setrlimit(rlimit_stack, set_buf.to_bytes()))
 }
 
 ///|
@@ -2193,6 +2364,7 @@ fn default_cmd_io() -> CmdIO {
     read_file=cmd_native_read_file,
     write_file=cmd_native_write_file,
     write_stdout=cmd_native_write_stdout,
+    write_stderr=cmd_native_write_stderr,
     list_candidates=cmd_native_list_candidates,
     lower_text_module=cmd_native_lower_text_module,
   )
@@ -2229,7 +2401,10 @@ pub fn run_cmd_exit_code_with_adapter(
 ) -> Int {
   match run_cmd_with_adapter(args, io, config_json~) {
     Ok(_) => 0
-    Err(_) => 1
+    Err(err) => {
+      ignore((io.write_stderr)(cmd_error_stderr_bytes(err)))
+      1
+    }
   }
 }
 
@@ -2272,6 +2447,7 @@ extern "c" fn cmd_native_exit(code : Int) -> Unit = "exit"
 ///|
 #cfg(target="native")
 fn main {
+  cmd_native_raise_stack_soft_limit()
   let args = trim_program_name(@env.args())
   let exit_code = run_cmd_exit_code(args)
   if exit_code != 0 {

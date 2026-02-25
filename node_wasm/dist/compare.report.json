@@ -1,38 +1,38 @@
 {
-  "generated_at": "2026-02-25T20:21:03.044Z",
+  "generated_at": "2026-02-25T20:53:15.097Z",
   "files": {
     "debug": {
       "path": "dist/starshine.debug.wasm",
-      "size_bytes": 18417371,
-      "sha256": "d6f26d633d9a8e851f0c4c8386b1b7f5cb73d52890a11c68572f925c465a6fb8"
+      "size_bytes": 18437220,
+      "sha256": "ae333e2451cdb8b9b33c1a6ba3bb0fe2948f27c5f208843b7e76c211e3afda13"
     },
     "release": {
       "path": "dist/starshine.release.wasm",
-      "size_bytes": 6616354,
-      "sha256": "0b6b2d75e0a2371fcb74f3ebc2dc766032a46254008deb14eb02a76b4bfad511"
+      "size_bytes": 6626199,
+      "sha256": "6a32e3994a3d1b12d8b4d07aa53fd7003a0dc9c7c99cc1360012b2d2fd58a665"
     },
     "self_optimized": {
       "path": "dist/starshine.self-optimized.wasm",
-      "size_bytes": 18417371,
-      "sha256": "d6f26d633d9a8e851f0c4c8386b1b7f5cb73d52890a11c68572f925c465a6fb8"
+      "size_bytes": 18437220,
+      "sha256": "ae333e2451cdb8b9b33c1a6ba3bb0fe2948f27c5f208843b7e76c211e3afda13"
     }
   },
   "diff": {
     "debug_to_release": {
-      "size_delta_bytes": -11801017,
-      "size_delta_percent": -64.075,
-      "shared_prefix_len": 6616354,
-      "changed_bytes_in_shared_prefix": 6328036
+      "size_delta_bytes": -11811021,
+      "size_delta_percent": -64.061,
+      "shared_prefix_len": 6626199,
+      "changed_bytes_in_shared_prefix": 6337754
     },
     "debug_to_self_optimized": {
       "size_delta_bytes": 0,
       "size_delta_percent": 0,
-      "shared_prefix_len": 18417371,
+      "shared_prefix_len": 18437220,
       "changed_bytes_in_shared_prefix": 0
     }
   },
   "blocker": {
     "message": "Self-optimized artifact was produced via debug-copy fallback after optimizer failure.",
-    "optimize_error": "starshine optimize failed for debug wasm\nstatus=1\nsignal=unknown\ninput=/home/jtenner/Projects/starshine-mb/node_wasm/dist/starshine.debug.wasm\noutput=/home/jtenner/Projects/starshine-mb/node_wasm/dist/starshine.self-optimized.wasm"
+    "optimize_error": "starshine optimize failed for debug wasm\nstatus=1\nsignal=unknown\ninput=/home/jtenner/Projects/starshine-mb/node_wasm/dist/starshine.debug.wasm\noutput=/home/jtenner/Projects/starshine-mb/node_wasm/dist/starshine.self-optimized.wasm\nstderr=error: OptimizeFailed(\"/home/jtenner/Projects/starshine-mb/node_wasm/dist/starshine.debug.wasm: Stack underflow during tree conversion\")"
   }
 }

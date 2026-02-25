@@ -20,6 +20,16 @@ function resolveStarshineBinary(repoRoot, overridePath) {
   throw new Error(`Missing starshine native binary: ${candidates[0]}`);
 }
 
+function streamToUtf8(value) {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (Buffer.isBuffer(value)) {
+    return value.toString('utf8');
+  }
+  return '';
+}
+
 export function optimizeDebugWasm({
   repoRoot,
   starshinePath,
@@ -43,17 +53,19 @@ export function optimizeDebugWasm({
   try {
     execFileSyncImpl(binary, ['--optimize', '--out', dist.selfOptimized, dist.debug], {
       cwd: repoRoot,
-      stdio: 'inherit',
+      stdio: ['ignore', 'inherit', 'pipe'],
     });
   } catch (error) {
     const status = error?.status ?? 'unknown';
     const signal = error?.signal ?? 'unknown';
+    const stderr = streamToUtf8(error?.stderr).trim();
     const message =
       `starshine optimize failed for debug wasm\n` +
       `status=${status}\n` +
       `signal=${signal}\n` +
       `input=${dist.debug}\n` +
-      `output=${dist.selfOptimized}\n`;
+      `output=${dist.selfOptimized}\n` +
+      (stderr.length > 0 ? `stderr=${stderr}\n` : '');
     fs.writeFileSync(dist.optimizeError, message);
     if (fallbackToDebugOnFailure) {
       fs.copyFileSync(dist.debug, dist.selfOptimized);

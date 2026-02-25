@@ -1015,6 +1015,59 @@ test "run_cmd_exit_code_with_adapter returns non-zero for failures" {
 }
 
 ///|
+test "run_cmd_exit_code_with_adapter writes CmdError details to stderr on failures" {
+  let wasm = encode_module_bytes(fixture_i32_const_module(122))
+  let stderr_writes : Array[Bytes] = []
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == "a.wasm" },
+    list_candidates=fn() { ["a.wasm"] },
+    read_file=fn(path) {
+      if path == "a.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(_, _) { Ok(()) },
+    write_stderr=fn(bytes) {
+      stderr_writes.push(bytes)
+      Ok(())
+    },
+  )
+  let code = run_cmd_exit_code_with_adapter(["--not-a-real-pass", "a.wasm"], io)
+  assert_eq(code, 1)
+  assert_eq(stderr_writes.length(), 1)
+  let stderr_text = bytes_to_ascii_string(stderr_writes[0])
+  assert_true(stderr_text.contains("error:"))
+  assert_true(stderr_text.contains("not-a-real-pass"))
+}
+
+///|
+test "run_cmd_exit_code_with_adapter does not write stderr on success" {
+  let wasm = encode_module_bytes(fixture_i32_const_module(123))
+  let stderr_writes : Array[Bytes] = []
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == "a.wasm" },
+    list_candidates=fn() { ["a.wasm"] },
+    read_file=fn(path) {
+      if path == "a.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(_, _) { Ok(()) },
+    write_stderr=fn(bytes) {
+      stderr_writes.push(bytes)
+      Ok(())
+    },
+  )
+  let code = run_cmd_exit_code_with_adapter(["a.wasm"], io)
+  assert_eq(code, 0)
+  assert_eq(stderr_writes.length(), 0)
+}
+
+///|
 #cfg(target="native")
 fn native_c_string(text : String) -> Bytes {
   let out = @buffer.new(size_hint=text.length() + 1)

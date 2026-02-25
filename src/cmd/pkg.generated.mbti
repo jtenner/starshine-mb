@@ -76,10 +76,11 @@ pub struct CmdIO {
   encode_module : (@lib.Module) -> Result[Bytes, CmdEncodeError]
   write_file : (String, Bytes) -> Result[Unit, String]
   write_stdout : (Bytes) -> Result[Unit, String]
+  write_stderr : (Bytes) -> Result[Unit, String]
   list_candidates : () -> Array[String]
   lower_text_module : (String, @cli.CliInputFormat, Bytes) -> Result[Bytes, String]
 }
-pub fn CmdIO::new(get_env? : (String) -> String?, file_exists? : (String) -> Bool, read_file? : (String) -> Result[Bytes, String], encode_module? : (@lib.Module) -> Result[Bytes, CmdEncodeError], write_file? : (String, Bytes) -> Result[Unit, String], write_stdout? : (Bytes) -> Result[Unit, String], list_candidates? : () -> Array[String], lower_text_module? : (String, @cli.CliInputFormat, Bytes) -> Result[Bytes, String]) -> Self
+pub fn CmdIO::new(get_env? : (String) -> String?, file_exists? : (String) -> Bool, read_file? : (String) -> Result[Bytes, String], encode_module? : (@lib.Module) -> Result[Bytes, CmdEncodeError], write_file? : (String, Bytes) -> Result[Unit, String], write_stdout? : (Bytes) -> Result[Unit, String], write_stderr? : (Bytes) -> Result[Unit, String], list_candidates? : () -> Array[String], lower_text_module? : (String, @cli.CliInputFormat, Bytes) -> Result[Bytes, String]) -> Self
 
 pub struct CmdRunSummary {
   input_files : Array[String]

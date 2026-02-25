@@ -911,6 +911,36 @@ test "to_texpr local_tee underflow with empty stack" {
 }
 
 ///|
+test "to_texpr allows stack-polymorphic local_tee after unreachable" {
+  let env = Env::new()
+  let expr = Expr::new([
+    Instruction::unreachable_(),
+    Instruction::local_tee(LocalIdx::new(0)),
+    Instruction::drop(),
+  ])
+  match to_texpr(expr, env) {
+    Ok(TExpr(instrs)) => assert_true(instrs.length() >= 2)
+    Err(e) =>
+      fail(
+        "expected stack-polymorphic conversion success after unreachable, got: \{e}",
+      )
+  }
+}
+
+///|
+test "to_texpr allows stack-polymorphic binary op after unreachable" {
+  let env = Env::new()
+  let expr = Expr::new([Instruction::unreachable_(), Instruction::i32_add()])
+  match to_texpr(expr, env) {
+    Ok(TExpr(instrs)) => assert_eq(instrs.length(), 2)
+    Err(e) =>
+      fail(
+        "expected stack-polymorphic binary conversion success after unreachable, got: \{e}",
+      )
+  }
+}
+
+///|
 test "instr_to_tinstr covers additional const nullary and unary branches" {
   let env = Env::new()
 

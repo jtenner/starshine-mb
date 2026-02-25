@@ -841,7 +841,7 @@ test "Typecheck if with both unreachable branches yields unreachable" {
 }
 
 ///|
-test "Typecheck if rejects reachable-branch stack mismatch after normalization" {
+test "Typecheck if branch body cannot pop values below branch label boundary" {
   let env = empty_env()
   let state = tcneg_make_state(env, [ValType::i64(), ValType::i32()])
   let result = Typecheck::typecheck(
@@ -852,7 +852,7 @@ test "Typecheck if rejects reachable-branch stack mismatch after normalization" 
     ),
     state,
   )
-  tcneg_assert_err_contains(result, "if branch stack mismatch")
+  tcneg_assert_err_contains(result, "stack underflow")
 }
 
 ///|
@@ -933,4 +933,19 @@ test "Typecheck block body type mismatch with blocktype results" {
     state,
   )
   tcneg_assert_err_contains(result, "type mismatch")
+}
+
+///|
+test "Typecheck block body does not consume outer stack without block params" {
+  let env = empty_env().with_locals([ValType::i32()])
+  let state = tcneg_make_state(env, [])
+  let expr = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([Instruction::local_tee(LocalIdx::new(0)), Instruction::drop()]),
+    ),
+  ])
+  let result = Typecheck::typecheck(expr, state)
+  tcneg_assert_err_contains(result, "stack underflow")
 }

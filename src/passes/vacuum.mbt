@@ -227,13 +227,28 @@ fn vq_optimize(
 }
 
 ///|
+priv struct VQSequenceResult {
+  items : Array[TInstr]
+  changed : Bool
+}
+
+///|
+fn VQSequenceResult::new(
+  items : Array[TInstr],
+  changed : Bool,
+) -> VQSequenceResult {
+  { items, changed }
+}
+
+///|
 fn vq_optimize_sequence(
   items : Array[TInstr],
   env : Env,
   result_type : ValType?,
   result_used : Bool,
-) -> Array[TInstr] {
+) -> VQSequenceResult {
   let out : Array[TInstr] = []
+  let mut changed = false
   let size = items.length()
   for i = 0; i < size; i = i + 1 {
     let child = items[i]
@@ -250,16 +265,24 @@ fn vq_optimize_sequence(
       }
     }
     match optimized {
-      None => ()
+      None => {
+        changed = true
+      }
       Some(next) => {
+        if next != child {
+          changed = true
+        }
         out.push(next)
         if is_unreachable_instr(next) {
+          if i + 1 < size {
+            changed = true
+          }
           break
         }
       }
     }
   }
-  out
+  VQSequenceResult::new(out, changed)
 }
 
 ///|
@@ -270,7 +293,8 @@ fn vq_optimize_texpr(
   result_used : Bool,
 ) -> TExpr {
   let TExpr(items) = expr
-  TExpr::new(vq_optimize_sequence(items, env, result_type, result_used))
+  let sequence = vq_optimize_sequence(items, env, result_type, result_used)
+  TExpr::new(sequence.items)
 }
 
 ///|
@@ -595,23 +619,28 @@ fn vq_optimize_function(
         [vt] => Some(vt)
         _ => None
       }
-      let next_items = vq_optimize_sequence(
+      let seq = vq_optimize_sequence(
         body.0,
         env,
         result_type,
         sig.results.length() > 0,
       )
+      let next_items = seq.items
       if next_items.is_empty() {
         next_items.push(TInstr::nop())
       }
       let next_body = TExpr::new(next_items)
+      let mut changed = seq.changed
       if sig.results.length() == 0 &&
         !vq_texpr_has_unremovable_side_effects(next_body) {
         let nopped = Func::t_func(locals, TExpr::new([TInstr::nop()]))
-        (nopped, nopped != func)
+        if next_body != TExpr::new([TInstr::nop()]) {
+          changed = true
+        }
+        (nopped, changed)
       } else {
         let next_func = Func::t_func(locals, next_body)
-        (next_func, next_func != func)
+        (next_func, changed)
       }
     }
     _ => (func, false)
@@ -619,20 +648,50 @@ fn vq_optimize_function(
 }
 
 ///|
-fn vacuum_ir_pass(mod : Module) -> ModuleTransformer[IRContext] {
+fn vacuum_trace_noop(_ : String) -> Unit {
+  ()
+}
+
+///|
+fn vacuum_ir_pass_with_trace(
+  mod : Module,
+  trace : (String) -> Unit,
+) -> ModuleTransformer[IRContext] {
   let sigs = vq_collect_func_sigs(mod)
   let next_def_idx = Ref::new(0)
   ModuleTransformer::new().on_func_evt(fn(_, ctx, func) {
     let def_idx = next_def_idx.val
     next_def_idx.update(fn(i) { i + 1 })
+    let ordinal = def_idx + 1
+    let start_instrs = match func {
+      TFunc(_, body) => body.0.length()
+      _ => 0
+    }
+    if ordinal <= 50 || ordinal % 500 == 0 {
+      trace("func[\{ordinal}] start instrs=\{start_instrs}")
+    }
     let sig = sigs.get(def_idx).unwrap_or(VQFuncSig::new([], []))
     let (next_func, changed) = vq_optimize_function(mod, func, sig)
+    let end_instrs = match next_func {
+      TFunc(_, body) => body.0.length()
+      _ => 0
+    }
+    if ordinal <= 50 || ordinal % 500 == 0 {
+      trace(
+        "func[\{ordinal}] done changed=\{changed} instrs=\{start_instrs}->\{end_instrs}",
+      )
+    }
     if changed {
       change(ctx, next_func)
     } else {
       unchanged()
     }
   })
+}
+
+///|
+fn vacuum_ir_pass(mod : Module) -> ModuleTransformer[IRContext] {
+  vacuum_ir_pass_with_trace(mod, vacuum_trace_noop)
 }
 
 ///|

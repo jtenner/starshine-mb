@@ -419,6 +419,7 @@ pub fn validate_tagsec(tagsec : TagSec?, env0 : Env) -> Result[Env, String] {
           global_types: env.global_types,
           rec_stack: env.rec_stack,
           funcs: env.funcs,
+          func_type_idxs: env.func_type_idxs,
           tables: env.tables,
           mems: env.mems,
           globals: env.globals,
@@ -672,7 +673,7 @@ pub fn validate_funcsec(funcsec : FuncSec?, env0 : Env) -> Result[Env, String] {
           Some(x) => x
           None => return Err("funcsec: typeidx does not resolve to functype")
         }
-        env = env.push_func(ft)
+        env = env.push_func_with_typeidx(ft, Some(tidx))
       }
       Ok(env)
     }
@@ -862,7 +863,7 @@ pub fn validate_importsec(
               Some(x) => x
               None => return Err("import func: type index is not a functype")
             }
-            env = env.push_func(ft)
+            env = env.push_func_with_typeidx(ft, Some(tidx))
           }
           TableExternType(tt) => env = env.push_table(tt)
           MemExternType(mt) => env = env.push_mem(mt)

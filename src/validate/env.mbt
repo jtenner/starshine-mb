@@ -6,6 +6,7 @@ pub(all) struct Env {
   global_types : Array[SubType]
   rec_stack : Stack[Array[SubType]]
   funcs : Array[FuncType]
+  func_type_idxs : Array[TypeIdx?]
   tables : Array[TableType]
   mems : Array[MemType]
   globals : Array[GlobalType]
@@ -169,6 +170,7 @@ pub fn empty_env() -> Env {
     global_types: [],
     rec_stack: [],
     funcs: [],
+    func_type_idxs: [],
     tables: [],
     mems: [],
     globals: [],
@@ -222,6 +224,15 @@ pub fn Env::expand_blocktype(
 pub fn Env::get_functype_by_funcidx(env : Env, idx : FuncIdx) -> FuncType? {
   let FuncIdx(i) = idx
   env.funcs.get(i.reinterpret_as_int())
+}
+
+///|
+pub fn Env::get_functypeidx_by_funcidx(env : Env, idx : FuncIdx) -> TypeIdx? {
+  let FuncIdx(i) = idx
+  match env.func_type_idxs.get(i.reinterpret_as_int()) {
+    Some(tidx) => tidx
+    None => None
+  }
 }
 
 ///|
@@ -312,9 +323,20 @@ pub fn Env::push_global(env : Env, gt : GlobalType) -> Env {
 
 ///|
 pub fn Env::push_func(env : Env, ft : FuncType) -> Env {
+  env.push_func_with_typeidx(ft, None)
+}
+
+///|
+pub fn Env::push_func_with_typeidx(
+  env : Env,
+  ft : FuncType,
+  type_idx : TypeIdx?,
+) -> Env {
   let funcs = env.funcs.copy()
+  let func_type_idxs = env.func_type_idxs.copy()
   funcs.push(ft)
-  Env::{ ..env, funcs, }
+  func_type_idxs.push(type_idx)
+  Env::{ ..env, funcs, func_type_idxs, }
 }
 
 ///|
@@ -338,7 +360,11 @@ pub fn Env::with_locals(env : Env, locals : Array[ValType]) -> Env {
 
 ///|
 pub fn Env::with_funcs(env : Env, funcs : Array[FuncType]) -> Env {
-  Env::{ ..env, funcs, }
+  let func_type_idxs : Array[TypeIdx?] = []
+  for _ in funcs {
+    func_type_idxs.push(None)
+  }
+  Env::{ ..env, funcs, func_type_idxs, }
 }
 
 ///|
@@ -413,7 +439,8 @@ pub fn Env::with_module(self : Env, m : Module) -> Env {
               FuncExternType(type_idx) =>
                 match e.resolve_functype(type_idx) {
                   None => ()
-                  Some(ft) => e = e.push_func(ft)
+                  Some(ft) =>
+                    e = e.push_func_with_typeidx(ft, Some(type_idx))
                 }
               TableExternType(table_ty) => e = e.push_table(table_ty)
               MemExternType(mem_ty) => e = e.push_mem(mem_ty)
@@ -435,7 +462,7 @@ pub fn Env::with_module(self : Env, m : Module) -> Env {
         let tidx = type_idxs[i]
         match e.resolve_functype(tidx) {
           None => ()
-          Some(ft) => e = e.push_func(ft)
+          Some(ft) => e = e.push_func_with_typeidx(ft, Some(tidx))
         }
       }
       e
@@ -524,7 +551,39 @@ pub fn to_texpr(expr : Expr, env : Env) -> Result[TExpr, String] {
 }
 
 ///|
+fn is_stack_polymorphic_source(instr : TInstr) -> Bool {
+  match instr {
+    TUnreachable => true
+    TBr(_, _) => true
+    TBrTable(_, _, _, _) => true
+    TReturn(_) => true
+    TThrow(_, _) => true
+    TThrowRef(_) => true
+    TReturnCall(_, _) => true
+    TReturnCallIndirect(_, _, _, _) => true
+    TReturnCallRef(_, _, _) => true
+    _ => false
+  }
+}
+
+///|
+fn stack_has_polymorphic_source(stack : Array[TInstr]) -> Bool {
+  for instr in stack {
+    if is_stack_polymorphic_source(instr) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn pop(stack : Array[TInstr]) -> Result[TInstr, String] {
+  if stack.length() > 0 {
+    let top = stack[stack.length() - 1]
+    if is_stack_polymorphic_source(top) {
+      return Ok(top)
+    }
+  }
   match stack.pop() {
     Some(v) => Ok(v)
     None => Err("Stack underflow during tree conversion")
@@ -533,7 +592,8 @@ fn pop(stack : Array[TInstr]) -> Result[TInstr, String] {
 
 ///|
 fn pop_n(stack : Array[TInstr], n : Int) -> Result[Array[TInstr], String] {
-  if stack.length() < n {
+  let can_reuse_poly_bottom = stack_has_polymorphic_source(stack)
+  if stack.length() < n && !can_reuse_poly_bottom {
     return Err(
       "Stack underflow: need \{n} values but only \{stack.length()} available",
     )
@@ -574,7 +634,8 @@ fn pop_return_values(
   arity : Int,
   env : Env,
 ) -> Result[Array[TInstr], String] {
-  if stack.length() >= arity {
+  let can_reuse_poly_bottom = stack_has_polymorphic_source(stack)
+  if stack.length() >= arity || can_reuse_poly_bottom {
     return pop_n(stack, arity)
   }
   if arity > 1 && stack.length() == 1 {
@@ -585,6 +646,11 @@ fn pop_return_values(
   Err(
     "Stack underflow: need \{arity} values but only \{stack.length()} available",
   )
+}
+
+///|
+fn push_terminating_instr(stack : Array[TInstr], instr : TInstr) -> Unit {
+  stack.push(instr)
 }
 
 ///|
@@ -639,7 +705,7 @@ fn instr_to_tinstr(
       )
 
     // === Nullary ===
-    Unreachable => stack.push(TInstr::unreachable_())
+    Unreachable => push_terminating_instr(stack, TInstr::unreachable_())
     Nop => stack.push(TInstr::nop())
     LocalGet(idx) => stack.push(TInstr::local_get(idx))
     GlobalGet(idx) => stack.push(TInstr::global_get(idx))
@@ -2009,7 +2075,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::throw_ref(op))
+      push_terminating_instr(stack, TInstr::throw_ref(op))
     }
 
     // === Loads ===
@@ -2675,7 +2741,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::throw_(tag_idx, args))
+      push_terminating_instr(stack, TInstr::throw_(tag_idx, args))
     }
 
     // === Branches ===
@@ -2689,7 +2755,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::br(label, values))
+      push_terminating_instr(stack, TInstr::br(label, values))
     }
     BrIf(label) => {
       let cond = match pop(stack) {
@@ -2719,7 +2785,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::br_table(labels, default, idx, values))
+      push_terminating_instr(
+        stack,
+        TInstr::br_table(labels, default, idx, values),
+      )
     }
     BrOnNull(label) => {
       let ref_ = match pop(stack) {
@@ -2802,7 +2871,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::return_(values))
+      push_terminating_instr(stack, TInstr::return_(values))
     }
 
     // === Calls ===
@@ -2856,7 +2925,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::return_call(func_idx, args))
+      push_terminating_instr(stack, TInstr::return_call(func_idx, args))
     }
     ReturnCallIndirect(type_idx, table_idx) => {
       let idx = match pop(stack) {
@@ -2871,7 +2940,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::return_call_indirect(type_idx, table_idx, args, idx))
+      push_terminating_instr(
+        stack,
+        TInstr::return_call_indirect(type_idx, table_idx, args, idx),
+      )
     }
     ReturnCallRef(type_idx) => {
       let ref_ = match pop(stack) {
@@ -2886,7 +2958,7 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      stack.push(TInstr::return_call_ref(type_idx, args, ref_))
+      push_terminating_instr(stack, TInstr::return_call_ref(type_idx, args, ref_))
     }
 
     // === GC: Structs ===

@@ -15,25 +15,55 @@
 ///
 
 ///|
-fn lift_to_texpr_pass() -> ModuleTransformer[Unit] {
+fn lift_to_texpr_pass_with_trace(
+  trace : (String) -> Unit,
+) -> ModuleTransformer[Unit] {
+  let mut seen_funcs = 0
   ModuleTransformer::new().on_func_evt(fn(
     _ : ModuleTransformer[Unit],
     _ : Unit,
     f : Func,
   ) -> TransformerResult[Unit, Func] {
+    seen_funcs += 1
+    if seen_funcs <= 5 || seen_funcs % 500 == 0 {
+      trace("func[\{seen_funcs}] visit")
+    }
     match f {
       Func(l, t) =>
         match to_texpr(t, Env::new()) {
           Ok(t) =>
             match expand_locals(l) {
-              Ok(l) => change((), Func::t_func(l, t))
-              Err(t) => Err(t)
+              Ok(l) => {
+                if seen_funcs <= 5 || seen_funcs % 500 == 0 {
+                  trace("func[\{seen_funcs}] lifted")
+                }
+                change((), Func::t_func(l, t))
+              }
+              Err(err) => {
+                trace("func[\{seen_funcs}] expand_locals failed: \{err}")
+                Err(err)
+              }
             }
-          Err(t) => Err(t)
+          Err(e) => {
+            if seen_funcs <= 20 || seen_funcs % 500 == 0 {
+              trace("func[\{seen_funcs}] to_texpr failed: \{e}")
+            }
+            unchanged()
+          }
         }
-      TFunc(_, _) => unchanged()
+      TFunc(_, _) => {
+        if seen_funcs <= 5 || seen_funcs % 500 == 0 {
+          trace("func[\{seen_funcs}] already-tfunc")
+        }
+        unchanged()
+      }
     }
   })
+}
+
+///|
+fn lift_to_texpr_pass() -> ModuleTransformer[Unit] {
+  lift_to_texpr_pass_with_trace(fn(_) { () })
 }
 
 ///|
@@ -53,5 +83,19 @@ test "lift_to_texpr_pass expands grouped locals when lifting Func" {
       }
     Ok(None) => fail("expected module change")
     Err(e) => fail("unexpected lift_to_texpr_pass error: \{e}")
+  }
+}
+
+///|
+test "lift_to_texpr_pass keeps original Func when conversion fails" {
+  let func = Func::new([], Expr::new([Instruction::i32_add()]))
+  let mod = Module::new().with_code_sec(CodeSec::new([func]))
+  let pass = lift_to_texpr_pass()
+  let result = pass.walk_module((), mod)
+  match result {
+    Ok(None) => ()
+    Ok(Some(_)) =>
+      fail("expected no module change when lift_to_texpr conversion fails")
+    Err(e) => fail("expected graceful fallback on conversion failure, got: \{e}")
   }
 }

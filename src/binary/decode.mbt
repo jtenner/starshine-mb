@@ -46,6 +46,7 @@ pub suberror BinaryDecodeError {
   InvalidInstruction
   InvalidAtomicFenceImmediate
   InvalidAtomicInstruction
+  InstructionNestingLimitExceeded
 } derive(Eq, Show, Debug)
 
 ///|
@@ -1026,6 +1027,10 @@ pub impl Decode for Module with decode(bytes, i) {
 
 ///|
 pub impl Decode for Elem with decode(bytes, i) {
+  let is_funcref = fn(rt : RefType) {
+    rt == RefType::abs(AbsHeapType::func()) ||
+    rt == RefType::new(true, HeapType::abs(AbsHeapType::func()))
+  }
   let (header, next) = match
     (Decode::decode(bytes, i) : Result[(@lib.U32, Int), BinaryDecodeError]) {
     Ok((@lib.U32(v), next)) => (v, next)
@@ -1139,17 +1144,25 @@ pub impl Decode for Elem with decode(bytes, i) {
         Ok((idx, i)) =>
           match Decode::decode(bytes, i) {
             Ok((expr, i)) =>
-              match Decode::decode(bytes, i) {
-                Ok((exprs, i)) =>
-                  Ok(
+              match
+                (
+                  Decode::decode(bytes, i) :
+                  Result[(RefType, Int), BinaryDecodeError]) {
+                Ok((rt, i)) =>
+                  match
                     (
-                      Elem::new(
-                        ElemMode::active(idx, expr),
-                        ElemKind::func_exprs(exprs),
-                      ),
-                      i,
-                    ),
-                  )
+                      Decode::decode(bytes, i) :
+                      Result[(Array[Expr], Int), BinaryDecodeError]) {
+                    Ok((exprs, i)) => {
+                      let kind = if is_funcref(rt) {
+                        ElemKind::func_exprs(exprs)
+                      } else {
+                        ElemKind::typed_exprs(rt, exprs)
+                      }
+                      Ok((Elem::new(ElemMode::active(idx, expr), kind), i))
+                    }
+                    Err(t) => Err(t)
+                  }
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
@@ -1487,11 +1500,21 @@ pub impl Decode for BlockType with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for Expr with decode(bytes, i) {
+const MAX_INSTRUCTION_NESTING_DEPTH : Int = 20000
+
+///|
+fn decode_expr_with_depth(
+  bytes : Bytes,
+  i : Int,
+  depth : Int,
+) -> Result[(Expr, Int), BinaryDecodeError] {
+  if depth > MAX_INSTRUCTION_NESTING_DEPTH {
+    return Err(BinaryDecodeError::InstructionNestingLimitExceeded)
+  }
   let a = Array::new()
   let i = loop i {
     i =>
-      match Decode::decode(bytes, i) {
+      match decode_instruction_with_depth(bytes, i, depth + 1) {
         Ok((inst, i)) => {
           a.push(inst)
           continue i
@@ -1501,6 +1524,11 @@ pub impl Decode for Expr with decode(bytes, i) {
       }
   }
   Ok((Expr::new(a), i))
+}
+
+///|
+pub impl Decode for Expr with decode(bytes, i) {
+  decode_expr_with_depth(bytes, i, 0)
 }
 
 ///|
@@ -1756,7 +1784,14 @@ fn i8x16_shuffle_from_lanes(lanes : FixedArray[LaneIdx]) -> Instruction {
 }
 
 ///|
-pub impl Decode for Instruction with decode(bytes, i) {
+fn decode_instruction_with_depth(
+  bytes : Bytes,
+  i : Int,
+  depth : Int,
+) -> Result[(Instruction, Int), BinaryDecodeError] {
+  if depth > MAX_INSTRUCTION_NESTING_DEPTH {
+    return Err(BinaryDecodeError::InstructionNestingLimitExceeded)
+  }
   match bytes.get(i) {
     Some(0x00) => Ok((Instruction::unreachable_(), i + 1))
     Some(0x01) => Ok((Instruction::nop(), i + 1))
@@ -1770,7 +1805,7 @@ pub impl Decode for Instruction with decode(bytes, i) {
     Some(0x02) =>
       match Decode::decode(bytes, i + 1) {
         Ok((bt, i)) =>
-          match Decode::decode(bytes, i) {
+          match decode_expr_with_depth(bytes, i, depth + 1) {
             Ok((expr, i)) => Ok((Instruction::block(bt, expr), i))
             Err(t) => Err(t)
           }
@@ -1779,7 +1814,7 @@ pub impl Decode for Instruction with decode(bytes, i) {
     Some(0x03) =>
       match Decode::decode(bytes, i + 1) {
         Ok((bt, i)) =>
-          match Decode::decode(bytes, i) {
+          match decode_expr_with_depth(bytes, i, depth + 1) {
             Ok((expr, i)) => Ok((Instruction::loop_(bt, expr), i))
             Err(t) => Err(t)
           }
@@ -1797,7 +1832,7 @@ pub impl Decode for Instruction with decode(bytes, i) {
                     i + 1,
                   )
                 _ =>
-                  match Decode::decode(bytes, i) {
+                  match decode_instruction_with_depth(bytes, i, depth + 1) {
                     Ok((inst, i)) => {
                       else_insts.push(inst)
                       continue (i, if_insts, Some(else_insts))
@@ -1811,7 +1846,7 @@ pub impl Decode for Instruction with decode(bytes, i) {
                 Some(0x0B) =>
                   break (Instruction::if_(bt, if_insts, None), i + 1)
                 _ =>
-                  match Decode::decode(bytes, i) {
+                  match decode_instruction_with_depth(bytes, i, depth + 1) {
                     Ok((inst, i)) => {
                       if_insts.push(inst)
                       continue (i, if_insts, None)
@@ -1894,7 +1929,7 @@ pub impl Decode for Instruction with decode(bytes, i) {
         Ok((bt, i)) =>
           match Decode::decode(bytes, i) {
             Ok((c, i)) =>
-              match Decode::decode(bytes, i) {
+              match decode_expr_with_depth(bytes, i, depth + 1) {
                 Ok((e, i)) => Ok((Instruction::try_table(bt, c, e), i))
                 Err(t) => Err(t)
               }
@@ -3240,6 +3275,11 @@ pub impl Decode for Instruction with decode(bytes, i) {
       }
     _ => Err(BinaryDecodeError::InvalidInstruction)
   }
+}
+
+///|
+pub impl Decode for Instruction with decode(bytes, i) {
+  decode_instruction_with_depth(bytes, i, 0)
 }
 
 ///|

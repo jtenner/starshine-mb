@@ -219,6 +219,76 @@ test "decode_module wraps decode failure variant" {
 }
 
 ///|
+test "decode_module accepts elem header 6 with explicit reftype and roundtrips module semantics" {
+  let wasm = b"\x00\x61\x73\x6d\x01\x00\x00\x00\x09\x0b\x01\x06\x00\x41\x00\x0b\x70\x01\xd2\x00\x0b"
+  let mod = match decode_module(wasm) {
+    Ok(v) => v
+    Err(e) => fail("expected elem header 6 decode success, got \{e}")
+  }
+  let reencoded = match encode_module(mod) {
+    Ok(bytes) => bytes
+    Err(e) => fail("expected re-encode success for header 6 fixture, got \{e}")
+  }
+  let reparsed = match decode_module(reencoded) {
+    Ok(v) => v
+    Err(e) => fail("expected decode success after re-encode, got \{e}")
+  }
+  assert_eq(reparsed, mod)
+}
+
+///|
+test "encode elem active non-zero table func exprs includes explicit funcref reftype for header 6" {
+  let elem = Elem::new(
+    ElemMode::active(
+      TableIdx::new(1),
+      Expr::new([Instruction::i32_const(I32(0))]),
+    ),
+    ElemKind::func_exprs([Expr::new([Instruction::ref_func(FuncIdx::new(0))])]),
+  )
+  let buf = @buffer.new()
+  match Encode::encode(elem, buf) {
+    Ok(_) => ()
+    Err(e) => fail("expected elem encode success, got \{e}")
+  }
+  let bytes = buf.to_bytes()
+  assert_eq(bytes, b"\x06\x01\x41\x00\x0b\x70\x01\xd2\x00\x0b")
+  let (decoded, i) = match
+    (Decode::decode(bytes, 0) : Result[(Elem, Int), BinaryDecodeError]) {
+    Ok(v) => v
+    Err(e) => fail("expected elem decode success, got \{e}")
+  }
+  assert_eq(i, bytes.length())
+  assert_eq(decoded, elem)
+}
+
+///|
+test "encode elem supports active typed expr segments for header 6" {
+  let rt = RefType::new(true, HeapType::abs(AbsHeapType::extern_()))
+  let elem = Elem::new(
+    ElemMode::active(
+      TableIdx::new(0),
+      Expr::new([Instruction::i32_const(I32(0))]),
+    ),
+    ElemKind::typed_exprs(rt, [
+      Expr::new([Instruction::ref_null(HeapType::abs(AbsHeapType::extern_()))]),
+    ]),
+  )
+  let buf = @buffer.new()
+  match Encode::encode(elem, buf) {
+    Ok(_) => ()
+    Err(e) => fail("expected active typed elem encode success, got \{e}")
+  }
+  let bytes = buf.to_bytes()
+  let (decoded, i) = match
+    (Decode::decode(bytes, 0) : Result[(Elem, Int), BinaryDecodeError]) {
+    Ok(v) => v
+    Err(e) => fail("expected active typed elem decode success, got \{e}")
+  }
+  assert_eq(i, bytes.length())
+  assert_eq(decoded, elem)
+}
+
+///|
 test "decode_module preserves trailing-byte diagnostics for section-order and duplicate-section invalid modules" {
   let vectors : Array[(String, Bytes, Int, Int)] = [
     (
