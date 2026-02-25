@@ -10,6 +10,10 @@ import {
 }
 
 // Values
+pub fn cmd_help_text() -> String
+
+pub fn cmd_version_text() -> String
+
 pub fn differential_validate_wasm(Bytes, adapters? : DifferentialAdapters) -> Result[DifferentialValidationReport, String]
 
 pub fn minimize_fuzz_passes(Array[String], (Array[String]) -> Bool) -> Array[String]

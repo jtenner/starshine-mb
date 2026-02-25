@@ -905,45 +905,61 @@ test "env optimize and trap overlays take precedence over config values when cli
 }
 
 ///|
-test "run_cmd_with_adapter reports unknown pass diagnostics for --help token" {
-  let wasm = encode_module_bytes(fixture_i32_const_module(19))
-  let io = CmdIO::new(
-    file_exists=fn(path) { path == "a.wasm" },
-    list_candidates=fn() { ["a.wasm"] },
-    read_file=fn(path) {
-      if path == "a.wasm" {
-        Ok(wasm)
-      } else {
-        Err("missing fixture")
-      }
-    },
-    write_file=fn(_, _) { Ok(()) },
-  )
-  match run_cmd_with_adapter(["--help", "a.wasm"], io) {
-    Ok(summary) => fail("expected unknown pass diagnostic, got \{summary}")
-    Err(err) => assert_eq(err, CmdError::unknown_pass_flag("help"))
+test "run_cmd_with_adapter prints help text and exits successfully for --help" {
+  let stdout_writes : Array[Bytes] = []
+  let io = CmdIO::new(write_stdout=fn(bytes) {
+    stdout_writes.push(bytes)
+    Ok(())
+  })
+  let summary = match run_cmd_with_adapter(["--help"], io) {
+    Ok(v) => v
+    Err(e) => fail("expected help success, got \{e}")
   }
+  assert_eq(summary.input_files, [])
+  assert_eq(summary.output_files, [])
+  assert_eq(stdout_writes.length(), 1)
+  let help = bytes_to_ascii_string(stdout_writes[0])
+  assert_true(help.contains("Starshine Wasm Binary Toolkit"))
+  assert_true(help.contains("v0.1.0"))
+  assert_true(help.contains("Usage:"))
+  assert_true(help.contains("--help"))
+  assert_true(help.contains("--version"))
+  assert_true(help.contains("--global-effects"))
+  assert_true(help.contains("--remove-unused"))
 }
 
 ///|
-test "run_cmd_with_adapter reports unknown pass diagnostics for --version token" {
-  let wasm = encode_module_bytes(fixture_i32_const_module(20))
-  let io = CmdIO::new(
-    file_exists=fn(path) { path == "a.wasm" },
-    list_candidates=fn() { ["a.wasm"] },
-    read_file=fn(path) {
-      if path == "a.wasm" {
-        Ok(wasm)
-      } else {
-        Err("missing fixture")
-      }
-    },
-    write_file=fn(_, _) { Ok(()) },
-  )
-  match run_cmd_with_adapter(["--version", "a.wasm"], io) {
-    Ok(summary) => fail("expected unknown pass diagnostic, got \{summary}")
-    Err(err) => assert_eq(err, CmdError::unknown_pass_flag("version"))
+test "run_cmd_with_adapter prints version and exits successfully for --version" {
+  let stdout_writes : Array[Bytes] = []
+  let io = CmdIO::new(write_stdout=fn(bytes) {
+    stdout_writes.push(bytes)
+    Ok(())
+  })
+  let summary = match run_cmd_with_adapter(["--version"], io) {
+    Ok(v) => v
+    Err(e) => fail("expected version success, got \{e}")
   }
+  assert_eq(summary.input_files, [])
+  assert_eq(summary.output_files, [])
+  assert_eq(stdout_writes.length(), 1)
+  assert_eq(bytes_to_ascii_string(stdout_writes[0]), "v0.1.0\n")
+}
+
+///|
+test "run_cmd_with_adapter prints version and exits successfully for -V" {
+  let stdout_writes : Array[Bytes] = []
+  let io = CmdIO::new(write_stdout=fn(bytes) {
+    stdout_writes.push(bytes)
+    Ok(())
+  })
+  let summary = match run_cmd_with_adapter(["-V"], io) {
+    Ok(v) => v
+    Err(e) => fail("expected version success, got \{e}")
+  }
+  assert_eq(summary.input_files, [])
+  assert_eq(summary.output_files, [])
+  assert_eq(stdout_writes.length(), 1)
+  assert_eq(bytes_to_ascii_string(stdout_writes[0]), "v0.1.0\n")
 }
 
 ///|
@@ -962,6 +978,20 @@ test "run_cmd_exit_code_with_adapter returns zero for successful runs" {
     write_file=fn(_, _) { Ok(()) },
   )
   let code = run_cmd_exit_code_with_adapter(["a.wasm"], io)
+  assert_eq(code, 0)
+}
+
+///|
+test "run_cmd_exit_code_with_adapter returns zero for --help" {
+  let io = CmdIO::new(write_stdout=fn(_) { Ok(()) })
+  let code = run_cmd_exit_code_with_adapter(["--help"], io)
+  assert_eq(code, 0)
+}
+
+///|
+test "run_cmd_exit_code_with_adapter returns zero for --version" {
+  let io = CmdIO::new(write_stdout=fn(_) { Ok(()) })
+  let code = run_cmd_exit_code_with_adapter(["--version"], io)
   assert_eq(code, 0)
 }
 

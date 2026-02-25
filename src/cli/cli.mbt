@@ -142,6 +142,8 @@ pub fn CliParseError::invalid_trap_mode(mode : String) -> CliParseError {
 pub struct CliParseResult {
   mut config_path : String?
   input_globs : Array[String]
+  mut help_requested : Bool
+  mut version_requested : Bool
   mut read_stdin : Bool
   mut input_format : CliInputFormat?
   output_targets : Array[CliOutputTarget]
@@ -157,6 +159,8 @@ pub struct CliParseResult {
 pub fn CliParseResult::new(
   config_path? : String? = None,
   input_globs? : Array[String] = [],
+  help_requested? : Bool = false,
+  version_requested? : Bool = false,
   read_stdin? : Bool = false,
   input_format? : CliInputFormat? = None,
   output_targets? : Array[CliOutputTarget] = [],
@@ -170,6 +174,8 @@ pub fn CliParseResult::new(
   {
     config_path,
     input_globs,
+    help_requested,
+    version_requested,
     read_stdin,
     input_format,
     output_targets,
@@ -351,6 +357,14 @@ fn parse_short_option_cluster(
   while i < cluster.length() {
     let flag = cluster[i]
     match flag {
+      'h' => {
+        parsed.help_requested = true
+        i += 1
+      }
+      'V' => {
+        parsed.version_requested = true
+        i += 1
+      }
       's' => {
         push_unique_output_target(
           parsed.output_targets,
@@ -513,6 +527,20 @@ pub fn parse_cli_args(
       if arg.length() > 2 && arg[1] == '-' {
         let (name, inline_value) = split_long_flag_token(arg)
         match name {
+          "help" => {
+            if inline_value is Some(_) {
+              return Err(CliParseError::unexpected_flag_value("--help"))
+            }
+            parsed.help_requested = true
+            index += 1
+          }
+          "version" => {
+            if inline_value is Some(_) {
+              return Err(CliParseError::unexpected_flag_value("--version"))
+            }
+            parsed.version_requested = true
+            index += 1
+          }
           "stdin" => {
             if inline_value is Some(_) {
               return Err(CliParseError::unexpected_flag_value("--stdin"))
@@ -815,7 +843,10 @@ pub fn parse_cli_args(
   for env_glob in parse_starshine_input_env(starshine_input) {
     parsed.input_globs.push(env_glob)
   }
-  if parsed.read_stdin && parsed.input_format is None {
+  if !parsed.help_requested &&
+    !parsed.version_requested &&
+    parsed.read_stdin &&
+    parsed.input_format is None {
     return Err(CliParseError::stdin_needs_format())
   }
   Ok(parsed)

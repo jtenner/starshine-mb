@@ -70,6 +70,38 @@ test "parse_cli_args rejects unknown format" {
 }
 
 ///|
+test "parse_cli_args marks help_requested for long and short help flags" {
+  let long_help = parse_ok(["--help"])
+  assert_true(long_help.help_requested)
+
+  let short_help = parse_ok(["-h"])
+  assert_true(short_help.help_requested)
+}
+
+///|
+test "parse_cli_args marks version_requested for long and short version flags" {
+  let long_version = parse_ok(["--version"])
+  assert_true(long_version.version_requested)
+
+  let short_version = parse_ok(["-V"])
+  assert_true(short_version.version_requested)
+}
+
+///|
+test "parse_cli_args allows --help to bypass stdin format requirement" {
+  let parsed = parse_ok(["--help", "--stdin"])
+  assert_true(parsed.help_requested)
+  assert_true(parsed.read_stdin)
+}
+
+///|
+test "parse_cli_args allows --version to bypass stdin format requirement" {
+  let parsed = parse_ok(["--version", "--stdin"])
+  assert_true(parsed.version_requested)
+  assert_true(parsed.read_stdin)
+}
+
+///|
 test "parse_cli_args uses default config path when --config has no value" {
   let parsed = parse_ok(["--config", "--stdout"])
   assert_eq(parsed.config_path, Some(DEFAULT_CONFIG_PATH))

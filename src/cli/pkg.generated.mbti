@@ -92,6 +92,8 @@ pub impl @debug.Debug for CliParseError
 pub struct CliParseResult {
   mut config_path : String?
   input_globs : Array[String]
+  mut help_requested : Bool
+  mut version_requested : Bool
   mut read_stdin : Bool
   mut input_format : CliInputFormat?
   output_targets : Array[CliOutputTarget]
@@ -102,7 +104,7 @@ pub struct CliParseResult {
   mut low_memory_unused : Bool?
   mut low_memory_bound : UInt64?
 }
-pub fn CliParseResult::new(config_path? : String?, input_globs? : Array[String], read_stdin? : Bool, input_format? : CliInputFormat?, output_targets? : Array[CliOutputTarget], pass_flags? : Array[String], optimize_flags? : Array[CliOptimizationFlag], trap_mode? : TrapMode?, monomorphize_min_benefit? : Int?, low_memory_unused? : Bool?, low_memory_bound? : UInt64?) -> Self
+pub fn CliParseResult::new(config_path? : String?, input_globs? : Array[String], help_requested? : Bool, version_requested? : Bool, read_stdin? : Bool, input_format? : CliInputFormat?, output_targets? : Array[CliOutputTarget], pass_flags? : Array[String], optimize_flags? : Array[CliOptimizationFlag], trap_mode? : TrapMode?, monomorphize_min_benefit? : Int?, low_memory_unused? : Bool?, low_memory_bound? : UInt64?) -> Self
 pub impl Eq for CliParseResult
 pub impl Show for CliParseResult
 pub impl @debug.Debug for CliParseResult

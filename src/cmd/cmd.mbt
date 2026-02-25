@@ -130,6 +130,9 @@ pub fn CmdRunSummary::new(
 }
 
 ///|
+const CMD_VERSION : String = "v0.1.0"
+
+///|
 fn ascii_lower(input : String) -> String {
   let out = StringBuilder::new()
   for c in input {
@@ -1009,96 +1012,481 @@ fn make_optimize_options(
 }
 
 ///|
+fn explicit_pass_entries() -> Array[(String, String, ModulePass)] {
+  [
+    (
+      "alignment-lowering",
+      "Lower alignment-heavy forms to simpler ops.",
+      ModulePass::AlignmentLowering,
+    ),
+    (
+      "avoid-reinterprets",
+      "Reduce reinterpret traffic when equivalent forms exist.",
+      ModulePass::AvoidReinterprets,
+    ),
+    (
+      "coalesce-locals",
+      "Pack local usage to reduce local count and churn.",
+      ModulePass::CoalesceLocals,
+    ),
+    (
+      "code-folding",
+      "Fold structurally equivalent code fragments.",
+      ModulePass::CodeFolding,
+    ),
+    (
+      "code-pushing",
+      "Push expressions toward optimal use sites.",
+      ModulePass::CodePushing,
+    ),
+    (
+      "const-hoisting",
+      "Hoist duplicated constants for reuse.",
+      ModulePass::ConstHoisting,
+    ),
+    (
+      "constant-field-propagation",
+      "Propagate known field constants across accesses.",
+      ModulePass::ConstantFieldPropagation,
+    ),
+    (
+      "dataflow-optimization",
+      "General dataflow simplification and cleanup.",
+      ModulePass::DataflowOptimization,
+    ),
+    (
+      "dead-code-elimination",
+      "Remove instructions proven unreachable or unused.",
+      ModulePass::DeadCodeElimination,
+    ),
+    (
+      "dead-argument-elimination",
+      "Drop function params that are never consumed.",
+      ModulePass::DeadArgumentElimination,
+    ),
+    (
+      "signature-pruning",
+      "Remove unneeded type signature details.",
+      ModulePass::SignaturePruning,
+    ),
+    (
+      "signature-refining",
+      "Tighten function signatures based on observed use.",
+      ModulePass::SignatureRefining,
+    ),
+    (
+      "duplicate-import-elimination",
+      "Merge duplicate imports with identical meaning.",
+      ModulePass::DuplicateImportElimination,
+    ),
+    (
+      "global-refining",
+      "Specialize globals using propagated facts.",
+      ModulePass::GlobalRefining,
+    ),
+    (
+      "global-struct-inference",
+      "Infer stronger global struct value shapes.",
+      ModulePass::GlobalStructInference,
+    ),
+    (
+      "global-struct-inference-desc-cast",
+      "Lower conservative global descriptor casts.",
+      ModulePass::GlobalStructInferenceDescCast,
+    ),
+    (
+      "global-type-optimization",
+      "Optimize global type forms and annotations.",
+      ModulePass::GlobalTypeOptimization,
+    ),
+    (
+      "simplify-globals",
+      "Simplify global initializers and access patterns.",
+      ModulePass::SimplifyGlobals,
+    ),
+    (
+      "simplify-globals-optimizing",
+      "Run aggressive global simplification strategy.",
+      ModulePass::SimplifyGlobalsOptimizing,
+    ),
+    (
+      "global-effects",
+      "Analyze and reduce cross-global side effects.",
+      ModulePass::GlobalEffects,
+    ),
+    (
+      "propagate-globals-globally",
+      "Propagate global values across module scope.",
+      ModulePass::PropagateGlobalsGlobally,
+    ),
+    (
+      "type-refining",
+      "Refine IR types toward more specific values.",
+      ModulePass::TypeRefining,
+    ),
+    (
+      "type-generalizing",
+      "Generalize types where canonical forms help later passes.",
+      ModulePass::TypeGeneralizing,
+    ),
+    (
+      "type-finalizing",
+      "Finalize type info for lowered output stages.",
+      ModulePass::TypeFinalizing,
+    ),
+    (
+      "type-un-finalizing",
+      "Undo over-finalized type forms for rewrites.",
+      ModulePass::TypeUnFinalizing,
+    ),
+    (
+      "unsubtyping",
+      "Replace subtype-heavy forms with simpler supertypes.",
+      ModulePass::Unsubtyping,
+    ),
+    (
+      "heap2local",
+      "Sink eligible heap traffic into locals.",
+      ModulePass::Heap2Local,
+    ),
+    (
+      "heap-store-optimization",
+      "Optimize heap store order and redundancy.",
+      ModulePass::HeapStoreOptimization,
+    ),
+    ("inlining", "Inline eligible call sites.", ModulePass::Inlining),
+    (
+      "inlining-optimizing",
+      "Inline with optimization-biased heuristics.",
+      ModulePass::InliningOptimizing,
+    ),
+    (
+      "inline-main",
+      "Inline transitive calls from the primary entrypoint.",
+      ModulePass::InlineMain,
+    ),
+    (
+      "local-cse",
+      "Eliminate repeated local computations.",
+      ModulePass::LocalCSE,
+    ),
+    (
+      "local-subtyping",
+      "Improve local types using subtype relations.",
+      ModulePass::LocalSubtyping,
+    ),
+    (
+      "loop-invariant-code-motion",
+      "Move loop-invariant work out of loops.",
+      ModulePass::LoopInvariantCodeMotion,
+    ),
+    (
+      "merge-locals",
+      "Merge compatible locals to reduce state.",
+      ModulePass::MergeLocals,
+    ),
+    (
+      "merge-similar-functions",
+      "Merge functions with equivalent structure.",
+      ModulePass::MergeSimilarFunctions,
+    ),
+    (
+      "merge-blocks",
+      "Combine adjacent compatible blocks.",
+      ModulePass::MergeBlocks,
+    ),
+    (
+      "flatten",
+      "Flatten nested control flow where possible.",
+      ModulePass::Flatten,
+    ),
+    (
+      "re-reloop",
+      "Rebuild loop/branch structure into cleaner regions.",
+      ModulePass::ReReloop,
+    ),
+    (
+      "tuple-optimization",
+      "Optimize tuple construction and projection.",
+      ModulePass::TupleOptimization,
+    ),
+    (
+      "once-reduction",
+      "Collapse operations used once into direct forms.",
+      ModulePass::OnceReduction,
+    ),
+    (
+      "minimize-rec-groups",
+      "Shrink recursive type/function groups.",
+      ModulePass::MinimizeRecGroups,
+    ),
+    (
+      "type-merging",
+      "Merge equivalent type definitions.",
+      ModulePass::TypeMerging,
+    ),
+    (
+      "monomorphize",
+      "Specialize polymorphic call paths on demand.",
+      ModulePass::Monomorphize,
+    ),
+    (
+      "monomorphize-always",
+      "Force broad monomorphization for all candidates.",
+      ModulePass::MonomorphizeAlways,
+    ),
+    (
+      "optimize-added-constants",
+      "Combine and simplify additive constant math.",
+      ModulePass::OptimizeAddedConstants,
+    ),
+    (
+      "optimize-added-constants-propagate",
+      "Propagate combined additive constants.",
+      ModulePass::OptimizeAddedConstantsPropagate,
+    ),
+    (
+      "optimize-instructions",
+      "Local instruction peephole simplifications.",
+      ModulePass::OptimizeInstructions,
+    ),
+    (
+      "precompute",
+      "Evaluate pure compile-time expressions early.",
+      ModulePass::Precompute,
+    ),
+    (
+      "precompute-propagate",
+      "Propagate precomputed values through uses.",
+      ModulePass::PrecomputePropagate,
+    ),
+    (
+      "redundant-set-elimination",
+      "Remove redundant set operations.",
+      ModulePass::RedundantSetElimination,
+    ),
+    (
+      "pick-load-signs",
+      "Choose best signedness for load operations.",
+      ModulePass::PickLoadSigns,
+    ),
+    (
+      "gufa",
+      "Run global unreferenced-function analysis cleanup.",
+      ModulePass::GUFA,
+    ),
+    (
+      "gufa-optimizing",
+      "Run aggressive GUFA cleanup mode.",
+      ModulePass::GUFAOptimizing,
+    ),
+    (
+      "gufa-cast-all",
+      "Apply GUFA-driven cast insertion broadly.",
+      ModulePass::GUFACastAll,
+    ),
+    (
+      "i64-to-i32-lowering",
+      "Lower i64-heavy forms to i32-safe patterns.",
+      ModulePass::I64ToI32Lowering,
+    ),
+    (
+      "duplicate-function-elimination",
+      "Deduplicate equivalent function bodies.",
+      ModulePass::DuplicateFunctionElimination,
+    ),
+    (
+      "optimize-casts",
+      "Simplify and remove unnecessary casts.",
+      ModulePass::OptimizeCasts,
+    ),
+    (
+      "de-nan",
+      "Canonicalize NaN behavior for optimization stability.",
+      ModulePass::DeNaN,
+    ),
+    (
+      "remove-unused-brs",
+      "Remove never-targeted branch constructs.",
+      ModulePass::RemoveUnusedBrs,
+    ),
+    (
+      "remove-unused-names",
+      "Strip unused debug and symbol names.",
+      ModulePass::RemoveUnusedNames,
+    ),
+    (
+      "simplify-locals",
+      "General local get/set simplification.",
+      ModulePass::SimplifyLocals,
+    ),
+    (
+      "simplify-locals-no-tee",
+      "Simplify locals without introducing tee_local.",
+      ModulePass::SimplifyLocalsNoTee,
+    ),
+    (
+      "simplify-locals-no-structure",
+      "Simplify locals without structural rewrites.",
+      ModulePass::SimplifyLocalsNoStructure,
+    ),
+    (
+      "simplify-locals-no-tee-no-structure",
+      "Simplify locals with both tee and structure disabled.",
+      ModulePass::SimplifyLocalsNoTeeNoStructure,
+    ),
+    (
+      "simplify-locals-no-nesting",
+      "Simplify locals while avoiding nested expressions.",
+      ModulePass::SimplifyLocalsNoNesting,
+    ),
+    ("untee", "Remove tee patterns into explicit locals.", ModulePass::Untee),
+    (
+      "vacuum",
+      "Run final canonical cleanup and dead-node sweep.",
+      ModulePass::Vacuum,
+    ),
+    (
+      "reorder-locals",
+      "Reorder locals for compact encoding.",
+      ModulePass::ReorderLocals,
+    ),
+    ("reorder-types", "Reorder type section entries.", ModulePass::ReorderTypes),
+    (
+      "reorder-globals",
+      "Reorder globals for deterministic layout.",
+      ModulePass::ReorderGlobals,
+    ),
+    (
+      "reorder-globals-always",
+      "Force global reordering regardless of heuristics.",
+      ModulePass::ReorderGlobalsAlways,
+    ),
+    (
+      "reorder-functions",
+      "Reorder functions for code quality goals.",
+      ModulePass::ReorderFunctions,
+    ),
+    (
+      "reorder-functions-by-name",
+      "Reorder functions lexicographically by name.",
+      ModulePass::ReorderFunctionsByName,
+    ),
+    (
+      "remove-unused-types",
+      "Drop type definitions with no remaining uses.",
+      ModulePass::RemoveUnusedTypes,
+    ),
+    (
+      "remove-unused",
+      "Remove unused module items broadly.",
+      ModulePass::RemoveUnused,
+    ),
+    (
+      "remove-unused-module-elements",
+      "Remove dead module-level elements.",
+      ModulePass::RemoveUnusedModuleElements,
+    ),
+    (
+      "remove-unused-non-function-elements",
+      "Remove dead non-function module items.",
+      ModulePass::RemoveUnusedNonFunctionElements,
+    ),
+  ]
+}
+
+///|
 fn resolve_explicit_pass(flag : String) -> ModulePass? {
-  match flag {
-    "alignment-lowering" => Some(ModulePass::AlignmentLowering)
-    "avoid-reinterprets" => Some(ModulePass::AvoidReinterprets)
-    "coalesce-locals" => Some(ModulePass::CoalesceLocals)
-    "code-folding" => Some(ModulePass::CodeFolding)
-    "code-pushing" => Some(ModulePass::CodePushing)
-    "const-hoisting" => Some(ModulePass::ConstHoisting)
-    "constant-field-propagation" => Some(ModulePass::ConstantFieldPropagation)
-    "dataflow-optimization" => Some(ModulePass::DataflowOptimization)
-    "dead-code-elimination" => Some(ModulePass::DeadCodeElimination)
-    "dead-argument-elimination" => Some(ModulePass::DeadArgumentElimination)
-    "signature-pruning" => Some(ModulePass::SignaturePruning)
-    "signature-refining" => Some(ModulePass::SignatureRefining)
-    "duplicate-import-elimination" =>
-      Some(ModulePass::DuplicateImportElimination)
-    "global-refining" => Some(ModulePass::GlobalRefining)
-    "global-struct-inference" => Some(ModulePass::GlobalStructInference)
-    "global-struct-inference-desc-cast" =>
-      Some(ModulePass::GlobalStructInferenceDescCast)
-    "global-type-optimization" => Some(ModulePass::GlobalTypeOptimization)
-    "simplify-globals" => Some(ModulePass::SimplifyGlobals)
-    "simplify-globals-optimizing" => Some(ModulePass::SimplifyGlobalsOptimizing)
-    "global-effects" => Some(ModulePass::GlobalEffects)
-    "propagate-globals-globally" => Some(ModulePass::PropagateGlobalsGlobally)
-    "type-refining" => Some(ModulePass::TypeRefining)
-    "type-generalizing" => Some(ModulePass::TypeGeneralizing)
-    "type-finalizing" => Some(ModulePass::TypeFinalizing)
-    "type-un-finalizing" => Some(ModulePass::TypeUnFinalizing)
-    "unsubtyping" => Some(ModulePass::Unsubtyping)
-    "heap2local" => Some(ModulePass::Heap2Local)
-    "heap-store-optimization" => Some(ModulePass::HeapStoreOptimization)
-    "inlining" => Some(ModulePass::Inlining)
-    "inlining-optimizing" => Some(ModulePass::InliningOptimizing)
-    "inline-main" => Some(ModulePass::InlineMain)
-    "local-cse" => Some(ModulePass::LocalCSE)
-    "local-subtyping" => Some(ModulePass::LocalSubtyping)
-    "loop-invariant-code-motion" => Some(ModulePass::LoopInvariantCodeMotion)
-    "merge-locals" => Some(ModulePass::MergeLocals)
-    "merge-similar-functions" => Some(ModulePass::MergeSimilarFunctions)
-    "merge-blocks" => Some(ModulePass::MergeBlocks)
-    "flatten" => Some(ModulePass::Flatten)
-    "re-reloop" => Some(ModulePass::ReReloop)
-    "tuple-optimization" => Some(ModulePass::TupleOptimization)
-    "once-reduction" => Some(ModulePass::OnceReduction)
-    "minimize-rec-groups" => Some(ModulePass::MinimizeRecGroups)
-    "type-merging" => Some(ModulePass::TypeMerging)
-    "monomorphize" => Some(ModulePass::Monomorphize)
-    "monomorphize-always" => Some(ModulePass::MonomorphizeAlways)
-    "optimize-added-constants" => Some(ModulePass::OptimizeAddedConstants)
-    "optimize-added-constants-propagate" =>
-      Some(ModulePass::OptimizeAddedConstantsPropagate)
-    "optimize-instructions" => Some(ModulePass::OptimizeInstructions)
-    "precompute" => Some(ModulePass::Precompute)
-    "precompute-propagate" => Some(ModulePass::PrecomputePropagate)
-    "redundant-set-elimination" => Some(ModulePass::RedundantSetElimination)
-    "pick-load-signs" => Some(ModulePass::PickLoadSigns)
-    "gufa" => Some(ModulePass::GUFA)
-    "gufa-optimizing" => Some(ModulePass::GUFAOptimizing)
-    "gufa-cast-all" => Some(ModulePass::GUFACastAll)
-    "i64-to-i32-lowering" => Some(ModulePass::I64ToI32Lowering)
-    "duplicate-function-elimination" =>
-      Some(ModulePass::DuplicateFunctionElimination)
-    "optimize-casts" => Some(ModulePass::OptimizeCasts)
-    "de-nan" => Some(ModulePass::DeNaN)
-    "remove-unused-brs" => Some(ModulePass::RemoveUnusedBrs)
-    "remove-unused-names" => Some(ModulePass::RemoveUnusedNames)
-    "simplify-locals" => Some(ModulePass::SimplifyLocals)
-    "simplify-locals-no-tee" => Some(ModulePass::SimplifyLocalsNoTee)
-    "simplify-locals-no-structure" =>
-      Some(ModulePass::SimplifyLocalsNoStructure)
-    "simplify-locals-no-tee-no-structure" =>
-      Some(ModulePass::SimplifyLocalsNoTeeNoStructure)
-    "simplify-locals-no-nesting" => Some(ModulePass::SimplifyLocalsNoNesting)
-    "untee" => Some(ModulePass::Untee)
-    "vacuum" => Some(ModulePass::Vacuum)
-    "reorder-locals" => Some(ModulePass::ReorderLocals)
-    "reorder-types" => Some(ModulePass::ReorderTypes)
-    "reorder-globals" => Some(ModulePass::ReorderGlobals)
-    "reorder-globals-always" => Some(ModulePass::ReorderGlobalsAlways)
-    "reorder-functions" => Some(ModulePass::ReorderFunctions)
-    "reorder-functions-by-name" => Some(ModulePass::ReorderFunctionsByName)
-    "remove-unused-types" => Some(ModulePass::RemoveUnusedTypes)
-    "remove-unused" => Some(ModulePass::RemoveUnused)
-    "remove-unused-module-elements" =>
-      Some(ModulePass::RemoveUnusedModuleElements)
-    "remove-unused-non-function-elements" =>
-      Some(ModulePass::RemoveUnusedNonFunctionElements)
-    _ => None
+  for entry in explicit_pass_entries() {
+    if entry.0 == flag {
+      return Some(entry.2)
+    }
   }
+  None
+}
+
+///|
+fn string_to_bytes(text : String) -> Bytes {
+  let buf = @buffer.new(size_hint=text.length())
+  for c in text {
+    buf.write_byte(c.to_int().to_byte())
+  }
+  buf.to_bytes()
+}
+
+///|
+fn append_help_line(out : StringBuilder, flag : String, desc : String) -> Unit {
+  for c in "  \{flag}\n      \{desc}\n" {
+    out.write_char(c)
+  }
+}
+
+///|
+pub fn cmd_version_text() -> String {
+  CMD_VERSION
+}
+
+///|
+pub fn cmd_help_text() -> String {
+  let out = StringBuilder::new()
+  for
+    c in "Starshine Wasm Binary Toolkit \{cmd_version_text()}\nFast parsing, validation, optimization, and rewriting for Wasm modules.\n\nUsage:\n  starshine [flags] [passes] <input...>\n\nFlags and options:\n" {
+    out.write_char(c)
+  }
+  append_help_line(out, "-h, --help", "Show this help text.")
+  append_help_line(out, "-V, --version", "Show CLI version.")
+  append_help_line(
+    out, "--", "Stop option parsing; remaining args are input paths.",
+  )
+  append_help_line(
+    out, "-c, --config[=PATH]", "Load config JSON, defaulting to starshine.config.json when no PATH is given.",
+  )
+  append_help_line(out, "--stdin", "Read one module from stdin.")
+  append_help_line(
+    out, "--format <wasm|wat|wast>", "Set input format, required with --stdin.",
+  )
+  append_help_line(out, "-s, --stdout", "Write optimized wasm bytes to stdout.")
+  append_help_line(
+    out, "-o, --out <PATH>", "Write output to a single file path.",
+  )
+  append_help_line(
+    out, "-d, --out-dir <DIR>", "Write outputs to a directory, preserving per-input basenames.",
+  )
+  append_help_line(
+    out, "--optimize", "Apply the default optimization preset pipeline.",
+  )
+  append_help_line(
+    out, "--shrink", "Apply the default size-oriented shrink preset pipeline.",
+  )
+  append_help_line(
+    out, "-O[level][z]", "Set optimization level; optional trailing z applies size bias.",
+  )
+  append_help_line(out, "--optimize-level <N>", "Set explicit optimize level.")
+  append_help_line(out, "--shrink-level <N>", "Set explicit shrink level.")
+  append_help_line(
+    out, "--trap-mode <allow|never>", "Control whether optimizations assume traps may happen.",
+  )
+  append_help_line(out, "--traps-never-happen", "Alias for --trap-mode never.")
+  append_help_line(out, "--traps-may-happen", "Alias for --trap-mode allow.")
+  append_help_line(
+    out, "--monomorphize-min-benefit <N>", "Set monomorphization benefit threshold.",
+  )
+  append_help_line(
+    out, "--low-memory-unused", "Enable low-memory-unused optimization mode.",
+  )
+  append_help_line(
+    out, "--no-low-memory-unused", "Disable low-memory-unused optimization mode.",
+  )
+  append_help_line(
+    out, "--low-memory-bound <N>", "Set low-memory optimization bound in bytes.",
+  )
+  for c in "\nPasses (use as --<name>):\n" {
+    out.write_char(c)
+  }
+  for entry in explicit_pass_entries() {
+    append_help_line(out, "--\{entry.0}", entry.1)
+  }
+  out.to_string()
 }
 
 ///|
@@ -1255,6 +1643,22 @@ pub fn run_cmd_with_adapter(
   let cli = match parse_cli_args(args, starshine_input~) {
     Ok(parsed) => parsed
     Err(e) => return Err(CmdError::CliParse(e))
+  }
+  if cli.help_requested {
+    let help = string_to_bytes(cmd_help_text())
+    match (io.write_stdout)(help) {
+      Ok(_) => return Ok(CmdRunSummary::new())
+      Err(e) =>
+        return Err(CmdError::OutputWriteFailed("stdout for --help: \{e}"))
+    }
+  }
+  if cli.version_requested {
+    let version = string_to_bytes("\{cmd_version_text()}\n")
+    match (io.write_stdout)(version) {
+      Ok(_) => return Ok(CmdRunSummary::new())
+      Err(e) =>
+        return Err(CmdError::OutputWriteFailed("stdout for --version: \{e}"))
+    }
   }
 
   let config = match config_json {
