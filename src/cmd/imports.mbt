@@ -1,5 +1,11 @@
 ///|
-using @binary {trait Decode, trait Encode}
+using @binary {
+  trait Encode,
+  decode_module,
+  encode_module,
+  type DecodeError,
+  type EncodeError,
+}
 
 ///|
 using @cli {

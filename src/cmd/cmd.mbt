@@ -1148,14 +1148,16 @@ fn decode_module_for_pipeline(
   path : String,
   bytes : Bytes,
 ) -> Result[Module, CmdError] {
-  match Decode::decode(bytes, 0) {
-    Ok((mod, idx)) =>
-      if idx == bytes.length() {
-        Ok(mod)
-      } else {
-        Err(CmdError::DecodeFailed("\{path}: trailing bytes after module body"))
-      }
-    Err(e) => Err(CmdError::DecodeFailed("\{path}: \{e}"))
+  match decode_module(bytes) {
+    Ok(mod) => Ok(mod)
+    Err(DecodeError::Decode(err)) =>
+      Err(CmdError::DecodeFailed("\{path}: \{err}"))
+    Err(DecodeError::TrailingBytes(decoded, total)) =>
+      Err(
+        CmdError::DecodeFailed(
+          "\{path}: trailing bytes after module body (decoded \{decoded} of \{total})",
+        ),
+      )
   }
 }
 
@@ -1164,10 +1166,10 @@ fn encode_module_for_pipeline(
   path : String,
   mod : Module,
 ) -> Result[Bytes, CmdError] {
-  let buf = @buffer.new()
-  match Encode::encode(mod, buf) {
-    Ok(_) => Ok(buf.to_bytes())
-    Err(e) => Err(CmdError::EncodeFailed("\{path}: \{e}"))
+  match encode_module(mod) {
+    Ok(bytes) => Ok(bytes)
+    Err(EncodeError::Encode(err)) =>
+      Err(CmdError::EncodeFailed("\{path}: \{err}"))
   }
 }
 

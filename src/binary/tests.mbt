@@ -90,6 +90,69 @@ test "binary codec errors derive eq show debug" {
 }
 
 ///|
+test "module codec wrapper errors derive eq show debug" {
+  let enc = EncodeError::Encode(BinaryEncodeError::CannotEncodeBottomValType)
+  let dec = DecodeError::Decode(BinaryDecodeError::InvalidModule)
+  let trailing = DecodeError::TrailingBytes(1, 2)
+  assert_eq(
+    enc,
+    EncodeError::Encode(BinaryEncodeError::CannotEncodeBottomValType),
+  )
+  assert_eq(dec, DecodeError::Decode(BinaryDecodeError::InvalidModule))
+  assert_eq(trailing, DecodeError::TrailingBytes(1, 2))
+  inspect(enc, content="Encode(CannotEncodeBottomValType)")
+  inspect(dec, content="Decode(InvalidModule)")
+  inspect(trailing, content="TrailingBytes(1, 2)")
+  debug_inspect(enc, content="Encode(CannotEncodeBottomValType)")
+  debug_inspect(dec, content="Decode(InvalidModule)")
+  debug_inspect(trailing, content="TrailingBytes(1, 2)")
+}
+
+///|
+test "decode_module wraps decode success and malformed extra bytes as decode errors" {
+  let mod = Module::new()
+  let wasm = match encode_module(mod) {
+    Ok(bytes) => bytes
+    Err(e) => fail("expected wrapper encode success: \{e}")
+  }
+  match decode_module(wasm) {
+    Ok(decoded) => assert_eq(decoded, mod)
+    Err(e) => fail("expected wrapper decode success: \{e}")
+  }
+  let trailing = b"\x00\x61\x73\x6d\x01\x00\x00\x00\x00"
+  match decode_module(trailing) {
+    Ok(_) => fail("expected malformed extra-bytes decode failure")
+    Err(DecodeError::Decode(BinaryDecodeError::UnexpectedEofInUnsignedLeb)) =>
+      ()
+    Err(e) => fail("expected decode-error variant, got \{e}")
+  }
+}
+
+///|
+test "decode_module wraps decode failure variant" {
+  match decode_module(b"not-wasm") {
+    Ok(_) => fail("expected decode wrapper failure")
+    Err(DecodeError::Decode(err)) =>
+      assert_eq(err, BinaryDecodeError::InvalidMagicHeader)
+    Err(e) => fail("expected decode-error variant, got \{e}")
+  }
+}
+
+///|
+test "encode_module wraps encode failure variant" {
+  let bad = Module::new().with_type_sec(
+    TypeSec::new([
+      RecType::new(SubType::comp_type(CompType::func([ValType::bottom()], []))),
+    ]),
+  )
+  match encode_module(bad) {
+    Ok(_) => fail("expected encode wrapper failure")
+    Err(EncodeError::Encode(err)) =>
+      assert_eq(err, BinaryEncodeError::CannotEncodeBottomValType)
+  }
+}
+
+///|
 test "uleb roundtrip u33" {
   let vals : Array[UInt64] = [0, 1, 127, 128, 129, 0xffff, 0xffffffff]
   for v in vals {

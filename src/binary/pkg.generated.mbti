@@ -9,6 +9,10 @@ import {
 }
 
 // Values
+pub fn decode_module(Bytes) -> Result[@lib.Module, DecodeError]
+
+pub fn encode_module(@lib.Module) -> Result[Bytes, EncodeError]
+
 pub fn size_signed(Int64, Int) -> Result[Int, BinaryEncodeError]
 
 pub fn size_unsigned(UInt64, Int) -> Result[Int, BinaryEncodeError]
@@ -83,6 +87,21 @@ pub suberror BinaryEncodeError {
 pub impl Eq for BinaryEncodeError
 pub impl Show for BinaryEncodeError
 pub impl @debug.Debug for BinaryEncodeError
+
+pub suberror DecodeError {
+  Decode(BinaryDecodeError)
+  TrailingBytes(Int, Int)
+}
+pub impl Eq for DecodeError
+pub impl Show for DecodeError
+pub impl @debug.Debug for DecodeError
+
+pub suberror EncodeError {
+  Encode(BinaryEncodeError)
+}
+pub impl Eq for EncodeError
+pub impl Show for EncodeError
+pub impl @debug.Debug for EncodeError
 
 // Types and methods
 

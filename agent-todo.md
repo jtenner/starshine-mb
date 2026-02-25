@@ -1,19 +1,19 @@
 # Agent Tasks
 
-## Goal
-Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full native CLI, spec-test passing validator+optimizer, clean public API, and maintainable codebase.
-
 ## Blockers
 - [x] Native default text lowering still depends on external tools (`wat2wasm` / `wasm-tools parse`); environments without either tool cannot lower `.wat` / `.wast` via `run_cmd`.
 - [x] In-process fallback is blocked by missing lowering bridge from `@wast.Module` (text AST) to binary IR `@lib.Module` (required by `@binary.Encode` in `run_cmd` pipeline).
 
+## Goal
+Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full native CLI, spec-test passing validator+optimizer, clean public API, and maintainable codebase.
+
 ## Metadata
-- Last updated: `2026-02-24`
+- Last updated: `2026-02-25`
 - Scope: Open tasks plus recently completed checkoffs
-- Last audit run: `2026-02-24`
-- `moon fmt`: `Finished. moon: ran 5 tasks, now up to date`
+- Last audit run: `2026-02-25`
+- `moon fmt`: `Finished. moon: ran 6 tasks, now up to date`
 - `moon info`: `Finished. moon: ran 2 tasks, now up to date`
-- `moon test`: `2414` passed, `0` failed
+- `moon test`: `2419` passed, `0` failed
 - `moon test src/cmd --target native`: `17` passed, `0` failed
 - `moon build --target native`: `not run in this audit`
 - `moon coverage analyze`: `11223` uncovered line(s) in `105` file(s)
@@ -28,9 +28,11 @@ Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full
 - [ ] Add focused runtime error-path tests:
   - [x] config read failures.
   - [x] decode failures.
+  - [x] input read failures.
 - [x] Add scheduler-level tests that assert expanded `ModulePass` multiplicity for preset+explicit overlaps (not only resolved flag queue order).
 - [x] Add focused env precedence tests for pass/option overlays after config-fallback changes.
 - [x] Add `--help` and `--version` coverage/polish checks in CLI behavior tests.
+- [ ] Add CLI integration coverage for `CmdError::EncodeFailed` (currently only pipeline helper path is exercised; no end-to-end fixture reaches encode failure after decode+optimize).
 
 ### Text frontend unblock
 - [x] Add `src/wat` package with wat-named API parity backed by `src/wast`.
@@ -53,18 +55,19 @@ Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full
   - [ ] Add temp-local based single-eval lowering path for non-dup-safe `br_table` indices when targets are not directly label-resolvable.
 
 ### Public API gate
-- [ ] Expose clean public API surface for decode/optimize/encode workflows in package exports and README examples.
+- [x] Expose clean public API surface for decode/optimize/encode workflows in package exports and README examples.
 
 ## Priority 1 (Release readiness: correctness + testing)
 
 ### Validation, decoding, and error model
-- [ ] Replace string decode errors with typed `DecodeError` enum.
+- [x] Replace string decode errors with typed `DecodeError` enum.
 - [ ] Mirror enum-based approach for `ValidationError`.
+- [ ] Add richer `DecodeError` variants with source spans (`offset`, `length`) for malformed trailing/section contexts and thread them through `decode_module`.
 - [ ] Add source spans (`offset + length`) to public error types where applicable.
 - [ ] Switch negative tests from string matching to enum assertions.
-- [ ] Expose binary public APIs:
-  - [ ] `decode_module(bytes: Bytes) -> Result[Module, DecodeError]`
-  - [ ] `encode_module(mod: Module) -> Result[Bytes, EncodeError]`
+- [x] Expose binary public APIs:
+  - [x] `decode_module(bytes: Bytes) -> Result[Module, DecodeError]`
+  - [x] `encode_module(mod: Module) -> Result[Bytes, EncodeError]`
 
 ### Correctness test expansion
 - [ ] Integrate official WebAssembly spec test suite in MoonBit pipeline.

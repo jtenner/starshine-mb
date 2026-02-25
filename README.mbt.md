@@ -294,21 +294,35 @@ fn desc_ok() -> Bool {
 
 ```mbt
 pub trait Decode {
-  decode(Bytes, Int) -> Result[(Self, Int), String]
+  decode(Bytes, Int) -> Result[(Self, Int), BinaryDecodeError]
 }
 ```
 
 Decodes a value of type `Self` from a byte buffer starting at `offset`, returning both the decoded value and the new cursor.
 
 ```mbt
-using @lib { type Module }
-using @binary { trait Decode }
+using @lib { type Module, type I32 }
+using @binary { trait Decode, type BinaryDecodeError }
 
-fn decode_module(bytes : Bytes) -> Result[Module, String] {
-  match Decode::decode(bytes, 0) {
-    Ok((mod : Module, _next)) => Ok(mod)
-    Err(e) => Err(e)
-  }
+fn decode_i32(bytes : Bytes, offset : Int) -> Result[(I32, Int), BinaryDecodeError] {
+  Decode::decode(bytes, offset)
+}
+```
+
+#### `decode_module`
+
+```mbt
+pub fn decode_module(bytes : Bytes) -> Result[Module, DecodeError]
+```
+
+Decodes an entire wasm module from offset `0` and rejects trailing bytes.
+
+```mbt
+using @binary { decode_module, type DecodeError }
+using @lib { type Module }
+
+fn decode_whole_module(bytes : Bytes) -> Result[Module, DecodeError] {
+  decode_module(bytes)
 }
 ```
 
@@ -316,17 +330,17 @@ fn decode_module(bytes : Bytes) -> Result[Module, String] {
 
 ```mbt
 pub trait Encode {
-  encode(Self, Buffer) -> Result[Unit, String]
+  encode(Self, Buffer) -> Result[Unit, BinaryEncodeError]
 }
 ```
 
 Encodes a value into a mutable buffer. This is implemented for `Module` and many core AST/value types.
 
 ```mbt
-using @binary { trait Encode }
+using @binary { trait Encode, type BinaryEncodeError }
 using @lib { type Module }
 
-fn encode_module(mod : Module) -> Result[Bytes, String] {
+fn encode_module_into_buffer(mod : Module) -> Result[Bytes, BinaryEncodeError] {
   let buf = @buffer.new()
   match Encode::encode(mod, buf) {
     Ok(()) => Ok(buf.to_bytes())
@@ -335,18 +349,35 @@ fn encode_module(mod : Module) -> Result[Bytes, String] {
 }
 ```
 
+#### `encode_module`
+
+```mbt
+pub fn encode_module(mod : Module) -> Result[Bytes, EncodeError]
+```
+
+Encodes a full module directly to bytes.
+
+```mbt
+using @binary { encode_module, type EncodeError }
+using @lib { type Module }
+
+fn encode_whole_module(mod : Module) -> Result[Bytes, EncodeError] {
+  encode_module(mod)
+}
+```
+
 #### `size_signed`
 
 ```mbt
-pub fn size_signed(value : Int64, bits : Int) -> Result[Int, String]
+pub fn size_signed(value : Int64, bits : Int) -> Result[Int, BinaryEncodeError]
 ```
 
 Returns the encoded signed-LEB128 byte width for `value` constrained by `bits`.
 
 ```mbt
-using @binary { size_signed }
+using @binary { size_signed, type BinaryEncodeError }
 
-fn s33_width(v : Int64) -> Result[Int, String] {
+fn s33_width(v : Int64) -> Result[Int, BinaryEncodeError] {
   size_signed(v, 33)
 }
 ```
@@ -354,15 +385,15 @@ fn s33_width(v : Int64) -> Result[Int, String] {
 #### `size_unsigned`
 
 ```mbt
-pub fn size_unsigned(value : UInt64, bits : Int) -> Result[Int, String]
+pub fn size_unsigned(value : UInt64, bits : Int) -> Result[Int, BinaryEncodeError]
 ```
 
 Returns the encoded unsigned-LEB128 byte width for `value` constrained by `bits`.
 
 ```mbt
-using @binary { size_unsigned }
+using @binary { size_unsigned, type BinaryEncodeError }
 
-fn u32_width(v : UInt64) -> Result[Int, String] {
+fn u32_width(v : UInt64) -> Result[Int, BinaryEncodeError] {
   size_unsigned(v, 32)
 }
 ```
@@ -1262,26 +1293,47 @@ fn validate_core_sections(mod : Module) -> Result[Unit, String] {
 #### Decode + validate + re-encode module bytes
 
 ```mbt
-using @binary { trait Decode, trait Encode }
+using @binary {
+  decode_module,
+  encode_module,
+  type DecodeError,
+  type EncodeError,
+}
 using @lib { type Module }
 using @validate { validate_module }
 
-fn checked_roundtrip(bytes : Bytes) -> Result[Bytes, String] {
-  let (mod : Module, _next) = Decode::decode(bytes, 0)?
-  validate_module(mod)?
-  let out = @buffer.new()
-  Encode::encode(mod, out)?
-  Ok(out.to_bytes())
+suberror CheckedRoundtripError {
+  Decode(DecodeError)
+  Validate(String)
+  Encode(EncodeError)
+}
+
+fn checked_roundtrip(bytes : Bytes) -> Result[Bytes, CheckedRoundtripError] {
+  let mod : Module = match decode_module(bytes) {
+    Ok(m) => m
+    Err(e) => return Err(CheckedRoundtripError::Decode(e))
+  }
+  match validate_module(mod) {
+    Ok(()) => ()
+    Err(e) => return Err(CheckedRoundtripError::Validate(e))
+  }
+  match encode_module(mod) {
+    Ok(out) => Ok(out)
+    Err(e) => Err(CheckedRoundtripError::Encode(e))
+  }
 }
 ```
 
 #### Decode from non-zero offset
 
 ```mbt
-using @binary { trait Decode }
+using @binary { trait Decode, type BinaryDecodeError }
 using @lib { type Module }
 
-fn decode_after_prefix(bytes : Bytes, prefix : Int) -> Result[(Module, Int), String] {
+fn decode_after_prefix(
+  bytes : Bytes,
+  prefix : Int,
+) -> Result[(Module, Int), BinaryDecodeError] {
   Decode::decode(bytes, prefix)
 }
 ```
@@ -1289,10 +1341,10 @@ fn decode_after_prefix(bytes : Bytes, prefix : Int) -> Result[(Module, Int), Str
 #### Encode a single instruction payload
 
 ```mbt
-using @binary { trait Encode }
+using @binary { trait Encode, type BinaryEncodeError }
 using @lib { Instruction }
 
-fn encode_nop() -> Result[Bytes, String] {
+fn encode_nop() -> Result[Bytes, BinaryEncodeError] {
   let buf = @buffer.new()
   Encode::encode(Instruction::nop(), buf)?
   Ok(buf.to_bytes())
@@ -1302,9 +1354,9 @@ fn encode_nop() -> Result[Bytes, String] {
 #### Compute signed/unsigned LEB lengths
 
 ```mbt
-using @binary { size_signed, size_unsigned }
+using @binary { size_signed, size_unsigned, type BinaryEncodeError }
 
-fn leb_sizes() -> Result[(Int, Int), String] {
+fn leb_sizes() -> Result[(Int, Int), BinaryEncodeError] {
   let a = size_signed(-1L, 64)?
   let b = size_unsigned(624485UL, 64)?
   Ok((a, b))
@@ -1314,10 +1366,10 @@ fn leb_sizes() -> Result[(Int, Int), String] {
 #### Decode primitive value types directly
 
 ```mbt
-using @binary { trait Decode }
+using @binary { trait Decode, type BinaryDecodeError }
 using @lib { I32 }
 
-fn decode_i32(bytes : Bytes, off : Int) -> Result[(I32, Int), String] {
+fn decode_i32(bytes : Bytes, off : Int) -> Result[(I32, Int), BinaryDecodeError] {
   Decode::decode(bytes, off)
 }
 ```

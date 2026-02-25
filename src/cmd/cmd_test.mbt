@@ -653,6 +653,29 @@ test "run_cmd_with_adapter reports decode failures with DecodeFailed" {
 }
 
 ///|
+test "run_cmd_with_adapter reports input read failures with InputReadFailed" {
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == "a.wasm" },
+    list_candidates=fn() { ["a.wasm"] },
+    read_file=fn(path) {
+      if path == "a.wasm" {
+        Err("io timeout")
+      } else {
+        Err("missing fixture")
+      }
+    },
+  )
+  match run_cmd_with_adapter(["a.wasm"], io) {
+    Ok(summary) => fail("expected input read failure, got summary \{summary}")
+    Err(CmdError::InputReadFailed(msg)) => {
+      assert_true(msg.contains("a.wasm"))
+      assert_true(msg.contains("io timeout"))
+    }
+    Err(err) => fail("expected InputReadFailed, got \{err}")
+  }
+}
+
+///|
 test "config pass flags take precedence over env pass overlays when cli pass flags are absent" {
   let config_json =
     #|{
