@@ -53,13 +53,17 @@ WASM outputs (stdout/file/out-dir)
 
 ## Benchmark Snapshot
 
+Refresh command: `bash scripts/update_readme_benchmarks.sh`.
+
+<!-- README_BENCHMARK_TABLE_START -->
 Measured on `2026-02-25` in this repository with warm local build cache (`moon test --quiet`, debug profile, `wasm-gc` target). These are smoke/reference numbers, not strict performance guarantees.
 
 | Workload | Command | Wall time |
 | --- | --- | --- |
-| Single CLI pipeline test (`run_cmd_with_adapter runs requested passes for each module`) | `/home/jtenner/.moon/bin/moon test --quiet --package jtenner/starshine/cmd --file cmd_test.mbt --index 5` | `0.556s` |
-| Fuzz harness smoke (`run_wasm_smith_fuzz_harness smoke covers full pipeline`) | `/home/jtenner/.moon/bin/moon test --quiet --package jtenner/starshine/cmd --file fuzz_harness_test.mbt --index 2` | `0.750s` |
-| Full test suite | `/home/jtenner/.moon/bin/moon test --quiet` | `10.937s` |
+| Single CLI pipeline test (`run_cmd_with_adapter runs requested passes for each module`) | `/home/jtenner/.moon/bin/moon test --quiet --package jtenner/starshine/cmd --file cmd_test.mbt --index 5` | `0.557s` |
+| Fuzz harness smoke (`run_wasm_smith_fuzz_harness smoke covers full pipeline`) | `/home/jtenner/.moon/bin/moon test --quiet --package jtenner/starshine/cmd --file fuzz_harness_test.mbt --index 2` | `0.710s` |
+| Full test suite | `/home/jtenner/.moon/bin/moon test --quiet` | `10.158s` |
+<!-- README_BENCHMARK_TABLE_END -->
 
 ## CLI Command Examples
 
@@ -138,6 +142,25 @@ pub fn encode_module(@lib.Module) -> Result[Bytes, EncodeError]
 ```mbti
 pub fn module_to_wast(Module) -> Result[String, String]
 pub fn wast_to_binary_module(String, filename? : String) -> Result[@lib.Module, String]
+```
+
+<!-- README_API_VERIFY src/wat/pkg.generated.mbti -->
+```mbti
+pub fn module_to_wat(@wast.Module) -> Result[String, String]
+pub fn wat_to_module(String, filename? : String) -> Result[@wast.Module, String]
+```
+
+<!-- README_API_VERIFY src/ir/pkg.generated.mbti -->
+```mbti
+pub fn infer_ssa_types(SSACFG, TypeContext) -> SSATypeInfo
+pub fn run_gvn(SSACFG, Map[BlockId, BlockId]) -> SSACFG
+```
+
+<!-- README_API_VERIFY src/transformer/pkg.generated.mbti -->
+```mbti
+pub fn[T, Elem] change(T, Elem) -> Result[(T, Elem)?, String]
+pub fn[T] ModuleTransformer::new() -> Self[T]
+pub fn[T] ModuleTransformer::walk_module(Self[T], T, @lib.Module) -> Result[(T, @lib.Module)?, String]
 ```
 
 <!-- README_API_VERIFY src/cmd/pkg.generated.mbti -->

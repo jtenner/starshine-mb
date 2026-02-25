@@ -1,7 +1,7 @@
 # Agent Tasks
 
 ## Blockers
-- None currently.
+- `--optimize` currently aborts in `coalesce_locals` for several example modules (`simple.wat`, `feature_mix.wat`, `table_dispatch.wat`, `simd_lane_mix.wat`), so broad optimize-preset example sweeps are not yet reliable.
 
 ## Goal
 Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full native CLI, spec-test passing validator+optimizer, clean public API, and maintainable codebase.
@@ -15,6 +15,8 @@ Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full
 - Last audit run: `2026-02-25`
 
 ### Follow-up tasks from latest implementation
+- [ ] Fix `--optimize`/`coalesce_locals` aborts on representative WAT modules (including `examples/modules/simple.wat`, `feature_mix.wat`, `table_dispatch.wat`, `simd_lane_mix.wat`) and add regression coverage.
+- [ ] Make native CLI `main` return non-zero exit status when `run_cmd` returns `Err(...)` so CI and scripts fail fast on pipeline errors.
 - [x] Extend table abbreviation support to additional text forms used in spec files (`(elem func ...)`, typed ref element expressions, and non-zero active offsets where applicable).
 - [x] Add an end-to-end `re_reloop` fixture that exercises non-direct `RRBrTable` targets via module reconstruction (not only helper-level CFG tests) and keeps scratch-local insertion covered.
 - [x] Add explicit parser/lowering behavior coverage for `(tag (export "...") (import ...))` shorthand (diagnostic or supported lowering), matching `func` shorthand rules.
@@ -27,15 +29,14 @@ Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full
 - [x] Decide and document parser behavior for `(func (export "...") (import ...))` shorthand; add explicit parse/lowering diagnostics or support tests.
 - [x] Add lowering + validation regression tests for table abbreviation semantics (implicit active elem segment index ordering with explicit `(elem ...)` segments).
 - [x] Add direct parser/lowering regression tests for legacy invalid-label diagnostics (`delegate` depth/name targets and `rethrow` catch-depth checks), independent of spec-harness fixtures.
-- [ ] Add a lightweight corpus/minimizer flow for fuzz-harness failures (persist failing wasm + seed + pass set for deterministic repro).
-- [ ] Tune/replace `gen_valid_module` candidate generation for harness throughput so fewer candidates are discarded before the 100k valid target.
+- [x] Add a lightweight corpus/minimizer flow for fuzz-harness failures (persist failing wasm + seed + pass set for deterministic repro).
 - [ ] Implement full typed-heap value-type modeling in `wast` AST/lowering (`(ref $t)`/`(ref null $t)` to concrete `TypeIdx` refs), replacing current abstract-funcref approximation.
 - [x] Add focused tests for `try_table` catch label-depth semantics covering numeric and named labels across nested blocks plus implicit function-return label resolution.
 - [x] Add explicit regression tests for inline exports across `func`/`table`/`memory`/`global` fields to lock in the shared inline-export lowering path.
-- [ ] Replace conservative legacy-exception lowering with semantic-preserving lowering to `try_table`/`throw_ref` (current path is static-validation oriented).
-- [ ] Add a native-target CI lane that executes `examples/` CLI workflows end-to-end (`wat` input -> optimize -> wasm output) to keep docs/examples executable in automation.
-- [ ] Add a small benchmark script to refresh the README benchmark table from reproducible `moon test` invocations instead of manual copy/update.
-- [ ] Extend README API signature guardrail blocks to include `ir`/`transformer`/`wat` once those sections are finalized for long-term stability.
+- [x] Add a native-target CI lane that executes `examples/` CLI workflows end-to-end (`wat` input -> optimize -> wasm output) to keep docs/examples executable in automation.
+- [x] Add a small benchmark script to refresh the README benchmark table from reproducible `moon test` invocations instead of manual copy/update.
+- [x] Extend README API signature guardrail blocks to include `ir`/`transformer`/`wat` once those sections are finalized for long-term stability.
+- [x] Add at least three additional `examples/modules/*.wat` programs demonstrating distinct features (table `call_indirect`, SIMD lane ops, memory64 data offsets).
 
 ### Release quality gates
 - [x] Add differential testing vs `wasm-tools` / Binaryen.
@@ -56,3 +57,5 @@ Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full
 - [ ] Broad Binaryen pass parity backlog (medium/low priority pass list)
 - [ ] Large refactors: file splits (`typecheck`/`env`/`transformer`/`optimize`/`remove_unused`/`parser`) and `decode_instruction` helper decomposition
 - [ ] Long-horizon platform/features: Component Model/WIT, streaming decoder API, custom sections/source maps, plugin system
+- [ ] Replace conservative legacy-exception lowering with semantic-preserving lowering to `try_table`/`throw_ref` (current path is static-validation oriented).
+- [ ] Tune/replace `gen_valid_module` candidate generation for harness throughput so fewer candidates are discarded before the 100k valid target.

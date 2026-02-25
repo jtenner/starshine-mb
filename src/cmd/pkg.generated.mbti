@@ -12,15 +12,21 @@ import {
 // Values
 pub fn differential_validate_wasm(Bytes, adapters? : DifferentialAdapters) -> Result[DifferentialValidationReport, String]
 
+pub fn minimize_fuzz_passes(Array[String], (Array[String]) -> Bool) -> Array[String]
+
 pub fn native_differential_tools_available() -> (Bool, Bool)
+
+pub fn persist_fuzz_failure_report(FuzzFailureReport, FuzzFailurePersistIO, corpus_dir? : String) -> Result[(String, String?), String]
 
 pub fn run_cmd(Array[String]) -> Result[CmdRunSummary, CmdError]
 
 pub fn run_cmd_with_adapter(Array[String], CmdIO, config_json? : String?) -> Result[CmdRunSummary, CmdError]
 
-pub fn run_wasm_smith_fuzz_harness(Int, seed? : UInt64, optimize_passes? : Array[@passes.ModulePass], differential_adapters? : DifferentialAdapters?, differential_every? : Int) -> Result[WasmSmithFuzzStats, String]
+pub fn run_wasm_smith_fuzz_harness(Int, seed? : UInt64, optimize_passes? : Array[@passes.ModulePass], optimize_pass_names? : Array[String]?, differential_adapters? : DifferentialAdapters?, differential_every? : Int, on_failure? : ((FuzzFailureReport) -> Result[Unit, String])?) -> Result[WasmSmithFuzzStats, String]
 
 pub fn verify_readme_api_signatures(String, Array[(String, String)]) -> Result[Unit, String]
+
+pub fn verify_readme_api_signatures_with_required_blocks(String, Array[(String, String)], Array[String]) -> Result[Unit, String]
 
 // Errors
 pub suberror CmdEncodeError {
@@ -97,6 +103,27 @@ pub struct DifferentialValidationReport {
 pub impl Eq for DifferentialValidationReport
 pub impl Show for DifferentialValidationReport
 pub impl @debug.Debug for DifferentialValidationReport
+
+pub struct FuzzFailurePersistIO {
+  ensure_dir : (String) -> Result[Unit, String]
+  write_file : (String, Bytes) -> Result[Unit, String]
+}
+pub fn FuzzFailurePersistIO::new(ensure_dir? : (String) -> Result[Unit, String], write_file? : (String, Bytes) -> Result[Unit, String]) -> Self
+
+pub struct FuzzFailureReport {
+  seed : UInt64
+  attempt : Int
+  generated_valid : Int
+  stage : String
+  message : String
+  optimize_passes : Array[String]
+  minimized_passes : Array[String]
+  wasm : Bytes?
+}
+pub fn FuzzFailureReport::new(UInt64, Int, Int, String, String, optimize_passes? : Array[String], minimized_passes? : Array[String], wasm? : Bytes?) -> Self
+pub impl Eq for FuzzFailureReport
+pub impl Show for FuzzFailureReport
+pub impl @debug.Debug for FuzzFailureReport
 
 type ReadmeApiVerifyBlock
 pub impl Eq for ReadmeApiVerifyBlock

@@ -108,3 +108,46 @@ test "parse_readme_api_verify_blocks rejects readme without markers" {
     Err(msg) => assert_true(msg.contains("no README_API_VERIFY blocks"))
   }
 }
+
+///|
+test "verify_readme_api_signatures_with_required_blocks reports missing required marker paths" {
+  let readme = ras_join_lines([
+    "<!-- README_API_VERIFY src/lib/pkg.generated.mbti -->", "```mbti", "pub fn type_idx_to_int(TypeIdx) -> Int",
+    "```",
+  ])
+  let interfaces = [
+    ("src/lib/pkg.generated.mbti", "pub fn type_idx_to_int(TypeIdx) -> Int"),
+  ]
+  match
+    verify_readme_api_signatures_with_required_blocks(readme, interfaces, [
+      "src/lib/pkg.generated.mbti", "src/ir/pkg.generated.mbti",
+    ]) {
+    Ok(_) => fail("expected required-block failure")
+    Err(msg) => {
+      assert_true(msg.contains("missing required README_API_VERIFY block"))
+      assert_true(msg.contains("src/ir/pkg.generated.mbti"))
+    }
+  }
+}
+
+///|
+test "verify_readme_api_signatures_with_required_blocks succeeds when required paths exist" {
+  let readme = ras_join_lines([
+    "<!-- README_API_VERIFY src/lib/pkg.generated.mbti -->", "```mbti", "pub fn type_idx_to_int(TypeIdx) -> Int",
+    "```", "", "<!-- README_API_VERIFY src/ir/pkg.generated.mbti -->", "```mbti",
+    "pub fn infer_ssa_types(SSACFG, TypeContext) -> SSATypeInfo", "```",
+  ])
+  let interfaces = [
+    ("src/lib/pkg.generated.mbti", "pub fn type_idx_to_int(TypeIdx) -> Int"),
+    (
+      "src/ir/pkg.generated.mbti", "pub fn infer_ssa_types(SSACFG, TypeContext) -> SSATypeInfo",
+    ),
+  ]
+  match
+    verify_readme_api_signatures_with_required_blocks(readme, interfaces, [
+      "src/lib/pkg.generated.mbti", "src/ir/pkg.generated.mbti",
+    ]) {
+    Ok(_) => ()
+    Err(msg) => fail("expected required-block verification success, got \{msg}")
+  }
+}

@@ -1,7 +1,9 @@
 {
   "inputs": {
     "globs": [
-      "examples/modules/*.wat"
+      "examples/modules/simple.wat",
+      "examples/modules/feature_mix.wat",
+      "examples/modules/memory64_data.wat"
     ],
     "format": "wat"
   },
@@ -9,7 +11,9 @@
     "outDir": "examples/out"
   },
   "passes": [
-    "optimize",
+    "global-effects",
+    "flatten",
+    "code-folding",
     "vacuum"
   ],
   "options": {

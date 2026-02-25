@@ -141,15 +141,38 @@ fn ras_find_interface_text(
 }
 
 ///|
-pub fn verify_readme_api_signatures(
+fn ras_has_block_for_path(
+  blocks : Array[ReadmeApiVerifyBlock],
+  path : String,
+) -> Bool {
+  for block in blocks {
+    if block.interface_path == path {
+      return true
+    }
+  }
+  false
+}
+
+///|
+pub fn verify_readme_api_signatures_with_required_blocks(
   readme_text : String,
   interface_text_by_path : Array[(String, String)],
+  required_block_paths : Array[String],
 ) -> Result[Unit, String] {
   let blocks = match parse_readme_api_verify_blocks(readme_text) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let diagnostics : Array[String] = []
+  for raw_path in required_block_paths {
+    let path = raw_path.trim().to_string()
+    if path.length() == 0 {
+      continue
+    }
+    if !ras_has_block_for_path(blocks, path) {
+      diagnostics.push("missing required README_API_VERIFY block: \{path}")
+    }
+  }
   for block in blocks {
     let interface_text = match
       ras_find_interface_text(interface_text_by_path, block.interface_path) {
@@ -174,4 +197,16 @@ pub fn verify_readme_api_signatures(
   } else {
     Err(ras_join_lines_impl(diagnostics))
   }
+}
+
+///|
+pub fn verify_readme_api_signatures(
+  readme_text : String,
+  interface_text_by_path : Array[(String, String)],
+) -> Result[Unit, String] {
+  verify_readme_api_signatures_with_required_blocks(
+    readme_text,
+    interface_text_by_path,
+    [],
+  )
 }

@@ -16,6 +16,17 @@ if [[ ! -f "${README_PATH}" ]]; then
   exit 1
 fi
 
+required_blocks=(
+  "src/passes/pkg.generated.mbti"
+  "src/validate/pkg.generated.mbti"
+  "src/binary/pkg.generated.mbti"
+  "src/wast/pkg.generated.mbti"
+  "src/wat/pkg.generated.mbti"
+  "src/ir/pkg.generated.mbti"
+  "src/transformer/pkg.generated.mbti"
+  "src/cmd/pkg.generated.mbti"
+)
+
 line_no=0
 marker_count=0
 signature_count=0
@@ -23,6 +34,7 @@ pending_marker_path=""
 pending_marker_line=0
 active_interface_path=""
 active_signature_count=0
+seen_paths=()
 errors=()
 
 while IFS= read -r line || [[ -n "${line}" ]]; do
@@ -66,6 +78,7 @@ while IFS= read -r line || [[ -n "${line}" ]]; do
       pending_marker_line=0
       active_signature_count=0
       marker_count=$((marker_count + 1))
+      seen_paths+=("${active_interface_path}")
       continue
     fi
     errors+=(
@@ -96,6 +109,19 @@ fi
 if ((marker_count == 0)); then
   errors+=("README contains no README_API_VERIFY blocks")
 fi
+
+for required in "${required_blocks[@]}"; do
+  found=false
+  for seen in "${seen_paths[@]}"; do
+    if [[ "${seen}" == "${required}" ]]; then
+      found=true
+      break
+    fi
+  done
+  if [[ "${found}" == false ]]; then
+    errors+=("missing required README_API_VERIFY block: ${required}")
+  fi
+done
 
 if ((${#errors[@]} > 0)); then
   for error_msg in "${errors[@]}"; do

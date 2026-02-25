@@ -56,6 +56,276 @@ pub fn WasmSmithFuzzStats::new(
 }
 
 ///|
+pub struct FuzzFailureReport {
+  seed : UInt64
+  attempt : Int
+  generated_valid : Int
+  stage : String
+  message : String
+  optimize_passes : Array[String]
+  minimized_passes : Array[String]
+  wasm : Bytes?
+} derive(Eq, Show, Debug)
+
+///|
+pub fn FuzzFailureReport::new(
+  seed : UInt64,
+  attempt : Int,
+  generated_valid : Int,
+  stage : String,
+  message : String,
+  optimize_passes? : Array[String] = [],
+  minimized_passes? : Array[String] = [],
+  wasm? : Bytes? = None,
+) -> FuzzFailureReport {
+  {
+    seed,
+    attempt,
+    generated_valid,
+    stage,
+    message,
+    optimize_passes,
+    minimized_passes,
+    wasm,
+  }
+}
+
+///|
+pub struct FuzzFailurePersistIO {
+  ensure_dir : (String) -> Result[Unit, String]
+  write_file : (String, Bytes) -> Result[Unit, String]
+}
+
+///|
+pub fn FuzzFailurePersistIO::new(
+  ensure_dir? : (String) -> Result[Unit, String] = fn(path) {
+    Err("ensure_dir not configured: \{path}")
+  },
+  write_file? : (String, Bytes) -> Result[Unit, String] = fn(path, _) {
+    Err("write_file not configured: \{path}")
+  },
+) -> FuzzFailurePersistIO {
+  { ensure_dir, write_file }
+}
+
+///|
+fn fuzz_clone_passes(values : Array[String]) -> Array[String] {
+  let out = Array::new(capacity=values.length())
+  for value in values {
+    out.push(value)
+  }
+  out
+}
+
+///|
+fn fuzz_without_pass_index(values : Array[String], skip : Int) -> Array[String] {
+  let out = Array::new(capacity=values.length())
+  let mut i = 0
+  while i < values.length() {
+    if i != skip {
+      out.push(values[i])
+    }
+    i += 1
+  }
+  out
+}
+
+///|
+pub fn minimize_fuzz_passes(
+  passes : Array[String],
+  reproduces : (Array[String]) -> Bool,
+) -> Array[String] {
+  if !reproduces(passes) {
+    return fuzz_clone_passes(passes)
+  }
+  let mut current = fuzz_clone_passes(passes)
+  let mut i = 0
+  while i < current.length() {
+    let candidate = fuzz_without_pass_index(current, i)
+    if reproduces(candidate) {
+      current = candidate
+    } else {
+      i += 1
+    }
+  }
+  current
+}
+
+///|
+fn fuzz_has_prefix(text : String, prefix : String) -> Bool {
+  if text.length() < prefix.length() {
+    return false
+  }
+  let head = text.sub(end=prefix.length()).to_string() catch { _ => "" }
+  head == prefix
+}
+
+///|
+fn fuzz_has_suffix(text : String, suffix : String) -> Bool {
+  if text.length() < suffix.length() {
+    return false
+  }
+  let start = text.length() - suffix.length()
+  let tail = text.sub(start~).to_string() catch { _ => "" }
+  tail == suffix
+}
+
+///|
+fn fuzz_bytes_from_string(text : String) -> Bytes {
+  let buf = @buffer.new(size_hint=text.length())
+  for c in text {
+    buf.write_byte(c.to_int().to_byte())
+  }
+  buf.to_bytes()
+}
+
+///|
+fn fuzz_single_line(text : String) -> String {
+  let out = StringBuilder::new()
+  for c in text {
+    if c == '\n' || c == '\r' {
+      out.write_char(' ')
+    } else {
+      out.write_char(c)
+    }
+  }
+  out.to_string()
+}
+
+///|
+fn fuzz_join_csv(values : Array[String]) -> String {
+  let out = StringBuilder::new()
+  let mut i = 0
+  while i < values.length() {
+    if i > 0 {
+      out.write_char(',')
+    }
+    out.write_string(values[i])
+    i += 1
+  }
+  out.to_string()
+}
+
+///|
+fn fuzz_slug(value : String) -> String {
+  let out = StringBuilder::new()
+  let mut wrote_dash = false
+  for c in value {
+    let lower = if c >= 'A' && c <= 'Z' {
+      (c.to_int() + 32).unsafe_to_char()
+    } else {
+      c
+    }
+    let is_alnum = (lower >= 'a' && lower <= 'z') ||
+      (lower >= '0' && lower <= '9')
+    if is_alnum {
+      out.write_char(lower)
+      wrote_dash = false
+    } else if !wrote_dash {
+      out.write_char('-')
+      wrote_dash = true
+    }
+  }
+  let raw = out.to_string()
+  let trimmed = if fuzz_has_prefix(raw, "-") {
+    raw.sub(start=1).to_string() catch {
+      _ => raw
+    }
+  } else {
+    raw
+  }
+  let cleaned = if fuzz_has_suffix(trimmed, "-") {
+    trimmed.sub(end=trimmed.length() - 1).to_string() catch {
+      _ => trimmed
+    }
+  } else {
+    trimmed
+  }
+  if cleaned.length() == 0 {
+    "unknown"
+  } else {
+    cleaned
+  }
+}
+
+///|
+fn fuzz_failure_meta_text(report : FuzzFailureReport) -> String {
+  let out = StringBuilder::new()
+  out.write_string("seed=\{report.seed}\n")
+  out.write_string("attempt=\{report.attempt}\n")
+  out.write_string("generated_valid=\{report.generated_valid}\n")
+  out.write_string("stage=\{fuzz_single_line(report.stage)}\n")
+  out.write_string("message=\{fuzz_single_line(report.message)}\n")
+  out.write_string("optimize_passes=\{fuzz_join_csv(report.optimize_passes)}\n")
+  out.write_string(
+    "minimized_passes=\{fuzz_join_csv(report.minimized_passes)}\n",
+  )
+  out.to_string()
+}
+
+///|
+pub fn persist_fuzz_failure_report(
+  report : FuzzFailureReport,
+  io : FuzzFailurePersistIO,
+  corpus_dir? : String = "fuzz-corpus",
+) -> Result[(String, String?), String] {
+  let trimmed = corpus_dir.trim().to_string()
+  let dir = if trimmed.length() == 0 { "fuzz-corpus" } else { trimmed }
+  match (io.ensure_dir)(dir) {
+    Ok(_) => ()
+    Err(e) => return Err("failed to ensure corpus dir \{dir}: \{e}")
+  }
+  let slug = fuzz_slug(report.stage)
+  let prefix = "\{dir}/seed-\{report.seed}-attempt-\{report.attempt}-valid-\{report.generated_valid}-\{slug}"
+  let meta_path = "\{prefix}.meta.txt"
+  let meta_bytes = fuzz_bytes_from_string(fuzz_failure_meta_text(report))
+  match (io.write_file)(meta_path, meta_bytes) {
+    Ok(_) => ()
+    Err(e) => return Err("failed to write corpus metadata \{meta_path}: \{e}")
+  }
+  let wasm_path = match report.wasm {
+    Some(bytes) => {
+      let path = "\{prefix}.wasm"
+      match (io.write_file)(path, bytes) {
+        Ok(_) => Some(path)
+        Err(e) => return Err("failed to write corpus wasm \{path}: \{e}")
+      }
+    }
+    None => None
+  }
+  Ok((meta_path, wasm_path))
+}
+
+///|
+fn fuzz_default_pass_names(
+  optimize_passes : Array[ModulePass],
+) -> Array[String] {
+  let out = Array::new(capacity=optimize_passes.length())
+  let mut i = 0
+  while i < optimize_passes.length() {
+    out.push("pass-\{i}")
+    i += 1
+  }
+  out
+}
+
+///|
+fn fuzz_finalize_failure(
+  on_failure : ((FuzzFailureReport) -> Result[Unit, String])?,
+  report : FuzzFailureReport,
+  message : String,
+) -> String {
+  match on_failure {
+    Some(cb) =>
+      match cb(report) {
+        Ok(_) => message
+        Err(e) => "\{message}; failure callback error: \{e}"
+      }
+    None => message
+  }
+}
+
+///|
 fn decode_then_validate(bytes : Bytes) -> Result[Bool, String] {
   match decode_module(bytes) {
     Ok(mod) =>
@@ -115,11 +385,30 @@ pub fn run_wasm_smith_fuzz_harness(
   valid_target : Int,
   seed? : UInt64 = 0x5eedUL,
   optimize_passes? : Array[ModulePass] = [],
+  optimize_pass_names? : Array[String]? = None,
   differential_adapters? : DifferentialAdapters? = None,
   differential_every? : Int = 0,
+  on_failure? : ((FuzzFailureReport) -> Result[Unit, String])? = None,
 ) -> Result[WasmSmithFuzzStats, String] {
+  let pass_names = match optimize_pass_names {
+    Some(v) => fuzz_clone_passes(v)
+    None => fuzz_default_pass_names(optimize_passes)
+  }
   if valid_target < 0 {
-    return Err("valid_target must be non-negative")
+    let report = FuzzFailureReport::new(
+      seed,
+      0,
+      0,
+      "config",
+      "valid_target must be non-negative",
+      optimize_passes=pass_names,
+      minimized_passes=pass_names,
+    )
+    return Err(
+      fuzz_finalize_failure(
+        on_failure, report, "valid_target must be non-negative",
+      ),
+    )
   }
   let rnd = @splitmix.new(seed~)
   let mut attempts = 0
@@ -133,9 +422,17 @@ pub fn run_wasm_smith_fuzz_harness(
 
   while generated_valid < valid_target {
     if attempts >= max_attempts {
-      return Err(
-        "failed to reach valid target: target=\{valid_target} attempts=\{attempts} valid=\{generated_valid} invalid=\{generated_invalid}",
+      let msg = "failed to reach valid target: target=\{valid_target} attempts=\{attempts} valid=\{generated_valid} invalid=\{generated_invalid}"
+      let report = FuzzFailureReport::new(
+        seed,
+        attempts,
+        generated_valid,
+        "generation-target",
+        msg,
+        optimize_passes=pass_names,
+        minimized_passes=pass_names,
       )
+      return Err(fuzz_finalize_failure(on_failure, report, msg))
     }
     attempts += 1
     let mod = gen_valid_module(rnd)
@@ -155,14 +452,37 @@ pub fn run_wasm_smith_fuzz_harness(
     }
     let decoded = match decode_module(encoded) {
       Ok(decoded_mod) => decoded_mod
-      Err(e) => return Err("decode failed at attempt #\{attempts}: \{e}")
+      Err(e) => {
+        let msg = "decode failed at attempt #\{attempts}: \{e}"
+        let report = FuzzFailureReport::new(
+          seed,
+          attempts,
+          generated_valid,
+          "decode",
+          "\{e}",
+          optimize_passes=pass_names,
+          minimized_passes=pass_names,
+          wasm=Some(encoded),
+        )
+        return Err(fuzz_finalize_failure(on_failure, report, msg))
+      }
     }
     match validate_module(decoded) {
       Ok(_) => pipeline_validated += 1
-      Err(e) =>
-        return Err(
-          "decoded module failed validation at attempt #\{attempts}: \{e}",
+      Err(e) => {
+        let msg = "decoded module failed validation at attempt #\{attempts}: \{e}"
+        let report = FuzzFailureReport::new(
+          seed,
+          attempts,
+          generated_valid,
+          "post-decode-validate",
+          "\{e}",
+          optimize_passes=pass_names,
+          minimized_passes=pass_names,
+          wasm=Some(encoded),
         )
+        return Err(fuzz_finalize_failure(on_failure, report, msg))
+      }
     }
 
     let optimized = match
@@ -172,26 +492,73 @@ pub fn run_wasm_smith_fuzz_harness(
         OptimizeOptions::new(),
       ) {
       Ok(v) => v
-      Err(e) => return Err("optimize failed at attempt #\{attempts}: \{e}")
+      Err(e) => {
+        let msg = "optimize failed at attempt #\{attempts}: \{e}"
+        let report = FuzzFailureReport::new(
+          seed,
+          attempts,
+          generated_valid,
+          "optimize",
+          "\{e}",
+          optimize_passes=pass_names,
+          minimized_passes=pass_names,
+          wasm=Some(encoded),
+        )
+        return Err(fuzz_finalize_failure(on_failure, report, msg))
+      }
     }
     optimized_count += 1
 
     let roundtrip_bytes = match encode_module(optimized) {
       Ok(bytes) => bytes
-      Err(e) =>
-        return Err("post-opt encode failed at attempt #\{attempts}: \{e}")
+      Err(e) => {
+        let msg = "post-opt encode failed at attempt #\{attempts}: \{e}"
+        let report = FuzzFailureReport::new(
+          seed,
+          attempts,
+          generated_valid,
+          "post-opt-encode",
+          "\{e}",
+          optimize_passes=pass_names,
+          minimized_passes=pass_names,
+          wasm=Some(encoded),
+        )
+        return Err(fuzz_finalize_failure(on_failure, report, msg))
+      }
     }
     let roundtrip_mod = match decode_module(roundtrip_bytes) {
       Ok(decoded_mod) => decoded_mod
-      Err(e) =>
-        return Err("post-opt decode failed at attempt #\{attempts}: \{e}")
+      Err(e) => {
+        let msg = "post-opt decode failed at attempt #\{attempts}: \{e}"
+        let report = FuzzFailureReport::new(
+          seed,
+          attempts,
+          generated_valid,
+          "post-opt-decode",
+          "\{e}",
+          optimize_passes=pass_names,
+          minimized_passes=pass_names,
+          wasm=Some(roundtrip_bytes),
+        )
+        return Err(fuzz_finalize_failure(on_failure, report, msg))
+      }
     }
     match validate_module(roundtrip_mod) {
       Ok(_) => roundtripped += 1
-      Err(e) =>
-        return Err(
-          "roundtripped module failed validation at attempt #\{attempts}: \{e}",
+      Err(e) => {
+        let msg = "roundtripped module failed validation at attempt #\{attempts}: \{e}"
+        let report = FuzzFailureReport::new(
+          seed,
+          attempts,
+          generated_valid,
+          "post-opt-validate",
+          "\{e}",
+          optimize_passes=pass_names,
+          minimized_passes=pass_names,
+          wasm=Some(roundtrip_bytes),
         )
+        return Err(fuzz_finalize_failure(on_failure, report, msg))
+      }
     }
 
     generated_valid += 1
@@ -203,10 +570,20 @@ pub fn run_wasm_smith_fuzz_harness(
       }
       match differential_validate_wasm(roundtrip_bytes, adapters~) {
         Ok(_) => differential_checked += 1
-        Err(e) =>
-          return Err(
-            "differential validation failed at module #\{generated_valid}: \{e}",
+        Err(e) => {
+          let msg = "differential validation failed at module #\{generated_valid}: \{e}"
+          let report = FuzzFailureReport::new(
+            seed,
+            attempts,
+            generated_valid,
+            "differential",
+            "\{e}",
+            optimize_passes=pass_names,
+            minimized_passes=pass_names,
+            wasm=Some(roundtrip_bytes),
           )
+          return Err(fuzz_finalize_failure(on_failure, report, msg))
+        }
       }
     }
   }
