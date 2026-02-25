@@ -10,19 +10,12 @@ Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full
 - This file tracks open work prioritized for v0.1 release.
 - Recently completed items may remain checked until the next audit pass.
 
-## Metadata
-- Last updated: `2026-02-25`
-- Last audit run: `2026-02-25`
-
-### Release quality gates
-- [ ] Make `module_to_wast` output reliably parser-consumable in roundtrip tests.
-- [ ] Reach `>=75%` line coverage on hot paths (decoder, IR lift, top passes).
-
 ## Priority 1 (Release polish)
 - [ ] Publish first release + MoonBit registry package (`moon publish` + GitHub Release binaries).
 
-
 ## Deferred After v0.1
+- [ ] Make `module_to_wast` output reliably parser-consumable in roundtrip tests.
+- [ ] Reach `>=75%` line coverage on hot paths (decoder, IR lift, top passes).
 - [ ] `Poppify`
 - [ ] `Outlining` as a standalone pass (beyond current inlining partial-splitting behavior)
 - [ ] Broad Binaryen pass parity backlog (medium/low priority pass list)
