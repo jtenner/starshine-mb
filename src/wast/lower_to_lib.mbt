@@ -240,6 +240,127 @@ fn wt_parse_f32(text : String) -> Result[@lib.F32, String] {
 }
 
 ///|
+fn wt_parse_i64_literal(text : String, kind : String) -> Result[Int64, String] {
+  let parsed = @strconv.parse_int64(text) catch {
+    _ => return Err("invalid \{kind} literal: \{text}")
+  }
+  Ok(parsed)
+}
+
+///|
+fn wt_push_le_bytes(out : Array[Byte], bits : UInt64, count : Int) -> Unit {
+  for i = 0; i < count; i = i + 1 {
+    out.push(((bits >> (i * 8)) & 0xffUL).to_byte())
+  }
+}
+
+///|
+fn wt_v128_const_instr(v : V128Const) -> Result[@lib.Instruction, String] {
+  let bytes : Array[Byte] = []
+  match v.shape {
+    I8x16 =>
+      for text in v.values {
+        let lane = match wt_parse_i64_literal(text, "i8x16") {
+          Ok(val) => val
+          Err(e) => return Err(e)
+        }
+        if lane < -128L || lane > 255L {
+          return Err("i8x16 lane literal out of range: \{text}")
+        }
+        bytes.push(lane.to_int().to_byte())
+      }
+    I16x8 =>
+      for text in v.values {
+        let lane = match wt_parse_i64_literal(text, "i16x8") {
+          Ok(val) => val
+          Err(e) => return Err(e)
+        }
+        if lane < -32768L || lane > 65535L {
+          return Err("i16x8 lane literal out of range: \{text}")
+        }
+        wt_push_le_bytes(bytes, lane.reinterpret_as_uint64(), 2)
+      }
+    I32x4 =>
+      for text in v.values {
+        let lane = match wt_parse_i64_literal(text, "i32x4") {
+          Ok(val) => val
+          Err(e) => return Err(e)
+        }
+        if lane < -2147483648L || lane > 4294967295L {
+          return Err("i32x4 lane literal out of range: \{text}")
+        }
+        wt_push_le_bytes(bytes, lane.reinterpret_as_uint64(), 4)
+      }
+    I64x2 =>
+      for text in v.values {
+        let lane = match wt_parse_i64_literal(text, "i64x2") {
+          Ok(val) => val
+          Err(e) => return Err(e)
+        }
+        wt_push_le_bytes(bytes, lane.reinterpret_as_uint64(), 8)
+      }
+    F32x4 =>
+      for text in v.values {
+        let lane = match wt_parse_f32(text) {
+          Ok(val) => val
+          Err(e) => return Err(e)
+        }
+        let @lib.F32(raw) = lane
+        let buf = @buffer.new(size_hint=4)
+        buf.write_float_le(raw)
+        for b in buf.to_bytes().to_array() {
+          bytes.push(b)
+        }
+      }
+    F64x2 =>
+      for text in v.values {
+        let lane = match wt_parse_f64(text) {
+          Ok(val) => val
+          Err(e) => return Err(e)
+        }
+        let @lib.F64(raw) = lane
+        let buf = @buffer.new(size_hint=8)
+        buf.write_double_le(raw)
+        for b in buf.to_bytes().to_array() {
+          bytes.push(b)
+        }
+      }
+  }
+  if bytes.length() != 16 {
+    return Err("v128.const lowering expected 16 bytes, got \{bytes.length()}")
+  }
+  Ok(
+    @lib.Instruction::v128_const(
+      bytes[0],
+      bytes[1],
+      bytes[2],
+      bytes[3],
+      bytes[4],
+      bytes[5],
+      bytes[6],
+      bytes[7],
+      bytes[8],
+      bytes[9],
+      bytes[10],
+      bytes[11],
+      bytes[12],
+      bytes[13],
+      bytes[14],
+      bytes[15],
+    ),
+  )
+}
+
+///|
+fn wt_shuffle_lane(lane : UInt) -> Result[@lib.LaneIdx, String] {
+  if lane <= 31U {
+    Ok(@lib.LaneIdx::new(lane.to_byte()))
+  } else {
+    Err("i8x16.shuffle lane index out of range: \{lane}")
+  }
+}
+
+///|
 fn wt_select_types(types : Array[ValueType]?) -> Array[@lib.ValType]? {
   match types {
     Some(vs) => {
@@ -922,6 +1043,103 @@ fn wt_instr_to_lib(
         Ok(@lib.Instruction::ref_cast_desc_eq(nullable, ht))
       }
     }
+    V128Const(v) => wt_v128_const_instr(v)
+    V128Load(ma) => Ok(@lib.Instruction::v128_load(wt_mem_arg(ma)))
+    V128Load8x8S(ma) => Ok(@lib.Instruction::v128_load8x8s(wt_mem_arg(ma)))
+    V128Load8x8U(ma) => Ok(@lib.Instruction::v128_load8x8u(wt_mem_arg(ma)))
+    V128Load16x4S(ma) => Ok(@lib.Instruction::v128_load16x4s(wt_mem_arg(ma)))
+    V128Load16x4U(ma) => Ok(@lib.Instruction::v128_load16x4u(wt_mem_arg(ma)))
+    V128Load32x2S(ma) => Ok(@lib.Instruction::v128_load32x2s(wt_mem_arg(ma)))
+    V128Load32x2U(ma) => Ok(@lib.Instruction::v128_load32x2u(wt_mem_arg(ma)))
+    V128Load8Splat(ma) => Ok(@lib.Instruction::v128_load8_splat(wt_mem_arg(ma)))
+    V128Load16Splat(ma) =>
+      Ok(@lib.Instruction::v128_load16_splat(wt_mem_arg(ma)))
+    V128Load32Splat(ma) =>
+      Ok(@lib.Instruction::v128_load32_splat(wt_mem_arg(ma)))
+    V128Load64Splat(ma) =>
+      Ok(@lib.Instruction::v128_load64_splat(wt_mem_arg(ma)))
+    V128Load32Zero(ma) => Ok(@lib.Instruction::v128_load32_zero(wt_mem_arg(ma)))
+    V128Load64Zero(ma) => Ok(@lib.Instruction::v128_load64_zero(wt_mem_arg(ma)))
+    V128Store(ma) => Ok(@lib.Instruction::v128_store(wt_mem_arg(ma)))
+    I8x16Shuffle(lanes) => {
+      let li0 = match wt_shuffle_lane(lanes.lanes[0]) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      let li1 = match wt_shuffle_lane(lanes.lanes[1]) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      let li2 = match wt_shuffle_lane(lanes.lanes[2]) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      let li3 = match wt_shuffle_lane(lanes.lanes[3]) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      let li4 = match wt_shuffle_lane(lanes.lanes[4]) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      let li5 = match wt_shuffle_lane(lanes.lanes[5]) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      let li6 = match wt_shuffle_lane(lanes.lanes[6]) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      let li7 = match wt_shuffle_lane(lanes.lanes[7]) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      let li8 = match wt_shuffle_lane(lanes.lanes[8]) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      let li9 = match wt_shuffle_lane(lanes.lanes[9]) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      let li10 = match wt_shuffle_lane(lanes.lanes[10]) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      let li11 = match wt_shuffle_lane(lanes.lanes[11]) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      let li12 = match wt_shuffle_lane(lanes.lanes[12]) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      let li13 = match wt_shuffle_lane(lanes.lanes[13]) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      let li14 = match wt_shuffle_lane(lanes.lanes[14]) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      let li15 = match wt_shuffle_lane(lanes.lanes[15]) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(
+        @lib.Instruction::i8x16_shuffle(
+          li0, li1, li2, li3, li4, li5, li6, li7, li8, li9, li10, li11, li12, li13,
+          li14, li15,
+        ),
+      )
+    }
+    I8x16Swizzle => Ok(@lib.Instruction::i8x16_swizzle())
+    I8x16Splat => Ok(@lib.Instruction::i8x16_splat())
+    I16x8Splat => Ok(@lib.Instruction::i16x8_splat())
+    I32x4Splat => Ok(@lib.Instruction::i32x4_splat())
+    I64x2Splat => Ok(@lib.Instruction::i64x2_splat())
+    F32x4Splat => Ok(@lib.Instruction::f32x4_splat())
+    F64x2Splat => Ok(@lib.Instruction::f64x2_splat())
     V128Load8Lane(ma, lane) =>
       Ok(
         @lib.Instruction::v128_load8_lane(
@@ -1042,29 +1260,6 @@ fn wt_instr_to_lib(
       Ok(
         @lib.Instruction::f64x2_replace_lane(@lib.LaneIdx::new(lane.to_byte())),
       )
-    V128Const(_)
-    | V128Load(_)
-    | V128Load8x8S(_)
-    | V128Load8x8U(_)
-    | V128Load16x4S(_)
-    | V128Load16x4U(_)
-    | V128Load32x2S(_)
-    | V128Load32x2U(_)
-    | V128Load8Splat(_)
-    | V128Load16Splat(_)
-    | V128Load32Splat(_)
-    | V128Load64Splat(_)
-    | V128Load32Zero(_)
-    | V128Load64Zero(_)
-    | V128Store(_)
-    | I8x16Shuffle(_)
-    | I8x16Swizzle
-    | I8x16Splat
-    | I16x8Splat
-    | I32x4Splat
-    | I64x2Splat
-    | F32x4Splat
-    | F64x2Splat => wt_unsupported("\{instr}")
   }
 }
 
@@ -1648,6 +1843,435 @@ test "wast_to_binary_module lowers SIMD load/store lane ops" {
       )
     }
     _ => fail("expected lowered SIMD load/store lane instructions")
+  }
+}
+
+///|
+test "wast_to_binary_module lowers SIMD v128.const shapes" {
+  let src =
+    #|(module
+    #|  (func (result v128) v128.const i8x16 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15)
+    #|  (func (result v128) v128.const i16x8 1 2 3 4 5 6 7 8)
+    #|  (func (result v128) v128.const i32x4 1 2 3 4)
+    #|  (func (result v128) v128.const i64x2 1 2)
+    #|  (func (result v128) v128.const f32x4 1 2 3 4)
+    #|  (func (result v128) v128.const f64x2 1 2))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) => fail("expected SIMD v128.const lowering success: \{e}")
+  }
+  match lowered.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      assert_eq(funcs.length(), 6)
+
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr([instr])) =>
+          assert_eq(
+            instr,
+            @lib.Instruction::v128_const(
+              (0).to_byte(),
+              (1).to_byte(),
+              (2).to_byte(),
+              (3).to_byte(),
+              (4).to_byte(),
+              (5).to_byte(),
+              (6).to_byte(),
+              (7).to_byte(),
+              (8).to_byte(),
+              (9).to_byte(),
+              (10).to_byte(),
+              (11).to_byte(),
+              (12).to_byte(),
+              (13).to_byte(),
+              (14).to_byte(),
+              (15).to_byte(),
+            ),
+          )
+        _ => fail("expected i8x16 v128.const function body")
+      }
+
+      match funcs[1] {
+        @lib.Func(_, @lib.Expr([instr])) =>
+          assert_eq(
+            instr,
+            @lib.Instruction::v128_const(
+              (1).to_byte(),
+              (0).to_byte(),
+              (2).to_byte(),
+              (0).to_byte(),
+              (3).to_byte(),
+              (0).to_byte(),
+              (4).to_byte(),
+              (0).to_byte(),
+              (5).to_byte(),
+              (0).to_byte(),
+              (6).to_byte(),
+              (0).to_byte(),
+              (7).to_byte(),
+              (0).to_byte(),
+              (8).to_byte(),
+              (0).to_byte(),
+            ),
+          )
+        _ => fail("expected i16x8 v128.const function body")
+      }
+
+      match funcs[2] {
+        @lib.Func(_, @lib.Expr([instr])) =>
+          assert_eq(
+            instr,
+            @lib.Instruction::v128_const(
+              (1).to_byte(),
+              (0).to_byte(),
+              (0).to_byte(),
+              (0).to_byte(),
+              (2).to_byte(),
+              (0).to_byte(),
+              (0).to_byte(),
+              (0).to_byte(),
+              (3).to_byte(),
+              (0).to_byte(),
+              (0).to_byte(),
+              (0).to_byte(),
+              (4).to_byte(),
+              (0).to_byte(),
+              (0).to_byte(),
+              (0).to_byte(),
+            ),
+          )
+        _ => fail("expected i32x4 v128.const function body")
+      }
+
+      match funcs[3] {
+        @lib.Func(_, @lib.Expr([instr])) =>
+          assert_eq(
+            instr,
+            @lib.Instruction::v128_const(
+              (1).to_byte(),
+              (0).to_byte(),
+              (0).to_byte(),
+              (0).to_byte(),
+              (0).to_byte(),
+              (0).to_byte(),
+              (0).to_byte(),
+              (0).to_byte(),
+              (2).to_byte(),
+              (0).to_byte(),
+              (0).to_byte(),
+              (0).to_byte(),
+              (0).to_byte(),
+              (0).to_byte(),
+              (0).to_byte(),
+              (0).to_byte(),
+            ),
+          )
+        _ => fail("expected i64x2 v128.const function body")
+      }
+
+      match funcs[4] {
+        @lib.Func(_, @lib.Expr([instr])) =>
+          assert_eq(
+            instr,
+            @lib.Instruction::v128_const(
+              (0).to_byte(),
+              (0).to_byte(),
+              (128).to_byte(),
+              (63).to_byte(),
+              (0).to_byte(),
+              (0).to_byte(),
+              (0).to_byte(),
+              (64).to_byte(),
+              (0).to_byte(),
+              (0).to_byte(),
+              (64).to_byte(),
+              (64).to_byte(),
+              (0).to_byte(),
+              (0).to_byte(),
+              (128).to_byte(),
+              (64).to_byte(),
+            ),
+          )
+        _ => fail("expected f32x4 v128.const function body")
+      }
+
+      match funcs[5] {
+        @lib.Func(_, @lib.Expr([instr])) =>
+          assert_eq(
+            instr,
+            @lib.Instruction::v128_const(
+              (0).to_byte(),
+              (0).to_byte(),
+              (0).to_byte(),
+              (0).to_byte(),
+              (0).to_byte(),
+              (0).to_byte(),
+              (240).to_byte(),
+              (63).to_byte(),
+              (0).to_byte(),
+              (0).to_byte(),
+              (0).to_byte(),
+              (0).to_byte(),
+              (0).to_byte(),
+              (0).to_byte(),
+              (0).to_byte(),
+              (64).to_byte(),
+            ),
+          )
+        _ => fail("expected f64x2 v128.const function body")
+      }
+    }
+    _ => fail("expected lowered module code section for v128.const shapes")
+  }
+}
+
+///|
+test "wast_to_binary_module lowers SIMD non-lane memory prefixed ops" {
+  let src =
+    #|(module
+    #|  (memory 1)
+    #|  (func (param i32) (result v128) local.get 0 v128.load)
+    #|  (func (param i32) (result v128) local.get 0 v128.load8x8_s)
+    #|  (func (param i32) (result v128) local.get 0 v128.load8x8_u)
+    #|  (func (param i32) (result v128) local.get 0 v128.load16x4_s)
+    #|  (func (param i32) (result v128) local.get 0 v128.load16x4_u)
+    #|  (func (param i32) (result v128) local.get 0 v128.load32x2_s)
+    #|  (func (param i32) (result v128) local.get 0 v128.load32x2_u)
+    #|  (func (param i32) (result v128) local.get 0 v128.load8_splat)
+    #|  (func (param i32) (result v128) local.get 0 v128.load16_splat)
+    #|  (func (param i32) (result v128) local.get 0 v128.load32_splat)
+    #|  (func (param i32) (result v128) local.get 0 v128.load64_splat)
+    #|  (func (param i32) (result v128) local.get 0 v128.load32_zero)
+    #|  (func (param i32) (result v128) local.get 0 v128.load64_zero)
+    #|  (func (param i32 v128) (result v128) local.get 0 local.get 1 v128.store local.get 1))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) => fail("expected SIMD memory-op lowering success: \{e}")
+  }
+  let ma16 = @lib.MemArg::new(@lib.U32(16), None, @lib.U64(0))
+  let ma8 = @lib.MemArg::new(@lib.U32(8), None, @lib.U64(0))
+  let ma4 = @lib.MemArg::new(@lib.U32(4), None, @lib.U64(0))
+  let ma2 = @lib.MemArg::new(@lib.U32(2), None, @lib.U64(0))
+  let ma1 = @lib.MemArg::new(@lib.U32(1), None, @lib.U64(0))
+  match lowered.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      assert_eq(funcs.length(), 14)
+
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
+          assert_eq(instr, @lib.Instruction::v128_load(ma16))
+        _ => fail("expected v128.load lowered body")
+      }
+
+      match funcs[1] {
+        @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
+          assert_eq(instr, @lib.Instruction::v128_load8x8s(ma8))
+        _ => fail("expected v128.load8x8_s lowered body")
+      }
+
+      match funcs[2] {
+        @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
+          assert_eq(instr, @lib.Instruction::v128_load8x8u(ma8))
+        _ => fail("expected v128.load8x8_u lowered body")
+      }
+
+      match funcs[3] {
+        @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
+          assert_eq(instr, @lib.Instruction::v128_load16x4s(ma8))
+        _ => fail("expected v128.load16x4_s lowered body")
+      }
+
+      match funcs[4] {
+        @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
+          assert_eq(instr, @lib.Instruction::v128_load16x4u(ma8))
+        _ => fail("expected v128.load16x4_u lowered body")
+      }
+
+      match funcs[5] {
+        @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
+          assert_eq(instr, @lib.Instruction::v128_load32x2s(ma8))
+        _ => fail("expected v128.load32x2_s lowered body")
+      }
+
+      match funcs[6] {
+        @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
+          assert_eq(instr, @lib.Instruction::v128_load32x2u(ma8))
+        _ => fail("expected v128.load32x2_u lowered body")
+      }
+
+      match funcs[7] {
+        @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
+          assert_eq(instr, @lib.Instruction::v128_load8_splat(ma1))
+        _ => fail("expected v128.load8_splat lowered body")
+      }
+
+      match funcs[8] {
+        @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
+          assert_eq(instr, @lib.Instruction::v128_load16_splat(ma2))
+        _ => fail("expected v128.load16_splat lowered body")
+      }
+
+      match funcs[9] {
+        @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
+          assert_eq(instr, @lib.Instruction::v128_load32_splat(ma4))
+        _ => fail("expected v128.load32_splat lowered body")
+      }
+
+      match funcs[10] {
+        @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
+          assert_eq(instr, @lib.Instruction::v128_load64_splat(ma8))
+        _ => fail("expected v128.load64_splat lowered body")
+      }
+
+      match funcs[11] {
+        @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
+          assert_eq(instr, @lib.Instruction::v128_load32_zero(ma4))
+        _ => fail("expected v128.load32_zero lowered body")
+      }
+
+      match funcs[12] {
+        @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
+          assert_eq(instr, @lib.Instruction::v128_load64_zero(ma8))
+        _ => fail("expected v128.load64_zero lowered body")
+      }
+
+      match funcs[13] {
+        @lib.Func(
+          _,
+          @lib.Expr(
+            [
+              @lib.LocalGet(@lib.LocalIdx(i0)),
+              @lib.LocalGet(@lib.LocalIdx(i1)),
+              store_instr,
+              @lib.LocalGet(@lib.LocalIdx(i2)),
+            ]
+          )
+        ) => {
+          assert_eq(i0, 0U)
+          assert_eq(i1, 1U)
+          assert_eq(i2, 1U)
+          assert_eq(store_instr, @lib.Instruction::v128_store(ma16))
+        }
+        _ => fail("expected v128.store lowered body")
+      }
+    }
+    _ => fail("expected lowered module code section for SIMD memory ops")
+  }
+}
+
+///|
+test "wast_to_binary_module lowers SIMD shuffle and swizzle ops" {
+  let src =
+    #|(module
+    #|  (func (param v128 v128) (result v128)
+    #|    local.get 0
+    #|    local.get 1
+    #|    i8x16.shuffle 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15
+    #|    drop
+    #|    local.get 0
+    #|    local.get 1
+    #|    i8x16.swizzle))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) => fail("expected SIMD shuffle/swizzle lowering success: \{e}")
+  }
+  match lowered.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.LocalGet(@lib.LocalIdx(0)),
+                @lib.LocalGet(@lib.LocalIdx(1)),
+                shuffle_instr,
+                @lib.Drop,
+                @lib.LocalGet(@lib.LocalIdx(0)),
+                @lib.LocalGet(@lib.LocalIdx(1)),
+                swizzle_instr,
+              ]
+            )
+          ),
+        ]
+      )
+    ) => {
+      assert_eq(
+        shuffle_instr,
+        @lib.Instruction::i8x16_shuffle(
+          @lib.LaneIdx::new(0),
+          @lib.LaneIdx::new(1),
+          @lib.LaneIdx::new(2),
+          @lib.LaneIdx::new(3),
+          @lib.LaneIdx::new(4),
+          @lib.LaneIdx::new(5),
+          @lib.LaneIdx::new(6),
+          @lib.LaneIdx::new(7),
+          @lib.LaneIdx::new(8),
+          @lib.LaneIdx::new(9),
+          @lib.LaneIdx::new(10),
+          @lib.LaneIdx::new(11),
+          @lib.LaneIdx::new(12),
+          @lib.LaneIdx::new(13),
+          @lib.LaneIdx::new(14),
+          @lib.LaneIdx::new(15),
+        ),
+      )
+      assert_eq(swizzle_instr, @lib.Instruction::i8x16_swizzle())
+    }
+    _ => fail("expected lowered module shuffle/swizzle function body")
+  }
+}
+
+///|
+test "wast_to_binary_module lowers SIMD splat ops" {
+  let src =
+    #|(module
+    #|  (func (param i32) (result v128) local.get 0 i8x16.splat)
+    #|  (func (param i32) (result v128) local.get 0 i16x8.splat)
+    #|  (func (param i32) (result v128) local.get 0 i32x4.splat)
+    #|  (func (param i64) (result v128) local.get 0 i64x2.splat)
+    #|  (func (param f32) (result v128) local.get 0 f32x4.splat)
+    #|  (func (param f64) (result v128) local.get 0 f64x2.splat))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) => fail("expected SIMD splat lowering success: \{e}")
+  }
+  match lowered.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      assert_eq(funcs.length(), 6)
+
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
+          assert_eq(instr, @lib.Instruction::i8x16_splat())
+        _ => fail("expected i8x16.splat lowered body")
+      }
+      match funcs[1] {
+        @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
+          assert_eq(instr, @lib.Instruction::i16x8_splat())
+        _ => fail("expected i16x8.splat lowered body")
+      }
+      match funcs[2] {
+        @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
+          assert_eq(instr, @lib.Instruction::i32x4_splat())
+        _ => fail("expected i32x4.splat lowered body")
+      }
+      match funcs[3] {
+        @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
+          assert_eq(instr, @lib.Instruction::i64x2_splat())
+        _ => fail("expected i64x2.splat lowered body")
+      }
+      match funcs[4] {
+        @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
+          assert_eq(instr, @lib.Instruction::f32x4_splat())
+        _ => fail("expected f32x4.splat lowered body")
+      }
+      match funcs[5] {
+        @lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr])) =>
+          assert_eq(instr, @lib.Instruction::f64x2_splat())
+        _ => fail("expected f64x2.splat lowered body")
+      }
+    }
+    _ => fail("expected lowered module code section for SIMD splat ops")
   }
 }
 

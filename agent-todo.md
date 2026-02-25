@@ -10,10 +10,10 @@ Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full
 - Last updated: `2026-02-25`
 - Scope: Open tasks plus recently completed checkoffs
 - Last audit run: `2026-02-25`
-- `moon fmt`: `Finished. moon: no work to do`
-- `moon info`: `Finished. moon: no work to do`
+- `moon fmt`: `Finished. moon: ran 72 tasks, now up to date`
+- `moon info`: `Finished. moon: ran 2 tasks, now up to date`
 - `moon check`: `Finished. moon: no work to do`
-- `moon test`: `2433` passed, `0` failed
+- `moon test`: `2437` passed, `0` failed
 - `moon test src/cmd --target native`: `17` passed, `0` failed
 - `moon test src/wast --target native`: `262` passed, `0` failed
 - `moon build --target native`: `not run in this audit`
@@ -47,8 +47,14 @@ Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full
   - [x] Add adapter-level fallback tests that run without `lower_text_module` and still lower `.wat` / `.wast` through the in-process bridge.
   - [ ] Extend `wast -> lib` lowering coverage for currently unsupported instruction families (SIMD lanes/prefixed op variants and advanced reference/exception forms) so in-process lowering can replace external tools for broader real-world text inputs.
     - [x] Add SIMD lane lowering support in bridge for `v128.load{8,16,32,64}_lane`, `v128.store{8,16,32,64}_lane`, and `*x*.extract/replace_lane` instruction families.
-    - [ ] Add bridge lowering for remaining SIMD text forms still marked unsupported (`v128.const`, shuffle/swizzle, and additional prefixed SIMD forms).
+    - [x] Add bridge lowering for remaining SIMD text forms still marked unsupported (`v128.const`, shuffle/swizzle, and additional prefixed SIMD forms).
+      - [x] Lower `v128.const` shape forms (`i8x16`, `i16x8`, `i32x4`, `i64x2`, `f32x4`, `f64x2`) into raw 16-byte payloads.
+      - [x] Lower non-lane SIMD memory prefixed ops (`v128.load*`, `v128.store`).
+      - [x] Lower `i8x16.shuffle` and `i8x16.swizzle`.
+      - [x] Lower scalar-to-vector SIMD splats (`i8x16`/`i16x8`/`i32x4`/`i64x2`/`f32x4`/`f64x2.splat`).
     - [ ] Add bridge lowering for advanced exception/reference families still marked unsupported.
+    - [ ] Follow-up: add explicit negative tests for out-of-range lane/value diagnostics in SIMD bridge lowering (`v128.const` and `i8x16.shuffle`).
+    - [ ] Follow-up: add literal-parity tests for `v128.const` hexadecimal integer and NaN payload lane forms in bridge lowering.
   - [x] Broaden grouped recursive type handling in lowering bridge function-signature resolution (currently conservative for grouped rec types).
 
 ### High-impact pass parity
