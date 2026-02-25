@@ -10,9 +10,9 @@ Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full
 - Last updated: `2026-02-25`
 - Scope: Open tasks plus recently completed checkoffs
 - Last audit run: `2026-02-25`
-- `moon fmt`: `Finished. moon: ran 4 tasks, now up to date`
-- `moon info`: `Finished. moon: ran 3 tasks, now up to date`
-- `moon test`: `2429` passed, `0` failed
+- `moon fmt`: `Finished. moon: ran 1 task, now up to date`
+- `moon info`: `Finished. moon: ran 2 tasks, now up to date`
+- `moon test`: `2433` passed, `0` failed
 - `moon test src/cmd --target native`: `17` passed, `0` failed
 - `moon build --target native`: `not run in this audit`
 - `moon coverage analyze`: `11223` uncovered line(s) in `105` file(s)
@@ -78,6 +78,16 @@ Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full
 
 ### Correctness test expansion
 - [ ] Integrate official WebAssembly spec test suite in MoonBit pipeline.
+  - [x] Add `src/wast/spec_harness.mbt` with a script-level harness for `tests/spec`, including static checks for `module`, `assert_malformed`, `assert_invalid`, and parse+validate prechecks for `assert_unlinkable`.
+  - [x] Add suite aggregation APIs (`run_wast_spec_file`, `run_wast_spec_suite`) and regression tests for pass/skip/fail accounting.
+  - [x] Add native integration test that enumerates `tests/spec/**/*.wast` and asserts zero hard harness failures while explicitly skipping unsupported `assert_exception` files and runtime-only assertions.
+  - [ ] Implement runtime execution semantics for `invoke`/`get` actions and `assert_return`/`assert_trap`/`assert_exhaustion`/`assert_exception`.
+  - [ ] Implement module instantiation/linking semantics needed for full `assert_unlinkable` parity (currently only static precheck is enforced).
+  - [ ] Remove temporary harness skip classifications for known parser/lower/validate mismatches in current `tests/spec` sweep and replace them with real support:
+    - [ ] parser support for table element-segment abbreviation forms (for example `(table funcref (elem $f))`).
+    - [ ] lowering support for named parameter/local references that currently fail with `unknown local id` in numeric/float fixtures.
+    - [ ] decoder/validator parity for currently skipped malformed/binary fixtures (`binary-leb128`, custom-descriptor binary fixtures, and UTF-8 malformed cases).
+    - [ ] validator parity for currently skipped alignment/init-expression diagnostics in `align`/`memory_copy`/`memory_redundancy`/`memory_init` fixtures.
 - [ ] Add wasm-smith fuzzing harness (decode -> validate -> optimize -> encode -> roundtrip).
 - [ ] Add differential testing vs `wasm-tools` / Binaryen.
 - [x] Wire full text/binary roundtrip test (`wast_to_module -> module_to_binary -> binary_to_module -> module_to_wast` + normalization).

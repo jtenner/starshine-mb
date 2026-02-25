@@ -16,6 +16,10 @@ pub fn module_to_wast(Module) -> Result[String, String]
 
 pub fn module_to_wast_with_context(Module, @lib.PrettyPrintContext) -> Result[String, String]
 
+pub fn run_wast_spec_file(String, String) -> WastSpecFileReport
+
+pub fn run_wast_spec_suite(Array[(String, String)]) -> WastSpecRunSummary
+
 pub fn script_to_wast(WastScript) -> Result[String, String]
 
 pub fn script_to_wast_with_context(WastScript, @lib.PrettyPrintContext) -> Result[String, String]
@@ -1187,6 +1191,37 @@ pub impl Eq for WastScript
 pub impl Show for WastScript
 pub impl @debug.Debug for WastScript
 pub impl @quickcheck.Arbitrary for WastScript
+
+pub struct WastSpecFileReport {
+  path : String
+  status : WastSpecFileStatus
+  total_commands : Int
+  checked_commands : Int
+  skipped_commands : Int
+}
+pub impl Eq for WastSpecFileReport
+pub impl Show for WastSpecFileReport
+pub impl @debug.Debug for WastSpecFileReport
+
+pub enum WastSpecFileStatus {
+  Passed
+  Skipped(String)
+  Failed(String)
+}
+pub impl Eq for WastSpecFileStatus
+pub impl Show for WastSpecFileStatus
+pub impl @debug.Debug for WastSpecFileStatus
+
+pub struct WastSpecRunSummary {
+  files : Array[WastSpecFileReport]
+  total_files : Int
+  passed_files : Int
+  skipped_files : Int
+  failed_files : Int
+}
+pub impl Eq for WastSpecRunSummary
+pub impl Show for WastSpecRunSummary
+pub impl @debug.Debug for WastSpecRunSummary
 
 pub enum WastValue {
   I32(String)
