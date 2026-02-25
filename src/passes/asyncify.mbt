@@ -51,7 +51,7 @@ fn AsyncifyPassProps::new(
   export_globals? : Bool = false,
   in_secondary_memory? : Bool = false,
   secondary_memory_size? : UInt64 = 1024UL,
-  auto_lower_tail_calls? : Bool = false,
+  auto_lower_tail_calls? : Bool = true,
 ) -> AsyncifyPassProps {
   {
     imports,
@@ -930,6 +930,20 @@ fn af_ptr_align(ptr_ty : ValType) -> Int {
 }
 
 ///|
+fn af_memarg_align_pow_from_bytes(align_bytes : Int) -> U32 {
+  if align_bytes <= 1 {
+    return U32(0)
+  }
+  let mut bytes = align_bytes
+  let mut pow = 0
+  while bytes > 1 {
+    bytes = bytes / 2
+    pow += 1
+  }
+  U32(pow.reinterpret_as_uint())
+}
+
+///|
 fn af_ptr_size(ptr_ty : ValType) -> Int {
   match ptr_ty {
     NumTypeValType(I64NumType) => 8
@@ -960,7 +974,7 @@ fn AsyncifyBuilder::make_get_stack_pos(self : AsyncifyBuilder) -> TInstr {
   TInstr::load(
     af_ptr_load_op(self.pointer_type),
     MemArg::new(
-      U32(af_ptr_align(self.pointer_type).reinterpret_as_uint()),
+      af_memarg_align_pow_from_bytes(af_ptr_align(self.pointer_type)),
       Some(self.memory),
       U64(0UL),
     ),
@@ -974,7 +988,7 @@ fn AsyncifyBuilder::make_get_stack_end(self : AsyncifyBuilder) -> TInstr {
   TInstr::load(
     af_ptr_load_op(self.pointer_type),
     MemArg::new(
-      U32(af_ptr_align(self.pointer_type).reinterpret_as_uint()),
+      af_memarg_align_pow_from_bytes(af_ptr_align(self.pointer_type)),
       Some(self.memory),
       U64(offset.reinterpret_as_uint().to_uint64()),
     ),
@@ -990,7 +1004,7 @@ fn AsyncifyBuilder::make_inc_stack_pos(
   TInstr::store(
     af_ptr_store_op(self.pointer_type),
     MemArg::new(
-      U32(af_ptr_align(self.pointer_type).reinterpret_as_uint()),
+      af_memarg_align_pow_from_bytes(af_ptr_align(self.pointer_type)),
       Some(self.memory),
       U64(0UL),
     ),
@@ -1073,7 +1087,7 @@ fn af_add_asyncify_api(
       TInstr::load(
         af_ptr_load_op(pointer_type),
         MemArg::new(
-          U32(af_ptr_align(pointer_type).reinterpret_as_uint()),
+          af_memarg_align_pow_from_bytes(af_ptr_align(pointer_type)),
           Some(memory),
           U64(stack_end_offset.reinterpret_as_uint().to_uint64()),
         ),
@@ -1082,7 +1096,7 @@ fn af_add_asyncify_api(
       TInstr::load(
         af_ptr_load_op(pointer_type),
         MemArg::new(
-          U32(af_ptr_align(pointer_type).reinterpret_as_uint()),
+          af_memarg_align_pow_from_bytes(af_ptr_align(pointer_type)),
           Some(memory),
           U64(0UL),
         ),
@@ -1977,7 +1991,10 @@ fn af_rewrite_call_like(
     TReturnCall(_, _)
     | TReturnCallIndirect(_, _, _, _)
     | TReturnCallRef(_, _, _) =>
-      return Err("asyncify: tail calls are not supported")
+      // Should never reach here because we lowered earlier (or rejected in strict mode)
+      return Err(
+        "asyncify: internal error — tail call reached rewriter after lowering",
+      )
     TLocalSet(idx, value) =>
       match value {
         TCall(target, args) =>
@@ -2322,6 +2339,7 @@ fn af_rewrite_instr(
                   rebuilt_kids[2],
                 ),
               )
+            TReturn(_) => Ok(TInstr::return_(rebuilt_kids))
             _ => Ok(instr)
           }
         }
@@ -2487,7 +2505,7 @@ fn af_lower_intrinsics_and_locals(
                 RefTypeValType(_) => LoadOp::i32_load()
               },
               MemArg::new(
-                U32(af_align_up(sz, 1).reinterpret_as_uint()),
+                af_memarg_align_pow_from_bytes(af_align_up(sz, 1)),
                 Some(builder.memory),
                 U64(aligned.reinterpret_as_uint().to_uint64()),
               ),
@@ -2539,7 +2557,7 @@ fn af_lower_intrinsics_and_locals(
               RefTypeValType(_) => StoreOp::i32_store()
             },
             MemArg::new(
-              U32(af_align_up(sz, 1).reinterpret_as_uint()),
+              af_memarg_align_pow_from_bytes(af_align_up(sz, 1)),
               Some(builder.memory),
               U64(aligned.reinterpret_as_uint().to_uint64()),
             ),
@@ -2574,7 +2592,7 @@ fn af_lower_intrinsics_and_locals(
                     unwind_idx_local,
                     TInstr::load(
                       LoadOp::i32_load(),
-                      MemArg::new(U32(4), Some(builder.memory), U64(0UL)),
+                      MemArg::new(U32(2), Some(builder.memory), U64(0UL)),
                       builder.make_get_stack_pos(),
                     ),
                   ),
@@ -2658,7 +2676,7 @@ fn af_lower_intrinsics_and_locals(
             ),
             TInstr::store(
               StoreOp::i32_store(),
-              MemArg::new(U32(4), Some(builder.memory), U64(0UL)),
+              MemArg::new(U32(2), Some(builder.memory), U64(0UL)),
               builder.make_get_stack_pos(),
               TInstr::local_get(unwind_idx_local),
             ),
@@ -3223,27 +3241,37 @@ fn af_lower_tail_calls_prepass(mod : Module) -> Result[Module, String] {
 }
 
 ///|
-fn af_require_tail_call_lowering_prepass(mod : Module) -> Result[Unit, String] {
-  let imported = af_count_imported_funcs(mod).reinterpret_as_int()
+fn af_require_tail_call_lowering_prepass(_mod : Module) -> Result[Unit, String] {
+  Ok(())
+}
+
+///|
+///  NEW HELPER (add anywhere after af_instr_has_tail_call)
+fn af_has_any_tail_calls(mod : Module) -> Bool {
   match mod.code_sec {
     Some(CodeSec(funcs)) =>
       for i = 0; i < funcs.length(); i = i + 1 {
         match funcs[i] {
           TFunc(_, body) =>
-            for instr in body.0 {
-              if af_instr_has_tail_call(instr) {
-                let func_idx = imported + i
-                return Err(
-                  "asyncify: tail calls are not supported; run a tail-call lowering prepass before asyncify (function \{func_idx})",
-                )
-              }
+            if af_instr_has_tail_call_in_expr(body) { // rename your existing walker if needed
+              return true
             }
           _ => ()
         }
       }
     None => ()
   }
-  Ok(())
+  false
+}
+
+///|
+fn af_instr_has_tail_call_in_expr(expr : TExpr) -> Bool {
+  for instr in expr.0 {
+    if af_instr_has_tail_call(instr) {
+      return true
+    }
+  }
+  false
 }
 
 ///|
@@ -3252,13 +3280,23 @@ fn asyncify(
   props? : AsyncifyPassProps = AsyncifyPassProps::new(),
   optimize_level? : Int = 0,
 ) -> Result[Module, String] {
+  // Always lower tail calls unless the user explicitly disabled the feature.
+  // This gives "native-feeling" support with correct semantics.
   let mod = if props.auto_lower_tail_calls {
     match af_lower_tail_calls_prepass(mod) {
       Ok(next) => next
       Err(e) => return Err(e)
     }
   } else {
-    mod
+    // Strict mode: reject tail calls (useful for TCO benchmarks)
+    match af_has_any_tail_calls(mod) { // ← add this helper below
+      true =>
+        return Err(
+          "asyncify: tail calls detected but auto_lower_tail_calls=false.\n" +
+          "Either enable the flag (recommended) or run a manual tail-call lowering pass first.",
+        )
+      false => mod
+    }
   }
   match af_require_tail_call_lowering_prepass(mod) {
     Ok(_) => ()
@@ -3647,13 +3685,10 @@ test "asyncify rejects tail calls with required lowering prepass diagnostic" {
         Func::t_func([], TExpr::new([TInstr::return_call(FuncIdx::new(0), [])])),
       ]),
     )
-  match af_test_run(mod) {
-    Ok(_) => fail("expected asyncify to reject tail calls")
-    Err(e) => {
-      assert_true(e.contains("tail calls are not supported"))
-      assert_true(e.contains("tail-call lowering prepass"))
-      assert_true(e.contains("function 1"))
-    }
+  let props = AsyncifyPassProps::new(auto_lower_tail_calls=false)
+  match af_test_run(mod, props~) {
+    Ok(_) => fail("expected rejection when lowering disabled")
+    Err(e) => assert_true(e.contains("auto_lower_tail_calls=false"))
   }
 }
 
@@ -4787,5 +4822,54 @@ test "asyncify ignore-unwind-from-catch disables try_table call guard" {
       assert_false(saw_guard.val)
     }
     _ => fail("expected code section")
+  }
+}
+
+///|
+test "asyncify supports tail calls by default (no explicit flag)" {
+  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t0]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func([], TExpr::new([TInstr::nop()])),
+        Func::t_func([], TExpr::new([TInstr::return_call(FuncIdx::new(0), [])])),
+      ]),
+    )
+  let out = match af_test_run(mod) { // default props → auto_lower = true
+    Ok(m) => m
+    Err(e) => fail(e)
+  }
+  assert_eq(validate_module(out), Ok(()))
+  match out.code_sec {
+    Some(CodeSec([_, TFunc(_, body), ..])) =>
+      assert_false(af_has_tail_call(body))
+    _ => fail("expected rewritten body")
+  }
+}
+
+///|
+test "asyncify supports tail calls by default in memory64 modules" {
+  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t0]))
+    .with_mem_sec(MemSec::new([MemType::new(Limits::i64(1, None))]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func([], TExpr::new([TInstr::nop()])),
+        Func::t_func([], TExpr::new([TInstr::return_call(FuncIdx::new(0), [])])),
+      ]),
+    )
+  let out = match af_test_run(mod) {
+    Ok(m) => m
+    Err(e) => fail(e)
+  }
+  assert_eq(validate_module(out), Ok(()))
+  match out.code_sec {
+    Some(CodeSec([_, TFunc(_, body), ..])) =>
+      assert_false(af_has_tail_call(body))
+    _ => fail("expected rewritten body")
   }
 }
