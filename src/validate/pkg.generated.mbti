@@ -3,6 +3,7 @@ package "jtenner/starshine/validate"
 
 import {
   "jtenner/starshine/lib",
+  "moonbitlang/core/debug",
   "moonbitlang/core/quickcheck/splitmix",
 }
 
@@ -47,7 +48,7 @@ pub fn validate_importsec(@lib.ImportSec?, Env) -> Result[Env, String]
 
 pub fn validate_memsec(@lib.MemSec?, Env) -> Result[Env, String]
 
-pub fn validate_module(@lib.Module) -> Result[Unit, String]
+pub fn validate_module(@lib.Module) -> Result[Unit, ValidationError]
 
 pub fn validate_startsec(@lib.StartSec?, Env) -> Result[Unit, String]
 
@@ -58,6 +59,12 @@ pub fn validate_tagsec(@lib.TagSec?, Env) -> Result[Env, String]
 pub fn validate_typesec(@lib.TypeSec?, Env) -> Result[Env, String]
 
 // Errors
+pub suberror ValidationError {
+  Validation(String)
+}
+pub impl Eq for ValidationError
+pub impl Show for ValidationError
+pub impl @debug.Debug for ValidationError
 
 // Types and methods
 pub(all) struct Env {

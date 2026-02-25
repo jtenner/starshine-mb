@@ -133,20 +133,44 @@ fn wt_type_param_count(
   ctx : WTLowerCtx,
   type_idx : UInt,
 ) -> Result[UInt, String] {
-  let type_int = type_idx.reinterpret_as_int()
-  if type_int < 0 || type_int >= ctx.type_recs.length() {
-    return Err("invalid type index: \{type_idx}")
+  let mut flat = 0U
+  for rec in ctx.type_recs {
+    match rec {
+      SingleRecType(CompTypeSubType(FuncCompType(params, _)))
+      | SingleRecType(SubType(_, _, FuncCompType(params, _))) => {
+        if flat == type_idx {
+          return Ok(params.length().reinterpret_as_uint())
+        }
+        flat += 1
+      }
+      SingleRecType(_) => {
+        if flat == type_idx {
+          return Err(
+            "type index does not reference a function type: \{type_idx}",
+          )
+        }
+        flat += 1
+      }
+      GroupRecType(sts) =>
+        for st in sts {
+          match st {
+            CompTypeSubType(FuncCompType(params, _))
+            | SubType(_, _, FuncCompType(params, _)) =>
+              if flat == type_idx {
+                return Ok(params.length().reinterpret_as_uint())
+              }
+            _ =>
+              if flat == type_idx {
+                return Err(
+                  "type index does not reference a function type: \{type_idx}",
+                )
+              }
+          }
+          flat += 1
+        }
+    }
   }
-  match ctx.type_recs[type_int] {
-    SingleRecType(CompTypeSubType(FuncCompType(params, _)))
-    | SingleRecType(SubType(_, _, FuncCompType(params, _))) =>
-      Ok(params.length().reinterpret_as_uint())
-    GroupRecType(_) =>
-      Err(
-        "unsupported grouped recursive type for function type index: \{type_idx}",
-      )
-    _ => Err("type index does not reference a function type: \{type_idx}")
-  }
+  Err("invalid type index: \{type_idx}")
 }
 
 ///|
@@ -1415,5 +1439,21 @@ test "wast_to_binary_module resolves named locals after type-index params" {
       )
     ) => assert_eq(i, 1U)
     _ => fail("expected local.get on lowered named local")
+  }
+}
+
+///|
+test "wt_type_param_count supports grouped recursive function entries" {
+  let ctx = wt_new_ctx()
+  let st0 = @lib.SubType::comp_type(
+    @lib.CompType::func([@lib.ValType::i32()], []),
+  )
+  let st1 = @lib.SubType::comp_type(
+    @lib.CompType::func([@lib.ValType::i64(), @lib.ValType::f32()], []),
+  )
+  ctx.type_recs.push(@lib.RecType::group([st0, st1]))
+  match wt_type_param_count(ctx, 1U) {
+    Ok(count) => assert_eq(count, 2U)
+    Err(e) => fail("expected grouped rec param count resolution, got \{e}")
   }
 }

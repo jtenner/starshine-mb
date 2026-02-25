@@ -676,6 +676,31 @@ test "run_cmd_with_adapter reports input read failures with InputReadFailed" {
 }
 
 ///|
+test "run_cmd_with_adapter reports encode failures with EncodeFailed" {
+  let wasm = encode_module_bytes(fixture_i32_const_module(8))
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == "a.wasm" },
+    list_candidates=fn() { ["a.wasm"] },
+    read_file=fn(path) {
+      if path == "a.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    encode_module=fn(_) { Err("forced encode failure") },
+  )
+  match run_cmd_with_adapter(["a.wasm"], io) {
+    Ok(summary) => fail("expected encode failure, got summary \{summary}")
+    Err(CmdError::EncodeFailed(msg)) => {
+      assert_true(msg.contains("a.wasm"))
+      assert_true(msg.contains("forced encode failure"))
+    }
+    Err(err) => fail("expected EncodeFailed, got \{err}")
+  }
+}
+
+///|
 test "config pass flags take precedence over env pass overlays when cli pass flags are absent" {
   let config_json =
     #|{

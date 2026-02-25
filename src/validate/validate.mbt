@@ -10,6 +10,11 @@ pub fn diff(rt1 : RefType, rt2 : RefType) -> Result[RefType, String] {
 }
 
 ///|
+pub suberror ValidationError {
+  Validation(String)
+} derive(Eq, Show, Debug)
+
+///|
 pub trait Validate {
   validate(Self, Env) -> Result[Unit, String]
 }
@@ -1035,7 +1040,7 @@ fn validate_exportsec_unique(
 
 ///|
 /// Validates a whole module from an empty context, building its Env incrementally.
-pub fn validate_module(m : Module) -> Result[Unit, String] {
+fn validate_module_impl(m : Module) -> Result[Unit, String] {
   let {
     type_sec: typesec_opt,
     import_sec: importsec_opt,
@@ -1129,6 +1134,14 @@ pub fn validate_module(m : Module) -> Result[Unit, String] {
 }
 
 ///|
+pub fn validate_module(m : Module) -> Result[Unit, ValidationError] {
+  match validate_module_impl(m) {
+    Ok(_) => Ok(())
+    Err(msg) => Err(ValidationError::Validation(msg))
+  }
+}
+
+///|
 test "Fuzz Modules" {
   let rnd = @splitmix.new()
   loop 100000 {
@@ -1136,11 +1149,31 @@ test "Fuzz Modules" {
     n => {
       let mod = gen_valid_module(rnd)
       let result = validate_module(mod)
-      if result is Err(t) {
-        assert_true(false, msg=t)
+      if result is Err(ValidationError::Validation(msg)) {
+        assert_true(false, msg~)
       }
       continue n - 1
     }
+  }
+}
+
+///|
+test "validate_module reports typed ValidationError variant" {
+  let sig = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(CodeSec::new([Func::new([], Expr::new([]))]))
+    .with_export_sec(
+      ExportSec::new([
+        Export::new(Name::new("dup"), ExternIdx::func(FuncIdx::new(0U))),
+        Export::new(Name::new("dup"), ExternIdx::func(FuncIdx::new(0U))),
+      ]),
+    )
+  match validate_module(mod) {
+    Ok(_) => fail("expected duplicate export validation failure")
+    Err(ValidationError::Validation(msg)) =>
+      assert_true(msg.contains("duplicate export name"))
   }
 }
 

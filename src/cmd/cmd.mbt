@@ -30,6 +30,7 @@ pub struct CmdIO {
   get_env : (String) -> String?
   file_exists : (String) -> Bool
   read_file : (String) -> Result[Bytes, String]
+  encode_module : (Module) -> Result[Bytes, String]
   write_file : (String, Bytes) -> Result[Unit, String]
   write_stdout : (Bytes) -> Result[Unit, String]
   list_candidates : () -> Array[String]
@@ -42,6 +43,12 @@ pub fn CmdIO::new(
   file_exists? : (String) -> Bool = fn(_) { false },
   read_file? : (String) -> Result[Bytes, String] = fn(_) {
     Err("read_file not configured")
+  },
+  encode_module? : (Module) -> Result[Bytes, String] = fn(mod) {
+    match encode_module(mod) {
+      Ok(bytes) => Ok(bytes)
+      Err(err) => Err("\{err}")
+    }
   },
   write_file? : (String, Bytes) -> Result[Unit, String] = fn(_, _) {
     Err("write_file not configured")
@@ -60,6 +67,7 @@ pub fn CmdIO::new(
     get_env,
     file_exists,
     read_file,
+    encode_module,
     write_file,
     write_stdout,
     list_candidates,
@@ -1163,13 +1171,13 @@ fn decode_module_for_pipeline(
 
 ///|
 fn encode_module_for_pipeline(
+  io : CmdIO,
   path : String,
   mod : Module,
 ) -> Result[Bytes, CmdError] {
-  match encode_module(mod) {
+  match (io.encode_module)(mod) {
     Ok(bytes) => Ok(bytes)
-    Err(EncodeError::Encode(err)) =>
-      Err(CmdError::EncodeFailed("\{path}: \{err}"))
+    Err(err) => Err(CmdError::EncodeFailed("\{path}: \{err}"))
   }
 }
 
@@ -1353,7 +1361,8 @@ pub fn run_cmd_with_adapter(
       Err(e) => return Err(CmdError::OptimizeFailed("\{input_path}: \{e}"))
     }
 
-    let out_bytes = match encode_module_for_pipeline(input_path, optimized) {
+    let out_bytes = match
+      encode_module_for_pipeline(io, input_path, optimized) {
       Ok(bytes) => bytes
       Err(e) => return Err(e)
     }

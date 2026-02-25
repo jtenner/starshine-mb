@@ -1,6 +1,7 @@
 # Agent Tasks
 
 ## Blockers
+- [x] None currently active.
 - [x] Native default text lowering still depends on external tools (`wat2wasm` / `wasm-tools parse`); environments without either tool cannot lower `.wat` / `.wast` via `run_cmd`.
 - [x] In-process fallback is blocked by missing lowering bridge from `@wast.Module` (text AST) to binary IR `@lib.Module` (required by `@binary.Encode` in `run_cmd` pipeline).
 
@@ -11,9 +12,9 @@ Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full
 - Last updated: `2026-02-25`
 - Scope: Open tasks plus recently completed checkoffs
 - Last audit run: `2026-02-25`
-- `moon fmt`: `Finished. moon: ran 6 tasks, now up to date`
-- `moon info`: `Finished. moon: ran 2 tasks, now up to date`
-- `moon test`: `2419` passed, `0` failed
+- `moon fmt`: `Finished. moon: ran 7 tasks, now up to date`
+- `moon info`: `Finished. moon: ran 4 tasks, now up to date`
+- `moon test`: `2422` passed, `0` failed
 - `moon test src/cmd --target native`: `17` passed, `0` failed
 - `moon build --target native`: `not run in this audit`
 - `moon coverage analyze`: `11223` uncovered line(s) in `105` file(s)
@@ -25,14 +26,15 @@ Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full
 - [x] Native runtime regression tests for default `run_cmd` IO path (read/write/env/stdout write-failure propagation).
 - [x] Native default filesystem candidate enumeration for wildcard-glob expansion.
 - [x] Native default `.wat`/`.wast` text-module lowering hook (native external-tool fallback).
-- [ ] Add focused runtime error-path tests:
+- [x] Add focused runtime error-path tests:
   - [x] config read failures.
   - [x] decode failures.
   - [x] input read failures.
+  - [x] encode failures (end-to-end via adapter hook).
 - [x] Add scheduler-level tests that assert expanded `ModulePass` multiplicity for preset+explicit overlaps (not only resolved flag queue order).
 - [x] Add focused env precedence tests for pass/option overlays after config-fallback changes.
 - [x] Add `--help` and `--version` coverage/polish checks in CLI behavior tests.
-- [ ] Add CLI integration coverage for `CmdError::EncodeFailed` (currently only pipeline helper path is exercised; no end-to-end fixture reaches encode failure after decode+optimize).
+- [x] Add CLI integration coverage for `CmdError::EncodeFailed` (currently only pipeline helper path is exercised; no end-to-end fixture reaches encode failure after decode+optimize).
 
 ### Text frontend unblock
 - [x] Add `src/wat` package with wat-named API parity backed by `src/wast`.
@@ -44,7 +46,7 @@ Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full
   - [x] Design/implement `wast -> lib` lowering bridge (name/index resolution + section construction) so `run_cmd` can encode parser output without shelling out.
   - [x] Add adapter-level fallback tests that run without `lower_text_module` and still lower `.wat` / `.wast` through the in-process bridge.
   - [ ] Extend `wast -> lib` lowering coverage for currently unsupported instruction families (SIMD lanes/prefixed op variants and advanced reference/exception forms) so in-process lowering can replace external tools for broader real-world text inputs.
-  - [ ] Broaden grouped recursive type handling in lowering bridge function-signature resolution (currently conservative for grouped rec types).
+  - [x] Broaden grouped recursive type handling in lowering bridge function-signature resolution (currently conservative for grouped rec types).
 
 ### High-impact pass parity
 - [ ] `Poppify`
@@ -61,10 +63,12 @@ Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full
 
 ### Validation, decoding, and error model
 - [x] Replace string decode errors with typed `DecodeError` enum.
-- [ ] Mirror enum-based approach for `ValidationError`.
+- [x] Mirror enum-based approach for `ValidationError`.
 - [ ] Add richer `DecodeError` variants with source spans (`offset`, `length`) for malformed trailing/section contexts and thread them through `decode_module`.
 - [ ] Add source spans (`offset + length`) to public error types where applicable.
-- [ ] Switch negative tests from string matching to enum assertions.
+- [x] Switch negative tests from string matching to enum assertions.
+- [ ] Migrate remaining `validate_module` callers from wildcard `Err(_)` checks to explicit `ValidationError` variant matching for stronger diagnostics.
+- [ ] Add a typed encoder failure hook in `CmdIO` (parallel to `DecodeError`) so adapter-injected encode failures can preserve structured causes instead of string payloads.
 - [x] Expose binary public APIs:
   - [x] `decode_module(bytes: Bytes) -> Result[Module, DecodeError]`
   - [x] `encode_module(mod: Module) -> Result[Bytes, EncodeError]`

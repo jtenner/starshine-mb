@@ -753,7 +753,7 @@ fn fuzz_invalid_module_with_coverage(
   }
   match validate_module(invalid_module) {
     Ok(_) => (strategy_name, true, false)
-    Err(_) => (strategy_name, true, true)
+    Err(ValidationError::Validation(_)) => (strategy_name, true, true)
   }
 }
 
@@ -806,7 +806,7 @@ test "invalidation fuzzing with coverage" {
   }
   for _ in 0..<200 {
     let valid_module = gen_valid_module(rnd)
-    if validate_module(valid_module) is Err(_) {
+    if validate_module(valid_module) is Err(ValidationError::Validation(_)) {
       continue
     }
     let results = fuzz_all_strategies_with_coverage(valid_module)
@@ -929,5 +929,8 @@ test "TagIdxOOB rejects a module with throw/catch tag uses" {
   let (modified, invalid_mod) = apply_strategy(TagIdxOOB(1), mod)
   assert_true(modified)
   assert_not_eq(invalid_mod, mod)
-  assert_err(validate_module(invalid_mod))
+  match validate_module(invalid_mod) {
+    Ok(_) => fail("expected invalid module to be rejected")
+    Err(ValidationError::Validation(_)) => ()
+  }
 }
