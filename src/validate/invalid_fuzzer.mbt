@@ -590,6 +590,8 @@ priv enum InvalidationStrategy {
   DataIdxOOB(UInt)
   ElemIdxOOB(UInt)
   TagIdxOOB(UInt)
+  StartIdxOOB(UInt)
+  DuplicateExportName
   NumTypeSwap
   NullabilityFlip
   HeapTypeSwap
@@ -659,6 +661,22 @@ fn apply_strategy(
         Ok(Some((changed, new_mod))) if changed => (true, new_mod)
         _ => (false, mod_)
       }
+    StartIdxOOB(n) => {
+      let target = n + 0x7FFFFFFF
+      let invalid = mod_.with_start_sec(StartSec::new(FuncIdx::new(target)))
+      (invalid != mod_, invalid)
+    }
+    DuplicateExportName =>
+      match mod_.export_sec {
+        Some(ExportSec(exports)) if exports.length() > 0 => {
+          let dup = exports[0]
+          let next = exports.copy()
+          next.push(dup)
+          let invalid = mod_.with_export_sec(ExportSec::new(next))
+          (true, invalid)
+        }
+        _ => (false, mod_)
+      }
     NumTypeSwap =>
       match make_numtype_swap_transformer().walk_module((), mod_) {
         Ok(Some((_, new_mod))) => (true, new_mod)
@@ -725,6 +743,8 @@ fn InvalidationStrategy::to_string(self : InvalidationStrategy) -> String {
     DataIdxOOB(_) => "DataIdxOOB"
     ElemIdxOOB(_) => "ElemIdxOOB"
     TagIdxOOB(_) => "TagIdxOOB"
+    StartIdxOOB(_) => "StartIdxOOB"
+    DuplicateExportName => "DuplicateExportName"
     NumTypeSwap => "NumTypeSwap"
     NullabilityFlip => "NullabilityFlip"
     HeapTypeSwap => "HeapTypeSwap"
@@ -775,6 +795,8 @@ fn fuzz_all_strategies_with_coverage(
     DataIdxOOB(1),
     ElemIdxOOB(1),
     TagIdxOOB(1),
+    StartIdxOOB(1),
+    DuplicateExportName,
     NumTypeSwap,
     NullabilityFlip,
     HeapTypeSwap,
@@ -796,9 +818,10 @@ test "invalidation fuzzing with coverage" {
   let rejected_count : Map[String, Int] = {}
   let strategy_names = [
     "FuncIdxOOB", "TypeIdxOOB", "LocalIdxOOB", "GlobalIdxOOB", "LabelIdxOOB", "TableIdxOOB",
-    "MemIdxOOB", "DataIdxOOB", "ElemIdxOOB", "TagIdxOOB", "NumTypeSwap", "NullabilityFlip",
-    "HeapTypeSwap", "InstructionTypeMismatch", "BlockTypeMismatch", "DropInsertion",
-    "BlockCorruption", "SignatureCorruption", "GlobalInitMismatch", "TableInitMismatch",
+    "MemIdxOOB", "DataIdxOOB", "ElemIdxOOB", "TagIdxOOB", "StartIdxOOB", "DuplicateExportName",
+    "NumTypeSwap", "NullabilityFlip", "HeapTypeSwap", "InstructionTypeMismatch",
+    "BlockTypeMismatch", "DropInsertion", "BlockCorruption", "SignatureCorruption",
+    "GlobalInitMismatch", "TableInitMismatch",
   ]
   for s in strategy_names {
     tested_count[s] = 0
@@ -932,5 +955,49 @@ test "TagIdxOOB rejects a module with throw/catch tag uses" {
   match validate_module(invalid_mod) {
     Ok(_) => fail("expected invalid module to be rejected")
     Err(ValidationError::Validation(_)) => ()
+  }
+}
+
+///|
+test "StartIdxOOB strategy rejects module with valid start function" {
+  let sig = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([Func::t_func([], TExpr::new([TInstr::nop()]))]),
+    )
+    .with_start_sec(StartSec::new(FuncIdx::new(0)))
+  assert_eq(validate_module(mod), Ok(()))
+  let (modified, invalid_mod) = apply_strategy(StartIdxOOB(1), mod)
+  assert_true(modified)
+  match validate_module(invalid_mod) {
+    Ok(_) => fail("expected StartIdxOOB strategy to produce invalid module")
+    Err(ValidationError::Validation(_)) => ()
+  }
+}
+
+///|
+test "DuplicateExportName strategy rejects module with a single export" {
+  let sig = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([Func::t_func([], TExpr::new([TInstr::nop()]))]),
+    )
+    .with_export_sec(
+      ExportSec::new([
+        Export::new(Name::new("f"), ExternIdx::func(FuncIdx::new(0))),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let (modified, invalid_mod) = apply_strategy(DuplicateExportName, mod)
+  assert_true(modified)
+  match validate_module(invalid_mod) {
+    Ok(_) =>
+      fail("expected DuplicateExportName strategy to produce invalid module")
+    Err(ValidationError::Validation(msg)) =>
+      assert_true(msg.contains("duplicate export name"))
   }
 }

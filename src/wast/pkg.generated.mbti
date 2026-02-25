@@ -22,6 +22,8 @@ pub fn script_to_wast_with_context(WastScript, @lib.PrettyPrintContext) -> Resul
 
 pub fn wast_ast_to_binary_module(Module) -> Result[@lib.Module, String]
 
+pub fn wast_text_binary_roundtrip(String, filename? : String) -> Result[(String, @lib.Module), String]
+
 pub fn wast_to_binary_module(String, filename? : String) -> Result[@lib.Module, String]
 
 pub fn wast_to_module(String, filename? : String) -> Result[Module, String]

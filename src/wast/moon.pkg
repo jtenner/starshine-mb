@@ -1,4 +1,5 @@
 import {
+  "jtenner/starshine/binary" @binary,
   "jtenner/starshine/lib",
   "moonbitlang/core/buffer",
   "moonbitlang/core/double",

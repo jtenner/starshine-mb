@@ -10,9 +10,9 @@ Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full
 - Last updated: `2026-02-25`
 - Scope: Open tasks plus recently completed checkoffs
 - Last audit run: `2026-02-25`
-- `moon fmt`: `Finished. moon: ran 6 tasks, now up to date`
-- `moon info`: `Finished. moon: ran 8 tasks, now up to date`
-- `moon test`: `2425` passed, `0` failed
+- `moon fmt`: `Finished. moon: ran 4 tasks, now up to date`
+- `moon info`: `Finished. moon: ran 3 tasks, now up to date`
+- `moon test`: `2429` passed, `0` failed
 - `moon test src/cmd --target native`: `17` passed, `0` failed
 - `moon build --target native`: `not run in this audit`
 - `moon coverage analyze`: `11223` uncovered line(s) in `105` file(s)
@@ -68,10 +68,10 @@ Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full
 - [x] Add richer `DecodeError` variants with source spans (`offset`, `length`) for malformed trailing/section contexts and thread them through `decode_module`.
 - [x] Add source spans (`offset + length`) to public error types where applicable.
 - [x] Switch negative tests from string matching to enum assertions.
-- [ ] Migrate remaining `validate_module` callers from wildcard `Err(_)` checks to explicit `ValidationError` variant matching for stronger diagnostics.
+- [x] Migrate remaining `validate_module` callers from wildcard `Err(_)` checks to explicit `ValidationError` variant matching for stronger diagnostics.
 - [x] Add a typed encoder failure hook in `CmdIO` (parallel to `DecodeError`) so adapter-injected encode failures can preserve structured causes instead of string payloads.
 - [ ] Follow-up: replace heuristic `decode_module` span attribution with decoder-native offsets (thread precise section start/end through `BinaryDecodeError` internals).
-- [ ] Follow-up: add explicit `ValidationError`-variant assertions in remaining pass tests that still only assert `Ok(())`/generic failure.
+- [x] Follow-up: add explicit `ValidationError`-variant assertions in remaining pass tests that still only assert `Ok(())`/generic failure.
 - [x] Expose binary public APIs:
   - [x] `decode_module(bytes: Bytes) -> Result[Module, DecodeError]`
   - [x] `encode_module(mod: Module) -> Result[Bytes, EncodeError]`
@@ -80,8 +80,9 @@ Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full
 - [ ] Integrate official WebAssembly spec test suite in MoonBit pipeline.
 - [ ] Add wasm-smith fuzzing harness (decode -> validate -> optimize -> encode -> roundtrip).
 - [ ] Add differential testing vs `wasm-tools` / Binaryen.
-- [ ] Wire full text/binary roundtrip test (`wast_to_module -> module_to_binary -> binary_to_module -> module_to_wast` + normalization).
-- [ ] Add more fuzz coverage for invalid modules.
+- [x] Wire full text/binary roundtrip test (`wast_to_module -> module_to_binary -> binary_to_module -> module_to_wast` + normalization).
+- [x] Add more fuzz coverage for invalid modules.
+- [ ] Follow-up: make `module_to_wast` printer output reliably parser-consumable for function-body instruction forms so normalized text can be reparsed directly in roundtrip tests.
 - [ ] Achieve >=75% line coverage on hot paths (decoder, IR lift, top passes).
 
 ## Priority 2 (Maintainability and architecture)

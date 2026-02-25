@@ -1494,6 +1494,34 @@ pub fn wast_to_binary_module(
 }
 
 ///|
+pub fn wast_text_binary_roundtrip(
+  source : String,
+  filename? : String = "<memory>",
+) -> Result[(String, @lib.Module), String] {
+  let parsed = match wast_to_module(source, filename~) {
+    Ok(m) => m
+    Err(e) => return Err(e)
+  }
+  let normalized = match module_to_wast(parsed) {
+    Ok(t) => t
+    Err(e) => return Err("text normalization failed during roundtrip: \{e}")
+  }
+  let lowered = match wast_ast_to_binary_module(parsed) {
+    Ok(m) => m
+    Err(e) => return Err("text lowering failed during roundtrip: \{e}")
+  }
+  let bytes = match @binary.encode_module(lowered) {
+    Ok(raw) => raw
+    Err(e) => return Err("binary encode failed during roundtrip: \{e}")
+  }
+  let decoded = match @binary.decode_module(bytes) {
+    Ok(m) => m
+    Err(e) => return Err("binary decode failed during roundtrip: \{e}")
+  }
+  Ok((normalized, decoded))
+}
+
+///|
 test "wast_to_binary_module lowers simple function module" {
   let lowered = match
     wast_to_binary_module("(module (func (result i32) i32.const 5))") {
@@ -1621,4 +1649,58 @@ test "wast_to_binary_module lowers SIMD load/store lane ops" {
     }
     _ => fail("expected lowered SIMD load/store lane instructions")
   }
+}
+
+///|
+test "wast_text_binary_roundtrip returns validator-clean module for core fixture" {
+  let src =
+    #|(module
+    #|  (func (param i32) (result i32)
+    #|    local.get 0
+    #|    i32.const 1
+    #|    i32.add)
+    #|  (export "inc" (func 0)))
+  let (_, roundtripped) = match
+    wast_text_binary_roundtrip(src, filename="roundtrip-core.wast") {
+    Ok(m) => m
+    Err(e) => fail("expected full text/binary roundtrip to succeed: \{e}")
+  }
+  match roundtripped.export_sec {
+    Some(
+      @lib.ExportSec([@lib.Export(name, @lib.FuncExternIdx(@lib.FuncIdx(idx)))])
+    ) => {
+      assert_eq(name.0, "inc")
+      assert_eq(idx, 0U)
+    }
+    _ => fail("expected roundtripped core fixture to preserve export shape")
+  }
+}
+
+///|
+test "wast_text_binary_roundtrip preserves descriptor instruction families" {
+  let src =
+    #|(module
+    #|  (func (param funcref) (result i32)
+    #|    local.get 0
+    #|    ref.get_desc
+    #|    drop
+    #|    local.get 0
+    #|    ref.test_desc 0
+    #|    drop
+    #|    local.get 0
+    #|    ref.cast_desc_eq_null 0
+    #|    drop
+    #|    (i32.const 0))
+    #|  (export "f" (func 0)))
+  let (normalized, _) = match
+    wast_text_binary_roundtrip(src, filename="roundtrip-descriptor.wast") {
+    Ok(m) => m
+    Err(e) =>
+      fail(
+        "expected descriptor fixture full text/binary roundtrip to succeed: \{e}",
+      )
+  }
+  assert_true(normalized.contains("ref.get_desc"))
+  assert_true(normalized.contains("ref.test_desc 0"))
+  assert_true(normalized.contains("ref.cast_desc_eq_null 0"))
 }

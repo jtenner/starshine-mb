@@ -1670,7 +1670,11 @@ test "monomorphize always handles dropped calls and removes drop wrapper" {
         "expected dropped call to become direct call to dropped-result specialization",
       )
   }
-  assert_true(validate_module(out) is Ok(_))
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(@validate.ValidationError::Validation(msg)) =>
+      fail("expected monomorphized module to validate: \{msg}")
+  }
 }
 
 ///|
