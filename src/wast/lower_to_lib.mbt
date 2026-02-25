@@ -922,6 +922,126 @@ fn wt_instr_to_lib(
         Ok(@lib.Instruction::ref_cast_desc_eq(nullable, ht))
       }
     }
+    V128Load8Lane(ma, lane) =>
+      Ok(
+        @lib.Instruction::v128_load8_lane(
+          wt_mem_arg(ma),
+          @lib.LaneIdx::new(lane.to_byte()),
+        ),
+      )
+    V128Load16Lane(ma, lane) =>
+      Ok(
+        @lib.Instruction::v128_load16_lane(
+          wt_mem_arg(ma),
+          @lib.LaneIdx::new(lane.to_byte()),
+        ),
+      )
+    V128Load32Lane(ma, lane) =>
+      Ok(
+        @lib.Instruction::v128_load32_lane(
+          wt_mem_arg(ma),
+          @lib.LaneIdx::new(lane.to_byte()),
+        ),
+      )
+    V128Load64Lane(ma, lane) =>
+      Ok(
+        @lib.Instruction::v128_load64_lane(
+          wt_mem_arg(ma),
+          @lib.LaneIdx::new(lane.to_byte()),
+        ),
+      )
+    V128Store8Lane(ma, lane) =>
+      Ok(
+        @lib.Instruction::v128_store8_lane(
+          wt_mem_arg(ma),
+          @lib.LaneIdx::new(lane.to_byte()),
+        ),
+      )
+    V128Store16Lane(ma, lane) =>
+      Ok(
+        @lib.Instruction::v128_store16_lane(
+          wt_mem_arg(ma),
+          @lib.LaneIdx::new(lane.to_byte()),
+        ),
+      )
+    V128Store32Lane(ma, lane) =>
+      Ok(
+        @lib.Instruction::v128_store32_lane(
+          wt_mem_arg(ma),
+          @lib.LaneIdx::new(lane.to_byte()),
+        ),
+      )
+    V128Store64Lane(ma, lane) =>
+      Ok(
+        @lib.Instruction::v128_store64_lane(
+          wt_mem_arg(ma),
+          @lib.LaneIdx::new(lane.to_byte()),
+        ),
+      )
+    I8x16ExtractLaneS(lane) =>
+      Ok(
+        @lib.Instruction::i8x16_extract_lane_s(
+          @lib.LaneIdx::new(lane.to_byte()),
+        ),
+      )
+    I8x16ExtractLaneU(lane) =>
+      Ok(
+        @lib.Instruction::i8x16_extract_lane_u(
+          @lib.LaneIdx::new(lane.to_byte()),
+        ),
+      )
+    I8x16ReplaceLane(lane) =>
+      Ok(
+        @lib.Instruction::i8x16_replace_lane(@lib.LaneIdx::new(lane.to_byte())),
+      )
+    I16x8ExtractLaneS(lane) =>
+      Ok(
+        @lib.Instruction::i16x8_extract_lane_s(
+          @lib.LaneIdx::new(lane.to_byte()),
+        ),
+      )
+    I16x8ExtractLaneU(lane) =>
+      Ok(
+        @lib.Instruction::i16x8_extract_lane_u(
+          @lib.LaneIdx::new(lane.to_byte()),
+        ),
+      )
+    I16x8ReplaceLane(lane) =>
+      Ok(
+        @lib.Instruction::i16x8_replace_lane(@lib.LaneIdx::new(lane.to_byte())),
+      )
+    I32x4ExtractLane(lane) =>
+      Ok(
+        @lib.Instruction::i32x4_extract_lane(@lib.LaneIdx::new(lane.to_byte())),
+      )
+    I32x4ReplaceLane(lane) =>
+      Ok(
+        @lib.Instruction::i32x4_replace_lane(@lib.LaneIdx::new(lane.to_byte())),
+      )
+    I64x2ExtractLane(lane) =>
+      Ok(
+        @lib.Instruction::i64x2_extract_lane(@lib.LaneIdx::new(lane.to_byte())),
+      )
+    I64x2ReplaceLane(lane) =>
+      Ok(
+        @lib.Instruction::i64x2_replace_lane(@lib.LaneIdx::new(lane.to_byte())),
+      )
+    F32x4ExtractLane(lane) =>
+      Ok(
+        @lib.Instruction::f32x4_extract_lane(@lib.LaneIdx::new(lane.to_byte())),
+      )
+    F32x4ReplaceLane(lane) =>
+      Ok(
+        @lib.Instruction::f32x4_replace_lane(@lib.LaneIdx::new(lane.to_byte())),
+      )
+    F64x2ExtractLane(lane) =>
+      Ok(
+        @lib.Instruction::f64x2_extract_lane(@lib.LaneIdx::new(lane.to_byte())),
+      )
+    F64x2ReplaceLane(lane) =>
+      Ok(
+        @lib.Instruction::f64x2_replace_lane(@lib.LaneIdx::new(lane.to_byte())),
+      )
     V128Const(_)
     | V128Load(_)
     | V128Load8x8S(_)
@@ -937,14 +1057,6 @@ fn wt_instr_to_lib(
     | V128Load32Zero(_)
     | V128Load64Zero(_)
     | V128Store(_)
-    | V128Load8Lane(_, _)
-    | V128Load16Lane(_, _)
-    | V128Load32Lane(_, _)
-    | V128Load64Lane(_, _)
-    | V128Store8Lane(_, _)
-    | V128Store16Lane(_, _)
-    | V128Store32Lane(_, _)
-    | V128Store64Lane(_, _)
     | I8x16Shuffle(_)
     | I8x16Swizzle
     | I8x16Splat
@@ -952,21 +1064,7 @@ fn wt_instr_to_lib(
     | I32x4Splat
     | I64x2Splat
     | F32x4Splat
-    | F64x2Splat
-    | I8x16ExtractLaneS(_)
-    | I8x16ExtractLaneU(_)
-    | I8x16ReplaceLane(_)
-    | I16x8ExtractLaneS(_)
-    | I16x8ExtractLaneU(_)
-    | I16x8ReplaceLane(_)
-    | I32x4ExtractLane(_)
-    | I32x4ReplaceLane(_)
-    | I64x2ExtractLane(_)
-    | I64x2ReplaceLane(_)
-    | F32x4ExtractLane(_)
-    | F32x4ReplaceLane(_)
-    | F64x2ExtractLane(_)
-    | F64x2ReplaceLane(_) => wt_unsupported("\{instr}")
+    | F64x2Splat => wt_unsupported("\{instr}")
   }
 }
 
@@ -1455,5 +1553,72 @@ test "wt_type_param_count supports grouped recursive function entries" {
   match wt_type_param_count(ctx, 1U) {
     Ok(count) => assert_eq(count, 2U)
     Err(e) => fail("expected grouped rec param count resolution, got \{e}")
+  }
+}
+
+///|
+test "wast_to_binary_module lowers SIMD extract/replace lane ops" {
+  let lowered = match
+    wast_to_binary_module(
+      "(module (func (param v128 i32) (result v128) local.get 0 i8x16.extract_lane_u 7 drop local.get 0 local.get 1 i8x16.replace_lane 3))",
+    ) {
+    Ok(m) => m
+    Err(e) => fail("expected lowering success: \{e}")
+  }
+  match lowered.code_sec {
+    Some(
+      @lib.CodeSec(
+        [@lib.Func(_, @lib.Expr([_, extract_lane, _, _, _, replace_lane]))]
+      )
+    ) => {
+      assert_eq(
+        extract_lane,
+        @lib.Instruction::i8x16_extract_lane_u(@lib.LaneIdx::new(7)),
+      )
+      assert_eq(
+        replace_lane,
+        @lib.Instruction::i8x16_replace_lane(@lib.LaneIdx::new(3)),
+      )
+    }
+    _ => fail("expected lowered SIMD extract/replace lane instructions")
+  }
+}
+
+///|
+test "wast_to_binary_module lowers SIMD load/store lane ops" {
+  let lowered = match
+    wast_to_binary_module(
+      "(module (memory 1) (func (param i32 v128) (result v128) local.get 0 local.get 1 v128.load8_lane 5 local.get 0 v128.store8_lane 2 local.get 1))",
+    ) {
+    Ok(m) => m
+    Err(e) => fail("expected lowering success: \{e}")
+  }
+  match lowered.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr([_, _, load_lane_instr, _, store_lane_instr, _])
+          ),
+        ]
+      )
+    ) => {
+      assert_eq(
+        load_lane_instr,
+        @lib.Instruction::v128_load8_lane(
+          @lib.MemArg::new(@lib.U32(1), None, @lib.U64(0)),
+          @lib.LaneIdx::new(5),
+        ),
+      )
+      assert_eq(
+        store_lane_instr,
+        @lib.Instruction::v128_store8_lane(
+          @lib.MemArg::new(@lib.U32(1), None, @lib.U64(0)),
+          @lib.LaneIdx::new(2),
+        ),
+      )
+    }
+    _ => fail("expected lowered SIMD load/store lane instructions")
   }
 }

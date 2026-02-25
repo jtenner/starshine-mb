@@ -7,13 +7,29 @@ pub enum CmdError {
   ConfigReadFailed(String)
   InputReadFailed(String)
   TextLoweringFailed(String)
-  DecodeFailed(String)
+  DecodeFailed(String, DecodeError)
   OptimizeFailed(String)
-  EncodeFailed(String)
+  EncodeFailed(String, CmdEncodeError)
   OutputWriteFailed(String)
   AmbiguousOutputFile(String)
   NoInputFiles
 } derive(Eq, Show, Debug)
+
+///|
+pub suberror CmdEncodeError {
+  Encode(EncodeError)
+  Adapter(String)
+} derive(Eq, Show, Debug)
+
+///|
+pub fn CmdEncodeError::encode(err : EncodeError) -> CmdEncodeError {
+  Encode(err)
+}
+
+///|
+pub fn CmdEncodeError::adapter(msg : String) -> CmdEncodeError {
+  Adapter(msg)
+}
 
 ///|
 pub fn CmdError::unknown_pass_flag(flag : String) -> CmdError {
@@ -30,7 +46,7 @@ pub struct CmdIO {
   get_env : (String) -> String?
   file_exists : (String) -> Bool
   read_file : (String) -> Result[Bytes, String]
-  encode_module : (Module) -> Result[Bytes, String]
+  encode_module : (Module) -> Result[Bytes, CmdEncodeError]
   write_file : (String, Bytes) -> Result[Unit, String]
   write_stdout : (Bytes) -> Result[Unit, String]
   list_candidates : () -> Array[String]
@@ -44,10 +60,10 @@ pub fn CmdIO::new(
   read_file? : (String) -> Result[Bytes, String] = fn(_) {
     Err("read_file not configured")
   },
-  encode_module? : (Module) -> Result[Bytes, String] = fn(mod) {
+  encode_module? : (Module) -> Result[Bytes, CmdEncodeError] = fn(mod) {
     match encode_module(mod) {
       Ok(bytes) => Ok(bytes)
-      Err(err) => Err("\{err}")
+      Err(err) => Err(CmdEncodeError::encode(err))
     }
   },
   write_file? : (String, Bytes) -> Result[Unit, String] = fn(_, _) {
@@ -1158,14 +1174,7 @@ fn decode_module_for_pipeline(
 ) -> Result[Module, CmdError] {
   match decode_module(bytes) {
     Ok(mod) => Ok(mod)
-    Err(DecodeError::Decode(err)) =>
-      Err(CmdError::DecodeFailed("\{path}: \{err}"))
-    Err(DecodeError::TrailingBytes(decoded, total)) =>
-      Err(
-        CmdError::DecodeFailed(
-          "\{path}: trailing bytes after module body (decoded \{decoded} of \{total})",
-        ),
-      )
+    Err(err) => Err(CmdError::DecodeFailed(path, err))
   }
 }
 
@@ -1177,7 +1186,7 @@ fn encode_module_for_pipeline(
 ) -> Result[Bytes, CmdError] {
   match (io.encode_module)(mod) {
     Ok(bytes) => Ok(bytes)
-    Err(err) => Err(CmdError::EncodeFailed("\{path}: \{err}"))
+    Err(err) => Err(CmdError::EncodeFailed(path, err))
   }
 }
 

@@ -647,7 +647,15 @@ test "run_cmd_with_adapter reports decode failures with DecodeFailed" {
   )
   match run_cmd_with_adapter(["bad.wasm"], io) {
     Ok(summary) => fail("expected decode failure, got summary \{summary}")
-    Err(CmdError::DecodeFailed(msg)) => assert_true(msg.contains("bad.wasm"))
+    Err(CmdError::DecodeFailed(path, err)) => {
+      assert_eq(path, "bad.wasm")
+      match err {
+        @binary.DecodeError::Decode(
+          @binary.BinaryDecodeError::InvalidMagicHeader
+        ) => ()
+        _ => fail("expected typed decode cause, got \{err}")
+      }
+    }
     Err(err) => fail("expected DecodeFailed, got \{err}")
   }
 }
@@ -688,13 +696,15 @@ test "run_cmd_with_adapter reports encode failures with EncodeFailed" {
         Err("missing fixture")
       }
     },
-    encode_module=fn(_) { Err("forced encode failure") },
+    encode_module=fn(_) {
+      Err(CmdEncodeError::adapter("forced encode failure"))
+    },
   )
   match run_cmd_with_adapter(["a.wasm"], io) {
     Ok(summary) => fail("expected encode failure, got summary \{summary}")
-    Err(CmdError::EncodeFailed(msg)) => {
-      assert_true(msg.contains("a.wasm"))
-      assert_true(msg.contains("forced encode failure"))
+    Err(CmdError::EncodeFailed(path, err)) => {
+      assert_eq(path, "a.wasm")
+      assert_eq(err, CmdEncodeError::adapter("forced encode failure"))
     }
     Err(err) => fail("expected EncodeFailed, got \{err}")
   }

@@ -2,6 +2,7 @@
 package "jtenner/starshine/cmd"
 
 import {
+  "jtenner/starshine/binary",
   "jtenner/starshine/cli",
   "jtenner/starshine/lib",
   "moonbitlang/core/debug",
@@ -13,6 +14,15 @@ pub fn run_cmd(Array[String]) -> Result[CmdRunSummary, CmdError]
 pub fn run_cmd_with_adapter(Array[String], CmdIO, config_json? : String?) -> Result[CmdRunSummary, CmdError]
 
 // Errors
+pub suberror CmdEncodeError {
+  Encode(@binary.EncodeError)
+  Adapter(String)
+}
+pub fn CmdEncodeError::adapter(String) -> Self
+pub fn CmdEncodeError::encode(@binary.EncodeError) -> Self
+pub impl Eq for CmdEncodeError
+pub impl Show for CmdEncodeError
+pub impl @debug.Debug for CmdEncodeError
 
 // Types and methods
 pub enum CmdError {
@@ -23,9 +33,9 @@ pub enum CmdError {
   ConfigReadFailed(String)
   InputReadFailed(String)
   TextLoweringFailed(String)
-  DecodeFailed(String)
+  DecodeFailed(String, @binary.DecodeError)
   OptimizeFailed(String)
-  EncodeFailed(String)
+  EncodeFailed(String, CmdEncodeError)
   OutputWriteFailed(String)
   AmbiguousOutputFile(String)
   NoInputFiles
@@ -40,13 +50,13 @@ pub struct CmdIO {
   get_env : (String) -> String?
   file_exists : (String) -> Bool
   read_file : (String) -> Result[Bytes, String]
-  encode_module : (@lib.Module) -> Result[Bytes, String]
+  encode_module : (@lib.Module) -> Result[Bytes, CmdEncodeError]
   write_file : (String, Bytes) -> Result[Unit, String]
   write_stdout : (Bytes) -> Result[Unit, String]
   list_candidates : () -> Array[String]
   lower_text_module : (String, @cli.CliInputFormat, Bytes) -> Result[Bytes, String]
 }
-pub fn CmdIO::new(get_env? : (String) -> String?, file_exists? : (String) -> Bool, read_file? : (String) -> Result[Bytes, String], encode_module? : (@lib.Module) -> Result[Bytes, String], write_file? : (String, Bytes) -> Result[Unit, String], write_stdout? : (Bytes) -> Result[Unit, String], list_candidates? : () -> Array[String], lower_text_module? : (String, @cli.CliInputFormat, Bytes) -> Result[Bytes, String]) -> Self
+pub fn CmdIO::new(get_env? : (String) -> String?, file_exists? : (String) -> Bool, read_file? : (String) -> Result[Bytes, String], encode_module? : (@lib.Module) -> Result[Bytes, CmdEncodeError], write_file? : (String, Bytes) -> Result[Unit, String], write_stdout? : (Bytes) -> Result[Unit, String], list_candidates? : () -> Array[String], lower_text_module? : (String, @cli.CliInputFormat, Bytes) -> Result[Bytes, String]) -> Self
 
 pub struct CmdRunSummary {
   input_files : Array[String]

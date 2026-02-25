@@ -2,8 +2,6 @@
 
 ## Blockers
 - [x] None currently active.
-- [x] Native default text lowering still depends on external tools (`wat2wasm` / `wasm-tools parse`); environments without either tool cannot lower `.wat` / `.wast` via `run_cmd`.
-- [x] In-process fallback is blocked by missing lowering bridge from `@wast.Module` (text AST) to binary IR `@lib.Module` (required by `@binary.Encode` in `run_cmd` pipeline).
 
 ## Goal
 Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full native CLI, spec-test passing validator+optimizer, clean public API, and maintainable codebase.
@@ -12,9 +10,9 @@ Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full
 - Last updated: `2026-02-25`
 - Scope: Open tasks plus recently completed checkoffs
 - Last audit run: `2026-02-25`
-- `moon fmt`: `Finished. moon: ran 7 tasks, now up to date`
-- `moon info`: `Finished. moon: ran 4 tasks, now up to date`
-- `moon test`: `2422` passed, `0` failed
+- `moon fmt`: `Finished. moon: ran 6 tasks, now up to date`
+- `moon info`: `Finished. moon: ran 8 tasks, now up to date`
+- `moon test`: `2425` passed, `0` failed
 - `moon test src/cmd --target native`: `17` passed, `0` failed
 - `moon build --target native`: `not run in this audit`
 - `moon coverage analyze`: `11223` uncovered line(s) in `105` file(s)
@@ -46,6 +44,9 @@ Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full
   - [x] Design/implement `wast -> lib` lowering bridge (name/index resolution + section construction) so `run_cmd` can encode parser output without shelling out.
   - [x] Add adapter-level fallback tests that run without `lower_text_module` and still lower `.wat` / `.wast` through the in-process bridge.
   - [ ] Extend `wast -> lib` lowering coverage for currently unsupported instruction families (SIMD lanes/prefixed op variants and advanced reference/exception forms) so in-process lowering can replace external tools for broader real-world text inputs.
+    - [x] Add SIMD lane lowering support in bridge for `v128.load{8,16,32,64}_lane`, `v128.store{8,16,32,64}_lane`, and `*x*.extract/replace_lane` instruction families.
+    - [ ] Add bridge lowering for remaining SIMD text forms still marked unsupported (`v128.const`, shuffle/swizzle, and additional prefixed SIMD forms).
+    - [ ] Add bridge lowering for advanced exception/reference families still marked unsupported.
   - [x] Broaden grouped recursive type handling in lowering bridge function-signature resolution (currently conservative for grouped rec types).
 
 ### High-impact pass parity
@@ -64,11 +65,13 @@ Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full
 ### Validation, decoding, and error model
 - [x] Replace string decode errors with typed `DecodeError` enum.
 - [x] Mirror enum-based approach for `ValidationError`.
-- [ ] Add richer `DecodeError` variants with source spans (`offset`, `length`) for malformed trailing/section contexts and thread them through `decode_module`.
-- [ ] Add source spans (`offset + length`) to public error types where applicable.
+- [x] Add richer `DecodeError` variants with source spans (`offset`, `length`) for malformed trailing/section contexts and thread them through `decode_module`.
+- [x] Add source spans (`offset + length`) to public error types where applicable.
 - [x] Switch negative tests from string matching to enum assertions.
 - [ ] Migrate remaining `validate_module` callers from wildcard `Err(_)` checks to explicit `ValidationError` variant matching for stronger diagnostics.
-- [ ] Add a typed encoder failure hook in `CmdIO` (parallel to `DecodeError`) so adapter-injected encode failures can preserve structured causes instead of string payloads.
+- [x] Add a typed encoder failure hook in `CmdIO` (parallel to `DecodeError`) so adapter-injected encode failures can preserve structured causes instead of string payloads.
+- [ ] Follow-up: replace heuristic `decode_module` span attribution with decoder-native offsets (thread precise section start/end through `BinaryDecodeError` internals).
+- [ ] Follow-up: add explicit `ValidationError`-variant assertions in remaining pass tests that still only assert `Ok(())`/generic failure.
 - [x] Expose binary public APIs:
   - [x] `decode_module(bytes: Bytes) -> Result[Module, DecodeError]`
   - [x] `encode_module(mod: Module) -> Result[Bytes, EncodeError]`

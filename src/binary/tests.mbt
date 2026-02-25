@@ -93,19 +93,30 @@ test "binary codec errors derive eq show debug" {
 test "module codec wrapper errors derive eq show debug" {
   let enc = EncodeError::Encode(BinaryEncodeError::CannotEncodeBottomValType)
   let dec = DecodeError::Decode(BinaryDecodeError::InvalidModule)
-  let trailing = DecodeError::TrailingBytes(1, 2)
+  let trailing = DecodeError::TrailingBytes(1, 1)
+  let spanned = DecodeError::DecodeAt(
+    BinaryDecodeError::InvalidSectionHeader,
+    8,
+    2,
+  )
   assert_eq(
     enc,
     EncodeError::Encode(BinaryEncodeError::CannotEncodeBottomValType),
   )
   assert_eq(dec, DecodeError::Decode(BinaryDecodeError::InvalidModule))
-  assert_eq(trailing, DecodeError::TrailingBytes(1, 2))
+  assert_eq(trailing, DecodeError::TrailingBytes(1, 1))
+  assert_eq(
+    spanned,
+    DecodeError::DecodeAt(BinaryDecodeError::InvalidSectionHeader, 8, 2),
+  )
   inspect(enc, content="Encode(CannotEncodeBottomValType)")
   inspect(dec, content="Decode(InvalidModule)")
-  inspect(trailing, content="TrailingBytes(1, 2)")
+  inspect(trailing, content="TrailingBytes(1, 1)")
+  inspect(spanned, content="DecodeAt(InvalidSectionHeader, 8, 2)")
   debug_inspect(enc, content="Encode(CannotEncodeBottomValType)")
   debug_inspect(dec, content="Decode(InvalidModule)")
-  debug_inspect(trailing, content="TrailingBytes(1, 2)")
+  debug_inspect(trailing, content="TrailingBytes(1, 1)")
+  debug_inspect(spanned, content="DecodeAt(InvalidSectionHeader, 8, 2)")
 }
 
 ///|
@@ -119,12 +130,49 @@ test "decode_module wraps decode success and malformed extra bytes as decode err
     Ok(decoded) => assert_eq(decoded, mod)
     Err(e) => fail("expected wrapper decode success: \{e}")
   }
-  let trailing = b"\x00\x61\x73\x6d\x01\x00\x00\x00\x00"
+  let trailing = b"\x00\x61\x73\x6d\x01\x00\x00\x00\x7f"
   match decode_module(trailing) {
     Ok(_) => fail("expected malformed extra-bytes decode failure")
-    Err(DecodeError::Decode(BinaryDecodeError::UnexpectedEofInUnsignedLeb)) =>
-      ()
+    Err(DecodeError::TrailingBytes(offset, len)) => {
+      assert_eq(offset, 8)
+      assert_eq(len, 1)
+    }
     Err(e) => fail("expected decode-error variant, got \{e}")
+  }
+}
+
+///|
+test "decode_module attaches section spans to wrapper decode errors" {
+  let bad_standard = b"\x00\x61\x73\x6d\x01\x00\x00\x00\x01\x02\x00"
+  match decode_module(bad_standard) {
+    Ok(_) => fail("expected decode failure for malformed section")
+    Err(
+      DecodeError::DecodeAt(
+        BinaryDecodeError::SectionPayloadLengthOutOfRange,
+        offset,
+        len
+      )
+    ) => {
+      assert_eq(offset, 8)
+      assert_eq(len, 3)
+    }
+    Err(e) => fail("expected section span decode error, got \{e}")
+  }
+
+  let bad_custom = b"\x00\x61\x73\x6d\x01\x00\x00\x00\x00\x02\x00"
+  match decode_module(bad_custom) {
+    Ok(_) => fail("expected decode failure for malformed custom section")
+    Err(
+      DecodeError::DecodeAt(
+        BinaryDecodeError::CustomSectionPayloadLengthOutOfRange,
+        offset,
+        len
+      )
+    ) => {
+      assert_eq(offset, 8)
+      assert_eq(len, 3)
+    }
+    Err(e) => fail("expected custom-section span decode error, got \{e}")
   }
 }
 

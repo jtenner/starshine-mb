@@ -90,6 +90,7 @@ pub impl @debug.Debug for BinaryEncodeError
 
 pub suberror DecodeError {
   Decode(BinaryDecodeError)
+  DecodeAt(BinaryDecodeError, Int, Int)
   TrailingBytes(Int, Int)
 }
 pub impl Eq for DecodeError
