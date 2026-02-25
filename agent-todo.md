@@ -33,6 +33,9 @@ Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full
 - [x] Add focused tests for `try_table` catch label-depth semantics covering numeric and named labels across nested blocks plus implicit function-return label resolution.
 - [x] Add explicit regression tests for inline exports across `func`/`table`/`memory`/`global` fields to lock in the shared inline-export lowering path.
 - [ ] Replace conservative legacy-exception lowering with semantic-preserving lowering to `try_table`/`throw_ref` (current path is static-validation oriented).
+- [ ] Add a native-target CI lane that executes `examples/` CLI workflows end-to-end (`wat` input -> optimize -> wasm output) to keep docs/examples executable in automation.
+- [ ] Add a small benchmark script to refresh the README benchmark table from reproducible `moon test` invocations instead of manual copy/update.
+- [ ] Extend README API signature guardrail blocks to include `ir`/`transformer`/`wat` once those sections are finalized for long-term stability.
 
 ### Release quality gates
 - [x] Add differential testing vs `wasm-tools` / Binaryen.
@@ -41,10 +44,10 @@ Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full
 - [ ] Reach `>=75%` line coverage on hot paths (decoder, IR lift, top passes).
 
 ## Priority 1 (Release polish)
-- [ ] Expand `README.md` with architecture diagram and benchmark table.
-- [ ] Add dedicated CLI command examples (`starshine` flags + config + env overlays).
-- [ ] Add generated/verified API drift check so README signatures stay in sync with `pkg.generated.mbti`.
-- [ ] Add `examples/` directory with real-world snippets.
+- [x] Expand `README.md` with architecture diagram and benchmark table.
+- [x] Add dedicated CLI command examples (`starshine` flags + config + env overlays).
+- [x] Add generated/verified API drift check so README signatures stay in sync with `pkg.generated.mbti`.
+- [x] Add `examples/` directory with real-world snippets.
 - [ ] Publish first release + MoonBit registry package (`moon publish` + GitHub Release binaries).
 
 ## Deferred After v0.1

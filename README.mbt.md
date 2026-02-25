@@ -24,7 +24,128 @@ The optimizer is organized around `ModulePass` scheduling in `src/passes/optimiz
 - `src/wast`: WAST lexer/parser/printer and text<->module conversion.
 - `src/wat`: thin WAT-named API wrapper over `src/wast`.
 - `src/cmd` and `src/cli`: command/runtime wiring and CLI/config parsing.
+- `examples`: runnable CLI configs/modules/env overlays.
 - `tests/spec`: vendored WebAssembly testsuite submodule used by the native spec-harness test.
+
+## Architecture Diagram
+
+```text
+WAT/WAST/WASM inputs
+        |
+        v
+  CLI arg parse + config/env overlay
+        |
+        v
+  decode_module + validate_module
+        |
+        v
+  lift_to_texpr_pass() + IRContext analyses
+        |
+        v
+  ModulePass scheduler (optimize.mbt)
+        |
+        v
+  lower/encode_module
+        |
+        v
+WASM outputs (stdout/file/out-dir)
+```
+
+## Benchmark Snapshot
+
+Measured on `2026-02-25` in this repository with warm local build cache (`moon test --quiet`, debug profile, `wasm-gc` target). These are smoke/reference numbers, not strict performance guarantees.
+
+| Workload | Command | Wall time |
+| --- | --- | --- |
+| Single CLI pipeline test (`run_cmd_with_adapter runs requested passes for each module`) | `/home/jtenner/.moon/bin/moon test --quiet --package jtenner/starshine/cmd --file cmd_test.mbt --index 5` | `0.556s` |
+| Fuzz harness smoke (`run_wasm_smith_fuzz_harness smoke covers full pipeline`) | `/home/jtenner/.moon/bin/moon test --quiet --package jtenner/starshine/cmd --file fuzz_harness_test.mbt --index 2` | `0.750s` |
+| Full test suite | `/home/jtenner/.moon/bin/moon test --quiet` | `10.937s` |
+
+## CLI Command Examples
+
+### Basic pass pipeline
+
+```bash
+starshine --vacuum --code-folding --out-dir dist input/*.wasm
+```
+
+### Use config file + explicit CLI overrides
+
+```json
+{
+  "inputs": {
+    "globs": ["examples/modules/*.wat"],
+    "format": "wat"
+  },
+  "outputs": {
+    "outDir": "out"
+  },
+  "passes": ["global-effects"],
+  "options": {
+    "optimize-level": 2,
+    "trap-mode": "allow"
+  }
+}
+```
+
+```bash
+starshine --config starshine.json --vacuum --out-dir dist
+```
+
+### Environment overlays
+
+```bash
+export STARSHINE_CONFIG=starshine.json
+export STARSHINE_PASSES="global-effects,flatten"
+export STARSHINE_OLEVEL=O3
+export STARSHINE_TRAP_MODE=never
+export STARSHINE_OUT_DIR=dist-env
+starshine examples/modules/simple.wat
+```
+
+Overlay precedence in the current implementation:
+- Input globs are merged in order: `config` -> `env` -> `cli`.
+- Output targets: `cli` overrides `env`, which overrides `config`.
+- Pass list: `cli` overrides `config`, which overrides `env`.
+- Optimization flags and trap mode: `cli` overrides `env`, which overrides `config`.
+
+## README API Signature Guardrails
+
+`scripts/check_readme_api_sync.sh` validates every signature line in the following marker blocks against the referenced `pkg.generated.mbti` file.
+
+<!-- README_API_VERIFY src/passes/pkg.generated.mbti -->
+```mbti
+pub fn default_function_optimization_passes(@lib.Module, OptimizeOptions) -> Array[ModulePass]
+pub fn default_global_optimization_pre_passes(@lib.Module, OptimizeOptions, closed_world? : Bool) -> Array[ModulePass]
+pub fn optimize_module(@lib.Module, Array[ModulePass]) -> Result[@lib.Module, String]
+pub fn optimize_module_with_options(@lib.Module, Array[ModulePass], OptimizeOptions) -> Result[@lib.Module, String]
+```
+
+<!-- README_API_VERIFY src/validate/pkg.generated.mbti -->
+```mbti
+pub fn empty_env() -> Env
+pub fn to_texpr(@lib.Expr, Env) -> Result[@lib.TExpr, String]
+pub fn validate_module(@lib.Module) -> Result[Unit, ValidationError]
+```
+
+<!-- README_API_VERIFY src/binary/pkg.generated.mbti -->
+```mbti
+pub fn decode_module(Bytes) -> Result[@lib.Module, DecodeError]
+pub fn encode_module(@lib.Module) -> Result[Bytes, EncodeError]
+```
+
+<!-- README_API_VERIFY src/wast/pkg.generated.mbti -->
+```mbti
+pub fn module_to_wast(Module) -> Result[String, String]
+pub fn wast_to_binary_module(String, filename? : String) -> Result[@lib.Module, String]
+```
+
+<!-- README_API_VERIFY src/cmd/pkg.generated.mbti -->
+```mbti
+pub fn run_cmd(Array[String]) -> Result[CmdRunSummary, CmdError]
+pub fn run_cmd_with_adapter(Array[String], CmdIO, config_json? : String?) -> Result[CmdRunSummary, CmdError]
+pub fn verify_readme_api_signatures(String, Array[(String, String)]) -> Result[Unit, String]
+```
 
 ## Primary Public Functions
 

@@ -1,0 +1,29 @@
+name: "README API Sync"
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "README.mbt.md"
+      - "scripts/check_readme_api_sync.sh"
+      - "src/**/pkg.generated.mbti"
+  push:
+    branches:
+      - main
+    paths:
+      - "README.mbt.md"
+      - "scripts/check_readme_api_sync.sh"
+      - "src/**/pkg.generated.mbti"
+
+jobs:
+  readme-api-sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Verify README API signatures
+        run: |
+          bash scripts/check_readme_api_sync.sh

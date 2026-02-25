@@ -1,0 +1,23 @@
+{
+  "inputs": {
+    "globs": [
+      "examples/modules/*.wat"
+    ],
+    "format": "wat"
+  },
+  "outputs": {
+    "outDir": "examples/out"
+  },
+  "passes": [
+    "optimize",
+    "vacuum"
+  ],
+  "options": {
+    "optimize-level": 3,
+    "shrink-level": 1,
+    "trap-mode": "allow",
+    "monomorphize-min-benefit": 5,
+    "low-memory-unused": false,
+    "low-memory-bound": 1024
+  }
+}

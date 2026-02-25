@@ -20,6 +20,8 @@ pub fn run_cmd_with_adapter(Array[String], CmdIO, config_json? : String?) -> Res
 
 pub fn run_wasm_smith_fuzz_harness(Int, seed? : UInt64, optimize_passes? : Array[@passes.ModulePass], differential_adapters? : DifferentialAdapters?, differential_every? : Int) -> Result[WasmSmithFuzzStats, String]
 
+pub fn verify_readme_api_signatures(String, Array[(String, String)]) -> Result[Unit, String]
+
 // Errors
 pub suberror CmdEncodeError {
   Encode(@binary.EncodeError)
@@ -95,6 +97,11 @@ pub struct DifferentialValidationReport {
 pub impl Eq for DifferentialValidationReport
 pub impl Show for DifferentialValidationReport
 pub impl @debug.Debug for DifferentialValidationReport
+
+type ReadmeApiVerifyBlock
+pub impl Eq for ReadmeApiVerifyBlock
+pub impl Show for ReadmeApiVerifyBlock
+pub impl @debug.Debug for ReadmeApiVerifyBlock
 
 pub struct WasmSmithFuzzStats {
   attempts : Int
