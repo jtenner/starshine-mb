@@ -1033,39 +1033,39 @@ fn native_c_string(text : String) -> Bytes {
 ///|
 #cfg(target="native")
 #borrow(path, mode)
-extern "c" fn native_fopen(path : Bytes, mode : Bytes) -> Int = "fopen"
+extern "c" fn native_fopen(path : Bytes, mode : Bytes) -> UInt64 = "fopen"
 
 ///|
 #cfg(target="native")
-extern "c" fn native_fclose(stream : Int) -> Int = "fclose"
+extern "c" fn native_fclose(stream : UInt64) -> Int = "fclose"
 
 ///|
 #cfg(target="native")
-extern "c" fn native_fseek(stream : Int, offset : Int, whence : Int) -> Int = "fseek"
+extern "c" fn native_fseek(stream : UInt64, offset : Int, whence : Int) -> Int = "fseek"
 
 ///|
 #cfg(target="native")
-extern "c" fn native_ftell(stream : Int) -> Int = "ftell"
+extern "c" fn native_ftell(stream : UInt64) -> Int64 = "ftell"
 
 ///|
 #cfg(target="native")
 #borrow(ptr)
 extern "c" fn native_fread(
   ptr : Bytes,
-  size : Int,
-  count : Int,
-  stream : Int,
-) -> Int = "fread"
+  size : UInt64,
+  count : UInt64,
+  stream : UInt64,
+) -> UInt64 = "fread"
 
 ///|
 #cfg(target="native")
 #borrow(ptr)
 extern "c" fn native_fwrite(
   ptr : Bytes,
-  size : Int,
-  count : Int,
-  stream : Int,
-) -> Int = "fwrite"
+  size : UInt64,
+  count : UInt64,
+  stream : UInt64,
+) -> UInt64 = "fwrite"
 
 ///|
 #cfg(target="native")
@@ -1104,8 +1104,22 @@ extern "c" fn native_fflush(stream : Int) -> Int = "fflush"
 
 ///|
 #cfg(target="native")
+extern "c" fn native_fork() -> Int = "fork"
+
+///|
+#cfg(target="native")
+#borrow(status)
+extern "c" fn native_waitpid(pid : Int, status : Bytes, options : Int) -> Int = "waitpid"
+
+///|
+#cfg(target="native")
+extern "c" fn native_exit(code : Int) -> Unit = "exit"
+
+///|
+#cfg(target="native")
 fn native_remove_if_exists(path : String) -> Unit {
-  ignore(native_remove(native_c_string(path)))
+  let c_path = native_c_string(path)
+  ignore(native_remove(c_path))
 }
 
 ///|
@@ -1117,48 +1131,58 @@ fn native_tmp_file(name : String) -> String {
 ///|
 #cfg(target="native")
 fn native_write_bytes(path : String, bytes : Bytes) -> Bool {
-  let file = native_fopen(native_c_string(path), native_c_string("wb"))
-  if file == 0 {
+  let c_path = native_c_string(path)
+  let c_mode = native_c_string("wb")
+  let file = native_fopen(c_path, c_mode)
+  if file == 0UL {
     return false
   }
   let expected = bytes.length()
   let wrote = if expected == 0 {
-    0
+    0UL
   } else {
-    native_fwrite(bytes, 1, expected, file)
+    native_fwrite(bytes, 1UL, expected.to_uint64(), file)
   }
   let close_code = native_fclose(file)
   if expected == 0 {
     close_code == 0
   } else {
-    wrote == expected && close_code == 0
+    wrote == expected.to_uint64() && close_code == 0
   }
 }
 
 ///|
 #cfg(target="native")
 fn native_read_bytes(path : String) -> Bytes? {
-  let file = native_fopen(native_c_string(path), native_c_string("rb"))
-  if file == 0 {
+  let c_path = native_c_string(path)
+  let c_mode = native_c_string("rb")
+  let file = native_fopen(c_path, c_mode)
+  if file == 0UL {
     return None
   }
   if native_fseek(file, 0, 2) != 0 {
     ignore(native_fclose(file))
     return None
   }
-  let size = native_ftell(file)
-  if size < 0 {
+  let size_i64 = native_ftell(file)
+  if size_i64 < 0L {
     ignore(native_fclose(file))
     return None
   }
+  let size_u = size_i64.reinterpret_as_uint64()
+  if size_u > 2147483647UL {
+    ignore(native_fclose(file))
+    return None
+  }
+  let size = size_i64.to_int()
   if native_fseek(file, 0, 0) != 0 {
     ignore(native_fclose(file))
     return None
   }
   let out = Bytes::new(size)
   if size > 0 {
-    let read = native_fread(out, 1, size, file)
-    if read != size {
+    let read = native_fread(out, 1UL, size_u, file)
+    if read != size_u {
       ignore(native_fclose(file))
       return None
     }
@@ -1172,13 +1196,116 @@ fn native_read_bytes(path : String) -> Bytes? {
 ///|
 #cfg(target="native")
 fn native_set_env(name : String, value : String) -> Bool {
-  native_setenv(native_c_string(name), native_c_string(value), 1) == 0
+  let c_name = native_c_string(name)
+  let c_value = native_c_string(value)
+  native_setenv(c_name, c_value, 1) == 0
 }
 
 ///|
 #cfg(target="native")
 fn native_unset_env(name : String) -> Unit {
-  ignore(native_unsetenv(native_c_string(name)))
+  let c_name = native_c_string(name)
+  ignore(native_unsetenv(c_name))
+}
+
+///|
+#cfg(target="native")
+fn native_wait_status_raw(status : Bytes) -> Int {
+  let mut raw = 0
+  let mut shift = 0
+  let mut i = 0
+  while i < status.length() {
+    raw = raw | (status[i].to_int() << shift)
+    i += 1
+    shift += 8
+  }
+  raw
+}
+
+///|
+#cfg(target="native")
+fn native_run_cmd_exit_status(args : Array[String]) -> (Bool, Int) {
+  let pid = native_fork()
+  if pid < 0 {
+    abort("failed to fork child process for run_cmd integration test")
+  }
+  if pid == 0 {
+    let code = run_cmd_exit_code(args)
+    native_exit(code)
+    abort("native_exit should not return")
+  }
+  let status = Bytes::new(4)
+  let waited = native_waitpid(pid, status, 0)
+  if waited != pid {
+    abort(
+      "waitpid returned unexpected pid \{waited}; expected child pid \{pid}",
+    )
+  }
+  let raw = native_wait_status_raw(status)
+  let signal = raw & 0x7F
+  if signal != 0 && signal != 0x7F {
+    return (true, signal)
+  }
+  let code = (raw >> 8) & 0xFF
+  (false, code)
+}
+
+///|
+#cfg(target="native")
+test "run_cmd native child process does not crash for file rewrite" {
+  let input_path = native_tmp_file("child-io-input")
+  let output_path = native_tmp_file("child-io-output")
+  native_remove_if_exists(input_path)
+  native_remove_if_exists(output_path)
+
+  let wasm = encode_module_bytes(fixture_i32_const_module(31))
+  assert_true(native_write_bytes(input_path, wasm))
+
+  let (signaled, status) = native_run_cmd_exit_status([
+    "--vacuum", "--out", output_path, input_path,
+  ])
+  if signaled {
+    native_remove_if_exists(input_path)
+    native_remove_if_exists(output_path)
+    fail("expected child to exit normally, got signal \{status}")
+  }
+  assert_eq(status, 0)
+  match native_read_bytes(output_path) {
+    Some(bytes) => ignore(decode_module_bytes(bytes))
+    None => fail("expected native output file at \{output_path}")
+  }
+
+  native_remove_if_exists(input_path)
+  native_remove_if_exists(output_path)
+}
+
+///|
+#cfg(target="native")
+test "run_cmd native child process does not crash for --optimize" {
+  let input_path = native_tmp_file("child-opt-input")
+  let output_path = native_tmp_file("child-opt-output")
+  native_remove_if_exists(input_path)
+  native_remove_if_exists(output_path)
+
+  let wasm = encode_module_bytes(fixture_i32_const_module(32))
+  assert_true(native_write_bytes(input_path, wasm))
+
+  let (signaled, status) = native_run_cmd_exit_status([
+    "--optimize", "--out", output_path, input_path,
+  ])
+  if signaled {
+    native_remove_if_exists(input_path)
+    native_remove_if_exists(output_path)
+    fail("expected child to exit normally, got signal \{status}")
+  }
+  assert_eq(status, 0)
+  match native_read_bytes(output_path) {
+    Some(bytes) => ignore(decode_module_bytes(bytes))
+    None => fail("expected optimized output file at \{output_path}")
+  }
+
+  native_remove_if_exists(input_path)
+  native_remove_if_exists(output_path)
 }
 
 ///|
@@ -1320,4 +1447,22 @@ test "run_cmd wires native default text-lowering hook for wat inputs" {
 
   native_remove_if_exists(wat_path)
   native_remove_if_exists(out_path)
+}
+
+///|
+#cfg(target="wasm")
+test "run_cmd uses wasm default io for --help" {
+  match run_cmd(["--help"]) {
+    Ok(_) => ()
+    Err(e) => fail("expected wasm --help success with default io, got \{e}")
+  }
+}
+
+///|
+#cfg(target="wasm")
+test "run_cmd uses wasm default io for --version" {
+  match run_cmd(["--version"]) {
+    Ok(_) => ()
+    Err(e) => fail("expected wasm --version success with default io, got \{e}")
+  }
 }

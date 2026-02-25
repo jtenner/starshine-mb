@@ -1,5 +1,17 @@
 # Starshine
 
+## WASM Artifact Snapshot (2026-02-25)
+
+From `node_wasm/dist` after `npm run build:all`:
+
+| Artifact | File | Size (bytes) | Size (MiB) |
+| --- | --- | ---: | ---: |
+| Debug build | `starshine.debug.wasm` | `18,417,371` | `17.563` |
+| Release build | `starshine.release.wasm` | `6,616,354` | `6.310` |
+| Self-optimized build | `starshine.self-optimized.wasm` | `18,417,371` | `17.563` |
+
+Note: current `starshine --optimize` exits with status `1` on these large artifacts, so `self-optimized` is currently a debug-copy fallback (see `node_wasm/dist/optimize.error.txt`).
+
 ## High-Level Overview
 Starshine is a MoonBit WebAssembly toolkit focused on typed IR transforms, validation, optimization, and binary/text conversion.
 

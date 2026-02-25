@@ -1,0 +1,27 @@
+{
+  "name": "@jtenner/starshine-wasm",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Node package scaffold for Starshine WASM release artifacts",
+  "type": "commonjs",
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "dist",
+    "scripts",
+    "README.md"
+  ],
+  "scripts": {
+    "clean": "rm -rf dist && mkdir -p dist",
+    "test:node": "node --test test/*.test.mjs",
+    "build:wasm:debug": "/home/jtenner/.moon/bin/moon build --target wasm",
+    "build:wasm:release": "/home/jtenner/.moon/bin/moon build --target wasm --release",
+    "build:wasm:artifacts": "node scripts/build-wasm-artifacts.mjs",
+    "copy:wasm": "node scripts/copy-wasm.mjs",
+    "optimize:wasm": "node scripts/optimize-with-starshine.mjs",
+    "bootstrap:optimized": "node scripts/bootstrap-optimized.mjs",
+    "test:spec:wasm": "node scripts/run-wasm-spec-suite.mjs",
+    "compare": "node scripts/compare-wasm.mjs",
+    "build:all": "npm run clean && npm run build:wasm:artifacts && npm run compare"
+  }
+}
