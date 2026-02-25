@@ -81,6 +81,135 @@ test "module_to_wast preserves table elem-abbreviation offsets and typed items" 
 }
 
 ///|
+test "module_to_wast preserves concrete typed-heap value types" {
+  let src =
+    #|(module
+    #|  (type $t (func))
+    #|  (func (param (ref $t)) (result (ref null $t))
+    #|    (ref.null $t)))
+  let mod = match wast_to_module(src) {
+    Ok(m) => m
+    Err(e) =>
+      fail("unexpected parse error for typed-heap value-type fixture: \{e}")
+  }
+  let text = match module_to_wast(mod) {
+    Ok(t) => t
+    Err(e) =>
+      fail("unexpected print error for typed-heap value-type fixture: \{e}")
+  }
+  assert_true(text.contains("(param (ref $t))"))
+  assert_true(text.contains("(result (ref null $t))"))
+  assert_true(text.contains("ref.null $t"))
+  match wast_to_module(text, filename="printed-typed-heap-values.wat") {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected module_to_wast typed-heap value-type output to parse back: \{e}",
+      )
+  }
+}
+
+///|
+test "module_to_wast preserves abstract non-func heap refs in value types and ref.null" {
+  let src =
+    #|(module
+    #|  (func
+    #|    (param (ref any) (ref eq) (ref i31) (ref none) (ref nofunc) (ref noextern) (ref noexn))
+    #|    (result (ref null any) (ref null eq) (ref null i31) (ref null none) (ref null nofunc) (ref null noextern) (ref null noexn))
+    #|    (ref.null any)
+    #|    (ref.null eq)
+    #|    (ref.null i31)
+    #|    (ref.null none)
+    #|    (ref.null nofunc)
+    #|    (ref.null noextern)
+    #|    (ref.null noexn)))
+  let mod = match wast_to_module(src) {
+    Ok(m) => m
+    Err(e) =>
+      fail(
+        "unexpected parse error for abstract heap-kind value-type fixture: \{e}",
+      )
+  }
+  let text = match module_to_wast(mod) {
+    Ok(t) => t
+    Err(e) =>
+      fail(
+        "unexpected print error for abstract heap-kind value-type fixture: \{e}",
+      )
+  }
+  assert_true(text.contains("(ref any)"))
+  assert_true(text.contains("(ref eq)"))
+  assert_true(text.contains("(ref i31)"))
+  assert_true(text.contains("(ref none)"))
+  assert_true(text.contains("(ref nofunc)"))
+  assert_true(text.contains("(ref noextern)"))
+  assert_true(text.contains("(ref noexn)"))
+  assert_true(text.contains("(ref null any)"))
+  assert_true(text.contains("(ref null eq)"))
+  assert_true(text.contains("(ref null i31)"))
+  assert_true(text.contains("(ref null none)"))
+  assert_true(text.contains("(ref null nofunc)"))
+  assert_true(text.contains("(ref null noextern)"))
+  assert_true(text.contains("(ref null noexn)"))
+  assert_true(text.contains("ref.null any"))
+  assert_true(text.contains("ref.null eq"))
+  assert_true(text.contains("ref.null i31"))
+  assert_true(text.contains("ref.null none"))
+  assert_true(text.contains("ref.null nofunc"))
+  assert_true(text.contains("ref.null noextern"))
+  assert_true(text.contains("ref.null noexn"))
+  match wast_to_module(text, filename="printed-abstract-heap-values.wat") {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected module_to_wast abstract heap-kind output to parse back: \{e}",
+      )
+  }
+}
+
+///|
+test "module_to_wast preserves abstract heap refs across table global tag and import surfaces" {
+  let src =
+    #|(module
+    #|  (type $tag_t (func (param (ref null noextern))))
+    #|  (import "env" "itbl" (table 1 (ref null nofunc)))
+    #|  (import "env" "ig" (global (mut (ref null any))))
+    #|  (import "env" "itag" (tag (type $tag_t)))
+    #|  (table 2 (ref null noextern))
+    #|  (global (mut (ref null none)) (ref.null none))
+    #|  (tag (type $tag_t)))
+  let mod = match wast_to_module(src) {
+    Ok(m) => m
+    Err(e) =>
+      fail(
+        "unexpected parse error for abstract heap-kind module-surface fixture: \{e}",
+      )
+  }
+  let text = match module_to_wast(mod) {
+    Ok(t) => t
+    Err(e) =>
+      fail(
+        "unexpected print error for abstract heap-kind module-surface fixture: \{e}",
+      )
+  }
+  assert_true(text.contains("(table 1 (ref null nofunc))"))
+  assert_true(text.contains("(global (mut (ref null any)))"))
+  assert_true(text.contains("(tag (type $tag_t))"))
+  assert_true(text.contains("(table 2 (ref null noextern))"))
+  assert_true(text.contains("(global (mut (ref null none))"))
+  assert_true(text.contains("ref.null none"))
+  assert_true(text.contains("(param (ref null noextern))"))
+  match
+    wast_to_module(text, filename="printed-abstract-heap-module-surfaces.wat") {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected module_to_wast abstract heap-kind module-surface output to parse back: \{e}",
+      )
+  }
+}
+
+///|
 test "wast_to_module malformed fixtures return targeted parse diagnostics" {
   let fixtures : Array[(String, String, String, String)] = [
     (

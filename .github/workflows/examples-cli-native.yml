@@ -6,6 +6,7 @@ on:
     paths:
       - "examples/**"
       - "scripts/run_examples_cli_smoke.sh"
+      - "scripts/check_examples_cli_native_workflow.sh"
       - "src/cmd/**"
       - "src/cli/**"
       - "src/passes/**"
@@ -22,6 +23,7 @@ on:
     paths:
       - "examples/**"
       - "scripts/run_examples_cli_smoke.sh"
+      - "scripts/check_examples_cli_native_workflow.sh"
       - "src/cmd/**"
       - "src/cli/**"
       - "src/passes/**"
@@ -38,6 +40,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    env:
+      WASM_TOOLS_VERSION: "1.239.0"
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -47,11 +51,31 @@ jobs:
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
 
+      - name: Verify native CI wasm-tools workflow contract
+        run: |
+          bash scripts/check_examples_cli_native_workflow.sh
+
       - name: Install native differential validator tools
         run: |
           sudo apt-get update
           sudo apt-get install -y binaryen
-          cargo install wasm-tools --locked
+
+      - name: Cache wasm-tools cargo install artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/wasm-tools
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: ${{ runner.os }}-cargo-wasm-tools-${{ env.WASM_TOOLS_VERSION }}
+
+      - name: Install wasm-tools (if cache miss)
+        run: |
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          if [ ! -x "$HOME/.cargo/bin/wasm-tools" ]; then
+            cargo install wasm-tools --locked --version "$WASM_TOOLS_VERSION"
+          fi
 
       - name: Run examples CLI smoke checks (native target)
         run: |

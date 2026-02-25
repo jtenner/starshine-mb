@@ -41,59 +41,119 @@ fn wt_new_ctx() -> WTLowerCtx {
 }
 
 ///|
-fn wt_value_type(vt : ValueType) -> @lib.ValType {
-  match vt {
-    I32 => @lib.ValType::i32()
-    I64 => @lib.ValType::i64()
-    F32 => @lib.ValType::f32()
-    F64 => @lib.ValType::f64()
-    V128 => @lib.ValType::v128()
-    FuncRef => @lib.ValType::funcref()
-    ExternRef => @lib.ValType::externref()
-    ExnRef =>
-      @lib.ValType::ref_type(
-        @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::exn())),
-      )
-    NonNullFuncRef =>
-      @lib.ValType::ref_type(
-        @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::func())),
-      )
-    NonNullExternRef =>
-      @lib.ValType::ref_type(
-        @lib.RefType::new(
-          false,
-          @lib.HeapType::abs(@lib.AbsHeapType::extern_()),
-        ),
-      )
-    NonNullExnRef =>
-      @lib.ValType::ref_type(
-        @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::exn())),
-      )
+fn wt_resolve_heap_type_ref(
+  ctx : WTLowerCtx,
+  ht : HeapTypeRef,
+) -> Result[@lib.HeapType, String] {
+  match ht {
+    TypeNum(n) => Ok(@lib.HeapType::new(@lib.TypeIdx::new(n)))
+    TypeId(id) =>
+      match ctx.type_ids.get(id) {
+        Some(v) => Ok(@lib.HeapType::new(@lib.TypeIdx::new(v)))
+        None => Err("unknown type id: \{id}")
+      }
+    Any => Ok(@lib.HeapType::abs(@lib.AbsHeapType::any()))
+    Eq => Ok(@lib.HeapType::abs(@lib.AbsHeapType::eq()))
+    I31 => Ok(@lib.HeapType::abs(@lib.AbsHeapType::i31()))
+    None_ => Ok(@lib.HeapType::abs(@lib.AbsHeapType::none()))
+    NoFunc => Ok(@lib.HeapType::abs(@lib.AbsHeapType::no_func()))
+    NoExtern => Ok(@lib.HeapType::abs(@lib.AbsHeapType::no_extern()))
+    NoExn => Ok(@lib.HeapType::abs(@lib.AbsHeapType::no_exn()))
   }
 }
 
 ///|
-fn wt_ref_heap_type(vt : ValueType) -> @lib.HeapType? {
+fn wt_value_type(
+  ctx : WTLowerCtx,
+  vt : ValueType,
+) -> Result[@lib.ValType, String] {
+  match vt {
+    I32 => Ok(@lib.ValType::i32())
+    I64 => Ok(@lib.ValType::i64())
+    F32 => Ok(@lib.ValType::f32())
+    F64 => Ok(@lib.ValType::f64())
+    V128 => Ok(@lib.ValType::v128())
+    FuncRef => Ok(@lib.ValType::funcref())
+    ExternRef => Ok(@lib.ValType::externref())
+    ExnRef =>
+      Ok(
+        @lib.ValType::ref_type(
+          @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::exn())),
+        ),
+      )
+    NonNullFuncRef =>
+      Ok(
+        @lib.ValType::ref_type(
+          @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::func())),
+        ),
+      )
+    NonNullExternRef =>
+      Ok(
+        @lib.ValType::ref_type(
+          @lib.RefType::new(
+            false,
+            @lib.HeapType::abs(@lib.AbsHeapType::extern_()),
+          ),
+        ),
+      )
+    NonNullExnRef =>
+      Ok(
+        @lib.ValType::ref_type(
+          @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::exn())),
+        ),
+      )
+    TypedFuncRef(ht) => {
+      let resolved = match wt_resolve_heap_type_ref(ctx, ht) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.ValType::ref_type(@lib.RefType::new(true, resolved)))
+    }
+    NonNullTypedFuncRef(ht) => {
+      let resolved = match wt_resolve_heap_type_ref(ctx, ht) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.ValType::ref_type(@lib.RefType::new(false, resolved)))
+    }
+  }
+}
+
+///|
+fn wt_ref_heap_type(
+  ctx : WTLowerCtx,
+  vt : ValueType,
+) -> Result[@lib.HeapType?, String] {
   match vt {
     FuncRef | NonNullFuncRef =>
-      Some(@lib.HeapType::abs(@lib.AbsHeapType::func()))
+      Ok(Some(@lib.HeapType::abs(@lib.AbsHeapType::func())))
     ExternRef | NonNullExternRef =>
-      Some(@lib.HeapType::abs(@lib.AbsHeapType::extern_()))
-    ExnRef | NonNullExnRef => Some(@lib.HeapType::abs(@lib.AbsHeapType::exn()))
-    _ => None
+      Ok(Some(@lib.HeapType::abs(@lib.AbsHeapType::extern_())))
+    ExnRef | NonNullExnRef =>
+      Ok(Some(@lib.HeapType::abs(@lib.AbsHeapType::exn())))
+    TypedFuncRef(ht) | NonNullTypedFuncRef(ht) => {
+      let resolved = match wt_resolve_heap_type_ref(ctx, ht) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(Some(resolved))
+    }
+    _ => Ok(None)
   }
 }
 
 ///|
 fn wt_ref_type_for_elem_value_type(
+  ctx : WTLowerCtx,
   vt : ValueType,
 ) -> Result[@lib.RefType, String] {
-  match wt_ref_heap_type(vt) {
-    Some(ht) => Ok(@lib.RefType::new(true, ht))
-    None =>
+  match wt_ref_heap_type(ctx, vt) {
+    Ok(Some(ht)) => Ok(@lib.RefType::new(true, ht))
+    Ok(None) =>
       Err(
         "elem type must be a reference type, got non-reference value type: \{vt}",
       )
+    Err(e) => Err(e)
   }
 }
 
@@ -148,27 +208,41 @@ fn wt_mem_arg(ma : MemArg) -> Result[@lib.MemArg, String] {
 }
 
 ///|
-fn wt_func_sig(ft : FuncType) -> (Array[@lib.ValType], Array[@lib.ValType]) {
+fn wt_func_sig(
+  ctx : WTLowerCtx,
+  ft : FuncType,
+) -> Result[(Array[@lib.ValType], Array[@lib.ValType]), String] {
   let params : Array[@lib.ValType] = []
   for p in ft.params {
-    params.push(wt_value_type(p))
+    let v = match wt_value_type(ctx, p) {
+      Ok(v) => v
+      Err(e) => return Err(e)
+    }
+    params.push(v)
   }
   let results : Array[@lib.ValType] = []
   for r in ft.results {
-    results.push(wt_value_type(r))
+    let v = match wt_value_type(ctx, r) {
+      Ok(v) => v
+      Err(e) => return Err(e)
+    }
+    results.push(v)
   }
-  (params, results)
+  Ok((params, results))
 }
 
 ///|
-fn wt_append_type(ctx : WTLowerCtx, ft : FuncType) -> UInt {
-  let (params, results) = wt_func_sig(ft)
+fn wt_append_type(ctx : WTLowerCtx, ft : FuncType) -> Result[UInt, String] {
+  let (params, results) = match wt_func_sig(ctx, ft) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
   let rec = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func(params, results)),
   )
   let idx = ctx.type_recs.length().reinterpret_as_uint()
   ctx.type_recs.push(rec)
-  idx
+  Ok(idx)
 }
 
 ///|
@@ -199,7 +273,11 @@ fn wt_resolve_type_use(ctx : WTLowerCtx, tu : TypeUse) -> Result[UInt, String] {
         ctx.type_recs.length().reinterpret_as_uint(),
         "type",
       )
-    None => Ok(wt_append_type(ctx, tu.func_type))
+    None =>
+      match wt_append_type(ctx, tu.func_type) {
+        Ok(v) => Ok(v)
+        Err(e) => Err(e)
+      }
   }
 }
 
@@ -610,16 +688,23 @@ fn wt_lane_idx(
 }
 
 ///|
-fn wt_select_types(types : Array[ValueType]?) -> Array[@lib.ValType]? {
+fn wt_select_types(
+  ctx : WTLowerCtx,
+  types : Array[ValueType]?,
+) -> Result[Array[@lib.ValType]?, String] {
   match types {
     Some(vs) => {
       let out : Array[@lib.ValType] = []
       for v in vs {
-        out.push(wt_value_type(v))
+        let vv = match wt_value_type(ctx, v) {
+          Ok(vv) => vv
+          Err(e) => return Err(e)
+        }
+        out.push(vv)
       }
-      Some(out)
+      Ok(Some(out))
     }
-    None => None
+    None => Ok(None)
   }
 }
 
@@ -649,9 +734,16 @@ fn wt_block_type(
           if tu.func_type.results.length() == 0 {
             Ok(@lib.BlockType::void_())
           } else if tu.func_type.results.length() == 1 {
-            Ok(@lib.BlockType::val_type(wt_value_type(tu.func_type.results[0])))
+            let vt = match wt_value_type(ctx, tu.func_type.results[0]) {
+              Ok(v) => v
+              Err(e) => return Err(e)
+            }
+            Ok(@lib.BlockType::val_type(vt))
           } else {
-            let ti = wt_append_type(ctx, tu.func_type)
+            let ti = match wt_append_type(ctx, tu.func_type) {
+              Ok(v) => v
+              Err(e) => return Err(e)
+            }
             Ok(@lib.BlockType::type_idx(@lib.TypeIdx::new(ti)))
           }
       }
@@ -809,6 +901,214 @@ fn wt_numeric_noarg(op : Opcode) -> Result[@lib.Instruction, String] {
     RefI31 => Ok(@lib.Instruction::ref_i31())
     I31GetS => Ok(@lib.Instruction::i31_get_s())
     I31GetU => Ok(@lib.Instruction::i31_get_u())
+    I8x16Eq => Ok(@lib.Instruction::i8x16_eq())
+    I8x16Ne => Ok(@lib.Instruction::i8x16_ne())
+    I8x16LtS => Ok(@lib.Instruction::i8x16_lt_s())
+    I8x16LtU => Ok(@lib.Instruction::i8x16_lt_u())
+    I8x16GtS => Ok(@lib.Instruction::i8x16_gt_s())
+    I8x16GtU => Ok(@lib.Instruction::i8x16_gt_u())
+    I8x16LeS => Ok(@lib.Instruction::i8x16_le_s())
+    I8x16LeU => Ok(@lib.Instruction::i8x16_le_u())
+    I8x16GeS => Ok(@lib.Instruction::i8x16_ge_s())
+    I8x16GeU => Ok(@lib.Instruction::i8x16_ge_u())
+    I8x16Abs => Ok(@lib.Instruction::i8x16_abs())
+    I8x16Neg => Ok(@lib.Instruction::i8x16_neg())
+    I8x16Popcnt => Ok(@lib.Instruction::i8x16_popcnt())
+    I8x16AllTrue => Ok(@lib.Instruction::i8x16_all_true())
+    I8x16Bitmask => Ok(@lib.Instruction::i8x16_bitmask())
+    I8x16NarrowI16x8S => Ok(@lib.Instruction::i8x16_narrow_i16x8s())
+    I8x16NarrowI16x8U => Ok(@lib.Instruction::i8x16_narrow_i16x8u())
+    I8x16Shl => Ok(@lib.Instruction::i8x16_shl())
+    I8x16ShrS => Ok(@lib.Instruction::i8x16_shr_s())
+    I8x16ShrU => Ok(@lib.Instruction::i8x16_shr_u())
+    I8x16Add => Ok(@lib.Instruction::i8x16_add())
+    I8x16AddSatS => Ok(@lib.Instruction::i8x16_add_sat_s())
+    I8x16AddSatU => Ok(@lib.Instruction::i8x16_add_sat_u())
+    I8x16Sub => Ok(@lib.Instruction::i8x16_sub())
+    I8x16SubSatS => Ok(@lib.Instruction::i8x16_sub_sat_s())
+    I8x16SubSatU => Ok(@lib.Instruction::i8x16_sub_sat_u())
+    I8x16MinS => Ok(@lib.Instruction::i8x16_min_s())
+    I8x16MinU => Ok(@lib.Instruction::i8x16_min_u())
+    I8x16MaxS => Ok(@lib.Instruction::i8x16_max_s())
+    I8x16MaxU => Ok(@lib.Instruction::i8x16_max_u())
+    I8x16AvgrU => Ok(@lib.Instruction::i8x16_avgr_u())
+    I16x8Eq => Ok(@lib.Instruction::i16x8_eq())
+    I16x8Ne => Ok(@lib.Instruction::i16x8_ne())
+    I16x8LtS => Ok(@lib.Instruction::i16x8_lt_s())
+    I16x8LtU => Ok(@lib.Instruction::i16x8_lt_u())
+    I16x8GtS => Ok(@lib.Instruction::i16x8_gt_s())
+    I16x8GtU => Ok(@lib.Instruction::i16x8_gt_u())
+    I16x8LeS => Ok(@lib.Instruction::i16x8_le_s())
+    I16x8LeU => Ok(@lib.Instruction::i16x8_le_u())
+    I16x8GeS => Ok(@lib.Instruction::i16x8_ge_s())
+    I16x8GeU => Ok(@lib.Instruction::i16x8_ge_u())
+    I16x8Abs => Ok(@lib.Instruction::i16x8_abs())
+    I16x8Neg => Ok(@lib.Instruction::i16x8_neg())
+    I16x8Q15mulrSatS => Ok(@lib.Instruction::i16x8q15mulr_sat_s())
+    I16x8AllTrue => Ok(@lib.Instruction::i16x8_all_true())
+    I16x8Bitmask => Ok(@lib.Instruction::i16x8_bitmask())
+    I16x8NarrowI32x4S => Ok(@lib.Instruction::i16x8_narrow_i32x4s())
+    I16x8NarrowI32x4U => Ok(@lib.Instruction::i16x8_narrow_i32x4u())
+    I16x8ExtendLowI8x16S => Ok(@lib.Instruction::i16x8_extend_low_i8x16s())
+    I16x8ExtendHighI8x16S => Ok(@lib.Instruction::i16x8_extend_high_i8x16s())
+    I16x8ExtendLowI8x16U => Ok(@lib.Instruction::i16x8_extend_low_i8x16u())
+    I16x8ExtendHighI8x16U => Ok(@lib.Instruction::i16x8_extend_high_i8x16u())
+    I16x8Shl => Ok(@lib.Instruction::i16x8_shl())
+    I16x8ShrS => Ok(@lib.Instruction::i16x8_shr_s())
+    I16x8ShrU => Ok(@lib.Instruction::i16x8_shr_u())
+    I16x8Add => Ok(@lib.Instruction::i16x8_add())
+    I16x8AddSatS => Ok(@lib.Instruction::i16x8_add_sat_s())
+    I16x8AddSatU => Ok(@lib.Instruction::i16x8_add_sat_u())
+    I16x8Sub => Ok(@lib.Instruction::i16x8_sub())
+    I16x8SubSatS => Ok(@lib.Instruction::i16x8_sub_sat_s())
+    I16x8SubSatU => Ok(@lib.Instruction::i16x8_sub_sat_u())
+    I16x8Mul => Ok(@lib.Instruction::i16x8_mul())
+    I16x8MinS => Ok(@lib.Instruction::i16x8_min_s())
+    I16x8MinU => Ok(@lib.Instruction::i16x8_min_u())
+    I16x8MaxS => Ok(@lib.Instruction::i16x8_max_s())
+    I16x8MaxU => Ok(@lib.Instruction::i16x8_max_u())
+    I16x8AvgrU => Ok(@lib.Instruction::i16x8_avgr_u())
+    I16x8ExtmulLowI8x16S => Ok(@lib.Instruction::i16x8_extmul_low_i8x16s())
+    I16x8ExtmulHighI8x16S => Ok(@lib.Instruction::i16x8_extmul_high_i8x16s())
+    I16x8ExtmulLowI8x16U => Ok(@lib.Instruction::i16x8_extmul_low_i8x16u())
+    I16x8ExtmulHighI8x16U => Ok(@lib.Instruction::i16x8_extmul_high_i8x16u())
+    I32x4Eq => Ok(@lib.Instruction::i32x4_eq())
+    I32x4Ne => Ok(@lib.Instruction::i32x4_ne())
+    I32x4LtS => Ok(@lib.Instruction::i32x4_lt_s())
+    I32x4LtU => Ok(@lib.Instruction::i32x4_lt_u())
+    I32x4GtS => Ok(@lib.Instruction::i32x4_gt_s())
+    I32x4GtU => Ok(@lib.Instruction::i32x4_gt_u())
+    I32x4LeS => Ok(@lib.Instruction::i32x4_le_s())
+    I32x4LeU => Ok(@lib.Instruction::i32x4_le_u())
+    I32x4GeS => Ok(@lib.Instruction::i32x4_ge_s())
+    I32x4GeU => Ok(@lib.Instruction::i32x4_ge_u())
+    I32x4Abs => Ok(@lib.Instruction::i32x4_abs())
+    I32x4Neg => Ok(@lib.Instruction::i32x4_neg())
+    I32x4AllTrue => Ok(@lib.Instruction::i32x4_all_true())
+    I32x4Bitmask => Ok(@lib.Instruction::i32x4_bitmask())
+    I32x4ExtendLowI16x8S => Ok(@lib.Instruction::i32x4_extend_low_i16x8s())
+    I32x4ExtendHighI16x8S => Ok(@lib.Instruction::i32x4_extend_high_i16x8s())
+    I32x4ExtendLowI16x8U => Ok(@lib.Instruction::i32x4_extend_low_i16x8u())
+    I32x4ExtendHighI16x8U => Ok(@lib.Instruction::i32x4_extend_high_i16x8u())
+    I32x4Shl => Ok(@lib.Instruction::i32x4_shl())
+    I32x4ShrS => Ok(@lib.Instruction::i32x4_shr_s())
+    I32x4ShrU => Ok(@lib.Instruction::i32x4_shr_u())
+    I32x4Add => Ok(@lib.Instruction::i32x4_add())
+    I32x4Sub => Ok(@lib.Instruction::i32x4_sub())
+    I32x4Mul => Ok(@lib.Instruction::i32x4_mul())
+    I32x4MinS => Ok(@lib.Instruction::i32x4_min_s())
+    I32x4MinU => Ok(@lib.Instruction::i32x4_min_u())
+    I32x4MaxS => Ok(@lib.Instruction::i32x4_max_s())
+    I32x4MaxU => Ok(@lib.Instruction::i32x4_max_u())
+    I32x4DotI16x8S => Ok(@lib.Instruction::i32x4_dot_i16x8s())
+    I32x4ExtmulLowI16x8S => Ok(@lib.Instruction::i32x4_extmul_low_i16x8s())
+    I32x4ExtmulHighI16x8S => Ok(@lib.Instruction::i32x4_extmul_high_i16x8s())
+    I32x4ExtmulLowI16x8U => Ok(@lib.Instruction::i32x4_extmul_low_i16x8u())
+    I32x4ExtmulHighI16x8U => Ok(@lib.Instruction::i32x4_extmul_high_i16x8u())
+    I32x4TruncSatF32x4S => Ok(@lib.Instruction::i32x4_trunc_sat_f32x4s())
+    I32x4TruncSatF32x4U => Ok(@lib.Instruction::i32x4_trunc_sat_f32x4u())
+    I32x4TruncSatF64x2SZero =>
+      Ok(@lib.Instruction::i32x4_trunc_sat_f64x2s_zero())
+    I32x4TruncSatF64x2UZero =>
+      Ok(@lib.Instruction::i32x4_trunc_sat_f64x2u_zero())
+    I64x2Eq => Ok(@lib.Instruction::i64x2_eq())
+    I64x2Ne => Ok(@lib.Instruction::i64x2_ne())
+    I64x2LtS => Ok(@lib.Instruction::i64x2_lt_s())
+    I64x2GtS => Ok(@lib.Instruction::i64x2_gt_s())
+    I64x2LeS => Ok(@lib.Instruction::i64x2_le_s())
+    I64x2GeS => Ok(@lib.Instruction::i64x2_ge_s())
+    I64x2Abs => Ok(@lib.Instruction::i64x2_abs())
+    I64x2Neg => Ok(@lib.Instruction::i64x2_neg())
+    I64x2AllTrue => Ok(@lib.Instruction::i64x2_all_true())
+    I64x2Bitmask => Ok(@lib.Instruction::i64x2_bitmask())
+    I64x2ExtendLowI32x4S => Ok(@lib.Instruction::i64x2_extend_low_i32x4s())
+    I64x2ExtendHighI32x4S => Ok(@lib.Instruction::i64x2_extend_high_i32x4s())
+    I64x2ExtendLowI32x4U => Ok(@lib.Instruction::i64x2_extend_low_i32x4u())
+    I64x2ExtendHighI32x4U => Ok(@lib.Instruction::i64x2_extend_high_i32x4u())
+    I64x2Shl => Ok(@lib.Instruction::i64x2_shl())
+    I64x2ShrS => Ok(@lib.Instruction::i64x2_shr_s())
+    I64x2ShrU => Ok(@lib.Instruction::i64x2_shr_u())
+    I64x2Add => Ok(@lib.Instruction::i64x2_add())
+    I64x2Sub => Ok(@lib.Instruction::i64x2_sub())
+    I64x2Mul => Ok(@lib.Instruction::i64x2_mul())
+    I64x2ExtmulLowI32x4S => Ok(@lib.Instruction::i64x2_extmul_low_i32x4s())
+    I64x2ExtmulHighI32x4S => Ok(@lib.Instruction::i64x2_extmul_high_i32x4s())
+    I64x2ExtmulLowI32x4U => Ok(@lib.Instruction::i64x2_extmul_low_i32x4u())
+    I64x2ExtmulHighI32x4U => Ok(@lib.Instruction::i64x2_extmul_high_i32x4u())
+    F32x4Eq => Ok(@lib.Instruction::f32x4_eq())
+    F32x4Ne => Ok(@lib.Instruction::f32x4_ne())
+    F32x4Lt => Ok(@lib.Instruction::f32x4_lt())
+    F32x4Gt => Ok(@lib.Instruction::f32x4_gt())
+    F32x4Le => Ok(@lib.Instruction::f32x4_le())
+    F32x4Ge => Ok(@lib.Instruction::f32x4_ge())
+    F32x4Abs => Ok(@lib.Instruction::f32x4_abs())
+    F32x4Neg => Ok(@lib.Instruction::f32x4_neg())
+    F32x4Sqrt => Ok(@lib.Instruction::f32x4_sqrt())
+    F32x4Add => Ok(@lib.Instruction::f32x4_add())
+    F32x4Sub => Ok(@lib.Instruction::f32x4_sub())
+    F32x4Mul => Ok(@lib.Instruction::f32x4_mul())
+    F32x4Div => Ok(@lib.Instruction::f32x4_div())
+    F32x4Min => Ok(@lib.Instruction::f32x4_min())
+    F32x4Max => Ok(@lib.Instruction::f32x4_max())
+    F32x4Pmin => Ok(@lib.Instruction::f32x4_pmin())
+    F32x4Pmax => Ok(@lib.Instruction::f32x4_pmax())
+    F32x4Ceil => Ok(@lib.Instruction::f32x4_ceil())
+    F32x4Floor => Ok(@lib.Instruction::f32x4_floor())
+    F32x4Trunc => Ok(@lib.Instruction::f32x4_trunc())
+    F32x4Nearest => Ok(@lib.Instruction::f32x4_nearest())
+    F32x4ConvertI32x4S => Ok(@lib.Instruction::f32x4_convert_i32x4s())
+    F32x4ConvertI32x4U => Ok(@lib.Instruction::f32x4_convert_i32x4u())
+    F32x4DemoteF64x2Zero => Ok(@lib.Instruction::f32x4_demote_f64x2_zero())
+    F64x2Eq => Ok(@lib.Instruction::f64x2_eq())
+    F64x2Ne => Ok(@lib.Instruction::f64x2_ne())
+    F64x2Lt => Ok(@lib.Instruction::f64x2_lt())
+    F64x2Gt => Ok(@lib.Instruction::f64x2_gt())
+    F64x2Le => Ok(@lib.Instruction::f64x2_le())
+    F64x2Ge => Ok(@lib.Instruction::f64x2_ge())
+    F64x2Abs => Ok(@lib.Instruction::f64x2_abs())
+    F64x2Neg => Ok(@lib.Instruction::f64x2_neg())
+    F64x2Sqrt => Ok(@lib.Instruction::f64x2_sqrt())
+    F64x2Add => Ok(@lib.Instruction::f64x2_add())
+    F64x2Sub => Ok(@lib.Instruction::f64x2_sub())
+    F64x2Mul => Ok(@lib.Instruction::f64x2_mul())
+    F64x2Div => Ok(@lib.Instruction::f64x2_div())
+    F64x2Min => Ok(@lib.Instruction::f64x2_min())
+    F64x2Max => Ok(@lib.Instruction::f64x2_max())
+    F64x2Pmin => Ok(@lib.Instruction::f64x2_pmin())
+    F64x2Pmax => Ok(@lib.Instruction::f64x2_pmax())
+    F64x2Ceil => Ok(@lib.Instruction::f64x2_ceil())
+    F64x2Floor => Ok(@lib.Instruction::f64x2_floor())
+    F64x2Trunc => Ok(@lib.Instruction::f64x2_trunc())
+    F64x2Nearest => Ok(@lib.Instruction::f64x2_nearest())
+    F64x2ConvertLowI32x4S => Ok(@lib.Instruction::f64x2_convert_low_i32x4s())
+    F64x2ConvertLowI32x4U => Ok(@lib.Instruction::f64x2_convert_low_i32x4u())
+    F64x2PromoteLowF32x4 => Ok(@lib.Instruction::f64x2_promote_low_f32x4())
+    I8x16RelaxedSwizzle => Ok(@lib.Instruction::i8x16_relaxed_swizzle())
+    I8x16RelaxedLaneselect => Ok(@lib.Instruction::i8x16_relaxed_laneselect())
+    I16x8RelaxedLaneselect => Ok(@lib.Instruction::i16x8_relaxed_laneselect())
+    I32x4RelaxedLaneselect => Ok(@lib.Instruction::i32x4_relaxed_laneselect())
+    I64x2RelaxedLaneselect => Ok(@lib.Instruction::i64x2_relaxed_laneselect())
+    I32x4RelaxedTruncF32x4S =>
+      Ok(@lib.Instruction::i32x4_relaxed_trunc_f32x4s())
+    I32x4RelaxedTruncF32x4U =>
+      Ok(@lib.Instruction::i32x4_relaxed_trunc_f32x4u())
+    I32x4RelaxedTruncF64x2SZero =>
+      Ok(@lib.Instruction::i32x4_relaxed_trunc_zero_f64x2s())
+    I32x4RelaxedTruncF64x2UZero =>
+      Ok(@lib.Instruction::i32x4_relaxed_trunc_zero_f64x2u())
+    F32x4RelaxedMadd => Ok(@lib.Instruction::f32x4_relaxed_madd())
+    F32x4RelaxedNmadd => Ok(@lib.Instruction::f32x4_relaxed_nmadd())
+    F64x2RelaxedMadd => Ok(@lib.Instruction::f64x2_relaxed_madd())
+    F64x2RelaxedNmadd => Ok(@lib.Instruction::f64x2_relaxed_nmadd())
+    F32x4RelaxedMin => Ok(@lib.Instruction::f32x4_relaxed_min())
+    F32x4RelaxedMax => Ok(@lib.Instruction::f32x4_relaxed_max())
+    F64x2RelaxedMin => Ok(@lib.Instruction::f64x2_relaxed_min())
+    F64x2RelaxedMax => Ok(@lib.Instruction::f64x2_relaxed_max())
+    I16x8RelaxedQ15mulrS => Ok(@lib.Instruction::i16x8_relaxed_q15mulr_s())
+    I16x8RelaxedDotI8x16I7x16S =>
+      Ok(@lib.Instruction::i16x8_relaxed_dot_i8x16i7x16s())
+    I32x4RelaxedDotI8x16I7x16AddS =>
+      Ok(@lib.Instruction::i32x4_relaxed_dot_i8x16i7x16_add_s())
     _ => wt_unsupported("\{op}")
   }
 }
@@ -1191,7 +1491,13 @@ fn wt_instr_to_lib(
         None => Ok(@lib.Instruction::unreachable_())
       }
     Drop => Ok(@lib.Instruction::drop())
-    Select(types) => Ok(@lib.Instruction::select(types=wt_select_types(types)))
+    Select(types) => {
+      let lib_types = match wt_select_types(ctx, types) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::select(types=lib_types))
+    }
     TryTable(bt, catches, body) => {
       let next_labels = labels.copy()
       next_labels.push(None)
@@ -1531,9 +1837,10 @@ fn wt_instr_to_lib(
     | SimdConvert(op)
     | SimdRelaxed(op) => wt_numeric_noarg(op)
     RefNull(vt) =>
-      match wt_ref_heap_type(vt) {
-        Some(ht) => Ok(@lib.Instruction::ref_null(ht))
-        None => Err("unsupported ref.null type: \{vt}")
+      match wt_ref_heap_type(ctx, vt) {
+        Ok(Some(ht)) => Ok(@lib.Instruction::ref_null(ht))
+        Ok(None) => Err("unsupported ref.null type: \{vt}")
+        Err(e) => Err(e)
       }
     RefIsNull => Ok(@lib.Instruction::ref_is_null())
     RefFunc(idx) => {
@@ -1941,7 +2248,10 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
   for field in mod.fields {
     match field {
       TypeField(td) => {
-        let idx = wt_append_type(ctx, td.func_type)
+        let idx = match wt_append_type(ctx, td.func_type) {
+          Ok(v) => v
+          Err(e) => return Err(e)
+        }
         match td.id {
           Some(id) => ctx.type_ids[id] = idx
           None => ()
@@ -1986,14 +2296,13 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
             ctx.next_func_idx += 1
           }
           Table(tt) => {
+            let table_heap_type = match wt_ref_heap_type(ctx, tt.elem_type) {
+              Ok(Some(ht)) => ht
+              Ok(None) => @lib.HeapType::abs(@lib.AbsHeapType::func())
+              Err(e) => return Err(e)
+            }
             let table_type = @lib.TableType::new(
-              @lib.RefType::new(
-                true,
-                match wt_ref_heap_type(tt.elem_type) {
-                  Some(ht) => ht
-                  None => @lib.HeapType::abs(@lib.AbsHeapType::func())
-                },
-              ),
+              @lib.RefType::new(true, table_heap_type),
               wt_limits(tt.limits),
             )
             imports.push(
@@ -2024,12 +2333,16 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
             ctx.next_mem_idx += 1
           }
           Global(gt) => {
+            let global_vt = match wt_value_type(ctx, gt.val_type) {
+              Ok(v) => v
+              Err(e) => return Err(e)
+            }
             imports.push(
               @lib.Import::new(
                 @lib.Name::new(im.module_name),
                 @lib.Name::new(im.field_name),
                 @lib.ExternType::global(
-                  @lib.GlobalType::new(wt_value_type(gt.val_type), gt.mutable_),
+                  @lib.GlobalType::new(global_vt, gt.mutable_),
                 ),
               ),
             )
@@ -2230,7 +2543,11 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
     }
     let local_types : Array[@lib.ValType] = []
     for loc in f.locals {
-      local_types.push(wt_value_type(loc.val_type))
+      let local_vt = match wt_value_type(ctx, loc.val_type) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      local_types.push(local_vt)
     }
     let locals : Array[@lib.Locals] = []
     for vt in local_types {
@@ -2241,9 +2558,10 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
 
   let table_defs : Array[@lib.Table] = []
   for t in table_defs_raw {
-    let ht = match wt_ref_heap_type(t.table_type.elem_type) {
-      Some(v) => v
-      None => @lib.HeapType::abs(@lib.AbsHeapType::func())
+    let ht = match wt_ref_heap_type(ctx, t.table_type.elem_type) {
+      Ok(Some(v)) => v
+      Ok(None) => @lib.HeapType::abs(@lib.AbsHeapType::func())
+      Err(e) => return Err(e)
     }
     table_defs.push(
       @lib.Table::new(
@@ -2268,12 +2586,13 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
       Ok(v) => v
       Err(e) => return Err(e)
     }
+    let global_vt = match wt_value_type(ctx, g.global_type.val_type) {
+      Ok(v) => v
+      Err(e) => return Err(e)
+    }
     global_defs.push(
       @lib.Global::new(
-        @lib.GlobalType::new(
-          wt_value_type(g.global_type.val_type),
-          g.global_type.mutable_,
-        ),
+        @lib.GlobalType::new(global_vt, g.global_type.mutable_),
         @lib.Expr::new(init),
       ),
     )
@@ -2406,9 +2725,13 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
     let elem_exprs = e.elem_exprs
     let funcs_from_items : Array[@lib.FuncIdx] = []
     let mut has_non_ref_func_item = false
+    let mut has_explicit_typed_item = false
     let mut item_i = 0
     while item_i < elem_exprs.length() {
       let item = elem_exprs[item_i]
+      if item.explicit_item {
+        has_explicit_typed_item = true
+      }
       match wt_elem_item_ref_func_index(item) {
         Some(idx) => {
           let fi = match
@@ -2428,7 +2751,12 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
       item_i += 1
     }
 
-    if !has_non_ref_func_item {
+    let has_explicit_typed_intent = match elem_type_hint {
+      Some(_) => true
+      None => has_explicit_typed_item
+    }
+
+    if !has_non_ref_func_item && !has_explicit_typed_intent {
       let funcs : Array[@lib.FuncIdx] = []
       for fi in funcs_from_indices {
         funcs.push(fi)
@@ -2474,7 +2802,7 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
 
     let elem_ref_type = match elem_type_hint {
       Some(vt) =>
-        match wt_ref_type_for_elem_value_type(vt) {
+        match wt_ref_type_for_elem_value_type(ctx, vt) {
           Ok(v) => v
           Err(e) => return Err(e)
         }
@@ -3238,6 +3566,527 @@ test "wast_to_binary_module lowers SIMD splat ops" {
 }
 
 ///|
+test "wast_to_binary_module lowers SIMD i8x16 no-immediate ops" {
+  let src =
+    #|(module
+    #|  (func (param v128 v128 i32)
+    #|    local.get 0
+    #|    i8x16.abs
+    #|    drop
+    #|    local.get 0
+    #|    i8x16.neg
+    #|    drop
+    #|    local.get 0
+    #|    i8x16.popcnt
+    #|    drop
+    #|    local.get 0
+    #|    i8x16.all_true
+    #|    drop
+    #|    local.get 0
+    #|    i8x16.bitmask
+    #|    drop
+    #|    local.get 0
+    #|    local.get 1
+    #|    i8x16.eq
+    #|    drop
+    #|    local.get 0
+    #|    local.get 1
+    #|    i8x16.ne
+    #|    drop
+    #|    local.get 0
+    #|    local.get 1
+    #|    i8x16.lt_s
+    #|    drop
+    #|    local.get 0
+    #|    local.get 1
+    #|    i8x16.lt_u
+    #|    drop
+    #|    local.get 0
+    #|    local.get 1
+    #|    i8x16.gt_s
+    #|    drop
+    #|    local.get 0
+    #|    local.get 1
+    #|    i8x16.gt_u
+    #|    drop
+    #|    local.get 0
+    #|    local.get 1
+    #|    i8x16.le_s
+    #|    drop
+    #|    local.get 0
+    #|    local.get 1
+    #|    i8x16.le_u
+    #|    drop
+    #|    local.get 0
+    #|    local.get 1
+    #|    i8x16.ge_s
+    #|    drop
+    #|    local.get 0
+    #|    local.get 1
+    #|    i8x16.ge_u
+    #|    drop
+    #|    local.get 0
+    #|    local.get 1
+    #|    i8x16.narrow_i16x8_s
+    #|    drop
+    #|    local.get 0
+    #|    local.get 1
+    #|    i8x16.narrow_i16x8_u
+    #|    drop
+    #|    local.get 0
+    #|    local.get 2
+    #|    i8x16.shl
+    #|    drop
+    #|    local.get 0
+    #|    local.get 2
+    #|    i8x16.shr_s
+    #|    drop
+    #|    local.get 0
+    #|    local.get 2
+    #|    i8x16.shr_u
+    #|    drop
+    #|    local.get 0
+    #|    local.get 1
+    #|    i8x16.add
+    #|    drop
+    #|    local.get 0
+    #|    local.get 1
+    #|    i8x16.add_sat_s
+    #|    drop
+    #|    local.get 0
+    #|    local.get 1
+    #|    i8x16.add_sat_u
+    #|    drop
+    #|    local.get 0
+    #|    local.get 1
+    #|    i8x16.sub
+    #|    drop
+    #|    local.get 0
+    #|    local.get 1
+    #|    i8x16.sub_sat_s
+    #|    drop
+    #|    local.get 0
+    #|    local.get 1
+    #|    i8x16.sub_sat_u
+    #|    drop
+    #|    local.get 0
+    #|    local.get 1
+    #|    i8x16.min_s
+    #|    drop
+    #|    local.get 0
+    #|    local.get 1
+    #|    i8x16.min_u
+    #|    drop
+    #|    local.get 0
+    #|    local.get 1
+    #|    i8x16.max_s
+    #|    drop
+    #|    local.get 0
+    #|    local.get 1
+    #|    i8x16.max_u
+    #|    drop
+    #|    local.get 0
+    #|    local.get 1
+    #|    i8x16.avgr_u
+    #|    drop))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) => fail("expected i8x16 no-immediate lowering success: \{e}")
+  }
+  let expected : Array[@lib.Instruction] = [
+    @lib.Instruction::i8x16_abs(),
+    @lib.Instruction::i8x16_neg(),
+    @lib.Instruction::i8x16_popcnt(),
+    @lib.Instruction::i8x16_all_true(),
+    @lib.Instruction::i8x16_bitmask(),
+    @lib.Instruction::i8x16_eq(),
+    @lib.Instruction::i8x16_ne(),
+    @lib.Instruction::i8x16_lt_s(),
+    @lib.Instruction::i8x16_lt_u(),
+    @lib.Instruction::i8x16_gt_s(),
+    @lib.Instruction::i8x16_gt_u(),
+    @lib.Instruction::i8x16_le_s(),
+    @lib.Instruction::i8x16_le_u(),
+    @lib.Instruction::i8x16_ge_s(),
+    @lib.Instruction::i8x16_ge_u(),
+    @lib.Instruction::i8x16_narrow_i16x8s(),
+    @lib.Instruction::i8x16_narrow_i16x8u(),
+    @lib.Instruction::i8x16_shl(),
+    @lib.Instruction::i8x16_shr_s(),
+    @lib.Instruction::i8x16_shr_u(),
+    @lib.Instruction::i8x16_add(),
+    @lib.Instruction::i8x16_add_sat_s(),
+    @lib.Instruction::i8x16_add_sat_u(),
+    @lib.Instruction::i8x16_sub(),
+    @lib.Instruction::i8x16_sub_sat_s(),
+    @lib.Instruction::i8x16_sub_sat_u(),
+    @lib.Instruction::i8x16_min_s(),
+    @lib.Instruction::i8x16_min_u(),
+    @lib.Instruction::i8x16_max_s(),
+    @lib.Instruction::i8x16_max_u(),
+    @lib.Instruction::i8x16_avgr_u(),
+  ]
+  match lowered.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) => {
+      let lowered_ops : Array[@lib.Instruction] = []
+      for instr in body {
+        match instr {
+          @lib.LocalGet(_) | @lib.Drop => ()
+          _ => lowered_ops.push(instr)
+        }
+      }
+      assert_eq(lowered_ops, expected)
+    }
+    _ => fail("expected lowered module code section for i8x16 no-immediate ops")
+  }
+}
+
+///|
+test "wast_to_binary_module lowers SIMD no-immediate ops for i16x8 i32x4 i64x2 f32x4 f64x2" {
+  let src =
+    #|(module
+    #|  (func (param v128 v128 i32)
+    #|    local.get 0 local.get 1 i16x8.eq drop
+    #|    local.get 0 local.get 1 i16x8.ne drop
+    #|    local.get 0 local.get 1 i16x8.lt_s drop
+    #|    local.get 0 local.get 1 i16x8.lt_u drop
+    #|    local.get 0 local.get 1 i16x8.gt_s drop
+    #|    local.get 0 local.get 1 i16x8.gt_u drop
+    #|    local.get 0 local.get 1 i16x8.le_s drop
+    #|    local.get 0 local.get 1 i16x8.le_u drop
+    #|    local.get 0 local.get 1 i16x8.ge_s drop
+    #|    local.get 0 local.get 1 i16x8.ge_u drop
+    #|    local.get 0 i16x8.abs drop
+    #|    local.get 0 i16x8.neg drop
+    #|    local.get 0 local.get 1 i16x8.q15mulr_sat_s drop
+    #|    local.get 0 i16x8.all_true drop
+    #|    local.get 0 i16x8.bitmask drop
+    #|    local.get 0 local.get 1 i16x8.narrow_i32x4_s drop
+    #|    local.get 0 local.get 1 i16x8.narrow_i32x4_u drop
+    #|    local.get 0 i16x8.extend_low_i8x16_s drop
+    #|    local.get 0 i16x8.extend_high_i8x16_s drop
+    #|    local.get 0 i16x8.extend_low_i8x16_u drop
+    #|    local.get 0 i16x8.extend_high_i8x16_u drop
+    #|    local.get 0 local.get 2 i16x8.shl drop
+    #|    local.get 0 local.get 2 i16x8.shr_s drop
+    #|    local.get 0 local.get 2 i16x8.shr_u drop
+    #|    local.get 0 local.get 1 i16x8.add drop
+    #|    local.get 0 local.get 1 i16x8.add_sat_s drop
+    #|    local.get 0 local.get 1 i16x8.add_sat_u drop
+    #|    local.get 0 local.get 1 i16x8.sub drop
+    #|    local.get 0 local.get 1 i16x8.sub_sat_s drop
+    #|    local.get 0 local.get 1 i16x8.sub_sat_u drop
+    #|    local.get 0 local.get 1 i16x8.mul drop
+    #|    local.get 0 local.get 1 i16x8.min_s drop
+    #|    local.get 0 local.get 1 i16x8.min_u drop
+    #|    local.get 0 local.get 1 i16x8.max_s drop
+    #|    local.get 0 local.get 1 i16x8.max_u drop
+    #|    local.get 0 local.get 1 i16x8.avgr_u drop
+    #|    local.get 0 local.get 1 i16x8.extmul_low_i8x16_s drop
+    #|    local.get 0 local.get 1 i16x8.extmul_high_i8x16_s drop
+    #|    local.get 0 local.get 1 i16x8.extmul_low_i8x16_u drop
+    #|    local.get 0 local.get 1 i16x8.extmul_high_i8x16_u drop)
+    #|  (func (param v128 v128 i32)
+    #|    local.get 0 local.get 1 i32x4.eq drop
+    #|    local.get 0 local.get 1 i32x4.ne drop
+    #|    local.get 0 local.get 1 i32x4.lt_s drop
+    #|    local.get 0 local.get 1 i32x4.lt_u drop
+    #|    local.get 0 local.get 1 i32x4.gt_s drop
+    #|    local.get 0 local.get 1 i32x4.gt_u drop
+    #|    local.get 0 local.get 1 i32x4.le_s drop
+    #|    local.get 0 local.get 1 i32x4.le_u drop
+    #|    local.get 0 local.get 1 i32x4.ge_s drop
+    #|    local.get 0 local.get 1 i32x4.ge_u drop
+    #|    local.get 0 i32x4.abs drop
+    #|    local.get 0 i32x4.neg drop
+    #|    local.get 0 i32x4.all_true drop
+    #|    local.get 0 i32x4.bitmask drop
+    #|    local.get 0 i32x4.extend_low_i16x8_s drop
+    #|    local.get 0 i32x4.extend_high_i16x8_s drop
+    #|    local.get 0 i32x4.extend_low_i16x8_u drop
+    #|    local.get 0 i32x4.extend_high_i16x8_u drop
+    #|    local.get 0 local.get 2 i32x4.shl drop
+    #|    local.get 0 local.get 2 i32x4.shr_s drop
+    #|    local.get 0 local.get 2 i32x4.shr_u drop
+    #|    local.get 0 local.get 1 i32x4.add drop
+    #|    local.get 0 local.get 1 i32x4.sub drop
+    #|    local.get 0 local.get 1 i32x4.mul drop
+    #|    local.get 0 local.get 1 i32x4.min_s drop
+    #|    local.get 0 local.get 1 i32x4.min_u drop
+    #|    local.get 0 local.get 1 i32x4.max_s drop
+    #|    local.get 0 local.get 1 i32x4.max_u drop
+    #|    local.get 0 local.get 1 i32x4.dot_i16x8_s drop
+    #|    local.get 0 local.get 1 i32x4.extmul_low_i16x8_s drop
+    #|    local.get 0 local.get 1 i32x4.extmul_high_i16x8_s drop
+    #|    local.get 0 local.get 1 i32x4.extmul_low_i16x8_u drop
+    #|    local.get 0 local.get 1 i32x4.extmul_high_i16x8_u drop
+    #|    local.get 0 i32x4.trunc_sat_f32x4_s drop
+    #|    local.get 0 i32x4.trunc_sat_f32x4_u drop
+    #|    local.get 0 i32x4.trunc_sat_f64x2_s_zero drop
+    #|    local.get 0 i32x4.trunc_sat_f64x2_u_zero drop)
+    #|  (func (param v128 v128 i32)
+    #|    local.get 0 local.get 1 i64x2.eq drop
+    #|    local.get 0 local.get 1 i64x2.ne drop
+    #|    local.get 0 local.get 1 i64x2.lt_s drop
+    #|    local.get 0 local.get 1 i64x2.gt_s drop
+    #|    local.get 0 local.get 1 i64x2.le_s drop
+    #|    local.get 0 local.get 1 i64x2.ge_s drop
+    #|    local.get 0 i64x2.abs drop
+    #|    local.get 0 i64x2.neg drop
+    #|    local.get 0 i64x2.all_true drop
+    #|    local.get 0 i64x2.bitmask drop
+    #|    local.get 0 i64x2.extend_low_i32x4_s drop
+    #|    local.get 0 i64x2.extend_high_i32x4_s drop
+    #|    local.get 0 i64x2.extend_low_i32x4_u drop
+    #|    local.get 0 i64x2.extend_high_i32x4_u drop
+    #|    local.get 0 local.get 2 i64x2.shl drop
+    #|    local.get 0 local.get 2 i64x2.shr_s drop
+    #|    local.get 0 local.get 2 i64x2.shr_u drop
+    #|    local.get 0 local.get 1 i64x2.add drop
+    #|    local.get 0 local.get 1 i64x2.sub drop
+    #|    local.get 0 local.get 1 i64x2.mul drop
+    #|    local.get 0 local.get 1 i64x2.extmul_low_i32x4_s drop
+    #|    local.get 0 local.get 1 i64x2.extmul_high_i32x4_s drop
+    #|    local.get 0 local.get 1 i64x2.extmul_low_i32x4_u drop
+    #|    local.get 0 local.get 1 i64x2.extmul_high_i32x4_u drop)
+    #|  (func (param v128 v128)
+    #|    local.get 0 local.get 1 f32x4.eq drop
+    #|    local.get 0 local.get 1 f32x4.ne drop
+    #|    local.get 0 local.get 1 f32x4.lt drop
+    #|    local.get 0 local.get 1 f32x4.gt drop
+    #|    local.get 0 local.get 1 f32x4.le drop
+    #|    local.get 0 local.get 1 f32x4.ge drop
+    #|    local.get 0 f32x4.abs drop
+    #|    local.get 0 f32x4.neg drop
+    #|    local.get 0 f32x4.sqrt drop
+    #|    local.get 0 local.get 1 f32x4.add drop
+    #|    local.get 0 local.get 1 f32x4.sub drop
+    #|    local.get 0 local.get 1 f32x4.mul drop
+    #|    local.get 0 local.get 1 f32x4.div drop
+    #|    local.get 0 local.get 1 f32x4.min drop
+    #|    local.get 0 local.get 1 f32x4.max drop
+    #|    local.get 0 local.get 1 f32x4.pmin drop
+    #|    local.get 0 local.get 1 f32x4.pmax drop
+    #|    local.get 0 f32x4.ceil drop
+    #|    local.get 0 f32x4.floor drop
+    #|    local.get 0 f32x4.trunc drop
+    #|    local.get 0 f32x4.nearest drop
+    #|    local.get 0 f32x4.convert_i32x4_s drop
+    #|    local.get 0 f32x4.convert_i32x4_u drop
+    #|    local.get 0 f32x4.demote_f64x2_zero drop)
+    #|  (func (param v128 v128)
+    #|    local.get 0 local.get 1 f64x2.eq drop
+    #|    local.get 0 local.get 1 f64x2.ne drop
+    #|    local.get 0 local.get 1 f64x2.lt drop
+    #|    local.get 0 local.get 1 f64x2.gt drop
+    #|    local.get 0 local.get 1 f64x2.le drop
+    #|    local.get 0 local.get 1 f64x2.ge drop
+    #|    local.get 0 f64x2.abs drop
+    #|    local.get 0 f64x2.neg drop
+    #|    local.get 0 f64x2.sqrt drop
+    #|    local.get 0 local.get 1 f64x2.add drop
+    #|    local.get 0 local.get 1 f64x2.sub drop
+    #|    local.get 0 local.get 1 f64x2.mul drop
+    #|    local.get 0 local.get 1 f64x2.div drop
+    #|    local.get 0 local.get 1 f64x2.min drop
+    #|    local.get 0 local.get 1 f64x2.max drop
+    #|    local.get 0 local.get 1 f64x2.pmin drop
+    #|    local.get 0 local.get 1 f64x2.pmax drop
+    #|    local.get 0 f64x2.ceil drop
+    #|    local.get 0 f64x2.floor drop
+    #|    local.get 0 f64x2.trunc drop
+    #|    local.get 0 f64x2.nearest drop
+    #|    local.get 0 f64x2.convert_low_i32x4_s drop
+    #|    local.get 0 f64x2.convert_low_i32x4_u drop
+    #|    local.get 0 f64x2.promote_low_f32x4 drop))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) =>
+      fail(
+        "expected non-i8x16 SIMD no-immediate lowering success for full family coverage: \{e}",
+      )
+  }
+  match lowered.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      assert_eq(funcs.length(), 5)
+
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(body)) => {
+          let lowered_ops : Array[@lib.Instruction] = []
+          for instr in body {
+            match instr {
+              @lib.LocalGet(_) | @lib.Drop => ()
+              _ => lowered_ops.push(instr)
+            }
+          }
+          assert_eq(lowered_ops[0], @lib.Instruction::i16x8_eq())
+          assert_eq(lowered_ops[12], @lib.Instruction::i16x8q15mulr_sat_s())
+          assert_eq(lowered_ops[21], @lib.Instruction::i16x8_shl())
+          assert_eq(lowered_ops[35], @lib.Instruction::i16x8_avgr_u())
+          assert_eq(
+            lowered_ops[39],
+            @lib.Instruction::i16x8_extmul_high_i8x16u(),
+          )
+        }
+        _ => fail("expected i16x8 no-immediate lowered body")
+      }
+
+      match funcs[1] {
+        @lib.Func(_, @lib.Expr(body)) => {
+          let lowered_ops : Array[@lib.Instruction] = []
+          for instr in body {
+            match instr {
+              @lib.LocalGet(_) | @lib.Drop => ()
+              _ => lowered_ops.push(instr)
+            }
+          }
+          assert_eq(lowered_ops[0], @lib.Instruction::i32x4_eq())
+          assert_eq(lowered_ops[18], @lib.Instruction::i32x4_shl())
+          assert_eq(lowered_ops[28], @lib.Instruction::i32x4_dot_i16x8s())
+          assert_eq(lowered_ops[33], @lib.Instruction::i32x4_trunc_sat_f32x4s())
+          assert_eq(
+            lowered_ops[36],
+            @lib.Instruction::i32x4_trunc_sat_f64x2u_zero(),
+          )
+        }
+        _ => fail("expected i32x4 no-immediate lowered body")
+      }
+
+      match funcs[2] {
+        @lib.Func(_, @lib.Expr(body)) => {
+          let lowered_ops : Array[@lib.Instruction] = []
+          for instr in body {
+            match instr {
+              @lib.LocalGet(_) | @lib.Drop => ()
+              _ => lowered_ops.push(instr)
+            }
+          }
+          assert_eq(lowered_ops[0], @lib.Instruction::i64x2_eq())
+          assert_eq(lowered_ops[14], @lib.Instruction::i64x2_shl())
+          assert_eq(lowered_ops[19], @lib.Instruction::i64x2_mul())
+          assert_eq(
+            lowered_ops[23],
+            @lib.Instruction::i64x2_extmul_high_i32x4u(),
+          )
+        }
+        _ => fail("expected i64x2 no-immediate lowered body")
+      }
+
+      match funcs[3] {
+        @lib.Func(_, @lib.Expr(body)) => {
+          let lowered_ops : Array[@lib.Instruction] = []
+          for instr in body {
+            match instr {
+              @lib.LocalGet(_) | @lib.Drop => ()
+              _ => lowered_ops.push(instr)
+            }
+          }
+          assert_eq(lowered_ops[0], @lib.Instruction::f32x4_eq())
+          assert_eq(lowered_ops[8], @lib.Instruction::f32x4_sqrt())
+          assert_eq(lowered_ops[15], @lib.Instruction::f32x4_pmin())
+          assert_eq(lowered_ops[20], @lib.Instruction::f32x4_nearest())
+          assert_eq(
+            lowered_ops[23],
+            @lib.Instruction::f32x4_demote_f64x2_zero(),
+          )
+        }
+        _ => fail("expected f32x4 no-immediate lowered body")
+      }
+
+      match funcs[4] {
+        @lib.Func(_, @lib.Expr(body)) => {
+          let lowered_ops : Array[@lib.Instruction] = []
+          for instr in body {
+            match instr {
+              @lib.LocalGet(_) | @lib.Drop => ()
+              _ => lowered_ops.push(instr)
+            }
+          }
+          assert_eq(lowered_ops[0], @lib.Instruction::f64x2_eq())
+          assert_eq(lowered_ops[8], @lib.Instruction::f64x2_sqrt())
+          assert_eq(lowered_ops[15], @lib.Instruction::f64x2_pmin())
+          assert_eq(lowered_ops[20], @lib.Instruction::f64x2_nearest())
+          assert_eq(
+            lowered_ops[23],
+            @lib.Instruction::f64x2_promote_low_f32x4(),
+          )
+        }
+        _ => fail("expected f64x2 no-immediate lowered body")
+      }
+    }
+    _ =>
+      fail(
+        "expected lowered module code section for non-i8x16 SIMD no-immediate ops",
+      )
+  }
+}
+
+///|
+test "wast_to_binary_module lowers relaxed SIMD no-immediate ops" {
+  let src =
+    #|(module
+    #|  (func (param v128 v128 v128)
+    #|    local.get 0 local.get 1 i8x16.relaxed_swizzle drop
+    #|    local.get 0 local.get 1 local.get 2 i8x16.relaxed_laneselect drop
+    #|    local.get 0 local.get 1 local.get 2 i16x8.relaxed_laneselect drop
+    #|    local.get 0 local.get 1 local.get 2 i32x4.relaxed_laneselect drop
+    #|    local.get 0 local.get 1 local.get 2 i64x2.relaxed_laneselect drop
+    #|    local.get 0 i32x4.relaxed_trunc_f32x4_s drop
+    #|    local.get 0 i32x4.relaxed_trunc_f32x4_u drop
+    #|    local.get 0 i32x4.relaxed_trunc_f64x2_s_zero drop
+    #|    local.get 0 i32x4.relaxed_trunc_f64x2_u_zero drop
+    #|    local.get 0 local.get 1 local.get 2 f32x4.relaxed_madd drop
+    #|    local.get 0 local.get 1 local.get 2 f32x4.relaxed_nmadd drop
+    #|    local.get 0 local.get 1 local.get 2 f64x2.relaxed_madd drop
+    #|    local.get 0 local.get 1 local.get 2 f64x2.relaxed_nmadd drop
+    #|    local.get 0 local.get 1 f32x4.relaxed_min drop
+    #|    local.get 0 local.get 1 f32x4.relaxed_max drop
+    #|    local.get 0 local.get 1 f64x2.relaxed_min drop
+    #|    local.get 0 local.get 1 f64x2.relaxed_max drop
+    #|    local.get 0 local.get 1 i16x8.relaxed_q15mulr_s drop
+    #|    local.get 0 local.get 1 i16x8.relaxed_dot_i8x16_i7x16_s drop
+    #|    local.get 0 local.get 1 local.get 2 i32x4.relaxed_dot_i8x16_i7x16_add_s drop))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) => fail("expected relaxed SIMD no-immediate lowering success: \{e}")
+  }
+  match lowered.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) => {
+      let lowered_ops : Array[@lib.Instruction] = []
+      for instr in body {
+        match instr {
+          @lib.LocalGet(_) | @lib.Drop => ()
+          _ => lowered_ops.push(instr)
+        }
+      }
+      assert_eq(lowered_ops.length(), 20)
+      assert_eq(lowered_ops[0], @lib.Instruction::i8x16_relaxed_swizzle())
+      assert_eq(lowered_ops[2], @lib.Instruction::i16x8_relaxed_laneselect())
+      assert_eq(lowered_ops[5], @lib.Instruction::i32x4_relaxed_trunc_f32x4s())
+      assert_eq(
+        lowered_ops[7],
+        @lib.Instruction::i32x4_relaxed_trunc_zero_f64x2s(),
+      )
+      assert_eq(lowered_ops[9], @lib.Instruction::f32x4_relaxed_madd())
+      assert_eq(lowered_ops[12], @lib.Instruction::f64x2_relaxed_nmadd())
+      assert_eq(lowered_ops[17], @lib.Instruction::i16x8_relaxed_q15mulr_s())
+      assert_eq(
+        lowered_ops[18],
+        @lib.Instruction::i16x8_relaxed_dot_i8x16i7x16s(),
+      )
+      assert_eq(
+        lowered_ops[19],
+        @lib.Instruction::i32x4_relaxed_dot_i8x16i7x16_add_s(),
+      )
+    }
+    _ =>
+      fail(
+        "expected lowered module code section for relaxed SIMD no-immediate ops",
+      )
+  }
+}
+
+///|
 test "wast_text_binary_roundtrip returns validator-clean module for core fixture" {
   let src =
     #|(module
@@ -3435,7 +4284,13 @@ test "wast_to_binary_module lowers table elem-abbreviation typed ref.func items"
       @lib.TableIdx::new(0),
       @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
     ),
-    @lib.ElemKind::funcs([@lib.FuncIdx::new(0), @lib.FuncIdx::new(0)]),
+    @lib.ElemKind::typed_exprs(
+      @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::func())),
+      [
+        @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(0))]),
+        @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(0))]),
+      ],
+    ),
   )
   match lowered.elem_sec {
     Some(@lib.ElemSec([elem])) => assert_eq(elem, expected)
@@ -3448,6 +4303,134 @@ test "wast_to_binary_module lowers table elem-abbreviation typed ref.func items"
     Ok(_) => ()
     Err(e) =>
       fail("expected typed table elem-abbreviation fixture to validate: \{e}")
+  }
+}
+
+///|
+test "wast_to_binary_module lowers explicit typed ref.func-only elem segments as typed exprs" {
+  let src =
+    #|(module
+    #|  (table 1 funcref)
+    #|  (func $f)
+    #|  (elem (i32.const 0) funcref (item (ref.func $f)) (item (ref.func $f))))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) =>
+      fail(
+        "expected explicit typed ref.func-only elem-segment lowering success: \{e}",
+      )
+  }
+  let expected = @lib.Elem::new(
+    @lib.ElemMode::active(
+      @lib.TableIdx::new(0),
+      @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+    ),
+    @lib.ElemKind::typed_exprs(
+      @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::func())),
+      [
+        @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(0))]),
+        @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(0))]),
+      ],
+    ),
+  )
+  match lowered.elem_sec {
+    Some(@lib.ElemSec([elem])) => assert_eq(elem, expected)
+    _ =>
+      fail(
+        "expected lowered typed expr elem section for explicit typed ref.func-only fixture",
+      )
+  }
+  match @validate.validate_module(lowered) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected explicit typed ref.func-only elem fixture to validate: \{e}",
+      )
+  }
+}
+
+///|
+test "wast_to_binary_module lowers table elem-abbreviation explicit item ref.func-only as typed exprs" {
+  let src =
+    #|(module
+    #|  (func $f)
+    #|  (table 2 funcref (elem (item (ref.func $f)) (item (ref.func $f)))))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) =>
+      fail(
+        "expected explicit-item ref.func-only table abbreviation lowering success: \{e}",
+      )
+  }
+  let expected = @lib.Elem::new(
+    @lib.ElemMode::active(
+      @lib.TableIdx::new(0),
+      @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+    ),
+    @lib.ElemKind::typed_exprs(
+      @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::func())),
+      [
+        @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(0))]),
+        @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(0))]),
+      ],
+    ),
+  )
+  match lowered.elem_sec {
+    Some(@lib.ElemSec([elem])) => assert_eq(elem, expected)
+    _ =>
+      fail(
+        "expected lowered typed expr elem section for explicit-item table abbreviation fixture",
+      )
+  }
+  match @validate.validate_module(lowered) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected explicit-item ref.func-only table abbreviation fixture to validate: \{e}",
+      )
+  }
+}
+
+///|
+test "wast_to_binary_module lowers explicit elem segment explicit item ref.func-only as typed exprs" {
+  let src =
+    #|(module
+    #|  (table 1 funcref)
+    #|  (func $f)
+    #|  (elem (i32.const 0) (item (ref.func $f)) (item (ref.func $f))))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) =>
+      fail(
+        "expected explicit-item ref.func-only elem segment lowering success: \{e}",
+      )
+  }
+  let expected = @lib.Elem::new(
+    @lib.ElemMode::active(
+      @lib.TableIdx::new(0),
+      @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+    ),
+    @lib.ElemKind::typed_exprs(
+      @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::func())),
+      [
+        @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(0))]),
+        @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(0))]),
+      ],
+    ),
+  )
+  match lowered.elem_sec {
+    Some(@lib.ElemSec([elem])) => assert_eq(elem, expected)
+    _ =>
+      fail(
+        "expected lowered typed expr elem section for explicit-item elem segment fixture",
+      )
+  }
+  match @validate.validate_module(lowered) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected explicit-item ref.func-only elem segment fixture to validate: \{e}",
+      )
   }
 }
 
@@ -3532,6 +4515,322 @@ test "wast_to_binary_module lowers explicit elem segments with typed item expres
     Ok(_) => ()
     Err(e) =>
       fail("expected explicit typed elem-segment fixture to validate: \{e}")
+  }
+}
+
+///|
+test "wast_to_binary_module lowers typed-heap value types to concrete TypeIdx refs" {
+  let src =
+    #|(module
+    #|  (type $t (func))
+    #|  (func (param (ref $t)) (result (ref null $t))
+    #|    (ref.null $t)))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) => fail("expected typed-heap value-type lowering success: \{e}")
+  }
+  match lowered.type_sec {
+    Some(@lib.TypeSec(types)) => {
+      assert_eq(types.length(), 2)
+      assert_eq(
+        types[1],
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [
+                @lib.ValType::ref_type(
+                  @lib.RefType::new(
+                    false,
+                    @lib.HeapType::new(@lib.TypeIdx::new(0)),
+                  ),
+                ),
+              ],
+              [
+                @lib.ValType::ref_type(
+                  @lib.RefType::new(
+                    true,
+                    @lib.HeapType::new(@lib.TypeIdx::new(0)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      )
+    }
+    _ =>
+      fail(
+        "expected concrete TypeIdx-backed ref param/result types in lowered type section",
+      )
+  }
+  match lowered.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr([instr]))])) =>
+      assert_eq(
+        instr,
+        @lib.Instruction::ref_null(@lib.HeapType::new(@lib.TypeIdx::new(0))),
+      )
+    _ =>
+      fail(
+        "expected typed ref.null instruction to lower with concrete type index heap type",
+      )
+  }
+  match @validate.validate_module(lowered) {
+    Ok(_) => ()
+    Err(e) => fail("expected typed-heap value-type fixture to validate: \{e}")
+  }
+}
+
+///|
+test "wast_to_binary_module lowers abstract heap ref kinds without collapsing to func" {
+  let src =
+    #|(module
+    #|  (func
+    #|    (param (ref any) (ref eq) (ref i31) (ref none) (ref nofunc) (ref noextern) (ref noexn))
+    #|    (result (ref null any) (ref null eq) (ref null i31) (ref null none) (ref null nofunc) (ref null noextern) (ref null noexn))
+    #|    (ref.null any)
+    #|    (ref.null eq)
+    #|    (ref.null i31)
+    #|    (ref.null none)
+    #|    (ref.null nofunc)
+    #|    (ref.null noextern)
+    #|    (ref.null noexn)))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) =>
+      fail("expected abstract heap-kind value-type lowering success: \{e}")
+  }
+  match lowered.type_sec {
+    Some(
+      @lib.TypeSec(
+        [
+          @lib.RecType::SingleRecType(
+            @lib.SubType::CompTypeSubType(
+              @lib.CompType::FuncCompType(params, results)
+            )
+          ),
+        ]
+      )
+    ) => {
+      assert_eq(params, [
+        @lib.ValType::ref_type(
+          @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::any())),
+        ),
+        @lib.ValType::ref_type(
+          @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::eq())),
+        ),
+        @lib.ValType::ref_type(
+          @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::i31())),
+        ),
+        @lib.ValType::ref_type(
+          @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::none())),
+        ),
+        @lib.ValType::ref_type(
+          @lib.RefType::new(
+            false,
+            @lib.HeapType::abs(@lib.AbsHeapType::no_func()),
+          ),
+        ),
+        @lib.ValType::ref_type(
+          @lib.RefType::new(
+            false,
+            @lib.HeapType::abs(@lib.AbsHeapType::no_extern()),
+          ),
+        ),
+        @lib.ValType::ref_type(
+          @lib.RefType::new(
+            false,
+            @lib.HeapType::abs(@lib.AbsHeapType::no_exn()),
+          ),
+        ),
+      ])
+      assert_eq(results, [
+        @lib.ValType::ref_type(
+          @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::any())),
+        ),
+        @lib.ValType::ref_type(
+          @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::eq())),
+        ),
+        @lib.ValType::ref_type(
+          @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::i31())),
+        ),
+        @lib.ValType::ref_type(
+          @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::none())),
+        ),
+        @lib.ValType::ref_type(
+          @lib.RefType::new(
+            true,
+            @lib.HeapType::abs(@lib.AbsHeapType::no_func()),
+          ),
+        ),
+        @lib.ValType::ref_type(
+          @lib.RefType::new(
+            true,
+            @lib.HeapType::abs(@lib.AbsHeapType::no_extern()),
+          ),
+        ),
+        @lib.ValType::ref_type(
+          @lib.RefType::new(
+            true,
+            @lib.HeapType::abs(@lib.AbsHeapType::no_exn()),
+          ),
+        ),
+      ])
+    }
+    _ =>
+      fail(
+        "expected function signature in type section to preserve abstract heap-kind refs",
+      )
+  }
+  match lowered.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      assert_eq(instrs, [
+        @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::any())),
+        @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::eq())),
+        @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::i31())),
+        @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::none())),
+        @lib.Instruction::ref_null(
+          @lib.HeapType::abs(@lib.AbsHeapType::no_func()),
+        ),
+        @lib.Instruction::ref_null(
+          @lib.HeapType::abs(@lib.AbsHeapType::no_extern()),
+        ),
+        @lib.Instruction::ref_null(
+          @lib.HeapType::abs(@lib.AbsHeapType::no_exn()),
+        ),
+      ])
+    _ =>
+      fail(
+        "expected ref.null instructions to preserve abstract heap kinds in lowered code",
+      )
+  }
+}
+
+///|
+test "wast_to_binary_module lowers abstract heap refs across table global tag and import surfaces" {
+  let src =
+    #|(module
+    #|  (type $tag_t (func (param (ref null noextern))))
+    #|  (import "env" "itbl" (table 1 (ref null nofunc)))
+    #|  (import "env" "ig" (global (mut (ref null any))))
+    #|  (import "env" "itag" (tag (type $tag_t)))
+    #|  (table 2 (ref null noextern))
+    #|  (global (mut (ref null none)) (ref.null none))
+    #|  (tag (type $tag_t)))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) =>
+      fail("expected abstract heap-kind module-surface lowering success: \{e}")
+  }
+
+  match lowered.type_sec {
+    Some(@lib.TypeSec(types)) => {
+      assert_eq(types.length(), 1)
+      assert_eq(
+        types[0],
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [
+                @lib.ValType::ref_type(
+                  @lib.RefType::new(
+                    true,
+                    @lib.HeapType::abs(@lib.AbsHeapType::no_extern()),
+                  ),
+                ),
+              ],
+              [],
+            ),
+          ),
+        ),
+      )
+    }
+    _ =>
+      fail("expected abstract heap-kind tag signature in lowered type section")
+  }
+
+  match lowered.import_sec {
+    Some(
+      @lib.ImportSec(
+        [
+          @lib.Import(_, _, @lib.TableExternType(import_table_ty)),
+          @lib.Import(_, _, @lib.GlobalExternType(import_global_ty)),
+          @lib.Import(_, _, @lib.TagExternType(import_tag_ty)),
+        ]
+      )
+    ) => {
+      assert_eq(
+        import_table_ty,
+        @lib.TableType::new(
+          @lib.RefType::new(
+            true,
+            @lib.HeapType::abs(@lib.AbsHeapType::no_func()),
+          ),
+          @lib.Limits::i32(1, None),
+        ),
+      )
+      assert_eq(
+        import_global_ty,
+        @lib.GlobalType::new(
+          @lib.ValType::ref_type(
+            @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::any())),
+          ),
+          true,
+        ),
+      )
+      assert_eq(import_tag_ty, @lib.TagType::new(@lib.TypeIdx::new(0)))
+    }
+    _ =>
+      fail(
+        "expected lowered imports to preserve abstract heap-kind table/global/tag types",
+      )
+  }
+
+  match lowered.table_sec {
+    Some(@lib.TableSec([table])) =>
+      assert_eq(
+        table,
+        @lib.Table::new(
+          @lib.TableType::new(
+            @lib.RefType::new(
+              true,
+              @lib.HeapType::abs(@lib.AbsHeapType::no_extern()),
+            ),
+            @lib.Limits::i32(2, None),
+          ),
+          None,
+        ),
+      )
+    _ => fail("expected lowered table section for abstract heap-kind fixture")
+  }
+
+  match lowered.global_sec {
+    Some(@lib.GlobalSec([global])) =>
+      assert_eq(
+        global,
+        @lib.Global::new(
+          @lib.GlobalType::new(
+            @lib.ValType::ref_type(
+              @lib.RefType::new(
+                true,
+                @lib.HeapType::abs(@lib.AbsHeapType::none()),
+              ),
+            ),
+            true,
+          ),
+          @lib.Expr::new([
+            @lib.Instruction::ref_null(
+              @lib.HeapType::abs(@lib.AbsHeapType::none()),
+            ),
+          ]),
+        ),
+      )
+    _ => fail("expected lowered global section for abstract heap-kind fixture")
+  }
+
+  match lowered.tag_sec {
+    Some(@lib.TagSec([tag])) =>
+      assert_eq(tag, @lib.TagType::new(@lib.TypeIdx::new(0)))
+    _ => fail("expected lowered tag section for abstract heap-kind fixture")
   }
 }
 

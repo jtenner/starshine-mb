@@ -97,6 +97,131 @@ fn fixture_mergeable_block_module() -> Module {
 }
 
 ///|
+fn run_optimize_wat_fixture_regression(
+  path : String,
+  wat_text : String,
+  lowered_wasm? : Bytes? = None,
+) -> Unit raise {
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    file_exists=fn(candidate) { candidate == path },
+    list_candidates=fn() { [path] },
+    read_file=fn(candidate) {
+      if candidate == path {
+        Ok(bytes_from_string(wat_text))
+      } else {
+        Err("missing fixture")
+      }
+    },
+    lower_text_module=fn(candidate, _, _) {
+      match lowered_wasm {
+        Some(wasm) if candidate == path => Ok(wasm)
+        _ => Err("text lowering not configured")
+      }
+    },
+    write_file=fn(out_path, bytes) {
+      writes.push((out_path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(["--optimize", "--out", "out.wasm", path], io) {
+    Ok(v) => v
+    Err(e) => fail("expected --optimize success for \{path}, got \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["optimize"])
+  assert_eq(writes.length(), 1)
+  assert_eq(writes[0].0, "out.wasm")
+  ignore(decode_module_bytes(writes[0].1))
+}
+
+///|
+
+///|
+test "run_cmd_with_adapter --optimize handles examples/modules/simple.wat" {
+  let wat =
+    #|(module
+    #|  (func (export "add_then_shift") (param i32 i32) (result i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    i32.add
+    #|    i32.const 1
+    #|    i32.shl))
+  run_optimize_wat_fixture_regression("examples/modules/simple.wat", wat)
+}
+
+///|
+test "run_cmd_with_adapter --optimize handles examples/modules/feature_mix.wat" {
+  let wat =
+    #|(module
+    #|  (memory (export "mem") 1)
+    #|  (table 2 funcref)
+    #|  (global $g (mut i32) (i32.const 7))
+    #|
+    #|  (func $inc (param i32) (result i32)
+    #|    local.get 0
+    #|    global.get $g
+    #|    i32.add)
+    #|
+    #|  (func $twice (param i32) (result i32)
+    #|    local.get 0
+    #|    call $inc
+    #|    local.get 0
+    #|    call $inc
+    #|    i32.add)
+    #|
+    #|  (elem (i32.const 0) func $inc $twice)
+    #|  (data (i32.const 0) "starshine-demo")
+    #|
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $twice))
+  run_optimize_wat_fixture_regression("examples/modules/feature_mix.wat", wat)
+}
+
+///|
+test "run_cmd_with_adapter --optimize handles examples/modules/table_dispatch.wat" {
+  let wat =
+    #|(module
+    #|  (type $unary (func (param i32) (result i32)))
+    #|  (table 2 funcref)
+    #|
+    #|  (func $inc (type $unary) (param i32) (result i32)
+    #|    local.get 0
+    #|    i32.const 1
+    #|    i32.add)
+    #|
+    #|  (func $dec (type $unary) (param i32) (result i32)
+    #|    local.get 0
+    #|    i32.const 1
+    #|    i32.sub)
+    #|
+    #|  (elem (i32.const 0) func $inc $dec)
+    #|
+    #|  (func (export "dispatch") (param i32 i32) (result i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    call_indirect (type $unary)))
+  run_optimize_wat_fixture_regression(
+    "examples/modules/table_dispatch.wat", wat,
+  )
+}
+
+///|
+test "run_cmd_with_adapter --optimize handles examples/modules/simd_lane_mix.wat" {
+  let wat =
+    #|(module
+    #|  (func (export "lane_add0") (param i32 i32) (result i32)
+    #|    local.get 0
+    #|    i8x16.splat
+    #|    local.get 1
+    #|    i8x16.splat
+    #|    i8x16.add
+    #|    i8x16.extract_lane_s 0))
+  run_optimize_wat_fixture_regression("examples/modules/simd_lane_mix.wat", wat)
+}
+
+///|
 fn module_first_f32_const(mod : Module) -> Float? {
   match mod.code_sec {
     Some(CodeSec([Func(_, Expr([F32Const(F32(v))])), ..])) => Some(v)

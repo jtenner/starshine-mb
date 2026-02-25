@@ -124,6 +124,21 @@ fn keyword_from_opcode(op : Opcode) -> String {
 }
 
 ///|
+fn keyword_from_heap_type_ref(ht : HeapTypeRef) -> String {
+  match ht {
+    TypeNum(n) => "\{n}"
+    TypeId(id) => id
+    Any => "any"
+    Eq => "eq"
+    I31 => "i31"
+    None_ => "none"
+    NoFunc => "nofunc"
+    NoExtern => "noextern"
+    NoExn => "noexn"
+  }
+}
+
+///|
 fn keyword_from_value_type(vt : ValueType) -> String {
   match vt {
     I32 => "i32"
@@ -137,6 +152,19 @@ fn keyword_from_value_type(vt : ValueType) -> String {
     NonNullFuncRef => "(ref func)"
     NonNullExternRef => "(ref extern)"
     NonNullExnRef => "(ref exn)"
+    TypedFuncRef(ht) => "(ref null \{keyword_from_heap_type_ref(ht)})"
+    NonNullTypedFuncRef(ht) => "(ref \{keyword_from_heap_type_ref(ht)})"
+  }
+}
+
+///|
+fn keyword_from_ref_null_immediate(vt : ValueType) -> String {
+  match vt {
+    FuncRef | NonNullFuncRef => "func"
+    ExternRef | NonNullExternRef => "extern"
+    ExnRef | NonNullExnRef => "exn"
+    TypedFuncRef(ht) | NonNullTypedFuncRef(ht) => keyword_from_heap_type_ref(ht)
+    _ => keyword_from_value_type(vt)
   }
 }
 
@@ -317,7 +345,7 @@ fn render_instruction_head(instr : Instruction) -> String raise WastTextError {
     Test(op) => keyword_from_opcode(op)
     Compare(op) => keyword_from_opcode(op)
     Convert(op) => keyword_from_opcode(op)
-    RefNull(vt) => "ref.null \{keyword_from_value_type(vt)}"
+    RefNull(vt) => "ref.null \{keyword_from_ref_null_immediate(vt)}"
     RefIsNull => "ref.is_null"
     RefFunc(idx) => "ref.func \{index_text(idx)}"
     RefGetDesc => "ref.get_desc"
@@ -829,7 +857,7 @@ fn render_wast_value(v : WastValue) -> String {
     I64(x) => "(i64.const \{x})"
     F32(x) => "(f32.const \{x})"
     F64(x) => "(f64.const \{x})"
-    RefNull(vt) => "(ref.null \{keyword_from_value_type(vt)})"
+    RefNull(vt) => "(ref.null \{keyword_from_ref_null_immediate(vt)})"
     RefFunc => "(ref.func 0)"
   }
 }
@@ -843,7 +871,7 @@ fn render_wast_result(r : WastResult) -> String {
     F64NanCanonical => "(f64.const nan:canonical)"
     F64NanArithmetic => "(f64.const nan:arithmetic)"
     RefNull(None) => "(ref.null)"
-    RefNull(Some(vt)) => "(ref.null \{keyword_from_value_type(vt)})"
+    RefNull(Some(vt)) => "(ref.null \{keyword_from_ref_null_immediate(vt)})"
     RefFunc => "(ref.func 0)"
   }
 }

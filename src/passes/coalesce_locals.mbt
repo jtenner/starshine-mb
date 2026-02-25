@@ -735,10 +735,24 @@ fn compute_coalescing(
   blocks : Array[Block],
   values_out : Map[Int, ValueEnv],
   liveness : Map[Int, BlockLiveness],
+  param_count : Int,
 ) -> LocalMap {
   let mapping : LocalMap = Map::new()
   let reps : Array[LocalIdx] = Array::new()
+  let bounded_param_count = if param_count < locals.length() {
+    param_count
+  } else {
+    locals.length()
+  }
+  for i in 0..<bounded_param_count {
+    let idx = LocalIdx::new(i.reinterpret_as_uint())
+    mapping[idx] = idx
+    reps.push(idx)
+  }
   for li in order {
+    if li.0.reinterpret_as_int() < bounded_param_count {
+      continue
+    }
     let ty_i = locals[li.0.reinterpret_as_int()]
     let mut assigned = false
     for r in reps {
@@ -784,22 +798,55 @@ fn compute_interferences(instrs : Array[TInstr]) -> Set[(LocalIdx, LocalIdx)] {
 }
 
 ///|
-fn coalesce_locals() -> ModuleTransformer[Unit] {
+fn cl_collect_param_types(mod : Module) -> Array[Array[ValType]] {
+  let out : Array[Array[ValType]] = []
+  let env = Env::new().with_module(mod)
+  match mod.func_sec {
+    Some(FuncSec(type_idxs)) =>
+      for tidx in type_idxs {
+        match env.resolve_functype(tidx) {
+          Some(FuncType(params, _)) => out.push(params)
+          None => out.push([])
+        }
+      }
+    None => ()
+  }
+  out
+}
+
+///|
+fn coalesce_locals(
+  param_types? : Array[Array[ValType]] = [],
+) -> ModuleTransformer[Unit] {
+  let next_def_idx = Ref::new(0)
   ModuleTransformer::new().on_func_evt(fn(_, _, func) {
+    let def_idx = next_def_idx.val
+    next_def_idx.update(fn(i) { i + 1 })
+    let params = param_types.get(def_idx).unwrap_or([])
+    let param_count = params.length()
     match func {
       Func(_) => unchanged()
       TFunc(locals, body) => {
+        let all_locals = params.copy()
+        all_locals.append(locals)
+        if all_locals.length() == 0 {
+          return unchanged()
+        }
         let instrs = body.0
         let blocks = build_cfg(instrs)
-        let (inter, _, values_out) = compute_interferences_cfg(blocks, locals)
+        let (inter, _, values_out) = compute_interferences_cfg(
+          blocks, all_locals,
+        )
         let liveness = compute_cfg_liveness(build_cfg(instrs))
         let copies = find_copies(instrs)
         let freq = copy_frequency(copies)
-        let order = compute_coalesce_order(locals, freq)
+        let order = compute_coalesce_order(all_locals, freq)
         let mapping = compute_coalescing(
-          locals, inter, order, blocks, values_out, liveness,
+          all_locals, inter, order, blocks, values_out, liveness, param_count,
         )
-        let (new_locals, rep_to_new) = compute_new_locals(locals, mapping)
+        let (new_locals, rep_to_new) = compute_new_locals(
+          locals, mapping, param_count,
+        )
         let final_map = compose_maps(mapping, rep_to_new)
         let new_body = rewrite_body_locals(body, final_map)
         change((), Func::t_func(new_locals, new_body))
@@ -809,8 +856,8 @@ fn coalesce_locals() -> ModuleTransformer[Unit] {
 }
 
 ///|
-fn coalesce_locals_pass(_mod : Module) -> ModuleTransformer[IRContext] {
-  wrap_unit_func_pass(coalesce_locals())
+fn coalesce_locals_pass(mod : Module) -> ModuleTransformer[IRContext] {
+  wrap_unit_func_pass(coalesce_locals(param_types=cl_collect_param_types(mod)))
 }
 
 ///|
@@ -818,11 +865,11 @@ fn rewrite_instr_locals(instr : TInstr, mapping : LocalMap) -> TInstr {
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(_, _, i) {
     match i {
       TInstr::TLocalGet(idx) =>
-        change((), TInstr::local_get(mapping.get(idx).unwrap()))
+        change((), TInstr::local_get(mapping.get(idx).unwrap_or(idx)))
       TInstr::TLocalSet(idx, value) =>
-        change((), TInstr::local_set(mapping.get(idx).unwrap(), value))
+        change((), TInstr::local_set(mapping.get(idx).unwrap_or(idx), value))
       TInstr::TLocalTee(idx, value) =>
-        change((), TInstr::local_tee(mapping.get(idx).unwrap(), value))
+        change((), TInstr::local_tee(mapping.get(idx).unwrap_or(idx), value))
       _ => unchanged()
     }
   })
@@ -853,16 +900,33 @@ fn rewrite_body_locals(body : TExpr, mapping : LocalMap) -> TExpr {
 fn compute_new_locals(
   locals : Array[ValType],
   mapping : LocalMap,
+  param_count : Int,
 ) -> (Array[ValType], Map[LocalIdx, LocalIdx]) {
   let new_locals = Array::new()
   let rep_to_new = Map::new()
+  for i in 0..<param_count {
+    let idx = LocalIdx::new(i.reinterpret_as_uint())
+    rep_to_new[idx] = idx
+  }
   for i in 0..<locals.length() {
-    let old_idx = LocalIdx::new(i.reinterpret_as_uint())
-    let rep = mapping.get(old_idx).unwrap()
+    let old_idx = LocalIdx::new((param_count + i).reinterpret_as_uint())
+    let rep = mapping.get(old_idx).unwrap_or(old_idx)
     if !rep_to_new.contains(rep) {
+      let rep_i = rep.0.reinterpret_as_int()
+      if rep_i < param_count {
+        continue
+      }
       let new_idx = LocalIdx::new(new_locals.length().reinterpret_as_uint())
-      rep_to_new[rep] = new_idx
-      new_locals.push(locals[i])
+      let abs_idx = LocalIdx::new(
+        (param_count + new_idx.0.reinterpret_as_int()).reinterpret_as_uint(),
+      )
+      rep_to_new[rep] = abs_idx
+      let rep_local_i = rep_i - param_count
+      if rep_local_i >= 0 && rep_local_i < locals.length() {
+        new_locals.push(locals[rep_local_i])
+      } else {
+        new_locals.push(locals[i])
+      }
     }
   }
   (new_locals, rep_to_new)
@@ -876,7 +940,7 @@ fn compose_maps(
   let fin = Map::new()
   for m in mapping {
     let (old, rep) = m
-    fin[old] = rep_to_new.get(rep).unwrap()
+    fin[old] = rep_to_new.get(rep).unwrap_or(rep)
   }
   fin
 }

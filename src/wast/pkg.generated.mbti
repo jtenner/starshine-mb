@@ -180,6 +180,21 @@ pub impl Show for GlobalType
 pub impl @debug.Debug for GlobalType
 pub impl @quickcheck.Arbitrary for GlobalType
 
+pub enum HeapTypeRef {
+  TypeNum(UInt)
+  TypeId(String)
+  Any
+  Eq
+  I31
+  None_
+  NoFunc
+  NoExtern
+  NoExn
+}
+pub impl Eq for HeapTypeRef
+pub impl Show for HeapTypeRef
+pub impl @debug.Debug for HeapTypeRef
+
 pub struct Import {
   module_name : String
   field_name : String
@@ -1165,6 +1180,8 @@ pub enum ValueType {
   NonNullFuncRef
   NonNullExternRef
   NonNullExnRef
+  TypedFuncRef(HeapTypeRef)
+  NonNullTypedFuncRef(HeapTypeRef)
 }
 pub impl @lib.PrettyPrint for ValueType
 pub impl Eq for ValueType

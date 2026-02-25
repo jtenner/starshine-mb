@@ -750,6 +750,28 @@ fn WastParser::is_heap_type_token(self : WastParser) -> Bool {
 }
 
 ///|
+fn heap_type_ref_from_index(idx : Index) -> HeapTypeRef {
+  match idx {
+    Num(n) => HeapTypeRef::TypeNum(n)
+    Id(id) => HeapTypeRef::TypeId(id)
+  }
+}
+
+///|
+fn heap_type_ref_from_reserved_keyword(text : String) -> HeapTypeRef? {
+  match text {
+    "any" => Some(HeapTypeRef::Any)
+    "eq" => Some(HeapTypeRef::Eq)
+    "i31" => Some(HeapTypeRef::I31)
+    "none" => Some(HeapTypeRef::None_)
+    "nofunc" => Some(HeapTypeRef::NoFunc)
+    "noextern" => Some(HeapTypeRef::NoExtern)
+    "noexn" => Some(HeapTypeRef::NoExn)
+    _ => None
+  }
+}
+
+///|
 fn WastParser::can_start_value_type(self : WastParser) -> Bool {
   match self.current.token_type {
     ValueType(_) | Func => true
@@ -777,6 +799,7 @@ fn ref_value_type_with_nullability(
     match base {
       ExternRef | NonNullExternRef => NonNullExternRef
       ExnRef | NonNullExnRef => NonNullExnRef
+      TypedFuncRef(ht) | NonNullTypedFuncRef(ht) => NonNullTypedFuncRef(ht)
       _ => NonNullFuncRef
     }
   }
@@ -797,18 +820,33 @@ fn WastParser::parse_heap_type_value_type(
       ref_value_type_with_nullability(FuncRef, nullable)
     }
     Var | Nat => {
-      let _ = self.advance()
-      ref_value_type_with_nullability(FuncRef, nullable)
+      let idx = self.parse_index()
+      let heap_ref = heap_type_ref_from_index(idx)
+      if nullable {
+        TypedFuncRef(heap_ref)
+      } else {
+        NonNullTypedFuncRef(heap_ref)
+      }
     }
     Reserved => {
       let token = self.advance()
       let text = self.get_text(token)
-      if text == "exn" || text == "noexn" {
+      if text == "exn" {
         ref_value_type_with_nullability(ExnRef, nullable)
-      } else if text == "extern" || text == "noextern" {
+      } else if text == "extern" {
         ref_value_type_with_nullability(ExternRef, nullable)
-      } else {
+      } else if text == "func" {
         ref_value_type_with_nullability(FuncRef, nullable)
+      } else {
+        match heap_type_ref_from_reserved_keyword(text) {
+          Some(heap_ref) =>
+            if nullable {
+              TypedFuncRef(heap_ref)
+            } else {
+              NonNullTypedFuncRef(heap_ref)
+            }
+          None => raise UnexpectedToken(token, "expected heap type")
+        }
       }
     }
     _ => raise UnexpectedToken(self.current, "expected heap type")
@@ -1816,7 +1854,7 @@ fn WastParser::parse_opcode_instruction(
 
     // Reference
     RefNull => {
-      let vt = self.parse_value_type()
+      let vt = self.parse_heap_type_value_type(true)
       RefNull(vt)
     }
     RefIsNull => RefIsNull
@@ -2560,7 +2598,7 @@ fn WastParser::parse_wast_value(
     }
     Opcode(RefNull) => {
       let _ = self.advance()
-      let vt = self.parse_value_type()
+      let vt = self.parse_heap_type_value_type(true)
       WastValue::RefNull(vt)
     }
     Opcode(RefFunc) => {
@@ -2626,8 +2664,8 @@ fn WastParser::parse_wast_result(
     }
     Opcode(RefNull) => {
       let _ = self.advance()
-      let vt : ValueType? = if self.can_start_value_type() {
-        Some(self.parse_value_type())
+      let vt : ValueType? = if self.is_heap_type_token() {
+        Some(self.parse_heap_type_value_type(true))
       } else {
         None
       }
@@ -4592,6 +4630,87 @@ test "parse typed ref forms in signatures" {
   let parser = WastParser::new(lexer)
   let _ = parser.parse_module()
   assert_false(parser.has_errors())
+}
+
+///|
+test "parse typed-heap value types preserve concrete type references" {
+  let source =
+    #|(module
+    #|  (type $t (func))
+    #|  (func (param (ref $t)) (result (ref null $t))
+    #|    (ref.null $t)))
+  let lexer = make_lexer(source)
+  let parser = WastParser::new(lexer)
+  let mod = parser.parse_module()
+  assert_false(parser.has_errors())
+  match mod.fields {
+    [TypeField(_), FuncField(func)] => {
+      assert_eq(func.type_use.func_type.params, [
+        NonNullTypedFuncRef(HeapTypeRef::TypeId("$t")),
+      ])
+      assert_eq(func.type_use.func_type.results, [
+        TypedFuncRef(HeapTypeRef::TypeId("$t")),
+      ])
+      match func.body {
+        [RefNull(vt)] => assert_eq(vt, TypedFuncRef(HeapTypeRef::TypeId("$t")))
+        _ => fail("expected single ref.null instruction in typed-heap fixture")
+      }
+    }
+    _ => fail("expected type + function fields in typed-heap parse fixture")
+  }
+}
+
+///|
+test "parse abstract heap ref forms preserve non-func heap kinds" {
+  let source =
+    #|(module
+    #|  (func
+    #|    (param (ref any) (ref eq) (ref i31) (ref none) (ref nofunc) (ref noextern) (ref noexn))
+    #|    (result (ref null any) (ref null eq) (ref null i31) (ref null none) (ref null nofunc) (ref null noextern) (ref null noexn))
+    #|    (ref.null any)
+    #|    (ref.null eq)
+    #|    (ref.null i31)
+    #|    (ref.null none)
+    #|    (ref.null nofunc)
+    #|    (ref.null noextern)
+    #|    (ref.null noexn)))
+  let lexer = make_lexer(source)
+  let parser = WastParser::new(lexer)
+  let mod = parser.parse_module()
+  assert_false(parser.has_errors())
+  match mod.fields {
+    [FuncField(func)] => {
+      assert_eq(func.type_use.func_type.params, [
+        NonNullTypedFuncRef(HeapTypeRef::Any),
+        NonNullTypedFuncRef(HeapTypeRef::Eq),
+        NonNullTypedFuncRef(HeapTypeRef::I31),
+        NonNullTypedFuncRef(HeapTypeRef::None_),
+        NonNullTypedFuncRef(HeapTypeRef::NoFunc),
+        NonNullTypedFuncRef(HeapTypeRef::NoExtern),
+        NonNullTypedFuncRef(HeapTypeRef::NoExn),
+      ])
+      assert_eq(func.type_use.func_type.results, [
+        TypedFuncRef(HeapTypeRef::Any),
+        TypedFuncRef(HeapTypeRef::Eq),
+        TypedFuncRef(HeapTypeRef::I31),
+        TypedFuncRef(HeapTypeRef::None_),
+        TypedFuncRef(HeapTypeRef::NoFunc),
+        TypedFuncRef(HeapTypeRef::NoExtern),
+        TypedFuncRef(HeapTypeRef::NoExn),
+      ])
+      assert_eq(func.body, [
+        RefNull(TypedFuncRef(HeapTypeRef::Any)),
+        RefNull(TypedFuncRef(HeapTypeRef::Eq)),
+        RefNull(TypedFuncRef(HeapTypeRef::I31)),
+        RefNull(TypedFuncRef(HeapTypeRef::None_)),
+        RefNull(TypedFuncRef(HeapTypeRef::NoFunc)),
+        RefNull(TypedFuncRef(HeapTypeRef::NoExtern)),
+        RefNull(TypedFuncRef(HeapTypeRef::NoExn)),
+      ])
+    }
+    _ =>
+      fail("expected single function field in abstract heap-ref parse fixture")
+  }
 }
 
 // ----------------------------------------------------------------------------

@@ -52,6 +52,19 @@ priv enum ReservedChars {
 }
 
 ///|
+pub enum HeapTypeRef {
+  TypeNum(UInt)
+  TypeId(String)
+  Any
+  Eq
+  I31
+  None_
+  NoFunc
+  NoExtern
+  NoExn
+} derive(Eq, Show, Debug)
+
+///|
 pub enum ValueType {
   I32
   I64
@@ -64,6 +77,8 @@ pub enum ValueType {
   NonNullFuncRef
   NonNullExternRef
   NonNullExnRef
+  TypedFuncRef(HeapTypeRef)
+  NonNullTypedFuncRef(HeapTypeRef)
 } derive(Eq, Show, Debug)
 
 // ============================================================================

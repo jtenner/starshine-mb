@@ -347,6 +347,40 @@ fn rr_fixture_brtable_non_direct_side_effect_module() -> Module {
 }
 
 ///|
+fn rr_fixture_loop_internal_brtable_side_effect_module() -> Module {
+  let t_i32 = single_rec_type(
+    comp_type_sub_type(func_comp_type([], [ValType::i32()])),
+  )
+  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  Module::new()
+  .with_type_sec(TypeSec::new([t_i32, t_void]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::t_func([], TExpr::new([TInstr::i32_const(I32(1))])),
+      Func::t_func(
+        [],
+        TExpr::new([
+          TInstr::loop_(
+            BlockType::void_(),
+            TExpr::new([
+              TInstr::br_table(
+                [LabelIdx::new(0), LabelIdx::new(1)],
+                LabelIdx::new(1),
+                TInstr::call(FuncIdx::new(0), []),
+                [],
+              ),
+              TInstr::drop(TInstr::i32_const(I32(88))),
+            ]),
+          ),
+          TInstr::nop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
 fn rr_fixture_non_special_target_merge_module() -> Module {
   let t_with_conds = single_rec_type(
     comp_type_sub_type(func_comp_type([ValType::i32(), ValType::i32()], [])),
@@ -875,6 +909,55 @@ test "re_reloop reconstructs mixed-depth br_table targets end-to-end" {
     Err(e) =>
       fail(
         "re_reloop non-direct br_table reconstruction output should validate: \{e}",
+      )
+  }
+}
+
+///|
+test "re_reloop preserves direct br_table for internal loop targets end-to-end" {
+  let mod = rr_fixture_loop_internal_brtable_side_effect_module()
+  let rerelooped = match rr_run_re_reloop(mod) {
+    Ok(next) => next
+    Err(e) =>
+      fail("re_reloop should succeed on internal loop br_table fixture: \{e}")
+  }
+  match rerelooped.code_sec {
+    Some(CodeSec([_, TFunc(_, body)])) => {
+      assert_eq(
+        rr_texpr_count(body, fn(instr) {
+          match instr {
+            TCall(FuncIdx(idx), _) => idx == 0
+            _ => false
+          }
+        }),
+        1,
+      )
+      assert_eq(
+        rr_texpr_count(body, fn(instr) {
+          match instr {
+            TBrTable(_, _, _, _) => true
+            _ => false
+          }
+        }),
+        1,
+      )
+      assert_eq(
+        rr_texpr_count(body, fn(instr) {
+          match instr {
+            TLocalSet(_) => true
+            _ => false
+          }
+        }),
+        0,
+      )
+    }
+    _ => fail("expected rerelooped internal loop br_table fixture body")
+  }
+  match validate_module(rerelooped) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "re_reloop internal loop br_table reconstruction output should validate: \{e}",
       )
   }
 }
