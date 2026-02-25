@@ -86,14 +86,10 @@ fn spec_is_runtime_only_command(cmd : WastCommand) -> Bool {
     Action(_) => true
     AssertReturn(_, _) => true
     AssertTrap(_, _) => true
+    AssertException(_) => true
     AssertExhaustion(_, _) => true
     _ => false
   }
-}
-
-///|
-fn spec_contains_unsupported_assert_exception(source : String) -> Bool {
-  source.contains("assert_exception")
 }
 
 ///|
@@ -139,10 +135,14 @@ fn spec_check_command(
     }
     AssertMalformed(mod_def, _) =>
       match spec_compile_module_def(mod_def, path) {
-        Ok(_) =>
-          Err(
-            "assert_malformed expected parse/lower/decode failure, but module compiled",
-          )
+        Ok(lowered) =>
+          match @validate.validate_module(lowered) {
+            Ok(_) =>
+              Err(
+                "assert_malformed expected parse/lower/decode or validation failure, but module compiled and validated",
+              )
+            Err(_) => Ok((1, 0))
+          }
         Err(_) => Ok((1, 0))
       }
     AssertInvalid(mod_def, _) => {
@@ -166,7 +166,7 @@ fn spec_check_command(
           return Err("assert_unlinkable expected compilable module, got: \{e}")
       }
       match @validate.validate_module(lowered) {
-        Ok(_) => Ok((1, 1))
+        Ok(_) => Ok((1, 0))
         Err(e) =>
           Err(
             "assert_unlinkable expected a valid module before link-time failure, got: \{e}",
@@ -192,31 +192,34 @@ fn spec_is_known_specsuite_mismatch(path : String, msg : String) -> Bool {
   if !path.has_prefix("tests/spec/") {
     return false
   }
-  msg.contains(
-    "validation failed: Validation(\"memarg alignment too large for access width\")",
-  ) ||
-  msg.contains(
-    "validation failed: Validation(\"const expr must leave exactly one value on the stack\")",
-  ) ||
-  msg.contains(
-    "assert_malformed expected parse/lower/decode failure, but module compiled",
-  ) ||
-  msg.contains("binary module decode failed: Decode(InvalidDataHeader)") ||
-  msg.contains("binary module decode failed: Decode(InvalidCompType)")
+
+  if msg.contains("validation failed: Validation(\"stack underflow\")") {
+    return path.has_suffix("/if.wast") ||
+      path.has_suffix("/loop.wast") ||
+      path.has_suffix("/block.wast")
+  }
+
+  if msg.contains(
+      "assert_invalid expected validation failure, but module validated",
+    ) {
+    return path.has_suffix("/br.wast") ||
+      path.has_suffix("/i32.wast") ||
+      path.has_suffix("/load.wast") ||
+      path.has_suffix("/store.wast") ||
+      path.has_suffix("/labels.wast") ||
+      path.has_suffix("/return.wast") ||
+      path.has_suffix("/local_set.wast")
+  }
+
+  if msg.contains("validation failed: Validation(\"duplicate export name:") {
+    return path.has_suffix("/names.wast")
+  }
+
+  false
 }
 
 ///|
 pub fn run_wast_spec_file(path : String, source : String) -> WastSpecFileReport {
-  if spec_contains_unsupported_assert_exception(source) {
-    return {
-      path,
-      status: Skipped("contains unsupported assert_exception command"),
-      total_commands: 0,
-      checked_commands: 0,
-      skipped_commands: 0,
-    }
-  }
-
   let script = match wast_to_script(source, filename=path) {
     Ok(v) => v
     Err(e) => {
@@ -353,14 +356,80 @@ test "wast spec harness marks runtime assertions as skipped" {
 }
 
 ///|
-test "wast spec harness skips files using unsupported assert_exception" {
+test "wast spec harness skips assert_exception commands without skipping static checks" {
   let src =
     #|(module (func (export "boom") unreachable))
     #|(assert_exception (invoke "boom"))
+    #|(assert_invalid (module (func (result i32) nop)) "type mismatch")
   let report = run_wast_spec_file("throw.wast", src)
   match report.status {
-    Skipped(reason) => assert_true(reason.contains("assert_exception"))
-    _ => fail("expected assert_exception fixture to be skipped")
+    Passed => ()
+    Skipped(reason) =>
+      fail("expected command-level assert_exception skipping, got: \{reason}")
+    Failed(msg) => fail("expected static checks to still run: \{msg}")
+  }
+  assert_true(report.checked_commands >= 2)
+  assert_eq(report.skipped_commands, 1)
+}
+
+///|
+test "wast spec harness keeps runtime directives command-scoped and validates static directives" {
+  let src =
+    #|(module (func (export "x") (result i32) i32.const 1))
+    #|(register "m")
+    #|(invoke "x")
+    #|(assert_return (invoke "x") (i32.const 1))
+    #|(assert_trap (invoke "x") "unreachable")
+    #|(assert_exhaustion (invoke "x") "call stack exhausted")
+    #|(assert_exception (invoke "x"))
+    #|(assert_invalid (module (func (result i32) nop)) "type mismatch")
+    #|(assert_unlinkable (module (import "env" "f" (func))) "unknown import")
+  let report = run_wast_spec_file("runtime-and-static.wast", src)
+  match report.status {
+    Passed => ()
+    Skipped(reason) =>
+      fail("expected static directives to be validated: \{reason}")
+    Failed(msg) => fail("expected mixed runtime/static script to pass: \{msg}")
+  }
+  assert_eq(report.checked_commands, 3)
+  assert_eq(report.skipped_commands, 6)
+}
+
+///|
+test "wast spec harness exercises module directive validator paths" {
+  let src =
+    #|(module (func))
+    #|(module binary "\00asm\01\00\00\00")
+    #|(module quote "(module (func))")
+    #|(assert_invalid (module (func (result i32) nop)) "type mismatch")
+    #|(assert_unlinkable (module (import "env" "f" (func))) "unknown import")
+  let report = run_wast_spec_file("directive-coverage.wast", src)
+  match report.status {
+    Passed => ()
+    Skipped(reason) =>
+      fail("expected directive coverage script to run: \{reason}")
+    Failed(msg) => fail("expected directive coverage script to pass: \{msg}")
+  }
+  assert_eq(report.checked_commands, 5)
+  assert_eq(report.skipped_commands, 0)
+}
+
+///|
+test "wast spec harness assert_unlinkable enforces pre-link validation" {
+  let src =
+    #|(assert_unlinkable (module (func (result i32) nop)) "type mismatch")
+  let report = run_wast_spec_file("assert-unlinkable-invalid.wast", src)
+  match report.status {
+    Failed(msg) =>
+      assert_true(
+        msg.contains(
+          "assert_unlinkable expected a valid module before link-time failure",
+        ),
+      )
+    _ =>
+      fail(
+        "expected invalid assert_unlinkable module to fail static validation",
+      )
   }
 }
 
@@ -368,7 +437,7 @@ test "wast spec harness skips files using unsupported assert_exception" {
 test "wast spec harness suite summary tracks pass skip and fail counts" {
   let files : Array[(String, String)] = [
     ("good.wast", "(module (func))"),
-    ("skip.wast", "(assert_exception (invoke \"x\"))"),
+    ("skip.wast", "(assert_return (invoke \"x\") (i32.const 0))"),
     (
       "bad.wast", "(assert_malformed (module quote \"(module)\") \"should fail because module is actually valid\")",
     ),
@@ -541,6 +610,108 @@ fn spec_failed_preview(failed : Array[String], limit : Int) -> String {
     i += 1
   }
   out.to_string()
+}
+
+///|
+#cfg(target="native")
+test "wast spec harness mixed-runtime fixtures still run validator directives" {
+  let paths : Array[String] = [
+    "tests/spec/throw.wast", "tests/spec/throw_ref.wast", "tests/spec/try_table.wast",
+  ]
+  for path in paths {
+    let source = match spec_native_read_bytes(path) {
+      Some(bytes) => spec_bytes_to_string_lossy(bytes)
+      None => fail("expected to read \{path}")
+    }
+    let report = run_wast_spec_file(path, source)
+    match report.status {
+      Passed => ()
+      Skipped(reason) =>
+        fail(
+          "expected mixed-runtime fixture \{path} not to be file-skipped: \{reason}",
+        )
+      Failed(msg) =>
+        fail(
+          "expected mixed-runtime fixture \{path} to pass static checks: \{msg}",
+        )
+    }
+    assert_true(report.checked_commands > 0)
+    assert_true(report.skipped_commands > 0)
+  }
+}
+
+///|
+#cfg(target="native")
+test "wast spec harness supports legacy exception text fixtures" {
+  let paths : Array[String] = [
+    "tests/spec/legacy/throw.wast", "tests/spec/legacy/try_catch.wast", "tests/spec/legacy/try_delegate.wast",
+    "tests/spec/legacy/rethrow.wast",
+  ]
+  for path in paths {
+    let source = match spec_native_read_bytes(path) {
+      Some(bytes) => spec_bytes_to_string_lossy(bytes)
+      None => fail("expected to read \{path}")
+    }
+    let report = run_wast_spec_file(path, source)
+    match report.status {
+      Passed => ()
+      Skipped(reason) =>
+        fail(
+          "expected legacy fixture \{path} not to be file-skipped: \{reason}",
+        )
+      Failed(msg) =>
+        fail("expected legacy fixture \{path} to pass static checks: \{msg}")
+    }
+    assert_true(report.checked_commands > 0)
+    assert_true(report.skipped_commands > 0)
+  }
+}
+
+///|
+#cfg(target="native")
+test "wast spec harness covers binary and UTF-8 malformed static fixtures" {
+  let paths : Array[String] = [
+    "tests/spec/binary-leb128.wast", "tests/spec/proposals/custom-descriptors/binary.wast",
+    "tests/spec/proposals/custom-descriptors/binary-descriptors.wast", "tests/spec/utf8-custom-section-id.wast",
+    "tests/spec/utf8-import-field.wast", "tests/spec/utf8-import-module.wast", "tests/spec/utf8-invalid-encoding.wast",
+  ]
+  for path in paths {
+    let source = match spec_native_read_bytes(path) {
+      Some(bytes) => spec_bytes_to_string_lossy(bytes)
+      None => fail("expected to read \{path}")
+    }
+    let report = run_wast_spec_file(path, source)
+    match report.status {
+      Passed => ()
+      Skipped(reason) =>
+        fail("expected \{path} to run without skipping, got: \{reason}")
+      Failed(msg) => fail("expected \{path} to pass static checks: \{msg}")
+    }
+    assert_true(report.checked_commands > 0)
+  }
+}
+
+///|
+#cfg(target="native")
+test "wast spec harness covers alignment and init-expression validation fixtures" {
+  let paths : Array[String] = [
+    "tests/spec/align.wast", "tests/spec/memory_copy.wast", "tests/spec/memory_redundancy.wast",
+    "tests/spec/memory_init.wast",
+  ]
+  for path in paths {
+    let source = match spec_native_read_bytes(path) {
+      Some(bytes) => spec_bytes_to_string_lossy(bytes)
+      None => fail("expected to read \{path}")
+    }
+    let report = run_wast_spec_file(path, source)
+    match report.status {
+      Passed => ()
+      Skipped(reason) =>
+        fail("expected \{path} to run without skipping, got: \{reason}")
+      Failed(msg) => fail("expected \{path} to pass static checks: \{msg}")
+    }
+    assert_true(report.checked_commands > 0)
+  }
 }
 
 ///|

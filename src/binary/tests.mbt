@@ -557,6 +557,23 @@ test "module decode bubbles section errors instead of generic invalid module" {
 }
 
 ///|
+test "Decode I32 rejects invalid terminal signed LEB unused bits" {
+  assert_decode_err_contains(
+    (
+      Decode::decode(b"\x80\x80\x80\x80\x1f", 0) :
+      Result[(I32, Int), BinaryDecodeError]),
+    BinaryDecodeError::SignedLebOutOfRangeForBitWidth,
+  )
+  match
+    (
+      Decode::decode(b"\xff\xff\xff\xff\x4f", 0) :
+      Result[(I32, Int), BinaryDecodeError]) {
+    Ok(_) => fail("expected decode failure for invalid sign-extension bits")
+    Err(_) => ()
+  }
+}
+
+///|
 test "invalid decode vectors are table-driven across decoders" {
   let module_vectors : Array[(String, Bytes, BinaryDecodeError)] = [
     (

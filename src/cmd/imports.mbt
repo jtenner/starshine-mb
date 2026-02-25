@@ -37,4 +37,7 @@ using @passes {
 }
 
 ///|
+using @validate {gen_valid_module, validate_module}
+
+///|
 using @json {parse}

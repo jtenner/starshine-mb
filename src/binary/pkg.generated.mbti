@@ -46,6 +46,7 @@ pub suberror BinaryDecodeError {
   InvalidBoolByte
   InvalidLaneIndex
   NegativeNameLength
+  InvalidUtf8Name
   InvalidSectionHeader
   SectionPayloadLengthOutOfRange
   InvalidSectionPayloadTrailingBytes

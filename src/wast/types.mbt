@@ -61,6 +61,9 @@ pub enum ValueType {
   FuncRef
   ExternRef
   ExnRef
+  NonNullFuncRef
+  NonNullExternRef
+  NonNullExnRef
 } derive(Eq, Show, Debug)
 
 // ============================================================================
@@ -78,6 +81,9 @@ pub enum Opcode {
   Return
   Call
   CallIndirect
+  ReturnCall
+  ReturnCallIndirect
+  ReturnCallRef
   Throw
   ThrowRef
   TryTable
@@ -615,6 +621,8 @@ pub enum TokenType {
   Block
   Loop
   If
+  Try
+  Do
   Then
   Else
   End
@@ -622,6 +630,8 @@ pub enum TokenType {
   CatchRef
   CatchAll
   CatchAllRef
+  Delegate
+  Rethrow
   // Other module keywords
   Offset
   Item
@@ -644,6 +654,7 @@ pub enum TokenType {
   AssertUnlinkable
   AssertReturn
   AssertTrap
+  AssertException
   AssertExhaustion
   NanCanonical
   NanArithmetic

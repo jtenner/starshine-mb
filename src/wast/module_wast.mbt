@@ -134,6 +134,9 @@ fn keyword_from_value_type(vt : ValueType) -> String {
     FuncRef => "funcref"
     ExternRef => "externref"
     ExnRef => "exnref"
+    NonNullFuncRef => "(ref func)"
+    NonNullExternRef => "(ref extern)"
+    NonNullExnRef => "(ref exn)"
   }
 }
 
@@ -200,7 +203,7 @@ fn render_block_type(bt : BlockType) -> String {
 ///|
 fn render_memarg(ma : MemArg) -> String {
   let out = StringBuilder::new()
-  if ma.offset != 0 {
+  if ma.offset != 0UL {
     out.write_string(" offset=")
     out.write_string("\{ma.offset}")
   }
@@ -267,8 +270,13 @@ fn render_instruction_head(instr : Instruction) -> String raise WastTextError {
     Call(idx) => "call \{index_text(idx)}"
     CallIndirect(table_idx, type_use) =>
       "call_indirect \{index_text(table_idx)}\{render_type_use(type_use)}"
+    ReturnCall(idx) => "return_call \{index_text(idx)}"
+    ReturnCallIndirect(table_idx, type_use) =>
+      "return_call_indirect \{index_text(table_idx)}\{render_type_use(type_use)}"
+    ReturnCallRef(type_use) => "return_call_ref\{render_type_use(type_use)}"
     Throw(idx) => "throw \{index_text(idx)}"
     ThrowRef => "throw_ref"
+    Rethrow(idx) => "rethrow \{index_text(idx)}"
     Drop => "drop"
     Select(None) => "select"
     Select(Some(vts)) => {
@@ -370,10 +378,35 @@ fn render_instruction_head(instr : Instruction) -> String raise WastTextError {
     SimdCompare(op) => keyword_from_opcode(op)
     SimdConvert(op) => keyword_from_opcode(op)
     SimdRelaxed(op) => keyword_from_opcode(op)
-    Block(_, _) | Loop(_, _) | If(_, _, _) | TryTable(_, _, _) =>
+    Block(_, _)
+    | Loop(_, _)
+    | If(_, _, _)
+    | TryTable(_, _, _)
+    | TryLegacy(_, _, _, _) =>
       raise Unsupported(
         "structured instructions must be rendered with body context",
       )
+  }
+}
+
+///|
+fn write_legacy_catch_clause(
+  out : StringBuilder,
+  clause : LegacyCatchClause,
+  indent : Int,
+) -> Unit raise WastTextError {
+  let pad = " ".repeat(indent)
+  match clause {
+    LegacyCatch(tag_idx, body) => {
+      out.write_string("\{pad}(catch \{index_text(tag_idx)}\n")
+      write_instructions(out, body, indent + 2)
+      out.write_string("\{pad})\n")
+    }
+    LegacyCatchAll(body) => {
+      out.write_string("\{pad}(catch_all\n")
+      write_instructions(out, body, indent + 2)
+      out.write_string("\{pad})\n")
+    }
   }
 }
 
@@ -412,6 +445,19 @@ fn write_instruction(
       }
       out.write_char('\n')
       write_instructions(out, body, indent + 2)
+      out.write_string("\{pad}end\n")
+    }
+    TryLegacy(bt, body, catches, delegate_target) => {
+      out.write_string("\{pad}try\{render_block_type(bt)}\n")
+      out.write_string("\{pad}  (do\n")
+      write_instructions(out, body, indent + 4)
+      out.write_string("\{pad}  )\n")
+      for clause in catches {
+        write_legacy_catch_clause(out, clause, indent + 2)
+      }
+      if delegate_target is Some(idx) {
+        out.write_string("\{pad}  (delegate \{index_text(idx)})\n")
+      }
       out.write_string("\{pad}end\n")
     }
     _ => {
@@ -460,7 +506,7 @@ fn write_module_field(
         out.write_string(id)
       }
       out.write_string(" (func")
-      let tu = { type_index: None, func_type: td.func_type }
+      let tu = { type_index: None, func_type: td.func_type, param_ids: [] }
       out.write_string(render_type_use(tu))
       out.write_string("))\n")
     }
@@ -816,6 +862,7 @@ fn render_command(cmd : WastCommand) -> String raise WastTextError {
     }
     AssertTrap(action, msg) =>
       "(assert_trap \{render_action(action)} \{quote_wast_string(msg)})\n"
+    AssertException(action) => "(assert_exception \{render_action(action)})\n"
     AssertExhaustion(action, msg) =>
       "(assert_exhaustion \{render_action(action)} \{quote_wast_string(msg)})\n"
     AssertMalformed(mod_def, msg) =>

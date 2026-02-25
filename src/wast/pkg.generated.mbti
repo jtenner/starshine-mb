@@ -226,9 +226,14 @@ pub enum Instruction {
   Return
   Call(Index)
   CallIndirect(Index, TypeUse)
+  ReturnCall(Index)
+  ReturnCallIndirect(Index, TypeUse)
+  ReturnCallRef(TypeUse)
   Throw(Index)
   ThrowRef
+  Rethrow(Index)
   TryTable(BlockType, Array[CatchClause], Array[Instruction])
+  TryLegacy(BlockType, Array[Instruction], Array[LegacyCatchClause], Index?)
   Drop
   Select(Array[ValueType]?)
   LocalGet(Index)
@@ -329,6 +334,14 @@ pub struct KeywordTable {
 }
 pub fn KeywordTable::lookup(Self, String) -> TokenType?
 
+pub enum LegacyCatchClause {
+  LegacyCatch(Index, Array[Instruction])
+  LegacyCatchAll(Array[Instruction])
+}
+pub impl Eq for LegacyCatchClause
+pub impl Show for LegacyCatchClause
+pub impl @debug.Debug for LegacyCatchClause
+
 pub struct LexerError {
   level : ErrorLevel
   location : Location
@@ -398,8 +411,8 @@ pub impl Show for Location
 pub impl @debug.Debug for Location
 
 pub struct MemArg {
-  align : UInt
-  offset : UInt
+  align : UInt64
+  offset : UInt64
 }
 pub impl @lib.PrettyPrint for MemArg
 pub impl Eq for MemArg
@@ -465,6 +478,9 @@ pub enum Opcode {
   Return
   Call
   CallIndirect
+  ReturnCall
+  ReturnCallIndirect
+  ReturnCallRef
   Throw
   ThrowRef
   TryTable
@@ -1038,6 +1054,8 @@ pub enum TokenType {
   Block
   Loop
   If
+  Try
+  Do
   Then
   Else
   End
@@ -1045,6 +1063,8 @@ pub enum TokenType {
   CatchRef
   CatchAll
   CatchAllRef
+  Delegate
+  Rethrow
   Offset
   Item
   Start
@@ -1064,6 +1084,7 @@ pub enum TokenType {
   AssertUnlinkable
   AssertReturn
   AssertTrap
+  AssertException
   AssertExhaustion
   NanCanonical
   NanArithmetic
@@ -1101,6 +1122,7 @@ pub impl @quickcheck.Arbitrary for TypeDef
 pub struct TypeUse {
   type_index : Index?
   func_type : FuncType
+  param_ids : Array[String?]
 }
 pub impl @lib.PrettyPrint for TypeUse
 pub impl Eq for TypeUse
@@ -1127,6 +1149,9 @@ pub enum ValueType {
   FuncRef
   ExternRef
   ExnRef
+  NonNullFuncRef
+  NonNullExternRef
+  NonNullExnRef
 }
 pub impl @lib.PrettyPrint for ValueType
 pub impl Eq for ValueType
@@ -1163,6 +1188,7 @@ pub enum WastCommand {
   Action(WastActionType)
   AssertReturn(WastActionType, Array[WastResult])
   AssertTrap(WastActionType, String)
+  AssertException(WastActionType)
   AssertExhaustion(WastActionType, String)
   AssertMalformed(WastModuleDef, String)
   AssertInvalid(WastModuleDef, String)

@@ -5,13 +5,20 @@ import {
   "jtenner/starshine/binary",
   "jtenner/starshine/cli",
   "jtenner/starshine/lib",
+  "jtenner/starshine/passes",
   "moonbitlang/core/debug",
 }
 
 // Values
+pub fn differential_validate_wasm(Bytes, adapters? : DifferentialAdapters) -> Result[DifferentialValidationReport, String]
+
+pub fn native_differential_tools_available() -> (Bool, Bool)
+
 pub fn run_cmd(Array[String]) -> Result[CmdRunSummary, CmdError]
 
 pub fn run_cmd_with_adapter(Array[String], CmdIO, config_json? : String?) -> Result[CmdRunSummary, CmdError]
+
+pub fn run_wasm_smith_fuzz_harness(Int, seed? : UInt64, optimize_passes? : Array[@passes.ModulePass], differential_adapters? : DifferentialAdapters?, differential_every? : Int) -> Result[WasmSmithFuzzStats, String]
 
 // Errors
 pub suberror CmdEncodeError {
@@ -73,6 +80,35 @@ pub fn CmdRunSummary::new(input_files? : Array[String], output_files? : Array[St
 pub impl Eq for CmdRunSummary
 pub impl Show for CmdRunSummary
 pub impl @debug.Debug for CmdRunSummary
+
+pub struct DifferentialAdapters {
+  wasm_tools_validate : (Bytes) -> Result[Bool, String]
+  binaryen_validate : (Bytes) -> Result[Bool, String]
+}
+pub fn DifferentialAdapters::new(wasm_tools_validate? : (Bytes) -> Result[Bool, String], binaryen_validate? : (Bytes) -> Result[Bool, String]) -> Self
+
+pub struct DifferentialValidationReport {
+  internal_valid : Bool
+  wasm_tools_valid : Bool?
+  binaryen_valid : Bool?
+}
+pub impl Eq for DifferentialValidationReport
+pub impl Show for DifferentialValidationReport
+pub impl @debug.Debug for DifferentialValidationReport
+
+pub struct WasmSmithFuzzStats {
+  attempts : Int
+  generated_valid : Int
+  generated_invalid : Int
+  pipeline_validated : Int
+  optimized : Int
+  roundtripped : Int
+  differential_checked : Int
+}
+pub fn WasmSmithFuzzStats::new(attempts? : Int, generated_valid? : Int, generated_invalid? : Int, pipeline_validated? : Int, optimized? : Int, roundtripped? : Int, differential_checked? : Int) -> Self
+pub impl Eq for WasmSmithFuzzStats
+pub impl Show for WasmSmithFuzzStats
+pub impl @debug.Debug for WasmSmithFuzzStats
 
 // Type aliases
 

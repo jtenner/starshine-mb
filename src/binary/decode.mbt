@@ -25,6 +25,7 @@ pub suberror BinaryDecodeError {
   InvalidBoolByte
   InvalidLaneIndex
   NegativeNameLength
+  InvalidUtf8Name
   InvalidSectionHeader
   SectionPayloadLengthOutOfRange
   InvalidSectionPayloadTrailingBytes
@@ -242,34 +243,91 @@ pub impl Decode for RecType with decode(buf, i) {
 }
 
 ///|
+fn decode_descriptor_clauses(
+  buf : Bytes,
+  i : Int,
+) -> Result[Int, BinaryDecodeError] {
+  let mut cursor = i
+  let mut has_describes = false
+  let mut has_descriptor = false
+  while true {
+    match buf.get(cursor) {
+      Some(0x4C) => {
+        if has_describes || has_descriptor {
+          return Err(BinaryDecodeError::InvalidCompType)
+        }
+        has_describes = true
+        cursor = match
+          (
+            Decode::decode(buf, cursor + 1) :
+            Result[(TypeIdx, Int), BinaryDecodeError]) {
+          Ok((_, next)) => next
+          Err(err) => return Err(err)
+        }
+      }
+      Some(0x4D) => {
+        if has_descriptor {
+          return Err(BinaryDecodeError::InvalidCompType)
+        }
+        has_descriptor = true
+        cursor = match
+          (
+            Decode::decode(buf, cursor + 1) :
+            Result[(TypeIdx, Int), BinaryDecodeError]) {
+          Ok((_, next)) => next
+          Err(err) => return Err(err)
+        }
+      }
+      _ => break
+    }
+  }
+  Ok(cursor)
+}
+
+///|
 pub impl Decode for SubType with decode(buf, i) {
   match buf.get(i) {
     // Final
     Some(0x4F) =>
       match Decode::decode(buf, i + 1) {
-        Ok((idxs, i)) =>
-          match Decode::decode(buf, i) {
+        Ok((idxs, i)) => {
+          let next = match decode_descriptor_clauses(buf, i) {
+            Ok(v) => v
+            Err(err) => return Err(err)
+          }
+          match Decode::decode(buf, next) {
             Ok((ct, i)) => Ok((SubType::new(true, idxs, ct), i))
             Err(err) => Err(err)
           }
+        }
         Err(err) => Err(err)
       }
     // Subtypes
     Some(0x50) =>
       match Decode::decode(buf, i + 1) {
-        Ok((idxs, i)) =>
-          match Decode::decode(buf, i) {
+        Ok((idxs, i)) => {
+          let next = match decode_descriptor_clauses(buf, i) {
+            Ok(v) => v
+            Err(err) => return Err(err)
+          }
+          match Decode::decode(buf, next) {
             Ok((ct, i)) => Ok((SubType::new(false, idxs, ct), i))
             Err(err) => Err(err)
           }
+        }
         Err(err) => Err(err)
       }
     // CompType, defer to comp type decoder
-    Some(_) =>
-      match Decode::decode(buf, i) {
+    Some(_) => {
+      let next = match decode_descriptor_clauses(buf, i) {
+        Ok(v) => v
+        Err(err) => return Err(err)
+      }
+      match Decode::decode(buf, next) {
         Ok((ct, i)) => Ok((SubType::comp_type(ct), i))
         Err(err) => Err(err)
       }
+    }
     None => Err(BinaryDecodeError::IndexOutOfBounds)
   }
 }
@@ -379,7 +437,7 @@ fn decode_signed(
   }
 
   // terminal-byte unused bits constraint - ONLY at max bytes
-  if count == max_bytes && nbits != 64 {
+  if count == max_bytes {
     let rem = nbits % 7
     if rem != 0 {
       let payload_u = last_byte & 0x7f
@@ -598,8 +656,10 @@ pub impl Decode for Name with decode(bytes, i) {
   if end > bytes.length() {
     return Err(BinaryDecodeError::IndexOutOfBounds)
   }
-  let name = @utf8.decode_lossy(bytes[j:end]).to_string_view()
-  Ok((Name::new(name), end))
+  let name = @utf8.decode(bytes[j:end]) catch {
+    _ => return Err(BinaryDecodeError::InvalidUtf8Name)
+  }
+  Ok((Name::new(name.to_string_view()), end))
 }
 
 ///|
@@ -966,9 +1026,14 @@ pub impl Decode for Module with decode(bytes, i) {
 
 ///|
 pub impl Decode for Elem with decode(bytes, i) {
-  match bytes.get(i) {
-    Some(0x00) =>
-      match Decode::decode(bytes, i + 1) {
+  let (header, next) = match
+    (Decode::decode(bytes, i) : Result[(@lib.U32, Int), BinaryDecodeError]) {
+    Ok((@lib.U32(v), next)) => (v, next)
+    Err(t) => return Err(t)
+  }
+  match header {
+    0U =>
+      match Decode::decode(bytes, next) {
         Ok((expr, i)) =>
           match Decode::decode(bytes, i) {
             Ok((fidxs, i)) =>
@@ -985,18 +1050,18 @@ pub impl Decode for Elem with decode(bytes, i) {
           }
         Err(t) => Err(t)
       }
-    Some(0x01) =>
-      match bytes.get(i + 1) {
+    1U =>
+      match bytes.get(next) {
         Some(0x00) =>
-          match Decode::decode(bytes, i + 2) {
+          match Decode::decode(bytes, next + 1) {
             Ok((fidxs, i)) =>
               Ok((Elem::new(ElemMode::passive(), ElemKind::funcs(fidxs)), i))
             Err(t) => Err(t)
           }
         _ => Err(BinaryDecodeError::InvalidElemHeader)
       }
-    Some(0x02) =>
-      match Decode::decode(bytes, i + 1) {
+    2U =>
+      match Decode::decode(bytes, next) {
         Ok((@lib.TableIdx(idx), i)) =>
           match Decode::decode(bytes, i) {
             Ok((expr, i)) =>
@@ -1021,10 +1086,10 @@ pub impl Decode for Elem with decode(bytes, i) {
           }
         Err(t) => Err(t)
       }
-    Some(0x03) =>
-      match bytes.get(i + 1) {
+    3U =>
+      match bytes.get(next) {
         Some(0x00) =>
-          match Decode::decode(bytes, i + 2) {
+          match Decode::decode(bytes, next + 1) {
             Ok((fidxs, i)) =>
               Ok(
                 (Elem::new(ElemMode::declarative(), ElemKind::funcs(fidxs)), i),
@@ -1033,8 +1098,8 @@ pub impl Decode for Elem with decode(bytes, i) {
           }
         _ => Err(BinaryDecodeError::InvalidElemHeader)
       }
-    Some(0x04) =>
-      match Decode::decode(bytes, i + 1) {
+    4U =>
+      match Decode::decode(bytes, next) {
         Ok((expr, i)) =>
           match Decode::decode(bytes, i) {
             Ok((exprs, i)) =>
@@ -1051,8 +1116,8 @@ pub impl Decode for Elem with decode(bytes, i) {
           }
         Err(t) => Err(t)
       }
-    Some(0x05) =>
-      match Decode::decode(bytes, i + 1) {
+    5U =>
+      match Decode::decode(bytes, next) {
         Ok((rt, i)) =>
           match Decode::decode(bytes, i) {
             Ok((exprs, i)) =>
@@ -1069,8 +1134,8 @@ pub impl Decode for Elem with decode(bytes, i) {
           }
         Err(t) => Err(t)
       }
-    Some(0x06) =>
-      match Decode::decode(bytes, i + 1) {
+    6U =>
+      match Decode::decode(bytes, next) {
         Ok((idx, i)) =>
           match Decode::decode(bytes, i) {
             Ok((expr, i)) =>
@@ -1091,8 +1156,8 @@ pub impl Decode for Elem with decode(bytes, i) {
           }
         Err(t) => Err(t)
       }
-    Some(0x07) =>
-      match Decode::decode(bytes, i + 1) {
+    7U =>
+      match Decode::decode(bytes, next) {
         Ok((rt, i)) =>
           match Decode::decode(bytes, i) {
             Ok((exprs, i)) =>
@@ -1109,8 +1174,7 @@ pub impl Decode for Elem with decode(bytes, i) {
           }
         Err(t) => Err(t)
       }
-    Some(_) => Err(BinaryDecodeError::InvalidElemHeader)
-    None => Err(BinaryDecodeError::IndexOutOfBounds)
+    _ => Err(BinaryDecodeError::InvalidElemHeader)
   }
 }
 
@@ -1149,12 +1213,24 @@ pub impl Decode for Locals with decode(bytes, i) {
 pub impl Decode for Func with decode(bytes, i) {
   match Decode::decode(bytes, i) {
     Ok((@lib.U32(_size), i)) => // Read the length prefix first
-      match Decode::decode(bytes, i) {
-        Ok((locals, i)) =>
+      match
+        (
+          Decode::decode(bytes, i) :
+          Result[(Array[@lib.Locals], Int), BinaryDecodeError]) {
+        Ok((locals, i)) => {
+          let mut total_locals : UInt64 = 0UL
+          for local_entry in locals {
+            let @lib.Locals(count, _) = local_entry
+            total_locals += count.to_uint64()
+            if total_locals > 4294967295UL {
+              return Err(BinaryDecodeError::InvalidModule)
+            }
+          }
           match Decode::decode(bytes, i) {
             Ok((expr, i)) => Ok((Func::new(locals, expr), i))
             Err(t) => Err(t)
           }
+        }
         Err(t) => Err(t)
       }
     Err(t) => Err(t)
@@ -1171,9 +1247,14 @@ pub impl Decode for CodeSec with decode(bytes, i) {
 
 ///|
 pub impl Decode for Data with decode(bytes, i) {
-  match bytes.get(i) {
-    Some(0x00) =>
-      match Decode::decode(bytes, i + 1) {
+  let (header, next) = match
+    (Decode::decode(bytes, i) : Result[(@lib.U32, Int), BinaryDecodeError]) {
+    Ok((@lib.U32(v), next)) => (v, next)
+    Err(t) => return Err(t)
+  }
+  match header {
+    0U =>
+      match Decode::decode(bytes, next) {
         Ok((expr, i)) =>
           match Decode::decode(bytes, i) {
             Ok((bytes, i)) =>
@@ -1182,13 +1263,13 @@ pub impl Decode for Data with decode(bytes, i) {
           }
         Err(t) => Err(t)
       }
-    Some(0x01) =>
-      match Decode::decode(bytes, i + 1) {
+    1U =>
+      match Decode::decode(bytes, next) {
         Ok((bytes, i)) => Ok((Data::new(DataMode::passive(), bytes), i))
         Err(t) => Err(t)
       }
-    Some(0x02) =>
-      match Decode::decode(bytes, i + 1) {
+    2U =>
+      match Decode::decode(bytes, next) {
         Ok((idx, i)) =>
           match Decode::decode(bytes, i) {
             Ok((expr, i)) =>
@@ -1201,8 +1282,7 @@ pub impl Decode for Data with decode(bytes, i) {
           }
         Err(t) => Err(t)
       }
-    Some(_) => Err(BinaryDecodeError::InvalidDataHeader)
-    None => Err(BinaryDecodeError::IndexOutOfBounds)
+    _ => Err(BinaryDecodeError::InvalidDataHeader)
   }
 }
 

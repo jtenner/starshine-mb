@@ -47,12 +47,15 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("assert_unlinkable", AssertUnlinkable)
   map.set("assert_return", AssertReturn)
   map.set("assert_trap", AssertTrap)
+  map.set("assert_exception", AssertException)
   map.set("assert_exhaustion", AssertExhaustion)
 
   // Control keywords
   map.set("block", Block)
   map.set("loop", Loop)
   map.set("if", If)
+  map.set("try", Try)
+  map.set("do", Do)
   map.set("then", Then)
   map.set("else", Else)
   map.set("end", End)
@@ -60,6 +63,8 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("catch_ref", CatchRef)
   map.set("catch_all", CatchAll)
   map.set("catch_all_ref", CatchAllRef)
+  map.set("delegate", Delegate)
+  map.set("rethrow", Rethrow)
 
   // Value types
   map.set("i32", ValueType(I32))
@@ -80,6 +85,9 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("return", Opcode(Return))
   map.set("call", Opcode(Call))
   map.set("call_indirect", Opcode(CallIndirect))
+  map.set("return_call", Opcode(ReturnCall))
+  map.set("return_call_indirect", Opcode(ReturnCallIndirect))
+  map.set("return_call_ref", Opcode(ReturnCallRef))
   map.set("throw", Opcode(Throw))
   map.set("throw_ref", Opcode(ThrowRef))
   map.set("try_table", Opcode(TryTable))

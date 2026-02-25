@@ -364,9 +364,9 @@ test "Typecheck ReturnCallIndirect rejects non-funcref-compatible tables" {
 ///|
 test "Typecheck TryTable catch rejects payload-label mismatches" {
   let tag_sig = tcneg_single_functype_subtype([ValType::i32()], [])
-  let env = Env::{ ..empty_env(), global_types: [tag_sig] }.push_tag(
-    TagType::new(TypeIdx::new(0)),
-  )
+  let env = Env::{ ..empty_env(), global_types: [tag_sig] }
+    .push_tag(TagType::new(TypeIdx::new(0)))
+    .with_label([])
   let state = tcneg_make_state(env, [])
   let result = Typecheck::typecheck(
     Instruction::try_table(
@@ -382,9 +382,9 @@ test "Typecheck TryTable catch rejects payload-label mismatches" {
 ///|
 test "Typecheck TryTable catch_ref rejects payload+exnref label mismatches" {
   let tag_sig = tcneg_single_functype_subtype([ValType::i32()], [])
-  let env = Env::{ ..empty_env(), global_types: [tag_sig] }.push_tag(
-    TagType::new(TypeIdx::new(0)),
-  )
+  let env = Env::{ ..empty_env(), global_types: [tag_sig] }
+    .push_tag(TagType::new(TypeIdx::new(0)))
+    .with_label([])
   let state = tcneg_make_state(env, [])
   let result = Typecheck::typecheck(
     Instruction::try_table(
@@ -417,7 +417,7 @@ test "Typecheck TryTable catch rejects invalid catch label index" {
 
 ///|
 test "Typecheck TryTable catch_all rejects labels expecting values" {
-  let state = tcneg_make_state(empty_env(), [])
+  let state = tcneg_make_state(empty_env().with_label([ValType::i32()]), [])
   let result = Typecheck::typecheck(
     Instruction::try_table(
       BlockType::val_type(ValType::i32()),
@@ -431,7 +431,7 @@ test "Typecheck TryTable catch_all rejects labels expecting values" {
 
 ///|
 test "Typecheck TryTable catch_all_ref rejects labels with non-exnref type" {
-  let state = tcneg_make_state(empty_env(), [])
+  let state = tcneg_make_state(empty_env().with_label([ValType::i32()]), [])
   let result = Typecheck::typecheck(
     Instruction::try_table(
       BlockType::val_type(ValType::i32()),

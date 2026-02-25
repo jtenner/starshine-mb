@@ -1101,8 +1101,9 @@ fn typecheck_try_table(
     Ok(s) => s
   }
 
-  // validate all catch clauses under the SAME extended env (spec: C')
-  let st_catch_ctx = TcState::{ ..st1, env: env2 }
+  // Catch branch targets are resolved in the enclosing label space, not the
+  // try_table's temporary body label.
+  let st_catch_ctx = st1
   for c in catches {
     match typecheck_catch_clause(st_catch_ctx, c) {
       Err(e) => return Err(e)
@@ -1493,7 +1494,11 @@ fn typecheck_ref_func(st : TcState, f : FuncIdx) -> TcResult {
   if !st.env.has_func(f) {
     return Err("invalid function index")
   }
-  Ok(st.push1(ValType::funcref()))
+  Ok(
+    st.push1(
+      ValType::ref_type(RefType::new(false, HeapType::abs(AbsHeapType::func()))),
+    ),
+  )
 }
 
 ///|
@@ -7696,8 +7701,8 @@ test "Typecheck TryTable catch_ref rejects invalid tag index" {
 }
 
 ///|
-test "Typecheck TryTable catch label 0 uses innermost depth semantics" {
-  let tag_sig = SubType::comp_type(CompType::func([ValType::i32()], []))
+test "Typecheck TryTable catch label 0 uses outer depth semantics" {
+  let tag_sig = SubType::comp_type(CompType::func([ValType::i64()], []))
   let env = { ..empty_env(), global_types: [tag_sig] }
     .push_tag(TagType::new(TypeIdx::new(0)))
     .with_labels([[ValType::i64()]])
@@ -7719,7 +7724,7 @@ test "Typecheck TryTable catch label 1 uses outer depth semantics" {
   let tag_sig = SubType::comp_type(CompType::func([ValType::i64()], []))
   let env = { ..empty_env(), global_types: [tag_sig] }
     .push_tag(TagType::new(TypeIdx::new(0)))
-    .with_labels([[ValType::i64()]])
+    .with_labels([[ValType::i64()], [ValType::i32()]])
   let state = make_state(env, [])
   let result = Typecheck::typecheck(
     Instruction::try_table(

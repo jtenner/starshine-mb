@@ -24,6 +24,7 @@ pub struct FuncType {
 pub struct TypeUse {
   type_index : Index?
   func_type : FuncType
+  param_ids : Array[String?]
 } derive(Eq, Show, Debug)
 
 ///|
@@ -177,8 +178,8 @@ pub struct Module {
 
 ///|
 pub struct MemArg {
-  align : UInt
-  offset : UInt
+  align : UInt64
+  offset : UInt64
 } derive(Eq, Show, Debug)
 
 ///|
@@ -221,6 +222,12 @@ pub enum CatchClause {
 } derive(Eq, Show, Debug)
 
 ///|
+pub enum LegacyCatchClause {
+  LegacyCatch(Index, Array[Instruction])
+  LegacyCatchAll(Array[Instruction])
+} derive(Eq, Show, Debug)
+
+///|
 pub enum Instruction {
   // Control
   Unreachable
@@ -234,9 +241,14 @@ pub enum Instruction {
   Return
   Call(Index)
   CallIndirect(Index, TypeUse)
+  ReturnCall(Index)
+  ReturnCallIndirect(Index, TypeUse)
+  ReturnCallRef(TypeUse)
   Throw(Index)
   ThrowRef
+  Rethrow(Index)
   TryTable(BlockType, Array[CatchClause], Array[Instruction])
+  TryLegacy(BlockType, Array[Instruction], Array[LegacyCatchClause], Index?)
 
   // Parametric
   Drop
@@ -410,6 +422,7 @@ pub enum WastCommand {
   Action(WastActionType)
   AssertReturn(WastActionType, Array[WastResult])
   AssertTrap(WastActionType, String)
+  AssertException(WastActionType)
   AssertExhaustion(WastActionType, String)
   AssertMalformed(WastModuleDef, String)
   AssertInvalid(WastModuleDef, String)
@@ -647,9 +660,181 @@ fn parse_uint(s : String) -> UInt {
   result
 }
 
+///|
+fn parse_uint64(s : String) -> UInt64 {
+  let mut result : UInt64 = 0UL
+  let mut i = 0
+  if s.length() > 2 && s[0] == '0' && (s[1] == 'x' || s[1] == 'X') {
+    i = 2
+    while i < s.length() {
+      let c = s[i]
+      if c == '_' {
+        i += 1
+        continue
+      }
+      let digit = if c >= '0' && c <= '9' {
+        c.to_int() - 0x30
+      } else if c >= 'a' && c <= 'f' {
+        c.to_int() - 0x61 + 10
+      } else if c >= 'A' && c <= 'F' {
+        c.to_int() - 0x41 + 10
+      } else {
+        0
+      }
+      result = (result << 4) | digit.to_uint64()
+      i += 1
+    }
+  } else {
+    while i < s.length() {
+      let c = s[i]
+      if c == '_' {
+        i += 1
+        continue
+      }
+      if c >= '0' && c <= '9' {
+        result = result * 10UL + (c.to_int() - 0x30).to_uint64()
+      }
+      i += 1
+    }
+  }
+  result
+}
+
 // ============================================================================
 // Value Type Parsing
 // ============================================================================
+
+///|
+fn WastParser::is_reserved_word(self : WastParser, word : String) -> Bool {
+  match self.current.token_type {
+    Reserved => self.get_text(self.current) == word
+    _ => false
+  }
+}
+
+///|
+fn WastParser::is_heap_type_token(self : WastParser) -> Bool {
+  match self.current.token_type {
+    ValueType(vt) =>
+      match vt {
+        FuncRef | ExternRef | ExnRef => true
+        _ => false
+      }
+    Func | Var | Nat => true
+    Reserved => {
+      let text = self.get_text(self.current)
+      text == "any" ||
+      text == "eq" ||
+      text == "exn" ||
+      text == "extern" ||
+      text == "func" ||
+      text == "i31" ||
+      text == "none" ||
+      text == "nofunc" ||
+      text == "noextern" ||
+      text == "noexn"
+    }
+    _ => false
+  }
+}
+
+///|
+fn WastParser::can_start_value_type(self : WastParser) -> Bool {
+  match self.current.token_type {
+    ValueType(_) | Func => true
+    Reserved => {
+      let text = self.get_text(self.current)
+      text == "exn" || text == "extern"
+    }
+    Lpar => true
+    _ => false
+  }
+}
+
+///|
+fn ref_value_type_with_nullability(
+  base : ValueType,
+  nullable : Bool,
+) -> ValueType {
+  if nullable {
+    match base {
+      ExternRef | NonNullExternRef => ExternRef
+      ExnRef | NonNullExnRef => ExnRef
+      _ => FuncRef
+    }
+  } else {
+    match base {
+      ExternRef | NonNullExternRef => NonNullExternRef
+      ExnRef | NonNullExnRef => NonNullExnRef
+      _ => NonNullFuncRef
+    }
+  }
+}
+
+///|
+fn WastParser::parse_heap_type_value_type(
+  self : WastParser,
+  nullable : Bool,
+) -> ValueType raise ParserError {
+  match self.current.token_type {
+    ValueType(vt) => {
+      let _ = self.advance()
+      ref_value_type_with_nullability(vt, nullable)
+    }
+    Func => {
+      let _ = self.advance()
+      ref_value_type_with_nullability(FuncRef, nullable)
+    }
+    Var | Nat => {
+      let _ = self.advance()
+      ref_value_type_with_nullability(FuncRef, nullable)
+    }
+    Reserved => {
+      let token = self.advance()
+      let text = self.get_text(token)
+      if text == "exn" || text == "noexn" {
+        ref_value_type_with_nullability(ExnRef, nullable)
+      } else if text == "extern" || text == "noextern" {
+        ref_value_type_with_nullability(ExternRef, nullable)
+      } else {
+        ref_value_type_with_nullability(FuncRef, nullable)
+      }
+    }
+    _ => raise UnexpectedToken(self.current, "expected heap type")
+  }
+}
+
+///|
+fn WastParser::try_parse_ref_value_type(
+  self : WastParser,
+) -> ValueType? raise ParserError {
+  if !self.check(Lpar) {
+    return None
+  }
+  let saved_state = self.save_lexer_state()
+  let saved_token = self.current
+  self.expect_lpar()
+  if !self.is_reserved_word("ref") {
+    self.restore_lexer_state(saved_state)
+    self.current = saved_token
+    return None
+  }
+  let _ = self.advance()
+  let nullable = if self.is_reserved_word("null") {
+    let _ = self.advance()
+    true
+  } else {
+    false
+  }
+  if !self.is_heap_type_token() {
+    self.restore_lexer_state(saved_state)
+    self.current = saved_token
+    return None
+  }
+  let vt = self.parse_heap_type_value_type(nullable)
+  self.expect_rpar()
+  Some(vt)
+}
 
 ///|
 fn WastParser::parse_value_type(
@@ -665,6 +850,23 @@ fn WastParser::parse_value_type(
       let _ = self.advance()
       FuncRef
     }
+    Reserved => {
+      let text = self.get_text(self.current)
+      if text == "exn" {
+        let _ = self.advance()
+        ExnRef
+      } else if text == "extern" {
+        let _ = self.advance()
+        ExternRef
+      } else {
+        raise UnexpectedToken(self.current, "expected value type")
+      }
+    }
+    Lpar =>
+      match self.try_parse_ref_value_type() {
+        Some(vt) => vt
+        None => raise UnexpectedToken(self.current, "expected value type")
+      }
     _ => raise UnexpectedToken(self.current, "expected value type")
   }
 }
@@ -695,6 +897,7 @@ fn WastParser::parse_type_use(self : WastParser) -> TypeUse raise ParserError {
   let mut type_index : Index? = None
   let params : Array[ValueType] = []
   let results : Array[ValueType] = []
+  let param_ids : Array[String?] = []
 
   // Check for (type $id) or (type 0)
   if self.check(Lpar) {
@@ -705,8 +908,6 @@ fn WastParser::parse_type_use(self : WastParser) -> TypeUse raise ParserError {
       let _ = self.advance() // consume 'type'
       type_index = Some(self.parse_index())
       self.expect_rpar()
-      // After consuming type reference, return early
-      return { type_index, func_type: { params, results } }
     } else {
       // Not a type reference, rollback
       self.restore_lexer_state(saved_state)
@@ -723,12 +924,15 @@ fn WastParser::parse_type_use(self : WastParser) -> TypeUse raise ParserError {
       let _ = self.advance() // consume 'param'
       // Check for named param: (param $name type)
       if self.current.token_type is Var {
-        let _ = self.advance() // skip the id
+        let id_token = self.advance()
+        let param_id : String? = Some(self.get_text(id_token))
         params.push(self.parse_value_type())
+        param_ids.push(param_id)
       } else {
         // Abbreviated: (param type*)
-        while self.current.token_type is ValueType(_) {
+        while self.can_start_value_type() {
           params.push(self.parse_value_type())
+          param_ids.push(None)
         }
       }
       self.expect_rpar()
@@ -747,7 +951,7 @@ fn WastParser::parse_type_use(self : WastParser) -> TypeUse raise ParserError {
     self.expect_lpar()
     if self.check(Result) {
       let _ = self.advance() // consume 'result'
-      while self.current.token_type is ValueType(_) {
+      while self.can_start_value_type() {
         results.push(self.parse_value_type())
       }
       self.expect_rpar()
@@ -758,7 +962,7 @@ fn WastParser::parse_type_use(self : WastParser) -> TypeUse raise ParserError {
       break
     }
   }
-  { type_index, func_type: { params, results } }
+  { type_index, func_type: { params, results }, param_ids }
 }
 
 // ============================================================================
@@ -766,8 +970,11 @@ fn WastParser::parse_type_use(self : WastParser) -> TypeUse raise ParserError {
 // ============================================================================
 
 ///|
-fn WastParser::parse_mem_arg(self : WastParser, default_align : UInt) -> MemArg {
-  let mut offset : UInt = 0
+fn WastParser::parse_mem_arg(
+  self : WastParser,
+  default_align : UInt64,
+) -> MemArg {
+  let mut offset : UInt64 = 0UL
   let mut align = default_align
 
   // Parse offset=N and align=N in any order
@@ -775,11 +982,11 @@ fn WastParser::parse_mem_arg(self : WastParser, default_align : UInt) -> MemArg 
     match self.current.token_type {
       OffsetEqNat => {
         let token = self.advance()
-        offset = parse_uint(self.get_text(token))
+        offset = parse_uint64(self.get_text(token))
       }
       AlignEqNat => {
         let token = self.advance()
-        align = parse_uint(self.get_text(token))
+        align = parse_uint64(self.get_text(token))
       }
       _ => break
     }
@@ -814,10 +1021,14 @@ fn WastParser::parse_block_type(
       self.current = saved_token
       None
     }
-  } else if self.current.token_type is ValueType(_) {
+  } else if self.can_start_value_type() {
     // Shorthand: just a result type (no parens)
     let vt = self.parse_value_type()
-    Some({ type_index: None, func_type: { params: [], results: [vt] } })
+    Some({
+      type_index: None,
+      func_type: { params: [], results: [vt] },
+      param_ids: [],
+    })
   } else {
     None
   }
@@ -939,6 +1150,14 @@ fn WastParser::parse_folded_instruction(
       result.push(If(block_type, then_body, else_body))
       result
     }
+    Try => {
+      let _ = self.advance()
+      [self.parse_legacy_try_instruction(false)]
+    }
+    Rethrow => {
+      let _ = self.advance()
+      [Rethrow(self.parse_index())]
+    }
     Opcode(op) => {
       let _ = self.advance()
       if op is TryTable {
@@ -1044,6 +1263,14 @@ fn WastParser::try_parse_plain_instruction(
       }
       Some(If(block_type, then_body, else_body))
     }
+    Try => {
+      let _ = self.advance()
+      Some(self.parse_legacy_try_instruction(true))
+    }
+    Rethrow => {
+      let _ = self.advance()
+      Some(Rethrow(self.parse_index()))
+    }
     Opcode(TryTable) => {
       let _ = self.advance()
       Some(self.parse_try_table_instruction(true))
@@ -1108,9 +1335,13 @@ fn WastParser::parse_try_table_block_type(
       self.current = saved_token
       None
     }
-  } else if self.current.token_type is ValueType(_) {
+  } else if self.can_start_value_type() {
     let vt = self.parse_value_type()
-    Some({ type_index: None, func_type: { params: [], results: [vt] } })
+    Some({
+      type_index: None,
+      func_type: { params: [], results: [vt] },
+      param_ids: [],
+    })
   } else {
     None
   }
@@ -1183,6 +1414,94 @@ fn WastParser::parse_try_table_instruction(
 }
 
 ///|
+fn WastParser::parse_legacy_try_do_clause(
+  self : WastParser,
+) -> Array[Instruction] raise ParserError {
+  self.expect_lpar()
+  let _ = self.expect(Do, "expected 'do' clause in legacy try")
+  let body = self.parse_instructions()
+  self.expect_rpar()
+  body
+}
+
+///|
+fn WastParser::parse_legacy_try_instruction(
+  self : WastParser,
+  with_end : Bool,
+) -> Instruction raise ParserError {
+  let block_type = self.parse_block_type()
+  let body = self.parse_legacy_try_do_clause()
+  let catches : Array[LegacyCatchClause] = []
+  let mut delegate_target : Index? = None
+  let mut saw_catch_all = false
+  while self.check(Lpar) {
+    let saved_state = self.save_lexer_state()
+    let saved_token = self.current
+    self.expect_lpar()
+    match self.current.token_type {
+      Catch => {
+        if delegate_target is Some(_) {
+          raise UnexpectedToken(
+            self.current,
+            "legacy try cannot mix catch and delegate",
+          )
+        }
+        let _ = self.advance()
+        let tag_idx = self.parse_index()
+        let catch_body = self.parse_instructions()
+        self.expect_rpar()
+        catches.push(LegacyCatch(tag_idx, catch_body))
+      }
+      CatchAll => {
+        if delegate_target is Some(_) {
+          raise UnexpectedToken(
+            self.current,
+            "legacy try cannot mix catch and delegate",
+          )
+        }
+        if saw_catch_all {
+          raise UnexpectedToken(
+            self.current,
+            "legacy try can only contain one catch_all",
+          )
+        }
+        saw_catch_all = true
+        let _ = self.advance()
+        let catch_body = self.parse_instructions()
+        self.expect_rpar()
+        catches.push(LegacyCatchAll(catch_body))
+      }
+      Delegate => {
+        if catches.length() > 0 {
+          raise UnexpectedToken(
+            self.current,
+            "legacy try cannot mix catch and delegate",
+          )
+        }
+        if delegate_target is Some(_) {
+          raise UnexpectedToken(
+            self.current,
+            "legacy try can only contain one delegate",
+          )
+        }
+        let _ = self.advance()
+        delegate_target = Some(self.parse_index())
+        self.expect_rpar()
+      }
+      _ => {
+        self.restore_lexer_state(saved_state)
+        self.current = saved_token
+        break
+      }
+    }
+  }
+  if with_end {
+    let _ = self.expect(End, "expected 'end'")
+  }
+  TryLegacy(block_type, body, catches, delegate_target)
+}
+
+///|
 fn WastParser::parse_opcode_instruction(
   self : WastParser,
   op : Opcode,
@@ -1211,6 +1530,13 @@ fn WastParser::parse_opcode_instruction(
       let type_use = self.parse_type_use()
       CallIndirect(table_index, type_use)
     }
+    ReturnCall => ReturnCall(self.parse_index())
+    ReturnCallIndirect => {
+      let table_index = self.try_parse_index().unwrap_or(Index::Num(0))
+      let type_use = self.parse_type_use()
+      ReturnCallIndirect(table_index, type_use)
+    }
+    ReturnCallRef => ReturnCallRef(self.parse_type_use())
     Throw => Throw(self.parse_index())
     ThrowRef => ThrowRef
     TryTable => self.parse_try_table_instruction(false)
@@ -1231,7 +1557,7 @@ fn WastParser::parse_opcode_instruction(
         if self.check(Result) {
           let _ = self.advance()
           let ts : Array[ValueType] = []
-          while self.current.token_type is ValueType(_) {
+          while self.can_start_value_type() {
             ts.push(self.parse_value_type())
           }
           self.expect_rpar()
@@ -1521,7 +1847,7 @@ fn WastParser::parse_type_def(self : WastParser) -> TypeDef raise ParserError {
         let _ = self.advance()
         params.push(self.parse_value_type())
       } else {
-        while self.current.token_type is ValueType(_) {
+        while self.can_start_value_type() {
           params.push(self.parse_value_type())
         }
       }
@@ -1540,7 +1866,7 @@ fn WastParser::parse_type_def(self : WastParser) -> TypeDef raise ParserError {
     self.expect_lpar()
     if self.check(Result) {
       let _ = self.advance()
-      while self.current.token_type is ValueType(_) {
+      while self.can_start_value_type() {
         results.push(self.parse_value_type())
       }
       self.expect_rpar()
@@ -1587,7 +1913,7 @@ fn WastParser::parse_inline_exports(
 }
 
 ///|
-fn WastParser::parse_func(self : WastParser) -> Func raise ParserError {
+fn WastParser::parse_func(self : WastParser) -> ModuleField raise ParserError {
   let _ = self.expect(Func, "expected 'func'")
   let id : String? = if self.current.token_type is Var {
     let token = self.advance()
@@ -1596,6 +1922,31 @@ fn WastParser::parse_func(self : WastParser) -> Func raise ParserError {
     None
   }
   let exports = self.parse_inline_exports()
+
+  // Inline func import shorthand: (func $id (import "m" "f") (type ...))
+  if self.check(Lpar) {
+    let saved_state = self.save_lexer_state()
+    let saved_token = self.current
+    self.expect_lpar()
+    if self.check(Import) {
+      let _ = self.advance()
+      let module_token = self.expect(Text, "expected import module name")
+      let field_token = self.expect(Text, "expected import field name")
+      let module_name = self.strip_quotes(self.get_text(module_token))
+      let field_name = self.strip_quotes(self.get_text(field_token))
+      self.expect_rpar()
+      let type_use = self.parse_type_use()
+      return ModuleField::ImportField({
+        module_name,
+        field_name,
+        desc: ImportDesc::Func(type_use),
+        id,
+      })
+    }
+    self.restore_lexer_state(saved_state)
+    self.current = saved_token
+  }
+
   let type_use = self.parse_type_use()
 
   // Parse locals
@@ -1612,7 +1963,7 @@ fn WastParser::parse_func(self : WastParser) -> Func raise ParserError {
         let vt = self.parse_value_type()
         locals.push({ id: local_id, val_type: vt })
       } else {
-        while self.current.token_type is ValueType(_) {
+        while self.can_start_value_type() {
           let vt = self.parse_value_type()
           locals.push({ id: None, val_type: vt })
         }
@@ -1625,7 +1976,7 @@ fn WastParser::parse_func(self : WastParser) -> Func raise ParserError {
     }
   }
   let body = self.parse_instructions()
-  { id, exports, type_use, locals, body }
+  ModuleField::FuncField({ id, exports, type_use, locals, body })
 }
 
 ///|
@@ -1715,7 +2066,7 @@ fn WastParser::parse_tag_type_use_or_default(
     self.restore_lexer_state(saved_state)
     self.current = saved_token
   }
-  { type_index: None, func_type: { params: [], results: [] } }
+  { type_index: None, func_type: { params: [], results: [] }, param_ids: [] }
 }
 
 ///|
@@ -1935,6 +2286,7 @@ fn WastParser::parse_command(
     Get => WastCommand::Action(self.parse_action())
     AssertReturn => self.parse_assert_return()
     AssertTrap => self.parse_assert_trap()
+    AssertException => self.parse_assert_exception()
     AssertExhaustion => self.parse_assert_exhaustion()
     AssertMalformed => self.parse_assert_malformed()
     AssertInvalid => self.parse_assert_invalid()
@@ -2161,7 +2513,7 @@ fn WastParser::parse_wast_result(
     }
     Opcode(RefNull) => {
       let _ = self.advance()
-      let vt : ValueType? = if self.current.token_type is ValueType(_) {
+      let vt : ValueType? = if self.can_start_value_type() {
         Some(self.parse_value_type())
       } else {
         None
@@ -2213,6 +2565,17 @@ fn WastParser::parse_assert_trap(
     // This could be refined with a separate AST variant
     WastCommand::AssertUnlinkable(module_def, msg)
   }
+}
+
+///|
+fn WastParser::parse_assert_exception(
+  self : WastParser,
+) -> WastCommand raise ParserError {
+  let _ = self.expect(AssertException, "expected 'assert_exception'")
+  self.expect_lpar()
+  let action = self.parse_action()
+  self.expect_rpar()
+  WastCommand::AssertException(action)
 }
 
 ///|
@@ -2353,6 +2716,18 @@ fn WastParser::parse_elem(self : WastParser) -> ElemSegment raise ParserError {
   } else {
     None
   }
+
+  // Declarative abbreviation: (elem declare func $f ...)
+  if self.check(Declare) {
+    let _ = self.advance()
+    let _ = self.expect(Func, "expected 'func' in declarative elem segment")
+    let func_indices : Array[Index] = []
+    while self.current.token_type is (Nat | Var) {
+      func_indices.push(self.parse_index())
+    }
+    return { id, table_index: Index::Num(0), offset: [], func_indices }
+  }
+
   let table_index = self.try_parse_index().unwrap_or(Index::Num(0))
 
   // Offset expression
@@ -2386,7 +2761,7 @@ fn WastParser::parse_module_field(
 ) -> ModuleField raise ParserError {
   match self.current.token_type {
     Type => ModuleField::TypeField(self.parse_type_def())
-    Func => ModuleField::FuncField(self.parse_func())
+    Func => self.parse_func()
     Tag => self.parse_tag_field()
     Table => ModuleField::TableField(self.parse_table())
     Memory => ModuleField::MemoryField(self.parse_memory())
@@ -2471,7 +2846,7 @@ fn WastParser::parse_shuffle_lanes(
 ///|
 fn WastParser::parse_simd_mem_arg(
   self : WastParser,
-  default_align : UInt,
+  default_align : UInt64,
 ) -> MemArg {
   self.parse_mem_arg(default_align)
 }
@@ -4003,6 +4378,73 @@ test "parse try_table catch forms" {
     #|        unreachable)
     #|      (try_table (catch_all_ref $h)
     #|        unreachable))))
+  let lexer = make_lexer(source)
+  let parser = WastParser::new(lexer)
+  let _ = parser.parse_module()
+  assert_false(parser.has_errors())
+}
+
+///|
+test "parse legacy try do catch forms" {
+  let source =
+    #|(module
+    #|  (tag $e0)
+    #|  (func
+    #|    (try
+    #|      (do (throw $e0))
+    #|      (catch $e0)))
+    #|  (func
+    #|    (try (result i32)
+    #|      (do (throw $e0) (i32.const 0))
+    #|      (catch_all (i32.const 1)))))
+  let lexer = make_lexer(source)
+  let parser = WastParser::new(lexer)
+  let _ = parser.parse_module()
+  assert_false(parser.has_errors())
+}
+
+///|
+test "parse legacy delegate and rethrow forms" {
+  let source =
+    #|(module
+    #|  (tag $e0)
+    #|  (func
+    #|    (try $outer
+    #|      (do
+    #|        (try
+    #|          (do (throw $e0))
+    #|          (delegate $outer)))
+    #|      (catch $e0)))
+    #|  (func
+    #|    (try
+    #|      (do (throw $e0))
+    #|      (catch $e0 (rethrow 0)))))
+  let lexer = make_lexer(source)
+  let parser = WastParser::new(lexer)
+  let _ = parser.parse_module()
+  assert_false(parser.has_errors())
+}
+
+///|
+test "parse typed ref forms in signatures" {
+  let source =
+    #|(module
+    #|  (type $t (func))
+    #|  (func $dummy)
+    #|  (elem declare func $dummy)
+    #|
+    #|  (tag $e (param (ref $t)))
+    #|  (func $throw (throw $e (ref.func $dummy)))
+    #|
+    #|  (func (export "catch") (result (ref null $t))
+    #|    (block $l (result (ref null $t))
+    #|      (try_table (catch $e $l) (call $throw))
+    #|      unreachable))
+    #|  (func (export "catch_ref") (result (ref null $t))
+    #|    (block $l (result (ref null $t) (ref exn))
+    #|      (try_table (catch_ref $e $l) (call $throw))
+    #|      unreachable)
+    #|    drop))
   let lexer = make_lexer(source)
   let parser = WastParser::new(lexer)
   let _ = parser.parse_module()

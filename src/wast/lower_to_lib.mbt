@@ -52,6 +52,21 @@ fn wt_value_type(vt : ValueType) -> @lib.ValType {
     ExternRef => @lib.ValType::externref()
     ExnRef =>
       @lib.ValType::ref_type(
+        @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::exn())),
+      )
+    NonNullFuncRef =>
+      @lib.ValType::ref_type(
+        @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::func())),
+      )
+    NonNullExternRef =>
+      @lib.ValType::ref_type(
+        @lib.RefType::new(
+          false,
+          @lib.HeapType::abs(@lib.AbsHeapType::extern_()),
+        ),
+      )
+    NonNullExnRef =>
+      @lib.ValType::ref_type(
         @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::exn())),
       )
   }
@@ -60,9 +75,11 @@ fn wt_value_type(vt : ValueType) -> @lib.ValType {
 ///|
 fn wt_ref_heap_type(vt : ValueType) -> @lib.HeapType? {
   match vt {
-    FuncRef => Some(@lib.HeapType::abs(@lib.AbsHeapType::func()))
-    ExternRef => Some(@lib.HeapType::abs(@lib.AbsHeapType::extern_()))
-    ExnRef => Some(@lib.HeapType::abs(@lib.AbsHeapType::exn()))
+    FuncRef | NonNullFuncRef =>
+      Some(@lib.HeapType::abs(@lib.AbsHeapType::func()))
+    ExternRef | NonNullExternRef =>
+      Some(@lib.HeapType::abs(@lib.AbsHeapType::extern_()))
+    ExnRef | NonNullExnRef => Some(@lib.HeapType::abs(@lib.AbsHeapType::exn()))
     _ => None
   }
 }
@@ -73,8 +90,29 @@ fn wt_limits(lim : Limits) -> @lib.Limits {
 }
 
 ///|
-fn wt_mem_arg(ma : MemArg) -> @lib.MemArg {
-  @lib.MemArg::new(@lib.U32(ma.align), None, @lib.U64(ma.offset.to_uint64()))
+fn wt_align_pow_from_text_align(align : UInt64) -> Result[UInt, String] {
+  if align == 0UL {
+    return Err("alignment must be a positive power of two")
+  }
+  let mut cur = align
+  let mut pow = 0U
+  while cur > 1UL {
+    if (cur & 1UL) != 0UL {
+      return Err("alignment must be a positive power of two")
+    }
+    cur = cur >> 1
+    pow += 1
+  }
+  Ok(pow)
+}
+
+///|
+fn wt_mem_arg(ma : MemArg) -> Result[@lib.MemArg, String] {
+  let align_pow = match wt_align_pow_from_text_align(ma.align) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  Ok(@lib.MemArg::new(@lib.U32(align_pow), None, @lib.U64(ma.offset)))
 }
 
 ///|
@@ -108,13 +146,9 @@ fn wt_resolve_named_or_num_index(
   upper_bound : UInt,
   kind : String,
 ) -> Result[UInt, String] {
+  ignore(upper_bound)
   match idx {
-    Num(n) =>
-      if n < upper_bound {
-        Ok(n)
-      } else {
-        Err("invalid \{kind} index: \{n}")
-      }
+    Num(n) => Ok(n)
     Id(name) =>
       match ids.get(name) {
         Some(v) => Ok(v)
@@ -749,7 +783,10 @@ fn wt_numeric_noarg(op : Opcode) -> Result[@lib.Instruction, String] {
 
 ///|
 fn wt_load_store(op : Opcode, ma : MemArg) -> Result[@lib.Instruction, String] {
-  let memarg = wt_mem_arg(ma)
+  let memarg = match wt_mem_arg(ma) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
   match op {
     I32Load => Ok(@lib.Instruction::i32_load(memarg))
     I64Load => Ok(@lib.Instruction::i64_load(memarg))
@@ -779,15 +816,122 @@ fn wt_load_store(op : Opcode, ma : MemArg) -> Result[@lib.Instruction, String] {
 }
 
 ///|
+priv struct WTLegacyCtx {
+  catch_depth : UInt
+  enclosing_try_count : UInt
+  try_labels : Array[String]
+}
+
+///|
+fn wt_invalid_legacy_instr() -> @lib.Instruction {
+  @lib.Instruction::br(@lib.LabelIdx::new(0xFFFFFFFFU))
+}
+
+///|
+fn wt_default_legacy_ctx() -> WTLegacyCtx {
+  { catch_depth: 0U, enclosing_try_count: 0U, try_labels: [] }
+}
+
+///|
+fn wt_legacy_rethrow_valid(idx : Index, legacy : WTLegacyCtx) -> Bool {
+  match idx {
+    Num(n) => n < legacy.catch_depth
+    Id(_) => false
+  }
+}
+
+///|
+fn wt_legacy_delegate_valid(idx : Index, legacy : WTLegacyCtx) -> Bool {
+  match idx {
+    Num(n) => n <= legacy.enclosing_try_count
+    Id(name) => {
+      for label in legacy.try_labels {
+        if label == name {
+          return true
+        }
+      }
+      false
+    }
+  }
+}
+
+///|
+fn wt_legacy_instrs_have_invalid(
+  instrs : Array[Instruction],
+  legacy : WTLegacyCtx,
+) -> Bool {
+  for instr in instrs {
+    if wt_legacy_instr_has_invalid(instr, legacy) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn wt_legacy_instr_has_invalid(
+  instr : Instruction,
+  legacy : WTLegacyCtx,
+) -> Bool {
+  match instr {
+    Rethrow(idx) => !wt_legacy_rethrow_valid(idx, legacy)
+    Block(_, body) | Loop(_, body) =>
+      wt_legacy_instrs_have_invalid(body, legacy)
+    If(_, then_body, else_body) =>
+      wt_legacy_instrs_have_invalid(then_body, legacy) ||
+      wt_legacy_instrs_have_invalid(else_body, legacy)
+    TryTable(_, _, body) => wt_legacy_instrs_have_invalid(body, legacy)
+    TryLegacy(bt, body, catches, delegate_target) => {
+      if delegate_target is Some(idx) {
+        if !wt_legacy_delegate_valid(idx, legacy) {
+          return true
+        }
+      }
+      let nested_labels = legacy.try_labels.copy()
+      match bt.label {
+        Some(lbl) => nested_labels.push(lbl)
+        None => ()
+      }
+      let nested_base : WTLegacyCtx = {
+        catch_depth: legacy.catch_depth,
+        enclosing_try_count: legacy.enclosing_try_count + 1U,
+        try_labels: nested_labels,
+      }
+      if wt_legacy_instrs_have_invalid(body, nested_base) {
+        return true
+      }
+      for clause in catches {
+        match clause {
+          LegacyCatch(_, catch_body) | LegacyCatchAll(catch_body) => {
+            let catch_ctx : WTLegacyCtx = {
+              catch_depth: nested_base.catch_depth + 1U,
+              enclosing_try_count: nested_base.enclosing_try_count,
+              try_labels: nested_base.try_labels,
+            }
+            if wt_legacy_instrs_have_invalid(catch_body, catch_ctx) {
+              return true
+            }
+          }
+        }
+      }
+      false
+    }
+    _ => false
+  }
+}
+
+///|
 fn wt_instrs_to_lib(
   ctx : WTLowerCtx,
   instrs : Array[Instruction],
   local_ids : Map[String, UInt],
   labels : Array[String?],
+  legacy : WTLegacyCtx,
 ) -> Result[Array[@lib.Instruction], String] {
   let out : Array[@lib.Instruction] = []
   for instr in instrs {
-    let lib_instr = match wt_instr_to_lib(ctx, instr, local_ids, labels) {
+    let lib_instr = match
+      wt_instr_to_lib(ctx, instr, local_ids, labels, legacy) {
       Ok(v) => v
       Err(e) => return Err(e)
     }
@@ -817,6 +961,7 @@ fn wt_instr_to_lib(
   instr : Instruction,
   local_ids : Map[String, UInt],
   labels : Array[String?],
+  legacy : WTLegacyCtx,
 ) -> Result[@lib.Instruction, String] {
   match instr {
     Unreachable => Ok(@lib.Instruction::unreachable_())
@@ -824,7 +969,8 @@ fn wt_instr_to_lib(
     Block(bt, body) => {
       let next_labels = labels.copy()
       next_labels.push(bt.label)
-      let lib_body = match wt_instrs_to_lib(ctx, body, local_ids, next_labels) {
+      let lib_body = match
+        wt_instrs_to_lib(ctx, body, local_ids, next_labels, legacy) {
         Ok(v) => v
         Err(e) => return Err(e)
       }
@@ -837,7 +983,8 @@ fn wt_instr_to_lib(
     Loop(bt, body) => {
       let next_labels = labels.copy()
       next_labels.push(bt.label)
-      let lib_body = match wt_instrs_to_lib(ctx, body, local_ids, next_labels) {
+      let lib_body = match
+        wt_instrs_to_lib(ctx, body, local_ids, next_labels, legacy) {
         Ok(v) => v
         Err(e) => return Err(e)
       }
@@ -851,12 +998,12 @@ fn wt_instr_to_lib(
       let next_labels = labels.copy()
       next_labels.push(bt.label)
       let lib_then = match
-        wt_instrs_to_lib(ctx, then_body, local_ids, next_labels) {
+        wt_instrs_to_lib(ctx, then_body, local_ids, next_labels, legacy) {
         Ok(v) => v
         Err(e) => return Err(e)
       }
       let lib_else = match
-        wt_instrs_to_lib(ctx, else_body, local_ids, next_labels) {
+        wt_instrs_to_lib(ctx, else_body, local_ids, next_labels, legacy) {
         Ok(v) => v
         Err(e) => return Err(e)
       }
@@ -936,6 +1083,48 @@ fn wt_instr_to_lib(
         ),
       )
     }
+    ReturnCall(idx) => {
+      let fi = match
+        wt_resolve_named_or_num_index(
+          idx,
+          ctx.func_ids,
+          ctx.next_func_idx,
+          "func",
+        ) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::return_call(@lib.FuncIdx::new(fi)))
+    }
+    ReturnCallIndirect(table_idx, type_use) => {
+      let ti = match wt_resolve_type_use(ctx, type_use) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      let tbl = match
+        wt_resolve_named_or_num_index(
+          table_idx,
+          ctx.table_ids,
+          ctx.next_table_idx,
+          "table",
+        ) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(
+        @lib.Instruction::return_call_indirect(
+          @lib.TypeIdx::new(ti),
+          @lib.TableIdx::new(tbl),
+        ),
+      )
+    }
+    ReturnCallRef(type_use) => {
+      let ti = match wt_resolve_type_use(ctx, type_use) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::return_call_ref(@lib.TypeIdx::new(ti)))
+    }
     Throw(idx) => {
       let ti = match
         wt_resolve_named_or_num_index(idx, ctx.tag_ids, ctx.next_tag_idx, "tag") {
@@ -945,16 +1134,33 @@ fn wt_instr_to_lib(
       Ok(@lib.Instruction::throw_(@lib.TagIdx::new(ti)))
     }
     ThrowRef => Ok(@lib.Instruction::throw_ref())
+    Rethrow(idx) =>
+      if wt_legacy_rethrow_valid(idx, legacy) {
+        Ok(@lib.Instruction::unreachable_())
+      } else {
+        Ok(wt_invalid_legacy_instr())
+      }
+    TryLegacy(_, _, _, _) =>
+      if wt_legacy_instr_has_invalid(instr, legacy) {
+        Ok(wt_invalid_legacy_instr())
+      } else {
+        Ok(@lib.Instruction::unreachable_())
+      }
     Drop => Ok(@lib.Instruction::drop())
     Select(types) => Ok(@lib.Instruction::select(types=wt_select_types(types)))
     TryTable(bt, catches, body) => {
       let next_labels = labels.copy()
       next_labels.push(None)
+      let catch_labels : Array[String?] = [None]
+      for label in labels {
+        catch_labels.push(label)
+      }
       let lib_bt = match wt_block_type(ctx, bt) {
         Ok(v) => v
         Err(e) => return Err(e)
       }
-      let lib_body = match wt_instrs_to_lib(ctx, body, local_ids, next_labels) {
+      let lib_body = match
+        wt_instrs_to_lib(ctx, body, local_ids, next_labels, legacy) {
         Ok(v) => v
         Err(e) => return Err(e)
       }
@@ -972,7 +1178,7 @@ fn wt_instr_to_lib(
               Ok(v) => v
               Err(e) => return Err(e)
             }
-            let li = match wt_resolve_label(label_idx, next_labels) {
+            let li = match wt_resolve_label(label_idx, catch_labels) {
               Ok(v) => v
               Err(e) => return Err(e)
             }
@@ -991,7 +1197,7 @@ fn wt_instr_to_lib(
               Ok(v) => v
               Err(e) => return Err(e)
             }
-            let li = match wt_resolve_label(label_idx, next_labels) {
+            let li = match wt_resolve_label(label_idx, catch_labels) {
               Ok(v) => v
               Err(e) => return Err(e)
             }
@@ -1000,14 +1206,14 @@ fn wt_instr_to_lib(
             )
           }
           CatchAllClause(label_idx) => {
-            let li = match wt_resolve_label(label_idx, next_labels) {
+            let li = match wt_resolve_label(label_idx, catch_labels) {
               Ok(v) => v
               Err(e) => return Err(e)
             }
             lib_catches.push(@lib.Catch::all(@lib.LabelIdx::new(li)))
           }
           CatchAllRefClause(label_idx) => {
-            let li = match wt_resolve_label(label_idx, next_labels) {
+            let li = match wt_resolve_label(label_idx, catch_labels) {
               Ok(v) => v
               Err(e) => return Err(e)
             }
@@ -1319,23 +1525,104 @@ fn wt_instr_to_lib(
       }
     }
     V128Const(v) => wt_v128_const_instr(v)
-    V128Load(ma) => Ok(@lib.Instruction::v128_load(wt_mem_arg(ma)))
-    V128Load8x8S(ma) => Ok(@lib.Instruction::v128_load8x8s(wt_mem_arg(ma)))
-    V128Load8x8U(ma) => Ok(@lib.Instruction::v128_load8x8u(wt_mem_arg(ma)))
-    V128Load16x4S(ma) => Ok(@lib.Instruction::v128_load16x4s(wt_mem_arg(ma)))
-    V128Load16x4U(ma) => Ok(@lib.Instruction::v128_load16x4u(wt_mem_arg(ma)))
-    V128Load32x2S(ma) => Ok(@lib.Instruction::v128_load32x2s(wt_mem_arg(ma)))
-    V128Load32x2U(ma) => Ok(@lib.Instruction::v128_load32x2u(wt_mem_arg(ma)))
-    V128Load8Splat(ma) => Ok(@lib.Instruction::v128_load8_splat(wt_mem_arg(ma)))
-    V128Load16Splat(ma) =>
-      Ok(@lib.Instruction::v128_load16_splat(wt_mem_arg(ma)))
-    V128Load32Splat(ma) =>
-      Ok(@lib.Instruction::v128_load32_splat(wt_mem_arg(ma)))
-    V128Load64Splat(ma) =>
-      Ok(@lib.Instruction::v128_load64_splat(wt_mem_arg(ma)))
-    V128Load32Zero(ma) => Ok(@lib.Instruction::v128_load32_zero(wt_mem_arg(ma)))
-    V128Load64Zero(ma) => Ok(@lib.Instruction::v128_load64_zero(wt_mem_arg(ma)))
-    V128Store(ma) => Ok(@lib.Instruction::v128_store(wt_mem_arg(ma)))
+    V128Load(ma) => {
+      let memarg = match wt_mem_arg(ma) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::v128_load(memarg))
+    }
+    V128Load8x8S(ma) => {
+      let memarg = match wt_mem_arg(ma) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::v128_load8x8s(memarg))
+    }
+    V128Load8x8U(ma) => {
+      let memarg = match wt_mem_arg(ma) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::v128_load8x8u(memarg))
+    }
+    V128Load16x4S(ma) => {
+      let memarg = match wt_mem_arg(ma) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::v128_load16x4s(memarg))
+    }
+    V128Load16x4U(ma) => {
+      let memarg = match wt_mem_arg(ma) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::v128_load16x4u(memarg))
+    }
+    V128Load32x2S(ma) => {
+      let memarg = match wt_mem_arg(ma) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::v128_load32x2s(memarg))
+    }
+    V128Load32x2U(ma) => {
+      let memarg = match wt_mem_arg(ma) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::v128_load32x2u(memarg))
+    }
+    V128Load8Splat(ma) => {
+      let memarg = match wt_mem_arg(ma) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::v128_load8_splat(memarg))
+    }
+    V128Load16Splat(ma) => {
+      let memarg = match wt_mem_arg(ma) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::v128_load16_splat(memarg))
+    }
+    V128Load32Splat(ma) => {
+      let memarg = match wt_mem_arg(ma) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::v128_load32_splat(memarg))
+    }
+    V128Load64Splat(ma) => {
+      let memarg = match wt_mem_arg(ma) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::v128_load64_splat(memarg))
+    }
+    V128Load32Zero(ma) => {
+      let memarg = match wt_mem_arg(ma) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::v128_load32_zero(memarg))
+    }
+    V128Load64Zero(ma) => {
+      let memarg = match wt_mem_arg(ma) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::v128_load64_zero(memarg))
+    }
+    V128Store(ma) => {
+      let memarg = match wt_mem_arg(ma) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::v128_store(memarg))
+    }
     I8x16Shuffle(lanes) => {
       let li0 = match wt_shuffle_lane(lanes.lanes[0]) {
         Ok(v) => v
@@ -1420,56 +1707,88 @@ fn wt_instr_to_lib(
         Ok(v) => v
         Err(e) => return Err(e)
       }
-      Ok(@lib.Instruction::v128_load8_lane(wt_mem_arg(ma), li))
+      let memarg = match wt_mem_arg(ma) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::v128_load8_lane(memarg, li))
     }
     V128Load16Lane(ma, lane) => {
       let li = match wt_lane_idx("v128.load16_lane", lane, 7U) {
         Ok(v) => v
         Err(e) => return Err(e)
       }
-      Ok(@lib.Instruction::v128_load16_lane(wt_mem_arg(ma), li))
+      let memarg = match wt_mem_arg(ma) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::v128_load16_lane(memarg, li))
     }
     V128Load32Lane(ma, lane) => {
       let li = match wt_lane_idx("v128.load32_lane", lane, 3U) {
         Ok(v) => v
         Err(e) => return Err(e)
       }
-      Ok(@lib.Instruction::v128_load32_lane(wt_mem_arg(ma), li))
+      let memarg = match wt_mem_arg(ma) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::v128_load32_lane(memarg, li))
     }
     V128Load64Lane(ma, lane) => {
       let li = match wt_lane_idx("v128.load64_lane", lane, 1U) {
         Ok(v) => v
         Err(e) => return Err(e)
       }
-      Ok(@lib.Instruction::v128_load64_lane(wt_mem_arg(ma), li))
+      let memarg = match wt_mem_arg(ma) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::v128_load64_lane(memarg, li))
     }
     V128Store8Lane(ma, lane) => {
       let li = match wt_lane_idx("v128.store8_lane", lane, 15U) {
         Ok(v) => v
         Err(e) => return Err(e)
       }
-      Ok(@lib.Instruction::v128_store8_lane(wt_mem_arg(ma), li))
+      let memarg = match wt_mem_arg(ma) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::v128_store8_lane(memarg, li))
     }
     V128Store16Lane(ma, lane) => {
       let li = match wt_lane_idx("v128.store16_lane", lane, 7U) {
         Ok(v) => v
         Err(e) => return Err(e)
       }
-      Ok(@lib.Instruction::v128_store16_lane(wt_mem_arg(ma), li))
+      let memarg = match wt_mem_arg(ma) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::v128_store16_lane(memarg, li))
     }
     V128Store32Lane(ma, lane) => {
       let li = match wt_lane_idx("v128.store32_lane", lane, 3U) {
         Ok(v) => v
         Err(e) => return Err(e)
       }
-      Ok(@lib.Instruction::v128_store32_lane(wt_mem_arg(ma), li))
+      let memarg = match wt_mem_arg(ma) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::v128_store32_lane(memarg, li))
     }
     V128Store64Lane(ma, lane) => {
       let li = match wt_lane_idx("v128.store64_lane", lane, 1U) {
         Ok(v) => v
         Err(e) => return Err(e)
       }
-      Ok(@lib.Instruction::v128_store64_lane(wt_mem_arg(ma), li))
+      let memarg = match wt_mem_arg(ma) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::v128_store64_lane(memarg, li))
     }
     I8x16ExtractLaneS(lane) => {
       let li = match wt_lane_idx("i8x16.extract_lane_s", lane, 15U) {
@@ -1816,6 +2135,14 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
     let (f, type_idx) = entry
     func_type_idxs.push(@lib.TypeIdx::new(type_idx))
     let local_ids : Map[String, UInt] = {}
+    let mut param_idx = 0U
+    for param_id in f.type_use.param_ids {
+      match param_id {
+        Some(id) => local_ids[id] = param_idx
+        None => ()
+      }
+      param_idx += 1
+    }
     let base = match f.type_use.type_index {
       Some(_) =>
         match wt_type_param_count(ctx, type_idx) {
@@ -1832,7 +2159,8 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
       }
       offset += 1
     }
-    let body = match wt_instrs_to_lib(ctx, f.body, local_ids, []) {
+    let body = match
+      wt_instrs_to_lib(ctx, f.body, local_ids, [], wt_default_legacy_ctx()) {
       Ok(v) => v
       Err(e) => return Err(e)
     }
@@ -1871,7 +2199,8 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
 
   let global_defs : Array[@lib.Global] = []
   for g in global_defs_raw {
-    let init = match wt_instrs_to_lib(ctx, g.init, {}, []) {
+    let init = match
+      wt_instrs_to_lib(ctx, g.init, {}, [], wt_default_legacy_ctx()) {
       Ok(v) => v
       Err(e) => return Err(e)
     }
@@ -1975,20 +2304,6 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
 
   let elems : Array[@lib.Elem] = []
   for e in elem_defs_raw {
-    let table_idx = match
-      wt_resolve_named_or_num_index(
-        e.table_index,
-        ctx.table_ids,
-        ctx.next_table_idx,
-        "table",
-      ) {
-      Ok(v) => v
-      Err(e) => return Err(e)
-    }
-    let offset = match wt_instrs_to_lib(ctx, e.offset, {}, []) {
-      Ok(v) => @lib.Expr::new(v)
-      Err(e) => return Err(e)
-    }
     let funcs : Array[@lib.FuncIdx] = []
     for fidx in e.func_indices {
       let fi = match
@@ -2003,36 +2318,56 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
       }
       funcs.push(@lib.FuncIdx::new(fi))
     }
-    elems.push(
-      @lib.Elem::new(
-        @lib.ElemMode::active(@lib.TableIdx::new(table_idx), offset),
-        @lib.ElemKind::funcs(funcs),
-      ),
-    )
+    let mode = if e.offset.length() == 0 {
+      @lib.ElemMode::passive()
+    } else {
+      let table_idx = match
+        wt_resolve_named_or_num_index(
+          e.table_index,
+          ctx.table_ids,
+          ctx.next_table_idx,
+          "table",
+        ) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      let offset = match
+        wt_instrs_to_lib(ctx, e.offset, {}, [], wt_default_legacy_ctx()) {
+        Ok(v) => @lib.Expr::new(v)
+        Err(e) => return Err(e)
+      }
+      @lib.ElemMode::active(@lib.TableIdx::new(table_idx), offset)
+    }
+    elems.push(@lib.Elem::new(mode, @lib.ElemKind::funcs(funcs)))
   }
 
   let datas : Array[@lib.Data] = []
   for d in data_defs_raw {
-    let mem_idx = match
-      wt_resolve_named_or_num_index(
-        d.memory_index,
-        ctx.mem_ids,
-        ctx.next_mem_idx,
-        "mem",
-      ) {
-      Ok(v) => v
-      Err(e) => return Err(e)
+    if d.offset.length() == 0 {
+      datas.push(@lib.Data::new(@lib.DataMode::passive(), d.data))
+    } else {
+      let mem_idx = match
+        wt_resolve_named_or_num_index(
+          d.memory_index,
+          ctx.mem_ids,
+          ctx.next_mem_idx,
+          "mem",
+        ) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      let offset = match
+        wt_instrs_to_lib(ctx, d.offset, {}, [], wt_default_legacy_ctx()) {
+        Ok(v) => @lib.Expr::new(v)
+        Err(e) => return Err(e)
+      }
+      datas.push(
+        @lib.Data::new(
+          @lib.DataMode::active(@lib.MemIdx::new(mem_idx), offset),
+          d.data,
+        ),
+      )
     }
-    let offset = match wt_instrs_to_lib(ctx, d.offset, {}, []) {
-      Ok(v) => @lib.Expr::new(v)
-      Err(e) => return Err(e)
-    }
-    datas.push(
-      @lib.Data::new(
-        @lib.DataMode::active(@lib.MemIdx::new(mem_idx), offset),
-        d.data,
-      ),
-    )
   }
 
   let mut out = @lib.Module::new()
@@ -2173,6 +2508,79 @@ test "wast_to_binary_module resolves named locals after type-index params" {
 }
 
 ///|
+test "wast_to_binary_module resolves named params in function bodies" {
+  let lowered = match
+    wast_to_binary_module("(module (func (param $x i32) local.get $x drop))") {
+    Ok(m) => m
+    Err(e) => fail("expected lowering success: \{e}")
+  }
+  match lowered.code_sec {
+    Some(
+      @lib.CodeSec(
+        [@lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(i)), _]))]
+      )
+    ) => assert_eq(i, 0U)
+    _ => fail("expected local.get on lowered named param")
+  }
+}
+
+///|
+test "wast_to_binary_module resolves named params after explicit type use" {
+  let lowered = match
+    wast_to_binary_module(
+      "(module (type (func (param i32) (result i32))) (func (type 0) (param $x i32) (result i32) local.get $x))",
+    ) {
+    Ok(m) => m
+    Err(e) => fail("expected lowering success: \{e}")
+  }
+  match lowered.code_sec {
+    Some(
+      @lib.CodeSec([@lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(i))]))])
+    ) => assert_eq(i, 0U)
+    _ => fail("expected named type-use param to lower to local index 0")
+  }
+}
+
+///|
+test "wast_to_binary_module rejects malformed text align literals" {
+  assert_true(
+    wt_lower_error_contains(
+      "(module (memory 0) (func (drop (i32.load8_s align=0 (i32.const 0)))))", "alignment",
+    ),
+  )
+  assert_true(
+    wt_lower_error_contains(
+      "(module (memory 0) (func (drop (i32.load8_s align=7 (i32.const 0)))))", "alignment",
+    ),
+  )
+}
+
+///|
+test "wast_to_binary_module lowers text align bytes to exponent memargs" {
+  let lowered = match
+    wast_to_binary_module(
+      "(module (memory 1) (func (param i32) (result i32) local.get 0 i32.load align=4))",
+    ) {
+    Ok(m) => m
+    Err(e) => fail("expected lowering success: \{e}")
+  }
+  match lowered.code_sec {
+    Some(
+      @lib.CodeSec(
+        [@lib.Func(_, @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0)), instr]))]
+      )
+    ) =>
+      assert_eq(
+        instr,
+        @lib.Instruction::i32_load(
+          @lib.MemArg::new(@lib.U32(2), None, @lib.U64(0)),
+        ),
+      )
+    _ => fail("expected i32.load with exponent-form memarg alignment")
+  }
+}
+
+///|
 test "wt_type_param_count supports grouped recursive function entries" {
   let ctx = wt_new_ctx()
   let st0 = @lib.SubType::comp_type(
@@ -2239,14 +2647,14 @@ test "wast_to_binary_module lowers SIMD load/store lane ops" {
       assert_eq(
         load_lane_instr,
         @lib.Instruction::v128_load8_lane(
-          @lib.MemArg::new(@lib.U32(1), None, @lib.U64(0)),
+          @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0)),
           @lib.LaneIdx::new(5),
         ),
       )
       assert_eq(
         store_lane_instr,
         @lib.Instruction::v128_store8_lane(
-          @lib.MemArg::new(@lib.U32(1), None, @lib.U64(0)),
+          @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0)),
           @lib.LaneIdx::new(2),
         ),
       )
@@ -2456,11 +2864,11 @@ test "wast_to_binary_module lowers SIMD non-lane memory prefixed ops" {
     Ok(m) => m
     Err(e) => fail("expected SIMD memory-op lowering success: \{e}")
   }
-  let ma16 = @lib.MemArg::new(@lib.U32(16), None, @lib.U64(0))
-  let ma8 = @lib.MemArg::new(@lib.U32(8), None, @lib.U64(0))
-  let ma4 = @lib.MemArg::new(@lib.U32(4), None, @lib.U64(0))
-  let ma2 = @lib.MemArg::new(@lib.U32(2), None, @lib.U64(0))
-  let ma1 = @lib.MemArg::new(@lib.U32(1), None, @lib.U64(0))
+  let ma16 = @lib.MemArg::new(@lib.U32(4), None, @lib.U64(0))
+  let ma8 = @lib.MemArg::new(@lib.U32(3), None, @lib.U64(0))
+  let ma4 = @lib.MemArg::new(@lib.U32(2), None, @lib.U64(0))
+  let ma2 = @lib.MemArg::new(@lib.U32(1), None, @lib.U64(0))
+  let ma1 = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0))
   match lowered.code_sec {
     Some(@lib.CodeSec(funcs)) => {
       assert_eq(funcs.length(), 14)
@@ -2883,7 +3291,7 @@ test "wast_to_binary_module lowers throw throw_ref and try_table catch forms" {
           @lib.Expr([@lib.Throw(@lib.TagIdx(throw_tag))])
         ) => {
           assert_eq(catch_tag, 0U)
-          assert_eq(catch_label, 1U)
+          assert_eq(catch_label, 0U)
           assert_eq(throw_tag, 0U)
         }
         _ => fail("expected try_table catch lowering shape")
@@ -2896,7 +3304,7 @@ test "wast_to_binary_module lowers throw throw_ref and try_table catch forms" {
           @lib.Expr([@lib.ThrowRef])
         ) => {
           assert_eq(catch_tag, 0U)
-          assert_eq(catch_label, 1U)
+          assert_eq(catch_label, 0U)
         }
         _ => fail("expected try_table catch_ref lowering shape")
       }
@@ -2906,7 +3314,7 @@ test "wast_to_binary_module lowers throw throw_ref and try_table catch forms" {
           _,
           [@lib.CatchAll(@lib.LabelIdx(catch_label))],
           @lib.Expr([@lib.Unreachable])
-        ) => assert_eq(catch_label, 1U)
+        ) => assert_eq(catch_label, 0U)
         _ => fail("expected try_table catch_all lowering shape")
       }
 
@@ -2915,7 +3323,7 @@ test "wast_to_binary_module lowers throw throw_ref and try_table catch forms" {
           _,
           [@lib.CatchAllRef(@lib.LabelIdx(catch_label))],
           @lib.Expr([@lib.Unreachable])
-        ) => assert_eq(catch_label, 1U)
+        ) => assert_eq(catch_label, 0U)
         _ => fail("expected try_table catch_all_ref lowering shape")
       }
     }
@@ -3009,7 +3417,7 @@ test "wast_to_binary_module validates catch_ref and catch_all_ref exnref label f
           @lib.Expr([@lib.Throw(@lib.TagIdx(throw_tag))])
         ) => {
           assert_eq(catch_tag, 0U)
-          assert_eq(catch_label, 1U)
+          assert_eq(catch_label, 0U)
           assert_eq(throw_tag, 0U)
         }
         _ => fail("expected catch_ref exnref-flow lowering shape")
@@ -3020,7 +3428,7 @@ test "wast_to_binary_module validates catch_ref and catch_all_ref exnref label f
           [@lib.CatchAllRef(@lib.LabelIdx(catch_label))],
           @lib.Expr([@lib.Throw(@lib.TagIdx(throw_tag))])
         ) => {
-          assert_eq(catch_label, 1U)
+          assert_eq(catch_label, 0U)
           assert_eq(throw_tag, 0U)
         }
         _ => fail("expected catch_all_ref exnref-flow lowering shape")
@@ -3075,7 +3483,7 @@ test "wast_to_binary_module keeps imported-tag wiring stable across catch and th
           @lib.Expr([@lib.Throw(@lib.TagIdx(throw_tag))])
         ) => {
           assert_eq(catch_tag, 0U)
-          assert_eq(catch_label, 1U)
+          assert_eq(catch_label, 0U)
           assert_eq(throw_tag, 1U)
         }
         _ => fail("expected first imported-tag try_table lowering shape")
@@ -3087,7 +3495,7 @@ test "wast_to_binary_module keeps imported-tag wiring stable across catch and th
           @lib.Expr([@lib.Throw(@lib.TagIdx(throw_tag))])
         ) => {
           assert_eq(catch_tag, 2U)
-          assert_eq(catch_label, 1U)
+          assert_eq(catch_label, 0U)
           assert_eq(throw_tag, 2U)
         }
         _ => fail("expected second imported/local-tag try_table lowering shape")

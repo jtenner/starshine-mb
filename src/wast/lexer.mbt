@@ -1359,7 +1359,7 @@ test "descriptor reference opcodes" {
 ///|
 test "advanced reference and exception keyword classification paths" {
   let lexer = make_lexer(
-    "ref.eq ref.as_non_null any.convert_extern extern.convert_any ref.i31 i31.get_s i31.get_u throw throw_ref try_table catch catch_ref catch_all catch_all_ref tag",
+    "ref.eq ref.as_non_null any.convert_extern extern.convert_any ref.i31 i31.get_s i31.get_u throw throw_ref try_table try do catch catch_ref catch_all catch_all_ref delegate rethrow tag",
   )
 
   assert_token_type(lexer.get_token(), Opcode(RefEq))
@@ -1376,6 +1376,10 @@ test "advanced reference and exception keyword classification paths" {
   assert_true(throw_ref_token.token_type is Opcode(_))
   let try_table_token = lexer.get_token()
   assert_true(try_table_token.token_type is Opcode(_))
+  let legacy_try_token = lexer.get_token()
+  assert_false(legacy_try_token.token_type is Reserved)
+  let do_token = lexer.get_token()
+  assert_false(do_token.token_type is Reserved)
 
   let catch_token = lexer.get_token()
   assert_false(catch_token.token_type is Reserved)
@@ -1385,6 +1389,10 @@ test "advanced reference and exception keyword classification paths" {
   assert_false(catch_all_token.token_type is Reserved)
   let catch_all_ref_token = lexer.get_token()
   assert_false(catch_all_ref_token.token_type is Reserved)
+  let delegate_token = lexer.get_token()
+  assert_false(delegate_token.token_type is Reserved)
+  let rethrow_token = lexer.get_token()
+  assert_false(rethrow_token.token_type is Reserved)
 
   let tag_token = lexer.get_token()
   assert_false(tag_token.token_type is Reserved)

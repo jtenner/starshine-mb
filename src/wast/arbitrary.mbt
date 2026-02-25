@@ -181,18 +181,18 @@ fn pick_const_text(op : Opcode, st : RandomState) -> String {
 }
 
 ///|
-fn gen_memarg(st : RandomState, natural_align : UInt) -> MemArg {
+fn gen_memarg(st : RandomState, natural_align : UInt64) -> MemArg {
   let align = if (st.next_uint() & 1) == 1 {
     natural_align
   } else {
     match st.next_uint() % 4 {
-      0 => 1
-      1 => 2
-      2 => 4
+      0 => 1UL
+      1 => 2UL
+      2 => 4UL
       _ => natural_align
     }
   }
-  { align, offset: st.next_uint() % 64 }
+  { align, offset: (st.next_uint() % 64).to_uint64() }
 }
 
 ///|
@@ -257,6 +257,7 @@ fn gen_instruction(
         CallIndirect(Num(0), {
           type_index: Some(Num(0)),
           func_type: { params: [], results: [] },
+          param_ids: [],
         })
       9 => Load(I32Load, gen_memarg(st, 4))
       10 => Store(I32Store, gen_memarg(st, 4))
@@ -297,9 +298,15 @@ fn gen_type_use(st : RandomState, type_count : UInt) -> TypeUse {
     {
       type_index: Some(Num(st.next_uint() % type_count)),
       func_type: { params: [], results: [] },
+      param_ids: [],
     }
   } else {
-    { type_index: None, func_type: gen_func_type(st) }
+    let func_type = gen_func_type(st)
+    let param_ids : Array[String?] = []
+    for _ in func_type.params {
+      param_ids.push(None)
+    }
+    { type_index: None, func_type, param_ids }
   }
 }
 
@@ -800,7 +807,7 @@ pub impl Arbitrary for WastModuleDef with arbitrary(size, st) {
 
 ///|
 pub impl Arbitrary for WastCommand with arbitrary(size, st) {
-  match st.next_uint() % 8 {
+  match st.next_uint() % 9 {
     0 => Module(Arbitrary::arbitrary(size, st))
     1 => Register("m\{st.next_uint() % 8}", None)
     2 => Action(Arbitrary::arbitrary(size, st))
@@ -809,8 +816,9 @@ pub impl Arbitrary for WastCommand with arbitrary(size, st) {
         Arbitrary::arbitrary(size, st),
       ])
     4 => AssertTrap(Arbitrary::arbitrary(size, st), "trap")
-    5 => AssertExhaustion(Arbitrary::arbitrary(size, st), "exhaust")
-    6 => AssertMalformed(Arbitrary::arbitrary(size, st), "malformed")
+    5 => AssertException(Arbitrary::arbitrary(size, st))
+    6 => AssertExhaustion(Arbitrary::arbitrary(size, st), "exhaust")
+    7 => AssertMalformed(Arbitrary::arbitrary(size, st), "malformed")
     _ => AssertInvalid(Arbitrary::arbitrary(size, st), "invalid")
   }
 }

@@ -624,7 +624,12 @@ pub fn validate_codesec(
 ) -> Result[Unit, String] {
   match (codesec, funcsec) {
     (None, None) => Ok(())
-    (Some(CodeSec(_)), None) => Err("codesec present without funcsec")
+    (Some(CodeSec(bodies)), None) =>
+      if bodies.length() == 0 {
+        Ok(())
+      } else {
+        Err("codesec present without funcsec")
+      }
     (None, Some(FuncSec(ts))) =>
       if ts.length() == 0 {
         Ok(())
@@ -997,7 +1002,12 @@ pub fn validate_datacnt(
     None => Ok(())
     Some(DataCntSec(U32(n))) => {
       let actual : UInt = match datasec_opt {
-        None => return Err("datacount section present but no data section")
+        None =>
+          if n == 0U {
+            0U
+          } else {
+            return Err("datacount section present but no data section")
+          }
         Some(DataSec(ds)) => ds.length().reinterpret_as_uint()
       }
       if n == actual {
@@ -1005,6 +1015,87 @@ pub fn validate_datacnt(
       } else {
         Err("datacount does not match number of data segments")
       }
+    }
+  }
+}
+
+///|
+fn expr_uses_bulk_memory_data_count(expr : Expr) -> Bool {
+  let Expr(instrs) = expr
+  for ins in instrs {
+    if instr_uses_bulk_memory_data_count(ins) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn instr_uses_bulk_memory_data_count(ins : Instruction) -> Bool {
+  match ins {
+    MemoryInit(_, _) | DataDrop(_) => true
+    Block(_, Expr(body)) | Loop(_, Expr(body)) => {
+      for inner in body {
+        if instr_uses_bulk_memory_data_count(inner) {
+          return true
+        }
+      }
+      false
+    }
+    If(_, then_body, else_body) => {
+      for inner in then_body {
+        if instr_uses_bulk_memory_data_count(inner) {
+          return true
+        }
+      }
+      match else_body {
+        Some(branch) =>
+          for inner in branch {
+            if instr_uses_bulk_memory_data_count(inner) {
+              return true
+            }
+          }
+        None => ()
+      }
+      false
+    }
+    TryTable(_, _, Expr(body)) => {
+      for inner in body {
+        if instr_uses_bulk_memory_data_count(inner) {
+          return true
+        }
+      }
+      false
+    }
+    _ => false
+  }
+}
+
+///|
+fn func_uses_bulk_memory_data_count(func : Func) -> Bool {
+  match func {
+    Func(_, expr) => expr_uses_bulk_memory_data_count(expr)
+    TFunc(_, texpr) => expr_uses_bulk_memory_data_count(TExpr::to_expr(texpr))
+  }
+}
+
+///|
+fn validate_bulk_memory_data_count_requirement(
+  codesec_opt : CodeSec?,
+  datacnt_opt : DataCntSec?,
+) -> Result[Unit, String] {
+  if datacnt_opt is Some(_) {
+    return Ok(())
+  }
+  match codesec_opt {
+    None => Ok(())
+    Some(CodeSec(funcs)) => {
+      for func in funcs {
+        if func_uses_bulk_memory_data_count(func) {
+          return Err("data count section required")
+        }
+      }
+      Ok(())
     }
   }
 }
@@ -1112,6 +1203,11 @@ fn validate_module_impl(m : Module) -> Result[Unit, String] {
     Ok(_) => ()
     Err(t) => return Err(t)
   }
+  match
+    validate_bulk_memory_data_count_requirement(codesec_opt, datacntsec_opt) {
+    Ok(_) => ()
+    Err(t) => return Err(t)
+  }
 
   // (7) Start function validation
   match validate_startsec(startsec_opt, env) {
@@ -1174,6 +1270,52 @@ test "validate_module reports typed ValidationError variant" {
     Ok(_) => fail("expected duplicate export validation failure")
     Err(ValidationError::Validation(msg)) =>
       assert_true(msg.contains("duplicate export name"))
+  }
+}
+
+///|
+test "validate_module requires data count section for memory.init and data.drop" {
+  let sig = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let mem = MemType::new(Limits::i32(1, None))
+  let data = Data::new(DataMode::passive(), b"x")
+
+  let mem_init_mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_mem_sec(MemSec::new([mem]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          [],
+          Expr::new([
+            Instruction::i32_const(I32(0)),
+            Instruction::i32_const(I32(0)),
+            Instruction::i32_const(I32(0)),
+            Instruction::memory_init(DataIdx::new(0), MemIdx::new(0)),
+          ]),
+        ),
+      ]),
+    )
+    .with_data_sec(DataSec::new([data]))
+  match validate_module(mem_init_mod) {
+    Ok(_) => fail("expected memory.init without datacount to fail")
+    Err(ValidationError::Validation(msg)) =>
+      assert_true(msg.contains("data count section required"))
+  }
+
+  let data_drop_mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new([], Expr::new([Instruction::data_drop(DataIdx::new(0))])),
+      ]),
+    )
+    .with_data_sec(DataSec::new([data]))
+  match validate_module(data_drop_mod) {
+    Ok(_) => fail("expected data.drop without datacount to fail")
+    Err(ValidationError::Validation(msg)) =>
+      assert_true(msg.contains("data count section required"))
   }
 }
 
