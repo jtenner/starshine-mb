@@ -377,6 +377,7 @@ fn pls_analyze_body(body : TExpr) -> Result[PLSAnalysis, String] {
   }
 }
 
+///|
 fn pls_target_signedness(
   candidate : PLSCandidateLoad,
   usage_by_local : Map[Int, PLSUsage],
@@ -393,7 +394,10 @@ fn pls_target_signedness(
 }
 
 ///|
-fn pls_rewrite_body(body : TExpr, analysis : PLSAnalysis) -> Result[TExpr, String] {
+fn pls_rewrite_body(
+  body : TExpr,
+  analysis : PLSAnalysis,
+) -> Result[TExpr, String] {
   if analysis.candidates.is_empty() {
     return Ok(body)
   }
@@ -413,7 +417,10 @@ fn pls_rewrite_body(body : TExpr, analysis : PLSAnalysis) -> Result[TExpr, Strin
     ignore(parent_stack.pop())
     let output = match candidate {
       Some(candidate) => {
-        let target_signed = pls_target_signedness(candidate, analysis.usage_by_local)
+        let target_signed = pls_target_signedness(
+          candidate,
+          analysis.usage_by_local,
+        )
         match walked.kind {
           TInstrKind::TLoad(op, memarg, ptr) =>
             match pls_load_with_signedness(op, target_signed) {
