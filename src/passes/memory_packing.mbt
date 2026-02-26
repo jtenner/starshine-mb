@@ -374,27 +374,26 @@ fn mp_merge_small_interior_zeros(
   if ranges.length() < 3 {
     return ranges
   }
-  for i in 1..<(ranges.length() - 1) {
-    let curr = ranges[i]
-    if !(curr.is_zero && curr.len() <= threshold) {
-      continue
+  let out : Array[MPRange] = []
+  for range in ranges {
+    out.push(range)
+    while out.length() >= 3 {
+      let right = out[out.length() - 1]
+      let middle = out[out.length() - 2]
+      let left = out[out.length() - 3]
+      if !(middle.is_zero &&
+        middle.len() <= threshold &&
+        !left.is_zero &&
+        !right.is_zero) {
+        break
+      }
+      ignore(out.pop())
+      ignore(out.pop())
+      ignore(out.pop())
+      out.push({ start: left.start, end: right.end, is_zero: false })
     }
-    let left = ranges[i - 1]
-    let right = ranges[i + 1]
-    if left.is_zero || right.is_zero {
-      continue
-    }
-    let out : Array[MPRange] = []
-    for j in 0..<(i - 1) {
-      out.push(ranges[j])
-    }
-    out.push({ start: left.start, end: right.end, is_zero: false })
-    for j in (i + 2)..<ranges.length() {
-      out.push(ranges[j])
-    }
-    return out
   }
-  ranges
+  out
 }
 
 ///|
@@ -1178,6 +1177,58 @@ fn mp_needs_drop_state_global(
 }
 
 ///|
+fn mp_referrers_has_segment_ops(refs : MPSegmentReferrers) -> Bool {
+  refs.memory_init_refs > 0 || refs.data_drop_refs > 0 || refs.gc_data_refs > 0
+}
+
+///|
+fn mp_requires_instruction_rewrite(
+  old_idx : Int,
+  refs : MPSegmentReferrers,
+  transform : MPSegmentTransform,
+  removed_passive : Set[Int],
+) -> Bool {
+  if !mp_referrers_has_segment_ops(refs) {
+    return false
+  }
+  if removed_passive.contains(old_idx) {
+    return true
+  }
+  if transform.transformed {
+    return true
+  }
+  match transform.new_single_index {
+    Some(new_idx) => new_idx != mp_int_to_data_idx(old_idx)
+    None => false
+  }
+}
+
+///|
+fn mp_has_replacement_sites(
+  referrers : Map[Int, MPSegmentReferrers],
+  transforms : Map[Int, MPSegmentTransform],
+  removed_passive : Set[Int],
+) -> Bool {
+  for old_idx in transforms.keys() {
+    let refs = referrers.get(old_idx).unwrap_or(mp_empty_referrers())
+    let transform = transforms
+      .get(old_idx)
+      .unwrap_or({
+        transformed: false,
+        ranges: [],
+        range_new_indices: [],
+        new_single_index: None,
+      })
+    if mp_requires_instruction_rewrite(
+        old_idx, refs, transform, removed_passive,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 priv struct MPReplacementPlan {
   transforms : Map[Int, MPSegmentTransform]
   removed_passive : Set[Int]
@@ -1542,6 +1593,7 @@ fn mp_build_transforms_and_segments(
   referrers : Map[Int, MPSegmentReferrers],
   removed_passive : Set[Int],
   options : MemoryPackingPassProps,
+  trace? : (String) -> Unit = fn(_) { () },
 ) -> (Module, Map[Int, MPSegmentTransform]) {
   let mut mod = mod
   let datas = match mod.data_sec {
@@ -1565,9 +1617,19 @@ fn mp_build_transforms_and_segments(
     let refs = referrers.get(old_idx).unwrap_or(mp_empty_referrers())
     let Data(_, bytes) = segment
     let can_split = can_split_segment(segment, refs, features)
+    trace(
+      "build_transforms:segment[\{old_idx + 1}/\{datas.length()}]:start bytes=\{bytes.length()} can_split=\{can_split}",
+    )
     let base_identity = [{ start: 0, end: bytes.length(), is_zero: false }]
     let mut ranges = if can_split {
-      calculate_ranges(mod, segment, refs, options)
+      trace(
+        "build_transforms:segment[\{old_idx + 1}/\{datas.length()}]:calculate_ranges:start",
+      )
+      let computed = calculate_ranges(mod, segment, refs, options)
+      trace(
+        "build_transforms:segment[\{old_idx + 1}/\{datas.length()}]:calculate_ranges:done ranges=\{computed.length()} non_zero=\{mp_count_non_zero_ranges(computed)}",
+      )
+      computed
     } else {
       base_identity
     }
@@ -1578,6 +1640,9 @@ fn mp_build_transforms_and_segments(
     if !transformed {
       let new_idx = mp_int_to_data_idx(new_datas.length())
       new_datas.push(segment)
+      trace(
+        "build_transforms:segment[\{old_idx + 1}/\{datas.length()}]:identity",
+      )
       transforms[old_idx] = {
         transformed: false,
         ranges: base_identity,
@@ -1586,10 +1651,16 @@ fn mp_build_transforms_and_segments(
       }
       continue
     }
+    trace(
+      "build_transforms:segment[\{old_idx + 1}/\{datas.length()}]:create_split_segments:start",
+    )
     let split_segments = create_split_segments(
       segment,
       ranges,
       options.max_data_segments - new_datas.length(),
+    )
+    trace(
+      "build_transforms:segment[\{old_idx + 1}/\{datas.length()}]:create_split_segments:done split=\{split_segments.length()}",
     )
     let range_new_indices : Array[DataIdx?] = Array::make(ranges.length(), None)
     let mut split_cursor = 0
@@ -1611,6 +1682,9 @@ fn mp_build_transforms_and_segments(
       range_new_indices,
       new_single_index: None,
     }
+    trace(
+      "build_transforms:segment[\{old_idx + 1}/\{datas.length()}]:done transformed=true",
+    )
   }
   mod = mod.with_data_sec(DataSec::new(new_datas))
   match mod.data_cnt_sec {
@@ -1669,9 +1743,17 @@ fn run_memory_packing_on_module(
   trace("drop_unused_segments:done removed=\{removed_passive.length()}")
   trace("build_transforms:start")
   let (mod, transforms) = mp_build_transforms_and_segments(
-    mod, referrers, removed_passive, options,
+    mod,
+    referrers,
+    removed_passive,
+    options,
+    trace~,
   )
   trace("build_transforms:done transforms=\{transforms.length()}")
+  if !mp_has_replacement_sites(referrers, transforms, removed_passive) {
+    trace("create_replacements:skip:no_sites")
+    return Ok(mod)
+  }
   trace("create_replacements:start")
   let (mod, replacements) = create_replacements(
     mod, transforms, removed_passive,
@@ -1927,6 +2009,19 @@ test "memory packing keeps small interior zero spans in passive segment" {
     Some(DataSec(datas)) => assert_eq(datas.length(), 1)
     _ => fail("expected data section")
   }
+}
+
+///|
+test "memory packing merge_small_interior_zeros collapses chained runs in one pass" {
+  let ranges : Array[MPRange] = [
+    { start: 0, end: 1, is_zero: false },
+    { start: 1, end: 2, is_zero: true },
+    { start: 2, end: 3, is_zero: false },
+    { start: 3, end: 4, is_zero: true },
+    { start: 4, end: 5, is_zero: false },
+  ]
+  let merged = mp_merge_small_interior_zeros(ranges, 1)
+  assert_true(merged == [{ start: 0, end: 5, is_zero: false }])
 }
 
 ///|

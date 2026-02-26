@@ -110,6 +110,7 @@ pub fn IRContext::local_graph_dirty(Self) -> Unit
 pub fn IRContext::lower_to_cfg(Self) -> CFG
 pub fn IRContext::new() -> Self
 pub fn IRContext::optimize_body_with_ssa(Self) -> @lib.TExpr?
+pub fn IRContext::optimize_body_with_ssa_trace(Self, (String) -> Unit) -> @lib.TExpr?
 pub fn IRContext::set_body(Self, @lib.TExpr) -> Unit
 pub fn IRContext::set_locals(Self, Array[@lib.ValType]) -> Unit
 pub fn IRContext::set_mod(Self, @lib.Module) -> Unit

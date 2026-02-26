@@ -15,6 +15,89 @@
 ///
 
 ///|
+fn lt_count_imported_funcs(mod : Module) -> Int {
+  let mut n = 0
+  match mod.import_sec {
+    Some(ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          Import(_, _, FuncExternType(_)) => n += 1
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  n
+}
+
+///|
+fn lift_to_texpr_module_with_trace(
+  mod : Module,
+  trace : (String) -> Unit,
+) -> Result[Module, String] {
+  let base_env = Env::new().with_module(mod)
+  let imported_funcs = lt_count_imported_funcs(mod)
+  match mod.code_sec {
+    Some(CodeSec(funcs)) => {
+      let new_funcs : Array[Func] = []
+      for def_idx in 0..<funcs.length() {
+        let seen_funcs = def_idx + 1
+        if seen_funcs <= 5 || seen_funcs % 500 == 0 {
+          trace("func[\{seen_funcs}] visit")
+        }
+        match funcs[def_idx] {
+          Func(locals_grouped, body) =>
+            match expand_locals(locals_grouped) {
+              Ok(expanded_locals) => {
+                let abs_idx = imported_funcs + def_idx
+                let func_idx = FuncIdx::new(abs_idx.reinterpret_as_uint())
+                let results = match base_env.get_functype_by_funcidx(func_idx) {
+                  Some(FuncType(_, rs)) => rs
+                  None =>
+                    return Err(
+                      "lift_to_texpr missing function type for function index \{abs_idx}",
+                    )
+                }
+                let env = base_env
+                  .with_locals(expanded_locals)
+                  .with_return_type(Some(results))
+                match to_texpr(body, env) {
+                  Ok(texpr) => {
+                    if seen_funcs <= 5 || seen_funcs % 500 == 0 {
+                      trace("func[\{seen_funcs}] lifted")
+                    }
+                    new_funcs.push(Func::t_func(expanded_locals, texpr))
+                  }
+                  Err(e) => {
+                    if seen_funcs <= 20 || seen_funcs % 500 == 0 {
+                      trace("func[\{seen_funcs}] to_texpr failed: \{e}")
+                    }
+                    return Err(
+                      "lift_to_texpr failed at function \{abs_idx}: \{e}",
+                    )
+                  }
+                }
+              }
+              Err(err) => {
+                trace("func[\{seen_funcs}] expand_locals failed: \{err}")
+                return Err(err)
+              }
+            }
+          TFunc(_, _) => {
+            if seen_funcs <= 5 || seen_funcs % 500 == 0 {
+              trace("func[\{seen_funcs}] already-tfunc")
+            }
+            new_funcs.push(funcs[def_idx])
+          }
+        }
+      }
+      Ok(mod.with_code_sec(CodeSec::new(new_funcs)))
+    }
+    None => Ok(mod)
+  }
+}
+
+///|
 fn lift_to_texpr_pass_with_trace(
   trace : (String) -> Unit,
 ) -> ModuleTransformer[Unit] {

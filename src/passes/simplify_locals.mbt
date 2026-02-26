@@ -348,6 +348,14 @@ fn sl_localidx_from_int(idx : Int) -> LocalIdx {
 }
 
 ///|
+fn sl_instr_is_direct_local_set_for_idx(instr : TInstr, idx : Int) -> Bool {
+  match instr {
+    TLocalSet(local_idx, _) => sl_localidx_to_int(local_idx) == idx
+    _ => false
+  }
+}
+
+///|
 fn sl_labelidx_to_int(label : LabelIdx) -> Int {
   let LabelIdx(raw) = label
   raw.reinterpret_as_int()
@@ -699,7 +707,7 @@ fn sl_rewrite_block_exits_texpr(
             _ =>
               if values.length() == 0 &&
                 out.length() > 0 &&
-                sl_has_local_set_for_idx_instr(
+                sl_instr_is_direct_local_set_for_idx(
                   out[out.length() - 1],
                   shared_idx,
                 ) {
@@ -740,7 +748,7 @@ fn sl_rewrite_block_exits_texpr(
             _ =>
               if values.length() == 0 &&
                 out.length() > 0 &&
-                sl_has_local_set_for_idx_instr(
+                sl_instr_is_direct_local_set_for_idx(
                   out[out.length() - 1],
                   shared_idx,
                 ) {
@@ -1700,6 +1708,11 @@ fn sl_run_late_optimizations(
   local_count : Int,
   remove_equivalent_sets : Bool,
 ) -> (TExpr, Bool) {
+  // The no-structure mode does not rely on equivalent-set removal.
+  // Skip expensive equivalence tracking on very large local sets.
+  if !remove_equivalent_sets && local_count > 128 {
+    return (body, false)
+  }
   let get_counts = Array::make(local_count, 0)
   sl_collect_get_counts_texpr(body, get_counts)
   let changed = Ref::new(false)

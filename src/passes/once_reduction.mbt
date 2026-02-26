@@ -300,51 +300,54 @@ fn or_scan_texpr(
 }
 
 ///|
-fn or_build_func_env(mod : Module, abs_func_idx : Int) -> Env {
-  let base_env = Env::new().with_module(mod)
-  let params = match
-    base_env.get_functype_by_funcidx(
-      FuncIdx::new(abs_func_idx.reinterpret_as_uint()),
-    ) {
+fn or_build_func_env(
+  mod_env : Env,
+  func_idx : FuncIdx,
+  extra_locals : Array[ValType],
+) -> Env {
+  let params = match mod_env.get_functype_by_funcidx(func_idx) {
     Some(FuncType(ps, _)) => ps
     None => []
   }
   let locals = params.copy()
-  match or_get_defined_func(mod, abs_func_idx) {
-    Some(TFunc(extra_locals, _)) =>
-      for t in extra_locals {
-        locals.push(t)
-      }
-    _ => ()
+  for t in extra_locals {
+    locals.push(t)
   }
-  base_env.with_locals(locals)
+  mod_env.with_locals(locals)
 }
 
 ///|
-fn or_scan_function(mod : Module, abs_func_idx : Int, info : OROptInfo) -> Unit {
+fn or_discover_once_global(
+  mod : Module,
+  mod_env : Env,
+  abs_func_idx : Int,
+) -> GlobalIdx? {
   let func_idx = FuncIdx::new(abs_func_idx.reinterpret_as_uint())
-  let func_type = match
-    Env::new().with_module(mod).get_functype_by_funcidx(func_idx) {
-    Some(ft) => ft
-    None => {
-      info.once_funcs[func_idx] = None
-      return
-    }
-  }
-  let once_global = match or_get_defined_func(mod, abs_func_idx) {
+  let func_type = mod_env.get_functype_by_funcidx(func_idx)
+  match or_get_defined_func(mod, abs_func_idx) {
     Some(TFunc(_, body)) =>
       match func_type {
-        FuncType(params, results) if params.length() == 0 &&
+        Some(FuncType(params, results)) if params.length() == 0 &&
           results.length() == 0 => or_get_once_global(body)
         _ => None
       }
     _ => None
   }
-  info.once_funcs[func_idx] = once_global
+}
+
+///|
+fn or_scan_function(
+  mod : Module,
+  mod_env : Env,
+  abs_func_idx : Int,
+  info : OROptInfo,
+) -> Unit {
+  let func_idx = FuncIdx::new(abs_func_idx.reinterpret_as_uint())
+  let once_global = info.once_funcs.get(func_idx).unwrap_or(None)
   match or_get_defined_func(mod, abs_func_idx) {
-    Some(TFunc(_, body)) => {
+    Some(TFunc(extra_locals, body)) => {
       let state = {
-        env: or_build_func_env(mod, abs_func_idx),
+        env: or_build_func_env(mod_env, func_idx, extra_locals),
         read_globals: Map::new(),
       }
       or_scan_texpr(body, true, state, info)
@@ -782,7 +785,10 @@ fn or_cleanup_once_bodies(mod : Module, info : OROptInfo) -> Module {
 }
 
 ///|
-fn once_reduction(mod : Module) -> Result[Module, String] {
+fn once_reduction(
+  mod : Module,
+  trace? : (String) -> Unit = fn(_) { () },
+) -> Result[Module, String] {
   let mut mod = mod
   let info = {
     once_globals: Map::new(),
@@ -790,6 +796,7 @@ fn once_reduction(mod : Module) -> Result[Module, String] {
     once_globals_set_in_funcs: Map::new(),
   }
   let total_funcs = or_total_funcs(mod)
+  trace("start total_funcs=\{total_funcs}")
   for i = 0; i < total_funcs; i = i + 1 {
     let func_idx = FuncIdx::new(i.reinterpret_as_uint())
     info.once_funcs[func_idx] = None
@@ -809,13 +816,28 @@ fn once_reduction(mod : Module) -> Result[Module, String] {
       !exported
   }
   let imported_funcs = or_count_imported_funcs(mod)
-  match mod.code_sec {
-    Some(CodeSec(funcs)) =>
-      for def_idx = 0; def_idx < funcs.length(); def_idx = def_idx + 1 {
-        or_scan_function(mod, imported_funcs + def_idx, info)
-      }
+  let mod_env = Env::new().with_module(mod)
+  let defined_count = match mod.code_sec {
+    Some(CodeSec(funcs)) => funcs.length()
     None => return Ok(mod)
   }
+  trace("scan_once_signatures:start defined=\{defined_count}")
+  let mut discovered_once_funcs = 0
+  for def_idx = 0; def_idx < defined_count; def_idx = def_idx + 1 {
+    let abs_idx = imported_funcs + def_idx
+    let func_idx = FuncIdx::new(abs_idx.reinterpret_as_uint())
+    let once_global = or_discover_once_global(mod, mod_env, abs_idx)
+    info.once_funcs[func_idx] = once_global
+    if once_global is Some(_) {
+      discovered_once_funcs += 1
+    }
+  }
+  trace("scan_once_signatures:done candidates=\{discovered_once_funcs}")
+  if discovered_once_funcs == 0 {
+    trace("skip:no_once_candidates")
+    return Ok(mod)
+  }
+  let mut has_valid_once_func = false
   for entry in info.once_funcs {
     let (func_idx, once_global) = entry
     match once_global {
@@ -824,23 +846,44 @@ fn once_reduction(mod : Module) -> Result[Module, String] {
           info.once_funcs[func_idx] = None
         } else {
           info.once_globals_set_in_funcs[func_idx].add(g)
+          has_valid_once_func = true
         }
       None => ()
     }
   }
+  if !has_valid_once_func {
+    trace("skip:no_valid_once_candidates")
+    return Ok(mod)
+  }
+  trace("scan_functions:start defined=\{defined_count}")
+  for def_idx = 0; def_idx < defined_count; def_idx = def_idx + 1 {
+    or_scan_function(mod, mod_env, imported_funcs + def_idx, info)
+  }
+  trace("scan_functions:done")
   let mut has_once_func = false
   for entry in info.once_funcs {
-    let (_, once_global) = entry
-    if once_global is Some(_) {
-      has_once_func = true
-      break
+    let (func_idx, once_global) = entry
+    match once_global {
+      Some(g) =>
+        if !info.once_globals.get(g).unwrap_or(false) {
+          info.once_funcs[func_idx] = None
+          info.once_globals_set_in_funcs[func_idx] = Set::new()
+        } else {
+          info.once_globals_set_in_funcs[func_idx].add(g)
+          has_once_func = true
+        }
+      None => ()
     }
   }
   if !has_once_func {
+    trace("skip:no_once_candidates_after_scan")
     return Ok(mod)
   }
+  trace("fixed_point:start")
   let mut prev_total = -1
+  let mut round = 0
   while true {
+    round += 1
     let new_sets : Map[FuncIdx, Set[GlobalIdx]] = Map::new()
     for i = 0; i < total_funcs; i = i + 1 {
       let func_idx = FuncIdx::new(i.reinterpret_as_uint())
@@ -869,12 +912,16 @@ fn once_reduction(mod : Module) -> Result[Module, String] {
       let (_, set_) = entry
       total += set_.length()
     }
+    trace("fixed_point:round[\{round}] total=\{total} prev=\{prev_total}")
     if total <= prev_total {
       break
     }
     prev_total = total
   }
-  Ok(or_cleanup_once_bodies(mod, info))
+  trace("cleanup:start")
+  let out = or_cleanup_once_bodies(mod, info)
+  trace("cleanup:done")
+  Ok(out)
 }
 
 ///|

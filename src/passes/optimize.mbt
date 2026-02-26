@@ -258,6 +258,7 @@ fn run_ir_context_transformer_scheduler_pass(
   pass : ModulePass,
   options : OptimizeOptions,
   trace : (String) -> Unit,
+  trace_pass_details : Bool,
 ) -> Result[Module, String] {
   match pass {
     AbstractTypeRefining(props) =>
@@ -285,7 +286,15 @@ fn run_ir_context_transformer_scheduler_pass(
         constant_field_propagation_ir_pass(mod),
       )
     DataflowOptimization =>
-      apply_ir_transformer_pass(ctx, mod, dataflow_optimization_pass(mod))
+      apply_ir_transformer_pass(
+        ctx,
+        mod,
+        dataflow_optimization_pass(
+          mod,
+          trace=fn(msg) { trace("dataflow:\{msg}") },
+          trace_all_funcs=trace_pass_details,
+        ),
+      )
     DeadArgumentElimination =>
       apply_ir_transformer_pass(ctx, mod, dead_argument_elim_pass(mod))
     SignaturePruning =>
@@ -522,7 +531,9 @@ fn run_module_runner_scheduler_pass(
     MergeSimilarFunctions =>
       apply_module_runner_pass(mod, fn(mod) { merge_similar_functions(mod) })
     OnceReduction =>
-      apply_module_runner_pass(mod, fn(mod) { once_reduction(mod) })
+      apply_module_runner_pass(mod, fn(mod) {
+        once_reduction(mod, trace=fn(msg) { trace("once_reduction:\{msg}") })
+      })
     Asyncify(props) =>
       apply_module_runner_pass(mod, fn(mod) {
         asyncify(mod, props~, optimize_level=options.optimize_level)
@@ -738,8 +749,7 @@ fn optimize_module_with_options_internal(
   } else {
     optimize_trace_noop
   }
-  mod = match
-    apply_unit_transformer_pass(mod, lift_to_texpr_pass_with_trace(lift_trace)) {
+  mod = match lift_to_texpr_module_with_trace(mod, lift_trace) {
     Ok(new_mod) => {
       if trace_enabled {
         trace(
@@ -784,7 +794,12 @@ fn optimize_module_with_options_internal(
       IRContextTransformerPass =>
         match
           run_ir_context_transformer_scheduler_pass(
-            ctx, mod, pass, options, pass_trace,
+            ctx,
+            mod,
+            pass,
+            options,
+            pass_trace,
+            trace_enabled && trace_pass_details,
           ) {
           Ok(new_mod) => new_mod
           Err(e) => {

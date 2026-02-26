@@ -236,16 +236,31 @@ fn terminator_successors(term : Terminator) -> Array[BlockId] {
 }
 
 ///|
+fn cfg_to_texpr_consume_budget(
+  budget : Array[Int],
+  budget_limit : Int,
+  cost? : Int = 1,
+) -> Bool {
+  budget[0] = budget[0] + cost
+  budget[0] <= budget_limit
+}
+
+///|
 fn collect_reachable(
   cfg : CFG,
   start : BlockId,
   stop : BlockId?,
   max_steps : Int,
-) -> Set[BlockId] {
+  budget : Array[Int],
+  budget_limit : Int,
+) -> Set[BlockId]? {
   let seen : Set[BlockId] = Set::new()
   let work : Array[BlockId] = [start]
   let mut steps = 0
   while work.length() > 0 && steps < max_steps {
+    if !cfg_to_texpr_consume_budget(budget, budget_limit) {
+      return None
+    }
     steps = steps + 1
     let cur = work.pop().unwrap()
     if seen.contains(cur) {
@@ -263,7 +278,7 @@ fn collect_reachable(
       None => ()
     }
   }
-  seen
+  Some(seen)
 }
 
 ///|
@@ -273,9 +288,19 @@ fn find_merge_block(
   else_block : BlockId,
   stop : BlockId?,
   max_steps : Int,
+  budget : Array[Int],
+  budget_limit : Int,
 ) -> BlockId? {
-  let then_reachable = collect_reachable(cfg, then_block, stop, max_steps)
-  let else_reachable = collect_reachable(cfg, else_block, stop, max_steps)
+  let then_reachable = match
+    collect_reachable(cfg, then_block, stop, max_steps, budget, budget_limit) {
+    Some(reachable) => reachable
+    None => return None
+  }
+  let else_reachable = match
+    collect_reachable(cfg, else_block, stop, max_steps, budget, budget_limit) {
+    Some(reachable) => reachable
+    None => return None
+  }
   if stop is Some(s) && then_reachable.contains(s) && else_reachable.contains(s) {
     return Some(s)
   }
@@ -298,6 +323,8 @@ fn find_merge_block_many(
   succs : Array[BlockId],
   stop : BlockId?,
   max_steps : Int,
+  budget : Array[Int],
+  budget_limit : Int,
 ) -> BlockId? {
   if succs.length() == 0 {
     return None
@@ -307,7 +334,11 @@ fn find_merge_block_many(
   }
   let mut reachable_intersection : Set[BlockId]? = None
   for succ in succs {
-    let reachable = collect_reachable(cfg, succ, stop, max_steps)
+    let reachable = match
+      collect_reachable(cfg, succ, stop, max_steps, budget, budget_limit) {
+      Some(reachable) => reachable
+      None => return None
+    }
     match reachable_intersection {
       None => reachable_intersection = Some(reachable)
       Some(acc) => {
@@ -357,8 +388,19 @@ fn lower_conditional_branch(
   stop : BlockId?,
   depth : Int,
   max_depth : Int,
+  budget : Array[Int],
+  budget_limit : Int,
 ) -> TExpr? {
-  match find_merge_block(cfg, then_block, else_block, stop, max_depth * 2) {
+  match
+    find_merge_block(
+      cfg,
+      then_block,
+      else_block,
+      stop,
+      max_depth * 2,
+      budget,
+      budget_limit,
+    ) {
     Some(merge) =>
       match
         (
@@ -368,6 +410,8 @@ fn lower_conditional_branch(
             Some(merge),
             depth + 1,
             max_depth,
+            budget,
+            budget_limit,
           ),
           cfg_region_to_texpr(
             cfg,
@@ -375,6 +419,8 @@ fn lower_conditional_branch(
             Some(merge),
             depth + 1,
             max_depth,
+            budget,
+            budget_limit,
           ),
         ) {
         (Some(then_expr), Some(else_expr)) => {
@@ -389,7 +435,16 @@ fn lower_conditional_branch(
           if stop is Some(s) && merge == s {
             return Some(TExpr::new(instrs))
           }
-          match cfg_region_to_texpr(cfg, merge, stop, depth + 1, max_depth) {
+          match
+            cfg_region_to_texpr(
+              cfg,
+              merge,
+              stop,
+              depth + 1,
+              max_depth,
+              budget,
+              budget_limit,
+            ) {
             Some(tail) => {
               append_texpr(instrs, tail)
               Some(TExpr::new(instrs))
@@ -402,8 +457,24 @@ fn lower_conditional_branch(
     None =>
       match
         (
-          cfg_region_to_texpr(cfg, then_block, stop, depth + 1, max_depth),
-          cfg_region_to_texpr(cfg, else_block, stop, depth + 1, max_depth),
+          cfg_region_to_texpr(
+            cfg,
+            then_block,
+            stop,
+            depth + 1,
+            max_depth,
+            budget,
+            budget_limit,
+          ),
+          cfg_region_to_texpr(
+            cfg,
+            else_block,
+            stop,
+            depth + 1,
+            max_depth,
+            budget,
+            budget_limit,
+          ),
         ) {
         (Some(then_expr), Some(else_expr)) => {
           let else_opt = if else_expr.0.length() == 0 {
@@ -431,18 +502,43 @@ fn lower_br_table(
   stop : BlockId?,
   depth : Int,
   max_depth : Int,
+  budget : Array[Int],
+  budget_limit : Int,
 ) -> TExpr? {
   let succs = targets.copy()
   succs.push(default)
-  let merge_opt = find_merge_block_many(cfg, succs, stop, max_depth * 2)
+  let merge_opt = find_merge_block_many(
+    cfg,
+    succs,
+    stop,
+    max_depth * 2,
+    budget,
+    budget_limit,
+  )
   let mut dispatch = match
-    cfg_region_to_texpr(cfg, default, merge_opt, depth + 1, max_depth) {
+    cfg_region_to_texpr(
+      cfg,
+      default,
+      merge_opt,
+      depth + 1,
+      max_depth,
+      budget,
+      budget_limit,
+    ) {
     Some(expr) => expr
     None => return None
   }
   for i = targets.length() - 1; i >= 0; i = i - 1 {
     let then_expr = match
-      cfg_region_to_texpr(cfg, targets[i], merge_opt, depth + 1, max_depth) {
+      cfg_region_to_texpr(
+        cfg,
+        targets[i],
+        merge_opt,
+        depth + 1,
+        max_depth,
+        budget,
+        budget_limit,
+      ) {
       Some(expr) => expr
       None => return None
     }
@@ -461,7 +557,16 @@ fn lower_br_table(
       if stop is Some(s) && merge == s {
         return Some(TExpr::new(instrs))
       }
-      match cfg_region_to_texpr(cfg, merge, stop, depth + 1, max_depth) {
+      match
+        cfg_region_to_texpr(
+          cfg,
+          merge,
+          stop,
+          depth + 1,
+          max_depth,
+          budget,
+          budget_limit,
+        ) {
         Some(tail) => {
           append_texpr(instrs, tail)
           Some(TExpr::new(instrs))
@@ -480,7 +585,12 @@ fn cfg_region_to_texpr(
   stop : BlockId?,
   depth : Int,
   max_depth : Int,
+  budget : Array[Int],
+  budget_limit : Int,
 ) -> TExpr? {
+  if !cfg_to_texpr_consume_budget(budget, budget_limit) {
+    return None
+  }
   if depth > max_depth {
     return None
   }
@@ -497,7 +607,16 @@ fn cfg_region_to_texpr(
       if stop is Some(s) && target == s {
         return Some(TExpr::new(instrs))
       }
-      match cfg_region_to_texpr(cfg, target, stop, depth + 1, max_depth) {
+      match
+        cfg_region_to_texpr(
+          cfg,
+          target,
+          stop,
+          depth + 1,
+          max_depth,
+          budget,
+          budget_limit,
+        ) {
         Some(tail) => {
           append_texpr(instrs, tail)
           Some(TExpr::new(instrs))
@@ -507,7 +626,8 @@ fn cfg_region_to_texpr(
     }
     BrIf(cond, then_block, else_block) =>
       lower_conditional_branch(
-        cfg, instrs, cond, then_block, else_block, stop, depth, max_depth,
+        cfg, instrs, cond, then_block, else_block, stop, depth, max_depth, budget,
+        budget_limit,
       )
     BrOnNull(v, null_block, nonnull_block) =>
       lower_conditional_branch(
@@ -519,6 +639,8 @@ fn cfg_region_to_texpr(
         stop,
         depth,
         max_depth,
+        budget,
+        budget_limit,
       )
     BrOnNonNull(v, nonnull_block, null_block) =>
       lower_conditional_branch(
@@ -530,22 +652,26 @@ fn cfg_region_to_texpr(
         stop,
         depth,
         max_depth,
+        budget,
+        budget_limit,
       )
     BrOnCast(op, _src_ht, dst_ht, v, success, fail) => {
       let cond = TInstr::ref_test(op.1, dst_ht, v)
       lower_conditional_branch(
-        cfg, instrs, cond, success, fail, stop, depth, max_depth,
+        cfg, instrs, cond, success, fail, stop, depth, max_depth, budget, budget_limit,
       )
     }
     BrOnCastFail(op, _src_ht, dst_ht, v, fail, success) => {
       let test_ok = TInstr::ref_test(op.1, dst_ht, v)
       let cond_fail = TInstr::unary(UnaryOp::i32_eqz(), test_ok)
       lower_conditional_branch(
-        cfg, instrs, cond_fail, fail, success, stop, depth, max_depth,
+        cfg, instrs, cond_fail, fail, success, stop, depth, max_depth, budget, budget_limit,
       )
     }
     BrTable(idx, targets, default) =>
-      lower_br_table(cfg, instrs, idx, targets, default, stop, depth, max_depth)
+      lower_br_table(
+        cfg, instrs, idx, targets, default, stop, depth, max_depth, budget, budget_limit,
+      )
     Return(vals) => {
       instrs.push(TInstr::return_(vals))
       Some(TExpr::new(instrs))
@@ -574,9 +700,42 @@ fn cfg_region_to_texpr(
 }
 
 ///|
-fn cfg_to_texpr(cfg : CFG) -> TExpr? {
+fn cfg_to_texpr_block_limit() -> Int {
+  900
+}
+
+///|
+fn cfg_to_texpr_budget_limit(block_count : Int) -> Int {
+  Int::max(8000, block_count * 200)
+}
+
+///|
+fn cfg_to_texpr_with_budget(cfg : CFG, budget_limit : Int) -> (TExpr?, Int) {
   let max_depth = cfg.blocks.length() * 4 + 16
-  cfg_region_to_texpr(cfg, cfg.entry, None, 0, max_depth)
+  let budget : Array[Int] = [0]
+  (
+    cfg_region_to_texpr(
+      cfg,
+      cfg.entry,
+      None,
+      0,
+      max_depth,
+      budget,
+      budget_limit,
+    ),
+    budget[0],
+  )
+}
+
+///|
+fn cfg_to_texpr(cfg : CFG) -> TExpr? {
+  let block_count = cfg.blocks.length()
+  if block_count > cfg_to_texpr_block_limit() {
+    return None
+  }
+  let budget_limit = cfg_to_texpr_budget_limit(block_count)
+  let (lowered, _) = cfg_to_texpr_with_budget(cfg, budget_limit)
+  lowered
 }
 
 ///|
@@ -587,6 +746,40 @@ pub fn IRContext::optimize_body_with_ssa(self : Self) -> TExpr? {
   let ssa = self.get_ssa()
   let cfg = ssa.to_cfg(self.locals.length())
   cfg_to_texpr(cfg)
+}
+
+///|
+/// Same as optimize_body_with_ssa, with phase-level tracing hooks.
+pub fn IRContext::optimize_body_with_ssa_trace(
+  self : Self,
+  trace : (String) -> Unit,
+) -> TExpr? {
+  trace("phase=apply_ssa_optimize:start")
+  self.apply_ssa_optimize()
+  trace("phase=apply_ssa_optimize:done")
+  trace("phase=ssa_to_cfg:start")
+  let ssa = self.get_ssa()
+  let cfg = ssa.to_cfg(self.locals.length())
+  trace("phase=ssa_to_cfg:done blocks=\{cfg.blocks.length()}")
+  let block_limit = cfg_to_texpr_block_limit()
+  if cfg.blocks.length() > block_limit {
+    trace(
+      "phase=cfg_to_texpr:skip blocks=\{cfg.blocks.length()} limit=\{block_limit}",
+    )
+    return None
+  }
+  let budget_limit = cfg_to_texpr_budget_limit(cfg.blocks.length())
+  trace("phase=cfg_to_texpr:start budget_limit=\{budget_limit}")
+  let (lowered, budget_spent) = cfg_to_texpr_with_budget(cfg, budget_limit)
+  if lowered is None && budget_spent >= budget_limit {
+    trace(
+      "phase=cfg_to_texpr:abort budget_spent=\{budget_spent} limit=\{budget_limit}",
+    )
+  }
+  trace(
+    "phase=cfg_to_texpr:done success=\{lowered is Some(_)} budget_spent=\{budget_spent} limit=\{budget_limit}",
+  )
+  lowered
 }
 
 ///|

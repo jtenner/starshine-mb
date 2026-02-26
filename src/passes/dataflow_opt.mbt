@@ -19,28 +19,78 @@ fn optimize_tfunc_with_ssa(
   ctx : IRContext,
   locals : Array[ValType],
   body : TExpr,
+  trace? : (String) -> Unit = fn(_) { () },
 ) -> TExpr? {
   ctx.set_locals(locals)
   ctx.set_body(body)
-  ctx.optimize_body_with_ssa()
+  ctx.optimize_body_with_ssa_trace(trace)
 }
 
 ///|
-fn dataflow_optimization_pass(mod : Module) -> ModuleTransformer[IRContext] {
+fn dataflow_now_ms() -> UInt64 {
+  @env.now()
+}
+
+///|
+fn dataflow_elapsed_ms(start_ms : UInt64) -> UInt64 {
+  let end_ms = dataflow_now_ms()
+  if end_ms >= start_ms {
+    end_ms - start_ms
+  } else {
+    0UL
+  }
+}
+
+///|
+fn dataflow_optimization_pass(
+  mod : Module,
+  trace? : (String) -> Unit = fn(_) { () },
+  trace_all_funcs? : Bool = false,
+) -> ModuleTransformer[IRContext] {
   ignore(mod)
+  let mut seen_funcs = 0
   ModuleTransformer::new().on_func_evt(fn(
     _self : ModuleTransformer[IRContext],
     ctx : IRContext,
     func : Func,
   ) -> TransformerResult[IRContext, Func] {
+    seen_funcs += 1
+    let ordinal = seen_funcs
+    let log_func = trace_all_funcs || ordinal <= 5 || ordinal % 500 == 0
     match func {
       Func(_) => Err("Expected TFunc")
-      TFunc(locals, body) =>
-        match optimize_tfunc_with_ssa(ctx, locals, body) {
-          Some(new_body) if new_body != body =>
-            change(ctx, Func::t_func(locals, new_body))
-          _ => unchanged()
+      TFunc(locals, body) => {
+        if log_func {
+          trace(
+            "func[\{ordinal}] start locals=\{locals.length()} top_instrs=\{body.0.length()}",
+          )
         }
+        let opt_start = dataflow_now_ms()
+        let new_body = optimize_tfunc_with_ssa(ctx, locals, body, trace=fn(
+          msg,
+        ) {
+          if log_func {
+            trace("func[\{ordinal}] \{msg}")
+          }
+        })
+        let elapsed = dataflow_elapsed_ms(opt_start)
+        let changed_func = match new_body {
+          Some(next_body) => next_body != body
+          None => false
+        }
+        if log_func {
+          trace(
+            "func[\{ordinal}] done elapsed_ms=\{elapsed} changed=\{changed_func} lowered=\{new_body is Some(_)}",
+          )
+        }
+        match new_body {
+          Some(next_body) if next_body != body =>
+            change(ctx, Func::t_func(locals, next_body))
+          // Returning `unchanged()` here would trigger `walk_func_default`,
+          // causing a second full traversal of this function.
+          _ => change(ctx, Func::t_func(locals, body))
+        }
+      }
     }
   })
 }

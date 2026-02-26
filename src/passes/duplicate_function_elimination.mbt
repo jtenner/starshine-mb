@@ -26,6 +26,26 @@ fn dfe_key(func_type : FuncType, func : Func) -> DFEKey {
 }
 
 ///|
+priv struct DFEQuickKey {
+  func_type : FuncType
+  local_count : Int
+  top_level_instr_count : Int
+} derive(Eq, Hash)
+
+///|
+fn dfe_quick_key(func_type : FuncType, func : Func) -> DFEQuickKey {
+  match func {
+    TFunc(locals, TExpr(instrs)) =>
+      {
+        func_type,
+        local_count: locals.length(),
+        top_level_instr_count: instrs.length(),
+      }
+    _ => { func_type, local_count: -1, top_level_instr_count: -1 }
+  }
+}
+
+///|
 fn dfe_imported_func_count(mod : Module) -> Int {
   let mut n = 0
   match mod.import_sec {
@@ -121,7 +141,13 @@ fn dfe_limit_for_options(
   options : OptimizeOptions,
 ) -> Int {
   if options.optimize_level >= 3 || options.shrink_level >= 1 {
-    defined_func_count
+    // Duplicate chains can require multiple rounds, but an uncapped limit is
+    // too costly on very large modules.
+    if defined_func_count > 64 {
+      64
+    } else {
+      defined_func_count
+    }
   } else if options.optimize_level >= 2 {
     10
   } else {
@@ -184,21 +210,40 @@ fn dfe_run_iteration(mod : Module) -> Result[(Module, Bool), String] {
   if func_types.length() < total_funcs {
     return Ok((mod, false))
   }
-  let canonical_by_key : Map[DFEKey, Int] = Map::new()
+  let defs_by_quick_key : Map[DFEQuickKey, Array[Int]] = Map::new()
+  for def_idx = 0; def_idx < funcs.length(); def_idx = def_idx + 1 {
+    let abs_idx = imported_func_count + def_idx
+    let quick_key = dfe_quick_key(func_types[abs_idx], funcs[def_idx])
+    match defs_by_quick_key.get(quick_key) {
+      Some(existing) => {
+        let updated = existing.copy()
+        updated.push(def_idx)
+        defs_by_quick_key[quick_key] = updated
+      }
+      None => defs_by_quick_key[quick_key] = [def_idx]
+    }
+  }
   let replacements_abs : Map[Int, Int] = Map::new()
   let remove_def : Array[Bool] = []
   for _ in funcs {
     remove_def.push(false)
   }
-  for def_idx = 0; def_idx < funcs.length(); def_idx = def_idx + 1 {
-    let abs_idx = imported_func_count + def_idx
-    let key = dfe_key(func_types[abs_idx], funcs[def_idx])
-    match canonical_by_key.get(key) {
-      Some(canonical_abs_idx) => {
-        replacements_abs[abs_idx] = canonical_abs_idx
-        remove_def[def_idx] = true
+  for entry in defs_by_quick_key {
+    let (_, candidate_defs) = entry
+    if candidate_defs.length() <= 1 {
+      continue
+    }
+    let canonical_by_key : Map[DFEKey, Int] = Map::new()
+    for def_idx in candidate_defs {
+      let abs_idx = imported_func_count + def_idx
+      let key = dfe_key(func_types[abs_idx], funcs[def_idx])
+      match canonical_by_key.get(key) {
+        Some(canonical_abs_idx) => {
+          replacements_abs[abs_idx] = canonical_abs_idx
+          remove_def[def_idx] = true
+        }
+        None => canonical_by_key[key] = abs_idx
       }
-      None => canonical_by_key[key] = abs_idx
     }
   }
   if replacements_abs.is_empty() {

@@ -16,9 +16,35 @@
 
 ///|
 fn dead_code_elimination_pass() -> ModuleTransformer[Unit] {
+  let break_scan_budget = Ref::new(20_000)
+  let skip_current_func = Ref::new(false)
   ModuleTransformer::new()
-  .on_texpr_evt(dce_texpr)
-  .on_tinstruction_evt(dce_tinstr)
+  .on_func_evt(fn(_, ctx, func) {
+    match func {
+      TFunc(locals, body) =>
+        skip_current_func.val = locals.length() > 64 || body.0.length() > 256
+      _ => skip_current_func.val = false
+    }
+    if skip_current_func.val {
+      change(ctx, func)
+    } else {
+      unchanged()
+    }
+  })
+  .on_texpr_evt(fn(transformer, ctx, expr) {
+    if skip_current_func.val {
+      unchanged()
+    } else {
+      dce_texpr(transformer, ctx, expr, break_scan_budget)
+    }
+  })
+  .on_tinstruction_evt(fn(transformer, ctx, instr) {
+    if skip_current_func.val {
+      unchanged()
+    } else {
+      dce_tinstr(transformer, ctx, instr, break_scan_budget)
+    }
+  })
 }
 
 ///|
@@ -31,6 +57,7 @@ fn dce_texpr(
   transformer : ModuleTransformer[Unit],
   _ctx : Unit,
   expr : TExpr,
+  break_scan_budget : Ref[Int],
 ) -> TransformerResult[Unit, TExpr] {
   let TExpr(instrs) = expr
   let out : Array[TInstr] = []
@@ -50,7 +77,7 @@ fn dce_texpr(
       changed = true
     }
     out.push(new_instr)
-    if is_unreachable_instr(new_instr) {
+    if dce_is_unreachable_instr(new_instr, break_scan_budget) {
       after_unreachable = true
     }
   }
@@ -66,6 +93,7 @@ fn dce_tinstr(
   transformer : ModuleTransformer[Unit],
   _ctx : Unit,
   instr : TInstr,
+  break_scan_budget : Ref[Int],
 ) -> TransformerResult[Unit, TInstr] {
   let walked = match transformer.walk_tinstruction_default((), instr) {
     Err(e) => return Err(e)
@@ -78,7 +106,8 @@ fn dce_tinstr(
   rewritten = match rewritten {
     TBlock(_, body) if is_single_unreachable_texpr(body) =>
       TInstr::unreachable_()
-    TIf(_, cond, _, _) if is_unreachable_instr(cond) => cond
+    TIf(_, cond, _, _) if dce_is_unreachable_instr(cond, break_scan_budget) =>
+      cond
     TLoop(_, body) if is_single_unreachable_texpr(body) =>
       TInstr::unreachable_()
     _ => rewritten
@@ -89,9 +118,11 @@ fn dce_tinstr(
   // keep effects before the first unreachable as drops, keep the first
   // unreachable child, and remove everything after.
   if !is_control_flow_structure(rewritten) &&
-    is_unreachable_instr(rewritten) &&
-    has_unreachable_child(rewritten) {
-    rewritten = rewrite_non_control_unreachable(rewritten)
+    dce_is_unreachable_instr(rewritten, break_scan_budget) &&
+    dce_has_unreachable_child(rewritten, break_scan_budget) {
+    rewritten = dce_rewrite_non_control_unreachable(
+      rewritten, break_scan_budget,
+    )
   }
   if rewritten == instr {
     unchanged()
@@ -118,10 +149,14 @@ fn is_single_unreachable_texpr(expr : TExpr) -> Bool {
 }
 
 ///|
-fn texpr_is_unreachable(expr : TExpr) -> Bool {
+fn dce_texpr_is_unreachable(expr : TExpr, break_scan_budget : Ref[Int]) -> Bool {
   let TExpr(instrs) = expr
+  if instrs.length() > 0 &&
+    dce_is_unreachable_instr(instrs[instrs.length() - 1], break_scan_budget) {
+    return true
+  }
   for instr in instrs {
-    if is_unreachable_instr(instr) {
+    if dce_is_unreachable_instr(instr, break_scan_budget) {
       return true
     }
   }
@@ -145,10 +180,14 @@ fn catch_targets_depth(catch_ : Catch, depth : Int) -> Bool {
 }
 
 ///|
-fn has_break_to_depth_in_texpr(expr : TExpr, depth : Int) -> Bool {
+fn dce_has_break_to_depth_in_texpr(
+  expr : TExpr,
+  depth : Int,
+  break_scan_budget : Ref[Int],
+) -> Bool {
   let TExpr(instrs) = expr
   for instr in instrs {
-    if has_break_to_depth(instr, depth) {
+    if dce_has_break_to_depth(instr, depth, break_scan_budget) {
       return true
     }
   }
@@ -156,7 +195,25 @@ fn has_break_to_depth_in_texpr(expr : TExpr, depth : Int) -> Bool {
 }
 
 ///|
-fn has_break_to_depth(instr : TInstr, depth : Int) -> Bool {
+fn dce_take_break_budget(break_scan_budget : Ref[Int]) -> Bool {
+  if break_scan_budget.val <= 0 {
+    true
+  } else {
+    break_scan_budget.val = break_scan_budget.val - 1
+    false
+  }
+}
+
+///|
+fn dce_has_break_to_depth(
+  instr : TInstr,
+  depth : Int,
+  break_scan_budget : Ref[Int],
+) -> Bool {
+  // Conservatively assume a matching break when analysis budget is exhausted.
+  if dce_take_break_budget(break_scan_budget) {
+    return true
+  }
   match instr {
     TBr(label, _) => label_matches_depth(label, depth)
     TBrIf(label, _, _) => label_matches_depth(label, depth)
@@ -176,16 +233,21 @@ fn has_break_to_depth(instr : TInstr, depth : Int) -> Bool {
     | TBrOnCast(label, _, _, _, _, _)
     | TBrOnCastFail(label, _, _, _, _, _) => label_matches_depth(label, depth)
     TBlock(_, body) | TLoop(_, body) =>
-      has_break_to_depth_in_texpr(body, depth + 1)
+      dce_has_break_to_depth_in_texpr(body, depth + 1, break_scan_budget)
     TIf(_, cond, then_body, else_body) => {
-      if has_break_to_depth(cond, depth) {
+      if dce_has_break_to_depth(cond, depth, break_scan_budget) {
         return true
       }
-      if has_break_to_depth_in_texpr(then_body, depth + 1) {
+      if dce_has_break_to_depth_in_texpr(
+          then_body,
+          depth + 1,
+          break_scan_budget,
+        ) {
         return true
       }
       match else_body {
-        Some(body) => has_break_to_depth_in_texpr(body, depth + 1)
+        Some(body) =>
+          dce_has_break_to_depth_in_texpr(body, depth + 1, break_scan_budget)
         None => false
       }
     }
@@ -195,11 +257,11 @@ fn has_break_to_depth(instr : TInstr, depth : Int) -> Bool {
           return true
         }
       }
-      has_break_to_depth_in_texpr(body, depth + 1)
+      dce_has_break_to_depth_in_texpr(body, depth + 1, break_scan_budget)
     }
     _ => {
       for child in eval_children(instr) {
-        if has_break_to_depth(child, depth) {
+        if dce_has_break_to_depth(child, depth, break_scan_budget) {
           return true
         }
       }
@@ -209,9 +271,12 @@ fn has_break_to_depth(instr : TInstr, depth : Int) -> Bool {
 }
 
 ///|
-fn has_unreachable_child(instr : TInstr) -> Bool {
+fn dce_has_unreachable_child(
+  instr : TInstr,
+  break_scan_budget : Ref[Int],
+) -> Bool {
   for child in eval_children(instr) {
-    if is_unreachable_instr(child) {
+    if dce_is_unreachable_instr(child, break_scan_budget) {
       return true
     }
   }
@@ -219,7 +284,14 @@ fn has_unreachable_child(instr : TInstr) -> Bool {
 }
 
 ///|
-fn is_unreachable_instr(instr : TInstr) -> Bool {
+fn dce_is_unreachable_instr(
+  instr : TInstr,
+  break_scan_budget : Ref[Int],
+) -> Bool {
+  // When the analysis budget is exhausted, fall back to conservative behavior.
+  if dce_take_break_budget(break_scan_budget) {
+    return false
+  }
   match instr {
     TUnreachable => true
 
@@ -236,33 +308,38 @@ fn is_unreachable_instr(instr : TInstr) -> Bool {
     // Block is unreachable only when its body is unreachable and there are
     // no breaks to the block itself.
     TBlock(_, body) =>
-      texpr_is_unreachable(body) && !has_break_to_depth_in_texpr(body, 0)
+      dce_texpr_is_unreachable(body, break_scan_budget) &&
+      !dce_has_break_to_depth_in_texpr(body, 0, break_scan_budget)
 
     // If is unreachable when condition is unreachable or both branches are.
     TIf(_, cond, then_body, else_body) => {
-      if is_unreachable_instr(cond) {
+      if dce_is_unreachable_instr(cond, break_scan_budget) {
         return true
       }
       match else_body {
         Some(other) =>
-          texpr_is_unreachable(then_body) && texpr_is_unreachable(other)
+          dce_texpr_is_unreachable(then_body, break_scan_budget) &&
+          dce_texpr_is_unreachable(other, break_scan_budget)
         None => false
       }
     }
 
     // Loop can only fall through if the body can fall through.
-    TLoop(_, body) => texpr_is_unreachable(body)
+    TLoop(_, body) => dce_texpr_is_unreachable(body, break_scan_budget)
 
     // try_table can finish normally only when its body can finish normally.
-    TTryTable(_, _, body) => texpr_is_unreachable(body)
+    TTryTable(_, _, body) => dce_texpr_is_unreachable(body, break_scan_budget)
 
     // For non-control ops, any unreachable child makes the parent unreachable.
-    _ => has_unreachable_child(instr)
+    _ => dce_has_unreachable_child(instr, break_scan_budget)
   }
 }
 
 ///|
-fn rewrite_non_control_unreachable(instr : TInstr) -> TInstr {
+fn dce_rewrite_non_control_unreachable(
+  instr : TInstr,
+  break_scan_budget : Ref[Int],
+) -> TInstr {
   let children = eval_children(instr)
   let remaining : Array[TInstr] = []
   let mut after_unreachable = false
@@ -270,7 +347,7 @@ fn rewrite_non_control_unreachable(instr : TInstr) -> TInstr {
     if after_unreachable {
       continue
     }
-    if is_unreachable_instr(child) {
+    if dce_is_unreachable_instr(child, break_scan_budget) {
       remaining.push(child)
       after_unreachable = true
     } else {
@@ -281,6 +358,16 @@ fn rewrite_non_control_unreachable(instr : TInstr) -> TInstr {
     [single] => single
     _ => TInstr::block(BlockType::void_(), TExpr::new(remaining))
   }
+}
+
+///|
+fn has_break_to_depth_in_texpr(expr : TExpr, depth : Int) -> Bool {
+  dce_has_break_to_depth_in_texpr(expr, depth, Ref::new(200_000))
+}
+
+///|
+fn is_unreachable_instr(instr : TInstr) -> Bool {
+  dce_is_unreachable_instr(instr, Ref::new(200_000))
 }
 
 ///|
