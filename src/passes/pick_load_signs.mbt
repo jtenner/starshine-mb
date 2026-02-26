@@ -377,35 +377,27 @@ fn pls_analyze_body(body : TExpr) -> Result[PLSAnalysis, String] {
   }
 }
 
-///|
-fn pls_plan_rewrites(analysis : PLSAnalysis) -> Array[Bool] {
-  let decisions : Array[Bool] = []
-  for candidate in analysis.candidates {
-    let usage = analysis.usage_by_local
-      .get(candidate.local_idx)
-      .unwrap_or(PLSUsage::new())
-    if usage.total_usages == 0 ||
-      usage.signed_usages + usage.unsigned_usages != usage.total_usages ||
-      (usage.signed_usages != 0 && usage.signed_bits != candidate.load_bits) ||
-      (usage.unsigned_usages != 0 && usage.unsigned_bits != candidate.load_bits) {
-      decisions.push(candidate.current_signed)
-      continue
-    }
-    decisions.push(usage.signed_usages * 2 >= usage.unsigned_usages)
+fn pls_target_signedness(
+  candidate : PLSCandidateLoad,
+  usage_by_local : Map[Int, PLSUsage],
+) -> Bool {
+  let usage = usage_by_local.get(candidate.local_idx).unwrap_or(PLSUsage::new())
+  if usage.total_usages == 0 ||
+    usage.signed_usages + usage.unsigned_usages != usage.total_usages ||
+    (usage.signed_usages != 0 && usage.signed_bits != candidate.load_bits) ||
+    (usage.unsigned_usages != 0 && usage.unsigned_bits != candidate.load_bits) {
+    candidate.current_signed
+  } else {
+    usage.signed_usages * 2 >= usage.unsigned_usages
   }
-  decisions
 }
 
 ///|
-fn pls_rewrite_body(
-  body : TExpr,
-  decisions : Array[Bool],
-) -> Result[TExpr, String] {
-  if decisions.is_empty() {
+fn pls_rewrite_body(body : TExpr, analysis : PLSAnalysis) -> Result[TExpr, String] {
+  if analysis.candidates.is_empty() {
     return Ok(body)
   }
   let parent_stack : Array[TInstr] = []
-  let next_candidate = Ref::new(0)
   let rewriter = ModuleTransformer::new().on_tinstruction_evt(fn(
     self,
     _,
@@ -420,9 +412,8 @@ fn pls_rewrite_body(
     }
     ignore(parent_stack.pop())
     let output = match candidate {
-      Some(_) => {
-        let target_signed = decisions[next_candidate.val]
-        next_candidate.update(fn(n) { n + 1 })
+      Some(candidate) => {
+        let target_signed = pls_target_signedness(candidate, analysis.usage_by_local)
         match walked.kind {
           TInstrKind::TLoad(op, memarg, ptr) =>
             match pls_load_with_signedness(op, target_signed) {
@@ -456,8 +447,7 @@ fn pick_load_signs_on_func(func : Func) -> Result[Func, String] {
         Ok(a) => a
         Err(e) => return Err(e)
       }
-      let decisions = pls_plan_rewrites(analysis)
-      let rewritten = match pls_rewrite_body(body, decisions) {
+      let rewritten = match pls_rewrite_body(body, analysis) {
         Ok(out) => out
         Err(e) => return Err(e)
       }
