@@ -1064,6 +1064,61 @@ test "run_cmd_with_adapter prints version and exits successfully for -V" {
 }
 
 ///|
+test "run_cmd_with_adapter spec subcommand runs wast spec suite" {
+  let stdout_writes : Array[Bytes] = []
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == "ok.wast" },
+    list_candidates=fn() { ["ok.wast"] },
+    read_file=fn(path) {
+      if path == "ok.wast" {
+        Ok(bytes_from_string("(module)"))
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_stdout=fn(bytes) {
+      stdout_writes.push(bytes)
+      Ok(())
+    },
+  )
+  let summary = match run_cmd_with_adapter(["spec", "ok.wast"], io) {
+    Ok(v) => v
+    Err(e) => fail("expected spec run success, got \{e}")
+  }
+  assert_eq(summary.input_files, ["ok.wast"])
+  assert_eq(summary.resolved_passes, ["spec"])
+  assert_eq(stdout_writes.length(), 1)
+  assert_true(bytes_to_ascii_string(stdout_writes[0]).contains("failed=0"))
+}
+
+///|
+test "run_cmd_with_adapter spec subcommand reports failures" {
+  let stdout_writes : Array[Bytes] = []
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == "broken.wast" },
+    list_candidates=fn() { ["broken.wast"] },
+    read_file=fn(path) {
+      if path == "broken.wast" {
+        Ok(bytes_from_string("(assert_invalid (module) \"must fail\")"))
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_stdout=fn(bytes) {
+      stdout_writes.push(bytes)
+      Ok(())
+    },
+  )
+  match run_cmd_with_adapter(["spec", "broken.wast"], io) {
+    Ok(summary) => fail("expected spec failure, got \{summary}")
+    Err(CmdError::SpecFailed(msg)) => assert_true(msg.contains("broken.wast"))
+    Err(err) => fail("expected SpecFailed, got \{err}")
+  }
+  assert_eq(stdout_writes.length(), 2)
+  assert_true(bytes_to_ascii_string(stdout_writes[0]).contains("failed=1"))
+}
+
+///|
 test "run_cmd_exit_code_with_adapter returns zero for successful runs" {
   let wasm = encode_module_bytes(fixture_i32_const_module(21))
   let io = CmdIO::new(

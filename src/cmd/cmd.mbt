@@ -6,6 +6,7 @@ pub enum CmdError {
   ConfigNotFound(String)
   ConfigReadFailed(String)
   InputReadFailed(String)
+  SpecFailed(String)
   TextLoweringFailed(String)
   DecodeFailed(String, DecodeError)
   OptimizeFailed(String)
@@ -1505,9 +1506,12 @@ pub fn cmd_version_text() -> String {
 pub fn cmd_help_text() -> String {
   let out = StringBuilder::new()
   for
-    c in "Starshine Wasm Binary Toolkit \{cmd_version_text()}\nFast parsing, validation, optimization, and rewriting for Wasm modules.\n\nUsage:\n  starshine [flags] [passes] <input...>\n\nFlags and options:\n" {
+    c in "Starshine Wasm Binary Toolkit \{cmd_version_text()}\nFast parsing, validation, optimization, and rewriting for Wasm modules.\n\nUsage:\n  starshine [flags] [passes] <input...>\n  starshine spec <tests/spec/*.wast ...>\n\nFlags and options:\n" {
     out.write_char(c)
   }
+  append_help_line(
+    out, "spec <tests/spec/*.wast ...>", "Run the wast spec harness over one or more .wast files.",
+  )
   append_help_line(out, "-h, --help", "Show this help text.")
   append_help_line(out, "-V, --version", "Show CLI version.")
   append_help_line(
@@ -1562,6 +1566,97 @@ pub fn cmd_help_text() -> String {
     append_help_line(out, "--\{entry.0}", entry.1)
   }
   out.to_string()
+}
+
+///|
+fn spec_cmd_help_text() -> String {
+  "Usage:\n  starshine spec <tests/spec/*.wast ...>\n\nOptions:\n  -h, --help\n      Show spec subcommand help.\n"
+}
+
+///|
+fn spec_failed_preview(
+  summary : @wast.WastSpecRunSummary,
+  limit : Int,
+) -> String {
+  let out : Array[String] = []
+  for report in summary.files {
+    match report.status {
+      @wast.WastSpecFileStatus::Failed(msg) =>
+        out.push("\{report.path}: \{msg}")
+      _ => ()
+    }
+  }
+  let builder = StringBuilder::new()
+  let mut i = 0
+  while i < out.length() && i < limit {
+    if i > 0 {
+      builder.write_string(" | ")
+    }
+    builder.write_string(out[i])
+    i += 1
+  }
+  builder.to_string()
+}
+
+///|
+fn run_spec_cmd_with_adapter(
+  args : Array[String],
+  io : CmdIO,
+) -> Result[CmdRunSummary, CmdError] {
+  if args.length() == 0 ||
+    (args.length() == 1 && (args[0] == "-h" || args[0] == "--help")) {
+    match (io.write_stdout)(string_to_bytes(spec_cmd_help_text())) {
+      Ok(_) => return Ok(CmdRunSummary::new())
+      Err(e) =>
+        return Err(
+          CmdError::OutputWriteFailed("stdout for spec help text: \{e}"),
+        )
+    }
+  }
+
+  let globs : Array[String] = []
+  for arg in args {
+    let normalized = normalize_cli_path(arg.trim().to_string())
+    if normalized.length() > 0 {
+      append_unique_string(globs, normalized)
+    }
+  }
+  let input_files = resolve_input_files(globs, io)
+  if input_files.length() == 0 {
+    return Err(CmdError::NoInputFiles)
+  }
+
+  let files : Array[(String, String)] = []
+  for path in input_files {
+    let bytes = match (io.read_file)(path) {
+      Ok(v) => v
+      Err(e) => return Err(CmdError::InputReadFailed("\{path}: \{e}"))
+    }
+    files.push((path, bytes_to_string_lossy(bytes)))
+  }
+
+  let summary = @wast.run_wast_spec_suite(files)
+  let summary_line = "spec suite summary: total=\{summary.total_files} passed=\{summary.passed_files} skipped=\{summary.skipped_files} failed=\{summary.failed_files}\n"
+  match (io.write_stdout)(string_to_bytes(summary_line)) {
+    Ok(_) => ()
+    Err(e) =>
+      return Err(CmdError::OutputWriteFailed("stdout for spec summary: \{e}"))
+  }
+
+  if summary.failed_files > 0 {
+    let preview = spec_failed_preview(summary, 20)
+    let preview_line = "failed files preview: \{preview}\n"
+    match (io.write_stdout)(string_to_bytes(preview_line)) {
+      Ok(_) => ()
+      Err(e) =>
+        return Err(
+          CmdError::OutputWriteFailed("stdout for spec failure preview: \{e}"),
+        )
+    }
+    return Err(CmdError::SpecFailed(preview_line.trim().to_string()))
+  }
+
+  Ok(CmdRunSummary::new(input_files~, resolved_passes=["spec"]))
 }
 
 ///|
@@ -1754,6 +1849,18 @@ pub fn run_cmd_with_adapter(
   io : CmdIO,
   config_json? : String? = None,
 ) -> Result[CmdRunSummary, CmdError] {
+  if args.length() > 0 {
+    if args[0] == "spec" || args[0] == "spec-runner" {
+      let spec_args = Array::new(capacity=args.length() - 1)
+      let mut i = 1
+      while i < args.length() {
+        spec_args.push(args[i])
+        i += 1
+      }
+      return run_spec_cmd_with_adapter(spec_args, io)
+    }
+  }
+
   let starshine_input = (io.get_env)("STARSHINE_INPUT")
   let cli = match parse_cli_args(args, starshine_input~) {
     Ok(parsed) => parsed

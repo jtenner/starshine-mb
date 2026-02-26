@@ -1,9 +1,7 @@
 {
   "name": "jtenner/starshine",
   "version": "0.1.0",
-  "deps": {
-    "peter-jerry-ye/wasi": "0.24.3"
-  },
+  "deps": {},
   "readme": "README.mbt.md",
   "repository": "",
   "license": "Apache-2.0",

@@ -55,6 +55,7 @@ pub enum CmdError {
   ConfigNotFound(String)
   ConfigReadFailed(String)
   InputReadFailed(String)
+  SpecFailed(String)
   TextLoweringFailed(String)
   DecodeFailed(String, @binary.DecodeError)
   OptimizeFailed(String)
