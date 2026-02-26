@@ -44,6 +44,18 @@ fn run_remove_unused_names(mod : Module) -> Module {
 }
 
 ///|
+const RUN_RESCAN_BUDGET_PER_FUNC : Int = 200000
+
+///|
+const RUN_RESCAN_BUDGET_EXHAUSTED : String = "__remove_unused_names_rescan_budget_exhausted__"
+
+///|
+const RUN_BRANCH_TO_SCOPE_FOUND : String = "__remove_unused_names_branch_to_scope_found__"
+
+///|
+const RUN_HAS_CANDIDATE_FOUND : String = "__remove_unused_names_has_candidate_found__"
+
+///|
 fn run_label_to_int(label : LabelIdx) -> Int {
   let LabelIdx(raw) = label
   raw.reinterpret_as_int()
@@ -55,13 +67,19 @@ fn run_label_from_int(idx : Int) -> LabelIdx {
 }
 
 ///|
-fn run_adjust_label_for_removed_scope(
+fn run_adjust_label_for_removed_scopes(
   label : LabelIdx,
   depth : Int,
+  removed_scopes : Int,
 ) -> LabelIdx {
   let curr = run_label_to_int(label)
   if curr > depth {
-    run_label_from_int(curr - 1)
+    let lowered = curr - removed_scopes
+    if lowered < depth {
+      run_label_from_int(depth)
+    } else {
+      run_label_from_int(lowered)
+    }
   } else {
     label
   }
@@ -153,10 +171,33 @@ fn run_walk_tinstruction_with_depth(
 }
 
 ///|
-fn run_shift_labels_for_removed_scope(body : TExpr) -> Result[TExpr, String] {
+fn run_take_rescan_budget(budget : Ref[Int]) -> Bool {
+  let remaining = budget.val
+  if remaining <= 0 {
+    false
+  } else {
+    budget.update(fn(i) { i - 1 })
+    true
+  }
+}
+
+///|
+fn run_shift_labels_for_removed_scopes(
+  body : TExpr,
+  removed_scopes : Int,
+  budget : Ref[Int],
+) -> Result[TExpr?, String] {
+  if removed_scopes <= 0 {
+    return Ok(Some(body))
+  }
+  if budget.val <= 0 {
+    return Ok(None)
+  }
   let pass = ModuleTransformer::new()
     .on_labelidx_evt(fn(_, depth, label) {
-      let next = run_adjust_label_for_removed_scope(label, depth)
+      let next = run_adjust_label_for_removed_scopes(
+        label, depth, removed_scopes,
+      )
       if next == label {
         unchanged()
       } else {
@@ -164,63 +205,171 @@ fn run_shift_labels_for_removed_scope(body : TExpr) -> Result[TExpr, String] {
       }
     })
     .on_tinstruction_evt(fn(self, depth, instr) {
+      if !run_take_rescan_budget(budget) {
+        return Err(RUN_RESCAN_BUDGET_EXHAUSTED)
+      }
       run_walk_tinstruction_with_depth(self, depth, instr)
     })
   match pass.walk_texpr(0, body) {
-    Ok(Some((_, out))) => Ok(out)
-    Ok(None) => Ok(body)
-    Err(e) => Err(e)
+    Ok(Some((_, out))) => Ok(Some(out))
+    Ok(None) => Ok(Some(body))
+    Err(e) => if e == RUN_RESCAN_BUDGET_EXHAUSTED { Ok(None) } else { Err(e) }
   }
 }
 
 ///|
-fn run_has_branch_to_current_scope(body : TExpr) -> Bool {
-  let mut has_branch = false
+fn run_peel_single_child_same_blocks(
+  bt : BlockType,
+  body : TExpr,
+) -> (Int, TExpr) {
+  let mut removed = 0
+  let mut curr = body
+  while true {
+    match curr {
+      TExpr([TBlock(child_bt, child_body)]) =>
+        if child_bt == bt {
+          removed += 1
+          curr = child_body
+        } else {
+          break
+        }
+      _ => break
+    }
+  }
+  (removed, curr)
+}
+
+///|
+fn run_has_branch_to_current_scope(
+  body : TExpr,
+  budget : Ref[Int],
+) -> Result[Bool?, String] {
+  if budget.val <= 0 {
+    return Ok(None)
+  }
   let pass = ModuleTransformer::new()
     .on_labelidx_evt(fn(_, depth, label) {
       if run_label_to_int(label) == depth {
-        has_branch = true
+        return Err(RUN_BRANCH_TO_SCOPE_FOUND)
       }
       unchanged()
     })
     .on_tinstruction_evt(fn(self, depth, instr) {
+      if !run_take_rescan_budget(budget) {
+        return Err(RUN_RESCAN_BUDGET_EXHAUSTED)
+      }
       run_walk_tinstruction_with_depth(self, depth, instr)
     })
-  ignore(pass.walk_texpr(0, body))
-  has_branch
+  match pass.walk_texpr(0, body) {
+    Ok(_) => Ok(Some(false))
+    Err(e) =>
+      if e == RUN_BRANCH_TO_SCOPE_FOUND {
+        Ok(Some(true))
+      } else if e == RUN_RESCAN_BUDGET_EXHAUSTED {
+        Ok(None)
+      } else {
+        Err(e)
+      }
+  }
+}
+
+///|
+fn run_has_remove_unused_names_candidate(body : TExpr) -> Result[Bool, String] {
+  let pass = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+    match instr {
+      TBlock(bt, TExpr([TBlock(child_bt, _)])) =>
+        if child_bt == bt {
+          return Err(RUN_HAS_CANDIDATE_FOUND)
+        }
+      TLoop(bt, _) =>
+        if bt == BlockType::void_() {
+          return Err(RUN_HAS_CANDIDATE_FOUND)
+        }
+      _ => ()
+    }
+    self.walk_tinstruction_default((), instr)
+  })
+  match pass.walk_texpr((), body) {
+    Ok(_) => Ok(false)
+    Err(e) => if e == RUN_HAS_CANDIDATE_FOUND { Ok(true) } else { Err(e) }
+  }
 }
 
 ///|
 fn run_remove_unused_names_once(body : TExpr) -> Result[(TExpr, Bool), String] {
+  match run_has_remove_unused_names_candidate(body) {
+    Ok(true) => ()
+    Ok(false) => return Ok((body, false))
+    Err(e) => return Err(e)
+  }
   let mut changed = false
+  let rescan_budget = Ref::new(RUN_RESCAN_BUDGET_PER_FUNC)
   let pass = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    let walked = match self.walk_tinstruction_default((), instr) {
+    let mut seed = instr
+    match instr {
+      TBlock(bt, body) => {
+        let (removed, peeled) = run_peel_single_child_same_blocks(bt, body)
+        if removed > 0 {
+          let shifted = match
+            run_shift_labels_for_removed_scopes(peeled, removed, rescan_budget) {
+            Ok(Some(out)) => Some(out)
+            Ok(None) => None
+            Err(e) => return Err(e)
+          }
+          match shifted {
+            Some(next_body) => {
+              let next_seed = TInstr::block(bt, next_body)
+              if next_seed != instr {
+                changed = true
+              }
+              seed = next_seed
+            }
+            None => ()
+          }
+        }
+      }
+      _ => ()
+    }
+
+    let walked = match self.walk_tinstruction_default((), seed) {
       Ok(Some((_, out))) => out
-      Ok(None) => instr
+      Ok(None) => seed
       Err(e) => return Err(e)
     }
     let rewritten = match walked {
-      TBlock(bt, TExpr(items)) =>
-        match items {
-          [TBlock(child_bt, child_body)] =>
-            if child_bt == bt {
-              let shifted = match
-                run_shift_labels_for_removed_scope(child_body) {
-                Ok(out) => out
-                Err(e) => return Err(e)
+      TBlock(bt, body) => {
+        let (removed, peeled) = run_peel_single_child_same_blocks(bt, body)
+        if removed <= 0 {
+          walked
+        } else {
+          match
+            run_shift_labels_for_removed_scopes(peeled, removed, rescan_budget) {
+            Ok(Some(next_body)) => {
+              let next = TInstr::block(bt, next_body)
+              if next != walked {
+                changed = true
               }
-              changed = true
-              TInstr::block(child_bt, shifted)
-            } else {
-              walked
+              next
             }
-          _ => walked
+            Ok(None) => walked
+            Err(e) => return Err(e)
+          }
         }
+      }
       TLoop(bt, loop_body) =>
-        if bt == BlockType::void_() &&
-          !run_has_branch_to_current_scope(loop_body) {
-          changed = true
-          TInstr::block(bt, loop_body)
+        if bt == BlockType::void_() {
+          let has_branch = match
+            run_has_branch_to_current_scope(loop_body, rescan_budget) {
+            Ok(Some(found)) => found
+            Ok(None) => true
+            Err(e) => return Err(e)
+          }
+          if has_branch {
+            walked
+          } else {
+            changed = true
+            TInstr::block(bt, loop_body)
+          }
         } else {
           walked
         }

@@ -18,6 +18,9 @@
 const RUB_TOO_COSTLY_TO_RUN_UNCONDITIONALLY : Int = 8
 
 ///|
+const RUB_HAS_CANDIDATE_FOUND : String = "__remove_unused_brs_has_candidate_found__"
+
+///|
 fn rub_label_to_int(label : LabelIdx) -> Int {
   let LabelIdx(raw) = label
   raw.reinterpret_as_int()
@@ -650,6 +653,34 @@ fn rub_optimize_instr_list(
 }
 
 ///|
+fn rub_has_candidate_instr(instr : TInstr) -> Bool {
+  match instr {
+    TNop
+    | TBr(_, _)
+    | TBrIf(_, _, _)
+    | TBrTable(_, _, _, _)
+    | TIf(_, _, _, _)
+    | TReturn(_)
+    | TDrop(TBrIf(_, _, _)) => true
+    _ => false
+  }
+}
+
+///|
+fn rub_has_candidate_in_body(body : TExpr) -> Result[Bool, String] {
+  let pass = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+    if rub_has_candidate_instr(instr) {
+      return Err(RUB_HAS_CANDIDATE_FOUND)
+    }
+    self.walk_tinstruction_default(false, instr)
+  })
+  match pass.walk_texpr(false, body) {
+    Ok(_) => Ok(false)
+    Err(e) => if e == RUB_HAS_CANDIDATE_FOUND { Ok(true) } else { Err(e) }
+  }
+}
+
+///|
 fn remove_unused_brs_pass(options : OptimizeOptions) -> ModuleTransformer[Bool] {
   ModuleTransformer::new()
   .on_func_evt(fn(self, _, func) {
@@ -689,7 +720,8 @@ fn remove_unused_brs_pass(options : OptimizeOptions) -> ModuleTransformer[Bool] 
     if changed {
       change(in_function_body, TExpr::new(out))
     } else {
-      unchanged()
+      // We already walked children; return the original node to avoid a second default walk.
+      change(in_function_body, expr)
     }
   })
   .on_tinstruction_evt(fn(self, _, instr) {
@@ -704,9 +736,44 @@ fn remove_unused_brs_pass(options : OptimizeOptions) -> ModuleTransformer[Bool] 
     if changed_if || changed_switch || changed_br_if || after_br_if != instr {
       change(false, after_br_if)
     } else {
-      unchanged()
+      // Children were already traversed above; avoid default re-traversal.
+      change(false, instr)
     }
   })
+}
+
+///|
+fn rub_optimize_func_fixpoint(
+  func : Func,
+  options : OptimizeOptions,
+) -> Result[Func, String] {
+  match func {
+    TFunc(_, body) =>
+      match rub_has_candidate_in_body(body) {
+        Ok(false) => Ok(func)
+        Ok(true) => {
+          let mut curr = func
+          let mut rounds = 0
+          while rounds < 16 {
+            rounds += 1
+            let pass = remove_unused_brs_pass(options)
+            match pass.walk_func(false, curr) {
+              Ok(Some((_, next_func))) => {
+                if next_func == curr {
+                  break
+                }
+                curr = next_func
+              }
+              Ok(None) => break
+              Err(e) => return Err(e)
+            }
+          }
+          Ok(curr)
+        }
+        Err(e) => Err(e)
+      }
+    _ => Ok(func)
+  }
 }
 
 ///|
@@ -714,23 +781,22 @@ fn remove_unused_brs(
   mod : Module,
   options? : OptimizeOptions = OptimizeOptions::new(),
 ) -> Result[Module, String] {
-  let mut curr = mod
-  let mut rounds = 0
-  while rounds < 16 {
-    rounds += 1
-    let pass = remove_unused_brs_pass(options)
-    match pass.walk_module(false, curr) {
-      Ok(Some((_, next_mod))) => {
-        if next_mod == curr {
-          break
+  let pass = ModuleTransformer::new().on_func_evt(fn(_, _, func) {
+    match rub_optimize_func_fixpoint(func, options) {
+      Ok(next_func) =>
+        if next_func == func {
+          unchanged()
+        } else {
+          change(false, next_func)
         }
-        curr = next_mod
-      }
-      Ok(None) => break
-      Err(e) => return Err(e)
+      Err(e) => Err(e)
     }
+  })
+  match pass.walk_module(false, mod) {
+    Ok(Some((_, out))) => Ok(out)
+    Ok(None) => Ok(mod)
+    Err(e) => Err(e)
   }
-  Ok(curr)
 }
 
 ///|
