@@ -220,7 +220,7 @@ fn ls_infer_tinstr_type(
   }
 
   fn infer_texpr_type(texpr : TExpr) -> ValType? {
-    let TExpr(instrs) = texpr
+    let { instrs, .. } = texpr
     if instrs.is_empty() {
       None
     } else {
@@ -598,7 +598,7 @@ fn ls_structural_dominance_texpr(
   cannot_be_non_nullable : Set[Int],
 ) -> Set[Int] {
   let mut state = definitely_set
-  for instr in expr.0 {
+  for instr in expr.instrs {
     state = ls_structural_dominance_instr(
       instr, state, relevant_locals, cannot_be_non_nullable,
     )
@@ -696,7 +696,7 @@ fn ls_refine_function_locals(
     return (locals, false)
   }
   let scan = ls_scan_body(body, relevant_locals)
-  let graph = LocalGraph::new(body.0)
+  let graph = LocalGraph::new(body.instrs)
   let cannot_be_non_nullable = ls_compute_cannot_be_non_nullable(
     scan, graph, body, relevant_locals,
   )
@@ -940,7 +940,9 @@ test "local subtyping includes local tee assignments in refinement" {
   let out = run_local_subtyping(mod)
   match out.code_sec {
     Some(
-      CodeSec([TFunc([RefTypeValType(rt)], TExpr([TDrop(TLocalTee(_, _))]))])
+      CodeSec(
+        [TFunc([RefTypeValType(rt)], { instrs: [TDrop(TLocalTee(_, _))], .. })]
+      )
     ) => assert_false(rt.is_nullable())
     _ => fail("expected tee-driven refinement")
   }

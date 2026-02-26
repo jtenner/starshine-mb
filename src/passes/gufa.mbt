@@ -1225,7 +1225,15 @@ test "gufa ref.eq of distinct ref.func values becomes const false" {
     Err(e) => fail("unexpected gufa error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(TBlock(_, TExpr(seq)))])), _, _])) =>
+    Some(
+      CodeSec(
+        [
+          TFunc(_, { instrs: [TDrop(TBlock(_, { instrs: seq, .. }))], .. }),
+          _,
+          _,
+        ]
+      )
+    ) =>
       match seq[seq.length() - 1] {
         TI32Const(I32(v)) => assert_eq(v, 0)
         _ => fail("expected ref.eq replacement to end with i32.const 0")
@@ -1255,7 +1263,11 @@ test "gufa ref.test of null against non-null target becomes const false" {
     Err(e) => fail("unexpected gufa error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(TBlock(_, TExpr(seq)))]))])) =>
+    Some(
+      CodeSec(
+        [TFunc(_, { instrs: [TDrop(TBlock(_, { instrs: seq, .. }))], .. })]
+      )
+    ) =>
       match seq[seq.length() - 1] {
         TI32Const(I32(v)) => assert_eq(v, 0)
         _ => fail("expected ref.test replacement to end with i32.const 0")
@@ -1285,7 +1297,11 @@ test "gufa impossible ref.cast becomes unreachable" {
     Err(e) => fail("unexpected gufa error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(TBlock(_, TExpr(seq)))]))])) =>
+    Some(
+      CodeSec(
+        [TFunc(_, { instrs: [TDrop(TBlock(_, { instrs: seq, .. }))], .. })]
+      )
+    ) =>
       match seq[seq.length() - 1] {
         TUnreachable => ()
         _ => fail("expected impossible cast to become unreachable")
@@ -1315,7 +1331,11 @@ test "gufa ref.test_desc of null against non-null target becomes const false" {
     Err(e) => fail("unexpected gufa error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(TBlock(_, TExpr(seq)))]))])) =>
+    Some(
+      CodeSec(
+        [TFunc(_, { instrs: [TDrop(TBlock(_, { instrs: seq, .. }))], .. })]
+      )
+    ) =>
       match seq[seq.length() - 1] {
         TI32Const(I32(v)) => assert_eq(v, 0)
         _ => fail("expected ref.test_desc replacement to end with i32.const 0")
@@ -1345,7 +1365,11 @@ test "gufa impossible ref.cast_desc_eq becomes unreachable" {
     Err(e) => fail("unexpected gufa error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(TBlock(_, TExpr(seq)))]))])) =>
+    Some(
+      CodeSec(
+        [TFunc(_, { instrs: [TDrop(TBlock(_, { instrs: seq, .. }))], .. })]
+      )
+    ) =>
       match seq[seq.length() - 1] {
         TUnreachable => ()
         _ => fail("expected impossible descriptor cast to become unreachable")
@@ -1362,7 +1386,7 @@ test "gufa keeps exact ref.test_desc when source is a strict subtype" {
     Err(e) => fail("unexpected gufa error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(instr)])), _])) =>
+    Some(CodeSec([TFunc(_, { instrs: [TDrop(instr)], .. }), _])) =>
       match instr {
         TRefTestDesc(false, HeapType(TypeIdx(i)), TRefFunc(FuncIdx(f))) => {
           assert_eq(i.reinterpret_as_int(), 0)
@@ -1385,7 +1409,7 @@ test "gufa keeps exact ref.cast_desc_eq when source is a strict subtype" {
     Err(e) => fail("unexpected gufa error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(instr)])), _])) =>
+    Some(CodeSec([TFunc(_, { instrs: [TDrop(instr)], .. }), _])) =>
       match instr {
         TRefCastDescEq(false, HeapType(TypeIdx(i)), TRefFunc(FuncIdx(f))) => {
           assert_eq(i.reinterpret_as_int(), 0)
@@ -1421,7 +1445,7 @@ test "gufa cast_all inserts cast for known immutable global ref.func" {
     Err(e) => fail("unexpected gufa error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(instr)]))])) =>
+    Some(CodeSec([TFunc(_, { instrs: [TDrop(instr)], .. })])) =>
       match instr {
         TRefCast(false, HeapType(TypeIdx(i)), TGlobalGet(GlobalIdx(g))) => {
           assert_eq(i.reinterpret_as_int(), 0)
@@ -1454,7 +1478,7 @@ test "gufa cast_all propagates known local ref.func and inserts cast" {
     Err(e) => fail("unexpected gufa error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([_, TDrop(instr)]))])) =>
+    Some(CodeSec([TFunc(_, { instrs: [_, TDrop(instr)], .. })])) =>
       match instr {
         TRefCast(false, HeapType(TypeIdx(i)), TLocalGet(LocalIdx(local_i))) => {
           assert_eq(i.reinterpret_as_int(), 0)
@@ -1503,7 +1527,7 @@ test "gufa ref.cast refines target type when inferred type is stricter" {
     Err(e) => fail("unexpected gufa error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(instr)]))])) =>
+    Some(CodeSec([TFunc(_, { instrs: [TDrop(instr)], .. })])) =>
       match instr {
         TRefCast(false, HeapType(TypeIdx(i)), TGlobalGet(GlobalIdx(g))) => {
           assert_eq(i.reinterpret_as_int(), 0)
@@ -1538,7 +1562,11 @@ test "gufa oracle propagates local i32 constant into i32.eqz" {
     Err(e) => fail("unexpected gufa error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([_, TDrop(TBlock(_, TExpr(seq)))]))])) =>
+    Some(
+      CodeSec(
+        [TFunc(_, { instrs: [_, TDrop(TBlock(_, { instrs: seq, .. }))], .. })]
+      )
+    ) =>
       match seq[seq.length() - 1] {
         TI32Const(I32(v)) => assert_eq(v, 1)
         _ => fail("expected i32.eqz(local.const 0) to fold to i32.const 1")
@@ -1563,7 +1591,11 @@ test "gufa oracle propagates local ref.func into ref.is_null" {
     Err(e) => fail("unexpected gufa error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([_, TDrop(TBlock(_, TExpr(seq)))]))])) =>
+    Some(
+      CodeSec(
+        [TFunc(_, { instrs: [_, TDrop(TBlock(_, { instrs: seq, .. }))], .. })]
+      )
+    ) =>
       match seq[seq.length() - 1] {
         TI32Const(I32(v)) => assert_eq(v, 0)
         _ => fail("expected ref.is_null(ref.func) to fold to i32.const 0")
@@ -1590,7 +1622,11 @@ test "gufa oracle propagates local i64 constant into i64.eqz" {
     Err(e) => fail("unexpected gufa error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([_, TDrop(TBlock(_, TExpr(seq)))]))])) =>
+    Some(
+      CodeSec(
+        [TFunc(_, { instrs: [_, TDrop(TBlock(_, { instrs: seq, .. }))], .. })]
+      )
+    ) =>
       match seq[seq.length() - 1] {
         TI32Const(I32(v)) => assert_eq(v, 1)
         _ => fail("expected i64.eqz(local.const 0) to fold to i32.const 1")
@@ -1620,7 +1656,7 @@ test "gufa replaces immutable i64 global.get with constant" {
     Err(e) => fail("unexpected gufa error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(instr)]))])) =>
+    Some(CodeSec([TFunc(_, { instrs: [TDrop(instr)], .. })])) =>
       match instr {
         TI64Const(I64(v)) => assert_eq(v, 123L)
         _ => fail("expected immutable i64 global.get to fold to i64.const")
@@ -1659,7 +1695,16 @@ test "gufa merges identical local knowledge across if branches" {
     Err(e) => fail("unexpected gufa error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([_, _, TDrop(TBlock(_, TExpr(seq)))]))])) =>
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            { instrs: [_, _, TDrop(TBlock(_, { instrs: seq, .. }))], .. }
+          ),
+        ]
+      )
+    ) =>
       match seq[seq.length() - 1] {
         TI32Const(I32(v)) => assert_eq(v, 0)
         _ => fail("expected post-if ref.is_null(local) to fold to i32.const 0")
@@ -1692,7 +1737,16 @@ test "gufa keeps local knowledge across if without else via pre-state merge" {
     Err(e) => fail("unexpected gufa error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([_, _, TDrop(TBlock(_, TExpr(seq)))]))])) =>
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            { instrs: [_, _, TDrop(TBlock(_, { instrs: seq, .. }))], .. }
+          ),
+        ]
+      )
+    ) =>
       match seq[seq.length() - 1] {
         TI32Const(I32(v)) => assert_eq(v, 0)
         _ =>
@@ -1735,7 +1789,7 @@ test "gufa does not fold when if branches produce conflicting local constants" {
     Err(e) => fail("unexpected gufa error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([_, TDrop(instr)]))])) =>
+    Some(CodeSec([TFunc(_, { instrs: [_, TDrop(instr)], .. })])) =>
       match instr {
         TUnary(I32EqzOp, _) => ()
         _ =>

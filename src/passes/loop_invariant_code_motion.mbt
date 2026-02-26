@@ -473,7 +473,7 @@ fn licm_visit_loop(
         body : TExpr,
         start_get_id : Int,
       ) -> (TExpr, Int, Bool, Bool) {
-        let items = body.0.copy()
+        let items = body.instrs.copy()
         let mut changed = false
         let mut next_get_id = start_get_id
         for i = 0; i < items.length(); i = i + 1 {
@@ -598,7 +598,7 @@ fn licm_run_on_body(body : TExpr) -> (TExpr, Bool) {
   // opportunities can bubble to outer loops deterministically.
   let mut rounds = 0
   while rounds < 64 {
-    let local_graph = LocalGraph::new(curr_body.0)
+    let local_graph = LocalGraph::new(curr_body.instrs)
     let loop_entry_get_ids = licm_collect_loop_entry_get_ids(curr_body)
     let loop_visit = Ref::new(0)
     let licm_pass = ModuleTransformer::new().on_tinstruction_evt(fn(
@@ -707,9 +707,11 @@ test "licm hoists basic none-typed local.set from loop entrance" {
   let mod = licm_single_func_mod([ValType::i32(), ValType::i32()], body)
   let optimized = licm_optimize(mod)
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TBlock(_, TExpr(items))]))])) =>
+    Some(
+      CodeSec([TFunc(_, { instrs: [TBlock(_, { instrs: items, .. })], .. })])
+    ) =>
       match items {
-        [TLocalSet(_, _), TLoop(_, TExpr([TNop, TNop]))] => ()
+        [TLocalSet(_, _), TLoop(_, { instrs: [TNop, TNop], .. })] => ()
         _ => fail("expected preheader local.set and nopped original")
       }
     _ => fail("expected block-wrapped loop after LICM")
@@ -748,11 +750,16 @@ test "licm stops scanning after control-transfer instruction" {
   )
   let optimized = licm_optimize(mod)
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TBlock(_, TExpr(items))]))])) =>
+    Some(
+      CodeSec([TFunc(_, { instrs: [TBlock(_, { instrs: items, .. })], .. })])
+    ) =>
       match items {
         [
           TLocalSet(LocalIdx(i), _),
-          TLoop(_, TExpr([TNop, TBrIf(_, _, _), TLocalSet(LocalIdx(j), _)])),
+          TLoop(
+            _,
+            { instrs: [TNop, TBrIf(_, _, _), TLocalSet(LocalIdx(j), _)], .. }
+          ),
         ] => {
           assert_eq(i.reinterpret_as_int(), 1)
           assert_eq(j.reinterpret_as_int(), 2)
@@ -919,7 +926,9 @@ test "licm hoists nested-loop invariant outward in one run" {
   )
   let optimized = licm_optimize(mod)
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TBlock(_, TExpr(items))]))])) =>
+    Some(
+      CodeSec([TFunc(_, { instrs: [TBlock(_, { instrs: items, .. })], .. })])
+    ) =>
       match items {
         [TLocalSet(_, _), TLoop(_, _)] => ()
         _ => fail("expected nested hoist to reach outer preheader")

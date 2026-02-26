@@ -938,7 +938,7 @@ pub fn[T] ModuleTransformer::walk_texpr_default(
   t : T,
   expr : TExpr,
 ) -> TransformerResult[T, TExpr] {
-  let TExpr(instructions) = expr
+  let { instrs: instructions, .. } = expr
   let (t, instructions) = match
     self.walk_array(t, ModuleTransformer::walk_tinstruction, instructions) {
     Err(e) => return Err(e)

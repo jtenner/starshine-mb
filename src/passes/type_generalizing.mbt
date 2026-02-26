@@ -267,7 +267,7 @@ fn tg_require_texpr(
   env : Env,
   st : TGState,
 ) -> Unit {
-  let TExpr(instrs) = body
+  let { instrs, .. } = body
   if instrs.is_empty() {
     return
   }

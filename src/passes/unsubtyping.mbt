@@ -696,7 +696,7 @@ fn uf_infer_texpr_result_types(
   if expected_arity <= 0 {
     return Some([])
   }
-  let TExpr(instrs) = body
+  let { instrs, .. } = body
   if instrs.is_empty() {
     return None
   }
@@ -831,7 +831,7 @@ fn uf_collect_from_texpr(
   casts : Map[Int, Array[Int]],
   traps_never_happen : Bool,
 ) -> Unit {
-  let TExpr(instrs) = body
+  let { instrs, .. } = body
   for instr in instrs {
     uf_collect_from_tinstr(
       instr, env, func_results, total_types, original_env, work, seen, casts, traps_never_happen,
@@ -1258,7 +1258,7 @@ fn uf_collect_initial_requirements(
               .with_locals(all_locals)
               .with_labels([results])
               .with_return_type(Some(results))
-            let TExpr(instrs) = body
+            let { instrs, .. } = body
             for instr in instrs {
               uf_collect_from_tinstr(
                 instr, func_env, results, total_types, env, work, seen, casts, traps_never_happen,
@@ -1279,7 +1279,7 @@ fn uf_collect_initial_requirements(
               .with_labels([results])
               .with_return_type(Some(results))
             match to_texpr(body, func_env) {
-              Ok(TExpr(instrs)) =>
+              Ok({ instrs, .. }) =>
                 for instr in instrs {
                   uf_collect_from_tinstr(
                     instr, func_env, results, total_types, env, work, seen, casts,
@@ -1299,7 +1299,7 @@ fn uf_collect_initial_requirements(
       for global in globals {
         let Global(_, init) = global
         match to_texpr(init, env.with_locals([]).with_return_type(Some([]))) {
-          Ok(TExpr(instrs)) =>
+          Ok({ instrs, .. }) =>
             for instr in instrs {
               uf_collect_from_tinstr(
                 instr,

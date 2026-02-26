@@ -44,7 +44,7 @@ fn ut_rewrite_texpr(
 ) -> (TExpr, Bool) {
   let out : Array[TInstr] = []
   let mut changed = false
-  for instr in expr.0 {
+  for instr in expr.instrs {
     let (next_instr, instr_changed) = ut_rewrite_tinstr(instr, local_types)
     out.push(next_instr)
     if instr_changed {
@@ -217,7 +217,11 @@ test "untee rewrites local.tee into result-typed block with set/get" {
   )
   let out = run_untee(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(TBlock(block_type, TExpr(instrs)))]))])) => {
+    Some(
+      CodeSec(
+        [TFunc(_, { instrs: [TDrop(TBlock(block_type, { instrs, .. }))], .. })]
+      )
+    ) => {
       match block_type {
         ValTypeBlockType(vt) => assert_eq(vt, ValType::i32())
         _ => fail("expected result-typed block")
@@ -254,7 +258,7 @@ test "untee drops unreachable local.tee to unreachable value" {
   )
   let out = run_untee(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(TUnreachable)]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TDrop(TUnreachable)], .. })])) => ()
     _ => fail("expected unreachable local.tee to become unreachable child")
   }
 }
@@ -281,7 +285,7 @@ test "untee uses parameter local type for block result" {
     )
   let out = run_untee(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(TBlock(block_type, _))]))])) =>
+    Some(CodeSec([TFunc(_, { instrs: [TDrop(TBlock(block_type, _))], .. })])) =>
       match block_type {
         ValTypeBlockType(vt) => assert_eq(vt, ValType::i32())
         _ => fail("expected i32 block type for param local.tee")

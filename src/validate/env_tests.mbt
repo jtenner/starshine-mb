@@ -335,10 +335,11 @@ test "to_texpr uses type-index block inputs including recursive index forms" {
   ])
   match to_texpr(expr, env) {
     Err(e) => fail("unexpected conversion error: \{e}")
-    Ok(TExpr(instrs)) => {
+    Ok({ instrs, .. }) => {
       assert_eq(instrs.length(), 1)
       match instrs[0] {
-        TBlock(TypeIdxBlockType(_), TExpr(body)) => assert_eq(body.length(), 1)
+        TBlock(TypeIdxBlockType(_), { instrs: body, .. }) =>
+          assert_eq(body.length(), 1)
         _ => fail("expected type-indexed block in converted expression")
       }
     }
@@ -391,7 +392,7 @@ test "to_texpr call conversion uses imported and defined function arities from w
   ])
   match to_texpr(expr, env) {
     Err(e) => fail("unexpected call conversion error: \{e}")
-    Ok(TExpr(instrs)) => {
+    Ok({ instrs, .. }) => {
       assert_eq(instrs.length(), 2)
       match instrs[0] {
         TCall(FuncIdx(i), args) => {
@@ -459,10 +460,10 @@ test "to_texpr return recovers multi-value typed block producer" {
   ])
   match to_texpr(expr, env) {
     Err(e) => fail("unexpected to_texpr failure: \{e}")
-    Ok(TExpr(instrs)) => {
+    Ok({ instrs, .. }) => {
       assert_eq(instrs.length(), 1)
       match instrs[0] {
-        TReturn([TBlock(bt, TExpr(values))]) => {
+        TReturn([TBlock(bt, { instrs: values, .. })]) => {
           assert_eq(bt, BlockType::type_idx(TypeIdx::new(0)))
           assert_eq(values.length(), 2)
         }
@@ -492,10 +493,12 @@ test "to_texpr return recovers multi-value typed if producer" {
   ])
   match to_texpr(expr, env) {
     Err(e) => fail("unexpected to_texpr failure: \{e}")
-    Ok(TExpr(instrs)) => {
+    Ok({ instrs, .. }) => {
       assert_eq(instrs.length(), 1)
       match instrs[0] {
-        TReturn([TIf(bt, _, TExpr(if_true), Some(TExpr(if_false)))]) => {
+        TReturn(
+          [TIf(bt, _, { instrs: if_true, .. }, Some({ instrs: if_false, .. }))]
+        ) => {
           assert_eq(bt, BlockType::type_idx(TypeIdx::new(0)))
           assert_eq(if_true.length(), 2)
           assert_eq(if_false.length(), 2)
@@ -527,10 +530,10 @@ test "to_texpr return recovers multi-value typed loop producer" {
   ])
   match to_texpr(expr, env) {
     Err(e) => fail("unexpected to_texpr failure: \{e}")
-    Ok(TExpr(instrs)) => {
+    Ok({ instrs, .. }) => {
       assert_eq(instrs.length(), 1)
       match instrs[0] {
-        TReturn([TLoop(bt, TExpr(values))]) => {
+        TReturn([TLoop(bt, { instrs: values, .. })]) => {
           assert_eq(bt, BlockType::type_idx(TypeIdx::new(0)))
           assert_eq(values.length(), 2)
         }
@@ -562,10 +565,10 @@ test "to_texpr return recovers multi-value typed try_table producer" {
   ])
   match to_texpr(expr, env) {
     Err(e) => fail("unexpected to_texpr failure: \{e}")
-    Ok(TExpr(instrs)) => {
+    Ok({ instrs, .. }) => {
       assert_eq(instrs.length(), 1)
       match instrs[0] {
-        TReturn([TTryTable(bt, catches, TExpr(values))]) => {
+        TReturn([TTryTable(bt, catches, { instrs: values, .. })]) => {
           assert_eq(bt, BlockType::type_idx(TypeIdx::new(0)))
           assert_eq(catches.length(), 0)
           assert_eq(values.length(), 2)
@@ -752,7 +755,7 @@ test "to_texpr call with unknown function index" {
   let expr = Expr::new([Instruction::call(FuncIdx::new(99))])
   // call with unknown func index: pop_n(stack, 0) succeeds but result is 0-arg call
   match to_texpr(expr, env) {
-    Ok(TExpr(instrs)) => assert_eq(instrs.length(), 1)
+    Ok({ instrs, .. }) => assert_eq(instrs.length(), 1)
     Err(_) => ()
   }
 }
@@ -767,7 +770,7 @@ test "to_texpr call_indirect with unknown type falls back to 0 inputs" {
   ])
   // TypeIdx(99) unresolvable -> 0 params, needs only table_index on stack
   match to_texpr(expr, env) {
-    Ok(TExpr(instrs)) => assert_eq(instrs.length(), 1)
+    Ok({ instrs, .. }) => assert_eq(instrs.length(), 1)
     Err(_) => ()
   }
 }
@@ -796,7 +799,7 @@ test "to_texpr block with non-function TypeIdx falls back to zero inputs" {
   match to_texpr(expr, env) {
     Err(e) =>
       fail("unexpected conversion failure for non-function blocktype: \{e}")
-    Ok(TExpr(instrs)) => assert_eq(instrs.length(), 1)
+    Ok({ instrs, .. }) => assert_eq(instrs.length(), 1)
   }
 }
 
@@ -811,7 +814,7 @@ test "to_texpr call_indirect with non-function TypeIdx falls back to zero params
   match to_texpr(expr, env) {
     Err(e) =>
       fail("unexpected conversion failure for non-function call_indirect: \{e}")
-    Ok(TExpr(instrs)) => {
+    Ok({ instrs, .. }) => {
       assert_eq(instrs.length(), 1)
       match instrs[0] {
         TCallIndirect(_, _, args, table_index) => {
@@ -919,7 +922,7 @@ test "to_texpr allows stack-polymorphic local_tee after unreachable" {
     Instruction::drop(),
   ])
   match to_texpr(expr, env) {
-    Ok(TExpr(instrs)) => assert_true(instrs.length() >= 2)
+    Ok({ instrs, .. }) => assert_true(instrs.length() >= 2)
     Err(e) =>
       fail(
         "expected stack-polymorphic conversion success after unreachable, got: \{e}",
@@ -932,7 +935,7 @@ test "to_texpr allows stack-polymorphic binary op after unreachable" {
   let env = Env::new()
   let expr = Expr::new([Instruction::unreachable_(), Instruction::i32_add()])
   match to_texpr(expr, env) {
-    Ok(TExpr(instrs)) => assert_eq(instrs.length(), 2)
+    Ok({ instrs, .. }) => assert_eq(instrs.length(), 2)
     Err(e) =>
       fail(
         "expected stack-polymorphic binary conversion success after unreachable, got: \{e}",

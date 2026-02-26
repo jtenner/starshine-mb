@@ -526,7 +526,7 @@ fn oc_walk_early_cast_finder_expr(
   finder : EarlyCastFinder,
   expr : TExpr,
 ) -> Unit {
-  for instr in expr.0 {
+  for instr in expr.instrs {
     ignore(oc_walk_early_cast_finder_instr(finder, instr))
   }
 }
@@ -759,7 +759,7 @@ fn oc_walk_best_cast_finder_instr(
 
 ///|
 fn oc_walk_best_cast_finder_expr(finder : BestCastFinder, expr : TExpr) -> Unit {
-  for instr in expr.0 {
+  for instr in expr.instrs {
     oc_walk_best_cast_finder_instr(finder, instr, None)
   }
 }
@@ -1017,7 +1017,7 @@ test "optimize casts duplicates earlier cast and tees best cast" {
     Some(TFunc(locals, new_body)) => {
       assert_true(locals.length() >= 2)
       let mut saw_tee = false
-      for instr in new_body.0 {
+      for instr in new_body.instrs {
         match instr {
           TLocalTee(_, _) => saw_tee = true
           _ => ()
@@ -1126,8 +1126,8 @@ test "optimize casts resets at non linear boundaries" {
   let out = optimize_casts(mod_)
   match oc_get_func(out) {
     Some(TFunc(_, new_body)) =>
-      match new_body.0[2] {
-        TBlock(_, TExpr([inner])) =>
+      match new_body.instrs[2] {
+        TBlock(_, { instrs: [inner], .. }) =>
           match inner {
             TLocalGet(i) => assert_eq(i.0.reinterpret_as_int(), 0)
             _ => ()

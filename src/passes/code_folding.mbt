@@ -475,16 +475,16 @@ fn collect_block_tails(
         state.return_tails.push(Tail::branch(instr, instrs))
 
       // Recursively process nested blocks
-      TBlock(_, body) => collect_block_tails(state, body.0)
-      TLoop(_, body) => collect_block_tails(state, body.0)
+      TBlock(_, body) => collect_block_tails(state, body.instrs)
+      TLoop(_, body) => collect_block_tails(state, body.instrs)
       TIf(_, _, then_body, else_body) => {
-        collect_block_tails(state, then_body.0)
+        collect_block_tails(state, then_body.instrs)
         match else_body {
-          Some(body) => collect_block_tails(state, body.0)
+          Some(body) => collect_block_tails(state, body.instrs)
           None => ()
         }
       }
-      TTryTable(_, _, body) => collect_block_tails(state, body.0)
+      TTryTable(_, _, body) => collect_block_tails(state, body.instrs)
       _ => ()
     }
   }
@@ -548,8 +548,8 @@ fn process_if(
     Some(else_expr) => {
       // Both arms must be present
       let tails = [
-        Tail::fallthrough(then_body.0),
-        Tail::fallthrough(else_expr.0),
+        Tail::fallthrough(then_body.instrs),
+        Tail::fallthrough(else_expr.instrs),
       ]
       optimize_expression_tails(
         state,
@@ -574,7 +574,8 @@ fn code_folding_pass() -> ModuleTransformer[CodeFoldingState] {
             match new_instr {
               TBlock(_, new_body) =>
                 // Try to optimize the block's tails
-                match process_block(new_state, LabelIdx::new(0), new_body.0) {
+                match
+                  process_block(new_state, LabelIdx::new(0), new_body.instrs) {
                   Some(_) =>
                     // Block was modified
                     change(new_state, TInstr::block(bt, new_body))
@@ -584,7 +585,7 @@ fn code_folding_pass() -> ModuleTransformer[CodeFoldingState] {
             }
           Ok(None) =>
             // Try to optimize unchanged block
-            match process_block(state, LabelIdx::new(0), body.0) {
+            match process_block(state, LabelIdx::new(0), body.instrs) {
               Some(_) => change(state, instr)
               None => unchanged()
             }
@@ -633,14 +634,14 @@ fn code_folding_pass() -> ModuleTransformer[CodeFoldingState] {
           state.clear()
 
           // Collect tails from function body
-          collect_block_tails(state, current_body.0)
+          collect_block_tails(state, current_body.instrs)
 
           // Try terminating tail optimization (returns/unreachables)
           match
             optimize_terminating_tails(
               state,
               state.return_tails.copy(),
-              current_body.0,
+              current_body.instrs,
             ) {
             Some(new_body_instrs) => {
               current_body = TExpr::new(new_body_instrs)
@@ -652,7 +653,7 @@ fn code_folding_pass() -> ModuleTransformer[CodeFoldingState] {
                 optimize_terminating_tails(
                   state,
                   state.unreachable_tails.copy(),
-                  current_body.0,
+                  current_body.instrs,
                 ) {
                 Some(new_body_instrs) => {
                   current_body = TExpr::new(new_body_instrs)
@@ -760,7 +761,7 @@ test "simple function unchanged" {
   let f = Func::t_func([], TExpr::new([TInstr::i32_const(I32(42))]))
   let f2 = run_fold(f)
   match f2 {
-    TFunc(_, TExpr(instrs)) => assert_eq(instrs.length(), 1)
+    TFunc(_, { instrs, .. }) => assert_eq(instrs.length(), 1)
     _ => fail("expected TFunc")
   }
 }
@@ -922,7 +923,7 @@ test "code folding: if-else with identical tails" {
   let f2 = run_fold(f)
   // The pass should run without error
   match f2 {
-    TFunc(_, TExpr(_)) => ()
+    TFunc(_, { instrs: _, .. }) => ()
     _ => fail("expected TFunc")
   }
 }
@@ -977,7 +978,7 @@ test "code folding: empty function unchanged" {
   let f = Func::t_func([], TExpr::new([]))
   let f2 = run_fold(f)
   match f2 {
-    TFunc(_, TExpr(instrs)) => assert_eq(instrs.length(), 0)
+    TFunc(_, { instrs, .. }) => assert_eq(instrs.length(), 0)
     _ => fail("expected TFunc")
   }
 }
@@ -987,7 +988,7 @@ test "code folding: single instruction unchanged" {
   let f = Func::t_func([], TExpr::new([TInstr::nop()]))
   let f2 = run_fold(f)
   match f2 {
-    TFunc(_, TExpr(instrs)) => {
+    TFunc(_, { instrs, .. }) => {
       assert_eq(instrs.length(), 1)
       assert_true(instrs[0] is TNop)
     }

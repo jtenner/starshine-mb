@@ -213,7 +213,7 @@ test "duplicate import elimination merges duplicate function imports" {
     None => fail("expected import section")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr(instrs)), _])) => {
+    Some(CodeSec([TFunc(_, { instrs, .. }), _])) => {
       assert_eq(instrs.length(), 3)
       match instrs[0] {
         TCall(FuncIdx(i), []) => assert_eq(i, 0U)
@@ -371,7 +371,7 @@ test "duplicate import elimination handles mixed extern kinds and remaps exports
     None => fail("expected import section")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr(instrs)), _])) => {
+    Some(CodeSec([TFunc(_, { instrs, .. }), _])) => {
       assert_eq(instrs.length(), 3)
       match instrs[0] {
         TCall(FuncIdx(i), []) => assert_eq(i, 0U)

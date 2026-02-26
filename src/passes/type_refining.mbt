@@ -547,7 +547,7 @@ fn tr_update_param_types(
     }
   }
 
-  let next_body = TExpr::new([..prologue, ..rewritten.0])
+  let next_body = TExpr::new([..prologue, ..rewritten.instrs])
   (next_locals, next_body)
 }
 
@@ -747,7 +747,7 @@ test "type refining inserts param fixup local for incompatible param.set" {
     .with_code_sec(CodeSec::new([caller, callee]))
   let out = run_type_refining(mod)
   match out.code_sec {
-    Some(CodeSec([_, TFunc(locals, TExpr(instrs))])) => {
+    Some(CodeSec([_, TFunc(locals, { instrs, .. })])) => {
       assert_eq(locals.length(), 1)
       assert_eq(locals[0], nullable_funcref)
       assert_eq(

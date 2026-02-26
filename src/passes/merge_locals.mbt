@@ -292,7 +292,7 @@ fn ml_analyze_texpr(
   state : MLAnalyzeState,
 ) -> MLFlowState {
   let mut flow = in_flow
-  for instr in expr.0 {
+  for instr in expr.instrs {
     flow = ml_analyze_tinstruction(instr, flow, state)
   }
   flow
@@ -393,7 +393,7 @@ fn build_local_graph_snapshot(
   match func {
     TFunc(_, body) => {
       // Build eagerly to avoid IR mutation races with later rewrites.
-      ignore(LocalGraph::new(body.0))
+      ignore(LocalGraph::new(body.instrs))
       let state = MLAnalyzeState::{
         next_get_id: 0,
         next_set_id: 0,

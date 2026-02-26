@@ -1208,7 +1208,10 @@ pub fn ValType::ref_null_array_of(x : TypeIdx) -> ValType {
 ///|
 /// A tree-based expression where operands are explicit children rather than implicit stack values.
 /// Each TInstr node contains its consumed operands as children.
-pub struct TExpr(Array[TInstr]) derive(Eq, Show, Hash, Debug)
+pub struct TExpr {
+  instrs : Array[TInstr]
+  mut hash : Int?
+} derive(Show, Debug)
 
 ///|
 /// A tree-based instruction with explicit operands
@@ -8204,7 +8207,39 @@ pub fn StartSec::new(fi : FuncIdx) -> StartSec {
 
 ///|
 pub fn TExpr::new(instrs : Array[TInstr]) -> TExpr {
-  TExpr(instrs)
+  { instrs, hash: None }
+}
+
+///|
+pub fn TExpr::inner(self : TExpr) -> Array[TInstr] {
+  self.instrs
+}
+
+///|
+pub impl Eq for TExpr with equal(l, r) {
+  let left_hash = l.hash()
+  let right_hash = r.hash()
+  if left_hash != right_hash {
+    return false
+  }
+  l.instrs == r.instrs
+}
+
+///|
+pub impl Hash for TExpr with hash(self) {
+  match self.hash {
+    Some(cached) => cached
+    None => {
+      let computed = self.instrs.hash()
+      self.hash = Some(computed)
+      computed
+    }
+  }
+}
+
+///|
+pub impl Hash for TExpr with hash_combine(self, hasher) {
+  hasher.combine_int(self.hash())
 }
 
 ///|

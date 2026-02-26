@@ -780,7 +780,7 @@ fn scan_comptype_for_types(ctx : AnalysisContext, ct : CompType) -> Unit {
 
 ///|
 fn scan_texpr(ctx : AnalysisContext, texpr : TExpr) -> Unit {
-  for instr in texpr.0 {
+  for instr in texpr.instrs {
     scan_tinstr(ctx, instr)
   }
 }
@@ -2142,7 +2142,8 @@ fn make_empty_func_body() -> Func {
 ///|
 fn func_body_is_unreachable(func : Func) -> Bool {
   match func {
-    TFunc(_, TExpr(instrs)) => instrs.length() == 1 && instrs[0] is TUnreachable
+    TFunc(_, { instrs, .. }) =>
+      instrs.length() == 1 && instrs[0] is TUnreachable
     Func(_, Expr(instrs)) => instrs.length() == 1 && instrs[0] is Unreachable
   }
 }
@@ -2150,7 +2151,7 @@ fn func_body_is_unreachable(func : Func) -> Bool {
 ///|
 fn func_body_has_direct_call_to(func : Func, target : FuncIdx) -> Bool {
   match func {
-    TFunc(_, TExpr(instrs)) =>
+    TFunc(_, { instrs, .. }) =>
       for instr in instrs {
         match instr {
           TCall(idx, _) | TReturnCall(idx, _) if idx == target => return true

@@ -22,7 +22,8 @@ fn dead_code_elimination_pass() -> ModuleTransformer[Unit] {
   .on_func_evt(fn(_, ctx, func) {
     match func {
       TFunc(locals, body) =>
-        skip_current_func.val = locals.length() > 64 || body.0.length() > 256
+        skip_current_func.val = locals.length() > 64 ||
+          body.instrs.length() > 256
       _ => skip_current_func.val = false
     }
     if skip_current_func.val {
@@ -59,7 +60,7 @@ fn dce_texpr(
   expr : TExpr,
   break_scan_budget : Ref[Int],
 ) -> TransformerResult[Unit, TExpr] {
-  let TExpr(instrs) = expr
+  let { instrs, .. } = expr
   let out : Array[TInstr] = []
   let mut changed = false
   let mut after_unreachable = false
@@ -141,7 +142,7 @@ fn is_control_flow_structure(instr : TInstr) -> Bool {
 
 ///|
 fn is_single_unreachable_texpr(expr : TExpr) -> Bool {
-  let TExpr(instrs) = expr
+  let { instrs, .. } = expr
   match instrs {
     [TUnreachable] => true
     _ => false
@@ -150,7 +151,7 @@ fn is_single_unreachable_texpr(expr : TExpr) -> Bool {
 
 ///|
 fn dce_texpr_is_unreachable(expr : TExpr, break_scan_budget : Ref[Int]) -> Bool {
-  let TExpr(instrs) = expr
+  let { instrs, .. } = expr
   if instrs.length() > 0 &&
     dce_is_unreachable_instr(instrs[instrs.length() - 1], break_scan_budget) {
     return true
@@ -185,7 +186,7 @@ fn dce_has_break_to_depth_in_texpr(
   depth : Int,
   break_scan_budget : Ref[Int],
 ) -> Bool {
-  let TExpr(instrs) = expr
+  let { instrs, .. } = expr
   for instr in instrs {
     if dce_has_break_to_depth(instr, depth, break_scan_budget) {
       return true
@@ -530,9 +531,13 @@ test "dead code elim rewrites non-control unreachable operands" {
     ),
   ])
   let out = run_dce_on_texpr(input)
-  match out.0 {
-    [TBlock(VoidBlockType, TExpr([TDrop(TI32Const(I32(1))), TUnreachable]))] =>
-      ()
+  match out.instrs {
+    [
+      TBlock(
+        VoidBlockType,
+        { instrs: [TDrop(TI32Const(I32(1))), TUnreachable], .. }
+      ),
+    ] => ()
     _ => fail("expected add to rewrite to block(drop(const), unreachable)")
   }
 }
@@ -550,8 +555,8 @@ test "dead code elim truncates block tails after unreachable" {
     ),
   ])
   let out = run_dce_on_texpr(input)
-  match out.0 {
-    [TBlock(_, TExpr([TI32Const(I32(0)), TUnreachable]))] => ()
+  match out.instrs {
+    [TBlock(_, { instrs: [TI32Const(I32(0)), TUnreachable], .. })] => ()
     _ => fail("expected block tail after unreachable to be removed")
   }
 }
@@ -568,7 +573,7 @@ test "dead code elim simplifies if when condition is unreachable" {
     TInstr::i32_const(I32(3)),
   ])
   let out = run_dce_on_texpr(input)
-  match out.0 {
+  match out.instrs {
     [TUnreachable] => ()
     _ => fail("expected if(cond=unreachable) to become unreachable")
   }
@@ -584,7 +589,7 @@ test "dead code elim simplifies loop with unreachable body" {
     TInstr::i32_const(I32(2)),
   ])
   let out = run_dce_on_texpr(input)
-  match out.0 {
+  match out.instrs {
     [TUnreachable] => ()
     _ => fail("expected loop(unreachable) to become unreachable")
   }
@@ -600,8 +605,8 @@ test "dead code elim keeps outer continuation when block has break" {
     TInstr::i32_const(I32(2)),
   ])
   let out = run_dce_on_texpr(input)
-  match out.0 {
-    [TBlock(_, TExpr([TBr(_, _)])), TI32Const(I32(2))] => ()
+  match out.instrs {
+    [TBlock(_, { instrs: [TBr(_, _)], .. }), TI32Const(I32(2))] => ()
     _ => fail("expected block with br 0 to preserve outer continuation")
   }
 }
@@ -617,8 +622,8 @@ test "dead code elim propagates unreachable through try_table" {
     TInstr::i32_const(I32(2)),
   ])
   let out = run_dce_on_texpr(input)
-  match out.0 {
-    [TTryTable(_, _, TExpr([TUnreachable]))] => ()
+  match out.instrs {
+    [TTryTable(_, _, { instrs: [TUnreachable], .. })] => ()
     _ => fail("expected try_table(unreachable body) to make continuation dead")
   }
 }
@@ -640,9 +645,12 @@ test "dead code elim keeps outer continuation for try_table catch escape" {
     TInstr::i32_const(I32(2)),
   ])
   let out = run_dce_on_texpr(input)
-  match out.0 {
+  match out.instrs {
     [
-      TBlock(_, TExpr([TTryTable(_, _, TExpr([TUnreachable]))])),
+      TBlock(
+        _,
+        { instrs: [TTryTable(_, _, { instrs: [TUnreachable], .. })], .. }
+      ),
       TI32Const(I32(2)),
     ] => ()
     _ =>
@@ -671,8 +679,11 @@ test "dead code elim keeps enclosing block reachable for loop branch escape" {
     TInstr::i32_const(I32(2)),
   ])
   let out = run_dce_on_texpr(input)
-  match out.0 {
-    [TBlock(_, TExpr([TLoop(_, TExpr([TBr(_, _)]))])), TI32Const(I32(2))] => ()
+  match out.instrs {
+    [
+      TBlock(_, { instrs: [TLoop(_, { instrs: [TBr(_, _)], .. })], .. }),
+      TI32Const(I32(2)),
+    ] => ()
     _ =>
       fail(
         "expected loop branch to enclosing block to keep continuation after block reachable",

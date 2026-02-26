@@ -118,7 +118,7 @@ fn gsi_collect_struct_types_in_texpr(expr : TExpr, out : Set[TypeIdx]) -> Unit {
 ///|
 fn gsi_single_root_init(init : Expr, env : Env) -> TInstr? {
   match to_texpr(init, env) {
-    Ok(TExpr([root])) => Some(root)
+    Ok({ instrs: [root], .. }) => Some(root)
     _ => None
   }
 }
@@ -1123,13 +1123,17 @@ test "global struct inference rewrites struct.get from singleton inferred global
         [
           TFunc(
             _,
-            TExpr(
-              [
+            {
+              instrs: [
                 TDrop(
-                  TBlock(_, TExpr([TDrop(TRefAsNonNull(_)), TI32Const(I32(v))]))
+                  TBlock(
+                    _,
+                    { instrs: [TDrop(TRefAsNonNull(_)), TI32Const(I32(v))], .. }
+                  )
                 ),
-              ]
-            )
+              ],
+              ..,
+            }
           ),
         ]
       )
@@ -1194,9 +1198,12 @@ test "global struct inference rewrites two-value struct.get to select with ref.e
         [
           TFunc(
             _,
-            TExpr(
-              [TDrop(TSelect(_, TRefEq(TRefAsNonNull(_), TGlobalGet(_)), _, _))]
-            )
+            {
+              instrs: [
+                TDrop(TSelect(_, TRefEq(TRefAsNonNull(_), TGlobalGet(_)), _, _)),
+              ],
+              ..,
+            }
           ),
         ]
       )
@@ -1262,7 +1269,12 @@ test "global struct inference groups >2 globals into two values" {
   match optimized.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, TExpr([TDrop(TSelect(_, TRefEq(_, TGlobalGet(_)), _, _))]))]
+        [
+          TFunc(
+            _,
+            { instrs: [TDrop(TSelect(_, TRefEq(_, TGlobalGet(_)), _, _))], .. }
+          ),
+        ]
       )
     ) => ()
     _ => fail("expected grouped two-value select rewrite with >2 globals")
@@ -1318,13 +1330,17 @@ test "global struct inference handles non-null struct.get operands without ref.a
         [
           TFunc(
             _,
-            TExpr(
-              [
+            {
+              instrs: [
                 TDrop(
-                  TBlock(_, TExpr([TDrop(TLocalGet(_)), TI32Const(I32(v))]))
+                  TBlock(
+                    _,
+                    { instrs: [TDrop(TLocalGet(_)), TI32Const(I32(v))], .. }
+                  )
                 ),
-              ]
-            )
+              ],
+              ..,
+            }
           ),
         ]
       )
@@ -1390,13 +1406,17 @@ test "global struct inference propagates globals through supertypes" {
         [
           TFunc(
             _,
-            TExpr(
-              [
+            {
+              instrs: [
                 TDrop(
-                  TBlock(_, TExpr([TDrop(TRefAsNonNull(_)), TI32Const(I32(v))]))
+                  TBlock(
+                    _,
+                    { instrs: [TDrop(TRefAsNonNull(_)), TI32Const(I32(v))], .. }
+                  )
                 ),
-              ]
-            )
+              ],
+              ..,
+            }
           ),
         ]
       )
@@ -1438,7 +1458,8 @@ test "global struct inference does not optimize mutable struct fields" {
     Err(e) => fail("unexpected global_struct_inference error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([instr]))])) => assert_eq(instr, get_instr)
+    Some(CodeSec([TFunc(_, { instrs: [instr], .. })])) =>
+      assert_eq(instr, get_instr)
     _ => fail("expected unoptimized mutable-field struct.get")
   }
 }
@@ -1486,7 +1507,8 @@ test "global struct inference does not optimize when struct type is created in c
     Err(e) => fail("unexpected global_struct_inference error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([_, TFunc(_, TExpr([instr]))])) => assert_eq(instr, get_instr)
+    Some(CodeSec([_, TFunc(_, { instrs: [instr], .. })])) =>
+      assert_eq(instr, get_instr)
     _ =>
       fail(
         "expected unoptimized struct.get when matching struct.new exists in code",
@@ -1527,7 +1549,8 @@ test "global struct inference does not optimize when source global is mutable" {
     Err(e) => fail("unexpected global_struct_inference error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([instr]))])) => assert_eq(instr, get_instr)
+    Some(CodeSec([TFunc(_, { instrs: [instr], .. })])) =>
+      assert_eq(instr, get_instr)
     _ => fail("expected unoptimized struct.get for mutable source global")
   }
 }
@@ -1579,7 +1602,8 @@ test "global struct inference does not optimize with more than two unique values
     Err(e) => fail("unexpected global_struct_inference error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([instr]))])) => assert_eq(instr, get_instr)
+    Some(CodeSec([TFunc(_, { instrs: [instr], .. })])) =>
+      assert_eq(instr, get_instr)
     _ => fail("expected unoptimized struct.get with >2 distinct values")
   }
 }
@@ -1623,7 +1647,8 @@ test "global struct inference folds direct immutable global struct.get to consta
     Err(e) => fail("unexpected global_struct_inference error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TI32Const(I32(v))]))])) => assert_eq(v, 99)
+    Some(CodeSec([TFunc(_, { instrs: [TI32Const(I32(v))], .. })])) =>
+      assert_eq(v, 99)
     _ => fail("expected direct global struct.get to fold to constant")
   }
 }
@@ -1686,18 +1711,23 @@ test "global struct inference rewrites singleton non-constant values via known g
         [
           TFunc(
             _,
-            TExpr(
-              [
+            {
+              instrs: [
                 TDrop(
                   TBlock(
                     _,
-                    TExpr(
-                      [TDrop(TRefAsNonNull(_)), TStructGet(_, _, TGlobalGet(_))]
-                    )
+                    {
+                      instrs: [
+                        TDrop(TRefAsNonNull(_)),
+                        TStructGet(_, _, TGlobalGet(_)),
+                      ],
+                      ..,
+                    }
                   )
                 ),
-              ]
-            )
+              ],
+              ..,
+            }
           ),
         ]
       )
@@ -1775,8 +1805,8 @@ test "global struct inference rewrites non-constant two-value case to select" {
         [
           TFunc(
             _,
-            TExpr(
-              [
+            {
+              instrs: [
                 TDrop(
                   TSelect(
                     _,
@@ -1785,8 +1815,9 @@ test "global struct inference rewrites non-constant two-value case to select" {
                     TStructGet(_, _, TGlobalGet(_))
                   )
                 ),
-              ]
-            )
+              ],
+              ..,
+            }
           ),
         ]
       )
@@ -1841,7 +1872,8 @@ test "global struct inference avoids direct-global non-constant pessimization" {
     Err(e) => fail("unexpected global_struct_inference error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([instr]))])) => assert_eq(instr, get_instr)
+    Some(CodeSec([TFunc(_, { instrs: [instr], .. })])) =>
+      assert_eq(instr, get_instr)
     _ => fail("expected direct-global non-constant read to stay unchanged")
   }
 }
@@ -1897,9 +1929,17 @@ test "global struct inference handles struct.get_u defaults for packed fields" {
         [
           TFunc(
             _,
-            TExpr(
-              [TDrop(TBlock(_, TExpr([TDrop(TRefAsNonNull(_)), read_value])))]
-            )
+            {
+              instrs: [
+                TDrop(
+                  TBlock(
+                    _,
+                    { instrs: [TDrop(TRefAsNonNull(_)), read_value], .. }
+                  )
+                ),
+              ],
+              ..,
+            }
           ),
         ]
       )
@@ -1941,7 +1981,8 @@ test "global struct inference does not optimize non-eqref declared globals" {
     Err(e) => fail("unexpected global_struct_inference error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([instr]))])) => assert_eq(instr, get_instr)
+    Some(CodeSec([TFunc(_, { instrs: [instr], .. })])) =>
+      assert_eq(instr, get_instr)
     _ => fail("expected no rewrite for non-eqref declared source global")
   }
 }
@@ -1997,7 +2038,8 @@ test "global struct inference propagates unoptimizable subtypes to supertypes" {
     Err(e) => fail("unexpected global_struct_inference error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([_, TFunc(_, TExpr([instr]))])) => assert_eq(instr, get_instr)
+    Some(CodeSec([_, TFunc(_, { instrs: [instr], .. })])) =>
+      assert_eq(instr, get_instr)
     _ =>
       fail(
         "expected supertype read to remain when subtype can be created in code",
@@ -2048,7 +2090,10 @@ test "global struct inference descriptor mode rewrites singleton non-null ref.ca
         [
           TFunc(
             _,
-            TExpr([TDrop(TRefCastDescEq(false, HeapType(TypeIdx(i)), _))])
+            {
+              instrs: [TDrop(TRefCastDescEq(false, HeapType(TypeIdx(i)), _))],
+              ..,
+            }
           ),
         ]
       )
@@ -2100,7 +2145,10 @@ test "global struct inference descriptor mode rewrites singleton nullable ref.ca
         [
           TFunc(
             _,
-            TExpr([TDrop(TRefCastDescEq(true, HeapType(TypeIdx(i)), _))])
+            {
+              instrs: [TDrop(TRefCastDescEq(true, HeapType(TypeIdx(i)), _))],
+              ..,
+            }
           ),
         ]
       )
@@ -2152,7 +2200,7 @@ test "global struct inference descriptor mode requires no strict subtypes" {
     Err(e) => fail("unexpected global_struct_inference error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(instr)]))])) =>
+    Some(CodeSec([TFunc(_, { instrs: [TDrop(instr)], .. })])) =>
       assert_eq(instr, cast_instr)
     _ =>
       fail("expected ref.cast unchanged when target type has strict subtypes")
@@ -2195,16 +2243,23 @@ test "global struct inference descriptor mode rewrites ref.get_desc with singlet
         [
           TFunc(
             _,
-            TExpr(
-              [
+            {
+              instrs: [
                 TDrop(
                   TBlock(
                     _,
-                    TExpr([TDrop(_), TRefGetDesc(TRefAsNonNull(TGlobalGet(_)))])
+                    {
+                      instrs: [
+                        TDrop(_),
+                        TRefGetDesc(TRefAsNonNull(TGlobalGet(_))),
+                      ],
+                      ..,
+                    }
                   )
                 ),
-              ]
-            )
+              ],
+              ..,
+            }
           ),
         ]
       )
@@ -2266,8 +2321,8 @@ test "global struct inference descriptor mode rewrites ref.get_desc with select 
         [
           TFunc(
             _,
-            TExpr(
-              [
+            {
+              instrs: [
                 TDrop(
                   TSelect(
                     Some([NumTypeValType(I32NumType)]),
@@ -2276,8 +2331,9 @@ test "global struct inference descriptor mode rewrites ref.get_desc with select 
                     TRefGetDesc(_)
                   )
                 ),
-              ]
-            )
+              ],
+              ..,
+            }
           ),
         ]
       )

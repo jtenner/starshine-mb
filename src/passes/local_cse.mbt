@@ -405,7 +405,7 @@ fn lcs_is_non_linear_boundary(instr : TInstr) -> Bool {
 ///|
 fn lcs_measure_texpr(expr : TExpr) -> Int {
   let mut total = 0
-  for instr in expr.0 {
+  for instr in expr.instrs {
     total += lcs_measure(instr)
   }
   total
@@ -653,7 +653,7 @@ fn lcs_infer_tinstr_type(instr : TInstr, env : Env) -> ValType? {
   }
 
   fn infer_texpr_type(texpr : TExpr, env : Env) -> ValType? {
-    let TExpr(instrs) = texpr
+    let { instrs, .. } = texpr
     if instrs.is_empty() {
       None
     } else {
@@ -1094,7 +1094,7 @@ fn lcs_scan_tinstr(
 ///|
 fn lcs_scan_texpr(scanner : Scanner, expr : TExpr) -> Unit {
   let mut active_exprs : Map[UInt64, Array[HashedExpression]] = Map::new()
-  for instr in expr.0 {
+  for instr in expr.instrs {
     let (_, next_active) = lcs_scan_tinstr(scanner, instr, active_exprs)
     active_exprs = next_active
   }
@@ -1236,7 +1236,7 @@ fn lcs_check_tinstr(
 ///|
 fn lcs_check_texpr(checker : Checker, expr : TExpr) -> Unit {
   let mut active_originals : Map[Int, LCSActiveOriginal] = Map::new()
-  for instr in expr.0 {
+  for instr in expr.instrs {
     let (_, next_active) = lcs_check_tinstr(checker, instr, active_originals)
     active_originals = next_active
   }
@@ -1739,7 +1739,7 @@ fn lcs_apply_texpr(applier : Applier, expr : TExpr) -> TExpr {
   let prev = applier.original_to_local
   applier.original_to_local = Map::new()
   let out : Array[TInstr] = []
-  for instr in expr.0 {
+  for instr in expr.instrs {
     let (new_instr, _) = lcs_apply_tinstr(applier, instr)
     out.push(new_instr)
   }

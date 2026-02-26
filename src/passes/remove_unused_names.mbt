@@ -226,7 +226,7 @@ fn run_peel_single_child_same_blocks(
   let mut curr = body
   while true {
     match curr {
-      TExpr([TBlock(child_bt, child_body)]) =>
+      { instrs: [TBlock(child_bt, child_body)], .. } =>
         if child_bt == bt {
           removed += 1
           curr = child_body
@@ -277,7 +277,7 @@ fn run_has_branch_to_current_scope(
 fn run_has_remove_unused_names_candidate(body : TExpr) -> Result[Bool, String] {
   let pass = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
     match instr {
-      TBlock(bt, TExpr([TBlock(child_bt, _)])) =>
+      TBlock(bt, { instrs: [TBlock(child_bt, _)], .. }) =>
         if child_bt == bt {
           return Err(RUN_HAS_CANDIDATE_FOUND)
         }
@@ -412,7 +412,8 @@ test "remove_unused_names merges single-child same-typed nested blocks" {
   let mod = Module::new().with_code_sec(CodeSec::new([Func::t_func([], body)]))
   let out = run_remove_unused_names(mod)
   match run_single_func(out) {
-    TFunc(_, TExpr([TBlock(_, TExpr([TI32Const(I32(7))]))])) => ()
+    TFunc(_, { instrs: [TBlock(_, { instrs: [TI32Const(I32(7))], .. })], .. }) =>
+      ()
     _ => fail("expected outer block to merge into child block")
   }
 }
@@ -438,8 +439,10 @@ test "remove_unused_names retargets branch depth when merging nested blocks" {
   let mod = Module::new().with_code_sec(CodeSec::new([Func::t_func([], body)]))
   let out = run_remove_unused_names(mod)
   match run_single_func(out) {
-    TFunc(_, TExpr([TBlock(_, TExpr([TBr(LabelIdx(next), _)]))])) =>
-      assert_eq(next.reinterpret_as_int(), 0)
+    TFunc(
+      _,
+      { instrs: [TBlock(_, { instrs: [TBr(LabelIdx(next), _)], .. })], .. }
+    ) => assert_eq(next.reinterpret_as_int(), 0)
     _ =>
       fail(
         "expected branch depth to be decremented after removing one block scope",
@@ -455,7 +458,8 @@ test "remove_unused_names rewrites loop to block when no continue branch remains
   let mod = Module::new().with_code_sec(CodeSec::new([Func::t_func([], body)]))
   let out = run_remove_unused_names(mod)
   match run_single_func(out) {
-    TFunc(_, TExpr([TBlock(_, TExpr([TI32Const(I32(3))]))])) => ()
+    TFunc(_, { instrs: [TBlock(_, { instrs: [TI32Const(I32(3))], .. })], .. }) =>
+      ()
     _ => fail("expected loop with no continue target to become block")
   }
 }
@@ -471,7 +475,7 @@ test "remove_unused_names keeps loop when body branches to loop label" {
   let mod = Module::new().with_code_sec(CodeSec::new([Func::t_func([], body)]))
   let out = run_remove_unused_names(mod)
   match run_single_func(out) {
-    TFunc(_, TExpr([TLoop(_, _)])) => ()
+    TFunc(_, { instrs: [TLoop(_, _)], .. }) => ()
     _ => fail("expected loop with br 0 to remain a loop")
   }
 }

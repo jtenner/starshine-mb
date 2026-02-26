@@ -534,7 +534,8 @@ test "pick_load_signs picks unsigned for i32.load8 when unsigned dominates" {
   )
   let out = pls_run_func(func)
   match out {
-    TFunc(_, TExpr([TLocalSet(_, TLoad(I32Load8UOp, _, _)), _, _])) => ()
+    TFunc(_, { instrs: [TLocalSet(_, TLoad(I32Load8UOp, _, _)), _, _], .. }) =>
+      ()
     _ => fail("expected i32.load8_s to become i32.load8_u")
   }
 }
@@ -567,7 +568,8 @@ test "pick_load_signs picks signed when signed uses are weighted higher" {
   )
   let out = pls_run_func(func)
   match out {
-    TFunc(_, TExpr([TLocalSet(_, TLoad(I32Load8SOp, _, _)), _, _])) => ()
+    TFunc(_, { instrs: [TLocalSet(_, TLoad(I32Load8SOp, _, _)), _, _], .. }) =>
+      ()
     _ => fail("expected i32.load8_u to become i32.load8_s")
   }
 }
@@ -598,7 +600,8 @@ test "pick_load_signs requires all loc.get uses to be sign-or-zero extensions" {
   )
   let out = pls_run_func(func)
   match out {
-    TFunc(_, TExpr([TLocalSet(_, TLoad(I32Load8SOp, _, _)), _, _])) => ()
+    TFunc(_, { instrs: [TLocalSet(_, TLoad(I32Load8SOp, _, _)), _, _], .. }) =>
+      ()
     _ => fail("expected load op to stay signed due non-extension use")
   }
 }
@@ -624,7 +627,7 @@ test "pick_load_signs requires extension bits to match load bits" {
   )
   let out = pls_run_func(func)
   match out {
-    TFunc(_, TExpr([TLocalSet(_, TLoad(I32Load8UOp, _, _)), _])) => ()
+    TFunc(_, { instrs: [TLocalSet(_, TLoad(I32Load8UOp, _, _)), _], .. }) => ()
     _ => fail("expected no rewrite when sign extension width mismatches")
   }
 }
@@ -653,7 +656,8 @@ test "pick_load_signs rejects inconsistent signed extension widths" {
   )
   let out = pls_run_func(func)
   match out {
-    TFunc(_, TExpr([TLocalSet(_, TLoad(I32Load8SOp, _, _)), _, _])) => ()
+    TFunc(_, { instrs: [TLocalSet(_, TLoad(I32Load8SOp, _, _)), _, _], .. }) =>
+      ()
     _ => fail("expected no rewrite with inconsistent signed widths")
   }
 }
@@ -687,7 +691,7 @@ test "pick_load_signs recognizes nested shift-based zero extension on grandparen
   )
   let out = pls_run_func(func)
   match out {
-    TFunc(_, TExpr([TLocalSet(_, TLoad(I32Load16UOp, _, _)), _])) => ()
+    TFunc(_, { instrs: [TLocalSet(_, TLoad(I32Load16UOp, _, _)), _], .. }) => ()
     _ => fail("expected i32.load16_s to become i32.load16_u")
   }
 }
@@ -719,7 +723,8 @@ test "pick_load_signs ignores loc.tee load producers" {
   )
   let out = pls_run_func(func)
   match out {
-    TFunc(_, TExpr([TDrop(TLocalTee(_, TLoad(I32Load8SOp, _, _))), _])) => ()
+    TFunc(_, { instrs: [TDrop(TLocalTee(_, TLoad(I32Load8SOp, _, _))), _], .. }) =>
+      ()
     _ => fail("expected tee load to remain unchanged")
   }
 }
@@ -743,7 +748,7 @@ test "pick_load_signs skips loads with no loc.get usages" {
   )
   let out = pls_run_func(func)
   match out {
-    TFunc(_, TExpr([TLocalSet(_, TLoad(I32Load8SOp, _, _)), _])) => ()
+    TFunc(_, { instrs: [TLocalSet(_, TLoad(I32Load8SOp, _, _)), _], .. }) => ()
     _ => fail("expected no rewrite with zero usages")
   }
 }
@@ -769,7 +774,7 @@ test "pick_load_signs rewrites i64.load32 based on i64.extend32_s usage" {
   )
   let out = pls_run_func(func)
   match out {
-    TFunc(_, TExpr([TLocalSet(_, TLoad(I64Load32SOp, _, _)), _])) => ()
+    TFunc(_, { instrs: [TLocalSet(_, TLoad(I64Load32SOp, _, _)), _], .. }) => ()
     _ => fail("expected i64.load32_u to become i64.load32_s")
   }
 }
@@ -799,7 +804,7 @@ test "pick_load_signs rewrites i64.load32 to unsigned for i64.and mask usage" {
   )
   let out = pls_run_func(func)
   match out {
-    TFunc(_, TExpr([TLocalSet(_, TLoad(I64Load32UOp, _, _)), _])) => ()
+    TFunc(_, { instrs: [TLocalSet(_, TLoad(I64Load32UOp, _, _)), _], .. }) => ()
     _ => fail("expected i64.load32_s to become i64.load32_u")
   }
 }
@@ -847,7 +852,7 @@ test "pick_load_signs rewrites all candidate loads mapped to the same loc" {
   let func = Func::t_func([ValType::i32()], body)
   let out = pls_run_func(func)
   match out {
-    TFunc(_, TExpr(instrs)) => {
+    TFunc(_, { instrs, .. }) => {
       let mut signed_count = 0
       let mut unsigned_count = 0
       for instr in instrs {

@@ -63,37 +63,58 @@ fn decode_module_bytes(bytes : Bytes) -> Module {
 
 ///|
 fn fixture_i32_const_module(value : Int) -> Module {
-  Module::new().with_code_sec(
+  let t_i32 = @lib.single_rec_type(
+    @lib.comp_type_sub_type(@lib.func_comp_type([], [@lib.ValType::i32()])),
+  )
+  Module::new()
+  .with_code_sec(
     CodeSec::new([
       Func::t_func([], TExpr::new([TInstr::i32_const(@lib.I32(value))])),
     ]),
   )
+  .with_type_sec(@lib.TypeSec::new([t_i32]))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0)]))
 }
 
 ///|
 fn fixture_f32_nan_module() -> Module {
   let nan_bits : UInt = 0x7FC00000
   let nan = @lib.F32(Float::reinterpret_from_uint(nan_bits))
-  Module::new().with_code_sec(
+  let t_f32 = @lib.single_rec_type(
+    @lib.comp_type_sub_type(@lib.func_comp_type([], [@lib.ValType::f32()])),
+  )
+  Module::new()
+  .with_code_sec(
     CodeSec::new([Func::t_func([], TExpr::new([TInstr::f32_const(nan)]))]),
   )
+  .with_type_sec(@lib.TypeSec::new([t_f32]))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0)]))
 }
 
 ///|
 fn fixture_mergeable_block_module() -> Module {
-  Module::new().with_code_sec(
+  let t_void = @lib.single_rec_type(
+    @lib.comp_type_sub_type(@lib.func_comp_type([], [])),
+  )
+  Module::new()
+  .with_code_sec(
     CodeSec::new([
       Func::t_func(
         [],
         TExpr::new([
           TInstr::block(
             @lib.BlockType::void_(),
-            TExpr::new([TInstr::i32_const(@lib.I32(9)), TInstr::nop()]),
+            TExpr::new([
+              TInstr::drop(TInstr::i32_const(@lib.I32(9))),
+              TInstr::nop(),
+            ]),
           ),
         ]),
       ),
     ]),
   )
+  .with_type_sec(@lib.TypeSec::new([t_void]))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0)]))
 }
 
 ///|
@@ -225,7 +246,8 @@ test "run_cmd_with_adapter --optimize handles examples/modules/simd_lane_mix.wat
 fn module_first_f32_const(mod : Module) -> Float? {
   match mod.code_sec {
     Some(CodeSec([Func(_, Expr([F32Const(F32(v))])), ..])) => Some(v)
-    Some(CodeSec([TFunc(_, TExpr([TF32Const(F32(v))])), ..])) => Some(v)
+    Some(CodeSec([TFunc(_, { instrs: [TF32Const(F32(v))], .. }), ..])) =>
+      Some(v)
     _ => None
   }
 }

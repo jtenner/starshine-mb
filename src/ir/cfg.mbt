@@ -109,7 +109,7 @@ fn lower_expr(
   builder : CFGBuilder,
 ) -> BlockContext {
   let mut ctx = ctx
-  for instr in expr.0 {
+  for instr in expr.instrs {
     match instr {
       TIf(_, cond, then_e, else_e) =>
         ctx = lower_if(cond, then_e, else_e, ctx, builder)

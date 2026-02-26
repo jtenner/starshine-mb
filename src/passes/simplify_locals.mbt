@@ -57,7 +57,7 @@ fn sl_collect_local_stats_instr(instr : TInstr, stats : SLLocalStats) -> Unit {
 
 ///|
 fn sl_collect_local_stats_texpr(expr : TExpr, stats : SLLocalStats) -> Unit {
-  for instr in expr.0 {
+  for instr in expr.instrs {
     sl_collect_local_stats_instr(instr, stats)
   }
 }
@@ -90,7 +90,7 @@ fn sl_has_result_if_instr(instr : TInstr) -> Bool {
 
 ///|
 fn sl_has_result_if_texpr(expr : TExpr) -> Bool {
-  for instr in expr.0 {
+  for instr in expr.instrs {
     if sl_has_result_if_instr(instr) {
       return true
     }
@@ -127,7 +127,7 @@ fn sl_count_local_gets_for_idx_instr(instr : TInstr, idx : Int) -> Int {
 ///|
 fn sl_count_local_gets_for_idx_texpr(expr : TExpr, idx : Int) -> Int {
   let mut total = 0
-  for instr in expr.0 {
+  for instr in expr.instrs {
     total += sl_count_local_gets_for_idx_instr(instr, idx)
   }
   total
@@ -167,7 +167,7 @@ fn sl_has_local_set_for_idx_instr(instr : TInstr, idx : Int) -> Bool {
 
 ///|
 fn sl_has_local_set_for_idx_texpr(expr : TExpr, idx : Int) -> Bool {
-  for instr in expr.0 {
+  for instr in expr.instrs {
     if sl_has_local_set_for_idx_instr(instr, idx) {
       return true
     }
@@ -206,7 +206,7 @@ fn sl_count_local_sets_for_idx_instr(instr : TInstr, idx : Int) -> Int {
 ///|
 fn sl_count_local_sets_for_idx_texpr(expr : TExpr, idx : Int) -> Int {
   let mut total = 0
-  for instr in expr.0 {
+  for instr in expr.instrs {
     total += sl_count_local_sets_for_idx_instr(instr, idx)
   }
   total
@@ -240,7 +240,7 @@ fn sl_has_result_block_instr(instr : TInstr) -> Bool {
 
 ///|
 fn sl_has_result_block_texpr(expr : TExpr) -> Bool {
-  for instr in expr.0 {
+  for instr in expr.instrs {
     if sl_has_result_block_instr(instr) {
       return true
     }
@@ -276,7 +276,7 @@ fn sl_has_result_loop_instr(instr : TInstr) -> Bool {
 
 ///|
 fn sl_has_result_loop_texpr(expr : TExpr) -> Bool {
-  for instr in expr.0 {
+  for instr in expr.instrs {
     if sl_has_result_loop_instr(instr) {
       return true
     }
@@ -314,7 +314,7 @@ fn sl_has_br_if_with_tee_value_instr(instr : TInstr, idx : Int) -> Bool {
 
 ///|
 fn sl_has_br_if_with_tee_value_texpr(expr : TExpr, idx : Int) -> Bool {
-  for instr in expr.0 {
+  for instr in expr.instrs {
     if sl_has_br_if_with_tee_value_instr(instr, idx) {
       return true
     }
@@ -414,7 +414,7 @@ fn sl_collect_get_counts_instr(instr : TInstr, counts : Array[Int]) -> Unit {
 
 ///|
 fn sl_collect_get_counts_texpr(expr : TExpr, counts : Array[Int]) -> Unit {
-  for instr in expr.0 {
+  for instr in expr.instrs {
     sl_collect_get_counts_instr(instr, counts)
   }
 }
@@ -496,15 +496,15 @@ fn sl_invalidate_sinkables(
 fn sl_take_terminal_local_set(
   body : TExpr,
 ) -> (Array[TInstr], LocalIdx, TInstr)? {
-  let n = body.0.length()
+  let n = body.instrs.length()
   if n == 0 {
     return None
   }
-  match body.0[n - 1] {
+  match body.instrs[n - 1] {
     TLocalSet(idx, value) => {
       let prefix : Array[TInstr] = []
       for i = 0; i < n - 1; i = i + 1 {
-        prefix.push(body.0[i])
+        prefix.push(body.instrs[i])
       }
       Some((prefix, idx, value))
     }
@@ -549,9 +549,9 @@ fn sl_collect_block_exit_candidates_texpr(
   target_depth : Int,
   state : SLBlockCollectState,
 ) -> Unit {
-  for i = 0; i < body.0.length(); i = i + 1 {
-    let curr = body.0[i]
-    let prev = if i > 0 { Some(body.0[i - 1]) } else { None }
+  for i = 0; i < body.instrs.length(); i = i + 1 {
+    let curr = body.instrs[i]
+    let prev = if i > 0 { Some(body.instrs[i - 1]) } else { None }
     match curr {
       TBr(label, values) =>
         if sl_labelidx_to_int(label) == target_depth {
@@ -690,8 +690,8 @@ fn sl_rewrite_block_exits_texpr(
 ) -> TExpr {
   let out : Array[TInstr] = []
   let shared_local = sl_localidx_from_int(shared_idx)
-  for i = 0; i < body.0.length(); i = i + 1 {
-    let curr = body.0[i]
+  for i = 0; i < body.instrs.length(); i = i + 1 {
+    let curr = body.instrs[i]
     let next = match curr {
       TBr(label, values) =>
         if sl_labelidx_to_int(label) == target_depth {
@@ -808,7 +808,7 @@ fn sl_rewrite_block_exits_texpr(
             target_depth,
             shared_idx,
             changed,
-          ).0[0],
+          ).instrs[0],
           sl_rewrite_block_exits_texpr(
             then_body,
             target_depth + 1,
@@ -926,7 +926,7 @@ fn sl_try_structure_loop_sink(
         Some(vt) => vt
         None => return instr
       }
-      let body_instrs = body.0.copy()
+      let body_instrs = body.instrs.copy()
       if body_instrs.is_empty() ||
         body_instrs[body_instrs.length() - 1] != TInstr::nop() {
         body_instrs.push(TInstr::nop())
@@ -1142,7 +1142,7 @@ fn sl_simplify_texpr_main(
   let sinkables : Map[Int, SLSinkableInfo] = Map::new()
   let changed = Ref::new(false)
 
-  for instr in expr.0 {
+  for instr in expr.instrs {
     let rewritten = sl_rewrite_instr_main(
       instr, sinkables, out, local_types, get_counts, options, false, changed,
     )
@@ -1303,7 +1303,7 @@ fn sl_remove_unneeded_sets_texpr(
   changed : Ref[Bool],
 ) -> TExpr {
   let out : Array[TInstr] = []
-  for instr in expr.0 {
+  for instr in expr.instrs {
     out.push(sl_remove_unneeded_sets_instr(instr, get_counts, changed))
   }
   TExpr::new(out)
@@ -1377,7 +1377,7 @@ fn sl_strip_nops_instr(instr : TInstr, changed : Ref[Bool]) -> TInstr {
 ///|
 fn sl_strip_nops_texpr(expr : TExpr, changed : Ref[Bool]) -> TExpr {
   let out : Array[TInstr] = []
-  for instr in expr.0 {
+  for instr in expr.instrs {
     if instr == TInstr::nop() {
       changed.val = true
       continue
@@ -1463,7 +1463,7 @@ fn sl_late_add_equivalence(state : SLLateState, a : Int, b : Int) -> Unit {
 ///|
 fn sl_get_fallthrough(instr : TInstr) -> TInstr {
   match instr {
-    TBlock(_, TExpr(instrs)) if instrs.length() > 0 =>
+    TBlock(_, { instrs, .. }) if instrs.length() > 0 =>
       sl_get_fallthrough(instrs[instrs.length() - 1])
     _ => instr
   }
@@ -1692,7 +1692,7 @@ fn sl_late_rewrite_instr(instr : TInstr, state : SLLateState) -> TInstr {
 ///|
 fn sl_late_rewrite_texpr(body : TExpr, state : SLLateState) -> TExpr {
   let out : Array[TInstr] = []
-  for instr in body.0 {
+  for instr in body.instrs {
     let next = sl_late_rewrite_instr(instr, state)
     out.push(next)
     if lcs_is_non_linear_boundary(next) || is_unreachable_instr(next) {
@@ -1861,7 +1861,7 @@ test "simplify_locals sinks a single-use local.set into local.get" {
       sl_collect_local_stats_texpr(body, stats)
       assert_eq(stats.sets, 0)
       assert_eq(stats.gets, 0)
-      match body.0 {
+      match body.instrs {
         [TDrop(TI32Const(I32(v)))] => assert_eq(v, 7)
         _ => fail("expected sunk local to become drop(i32.const 7)")
       }

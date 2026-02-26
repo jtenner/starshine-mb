@@ -246,7 +246,7 @@ fn gr_infer_tinstr_type(
   }
 
   fn infer_texpr_type(texpr : TExpr) -> ValType? {
-    let TExpr(instrs) = texpr
+    let { instrs, .. } = texpr
     if instrs.is_empty() {
       None
     } else {
@@ -400,7 +400,7 @@ fn gr_infer_expr_type(
   func_type_idx_by_func : Map[FuncIdx, TypeIdx],
 ) -> ValType? {
   match to_texpr(expr, env) {
-    Ok(TExpr(instrs)) if !instrs.is_empty() =>
+    Ok({ instrs, .. }) if !instrs.is_empty() =>
       gr_infer_tinstr_type(
         instrs[instrs.length() - 1],
         env,

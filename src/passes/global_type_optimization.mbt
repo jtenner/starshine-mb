@@ -1748,7 +1748,10 @@ test "global type optimization removes unread field and remaps struct indexes" {
         [
           TFunc(
             _,
-            TExpr([TDrop(TStructGet(_, @lib.U32(idx), TStructNew(_, ops)))])
+            {
+              instrs: [TDrop(TStructGet(_, @lib.U32(idx), TStructNew(_, ops)))],
+              ..,
+            }
           ),
         ]
       )

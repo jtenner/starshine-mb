@@ -2622,14 +2622,14 @@ fn i64l_rewrite_one_func(
         Err(e) => return Err(e)
       }
       let needs_implicit_return_wrap = if old_result_is_i64 {
-        let TExpr(old_instrs) = body
+        let { instrs: old_instrs, .. } = body
         !old_instrs.is_empty() &&
         i64l_old_instr_is_i64(ctx, old_instrs[old_instrs.length() - 1])
       } else {
         false
       }
       let final_body = if needs_implicit_return_wrap {
-        let TExpr(instrs) = rewritten_body
+        let { instrs, .. } = rewritten_body
         if instrs.is_empty() {
           rewritten_body
         } else {
@@ -2716,7 +2716,7 @@ fn i64l_rewrite_globals(
       continue
     }
     let root = match to_texpr(init, Env::new().with_module(mod)) {
-      Ok(TExpr([x])) => x
+      Ok({ instrs: [x], .. }) => x
       _ => return Err("i64_to_i32_lowering: unsupported i64 global init")
     }
     let (low_init, hi_init) = match root {
@@ -2934,7 +2934,7 @@ test "i64_to_i32_lowering lowers i64 globals and global.get/global.set" {
     _ => fail("expected global section")
   }
   match lowered.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TBlock(_, TExpr(instrs))]))])) => {
+    Some(CodeSec([TFunc(_, { instrs: [TBlock(_, { instrs, .. })], .. })])) => {
       assert_eq(instrs.length(), 2)
       match instrs[0] {
         TGlobalSet(GlobalIdx(i), _) => assert_eq(i.reinterpret_as_int(), 0)
@@ -3074,7 +3074,7 @@ test "i64_to_i32_lowering lowers call i64 args and results" {
     _ => fail("expected type section")
   }
   match lowered.code_sec {
-    Some(CodeSec([_, TFunc(_, TExpr([TBlock(_, TExpr(instrs))]))])) => {
+    Some(CodeSec([_, TFunc(_, { instrs: [TBlock(_, { instrs, .. })], .. })])) => {
       let mut saw_call = false
       for instr in instrs {
         match instr {
@@ -3113,10 +3113,10 @@ test "i64_to_i32_lowering lowers i64 load and store" {
     Err(e) => fail("unexpected i64_to_i32_lowering error: \{e}")
   }
   match lowered.code_sec {
-    Some(CodeSec([TFunc(_, TExpr(instrs))])) => {
+    Some(CodeSec([TFunc(_, { instrs, .. })])) => {
       assert_true(instrs.length() == 2)
       match instrs[0] {
-        TBlock(_, TExpr(seq)) => {
+        TBlock(_, { instrs: seq, .. }) => {
           let mut stores = 0
           for s in seq {
             match s {
@@ -3129,7 +3129,7 @@ test "i64_to_i32_lowering lowers i64 load and store" {
         _ => fail("expected lowered i64.store block")
       }
       match instrs[1] {
-        TBlock(_, TExpr(_)) => ()
+        TBlock(_, { instrs: _, .. }) => ()
         _ => fail("expected lowered i64.load block")
       }
     }
@@ -3153,7 +3153,7 @@ test "i64_to_i32_lowering lowers typed i64 select" {
     Err(e) => fail("unexpected i64_to_i32_lowering error: \{e}")
   }
   match lowered.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TBlock(_, TExpr(seq))]))])) => {
+    Some(CodeSec([TFunc(_, { instrs: [TBlock(_, { instrs: seq, .. })], .. })])) => {
       let mut saw_stash = false
       let mut saw_select = false
       for instr in seq {
@@ -3186,7 +3186,7 @@ test "i64_to_i32_lowering lowers untyped i64 select" {
     Err(e) => fail("unexpected i64_to_i32_lowering error: \{e}")
   }
   match lowered.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TBlock(_, _)]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TBlock(_, _)], .. })])) => ()
     _ => fail("expected untyped i64 select to lower to block form")
   }
 }
@@ -3276,7 +3276,7 @@ test "i64_to_i32_lowering lowers call_ref i64 args and results" {
     Err(e) => fail("unexpected i64_to_i32_lowering error: \{e}")
   }
   match lowered.code_sec {
-    Some(CodeSec([_, TFunc(_, TExpr([TBlock(_, TExpr(instrs))]))])) => {
+    Some(CodeSec([_, TFunc(_, { instrs: [TBlock(_, { instrs, .. })], .. })])) => {
       let mut saw_call_ref = false
       for instr in instrs {
         match instr {
@@ -3404,7 +3404,7 @@ test "i64_to_i32_lowering preserves explicit i64 return without extra tail wrap"
     Err(e) => fail("unexpected i64_to_i32_lowering error: \{e}")
   }
   match lowered.code_sec {
-    Some(CodeSec([TFunc(_, TExpr(instrs))])) => assert_eq(instrs.length(), 1)
+    Some(CodeSec([TFunc(_, { instrs, .. })])) => assert_eq(instrs.length(), 1)
     _ => fail("expected lowered function")
   }
 }
@@ -3435,7 +3435,7 @@ test "i64_to_i32_lowering handles implicit i64 return from typeidx block" {
     Err(e) => fail("unexpected i64_to_i32_lowering error: \{e}")
   }
   match lowered.code_sec {
-    Some(CodeSec([TFunc(_, TExpr(instrs))])) => {
+    Some(CodeSec([TFunc(_, { instrs, .. })])) => {
       let mut saw_high_set = false
       let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, i) {
         if i is TGlobalSet(GlobalIdx(0), _) {

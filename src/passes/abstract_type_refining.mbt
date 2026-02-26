@@ -382,7 +382,7 @@ test "abstract struct usage becomes bottom" {
   let CodeSec(funcs) = new_mod.unwrap().code_sec.unwrap()
   let instrs = match funcs[0] {
     Func(_) => fail("Expected tfunc")
-    TFunc(_, TExpr(instrs)) => instrs
+    TFunc(_, { instrs, .. }) => instrs
   }
   match instrs[0] {
     TBlock(_, _) => ()
@@ -535,7 +535,7 @@ test "abstract struct does not trap when traps may happen" {
   let CodeSec(funcs) = new_mod.unwrap().code_sec.unwrap()
   let instrs = match funcs[0] {
     Func(_) => fail("Expected tfunc")
-    TFunc(_, TExpr(instrs)) => instrs
+    TFunc(_, { instrs, .. }) => instrs
   }
   match instrs[0] {
     // Must stay a cast, not a trap
@@ -761,7 +761,7 @@ test "full pass mixed branch parity under traps_never_happen" {
   let CodeSec(funcs) = out.unwrap().code_sec.unwrap()
   let instrs = match funcs[0] {
     Func(_) => fail("expected typed function")
-    TFunc(_, TExpr(items)) => items
+    TFunc(_, { instrs: items, .. }) => items
   }
   let exact_ht = HeapType::new(TypeIdx::new(0))
   let any_ht = HeapType::abs(AbsHeapType::any())
@@ -813,7 +813,7 @@ test "full pass mixed branch parity when traps may happen" {
   let CodeSec(funcs) = out.unwrap().code_sec.unwrap()
   let instrs = match funcs[0] {
     Func(_) => fail("expected typed function")
-    TFunc(_, TExpr(items)) => items
+    TFunc(_, { instrs: items, .. }) => items
   }
   let exact_ht = HeapType::new(TypeIdx::new(0))
   let any_ht = HeapType::abs(AbsHeapType::any())
@@ -916,7 +916,7 @@ test "full pass rewrites nested branch casts in value trees under traps_never_ha
   let CodeSec(funcs) = out.unwrap().code_sec.unwrap()
   let instrs = match funcs[0] {
     Func(_) => fail("expected typed function")
-    TFunc(_, TExpr(items)) => items
+    TFunc(_, { instrs: items, .. }) => items
   }
   let any_ht = HeapType::abs(AbsHeapType::any())
   match instrs {
@@ -949,7 +949,7 @@ test "full pass preserves nested branch casts in value trees when traps may happ
   let CodeSec(funcs) = out.unwrap().code_sec.unwrap()
   let instrs = match funcs[0] {
     Func(_) => fail("expected typed function")
-    TFunc(_, TExpr(items)) => items
+    TFunc(_, { instrs: items, .. }) => items
   }
   let exact_ht = HeapType::new(TypeIdx::new(0))
   let any_ht = HeapType::abs(AbsHeapType::any())
@@ -1061,7 +1061,7 @@ test "full pass rewrites deep if/block/try_table value trees under traps_never_h
   let CodeSec(funcs) = out.unwrap().code_sec.unwrap()
   let instrs = match funcs[0] {
     Func(_) => fail("expected typed function")
-    TFunc(_, TExpr(items)) => items
+    TFunc(_, { instrs: items, .. }) => items
   }
   let any_ht = HeapType::abs(AbsHeapType::any())
   match instrs {
@@ -1070,39 +1070,42 @@ test "full pass rewrites deep if/block/try_table value trees under traps_never_h
         TIf(
           _,
           _,
-          TExpr(
-            [
+          {
+            instrs: [
               TBlock(
                 _,
-                TExpr(
-                  [
+                {
+                  instrs: [
                     TTryTable(
                       _,
                       _,
-                      TExpr(
-                        [
+                      {
+                        instrs: [
                           TDrop(TBrOnCast(_, op_then, src_then, dst_then, _, _)),
                           _,
-                        ]
-                      )
+                        ],
+                        ..,
+                      }
                     ),
-                  ]
-                )
+                  ],
+                  ..,
+                }
               ),
-            ]
-          ),
+            ],
+            ..,
+          },
           Some(
-            TExpr(
-              [
+            {
+              instrs: [
                 TBlock(
                   _,
-                  TExpr(
-                    [
+                  {
+                    instrs: [
                       TTryTable(
                         _,
                         _,
-                        TExpr(
-                          [
+                        {
+                          instrs: [
                             TDrop(
                               TBrOnCastFail(
                                 _,
@@ -1114,14 +1117,17 @@ test "full pass rewrites deep if/block/try_table value trees under traps_never_h
                               )
                             ),
                             _,
-                          ]
-                        )
+                          ],
+                          ..,
+                        }
                       ),
-                    ]
-                  )
+                    ],
+                    ..,
+                  }
                 ),
-              ]
-            )
+              ],
+              ..,
+            }
           )
         )
       ),
@@ -1147,7 +1153,7 @@ test "full pass preserves deep if/block/try_table value trees when traps may hap
   let CodeSec(funcs) = out.unwrap().code_sec.unwrap()
   let instrs = match funcs[0] {
     Func(_) => fail("expected typed function")
-    TFunc(_, TExpr(items)) => items
+    TFunc(_, { instrs: items, .. }) => items
   }
   let exact_ht = HeapType::new(TypeIdx::new(0))
   let any_ht = HeapType::abs(AbsHeapType::any())
@@ -1157,39 +1163,42 @@ test "full pass preserves deep if/block/try_table value trees when traps may hap
         TIf(
           _,
           _,
-          TExpr(
-            [
+          {
+            instrs: [
               TBlock(
                 _,
-                TExpr(
-                  [
+                {
+                  instrs: [
                     TTryTable(
                       _,
                       _,
-                      TExpr(
-                        [
+                      {
+                        instrs: [
                           TDrop(TBrOnCast(_, op_then, src_then, dst_then, _, _)),
                           _,
-                        ]
-                      )
+                        ],
+                        ..,
+                      }
                     ),
-                  ]
-                )
+                  ],
+                  ..,
+                }
               ),
-            ]
-          ),
+            ],
+            ..,
+          },
           Some(
-            TExpr(
-              [
+            {
+              instrs: [
                 TBlock(
                   _,
-                  TExpr(
-                    [
+                  {
+                    instrs: [
                       TTryTable(
                         _,
                         _,
-                        TExpr(
-                          [
+                        {
+                          instrs: [
                             TDrop(
                               TBrOnCastFail(
                                 _,
@@ -1201,14 +1210,17 @@ test "full pass preserves deep if/block/try_table value trees when traps may hap
                               )
                             ),
                             _,
-                          ]
-                        )
+                          ],
+                          ..,
+                        }
                       ),
-                    ]
-                  )
+                    ],
+                    ..,
+                  }
                 ),
-              ]
-            )
+              ],
+              ..,
+            }
           )
         )
       ),
@@ -1317,7 +1329,7 @@ test "full pass rewrites deep handler-bearing nested casts under traps_never_hap
   let CodeSec(funcs) = optimized.code_sec.unwrap()
   let instrs = match funcs[0] {
     Func(_) => fail("expected typed function")
-    TFunc(_, TExpr(items)) => items
+    TFunc(_, { instrs: items, .. }) => items
   }
   let any_ht = HeapType::abs(AbsHeapType::any())
   match instrs {
@@ -1326,37 +1338,42 @@ test "full pass rewrites deep handler-bearing nested casts under traps_never_hap
         TIf(
           _,
           _,
-          TExpr(
-            [
+          {
+            instrs: [
               TBlock(
                 _,
-                TExpr(
-                  [
+                {
+                  instrs: [
                     TTryTable(
                       _,
                       catches_then,
-                      TExpr(
-                        [TDrop(TBrOnCast(_, op_then, src_then, dst_then, _, _))]
-                      )
+                      {
+                        instrs: [
+                          TDrop(TBrOnCast(_, op_then, src_then, dst_then, _, _)),
+                        ],
+                        ..,
+                      }
                     ),
                     _,
-                  ]
-                )
+                  ],
+                  ..,
+                }
               ),
-            ]
-          ),
+            ],
+            ..,
+          },
           Some(
-            TExpr(
-              [
+            {
+              instrs: [
                 TBlock(
                   _,
-                  TExpr(
-                    [
+                  {
+                    instrs: [
                       TTryTable(
                         _,
                         catches_else,
-                        TExpr(
-                          [
+                        {
+                          instrs: [
                             TDrop(
                               TBrOnCastFail(
                                 _,
@@ -1367,15 +1384,18 @@ test "full pass rewrites deep handler-bearing nested casts under traps_never_hap
                                 _
                               )
                             ),
-                          ]
-                        )
+                          ],
+                          ..,
+                        }
                       ),
                       _,
-                    ]
-                  )
+                    ],
+                    ..,
+                  }
                 ),
-              ]
-            )
+              ],
+              ..,
+            }
           )
         )
       ),
@@ -1410,7 +1430,7 @@ test "full pass preserves deep handler-bearing nested casts when traps may happe
   let CodeSec(funcs) = optimized.code_sec.unwrap()
   let instrs = match funcs[0] {
     Func(_) => fail("expected typed function")
-    TFunc(_, TExpr(items)) => items
+    TFunc(_, { instrs: items, .. }) => items
   }
   let exact_ht = HeapType::new(TypeIdx::new(0))
   let any_ht = HeapType::abs(AbsHeapType::any())
@@ -1420,37 +1440,42 @@ test "full pass preserves deep handler-bearing nested casts when traps may happe
         TIf(
           _,
           _,
-          TExpr(
-            [
+          {
+            instrs: [
               TBlock(
                 _,
-                TExpr(
-                  [
+                {
+                  instrs: [
                     TTryTable(
                       _,
                       catches_then,
-                      TExpr(
-                        [TDrop(TBrOnCast(_, op_then, src_then, dst_then, _, _))]
-                      )
+                      {
+                        instrs: [
+                          TDrop(TBrOnCast(_, op_then, src_then, dst_then, _, _)),
+                        ],
+                        ..,
+                      }
                     ),
                     _,
-                  ]
-                )
+                  ],
+                  ..,
+                }
               ),
-            ]
-          ),
+            ],
+            ..,
+          },
           Some(
-            TExpr(
-              [
+            {
+              instrs: [
                 TBlock(
                   _,
-                  TExpr(
-                    [
+                  {
+                    instrs: [
                       TTryTable(
                         _,
                         catches_else,
-                        TExpr(
-                          [
+                        {
+                          instrs: [
                             TDrop(
                               TBrOnCastFail(
                                 _,
@@ -1461,15 +1486,18 @@ test "full pass preserves deep handler-bearing nested casts when traps may happe
                                 _
                               )
                             ),
-                          ]
-                        )
+                          ],
+                          ..,
+                        }
                       ),
                       _,
-                    ]
-                  )
+                    ],
+                    ..,
+                  }
                 ),
-              ]
-            )
+              ],
+              ..,
+            }
           )
         )
       ),

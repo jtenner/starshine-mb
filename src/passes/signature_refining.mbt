@@ -722,7 +722,7 @@ fn sr_known_instr_type(
   func_type_idxs : Array[TypeIdx],
 ) -> ValType? {
   fn infer_texpr_type(texpr : TExpr) -> ValType? {
-    let TExpr(instrs) = texpr
+    let { instrs, .. } = texpr
     if instrs.is_empty() {
       None
     } else {
@@ -1046,7 +1046,7 @@ fn sr_update_param_types(
     }
   }
 
-  let next_body = TExpr::new([..prologue, ..rewritten.0])
+  let next_body = TExpr::new([..prologue, ..rewritten.instrs])
   (next_locals, next_body)
 }
 
@@ -1353,8 +1353,8 @@ fn signature_refining(mod : Module) -> Result[Module, String] {
         })
         ignore(walker.walk_texpr((), body))
 
-        if old_results.length() == 1 && !body.0.is_empty() {
-          let tail = body.0[body.0.length() - 1]
+        if old_results.length() == 1 && !body.instrs.is_empty() {
+          let tail = body.instrs[body.instrs.length() - 1]
           match tail {
             TReturn(_) => ()
             _ =>
@@ -2211,7 +2211,7 @@ test "signature refining inserts parameter fixup locals for incompatible param s
   }
 
   match out.code_sec {
-    Some(CodeSec([_, TFunc(locals, TExpr(instrs))])) => {
+    Some(CodeSec([_, TFunc(locals, { instrs, .. })])) => {
       assert_eq(locals.length(), 1)
       assert_eq(locals[0], nullable_funcref)
       assert_eq(

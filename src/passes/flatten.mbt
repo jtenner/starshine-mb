@@ -91,7 +91,7 @@ fn fl_rewrite_last_value_to_set(
   temp : LocalIdx,
   env : Env,
 ) -> TExpr {
-  let TExpr(items) = body
+  let { instrs: items, .. } = body
   if items.length() == 0 {
     return body
   }
@@ -108,7 +108,7 @@ fn fl_rewrite_last_value_to_set(
 ///|
 fn fl_flatten_texpr(body : TExpr, state : FLFuncState) -> Result[TExpr, String] {
   let out : Array[TInstr] = []
-  for instr in body.0 {
+  for instr in body.instrs {
     let (next_instr, preludes) = match fl_flatten_instr(instr, state) {
       Ok(v) => v
       Err(e) => return Err(e)
@@ -530,7 +530,7 @@ test "flatten hoists if condition preludes and removes if value" {
   )
   let out = run_flatten(mod).unwrap()
   match out.code_sec {
-    Some(CodeSec([TFunc(locals, TExpr(instrs))])) => {
+    Some(CodeSec([TFunc(locals, { instrs, .. })])) => {
       assert_true(locals.length() >= 2)
       let mut saw_if_void = false
       for instr in instrs {

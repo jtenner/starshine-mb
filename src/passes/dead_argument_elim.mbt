@@ -141,10 +141,10 @@ fn is_trivially_pure_arg(instr : TInstr) -> Bool {
 
 ///|
 fn body_ends_with_explicit_return_or_unreachable(body : TExpr) -> Bool {
-  if body.0.is_empty() {
+  if body.instrs.is_empty() {
     return true
   }
-  match body.0[body.0.length() - 1] {
+  match body.instrs[body.instrs.length() - 1] {
     TReturn(_) | TUnreachable => true
     _ => false
   }
@@ -1231,7 +1231,7 @@ fn run_dead_argument_elim(mod : Module) -> Module {
         let final_body = if prologue.is_empty() {
           body2
         } else {
-          TExpr::new([..prologue, ..body2.0])
+          TExpr::new([..prologue, ..body2.instrs])
         }
         let new_func = Func::t_func(new_locals, final_body)
         if adapted_by_defined[i] {
@@ -1344,7 +1344,7 @@ test "dead argument elimination removes unused params from signatures" {
     .with_code_sec(CodeSec::new([caller, callee]))
   let optimized = run_dead_argument_elim(mod)
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TCall(_, args)])), _])) =>
+    Some(CodeSec([TFunc(_, { instrs: [TCall(_, args)], .. }), _])) =>
       assert_eq(args.length(), 0)
     _ => fail("expected rewritten call argument list")
   }
@@ -1379,7 +1379,7 @@ test "dead argument elimination removes constant params and seeds entry local" {
     .with_code_sec(CodeSec::new([caller, callee]))
   let optimized = run_dead_argument_elim(mod)
   match optimized.code_sec {
-    Some(CodeSec([_, TFunc(_, TExpr(instrs))])) => {
+    Some(CodeSec([_, TFunc(_, { instrs, .. })])) => {
       assert_true(instrs.length() >= 2)
       assert_eq(
         instrs[0],
@@ -1389,7 +1389,7 @@ test "dead argument elimination removes constant params and seeds entry local" {
     _ => fail("expected seeded callee entry")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TCall(_, args)])), _])) =>
+    Some(CodeSec([TFunc(_, { instrs: [TCall(_, args)], .. }), _])) =>
       assert_eq(args.length(), 0)
     _ => fail("expected rewritten caller args")
   }
@@ -1421,7 +1421,11 @@ test "dead argument elimination removes dropped return values from signatures" {
     .with_code_sec(CodeSec::new([caller, callee]))
   let optimized = run_dead_argument_elim(mod)
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr(instrs0)), TFunc(_, TExpr(instrs1))])) => {
+    Some(
+      CodeSec(
+        [TFunc(_, { instrs: instrs0, .. }), TFunc(_, { instrs: instrs1, .. })]
+      )
+    ) => {
       assert_true(instrs0[0] is TCall(_, []))
       assert_eq(instrs1[0], TInstr::return_([]))
     }
@@ -1462,7 +1466,7 @@ test "dead argument elimination handles exported callee via adapter thunk" {
     )
   let optimized = run_dead_argument_elim(mod)
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr(instrs0)), _, _])) => {
+    Some(CodeSec([TFunc(_, { instrs: instrs0, .. }), _, _])) => {
       let mut found = false
       for instr in instrs0 {
         match instr {
@@ -1520,7 +1524,7 @@ test "dead argument elimination handles table-reachable callee via adapter thunk
     .with_code_sec(CodeSec::new([caller, table_callee]))
   let optimized = run_dead_argument_elim(mod)
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr(instrs0)), _, _])) => {
+    Some(CodeSec([TFunc(_, { instrs: instrs0, .. }), _, _])) => {
       let mut found = false
       for instr in instrs0 {
         match instr {

@@ -480,13 +480,14 @@ test "reorder_globals_always reorders globals by use count while preserving depe
         [
           TFunc(
             _,
-            TExpr(
-              [
+            {
+              instrs: [
                 TDrop(TGlobalGet(GlobalIdx(g0))),
                 TDrop(TGlobalGet(GlobalIdx(g1))),
                 TGlobalSet(GlobalIdx(g2), _),
-              ]
-            )
+              ],
+              ..,
+            }
           ),
         ]
       )

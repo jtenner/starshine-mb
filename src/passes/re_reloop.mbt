@@ -518,7 +518,7 @@ fn rr_expect_error_contains(
 
 ///|
 fn rr_texpr_contains(body : TExpr, pred : (TInstr) -> Bool) -> Bool {
-  for instr in body.0 {
+  for instr in body.instrs {
     if rr_tinstr_contains(instr, pred) {
       return true
     }
@@ -555,7 +555,7 @@ fn rr_tinstr_contains(instr : TInstr, pred : (TInstr) -> Bool) -> Bool {
 ///|
 fn rr_texpr_count(body : TExpr, pred : (TInstr) -> Bool) -> Int {
   let mut total = 0
-  for instr in body.0 {
+  for instr in body.instrs {
     total = total + rr_tinstr_count(instr, pred)
   }
   total
@@ -591,7 +591,7 @@ test "re_reloop rewrites mergeable block shells" {
     Err(e) => fail("re_reloop should succeed on mergeable block fixture: \{e}")
   }
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(TI32Const(I32(v))), TNop]))])) =>
+    Some(CodeSec([TFunc(_, { instrs: [TDrop(TI32Const(I32(v))), TNop], .. })])) =>
       assert_eq(v, 9)
     _ => fail("expected re_reloop to collapse wrapper block into plain body")
   }
@@ -1295,7 +1295,7 @@ fn rr_contains_nested_control(instr : TInstr) -> Bool {
   }
   match instr {
     TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) =>
-      for item in body.0 {
+      for item in body.instrs {
         if rr_contains_nested_control(item) {
           return true
         }
@@ -1304,14 +1304,14 @@ fn rr_contains_nested_control(instr : TInstr) -> Bool {
       if rr_is_control_flow(cond) || rr_contains_nested_control(cond) {
         return true
       }
-      for item in then_body.0 {
+      for item in then_body.instrs {
         if rr_contains_nested_control(item) {
           return true
         }
       }
       match else_body {
         Some(other) =>
-          for item in other.0 {
+          for item in other.instrs {
             if rr_contains_nested_control(item) {
               return true
             }
@@ -1328,7 +1328,7 @@ fn rr_contains_nested_control(instr : TInstr) -> Bool {
 fn rr_validate_function_body_flat_and_supported(
   body : TExpr,
 ) -> Result[Unit, String] {
-  for instr in body.0 {
+  for instr in body.instrs {
     match instr {
       TTryTable(_, _, _) | TThrow(_, _) | TThrowRef(_) =>
         return Err("re_reloop does not support EH instructions yet")
@@ -1424,7 +1424,7 @@ priv struct RRReconstructState {
 
 ///|
 fn rr_append_texpr(dst : Array[TInstr], src : TExpr) -> Unit {
-  for instr in src.0 {
+  for instr in src.instrs {
     dst.push(instr)
   }
 }
@@ -1723,7 +1723,7 @@ fn rr_cfg_region_to_texpr(
         Some(expr) => expr
         None => return None
       }
-      let else_opt = if else_tail.0.length() == 0 {
+      let else_opt = if else_tail.instrs.length() == 0 {
         None
       } else {
         Some(else_tail)
@@ -1826,7 +1826,7 @@ fn rr_try_build_flat_cfg(
   let mut saw_control = false
   let mut terminated = false
 
-  for instr in body.0 {
+  for instr in body.instrs {
     match instr {
       TBr(label, values) => {
         let target = rr_label_to_target(mode, label, entry, exit)
@@ -2078,7 +2078,7 @@ fn rr_reconstruct_texpr(
   scratch_used : Ref[Bool]?,
 ) -> Result[TExpr, String] {
   let out : Array[TInstr] = []
-  for instr in body.0 {
+  for instr in body.instrs {
     let next_instr = match
       rr_reconstruct_tinstr(instr, scratch_local, scratch_used) {
       Ok(next) => next

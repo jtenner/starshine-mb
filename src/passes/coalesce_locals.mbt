@@ -273,7 +273,7 @@ fn uses_shallow(instr : TInstr) -> Set[LocalIdx] {
         result.add(x)
       }
     TInstr::TLoop(_, body) =>
-      for b in body.0 {
+      for b in body.instrs {
         for x in uses(b) {
           result.add(x)
         }
@@ -541,9 +541,9 @@ fn build_cfg(instrs : Array[TInstr]) -> Array[Block] {
         merge_block.preds.push(else_block.id)
 
         // fill then / else
-        then_block.instrs.append(then_expr.0)
+        then_block.instrs.append(then_expr.instrs)
         if else_expr is Some(e) {
-          else_block.instrs.append(e.0)
+          else_block.instrs.append(e.instrs)
         }
         blocks.push(then_block)
         blocks.push(else_block)
@@ -558,7 +558,7 @@ fn build_cfg(instrs : Array[TInstr]) -> Array[Block] {
         let after_loop = new_block()
         current.succs.push(loop_body.id)
         loop_body.preds.push(current.id)
-        loop_body.instrs.append(body.0)
+        loop_body.instrs.append(body.instrs)
 
         // backedge
         loop_body.succs.push(loop_body.id)
@@ -832,7 +832,7 @@ fn coalesce_locals(
         if all_locals.length() == 0 {
           return unchanged()
         }
-        let instrs = body.0
+        let instrs = body.instrs
         let blocks = build_cfg(instrs)
         let (inter, _, values_out) = compute_interferences_cfg(
           blocks, all_locals,
@@ -877,7 +877,7 @@ fn rewrite_instr_locals(instr : TInstr, mapping : LocalMap) -> TInstr {
     .walk_texpr_default((), TExpr::new([instr]))
     .unwrap()
     .unwrap()
-  let TExpr(instrs) = expr
+  let { instrs, .. } = expr
   if instrs.length() == 1 {
     instrs[0]
   } else {
@@ -888,7 +888,7 @@ fn rewrite_instr_locals(instr : TInstr, mapping : LocalMap) -> TInstr {
 
 ///|
 fn rewrite_body_locals(body : TExpr, mapping : LocalMap) -> TExpr {
-  let TExpr(instrs) = body
+  let { instrs, .. } = body
   let new_instrs = Array::new()
   for instr in instrs {
     new_instrs.push(rewrite_instr_locals(instr, mapping))

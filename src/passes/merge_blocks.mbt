@@ -330,7 +330,7 @@ fn mb_has_any_branch(instr : TInstr) -> Bool {
 
 ///|
 fn mb_has_any_branch_in_expr(expr : TExpr) -> Bool {
-  for instr in expr.0 {
+  for instr in expr.instrs {
     if mb_has_any_branch(instr) {
       return true
     }
@@ -419,7 +419,7 @@ fn mb_has_branch_to_depth_in_expr(
   depth : Int,
   cache : BranchCache,
 ) -> Bool {
-  for instr in expr.0 {
+  for instr in expr.instrs {
     if mb_has_branch_to_depth(instr, depth, cache) {
       return true
     }
@@ -631,7 +631,7 @@ fn mb_ref_func_type(fi : FuncIdx, env : Env) -> ValType {
 
 ///|
 fn mb_infer_texpr_type(texpr : TExpr, env : Env) -> ValType? {
-  let TExpr(instrs) = texpr
+  let { instrs, .. } = texpr
   if instrs.is_empty() {
     None
   } else {
@@ -829,7 +829,7 @@ fn mb_is_unreachable_instr(instr : TInstr) -> Bool {
 
 ///|
 fn mb_texpr_is_unreachable(expr : TExpr) -> Bool {
-  for instr in expr.0 {
+  for instr in expr.instrs {
     if mb_is_unreachable_instr(instr) {
       return true
     }
@@ -847,7 +847,7 @@ fn has_dead_code(block : TInstr) -> Bool {
 
 ///|
 fn mb_has_dead_code_in_expr(body : TExpr) -> Bool {
-  let instrs = body.0
+  let instrs = body.instrs
   for i = 0; i < instrs.length(); i = i + 1 {
     if mb_is_unreachable_instr(instrs[i]) && i + 1 < instrs.length() {
       return true
@@ -946,7 +946,7 @@ fn mb_refinalize_instr(instr : TInstr, env : Env) -> TInstr {
 ///|
 fn mb_refinalize_texpr(expr : TExpr, env : Env) -> TExpr {
   let out : Array[TInstr] = []
-  for instr in expr.0 {
+  for instr in expr.instrs {
     out.push(mb_refinalize_instr(instr, env))
   }
   TExpr::new(out)
@@ -977,7 +977,7 @@ fn mb_can_extract_child_block(
   env : Env,
   branch_cache : BranchCache,
 ) -> (Bool, Array[TInstr], TInstr) {
-  let items = body.0
+  let items = body.instrs
   if items.length() < 2 {
     return (false, [], TInstr::nop())
   }
@@ -1296,7 +1296,7 @@ fn mb_problem_finder_walk_expr(
   st : ProblemFinderState,
   env : Env,
 ) -> Unit {
-  for instr in expr.0 {
+  for instr in expr.instrs {
     mb_problem_finder_walk(origin, instr, depth, under_drop, st, env)
     if st.blocked is Some(_) {
       return
@@ -1505,7 +1505,7 @@ fn mb_break_value_dropper_expr(
   ctx : MBContext,
 ) -> TExpr {
   let out : Array[TInstr] = []
-  for instr in expr.0 {
+  for instr in expr.instrs {
     out.push(
       mb_break_value_dropper_walk(origin, instr, depth, mod, branch_cache, ctx),
     )
@@ -1528,7 +1528,7 @@ fn optimize_dropped_block(
     TDrop(TBlock(_, body)) => body
     _ => return (drop_instr, false)
   }
-  for instr in next_body.0 {
+  for instr in next_body.instrs {
     match problem_finder(LabelIdx::new(0), instr, mod, options, ctx) {
       ProblemBlocked => return (drop_instr, false)
       ProblemOk => ()
@@ -1536,7 +1536,7 @@ fn optimize_dropped_block(
   }
   {
     let rewritten_items : Array[TInstr] = []
-    for instr in next_body.0 {
+    for instr in next_body.instrs {
       rewritten_items.push(
         break_value_dropper(
           LabelIdx::new(0),
@@ -1550,7 +1550,7 @@ fn optimize_dropped_block(
     }
     next_body = TExpr::new(rewritten_items)
   }
-  let next_items = next_body.0.copy()
+  let next_items = next_body.instrs.copy()
   if !next_items.is_empty() {
     let last = next_items.pop().unwrap()
     next_items.push(mb_drop_or_value(last, ctx.env))
@@ -1584,7 +1584,7 @@ fn optimize_block(
 ) -> (TInstr, Bool) {
   match block {
     TBlock(bt, body) => {
-      let curr_items = body.0.copy()
+      let curr_items = body.instrs.copy()
       let mut any_change = false
       let mut rounds = 0
       while rounds < 20 {
@@ -1627,7 +1627,7 @@ fn optimize_block(
                 out.push(item1)
                 continue
               }
-              let child_items = child_body.0
+              let child_items = child_body.instrs
               let mut split = child_items.length()
               let mut named = false
               for j = 0; j < child_items.length(); j = j + 1 {
@@ -1679,12 +1679,12 @@ fn optimize_block(
               round_change = true
               continue
             }
-            TLoop(loop_bt, TExpr([TBlock(inner_bt, inner_body)])) => {
+            TLoop(loop_bt, { instrs: [TBlock(inner_bt, inner_body)], .. }) => {
               if mb_has_dead_code_in_expr(inner_body) {
                 out.push(item1)
                 continue
               }
-              let inner_items = inner_body.0
+              let inner_items = inner_body.instrs
               if inner_items.is_empty() {
                 out.push(item1)
                 continue
@@ -1853,7 +1853,7 @@ fn mb_optimize_texpr(
 ) -> (TExpr, Bool) {
   let out : Array[TInstr] = []
   let mut changed = false
-  for instr in expr.0 {
+  for instr in expr.instrs {
     let (next, child_changed) = mb_optimize_instr(
       instr, mod, options, branch_cache, ctx,
     )
@@ -2504,7 +2504,7 @@ test "merge blocks: nested unnamed block fully merges" {
     ),
   ])
   let out = mb_run_on_body(body)
-  match out.0 {
+  match out.instrs {
     [TDrop(TI32Const(I32(1))), TDrop(TI32Const(I32(2)))] => ()
     _ => fail("expected child block to merge into parent")
   }
@@ -2524,7 +2524,7 @@ test "merge blocks: converges through two-level nesting" {
     ),
   ])
   let out = mb_run_on_body(body)
-  match out.0 {
+  match out.instrs {
     [TI32Const(I32(3))] => ()
     _ => fail("expected full convergence")
   }
@@ -2537,7 +2537,7 @@ test "merge blocks: concrete moved to middle gets drop" {
     TInstr::nop(),
   ])
   let out = mb_run_on_body(body)
-  match out.0 {
+  match out.instrs {
     [TDrop(TI32Const(I32(4))), TNop] => ()
     _ => fail("expected concrete merged value to be dropped in middle")
   }
@@ -2556,12 +2556,12 @@ test "merge blocks: named child only merges prefix before branch" {
     ),
   ])
   let out = mb_run_on_body(body)
-  match out.0 {
+  match out.instrs {
     [
       first,
       TBlock(
         VoidBlockType,
-        TExpr([TBrIf(LabelIdx(target), _, []), TI32Const(I32(9))])
+        { instrs: [TBrIf(LabelIdx(target), _, []), TI32Const(I32(9))], .. }
       ),
     ] => {
       match first {
@@ -2616,19 +2616,27 @@ test "merge blocks: loop tail merge moves non-branching suffix outward" {
     Some(
       TFunc(
         _,
-        TExpr(
-          [
+        {
+          instrs: [
             TBlock(
               _,
-              TExpr(
-                [
-                  TLoop(_, TExpr([TBlock(_, TExpr([TBrIf(_, _, [])]))])),
+              {
+                instrs: [
+                  TLoop(
+                    _,
+                    {
+                      instrs: [TBlock(_, { instrs: [TBrIf(_, _, [])], .. })],
+                      ..,
+                    }
+                  ),
                   TCall(_, []),
-                ]
-              )
+                ],
+                ..,
+              }
             ),
-          ]
-        )
+          ],
+          ..,
+        }
       )
     ) => ()
     _ => fail("expected loop tail instruction moved outward")
@@ -2701,7 +2709,8 @@ test "merge blocks: dropped block pushes drop inward" {
   let mod = mb_make_test_module_with_body([], body)
   let out = run_merge_blocks(mod)
   match mb_extract_only_tfunc(out) {
-    Some(TFunc(_, TExpr([TCall(_, []), TDrop(TI32Const(I32(1)))]))) => ()
+    Some(TFunc(_, { instrs: [TCall(_, []), TDrop(TI32Const(I32(1)))], .. })) =>
+      ()
     _ => fail("expected drop moved inside block")
   }
 }
@@ -2881,7 +2890,7 @@ test "merge blocks: restructure pulls operand block outward with effect checks" 
   let mut wrapped = false
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
     match instr {
-      TBlock(_, TExpr(items)) if items.length() >= 2 => wrapped = true
+      TBlock(_, { instrs: items, .. }) if items.length() >= 2 => wrapped = true
       _ => ()
     }
     self.walk_tinstruction_default((), instr)

@@ -35,7 +35,7 @@ priv struct DFEQuickKey {
 ///|
 fn dfe_quick_key(func_type : FuncType, func : Func) -> DFEQuickKey {
   match func {
-    TFunc(locals, TExpr(instrs)) =>
+    TFunc(locals, { instrs, .. }) =>
       {
         func_type,
         local_count: locals.length(),
@@ -359,7 +359,7 @@ test "duplicate function elimination removes duplicate function bodies" {
     None => fail("expected func section")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr(instrs)), _])) => {
+    Some(CodeSec([TFunc(_, { instrs, .. }), _])) => {
       let mut seen = 0
       for instr in instrs {
         match instr {
@@ -504,7 +504,7 @@ test "duplicate function elimination merges duplicates across equivalent type de
     None => fail("expected code section")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr(instrs)), _])) => {
+    Some(CodeSec([TFunc(_, { instrs, .. }), _])) => {
       let mut seen = 0
       for instr in instrs {
         match instr {
@@ -555,7 +555,7 @@ test "duplicate function elimination remaps start export and ref.func uses" {
     None => fail("expected code section")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr(instrs)), _])) => {
+    Some(CodeSec([TFunc(_, { instrs, .. }), _])) => {
       assert_eq(instrs.length(), 2)
       match instrs[0] {
         TDrop(TRefFunc(FuncIdx(i))) => assert_eq(i, 1U)

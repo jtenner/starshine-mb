@@ -172,23 +172,10 @@ fn OIEffectsSummary::invalidates(
 }
 
 ///|
-priv struct OIEffectsCacheEntry {
-  instr : TInstr
-  summary : OIEffectsSummary
-}
-
-///|
-priv struct OIPairBoolCacheEntry {
-  left : TInstr
-  right : TInstr
-  value : Bool
-}
-
-///|
 priv struct OIRewriteCache {
-  effects_by_hash : Map[Int, Array[OIEffectsCacheEntry]]
-  reorder_by_hash_pair : Map[(Int, Int), Array[OIPairBoolCacheEntry]]
-  eq_by_hash_pair : Map[(Int, Int), Array[OIPairBoolCacheEntry]]
+  effects_by_hash : Map[UInt64, OIEffectsSummary]
+  reorder_by_hash_pair : Map[UInt64, Bool]
+  eq_by_hash_pair : Map[UInt64, Bool]
 }
 
 ///|
@@ -201,27 +188,16 @@ fn oi_rewrite_cache_new() -> OIRewriteCache {
 }
 
 ///|
-fn oi_hash_pair_key(lhs : Int, rhs : Int) -> (Int, Int) {
-  if lhs <= rhs {
-    (lhs, rhs)
-  } else {
-    (rhs, lhs)
-  }
+fn oi_instr_hash_key(instr : TInstr) -> UInt64 {
+  instr.hash().reinterpret_as_uint().to_uint64()
 }
 
 ///|
-fn oi_pair_bool_cache_lookup(
-  entries : Array[OIPairBoolCacheEntry],
-  left : TInstr,
-  right : TInstr,
-) -> Bool? {
-  for entry in entries {
-    if (entry.left == left && entry.right == right) ||
-      (entry.left == right && entry.right == left) {
-      return Some(entry.value)
-    }
-  }
-  None
+fn oi_hash_pair_key64(lhs : UInt64, rhs : UInt64) -> UInt64 {
+  let lo = if lhs <= rhs { lhs } else { rhs }
+  let hi = if lhs <= rhs { rhs } else { lhs }
+  let mixed = (lo ^ (hi * 0x9e3779b97f4a7c15UL)) * 0xbf58476d1ce4e5b9UL
+  mixed ^ (mixed >> 33)
 }
 
 ///|
@@ -229,21 +205,15 @@ fn oi_effects_summary_cached(
   instr : TInstr,
   cache : OIRewriteCache,
 ) -> OIEffectsSummary {
-  let hash_key = instr.hash()
+  let hash_key = oi_instr_hash_key(instr)
   match cache.effects_by_hash.get(hash_key) {
-    Some(entries) =>
-      for entry in entries {
-        if entry.instr == instr {
-          return entry.summary
-        }
-      }
-    None => ()
+    Some(summary) => summary
+    None => {
+      let summary = oi_effects_summary_from_instr(instr)
+      cache.effects_by_hash[hash_key] = summary
+      summary
+    }
   }
-  let summary = oi_effects_summary_from_instr(instr)
-  let next_entries = cache.effects_by_hash.get(hash_key).unwrap_or([]).copy()
-  next_entries.push(OIEffectsCacheEntry::{ instr, summary })
-  cache.effects_by_hash[hash_key] = next_entries
-  summary
 }
 
 ///|
@@ -252,22 +222,17 @@ fn oi_can_reorder_cached(
   b : TInstr,
   cache : OIRewriteCache,
 ) -> Bool {
-  let key = oi_hash_pair_key(a.hash(), b.hash())
+  let key = oi_hash_pair_key64(oi_instr_hash_key(a), oi_instr_hash_key(b))
   match cache.reorder_by_hash_pair.get(key) {
-    Some(entries) =>
-      match oi_pair_bool_cache_lookup(entries, a, b) {
-        Some(value) => return value
-        None => ()
-      }
-    None => ()
+    Some(value) => value
+    None => {
+      let ea = oi_effects_summary_cached(a, cache)
+      let eb = oi_effects_summary_cached(b, cache)
+      let value = !ea.invalidates(eb) && !eb.invalidates(ea)
+      cache.reorder_by_hash_pair[key] = value
+      value
+    }
   }
-  let ea = oi_effects_summary_cached(a, cache)
-  let eb = oi_effects_summary_cached(b, cache)
-  let value = !ea.invalidates(eb) && !eb.invalidates(ea)
-  let next_entries = cache.reorder_by_hash_pair.get(key).unwrap_or([]).copy()
-  next_entries.push(OIPairBoolCacheEntry::{ left: a, right: b, value })
-  cache.reorder_by_hash_pair[key] = next_entries
-  value
 }
 
 ///|
@@ -276,25 +241,52 @@ fn oi_instr_eq_cached(
   right : TInstr,
   cache : OIRewriteCache,
 ) -> Bool {
-  let left_hash = left.hash()
-  let right_hash = right.hash()
+  match oi_instr_quick_eq_or_mismatch(left, right) {
+    Some(value) => return value
+    None => ()
+  }
+  let left_hash = oi_instr_hash_key(left)
+  let right_hash = oi_instr_hash_key(right)
   if left_hash != right_hash {
     return false
   }
-  let key = oi_hash_pair_key(left_hash, right_hash)
+  let key = oi_hash_pair_key64(left_hash, right_hash)
   match cache.eq_by_hash_pair.get(key) {
-    Some(entries) =>
-      match oi_pair_bool_cache_lookup(entries, left, right) {
-        Some(value) => return value
-        None => ()
-      }
-    None => ()
+    Some(value) => value
+    None => {
+      let value = left == right
+      cache.eq_by_hash_pair[key] = value
+      value
+    }
   }
-  let value = left == right
-  let next_entries = cache.eq_by_hash_pair.get(key).unwrap_or([]).copy()
-  next_entries.push(OIPairBoolCacheEntry::{ left, right, value })
-  cache.eq_by_hash_pair[key] = next_entries
-  value
+}
+
+///|
+fn oi_instr_quick_eq_or_mismatch(left : TInstr, right : TInstr) -> Bool? {
+  match (left, right) {
+    (TLocalGet(l_idx), TLocalGet(r_idx)) => Some(l_idx == r_idx)
+    (TLocalGet(_), _) | (_, TLocalGet(_)) => Some(false)
+    (TI32Const(lv), TI32Const(rv)) => Some(lv == rv)
+    (TI32Const(_), _) | (_, TI32Const(_)) => Some(false)
+    (TI64Const(lv), TI64Const(rv)) => Some(lv == rv)
+    (TI64Const(_), _) | (_, TI64Const(_)) => Some(false)
+    (TF32Const(lv), TF32Const(rv)) => Some(lv == rv)
+    (TF32Const(_), _) | (_, TF32Const(_)) => Some(false)
+    (TF64Const(lv), TF64Const(rv)) => Some(lv == rv)
+    (TF64Const(_), _) | (_, TF64Const(_)) => Some(false)
+    _ => None
+  }
+}
+
+///|
+fn oi_instr_is_large_blockish(instr : TInstr) -> Bool {
+  match instr {
+    TBlock(_, texpr) | TLoop(_, texpr) => texpr.instrs.length() > 128
+    TIf(_, _, then_, Some(else_)) =>
+      then_.instrs.length() > 128 || else_.instrs.length() > 128
+    TIf(_, _, then_, None) => then_.instrs.length() > 128
+    _ => false
+  }
 }
 
 ///|
@@ -317,7 +309,7 @@ fn oi_instr_within_eq_budget(instr : TInstr, budget : Int) -> Bool {
 ///|
 fn oi_texpr_within_eq_budget(texpr : TExpr, budget : Int) -> Bool {
   let mut remaining = budget
-  let stack = texpr.0.copy()
+  let stack = texpr.instrs.copy()
   while !stack.is_empty() {
     if remaining <= 0 {
       return false
@@ -338,6 +330,10 @@ fn oi_instr_eq_budgeted(
   cache : OIRewriteCache,
   budget : Int,
 ) -> Bool {
+  match oi_instr_quick_eq_or_mismatch(left, right) {
+    Some(value) => return value
+    None => ()
+  }
   if !oi_instr_within_eq_budget(left, budget) ||
     !oi_instr_within_eq_budget(right, budget) {
     return false
@@ -352,18 +348,81 @@ fn oi_texpr_eq_budgeted(
   cache : OIRewriteCache,
   budget : Int,
 ) -> Bool {
-  if left.0.length() != right.0.length() {
+  if left.instrs.length() != right.instrs.length() {
     return false
+  }
+  if left.instrs.is_empty() {
+    return true
+  }
+  if left.instrs.length() == 1 {
+    match oi_instr_quick_eq_or_mismatch(left.instrs[0], right.instrs[0]) {
+      Some(value) => return value
+      None => ()
+    }
   }
   if !oi_texpr_within_eq_budget(left, budget) ||
     !oi_texpr_within_eq_budget(right, budget) {
     return false
   }
-  oi_instr_eq_cached(
-    TInstr::block(BlockType::void_(), left),
-    TInstr::block(BlockType::void_(), right),
-    cache,
-  )
+  for i = 0; i < left.instrs.length(); i = i + 1 {
+    let l = left.instrs[i]
+    let r = right.instrs[i]
+    match oi_instr_quick_eq_or_mismatch(l, r) {
+      Some(value) => if !value { return false }
+      None => if !oi_instr_eq_cached(l, r, cache) { return false }
+    }
+  }
+  true
+}
+
+///|
+fn oi_instr_equal_for_fold(
+  left : TInstr,
+  right : TInstr,
+  cache : OIRewriteCache,
+  budget : Int,
+  allow_expensive_eq : Bool,
+) -> Bool {
+  match oi_instr_quick_eq_or_mismatch(left, right) {
+    Some(value) => value
+    None => {
+      if !allow_expensive_eq ||
+        oi_instr_is_large_blockish(left) ||
+        oi_instr_is_large_blockish(right) {
+        return false
+      }
+      oi_instr_eq_budgeted(left, right, cache, budget)
+    }
+  }
+}
+
+///|
+fn oi_texpr_equal_for_fold(
+  left : TExpr,
+  right : TExpr,
+  cache : OIRewriteCache,
+  budget : Int,
+  allow_expensive_eq : Bool,
+) -> Bool {
+  if left.instrs.length() != right.instrs.length() {
+    return false
+  }
+  if left.instrs.is_empty() {
+    return true
+  }
+  if left.instrs.length() == 1 {
+    match oi_instr_quick_eq_or_mismatch(left.instrs[0], right.instrs[0]) {
+      Some(value) => return value
+      None => ()
+    }
+  }
+  if !allow_expensive_eq {
+    return false
+  }
+  if left.instrs.length() > 128 || right.instrs.length() > 128 {
+    return false
+  }
+  oi_texpr_eq_budgeted(left, right, cache, budget)
 }
 
 ///|
@@ -666,9 +725,17 @@ fn oi_instr_is_rewrite_candidate(instr : TInstr) -> Bool {
 }
 
 ///|
-fn oi_texpr_has_rewrite_candidate(body : TExpr) -> Bool {
-  let scan_budget = 2
-  let stack = body.0.copy()
+fn oi_rewrite_candidate_scan_budget(top_instrs : Int) -> Int {
+  if top_instrs >= 10000 {
+    20
+  } else {
+    10
+  }
+}
+
+///|
+fn oi_texpr_has_rewrite_candidate(body : TExpr, scan_budget : Int) -> Bool {
+  let stack = body.instrs.copy()
   let mut scanned = 0
   while !stack.is_empty() && scanned < scan_budget {
     scanned += 1
@@ -999,6 +1066,7 @@ fn oi_optimize_binary(
   env : Env,
   options : OptimizeOptions,
   cache : OIRewriteCache,
+  allow_expensive_eq : Bool,
 ) -> TInstr? {
   let mut op = op0
   let mut left = left0
@@ -1227,7 +1295,7 @@ fn oi_optimize_binary(
     _ => ()
   }
   if oi_binary_can_fold_equal_operands(op) &&
-    oi_instr_eq_budgeted(left, right, cache, 128) &&
+    oi_instr_equal_for_fold(left, right, cache, 128, allow_expensive_eq) &&
     !oi_has_side_effects_cached(left, cache) {
     match op {
       I32SubOp | I32XorOp => return Some(TInstr::i32_const(I32(0)))
@@ -1674,6 +1742,7 @@ fn oi_optimize_select(
   env : Env,
   options : OptimizeOptions,
   cache : OIRewriteCache,
+  allow_expensive_eq : Bool,
 ) -> TInstr? {
   let cond = oi_optimize_boolean(cond, env, options)
   match cond {
@@ -1684,7 +1753,9 @@ fn oi_optimize_select(
         Some(oi_seq([oi_instr_stmt(if_false, env)], if_true, env))
       }
     _ =>
-      if oi_instr_eq_budgeted(if_true, if_false, cache, 128) {
+      if oi_instr_equal_for_fold(
+          if_true, if_false, cache, 128, allow_expensive_eq,
+        ) {
         if oi_has_side_effects_cached(cond, cache) {
           Some(oi_seq([oi_instr_stmt(cond, env)], if_true, env))
         } else {
@@ -1713,6 +1784,7 @@ fn oi_optimize_if(
   env : Env,
   options : OptimizeOptions,
   cache : OIRewriteCache,
+  allow_expensive_eq : Bool,
 ) -> TInstr? {
   let next_cond = oi_optimize_boolean(cond, env, options)
   match else_ {
@@ -1721,10 +1793,13 @@ fn oi_optimize_if(
         TUnary(I32EqzOp, value) =>
           Some(TInstr::if_(bt, value, else_expr, Some(then_)))
         _ =>
-          if oi_texpr_eq_budgeted(then_, else_expr, cache, 256) {
+          if then_.instrs.length() == else_expr.instrs.length() &&
+            oi_texpr_equal_for_fold(
+              then_, else_expr, cache, 256, allow_expensive_eq,
+            ) {
             if oi_has_side_effects_cached(next_cond, cache) {
               let list = [oi_instr_stmt(next_cond, env)]
-              for instr in then_.0 {
+              for instr in then_.instrs {
                 list.push(instr)
               }
               Some(TInstr::block(bt, TExpr::new(list)))
@@ -1753,10 +1828,14 @@ fn oi_optimize_once(
   options : OptimizeOptions,
   mod : Module,
   cache : OIRewriteCache,
+  allow_expensive_eq : Bool,
 ) -> (TInstr, Bool) {
   match instr {
     TBinary(op, left, right) =>
-      match oi_optimize_binary(op, left, right, env, options, cache) {
+      match
+        oi_optimize_binary(
+          op, left, right, env, options, cache, allow_expensive_eq,
+        ) {
         Some(rep) => (rep, true)
         None => (instr, false)
       }
@@ -1767,12 +1846,17 @@ fn oi_optimize_once(
       }
     TSelect(types, cond, if_true, if_false) =>
       match
-        oi_optimize_select(types, cond, if_true, if_false, env, options, cache) {
+        oi_optimize_select(
+          types, cond, if_true, if_false, env, options, cache, allow_expensive_eq,
+        ) {
         Some(rep) => (rep, true)
         None => (instr, false)
       }
     TIf(bt, cond, then_, else_) =>
-      match oi_optimize_if(bt, cond, then_, else_, env, options, cache) {
+      match
+        oi_optimize_if(
+          bt, cond, then_, else_, env, options, cache, allow_expensive_eq,
+        ) {
         Some(rep) => (rep, true)
         None => (instr, false)
       }
@@ -1857,13 +1941,16 @@ fn oi_optimize_fixpoint(
   options : OptimizeOptions,
   mod : Module,
   cache : OIRewriteCache,
+  allow_expensive_eq : Bool,
 ) -> (TInstr, Int, Bool) {
   let mut curr = instr
   let mut rounds = 0
   let mut changed = false
-  while rounds < 4 {
+  while rounds < 3 {
     rounds += 1
-    let (next, step_changed) = oi_optimize_once(curr, env, options, mod, cache)
+    let (next, step_changed) = oi_optimize_once(
+      curr, env, options, mod, cache, allow_expensive_eq,
+    )
     if !step_changed {
       break
     }
@@ -1880,6 +1967,7 @@ fn oi_optimize_fixpoint(
 priv struct OITransformStats {
   top_instrs : Int
   skipped_no_candidates : Bool
+  did_change : Bool
   visited_instrs : Int
   candidate_instrs : Int
   rewritten_instrs : Int
@@ -1891,6 +1979,7 @@ fn oi_transform_stats_new(top_instrs : Int) -> OITransformStats {
   OITransformStats::{
     top_instrs,
     skipped_no_candidates: false,
+    did_change: false,
     visited_instrs: 0,
     candidate_instrs: 0,
     rewritten_instrs: 0,
@@ -1926,13 +2015,29 @@ fn optimize_instructions_on_func(
 ) -> (Func, OITransformStats) {
   match func {
     TFunc(locals, body) => {
-      let top_instrs = body.0.length()
-      if !oi_texpr_has_rewrite_candidate(body) {
+      let top_instrs = body.instrs.length()
+      if top_instrs > 30000 {
         return (
           func,
           OITransformStats::{
             top_instrs,
             skipped_no_candidates: true,
+            did_change: false,
+            visited_instrs: 0,
+            candidate_instrs: 0,
+            rewritten_instrs: 0,
+            max_rounds: 0,
+          },
+        )
+      }
+      let scan_budget = oi_rewrite_candidate_scan_budget(top_instrs)
+      if !oi_texpr_has_rewrite_candidate(body, scan_budget) {
+        return (
+          func,
+          OITransformStats::{
+            top_instrs,
+            skipped_no_candidates: true,
+            did_change: false,
             visited_instrs: 0,
             candidate_instrs: 0,
             rewritten_instrs: 0,
@@ -1946,8 +2051,10 @@ fn optimize_instructions_on_func(
       let mut candidate_instrs = 0
       let mut rewritten_instrs = 0
       let mut max_rounds = 0
-      let visited_instr_budget = 200000
-      let candidate_size_budget = 512
+      let mut did_change = false
+      let visited_instr_budget = 80000
+      let candidate_size_budget = if top_instrs > 8000 { 64 } else { 256 }
+      let allow_expensive_eq = top_instrs <= 4000
       let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
         self,
         _,
@@ -1970,13 +2077,14 @@ fn optimize_instructions_on_func(
           }
           candidate_instrs += 1
           let (rewritten, rounds, rewritten_here) = oi_optimize_fixpoint(
-            curr, env, options, mod, cache,
+            curr, env, options, mod, cache, allow_expensive_eq,
           )
           if rounds > max_rounds {
             max_rounds = rounds
           }
           if rewritten_here {
             rewritten_instrs += 1
+            did_change = true
           }
           return change((), rewritten)
         }
@@ -1996,13 +2104,14 @@ fn optimize_instructions_on_func(
         }
         candidate_instrs += 1
         let (rewritten, rounds, rewritten_here) = oi_optimize_fixpoint(
-          walked, env, options, mod, cache,
+          walked, env, options, mod, cache, allow_expensive_eq,
         )
         if rounds > max_rounds {
           max_rounds = rounds
         }
         if rewritten_here {
           rewritten_instrs += 1
+          did_change = true
         }
         change((), rewritten)
       })
@@ -2012,10 +2121,15 @@ fn optimize_instructions_on_func(
         Err(_) => body
       }
       (
-        Func::t_func(locals, new_body),
+        if did_change {
+          Func::t_func(locals, new_body)
+        } else {
+          func
+        },
         OITransformStats::{
           top_instrs,
           skipped_no_candidates: false,
+          did_change,
           visited_instrs,
           candidate_instrs,
           rewritten_instrs,
@@ -2040,7 +2154,7 @@ fn optimize_instructions_ir_pass(
     let ordinal = seen_funcs
     let log_func = trace_all_funcs || ordinal <= 5 || ordinal % 50 == 0
     let top_instrs = match func {
-      TFunc(_, body) => body.0.length()
+      TFunc(_, body) => body.instrs.length()
       _ => 0
     }
     if log_func {
@@ -2053,7 +2167,7 @@ fn optimize_instructions_ir_pass(
       stats.candidate_instrs >= 5000
     if log_func || log_heavy_func {
       trace(
-        "func[\{ordinal}] done elapsed_ms=\{elapsed} changed=\{next != func} skipped=\{stats.skipped_no_candidates} top_instrs=\{stats.top_instrs} visited=\{stats.visited_instrs} candidates=\{stats.candidate_instrs} rewritten=\{stats.rewritten_instrs} max_rounds=\{stats.max_rounds}",
+        "func[\{ordinal}] done elapsed_ms=\{elapsed} changed=\{stats.did_change} skipped=\{stats.skipped_no_candidates} top_instrs=\{stats.top_instrs} visited=\{stats.visited_instrs} candidates=\{stats.candidate_instrs} rewritten=\{stats.rewritten_instrs} max_rounds=\{stats.max_rounds}",
       )
     }
     // Returning `unchanged()` here would trigger `walk_func_default`,
@@ -2102,7 +2216,10 @@ test "optimize instructions eqz(sub) to eq" {
     locals=[ValType::i32(), ValType::i32()],
   )
   match body {
-    TExpr([TBinary(I32EqOp, TLocalGet(LocalIdx(i)), TLocalGet(LocalIdx(j)))]) => {
+    {
+      instrs: [TBinary(I32EqOp, TLocalGet(LocalIdx(i)), TLocalGet(LocalIdx(j)))],
+      ..,
+    } => {
       assert_eq(i.reinterpret_as_int(), 0)
       assert_eq(j.reinterpret_as_int(), 1)
     }
@@ -2126,7 +2243,7 @@ test "optimize instructions eqz(add const) to eq neg const" {
     locals=[ValType::i32()],
   )
   match body {
-    TExpr([TBinary(I32EqOp, TLocalGet(_), TI32Const(I32(v)))]) =>
+    { instrs: [TBinary(I32EqOp, TLocalGet(_), TI32Const(I32(v)))], .. } =>
       assert_eq(v, -5)
     _ => fail("expected i32.eq with negated constant")
   }
@@ -2145,7 +2262,7 @@ test "optimize instructions de-morgan eqz and" {
     locals=[ValType::i32(), ValType::i32()],
   )
   match body {
-    TExpr([TUnary(I32EqzOp, TBinary(I32OrOp, _, _))]) => ()
+    { instrs: [TUnary(I32EqzOp, TBinary(I32OrOp, _, _))], .. } => ()
     _ => fail("expected eqz(or)")
   }
 }
@@ -2163,7 +2280,8 @@ test "optimize instructions masks shift constants and removes zero shifts" {
     locals=[ValType::i32()],
   )
   match body {
-    TExpr([TLocalGet(LocalIdx(i))]) => assert_eq(i.reinterpret_as_int(), 0)
+    { instrs: [TLocalGet(LocalIdx(i))], .. } =>
+      assert_eq(i.reinterpret_as_int(), 0)
     _ => fail("expected shift-by-32 to collapse to lhs")
   }
 }
@@ -2185,7 +2303,7 @@ test "optimize instructions removes rhs mask in shifts" {
     locals=[ValType::i32(), ValType::i32()],
   )
   match body {
-    TExpr([TBinary(I32ShlOp, _, TLocalGet(LocalIdx(i)))]) =>
+    { instrs: [TBinary(I32ShlOp, _, TLocalGet(LocalIdx(i)))], .. } =>
       assert_eq(i.reinterpret_as_int(), 1)
     _ => fail("expected shift rhs to be simplified to local.get")
   }
@@ -2204,7 +2322,7 @@ test "optimize instructions float add neg rhs to sub" {
     locals=[ValType::f32(), ValType::f32()],
   )
   match body {
-    TExpr([TBinary(F32SubOp, _, TLocalGet(LocalIdx(i)))]) =>
+    { instrs: [TBinary(F32SubOp, _, TLocalGet(LocalIdx(i)))], .. } =>
       assert_eq(i.reinterpret_as_int(), 1)
     _ => fail("expected f32.sub")
   }
@@ -2231,7 +2349,12 @@ test "optimize instructions int neg multiply patterns" {
     locals=[ValType::i32(), ValType::i32()],
   )
   match body {
-    TExpr([TBinary(I32MulOp, TLocalGet(LocalIdx(i)), TLocalGet(LocalIdx(j)))]) => {
+    {
+      instrs: [
+        TBinary(I32MulOp, TLocalGet(LocalIdx(i)), TLocalGet(LocalIdx(j))),
+      ],
+      ..,
+    } => {
       assert_eq(i.reinterpret_as_int(), 0)
       assert_eq(j.reinterpret_as_int(), 1)
     }
@@ -2257,18 +2380,18 @@ test "optimize instructions unsigned compare constants" {
     locals=[ValType::i32()],
   )
   match body {
-    TExpr([_, _]) => ()
+    { instrs: [_, _], .. } => ()
     _ => fail("expected two instructions")
   }
   match body {
-    TExpr([first, second]) => {
+    { instrs: [first, second], .. } => {
       match first {
-        TBlock(_, TExpr([TDrop(TLocalGet(_)), TI32Const(I32(v))])) =>
+        TBlock(_, { instrs: [TDrop(TLocalGet(_)), TI32Const(I32(v))], .. }) =>
           assert_eq(v, 1)
         _ => fail("expected ge_u 0 => 1 preserving lhs")
       }
       match second {
-        TBlock(_, TExpr([TDrop(TLocalGet(_)), TI32Const(I32(v))])) =>
+        TBlock(_, { instrs: [TDrop(TLocalGet(_)), TI32Const(I32(v))], .. }) =>
           assert_eq(v, 0)
         _ => fail("expected lt_u 0 => 0 preserving lhs")
       }
@@ -2300,7 +2423,7 @@ test "optimize instructions power-of-two integer arithmetic" {
     locals=[ValType::i32()],
   )
   match body {
-    TExpr([mul_i, div_i, rem_i]) => {
+    { instrs: [mul_i, div_i, rem_i], .. } => {
       match mul_i {
         TBinary(I32ShlOp, _, TI32Const(I32(v))) => assert_eq(v, 3)
         _ => fail("expected mul by 8 => shl 3")
@@ -2346,13 +2469,13 @@ test "optimize instructions arithmetic trivial constants" {
     locals=[ValType::i32()],
   )
   match body {
-    TExpr([a0, a1, a2, a3]) => {
+    { instrs: [a0, a1, a2, a3], .. } => {
       match a0 {
         TLocalGet(_) => ()
         _ => fail("expected and -1 => x")
       }
       match a1 {
-        TBlock(_, TExpr([TDrop(_), TI32Const(I32(-1))])) => ()
+        TBlock(_, { instrs: [TDrop(_), TI32Const(I32(-1))], .. }) => ()
         _ => fail("expected or -1 => -1 with drop")
       }
       match a2 {
@@ -2385,7 +2508,10 @@ test "optimize instructions constant-left subtraction patterns" {
     locals=[ValType::i32()],
   )
   match body {
-    TExpr([TBinary(I32SubOp, TI32Const(I32(c)), TLocalGet(LocalIdx(i)))]) => {
+    {
+      instrs: [TBinary(I32SubOp, TI32Const(I32(c)), TLocalGet(LocalIdx(i)))],
+      ..,
+    } => {
       assert_eq(c, 6)
       assert_eq(i.reinterpret_as_int(), 0)
     }
@@ -2410,7 +2536,10 @@ test "optimize instructions relational x-y compare to zero" {
     locals=[ValType::i32(), ValType::i32()],
   )
   match body {
-    TExpr([TBinary(I32EqOp, TLocalGet(LocalIdx(i)), TLocalGet(LocalIdx(j)))]) => {
+    {
+      instrs: [TBinary(I32EqOp, TLocalGet(LocalIdx(i)), TLocalGet(LocalIdx(j)))],
+      ..,
+    } => {
       assert_eq(i.reinterpret_as_int(), 0)
       assert_eq(j.reinterpret_as_int(), 1)
     }
@@ -2436,7 +2565,7 @@ test "optimize instructions deduplicate equal binary children" {
     locals=[ValType::i32(), ValType::i32()],
   )
   match body {
-    TExpr([a0, a1]) => {
+    { instrs: [a0, a1], .. } => {
       match a0 {
         TI32Const(I32(0)) => ()
         _ => fail("expected x xor x => 0")
@@ -2474,7 +2603,7 @@ test "optimize instructions reinterpret chains and load reinterpret" {
     with_memory=true,
   )
   match body {
-    TExpr([a0, a1]) => {
+    { instrs: [a0, a1], .. } => {
       match a0 {
         TLocalGet(LocalIdx(i)) => assert_eq(i.reinterpret_as_int(), 0)
         _ => fail("expected reinterpret(reinterpret(x)) => x")
@@ -2508,18 +2637,18 @@ test "optimize instructions if eqz arm flip and fold identical arms" {
     locals=[ValType::i32()],
   )
   match body {
-    TExpr([a0, a1]) => {
+    { instrs: [a0, a1], .. } => {
       match a0 {
         TIf(
           _,
           TLocalGet(_),
-          TExpr([TI32Const(I32(2))]),
-          Some(TExpr([TI32Const(I32(1))]))
+          { instrs: [TI32Const(I32(2))], .. },
+          Some({ instrs: [TI32Const(I32(1))], .. })
         ) => ()
         _ => fail("expected if eqz flip")
       }
       match a1 {
-        TBlock(_, TExpr([TI32Const(I32(7))])) => ()
+        TBlock(_, { instrs: [TI32Const(I32(7))], .. }) => ()
         _ => fail("expected identical-arm if fold")
       }
     }
@@ -2533,7 +2662,7 @@ test "optimize instructions global.set same global.get becomes nop" {
     TInstr::global_set(GlobalIdx::new(0), TInstr::global_get(GlobalIdx::new(0))),
   ])
   match body {
-    TExpr([TNop]) => ()
+    { instrs: [TNop], .. } => ()
     _ => fail("expected global.set g (global.get g) => nop")
   }
 }
@@ -2557,7 +2686,7 @@ test "optimize instructions memory access folds const pointer into offset" {
     with_memory=true,
   )
   match body {
-    TExpr([l0, s0]) => {
+    { instrs: [l0, s0], .. } => {
       match l0 {
         TLoad(_, MemArg(_, _, U64(off)), TI32Const(I32(v))) => {
           assert_eq(off, 0UL)
@@ -2601,7 +2730,7 @@ test "optimize instructions store value truncation and wrap upgrade" {
     with_memory=true,
   )
   match body {
-    TExpr([s0, s1]) => {
+    { instrs: [s0, s1], .. } => {
       match s0 {
         TStore(I32Store8Op, _, _, TI32Const(I32(v))) => assert_eq(v, 0x34)
         _ => fail("expected store8 const truncation")
@@ -2634,7 +2763,7 @@ test "optimize instructions reinterpret store rewrites value type" {
     with_memory=true,
   )
   match body {
-    TExpr([TStore(I32StoreOp, _, _, TLocalGet(LocalIdx(i)))]) =>
+    { instrs: [TStore(I32StoreOp, _, _, TLocalGet(LocalIdx(i)))], .. } =>
       assert_eq(i.reinterpret_as_int(), 1)
     _ => fail("expected f32.store(reinterpret_i32) => i32.store")
   }
@@ -2663,9 +2792,9 @@ test "optimize instructions memory.copy rewrites constants" {
     with_memory=true,
   )
   match body {
-    TExpr([c0, c1]) => {
+    { instrs: [c0, c1], .. } => {
       match c0 {
-        TBlock(_, TExpr([TDrop(_), TDrop(_)])) => ()
+        TBlock(_, { instrs: [TDrop(_), TDrop(_)], .. }) => ()
         _ => fail("expected memory.copy size 0 rewrite")
       }
       match c1 {
@@ -2704,9 +2833,9 @@ test "optimize instructions memory.fill rewrites constants" {
     with_memory=true,
   )
   match body {
-    TExpr([f0, f1, f2]) => {
+    { instrs: [f0, f1, f2], .. } => {
       match f0 {
-        TBlock(_, TExpr([TDrop(_), TDrop(_)])) => ()
+        TBlock(_, { instrs: [TDrop(_), TDrop(_)], .. }) => ()
         _ => fail("expected memory.fill size 0 rewrite")
       }
       match f1 {
@@ -2743,10 +2872,12 @@ test "optimize instructions select constant condition and equal arms" {
     locals=[ValType::i32()],
   )
   match body {
-    TExpr([s0, s1]) => {
+    { instrs: [s0, s1], .. } => {
       match s0 {
-        TBlock(_, TExpr([TDrop(TI32Const(I32(1))), TLocalGet(LocalIdx(i))])) =>
-          assert_eq(i.reinterpret_as_int(), 0)
+        TBlock(
+          _,
+          { instrs: [TDrop(TI32Const(I32(1))), TLocalGet(LocalIdx(i))], .. }
+        ) => assert_eq(i.reinterpret_as_int(), 0)
         _ => fail("expected select cond=0 rewrite")
       }
       match s1 {
@@ -2778,7 +2909,7 @@ test "optimize instructions call_ref direct simplifications" {
     .with_code_sec(code_sec)
   let out = optimize_module(mod_, [ModulePass::OptimizeInstructions]).unwrap()
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TCall(FuncIdx(raw), _)]))])) =>
+    Some(CodeSec([TFunc(_, { instrs: [TCall(FuncIdx(raw), _)], .. })])) =>
       assert_eq(raw.reinterpret_as_int(), 0)
     _ => fail("expected call_ref(ref.func) => call")
   }
@@ -2812,7 +2943,7 @@ test "optimize instructions helper sequencing boolean and reorder checks" {
   assert_eq(oi_instr_stmt(TInstr::nop(), env), TInstr::nop())
   assert_eq(oi_seq([], TInstr::nop(), env), TInstr::nop())
   match oi_seq([TInstr::i32_const(I32(1))], TInstr::nop(), env) {
-    TBlock(VoidBlockType, TExpr([_, TNop])) => ()
+    TBlock(VoidBlockType, { instrs: [_, TNop], .. }) => ()
     _ => fail("expected oi_seq to emit block for non-empty statements")
   }
 
@@ -2877,7 +3008,7 @@ test "optimize instructions i64 constant-right simplifications mirror i32 covera
     locals=[ValType::i64()],
   )
   match body {
-    TExpr([a0, a1, a2, a3, a4]) => {
+    { instrs: [a0, a1, a2, a3, a4], .. } => {
       match a0 {
         TBinary(I64ShrUOp, _, TI64Const(I64(v))) => assert_eq(v, 3L)
         _ => fail("expected i64.div_u by pow2 => shr_u")
@@ -2887,7 +3018,8 @@ test "optimize instructions i64 constant-right simplifications mirror i32 covera
         _ => fail("expected i64.rem_u by pow2 => and")
       }
       match a2 {
-        TBlock(_, TExpr([TDrop(_), TI32Const(I32(v))])) => assert_eq(v, 1)
+        TBlock(_, { instrs: [TDrop(_), TI32Const(I32(v))], .. }) =>
+          assert_eq(v, 1)
         _ => fail("expected i64.ge_u 0 => true with dropped lhs")
       }
       match a3 {
@@ -2900,5 +3032,29 @@ test "optimize instructions i64 constant-right simplifications mirror i32 covera
       }
     }
     _ => fail("expected five rewritten i64 instructions")
+  }
+}
+
+///|
+test "optimize instructions candidate pre-scan reaches deeper nested candidates" {
+  let body = oi_run_func(
+    [
+      TInstr::drop(
+        TInstr::drop(
+          TInstr::binary(
+            BinaryOp::i32_add(),
+            TInstr::local_get(LocalIdx::new(0)),
+            TInstr::i32_const(I32(0)),
+          ),
+        ),
+      ),
+    ],
+    locals=[ValType::i32()],
+  )
+  match body {
+    { instrs: [TDrop(TDrop(TLocalGet(LocalIdx(i))))], .. } =>
+      assert_eq(i.reinterpret_as_int(), 0)
+    _ =>
+      fail("expected nested i32.add with const zero to simplify to local.get")
   }
 }

@@ -56,7 +56,7 @@ fn rub_has_side_effects(instr : TInstr) -> Bool {
 
 ///|
 fn rub_is_single_tinstr(expr : TExpr) -> TInstr? {
-  match expr.0 {
+  match expr.instrs {
     [single] => Some(single)
     _ => None
   }
@@ -102,7 +102,7 @@ fn rub_instr_has_branch(instr : TInstr) -> Bool {
 
 ///|
 fn rub_texpr_has_branch(expr : TExpr) -> Bool {
-  for instr in expr.0 {
+  for instr in expr.instrs {
     if rub_instr_has_branch(instr) {
       return true
     }
@@ -491,7 +491,7 @@ fn rub_optimize_if_else_block_tail(instrs : Array[TInstr]) -> Bool {
               for j in 0..<instrs.length() {
                 next.push(instrs[j])
                 if j == i {
-                  for item in else_body.0 {
+                  for item in else_body.instrs {
                     next.push(item)
                   }
                 }
@@ -501,7 +501,7 @@ fn rub_optimize_if_else_block_tail(instrs : Array[TInstr]) -> Bool {
                 instrs.push(item)
               }
               changed = true
-              i += else_body.0.length()
+              i += else_body.instrs.length()
               applied = true
             }
           _ => ()
@@ -527,7 +527,7 @@ fn rub_optimize_if_else_block_tail(instrs : Array[TInstr]) -> Bool {
                 for j in 0..<instrs.length() {
                   next.push(instrs[j])
                   if j == i {
-                    for item in then_body.0 {
+                    for item in then_body.instrs {
                       next.push(item)
                     }
                   }
@@ -537,7 +537,7 @@ fn rub_optimize_if_else_block_tail(instrs : Array[TInstr]) -> Bool {
                   instrs.push(item)
                 }
                 changed = true
-                i += then_body.0.length()
+                i += then_body.instrs.length()
                 applied = true
               }
             _ => ()
@@ -703,7 +703,7 @@ fn remove_unused_brs_pass(options : OptimizeOptions) -> ModuleTransformer[Bool] 
   .on_texpr_evt(fn(self, in_function_body, expr) {
     let out : Array[TInstr] = []
     let mut changed = false
-    for instr in expr.0 {
+    for instr in expr.instrs {
       let next_instr = match self.walk_tinstruction(false, instr) {
         Ok(Some((_, walked))) => walked
         Ok(None) => instr
@@ -829,7 +829,8 @@ test "remove_unused_brs removes trailing br 0 in block" {
   let mod = Module::new().with_code_sec(CodeSec::new([Func::t_func([], body)]))
   let out = rub_run(mod)
   match rub_single_func(out) {
-    TFunc(_, TExpr([TBlock(_, TExpr([TI32Const(I32(1))]))])) => ()
+    TFunc(_, { instrs: [TBlock(_, { instrs: [TI32Const(I32(1))], .. })], .. }) =>
+      ()
     _ => fail("expected trailing br 0 to be removed")
   }
 }
@@ -845,7 +846,8 @@ test "remove_unused_brs forwards trailing br value in block" {
   let mod = Module::new().with_code_sec(CodeSec::new([Func::t_func([], body)]))
   let out = rub_run(mod)
   match rub_single_func(out) {
-    TFunc(_, TExpr([TBlock(_, TExpr([TI32Const(I32(7))]))])) => ()
+    TFunc(_, { instrs: [TBlock(_, { instrs: [TI32Const(I32(7))], .. })], .. }) =>
+      ()
     _ => fail("expected trailing br value to be forwarded")
   }
 }
@@ -861,7 +863,8 @@ test "remove_unused_brs trims trailing nops from block body" {
   let mod = Module::new().with_code_sec(CodeSec::new([Func::t_func([], body)]))
   let out = rub_run(mod)
   match rub_single_func(out) {
-    TFunc(_, TExpr([TBlock(_, TExpr([TI32Const(I32(1))]))])) => ()
+    TFunc(_, { instrs: [TBlock(_, { instrs: [TI32Const(I32(1))], .. })], .. }) =>
+      ()
     _ => fail("expected trailing nops to be trimmed")
   }
 }
@@ -886,8 +889,13 @@ test "remove_unused_brs turns one-armed if with break into br_if" {
   )
   let out = rub_run(mod)
   match rub_single_func(out) {
-    TFunc(_, TExpr([TBlock(_, TExpr([TBrIf(label, TLocalGet(_), [])]))])) =>
-      assert_eq(label, LabelIdx::new(1))
+    TFunc(
+      _,
+      {
+        instrs: [TBlock(_, { instrs: [TBrIf(label, TLocalGet(_), [])], .. })],
+        ..,
+      }
+    ) => assert_eq(label, LabelIdx::new(1))
     _ => fail("expected if( cond ) br to become br_if")
   }
 }
@@ -921,22 +929,24 @@ test "remove_unused_brs combines nested one-armed if conditions" {
   match rub_single_func(out) {
     TFunc(
       _,
-      TExpr(
-        [
+      {
+        instrs: [
           TBlock(
             _,
-            TExpr(
-              [
+            {
+              instrs: [
                 TBrIf(
                   _,
                   TSelect(_, TLocalGet(_), TLocalGet(_), TI32Const(I32(0))),
                   []
                 ),
-              ]
-            )
+              ],
+              ..,
+            }
           ),
-        ]
-      )
+        ],
+        ..,
+      }
     ) => ()
     _ =>
       fail(
@@ -965,8 +975,13 @@ test "remove_unused_brs trims trailing br_table defaults and simplifies" {
   )
   let out = rub_run(mod)
   match rub_single_func(out) {
-    TFunc(_, TExpr([TBlock(_, TExpr([TBrIf(label, TLocalGet(_), [])]))])) =>
-      assert_eq(label, LabelIdx::new(1))
+    TFunc(
+      _,
+      {
+        instrs: [TBlock(_, { instrs: [TBrIf(label, TLocalGet(_), [])], .. })],
+        ..,
+      }
+    ) => assert_eq(label, LabelIdx::new(1))
     _ => fail("expected trailing-default br_table to simplify to br_if")
   }
 }
@@ -991,7 +1006,13 @@ test "remove_unused_brs rewrites default-only br_table to drop+br" {
   )
   let out = rub_run(mod)
   match rub_single_func(out) {
-    TFunc(_, TExpr([TBlock(_, TExpr([TBlock(_, TExpr(items))]))])) =>
+    TFunc(
+      _,
+      {
+        instrs: [TBlock(_, { instrs: [TBlock(_, { instrs: items, .. })], .. })],
+        ..,
+      }
+    ) =>
       match items {
         [TDrop(_)] | [TDrop(_), TBr(_, _)] => ()
         _ =>
@@ -1026,7 +1047,7 @@ test "remove_unused_brs rewrites single-target br_table to if+brs" {
   )
   let out = rub_run(mod)
   match rub_single_func(out) {
-    TFunc(_, TExpr([TBlock(_, TExpr(items))])) =>
+    TFunc(_, { instrs: [TBlock(_, { instrs: items, .. })], .. }) =>
       match items {
         [TIf(_, _, _, _)] | [TDrop(_)] | [TBlock(_, _)] => ()
         _ => fail("expected single-target br_table to be simplified")
@@ -1051,8 +1072,13 @@ test "remove_unused_brs merges br_if followed by br to same target" {
   )
   let out = rub_run(mod)
   match rub_single_func(out) {
-    TFunc(_, TExpr([TBlock(_, TExpr([TBrIf(label, TLocalGet(_), [])]))])) =>
-      assert_eq(label, LabelIdx::new(0))
+    TFunc(
+      _,
+      {
+        instrs: [TBlock(_, { instrs: [TBrIf(label, TLocalGet(_), [])], .. })],
+        ..,
+      }
+    ) => assert_eq(label, LabelIdx::new(0))
     _ =>
       fail("expected br_if + br to same target to simplify to a single br_if")
   }
@@ -1069,7 +1095,7 @@ test "remove_unused_brs merges adjacent br_ifs in shrink mode" {
   )
   let out = rub_run(mod, options=OptimizeOptions::new(shrink_level=1))
   match rub_single_func(out) {
-    TFunc(_, TExpr([TBrIf(_, TBinary(I32OrOp, _, _), [])])) => ()
+    TFunc(_, { instrs: [TBrIf(_, TBinary(I32OrOp, _, _), [])], .. }) => ()
     _ => fail("expected adjacent br_ifs to merge in shrink mode")
   }
 }
@@ -1088,8 +1114,13 @@ test "remove_unused_brs folds br_if with constant true condition" {
   let mod = Module::new().with_code_sec(CodeSec::new([Func::t_func([], body)]))
   let out = rub_run(mod)
   match rub_single_func(out) {
-    TFunc(_, TExpr([TBlock(_, TExpr([TBr(label, []), TI32Const(I32(2))]))])) =>
-      assert_eq(label, LabelIdx::new(0))
+    TFunc(
+      _,
+      {
+        instrs: [TBlock(_, { instrs: [TBr(label, []), TI32Const(I32(2))], .. })],
+        ..,
+      }
+    ) => assert_eq(label, LabelIdx::new(0))
     _ => fail("expected br_if true to become br")
   }
 }
@@ -1100,7 +1131,7 @@ test "remove_unused_brs folds br_if with constant false condition" {
   let mod = Module::new().with_code_sec(CodeSec::new([Func::t_func([], body)]))
   let out = rub_run(mod)
   match rub_single_func(out) {
-    TFunc(_, TExpr([TDrop(TI32Const(I32(0)))])) => ()
+    TFunc(_, { instrs: [TDrop(TI32Const(I32(0)))], .. }) => ()
     _ => fail("expected br_if false to become drop(condition)")
   }
 }
@@ -1128,7 +1159,12 @@ test "remove_unused_brs removes redundant dropped br_if tail value copy" {
   match rub_single_func(out) {
     TFunc(
       _,
-      TExpr([TBlock(_, TExpr([TDrop(TLocalGet(_)), TI32Const(I32(9))]))])
+      {
+        instrs: [
+          TBlock(_, { instrs: [TDrop(TLocalGet(_)), TI32Const(I32(9))], .. }),
+        ],
+        ..,
+      }
     ) => ()
     _ => fail("expected dropped br_if tail-value pattern to be optimized")
   }
@@ -1140,7 +1176,7 @@ test "remove_unused_brs removes trailing return with no value in function body" 
   let mod = Module::new().with_code_sec(CodeSec::new([Func::t_func([], body)]))
   let out = rub_run(mod)
   match rub_single_func(out) {
-    TFunc(_, TExpr([TI32Const(I32(1))])) => ()
+    TFunc(_, { instrs: [TI32Const(I32(1))], .. }) => ()
     _ => fail("expected trailing return to be removed")
   }
 }
@@ -1151,7 +1187,7 @@ test "remove_unused_brs forwards trailing return value in function body" {
   let mod = Module::new().with_code_sec(CodeSec::new([Func::t_func([], body)]))
   let out = rub_run(mod)
   match rub_single_func(out) {
-    TFunc(_, TExpr([TI32Const(I32(77))])) => ()
+    TFunc(_, { instrs: [TI32Const(I32(77))], .. }) => ()
     _ => fail("expected trailing return value to be forwarded")
   }
 }

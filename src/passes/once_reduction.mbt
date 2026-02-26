@@ -214,9 +214,9 @@ fn or_set_defined_func(mod : Module, def_idx : Int, func : Func) -> Module {
 ///|
 fn or_get_once_global(body : TExpr) -> GlobalIdx? {
   match body {
-    TExpr([TBlock(_, TExpr(items))]) if items.length() >= 2 =>
+    { instrs: [TBlock(_, { instrs: items, .. })], .. } if items.length() >= 2 =>
       match items[0] {
-        TIf(_, TGlobalGet(g0), TExpr([TReturn(ret_vals)]), None) if ret_vals.length() ==
+        TIf(_, TGlobalGet(g0), { instrs: [TReturn(ret_vals)], .. }, None) if ret_vals.length() ==
           0 =>
           match items[1] {
             TGlobalSet(g1, value) =>
@@ -288,7 +288,7 @@ fn or_scan_texpr(
   info : OROptInfo,
 ) -> Unit {
   let mut reachable = reachable
-  for instr in body.0 {
+  for instr in body.instrs {
     if !reachable {
       break
     }
@@ -435,7 +435,7 @@ fn or_lower_texpr(
   state : ORBuildState,
 ) -> ORBlockId {
   let mut current = start
-  for instr in body.0 {
+  for instr in body.instrs {
     match instr {
       TIf(_, _, then_body, else_body) => {
         let then_block = or_make_block(state)
@@ -612,7 +612,7 @@ fn or_rewrite_instr(state : ORRewriteState, instr : TInstr) -> TInstr {
 ///|
 fn or_rewrite_texpr(state : ORRewriteState, body : TExpr) -> TExpr {
   let out : Array[TInstr] = []
-  for instr in body.0 {
+  for instr in body.instrs {
     out.push(or_rewrite_instr(state, instr))
   }
   TExpr::new(out)
@@ -704,7 +704,7 @@ fn or_optimize_function(
 ///|
 fn or_match_guard_if(instr : TInstr) -> GlobalIdx? {
   match instr {
-    TIf(_, TGlobalGet(g), TExpr([TReturn(values)]), None) if values.length() ==
+    TIf(_, TGlobalGet(g), { instrs: [TReturn(values)], .. }, None) if values.length() ==
       0 => Some(g)
     _ => None
   }
@@ -744,7 +744,7 @@ fn or_cleanup_once_bodies(mod : Module, info : OROptInfo) -> Module {
       None => continue
     }
     match func {
-      TFunc(locals, TExpr([TBlock(bt, TExpr(items))])) =>
+      TFunc(locals, { instrs: [TBlock(bt, { instrs: items, .. })], .. }) =>
         if items.length() == 2 &&
           or_match_guard_if(items[0]) == Some(g) &&
           or_match_once_set(items[1], g) {
@@ -993,7 +993,8 @@ test "once_reduction removes dominated redundant once call" {
     )
   let out = or_run(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TCall(_, _), TNop, TNop])), _])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TCall(_, _), TNop, TNop], .. }), _])) =>
+      ()
     _ => fail("expected second dominated call to once func to be nopped")
   }
 }
@@ -1018,7 +1019,7 @@ test "once_reduction removes redundant once-global sets" {
     )
   let out = or_run(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TGlobalSet(_, _), TNop])), _])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TGlobalSet(_, _), TNop], .. }), _])) => ()
     _ => fail("expected second dominated once-global set to be nopped")
   }
 }
@@ -1051,7 +1052,8 @@ test "once_reduction disqualifies zero and non-const writes" {
     )
   let out_zero = or_run(zero_write)
   match out_zero.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TCall(_, _), TCall(_, _)])), _, _])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TCall(_, _), TCall(_, _)], .. }), _, _])) =>
+      ()
     _ => fail("expected no call removal when once global is written with zero")
   }
   let non_const_write = Module::new()
@@ -1089,7 +1091,8 @@ test "once_reduction disqualifies zero and non-const writes" {
     )
   let out_non_const = or_run(non_const_write)
   match out_non_const.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TCall(_, _), TCall(_, _)])), _, _])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TCall(_, _), TCall(_, _)], .. }), _, _])) =>
+      ()
     _ =>
       fail(
         "expected no call removal when once global has non-const integer write",
@@ -1125,7 +1128,8 @@ test "once_reduction disqualifies extra reads and exported/imported globals" {
     )
   let out_extra_read = or_run(extra_read)
   match out_extra_read.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TCall(_, _), TCall(_, _)])), _, _])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TCall(_, _), TCall(_, _)], .. }), _, _])) =>
+      ()
     _ => fail("expected no call removal when once global is read outside guard")
   }
   let exported_global = Module::new()
@@ -1151,7 +1155,8 @@ test "once_reduction disqualifies extra reads and exported/imported globals" {
     )
   let out_exported = or_run(exported_global)
   match out_exported.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TCall(_, _), TCall(_, _)])), _])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TCall(_, _), TCall(_, _)], .. }), _])) =>
+      ()
     _ => fail("expected no call removal for exported once global")
   }
   let imported_global = Module::new()
@@ -1180,7 +1185,8 @@ test "once_reduction disqualifies extra reads and exported/imported globals" {
     )
   let out_imported = or_run(imported_global)
   match out_imported.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TCall(_, _), TCall(_, _)])), _])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TCall(_, _), TCall(_, _)], .. }), _])) =>
+      ()
     _ => fail("expected no call removal for imported once global")
   }
 }
@@ -1221,7 +1227,8 @@ test "once_reduction disqualifies non-canonical guard pattern" {
     )
   let out = or_run(bad_once)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TCall(_, _), TCall(_, _)])), _])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TCall(_, _), TCall(_, _)], .. }), _])) =>
+      ()
     _ => fail("expected no call removal when guard pattern is not canonical")
   }
 }
@@ -1251,7 +1258,7 @@ test "once_reduction propagates once summaries to fixed point" {
     )
   let out = or_run(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TCall(_, _), TNop])), _, _])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TCall(_, _), TNop], .. }), _, _])) => ()
     _ =>
       fail(
         "expected fixed-point propagation to remove dominated call through callee summary",
@@ -1286,7 +1293,8 @@ test "once_reduction honors dominance across branches" {
     )
   let out = or_run(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TIf(_, _, _, _), TCall(_, _)])), _])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TIf(_, _, _, _), TCall(_, _)], .. }), _])) =>
+      ()
     _ =>
       fail(
         "expected post-merge call to remain when prior call does not dominate",
@@ -1317,7 +1325,8 @@ test "once_reduction keeps block-nested call semantics aligned with canonical cf
     )
   let out = or_run(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TBlock(_, _), TCall(_, _)])), _])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TBlock(_, _), TCall(_, _)], .. }), _])) =>
+      ()
     _ =>
       fail(
         "expected second call to remain; nested block call is not split in canonical cfg lowering",
@@ -1342,7 +1351,7 @@ test "once_reduction handles unreachable tails safely" {
     )
   let out = or_run(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TUnreachable, _])), _])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TUnreachable, _], .. }), _])) => ()
     _ => fail("expected pass to ignore unreachable tail calls without crashing")
   }
 }
@@ -1356,7 +1365,7 @@ test "once_reduction cleanup removes no-payload boilerplate" {
     .with_code_sec(CodeSec::new([Func::t_func([], or_once_body(0, 1, []))]))
   let out = or_run(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TNop]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TNop], .. })])) => ()
     _ => fail("expected cleanup to turn guard+set-only once func into nop body")
   }
 }
@@ -1382,7 +1391,16 @@ test "once_reduction cleanup removes boilerplate for single once-call payload" {
   match out.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, TExpr([TBlock(_, TExpr([TNop, TNop, TCall(_, _)]))])), _]
+        [
+          TFunc(
+            _,
+            {
+              instrs: [TBlock(_, { instrs: [TNop, TNop, TCall(_, _)], .. })],
+              ..,
+            }
+          ),
+          _,
+        ]
       )
     ) => ()
     _ =>
@@ -1417,8 +1435,8 @@ test "once_reduction cleanup is cycle-safe" {
     Some(
       CodeSec(
         [
-          TFunc(_, TExpr([TBlock(_, TExpr(a_items))])),
-          TFunc(_, TExpr([TBlock(_, TExpr(b_items))])),
+          TFunc(_, { instrs: [TBlock(_, { instrs: a_items, .. })], .. }),
+          TFunc(_, { instrs: [TBlock(_, { instrs: b_items, .. })], .. }),
         ]
       )
     ) => {

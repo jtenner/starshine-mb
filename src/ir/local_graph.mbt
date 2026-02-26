@@ -93,14 +93,14 @@ fn flatten_instrs(instrs : Array[TInstr]) -> Array[TInstr] {
         out.push(TInstr::if_(bt, cond, TExpr::new([]), None))
 
         // Flatten then branch
-        let then_flat = flatten_instrs(then_expr.0)
+        let then_flat = flatten_instrs(then_expr.instrs)
         for i in then_flat {
           out.push(i)
         }
 
         // Flatten else branch, if present
         if else_expr is Some(e) {
-          let else_flat = flatten_instrs(e.0)
+          let else_flat = flatten_instrs(e.instrs)
           for i in else_flat {
             out.push(i)
           }

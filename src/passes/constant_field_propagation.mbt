@@ -385,7 +385,7 @@ fn constant_field_propagation_ir_pass(
 ///|
 /// Scan a function body for struct.new operations
 fn scan_for_struct_news(state : CFPState, body : TExpr) -> Unit {
-  for instr in body.0 {
+  for instr in body.instrs {
     scan_instruction(state, instr)
   }
 }
@@ -761,9 +761,9 @@ test "make_cfp_optimizer replaces struct.get with constant" {
     Ok(Some((_, new_instr))) =>
       match new_instr {
         TBlock(_, body) => {
-          assert_eq(body.0.length(), 2)
-          assert_true(body.0[0] is TDrop(_))
-          assert_true(body.0[1] is TI32Const(_))
+          assert_eq(body.instrs.length(), 2)
+          assert_true(body.instrs[0] is TDrop(_))
+          assert_true(body.instrs[1] is TI32Const(_))
         }
         _ => fail("Expected TBlock but got something else")
       }
@@ -1069,9 +1069,9 @@ test "struct.get_s and struct.get_u optimization" {
     Ok(Some((_, new_instr))) =>
       match new_instr {
         TBlock(_, body) => {
-          assert_eq(body.0.length(), 2)
-          assert_true(body.0[0] is TDrop(_))
-          assert_true(body.0[1] is TI32Const(_))
+          assert_eq(body.instrs.length(), 2)
+          assert_true(body.instrs[0] is TDrop(_))
+          assert_true(body.instrs[1] is TI32Const(_))
         }
         _ => fail("Expected TBlock but got something else")
       }
@@ -1086,9 +1086,9 @@ test "struct.get_s and struct.get_u optimization" {
     Ok(Some((_, new_instr))) =>
       match new_instr {
         TBlock(_, body) => {
-          assert_eq(body.0.length(), 2)
-          assert_true(body.0[0] is TDrop(_))
-          assert_true(body.0[1] is TI32Const(_))
+          assert_eq(body.instrs.length(), 2)
+          assert_true(body.instrs[0] is TDrop(_))
+          assert_true(body.instrs[1] is TI32Const(_))
         }
         _ => fail("Expected TBlock but got something else")
       }
@@ -1121,9 +1121,9 @@ test "ref.test optimization with ref.null field" {
     Ok(Some((_, new_instr))) =>
       match new_instr {
         TBlock(_, body) => {
-          assert_eq(body.0.length(), 2)
-          assert_true(body.0[0] is TDrop(_))
-          match body.0[1] {
+          assert_eq(body.instrs.length(), 2)
+          assert_true(body.instrs[0] is TDrop(_))
+          match body.instrs[1] {
             TI32Const(I32(val)) => assert_eq(val, 0)
             _ => fail("Expected i32.const 0")
           }

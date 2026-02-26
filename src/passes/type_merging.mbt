@@ -1672,7 +1672,9 @@ test "type_merging merges private subtype into identical supertype" {
     )
   let out = run_type_merging(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(TStructNew(TypeIdx(0), []))]))])) => ()
+    Some(
+      CodeSec([TFunc(_, { instrs: [TDrop(TStructNew(TypeIdx(0), []))], .. })])
+    ) => ()
     _ => fail("expected identical subtype use-sites to merge to the supertype")
   }
   match out.type_sec {
@@ -1711,8 +1713,11 @@ test "type_merging does not merge cast-target type" {
     )
   let out = run_type_merging(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(TStructNew(TypeIdx(1), [])), ..]))])) =>
-      ()
+    Some(
+      CodeSec(
+        [TFunc(_, { instrs: [TDrop(TStructNew(TypeIdx(1), [])), ..], .. })]
+      )
+    ) => ()
     _ => fail("expected cast-target subtype to remain distinct")
   }
   match out.type_sec {
@@ -1755,12 +1760,13 @@ test "type_merging merges identical siblings" {
         [
           TFunc(
             _,
-            TExpr(
-              [
+            {
+              instrs: [
                 TDrop(TStructNew(TypeIdx(lhs), [TI32Const(I32(1))])),
                 TDrop(TStructNew(TypeIdx(rhs), [TI32Const(I32(2))])),
-              ]
-            )
+              ],
+              ..,
+            }
           ),
         ]
       )
@@ -1808,7 +1814,8 @@ test "type_merging does not merge public type" {
     None => fail("expected type section")
   }
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TRefNull(HeapType(TypeIdx(1)))]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TRefNull(HeapType(TypeIdx(1)))], .. })])) =>
+      ()
     _ => fail("expected public type references to remain unchanged")
   }
 }
@@ -1843,16 +1850,22 @@ test "type_merging treats call_indirect cast barrier as trap-mode sensitive" {
 
   let out_default = tm_run_type_merging_with_traps_never_happen(mod, false)
   match out_default.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TCallIndirect(TypeIdx(2), _, _, _)])), ..])) =>
-      ()
+    Some(
+      CodeSec(
+        [TFunc(_, { instrs: [TCallIndirect(TypeIdx(2), _, _, _)], .. }), ..]
+      )
+    ) => ()
     _ => fail("expected call_indirect type to remain when traps may happen")
   }
 
   let out_tnh = tm_run_type_merging_with_traps_never_happen(mod, true)
   let mut merged_type_idx : UInt? = None
   match out_tnh.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TCallIndirect(TypeIdx(i), _, _, _)])), ..])) =>
-      merged_type_idx = Some(i)
+    Some(
+      CodeSec(
+        [TFunc(_, { instrs: [TCallIndirect(TypeIdx(i), _, _, _)], .. }), ..]
+      )
+    ) => merged_type_idx = Some(i)
     _ => fail("expected call_indirect to remain present after type_merging")
   }
   match (out_tnh.func_sec, merged_type_idx) {
@@ -1898,8 +1911,11 @@ test "type_merging exact descriptor casts on supertype block subtype merge" {
     )
   let out = run_type_merging(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(TStructNew(TypeIdx(1), [])), ..]))])) =>
-      ()
+    Some(
+      CodeSec(
+        [TFunc(_, { instrs: [TDrop(TStructNew(TypeIdx(1), [])), ..], .. })]
+      )
+    ) => ()
     _ =>
       fail("expected subtype to remain distinct due to exact cast on supertype")
   }
@@ -1912,8 +1928,11 @@ test "type_merging treats identical br_on_cast source-target as exact cast barri
   let out = run_type_merging(mod)
   tm_assert_valid_module(out, "br_on_cast exact barrier output")
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(TStructNew(TypeIdx(1), [])), ..]))])) =>
-      ()
+    Some(
+      CodeSec(
+        [TFunc(_, { instrs: [TDrop(TStructNew(TypeIdx(1), [])), ..], .. })]
+      )
+    ) => ()
     _ =>
       fail(
         "expected subtype to remain distinct due to exact-equivalent br_on_cast",
@@ -1928,8 +1947,11 @@ test "type_merging merges non-exact br_on_cast source-target pairs" {
   let out = run_type_merging(mod)
   tm_assert_valid_module(out, "br_on_cast non-exact output")
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(TStructNew(TypeIdx(0), [])), ..]))])) =>
-      ()
+    Some(
+      CodeSec(
+        [TFunc(_, { instrs: [TDrop(TStructNew(TypeIdx(0), [])), ..], .. })]
+      )
+    ) => ()
     _ =>
       fail(
         "expected subtype to merge when br_on_cast source-target pair is non-exact",
@@ -1948,8 +1970,11 @@ test "type_merging does not treat nullable br_on_cast targets as exact barriers"
   let out = run_type_merging(mod)
   tm_assert_valid_module(out, "br_on_cast nullable non-exact output")
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(TStructNew(TypeIdx(0), [])), ..]))])) =>
-      ()
+    Some(
+      CodeSec(
+        [TFunc(_, { instrs: [TDrop(TStructNew(TypeIdx(0), [])), ..], .. })]
+      )
+    ) => ()
     _ =>
       fail(
         "expected subtype to merge when br_on_cast target nullability is not used as exactness",
@@ -1967,8 +1992,11 @@ test "type_merging treats identical br_on_cast heap types as exact regardless of
   let out = run_type_merging(mod)
   tm_assert_valid_module(out, "br_on_cast identical-heap exact output")
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(TStructNew(TypeIdx(1), [])), ..]))])) =>
-      ()
+    Some(
+      CodeSec(
+        [TFunc(_, { instrs: [TDrop(TStructNew(TypeIdx(1), [])), ..], .. })]
+      )
+    ) => ()
     _ =>
       fail(
         "expected subtype to remain distinct when br_on_cast source and target heap types are identical",

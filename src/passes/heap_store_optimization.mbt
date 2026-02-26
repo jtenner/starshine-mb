@@ -326,9 +326,9 @@ fn hso_flatten_instrs_with_origin(
       TIf(bt, cond, then_expr, else_expr) => {
         flat.push(TInstr::if_(bt, cond, TExpr::new([]), None))
         origins.push(origin)
-        hso_flatten_instrs_with_origin(then_expr.0, origin, flat, origins)
+        hso_flatten_instrs_with_origin(then_expr.instrs, origin, flat, origins)
         if else_expr is Some(other) {
-          hso_flatten_instrs_with_origin(other.0, origin, flat, origins)
+          hso_flatten_instrs_with_origin(other.instrs, origin, flat, origins)
         }
       }
       _ => {
@@ -670,7 +670,7 @@ fn hso_rewrite_texpr(
   state : HSOState,
   expr : TExpr,
 ) -> TransformerResult[HSOState, TExpr] {
-  let TExpr(instrs) = expr
+  let { instrs, .. } = expr
   let rewritten : Array[TInstr] = []
   let mut changed = false
   let mut curr_state = state
@@ -777,7 +777,14 @@ test "heap store optimization rewrites nested tee+struct.set" {
   let out = run_heap_store_optimization(mod)
   match out.code_sec {
     Some(
-      CodeSec([TFunc(_, TExpr([TLocalSet(LocalIdx(idx), TStructNew(_, ops))]))])
+      CodeSec(
+        [
+          TFunc(
+            _,
+            { instrs: [TLocalSet(LocalIdx(idx), TStructNew(_, ops))], .. }
+          ),
+        ]
+      )
     ) => {
       assert_eq(idx, 0U)
       match ops[0] {
@@ -829,7 +836,9 @@ test "heap store optimization folds following struct.set in block list" {
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap_store_optimization(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TLocalSet(_, TStructNew(_, ops))]))])) =>
+    Some(
+      CodeSec([TFunc(_, { instrs: [TLocalSet(_, TStructNew(_, ops))], .. })])
+    ) =>
       match ops[1] {
         TI32Const(I32(v)) => assert_eq(v, 7)
         _ => fail("expected folded second-field set")
@@ -882,7 +891,9 @@ test "heap store optimization folds multiple struct.sets after local.set" {
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap_store_optimization(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TLocalSet(_, TStructNew(_, ops))]))])) => {
+    Some(
+      CodeSec([TFunc(_, { instrs: [TLocalSet(_, TStructNew(_, ops))], .. })])
+    ) => {
       match ops[0] {
         TI32Const(I32(v)) => assert_eq(v, 9)
         _ => fail("expected first field updated")
@@ -1087,7 +1098,12 @@ test "heap store optimization keeps old operand effects via drop sequence" {
         [
           TFunc(
             _,
-            TExpr([TLocalSet(_, TStructNew(_, [TBlock(_, TExpr(seq))]))])
+            {
+              instrs: [
+                TLocalSet(_, TStructNew(_, [TBlock(_, { instrs: seq, .. })])),
+              ],
+              ..,
+            }
           ),
         ]
       )
@@ -1133,7 +1149,9 @@ test "heap store optimization folds into struct.new_default" {
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap_store_optimization(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TLocalSet(_, TStructNew(_, ops))]))])) => {
+    Some(
+      CodeSec([TFunc(_, { instrs: [TLocalSet(_, TStructNew(_, ops))], .. })])
+    ) => {
       match ops[0] {
         TI32Const(I32(v)) => assert_eq(v, 0)
         _ => fail("expected default for first field")

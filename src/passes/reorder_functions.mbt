@@ -291,7 +291,8 @@ test "reorder_functions reorders defined functions by static use counts and rewr
     )
   let out = rf_run_reorder_functions(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(TI32Const(I32(7)))])), _, _])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TDrop(TI32Const(I32(7)))], .. }), _, _])) =>
+      ()
     _ => fail("expected highest-used function to be moved first")
   }
   match out.start_sec {
@@ -324,7 +325,10 @@ test "reorder_functions_by_name currently preserves order when symbolic names ar
   match out.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, TExpr([TNop])), TFunc(_, TExpr([TDrop(TI32Const(I32(1)))]))]
+        [
+          TFunc(_, { instrs: [TNop], .. }),
+          TFunc(_, { instrs: [TDrop(TI32Const(I32(1)))], .. }),
+        ]
       )
     ) => ()
     _ => fail("expected function order to be preserved")

@@ -804,7 +804,7 @@ fn mn_collect_calls_in_texpr(
   reachable : Bool,
 ) -> Unit {
   let mut reachable = reachable
-  for instr in body.0 {
+  for instr in body.instrs {
     if !reachable {
       break
     }
@@ -907,7 +907,7 @@ fn mn_remove_returns_for_dropped(body : TExpr) -> TExpr {
     Ok(Some((_, out))) => out
     _ => body
   }
-  let out_instrs = rewritten.0.copy()
+  let out_instrs = rewritten.instrs.copy()
   out_instrs.push(TInstr::return_([]))
   TExpr::new(out_instrs)
 }
@@ -946,7 +946,7 @@ fn make_mono_function_with_context(
       for instr in prologue {
         combined.push(instr)
       }
-      for instr in rewritten_body.0 {
+      for instr in rewritten_body.instrs {
         combined.push(instr)
       }
       let locals = old_params.copy()
@@ -1015,17 +1015,17 @@ fn mn_cost_instr(instr : TInstr) -> Int {
   let mut total = base
   match instr {
     TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) =>
-      for item in body.0 {
+      for item in body.instrs {
         total += mn_cost_instr(item)
       }
     TIf(_, cond, then_, else_) => {
       total += mn_cost_instr(cond)
-      for item in then_.0 {
+      for item in then_.instrs {
         total += mn_cost_instr(item)
       }
       match else_ {
         Some(other) =>
-          for item in other.0 {
+          for item in other.instrs {
             total += mn_cost_instr(item)
           }
         None => ()
@@ -1042,7 +1042,7 @@ fn mn_cost_instr(instr : TInstr) -> Int {
 ///|
 fn cost(body : TExpr) -> Int {
   let mut total = 0
-  for instr in body.0 {
+  for instr in body.instrs {
     total += mn_cost_instr(instr)
   }
   total
@@ -1221,7 +1221,7 @@ fn mn_rewrite_instr(state : MonoRewriteState, instr : TInstr) -> TInstr {
 ///|
 fn mn_rewrite_texpr(state : MonoRewriteState, body : TExpr) -> TExpr {
   let out : Array[TInstr] = []
-  for instr in body.0 {
+  for instr in body.instrs {
     out.push(mn_rewrite_instr(state, instr))
   }
   TExpr::new(out)
@@ -1583,7 +1583,11 @@ test "monomorphize always keeps immovable operand as call argument for partial m
   match out.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, TExpr([TReturn([TCall(_, args)])])), _, TFunc(_, mono_body)]
+        [
+          TFunc(_, { instrs: [TReturn([TCall(_, args)])], .. }),
+          _,
+          TFunc(_, mono_body),
+        ]
       )
     ) => {
       assert_eq(args.length(), 1)
@@ -1643,7 +1647,9 @@ test "monomorphize always preserves effect ordering by keeping trapping operand 
     )
   let out = mono_run_pass(mod, true, 0)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TReturn([TCall(_, [arg])])])), _, _])) =>
+    Some(
+      CodeSec([TFunc(_, { instrs: [TReturn([TCall(_, [arg])])], .. }), _, _])
+    ) =>
       match arg {
         TBinary(BinaryOp::I32DivSOp, _, _) => ()
         _ => fail("expected trapping division to remain in caller")
@@ -1680,7 +1686,8 @@ test "monomorphize always handles dropped calls and removes drop wrapper" {
     )
   let out = mono_run_pass(mod, true, 0)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TCall(_, _)])), _, TFunc(_, _)])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TCall(_, _)], .. }), _, TFunc(_, _)])) =>
+      ()
     _ =>
       fail(
         "expected dropped call to become direct call to dropped-result specialization",
@@ -1732,7 +1739,8 @@ test "monomorphize disables dropped context for return-calling callee" {
     )
   let out = mono_run_pass(mod, true, 0)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(TCall(_, _))])), _, _, _])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TDrop(TCall(_, _))], .. }), _, _, _])) =>
+      ()
     _ =>
       fail("expected drop wrapper to remain when dropped context is disabled")
   }

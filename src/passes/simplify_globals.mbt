@@ -293,17 +293,17 @@ fn sg_collect_effects_instr(instr : TInstr, effects : SGEffects) -> Unit {
   sg_mark_shallow_effects(instr, effects)
   match instr {
     TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) =>
-      for item in body.0 {
+      for item in body.instrs {
         sg_collect_effects_instr(item, effects)
       }
     TIf(_, cond, then_body, else_body) => {
       sg_collect_effects_instr(cond, effects)
-      for item in then_body.0 {
+      for item in then_body.instrs {
         sg_collect_effects_instr(item, effects)
       }
       match else_body {
         Some(other) =>
-          for item in other.0 {
+          for item in other.instrs {
             sg_collect_effects_instr(item, effects)
           }
         None => ()
@@ -319,7 +319,7 @@ fn sg_collect_effects_instr(instr : TInstr, effects : SGEffects) -> Unit {
 ///|
 fn sg_collect_effects_texpr(body : TExpr) -> SGEffects {
   let out = SGEffects::new()
-  for instr in body.0 {
+  for instr in body.instrs {
     sg_collect_effects_instr(instr, out)
   }
   out
@@ -461,9 +461,10 @@ fn sg_analyze(mod : Module) -> Result[(SGInfo, Module, Bool), String] {
     })
     .on_func_evt(fn(self, _, func) {
       match func {
-        TFunc(_, TExpr(instrs)) if instrs.length() == 2 =>
+        TFunc(_, { instrs, .. }) if instrs.length() == 2 =>
           match instrs[0] {
-            TIf(_, cond, TExpr([TReturn(values)]), None) if values.length() == 0 =>
+            TIf(_, cond, { instrs: [TReturn(values)], .. }, None) if values.length() ==
+              0 =>
               match
                 sg_reads_global_only_to_write_it(cond, TExpr::new([instrs[1]])) {
                 Some(idx) => {
@@ -967,7 +968,7 @@ fn sg_replace_gets_in_texpr(
 ) -> (TExpr, Bool) {
   let out : Array[TInstr] = []
   let mut changed = false
-  for instr in body.0 {
+  for instr in body.instrs {
     let (next_instr, instr_changed) = sg_replace_gets_in_tinstr(
       instr, trace_constants, constant_globals,
     )
@@ -987,7 +988,7 @@ fn sg_apply_constants_in_body(
   let curr_constants : Map[GlobalIdx, SGConstValue] = Map::new()
   let out : Array[TInstr] = []
   let mut changed = false
-  for instr in body.0 {
+  for instr in body.instrs {
     if lcs_is_non_linear_boundary(instr) {
       curr_constants.clear()
     }
@@ -1244,7 +1245,7 @@ test "simplify_globals removes unread global.set writes and makes global immutab
     _ => fail("expected one rewritten global")
   }
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(TI32Const(I32(v)))]))])) =>
+    Some(CodeSec([TFunc(_, { instrs: [TDrop(TI32Const(I32(v)))], .. })])) =>
       assert_eq(v, 9)
     _ => fail("expected global.set to be rewritten into drop(value)")
   }
@@ -1279,7 +1280,7 @@ test "simplify_globals propagates immutable constant globals into code and copie
     _ => fail("expected copied immutable global to become i32.const 5")
   }
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(TI32Const(I32(v)))]))])) =>
+    Some(CodeSec([TFunc(_, { instrs: [TDrop(TI32Const(I32(v)))], .. })])) =>
       assert_eq(v, 5)
     _ => fail("expected global.get of copied immutable global to become const")
   }

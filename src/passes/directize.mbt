@@ -322,7 +322,7 @@ fn rewrite_br_table_call_indirect(
       Unknown => TExpr::new([TInstr::unreachable_()])
     }
     body = TExpr::new(
-      [TInstr::block(BlockType::type_idx(type_idx), branch), ..body.0],
+      [TInstr::block(BlockType::type_idx(type_idx), branch), ..body.instrs],
     )
   }
   Some(TInstr::block(BlockType::type_idx(type_idx), body))
@@ -471,7 +471,7 @@ test "directize: constant index resolves to known function" {
   assert_true(result is Ok(_))
   let new_m = result.unwrap()
   match new_m.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([instr]))])) =>
+    Some(CodeSec([TFunc(_, { instrs: [instr], .. })])) =>
       match instr {
         TCall(FuncIdx(0), []) => () // Expected: transformed to direct call
         other => fail("Expected TCall(FuncIdx(0)), got \{other}")
@@ -527,8 +527,8 @@ test "directize: out-of-bounds constant index becomes unreachable" {
   assert_true(result is Ok(_))
   let new_m = result.unwrap()
   match new_m.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TUnreachable]))])) => () // Expected
-    Some(CodeSec([TFunc(_, TExpr([instr]))])) =>
+    Some(CodeSec([TFunc(_, { instrs: [TUnreachable], .. })])) => () // Expected
+    Some(CodeSec([TFunc(_, { instrs: [instr], .. })])) =>
       fail("Expected TUnreachable, got \{instr}")
     _ => fail("Unexpected code section structure")
   }
@@ -582,7 +582,7 @@ test "directize: null entry in table becomes unreachable" {
   assert_true(result is Ok(_))
   let new_m = result.unwrap()
   match new_m.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TUnreachable]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TUnreachable], .. })])) => ()
     _ => fail("Expected unreachable for null table entry")
   }
 }
@@ -633,8 +633,11 @@ test "directize: non-constant index is not transformed" {
   assert_true(result is Ok(_))
   let new_m = result.unwrap()
   match new_m.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TCallIndirect(_, _, _, TLocalGet(_))]))])) =>
-      ()
+    Some(
+      CodeSec(
+        [TFunc(_, { instrs: [TCallIndirect(_, _, _, TLocalGet(_))], .. })]
+      )
+    ) => ()
     _ => fail("Expected call_indirect to remain unchanged with dynamic index")
   }
 }
@@ -692,7 +695,7 @@ test "directize: type mismatch becomes unreachable" {
   assert_true(result is Ok(_))
   let new_m = result.unwrap()
   match new_m.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TUnreachable]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TUnreachable], .. })])) => ()
     _ => fail("Expected unreachable for type mismatch")
   }
 }
@@ -752,7 +755,8 @@ test "directize: table.set prevents optimization" {
   assert_true(result is Ok(_))
   let new_m = result.unwrap()
   match new_m.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([_, TCallIndirect(_, _, _, _)]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [_, TCallIndirect(_, _, _, _)], .. })])) =>
+      ()
     _ => fail("Expected call_indirect to remain when table.set is present")
   }
 }
@@ -809,7 +813,8 @@ test "directize: table.fill prevents optimization" {
   assert_true(result is Ok(_))
   let new_m = result.unwrap()
   match new_m.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([_, TCallIndirect(_, _, _, _)]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [_, TCallIndirect(_, _, _, _)], .. })])) =>
+      ()
     _ => fail("Expected call_indirect to remain when table.fill is present")
   }
 }
@@ -881,7 +886,8 @@ test "directize: table.copy prevents optimization on dest table" {
   assert_true(result is Ok(_))
   let new_m = result.unwrap()
   match new_m.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([_, TCallIndirect(_, _, _, _)]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [_, TCallIndirect(_, _, _, _)], .. })])) =>
+      ()
     _ =>
       fail(
         "Expected call_indirect to remain when table.copy modifies dest table",
@@ -936,7 +942,8 @@ test "directize: table.init prevents optimization" {
   assert_true(result is Ok(_))
   let new_m = result.unwrap()
   match new_m.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([_, TCallIndirect(_, _, _, _)]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [_, TCallIndirect(_, _, _, _)], .. })])) =>
+      ()
     _ => fail("Expected call_indirect to remain when table.init is present")
   }
 }
@@ -995,7 +1002,8 @@ test "directize: table.grow marks table as growable" {
   assert_true(result is Ok(_))
   let new_m = result.unwrap()
   match new_m.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([_, TCallIndirect(_, _, _, _)]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [_, TCallIndirect(_, _, _, _)], .. })])) =>
+      ()
     _ => fail("Expected call_indirect to remain when table may grow")
   }
 }
@@ -1046,7 +1054,7 @@ test "directize: initial_immutable=false prevents optimization" {
   assert_true(result is Ok(_))
   let new_m = result.unwrap()
   match new_m.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TCallIndirect(_, _, _, _)]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TCallIndirect(_, _, _, _)], .. })])) => ()
     _ =>
       fail("Expected call_indirect to remain when initial_immutable is false")
   }
@@ -1102,7 +1110,8 @@ test "directize: return_call_indirect with constant index" {
   assert_true(result is Ok(_))
   let new_m = result.unwrap()
   match new_m.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TReturnCall(FuncIdx(0), [])]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TReturnCall(FuncIdx(0), [])], .. })])) =>
+      ()
     _ => fail("Expected return_call_indirect to become return_call")
   }
 }
@@ -1153,7 +1162,7 @@ test "directize: return_call_indirect out of bounds becomes unreachable" {
   assert_true(result is Ok(_))
   let new_m = result.unwrap()
   match new_m.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TUnreachable]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TUnreachable], .. })])) => ()
     _ => fail("Expected unreachable for out of bounds return_call_indirect")
   }
 }
@@ -1213,7 +1222,7 @@ test "directize: select-based call_indirect with both branches known" {
   assert_true(result is Ok(_))
   let new_m = result.unwrap()
   match new_m.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TIf(_, _, _, Some(_))]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TIf(_, _, _, Some(_))], .. })])) => ()
     _ => fail("Expected select-based call_indirect to become if-then-else")
   }
 }
@@ -1269,13 +1278,17 @@ test "directize: select-based call_indirect with one branch trapping" {
   assert_true(result is Ok(_))
   let new_m = result.unwrap()
   match new_m.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TIf(_, _, then_expr, Some(else_expr))]))])) => {
+    Some(
+      CodeSec(
+        [TFunc(_, { instrs: [TIf(_, _, then_expr, Some(else_expr))], .. })]
+      )
+    ) => {
       // One branch should have TCall, other should have TUnreachable
-      let has_call = match then_expr.0 {
+      let has_call = match then_expr.instrs {
         [TCall(_, _)] => true
         _ => false
       }
-      let has_unreachable = match else_expr.0 {
+      let has_unreachable = match else_expr.instrs {
         [TUnreachable] => true
         _ => false
       }
@@ -1345,7 +1358,12 @@ test "directize: select-based call_indirect with unknown branch not transformed"
   match new_m.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, TExpr([_, TCallIndirect(_, _, _, TSelect(_, _, _, _))]))]
+        [
+          TFunc(
+            _,
+            { instrs: [_, TCallIndirect(_, _, _, TSelect(_, _, _, _))], .. }
+          ),
+        ]
       )
     ) => ()
     _ => fail("Expected select-based call to remain when one branch is unknown")
@@ -1409,7 +1427,7 @@ test "directize: br_table-based call_indirect with all branches known" {
   assert_true(result is Ok(_))
   let new_m = result.unwrap()
   match new_m.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TBlock(_, _)]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TBlock(_, _)], .. })])) => ()
     _ => fail("Expected br_table-based call to become nested blocks")
   }
 }
@@ -1458,7 +1476,7 @@ test "directize: passive element segment doesn't initialize table" {
   assert_true(result is Ok(_))
   let new_m = result.unwrap()
   match new_m.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TUnreachable]))])) => () // Entry is null
+    Some(CodeSec([TFunc(_, { instrs: [TUnreachable], .. })])) => () // Entry is null
     _ => fail("Expected unreachable when element segment is passive")
   }
 }
@@ -1503,7 +1521,7 @@ test "directize: declarative element segment doesn't initialize table" {
   assert_true(result is Ok(_))
   let new_m = result.unwrap()
   match new_m.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TUnreachable]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TUnreachable], .. })])) => ()
     _ => fail("Expected unreachable when element segment is declarative")
   }
 }
@@ -1562,7 +1580,7 @@ test "directize: element segment with non-constant offset marks table mutable" {
   assert_true(result is Ok(_))
   let new_m = result.unwrap()
   match new_m.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TCallIndirect(_, _, _, _)]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TCallIndirect(_, _, _, _)], .. })])) => ()
     _ =>
       fail("Expected call_indirect to remain with non-constant element offset")
   }
@@ -1616,7 +1634,7 @@ test "directize: element segment with expression kind marks table mutable" {
   assert_true(result is Ok(_))
   let new_m = result.unwrap()
   match new_m.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TCallIndirect(_, _, _, _)]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TCallIndirect(_, _, _, _)], .. })])) => ()
     _ => fail("Expected call_indirect to remain with expression element kind")
   }
 }
@@ -1701,9 +1719,14 @@ test "directize: multiple tables, only one modified" {
         [
           TFunc(
             _,
-            TExpr(
-              [_, TCallIndirect(_, TableIdx(0), _, _), TCall(FuncIdx(1), [])]
-            )
+            {
+              instrs: [
+                _,
+                TCallIndirect(_, TableIdx(0), _, _),
+                TCall(FuncIdx(1), []),
+              ],
+              ..,
+            }
           ),
         ]
       )
@@ -1765,8 +1788,11 @@ test "directize: arguments are propagated to direct call" {
   assert_true(result is Ok(_))
   let new_m = result.unwrap()
   match new_m.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TCall(FuncIdx(0), [TI32Const(I32(42))])]))])) =>
-      ()
+    Some(
+      CodeSec(
+        [TFunc(_, { instrs: [TCall(FuncIdx(0), [TI32Const(I32(42))])], .. })]
+      )
+    ) => ()
     _ => fail("Expected arguments to be propagated to direct call")
   }
 }
@@ -1822,7 +1848,7 @@ test "directize: negative index (interpreted as large unsigned) becomes unreacha
   assert_true(result is Ok(_))
   let new_m = result.unwrap()
   match new_m.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TUnreachable]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TUnreachable], .. })])) => ()
     _ => fail("Expected unreachable for negative index")
   }
 }
@@ -1866,7 +1892,7 @@ test "directize: empty table always traps" {
   assert_true(result is Ok(_))
   let new_m = result.unwrap()
   match new_m.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TUnreachable]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TUnreachable], .. })])) => ()
     _ => fail("Expected unreachable for empty table access")
   }
 }
@@ -1887,7 +1913,7 @@ test "directize: module without tables" {
   assert_true(result is Ok(_))
   let new_m = result.unwrap()
   match new_m.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TNop]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TNop], .. })])) => ()
     _ => fail("Expected no changes for module without tables")
   }
 }
@@ -1960,7 +1986,14 @@ test "directize: element segment at offset beyond initial table entries" {
         [
           TFunc(
             _,
-            TExpr([TUnreachable, TCall(FuncIdx(0), []), TCall(FuncIdx(1), [])])
+            {
+              instrs: [
+                TUnreachable,
+                TCall(FuncIdx(0), []),
+                TCall(FuncIdx(1), []),
+              ],
+              ..,
+            }
           ),
         ]
       )
@@ -2019,7 +2052,7 @@ test "directize: table with i64 limits" {
   assert_true(result is Ok(_))
   let new_m = result.unwrap()
   match new_m.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TCall(FuncIdx(0), [])]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TCall(FuncIdx(0), [])], .. })])) => ()
     _ => fail("Expected directization to work with i64 table limits")
   }
 }

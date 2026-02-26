@@ -62,7 +62,7 @@ fn dataflow_optimization_pass(
       TFunc(locals, body) => {
         if log_func {
           trace(
-            "func[\{ordinal}] start locals=\{locals.length()} top_instrs=\{body.0.length()}",
+            "func[\{ordinal}] start locals=\{locals.length()} top_instrs=\{body.instrs.length()}",
           )
         }
         let opt_start = dataflow_now_ms()
@@ -117,7 +117,7 @@ test "dataflow optimization pass folds simple constants via SSA" {
     Ok(Some((_, new_mod))) => {
       let CodeSec(funcs) = new_mod.code_sec.unwrap()
       match funcs[0] {
-        TFunc(_, TExpr(instrs)) => {
+        TFunc(_, { instrs, .. }) => {
           let mut found = false
           for instr in instrs {
             match instr {
@@ -155,7 +155,7 @@ test "dataflow optimization pass simplifies const multi-block if" {
     Ok(Some((_, new_mod))) => {
       let CodeSec(funcs) = new_mod.code_sec.unwrap()
       match funcs[0] {
-        TFunc(_, TExpr(instrs)) => {
+        TFunc(_, { instrs, .. }) => {
           let mut has_if = false
           let mut has_unreachable = false
           for instr in instrs {

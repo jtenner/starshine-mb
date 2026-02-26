@@ -1871,7 +1871,7 @@ fn AFModuleAnalyzer::can_change_state(
         self.added_from_list[ci]
       }
     TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) => {
-      for item in body.0 {
+      for item in body.instrs {
         if self.can_change_state(item, curr_func) {
           return true
         }
@@ -1882,14 +1882,14 @@ fn AFModuleAnalyzer::can_change_state(
       if self.can_change_state(cond, curr_func) {
         return true
       }
-      for item in then_.0 {
+      for item in then_.instrs {
         if self.can_change_state(item, curr_func) {
           return true
         }
       }
       match else_ {
         Some(other) =>
-          for item in other.0 {
+          for item in other.instrs {
             if self.can_change_state(item, curr_func) {
               return true
             }
@@ -2090,7 +2090,7 @@ fn af_rewrite_instr(
   match instr {
     TBlock(bt, body) => {
       let out : Array[TInstr] = []
-      for item in body.0 {
+      for item in body.instrs {
         let rewritten = match af_rewrite_instr(ctx, item) {
           Ok(v) => v
           Err(e) => return Err(e)
@@ -2105,7 +2105,7 @@ fn af_rewrite_instr(
     }
     TLoop(bt, body) => {
       let out : Array[TInstr] = []
-      for item in body.0 {
+      for item in body.instrs {
         let rewritten = match af_rewrite_instr(ctx, item) {
           Ok(v) => v
           Err(e) => return Err(e)
@@ -2120,7 +2120,7 @@ fn af_rewrite_instr(
     }
     TTryTable(bt, catches, body) => {
       let out : Array[TInstr] = []
-      for item in body.0 {
+      for item in body.instrs {
         let rewritten = match af_rewrite_instr(ctx, item) {
           Ok(v) => v
           Err(e) => return Err(e)
@@ -2135,7 +2135,7 @@ fn af_rewrite_instr(
         Err(e) => return Err(e)
       }
       let next_then_instrs : Array[TInstr] = []
-      for item in then_.0 {
+      for item in then_.instrs {
         next_then_instrs.push(
           match af_rewrite_instr(ctx, item) {
             Ok(v) => v
@@ -2146,7 +2146,7 @@ fn af_rewrite_instr(
       let next_else = match else_ {
         Some(other) => {
           let xs : Array[TInstr] = []
-          for item in other.0 {
+          for item in other.instrs {
             xs.push(
               match af_rewrite_instr(ctx, item) {
                 Ok(v) => v
@@ -2368,7 +2368,7 @@ fn af_instrument_flow_for_function(
         next_call_index: 0,
       }
       let rewritten_items : Array[TInstr] = []
-      for instr in body.0 {
+      for instr in body.instrs {
         rewritten_items.push(
           match af_rewrite_instr(ctx, instr) {
             Ok(v) => v
@@ -3027,7 +3027,7 @@ fn af_rewrite_catch_texpr(
   let out : Array[TInstr] = []
   let escapes = Set::new()
   let mut in_catch = in_catch_continuation
-  let TExpr(instrs) = body
+  let { instrs, .. } = body
   for instr in instrs {
     let (next_instr, instr_escapes) = af_rewrite_catch_instr(
       ctx, instr, in_catch,
@@ -3097,7 +3097,7 @@ fn af_instr_has_tail_call(instr : TInstr) -> Bool {
     | TReturnCallIndirect(_, _, _, _)
     | TReturnCallRef(_, _, _) => true
     TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) => {
-      for item in body.0 {
+      for item in body.instrs {
         if af_instr_has_tail_call(item) {
           return true
         }
@@ -3108,14 +3108,14 @@ fn af_instr_has_tail_call(instr : TInstr) -> Bool {
       if af_instr_has_tail_call(cond) {
         return true
       }
-      for item in then_.0 {
+      for item in then_.instrs {
         if af_instr_has_tail_call(item) {
           return true
         }
       }
       match else_ {
         Some(other) =>
-          for item in other.0 {
+          for item in other.instrs {
             if af_instr_has_tail_call(item) {
               return true
             }
@@ -3266,7 +3266,7 @@ fn af_has_any_tail_calls(mod : Module) -> Bool {
 
 ///|
 fn af_instr_has_tail_call_in_expr(expr : TExpr) -> Bool {
-  for instr in expr.0 {
+  for instr in expr.instrs {
     if af_instr_has_tail_call(instr) {
       return true
     }
@@ -3386,17 +3386,17 @@ fn af_walk_instr(instr : TInstr, f : (TInstr) -> Unit) -> Unit {
   f(instr)
   match instr {
     TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) =>
-      for item in body.0 {
+      for item in body.instrs {
         af_walk_instr(item, f)
       }
     TIf(_, cond, then_, else_) => {
       af_walk_instr(cond, f)
-      for item in then_.0 {
+      for item in then_.instrs {
         af_walk_instr(item, f)
       }
       match else_ {
         Some(other) =>
-          for item in other.0 {
+          for item in other.instrs {
             af_walk_instr(item, f)
           }
         None => ()
@@ -3412,7 +3412,7 @@ fn af_walk_instr(instr : TInstr, f : (TInstr) -> Unit) -> Unit {
 ///|
 fn af_collect_br_indices(body : TExpr) -> Set[Int] {
   let out = Set::new()
-  for instr in body.0 {
+  for instr in body.instrs {
     af_walk_instr(instr, fn(curr) {
       match curr {
         TBr(LabelIdx(i), [TI32Const(I32(v))]) if i.reinterpret_as_int() == 0 =>
@@ -3427,7 +3427,7 @@ fn af_collect_br_indices(body : TExpr) -> Set[Int] {
 ///|
 fn af_has_local_set_load(body : TExpr, idx : LocalIdx) -> Bool {
   let found = Ref::new(false)
-  for instr in body.0 {
+  for instr in body.instrs {
     af_walk_instr(instr, fn(curr) {
       match curr {
         TLocalSet(id, TLoad(_, _, _)) if id == idx =>
@@ -3442,7 +3442,7 @@ fn af_has_local_set_load(body : TExpr, idx : LocalIdx) -> Bool {
 ///|
 fn af_count_calls(body : TExpr, target : FuncIdx) -> Int {
   let count = Ref::new(0)
-  for instr in body.0 {
+  for instr in body.instrs {
     af_walk_instr(instr, fn(curr) {
       match curr {
         TCall(fi, _) if fi == target => count.update(fn(c) { c + 1 })
@@ -3456,7 +3456,7 @@ fn af_count_calls(body : TExpr, target : FuncIdx) -> Int {
 ///|
 fn af_contains_call_indirect(body : TExpr) -> Bool {
   let found = Ref::new(false)
-  for instr in body.0 {
+  for instr in body.instrs {
     af_walk_instr(instr, fn(curr) {
       match curr {
         TCallIndirect(_, _, _, _) => found.update(fn(_) { true })
@@ -3470,13 +3470,13 @@ fn af_contains_call_indirect(body : TExpr) -> Bool {
 ///|
 fn af_has_state_assert_guard(body : TExpr) -> Bool {
   let found = Ref::new(false)
-  for instr in body.0 {
+  for instr in body.instrs {
     af_walk_instr(instr, fn(curr) {
       match curr {
         TIf(
           _,
           TBinary(I32NeOp, TGlobalGet(_), TLocalGet(_)),
-          TExpr([TUnreachable]),
+          { instrs: [TUnreachable], .. },
           None
         ) => found.update(fn(_) { true })
         _ => ()
@@ -3489,7 +3489,7 @@ fn af_has_state_assert_guard(body : TExpr) -> Bool {
 ///|
 fn af_has_i32_store_const_zero(body : TExpr) -> Bool {
   let found = Ref::new(false)
-  for instr in body.0 {
+  for instr in body.instrs {
     af_walk_instr(instr, fn(curr) {
       match curr {
         TStore(I32StoreOp, _, _, TI32Const(I32(v))) if v == 0 =>
@@ -3504,7 +3504,7 @@ fn af_has_i32_store_const_zero(body : TExpr) -> Bool {
 ///|
 fn af_has_i32_store_local(body : TExpr) -> Bool {
   let found = Ref::new(false)
-  for instr in body.0 {
+  for instr in body.instrs {
     af_walk_instr(instr, fn(curr) {
       match curr {
         TStore(I32StoreOp, _, _, TLocalGet(_)) => found.update(fn(_) { true })
@@ -3536,13 +3536,13 @@ fn af_find_exported_func_idx(mod : Module, export_name : String) -> FuncIdx? {
 ///|
 fn af_count_catch_state_guards(body : TExpr) -> Int {
   let count = Ref::new(0)
-  for instr in body.0 {
+  for instr in body.instrs {
     af_walk_instr(instr, fn(curr) {
       match curr {
         TIf(
           _,
           TBinary(I32NeOp, TGlobalGet(_), TI32Const(I32(v))),
-          TExpr([TUnreachable]),
+          { instrs: [TUnreachable], .. },
           None
         ) if v == AF_STATE_NORMAL => count.update(fn(c) { c + 1 })
         _ => ()
@@ -3555,12 +3555,12 @@ fn af_count_catch_state_guards(body : TExpr) -> Int {
 ///|
 fn af_has_unwind_push_stack_end_guard(body : TExpr) -> Bool {
   let found = Ref::new(false)
-  for instr in body.0 {
+  for instr in body.instrs {
     af_walk_instr(instr, fn(curr) {
       match curr {
-        TIf(_, TBinary(I32GtUOp, _, _), TExpr([TUnreachable]), None) =>
+        TIf(_, TBinary(I32GtUOp, _, _), { instrs: [TUnreachable], .. }, None) =>
           found.update(fn(_) { true })
-        TIf(_, TBinary(I64GtUOp, _, _), TExpr([TUnreachable]), None) =>
+        TIf(_, TBinary(I64GtUOp, _, _), { instrs: [TUnreachable], .. }, None) =>
           found.update(fn(_) { true })
         _ => ()
       }
@@ -3571,7 +3571,7 @@ fn af_has_unwind_push_stack_end_guard(body : TExpr) -> Bool {
 
 ///|
 fn af_has_tail_call(body : TExpr) -> Bool {
-  for instr in body.0 {
+  for instr in body.instrs {
     if af_instr_has_tail_call(instr) {
       return true
     }
@@ -4108,7 +4108,7 @@ test "asyncify lowers call result local.set through locals temp" {
   match out.code_sec {
     Some(CodeSec([TFunc(_, body), ..])) => {
       let seen = Ref::new(false)
-      for instr in body.0 {
+      for instr in body.instrs {
         af_walk_instr(instr, fn(curr) {
           match curr {
             TLocalSet(_, TCall(FuncIdx(i), [])) if i == 0U =>
@@ -4641,13 +4641,13 @@ test "asyncify asserts guard calls in try_table catch continuation when enabled"
   match out.code_sec {
     Some(CodeSec([TFunc(_, body), ..])) => {
       let saw_guard = Ref::new(false)
-      for instr in body.0 {
+      for instr in body.instrs {
         af_walk_instr(instr, fn(curr) {
           match curr {
             TIf(
               _,
               TBinary(I32NeOp, TGlobalGet(_), TI32Const(I32(v))),
-              TExpr([TUnreachable]),
+              { instrs: [TUnreachable], .. },
               None
             ) if v == AF_STATE_NORMAL => saw_guard.update(fn(_) { true })
             _ => ()
@@ -4696,13 +4696,13 @@ test "asyncify asserts do not guard try_table body calls by default" {
   match out.code_sec {
     Some(CodeSec([TFunc(_, body), ..])) => {
       let saw_guard = Ref::new(false)
-      for instr in body.0 {
+      for instr in body.instrs {
         af_walk_instr(instr, fn(curr) {
           match curr {
             TIf(
               _,
               TBinary(I32NeOp, TGlobalGet(_), TI32Const(I32(v))),
-              TExpr([TUnreachable]),
+              { instrs: [TUnreachable], .. },
               None
             ) if v == AF_STATE_NORMAL => saw_guard.update(fn(_) { true })
             _ => ()
@@ -4806,13 +4806,13 @@ test "asyncify ignore-unwind-from-catch disables try_table call guard" {
   match out.code_sec {
     Some(CodeSec([TFunc(_, body), ..])) => {
       let saw_guard = Ref::new(false)
-      for instr in body.0 {
+      for instr in body.instrs {
         af_walk_instr(instr, fn(curr) {
           match curr {
             TIf(
               _,
               TBinary(I32NeOp, TGlobalGet(_), TI32Const(I32(v))),
-              TExpr([TUnreachable]),
+              { instrs: [TUnreachable], .. },
               None
             ) if v == AF_STATE_NORMAL => saw_guard.update(fn(_) { true })
             _ => ()

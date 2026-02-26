@@ -2604,8 +2604,10 @@ pub impl Show for SubType
 pub impl @debug.Debug for SubType
 pub impl @quickcheck.Arbitrary for SubType
 
-pub struct TExpr(Array[TInstr])
-#deprecated
+pub struct TExpr {
+  instrs : Array[TInstr]
+  mut hash : Int?
+}
 pub fn TExpr::inner(Self) -> Array[TInstr]
 pub fn TExpr::new(Array[TInstr]) -> Self
 pub fn TExpr::to_expr(Self) -> Expr

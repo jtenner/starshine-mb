@@ -648,11 +648,11 @@ fn h2l_flatten_instrs(instrs : Array[TInstr]) -> Array[TInstr] {
     match instr {
       TIf(bt, cond, then_expr, else_expr) => {
         out.push(TInstr::if_(bt, cond, TExpr::new([]), None))
-        for child in h2l_flatten_instrs(then_expr.0) {
+        for child in h2l_flatten_instrs(then_expr.instrs) {
           out.push(child)
         }
         if else_expr is Some(e) {
-          for child in h2l_flatten_instrs(e.0) {
+          for child in h2l_flatten_instrs(e.instrs) {
             out.push(child)
           }
         }
@@ -666,7 +666,7 @@ fn h2l_flatten_instrs(instrs : Array[TInstr]) -> Array[TInstr] {
 ///|
 fn h2l_local_graph_get_order(body : TExpr) -> Array[LocalIdx] {
   let out : Array[LocalIdx] = []
-  let flat = h2l_flatten_instrs(body.0)
+  let flat = h2l_flatten_instrs(body.instrs)
   for instr in flat {
     let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
       self,
@@ -782,7 +782,7 @@ fn h2l_texpr_has_local_set(expr : TExpr, target : LocalIdx) -> Bool {
 
 ///|
 fn h2l_has_nonuniform_if_set(expr : TExpr, target : LocalIdx) -> Bool {
-  for instr in expr.0 {
+  for instr in expr.instrs {
     match instr {
       TIf(_, _, then_expr, else_expr) => {
         let then_has = h2l_texpr_has_local_set(then_expr, target)
@@ -897,7 +897,7 @@ fn h2l_filter_branchy_sets(
   candidates : Map[Int, H2LShape],
 ) -> Map[Int, H2LShape] {
   let out : Map[Int, H2LShape] = Map::new()
-  let flat = h2l_flatten_instrs(body.0)
+  let flat = h2l_flatten_instrs(body.instrs)
   for entry in candidates {
     let (loc, shape) = entry
     let target = LocalIdx::new(loc.reinterpret_as_uint())
@@ -1112,7 +1112,7 @@ fn h2l_array_new_data_init(
 ///|
 fn h2l_const_expr_to_tinstr(expr : Expr, env : Env) -> TInstr? {
   match to_texpr(expr, env) {
-    Ok(TExpr(instrs)) =>
+    Ok({ instrs, .. }) =>
       if instrs.length() == 1 {
         match instrs[0] {
           TRefNull(_) | TRefFunc(_) => Some(instrs[0])
@@ -2421,7 +2421,7 @@ fn h2l_optimize_func(func : Func, env : Env, mod : Module) -> Func? {
   let mut changed = false
   for _ in 0..<4 {
     let graph = match curr {
-      TFunc(_, body) => Some(LocalGraph::new(body.0))
+      TFunc(_, body) => Some(LocalGraph::new(body.instrs))
       _ => None
     }
     match h2l_optimize_func_once(curr, env, mod, graph) {
@@ -2811,7 +2811,7 @@ test "heap2local rewrites dropped loc.get of optimized allocation" {
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap2local(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr(instrs))])) =>
+    Some(CodeSec([TFunc(_, { instrs, .. })])) =>
       match instrs[1] {
         TNop => ()
         _ => fail("expected drop(loc.get) to become nop")
@@ -2958,7 +2958,7 @@ test "heap2local rewrites ref.is_null/ref.eq over optimized allocation" {
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap2local(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr(instrs))])) => {
+    Some(CodeSec([TFunc(_, { instrs, .. })])) => {
       assert_eq(h2l_count_gc_ops(TExpr::new(instrs)), 0)
       match instrs[1] {
         TDrop(TI32Const(I32(v))) => assert_eq(v, 0)

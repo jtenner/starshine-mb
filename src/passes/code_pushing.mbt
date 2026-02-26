@@ -110,7 +110,7 @@ fn analyze_expr(
   analyzer : LocalAnalyzer,
   before_first_set : Bool,
 ) -> Unit {
-  for instr in expr.0 {
+  for instr in expr.instrs {
     analyze_instr(instr, analyzer, before_first_set)
   }
 }
@@ -483,7 +483,7 @@ fn analyze_effects_into(instr : TInstr, effects : Effects) -> Unit {
 
 ///|
 fn analyze_effects_expr(expr : TExpr, effects : Effects) -> Unit {
-  for instr in expr.0 {
+  for instr in expr.instrs {
     analyze_effects_into(instr, effects)
   }
 }
@@ -593,7 +593,7 @@ fn count_gets_in_instr(state : PushingState, instr : TInstr) -> Unit {
 
 ///|
 fn count_gets_in_expr(state : PushingState, expr : TExpr) -> Unit {
-  for instr in expr.0 {
+  for instr in expr.instrs {
     count_gets_in_instr(state, instr)
   }
 }
@@ -827,7 +827,7 @@ fn try_push_into_arm(
     match other_arm {
       Some(other) => {
         // Check if other arm is unreachable
-        let other_instrs = other.0
+        let other_instrs = other.instrs
         if other_instrs.is_empty() {
           return false
         }
@@ -848,7 +848,7 @@ fn try_push_into_arm(
 
   // Create new arm with the instruction prepended
   let new_arm_instrs : Array[TInstr] = [set_instr]
-  for instr in arm.0 {
+  for instr in arm.instrs {
     new_arm_instrs.push(instr)
   }
   let new_arm = TExpr::new(new_arm_instrs)
@@ -929,7 +929,7 @@ fn code_pushing_pass() -> ModuleTransformer[Unit] {
         }
 
         // Process the function body
-        let body_instrs = body.0.copy()
+        let body_instrs = body.instrs.copy()
         push_code_in_block(body_instrs, push_state)
 
         // Also process nested blocks
@@ -955,7 +955,7 @@ fn process_nested_blocks(instrs : Array[TInstr], state : PushingState) -> Unit {
   for i = 0; i < instrs.length(); i = i + 1 {
     match instrs[i] {
       TBlock(bt, body) => {
-        let body_instrs = body.0.copy()
+        let body_instrs = body.instrs.copy()
         push_code_in_block(body_instrs, state)
         process_nested_blocks(body_instrs, state)
         if state.changed {
@@ -963,7 +963,7 @@ fn process_nested_blocks(instrs : Array[TInstr], state : PushingState) -> Unit {
         }
       }
       TLoop(bt, body) => {
-        let body_instrs = body.0.copy()
+        let body_instrs = body.instrs.copy()
         push_code_in_block(body_instrs, state)
         process_nested_blocks(body_instrs, state)
         if state.changed {
@@ -971,12 +971,12 @@ fn process_nested_blocks(instrs : Array[TInstr], state : PushingState) -> Unit {
         }
       }
       TIf(bt, cond, then_body, else_body) => {
-        let then_instrs = then_body.0.copy()
+        let then_instrs = then_body.instrs.copy()
         push_code_in_block(then_instrs, state)
         process_nested_blocks(then_instrs, state)
         let new_else = match else_body {
           Some(eb) => {
-            let else_instrs = eb.0.copy()
+            let else_instrs = eb.instrs.copy()
             push_code_in_block(else_instrs, state)
             process_nested_blocks(else_instrs, state)
             Some(TExpr::new(else_instrs))

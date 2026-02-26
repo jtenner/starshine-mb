@@ -1137,7 +1137,8 @@ test "unaligned f32 store produces block with reinterpret" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TBlock(VoidBlockType, TExpr(instrs))) => assert_true(instrs.length() > 2)
+    Ok(TBlock(VoidBlockType, { instrs, .. })) =>
+      assert_true(instrs.length() > 2)
     Ok(TStore(_, _, _, _)) => fail("Expected block with split stores")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
@@ -1154,7 +1155,8 @@ test "unaligned f64 store produces block with reinterpret" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TBlock(VoidBlockType, TExpr(instrs))) => assert_true(instrs.length() > 2)
+    Ok(TBlock(VoidBlockType, { instrs, .. })) =>
+      assert_true(instrs.length() > 2)
     Ok(TStore(_, _, _, _)) => fail("Expected block with split stores")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
@@ -1175,7 +1177,7 @@ test "unaligned i32 store block has correct structure" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TBlock(VoidBlockType, TExpr(instrs))) => {
+    Ok(TBlock(VoidBlockType, { instrs, .. })) => {
       match instrs[0] {
         TLocalSet(_, _) => ()
         other => fail("Expected TLocalSet, got \{other}")

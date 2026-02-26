@@ -555,7 +555,7 @@ fn pc_eval_texpr_const(
   expr : TExpr,
   imm_globals : Map[GlobalIdx, PCLiteral],
 ) -> PCLiteral? {
-  let TExpr(instrs) = expr
+  let { instrs, .. } = expr
   if instrs.is_empty() {
     return None
   }
@@ -735,19 +735,19 @@ fn pc_mark_branchy_locals_instr(
   match instr {
     TIf(_, cond, then_body, else_body) => {
       pc_mark_branchy_locals_instr(cond, in_if, branchy_locals)
-      for item in then_body.0 {
+      for item in then_body.instrs {
         pc_mark_branchy_locals_instr(item, true, branchy_locals)
       }
       match else_body {
         Some(other) =>
-          for item in other.0 {
+          for item in other.instrs {
             pc_mark_branchy_locals_instr(item, true, branchy_locals)
           }
         None => ()
       }
     }
     TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) =>
-      for item in body.0 {
+      for item in body.instrs {
         pc_mark_branchy_locals_instr(item, in_if, branchy_locals)
       }
     TLocalSet(local_idx, value) => {
@@ -766,7 +766,7 @@ fn pc_mark_branchy_locals_instr(
 ///|
 fn pc_collect_branchy_locals(body : TExpr) -> Set[LocalIdx] {
   let out : Set[LocalIdx] = Set::new()
-  for instr in body.0 {
+  for instr in body.instrs {
     pc_mark_branchy_locals_instr(instr, false, out)
   }
   out
@@ -1156,7 +1156,7 @@ fn precompute_on_func(
     TFunc(locals, initial_body) => {
       let mut body = initial_body
       if propagate {
-        let graph = LocalGraph::new(body.0)
+        let graph = LocalGraph::new(body.instrs)
         let get_values = pc_analyze_get_values(body, graph, imm_globals)
         body = pc_replace_gets_with_constants(body, get_values)
       }
@@ -1268,7 +1268,11 @@ test "precompute folds simple unary and binary constants" {
   ])
   let out = pc_run_module(mod).unwrap()
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TI32Const(I32(a)), TI32Const(I32(b))]))])) => {
+    Some(
+      CodeSec(
+        [TFunc(_, { instrs: [TI32Const(I32(a)), TI32Const(I32(b))], .. })]
+      )
+    ) => {
       assert_eq(a, 3)
       assert_eq(b, 1)
     }
@@ -1291,7 +1295,8 @@ test "precompute folds nested constant expression tree" {
   ])
   let out = pc_run_module(mod).unwrap()
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TI32Const(I32(v))]))])) => assert_eq(v, 10)
+    Some(CodeSec([TFunc(_, { instrs: [TI32Const(I32(v))], .. })])) =>
+      assert_eq(v, 10)
     _ => fail("expected nested constant expression to fold")
   }
 }
@@ -1307,7 +1312,7 @@ test "precompute does not fold trapping integer division by zero" {
   ])
   let out = pc_run_module(mod).unwrap()
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TBinary(I32DivSOp, _, _)]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TBinary(I32DivSOp, _, _)], .. })])) => ()
     _ => fail("expected i32.div_s by zero to remain")
   }
 }
@@ -1333,7 +1338,7 @@ test "precompute folds immutable global.get constants" {
     )
   let out = pc_run_module(mod).unwrap()
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(TI32Const(I32(v)))]))])) =>
+    Some(CodeSec([TFunc(_, { instrs: [TDrop(TI32Const(I32(v)))], .. })])) =>
       assert_eq(v, 7)
     _ => fail("expected global.get to fold to constant")
   }
@@ -1355,8 +1360,9 @@ test "precompute propagate replaces local.get with constant values" {
   )
   let out = pc_run_module(mod, propagate=true).unwrap()
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TLocalSet(_, _), TI32Const(I32(v))]))])) =>
-      assert_eq(v, 43)
+    Some(
+      CodeSec([TFunc(_, { instrs: [TLocalSet(_, _), TI32Const(I32(v))], .. })])
+    ) => assert_eq(v, 43)
     _ => fail("expected propagated local.get to fold expression")
   }
 }
@@ -1400,14 +1406,15 @@ test "precompute propagate reaches fixpoint through chained locals" {
         [
           TFunc(
             _,
-            TExpr(
-              [
+            {
+              instrs: [
                 TLocalSet(_, _),
                 TLocalSet(_, _),
                 TLocalSet(_, _),
                 TI32Const(I32(v)),
-              ]
-            )
+              ],
+              ..,
+            }
           ),
         ]
       )
@@ -1434,7 +1441,8 @@ test "precompute propagate is conservative on conflicting if-merge sets" {
   )
   let out = pc_run_module(mod, propagate=true).unwrap()
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TIf(_, _, _, _), TLocalGet(_)]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TIf(_, _, _, _), TLocalGet(_)], .. })])) =>
+      ()
     _ => fail("expected local.get after conflicting merge to remain")
   }
 }
@@ -1463,9 +1471,12 @@ test "precompute partially precomputes unary over select arms" {
         [
           TFunc(
             _,
-            TExpr(
-              [TSelect(_, TLocalGet(_), TI32Const(I32(a)), TI32Const(I32(b)))]
-            )
+            {
+              instrs: [
+                TSelect(_, TLocalGet(_), TI32Const(I32(a)), TI32Const(I32(b))),
+              ],
+              ..,
+            }
           ),
         ]
       )
@@ -1502,9 +1513,12 @@ test "precompute partially precomputes binary over select arms" {
         [
           TFunc(
             _,
-            TExpr(
-              [TSelect(_, TLocalGet(_), TI32Const(I32(a)), TI32Const(I32(b)))]
-            )
+            {
+              instrs: [
+                TSelect(_, TLocalGet(_), TI32Const(I32(a)), TI32Const(I32(b))),
+              ],
+              ..,
+            }
           ),
         ]
       )
@@ -1542,7 +1556,10 @@ test "precompute partial precompute keeps non-constant sibling case unchanged" {
         [
           TFunc(
             _,
-            TExpr([TBinary(I32AddOp, TSelect(_, _, _, _), TLocalGet(_))])
+            {
+              instrs: [TBinary(I32AddOp, TSelect(_, _, _, _), TLocalGet(_))],
+              ..,
+            }
           ),
         ]
       )

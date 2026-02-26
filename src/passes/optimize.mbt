@@ -659,7 +659,7 @@ fn optimize_trace_count_tinstrs(mod : Module) -> Int {
       for func in funcs {
         match func {
           TFunc(_, body) =>
-            for instr in body.0 {
+            for instr in body.instrs {
               total += optimize_trace_count_instr(instr)
             }
           _ => ()
@@ -2358,8 +2358,16 @@ test "optimize_module dispatches IRContext and Unit transformer pass kinds" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match ir_optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TBlock(_, TExpr([TI32Const(I32(5))]))]))])) =>
-      ()
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            { instrs: [TBlock(_, { instrs: [TI32Const(I32(5))], .. })], .. }
+          ),
+        ]
+      )
+    ) => ()
     _ => fail("expected RemoveUnusedNames to run through IRContext dispatch")
   }
 
@@ -2379,7 +2387,7 @@ test "optimize_module dispatches IRContext and Unit transformer pass kinds" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match unit_optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TUnreachable]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TUnreachable], .. })])) => ()
     _ => fail("expected DeadCodeElimination to run through Unit dispatch")
   }
 }
@@ -2393,7 +2401,8 @@ test "optimize_module dispatches DeNaN through IRContext kind" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TF32Const(F32(v))]))])) => assert_eq(v, 0.0)
+    Some(CodeSec([TFunc(_, { instrs: [TF32Const(F32(v))], .. })])) =>
+      assert_eq(v, 0.0)
     _ => fail("expected DeNaN to sanitize NaN constants via IRContext dispatch")
   }
 }
@@ -2411,7 +2420,7 @@ test "optimize_module runs GlobalEffects pass through IRContext kind" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TCall(FuncIdx(i), [])]))])) =>
+    Some(CodeSec([TFunc(_, { instrs: [TCall(FuncIdx(i), [])], .. })])) =>
       assert_eq(i, 0U)
     _ => fail("expected GlobalEffects to preserve module body")
   }
@@ -2495,7 +2504,9 @@ test "optimize_module dispatches TypeMerging through module-runner kind" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(TStructNew(TypeIdx(0), []))]))])) => ()
+    Some(
+      CodeSec([TFunc(_, { instrs: [TDrop(TStructNew(TypeIdx(0), []))], .. })])
+    ) => ()
     _ => fail("expected TypeMerging to run through module-runner dispatch")
   }
 }
@@ -2507,8 +2518,11 @@ test "optimize_module_with_options threads traps_never_happen into TypeMerging" 
     mod, false,
   )
   match out_default.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TCallIndirect(TypeIdx(2), _, _, _)])), ..])) =>
-      ()
+    Some(
+      CodeSec(
+        [TFunc(_, { instrs: [TCallIndirect(TypeIdx(2), _, _, _)], .. }), ..]
+      )
+    ) => ()
     _ => fail("expected call_indirect type to remain when traps may happen")
   }
 
@@ -2517,8 +2531,11 @@ test "optimize_module_with_options threads traps_never_happen into TypeMerging" 
   )
   let mut merged_type_idx : UInt? = None
   match out_tnh.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TCallIndirect(TypeIdx(i), _, _, _)])), ..])) =>
-      merged_type_idx = Some(i)
+    Some(
+      CodeSec(
+        [TFunc(_, { instrs: [TCallIndirect(TypeIdx(i), _, _, _)], .. }), ..]
+      )
+    ) => merged_type_idx = Some(i)
     _ =>
       fail(
         "expected call_indirect to remain present after scheduler TypeMerging",
@@ -2652,7 +2669,7 @@ test "optimize_module runs AvoidReinterprets pass" {
   }
   let CodeSec(funcs) = optimized.code_sec.unwrap()
   match funcs[0] {
-    TFunc(_, TExpr(instrs)) =>
+    TFunc(_, { instrs, .. }) =>
       match instrs[0] {
         TLoad(LoadOp::I32LoadOp, _, _) => ()
         _ => fail("expected reinterpret(load) to become i32.load")
@@ -2686,7 +2703,7 @@ test "optimize_module runs DeadArgumentElimination pass" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr(instrs)), _])) => {
+    Some(CodeSec([TFunc(_, { instrs, .. }), _])) => {
       let mut found = false
       for instr in instrs {
         match instr {
@@ -2728,7 +2745,7 @@ test "optimize_module runs SignaturePruning pass" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr(instrs)), _])) => {
+    Some(CodeSec([TFunc(_, { instrs, .. }), _])) => {
       let mut found = false
       for instr in instrs {
         match instr {
@@ -2864,7 +2881,7 @@ test "optimize_module runs DeadCodeElimination pass" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TUnreachable]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TUnreachable], .. })])) => ()
     _ => fail("expected dead tail after unreachable to be removed")
   }
 }
@@ -2931,7 +2948,7 @@ test "optimize_module runs DuplicateImportElimination pass" {
     None => fail("expected import section")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TCall(FuncIdx(i), [])]))])) =>
+    Some(CodeSec([TFunc(_, { instrs: [TCall(FuncIdx(i), [])], .. })])) =>
       assert_eq(i, 0U)
     _ => fail("expected call index remapped to canonical import")
   }
@@ -3021,13 +3038,17 @@ test "optimize_module runs GlobalStructInference pass" {
         [
           TFunc(
             _,
-            TExpr(
-              [
+            {
+              instrs: [
                 TDrop(
-                  TBlock(_, TExpr([TDrop(TRefAsNonNull(_)), TI32Const(I32(v))]))
+                  TBlock(
+                    _,
+                    { instrs: [TDrop(TRefAsNonNull(_)), TI32Const(I32(v))], .. }
+                  )
                 ),
-              ]
-            )
+              ],
+              ..,
+            }
           ),
         ]
       )
@@ -3082,13 +3103,17 @@ test "optimize_module runs GlobalStructInferenceDescCast pass" {
         [
           TFunc(
             _,
-            TExpr(
-              [
+            {
+              instrs: [
                 TDrop(
-                  TBlock(_, TExpr([TDrop(TRefAsNonNull(_)), TI32Const(I32(v))]))
+                  TBlock(
+                    _,
+                    { instrs: [TDrop(TRefAsNonNull(_)), TI32Const(I32(v))], .. }
+                  )
                 ),
-              ]
-            )
+              ],
+              ..,
+            }
           ),
         ]
       )
@@ -3143,7 +3168,10 @@ test "optimize_module GlobalStructInferenceDescCast rewrites ref.cast to ref.cas
         [
           TFunc(
             _,
-            TExpr([TDrop(TRefCastDescEq(false, HeapType(TypeIdx(i)), _))])
+            {
+              instrs: [TDrop(TRefCastDescEq(false, HeapType(TypeIdx(i)), _))],
+              ..,
+            }
           ),
         ]
       )
@@ -3205,8 +3233,8 @@ test "optimize_module GlobalStructInferenceDescCast rewrites ref.get_desc with s
         [
           TFunc(
             _,
-            TExpr(
-              [
+            {
+              instrs: [
                 TDrop(
                   TSelect(
                     Some([NumTypeValType(I32NumType)]),
@@ -3215,8 +3243,9 @@ test "optimize_module GlobalStructInferenceDescCast rewrites ref.get_desc with s
                     TRefGetDesc(_)
                   )
                 ),
-              ]
-            )
+              ],
+              ..,
+            }
           ),
         ]
       )
@@ -3396,7 +3425,9 @@ test "optimize_module runs PickLoadSigns pass" {
   }
   match optimized.code_sec {
     Some(
-      CodeSec([TFunc(_, TExpr([TLocalSet(_, TLoad(I32Load16UOp, _, _)), _]))])
+      CodeSec(
+        [TFunc(_, { instrs: [TLocalSet(_, TLoad(I32Load16UOp, _, _)), _], .. })]
+      )
     ) => ()
     _ => fail("expected i32.load16_s to become i32.load16_u")
   }
@@ -3429,7 +3460,15 @@ test "optimize_module runs GUFA pass" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(TBlock(_, TExpr(seq)))])), _, _])) =>
+    Some(
+      CodeSec(
+        [
+          TFunc(_, { instrs: [TDrop(TBlock(_, { instrs: seq, .. }))], .. }),
+          _,
+          _,
+        ]
+      )
+    ) =>
       match seq[seq.length() - 1] {
         TI32Const(I32(v)) => assert_eq(v, 0)
         _ => fail("expected ref.eq replacement to end with i32.const 0")
@@ -3460,16 +3499,16 @@ test "optimize_module runs GUFAOptimizing followup DCE" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr(instrs))])) => {
+    Some(CodeSec([TFunc(_, { instrs, .. })])) => {
       assert_eq(instrs.length(), 1)
       match instrs[0] {
         TUnreachable => ()
-        TDrop(TBlock(_, TExpr(seq))) =>
+        TDrop(TBlock(_, { instrs: seq, .. })) =>
           match seq[seq.length() - 1] {
             TUnreachable => ()
             _ => fail("expected impossible cast to become unreachable")
           }
-        TBlock(_, TExpr(seq)) =>
+        TBlock(_, { instrs: seq, .. }) =>
           match seq[seq.length() - 1] {
             TUnreachable => ()
             _ => fail("expected impossible cast to become unreachable")
@@ -3502,7 +3541,7 @@ test "optimize_module runs GUFACastAll pass" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(instr)]))])) =>
+    Some(CodeSec([TFunc(_, { instrs: [TDrop(instr)], .. })])) =>
       match instr {
         TRefCast(false, HeapType(TypeIdx(i)), TGlobalGet(GlobalIdx(g))) => {
           assert_eq(i.reinterpret_as_int(), 0)
@@ -3682,7 +3721,7 @@ test "optimize_module runs DataflowOptimization pass" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr(instrs))])) => {
+    Some(CodeSec([TFunc(_, { instrs, .. })])) => {
       let mut found = false
       for instr in instrs {
         match instr {
@@ -3884,7 +3923,7 @@ test "optimize_module runs RedundantSetElimination pass" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TLocalSet(_, _), TDrop(_)]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TLocalSet(_, _), TDrop(_)], .. })])) => ()
     _ => fail("expected second redundant set to be removed")
   }
 }
@@ -3925,7 +3964,7 @@ test "optimize_module runs Vacuum pass" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TNop]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TNop], .. })])) => ()
     _ => fail("expected vacuum to remove pure dropped const")
   }
 }
@@ -3993,7 +4032,9 @@ test "optimize_module runs LoopInvariantCodeMotion pass" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TBlock(_, TExpr(items))]))])) =>
+    Some(
+      CodeSec([TFunc(_, { instrs: [TBlock(_, { instrs: items, .. })], .. })])
+    ) =>
       match items {
         [TLocalSet(_, _), TLoop(_, _)] => ()
         _ => fail("expected LICM preheader block shape")
@@ -4022,7 +4063,8 @@ test "optimize_module runs MergeBlocks pass" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(TI32Const(I32(9))), TNop]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TDrop(TI32Const(I32(9))), TNop], .. })])) =>
+      ()
     _ => fail("expected merged block body")
   }
 }
@@ -4076,7 +4118,8 @@ test "optimize_module runs ReReloop pass" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(TI32Const(I32(9))), TNop]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TDrop(TI32Const(I32(9))), TNop], .. })])) =>
+      ()
     _ => fail("expected rerelooped function body")
   }
 }
@@ -4242,8 +4285,9 @@ test "optimize_module runs Precompute and PrecomputePropagate passes" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TLocalSet(_, _), TI32Const(I32(v))]))])) =>
-      assert_eq(v, 10)
+    Some(
+      CodeSec([TFunc(_, { instrs: [TLocalSet(_, _), TI32Const(I32(v))], .. })])
+    ) => assert_eq(v, 10)
     _ => fail("expected propagated+precomputed constant expression")
   }
 }
@@ -4265,8 +4309,16 @@ test "optimize_module runs RemoveUnusedBrs pass" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TBlock(_, TExpr([TI32Const(I32(1))]))]))])) =>
-      ()
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            { instrs: [TBlock(_, { instrs: [TI32Const(I32(1))], .. })], .. }
+          ),
+        ]
+      )
+    ) => ()
     _ => fail("expected RemoveUnusedBrs to remove trailing br 0")
   }
 }
@@ -4293,8 +4345,16 @@ test "optimize_module runs RemoveUnusedNames pass" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TBlock(_, TExpr([TI32Const(I32(5))]))]))])) =>
-      ()
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            { instrs: [TBlock(_, { instrs: [TI32Const(I32(5))], .. })], .. }
+          ),
+        ]
+      )
+    ) => ()
     _ => fail("expected RemoveUnusedNames to merge single-child blocks")
   }
 }
@@ -4317,7 +4377,7 @@ test "optimize_module runs SimplifyLocals pass" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr(instrs))])) =>
+    Some(CodeSec([TFunc(_, { instrs, .. })])) =>
       match instrs {
         [TDrop(TI32Const(I32(v)))] => assert_eq(v, 42)
         _ =>
@@ -4363,7 +4423,7 @@ test "optimize_module runs ReorderFunctions pass" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TNop])), _, _])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TNop], .. }), _, _])) => ()
     _ => fail("expected ReorderFunctions to move highest-used function first")
   }
   match optimized.start_sec {
@@ -4390,7 +4450,7 @@ test "optimize_module runs ReorderLocals pass" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(locals, TExpr(instrs))])) => {
+    Some(CodeSec([TFunc(locals, { instrs, .. })])) => {
       assert_eq(locals, [ValType::i64()])
       match instrs {
         [TDrop(TLocalGet(LocalIdx(i0))), TDrop(TLocalGet(LocalIdx(i1)))] => {
@@ -4431,8 +4491,11 @@ test "optimize_module runs ReorderTypes pass" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(TStructNew(TypeIdx(i0), [])), ..]))])) =>
-      assert_true(i0 < 128U)
+    Some(
+      CodeSec(
+        [TFunc(_, { instrs: [TDrop(TStructNew(TypeIdx(i0), [])), ..], .. })]
+      )
+    ) => assert_true(i0 < 128U)
     _ => fail("expected ReorderTypes to remap hot type below LEB boundary")
   }
 }
@@ -4512,7 +4575,7 @@ test "optimize_module runs SimplifyGlobals pass" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(TI32Const(I32(v)))]))])) =>
+    Some(CodeSec([TFunc(_, { instrs: [TDrop(TI32Const(I32(v)))], .. })])) =>
       assert_eq(v, 9)
     _ => fail("expected SimplifyGlobals to remove dead global.set")
   }
@@ -4625,7 +4688,8 @@ test "pass invariant: merge_blocks validates and remap is stable" {
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
   let out = opt_assert_pass_invariant(mod, MergeBlocks, "merge_blocks")
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(TI32Const(I32(9))), TNop]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TDrop(TI32Const(I32(9))), TNop], .. })])) =>
+      ()
     _ => fail("merge_blocks: expected merged block body")
   }
 }
@@ -4651,7 +4715,8 @@ test "pass invariant: re_reloop validates and remap is stable" {
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
   let out = opt_assert_pass_invariant(mod, ReReloop, "re_reloop")
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(TI32Const(I32(9))), TNop]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TDrop(TI32Const(I32(9))), TNop], .. })])) =>
+      ()
     _ => fail("re_reloop: expected rerelooped body")
   }
 }
@@ -4893,7 +4958,7 @@ test "pass invariant: optimize_instructions validates and remap is stable" {
     "optimize_instructions",
   )
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TNop]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TNop], .. })])) => ()
     _ =>
       fail(
         "optimize_instructions: expected global.set(global.get same idx) to fold",
@@ -4925,7 +4990,8 @@ test "pass invariant: precompute validates and remap is stable" {
     )
   let out = opt_assert_pass_invariant(mod, Precompute, "precompute")
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TI32Const(I32(v))]))])) => assert_eq(v, 3)
+    Some(CodeSec([TFunc(_, { instrs: [TI32Const(I32(v))], .. })])) =>
+      assert_eq(v, 3)
     _ => fail("precompute: expected simple constant fold")
   }
 }

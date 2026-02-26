@@ -1305,7 +1305,7 @@ fn msf_shared_abs_index(mod : Module) -> Int {
 ///|
 fn msf_is_forwarder(func : Func, target_abs : Int, arg_count : Int) -> Bool {
   match func {
-    TFunc(locals, TExpr([TReturnCall(FuncIdx(raw), args)])) =>
+    TFunc(locals, { instrs: [TReturnCall(FuncIdx(raw), args)], .. }) =>
       locals.length() == 0 &&
       raw.reinterpret_as_int() == target_abs &&
       args.length() == arg_count
@@ -1401,7 +1401,7 @@ test "merge similar functions reuses parameter across repeated diff vector" {
       assert_true(msf_is_forwarder(funcs[0], shared_abs, 2))
       assert_true(msf_is_forwarder(funcs[1], shared_abs, 2))
       match funcs[2] {
-        TFunc(_, TExpr(body)) => {
+        TFunc(_, { instrs: body, .. }) => {
           let mut local_get_count = 0
           for instr in body {
             let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
@@ -1517,7 +1517,7 @@ test "merge similar functions parameterizes call target using call_ref" {
       assert_true(msf_is_forwarder(funcs[2], shared_abs, 2))
       assert_true(msf_is_forwarder(funcs[3], shared_abs, 2))
       match funcs[shared_abs - msf_count_imported_funcs(out)] {
-        TFunc(_, TExpr(body)) => {
+        TFunc(_, { instrs: body, .. }) => {
           let mut saw_call_ref = false
           let mut seen_type_idx = -1
           let mut saw_casted_local = false

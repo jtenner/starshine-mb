@@ -300,7 +300,7 @@ fn const_hoisting_pass() -> ModuleTransformer[ConstHoistingState] {
       let lit = k.0
       let idx = k.1
       let con = lit.get_tinst()
-      body.0.insert(0, TInstr::local_set(idx, con))
+      body.instrs.insert(0, TInstr::local_set(idx, con))
     }
     change(t, Func::t_func(locals, body))
   })
@@ -348,7 +348,7 @@ test "const hoisting: single use does nothing" {
   let f = Func::t_func([], TExpr::new([TInstr::i32_const(I32(7))]))
   let f2 = run_hoist(f)
   match f2 {
-    TFunc(locals, TExpr(instrs)) => {
+    TFunc(locals, { instrs, .. }) => {
       assert_eq(locals.length(), 0)
       assert_eq(instrs.length(), 1)
       assert_eq(instrs[0], TInstr::i32_const(I32(7)))
@@ -370,7 +370,7 @@ test "const hoisting: large constant is hoisted" {
   )
   let f2 = run_hoist(f)
   match f2 {
-    TFunc(locals, TExpr(instrs)) => {
+    TFunc(locals, { instrs, .. }) => {
       // One new local
       assert_eq(locals.length(), 1)
 
@@ -398,7 +398,7 @@ test "const hoisting: small constants are not hoisted" {
   )
   let f2 = run_hoist(f)
   match f2 {
-    TFunc(locals, TExpr(instrs)) => {
+    TFunc(locals, { instrs, .. }) => {
       assert_eq(locals.length(), 0)
       assert_eq(instrs.length(), 3)
       for i in instrs {
@@ -421,7 +421,7 @@ test "const hoisting: different literals are not merged" {
   )
   let f2 = run_hoist(f)
   match f2 {
-    TFunc(locals, TExpr(instrs)) => {
+    TFunc(locals, { instrs, .. }) => {
       // 10 is small → not hoisted
       assert_eq(locals.length(), 0)
       assert_true(instrs[0] is TI32Const(_))
@@ -445,7 +445,7 @@ test "const hoisting: f64 hoisted when repeated" {
   )
   let f2 = run_hoist(f)
   match f2 {
-    TFunc(locals, TExpr(instrs)) => {
+    TFunc(locals, { instrs, .. }) => {
       assert_eq(locals.length(), 1)
       assert_true(instrs[0] is TLocalSet(_))
       assert_true(instrs[1] is TLocalGet(_))

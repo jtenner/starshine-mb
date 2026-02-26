@@ -70,7 +70,7 @@ fn vq_block_result_type(bt : BlockType, env : Env) -> ValType? {
 
 ///|
 fn vq_texpr_result_type(expr : TExpr, env : Env) -> ValType? {
-  let TExpr(items) = expr
+  let { instrs: items, .. } = expr
   if items.is_empty() {
     None
   } else {
@@ -80,7 +80,7 @@ fn vq_texpr_result_type(expr : TExpr, env : Env) -> ValType? {
 
 ///|
 fn vq_is_nop_texpr(expr : TExpr) -> Bool {
-  let TExpr(items) = expr
+  let { instrs: items, .. } = expr
   if items.is_empty() {
     return true
   }
@@ -95,7 +95,7 @@ fn vq_is_nop_texpr(expr : TExpr) -> Bool {
 
 ///|
 fn vq_texpr_is_unreachable(expr : TExpr) -> Bool {
-  let TExpr(items) = expr
+  let { instrs: items, .. } = expr
   for item in items {
     if is_unreachable_instr(item) {
       return true
@@ -106,7 +106,7 @@ fn vq_texpr_is_unreachable(expr : TExpr) -> Bool {
 
 ///|
 fn vq_wrap_texpr(expr : TExpr, env : Env) -> TInstr {
-  let TExpr(items) = expr
+  let { instrs: items, .. } = expr
   if items.length() == 0 {
     return TInstr::nop()
   }
@@ -307,7 +307,7 @@ fn vq_optimize_texpr(
   result_used : Bool,
   budget : Ref[Int],
 ) -> TExpr {
-  let TExpr(items) = expr
+  let { instrs: items, .. } = expr
   let sequence = vq_optimize_sequence(
     items, env, result_type, result_used, budget,
   )
@@ -323,7 +323,7 @@ fn vq_simplify_block_to_contents(
   if has_break_to_depth_in_texpr(body, 0) {
     return TInstr::block(bt, body)
   }
-  let TExpr(items) = body
+  let { instrs: items, .. } = body
   if items.length() == 0 {
     if vq_block_result_type(bt, env) is Some(_) {
       return TInstr::block(bt, body)
@@ -370,7 +370,7 @@ fn vq_texpr_throws(expr : TExpr) -> Bool {
 
 ///|
 fn vq_texpr_has_unremovable_side_effects(expr : TExpr) -> Bool {
-  let TExpr(items) = expr
+  let { instrs: items, .. } = expr
   for item in items {
     if lcs_collect_effects(item).has_unremovable_side_effects() {
       return true
@@ -471,7 +471,7 @@ fn vq_process_instr(
               ),
             )
           }
-          match (next_then.0, other.0) {
+          match (next_then.instrs, other.instrs) {
             ([TDrop(left)], [TDrop(right)]) =>
               match (vq_type_of(left, env), vq_type_of(right, env)) {
                 (Some(lt), Some(rt)) if lt == rt =>
@@ -533,7 +533,7 @@ fn vq_process_instr(
 
       match next_value {
         TBlock(bt, body) => {
-          let TExpr(items) = body
+          let { instrs: items, .. } = body
           if items.length() > 0 {
             let last = items[items.length() - 1]
             match (vq_block_result_type(bt, env), vq_type_of(last, env)) {
@@ -650,7 +650,7 @@ fn vq_optimize_function(
       }
       let budget = Ref::new(250000)
       let sequence = vq_optimize_sequence(
-        body.0,
+        body.instrs,
         env,
         result_type,
         sig.results.length() > 0,
@@ -693,7 +693,7 @@ fn vacuum_ir_pass_with_trace(
     next_def_idx.update(fn(i) { i + 1 })
     let ordinal = def_idx + 1
     let start_instrs = match func {
-      TFunc(_, body) => body.0.length()
+      TFunc(_, body) => body.instrs.length()
       _ => 0
     }
     if ordinal <= 50 || ordinal % 500 == 0 {
@@ -702,7 +702,7 @@ fn vacuum_ir_pass_with_trace(
     let sig = sigs.get(def_idx).unwrap_or(VQFuncSig::new([], []))
     let (next_func, changed) = vq_optimize_function(mod, func, sig)
     let end_instrs = match next_func {
-      TFunc(_, body) => body.0.length()
+      TFunc(_, body) => body.instrs.length()
       _ => 0
     }
     if ordinal <= 50 || ordinal % 500 == 0 {
@@ -756,7 +756,7 @@ test "vacuum rewrites drop(local.tee(...)) to local.set(...)" {
     ]),
   )
   let out = run_vacuum(mod)
-  match vq_first_func_body(out).0 {
+  match vq_first_func_body(out).instrs {
     [TLocalSet(LocalIdx(i), TI32Const(I32(v)))] => {
       assert_eq(i, 0U)
       assert_eq(v, 9)
@@ -773,7 +773,7 @@ test "vacuum removes side-effect-free dropped value" {
     ]),
   )
   let out = run_vacuum(mod)
-  match vq_first_func_body(out).0 {
+  match vq_first_func_body(out).instrs {
     [TNop] => ()
     _ => fail("expected pure drop to be removed")
   }
@@ -802,7 +802,7 @@ test "vacuum simplifies dropped unary wrapper around call to dropped call" {
       ]),
     )
   let out = run_vacuum(mod)
-  match vq_first_func_body(out).0 {
+  match vq_first_func_body(out).instrs {
     [TDrop(TCall(FuncIdx(i), []))] => assert_eq(i, 1U)
     _ => fail("expected drop(i32.eqz(call)) to become drop(call)")
   }
@@ -832,7 +832,7 @@ test "vacuum replaces constant if(true) with then arm" {
       ]),
     )
   let out = run_vacuum(mod)
-  match vq_first_func_body(out).0 {
+  match vq_first_func_body(out).instrs {
     [TI32Const(I32(v))] => assert_eq(v, 7)
     _ => fail("expected constant-true if to fold to then arm")
   }
@@ -856,7 +856,7 @@ test "vacuum replaces if with unreachable condition by the condition" {
     ]),
   )
   let out = run_vacuum(mod)
-  match vq_first_func_body(out).0 {
+  match vq_first_func_body(out).instrs {
     [TUnreachable] => ()
     _ => fail("expected if(unreachable) to fold to unreachable")
   }
@@ -896,7 +896,7 @@ test "vacuum removes if without else when then arm is nop by dropping condition"
       ]),
     )
   let out = run_vacuum(mod)
-  match vq_first_func_body(out).0 {
+  match vq_first_func_body(out).instrs {
     [TDrop(TCall(FuncIdx(i), []))] => assert_eq(i, 0U)
     _ => fail("expected empty if body to become drop(condition)")
   }
@@ -915,7 +915,7 @@ test "vacuum removes loops with nop body" {
     ]),
   )
   let out = run_vacuum(mod)
-  match vq_first_func_body(out).0 {
+  match vq_first_func_body(out).instrs {
     [TNop] => ()
     _ => fail("expected loop with nop body to become nop")
   }
@@ -935,8 +935,8 @@ test "vacuum removes trailing dead code after unreachable in block body" {
     CodeSec::new([Func::t_func([ValType::i32()], TExpr::new([block]))]),
   )
   let out = run_vacuum(mod)
-  match vq_first_func_body(out).0 {
-    [TBlock(_, TExpr([TLocalSet(_, TI32Const(I32(v))), TUnreachable]))] =>
+  match vq_first_func_body(out).instrs {
+    [TBlock(_, { instrs: [TLocalSet(_, TI32Const(I32(v))), TUnreachable], .. })] =>
       assert_eq(v, 1)
     _ => fail("expected unreachable tail in block to be removed")
   }
@@ -977,13 +977,13 @@ test "vacuum turns drop(if drop(..) else drop(..)) into drop(if value else value
       CodeSec::new([Func::t_func([ValType::i32()], TExpr::new([dropped_if]))]),
     )
   let out = run_vacuum(mod)
-  match vq_first_func_body(out).0 {
+  match vq_first_func_body(out).instrs {
     [
       TDrop(
         TIf(ValTypeBlockType(NumTypeValType(I32NumType)), _, then_, Some(else_))
       ),
     ] =>
-      match (then_.0, else_.0) {
+      match (then_.instrs, else_.instrs) {
         ([TCall(FuncIdx(a), [])], [TCall(FuncIdx(b), [])]) => {
           assert_eq(a, 0U)
           assert_eq(b, 1U)
@@ -1009,7 +1009,7 @@ test "vacuum removes try_table when body cannot throw" {
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(CodeSec::new([Func::t_func([], TExpr::new([instr]))]))
   let out = run_vacuum(mod)
-  match vq_first_func_body(out).0 {
+  match vq_first_func_body(out).instrs {
     [TI32Const(I32(v))] => assert_eq(v, 77)
     _ => fail("expected throw-free try_table to fold to body")
   }
@@ -1029,7 +1029,7 @@ test "vacuum keeps non-removable try_table body that may throw" {
     .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(0))]))
     .with_code_sec(CodeSec::new([Func::t_func([], TExpr::new([instr]))]))
   let out = run_vacuum(mod)
-  match vq_first_func_body(out).0 {
+  match vq_first_func_body(out).instrs {
     [TTryTable(_, _, _)] => ()
     _ => fail("expected throwing try_table to remain")
   }
@@ -1041,7 +1041,7 @@ test "vacuum nops side-effect-free none-returning function body" {
     CodeSec::new([Func::t_func([], TExpr::new([TInstr::i32_const(I32(1))]))]),
   )
   let out = run_vacuum(mod)
-  match vq_first_func_body(out).0 {
+  match vq_first_func_body(out).instrs {
     [TNop] => ()
     _ => fail("expected side-effect-free function body to become nop")
   }

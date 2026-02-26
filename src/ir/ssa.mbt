@@ -257,22 +257,22 @@ fn collect_instr_locals(instr : TInstr, locals : Set[LocalIdx]) -> Unit {
         collect_instr_locals(a, locals)
       }
     TBlock(_, expr) | TLoop(_, expr) =>
-      for i in expr.0 {
+      for i in expr.instrs {
         collect_instr_locals(i, locals)
       }
     TIf(_, cond, then_e, else_e) => {
       collect_instr_locals(cond, locals)
-      for i in then_e.0 {
+      for i in then_e.instrs {
         collect_instr_locals(i, locals)
       }
       if else_e is Some(e) {
-        for i in e.0 {
+        for i in e.instrs {
           collect_instr_locals(i, locals)
         }
       }
     }
     TTryTable(_, _, expr) =>
-      for i in expr.0 {
+      for i in expr.instrs {
         collect_instr_locals(i, locals)
       }
     TBr(_, args) =>

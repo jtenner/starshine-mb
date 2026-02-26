@@ -218,16 +218,17 @@ fn is_denam32_func(f : Func) -> Bool {
   match f {
     TFunc(
       [NumTypeValType(F32NumType)],
-      TExpr(
-        [
+      {
+        instrs: [
           TIf(
             ValTypeBlockType(NumTypeValType(F32NumType)),
             TBinary(F32EqOp, TLocalGet(LocalIdx(0)), TLocalGet(LocalIdx(0))),
-            TExpr([TLocalGet(LocalIdx(0))]),
-            Some(TExpr([TF32Const(F32(v))]))
+            { instrs: [TLocalGet(LocalIdx(0))], .. },
+            Some({ instrs: [TF32Const(F32(v))], .. })
           ),
-        ]
-      )
+        ],
+        ..,
+      }
     ) => v == 0.0
     _ => false
   }
@@ -238,16 +239,17 @@ fn is_denam64_func(f : Func) -> Bool {
   match f {
     TFunc(
       [NumTypeValType(F64NumType)],
-      TExpr(
-        [
+      {
+        instrs: [
           TIf(
             ValTypeBlockType(NumTypeValType(F64NumType)),
             TBinary(F64EqOp, TLocalGet(LocalIdx(0)), TLocalGet(LocalIdx(0))),
-            TExpr([TLocalGet(LocalIdx(0))]),
-            Some(TExpr([TF64Const(F64(v))]))
+            { instrs: [TLocalGet(LocalIdx(0))], .. },
+            Some({ instrs: [TF64Const(F64(v))], .. })
           ),
-        ]
-      )
+        ],
+        ..,
+      }
     ) => v == 0.0
     _ => false
   }
@@ -388,11 +390,11 @@ fn sanitize_params(
   if prefix.is_empty() {
     return body
   }
-  if starts_with_prefix(body.0, prefix) {
+  if starts_with_prefix(body.instrs, prefix) {
     return body
   }
   let updated = prefix.copy()
-  updated.append(body.0)
+  updated.append(body.instrs)
   TExpr::new(updated)
 }
 
@@ -743,7 +745,7 @@ test "f32 NaN constant is replaced with 0.0" {
   match result {
     Ok({ code_sec: Some(CodeSec(funcs)), .. }) =>
       match funcs[0] {
-        TFunc(_, TExpr(instrs)) =>
+        TFunc(_, { instrs, .. }) =>
           match instrs[0] {
             TF32Const(F32(v)) =>
               assert_eq(v, 0.0, msg="NaN should be replaced with 0.0")
@@ -765,7 +767,7 @@ test "f64 NaN constant is replaced with 0.0" {
   match result {
     Ok({ code_sec: Some(CodeSec(funcs)), .. }) =>
       match funcs[0] {
-        TFunc(_, TExpr(instrs)) =>
+        TFunc(_, { instrs, .. }) =>
           match instrs[0] {
             TF64Const(F64(v)) =>
               assert_eq(v, 0.0, msg="NaN should be replaced with 0.0")
@@ -785,7 +787,7 @@ test "non-NaN f32 constant is unchanged" {
   match result {
     Ok({ code_sec: Some(CodeSec(funcs)), .. }) =>
       match funcs[0] {
-        TFunc(_, TExpr(instrs)) =>
+        TFunc(_, { instrs, .. }) =>
           match instrs[0] {
             TF32Const(F32(v)) =>
               assert_eq(v, 3.14, msg="Non-NaN should be unchanged")
@@ -807,7 +809,7 @@ test "negative zero is not replaced" {
   match result {
     Ok({ code_sec: Some(CodeSec(funcs)), .. }) =>
       match funcs[0] {
-        TFunc(_, TExpr(instrs)) =>
+        TFunc(_, { instrs, .. }) =>
           match instrs[0] {
             TF32Const(F32(v)) => {
               // Check it's still negative zero (bit pattern preserved)
@@ -836,7 +838,7 @@ test "infinity is not replaced" {
   match result {
     Ok({ code_sec: Some(CodeSec(funcs)), .. }) =>
       match funcs[0] {
-        TFunc(_, TExpr(instrs)) =>
+        TFunc(_, { instrs, .. }) =>
           match instrs[0] {
             TF32Const(F32(v)) => {
               let bits = v.reinterpret_as_uint()
@@ -981,7 +983,7 @@ test "f32.add is wrapped with deNan call" {
   match result {
     Ok({ code_sec: Some(CodeSec(funcs)), .. }) =>
       match funcs[0] {
-        TFunc(_, TExpr(instrs)) =>
+        TFunc(_, { instrs, .. }) =>
           match instrs[0] {
             TCall(FuncIdx(idx), args) => {
               // Should be calling the helper function (index 1)
@@ -1011,7 +1013,7 @@ test "f32.sqrt is wrapped with deNan call" {
   match result {
     Ok({ code_sec: Some(CodeSec(funcs)), .. }) =>
       match funcs[0] {
-        @lib.TFunc(_, TExpr(instrs)) =>
+        @lib.TFunc(_, { instrs, .. }) =>
           match instrs[0] {
             TCall(_, args) =>
               match args[0] {
@@ -1043,7 +1045,7 @@ test "f64.div is wrapped with deNan call" {
   match result {
     Ok({ code_sec: Some(CodeSec(funcs)), .. }) =>
       match funcs[0] {
-        @lib.TFunc(_, TExpr(instrs)) =>
+        @lib.TFunc(_, { instrs, .. }) =>
           match instrs[0] {
             TCall(_, args) =>
               match args[0] {
@@ -1075,7 +1077,7 @@ test "f32.load is wrapped with deNan call" {
   match result {
     Ok({ code_sec: Some(CodeSec(funcs)), .. }) =>
       match funcs[0] {
-        TFunc(_, TExpr(instrs)) =>
+        TFunc(_, { instrs, .. }) =>
           match instrs[0] {
             TCall(_, args) =>
               match args[0] {
@@ -1108,7 +1110,7 @@ test "typed f32.select is wrapped with deNan call" {
   match result {
     Ok({ code_sec: Some(CodeSec(funcs)), .. }) =>
       match funcs[0] {
-        TFunc(_, TExpr(instrs)) =>
+        TFunc(_, { instrs, .. }) =>
           match instrs[0] {
             TCall(_, args) =>
               match args[0] {
@@ -1135,7 +1137,7 @@ test "f32 call result is wrapped with deNan call" {
   match result {
     Ok({ code_sec: Some(CodeSec(funcs)), .. }) =>
       match funcs[1] {
-        TFunc(_, TExpr(instrs)) =>
+        TFunc(_, { instrs, .. }) =>
           match instrs[0] {
             TCall(FuncIdx(helper_idx), [TCall(FuncIdx(target), [])]) => {
               assert_eq(
@@ -1169,7 +1171,7 @@ test "f32 local.get flow is wrapped with deNan call" {
   match result {
     Ok({ code_sec: Some(CodeSec(funcs)), .. }) =>
       match funcs[0] {
-        TFunc(_, TExpr(instrs)) =>
+        TFunc(_, { instrs, .. }) =>
           match instrs[0] {
             TCall(_, [TLocalGet(LocalIdx(0))]) => ()
             _ => fail("Expected wrapped local.get result")
@@ -1203,7 +1205,7 @@ test "f64 global.get flow is wrapped with deNan call" {
   match result {
     Ok({ code_sec: Some(CodeSec(funcs)), .. }) =>
       match funcs[0] {
-        TFunc(_, TExpr(instrs)) =>
+        TFunc(_, { instrs, .. }) =>
           match instrs[0] {
             TCall(_, [TGlobalGet(GlobalIdx(0))]) => ()
             _ => fail("Expected wrapped global.get result")
@@ -1229,7 +1231,7 @@ test "f32 parameter is sanitized at function entry" {
   match result {
     Ok({ code_sec: Some(CodeSec(funcs)), .. }) =>
       match funcs[0] {
-        TFunc(_, TExpr(instrs)) =>
+        TFunc(_, { instrs, .. }) =>
           // First instruction should be local.set that sanitizes the param
           match instrs[0] {
             TLocalSet(LocalIdx(0), TCall(_, args)) =>
@@ -1256,7 +1258,7 @@ test "f64 parameter is sanitized at function entry" {
   match result {
     Ok({ code_sec: Some(CodeSec(funcs)), .. }) =>
       match funcs[0] {
-        TFunc(_, TExpr(instrs)) =>
+        TFunc(_, { instrs, .. }) =>
           match instrs[0] {
             TLocalSet(LocalIdx(0), TCall(_, _)) => ()
             _ => fail("Expected local.set with deNan call at function entry")
@@ -1283,7 +1285,7 @@ test "mixed parameters - only floats sanitized" {
   match result {
     Ok({ code_sec: Some(CodeSec(funcs)), .. }) =>
       match funcs[0] {
-        TFunc(_, TExpr(instrs)) => {
+        TFunc(_, { instrs, .. }) => {
           // Should have 2 sanitization instructions (for f32 and f64 params)
           // plus the original body
           let sanitize_count = instrs
@@ -1318,7 +1320,7 @@ test "i32 parameter is not sanitized" {
   match result {
     Ok({ code_sec: Some(CodeSec(funcs)), .. }) =>
       match funcs[0] {
-        TFunc(_, TExpr(instrs)) => {
+        TFunc(_, { instrs, .. }) => {
           // Body should be unchanged (just local.get)
           assert_eq(instrs.length(), 1, msg="Body should be unchanged")
           match instrs[0] {
@@ -1354,7 +1356,7 @@ test "deNan32 helper has correct structure" {
     Ok({ code_sec: Some(CodeSec(funcs)), .. }) =>
       // Helper should be at index 1
       match funcs[1] {
-        TFunc(params, TExpr(body)) => {
+        TFunc(params, { instrs: body, .. }) => {
           // Should take one f32 parameter
           assert_eq(params.length(), 1, msg="Helper should have 1 parameter")
           match params[0] {
@@ -1380,13 +1382,13 @@ test "deNan32 helper has correct structure" {
 
               // Then: return parameter
               match then_branch {
-                TExpr([TLocalGet(LocalIdx(0))]) => ()
+                { instrs: [TLocalGet(LocalIdx(0))], .. } => ()
                 _ => fail("Then branch should return parameter")
               }
 
               // Else: return 0.0
               match else_branch {
-                TExpr([TF32Const(F32(v))]) =>
+                { instrs: [TF32Const(F32(v))], .. } =>
                   assert_eq(v, 0.0, msg="Else should return 0.0")
                 _ => fail("Else branch should return 0.0")
               }
@@ -1480,7 +1482,7 @@ test "nested expressions are properly wrapped" {
   match result {
     Ok({ code_sec: Some(CodeSec(funcs)), .. }) =>
       match funcs[0] {
-        @lib.TFunc(_, TExpr(instrs)) => {
+        @lib.TFunc(_, { instrs, .. }) => {
           let calls = count_calls(instrs[0])
           assert_eq(
             calls,
@@ -1518,7 +1520,7 @@ test "multiple functions are all processed" {
       // Both original functions should have parameter sanitization
       for i in [0, 1] {
         match funcs[i] {
-          @lib.TFunc(_, TExpr(instrs)) =>
+          @lib.TFunc(_, { instrs, .. }) =>
             match instrs[0] {
               TLocalSet(_, TCall(_, _)) => () // Has sanitization
               _ => fail("Function \{i} should have parameter sanitization")
@@ -1602,7 +1604,7 @@ test "running pass twice produces same result" {
       assert_eq(funcs1, funcs2, msg="running de_nan twice should be idempotent")
       assert_eq(funcs1.length(), 2, msg="second run should not add new helpers")
       match funcs1[0] {
-        TFunc(_, TExpr(instrs)) =>
+        TFunc(_, { instrs, .. }) =>
           match instrs[0] {
             TLocalSet(LocalIdx(0), TCall(FuncIdx(helper_idx), _)) =>
               assert_eq(
@@ -1719,7 +1721,7 @@ test "de_nan_ir_pass rewrites module through IRContext wrapper" {
   match de_nan_ir_pass(mod).walk_module(ctx, mod) {
     Ok(Some((_, out))) =>
       match out.code_sec {
-        Some(CodeSec([TFunc(_, TExpr([TF32Const(F32(v))]))])) =>
+        Some(CodeSec([TFunc(_, { instrs: [TF32Const(F32(v))], .. })])) =>
           assert_eq(v, 0.0)
         _ => fail("expected rewritten f32 NaN constant")
       }

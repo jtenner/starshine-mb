@@ -37,7 +37,7 @@ test "walk_module applies on_tinstruction rewrite" {
     Err(e) => fail("unexpected walk_module error: \{e}")
   }
   match rewritten.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TLocalGet(LocalIdx(i))]))])) =>
+    Some(CodeSec([TFunc(_, { instrs: [TLocalGet(LocalIdx(i))], .. })])) =>
       assert_eq(i, 1U)
     _ => fail("expected local.get index rewrite")
   }
@@ -110,7 +110,7 @@ test "walk_module falls through on_module Ok(None) to default traversal" {
   }
   assert_true(module_hook_called)
   match rewritten.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TLocalGet(LocalIdx(i))]))])) =>
+    Some(CodeSec([TFunc(_, { instrs: [TLocalGet(LocalIdx(i))], .. })])) =>
       assert_eq(i, 2U)
     _ => fail("expected local.get index rewrite from fallback traversal")
   }
@@ -133,7 +133,7 @@ test "walk_module invokes on_module event hook" {
     Err(e) => fail("unexpected walk_module error: \{e}")
   }
   match rewritten.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TNop]))])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [TNop], .. })])) => ()
     _ => fail("expected on_module to inject rewritten code section")
   }
 }

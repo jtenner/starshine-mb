@@ -1110,8 +1110,11 @@ test "reorder_types reorders private rec-group members and remaps TypeIdx uses" 
     )
   let out = run_reorder_types(mod, for_testing=true)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(TStructNew(TypeIdx(i0), [])), ..]))])) =>
-      assert_eq(i0, 0U)
+    Some(
+      CodeSec(
+        [TFunc(_, { instrs: [TDrop(TStructNew(TypeIdx(i0), [])), ..], .. })]
+      )
+    ) => assert_eq(i0, 0U)
     _ => fail("expected first struct.new to be remapped to the first slot")
   }
 }

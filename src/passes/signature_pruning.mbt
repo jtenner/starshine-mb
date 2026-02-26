@@ -694,7 +694,7 @@ fn sp_run_iteration(mod : Module) -> (Module, Bool) {
             let final_body = if prologue.is_empty() {
               body2
             } else {
-              TExpr::new([..prologue, ..body2.0])
+              TExpr::new([..prologue, ..body2.instrs])
             }
             Func::t_func(new_locals, final_body)
           }
@@ -801,7 +801,7 @@ test "signature pruning removes unused params across same signature group" {
     Err(e) => fail("signature_pruning_ir_pass failed: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr(instrs)), _, _])) => {
+    Some(CodeSec([TFunc(_, { instrs, .. }), _, _])) => {
       let call_args : Array[Int] = []
       for instr in instrs {
         match instr {
@@ -858,7 +858,7 @@ test "signature pruning updates call_ref type and arguments" {
   }
   let mut seen = false
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, TExpr(instrs)), _])) =>
+    Some(CodeSec([TFunc(_, { instrs, .. }), _])) =>
       for instr in instrs {
         match instr {
           TCallRef(type_idx, args, _) => {

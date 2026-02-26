@@ -303,10 +303,10 @@ fn il_is_shrink_wrapper(instr : TInstr, _param_count : Int) -> Bool {
 
 ///|
 fn il_detect_trivial_kind(body : TExpr, param_count : Int) -> ILTrivialKind {
-  if body.0.length() != 1 {
+  if body.instrs.length() != 1 {
     return ILNotTrivial
   }
-  let instr = body.0[0]
+  let instr = body.instrs[0]
   if !il_is_non_control(instr) {
     return ILNotTrivial
   }
@@ -377,7 +377,7 @@ fn il_analyze_func(
       ignore(walker.walk_texpr((), body))
       let FuncType(params, _) = func_type
       let tail_wrapper = if locals.is_empty() {
-        match body.0 {
+        match body.instrs {
           [TReturnCall(_, _)] => true
           [TReturnCallIndirect(_, _, _, _)] => true
           [TReturnCallRef(_, _, _)] => true
@@ -467,7 +467,7 @@ fn il_collect_callsites_for_body(
       }
       reachable_depth += 1
       let mut curr_reachable = start_reachable
-      for instr in expr.0 {
+      for instr in expr.instrs {
         reachable_stack[reachable_depth - 1] = curr_reachable
         match self.walk_tinstruction((), instr) {
           Ok(_) => ()
@@ -996,7 +996,7 @@ fn il_inline_tail_wrapper_call(
   args : Array[TInstr],
 ) -> Result[TInstr?, String] {
   match callee_func {
-    TFunc(locals, TExpr([TReturnCall(target, tail_args)])) =>
+    TFunc(locals, { instrs: [TReturnCall(target, tail_args)], .. }) =>
       if locals.is_empty() {
         match
           il_substitute_params_in_instr(
@@ -1011,7 +1011,7 @@ fn il_inline_tail_wrapper_call(
       }
     TFunc(
       locals,
-      TExpr([TReturnCallIndirect(type_idx, table_idx, tail_args, idx)])
+      { instrs: [TReturnCallIndirect(type_idx, table_idx, tail_args, idx)], .. }
     ) =>
       if locals.is_empty() {
         match
@@ -1025,7 +1025,7 @@ fn il_inline_tail_wrapper_call(
       } else {
         Ok(None)
       }
-    TFunc(locals, TExpr([TReturnCallRef(type_idx, tail_args, ref_)])) =>
+    TFunc(locals, { instrs: [TReturnCallRef(type_idx, tail_args, ref_)], .. }) =>
       if locals.is_empty() {
         match
           il_substitute_params_in_instr(
@@ -1099,7 +1099,7 @@ fn il_inline_normal_call(
         Err(e) => return Err(e)
       }
       let wrapped_instrs = prologue.copy()
-      for instr in rewritten_body.0 {
+      for instr in rewritten_body.instrs {
         wrapped_instrs.push(instr)
       }
       let mut replacement = TInstr::block(
@@ -1520,7 +1520,7 @@ fn il_apply_actions_to_func(
             )
         }
         let wrapped_instrs = hoisted_inits.copy()
-        for instr in new_body.0 {
+        for instr in new_body.instrs {
           wrapped_instrs.push(instr)
         }
         let final_instrs : Array[TInstr] = [
@@ -1581,11 +1581,11 @@ fn il_run_partial_splitting(
     match curr {
       TFunc(locals, body) => {
         // Pattern A: top-level if (cond) return; then remainder.
-        if body.0.length() >= 2 {
-          match body.0[0] {
+        if body.instrs.length() >= 2 {
+          match body.instrs[0] {
             TIf(VoidBlockType, cond, then_body, None) => {
               let mut has_return = false
-              for instr in then_body.0 {
+              for instr in then_body.instrs {
                 match instr {
                   TReturn([]) => has_return = true
                   _ => ()
@@ -1600,8 +1600,8 @@ fn il_run_partial_splitting(
                   )
                 }
                 let outlined_instrs : Array[TInstr] = []
-                for i = 1; i < body.0.length(); i = i + 1 {
-                  outlined_instrs.push(body.0[i])
+                for i = 1; i < body.instrs.length(); i = i + 1 {
+                  outlined_instrs.push(body.instrs[i])
                 }
                 funcs.push(Func::t_func(locals, TExpr::new(outlined_instrs)))
                 type_idxs.push(type_idxs[def_idx])
@@ -1625,8 +1625,8 @@ fn il_run_partial_splitting(
 
         // Pattern B: 1..MaxIfs top-level ifs, optional trailing item.
         let mut prefix_ifs = 0
-        while prefix_ifs < body.0.length() && prefix_ifs < max_ifs {
-          match body.0[prefix_ifs] {
+        while prefix_ifs < body.instrs.length() && prefix_ifs < max_ifs {
+          match body.instrs[prefix_ifs] {
             TIf(VoidBlockType, _, _, None) => prefix_ifs += 1
             _ => break
           }
@@ -1634,21 +1634,21 @@ fn il_run_partial_splitting(
         if prefix_ifs == 0 {
           continue
         }
-        if body.0.length() > prefix_ifs + 1 {
+        if body.instrs.length() > prefix_ifs + 1 {
           continue
         }
-        let trailing = if body.0.length() == prefix_ifs + 1 {
-          Some(body.0[prefix_ifs])
+        let trailing = if body.instrs.length() == prefix_ifs + 1 {
+          Some(body.instrs[prefix_ifs])
         } else {
           None
         }
         let if_writes : Set[LocalIdx] = Set::new()
         let mut invalid = false
         for i = 0; i < prefix_ifs; i = i + 1 {
-          match body.0[i] {
+          match body.instrs[i] {
             TIf(_, _, then_body, None) => {
-              let then_is_unreachable = if then_body.0.length() == 1 {
-                match then_body.0[0] {
+              let then_is_unreachable = if then_body.instrs.length() == 1 {
+                match then_body.instrs[0] {
                   TUnreachable => true
                   _ => false
                 }
@@ -1714,7 +1714,7 @@ fn il_run_partial_splitting(
         }
         let replaced : Array[TInstr] = []
         for i = 0; i < prefix_ifs; i = i + 1 {
-          match body.0[i] {
+          match body.instrs[i] {
             TIf(_, cond, then_body, None) => {
               let outlined_abs = import_count + funcs.length()
               funcs.push(Func::t_func(locals, then_body))
@@ -2602,7 +2602,7 @@ test "inlining hoists tail-call inlining out of try_table context" {
       // Wrapper return_call should be gone and target return_call must remain.
       assert_eq(il_count_return_calls(body, FuncIdx::new(1)), 0)
       assert_true(il_count_return_calls(body, FuncIdx::new(2)) > 0)
-      match body.0 {
+      match body.instrs {
         [TBlock(_, _), TIf(_, _, _, _)] => ()
         _ => fail("expected hoisted control flow shape for try tail-call")
       }
@@ -2675,7 +2675,7 @@ test "inlining hoists tail-call-indirect inlining out of try_table context" {
     Some(CodeSec([TFunc(_, body), _, _])) => {
       assert_eq(il_count_return_calls(body, FuncIdx::new(1)), 0)
       assert_true(il_count_return_call_indirects(body) > 0)
-      match body.0 {
+      match body.instrs {
         [TBlock(_, _), TIf(_, _, _, _)] => ()
         _ =>
           fail("expected hoisted control flow shape for try tail-call-indirect")
@@ -2726,7 +2726,7 @@ test "inlining hoists tail-call-ref inlining out of try_table context" {
     Some(CodeSec([TFunc(_, body), _, _])) => {
       assert_eq(il_count_return_calls(body, FuncIdx::new(1)), 0)
       assert_true(il_count_return_call_refs(body) > 0)
-      match body.0 {
+      match body.instrs {
         [TBlock(_, _), TIf(_, _, _, _)] => ()
         _ => fail("expected hoisted control flow shape for try tail-call-ref")
       }
@@ -2776,7 +2776,7 @@ test "inlining hoists multi-value tail-call wrapper out of try_table context" {
     Some(CodeSec([TFunc(_, body), _, _])) => {
       assert_eq(il_count_return_calls(body, FuncIdx::new(1)), 0)
       assert_true(il_count_return_calls(body, FuncIdx::new(2)) > 0)
-      match body.0 {
+      match body.instrs {
         [TBlock(bt, _), TIf(_, _, _, _)] =>
           match bt {
             TypeIdxBlockType(_) => ()
@@ -2842,7 +2842,7 @@ test "inlining hoists multi-value tail-call-indirect wrapper out of try_table co
     Some(CodeSec([TFunc(_, body), _, _])) => {
       assert_eq(il_count_return_calls(body, FuncIdx::new(1)), 0)
       assert_true(il_count_return_call_indirects(body) > 0)
-      match body.0 {
+      match body.instrs {
         [TBlock(bt, _), TIf(_, _, _, _)] =>
           match bt {
             TypeIdxBlockType(_) => ()
@@ -2907,7 +2907,7 @@ test "inlining hoists multi-value tail-call-ref wrapper out of try_table context
     Some(CodeSec([TFunc(_, body), _, _])) => {
       assert_eq(il_count_return_calls(body, FuncIdx::new(1)), 0)
       assert_true(il_count_return_call_refs(body) > 0)
-      match body.0 {
+      match body.instrs {
         [TBlock(bt, _), TIf(_, _, _, _)] =>
           match bt {
             TypeIdxBlockType(_) => ()
@@ -2993,7 +2993,7 @@ test "inlining hoists multi-value try-tail wrapper when caller has parameters" {
     Some(CodeSec([TFunc(_, body), _, _, _])) => {
       assert_eq(il_count_return_calls(body, FuncIdx::new(1)), 0)
       assert_true(il_count_return_calls(body, FuncIdx::new(2)) > 0)
-      match body.0 {
+      match body.instrs {
         [TBlock(bt, _), TIf(_, _, _, _)] =>
           assert_eq(bt, BlockType::type_idx(TypeIdx::new(1)))
         _ =>
@@ -3079,7 +3079,7 @@ test "inlining synthesizes private zero-param wrapper signature for multi-value 
     Some(CodeSec([TFunc(_, body), _, _])) => {
       assert_eq(il_count_return_calls(body, FuncIdx::new(1)), 0)
       assert_true(il_count_return_calls(body, FuncIdx::new(2)) > 0)
-      match body.0 {
+      match body.instrs {
         [TBlock(bt, _), TIf(_, _, _, _)] =>
           assert_eq(bt, BlockType::type_idx(TypeIdx::new(1)))
         _ =>
@@ -3257,12 +3257,12 @@ test "inlining synthesizes sequential wrapper types for multiple callers" {
       assert_true(il_count_return_calls(body0, FuncIdx::new(4)) > 0)
       assert_eq(il_count_return_calls(body1, FuncIdx::new(3)), 0)
       assert_true(il_count_return_calls(body1, FuncIdx::new(5)) > 0)
-      match body0.0 {
+      match body0.instrs {
         [TBlock(bt0, _), TIf(_, _, _, _)] =>
           assert_eq(bt0, BlockType::type_idx(TypeIdx::new(2)))
         _ => fail("expected hoisted control flow in first caller")
       }
-      match body1.0 {
+      match body1.instrs {
         [TBlock(bt1, _), TIf(_, _, _, _)] =>
           assert_eq(bt1, BlockType::type_idx(TypeIdx::new(3)))
         _ => fail("expected hoisted control flow in second caller")
@@ -3414,12 +3414,12 @@ test "inlining reuses synthesized wrapper for later callers in same iteration" {
       assert_true(il_count_return_calls(body0, FuncIdx::new(4)) > 0)
       assert_eq(il_count_return_calls(body1, FuncIdx::new(3)), 0)
       assert_true(il_count_return_calls(body1, FuncIdx::new(5)) > 0)
-      match body0.0 {
+      match body0.instrs {
         [TBlock(bt0, _), TIf(_, _, _, _)] =>
           assert_eq(bt0, BlockType::type_idx(TypeIdx::new(1)))
         _ => fail("expected first caller hoisted with shared wrapper type")
       }
-      match body1.0 {
+      match body1.instrs {
         [TBlock(bt1, _), TIf(_, _, _, _)] =>
           assert_eq(bt1, BlockType::type_idx(TypeIdx::new(1)))
         _ => fail("expected second caller hoisted with shared wrapper type")
@@ -3620,17 +3620,17 @@ test "inlining mixed reuse does not over-reuse incompatible wrapper signatures" 
   }
   match optimized.code_sec {
     Some(CodeSec([TFunc(_, body0), TFunc(_, body1), TFunc(_, body2), ..])) => {
-      match body0.0 {
+      match body0.instrs {
         [TBlock(bt0, _), TIf(_, _, _, _)] =>
           assert_eq(bt0, BlockType::type_idx(TypeIdx::new(2)))
         _ => fail("expected first caller to use shared i32 wrapper")
       }
-      match body1.0 {
+      match body1.instrs {
         [TBlock(bt1, _), TIf(_, _, _, _)] =>
           assert_eq(bt1, BlockType::type_idx(TypeIdx::new(2)))
         _ => fail("expected second caller to reuse shared i32 wrapper")
       }
-      match body2.0 {
+      match body2.instrs {
         [TBlock(bt2, _), TIf(_, _, _, _)] =>
           assert_eq(bt2, BlockType::type_idx(TypeIdx::new(3)))
         _ => fail("expected third caller to use distinct i64 wrapper")
@@ -3685,7 +3685,7 @@ test "inlining keeps non-defaultable multi-value results on non-hoist fallback p
     Some(CodeSec([TFunc(_, body), _, _])) => {
       assert_eq(il_count_return_calls(body, FuncIdx::new(1)), 0)
       assert_true(il_count_return_calls(body, FuncIdx::new(2)) > 0)
-      match body.0 {
+      match body.instrs {
         [TTryTable(_, _, _)] => ()
         _ =>
           fail(

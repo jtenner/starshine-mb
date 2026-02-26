@@ -4202,7 +4202,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
         stack: [],
         reachable: st.reachable,
       }
-      let TExpr(body) = body
+      let { instrs: body, .. } = body
       for instr in body {
         st_body = match Typecheck::typecheck(instr, st_body) {
           Err(e) => return Err(e)
@@ -4239,7 +4239,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
         stack: [],
         reachable: st.reachable,
       }
-      let TExpr(body) = body
+      let { instrs: body, .. } = body
       for instr in body {
         st_body = match Typecheck::typecheck(instr, st_body) {
           Err(e) => return Err(e)
@@ -4281,7 +4281,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       let st1 = st0
       let else_instrs = match else_instrs_opt {
         None => []
-        Some(TExpr(xs)) => xs
+        Some({ instrs: xs, .. }) => xs
       }
       let env_branch = st1.env.with_label(results)
       let st_then0 = TcState::{
@@ -4290,7 +4290,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
         reachable: st1.reachable,
       }
       let mut st_then = st_then0
-      let TExpr(then_instrs) = then_instrs
+      let { instrs: then_instrs, .. } = then_instrs
       for instr in then_instrs {
         st_then = match Typecheck::typecheck(instr, st_then) {
           Err(e) => return Err(e)
@@ -4365,7 +4365,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       let env2 = st.env.with_label(results)
       let st_body0 = TcState::{ env: env2, stack: [], reachable: st1.reachable }
       let mut st_body = st_body0
-      let TExpr(body) = body
+      let { instrs: body, .. } = body
       for instr in body {
         st_body = match Typecheck::typecheck(instr, st_body) {
           Err(e) => return Err(e)
@@ -4986,7 +4986,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
 
 ///|
 pub impl Typecheck for TExpr with typecheck(self, st0) {
-  let TExpr(instrs) = self
+  let { instrs, .. } = self
   let mut st = st0
   for instr in instrs {
     match Typecheck::typecheck(instr, st) {

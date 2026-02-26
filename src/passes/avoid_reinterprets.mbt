@@ -142,7 +142,7 @@ test "AvoidReinterprets: rewrite reinterpret(load)" {
   let state = IRContext::new()
   let (_, new_func) = pass.walk_func(state, func).unwrap().unwrap()
   match new_func {
-    TFunc(_, TExpr(instrs)) =>
+    TFunc(_, { instrs, .. }) =>
       match instrs[0] {
         TInstr::TLoad(LoadOp::I32LoadOp, _, _) => ()
         _ => fail("expected i32.load")
@@ -174,7 +174,7 @@ test "AvoidReinterprets: rewrite reinterpret(local.get) with single load" {
   let CodeSec(funcs) = new_module.code_sec.unwrap()
   let new_func = funcs[0]
   match new_func {
-    TFunc(_, TExpr(new_instrs)) =>
+    TFunc(_, { instrs: new_instrs, .. }) =>
       match new_instrs[1] {
         TInstr::TLoad(LoadOp::I32LoadOp, _, _) => ()
         _ => fail("expected i32.load")
@@ -211,7 +211,7 @@ test "AvoidReinterprets: do not rewrite when multiple defining loads exist" {
   let state = IRContext::new()
   let (_, new_func) = pass.walk_func(state, func).unwrap().unwrap()
   match new_func {
-    TFunc(_, TExpr(new_instrs)) =>
+    TFunc(_, { instrs: new_instrs, .. }) =>
       match new_instrs[2] {
         TInstr::TLoad(LoadOp::I32LoadOp, _, _) => ()
         _ => fail("expected i32.load")
@@ -287,7 +287,7 @@ test "AvoidReinterprets: reinterpret(local.get) inside expression" {
   let state = IRContext::new()
   let (_, new_func) = pass.walk_func(state, func).unwrap().unwrap()
   match new_func {
-    TFunc(_, TExpr(new_instrs)) =>
+    TFunc(_, { instrs: new_instrs, .. }) =>
       match new_instrs[1] {
         TInstr::TBinary(_, TInstr::TLoad(LoadOp::I32LoadOp, _, _), _) => ()
         _ => fail("expected i32.load inside binary expression")

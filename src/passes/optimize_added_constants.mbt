@@ -837,7 +837,7 @@ fn optimize_added_constants_on_func(
           []
         }
         let local_graph = if propagate {
-          Some(LocalGraph::new(body.0))
+          Some(LocalGraph::new(body.instrs))
         } else {
           None
         }
@@ -955,7 +955,7 @@ test "optimize added constants folds load add-const into offset" {
   ]
   let (_, out_body) = oac_run_func(body, locals=[ValType::i32()]).unwrap()
   match out_body {
-    TExpr([instr]) =>
+    { instrs: [instr], .. } =>
       match instr {
         TLoad(I32LoadOp, MemArg(U32(4), None, U64(8)), TLocalGet(LocalIdx(i))) =>
           assert_eq(i.reinterpret_as_int(), 0)
@@ -983,7 +983,7 @@ test "optimize added constants folds store add-const into offset" {
   ]
   let (_, out_body) = oac_run_func(body, locals=[ValType::i32(), ValType::i32()]).unwrap()
   match out_body {
-    TExpr([instr]) =>
+    { instrs: [instr], .. } =>
       match instr {
         TStore(
           I32StoreOp,
@@ -1036,7 +1036,11 @@ test "optimize added constants respects low memory bound checks" {
       ),
     ),
   ]
-  let (_, TExpr(instrs)) = oac_run_func(body, locals=[ValType::i32()], options~).unwrap()
+  let (_, { instrs, .. }) = oac_run_func(
+    body,
+    locals=[ValType::i32()],
+    options~,
+  ).unwrap()
   match instrs[0] {
     TLoad(_, MemArg(_, _, U64(off)), _) => assert_eq(off, 12UL)
     _ => fail("expected first load to fold")
@@ -1067,7 +1071,7 @@ test "optimize added constants normalizes const pointer plus offset for memory32
       TInstr::i32_const(I32(-1)),
     ),
   ]
-  let (_, TExpr(instrs)) = oac_run_func(body).unwrap()
+  let (_, { instrs, .. }) = oac_run_func(body).unwrap()
   match instrs[0] {
     TLoad(_, MemArg(_, _, U64(off)), TI32Const(I32(v))) => {
       assert_eq(off, 0UL)
@@ -1098,7 +1102,7 @@ test "optimize added constants normalizes const pointer plus offset for memory64
       TInstr::i64_const(I64(-1L)),
     ),
   ]
-  let (_, TExpr(instrs)) = oac_run_func(body, memory64=true).unwrap()
+  let (_, { instrs, .. }) = oac_run_func(body, memory64=true).unwrap()
   match instrs[0] {
     TLoad(_, MemArg(_, _, U64(off)), TI64Const(I64(v))) => {
       assert_eq(off, 0UL)
@@ -1135,7 +1139,7 @@ test "optimize added constants propagate mode reuses SSA base local" {
       TInstr::local_get(x),
     ),
   ]
-  let (locals, TExpr(instrs)) = oac_run_func(
+  let (locals, { instrs, .. }) = oac_run_func(
     body,
     locals=[ValType::i32(), ValType::i32()],
     propagate=true,
@@ -1171,7 +1175,7 @@ test "optimize added constants propagate rejects non-load-store parents" {
       TInstr::local_get(x),
     ),
   ]
-  let (_, TExpr(instrs)) = oac_run_func(
+  let (_, { instrs, .. }) = oac_run_func(
     body,
     locals=[ValType::i32(), ValType::i32()],
     propagate=true,
@@ -1206,7 +1210,7 @@ test "optimize added constants propagate inserts helper local when needed" {
       TInstr::local_get(x),
     ),
   ]
-  let (locals, TExpr(instrs)) = oac_run_func(
+  let (locals, { instrs, .. }) = oac_run_func(
     body,
     locals=[ValType::i32(), ValType::i32()],
     propagate=true,
@@ -1251,7 +1255,7 @@ test "optimize added constants propagate iterates to reach fixpoint" {
       TInstr::local_get(z),
     ),
   ]
-  let (_, TExpr(instrs)) = oac_run_func(
+  let (_, { instrs, .. }) = oac_run_func(
     body,
     locals=[ValType::i32(), ValType::i32(), ValType::i32()],
     propagate=true,

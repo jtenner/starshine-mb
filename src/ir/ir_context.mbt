@@ -40,7 +40,7 @@ pub fn IRContext::get_local_graph(self : Self) -> LocalGraph {
   match self.local_graph {
     Some(val) => val
     None => {
-      let lg = LocalGraph::new(self.body.0)
+      let lg = LocalGraph::new(self.body.instrs)
       self.local_graph = Some(lg)
       lg
     }
@@ -373,7 +373,7 @@ fn find_merge_block_many(
 
 ///|
 fn append_texpr(dst : Array[TInstr], src : TExpr) -> Unit {
-  for instr in src.0 {
+  for instr in src.instrs {
     dst.push(instr)
   }
 }
@@ -424,7 +424,7 @@ fn lower_conditional_branch(
           ),
         ) {
         (Some(then_expr), Some(else_expr)) => {
-          let else_opt = if else_expr.0.length() == 0 {
+          let else_opt = if else_expr.instrs.length() == 0 {
             None
           } else {
             Some(else_expr)
@@ -477,7 +477,7 @@ fn lower_conditional_branch(
           ),
         ) {
         (Some(then_expr), Some(else_expr)) => {
-          let else_opt = if else_expr.0.length() == 0 {
+          let else_opt = if else_expr.instrs.length() == 0 {
             None
           } else {
             Some(else_expr)
@@ -935,7 +935,7 @@ pub fn IRContext::get_type_ctx(self : Self) -> Result[TypeContext, String] {
 ///|
 fn count_if_nodes(expr : TExpr) -> Int {
   let mut out = 0
-  for instr in expr.0 {
+  for instr in expr.instrs {
     match instr {
       TIf(_, _, then_e, else_e) => {
         out = out + 1
@@ -952,7 +952,7 @@ fn count_if_nodes(expr : TExpr) -> Int {
 
 ///|
 fn extract_return_i32(expr : TExpr) -> Int? {
-  for instr in expr.0 {
+  for instr in expr.instrs {
     match instr {
       TReturn([TI32Const(I32(v))]) => return Some(v)
       _ => ()
@@ -963,7 +963,7 @@ fn extract_return_i32(expr : TExpr) -> Int? {
 
 ///|
 fn collect_return_i32s(expr : TExpr, out : Set[Int]) -> Unit {
-  for instr in expr.0 {
+  for instr in expr.instrs {
     match instr {
       TIf(_, _, then_e, else_e) => {
         collect_return_i32s(then_e, out)
@@ -1046,7 +1046,7 @@ test "cfg_to_texpr lowers BrOnNonNull with null in then branch" {
   }
   let cfg : CFG = { entry, blocks, preds: {} }
   match cfg_to_texpr(cfg) {
-    Some(TExpr(instrs)) =>
+    Some({ instrs, .. }) =>
       match instrs {
         [TIf(_, cond, then_e, Some(else_e))] => {
           assert_eq(cond, TInstr::ref_is_null(ref_val))
@@ -1092,7 +1092,7 @@ test "cfg_to_texpr lowers BrOnCastFail with i32.eqz(ref.test)" {
   }
   let cfg : CFG = { entry, blocks, preds: {} }
   match cfg_to_texpr(cfg) {
-    Some(TExpr(instrs)) =>
+    Some({ instrs, .. }) =>
       match instrs {
         [TIf(_, cond, then_e, Some(else_e))] => {
           assert_eq(

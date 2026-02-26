@@ -198,7 +198,7 @@ fn rse_lower_texpr(
   state : RSEBuildState,
 ) -> RSEBlockId {
   let mut current = current
-  for instr in body.0 {
+  for instr in body.instrs {
     match instr {
       TIf(_, cond, then_body, else_body) => {
         rse_collect_instr_events(state, current, cond)
@@ -364,7 +364,7 @@ fn rse_zero_tinstr(vt : ValType) -> TInstr? {
 ///|
 fn rse_get_fallthrough(instr : TInstr) -> TInstr {
   match instr {
-    TBlock(_, TExpr(instrs)) if instrs.length() > 0 =>
+    TBlock(_, { instrs, .. }) if instrs.length() > 0 =>
       rse_get_fallthrough(instrs[instrs.length() - 1])
     _ => instr
   }
@@ -682,7 +682,7 @@ fn rse_rewrite_instr(state : RSERewriteState, instr : TInstr) -> TInstr {
 ///|
 fn rse_rewrite_texpr(state : RSERewriteState, body : TExpr) -> TExpr {
   let out : Array[TInstr] = []
-  for instr in body.0 {
+  for instr in body.instrs {
     match instr {
       TIf(bt, cond, then_body, else_body) => {
         let next_cond = rse_rewrite_instr(state, cond)
@@ -857,7 +857,7 @@ test "redundant_set_elimination removes redundant local.set in straight line" {
     ]),
   )
   let out = rse_run(mod)
-  match rse_first_body(out).0 {
+  match rse_first_body(out).instrs {
     [
       TLocalSet(_, TI32Const(I32(7))),
       TDrop(TI32Const(I32(7))),
@@ -885,7 +885,7 @@ test "redundant_set_elimination rewrites redundant local.tee to plain value" {
     ]),
   )
   let out = rse_run(mod)
-  match rse_first_body(out).0 {
+  match rse_first_body(out).instrs {
     [TDrop(TLocalTee(_, TI32Const(I32(3)))), TDrop(TI32Const(I32(3)))] => ()
     _ => fail("expected redundant tee to be replaced by its value")
   }
@@ -929,7 +929,7 @@ test "redundant_set_elimination removes zero-init redundant sets for vars" {
     ]),
   )
   let out = rse_run(mod)
-  match rse_first_body(out).0 {
+  match rse_first_body(out).instrs {
     [TDrop(TI32Const(I32(0)))] => ()
     _ => fail("expected local initialized-to-zero write to be removed")
   }
@@ -951,7 +951,7 @@ test "redundant_set_elimination treats params as unknown initial values" {
       ]),
     )
   let out = rse_run(mod)
-  match rse_first_body(out).0 {
+  match rse_first_body(out).instrs {
     [TLocalSet(_, TI32Const(I32(0)))] => ()
     _ => fail("expected set to param-backed local to remain")
   }
@@ -982,7 +982,7 @@ test "redundant_set_elimination removes redundant post-merge set on equal branch
     ]),
   )
   let out = rse_run(mod)
-  match rse_first_body(out).0 {
+  match rse_first_body(out).instrs {
     [TIf(_, _, _, _), TDrop(TI32Const(I32(4)))] => ()
     _ => fail("expected post-merge equal-value set to be removed")
   }
@@ -1013,7 +1013,7 @@ test "redundant_set_elimination keeps post-merge set on differing branches" {
     ]),
   )
   let out = rse_run(mod)
-  match rse_first_body(out).0 {
+  match rse_first_body(out).instrs {
     [TIf(_, _, _, _), TLocalSet(_, TI32Const(I32(4)))] => ()
     _ => fail("expected post-merge set to remain when incoming values differ")
   }
@@ -1044,7 +1044,7 @@ test "redundant_set_elimination refines local.get to more specific local" {
       ]),
     )
   let out = rse_run(mod)
-  match rse_first_body(out).0 {
+  match rse_first_body(out).instrs {
     [TLocalSet(_, TLocalGet(LocalIdx(i0))), TDrop(TLocalGet(LocalIdx(i1)))] => {
       assert_eq(i0.reinterpret_as_int(), 1)
       assert_eq(i1.reinterpret_as_int(), 1)
@@ -1076,7 +1076,7 @@ test "redundant_set_elimination keeps nested block-local set behavior conservati
     ]),
   )
   let out = rse_run(mod)
-  match rse_first_body(out).0 {
+  match rse_first_body(out).instrs {
     [TBlock(_, _), TLocalSet(_, TI32Const(I32(9)))] => ()
     _ =>
       fail(

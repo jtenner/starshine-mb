@@ -728,7 +728,9 @@ test "remove_unused_types remaps references after deletion" {
     _ => fail("expected func type index remap")
   }
   match out.code_sec {
-    Some(CodeSec([TFunc(_, TExpr([TDrop(TStructNew(TypeIdx(0), []))]))])) => ()
+    Some(
+      CodeSec([TFunc(_, { instrs: [TDrop(TStructNew(TypeIdx(0), []))], .. })])
+    ) => ()
     _ => fail("expected struct.new type index remap")
   }
 }
