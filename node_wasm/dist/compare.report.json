@@ -1,38 +1,27 @@
 {
-  "generated_at": "2026-02-25T20:53:15.097Z",
+  "generated_at": "2026-02-26T21:07:59.750Z",
   "files": {
     "debug": {
       "path": "dist/starshine.debug.wasm",
-      "size_bytes": 18437220,
-      "sha256": "ae333e2451cdb8b9b33c1a6ba3bb0fe2948f27c5f208843b7e76c211e3afda13"
+      "size_bytes": 18890811,
+      "sha256": "2bf4e8d497e18f6dd5dcdebf00a1cd3a6099ce9c3dc8b86db69b04dd85fbcab7"
     },
     "release": {
       "path": "dist/starshine.release.wasm",
-      "size_bytes": 6626199,
-      "sha256": "6a32e3994a3d1b12d8b4d07aa53fd7003a0dc9c7c99cc1360012b2d2fd58a665"
-    },
-    "self_optimized": {
-      "path": "dist/starshine.self-optimized.wasm",
-      "size_bytes": 18437220,
-      "sha256": "ae333e2451cdb8b9b33c1a6ba3bb0fe2948f27c5f208843b7e76c211e3afda13"
+      "size_bytes": 6661508,
+      "sha256": "3934898580ae149a920a96b4efe0f302f4471c3aa2cd131185f556ef9ffc9f7e"
     }
   },
   "diff": {
     "debug_to_release": {
-      "size_delta_bytes": -11811021,
-      "size_delta_percent": -64.061,
-      "shared_prefix_len": 6626199,
-      "changed_bytes_in_shared_prefix": 6337754
-    },
-    "debug_to_self_optimized": {
-      "size_delta_bytes": 0,
-      "size_delta_percent": 0,
-      "shared_prefix_len": 18437220,
-      "changed_bytes_in_shared_prefix": 0
+      "size_delta_bytes": -12229303,
+      "size_delta_percent": -64.737,
+      "shared_prefix_len": 6661508,
+      "changed_bytes_in_shared_prefix": 6370892
     }
   },
   "blocker": {
-    "message": "Self-optimized artifact was produced via debug-copy fallback after optimizer failure.",
-    "optimize_error": "starshine optimize failed for debug wasm\nstatus=1\nsignal=unknown\ninput=/home/jtenner/Projects/starshine-mb/node_wasm/dist/starshine.debug.wasm\noutput=/home/jtenner/Projects/starshine-mb/node_wasm/dist/starshine.self-optimized.wasm\nstderr=error: OptimizeFailed(\"/home/jtenner/Projects/starshine-mb/node_wasm/dist/starshine.debug.wasm: Stack underflow during tree conversion\")"
+    "message": "Could not compare against starshine self-optimized output.",
+    "optimize_error": "self-optimized wasm was not generated"
   }
 }

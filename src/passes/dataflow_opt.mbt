@@ -74,18 +74,13 @@ fn dataflow_optimization_pass(
           }
         })
         let elapsed = dataflow_elapsed_ms(opt_start)
-        let changed_func = match new_body {
-          Some(next_body) => next_body != body
-          None => false
-        }
         if log_func {
           trace(
-            "func[\{ordinal}] done elapsed_ms=\{elapsed} changed=\{changed_func} lowered=\{new_body is Some(_)}",
+            "func[\{ordinal}] done elapsed_ms=\{elapsed} lowered=\{new_body is Some(_)}",
           )
         }
         match new_body {
-          Some(next_body) if next_body != body =>
-            change(ctx, Func::t_func(locals, next_body))
+          Some(next_body) => change(ctx, Func::t_func(locals, next_body))
           // Returning `unchanged()` here would trigger `walk_func_default`,
           // causing a second full traversal of this function.
           _ => change(ctx, Func::t_func(locals, body))

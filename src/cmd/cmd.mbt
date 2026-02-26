@@ -2643,6 +2643,11 @@ fn main {
   }
 }
 
+#cfg(target="js")
+fn main {
+  ()
+}
+
 ///|
 #cfg(target="wasm")
 fn default_cmd_io() -> CmdIO {
