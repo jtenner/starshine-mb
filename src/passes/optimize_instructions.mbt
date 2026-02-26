@@ -84,16 +84,297 @@ fn oi_seq(stmts : Array[TInstr], result : TInstr, env : Env) -> TInstr {
 }
 
 ///|
-fn oi_can_reorder(a : TInstr, b : TInstr) -> Bool {
-  let ea = lcs_collect_effects(a)
-  let eb = lcs_collect_effects(b)
-  !ea.invalidates(eb) && !eb.invalidates(ea)
+priv struct OIEffectsSummary {
+  locals_read : Set[LocalIdx]
+  locals_written : Set[LocalIdx]
+  reads_memory : Bool
+  writes_memory : Bool
+  reads_globals : Bool
+  writes_globals : Bool
+  calls : Bool
+  branches : Bool
+  traps : Bool
+  throws : Bool
+  has_side_effects : Bool
 }
 
 ///|
-fn oi_has_side_effects(instr : TInstr) -> Bool {
+fn oi_effects_summary_from_instr(instr : TInstr) -> OIEffectsSummary {
   let e = lcs_collect_effects(instr)
-  e.has_unremovable_side_effects() || e.reads_memory || e.reads_globals
+  OIEffectsSummary::{
+    locals_read: e.locals_read,
+    locals_written: e.locals_written,
+    reads_memory: e.reads_memory,
+    writes_memory: e.writes_memory,
+    reads_globals: e.reads_globals,
+    writes_globals: e.writes_globals,
+    calls: e.calls,
+    branches: e.branches,
+    traps: e.traps,
+    throws: e.throws,
+    has_side_effects: e.has_unremovable_side_effects() ||
+    e.reads_memory ||
+    e.reads_globals,
+  }
+}
+
+///|
+fn OIEffectsSummary::transfers_control_flow(self : OIEffectsSummary) -> Bool {
+  self.branches || self.throws
+}
+
+///|
+fn OIEffectsSummary::invalidates(
+  self : OIEffectsSummary,
+  other : OIEffectsSummary,
+) -> Bool {
+  for local_idx in self.locals_written {
+    if other.locals_read.contains(local_idx) ||
+      other.locals_written.contains(local_idx) {
+      return true
+    }
+  }
+  for local_idx in self.locals_read {
+    if other.locals_written.contains(local_idx) {
+      return true
+    }
+  }
+  if (self.reads_memory && other.writes_memory) ||
+    (self.writes_memory && other.reads_memory) ||
+    (self.writes_memory && other.writes_memory) {
+    return true
+  }
+  if (self.reads_globals && other.writes_globals) ||
+    (self.writes_globals && other.reads_globals) ||
+    (self.writes_globals && other.writes_globals) {
+    return true
+  }
+  if self.calls || other.calls {
+    if self.reads_memory ||
+      self.writes_memory ||
+      other.reads_memory ||
+      other.writes_memory ||
+      self.reads_globals ||
+      self.writes_globals ||
+      other.reads_globals ||
+      other.writes_globals {
+      return true
+    }
+  }
+  if self.transfers_control_flow() || other.transfers_control_flow() {
+    return true
+  }
+  if (self.traps && other.has_side_effects) ||
+    (other.traps && self.has_side_effects) {
+    return true
+  }
+  false
+}
+
+///|
+priv struct OIEffectsCacheEntry {
+  instr : TInstr
+  summary : OIEffectsSummary
+}
+
+///|
+priv struct OIPairBoolCacheEntry {
+  left : TInstr
+  right : TInstr
+  value : Bool
+}
+
+///|
+priv struct OIRewriteCache {
+  effects_by_hash : Map[Int, Array[OIEffectsCacheEntry]]
+  reorder_by_hash_pair : Map[(Int, Int), Array[OIPairBoolCacheEntry]]
+  eq_by_hash_pair : Map[(Int, Int), Array[OIPairBoolCacheEntry]]
+}
+
+///|
+fn oi_rewrite_cache_new() -> OIRewriteCache {
+  OIRewriteCache::{
+    effects_by_hash: Map::new(),
+    reorder_by_hash_pair: Map::new(),
+    eq_by_hash_pair: Map::new(),
+  }
+}
+
+///|
+fn oi_hash_pair_key(lhs : Int, rhs : Int) -> (Int, Int) {
+  if lhs <= rhs {
+    (lhs, rhs)
+  } else {
+    (rhs, lhs)
+  }
+}
+
+///|
+fn oi_pair_bool_cache_lookup(
+  entries : Array[OIPairBoolCacheEntry],
+  left : TInstr,
+  right : TInstr,
+) -> Bool? {
+  for entry in entries {
+    if (entry.left == left && entry.right == right) ||
+      (entry.left == right && entry.right == left) {
+      return Some(entry.value)
+    }
+  }
+  None
+}
+
+///|
+fn oi_effects_summary_cached(
+  instr : TInstr,
+  cache : OIRewriteCache,
+) -> OIEffectsSummary {
+  let hash_key = instr.hash()
+  match cache.effects_by_hash.get(hash_key) {
+    Some(entries) =>
+      for entry in entries {
+        if entry.instr == instr {
+          return entry.summary
+        }
+      }
+    None => ()
+  }
+  let summary = oi_effects_summary_from_instr(instr)
+  let next_entries = cache.effects_by_hash.get(hash_key).unwrap_or([]).copy()
+  next_entries.push(OIEffectsCacheEntry::{ instr, summary })
+  cache.effects_by_hash[hash_key] = next_entries
+  summary
+}
+
+///|
+fn oi_can_reorder_cached(
+  a : TInstr,
+  b : TInstr,
+  cache : OIRewriteCache,
+) -> Bool {
+  let key = oi_hash_pair_key(a.hash(), b.hash())
+  match cache.reorder_by_hash_pair.get(key) {
+    Some(entries) =>
+      match oi_pair_bool_cache_lookup(entries, a, b) {
+        Some(value) => return value
+        None => ()
+      }
+    None => ()
+  }
+  let ea = oi_effects_summary_cached(a, cache)
+  let eb = oi_effects_summary_cached(b, cache)
+  let value = !ea.invalidates(eb) && !eb.invalidates(ea)
+  let next_entries = cache.reorder_by_hash_pair.get(key).unwrap_or([]).copy()
+  next_entries.push(OIPairBoolCacheEntry::{ left: a, right: b, value })
+  cache.reorder_by_hash_pair[key] = next_entries
+  value
+}
+
+///|
+fn oi_instr_eq_cached(
+  left : TInstr,
+  right : TInstr,
+  cache : OIRewriteCache,
+) -> Bool {
+  let left_hash = left.hash()
+  let right_hash = right.hash()
+  if left_hash != right_hash {
+    return false
+  }
+  let key = oi_hash_pair_key(left_hash, right_hash)
+  match cache.eq_by_hash_pair.get(key) {
+    Some(entries) =>
+      match oi_pair_bool_cache_lookup(entries, left, right) {
+        Some(value) => return value
+        None => ()
+      }
+    None => ()
+  }
+  let value = left == right
+  let next_entries = cache.eq_by_hash_pair.get(key).unwrap_or([]).copy()
+  next_entries.push(OIPairBoolCacheEntry::{ left, right, value })
+  cache.eq_by_hash_pair[key] = next_entries
+  value
+}
+
+///|
+fn oi_instr_within_eq_budget(instr : TInstr, budget : Int) -> Bool {
+  let mut remaining = budget
+  let stack = [instr]
+  while !stack.is_empty() {
+    if remaining <= 0 {
+      return false
+    }
+    remaining -= 1
+    let curr = stack.pop().unwrap()
+    for child in eval_children(curr) {
+      stack.push(child)
+    }
+  }
+  true
+}
+
+///|
+fn oi_texpr_within_eq_budget(texpr : TExpr, budget : Int) -> Bool {
+  let mut remaining = budget
+  let stack = texpr.0.copy()
+  while !stack.is_empty() {
+    if remaining <= 0 {
+      return false
+    }
+    remaining -= 1
+    let curr = stack.pop().unwrap()
+    for child in eval_children(curr) {
+      stack.push(child)
+    }
+  }
+  true
+}
+
+///|
+fn oi_instr_eq_budgeted(
+  left : TInstr,
+  right : TInstr,
+  cache : OIRewriteCache,
+  budget : Int,
+) -> Bool {
+  if !oi_instr_within_eq_budget(left, budget) ||
+    !oi_instr_within_eq_budget(right, budget) {
+    return false
+  }
+  oi_instr_eq_cached(left, right, cache)
+}
+
+///|
+fn oi_texpr_eq_budgeted(
+  left : TExpr,
+  right : TExpr,
+  cache : OIRewriteCache,
+  budget : Int,
+) -> Bool {
+  if left.0.length() != right.0.length() {
+    return false
+  }
+  if !oi_texpr_within_eq_budget(left, budget) ||
+    !oi_texpr_within_eq_budget(right, budget) {
+    return false
+  }
+  oi_instr_eq_cached(
+    TInstr::block(BlockType::void_(), left),
+    TInstr::block(BlockType::void_(), right),
+    cache,
+  )
+}
+
+///|
+fn oi_can_reorder(a : TInstr, b : TInstr) -> Bool {
+  let cache = oi_rewrite_cache_new()
+  oi_can_reorder_cached(a, b, cache)
+}
+
+///|
+fn oi_has_side_effects_cached(instr : TInstr, cache : OIRewriteCache) -> Bool {
+  oi_effects_summary_cached(instr, cache).has_side_effects
 }
 
 ///|
@@ -265,6 +546,141 @@ fn oi_is_i64_shift(op : BinaryOp) -> Bool {
     I64ShlOp | I64ShrSOp | I64ShrUOp | I64RotlOp | I64RotrOp => true
     _ => false
   }
+}
+
+///|
+fn oi_binary_maybe_rewrite(op : BinaryOp) -> Bool {
+  oi_is_shift(op) ||
+  oi_is_relational(op) ||
+  op == BinaryOp::i32_add() ||
+  op == BinaryOp::i32_sub() ||
+  op == BinaryOp::i32_mul() ||
+  op == BinaryOp::i32_div_s() ||
+  op == BinaryOp::i32_div_u() ||
+  op == BinaryOp::i32_rem_s() ||
+  op == BinaryOp::i32_rem_u() ||
+  op == BinaryOp::i32_and() ||
+  op == BinaryOp::i32_or() ||
+  op == BinaryOp::i32_xor() ||
+  op == BinaryOp::i64_add() ||
+  op == BinaryOp::i64_sub() ||
+  op == BinaryOp::i64_mul() ||
+  op == BinaryOp::i64_div_s() ||
+  op == BinaryOp::i64_div_u() ||
+  op == BinaryOp::i64_rem_s() ||
+  op == BinaryOp::i64_rem_u() ||
+  op == BinaryOp::i64_and() ||
+  op == BinaryOp::i64_or() ||
+  op == BinaryOp::i64_xor() ||
+  op == BinaryOp::f32_add() ||
+  op == BinaryOp::f32_sub() ||
+  op == BinaryOp::f32_mul() ||
+  op == BinaryOp::f32_div() ||
+  op == BinaryOp::f64_add() ||
+  op == BinaryOp::f64_sub() ||
+  op == BinaryOp::f64_mul() ||
+  op == BinaryOp::f64_div()
+}
+
+///|
+fn oi_binary_can_fold_equal_operands(op : BinaryOp) -> Bool {
+  match op {
+    I32SubOp
+    | I32XorOp
+    | I64SubOp
+    | I64XorOp
+    | I32AndOp
+    | I32OrOp
+    | I64AndOp
+    | I64OrOp
+    | I32EqOp
+    | I32LeSOp
+    | I32LeUOp
+    | I32GeSOp
+    | I32GeUOp
+    | I64EqOp
+    | I64LeSOp
+    | I64LeUOp
+    | I64GeSOp
+    | I64GeUOp
+    | I32NeOp
+    | I32LtSOp
+    | I32LtUOp
+    | I32GtSOp
+    | I32GtUOp
+    | I64NeOp
+    | I64LtSOp
+    | I64LtUOp
+    | I64GtSOp
+    | I64GtUOp => true
+    _ => false
+  }
+}
+
+///|
+fn oi_unary_maybe_rewrite(op : UnaryOp) -> Bool {
+  op == UnaryOp::i32_eqz() ||
+  op == UnaryOp::i64_eqz() ||
+  op == UnaryOp::i32_wrap_i64() ||
+  op == UnaryOp::i64_extend_i32s() ||
+  op == UnaryOp::i64_extend_i32u() ||
+  op == UnaryOp::i32_reinterpret_f32() ||
+  op == UnaryOp::i64_reinterpret_f64() ||
+  op == UnaryOp::f32_reinterpret_i32() ||
+  op == UnaryOp::f64_reinterpret_i64() ||
+  op == UnaryOp::f32_abs() ||
+  op == UnaryOp::f32_neg() ||
+  op == UnaryOp::f32_ceil() ||
+  op == UnaryOp::f32_floor() ||
+  op == UnaryOp::f32_trunc() ||
+  op == UnaryOp::f32_nearest() ||
+  op == UnaryOp::f64_abs() ||
+  op == UnaryOp::f64_neg() ||
+  op == UnaryOp::f64_ceil() ||
+  op == UnaryOp::f64_floor() ||
+  op == UnaryOp::f64_trunc() ||
+  op == UnaryOp::f64_nearest() ||
+  op == UnaryOp::i32_extend8s() ||
+  op == UnaryOp::i32_extend16s() ||
+  op == UnaryOp::i64_extend8s() ||
+  op == UnaryOp::i64_extend16s() ||
+  op == UnaryOp::i64_extend32s()
+}
+
+///|
+fn oi_instr_is_rewrite_candidate(instr : TInstr) -> Bool {
+  match instr {
+    TBinary(op, _, _) => oi_binary_maybe_rewrite(op)
+    TUnary(op, _) => oi_unary_maybe_rewrite(op)
+    TSelect(_, _, _, _)
+    | TIf(_, _, _, _)
+    | TGlobalSet(_, _)
+    | TBrIf(_, _, _)
+    | TLoad(_, _, _)
+    | TStore(_, _, _, _)
+    | TMemoryCopy(_, _, _, _, _)
+    | TMemoryFill(_, _, _, _)
+    | TCallRef(_, _, _) => true
+    _ => false
+  }
+}
+
+///|
+fn oi_texpr_has_rewrite_candidate(body : TExpr) -> Bool {
+  let scan_budget = 2
+  let stack = body.0.copy()
+  let mut scanned = 0
+  while !stack.is_empty() && scanned < scan_budget {
+    scanned += 1
+    let curr = stack.pop().unwrap()
+    if oi_instr_is_rewrite_candidate(curr) {
+      return true
+    }
+    for child in eval_children(curr) {
+      stack.push(child)
+    }
+  }
+  false
 }
 
 ///|
@@ -506,6 +922,7 @@ fn oi_optimize_with_const_left(
   left : TInstr,
   right : TInstr,
   _env : Env,
+  cache : OIRewriteCache,
 ) -> TInstr? {
   match (op, left) {
     (I32ShlOp, TI32Const(I32(0)))
@@ -514,7 +931,7 @@ fn oi_optimize_with_const_left(
     | (I64ShlOp, TI64Const(I64(0L)))
     | (I64ShrSOp, TI64Const(I64(0L)))
     | (I64ShrUOp, TI64Const(I64(0L))) =>
-      if !oi_has_side_effects(right) {
+      if !oi_has_side_effects_cached(right, cache) {
         Some(left)
       } else {
         None
@@ -525,7 +942,7 @@ fn oi_optimize_with_const_left(
     | (I64ShrSOp, TI64Const(I64(-1L)))
     | (I64RotlOp, TI64Const(I64(-1L)))
     | (I64RotrOp, TI64Const(I64(-1L))) =>
-      if !oi_has_side_effects(right) {
+      if !oi_has_side_effects_cached(right, cache) {
         Some(left)
       } else {
         None
@@ -581,24 +998,20 @@ fn oi_optimize_binary(
   right0 : TInstr,
   env : Env,
   options : OptimizeOptions,
+  cache : OIRewriteCache,
 ) -> TInstr? {
   let mut op = op0
   let mut left = left0
   let mut right = right0
   let mut changed = false
-  if oi_is_symmetric(op) &&
-    oi_is_const(left) &&
-    !oi_is_const(right) &&
-    oi_can_reorder(left, right) {
+  if oi_is_symmetric(op) && oi_is_const(left) && !oi_is_const(right) {
+    // Constants are always side-effect-free and cannot trap, so swapping is safe.
     let tmp = left
     left = right
     right = tmp
     changed = true
   }
-  if oi_is_relational(op) &&
-    oi_is_const(left) &&
-    !oi_is_const(right) &&
-    oi_can_reorder(left, right) {
+  if oi_is_relational(op) && oi_is_const(left) && !oi_is_const(right) {
     match oi_reverse_relational(op) {
       Some(next) => {
         op = next
@@ -681,11 +1094,11 @@ fn oi_optimize_binary(
   }
   match (op, left, right) {
     (F32AddOp, TUnary(F32NegOp, x), y) =>
-      if oi_can_reorder(x, y) {
+      if oi_can_reorder_cached(x, y, cache) {
         return Some(TInstr::binary(BinaryOp::f32_sub(), y, x))
       }
     (F64AddOp, TUnary(F64NegOp, x), y) =>
-      if oi_can_reorder(x, y) {
+      if oi_can_reorder_cached(x, y, cache) {
         return Some(TInstr::binary(BinaryOp::f64_sub(), y, x))
       }
     (F32AddOp, x, TUnary(F32NegOp, y)) =>
@@ -783,7 +1196,7 @@ fn oi_optimize_binary(
     }
   }
   if oi_is_const(left) {
-    match oi_optimize_with_const_left(op, left, right, env) {
+    match oi_optimize_with_const_left(op, left, right, env, cache) {
       Some(rep) => return Some(rep)
       None => ()
     }
@@ -813,7 +1226,9 @@ fn oi_optimize_binary(
     }
     _ => ()
   }
-  if left == right && !oi_has_side_effects(left) {
+  if oi_binary_can_fold_equal_operands(op) &&
+    oi_instr_eq_budgeted(left, right, cache, 128) &&
+    !oi_has_side_effects_cached(left, cache) {
     match op {
       I32SubOp | I32XorOp => return Some(TInstr::i32_const(I32(0)))
       I64SubOp | I64XorOp => return Some(TInstr::i64_const(I64(0L)))
@@ -854,6 +1269,7 @@ fn oi_optimize_unary(
   value : TInstr,
   _env : Env,
   options : OptimizeOptions,
+  cache : OIRewriteCache,
 ) -> TInstr? {
   match (op, value) {
     (I32EqzOp, TBinary(I32SubOp, x, y)) =>
@@ -902,14 +1318,18 @@ fn oi_optimize_unary(
       Some(TInstr::unary(UnaryOp::f32_abs(), x))
     (F64AbsOp, TUnary(F64NegOp, x)) =>
       Some(TInstr::unary(UnaryOp::f64_abs(), x))
-    (F32AbsOp, TBinary(F32MulOp, x, y)) if x == y =>
-      Some(TInstr::binary(BinaryOp::f32_mul(), x, y))
-    (F64AbsOp, TBinary(F64MulOp, x, y)) if x == y =>
-      Some(TInstr::binary(BinaryOp::f64_mul(), x, y))
-    (F32AbsOp, TBinary(F32DivOp, x, y)) if x == y =>
-      Some(TInstr::binary(BinaryOp::f32_div(), x, y))
-    (F64AbsOp, TBinary(F64DivOp, x, y)) if x == y =>
-      Some(TInstr::binary(BinaryOp::f64_div(), x, y))
+    (F32AbsOp, TBinary(F32MulOp, x, y)) if oi_instr_eq_budgeted(
+        x, y, cache, 128,
+      ) => Some(TInstr::binary(BinaryOp::f32_mul(), x, y))
+    (F64AbsOp, TBinary(F64MulOp, x, y)) if oi_instr_eq_budgeted(
+        x, y, cache, 128,
+      ) => Some(TInstr::binary(BinaryOp::f64_mul(), x, y))
+    (F32AbsOp, TBinary(F32DivOp, x, y)) if oi_instr_eq_budgeted(
+        x, y, cache, 128,
+      ) => Some(TInstr::binary(BinaryOp::f32_div(), x, y))
+    (F64AbsOp, TBinary(F64DivOp, x, y)) if oi_instr_eq_budgeted(
+        x, y, cache, 128,
+      ) => Some(TInstr::binary(BinaryOp::f64_div(), x, y))
     (_, TUnary(inner_op, x)) =>
       if inner_op == op {
         match op {
@@ -1047,8 +1467,9 @@ fn oi_reinterpret_store(op : StoreOp, value : TInstr) -> (StoreOp, TInstr)? {
 }
 
 ///|
-fn oi_optimize_store_value(op : StoreOp, value : TInstr) -> TInstr {
+fn oi_optimize_store_value(op : StoreOp, value : TInstr) -> (TInstr, Bool) {
   let bytes = oi_store_bytes(op)
+  let mut changed = false
   let value = match value {
     TI32Const(I32(v)) if bytes < 4 => {
       let mask = match bytes {
@@ -1056,7 +1477,11 @@ fn oi_optimize_store_value(op : StoreOp, value : TInstr) -> TInstr {
         2 => 0xffff
         _ => 0xffffffff
       }
-      TInstr::i32_const(I32(oi_wrap_i32(v & mask)))
+      let next = oi_wrap_i32(v & mask)
+      if next != v {
+        changed = true
+      }
+      TInstr::i32_const(I32(next))
     }
     TI64Const(I64(v)) if bytes < 8 => {
       let mask = match bytes {
@@ -1065,26 +1490,30 @@ fn oi_optimize_store_value(op : StoreOp, value : TInstr) -> TInstr {
         4 => 0xffffffffL
         _ => -1L
       }
-      TInstr::i64_const(I64(oi_wrap_i64(v & mask)))
+      let next = oi_wrap_i64(v & mask)
+      if next != v {
+        changed = true
+      }
+      TInstr::i64_const(I64(next))
     }
     other => other
   }
   match value {
     TBinary(I32AndOp, x, TI32Const(I32(mask))) =>
       if (bytes == 1 && mask == 0xff) || (bytes == 2 && mask == 0xffff) {
-        x
+        (x, true)
       } else {
-        value
+        (value, changed)
       }
     TBinary(I64AndOp, x, TI64Const(I64(mask))) =>
       if (bytes == 1 && mask == 0xffL) ||
         (bytes == 2 && mask == 0xffffL) ||
         (bytes == 4 && mask == 0xffffffffL) {
-        x
+        (x, true)
       } else {
-        value
+        (value, changed)
       }
-    _ => value
+    _ => (value, changed)
   }
 }
 
@@ -1244,6 +1673,7 @@ fn oi_optimize_select(
   if_false : TInstr,
   env : Env,
   options : OptimizeOptions,
+  cache : OIRewriteCache,
 ) -> TInstr? {
   let cond = oi_optimize_boolean(cond, env, options)
   match cond {
@@ -1254,8 +1684,8 @@ fn oi_optimize_select(
         Some(oi_seq([oi_instr_stmt(if_false, env)], if_true, env))
       }
     _ =>
-      if if_true == if_false {
-        if oi_has_side_effects(cond) {
+      if oi_instr_eq_budgeted(if_true, if_false, cache, 128) {
+        if oi_has_side_effects_cached(cond, cache) {
           Some(oi_seq([oi_instr_stmt(cond, env)], if_true, env))
         } else {
           Some(if_true)
@@ -1282,17 +1712,18 @@ fn oi_optimize_if(
   else_ : TExpr?,
   env : Env,
   options : OptimizeOptions,
+  cache : OIRewriteCache,
 ) -> TInstr? {
-  let cond = oi_optimize_boolean(cond, env, options)
+  let next_cond = oi_optimize_boolean(cond, env, options)
   match else_ {
     Some(else_expr) =>
-      match cond {
+      match next_cond {
         TUnary(I32EqzOp, value) =>
           Some(TInstr::if_(bt, value, else_expr, Some(then_)))
         _ =>
-          if then_ == else_expr {
-            if oi_has_side_effects(cond) {
-              let list = [oi_instr_stmt(cond, env)]
+          if oi_texpr_eq_budgeted(then_, else_expr, cache, 256) {
+            if oi_has_side_effects_cached(next_cond, cache) {
+              let list = [oi_instr_stmt(next_cond, env)]
               for instr in then_.0 {
                 list.push(instr)
               }
@@ -1300,15 +1731,17 @@ fn oi_optimize_if(
             } else {
               Some(TInstr::block(bt, then_))
             }
+          } else if oi_instr_eq_cached(next_cond, cond, cache) {
+            None
           } else {
-            Some(TInstr::if_(bt, cond, then_, Some(else_expr)))
+            Some(TInstr::if_(bt, next_cond, then_, Some(else_expr)))
           }
       }
     None =>
-      if cond == oi_optimize_boolean(cond, env, options) {
+      if oi_instr_eq_cached(next_cond, cond, cache) {
         None
       } else {
-        Some(TInstr::if_(bt, cond, then_, None))
+        Some(TInstr::if_(bt, next_cond, then_, None))
       }
   }
 }
@@ -1319,45 +1752,64 @@ fn oi_optimize_once(
   env : Env,
   options : OptimizeOptions,
   mod : Module,
-) -> TInstr {
+  cache : OIRewriteCache,
+) -> (TInstr, Bool) {
   match instr {
     TBinary(op, left, right) =>
-      match oi_optimize_binary(op, left, right, env, options) {
-        Some(rep) => rep
-        None => instr
+      match oi_optimize_binary(op, left, right, env, options, cache) {
+        Some(rep) => (rep, true)
+        None => (instr, false)
       }
     TUnary(op, value) =>
-      match oi_optimize_unary(op, value, env, options) {
-        Some(rep) => rep
-        None => instr
+      match oi_optimize_unary(op, value, env, options, cache) {
+        Some(rep) => (rep, true)
+        None => (instr, false)
       }
     TSelect(types, cond, if_true, if_false) =>
-      match oi_optimize_select(types, cond, if_true, if_false, env, options) {
-        Some(rep) => rep
-        None => instr
+      match
+        oi_optimize_select(types, cond, if_true, if_false, env, options, cache) {
+        Some(rep) => (rep, true)
+        None => (instr, false)
       }
     TIf(bt, cond, then_, else_) =>
-      match oi_optimize_if(bt, cond, then_, else_, env, options) {
-        Some(rep) => rep
-        None => instr
+      match oi_optimize_if(bt, cond, then_, else_, env, options, cache) {
+        Some(rep) => (rep, true)
+        None => (instr, false)
       }
-    TGlobalSet(idx, TGlobalGet(get_idx)) if idx == get_idx => TInstr::nop()
-    TBrIf(label, cond, values) =>
-      TInstr::br_if(label, oi_optimize_boolean(cond, env, options), values)
+    TGlobalSet(idx, TGlobalGet(get_idx)) if idx == get_idx =>
+      (TInstr::nop(), true)
+    TBrIf(label, cond, values) => {
+      let next_cond = oi_optimize_boolean(cond, env, options)
+      if oi_instr_eq_cached(next_cond, cond, cache) {
+        (instr, false)
+      } else {
+        (TInstr::br_if(label, next_cond, values), true)
+      }
+    }
     TLoad(op, memarg, ptr) => {
       let (next_ptr, next_memarg) = oi_fold_const_ptr_offset(ptr, memarg, mod)
-      TInstr::load(op, next_memarg, next_ptr)
+      if next_ptr == ptr && next_memarg == memarg {
+        (instr, false)
+      } else {
+        (TInstr::load(op, next_memarg, next_ptr), true)
+      }
     }
     TStore(op, memarg, ptr, value) => {
       let (next_ptr, next_memarg) = oi_fold_const_ptr_offset(ptr, memarg, mod)
+      let mut changed = next_ptr != ptr || next_memarg != memarg
       let mut next_op = op
-      let mut next_value = oi_optimize_store_value(op, value)
+      let (store_value, value_changed) = oi_optimize_store_value(op, value)
+      let mut next_value = store_value
+      if value_changed {
+        changed = true
+      }
       match next_value {
         TUnary(I32WrapI64Op, inner) =>
           match oi_store_wrap_upgrade(next_op) {
             Some(upgraded) => {
               next_op = upgraded
               next_value = inner
+              changed = true
             }
             None => ()
           }
@@ -1367,29 +1819,34 @@ fn oi_optimize_once(
         Some((rewritten_op, rewritten_value)) => {
           next_op = rewritten_op
           next_value = rewritten_value
+          changed = true
         }
         None => ()
       }
-      TInstr::store(next_op, next_memarg, next_ptr, next_value)
+      if changed {
+        (TInstr::store(next_op, next_memarg, next_ptr, next_value), true)
+      } else {
+        (instr, false)
+      }
     }
     TMemoryCopy(dst_mem, src_mem, dest, source, size) =>
       match oi_optimize_memory_copy(dst_mem, src_mem, dest, source, size, env) {
-        Some(rep) => rep
-        None => instr
+        Some(rep) => (rep, true)
+        None => (instr, false)
       }
     TMemoryFill(mem_idx, dest, value, size) =>
       match oi_optimize_memory_fill(mem_idx, dest, value, size, env) {
-        Some(rep) => rep
-        None => instr
+        Some(rep) => (rep, true)
+        None => (instr, false)
       }
     TCallRef(type_idx, args, target) =>
       match target {
-        TRefFunc(func_idx) => TInstr::call(func_idx, args)
+        TRefFunc(func_idx) => (TInstr::call(func_idx, args), true)
         TTableGet(table_idx, index) =>
-          TInstr::call_indirect(type_idx, table_idx, args, index)
-        _ => instr
+          (TInstr::call_indirect(type_idx, table_idx, args, index), true)
+        _ => (instr, false)
       }
-    _ => instr
+    _ => (instr, false)
   }
 }
 
@@ -1399,18 +1856,66 @@ fn oi_optimize_fixpoint(
   env : Env,
   options : OptimizeOptions,
   mod : Module,
-) -> TInstr {
+  cache : OIRewriteCache,
+) -> (TInstr, Int, Bool) {
   let mut curr = instr
   let mut rounds = 0
-  while rounds < 8 {
+  let mut changed = false
+  while rounds < 4 {
     rounds += 1
-    let next = oi_optimize_once(curr, env, options, mod)
-    if next == curr {
+    let (next, step_changed) = oi_optimize_once(curr, env, options, mod, cache)
+    if !step_changed {
       break
     }
+    changed = true
     curr = next
+    if !oi_instr_is_rewrite_candidate(curr) {
+      break
+    }
   }
-  curr
+  (curr, rounds, changed)
+}
+
+///|
+priv struct OITransformStats {
+  top_instrs : Int
+  skipped_no_candidates : Bool
+  visited_instrs : Int
+  candidate_instrs : Int
+  rewritten_instrs : Int
+  max_rounds : Int
+}
+
+///|
+fn oi_transform_stats_new(top_instrs : Int) -> OITransformStats {
+  OITransformStats::{
+    top_instrs,
+    skipped_no_candidates: false,
+    visited_instrs: 0,
+    candidate_instrs: 0,
+    rewritten_instrs: 0,
+    max_rounds: 0,
+  }
+}
+
+///|
+fn oi_trace_noop(_ : String) -> Unit {
+  ()
+}
+
+///|
+fn oi_trace_now_ms() -> UInt64 {
+  @env.now()
+}
+
+///|
+fn oi_trace_elapsed_ms(start_ms : UInt64) -> UInt64 {
+  let end_ms = oi_trace_now_ms()
+  if end_ms >= start_ms {
+    end_ms - start_ms
+  } else {
+    0UL
+  }
 }
 
 ///|
@@ -1418,35 +1923,107 @@ fn optimize_instructions_on_func(
   func : Func,
   mod : Module,
   options : OptimizeOptions,
-) -> Func {
+) -> (Func, OITransformStats) {
   match func {
     TFunc(locals, body) => {
+      let top_instrs = body.0.length()
+      if !oi_texpr_has_rewrite_candidate(body) {
+        return (
+          func,
+          OITransformStats::{
+            top_instrs,
+            skipped_no_candidates: true,
+            visited_instrs: 0,
+            candidate_instrs: 0,
+            rewritten_instrs: 0,
+            max_rounds: 0,
+          },
+        )
+      }
       let env = Env::new().with_module(mod).with_locals(locals)
+      let cache = oi_rewrite_cache_new()
+      let mut visited_instrs = 0
+      let mut candidate_instrs = 0
+      let mut rewritten_instrs = 0
+      let mut max_rounds = 0
+      let visited_instr_budget = 200000
+      let candidate_size_budget = 512
       let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
         self,
         _,
         curr,
       ) {
+        if visited_instrs >= visited_instr_budget {
+          // Cap work on very large functions: leave the remaining subtree
+          // unchanged and skip descending further.
+          return change((), curr)
+        }
+        if eval_children(curr).is_empty() {
+          visited_instrs += 1
+          if !oi_instr_is_rewrite_candidate(curr) {
+            // Returning `unchanged()` here would trigger
+            // `walk_tinstruction_default` and traverse this subtree again.
+            return change((), curr)
+          }
+          if !oi_instr_within_eq_budget(curr, candidate_size_budget) {
+            return change((), curr)
+          }
+          candidate_instrs += 1
+          let (rewritten, rounds, rewritten_here) = oi_optimize_fixpoint(
+            curr, env, options, mod, cache,
+          )
+          if rounds > max_rounds {
+            max_rounds = rounds
+          }
+          if rewritten_here {
+            rewritten_instrs += 1
+          }
+          return change((), rewritten)
+        }
         let walked = match self.walk_tinstruction_default((), curr) {
           Ok(Some((_, updated))) => updated
           Ok(None) => curr
           Err(e) => return Err(e)
         }
-        let rewritten = oi_optimize_fixpoint(walked, env, options, mod)
-        if rewritten == walked {
-          unchanged()
-        } else {
-          change((), rewritten)
+        visited_instrs += 1
+        if !oi_instr_is_rewrite_candidate(walked) {
+          // Returning `unchanged()` here would trigger
+          // `walk_tinstruction_default` and traverse this subtree again.
+          return change((), walked)
         }
+        if !oi_instr_within_eq_budget(walked, candidate_size_budget) {
+          return change((), walked)
+        }
+        candidate_instrs += 1
+        let (rewritten, rounds, rewritten_here) = oi_optimize_fixpoint(
+          walked, env, options, mod, cache,
+        )
+        if rounds > max_rounds {
+          max_rounds = rounds
+        }
+        if rewritten_here {
+          rewritten_instrs += 1
+        }
+        change((), rewritten)
       })
       let new_body = match walker.walk_texpr((), body) {
         Ok(Some((_, out))) => out
         Ok(None) => body
         Err(_) => body
       }
-      Func::t_func(locals, new_body)
+      (
+        Func::t_func(locals, new_body),
+        OITransformStats::{
+          top_instrs,
+          skipped_no_candidates: false,
+          visited_instrs,
+          candidate_instrs,
+          rewritten_instrs,
+          max_rounds,
+        },
+      )
     }
-    _ => func
+    _ => (func, oi_transform_stats_new(0))
   }
 }
 
@@ -1454,14 +2031,34 @@ fn optimize_instructions_on_func(
 fn optimize_instructions_ir_pass(
   mod : Module,
   options : OptimizeOptions,
+  trace? : (String) -> Unit = oi_trace_noop,
+  trace_all_funcs? : Bool = false,
 ) -> ModuleTransformer[IRContext] {
+  let mut seen_funcs = 0
   ModuleTransformer::new().on_func_evt(fn(_, ctx, func) {
-    let next = optimize_instructions_on_func(func, mod, options)
-    if next == func {
-      unchanged()
-    } else {
-      change(ctx, next)
+    seen_funcs += 1
+    let ordinal = seen_funcs
+    let log_func = trace_all_funcs || ordinal <= 5 || ordinal % 50 == 0
+    let top_instrs = match func {
+      TFunc(_, body) => body.0.length()
+      _ => 0
     }
+    if log_func {
+      trace("func[\{ordinal}] start top_instrs=\{top_instrs}")
+    }
+    let start_ms = oi_trace_now_ms()
+    let (next, stats) = optimize_instructions_on_func(func, mod, options)
+    let elapsed = oi_trace_elapsed_ms(start_ms)
+    let log_heavy_func = stats.visited_instrs >= 20000 ||
+      stats.candidate_instrs >= 5000
+    if log_func || log_heavy_func {
+      trace(
+        "func[\{ordinal}] done elapsed_ms=\{elapsed} changed=\{next != func} skipped=\{stats.skipped_no_candidates} top_instrs=\{stats.top_instrs} visited=\{stats.visited_instrs} candidates=\{stats.candidate_instrs} rewritten=\{stats.rewritten_instrs} max_rounds=\{stats.max_rounds}",
+      )
+    }
+    // Returning `unchanged()` here would trigger `walk_func_default`,
+    // causing a second traversal of this function.
+    change(ctx, next)
   })
 }
 

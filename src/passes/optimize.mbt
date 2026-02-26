@@ -346,7 +346,12 @@ fn run_ir_context_transformer_scheduler_pass(
       apply_ir_transformer_pass(
         ctx,
         mod,
-        optimize_instructions_ir_pass(mod, options),
+        optimize_instructions_ir_pass(
+          mod,
+          options,
+          trace=fn(msg) { trace("optimize_instructions:\{msg}") },
+          trace_all_funcs=false,
+        ),
       )
     Precompute =>
       apply_ir_transformer_pass(
