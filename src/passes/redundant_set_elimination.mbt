@@ -171,19 +171,22 @@ fn rse_collect_instr_events(
   block_id : RSEBlockId,
   instr : TInstr,
 ) -> Unit {
-  match instr {
-    TLocalGet(idx) =>
+  match instr.kind {
+    TInstrKind::TLocalGet(idx) =>
       rse_add_event(state, block_id, RSEEventKind::LocalGet(idx))
-    TLocalSet(idx, value) => {
+    TInstrKind::TLocalSet(idx, value) => {
       rse_collect_instr_events(state, block_id, value)
       rse_add_event(state, block_id, RSEEventKind::LocalSet(idx, value))
     }
-    TLocalTee(idx, value) => {
+    TInstrKind::TLocalTee(idx, value) => {
       rse_collect_instr_events(state, block_id, value)
       rse_add_event(state, block_id, RSEEventKind::LocalSet(idx, value))
     }
-    TIf(_, cond, _, _) => rse_collect_instr_events(state, block_id, cond)
-    TBlock(_, _) | TLoop(_, _) | TTryTable(_, _, _) => ()
+    TInstrKind::TIf(_, cond, _, _) =>
+      rse_collect_instr_events(state, block_id, cond)
+    TInstrKind::TBlock(_, _)
+    | TInstrKind::TLoop(_, _)
+    | TInstrKind::TTryTable(_, _, _) => ()
     _ =>
       for child in eval_children(instr) {
         rse_collect_instr_events(state, block_id, child)
@@ -199,8 +202,8 @@ fn rse_lower_texpr(
 ) -> RSEBlockId {
   let mut current = current
   for instr in body.instrs {
-    match instr {
-      TIf(_, cond, then_body, else_body) => {
+    match instr.kind {
+      TInstrKind::TIf(_, cond, then_body, else_body) => {
         rse_collect_instr_events(state, current, cond)
         let then_block = rse_make_block(state)
         let else_block = rse_make_block(state)
@@ -218,7 +221,7 @@ fn rse_lower_texpr(
         }
         current = merge_block
       }
-      TReturn(values) => {
+      TInstrKind::TReturn(values) => {
         for value in values {
           rse_collect_instr_events(state, current, value)
         }
@@ -363,8 +366,8 @@ fn rse_zero_tinstr(vt : ValType) -> TInstr? {
 
 ///|
 fn rse_get_fallthrough(instr : TInstr) -> TInstr {
-  match instr {
-    TBlock(_, { instrs, .. }) if instrs.length() > 0 =>
+  match instr.kind {
+    TInstrKind::TBlock(_, { instrs, .. }) if instrs.length() > 0 =>
       rse_get_fallthrough(instrs[instrs.length() - 1])
     _ => instr
   }
@@ -376,8 +379,8 @@ fn rse_value_of(
   instr : TInstr,
   curr_values : RSELocalValues,
 ) -> Int {
-  match instr {
-    TLocalGet(idx) => curr_values[rse_local_idx_to_int(idx)]
+  match instr.kind {
+    TInstrKind::TLocalGet(idx) => curr_values[rse_local_idx_to_int(idx)]
     _ => analyzer.value_for_expr(instr)
   }
 }
@@ -614,8 +617,8 @@ fn rse_rewrite_children(
 
 ///|
 fn rse_rewrite_instr(state : RSERewriteState, instr : TInstr) -> TInstr {
-  match instr {
-    TLocalGet(idx) => {
+  match instr.kind {
+    TInstrKind::TLocalGet(idx) => {
       let event_id = state.next_event
       state.next_event += 1
       match state.replace_gets.get(event_id) {
@@ -629,7 +632,7 @@ fn rse_rewrite_instr(state : RSERewriteState, instr : TInstr) -> TInstr {
         None => instr
       }
     }
-    TLocalSet(idx, value) => {
+    TInstrKind::TLocalSet(idx, value) => {
       let next_value = rse_rewrite_instr(state, value)
       let event_id = state.next_event
       state.next_event += 1
@@ -642,7 +645,7 @@ fn rse_rewrite_instr(state : RSERewriteState, instr : TInstr) -> TInstr {
         instr
       }
     }
-    TLocalTee(idx, value) => {
+    TInstrKind::TLocalTee(idx, value) => {
       let next_value = rse_rewrite_instr(state, value)
       let event_id = state.next_event
       state.next_event += 1
@@ -655,7 +658,7 @@ fn rse_rewrite_instr(state : RSERewriteState, instr : TInstr) -> TInstr {
         instr
       }
     }
-    TIf(bt, cond, then_body, else_body) => {
+    TInstrKind::TIf(bt, cond, then_body, else_body) => {
       let next_cond = rse_rewrite_instr(state, cond)
       if next_cond == cond {
         instr
@@ -663,7 +666,9 @@ fn rse_rewrite_instr(state : RSERewriteState, instr : TInstr) -> TInstr {
         TInstr::if_(bt, next_cond, then_body, else_body)
       }
     }
-    TBlock(_, _) | TLoop(_, _) | TTryTable(_, _, _) => instr
+    TInstrKind::TBlock(_, _)
+    | TInstrKind::TLoop(_, _)
+    | TInstrKind::TTryTable(_, _, _) => instr
     _ => {
       let children = eval_children(instr)
       if children.is_empty() {
@@ -683,8 +688,8 @@ fn rse_rewrite_instr(state : RSERewriteState, instr : TInstr) -> TInstr {
 fn rse_rewrite_texpr(state : RSERewriteState, body : TExpr) -> TExpr {
   let out : Array[TInstr] = []
   for instr in body.instrs {
-    match instr {
-      TIf(bt, cond, then_body, else_body) => {
+    match instr.kind {
+      TInstrKind::TIf(bt, cond, then_body, else_body) => {
         let next_cond = rse_rewrite_instr(state, cond)
         let next_then = rse_rewrite_texpr(state, then_body)
         let next_else = else_body.map(fn(e) { rse_rewrite_texpr(state, e) })
@@ -693,7 +698,7 @@ fn rse_rewrite_texpr(state : RSERewriteState, body : TExpr) -> TExpr {
         }
         out.push(TInstr::if_(bt, next_cond, next_then, next_else))
       }
-      TReturn(values) => {
+      TInstrKind::TReturn(values) => {
         let (next_values, changed) = rse_rewrite_children(state, values)
         if changed {
           state.changed = true
@@ -859,9 +864,18 @@ test "redundant_set_elimination removes redundant local.set in straight line" {
   let out = rse_run(mod)
   match rse_first_body(out).instrs {
     [
-      TLocalSet(_, TI32Const(I32(7))),
-      TDrop(TI32Const(I32(7))),
-      TDrop(TLocalGet(_)),
+      {
+        kind: TInstrKind::TLocalSet(
+          _,
+          { kind: TInstrKind::TI32Const(I32(7)), .. }
+        ),
+        ..,
+      },
+      {
+        kind: TInstrKind::TDrop({ kind: TInstrKind::TI32Const(I32(7)), .. }),
+        ..,
+      },
+      { kind: TInstrKind::TDrop({ kind: TInstrKind::TLocalGet(_), .. }), .. },
     ] => ()
     _ => fail("expected second local.set to be converted into drop(value)")
   }
@@ -886,7 +900,24 @@ test "redundant_set_elimination rewrites redundant local.tee to plain value" {
   )
   let out = rse_run(mod)
   match rse_first_body(out).instrs {
-    [TDrop(TLocalTee(_, TI32Const(I32(3)))), TDrop(TI32Const(I32(3)))] => ()
+    [
+      {
+        kind: TInstrKind::TDrop(
+          {
+            kind: TInstrKind::TLocalTee(
+              _,
+              { kind: TInstrKind::TI32Const(I32(3)), .. }
+            ),
+            ..,
+          }
+        ),
+        ..,
+      },
+      {
+        kind: TInstrKind::TDrop({ kind: TInstrKind::TI32Const(I32(3)), .. }),
+        ..,
+      },
+    ] => ()
     _ => fail("expected redundant tee to be replaced by its value")
   }
 }
@@ -907,8 +938,8 @@ test "redundant_set_elimination keeps non-redundant local.set" {
   let out = rse_run(mod)
   assert_eq(
     rse_count_instr(rse_first_body(out), fn(instr) {
-      match instr {
-        TLocalSet(_, _) => true
+      match instr.kind {
+        TInstrKind::TLocalSet(_, _) => true
         _ => false
       }
     }),
@@ -930,7 +961,12 @@ test "redundant_set_elimination removes zero-init redundant sets for vars" {
   )
   let out = rse_run(mod)
   match rse_first_body(out).instrs {
-    [TDrop(TI32Const(I32(0)))] => ()
+    [
+      {
+        kind: TInstrKind::TDrop({ kind: TInstrKind::TI32Const(I32(0)), .. }),
+        ..,
+      },
+    ] => ()
     _ => fail("expected local initialized-to-zero write to be removed")
   }
 }
@@ -952,7 +988,15 @@ test "redundant_set_elimination treats params as unknown initial values" {
     )
   let out = rse_run(mod)
   match rse_first_body(out).instrs {
-    [TLocalSet(_, TI32Const(I32(0)))] => ()
+    [
+      {
+        kind: TInstrKind::TLocalSet(
+          _,
+          { kind: TInstrKind::TI32Const(I32(0)), .. }
+        ),
+        ..,
+      },
+    ] => ()
     _ => fail("expected set to param-backed local to remain")
   }
 }
@@ -983,7 +1027,13 @@ test "redundant_set_elimination removes redundant post-merge set on equal branch
   )
   let out = rse_run(mod)
   match rse_first_body(out).instrs {
-    [TIf(_, _, _, _), TDrop(TI32Const(I32(4)))] => ()
+    [
+      { kind: TInstrKind::TIf(_, _, _, _), .. },
+      {
+        kind: TInstrKind::TDrop({ kind: TInstrKind::TI32Const(I32(4)), .. }),
+        ..,
+      },
+    ] => ()
     _ => fail("expected post-merge equal-value set to be removed")
   }
 }
@@ -1014,7 +1064,16 @@ test "redundant_set_elimination keeps post-merge set on differing branches" {
   )
   let out = rse_run(mod)
   match rse_first_body(out).instrs {
-    [TIf(_, _, _, _), TLocalSet(_, TI32Const(I32(4)))] => ()
+    [
+      { kind: TInstrKind::TIf(_, _, _, _), .. },
+      {
+        kind: TInstrKind::TLocalSet(
+          _,
+          { kind: TInstrKind::TI32Const(I32(4)), .. }
+        ),
+        ..,
+      },
+    ] => ()
     _ => fail("expected post-merge set to remain when incoming values differ")
   }
 }
@@ -1045,7 +1104,21 @@ test "redundant_set_elimination refines local.get to more specific local" {
     )
   let out = rse_run(mod)
   match rse_first_body(out).instrs {
-    [TLocalSet(_, TLocalGet(LocalIdx(i0))), TDrop(TLocalGet(LocalIdx(i1)))] => {
+    [
+      {
+        kind: TInstrKind::TLocalSet(
+          _,
+          { kind: TInstrKind::TLocalGet(LocalIdx(i0)), .. }
+        ),
+        ..,
+      },
+      {
+        kind: TInstrKind::TDrop(
+          { kind: TInstrKind::TLocalGet(LocalIdx(i1)), .. }
+        ),
+        ..,
+      },
+    ] => {
       assert_eq(i0.reinterpret_as_int(), 1)
       assert_eq(i1.reinterpret_as_int(), 1)
     }
@@ -1077,7 +1150,16 @@ test "redundant_set_elimination keeps nested block-local set behavior conservati
   )
   let out = rse_run(mod)
   match rse_first_body(out).instrs {
-    [TBlock(_, _), TLocalSet(_, TI32Const(I32(9)))] => ()
+    [
+      { kind: TInstrKind::TBlock(_, _), .. },
+      {
+        kind: TInstrKind::TLocalSet(
+          _,
+          { kind: TInstrKind::TI32Const(I32(9)), .. }
+        ),
+        ..,
+      },
+    ] => ()
     _ =>
       fail(
         "expected post-block set to remain; nested block sets are intentionally conservative",

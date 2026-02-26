@@ -226,10 +226,10 @@ fn tr_analyze_function_body(
   has_unseen_calls : Array[Bool],
 ) -> Unit {
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TCall(target, args) =>
+    match instr.kind {
+      TInstrKind::TCall(target, args) =>
         tr_record_call(abs_func_idx, target, args, calls_by_target)
-      TRefFunc(FuncIdx(raw)) => {
+      TInstrKind::TRefFunc(FuncIdx(raw)) => {
         let idx = raw.reinterpret_as_int()
         if idx >= 0 && idx < has_unseen_calls.length() {
           has_unseen_calls[idx] = true
@@ -289,21 +289,21 @@ fn tr_known_instr_type(
   global_types : Array[ValType],
   env : Env,
 ) -> ValType? {
-  match instr {
-    TI32Const(_) => Some(ValType::i32())
-    TI64Const(_) => Some(ValType::i64())
-    TF32Const(_) => Some(ValType::f32())
-    TF64Const(_) => Some(ValType::f64())
-    TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+  match instr.kind {
+    TInstrKind::TI32Const(_) => Some(ValType::i32())
+    TInstrKind::TI64Const(_) => Some(ValType::i64())
+    TInstrKind::TF32Const(_) => Some(ValType::f32())
+    TInstrKind::TF64Const(_) => Some(ValType::f64())
+    TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
       Some(ValType::v128())
-    TRefNull(ht) => Some(ValType::ref_type(RefType::new(true, ht)))
-    TRefFunc(_) =>
+    TInstrKind::TRefNull(ht) => Some(ValType::ref_type(RefType::new(true, ht)))
+    TInstrKind::TRefFunc(_) =>
       Some(
         ValType::ref_type(
           RefType::new(false, HeapType::abs(AbsHeapType::func())),
         ),
       )
-    TLocalGet(LocalIdx(raw)) => {
+    TInstrKind::TLocalGet(LocalIdx(raw)) => {
       let idx = raw.reinterpret_as_int()
       if caller_abs_idx < 0 || caller_abs_idx >= local_types_by_abs.length() {
         return None
@@ -314,14 +314,14 @@ fn tr_known_instr_type(
       }
       Some(locals[idx])
     }
-    TGlobalGet(GlobalIdx(raw)) => {
+    TInstrKind::TGlobalGet(GlobalIdx(raw)) => {
       let idx = raw.reinterpret_as_int()
       if idx < 0 || idx >= global_types.length() {
         return None
       }
       Some(global_types[idx])
     }
-    TRefAsNonNull(value) =>
+    TInstrKind::TRefAsNonNull(value) =>
       match
         tr_known_instr_type(
           value, caller_abs_idx, local_types_by_abs, global_types, env,
@@ -330,14 +330,15 @@ fn tr_known_instr_type(
           Some(ValType::ref_type(RefType::new(false, rt.get_heap_type())))
         _ => None
       }
-    TRefCast(nullable, ht, _) =>
+    TInstrKind::TRefCast(nullable, ht, _) =>
       Some(ValType::ref_type(RefType::new(nullable, ht)))
-    TCall(target, _) =>
+    TInstrKind::TCall(target, _) =>
       match env.get_functype_by_funcidx(target) {
         Some(FuncType(_, [r])) => Some(r)
         _ => None
       }
-    TCallIndirect(type_idx, _, _, _) | TCallRef(type_idx, _, _) =>
+    TInstrKind::TCallIndirect(type_idx, _, _, _)
+    | TInstrKind::TCallRef(type_idx, _, _) =>
       match env.resolve_functype(type_idx) {
         Some(FuncType(_, [r])) => Some(r)
         _ => None
@@ -454,8 +455,8 @@ fn tr_update_param_types(
     _,
     instr,
   ) {
-    match instr {
-      TLocalSet(idx, value) | TLocalTee(idx, value) => {
+    match instr.kind {
+      TInstrKind::TLocalSet(idx, value) | TInstrKind::TLocalTee(idx, value) => {
         let local_i = tr_local_idx_to_int(idx)
         if local_i >= 0 &&
           local_i < old_param_types.length() &&
@@ -495,8 +496,8 @@ fn tr_update_param_types(
       Ok(None) => instr
       Err(e) => return Err(e)
     }
-    match walked {
-      TLocalGet(idx) => {
+    match walked.kind {
+      TInstrKind::TLocalGet(idx) => {
         let local_i = tr_local_idx_to_int(idx)
         match param_fixups.get(local_i) {
           Some(fixup) =>
@@ -504,7 +505,7 @@ fn tr_update_param_types(
           None => if walked == instr { unchanged() } else { change((), walked) }
         }
       }
-      TLocalSet(idx, value) => {
+      TInstrKind::TLocalSet(idx, value) => {
         let local_i = tr_local_idx_to_int(idx)
         match param_fixups.get(local_i) {
           Some(fixup) =>
@@ -512,7 +513,7 @@ fn tr_update_param_types(
           None => if walked == instr { unchanged() } else { change((), walked) }
         }
       }
-      TLocalTee(idx, value) => {
+      TInstrKind::TLocalTee(idx, value) => {
         let local_i = tr_local_idx_to_int(idx)
         match param_fixups.get(local_i) {
           Some(fixup) =>

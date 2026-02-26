@@ -49,8 +49,11 @@ fn reinterpret_compatible(op : UnaryOp, load_op : LoadOp) -> Bool {
 
 ///|
 fn rewrite_reinterpret_of_load(instr : TInstr) -> TInstr? {
-  match instr {
-    TUnary(op, TLoad(load_op, memarg, ptr)) => {
+  match instr.kind {
+    TInstrKind::TUnary(
+      op,
+      { kind: TInstrKind::TLoad(load_op, memarg, ptr), .. }
+    ) => {
       if !reinterpret_compatible(op, load_op) {
         return None
       }
@@ -73,8 +76,16 @@ fn get_single_load_from_local(
     return None
   }
   match sets.to_array()[0] {
-    LocalSet::Set(_, TLocalSet(_, TLoad(op, memarg, ptr))) =>
-      Some((op, memarg, ptr))
+    LocalSet::Set(
+      _,
+      {
+        kind: TInstrKind::TLocalSet(
+          _,
+          { kind: TInstrKind::TLoad(op, memarg, ptr), .. }
+        ),
+        ..,
+      }
+    ) => Some((op, memarg, ptr))
     _ => None
   }
 }
@@ -94,8 +105,8 @@ fn avoid_reinterprets() -> ModuleTransformer[IRContext] {
   })
   .on_tinstruction_evt(fn(_self, state, instr) {
     let cur_idx = idx
-    match instr {
-      TInstr::TUnary(_, TInstr::TLocalGet(_)) => idx += 1
+    match instr.kind {
+      TInstrKind::TUnary(_, { kind: TInstrKind::TLocalGet(_), .. }) => idx += 1
       _ => ()
     }
 
@@ -106,8 +117,10 @@ fn avoid_reinterprets() -> ModuleTransformer[IRContext] {
     let graph = state.get_local_graph()
 
     // Case B: reinterpret(local.get)
-    match instr {
-      TInstr::TUnary(op, TInstr::TLocalGet(_)) if is_reinterpret(op) =>
+    match instr.kind {
+      TInstrKind::TUnary(op, { kind: TInstrKind::TLocalGet(_), .. }) if is_reinterpret(
+          op,
+        ) =>
         match get_single_load_from_local(graph, cur_idx) {
           Some((load_op, memarg, ptr)) =>
             match reinterpret_load_op(load_op) {
@@ -143,8 +156,8 @@ test "AvoidReinterprets: rewrite reinterpret(load)" {
   let (_, new_func) = pass.walk_func(state, func).unwrap().unwrap()
   match new_func {
     TFunc(_, { instrs, .. }) =>
-      match instrs[0] {
-        TInstr::TLoad(LoadOp::I32LoadOp, _, _) => ()
+      match instrs[0].kind {
+        TInstrKind::TLoad(LoadOp::I32LoadOp, _, _) => ()
         _ => fail("expected i32.load")
       }
     _ => fail("expected TFunc")
@@ -175,8 +188,8 @@ test "AvoidReinterprets: rewrite reinterpret(local.get) with single load" {
   let new_func = funcs[0]
   match new_func {
     TFunc(_, { instrs: new_instrs, .. }) =>
-      match new_instrs[1] {
-        TInstr::TLoad(LoadOp::I32LoadOp, _, _) => ()
+      match new_instrs[1].kind {
+        TInstrKind::TLoad(LoadOp::I32LoadOp, _, _) => ()
         _ => fail("expected i32.load")
       }
     _ => fail("expected TFunc")
@@ -212,8 +225,8 @@ test "AvoidReinterprets: do not rewrite when multiple defining loads exist" {
   let (_, new_func) = pass.walk_func(state, func).unwrap().unwrap()
   match new_func {
     TFunc(_, { instrs: new_instrs, .. }) =>
-      match new_instrs[2] {
-        TInstr::TLoad(LoadOp::I32LoadOp, _, _) => ()
+      match new_instrs[2].kind {
+        TInstrKind::TLoad(LoadOp::I32LoadOp, _, _) => ()
         _ => fail("expected i32.load")
       }
     _ => fail("expected TFunc")
@@ -288,8 +301,12 @@ test "AvoidReinterprets: reinterpret(local.get) inside expression" {
   let (_, new_func) = pass.walk_func(state, func).unwrap().unwrap()
   match new_func {
     TFunc(_, { instrs: new_instrs, .. }) =>
-      match new_instrs[1] {
-        TInstr::TBinary(_, TInstr::TLoad(LoadOp::I32LoadOp, _, _), _) => ()
+      match new_instrs[1].kind {
+        TInstrKind::TBinary(
+          _,
+          { kind: TInstrKind::TLoad(LoadOp::I32LoadOp, _, _), .. },
+          _
+        ) => ()
         _ => fail("expected i32.load inside binary expression")
       }
     _ => fail("expected TFunc")

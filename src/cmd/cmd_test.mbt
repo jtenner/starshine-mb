@@ -5,7 +5,14 @@ using @binary {trait Decode, trait Encode}
 using @cli {type CliInputFormat}
 
 ///|
-using @lib {type Module, type Func, type CodeSec, type TExpr, type TInstr}
+using @lib {
+  type Module,
+  type Func,
+  type CodeSec,
+  type TExpr,
+  type TInstr,
+  type TInstrKind,
+}
 
 ///|
 using @passes {
@@ -246,8 +253,17 @@ test "run_cmd_with_adapter --optimize handles examples/modules/simd_lane_mix.wat
 fn module_first_f32_const(mod : Module) -> Float? {
   match mod.code_sec {
     Some(CodeSec([Func(_, Expr([F32Const(F32(v))])), ..])) => Some(v)
-    Some(CodeSec([TFunc(_, { instrs: [TF32Const(F32(v))], .. }), ..])) =>
-      Some(v)
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            { instrs: [{ kind: TInstrKind::TF32Const(F32(v)), .. }], .. }
+          ),
+          ..,
+        ]
+      )
+    ) => Some(v)
     _ => None
   }
 }

@@ -120,21 +120,29 @@ fn flattened_type_count(rec_types : Array[RecType]) -> Int {
 
 ///|
 fn is_literal_const(instr : TInstr) -> Bool {
-  match instr {
-    TI32Const(_) | TI64Const(_) | TF32Const(_) | TF64Const(_) => true
-    TRefNull(_) | TRefFunc(_) => true
-    TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => true
+  match instr.kind {
+    TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_) => true
+    TInstrKind::TRefNull(_) | TInstrKind::TRefFunc(_) => true
+    TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      true
     _ => false
   }
 }
 
 ///|
 fn is_trivially_pure_arg(instr : TInstr) -> Bool {
-  match instr {
-    TI32Const(_) | TI64Const(_) | TF32Const(_) | TF64Const(_) => true
-    TRefNull(_) | TRefFunc(_) => true
-    TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => true
-    TLocalGet(_) | TGlobalGet(_) => true
+  match instr.kind {
+    TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_) => true
+    TInstrKind::TRefNull(_) | TInstrKind::TRefFunc(_) => true
+    TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      true
+    TInstrKind::TLocalGet(_) | TInstrKind::TGlobalGet(_) => true
     _ => false
   }
 }
@@ -144,8 +152,8 @@ fn body_ends_with_explicit_return_or_unreachable(body : TExpr) -> Bool {
   if body.instrs.is_empty() {
     return true
   }
-  match body.instrs[body.instrs.length() - 1] {
-    TReturn(_) | TUnreachable => true
+  match body.instrs[body.instrs.length() - 1].kind {
+    TInstrKind::TReturn(_) | TInstrKind::TUnreachable => true
     _ => false
   }
 }
@@ -261,23 +269,23 @@ fn analyze_function_body(
   used_params : Set[Int],
 ) -> Unit {
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TLocalGet(LocalIdx(raw)) => {
+    match instr.kind {
+      TInstrKind::TLocalGet(LocalIdx(raw)) => {
         let idx = raw.reinterpret_as_int()
         if idx >= 0 && idx < param_count {
           used_params.add(idx)
         }
       }
-      TDrop(TCall(target, _)) => {
+      TInstrKind::TDrop({ kind: TInstrKind::TCall(target, _), .. }) => {
         let FuncIdx(raw) = target
         let idx = raw.reinterpret_as_int()
         if idx >= 0 && idx < dropped_call_counts.length() {
           dropped_call_counts[idx] += 1
         }
       }
-      TCall(target, args) =>
+      TInstrKind::TCall(target, args) =>
         record_call(abs_func_idx, target, args, calls_by_target, call_counts)
-      TReturnCall(target, args) => {
+      TInstrKind::TReturnCall(target, args) => {
         record_call(abs_func_idx, target, args, calls_by_target, call_counts)
         let FuncIdx(raw) = target
         let idx = raw.reinterpret_as_int()
@@ -289,11 +297,12 @@ fn analyze_function_body(
           has_tail_calls[abs_func_idx] = true
         }
       }
-      TReturnCallIndirect(_, _, _, _) | TReturnCallRef(_, _, _) =>
+      TInstrKind::TReturnCallIndirect(_, _, _, _)
+      | TInstrKind::TReturnCallRef(_, _, _) =>
         if abs_func_idx >= 0 && abs_func_idx < has_tail_calls.length() {
           has_tail_calls[abs_func_idx] = true
         }
-      TRefFunc(FuncIdx(raw)) => {
+      TInstrKind::TRefFunc(FuncIdx(raw)) => {
         let idx = raw.reinterpret_as_int()
         if idx >= 0 && idx < has_unseen_calls.length() {
           has_unseen_calls[idx] = true
@@ -409,21 +418,21 @@ fn known_instr_type(
   global_types : Array[ValType],
   env : Env,
 ) -> ValType? {
-  match instr {
-    TI32Const(_) => Some(ValType::i32())
-    TI64Const(_) => Some(ValType::i64())
-    TF32Const(_) => Some(ValType::f32())
-    TF64Const(_) => Some(ValType::f64())
-    TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+  match instr.kind {
+    TInstrKind::TI32Const(_) => Some(ValType::i32())
+    TInstrKind::TI64Const(_) => Some(ValType::i64())
+    TInstrKind::TF32Const(_) => Some(ValType::f32())
+    TInstrKind::TF64Const(_) => Some(ValType::f64())
+    TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
       Some(ValType::v128())
-    TRefNull(ht) => Some(ValType::ref_type(RefType::new(true, ht)))
-    TRefFunc(_) =>
+    TInstrKind::TRefNull(ht) => Some(ValType::ref_type(RefType::new(true, ht)))
+    TInstrKind::TRefFunc(_) =>
       Some(
         ValType::ref_type(
           RefType::new(false, HeapType::abs(AbsHeapType::func())),
         ),
       )
-    TLocalGet(LocalIdx(raw)) => {
+    TInstrKind::TLocalGet(LocalIdx(raw)) => {
       let idx = raw.reinterpret_as_int()
       if caller_abs_idx < 0 || caller_abs_idx >= local_types_by_abs.length() {
         return None
@@ -434,14 +443,14 @@ fn known_instr_type(
       }
       Some(locals[idx])
     }
-    TGlobalGet(GlobalIdx(raw)) => {
+    TInstrKind::TGlobalGet(GlobalIdx(raw)) => {
       let idx = raw.reinterpret_as_int()
       if idx < 0 || idx >= global_types.length() {
         return None
       }
       Some(global_types[idx])
     }
-    TRefAsNonNull(value) =>
+    TInstrKind::TRefAsNonNull(value) =>
       match
         known_instr_type(
           value, caller_abs_idx, local_types_by_abs, global_types, env,
@@ -450,15 +459,17 @@ fn known_instr_type(
           Some(ValType::ref_type(RefType::new(false, rt.get_heap_type())))
         _ => None
       }
-    TRefCast(nullable, ht, _) =>
+    TInstrKind::TRefCast(nullable, ht, _) =>
       Some(ValType::ref_type(RefType::new(nullable, ht)))
-    TSelect(Some(types), _, _, _) if types.length() == 1 => Some(types[0])
-    TCall(target, _) =>
+    TInstrKind::TSelect(Some(types), _, _, _) if types.length() == 1 =>
+      Some(types[0])
+    TInstrKind::TCall(target, _) =>
       match env.get_functype_by_funcidx(target) {
         Some(FuncType(_, [r])) => Some(r)
         _ => None
       }
-    TCallIndirect(type_idx, _, _, _) | TCallRef(type_idx, _, _) =>
+    TInstrKind::TCallIndirect(type_idx, _, _, _)
+    | TInstrKind::TCallRef(type_idx, _, _) =>
       match env.resolve_functype(type_idx) {
         Some(FuncType(_, [r])) => Some(r)
         _ => None
@@ -557,8 +568,8 @@ fn collect_explicit_return_types(
   let rows : Array[Array[ValType]] = []
   let mut failed = false
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TReturn(values) =>
+    match instr.kind {
+      TInstrKind::TReturn(values) =>
         if values.length() != result_arity {
           failed = true
         } else {
@@ -731,8 +742,8 @@ fn rewrite_locals_and_returns(
       Ok(None) => instr
       Err(e) => return Err(e)
     }
-    match processed {
-      TLocalGet(LocalIdx(raw)) => {
+    match processed.kind {
+      TInstrKind::TLocalGet(LocalIdx(raw)) => {
         let idx = raw.reinterpret_as_int()
         match
           rewrite_local_index(
@@ -755,7 +766,7 @@ fn rewrite_locals_and_returns(
           None => change((), TInstr::unreachable_())
         }
       }
-      TLocalSet(LocalIdx(raw), value) => {
+      TInstrKind::TLocalSet(LocalIdx(raw), value) => {
         let idx = raw.reinterpret_as_int()
         match
           rewrite_local_index(
@@ -781,7 +792,7 @@ fn rewrite_locals_and_returns(
           None => change((), TInstr::drop(value))
         }
       }
-      TLocalTee(LocalIdx(raw), value) => {
+      TInstrKind::TLocalTee(LocalIdx(raw), value) => {
         let idx = raw.reinterpret_as_int()
         match
           rewrite_local_index(
@@ -807,7 +818,7 @@ fn rewrite_locals_and_returns(
           None => change((), value)
         }
       }
-      TReturn(values) if remove_result && values.length() > 0 =>
+      TInstrKind::TReturn(values) if remove_result && values.length() > 0 =>
         change((), TInstr::return_([]))
       _ => if processed != instr { change((), processed) } else { unchanged() }
     }
@@ -845,8 +856,8 @@ fn rewrite_calls(
       Ok(None) => instr
       Err(e) => return Err(e)
     }
-    match processed {
-      TDrop(TCall(target, args)) => {
+    match processed.kind {
+      TInstrKind::TDrop({ kind: TInstrKind::TCall(target, args), .. }) => {
         let FuncIdx(raw) = target
         let idx = raw.reinterpret_as_int()
         if idx < 0 || idx >= removed_params_by_target.length() {
@@ -871,7 +882,7 @@ fn rewrite_calls(
           unchanged()
         }
       }
-      TCall(target, args) => {
+      TInstrKind::TCall(target, args) => {
         let FuncIdx(raw) = target
         let idx = raw.reinterpret_as_int()
         if idx < 0 || idx >= removed_params_by_target.length() {
@@ -892,7 +903,7 @@ fn rewrite_calls(
           unchanged()
         }
       }
-      TReturnCall(target, args) => {
+      TInstrKind::TReturnCall(target, args) => {
         let FuncIdx(raw) = target
         let idx = raw.reinterpret_as_int()
         if idx < 0 || idx >= removed_params_by_target.length() {
@@ -1344,8 +1355,14 @@ test "dead argument elimination removes unused params from signatures" {
     .with_code_sec(CodeSec::new([caller, callee]))
   let optimized = run_dead_argument_elim(mod)
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TCall(_, args)], .. }), _])) =>
-      assert_eq(args.length(), 0)
+    Some(
+      CodeSec(
+        [
+          TFunc(_, { instrs: [{ kind: TInstrKind::TCall(_, args), .. }], .. }),
+          _,
+        ]
+      )
+    ) => assert_eq(args.length(), 0)
     _ => fail("expected rewritten call argument list")
   }
   match optimized.func_sec {
@@ -1389,8 +1406,14 @@ test "dead argument elimination removes constant params and seeds entry local" {
     _ => fail("expected seeded callee entry")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TCall(_, args)], .. }), _])) =>
-      assert_eq(args.length(), 0)
+    Some(
+      CodeSec(
+        [
+          TFunc(_, { instrs: [{ kind: TInstrKind::TCall(_, args), .. }], .. }),
+          _,
+        ]
+      )
+    ) => assert_eq(args.length(), 0)
     _ => fail("expected rewritten caller args")
   }
 }
@@ -1426,7 +1449,7 @@ test "dead argument elimination removes dropped return values from signatures" {
         [TFunc(_, { instrs: instrs0, .. }), TFunc(_, { instrs: instrs1, .. })]
       )
     ) => {
-      assert_true(instrs0[0] is TCall(_, []))
+      assert_true(instrs0[0].kind is TInstrKind::TCall(_, []))
       assert_eq(instrs1[0], TInstr::return_([]))
     }
     _ => fail("expected rewritten drop/callee return")
@@ -1469,8 +1492,8 @@ test "dead argument elimination handles exported callee via adapter thunk" {
     Some(CodeSec([TFunc(_, { instrs: instrs0, .. }), _, _])) => {
       let mut found = false
       for instr in instrs0 {
-        match instr {
-          TCall(FuncIdx(2), args) => {
+        match instr.kind {
+          TInstrKind::TCall(FuncIdx(2), args) => {
             found = true
             assert_eq(args.length(), 0)
           }
@@ -1527,8 +1550,8 @@ test "dead argument elimination handles table-reachable callee via adapter thunk
     Some(CodeSec([TFunc(_, { instrs: instrs0, .. }), _, _])) => {
       let mut found = false
       for instr in instrs0 {
-        match instr {
-          TCall(FuncIdx(2), args) => {
+        match instr.kind {
+          TInstrKind::TCall(FuncIdx(2), args) => {
             found = true
             assert_eq(args.length(), 0)
           }

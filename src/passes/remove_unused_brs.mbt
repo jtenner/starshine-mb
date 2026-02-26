@@ -43,8 +43,8 @@ fn rub_one_i32() -> TInstr {
 
 ///|
 fn rub_is_const_i32(instr : TInstr) -> Int? {
-  match instr {
-    TI32Const(I32(v)) => Some(v)
+  match instr.kind {
+    TInstrKind::TI32Const(I32(v)) => Some(v)
     _ => None
   }
 }
@@ -64,23 +64,24 @@ fn rub_is_single_tinstr(expr : TExpr) -> TInstr? {
 
 ///|
 fn rub_instr_has_branch(instr : TInstr) -> Bool {
-  match instr {
-    TBr(_, _)
-    | TBrIf(_, _, _)
-    | TBrTable(_, _, _, _)
-    | TBrOnNull(_, _, _)
-    | TBrOnNonNull(_, _, _)
-    | TBrOnCast(_, _, _, _, _, _)
-    | TBrOnCastFail(_, _, _, _, _, _)
-    | TReturn(_)
-    | TReturnCall(_, _)
-    | TReturnCallIndirect(_, _, _, _)
-    | TReturnCallRef(_, _, _)
-    | TThrow(_, _)
-    | TThrowRef(_) => true
-    TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) =>
-      rub_texpr_has_branch(body)
-    TIf(_, cond, then_body, else_body) => {
+  match instr.kind {
+    TInstrKind::TBr(_, _)
+    | TInstrKind::TBrIf(_, _, _)
+    | TInstrKind::TBrTable(_, _, _, _)
+    | TInstrKind::TBrOnNull(_, _, _)
+    | TInstrKind::TBrOnNonNull(_, _, _)
+    | TInstrKind::TBrOnCast(_, _, _, _, _, _)
+    | TInstrKind::TBrOnCastFail(_, _, _, _, _, _)
+    | TInstrKind::TReturn(_)
+    | TInstrKind::TReturnCall(_, _)
+    | TInstrKind::TReturnCallIndirect(_, _, _, _)
+    | TInstrKind::TReturnCallRef(_, _, _)
+    | TInstrKind::TThrow(_, _)
+    | TInstrKind::TThrowRef(_) => true
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) => rub_texpr_has_branch(body)
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
       if rub_instr_has_branch(cond) || rub_texpr_has_branch(then_body) {
         return true
       }
@@ -112,18 +113,20 @@ fn rub_texpr_has_branch(expr : TExpr) -> Bool {
 
 ///|
 fn rub_instr_cost(instr : TInstr) -> Int {
-  match instr {
-    TI32Const(_)
-    | TI64Const(_)
-    | TF32Const(_)
-    | TF64Const(_)
-    | TRefNull(_)
-    | TRefFunc(_)
-    | TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
-    | TLocalGet(_)
-    | TNop => 0
-    TThrow(_, _) | TThrowRef(_) => RUB_TOO_COSTLY_TO_RUN_UNCONDITIONALLY
-    TRefCast(_, _, _) => RUB_TOO_COSTLY_TO_RUN_UNCONDITIONALLY / 2 + 1
+  match instr.kind {
+    TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_)
+    | TInstrKind::TRefNull(_)
+    | TInstrKind::TRefFunc(_)
+    | TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    | TInstrKind::TLocalGet(_)
+    | TInstrKind::TNop => 0
+    TInstrKind::TThrow(_, _) | TInstrKind::TThrowRef(_) =>
+      RUB_TOO_COSTLY_TO_RUN_UNCONDITIONALLY
+    TInstrKind::TRefCast(_, _, _) =>
+      RUB_TOO_COSTLY_TO_RUN_UNCONDITIONALLY / 2 + 1
     _ => {
       let mut total = 1
       for child in eval_children(instr) {
@@ -194,8 +197,8 @@ fn rub_fold_condition_to_bool(instr : TInstr) -> Bool? {
   match rub_is_const_i32(instr) {
     Some(v) => Some(v != 0)
     None =>
-      match instr {
-        TUnary(I32EqzOp, inner) =>
+      match instr.kind {
+        TInstrKind::TUnary(I32EqzOp, inner) =>
           match rub_is_const_i32(inner) {
             Some(v) => Some(v == 0)
             None => None
@@ -229,8 +232,8 @@ fn rub_single_target_switch(
 
 ///|
 fn rub_optimize_br_table(instr : TInstr) -> (TInstr, Bool) {
-  match instr {
-    TBrTable(targets, default_, cond, values) => {
+  match instr.kind {
+    TInstrKind::TBrTable(targets, default_, cond, values) => {
       let mut changed = false
       let mut targets = targets.copy()
       while targets.length() > 0 && targets[targets.length() - 1] == default_ {
@@ -284,13 +287,13 @@ fn rub_optimize_br_table(instr : TInstr) -> (TInstr, Bool) {
 
 ///|
 fn rub_optimize_if(instr : TInstr, options : OptimizeOptions) -> (TInstr, Bool) {
-  match instr {
-    TIf(bt, condition, then_body, else_body) =>
+  match instr.kind {
+    TInstrKind::TIf(bt, condition, then_body, else_body) =>
       match else_body {
         Some(_) => (instr, false)
         None =>
           match rub_is_single_tinstr(then_body) {
-            Some(TBr(label, values)) => {
+            Some({ kind: TInstrKind::TBr(label, values), .. }) => {
               let br_value = if values.length() == 1 {
                 Some(values[0])
               } else {
@@ -302,7 +305,7 @@ fn rub_optimize_if(instr : TInstr, options : OptimizeOptions) -> (TInstr, Bool) 
                 (instr, false)
               }
             }
-            Some(TBrIf(label, inner_cond, values)) => {
+            Some({ kind: TInstrKind::TBrIf(label, inner_cond, values), .. }) => {
               if values.length() != 0 ||
                 rub_has_side_effects(inner_cond) ||
                 rub_too_costly_pair(options, inner_cond, rub_zero_i32()) {
@@ -316,7 +319,7 @@ fn rub_optimize_if(instr : TInstr, options : OptimizeOptions) -> (TInstr, Bool) 
               )
               (TInstr::br_if(label, next_cond, []), true)
             }
-            Some(TIf(_, child_cond, child_then, None)) => {
+            Some({ kind: TInstrKind::TIf(_, child_cond, child_then, None), .. }) => {
               if rub_has_side_effects(child_cond) ||
                 rub_too_costly_expr(options, child_cond) {
                 return (instr, false)
@@ -338,8 +341,8 @@ fn rub_optimize_if(instr : TInstr, options : OptimizeOptions) -> (TInstr, Bool) 
 
 ///|
 fn rub_optimize_br_if(instr : TInstr) -> (TInstr, Bool) {
-  match instr {
-    TBrIf(label, cond, values) =>
+  match instr.kind {
+    TInstrKind::TBrIf(label, cond, values) =>
       match rub_fold_condition_to_bool(cond) {
         Some(true) => (TInstr::br(label, values), true)
         Some(false) =>
@@ -366,8 +369,8 @@ fn rub_optimize_br_if(instr : TInstr) -> (TInstr, Bool) {
 fn rub_remove_trailing_nops(instrs : Array[TInstr]) -> Bool {
   let mut changed = false
   while instrs.length() > 0 {
-    match instrs[instrs.length() - 1] {
-      TNop => {
+    match instrs[instrs.length() - 1].kind {
+      TInstrKind::TNop => {
         ignore(instrs.pop())
         changed = true
       }
@@ -383,8 +386,8 @@ fn rub_remove_trailing_flow_break(instrs : Array[TInstr]) -> Bool {
     return false
   }
   let idx = instrs.length() - 1
-  match instrs[idx] {
-    TBr(label, values) => {
+  match instrs[idx].kind {
+    TInstrKind::TBr(label, values) => {
       if !rub_is_label_zero(label) {
         return false
       }
@@ -410,8 +413,8 @@ fn rub_remove_trailing_return(instrs : Array[TInstr]) -> Bool {
     return false
   }
   let idx = instrs.length() - 1
-  match instrs[idx] {
-    TReturn(values) =>
+  match instrs[idx].kind {
+    TInstrKind::TReturn(values) =>
       match values {
         [] => {
           ignore(instrs.pop())
@@ -435,16 +438,16 @@ fn rub_optimize_adjacent_breaks(
   let mut changed = false
   let mut i = 0
   while i + 1 < instrs.length() {
-    match instrs[i] {
-      TBrIf(label1, cond1, values1) =>
+    match instrs[i].kind {
+      TInstrKind::TBrIf(label1, cond1, values1) =>
         if values1.length() == 0 {
-          match instrs[i + 1] {
-            TBr(label2, values2) =>
+          match instrs[i + 1].kind {
+            TInstrKind::TBr(label2, values2) =>
               if label1 == label2 && values2.length() == 0 {
                 instrs[i] = TInstr::drop(cond1)
                 changed = true
               }
-            TBrIf(label2, cond2, values2) =>
+            TInstrKind::TBrIf(label2, cond2, values2) =>
               if label1 == label2 &&
                 values2.length() == 0 &&
                 options.shrink_level > 0 &&
@@ -472,11 +475,11 @@ fn rub_optimize_if_else_block_tail(instrs : Array[TInstr]) -> Bool {
   let mut changed = false
   let mut i = 0
   while i < instrs.length() {
-    match instrs[i] {
-      TIf(_, cond, then_body, Some(else_body)) => {
+    match instrs[i].kind {
+      TInstrKind::TIf(_, cond, then_body, Some(else_body)) => {
         let mut applied = false
         match rub_is_single_tinstr(then_body) {
-          Some(TBr(label, values)) =>
+          Some({ kind: TInstrKind::TBr(label, values), .. }) =>
             if !rub_texpr_has_branch(else_body) &&
               rub_can_turn_if_into_br_if(
                 cond,
@@ -508,7 +511,7 @@ fn rub_optimize_if_else_block_tail(instrs : Array[TInstr]) -> Bool {
         }
         if !applied {
           match rub_is_single_tinstr(else_body) {
-            Some(TBr(label, values)) =>
+            Some({ kind: TInstrKind::TBr(label, values), .. }) =>
               if !rub_texpr_has_branch(then_body) &&
                 rub_can_turn_if_into_br_if(
                   cond,
@@ -558,8 +561,8 @@ fn rub_optimize_redundant_dropped_br_if_tail(instrs : Array[TInstr]) -> Bool {
   }
   let second_last_i = instrs.length() - 2
   let last_i = instrs.length() - 1
-  match instrs[second_last_i] {
-    TDrop(TBrIf(label, cond, [value])) =>
+  match instrs[second_last_i].kind {
+    TInstrKind::TDrop({ kind: TInstrKind::TBrIf(label, cond, [value]), .. }) =>
       if rub_is_label_zero(label) && value == instrs[last_i] {
         let value_effects = lcs_collect_effects(value)
         if value_effects.has_unremovable_side_effects() {
@@ -583,8 +586,8 @@ fn rub_optimize_entry_restructure_if(instrs : Array[TInstr]) -> Bool {
   if instrs.length() < 2 {
     return false
   }
-  match instrs[0] {
-    TDrop(TBrIf(label, cond, [])) => {
+  match instrs[0].kind {
+    TInstrKind::TDrop({ kind: TInstrKind::TBrIf(label, cond, []), .. }) => {
       if !rub_is_label_zero(label) {
         return false
       }
@@ -654,14 +657,14 @@ fn rub_optimize_instr_list(
 
 ///|
 fn rub_has_candidate_instr(instr : TInstr) -> Bool {
-  match instr {
-    TNop
-    | TBr(_, _)
-    | TBrIf(_, _, _)
-    | TBrTable(_, _, _, _)
-    | TIf(_, _, _, _)
-    | TReturn(_)
-    | TDrop(TBrIf(_, _, _)) => true
+  match instr.kind {
+    TInstrKind::TNop
+    | TInstrKind::TBr(_, _)
+    | TInstrKind::TBrIf(_, _, _)
+    | TInstrKind::TBrTable(_, _, _, _)
+    | TInstrKind::TIf(_, _, _, _)
+    | TInstrKind::TReturn(_)
+    | TInstrKind::TDrop({ kind: TInstrKind::TBrIf(_, _, _), .. }) => true
     _ => false
   }
 }
@@ -829,8 +832,21 @@ test "remove_unused_brs removes trailing br 0 in block" {
   let mod = Module::new().with_code_sec(CodeSec::new([Func::t_func([], body)]))
   let out = rub_run(mod)
   match rub_single_func(out) {
-    TFunc(_, { instrs: [TBlock(_, { instrs: [TI32Const(I32(1))], .. })], .. }) =>
-      ()
+    TFunc(
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TBlock(
+              _,
+              { instrs: [{ kind: TInstrKind::TI32Const(I32(1)), .. }], .. }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => ()
     _ => fail("expected trailing br 0 to be removed")
   }
 }
@@ -846,8 +862,21 @@ test "remove_unused_brs forwards trailing br value in block" {
   let mod = Module::new().with_code_sec(CodeSec::new([Func::t_func([], body)]))
   let out = rub_run(mod)
   match rub_single_func(out) {
-    TFunc(_, { instrs: [TBlock(_, { instrs: [TI32Const(I32(7))], .. })], .. }) =>
-      ()
+    TFunc(
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TBlock(
+              _,
+              { instrs: [{ kind: TInstrKind::TI32Const(I32(7)), .. }], .. }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => ()
     _ => fail("expected trailing br value to be forwarded")
   }
 }
@@ -863,8 +892,21 @@ test "remove_unused_brs trims trailing nops from block body" {
   let mod = Module::new().with_code_sec(CodeSec::new([Func::t_func([], body)]))
   let out = rub_run(mod)
   match rub_single_func(out) {
-    TFunc(_, { instrs: [TBlock(_, { instrs: [TI32Const(I32(1))], .. })], .. }) =>
-      ()
+    TFunc(
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TBlock(
+              _,
+              { instrs: [{ kind: TInstrKind::TI32Const(I32(1)), .. }], .. }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => ()
     _ => fail("expected trailing nops to be trimmed")
   }
 }
@@ -892,7 +934,27 @@ test "remove_unused_brs turns one-armed if with break into br_if" {
     TFunc(
       _,
       {
-        instrs: [TBlock(_, { instrs: [TBrIf(label, TLocalGet(_), [])], .. })],
+        instrs: [
+          {
+            kind: TInstrKind::TBlock(
+              _,
+              {
+                instrs: [
+                  {
+                    kind: TInstrKind::TBrIf(
+                      label,
+                      { kind: TInstrKind::TLocalGet(_), .. },
+                      []
+                    ),
+                    ..,
+                  },
+                ],
+                ..,
+              }
+            ),
+            ..,
+          },
+        ],
         ..,
       }
     ) => assert_eq(label, LabelIdx::new(1))
@@ -931,19 +993,33 @@ test "remove_unused_brs combines nested one-armed if conditions" {
       _,
       {
         instrs: [
-          TBlock(
-            _,
-            {
-              instrs: [
-                TBrIf(
-                  _,
-                  TSelect(_, TLocalGet(_), TLocalGet(_), TI32Const(I32(0))),
-                  []
-                ),
-              ],
-              ..,
-            }
-          ),
+          {
+            kind: TInstrKind::TBlock(
+              _,
+              {
+                instrs: [
+                  {
+                    kind: TInstrKind::TBrIf(
+                      _,
+                      {
+                        kind: TInstrKind::TSelect(
+                          _,
+                          { kind: TInstrKind::TLocalGet(_), .. },
+                          { kind: TInstrKind::TLocalGet(_), .. },
+                          { kind: TInstrKind::TI32Const(I32(0)), .. }
+                        ),
+                        ..,
+                      },
+                      []
+                    ),
+                    ..,
+                  },
+                ],
+                ..,
+              }
+            ),
+            ..,
+          },
         ],
         ..,
       }
@@ -978,7 +1054,27 @@ test "remove_unused_brs trims trailing br_table defaults and simplifies" {
     TFunc(
       _,
       {
-        instrs: [TBlock(_, { instrs: [TBrIf(label, TLocalGet(_), [])], .. })],
+        instrs: [
+          {
+            kind: TInstrKind::TBlock(
+              _,
+              {
+                instrs: [
+                  {
+                    kind: TInstrKind::TBrIf(
+                      label,
+                      { kind: TInstrKind::TLocalGet(_), .. },
+                      []
+                    ),
+                    ..,
+                  },
+                ],
+                ..,
+              }
+            ),
+            ..,
+          },
+        ],
         ..,
       }
     ) => assert_eq(label, LabelIdx::new(1))
@@ -1009,12 +1105,29 @@ test "remove_unused_brs rewrites default-only br_table to drop+br" {
     TFunc(
       _,
       {
-        instrs: [TBlock(_, { instrs: [TBlock(_, { instrs: items, .. })], .. })],
+        instrs: [
+          {
+            kind: TInstrKind::TBlock(
+              _,
+              {
+                instrs: [
+                  { kind: TInstrKind::TBlock(_, { instrs: items, .. }), .. },
+                ],
+                ..,
+              }
+            ),
+            ..,
+          },
+        ],
         ..,
       }
     ) =>
       match items {
-        [TDrop(_)] | [TDrop(_), TBr(_, _)] => ()
+        [{ kind: TInstrKind::TDrop(_), .. }]
+        | [
+          { kind: TInstrKind::TDrop(_), .. },
+          { kind: TInstrKind::TBr(_, _), .. },
+        ] => ()
         _ =>
           fail(
             "expected default-only br_table to rewrite to drop(cond) with optional br",
@@ -1047,9 +1160,17 @@ test "remove_unused_brs rewrites single-target br_table to if+brs" {
   )
   let out = rub_run(mod)
   match rub_single_func(out) {
-    TFunc(_, { instrs: [TBlock(_, { instrs: items, .. })], .. }) =>
+    TFunc(
+      _,
+      {
+        instrs: [{ kind: TInstrKind::TBlock(_, { instrs: items, .. }), .. }],
+        ..,
+      }
+    ) =>
       match items {
-        [TIf(_, _, _, _)] | [TDrop(_)] | [TBlock(_, _)] => ()
+        [{ kind: TInstrKind::TIf(_, _, _, _), .. }]
+        | [{ kind: TInstrKind::TDrop(_), .. }]
+        | [{ kind: TInstrKind::TBlock(_, _), .. }] => ()
         _ => fail("expected single-target br_table to be simplified")
       }
     _ => fail("expected single-target br_table to become if")
@@ -1075,7 +1196,27 @@ test "remove_unused_brs merges br_if followed by br to same target" {
     TFunc(
       _,
       {
-        instrs: [TBlock(_, { instrs: [TBrIf(label, TLocalGet(_), [])], .. })],
+        instrs: [
+          {
+            kind: TInstrKind::TBlock(
+              _,
+              {
+                instrs: [
+                  {
+                    kind: TInstrKind::TBrIf(
+                      label,
+                      { kind: TInstrKind::TLocalGet(_), .. },
+                      []
+                    ),
+                    ..,
+                  },
+                ],
+                ..,
+              }
+            ),
+            ..,
+          },
+        ],
         ..,
       }
     ) => assert_eq(label, LabelIdx::new(0))
@@ -1095,7 +1236,22 @@ test "remove_unused_brs merges adjacent br_ifs in shrink mode" {
   )
   let out = rub_run(mod, options=OptimizeOptions::new(shrink_level=1))
   match rub_single_func(out) {
-    TFunc(_, { instrs: [TBrIf(_, TBinary(I32OrOp, _, _), [])], .. }) => ()
+    TFunc(
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TBrIf(
+              _,
+              { kind: TInstrKind::TBinary(I32OrOp, _, _), .. },
+              []
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => ()
     _ => fail("expected adjacent br_ifs to merge in shrink mode")
   }
 }
@@ -1117,7 +1273,21 @@ test "remove_unused_brs folds br_if with constant true condition" {
     TFunc(
       _,
       {
-        instrs: [TBlock(_, { instrs: [TBr(label, []), TI32Const(I32(2))], .. })],
+        instrs: [
+          {
+            kind: TInstrKind::TBlock(
+              _,
+              {
+                instrs: [
+                  { kind: TInstrKind::TBr(label, []), .. },
+                  { kind: TInstrKind::TI32Const(I32(2)), .. },
+                ],
+                ..,
+              }
+            ),
+            ..,
+          },
+        ],
         ..,
       }
     ) => assert_eq(label, LabelIdx::new(0))
@@ -1131,7 +1301,18 @@ test "remove_unused_brs folds br_if with constant false condition" {
   let mod = Module::new().with_code_sec(CodeSec::new([Func::t_func([], body)]))
   let out = rub_run(mod)
   match rub_single_func(out) {
-    TFunc(_, { instrs: [TDrop(TI32Const(I32(0)))], .. }) => ()
+    TFunc(
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TDrop({ kind: TInstrKind::TI32Const(I32(0)), .. }),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => ()
     _ => fail("expected br_if false to become drop(condition)")
   }
 }
@@ -1161,7 +1342,24 @@ test "remove_unused_brs removes redundant dropped br_if tail value copy" {
       _,
       {
         instrs: [
-          TBlock(_, { instrs: [TDrop(TLocalGet(_)), TI32Const(I32(9))], .. }),
+          {
+            kind: TInstrKind::TBlock(
+              _,
+              {
+                instrs: [
+                  {
+                    kind: TInstrKind::TDrop(
+                      { kind: TInstrKind::TLocalGet(_), .. }
+                    ),
+                    ..,
+                  },
+                  { kind: TInstrKind::TI32Const(I32(9)), .. },
+                ],
+                ..,
+              }
+            ),
+            ..,
+          },
         ],
         ..,
       }
@@ -1176,7 +1374,8 @@ test "remove_unused_brs removes trailing return with no value in function body" 
   let mod = Module::new().with_code_sec(CodeSec::new([Func::t_func([], body)]))
   let out = rub_run(mod)
   match rub_single_func(out) {
-    TFunc(_, { instrs: [TI32Const(I32(1))], .. }) => ()
+    TFunc(_, { instrs: [{ kind: TInstrKind::TI32Const(I32(1)), .. }], .. }) =>
+      ()
     _ => fail("expected trailing return to be removed")
   }
 }
@@ -1187,7 +1386,8 @@ test "remove_unused_brs forwards trailing return value in function body" {
   let mod = Module::new().with_code_sec(CodeSec::new([Func::t_func([], body)]))
   let out = rub_run(mod)
   match rub_single_func(out) {
-    TFunc(_, { instrs: [TI32Const(I32(77))], .. }) => ()
+    TFunc(_, { instrs: [{ kind: TInstrKind::TI32Const(I32(77)), .. }], .. }) =>
+      ()
     _ => fail("expected trailing return value to be forwarded")
   }
 }

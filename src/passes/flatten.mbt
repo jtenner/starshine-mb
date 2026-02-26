@@ -72,15 +72,15 @@ fn fl_instr_type(instr : TInstr, env : Env) -> ValType? {
 
 ///|
 fn fl_is_leaf_constant_or_nop(instr : TInstr) -> Bool {
-  match instr {
-    TI32Const(_)
-    | TI64Const(_)
-    | TF32Const(_)
-    | TF64Const(_)
-    | TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
-    | TRefNull(_)
-    | TRefFunc(_)
-    | TNop => true
+  match instr.kind {
+    TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_)
+    | TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    | TInstrKind::TRefNull(_)
+    | TInstrKind::TRefFunc(_)
+    | TInstrKind::TNop => true
     _ => false
   }
 }
@@ -167,8 +167,8 @@ fn fl_flatten_instr(
   let mut curr = instr
   let preludes : Array[TInstr] = []
 
-  match curr {
-    TBlock(bt, body) => {
+  match curr.kind {
+    TInstrKind::TBlock(bt, body) => {
       let next_body = match fl_flatten_texpr(body, state) {
         Ok(v) => v
         Err(e) => return Err(e)
@@ -185,7 +185,7 @@ fn fl_flatten_instr(
         None => ()
       }
     }
-    TIf(bt, cond, then_body, else_body) => {
+    TInstrKind::TIf(bt, cond, then_body, else_body) => {
       let (next_cond, cond_preludes) = match fl_flatten_instr(cond, state) {
         Ok(v) => v
         Err(e) => return Err(e)
@@ -235,7 +235,7 @@ fn fl_flatten_instr(
         None => curr = rewritten_if
       }
     }
-    TLoop(bt, body) => {
+    TInstrKind::TLoop(bt, body) => {
       let next_body = match fl_flatten_texpr(body, state) {
         Ok(v) => v
         Err(e) => return Err(e)
@@ -252,7 +252,7 @@ fn fl_flatten_instr(
         None => ()
       }
     }
-    TTryTable(bt, catches, body) => {
+    TInstrKind::TTryTable(bt, catches, body) => {
       let next_body = match fl_flatten_texpr(body, state) {
         Ok(v) => v
         Err(e) => return Err(e)
@@ -280,8 +280,8 @@ fn fl_flatten_instr(
         preludes.push(p)
       }
 
-      match curr {
-        TLocalTee(idx, value) =>
+      match curr.kind {
+        TInstrKind::TLocalTee(idx, value) =>
           if is_unreachable_instr(value) {
             curr = value
             state.changed = true
@@ -290,7 +290,7 @@ fn fl_flatten_instr(
             curr = TInstr::local_get(idx)
             state.changed = true
           }
-        TBr(label, values) =>
+        TInstrKind::TBr(label, values) =>
           if values.length() == 1 {
             match fl_instr_type(values[0], state.env) {
               Some(vt) => {
@@ -302,7 +302,7 @@ fn fl_flatten_instr(
               None => ()
             }
           }
-        TBrIf(label, cond, values) =>
+        TInstrKind::TBrIf(label, cond, values) =>
           if values.length() == 1 {
             match fl_instr_type(values[0], state.env) {
               Some(vt) => {
@@ -314,7 +314,7 @@ fn fl_flatten_instr(
               None => ()
             }
           }
-        TBrOnNull(label, ref_, values) =>
+        TInstrKind::TBrOnNull(label, ref_, values) =>
           if values.length() == 1 {
             match fl_instr_type(values[0], state.env) {
               Some(vt) => {
@@ -326,7 +326,7 @@ fn fl_flatten_instr(
               None => ()
             }
           }
-        TBrOnNonNull(label, ref_, values) =>
+        TInstrKind::TBrOnNonNull(label, ref_, values) =>
           if values.length() == 1 {
             match fl_instr_type(values[0], state.env) {
               Some(vt) => {
@@ -340,7 +340,7 @@ fn fl_flatten_instr(
               None => ()
             }
           }
-        TBrOnCast(label, castop, ht1, ht2, ref_, values) =>
+        TInstrKind::TBrOnCast(label, castop, ht1, ht2, ref_, values) =>
           if values.length() == 1 {
             match fl_instr_type(values[0], state.env) {
               Some(vt) => {
@@ -360,7 +360,7 @@ fn fl_flatten_instr(
               None => ()
             }
           }
-        TBrOnCastFail(label, castop, ht1, ht2, ref_, values) =>
+        TInstrKind::TBrOnCastFail(label, castop, ht1, ht2, ref_, values) =>
           if values.length() == 1 {
             match fl_instr_type(values[0], state.env) {
               Some(vt) => {
@@ -474,8 +474,8 @@ fn run_flatten(mod : Module) -> Result[Module, String] {
 fn fl_count_local_tees(body : TExpr) -> Int {
   let count = Ref::new(0)
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TLocalTee(_, _) => count.update(fn(v) { v + 1 })
+    match instr.kind {
+      TInstrKind::TLocalTee(_, _) => count.update(fn(v) { v + 1 })
       _ => ()
     }
     self.walk_tinstruction_default((), instr)
@@ -534,8 +534,8 @@ test "flatten hoists if condition preludes and removes if value" {
       assert_true(locals.length() >= 2)
       let mut saw_if_void = false
       for instr in instrs {
-        match instr {
-          TIf(VoidBlockType, _, _, _) => saw_if_void = true
+        match instr.kind {
+          TInstrKind::TIf(VoidBlockType, _, _, _) => saw_if_void = true
           _ => ()
         }
       }
@@ -549,11 +549,12 @@ test "flatten hoists if condition preludes and removes if value" {
 fn fl_count_br_on_family(body : TExpr) -> Int {
   let count = Ref::new(0)
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TBrOnNull(_, _, _)
-      | TBrOnNonNull(_, _, _)
-      | TBrOnCast(_, _, _, _, _, _)
-      | TBrOnCastFail(_, _, _, _, _, _) => count.update(fn(v) { v + 1 })
+    match instr.kind {
+      TInstrKind::TBrOnNull(_, _, _)
+      | TInstrKind::TBrOnNonNull(_, _, _)
+      | TInstrKind::TBrOnCast(_, _, _, _, _, _)
+      | TInstrKind::TBrOnCastFail(_, _, _, _, _, _) =>
+        count.update(fn(v) { v + 1 })
       _ => ()
     }
     self.walk_tinstruction_default((), instr)
@@ -566,8 +567,8 @@ fn fl_count_br_on_family(body : TExpr) -> Int {
 fn fl_find_try_table_result_blocktype(body : TExpr) -> BlockType? {
   let found = Ref::new(None)
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TTryTable(bt, _, _) =>
+    match instr.kind {
+      TInstrKind::TTryTable(bt, _, _) =>
         match found.val {
           None => found.update(fn(_) { Some(bt) })
           Some(_) => ()
@@ -662,11 +663,11 @@ test "flatten rewrites br_on value flow through local temp when needed" {
         _,
         instr,
       ) {
-        match instr {
-          TBrOnNull(_, _, [TLocalGet(_)]) =>
+        match instr.kind {
+          TInstrKind::TBrOnNull(_, _, [{ kind: TInstrKind::TLocalGet(_), .. }]) =>
             saw_localized_value.update(fn(_) { true })
-          TLocalSet(_, TI32Const(I32(v))) if v == 17 =>
-            saw_set_of_const.update(fn(_) { true })
+          TInstrKind::TLocalSet(_, { kind: TInstrKind::TI32Const(I32(v)), .. }) if v ==
+            17 => saw_set_of_const.update(fn(_) { true })
           _ => ()
         }
         self.walk_tinstruction_default((), instr)
@@ -735,12 +736,29 @@ test "flatten rewrites br_on value flow for all br_on variants" {
         _,
         instr,
       ) {
-        match instr {
-          TBrOnNull(_, _, [TLocalGet(_)])
-          | TBrOnNonNull(_, _, [TLocalGet(_)])
-          | TBrOnCast(_, _, _, _, _, [TLocalGet(_)])
-          | TBrOnCastFail(_, _, _, _, _, [TLocalGet(_)]) =>
-            localized_count.update(fn(v) { v + 1 })
+        match instr.kind {
+          TInstrKind::TBrOnNull(_, _, [{ kind: TInstrKind::TLocalGet(_), .. }])
+          | TInstrKind::TBrOnNonNull(
+            _,
+            _,
+            [{ kind: TInstrKind::TLocalGet(_), .. }]
+          )
+          | TInstrKind::TBrOnCast(
+            _,
+            _,
+            _,
+            _,
+            _,
+            [{ kind: TInstrKind::TLocalGet(_), .. }]
+          )
+          | TInstrKind::TBrOnCastFail(
+            _,
+            _,
+            _,
+            _,
+            _,
+            [{ kind: TInstrKind::TLocalGet(_), .. }]
+          ) => localized_count.update(fn(v) { v + 1 })
           _ => ()
         }
         self.walk_tinstruction_default((), instr)

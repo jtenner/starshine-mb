@@ -14,15 +14,15 @@ pub fn TExpr::to_expr(texpr : TExpr) -> Expr {
 
 ///|
 fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
-  match tinstr {
+  match tinstr.kind {
     // === Constants ===
-    TI32Const(v) => instrs.push(I32Const(v))
-    TI64Const(v) => instrs.push(I64Const(v))
-    TF32Const(v) => instrs.push(F32Const(v))
-    TF64Const(v) => instrs.push(F64Const(v))
-    TRefNull(ht) => instrs.push(RefNull(ht))
-    TRefFunc(idx) => instrs.push(RefFunc(idx))
-    TV128Const(
+    TInstrKind::TI32Const(v) => instrs.push(I32Const(v))
+    TInstrKind::TI64Const(v) => instrs.push(I64Const(v))
+    TInstrKind::TF32Const(v) => instrs.push(F32Const(v))
+    TInstrKind::TF64Const(v) => instrs.push(F64Const(v))
+    TInstrKind::TRefNull(ht) => instrs.push(RefNull(ht))
+    TInstrKind::TRefFunc(idx) => instrs.push(RefFunc(idx))
+    TInstrKind::TV128Const(
       b0,
       b1,
       b2,
@@ -47,142 +47,142 @@ fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
       )
 
     // === Nullary ===
-    TUnreachable => instrs.push(Unreachable)
-    TNop => instrs.push(Nop)
-    TLocalGet(idx) => instrs.push(LocalGet(idx))
-    TGlobalGet(idx) => instrs.push(GlobalGet(idx))
-    TMemorySize(idx) => instrs.push(MemorySize(idx))
-    TTableSize(idx) => instrs.push(TableSize(idx))
+    TInstrKind::TUnreachable => instrs.push(Unreachable)
+    TInstrKind::TNop => instrs.push(Nop)
+    TInstrKind::TLocalGet(idx) => instrs.push(LocalGet(idx))
+    TInstrKind::TGlobalGet(idx) => instrs.push(GlobalGet(idx))
+    TInstrKind::TMemorySize(idx) => instrs.push(MemorySize(idx))
+    TInstrKind::TTableSize(idx) => instrs.push(TableSize(idx))
 
     // === Unary ===
-    TUnary(op, child) => {
+    TInstrKind::TUnary(op, child) => {
       tinstr_to_instr(child, instrs)
       instrs.push(unary_op_to_instr(op))
     }
-    TDrop(child) => {
+    TInstrKind::TDrop(child) => {
       tinstr_to_instr(child, instrs)
       instrs.push(Drop)
     }
-    TLocalSet(idx, child) => {
+    TInstrKind::TLocalSet(idx, child) => {
       tinstr_to_instr(child, instrs)
       instrs.push(LocalSet(idx))
     }
-    TLocalTee(idx, child) => {
+    TInstrKind::TLocalTee(idx, child) => {
       tinstr_to_instr(child, instrs)
       instrs.push(LocalTee(idx))
     }
-    TGlobalSet(idx, child) => {
+    TInstrKind::TGlobalSet(idx, child) => {
       tinstr_to_instr(child, instrs)
       instrs.push(GlobalSet(idx))
     }
-    TRefIsNull(child) => {
+    TInstrKind::TRefIsNull(child) => {
       tinstr_to_instr(child, instrs)
       instrs.push(RefIsNull)
     }
-    TRefAsNonNull(child) => {
+    TInstrKind::TRefAsNonNull(child) => {
       tinstr_to_instr(child, instrs)
       instrs.push(RefAsNonNull)
     }
-    TI31GetS(child) => {
+    TInstrKind::TI31GetS(child) => {
       tinstr_to_instr(child, instrs)
       instrs.push(I31GetS)
     }
-    TI31GetU(child) => {
+    TInstrKind::TI31GetU(child) => {
       tinstr_to_instr(child, instrs)
       instrs.push(I31GetU)
     }
-    TRefI31(child) => {
+    TInstrKind::TRefI31(child) => {
       tinstr_to_instr(child, instrs)
       instrs.push(RefI31)
     }
-    TArrayLen(child) => {
+    TInstrKind::TArrayLen(child) => {
       tinstr_to_instr(child, instrs)
       instrs.push(ArrayLen)
     }
-    TAnyConvertExtern(child) => {
+    TInstrKind::TAnyConvertExtern(child) => {
       tinstr_to_instr(child, instrs)
       instrs.push(AnyConvertExtern)
     }
-    TExternConvertAny(child) => {
+    TInstrKind::TExternConvertAny(child) => {
       tinstr_to_instr(child, instrs)
       instrs.push(ExternConvertAny)
     }
-    TThrowRef(child) => {
+    TInstrKind::TThrowRef(child) => {
       tinstr_to_instr(child, instrs)
       instrs.push(ThrowRef)
     }
 
     // === Binary ===
-    TBinary(op, lhs, rhs) => {
+    TInstrKind::TBinary(op, lhs, rhs) => {
       tinstr_to_instr(lhs, instrs)
       tinstr_to_instr(rhs, instrs)
       instrs.push(binary_op_to_instr(op))
     }
-    TRefEq(lhs, rhs) => {
+    TInstrKind::TRefEq(lhs, rhs) => {
       tinstr_to_instr(lhs, instrs)
       tinstr_to_instr(rhs, instrs)
       instrs.push(RefEq)
     }
-    TStore(op, memarg, addr, value) => {
+    TInstrKind::TStore(op, memarg, addr, value) => {
       tinstr_to_instr(addr, instrs)
       tinstr_to_instr(value, instrs)
       instrs.push(store_op_to_instr(op, memarg))
     }
 
     // === Load ===
-    TLoad(op, memarg, addr) => {
+    TInstrKind::TLoad(op, memarg, addr) => {
       tinstr_to_instr(addr, instrs)
       instrs.push(load_op_to_instr(op, memarg))
     }
 
     // === Memory operations ===
-    TMemoryGrow(idx, pages) => {
+    TInstrKind::TMemoryGrow(idx, pages) => {
       tinstr_to_instr(pages, instrs)
       instrs.push(MemoryGrow(idx))
     }
-    TMemoryFill(idx, dest, val, len) => {
+    TInstrKind::TMemoryFill(idx, dest, val, len) => {
       tinstr_to_instr(dest, instrs)
       tinstr_to_instr(val, instrs)
       tinstr_to_instr(len, instrs)
       instrs.push(MemoryFill(idx))
     }
-    TMemoryCopy(dst, src, dst_addr, src_addr, len) => {
+    TInstrKind::TMemoryCopy(dst, src, dst_addr, src_addr, len) => {
       tinstr_to_instr(dst_addr, instrs)
       tinstr_to_instr(src_addr, instrs)
       tinstr_to_instr(len, instrs)
       instrs.push(MemoryCopy(dst, src))
     }
-    TMemoryInit(data_idx, mem_idx, dst, src, len) => {
+    TInstrKind::TMemoryInit(data_idx, mem_idx, dst, src, len) => {
       tinstr_to_instr(dst, instrs)
       tinstr_to_instr(src, instrs)
       tinstr_to_instr(len, instrs)
       instrs.push(MemoryInit(data_idx, mem_idx))
     }
-    TDataDrop(idx) => instrs.push(DataDrop(idx))
-    TMemoryAtomicNotify(memarg, addr, count) => {
+    TInstrKind::TDataDrop(idx) => instrs.push(DataDrop(idx))
+    TInstrKind::TMemoryAtomicNotify(memarg, addr, count) => {
       tinstr_to_instr(addr, instrs)
       tinstr_to_instr(count, instrs)
       instrs.push(MemoryAtomicNotify(memarg))
     }
-    TMemoryAtomicWait32(memarg, addr, expected, timeout) => {
+    TInstrKind::TMemoryAtomicWait32(memarg, addr, expected, timeout) => {
       tinstr_to_instr(addr, instrs)
       tinstr_to_instr(expected, instrs)
       tinstr_to_instr(timeout, instrs)
       instrs.push(MemoryAtomicWait32(memarg))
     }
-    TMemoryAtomicWait64(memarg, addr, expected, timeout) => {
+    TInstrKind::TMemoryAtomicWait64(memarg, addr, expected, timeout) => {
       tinstr_to_instr(addr, instrs)
       tinstr_to_instr(expected, instrs)
       tinstr_to_instr(timeout, instrs)
       instrs.push(MemoryAtomicWait64(memarg))
     }
-    TAtomicFence => instrs.push(AtomicFence)
-    TAtomicRmw(op, memarg, addr, value) => {
+    TInstrKind::TAtomicFence => instrs.push(AtomicFence)
+    TInstrKind::TAtomicRmw(op, memarg, addr, value) => {
       tinstr_to_instr(addr, instrs)
       tinstr_to_instr(value, instrs)
       instrs.push(AtomicRmw(op, memarg))
     }
-    TAtomicCmpxchg(op, memarg, addr, expected, replacement) => {
+    TInstrKind::TAtomicCmpxchg(op, memarg, addr, expected, replacement) => {
       tinstr_to_instr(addr, instrs)
       tinstr_to_instr(expected, instrs)
       tinstr_to_instr(replacement, instrs)
@@ -190,75 +190,75 @@ fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
     }
 
     // === Table operations ===
-    TTableGet(idx, i) => {
+    TInstrKind::TTableGet(idx, i) => {
       tinstr_to_instr(i, instrs)
       instrs.push(TableGet(idx))
     }
-    TTableSet(idx, i, val) => {
+    TInstrKind::TTableSet(idx, i, val) => {
       tinstr_to_instr(i, instrs)
       tinstr_to_instr(val, instrs)
       instrs.push(TableSet(idx))
     }
-    TTableGrow(idx, val, n) => {
+    TInstrKind::TTableGrow(idx, val, n) => {
       tinstr_to_instr(val, instrs)
       tinstr_to_instr(n, instrs)
       instrs.push(TableGrow(idx))
     }
-    TTableFill(idx, i, val, n) => {
+    TInstrKind::TTableFill(idx, i, val, n) => {
       tinstr_to_instr(i, instrs)
       tinstr_to_instr(val, instrs)
       tinstr_to_instr(n, instrs)
       instrs.push(TableFill(idx))
     }
-    TTableCopy(dst, src, d, s, n) => {
+    TInstrKind::TTableCopy(dst, src, d, s, n) => {
       tinstr_to_instr(d, instrs)
       tinstr_to_instr(s, instrs)
       tinstr_to_instr(n, instrs)
       instrs.push(TableCopy(dst, src))
     }
-    TTableInit(elem_idx, table_idx, d, s, n) => {
+    TInstrKind::TTableInit(elem_idx, table_idx, d, s, n) => {
       tinstr_to_instr(d, instrs)
       tinstr_to_instr(s, instrs)
       tinstr_to_instr(n, instrs)
       instrs.push(TableInit(elem_idx, table_idx))
     }
-    TElemDrop(idx) => instrs.push(ElemDrop(idx))
+    TInstrKind::TElemDrop(idx) => instrs.push(ElemDrop(idx))
 
     // === Calls ===
-    TCall(func_idx, args) => {
+    TInstrKind::TCall(func_idx, args) => {
       for arg in args {
         tinstr_to_instr(arg, instrs)
       }
       instrs.push(Call(func_idx))
     }
-    TCallIndirect(type_idx, table_idx, args, idx) => {
+    TInstrKind::TCallIndirect(type_idx, table_idx, args, idx) => {
       for arg in args {
         tinstr_to_instr(arg, instrs)
       }
       tinstr_to_instr(idx, instrs)
       instrs.push(CallIndirect(type_idx, table_idx))
     }
-    TCallRef(type_idx, args, ref_) => {
+    TInstrKind::TCallRef(type_idx, args, ref_) => {
       for arg in args {
         tinstr_to_instr(arg, instrs)
       }
       tinstr_to_instr(ref_, instrs)
       instrs.push(CallRef(type_idx))
     }
-    TReturnCall(func_idx, args) => {
+    TInstrKind::TReturnCall(func_idx, args) => {
       for arg in args {
         tinstr_to_instr(arg, instrs)
       }
       instrs.push(ReturnCall(func_idx))
     }
-    TReturnCallIndirect(type_idx, table_idx, args, idx) => {
+    TInstrKind::TReturnCallIndirect(type_idx, table_idx, args, idx) => {
       for arg in args {
         tinstr_to_instr(arg, instrs)
       }
       tinstr_to_instr(idx, instrs)
       instrs.push(ReturnCallIndirect(type_idx, table_idx))
     }
-    TReturnCallRef(type_idx, args, ref_) => {
+    TInstrKind::TReturnCallRef(type_idx, args, ref_) => {
       for arg in args {
         tinstr_to_instr(arg, instrs)
       }
@@ -267,21 +267,21 @@ fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
     }
 
     // === Control flow ===
-    TBlock(bt, body) => {
+    TInstrKind::TBlock(bt, body) => {
       let body_instrs : Array[Instruction] = []
       for value in body.instrs {
         tinstr_to_instr(value, body_instrs)
       }
       instrs.push(Block(bt, Expr(body_instrs)))
     }
-    TLoop(bt, body) => {
+    TInstrKind::TLoop(bt, body) => {
       let body_instrs : Array[Instruction] = []
       for value in body.instrs {
         tinstr_to_instr(value, body_instrs)
       }
       instrs.push(Loop(bt, Expr(body_instrs)))
     }
-    TIf(bt, cond, then_branch, else_branch) => {
+    TInstrKind::TIf(bt, cond, then_branch, else_branch) => {
       tinstr_to_instr(cond, instrs)
       let then_instrs : Array[Instruction] = []
       for value in then_branch.instrs {
@@ -299,14 +299,14 @@ fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
       }
       instrs.push(If(bt, then_instrs, else_instrs))
     }
-    TTryTable(bt, catches, body) => {
+    TInstrKind::TTryTable(bt, catches, body) => {
       let body_instrs : Array[Instruction] = []
       for value in body.instrs {
         tinstr_to_instr(value, body_instrs)
       }
       instrs.push(TryTable(bt, catches, Expr(body_instrs)))
     }
-    TThrow(tag_idx, args) => {
+    TInstrKind::TThrow(tag_idx, args) => {
       for arg in args {
         tinstr_to_instr(arg, instrs)
       }
@@ -314,62 +314,62 @@ fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
     }
 
     // === Branches ===
-    TBr(label, values) => {
+    TInstrKind::TBr(label, values) => {
       for value in values {
         tinstr_to_instr(value, instrs)
       }
       instrs.push(Br(label))
     }
-    TBrIf(label, cond, values) => {
+    TInstrKind::TBrIf(label, cond, values) => {
       for value in values {
         tinstr_to_instr(value, instrs)
       }
       tinstr_to_instr(cond, instrs)
       instrs.push(BrIf(label))
     }
-    TBrTable(labels, default, idx, values) => {
+    TInstrKind::TBrTable(labels, default, idx, values) => {
       for value in values {
         tinstr_to_instr(value, instrs)
       }
       tinstr_to_instr(idx, instrs)
       instrs.push(BrTable(labels, default))
     }
-    TBrOnNull(label, ref_, values) => {
+    TInstrKind::TBrOnNull(label, ref_, values) => {
       for value in values {
         tinstr_to_instr(value, instrs)
       }
       tinstr_to_instr(ref_, instrs)
       instrs.push(BrOnNull(label))
     }
-    TBrOnNonNull(label, ref_, values) => {
+    TInstrKind::TBrOnNonNull(label, ref_, values) => {
       for value in values {
         tinstr_to_instr(value, instrs)
       }
       tinstr_to_instr(ref_, instrs)
       instrs.push(BrOnNonNull(label))
     }
-    TBrOnCast(label, castop, ht1, ht2, ref_, values) => {
+    TInstrKind::TBrOnCast(label, castop, ht1, ht2, ref_, values) => {
       for value in values {
         tinstr_to_instr(value, instrs)
       }
       tinstr_to_instr(ref_, instrs)
       instrs.push(BrOnCast(label, castop, ht1, ht2))
     }
-    TBrOnCastFail(label, castop, ht1, ht2, ref_, values) => {
+    TInstrKind::TBrOnCastFail(label, castop, ht1, ht2, ref_, values) => {
       for value in values {
         tinstr_to_instr(value, instrs)
       }
       tinstr_to_instr(ref_, instrs)
       instrs.push(BrOnCastFail(label, castop, ht1, ht2))
     }
-    TReturn(values) => {
+    TInstrKind::TReturn(values) => {
       for value in values {
         tinstr_to_instr(value, instrs)
       }
       instrs.push(Return)
     }
     // === Select ===
-    TSelect(types, cond, val1, val2) => {
+    TInstrKind::TSelect(types, cond, val1, val2) => {
       tinstr_to_instr(val1, instrs)
       tinstr_to_instr(val2, instrs)
       tinstr_to_instr(cond, instrs)
@@ -377,42 +377,43 @@ fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
     }
 
     // === GC: Structs ===
-    TStructNew(type_idx, fields) => {
+    TInstrKind::TStructNew(type_idx, fields) => {
       for field in fields {
         tinstr_to_instr(field, instrs)
       }
       instrs.push(StructNew(type_idx))
     }
-    TStructNewDefault(type_idx) => instrs.push(StructNewDefault(type_idx))
-    TStructGet(type_idx, field_idx, struct_ref) => {
+    TInstrKind::TStructNewDefault(type_idx) =>
+      instrs.push(StructNewDefault(type_idx))
+    TInstrKind::TStructGet(type_idx, field_idx, struct_ref) => {
       tinstr_to_instr(struct_ref, instrs)
       instrs.push(StructGet(type_idx, field_idx))
     }
-    TStructGetS(type_idx, field_idx, struct_ref) => {
+    TInstrKind::TStructGetS(type_idx, field_idx, struct_ref) => {
       tinstr_to_instr(struct_ref, instrs)
       instrs.push(StructGetS(type_idx, field_idx))
     }
-    TStructGetU(type_idx, field_idx, struct_ref) => {
+    TInstrKind::TStructGetU(type_idx, field_idx, struct_ref) => {
       tinstr_to_instr(struct_ref, instrs)
       instrs.push(StructGetU(type_idx, field_idx))
     }
-    TStructSet(type_idx, field_idx, struct_ref, val) => {
+    TInstrKind::TStructSet(type_idx, field_idx, struct_ref, val) => {
       tinstr_to_instr(struct_ref, instrs)
       tinstr_to_instr(val, instrs)
       instrs.push(StructSet(type_idx, field_idx))
     }
 
     // === GC: Arrays ===
-    TArrayNew(type_idx, init, len) => {
+    TInstrKind::TArrayNew(type_idx, init, len) => {
       tinstr_to_instr(init, instrs)
       tinstr_to_instr(len, instrs)
       instrs.push(ArrayNew(type_idx))
     }
-    TArrayNewDefault(type_idx, len) => {
+    TInstrKind::TArrayNewDefault(type_idx, len) => {
       tinstr_to_instr(len, instrs)
       instrs.push(ArrayNewDefault(type_idx))
     }
-    TArrayNewFixed(type_idx, elems) => {
+    TInstrKind::TArrayNewFixed(type_idx, elems) => {
       for elem in elems {
         tinstr_to_instr(elem, instrs)
       }
@@ -420,45 +421,53 @@ fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
         ArrayNewFixed(type_idx, U32(elems.length().reinterpret_as_uint())),
       )
     }
-    TArrayNewData(type_idx, data_idx, offset, len) => {
+    TInstrKind::TArrayNewData(type_idx, data_idx, offset, len) => {
       tinstr_to_instr(offset, instrs)
       tinstr_to_instr(len, instrs)
       instrs.push(ArrayNewData(type_idx, data_idx))
     }
-    TArrayNewElem(type_idx, elem_idx, offset, len) => {
+    TInstrKind::TArrayNewElem(type_idx, elem_idx, offset, len) => {
       tinstr_to_instr(offset, instrs)
       tinstr_to_instr(len, instrs)
       instrs.push(ArrayNewElem(type_idx, elem_idx))
     }
-    TArrayGet(type_idx, arr, idx) => {
+    TInstrKind::TArrayGet(type_idx, arr, idx) => {
       tinstr_to_instr(arr, instrs)
       tinstr_to_instr(idx, instrs)
       instrs.push(ArrayGet(type_idx))
     }
-    TArrayGetS(type_idx, arr, idx) => {
+    TInstrKind::TArrayGetS(type_idx, arr, idx) => {
       tinstr_to_instr(arr, instrs)
       tinstr_to_instr(idx, instrs)
       instrs.push(ArrayGetS(type_idx))
     }
-    TArrayGetU(type_idx, arr, idx) => {
+    TInstrKind::TArrayGetU(type_idx, arr, idx) => {
       tinstr_to_instr(arr, instrs)
       tinstr_to_instr(idx, instrs)
       instrs.push(ArrayGetU(type_idx))
     }
-    TArraySet(type_idx, arr, idx, val) => {
+    TInstrKind::TArraySet(type_idx, arr, idx, val) => {
       tinstr_to_instr(arr, instrs)
       tinstr_to_instr(idx, instrs)
       tinstr_to_instr(val, instrs)
       instrs.push(ArraySet(type_idx))
     }
-    TArrayFill(type_idx, arr, offset, val, len) => {
+    TInstrKind::TArrayFill(type_idx, arr, offset, val, len) => {
       tinstr_to_instr(arr, instrs)
       tinstr_to_instr(offset, instrs)
       tinstr_to_instr(val, instrs)
       tinstr_to_instr(len, instrs)
       instrs.push(ArrayFill(type_idx))
     }
-    TArrayCopy(dst_type, src_type, dst, dst_offset, src, src_offset, len) => {
+    TInstrKind::TArrayCopy(
+      dst_type,
+      src_type,
+      dst,
+      dst_offset,
+      src,
+      src_offset,
+      len
+    ) => {
       tinstr_to_instr(dst, instrs)
       tinstr_to_instr(dst_offset, instrs)
       tinstr_to_instr(src, instrs)
@@ -466,14 +475,14 @@ fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
       tinstr_to_instr(len, instrs)
       instrs.push(ArrayCopy(dst_type, src_type))
     }
-    TArrayInitData(type_idx, data_idx, arr, dst, src, len) => {
+    TInstrKind::TArrayInitData(type_idx, data_idx, arr, dst, src, len) => {
       tinstr_to_instr(arr, instrs)
       tinstr_to_instr(dst, instrs)
       tinstr_to_instr(src, instrs)
       tinstr_to_instr(len, instrs)
       instrs.push(ArrayInitData(type_idx, data_idx))
     }
-    TArrayInitElem(type_idx, elem_idx, arr, dst, src, len) => {
+    TInstrKind::TArrayInitElem(type_idx, elem_idx, arr, dst, src, len) => {
       tinstr_to_instr(arr, instrs)
       tinstr_to_instr(dst, instrs)
       tinstr_to_instr(src, instrs)
@@ -482,68 +491,68 @@ fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
     }
 
     // === GC: Casts ===
-    TRefGetDesc(ref_) => {
+    TInstrKind::TRefGetDesc(ref_) => {
       tinstr_to_instr(ref_, instrs)
       instrs.push(RefGetDesc)
     }
-    TRefTest(nullable, ht, ref_) => {
+    TInstrKind::TRefTest(nullable, ht, ref_) => {
       tinstr_to_instr(ref_, instrs)
       instrs.push(RefTest(nullable, ht))
     }
-    TRefCast(nullable, ht, ref_) => {
+    TInstrKind::TRefCast(nullable, ht, ref_) => {
       tinstr_to_instr(ref_, instrs)
       instrs.push(RefCast(nullable, ht))
     }
-    TRefTestDesc(nullable, ht, ref_) => {
+    TInstrKind::TRefTestDesc(nullable, ht, ref_) => {
       tinstr_to_instr(ref_, instrs)
       instrs.push(RefTestDesc(nullable, ht))
     }
-    TRefCastDescEq(nullable, ht, ref_) => {
+    TInstrKind::TRefCastDescEq(nullable, ht, ref_) => {
       tinstr_to_instr(ref_, instrs)
       instrs.push(RefCastDescEq(nullable, ht))
     }
 
     // === SIMD: Splat ===
-    TI8x16Splat(val) => {
+    TInstrKind::TI8x16Splat(val) => {
       tinstr_to_instr(val, instrs)
       instrs.push(I8x16Splat)
     }
-    TI16x8Splat(val) => {
+    TInstrKind::TI16x8Splat(val) => {
       tinstr_to_instr(val, instrs)
       instrs.push(I16x8Splat)
     }
-    TI32x4Splat(val) => {
+    TInstrKind::TI32x4Splat(val) => {
       tinstr_to_instr(val, instrs)
       instrs.push(I32x4Splat)
     }
-    TI64x2Splat(val) => {
+    TInstrKind::TI64x2Splat(val) => {
       tinstr_to_instr(val, instrs)
       instrs.push(I64x2Splat)
     }
-    TF32x4Splat(val) => {
+    TInstrKind::TF32x4Splat(val) => {
       tinstr_to_instr(val, instrs)
       instrs.push(F32x4Splat)
     }
-    TF64x2Splat(val) => {
+    TInstrKind::TF64x2Splat(val) => {
       tinstr_to_instr(val, instrs)
       instrs.push(F64x2Splat)
     }
 
     // === SIMD: Extract lane ===
-    TExtractLane(op, lane, vec) => {
+    TInstrKind::TExtractLane(op, lane, vec) => {
       tinstr_to_instr(vec, instrs)
       instrs.push(extract_lane_op_to_instr(op, lane))
     }
 
     // === SIMD: Replace lane ===
-    TReplaceLane(op, lane, vec, val) => {
+    TInstrKind::TReplaceLane(op, lane, vec, val) => {
       tinstr_to_instr(vec, instrs)
       tinstr_to_instr(val, instrs)
       instrs.push(replace_lane_op_to_instr(op, lane))
     }
 
     // === SIMD: Shuffle ===
-    TI8x16Shuffle(
+    TInstrKind::TI8x16Shuffle(
       l0,
       l1,
       l2,
@@ -573,26 +582,26 @@ fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
     }
 
     // === SIMD: Swizzle ===
-    TI8x16Swizzle(vec, indices) => {
+    TInstrKind::TI8x16Swizzle(vec, indices) => {
       tinstr_to_instr(vec, instrs)
       tinstr_to_instr(indices, instrs)
       instrs.push(I8x16Swizzle)
     }
-    TI8x16RelaxedSwizzle(vec, indices) => {
+    TInstrKind::TI8x16RelaxedSwizzle(vec, indices) => {
       tinstr_to_instr(vec, instrs)
       tinstr_to_instr(indices, instrs)
       instrs.push(I8x16RelaxedSwizzle)
     }
 
     // === SIMD: Shift ===
-    TV128Shift(op, vec, shift) => {
+    TInstrKind::TV128Shift(op, vec, shift) => {
       tinstr_to_instr(vec, instrs)
       tinstr_to_instr(shift, instrs)
       instrs.push(v128_shift_op_to_instr(op))
     }
 
     // === SIMD: Ternary ===
-    TV128Ternary(op, v1, v2, v3) => {
+    TInstrKind::TV128Ternary(op, v1, v2, v3) => {
       tinstr_to_instr(v1, instrs)
       tinstr_to_instr(v2, instrs)
       tinstr_to_instr(v3, instrs)
@@ -600,14 +609,14 @@ fn tinstr_to_instr(tinstr : TInstr, instrs : Array[Instruction]) -> Unit {
     }
 
     // === SIMD: Lane load ===
-    TV128LoadLane(op, memarg, lane, addr, vec) => {
+    TInstrKind::TV128LoadLane(op, memarg, lane, addr, vec) => {
       tinstr_to_instr(addr, instrs)
       tinstr_to_instr(vec, instrs)
       instrs.push(v128_load_lane_op_to_instr(op, memarg, lane))
     }
 
     // === SIMD: Lane store ===
-    TV128StoreLane(op, memarg, lane, addr, vec) => {
+    TInstrKind::TV128StoreLane(op, memarg, lane, addr, vec) => {
       tinstr_to_instr(addr, instrs)
       tinstr_to_instr(vec, instrs)
       instrs.push(v128_store_lane_op_to_instr(op, memarg, lane))

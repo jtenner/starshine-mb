@@ -106,9 +106,9 @@ fn rut_mark_module_roots(mod : Module) -> Set[Int] {
       unchanged()
     })
     .on_tinstruction_evt(fn(self, _, instr) {
-      match instr {
-        TRefTestDesc(_, ht, _) | TRefCastDescEq(_, ht, _) =>
-          rut_mark_heaptype(roots, ht)
+      match instr.kind {
+        TInstrKind::TRefTestDesc(_, ht, _)
+        | TInstrKind::TRefCastDescEq(_, ht, _) => rut_mark_heaptype(roots, ht)
         _ => ()
       }
       self.walk_tinstruction_default((), instr)
@@ -729,7 +729,24 @@ test "remove_unused_types remaps references after deletion" {
   }
   match out.code_sec {
     Some(
-      CodeSec([TFunc(_, { instrs: [TDrop(TStructNew(TypeIdx(0), []))], .. })])
+      CodeSec(
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                {
+                  kind: TInstrKind::TDrop(
+                    { kind: TInstrKind::TStructNew(TypeIdx(0), []), .. }
+                  ),
+                  ..,
+                },
+              ],
+              ..,
+            }
+          ),
+        ]
+      )
     ) => ()
     _ => fail("expected struct.new type index remap")
   }

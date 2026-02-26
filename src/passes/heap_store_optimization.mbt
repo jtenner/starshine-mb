@@ -132,115 +132,124 @@ fn HSOEffects::has_non_control_side_effects(self : HSOEffects) -> Bool {
 fn hso_collect_effects(instr : TInstr) -> HSOEffects {
   let effects = HSOEffects::new()
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
-    match curr {
-      TLocalGet(idx) => effects.locals_read.add(idx)
-      TLocalSet(idx, _) => effects.locals_written.add(idx)
-      TLocalTee(idx, _) => {
+    match curr.kind {
+      TInstrKind::TLocalGet(idx) => effects.locals_read.add(idx)
+      TInstrKind::TLocalSet(idx, _) => effects.locals_written.add(idx)
+      TInstrKind::TLocalTee(idx, _) => {
         effects.locals_read.add(idx)
         effects.locals_written.add(idx)
       }
-      TGlobalGet(_) => effects.reads_globals = true
-      TGlobalSet(_, _) => effects.writes_globals = true
-      TLoad(_, _, _) => {
+      TInstrKind::TGlobalGet(_) => effects.reads_globals = true
+      TInstrKind::TGlobalSet(_, _) => effects.writes_globals = true
+      TInstrKind::TLoad(_, _, _) => {
         effects.reads_memory = true
         effects.traps = true
       }
-      TStore(_, _, _, _) => {
+      TInstrKind::TStore(_, _, _, _) => {
         effects.writes_memory = true
         effects.traps = true
       }
-      TMemoryGrow(_, _) => effects.writes_memory = true
-      TMemorySize(_) => effects.reads_memory = true
-      TMemoryCopy(_, _, _, _, _) => {
+      TInstrKind::TMemoryGrow(_, _) => effects.writes_memory = true
+      TInstrKind::TMemorySize(_) => effects.reads_memory = true
+      TInstrKind::TMemoryCopy(_, _, _, _, _) => {
         effects.reads_memory = true
         effects.writes_memory = true
       }
-      TMemoryFill(_, _, _, _) => effects.writes_memory = true
-      TMemoryInit(_, _, _, _, _) => {
+      TInstrKind::TMemoryFill(_, _, _, _) => effects.writes_memory = true
+      TInstrKind::TMemoryInit(_, _, _, _, _) => {
         effects.reads_memory = true
         effects.writes_memory = true
       }
-      TDataDrop(_) => effects.writes_memory = true
-      TMemoryAtomicNotify(_, _, _)
-      | TMemoryAtomicWait32(_, _, _, _)
-      | TMemoryAtomicWait64(_, _, _, _) => {
+      TInstrKind::TDataDrop(_) => effects.writes_memory = true
+      TInstrKind::TMemoryAtomicNotify(_, _, _)
+      | TInstrKind::TMemoryAtomicWait32(_, _, _, _)
+      | TInstrKind::TMemoryAtomicWait64(_, _, _, _) => {
         effects.reads_memory = true
         effects.traps = true
       }
-      TAtomicRmw(_, _, _, _) | TAtomicCmpxchg(_, _, _, _, _) => {
+      TInstrKind::TAtomicRmw(_, _, _, _)
+      | TInstrKind::TAtomicCmpxchg(_, _, _, _, _) => {
         effects.reads_memory = true
         effects.writes_memory = true
         effects.traps = true
       }
-      TAtomicFence =>
+      TInstrKind::TAtomicFence =>
         // Keep ordering-sensitive synchronization effects as memory reads.
         effects.reads_memory = true
-      TTableSet(_, _, _) | TTableGrow(_, _, _) | TTableFill(_, _, _, _) =>
-        effects.writes_memory = true
-      TTableGet(_, _) | TTableSize(_) => effects.reads_memory = true
-      TTableCopy(_, _, _, _, _) | TTableInit(_, _, _, _, _) | TElemDrop(_) => {
+      TInstrKind::TTableSet(_, _, _)
+      | TInstrKind::TTableGrow(_, _, _)
+      | TInstrKind::TTableFill(_, _, _, _) => effects.writes_memory = true
+      TInstrKind::TTableGet(_, _) | TInstrKind::TTableSize(_) =>
+        effects.reads_memory = true
+      TInstrKind::TTableCopy(_, _, _, _, _)
+      | TInstrKind::TTableInit(_, _, _, _, _)
+      | TInstrKind::TElemDrop(_) => {
         effects.reads_memory = true
         effects.writes_memory = true
       }
-      TCall(_, _) | TCallIndirect(_, _, _, _) | TCallRef(_, _, _) =>
-        effects.calls = true
-      TReturnCall(_, _)
-      | TReturnCallIndirect(_, _, _, _)
-      | TReturnCallRef(_, _, _) => {
+      TInstrKind::TCall(_, _)
+      | TInstrKind::TCallIndirect(_, _, _, _)
+      | TInstrKind::TCallRef(_, _, _) => effects.calls = true
+      TInstrKind::TReturnCall(_, _)
+      | TInstrKind::TReturnCallIndirect(_, _, _, _)
+      | TInstrKind::TReturnCallRef(_, _, _) => {
         effects.calls = true
         effects.branches = true
       }
-      TBr(_, _)
-      | TBrIf(_, _, _)
-      | TBrTable(_, _, _, _)
-      | TBrOnNull(_, _, _)
-      | TBrOnNonNull(_, _, _)
-      | TBrOnCast(_, _, _, _, _, _)
-      | TBrOnCastFail(_, _, _, _, _, _)
-      | TReturn(_) => effects.branches = true
-      TThrow(_, _) => {
+      TInstrKind::TBr(_, _)
+      | TInstrKind::TBrIf(_, _, _)
+      | TInstrKind::TBrTable(_, _, _, _)
+      | TInstrKind::TBrOnNull(_, _, _)
+      | TInstrKind::TBrOnNonNull(_, _, _)
+      | TInstrKind::TBrOnCast(_, _, _, _, _, _)
+      | TInstrKind::TBrOnCastFail(_, _, _, _, _, _)
+      | TInstrKind::TReturn(_) => effects.branches = true
+      TInstrKind::TThrow(_, _) => {
         effects.throws = true
         effects.branches = true
       }
-      TThrowRef(_) => {
+      TInstrKind::TThrowRef(_) => {
         effects.throws = true
         effects.branches = true
       }
-      TUnreachable => effects.traps = true
-      TRefAsNonNull(_) | TRefCast(_, _, _) => effects.traps = true
-      TStructGet(_, _, _) | TStructGetS(_, _, _) | TStructGetU(_, _, _) => {
+      TInstrKind::TUnreachable => effects.traps = true
+      TInstrKind::TRefAsNonNull(_) | TInstrKind::TRefCast(_, _, _) =>
+        effects.traps = true
+      TInstrKind::TStructGet(_, _, _)
+      | TInstrKind::TStructGetS(_, _, _)
+      | TInstrKind::TStructGetU(_, _, _) => {
         effects.reads_memory = true
         effects.traps = true
       }
-      TStructSet(_, _, _, _) => {
+      TInstrKind::TStructSet(_, _, _, _) => {
         effects.writes_memory = true
         effects.traps = true
       }
-      TArrayNew(_, _, _)
-      | TArrayNewDefault(_, _)
-      | TArrayNewFixed(_, _)
-      | TArrayNewData(_, _, _, _)
-      | TArrayNewElem(_, _, _, _) => {
+      TInstrKind::TArrayNew(_, _, _)
+      | TInstrKind::TArrayNewDefault(_, _)
+      | TInstrKind::TArrayNewFixed(_, _)
+      | TInstrKind::TArrayNewData(_, _, _, _)
+      | TInstrKind::TArrayNewElem(_, _, _, _) => {
         effects.writes_memory = true
         effects.traps = true
       }
-      TArrayGet(_, _, _)
-      | TArrayGetS(_, _, _)
-      | TArrayGetU(_, _, _)
-      | TArrayLen(_) => {
+      TInstrKind::TArrayGet(_, _, _)
+      | TInstrKind::TArrayGetS(_, _, _)
+      | TInstrKind::TArrayGetU(_, _, _)
+      | TInstrKind::TArrayLen(_) => {
         effects.reads_memory = true
         effects.traps = true
       }
-      TArraySet(_, _, _, _)
-      | TArrayFill(_, _, _, _, _)
-      | TArrayCopy(_, _, _, _, _, _, _)
-      | TArrayInitData(_, _, _, _, _, _)
-      | TArrayInitElem(_, _, _, _, _, _) => {
+      TInstrKind::TArraySet(_, _, _, _)
+      | TInstrKind::TArrayFill(_, _, _, _, _)
+      | TInstrKind::TArrayCopy(_, _, _, _, _, _, _)
+      | TInstrKind::TArrayInitData(_, _, _, _, _, _)
+      | TInstrKind::TArrayInitElem(_, _, _, _, _, _) => {
         effects.reads_memory = true
         effects.writes_memory = true
         effects.traps = true
       }
-      TBinary(op, _, _) =>
+      TInstrKind::TBinary(op, _, _) =>
         match op {
           I32DivSOp
           | I32DivUOp
@@ -252,7 +261,7 @@ fn hso_collect_effects(instr : TInstr) -> HSOEffects {
           | I64RemUOp => effects.traps = true
           _ => ()
         }
-      TUnary(op, _) =>
+      TInstrKind::TUnary(op, _) =>
         match op {
           I32TruncF32SOp
           | I32TruncF32UOp
@@ -308,8 +317,8 @@ fn hso_struct_field_default(field : FieldType) -> TInstr? {
 
 ///|
 fn hso_is_struct_new_like(instr : TInstr) -> Bool {
-  match instr {
-    TStructNew(_, _) | TStructNewDefault(_) => true
+  match instr.kind {
+    TInstrKind::TStructNew(_, _) | TInstrKind::TStructNewDefault(_) => true
     _ => false
   }
 }
@@ -322,8 +331,8 @@ fn hso_flatten_instrs_with_origin(
   origins : Array[Int],
 ) -> Unit {
   for instr in instrs {
-    match instr {
-      TIf(bt, cond, then_expr, else_expr) => {
+    match instr.kind {
+      TInstrKind::TIf(bt, cond, then_expr, else_expr) => {
         flat.push(TInstr::if_(bt, cond, TExpr::new([]), None))
         origins.push(origin)
         hso_flatten_instrs_with_origin(then_expr.instrs, origin, flat, origins)
@@ -354,8 +363,9 @@ fn hso_local_get_infos(list : Array[TInstr]) -> Array[HSOLocalGetInfo] {
       _,
       curr,
     ) {
-      match curr {
-        TLocalGet(local_idx) => infos.push({ local_idx, top_instr_idx: origin })
+      match curr.kind {
+        TInstrKind::TLocalGet(local_idx) =>
+          infos.push({ local_idx, top_instr_idx: origin })
         _ => ()
       }
       self.walk_tinstruction_default((), curr)
@@ -404,8 +414,8 @@ fn hso_can_skip_local_set(
 fn hso_compact_nops(list : Array[TInstr]) -> Unit {
   let next : Array[TInstr] = []
   for instr in list {
-    match instr {
-      TNop => ()
+    match instr.kind {
+      TInstrKind::TNop => ()
       _ => next.push(instr)
     }
   }
@@ -420,8 +430,11 @@ fn hso_try_swap(list : Array[TInstr], i : Int, j : Int) -> Bool {
   if j >= list.length() - 1 {
     return false
   }
-  match list[j] {
-    TLocalSet(_, value) => if hso_is_struct_new_like(value) { return false }
+  match list[j].kind {
+    TInstrKind::TLocalSet(_, value) =>
+      if hso_is_struct_new_like(value) {
+        return false
+      }
     _ => ()
   }
   let first_effects = hso_collect_effects(list[i])
@@ -438,8 +451,8 @@ fn hso_try_swap(list : Array[TInstr], i : Int, j : Int) -> Bool {
 ///|
 fn hso_collect_shallow_new_effects(instr : TInstr) -> HSOEffects {
   let effects = HSOEffects::new()
-  match instr {
-    TStructNew(_, _) | TStructNewDefault(_) => {
+  match instr.kind {
+    TInstrKind::TStructNew(_, _) | TInstrKind::TStructNewDefault(_) => {
       effects.writes_memory = true
       effects.traps = true
     }
@@ -489,8 +502,8 @@ fn hso_try_fold_into_new(
   set_value_effects : HSOEffects,
   can_skip_local_set : Bool,
 ) -> TInstr? {
-  let (new_type_idx, fields, operands) = match new_value {
-    TStructNew(type_idx, ops) =>
+  let (new_type_idx, fields, operands) = match new_value.kind {
+    TInstrKind::TStructNew(type_idx, ops) =>
       match env.resolve_struct_fields(type_idx) {
         Ok(fs) =>
           if fs.length() != ops.length() {
@@ -500,7 +513,7 @@ fn hso_try_fold_into_new(
           }
         Err(_) => return None
       }
-    TStructNewDefault(type_idx) =>
+    TInstrKind::TStructNewDefault(type_idx) =>
       match env.resolve_struct_fields(type_idx) {
         Ok(fs) => {
           let defaults : Array[TInstr] = []
@@ -558,16 +571,22 @@ fn hso_try_fold_into_new(
 fn hso_optimize_block_list(list : Array[TInstr], env : Env) -> Bool {
   let mut changed = false
   for i = 0; i < list.length(); i = i + 1 {
-    let (local_idx, local_value) = match list[i] {
-      TLocalSet(idx, value) if hso_is_struct_new_like(value) => (idx, value)
+    let (local_idx, local_value) = match list[i].kind {
+      TInstrKind::TLocalSet(idx, value) if hso_is_struct_new_like(value) =>
+        (idx, value)
       _ => continue
     }
     let mut local_set_index = i
     let mut current_new = local_value
     let mut j = local_set_index + 1
     while j < list.length() {
-      let matched = match list[j] {
-        TStructSet(set_type_idx, field_idx, TLocalGet(get_idx), set_value) =>
+      let matched = match list[j].kind {
+        TInstrKind::TStructSet(
+          set_type_idx,
+          field_idx,
+          { kind: TInstrKind::TLocalGet(get_idx), .. },
+          set_value
+        ) =>
           if get_idx == local_idx {
             Some((set_type_idx, field_idx, set_value))
           } else {
@@ -625,11 +644,11 @@ fn hso_rewrite_tinstruction(
     Ok(None) => (state, instr, false)
     Err(e) => return Err(e)
   }
-  match walked {
-    TStructSet(
+  match walked.kind {
+    TInstrKind::TStructSet(
       set_type_idx,
       field_idx,
-      TLocalTee(local_idx, new_value),
+      { kind: TInstrKind::TLocalTee(local_idx, new_value), .. },
       set_value
     ) => {
       let set_value_effects = hso_collect_effects(set_value)
@@ -731,8 +750,8 @@ fn run_heap_store_optimization(mod : Module) -> Module {
 fn hso_count_struct_sets(body : TExpr) -> Int {
   let mut count = 0
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TStructSet(_, _, _, _) => count += 1
+    match instr.kind {
+      TInstrKind::TStructSet(_, _, _, _) => count += 1
       _ => ()
     }
     self.walk_tinstruction_default((), instr)
@@ -781,18 +800,29 @@ test "heap store optimization rewrites nested tee+struct.set" {
         [
           TFunc(
             _,
-            { instrs: [TLocalSet(LocalIdx(idx), TStructNew(_, ops))], .. }
+            {
+              instrs: [
+                {
+                  kind: TInstrKind::TLocalSet(
+                    LocalIdx(idx),
+                    { kind: TInstrKind::TStructNew(_, ops), .. }
+                  ),
+                  ..,
+                },
+              ],
+              ..,
+            }
           ),
         ]
       )
     ) => {
       assert_eq(idx, 0U)
-      match ops[0] {
-        TI32Const(I32(v)) => assert_eq(v, 9)
+      match ops[0].kind {
+        TInstrKind::TI32Const(I32(v)) => assert_eq(v, 9)
         _ => fail("expected first field to be updated")
       }
-      match ops[1] {
-        TI32Const(I32(v)) => assert_eq(v, 2)
+      match ops[1].kind {
+        TInstrKind::TI32Const(I32(v)) => assert_eq(v, 2)
         _ => fail("expected second field to remain")
       }
     }
@@ -837,10 +867,28 @@ test "heap store optimization folds following struct.set in block list" {
   let out = run_heap_store_optimization(mod)
   match out.code_sec {
     Some(
-      CodeSec([TFunc(_, { instrs: [TLocalSet(_, TStructNew(_, ops))], .. })])
+      CodeSec(
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                {
+                  kind: TInstrKind::TLocalSet(
+                    _,
+                    { kind: TInstrKind::TStructNew(_, ops), .. }
+                  ),
+                  ..,
+                },
+              ],
+              ..,
+            }
+          ),
+        ]
+      )
     ) =>
-      match ops[1] {
-        TI32Const(I32(v)) => assert_eq(v, 7)
+      match ops[1].kind {
+        TInstrKind::TI32Const(I32(v)) => assert_eq(v, 7)
         _ => fail("expected folded second-field set")
       }
     _ => fail("expected folded block-list struct.set")
@@ -892,14 +940,32 @@ test "heap store optimization folds multiple struct.sets after local.set" {
   let out = run_heap_store_optimization(mod)
   match out.code_sec {
     Some(
-      CodeSec([TFunc(_, { instrs: [TLocalSet(_, TStructNew(_, ops))], .. })])
+      CodeSec(
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                {
+                  kind: TInstrKind::TLocalSet(
+                    _,
+                    { kind: TInstrKind::TStructNew(_, ops), .. }
+                  ),
+                  ..,
+                },
+              ],
+              ..,
+            }
+          ),
+        ]
+      )
     ) => {
-      match ops[0] {
-        TI32Const(I32(v)) => assert_eq(v, 9)
+      match ops[0].kind {
+        TInstrKind::TI32Const(I32(v)) => assert_eq(v, 9)
         _ => fail("expected first field updated")
       }
-      match ops[2] {
-        TI32Const(I32(v)) => assert_eq(v, 8)
+      match ops[2].kind {
+        TInstrKind::TI32Const(I32(v)) => assert_eq(v, 8)
         _ => fail("expected third field updated")
       }
     }
@@ -1100,7 +1166,24 @@ test "heap store optimization keeps old operand effects via drop sequence" {
             _,
             {
               instrs: [
-                TLocalSet(_, TStructNew(_, [TBlock(_, { instrs: seq, .. })])),
+                {
+                  kind: TInstrKind::TLocalSet(
+                    _,
+                    {
+                      kind: TInstrKind::TStructNew(
+                        _,
+                        [
+                          {
+                            kind: TInstrKind::TBlock(_, { instrs: seq, .. }),
+                            ..,
+                          },
+                        ]
+                      ),
+                      ..,
+                    }
+                  ),
+                  ..,
+                },
               ],
               ..,
             }
@@ -1109,7 +1192,10 @@ test "heap store optimization keeps old operand effects via drop sequence" {
       )
     ) =>
       match seq {
-        [TDrop(TCall(_, _)), TI32Const(I32(v))] => assert_eq(v, 7)
+        [
+          { kind: TInstrKind::TDrop({ kind: TInstrKind::TCall(_, _), .. }), .. },
+          { kind: TInstrKind::TI32Const(I32(v)), .. },
+        ] => assert_eq(v, 7)
         _ => fail("expected old value effect preserved via drop sequence")
       }
     _ => fail("expected call effect preserving rewrite")
@@ -1150,14 +1236,32 @@ test "heap store optimization folds into struct.new_default" {
   let out = run_heap_store_optimization(mod)
   match out.code_sec {
     Some(
-      CodeSec([TFunc(_, { instrs: [TLocalSet(_, TStructNew(_, ops))], .. })])
+      CodeSec(
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                {
+                  kind: TInstrKind::TLocalSet(
+                    _,
+                    { kind: TInstrKind::TStructNew(_, ops), .. }
+                  ),
+                  ..,
+                },
+              ],
+              ..,
+            }
+          ),
+        ]
+      )
     ) => {
-      match ops[0] {
-        TI32Const(I32(v)) => assert_eq(v, 0)
+      match ops[0].kind {
+        TInstrKind::TI32Const(I32(v)) => assert_eq(v, 0)
         _ => fail("expected default for first field")
       }
-      match ops[1] {
-        TI32Const(I32(v)) => assert_eq(v, 6)
+      match ops[1].kind {
+        TInstrKind::TI32Const(I32(v)) => assert_eq(v, 6)
         _ => fail("expected folded second field")
       }
     }

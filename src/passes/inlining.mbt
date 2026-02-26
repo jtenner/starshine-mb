@@ -186,8 +186,8 @@ fn il_compute_used_globally(mod : Module, total_funcs : Int) -> Array[Bool] {
     None => ()
   }
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TRefFunc(idx) => il_mark_func_used(used, idx)
+    match instr.kind {
+      TInstrKind::TRefFunc(idx) => il_mark_func_used(used, idx)
       _ => ()
     }
     self.walk_tinstruction_default((), instr)
@@ -233,43 +233,43 @@ fn il_measure_body(body : TExpr) -> Int {
 
 ///|
 fn il_is_non_control(instr : TInstr) -> Bool {
-  match instr {
-    TBlock(_, _)
-    | TLoop(_, _)
-    | TIf(_, _, _, _)
-    | TTryTable(_, _, _)
-    | TBr(_, _)
-    | TBrIf(_, _, _)
-    | TBrTable(_, _, _, _)
-    | TBrOnNull(_, _, _)
-    | TBrOnNonNull(_, _, _)
-    | TBrOnCast(_, _, _, _, _, _)
-    | TBrOnCastFail(_, _, _, _, _, _)
-    | TReturn(_)
-    | TCall(_, _)
-    | TCallIndirect(_, _, _, _)
-    | TCallRef(_, _, _)
-    | TReturnCall(_, _)
-    | TReturnCallIndirect(_, _, _, _)
-    | TReturnCallRef(_, _, _)
-    | TThrow(_, _)
-    | TThrowRef(_) => false
+  match instr.kind {
+    TInstrKind::TBlock(_, _)
+    | TInstrKind::TLoop(_, _)
+    | TInstrKind::TIf(_, _, _, _)
+    | TInstrKind::TTryTable(_, _, _)
+    | TInstrKind::TBr(_, _)
+    | TInstrKind::TBrIf(_, _, _)
+    | TInstrKind::TBrTable(_, _, _, _)
+    | TInstrKind::TBrOnNull(_, _, _)
+    | TInstrKind::TBrOnNonNull(_, _, _)
+    | TInstrKind::TBrOnCast(_, _, _, _, _, _)
+    | TInstrKind::TBrOnCastFail(_, _, _, _, _, _)
+    | TInstrKind::TReturn(_)
+    | TInstrKind::TCall(_, _)
+    | TInstrKind::TCallIndirect(_, _, _, _)
+    | TInstrKind::TCallRef(_, _, _)
+    | TInstrKind::TReturnCall(_, _)
+    | TInstrKind::TReturnCallIndirect(_, _, _, _)
+    | TInstrKind::TReturnCallRef(_, _, _)
+    | TInstrKind::TThrow(_, _)
+    | TInstrKind::TThrowRef(_) => false
     _ => true
   }
 }
 
 ///|
 fn il_is_trivial_leaf(instr : TInstr) -> Bool {
-  match instr {
-    TI32Const(_)
-    | TI64Const(_)
-    | TF32Const(_)
-    | TF64Const(_)
-    | TRefNull(_)
-    | TRefFunc(_)
-    | TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
-    | TLocalGet(_)
-    | TGlobalGet(_) => true
+  match instr.kind {
+    TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_)
+    | TInstrKind::TRefNull(_)
+    | TInstrKind::TRefFunc(_)
+    | TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    | TInstrKind::TLocalGet(_)
+    | TInstrKind::TGlobalGet(_) => true
     _ => false
   }
 }
@@ -286,8 +286,8 @@ fn il_is_shrink_wrapper(instr : TInstr, _param_count : Int) -> Bool {
   let seen : Set[Int] = Set::new()
   let mut last_idx = -1
   for child in children {
-    match child {
-      TLocalGet(LocalIdx(raw)) => {
+    match child.kind {
+      TInstrKind::TLocalGet(LocalIdx(raw)) => {
         let idx = raw.reinterpret_as_int()
         if seen.contains(idx) || idx < last_idx {
           return false
@@ -354,22 +354,23 @@ fn il_analyze_func(
         _,
         instr,
       ) {
-        match instr {
-          TLoop(_, _) => has_loops = true
-          TCall(_, _)
-          | TCallIndirect(_, _, _, _)
-          | TCallRef(_, _, _)
-          | TReturnCall(_, _)
-          | TReturnCallIndirect(_, _, _, _)
-          | TReturnCallRef(_, _, _) => {
+        match instr.kind {
+          TInstrKind::TLoop(_, _) => has_loops = true
+          TInstrKind::TCall(_, _)
+          | TInstrKind::TCallIndirect(_, _, _, _)
+          | TInstrKind::TCallRef(_, _, _)
+          | TInstrKind::TReturnCall(_, _)
+          | TInstrKind::TReturnCallIndirect(_, _, _, _)
+          | TInstrKind::TReturnCallRef(_, _, _) => {
             has_calls = true
-            match instr {
-              TCall(_, _) | TReturnCall(_, _) => direct_call_refs += 1
+            match instr.kind {
+              TInstrKind::TCall(_, _) | TInstrKind::TReturnCall(_, _) =>
+                direct_call_refs += 1
               _ => ()
             }
           }
-          TTryTable(_, _, _) => has_try_delegate = true
-          TRefFunc(_) => ref_func_refs += 1
+          TInstrKind::TTryTable(_, _, _) => has_try_delegate = true
+          TInstrKind::TRefFunc(_) => ref_func_refs += 1
           _ => ()
         }
         self.walk_tinstruction_default((), instr)
@@ -378,9 +379,9 @@ fn il_analyze_func(
       let FuncType(params, _) = func_type
       let tail_wrapper = if locals.is_empty() {
         match body.instrs {
-          [TReturnCall(_, _)] => true
-          [TReturnCallIndirect(_, _, _, _)] => true
-          [TReturnCallRef(_, _, _)] => true
+          [{ kind: TInstrKind::TReturnCall(_, _), .. }] => true
+          [{ kind: TInstrKind::TReturnCallIndirect(_, _, _, _), .. }] => true
+          [{ kind: TInstrKind::TReturnCallRef(_, _, _), .. }] => true
           _ => false
         }
       } else {
@@ -484,8 +485,8 @@ fn il_collect_callsites_for_body(
       change((), expr)
     })
     .on_tinstruction_evt(fn(self, _, instr) {
-      match instr {
-        TTryTable(bt, catches, try_body) => {
+      match instr.kind {
+        TInstrKind::TTryTable(bt, catches, try_body) => {
           try_depth += 1
           let walked_body = match self.walk_texpr((), try_body) {
             Ok(Some((_, next))) => next
@@ -513,8 +514,8 @@ fn il_collect_callsites_for_body(
           } else {
             true
           }
-          match walked {
-            TCall(fi, args) => {
+          match walked.kind {
+            TInstrKind::TCall(fi, args) => {
               let FuncIdx(raw) = fi
               let callee_abs_idx = raw.reinterpret_as_int()
               if is_reachable {
@@ -529,7 +530,7 @@ fn il_collect_callsites_for_body(
               }
               next_id += 1
             }
-            TReturnCall(fi, args) => {
+            TInstrKind::TReturnCall(fi, args) => {
               let FuncIdx(raw) = fi
               let callee_abs_idx = raw.reinterpret_as_int()
               if is_reachable {
@@ -873,9 +874,9 @@ fn il_rewrite_inlined_body(
         Ok(None) => instr
         Err(e) => return Err(e)
       }
-      let rewritten = match walked {
-        TReturn(values) => TInstr::br(LabelIdx::new(0), values)
-        TReturnCall(target, args) =>
+      let rewritten = match walked.kind {
+        TInstrKind::TReturn(values) => TInstr::br(LabelIdx::new(0), values)
+        TInstrKind::TReturnCall(target, args) =>
           if site_is_tail {
             TInstr::return_call(target, args)
           } else {
@@ -895,7 +896,7 @@ fn il_rewrite_inlined_body(
                 )
             }
           }
-        TReturnCallIndirect(type_idx, table_idx, args, idx) =>
+        TInstrKind::TReturnCallIndirect(type_idx, table_idx, args, idx) =>
           if site_is_tail {
             TInstr::return_call_indirect(type_idx, table_idx, args, idx)
           } else {
@@ -918,7 +919,7 @@ fn il_rewrite_inlined_body(
                 )
             }
           }
-        TReturnCallRef(type_idx, args, ref_) =>
+        TInstrKind::TReturnCallRef(type_idx, args, ref_) =>
           if site_is_tail {
             TInstr::return_call_ref(type_idx, args, ref_)
           } else {
@@ -967,8 +968,8 @@ fn il_substitute_params_in_instr(
       Ok(None) => curr
       Err(e) => return Err(e)
     }
-    match walked {
-      TLocalGet(LocalIdx(raw)) => {
+    match walked.kind {
+      TInstrKind::TLocalGet(LocalIdx(raw)) => {
         let idx = raw.reinterpret_as_int()
         match args.get(idx) {
           Some(arg) => change((), arg)
@@ -978,7 +979,7 @@ fn il_substitute_params_in_instr(
             )
         }
       }
-      TLocalSet(_, _) | TLocalTee(_, _) =>
+      TInstrKind::TLocalSet(_, _) | TInstrKind::TLocalTee(_, _) =>
         Err("inlining: tail wrapper local writes are unsupported")
       _ => if walked == curr { unchanged() } else { change((), walked) }
     }
@@ -996,7 +997,10 @@ fn il_inline_tail_wrapper_call(
   args : Array[TInstr],
 ) -> Result[TInstr?, String] {
   match callee_func {
-    TFunc(locals, { instrs: [TReturnCall(target, tail_args)], .. }) =>
+    TFunc(
+      locals,
+      { instrs: [{ kind: TInstrKind::TReturnCall(target, tail_args), .. }], .. }
+    ) =>
       if locals.is_empty() {
         match
           il_substitute_params_in_instr(
@@ -1011,7 +1015,20 @@ fn il_inline_tail_wrapper_call(
       }
     TFunc(
       locals,
-      { instrs: [TReturnCallIndirect(type_idx, table_idx, tail_args, idx)], .. }
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TReturnCallIndirect(
+              type_idx,
+              table_idx,
+              tail_args,
+              idx
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
     ) =>
       if locals.is_empty() {
         match
@@ -1025,7 +1042,15 @@ fn il_inline_tail_wrapper_call(
       } else {
         Ok(None)
       }
-    TFunc(locals, { instrs: [TReturnCallRef(type_idx, tail_args, ref_)], .. }) =>
+    TFunc(
+      locals,
+      {
+        instrs: [
+          { kind: TInstrKind::TReturnCallRef(type_idx, tail_args, ref_), .. },
+        ],
+        ..,
+      }
+    ) =>
       if locals.is_empty() {
         match
           il_substitute_params_in_instr(
@@ -1159,8 +1184,8 @@ fn il_prepare_hoisted_tail_call(
       return Err("inlining: expected a tail-wrapper callee for hoisting")
     Err(e) => return Err(e)
   }
-  match inlined {
-    TReturnCall(target, hoisted_args) => {
+  match inlined.kind {
+    TInstrKind::TReturnCall(target, hoisted_args) => {
       let FuncIdx(target_raw) = target
       let target_abs = target_raw.reinterpret_as_int()
       if target_abs < 0 || target_abs >= func_types.length() {
@@ -1197,7 +1222,7 @@ fn il_prepare_hoisted_tail_call(
       )
       Ok((replacement, flag_init, followup))
     }
-    TReturnCallIndirect(type_idx, table_idx, hoisted_args, idx) => {
+    TInstrKind::TReturnCallIndirect(type_idx, table_idx, hoisted_args, idx) => {
       let FuncType(target_params, _) = match env.resolve_functype(type_idx) {
         Some(ft) => ft
         None =>
@@ -1248,7 +1273,7 @@ fn il_prepare_hoisted_tail_call(
       )
       Ok((replacement, flag_init, followup))
     }
-    TReturnCallRef(type_idx, hoisted_args, ref_) => {
+    TInstrKind::TReturnCallRef(type_idx, hoisted_args, ref_) => {
       let FuncType(target_params, _) = match env.resolve_functype(type_idx) {
         Some(ft) => ft
         None =>
@@ -1337,8 +1362,8 @@ fn il_apply_actions_to_func(
         _,
         instr,
       ) {
-        match instr {
-          TTryTable(bt, catches, try_body) => {
+        match instr.kind {
+          TInstrKind::TTryTable(bt, catches, try_body) => {
             let walked_body = match self.walk_texpr((), try_body) {
               Ok(Some((_, next))) => next
               Ok(None) => try_body
@@ -1357,8 +1382,8 @@ fn il_apply_actions_to_func(
               Ok(None) => instr
               Err(e) => return Err(e)
             }
-            let maybe_action = match walked {
-              TCall(fi, args) => {
+            let maybe_action = match walked.kind {
+              TInstrKind::TCall(fi, args) => {
                 let id = next_id
                 next_id += 1
                 match actions.get(id) {
@@ -1375,7 +1400,7 @@ fn il_apply_actions_to_func(
                   None => None
                 }
               }
-              TReturnCall(fi, args) => {
+              TInstrKind::TReturnCall(fi, args) => {
                 let id = next_id
                 next_id += 1
                 match actions.get(id) {
@@ -1582,12 +1607,12 @@ fn il_run_partial_splitting(
       TFunc(locals, body) => {
         // Pattern A: top-level if (cond) return; then remainder.
         if body.instrs.length() >= 2 {
-          match body.instrs[0] {
-            TIf(VoidBlockType, cond, then_body, None) => {
+          match body.instrs[0].kind {
+            TInstrKind::TIf(VoidBlockType, cond, then_body, None) => {
               let mut has_return = false
               for instr in then_body.instrs {
-                match instr {
-                  TReturn([]) => has_return = true
+                match instr.kind {
+                  TInstrKind::TReturn([]) => has_return = true
                   _ => ()
                 }
               }
@@ -1626,8 +1651,8 @@ fn il_run_partial_splitting(
         // Pattern B: 1..MaxIfs top-level ifs, optional trailing item.
         let mut prefix_ifs = 0
         while prefix_ifs < body.instrs.length() && prefix_ifs < max_ifs {
-          match body.instrs[prefix_ifs] {
-            TIf(VoidBlockType, _, _, None) => prefix_ifs += 1
+          match body.instrs[prefix_ifs].kind {
+            TInstrKind::TIf(VoidBlockType, _, _, None) => prefix_ifs += 1
             _ => break
           }
         }
@@ -1645,11 +1670,11 @@ fn il_run_partial_splitting(
         let if_writes : Set[LocalIdx] = Set::new()
         let mut invalid = false
         for i = 0; i < prefix_ifs; i = i + 1 {
-          match body.instrs[i] {
-            TIf(_, _, then_body, None) => {
+          match body.instrs[i].kind {
+            TInstrKind::TIf(_, _, then_body, None) => {
               let then_is_unreachable = if then_body.instrs.length() == 1 {
-                match then_body.instrs[0] {
-                  TUnreachable => true
+                match then_body.instrs[0].kind {
+                  TInstrKind::TUnreachable => true
                   _ => false
                 }
               } else {
@@ -1662,9 +1687,10 @@ fn il_run_partial_splitting(
                   _,
                   instr,
                 ) {
-                  match instr {
-                    TReturn(_) => has_return = true
-                    TLocalSet(idx, _) | TLocalTee(idx, _) => if_writes.add(idx)
+                  match instr.kind {
+                    TInstrKind::TReturn(_) => has_return = true
+                    TInstrKind::TLocalSet(idx, _)
+                    | TInstrKind::TLocalTee(idx, _) => if_writes.add(idx)
                     _ => ()
                   }
                   self.walk_tinstruction_default((), instr)
@@ -1689,8 +1715,8 @@ fn il_run_partial_splitting(
               _,
               instr,
             ) {
-              match instr {
-                TLocalGet(idx) => trailing_reads.add(idx)
+              match instr.kind {
+                TInstrKind::TLocalGet(idx) => trailing_reads.add(idx)
                 _ => ()
               }
               self.walk_tinstruction_default((), instr)
@@ -1714,8 +1740,8 @@ fn il_run_partial_splitting(
         }
         let replaced : Array[TInstr] = []
         for i = 0; i < prefix_ifs; i = i + 1 {
-          match body.instrs[i] {
-            TIf(_, cond, then_body, None) => {
+          match body.instrs[i].kind {
+            TInstrKind::TIf(_, cond, then_body, None) => {
               let outlined_abs = import_count + funcs.length()
               funcs.push(Func::t_func(locals, then_body))
               type_idxs.push(type_idxs[def_idx])
@@ -2132,8 +2158,11 @@ fn il_make_type(params : Array[ValType], results : Array[ValType]) -> RecType {
 fn il_count_calls(body : TExpr, target : FuncIdx) -> Int {
   let mut calls = 0
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TCall(fi, _) | TReturnCall(fi, _) => if fi == target { calls += 1 }
+    match instr.kind {
+      TInstrKind::TCall(fi, _) | TInstrKind::TReturnCall(fi, _) =>
+        if fi == target {
+          calls += 1
+        }
       _ => ()
     }
     self.walk_tinstruction_default((), instr)
@@ -2146,8 +2175,8 @@ fn il_count_calls(body : TExpr, target : FuncIdx) -> Int {
 fn il_count_direct_calls(body : TExpr, target : FuncIdx) -> Int {
   let mut calls = 0
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TCall(fi, _) => if fi == target { calls += 1 }
+    match instr.kind {
+      TInstrKind::TCall(fi, _) => if fi == target { calls += 1 }
       _ => ()
     }
     self.walk_tinstruction_default((), instr)
@@ -2160,8 +2189,8 @@ fn il_count_direct_calls(body : TExpr, target : FuncIdx) -> Int {
 fn il_count_return_calls(body : TExpr, target : FuncIdx) -> Int {
   let mut calls = 0
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TReturnCall(fi, _) => if fi == target { calls += 1 }
+    match instr.kind {
+      TInstrKind::TReturnCall(fi, _) => if fi == target { calls += 1 }
       _ => ()
     }
     self.walk_tinstruction_default((), instr)
@@ -2174,8 +2203,8 @@ fn il_count_return_calls(body : TExpr, target : FuncIdx) -> Int {
 fn il_count_return_call_indirects(body : TExpr) -> Int {
   let mut calls = 0
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TReturnCallIndirect(_, _, _, _) => calls += 1
+    match instr.kind {
+      TInstrKind::TReturnCallIndirect(_, _, _, _) => calls += 1
       _ => ()
     }
     self.walk_tinstruction_default((), instr)
@@ -2188,8 +2217,8 @@ fn il_count_return_call_indirects(body : TExpr) -> Int {
 fn il_count_return_call_refs(body : TExpr) -> Int {
   let mut calls = 0
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TReturnCallRef(_, _, _) => calls += 1
+    match instr.kind {
+      TInstrKind::TReturnCallRef(_, _, _) => calls += 1
       _ => ()
     }
     self.walk_tinstruction_default((), instr)
@@ -2202,8 +2231,8 @@ fn il_count_return_call_refs(body : TExpr) -> Int {
 fn il_has_return(body : TExpr) -> Bool {
   let mut found = false
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TReturn(_) => found = true
+    match instr.kind {
+      TInstrKind::TReturn(_) => found = true
       _ => ()
     }
     self.walk_tinstruction_default((), instr)
@@ -2216,8 +2245,8 @@ fn il_has_return(body : TExpr) -> Bool {
 fn il_count_br_to(body : TExpr, label : LabelIdx) -> Int {
   let mut found = 0
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TBr(li, _) => if li == label { found += 1 }
+    match instr.kind {
+      TInstrKind::TBr(li, _) => if li == label { found += 1 }
       _ => ()
     }
     self.walk_tinstruction_default((), instr)
@@ -2442,9 +2471,11 @@ test "inlining maps locals and only zero-inits defaultable callee locals" {
         _,
         instr,
       ) {
-        match instr {
-          TLocalSet(_, TI32Const(I32(0))) => has_i32_zero = true
-          TLocalSet(_, TRefNull(_)) => has_ref_null_init = true
+        match instr.kind {
+          TInstrKind::TLocalSet(_, { kind: TInstrKind::TI32Const(I32(0)), .. }) =>
+            has_i32_zero = true
+          TInstrKind::TLocalSet(_, { kind: TInstrKind::TRefNull(_), .. }) =>
+            has_ref_null_init = true
           _ => ()
         }
         self.walk_tinstruction_default((), instr)
@@ -2603,7 +2634,10 @@ test "inlining hoists tail-call inlining out of try_table context" {
       assert_eq(il_count_return_calls(body, FuncIdx::new(1)), 0)
       assert_true(il_count_return_calls(body, FuncIdx::new(2)) > 0)
       match body.instrs {
-        [TBlock(_, _), TIf(_, _, _, _)] => ()
+        [
+          { kind: TInstrKind::TBlock(_, _), .. },
+          { kind: TInstrKind::TIf(_, _, _, _), .. },
+        ] => ()
         _ => fail("expected hoisted control flow shape for try tail-call")
       }
     }
@@ -2676,7 +2710,10 @@ test "inlining hoists tail-call-indirect inlining out of try_table context" {
       assert_eq(il_count_return_calls(body, FuncIdx::new(1)), 0)
       assert_true(il_count_return_call_indirects(body) > 0)
       match body.instrs {
-        [TBlock(_, _), TIf(_, _, _, _)] => ()
+        [
+          { kind: TInstrKind::TBlock(_, _), .. },
+          { kind: TInstrKind::TIf(_, _, _, _), .. },
+        ] => ()
         _ =>
           fail("expected hoisted control flow shape for try tail-call-indirect")
       }
@@ -2727,7 +2764,10 @@ test "inlining hoists tail-call-ref inlining out of try_table context" {
       assert_eq(il_count_return_calls(body, FuncIdx::new(1)), 0)
       assert_true(il_count_return_call_refs(body) > 0)
       match body.instrs {
-        [TBlock(_, _), TIf(_, _, _, _)] => ()
+        [
+          { kind: TInstrKind::TBlock(_, _), .. },
+          { kind: TInstrKind::TIf(_, _, _, _), .. },
+        ] => ()
         _ => fail("expected hoisted control flow shape for try tail-call-ref")
       }
     }
@@ -2777,7 +2817,10 @@ test "inlining hoists multi-value tail-call wrapper out of try_table context" {
       assert_eq(il_count_return_calls(body, FuncIdx::new(1)), 0)
       assert_true(il_count_return_calls(body, FuncIdx::new(2)) > 0)
       match body.instrs {
-        [TBlock(bt, _), TIf(_, _, _, _)] =>
+        [
+          { kind: TInstrKind::TBlock(bt, _), .. },
+          { kind: TInstrKind::TIf(_, _, _, _), .. },
+        ] =>
           match bt {
             TypeIdxBlockType(_) => ()
             _ => fail("expected typed block wrapper for multi-value hoist")
@@ -2843,7 +2886,10 @@ test "inlining hoists multi-value tail-call-indirect wrapper out of try_table co
       assert_eq(il_count_return_calls(body, FuncIdx::new(1)), 0)
       assert_true(il_count_return_call_indirects(body) > 0)
       match body.instrs {
-        [TBlock(bt, _), TIf(_, _, _, _)] =>
+        [
+          { kind: TInstrKind::TBlock(bt, _), .. },
+          { kind: TInstrKind::TIf(_, _, _, _), .. },
+        ] =>
           match bt {
             TypeIdxBlockType(_) => ()
             _ => fail("expected typed block wrapper for multi-value hoist")
@@ -2908,7 +2954,10 @@ test "inlining hoists multi-value tail-call-ref wrapper out of try_table context
       assert_eq(il_count_return_calls(body, FuncIdx::new(1)), 0)
       assert_true(il_count_return_call_refs(body) > 0)
       match body.instrs {
-        [TBlock(bt, _), TIf(_, _, _, _)] =>
+        [
+          { kind: TInstrKind::TBlock(bt, _), .. },
+          { kind: TInstrKind::TIf(_, _, _, _), .. },
+        ] =>
           match bt {
             TypeIdxBlockType(_) => ()
             _ => fail("expected typed block wrapper for multi-value hoist")
@@ -2994,8 +3043,10 @@ test "inlining hoists multi-value try-tail wrapper when caller has parameters" {
       assert_eq(il_count_return_calls(body, FuncIdx::new(1)), 0)
       assert_true(il_count_return_calls(body, FuncIdx::new(2)) > 0)
       match body.instrs {
-        [TBlock(bt, _), TIf(_, _, _, _)] =>
-          assert_eq(bt, BlockType::type_idx(TypeIdx::new(1)))
+        [
+          { kind: TInstrKind::TBlock(bt, _), .. },
+          { kind: TInstrKind::TIf(_, _, _, _), .. },
+        ] => assert_eq(bt, BlockType::type_idx(TypeIdx::new(1)))
         _ =>
           fail(
             "expected hoisted control flow shape for multi-value try-tail wrapper with caller params",
@@ -3080,8 +3131,10 @@ test "inlining synthesizes private zero-param wrapper signature for multi-value 
       assert_eq(il_count_return_calls(body, FuncIdx::new(1)), 0)
       assert_true(il_count_return_calls(body, FuncIdx::new(2)) > 0)
       match body.instrs {
-        [TBlock(bt, _), TIf(_, _, _, _)] =>
-          assert_eq(bt, BlockType::type_idx(TypeIdx::new(1)))
+        [
+          { kind: TInstrKind::TBlock(bt, _), .. },
+          { kind: TInstrKind::TIf(_, _, _, _), .. },
+        ] => assert_eq(bt, BlockType::type_idx(TypeIdx::new(1)))
         _ =>
           fail(
             "expected hoisted control flow shape using synthesized wrapper type",
@@ -3258,13 +3311,17 @@ test "inlining synthesizes sequential wrapper types for multiple callers" {
       assert_eq(il_count_return_calls(body1, FuncIdx::new(3)), 0)
       assert_true(il_count_return_calls(body1, FuncIdx::new(5)) > 0)
       match body0.instrs {
-        [TBlock(bt0, _), TIf(_, _, _, _)] =>
-          assert_eq(bt0, BlockType::type_idx(TypeIdx::new(2)))
+        [
+          { kind: TInstrKind::TBlock(bt0, _), .. },
+          { kind: TInstrKind::TIf(_, _, _, _), .. },
+        ] => assert_eq(bt0, BlockType::type_idx(TypeIdx::new(2)))
         _ => fail("expected hoisted control flow in first caller")
       }
       match body1.instrs {
-        [TBlock(bt1, _), TIf(_, _, _, _)] =>
-          assert_eq(bt1, BlockType::type_idx(TypeIdx::new(3)))
+        [
+          { kind: TInstrKind::TBlock(bt1, _), .. },
+          { kind: TInstrKind::TIf(_, _, _, _), .. },
+        ] => assert_eq(bt1, BlockType::type_idx(TypeIdx::new(3)))
         _ => fail("expected hoisted control flow in second caller")
       }
     }
@@ -3415,13 +3472,17 @@ test "inlining reuses synthesized wrapper for later callers in same iteration" {
       assert_eq(il_count_return_calls(body1, FuncIdx::new(3)), 0)
       assert_true(il_count_return_calls(body1, FuncIdx::new(5)) > 0)
       match body0.instrs {
-        [TBlock(bt0, _), TIf(_, _, _, _)] =>
-          assert_eq(bt0, BlockType::type_idx(TypeIdx::new(1)))
+        [
+          { kind: TInstrKind::TBlock(bt0, _), .. },
+          { kind: TInstrKind::TIf(_, _, _, _), .. },
+        ] => assert_eq(bt0, BlockType::type_idx(TypeIdx::new(1)))
         _ => fail("expected first caller hoisted with shared wrapper type")
       }
       match body1.instrs {
-        [TBlock(bt1, _), TIf(_, _, _, _)] =>
-          assert_eq(bt1, BlockType::type_idx(TypeIdx::new(1)))
+        [
+          { kind: TInstrKind::TBlock(bt1, _), .. },
+          { kind: TInstrKind::TIf(_, _, _, _), .. },
+        ] => assert_eq(bt1, BlockType::type_idx(TypeIdx::new(1)))
         _ => fail("expected second caller hoisted with shared wrapper type")
       }
     }
@@ -3621,18 +3682,24 @@ test "inlining mixed reuse does not over-reuse incompatible wrapper signatures" 
   match optimized.code_sec {
     Some(CodeSec([TFunc(_, body0), TFunc(_, body1), TFunc(_, body2), ..])) => {
       match body0.instrs {
-        [TBlock(bt0, _), TIf(_, _, _, _)] =>
-          assert_eq(bt0, BlockType::type_idx(TypeIdx::new(2)))
+        [
+          { kind: TInstrKind::TBlock(bt0, _), .. },
+          { kind: TInstrKind::TIf(_, _, _, _), .. },
+        ] => assert_eq(bt0, BlockType::type_idx(TypeIdx::new(2)))
         _ => fail("expected first caller to use shared i32 wrapper")
       }
       match body1.instrs {
-        [TBlock(bt1, _), TIf(_, _, _, _)] =>
-          assert_eq(bt1, BlockType::type_idx(TypeIdx::new(2)))
+        [
+          { kind: TInstrKind::TBlock(bt1, _), .. },
+          { kind: TInstrKind::TIf(_, _, _, _), .. },
+        ] => assert_eq(bt1, BlockType::type_idx(TypeIdx::new(2)))
         _ => fail("expected second caller to reuse shared i32 wrapper")
       }
       match body2.instrs {
-        [TBlock(bt2, _), TIf(_, _, _, _)] =>
-          assert_eq(bt2, BlockType::type_idx(TypeIdx::new(3)))
+        [
+          { kind: TInstrKind::TBlock(bt2, _), .. },
+          { kind: TInstrKind::TIf(_, _, _, _), .. },
+        ] => assert_eq(bt2, BlockType::type_idx(TypeIdx::new(3)))
         _ => fail("expected third caller to use distinct i64 wrapper")
       }
     }
@@ -3686,7 +3753,7 @@ test "inlining keeps non-defaultable multi-value results on non-hoist fallback p
       assert_eq(il_count_return_calls(body, FuncIdx::new(1)), 0)
       assert_true(il_count_return_calls(body, FuncIdx::new(2)) > 0)
       match body.instrs {
-        [TTryTable(_, _, _)] => ()
+        [{ kind: TInstrKind::TTryTable(_, _, _), .. }] => ()
         _ =>
           fail(
             "expected non-defaultable multi-value try-tail rewrite to stay on fallback path",

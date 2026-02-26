@@ -258,47 +258,47 @@ fn gr_infer_tinstr_type(
     }
   }
 
-  match instr {
-    TI32Const(_) => Some(ValType::i32())
-    TI64Const(_) => Some(ValType::i64())
-    TF32Const(_) => Some(ValType::f32())
-    TF64Const(_) => Some(ValType::f64())
-    TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+  match instr.kind {
+    TInstrKind::TI32Const(_) => Some(ValType::i32())
+    TInstrKind::TI64Const(_) => Some(ValType::i64())
+    TInstrKind::TF32Const(_) => Some(ValType::f32())
+    TInstrKind::TF64Const(_) => Some(ValType::f64())
+    TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
       Some(ValType::v128())
-    TRefNull(ht) => Some(ValType::ref_type(RefType::new(true, ht)))
-    TRefFunc(fi) =>
+    TInstrKind::TRefNull(ht) => Some(ValType::ref_type(RefType::new(true, ht)))
+    TInstrKind::TRefFunc(fi) =>
       match func_type_idx_by_func.get(fi) {
         Some(type_idx) =>
           Some(ValType::ref_type(RefType::new(false, HeapType::new(type_idx))))
         None => Some(ValType::ref_type(RefType::abs(AbsHeapType::func())))
       }
-    TLocalGet(idx) => env.get_local_type(idx)
-    TGlobalGet(idx) =>
+    TInstrKind::TLocalGet(idx) => env.get_local_type(idx)
+    TInstrKind::TGlobalGet(idx) =>
       match env.get_global_type(idx) {
         Some(GlobalType(vt, _)) => Some(vt)
         None => None
       }
-    TLocalTee(_, value) =>
+    TInstrKind::TLocalTee(_, value) =>
       gr_infer_tinstr_type(value, env, func_type_idx_by_func)
-    TRefAsNonNull(value) =>
+    TInstrKind::TRefAsNonNull(value) =>
       match gr_infer_tinstr_type(value, env, func_type_idx_by_func) {
         Some(RefTypeValType(rt)) =>
           Some(ValType::ref_type(RefType::new(false, rt.get_heap_type())))
         _ => None
       }
-    TRefCast(nullable, ht, _) =>
+    TInstrKind::TRefCast(nullable, ht, _) =>
       Some(ValType::ref_type(RefType::new(nullable, ht)))
-    TStructNew(type_idx, _)
-    | TStructNewDefault(type_idx)
-    | TArrayNew(type_idx, _, _)
-    | TArrayNewDefault(type_idx, _)
-    | TArrayNewFixed(type_idx, _)
-    | TArrayNewData(type_idx, _, _, _)
-    | TArrayNewElem(type_idx, _, _, _) =>
+    TInstrKind::TStructNew(type_idx, _)
+    | TInstrKind::TStructNewDefault(type_idx)
+    | TInstrKind::TArrayNew(type_idx, _, _)
+    | TInstrKind::TArrayNewDefault(type_idx, _)
+    | TInstrKind::TArrayNewFixed(type_idx, _)
+    | TInstrKind::TArrayNewData(type_idx, _, _, _)
+    | TInstrKind::TArrayNewElem(type_idx, _, _, _) =>
       Some(ValType::ref_type(RefType::new(false, HeapType::new(type_idx))))
-    TStructGet(type_idx, field_idx, _)
-    | TStructGetS(type_idx, field_idx, _)
-    | TStructGetU(type_idx, field_idx, _) =>
+    TInstrKind::TStructGet(type_idx, field_idx, _)
+    | TInstrKind::TStructGetS(type_idx, field_idx, _)
+    | TInstrKind::TStructGetU(type_idx, field_idx, _) =>
       match env.resolve_struct_fields(type_idx) {
         Ok(fields) =>
           match field_idx {
@@ -310,14 +310,14 @@ fn gr_infer_tinstr_type(
           }
         Err(_) => None
       }
-    TArrayGet(type_idx, _, _)
-    | TArrayGetS(type_idx, _, _)
-    | TArrayGetU(type_idx, _, _) =>
+    TInstrKind::TArrayGet(type_idx, _, _)
+    | TInstrKind::TArrayGetS(type_idx, _, _)
+    | TInstrKind::TArrayGetU(type_idx, _, _) =>
       match env.resolve_array_field(type_idx) {
         Ok(field_ty) => Some(field_ty.unpack())
         Err(_) => None
       }
-    TSelect(types, _, if_true, if_false) => {
+    TInstrKind::TSelect(types, _, if_true, if_false) => {
       let from_decl = match types {
         Some(vts) if vts.length() == 1 => Some(vts[0])
         _ => None
@@ -342,17 +342,20 @@ fn gr_infer_tinstr_type(
         _ => None
       }
     }
-    TCall(target, _) =>
+    TInstrKind::TCall(target, _) =>
       match env.get_functype_by_funcidx(target) {
         Some(FuncType(_, [r])) => Some(r)
         _ => None
       }
-    TCallIndirect(type_idx, _, _, _) | TCallRef(type_idx, _, _) =>
+    TInstrKind::TCallIndirect(type_idx, _, _, _)
+    | TInstrKind::TCallRef(type_idx, _, _) =>
       match env.resolve_functype(type_idx) {
         Some(FuncType(_, [r])) => Some(r)
         _ => None
       }
-    TBlock(bt, body) | TLoop(bt, body) | TTryTable(bt, _, body) => {
+    TInstrKind::TBlock(bt, body)
+    | TInstrKind::TLoop(bt, body)
+    | TInstrKind::TTryTable(bt, _, body) => {
       let from_body = infer_texpr_type(body)
       let from_bt = single_result_of_blocktype(bt)
       match (from_body, from_bt) {
@@ -367,7 +370,7 @@ fn gr_infer_tinstr_type(
         _ => None
       }
     }
-    TIf(bt, _, then_, else_) => {
+    TInstrKind::TIf(bt, _, then_, else_) => {
       let from_bt = single_result_of_blocktype(bt)
       let from_branches = match else_ {
         Some(else_expr) =>
@@ -439,8 +442,8 @@ fn global_refining(mod : Module) -> Result[Module, String] {
     env : Env,
     instr,
   ) {
-    match instr {
-      TGlobalSet(idx, value) =>
+    match instr.kind {
+      TInstrKind::TGlobalSet(idx, value) =>
         if optimizable.contains(idx) {
           match env.get_global_type(idx) {
             Some(GlobalType(old_type, _)) => {

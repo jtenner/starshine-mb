@@ -1215,7 +1215,7 @@ pub struct TExpr {
 
 ///|
 /// A tree-based instruction with explicit operands
-pub enum TInstr {
+pub enum TInstrKind {
   // === Constants (0 children, 1 result) ===
   TI32Const(I32)
   TI64Const(I64)
@@ -1406,6 +1406,20 @@ pub enum TInstr {
   // === SIMD: Lane store (v128, addr -> void) ===
   TV128StoreLane(V128StoreLaneOp, MemArg, LaneIdx, TInstr, TInstr)
 } derive(Eq, Show, Hash, Debug)
+
+///|
+pub type HashResult = Int
+
+///|
+pub struct TInstr {
+  kind : TInstrKind
+  mut hash : HashResult?
+} derive(Show, Debug)
+
+///|
+fn tinstr(kind : TInstrKind) -> TInstr {
+  { kind, hash: None }
+}
 
 ///|
 /// Unary operations
@@ -4964,32 +4978,32 @@ pub fn Instruction::i32x4_relaxed_dot_i8x16i7x16_add_s() -> Instruction {
 
 ///|
 pub fn TInstr::i32_const(val : I32) -> TInstr {
-  TI32Const(val)
+  tinstr(TI32Const(val))
 }
 
 ///|
 pub fn TInstr::i64_const(val : I64) -> TInstr {
-  TI64Const(val)
+  tinstr(TI64Const(val))
 }
 
 ///|
 pub fn TInstr::f32_const(val : F32) -> TInstr {
-  TF32Const(val)
+  tinstr(TF32Const(val))
 }
 
 ///|
 pub fn TInstr::f64_const(val : F64) -> TInstr {
-  TF64Const(val)
+  tinstr(TF64Const(val))
 }
 
 ///|
 pub fn TInstr::ref_null(val : HeapType) -> TInstr {
-  TRefNull(val)
+  tinstr(TRefNull(val))
 }
 
 ///|
 pub fn TInstr::ref_func(val : FuncIdx) -> TInstr {
-  TRefFunc(val)
+  tinstr(TRefFunc(val))
 }
 
 ///|
@@ -5011,119 +5025,121 @@ pub fn TInstr::v128_const(
   b14 : Byte,
   b15 : Byte,
 ) -> TInstr {
-  TV128Const(
-    b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15,
+  tinstr(
+    TV128Const(
+      b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15,
+    ),
   )
 }
 
 ///|
 pub fn TInstr::unreachable_() -> TInstr {
-  TUnreachable
+  tinstr(TUnreachable)
 }
 
 ///|
 pub fn TInstr::nop() -> TInstr {
-  TNop
+  tinstr(TNop)
 }
 
 ///|
 pub fn TInstr::local_get(idx : LocalIdx) -> TInstr {
-  TLocalGet(idx)
+  tinstr(TLocalGet(idx))
 }
 
 ///|
 pub fn TInstr::global_get(idx : GlobalIdx) -> TInstr {
-  TGlobalGet(idx)
+  tinstr(TGlobalGet(idx))
 }
 
 ///|
 pub fn TInstr::memory_size(idx : MemIdx) -> TInstr {
-  TMemorySize(idx)
+  tinstr(TMemorySize(idx))
 }
 
 ///|
 pub fn TInstr::table_size(idx : TableIdx) -> TInstr {
-  TTableSize(idx)
+  tinstr(TTableSize(idx))
 }
 
 ///|
 pub fn TInstr::unary(op : UnaryOp, i : TInstr) -> TInstr {
-  TUnary(op, i)
+  tinstr(TUnary(op, i))
 }
 
 ///|
 pub fn TInstr::drop(i : TInstr) -> TInstr {
-  TDrop(i)
+  tinstr(TDrop(i))
 }
 
 ///|
 pub fn TInstr::local_set(idx : LocalIdx, i : TInstr) -> TInstr {
-  TLocalSet(idx, i)
+  tinstr(TLocalSet(idx, i))
 }
 
 ///|
 pub fn TInstr::local_tee(idx : LocalIdx, i : TInstr) -> TInstr {
-  TLocalTee(idx, i)
+  tinstr(TLocalTee(idx, i))
 }
 
 ///|
 pub fn TInstr::global_set(idx : GlobalIdx, i : TInstr) -> TInstr {
-  TGlobalSet(idx, i)
+  tinstr(TGlobalSet(idx, i))
 }
 
 ///|
 pub fn TInstr::ref_is_null(i : TInstr) -> TInstr {
-  TRefIsNull(i)
+  tinstr(TRefIsNull(i))
 }
 
 ///|
 pub fn TInstr::ref_as_non_null(i : TInstr) -> TInstr {
-  TRefAsNonNull(i)
+  tinstr(TRefAsNonNull(i))
 }
 
 ///|
 pub fn TInstr::i31_get_s(i : TInstr) -> TInstr {
-  TI31GetS(i)
+  tinstr(TI31GetS(i))
 }
 
 ///|
 pub fn TInstr::i31_get_u(i : TInstr) -> TInstr {
-  TI31GetU(i)
+  tinstr(TI31GetU(i))
 }
 
 ///|
 pub fn TInstr::ref_i31(i : TInstr) -> TInstr {
-  TRefI31(i)
+  tinstr(TRefI31(i))
 }
 
 ///|
 pub fn TInstr::array_len(i : TInstr) -> TInstr {
-  TArrayLen(i)
+  tinstr(TArrayLen(i))
 }
 
 ///|
 pub fn TInstr::any_convert_extern(i : TInstr) -> TInstr {
-  TAnyConvertExtern(i)
+  tinstr(TAnyConvertExtern(i))
 }
 
 ///|
 pub fn TInstr::extern_convert_any(i : TInstr) -> TInstr {
-  TExternConvertAny(i)
+  tinstr(TExternConvertAny(i))
 }
 
 ///|
 pub fn TInstr::throw_ref(i : TInstr) -> TInstr {
-  TThrowRef(i)
+  tinstr(TThrowRef(i))
 }
 
 ///|
 pub fn TInstr::binary(op : BinaryOp, i0 : TInstr, i1 : TInstr) -> TInstr {
-  TBinary(op, i0, i1)
+  tinstr(TBinary(op, i0, i1))
 }
 
 ///|
 pub fn TInstr::ref_eq(i0 : TInstr, i1 : TInstr) -> TInstr {
-  TRefEq(i0, i1)
+  tinstr(TRefEq(i0, i1))
 }
 
 ///|
@@ -5133,17 +5149,17 @@ pub fn TInstr::store(
   i0 : TInstr,
   i1 : TInstr,
 ) -> TInstr {
-  TStore(op, ma, i0, i1)
+  tinstr(TStore(op, ma, i0, i1))
 }
 
 ///|
 pub fn TInstr::load(op : LoadOp, ma : MemArg, i : TInstr) -> TInstr {
-  TLoad(op, ma, i)
+  tinstr(TLoad(op, ma, i))
 }
 
 ///|
 pub fn TInstr::memory_grow(mi : MemIdx, i : TInstr) -> TInstr {
-  TMemoryGrow(mi, i)
+  tinstr(TMemoryGrow(mi, i))
 }
 
 ///|
@@ -5153,7 +5169,7 @@ pub fn TInstr::memory_fill(
   i1 : TInstr,
   i2 : TInstr,
 ) -> TInstr {
-  TMemoryFill(mi, i0, i1, i2)
+  tinstr(TMemoryFill(mi, i0, i1, i2))
 }
 
 ///|
@@ -5164,7 +5180,7 @@ pub fn TInstr::memory_copy(
   i1 : TInstr,
   i2 : TInstr,
 ) -> TInstr {
-  TMemoryCopy(mi0, mi1, i0, i1, i2)
+  tinstr(TMemoryCopy(mi0, mi1, i0, i1, i2))
 }
 
 ///|
@@ -5175,12 +5191,12 @@ pub fn TInstr::memory_init(
   i1 : TInstr,
   i2 : TInstr,
 ) -> TInstr {
-  TMemoryInit(di, mi, i0, i1, i2)
+  tinstr(TMemoryInit(di, mi, i0, i1, i2))
 }
 
 ///|
 pub fn TInstr::data_drop(di : DataIdx) -> TInstr {
-  TDataDrop(di)
+  tinstr(TDataDrop(di))
 }
 
 ///|
@@ -5189,7 +5205,7 @@ pub fn TInstr::memory_atomic_notify(
   i0 : TInstr,
   i1 : TInstr,
 ) -> TInstr {
-  TMemoryAtomicNotify(ma, i0, i1)
+  tinstr(TMemoryAtomicNotify(ma, i0, i1))
 }
 
 ///|
@@ -5199,7 +5215,7 @@ pub fn TInstr::memory_atomic_wait32(
   i1 : TInstr,
   i2 : TInstr,
 ) -> TInstr {
-  TMemoryAtomicWait32(ma, i0, i1, i2)
+  tinstr(TMemoryAtomicWait32(ma, i0, i1, i2))
 }
 
 ///|
@@ -5209,12 +5225,12 @@ pub fn TInstr::memory_atomic_wait64(
   i1 : TInstr,
   i2 : TInstr,
 ) -> TInstr {
-  TMemoryAtomicWait64(ma, i0, i1, i2)
+  tinstr(TMemoryAtomicWait64(ma, i0, i1, i2))
 }
 
 ///|
 pub fn TInstr::atomic_fence() -> TInstr {
-  TAtomicFence
+  tinstr(TAtomicFence)
 }
 
 ///|
@@ -5224,7 +5240,7 @@ pub fn TInstr::atomic_rmw(
   i0 : TInstr,
   i1 : TInstr,
 ) -> TInstr {
-  TAtomicRmw(op, ma, i0, i1)
+  tinstr(TAtomicRmw(op, ma, i0, i1))
 }
 
 ///|
@@ -5235,22 +5251,22 @@ pub fn TInstr::atomic_cmpxchg(
   i1 : TInstr,
   i2 : TInstr,
 ) -> TInstr {
-  TAtomicCmpxchg(op, ma, i0, i1, i2)
+  tinstr(TAtomicCmpxchg(op, ma, i0, i1, i2))
 }
 
 ///|
 pub fn TInstr::table_get(ti : TableIdx, i : TInstr) -> TInstr {
-  TTableGet(ti, i)
+  tinstr(TTableGet(ti, i))
 }
 
 ///|
 pub fn TInstr::table_set(ti : TableIdx, i0 : TInstr, i1 : TInstr) -> TInstr {
-  TTableSet(ti, i0, i1)
+  tinstr(TTableSet(ti, i0, i1))
 }
 
 ///|
 pub fn TInstr::table_grow(ti : TableIdx, i0 : TInstr, i1 : TInstr) -> TInstr {
-  TTableGrow(ti, i0, i1)
+  tinstr(TTableGrow(ti, i0, i1))
 }
 
 ///|
@@ -5260,7 +5276,7 @@ pub fn TInstr::table_fill(
   i1 : TInstr,
   i2 : TInstr,
 ) -> TInstr {
-  TTableFill(ti, i0, i1, i2)
+  tinstr(TTableFill(ti, i0, i1, i2))
 }
 
 ///|
@@ -5271,7 +5287,7 @@ pub fn TInstr::table_copy(
   i1 : TInstr,
   i2 : TInstr,
 ) -> TInstr {
-  TTableCopy(ti0, ti1, i0, i1, i2)
+  tinstr(TTableCopy(ti0, ti1, i0, i1, i2))
 }
 
 ///|
@@ -5282,17 +5298,17 @@ pub fn TInstr::table_init(
   i1 : TInstr,
   i2 : TInstr,
 ) -> TInstr {
-  TTableInit(ei, ti, i0, i1, i2)
+  tinstr(TTableInit(ei, ti, i0, i1, i2))
 }
 
 ///|
 pub fn TInstr::elem_drop(ei : ElemIdx) -> TInstr {
-  TElemDrop(ei)
+  tinstr(TElemDrop(ei))
 }
 
 ///|
 pub fn TInstr::call(di : FuncIdx, props : Array[TInstr]) -> TInstr {
-  TCall(di, props)
+  tinstr(TCall(di, props))
 }
 
 ///|
@@ -5302,7 +5318,7 @@ pub fn TInstr::call_indirect(
   props : Array[TInstr],
   i : TInstr,
 ) -> TInstr {
-  TCallIndirect(ty_i, tbl_i, props, i)
+  tinstr(TCallIndirect(ty_i, tbl_i, props, i))
 }
 
 ///|
@@ -5311,12 +5327,12 @@ pub fn TInstr::call_ref(
   props : Array[TInstr],
   r : TInstr,
 ) -> TInstr {
-  TCallRef(ti, props, r)
+  tinstr(TCallRef(ti, props, r))
 }
 
 ///|
 pub fn TInstr::return_call(fi : FuncIdx, props : Array[TInstr]) -> TInstr {
-  TReturnCall(fi, props)
+  tinstr(TReturnCall(fi, props))
 }
 
 ///|
@@ -5326,7 +5342,7 @@ pub fn TInstr::return_call_indirect(
   props : Array[TInstr],
   i : TInstr,
 ) -> TInstr {
-  TReturnCallIndirect(ty_i, tbl_i, props, i)
+  tinstr(TReturnCallIndirect(ty_i, tbl_i, props, i))
 }
 
 ///|
@@ -5335,17 +5351,17 @@ pub fn TInstr::return_call_ref(
   props : Array[TInstr],
   i : TInstr,
 ) -> TInstr {
-  TReturnCallRef(ti, props, i)
+  tinstr(TReturnCallRef(ti, props, i))
 }
 
 ///|
 pub fn TInstr::block(bt : BlockType, e : TExpr) -> TInstr {
-  TBlock(bt, e)
+  tinstr(TBlock(bt, e))
 }
 
 ///|
 pub fn TInstr::loop_(bt : BlockType, e : TExpr) -> TInstr {
-  TLoop(bt, e)
+  tinstr(TLoop(bt, e))
 }
 
 ///|
@@ -5355,27 +5371,27 @@ pub fn TInstr::if_(
   e0 : TExpr,
   e1_opt : TExpr?,
 ) -> TInstr {
-  TIf(bt, i, e0, e1_opt)
+  tinstr(TIf(bt, i, e0, e1_opt))
 }
 
 ///|
 pub fn TInstr::try_table(bt : BlockType, c : Array[Catch], e : TExpr) -> TInstr {
-  TTryTable(bt, c, e)
+  tinstr(TTryTable(bt, c, e))
 }
 
 ///|
 pub fn TInstr::throw_(ti : TagIdx, i : Array[TInstr]) -> TInstr {
-  TThrow(ti, i)
+  tinstr(TThrow(ti, i))
 }
 
 ///|
 pub fn TInstr::br(li : LabelIdx, i : Array[TInstr]) -> TInstr {
-  TBr(li, i)
+  tinstr(TBr(li, i))
 }
 
 ///|
 pub fn TInstr::br_if(li : LabelIdx, i0 : TInstr, i : Array[TInstr]) -> TInstr {
-  TBrIf(li, i0, i)
+  tinstr(TBrIf(li, i0, i))
 }
 
 ///|
@@ -5385,7 +5401,7 @@ pub fn TInstr::br_table(
   i0 : TInstr,
   i : Array[TInstr],
 ) -> TInstr {
-  TBrTable(l, l0, i0, i)
+  tinstr(TBrTable(l, l0, i0, i))
 }
 
 ///|
@@ -5394,7 +5410,7 @@ pub fn TInstr::br_on_null(
   i0 : TInstr,
   i : Array[TInstr],
 ) -> TInstr {
-  TBrOnNull(li, i0, i)
+  tinstr(TBrOnNull(li, i0, i))
 }
 
 ///|
@@ -5403,7 +5419,7 @@ pub fn TInstr::br_on_non_null(
   i0 : TInstr,
   i : Array[TInstr],
 ) -> TInstr {
-  TBrOnNonNull(li, i0, i)
+  tinstr(TBrOnNonNull(li, i0, i))
 }
 
 ///|
@@ -5416,7 +5432,9 @@ pub fn TInstr::br_on_cast(
   i0 : TInstr,
   i : Array[TInstr],
 ) -> TInstr {
-  TBrOnCast(li, CastOp(source_nullable, target_nullable), ht0, ht1, i0, i)
+  tinstr(
+    TBrOnCast(li, CastOp(source_nullable, target_nullable), ht0, ht1, i0, i),
+  )
 }
 
 ///|
@@ -5429,12 +5447,14 @@ pub fn TInstr::br_on_cast_fail(
   i0 : TInstr,
   i : Array[TInstr],
 ) -> TInstr {
-  TBrOnCastFail(li, CastOp(source_nullable, target_nullable), ht0, ht1, i0, i)
+  tinstr(
+    TBrOnCastFail(li, CastOp(source_nullable, target_nullable), ht0, ht1, i0, i),
+  )
 }
 
 ///|
 pub fn TInstr::return_(i : Array[TInstr]) -> TInstr {
-  TReturn(i)
+  tinstr(TReturn(i))
 }
 
 ///|
@@ -5444,32 +5464,32 @@ pub fn TInstr::select(
   i1 : TInstr,
   i2 : TInstr,
 ) -> TInstr {
-  TSelect(tys, i0, i1, i2)
+  tinstr(TSelect(tys, i0, i1, i2))
 }
 
 ///|
 pub fn TInstr::struct_new(ti : TypeIdx, i : Array[TInstr]) -> TInstr {
-  TStructNew(ti, i)
+  tinstr(TStructNew(ti, i))
 }
 
 ///|
 pub fn TInstr::struct_new_default(ti : TypeIdx) -> TInstr {
-  TStructNewDefault(ti)
+  tinstr(TStructNewDefault(ti))
 }
 
 ///|
 pub fn TInstr::struct_get(ti : TypeIdx, idx : U32, i : TInstr) -> TInstr {
-  TStructGet(ti, idx, i)
+  tinstr(TStructGet(ti, idx, i))
 }
 
 ///|
 pub fn TInstr::struct_get_s(ti : TypeIdx, idx : U32, i : TInstr) -> TInstr {
-  TStructGetS(ti, idx, i)
+  tinstr(TStructGetS(ti, idx, i))
 }
 
 ///|
 pub fn TInstr::struct_get_u(ti : TypeIdx, idx : U32, i : TInstr) -> TInstr {
-  TStructGetU(ti, idx, i)
+  tinstr(TStructGetU(ti, idx, i))
 }
 
 ///|
@@ -5479,22 +5499,22 @@ pub fn TInstr::struct_set(
   i0 : TInstr,
   i1 : TInstr,
 ) -> TInstr {
-  TStructSet(ti, idx, i0, i1)
+  tinstr(TStructSet(ti, idx, i0, i1))
 }
 
 ///|
 pub fn TInstr::array_new(ti : TypeIdx, t0 : TInstr, t1 : TInstr) -> TInstr {
-  TArrayNew(ti, t0, t1)
+  tinstr(TArrayNew(ti, t0, t1))
 }
 
 ///|
 pub fn TInstr::array_new_default(ti : TypeIdx, i : TInstr) -> TInstr {
-  TArrayNewDefault(ti, i)
+  tinstr(TArrayNewDefault(ti, i))
 }
 
 ///|
 pub fn TInstr::array_new_fixed(ti : TypeIdx, i : Array[TInstr]) -> TInstr {
-  TArrayNewFixed(ti, i)
+  tinstr(TArrayNewFixed(ti, i))
 }
 
 ///|
@@ -5504,7 +5524,7 @@ pub fn TInstr::array_new_data(
   i0 : TInstr,
   i1 : TInstr,
 ) -> TInstr {
-  TArrayNewData(ti, di, i0, i1)
+  tinstr(TArrayNewData(ti, di, i0, i1))
 }
 
 ///|
@@ -5514,22 +5534,22 @@ pub fn TInstr::array_new_elem(
   i0 : TInstr,
   i1 : TInstr,
 ) -> TInstr {
-  TArrayNewElem(ti, ei, i0, i1)
+  tinstr(TArrayNewElem(ti, ei, i0, i1))
 }
 
 ///|
 pub fn TInstr::array_get(ti : TypeIdx, i0 : TInstr, i1 : TInstr) -> TInstr {
-  TArrayGet(ti, i0, i1)
+  tinstr(TArrayGet(ti, i0, i1))
 }
 
 ///|
 pub fn TInstr::array_get_s(ti : TypeIdx, i0 : TInstr, i1 : TInstr) -> TInstr {
-  TArrayGetS(ti, i0, i1)
+  tinstr(TArrayGetS(ti, i0, i1))
 }
 
 ///|
 pub fn TInstr::array_get_u(ti : TypeIdx, i0 : TInstr, i1 : TInstr) -> TInstr {
-  TArrayGetU(ti, i0, i1)
+  tinstr(TArrayGetU(ti, i0, i1))
 }
 
 ///|
@@ -5539,7 +5559,7 @@ pub fn TInstr::array_set(
   i1 : TInstr,
   i2 : TInstr,
 ) -> TInstr {
-  TArraySet(ti, i0, i1, i2)
+  tinstr(TArraySet(ti, i0, i1, i2))
 }
 
 ///|
@@ -5550,7 +5570,7 @@ pub fn TInstr::array_fill(
   i2 : TInstr,
   i3 : TInstr,
 ) -> TInstr {
-  TArrayFill(ti, i0, i1, i2, i3)
+  tinstr(TArrayFill(ti, i0, i1, i2, i3))
 }
 
 ///|
@@ -5563,7 +5583,7 @@ pub fn TInstr::array_copy(
   i3 : TInstr,
   i4 : TInstr,
 ) -> TInstr {
-  TArrayCopy(ti0, ti1, i0, i1, i2, i3, i4)
+  tinstr(TArrayCopy(ti0, ti1, i0, i1, i2, i3, i4))
 }
 
 ///|
@@ -5575,7 +5595,7 @@ pub fn TInstr::array_init_data(
   i2 : TInstr,
   i3 : TInstr,
 ) -> TInstr {
-  TArrayInitData(ti, di, i0, i1, i2, i3)
+  tinstr(TArrayInitData(ti, di, i0, i1, i2, i3))
 }
 
 ///|
@@ -5587,22 +5607,22 @@ pub fn TInstr::array_init_elem(
   i2 : TInstr,
   i3 : TInstr,
 ) -> TInstr {
-  TArrayInitElem(ti, ei, i0, i1, i2, i3)
+  tinstr(TArrayInitElem(ti, ei, i0, i1, i2, i3))
 }
 
 ///|
 pub fn TInstr::ref_get_desc(i : TInstr) -> TInstr {
-  TRefGetDesc(i)
+  tinstr(TRefGetDesc(i))
 }
 
 ///|
 pub fn TInstr::ref_test(nullable : Bool, ht : HeapType, i : TInstr) -> TInstr {
-  TRefTest(nullable, ht, i)
+  tinstr(TRefTest(nullable, ht, i))
 }
 
 ///|
 pub fn TInstr::ref_cast(nullable : Bool, ht : HeapType, i : TInstr) -> TInstr {
-  TRefCast(nullable, ht, i)
+  tinstr(TRefCast(nullable, ht, i))
 }
 
 ///|
@@ -5611,7 +5631,7 @@ pub fn TInstr::ref_test_desc(
   ht : HeapType,
   i : TInstr,
 ) -> TInstr {
-  TRefTestDesc(nullable, ht, i)
+  tinstr(TRefTestDesc(nullable, ht, i))
 }
 
 ///|
@@ -5620,39 +5640,39 @@ pub fn TInstr::ref_cast_desc_eq(
   ht : HeapType,
   i : TInstr,
 ) -> TInstr {
-  TRefCastDescEq(nullable, ht, i)
+  tinstr(TRefCastDescEq(nullable, ht, i))
 }
 
 // === SIMD: Splat (scalar -> v128) ===
 
 ///|
 pub fn TInstr::i8x16_splat(i : TInstr) -> TInstr {
-  TI8x16Splat(i)
+  tinstr(TI8x16Splat(i))
 }
 
 ///|
 pub fn TInstr::i16x8_splat(i : TInstr) -> TInstr {
-  TI16x8Splat(i)
+  tinstr(TI16x8Splat(i))
 }
 
 ///|
 pub fn TInstr::i32x4_splat(i : TInstr) -> TInstr {
-  TI32x4Splat(i)
+  tinstr(TI32x4Splat(i))
 }
 
 ///|
 pub fn TInstr::i64x2_splat(i : TInstr) -> TInstr {
-  TI64x2Splat(i)
+  tinstr(TI64x2Splat(i))
 }
 
 ///|
 pub fn TInstr::f32x4_splat(i : TInstr) -> TInstr {
-  TF32x4Splat(i)
+  tinstr(TF32x4Splat(i))
 }
 
 ///|
 pub fn TInstr::f64x2_splat(i : TInstr) -> TInstr {
-  TF64x2Splat(i)
+  tinstr(TF64x2Splat(i))
 }
 
 ///|
@@ -5661,7 +5681,7 @@ pub fn TInstr::extract_lane(
   li : LaneIdx,
   i : TInstr,
 ) -> TInstr {
-  TExtractLane(op, li, i)
+  tinstr(TExtractLane(op, li, i))
 }
 
 ///|
@@ -5671,7 +5691,7 @@ pub fn TInstr::replace_lane(
   i0 : TInstr,
   i1 : TInstr,
 ) -> TInstr {
-  TReplaceLane(op, li, i0, i1)
+  tinstr(TReplaceLane(op, li, i0, i1))
 }
 
 ///|
@@ -5695,25 +5715,27 @@ pub fn TInstr::i8x16_shuffle(
   i0 : TInstr,
   i1 : TInstr,
 ) -> TInstr {
-  TI8x16Shuffle(
-    li0, li1, li2, li3, li4, li5, li6, li7, li8, li9, li10, li11, li12, li13, li14,
-    li15, i0, i1,
+  tinstr(
+    TI8x16Shuffle(
+      li0, li1, li2, li3, li4, li5, li6, li7, li8, li9, li10, li11, li12, li13, li14,
+      li15, i0, i1,
+    ),
   )
 }
 
 ///|
 pub fn TInstr::i8x16_swizzle(i0 : TInstr, i1 : TInstr) -> TInstr {
-  TI8x16Swizzle(i0, i1)
+  tinstr(TI8x16Swizzle(i0, i1))
 }
 
 ///|
 pub fn TInstr::i8x16_relaxed_swizzle(i0 : TInstr, i1 : TInstr) -> TInstr {
-  TI8x16RelaxedSwizzle(i0, i1)
+  tinstr(TI8x16RelaxedSwizzle(i0, i1))
 }
 
 ///|
 pub fn TInstr::v128_shift(op : V128ShiftOp, i0 : TInstr, i1 : TInstr) -> TInstr {
-  TV128Shift(op, i0, i1)
+  tinstr(TV128Shift(op, i0, i1))
 }
 
 ///|
@@ -5723,7 +5745,7 @@ pub fn TInstr::v128_ternary(
   i1 : TInstr,
   i2 : TInstr,
 ) -> TInstr {
-  TV128Ternary(op, i0, i1, i2)
+  tinstr(TV128Ternary(op, i0, i1, i2))
 }
 
 ///|
@@ -5734,7 +5756,7 @@ pub fn TInstr::v128_load_lane(
   i0 : TInstr,
   i1 : TInstr,
 ) -> TInstr {
-  TV128LoadLane(op, ma, li, i0, i1)
+  tinstr(TV128LoadLane(op, ma, li, i0, i1))
 }
 
 ///|
@@ -5745,7 +5767,7 @@ pub fn TInstr::v128_store_lane(
   i0 : TInstr,
   i1 : TInstr,
 ) -> TInstr {
-  TV128StoreLane(op, ma, li, i0, i1)
+  tinstr(TV128StoreLane(op, ma, li, i0, i1))
 }
 
 ///|
@@ -8213,6 +8235,36 @@ pub fn TExpr::new(instrs : Array[TInstr]) -> TExpr {
 ///|
 pub fn TExpr::inner(self : TExpr) -> Array[TInstr] {
   self.instrs
+}
+
+///|
+pub impl Eq for TInstr with equal(l, r) {
+  if physical_equal(l, r) {
+    return true
+  }
+  let left_hash = l.hash()
+  let right_hash = r.hash()
+  if left_hash != right_hash {
+    return false
+  }
+  l.kind == r.kind
+}
+
+///|
+pub impl Hash for TInstr with hash(self) {
+  match self.hash {
+    Some(cached) => cached
+    None => {
+      let computed = self.kind.hash()
+      self.hash = Some(computed)
+      computed
+    }
+  }
+}
+
+///|
+pub impl Hash for TInstr with hash_combine(self, hasher) {
+  hasher.combine_int(self.hash())
 }
 
 ///|

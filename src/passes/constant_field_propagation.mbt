@@ -77,8 +77,8 @@ fn FieldValue::get_constant(self : FieldValue) -> TInstr? {
 ///|
 /// Check if a constant is ref.null
 fn is_ref_null(instr : TInstr) -> Bool {
-  match instr {
-    TRefNull(_) => true
+  match instr.kind {
+    TInstrKind::TRefNull(_) => true
     _ => false
   }
 }
@@ -307,10 +307,10 @@ fn constant_field_propagation_pass() -> ModuleTransformer[CFPState] {
 /// Create an optimizer that replaces struct.get with constants
 fn make_cfp_optimizer(state : CFPState) -> ModuleTransformer[Unit] {
   ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TStructGet(type_idx, field_idx, ref_instr)
-      | TStructGetS(type_idx, field_idx, ref_instr)
-      | TStructGetU(type_idx, field_idx, ref_instr) => {
+    match instr.kind {
+      TInstrKind::TStructGet(type_idx, field_idx, ref_instr)
+      | TInstrKind::TStructGetS(type_idx, field_idx, ref_instr)
+      | TInstrKind::TStructGetU(type_idx, field_idx, ref_instr) => {
         let type_id = type_idx_to_int(type_idx)
         let U32(field_id_uint) = field_idx
         let field_id = field_id_uint.reinterpret_as_int()
@@ -331,11 +331,11 @@ fn make_cfp_optimizer(state : CFPState) -> ModuleTransformer[Unit] {
         }
       }
       // Optimize ref.test when the input is a struct.get from a known ref.null field
-      TRefTest(_, _, inner) =>
-        match inner {
-          TStructGet(type_idx, field_idx, ref_instr)
-          | TStructGetS(type_idx, field_idx, ref_instr)
-          | TStructGetU(type_idx, field_idx, ref_instr) => {
+      TInstrKind::TRefTest(_, _, inner) =>
+        match inner.kind {
+          TInstrKind::TStructGet(type_idx, field_idx, ref_instr)
+          | TInstrKind::TStructGetS(type_idx, field_idx, ref_instr)
+          | TInstrKind::TStructGetU(type_idx, field_idx, ref_instr) => {
             let type_id = type_idx_to_int(type_idx)
             let U32(field_id_uint) = field_idx
             let field_id = field_id_uint.reinterpret_as_int()
@@ -414,10 +414,10 @@ fn note_field_unknown(
 /// Check if an instruction is a struct.get from a known constant field
 /// Returns the constant value if so, None otherwise
 fn get_copied_constant(state : CFPState, instr : TInstr) -> TInstr? {
-  match instr {
-    TStructGet(type_idx, field_idx, _)
-    | TStructGetS(type_idx, field_idx, _)
-    | TStructGetU(type_idx, field_idx, _) => {
+  match instr.kind {
+    TInstrKind::TStructGet(type_idx, field_idx, _)
+    | TInstrKind::TStructGetS(type_idx, field_idx, _)
+    | TInstrKind::TStructGetU(type_idx, field_idx, _) => {
       let type_id = type_idx_to_int(type_idx)
       let U32(field_id_uint) = field_idx
       let field_id = field_id_uint.reinterpret_as_int()
@@ -431,9 +431,9 @@ fn get_copied_constant(state : CFPState, instr : TInstr) -> TInstr? {
 ///|
 /// Recursively scan an instruction for struct operations
 fn scan_instruction(state : CFPState, instr : TInstr) -> Unit {
-  match instr {
+  match instr.kind {
     // struct.new with explicit field values
-    TStructNew(type_idx, field_values) => {
+    TInstrKind::TStructNew(type_idx, field_values) => {
       let type_id = type_idx_to_int(type_idx)
       for i = 0; i < field_values.length(); i = i + 1 {
         // Check if the field value is a constant
@@ -453,7 +453,7 @@ fn scan_instruction(state : CFPState, instr : TInstr) -> Unit {
       }
     }
     // struct.new.default - all fields get default (zero) values
-    TStructNewDefault(type_idx) => {
+    TInstrKind::TStructNewDefault(type_idx) => {
       let type_id = type_idx_to_int(type_idx)
       // If we have type information, track the default values
       match get_struct_fields(state, type_idx) {
@@ -474,7 +474,7 @@ fn scan_instruction(state : CFPState, instr : TInstr) -> Unit {
       }
     }
     // struct.set - track the value being set
-    TStructSet(type_idx, field_idx, struct_ref, value) => {
+    TInstrKind::TStructSet(type_idx, field_idx, struct_ref, value) => {
       let type_id = type_idx_to_int(type_idx)
       let U32(field_id_uint) = field_idx
       let field_id = field_id_uint.reinterpret_as_int()
@@ -492,9 +492,9 @@ fn scan_instruction(state : CFPState, instr : TInstr) -> Unit {
       scan_instruction(state, value)
     }
     // Recursively scan nested instructions
-    TBlock(_, body) => scan_for_struct_news(state, body)
-    TLoop(_, body) => scan_for_struct_news(state, body)
-    TIf(_, cond, then_body, else_body) => {
+    TInstrKind::TBlock(_, body) => scan_for_struct_news(state, body)
+    TInstrKind::TLoop(_, body) => scan_for_struct_news(state, body)
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
       scan_instruction(state, cond)
       scan_for_struct_news(state, then_body)
       match else_body {
@@ -503,54 +503,56 @@ fn scan_instruction(state : CFPState, instr : TInstr) -> Unit {
       }
     }
     // For other instructions with sub-expressions, scan recursively
-    TStructGet(_, _, ref_instr)
-    | TStructGetS(_, _, ref_instr)
-    | TStructGetU(_, _, ref_instr) => scan_instruction(state, ref_instr)
-    TDrop(sub) => scan_instruction(state, sub)
-    TSelect(_, a, b, c) => {
+    TInstrKind::TStructGet(_, _, ref_instr)
+    | TInstrKind::TStructGetS(_, _, ref_instr)
+    | TInstrKind::TStructGetU(_, _, ref_instr) =>
+      scan_instruction(state, ref_instr)
+    TInstrKind::TDrop(sub) => scan_instruction(state, sub)
+    TInstrKind::TSelect(_, a, b, c) => {
       scan_instruction(state, a)
       scan_instruction(state, b)
       scan_instruction(state, c)
     }
-    TLocalSet(_, sub) | TLocalTee(_, sub) => scan_instruction(state, sub)
-    TGlobalSet(_, sub) => scan_instruction(state, sub)
-    TCall(_, args) =>
+    TInstrKind::TLocalSet(_, sub) | TInstrKind::TLocalTee(_, sub) =>
+      scan_instruction(state, sub)
+    TInstrKind::TGlobalSet(_, sub) => scan_instruction(state, sub)
+    TInstrKind::TCall(_, args) =>
       for arg in args {
         scan_instruction(state, arg)
       }
-    TCallRef(_, args, funcref) => {
+    TInstrKind::TCallRef(_, args, funcref) => {
       for arg in args {
         scan_instruction(state, arg)
       }
       scan_instruction(state, funcref)
     }
-    TCallIndirect(_, _, args, table_idx) => {
+    TInstrKind::TCallIndirect(_, _, args, table_idx) => {
       for arg in args {
         scan_instruction(state, arg)
       }
       scan_instruction(state, table_idx)
     }
-    TBr(_, args) =>
+    TInstrKind::TBr(_, args) =>
       for arg in args {
         scan_instruction(state, arg)
       }
-    TBrIf(_, cond, args) => {
+    TInstrKind::TBrIf(_, cond, args) => {
       scan_instruction(state, cond)
       for arg in args {
         scan_instruction(state, arg)
       }
     }
-    TReturn(args) =>
+    TInstrKind::TReturn(args) =>
       for arg in args {
         scan_instruction(state, arg)
       }
-    TBrTable(_, _, idx, args) => {
+    TInstrKind::TBrTable(_, _, idx, args) => {
       scan_instruction(state, idx)
       for arg in args {
         scan_instruction(state, arg)
       }
     }
-    TTryTable(_, _, body) => scan_for_struct_news(state, body)
+    TInstrKind::TTryTable(_, _, body) => scan_for_struct_news(state, body)
     // For simple instructions with no sub-expressions, do nothing
     _ => ()
   }
@@ -559,9 +561,12 @@ fn scan_instruction(state : CFPState, instr : TInstr) -> Unit {
 ///|
 /// Check if an instruction is a constant value
 fn is_constant_value(instr : TInstr) -> Bool {
-  match instr {
-    TI32Const(_) | TI64Const(_) | TF32Const(_) | TF64Const(_) => true
-    TRefNull(_) | TRefFunc(_) => true
+  match instr.kind {
+    TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_) => true
+    TInstrKind::TRefNull(_) | TInstrKind::TRefFunc(_) => true
     _ => false
   }
 }
@@ -759,13 +764,13 @@ test "make_cfp_optimizer replaces struct.get with constant" {
   // Should return a block with (drop ref) and (i32.const 42)
   match result {
     Ok(Some((_, new_instr))) =>
-      match new_instr {
-        TBlock(_, body) => {
+      match new_instr.kind {
+        TInstrKind::TBlock(_, body) => {
           assert_eq(body.instrs.length(), 2)
-          assert_true(body.instrs[0] is TDrop(_))
-          assert_true(body.instrs[1] is TI32Const(_))
+          assert_true(body.instrs[0].kind is TInstrKind::TDrop(_))
+          assert_true(body.instrs[1].kind is TInstrKind::TI32Const(_))
         }
-        _ => fail("Expected TBlock but got something else")
+        _ => fail("Expected TInstrKind::TBlock but got something else")
       }
     _ => fail("Optimizer should have transformed the instruction")
   }
@@ -793,9 +798,9 @@ test "make_cfp_optimizer preserves struct.get for unknown fields" {
   // Should return the original struct.get (or similar)
   match result {
     Ok(Some((_, new_instr))) =>
-      match new_instr {
-        TStructGet(_, _, _) => () // Good, preserved the struct.get
-        _ => fail("Expected TStructGet but got something else")
+      match new_instr.kind {
+        TInstrKind::TStructGet(_, _, _) => () // Good, preserved the struct.get
+        _ => fail("Expected TInstrKind::TStructGet but got something else")
       }
     Ok(None) => () // Also acceptable - means no change
     Err(_) => fail("Optimizer should not error")
@@ -831,7 +836,7 @@ test "struct.new.default tracks default values with type info" {
 
   // Check it's the correct value
   match field_value.get_constant() {
-    Some(TI32Const(I32(val))) => assert_eq(val, 0)
+    Some({ kind: TInstrKind::TI32Const(I32(val)), .. }) => assert_eq(val, 0)
     _ => fail("Expected i32.const 0")
   }
 }
@@ -951,7 +956,7 @@ test "field copy tracking - struct.set with struct.get" {
   let field_value = get_field_value(state, 1, 0)
   assert_true(field_value.is_constant())
   match field_value.get_constant() {
-    Some(TI32Const(I32(val))) => assert_eq(val, 42)
+    Some({ kind: TInstrKind::TI32Const(I32(val)), .. }) => assert_eq(val, 42)
     _ => fail("Expected i32.const 42")
   }
 }
@@ -978,7 +983,7 @@ test "field copy tracking - struct.new with struct.get" {
   let field_value = get_field_value(state, 1, 0)
   assert_true(field_value.is_constant())
   match field_value.get_constant() {
-    Some(TI32Const(I32(val))) => assert_eq(val, 99)
+    Some({ kind: TInstrKind::TI32Const(I32(val)), .. }) => assert_eq(val, 99)
     _ => fail("Expected i32.const 99")
   }
 }
@@ -1041,11 +1046,11 @@ test "packed field default values" {
 
   // Check they're both i32.const 0
   match field0_value.get_constant() {
-    Some(TI32Const(I32(val))) => assert_eq(val, 0)
+    Some({ kind: TInstrKind::TI32Const(I32(val)), .. }) => assert_eq(val, 0)
     _ => fail("Expected i32.const 0 for i8 field")
   }
   match field1_value.get_constant() {
-    Some(TI32Const(I32(val))) => assert_eq(val, 0)
+    Some({ kind: TInstrKind::TI32Const(I32(val)), .. }) => assert_eq(val, 0)
     _ => fail("Expected i32.const 0 for i16 field")
   }
 }
@@ -1067,13 +1072,13 @@ test "struct.get_s and struct.get_u optimization" {
   let result = optimizer.walk_tinstruction((), get_s_instr)
   match result {
     Ok(Some((_, new_instr))) =>
-      match new_instr {
-        TBlock(_, body) => {
+      match new_instr.kind {
+        TInstrKind::TBlock(_, body) => {
           assert_eq(body.instrs.length(), 2)
-          assert_true(body.instrs[0] is TDrop(_))
-          assert_true(body.instrs[1] is TI32Const(_))
+          assert_true(body.instrs[0].kind is TInstrKind::TDrop(_))
+          assert_true(body.instrs[1].kind is TInstrKind::TI32Const(_))
         }
-        _ => fail("Expected TBlock but got something else")
+        _ => fail("Expected TInstrKind::TBlock but got something else")
       }
     _ => fail("Optimizer should have transformed struct.get_s")
   }
@@ -1084,13 +1089,13 @@ test "struct.get_s and struct.get_u optimization" {
   let result2 = optimizer.walk_tinstruction((), get_u_instr)
   match result2 {
     Ok(Some((_, new_instr))) =>
-      match new_instr {
-        TBlock(_, body) => {
+      match new_instr.kind {
+        TInstrKind::TBlock(_, body) => {
           assert_eq(body.instrs.length(), 2)
-          assert_true(body.instrs[0] is TDrop(_))
-          assert_true(body.instrs[1] is TI32Const(_))
+          assert_true(body.instrs[0].kind is TInstrKind::TDrop(_))
+          assert_true(body.instrs[1].kind is TInstrKind::TI32Const(_))
         }
-        _ => fail("Expected TBlock but got something else")
+        _ => fail("Expected TInstrKind::TBlock but got something else")
       }
     _ => fail("Optimizer should have transformed struct.get_u")
   }
@@ -1119,16 +1124,16 @@ test "ref.test optimization with ref.null field" {
   // Should return a block with (drop ref) and (i32.const 0)
   match result {
     Ok(Some((_, new_instr))) =>
-      match new_instr {
-        TBlock(_, body) => {
+      match new_instr.kind {
+        TInstrKind::TBlock(_, body) => {
           assert_eq(body.instrs.length(), 2)
-          assert_true(body.instrs[0] is TDrop(_))
-          match body.instrs[1] {
-            TI32Const(I32(val)) => assert_eq(val, 0)
+          assert_true(body.instrs[0].kind is TInstrKind::TDrop(_))
+          match body.instrs[1].kind {
+            TInstrKind::TI32Const(I32(val)) => assert_eq(val, 0)
             _ => fail("Expected i32.const 0")
           }
         }
-        _ => fail("Expected TBlock but got something else")
+        _ => fail("Expected TInstrKind::TBlock but got something else")
       }
     _ => fail("Optimizer should have transformed ref.test")
   }
@@ -1159,9 +1164,9 @@ test "ref.test not optimized for non-null constant" {
   match result {
     Ok(Some((_, new_instr))) =>
       // The inner struct.get gets optimized, so we get a ref.test with a block inside
-      match new_instr {
-        TRefTest(_, _, _) => () // Good, ref.test preserved
-        TBlock(_, _) => () // Also acceptable - inner was optimized
+      match new_instr.kind {
+        TInstrKind::TRefTest(_, _, _) => () // Good, ref.test preserved
+        TInstrKind::TBlock(_, _) => () // Also acceptable - inner was optimized
         _ => ()
       }
     Ok(None) => () // Also acceptable - no change

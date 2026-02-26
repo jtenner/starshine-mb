@@ -74,6 +74,7 @@ using @lib {
   type TagType,
   type TExpr,
   type TInstr,
+  type TInstrKind,
   type TypeIdx,
   type TypeSec,
   type U32,

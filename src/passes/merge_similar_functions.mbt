@@ -213,14 +213,14 @@ fn msf_func_idx_from_int(i : Int) -> FuncIdx {
 
 ///|
 fn msf_zero_const_like(instr : TInstr) -> TInstr {
-  match instr {
-    TI32Const(_) => TInstr::i32_const(I32(0))
-    TI64Const(_) => TInstr::i64_const(I64(0L))
-    TF32Const(_) => TInstr::f32_const(F32(0.0))
-    TF64Const(_) => TInstr::f64_const(F64(0.0))
-    TRefNull(ht) => TInstr::ref_null(ht)
-    TRefFunc(_) => TInstr::ref_func(FuncIdx::new(0))
-    TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+  match instr.kind {
+    TInstrKind::TI32Const(_) => TInstr::i32_const(I32(0))
+    TInstrKind::TI64Const(_) => TInstr::i64_const(I64(0L))
+    TInstrKind::TF32Const(_) => TInstr::f32_const(F32(0.0))
+    TInstrKind::TF64Const(_) => TInstr::f64_const(F64(0.0))
+    TInstrKind::TRefNull(ht) => TInstr::ref_null(ht)
+    TInstrKind::TRefFunc(_) => TInstr::ref_func(FuncIdx::new(0))
+    TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
       TInstr::v128_const(
         (0).to_byte(),
         (0).to_byte(),
@@ -245,19 +245,19 @@ fn msf_zero_const_like(instr : TInstr) -> TInstr {
 
 ///|
 fn msf_const_type(instr : TInstr) -> ValType? {
-  match instr {
-    TI32Const(_) => Some(ValType::i32())
-    TI64Const(_) => Some(ValType::i64())
-    TF32Const(_) => Some(ValType::f32())
-    TF64Const(_) => Some(ValType::f64())
-    TRefNull(ht) => Some(ValType::ref_type(RefType::new(true, ht)))
-    TRefFunc(_) =>
+  match instr.kind {
+    TInstrKind::TI32Const(_) => Some(ValType::i32())
+    TInstrKind::TI64Const(_) => Some(ValType::i64())
+    TInstrKind::TF32Const(_) => Some(ValType::f32())
+    TInstrKind::TF64Const(_) => Some(ValType::f64())
+    TInstrKind::TRefNull(ht) => Some(ValType::ref_type(RefType::new(true, ht)))
+    TInstrKind::TRefFunc(_) =>
       Some(
         ValType::ref_type(
           RefType::new(false, HeapType::abs(AbsHeapType::func())),
         ),
       )
-    TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+    TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
       Some(ValType::v128())
     _ => None
   }
@@ -265,115 +265,135 @@ fn msf_const_type(instr : TInstr) -> ValType? {
 
 ///|
 fn msf_tag_hash(instr : TInstr) -> UInt64 {
-  let tag : UInt64 = match instr {
-    TI32Const(_) => 1UL
-    TI64Const(_) => 2UL
-    TF32Const(_) => 3UL
-    TF64Const(_) => 4UL
-    TRefNull(_) => 5UL
-    TRefFunc(_) => 6UL
-    TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => 7UL
-    TUnreachable => 8UL
-    TNop => 9UL
-    TLocalGet(_) => 10UL
-    TGlobalGet(_) => 11UL
-    TMemorySize(_) => 12UL
-    TTableSize(_) => 13UL
-    TUnary(_, _) => 14UL
-    TDrop(_) => 15UL
-    TLocalSet(_, _) => 16UL
-    TLocalTee(_, _) => 17UL
-    TGlobalSet(_, _) => 18UL
-    TRefIsNull(_) => 19UL
-    TRefAsNonNull(_) => 20UL
-    TI31GetS(_) => 21UL
-    TI31GetU(_) => 22UL
-    TRefI31(_) => 23UL
-    TArrayLen(_) => 24UL
-    TAnyConvertExtern(_) => 25UL
-    TExternConvertAny(_) => 26UL
-    TThrowRef(_) => 27UL
-    TBinary(_, _, _) => 28UL
-    TRefEq(_, _) => 29UL
-    TStore(_, _, _, _) => 30UL
-    TLoad(_, _, _) => 31UL
-    TMemoryGrow(_, _) => 32UL
-    TMemoryAtomicNotify(_, _, _) => 200UL
-    TMemoryAtomicWait32(_, _, _, _) => 201UL
-    TMemoryAtomicWait64(_, _, _, _) => 202UL
-    TAtomicFence => 203UL
-    TAtomicRmw(_, _, _, _) => 204UL
-    TAtomicCmpxchg(_, _, _, _, _) => 205UL
-    TMemoryFill(_, _, _, _) => 33UL
-    TMemoryCopy(_, _, _, _, _) => 34UL
-    TMemoryInit(_, _, _, _, _) => 35UL
-    TDataDrop(_) => 36UL
-    TTableGet(_, _) => 37UL
-    TTableSet(_, _, _) => 38UL
-    TTableGrow(_, _, _) => 39UL
-    TTableFill(_, _, _, _) => 40UL
-    TTableCopy(_, _, _, _, _) => 41UL
-    TTableInit(_, _, _, _, _) => 42UL
-    TElemDrop(_) => 43UL
-    TCall(_, _) => 44UL
-    TCallIndirect(_, _, _, _) => 45UL
-    TCallRef(_, _, _) => 46UL
-    TReturnCall(_, _) => 47UL
-    TReturnCallIndirect(_, _, _, _) => 48UL
-    TReturnCallRef(_, _, _) => 49UL
-    TBlock(_, _) => 50UL
-    TLoop(_, _) => 51UL
-    TIf(_, _, _, _) => 52UL
-    TTryTable(_, _, _) => 53UL
-    TThrow(_, _) => 54UL
-    TBr(_, _) => 55UL
-    TBrIf(_, _, _) => 56UL
-    TBrTable(_, _, _, _) => 57UL
-    TBrOnNull(_, _, _) => 58UL
-    TBrOnNonNull(_, _, _) => 59UL
-    TBrOnCast(_, _, _, _, _, _) => 60UL
-    TBrOnCastFail(_, _, _, _, _, _) => 61UL
-    TReturn(_) => 62UL
-    TSelect(_, _, _, _) => 63UL
-    TStructNew(_, _) => 64UL
-    TStructNewDefault(_) => 65UL
-    TStructGet(_, _, _) => 66UL
-    TStructGetS(_, _, _) => 67UL
-    TStructGetU(_, _, _) => 68UL
-    TStructSet(_, _, _, _) => 69UL
-    TArrayNew(_, _, _) => 70UL
-    TArrayNewDefault(_, _) => 71UL
-    TArrayNewFixed(_, _) => 72UL
-    TArrayNewData(_, _, _, _) => 73UL
-    TArrayNewElem(_, _, _, _) => 74UL
-    TArrayGet(_, _, _) => 75UL
-    TArrayGetS(_, _, _) => 76UL
-    TArrayGetU(_, _, _) => 77UL
-    TArraySet(_, _, _, _) => 78UL
-    TArrayFill(_, _, _, _, _) => 79UL
-    TArrayCopy(_, _, _, _, _, _, _) => 80UL
-    TArrayInitData(_, _, _, _, _, _) => 81UL
-    TArrayInitElem(_, _, _, _, _, _) => 82UL
-    TRefTest(_, _, _) => 83UL
-    TRefCast(_, _, _) => 84UL
-    TRefGetDesc(_) => 85UL
-    TRefTestDesc(_, _, _) => 86UL
-    TRefCastDescEq(_, _, _) => 87UL
-    TI8x16Splat(_) => 88UL
-    TI16x8Splat(_) => 89UL
-    TI32x4Splat(_) => 90UL
-    TI64x2Splat(_) => 91UL
-    TF32x4Splat(_) => 92UL
-    TF64x2Splat(_) => 93UL
-    TExtractLane(_, _, _) => 94UL
-    TReplaceLane(_, _, _, _) => 95UL
-    TI8x16Shuffle(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => 96UL
-    TI8x16Swizzle(_, _) => 97UL
-    TI8x16RelaxedSwizzle(_, _) => 98UL
-    TV128Shift(_, _, _) => 99UL
-    TV128Ternary(_, _, _, _) => 100UL
-    TV128LoadLane(_, _, _, _, _) => 101UL
-    TV128StoreLane(_, _, _, _, _) => 102UL
+  let tag : UInt64 = match instr.kind {
+    TInstrKind::TI32Const(_) => 1UL
+    TInstrKind::TI64Const(_) => 2UL
+    TInstrKind::TF32Const(_) => 3UL
+    TInstrKind::TF64Const(_) => 4UL
+    TInstrKind::TRefNull(_) => 5UL
+    TInstrKind::TRefFunc(_) => 6UL
+    TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      7UL
+    TInstrKind::TUnreachable => 8UL
+    TInstrKind::TNop => 9UL
+    TInstrKind::TLocalGet(_) => 10UL
+    TInstrKind::TGlobalGet(_) => 11UL
+    TInstrKind::TMemorySize(_) => 12UL
+    TInstrKind::TTableSize(_) => 13UL
+    TInstrKind::TUnary(_, _) => 14UL
+    TInstrKind::TDrop(_) => 15UL
+    TInstrKind::TLocalSet(_, _) => 16UL
+    TInstrKind::TLocalTee(_, _) => 17UL
+    TInstrKind::TGlobalSet(_, _) => 18UL
+    TInstrKind::TRefIsNull(_) => 19UL
+    TInstrKind::TRefAsNonNull(_) => 20UL
+    TInstrKind::TI31GetS(_) => 21UL
+    TInstrKind::TI31GetU(_) => 22UL
+    TInstrKind::TRefI31(_) => 23UL
+    TInstrKind::TArrayLen(_) => 24UL
+    TInstrKind::TAnyConvertExtern(_) => 25UL
+    TInstrKind::TExternConvertAny(_) => 26UL
+    TInstrKind::TThrowRef(_) => 27UL
+    TInstrKind::TBinary(_, _, _) => 28UL
+    TInstrKind::TRefEq(_, _) => 29UL
+    TInstrKind::TStore(_, _, _, _) => 30UL
+    TInstrKind::TLoad(_, _, _) => 31UL
+    TInstrKind::TMemoryGrow(_, _) => 32UL
+    TInstrKind::TMemoryAtomicNotify(_, _, _) => 200UL
+    TInstrKind::TMemoryAtomicWait32(_, _, _, _) => 201UL
+    TInstrKind::TMemoryAtomicWait64(_, _, _, _) => 202UL
+    TInstrKind::TAtomicFence => 203UL
+    TInstrKind::TAtomicRmw(_, _, _, _) => 204UL
+    TInstrKind::TAtomicCmpxchg(_, _, _, _, _) => 205UL
+    TInstrKind::TMemoryFill(_, _, _, _) => 33UL
+    TInstrKind::TMemoryCopy(_, _, _, _, _) => 34UL
+    TInstrKind::TMemoryInit(_, _, _, _, _) => 35UL
+    TInstrKind::TDataDrop(_) => 36UL
+    TInstrKind::TTableGet(_, _) => 37UL
+    TInstrKind::TTableSet(_, _, _) => 38UL
+    TInstrKind::TTableGrow(_, _, _) => 39UL
+    TInstrKind::TTableFill(_, _, _, _) => 40UL
+    TInstrKind::TTableCopy(_, _, _, _, _) => 41UL
+    TInstrKind::TTableInit(_, _, _, _, _) => 42UL
+    TInstrKind::TElemDrop(_) => 43UL
+    TInstrKind::TCall(_, _) => 44UL
+    TInstrKind::TCallIndirect(_, _, _, _) => 45UL
+    TInstrKind::TCallRef(_, _, _) => 46UL
+    TInstrKind::TReturnCall(_, _) => 47UL
+    TInstrKind::TReturnCallIndirect(_, _, _, _) => 48UL
+    TInstrKind::TReturnCallRef(_, _, _) => 49UL
+    TInstrKind::TBlock(_, _) => 50UL
+    TInstrKind::TLoop(_, _) => 51UL
+    TInstrKind::TIf(_, _, _, _) => 52UL
+    TInstrKind::TTryTable(_, _, _) => 53UL
+    TInstrKind::TThrow(_, _) => 54UL
+    TInstrKind::TBr(_, _) => 55UL
+    TInstrKind::TBrIf(_, _, _) => 56UL
+    TInstrKind::TBrTable(_, _, _, _) => 57UL
+    TInstrKind::TBrOnNull(_, _, _) => 58UL
+    TInstrKind::TBrOnNonNull(_, _, _) => 59UL
+    TInstrKind::TBrOnCast(_, _, _, _, _, _) => 60UL
+    TInstrKind::TBrOnCastFail(_, _, _, _, _, _) => 61UL
+    TInstrKind::TReturn(_) => 62UL
+    TInstrKind::TSelect(_, _, _, _) => 63UL
+    TInstrKind::TStructNew(_, _) => 64UL
+    TInstrKind::TStructNewDefault(_) => 65UL
+    TInstrKind::TStructGet(_, _, _) => 66UL
+    TInstrKind::TStructGetS(_, _, _) => 67UL
+    TInstrKind::TStructGetU(_, _, _) => 68UL
+    TInstrKind::TStructSet(_, _, _, _) => 69UL
+    TInstrKind::TArrayNew(_, _, _) => 70UL
+    TInstrKind::TArrayNewDefault(_, _) => 71UL
+    TInstrKind::TArrayNewFixed(_, _) => 72UL
+    TInstrKind::TArrayNewData(_, _, _, _) => 73UL
+    TInstrKind::TArrayNewElem(_, _, _, _) => 74UL
+    TInstrKind::TArrayGet(_, _, _) => 75UL
+    TInstrKind::TArrayGetS(_, _, _) => 76UL
+    TInstrKind::TArrayGetU(_, _, _) => 77UL
+    TInstrKind::TArraySet(_, _, _, _) => 78UL
+    TInstrKind::TArrayFill(_, _, _, _, _) => 79UL
+    TInstrKind::TArrayCopy(_, _, _, _, _, _, _) => 80UL
+    TInstrKind::TArrayInitData(_, _, _, _, _, _) => 81UL
+    TInstrKind::TArrayInitElem(_, _, _, _, _, _) => 82UL
+    TInstrKind::TRefTest(_, _, _) => 83UL
+    TInstrKind::TRefCast(_, _, _) => 84UL
+    TInstrKind::TRefGetDesc(_) => 85UL
+    TInstrKind::TRefTestDesc(_, _, _) => 86UL
+    TInstrKind::TRefCastDescEq(_, _, _) => 87UL
+    TInstrKind::TI8x16Splat(_) => 88UL
+    TInstrKind::TI16x8Splat(_) => 89UL
+    TInstrKind::TI32x4Splat(_) => 90UL
+    TInstrKind::TI64x2Splat(_) => 91UL
+    TInstrKind::TF32x4Splat(_) => 92UL
+    TInstrKind::TF64x2Splat(_) => 93UL
+    TInstrKind::TExtractLane(_, _, _) => 94UL
+    TInstrKind::TReplaceLane(_, _, _, _) => 95UL
+    TInstrKind::TI8x16Shuffle(
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _
+    ) => 96UL
+    TInstrKind::TI8x16Swizzle(_, _) => 97UL
+    TInstrKind::TI8x16RelaxedSwizzle(_, _) => 98UL
+    TInstrKind::TV128Shift(_, _, _) => 99UL
+    TInstrKind::TV128Ternary(_, _, _, _) => 100UL
+    TInstrKind::TV128LoadLane(_, _, _, _, _) => 101UL
+    TInstrKind::TV128StoreLane(_, _, _, _, _) => 102UL
   }
   tag * 11400714819323198485UL
 }
@@ -425,17 +445,18 @@ fn msf_normalize_body(body : TExpr) -> Result[TExpr, String] {
       Ok(None) => instr
       Err(e) => return Err(e)
     }
-    let rewritten = match walked {
-      TI32Const(_)
-      | TI64Const(_)
-      | TF32Const(_)
-      | TF64Const(_)
-      | TRefNull(_)
-      | TRefFunc(_)
-      | TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+    let rewritten = match walked.kind {
+      TInstrKind::TI32Const(_)
+      | TInstrKind::TI64Const(_)
+      | TInstrKind::TF32Const(_)
+      | TInstrKind::TF64Const(_)
+      | TInstrKind::TRefNull(_)
+      | TInstrKind::TRefFunc(_)
+      | TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
         msf_zero_const_like(walked)
-      TCall(_, args) => TInstr::call(FuncIdx::new(0), args)
-      TReturnCall(_, args) => TInstr::return_call(FuncIdx::new(0), args)
+      TInstrKind::TCall(_, args) => TInstr::call(FuncIdx::new(0), args)
+      TInstrKind::TReturnCall(_, args) =>
+        TInstr::return_call(FuncIdx::new(0), args)
       _ => walked
     }
     if rewritten == instr {
@@ -458,15 +479,15 @@ fn msf_collect_call_sites(body : TExpr) -> Array[MSFCallSite] {
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
     let id = next_id
     next_id += 1
-    match instr {
-      TCall(target, args) =>
+    match instr.kind {
+      TInstrKind::TCall(target, args) =>
         out.push({
           node_id: id,
           target,
           arg_count: args.length(),
           is_return: false,
         })
-      TReturnCall(target, args) =>
+      TInstrKind::TReturnCall(target, args) =>
         out.push({
           node_id: id,
           target,
@@ -491,21 +512,21 @@ fn msf_collect_sites(
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
     let id = next_id
     next_id += 1
-    match instr {
-      TI32Const(_)
-      | TI64Const(_)
-      | TF32Const(_)
-      | TF64Const(_)
-      | TRefNull(_)
-      | TRefFunc(_)
-      | TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+    match instr.kind {
+      TInstrKind::TI32Const(_)
+      | TInstrKind::TI64Const(_)
+      | TInstrKind::TF32Const(_)
+      | TInstrKind::TF64Const(_)
+      | TInstrKind::TRefNull(_)
+      | TInstrKind::TRefFunc(_)
+      | TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
         match msf_const_type(instr) {
           Some(vt) => out[id] = ConstSite(instr, vt)
           None => ()
         }
-      TCall(target, _) | TReturnCall(target, _) => {
-        let is_return = match instr {
-          TReturnCall(_, _) => true
+      TInstrKind::TCall(target, _) | TInstrKind::TReturnCall(target, _) => {
+        let is_return = match instr.kind {
+          TInstrKind::TReturnCall(_, _) => true
           _ => false
         }
         let abs_idx = msf_func_idx_to_int(target)
@@ -954,8 +975,8 @@ fn msf_rewrite_shared_body(
       Ok(None) => instr
       Err(e) => return Err(e)
     }
-    let shifted = match walked {
-      TLocalGet(idx) => {
+    let shifted = match walked.kind {
+      TInstrKind::TLocalGet(idx) => {
         let raw = msf_local_idx_to_int(idx)
         if raw >= primary_param_count {
           TInstr::local_get(msf_local_idx_from_int(raw + shift))
@@ -963,7 +984,7 @@ fn msf_rewrite_shared_body(
           walked
         }
       }
-      TLocalSet(idx, value) => {
+      TInstrKind::TLocalSet(idx, value) => {
         let raw = msf_local_idx_to_int(idx)
         if raw >= primary_param_count {
           TInstr::local_set(msf_local_idx_from_int(raw + shift), value)
@@ -971,7 +992,7 @@ fn msf_rewrite_shared_body(
           walked
         }
       }
-      TLocalTee(idx, value) => {
+      TInstrKind::TLocalTee(idx, value) => {
         let raw = msf_local_idx_to_int(idx)
         if raw >= primary_param_count {
           TInstr::local_tee(msf_local_idx_from_int(raw + shift), value)
@@ -987,17 +1008,40 @@ fn msf_rewrite_shared_body(
           primary_param_count, param_idx,
         )
         match (shifted, params[param_idx].kind) {
-          (TI32Const(_), LiteralParam(_, _))
-          | (TI64Const(_), LiteralParam(_, _))
-          | (TF32Const(_), LiteralParam(_, _))
-          | (TF64Const(_), LiteralParam(_, _))
-          | (TRefNull(_), LiteralParam(_, _))
-          | (TRefFunc(_), LiteralParam(_, _))
+          ({ kind: TInstrKind::TI32Const(_), .. }, LiteralParam(_, _))
+          | ({ kind: TInstrKind::TI64Const(_), .. }, LiteralParam(_, _))
+          | ({ kind: TInstrKind::TF32Const(_), .. }, LiteralParam(_, _))
+          | ({ kind: TInstrKind::TF64Const(_), .. }, LiteralParam(_, _))
+          | ({ kind: TInstrKind::TRefNull(_), .. }, LiteralParam(_, _))
+          | ({ kind: TInstrKind::TRefFunc(_), .. }, LiteralParam(_, _))
           | (
-            TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _),
+            {
+              kind: TInstrKind::TV128Const(
+                _,
+                _,
+                _,
+                _,
+                _,
+                _,
+                _,
+                _,
+                _,
+                _,
+                _,
+                _,
+                _,
+                _,
+                _,
+                _
+              ),
+              ..,
+            },
             LiteralParam(_, _),
           ) => TInstr::local_get(replacement_local)
-          (TCall(_, args), CallTargetParam(type_idx, _)) => {
+          (
+            { kind: TInstrKind::TCall(_, args), .. },
+            CallTargetParam(type_idx, _),
+          ) => {
             let casted = TInstr::ref_cast(
               true,
               HeapType::new(type_idx),
@@ -1005,7 +1049,10 @@ fn msf_rewrite_shared_body(
             )
             TInstr::call_ref(type_idx, args, casted)
           }
-          (TReturnCall(_, args), CallTargetParam(type_idx, _)) => {
+          (
+            { kind: TInstrKind::TReturnCall(_, args), .. },
+            CallTargetParam(type_idx, _),
+          ) => {
             let casted = TInstr::ref_cast(
               true,
               HeapType::new(type_idx),
@@ -1305,7 +1352,13 @@ fn msf_shared_abs_index(mod : Module) -> Int {
 ///|
 fn msf_is_forwarder(func : Func, target_abs : Int, arg_count : Int) -> Bool {
   match func {
-    TFunc(locals, { instrs: [TReturnCall(FuncIdx(raw), args)], .. }) =>
+    TFunc(
+      locals,
+      {
+        instrs: [{ kind: TInstrKind::TReturnCall(FuncIdx(raw), args), .. }],
+        ..,
+      }
+    ) =>
       locals.length() == 0 &&
       raw.reinterpret_as_int() == target_abs &&
       args.length() == arg_count
@@ -1337,9 +1390,9 @@ test "merge similar functions basic const merging creates shared + thunks" {
             _,
             instr,
           ) {
-            match instr {
-              TLocalGet(LocalIdx(raw)) if raw.reinterpret_as_int() == 1 =>
-                saw_param_get = true
+            match instr.kind {
+              TInstrKind::TLocalGet(LocalIdx(raw)) if raw.reinterpret_as_int() ==
+                1 => saw_param_get = true
               _ => ()
             }
             self.walk_tinstruction_default((), instr)
@@ -1409,9 +1462,9 @@ test "merge similar functions reuses parameter across repeated diff vector" {
               _,
               curr,
             ) {
-              match curr {
-                TLocalGet(LocalIdx(raw)) if raw.reinterpret_as_int() == 1 =>
-                  local_get_count += 1
+              match curr.kind {
+                TInstrKind::TLocalGet(LocalIdx(raw)) if raw.reinterpret_as_int() ==
+                  1 => local_get_count += 1
                 _ => ()
               }
               self.walk_tinstruction_default((), curr)
@@ -1526,15 +1579,15 @@ test "merge similar functions parameterizes call target using call_ref" {
             _,
             instr,
           ) {
-            match instr {
-              TCallRef(TypeIdx(raw), _, ref_) => {
+            match instr.kind {
+              TInstrKind::TCallRef(TypeIdx(raw), _, ref_) => {
                 saw_call_ref = true
                 seen_type_idx = raw.reinterpret_as_int()
-                match ref_ {
-                  TRefCast(
+                match ref_.kind {
+                  TInstrKind::TRefCast(
                     true,
                     HeapType(TypeIdx(cast_raw)),
-                    TLocalGet(LocalIdx(local_raw))
+                    { kind: TInstrKind::TLocalGet(LocalIdx(local_raw)), .. }
                   ) =>
                     if cast_raw.reinterpret_as_int() == 0 &&
                       local_raw.reinterpret_as_int() == 1 {
@@ -1757,11 +1810,11 @@ test "merge similar functions shifts var local indices in shared function" {
             _,
             instr,
           ) {
-            match instr {
-              TLocalSet(LocalIdx(raw), _) if raw.reinterpret_as_int() == 2 =>
-                saw_shifted_set = true
-              TLocalGet(LocalIdx(raw)) if raw.reinterpret_as_int() == 2 =>
-                saw_shifted_get = true
+            match instr.kind {
+              TInstrKind::TLocalSet(LocalIdx(raw), _) if raw.reinterpret_as_int() ==
+                2 => saw_shifted_set = true
+              TInstrKind::TLocalGet(LocalIdx(raw)) if raw.reinterpret_as_int() ==
+                2 => saw_shifted_get = true
               _ => ()
             }
             self.walk_tinstruction_default((), instr)

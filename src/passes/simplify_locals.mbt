@@ -28,19 +28,21 @@ fn SLLocalStats::new() -> SLLocalStats {
 
 ///|
 fn sl_collect_local_stats_instr(instr : TInstr, stats : SLLocalStats) -> Unit {
-  match instr {
-    TLocalSet(_, value) => {
+  match instr.kind {
+    TInstrKind::TLocalSet(_, value) => {
       stats.sets += 1
       sl_collect_local_stats_instr(value, stats)
     }
-    TLocalTee(_, value) => {
+    TInstrKind::TLocalTee(_, value) => {
       stats.tees += 1
       sl_collect_local_stats_instr(value, stats)
     }
-    TLocalGet(_) => stats.gets += 1
-    TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) =>
+    TInstrKind::TLocalGet(_) => stats.gets += 1
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) =>
       sl_collect_local_stats_texpr(body, stats)
-    TIf(_, cond, then_body, else_body) => {
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
       sl_collect_local_stats_instr(cond, stats)
       sl_collect_local_stats_texpr(then_body, stats)
       match else_body {
@@ -64,11 +66,12 @@ fn sl_collect_local_stats_texpr(expr : TExpr, stats : SLLocalStats) -> Unit {
 
 ///|
 fn sl_has_result_if_instr(instr : TInstr) -> Bool {
-  match instr {
-    TIf(ValTypeBlockType(_), _, _, _) => true
-    TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) =>
-      sl_has_result_if_texpr(body)
-    TIf(_, cond, then_body, else_body) => {
+  match instr.kind {
+    TInstrKind::TIf(ValTypeBlockType(_), _, _, _) => true
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) => sl_has_result_if_texpr(body)
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
       if sl_has_result_if_instr(cond) || sl_has_result_if_texpr(then_body) {
         return true
       }
@@ -101,14 +104,16 @@ fn sl_has_result_if_texpr(expr : TExpr) -> Bool {
 ///|
 fn sl_count_local_gets_for_idx_instr(instr : TInstr, idx : Int) -> Int {
   let mut total = 0
-  match instr {
-    TLocalGet(local_idx) =>
+  match instr.kind {
+    TInstrKind::TLocalGet(local_idx) =>
       if sl_localidx_to_int(local_idx) == idx {
         total += 1
       }
-    TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) =>
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) =>
       total += sl_count_local_gets_for_idx_texpr(body, idx)
-    TIf(_, cond, then_body, else_body) => {
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
       total += sl_count_local_gets_for_idx_instr(cond, idx)
       total += sl_count_local_gets_for_idx_texpr(then_body, idx)
       match else_body {
@@ -135,16 +140,19 @@ fn sl_count_local_gets_for_idx_texpr(expr : TExpr, idx : Int) -> Int {
 
 ///|
 fn sl_has_local_set_for_idx_instr(instr : TInstr, idx : Int) -> Bool {
-  match instr {
-    TLocalSet(local_idx, value) | TLocalTee(local_idx, value) => {
+  match instr.kind {
+    TInstrKind::TLocalSet(local_idx, value)
+    | TInstrKind::TLocalTee(local_idx, value) => {
       if sl_localidx_to_int(local_idx) == idx {
         return true
       }
       sl_has_local_set_for_idx_instr(value, idx)
     }
-    TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) =>
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) =>
       sl_has_local_set_for_idx_texpr(body, idx)
-    TIf(_, cond, then_body, else_body) => {
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
       if sl_has_local_set_for_idx_instr(cond, idx) ||
         sl_has_local_set_for_idx_texpr(then_body, idx) {
         return true
@@ -178,16 +186,19 @@ fn sl_has_local_set_for_idx_texpr(expr : TExpr, idx : Int) -> Bool {
 ///|
 fn sl_count_local_sets_for_idx_instr(instr : TInstr, idx : Int) -> Int {
   let mut total = 0
-  match instr {
-    TLocalSet(local_idx, value) | TLocalTee(local_idx, value) => {
+  match instr.kind {
+    TInstrKind::TLocalSet(local_idx, value)
+    | TInstrKind::TLocalTee(local_idx, value) => {
       if sl_localidx_to_int(local_idx) == idx {
         total += 1
       }
       total += sl_count_local_sets_for_idx_instr(value, idx)
     }
-    TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) =>
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) =>
       total += sl_count_local_sets_for_idx_texpr(body, idx)
-    TIf(_, cond, then_body, else_body) => {
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
       total += sl_count_local_sets_for_idx_instr(cond, idx)
       total += sl_count_local_sets_for_idx_texpr(then_body, idx)
       match else_body {
@@ -214,11 +225,12 @@ fn sl_count_local_sets_for_idx_texpr(expr : TExpr, idx : Int) -> Int {
 
 ///|
 fn sl_has_result_block_instr(instr : TInstr) -> Bool {
-  match instr {
-    TBlock(ValTypeBlockType(_), _) => true
-    TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) =>
-      sl_has_result_block_texpr(body)
-    TIf(_, cond, then_body, else_body) => {
+  match instr.kind {
+    TInstrKind::TBlock(ValTypeBlockType(_), _) => true
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) => sl_has_result_block_texpr(body)
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
       if sl_has_result_block_instr(cond) || sl_has_result_block_texpr(then_body) {
         return true
       }
@@ -250,11 +262,12 @@ fn sl_has_result_block_texpr(expr : TExpr) -> Bool {
 
 ///|
 fn sl_has_result_loop_instr(instr : TInstr) -> Bool {
-  match instr {
-    TLoop(ValTypeBlockType(_), _) => true
-    TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) =>
-      sl_has_result_loop_texpr(body)
-    TIf(_, cond, then_body, else_body) => {
+  match instr.kind {
+    TInstrKind::TLoop(ValTypeBlockType(_), _) => true
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) => sl_has_result_loop_texpr(body)
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
       if sl_has_result_loop_instr(cond) || sl_has_result_loop_texpr(then_body) {
         return true
       }
@@ -286,12 +299,14 @@ fn sl_has_result_loop_texpr(expr : TExpr) -> Bool {
 
 ///|
 fn sl_has_br_if_with_tee_value_instr(instr : TInstr, idx : Int) -> Bool {
-  match instr {
-    TBrIf(_, _, [TLocalTee(local_idx, _)]) =>
+  match instr.kind {
+    TInstrKind::TBrIf(_, _, [{ kind: TInstrKind::TLocalTee(local_idx, _), .. }]) =>
       sl_localidx_to_int(local_idx) == idx
-    TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) =>
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) =>
       sl_has_br_if_with_tee_value_texpr(body, idx)
-    TIf(_, cond, then_body, else_body) => {
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
       if sl_has_br_if_with_tee_value_instr(cond, idx) ||
         sl_has_br_if_with_tee_value_texpr(then_body, idx) {
         return true
@@ -349,8 +364,8 @@ fn sl_localidx_from_int(idx : Int) -> LocalIdx {
 
 ///|
 fn sl_instr_is_direct_local_set_for_idx(instr : TInstr, idx : Int) -> Bool {
-  match instr {
-    TLocalSet(local_idx, _) => sl_localidx_to_int(local_idx) == idx
+  match instr.kind {
+    TInstrKind::TLocalSet(local_idx, _) => sl_localidx_to_int(local_idx) == idx
     _ => false
   }
 }
@@ -388,16 +403,18 @@ fn sl_is_defaultable(vt : ValType) -> Bool {
 
 ///|
 fn sl_collect_get_counts_instr(instr : TInstr, counts : Array[Int]) -> Unit {
-  match instr {
-    TLocalGet(idx) => {
+  match instr.kind {
+    TInstrKind::TLocalGet(idx) => {
       let i = sl_localidx_to_int(idx)
       if i >= 0 && i < counts.length() {
         counts[i] += 1
       }
     }
-    TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) =>
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) =>
       sl_collect_get_counts_texpr(body, counts)
-    TIf(_, cond, then_body, else_body) => {
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
       sl_collect_get_counts_instr(cond, counts)
       sl_collect_get_counts_texpr(then_body, counts)
       match else_body {
@@ -438,16 +455,16 @@ fn sl_try_sink_local_get(
     Some(info) => {
       let one_use = get_counts[key] == 1
       let sink_value = info.value
-      let sink_is_get = match sink_value {
-        TLocalGet(_) => true
+      let sink_is_get = match sink_value.kind {
+        TInstrKind::TLocalGet(_) => true
         _ => false
       }
       if !options.allow_nesting && !sink_is_get && !parent_is_set_value {
         return TInstr::local_get(idx)
       }
       if !one_use && !options.allow_tee {
-        match sink_value {
-          TLocalGet(other) =>
+        match sink_value.kind {
+          TInstrKind::TLocalGet(other) =>
             if options.allow_nesting {
               TInstr::local_get(idx)
             } else {
@@ -500,8 +517,8 @@ fn sl_take_terminal_local_set(
   if n == 0 {
     return None
   }
-  match body.instrs[n - 1] {
-    TLocalSet(idx, value) => {
+  match body.instrs[n - 1].kind {
+    TInstrKind::TLocalSet(idx, value) => {
       let prefix : Array[TInstr] = []
       for i = 0; i < n - 1; i = i + 1 {
         prefix.push(body.instrs[i])
@@ -537,8 +554,9 @@ fn sl_branch_value_candidate_idx(values : Array[TInstr]) -> Int? {
   if values.length() != 1 {
     return None
   }
-  match values[0] {
-    TLocalSet(idx, _) | TLocalTee(idx, _) => Some(sl_localidx_to_int(idx))
+  match values[0].kind {
+    TInstrKind::TLocalSet(idx, _) | TInstrKind::TLocalTee(idx, _) =>
+      Some(sl_localidx_to_int(idx))
     _ => None
   }
 }
@@ -552,21 +570,22 @@ fn sl_collect_block_exit_candidates_texpr(
   for i = 0; i < body.instrs.length(); i = i + 1 {
     let curr = body.instrs[i]
     let prev = if i > 0 { Some(body.instrs[i - 1]) } else { None }
-    match curr {
-      TBr(label, values) =>
+    match curr.kind {
+      TInstrKind::TBr(label, values) =>
         if sl_labelidx_to_int(label) == target_depth {
           state.saw_exit = true
           match sl_branch_value_candidate_idx(values) {
             Some(idx) => sl_collect_shared_idx(state, idx)
             None =>
               match prev {
-                Some(TLocalSet(prev_idx, _)) if values.length() == 0 =>
+                Some({ kind: TInstrKind::TLocalSet(prev_idx, _), .. }) if values.length() ==
+                  0 =>
                   sl_collect_shared_idx(state, sl_localidx_to_int(prev_idx))
                 _ => state.unoptimizable = true
               }
           }
         }
-      TBrIf(label, cond, values) => {
+      TInstrKind::TBrIf(label, cond, values) => {
         sl_collect_block_exit_candidates_texpr(
           TExpr::new([cond]),
           target_depth,
@@ -578,14 +597,15 @@ fn sl_collect_block_exit_candidates_texpr(
             Some(idx) => sl_collect_shared_idx(state, idx)
             None =>
               match prev {
-                Some(TLocalSet(prev_idx, _)) if values.length() == 0 =>
+                Some({ kind: TInstrKind::TLocalSet(prev_idx, _), .. }) if values.length() ==
+                  0 =>
                   sl_collect_shared_idx(state, sl_localidx_to_int(prev_idx))
                 _ => state.unoptimizable = true
               }
           }
         }
       }
-      TBrTable(labels, default_, idx, values) => {
+      TInstrKind::TBrTable(labels, default_, idx, values) => {
         sl_collect_block_exit_candidates_texpr(
           TExpr::new([idx]),
           target_depth,
@@ -609,7 +629,8 @@ fn sl_collect_block_exit_candidates_texpr(
           state.unoptimizable = true
         }
       }
-      TBrOnNull(label, ref_, values) | TBrOnNonNull(label, ref_, values) => {
+      TInstrKind::TBrOnNull(label, ref_, values)
+      | TInstrKind::TBrOnNonNull(label, ref_, values) => {
         sl_collect_block_exit_candidates_texpr(
           TExpr::new([ref_]),
           target_depth,
@@ -627,8 +648,8 @@ fn sl_collect_block_exit_candidates_texpr(
           state.unoptimizable = true
         }
       }
-      TBrOnCast(label, _, _, _, ref_, values)
-      | TBrOnCastFail(label, _, _, _, ref_, values) => {
+      TInstrKind::TBrOnCast(label, _, _, _, ref_, values)
+      | TInstrKind::TBrOnCastFail(label, _, _, _, ref_, values) => {
         sl_collect_block_exit_candidates_texpr(
           TExpr::new([ref_]),
           target_depth,
@@ -646,9 +667,11 @@ fn sl_collect_block_exit_candidates_texpr(
           state.unoptimizable = true
         }
       }
-      TBlock(_, nested) | TLoop(_, nested) | TTryTable(_, _, nested) =>
+      TInstrKind::TBlock(_, nested)
+      | TInstrKind::TLoop(_, nested)
+      | TInstrKind::TTryTable(_, _, nested) =>
         sl_collect_block_exit_candidates_texpr(nested, target_depth + 1, state)
-      TIf(_, cond, then_body, else_body) => {
+      TInstrKind::TIf(_, cond, then_body, else_body) => {
         sl_collect_block_exit_candidates_texpr(
           TExpr::new([cond]),
           target_depth,
@@ -692,13 +715,14 @@ fn sl_rewrite_block_exits_texpr(
   let shared_local = sl_localidx_from_int(shared_idx)
   for i = 0; i < body.instrs.length(); i = i + 1 {
     let curr = body.instrs[i]
-    let next = match curr {
-      TBr(label, values) =>
+    let next = match curr.kind {
+      TInstrKind::TBr(label, values) =>
         if sl_labelidx_to_int(label) == target_depth {
           match sl_branch_value_candidate_idx(values) {
             Some(idx) if idx == shared_idx =>
-              match values[0] {
-                TLocalSet(_, value) | TLocalTee(_, value) => {
+              match values[0].kind {
+                TInstrKind::TLocalSet(_, value)
+                | TInstrKind::TLocalTee(_, value) => {
                   changed.val = true
                   TInstr::br(label, [value])
                 }
@@ -711,8 +735,8 @@ fn sl_rewrite_block_exits_texpr(
                   out[out.length() - 1],
                   shared_idx,
                 ) {
-                match out[out.length() - 1] {
-                  TLocalSet(_, value) => {
+                match out[out.length() - 1].kind {
+                  TInstrKind::TLocalSet(_, value) => {
                     out[out.length() - 1] = TInstr::nop()
                     changed.val = true
                     TInstr::br(label, [value])
@@ -726,18 +750,18 @@ fn sl_rewrite_block_exits_texpr(
         } else {
           curr
         }
-      TBrIf(label, cond, values) =>
+      TInstrKind::TBrIf(label, cond, values) =>
         if sl_labelidx_to_int(label) == target_depth {
           match sl_branch_value_candidate_idx(values) {
             Some(idx) if idx == shared_idx =>
-              match values[0] {
-                TLocalSet(_, value) => {
+              match values[0].kind {
+                TInstrKind::TLocalSet(_, value) => {
                   changed.val = true
                   TInstr::br_if(label, cond, [
                     TInstr::local_tee(shared_local, value),
                   ])
                 }
-                TLocalTee(_, value) => {
+                TInstrKind::TLocalTee(_, value) => {
                   changed.val = true
                   TInstr::br_if(label, cond, [
                     TInstr::local_tee(shared_local, value),
@@ -752,8 +776,8 @@ fn sl_rewrite_block_exits_texpr(
                   out[out.length() - 1],
                   shared_idx,
                 ) {
-                match out[out.length() - 1] {
-                  TLocalSet(_, value) => {
+                match out[out.length() - 1].kind {
+                  TInstrKind::TLocalSet(_, value) => {
                     out[out.length() - 1] = TInstr::nop()
                     changed.val = true
                     TInstr::br_if(label, cond, [
@@ -769,7 +793,7 @@ fn sl_rewrite_block_exits_texpr(
         } else {
           curr
         }
-      TBlock(bt, nested) =>
+      TInstrKind::TBlock(bt, nested) =>
         TInstr::block(
           bt,
           sl_rewrite_block_exits_texpr(
@@ -779,7 +803,7 @@ fn sl_rewrite_block_exits_texpr(
             changed,
           ),
         )
-      TLoop(bt, nested) =>
+      TInstrKind::TLoop(bt, nested) =>
         TInstr::loop_(
           bt,
           sl_rewrite_block_exits_texpr(
@@ -789,7 +813,7 @@ fn sl_rewrite_block_exits_texpr(
             changed,
           ),
         )
-      TTryTable(bt, catches, nested) =>
+      TInstrKind::TTryTable(bt, catches, nested) =>
         TInstr::try_table(
           bt,
           catches,
@@ -800,7 +824,7 @@ fn sl_rewrite_block_exits_texpr(
             changed,
           ),
         )
-      TIf(bt, cond, then_body, else_body) =>
+      TInstrKind::TIf(bt, cond, then_body, else_body) =>
         TInstr::if_(
           bt,
           sl_rewrite_block_exits_texpr(
@@ -841,8 +865,8 @@ fn sl_try_structure_block(
   if !options.allow_structure {
     return instr
   }
-  match instr {
-    TBlock(VoidBlockType, body) =>
+  match instr.kind {
+    TInstrKind::TBlock(VoidBlockType, body) =>
       match sl_take_terminal_local_set(body) {
         Some((_, fall_idx, _)) => {
           let fall_raw = sl_localidx_to_int(fall_idx)
@@ -902,8 +926,8 @@ fn sl_try_structure_loop_sink(
   if !options.allow_structure {
     return instr
   }
-  match instr {
-    TLoop(VoidBlockType, body) => {
+  match instr.kind {
+    TInstrKind::TLoop(VoidBlockType, body) => {
       if sinkables.is_empty() {
         return instr
       }
@@ -956,8 +980,8 @@ fn sl_try_structure_if(
   if !options.allow_structure {
     return instr
   }
-  match instr {
-    TIf(VoidBlockType, cond, then_body, else_body) =>
+  match instr.kind {
+    TInstrKind::TIf(VoidBlockType, cond, then_body, else_body) =>
       match else_body {
         Some(other) => {
           let then_set = sl_take_terminal_local_set(then_body)
@@ -1037,12 +1061,12 @@ fn sl_rewrite_instr_main(
   parent_is_set_value : Bool,
   changed : Ref[Bool],
 ) -> TInstr {
-  match instr {
-    TLocalGet(idx) =>
+  match instr.kind {
+    TInstrKind::TLocalGet(idx) =>
       sl_try_sink_local_get(
         idx, sinkables, out, get_counts, options, parent_is_set_value, changed,
       )
-    TBlock(bt, body) => {
+    TInstrKind::TBlock(bt, body) => {
       let (next_body, body_changed) = sl_simplify_texpr_main(
         body, local_types, get_counts, options,
       )
@@ -1056,7 +1080,7 @@ fn sl_rewrite_instr_main(
         changed,
       )
     }
-    TLoop(bt, body) => {
+    TInstrKind::TLoop(bt, body) => {
       let (next_body, body_changed) = sl_simplify_texpr_main(
         body, local_types, get_counts, options,
       )
@@ -1065,7 +1089,7 @@ fn sl_rewrite_instr_main(
       }
       TInstr::loop_(bt, next_body)
     }
-    TTryTable(bt, catches, body) => {
+    TInstrKind::TTryTable(bt, catches, body) => {
       let (next_body, body_changed) = sl_simplify_texpr_main(
         body, local_types, get_counts, options,
       )
@@ -1074,7 +1098,7 @@ fn sl_rewrite_instr_main(
       }
       TInstr::try_table(bt, catches, next_body)
     }
-    TIf(bt, cond, then_body, else_body) => {
+    TInstrKind::TIf(bt, cond, then_body, else_body) => {
       let next_cond = sl_rewrite_instr_main(
         cond, sinkables, out, local_types, get_counts, options, false, changed,
       )
@@ -1107,8 +1131,8 @@ fn sl_rewrite_instr_main(
       let mut any = false
       for i = 0; i < children.length(); i = i + 1 {
         let child = children[i]
-        let child_parent_is_set = match instr {
-          TLocalSet(_, _) | TLocalTee(_, _) => i == 0
+        let child_parent_is_set = match instr.kind {
+          TInstrKind::TLocalSet(_, _) | TInstrKind::TLocalTee(_, _) => i == 0
           _ => false
         }
         let next_child = sl_rewrite_instr_main(
@@ -1146,8 +1170,8 @@ fn sl_simplify_texpr_main(
     let rewritten = sl_rewrite_instr_main(
       instr, sinkables, out, local_types, get_counts, options, false, changed,
     )
-    let curr = match rewritten {
-      TDrop(TLocalTee(idx, value)) => {
+    let curr = match rewritten.kind {
+      TInstrKind::TDrop({ kind: TInstrKind::TLocalTee(idx, value), .. }) => {
         changed.val = true
         TInstr::local_set(idx, value)
       }
@@ -1158,8 +1182,8 @@ fn sl_simplify_texpr_main(
     )
     let curr_effects = lcs_collect_effects(curr)
     sl_invalidate_sinkables(sinkables, curr_effects)
-    match curr {
-      TLocalSet(idx, value) => {
+    match curr.kind {
+      TInstrKind::TLocalSet(idx, value) => {
         let key = sl_localidx_to_int(idx)
         if key >= 0 && key < get_counts.length() {
           match sinkables.get(key) {
@@ -1201,8 +1225,8 @@ fn sl_remove_unneeded_sets_instr(
   get_counts : Array[Int],
   changed : Ref[Bool],
 ) -> TInstr {
-  match instr {
-    TLocalSet(idx, value) => {
+  match instr.kind {
+    TInstrKind::TLocalSet(idx, value) => {
       let next_value = sl_remove_unneeded_sets_instr(value, get_counts, changed)
       let key = sl_localidx_to_int(idx)
       if key >= 0 && key < get_counts.length() && get_counts[key] == 0 {
@@ -1215,7 +1239,7 @@ fn sl_remove_unneeded_sets_instr(
         instr
       }
     }
-    TLocalTee(idx, value) => {
+    TInstrKind::TLocalTee(idx, value) => {
       let next_value = sl_remove_unneeded_sets_instr(value, get_counts, changed)
       let key = sl_localidx_to_int(idx)
       if key >= 0 && key < get_counts.length() && get_counts[key] == 0 {
@@ -1228,7 +1252,7 @@ fn sl_remove_unneeded_sets_instr(
         instr
       }
     }
-    TBlock(bt, body) => {
+    TInstrKind::TBlock(bt, body) => {
       let next_body = sl_remove_unneeded_sets_texpr(body, get_counts, changed)
       if next_body != body {
         changed.val = true
@@ -1237,7 +1261,7 @@ fn sl_remove_unneeded_sets_instr(
         instr
       }
     }
-    TLoop(bt, body) => {
+    TInstrKind::TLoop(bt, body) => {
       let next_body = sl_remove_unneeded_sets_texpr(body, get_counts, changed)
       if next_body != body {
         changed.val = true
@@ -1246,7 +1270,7 @@ fn sl_remove_unneeded_sets_instr(
         instr
       }
     }
-    TTryTable(bt, catches, body) => {
+    TInstrKind::TTryTable(bt, catches, body) => {
       let next_body = sl_remove_unneeded_sets_texpr(body, get_counts, changed)
       if next_body != body {
         changed.val = true
@@ -1255,7 +1279,7 @@ fn sl_remove_unneeded_sets_instr(
         instr
       }
     }
-    TIf(bt, cond, then_body, else_body) => {
+    TInstrKind::TIf(bt, cond, then_body, else_body) => {
       let next_cond = sl_remove_unneeded_sets_instr(cond, get_counts, changed)
       let next_then = sl_remove_unneeded_sets_texpr(
         then_body, get_counts, changed,
@@ -1311,8 +1335,8 @@ fn sl_remove_unneeded_sets_texpr(
 
 ///|
 fn sl_strip_nops_instr(instr : TInstr, changed : Ref[Bool]) -> TInstr {
-  match instr {
-    TBlock(bt, body) => {
+  match instr.kind {
+    TInstrKind::TBlock(bt, body) => {
       let next_body = sl_strip_nops_texpr(body, changed)
       if next_body != body {
         changed.val = true
@@ -1321,7 +1345,7 @@ fn sl_strip_nops_instr(instr : TInstr, changed : Ref[Bool]) -> TInstr {
         instr
       }
     }
-    TLoop(bt, body) => {
+    TInstrKind::TLoop(bt, body) => {
       let next_body = sl_strip_nops_texpr(body, changed)
       if next_body != body {
         changed.val = true
@@ -1330,7 +1354,7 @@ fn sl_strip_nops_instr(instr : TInstr, changed : Ref[Bool]) -> TInstr {
         instr
       }
     }
-    TTryTable(bt, catches, body) => {
+    TInstrKind::TTryTable(bt, catches, body) => {
       let next_body = sl_strip_nops_texpr(body, changed)
       if next_body != body {
         changed.val = true
@@ -1339,7 +1363,7 @@ fn sl_strip_nops_instr(instr : TInstr, changed : Ref[Bool]) -> TInstr {
         instr
       }
     }
-    TIf(bt, cond, then_body, else_body) => {
+    TInstrKind::TIf(bt, cond, then_body, else_body) => {
       let next_cond = sl_strip_nops_instr(cond, changed)
       let next_then = sl_strip_nops_texpr(then_body, changed)
       let next_else = else_body.map(fn(e) { sl_strip_nops_texpr(e, changed) })
@@ -1462,8 +1486,8 @@ fn sl_late_add_equivalence(state : SLLateState, a : Int, b : Int) -> Unit {
 
 ///|
 fn sl_get_fallthrough(instr : TInstr) -> TInstr {
-  match instr {
-    TBlock(_, { instrs, .. }) if instrs.length() > 0 =>
+  match instr.kind {
+    TInstrKind::TBlock(_, { instrs, .. }) if instrs.length() > 0 =>
       sl_get_fallthrough(instrs[instrs.length() - 1])
     _ => instr
   }
@@ -1487,12 +1511,12 @@ fn sl_late_get_count_ignoring_curr(
 
 ///|
 fn sl_late_rewrite_instr(instr : TInstr, state : SLLateState) -> TInstr {
-  match instr {
-    TLocalSet(idx, value) => {
+  match instr.kind {
+    TInstrKind::TLocalSet(idx, value) => {
       let next_value = sl_late_rewrite_instr(value, state)
       let idx_i = sl_localidx_to_int(idx)
-      match sl_get_fallthrough(next_value) {
-        TLocalGet(src_idx) => {
+      match sl_get_fallthrough(next_value).kind {
+        TInstrKind::TLocalGet(src_idx) => {
           let src_i = sl_localidx_to_int(src_idx)
           if sl_late_is_equivalent(state, idx_i, src_i) {
             if state.remove_equivalent_sets {
@@ -1526,11 +1550,11 @@ fn sl_late_rewrite_instr(instr : TInstr, state : SLLateState) -> TInstr {
         }
       }
     }
-    TLocalTee(idx, value) => {
+    TInstrKind::TLocalTee(idx, value) => {
       let next_value = sl_late_rewrite_instr(value, state)
       let idx_i = sl_localidx_to_int(idx)
-      match sl_get_fallthrough(next_value) {
-        TLocalGet(src_idx) => {
+      match sl_get_fallthrough(next_value).kind {
+        TInstrKind::TLocalGet(src_idx) => {
           let src_i = sl_localidx_to_int(src_idx)
           if sl_late_is_equivalent(state, idx_i, src_i) {
             if state.remove_equivalent_sets {
@@ -1564,7 +1588,7 @@ fn sl_late_rewrite_instr(instr : TInstr, state : SLLateState) -> TInstr {
         }
       }
     }
-    TLocalGet(idx) => {
+    TInstrKind::TLocalGet(idx) => {
       let idx_i = sl_localidx_to_int(idx)
       if idx_i < 0 || idx_i >= state.equivs.length() {
         return instr
@@ -1595,7 +1619,7 @@ fn sl_late_rewrite_instr(instr : TInstr, state : SLLateState) -> TInstr {
         instr
       }
     }
-    TBlock(bt, body) => {
+    TInstrKind::TBlock(bt, body) => {
       let child = sl_late_state_new(
         state.equivs.length(),
         state.get_counts,
@@ -1610,7 +1634,7 @@ fn sl_late_rewrite_instr(instr : TInstr, state : SLLateState) -> TInstr {
         instr
       }
     }
-    TLoop(bt, body) => {
+    TInstrKind::TLoop(bt, body) => {
       let child = sl_late_state_new(
         state.equivs.length(),
         state.get_counts,
@@ -1625,7 +1649,7 @@ fn sl_late_rewrite_instr(instr : TInstr, state : SLLateState) -> TInstr {
         instr
       }
     }
-    TTryTable(bt, catches, body) => {
+    TInstrKind::TTryTable(bt, catches, body) => {
       let child = sl_late_state_new(
         state.equivs.length(),
         state.get_counts,
@@ -1640,7 +1664,7 @@ fn sl_late_rewrite_instr(instr : TInstr, state : SLLateState) -> TInstr {
         instr
       }
     }
-    TIf(bt, cond, then_body, else_body) => {
+    TInstrKind::TIf(bt, cond, then_body, else_body) => {
       let next_cond = sl_late_rewrite_instr(cond, state)
       let then_state = sl_late_state_new(
         state.equivs.length(),
@@ -1862,7 +1886,12 @@ test "simplify_locals sinks a single-use local.set into local.get" {
       assert_eq(stats.sets, 0)
       assert_eq(stats.gets, 0)
       match body.instrs {
-        [TDrop(TI32Const(I32(v)))] => assert_eq(v, 7)
+        [
+          {
+            kind: TInstrKind::TDrop({ kind: TInstrKind::TI32Const(I32(v)), .. }),
+            ..,
+          },
+        ] => assert_eq(v, 7)
         _ => fail("expected sunk local to become drop(i32.const 7)")
       }
     }
@@ -2099,8 +2128,8 @@ test "simplify_locals direct block rewrite uses tee for conditional break value"
     changed,
   )
   assert_true(changed.val)
-  match out {
-    TLocalSet(_, TBlock(_, body)) =>
+  match out.kind {
+    TInstrKind::TLocalSet(_, { kind: TInstrKind::TBlock(_, body), .. }) =>
       assert_true(sl_has_br_if_with_tee_value_texpr(body, 0))
     _ =>
       fail("expected local.set(block(...)) after direct conditional coalescing")
@@ -2177,8 +2206,11 @@ test "simplify_locals direct block structure rewrite emits outer set over result
     changed,
   )
   assert_true(changed.val)
-  match out {
-    TLocalSet(_, TBlock(ValTypeBlockType(_), _)) => ()
+  match out.kind {
+    TInstrKind::TLocalSet(
+      _,
+      { kind: TInstrKind::TBlock(ValTypeBlockType(_), _), .. }
+    ) => ()
     _ =>
       fail(
         "expected direct block rewrite to produce local.set(block(result ...))",
@@ -2292,8 +2324,11 @@ test "simplify_locals instruction-level rewrite applies block coalescing pattern
     changed,
   )
   assert_true(changed.val)
-  match next {
-    TLocalSet(_, TBlock(ValTypeBlockType(_), _)) => ()
+  match next.kind {
+    TInstrKind::TLocalSet(
+      _,
+      { kind: TInstrKind::TBlock(ValTypeBlockType(_), _), .. }
+    ) => ()
     _ =>
       fail(
         "expected instruction rewrite to produce local.set(block(result ...))",

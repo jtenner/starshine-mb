@@ -362,8 +362,8 @@ test "duplicate function elimination removes duplicate function bodies" {
     Some(CodeSec([TFunc(_, { instrs, .. }), _])) => {
       let mut seen = 0
       for instr in instrs {
-        match instr {
-          TCall(FuncIdx(raw), []) => {
+        match instr.kind {
+          TInstrKind::TCall(FuncIdx(raw), []) => {
             assert_eq(raw.reinterpret_as_int(), 1)
             seen += 1
           }
@@ -507,8 +507,8 @@ test "duplicate function elimination merges duplicates across equivalent type de
     Some(CodeSec([TFunc(_, { instrs, .. }), _])) => {
       let mut seen = 0
       for instr in instrs {
-        match instr {
-          TCall(FuncIdx(raw), []) => {
+        match instr.kind {
+          TInstrKind::TCall(FuncIdx(raw), []) => {
             assert_eq(raw.reinterpret_as_int(), 1)
             seen += 1
           }
@@ -557,12 +557,13 @@ test "duplicate function elimination remaps start export and ref.func uses" {
   match optimized.code_sec {
     Some(CodeSec([TFunc(_, { instrs, .. }), _])) => {
       assert_eq(instrs.length(), 2)
-      match instrs[0] {
-        TDrop(TRefFunc(FuncIdx(i))) => assert_eq(i, 1U)
+      match instrs[0].kind {
+        TInstrKind::TDrop({ kind: TInstrKind::TRefFunc(FuncIdx(i)), .. }) =>
+          assert_eq(i, 1U)
         _ => fail("expected ref.func use to remap to canonical duplicate")
       }
-      match instrs[1] {
-        TCall(FuncIdx(i), []) => assert_eq(i, 1U)
+      match instrs[1].kind {
+        TInstrKind::TCall(FuncIdx(i), []) => assert_eq(i, 1U)
         _ => fail("expected call to remap to canonical duplicate")
       }
     }

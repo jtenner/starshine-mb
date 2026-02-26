@@ -46,16 +46,19 @@ fn oi_wrap_i64(x : Int64) -> Int64 {
 
 ///|
 fn oi_const_i32(instr : TInstr) -> Int? {
-  match instr {
-    TI32Const(I32(v)) => Some(v)
+  match instr.kind {
+    TInstrKind::TI32Const(I32(v)) => Some(v)
     _ => None
   }
 }
 
 ///|
 fn oi_is_const(instr : TInstr) -> Bool {
-  match instr {
-    TI32Const(_) | TI64Const(_) | TF32Const(_) | TF64Const(_) => true
+  match instr.kind {
+    TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_) => true
     _ => false
   }
 }
@@ -96,26 +99,6 @@ priv struct OIEffectsSummary {
   traps : Bool
   throws : Bool
   has_side_effects : Bool
-}
-
-///|
-fn oi_effects_summary_from_instr(instr : TInstr) -> OIEffectsSummary {
-  let e = lcs_collect_effects(instr)
-  OIEffectsSummary::{
-    locals_read: e.locals_read,
-    locals_written: e.locals_written,
-    reads_memory: e.reads_memory,
-    writes_memory: e.writes_memory,
-    reads_globals: e.reads_globals,
-    writes_globals: e.writes_globals,
-    calls: e.calls,
-    branches: e.branches,
-    traps: e.traps,
-    throws: e.throws,
-    has_side_effects: e.has_unremovable_side_effects() ||
-    e.reads_memory ||
-    e.reads_globals,
-  }
 }
 
 ///|
@@ -173,31 +156,70 @@ fn OIEffectsSummary::invalidates(
 
 ///|
 priv struct OIRewriteCache {
-  effects_by_hash : Map[UInt64, OIEffectsSummary]
-  reorder_by_hash_pair : Map[UInt64, Bool]
-  eq_by_hash_pair : Map[UInt64, Bool]
+  effects_by_instr : Map[TInstr, OIEffectsSummary]
+  instr_size_by_instr : Map[TInstr, Int]
+  reorder_by_pair : Map[OIInstrPairKey, Bool]
+  eq_by_pair : Map[OIInstrPairKey, Bool]
+}
+
+///|
+priv struct OIInstrPairKey {
+  low_hash : UInt64
+  high_hash : UInt64
+} derive(Eq, Hash)
+
+///|
+fn oi_instr_hash_u64(instr : TInstr) -> UInt64 {
+  instr.hash().reinterpret_as_uint().to_uint64()
+}
+
+///|
+fn oi_pair_key_from_hashes(
+  left_hash : UInt64,
+  right_hash : UInt64,
+) -> OIInstrPairKey {
+  let low_hash = if left_hash <= right_hash { left_hash } else { right_hash }
+  let high_hash = if left_hash <= right_hash { right_hash } else { left_hash }
+  OIInstrPairKey::{ low_hash, high_hash }
+}
+
+///|
+fn oi_pair_key(left : TInstr, right : TInstr) -> OIInstrPairKey {
+  oi_pair_key_from_hashes(oi_instr_hash_u64(left), oi_instr_hash_u64(right))
 }
 
 ///|
 fn oi_rewrite_cache_new() -> OIRewriteCache {
   OIRewriteCache::{
-    effects_by_hash: Map::new(),
-    reorder_by_hash_pair: Map::new(),
-    eq_by_hash_pair: Map::new(),
+    effects_by_instr: Map::new(),
+    instr_size_by_instr: Map::new(),
+    reorder_by_pair: Map::new(),
+    eq_by_pair: Map::new(),
   }
 }
 
 ///|
-fn oi_instr_hash_key(instr : TInstr) -> UInt64 {
-  instr.hash().reinterpret_as_uint().to_uint64()
+fn oi_instr_size_cached(instr : TInstr, cache : OIRewriteCache) -> Int {
+  match cache.instr_size_by_instr.get(instr) {
+    Some(size) => size
+    None => {
+      let mut size = 1
+      for child in eval_children(instr) {
+        size += oi_instr_size_cached(child, cache)
+      }
+      cache.instr_size_by_instr[instr] = size
+      size
+    }
+  }
 }
 
 ///|
-fn oi_hash_pair_key64(lhs : UInt64, rhs : UInt64) -> UInt64 {
-  let lo = if lhs <= rhs { lhs } else { rhs }
-  let hi = if lhs <= rhs { rhs } else { lhs }
-  let mixed = (lo ^ (hi * 0x9e3779b97f4a7c15UL)) * 0xbf58476d1ce4e5b9UL
-  mixed ^ (mixed >> 33)
+fn oi_texpr_size_cached(texpr : TExpr, cache : OIRewriteCache) -> Int {
+  let mut size = 0
+  for instr in texpr.instrs {
+    size += oi_instr_size_cached(instr, cache)
+  }
+  size
 }
 
 ///|
@@ -205,12 +227,59 @@ fn oi_effects_summary_cached(
   instr : TInstr,
   cache : OIRewriteCache,
 ) -> OIEffectsSummary {
-  let hash_key = oi_instr_hash_key(instr)
-  match cache.effects_by_hash.get(hash_key) {
+  match cache.effects_by_instr.get(instr) {
     Some(summary) => summary
     None => {
-      let summary = oi_effects_summary_from_instr(instr)
-      cache.effects_by_hash[hash_key] = summary
+      let shallow = lcs_collect_shallow_effects(instr)
+      let locals_read = shallow.locals_read
+      let locals_written = shallow.locals_written
+      let mut reads_memory = shallow.reads_memory
+      let mut writes_memory = shallow.writes_memory
+      let mut reads_globals = shallow.reads_globals
+      let mut writes_globals = shallow.writes_globals
+      let mut calls = shallow.calls
+      let mut branches = shallow.branches
+      let mut traps = shallow.traps
+      let mut throws = shallow.throws
+      for child in eval_children(instr) {
+        let child_summary = oi_effects_summary_cached(child, cache)
+        for idx in child_summary.locals_read {
+          locals_read.add(idx)
+        }
+        for idx in child_summary.locals_written {
+          locals_written.add(idx)
+        }
+        reads_memory = reads_memory || child_summary.reads_memory
+        writes_memory = writes_memory || child_summary.writes_memory
+        reads_globals = reads_globals || child_summary.reads_globals
+        writes_globals = writes_globals || child_summary.writes_globals
+        calls = calls || child_summary.calls
+        branches = branches || child_summary.branches
+        traps = traps || child_summary.traps
+        throws = throws || child_summary.throws
+      }
+      let summary = OIEffectsSummary::{
+        locals_read,
+        locals_written,
+        reads_memory,
+        writes_memory,
+        reads_globals,
+        writes_globals,
+        calls,
+        branches,
+        traps,
+        throws,
+        has_side_effects: writes_memory ||
+        writes_globals ||
+        calls ||
+        branches ||
+        throws ||
+        traps ||
+        locals_written.length() > 0 ||
+        reads_memory ||
+        reads_globals,
+      }
+      cache.effects_by_instr[instr] = summary
       summary
     }
   }
@@ -222,14 +291,18 @@ fn oi_can_reorder_cached(
   b : TInstr,
   cache : OIRewriteCache,
 ) -> Bool {
-  let key = oi_hash_pair_key64(oi_instr_hash_key(a), oi_instr_hash_key(b))
-  match cache.reorder_by_hash_pair.get(key) {
+  if oi_instr_size_cached(a, cache) > 512 ||
+    oi_instr_size_cached(b, cache) > 512 {
+    return false
+  }
+  let key = oi_pair_key(a, b)
+  match cache.reorder_by_pair.get(key) {
     Some(value) => value
     None => {
       let ea = oi_effects_summary_cached(a, cache)
       let eb = oi_effects_summary_cached(b, cache)
       let value = !ea.invalidates(eb) && !eb.invalidates(ea)
-      cache.reorder_by_hash_pair[key] = value
+      cache.reorder_by_pair[key] = value
       value
     }
   }
@@ -245,82 +318,122 @@ fn oi_instr_eq_cached(
     Some(value) => return value
     None => ()
   }
-  let left_hash = oi_instr_hash_key(left)
-  let right_hash = oi_instr_hash_key(right)
-  if left_hash != right_hash {
+  if oi_instr_size_cached(left, cache) > 512 ||
+    oi_instr_size_cached(right, cache) > 512 {
     return false
   }
-  let key = oi_hash_pair_key64(left_hash, right_hash)
-  match cache.eq_by_hash_pair.get(key) {
+  if physical_equal(left, right) {
+    return true
+  }
+  if left.hash() != right.hash() {
+    return false
+  }
+  let key = oi_pair_key(left, right)
+  let reverse_key = oi_pair_key(right, left)
+  match cache.eq_by_pair.get(key) {
     Some(value) => value
-    None => {
-      let value = left == right
-      cache.eq_by_hash_pair[key] = value
-      value
-    }
+    None =>
+      match cache.eq_by_pair.get(reverse_key) {
+        Some(value) => value
+        None => {
+          let value = left == right
+          cache.eq_by_pair[key] = value
+          cache.eq_by_pair[reverse_key] = value
+          value
+        }
+      }
+  }
+}
+
+///|
+fn oi_instr_eq_for_change(
+  left : TInstr,
+  right : TInstr,
+  cache : OIRewriteCache,
+  allow_expensive_eq : Bool,
+) -> Bool {
+  match oi_instr_quick_eq_or_mismatch(left, right) {
+    Some(value) => value
+    None =>
+      if allow_expensive_eq {
+        oi_instr_eq_cached(left, right, cache)
+      } else {
+        let budget = 96
+        if !oi_instr_within_eq_budget(left, budget, cache) ||
+          !oi_instr_within_eq_budget(right, budget, cache) {
+          false
+        } else {
+          left == right
+        }
+      }
   }
 }
 
 ///|
 fn oi_instr_quick_eq_or_mismatch(left : TInstr, right : TInstr) -> Bool? {
   match (left, right) {
-    (TLocalGet(l_idx), TLocalGet(r_idx)) => Some(l_idx == r_idx)
-    (TLocalGet(_), _) | (_, TLocalGet(_)) => Some(false)
-    (TI32Const(lv), TI32Const(rv)) => Some(lv == rv)
-    (TI32Const(_), _) | (_, TI32Const(_)) => Some(false)
-    (TI64Const(lv), TI64Const(rv)) => Some(lv == rv)
-    (TI64Const(_), _) | (_, TI64Const(_)) => Some(false)
-    (TF32Const(lv), TF32Const(rv)) => Some(lv == rv)
-    (TF32Const(_), _) | (_, TF32Const(_)) => Some(false)
-    (TF64Const(lv), TF64Const(rv)) => Some(lv == rv)
-    (TF64Const(_), _) | (_, TF64Const(_)) => Some(false)
+    (
+      { kind: TInstrKind::TLocalGet(l_idx), .. },
+      { kind: TInstrKind::TLocalGet(r_idx), .. },
+    ) => Some(l_idx == r_idx)
+    ({ kind: TInstrKind::TLocalGet(_), .. }, _)
+    | (_, { kind: TInstrKind::TLocalGet(_), .. }) => Some(false)
+    (
+      { kind: TInstrKind::TI32Const(lv), .. },
+      { kind: TInstrKind::TI32Const(rv), .. },
+    ) => Some(lv == rv)
+    ({ kind: TInstrKind::TI32Const(_), .. }, _)
+    | (_, { kind: TInstrKind::TI32Const(_), .. }) => Some(false)
+    (
+      { kind: TInstrKind::TI64Const(lv), .. },
+      { kind: TInstrKind::TI64Const(rv), .. },
+    ) => Some(lv == rv)
+    ({ kind: TInstrKind::TI64Const(_), .. }, _)
+    | (_, { kind: TInstrKind::TI64Const(_), .. }) => Some(false)
+    (
+      { kind: TInstrKind::TF32Const(lv), .. },
+      { kind: TInstrKind::TF32Const(rv), .. },
+    ) => Some(lv == rv)
+    ({ kind: TInstrKind::TF32Const(_), .. }, _)
+    | (_, { kind: TInstrKind::TF32Const(_), .. }) => Some(false)
+    (
+      { kind: TInstrKind::TF64Const(lv), .. },
+      { kind: TInstrKind::TF64Const(rv), .. },
+    ) => Some(lv == rv)
+    ({ kind: TInstrKind::TF64Const(_), .. }, _)
+    | (_, { kind: TInstrKind::TF64Const(_), .. }) => Some(false)
     _ => None
   }
 }
 
 ///|
 fn oi_instr_is_large_blockish(instr : TInstr) -> Bool {
-  match instr {
-    TBlock(_, texpr) | TLoop(_, texpr) => texpr.instrs.length() > 128
-    TIf(_, _, then_, Some(else_)) =>
+  match instr.kind {
+    TInstrKind::TBlock(_, texpr) | TInstrKind::TLoop(_, texpr) =>
+      texpr.instrs.length() > 128
+    TInstrKind::TIf(_, _, then_, Some(else_)) =>
       then_.instrs.length() > 128 || else_.instrs.length() > 128
-    TIf(_, _, then_, None) => then_.instrs.length() > 128
+    TInstrKind::TIf(_, _, then_, None) => then_.instrs.length() > 128
     _ => false
   }
 }
 
 ///|
-fn oi_instr_within_eq_budget(instr : TInstr, budget : Int) -> Bool {
-  let mut remaining = budget
-  let stack = [instr]
-  while !stack.is_empty() {
-    if remaining <= 0 {
-      return false
-    }
-    remaining -= 1
-    let curr = stack.pop().unwrap()
-    for child in eval_children(curr) {
-      stack.push(child)
-    }
-  }
-  true
+fn oi_instr_within_eq_budget(
+  instr : TInstr,
+  budget : Int,
+  cache : OIRewriteCache,
+) -> Bool {
+  oi_instr_size_cached(instr, cache) <= budget
 }
 
 ///|
-fn oi_texpr_within_eq_budget(texpr : TExpr, budget : Int) -> Bool {
-  let mut remaining = budget
-  let stack = texpr.instrs.copy()
-  while !stack.is_empty() {
-    if remaining <= 0 {
-      return false
-    }
-    remaining -= 1
-    let curr = stack.pop().unwrap()
-    for child in eval_children(curr) {
-      stack.push(child)
-    }
-  }
-  true
+fn oi_texpr_within_eq_budget(
+  texpr : TExpr,
+  budget : Int,
+  cache : OIRewriteCache,
+) -> Bool {
+  oi_texpr_size_cached(texpr, cache) <= budget
 }
 
 ///|
@@ -334,8 +447,8 @@ fn oi_instr_eq_budgeted(
     Some(value) => return value
     None => ()
   }
-  if !oi_instr_within_eq_budget(left, budget) ||
-    !oi_instr_within_eq_budget(right, budget) {
+  if !oi_instr_within_eq_budget(left, budget, cache) ||
+    !oi_instr_within_eq_budget(right, budget, cache) {
     return false
   }
   oi_instr_eq_cached(left, right, cache)
@@ -360,8 +473,8 @@ fn oi_texpr_eq_budgeted(
       None => ()
     }
   }
-  if !oi_texpr_within_eq_budget(left, budget) ||
-    !oi_texpr_within_eq_budget(right, budget) {
+  if !oi_texpr_within_eq_budget(left, budget, cache) ||
+    !oi_texpr_within_eq_budget(right, budget, cache) {
     return false
   }
   for i = 0; i < left.instrs.length(); i = i + 1 {
@@ -434,6 +547,14 @@ fn oi_can_reorder(a : TInstr, b : TInstr) -> Bool {
 ///|
 fn oi_has_side_effects_cached(instr : TInstr, cache : OIRewriteCache) -> Bool {
   oi_effects_summary_cached(instr, cache).has_side_effects
+}
+
+///|
+fn oi_precompute_cached_summaries(body : TExpr, cache : OIRewriteCache) -> Unit {
+  for instr in body.instrs {
+    ignore(oi_instr_size_cached(instr, cache))
+    ignore(oi_effects_summary_cached(instr, cache))
+  }
 }
 
 ///|
@@ -708,18 +829,18 @@ fn oi_unary_maybe_rewrite(op : UnaryOp) -> Bool {
 
 ///|
 fn oi_instr_is_rewrite_candidate(instr : TInstr) -> Bool {
-  match instr {
-    TBinary(op, _, _) => oi_binary_maybe_rewrite(op)
-    TUnary(op, _) => oi_unary_maybe_rewrite(op)
-    TSelect(_, _, _, _)
-    | TIf(_, _, _, _)
-    | TGlobalSet(_, _)
-    | TBrIf(_, _, _)
-    | TLoad(_, _, _)
-    | TStore(_, _, _, _)
-    | TMemoryCopy(_, _, _, _, _)
-    | TMemoryFill(_, _, _, _)
-    | TCallRef(_, _, _) => true
+  match instr.kind {
+    TInstrKind::TBinary(op, _, _) => oi_binary_maybe_rewrite(op)
+    TInstrKind::TUnary(op, _) => oi_unary_maybe_rewrite(op)
+    TInstrKind::TSelect(_, _, _, _)
+    | TInstrKind::TIf(_, _, _, _)
+    | TInstrKind::TGlobalSet(_, _)
+    | TInstrKind::TBrIf(_, _, _)
+    | TInstrKind::TLoad(_, _, _)
+    | TInstrKind::TStore(_, _, _, _)
+    | TInstrKind::TMemoryCopy(_, _, _, _, _)
+    | TInstrKind::TMemoryFill(_, _, _, _)
+    | TInstrKind::TCallRef(_, _, _) => true
     _ => false
   }
 }
@@ -752,11 +873,13 @@ fn oi_texpr_has_rewrite_candidate(body : TExpr, scan_budget : Int) -> Bool {
 
 ///|
 fn oi_negate_const(instr : TInstr) -> TInstr? {
-  match instr {
-    TI32Const(I32(v)) => Some(TInstr::i32_const(I32(oi_wrap_i32(-v))))
-    TI64Const(I64(v)) => Some(TInstr::i64_const(I64(oi_wrap_i64(-v))))
-    TF32Const(F32(v)) => Some(TInstr::f32_const(F32(-v)))
-    TF64Const(F64(v)) => Some(TInstr::f64_const(F64(-v)))
+  match instr.kind {
+    TInstrKind::TI32Const(I32(v)) =>
+      Some(TInstr::i32_const(I32(oi_wrap_i32(-v))))
+    TInstrKind::TI64Const(I64(v)) =>
+      Some(TInstr::i64_const(I64(oi_wrap_i64(-v))))
+    TInstrKind::TF32Const(F32(v)) => Some(TInstr::f32_const(F32(-v)))
+    TInstrKind::TF64Const(F64(v)) => Some(TInstr::f64_const(F64(-v)))
     _ => None
   }
 }
@@ -772,20 +895,35 @@ fn oi_optimize_boolean(
   _env : Env,
   _options : OptimizeOptions,
 ) -> TInstr {
-  match cond {
-    TUnary(I32EqzOp, TUnary(I32EqzOp, value)) => value
-    TUnary(I32EqzOp, TBinary(op, left, right)) =>
+  match cond.kind {
+    TInstrKind::TUnary(
+      I32EqzOp,
+      { kind: TInstrKind::TUnary(I32EqzOp, value), .. }
+    ) => value
+    TInstrKind::TUnary(
+      I32EqzOp,
+      { kind: TInstrKind::TBinary(op, left, right), .. }
+    ) =>
       match oi_invert_relational(op) {
         Some(inv) => TInstr::binary(inv, left, right)
         None => cond
       }
-    TUnary(I32EqzOp, value) =>
-      match value {
-        TI32Const(I32(v)) => TInstr::i32_const(I32(if v == 0 { 1 } else { 0 }))
+    TInstrKind::TUnary(I32EqzOp, value) =>
+      match value.kind {
+        TInstrKind::TI32Const(I32(v)) =>
+          TInstr::i32_const(I32(if v == 0 { 1 } else { 0 }))
         _ => cond
       }
-    TBinary(I32NeOp, value, TI32Const(I32(0))) => value
-    TBinary(I32SubOp, TI32Const(I32(0)), value) => value
+    TInstrKind::TBinary(
+      I32NeOp,
+      value,
+      { kind: TInstrKind::TI32Const(I32(0)), .. }
+    ) => value
+    TInstrKind::TBinary(
+      I32SubOp,
+      { kind: TInstrKind::TI32Const(I32(0)), .. },
+      value
+    ) => value
     _ => cond
   }
 }
@@ -799,99 +937,99 @@ fn oi_optimize_with_const_right(
   options : OptimizeOptions,
 ) -> TInstr? {
   match (op, right) {
-    (I32ShlOp, TI32Const(I32(0)))
-    | (I32ShrSOp, TI32Const(I32(0)))
-    | (I32ShrUOp, TI32Const(I32(0)))
-    | (I32RotlOp, TI32Const(I32(0)))
-    | (I32RotrOp, TI32Const(I32(0)))
-    | (I64ShlOp, TI64Const(I64(0L)))
-    | (I64ShrSOp, TI64Const(I64(0L)))
-    | (I64ShrUOp, TI64Const(I64(0L)))
-    | (I64RotlOp, TI64Const(I64(0L)))
-    | (I64RotrOp, TI64Const(I64(0L)))
-    | (I32OrOp, TI32Const(I32(0)))
-    | (I32XorOp, TI32Const(I32(0)))
-    | (I64OrOp, TI64Const(I64(0L)))
-    | (I64XorOp, TI64Const(I64(0L)))
-    | (I32AddOp, TI32Const(I32(0)))
-    | (I64AddOp, TI64Const(I64(0L)))
-    | (I32SubOp, TI32Const(I32(0)))
-    | (I64SubOp, TI64Const(I64(0L))) => Some(left)
-    (I32AndOp, TI32Const(I32(-1))) | (I64AndOp, TI64Const(I64(-1L))) =>
-      Some(left)
-    (I32AndOp, TI32Const(I32(0))) =>
+    (I32ShlOp, { kind: TInstrKind::TI32Const(I32(0)), .. })
+    | (I32ShrSOp, { kind: TInstrKind::TI32Const(I32(0)), .. })
+    | (I32ShrUOp, { kind: TInstrKind::TI32Const(I32(0)), .. })
+    | (I32RotlOp, { kind: TInstrKind::TI32Const(I32(0)), .. })
+    | (I32RotrOp, { kind: TInstrKind::TI32Const(I32(0)), .. })
+    | (I64ShlOp, { kind: TInstrKind::TI64Const(I64(0L)), .. })
+    | (I64ShrSOp, { kind: TInstrKind::TI64Const(I64(0L)), .. })
+    | (I64ShrUOp, { kind: TInstrKind::TI64Const(I64(0L)), .. })
+    | (I64RotlOp, { kind: TInstrKind::TI64Const(I64(0L)), .. })
+    | (I64RotrOp, { kind: TInstrKind::TI64Const(I64(0L)), .. })
+    | (I32OrOp, { kind: TInstrKind::TI32Const(I32(0)), .. })
+    | (I32XorOp, { kind: TInstrKind::TI32Const(I32(0)), .. })
+    | (I64OrOp, { kind: TInstrKind::TI64Const(I64(0L)), .. })
+    | (I64XorOp, { kind: TInstrKind::TI64Const(I64(0L)), .. })
+    | (I32AddOp, { kind: TInstrKind::TI32Const(I32(0)), .. })
+    | (I64AddOp, { kind: TInstrKind::TI64Const(I64(0L)), .. })
+    | (I32SubOp, { kind: TInstrKind::TI32Const(I32(0)), .. })
+    | (I64SubOp, { kind: TInstrKind::TI64Const(I64(0L)), .. }) => Some(left)
+    (I32AndOp, { kind: TInstrKind::TI32Const(I32(-1)), .. })
+    | (I64AndOp, { kind: TInstrKind::TI64Const(I64(-1L)), .. }) => Some(left)
+    (I32AndOp, { kind: TInstrKind::TI32Const(I32(0)), .. }) =>
       Some(oi_seq([oi_instr_stmt(left, env)], TInstr::i32_const(I32(0)), env))
-    (I64AndOp, TI64Const(I64(0L))) =>
+    (I64AndOp, { kind: TInstrKind::TI64Const(I64(0L)), .. }) =>
       Some(oi_seq([oi_instr_stmt(left, env)], TInstr::i64_const(I64(0L)), env))
-    (I32OrOp, TI32Const(I32(-1))) =>
+    (I32OrOp, { kind: TInstrKind::TI32Const(I32(-1)), .. }) =>
       Some(oi_seq([oi_instr_stmt(left, env)], TInstr::i32_const(I32(-1)), env))
-    (I64OrOp, TI64Const(I64(-1L))) =>
+    (I64OrOp, { kind: TInstrKind::TI64Const(I64(-1L)), .. }) =>
       Some(oi_seq([oi_instr_stmt(left, env)], TInstr::i64_const(I64(-1L)), env))
-    (I32EqOp, TI32Const(I32(0))) =>
+    (I32EqOp, { kind: TInstrKind::TI32Const(I32(0)), .. }) =>
       Some(TInstr::unary(UnaryOp::i32_eqz(), left))
-    (I64EqOp, TI64Const(I64(0L))) =>
+    (I64EqOp, { kind: TInstrKind::TI64Const(I64(0L)), .. }) =>
       Some(TInstr::unary(UnaryOp::i64_eqz(), left))
-    (I32MulOp, TI32Const(I32(1)))
-    | (I64MulOp, TI64Const(I64(1L)))
-    | (I32DivSOp, TI32Const(I32(1)))
-    | (I32DivUOp, TI32Const(I32(1)))
-    | (I64DivSOp, TI64Const(I64(1L)))
-    | (I64DivUOp, TI64Const(I64(1L))) => Some(left)
-    (I32MulOp, TI32Const(I32(0))) =>
+    (I32MulOp, { kind: TInstrKind::TI32Const(I32(1)), .. })
+    | (I64MulOp, { kind: TInstrKind::TI64Const(I64(1L)), .. })
+    | (I32DivSOp, { kind: TInstrKind::TI32Const(I32(1)), .. })
+    | (I32DivUOp, { kind: TInstrKind::TI32Const(I32(1)), .. })
+    | (I64DivSOp, { kind: TInstrKind::TI64Const(I64(1L)), .. })
+    | (I64DivUOp, { kind: TInstrKind::TI64Const(I64(1L)), .. }) => Some(left)
+    (I32MulOp, { kind: TInstrKind::TI32Const(I32(0)), .. }) =>
       Some(oi_seq([oi_instr_stmt(left, env)], TInstr::i32_const(I32(0)), env))
-    (I64MulOp, TI64Const(I64(0L))) =>
+    (I64MulOp, { kind: TInstrKind::TI64Const(I64(0L)), .. }) =>
       Some(oi_seq([oi_instr_stmt(left, env)], TInstr::i64_const(I64(0L)), env))
-    (I32RemSOp, TI32Const(I32(1)))
-    | (I32RemUOp, TI32Const(I32(1)))
-    | (I32RemSOp, TI32Const(I32(-1))) =>
+    (I32RemSOp, { kind: TInstrKind::TI32Const(I32(1)), .. })
+    | (I32RemUOp, { kind: TInstrKind::TI32Const(I32(1)), .. })
+    | (I32RemSOp, { kind: TInstrKind::TI32Const(I32(-1)), .. }) =>
       Some(oi_seq([oi_instr_stmt(left, env)], TInstr::i32_const(I32(0)), env))
-    (I64RemSOp, TI64Const(I64(1L)))
-    | (I64RemUOp, TI64Const(I64(1L)))
-    | (I64RemSOp, TI64Const(I64(-1L))) =>
+    (I64RemSOp, { kind: TInstrKind::TI64Const(I64(1L)), .. })
+    | (I64RemUOp, { kind: TInstrKind::TI64Const(I64(1L)), .. })
+    | (I64RemSOp, { kind: TInstrKind::TI64Const(I64(-1L)), .. }) =>
       Some(oi_seq([oi_instr_stmt(left, env)], TInstr::i64_const(I64(0L)), env))
-    (I32GeUOp, TI32Const(I32(0))) =>
+    (I32GeUOp, { kind: TInstrKind::TI32Const(I32(0)), .. }) =>
       Some(oi_seq([oi_instr_stmt(left, env)], TInstr::i32_const(I32(1)), env))
-    (I64GeUOp, TI64Const(I64(0L))) =>
+    (I64GeUOp, { kind: TInstrKind::TI64Const(I64(0L)), .. }) =>
       Some(oi_seq([oi_instr_stmt(left, env)], TInstr::i32_const(I32(1)), env))
-    (I32LtUOp, TI32Const(I32(0))) =>
+    (I32LtUOp, { kind: TInstrKind::TI32Const(I32(0)), .. }) =>
       Some(oi_seq([oi_instr_stmt(left, env)], TInstr::i32_const(I32(0)), env))
-    (I64LtUOp, TI64Const(I64(0L))) =>
+    (I64LtUOp, { kind: TInstrKind::TI64Const(I64(0L)), .. }) =>
       Some(oi_seq([oi_instr_stmt(left, env)], TInstr::i32_const(I32(0)), env))
-    (I32LeUOp, TI32Const(I32(-1))) =>
+    (I32LeUOp, { kind: TInstrKind::TI32Const(I32(-1)), .. }) =>
       Some(oi_seq([oi_instr_stmt(left, env)], TInstr::i32_const(I32(1)), env))
-    (I64LeUOp, TI64Const(I64(-1L))) =>
+    (I64LeUOp, { kind: TInstrKind::TI64Const(I64(-1L)), .. }) =>
       Some(oi_seq([oi_instr_stmt(left, env)], TInstr::i32_const(I32(1)), env))
-    (I32GtUOp, TI32Const(I32(-1))) =>
+    (I32GtUOp, { kind: TInstrKind::TI32Const(I32(-1)), .. }) =>
       Some(oi_seq([oi_instr_stmt(left, env)], TInstr::i32_const(I32(0)), env))
-    (I64GtUOp, TI64Const(I64(-1L))) =>
+    (I64GtUOp, { kind: TInstrKind::TI64Const(I64(-1L)), .. }) =>
       Some(oi_seq([oi_instr_stmt(left, env)], TInstr::i32_const(I32(0)), env))
-    (I32LtUOp, TI32Const(I32(-1))) =>
+    (I32LtUOp, { kind: TInstrKind::TI32Const(I32(-1)), .. }) =>
       Some(TInstr::binary(BinaryOp::i32_ne(), left, TInstr::i32_const(I32(-1))))
-    (I64LtUOp, TI64Const(I64(-1L))) =>
+    (I64LtUOp, { kind: TInstrKind::TI64Const(I64(-1L)), .. }) =>
       Some(
         TInstr::binary(BinaryOp::i64_ne(), left, TInstr::i64_const(I64(-1L))),
       )
-    (I32LeUOp, TI32Const(I32(0))) =>
+    (I32LeUOp, { kind: TInstrKind::TI32Const(I32(0)), .. }) =>
       Some(TInstr::binary(BinaryOp::i32_eq(), left, TInstr::i32_const(I32(0))))
-    (I64LeUOp, TI64Const(I64(0L))) =>
+    (I64LeUOp, { kind: TInstrKind::TI64Const(I64(0L)), .. }) =>
       Some(TInstr::binary(BinaryOp::i64_eq(), left, TInstr::i64_const(I64(0L))))
-    (I32GtUOp, TI32Const(I32(0))) =>
+    (I32GtUOp, { kind: TInstrKind::TI32Const(I32(0)), .. }) =>
       Some(TInstr::binary(BinaryOp::i32_ne(), left, TInstr::i32_const(I32(0))))
-    (I64GtUOp, TI64Const(I64(0L))) =>
+    (I64GtUOp, { kind: TInstrKind::TI64Const(I64(0L)), .. }) =>
       Some(TInstr::binary(BinaryOp::i64_ne(), left, TInstr::i64_const(I64(0L))))
-    (I32GeUOp, TI32Const(I32(-1))) =>
+    (I32GeUOp, { kind: TInstrKind::TI32Const(I32(-1)), .. }) =>
       Some(TInstr::binary(BinaryOp::i32_eq(), left, TInstr::i32_const(I32(-1))))
-    (I64GeUOp, TI64Const(I64(-1L))) =>
+    (I64GeUOp, { kind: TInstrKind::TI64Const(I64(-1L)), .. }) =>
       Some(
         TInstr::binary(BinaryOp::i64_eq(), left, TInstr::i64_const(I64(-1L))),
       )
-    (I32MulOp, TI32Const(I32(-1))) =>
+    (I32MulOp, { kind: TInstrKind::TI32Const(I32(-1)), .. }) =>
       Some(TInstr::binary(BinaryOp::i32_sub(), TInstr::i32_const(I32(0)), left))
-    (I64MulOp, TI64Const(I64(-1L))) =>
+    (I64MulOp, { kind: TInstrKind::TI64Const(I64(-1L)), .. }) =>
       Some(
         TInstr::binary(BinaryOp::i64_sub(), TInstr::i64_const(I64(0L)), left),
       )
-    (I32DivUOp, TI32Const(I32(c))) =>
+    (I32DivUOp, { kind: TInstrKind::TI32Const(I32(c)), .. }) =>
       if oi_is_power_of_2_i32(c) {
         Some(
           TInstr::binary(
@@ -903,7 +1041,7 @@ fn oi_optimize_with_const_right(
       } else {
         None
       }
-    (I64DivUOp, TI64Const(I64(c))) =>
+    (I64DivUOp, { kind: TInstrKind::TI64Const(I64(c)), .. }) =>
       if oi_is_power_of_2_i64(c) {
         Some(
           TInstr::binary(
@@ -915,7 +1053,7 @@ fn oi_optimize_with_const_right(
       } else {
         None
       }
-    (I32RemUOp, TI32Const(I32(c))) =>
+    (I32RemUOp, { kind: TInstrKind::TI32Const(I32(c)), .. }) =>
       if oi_is_power_of_2_i32(c) {
         Some(
           TInstr::binary(
@@ -927,7 +1065,7 @@ fn oi_optimize_with_const_right(
       } else {
         None
       }
-    (I64RemUOp, TI64Const(I64(c))) =>
+    (I64RemUOp, { kind: TInstrKind::TI64Const(I64(c)), .. }) =>
       if oi_is_power_of_2_i64(c) {
         Some(
           TInstr::binary(
@@ -939,7 +1077,7 @@ fn oi_optimize_with_const_right(
       } else {
         None
       }
-    (I32MulOp, TI32Const(I32(c))) =>
+    (I32MulOp, { kind: TInstrKind::TI32Const(I32(c)), .. }) =>
       if oi_is_power_of_2_i32(c) {
         Some(
           TInstr::binary(
@@ -951,7 +1089,7 @@ fn oi_optimize_with_const_right(
       } else {
         None
       }
-    (I64MulOp, TI64Const(I64(c))) =>
+    (I64MulOp, { kind: TInstrKind::TI64Const(I64(c)), .. }) =>
       if oi_is_power_of_2_i64(c) {
         Some(
           TInstr::binary(
@@ -963,17 +1101,17 @@ fn oi_optimize_with_const_right(
       } else {
         None
       }
-    (F32MulOp, TF32Const(F32(-1.0))) =>
+    (F32MulOp, { kind: TInstrKind::TF32Const(F32(-1.0)), .. }) =>
       Some(TInstr::unary(UnaryOp::f32_neg(), left))
-    (F64MulOp, TF64Const(F64(-1.0))) =>
+    (F64MulOp, { kind: TInstrKind::TF64Const(F64(-1.0)), .. }) =>
       Some(TInstr::unary(UnaryOp::f64_neg(), left))
-    (F32AddOp, TF32Const(F32(v))) =>
+    (F32AddOp, { kind: TInstrKind::TF32Const(F32(v)), .. }) =>
       if options.optimize_level > 0 && v == 0.0 {
         Some(left)
       } else {
         None
       }
-    (F64AddOp, TF64Const(F64(v))) =>
+    (F64AddOp, { kind: TInstrKind::TF64Const(F64(v)), .. }) =>
       if options.optimize_level > 0 && v == 0.0 {
         Some(left)
       } else {
@@ -990,33 +1128,38 @@ fn oi_optimize_with_const_left(
   right : TInstr,
   _env : Env,
   cache : OIRewriteCache,
+  allow_effect_queries : Bool,
 ) -> TInstr? {
   match (op, left) {
-    (I32ShlOp, TI32Const(I32(0)))
-    | (I32ShrSOp, TI32Const(I32(0)))
-    | (I32ShrUOp, TI32Const(I32(0)))
-    | (I64ShlOp, TI64Const(I64(0L)))
-    | (I64ShrSOp, TI64Const(I64(0L)))
-    | (I64ShrUOp, TI64Const(I64(0L))) =>
-      if !oi_has_side_effects_cached(right, cache) {
+    (I32ShlOp, { kind: TInstrKind::TI32Const(I32(0)), .. })
+    | (I32ShrSOp, { kind: TInstrKind::TI32Const(I32(0)), .. })
+    | (I32ShrUOp, { kind: TInstrKind::TI32Const(I32(0)), .. })
+    | (I64ShlOp, { kind: TInstrKind::TI64Const(I64(0L)), .. })
+    | (I64ShrSOp, { kind: TInstrKind::TI64Const(I64(0L)), .. })
+    | (I64ShrUOp, { kind: TInstrKind::TI64Const(I64(0L)), .. }) =>
+      if allow_effect_queries && !oi_has_side_effects_cached(right, cache) {
         Some(left)
       } else {
         None
       }
-    (I32ShrSOp, TI32Const(I32(-1)))
-    | (I32RotlOp, TI32Const(I32(-1)))
-    | (I32RotrOp, TI32Const(I32(-1)))
-    | (I64ShrSOp, TI64Const(I64(-1L)))
-    | (I64RotlOp, TI64Const(I64(-1L)))
-    | (I64RotrOp, TI64Const(I64(-1L))) =>
-      if !oi_has_side_effects_cached(right, cache) {
+    (I32ShrSOp, { kind: TInstrKind::TI32Const(I32(-1)), .. })
+    | (I32RotlOp, { kind: TInstrKind::TI32Const(I32(-1)), .. })
+    | (I32RotrOp, { kind: TInstrKind::TI32Const(I32(-1)), .. })
+    | (I64ShrSOp, { kind: TInstrKind::TI64Const(I64(-1L)), .. })
+    | (I64RotlOp, { kind: TInstrKind::TI64Const(I64(-1L)), .. })
+    | (I64RotrOp, { kind: TInstrKind::TI64Const(I64(-1L)), .. }) =>
+      if allow_effect_queries && !oi_has_side_effects_cached(right, cache) {
         Some(left)
       } else {
         None
       }
-    (I32SubOp, TI32Const(I32(c1))) =>
-      match right {
-        TBinary(I32AddOp, x, TI32Const(I32(c2))) =>
+    (I32SubOp, { kind: TInstrKind::TI32Const(I32(c1)), .. }) =>
+      match right.kind {
+        TInstrKind::TBinary(
+          I32AddOp,
+          x,
+          { kind: TInstrKind::TI32Const(I32(c2)), .. }
+        ) =>
           Some(
             TInstr::binary(
               BinaryOp::i32_sub(),
@@ -1024,7 +1167,11 @@ fn oi_optimize_with_const_left(
               x,
             ),
           )
-        TBinary(I32SubOp, TI32Const(I32(c2)), x) =>
+        TInstrKind::TBinary(
+          I32SubOp,
+          { kind: TInstrKind::TI32Const(I32(c2)), .. },
+          x
+        ) =>
           Some(
             TInstr::binary(
               BinaryOp::i32_add(),
@@ -1034,9 +1181,13 @@ fn oi_optimize_with_const_left(
           )
         _ => None
       }
-    (I64SubOp, TI64Const(I64(c1))) =>
-      match right {
-        TBinary(I64AddOp, x, TI64Const(I64(c2))) =>
+    (I64SubOp, { kind: TInstrKind::TI64Const(I64(c1)), .. }) =>
+      match right.kind {
+        TInstrKind::TBinary(
+          I64AddOp,
+          x,
+          { kind: TInstrKind::TI64Const(I64(c2)), .. }
+        ) =>
           Some(
             TInstr::binary(
               BinaryOp::i64_sub(),
@@ -1044,7 +1195,11 @@ fn oi_optimize_with_const_left(
               x,
             ),
           )
-        TBinary(I64SubOp, TI64Const(I64(c2)), x) =>
+        TInstrKind::TBinary(
+          I64SubOp,
+          { kind: TInstrKind::TI64Const(I64(c2)), .. },
+          x
+        ) =>
           Some(
             TInstr::binary(
               BinaryOp::i64_add(),
@@ -1115,7 +1270,7 @@ fn oi_optimize_binary(
   }
   if oi_is_shift(op) {
     match (op, right) {
-      (op, TI32Const(I32(v))) if oi_is_i32_shift(op) => {
+      (op, { kind: TInstrKind::TI32Const(I32(v)), .. }) if oi_is_i32_shift(op) => {
         let eff = v & 31
         if eff != v {
           right = TInstr::i32_const(I32(eff))
@@ -1125,7 +1280,7 @@ fn oi_optimize_binary(
           return Some(left)
         }
       }
-      (op, TI64Const(I64(v))) if oi_is_i64_shift(op) => {
+      (op, { kind: TInstrKind::TI64Const(I64(v)), .. }) if oi_is_i64_shift(op) => {
         let eff = v & 63L
         if eff != v {
           right = TInstr::i64_const(I64(eff))
@@ -1135,12 +1290,32 @@ fn oi_optimize_binary(
           return Some(left)
         }
       }
-      (_, TBinary(I32AndOp, y, TI32Const(I32(mask)))) if oi_is_i32_shift(op) =>
+      (
+        _,
+        {
+          kind: TInstrKind::TBinary(
+            I32AndOp,
+            y,
+            { kind: TInstrKind::TI32Const(I32(mask)), .. }
+          ),
+          ..,
+        },
+      ) if oi_is_i32_shift(op) =>
         if (mask & 31) == 31 {
           right = y
           changed = true
         }
-      (_, TBinary(I64AndOp, y, TI64Const(I64(mask)))) if oi_is_i64_shift(op) =>
+      (
+        _,
+        {
+          kind: TInstrKind::TBinary(
+            I64AndOp,
+            y,
+            { kind: TInstrKind::TI64Const(I64(mask)), .. }
+          ),
+          ..,
+        },
+      ) if oi_is_i64_shift(op) =>
         if (mask & 63L) == 63L {
           right = y
           changed = true
@@ -1150,7 +1325,10 @@ fn oi_optimize_binary(
   }
   if op == BinaryOp::i32_and() {
     match (left, right) {
-      (TUnary(I32EqzOp, x), TUnary(I32EqzOp, y)) =>
+      (
+        { kind: TInstrKind::TUnary(I32EqzOp, x), .. },
+        { kind: TInstrKind::TUnary(I32EqzOp, y), .. },
+      ) =>
         return Some(
           TInstr::unary(
             UnaryOp::i32_eqz(),
@@ -1161,33 +1339,72 @@ fn oi_optimize_binary(
     }
   }
   match (op, left, right) {
-    (F32AddOp, TUnary(F32NegOp, x), y) =>
-      if oi_can_reorder_cached(x, y, cache) {
+    (F32AddOp, { kind: TInstrKind::TUnary(F32NegOp, x), .. }, y) =>
+      if allow_expensive_eq && oi_can_reorder_cached(x, y, cache) {
         return Some(TInstr::binary(BinaryOp::f32_sub(), y, x))
       }
-    (F64AddOp, TUnary(F64NegOp, x), y) =>
-      if oi_can_reorder_cached(x, y, cache) {
+    (F64AddOp, { kind: TInstrKind::TUnary(F64NegOp, x), .. }, y) =>
+      if allow_expensive_eq && oi_can_reorder_cached(x, y, cache) {
         return Some(TInstr::binary(BinaryOp::f64_sub(), y, x))
       }
-    (F32AddOp, x, TUnary(F32NegOp, y)) =>
+    (F32AddOp, x, { kind: TInstrKind::TUnary(F32NegOp, y), .. }) =>
       return Some(TInstr::binary(BinaryOp::f32_sub(), x, y))
-    (F64AddOp, x, TUnary(F64NegOp, y)) =>
+    (F64AddOp, x, { kind: TInstrKind::TUnary(F64NegOp, y), .. }) =>
       return Some(TInstr::binary(BinaryOp::f64_sub(), x, y))
-    (F32SubOp, x, TUnary(F32NegOp, y)) =>
+    (F32SubOp, x, { kind: TInstrKind::TUnary(F32NegOp, y), .. }) =>
       return Some(TInstr::binary(BinaryOp::f32_add(), x, y))
-    (F64SubOp, x, TUnary(F64NegOp, y)) =>
+    (F64SubOp, x, { kind: TInstrKind::TUnary(F64NegOp, y), .. }) =>
       return Some(TInstr::binary(BinaryOp::f64_add(), x, y))
     (
       I32MulOp,
-      TBinary(I32SubOp, TI32Const(I32(0)), x),
-      TBinary(I32SubOp, TI32Const(I32(0)), y),
+      {
+        kind: TInstrKind::TBinary(
+          I32SubOp,
+          { kind: TInstrKind::TI32Const(I32(0)), .. },
+          x
+        ),
+        ..,
+      },
+      {
+        kind: TInstrKind::TBinary(
+          I32SubOp,
+          { kind: TInstrKind::TI32Const(I32(0)), .. },
+          y
+        ),
+        ..,
+      },
     ) => return Some(TInstr::binary(BinaryOp::i32_mul(), x, y))
     (
       I64MulOp,
-      TBinary(I64SubOp, TI64Const(I64(0L)), x),
-      TBinary(I64SubOp, TI64Const(I64(0L)), y),
+      {
+        kind: TInstrKind::TBinary(
+          I64SubOp,
+          { kind: TInstrKind::TI64Const(I64(0L)), .. },
+          x
+        ),
+        ..,
+      },
+      {
+        kind: TInstrKind::TBinary(
+          I64SubOp,
+          { kind: TInstrKind::TI64Const(I64(0L)), .. },
+          y
+        ),
+        ..,
+      },
     ) => return Some(TInstr::binary(BinaryOp::i64_mul(), x, y))
-    (I32MulOp, TBinary(I32SubOp, TI32Const(I32(0)), x), y) =>
+    (
+      I32MulOp,
+      {
+        kind: TInstrKind::TBinary(
+          I32SubOp,
+          { kind: TInstrKind::TI32Const(I32(0)), .. },
+          x
+        ),
+        ..,
+      },
+      y,
+    ) =>
       if !oi_is_const(x) && !oi_is_const(y) {
         return Some(
           TInstr::binary(
@@ -1197,7 +1414,18 @@ fn oi_optimize_binary(
           ),
         )
       }
-    (I32MulOp, x, TBinary(I32SubOp, TI32Const(I32(0)), y)) =>
+    (
+      I32MulOp,
+      x,
+      {
+        kind: TInstrKind::TBinary(
+          I32SubOp,
+          { kind: TInstrKind::TI32Const(I32(0)), .. },
+          y
+        ),
+        ..,
+      },
+    ) =>
       if !oi_is_const(x) && !oi_is_const(y) {
         return Some(
           TInstr::binary(
@@ -1207,7 +1435,18 @@ fn oi_optimize_binary(
           ),
         )
       }
-    (I64MulOp, TBinary(I64SubOp, TI64Const(I64(0L)), x), y) =>
+    (
+      I64MulOp,
+      {
+        kind: TInstrKind::TBinary(
+          I64SubOp,
+          { kind: TInstrKind::TI64Const(I64(0L)), .. },
+          x
+        ),
+        ..,
+      },
+      y,
+    ) =>
       if !oi_is_const(x) && !oi_is_const(y) {
         return Some(
           TInstr::binary(
@@ -1217,7 +1456,18 @@ fn oi_optimize_binary(
           ),
         )
       }
-    (I64MulOp, x, TBinary(I64SubOp, TI64Const(I64(0L)), y)) =>
+    (
+      I64MulOp,
+      x,
+      {
+        kind: TInstrKind::TBinary(
+          I64SubOp,
+          { kind: TInstrKind::TI64Const(I64(0L)), .. },
+          y
+        ),
+        ..,
+      },
+    ) =>
       if !oi_is_const(x) && !oi_is_const(y) {
         return Some(
           TInstr::binary(
@@ -1227,28 +1477,44 @@ fn oi_optimize_binary(
           ),
         )
       }
-    (F32MulOp, TUnary(F32AbsOp, x), TUnary(F32AbsOp, y)) =>
+    (
+      F32MulOp,
+      { kind: TInstrKind::TUnary(F32AbsOp, x), .. },
+      { kind: TInstrKind::TUnary(F32AbsOp, y), .. },
+    ) =>
       return Some(
         TInstr::unary(
           UnaryOp::f32_abs(),
           TInstr::binary(BinaryOp::f32_mul(), x, y),
         ),
       )
-    (F64MulOp, TUnary(F64AbsOp, x), TUnary(F64AbsOp, y)) =>
+    (
+      F64MulOp,
+      { kind: TInstrKind::TUnary(F64AbsOp, x), .. },
+      { kind: TInstrKind::TUnary(F64AbsOp, y), .. },
+    ) =>
       return Some(
         TInstr::unary(
           UnaryOp::f64_abs(),
           TInstr::binary(BinaryOp::f64_mul(), x, y),
         ),
       )
-    (F32DivOp, TUnary(F32AbsOp, x), TUnary(F32AbsOp, y)) =>
+    (
+      F32DivOp,
+      { kind: TInstrKind::TUnary(F32AbsOp, x), .. },
+      { kind: TInstrKind::TUnary(F32AbsOp, y), .. },
+    ) =>
       return Some(
         TInstr::unary(
           UnaryOp::f32_abs(),
           TInstr::binary(BinaryOp::f32_div(), x, y),
         ),
       )
-    (F64DivOp, TUnary(F64AbsOp, x), TUnary(F64AbsOp, y)) =>
+    (
+      F64DivOp,
+      { kind: TInstrKind::TUnary(F64AbsOp, x), .. },
+      { kind: TInstrKind::TUnary(F64AbsOp, y), .. },
+    ) =>
       return Some(
         TInstr::unary(
           UnaryOp::f64_abs(),
@@ -1264,16 +1530,35 @@ fn oi_optimize_binary(
     }
   }
   if oi_is_const(left) {
-    match oi_optimize_with_const_left(op, left, right, env, cache) {
+    match
+      oi_optimize_with_const_left(
+        op, left, right, env, cache, allow_expensive_eq,
+      ) {
       Some(rep) => return Some(rep)
       None => ()
     }
   }
   match (op, left, right) {
-    (I32EqOp, TBinary(I32SubOp, x, y), TI32Const(I32(0)))
-    | (I32NeOp, TBinary(I32SubOp, x, y), TI32Const(I32(0)))
-    | (I32GtUOp, TBinary(I32SubOp, x, y), TI32Const(I32(0)))
-    | (I32LeUOp, TBinary(I32SubOp, x, y), TI32Const(I32(0))) => {
+    (
+      I32EqOp,
+      { kind: TInstrKind::TBinary(I32SubOp, x, y), .. },
+      { kind: TInstrKind::TI32Const(I32(0)), .. },
+    )
+    | (
+      I32NeOp,
+      { kind: TInstrKind::TBinary(I32SubOp, x, y), .. },
+      { kind: TInstrKind::TI32Const(I32(0)), .. },
+    )
+    | (
+      I32GtUOp,
+      { kind: TInstrKind::TBinary(I32SubOp, x, y), .. },
+      { kind: TInstrKind::TI32Const(I32(0)), .. },
+    )
+    | (
+      I32LeUOp,
+      { kind: TInstrKind::TBinary(I32SubOp, x, y), .. },
+      { kind: TInstrKind::TI32Const(I32(0)), .. },
+    ) => {
       let new_op = match op {
         I32GtUOp => BinaryOp::i32_ne()
         I32LeUOp => BinaryOp::i32_eq()
@@ -1281,10 +1566,26 @@ fn oi_optimize_binary(
       }
       return Some(TInstr::binary(new_op, x, y))
     }
-    (I64EqOp, TBinary(I64SubOp, x, y), TI64Const(I64(0L)))
-    | (I64NeOp, TBinary(I64SubOp, x, y), TI64Const(I64(0L)))
-    | (I64GtUOp, TBinary(I64SubOp, x, y), TI64Const(I64(0L)))
-    | (I64LeUOp, TBinary(I64SubOp, x, y), TI64Const(I64(0L))) => {
+    (
+      I64EqOp,
+      { kind: TInstrKind::TBinary(I64SubOp, x, y), .. },
+      { kind: TInstrKind::TI64Const(I64(0L)), .. },
+    )
+    | (
+      I64NeOp,
+      { kind: TInstrKind::TBinary(I64SubOp, x, y), .. },
+      { kind: TInstrKind::TI64Const(I64(0L)), .. },
+    )
+    | (
+      I64GtUOp,
+      { kind: TInstrKind::TBinary(I64SubOp, x, y), .. },
+      { kind: TInstrKind::TI64Const(I64(0L)), .. },
+    )
+    | (
+      I64LeUOp,
+      { kind: TInstrKind::TBinary(I64SubOp, x, y), .. },
+      { kind: TInstrKind::TI64Const(I64(0L)), .. },
+    ) => {
       let new_op = match op {
         I64GtUOp => BinaryOp::i64_ne()
         I64LeUOp => BinaryOp::i64_eq()
@@ -1338,13 +1639,24 @@ fn oi_optimize_unary(
   _env : Env,
   options : OptimizeOptions,
   cache : OIRewriteCache,
+  allow_expensive_eq : Bool,
 ) -> TInstr? {
   match (op, value) {
-    (I32EqzOp, TBinary(I32SubOp, x, y)) =>
+    (I32EqzOp, { kind: TInstrKind::TBinary(I32SubOp, x, y), .. }) =>
       Some(TInstr::binary(BinaryOp::i32_eq(), x, y))
-    (I64EqzOp, TBinary(I64SubOp, x, y)) =>
+    (I64EqzOp, { kind: TInstrKind::TBinary(I64SubOp, x, y), .. }) =>
       Some(TInstr::binary(BinaryOp::i64_eq(), x, y))
-    (I32EqzOp, TBinary(I32AddOp, x, TI32Const(I32(c)))) =>
+    (
+      I32EqzOp,
+      {
+        kind: TInstrKind::TBinary(
+          I32AddOp,
+          x,
+          { kind: TInstrKind::TI32Const(I32(c)), .. }
+        ),
+        ..,
+      },
+    ) =>
       Some(
         TInstr::binary(
           BinaryOp::i32_eq(),
@@ -1352,7 +1664,17 @@ fn oi_optimize_unary(
           TInstr::i32_const(I32(oi_wrap_i32(-c))),
         ),
       )
-    (I64EqzOp, TBinary(I64AddOp, x, TI64Const(I64(c)))) =>
+    (
+      I64EqzOp,
+      {
+        kind: TInstrKind::TBinary(
+          I64AddOp,
+          x,
+          { kind: TInstrKind::TI64Const(I64(c)), .. }
+        ),
+        ..,
+      },
+    ) =>
       Some(
         TInstr::binary(
           BinaryOp::i64_eq(),
@@ -1360,45 +1682,66 @@ fn oi_optimize_unary(
           TInstr::i64_const(I64(oi_wrap_i64(-c))),
         ),
       )
-    (I32EqzOp, TUnary(I32EqzOp, x)) =>
+    (I32EqzOp, { kind: TInstrKind::TUnary(I32EqzOp, x), .. }) =>
       if options.shrink_level == 0 {
         Some(TInstr::binary(BinaryOp::i32_ne(), x, TInstr::i32_const(I32(0))))
       } else {
         None
       }
-    (I32WrapI64Op, TUnary(I64ExtendI32SOp, x))
-    | (I32WrapI64Op, TUnary(I64ExtendI32UOp, x)) => Some(x)
-    (I64ExtendI32SOp, TUnary(I32WrapI64Op, x)) =>
+    (I32WrapI64Op, { kind: TInstrKind::TUnary(I64ExtendI32SOp, x), .. })
+    | (I32WrapI64Op, { kind: TInstrKind::TUnary(I64ExtendI32UOp, x), .. }) =>
+      Some(x)
+    (I64ExtendI32SOp, { kind: TInstrKind::TUnary(I32WrapI64Op, x), .. }) =>
       Some(TInstr::unary(UnaryOp::i64_extend32s(), x))
-    (I32ReinterpretF32Op, TUnary(F32ReinterpretI32Op, x))
-    | (I64ReinterpretF64Op, TUnary(F64ReinterpretI64Op, x))
-    | (F32ReinterpretI32Op, TUnary(I32ReinterpretF32Op, x))
-    | (F64ReinterpretI64Op, TUnary(I64ReinterpretF64Op, x)) => Some(x)
-    (I32ReinterpretF32Op, TLoad(F32LoadOp, memarg, ptr)) =>
-      Some(TInstr::load(LoadOp::i32_load(), memarg, ptr))
-    (F32ReinterpretI32Op, TLoad(I32LoadOp, memarg, ptr)) =>
-      Some(TInstr::load(LoadOp::f32_load(), memarg, ptr))
-    (I64ReinterpretF64Op, TLoad(F64LoadOp, memarg, ptr)) =>
-      Some(TInstr::load(LoadOp::i64_load(), memarg, ptr))
-    (F64ReinterpretI64Op, TLoad(I64LoadOp, memarg, ptr)) =>
-      Some(TInstr::load(LoadOp::f64_load(), memarg, ptr))
-    (F32AbsOp, TUnary(F32NegOp, x)) =>
+    (
+      I32ReinterpretF32Op,
+      { kind: TInstrKind::TUnary(F32ReinterpretI32Op, x), .. },
+    )
+    | (
+      I64ReinterpretF64Op,
+      { kind: TInstrKind::TUnary(F64ReinterpretI64Op, x), .. },
+    )
+    | (
+      F32ReinterpretI32Op,
+      { kind: TInstrKind::TUnary(I32ReinterpretF32Op, x), .. },
+    )
+    | (
+      F64ReinterpretI64Op,
+      { kind: TInstrKind::TUnary(I64ReinterpretF64Op, x), .. },
+    ) => Some(x)
+    (
+      I32ReinterpretF32Op,
+      { kind: TInstrKind::TLoad(F32LoadOp, memarg, ptr), .. },
+    ) => Some(TInstr::load(LoadOp::i32_load(), memarg, ptr))
+    (
+      F32ReinterpretI32Op,
+      { kind: TInstrKind::TLoad(I32LoadOp, memarg, ptr), .. },
+    ) => Some(TInstr::load(LoadOp::f32_load(), memarg, ptr))
+    (
+      I64ReinterpretF64Op,
+      { kind: TInstrKind::TLoad(F64LoadOp, memarg, ptr), .. },
+    ) => Some(TInstr::load(LoadOp::i64_load(), memarg, ptr))
+    (
+      F64ReinterpretI64Op,
+      { kind: TInstrKind::TLoad(I64LoadOp, memarg, ptr), .. },
+    ) => Some(TInstr::load(LoadOp::f64_load(), memarg, ptr))
+    (F32AbsOp, { kind: TInstrKind::TUnary(F32NegOp, x), .. }) =>
       Some(TInstr::unary(UnaryOp::f32_abs(), x))
-    (F64AbsOp, TUnary(F64NegOp, x)) =>
+    (F64AbsOp, { kind: TInstrKind::TUnary(F64NegOp, x), .. }) =>
       Some(TInstr::unary(UnaryOp::f64_abs(), x))
-    (F32AbsOp, TBinary(F32MulOp, x, y)) if oi_instr_eq_budgeted(
-        x, y, cache, 128,
-      ) => Some(TInstr::binary(BinaryOp::f32_mul(), x, y))
-    (F64AbsOp, TBinary(F64MulOp, x, y)) if oi_instr_eq_budgeted(
-        x, y, cache, 128,
-      ) => Some(TInstr::binary(BinaryOp::f64_mul(), x, y))
-    (F32AbsOp, TBinary(F32DivOp, x, y)) if oi_instr_eq_budgeted(
-        x, y, cache, 128,
-      ) => Some(TInstr::binary(BinaryOp::f32_div(), x, y))
-    (F64AbsOp, TBinary(F64DivOp, x, y)) if oi_instr_eq_budgeted(
-        x, y, cache, 128,
-      ) => Some(TInstr::binary(BinaryOp::f64_div(), x, y))
-    (_, TUnary(inner_op, x)) =>
+    (F32AbsOp, { kind: TInstrKind::TBinary(F32MulOp, x, y), .. }) if allow_expensive_eq &&
+      oi_instr_eq_budgeted(x, y, cache, 128) =>
+      Some(TInstr::binary(BinaryOp::f32_mul(), x, y))
+    (F64AbsOp, { kind: TInstrKind::TBinary(F64MulOp, x, y), .. }) if allow_expensive_eq &&
+      oi_instr_eq_budgeted(x, y, cache, 128) =>
+      Some(TInstr::binary(BinaryOp::f64_mul(), x, y))
+    (F32AbsOp, { kind: TInstrKind::TBinary(F32DivOp, x, y), .. }) if allow_expensive_eq &&
+      oi_instr_eq_budgeted(x, y, cache, 128) =>
+      Some(TInstr::binary(BinaryOp::f32_div(), x, y))
+    (F64AbsOp, { kind: TInstrKind::TBinary(F64DivOp, x, y), .. }) if allow_expensive_eq &&
+      oi_instr_eq_budgeted(x, y, cache, 128) =>
+      Some(TInstr::binary(BinaryOp::f64_div(), x, y))
+    (_, { kind: TInstrKind::TUnary(inner_op, x), .. }) =>
       if inner_op == op {
         match op {
           F32AbsOp
@@ -1422,7 +1765,7 @@ fn oi_optimize_unary(
       } else {
         None
       }
-    (I32EqzOp, TBinary(bin_op, x, y)) =>
+    (I32EqzOp, { kind: TInstrKind::TBinary(bin_op, x, y), .. }) =>
       match oi_invert_relational(bin_op) {
         Some(inv) => Some(TInstr::binary(inv, x, y))
         None => None
@@ -1466,8 +1809,8 @@ fn oi_fold_const_ptr_offset(
   if offset == 0UL {
     return (ptr, memarg)
   }
-  match ptr {
-    TI32Const(I32(v)) if !oi_memory_is_64(mod, memarg) => {
+  match ptr.kind {
+    TInstrKind::TI32Const(I32(v)) if !oi_memory_is_64(mod, memarg) => {
       let value64 = v.reinterpret_as_uint().to_uint64()
       let max32 = 0x7fffffffUL
       if value64 <= max32 && offset <= max32 && value64 + offset <= max32 {
@@ -1478,7 +1821,7 @@ fn oi_fold_const_ptr_offset(
         (ptr, memarg)
       }
     }
-    TI64Const(I64(v)) if oi_memory_is_64(mod, memarg) => {
+    TInstrKind::TI64Const(I64(v)) if oi_memory_is_64(mod, memarg) => {
       let value64 = v.reinterpret_as_uint64()
       let total = value64 + offset
       if total >= value64 {
@@ -1522,13 +1865,13 @@ fn oi_store_wrap_upgrade(op : StoreOp) -> StoreOp? {
 ///|
 fn oi_reinterpret_store(op : StoreOp, value : TInstr) -> (StoreOp, TInstr)? {
   match (op, value) {
-    (F32StoreOp, TUnary(F32ReinterpretI32Op, x)) =>
+    (F32StoreOp, { kind: TInstrKind::TUnary(F32ReinterpretI32Op, x), .. }) =>
       Some((StoreOp::i32_store(), x))
-    (I32StoreOp, TUnary(I32ReinterpretF32Op, x)) =>
+    (I32StoreOp, { kind: TInstrKind::TUnary(I32ReinterpretF32Op, x), .. }) =>
       Some((StoreOp::f32_store(), x))
-    (F64StoreOp, TUnary(F64ReinterpretI64Op, x)) =>
+    (F64StoreOp, { kind: TInstrKind::TUnary(F64ReinterpretI64Op, x), .. }) =>
       Some((StoreOp::i64_store(), x))
-    (I64StoreOp, TUnary(I64ReinterpretF64Op, x)) =>
+    (I64StoreOp, { kind: TInstrKind::TUnary(I64ReinterpretF64Op, x), .. }) =>
       Some((StoreOp::f64_store(), x))
     _ => None
   }
@@ -1538,8 +1881,8 @@ fn oi_reinterpret_store(op : StoreOp, value : TInstr) -> (StoreOp, TInstr)? {
 fn oi_optimize_store_value(op : StoreOp, value : TInstr) -> (TInstr, Bool) {
   let bytes = oi_store_bytes(op)
   let mut changed = false
-  let value = match value {
-    TI32Const(I32(v)) if bytes < 4 => {
+  let value = match value.kind {
+    TInstrKind::TI32Const(I32(v)) if bytes < 4 => {
       let mask = match bytes {
         1 => 0xff
         2 => 0xffff
@@ -1551,7 +1894,7 @@ fn oi_optimize_store_value(op : StoreOp, value : TInstr) -> (TInstr, Bool) {
       }
       TInstr::i32_const(I32(next))
     }
-    TI64Const(I64(v)) if bytes < 8 => {
+    TInstrKind::TI64Const(I64(v)) if bytes < 8 => {
       let mask = match bytes {
         1 => 0xffL
         2 => 0xffffL
@@ -1564,16 +1907,24 @@ fn oi_optimize_store_value(op : StoreOp, value : TInstr) -> (TInstr, Bool) {
       }
       TInstr::i64_const(I64(next))
     }
-    other => other
+    _ => value
   }
-  match value {
-    TBinary(I32AndOp, x, TI32Const(I32(mask))) =>
+  match value.kind {
+    TInstrKind::TBinary(
+      I32AndOp,
+      x,
+      { kind: TInstrKind::TI32Const(I32(mask)), .. }
+    ) =>
       if (bytes == 1 && mask == 0xff) || (bytes == 2 && mask == 0xffff) {
         (x, true)
       } else {
         (value, changed)
       }
-    TBinary(I64AndOp, x, TI64Const(I64(mask))) =>
+    TInstrKind::TBinary(
+      I64AndOp,
+      x,
+      { kind: TInstrKind::TI64Const(I64(mask)), .. }
+    ) =>
       if (bytes == 1 && mask == 0xffL) ||
         (bytes == 2 && mask == 0xffffL) ||
         (bytes == 4 && mask == 0xffffffffL) {
@@ -1594,15 +1945,15 @@ fn oi_optimize_memory_copy(
   size : TInstr,
   env : Env,
 ) -> TInstr? {
-  match size {
-    TI32Const(I32(0)) =>
+  match size.kind {
+    TInstrKind::TI32Const(I32(0)) =>
       Some(
         TInstr::block(
           BlockType::void_(),
           TExpr::new([oi_instr_stmt(dest, env), oi_instr_stmt(source, env)]),
         ),
       )
-    TI32Const(I32(bytes)) =>
+    TInstrKind::TI32Const(I32(bytes)) =>
       match bytes {
         1 => {
           let load_memarg = MemArg::new(U32(1), Some(src_mem), U64(0UL))
@@ -1666,15 +2017,15 @@ fn oi_optimize_memory_fill(
   size : TInstr,
   env : Env,
 ) -> TInstr? {
-  match size {
-    TI32Const(I32(0)) =>
+  match size.kind {
+    TInstrKind::TI32Const(I32(0)) =>
       Some(
         TInstr::block(
           BlockType::void_(),
           TExpr::new([oi_instr_stmt(dest, env), oi_instr_stmt(value, env)]),
         ),
       )
-    TI32Const(I32(1)) =>
+    TInstrKind::TI32Const(I32(1)) =>
       Some(
         TInstr::store(
           StoreOp::i32_store8(),
@@ -1683,9 +2034,9 @@ fn oi_optimize_memory_fill(
           value,
         ),
       )
-    TI32Const(I32(bytes)) =>
+    TInstrKind::TI32Const(I32(bytes)) =>
       match (bytes, value) {
-        (1, TI32Const(I32(v))) =>
+        (1, { kind: TInstrKind::TI32Const(I32(v)), .. }) =>
           Some(
             TInstr::store(
               StoreOp::i32_store8(),
@@ -1694,7 +2045,7 @@ fn oi_optimize_memory_fill(
               TInstr::i32_const(I32(v & 0xff)),
             ),
           )
-        (2, TI32Const(I32(v))) => {
+        (2, { kind: TInstrKind::TI32Const(I32(v)), .. }) => {
           let x = v & 0xff
           Some(
             TInstr::store(
@@ -1705,7 +2056,7 @@ fn oi_optimize_memory_fill(
             ),
           )
         }
-        (4, TI32Const(I32(v))) => {
+        (4, { kind: TInstrKind::TI32Const(I32(v)), .. }) => {
           let x = v & 0xff
           Some(
             TInstr::store(
@@ -1716,7 +2067,7 @@ fn oi_optimize_memory_fill(
             ),
           )
         }
-        (8, TI32Const(I32(v))) => {
+        (8, { kind: TInstrKind::TI32Const(I32(v)), .. }) => {
           let x = (v & 0xff).to_int64()
           Some(
             TInstr::store(
@@ -1745,15 +2096,16 @@ fn oi_optimize_select(
   allow_expensive_eq : Bool,
 ) -> TInstr? {
   let cond = oi_optimize_boolean(cond, env, options)
-  match cond {
-    TI32Const(I32(v)) =>
+  match cond.kind {
+    TInstrKind::TI32Const(I32(v)) =>
       if v == 0 {
         Some(oi_seq([oi_instr_stmt(if_true, env)], if_false, env))
       } else {
         Some(oi_seq([oi_instr_stmt(if_false, env)], if_true, env))
       }
     _ =>
-      if oi_instr_equal_for_fold(
+      if allow_expensive_eq &&
+        oi_instr_equal_for_fold(
           if_true, if_false, cache, 128, allow_expensive_eq,
         ) {
         if oi_has_side_effects_cached(cond, cache) {
@@ -1789,11 +2141,12 @@ fn oi_optimize_if(
   let next_cond = oi_optimize_boolean(cond, env, options)
   match else_ {
     Some(else_expr) =>
-      match next_cond {
-        TUnary(I32EqzOp, value) =>
+      match next_cond.kind {
+        TInstrKind::TUnary(I32EqzOp, value) =>
           Some(TInstr::if_(bt, value, else_expr, Some(then_)))
         _ =>
-          if then_.instrs.length() == else_expr.instrs.length() &&
+          if allow_expensive_eq &&
+            then_.instrs.length() == else_expr.instrs.length() &&
             oi_texpr_equal_for_fold(
               then_, else_expr, cache, 256, allow_expensive_eq,
             ) {
@@ -1806,14 +2159,16 @@ fn oi_optimize_if(
             } else {
               Some(TInstr::block(bt, then_))
             }
-          } else if oi_instr_eq_cached(next_cond, cond, cache) {
+          } else if oi_instr_eq_for_change(
+              next_cond, cond, cache, allow_expensive_eq,
+            ) {
             None
           } else {
             Some(TInstr::if_(bt, next_cond, then_, Some(else_expr)))
           }
       }
     None =>
-      if oi_instr_eq_cached(next_cond, cond, cache) {
+      if oi_instr_eq_for_change(next_cond, cond, cache, allow_expensive_eq) {
         None
       } else {
         Some(TInstr::if_(bt, next_cond, then_, None))
@@ -1830,8 +2185,8 @@ fn oi_optimize_once(
   cache : OIRewriteCache,
   allow_expensive_eq : Bool,
 ) -> (TInstr, Bool) {
-  match instr {
-    TBinary(op, left, right) =>
+  match instr.kind {
+    TInstrKind::TBinary(op, left, right) =>
       match
         oi_optimize_binary(
           op, left, right, env, options, cache, allow_expensive_eq,
@@ -1839,12 +2194,13 @@ fn oi_optimize_once(
         Some(rep) => (rep, true)
         None => (instr, false)
       }
-    TUnary(op, value) =>
-      match oi_optimize_unary(op, value, env, options, cache) {
+    TInstrKind::TUnary(op, value) =>
+      match
+        oi_optimize_unary(op, value, env, options, cache, allow_expensive_eq) {
         Some(rep) => (rep, true)
         None => (instr, false)
       }
-    TSelect(types, cond, if_true, if_false) =>
+    TInstrKind::TSelect(types, cond, if_true, if_false) =>
       match
         oi_optimize_select(
           types, cond, if_true, if_false, env, options, cache, allow_expensive_eq,
@@ -1852,7 +2208,7 @@ fn oi_optimize_once(
         Some(rep) => (rep, true)
         None => (instr, false)
       }
-    TIf(bt, cond, then_, else_) =>
+    TInstrKind::TIf(bt, cond, then_, else_) =>
       match
         oi_optimize_if(
           bt, cond, then_, else_, env, options, cache, allow_expensive_eq,
@@ -1860,17 +2216,17 @@ fn oi_optimize_once(
         Some(rep) => (rep, true)
         None => (instr, false)
       }
-    TGlobalSet(idx, TGlobalGet(get_idx)) if idx == get_idx =>
-      (TInstr::nop(), true)
-    TBrIf(label, cond, values) => {
+    TInstrKind::TGlobalSet(idx, { kind: TInstrKind::TGlobalGet(get_idx), .. }) if idx ==
+      get_idx => (TInstr::nop(), true)
+    TInstrKind::TBrIf(label, cond, values) => {
       let next_cond = oi_optimize_boolean(cond, env, options)
-      if oi_instr_eq_cached(next_cond, cond, cache) {
+      if oi_instr_eq_for_change(next_cond, cond, cache, allow_expensive_eq) {
         (instr, false)
       } else {
         (TInstr::br_if(label, next_cond, values), true)
       }
     }
-    TLoad(op, memarg, ptr) => {
+    TInstrKind::TLoad(op, memarg, ptr) => {
       let (next_ptr, next_memarg) = oi_fold_const_ptr_offset(ptr, memarg, mod)
       if next_ptr == ptr && next_memarg == memarg {
         (instr, false)
@@ -1878,7 +2234,7 @@ fn oi_optimize_once(
         (TInstr::load(op, next_memarg, next_ptr), true)
       }
     }
-    TStore(op, memarg, ptr, value) => {
+    TInstrKind::TStore(op, memarg, ptr, value) => {
       let (next_ptr, next_memarg) = oi_fold_const_ptr_offset(ptr, memarg, mod)
       let mut changed = next_ptr != ptr || next_memarg != memarg
       let mut next_op = op
@@ -1887,8 +2243,8 @@ fn oi_optimize_once(
       if value_changed {
         changed = true
       }
-      match next_value {
-        TUnary(I32WrapI64Op, inner) =>
+      match next_value.kind {
+        TInstrKind::TUnary(I32WrapI64Op, inner) =>
           match oi_store_wrap_upgrade(next_op) {
             Some(upgraded) => {
               next_op = upgraded
@@ -1913,20 +2269,20 @@ fn oi_optimize_once(
         (instr, false)
       }
     }
-    TMemoryCopy(dst_mem, src_mem, dest, source, size) =>
+    TInstrKind::TMemoryCopy(dst_mem, src_mem, dest, source, size) =>
       match oi_optimize_memory_copy(dst_mem, src_mem, dest, source, size, env) {
         Some(rep) => (rep, true)
         None => (instr, false)
       }
-    TMemoryFill(mem_idx, dest, value, size) =>
+    TInstrKind::TMemoryFill(mem_idx, dest, value, size) =>
       match oi_optimize_memory_fill(mem_idx, dest, value, size, env) {
         Some(rep) => (rep, true)
         None => (instr, false)
       }
-    TCallRef(type_idx, args, target) =>
-      match target {
-        TRefFunc(func_idx) => (TInstr::call(func_idx, args), true)
-        TTableGet(table_idx, index) =>
+    TInstrKind::TCallRef(type_idx, args, target) =>
+      match target.kind {
+        TInstrKind::TRefFunc(func_idx) => (TInstr::call(func_idx, args), true)
+        TInstrKind::TTableGet(table_idx, index) =>
           (TInstr::call_indirect(type_idx, table_idx, args, index), true)
         _ => (instr, false)
       }
@@ -1946,7 +2302,7 @@ fn oi_optimize_fixpoint(
   let mut curr = instr
   let mut rounds = 0
   let mut changed = false
-  while rounds < 3 {
+  while rounds < 2 {
     rounds += 1
     let (next, step_changed) = oi_optimize_once(
       curr, env, options, mod, cache, allow_expensive_eq,
@@ -2047,12 +2403,19 @@ fn optimize_instructions_on_func(
       }
       let env = Env::new().with_module(mod).with_locals(locals)
       let cache = oi_rewrite_cache_new()
+      oi_precompute_cached_summaries(body, cache)
       let mut visited_instrs = 0
       let mut candidate_instrs = 0
       let mut rewritten_instrs = 0
       let mut max_rounds = 0
       let mut did_change = false
-      let visited_instr_budget = 80000
+      let visited_instr_budget = if top_instrs / 2 < 2000 {
+        2000
+      } else if top_instrs / 2 < 80000 {
+        top_instrs / 2
+      } else {
+        80000
+      }
       let candidate_size_budget = if top_instrs > 8000 { 64 } else { 256 }
       let allow_expensive_eq = top_instrs <= 4000
       let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
@@ -2072,7 +2435,8 @@ fn optimize_instructions_on_func(
             // `walk_tinstruction_default` and traverse this subtree again.
             return change((), curr)
           }
-          if !oi_instr_within_eq_budget(curr, candidate_size_budget) {
+          if allow_expensive_eq &&
+            !oi_instr_within_eq_budget(curr, candidate_size_budget, cache) {
             return change((), curr)
           }
           candidate_instrs += 1
@@ -2099,7 +2463,8 @@ fn optimize_instructions_on_func(
           // `walk_tinstruction_default` and traverse this subtree again.
           return change((), walked)
         }
-        if !oi_instr_within_eq_budget(walked, candidate_size_budget) {
+        if allow_expensive_eq &&
+          !oi_instr_within_eq_budget(walked, candidate_size_budget, cache) {
           return change((), walked)
         }
         candidate_instrs += 1
@@ -2165,7 +2530,7 @@ fn optimize_instructions_ir_pass(
     let elapsed = oi_trace_elapsed_ms(start_ms)
     let log_heavy_func = stats.visited_instrs >= 20000 ||
       stats.candidate_instrs >= 5000
-    if log_func || log_heavy_func {
+    if log_func || log_heavy_func || elapsed >= 1000 {
       trace(
         "func[\{ordinal}] done elapsed_ms=\{elapsed} changed=\{stats.did_change} skipped=\{stats.skipped_no_candidates} top_instrs=\{stats.top_instrs} visited=\{stats.visited_instrs} candidates=\{stats.candidate_instrs} rewritten=\{stats.rewritten_instrs} max_rounds=\{stats.max_rounds}",
       )
@@ -2217,7 +2582,16 @@ test "optimize instructions eqz(sub) to eq" {
   )
   match body {
     {
-      instrs: [TBinary(I32EqOp, TLocalGet(LocalIdx(i)), TLocalGet(LocalIdx(j)))],
+      instrs: [
+        {
+          kind: TInstrKind::TBinary(
+            I32EqOp,
+            { kind: TInstrKind::TLocalGet(LocalIdx(i)), .. },
+            { kind: TInstrKind::TLocalGet(LocalIdx(j)), .. }
+          ),
+          ..,
+        },
+      ],
       ..,
     } => {
       assert_eq(i.reinterpret_as_int(), 0)
@@ -2243,8 +2617,19 @@ test "optimize instructions eqz(add const) to eq neg const" {
     locals=[ValType::i32()],
   )
   match body {
-    { instrs: [TBinary(I32EqOp, TLocalGet(_), TI32Const(I32(v)))], .. } =>
-      assert_eq(v, -5)
+    {
+      instrs: [
+        {
+          kind: TInstrKind::TBinary(
+            I32EqOp,
+            { kind: TInstrKind::TLocalGet(_), .. },
+            { kind: TInstrKind::TI32Const(I32(v)), .. }
+          ),
+          ..,
+        },
+      ],
+      ..,
+    } => assert_eq(v, -5)
     _ => fail("expected i32.eq with negated constant")
   }
 }
@@ -2262,7 +2647,18 @@ test "optimize instructions de-morgan eqz and" {
     locals=[ValType::i32(), ValType::i32()],
   )
   match body {
-    { instrs: [TUnary(I32EqzOp, TBinary(I32OrOp, _, _))], .. } => ()
+    {
+      instrs: [
+        {
+          kind: TInstrKind::TUnary(
+            I32EqzOp,
+            { kind: TInstrKind::TBinary(I32OrOp, _, _), .. }
+          ),
+          ..,
+        },
+      ],
+      ..,
+    } => ()
     _ => fail("expected eqz(or)")
   }
 }
@@ -2280,7 +2676,7 @@ test "optimize instructions masks shift constants and removes zero shifts" {
     locals=[ValType::i32()],
   )
   match body {
-    { instrs: [TLocalGet(LocalIdx(i))], .. } =>
+    { instrs: [{ kind: TInstrKind::TLocalGet(LocalIdx(i)), .. }], .. } =>
       assert_eq(i.reinterpret_as_int(), 0)
     _ => fail("expected shift-by-32 to collapse to lhs")
   }
@@ -2303,8 +2699,19 @@ test "optimize instructions removes rhs mask in shifts" {
     locals=[ValType::i32(), ValType::i32()],
   )
   match body {
-    { instrs: [TBinary(I32ShlOp, _, TLocalGet(LocalIdx(i)))], .. } =>
-      assert_eq(i.reinterpret_as_int(), 1)
+    {
+      instrs: [
+        {
+          kind: TInstrKind::TBinary(
+            I32ShlOp,
+            _,
+            { kind: TInstrKind::TLocalGet(LocalIdx(i)), .. }
+          ),
+          ..,
+        },
+      ],
+      ..,
+    } => assert_eq(i.reinterpret_as_int(), 1)
     _ => fail("expected shift rhs to be simplified to local.get")
   }
 }
@@ -2322,8 +2729,19 @@ test "optimize instructions float add neg rhs to sub" {
     locals=[ValType::f32(), ValType::f32()],
   )
   match body {
-    { instrs: [TBinary(F32SubOp, _, TLocalGet(LocalIdx(i)))], .. } =>
-      assert_eq(i.reinterpret_as_int(), 1)
+    {
+      instrs: [
+        {
+          kind: TInstrKind::TBinary(
+            F32SubOp,
+            _,
+            { kind: TInstrKind::TLocalGet(LocalIdx(i)), .. }
+          ),
+          ..,
+        },
+      ],
+      ..,
+    } => assert_eq(i.reinterpret_as_int(), 1)
     _ => fail("expected f32.sub")
   }
 }
@@ -2351,7 +2769,14 @@ test "optimize instructions int neg multiply patterns" {
   match body {
     {
       instrs: [
-        TBinary(I32MulOp, TLocalGet(LocalIdx(i)), TLocalGet(LocalIdx(j))),
+        {
+          kind: TInstrKind::TBinary(
+            I32MulOp,
+            { kind: TInstrKind::TLocalGet(LocalIdx(i)), .. },
+            { kind: TInstrKind::TLocalGet(LocalIdx(j)), .. }
+          ),
+          ..,
+        },
       ],
       ..,
     } => {
@@ -2385,14 +2810,36 @@ test "optimize instructions unsigned compare constants" {
   }
   match body {
     { instrs: [first, second], .. } => {
-      match first {
-        TBlock(_, { instrs: [TDrop(TLocalGet(_)), TI32Const(I32(v))], .. }) =>
-          assert_eq(v, 1)
+      match first.kind {
+        TInstrKind::TBlock(
+          _,
+          {
+            instrs: [
+              {
+                kind: TInstrKind::TDrop({ kind: TInstrKind::TLocalGet(_), .. }),
+                ..,
+              },
+              { kind: TInstrKind::TI32Const(I32(v)), .. },
+            ],
+            ..,
+          }
+        ) => assert_eq(v, 1)
         _ => fail("expected ge_u 0 => 1 preserving lhs")
       }
-      match second {
-        TBlock(_, { instrs: [TDrop(TLocalGet(_)), TI32Const(I32(v))], .. }) =>
-          assert_eq(v, 0)
+      match second.kind {
+        TInstrKind::TBlock(
+          _,
+          {
+            instrs: [
+              {
+                kind: TInstrKind::TDrop({ kind: TInstrKind::TLocalGet(_), .. }),
+                ..,
+              },
+              { kind: TInstrKind::TI32Const(I32(v)), .. },
+            ],
+            ..,
+          }
+        ) => assert_eq(v, 0)
         _ => fail("expected lt_u 0 => 0 preserving lhs")
       }
     }
@@ -2424,16 +2871,28 @@ test "optimize instructions power-of-two integer arithmetic" {
   )
   match body {
     { instrs: [mul_i, div_i, rem_i], .. } => {
-      match mul_i {
-        TBinary(I32ShlOp, _, TI32Const(I32(v))) => assert_eq(v, 3)
+      match mul_i.kind {
+        TInstrKind::TBinary(
+          I32ShlOp,
+          _,
+          { kind: TInstrKind::TI32Const(I32(v)), .. }
+        ) => assert_eq(v, 3)
         _ => fail("expected mul by 8 => shl 3")
       }
-      match div_i {
-        TBinary(I32ShrUOp, _, TI32Const(I32(v))) => assert_eq(v, 3)
+      match div_i.kind {
+        TInstrKind::TBinary(
+          I32ShrUOp,
+          _,
+          { kind: TInstrKind::TI32Const(I32(v)), .. }
+        ) => assert_eq(v, 3)
         _ => fail("expected div_u by 8 => shr_u 3")
       }
-      match rem_i {
-        TBinary(I32AndOp, _, TI32Const(I32(v))) => assert_eq(v, 7)
+      match rem_i.kind {
+        TInstrKind::TBinary(
+          I32AndOp,
+          _,
+          { kind: TInstrKind::TI32Const(I32(v)), .. }
+        ) => assert_eq(v, 7)
         _ => fail("expected rem_u by 8 => and 7")
       }
     }
@@ -2470,20 +2929,33 @@ test "optimize instructions arithmetic trivial constants" {
   )
   match body {
     { instrs: [a0, a1, a2, a3], .. } => {
-      match a0 {
-        TLocalGet(_) => ()
+      match a0.kind {
+        TInstrKind::TLocalGet(_) => ()
         _ => fail("expected and -1 => x")
       }
-      match a1 {
-        TBlock(_, { instrs: [TDrop(_), TI32Const(I32(-1))], .. }) => ()
+      match a1.kind {
+        TInstrKind::TBlock(
+          _,
+          {
+            instrs: [
+              { kind: TInstrKind::TDrop(_), .. },
+              { kind: TInstrKind::TI32Const(I32(-1)), .. },
+            ],
+            ..,
+          }
+        ) => ()
         _ => fail("expected or -1 => -1 with drop")
       }
-      match a2 {
-        TUnary(I32EqzOp, _) => ()
+      match a2.kind {
+        TInstrKind::TUnary(I32EqzOp, _) => ()
         _ => fail("expected eq 0 => eqz")
       }
-      match a3 {
-        TBinary(I32SubOp, TI32Const(I32(0)), _) => ()
+      match a3.kind {
+        TInstrKind::TBinary(
+          I32SubOp,
+          { kind: TInstrKind::TI32Const(I32(0)), .. },
+          _
+        ) => ()
         _ => fail("expected mul -1 => 0 - x")
       }
     }
@@ -2509,7 +2981,16 @@ test "optimize instructions constant-left subtraction patterns" {
   )
   match body {
     {
-      instrs: [TBinary(I32SubOp, TI32Const(I32(c)), TLocalGet(LocalIdx(i)))],
+      instrs: [
+        {
+          kind: TInstrKind::TBinary(
+            I32SubOp,
+            { kind: TInstrKind::TI32Const(I32(c)), .. },
+            { kind: TInstrKind::TLocalGet(LocalIdx(i)), .. }
+          ),
+          ..,
+        },
+      ],
       ..,
     } => {
       assert_eq(c, 6)
@@ -2537,7 +3018,16 @@ test "optimize instructions relational x-y compare to zero" {
   )
   match body {
     {
-      instrs: [TBinary(I32EqOp, TLocalGet(LocalIdx(i)), TLocalGet(LocalIdx(j)))],
+      instrs: [
+        {
+          kind: TInstrKind::TBinary(
+            I32EqOp,
+            { kind: TInstrKind::TLocalGet(LocalIdx(i)), .. },
+            { kind: TInstrKind::TLocalGet(LocalIdx(j)), .. }
+          ),
+          ..,
+        },
+      ],
       ..,
     } => {
       assert_eq(i.reinterpret_as_int(), 0)
@@ -2566,12 +3056,12 @@ test "optimize instructions deduplicate equal binary children" {
   )
   match body {
     { instrs: [a0, a1], .. } => {
-      match a0 {
-        TI32Const(I32(0)) => ()
+      match a0.kind {
+        TInstrKind::TI32Const(I32(0)) => ()
         _ => fail("expected x xor x => 0")
       }
-      match a1 {
-        TI32Const(I32(1)) => ()
+      match a1.kind {
+        TInstrKind::TI32Const(I32(1)) => ()
         _ => fail("expected x eq x => 1")
       }
     }
@@ -2604,12 +3094,13 @@ test "optimize instructions reinterpret chains and load reinterpret" {
   )
   match body {
     { instrs: [a0, a1], .. } => {
-      match a0 {
-        TLocalGet(LocalIdx(i)) => assert_eq(i.reinterpret_as_int(), 0)
+      match a0.kind {
+        TInstrKind::TLocalGet(LocalIdx(i)) =>
+          assert_eq(i.reinterpret_as_int(), 0)
         _ => fail("expected reinterpret(reinterpret(x)) => x")
       }
-      match a1 {
-        TLoad(I32LoadOp, _, _) => ()
+      match a1.kind {
+        TInstrKind::TLoad(I32LoadOp, _, _) => ()
         _ => fail("expected reinterpret(f32.load) => i32.load")
       }
     }
@@ -2638,17 +3129,20 @@ test "optimize instructions if eqz arm flip and fold identical arms" {
   )
   match body {
     { instrs: [a0, a1], .. } => {
-      match a0 {
-        TIf(
+      match a0.kind {
+        TInstrKind::TIf(
           _,
-          TLocalGet(_),
-          { instrs: [TI32Const(I32(2))], .. },
-          Some({ instrs: [TI32Const(I32(1))], .. })
+          { kind: TInstrKind::TLocalGet(_), .. },
+          { instrs: [{ kind: TInstrKind::TI32Const(I32(2)), .. }], .. },
+          Some({ instrs: [{ kind: TInstrKind::TI32Const(I32(1)), .. }], .. })
         ) => ()
         _ => fail("expected if eqz flip")
       }
-      match a1 {
-        TBlock(_, { instrs: [TI32Const(I32(7))], .. }) => ()
+      match a1.kind {
+        TInstrKind::TBlock(
+          _,
+          { instrs: [{ kind: TInstrKind::TI32Const(I32(7)), .. }], .. }
+        ) => ()
         _ => fail("expected identical-arm if fold")
       }
     }
@@ -2662,7 +3156,7 @@ test "optimize instructions global.set same global.get becomes nop" {
     TInstr::global_set(GlobalIdx::new(0), TInstr::global_get(GlobalIdx::new(0))),
   ])
   match body {
-    { instrs: [TNop], .. } => ()
+    { instrs: [{ kind: TInstrKind::TNop, .. }], .. } => ()
     _ => fail("expected global.set g (global.get g) => nop")
   }
 }
@@ -2687,15 +3181,24 @@ test "optimize instructions memory access folds const pointer into offset" {
   )
   match body {
     { instrs: [l0, s0], .. } => {
-      match l0 {
-        TLoad(_, MemArg(_, _, U64(off)), TI32Const(I32(v))) => {
+      match l0.kind {
+        TInstrKind::TLoad(
+          _,
+          MemArg(_, _, U64(off)),
+          { kind: TInstrKind::TI32Const(I32(v)), .. }
+        ) => {
           assert_eq(off, 0UL)
           assert_eq(v, 18)
         }
         _ => fail("expected folded load pointer")
       }
-      match s0 {
-        TStore(_, MemArg(_, _, U64(off)), TI32Const(I32(v)), _) => {
+      match s0.kind {
+        TInstrKind::TStore(
+          _,
+          MemArg(_, _, U64(off)),
+          { kind: TInstrKind::TI32Const(I32(v)), .. },
+          _
+        ) => {
           assert_eq(off, 0UL)
           assert_eq(v, 10)
         }
@@ -2731,13 +3234,22 @@ test "optimize instructions store value truncation and wrap upgrade" {
   )
   match body {
     { instrs: [s0, s1], .. } => {
-      match s0 {
-        TStore(I32Store8Op, _, _, TI32Const(I32(v))) => assert_eq(v, 0x34)
+      match s0.kind {
+        TInstrKind::TStore(
+          I32Store8Op,
+          _,
+          _,
+          { kind: TInstrKind::TI32Const(I32(v)), .. }
+        ) => assert_eq(v, 0x34)
         _ => fail("expected store8 const truncation")
       }
-      match s1 {
-        TStore(I64Store32Op, _, _, TLocalGet(LocalIdx(i))) =>
-          assert_eq(i.reinterpret_as_int(), 1)
+      match s1.kind {
+        TInstrKind::TStore(
+          I64Store32Op,
+          _,
+          _,
+          { kind: TInstrKind::TLocalGet(LocalIdx(i)), .. }
+        ) => assert_eq(i.reinterpret_as_int(), 1)
         _ => fail("expected wrap_i64 store upgrade to i64.store32")
       }
     }
@@ -2763,8 +3275,20 @@ test "optimize instructions reinterpret store rewrites value type" {
     with_memory=true,
   )
   match body {
-    { instrs: [TStore(I32StoreOp, _, _, TLocalGet(LocalIdx(i)))], .. } =>
-      assert_eq(i.reinterpret_as_int(), 1)
+    {
+      instrs: [
+        {
+          kind: TInstrKind::TStore(
+            I32StoreOp,
+            _,
+            _,
+            { kind: TInstrKind::TLocalGet(LocalIdx(i)), .. }
+          ),
+          ..,
+        },
+      ],
+      ..,
+    } => assert_eq(i.reinterpret_as_int(), 1)
     _ => fail("expected f32.store(reinterpret_i32) => i32.store")
   }
 }
@@ -2793,12 +3317,26 @@ test "optimize instructions memory.copy rewrites constants" {
   )
   match body {
     { instrs: [c0, c1], .. } => {
-      match c0 {
-        TBlock(_, { instrs: [TDrop(_), TDrop(_)], .. }) => ()
+      match c0.kind {
+        TInstrKind::TBlock(
+          _,
+          {
+            instrs: [
+              { kind: TInstrKind::TDrop(_), .. },
+              { kind: TInstrKind::TDrop(_), .. },
+            ],
+            ..,
+          }
+        ) => ()
         _ => fail("expected memory.copy size 0 rewrite")
       }
-      match c1 {
-        TStore(I32StoreOp, _, _, TLoad(I32LoadOp, _, _)) => ()
+      match c1.kind {
+        TInstrKind::TStore(
+          I32StoreOp,
+          _,
+          _,
+          { kind: TInstrKind::TLoad(I32LoadOp, _, _), .. }
+        ) => ()
         _ => fail("expected memory.copy size 4 => store(load)")
       }
     }
@@ -2834,16 +3372,30 @@ test "optimize instructions memory.fill rewrites constants" {
   )
   match body {
     { instrs: [f0, f1, f2], .. } => {
-      match f0 {
-        TBlock(_, { instrs: [TDrop(_), TDrop(_)], .. }) => ()
+      match f0.kind {
+        TInstrKind::TBlock(
+          _,
+          {
+            instrs: [
+              { kind: TInstrKind::TDrop(_), .. },
+              { kind: TInstrKind::TDrop(_), .. },
+            ],
+            ..,
+          }
+        ) => ()
         _ => fail("expected memory.fill size 0 rewrite")
       }
-      match f1 {
-        TStore(I32Store8Op, _, _, _) => ()
+      match f1.kind {
+        TInstrKind::TStore(I32Store8Op, _, _, _) => ()
         _ => fail("expected memory.fill size 1 => store8")
       }
-      match f2 {
-        TStore(I32StoreOp, _, _, TI32Const(I32(v))) => assert_eq(v, 0xaaaaaaaa)
+      match f2.kind {
+        TInstrKind::TStore(
+          I32StoreOp,
+          _,
+          _,
+          { kind: TInstrKind::TI32Const(I32(v)), .. }
+        ) => assert_eq(v, 0xaaaaaaaa)
         _ =>
           fail("expected memory.fill const size 4 => i32.store const pattern")
       }
@@ -2873,15 +3425,26 @@ test "optimize instructions select constant condition and equal arms" {
   )
   match body {
     { instrs: [s0, s1], .. } => {
-      match s0 {
-        TBlock(
+      match s0.kind {
+        TInstrKind::TBlock(
           _,
-          { instrs: [TDrop(TI32Const(I32(1))), TLocalGet(LocalIdx(i))], .. }
+          {
+            instrs: [
+              {
+                kind: TInstrKind::TDrop(
+                  { kind: TInstrKind::TI32Const(I32(1)), .. }
+                ),
+                ..,
+              },
+              { kind: TInstrKind::TLocalGet(LocalIdx(i)), .. },
+            ],
+            ..,
+          }
         ) => assert_eq(i.reinterpret_as_int(), 0)
         _ => fail("expected select cond=0 rewrite")
       }
-      match s1 {
-        TI32Const(I32(7)) => ()
+      match s1.kind {
+        TInstrKind::TI32Const(I32(7)) => ()
         _ => fail("expected select equal arms fold")
       }
     }
@@ -2909,8 +3472,16 @@ test "optimize instructions call_ref direct simplifications" {
     .with_code_sec(code_sec)
   let out = optimize_module(mod_, [ModulePass::OptimizeInstructions]).unwrap()
   match out.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TCall(FuncIdx(raw), _)], .. })])) =>
-      assert_eq(raw.reinterpret_as_int(), 0)
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            { instrs: [{ kind: TInstrKind::TCall(FuncIdx(raw), _), .. }], .. }
+          ),
+        ]
+      )
+    ) => assert_eq(raw.reinterpret_as_int(), 0)
     _ => fail("expected call_ref(ref.func) => call")
   }
 }
@@ -2942,8 +3513,11 @@ test "optimize instructions helper sequencing boolean and reorder checks" {
   let env = Env::new()
   assert_eq(oi_instr_stmt(TInstr::nop(), env), TInstr::nop())
   assert_eq(oi_seq([], TInstr::nop(), env), TInstr::nop())
-  match oi_seq([TInstr::i32_const(I32(1))], TInstr::nop(), env) {
-    TBlock(VoidBlockType, { instrs: [_, TNop], .. }) => ()
+  match oi_seq([TInstr::i32_const(I32(1))], TInstr::nop(), env).kind {
+    TInstrKind::TBlock(
+      VoidBlockType,
+      { instrs: [_, { kind: TInstrKind::TNop, .. }], .. }
+    ) => ()
     _ => fail("expected oi_seq to emit block for non-empty statements")
   }
 
@@ -3009,25 +3583,49 @@ test "optimize instructions i64 constant-right simplifications mirror i32 covera
   )
   match body {
     { instrs: [a0, a1, a2, a3, a4], .. } => {
-      match a0 {
-        TBinary(I64ShrUOp, _, TI64Const(I64(v))) => assert_eq(v, 3L)
+      match a0.kind {
+        TInstrKind::TBinary(
+          I64ShrUOp,
+          _,
+          { kind: TInstrKind::TI64Const(I64(v)), .. }
+        ) => assert_eq(v, 3L)
         _ => fail("expected i64.div_u by pow2 => shr_u")
       }
-      match a1 {
-        TBinary(I64AndOp, _, TI64Const(I64(v))) => assert_eq(v, 7L)
+      match a1.kind {
+        TInstrKind::TBinary(
+          I64AndOp,
+          _,
+          { kind: TInstrKind::TI64Const(I64(v)), .. }
+        ) => assert_eq(v, 7L)
         _ => fail("expected i64.rem_u by pow2 => and")
       }
-      match a2 {
-        TBlock(_, { instrs: [TDrop(_), TI32Const(I32(v))], .. }) =>
-          assert_eq(v, 1)
+      match a2.kind {
+        TInstrKind::TBlock(
+          _,
+          {
+            instrs: [
+              { kind: TInstrKind::TDrop(_), .. },
+              { kind: TInstrKind::TI32Const(I32(v)), .. },
+            ],
+            ..,
+          }
+        ) => assert_eq(v, 1)
         _ => fail("expected i64.ge_u 0 => true with dropped lhs")
       }
-      match a3 {
-        TBinary(I64NeOp, _, TI64Const(I64(v))) => assert_eq(v, -1L)
+      match a3.kind {
+        TInstrKind::TBinary(
+          I64NeOp,
+          _,
+          { kind: TInstrKind::TI64Const(I64(v)), .. }
+        ) => assert_eq(v, -1L)
         _ => fail("expected i64.lt_u -1 => ne -1")
       }
-      match a4 {
-        TBinary(I64SubOp, TI64Const(I64(0L)), _) => ()
+      match a4.kind {
+        TInstrKind::TBinary(
+          I64SubOp,
+          { kind: TInstrKind::TI64Const(I64(0L)), .. },
+          _
+        ) => ()
         _ => fail("expected i64.mul -1 => 0 - x")
       }
     }
@@ -3052,8 +3650,22 @@ test "optimize instructions candidate pre-scan reaches deeper nested candidates"
     locals=[ValType::i32()],
   )
   match body {
-    { instrs: [TDrop(TDrop(TLocalGet(LocalIdx(i))))], .. } =>
-      assert_eq(i.reinterpret_as_int(), 0)
+    {
+      instrs: [
+        {
+          kind: TInstrKind::TDrop(
+            {
+              kind: TInstrKind::TDrop(
+                { kind: TInstrKind::TLocalGet(LocalIdx(i)), .. }
+              ),
+              ..,
+            }
+          ),
+          ..,
+        },
+      ],
+      ..,
+    } => assert_eq(i.reinterpret_as_int(), 0)
     _ =>
       fail("expected nested i32.add with const zero to simplify to local.get")
   }

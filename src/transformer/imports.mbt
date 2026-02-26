@@ -1,6 +1,7 @@
 ///|
 using @lib {
   type TInstr,
+  type TInstrKind,
   type LocalIdx,
   type ValType,
   type Func,

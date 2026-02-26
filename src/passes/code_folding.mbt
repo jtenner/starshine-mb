@@ -104,14 +104,14 @@ fn CodeFoldingState::clear(self : CodeFoldingState) -> Unit {
 ///|
 /// Check if an instruction terminates control flow (unreachable or return)
 fn is_terminating(instr : TInstr) -> Bool {
-  match instr {
-    TUnreachable => true
-    TReturn(_) => true
-    TReturnCall(_, _) => true
-    TReturnCallIndirect(_, _, _, _) => true
-    TReturnCallRef(_, _, _) => true
-    TThrow(_, _) => true
-    TThrowRef(_) => true
+  match instr.kind {
+    TInstrKind::TUnreachable => true
+    TInstrKind::TReturn(_) => true
+    TInstrKind::TReturnCall(_, _) => true
+    TInstrKind::TReturnCallIndirect(_, _, _, _) => true
+    TInstrKind::TReturnCallRef(_, _, _) => true
+    TInstrKind::TThrow(_, _) => true
+    TInstrKind::TThrowRef(_) => true
     _ => false
   }
 }
@@ -119,14 +119,14 @@ fn is_terminating(instr : TInstr) -> Bool {
 ///|
 /// Check if an instruction is a branch (br, br_if, br_table)
 fn is_branch(instr : TInstr) -> Bool {
-  match instr {
-    TBr(_, _) => true
-    TBrIf(_, _, _) => true
-    TBrTable(_, _, _, _) => true
-    TBrOnNull(_, _, _) => true
-    TBrOnNonNull(_, _, _) => true
-    TBrOnCast(_, _, _, _, _, _) => true
-    TBrOnCastFail(_, _, _, _, _, _) => true
+  match instr.kind {
+    TInstrKind::TBr(_, _) => true
+    TInstrKind::TBrIf(_, _, _) => true
+    TInstrKind::TBrTable(_, _, _, _) => true
+    TInstrKind::TBrOnNull(_, _, _) => true
+    TInstrKind::TBrOnNonNull(_, _, _) => true
+    TInstrKind::TBrOnCast(_, _, _, _, _, _) => true
+    TInstrKind::TBrOnCastFail(_, _, _, _, _, _) => true
     _ => false
   }
 }
@@ -160,19 +160,19 @@ fn measure_all(instrs : Array[TInstr]) -> Int {
 fn get_branch_targets(instr : TInstr) -> Set[LabelIdx] {
   let targets = Set::new()
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, i) {
-    match i {
-      TBr(label, _) => targets.add(label)
-      TBrIf(label, _, _) => targets.add(label)
-      TBrTable(labels, default, _, _) => {
+    match i.kind {
+      TInstrKind::TBr(label, _) => targets.add(label)
+      TInstrKind::TBrIf(label, _, _) => targets.add(label)
+      TInstrKind::TBrTable(labels, default, _, _) => {
         for label in labels {
           targets.add(label)
         }
         targets.add(default)
       }
-      TBrOnNull(label, _, _) => targets.add(label)
-      TBrOnNonNull(label, _, _) => targets.add(label)
-      TBrOnCast(label, _, _, _, _, _) => targets.add(label)
-      TBrOnCastFail(label, _, _, _, _, _) => targets.add(label)
+      TInstrKind::TBrOnNull(label, _, _) => targets.add(label)
+      TInstrKind::TBrOnNonNull(label, _, _) => targets.add(label)
+      TInstrKind::TBrOnCast(label, _, _, _, _, _) => targets.add(label)
+      TInstrKind::TBrOnCastFail(label, _, _, _, _, _) => targets.add(label)
       _ => ()
     }
     self.walk_tinstruction_default((), i)
@@ -212,7 +212,7 @@ fn get_mergeable(tail : Tail, num : Int) -> TInstr? {
   if not(tail.is_fallthrough()) {
     // If there is a branch value, it is the first mergeable item
     match tail.instr {
-      Some(TBr(_, values)) =>
+      Some({ kind: TInstrKind::TBr(_, values), .. }) =>
         if values.length() > 0 && num == 0 {
           return Some(values[0])
         } else if values.is_empty() {
@@ -437,54 +437,57 @@ fn collect_block_tails(
 ) -> Unit {
   for i = 0; i < instrs.length(); i = i + 1 {
     let instr = instrs[i]
-    match instr {
+    match instr.kind {
       // Unconditional branch at end of block
-      TBr(label, _) if i == instrs.length() - 1 => {
+      TInstrKind::TBr(label, _) if i == instrs.length() - 1 => {
         let tails = state.break_tails.get(label).unwrap_or([])
         tails.push(Tail::branch(instr, instrs))
         state.break_tails.set(label, tails)
       }
 
       // Conditional branches are not optimizable
-      TBrIf(label, _, _) => state.unoptimizables.add(label)
-      TBrTable(labels, default, _, _) => {
+      TInstrKind::TBrIf(label, _, _) => state.unoptimizables.add(label)
+      TInstrKind::TBrTable(labels, default, _, _) => {
         for label in labels {
           state.unoptimizables.add(label)
         }
         state.unoptimizables.add(default)
       }
-      TBrOnNull(label, _, _) => state.unoptimizables.add(label)
-      TBrOnNonNull(label, _, _) => state.unoptimizables.add(label)
-      TBrOnCast(label, _, _, _, _, _) => state.unoptimizables.add(label)
-      TBrOnCastFail(label, _, _, _, _, _) => state.unoptimizables.add(label)
+      TInstrKind::TBrOnNull(label, _, _) => state.unoptimizables.add(label)
+      TInstrKind::TBrOnNonNull(label, _, _) => state.unoptimizables.add(label)
+      TInstrKind::TBrOnCast(label, _, _, _, _, _) =>
+        state.unoptimizables.add(label)
+      TInstrKind::TBrOnCastFail(label, _, _, _, _, _) =>
+        state.unoptimizables.add(label)
 
       // Unreachable at end of block
-      TUnreachable if i == instrs.length() - 1 =>
+      TInstrKind::TUnreachable if i == instrs.length() - 1 =>
         state.unreachable_tails.push(Tail::branch(instr, instrs))
 
       // Return at end of block
-      TReturn(_) if i == instrs.length() - 1 =>
+      TInstrKind::TReturn(_) if i == instrs.length() - 1 =>
         state.return_tails.push(Tail::branch(instr, instrs))
 
       // Return calls
-      TReturnCall(_, _) if i == instrs.length() - 1 =>
+      TInstrKind::TReturnCall(_, _) if i == instrs.length() - 1 =>
         state.return_tails.push(Tail::branch(instr, instrs))
-      TReturnCallIndirect(_, _, _, _) if i == instrs.length() - 1 =>
+      TInstrKind::TReturnCallIndirect(_, _, _, _) if i == instrs.length() - 1 =>
         state.return_tails.push(Tail::branch(instr, instrs))
-      TReturnCallRef(_, _, _) if i == instrs.length() - 1 =>
+      TInstrKind::TReturnCallRef(_, _, _) if i == instrs.length() - 1 =>
         state.return_tails.push(Tail::branch(instr, instrs))
 
       // Recursively process nested blocks
-      TBlock(_, body) => collect_block_tails(state, body.instrs)
-      TLoop(_, body) => collect_block_tails(state, body.instrs)
-      TIf(_, _, then_body, else_body) => {
+      TInstrKind::TBlock(_, body) => collect_block_tails(state, body.instrs)
+      TInstrKind::TLoop(_, body) => collect_block_tails(state, body.instrs)
+      TInstrKind::TIf(_, _, then_body, else_body) => {
         collect_block_tails(state, then_body.instrs)
         match else_body {
           Some(body) => collect_block_tails(state, body.instrs)
           None => ()
         }
       }
-      TTryTable(_, _, body) => collect_block_tails(state, body.instrs)
+      TInstrKind::TTryTable(_, _, body) =>
+        collect_block_tails(state, body.instrs)
       _ => ()
     }
   }
@@ -509,8 +512,8 @@ fn process_block(
       // Check if the end of the block can be reached
       let mut include_fallthrough = true
       for instr in instrs {
-        match instr {
-          TUnreachable => {
+        match instr.kind {
+          TInstrKind::TUnreachable => {
             include_fallthrough = false
             break
           }
@@ -566,13 +569,13 @@ fn code_folding_pass() -> ModuleTransformer[CodeFoldingState] {
   ModuleTransformer::new()
   .on_tinstruction_evt(fn(self, state, instr) {
     // Process blocks and ifs for tail merging
-    match instr {
-      TBlock(bt, body) =>
+    match instr.kind {
+      TInstrKind::TBlock(bt, body) =>
         // First recurse into children
         match self.walk_tinstruction_default(state, instr) {
           Ok(Some((new_state, new_instr))) =>
-            match new_instr {
-              TBlock(_, new_body) =>
+            match new_instr.kind {
+              TInstrKind::TBlock(_, new_body) =>
                 // Try to optimize the block's tails
                 match
                   process_block(new_state, LabelIdx::new(0), new_body.instrs) {
@@ -591,12 +594,12 @@ fn code_folding_pass() -> ModuleTransformer[CodeFoldingState] {
             }
           Err(e) => Err(e)
         }
-      TIf(bt, cond, then_body, else_body) =>
+      TInstrKind::TIf(bt, cond, then_body, else_body) =>
         // First recurse into children
         match self.walk_tinstruction_default(state, instr) {
           Ok(Some((new_state, new_instr))) =>
-            match new_instr {
-              TIf(_, new_cond, new_then, new_else) =>
+            match new_instr.kind {
+              TInstrKind::TIf(_, new_cond, new_then, new_else) =>
                 // Try to optimize the if's tails
                 match process_if(new_state, new_cond, new_then, new_else) {
                   Some(_) =>
@@ -838,13 +841,13 @@ test "get_mergeable returns items from end" {
 
   // First item should be the last instruction
   match get_mergeable(tail, 0) {
-    Some(TI32Const(I32(3))) => ()
+    Some({ kind: TInstrKind::TI32Const(I32(3)), .. }) => ()
     _ => fail("expected i32.const 3")
   }
 
   // Second item should be second-to-last
   match get_mergeable(tail, 1) {
-    Some(TI32Const(I32(2))) => ()
+    Some({ kind: TInstrKind::TI32Const(I32(2)), .. }) => ()
     _ => fail("expected i32.const 2")
   }
 
@@ -990,7 +993,7 @@ test "code folding: single instruction unchanged" {
   match f2 {
     TFunc(_, { instrs, .. }) => {
       assert_eq(instrs.length(), 1)
-      assert_true(instrs[0] is TNop)
+      assert_true(instrs[0].kind is TInstrKind::TNop)
     }
     _ => fail("expected TFunc")
   }

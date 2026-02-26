@@ -215,16 +215,16 @@ test "duplicate import elimination merges duplicate function imports" {
   match optimized.code_sec {
     Some(CodeSec([TFunc(_, { instrs, .. }), _])) => {
       assert_eq(instrs.length(), 3)
-      match instrs[0] {
-        TCall(FuncIdx(i), []) => assert_eq(i, 0U)
+      match instrs[0].kind {
+        TInstrKind::TCall(FuncIdx(i), []) => assert_eq(i, 0U)
         _ => fail("expected first call to remap duplicate import to canonical")
       }
-      match instrs[1] {
-        TCall(FuncIdx(i), []) => assert_eq(i, 1U)
+      match instrs[1].kind {
+        TInstrKind::TCall(FuncIdx(i), []) => assert_eq(i, 1U)
         _ => fail("expected second call to remap surviving import index")
       }
-      match instrs[2] {
-        TCall(FuncIdx(i), []) => assert_eq(i, 3U)
+      match instrs[2].kind {
+        TInstrKind::TCall(FuncIdx(i), []) => assert_eq(i, 3U)
         _ =>
           fail(
             "expected defined function call index to shift by removed import",
@@ -373,16 +373,16 @@ test "duplicate import elimination handles mixed extern kinds and remaps exports
   match optimized.code_sec {
     Some(CodeSec([TFunc(_, { instrs, .. }), _])) => {
       assert_eq(instrs.length(), 3)
-      match instrs[0] {
-        TCall(FuncIdx(i), []) => assert_eq(i, 0U)
+      match instrs[0].kind {
+        TInstrKind::TCall(FuncIdx(i), []) => assert_eq(i, 0U)
         _ => fail("expected duplicate foo import call to remap to canonical")
       }
-      match instrs[1] {
-        TCall(FuncIdx(i), []) => assert_eq(i, 1U)
+      match instrs[1].kind {
+        TInstrKind::TCall(FuncIdx(i), []) => assert_eq(i, 1U)
         _ => fail("expected bar import call to keep compacted index")
       }
-      match instrs[2] {
-        TCall(FuncIdx(i), []) => assert_eq(i, 3U)
+      match instrs[2].kind {
+        TInstrKind::TCall(FuncIdx(i), []) => assert_eq(i, 3U)
         _ =>
           fail(
             "expected defined function call index to shift by removed function import",

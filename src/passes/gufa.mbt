@@ -220,32 +220,34 @@ fn oracle_contents(instr : TInstr, state : GUFAState) -> PossibleContents {
 
 ///|
 fn declared_ref_type(instr : TInstr, state : GUFAState) -> RefType? {
-  match instr {
-    TLocalGet(idx) =>
+  match instr.kind {
+    TInstrKind::TLocalGet(idx) =>
       match state.env.get_local_type(idx) {
         Some(RefTypeValType(rt)) => Some(rt)
         _ => None
       }
-    TGlobalGet(idx) =>
+    TInstrKind::TGlobalGet(idx) =>
       match state.env.get_global_type(idx) {
         Some(GlobalType(RefTypeValType(rt), _)) => Some(rt)
         _ => None
       }
-    TRefNull(ht) => Some(RefType::new(true, ht))
-    TRefFunc(_) => Some(RefType::abs(AbsHeapType::func()))
-    TRefAsNonNull(value) =>
+    TInstrKind::TRefNull(ht) => Some(RefType::new(true, ht))
+    TInstrKind::TRefFunc(_) => Some(RefType::abs(AbsHeapType::func()))
+    TInstrKind::TRefAsNonNull(value) =>
       match declared_ref_type(value, state) {
         Some(rt) => Some(RefType::new(false, rt.get_heap_type()))
         None => None
       }
-    TRefCast(nullable, ht, _) | TRefCastDescEq(nullable, ht, _) =>
+    TInstrKind::TRefCast(nullable, ht, _)
+    | TInstrKind::TRefCastDescEq(nullable, ht, _) =>
       Some(RefType::new(nullable, ht))
-    TCall(func_idx, _) =>
+    TInstrKind::TCall(func_idx, _) =>
       match state.env.get_functype_by_funcidx(func_idx) {
         Some(FuncType(_, [RefTypeValType(rt)])) => Some(rt)
         _ => None
       }
-    TCallIndirect(type_idx, _, _, _) | TCallRef(type_idx, _, _) =>
+    TInstrKind::TCallIndirect(type_idx, _, _, _)
+    | TInstrKind::TCallRef(type_idx, _, _) =>
       match state.env.resolve_functype(type_idx) {
         Some(FuncType(_, [RefTypeValType(rt)])) => Some(rt)
         _ => None
@@ -261,16 +263,17 @@ fn inferred_ref_type(instr : TInstr, state : GUFAState) -> RefType? {
 
 ///|
 fn gufa_get_contents(instr : TInstr, state : GUFAState) -> PossibleContents {
-  match instr {
-    TUnreachable => PCUnreachable
-    TI32Const(I32(v)) => PCI32(v)
-    TI64Const(I64(v)) => PCI64(v)
-    TF32Const(v) => PCF32(v)
-    TF64Const(v) => PCF64(v)
-    TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => PCUnknown
-    TRefNull(ht) => known_ref_to_contents(KRNull(ht))
-    TRefFunc(fi) => known_ref_to_contents(KRFunc(fi))
-    TLocalGet(idx) =>
+  match instr.kind {
+    TInstrKind::TUnreachable => PCUnreachable
+    TInstrKind::TI32Const(I32(v)) => PCI32(v)
+    TInstrKind::TI64Const(I64(v)) => PCI64(v)
+    TInstrKind::TF32Const(v) => PCF32(v)
+    TInstrKind::TF64Const(v) => PCF64(v)
+    TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      PCUnknown
+    TInstrKind::TRefNull(ht) => known_ref_to_contents(KRNull(ht))
+    TInstrKind::TRefFunc(fi) => known_ref_to_contents(KRFunc(fi))
+    TInstrKind::TLocalGet(idx) =>
       match state.local_contents.get(idx) {
         Some(c) => c
         None =>
@@ -279,7 +282,7 @@ fn gufa_get_contents(instr : TInstr, state : GUFAState) -> PossibleContents {
             _ => PCUnknown
           }
       }
-    TGlobalGet(idx) =>
+    TInstrKind::TGlobalGet(idx) =>
       match state.analysis.immutable_global_contents.get(idx) {
         Some(v) => v
         None =>
@@ -288,8 +291,8 @@ fn gufa_get_contents(instr : TInstr, state : GUFAState) -> PossibleContents {
             _ => PCUnknown
           }
       }
-    TLocalTee(_, value) => gufa_get_contents(value, state)
-    TRefAsNonNull(value) =>
+    TInstrKind::TLocalTee(_, value) => gufa_get_contents(value, state)
+    TInstrKind::TRefAsNonNull(value) =>
       match gufa_get_contents(value, state) {
         PCUnreachable => PCUnreachable
         PCRef(KRNull(_)) => PCUnreachable
@@ -297,7 +300,7 @@ fn gufa_get_contents(instr : TInstr, state : GUFAState) -> PossibleContents {
         PCRefType(rt) => PCRefType(RefType::new(false, rt.get_heap_type()))
         _ => PCUnknown
       }
-    TRefIsNull(value) =>
+    TInstrKind::TRefIsNull(value) =>
       match gufa_get_contents(value, state) {
         PCUnreachable => PCUnreachable
         PCRef(KRNull(_)) => PCI32(1)
@@ -305,19 +308,19 @@ fn gufa_get_contents(instr : TInstr, state : GUFAState) -> PossibleContents {
         PCRefType(rt) => if rt.is_nullable() { PCUnknown } else { PCI32(0) }
         _ => PCUnknown
       }
-    TUnary(I32EqzOp, value) =>
+    TInstrKind::TUnary(I32EqzOp, value) =>
       match gufa_get_contents(value, state) {
         PCUnreachable => PCUnreachable
         PCI32(v) => PCI32(if v == 0 { 1 } else { 0 })
         _ => PCUnknown
       }
-    TUnary(I64EqzOp, value) =>
+    TInstrKind::TUnary(I64EqzOp, value) =>
       match gufa_get_contents(value, state) {
         PCUnreachable => PCUnreachable
         PCI64(v) => PCI32(if v == 0L { 1 } else { 0 })
         _ => PCUnknown
       }
-    TSelect(_, cond, if_true, if_false) =>
+    TInstrKind::TSelect(_, cond, if_true, if_false) =>
       match gufa_get_contents(cond, state) {
         PCUnreachable => PCUnreachable
         PCI32(0) => gufa_get_contents(if_false, state)
@@ -332,7 +335,7 @@ fn gufa_get_contents(instr : TInstr, state : GUFAState) -> PossibleContents {
           }
         }
       }
-    TRefEq(left, right) =>
+    TInstrKind::TRefEq(left, right) =>
       match (gufa_get_contents(left, state), gufa_get_contents(right, state)) {
         (PCUnreachable, _) | (_, PCUnreachable) => PCUnreachable
         (PCRef(KRNull(_)), PCRef(KRNull(_))) => PCI32(1)
@@ -342,7 +345,7 @@ fn gufa_get_contents(instr : TInstr, state : GUFAState) -> PossibleContents {
           PCI32(if f0 == f1 { 1 } else { 0 })
         _ => PCUnknown
       }
-    TRefTest(nullable, target_ht, value) =>
+    TInstrKind::TRefTest(nullable, target_ht, value) =>
       match gufa_get_contents(value, state) {
         PCUnreachable => PCUnreachable
         PCRef(v) =>
@@ -361,13 +364,13 @@ fn gufa_get_contents(instr : TInstr, state : GUFAState) -> PossibleContents {
           }
         _ => PCUnknown
       }
-    TRefTestDesc(nullable, _, value) =>
+    TInstrKind::TRefTestDesc(nullable, _, value) =>
       match gufa_get_contents(value, state) {
         PCUnreachable => PCUnreachable
         PCRef(KRNull(_)) => PCI32(if nullable { 1 } else { 0 })
         _ => PCUnknown
       }
-    TRefCast(nullable, target_ht, value) =>
+    TInstrKind::TRefCast(nullable, target_ht, value) =>
       match gufa_get_contents(value, state) {
         PCUnreachable => PCUnreachable
         PCRef(v) =>
@@ -395,7 +398,7 @@ fn gufa_get_contents(instr : TInstr, state : GUFAState) -> PossibleContents {
         }
         _ => PCUnknown
       }
-    TRefCastDescEq(nullable, target_ht, value) =>
+    TInstrKind::TRefCastDescEq(nullable, target_ht, value) =>
       match gufa_get_contents(value, state) {
         PCUnreachable => PCUnreachable
         PCRef(KRNull(_)) =>
@@ -434,10 +437,11 @@ fn record_local_contents(
 
 ///|
 fn state_for_nested_walk(instr : TInstr, state : GUFAState) -> GUFAState {
-  match instr {
+  match instr.kind {
     // Avoid unsound branch/loop merging when tracking known locals.
-    TBlock(_, _) | TLoop(_, _) | TTryTable(_, _, _) =>
-      clear_local_contents(state)
+    TInstrKind::TBlock(_, _)
+    | TInstrKind::TLoop(_, _)
+    | TInstrKind::TTryTable(_, _, _) => clear_local_contents(state)
     _ => state
   }
 }
@@ -842,13 +846,13 @@ fn maybe_replace_leaf_with_known_contents(
   instr : TInstr,
   state : GUFAState,
 ) -> TInstr {
-  match instr {
-    TLocalGet(_) | TGlobalGet(_) =>
+  match instr.kind {
+    TInstrKind::TLocalGet(_) | TInstrKind::TGlobalGet(_) =>
       match contents_make_expression(oracle_contents(instr, state)) {
         Some(replacement) => {
-          let curr_type : ValType? = match instr {
-            TLocalGet(idx) => state.env.get_local_type(idx)
-            TGlobalGet(idx) =>
+          let curr_type : ValType? = match instr.kind {
+            TInstrKind::TLocalGet(idx) => state.env.get_local_type(idx)
+            TInstrKind::TGlobalGet(idx) =>
               match state.env.get_global_type(idx) {
                 Some(GlobalType(vt, _)) => Some(vt)
                 None => None
@@ -880,9 +884,10 @@ fn maybe_add_cast_all(instr : TInstr, state : GUFAState) -> TInstr {
   if !state.cast_all {
     return instr
   }
-  match instr {
+  match instr.kind {
     // Existing casts are handled by ref.cast simplification/refinement.
-    TRefCast(_, _, _) | TRefCastDescEq(_, _, _) => return instr
+    TInstrKind::TRefCast(_, _, _) | TInstrKind::TRefCastDescEq(_, _, _) =>
+      return instr
     _ => ()
   }
   let declared = match declared_ref_type(instr, state) {
@@ -902,48 +907,48 @@ fn maybe_add_cast_all(instr : TInstr, state : GUFAState) -> TInstr {
 
 ///|
 fn gufa_optimize_tinstr(instr : TInstr, state : GUFAState) -> TInstr {
-  let optimized = match instr {
-    TRefEq(left, right) =>
+  let optimized = match instr.kind {
+    TInstrKind::TRefEq(left, right) =>
       match optimize_ref_eq(left, right, state) {
         Some(opt) => opt
         None => instr
       }
-    TRefTest(nullable, target_ht, value) =>
+    TInstrKind::TRefTest(nullable, target_ht, value) =>
       match optimize_ref_test(nullable, target_ht, value, state) {
         Some(opt) => opt
         None => instr
       }
-    TRefCast(nullable, target_ht, value) =>
+    TInstrKind::TRefCast(nullable, target_ht, value) =>
       match optimize_ref_cast(nullable, target_ht, value, state) {
         Some(opt) => opt
         None => instr
       }
-    TRefTestDesc(nullable, target_ht, value) =>
+    TInstrKind::TRefTestDesc(nullable, target_ht, value) =>
       match optimize_ref_test_desc(nullable, target_ht, value, state) {
         Some(opt) => opt
         None => instr
       }
-    TRefCastDescEq(nullable, target_ht, value) =>
+    TInstrKind::TRefCastDescEq(nullable, target_ht, value) =>
       match optimize_ref_cast_desc_eq(nullable, target_ht, value, state) {
         Some(opt) => opt
         None => instr
       }
-    TRefAsNonNull(value) =>
+    TInstrKind::TRefAsNonNull(value) =>
       match optimize_ref_as_non_null(value, state) {
         Some(opt) => opt
         None => instr
       }
-    TRefIsNull(value) =>
+    TInstrKind::TRefIsNull(value) =>
       match optimize_ref_is_null(value, state) {
         Some(opt) => opt
         None => instr
       }
-    TUnary(I32EqzOp, value) =>
+    TInstrKind::TUnary(I32EqzOp, value) =>
       match optimize_i32_eqz(value, state) {
         Some(opt) => opt
         None => instr
       }
-    TUnary(I64EqzOp, value) =>
+    TInstrKind::TUnary(I64EqzOp, value) =>
       match optimize_i64_eqz(value, state) {
         Some(opt) => opt
         None => instr
@@ -958,12 +963,14 @@ fn gufa_optimize_tinstr(instr : TInstr, state : GUFAState) -> TInstr {
 
 ///|
 fn post_instr_state(state : GUFAState, instr : TInstr) -> (GUFAState, Bool) {
-  match instr {
-    TLocalSet(idx, value) =>
+  match instr.kind {
+    TInstrKind::TLocalSet(idx, value) =>
       (record_local_contents(state, idx, oracle_contents(value, state)), true)
-    TLocalTee(idx, value) =>
+    TInstrKind::TLocalTee(idx, value) =>
       (record_local_contents(state, idx, oracle_contents(value, state)), true)
-    TBlock(_, _) | TLoop(_, _) | TTryTable(_, _, _) =>
+    TInstrKind::TBlock(_, _)
+    | TInstrKind::TLoop(_, _)
+    | TInstrKind::TTryTable(_, _, _) =>
       if state.local_contents.is_empty() {
         (state, false)
       } else {
@@ -1024,8 +1031,8 @@ fn gufa_transform_tinstr(
   state : GUFAState,
   instr : TInstr,
 ) -> TransformerResult[GUFAState, TInstr] {
-  match instr {
-    TIf(bt, cond, then_, else_) => {
+  match instr.kind {
+    TInstrKind::TIf(bt, cond, then_, else_) => {
       let (cond_state, new_cond, cond_changed) = match
         walk_child_tinstr(transformer, state, cond) {
         Ok(v) => v
@@ -1228,14 +1235,27 @@ test "gufa ref.eq of distinct ref.func values becomes const false" {
     Some(
       CodeSec(
         [
-          TFunc(_, { instrs: [TDrop(TBlock(_, { instrs: seq, .. }))], .. }),
+          TFunc(
+            _,
+            {
+              instrs: [
+                {
+                  kind: TInstrKind::TDrop(
+                    { kind: TInstrKind::TBlock(_, { instrs: seq, .. }), .. }
+                  ),
+                  ..,
+                },
+              ],
+              ..,
+            }
+          ),
           _,
           _,
         ]
       )
     ) =>
-      match seq[seq.length() - 1] {
-        TI32Const(I32(v)) => assert_eq(v, 0)
+      match seq[seq.length() - 1].kind {
+        TInstrKind::TI32Const(I32(v)) => assert_eq(v, 0)
         _ => fail("expected ref.eq replacement to end with i32.const 0")
       }
     _ => fail("expected transformed root function")
@@ -1265,11 +1285,26 @@ test "gufa ref.test of null against non-null target becomes const false" {
   match optimized.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [TDrop(TBlock(_, { instrs: seq, .. }))], .. })]
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                {
+                  kind: TInstrKind::TDrop(
+                    { kind: TInstrKind::TBlock(_, { instrs: seq, .. }), .. }
+                  ),
+                  ..,
+                },
+              ],
+              ..,
+            }
+          ),
+        ]
       )
     ) =>
-      match seq[seq.length() - 1] {
-        TI32Const(I32(v)) => assert_eq(v, 0)
+      match seq[seq.length() - 1].kind {
+        TInstrKind::TI32Const(I32(v)) => assert_eq(v, 0)
         _ => fail("expected ref.test replacement to end with i32.const 0")
       }
     _ => fail("expected transformed function body")
@@ -1299,11 +1334,26 @@ test "gufa impossible ref.cast becomes unreachable" {
   match optimized.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [TDrop(TBlock(_, { instrs: seq, .. }))], .. })]
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                {
+                  kind: TInstrKind::TDrop(
+                    { kind: TInstrKind::TBlock(_, { instrs: seq, .. }), .. }
+                  ),
+                  ..,
+                },
+              ],
+              ..,
+            }
+          ),
+        ]
       )
     ) =>
-      match seq[seq.length() - 1] {
-        TUnreachable => ()
+      match seq[seq.length() - 1].kind {
+        TInstrKind::TUnreachable => ()
         _ => fail("expected impossible cast to become unreachable")
       }
     _ => fail("expected transformed function body")
@@ -1333,11 +1383,26 @@ test "gufa ref.test_desc of null against non-null target becomes const false" {
   match optimized.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [TDrop(TBlock(_, { instrs: seq, .. }))], .. })]
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                {
+                  kind: TInstrKind::TDrop(
+                    { kind: TInstrKind::TBlock(_, { instrs: seq, .. }), .. }
+                  ),
+                  ..,
+                },
+              ],
+              ..,
+            }
+          ),
+        ]
       )
     ) =>
-      match seq[seq.length() - 1] {
-        TI32Const(I32(v)) => assert_eq(v, 0)
+      match seq[seq.length() - 1].kind {
+        TInstrKind::TI32Const(I32(v)) => assert_eq(v, 0)
         _ => fail("expected ref.test_desc replacement to end with i32.const 0")
       }
     _ => fail("expected transformed function body")
@@ -1367,11 +1432,26 @@ test "gufa impossible ref.cast_desc_eq becomes unreachable" {
   match optimized.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [TDrop(TBlock(_, { instrs: seq, .. }))], .. })]
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                {
+                  kind: TInstrKind::TDrop(
+                    { kind: TInstrKind::TBlock(_, { instrs: seq, .. }), .. }
+                  ),
+                  ..,
+                },
+              ],
+              ..,
+            }
+          ),
+        ]
       )
     ) =>
-      match seq[seq.length() - 1] {
-        TUnreachable => ()
+      match seq[seq.length() - 1].kind {
+        TInstrKind::TUnreachable => ()
         _ => fail("expected impossible descriptor cast to become unreachable")
       }
     _ => fail("expected transformed function body")
@@ -1386,9 +1466,17 @@ test "gufa keeps exact ref.test_desc when source is a strict subtype" {
     Err(e) => fail("unexpected gufa error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TDrop(instr)], .. }), _])) =>
-      match instr {
-        TRefTestDesc(false, HeapType(TypeIdx(i)), TRefFunc(FuncIdx(f))) => {
+    Some(
+      CodeSec(
+        [TFunc(_, { instrs: [{ kind: TInstrKind::TDrop(instr), .. }], .. }), _]
+      )
+    ) =>
+      match instr.kind {
+        TInstrKind::TRefTestDesc(
+          false,
+          HeapType(TypeIdx(i)),
+          { kind: TInstrKind::TRefFunc(FuncIdx(f)), .. }
+        ) => {
           assert_eq(i.reinterpret_as_int(), 0)
           assert_eq(f.reinterpret_as_int(), 1)
         }
@@ -1409,9 +1497,17 @@ test "gufa keeps exact ref.cast_desc_eq when source is a strict subtype" {
     Err(e) => fail("unexpected gufa error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TDrop(instr)], .. }), _])) =>
-      match instr {
-        TRefCastDescEq(false, HeapType(TypeIdx(i)), TRefFunc(FuncIdx(f))) => {
+    Some(
+      CodeSec(
+        [TFunc(_, { instrs: [{ kind: TInstrKind::TDrop(instr), .. }], .. }), _]
+      )
+    ) =>
+      match instr.kind {
+        TInstrKind::TRefCastDescEq(
+          false,
+          HeapType(TypeIdx(i)),
+          { kind: TInstrKind::TRefFunc(FuncIdx(f)), .. }
+        ) => {
           assert_eq(i.reinterpret_as_int(), 0)
           assert_eq(f.reinterpret_as_int(), 1)
         }
@@ -1445,17 +1541,29 @@ test "gufa cast_all inserts cast for known immutable global ref.func" {
     Err(e) => fail("unexpected gufa error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TDrop(instr)], .. })])) =>
-      match instr {
-        TRefCast(false, HeapType(TypeIdx(i)), TGlobalGet(GlobalIdx(g))) => {
+    Some(
+      CodeSec(
+        [TFunc(_, { instrs: [{ kind: TInstrKind::TDrop(instr), .. }], .. })]
+      )
+    ) =>
+      match instr.kind {
+        TInstrKind::TRefCast(
+          false,
+          HeapType(TypeIdx(i)),
+          { kind: TInstrKind::TGlobalGet(GlobalIdx(g)), .. }
+        ) => {
           assert_eq(i.reinterpret_as_int(), 0)
           assert_eq(g.reinterpret_as_int(), 0)
         }
-        TRefCast(false, HeapType(TypeIdx(i)), TRefFunc(FuncIdx(f))) => {
+        TInstrKind::TRefCast(
+          false,
+          HeapType(TypeIdx(i)),
+          { kind: TInstrKind::TRefFunc(FuncIdx(f)), .. }
+        ) => {
           assert_eq(i.reinterpret_as_int(), 0)
           assert_eq(f.reinterpret_as_int(), 0)
         }
-        TRefFunc(FuncIdx(f)) => assert_eq(f.reinterpret_as_int(), 0)
+        TInstrKind::TRefFunc(FuncIdx(f)) => assert_eq(f.reinterpret_as_int(), 0)
         _ => fail("expected GUFA cast_all to insert cast around global.get")
       }
     _ => fail("expected transformed function body")
@@ -1478,17 +1586,29 @@ test "gufa cast_all propagates known local ref.func and inserts cast" {
     Err(e) => fail("unexpected gufa error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [_, TDrop(instr)], .. })])) =>
-      match instr {
-        TRefCast(false, HeapType(TypeIdx(i)), TLocalGet(LocalIdx(local_i))) => {
+    Some(
+      CodeSec(
+        [TFunc(_, { instrs: [_, { kind: TInstrKind::TDrop(instr), .. }], .. })]
+      )
+    ) =>
+      match instr.kind {
+        TInstrKind::TRefCast(
+          false,
+          HeapType(TypeIdx(i)),
+          { kind: TInstrKind::TLocalGet(LocalIdx(local_i)), .. }
+        ) => {
           assert_eq(i.reinterpret_as_int(), 0)
           assert_eq(local_i.reinterpret_as_int(), 0)
         }
-        TRefCast(false, HeapType(TypeIdx(i)), TRefFunc(FuncIdx(f))) => {
+        TInstrKind::TRefCast(
+          false,
+          HeapType(TypeIdx(i)),
+          { kind: TInstrKind::TRefFunc(FuncIdx(f)), .. }
+        ) => {
           assert_eq(i.reinterpret_as_int(), 0)
           assert_eq(f.reinterpret_as_int(), 0)
         }
-        TRefFunc(FuncIdx(f)) => assert_eq(f.reinterpret_as_int(), 0)
+        TInstrKind::TRefFunc(FuncIdx(f)) => assert_eq(f.reinterpret_as_int(), 0)
         _ =>
           fail(
             "expected GUFA cast_all to insert cast around local.get after local.set",
@@ -1527,17 +1647,29 @@ test "gufa ref.cast refines target type when inferred type is stricter" {
     Err(e) => fail("unexpected gufa error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TDrop(instr)], .. })])) =>
-      match instr {
-        TRefCast(false, HeapType(TypeIdx(i)), TGlobalGet(GlobalIdx(g))) => {
+    Some(
+      CodeSec(
+        [TFunc(_, { instrs: [{ kind: TInstrKind::TDrop(instr), .. }], .. })]
+      )
+    ) =>
+      match instr.kind {
+        TInstrKind::TRefCast(
+          false,
+          HeapType(TypeIdx(i)),
+          { kind: TInstrKind::TGlobalGet(GlobalIdx(g)), .. }
+        ) => {
           assert_eq(i.reinterpret_as_int(), 0)
           assert_eq(g.reinterpret_as_int(), 0)
         }
-        TRefCast(false, HeapType(TypeIdx(i)), TRefFunc(FuncIdx(f))) => {
+        TInstrKind::TRefCast(
+          false,
+          HeapType(TypeIdx(i)),
+          { kind: TInstrKind::TRefFunc(FuncIdx(f)), .. }
+        ) => {
           assert_eq(i.reinterpret_as_int(), 0)
           assert_eq(f.reinterpret_as_int(), 0)
         }
-        TRefFunc(FuncIdx(f)) => assert_eq(f.reinterpret_as_int(), 0)
+        TInstrKind::TRefFunc(FuncIdx(f)) => assert_eq(f.reinterpret_as_int(), 0)
         _ => fail("expected ref.cast target to be refined to exact func type")
       }
     _ => fail("expected transformed function body")
@@ -1564,11 +1696,27 @@ test "gufa oracle propagates local i32 constant into i32.eqz" {
   match optimized.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [_, TDrop(TBlock(_, { instrs: seq, .. }))], .. })]
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                _,
+                {
+                  kind: TInstrKind::TDrop(
+                    { kind: TInstrKind::TBlock(_, { instrs: seq, .. }), .. }
+                  ),
+                  ..,
+                },
+              ],
+              ..,
+            }
+          ),
+        ]
       )
     ) =>
-      match seq[seq.length() - 1] {
-        TI32Const(I32(v)) => assert_eq(v, 1)
+      match seq[seq.length() - 1].kind {
+        TInstrKind::TI32Const(I32(v)) => assert_eq(v, 1)
         _ => fail("expected i32.eqz(local.const 0) to fold to i32.const 1")
       }
     _ => fail("expected transformed function body")
@@ -1593,11 +1741,27 @@ test "gufa oracle propagates local ref.func into ref.is_null" {
   match optimized.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [_, TDrop(TBlock(_, { instrs: seq, .. }))], .. })]
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                _,
+                {
+                  kind: TInstrKind::TDrop(
+                    { kind: TInstrKind::TBlock(_, { instrs: seq, .. }), .. }
+                  ),
+                  ..,
+                },
+              ],
+              ..,
+            }
+          ),
+        ]
       )
     ) =>
-      match seq[seq.length() - 1] {
-        TI32Const(I32(v)) => assert_eq(v, 0)
+      match seq[seq.length() - 1].kind {
+        TInstrKind::TI32Const(I32(v)) => assert_eq(v, 0)
         _ => fail("expected ref.is_null(ref.func) to fold to i32.const 0")
       }
     _ => fail("expected transformed function body")
@@ -1624,11 +1788,27 @@ test "gufa oracle propagates local i64 constant into i64.eqz" {
   match optimized.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [_, TDrop(TBlock(_, { instrs: seq, .. }))], .. })]
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                _,
+                {
+                  kind: TInstrKind::TDrop(
+                    { kind: TInstrKind::TBlock(_, { instrs: seq, .. }), .. }
+                  ),
+                  ..,
+                },
+              ],
+              ..,
+            }
+          ),
+        ]
       )
     ) =>
-      match seq[seq.length() - 1] {
-        TI32Const(I32(v)) => assert_eq(v, 1)
+      match seq[seq.length() - 1].kind {
+        TInstrKind::TI32Const(I32(v)) => assert_eq(v, 1)
         _ => fail("expected i64.eqz(local.const 0) to fold to i32.const 1")
       }
     _ => fail("expected transformed function body")
@@ -1656,9 +1836,13 @@ test "gufa replaces immutable i64 global.get with constant" {
     Err(e) => fail("unexpected gufa error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TDrop(instr)], .. })])) =>
-      match instr {
-        TI64Const(I64(v)) => assert_eq(v, 123L)
+    Some(
+      CodeSec(
+        [TFunc(_, { instrs: [{ kind: TInstrKind::TDrop(instr), .. }], .. })]
+      )
+    ) =>
+      match instr.kind {
+        TInstrKind::TI64Const(I64(v)) => assert_eq(v, 123L)
         _ => fail("expected immutable i64 global.get to fold to i64.const")
       }
     _ => fail("expected transformed function body")
@@ -1700,13 +1884,25 @@ test "gufa merges identical local knowledge across if branches" {
         [
           TFunc(
             _,
-            { instrs: [_, _, TDrop(TBlock(_, { instrs: seq, .. }))], .. }
+            {
+              instrs: [
+                _,
+                _,
+                {
+                  kind: TInstrKind::TDrop(
+                    { kind: TInstrKind::TBlock(_, { instrs: seq, .. }), .. }
+                  ),
+                  ..,
+                },
+              ],
+              ..,
+            }
           ),
         ]
       )
     ) =>
-      match seq[seq.length() - 1] {
-        TI32Const(I32(v)) => assert_eq(v, 0)
+      match seq[seq.length() - 1].kind {
+        TInstrKind::TI32Const(I32(v)) => assert_eq(v, 0)
         _ => fail("expected post-if ref.is_null(local) to fold to i32.const 0")
       }
     _ => fail("expected transformed function body")
@@ -1742,13 +1938,25 @@ test "gufa keeps local knowledge across if without else via pre-state merge" {
         [
           TFunc(
             _,
-            { instrs: [_, _, TDrop(TBlock(_, { instrs: seq, .. }))], .. }
+            {
+              instrs: [
+                _,
+                _,
+                {
+                  kind: TInstrKind::TDrop(
+                    { kind: TInstrKind::TBlock(_, { instrs: seq, .. }), .. }
+                  ),
+                  ..,
+                },
+              ],
+              ..,
+            }
           ),
         ]
       )
     ) =>
-      match seq[seq.length() - 1] {
-        TI32Const(I32(v)) => assert_eq(v, 0)
+      match seq[seq.length() - 1].kind {
+        TInstrKind::TI32Const(I32(v)) => assert_eq(v, 0)
         _ =>
           fail(
             "expected post-if-without-else ref.is_null(local) to fold to i32.const 0",
@@ -1789,9 +1997,13 @@ test "gufa does not fold when if branches produce conflicting local constants" {
     Err(e) => fail("unexpected gufa error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [_, TDrop(instr)], .. })])) =>
-      match instr {
-        TUnary(I32EqzOp, _) => ()
+    Some(
+      CodeSec(
+        [TFunc(_, { instrs: [_, { kind: TInstrKind::TDrop(instr), .. }], .. })]
+      )
+    ) =>
+      match instr.kind {
+        TInstrKind::TUnary(I32EqzOp, _) => ()
         _ =>
           fail(
             "expected i32.eqz(local) to remain unfused when branch constants conflict",

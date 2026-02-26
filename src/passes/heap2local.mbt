@@ -84,8 +84,8 @@ fn h2l_is_valid_array_size(size : Int) -> Bool {
 
 ///|
 fn h2l_const_i32_nonneg(instr : TInstr) -> Int? {
-  match instr {
-    TI32Const(I32(v)) => if v >= 0 { Some(v) } else { None }
+  match instr.kind {
+    TInstrKind::TI32Const(I32(v)) => if v >= 0 { Some(v) } else { None }
     _ => None
   }
 }
@@ -196,8 +196,9 @@ fn h2l_unpack_from_slot(
 
 ///|
 fn h2l_extract_shape(env : Env, value : TInstr) -> H2LShape? {
-  match value {
-    TStructNew(type_idx, _) | TStructNewDefault(type_idx) =>
+  match value.kind {
+    TInstrKind::TStructNew(type_idx, _)
+    | TInstrKind::TStructNewDefault(type_idx) =>
       match env.resolve_struct_fields(type_idx) {
         Ok(fields) => {
           for field in fields {
@@ -209,7 +210,8 @@ fn h2l_extract_shape(env : Env, value : TInstr) -> H2LShape? {
         }
         Err(_) => None
       }
-    TArrayNew(type_idx, _, len) | TArrayNewDefault(type_idx, len) =>
+    TInstrKind::TArrayNew(type_idx, _, len)
+    | TInstrKind::TArrayNewDefault(type_idx, len) =>
       match (env.resolve_array_field(type_idx), h2l_const_i32_nonneg(len)) {
         (Ok(field), Some(size)) =>
           if h2l_field_has_local_representation(field) &&
@@ -220,7 +222,7 @@ fn h2l_extract_shape(env : Env, value : TInstr) -> H2LShape? {
           }
         _ => None
       }
-    TArrayNewFixed(type_idx, values) =>
+    TInstrKind::TArrayNewFixed(type_idx, values) =>
       match env.resolve_array_field(type_idx) {
         Ok(field) => {
           let size = values.length()
@@ -233,7 +235,7 @@ fn h2l_extract_shape(env : Env, value : TInstr) -> H2LShape? {
         }
         Err(_) => None
       }
-    TArrayNewData(type_idx, _, offset, len) =>
+    TInstrKind::TArrayNewData(type_idx, _, offset, len) =>
       match
         (
           env.resolve_array_field(type_idx),
@@ -249,7 +251,7 @@ fn h2l_extract_shape(env : Env, value : TInstr) -> H2LShape? {
           }
         _ => None
       }
-    TArrayNewElem(type_idx, _, offset, len) =>
+    TInstrKind::TArrayNewElem(type_idx, _, offset, len) =>
       match
         (
           env.resolve_array_field(type_idx),
@@ -301,19 +303,22 @@ fn h2l_scan_body(env : Env, body : TExpr) -> H2LAnalyzeState {
     s : H2LAnalyzeState,
     instr : TInstr,
   ) {
-    match instr {
-      TLoad(op, _, _) => if h2l_load_is_atomic(op) { s.has_sync_atomic = true }
-      TStore(op, _, _, _) =>
+    match instr.kind {
+      TInstrKind::TLoad(op, _, _) =>
+        if h2l_load_is_atomic(op) {
+          s.has_sync_atomic = true
+        }
+      TInstrKind::TStore(op, _, _, _) =>
         if h2l_store_is_atomic(op) {
           s.has_sync_atomic = true
         }
-      TMemoryAtomicNotify(_, _, _)
-      | TMemoryAtomicWait32(_, _, _, _)
-      | TMemoryAtomicWait64(_, _, _, _)
-      | TAtomicFence
-      | TAtomicRmw(_, _, _, _)
-      | TAtomicCmpxchg(_, _, _, _, _) => s.has_sync_atomic = true
-      TLocalSet(loc, value) => {
+      TInstrKind::TMemoryAtomicNotify(_, _, _)
+      | TInstrKind::TMemoryAtomicWait32(_, _, _, _)
+      | TInstrKind::TMemoryAtomicWait64(_, _, _, _)
+      | TInstrKind::TAtomicFence
+      | TInstrKind::TAtomicRmw(_, _, _, _)
+      | TInstrKind::TAtomicCmpxchg(_, _, _, _, _) => s.has_sync_atomic = true
+      TInstrKind::TLocalSet(loc, value) => {
         let idx = h2l_local_to_int(loc)
         h2l_inc_count(s.set_counts, idx)
         match h2l_extract_shape(s.env, value) {
@@ -321,53 +326,112 @@ fn h2l_scan_body(env : Env, body : TExpr) -> H2LAnalyzeState {
           None => h2l_mark_invalid(s, idx)
         }
       }
-      TLocalTee(loc, _) => {
+      TInstrKind::TLocalTee(loc, _) => {
         let idx = h2l_local_to_int(loc)
         h2l_inc_count(s.set_counts, idx)
         h2l_mark_invalid(s, idx)
       }
-      TLocalGet(loc) => h2l_inc_count(s.total_get_counts, h2l_local_to_int(loc))
-      TStructGet(type_idx, field_idx, TLocalGet(loc)) => {
+      TInstrKind::TLocalGet(loc) =>
+        h2l_inc_count(s.total_get_counts, h2l_local_to_int(loc))
+      TInstrKind::TStructGet(
+        type_idx,
+        field_idx,
+        { kind: TInstrKind::TLocalGet(loc), .. }
+      ) => {
         let idx = h2l_local_to_int(loc)
         h2l_inc_count(s.safe_get_counts, idx)
         h2l_add_use(s.uses, idx, H2LUse::StructGet(type_idx, field_idx))
       }
-      TStructGet(type_idx, field_idx, TRefAsNonNull(TLocalGet(loc))) => {
+      TInstrKind::TStructGet(
+        type_idx,
+        field_idx,
+        {
+          kind: TInstrKind::TRefAsNonNull(
+            { kind: TInstrKind::TLocalGet(loc), .. }
+          ),
+          ..,
+        }
+      ) => {
         let idx = h2l_local_to_int(loc)
         h2l_inc_count(s.safe_get_counts, idx)
         h2l_add_use(s.uses, idx, H2LUse::StructGet(type_idx, field_idx))
       }
-      TStructGetS(type_idx, field_idx, TLocalGet(loc)) => {
+      TInstrKind::TStructGetS(
+        type_idx,
+        field_idx,
+        { kind: TInstrKind::TLocalGet(loc), .. }
+      ) => {
         let idx = h2l_local_to_int(loc)
         h2l_inc_count(s.safe_get_counts, idx)
         h2l_add_use(s.uses, idx, H2LUse::StructGetS(type_idx, field_idx))
       }
-      TStructGetS(type_idx, field_idx, TRefAsNonNull(TLocalGet(loc))) => {
+      TInstrKind::TStructGetS(
+        type_idx,
+        field_idx,
+        {
+          kind: TInstrKind::TRefAsNonNull(
+            { kind: TInstrKind::TLocalGet(loc), .. }
+          ),
+          ..,
+        }
+      ) => {
         let idx = h2l_local_to_int(loc)
         h2l_inc_count(s.safe_get_counts, idx)
         h2l_add_use(s.uses, idx, H2LUse::StructGetS(type_idx, field_idx))
       }
-      TStructGetU(type_idx, field_idx, TLocalGet(loc)) => {
+      TInstrKind::TStructGetU(
+        type_idx,
+        field_idx,
+        { kind: TInstrKind::TLocalGet(loc), .. }
+      ) => {
         let idx = h2l_local_to_int(loc)
         h2l_inc_count(s.safe_get_counts, idx)
         h2l_add_use(s.uses, idx, H2LUse::StructGetU(type_idx, field_idx))
       }
-      TStructGetU(type_idx, field_idx, TRefAsNonNull(TLocalGet(loc))) => {
+      TInstrKind::TStructGetU(
+        type_idx,
+        field_idx,
+        {
+          kind: TInstrKind::TRefAsNonNull(
+            { kind: TInstrKind::TLocalGet(loc), .. }
+          ),
+          ..,
+        }
+      ) => {
         let idx = h2l_local_to_int(loc)
         h2l_inc_count(s.safe_get_counts, idx)
         h2l_add_use(s.uses, idx, H2LUse::StructGetU(type_idx, field_idx))
       }
-      TStructSet(type_idx, field_idx, TLocalGet(loc), _) => {
+      TInstrKind::TStructSet(
+        type_idx,
+        field_idx,
+        { kind: TInstrKind::TLocalGet(loc), .. },
+        _
+      ) => {
         let idx = h2l_local_to_int(loc)
         h2l_inc_count(s.safe_get_counts, idx)
         h2l_add_use(s.uses, idx, H2LUse::StructSet(type_idx, field_idx))
       }
-      TStructSet(type_idx, field_idx, TRefAsNonNull(TLocalGet(loc)), _) => {
+      TInstrKind::TStructSet(
+        type_idx,
+        field_idx,
+        {
+          kind: TInstrKind::TRefAsNonNull(
+            { kind: TInstrKind::TLocalGet(loc), .. }
+          ),
+          ..,
+        },
+        _
+      ) => {
         let idx = h2l_local_to_int(loc)
         h2l_inc_count(s.safe_get_counts, idx)
         h2l_add_use(s.uses, idx, H2LUse::StructSet(type_idx, field_idx))
       }
-      TArrayGet(type_idx, TLocalGet(loc), index) =>
+      TInstrKind::TArrayGet(
+        type_idx,
+        { kind: TInstrKind::TLocalGet(loc), .. },
+        index
+      ) =>
         match h2l_const_i32_nonneg(index) {
           Some(i) => {
             let idx = h2l_local_to_int(loc)
@@ -376,7 +440,16 @@ fn h2l_scan_body(env : Env, body : TExpr) -> H2LAnalyzeState {
           }
           None => ()
         }
-      TArrayGet(type_idx, TRefAsNonNull(TLocalGet(loc)), index) =>
+      TInstrKind::TArrayGet(
+        type_idx,
+        {
+          kind: TInstrKind::TRefAsNonNull(
+            { kind: TInstrKind::TLocalGet(loc), .. }
+          ),
+          ..,
+        },
+        index
+      ) =>
         match h2l_const_i32_nonneg(index) {
           Some(i) => {
             let idx = h2l_local_to_int(loc)
@@ -385,7 +458,11 @@ fn h2l_scan_body(env : Env, body : TExpr) -> H2LAnalyzeState {
           }
           None => ()
         }
-      TArrayGetS(type_idx, TLocalGet(loc), index) =>
+      TInstrKind::TArrayGetS(
+        type_idx,
+        { kind: TInstrKind::TLocalGet(loc), .. },
+        index
+      ) =>
         match h2l_const_i32_nonneg(index) {
           Some(i) => {
             let idx = h2l_local_to_int(loc)
@@ -394,7 +471,16 @@ fn h2l_scan_body(env : Env, body : TExpr) -> H2LAnalyzeState {
           }
           None => ()
         }
-      TArrayGetS(type_idx, TRefAsNonNull(TLocalGet(loc)), index) =>
+      TInstrKind::TArrayGetS(
+        type_idx,
+        {
+          kind: TInstrKind::TRefAsNonNull(
+            { kind: TInstrKind::TLocalGet(loc), .. }
+          ),
+          ..,
+        },
+        index
+      ) =>
         match h2l_const_i32_nonneg(index) {
           Some(i) => {
             let idx = h2l_local_to_int(loc)
@@ -403,7 +489,11 @@ fn h2l_scan_body(env : Env, body : TExpr) -> H2LAnalyzeState {
           }
           None => ()
         }
-      TArrayGetU(type_idx, TLocalGet(loc), index) =>
+      TInstrKind::TArrayGetU(
+        type_idx,
+        { kind: TInstrKind::TLocalGet(loc), .. },
+        index
+      ) =>
         match h2l_const_i32_nonneg(index) {
           Some(i) => {
             let idx = h2l_local_to_int(loc)
@@ -412,7 +502,16 @@ fn h2l_scan_body(env : Env, body : TExpr) -> H2LAnalyzeState {
           }
           None => ()
         }
-      TArrayGetU(type_idx, TRefAsNonNull(TLocalGet(loc)), index) =>
+      TInstrKind::TArrayGetU(
+        type_idx,
+        {
+          kind: TInstrKind::TRefAsNonNull(
+            { kind: TInstrKind::TLocalGet(loc), .. }
+          ),
+          ..,
+        },
+        index
+      ) =>
         match h2l_const_i32_nonneg(index) {
           Some(i) => {
             let idx = h2l_local_to_int(loc)
@@ -421,7 +520,12 @@ fn h2l_scan_body(env : Env, body : TExpr) -> H2LAnalyzeState {
           }
           None => ()
         }
-      TArraySet(type_idx, TLocalGet(loc), index, _) =>
+      TInstrKind::TArraySet(
+        type_idx,
+        { kind: TInstrKind::TLocalGet(loc), .. },
+        index,
+        _
+      ) =>
         match h2l_const_i32_nonneg(index) {
           Some(i) => {
             let idx = h2l_local_to_int(loc)
@@ -430,7 +534,17 @@ fn h2l_scan_body(env : Env, body : TExpr) -> H2LAnalyzeState {
           }
           None => ()
         }
-      TArraySet(type_idx, TRefAsNonNull(TLocalGet(loc)), index, _) =>
+      TInstrKind::TArraySet(
+        type_idx,
+        {
+          kind: TInstrKind::TRefAsNonNull(
+            { kind: TInstrKind::TLocalGet(loc), .. }
+          ),
+          ..,
+        },
+        index,
+        _
+      ) =>
         match h2l_const_i32_nonneg(index) {
           Some(i) => {
             let idx = h2l_local_to_int(loc)
@@ -439,77 +553,123 @@ fn h2l_scan_body(env : Env, body : TExpr) -> H2LAnalyzeState {
           }
           None => ()
         }
-      TArrayLen(TLocalGet(loc)) => {
+      TInstrKind::TArrayLen({ kind: TInstrKind::TLocalGet(loc), .. }) => {
         let idx = h2l_local_to_int(loc)
         h2l_inc_count(s.safe_get_counts, idx)
         h2l_add_use(s.uses, idx, H2LUse::ArrayLen)
       }
-      TArrayLen(TRefAsNonNull(TLocalGet(loc))) => {
+      TInstrKind::TArrayLen(
+        {
+          kind: TInstrKind::TRefAsNonNull(
+            { kind: TInstrKind::TLocalGet(loc), .. }
+          ),
+          ..,
+        }
+      ) => {
         let idx = h2l_local_to_int(loc)
         h2l_inc_count(s.safe_get_counts, idx)
         h2l_add_use(s.uses, idx, H2LUse::ArrayLen)
       }
-      TDrop(TLocalGet(loc)) => {
+      TInstrKind::TDrop({ kind: TInstrKind::TLocalGet(loc), .. }) => {
         let idx = h2l_local_to_int(loc)
         h2l_inc_count(s.safe_get_counts, idx)
         h2l_add_use(s.uses, idx, H2LUse::DropOnly)
       }
-      TDrop(TRefAsNonNull(TLocalGet(loc))) => {
+      TInstrKind::TDrop(
+        {
+          kind: TInstrKind::TRefAsNonNull(
+            { kind: TInstrKind::TLocalGet(loc), .. }
+          ),
+          ..,
+        }
+      ) => {
         let idx = h2l_local_to_int(loc)
         h2l_inc_count(s.safe_get_counts, idx)
         h2l_add_use(s.uses, idx, H2LUse::DropOnly)
       }
-      TRefIsNull(TLocalGet(loc)) => {
+      TInstrKind::TRefIsNull({ kind: TInstrKind::TLocalGet(loc), .. }) => {
         let idx = h2l_local_to_int(loc)
         h2l_inc_count(s.safe_get_counts, idx)
         h2l_add_use(s.uses, idx, H2LUse::RefIsNull)
       }
-      TRefIsNull(TRefAsNonNull(TLocalGet(loc))) => {
+      TInstrKind::TRefIsNull(
+        {
+          kind: TInstrKind::TRefAsNonNull(
+            { kind: TInstrKind::TLocalGet(loc), .. }
+          ),
+          ..,
+        }
+      ) => {
         let idx = h2l_local_to_int(loc)
         h2l_inc_count(s.safe_get_counts, idx)
         h2l_add_use(s.uses, idx, H2LUse::RefIsNull)
       }
-      TRefTest(_, _, TLocalGet(loc)) => {
+      TInstrKind::TRefTest(_, _, { kind: TInstrKind::TLocalGet(loc), .. }) => {
         let idx = h2l_local_to_int(loc)
         h2l_inc_count(s.safe_get_counts, idx)
         h2l_add_use(s.uses, idx, H2LUse::RefTest)
       }
-      TRefGetDesc(TLocalGet(loc)) => {
+      TInstrKind::TRefGetDesc({ kind: TInstrKind::TLocalGet(loc), .. }) => {
         let idx = h2l_local_to_int(loc)
         h2l_inc_count(s.safe_get_counts, idx)
         h2l_add_use(s.uses, idx, H2LUse::RefGetDesc)
       }
-      TRefGetDesc(TRefAsNonNull(TLocalGet(loc))) => {
+      TInstrKind::TRefGetDesc(
+        {
+          kind: TInstrKind::TRefAsNonNull(
+            { kind: TInstrKind::TLocalGet(loc), .. }
+          ),
+          ..,
+        }
+      ) => {
         let idx = h2l_local_to_int(loc)
         h2l_inc_count(s.safe_get_counts, idx)
         h2l_add_use(s.uses, idx, H2LUse::RefGetDesc)
       }
-      TRefTestDesc(_, _, TLocalGet(loc)) => {
+      TInstrKind::TRefTestDesc(_, _, { kind: TInstrKind::TLocalGet(loc), .. }) => {
         let idx = h2l_local_to_int(loc)
         h2l_inc_count(s.safe_get_counts, idx)
         h2l_add_use(s.uses, idx, H2LUse::RefTestDesc)
       }
-      TRefTestDesc(_, _, TRefAsNonNull(TLocalGet(loc))) => {
+      TInstrKind::TRefTestDesc(
+        _,
+        _,
+        {
+          kind: TInstrKind::TRefAsNonNull(
+            { kind: TInstrKind::TLocalGet(loc), .. }
+          ),
+          ..,
+        }
+      ) => {
         let idx = h2l_local_to_int(loc)
         h2l_inc_count(s.safe_get_counts, idx)
         h2l_add_use(s.uses, idx, H2LUse::RefTestDesc)
       }
-      TRefCastDescEq(_, _, TLocalGet(loc)) => {
+      TInstrKind::TRefCastDescEq(_, _, { kind: TInstrKind::TLocalGet(loc), .. }) => {
         let idx = h2l_local_to_int(loc)
         h2l_inc_count(s.safe_get_counts, idx)
         h2l_add_use(s.uses, idx, H2LUse::RefCastDescEq)
       }
-      TRefCastDescEq(_, _, TRefAsNonNull(TLocalGet(loc))) => {
+      TInstrKind::TRefCastDescEq(
+        _,
+        _,
+        {
+          kind: TInstrKind::TRefAsNonNull(
+            { kind: TInstrKind::TLocalGet(loc), .. }
+          ),
+          ..,
+        }
+      ) => {
         let idx = h2l_local_to_int(loc)
         h2l_inc_count(s.safe_get_counts, idx)
         h2l_add_use(s.uses, idx, H2LUse::RefCastDescEq)
       }
-      TRefEq(TLocalGet(left), right) => {
+      TInstrKind::TRefEq({ kind: TInstrKind::TLocalGet(left), .. }, right) => {
         let idx = h2l_local_to_int(left)
         h2l_inc_count(s.safe_get_counts, idx)
         h2l_add_use(s.uses, idx, H2LUse::RefEq)
-        match right {
-          TLocalGet(right_loc) => {
+        match right.kind {
+          TInstrKind::TLocalGet(right_loc) => {
             let right_idx = h2l_local_to_int(right_loc)
             h2l_inc_count(s.safe_get_counts, right_idx)
             h2l_add_use(s.uses, right_idx, H2LUse::RefEq)
@@ -517,9 +677,9 @@ fn h2l_scan_body(env : Env, body : TExpr) -> H2LAnalyzeState {
           _ => ()
         }
       }
-      TRefEq(left, TLocalGet(right)) =>
-        match left {
-          TLocalGet(_) => ()
+      TInstrKind::TRefEq(left, { kind: TInstrKind::TLocalGet(right), .. }) =>
+        match left.kind {
+          TInstrKind::TLocalGet(_) => ()
           _ => {
             let idx = h2l_local_to_int(right)
             h2l_inc_count(s.safe_get_counts, idx)
@@ -645,8 +805,8 @@ fn h2l_collect_candidates(analysis : H2LAnalyzeState) -> Map[Int, H2LShape] {
 fn h2l_flatten_instrs(instrs : Array[TInstr]) -> Array[TInstr] {
   let out : Array[TInstr] = []
   for instr in instrs {
-    match instr {
-      TIf(bt, cond, then_expr, else_expr) => {
+    match instr.kind {
+      TInstrKind::TIf(bt, cond, then_expr, else_expr) => {
         out.push(TInstr::if_(bt, cond, TExpr::new([]), None))
         for child in h2l_flatten_instrs(then_expr.instrs) {
           out.push(child)
@@ -673,8 +833,8 @@ fn h2l_local_graph_get_order(body : TExpr) -> Array[LocalIdx] {
       _,
       curr,
     ) {
-      match curr {
-        TLocalGet(idx) => out.push(idx)
+      match curr.kind {
+        TInstrKind::TLocalGet(idx) => out.push(idx)
         _ => ()
       }
       self.walk_tinstruction_default((), curr)
@@ -705,8 +865,8 @@ fn h2l_root_has_matching_set(
 ) -> Bool {
   let found = Ref::new(false)
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
-    match curr {
-      TLocalSet(idx, value) =>
+    match curr.kind {
+      TInstrKind::TLocalSet(idx, value) =>
         if idx == target &&
           h2l_shape_matches_allocation_value(env, shape, value) {
           found.update(fn(_) { true })
@@ -770,8 +930,9 @@ fn h2l_filter_by_local_graph(
 fn h2l_texpr_has_local_set(expr : TExpr, target : LocalIdx) -> Bool {
   let found = Ref::new(false)
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
-    match curr {
-      TLocalSet(idx, _) if idx == target => found.update(fn(_) { true })
+    match curr.kind {
+      TInstrKind::TLocalSet(idx, _) if idx == target =>
+        found.update(fn(_) { true })
       _ => ()
     }
     self.walk_tinstruction_default((), curr)
@@ -783,8 +944,8 @@ fn h2l_texpr_has_local_set(expr : TExpr, target : LocalIdx) -> Bool {
 ///|
 fn h2l_has_nonuniform_if_set(expr : TExpr, target : LocalIdx) -> Bool {
   for instr in expr.instrs {
-    match instr {
-      TIf(_, _, then_expr, else_expr) => {
+    match instr.kind {
+      TInstrKind::TIf(_, _, then_expr, else_expr) => {
         let then_has = h2l_texpr_has_local_set(then_expr, target)
         let else_has = match else_expr {
           Some(e) => h2l_texpr_has_local_set(e, target)
@@ -800,7 +961,9 @@ fn h2l_has_nonuniform_if_set(expr : TExpr, target : LocalIdx) -> Bool {
           return true
         }
       }
-      TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) =>
+      TInstrKind::TBlock(_, body)
+      | TInstrKind::TLoop(_, body)
+      | TInstrKind::TTryTable(_, _, body) =>
         if h2l_has_nonuniform_if_set(body, target) {
           return true
         }
@@ -830,20 +993,20 @@ fn h2l_filter_nonuniform_if_sets(
 fn h2l_instr_transfers_control_flow(instr : TInstr) -> Bool {
   let transfers = Ref::new(false)
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
-    match curr {
-      TBr(_, _)
-      | TBrIf(_, _, _)
-      | TBrTable(_, _, _, _)
-      | TBrOnNull(_, _, _)
-      | TBrOnNonNull(_, _, _)
-      | TBrOnCast(_, _, _, _, _, _)
-      | TBrOnCastFail(_, _, _, _, _, _)
-      | TReturn(_)
-      | TThrow(_, _)
-      | TThrowRef(_)
-      | TReturnCall(_, _)
-      | TReturnCallIndirect(_, _, _, _)
-      | TReturnCallRef(_, _, _) => transfers.update(fn(_) { true })
+    match curr.kind {
+      TInstrKind::TBr(_, _)
+      | TInstrKind::TBrIf(_, _, _)
+      | TInstrKind::TBrTable(_, _, _, _)
+      | TInstrKind::TBrOnNull(_, _, _)
+      | TInstrKind::TBrOnNonNull(_, _, _)
+      | TInstrKind::TBrOnCast(_, _, _, _, _, _)
+      | TInstrKind::TBrOnCastFail(_, _, _, _, _, _)
+      | TInstrKind::TReturn(_)
+      | TInstrKind::TThrow(_, _)
+      | TInstrKind::TThrowRef(_)
+      | TInstrKind::TReturnCall(_, _)
+      | TInstrKind::TReturnCallIndirect(_, _, _, _)
+      | TInstrKind::TReturnCallRef(_, _, _) => transfers.update(fn(_) { true })
       _ => ()
     }
     self.walk_tinstruction_default((), curr)
@@ -856,8 +1019,9 @@ fn h2l_instr_transfers_control_flow(instr : TInstr) -> Bool {
 fn h2l_tinstr_has_local_get_for(instr : TInstr, target : LocalIdx) -> Bool {
   let found = Ref::new(false)
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
-    match curr {
-      TLocalGet(idx) if idx == target => found.update(fn(_) { true })
+    match curr.kind {
+      TInstrKind::TLocalGet(idx) if idx == target =>
+        found.update(fn(_) { true })
       _ => ()
     }
     self.walk_tinstruction_default((), curr)
@@ -875,8 +1039,8 @@ fn h2l_tinstr_has_branchy_set_for(
 ) -> Bool {
   let found = Ref::new(false)
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
-    match curr {
-      TLocalSet(idx, value) =>
+    match curr.kind {
+      TInstrKind::TLocalSet(idx, value) =>
         if idx == target &&
           h2l_shape_matches_allocation_value(env, shape, value) &&
           h2l_instr_transfers_control_flow(value) {
@@ -1114,8 +1278,8 @@ fn h2l_const_expr_to_tinstr(expr : Expr, env : Env) -> TInstr? {
   match to_texpr(expr, env) {
     Ok({ instrs, .. }) =>
       if instrs.length() == 1 {
-        match instrs[0] {
-          TRefNull(_) | TRefFunc(_) => Some(instrs[0])
+        match instrs[0].kind {
+          TInstrKind::TRefNull(_) | TInstrKind::TRefFunc(_) => Some(instrs[0])
           _ => None
         }
       } else {
@@ -1255,8 +1419,8 @@ fn h2l_rewrite_struct_local_set(
       }
       let slot_types = h2l_shape_slots_valtypes(plan.shape)
       let out : Array[TInstr] = []
-      match value {
-        TStructNew(set_type_idx, operands) => {
+      match value.kind {
+        TInstrKind::TStructNew(set_type_idx, operands) => {
           if set_type_idx != shape_type_idx ||
             operands.length() != slots.length() {
             return None
@@ -1277,7 +1441,7 @@ fn h2l_rewrite_struct_local_set(
           }
           Some((state, h2l_void_block(out)))
         }
-        TStructNewDefault(set_type_idx) => {
+        TInstrKind::TStructNewDefault(set_type_idx) => {
           if set_type_idx != shape_type_idx {
             return None
           }
@@ -1313,8 +1477,8 @@ fn h2l_rewrite_array_local_set(
       }
       let elem_ty = field.unpack()
       let out : Array[TInstr] = []
-      match value {
-        TArrayNew(set_type_idx, init, len) => {
+      match value.kind {
+        TInstrKind::TArrayNew(set_type_idx, init, len) => {
           if set_type_idx != shape_type_idx {
             return None
           }
@@ -1333,7 +1497,7 @@ fn h2l_rewrite_array_local_set(
           }
           Some((state, h2l_void_block(out)))
         }
-        TArrayNewDefault(set_type_idx, len) => {
+        TInstrKind::TArrayNewDefault(set_type_idx, len) => {
           if set_type_idx != shape_type_idx {
             return None
           }
@@ -1350,7 +1514,7 @@ fn h2l_rewrite_array_local_set(
             None => None
           }
         }
-        TArrayNewFixed(set_type_idx, values) => {
+        TInstrKind::TArrayNewFixed(set_type_idx, values) => {
           if set_type_idx != shape_type_idx || values.length() != size {
             return None
           }
@@ -1370,7 +1534,7 @@ fn h2l_rewrite_array_local_set(
           }
           Some((state, h2l_void_block(out)))
         }
-        TArrayNewData(set_type_idx, data_idx, offset, len) => {
+        TInstrKind::TArrayNewData(set_type_idx, data_idx, offset, len) => {
           if set_type_idx != shape_type_idx {
             return None
           }
@@ -1402,7 +1566,7 @@ fn h2l_rewrite_array_local_set(
             None => None
           }
         }
-        TArrayNewElem(set_type_idx, elem_idx, offset, len) => {
+        TInstrKind::TArrayNewElem(set_type_idx, elem_idx, offset, len) => {
           if set_type_idx != shape_type_idx {
             return None
           }
@@ -1449,8 +1613,8 @@ fn h2l_rewrite_tinstr(
     Ok(None) => (state, instr, false)
     Err(e) => return Err(e)
   }
-  match walked {
-    TLocalSet(loc, value) =>
+  match walked.kind {
+    TInstrKind::TLocalSet(loc, value) =>
       match h2l_plan_for(state_after_walk, loc) {
         Some(plan) =>
           match plan.shape {
@@ -1488,7 +1652,11 @@ fn h2l_rewrite_tinstr(
             unchanged()
           }
       }
-    TStructGet(type_idx, field_idx, TLocalGet(loc)) =>
+    TInstrKind::TStructGet(
+      type_idx,
+      field_idx,
+      { kind: TInstrKind::TLocalGet(loc), .. }
+    ) =>
       match h2l_plan_for(state_after_walk, loc) {
         Some(plan) =>
           match plan.shape {
@@ -1521,7 +1689,16 @@ fn h2l_rewrite_tinstr(
             unchanged()
           }
       }
-    TStructGet(type_idx, field_idx, TRefAsNonNull(TLocalGet(loc))) =>
+    TInstrKind::TStructGet(
+      type_idx,
+      field_idx,
+      {
+        kind: TInstrKind::TRefAsNonNull(
+          { kind: TInstrKind::TLocalGet(loc), .. }
+        ),
+        ..,
+      }
+    ) =>
       match h2l_plan_for(state_after_walk, loc) {
         Some(plan) =>
           match plan.shape {
@@ -1554,7 +1731,11 @@ fn h2l_rewrite_tinstr(
             unchanged()
           }
       }
-    TStructGetS(type_idx, field_idx, TLocalGet(loc)) =>
+    TInstrKind::TStructGetS(
+      type_idx,
+      field_idx,
+      { kind: TInstrKind::TLocalGet(loc), .. }
+    ) =>
       match h2l_plan_for(state_after_walk, loc) {
         Some(plan) =>
           match plan.shape {
@@ -1594,7 +1775,16 @@ fn h2l_rewrite_tinstr(
             unchanged()
           }
       }
-    TStructGetS(type_idx, field_idx, TRefAsNonNull(TLocalGet(loc))) =>
+    TInstrKind::TStructGetS(
+      type_idx,
+      field_idx,
+      {
+        kind: TInstrKind::TRefAsNonNull(
+          { kind: TInstrKind::TLocalGet(loc), .. }
+        ),
+        ..,
+      }
+    ) =>
       match h2l_plan_for(state_after_walk, loc) {
         Some(plan) =>
           match plan.shape {
@@ -1634,7 +1824,11 @@ fn h2l_rewrite_tinstr(
             unchanged()
           }
       }
-    TStructGetU(type_idx, field_idx, TLocalGet(loc)) =>
+    TInstrKind::TStructGetU(
+      type_idx,
+      field_idx,
+      { kind: TInstrKind::TLocalGet(loc), .. }
+    ) =>
       match h2l_plan_for(state_after_walk, loc) {
         Some(plan) =>
           match plan.shape {
@@ -1674,7 +1868,16 @@ fn h2l_rewrite_tinstr(
             unchanged()
           }
       }
-    TStructGetU(type_idx, field_idx, TRefAsNonNull(TLocalGet(loc))) =>
+    TInstrKind::TStructGetU(
+      type_idx,
+      field_idx,
+      {
+        kind: TInstrKind::TRefAsNonNull(
+          { kind: TInstrKind::TLocalGet(loc), .. }
+        ),
+        ..,
+      }
+    ) =>
       match h2l_plan_for(state_after_walk, loc) {
         Some(plan) =>
           match plan.shape {
@@ -1714,7 +1917,12 @@ fn h2l_rewrite_tinstr(
             unchanged()
           }
       }
-    TStructSet(type_idx, field_idx, TLocalGet(loc), value) =>
+    TInstrKind::TStructSet(
+      type_idx,
+      field_idx,
+      { kind: TInstrKind::TLocalGet(loc), .. },
+      value
+    ) =>
       match h2l_plan_for(state_after_walk, loc) {
         Some(plan) =>
           match plan.shape {
@@ -1753,7 +1961,17 @@ fn h2l_rewrite_tinstr(
             unchanged()
           }
       }
-    TStructSet(type_idx, field_idx, TRefAsNonNull(TLocalGet(loc)), value) =>
+    TInstrKind::TStructSet(
+      type_idx,
+      field_idx,
+      {
+        kind: TInstrKind::TRefAsNonNull(
+          { kind: TInstrKind::TLocalGet(loc), .. }
+        ),
+        ..,
+      },
+      value
+    ) =>
       match h2l_plan_for(state_after_walk, loc) {
         Some(plan) =>
           match plan.shape {
@@ -1792,7 +2010,11 @@ fn h2l_rewrite_tinstr(
             unchanged()
           }
       }
-    TArrayGet(type_idx, TLocalGet(loc), index) =>
+    TInstrKind::TArrayGet(
+      type_idx,
+      { kind: TInstrKind::TLocalGet(loc), .. },
+      index
+    ) =>
       match (h2l_plan_for(state_after_walk, loc), h2l_const_i32_nonneg(index)) {
         (Some(plan), Some(idx)) =>
           match plan.shape {
@@ -1822,7 +2044,16 @@ fn h2l_rewrite_tinstr(
             unchanged()
           }
       }
-    TArrayGet(type_idx, TRefAsNonNull(TLocalGet(loc)), index) =>
+    TInstrKind::TArrayGet(
+      type_idx,
+      {
+        kind: TInstrKind::TRefAsNonNull(
+          { kind: TInstrKind::TLocalGet(loc), .. }
+        ),
+        ..,
+      },
+      index
+    ) =>
       match (h2l_plan_for(state_after_walk, loc), h2l_const_i32_nonneg(index)) {
         (Some(plan), Some(idx)) =>
           match plan.shape {
@@ -1852,7 +2083,11 @@ fn h2l_rewrite_tinstr(
             unchanged()
           }
       }
-    TArrayGetS(type_idx, TLocalGet(loc), index) =>
+    TInstrKind::TArrayGetS(
+      type_idx,
+      { kind: TInstrKind::TLocalGet(loc), .. },
+      index
+    ) =>
       match (h2l_plan_for(state_after_walk, loc), h2l_const_i32_nonneg(index)) {
         (Some(plan), Some(idx)) =>
           match plan.shape {
@@ -1889,7 +2124,16 @@ fn h2l_rewrite_tinstr(
             unchanged()
           }
       }
-    TArrayGetS(type_idx, TRefAsNonNull(TLocalGet(loc)), index) =>
+    TInstrKind::TArrayGetS(
+      type_idx,
+      {
+        kind: TInstrKind::TRefAsNonNull(
+          { kind: TInstrKind::TLocalGet(loc), .. }
+        ),
+        ..,
+      },
+      index
+    ) =>
       match (h2l_plan_for(state_after_walk, loc), h2l_const_i32_nonneg(index)) {
         (Some(plan), Some(idx)) =>
           match plan.shape {
@@ -1926,7 +2170,11 @@ fn h2l_rewrite_tinstr(
             unchanged()
           }
       }
-    TArrayGetU(type_idx, TLocalGet(loc), index) =>
+    TInstrKind::TArrayGetU(
+      type_idx,
+      { kind: TInstrKind::TLocalGet(loc), .. },
+      index
+    ) =>
       match (h2l_plan_for(state_after_walk, loc), h2l_const_i32_nonneg(index)) {
         (Some(plan), Some(idx)) =>
           match plan.shape {
@@ -1963,7 +2211,16 @@ fn h2l_rewrite_tinstr(
             unchanged()
           }
       }
-    TArrayGetU(type_idx, TRefAsNonNull(TLocalGet(loc)), index) =>
+    TInstrKind::TArrayGetU(
+      type_idx,
+      {
+        kind: TInstrKind::TRefAsNonNull(
+          { kind: TInstrKind::TLocalGet(loc), .. }
+        ),
+        ..,
+      },
+      index
+    ) =>
       match (h2l_plan_for(state_after_walk, loc), h2l_const_i32_nonneg(index)) {
         (Some(plan), Some(idx)) =>
           match plan.shape {
@@ -2000,7 +2257,12 @@ fn h2l_rewrite_tinstr(
             unchanged()
           }
       }
-    TArraySet(type_idx, TLocalGet(loc), index, value) =>
+    TInstrKind::TArraySet(
+      type_idx,
+      { kind: TInstrKind::TLocalGet(loc), .. },
+      index,
+      value
+    ) =>
       match (h2l_plan_for(state_after_walk, loc), h2l_const_i32_nonneg(index)) {
         (Some(plan), Some(idx)) =>
           match plan.shape {
@@ -2042,7 +2304,17 @@ fn h2l_rewrite_tinstr(
             unchanged()
           }
       }
-    TArraySet(type_idx, TRefAsNonNull(TLocalGet(loc)), index, value) =>
+    TInstrKind::TArraySet(
+      type_idx,
+      {
+        kind: TInstrKind::TRefAsNonNull(
+          { kind: TInstrKind::TLocalGet(loc), .. }
+        ),
+        ..,
+      },
+      index,
+      value
+    ) =>
       match (h2l_plan_for(state_after_walk, loc), h2l_const_i32_nonneg(index)) {
         (Some(plan), Some(idx)) =>
           match plan.shape {
@@ -2084,7 +2356,7 @@ fn h2l_rewrite_tinstr(
             unchanged()
           }
       }
-    TArrayLen(TLocalGet(loc)) =>
+    TInstrKind::TArrayLen({ kind: TInstrKind::TLocalGet(loc), .. }) =>
       match h2l_plan_for(state_after_walk, loc) {
         Some(plan) =>
           match plan.shape {
@@ -2104,7 +2376,14 @@ fn h2l_rewrite_tinstr(
             unchanged()
           }
       }
-    TArrayLen(TRefAsNonNull(TLocalGet(loc))) =>
+    TInstrKind::TArrayLen(
+      {
+        kind: TInstrKind::TRefAsNonNull(
+          { kind: TInstrKind::TLocalGet(loc), .. }
+        ),
+        ..,
+      }
+    ) =>
       match h2l_plan_for(state_after_walk, loc) {
         Some(plan) =>
           match plan.shape {
@@ -2124,7 +2403,7 @@ fn h2l_rewrite_tinstr(
             unchanged()
           }
       }
-    TDrop(TLocalGet(loc)) =>
+    TInstrKind::TDrop({ kind: TInstrKind::TLocalGet(loc), .. }) =>
       if h2l_plan_for(state_after_walk, loc) is Some(_) {
         change(state_after_walk, TInstr::nop())
       } else if walked_changed {
@@ -2132,7 +2411,14 @@ fn h2l_rewrite_tinstr(
       } else {
         unchanged()
       }
-    TDrop(TRefAsNonNull(TLocalGet(loc))) =>
+    TInstrKind::TDrop(
+      {
+        kind: TInstrKind::TRefAsNonNull(
+          { kind: TInstrKind::TLocalGet(loc), .. }
+        ),
+        ..,
+      }
+    ) =>
       if h2l_plan_for(state_after_walk, loc) is Some(_) {
         change(state_after_walk, TInstr::nop())
       } else if walked_changed {
@@ -2140,7 +2426,7 @@ fn h2l_rewrite_tinstr(
       } else {
         unchanged()
       }
-    TRefIsNull(TLocalGet(loc)) =>
+    TInstrKind::TRefIsNull({ kind: TInstrKind::TLocalGet(loc), .. }) =>
       if h2l_plan_for(state_after_walk, loc) is Some(_) {
         change(state_after_walk, TInstr::i32_const(I32(0)))
       } else if walked_changed {
@@ -2148,7 +2434,14 @@ fn h2l_rewrite_tinstr(
       } else {
         unchanged()
       }
-    TRefIsNull(TRefAsNonNull(TLocalGet(loc))) =>
+    TInstrKind::TRefIsNull(
+      {
+        kind: TInstrKind::TRefAsNonNull(
+          { kind: TInstrKind::TLocalGet(loc), .. }
+        ),
+        ..,
+      }
+    ) =>
       if h2l_plan_for(state_after_walk, loc) is Some(_) {
         change(state_after_walk, TInstr::i32_const(I32(0)))
       } else if walked_changed {
@@ -2156,7 +2449,7 @@ fn h2l_rewrite_tinstr(
       } else {
         unchanged()
       }
-    TRefGetDesc(TLocalGet(loc)) =>
+    TInstrKind::TRefGetDesc({ kind: TInstrKind::TLocalGet(loc), .. }) =>
       match h2l_plan_for(state_after_walk, loc) {
         Some(plan) =>
           change(
@@ -2170,7 +2463,14 @@ fn h2l_rewrite_tinstr(
             unchanged()
           }
       }
-    TRefGetDesc(TRefAsNonNull(TLocalGet(loc))) =>
+    TInstrKind::TRefGetDesc(
+      {
+        kind: TInstrKind::TRefAsNonNull(
+          { kind: TInstrKind::TLocalGet(loc), .. }
+        ),
+        ..,
+      }
+    ) =>
       match h2l_plan_for(state_after_walk, loc) {
         Some(plan) =>
           change(
@@ -2184,7 +2484,7 @@ fn h2l_rewrite_tinstr(
             unchanged()
           }
       }
-    TRefTest(_, target_ht, TLocalGet(loc)) =>
+    TInstrKind::TRefTest(_, target_ht, { kind: TInstrKind::TLocalGet(loc), .. }) =>
       match h2l_plan_for(state_after_walk, loc) {
         Some(plan) =>
           change(
@@ -2210,7 +2510,16 @@ fn h2l_rewrite_tinstr(
             unchanged()
           }
       }
-    TRefTest(_, target_ht, TRefAsNonNull(TLocalGet(loc))) =>
+    TInstrKind::TRefTest(
+      _,
+      target_ht,
+      {
+        kind: TInstrKind::TRefAsNonNull(
+          { kind: TInstrKind::TLocalGet(loc), .. }
+        ),
+        ..,
+      }
+    ) =>
       match h2l_plan_for(state_after_walk, loc) {
         Some(plan) =>
           change(
@@ -2236,7 +2545,11 @@ fn h2l_rewrite_tinstr(
             unchanged()
           }
       }
-    TRefTestDesc(_, target_ht, TLocalGet(loc)) =>
+    TInstrKind::TRefTestDesc(
+      _,
+      target_ht,
+      { kind: TInstrKind::TLocalGet(loc), .. }
+    ) =>
       match h2l_plan_for(state_after_walk, loc) {
         Some(plan) =>
           change(
@@ -2258,7 +2571,16 @@ fn h2l_rewrite_tinstr(
             unchanged()
           }
       }
-    TRefTestDesc(_, target_ht, TRefAsNonNull(TLocalGet(loc))) =>
+    TInstrKind::TRefTestDesc(
+      _,
+      target_ht,
+      {
+        kind: TInstrKind::TRefAsNonNull(
+          { kind: TInstrKind::TLocalGet(loc), .. }
+        ),
+        ..,
+      }
+    ) =>
       match h2l_plan_for(state_after_walk, loc) {
         Some(plan) =>
           change(
@@ -2280,7 +2602,11 @@ fn h2l_rewrite_tinstr(
             unchanged()
           }
       }
-    TRefCastDescEq(_, target_ht, TLocalGet(loc)) =>
+    TInstrKind::TRefCastDescEq(
+      _,
+      target_ht,
+      { kind: TInstrKind::TLocalGet(loc), .. }
+    ) =>
       match h2l_plan_for(state_after_walk, loc) {
         Some(plan) =>
           if h2l_is_exact_descriptor_target(plan.shape, target_ht) {
@@ -2295,7 +2621,16 @@ fn h2l_rewrite_tinstr(
             unchanged()
           }
       }
-    TRefCastDescEq(_, target_ht, TRefAsNonNull(TLocalGet(loc))) =>
+    TInstrKind::TRefCastDescEq(
+      _,
+      target_ht,
+      {
+        kind: TInstrKind::TRefAsNonNull(
+          { kind: TInstrKind::TLocalGet(loc), .. }
+        ),
+        ..,
+      }
+    ) =>
       match h2l_plan_for(state_after_walk, loc) {
         Some(plan) =>
           if h2l_is_exact_descriptor_target(plan.shape, target_ht) {
@@ -2310,7 +2645,10 @@ fn h2l_rewrite_tinstr(
             unchanged()
           }
       }
-    TRefEq(TLocalGet(left), TLocalGet(right)) =>
+    TInstrKind::TRefEq(
+      { kind: TInstrKind::TLocalGet(left), .. },
+      { kind: TInstrKind::TLocalGet(right), .. }
+    ) =>
       match
         (
           h2l_plan_for(state_after_walk, left),
@@ -2331,7 +2669,7 @@ fn h2l_rewrite_tinstr(
             unchanged()
           }
       }
-    TRefEq(TLocalGet(left), right) =>
+    TInstrKind::TRefEq({ kind: TInstrKind::TLocalGet(left), .. }, right) =>
       if h2l_plan_for(state_after_walk, left) is Some(_) {
         change(
           state_after_walk,
@@ -2345,7 +2683,7 @@ fn h2l_rewrite_tinstr(
       } else {
         unchanged()
       }
-    TRefEq(left, TLocalGet(right)) =>
+    TInstrKind::TRefEq(left, { kind: TInstrKind::TLocalGet(right), .. }) =>
       if h2l_plan_for(state_after_walk, right) is Some(_) {
         change(
           state_after_walk,
@@ -2463,21 +2801,21 @@ fn run_heap2local(mod : Module) -> Module {
 fn h2l_count_gc_ops(body : TExpr) -> Int {
   let mut count = 0
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TStructNew(_, _)
-      | TStructNewDefault(_)
-      | TStructGet(_, _, _)
-      | TStructGetS(_, _, _)
-      | TStructGetU(_, _, _)
-      | TStructSet(_, _, _, _)
-      | TArrayNew(_, _, _)
-      | TArrayNewDefault(_, _)
-      | TArrayNewFixed(_, _)
-      | TArrayGet(_, _, _)
-      | TArrayGetS(_, _, _)
-      | TArrayGetU(_, _, _)
-      | TArraySet(_, _, _, _)
-      | TArrayLen(_) => count += 1
+    match instr.kind {
+      TInstrKind::TStructNew(_, _)
+      | TInstrKind::TStructNewDefault(_)
+      | TInstrKind::TStructGet(_, _, _)
+      | TInstrKind::TStructGetS(_, _, _)
+      | TInstrKind::TStructGetU(_, _, _)
+      | TInstrKind::TStructSet(_, _, _, _)
+      | TInstrKind::TArrayNew(_, _, _)
+      | TInstrKind::TArrayNewDefault(_, _)
+      | TInstrKind::TArrayNewFixed(_, _)
+      | TInstrKind::TArrayGet(_, _, _)
+      | TInstrKind::TArrayGetS(_, _, _)
+      | TInstrKind::TArrayGetU(_, _, _)
+      | TInstrKind::TArraySet(_, _, _, _)
+      | TInstrKind::TArrayLen(_) => count += 1
       _ => ()
     }
     self.walk_tinstruction_default((), instr)
@@ -2490,8 +2828,9 @@ fn h2l_count_gc_ops(body : TExpr) -> Int {
 fn h2l_has_unary(body : TExpr, op : UnaryOp) -> Bool {
   let found = Ref::new(false)
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TUnary(found_op, _) if found_op == op => found.update(fn(_) { true })
+    match instr.kind {
+      TInstrKind::TUnary(found_op, _) if found_op == op =>
+        found.update(fn(_) { true })
       _ => ()
     }
     self.walk_tinstruction_default((), instr)
@@ -2504,8 +2843,9 @@ fn h2l_has_unary(body : TExpr, op : UnaryOp) -> Bool {
 fn h2l_has_binary(body : TExpr, op : BinaryOp) -> Bool {
   let found = Ref::new(false)
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TBinary(found_op, _, _) if found_op == op => found.update(fn(_) { true })
+    match instr.kind {
+      TInstrKind::TBinary(found_op, _, _) if found_op == op =>
+        found.update(fn(_) { true })
       _ => ()
     }
     self.walk_tinstruction_default((), instr)
@@ -2518,8 +2858,8 @@ fn h2l_has_binary(body : TExpr, op : BinaryOp) -> Bool {
 fn h2l_has_unreachable(body : TExpr) -> Bool {
   let found = Ref::new(false)
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TUnreachable => found.update(fn(_) { true })
+    match instr.kind {
+      TInstrKind::TUnreachable => found.update(fn(_) { true })
       _ => ()
     }
     self.walk_tinstruction_default((), instr)
@@ -2532,8 +2872,9 @@ fn h2l_has_unreachable(body : TExpr) -> Bool {
 fn h2l_has_i32_const(body : TExpr, target : Int) -> Bool {
   let found = Ref::new(false)
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TI32Const(I32(v)) if v == target => found.update(fn(_) { true })
+    match instr.kind {
+      TInstrKind::TI32Const(I32(v)) if v == target =>
+        found.update(fn(_) { true })
       _ => ()
     }
     self.walk_tinstruction_default((), instr)
@@ -2546,8 +2887,9 @@ fn h2l_has_i32_const(body : TExpr, target : Int) -> Bool {
 fn h2l_has_local_get(body : TExpr, idx : UInt) -> Bool {
   let found = Ref::new(false)
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TLocalGet(LocalIdx(i)) if i == idx => found.update(fn(_) { true })
+    match instr.kind {
+      TInstrKind::TLocalGet(LocalIdx(i)) if i == idx =>
+        found.update(fn(_) { true })
       _ => ()
     }
     self.walk_tinstruction_default((), instr)
@@ -2560,8 +2902,8 @@ fn h2l_has_local_get(body : TExpr, idx : UInt) -> Bool {
 fn h2l_has_ref_get_desc(body : TExpr) -> Bool {
   let found = Ref::new(false)
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TRefGetDesc(_) => found.update(fn(_) { true })
+    match instr.kind {
+      TInstrKind::TRefGetDesc(_) => found.update(fn(_) { true })
       _ => ()
     }
     self.walk_tinstruction_default((), instr)
@@ -2812,8 +3154,8 @@ test "heap2local rewrites dropped loc.get of optimized allocation" {
   let out = run_heap2local(mod)
   match out.code_sec {
     Some(CodeSec([TFunc(_, { instrs, .. })])) =>
-      match instrs[1] {
-        TNop => ()
+      match instrs[1].kind {
+        TInstrKind::TNop => ()
         _ => fail("expected drop(loc.get) to become nop")
       }
     _ => fail("expected function")
@@ -2960,12 +3302,14 @@ test "heap2local rewrites ref.is_null/ref.eq over optimized allocation" {
   match out.code_sec {
     Some(CodeSec([TFunc(_, { instrs, .. })])) => {
       assert_eq(h2l_count_gc_ops(TExpr::new(instrs)), 0)
-      match instrs[1] {
-        TDrop(TI32Const(I32(v))) => assert_eq(v, 0)
+      match instrs[1].kind {
+        TInstrKind::TDrop({ kind: TInstrKind::TI32Const(I32(v)), .. }) =>
+          assert_eq(v, 0)
         _ => fail("expected ref.is_null rewrite to i32.const 0")
       }
-      match instrs[2] {
-        TDrop(TI32Const(I32(v))) => assert_eq(v, 1)
+      match instrs[2].kind {
+        TInstrKind::TDrop({ kind: TInstrKind::TI32Const(I32(v)), .. }) =>
+          assert_eq(v, 1)
         _ => fail("expected ref.eq rewrite to i32.const 1")
       }
     }

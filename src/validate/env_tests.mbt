@@ -337,8 +337,8 @@ test "to_texpr uses type-index block inputs including recursive index forms" {
     Err(e) => fail("unexpected conversion error: \{e}")
     Ok({ instrs, .. }) => {
       assert_eq(instrs.length(), 1)
-      match instrs[0] {
-        TBlock(TypeIdxBlockType(_), { instrs: body, .. }) =>
+      match instrs[0].kind {
+        TInstrKind::TBlock(TypeIdxBlockType(_), { instrs: body, .. }) =>
           assert_eq(body.length(), 1)
         _ => fail("expected type-indexed block in converted expression")
       }
@@ -394,15 +394,15 @@ test "to_texpr call conversion uses imported and defined function arities from w
     Err(e) => fail("unexpected call conversion error: \{e}")
     Ok({ instrs, .. }) => {
       assert_eq(instrs.length(), 2)
-      match instrs[0] {
-        TCall(FuncIdx(i), args) => {
+      match instrs[0].kind {
+        TInstrKind::TCall(FuncIdx(i), args) => {
           assert_eq(i, 0U)
           assert_eq(args.length(), 1)
         }
         _ => fail("expected imported call conversion")
       }
-      match instrs[1] {
-        TCall(FuncIdx(i), args) => {
+      match instrs[1].kind {
+        TInstrKind::TCall(FuncIdx(i), args) => {
           assert_eq(i, 1U)
           assert_eq(args.length(), 2)
         }
@@ -462,8 +462,10 @@ test "to_texpr return recovers multi-value typed block producer" {
     Err(e) => fail("unexpected to_texpr failure: \{e}")
     Ok({ instrs, .. }) => {
       assert_eq(instrs.length(), 1)
-      match instrs[0] {
-        TReturn([TBlock(bt, { instrs: values, .. })]) => {
+      match instrs[0].kind {
+        TInstrKind::TReturn(
+          [{ kind: TInstrKind::TBlock(bt, { instrs: values, .. }), .. }]
+        ) => {
           assert_eq(bt, BlockType::type_idx(TypeIdx::new(0)))
           assert_eq(values.length(), 2)
         }
@@ -495,9 +497,19 @@ test "to_texpr return recovers multi-value typed if producer" {
     Err(e) => fail("unexpected to_texpr failure: \{e}")
     Ok({ instrs, .. }) => {
       assert_eq(instrs.length(), 1)
-      match instrs[0] {
-        TReturn(
-          [TIf(bt, _, { instrs: if_true, .. }, Some({ instrs: if_false, .. }))]
+      match instrs[0].kind {
+        TInstrKind::TReturn(
+          [
+            {
+              kind: TInstrKind::TIf(
+                bt,
+                _,
+                { instrs: if_true, .. },
+                Some({ instrs: if_false, .. })
+              ),
+              ..,
+            },
+          ]
         ) => {
           assert_eq(bt, BlockType::type_idx(TypeIdx::new(0)))
           assert_eq(if_true.length(), 2)
@@ -532,8 +544,10 @@ test "to_texpr return recovers multi-value typed loop producer" {
     Err(e) => fail("unexpected to_texpr failure: \{e}")
     Ok({ instrs, .. }) => {
       assert_eq(instrs.length(), 1)
-      match instrs[0] {
-        TReturn([TLoop(bt, { instrs: values, .. })]) => {
+      match instrs[0].kind {
+        TInstrKind::TReturn(
+          [{ kind: TInstrKind::TLoop(bt, { instrs: values, .. }), .. }]
+        ) => {
           assert_eq(bt, BlockType::type_idx(TypeIdx::new(0)))
           assert_eq(values.length(), 2)
         }
@@ -567,8 +581,15 @@ test "to_texpr return recovers multi-value typed try_table producer" {
     Err(e) => fail("unexpected to_texpr failure: \{e}")
     Ok({ instrs, .. }) => {
       assert_eq(instrs.length(), 1)
-      match instrs[0] {
-        TReturn([TTryTable(bt, catches, { instrs: values, .. })]) => {
+      match instrs[0].kind {
+        TInstrKind::TReturn(
+          [
+            {
+              kind: TInstrKind::TTryTable(bt, catches, { instrs: values, .. }),
+              ..,
+            },
+          ]
+        ) => {
           assert_eq(bt, BlockType::type_idx(TypeIdx::new(0)))
           assert_eq(catches.length(), 0)
           assert_eq(values.length(), 2)
@@ -816,11 +837,11 @@ test "to_texpr call_indirect with non-function TypeIdx falls back to zero params
       fail("unexpected conversion failure for non-function call_indirect: \{e}")
     Ok({ instrs, .. }) => {
       assert_eq(instrs.length(), 1)
-      match instrs[0] {
-        TCallIndirect(_, _, args, table_index) => {
+      match instrs[0].kind {
+        TInstrKind::TCallIndirect(_, _, args, table_index) => {
           assert_eq(args.length(), 0)
-          match table_index {
-            TI32Const(I32(v)) => assert_eq(v, 0)
+          match table_index.kind {
+            TInstrKind::TI32Const(I32(v)) => assert_eq(v, 0)
             _ => fail("expected i32.const table index expression")
           }
         }

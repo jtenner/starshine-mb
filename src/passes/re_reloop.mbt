@@ -536,10 +536,11 @@ fn rr_tinstr_contains(instr : TInstr, pred : (TInstr) -> Bool) -> Bool {
       return true
     }
   }
-  match instr {
-    TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) =>
-      rr_texpr_contains(body, pred)
-    TIf(_, cond, then_body, else_body) => {
+  match instr.kind {
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) => rr_texpr_contains(body, pred)
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
       if rr_tinstr_contains(cond, pred) || rr_texpr_contains(then_body, pred) {
         return true
       }
@@ -567,10 +568,11 @@ fn rr_tinstr_count(instr : TInstr, pred : (TInstr) -> Bool) -> Int {
   for child in rr_eval_children(instr) {
     total = total + rr_tinstr_count(child, pred)
   }
-  match instr {
-    TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) =>
-      total + rr_texpr_count(body, pred)
-    TIf(_, cond, then_body, else_body) => {
+  match instr.kind {
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) => total + rr_texpr_count(body, pred)
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
       total = total +
         rr_tinstr_count(cond, pred) +
         rr_texpr_count(then_body, pred)
@@ -591,8 +593,27 @@ test "re_reloop rewrites mergeable block shells" {
     Err(e) => fail("re_reloop should succeed on mergeable block fixture: \{e}")
   }
   match out.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TDrop(TI32Const(I32(v))), TNop], .. })])) =>
-      assert_eq(v, 9)
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                {
+                  kind: TInstrKind::TDrop(
+                    { kind: TInstrKind::TI32Const(I32(v)), .. }
+                  ),
+                  ..,
+                },
+                { kind: TInstrKind::TNop, .. },
+              ],
+              ..,
+            }
+          ),
+        ]
+      )
+    ) => assert_eq(v, 9)
     _ => fail("expected re_reloop to collapse wrapper block into plain body")
   }
 }
@@ -631,16 +652,16 @@ test "re_reloop reconstructs flattened branch shells via cfg relayout" {
     Some(CodeSec([TFunc(_, body)])) => {
       assert_true(
         rr_texpr_contains(body, fn(instr) {
-          match instr {
-            TIf(_, _, _, _) => true
+          match instr.kind {
+            TInstrKind::TIf(_, _, _, _) => true
             _ => false
           }
         }),
       )
       assert_false(
         rr_texpr_contains(body, fn(instr) {
-          match instr {
-            TBrIf(_, _, _) => true
+          match instr.kind {
+            TInstrKind::TBrIf(_, _, _) => true
             _ => false
           }
         }),
@@ -665,16 +686,16 @@ test "re_reloop reconstructs flattened br_on_null shell via cfg relayout" {
     Some(CodeSec([TFunc(_, body)])) => {
       assert_true(
         rr_texpr_contains(body, fn(instr) {
-          match instr {
-            TIf(_, _, _, _) => true
+          match instr.kind {
+            TInstrKind::TIf(_, _, _, _) => true
             _ => false
           }
         }),
       )
       assert_eq(
         rr_texpr_count(body, fn(instr) {
-          match instr {
-            TBrOnNull(_, _, _) => true
+          match instr.kind {
+            TInstrKind::TBrOnNull(_, _, _) => true
             _ => false
           }
         }),
@@ -706,8 +727,8 @@ test "re_reloop reconstructs flattened br_on family shells via cfg relayout" {
             if_count.update(fn(v) {
               v +
               rr_texpr_count(body, fn(instr) {
-                match instr {
-                  TIf(_, _, _, _) => true
+                match instr.kind {
+                  TInstrKind::TIf(_, _, _, _) => true
                   _ => false
                 }
               })
@@ -723,11 +744,11 @@ test "re_reloop reconstructs flattened br_on family shells via cfg relayout" {
             bron_count.update(fn(v) {
               v +
               rr_texpr_count(body, fn(instr) {
-                match instr {
-                  TBrOnNull(_, _, _)
-                  | TBrOnNonNull(_, _, _)
-                  | TBrOnCast(_, _, _, _, _, _)
-                  | TBrOnCastFail(_, _, _, _, _, _) => true
+                match instr.kind {
+                  TInstrKind::TBrOnNull(_, _, _)
+                  | TInstrKind::TBrOnNonNull(_, _, _)
+                  | TInstrKind::TBrOnCast(_, _, _, _, _, _)
+                  | TInstrKind::TBrOnCastFail(_, _, _, _, _, _) => true
                   _ => false
                 }
               })
@@ -757,16 +778,16 @@ test "re_reloop reconstructs flattened br_table shell via cfg relayout" {
     Some(CodeSec([TFunc(_, body)])) => {
       assert_true(
         rr_texpr_contains(body, fn(instr) {
-          match instr {
-            TIf(_, _, _, _) => true
+          match instr.kind {
+            TInstrKind::TIf(_, _, _, _) => true
             _ => false
           }
         }),
       )
       assert_eq(
         rr_texpr_count(body, fn(instr) {
-          match instr {
-            TBrTable(_, _, _, _) => true
+          match instr.kind {
+            TInstrKind::TBrTable(_, _, _, _) => true
             _ => false
           }
         }),
@@ -794,8 +815,8 @@ test "re_reloop preserves single-evaluation semantics for side-effectful br_tabl
     Some(CodeSec([_, TFunc(_, body)])) =>
       assert_eq(
         rr_texpr_count(body, fn(instr) {
-          match instr {
-            TCall(FuncIdx(idx), _) => idx == 0
+          match instr.kind {
+            TInstrKind::TCall(FuncIdx(idx), _) => idx == 0
             _ => false
           }
         }),
@@ -864,8 +885,8 @@ test "re_reloop cfg br_table fallback preserves single-evaluation semantics for 
   assert_true(scratch_used.val)
   assert_eq(
     rr_texpr_count(rebuilt, fn(instr) {
-      match instr {
-        TCall(FuncIdx(idx), _) => idx == 0
+      match instr.kind {
+        TInstrKind::TCall(FuncIdx(idx), _) => idx == 0
         _ => false
       }
     }),
@@ -885,8 +906,8 @@ test "re_reloop reconstructs mixed-depth br_table targets end-to-end" {
     Some(CodeSec([TFunc(_, body)])) => {
       assert_true(
         rr_texpr_count(body, fn(instr) {
-          match instr {
-            TIf(_, _, _, _) => true
+          match instr.kind {
+            TInstrKind::TIf(_, _, _, _) => true
             _ => false
           }
         }) >=
@@ -894,8 +915,8 @@ test "re_reloop reconstructs mixed-depth br_table targets end-to-end" {
       )
       assert_eq(
         rr_texpr_count(body, fn(instr) {
-          match instr {
-            TBrTable(_, _, _, _) => true
+          match instr.kind {
+            TInstrKind::TBrTable(_, _, _, _) => true
             _ => false
           }
         }),
@@ -925,8 +946,8 @@ test "re_reloop preserves direct br_table for internal loop targets end-to-end" 
     Some(CodeSec([_, TFunc(_, body)])) => {
       assert_eq(
         rr_texpr_count(body, fn(instr) {
-          match instr {
-            TCall(FuncIdx(idx), _) => idx == 0
+          match instr.kind {
+            TInstrKind::TCall(FuncIdx(idx), _) => idx == 0
             _ => false
           }
         }),
@@ -934,8 +955,8 @@ test "re_reloop preserves direct br_table for internal loop targets end-to-end" 
       )
       assert_eq(
         rr_texpr_count(body, fn(instr) {
-          match instr {
-            TBrTable(_, _, _, _) => true
+          match instr.kind {
+            TInstrKind::TBrTable(_, _, _, _) => true
             _ => false
           }
         }),
@@ -943,8 +964,8 @@ test "re_reloop preserves direct br_table for internal loop targets end-to-end" 
       )
       assert_eq(
         rr_texpr_count(body, fn(instr) {
-          match instr {
-            TLocalSet(_) => true
+          match instr.kind {
+            TInstrKind::TLocalSet(_) => true
             _ => false
           }
         }),
@@ -974,16 +995,16 @@ test "re_reloop reconstructs flattened shells with non-special outer-target bran
     Some(CodeSec([TFunc(_, body)])) => {
       assert_true(
         rr_texpr_contains(body, fn(instr) {
-          match instr {
-            TIf(_, _, _, _) => true
+          match instr.kind {
+            TInstrKind::TIf(_, _, _, _) => true
             _ => false
           }
         }),
       )
       assert_eq(
         rr_texpr_count(body, fn(instr) {
-          match instr {
-            TBrIf(_, _, _) => true
+          match instr.kind {
+            TInstrKind::TBrIf(_, _, _) => true
             _ => false
           }
         }),
@@ -1012,8 +1033,8 @@ test "re_reloop preserves branch-value flows while reconstructing if form" {
     Some(CodeSec([TFunc(_, body)])) => {
       assert_eq(
         rr_texpr_count(body, fn(instr) {
-          match instr {
-            TBrIf(_, _, _) => true
+          match instr.kind {
+            TInstrKind::TBrIf(_, _, _) => true
             _ => false
           }
         }),
@@ -1021,9 +1042,11 @@ test "re_reloop preserves branch-value flows while reconstructing if form" {
       )
       assert_true(
         rr_texpr_contains(body, fn(instr) {
-          match instr {
-            TBr(LabelIdx(depth), [TLocalGet(LocalIdx(i))]) =>
-              depth == 0 && i == 1U
+          match instr.kind {
+            TInstrKind::TBr(
+              LabelIdx(depth),
+              [{ kind: TInstrKind::TLocalGet(LocalIdx(i)), .. }]
+            ) => depth == 0 && i == 1U
             _ => false
           }
         }),
@@ -1049,11 +1072,11 @@ test "re_reloop reconstructs flattened loop backedge branch shells" {
     Some(CodeSec([TFunc(_, body)])) => {
       assert_true(
         rr_texpr_contains(body, fn(instr) {
-          match instr {
-            TLoop(_, loop_body) =>
+          match instr.kind {
+            TInstrKind::TLoop(_, loop_body) =>
               rr_texpr_contains(loop_body, fn(inner) {
-                match inner {
-                  TIf(_, _, _, _) => true
+                match inner.kind {
+                  TInstrKind::TIf(_, _, _, _) => true
                   _ => false
                 }
               })
@@ -1063,8 +1086,8 @@ test "re_reloop reconstructs flattened loop backedge branch shells" {
       )
       assert_eq(
         rr_texpr_count(body, fn(instr) {
-          match instr {
-            TBrIf(_, _, _) => true
+          match instr.kind {
+            TInstrKind::TBrIf(_, _, _) => true
             _ => false
           }
         }),
@@ -1133,156 +1156,179 @@ test "merge_blocks can still run on non-flat fixture where re_reloop rejects" {
 
 ///|
 fn rr_is_control_flow(instr : TInstr) -> Bool {
-  match instr {
-    TBlock(_, _)
-    | TLoop(_, _)
-    | TIf(_, _, _, _)
-    | TTryTable(_, _, _)
-    | TBr(_, _)
-    | TBrIf(_, _, _)
-    | TBrTable(_, _, _, _)
-    | TBrOnNull(_, _, _)
-    | TBrOnNonNull(_, _, _)
-    | TBrOnCast(_, _, _, _, _, _)
-    | TBrOnCastFail(_, _, _, _, _, _)
-    | TReturn(_)
-    | TReturnCall(_, _)
-    | TReturnCallIndirect(_, _, _, _)
-    | TReturnCallRef(_, _, _)
-    | TThrow(_, _)
-    | TThrowRef(_)
-    | TUnreachable => true
+  match instr.kind {
+    TInstrKind::TBlock(_, _)
+    | TInstrKind::TLoop(_, _)
+    | TInstrKind::TIf(_, _, _, _)
+    | TInstrKind::TTryTable(_, _, _)
+    | TInstrKind::TBr(_, _)
+    | TInstrKind::TBrIf(_, _, _)
+    | TInstrKind::TBrTable(_, _, _, _)
+    | TInstrKind::TBrOnNull(_, _, _)
+    | TInstrKind::TBrOnNonNull(_, _, _)
+    | TInstrKind::TBrOnCast(_, _, _, _, _, _)
+    | TInstrKind::TBrOnCastFail(_, _, _, _, _, _)
+    | TInstrKind::TReturn(_)
+    | TInstrKind::TReturnCall(_, _)
+    | TInstrKind::TReturnCallIndirect(_, _, _, _)
+    | TInstrKind::TReturnCallRef(_, _, _)
+    | TInstrKind::TThrow(_, _)
+    | TInstrKind::TThrowRef(_)
+    | TInstrKind::TUnreachable => true
     _ => false
   }
 }
 
 ///|
 fn rr_eval_children(instr : TInstr) -> Array[TInstr] {
-  match instr {
-    TI32Const(_)
-    | TI64Const(_)
-    | TF32Const(_)
-    | TF64Const(_)
-    | TRefNull(_)
-    | TRefFunc(_)
-    | TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
-    | TUnreachable
-    | TNop
-    | TLocalGet(_)
-    | TGlobalGet(_)
-    | TMemorySize(_)
-    | TAtomicFence
-    | TTableSize(_)
-    | TDataDrop(_)
-    | TElemDrop(_)
-    | TStructNewDefault(_) => []
-    TUnary(_, child)
-    | TDrop(child)
-    | TLocalSet(_, child)
-    | TLocalTee(_, child)
-    | TGlobalSet(_, child)
-    | TRefIsNull(child)
-    | TRefAsNonNull(child)
-    | TI31GetS(child)
-    | TI31GetU(child)
-    | TRefI31(child)
-    | TArrayLen(child)
-    | TAnyConvertExtern(child)
-    | TExternConvertAny(child)
-    | TThrowRef(child)
-    | TMemoryGrow(_, child)
-    | TTableGet(_, child)
-    | TLoad(_, _, child)
-    | TArrayNewDefault(_, child)
-    | TStructGet(_, _, child)
-    | TStructGetS(_, _, child)
-    | TStructGetU(_, _, child)
-    | TI8x16Splat(child)
-    | TI16x8Splat(child)
-    | TI32x4Splat(child)
-    | TI64x2Splat(child)
-    | TF32x4Splat(child)
-    | TF64x2Splat(child)
-    | TExtractLane(_, _, child)
-    | TRefTest(_, _, child)
-    | TRefCast(_, _, child)
-    | TRefGetDesc(child)
-    | TRefTestDesc(_, _, child)
-    | TRefCastDescEq(_, _, child) => [child]
-    TBinary(_, left, right)
-    | TRefEq(left, right)
-    | TStore(_, _, left, right)
-    | TMemoryAtomicNotify(_, left, right)
-    | TAtomicRmw(_, _, left, right)
-    | TTableSet(_, left, right)
-    | TTableGrow(_, left, right)
-    | TStructSet(_, _, left, right)
-    | TArrayNew(_, left, right)
-    | TArrayNewData(_, _, left, right)
-    | TArrayNewElem(_, _, left, right)
-    | TArrayGet(_, left, right)
-    | TArrayGetS(_, left, right)
-    | TArrayGetU(_, left, right)
-    | TReplaceLane(_, _, left, right)
-    | TI8x16Swizzle(left, right)
-    | TI8x16RelaxedSwizzle(left, right)
-    | TV128Shift(_, left, right)
-    | TV128LoadLane(_, _, _, left, right)
-    | TV128StoreLane(_, _, _, left, right) => [left, right]
-    TMemoryFill(_, a, b, c)
-    | TMemoryCopy(_, _, a, b, c)
-    | TMemoryInit(_, _, a, b, c)
-    | TMemoryAtomicWait32(_, a, b, c)
-    | TMemoryAtomicWait64(_, a, b, c)
-    | TAtomicCmpxchg(_, _, a, b, c)
-    | TTableFill(_, a, b, c)
-    | TTableCopy(_, _, a, b, c)
-    | TTableInit(_, _, a, b, c)
-    | TSelect(_, c, a, b)
-    | TV128Ternary(_, a, b, c) => [a, b, c]
-    TCall(_, args)
-    | TReturnCall(_, args)
-    | TThrow(_, args)
-    | TBr(_, args)
-    | TReturn(args)
-    | TStructNew(_, args)
-    | TArrayNewFixed(_, args) => args.copy()
-    TCallIndirect(_, _, args, index) | TReturnCallIndirect(_, _, args, index) => {
+  match instr.kind {
+    TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_)
+    | TInstrKind::TRefNull(_)
+    | TInstrKind::TRefFunc(_)
+    | TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    | TInstrKind::TUnreachable
+    | TInstrKind::TNop
+    | TInstrKind::TLocalGet(_)
+    | TInstrKind::TGlobalGet(_)
+    | TInstrKind::TMemorySize(_)
+    | TInstrKind::TAtomicFence
+    | TInstrKind::TTableSize(_)
+    | TInstrKind::TDataDrop(_)
+    | TInstrKind::TElemDrop(_)
+    | TInstrKind::TStructNewDefault(_) => []
+    TInstrKind::TUnary(_, child)
+    | TInstrKind::TDrop(child)
+    | TInstrKind::TLocalSet(_, child)
+    | TInstrKind::TLocalTee(_, child)
+    | TInstrKind::TGlobalSet(_, child)
+    | TInstrKind::TRefIsNull(child)
+    | TInstrKind::TRefAsNonNull(child)
+    | TInstrKind::TI31GetS(child)
+    | TInstrKind::TI31GetU(child)
+    | TInstrKind::TRefI31(child)
+    | TInstrKind::TArrayLen(child)
+    | TInstrKind::TAnyConvertExtern(child)
+    | TInstrKind::TExternConvertAny(child)
+    | TInstrKind::TThrowRef(child)
+    | TInstrKind::TMemoryGrow(_, child)
+    | TInstrKind::TTableGet(_, child)
+    | TInstrKind::TLoad(_, _, child)
+    | TInstrKind::TArrayNewDefault(_, child)
+    | TInstrKind::TStructGet(_, _, child)
+    | TInstrKind::TStructGetS(_, _, child)
+    | TInstrKind::TStructGetU(_, _, child)
+    | TInstrKind::TI8x16Splat(child)
+    | TInstrKind::TI16x8Splat(child)
+    | TInstrKind::TI32x4Splat(child)
+    | TInstrKind::TI64x2Splat(child)
+    | TInstrKind::TF32x4Splat(child)
+    | TInstrKind::TF64x2Splat(child)
+    | TInstrKind::TExtractLane(_, _, child)
+    | TInstrKind::TRefTest(_, _, child)
+    | TInstrKind::TRefCast(_, _, child)
+    | TInstrKind::TRefGetDesc(child)
+    | TInstrKind::TRefTestDesc(_, _, child)
+    | TInstrKind::TRefCastDescEq(_, _, child) => [child]
+    TInstrKind::TBinary(_, left, right)
+    | TInstrKind::TRefEq(left, right)
+    | TInstrKind::TStore(_, _, left, right)
+    | TInstrKind::TMemoryAtomicNotify(_, left, right)
+    | TInstrKind::TAtomicRmw(_, _, left, right)
+    | TInstrKind::TTableSet(_, left, right)
+    | TInstrKind::TTableGrow(_, left, right)
+    | TInstrKind::TStructSet(_, _, left, right)
+    | TInstrKind::TArrayNew(_, left, right)
+    | TInstrKind::TArrayNewData(_, _, left, right)
+    | TInstrKind::TArrayNewElem(_, _, left, right)
+    | TInstrKind::TArrayGet(_, left, right)
+    | TInstrKind::TArrayGetS(_, left, right)
+    | TInstrKind::TArrayGetU(_, left, right)
+    | TInstrKind::TReplaceLane(_, _, left, right)
+    | TInstrKind::TI8x16Swizzle(left, right)
+    | TInstrKind::TI8x16RelaxedSwizzle(left, right)
+    | TInstrKind::TV128Shift(_, left, right)
+    | TInstrKind::TV128LoadLane(_, _, _, left, right)
+    | TInstrKind::TV128StoreLane(_, _, _, left, right) => [left, right]
+    TInstrKind::TMemoryFill(_, a, b, c)
+    | TInstrKind::TMemoryCopy(_, _, a, b, c)
+    | TInstrKind::TMemoryInit(_, _, a, b, c)
+    | TInstrKind::TMemoryAtomicWait32(_, a, b, c)
+    | TInstrKind::TMemoryAtomicWait64(_, a, b, c)
+    | TInstrKind::TAtomicCmpxchg(_, _, a, b, c)
+    | TInstrKind::TTableFill(_, a, b, c)
+    | TInstrKind::TTableCopy(_, _, a, b, c)
+    | TInstrKind::TTableInit(_, _, a, b, c)
+    | TInstrKind::TSelect(_, c, a, b)
+    | TInstrKind::TV128Ternary(_, a, b, c) => [a, b, c]
+    TInstrKind::TCall(_, args)
+    | TInstrKind::TReturnCall(_, args)
+    | TInstrKind::TThrow(_, args)
+    | TInstrKind::TBr(_, args)
+    | TInstrKind::TReturn(args)
+    | TInstrKind::TStructNew(_, args)
+    | TInstrKind::TArrayNewFixed(_, args) => args.copy()
+    TInstrKind::TCallIndirect(_, _, args, index)
+    | TInstrKind::TReturnCallIndirect(_, _, args, index) => {
       let out = args.copy()
       out.push(index)
       out
     }
-    TCallRef(_, args, ref_) | TReturnCallRef(_, args, ref_) => {
+    TInstrKind::TCallRef(_, args, ref_)
+    | TInstrKind::TReturnCallRef(_, args, ref_) => {
       let out = args.copy()
       out.push(ref_)
       out
     }
-    TBrIf(_, cond, values) => {
+    TInstrKind::TBrIf(_, cond, values) => {
       let out = values.copy()
       out.push(cond)
       out
     }
-    TBrTable(_, _, index, values) => {
+    TInstrKind::TBrTable(_, _, index, values) => {
       let out = values.copy()
       out.push(index)
       out
     }
-    TBrOnNull(_, ref_, values)
-    | TBrOnNonNull(_, ref_, values)
-    | TBrOnCast(_, _, _, _, ref_, values)
-    | TBrOnCastFail(_, _, _, _, ref_, values) => {
+    TInstrKind::TBrOnNull(_, ref_, values)
+    | TInstrKind::TBrOnNonNull(_, ref_, values)
+    | TInstrKind::TBrOnCast(_, _, _, _, ref_, values)
+    | TInstrKind::TBrOnCastFail(_, _, _, _, ref_, values) => {
       let out = values.copy()
       out.push(ref_)
       out
     }
-    TArraySet(_, a, b, c) => [a, b, c]
-    TArrayFill(_, a, b, c, d) => [a, b, c, d]
-    TArrayCopy(_, _, a, b, c, d, e) => [a, b, c, d, e]
-    TArrayInitData(_, _, a, b, c, d) => [a, b, c, d]
-    TArrayInitElem(_, _, a, b, c, d) => [a, b, c, d]
-    TI8x16Shuffle(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, left, right) =>
-      [left, right]
-    TBlock(_, _) | TLoop(_, _) | TIf(_, _, _, _) | TTryTable(_, _, _) => []
+    TInstrKind::TArraySet(_, a, b, c) => [a, b, c]
+    TInstrKind::TArrayFill(_, a, b, c, d) => [a, b, c, d]
+    TInstrKind::TArrayCopy(_, _, a, b, c, d, e) => [a, b, c, d, e]
+    TInstrKind::TArrayInitData(_, _, a, b, c, d) => [a, b, c, d]
+    TInstrKind::TArrayInitElem(_, _, a, b, c, d) => [a, b, c, d]
+    TInstrKind::TI8x16Shuffle(
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      left,
+      right
+    ) => [left, right]
+    TInstrKind::TBlock(_, _)
+    | TInstrKind::TLoop(_, _)
+    | TInstrKind::TIf(_, _, _, _)
+    | TInstrKind::TTryTable(_, _, _) => []
   }
 }
 
@@ -1293,14 +1339,16 @@ fn rr_contains_nested_control(instr : TInstr) -> Bool {
       return true
     }
   }
-  match instr {
-    TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) =>
+  match instr.kind {
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) =>
       for item in body.instrs {
         if rr_contains_nested_control(item) {
           return true
         }
       }
-    TIf(_, cond, then_body, else_body) => {
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
       if rr_is_control_flow(cond) || rr_contains_nested_control(cond) {
         return true
       }
@@ -1329,8 +1377,10 @@ fn rr_validate_function_body_flat_and_supported(
   body : TExpr,
 ) -> Result[Unit, String] {
   for instr in body.instrs {
-    match instr {
-      TTryTable(_, _, _) | TThrow(_, _) | TThrowRef(_) =>
+    match instr.kind {
+      TInstrKind::TTryTable(_, _, _)
+      | TInstrKind::TThrow(_, _)
+      | TInstrKind::TThrowRef(_) =>
         return Err("re_reloop does not support EH instructions yet")
       _ => ()
     }
@@ -1456,25 +1506,26 @@ fn rr_target_label(
 
 ///|
 fn rr_dup_safe_expr(expr : TInstr) -> Bool {
-  match expr {
-    TI32Const(_)
-    | TI64Const(_)
-    | TF32Const(_)
-    | TF64Const(_)
-    | TLocalGet(_)
-    | TGlobalGet(_)
-    | TRefNull(_)
-    | TRefFunc(_)
-    | TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => true
-    TUnary(_, child)
-    | TRefIsNull(child)
-    | TRefAsNonNull(child)
-    | TI31GetS(child)
-    | TI31GetU(child)
-    | TRefI31(child)
-    | TAnyConvertExtern(child)
-    | TExternConvertAny(child) => rr_dup_safe_expr(child)
-    TBinary(_, left, right) | TRefEq(left, right) =>
+  match expr.kind {
+    TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_)
+    | TInstrKind::TLocalGet(_)
+    | TInstrKind::TGlobalGet(_)
+    | TInstrKind::TRefNull(_)
+    | TInstrKind::TRefFunc(_)
+    | TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      true
+    TInstrKind::TUnary(_, child)
+    | TInstrKind::TRefIsNull(child)
+    | TInstrKind::TRefAsNonNull(child)
+    | TInstrKind::TI31GetS(child)
+    | TInstrKind::TI31GetU(child)
+    | TInstrKind::TRefI31(child)
+    | TInstrKind::TAnyConvertExtern(child)
+    | TInstrKind::TExternConvertAny(child) => rr_dup_safe_expr(child)
+    TInstrKind::TBinary(_, left, right) | TInstrKind::TRefEq(left, right) =>
       rr_dup_safe_expr(left) && rr_dup_safe_expr(right)
     _ => false
   }
@@ -1827,8 +1878,8 @@ fn rr_try_build_flat_cfg(
   let mut terminated = false
 
   for instr in body.instrs {
-    match instr {
-      TBr(label, values) => {
+    match instr.kind {
+      TInstrKind::TBr(label, values) => {
         let target = rr_label_to_target(mode, label, entry, exit)
         blocks[current] = {
           instrs: current_instrs,
@@ -1837,7 +1888,7 @@ fn rr_try_build_flat_cfg(
         saw_control = true
         terminated = true
       }
-      TBrIf(label, cond, values) => {
+      TInstrKind::TBrIf(label, cond, values) => {
         let target = rr_label_to_target(mode, label, entry, exit)
         let fallthrough = fresh()
         blocks[current] = {
@@ -1848,7 +1899,7 @@ fn rr_try_build_flat_cfg(
         current_instrs = []
         saw_control = true
       }
-      TBrOnNull(label, ref_, values) => {
+      TInstrKind::TBrOnNull(label, ref_, values) => {
         let target = rr_label_to_target(mode, label, entry, exit)
         let fallthrough = fresh()
         blocks[current] = {
@@ -1864,7 +1915,7 @@ fn rr_try_build_flat_cfg(
         current_instrs = []
         saw_control = true
       }
-      TBrOnNonNull(label, ref_, values) => {
+      TInstrKind::TBrOnNonNull(label, ref_, values) => {
         let target = rr_label_to_target(mode, label, entry, exit)
         let fallthrough = fresh()
         blocks[current] = {
@@ -1880,7 +1931,7 @@ fn rr_try_build_flat_cfg(
         current_instrs = []
         saw_control = true
       }
-      TBrOnCast(label, op, _src_ht, dst_ht, ref_, values) => {
+      TInstrKind::TBrOnCast(label, op, _src_ht, dst_ht, ref_, values) => {
         let target = rr_label_to_target(mode, label, entry, exit)
         let fallthrough = fresh()
         blocks[current] = {
@@ -1896,7 +1947,7 @@ fn rr_try_build_flat_cfg(
         current_instrs = []
         saw_control = true
       }
-      TBrOnCastFail(label, op, _src_ht, dst_ht, ref_, values) => {
+      TInstrKind::TBrOnCastFail(label, op, _src_ht, dst_ht, ref_, values) => {
         let target = rr_label_to_target(mode, label, entry, exit)
         let fallthrough = fresh()
         blocks[current] = {
@@ -1915,7 +1966,7 @@ fn rr_try_build_flat_cfg(
         current_instrs = []
         saw_control = true
       }
-      TBrTable(labels, default_label, index, values) => {
+      TInstrKind::TBrTable(labels, default_label, index, values) => {
         let mapped_targets : Array[RRJumpTarget] = []
         for label in labels {
           mapped_targets.push(rr_label_to_target(mode, label, entry, exit))
@@ -1930,15 +1981,17 @@ fn rr_try_build_flat_cfg(
         saw_control = true
         terminated = true
       }
-      TBlock(_, _) | TLoop(_, _) | TIf(_, _, _, _) | TTryTable(_, _, _) =>
-        return None
-      TReturn(_)
-      | TReturnCall(_, _)
-      | TReturnCallIndirect(_, _, _, _)
-      | TReturnCallRef(_, _, _)
-      | TThrow(_, _)
-      | TThrowRef(_)
-      | TUnreachable => return None
+      TInstrKind::TBlock(_, _)
+      | TInstrKind::TLoop(_, _)
+      | TInstrKind::TIf(_, _, _, _)
+      | TInstrKind::TTryTable(_, _, _) => return None
+      TInstrKind::TReturn(_)
+      | TInstrKind::TReturnCall(_, _)
+      | TInstrKind::TReturnCallIndirect(_, _, _, _)
+      | TInstrKind::TReturnCallRef(_, _, _)
+      | TInstrKind::TThrow(_, _)
+      | TInstrKind::TThrowRef(_)
+      | TInstrKind::TUnreachable => return None
       _ => current_instrs.push(instr)
     }
     if terminated {
@@ -2024,8 +2077,8 @@ fn rr_reconstruct_tinstr(
   scratch_local : LocalIdx?,
   scratch_used : Ref[Bool]?,
 ) -> Result[TInstr, String] {
-  match instr {
-    TBlock(bt, body) => {
+  match instr.kind {
+    TInstrKind::TBlock(bt, body) => {
       let next_body = match
         rr_reconstruct_texpr(body, scratch_local, scratch_used) {
         Ok(next) => next
@@ -2039,7 +2092,7 @@ fn rr_reconstruct_tinstr(
         None => Ok(TInstr::block(bt, next_body))
       }
     }
-    TLoop(bt, body) => {
+    TInstrKind::TLoop(bt, body) => {
       let next_body = match
         rr_reconstruct_texpr(body, scratch_local, scratch_used) {
         Ok(next) => next
@@ -2051,7 +2104,7 @@ fn rr_reconstruct_tinstr(
         None => Ok(TInstr::loop_(bt, next_body))
       }
     }
-    TIf(bt, cond, then_body, else_body) => {
+    TInstrKind::TIf(bt, cond, then_body, else_body) => {
       let next_then = match
         rr_reconstruct_texpr(then_body, scratch_local, scratch_used) {
         Ok(next) => next

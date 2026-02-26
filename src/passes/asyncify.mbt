@@ -439,131 +439,154 @@ fn asyncify_apply_arguments(
 
 ///|
 fn af_eval_children(instr : TInstr) -> Array[TInstr] {
-  match instr {
-    TI32Const(_)
-    | TI64Const(_)
-    | TF32Const(_)
-    | TF64Const(_)
-    | TRefNull(_)
-    | TRefFunc(_)
-    | TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
-    | TUnreachable
-    | TNop
-    | TLocalGet(_)
-    | TGlobalGet(_)
-    | TMemorySize(_)
-    | TAtomicFence
-    | TTableSize(_)
-    | TDataDrop(_)
-    | TElemDrop(_)
-    | TStructNewDefault(_) => []
-    TUnary(_, child)
-    | TDrop(child)
-    | TLocalSet(_, child)
-    | TLocalTee(_, child)
-    | TGlobalSet(_, child)
-    | TRefIsNull(child)
-    | TRefAsNonNull(child)
-    | TI31GetS(child)
-    | TI31GetU(child)
-    | TRefI31(child)
-    | TArrayLen(child)
-    | TAnyConvertExtern(child)
-    | TExternConvertAny(child)
-    | TThrowRef(child)
-    | TMemoryGrow(_, child)
-    | TTableGet(_, child)
-    | TLoad(_, _, child)
-    | TArrayNewDefault(_, child)
-    | TStructGet(_, _, child)
-    | TStructGetS(_, _, child)
-    | TStructGetU(_, _, child)
-    | TI8x16Splat(child)
-    | TI16x8Splat(child)
-    | TI32x4Splat(child)
-    | TI64x2Splat(child)
-    | TF32x4Splat(child)
-    | TF64x2Splat(child)
-    | TExtractLane(_, _, child)
-    | TRefTest(_, _, child)
-    | TRefCast(_, _, child)
-    | TRefGetDesc(child)
-    | TRefTestDesc(_, _, child)
-    | TRefCastDescEq(_, _, child) => [child]
-    TBinary(_, left, right)
-    | TRefEq(left, right)
-    | TStore(_, _, left, right)
-    | TMemoryAtomicNotify(_, left, right)
-    | TAtomicRmw(_, _, left, right)
-    | TTableSet(_, left, right)
-    | TTableGrow(_, left, right)
-    | TStructSet(_, _, left, right)
-    | TArrayNew(_, left, right)
-    | TArrayNewData(_, _, left, right)
-    | TArrayNewElem(_, _, left, right)
-    | TArrayGet(_, left, right)
-    | TArrayGetS(_, left, right)
-    | TArrayGetU(_, left, right)
-    | TReplaceLane(_, _, left, right)
-    | TI8x16Swizzle(left, right)
-    | TI8x16RelaxedSwizzle(left, right)
-    | TV128Shift(_, left, right)
-    | TV128LoadLane(_, _, _, left, right)
-    | TV128StoreLane(_, _, _, left, right) => [left, right]
-    TMemoryFill(_, a, b, c)
-    | TMemoryCopy(_, _, a, b, c)
-    | TMemoryInit(_, _, a, b, c)
-    | TMemoryAtomicWait32(_, a, b, c)
-    | TMemoryAtomicWait64(_, a, b, c)
-    | TAtomicCmpxchg(_, _, a, b, c)
-    | TTableFill(_, a, b, c)
-    | TTableCopy(_, _, a, b, c)
-    | TTableInit(_, _, a, b, c)
-    | TSelect(_, c, a, b)
-    | TV128Ternary(_, a, b, c) => [a, b, c]
-    TCall(_, args)
-    | TReturnCall(_, args)
-    | TThrow(_, args)
-    | TBr(_, args)
-    | TReturn(args)
-    | TStructNew(_, args)
-    | TArrayNewFixed(_, args) => args.copy()
-    TCallIndirect(_, _, args, index) | TReturnCallIndirect(_, _, args, index) => {
+  match instr.kind {
+    TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_)
+    | TInstrKind::TRefNull(_)
+    | TInstrKind::TRefFunc(_)
+    | TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    | TInstrKind::TUnreachable
+    | TInstrKind::TNop
+    | TInstrKind::TLocalGet(_)
+    | TInstrKind::TGlobalGet(_)
+    | TInstrKind::TMemorySize(_)
+    | TInstrKind::TAtomicFence
+    | TInstrKind::TTableSize(_)
+    | TInstrKind::TDataDrop(_)
+    | TInstrKind::TElemDrop(_)
+    | TInstrKind::TStructNewDefault(_) => []
+    TInstrKind::TUnary(_, child)
+    | TInstrKind::TDrop(child)
+    | TInstrKind::TLocalSet(_, child)
+    | TInstrKind::TLocalTee(_, child)
+    | TInstrKind::TGlobalSet(_, child)
+    | TInstrKind::TRefIsNull(child)
+    | TInstrKind::TRefAsNonNull(child)
+    | TInstrKind::TI31GetS(child)
+    | TInstrKind::TI31GetU(child)
+    | TInstrKind::TRefI31(child)
+    | TInstrKind::TArrayLen(child)
+    | TInstrKind::TAnyConvertExtern(child)
+    | TInstrKind::TExternConvertAny(child)
+    | TInstrKind::TThrowRef(child)
+    | TInstrKind::TMemoryGrow(_, child)
+    | TInstrKind::TTableGet(_, child)
+    | TInstrKind::TLoad(_, _, child)
+    | TInstrKind::TArrayNewDefault(_, child)
+    | TInstrKind::TStructGet(_, _, child)
+    | TInstrKind::TStructGetS(_, _, child)
+    | TInstrKind::TStructGetU(_, _, child)
+    | TInstrKind::TI8x16Splat(child)
+    | TInstrKind::TI16x8Splat(child)
+    | TInstrKind::TI32x4Splat(child)
+    | TInstrKind::TI64x2Splat(child)
+    | TInstrKind::TF32x4Splat(child)
+    | TInstrKind::TF64x2Splat(child)
+    | TInstrKind::TExtractLane(_, _, child)
+    | TInstrKind::TRefTest(_, _, child)
+    | TInstrKind::TRefCast(_, _, child)
+    | TInstrKind::TRefGetDesc(child)
+    | TInstrKind::TRefTestDesc(_, _, child)
+    | TInstrKind::TRefCastDescEq(_, _, child) => [child]
+    TInstrKind::TBinary(_, left, right)
+    | TInstrKind::TRefEq(left, right)
+    | TInstrKind::TStore(_, _, left, right)
+    | TInstrKind::TMemoryAtomicNotify(_, left, right)
+    | TInstrKind::TAtomicRmw(_, _, left, right)
+    | TInstrKind::TTableSet(_, left, right)
+    | TInstrKind::TTableGrow(_, left, right)
+    | TInstrKind::TStructSet(_, _, left, right)
+    | TInstrKind::TArrayNew(_, left, right)
+    | TInstrKind::TArrayNewData(_, _, left, right)
+    | TInstrKind::TArrayNewElem(_, _, left, right)
+    | TInstrKind::TArrayGet(_, left, right)
+    | TInstrKind::TArrayGetS(_, left, right)
+    | TInstrKind::TArrayGetU(_, left, right)
+    | TInstrKind::TReplaceLane(_, _, left, right)
+    | TInstrKind::TI8x16Swizzle(left, right)
+    | TInstrKind::TI8x16RelaxedSwizzle(left, right)
+    | TInstrKind::TV128Shift(_, left, right)
+    | TInstrKind::TV128LoadLane(_, _, _, left, right)
+    | TInstrKind::TV128StoreLane(_, _, _, left, right) => [left, right]
+    TInstrKind::TMemoryFill(_, a, b, c)
+    | TInstrKind::TMemoryCopy(_, _, a, b, c)
+    | TInstrKind::TMemoryInit(_, _, a, b, c)
+    | TInstrKind::TMemoryAtomicWait32(_, a, b, c)
+    | TInstrKind::TMemoryAtomicWait64(_, a, b, c)
+    | TInstrKind::TAtomicCmpxchg(_, _, a, b, c)
+    | TInstrKind::TTableFill(_, a, b, c)
+    | TInstrKind::TTableCopy(_, _, a, b, c)
+    | TInstrKind::TTableInit(_, _, a, b, c)
+    | TInstrKind::TSelect(_, c, a, b)
+    | TInstrKind::TV128Ternary(_, a, b, c) => [a, b, c]
+    TInstrKind::TCall(_, args)
+    | TInstrKind::TReturnCall(_, args)
+    | TInstrKind::TThrow(_, args)
+    | TInstrKind::TBr(_, args)
+    | TInstrKind::TReturn(args)
+    | TInstrKind::TStructNew(_, args)
+    | TInstrKind::TArrayNewFixed(_, args) => args.copy()
+    TInstrKind::TCallIndirect(_, _, args, index)
+    | TInstrKind::TReturnCallIndirect(_, _, args, index) => {
       let out = args.copy()
       out.push(index)
       out
     }
-    TCallRef(_, args, ref_) | TReturnCallRef(_, args, ref_) => {
+    TInstrKind::TCallRef(_, args, ref_)
+    | TInstrKind::TReturnCallRef(_, args, ref_) => {
       let out = args.copy()
       out.push(ref_)
       out
     }
-    TBrIf(_, cond, values) => {
+    TInstrKind::TBrIf(_, cond, values) => {
       let out = values.copy()
       out.push(cond)
       out
     }
-    TBrTable(_, _, index, values) => {
+    TInstrKind::TBrTable(_, _, index, values) => {
       let out = values.copy()
       out.push(index)
       out
     }
-    TBrOnNull(_, ref_, values)
-    | TBrOnNonNull(_, ref_, values)
-    | TBrOnCast(_, _, _, _, ref_, values)
-    | TBrOnCastFail(_, _, _, _, ref_, values) => {
+    TInstrKind::TBrOnNull(_, ref_, values)
+    | TInstrKind::TBrOnNonNull(_, ref_, values)
+    | TInstrKind::TBrOnCast(_, _, _, _, ref_, values)
+    | TInstrKind::TBrOnCastFail(_, _, _, _, ref_, values) => {
       let out = values.copy()
       out.push(ref_)
       out
     }
-    TArraySet(_, a, b, c) => [a, b, c]
-    TArrayFill(_, a, b, c, d) => [a, b, c, d]
-    TArrayCopy(_, _, a, b, c, d, e) => [a, b, c, d, e]
-    TArrayInitData(_, _, a, b, c, d) => [a, b, c, d]
-    TArrayInitElem(_, _, a, b, c, d) => [a, b, c, d]
-    TI8x16Shuffle(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, left, right) =>
-      [left, right]
-    TBlock(_, _) | TLoop(_, _) | TIf(_, _, _, _) | TTryTable(_, _, _) => []
+    TInstrKind::TArraySet(_, a, b, c) => [a, b, c]
+    TInstrKind::TArrayFill(_, a, b, c, d) => [a, b, c, d]
+    TInstrKind::TArrayCopy(_, _, a, b, c, d, e) => [a, b, c, d, e]
+    TInstrKind::TArrayInitData(_, _, a, b, c, d) => [a, b, c, d]
+    TInstrKind::TArrayInitElem(_, _, a, b, c, d) => [a, b, c, d]
+    TInstrKind::TI8x16Shuffle(
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      left,
+      right
+    ) => [left, right]
+    TInstrKind::TBlock(_, _)
+    | TInstrKind::TLoop(_, _)
+    | TInstrKind::TIf(_, _, _, _)
+    | TInstrKind::TTryTable(_, _, _) => []
   }
 }
 
@@ -1438,8 +1461,8 @@ fn FakeGlobalHelper::new(
   }
 
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TCall(target, _) | TReturnCall(target, _) =>
+    match instr.kind {
+      TInstrKind::TCall(target, _) | TInstrKind::TReturnCall(target, _) =>
         match env.get_functype_by_funcidx(target) {
           Some(FuncType(_, [ret])) =>
             match add_type(next_mod, ret, global_by_type, type_by_global) {
@@ -1448,10 +1471,10 @@ fn FakeGlobalHelper::new(
             }
           _ => ()
         }
-      TCallIndirect(type_idx, _, _, _)
-      | TReturnCallIndirect(type_idx, _, _, _)
-      | TCallRef(type_idx, _, _)
-      | TReturnCallRef(type_idx, _, _) =>
+      TInstrKind::TCallIndirect(type_idx, _, _, _)
+      | TInstrKind::TReturnCallIndirect(type_idx, _, _, _)
+      | TInstrKind::TCallRef(type_idx, _, _)
+      | TInstrKind::TReturnCallRef(type_idx, _, _) =>
         match env.resolve_functype(type_idx) {
           Some(FuncType(_, [ret])) =>
             match add_type(next_mod, ret, global_by_type, type_by_global) {
@@ -1641,9 +1664,11 @@ fn af_match_any_pattern(value : String, patterns : Array[String]) -> Bool {
 ///|
 fn af_collect_direct_edges(func : Func, out : Set[FuncIdx]) -> Unit {
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TCall(target, _) | TReturnCall(target, _) => out.add(target)
-      TReturnCallIndirect(_, _, _, _) | TReturnCallRef(_, _, _) => ()
+    match instr.kind {
+      TInstrKind::TCall(target, _) | TInstrKind::TReturnCall(target, _) =>
+        out.add(target)
+      TInstrKind::TReturnCallIndirect(_, _, _, _)
+      | TInstrKind::TReturnCallRef(_, _, _) => ()
       _ => ()
     }
     self.walk_tinstruction_default((), instr)
@@ -1655,9 +1680,9 @@ fn af_collect_direct_edges(func : Func, out : Set[FuncIdx]) -> Unit {
 fn af_func_calls(func : Func, target : FuncIdx) -> Bool {
   let found = Ref::new(false)
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TCall(callee, _) | TReturnCall(callee, _) if callee == target =>
-        found.update(fn(_) { true })
+    match instr.kind {
+      TInstrKind::TCall(callee, _) | TInstrKind::TReturnCall(callee, _) if callee ==
+        target => found.update(fn(_) { true })
       _ => ()
     }
     self.walk_tinstruction_default((), instr)
@@ -1837,8 +1862,8 @@ fn AFModuleAnalyzer::can_change_state(
   instr : TInstr,
   curr_func : FuncIdx,
 ) -> Bool {
-  match instr {
-    TCall(target, _) | TReturnCall(target, _) => {
+  match instr.kind {
+    TInstrKind::TCall(target, _) | TInstrKind::TReturnCall(target, _) => {
       if target == self.runtime_stop_unwind ||
         target == self.runtime_start_rewind {
         return false
@@ -1858,10 +1883,10 @@ fn AFModuleAnalyzer::can_change_state(
       }
       self.may_change_state[i]
     }
-    TCallIndirect(_, _, _, _)
-    | TCallRef(_, _, _)
-    | TReturnCallIndirect(_, _, _, _)
-    | TReturnCallRef(_, _, _) =>
+    TInstrKind::TCallIndirect(_, _, _, _)
+    | TInstrKind::TCallRef(_, _, _)
+    | TInstrKind::TReturnCallIndirect(_, _, _, _)
+    | TInstrKind::TReturnCallRef(_, _, _) =>
       if self.can_indirect_change_state {
         true
       } else {
@@ -1870,7 +1895,9 @@ fn AFModuleAnalyzer::can_change_state(
         ci < self.added_from_list.length() &&
         self.added_from_list[ci]
       }
-    TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) => {
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) => {
       for item in body.instrs {
         if self.can_change_state(item, curr_func) {
           return true
@@ -1878,7 +1905,7 @@ fn AFModuleAnalyzer::can_change_state(
       }
       false
     }
-    TIf(_, cond, then_, else_) => {
+    TInstrKind::TIf(_, cond, then_, else_) => {
       if self.can_change_state(cond, curr_func) {
         return true
       }
@@ -1958,14 +1985,20 @@ priv struct AFRewriterCtx {
 
 ///|
 fn af_is_call_like_none(instr : TInstr) -> Bool {
-  match instr {
-    TCall(_, _) | TCallIndirect(_, _, _, _) | TCallRef(_, _, _) => true
-    TDrop(TCall(_, _))
-    | TDrop(TCallIndirect(_, _, _, _))
-    | TDrop(TCallRef(_, _, _)) => true
-    TLocalSet(_, TCall(_, _))
-    | TLocalSet(_, TCallIndirect(_, _, _, _))
-    | TLocalSet(_, TCallRef(_, _, _)) => true
+  match instr.kind {
+    TInstrKind::TCall(_, _)
+    | TInstrKind::TCallIndirect(_, _, _, _)
+    | TInstrKind::TCallRef(_, _, _) => true
+    TInstrKind::TDrop({ kind: TInstrKind::TCall(_, _), .. })
+    | TInstrKind::TDrop({ kind: TInstrKind::TCallIndirect(_, _, _, _), .. })
+    | TInstrKind::TDrop({ kind: TInstrKind::TCallRef(_, _, _), .. }) => true
+    TInstrKind::TLocalSet(_, { kind: TInstrKind::TCall(_, _), .. })
+    | TInstrKind::TLocalSet(
+      _,
+      { kind: TInstrKind::TCallIndirect(_, _, _, _), .. }
+    )
+    | TInstrKind::TLocalSet(_, { kind: TInstrKind::TCallRef(_, _, _), .. }) =>
+      true
     _ => false
   }
 }
@@ -1987,17 +2020,17 @@ fn af_rewrite_call_like(
 ) -> Result[TInstr, String] {
   let call_index = ctx.next_call_index
   ctx.next_call_index += 1
-  let wrapped_call = match instr {
-    TReturnCall(_, _)
-    | TReturnCallIndirect(_, _, _, _)
-    | TReturnCallRef(_, _, _) =>
+  let wrapped_call = match instr.kind {
+    TInstrKind::TReturnCall(_, _)
+    | TInstrKind::TReturnCallIndirect(_, _, _, _)
+    | TInstrKind::TReturnCallRef(_, _, _) =>
       // Should never reach here because we lowered earlier (or rejected in strict mode)
       return Err(
         "asyncify: internal error — tail call reached rewriter after lowering",
       )
-    TLocalSet(idx, value) =>
-      match value {
-        TCall(target, args) =>
+    TInstrKind::TLocalSet(idx, value) =>
+      match value.kind {
+        TInstrKind::TCall(target, args) =>
           match ctx.analyzer.env.get_functype_by_funcidx(target) {
             Some(FuncType(_, [ret])) =>
               match ctx.fake_globals.get_name(ret) {
@@ -2016,7 +2049,7 @@ fn af_rewrite_call_like(
               }
             _ => instr
           }
-        TCallIndirect(type_idx, table_idx, args, index) =>
+        TInstrKind::TCallIndirect(type_idx, table_idx, args, index) =>
           match ctx.analyzer.env.resolve_functype(type_idx) {
             Some(FuncType(_, [ret])) =>
               match ctx.fake_globals.get_name(ret) {
@@ -2035,7 +2068,7 @@ fn af_rewrite_call_like(
               }
             _ => instr
           }
-        TCallRef(type_idx, args, ref_) =>
+        TInstrKind::TCallRef(type_idx, args, ref_) =>
           match ctx.analyzer.env.resolve_functype(type_idx) {
             Some(FuncType(_, [ret])) =>
               match ctx.fake_globals.get_name(ret) {
@@ -2087,8 +2120,8 @@ fn af_rewrite_instr(
   ctx : AFRewriterCtx,
   instr : TInstr,
 ) -> Result[TInstr, String] {
-  match instr {
-    TBlock(bt, body) => {
+  match instr.kind {
+    TInstrKind::TBlock(bt, body) => {
       let out : Array[TInstr] = []
       for item in body.instrs {
         let rewritten = match af_rewrite_instr(ctx, item) {
@@ -2103,7 +2136,7 @@ fn af_rewrite_instr(
       }
       Ok(TInstr::block(bt, TExpr::new(out)))
     }
-    TLoop(bt, body) => {
+    TInstrKind::TLoop(bt, body) => {
       let out : Array[TInstr] = []
       for item in body.instrs {
         let rewritten = match af_rewrite_instr(ctx, item) {
@@ -2118,7 +2151,7 @@ fn af_rewrite_instr(
       }
       Ok(TInstr::loop_(bt, TExpr::new(out)))
     }
-    TTryTable(bt, catches, body) => {
+    TInstrKind::TTryTable(bt, catches, body) => {
       let out : Array[TInstr] = []
       for item in body.instrs {
         let rewritten = match af_rewrite_instr(ctx, item) {
@@ -2129,7 +2162,7 @@ fn af_rewrite_instr(
       }
       Ok(TInstr::try_table(bt, catches, TExpr::new(out)))
     }
-    TIf(bt, cond, then_, else_) => {
+    TInstrKind::TIf(bt, cond, then_, else_) => {
       let next_cond = match af_rewrite_instr(ctx, cond) {
         Ok(v) => v
         Err(e) => return Err(e)
@@ -2186,64 +2219,73 @@ fn af_rewrite_instr(
               },
             )
           }
-          match instr {
-            TUnary(op, _) => Ok(TInstr::unary(op, rebuilt_kids[0]))
-            TDrop(_) => Ok(TInstr::drop(rebuilt_kids[0]))
-            TLocalSet(idx, _) => Ok(TInstr::local_set(idx, rebuilt_kids[0]))
-            TLocalTee(idx, _) => Ok(TInstr::local_tee(idx, rebuilt_kids[0]))
-            TGlobalSet(idx, _) => Ok(TInstr::global_set(idx, rebuilt_kids[0]))
-            TRefIsNull(_) => Ok(TInstr::ref_is_null(rebuilt_kids[0]))
-            TRefAsNonNull(_) => Ok(TInstr::ref_as_non_null(rebuilt_kids[0]))
-            TI31GetS(_) => Ok(TInstr::i31_get_s(rebuilt_kids[0]))
-            TI31GetU(_) => Ok(TInstr::i31_get_u(rebuilt_kids[0]))
-            TRefI31(_) => Ok(TInstr::ref_i31(rebuilt_kids[0]))
-            TArrayLen(_) => Ok(TInstr::array_len(rebuilt_kids[0]))
-            TAnyConvertExtern(_) =>
+          match instr.kind {
+            TInstrKind::TUnary(op, _) => Ok(TInstr::unary(op, rebuilt_kids[0]))
+            TInstrKind::TDrop(_) => Ok(TInstr::drop(rebuilt_kids[0]))
+            TInstrKind::TLocalSet(idx, _) =>
+              Ok(TInstr::local_set(idx, rebuilt_kids[0]))
+            TInstrKind::TLocalTee(idx, _) =>
+              Ok(TInstr::local_tee(idx, rebuilt_kids[0]))
+            TInstrKind::TGlobalSet(idx, _) =>
+              Ok(TInstr::global_set(idx, rebuilt_kids[0]))
+            TInstrKind::TRefIsNull(_) =>
+              Ok(TInstr::ref_is_null(rebuilt_kids[0]))
+            TInstrKind::TRefAsNonNull(_) =>
+              Ok(TInstr::ref_as_non_null(rebuilt_kids[0]))
+            TInstrKind::TI31GetS(_) => Ok(TInstr::i31_get_s(rebuilt_kids[0]))
+            TInstrKind::TI31GetU(_) => Ok(TInstr::i31_get_u(rebuilt_kids[0]))
+            TInstrKind::TRefI31(_) => Ok(TInstr::ref_i31(rebuilt_kids[0]))
+            TInstrKind::TArrayLen(_) => Ok(TInstr::array_len(rebuilt_kids[0]))
+            TInstrKind::TAnyConvertExtern(_) =>
               Ok(TInstr::any_convert_extern(rebuilt_kids[0]))
-            TExternConvertAny(_) =>
+            TInstrKind::TExternConvertAny(_) =>
               Ok(TInstr::extern_convert_any(rebuilt_kids[0]))
-            TThrowRef(_) => Ok(TInstr::throw_ref(rebuilt_kids[0]))
-            TMemoryGrow(mi, _) => Ok(TInstr::memory_grow(mi, rebuilt_kids[0]))
-            TTableGet(ti, _) => Ok(TInstr::table_get(ti, rebuilt_kids[0]))
-            TLoad(op, ma, _) => Ok(TInstr::load(op, ma, rebuilt_kids[0]))
-            TBinary(op, _, _) =>
+            TInstrKind::TThrowRef(_) => Ok(TInstr::throw_ref(rebuilt_kids[0]))
+            TInstrKind::TMemoryGrow(mi, _) =>
+              Ok(TInstr::memory_grow(mi, rebuilt_kids[0]))
+            TInstrKind::TTableGet(ti, _) =>
+              Ok(TInstr::table_get(ti, rebuilt_kids[0]))
+            TInstrKind::TLoad(op, ma, _) =>
+              Ok(TInstr::load(op, ma, rebuilt_kids[0]))
+            TInstrKind::TBinary(op, _, _) =>
               Ok(TInstr::binary(op, rebuilt_kids[0], rebuilt_kids[1]))
-            TRefEq(_, _) => Ok(TInstr::ref_eq(rebuilt_kids[0], rebuilt_kids[1]))
-            TStore(op, ma, _, _) =>
+            TInstrKind::TRefEq(_, _) =>
+              Ok(TInstr::ref_eq(rebuilt_kids[0], rebuilt_kids[1]))
+            TInstrKind::TStore(op, ma, _, _) =>
               Ok(TInstr::store(op, ma, rebuilt_kids[0], rebuilt_kids[1]))
-            TTableSet(ti, _, _) =>
+            TInstrKind::TTableSet(ti, _, _) =>
               Ok(TInstr::table_set(ti, rebuilt_kids[0], rebuilt_kids[1]))
-            TTableGrow(ti, _, _) =>
+            TInstrKind::TTableGrow(ti, _, _) =>
               Ok(TInstr::table_grow(ti, rebuilt_kids[0], rebuilt_kids[1]))
-            TStructSet(ti, fi, _, _) =>
+            TInstrKind::TStructSet(ti, fi, _, _) =>
               Ok(TInstr::struct_set(ti, fi, rebuilt_kids[0], rebuilt_kids[1]))
-            TArrayNew(ti, _, _) =>
+            TInstrKind::TArrayNew(ti, _, _) =>
               Ok(TInstr::array_new(ti, rebuilt_kids[0], rebuilt_kids[1]))
-            TArrayNewData(ti, di, _, _) =>
+            TInstrKind::TArrayNewData(ti, di, _, _) =>
               Ok(
                 TInstr::array_new_data(ti, di, rebuilt_kids[0], rebuilt_kids[1]),
               )
-            TArrayNewElem(ti, ei, _, _) =>
+            TInstrKind::TArrayNewElem(ti, ei, _, _) =>
               Ok(
                 TInstr::array_new_elem(ti, ei, rebuilt_kids[0], rebuilt_kids[1]),
               )
-            TArrayGet(ti, _, _) =>
+            TInstrKind::TArrayGet(ti, _, _) =>
               Ok(TInstr::array_get(ti, rebuilt_kids[0], rebuilt_kids[1]))
-            TArrayGetS(ti, _, _) =>
+            TInstrKind::TArrayGetS(ti, _, _) =>
               Ok(TInstr::array_get_s(ti, rebuilt_kids[0], rebuilt_kids[1]))
-            TArrayGetU(ti, _, _) =>
+            TInstrKind::TArrayGetU(ti, _, _) =>
               Ok(TInstr::array_get_u(ti, rebuilt_kids[0], rebuilt_kids[1]))
-            TReplaceLane(op, li, _, _) =>
+            TInstrKind::TReplaceLane(op, li, _, _) =>
               Ok(TInstr::replace_lane(op, li, rebuilt_kids[0], rebuilt_kids[1]))
-            TI8x16Swizzle(_, _) =>
+            TInstrKind::TI8x16Swizzle(_, _) =>
               Ok(TInstr::i8x16_swizzle(rebuilt_kids[0], rebuilt_kids[1]))
-            TI8x16RelaxedSwizzle(_, _) =>
+            TInstrKind::TI8x16RelaxedSwizzle(_, _) =>
               Ok(
                 TInstr::i8x16_relaxed_swizzle(rebuilt_kids[0], rebuilt_kids[1]),
               )
-            TV128Shift(op, _, _) =>
+            TInstrKind::TV128Shift(op, _, _) =>
               Ok(TInstr::v128_shift(op, rebuilt_kids[0], rebuilt_kids[1]))
-            TV128LoadLane(op, ma, li, _, _) =>
+            TInstrKind::TV128LoadLane(op, ma, li, _, _) =>
               Ok(
                 TInstr::v128_load_lane(
                   op,
@@ -2253,7 +2295,7 @@ fn af_rewrite_instr(
                   rebuilt_kids[1],
                 ),
               )
-            TV128StoreLane(op, ma, li, _, _) =>
+            TInstrKind::TV128StoreLane(op, ma, li, _, _) =>
               Ok(
                 TInstr::v128_store_lane(
                   op,
@@ -2263,7 +2305,7 @@ fn af_rewrite_instr(
                   rebuilt_kids[1],
                 ),
               )
-            TMemoryFill(mi, _, _, _) =>
+            TInstrKind::TMemoryFill(mi, _, _, _) =>
               Ok(
                 TInstr::memory_fill(
                   mi,
@@ -2272,7 +2314,7 @@ fn af_rewrite_instr(
                   rebuilt_kids[2],
                 ),
               )
-            TMemoryCopy(dst, src, _, _, _) =>
+            TInstrKind::TMemoryCopy(dst, src, _, _, _) =>
               Ok(
                 TInstr::memory_copy(
                   dst,
@@ -2282,7 +2324,7 @@ fn af_rewrite_instr(
                   rebuilt_kids[2],
                 ),
               )
-            TMemoryInit(di, mi, _, _, _) =>
+            TInstrKind::TMemoryInit(di, mi, _, _, _) =>
               Ok(
                 TInstr::memory_init(
                   di,
@@ -2292,7 +2334,7 @@ fn af_rewrite_instr(
                   rebuilt_kids[2],
                 ),
               )
-            TTableFill(ti, _, _, _) =>
+            TInstrKind::TTableFill(ti, _, _, _) =>
               Ok(
                 TInstr::table_fill(
                   ti,
@@ -2301,7 +2343,7 @@ fn af_rewrite_instr(
                   rebuilt_kids[2],
                 ),
               )
-            TTableCopy(t0, t1, _, _, _) =>
+            TInstrKind::TTableCopy(t0, t1, _, _, _) =>
               Ok(
                 TInstr::table_copy(
                   t0,
@@ -2311,7 +2353,7 @@ fn af_rewrite_instr(
                   rebuilt_kids[2],
                 ),
               )
-            TTableInit(ei, ti, _, _, _) =>
+            TInstrKind::TTableInit(ei, ti, _, _, _) =>
               Ok(
                 TInstr::table_init(
                   ei,
@@ -2321,7 +2363,7 @@ fn af_rewrite_instr(
                   rebuilt_kids[2],
                 ),
               )
-            TSelect(tys, _, _, _) =>
+            TInstrKind::TSelect(tys, _, _, _) =>
               Ok(
                 TInstr::select(
                   tys,
@@ -2330,7 +2372,7 @@ fn af_rewrite_instr(
                   rebuilt_kids[2],
                 ),
               )
-            TV128Ternary(op, _, _, _) =>
+            TInstrKind::TV128Ternary(op, _, _, _) =>
               Ok(
                 TInstr::v128_ternary(
                   op,
@@ -2339,7 +2381,7 @@ fn af_rewrite_instr(
                   rebuilt_kids[2],
                 ),
               )
-            TReturn(_) => Ok(TInstr::return_(rebuilt_kids))
+            TInstrKind::TReturn(_) => Ok(TInstr::return_(rebuilt_kids))
             _ => Ok(instr)
           }
         }
@@ -2388,8 +2430,8 @@ fn af_instrument_flow_for_function(
       }
       if !wrapped.is_empty() {
         let last = wrapped[wrapped.length() - 1]
-        match last {
-          TUnreachable => ()
+        match last.kind {
+          TInstrKind::TUnreachable => ()
           _ => ()
         }
       }
@@ -2575,13 +2617,16 @@ fn af_lower_intrinsics_and_locals(
         _,
         instr,
       ) {
-        match instr {
-          TCall(target, [TI32Const(I32(ix))]) if target == runtime.intr_unwind =>
+        match instr.kind {
+          TInstrKind::TCall(
+            target,
+            [{ kind: TInstrKind::TI32Const(I32(ix)), .. }]
+          ) if target == runtime.intr_unwind =>
             change(
               (),
               TInstr::br(LabelIdx::new(0), [TInstr::i32_const(I32(ix))]),
             )
-          TCall(target, []) if target == runtime.intr_get_call_index =>
+          TInstrKind::TCall(target, []) if target == runtime.intr_get_call_index =>
             change(
               (),
               TInstr::block(
@@ -2599,7 +2644,8 @@ fn af_lower_intrinsics_and_locals(
                 ]),
               ),
             )
-          TCall(target, [arg]) if target == runtime.intr_check_call_index =>
+          TInstrKind::TCall(target, [arg]) if target ==
+            runtime.intr_check_call_index =>
             change(
               (),
               TInstr::binary(
@@ -2608,7 +2654,7 @@ fn af_lower_intrinsics_and_locals(
                 arg,
               ),
             )
-          TGlobalSet(gidx, value) =>
+          TInstrKind::TGlobalSet(gidx, value) =>
             match fake_globals.get_type_or_none(gidx) {
               Some(vt) => {
                 let tmp = fake_tmp_for(gidx, vt)
@@ -2616,7 +2662,7 @@ fn af_lower_intrinsics_and_locals(
               }
               None => self.walk_tinstruction_default((), instr)
             }
-          TGlobalGet(gidx) =>
+          TInstrKind::TGlobalGet(gidx) =>
             match fake_globals.get_type_or_none(gidx) {
               Some(vt) => {
                 let tmp = fake_tmp_for(gidx, vt)
@@ -2720,8 +2766,10 @@ fn af_assert_non_instrumented(
           _,
           instr,
         ) {
-          match instr {
-            TCall(_, _) | TCallIndirect(_, _, _, _) | TCallRef(_, _, _) =>
+          match instr.kind {
+            TInstrKind::TCall(_, _)
+            | TInstrKind::TCallIndirect(_, _, _, _)
+            | TInstrKind::TCallRef(_, _, _) =>
               change(
                 (),
                 TInstr::block(
@@ -2793,13 +2841,14 @@ fn af_catch_alloc_temp_local(ctx : AFCatchAssertCtx, vt : ValType) -> LocalIdx {
 
 ///|
 fn af_catch_call_result_type(instr : TInstr, env : Env) -> ValType? {
-  match instr {
-    TCall(target, _) =>
+  match instr.kind {
+    TInstrKind::TCall(target, _) =>
       match env.get_functype_by_funcidx(target) {
         Some(FuncType(_, [ret])) => Some(ret)
         _ => None
       }
-    TCallIndirect(type_idx, _, _, _) | TCallRef(type_idx, _, _) =>
+    TInstrKind::TCallIndirect(type_idx, _, _, _)
+    | TInstrKind::TCallRef(type_idx, _, _) =>
       match env.resolve_functype(type_idx) {
         Some(FuncType(_, [ret])) => Some(ret)
         _ => None
@@ -2850,11 +2899,13 @@ fn af_catch_wrap_calls_in_instr(
   instr : TInstr,
 ) -> TInstr {
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
-    match curr {
-      TReturnCall(_, _)
-      | TReturnCallIndirect(_, _, _, _)
-      | TReturnCallRef(_, _, _) => unchanged()
-      TCall(_, _) | TCallIndirect(_, _, _, _) | TCallRef(_, _, _) =>
+    match curr.kind {
+      TInstrKind::TReturnCall(_, _)
+      | TInstrKind::TReturnCallIndirect(_, _, _, _)
+      | TInstrKind::TReturnCallRef(_, _, _) => unchanged()
+      TInstrKind::TCall(_, _)
+      | TInstrKind::TCallIndirect(_, _, _, _)
+      | TInstrKind::TCallRef(_, _, _) =>
         change((), af_catch_wrap_guarded_call(ctx, curr))
       _ => self.walk_tinstruction_default((), curr)
     }
@@ -2916,8 +2967,8 @@ fn af_rewrite_catch_instr(
   // depth == 0 means control can continue immediately after this instruction in
   // the current expression list, and depth > 0 means one or more enclosing
   // labels are targeted.
-  match instr {
-    TBlock(bt, body) => {
+  match instr.kind {
+    TInstrKind::TBlock(bt, body) => {
       let (next_body, body_escapes) = af_rewrite_catch_texpr(
         ctx, body, in_catch_continuation,
       )
@@ -2925,7 +2976,7 @@ fn af_rewrite_catch_instr(
       af_catch_add_scope_shifted_escapes(escapes, body_escapes)
       (TInstr::block(bt, next_body), escapes)
     }
-    TIf(bt, cond, then_, else_) => {
+    TInstrKind::TIf(bt, cond, then_, else_) => {
       let next_cond = if in_catch_continuation {
         af_catch_wrap_calls_in_instr(ctx, cond)
       } else {
@@ -2950,7 +3001,7 @@ fn af_rewrite_catch_instr(
       }
       (TInstr::if_(bt, next_cond, next_then, next_else), escapes)
     }
-    TLoop(bt, body) => {
+    TInstrKind::TLoop(bt, body) => {
       let (next_body, body_escapes) = af_rewrite_catch_texpr(
         ctx, body, in_catch_continuation,
       )
@@ -2963,7 +3014,7 @@ fn af_rewrite_catch_instr(
       )
       (TInstr::loop_(bt, next_body), escapes)
     }
-    TTryTable(bt, catches, body) => {
+    TInstrKind::TTryTable(bt, catches, body) => {
       // Keep current catch-context when rewriting the try body. If we are
       // already in a catch continuation from an outer try_table, calls here are
       // still inside catch-driven control flow and must be guarded.
@@ -2982,25 +3033,25 @@ fn af_rewrite_catch_instr(
       af_catch_add_scope_shifted_escapes(escapes, raw_escapes)
       (TInstr::try_table(bt, catches, next_body), escapes)
     }
-    TLocalSet(idx, value) => {
+    TInstrKind::TLocalSet(idx, value) => {
       let (next_value, escapes) = af_rewrite_catch_instr(
         ctx, value, in_catch_continuation,
       )
       (TInstr::local_set(idx, next_value), escapes)
     }
-    TLocalTee(idx, value) => {
+    TInstrKind::TLocalTee(idx, value) => {
       let (next_value, escapes) = af_rewrite_catch_instr(
         ctx, value, in_catch_continuation,
       )
       (TInstr::local_tee(idx, next_value), escapes)
     }
-    TDrop(value) => {
+    TInstrKind::TDrop(value) => {
       let (next_value, escapes) = af_rewrite_catch_instr(
         ctx, value, in_catch_continuation,
       )
       (TInstr::drop(next_value), escapes)
     }
-    TGlobalSet(idx, value) => {
+    TInstrKind::TGlobalSet(idx, value) => {
       let (next_value, escapes) = af_rewrite_catch_instr(
         ctx, value, in_catch_continuation,
       )
@@ -3092,11 +3143,13 @@ fn af_assert_unwind_catch(mod : Module, runtime : AFApi) -> Module {
 
 ///|
 fn af_instr_has_tail_call(instr : TInstr) -> Bool {
-  match instr {
-    TReturnCall(_, _)
-    | TReturnCallIndirect(_, _, _, _)
-    | TReturnCallRef(_, _, _) => true
-    TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) => {
+  match instr.kind {
+    TInstrKind::TReturnCall(_, _)
+    | TInstrKind::TReturnCallIndirect(_, _, _, _)
+    | TInstrKind::TReturnCallRef(_, _, _) => true
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) => {
       for item in body.instrs {
         if af_instr_has_tail_call(item) {
           return true
@@ -3104,7 +3157,7 @@ fn af_instr_has_tail_call(instr : TInstr) -> Bool {
       }
       false
     }
-    TIf(_, cond, then_, else_) => {
+    TInstrKind::TIf(_, cond, then_, else_) => {
       if af_instr_has_tail_call(cond) {
         return true
       }
@@ -3163,15 +3216,15 @@ fn af_rewrite_tail_call_to_non_tail(
   instr : TInstr,
   env : Env,
 ) -> Result[TInstr, String] {
-  match instr {
-    TReturnCall(target, args) => {
+  match instr.kind {
+    TInstrKind::TReturnCall(target, args) => {
       match af_tail_call_result_count_for_func(env, target) {
         Ok(_) => ()
         Err(e) => return Err(e)
       }
       Ok(TInstr::return_([TInstr::call(target, args)]))
     }
-    TReturnCallIndirect(type_idx, table_idx, args, idx) => {
+    TInstrKind::TReturnCallIndirect(type_idx, table_idx, args, idx) => {
       match
         af_tail_call_result_count_for_type(
           env, type_idx, "return_call_indirect",
@@ -3183,7 +3236,7 @@ fn af_rewrite_tail_call_to_non_tail(
         TInstr::return_([TInstr::call_indirect(type_idx, table_idx, args, idx)]),
       )
     }
-    TReturnCallRef(type_idx, args, ref_) => {
+    TInstrKind::TReturnCallRef(type_idx, args, ref_) => {
       match
         af_tail_call_result_count_for_type(env, type_idx, "return_call_ref") {
         Ok(_) => ()
@@ -3384,12 +3437,14 @@ fn af_test_run(
 ///|
 fn af_walk_instr(instr : TInstr, f : (TInstr) -> Unit) -> Unit {
   f(instr)
-  match instr {
-    TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) =>
+  match instr.kind {
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) =>
       for item in body.instrs {
         af_walk_instr(item, f)
       }
-    TIf(_, cond, then_, else_) => {
+    TInstrKind::TIf(_, cond, then_, else_) => {
       af_walk_instr(cond, f)
       for item in then_.instrs {
         af_walk_instr(item, f)
@@ -3414,9 +3469,11 @@ fn af_collect_br_indices(body : TExpr) -> Set[Int] {
   let out = Set::new()
   for instr in body.instrs {
     af_walk_instr(instr, fn(curr) {
-      match curr {
-        TBr(LabelIdx(i), [TI32Const(I32(v))]) if i.reinterpret_as_int() == 0 =>
-          out.add(v)
+      match curr.kind {
+        TInstrKind::TBr(
+          LabelIdx(i),
+          [{ kind: TInstrKind::TI32Const(I32(v)), .. }]
+        ) if i.reinterpret_as_int() == 0 => out.add(v)
         _ => ()
       }
     })
@@ -3429,9 +3486,9 @@ fn af_has_local_set_load(body : TExpr, idx : LocalIdx) -> Bool {
   let found = Ref::new(false)
   for instr in body.instrs {
     af_walk_instr(instr, fn(curr) {
-      match curr {
-        TLocalSet(id, TLoad(_, _, _)) if id == idx =>
-          found.update(fn(_) { true })
+      match curr.kind {
+        TInstrKind::TLocalSet(id, { kind: TInstrKind::TLoad(_, _, _), .. }) if id ==
+          idx => found.update(fn(_) { true })
         _ => ()
       }
     })
@@ -3444,8 +3501,9 @@ fn af_count_calls(body : TExpr, target : FuncIdx) -> Int {
   let count = Ref::new(0)
   for instr in body.instrs {
     af_walk_instr(instr, fn(curr) {
-      match curr {
-        TCall(fi, _) if fi == target => count.update(fn(c) { c + 1 })
+      match curr.kind {
+        TInstrKind::TCall(fi, _) if fi == target =>
+          count.update(fn(c) { c + 1 })
         _ => ()
       }
     })
@@ -3458,8 +3516,8 @@ fn af_contains_call_indirect(body : TExpr) -> Bool {
   let found = Ref::new(false)
   for instr in body.instrs {
     af_walk_instr(instr, fn(curr) {
-      match curr {
-        TCallIndirect(_, _, _, _) => found.update(fn(_) { true })
+      match curr.kind {
+        TInstrKind::TCallIndirect(_, _, _, _) => found.update(fn(_) { true })
         _ => ()
       }
     })
@@ -3472,11 +3530,18 @@ fn af_has_state_assert_guard(body : TExpr) -> Bool {
   let found = Ref::new(false)
   for instr in body.instrs {
     af_walk_instr(instr, fn(curr) {
-      match curr {
-        TIf(
+      match curr.kind {
+        TInstrKind::TIf(
           _,
-          TBinary(I32NeOp, TGlobalGet(_), TLocalGet(_)),
-          { instrs: [TUnreachable], .. },
+          {
+            kind: TInstrKind::TBinary(
+              I32NeOp,
+              { kind: TInstrKind::TGlobalGet(_), .. },
+              { kind: TInstrKind::TLocalGet(_), .. }
+            ),
+            ..,
+          },
+          { instrs: [{ kind: TInstrKind::TUnreachable, .. }], .. },
           None
         ) => found.update(fn(_) { true })
         _ => ()
@@ -3491,9 +3556,13 @@ fn af_has_i32_store_const_zero(body : TExpr) -> Bool {
   let found = Ref::new(false)
   for instr in body.instrs {
     af_walk_instr(instr, fn(curr) {
-      match curr {
-        TStore(I32StoreOp, _, _, TI32Const(I32(v))) if v == 0 =>
-          found.update(fn(_) { true })
+      match curr.kind {
+        TInstrKind::TStore(
+          I32StoreOp,
+          _,
+          _,
+          { kind: TInstrKind::TI32Const(I32(v)), .. }
+        ) if v == 0 => found.update(fn(_) { true })
         _ => ()
       }
     })
@@ -3506,8 +3575,13 @@ fn af_has_i32_store_local(body : TExpr) -> Bool {
   let found = Ref::new(false)
   for instr in body.instrs {
     af_walk_instr(instr, fn(curr) {
-      match curr {
-        TStore(I32StoreOp, _, _, TLocalGet(_)) => found.update(fn(_) { true })
+      match curr.kind {
+        TInstrKind::TStore(
+          I32StoreOp,
+          _,
+          _,
+          { kind: TInstrKind::TLocalGet(_), .. }
+        ) => found.update(fn(_) { true })
         _ => ()
       }
     })
@@ -3538,11 +3612,18 @@ fn af_count_catch_state_guards(body : TExpr) -> Int {
   let count = Ref::new(0)
   for instr in body.instrs {
     af_walk_instr(instr, fn(curr) {
-      match curr {
-        TIf(
+      match curr.kind {
+        TInstrKind::TIf(
           _,
-          TBinary(I32NeOp, TGlobalGet(_), TI32Const(I32(v))),
-          { instrs: [TUnreachable], .. },
+          {
+            kind: TInstrKind::TBinary(
+              I32NeOp,
+              { kind: TInstrKind::TGlobalGet(_), .. },
+              { kind: TInstrKind::TI32Const(I32(v)), .. }
+            ),
+            ..,
+          },
+          { instrs: [{ kind: TInstrKind::TUnreachable, .. }], .. },
           None
         ) if v == AF_STATE_NORMAL => count.update(fn(c) { c + 1 })
         _ => ()
@@ -3557,11 +3638,19 @@ fn af_has_unwind_push_stack_end_guard(body : TExpr) -> Bool {
   let found = Ref::new(false)
   for instr in body.instrs {
     af_walk_instr(instr, fn(curr) {
-      match curr {
-        TIf(_, TBinary(I32GtUOp, _, _), { instrs: [TUnreachable], .. }, None) =>
-          found.update(fn(_) { true })
-        TIf(_, TBinary(I64GtUOp, _, _), { instrs: [TUnreachable], .. }, None) =>
-          found.update(fn(_) { true })
+      match curr.kind {
+        TInstrKind::TIf(
+          _,
+          { kind: TInstrKind::TBinary(I32GtUOp, _, _), .. },
+          { instrs: [{ kind: TInstrKind::TUnreachable, .. }], .. },
+          None
+        ) => found.update(fn(_) { true })
+        TInstrKind::TIf(
+          _,
+          { kind: TInstrKind::TBinary(I64GtUOp, _, _), .. },
+          { instrs: [{ kind: TInstrKind::TUnreachable, .. }], .. },
+          None
+        ) => found.update(fn(_) { true })
         _ => ()
       }
     })
@@ -4110,9 +4199,11 @@ test "asyncify lowers call result local.set through locals temp" {
       let seen = Ref::new(false)
       for instr in body.instrs {
         af_walk_instr(instr, fn(curr) {
-          match curr {
-            TLocalSet(_, TCall(FuncIdx(i), [])) if i == 0U =>
-              seen.update(fn(_) { true })
+          match curr.kind {
+            TInstrKind::TLocalSet(
+              _,
+              { kind: TInstrKind::TCall(FuncIdx(i), []), .. }
+            ) if i == 0U => seen.update(fn(_) { true })
             _ => ()
           }
         })
@@ -4643,11 +4734,18 @@ test "asyncify asserts guard calls in try_table catch continuation when enabled"
       let saw_guard = Ref::new(false)
       for instr in body.instrs {
         af_walk_instr(instr, fn(curr) {
-          match curr {
-            TIf(
+          match curr.kind {
+            TInstrKind::TIf(
               _,
-              TBinary(I32NeOp, TGlobalGet(_), TI32Const(I32(v))),
-              { instrs: [TUnreachable], .. },
+              {
+                kind: TInstrKind::TBinary(
+                  I32NeOp,
+                  { kind: TInstrKind::TGlobalGet(_), .. },
+                  { kind: TInstrKind::TI32Const(I32(v)), .. }
+                ),
+                ..,
+              },
+              { instrs: [{ kind: TInstrKind::TUnreachable, .. }], .. },
               None
             ) if v == AF_STATE_NORMAL => saw_guard.update(fn(_) { true })
             _ => ()
@@ -4698,11 +4796,18 @@ test "asyncify asserts do not guard try_table body calls by default" {
       let saw_guard = Ref::new(false)
       for instr in body.instrs {
         af_walk_instr(instr, fn(curr) {
-          match curr {
-            TIf(
+          match curr.kind {
+            TInstrKind::TIf(
               _,
-              TBinary(I32NeOp, TGlobalGet(_), TI32Const(I32(v))),
-              { instrs: [TUnreachable], .. },
+              {
+                kind: TInstrKind::TBinary(
+                  I32NeOp,
+                  { kind: TInstrKind::TGlobalGet(_), .. },
+                  { kind: TInstrKind::TI32Const(I32(v)), .. }
+                ),
+                ..,
+              },
+              { instrs: [{ kind: TInstrKind::TUnreachable, .. }], .. },
               None
             ) if v == AF_STATE_NORMAL => saw_guard.update(fn(_) { true })
             _ => ()
@@ -4808,11 +4913,18 @@ test "asyncify ignore-unwind-from-catch disables try_table call guard" {
       let saw_guard = Ref::new(false)
       for instr in body.instrs {
         af_walk_instr(instr, fn(curr) {
-          match curr {
-            TIf(
+          match curr.kind {
+            TInstrKind::TIf(
               _,
-              TBinary(I32NeOp, TGlobalGet(_), TI32Const(I32(v))),
-              { instrs: [TUnreachable], .. },
+              {
+                kind: TInstrKind::TBinary(
+                  I32NeOp,
+                  { kind: TInstrKind::TGlobalGet(_), .. },
+                  { kind: TInstrKind::TI32Const(I32(v)), .. }
+                ),
+                ..,
+              },
+              { instrs: [{ kind: TInstrKind::TUnreachable, .. }], .. },
               None
             ) if v == AF_STATE_NORMAL => saw_guard.update(fn(_) { true })
             _ => ()

@@ -936,8 +936,8 @@ pub fn IRContext::get_type_ctx(self : Self) -> Result[TypeContext, String] {
 fn count_if_nodes(expr : TExpr) -> Int {
   let mut out = 0
   for instr in expr.instrs {
-    match instr {
-      TIf(_, _, then_e, else_e) => {
+    match instr.kind {
+      TInstrKind::TIf(_, _, then_e, else_e) => {
         out = out + 1
         out = out + count_if_nodes(then_e)
         if else_e is Some(e) {
@@ -953,8 +953,9 @@ fn count_if_nodes(expr : TExpr) -> Int {
 ///|
 fn extract_return_i32(expr : TExpr) -> Int? {
   for instr in expr.instrs {
-    match instr {
-      TReturn([TI32Const(I32(v))]) => return Some(v)
+    match instr.kind {
+      TInstrKind::TReturn([{ kind: TInstrKind::TI32Const(I32(v)), .. }]) =>
+        return Some(v)
       _ => ()
     }
   }
@@ -964,14 +965,15 @@ fn extract_return_i32(expr : TExpr) -> Int? {
 ///|
 fn collect_return_i32s(expr : TExpr, out : Set[Int]) -> Unit {
   for instr in expr.instrs {
-    match instr {
-      TIf(_, _, then_e, else_e) => {
+    match instr.kind {
+      TInstrKind::TIf(_, _, then_e, else_e) => {
         collect_return_i32s(then_e, out)
         if else_e is Some(e) {
           collect_return_i32s(e, out)
         }
       }
-      TReturn([TI32Const(I32(v))]) => out.add(v)
+      TInstrKind::TReturn([{ kind: TInstrKind::TI32Const(I32(v)), .. }]) =>
+        out.add(v)
       _ => ()
     }
   }
@@ -1048,7 +1050,7 @@ test "cfg_to_texpr lowers BrOnNonNull with null in then branch" {
   match cfg_to_texpr(cfg) {
     Some({ instrs, .. }) =>
       match instrs {
-        [TIf(_, cond, then_e, Some(else_e))] => {
+        [{ kind: TInstrKind::TIf(_, cond, then_e, Some(else_e)), .. }] => {
           assert_eq(cond, TInstr::ref_is_null(ref_val))
           assert_eq(extract_return_i32(then_e), Some(3))
           assert_eq(extract_return_i32(else_e), Some(7))
@@ -1094,7 +1096,7 @@ test "cfg_to_texpr lowers BrOnCastFail with i32.eqz(ref.test)" {
   match cfg_to_texpr(cfg) {
     Some({ instrs, .. }) =>
       match instrs {
-        [TIf(_, cond, then_e, Some(else_e))] => {
+        [{ kind: TInstrKind::TIf(_, cond, then_e, Some(else_e)), .. }] => {
           assert_eq(
             cond,
             TInstr::unary(

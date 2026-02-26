@@ -42,8 +42,8 @@ fn ends_with_local_copy(instrs : Array[TInstr]) -> Bool {
   if instrs.is_empty() {
     return false
   }
-  match instrs[instrs.length() - 1] {
-    TLocalSet(_, TLocalGet(_)) => true
+  match instrs[instrs.length() - 1].kind {
+    TInstrKind::TLocalSet(_, { kind: TInstrKind::TLocalGet(_), .. }) => true
     _ => false
   }
 }
@@ -159,7 +159,7 @@ test "to_cfg inserts phi copies into predecessor blocks" {
   match cfg.blocks[b2].terminator {
     Return(values) => {
       assert_eq(values.length(), 1)
-      assert_true(values[0] is TLocalGet(_))
+      assert_true(values[0].kind is TInstrKind::TLocalGet(_))
     }
     _ => fail("expected return terminator in join block")
   }

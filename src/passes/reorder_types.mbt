@@ -1112,7 +1112,23 @@ test "reorder_types reorders private rec-group members and remaps TypeIdx uses" 
   match out.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [TDrop(TStructNew(TypeIdx(i0), [])), ..], .. })]
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                {
+                  kind: TInstrKind::TDrop(
+                    { kind: TInstrKind::TStructNew(TypeIdx(i0), []), .. }
+                  ),
+                  ..,
+                },
+                ..,
+              ],
+              ..,
+            }
+          ),
+        ]
       )
     ) => assert_eq(i0, 0U)
     _ => fail("expected first struct.new to be remapped to the first slot")

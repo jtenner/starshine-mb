@@ -1,6 +1,7 @@
 ///|
 using @lib {
   type TInstr,
+  type TInstrKind,
   type TExpr,
   type LocalIdx,
   type I32,

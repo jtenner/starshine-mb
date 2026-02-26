@@ -281,131 +281,154 @@ fn tg_require_texpr(
 
 ///|
 fn tg_eval_children(instr : TInstr) -> Array[TInstr] {
-  match instr {
-    TI32Const(_)
-    | TI64Const(_)
-    | TF32Const(_)
-    | TF64Const(_)
-    | TRefNull(_)
-    | TRefFunc(_)
-    | TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
-    | TUnreachable
-    | TNop
-    | TLocalGet(_)
-    | TGlobalGet(_)
-    | TMemorySize(_)
-    | TAtomicFence
-    | TTableSize(_)
-    | TDataDrop(_)
-    | TElemDrop(_)
-    | TStructNewDefault(_) => []
-    TUnary(_, child)
-    | TDrop(child)
-    | TLocalSet(_, child)
-    | TLocalTee(_, child)
-    | TGlobalSet(_, child)
-    | TRefIsNull(child)
-    | TRefAsNonNull(child)
-    | TI31GetS(child)
-    | TI31GetU(child)
-    | TRefI31(child)
-    | TArrayLen(child)
-    | TAnyConvertExtern(child)
-    | TExternConvertAny(child)
-    | TThrowRef(child)
-    | TMemoryGrow(_, child)
-    | TTableGet(_, child)
-    | TLoad(_, _, child)
-    | TArrayNewDefault(_, child)
-    | TStructGet(_, _, child)
-    | TStructGetS(_, _, child)
-    | TStructGetU(_, _, child)
-    | TI8x16Splat(child)
-    | TI16x8Splat(child)
-    | TI32x4Splat(child)
-    | TI64x2Splat(child)
-    | TF32x4Splat(child)
-    | TF64x2Splat(child)
-    | TExtractLane(_, _, child)
-    | TRefTest(_, _, child)
-    | TRefCast(_, _, child)
-    | TRefGetDesc(child)
-    | TRefTestDesc(_, _, child)
-    | TRefCastDescEq(_, _, child) => [child]
-    TBinary(_, left, right)
-    | TRefEq(left, right)
-    | TStore(_, _, left, right)
-    | TMemoryAtomicNotify(_, left, right)
-    | TAtomicRmw(_, _, left, right)
-    | TTableSet(_, left, right)
-    | TTableGrow(_, left, right)
-    | TStructSet(_, _, left, right)
-    | TArrayNew(_, left, right)
-    | TArrayNewData(_, _, left, right)
-    | TArrayNewElem(_, _, left, right)
-    | TArrayGet(_, left, right)
-    | TArrayGetS(_, left, right)
-    | TArrayGetU(_, left, right)
-    | TReplaceLane(_, _, left, right)
-    | TI8x16Swizzle(left, right)
-    | TI8x16RelaxedSwizzle(left, right)
-    | TV128Shift(_, left, right)
-    | TV128LoadLane(_, _, _, left, right)
-    | TV128StoreLane(_, _, _, left, right) => [left, right]
-    TMemoryFill(_, a, b, c)
-    | TMemoryCopy(_, _, a, b, c)
-    | TMemoryInit(_, _, a, b, c)
-    | TMemoryAtomicWait32(_, a, b, c)
-    | TMemoryAtomicWait64(_, a, b, c)
-    | TAtomicCmpxchg(_, _, a, b, c)
-    | TTableFill(_, a, b, c)
-    | TTableCopy(_, _, a, b, c)
-    | TTableInit(_, _, a, b, c)
-    | TSelect(_, c, a, b)
-    | TV128Ternary(_, a, b, c) => [a, b, c]
-    TCall(_, args)
-    | TReturnCall(_, args)
-    | TThrow(_, args)
-    | TBr(_, args)
-    | TReturn(args)
-    | TStructNew(_, args)
-    | TArrayNewFixed(_, args) => args.copy()
-    TCallIndirect(_, _, args, index) | TReturnCallIndirect(_, _, args, index) => {
+  match instr.kind {
+    TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_)
+    | TInstrKind::TRefNull(_)
+    | TInstrKind::TRefFunc(_)
+    | TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    | TInstrKind::TUnreachable
+    | TInstrKind::TNop
+    | TInstrKind::TLocalGet(_)
+    | TInstrKind::TGlobalGet(_)
+    | TInstrKind::TMemorySize(_)
+    | TInstrKind::TAtomicFence
+    | TInstrKind::TTableSize(_)
+    | TInstrKind::TDataDrop(_)
+    | TInstrKind::TElemDrop(_)
+    | TInstrKind::TStructNewDefault(_) => []
+    TInstrKind::TUnary(_, child)
+    | TInstrKind::TDrop(child)
+    | TInstrKind::TLocalSet(_, child)
+    | TInstrKind::TLocalTee(_, child)
+    | TInstrKind::TGlobalSet(_, child)
+    | TInstrKind::TRefIsNull(child)
+    | TInstrKind::TRefAsNonNull(child)
+    | TInstrKind::TI31GetS(child)
+    | TInstrKind::TI31GetU(child)
+    | TInstrKind::TRefI31(child)
+    | TInstrKind::TArrayLen(child)
+    | TInstrKind::TAnyConvertExtern(child)
+    | TInstrKind::TExternConvertAny(child)
+    | TInstrKind::TThrowRef(child)
+    | TInstrKind::TMemoryGrow(_, child)
+    | TInstrKind::TTableGet(_, child)
+    | TInstrKind::TLoad(_, _, child)
+    | TInstrKind::TArrayNewDefault(_, child)
+    | TInstrKind::TStructGet(_, _, child)
+    | TInstrKind::TStructGetS(_, _, child)
+    | TInstrKind::TStructGetU(_, _, child)
+    | TInstrKind::TI8x16Splat(child)
+    | TInstrKind::TI16x8Splat(child)
+    | TInstrKind::TI32x4Splat(child)
+    | TInstrKind::TI64x2Splat(child)
+    | TInstrKind::TF32x4Splat(child)
+    | TInstrKind::TF64x2Splat(child)
+    | TInstrKind::TExtractLane(_, _, child)
+    | TInstrKind::TRefTest(_, _, child)
+    | TInstrKind::TRefCast(_, _, child)
+    | TInstrKind::TRefGetDesc(child)
+    | TInstrKind::TRefTestDesc(_, _, child)
+    | TInstrKind::TRefCastDescEq(_, _, child) => [child]
+    TInstrKind::TBinary(_, left, right)
+    | TInstrKind::TRefEq(left, right)
+    | TInstrKind::TStore(_, _, left, right)
+    | TInstrKind::TMemoryAtomicNotify(_, left, right)
+    | TInstrKind::TAtomicRmw(_, _, left, right)
+    | TInstrKind::TTableSet(_, left, right)
+    | TInstrKind::TTableGrow(_, left, right)
+    | TInstrKind::TStructSet(_, _, left, right)
+    | TInstrKind::TArrayNew(_, left, right)
+    | TInstrKind::TArrayNewData(_, _, left, right)
+    | TInstrKind::TArrayNewElem(_, _, left, right)
+    | TInstrKind::TArrayGet(_, left, right)
+    | TInstrKind::TArrayGetS(_, left, right)
+    | TInstrKind::TArrayGetU(_, left, right)
+    | TInstrKind::TReplaceLane(_, _, left, right)
+    | TInstrKind::TI8x16Swizzle(left, right)
+    | TInstrKind::TI8x16RelaxedSwizzle(left, right)
+    | TInstrKind::TV128Shift(_, left, right)
+    | TInstrKind::TV128LoadLane(_, _, _, left, right)
+    | TInstrKind::TV128StoreLane(_, _, _, left, right) => [left, right]
+    TInstrKind::TMemoryFill(_, a, b, c)
+    | TInstrKind::TMemoryCopy(_, _, a, b, c)
+    | TInstrKind::TMemoryInit(_, _, a, b, c)
+    | TInstrKind::TMemoryAtomicWait32(_, a, b, c)
+    | TInstrKind::TMemoryAtomicWait64(_, a, b, c)
+    | TInstrKind::TAtomicCmpxchg(_, _, a, b, c)
+    | TInstrKind::TTableFill(_, a, b, c)
+    | TInstrKind::TTableCopy(_, _, a, b, c)
+    | TInstrKind::TTableInit(_, _, a, b, c)
+    | TInstrKind::TSelect(_, c, a, b)
+    | TInstrKind::TV128Ternary(_, a, b, c) => [a, b, c]
+    TInstrKind::TCall(_, args)
+    | TInstrKind::TReturnCall(_, args)
+    | TInstrKind::TThrow(_, args)
+    | TInstrKind::TBr(_, args)
+    | TInstrKind::TReturn(args)
+    | TInstrKind::TStructNew(_, args)
+    | TInstrKind::TArrayNewFixed(_, args) => args.copy()
+    TInstrKind::TCallIndirect(_, _, args, index)
+    | TInstrKind::TReturnCallIndirect(_, _, args, index) => {
       let out = args.copy()
       out.push(index)
       out
     }
-    TCallRef(_, args, ref_) | TReturnCallRef(_, args, ref_) => {
+    TInstrKind::TCallRef(_, args, ref_)
+    | TInstrKind::TReturnCallRef(_, args, ref_) => {
       let out = args.copy()
       out.push(ref_)
       out
     }
-    TBrIf(_, cond, values) => {
+    TInstrKind::TBrIf(_, cond, values) => {
       let out = values.copy()
       out.push(cond)
       out
     }
-    TBrTable(_, _, index, values) => {
+    TInstrKind::TBrTable(_, _, index, values) => {
       let out = values.copy()
       out.push(index)
       out
     }
-    TBrOnNull(_, ref_, values)
-    | TBrOnNonNull(_, ref_, values)
-    | TBrOnCast(_, _, _, _, ref_, values)
-    | TBrOnCastFail(_, _, _, _, ref_, values) => {
+    TInstrKind::TBrOnNull(_, ref_, values)
+    | TInstrKind::TBrOnNonNull(_, ref_, values)
+    | TInstrKind::TBrOnCast(_, _, _, _, ref_, values)
+    | TInstrKind::TBrOnCastFail(_, _, _, _, ref_, values) => {
       let out = values.copy()
       out.push(ref_)
       out
     }
-    TArraySet(_, a, b, c) => [a, b, c]
-    TArrayFill(_, a, b, c, d) => [a, b, c, d]
-    TArrayCopy(_, _, a, b, c, d, e) => [a, b, c, d, e]
-    TArrayInitData(_, _, a, b, c, d) => [a, b, c, d]
-    TArrayInitElem(_, _, a, b, c, d) => [a, b, c, d]
-    TI8x16Shuffle(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, left, right) =>
-      [left, right]
-    TBlock(_, _) | TLoop(_, _) | TIf(_, _, _, _) | TTryTable(_, _, _) => []
+    TInstrKind::TArraySet(_, a, b, c) => [a, b, c]
+    TInstrKind::TArrayFill(_, a, b, c, d) => [a, b, c, d]
+    TInstrKind::TArrayCopy(_, _, a, b, c, d, e) => [a, b, c, d, e]
+    TInstrKind::TArrayInitData(_, _, a, b, c, d) => [a, b, c, d]
+    TInstrKind::TArrayInitElem(_, _, a, b, c, d) => [a, b, c, d]
+    TInstrKind::TI8x16Shuffle(
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      left,
+      right
+    ) => [left, right]
+    TInstrKind::TBlock(_, _)
+    | TInstrKind::TLoop(_, _)
+    | TInstrKind::TIf(_, _, _, _)
+    | TInstrKind::TTryTable(_, _, _) => []
   }
 }
 
@@ -416,8 +439,8 @@ fn tg_require_instr(
   env : Env,
   st : TGState,
 ) -> Unit {
-  match instr {
-    TLocalGet(idx) =>
+  match instr.kind {
+    TInstrKind::TLocalGet(idx) =>
       match req {
         Some(vt) =>
           if vt.is_ref_type() {
@@ -425,9 +448,9 @@ fn tg_require_instr(
           }
         None => ()
       }
-    TLocalSet(idx, value) =>
+    TInstrKind::TLocalSet(idx, value) =>
       tg_require_instr(value, tg_get_local_requirement(st, idx), env, st)
-    TLocalTee(idx, value) => {
+    TInstrKind::TLocalTee(idx, value) => {
       match req {
         Some(vt) =>
           if vt.is_ref_type() {
@@ -437,19 +460,19 @@ fn tg_require_instr(
       }
       tg_require_instr(value, tg_get_local_requirement(st, idx), env, st)
     }
-    TGlobalSet(idx, value) => {
+    TInstrKind::TGlobalSet(idx, value) => {
       let value_req = match env.get_global_type(idx) {
         Some(GlobalType(vt, _)) => tg_ref_requirement(vt)
         None => None
       }
       tg_require_instr(value, value_req, env, st)
     }
-    TCall(target, args) =>
+    TInstrKind::TCall(target, args) =>
       match env.get_functype_by_funcidx(target) {
         Some(FuncType(params, _)) => tg_require_args(args, params, env, st)
         None => tg_require_args(args, [], env, st)
       }
-    TCallIndirect(type_idx, _, args, index) => {
+    TInstrKind::TCallIndirect(type_idx, _, args, index) => {
       let params = match env.resolve_functype(type_idx) {
         Some(FuncType(ps, _)) => ps
         None => []
@@ -457,7 +480,7 @@ fn tg_require_instr(
       tg_require_instr(index, None, env, st)
       tg_require_args(args, params, env, st)
     }
-    TCallRef(type_idx, args, ref_) => {
+    TInstrKind::TCallRef(type_idx, args, ref_) => {
       let params = match env.resolve_functype(type_idx) {
         Some(FuncType(ps, _)) => ps
         None => []
@@ -465,12 +488,12 @@ fn tg_require_instr(
       tg_require_instr(ref_, Some(tg_ref_null_typeidx(type_idx)), env, st)
       tg_require_args(args, params, env, st)
     }
-    TReturnCall(target, args) =>
+    TInstrKind::TReturnCall(target, args) =>
       match env.get_functype_by_funcidx(target) {
         Some(FuncType(params, _)) => tg_require_args(args, params, env, st)
         None => tg_require_args(args, [], env, st)
       }
-    TReturnCallIndirect(type_idx, _, args, index) => {
+    TInstrKind::TReturnCallIndirect(type_idx, _, args, index) => {
       let params = match env.resolve_functype(type_idx) {
         Some(FuncType(ps, _)) => ps
         None => []
@@ -478,7 +501,7 @@ fn tg_require_instr(
       tg_require_instr(index, None, env, st)
       tg_require_args(args, params, env, st)
     }
-    TReturnCallRef(type_idx, args, ref_) => {
+    TInstrKind::TReturnCallRef(type_idx, args, ref_) => {
       let params = match env.resolve_functype(type_idx) {
         Some(FuncType(ps, _)) => ps
         None => []
@@ -486,18 +509,18 @@ fn tg_require_instr(
       tg_require_instr(ref_, Some(tg_ref_null_typeidx(type_idx)), env, st)
       tg_require_args(args, params, env, st)
     }
-    TReturn(args) => tg_require_args(args, st.return_types, env, st)
-    TBr(label, args) =>
+    TInstrKind::TReturn(args) => tg_require_args(args, st.return_types, env, st)
+    TInstrKind::TBr(label, args) =>
       tg_require_args(args, tg_label_types(env, label), env, st)
-    TBrIf(label, cond, args) => {
+    TInstrKind::TBrIf(label, cond, args) => {
       tg_require_args(args, tg_label_types(env, label), env, st)
       tg_require_instr(cond, None, env, st)
     }
-    TBrTable(_, default_label, index, args) => {
+    TInstrKind::TBrTable(_, default_label, index, args) => {
       tg_require_args(args, tg_label_types(env, default_label), env, st)
       tg_require_instr(index, None, env, st)
     }
-    TBrOnNull(label, ref_, args) => {
+    TInstrKind::TBrOnNull(label, ref_, args) => {
       tg_require_args(args, tg_label_types(env, label), env, st)
       let ref_req = match req {
         Some(RefTypeValType(rt)) =>
@@ -506,7 +529,7 @@ fn tg_require_instr(
       }
       tg_require_instr(ref_, ref_req, env, st)
     }
-    TBrOnNonNull(label, ref_, args) => {
+    TInstrKind::TBrOnNonNull(label, ref_, args) => {
       let label_types = tg_label_types(env, label)
       tg_require_args(args, tg_prefix_types(label_types), env, st)
       let ref_req = match label_types.get(label_types.length() - 1) {
@@ -516,7 +539,7 @@ fn tg_require_instr(
       }
       tg_require_instr(ref_, ref_req, env, st)
     }
-    TBrOnCast(label, CastOp(nullable, _), ht1, _, ref_, args) => {
+    TInstrKind::TBrOnCast(label, CastOp(nullable, _), ht1, _, ref_, args) => {
       let label_types = tg_label_types(env, label)
       tg_require_args(args, tg_prefix_types(label_types), env, st)
       tg_require_instr(
@@ -526,7 +549,7 @@ fn tg_require_instr(
         st,
       )
     }
-    TBrOnCastFail(label, CastOp(nullable, _), ht1, _, ref_, args) => {
+    TInstrKind::TBrOnCastFail(label, CastOp(nullable, _), ht1, _, ref_, args) => {
       let label_types = tg_label_types(env, label)
       tg_require_args(args, tg_prefix_types(label_types), env, st)
       tg_require_instr(
@@ -536,7 +559,7 @@ fn tg_require_instr(
         st,
       )
     }
-    TBlock(bt, body) =>
+    TInstrKind::TBlock(bt, body) =>
       match env.expand_blocktype(bt) {
         Ok((_, results)) =>
           tg_require_texpr(
@@ -547,7 +570,7 @@ fn tg_require_instr(
           )
         Err(_) => tg_require_texpr(body, None, env, st)
       }
-    TLoop(bt, body) =>
+    TInstrKind::TLoop(bt, body) =>
       match env.expand_blocktype(bt) {
         Ok((params, results)) =>
           tg_require_texpr(
@@ -558,7 +581,7 @@ fn tg_require_instr(
           )
         Err(_) => tg_require_texpr(body, None, env, st)
       }
-    TIf(bt, cond, then_body, else_body) => {
+    TInstrKind::TIf(bt, cond, then_body, else_body) => {
       tg_require_instr(cond, None, env, st)
       match env.expand_blocktype(bt) {
         Ok((_, results)) => {
@@ -579,7 +602,7 @@ fn tg_require_instr(
         }
       }
     }
-    TTryTable(bt, _, body) =>
+    TInstrKind::TTryTable(bt, _, body) =>
       match env.expand_blocktype(bt) {
         Ok((_, results)) =>
           tg_require_texpr(
@@ -590,9 +613,9 @@ fn tg_require_instr(
           )
         Err(_) => tg_require_texpr(body, None, env, st)
       }
-    TThrow(tag, args) =>
+    TInstrKind::TThrow(tag, args) =>
       tg_require_args(args, tg_tag_payload_types(env, tag), env, st)
-    TSelect(types_opt, cond, tval, fval) => {
+    TInstrKind::TSelect(types_opt, cond, tval, fval) => {
       let value_req = match types_opt {
         Some([vt]) => tg_ref_requirement(vt)
         _ => req
@@ -601,14 +624,14 @@ fn tg_require_instr(
       tg_require_instr(fval, value_req, env, st)
       tg_require_instr(cond, None, env, st)
     }
-    TRefEq(left, right) => {
+    TInstrKind::TRefEq(left, right) => {
       let eqref = ValType::ref_type(
         RefType::new(true, HeapType::abs(AbsHeapType::eq())),
       )
       tg_require_instr(left, Some(eqref), env, st)
       tg_require_instr(right, Some(eqref), env, st)
     }
-    TRefAsNonNull(value) => {
+    TInstrKind::TRefAsNonNull(value) => {
       let in_req = match req {
         Some(RefTypeValType(rt)) =>
           Some(ValType::ref_type(RefType::new(true, rt.get_heap_type())))
@@ -616,7 +639,7 @@ fn tg_require_instr(
       }
       tg_require_instr(value, in_req, env, st)
     }
-    TAnyConvertExtern(value) => {
+    TInstrKind::TAnyConvertExtern(value) => {
       let in_req = match req {
         Some(RefTypeValType(rt)) =>
           Some(
@@ -631,7 +654,7 @@ fn tg_require_instr(
       }
       tg_require_instr(value, in_req, env, st)
     }
-    TExternConvertAny(value) => {
+    TInstrKind::TExternConvertAny(value) => {
       let in_req = match req {
         Some(RefTypeValType(rt)) =>
           Some(
@@ -643,22 +666,22 @@ fn tg_require_instr(
       }
       tg_require_instr(value, in_req, env, st)
     }
-    TI31GetS(value) | TI31GetU(value) =>
+    TInstrKind::TI31GetS(value) | TInstrKind::TI31GetU(value) =>
       tg_require_instr(
         value,
         Some(ValType::ref_null(HeapType::abs(AbsHeapType::i31()))),
         env,
         st,
       )
-    TArrayLen(value) =>
+    TInstrKind::TArrayLen(value) =>
       tg_require_instr(
         value,
         Some(ValType::ref_null(HeapType::abs(AbsHeapType::array()))),
         env,
         st,
       )
-    TTableGet(_, index) => tg_require_instr(index, None, env, st)
-    TTableSet(table_idx, index, value) => {
+    TInstrKind::TTableGet(_, index) => tg_require_instr(index, None, env, st)
+    TInstrKind::TTableSet(table_idx, index, value) => {
       tg_require_instr(index, None, env, st)
       let value_req = match env.get_table_type(table_idx) {
         Some(TableType(rt, _)) => Some(ValType::ref_type(rt))
@@ -666,7 +689,7 @@ fn tg_require_instr(
       }
       tg_require_instr(value, value_req, env, st)
     }
-    TTableGrow(table_idx, value, size) => {
+    TInstrKind::TTableGrow(table_idx, value, size) => {
       tg_require_instr(size, None, env, st)
       let value_req = match env.get_table_type(table_idx) {
         Some(TableType(rt, _)) => Some(ValType::ref_type(rt))
@@ -674,7 +697,7 @@ fn tg_require_instr(
       }
       tg_require_instr(value, value_req, env, st)
     }
-    TTableFill(table_idx, start, value, len) => {
+    TInstrKind::TTableFill(table_idx, start, value, len) => {
       tg_require_instr(start, None, env, st)
       tg_require_instr(len, None, env, st)
       let value_req = match env.get_table_type(table_idx) {
@@ -683,7 +706,7 @@ fn tg_require_instr(
       }
       tg_require_instr(value, value_req, env, st)
     }
-    TStructNew(type_idx, args) =>
+    TInstrKind::TStructNew(type_idx, args) =>
       match env.resolve_struct_fields(type_idx) {
         Ok(fields) => {
           let types : Array[ValType] = []
@@ -695,11 +718,11 @@ fn tg_require_instr(
         }
         Err(_) => tg_require_args(args, [], env, st)
       }
-    TStructGet(type_idx, _, ref_)
-    | TStructGetS(type_idx, _, ref_)
-    | TStructGetU(type_idx, _, ref_) =>
+    TInstrKind::TStructGet(type_idx, _, ref_)
+    | TInstrKind::TStructGetS(type_idx, _, ref_)
+    | TInstrKind::TStructGetU(type_idx, _, ref_) =>
       tg_require_instr(ref_, Some(tg_ref_null_typeidx(type_idx)), env, st)
-    TStructSet(type_idx, field_idx, ref_, value) => {
+    TInstrKind::TStructSet(type_idx, field_idx, ref_, value) => {
       tg_require_instr(ref_, Some(tg_ref_null_typeidx(type_idx)), env, st)
       let value_req = match tg_struct_field_type(env, type_idx, field_idx) {
         Some(vt) => tg_ref_requirement(vt)
@@ -707,7 +730,7 @@ fn tg_require_instr(
       }
       tg_require_instr(value, value_req, env, st)
     }
-    TArrayNew(type_idx, init, len) => {
+    TInstrKind::TArrayNew(type_idx, init, len) => {
       let init_req = match tg_array_elem_type(env, type_idx) {
         Some(vt) => tg_ref_requirement(vt)
         None => None
@@ -715,8 +738,8 @@ fn tg_require_instr(
       tg_require_instr(init, init_req, env, st)
       tg_require_instr(len, None, env, st)
     }
-    TArrayNewDefault(_, len) => tg_require_instr(len, None, env, st)
-    TArrayNewFixed(type_idx, values) => {
+    TInstrKind::TArrayNewDefault(_, len) => tg_require_instr(len, None, env, st)
+    TInstrKind::TArrayNewFixed(type_idx, values) => {
       let elem_req = match tg_array_elem_type(env, type_idx) {
         Some(vt) => tg_ref_requirement(vt)
         None => None
@@ -725,17 +748,18 @@ fn tg_require_instr(
         tg_require_instr(value, elem_req, env, st)
       }
     }
-    TArrayNewData(_, _, offset, len) | TArrayNewElem(_, _, offset, len) => {
+    TInstrKind::TArrayNewData(_, _, offset, len)
+    | TInstrKind::TArrayNewElem(_, _, offset, len) => {
       tg_require_instr(offset, None, env, st)
       tg_require_instr(len, None, env, st)
     }
-    TArrayGet(type_idx, ref_, idx)
-    | TArrayGetS(type_idx, ref_, idx)
-    | TArrayGetU(type_idx, ref_, idx) => {
+    TInstrKind::TArrayGet(type_idx, ref_, idx)
+    | TInstrKind::TArrayGetS(type_idx, ref_, idx)
+    | TInstrKind::TArrayGetU(type_idx, ref_, idx) => {
       tg_require_instr(ref_, Some(tg_ref_null_typeidx(type_idx)), env, st)
       tg_require_instr(idx, None, env, st)
     }
-    TArraySet(type_idx, ref_, idx, value) => {
+    TInstrKind::TArraySet(type_idx, ref_, idx, value) => {
       tg_require_instr(ref_, Some(tg_ref_null_typeidx(type_idx)), env, st)
       tg_require_instr(idx, None, env, st)
       let value_req = match tg_array_elem_type(env, type_idx) {
@@ -744,7 +768,7 @@ fn tg_require_instr(
       }
       tg_require_instr(value, value_req, env, st)
     }
-    TArrayFill(type_idx, ref_, idx, value, len) => {
+    TInstrKind::TArrayFill(type_idx, ref_, idx, value, len) => {
       tg_require_instr(ref_, Some(tg_ref_null_typeidx(type_idx)), env, st)
       tg_require_instr(idx, None, env, st)
       tg_require_instr(len, None, env, st)
@@ -754,26 +778,34 @@ fn tg_require_instr(
       }
       tg_require_instr(value, value_req, env, st)
     }
-    TArrayCopy(dest_type, src_type, dest_ref, dest_idx, src_ref, src_idx, len) => {
+    TInstrKind::TArrayCopy(
+      dest_type,
+      src_type,
+      dest_ref,
+      dest_idx,
+      src_ref,
+      src_idx,
+      len
+    ) => {
       tg_require_instr(dest_ref, Some(tg_ref_null_typeidx(dest_type)), env, st)
       tg_require_instr(src_ref, Some(tg_ref_null_typeidx(src_type)), env, st)
       tg_require_instr(dest_idx, None, env, st)
       tg_require_instr(src_idx, None, env, st)
       tg_require_instr(len, None, env, st)
     }
-    TArrayInitData(type_idx, _, ref_, dest_idx, src_idx, len)
-    | TArrayInitElem(type_idx, _, ref_, dest_idx, src_idx, len) => {
+    TInstrKind::TArrayInitData(type_idx, _, ref_, dest_idx, src_idx, len)
+    | TInstrKind::TArrayInitElem(type_idx, _, ref_, dest_idx, src_idx, len) => {
       tg_require_instr(ref_, Some(tg_ref_null_typeidx(type_idx)), env, st)
       tg_require_instr(dest_idx, None, env, st)
       tg_require_instr(src_idx, None, env, st)
       tg_require_instr(len, None, env, st)
     }
-    TRefTest(_, _, value)
-    | TRefCast(_, _, value)
-    | TRefTestDesc(_, _, value)
-    | TRefCastDescEq(_, _, value)
-    | TRefGetDesc(value)
-    | TRefIsNull(value) => tg_require_instr(value, None, env, st)
+    TInstrKind::TRefTest(_, _, value)
+    | TInstrKind::TRefCast(_, _, value)
+    | TInstrKind::TRefTestDesc(_, _, value)
+    | TInstrKind::TRefCastDescEq(_, _, value)
+    | TInstrKind::TRefGetDesc(value)
+    | TInstrKind::TRefIsNull(value) => tg_require_instr(value, None, env, st)
     _ => {
       let children = tg_eval_children(instr)
       let mut i = children.length() - 1

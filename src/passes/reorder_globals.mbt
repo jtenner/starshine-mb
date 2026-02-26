@@ -77,9 +77,11 @@ fn rg_collect_use_counts(
   let counts = Array::make(defined_count, 0.0)
   let walker = ModuleTransformer::new()
     .on_tinstruction_evt(fn(self, _, instr) {
-      match instr {
-        TGlobalGet(idx) => rg_bump_count(counts, imported_globals, idx)
-        TGlobalSet(idx, _) => rg_bump_count(counts, imported_globals, idx)
+      match instr.kind {
+        TInstrKind::TGlobalGet(idx) =>
+          rg_bump_count(counts, imported_globals, idx)
+        TInstrKind::TGlobalSet(idx, _) =>
+          rg_bump_count(counts, imported_globals, idx)
         _ => ()
       }
       self.walk_tinstruction_default((), instr)
@@ -482,9 +484,19 @@ test "reorder_globals_always reorders globals by use count while preserving depe
             _,
             {
               instrs: [
-                TDrop(TGlobalGet(GlobalIdx(g0))),
-                TDrop(TGlobalGet(GlobalIdx(g1))),
-                TGlobalSet(GlobalIdx(g2), _),
+                {
+                  kind: TInstrKind::TDrop(
+                    { kind: TInstrKind::TGlobalGet(GlobalIdx(g0)), .. }
+                  ),
+                  ..,
+                },
+                {
+                  kind: TInstrKind::TDrop(
+                    { kind: TInstrKind::TGlobalGet(GlobalIdx(g1)), .. }
+                  ),
+                  ..,
+                },
+                { kind: TInstrKind::TGlobalSet(GlobalIdx(g2), _), .. },
               ],
               ..,
             }

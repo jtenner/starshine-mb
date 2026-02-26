@@ -60,10 +60,10 @@ fn rl_scan_local_uses(
         }
       }
     }
-    match instr {
-      TLocalGet(idx) => bump(idx)
-      TLocalSet(idx, _) => bump(idx)
-      TLocalTee(idx, _) => bump(idx)
+    match instr.kind {
+      TInstrKind::TLocalGet(idx) => bump(idx)
+      TInstrKind::TLocalSet(idx, _) => bump(idx)
+      TInstrKind::TLocalTee(idx, _) => bump(idx)
       _ => ()
     }
     self.walk_tinstruction_default((), instr)
@@ -233,11 +233,38 @@ test "reorder_locals reorders vars by use count then first use and drops unused 
       assert_eq(locals[2], ValType::i64())
       match instrs {
         [
-          TLocalSet(LocalIdx(s0), TI32Const(I32(0))),
-          TDrop(TLocalGet(LocalIdx(g0))),
-          TDrop(TLocalGet(LocalIdx(g1))),
-          TDrop(TLocalGet(LocalIdx(g2))),
-          TLocalSet(LocalIdx(s1), TI32Const(I32(1))),
+          {
+            kind: TInstrKind::TLocalSet(
+              LocalIdx(s0),
+              { kind: TInstrKind::TI32Const(I32(0)), .. }
+            ),
+            ..,
+          },
+          {
+            kind: TInstrKind::TDrop(
+              { kind: TInstrKind::TLocalGet(LocalIdx(g0)), .. }
+            ),
+            ..,
+          },
+          {
+            kind: TInstrKind::TDrop(
+              { kind: TInstrKind::TLocalGet(LocalIdx(g1)), .. }
+            ),
+            ..,
+          },
+          {
+            kind: TInstrKind::TDrop(
+              { kind: TInstrKind::TLocalGet(LocalIdx(g2)), .. }
+            ),
+            ..,
+          },
+          {
+            kind: TInstrKind::TLocalSet(
+              LocalIdx(s1),
+              { kind: TInstrKind::TI32Const(I32(1)), .. }
+            ),
+            ..,
+          },
         ] => {
           assert_eq(s0, 0U)
           assert_eq(g0, 2U)
@@ -276,7 +303,20 @@ test "reorder_locals keeps params fixed and only reorders declared locals" {
     Some(CodeSec([TFunc(locals, { instrs, .. })])) => {
       assert_eq(locals, [ValType::f64()])
       match instrs {
-        [TDrop(TLocalGet(LocalIdx(i0))), TDrop(TLocalGet(LocalIdx(i1)))] => {
+        [
+          {
+            kind: TInstrKind::TDrop(
+              { kind: TInstrKind::TLocalGet(LocalIdx(i0)), .. }
+            ),
+            ..,
+          },
+          {
+            kind: TInstrKind::TDrop(
+              { kind: TInstrKind::TLocalGet(LocalIdx(i1)), .. }
+            ),
+            ..,
+          },
+        ] => {
           assert_eq(i0, 2U)
           assert_eq(i1, 0U)
         }

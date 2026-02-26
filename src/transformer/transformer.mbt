@@ -971,10 +971,10 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
   t : T,
   tinstr : TInstr,
 ) -> TransformerResult[T, TInstr] {
-  match tinstr {
+  match tinstr.kind {
     // === Constants (0 children, 1 result) ===
 
-    TRefNull(ht) => {
+    TInstrKind::TRefNull(ht) => {
       let (t, ht) = match self.walk_heaptype(t, ht) {
         Ok(None) => (t, ht)
         Ok(Some(t)) => t
@@ -982,7 +982,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::ref_null(ht))))
     }
-    TRefFunc(fi) => {
+    TInstrKind::TRefFunc(fi) => {
       let (t, fi) = match self.walk_funcidx(t, fi) {
         Ok(None) => (t, fi)
         Ok(Some(t)) => t
@@ -992,7 +992,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
     }
     // === Nullary (0 children) ===
 
-    TLocalGet(li) => {
+    TInstrKind::TLocalGet(li) => {
       let (t, li) = match self.walk_localidx(t, li) {
         Ok(None) => (t, li)
         Ok(Some(t)) => t
@@ -1000,7 +1000,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::local_get(li))))
     }
-    TGlobalGet(gi) => {
+    TInstrKind::TGlobalGet(gi) => {
       let (t, gi) = match self.walk_globalidx(t, gi) {
         Ok(None) => (t, gi)
         Ok(Some(t)) => t
@@ -1008,7 +1008,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::global_get(gi))))
     }
-    TMemorySize(mi) => {
+    TInstrKind::TMemorySize(mi) => {
       let (t, mi) = match self.walk_memidx(t, mi) {
         Ok(None) => (t, mi)
         Ok(Some(t)) => t
@@ -1016,7 +1016,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::memory_size(mi))))
     }
-    TTableSize(ti) => {
+    TInstrKind::TTableSize(ti) => {
       let (t, ti) = match self.walk_tableidx(t, ti) {
         Ok(None) => (t, ti)
         Ok(Some(t)) => t
@@ -1026,7 +1026,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
     }
 
     // === Unary (1 child) ===
-    TUnary(op, i) => {
+    TInstrKind::TUnary(op, i) => {
       let (t, op) = match self.walk_unaryop(t, op) {
         Ok(None) => (t, op)
         Ok(Some(t)) => t
@@ -1039,7 +1039,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::unary(op, i))))
     }
-    TDrop(i) => {
+    TInstrKind::TDrop(i) => {
       let (t, i) = match self.walk_tinstruction(t, i) {
         Ok(None) => (t, i)
         Ok(Some(t)) => t
@@ -1047,7 +1047,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::drop(i))))
     }
-    TLocalSet(li, i) => {
+    TInstrKind::TLocalSet(li, i) => {
       let (t, li) = match self.walk_localidx(t, li) {
         Ok(None) => (t, li)
         Ok(Some(t)) => t
@@ -1060,7 +1060,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::local_set(li, i))))
     }
-    TLocalTee(li, i) => {
+    TInstrKind::TLocalTee(li, i) => {
       let (t, li) = match self.walk_localidx(t, li) {
         Ok(None) => (t, li)
         Ok(Some(t)) => t
@@ -1073,7 +1073,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::local_tee(li, i))))
     }
-    TGlobalSet(gi, i) => {
+    TInstrKind::TGlobalSet(gi, i) => {
       let (t, gi) = match self.walk_globalidx(t, gi) {
         Ok(None) => (t, gi)
         Ok(Some(t)) => t
@@ -1086,7 +1086,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::global_set(gi, i))))
     }
-    TRefIsNull(i) => {
+    TInstrKind::TRefIsNull(i) => {
       let (t, i) = match self.walk_tinstruction(t, i) {
         Ok(None) => (t, i)
         Ok(Some(t)) => t
@@ -1094,7 +1094,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::ref_is_null(i))))
     }
-    TRefAsNonNull(i) => {
+    TInstrKind::TRefAsNonNull(i) => {
       let (t, i) = match self.walk_tinstruction(t, i) {
         Ok(None) => (t, i)
         Ok(Some(t)) => t
@@ -1102,7 +1102,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::ref_as_non_null(i))))
     }
-    TI31GetS(i) => {
+    TInstrKind::TI31GetS(i) => {
       let (t, i) = match self.walk_tinstruction(t, i) {
         Ok(None) => (t, i)
         Ok(Some(t)) => t
@@ -1110,7 +1110,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::i31_get_s(i))))
     }
-    TI31GetU(i) => {
+    TInstrKind::TI31GetU(i) => {
       let (t, i) = match self.walk_tinstruction(t, i) {
         Ok(None) => (t, i)
         Ok(Some(t)) => t
@@ -1118,7 +1118,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::i31_get_u(i))))
     }
-    TRefI31(i) => {
+    TInstrKind::TRefI31(i) => {
       let (t, i) = match self.walk_tinstruction(t, i) {
         Ok(None) => (t, i)
         Ok(Some(t)) => t
@@ -1126,7 +1126,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::ref_i31(i))))
     }
-    TArrayLen(i) => {
+    TInstrKind::TArrayLen(i) => {
       let (t, i) = match self.walk_tinstruction(t, i) {
         Ok(None) => (t, i)
         Ok(Some(t)) => t
@@ -1134,7 +1134,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::array_len(i))))
     }
-    TAnyConvertExtern(i) => {
+    TInstrKind::TAnyConvertExtern(i) => {
       let (t, i) = match self.walk_tinstruction(t, i) {
         Ok(None) => (t, i)
         Ok(Some(t)) => t
@@ -1142,7 +1142,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::any_convert_extern(i))))
     }
-    TExternConvertAny(i) => {
+    TInstrKind::TExternConvertAny(i) => {
       let (t, i) = match self.walk_tinstruction(t, i) {
         Ok(None) => (t, i)
         Ok(Some(t)) => t
@@ -1150,7 +1150,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::extern_convert_any(i))))
     }
-    TThrowRef(i) => {
+    TInstrKind::TThrowRef(i) => {
       let (t, i) = match self.walk_tinstruction(t, i) {
         Ok(None) => (t, i)
         Ok(Some(t)) => t
@@ -1160,7 +1160,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
     }
 
     // === Binary (2 children) ===
-    TBinary(op, i1, i2) => {
+    TInstrKind::TBinary(op, i1, i2) => {
       let (t, op) = match self.walk_binaryop(t, op) {
         Ok(None) => (t, op)
         Ok(Some(t)) => t
@@ -1178,7 +1178,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::binary(op, i1, i2))))
     }
-    TRefEq(i1, i2) => {
+    TInstrKind::TRefEq(i1, i2) => {
       let (t, i1) = match self.walk_tinstruction(t, i1) {
         Ok(None) => (t, i1)
         Ok(Some(t)) => t
@@ -1191,7 +1191,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::ref_eq(i1, i2))))
     }
-    TStore(op, ma, i1, i2) => {
+    TInstrKind::TStore(op, ma, i1, i2) => {
       let (t, op) = match self.walk_storeop(t, op) {
         Ok(None) => (t, op)
         Ok(Some(t)) => t
@@ -1214,7 +1214,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::store(op, ma, i1, i2))))
     }
-    TMemoryAtomicNotify(ma, i1, i2) => {
+    TInstrKind::TMemoryAtomicNotify(ma, i1, i2) => {
       let (t, ma) = match self.walk_memarg(t, ma) {
         Ok(None) => (t, ma)
         Ok(Some(t)) => t
@@ -1232,7 +1232,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::memory_atomic_notify(ma, i1, i2))))
     }
-    TAtomicRmw(op, ma, i1, i2) => {
+    TInstrKind::TAtomicRmw(op, ma, i1, i2) => {
       let (t, ma) = match self.walk_memarg(t, ma) {
         Ok(None) => (t, ma)
         Ok(Some(t)) => t
@@ -1252,7 +1252,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
     }
 
     // === Load (1 child - address) ===
-    TLoad(op, ma, i) => {
+    TInstrKind::TLoad(op, ma, i) => {
       let (t, op) = match self.walk_loadop(t, op) {
         Ok(None) => (t, op)
         Ok(Some(t)) => t
@@ -1270,10 +1270,10 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::load(op, ma, i))))
     }
-    TAtomicFence => Ok(Some((t, TInstr::atomic_fence())))
+    TInstrKind::TAtomicFence => Ok(Some((t, TInstr::atomic_fence())))
 
     // === Memory operations ===
-    TMemoryGrow(mi, i) => {
+    TInstrKind::TMemoryGrow(mi, i) => {
       let (t, mi) = match self.walk_memidx(t, mi) {
         Ok(None) => (t, mi)
         Ok(Some(t)) => t
@@ -1286,7 +1286,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::memory_grow(mi, i))))
     }
-    TMemoryFill(mi, i1, i2, i3) => {
+    TInstrKind::TMemoryFill(mi, i1, i2, i3) => {
       let (t, mi) = match self.walk_memidx(t, mi) {
         Ok(None) => (t, mi)
         Ok(Some(t)) => t
@@ -1309,7 +1309,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::memory_fill(mi, i1, i2, i3))))
     }
-    TMemoryCopy(mi1, mi2, i1, i2, i3) => {
+    TInstrKind::TMemoryCopy(mi1, mi2, i1, i2, i3) => {
       let (t, mi1) = match self.walk_memidx(t, mi1) {
         Ok(None) => (t, mi1)
         Ok(Some(t)) => t
@@ -1337,7 +1337,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::memory_copy(mi1, mi2, i1, i2, i3))))
     }
-    TMemoryInit(di, mi, i1, i2, i3) => {
+    TInstrKind::TMemoryInit(di, mi, i1, i2, i3) => {
       let (t, di) = match self.walk_dataidx(t, di) {
         Ok(None) => (t, di)
         Ok(Some(t)) => t
@@ -1365,7 +1365,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::memory_init(di, mi, i1, i2, i3))))
     }
-    TMemoryAtomicWait32(ma, i1, i2, i3) => {
+    TInstrKind::TMemoryAtomicWait32(ma, i1, i2, i3) => {
       let (t, ma) = match self.walk_memarg(t, ma) {
         Ok(None) => (t, ma)
         Ok(Some(t)) => t
@@ -1388,7 +1388,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::memory_atomic_wait32(ma, i1, i2, i3))))
     }
-    TMemoryAtomicWait64(ma, i1, i2, i3) => {
+    TInstrKind::TMemoryAtomicWait64(ma, i1, i2, i3) => {
       let (t, ma) = match self.walk_memarg(t, ma) {
         Ok(None) => (t, ma)
         Ok(Some(t)) => t
@@ -1411,7 +1411,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::memory_atomic_wait64(ma, i1, i2, i3))))
     }
-    TAtomicCmpxchg(op, ma, i1, i2, i3) => {
+    TInstrKind::TAtomicCmpxchg(op, ma, i1, i2, i3) => {
       let (t, ma) = match self.walk_memarg(t, ma) {
         Ok(None) => (t, ma)
         Ok(Some(t)) => t
@@ -1434,7 +1434,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::atomic_cmpxchg(op, ma, i1, i2, i3))))
     }
-    TDataDrop(di) => {
+    TInstrKind::TDataDrop(di) => {
       let (t, di) = match self.walk_dataidx(t, di) {
         Ok(None) => (t, di)
         Ok(Some(t)) => t
@@ -1444,7 +1444,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
     }
 
     // === Table operations ===
-    TTableGet(ti, i) => {
+    TInstrKind::TTableGet(ti, i) => {
       let (t, ti) = match self.walk_tableidx(t, ti) {
         Ok(None) => (t, ti)
         Ok(Some(t)) => t
@@ -1457,7 +1457,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::table_get(ti, i))))
     }
-    TTableSet(ti, i1, i2) => {
+    TInstrKind::TTableSet(ti, i1, i2) => {
       let (t, ti) = match self.walk_tableidx(t, ti) {
         Ok(None) => (t, ti)
         Ok(Some(t)) => t
@@ -1475,7 +1475,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::table_set(ti, i1, i2))))
     }
-    TTableGrow(ti, i1, i2) => {
+    TInstrKind::TTableGrow(ti, i1, i2) => {
       let (t, ti) = match self.walk_tableidx(t, ti) {
         Ok(None) => (t, ti)
         Ok(Some(t)) => t
@@ -1493,7 +1493,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::table_grow(ti, i1, i2))))
     }
-    TTableFill(ti, i1, i2, i3) => {
+    TInstrKind::TTableFill(ti, i1, i2, i3) => {
       let (t, ti) = match self.walk_tableidx(t, ti) {
         Ok(None) => (t, ti)
         Ok(Some(t)) => t
@@ -1516,7 +1516,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::table_fill(ti, i1, i2, i3))))
     }
-    TTableCopy(ti1, ti2, i1, i2, i3) => {
+    TInstrKind::TTableCopy(ti1, ti2, i1, i2, i3) => {
       let (t, ti1) = match self.walk_tableidx(t, ti1) {
         Ok(None) => (t, ti1)
         Ok(Some(t)) => t
@@ -1544,7 +1544,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::table_copy(ti1, ti2, i1, i2, i3))))
     }
-    TTableInit(ei, ti, i1, i2, i3) => {
+    TInstrKind::TTableInit(ei, ti, i1, i2, i3) => {
       let (t, ei) = match self.walk_elemidx(t, ei) {
         Ok(None) => (t, ei)
         Ok(Some(t)) => t
@@ -1572,7 +1572,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::table_init(ei, ti, i1, i2, i3))))
     }
-    TElemDrop(ei) => {
+    TInstrKind::TElemDrop(ei) => {
       let (t, ei) = match self.walk_elemidx(t, ei) {
         Ok(None) => (t, ei)
         Ok(Some(t)) => t
@@ -1582,7 +1582,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
     }
 
     // === Calls (N children based on function type) ===
-    TCall(fi, i) => {
+    TInstrKind::TCall(fi, i) => {
       let (t, fi) = match self.walk_funcidx(t, fi) {
         Ok(None) => (t, fi)
         Ok(Some(t)) => t
@@ -1596,7 +1596,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::call(fi, i))))
     }
-    TCallIndirect(tyi, tai, i0, i) => {
+    TInstrKind::TCallIndirect(tyi, tai, i0, i) => {
       let (t, tyi) = match self.walk_typeidx(t, tyi) {
         Ok(None) => (t, tyi)
         Ok(Some(t)) => t
@@ -1620,7 +1620,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::call_indirect(tyi, tai, i0, i))))
     }
-    TCallRef(tyi, i0, i) => {
+    TInstrKind::TCallRef(tyi, i0, i) => {
       let (t, tyi) = match self.walk_typeidx(t, tyi) {
         Ok(None) => (t, tyi)
         Ok(Some(t)) => t
@@ -1639,7 +1639,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::call_ref(tyi, i0, i))))
     }
-    TReturnCall(fi, i) => {
+    TInstrKind::TReturnCall(fi, i) => {
       let (t, fi) = match self.walk_funcidx(t, fi) {
         Ok(None) => (t, fi)
         Ok(Some(t)) => t
@@ -1653,7 +1653,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::return_call(fi, i))))
     }
-    TReturnCallIndirect(tyi, tai, i0, i) => {
+    TInstrKind::TReturnCallIndirect(tyi, tai, i0, i) => {
       let (t, tyi) = match self.walk_typeidx(t, tyi) {
         Ok(None) => (t, tyi)
         Ok(Some(t)) => t
@@ -1677,7 +1677,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::return_call_indirect(tyi, tai, i0, i))))
     }
-    TReturnCallRef(tyi, i0, i) => {
+    TInstrKind::TReturnCallRef(tyi, i0, i) => {
       let (t, tyi) = match self.walk_typeidx(t, tyi) {
         Ok(None) => (t, tyi)
         Ok(Some(t)) => t
@@ -1698,7 +1698,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
     }
 
     // === Control flow ===
-    TBlock(bt, e) => {
+    TInstrKind::TBlock(bt, e) => {
       let (t, bt) = match self.walk_blocktype(t, bt) {
         Ok(None) => (t, bt)
         Ok(Some(t)) => t
@@ -1711,7 +1711,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::block(bt, e))))
     }
-    TLoop(bt, e) => {
+    TInstrKind::TLoop(bt, e) => {
       let (t, bt) = match self.walk_blocktype(t, bt) {
         Ok(None) => (t, bt)
         Ok(Some(t)) => t
@@ -1724,7 +1724,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::loop_(bt, e))))
     }
-    TIf(bt, i_if, e_then, e_else_option) => {
+    TInstrKind::TIf(bt, i_if, e_then, e_else_option) => {
       let (t, bt) = match self.walk_blocktype(t, bt) {
         Ok(None) => (t, bt)
         Ok(Some(t)) => t
@@ -1751,7 +1751,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::if_(bt, i_if, e_then, e_else_option))))
     }
-    TTryTable(bt, c, e) => {
+    TInstrKind::TTryTable(bt, c, e) => {
       let (t, bt) = match self.walk_blocktype(t, bt) {
         Ok(None) => (t, bt)
         Ok(Some(t)) => t
@@ -1769,7 +1769,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::try_table(bt, c, e))))
     }
-    TThrow(ti, i) => {
+    TInstrKind::TThrow(ti, i) => {
       let (t, ti) = match self.walk_tagidx(t, ti) {
         Ok(None) => (t, ti)
         Ok(Some(t)) => t
@@ -1785,7 +1785,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
     }
 
     // === Branches ===
-    TBr(li, i) => {
+    TInstrKind::TBr(li, i) => {
       let (t, li) = match self.walk_labelidx(t, li) {
         Ok(None) => (t, li)
         Ok(Some(t)) => t
@@ -1799,7 +1799,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::br(li, i))))
     }
-    TBrIf(li, i0, i) => {
+    TInstrKind::TBrIf(li, i0, i) => {
       let (t, li) = match self.walk_labelidx(t, li) {
         Ok(None) => (t, li)
         Ok(Some(t)) => t
@@ -1818,7 +1818,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::br_if(li, i0, i))))
     }
-    TBrTable(ls, li, i0, i) => {
+    TInstrKind::TBrTable(ls, li, i0, i) => {
       let (t, ls) = match
         self.walk_array(t, ModuleTransformer::walk_labelidx, ls) {
         Ok(None) => (t, ls)
@@ -1843,7 +1843,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::br_table(ls, li, i0, i))))
     }
-    TBrOnNull(li, i0, i) => {
+    TInstrKind::TBrOnNull(li, i0, i) => {
       let (t, li) = match self.walk_labelidx(t, li) {
         Ok(None) => (t, li)
         Ok(Some(t)) => t
@@ -1862,7 +1862,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::br_on_null(li, i0, i))))
     }
-    TBrOnNonNull(li, i0, i) => {
+    TInstrKind::TBrOnNonNull(li, i0, i) => {
       let (t, li) = match self.walk_labelidx(t, li) {
         Ok(None) => (t, li)
         Ok(Some(t)) => t
@@ -1881,7 +1881,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::br_on_non_null(li, i0, i))))
     }
-    TBrOnCast(li, co, ht0, ht1, i0, i) => {
+    TInstrKind::TBrOnCast(li, co, ht0, ht1, i0, i) => {
       let (t, li) = match self.walk_labelidx(t, li) {
         Ok(None) => (t, li)
         Ok(Some(t)) => t
@@ -1910,7 +1910,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::br_on_cast(li, co.0, ht0, co.1, ht1, i0, i))))
     }
-    TBrOnCastFail(li, co, ht0, ht1, i0, i) => {
+    TInstrKind::TBrOnCastFail(li, co, ht0, ht1, i0, i) => {
       let (t, li) = match self.walk_labelidx(t, li) {
         Ok(None) => (t, li)
         Ok(Some(t)) => t
@@ -1939,7 +1939,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::br_on_cast_fail(li, co.0, ht0, co.1, ht1, i0, i))))
     }
-    TReturn(i) => {
+    TInstrKind::TReturn(i) => {
       let (t, i) = match
         self.walk_array(t, ModuleTransformer::walk_tinstruction, i) {
         Ok(None) => (t, i)
@@ -1950,7 +1950,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
     }
 
     // === Select ===
-    TSelect(vts_option, i0, i1, i2) => {
+    TInstrKind::TSelect(vts_option, i0, i1, i2) => {
       let (t, vts_option) = if vts_option is Some(vts) {
         match self.walk_array(t, ModuleTransformer::walk_valtype, vts) {
           Ok(None) => (t, vts_option)
@@ -1979,7 +1979,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
     }
 
     // === GC: Structs ===
-    TStructNew(ti, i) => {
+    TInstrKind::TStructNew(ti, i) => {
       let (t, ti) = match self.walk_typeidx(t, ti) {
         Ok(None) => (t, ti)
         Ok(Some(t)) => t
@@ -1993,7 +1993,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::struct_new(ti, i))))
     }
-    TStructNewDefault(ti) => {
+    TInstrKind::TStructNewDefault(ti) => {
       let (t, ti) = match self.walk_typeidx(t, ti) {
         Ok(None) => (t, ti)
         Ok(Some(t)) => t
@@ -2001,7 +2001,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::struct_new_default(ti))))
     }
-    TStructGet(ti, f, i) => {
+    TInstrKind::TStructGet(ti, f, i) => {
       let (t, ti) = match self.walk_typeidx(t, ti) {
         Ok(None) => (t, ti)
         Ok(Some(t)) => t
@@ -2014,7 +2014,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::struct_get(ti, f, i))))
     }
-    TStructGetS(ti, f, i) => {
+    TInstrKind::TStructGetS(ti, f, i) => {
       let (t, ti) = match self.walk_typeidx(t, ti) {
         Ok(None) => (t, ti)
         Ok(Some(t)) => t
@@ -2027,7 +2027,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::struct_get_s(ti, f, i))))
     }
-    TStructGetU(ti, f, i) => {
+    TInstrKind::TStructGetU(ti, f, i) => {
       let (t, ti) = match self.walk_typeidx(t, ti) {
         Ok(None) => (t, ti)
         Ok(Some(t)) => t
@@ -2040,7 +2040,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::struct_get_u(ti, f, i))))
     }
-    TStructSet(ti, f, i0, i1) => {
+    TInstrKind::TStructSet(ti, f, i0, i1) => {
       let (t, ti) = match self.walk_typeidx(t, ti) {
         Ok(None) => (t, ti)
         Ok(Some(t)) => t
@@ -2060,7 +2060,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
     }
 
     // === GC: Arrays ===
-    TArrayNew(ti, i0, i1) => {
+    TInstrKind::TArrayNew(ti, i0, i1) => {
       let (t, ti) = match self.walk_typeidx(t, ti) {
         Ok(None) => (t, ti)
         Ok(Some(t)) => t
@@ -2078,7 +2078,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::array_new(ti, i0, i1))))
     }
-    TArrayNewDefault(ti, i) => {
+    TInstrKind::TArrayNewDefault(ti, i) => {
       let (t, ti) = match self.walk_typeidx(t, ti) {
         Ok(None) => (t, ti)
         Ok(Some(t)) => t
@@ -2091,7 +2091,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::array_new_default(ti, i))))
     }
-    TArrayNewFixed(ti, i) => {
+    TInstrKind::TArrayNewFixed(ti, i) => {
       let (t, ti) = match self.walk_typeidx(t, ti) {
         Ok(None) => (t, ti)
         Ok(Some(t)) => t
@@ -2105,7 +2105,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::array_new_fixed(ti, i))))
     }
-    TArrayNewData(ti, di, i0, i1) => {
+    TInstrKind::TArrayNewData(ti, di, i0, i1) => {
       let (t, ti) = match self.walk_typeidx(t, ti) {
         Ok(None) => (t, ti)
         Ok(Some(t)) => t
@@ -2128,7 +2128,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::array_new_data(ti, di, i0, i1))))
     }
-    TArrayNewElem(ti, ei, i0, i1) => {
+    TInstrKind::TArrayNewElem(ti, ei, i0, i1) => {
       let (t, ti) = match self.walk_typeidx(t, ti) {
         Ok(None) => (t, ti)
         Ok(Some(t)) => t
@@ -2151,7 +2151,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::array_new_elem(ti, ei, i0, i1))))
     }
-    TArrayGet(ti, i0, i1) => {
+    TInstrKind::TArrayGet(ti, i0, i1) => {
       let (t, ti) = match self.walk_typeidx(t, ti) {
         Ok(None) => (t, ti)
         Ok(Some(t)) => t
@@ -2169,7 +2169,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::array_get(ti, i0, i1))))
     }
-    TArrayGetS(ti, i0, i1) => {
+    TInstrKind::TArrayGetS(ti, i0, i1) => {
       let (t, ti) = match self.walk_typeidx(t, ti) {
         Ok(None) => (t, ti)
         Ok(Some(t)) => t
@@ -2187,7 +2187,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::array_get_s(ti, i0, i1))))
     }
-    TArrayGetU(ti, i0, i1) => {
+    TInstrKind::TArrayGetU(ti, i0, i1) => {
       let (t, ti) = match self.walk_typeidx(t, ti) {
         Ok(None) => (t, ti)
         Ok(Some(t)) => t
@@ -2205,7 +2205,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::array_get_u(ti, i0, i1))))
     }
-    TArraySet(ti, i0, i1, i2) => {
+    TInstrKind::TArraySet(ti, i0, i1, i2) => {
       let (t, ti) = match self.walk_typeidx(t, ti) {
         Ok(None) => (t, ti)
         Ok(Some(t)) => t
@@ -2228,7 +2228,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::array_set(ti, i0, i1, i2))))
     }
-    TArrayFill(ti, i0, i1, i2, i3) => {
+    TInstrKind::TArrayFill(ti, i0, i1, i2, i3) => {
       let (t, ti) = match self.walk_typeidx(t, ti) {
         Ok(None) => (t, ti)
         Ok(Some(t)) => t
@@ -2256,7 +2256,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::array_fill(ti, i0, i1, i2, i3))))
     }
-    TArrayCopy(ti0, ti1, i0, i1, i2, i3, i4) => {
+    TInstrKind::TArrayCopy(ti0, ti1, i0, i1, i2, i3, i4) => {
       let (t, ti0) = match self.walk_typeidx(t, ti0) {
         Ok(None) => (t, ti0)
         Ok(Some(t)) => t
@@ -2294,7 +2294,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::array_copy(ti0, ti1, i0, i1, i2, i3, i4))))
     }
-    TArrayInitData(ti, di, i0, i1, i2, i3) => {
+    TInstrKind::TArrayInitData(ti, di, i0, i1, i2, i3) => {
       let (t, ti) = match self.walk_typeidx(t, ti) {
         Ok(None) => (t, ti)
         Ok(Some(t)) => t
@@ -2327,7 +2327,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::array_init_data(ti, di, i0, i1, i2, i3))))
     }
-    TArrayInitElem(ti, ei, i0, i1, i2, i3) => {
+    TInstrKind::TArrayInitElem(ti, ei, i0, i1, i2, i3) => {
       let (t, ti) = match self.walk_typeidx(t, ti) {
         Ok(None) => (t, ti)
         Ok(Some(t)) => t
@@ -2362,7 +2362,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
     }
 
     // === GC: Casts ===
-    TRefGetDesc(i) => {
+    TInstrKind::TRefGetDesc(i) => {
       let (t, i) = match self.walk_tinstruction(t, i) {
         Ok(None) => (t, i)
         Ok(Some(t)) => t
@@ -2370,7 +2370,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::ref_get_desc(i))))
     }
-    TRefTest(b, ht, i) => {
+    TInstrKind::TRefTest(b, ht, i) => {
       let (t, ht) = match self.walk_heaptype(t, ht) {
         Ok(None) => (t, ht)
         Ok(Some(t)) => t
@@ -2383,7 +2383,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::ref_test(b, ht, i))))
     }
-    TRefCast(b, ht, i) => {
+    TInstrKind::TRefCast(b, ht, i) => {
       let (t, ht) = match self.walk_heaptype(t, ht) {
         Ok(None) => (t, ht)
         Ok(Some(t)) => t
@@ -2396,7 +2396,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::ref_cast(b, ht, i))))
     }
-    TRefTestDesc(b, ht, i) => {
+    TInstrKind::TRefTestDesc(b, ht, i) => {
       let (t, ht) = match self.walk_heaptype(t, ht) {
         Ok(None) => (t, ht)
         Ok(Some(t)) => t
@@ -2409,7 +2409,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::ref_test_desc(b, ht, i))))
     }
-    TRefCastDescEq(b, ht, i) => {
+    TInstrKind::TRefCastDescEq(b, ht, i) => {
       let (t, ht) = match self.walk_heaptype(t, ht) {
         Ok(None) => (t, ht)
         Ok(Some(t)) => t
@@ -2424,7 +2424,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
     }
 
     // === SIMD: Splat (scalar -> v128) ===
-    TI8x16Splat(i) => {
+    TInstrKind::TI8x16Splat(i) => {
       let (t, i) = match self.walk_tinstruction(t, i) {
         Ok(None) => (t, i)
         Ok(Some(t)) => t
@@ -2432,7 +2432,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::i8x16_splat(i))))
     }
-    TI16x8Splat(i) => {
+    TInstrKind::TI16x8Splat(i) => {
       let (t, i) = match self.walk_tinstruction(t, i) {
         Ok(None) => (t, i)
         Ok(Some(t)) => t
@@ -2440,7 +2440,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::i16x8_splat(i))))
     }
-    TI32x4Splat(i) => {
+    TInstrKind::TI32x4Splat(i) => {
       let (t, i) = match self.walk_tinstruction(t, i) {
         Ok(None) => (t, i)
         Ok(Some(t)) => t
@@ -2448,7 +2448,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::i32x4_splat(i))))
     }
-    TI64x2Splat(i) => {
+    TInstrKind::TI64x2Splat(i) => {
       let (t, i) = match self.walk_tinstruction(t, i) {
         Ok(None) => (t, i)
         Ok(Some(t)) => t
@@ -2456,7 +2456,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::i64x2_splat(i))))
     }
-    TF32x4Splat(i) => {
+    TInstrKind::TF32x4Splat(i) => {
       let (t, i) = match self.walk_tinstruction(t, i) {
         Ok(None) => (t, i)
         Ok(Some(t)) => t
@@ -2464,7 +2464,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::f32x4_splat(i))))
     }
-    TF64x2Splat(i) => {
+    TInstrKind::TF64x2Splat(i) => {
       let (t, i) = match self.walk_tinstruction(t, i) {
         Ok(None) => (t, i)
         Ok(Some(t)) => t
@@ -2474,7 +2474,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
     }
 
     // === SIMD: Extract lane (v128 -> scalar) ===
-    TExtractLane(op, li, i) => {
+    TInstrKind::TExtractLane(op, li, i) => {
       let (t, op) = match self.walk_extractlaneop(t, op) {
         Ok(None) => (t, op)
         Ok(Some(t)) => t
@@ -2494,7 +2494,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
     }
 
     // === SIMD: Replace lane (v128, scalar -> v128) ===
-    TReplaceLane(op, li, i0, i1) => {
+    TInstrKind::TReplaceLane(op, li, i0, i1) => {
       let (t, op) = match self.walk_replacelaneop(t, op) {
         Ok(None) => (t, op)
         Ok(Some(t)) => t
@@ -2519,7 +2519,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
     }
 
     // === SIMD: Shuffle (v128, v128 -> v128 with 16 lane indices) ===
-    TI8x16Shuffle(
+    TInstrKind::TI8x16Shuffle(
       li0,
       li1,
       li2,
@@ -2643,7 +2643,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
     }
 
     // === SIMD: Swizzle (v128, v128 -> v128) ===
-    TI8x16Swizzle(i0, i1) => {
+    TInstrKind::TI8x16Swizzle(i0, i1) => {
       let (t, i0) = match self.walk_tinstruction(t, i0) {
         Ok(None) => (t, i0)
         Ok(Some(t)) => t
@@ -2656,7 +2656,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
       }
       Ok(Some((t, TInstr::i8x16_swizzle(i0, i1))))
     }
-    TI8x16RelaxedSwizzle(i0, i1) => {
+    TInstrKind::TI8x16RelaxedSwizzle(i0, i1) => {
       let (t, i0) = match self.walk_tinstruction(t, i0) {
         Ok(None) => (t, i0)
         Ok(Some(t)) => t
@@ -2671,7 +2671,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
     }
 
     // === SIMD: Shift (v128, i32 -> v128) ===
-    TV128Shift(op, i0, i1) => {
+    TInstrKind::TV128Shift(op, i0, i1) => {
       let (t, op) = match self.walk_v128shiftop(t, op) {
         Ok(None) => (t, op)
         Ok(Some(t)) => t
@@ -2691,7 +2691,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
     }
 
     // === SIMD: Ternary (v128, v128, v128 -> v128) ===
-    TV128Ternary(op, i0, i1, i2) => {
+    TInstrKind::TV128Ternary(op, i0, i1, i2) => {
       let (t, op) = match self.walk_v128ternaryop(t, op) {
         Ok(None) => (t, op)
         Ok(Some(t)) => t
@@ -2716,7 +2716,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
     }
 
     // === SIMD: Lane load (v128, addr -> v128) ===
-    TV128LoadLane(op, ma, li, i0, i1) => {
+    TInstrKind::TV128LoadLane(op, ma, li, i0, i1) => {
       let (t, op) = match self.walk_v128loadlaneop(t, op) {
         Ok(None) => (t, op)
         Ok(Some(t)) => t
@@ -2746,7 +2746,7 @@ pub fn[T] ModuleTransformer::walk_tinstruction_default(
     }
 
     // === SIMD: Lane store (v128, addr -> void) ===
-    TV128StoreLane(op, ma, li, i0, i1) => {
+    TInstrKind::TV128StoreLane(op, ma, li, i0, i1) => {
       let (t, op) = match self.walk_v128storelaneop(t, op) {
         Ok(None) => (t, op)
         Ok(Some(t)) => t

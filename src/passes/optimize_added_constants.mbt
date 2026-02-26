@@ -28,8 +28,8 @@ fn GetParents::new(body : TExpr) -> GetParents {
   let parent_stack : Array[TInstr] = []
   let next_get_id = Ref::new(0)
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
-    match curr {
-      TLocalGet(_) =>
+    match curr.kind {
+      TInstrKind::TLocalGet(_) =>
         match parent_stack.last() {
           Some(parent) => {
             parent_map[next_get_id.val] = parent
@@ -102,8 +102,8 @@ fn oac_collect_local_get_infos(body : TExpr) -> Array[OACLocalGetInfo] {
   let infos : Array[OACLocalGetInfo] = []
   let next_get_id = Ref::new(0)
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
-    match curr {
-      TLocalGet(local_idx) => {
+    match curr.kind {
+      TInstrKind::TLocalGet(local_idx) => {
         infos.push({ get_id: next_get_id.val, local_idx })
         next_get_id.update(fn(n) { n + 1 })
       }
@@ -119,8 +119,8 @@ fn oac_collect_local_get_infos(body : TExpr) -> Array[OACLocalGetInfo] {
 fn oac_collect_all_sets(body : TExpr) -> Array[OACSetKey] {
   let sets : Array[OACSetKey] = []
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
-    match curr {
-      TLocalSet(local_idx, value) =>
+    match curr.kind {
+      TInstrKind::TLocalSet(local_idx, value) =>
         sets.push({ local_idx, root: TInstr::local_set(local_idx, value) })
       _ => ()
     }
@@ -170,8 +170,8 @@ fn oac_build_local_get_id_map(
 fn oac_collect_tee_locals(body : TExpr) -> Set[LocalIdx] {
   let out = Set::new()
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
-    match curr {
-      TLocalTee(local_idx, _) => out.add(local_idx)
+    match curr.kind {
+      TInstrKind::TLocalTee(local_idx, _) => out.add(local_idx)
       _ => ()
     }
     self.walk_tinstruction_default((), curr)
@@ -184,8 +184,9 @@ fn oac_collect_tee_locals(body : TExpr) -> Set[LocalIdx] {
 fn oac_collect_set_counts(body : TExpr) -> Map[LocalIdx, Int] {
   let counts : Map[LocalIdx, Int] = Map::new()
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
-    match curr {
-      TLocalSet(local_idx, _) | TLocalTee(local_idx, _) => {
+    match curr.kind {
+      TInstrKind::TLocalSet(local_idx, _)
+      | TInstrKind::TLocalTee(local_idx, _) => {
         let current = counts.get(local_idx).unwrap_or(0)
         counts[local_idx] = current + 1
       }
@@ -211,16 +212,16 @@ fn oac_make_ssa_info(
 
 ///|
 fn oac_is_load_or_store_parent(parent : TInstr) -> Bool {
-  match parent {
-    TLoad(_, _, _) | TStore(_, _, _, _) => true
+  match parent.kind {
+    TInstrKind::TLoad(_, _, _) | TInstrKind::TStore(_, _, _, _) => true
     _ => false
   }
 }
 
 ///|
 fn oac_is_const(instr : TInstr) -> Bool {
-  match instr {
-    TI32Const(_) | TI64Const(_) => true
+  match instr.kind {
+    TInstrKind::TI32Const(_) | TInstrKind::TI64Const(_) => true
     _ => false
   }
 }
@@ -243,9 +244,9 @@ fn oac_is_i32_add(op : BinaryOp) -> Bool {
 
 ///|
 fn oac_const_to_u64(instr : TInstr) -> UInt64? {
-  match instr {
-    TI32Const(I32(v)) => Some(v.reinterpret_as_uint().to_uint64())
-    TI64Const(I64(v)) => Some(v.reinterpret_as_uint64())
+  match instr.kind {
+    TInstrKind::TI32Const(I32(v)) => Some(v.reinterpret_as_uint().to_uint64())
+    TInstrKind::TI64Const(I64(v)) => Some(v.reinterpret_as_uint64())
     _ => None
   }
 }
@@ -303,7 +304,16 @@ fn oac_find_propagatable(
   let all_sets = oac_collect_all_sets(body)
   for set_ in all_sets {
     match set_ {
-      { root: TLocalSet(_, TBinary(op, left, right)), .. } =>
+      {
+        root: {
+          kind: TInstrKind::TLocalSet(
+            _,
+            { kind: TInstrKind::TBinary(op, left, right), .. }
+          ),
+          ..,
+        },
+        ..,
+      } =>
         if oac_is_i32_add(op) && (oac_is_const(left) || oac_is_const(right)) {
           let mut ok = true
           for get_id in influences.get(set_).unwrap_or([]) {
@@ -438,8 +448,8 @@ fn MemoryAccessOptimizer::optimize_constant_pointer(
     return
   }
   if self.memory64 {
-    match self.ptr {
-      TI64Const(I64(base)) => {
+    match self.ptr.kind {
+      TInstrKind::TI64Const(I64(base)) => {
         let base_u = base.reinterpret_as_uint64()
         let total = base_u + offset
         if total >= base_u {
@@ -450,8 +460,8 @@ fn MemoryAccessOptimizer::optimize_constant_pointer(
       _ => ()
     }
   } else {
-    match self.ptr {
-      TI32Const(I32(base)) => {
+    match self.ptr.kind {
+      TInstrKind::TI32Const(I32(base)) => {
         if offset > 4294967295UL {
           return
         }
@@ -481,8 +491,9 @@ fn MemoryAccessOptimizer::try_to_optimize_constant(
         Some(total) => {
           self.memarg = oac_memarg_with_offset(self.memarg, total)
           self.ptr = other_side
-          match self.ptr {
-            TI32Const(_) | TI64Const(_) => self.optimize_constant_pointer()
+          match self.ptr.kind {
+            TInstrKind::TI32Const(_) | TInstrKind::TI64Const(_) =>
+              self.optimize_constant_pointer()
             _ => ()
           }
           true
@@ -512,8 +523,8 @@ fn MemoryAccessOptimizer::try_to_optimize_propagated_add(
     Some(v) => v
     None => return false
   }
-  let base_local = match other_side {
-    TLocalGet(other_idx) =>
+  let base_local = match other_side.kind {
+    TInstrKind::TLocalGet(other_idx) =>
       if oac_local_is_ssa(self.state, other_idx) &&
         oac_local_is_ssa(self.state, ptr_local_idx) {
         other_idx
@@ -529,15 +540,15 @@ fn MemoryAccessOptimizer::try_to_optimize_propagated_add(
 
 ///|
 fn MemoryAccessOptimizer::optimize(self : MemoryAccessOptimizer) -> Bool {
-  match self.ptr {
-    TI32Const(_) | TI64Const(_) => {
+  match self.ptr.kind {
+    TInstrKind::TI32Const(_) | TInstrKind::TI64Const(_) => {
       self.optimize_constant_pointer()
       return false
     }
     _ => ()
   }
-  match self.ptr {
-    TBinary(op, left, right) if oac_is_add(op) =>
+  match self.ptr.kind {
+    TInstrKind::TBinary(op, left, right) if oac_is_add(op) =>
       if self.try_to_optimize_constant(right, left) ||
         self.try_to_optimize_constant(left, right) {
         return false
@@ -545,7 +556,11 @@ fn MemoryAccessOptimizer::optimize(self : MemoryAccessOptimizer) -> Bool {
     _ => ()
   }
   match (self.state.local_graph, self.ptr_get_id, self.ptr) {
-    (Some(graph), Some(get_id), TLocalGet(ptr_local_idx)) => {
+    (
+      Some(graph),
+      Some(get_id),
+      { kind: TInstrKind::TLocalGet(ptr_local_idx), .. },
+    ) => {
       let sets = graph.get_sets(get_id)
       if sets.length() != 1 {
         return false
@@ -554,8 +569,11 @@ fn MemoryAccessOptimizer::optimize(self : MemoryAccessOptimizer) -> Bool {
       match set_src {
         LocalSet::InitValue => false
         LocalSet::Set(set_local_idx, set_root) =>
-          match set_root {
-            TLocalSet(_, TBinary(op, left, right)) =>
+          match set_root.kind {
+            TInstrKind::TLocalSet(
+              _,
+              { kind: TInstrKind::TBinary(op, left, right), .. }
+            ) =>
               if !oac_is_i32_add(op) {
                 false
               } else {
@@ -593,8 +611,11 @@ fn oac_insert_helper_indexes(
     return body
   }
   let pass = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
-    match curr {
-      TLocalSet(local_idx, TBinary(op, left, right)) if oac_is_i32_add(op) =>
+    match curr.kind {
+      TInstrKind::TLocalSet(
+        local_idx,
+        { kind: TInstrKind::TBinary(op, left, right), .. }
+      ) if oac_is_i32_add(op) =>
         match
           helper_indexes.get(OACSetKey::{
             local_idx,
@@ -652,25 +673,25 @@ fn oac_binary_traps(op : BinaryOp) -> Bool {
 
 ///|
 fn oac_has_side_effects(instr : TInstr) -> Bool {
-  match instr {
-    TI32Const(_)
-    | TI64Const(_)
-    | TF32Const(_)
-    | TF64Const(_)
-    | TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
-    | TRefNull(_)
-    | TRefFunc(_)
-    | TLocalGet(_)
-    | TGlobalGet(_)
-    | TMemorySize(_)
-    | TTableSize(_) => false
-    TBinary(op, left, right) =>
+  match instr.kind {
+    TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_)
+    | TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    | TInstrKind::TRefNull(_)
+    | TInstrKind::TRefFunc(_)
+    | TInstrKind::TLocalGet(_)
+    | TInstrKind::TGlobalGet(_)
+    | TInstrKind::TMemorySize(_)
+    | TInstrKind::TTableSize(_) => false
+    TInstrKind::TBinary(op, left, right) =>
       if oac_binary_traps(op) {
         true
       } else {
         oac_has_side_effects(left) || oac_has_side_effects(right)
       }
-    TRefEq(left, right) =>
+    TInstrKind::TRefEq(left, right) =>
       oac_has_side_effects(left) || oac_has_side_effects(right)
     _ => true
   }
@@ -680,8 +701,8 @@ fn oac_has_side_effects(instr : TInstr) -> Bool {
 fn oac_collect_used_locals(body : TExpr) -> Set[LocalIdx] {
   let used = Set::new()
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
-    match curr {
-      TLocalGet(local_idx) => used.add(local_idx)
+    match curr.kind {
+      TInstrKind::TLocalGet(local_idx) => used.add(local_idx)
       _ => ()
     }
     self.walk_tinstruction_default((), curr)
@@ -701,8 +722,8 @@ fn oac_cleanup_unneeded_sets(body : TExpr) -> TExpr {
       _,
       curr,
     ) {
-      match curr {
-        TLocalSet(local_idx, value) => {
+      match curr.kind {
+        TInstrKind::TLocalSet(local_idx, value) => {
           let next_value = match self.walk_tinstruction((), value) {
             Ok(Some((_, updated))) => updated
             Ok(None) => value
@@ -743,14 +764,14 @@ fn oac_rewrite_body(
 ) -> Result[TExpr, String] {
   let next_get_id = Ref::new(0)
   let pass = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
-    match curr {
-      TLocalGet(_) => {
+    match curr.kind {
+      TInstrKind::TLocalGet(_) => {
         next_get_id.update(fn(n) { n + 1 })
         unchanged()
       }
-      TLoad(_, _, ptr) => {
-        let ptr_get_id = match ptr {
-          TLocalGet(_) => Some(next_get_id.val)
+      TInstrKind::TLoad(_, _, ptr) => {
+        let ptr_get_id = match ptr.kind {
+          TInstrKind::TLocalGet(_) => Some(next_get_id.val)
           _ => None
         }
         let walked = match self.walk_tinstruction_default((), curr) {
@@ -758,8 +779,8 @@ fn oac_rewrite_body(
           Ok(None) => curr
           Err(e) => return Err(e)
         }
-        match walked {
-          TLoad(next_op, next_memarg, next_ptr) => {
+        match walked.kind {
+          TInstrKind::TLoad(next_op, next_memarg, next_ptr) => {
             let optimizer = MemoryAccessOptimizer::new(
               state, next_memarg, next_ptr, ptr_get_id,
             )
@@ -771,9 +792,9 @@ fn oac_rewrite_body(
           _ => change((), walked)
         }
       }
-      TStore(_, _, ptr, _) => {
-        let ptr_get_id = match ptr {
-          TLocalGet(_) => Some(next_get_id.val)
+      TInstrKind::TStore(_, _, ptr, _) => {
+        let ptr_get_id = match ptr.kind {
+          TInstrKind::TLocalGet(_) => Some(next_get_id.val)
           _ => None
         }
         let walked = match self.walk_tinstruction_default((), curr) {
@@ -781,8 +802,8 @@ fn oac_rewrite_body(
           Ok(None) => curr
           Err(e) => return Err(e)
         }
-        match walked {
-          TStore(next_op, next_memarg, next_ptr, next_value) => {
+        match walked.kind {
+          TInstrKind::TStore(next_op, next_memarg, next_ptr, next_value) => {
             let optimizer = MemoryAccessOptimizer::new(
               state, next_memarg, next_ptr, ptr_get_id,
             )
@@ -956,9 +977,12 @@ test "optimize added constants folds load add-const into offset" {
   let (_, out_body) = oac_run_func(body, locals=[ValType::i32()]).unwrap()
   match out_body {
     { instrs: [instr], .. } =>
-      match instr {
-        TLoad(I32LoadOp, MemArg(U32(4), None, U64(8)), TLocalGet(LocalIdx(i))) =>
-          assert_eq(i.reinterpret_as_int(), 0)
+      match instr.kind {
+        TInstrKind::TLoad(
+          I32LoadOp,
+          MemArg(U32(4), None, U64(8)),
+          { kind: TInstrKind::TLocalGet(LocalIdx(i)), .. }
+        ) => assert_eq(i.reinterpret_as_int(), 0)
         _ => fail("expected i32.load offset=8 with local.get base")
       }
     _ => fail("expected one instruction")
@@ -984,12 +1008,12 @@ test "optimize added constants folds store add-const into offset" {
   let (_, out_body) = oac_run_func(body, locals=[ValType::i32(), ValType::i32()]).unwrap()
   match out_body {
     { instrs: [instr], .. } =>
-      match instr {
-        TStore(
+      match instr.kind {
+        TInstrKind::TStore(
           I32StoreOp,
           MemArg(U32(4), None, U64(8)),
-          TLocalGet(LocalIdx(i)),
-          TLocalGet(LocalIdx(j))
+          { kind: TInstrKind::TLocalGet(LocalIdx(i)), .. },
+          { kind: TInstrKind::TLocalGet(LocalIdx(j)), .. }
         ) => {
           assert_eq(i.reinterpret_as_int(), 0)
           assert_eq(j.reinterpret_as_int(), 1)
@@ -1041,18 +1065,24 @@ test "optimize added constants respects low memory bound checks" {
     locals=[ValType::i32()],
     options~,
   ).unwrap()
-  match instrs[0] {
-    TLoad(_, MemArg(_, _, U64(off)), _) => assert_eq(off, 12UL)
+  match instrs[0].kind {
+    TInstrKind::TLoad(_, MemArg(_, _, U64(off)), _) => assert_eq(off, 12UL)
     _ => fail("expected first load to fold")
   }
-  match instrs[1] {
-    TLoad(_, MemArg(_, _, U64(off)), TBinary(I32AddOp, _, _)) =>
-      assert_eq(off, 12UL)
+  match instrs[1].kind {
+    TInstrKind::TLoad(
+      _,
+      MemArg(_, _, U64(off)),
+      { kind: TInstrKind::TBinary(I32AddOp, _, _), .. }
+    ) => assert_eq(off, 12UL)
     _ => fail("expected second load to remain unfused")
   }
-  match instrs[2] {
-    TLoad(_, MemArg(_, _, U64(off)), TBinary(I32AddOp, _, _)) =>
-      assert_eq(off, 0UL)
+  match instrs[2].kind {
+    TInstrKind::TLoad(
+      _,
+      MemArg(_, _, U64(off)),
+      { kind: TInstrKind::TBinary(I32AddOp, _, _), .. }
+    ) => assert_eq(off, 0UL)
     _ => fail("expected third load to remain unfused")
   }
 }
@@ -1072,15 +1102,23 @@ test "optimize added constants normalizes const pointer plus offset for memory32
     ),
   ]
   let (_, { instrs, .. }) = oac_run_func(body).unwrap()
-  match instrs[0] {
-    TLoad(_, MemArg(_, _, U64(off)), TI32Const(I32(v))) => {
+  match instrs[0].kind {
+    TInstrKind::TLoad(
+      _,
+      MemArg(_, _, U64(off)),
+      { kind: TInstrKind::TI32Const(I32(v)), .. }
+    ) => {
       assert_eq(off, 0UL)
       assert_eq(v, 14)
     }
     _ => fail("expected const pointer normalization on first load")
   }
-  match instrs[1] {
-    TLoad(_, MemArg(_, _, U64(off)), TI32Const(I32(v))) => {
+  match instrs[1].kind {
+    TInstrKind::TLoad(
+      _,
+      MemArg(_, _, U64(off)),
+      { kind: TInstrKind::TI32Const(I32(v)), .. }
+    ) => {
       assert_eq(off, 1UL)
       assert_eq(v, -1)
     }
@@ -1103,15 +1141,23 @@ test "optimize added constants normalizes const pointer plus offset for memory64
     ),
   ]
   let (_, { instrs, .. }) = oac_run_func(body, memory64=true).unwrap()
-  match instrs[0] {
-    TLoad(_, MemArg(_, _, U64(off)), TI64Const(I64(v))) => {
+  match instrs[0].kind {
+    TInstrKind::TLoad(
+      _,
+      MemArg(_, _, U64(off)),
+      { kind: TInstrKind::TI64Const(I64(v)), .. }
+    ) => {
       assert_eq(off, 0UL)
       assert_eq(v, 14L)
     }
     _ => fail("expected const pointer normalization on memory64")
   }
-  match instrs[1] {
-    TLoad(_, MemArg(_, _, U64(off)), TI64Const(I64(v))) => {
+  match instrs[1].kind {
+    TInstrKind::TLoad(
+      _,
+      MemArg(_, _, U64(off)),
+      { kind: TInstrKind::TI64Const(I64(v)), .. }
+    ) => {
       assert_eq(off, 1UL)
       assert_eq(v, -1L)
     }
@@ -1145,8 +1191,12 @@ test "optimize added constants propagate mode reuses SSA base local" {
     propagate=true,
   ).unwrap()
   assert_eq(locals.length(), 2)
-  match instrs.last().unwrap() {
-    TLoad(I32LoadOp, MemArg(_, _, U64(off)), TLocalGet(LocalIdx(raw))) => {
+  match instrs.last().unwrap().kind {
+    TInstrKind::TLoad(
+      I32LoadOp,
+      MemArg(_, _, U64(off)),
+      { kind: TInstrKind::TLocalGet(LocalIdx(raw)), .. }
+    ) => {
       assert_eq(off, 10UL)
       assert_eq(raw.reinterpret_as_int(), 0)
     }
@@ -1180,8 +1230,12 @@ test "optimize added constants propagate rejects non-load-store parents" {
     locals=[ValType::i32(), ValType::i32()],
     propagate=true,
   ).unwrap()
-  match instrs.last().unwrap() {
-    TLoad(I32LoadOp, MemArg(_, _, U64(off)), TLocalGet(LocalIdx(raw))) => {
+  match instrs.last().unwrap().kind {
+    TInstrKind::TLoad(
+      I32LoadOp,
+      MemArg(_, _, U64(off)),
+      { kind: TInstrKind::TLocalGet(LocalIdx(raw)), .. }
+    ) => {
       assert_eq(off, 0UL)
       assert_eq(raw.reinterpret_as_int(), 1)
     }
@@ -1217,8 +1271,12 @@ test "optimize added constants propagate inserts helper local when needed" {
   ).unwrap()
   assert_eq(locals.length(), 3)
   let helper_idx = locals.length() - 1
-  match instrs.last().unwrap() {
-    TLoad(I32LoadOp, MemArg(_, _, U64(off)), TLocalGet(LocalIdx(raw))) => {
+  match instrs.last().unwrap().kind {
+    TInstrKind::TLoad(
+      I32LoadOp,
+      MemArg(_, _, U64(off)),
+      { kind: TInstrKind::TLocalGet(LocalIdx(raw)), .. }
+    ) => {
       assert_eq(off, 10UL)
       assert_eq(raw.reinterpret_as_int(), helper_idx)
     }
@@ -1260,8 +1318,12 @@ test "optimize added constants propagate iterates to reach fixpoint" {
     locals=[ValType::i32(), ValType::i32(), ValType::i32()],
     propagate=true,
   ).unwrap()
-  match instrs.last().unwrap() {
-    TLoad(I32LoadOp, MemArg(_, _, U64(off)), TLocalGet(LocalIdx(raw))) => {
+  match instrs.last().unwrap().kind {
+    TInstrKind::TLoad(
+      I32LoadOp,
+      MemArg(_, _, U64(off)),
+      { kind: TInstrKind::TLocalGet(LocalIdx(raw)), .. }
+    ) => {
       assert_eq(off, 12UL)
       assert_eq(raw.reinterpret_as_int(), 0)
     }

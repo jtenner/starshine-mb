@@ -551,16 +551,16 @@ pub fn to_texpr(expr : Expr, env : Env) -> Result[TExpr, String] {
 
 ///|
 fn is_stack_polymorphic_source(instr : TInstr) -> Bool {
-  match instr {
-    TUnreachable => true
-    TBr(_, _) => true
-    TBrTable(_, _, _, _) => true
-    TReturn(_) => true
-    TThrow(_, _) => true
-    TThrowRef(_) => true
-    TReturnCall(_, _) => true
-    TReturnCallIndirect(_, _, _, _) => true
-    TReturnCallRef(_, _, _) => true
+  match instr.kind {
+    TInstrKind::TUnreachable => true
+    TInstrKind::TBr(_, _) => true
+    TInstrKind::TBrTable(_, _, _, _) => true
+    TInstrKind::TReturn(_) => true
+    TInstrKind::TThrow(_, _) => true
+    TInstrKind::TThrowRef(_) => true
+    TInstrKind::TReturnCall(_, _) => true
+    TInstrKind::TReturnCallIndirect(_, _, _, _) => true
+    TInstrKind::TReturnCallRef(_, _, _) => true
     _ => false
   }
 }
@@ -607,18 +607,22 @@ fn pop_n(stack : Array[TInstr], n : Int) -> Result[Array[TInstr], String] {
 
 ///|
 fn tinstr_result_arity(instr : TInstr, env : Env) -> Int {
-  match instr {
-    TCall(func_idx, _) =>
+  match instr.kind {
+    TInstrKind::TCall(func_idx, _) =>
       match env.get_functype_by_funcidx(func_idx) {
         Some(FuncType(_, results)) => results.length()
         None => 0
       }
-    TCallIndirect(type_idx, _, _, _) | TCallRef(type_idx, _, _) =>
+    TInstrKind::TCallIndirect(type_idx, _, _, _)
+    | TInstrKind::TCallRef(type_idx, _, _) =>
       match env.resolve_functype(type_idx) {
         Some(FuncType(_, results)) => results.length()
         None => 0
       }
-    TBlock(bt, _) | TLoop(bt, _) | TIf(bt, _, _, _) | TTryTable(bt, _, _) =>
+    TInstrKind::TBlock(bt, _)
+    | TInstrKind::TLoop(bt, _)
+    | TInstrKind::TIf(bt, _, _, _)
+    | TInstrKind::TTryTable(bt, _, _) =>
       match env.expand_blocktype(bt) {
         Ok((_, results)) => results.length()
         Err(_) => 0

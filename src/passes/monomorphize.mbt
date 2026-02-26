@@ -133,101 +133,109 @@ fn mn_collect_shallow_effects_into(
   instr : TInstr,
   effects : MonoEffects,
 ) -> Unit {
-  match instr {
-    TLocalGet(idx) => effects.locals_read.add(idx)
-    TLocalSet(idx, _) => effects.locals_written.add(idx)
-    TLocalTee(idx, _) => {
+  match instr.kind {
+    TInstrKind::TLocalGet(idx) => effects.locals_read.add(idx)
+    TInstrKind::TLocalSet(idx, _) => effects.locals_written.add(idx)
+    TInstrKind::TLocalTee(idx, _) => {
       effects.locals_read.add(idx)
       effects.locals_written.add(idx)
     }
-    TGlobalGet(_) => effects.reads_globals = true
-    TGlobalSet(_, _) => effects.writes_globals = true
-    TLoad(_, _, _) => {
+    TInstrKind::TGlobalGet(_) => effects.reads_globals = true
+    TInstrKind::TGlobalSet(_, _) => effects.writes_globals = true
+    TInstrKind::TLoad(_, _, _) => {
       effects.reads_memory = true
       effects.traps = true
     }
-    TStore(_, _, _, _) => {
+    TInstrKind::TStore(_, _, _, _) => {
       effects.writes_memory = true
       effects.traps = true
     }
-    TMemoryGrow(_, _) => effects.writes_memory = true
-    TMemorySize(_) => effects.reads_memory = true
-    TMemoryCopy(_, _, _, _, _) => {
+    TInstrKind::TMemoryGrow(_, _) => effects.writes_memory = true
+    TInstrKind::TMemorySize(_) => effects.reads_memory = true
+    TInstrKind::TMemoryCopy(_, _, _, _, _) => {
       effects.reads_memory = true
       effects.writes_memory = true
     }
-    TMemoryFill(_, _, _, _) => effects.writes_memory = true
-    TMemoryInit(_, _, _, _, _) => {
+    TInstrKind::TMemoryFill(_, _, _, _) => effects.writes_memory = true
+    TInstrKind::TMemoryInit(_, _, _, _, _) => {
       effects.reads_memory = true
       effects.writes_memory = true
     }
-    TDataDrop(_) => effects.writes_memory = true
-    TTableSet(_, _, _) | TTableGrow(_, _, _) | TTableFill(_, _, _, _) =>
-      effects.writes_memory = true
-    TTableGet(_, _) | TTableSize(_) => effects.reads_memory = true
-    TTableCopy(_, _, _, _, _) | TTableInit(_, _, _, _, _) | TElemDrop(_) => {
+    TInstrKind::TDataDrop(_) => effects.writes_memory = true
+    TInstrKind::TTableSet(_, _, _)
+    | TInstrKind::TTableGrow(_, _, _)
+    | TInstrKind::TTableFill(_, _, _, _) => effects.writes_memory = true
+    TInstrKind::TTableGet(_, _) | TInstrKind::TTableSize(_) =>
+      effects.reads_memory = true
+    TInstrKind::TTableCopy(_, _, _, _, _)
+    | TInstrKind::TTableInit(_, _, _, _, _)
+    | TInstrKind::TElemDrop(_) => {
       effects.reads_memory = true
       effects.writes_memory = true
     }
-    TCall(_, _) | TCallIndirect(_, _, _, _) | TCallRef(_, _, _) =>
-      effects.calls = true
-    TReturnCall(_, _)
-    | TReturnCallIndirect(_, _, _, _)
-    | TReturnCallRef(_, _, _) => {
+    TInstrKind::TCall(_, _)
+    | TInstrKind::TCallIndirect(_, _, _, _)
+    | TInstrKind::TCallRef(_, _, _) => effects.calls = true
+    TInstrKind::TReturnCall(_, _)
+    | TInstrKind::TReturnCallIndirect(_, _, _, _)
+    | TInstrKind::TReturnCallRef(_, _, _) => {
       effects.calls = true
       effects.branches = true
     }
-    TBr(_, _)
-    | TBrIf(_, _, _)
-    | TBrTable(_, _, _, _)
-    | TBrOnNull(_, _, _)
-    | TBrOnNonNull(_, _, _)
-    | TBrOnCast(_, _, _, _, _, _)
-    | TBrOnCastFail(_, _, _, _, _, _)
-    | TReturn(_) => effects.branches = true
-    TThrow(_, _) => {
+    TInstrKind::TBr(_, _)
+    | TInstrKind::TBrIf(_, _, _)
+    | TInstrKind::TBrTable(_, _, _, _)
+    | TInstrKind::TBrOnNull(_, _, _)
+    | TInstrKind::TBrOnNonNull(_, _, _)
+    | TInstrKind::TBrOnCast(_, _, _, _, _, _)
+    | TInstrKind::TBrOnCastFail(_, _, _, _, _, _)
+    | TInstrKind::TReturn(_) => effects.branches = true
+    TInstrKind::TThrow(_, _) => {
       effects.throws = true
       effects.branches = true
     }
-    TThrowRef(_) => {
+    TInstrKind::TThrowRef(_) => {
       effects.throws = true
       effects.branches = true
     }
-    TUnreachable => effects.traps = true
-    TRefAsNonNull(_) | TRefCast(_, _, _) => effects.traps = true
-    TStructGet(_, _, _) | TStructGetS(_, _, _) | TStructGetU(_, _, _) => {
+    TInstrKind::TUnreachable => effects.traps = true
+    TInstrKind::TRefAsNonNull(_) | TInstrKind::TRefCast(_, _, _) =>
+      effects.traps = true
+    TInstrKind::TStructGet(_, _, _)
+    | TInstrKind::TStructGetS(_, _, _)
+    | TInstrKind::TStructGetU(_, _, _) => {
       effects.reads_memory = true
       effects.traps = true
     }
-    TStructSet(_, _, _, _) => {
+    TInstrKind::TStructSet(_, _, _, _) => {
       effects.writes_memory = true
       effects.traps = true
     }
-    TArrayNew(_, _, _)
-    | TArrayNewDefault(_, _)
-    | TArrayNewFixed(_, _)
-    | TArrayNewData(_, _, _, _)
-    | TArrayNewElem(_, _, _, _) => {
+    TInstrKind::TArrayNew(_, _, _)
+    | TInstrKind::TArrayNewDefault(_, _)
+    | TInstrKind::TArrayNewFixed(_, _)
+    | TInstrKind::TArrayNewData(_, _, _, _)
+    | TInstrKind::TArrayNewElem(_, _, _, _) => {
       effects.writes_memory = true
       effects.traps = true
     }
-    TArrayGet(_, _, _)
-    | TArrayGetS(_, _, _)
-    | TArrayGetU(_, _, _)
-    | TArrayLen(_) => {
+    TInstrKind::TArrayGet(_, _, _)
+    | TInstrKind::TArrayGetS(_, _, _)
+    | TInstrKind::TArrayGetU(_, _, _)
+    | TInstrKind::TArrayLen(_) => {
       effects.reads_memory = true
       effects.traps = true
     }
-    TArraySet(_, _, _, _)
-    | TArrayFill(_, _, _, _, _)
-    | TArrayCopy(_, _, _, _, _, _, _)
-    | TArrayInitData(_, _, _, _, _, _)
-    | TArrayInitElem(_, _, _, _, _, _) => {
+    TInstrKind::TArraySet(_, _, _, _)
+    | TInstrKind::TArrayFill(_, _, _, _, _)
+    | TInstrKind::TArrayCopy(_, _, _, _, _, _, _)
+    | TInstrKind::TArrayInitData(_, _, _, _, _, _)
+    | TInstrKind::TArrayInitElem(_, _, _, _, _, _) => {
       effects.reads_memory = true
       effects.writes_memory = true
       effects.traps = true
     }
-    TBinary(op, _, _) =>
+    TInstrKind::TBinary(op, _, _) =>
       match op {
         I32DivSOp
         | I32DivUOp
@@ -239,7 +247,7 @@ fn mn_collect_shallow_effects_into(
         | I64RemUOp => effects.traps = true
         _ => ()
       }
-    TUnary(op, _) =>
+    TInstrKind::TUnary(op, _) =>
       match op {
         I32TruncF32SOp
         | I32TruncF32UOp
@@ -447,18 +455,22 @@ fn mn_call_result_unreachable(target : FuncIdx, env : Env) -> Bool {
 
 ///|
 fn mn_instr_result_arity(instr : TInstr, env : Env) -> Int {
-  match instr {
-    TCall(target, _) =>
+  match instr.kind {
+    TInstrKind::TCall(target, _) =>
       match env.get_functype_by_funcidx(target) {
         Some(FuncType(_, results)) => results.length()
         None => 0
       }
-    TCallIndirect(type_idx, _, _, _) | TCallRef(type_idx, _, _) =>
+    TInstrKind::TCallIndirect(type_idx, _, _, _)
+    | TInstrKind::TCallRef(type_idx, _, _) =>
       match env.resolve_functype(type_idx) {
         Some(FuncType(_, results)) => results.length()
         None => 0
       }
-    TBlock(bt, _) | TLoop(bt, _) | TIf(bt, _, _, _) | TTryTable(bt, _, _) =>
+    TInstrKind::TBlock(bt, _)
+    | TInstrKind::TLoop(bt, _)
+    | TInstrKind::TIf(bt, _, _, _)
+    | TInstrKind::TTryTable(bt, _, _) =>
       match env.expand_blocktype(bt) {
         Ok((_, results)) => results.length()
         Err(_) => 0
@@ -496,8 +508,11 @@ fn MonoCallContext::can_be_moved_into_context(
     shallow_effects.traps {
     return false
   }
-  match expr {
-    TBlock(_, _) | TLoop(_, _) | TIf(_, _, _, _) | TTryTable(_, _, _) => false
+  match expr.kind {
+    TInstrKind::TBlock(_, _)
+    | TInstrKind::TLoop(_, _)
+    | TInstrKind::TIf(_, _, _, _)
+    | TInstrKind::TTryTable(_, _, _) => false
     _ => true
   }
 }
@@ -549,8 +564,11 @@ fn mn_copy_operand_with_context(
       }
     }
   }
-  match instr {
-    TBlock(_, _) | TLoop(_, _) | TIf(_, _, _, _) | TTryTable(_, _, _) => instr
+  match instr.kind {
+    TInstrKind::TBlock(_, _)
+    | TInstrKind::TLoop(_, _)
+    | TInstrKind::TIf(_, _, _, _)
+    | TInstrKind::TTryTable(_, _, _) => instr
     _ => {
       let rewritten_children : Array[TInstr] = []
       for child in eval_children(instr) {
@@ -619,8 +637,8 @@ fn MonoCallContext::is_trivial(
     return false
   }
   for i = 0; i < self.operands.length(); i = i + 1 {
-    match self.operands[i] {
-      TLocalGet(LocalIdx(raw)) =>
+    match self.operands[i].kind {
+      TInstrKind::TLocalGet(LocalIdx(raw)) =>
         if raw.reinterpret_as_int() != i {
           return false
         }
@@ -631,8 +649,8 @@ fn MonoCallContext::is_trivial(
     return false
   }
   for i = 0; i < new_operands.length(); i = i + 1 {
-    match new_operands[i] {
-      TLocalGet(local_idx) =>
+    match new_operands[i].kind {
+      TInstrKind::TLocalGet(local_idx) =>
         match caller_env.get_local_type(local_idx) {
           Some(vt) if vt == callee_params[i] => ()
           _ => return false
@@ -714,10 +732,10 @@ fn find_return_callers(mod : Module) -> Array[Bool] {
               _,
               instr,
             ) {
-              match instr {
-                TReturnCall(_, _)
-                | TReturnCallIndirect(_, _, _, _)
-                | TReturnCallRef(_, _, _) => has_return_call = true
+              match instr.kind {
+                TInstrKind::TReturnCall(_, _)
+                | TInstrKind::TReturnCallIndirect(_, _, _, _)
+                | TInstrKind::TReturnCallRef(_, _, _) => has_return_call = true
                 _ => ()
               }
               self.walk_tinstruction_default((), instr)
@@ -767,22 +785,24 @@ fn mn_collect_calls_in_instr(
   instr : TInstr,
   reachable : Bool,
 ) -> Unit {
-  match instr {
-    TDrop(TCall(target, args)) => {
+  match instr.kind {
+    TInstrKind::TDrop({ kind: TInstrKind::TCall(target, args), .. }) => {
       for arg in args {
         mn_collect_calls_in_instr(collector, arg, reachable)
       }
       mn_record_call(collector, target, args, true, reachable)
     }
-    TCall(target, args) => {
+    TInstrKind::TCall(target, args) => {
       for arg in args {
         mn_collect_calls_in_instr(collector, arg, reachable)
       }
       mn_record_call(collector, target, args, false, reachable)
     }
-    TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) =>
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) =>
       mn_collect_calls_in_texpr(collector, body, true)
-    TIf(_, cond, then_body, else_body) => {
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
       mn_collect_calls_in_instr(collector, cond, true)
       mn_collect_calls_in_texpr(collector, then_body, true)
       match else_body {
@@ -856,8 +876,8 @@ fn mn_remove_returns_for_dropped(body : TExpr) -> TExpr {
       Ok(None) => instr
       Err(e) => return Err(e)
     }
-    match processed {
-      TReturn(values) if values.length() > 0 => {
+    match processed.kind {
+      TInstrKind::TReturn(values) if values.length() > 0 => {
         let seq : Array[TInstr] = []
         for value in values {
           seq.push(TInstr::drop(value))
@@ -865,7 +885,7 @@ fn mn_remove_returns_for_dropped(body : TExpr) -> TExpr {
         seq.push(TInstr::return_([]))
         change((), TInstr::block(BlockType::void_(), TExpr::new(seq)))
       }
-      TReturnCall(target, args) =>
+      TInstrKind::TReturnCall(target, args) =>
         change(
           (),
           TInstr::block(
@@ -876,7 +896,7 @@ fn mn_remove_returns_for_dropped(body : TExpr) -> TExpr {
             ]),
           ),
         )
-      TReturnCallIndirect(type_idx, table_idx, args, index) =>
+      TInstrKind::TReturnCallIndirect(type_idx, table_idx, args, index) =>
         change(
           (),
           TInstr::block(
@@ -889,7 +909,7 @@ fn mn_remove_returns_for_dropped(body : TExpr) -> TExpr {
             ]),
           ),
         )
-      TReturnCallRef(type_idx, args, ref_) =>
+      TInstrKind::TReturnCallRef(type_idx, args, ref_) =>
         change(
           (),
           TInstr::block(
@@ -995,30 +1015,34 @@ fn mn_append_specialized_function(
 
 ///|
 fn mn_cost_instr(instr : TInstr) -> Int {
-  let base = match instr {
-    TI32Const(_)
-    | TI64Const(_)
-    | TF32Const(_)
-    | TF64Const(_)
-    | TRefNull(_)
-    | TRefFunc(_)
-    | TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
-    | TLocalGet(_)
-    | TGlobalGet(_)
-    | TNop => 0
-    TCall(_, _) | TCallIndirect(_, _, _, _) | TCallRef(_, _, _) => 4
-    TReturnCall(_, _)
-    | TReturnCallIndirect(_, _, _, _)
-    | TReturnCallRef(_, _, _) => 5
+  let base = match instr.kind {
+    TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_)
+    | TInstrKind::TRefNull(_)
+    | TInstrKind::TRefFunc(_)
+    | TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    | TInstrKind::TLocalGet(_)
+    | TInstrKind::TGlobalGet(_)
+    | TInstrKind::TNop => 0
+    TInstrKind::TCall(_, _)
+    | TInstrKind::TCallIndirect(_, _, _, _)
+    | TInstrKind::TCallRef(_, _, _) => 4
+    TInstrKind::TReturnCall(_, _)
+    | TInstrKind::TReturnCallIndirect(_, _, _, _)
+    | TInstrKind::TReturnCallRef(_, _, _) => 5
     _ => 1
   }
   let mut total = base
-  match instr {
-    TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) =>
+  match instr.kind {
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) =>
       for item in body.instrs {
         total += mn_cost_instr(item)
       }
-    TIf(_, cond, then_, else_) => {
+    TInstrKind::TIf(_, cond, then_, else_) => {
       total += mn_cost_instr(cond)
       for item in then_.instrs {
         total += mn_cost_instr(item)
@@ -1052,8 +1076,8 @@ fn cost(body : TExpr) -> Int {
 fn mn_collect_read_locals(body : TExpr) -> Set[LocalIdx] {
   let reads : Set[LocalIdx] = Set::new()
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TLocalGet(idx) => reads.add(idx)
+    match instr.kind {
+      TInstrKind::TLocalGet(idx) => reads.add(idx)
       _ => ()
     }
     self.walk_tinstruction_default((), instr)
@@ -1071,8 +1095,8 @@ fn mn_cleanup_body(body : TExpr) -> TExpr {
       Ok(None) => instr
       Err(e) => return Err(e)
     }
-    match processed {
-      TDrop(value) => {
+    match processed.kind {
+      TInstrKind::TDrop(value) => {
         let effects = mn_collect_effects(value)
         if effects.has_unremovable_side_effects() {
           if processed != instr {
@@ -1084,7 +1108,7 @@ fn mn_cleanup_body(body : TExpr) -> TExpr {
           change((), TInstr::nop())
         }
       }
-      TLocalSet(idx, value) if !reads.contains(idx) => {
+      TInstrKind::TLocalSet(idx, value) if !reads.contains(idx) => {
         let effects = mn_collect_effects(value)
         if effects.has_unremovable_side_effects() {
           change((), TInstr::drop(value))
@@ -1092,7 +1116,7 @@ fn mn_cleanup_body(body : TExpr) -> TExpr {
           change((), TInstr::nop())
         }
       }
-      TLocalTee(idx, value) if !reads.contains(idx) => {
+      TInstrKind::TLocalTee(idx, value) if !reads.contains(idx) => {
         let effects = mn_collect_effects(value)
         if effects.has_unremovable_side_effects() {
           change((), value)
@@ -1164,8 +1188,8 @@ fn eq_call_context(a : MonoCallContext, b : MonoCallContext) -> Bool {
 
 ///|
 fn mn_rewrite_instr(state : MonoRewriteState, instr : TInstr) -> TInstr {
-  match instr {
-    TDrop(TCall(target, args)) => {
+  match instr.kind {
+    TInstrKind::TDrop({ kind: TInstrKind::TCall(target, args), .. }) => {
       let rewritten_args : Array[TInstr] = []
       for arg in args {
         rewritten_args.push(mn_rewrite_instr(state, arg))
@@ -1182,7 +1206,7 @@ fn mn_rewrite_instr(state : MonoRewriteState, instr : TInstr) -> TInstr {
         None => TInstr::drop(TInstr::call(target, rewritten_args))
       }
     }
-    TCall(target, args) => {
+    TInstrKind::TCall(target, args) => {
       let rewritten_args : Array[TInstr] = []
       for arg in args {
         rewritten_args.push(mn_rewrite_instr(state, arg))
@@ -1194,11 +1218,13 @@ fn mn_rewrite_instr(state : MonoRewriteState, instr : TInstr) -> TInstr {
         None => TInstr::call(target, rewritten_args)
       }
     }
-    TBlock(bt, body) => TInstr::block(bt, mn_rewrite_texpr(state, body))
-    TLoop(bt, body) => TInstr::loop_(bt, mn_rewrite_texpr(state, body))
-    TTryTable(bt, catches, body) =>
+    TInstrKind::TBlock(bt, body) =>
+      TInstr::block(bt, mn_rewrite_texpr(state, body))
+    TInstrKind::TLoop(bt, body) =>
+      TInstr::loop_(bt, mn_rewrite_texpr(state, body))
+    TInstrKind::TTryTable(bt, catches, body) =>
       TInstr::try_table(bt, catches, mn_rewrite_texpr(state, body))
-    TIf(bt, cond, then_, else_) =>
+    TInstrKind::TIf(bt, cond, then_, else_) =>
       TInstr::if_(
         bt,
         mn_rewrite_instr(state, cond),
@@ -1487,9 +1513,10 @@ fn mono_run_pass(
 fn mono_call_targets_in_body(body : TExpr) -> Array[FuncIdx] {
   let out : Array[FuncIdx] = []
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TCall(target, _) => out.push(target)
-      TDrop(TCall(target, _)) => out.push(target)
+    match instr.kind {
+      TInstrKind::TCall(target, _) => out.push(target)
+      TInstrKind::TDrop({ kind: TInstrKind::TCall(target, _), .. }) =>
+        out.push(target)
       _ => ()
     }
     self.walk_tinstruction_default((), instr)
@@ -1584,7 +1611,20 @@ test "monomorphize always keeps immovable operand as call argument for partial m
     Some(
       CodeSec(
         [
-          TFunc(_, { instrs: [TReturn([TCall(_, args)])], .. }),
+          TFunc(
+            _,
+            {
+              instrs: [
+                {
+                  kind: TInstrKind::TReturn(
+                    [{ kind: TInstrKind::TCall(_, args), .. }]
+                  ),
+                  ..,
+                },
+              ],
+              ..,
+            }
+          ),
           _,
           TFunc(_, mono_body),
         ]
@@ -1597,10 +1637,17 @@ test "monomorphize always keeps immovable operand as call argument for partial m
         _,
         instr,
       ) {
-        match instr {
-          TLocalSet(
+        match instr.kind {
+          TInstrKind::TLocalSet(
             _,
-            TBinary(BinaryOp::I32AddOp, TLocalGet(_), TI32Const(I32(1)))
+            {
+              kind: TInstrKind::TBinary(
+                BinaryOp::I32AddOp,
+                { kind: TInstrKind::TLocalGet(_), .. },
+                { kind: TInstrKind::TI32Const(I32(1)), .. }
+              ),
+              ..,
+            }
           ) => saw_binary_prelude = true
           _ => ()
         }
@@ -1648,10 +1695,29 @@ test "monomorphize always preserves effect ordering by keeping trapping operand 
   let out = mono_run_pass(mod, true, 0)
   match out.code_sec {
     Some(
-      CodeSec([TFunc(_, { instrs: [TReturn([TCall(_, [arg])])], .. }), _, _])
+      CodeSec(
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                {
+                  kind: TInstrKind::TReturn(
+                    [{ kind: TInstrKind::TCall(_, [arg]), .. }]
+                  ),
+                  ..,
+                },
+              ],
+              ..,
+            }
+          ),
+          _,
+          _,
+        ]
+      )
     ) =>
-      match arg {
-        TBinary(BinaryOp::I32DivSOp, _, _) => ()
+      match arg.kind {
+        TInstrKind::TBinary(BinaryOp::I32DivSOp, _, _) => ()
         _ => fail("expected trapping division to remain in caller")
       }
     _ => fail("expected rewritten caller")
@@ -1686,8 +1752,15 @@ test "monomorphize always handles dropped calls and removes drop wrapper" {
     )
   let out = mono_run_pass(mod, true, 0)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TCall(_, _)], .. }), _, TFunc(_, _)])) =>
-      ()
+    Some(
+      CodeSec(
+        [
+          TFunc(_, { instrs: [{ kind: TInstrKind::TCall(_, _), .. }], .. }),
+          _,
+          TFunc(_, _),
+        ]
+      )
+    ) => ()
     _ =>
       fail(
         "expected dropped call to become direct call to dropped-result specialization",
@@ -1739,8 +1812,27 @@ test "monomorphize disables dropped context for return-calling callee" {
     )
   let out = mono_run_pass(mod, true, 0)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TDrop(TCall(_, _))], .. }), _, _, _])) =>
-      ()
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                {
+                  kind: TInstrKind::TDrop({ kind: TInstrKind::TCall(_, _), .. }),
+                  ..,
+                },
+              ],
+              ..,
+            }
+          ),
+          _,
+          _,
+          _,
+        ]
+      )
+    ) => ()
     _ =>
       fail("expected drop wrapper to remain when dropped context is disabled")
   }

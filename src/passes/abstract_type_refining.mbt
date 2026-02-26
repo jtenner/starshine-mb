@@ -84,16 +84,17 @@ fn collect_created_types(mod : Module) -> HeapTypeSet {
     _,
     instr,
   ) {
-    match instr {
+    match instr.kind {
       // ---- structs ----
-      TStructNew(type_idx, _) => set.add(HeapType::new(type_idx))
+      TInstrKind::TStructNew(type_idx, _) => set.add(HeapType::new(type_idx))
 
       // ---- arrays ----
-      TArrayNew(type_idx, _, _)
-      | TArrayNewDefault(type_idx, _)
-      | TArrayNewFixed(type_idx, _)
-      | TArrayNewData(type_idx, _, _, _)
-      | TArrayNewElem(type_idx, _, _, _) => set.add(HeapType::new(type_idx))
+      TInstrKind::TArrayNew(type_idx, _, _)
+      | TInstrKind::TArrayNewDefault(type_idx, _)
+      | TInstrKind::TArrayNewFixed(type_idx, _)
+      | TInstrKind::TArrayNewData(type_idx, _, _, _)
+      | TInstrKind::TArrayNewElem(type_idx, _, _, _) =>
+        set.add(HeapType::new(type_idx))
       _ => ()
     }
     unchanged()
@@ -175,8 +176,8 @@ fn rewrite_heaptype(ht : HeapType, mapping : HeapTypeMap) -> HeapType {
 
 ///|
 fn rewrite_cast(instr : TInstr, mapping : HeapTypeMap) -> TInstr {
-  match instr {
-    TRefCast(nullable, ht, v) => {
+  match instr.kind {
+    TInstrKind::TRefCast(nullable, ht, v) => {
       let new_ht = rewrite_heaptype(ht, mapping)
       if new_ht == ht {
         instr
@@ -184,12 +185,12 @@ fn rewrite_cast(instr : TInstr, mapping : HeapTypeMap) -> TInstr {
         TInstr::ref_cast(nullable, new_ht, v)
       }
     }
-    TBrOnCast(l, op, ht1, ht2, v, args) => {
+    TInstrKind::TBrOnCast(l, op, ht1, ht2, v, args) => {
       let n1 = rewrite_heaptype(ht1, mapping)
       let n2 = rewrite_heaptype(ht2, mapping)
       TInstr::br_on_cast(l, op.0, n1, op.1, n2, v, args)
     }
-    TBrOnCastFail(l, op, ht1, ht2, v, args) => {
+    TInstrKind::TBrOnCastFail(l, op, ht1, ht2, v, args) => {
       let n1 = rewrite_heaptype(ht1, mapping)
       let n2 = rewrite_heaptype(ht2, mapping)
       TInstr::br_on_cast_fail(l, op.0, n1, op.1, n2, v, args)
@@ -243,8 +244,8 @@ fn rewrite_descriptor_exact_ref_cast(
   mapping : HeapTypeMap,
   traps_never_happen : Bool,
 ) -> TInstr {
-  match instr {
-    TRefCast(nullable, ht, value) =>
+  match instr.kind {
+    TInstrKind::TRefCast(nullable, ht, value) =>
       // Exact casts must not gain success.
       // After normalization, this is impossible iff:
       //   - the type is bottom, or
@@ -266,8 +267,8 @@ fn rewrite_descriptor_exact_br_on_cast(
   traps_never_happen : Bool,
 ) -> TInstr {
   let is_exact = fn(src_ht : HeapType, dst_ht : HeapType) { src_ht == dst_ht }
-  match instr {
-    TBrOnCast(label, op, src_ht, dst_ht, value, args) =>
+  match instr.kind {
+    TInstrKind::TBrOnCast(label, op, src_ht, dst_ht, value, args) =>
       if traps_never_happen &&
         is_exact(src_ht, dst_ht) &&
         is_refined(dst_ht, mapping) {
@@ -283,7 +284,7 @@ fn rewrite_descriptor_exact_br_on_cast(
       } else {
         instr
       }
-    TBrOnCastFail(label, op, src_ht, dst_ht, value, args) =>
+    TInstrKind::TBrOnCastFail(label, op, src_ht, dst_ht, value, args) =>
       if traps_never_happen &&
         is_exact(src_ht, dst_ht) &&
         is_refined(dst_ht, mapping) {
@@ -384,8 +385,8 @@ test "abstract struct usage becomes bottom" {
     Func(_) => fail("Expected tfunc")
     TFunc(_, { instrs, .. }) => instrs
   }
-  match instrs[0] {
-    TBlock(_, _) => ()
+  match instrs[0].kind {
+    TInstrKind::TBlock(_, _) => ()
     _ => fail("expected abstract cast to trap")
   }
 }
@@ -405,8 +406,8 @@ test "exact ref.cast collapses to trap" {
 
   // Phase 2: exact-descriptor handling
   let rewritten = rewrite_descriptor_exact_ref_cast(instr, mapping, true)
-  match rewritten {
-    TBlock(_, _) => ()
+  match rewritten.kind {
+    TInstrKind::TBlock(_, _) => ()
     _ => fail("expected drop + unreachable")
   }
 }
@@ -423,8 +424,8 @@ test "exact ref.cast does not trap when traps may happen" {
   let rewritten = rewrite_descriptor_exact_ref_cast(
     instr, mapping, false, // traps MAY happen
   )
-  match rewritten {
-    TRefCast(_, _, _) => ()
+  match rewritten.kind {
+    TInstrKind::TRefCast(_, _, _) => ()
     _ => fail("exact cast must not collapse when traps may happen")
   }
 }
@@ -439,8 +440,9 @@ test "non-exact cast refines normally" {
   let mapping = Map::new()
   mapping.set(HeapType::new(TypeIdx::new(0)), HeapType::new(TypeIdx::new(1)))
   let rewritten = rewrite_cast(instr, mapping)
-  match rewritten {
-    TRefCast(_, ht, _) => assert_eq(ht, HeapType::new(TypeIdx::new(1)))
+  match rewritten.kind {
+    TInstrKind::TRefCast(_, ht, _) =>
+      assert_eq(ht, HeapType::new(TypeIdx::new(1)))
     _ => fail("unexpected rewrite")
   }
 }
@@ -461,8 +463,8 @@ test "exact br_on_cast does not gain success" {
   let rewritten = rewrite_descriptor_exact_br_on_cast(
     instr, mapping, true, // traps_never_happen
   )
-  match rewritten {
-    TBrOnCast(_, op, _, dst, _, _) => {
+  match rewritten.kind {
+    TInstrKind::TBrOnCast(_, op, _, dst, _, _) => {
       assert_true(!op.1) // success branch is forced to non-null bottom
       assert_eq(dst, HeapType::bottom()) // cannot gain success
     }
@@ -486,8 +488,8 @@ test "exact br_on_cast preserved when traps may happen" {
   let rewritten = rewrite_descriptor_exact_br_on_cast(
     instr, mapping, false, // traps MAY happen
   )
-  match rewritten {
-    TBrOnCast(_, op, _, dst, _, _) => {
+  match rewritten.kind {
+    TInstrKind::TBrOnCast(_, op, _, dst, _, _) => {
       assert_true(op.1) // target nullability is unchanged
       assert_eq(dst, HeapType::new(TypeIdx::new(0)))
     }
@@ -537,9 +539,9 @@ test "abstract struct does not trap when traps may happen" {
     Func(_) => fail("Expected tfunc")
     TFunc(_, { instrs, .. }) => instrs
   }
-  match instrs[0] {
+  match instrs[0].kind {
     // Must stay a cast, not a trap
-    TRefCast(_, _, _) => ()
+    TInstrKind::TRefCast(_, _, _) => ()
     _ => fail("cast must not collapse when traps may happen")
   }
 }
@@ -554,8 +556,9 @@ test "non-bottom refinement allowed even when traps may happen" {
   let mapping = Map::new()
   mapping.set(HeapType::new(TypeIdx::new(0)), HeapType::new(TypeIdx::new(1)))
   let rewritten = rewrite_cast(instr, mapping)
-  match rewritten {
-    TRefCast(_, ht, _) => assert_eq(ht, HeapType::new(TypeIdx::new(1)))
+  match rewritten.kind {
+    TInstrKind::TRefCast(_, ht, _) =>
+      assert_eq(ht, HeapType::new(TypeIdx::new(1)))
     _ => fail("expected safe refinement")
   }
 }
@@ -574,8 +577,8 @@ test "exact br_on_cast not rewritten when traps may happen" {
   let mapping = Map::new()
   mapping.set(HeapType::new(TypeIdx::new(0)), HeapType::new(TypeIdx::new(2)))
   let rewritten = rewrite_descriptor_exact_br_on_cast(instr, mapping, false)
-  match rewritten {
-    TBrOnCast(_, op, _, dst, _, _) => {
+  match rewritten.kind {
+    TInstrKind::TBrOnCast(_, op, _, dst, _, _) => {
       assert_true(op.1) // target nullability is unchanged
       assert_eq(dst, HeapType::new(TypeIdx::new(0)))
     }
@@ -598,8 +601,8 @@ test "mixed exact br_on_cast_fail does not gain success" {
   let mapping = Map::new()
   mapping.set(exact_heap, HeapType::new(TypeIdx::new(2)))
   let rewritten = rewrite_descriptor_exact_br_on_cast(instr, mapping, true)
-  match rewritten {
-    TBrOnCastFail(_, op, _, dst, _, _) => {
+  match rewritten.kind {
+    TInstrKind::TBrOnCastFail(_, op, _, dst, _, _) => {
       assert_true(!op.1)
       assert_eq(dst, HeapType::bottom())
     }
@@ -622,8 +625,8 @@ test "mixed exact br_on_cast_fail preserved when traps may happen" {
   let mapping = Map::new()
   mapping.set(exact_heap, HeapType::new(TypeIdx::new(2)))
   let rewritten = rewrite_descriptor_exact_br_on_cast(instr, mapping, false)
-  match rewritten {
-    TBrOnCastFail(_, op, _, dst, _, _) => {
+  match rewritten.kind {
+    TInstrKind::TBrOnCastFail(_, op, _, dst, _, _) => {
       assert_true(!op.1)
       assert_eq(dst, exact_heap)
     }
@@ -674,15 +677,15 @@ test "mixed non-exact br_on_cast_fail normalization mirrors br_on_cast" {
     true,
   )
 
-  match cast {
-    TBrOnCast(_, _, next_src, next_dst, _, _) => {
+  match cast.kind {
+    TInstrKind::TBrOnCast(_, _, next_src, next_dst, _, _) => {
       assert_eq(next_src, rewritten_src)
       assert_eq(next_dst, rewritten_dst)
     }
     _ => fail("expected br_on_cast normalization result")
   }
-  match cast_fail {
-    TBrOnCastFail(_, _, next_src, next_dst, _, _) => {
+  match cast_fail.kind {
+    TInstrKind::TBrOnCastFail(_, _, next_src, next_dst, _, _) => {
       assert_eq(next_src, rewritten_src)
       assert_eq(next_dst, rewritten_dst)
     }
@@ -767,21 +770,63 @@ test "full pass mixed branch parity under traps_never_happen" {
   let any_ht = HeapType::abs(AbsHeapType::any())
   match instrs {
     [
-      TDrop(TBrOnCast(_, op_exact, src_exact, dst_exact, _, _)),
-      TDrop(TBrOnCast(_, op_non_exact, src_non_exact, dst_non_exact, _, _)),
-      TDrop(
-        TBrOnCastFail(_, op_fail_exact, src_fail_exact, dst_fail_exact, _, _)
-      ),
-      TDrop(
-        TBrOnCastFail(
-          _,
-          op_fail_non_exact,
-          src_fail_non_exact,
-          dst_fail_non_exact,
-          _,
-          _
-        )
-      ),
+      {
+        kind: TInstrKind::TDrop(
+          {
+            kind: TInstrKind::TBrOnCast(_, op_exact, src_exact, dst_exact, _, _),
+            ..,
+          }
+        ),
+        ..,
+      },
+      {
+        kind: TInstrKind::TDrop(
+          {
+            kind: TInstrKind::TBrOnCast(
+              _,
+              op_non_exact,
+              src_non_exact,
+              dst_non_exact,
+              _,
+              _
+            ),
+            ..,
+          }
+        ),
+        ..,
+      },
+      {
+        kind: TInstrKind::TDrop(
+          {
+            kind: TInstrKind::TBrOnCastFail(
+              _,
+              op_fail_exact,
+              src_fail_exact,
+              dst_fail_exact,
+              _,
+              _
+            ),
+            ..,
+          }
+        ),
+        ..,
+      },
+      {
+        kind: TInstrKind::TDrop(
+          {
+            kind: TInstrKind::TBrOnCastFail(
+              _,
+              op_fail_non_exact,
+              src_fail_non_exact,
+              dst_fail_non_exact,
+              _,
+              _
+            ),
+            ..,
+          }
+        ),
+        ..,
+      },
     ] => {
       assert_eq(src_exact, HeapType::bottom())
       assert_true(!op_exact.1)
@@ -819,21 +864,63 @@ test "full pass mixed branch parity when traps may happen" {
   let any_ht = HeapType::abs(AbsHeapType::any())
   match instrs {
     [
-      TDrop(TBrOnCast(_, op_exact, src_exact, dst_exact, _, _)),
-      TDrop(TBrOnCast(_, op_non_exact, src_non_exact, dst_non_exact, _, _)),
-      TDrop(
-        TBrOnCastFail(_, op_fail_exact, src_fail_exact, dst_fail_exact, _, _)
-      ),
-      TDrop(
-        TBrOnCastFail(
-          _,
-          op_fail_non_exact,
-          src_fail_non_exact,
-          dst_fail_non_exact,
-          _,
-          _
-        )
-      ),
+      {
+        kind: TInstrKind::TDrop(
+          {
+            kind: TInstrKind::TBrOnCast(_, op_exact, src_exact, dst_exact, _, _),
+            ..,
+          }
+        ),
+        ..,
+      },
+      {
+        kind: TInstrKind::TDrop(
+          {
+            kind: TInstrKind::TBrOnCast(
+              _,
+              op_non_exact,
+              src_non_exact,
+              dst_non_exact,
+              _,
+              _
+            ),
+            ..,
+          }
+        ),
+        ..,
+      },
+      {
+        kind: TInstrKind::TDrop(
+          {
+            kind: TInstrKind::TBrOnCastFail(
+              _,
+              op_fail_exact,
+              src_fail_exact,
+              dst_fail_exact,
+              _,
+              _
+            ),
+            ..,
+          }
+        ),
+        ..,
+      },
+      {
+        kind: TInstrKind::TDrop(
+          {
+            kind: TInstrKind::TBrOnCastFail(
+              _,
+              op_fail_non_exact,
+              src_fail_non_exact,
+              dst_fail_non_exact,
+              _,
+              _
+            ),
+            ..,
+          }
+        ),
+        ..,
+      },
     ] => {
       assert_true(!op_exact.1)
       assert_eq(src_exact, exact_ht)
@@ -921,9 +1008,48 @@ test "full pass rewrites nested branch casts in value trees under traps_never_ha
   let any_ht = HeapType::abs(AbsHeapType::any())
   match instrs {
     [
-      TLocalSet(_, TBrOnCast(_, op_cast, src_cast, dst_cast, _, _)),
-      TDrop(TBrOnCastFail(_, op_exact, src_exact, dst_exact, _, _)),
-      TDrop(TBrOnCastFail(_, op_non_exact, src_non_exact, dst_non_exact, _, _)),
+      {
+        kind: TInstrKind::TLocalSet(
+          _,
+          {
+            kind: TInstrKind::TBrOnCast(_, op_cast, src_cast, dst_cast, _, _),
+            ..,
+          }
+        ),
+        ..,
+      },
+      {
+        kind: TInstrKind::TDrop(
+          {
+            kind: TInstrKind::TBrOnCastFail(
+              _,
+              op_exact,
+              src_exact,
+              dst_exact,
+              _,
+              _
+            ),
+            ..,
+          }
+        ),
+        ..,
+      },
+      {
+        kind: TInstrKind::TDrop(
+          {
+            kind: TInstrKind::TBrOnCastFail(
+              _,
+              op_non_exact,
+              src_non_exact,
+              dst_non_exact,
+              _,
+              _
+            ),
+            ..,
+          }
+        ),
+        ..,
+      },
     ] => {
       assert_eq(src_cast, HeapType::bottom())
       assert_true(!op_cast.1)
@@ -955,9 +1081,48 @@ test "full pass preserves nested branch casts in value trees when traps may happ
   let any_ht = HeapType::abs(AbsHeapType::any())
   match instrs {
     [
-      TLocalSet(_, TBrOnCast(_, op_cast, src_cast, dst_cast, _, _)),
-      TDrop(TBrOnCastFail(_, op_exact, src_exact, dst_exact, _, _)),
-      TDrop(TBrOnCastFail(_, op_non_exact, src_non_exact, dst_non_exact, _, _)),
+      {
+        kind: TInstrKind::TLocalSet(
+          _,
+          {
+            kind: TInstrKind::TBrOnCast(_, op_cast, src_cast, dst_cast, _, _),
+            ..,
+          }
+        ),
+        ..,
+      },
+      {
+        kind: TInstrKind::TDrop(
+          {
+            kind: TInstrKind::TBrOnCastFail(
+              _,
+              op_exact,
+              src_exact,
+              dst_exact,
+              _,
+              _
+            ),
+            ..,
+          }
+        ),
+        ..,
+      },
+      {
+        kind: TInstrKind::TDrop(
+          {
+            kind: TInstrKind::TBrOnCastFail(
+              _,
+              op_non_exact,
+              src_non_exact,
+              dst_non_exact,
+              _,
+              _
+            ),
+            ..,
+          }
+        ),
+        ..,
+      },
     ] => {
       assert_true(!op_cast.1)
       assert_eq(src_cast, exact_ht)
@@ -1066,71 +1231,110 @@ test "full pass rewrites deep if/block/try_table value trees under traps_never_h
   let any_ht = HeapType::abs(AbsHeapType::any())
   match instrs {
     [
-      TDrop(
-        TIf(
-          _,
-          _,
+      {
+        kind: TInstrKind::TDrop(
           {
-            instrs: [
-              TBlock(
-                _,
-                {
-                  instrs: [
-                    TTryTable(
-                      _,
+            kind: TInstrKind::TIf(
+              _,
+              _,
+              {
+                instrs: [
+                  {
+                    kind: TInstrKind::TBlock(
                       _,
                       {
                         instrs: [
-                          TDrop(TBrOnCast(_, op_then, src_then, dst_then, _, _)),
-                          _,
+                          {
+                            kind: TInstrKind::TTryTable(
+                              _,
+                              _,
+                              {
+                                instrs: [
+                                  {
+                                    kind: TInstrKind::TDrop(
+                                      {
+                                        kind: TInstrKind::TBrOnCast(
+                                          _,
+                                          op_then,
+                                          src_then,
+                                          dst_then,
+                                          _,
+                                          _
+                                        ),
+                                        ..,
+                                      }
+                                    ),
+                                    ..,
+                                  },
+                                  _,
+                                ],
+                                ..,
+                              }
+                            ),
+                            ..,
+                          },
                         ],
                         ..,
                       }
                     ),
-                  ],
-                  ..,
-                }
-              ),
-            ],
-            ..,
-          },
-          Some(
-            {
-              instrs: [
-                TBlock(
-                  _,
-                  {
-                    instrs: [
-                      TTryTable(
-                        _,
+                    ..,
+                  },
+                ],
+                ..,
+              },
+              Some(
+                {
+                  instrs: [
+                    {
+                      kind: TInstrKind::TBlock(
                         _,
                         {
                           instrs: [
-                            TDrop(
-                              TBrOnCastFail(
+                            {
+                              kind: TInstrKind::TTryTable(
                                 _,
-                                op_else,
-                                src_else,
-                                dst_else,
                                 _,
-                                _
-                              )
-                            ),
-                            _,
+                                {
+                                  instrs: [
+                                    {
+                                      kind: TInstrKind::TDrop(
+                                        {
+                                          kind: TInstrKind::TBrOnCastFail(
+                                            _,
+                                            op_else,
+                                            src_else,
+                                            dst_else,
+                                            _,
+                                            _
+                                          ),
+                                          ..,
+                                        }
+                                      ),
+                                      ..,
+                                    },
+                                    _,
+                                  ],
+                                  ..,
+                                }
+                              ),
+                              ..,
+                            },
                           ],
                           ..,
                         }
                       ),
-                    ],
-                    ..,
-                  }
-                ),
-              ],
-              ..,
-            }
-          )
-        )
-      ),
+                      ..,
+                    },
+                  ],
+                  ..,
+                }
+              )
+            ),
+            ..,
+          }
+        ),
+        ..,
+      },
     ] => {
       assert_eq(src_then, HeapType::bottom())
       assert_true(!op_then.1)
@@ -1159,71 +1363,110 @@ test "full pass preserves deep if/block/try_table value trees when traps may hap
   let any_ht = HeapType::abs(AbsHeapType::any())
   match instrs {
     [
-      TDrop(
-        TIf(
-          _,
-          _,
+      {
+        kind: TInstrKind::TDrop(
           {
-            instrs: [
-              TBlock(
-                _,
-                {
-                  instrs: [
-                    TTryTable(
-                      _,
+            kind: TInstrKind::TIf(
+              _,
+              _,
+              {
+                instrs: [
+                  {
+                    kind: TInstrKind::TBlock(
                       _,
                       {
                         instrs: [
-                          TDrop(TBrOnCast(_, op_then, src_then, dst_then, _, _)),
-                          _,
+                          {
+                            kind: TInstrKind::TTryTable(
+                              _,
+                              _,
+                              {
+                                instrs: [
+                                  {
+                                    kind: TInstrKind::TDrop(
+                                      {
+                                        kind: TInstrKind::TBrOnCast(
+                                          _,
+                                          op_then,
+                                          src_then,
+                                          dst_then,
+                                          _,
+                                          _
+                                        ),
+                                        ..,
+                                      }
+                                    ),
+                                    ..,
+                                  },
+                                  _,
+                                ],
+                                ..,
+                              }
+                            ),
+                            ..,
+                          },
                         ],
                         ..,
                       }
                     ),
-                  ],
-                  ..,
-                }
-              ),
-            ],
-            ..,
-          },
-          Some(
-            {
-              instrs: [
-                TBlock(
-                  _,
-                  {
-                    instrs: [
-                      TTryTable(
-                        _,
+                    ..,
+                  },
+                ],
+                ..,
+              },
+              Some(
+                {
+                  instrs: [
+                    {
+                      kind: TInstrKind::TBlock(
                         _,
                         {
                           instrs: [
-                            TDrop(
-                              TBrOnCastFail(
+                            {
+                              kind: TInstrKind::TTryTable(
                                 _,
-                                op_else,
-                                src_else,
-                                dst_else,
                                 _,
-                                _
-                              )
-                            ),
-                            _,
+                                {
+                                  instrs: [
+                                    {
+                                      kind: TInstrKind::TDrop(
+                                        {
+                                          kind: TInstrKind::TBrOnCastFail(
+                                            _,
+                                            op_else,
+                                            src_else,
+                                            dst_else,
+                                            _,
+                                            _
+                                          ),
+                                          ..,
+                                        }
+                                      ),
+                                      ..,
+                                    },
+                                    _,
+                                  ],
+                                  ..,
+                                }
+                              ),
+                              ..,
+                            },
                           ],
                           ..,
                         }
                       ),
-                    ],
-                    ..,
-                  }
-                ),
-              ],
-              ..,
-            }
-          )
-        )
-      ),
+                      ..,
+                    },
+                  ],
+                  ..,
+                }
+              )
+            ),
+            ..,
+          }
+        ),
+        ..,
+      },
     ] => {
       assert_true(!op_then.1)
       assert_eq(src_then, exact_ht)
@@ -1334,71 +1577,110 @@ test "full pass rewrites deep handler-bearing nested casts under traps_never_hap
   let any_ht = HeapType::abs(AbsHeapType::any())
   match instrs {
     [
-      TDrop(
-        TIf(
-          _,
-          _,
+      {
+        kind: TInstrKind::TDrop(
           {
-            instrs: [
-              TBlock(
-                _,
-                {
-                  instrs: [
-                    TTryTable(
+            kind: TInstrKind::TIf(
+              _,
+              _,
+              {
+                instrs: [
+                  {
+                    kind: TInstrKind::TBlock(
                       _,
-                      catches_then,
                       {
                         instrs: [
-                          TDrop(TBrOnCast(_, op_then, src_then, dst_then, _, _)),
+                          {
+                            kind: TInstrKind::TTryTable(
+                              _,
+                              catches_then,
+                              {
+                                instrs: [
+                                  {
+                                    kind: TInstrKind::TDrop(
+                                      {
+                                        kind: TInstrKind::TBrOnCast(
+                                          _,
+                                          op_then,
+                                          src_then,
+                                          dst_then,
+                                          _,
+                                          _
+                                        ),
+                                        ..,
+                                      }
+                                    ),
+                                    ..,
+                                  },
+                                ],
+                                ..,
+                              }
+                            ),
+                            ..,
+                          },
+                          _,
                         ],
                         ..,
                       }
                     ),
-                    _,
-                  ],
-                  ..,
-                }
-              ),
-            ],
-            ..,
-          },
-          Some(
-            {
-              instrs: [
-                TBlock(
-                  _,
-                  {
-                    instrs: [
-                      TTryTable(
+                    ..,
+                  },
+                ],
+                ..,
+              },
+              Some(
+                {
+                  instrs: [
+                    {
+                      kind: TInstrKind::TBlock(
                         _,
-                        catches_else,
                         {
                           instrs: [
-                            TDrop(
-                              TBrOnCastFail(
+                            {
+                              kind: TInstrKind::TTryTable(
                                 _,
-                                op_else,
-                                src_else,
-                                dst_else,
-                                _,
-                                _
-                              )
-                            ),
+                                catches_else,
+                                {
+                                  instrs: [
+                                    {
+                                      kind: TInstrKind::TDrop(
+                                        {
+                                          kind: TInstrKind::TBrOnCastFail(
+                                            _,
+                                            op_else,
+                                            src_else,
+                                            dst_else,
+                                            _,
+                                            _
+                                          ),
+                                          ..,
+                                        }
+                                      ),
+                                      ..,
+                                    },
+                                  ],
+                                  ..,
+                                }
+                              ),
+                              ..,
+                            },
+                            _,
                           ],
                           ..,
                         }
                       ),
-                      _,
-                    ],
-                    ..,
-                  }
-                ),
-              ],
-              ..,
-            }
-          )
-        )
-      ),
+                      ..,
+                    },
+                  ],
+                  ..,
+                }
+              )
+            ),
+            ..,
+          }
+        ),
+        ..,
+      },
     ] => {
       match catches_then {
         [CatchAll(_)] => ()
@@ -1436,71 +1718,110 @@ test "full pass preserves deep handler-bearing nested casts when traps may happe
   let any_ht = HeapType::abs(AbsHeapType::any())
   match instrs {
     [
-      TDrop(
-        TIf(
-          _,
-          _,
+      {
+        kind: TInstrKind::TDrop(
           {
-            instrs: [
-              TBlock(
-                _,
-                {
-                  instrs: [
-                    TTryTable(
+            kind: TInstrKind::TIf(
+              _,
+              _,
+              {
+                instrs: [
+                  {
+                    kind: TInstrKind::TBlock(
                       _,
-                      catches_then,
                       {
                         instrs: [
-                          TDrop(TBrOnCast(_, op_then, src_then, dst_then, _, _)),
+                          {
+                            kind: TInstrKind::TTryTable(
+                              _,
+                              catches_then,
+                              {
+                                instrs: [
+                                  {
+                                    kind: TInstrKind::TDrop(
+                                      {
+                                        kind: TInstrKind::TBrOnCast(
+                                          _,
+                                          op_then,
+                                          src_then,
+                                          dst_then,
+                                          _,
+                                          _
+                                        ),
+                                        ..,
+                                      }
+                                    ),
+                                    ..,
+                                  },
+                                ],
+                                ..,
+                              }
+                            ),
+                            ..,
+                          },
+                          _,
                         ],
                         ..,
                       }
                     ),
-                    _,
-                  ],
-                  ..,
-                }
-              ),
-            ],
-            ..,
-          },
-          Some(
-            {
-              instrs: [
-                TBlock(
-                  _,
-                  {
-                    instrs: [
-                      TTryTable(
+                    ..,
+                  },
+                ],
+                ..,
+              },
+              Some(
+                {
+                  instrs: [
+                    {
+                      kind: TInstrKind::TBlock(
                         _,
-                        catches_else,
                         {
                           instrs: [
-                            TDrop(
-                              TBrOnCastFail(
+                            {
+                              kind: TInstrKind::TTryTable(
                                 _,
-                                op_else,
-                                src_else,
-                                dst_else,
-                                _,
-                                _
-                              )
-                            ),
+                                catches_else,
+                                {
+                                  instrs: [
+                                    {
+                                      kind: TInstrKind::TDrop(
+                                        {
+                                          kind: TInstrKind::TBrOnCastFail(
+                                            _,
+                                            op_else,
+                                            src_else,
+                                            dst_else,
+                                            _,
+                                            _
+                                          ),
+                                          ..,
+                                        }
+                                      ),
+                                      ..,
+                                    },
+                                  ],
+                                  ..,
+                                }
+                              ),
+                              ..,
+                            },
+                            _,
                           ],
                           ..,
                         }
                       ),
-                      _,
-                    ],
-                    ..,
-                  }
-                ),
-              ],
-              ..,
-            }
-          )
-        )
-      ),
+                      ..,
+                    },
+                  ],
+                  ..,
+                }
+              )
+            ),
+            ..,
+          }
+        ),
+        ..,
+      },
     ] => {
       match catches_then {
         [CatchAll(_)] => ()
@@ -1599,8 +1920,11 @@ fn atr_handler_throwing_validator_clean_module() -> Module {
 fn atr_count_handler_try_tables(body : TExpr) -> Int {
   let mut count = 0
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TTryTable(_, catches, _) => if !catches.is_empty() { count += 1 }
+    match instr.kind {
+      TInstrKind::TTryTable(_, catches, _) =>
+        if !catches.is_empty() {
+          count += 1
+        }
       _ => ()
     }
     self.walk_tinstruction_default((), instr)
@@ -1613,8 +1937,8 @@ fn atr_count_handler_try_tables(body : TExpr) -> Int {
 fn atr_count_throw_instrs(body : TExpr) -> Int {
   let mut count = 0
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TThrow(_, _) => count += 1
+    match instr.kind {
+      TInstrKind::TThrow(_, _) => count += 1
       _ => ()
     }
     self.walk_tinstruction_default((), instr)
@@ -1627,8 +1951,8 @@ fn atr_count_throw_instrs(body : TExpr) -> Int {
 fn atr_count_ref_cast_instrs(body : TExpr) -> Int {
   let mut count = 0
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TRefCast(_, _, _) => count += 1
+    match instr.kind {
+      TInstrKind::TRefCast(_, _, _) => count += 1
       _ => ()
     }
     self.walk_tinstruction_default((), instr)
@@ -1641,8 +1965,8 @@ fn atr_count_ref_cast_instrs(body : TExpr) -> Int {
 fn atr_count_catch_new(body : TExpr) -> Int {
   let mut count = 0
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TTryTable(_, catches, _) =>
+    match instr.kind {
+      TInstrKind::TTryTable(_, catches, _) =>
         for c in catches {
           match c {
             Catch(_, _) => count += 1
@@ -1661,8 +1985,8 @@ fn atr_count_catch_new(body : TExpr) -> Int {
 fn atr_count_catch_ref(body : TExpr) -> Int {
   let mut count = 0
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TTryTable(_, catches, _) =>
+    match instr.kind {
+      TInstrKind::TTryTable(_, catches, _) =>
         for c in catches {
           match c {
             CatchRef(_, _) => count += 1
@@ -1681,8 +2005,8 @@ fn atr_count_catch_ref(body : TExpr) -> Int {
 fn atr_collect_throw_arg_counts(body : TExpr) -> Array[Int] {
   let out : Array[Int] = []
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TThrow(_, args) => out.push(args.length())
+    match instr.kind {
+      TInstrKind::TThrow(_, args) => out.push(args.length())
       _ => ()
     }
     self.walk_tinstruction_default((), instr)
@@ -1695,8 +2019,9 @@ fn atr_collect_throw_arg_counts(body : TExpr) -> Array[Int] {
 fn atr_count_drop_void_block(body : TExpr) -> Int {
   let mut count = 0
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TDrop(TBlock(VoidBlockType, _)) => count += 1
+    match instr.kind {
+      TInstrKind::TDrop({ kind: TInstrKind::TBlock(VoidBlockType, _), .. }) =>
+        count += 1
       _ => ()
     }
     self.walk_tinstruction_default((), instr)

@@ -737,16 +737,16 @@ fn sr_known_instr_type(
     }
   }
 
-  match instr {
-    TI32Const(_) => Some(ValType::i32())
-    TI64Const(_) => Some(ValType::i64())
-    TF32Const(_) => Some(ValType::f32())
-    TF64Const(_) => Some(ValType::f64())
-    TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+  match instr.kind {
+    TInstrKind::TI32Const(_) => Some(ValType::i32())
+    TInstrKind::TI64Const(_) => Some(ValType::i64())
+    TInstrKind::TF32Const(_) => Some(ValType::f32())
+    TInstrKind::TF64Const(_) => Some(ValType::f64())
+    TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
       Some(ValType::v128())
-    TRefNull(ht) => Some(ValType::ref_type(RefType::new(true, ht)))
-    TRefFunc(_) => Some(ValType::funcref())
-    TLocalGet(LocalIdx(raw)) => {
+    TInstrKind::TRefNull(ht) => Some(ValType::ref_type(RefType::new(true, ht)))
+    TInstrKind::TRefFunc(_) => Some(ValType::funcref())
+    TInstrKind::TLocalGet(LocalIdx(raw)) => {
       let idx = raw.reinterpret_as_int()
       if caller_abs_idx < 0 || caller_abs_idx >= local_types_by_abs.length() {
         return None
@@ -757,18 +757,18 @@ fn sr_known_instr_type(
       }
       Some(locals[idx])
     }
-    TGlobalGet(GlobalIdx(raw)) => {
+    TInstrKind::TGlobalGet(GlobalIdx(raw)) => {
       let idx = raw.reinterpret_as_int()
       if idx < 0 || idx >= global_types.length() {
         return None
       }
       Some(global_types[idx])
     }
-    TLocalTee(_, value) =>
+    TInstrKind::TLocalTee(_, value) =>
       sr_known_instr_type(
         value, caller_abs_idx, local_types_by_abs, global_types, env, func_type_idxs,
       )
-    TRefAsNonNull(value) =>
+    TInstrKind::TRefAsNonNull(value) =>
       match
         sr_known_instr_type(
           value, caller_abs_idx, local_types_by_abs, global_types, env, func_type_idxs,
@@ -777,22 +777,24 @@ fn sr_known_instr_type(
           Some(ValType::ref_type(RefType::new(false, rt.get_heap_type())))
         _ => None
       }
-    TRefCast(nullable, ht, _) =>
+    TInstrKind::TRefCast(nullable, ht, _) =>
       Some(ValType::ref_type(RefType::new(nullable, ht)))
-    TCall(target, _) | TReturnCall(target, _) =>
+    TInstrKind::TCall(target, _) | TInstrKind::TReturnCall(target, _) =>
       match env.get_functype_by_funcidx(target) {
         Some(FuncType(_, [r])) => Some(r)
         _ => None
       }
-    TCallIndirect(type_idx, _, _, _)
-    | TCallRef(type_idx, _, _)
-    | TReturnCallIndirect(type_idx, _, _, _)
-    | TReturnCallRef(type_idx, _, _) =>
+    TInstrKind::TCallIndirect(type_idx, _, _, _)
+    | TInstrKind::TCallRef(type_idx, _, _)
+    | TInstrKind::TReturnCallIndirect(type_idx, _, _, _)
+    | TInstrKind::TReturnCallRef(type_idx, _, _) =>
       match env.resolve_functype(type_idx) {
         Some(FuncType(_, [r])) => Some(r)
         _ => None
       }
-    TBlock(bt, body) | TLoop(bt, body) | TTryTable(bt, _, body) => {
+    TInstrKind::TBlock(bt, body)
+    | TInstrKind::TLoop(bt, body)
+    | TInstrKind::TTryTable(bt, _, body) => {
       let from_body = infer_texpr_type(body)
       let from_bt = sr_single_result_of_blocktype(bt, env)
       match (from_body, from_bt) {
@@ -807,7 +809,7 @@ fn sr_known_instr_type(
         _ => None
       }
     }
-    TIf(bt, _, then_, else_) => {
+    TInstrKind::TIf(bt, _, then_, else_) => {
       let from_bt = sr_single_result_of_blocktype(bt, env)
       let from_branches = match else_ {
         Some(else_expr) =>
@@ -829,7 +831,7 @@ fn sr_known_instr_type(
         _ => None
       }
     }
-    TSelect(types, _, if_true, if_false) => {
+    TInstrKind::TSelect(types, _, if_true, if_false) => {
       let declared = match types {
         Some([vt]) => Some(vt)
         _ => None
@@ -953,8 +955,8 @@ fn sr_update_param_types(
     _,
     instr,
   ) {
-    match instr {
-      TLocalSet(idx, value) | TLocalTee(idx, value) => {
+    match instr.kind {
+      TInstrKind::TLocalSet(idx, value) | TInstrKind::TLocalTee(idx, value) => {
         let local_i = sr_local_idx_to_int(idx)
         if local_i >= 0 &&
           local_i < old_param_types.length() &&
@@ -994,8 +996,8 @@ fn sr_update_param_types(
       Ok(None) => instr
       Err(e) => return Err(e)
     }
-    match walked {
-      TLocalGet(idx) => {
+    match walked.kind {
+      TInstrKind::TLocalGet(idx) => {
         let local_i = sr_local_idx_to_int(idx)
         match param_fixups.get(local_i) {
           Some(fixup) =>
@@ -1003,7 +1005,7 @@ fn sr_update_param_types(
           None => if walked == instr { unchanged() } else { change((), walked) }
         }
       }
-      TLocalSet(idx, value) => {
+      TInstrKind::TLocalSet(idx, value) => {
         let local_i = sr_local_idx_to_int(idx)
         match param_fixups.get(local_i) {
           Some(fixup) =>
@@ -1011,7 +1013,7 @@ fn sr_update_param_types(
           None => if walked == instr { unchanged() } else { change((), walked) }
         }
       }
-      TLocalTee(idx, value) => {
+      TInstrKind::TLocalTee(idx, value) => {
         let local_i = sr_local_idx_to_int(idx)
         match param_fixups.get(local_i) {
           Some(fixup) =>
@@ -1059,8 +1061,8 @@ fn sr_extract_signature_type_abs_from_instr(
   env : Env,
   func_type_idxs : Array[TypeIdx],
 ) -> Int? {
-  match instr {
-    TRefFunc(FuncIdx(raw)) => {
+  match instr.kind {
+    TInstrKind::TRefFunc(FuncIdx(raw)) => {
       let idx = raw.reinterpret_as_int()
       if idx < 0 || idx >= func_type_idxs.length() {
         None
@@ -1068,7 +1070,7 @@ fn sr_extract_signature_type_abs_from_instr(
         Some(sr_typeidx_raw(func_type_idxs[idx]))
       }
     }
-    TRefAsNonNull(value) =>
+    TInstrKind::TRefAsNonNull(value) =>
       sr_extract_signature_type_abs_from_instr(
         value, caller_abs_idx, local_types_by_abs, global_types, env, func_type_idxs,
       )
@@ -1282,8 +1284,9 @@ fn signature_refining(mod : Module) -> Result[Module, String] {
           _,
           instr,
         ) {
-          match instr {
-            TCall(target, args) | TReturnCall(target, args) => {
+          match instr.kind {
+            TInstrKind::TCall(target, args)
+            | TInstrKind::TReturnCall(target, args) => {
               let FuncIdx(raw) = target
               let callee_abs_idx = raw.reinterpret_as_int()
               if callee_abs_idx >= 0 && callee_abs_idx < total_func_count {
@@ -1315,11 +1318,12 @@ fn signature_refining(mod : Module) -> Result[Module, String] {
                 }
               }
             }
-            TCallRef(type_idx, args, _) | TReturnCallRef(type_idx, args, _) => {
+            TInstrKind::TCallRef(type_idx, args, _)
+            | TInstrKind::TReturnCallRef(type_idx, args, _) => {
               let called_type_abs = sr_typeidx_raw(type_idx)
               sr_record_callsite(called_type_abs, abs_idx, args, calls_by_type)
             }
-            TReturn(values) =>
+            TInstrKind::TReturn(values) =>
               if old_results.length() == 1 {
                 if values.length() != 1 {
                   result_unknown[type_abs] = true
@@ -1355,8 +1359,8 @@ fn signature_refining(mod : Module) -> Result[Module, String] {
 
         if old_results.length() == 1 && !body.instrs.is_empty() {
           let tail = body.instrs[body.instrs.length() - 1]
-          match tail {
-            TReturn(_) => ()
+          match tail.kind {
+            TInstrKind::TReturn(_) => ()
             _ =>
               match
                 sr_known_instr_type(

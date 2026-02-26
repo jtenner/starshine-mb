@@ -137,101 +137,109 @@ fn LICMEffects::has_unremovable_side_effects(self : LICMEffects) -> Bool {
 fn licm_collect_effects(instr : TInstr) -> LICMEffects {
   let effects = LICMEffects::new()
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
-    match curr {
-      TLocalGet(idx) => effects.locals_read.add(idx)
-      TLocalSet(idx, _) => effects.locals_written.add(idx)
-      TLocalTee(idx, _) => {
+    match curr.kind {
+      TInstrKind::TLocalGet(idx) => effects.locals_read.add(idx)
+      TInstrKind::TLocalSet(idx, _) => effects.locals_written.add(idx)
+      TInstrKind::TLocalTee(idx, _) => {
         effects.locals_read.add(idx)
         effects.locals_written.add(idx)
       }
-      TGlobalGet(_) => effects.reads_globals = true
-      TGlobalSet(_, _) => effects.writes_globals = true
-      TLoad(_, _, _) => {
+      TInstrKind::TGlobalGet(_) => effects.reads_globals = true
+      TInstrKind::TGlobalSet(_, _) => effects.writes_globals = true
+      TInstrKind::TLoad(_, _, _) => {
         effects.reads_memory = true
         effects.traps = true
       }
-      TStore(_, _, _, _) => {
+      TInstrKind::TStore(_, _, _, _) => {
         effects.writes_memory = true
         effects.traps = true
       }
-      TMemoryGrow(_, _) => effects.writes_memory = true
-      TMemorySize(_) => effects.reads_memory = true
-      TMemoryCopy(_, _, _, _, _) => {
+      TInstrKind::TMemoryGrow(_, _) => effects.writes_memory = true
+      TInstrKind::TMemorySize(_) => effects.reads_memory = true
+      TInstrKind::TMemoryCopy(_, _, _, _, _) => {
         effects.reads_memory = true
         effects.writes_memory = true
       }
-      TMemoryFill(_, _, _, _) => effects.writes_memory = true
-      TMemoryInit(_, _, _, _, _) => {
+      TInstrKind::TMemoryFill(_, _, _, _) => effects.writes_memory = true
+      TInstrKind::TMemoryInit(_, _, _, _, _) => {
         effects.reads_memory = true
         effects.writes_memory = true
       }
-      TDataDrop(_) => effects.writes_memory = true
-      TTableSet(_, _, _) | TTableGrow(_, _, _) | TTableFill(_, _, _, _) =>
-        effects.writes_memory = true
-      TTableGet(_, _) | TTableSize(_) => effects.reads_memory = true
-      TTableCopy(_, _, _, _, _) | TTableInit(_, _, _, _, _) | TElemDrop(_) => {
+      TInstrKind::TDataDrop(_) => effects.writes_memory = true
+      TInstrKind::TTableSet(_, _, _)
+      | TInstrKind::TTableGrow(_, _, _)
+      | TInstrKind::TTableFill(_, _, _, _) => effects.writes_memory = true
+      TInstrKind::TTableGet(_, _) | TInstrKind::TTableSize(_) =>
+        effects.reads_memory = true
+      TInstrKind::TTableCopy(_, _, _, _, _)
+      | TInstrKind::TTableInit(_, _, _, _, _)
+      | TInstrKind::TElemDrop(_) => {
         effects.reads_memory = true
         effects.writes_memory = true
       }
-      TCall(_, _) | TCallIndirect(_, _, _, _) | TCallRef(_, _, _) =>
-        effects.calls = true
-      TReturnCall(_, _)
-      | TReturnCallIndirect(_, _, _, _)
-      | TReturnCallRef(_, _, _) => {
+      TInstrKind::TCall(_, _)
+      | TInstrKind::TCallIndirect(_, _, _, _)
+      | TInstrKind::TCallRef(_, _, _) => effects.calls = true
+      TInstrKind::TReturnCall(_, _)
+      | TInstrKind::TReturnCallIndirect(_, _, _, _)
+      | TInstrKind::TReturnCallRef(_, _, _) => {
         effects.calls = true
         effects.branches = true
       }
-      TBr(_, _)
-      | TBrIf(_, _, _)
-      | TBrTable(_, _, _, _)
-      | TBrOnNull(_, _, _)
-      | TBrOnNonNull(_, _, _)
-      | TBrOnCast(_, _, _, _, _, _)
-      | TBrOnCastFail(_, _, _, _, _, _)
-      | TReturn(_) => effects.branches = true
-      TThrow(_, _) => {
+      TInstrKind::TBr(_, _)
+      | TInstrKind::TBrIf(_, _, _)
+      | TInstrKind::TBrTable(_, _, _, _)
+      | TInstrKind::TBrOnNull(_, _, _)
+      | TInstrKind::TBrOnNonNull(_, _, _)
+      | TInstrKind::TBrOnCast(_, _, _, _, _, _)
+      | TInstrKind::TBrOnCastFail(_, _, _, _, _, _)
+      | TInstrKind::TReturn(_) => effects.branches = true
+      TInstrKind::TThrow(_, _) => {
         effects.throws = true
         effects.branches = true
       }
-      TThrowRef(_) => {
+      TInstrKind::TThrowRef(_) => {
         effects.throws = true
         effects.branches = true
       }
-      TUnreachable => effects.traps = true
-      TRefAsNonNull(_) | TRefCast(_, _, _) => effects.traps = true
-      TStructGet(_, _, _) | TStructGetS(_, _, _) | TStructGetU(_, _, _) => {
+      TInstrKind::TUnreachable => effects.traps = true
+      TInstrKind::TRefAsNonNull(_) | TInstrKind::TRefCast(_, _, _) =>
+        effects.traps = true
+      TInstrKind::TStructGet(_, _, _)
+      | TInstrKind::TStructGetS(_, _, _)
+      | TInstrKind::TStructGetU(_, _, _) => {
         effects.reads_memory = true
         effects.traps = true
       }
-      TStructSet(_, _, _, _) => {
+      TInstrKind::TStructSet(_, _, _, _) => {
         effects.writes_memory = true
         effects.traps = true
       }
-      TArrayNew(_, _, _)
-      | TArrayNewDefault(_, _)
-      | TArrayNewFixed(_, _)
-      | TArrayNewData(_, _, _, _)
-      | TArrayNewElem(_, _, _, _) => {
+      TInstrKind::TArrayNew(_, _, _)
+      | TInstrKind::TArrayNewDefault(_, _)
+      | TInstrKind::TArrayNewFixed(_, _)
+      | TInstrKind::TArrayNewData(_, _, _, _)
+      | TInstrKind::TArrayNewElem(_, _, _, _) => {
         effects.writes_memory = true
         effects.traps = true
       }
-      TArrayGet(_, _, _)
-      | TArrayGetS(_, _, _)
-      | TArrayGetU(_, _, _)
-      | TArrayLen(_) => {
+      TInstrKind::TArrayGet(_, _, _)
+      | TInstrKind::TArrayGetS(_, _, _)
+      | TInstrKind::TArrayGetU(_, _, _)
+      | TInstrKind::TArrayLen(_) => {
         effects.reads_memory = true
         effects.traps = true
       }
-      TArraySet(_, _, _, _)
-      | TArrayFill(_, _, _, _, _)
-      | TArrayCopy(_, _, _, _, _, _, _)
-      | TArrayInitData(_, _, _, _, _, _)
-      | TArrayInitElem(_, _, _, _, _, _) => {
+      TInstrKind::TArraySet(_, _, _, _)
+      | TInstrKind::TArrayFill(_, _, _, _, _)
+      | TInstrKind::TArrayCopy(_, _, _, _, _, _, _)
+      | TInstrKind::TArrayInitData(_, _, _, _, _, _)
+      | TInstrKind::TArrayInitElem(_, _, _, _, _, _) => {
         effects.reads_memory = true
         effects.writes_memory = true
         effects.traps = true
       }
-      TBinary(op, _, _) =>
+      TInstrKind::TBinary(op, _, _) =>
         match op {
           I32DivSOp
           | I32DivUOp
@@ -243,7 +251,7 @@ fn licm_collect_effects(instr : TInstr) -> LICMEffects {
           | I64RemUOp => effects.traps = true
           _ => ()
         }
-      TUnary(op, _) =>
+      TInstrKind::TUnary(op, _) =>
         match op {
           I32TruncF32SOp
           | I32TruncF32UOp
@@ -277,14 +285,15 @@ fn licm_count_set(map : Map[Int, Int], local_idx : LocalIdx) -> Unit {
 
 ///|
 fn licm_is_const_instr(instr : TInstr) -> Bool {
-  match instr {
-    TI32Const(_)
-    | TI64Const(_)
-    | TF32Const(_)
-    | TF64Const(_)
-    | TRefNull(_)
-    | TRefFunc(_)
-    | TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => true
+  match instr.kind {
+    TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_)
+    | TInstrKind::TRefNull(_)
+    | TInstrKind::TRefFunc(_)
+    | TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      true
     _ => false
   }
 }
@@ -299,44 +308,46 @@ fn licm_is_void_block_type(bt : BlockType) -> Bool {
 
 ///|
 fn licm_is_none_typed(instr : TInstr) -> Bool {
-  match instr {
-    TNop
-    | TDrop(_)
-    | TLocalSet(_, _)
-    | TGlobalSet(_, _)
-    | TStore(_, _, _, _)
-    | TMemoryFill(_, _, _, _)
-    | TMemoryCopy(_, _, _, _, _)
-    | TMemoryInit(_, _, _, _, _)
-    | TDataDrop(_)
-    | TTableSet(_, _, _)
-    | TTableFill(_, _, _, _)
-    | TTableCopy(_, _, _, _, _)
-    | TTableInit(_, _, _, _, _)
-    | TElemDrop(_)
-    | TBr(_, _)
-    | TBrIf(_, _, _)
-    | TBrTable(_, _, _, _)
-    | TBrOnNull(_, _, _)
-    | TBrOnNonNull(_, _, _)
-    | TBrOnCast(_, _, _, _, _, _)
-    | TBrOnCastFail(_, _, _, _, _, _)
-    | TReturn(_)
-    | TReturnCall(_, _)
-    | TReturnCallIndirect(_, _, _, _)
-    | TReturnCallRef(_, _, _)
-    | TThrow(_, _)
-    | TThrowRef(_)
-    | TUnreachable
-    | TStructSet(_, _, _, _)
-    | TArraySet(_, _, _, _)
-    | TArrayFill(_, _, _, _, _)
-    | TArrayCopy(_, _, _, _, _, _, _)
-    | TArrayInitData(_, _, _, _, _, _)
-    | TArrayInitElem(_, _, _, _, _, _)
-    | TV128StoreLane(_, _, _, _, _) => true
-    TBlock(bt, _) | TLoop(bt, _) | TIf(bt, _, _, _) | TTryTable(bt, _, _) =>
-      licm_is_void_block_type(bt)
+  match instr.kind {
+    TInstrKind::TNop
+    | TInstrKind::TDrop(_)
+    | TInstrKind::TLocalSet(_, _)
+    | TInstrKind::TGlobalSet(_, _)
+    | TInstrKind::TStore(_, _, _, _)
+    | TInstrKind::TMemoryFill(_, _, _, _)
+    | TInstrKind::TMemoryCopy(_, _, _, _, _)
+    | TInstrKind::TMemoryInit(_, _, _, _, _)
+    | TInstrKind::TDataDrop(_)
+    | TInstrKind::TTableSet(_, _, _)
+    | TInstrKind::TTableFill(_, _, _, _)
+    | TInstrKind::TTableCopy(_, _, _, _, _)
+    | TInstrKind::TTableInit(_, _, _, _, _)
+    | TInstrKind::TElemDrop(_)
+    | TInstrKind::TBr(_, _)
+    | TInstrKind::TBrIf(_, _, _)
+    | TInstrKind::TBrTable(_, _, _, _)
+    | TInstrKind::TBrOnNull(_, _, _)
+    | TInstrKind::TBrOnNonNull(_, _, _)
+    | TInstrKind::TBrOnCast(_, _, _, _, _, _)
+    | TInstrKind::TBrOnCastFail(_, _, _, _, _, _)
+    | TInstrKind::TReturn(_)
+    | TInstrKind::TReturnCall(_, _)
+    | TInstrKind::TReturnCallIndirect(_, _, _, _)
+    | TInstrKind::TReturnCallRef(_, _, _)
+    | TInstrKind::TThrow(_, _)
+    | TInstrKind::TThrowRef(_)
+    | TInstrKind::TUnreachable
+    | TInstrKind::TStructSet(_, _, _, _)
+    | TInstrKind::TArraySet(_, _, _, _)
+    | TInstrKind::TArrayFill(_, _, _, _, _)
+    | TInstrKind::TArrayCopy(_, _, _, _, _, _, _)
+    | TInstrKind::TArrayInitData(_, _, _, _, _, _)
+    | TInstrKind::TArrayInitElem(_, _, _, _, _, _)
+    | TInstrKind::TV128StoreLane(_, _, _, _, _) => true
+    TInstrKind::TBlock(bt, _)
+    | TInstrKind::TLoop(bt, _)
+    | TInstrKind::TIf(bt, _, _, _)
+    | TInstrKind::TTryTable(bt, _, _) => licm_is_void_block_type(bt)
     _ => false
   }
 }
@@ -346,9 +357,9 @@ fn licm_local_set_chain_final_rhs(value : TInstr) -> TInstr {
   let mut curr = value
   let mut done = false
   while !done {
-    match curr {
-      TLocalSet(_, next) => curr = next
-      TLocalTee(_, next) => curr = next
+    match curr.kind {
+      TInstrKind::TLocalSet(_, next) => curr = next
+      TInstrKind::TLocalTee(_, next) => curr = next
       _ => done = true
     }
   }
@@ -360,12 +371,13 @@ fn licm_interesting_to_move(curr : TInstr) -> Bool {
   if !licm_is_none_typed(curr) {
     return false
   }
-  match curr {
-    TNop | TBlock(_, _) | TLoop(_, _) => false
-    TLocalSet(_, value) => {
+  match curr.kind {
+    TInstrKind::TNop | TInstrKind::TBlock(_, _) | TInstrKind::TLoop(_, _) =>
+      false
+    TInstrKind::TLocalSet(_, value) => {
       let final_rhs = licm_local_set_chain_final_rhs(value)
-      match final_rhs {
-        TLocalGet(_) => false
+      match final_rhs.kind {
+        TInstrKind::TLocalGet(_) => false
         _ => !licm_is_const_instr(final_rhs)
       }
     }
@@ -378,8 +390,8 @@ fn licm_collect_get_ids(curr : TInstr, start_get_id : Int) -> (Array[Int], Int) 
   let ids : Array[Int] = []
   let next_get = Ref::new(start_get_id)
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TLocalGet(_) => {
+    match instr.kind {
+      TInstrKind::TLocalGet(_) => {
         ids.push(next_get.val)
         next_get.update(fn(n) { n + 1 })
       }
@@ -420,12 +432,13 @@ fn licm_collect_set_info(instr : TInstr) -> LICMSetInfo {
   let set_indices : Array[Int] = []
   let local_sets : Array[TInstr] = []
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
-    match curr {
-      TLocalSet(idx, _) => {
+    match curr.kind {
+      TInstrKind::TLocalSet(idx, _) => {
         set_indices.push(licm_local_idx_to_int(idx))
         local_sets.push(curr)
       }
-      TLocalTee(idx, _) => set_indices.push(licm_local_idx_to_int(idx))
+      TInstrKind::TLocalTee(idx, _) =>
+        set_indices.push(licm_local_idx_to_int(idx))
       _ => ()
     }
     self.walk_tinstruction_default((), curr)
@@ -441,12 +454,12 @@ fn licm_collect_loop_sets_and_counts(
   let loop_sets : Set[TInstr] = Set::new()
   let num_sets_for_index : Map[Int, Int] = Map::new()
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TLocalSet(idx, _) => {
+    match instr.kind {
+      TInstrKind::TLocalSet(idx, _) => {
         loop_sets.add(instr)
         licm_count_set(num_sets_for_index, idx)
       }
-      TLocalTee(idx, _) => licm_count_set(num_sets_for_index, idx)
+      TInstrKind::TLocalTee(idx, _) => licm_count_set(num_sets_for_index, idx)
       _ => ()
     }
     self.walk_tinstruction_default((), instr)
@@ -461,8 +474,8 @@ fn licm_visit_loop(
   loop_body_start_get_id : Int,
   local_graph : LocalGraph,
 ) -> TInstr {
-  match loop_instr {
-    TLoop(loop_type, loop_body) => {
+  match loop_instr.kind {
+    TInstrKind::TLoop(loop_type, loop_body) => {
       let moved_code : Array[TInstr] = []
       let effects_so_far = LICMEffects::new()
       let loop_effects = licm_collect_effects(loop_instr)
@@ -478,7 +491,7 @@ fn licm_visit_loop(
         let mut next_get_id = start_get_id
         for i = 0; i < items.length(); i = i + 1 {
           match items[i] {
-            TBlock(bt, child_body) => {
+            { kind: TInstrKind::TBlock(bt, child_body), .. } => {
               let (next_body, next_get, stop, child_changed) = scan_entrance(
                 child_body, next_get_id,
               )
@@ -578,9 +591,9 @@ fn licm_collect_loop_entry_get_ids(body : TExpr) -> Array[Int] {
   let ids : Array[Int] = []
   let next_get_id = Ref::new(0)
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TLoop(_, _) => ids.push(next_get_id.val)
-      TLocalGet(_) => next_get_id.update(fn(n) { n + 1 })
+    match instr.kind {
+      TInstrKind::TLoop(_, _) => ids.push(next_get_id.val)
+      TInstrKind::TLocalGet(_) => next_get_id.update(fn(n) { n + 1 })
       _ => ()
     }
     self.walk_tinstruction_default((), instr)
@@ -606,8 +619,8 @@ fn licm_run_on_body(body : TExpr) -> (TExpr, Bool) {
       _,
       instr,
     ) {
-      match instr {
-        TLoop(_, _) => {
+      match instr.kind {
+        TInstrKind::TLoop(_, _) => {
           let loop_index = loop_visit.val
           loop_visit.update(fn(n) { n + 1 })
           let walked = match self.walk_tinstruction_default((), instr) {
@@ -708,10 +721,37 @@ test "licm hoists basic none-typed local.set from loop entrance" {
   let optimized = licm_optimize(mod)
   match optimized.code_sec {
     Some(
-      CodeSec([TFunc(_, { instrs: [TBlock(_, { instrs: items, .. })], .. })])
+      CodeSec(
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                { kind: TInstrKind::TBlock(_, { instrs: items, .. }), .. },
+              ],
+              ..,
+            }
+          ),
+        ]
+      )
     ) =>
       match items {
-        [TLocalSet(_, _), TLoop(_, { instrs: [TNop, TNop], .. })] => ()
+        [
+          { kind: TInstrKind::TLocalSet(_, _), .. },
+          {
+            kind: TInstrKind::TLoop(
+              _,
+              {
+                instrs: [
+                  { kind: TInstrKind::TNop, .. },
+                  { kind: TInstrKind::TNop, .. },
+                ],
+                ..,
+              }
+            ),
+            ..,
+          },
+        ] => ()
         _ => fail("expected preheader local.set and nopped original")
       }
     _ => fail("expected block-wrapped loop after LICM")
@@ -751,15 +791,37 @@ test "licm stops scanning after control-transfer instruction" {
   let optimized = licm_optimize(mod)
   match optimized.code_sec {
     Some(
-      CodeSec([TFunc(_, { instrs: [TBlock(_, { instrs: items, .. })], .. })])
+      CodeSec(
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                { kind: TInstrKind::TBlock(_, { instrs: items, .. }), .. },
+              ],
+              ..,
+            }
+          ),
+        ]
+      )
     ) =>
       match items {
         [
-          TLocalSet(LocalIdx(i), _),
-          TLoop(
-            _,
-            { instrs: [TNop, TBrIf(_, _, _), TLocalSet(LocalIdx(j), _)], .. }
-          ),
+          { kind: TInstrKind::TLocalSet(LocalIdx(i), _), .. },
+          {
+            kind: TInstrKind::TLoop(
+              _,
+              {
+                instrs: [
+                  { kind: TInstrKind::TNop, .. },
+                  { kind: TInstrKind::TBrIf(_, _, _), .. },
+                  { kind: TInstrKind::TLocalSet(LocalIdx(j), _), .. },
+                ],
+                ..,
+              }
+            ),
+            ..,
+          },
         ] => {
           assert_eq(i.reinterpret_as_int(), 1)
           assert_eq(j.reinterpret_as_int(), 2)
@@ -927,10 +989,25 @@ test "licm hoists nested-loop invariant outward in one run" {
   let optimized = licm_optimize(mod)
   match optimized.code_sec {
     Some(
-      CodeSec([TFunc(_, { instrs: [TBlock(_, { instrs: items, .. })], .. })])
+      CodeSec(
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                { kind: TInstrKind::TBlock(_, { instrs: items, .. }), .. },
+              ],
+              ..,
+            }
+          ),
+        ]
+      )
     ) =>
       match items {
-        [TLocalSet(_, _), TLoop(_, _)] => ()
+        [
+          { kind: TInstrKind::TLocalSet(_, _), .. },
+          { kind: TInstrKind::TLoop(_, _), .. },
+        ] => ()
         _ => fail("expected nested hoist to reach outer preheader")
       }
     _ => fail("expected block preheader around outer loop")

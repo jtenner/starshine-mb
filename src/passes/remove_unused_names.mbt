@@ -91,8 +91,8 @@ fn run_walk_tinstruction_with_depth(
   depth : Int,
   instr : TInstr,
 ) -> TransformerResult[Int, TInstr] {
-  match instr {
-    TBlock(bt, body) => {
+  match instr.kind {
+    TInstrKind::TBlock(bt, body) => {
       let next_body = match transformer.walk_texpr(depth + 1, body) {
         Ok(Some((_, out))) => out
         Ok(None) => body
@@ -104,7 +104,7 @@ fn run_walk_tinstruction_with_depth(
         change(depth, TInstr::block(bt, next_body))
       }
     }
-    TLoop(bt, body) => {
+    TInstrKind::TLoop(bt, body) => {
       let next_body = match transformer.walk_texpr(depth + 1, body) {
         Ok(Some((_, out))) => out
         Ok(None) => body
@@ -116,7 +116,7 @@ fn run_walk_tinstruction_with_depth(
         change(depth, TInstr::loop_(bt, next_body))
       }
     }
-    TIf(bt, cond, then_body, else_body) => {
+    TInstrKind::TIf(bt, cond, then_body, else_body) => {
       let next_cond = match transformer.walk_tinstruction(depth, cond) {
         Ok(Some((_, out))) => out
         Ok(None) => cond
@@ -143,7 +143,7 @@ fn run_walk_tinstruction_with_depth(
         change(depth, next_instr)
       }
     }
-    TTryTable(bt, catches, body) => {
+    TInstrKind::TTryTable(bt, catches, body) => {
       let next_catches = match
         transformer.walk_array(
           depth + 1,
@@ -226,7 +226,7 @@ fn run_peel_single_child_same_blocks(
   let mut curr = body
   while true {
     match curr {
-      { instrs: [TBlock(child_bt, child_body)], .. } =>
+      { instrs: [{ kind: TInstrKind::TBlock(child_bt, child_body), .. }], .. } =>
         if child_bt == bt {
           removed += 1
           curr = child_body
@@ -276,12 +276,12 @@ fn run_has_branch_to_current_scope(
 ///|
 fn run_has_remove_unused_names_candidate(body : TExpr) -> Result[Bool, String] {
   let pass = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TBlock(bt, { instrs: [TBlock(child_bt, _)], .. }) =>
-        if child_bt == bt {
-          return Err(RUN_HAS_CANDIDATE_FOUND)
-        }
-      TLoop(bt, _) =>
+    match instr.kind {
+      TInstrKind::TBlock(
+        bt,
+        { instrs: [{ kind: TInstrKind::TBlock(child_bt, _), .. }], .. }
+      ) => if child_bt == bt { return Err(RUN_HAS_CANDIDATE_FOUND) }
+      TInstrKind::TLoop(bt, _) =>
         if bt == BlockType::void_() {
           return Err(RUN_HAS_CANDIDATE_FOUND)
         }
@@ -306,8 +306,8 @@ fn run_remove_unused_names_once(body : TExpr) -> Result[(TExpr, Bool), String] {
   let rescan_budget = Ref::new(RUN_RESCAN_BUDGET_PER_FUNC)
   let pass = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
     let mut seed = instr
-    match instr {
-      TBlock(bt, body) => {
+    match instr.kind {
+      TInstrKind::TBlock(bt, body) => {
         let (removed, peeled) = run_peel_single_child_same_blocks(bt, body)
         if removed > 0 {
           let shifted = match
@@ -336,8 +336,8 @@ fn run_remove_unused_names_once(body : TExpr) -> Result[(TExpr, Bool), String] {
       Ok(None) => seed
       Err(e) => return Err(e)
     }
-    let rewritten = match walked {
-      TBlock(bt, body) => {
+    let rewritten = match walked.kind {
+      TInstrKind::TBlock(bt, body) => {
         let (removed, peeled) = run_peel_single_child_same_blocks(bt, body)
         if removed <= 0 {
           walked
@@ -356,7 +356,7 @@ fn run_remove_unused_names_once(body : TExpr) -> Result[(TExpr, Bool), String] {
           }
         }
       }
-      TLoop(bt, loop_body) =>
+      TInstrKind::TLoop(bt, loop_body) =>
         if bt == BlockType::void_() {
           let has_branch = match
             run_has_branch_to_current_scope(loop_body, rescan_budget) {
@@ -412,8 +412,21 @@ test "remove_unused_names merges single-child same-typed nested blocks" {
   let mod = Module::new().with_code_sec(CodeSec::new([Func::t_func([], body)]))
   let out = run_remove_unused_names(mod)
   match run_single_func(out) {
-    TFunc(_, { instrs: [TBlock(_, { instrs: [TI32Const(I32(7))], .. })], .. }) =>
-      ()
+    TFunc(
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TBlock(
+              _,
+              { instrs: [{ kind: TInstrKind::TI32Const(I32(7)), .. }], .. }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => ()
     _ => fail("expected outer block to merge into child block")
   }
 }
@@ -441,7 +454,18 @@ test "remove_unused_names retargets branch depth when merging nested blocks" {
   match run_single_func(out) {
     TFunc(
       _,
-      { instrs: [TBlock(_, { instrs: [TBr(LabelIdx(next), _)], .. })], .. }
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TBlock(
+              _,
+              { instrs: [{ kind: TInstrKind::TBr(LabelIdx(next), _), .. }], .. }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
     ) => assert_eq(next.reinterpret_as_int(), 0)
     _ =>
       fail(
@@ -458,8 +482,21 @@ test "remove_unused_names rewrites loop to block when no continue branch remains
   let mod = Module::new().with_code_sec(CodeSec::new([Func::t_func([], body)]))
   let out = run_remove_unused_names(mod)
   match run_single_func(out) {
-    TFunc(_, { instrs: [TBlock(_, { instrs: [TI32Const(I32(3))], .. })], .. }) =>
-      ()
+    TFunc(
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TBlock(
+              _,
+              { instrs: [{ kind: TInstrKind::TI32Const(I32(3)), .. }], .. }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => ()
     _ => fail("expected loop with no continue target to become block")
   }
 }
@@ -475,7 +512,7 @@ test "remove_unused_names keeps loop when body branches to loop label" {
   let mod = Module::new().with_code_sec(CodeSec::new([Func::t_func([], body)]))
   let out = run_remove_unused_names(mod)
   match run_single_func(out) {
-    TFunc(_, { instrs: [TLoop(_, _)], .. }) => ()
+    TFunc(_, { instrs: [{ kind: TInstrKind::TLoop(_, _), .. }], .. }) => ()
     _ => fail("expected loop with br 0 to remain a loop")
   }
 }

@@ -85,8 +85,8 @@ fn vq_is_nop_texpr(expr : TExpr) -> Bool {
     return true
   }
   for item in items {
-    match item {
-      TNop => ()
+    match item.kind {
+      TInstrKind::TNop => ()
       _ => return false
     }
   }
@@ -206,12 +206,12 @@ fn vq_optimize(
       return Some(prev)
     }
     prev = curr
-    match curr {
-      TDrop(_)
-      | TBlock(_, _)
-      | TIf(_, _, _, _)
-      | TLoop(_, _)
-      | TTryTable(_, _, _) => return Some(curr)
+    match curr.kind {
+      TInstrKind::TDrop(_)
+      | TInstrKind::TBlock(_, _)
+      | TInstrKind::TIf(_, _, _, _)
+      | TInstrKind::TLoop(_, _)
+      | TInstrKind::TTryTable(_, _, _) => return Some(curr)
       _ => ()
     }
     if vq_must_keep_unused_parent(curr) {
@@ -351,15 +351,15 @@ fn vq_simplify_block_to_contents(
 fn vq_texpr_throws(expr : TExpr) -> Bool {
   let mut throws = false
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
-    match curr {
-      TThrow(_, _)
-      | TThrowRef(_)
-      | TCall(_, _)
-      | TCallIndirect(_, _, _, _)
-      | TCallRef(_, _, _)
-      | TReturnCall(_, _)
-      | TReturnCallIndirect(_, _, _, _)
-      | TReturnCallRef(_, _, _) => throws = true
+    match curr.kind {
+      TInstrKind::TThrow(_, _)
+      | TInstrKind::TThrowRef(_)
+      | TInstrKind::TCall(_, _)
+      | TInstrKind::TCallIndirect(_, _, _, _)
+      | TInstrKind::TCallRef(_, _, _)
+      | TInstrKind::TReturnCall(_, _)
+      | TInstrKind::TReturnCallIndirect(_, _, _, _)
+      | TInstrKind::TReturnCallRef(_, _, _) => throws = true
       _ => ()
     }
     self.walk_tinstruction_default((), curr)
@@ -390,15 +390,15 @@ fn vq_process_instr(
   if !vq_take_budget(budget) {
     return Some(instr)
   }
-  match instr {
-    TBlock(bt, body) => {
+  match instr.kind {
+    TInstrKind::TBlock(bt, body) => {
       let result_type = vq_block_result_type(bt, env)
       let next_body = vq_optimize_texpr(
         body, env, result_type, result_used, budget,
       )
       Some(vq_simplify_block_to_contents(bt, next_body, env))
     }
-    TIf(bt, condition, then_body, else_body) => {
+    TInstrKind::TIf(bt, condition, then_body, else_body) => {
       let next_condition = match
         vq_process_instr(condition, env, true, true, budget) {
         Some(v) => v
@@ -426,8 +426,8 @@ fn vq_process_instr(
         None => None
       }
 
-      match next_condition {
-        TI32Const(I32(v)) =>
+      match next_condition.kind {
+        TInstrKind::TI32Const(I32(v)) =>
           if v != 0 {
             return Some(vq_wrap_texpr(next_then, env))
           } else {
@@ -438,7 +438,7 @@ fn vq_process_instr(
               },
             )
           }
-        TI64Const(I64(v)) =>
+        TInstrKind::TI64Const(I64(v)) =>
           if v != 0L {
             return Some(vq_wrap_texpr(next_then, env))
           } else {
@@ -472,7 +472,10 @@ fn vq_process_instr(
             )
           }
           match (next_then.instrs, other.instrs) {
-            ([TDrop(left)], [TDrop(right)]) =>
+            (
+              [{ kind: TInstrKind::TDrop(left), .. }],
+              [{ kind: TInstrKind::TDrop(right), .. }],
+            ) =>
               match (vq_type_of(left, env), vq_type_of(right, env)) {
                 (Some(lt), Some(rt)) if lt == rt =>
                   Some(
@@ -499,7 +502,7 @@ fn vq_process_instr(
           }
       }
     }
-    TLoop(bt, body) => {
+    TInstrKind::TLoop(bt, body) => {
       let result_type = vq_block_result_type(bt, env)
       let next_body = vq_optimize_texpr(
         body,
@@ -514,15 +517,16 @@ fn vq_process_instr(
         Some(TInstr::loop_(bt, next_body))
       }
     }
-    TDrop(value) => {
+    TInstrKind::TDrop(value) => {
       let next_value = match
         vq_process_instr(value, env, false, false, budget) {
         Some(v) => v
         None => return Some(TInstr::nop())
       }
-      match next_value {
-        TDrop(inner) => return Some(TInstr::drop(inner))
-        TLocalTee(idx, inner) => return Some(TInstr::local_set(idx, inner))
+      match next_value.kind {
+        TInstrKind::TDrop(inner) => return Some(TInstr::drop(inner))
+        TInstrKind::TLocalTee(idx, inner) =>
+          return Some(TInstr::local_set(idx, inner))
         _ => ()
       }
 
@@ -531,8 +535,8 @@ fn vq_process_instr(
         return Some(TInstr::nop())
       }
 
-      match next_value {
-        TBlock(bt, body) => {
+      match next_value.kind {
+        TInstrKind::TBlock(bt, body) => {
           let { instrs: items, .. } = body
           if items.length() > 0 {
             let last = items[items.length() - 1]
@@ -565,8 +569,8 @@ fn vq_process_instr(
         _ => ()
       }
 
-      match next_value {
-        TIf(bt, cond, then_body, Some(other_body)) => {
+      match next_value.kind {
+        TInstrKind::TIf(bt, cond, then_body, Some(other_body)) => {
           let if_type = vq_block_result_type(bt, env)
           match if_type {
             Some(_) =>
@@ -598,7 +602,7 @@ fn vq_process_instr(
       }
       Some(dropped)
     }
-    TTryTable(bt, catches, body) => {
+    TInstrKind::TTryTable(bt, catches, body) => {
       let result_type = vq_block_result_type(bt, env)
       let next_body = vq_optimize_texpr(
         body,
@@ -757,7 +761,15 @@ test "vacuum rewrites drop(local.tee(...)) to local.set(...)" {
   )
   let out = run_vacuum(mod)
   match vq_first_func_body(out).instrs {
-    [TLocalSet(LocalIdx(i), TI32Const(I32(v)))] => {
+    [
+      {
+        kind: TInstrKind::TLocalSet(
+          LocalIdx(i),
+          { kind: TInstrKind::TI32Const(I32(v)), .. }
+        ),
+        ..,
+      },
+    ] => {
       assert_eq(i, 0U)
       assert_eq(v, 9)
     }
@@ -774,7 +786,7 @@ test "vacuum removes side-effect-free dropped value" {
   )
   let out = run_vacuum(mod)
   match vq_first_func_body(out).instrs {
-    [TNop] => ()
+    [{ kind: TInstrKind::TNop, .. }] => ()
     _ => fail("expected pure drop to be removed")
   }
 }
@@ -803,7 +815,12 @@ test "vacuum simplifies dropped unary wrapper around call to dropped call" {
     )
   let out = run_vacuum(mod)
   match vq_first_func_body(out).instrs {
-    [TDrop(TCall(FuncIdx(i), []))] => assert_eq(i, 1U)
+    [
+      {
+        kind: TInstrKind::TDrop({ kind: TInstrKind::TCall(FuncIdx(i), []), .. }),
+        ..,
+      },
+    ] => assert_eq(i, 1U)
     _ => fail("expected drop(i32.eqz(call)) to become drop(call)")
   }
 }
@@ -833,7 +850,7 @@ test "vacuum replaces constant if(true) with then arm" {
     )
   let out = run_vacuum(mod)
   match vq_first_func_body(out).instrs {
-    [TI32Const(I32(v))] => assert_eq(v, 7)
+    [{ kind: TInstrKind::TI32Const(I32(v)), .. }] => assert_eq(v, 7)
     _ => fail("expected constant-true if to fold to then arm")
   }
 }
@@ -857,7 +874,7 @@ test "vacuum replaces if with unreachable condition by the condition" {
   )
   let out = run_vacuum(mod)
   match vq_first_func_body(out).instrs {
-    [TUnreachable] => ()
+    [{ kind: TInstrKind::TUnreachable, .. }] => ()
     _ => fail("expected if(unreachable) to fold to unreachable")
   }
 }
@@ -897,7 +914,12 @@ test "vacuum removes if without else when then arm is nop by dropping condition"
     )
   let out = run_vacuum(mod)
   match vq_first_func_body(out).instrs {
-    [TDrop(TCall(FuncIdx(i), []))] => assert_eq(i, 0U)
+    [
+      {
+        kind: TInstrKind::TDrop({ kind: TInstrKind::TCall(FuncIdx(i), []), .. }),
+        ..,
+      },
+    ] => assert_eq(i, 0U)
     _ => fail("expected empty if body to become drop(condition)")
   }
 }
@@ -916,7 +938,7 @@ test "vacuum removes loops with nop body" {
   )
   let out = run_vacuum(mod)
   match vq_first_func_body(out).instrs {
-    [TNop] => ()
+    [{ kind: TInstrKind::TNop, .. }] => ()
     _ => fail("expected loop with nop body to become nop")
   }
 }
@@ -936,8 +958,27 @@ test "vacuum removes trailing dead code after unreachable in block body" {
   )
   let out = run_vacuum(mod)
   match vq_first_func_body(out).instrs {
-    [TBlock(_, { instrs: [TLocalSet(_, TI32Const(I32(v))), TUnreachable], .. })] =>
-      assert_eq(v, 1)
+    [
+      {
+        kind: TInstrKind::TBlock(
+          _,
+          {
+            instrs: [
+              {
+                kind: TInstrKind::TLocalSet(
+                  _,
+                  { kind: TInstrKind::TI32Const(I32(v)), .. }
+                ),
+                ..,
+              },
+              { kind: TInstrKind::TUnreachable, .. },
+            ],
+            ..,
+          }
+        ),
+        ..,
+      },
+    ] => assert_eq(v, 1)
     _ => fail("expected unreachable tail in block to be removed")
   }
 }
@@ -979,12 +1020,26 @@ test "vacuum turns drop(if drop(..) else drop(..)) into drop(if value else value
   let out = run_vacuum(mod)
   match vq_first_func_body(out).instrs {
     [
-      TDrop(
-        TIf(ValTypeBlockType(NumTypeValType(I32NumType)), _, then_, Some(else_))
-      ),
+      {
+        kind: TInstrKind::TDrop(
+          {
+            kind: TInstrKind::TIf(
+              ValTypeBlockType(NumTypeValType(I32NumType)),
+              _,
+              then_,
+              Some(else_)
+            ),
+            ..,
+          }
+        ),
+        ..,
+      },
     ] =>
       match (then_.instrs, else_.instrs) {
-        ([TCall(FuncIdx(a), [])], [TCall(FuncIdx(b), [])]) => {
+        (
+          [{ kind: TInstrKind::TCall(FuncIdx(a), []), .. }],
+          [{ kind: TInstrKind::TCall(FuncIdx(b), []), .. }],
+        ) => {
           assert_eq(a, 0U)
           assert_eq(b, 1U)
         }
@@ -1010,7 +1065,7 @@ test "vacuum removes try_table when body cannot throw" {
     .with_code_sec(CodeSec::new([Func::t_func([], TExpr::new([instr]))]))
   let out = run_vacuum(mod)
   match vq_first_func_body(out).instrs {
-    [TI32Const(I32(v))] => assert_eq(v, 77)
+    [{ kind: TInstrKind::TI32Const(I32(v)), .. }] => assert_eq(v, 77)
     _ => fail("expected throw-free try_table to fold to body")
   }
 }
@@ -1030,7 +1085,7 @@ test "vacuum keeps non-removable try_table body that may throw" {
     .with_code_sec(CodeSec::new([Func::t_func([], TExpr::new([instr]))]))
   let out = run_vacuum(mod)
   match vq_first_func_body(out).instrs {
-    [TTryTable(_, _, _)] => ()
+    [{ kind: TInstrKind::TTryTable(_, _, _), .. }] => ()
     _ => fail("expected throwing try_table to remain")
   }
 }
@@ -1042,7 +1097,7 @@ test "vacuum nops side-effect-free none-returning function body" {
   )
   let out = run_vacuum(mod)
   match vq_first_func_body(out).instrs {
-    [TNop] => ()
+    [{ kind: TInstrKind::TNop, .. }] => ()
     _ => fail("expected side-effect-free function body to become nop")
   }
 }

@@ -100,105 +100,113 @@ fn ge_in_func_range(idx : Int, total_funcs : Int) -> Bool {
 
 ///|
 fn ge_collect_shallow_effects_into(instr : TInstr, effects : GEEffects) -> Unit {
-  match instr {
-    TGlobalGet(_) => effects.reads_globals = true
-    TGlobalSet(_, _) => effects.writes_globals = true
-    TLoad(_, _, _) => {
+  match instr.kind {
+    TInstrKind::TGlobalGet(_) => effects.reads_globals = true
+    TInstrKind::TGlobalSet(_, _) => effects.writes_globals = true
+    TInstrKind::TLoad(_, _, _) => {
       effects.reads_memory = true
       effects.traps = true
     }
-    TStore(_, _, _, _) => {
+    TInstrKind::TStore(_, _, _, _) => {
       effects.writes_memory = true
       effects.traps = true
     }
-    TMemoryGrow(_, _) => effects.writes_memory = true
-    TMemorySize(_) => effects.reads_memory = true
-    TMemoryCopy(_, _, _, _, _) => {
+    TInstrKind::TMemoryGrow(_, _) => effects.writes_memory = true
+    TInstrKind::TMemorySize(_) => effects.reads_memory = true
+    TInstrKind::TMemoryCopy(_, _, _, _, _) => {
       effects.reads_memory = true
       effects.writes_memory = true
     }
-    TMemoryFill(_, _, _, _) => effects.writes_memory = true
-    TMemoryInit(_, _, _, _, _) => {
+    TInstrKind::TMemoryFill(_, _, _, _) => effects.writes_memory = true
+    TInstrKind::TMemoryInit(_, _, _, _, _) => {
       effects.reads_memory = true
       effects.writes_memory = true
     }
-    TDataDrop(_) => effects.writes_memory = true
-    TTableSet(_, _, _) | TTableGrow(_, _, _) | TTableFill(_, _, _, _) =>
-      effects.writes_memory = true
-    TTableGet(_, _) | TTableSize(_) => effects.reads_memory = true
-    TTableCopy(_, _, _, _, _) | TTableInit(_, _, _, _, _) | TElemDrop(_) => {
+    TInstrKind::TDataDrop(_) => effects.writes_memory = true
+    TInstrKind::TTableSet(_, _, _)
+    | TInstrKind::TTableGrow(_, _, _)
+    | TInstrKind::TTableFill(_, _, _, _) => effects.writes_memory = true
+    TInstrKind::TTableGet(_, _) | TInstrKind::TTableSize(_) =>
+      effects.reads_memory = true
+    TInstrKind::TTableCopy(_, _, _, _, _)
+    | TInstrKind::TTableInit(_, _, _, _, _)
+    | TInstrKind::TElemDrop(_) => {
       effects.reads_memory = true
       effects.writes_memory = true
     }
-    TCall(_, _) | TCallIndirect(_, _, _, _) | TCallRef(_, _, _) =>
-      effects.calls = true
-    TReturnCall(_, _)
-    | TReturnCallIndirect(_, _, _, _)
-    | TReturnCallRef(_, _, _) => {
+    TInstrKind::TCall(_, _)
+    | TInstrKind::TCallIndirect(_, _, _, _)
+    | TInstrKind::TCallRef(_, _, _) => effects.calls = true
+    TInstrKind::TReturnCall(_, _)
+    | TInstrKind::TReturnCallIndirect(_, _, _, _)
+    | TInstrKind::TReturnCallRef(_, _, _) => {
       effects.calls = true
       effects.branches = true
     }
-    TBr(_, _)
-    | TBrIf(_, _, _)
-    | TBrTable(_, _, _, _)
-    | TBrOnNull(_, _, _)
-    | TBrOnNonNull(_, _, _)
-    | TBrOnCast(_, _, _, _, _, _)
-    | TBrOnCastFail(_, _, _, _, _, _)
-    | TReturn(_) => effects.branches = true
-    TThrow(_, _) => {
+    TInstrKind::TBr(_, _)
+    | TInstrKind::TBrIf(_, _, _)
+    | TInstrKind::TBrTable(_, _, _, _)
+    | TInstrKind::TBrOnNull(_, _, _)
+    | TInstrKind::TBrOnNonNull(_, _, _)
+    | TInstrKind::TBrOnCast(_, _, _, _, _, _)
+    | TInstrKind::TBrOnCastFail(_, _, _, _, _, _)
+    | TInstrKind::TReturn(_) => effects.branches = true
+    TInstrKind::TThrow(_, _) => {
       effects.throws = true
       effects.branches = true
     }
-    TThrowRef(_) => {
+    TInstrKind::TThrowRef(_) => {
       effects.throws = true
       effects.branches = true
     }
-    TUnreachable => effects.traps = true
-    TRefAsNonNull(_) | TRefCast(_, _, _) | TRefCastDescEq(_, _, _) =>
-      effects.traps = true
-    TStructGet(_, _, _) | TStructGetS(_, _, _) | TStructGetU(_, _, _) => {
+    TInstrKind::TUnreachable => effects.traps = true
+    TInstrKind::TRefAsNonNull(_)
+    | TInstrKind::TRefCast(_, _, _)
+    | TInstrKind::TRefCastDescEq(_, _, _) => effects.traps = true
+    TInstrKind::TStructGet(_, _, _)
+    | TInstrKind::TStructGetS(_, _, _)
+    | TInstrKind::TStructGetU(_, _, _) => {
       effects.reads_memory = true
       effects.traps = true
     }
-    TStructSet(_, _, _, _) => {
+    TInstrKind::TStructSet(_, _, _, _) => {
       effects.writes_memory = true
       effects.traps = true
     }
-    TArrayNew(_, _, _)
-    | TArrayNewDefault(_, _)
-    | TArrayNewFixed(_, _)
-    | TArrayNewData(_, _, _, _)
-    | TArrayNewElem(_, _, _, _) => {
+    TInstrKind::TArrayNew(_, _, _)
+    | TInstrKind::TArrayNewDefault(_, _)
+    | TInstrKind::TArrayNewFixed(_, _)
+    | TInstrKind::TArrayNewData(_, _, _, _)
+    | TInstrKind::TArrayNewElem(_, _, _, _) => {
       effects.writes_memory = true
       effects.traps = true
     }
-    TArrayGet(_, _, _)
-    | TArrayGetS(_, _, _)
-    | TArrayGetU(_, _, _)
-    | TArrayLen(_) => {
+    TInstrKind::TArrayGet(_, _, _)
+    | TInstrKind::TArrayGetS(_, _, _)
+    | TInstrKind::TArrayGetU(_, _, _)
+    | TInstrKind::TArrayLen(_) => {
       effects.reads_memory = true
       effects.traps = true
     }
-    TArraySet(_, _, _, _)
-    | TArrayFill(_, _, _, _, _)
-    | TArrayCopy(_, _, _, _, _, _, _)
-    | TArrayInitData(_, _, _, _, _, _)
-    | TArrayInitElem(_, _, _, _, _, _) => {
+    TInstrKind::TArraySet(_, _, _, _)
+    | TInstrKind::TArrayFill(_, _, _, _, _)
+    | TInstrKind::TArrayCopy(_, _, _, _, _, _, _)
+    | TInstrKind::TArrayInitData(_, _, _, _, _, _)
+    | TInstrKind::TArrayInitElem(_, _, _, _, _, _) => {
       effects.reads_memory = true
       effects.writes_memory = true
       effects.traps = true
     }
-    TAtomicFence
-    | TMemoryAtomicNotify(_, _, _)
-    | TMemoryAtomicWait32(_, _, _, _)
-    | TMemoryAtomicWait64(_, _, _, _)
-    | TAtomicRmw(_, _, _, _)
-    | TAtomicCmpxchg(_, _, _, _, _) => {
+    TInstrKind::TAtomicFence
+    | TInstrKind::TMemoryAtomicNotify(_, _, _)
+    | TInstrKind::TMemoryAtomicWait32(_, _, _, _)
+    | TInstrKind::TMemoryAtomicWait64(_, _, _, _)
+    | TInstrKind::TAtomicRmw(_, _, _, _)
+    | TInstrKind::TAtomicCmpxchg(_, _, _, _, _) => {
       effects.reads_memory = true
       effects.writes_memory = true
     }
-    TBinary(op, _, _) =>
+    TInstrKind::TBinary(op, _, _) =>
       match op {
         I32DivSOp
         | I32DivUOp
@@ -210,7 +218,7 @@ fn ge_collect_shallow_effects_into(instr : TInstr, effects : GEEffects) -> Unit 
         | I64RemUOp => effects.traps = true
         _ => ()
       }
-    TUnary(op, _) =>
+    TInstrKind::TUnary(op, _) =>
       match op {
         I32TruncF32SOp
         | I32TruncF32UOp
@@ -264,8 +272,8 @@ fn ge_scan_defined_func(func : Func, total_funcs : Int) -> GEFuncInfo {
           _,
           curr,
         ) {
-          match curr {
-            TCall(target, _) | TReturnCall(target, _) => {
+          match curr.kind {
+            TInstrKind::TCall(target, _) | TInstrKind::TReturnCall(target, _) => {
               let called = ge_funcidx_to_int(target)
               if ge_in_func_range(called, total_funcs) {
                 info.called_functions.add(called)

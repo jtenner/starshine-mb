@@ -146,16 +146,16 @@ fn pls_load_with_signedness(op : LoadOp, signed : Bool) -> LoadOp? {
 
 ///|
 fn pls_i32_const(instr : TInstr) -> Int? {
-  match instr {
-    TI32Const(I32(v)) => Some(v)
+  match instr.kind {
+    TInstrKind::TI32Const(I32(v)) => Some(v)
     _ => None
   }
 }
 
 ///|
 fn pls_i64_const(instr : TInstr) -> Int64? {
-  match instr {
-    TI64Const(I64(v)) => Some(v)
+  match instr.kind {
+    TInstrKind::TI64Const(I64(v)) => Some(v)
     _ => None
   }
 }
@@ -204,16 +204,16 @@ fn pls_i64_shift_ext_bits(shift : Int64) -> Int {
 
 ///|
 fn pls_sign_ext_bits(parent : TInstr, value : TInstr) -> Int? {
-  match parent {
-    TUnary(I32Extend8SOp, child) if child == value => Some(8)
-    TUnary(I32Extend16SOp, child) if child == value => Some(16)
-    TUnary(I64Extend8SOp, child) if child == value => Some(8)
-    TUnary(I64Extend16SOp, child) if child == value => Some(16)
-    TUnary(I64Extend32SOp, child) if child == value => Some(32)
-    TUnary(I64ExtendI32SOp, child) if child == value => Some(32)
-    TBinary(I32ShrSOp, lhs, rhs_shift) =>
-      match lhs {
-        TBinary(I32ShlOp, inner, lhs_shift) =>
+  match parent.kind {
+    TInstrKind::TUnary(I32Extend8SOp, child) if child == value => Some(8)
+    TInstrKind::TUnary(I32Extend16SOp, child) if child == value => Some(16)
+    TInstrKind::TUnary(I64Extend8SOp, child) if child == value => Some(8)
+    TInstrKind::TUnary(I64Extend16SOp, child) if child == value => Some(16)
+    TInstrKind::TUnary(I64Extend32SOp, child) if child == value => Some(32)
+    TInstrKind::TUnary(I64ExtendI32SOp, child) if child == value => Some(32)
+    TInstrKind::TBinary(I32ShrSOp, lhs, rhs_shift) =>
+      match lhs.kind {
+        TInstrKind::TBinary(I32ShlOp, inner, lhs_shift) =>
           if inner == value {
             match (pls_i32_const(lhs_shift), pls_i32_const(rhs_shift)) {
               (Some(a), Some(b)) if a == b => Some(pls_i32_shift_ext_bits(a))
@@ -224,9 +224,9 @@ fn pls_sign_ext_bits(parent : TInstr, value : TInstr) -> Int? {
           }
         _ => None
       }
-    TBinary(I64ShrSOp, lhs, rhs_shift) =>
-      match lhs {
-        TBinary(I64ShlOp, inner, lhs_shift) =>
+    TInstrKind::TBinary(I64ShrSOp, lhs, rhs_shift) =>
+      match lhs.kind {
+        TInstrKind::TBinary(I64ShlOp, inner, lhs_shift) =>
           if inner == value {
             match (pls_i64_const(lhs_shift), pls_i64_const(rhs_shift)) {
               (Some(a), Some(b)) if a == b => Some(pls_i64_shift_ext_bits(a))
@@ -243,31 +243,31 @@ fn pls_sign_ext_bits(parent : TInstr, value : TInstr) -> Int? {
 
 ///|
 fn pls_zero_ext_bits(parent : TInstr, value : TInstr) -> Int? {
-  match parent {
-    TUnary(I64ExtendI32UOp, child) if child == value => Some(32)
-    TBinary(I32AndOp, left, right) if left == value =>
+  match parent.kind {
+    TInstrKind::TUnary(I64ExtendI32UOp, child) if child == value => Some(32)
+    TInstrKind::TBinary(I32AndOp, left, right) if left == value =>
       match pls_i32_const(right) {
         Some(mask) => pls_i32_low_mask_bits(mask)
         None => None
       }
-    TBinary(I32AndOp, left, right) if right == value =>
+    TInstrKind::TBinary(I32AndOp, left, right) if right == value =>
       match pls_i32_const(left) {
         Some(mask) => pls_i32_low_mask_bits(mask)
         None => None
       }
-    TBinary(I64AndOp, left, right) if left == value =>
+    TInstrKind::TBinary(I64AndOp, left, right) if left == value =>
       match pls_i64_const(right) {
         Some(mask) => pls_i64_low_mask_bits(mask)
         None => None
       }
-    TBinary(I64AndOp, left, right) if right == value =>
+    TInstrKind::TBinary(I64AndOp, left, right) if right == value =>
       match pls_i64_const(left) {
         Some(mask) => pls_i64_low_mask_bits(mask)
         None => None
       }
-    TBinary(I32ShrUOp, lhs, rhs_shift) =>
-      match lhs {
-        TBinary(I32ShlOp, inner, lhs_shift) =>
+    TInstrKind::TBinary(I32ShrUOp, lhs, rhs_shift) =>
+      match lhs.kind {
+        TInstrKind::TBinary(I32ShlOp, inner, lhs_shift) =>
           if inner == value {
             match (pls_i32_const(lhs_shift), pls_i32_const(rhs_shift)) {
               (Some(a), Some(b)) if a == b => Some(pls_i32_shift_ext_bits(a))
@@ -278,9 +278,9 @@ fn pls_zero_ext_bits(parent : TInstr, value : TInstr) -> Int? {
           }
         _ => None
       }
-    TBinary(I64ShrUOp, lhs, rhs_shift) =>
-      match lhs {
-        TBinary(I64ShlOp, inner, lhs_shift) =>
+    TInstrKind::TBinary(I64ShrUOp, lhs, rhs_shift) =>
+      match lhs.kind {
+        TInstrKind::TBinary(I64ShlOp, inner, lhs_shift) =>
           if inner == value {
             match (pls_i64_const(lhs_shift), pls_i64_const(rhs_shift)) {
               (Some(a), Some(b)) if a == b => Some(pls_i64_shift_ext_bits(a))
@@ -312,12 +312,12 @@ fn pls_candidate_load(
   curr : TInstr,
   parent_stack : Array[TInstr],
 ) -> PLSCandidateLoad? {
-  match curr {
-    TLoad(op, _, _) =>
+  match curr.kind {
+    TInstrKind::TLoad(op, _, _) =>
       match pls_sign_relevant_load_info(op) {
         Some((current_signed, load_bits)) =>
           match parent_stack.last() {
-            Some(TLocalSet(local_idx, _)) =>
+            Some({ kind: TInstrKind::TLocalSet(local_idx, _), .. }) =>
               Some({
                 local_idx: pls_local_idx_to_int(local_idx),
                 load_bits,
@@ -341,8 +341,8 @@ fn pls_analyze_body(body : TExpr) -> Result[PLSAnalysis, String] {
       Some(candidate) => candidates.push(candidate)
       None => ()
     }
-    match curr {
-      TLocalGet(local_idx) => {
+    match curr.kind {
+      TInstrKind::TLocalGet(local_idx) => {
         let local_int = pls_local_idx_to_int(local_idx)
         let usage = pls_get_usage(usage_by_local, local_int)
         usage.total_usages += 1
@@ -423,8 +423,8 @@ fn pls_rewrite_body(
       Some(_) => {
         let target_signed = decisions[next_candidate.val]
         next_candidate.update(fn(n) { n + 1 })
-        match walked {
-          TLoad(op, memarg, ptr) =>
+        match walked.kind {
+          TInstrKind::TLoad(op, memarg, ptr) =>
             match pls_load_with_signedness(op, target_signed) {
               Some(new_op) => TInstr::load(new_op, memarg, ptr)
               None => walked
@@ -534,8 +534,23 @@ test "pick_load_signs picks unsigned for i32.load8 when unsigned dominates" {
   )
   let out = pls_run_func(func)
   match out {
-    TFunc(_, { instrs: [TLocalSet(_, TLoad(I32Load8UOp, _, _)), _, _], .. }) =>
-      ()
+    TFunc(
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TLocalSet(
+              _,
+              { kind: TInstrKind::TLoad(I32Load8UOp, _, _), .. }
+            ),
+            ..,
+          },
+          _,
+          _,
+        ],
+        ..,
+      }
+    ) => ()
     _ => fail("expected i32.load8_s to become i32.load8_u")
   }
 }
@@ -568,8 +583,23 @@ test "pick_load_signs picks signed when signed uses are weighted higher" {
   )
   let out = pls_run_func(func)
   match out {
-    TFunc(_, { instrs: [TLocalSet(_, TLoad(I32Load8SOp, _, _)), _, _], .. }) =>
-      ()
+    TFunc(
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TLocalSet(
+              _,
+              { kind: TInstrKind::TLoad(I32Load8SOp, _, _), .. }
+            ),
+            ..,
+          },
+          _,
+          _,
+        ],
+        ..,
+      }
+    ) => ()
     _ => fail("expected i32.load8_u to become i32.load8_s")
   }
 }
@@ -600,8 +630,23 @@ test "pick_load_signs requires all loc.get uses to be sign-or-zero extensions" {
   )
   let out = pls_run_func(func)
   match out {
-    TFunc(_, { instrs: [TLocalSet(_, TLoad(I32Load8SOp, _, _)), _, _], .. }) =>
-      ()
+    TFunc(
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TLocalSet(
+              _,
+              { kind: TInstrKind::TLoad(I32Load8SOp, _, _), .. }
+            ),
+            ..,
+          },
+          _,
+          _,
+        ],
+        ..,
+      }
+    ) => ()
     _ => fail("expected load op to stay signed due non-extension use")
   }
 }
@@ -627,7 +672,22 @@ test "pick_load_signs requires extension bits to match load bits" {
   )
   let out = pls_run_func(func)
   match out {
-    TFunc(_, { instrs: [TLocalSet(_, TLoad(I32Load8UOp, _, _)), _], .. }) => ()
+    TFunc(
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TLocalSet(
+              _,
+              { kind: TInstrKind::TLoad(I32Load8UOp, _, _), .. }
+            ),
+            ..,
+          },
+          _,
+        ],
+        ..,
+      }
+    ) => ()
     _ => fail("expected no rewrite when sign extension width mismatches")
   }
 }
@@ -656,8 +716,23 @@ test "pick_load_signs rejects inconsistent signed extension widths" {
   )
   let out = pls_run_func(func)
   match out {
-    TFunc(_, { instrs: [TLocalSet(_, TLoad(I32Load8SOp, _, _)), _, _], .. }) =>
-      ()
+    TFunc(
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TLocalSet(
+              _,
+              { kind: TInstrKind::TLoad(I32Load8SOp, _, _), .. }
+            ),
+            ..,
+          },
+          _,
+          _,
+        ],
+        ..,
+      }
+    ) => ()
     _ => fail("expected no rewrite with inconsistent signed widths")
   }
 }
@@ -691,7 +766,22 @@ test "pick_load_signs recognizes nested shift-based zero extension on grandparen
   )
   let out = pls_run_func(func)
   match out {
-    TFunc(_, { instrs: [TLocalSet(_, TLoad(I32Load16UOp, _, _)), _], .. }) => ()
+    TFunc(
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TLocalSet(
+              _,
+              { kind: TInstrKind::TLoad(I32Load16UOp, _, _), .. }
+            ),
+            ..,
+          },
+          _,
+        ],
+        ..,
+      }
+    ) => ()
     _ => fail("expected i32.load16_s to become i32.load16_u")
   }
 }
@@ -723,8 +813,27 @@ test "pick_load_signs ignores loc.tee load producers" {
   )
   let out = pls_run_func(func)
   match out {
-    TFunc(_, { instrs: [TDrop(TLocalTee(_, TLoad(I32Load8SOp, _, _))), _], .. }) =>
-      ()
+    TFunc(
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TDrop(
+              {
+                kind: TInstrKind::TLocalTee(
+                  _,
+                  { kind: TInstrKind::TLoad(I32Load8SOp, _, _), .. }
+                ),
+                ..,
+              }
+            ),
+            ..,
+          },
+          _,
+        ],
+        ..,
+      }
+    ) => ()
     _ => fail("expected tee load to remain unchanged")
   }
 }
@@ -748,7 +857,22 @@ test "pick_load_signs skips loads with no loc.get usages" {
   )
   let out = pls_run_func(func)
   match out {
-    TFunc(_, { instrs: [TLocalSet(_, TLoad(I32Load8SOp, _, _)), _], .. }) => ()
+    TFunc(
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TLocalSet(
+              _,
+              { kind: TInstrKind::TLoad(I32Load8SOp, _, _), .. }
+            ),
+            ..,
+          },
+          _,
+        ],
+        ..,
+      }
+    ) => ()
     _ => fail("expected no rewrite with zero usages")
   }
 }
@@ -774,7 +898,22 @@ test "pick_load_signs rewrites i64.load32 based on i64.extend32_s usage" {
   )
   let out = pls_run_func(func)
   match out {
-    TFunc(_, { instrs: [TLocalSet(_, TLoad(I64Load32SOp, _, _)), _], .. }) => ()
+    TFunc(
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TLocalSet(
+              _,
+              { kind: TInstrKind::TLoad(I64Load32SOp, _, _), .. }
+            ),
+            ..,
+          },
+          _,
+        ],
+        ..,
+      }
+    ) => ()
     _ => fail("expected i64.load32_u to become i64.load32_s")
   }
 }
@@ -804,7 +943,22 @@ test "pick_load_signs rewrites i64.load32 to unsigned for i64.and mask usage" {
   )
   let out = pls_run_func(func)
   match out {
-    TFunc(_, { instrs: [TLocalSet(_, TLoad(I64Load32UOp, _, _)), _], .. }) => ()
+    TFunc(
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TLocalSet(
+              _,
+              { kind: TInstrKind::TLoad(I64Load32UOp, _, _), .. }
+            ),
+            ..,
+          },
+          _,
+        ],
+        ..,
+      }
+    ) => ()
     _ => fail("expected i64.load32_s to become i64.load32_u")
   }
 }
@@ -856,9 +1010,15 @@ test "pick_load_signs rewrites all candidate loads mapped to the same loc" {
       let mut signed_count = 0
       let mut unsigned_count = 0
       for instr in instrs {
-        match instr {
-          TLocalSet(_, TLoad(I32Load8SOp, _, _)) => signed_count += 1
-          TLocalSet(_, TLoad(I32Load8UOp, _, _)) => unsigned_count += 1
+        match instr.kind {
+          TInstrKind::TLocalSet(
+            _,
+            { kind: TInstrKind::TLoad(I32Load8SOp, _, _), .. }
+          ) => signed_count += 1
+          TInstrKind::TLocalSet(
+            _,
+            { kind: TInstrKind::TLoad(I32Load8UOp, _, _), .. }
+          ) => unsigned_count += 1
           _ => ()
         }
       }

@@ -55,9 +55,9 @@ fn value_of_expr(
   counter : Ref[Int],
   consts : ConstTable,
 ) -> ValueId? {
-  match expr {
+  match expr.kind {
     // Constant literals: each literal gets its own value ID
-    TI32Const(I32(n)) =>
+    TInstrKind::TI32Const(I32(n)) =>
       // Use consts table to get consistent ID for same constant
       match consts.get(ConstKey::I32Key(n)) {
         Some(id) => Some(id)
@@ -68,7 +68,7 @@ fn value_of_expr(
           Some(id)
         }
       }
-    TI64Const(I64(n)) =>
+    TInstrKind::TI64Const(I64(n)) =>
       // Use consts table to get consistent ID for same constant
       match consts.get(ConstKey::I64Key(n)) {
         Some(id) => Some(id)
@@ -79,7 +79,7 @@ fn value_of_expr(
           Some(id)
         }
       }
-    TF32Const(F32(f)) =>
+    TInstrKind::TF32Const(F32(f)) =>
       // Use consts table to get consistent ID for same constant
       match consts.get(ConstKey::F32Key(f)) {
         Some(id) => Some(id)
@@ -90,7 +90,7 @@ fn value_of_expr(
           Some(id)
         }
       }
-    TF64Const(F64(f)) =>
+    TInstrKind::TF64Const(F64(f)) =>
       // Use consts table to get consistent ID for same constant
       match consts.get(ConstKey::F64Key(f)) {
         Some(id) => Some(id)
@@ -103,7 +103,7 @@ fn value_of_expr(
       }
 
     // Copy: produces fresh value
-    TInstr::TLocalGet(idx) => env.get(idx)
+    TInstrKind::TLocalGet(idx) => env.get(idx)
 
     // Anything else: fresh value
     _ => None
@@ -114,9 +114,9 @@ fn value_of_expr(
 fn find_copies(instrs : Array[TInstr]) -> Set[(LocalIdx, LocalIdx)] {
   let copies = Set::new()
   for instr in instrs {
-    match instr {
-      TInstr::TLocalSet(dst, TInstr::TLocalGet(src)) if dst != src =>
-        copies.add(ordered_pair(src, dst))
+    match instr.kind {
+      TInstrKind::TLocalSet(dst, { kind: TInstrKind::TLocalGet(src), .. }) if dst !=
+        src => copies.add(ordered_pair(src, dst))
       _ => ()
     }
   }
@@ -165,8 +165,8 @@ fn add_block_interference_with_values(
   let envs = [in_env.copy()]
   let curr = in_env.copy()
   for instr in block.instrs {
-    match instr {
-      TInstr::TLocalSet(idx, value) =>
+    match instr.kind {
+      TInstrKind::TLocalSet(idx, value) =>
         match value_of_expr(value, curr, counter, consts) {
           Some(v) => curr[idx] = v
           None => curr.remove(idx)
@@ -219,8 +219,8 @@ fn add_block_interference_with_values(
 
 ///|
 fn simultaneous_uses(instr : TInstr) -> Set[LocalIdx] {
-  match instr {
-    TBinary(_, lhs, rhs) => {
+  match instr.kind {
+    TInstrKind::TBinary(_, lhs, rhs) => {
       let s = Set::new()
       for x in uses(lhs) {
         s.add(x)
@@ -260,19 +260,19 @@ fn compute_coalesce_order(
 ///|
 fn uses_shallow(instr : TInstr) -> Set[LocalIdx] {
   let result = Set::new()
-  match instr {
-    TInstr::TLocalGet(idx) => result.add(idx)
-    TInstr::TLocalSet(_, value) =>
+  match instr.kind {
+    TInstrKind::TLocalGet(idx) => result.add(idx)
+    TInstrKind::TLocalSet(_, value) =>
       // value is evaluated in this block
       for x in uses(value) {
         result.add(x)
       }
-    TInstr::TIf(_, cond, _, _) =>
+    TInstrKind::TIf(_, cond, _, _) =>
       // only condition belongs to this block
       for x in uses(cond) {
         result.add(x)
       }
-    TInstr::TLoop(_, body) =>
+    TInstrKind::TLoop(_, body) =>
       for b in body.instrs {
         for x in uses(b) {
           result.add(x)
@@ -289,8 +289,8 @@ fn uses_shallow(instr : TInstr) -> Set[LocalIdx] {
 ///|
 fn defs_shallow(instr : TInstr) -> Set[LocalIdx] {
   let result = Set::new()
-  match instr {
-    TInstr::TLocalSet(idx, _) => result.add(idx)
+  match instr.kind {
+    TInstrKind::TLocalSet(idx, _) => result.add(idx)
     _ => ()
   }
   result
@@ -305,8 +305,8 @@ fn simulate_block_values(
 ) -> ValueEnv {
   let env = in_env.copy()
   for instr in block.instrs {
-    match instr {
-      TInstr::TLocalSet(idx, value) =>
+    match instr.kind {
+      TInstrKind::TLocalSet(idx, value) =>
         match value_of_expr(value, env, counter, consts) {
           Some(v) => env[idx] = v
           None =>
@@ -521,10 +521,10 @@ fn build_cfg(instrs : Array[TInstr]) -> Array[Block] {
   let mut current = new_block()
   blocks.push(current)
   for instr in instrs {
-    match instr {
+    match instr.kind {
 
       // if creates two successors + merge
-      TInstr::TIf(_, _, then_expr, else_expr) => {
+      TInstrKind::TIf(_, _, then_expr, else_expr) => {
         current.instrs.push(instr)
         let then_block = new_block()
         let else_block = new_block()
@@ -552,7 +552,7 @@ fn build_cfg(instrs : Array[TInstr]) -> Array[Block] {
       }
 
       // loop introduces backedge
-      TInstr::TLoop(_, body) => {
+      TInstrKind::TLoop(_, body) => {
         current.instrs.push(instr)
         let loop_body = new_block()
         let after_loop = new_block()
@@ -863,12 +863,12 @@ fn coalesce_locals_pass(mod : Module) -> ModuleTransformer[IRContext] {
 ///|
 fn rewrite_instr_locals(instr : TInstr, mapping : LocalMap) -> TInstr {
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(_, _, i) {
-    match i {
-      TInstr::TLocalGet(idx) =>
+    match i.kind {
+      TInstrKind::TLocalGet(idx) =>
         change((), TInstr::local_get(mapping.get(idx).unwrap_or(idx)))
-      TInstr::TLocalSet(idx, value) =>
+      TInstrKind::TLocalSet(idx, value) =>
         change((), TInstr::local_set(mapping.get(idx).unwrap_or(idx), value))
-      TInstr::TLocalTee(idx, value) =>
+      TInstrKind::TLocalTee(idx, value) =>
         change((), TInstr::local_tee(mapping.get(idx).unwrap_or(idx), value))
       _ => unchanged()
     }

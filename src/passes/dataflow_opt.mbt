@@ -120,8 +120,11 @@ test "dataflow optimization pass folds simple constants via SSA" {
         TFunc(_, { instrs, .. }) => {
           let mut found = false
           for instr in instrs {
-            match instr {
-              TLocalSet(_, TI32Const(I32(42))) => found = true
+            match instr.kind {
+              TInstrKind::TLocalSet(
+                _,
+                { kind: TInstrKind::TI32Const(I32(42)), .. }
+              ) => found = true
               _ => ()
             }
           }
@@ -159,9 +162,9 @@ test "dataflow optimization pass simplifies const multi-block if" {
           let mut has_if = false
           let mut has_unreachable = false
           for instr in instrs {
-            match instr {
-              TIf(_, _, _, _) => has_if = true
-              TUnreachable => has_unreachable = true
+            match instr.kind {
+              TInstrKind::TIf(_, _, _, _) => has_if = true
+              TInstrKind::TUnreachable => has_unreachable = true
               _ => ()
             }
           }

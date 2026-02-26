@@ -20,8 +20,8 @@ test "walk_module applies on_tinstruction rewrite" {
     _,
     instr,
   ) {
-    match instr {
-      TLocalGet(LocalIdx(i)) if i == 0U =>
+    match instr.kind {
+      TInstrKind::TLocalGet(LocalIdx(i)) if i == 0U =>
         change((), TInstr::local_get(LocalIdx::new(1)))
       _ => self.walk_tinstruction_default((), instr)
     }
@@ -37,8 +37,16 @@ test "walk_module applies on_tinstruction rewrite" {
     Err(e) => fail("unexpected walk_module error: \{e}")
   }
   match rewritten.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TLocalGet(LocalIdx(i))], .. })])) =>
-      assert_eq(i, 1U)
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            { instrs: [{ kind: TInstrKind::TLocalGet(LocalIdx(i)), .. }], .. }
+          ),
+        ]
+      )
+    ) => assert_eq(i, 1U)
     _ => fail("expected local.get index rewrite")
   }
 }
@@ -50,8 +58,8 @@ test "walk_module forwards event errors" {
     _,
     instr,
   ) {
-    match instr {
-      TNop => error("boom")
+    match instr.kind {
+      TInstrKind::TNop => error("boom")
       _ => unchanged()
     }
   })
@@ -92,8 +100,8 @@ test "walk_module falls through on_module Ok(None) to default traversal" {
       unchanged()
     })
     .on_tinstruction_evt(fn(self, _, instr) {
-      match instr {
-        TLocalGet(LocalIdx(i)) if i == 0U =>
+      match instr.kind {
+        TInstrKind::TLocalGet(LocalIdx(i)) if i == 0U =>
           change((), TInstr::local_get(LocalIdx::new(2)))
         _ => self.walk_tinstruction_default((), instr)
       }
@@ -110,8 +118,16 @@ test "walk_module falls through on_module Ok(None) to default traversal" {
   }
   assert_true(module_hook_called)
   match rewritten.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TLocalGet(LocalIdx(i))], .. })])) =>
-      assert_eq(i, 2U)
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            { instrs: [{ kind: TInstrKind::TLocalGet(LocalIdx(i)), .. }], .. }
+          ),
+        ]
+      )
+    ) => assert_eq(i, 2U)
     _ => fail("expected local.get index rewrite from fallback traversal")
   }
 }
@@ -133,7 +149,8 @@ test "walk_module invokes on_module event hook" {
     Err(e) => fail("unexpected walk_module error: \{e}")
   }
   match rewritten.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TNop], .. })])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [{ kind: TInstrKind::TNop, .. }], .. })])) =>
+      ()
     _ => fail("expected on_module to inject rewritten code section")
   }
 }
@@ -863,8 +880,8 @@ test "walk_tinstruction preserves array_copy final operand when unchanged" {
     Ok(None) => fail("expected walk_tinstruction to rebuild array_copy")
     Err(e) => fail("unexpected walk_tinstruction error: \{e}")
   }
-  match rewritten {
-    TArrayCopy(_, _, _, _, _, _, got_i4) =>
+  match rewritten.kind {
+    TInstrKind::TArrayCopy(_, _, _, _, _, _, got_i4) =>
       assert_eq(got_i4, TInstr::i32_const(I32(14)))
     _ => fail("expected rewritten array_copy")
   }
@@ -945,14 +962,14 @@ test "walk_tinstruction callback matrix Ok(None) uses default traversal for less
   let mut top_level_hits = 0
   let transformer = ModuleTransformer::new()
     .on_tinstruction_evt(fn(_, _, instr) {
-      match instr {
-        TMemoryAtomicWait32(_, _, _, _) => top_level_hits += 1
-        TI31GetS(_) => top_level_hits += 1
-        TAnyConvertExtern(_) => top_level_hits += 1
-        TExternConvertAny(_) => top_level_hits += 1
-        TThrowRef(_) => top_level_hits += 1
-        TBrOnCast(_, _, _, _, _, _) => top_level_hits += 1
-        TBrOnCastFail(_, _, _, _, _, _) => top_level_hits += 1
+      match instr.kind {
+        TInstrKind::TMemoryAtomicWait32(_, _, _, _) => top_level_hits += 1
+        TInstrKind::TI31GetS(_) => top_level_hits += 1
+        TInstrKind::TAnyConvertExtern(_) => top_level_hits += 1
+        TInstrKind::TExternConvertAny(_) => top_level_hits += 1
+        TInstrKind::TThrowRef(_) => top_level_hits += 1
+        TInstrKind::TBrOnCast(_, _, _, _, _, _) => top_level_hits += 1
+        TInstrKind::TBrOnCastFail(_, _, _, _, _, _) => top_level_hits += 1
         _ => ()
       }
       unchanged()
@@ -1114,32 +1131,32 @@ test "walk_tinstruction callback matrix Ok(Some) short-circuits less-used varian
   let mut top_level_hits = 0
   let transformer = ModuleTransformer::new()
     .on_tinstruction_evt(fn(_, _, instr) {
-      match instr {
-        TMemoryAtomicNotify(_, _, _) => {
+      match instr.kind {
+        TInstrKind::TMemoryAtomicNotify(_, _, _) => {
           top_level_hits += 1
           change((), TInstr::nop())
         }
-        TI31GetU(_) => {
+        TInstrKind::TI31GetU(_) => {
           top_level_hits += 1
           change((), TInstr::nop())
         }
-        TAnyConvertExtern(_) => {
+        TInstrKind::TAnyConvertExtern(_) => {
           top_level_hits += 1
           change((), TInstr::nop())
         }
-        TExternConvertAny(_) => {
+        TInstrKind::TExternConvertAny(_) => {
           top_level_hits += 1
           change((), TInstr::nop())
         }
-        TThrowRef(_) => {
+        TInstrKind::TThrowRef(_) => {
           top_level_hits += 1
           change((), TInstr::nop())
         }
-        TBrOnCast(_, _, _, _, _, _) => {
+        TInstrKind::TBrOnCast(_, _, _, _, _, _) => {
           top_level_hits += 1
           change((), TInstr::nop())
         }
-        TBrOnCastFail(_, _, _, _, _, _) => {
+        TInstrKind::TBrOnCastFail(_, _, _, _, _, _) => {
           top_level_hits += 1
           change((), TInstr::nop())
         }
@@ -1226,14 +1243,15 @@ test "walk_tinstruction callback matrix Err propagates on less-used variants" {
     _,
     instr,
   ) {
-    match instr {
-      TMemoryAtomicNotify(_, _, _) => error("matrix atomic err")
-      TI31GetU(_) => error("matrix i31 err")
-      TAnyConvertExtern(_) => error("matrix any err")
-      TExternConvertAny(_) => error("matrix extern err")
-      TThrowRef(_) => error("matrix throw_ref err")
-      TBrOnCast(_, _, _, _, _, _) => error("matrix br_on_cast err")
-      TBrOnCastFail(_, _, _, _, _, _) => error("matrix br_on_cast_fail err")
+    match instr.kind {
+      TInstrKind::TMemoryAtomicNotify(_, _, _) => error("matrix atomic err")
+      TInstrKind::TI31GetU(_) => error("matrix i31 err")
+      TInstrKind::TAnyConvertExtern(_) => error("matrix any err")
+      TInstrKind::TExternConvertAny(_) => error("matrix extern err")
+      TInstrKind::TThrowRef(_) => error("matrix throw_ref err")
+      TInstrKind::TBrOnCast(_, _, _, _, _, _) => error("matrix br_on_cast err")
+      TInstrKind::TBrOnCastFail(_, _, _, _, _, _) =>
+        error("matrix br_on_cast_fail err")
       _ => unchanged()
     }
   })

@@ -11,8 +11,8 @@ fn build_blocks(instrs : Array[TInstr]) -> Array[Block] {
 
   let mut current = new_block()
   for i in 0..<instrs.length() {
-    match instrs[i] {
-      TInstr::TIf(_, _, _, _) => {
+    match instrs[i].kind {
+      TInstrKind::TIf(_, _, _, _) => {
         current.instr_ids.push(i)
         blocks.push(Block::{
           id: current.id,
@@ -48,12 +48,12 @@ fn extract_actions_from_instr(
   action_index_ref : Ref[Int],
 ) -> Unit {
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, i) {
-    match i {
-      TInstr::TLocalGet(idx) => {
+    match i.kind {
+      TInstrKind::TLocalGet(idx) => {
         actions.push(Action::Get(idx, action_index_ref.val))
         action_index_ref.update(fn(n) { n + 1 })
       }
-      TInstr::TLocalSet(idx, _) => {
+      TInstrKind::TLocalSet(idx, _) => {
         actions.push(Action::Set(idx, instr_id))
         last_sets[idx] = instr_id
         action_index_ref.update(fn(n) { n + 1 })
@@ -87,8 +87,8 @@ fn extract_block_info(block : Block, instrs : Array[TInstr]) -> BlockInfo {
 fn flatten_instrs(instrs : Array[TInstr]) -> Array[TInstr] {
   let out = Array::new()
   for instr in instrs {
-    match instr {
-      TInstr::TIf(bt, cond, then_expr, else_expr) => {
+    match instr.kind {
+      TInstrKind::TIf(bt, cond, then_expr, else_expr) => {
         // Keep the if itself, but strip its bodies
         out.push(TInstr::if_(bt, cond, TExpr::new([]), None))
 
@@ -310,7 +310,16 @@ test "LocalGraph: local.get reads most recent local.set" {
   let sets = graph.get_sets(0)
   assert_eq(sets.length(), 1)
   match sets.to_array()[0] {
-    LocalSet::Set(_, TLocalSet(_, TI32Const(I32(2)))) => ()
+    LocalSet::Set(
+      _,
+      {
+        kind: TInstrKind::TLocalSet(
+          _,
+          { kind: TInstrKind::TI32Const(I32(2)), .. }
+        ),
+        ..,
+      }
+    ) => ()
     _ => fail("expected second local.set")
   }
 }

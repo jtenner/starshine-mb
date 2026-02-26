@@ -392,8 +392,8 @@ fn alignment_lowering_pass(mod : Module) -> ModuleTransformer[IRContext] {
     }
   })
   .on_tinstruction_evt(fn(self, t, i) {
-    match i {
-      TLoad(op, MemArg(U32(align), mem_option, U64(offset)), a) => {
+    match i.kind {
+      TInstrKind::TLoad(op, MemArg(U32(align), mem_option, U64(offset)), a) => {
         let a = match self.walk_tinstruction_default(t, a) {
           Ok(Some((_, a))) => a
           Ok(None) => a
@@ -473,7 +473,7 @@ fn alignment_lowering_pass(mod : Module) -> ModuleTransformer[IRContext] {
           _ => break change(t, finalize_load_op(op, acc))
         }
       }
-      TStore(op, MemArg(U32(align), mem_option, U64(offset)), a, b) => {
+      TInstrKind::TStore(op, MemArg(U32(align), mem_option, U64(offset)), a, b) => {
         let a = match self.walk_tinstruction(t, a) {
           Ok(Some((_, a))) => a
           Ok(None) => a
@@ -538,7 +538,7 @@ fn alignment_lowering_pass(mod : Module) -> ModuleTransformer[IRContext] {
         let stores : Array[TInstr] = []
 
         // First instruction: set both locals
-        // We'll use TLocalSet for ptr and TLocalTee for value, then drop
+        // We'll use TInstrKind::TLocalSet for ptr and TInstrKind::TLocalTee for value, then drop
         stores.push(TInstr::local_set(ptr_local, a))
         stores.push(TInstr::local_set(value_local, prepared_value))
         for i = 0; i < c.length(); i = i + 1 {
@@ -570,7 +570,13 @@ fn alignment_lowering_pass(mod : Module) -> ModuleTransformer[IRContext] {
         // Wrap in a block with empty result type
         change(t, TInstr::block(BlockType::void_(), TExpr::new(stores)))
       }
-      TV128LoadLane(op, MemArg(U32(align), mem_option, U64(offset)), lane, a, b) => {
+      TInstrKind::TV128LoadLane(
+        op,
+        MemArg(U32(align), mem_option, U64(offset)),
+        lane,
+        a,
+        b
+      ) => {
         let op_size = size_of_v128_load_lane_op(op)
         let effective_align = @cmp.minimum(align, op_size)
         let a = match self.walk_tinstruction_default(t, a) {
@@ -718,7 +724,8 @@ fn assert_v128_extending_load_passes_through(
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TLoad(load_op, _, _)) if load_op == op => Ok(())
+    Ok({ kind: TInstrKind::TLoad(load_op, _, _), .. }) if load_op == op =>
+      Ok(())
     Ok(other) =>
       Err("Expected aligned extending load to pass through: \{other}")
     Err(e) => Err("Error: \{e}")
@@ -734,9 +741,19 @@ fn assert_v128_extending_load_is_lowered(
   let instr = TInstr::load(op, memarg, TInstr::local_get(LocalIdx::new(0)))
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TUnary(unary_op, TReplaceLane(I64x2ReplaceLaneOp, LaneIdx(0), _, _))) if unary_op ==
-      expected_unary => Ok(())
-    Ok(TLoad(load_op, _, _)) if load_op == op =>
+    Ok(
+      {
+        kind: TInstrKind::TUnary(
+          unary_op,
+          {
+            kind: TInstrKind::TReplaceLane(I64x2ReplaceLaneOp, LaneIdx(0), _, _),
+            ..,
+          }
+        ),
+        ..,
+      }
+    ) if unary_op == expected_unary => Ok(())
+    Ok({ kind: TInstrKind::TLoad(load_op, _, _), .. }) if load_op == op =>
       Err("Expected extending load to be lowered")
     Ok(other) => Err("Unexpected result: \{other}")
     Err(e) => Err("Error: \{e}")
@@ -825,7 +842,12 @@ test "aligned i32 load passes through" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TLoad(I32LoadOp, MemArg(U32(4), None, U64(0)), _)) => ()
+    Ok(
+      {
+        kind: TInstrKind::TLoad(I32LoadOp, MemArg(U32(4), None, U64(0)), _),
+        ..,
+      }
+    ) => ()
     _ => fail("Expected unchanged aligned load")
   }
 }
@@ -839,7 +861,12 @@ test "aligned i64 load passes through" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TLoad(I64LoadOp, MemArg(U32(8), None, U64(0)), _)) => ()
+    Ok(
+      {
+        kind: TInstrKind::TLoad(I64LoadOp, MemArg(U32(8), None, U64(0)), _),
+        ..,
+      }
+    ) => ()
     _ => fail("Expected unchanged aligned load")
   }
 }
@@ -853,7 +880,12 @@ test "aligned f32 load passes through" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TLoad(F32LoadOp, MemArg(U32(4), None, U64(0)), _)) => ()
+    Ok(
+      {
+        kind: TInstrKind::TLoad(F32LoadOp, MemArg(U32(4), None, U64(0)), _),
+        ..,
+      }
+    ) => ()
     _ => fail("Expected unchanged aligned load")
   }
 }
@@ -867,7 +899,12 @@ test "aligned f64 load passes through" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TLoad(F64LoadOp, MemArg(U32(8), None, U64(0)), _)) => ()
+    Ok(
+      {
+        kind: TInstrKind::TLoad(F64LoadOp, MemArg(U32(8), None, U64(0)), _),
+        ..,
+      }
+    ) => ()
     _ => fail("Expected unchanged aligned load")
   }
 }
@@ -885,8 +922,9 @@ test "unaligned i32 load with align=1 is split" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TLoad(_, _, _)) => fail("Expected split load, got single load")
-    Ok(TBinary(I32OrOp, _, _)) => ()
+    Ok({ kind: TInstrKind::TLoad(_, _, _), .. }) =>
+      fail("Expected split load, got single load")
+    Ok({ kind: TInstrKind::TBinary(I32OrOp, _, _), .. }) => ()
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
   }
@@ -901,8 +939,8 @@ test "unaligned i32 load with align=2 is split into 2 loads" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TBinary(I32OrOp, _, _)) => ()
-    Ok(TLoad(_, _, _)) => fail("Expected split load")
+    Ok({ kind: TInstrKind::TBinary(I32OrOp, _, _), .. }) => ()
+    Ok({ kind: TInstrKind::TLoad(_, _, _), .. }) => fail("Expected split load")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
   }
@@ -917,8 +955,8 @@ test "unaligned i64 load with align=1 is split" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TBinary(I64OrOp, _, _)) => ()
-    Ok(TLoad(_, _, _)) => fail("Expected split load")
+    Ok({ kind: TInstrKind::TBinary(I64OrOp, _, _), .. }) => ()
+    Ok({ kind: TInstrKind::TLoad(_, _, _), .. }) => fail("Expected split load")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
   }
@@ -933,8 +971,8 @@ test "unaligned i64 load with align=4 is split into 2 loads" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TBinary(I64OrOp, _, _)) => ()
-    Ok(TLoad(_, _, _)) => fail("Expected split load")
+    Ok({ kind: TInstrKind::TBinary(I64OrOp, _, _), .. }) => ()
+    Ok({ kind: TInstrKind::TLoad(_, _, _), .. }) => fail("Expected split load")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
   }
@@ -949,8 +987,9 @@ test "unaligned f32 load produces reinterpret wrapper" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TUnary(F32ReinterpretI32Op, _)) => ()
-    Ok(TLoad(_, _, _)) => fail("Expected split load with reinterpret")
+    Ok({ kind: TInstrKind::TUnary(F32ReinterpretI32Op, _), .. }) => ()
+    Ok({ kind: TInstrKind::TLoad(_, _, _), .. }) =>
+      fail("Expected split load with reinterpret")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
   }
@@ -965,8 +1004,9 @@ test "unaligned f64 load produces reinterpret wrapper" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TUnary(F64ReinterpretI64Op, _)) => ()
-    Ok(TLoad(_, _, _)) => fail("Expected split load with reinterpret")
+    Ok({ kind: TInstrKind::TUnary(F64ReinterpretI64Op, _), .. }) => ()
+    Ok({ kind: TInstrKind::TLoad(_, _, _), .. }) =>
+      fail("Expected split load with reinterpret")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
   }
@@ -985,7 +1025,7 @@ test "i32.load8 always passes through (naturally aligned)" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TLoad(I32Load8UOp, _, _)) => ()
+    Ok({ kind: TInstrKind::TLoad(I32Load8UOp, _, _), .. }) => ()
     _ => fail("Expected unchanged i32.load8")
   }
 }
@@ -999,8 +1039,8 @@ test "i32.load16 with align=1 is split" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TBinary(I32OrOp, _, _)) => ()
-    Ok(TLoad(I32Load16UOp, MemArg(U32(2), _, _), _)) =>
+    Ok({ kind: TInstrKind::TBinary(I32OrOp, _, _), .. }) => ()
+    Ok({ kind: TInstrKind::TLoad(I32Load16UOp, MemArg(U32(2), _, _), _), .. }) =>
       fail("Expected split load")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
@@ -1016,8 +1056,8 @@ test "i64.load32 with align=2 is split" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TBinary(I64OrOp, _, _)) => ()
-    Ok(TLoad(_, _, _)) => fail("Expected split load")
+    Ok({ kind: TInstrKind::TBinary(I64OrOp, _, _), .. }) => ()
+    Ok({ kind: TInstrKind::TLoad(_, _, _), .. }) => fail("Expected split load")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
   }
@@ -1037,7 +1077,12 @@ test "aligned i32 store passes through" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TStore(I32StoreOp, MemArg(U32(4), None, U64(0)), _, _)) => ()
+    Ok(
+      {
+        kind: TInstrKind::TStore(I32StoreOp, MemArg(U32(4), None, U64(0)), _, _),
+        ..,
+      }
+    ) => ()
     _ => fail("Expected unchanged aligned store")
   }
 }
@@ -1052,7 +1097,12 @@ test "aligned i64 store passes through" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TStore(I64StoreOp, MemArg(U32(8), None, U64(0)), _, _)) => ()
+    Ok(
+      {
+        kind: TInstrKind::TStore(I64StoreOp, MemArg(U32(8), None, U64(0)), _, _),
+        ..,
+      }
+    ) => ()
     _ => fail("Expected unchanged aligned store")
   }
 }
@@ -1067,7 +1117,12 @@ test "aligned f32 store passes through" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TStore(F32StoreOp, MemArg(U32(4), None, U64(0)), _, _)) => ()
+    Ok(
+      {
+        kind: TInstrKind::TStore(F32StoreOp, MemArg(U32(4), None, U64(0)), _, _),
+        ..,
+      }
+    ) => ()
     _ => fail("Expected unchanged aligned store")
   }
 }
@@ -1086,8 +1141,9 @@ test "unaligned i32 store with align=1 produces block" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TBlock(VoidBlockType, _)) => ()
-    Ok(TStore(_, _, _, _)) => fail("Expected block with split stores")
+    Ok({ kind: TInstrKind::TBlock(VoidBlockType, _), .. }) => ()
+    Ok({ kind: TInstrKind::TStore(_, _, _, _), .. }) =>
+      fail("Expected block with split stores")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
   }
@@ -1103,8 +1159,9 @@ test "unaligned i32 store with align=2 produces block" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TBlock(VoidBlockType, _)) => ()
-    Ok(TStore(_, _, _, _)) => fail("Expected block with split stores")
+    Ok({ kind: TInstrKind::TBlock(VoidBlockType, _), .. }) => ()
+    Ok({ kind: TInstrKind::TStore(_, _, _, _), .. }) =>
+      fail("Expected block with split stores")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
   }
@@ -1120,8 +1177,9 @@ test "unaligned i64 store with align=1 produces block" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TBlock(VoidBlockType, _)) => ()
-    Ok(TStore(_, _, _, _)) => fail("Expected block with split stores")
+    Ok({ kind: TInstrKind::TBlock(VoidBlockType, _), .. }) => ()
+    Ok({ kind: TInstrKind::TStore(_, _, _, _), .. }) =>
+      fail("Expected block with split stores")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
   }
@@ -1137,9 +1195,10 @@ test "unaligned f32 store produces block with reinterpret" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TBlock(VoidBlockType, { instrs, .. })) =>
+    Ok({ kind: TInstrKind::TBlock(VoidBlockType, { instrs, .. }), .. }) =>
       assert_true(instrs.length() > 2)
-    Ok(TStore(_, _, _, _)) => fail("Expected block with split stores")
+    Ok({ kind: TInstrKind::TStore(_, _, _, _), .. }) =>
+      fail("Expected block with split stores")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
   }
@@ -1155,9 +1214,10 @@ test "unaligned f64 store produces block with reinterpret" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TBlock(VoidBlockType, { instrs, .. })) =>
+    Ok({ kind: TInstrKind::TBlock(VoidBlockType, { instrs, .. }), .. }) =>
       assert_true(instrs.length() > 2)
-    Ok(TStore(_, _, _, _)) => fail("Expected block with split stores")
+    Ok({ kind: TInstrKind::TStore(_, _, _, _), .. }) =>
+      fail("Expected block with split stores")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
   }
@@ -1177,19 +1237,20 @@ test "unaligned i32 store block has correct structure" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TBlock(VoidBlockType, { instrs, .. })) => {
-      match instrs[0] {
-        TLocalSet(_, _) => ()
-        other => fail("Expected TLocalSet, got \{other}")
+    Ok({ kind: TInstrKind::TBlock(VoidBlockType, { instrs, .. }), .. }) => {
+      match instrs[0].kind {
+        TInstrKind::TLocalSet(_, _) => ()
+        other => fail("Expected TInstrKind::TLocalSet, got \{other}")
       }
-      match instrs[1] {
-        TLocalSet(_, _) => ()
-        other => fail("Expected TLocalSet, got \{other}")
+      match instrs[1].kind {
+        TInstrKind::TLocalSet(_, _) => ()
+        other => fail("Expected TInstrKind::TLocalSet, got \{other}")
       }
       for i = 2; i < instrs.length(); i = i + 1 {
-        match instrs[i] {
-          TStore(_, _, _, _) => ()
-          other => fail("Expected TStore at index \{i}, got \{other}")
+        match instrs[i].kind {
+          TInstrKind::TStore(_, _, _, _) => ()
+          other =>
+            fail("Expected TInstrKind::TStore at index \{i}, got \{other}")
         }
       }
       // 2 local.set + 4 byte stores for align=1
@@ -1213,7 +1274,7 @@ test "v128 load with size > 8 passes through" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TLoad(V128LoadOp, _, _)) => ()
+    Ok({ kind: TInstrKind::TLoad(V128LoadOp, _, _), .. }) => ()
     _ => fail("Expected v128 load to pass through (size > 8)")
   }
 }
@@ -1228,7 +1289,7 @@ test "v128 store with size > 8 passes through" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TStore(V128StoreOp, _, _, _)) => ()
+    Ok({ kind: TInstrKind::TStore(V128StoreOp, _, _, _), .. }) => ()
     _ => fail("Expected v128 store to pass through (size > 8)")
   }
 }
@@ -1246,7 +1307,7 @@ test "v128.load64_splat aligned passes through" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TLoad(V128Load64SplatOp, _, _)) => ()
+    Ok({ kind: TInstrKind::TLoad(V128Load64SplatOp, _, _), .. }) => ()
     _ => fail("Expected aligned v128.load64_splat to pass through")
   }
 }
@@ -1260,8 +1321,9 @@ test "v128.load64_splat unaligned produces splat wrapper" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TI64x2Splat(_)) => ()
-    Ok(TLoad(V128Load64SplatOp, _, _)) => fail("Expected unaligned to be split")
+    Ok({ kind: TInstrKind::TI64x2Splat(_), .. }) => ()
+    Ok({ kind: TInstrKind::TLoad(V128Load64SplatOp, _, _), .. }) =>
+      fail("Expected unaligned to be split")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
   }
@@ -1276,8 +1338,9 @@ test "v128.load32_splat unaligned produces splat wrapper" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TI32x4Splat(_)) => ()
-    Ok(TLoad(V128Load32SplatOp, _, _)) => fail("Expected unaligned to be split")
+    Ok({ kind: TInstrKind::TI32x4Splat(_), .. }) => ()
+    Ok({ kind: TInstrKind::TLoad(V128Load32SplatOp, _, _), .. }) =>
+      fail("Expected unaligned to be split")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
   }
@@ -1296,8 +1359,14 @@ test "v128.load64_zero unaligned produces replace_lane" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TReplaceLane(I64x2ReplaceLaneOp, LaneIdx(0), _, _)) => ()
-    Ok(TLoad(V128Load64ZeroOp, _, _)) => fail("Expected unaligned to be split")
+    Ok(
+      {
+        kind: TInstrKind::TReplaceLane(I64x2ReplaceLaneOp, LaneIdx(0), _, _),
+        ..,
+      }
+    ) => ()
+    Ok({ kind: TInstrKind::TLoad(V128Load64ZeroOp, _, _), .. }) =>
+      fail("Expected unaligned to be split")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
   }
@@ -1312,8 +1381,14 @@ test "v128.load32_zero unaligned produces replace_lane" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TReplaceLane(I32x4ReplaceLaneOp, LaneIdx(0), _, _)) => ()
-    Ok(TLoad(V128Load32ZeroOp, _, _)) => fail("Expected unaligned to be split")
+    Ok(
+      {
+        kind: TInstrKind::TReplaceLane(I32x4ReplaceLaneOp, LaneIdx(0), _, _),
+        ..,
+      }
+    ) => ()
+    Ok({ kind: TInstrKind::TLoad(V128Load32ZeroOp, _, _), .. }) =>
+      fail("Expected unaligned to be split")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
   }
@@ -1480,7 +1555,8 @@ test "v128.load8_lane aligned passes through" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TV128LoadLane(V128Load8LaneOp, _, _, _, _)) => ()
+    Ok({ kind: TInstrKind::TV128LoadLane(V128Load8LaneOp, _, _, _, _), .. }) =>
+      ()
     _ => fail("Expected aligned v128.load8_lane to pass through")
   }
 }
@@ -1496,8 +1572,14 @@ test "v128.load16_lane unaligned produces replace_lane" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TReplaceLane(I16x8ReplaceLaneOp, LaneIdx(0), _, _)) => ()
-    Ok(TV128LoadLane(_, _, _, _, _)) => fail("Expected unaligned to be split")
+    Ok(
+      {
+        kind: TInstrKind::TReplaceLane(I16x8ReplaceLaneOp, LaneIdx(0), _, _),
+        ..,
+      }
+    ) => ()
+    Ok({ kind: TInstrKind::TV128LoadLane(_, _, _, _, _), .. }) =>
+      fail("Expected unaligned to be split")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
   }
@@ -1514,8 +1596,14 @@ test "v128.load32_lane unaligned produces replace_lane" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TReplaceLane(I32x4ReplaceLaneOp, LaneIdx(0), _, _)) => ()
-    Ok(TV128LoadLane(_, _, _, _, _)) => fail("Expected unaligned to be split")
+    Ok(
+      {
+        kind: TInstrKind::TReplaceLane(I32x4ReplaceLaneOp, LaneIdx(0), _, _),
+        ..,
+      }
+    ) => ()
+    Ok({ kind: TInstrKind::TV128LoadLane(_, _, _, _, _), .. }) =>
+      fail("Expected unaligned to be split")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
   }
@@ -1532,8 +1620,14 @@ test "v128.load64_lane unaligned produces replace_lane" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TReplaceLane(I64x2ReplaceLaneOp, LaneIdx(0), _, _)) => ()
-    Ok(TV128LoadLane(_, _, _, _, _)) => fail("Expected unaligned to be split")
+    Ok(
+      {
+        kind: TInstrKind::TReplaceLane(I64x2ReplaceLaneOp, LaneIdx(0), _, _),
+        ..,
+      }
+    ) => ()
+    Ok({ kind: TInstrKind::TV128LoadLane(_, _, _, _, _), .. }) =>
+      fail("Expected unaligned to be split")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
   }
@@ -1674,8 +1768,8 @@ test "i32.load8_s unaligned produces sign extension" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TUnary(I32Extend8SOp, _)) => ()
-    Ok(TLoad(I32Load8SOp, _, _)) => () // Also valid - single byte is already aligned
+    Ok({ kind: TInstrKind::TUnary(I32Extend8SOp, _), .. }) => ()
+    Ok({ kind: TInstrKind::TLoad(I32Load8SOp, _, _), .. }) => () // Also valid - single byte is already aligned
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
   }
@@ -1690,8 +1784,9 @@ test "i32.load16_s unaligned produces sign extension" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TUnary(I32Extend16SOp, _)) => ()
-    Ok(TLoad(I32Load16SOp, _, _)) => fail("Expected sign extension wrapper")
+    Ok({ kind: TInstrKind::TUnary(I32Extend16SOp, _), .. }) => ()
+    Ok({ kind: TInstrKind::TLoad(I32Load16SOp, _, _), .. }) =>
+      fail("Expected sign extension wrapper")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
   }
@@ -1706,8 +1801,9 @@ test "i64.load32_s unaligned produces sign extension" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TUnary(I64Extend32SOp, _)) => ()
-    Ok(TLoad(I64Load32SOp, _, _)) => fail("Expected sign extension wrapper")
+    Ok({ kind: TInstrKind::TUnary(I64Extend32SOp, _), .. }) => ()
+    Ok({ kind: TInstrKind::TLoad(I64Load32SOp, _, _), .. }) =>
+      fail("Expected sign extension wrapper")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
   }
@@ -1726,7 +1822,7 @@ test "load with non-zero offset" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TBinary(I32OrOp, _, _)) => ()
+    Ok({ kind: TInstrKind::TBinary(I32OrOp, _, _), .. }) => ()
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
   }
@@ -1742,7 +1838,7 @@ test "store with non-zero offset" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TBlock(VoidBlockType, _)) => ()
+    Ok({ kind: TInstrKind::TBlock(VoidBlockType, _), .. }) => ()
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
   }
@@ -1768,9 +1864,28 @@ test "nested instructions are transformed" {
   let result = run_pass(make_i32_mem(), instr)
   // The inner load should be transformed even if outer store is aligned
   match result {
-    Ok(TStore(I32StoreOp, _, _, TBinary(I32OrOp, _, _))) => ()
-    Ok(TStore(I32StoreOp, _, _, TLoad(I32LoadOp, _, _))) =>
-      fail("Inner load should have been transformed")
+    Ok(
+      {
+        kind: TInstrKind::TStore(
+          I32StoreOp,
+          _,
+          _,
+          { kind: TInstrKind::TBinary(I32OrOp, _, _), .. }
+        ),
+        ..,
+      }
+    ) => ()
+    Ok(
+      {
+        kind: TInstrKind::TStore(
+          I32StoreOp,
+          _,
+          _,
+          { kind: TInstrKind::TLoad(I32LoadOp, _, _), .. }
+        ),
+        ..,
+      }
+    ) => fail("Inner load should have been transformed")
     Ok(other) => fail("Unexpected result: \{other}")
     Err(e) => fail("Error: \{e}")
   }
@@ -1853,7 +1968,8 @@ test "align clamped to op_size" {
   let result = run_pass(make_i32_mem(), instr)
   // Should be treated as aligned (4 >= 4)
   match result {
-    Ok(TLoad(I32LoadOp, MemArg(U32(8), _, _), _)) => ()
+    Ok({ kind: TInstrKind::TLoad(I32LoadOp, MemArg(U32(8), _, _), _), .. }) =>
+      ()
     _ => fail("Expected load to pass through")
   }
 }
@@ -1867,7 +1983,16 @@ test "other instructions pass through unchanged" {
   )
   let result = run_pass(make_i32_mem(), instr)
   match result {
-    Ok(TBinary(I32AddOp, TI32Const(I32(1)), TI32Const(I32(2)))) => ()
+    Ok(
+      {
+        kind: TInstrKind::TBinary(
+          I32AddOp,
+          { kind: TInstrKind::TI32Const(I32(1)), .. },
+          { kind: TInstrKind::TI32Const(I32(2)), .. }
+        ),
+        ..,
+      }
+    ) => ()
     _ => fail("Expected binary op to pass through unchanged")
   }
 }
@@ -1876,7 +2001,7 @@ test "other instructions pass through unchanged" {
 test "nop passes through unchanged" {
   let result = run_pass(make_i32_mem(), TInstr::nop())
   match result {
-    Ok(TNop) => ()
+    Ok({ kind: TInstrKind::TNop, .. }) => ()
     _ => fail("Expected nop to pass through")
   }
 }
@@ -1885,7 +2010,7 @@ test "nop passes through unchanged" {
 test "unreachable passes through unchanged" {
   let result = run_pass(make_i32_mem(), TInstr::unreachable_())
   match result {
-    Ok(TUnreachable) => ()
+    Ok({ kind: TInstrKind::TUnreachable, .. }) => ()
     _ => fail("Expected unreachable to pass through")
   }
 }

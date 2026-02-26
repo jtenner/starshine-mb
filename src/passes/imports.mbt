@@ -27,6 +27,7 @@ using @lib {
   tlocals_to_locals,
   type AbsHeapType,
   type TInstr,
+  type TInstrKind,
   type LocalIdx,
   type ValType,
   type Func,

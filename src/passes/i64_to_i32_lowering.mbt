@@ -453,24 +453,24 @@ fn i64l_mem_zero_ptr(ctx : I64LFuncCtx) -> TInstr {
 
 ///|
 fn i64l_old_instr_is_i64(ctx : I64LFuncCtx, instr : TInstr) -> Bool {
-  match instr {
-    TI64Const(_) => true
-    TLocalGet(idx) =>
+  match instr.kind {
+    TInstrKind::TI64Const(_) => true
+    TInstrKind::TLocalGet(idx) =>
       match ctx.high_map[i64l_local_to_int(idx)] {
         Some(_) => true
         None => false
       }
-    TLocalTee(idx, _) =>
+    TInstrKind::TLocalTee(idx, _) =>
       match ctx.high_map[i64l_local_to_int(idx)] {
         Some(_) => true
         None => false
       }
-    TGlobalGet(idx) =>
+    TInstrKind::TGlobalGet(idx) =>
       match ctx.info.i64_global_hi.get(idx) {
         Some(_) => true
         None => false
       }
-    TLoad(op, _, _) =>
+    TInstrKind::TLoad(op, _, _) =>
       match op {
         I64LoadOp
         | I64Load8SOp
@@ -481,17 +481,18 @@ fn i64l_old_instr_is_i64(ctx : I64LFuncCtx, instr : TInstr) -> Bool {
         | I64Load32UOp => true
         _ => false
       }
-    TCall(target, _) =>
+    TInstrKind::TCall(target, _) =>
       match ctx.info.old_func_types.get(target) {
         Some(ft) => i64l_is_i64_result(ft)
         None => false
       }
-    TCallIndirect(type_idx, _, _, _) | TCallRef(type_idx, _, _) =>
+    TInstrKind::TCallIndirect(type_idx, _, _, _)
+    | TInstrKind::TCallRef(type_idx, _, _) =>
       match ctx.info.old_type_func_types.get(type_idx) {
         Some(ft) => i64l_is_i64_result(ft)
         None => false
       }
-    TUnary(op, _) =>
+    TInstrKind::TUnary(op, _) =>
       match op {
         I64ClzOp
         | I64CtzOp
@@ -512,7 +513,7 @@ fn i64l_old_instr_is_i64(ctx : I64LFuncCtx, instr : TInstr) -> Bool {
         | I64TruncSatF64UOp => true
         _ => false
       }
-    TBinary(op, _, _) =>
+    TInstrKind::TBinary(op, _, _) =>
       match op {
         I64AddOp
         | I64SubOp
@@ -531,9 +532,13 @@ fn i64l_old_instr_is_i64(ctx : I64LFuncCtx, instr : TInstr) -> Bool {
         | I64RotrOp => true
         _ => false
       }
-    TSelect(Some([vt]), _, _, _) => i64l_is_i64(vt)
-    TSelect(None, _, if_true, _) => i64l_old_instr_is_i64(ctx, if_true)
-    TBlock(bt, _) | TLoop(bt, _) | TIf(bt, _, _, _) | TTryTable(bt, _, _) =>
+    TInstrKind::TSelect(Some([vt]), _, _, _) => i64l_is_i64(vt)
+    TInstrKind::TSelect(None, _, if_true, _) =>
+      i64l_old_instr_is_i64(ctx, if_true)
+    TInstrKind::TBlock(bt, _)
+    | TInstrKind::TLoop(bt, _)
+    | TInstrKind::TIf(bt, _, _, _)
+    | TInstrKind::TTryTable(bt, _, _) =>
       match bt {
         TypeIdxBlockType(tidx) => i64l_old_typeidx_result_is_i64(ctx, tidx)
         _ => i64l_type_is_i64_block(bt)
@@ -1147,8 +1152,8 @@ fn i64l_rewrite_tinstruction(
     Err(e) => return Err(e)
   }
   let (ctx, curr) = walked
-  let rewritten = match curr {
-    TI64Const(value) => {
+  let rewritten = match curr.kind {
+    TInstrKind::TI64Const(value) => {
       let (low, high) = i64l_split_i64_literal(value)
       i64l_pack_i64(
         ctx,
@@ -1156,7 +1161,7 @@ fn i64l_rewrite_tinstruction(
         TInstr::i32_const(I32(high)),
       )
     }
-    TLocalGet(old_idx) => {
+    TInstrKind::TLocalGet(old_idx) => {
       let i = i64l_local_to_int(old_idx)
       let low_idx = ctx.low_map[i]
       match ctx.high_map[i] {
@@ -1173,7 +1178,7 @@ fn i64l_rewrite_tinstruction(
           }
       }
     }
-    TLocalSet(old_idx, value) => {
+    TInstrKind::TLocalSet(old_idx, value) => {
       let i = i64l_local_to_int(old_idx)
       let low_idx = ctx.low_map[i]
       match ctx.high_map[i] {
@@ -1190,7 +1195,7 @@ fn i64l_rewrite_tinstruction(
           }
       }
     }
-    TLocalTee(old_idx, value) => {
+    TInstrKind::TLocalTee(old_idx, value) => {
       let i = i64l_local_to_int(old_idx)
       let low_idx = ctx.low_map[i]
       match ctx.high_map[i] {
@@ -1210,7 +1215,7 @@ fn i64l_rewrite_tinstruction(
           }
       }
     }
-    TGlobalGet(idx) =>
+    TInstrKind::TGlobalGet(idx) =>
       match ctx.info.i64_global_hi.get(idx) {
         Some(hi_idx) =>
           i64l_make_block_i32([
@@ -1219,7 +1224,7 @@ fn i64l_rewrite_tinstruction(
           ])
         None => curr
       }
-    TGlobalSet(idx, value) =>
+    TInstrKind::TGlobalSet(idx, value) =>
       match ctx.info.i64_global_hi.get(idx) {
         Some(hi_idx) =>
           i64l_make_block_void([
@@ -1228,7 +1233,7 @@ fn i64l_rewrite_tinstruction(
           ])
         None => curr
       }
-    TCall(target, args) =>
+    TInstrKind::TCall(target, args) =>
       match ctx.info.old_func_types.get(target) {
         Some(ft) => {
           let FuncType(params, _) = ft
@@ -1254,7 +1259,7 @@ fn i64l_rewrite_tinstruction(
         None =>
           return Err("i64_to_i32_lowering: missing function signature for call")
       }
-    TCallIndirect(type_idx, table_idx, args, target) =>
+    TInstrKind::TCallIndirect(type_idx, table_idx, args, target) =>
       match ctx.info.old_type_func_types.get(type_idx) {
         Some(ft) => {
           let FuncType(params, _) = ft
@@ -1282,7 +1287,7 @@ fn i64l_rewrite_tinstruction(
         None =>
           return Err("i64_to_i32_lowering: missing indirect call signature")
       }
-    TCallRef(type_idx, args, ref_) =>
+    TInstrKind::TCallRef(type_idx, args, ref_) =>
       match ctx.info.old_type_func_types.get(type_idx) {
         Some(ft) => {
           let FuncType(params, _) = ft
@@ -1307,7 +1312,7 @@ fn i64l_rewrite_tinstruction(
         }
         None => return Err("i64_to_i32_lowering: missing call_ref signature")
       }
-    TReturnCall(target, args) =>
+    TInstrKind::TReturnCall(target, args) =>
       match ctx.info.old_func_types.get(target) {
         Some(ft) =>
           if i64l_is_i64_result(ft) {
@@ -1331,7 +1336,7 @@ fn i64l_rewrite_tinstruction(
           }
         None => return Err("i64_to_i32_lowering: missing return_call signature")
       }
-    TReturnCallIndirect(type_idx, table_idx, args, target) =>
+    TInstrKind::TReturnCallIndirect(type_idx, table_idx, args, target) =>
       match ctx.info.old_type_func_types.get(type_idx) {
         Some(ft) =>
           if i64l_is_i64_result(ft) {
@@ -1363,7 +1368,7 @@ fn i64l_rewrite_tinstruction(
             "i64_to_i32_lowering: missing return_call_indirect signature",
           )
       }
-    TReturnCallRef(type_idx, args, ref_) =>
+    TInstrKind::TReturnCallRef(type_idx, args, ref_) =>
       match ctx.info.old_type_func_types.get(type_idx) {
         Some(ft) =>
           if i64l_is_i64_result(ft) {
@@ -1391,7 +1396,7 @@ fn i64l_rewrite_tinstruction(
         None =>
           return Err("i64_to_i32_lowering: missing return_call_ref signature")
       }
-    TLoad(op, memarg, ptr) =>
+    TInstrKind::TLoad(op, memarg, ptr) =>
       match i64l_lower_i64_load_op(op) {
         Some((low_op, sign_high)) => {
           let MemArg(align, memidx, offset_raw) = memarg
@@ -1436,7 +1441,7 @@ fn i64l_rewrite_tinstruction(
         }
         None => curr
       }
-    TStore(store_op, memarg, ptr, value) =>
+    TInstrKind::TStore(store_op, memarg, ptr, value) =>
       match store_op {
         I64StoreOp => {
           let MemArg(align, memidx, offset_raw) = memarg
@@ -1464,7 +1469,7 @@ fn i64l_rewrite_tinstruction(
         I64Store8Op => TInstr::store(StoreOp::i32_store8(), memarg, ptr, value)
         _ => curr
       }
-    TUnary(op, value) =>
+    TInstrKind::TUnary(op, value) =>
       match op {
         I64EqzOp =>
           TInstr::unary(
@@ -1844,7 +1849,7 @@ fn i64l_rewrite_tinstruction(
         }
         _ => curr
       }
-    TBinary(op, left, right) =>
+    TInstrKind::TBinary(op, left, right) =>
       match op {
         I64AddOp
         | I64SubOp
@@ -2464,10 +2469,10 @@ fn i64l_rewrite_tinstruction(
         }
         _ => curr
       }
-    TSelect(_, cond, if_true, if_false) => {
-      let select_is_i64 = match instr {
-        TSelect(Some([vt]), _, _, _) => i64l_is_i64(vt)
-        TSelect(None, _, old_if_true, _) =>
+    TInstrKind::TSelect(_, cond, if_true, if_false) => {
+      let select_is_i64 = match instr.kind {
+        TInstrKind::TSelect(Some([vt]), _, _, _) => i64l_is_i64(vt)
+        TInstrKind::TSelect(None, _, old_if_true, _) =>
           i64l_old_instr_is_i64(ctx, old_if_true)
         _ => false
       }
@@ -2503,8 +2508,8 @@ fn i64l_rewrite_tinstruction(
         ])
       }
     }
-    TDrop(value) => TInstr::drop(value)
-    TReturn(values) =>
+    TInstrKind::TDrop(value) => TInstr::drop(value)
+    TInstrKind::TReturn(values) =>
       if !ctx.old_result_is_i64 {
         curr
       } else if values.length() == 1 {
@@ -2517,25 +2522,25 @@ fn i64l_rewrite_tinstruction(
       } else {
         curr
       }
-    TBlock(bt, body) =>
+    TInstrKind::TBlock(bt, body) =>
       if i64l_type_is_i64_block(bt) {
         TInstr::block(BlockType::val_type(ValType::i32()), body)
       } else {
         curr
       }
-    TLoop(bt, body) =>
+    TInstrKind::TLoop(bt, body) =>
       if i64l_type_is_i64_block(bt) {
         TInstr::loop_(BlockType::val_type(ValType::i32()), body)
       } else {
         curr
       }
-    TIf(bt, cond, then_, else_) =>
+    TInstrKind::TIf(bt, cond, then_, else_) =>
       if i64l_type_is_i64_block(bt) {
         TInstr::if_(BlockType::val_type(ValType::i32()), cond, then_, else_)
       } else {
         curr
       }
-    TTryTable(bt, catches, body) =>
+    TInstrKind::TTryTable(bt, catches, body) =>
       if i64l_type_is_i64_block(bt) {
         TInstr::try_table(BlockType::val_type(ValType::i32()), catches, body)
       } else {
@@ -2719,15 +2724,15 @@ fn i64l_rewrite_globals(
       Ok({ instrs: [x], .. }) => x
       _ => return Err("i64_to_i32_lowering: unsupported i64 global init")
     }
-    let (low_init, hi_init) = match root {
-      TI64Const(v) => {
+    let (low_init, hi_init) = match root.kind {
+      TInstrKind::TI64Const(v) => {
         let (low, hi) = i64l_split_i64_literal(v)
         (
           TExpr::new([TInstr::i32_const(I32(low))]).to_expr(),
           TExpr::new([TInstr::i32_const(I32(hi))]).to_expr(),
         )
       }
-      TGlobalGet(from_idx) =>
+      TInstrKind::TGlobalGet(from_idx) =>
         match hi_map.get(from_idx) {
           Some(from_hi_idx) =>
             (
@@ -2934,14 +2939,28 @@ test "i64_to_i32_lowering lowers i64 globals and global.get/global.set" {
     _ => fail("expected global section")
   }
   match lowered.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TBlock(_, { instrs, .. })], .. })])) => {
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            {
+              instrs: [{ kind: TInstrKind::TBlock(_, { instrs, .. }), .. }],
+              ..,
+            }
+          ),
+        ]
+      )
+    ) => {
       assert_eq(instrs.length(), 2)
-      match instrs[0] {
-        TGlobalSet(GlobalIdx(i), _) => assert_eq(i.reinterpret_as_int(), 0)
+      match instrs[0].kind {
+        TInstrKind::TGlobalSet(GlobalIdx(i), _) =>
+          assert_eq(i.reinterpret_as_int(), 0)
         _ => fail("expected low global.set")
       }
-      match instrs[1] {
-        TGlobalSet(GlobalIdx(i), _) => assert_eq(i.reinterpret_as_int(), 1)
+      match instrs[1].kind {
+        TInstrKind::TGlobalSet(GlobalIdx(i), _) =>
+          assert_eq(i.reinterpret_as_int(), 1)
         _ => fail("expected high global.set")
       }
     }
@@ -3074,11 +3093,27 @@ test "i64_to_i32_lowering lowers call i64 args and results" {
     _ => fail("expected type section")
   }
   match lowered.code_sec {
-    Some(CodeSec([_, TFunc(_, { instrs: [TBlock(_, { instrs, .. })], .. })])) => {
+    Some(
+      CodeSec(
+        [
+          _,
+          TFunc(
+            _,
+            {
+              instrs: [{ kind: TInstrKind::TBlock(_, { instrs, .. }), .. }],
+              ..,
+            }
+          ),
+        ]
+      )
+    ) => {
       let mut saw_call = false
       for instr in instrs {
-        match instr {
-          TLocalSet(_, TCall(FuncIdx(i), args)) => {
+        match instr.kind {
+          TInstrKind::TLocalSet(
+            _,
+            { kind: TInstrKind::TCall(FuncIdx(i), args), .. }
+          ) => {
             assert_eq(i.reinterpret_as_int(), 0)
             assert_eq(args.length(), 2)
             saw_call = true
@@ -3115,12 +3150,12 @@ test "i64_to_i32_lowering lowers i64 load and store" {
   match lowered.code_sec {
     Some(CodeSec([TFunc(_, { instrs, .. })])) => {
       assert_true(instrs.length() == 2)
-      match instrs[0] {
-        TBlock(_, { instrs: seq, .. }) => {
+      match instrs[0].kind {
+        TInstrKind::TBlock(_, { instrs: seq, .. }) => {
           let mut stores = 0
           for s in seq {
-            match s {
-              TStore(I32StoreOp, _, _, _) => stores += 1
+            match s.kind {
+              TInstrKind::TStore(I32StoreOp, _, _, _) => stores += 1
               _ => ()
             }
           }
@@ -3128,8 +3163,8 @@ test "i64_to_i32_lowering lowers i64 load and store" {
         }
         _ => fail("expected lowered i64.store block")
       }
-      match instrs[1] {
-        TBlock(_, { instrs: _, .. }) => ()
+      match instrs[1].kind {
+        TInstrKind::TBlock(_, { instrs: _, .. }) => ()
         _ => fail("expected lowered i64.load block")
       }
     }
@@ -3153,13 +3188,29 @@ test "i64_to_i32_lowering lowers typed i64 select" {
     Err(e) => fail("unexpected i64_to_i32_lowering error: \{e}")
   }
   match lowered.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TBlock(_, { instrs: seq, .. })], .. })])) => {
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            {
+              instrs: [{ kind: TInstrKind::TBlock(_, { instrs: seq, .. }), .. }],
+              ..,
+            }
+          ),
+        ]
+      )
+    ) => {
       let mut saw_stash = false
       let mut saw_select = false
       for instr in seq {
-        match instr {
-          TLocalSet(_, TSelect(_, _, _, _)) => saw_select = true
-          TLocalSet(_, TLocalGet(_)) => saw_stash = true
+        match instr.kind {
+          TInstrKind::TLocalSet(
+            _,
+            { kind: TInstrKind::TSelect(_, _, _, _), .. }
+          ) => saw_select = true
+          TInstrKind::TLocalSet(_, { kind: TInstrKind::TLocalGet(_), .. }) =>
+            saw_stash = true
           _ => ()
         }
       }
@@ -3186,7 +3237,11 @@ test "i64_to_i32_lowering lowers untyped i64 select" {
     Err(e) => fail("unexpected i64_to_i32_lowering error: \{e}")
   }
   match lowered.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TBlock(_, _)], .. })])) => ()
+    Some(
+      CodeSec(
+        [TFunc(_, { instrs: [{ kind: TInstrKind::TBlock(_, _), .. }], .. })]
+      )
+    ) => ()
     _ => fail("expected untyped i64 select to lower to block form")
   }
 }
@@ -3276,11 +3331,27 @@ test "i64_to_i32_lowering lowers call_ref i64 args and results" {
     Err(e) => fail("unexpected i64_to_i32_lowering error: \{e}")
   }
   match lowered.code_sec {
-    Some(CodeSec([_, TFunc(_, { instrs: [TBlock(_, { instrs, .. })], .. })])) => {
+    Some(
+      CodeSec(
+        [
+          _,
+          TFunc(
+            _,
+            {
+              instrs: [{ kind: TInstrKind::TBlock(_, { instrs, .. }), .. }],
+              ..,
+            }
+          ),
+        ]
+      )
+    ) => {
       let mut saw_call_ref = false
       for instr in instrs {
-        match instr {
-          TLocalSet(_, TCallRef(TypeIdx(i), args, _)) => {
+        match instr.kind {
+          TInstrKind::TLocalSet(
+            _,
+            { kind: TInstrKind::TCallRef(TypeIdx(i), args, _), .. }
+          ) => {
             assert_eq(i.reinterpret_as_int(), 0)
             assert_eq(args.length(), 2)
             saw_call_ref = true
@@ -3331,7 +3402,9 @@ test "i64_to_i32_lowering lowers call_indirect i64 args and results" {
   let shown = "\{lowered}"
   assert_false(shown.contains("I64NumType"))
   assert_false(
-    shown.contains("TCallIndirect(TypeIdx(0), TableIdx(0), [TI64Const"),
+    shown.contains(
+      "TInstrKind::TCallIndirect(TypeIdx(0), TableIdx(0), [{ kind: TInstrKind::TI64Const, .. }",
+    ),
   )
 }
 
@@ -3379,8 +3452,8 @@ test "i64_to_i32_lowering lowers return_call_indirect/ref with i64 result" {
     Err(e) => fail("unexpected i64_to_i32_lowering error: \{e}")
   }
   let shown = "\{lowered}"
-  assert_false(shown.contains("TReturnCallIndirect("))
-  assert_false(shown.contains("TReturnCallRef("))
+  assert_false(shown.contains("TInstrKind::TReturnCallIndirect("))
+  assert_false(shown.contains("TInstrKind::TReturnCallRef("))
 }
 
 ///|
@@ -3438,7 +3511,7 @@ test "i64_to_i32_lowering handles implicit i64 return from typeidx block" {
     Some(CodeSec([TFunc(_, { instrs, .. })])) => {
       let mut saw_high_set = false
       let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, i) {
-        if i is TGlobalSet(GlobalIdx(0), _) {
+        if i.kind is TInstrKind::TGlobalSet(GlobalIdx(0), _) {
           saw_high_set = true
         }
         self.walk_tinstruction_default((), i)
@@ -3597,7 +3670,7 @@ test "i64_to_i32_lowering lowers return_call with i64 result" {
     Err(e) => fail("unexpected i64_to_i32_lowering error: \{e}")
   }
   let shown = "\{lowered}"
-  assert_false(shown.contains("TReturnCall("))
+  assert_false(shown.contains("TInstrKind::TReturnCall("))
 }
 
 ///|
@@ -3695,7 +3768,7 @@ test "i64_to_i32_lowering handles branch-value-heavy i64 cfg and validates" {
   }
   let shown = "\{lowered}"
   assert_false(shown.contains("I64NumType"))
-  assert_false(shown.contains("TI64Const("))
+  assert_false(shown.contains("TInstrKind::TI64Const("))
   match @validate.validate_module(lowered) {
     Ok(_) => ()
     Err(e) => fail("lowered branch-heavy cfg module should validate: \{e}")

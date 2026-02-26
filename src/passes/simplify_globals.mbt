@@ -152,13 +152,13 @@ fn sg_const_value_from_instruction(instr : Instruction) -> SGConstValue? {
 
 ///|
 fn sg_const_value_from_tinstr(instr : TInstr) -> SGConstValue? {
-  match instr {
-    TI32Const(v) => Some(SGConstValue::SGI32(v))
-    TI64Const(v) => Some(SGConstValue::SGI64(v))
-    TF32Const(v) => Some(SGConstValue::SGF32(v))
-    TF64Const(v) => Some(SGConstValue::SGF64(v))
-    TRefNull(ht) => Some(SGConstValue::SGRefNull(ht))
-    TRefFunc(idx) => Some(SGConstValue::SGRefFunc(idx))
+  match instr.kind {
+    TInstrKind::TI32Const(v) => Some(SGConstValue::SGI32(v))
+    TInstrKind::TI64Const(v) => Some(SGConstValue::SGI64(v))
+    TInstrKind::TF32Const(v) => Some(SGConstValue::SGF32(v))
+    TInstrKind::TF64Const(v) => Some(SGConstValue::SGF64(v))
+    TInstrKind::TRefNull(ht) => Some(SGConstValue::SGRefNull(ht))
+    TInstrKind::TRefFunc(idx) => Some(SGConstValue::SGRefFunc(idx))
     _ => None
   }
 }
@@ -197,70 +197,74 @@ fn sg_const_value_to_tinstr(value : SGConstValue) -> TInstr {
 
 ///|
 fn sg_mark_shallow_effects(instr : TInstr, effects : SGEffects) -> Unit {
-  match instr {
-    TGlobalGet(idx) => effects.globals_read.add(idx)
-    TGlobalSet(idx, _) => effects.globals_written.add(idx)
-    TLocalSet(_, _) | TLocalTee(_, _) =>
+  match instr.kind {
+    TInstrKind::TGlobalGet(idx) => effects.globals_read.add(idx)
+    TInstrKind::TGlobalSet(idx, _) => effects.globals_written.add(idx)
+    TInstrKind::TLocalSet(_, _) | TInstrKind::TLocalTee(_, _) =>
       effects.has_non_global_side_effects = true
-    TLoad(_, _, _) | TStore(_, _, _, _) =>
+    TInstrKind::TLoad(_, _, _) | TInstrKind::TStore(_, _, _, _) =>
       effects.has_non_global_side_effects = true
-    TMemoryGrow(_, _)
-    | TMemorySize(_)
-    | TMemoryCopy(_, _, _, _, _)
-    | TMemoryFill(_, _, _, _)
-    | TMemoryInit(_, _, _, _, _)
-    | TDataDrop(_)
-    | TTableGet(_, _)
-    | TTableSet(_, _, _)
-    | TTableGrow(_, _, _)
-    | TTableSize(_)
-    | TTableFill(_, _, _, _)
-    | TTableCopy(_, _, _, _, _)
-    | TTableInit(_, _, _, _, _)
-    | TElemDrop(_) => effects.has_non_global_side_effects = true
-    TCall(_, _) | TCallIndirect(_, _, _, _) | TCallRef(_, _, _) => {
+    TInstrKind::TMemoryGrow(_, _)
+    | TInstrKind::TMemorySize(_)
+    | TInstrKind::TMemoryCopy(_, _, _, _, _)
+    | TInstrKind::TMemoryFill(_, _, _, _)
+    | TInstrKind::TMemoryInit(_, _, _, _, _)
+    | TInstrKind::TDataDrop(_)
+    | TInstrKind::TTableGet(_, _)
+    | TInstrKind::TTableSet(_, _, _)
+    | TInstrKind::TTableGrow(_, _, _)
+    | TInstrKind::TTableSize(_)
+    | TInstrKind::TTableFill(_, _, _, _)
+    | TInstrKind::TTableCopy(_, _, _, _, _)
+    | TInstrKind::TTableInit(_, _, _, _, _)
+    | TInstrKind::TElemDrop(_) => effects.has_non_global_side_effects = true
+    TInstrKind::TCall(_, _)
+    | TInstrKind::TCallIndirect(_, _, _, _)
+    | TInstrKind::TCallRef(_, _, _) => {
       effects.calls = true
       effects.has_non_global_side_effects = true
     }
-    TReturnCall(_, _)
-    | TReturnCallIndirect(_, _, _, _)
-    | TReturnCallRef(_, _, _)
-    | TBr(_, _)
-    | TBrIf(_, _, _)
-    | TBrTable(_, _, _, _)
-    | TBrOnNull(_, _, _)
-    | TBrOnNonNull(_, _, _)
-    | TBrOnCast(_, _, _, _, _, _)
-    | TBrOnCastFail(_, _, _, _, _, _)
-    | TReturn(_)
-    | TThrow(_, _)
-    | TThrowRef(_) => effects.has_non_global_side_effects = true
-    TUnreachable | TRefAsNonNull(_) | TRefCast(_, _, _) =>
+    TInstrKind::TReturnCall(_, _)
+    | TInstrKind::TReturnCallIndirect(_, _, _, _)
+    | TInstrKind::TReturnCallRef(_, _, _)
+    | TInstrKind::TBr(_, _)
+    | TInstrKind::TBrIf(_, _, _)
+    | TInstrKind::TBrTable(_, _, _, _)
+    | TInstrKind::TBrOnNull(_, _, _)
+    | TInstrKind::TBrOnNonNull(_, _, _)
+    | TInstrKind::TBrOnCast(_, _, _, _, _, _)
+    | TInstrKind::TBrOnCastFail(_, _, _, _, _, _)
+    | TInstrKind::TReturn(_)
+    | TInstrKind::TThrow(_, _)
+    | TInstrKind::TThrowRef(_) => effects.has_non_global_side_effects = true
+    TInstrKind::TUnreachable
+    | TInstrKind::TRefAsNonNull(_)
+    | TInstrKind::TRefCast(_, _, _) =>
       effects.has_non_global_side_effects = true
-    TStructGet(_, _, _)
-    | TStructGetS(_, _, _)
-    | TStructGetU(_, _, _)
-    | TStructSet(_, _, _, _)
-    | TStructNew(_, _)
-    | TStructNewDefault(_)
-    | TArrayNew(_, _, _)
-    | TArrayNewDefault(_, _)
-    | TArrayNewFixed(_, _)
-    | TArrayNewData(_, _, _, _)
-    | TArrayNewElem(_, _, _, _)
-    | TArrayGet(_, _, _)
-    | TArrayGetS(_, _, _)
-    | TArrayGetU(_, _, _)
-    | TArraySet(_, _, _, _)
-    | TArrayLen(_)
-    | TArrayFill(_, _, _, _, _)
-    | TArrayCopy(_, _, _, _, _, _, _)
-    | TArrayInitData(_, _, _, _, _, _)
-    | TArrayInitElem(_, _, _, _, _, _)
-    | TI31GetS(_)
-    | TI31GetU(_)
-    | TRefI31(_) => effects.has_non_global_side_effects = true
-    TBinary(op, _, _) =>
+    TInstrKind::TStructGet(_, _, _)
+    | TInstrKind::TStructGetS(_, _, _)
+    | TInstrKind::TStructGetU(_, _, _)
+    | TInstrKind::TStructSet(_, _, _, _)
+    | TInstrKind::TStructNew(_, _)
+    | TInstrKind::TStructNewDefault(_)
+    | TInstrKind::TArrayNew(_, _, _)
+    | TInstrKind::TArrayNewDefault(_, _)
+    | TInstrKind::TArrayNewFixed(_, _)
+    | TInstrKind::TArrayNewData(_, _, _, _)
+    | TInstrKind::TArrayNewElem(_, _, _, _)
+    | TInstrKind::TArrayGet(_, _, _)
+    | TInstrKind::TArrayGetS(_, _, _)
+    | TInstrKind::TArrayGetU(_, _, _)
+    | TInstrKind::TArraySet(_, _, _, _)
+    | TInstrKind::TArrayLen(_)
+    | TInstrKind::TArrayFill(_, _, _, _, _)
+    | TInstrKind::TArrayCopy(_, _, _, _, _, _, _)
+    | TInstrKind::TArrayInitData(_, _, _, _, _, _)
+    | TInstrKind::TArrayInitElem(_, _, _, _, _, _)
+    | TInstrKind::TI31GetS(_)
+    | TInstrKind::TI31GetU(_)
+    | TInstrKind::TRefI31(_) => effects.has_non_global_side_effects = true
+    TInstrKind::TBinary(op, _, _) =>
       match op {
         I32DivSOp
         | I32DivUOp
@@ -272,7 +276,7 @@ fn sg_mark_shallow_effects(instr : TInstr, effects : SGEffects) -> Unit {
         | I64RemUOp => effects.has_non_global_side_effects = true
         _ => ()
       }
-    TUnary(op, _) =>
+    TInstrKind::TUnary(op, _) =>
       match op {
         I32TruncF32SOp
         | I32TruncF32UOp
@@ -291,12 +295,14 @@ fn sg_mark_shallow_effects(instr : TInstr, effects : SGEffects) -> Unit {
 ///|
 fn sg_collect_effects_instr(instr : TInstr, effects : SGEffects) -> Unit {
   sg_mark_shallow_effects(instr, effects)
-  match instr {
-    TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) =>
+  match instr.kind {
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) =>
       for item in body.instrs {
         sg_collect_effects_instr(item, effects)
       }
-    TIf(_, cond, then_body, else_body) => {
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
       sg_collect_effects_instr(cond, effects)
       for item in then_body.instrs {
         sg_collect_effects_instr(item, effects)
@@ -387,8 +393,8 @@ fn sg_analyze(mod : Module) -> Result[(SGInfo, Module, Bool), String] {
 
   let scanner = ModuleTransformer::new()
     .on_tinstruction_evt(fn(self, _, instr) {
-      match instr {
-        TGlobalSet(idx, value) => {
+      match instr.kind {
+        TInstrKind::TGlobalSet(idx, value) => {
           let raw = sg_globalidx_to_int(idx)
           if raw >= 0 && raw < total_globals {
             info.written[raw] = info.written[raw] + 1
@@ -420,13 +426,13 @@ fn sg_analyze(mod : Module) -> Result[(SGInfo, Module, Bool), String] {
             }
           }
         }
-        TGlobalGet(idx) => {
+        TInstrKind::TGlobalGet(idx) => {
           let raw = sg_globalidx_to_int(idx)
           if raw >= 0 && raw < total_globals {
             info.read[raw] = info.read[raw] + 1
           }
         }
-        TIf(_, cond, then_body, None) =>
+        TInstrKind::TIf(_, cond, then_body, None) =>
           match sg_reads_global_only_to_write_it(cond, then_body) {
             Some(idx) => {
               let raw = sg_globalidx_to_int(idx)
@@ -462,9 +468,13 @@ fn sg_analyze(mod : Module) -> Result[(SGInfo, Module, Bool), String] {
     .on_func_evt(fn(self, _, func) {
       match func {
         TFunc(_, { instrs, .. }) if instrs.length() == 2 =>
-          match instrs[0] {
-            TIf(_, cond, { instrs: [TReturn(values)], .. }, None) if values.length() ==
-              0 =>
+          match instrs[0].kind {
+            TInstrKind::TIf(
+              _,
+              cond,
+              { instrs: [{ kind: TInstrKind::TReturn(values), .. }], .. },
+              None
+            ) if values.length() == 0 =>
               match
                 sg_reads_global_only_to_write_it(cond, TExpr::new([instrs[1]])) {
                 Some(idx) => {
@@ -632,8 +642,8 @@ fn sg_remove_unneeded_writes(
     _,
     instr,
   ) {
-    match instr {
-      TGlobalSet(idx, value) =>
+    match instr.kind {
+      TInstrKind::TGlobalSet(idx, value) =>
         if to_remove.contains(idx) {
           change((), TInstr::drop(value))
         } else {
@@ -730,8 +740,8 @@ fn sg_prefer_earlier_imports(mod : Module) -> Result[(Module, Bool), String] {
 
   let rewriter = ModuleTransformer::new()
     .on_tinstruction_evt(fn(self, _, instr) {
-      match instr {
-        TGlobalGet(idx) =>
+      match instr.kind {
+        TInstrKind::TGlobalGet(idx) =>
           match copied_parent_map.get(idx) {
             Some(parent) =>
               if sg_same_global_val_type(global_types, idx, parent) {
@@ -885,8 +895,8 @@ fn sg_replace_gets_in_tinstr(
   trace_constants : Map[GlobalIdx, SGConstValue],
   constant_globals : Map[GlobalIdx, SGConstValue],
 ) -> (TInstr, Bool) {
-  match instr {
-    TGlobalGet(idx) =>
+  match instr.kind {
+    TInstrKind::TGlobalGet(idx) =>
       match constant_globals.get(idx) {
         Some(value) => (sg_const_value_to_tinstr(value), true)
         None =>
@@ -895,19 +905,19 @@ fn sg_replace_gets_in_tinstr(
             None => (instr, false)
           }
       }
-    TBlock(bt, body) => {
+    TInstrKind::TBlock(bt, body) => {
       let (next_body, changed) = sg_replace_gets_in_texpr(
         body, trace_constants, constant_globals,
       )
       (TInstr::block(bt, next_body), changed)
     }
-    TLoop(bt, body) => {
+    TInstrKind::TLoop(bt, body) => {
       let (next_body, changed) = sg_replace_gets_in_texpr(
         body, trace_constants, constant_globals,
       )
       (TInstr::loop_(bt, next_body), changed)
     }
-    TIf(bt, cond, then_body, else_body) => {
+    TInstrKind::TIf(bt, cond, then_body, else_body) => {
       let (next_cond, cond_changed) = sg_replace_gets_in_tinstr(
         cond, trace_constants, constant_globals,
       )
@@ -928,7 +938,7 @@ fn sg_replace_gets_in_tinstr(
         cond_changed || then_changed || else_changed,
       )
     }
-    TTryTable(bt, catches, body) => {
+    TInstrKind::TTryTable(bt, catches, body) => {
       let (next_body, changed) = sg_replace_gets_in_texpr(
         body, trace_constants, constant_globals,
       )
@@ -1014,8 +1024,8 @@ fn sg_apply_constants_in_body(
     for idx in effects.globals_written {
       curr_constants.remove(idx)
     }
-    match rewritten {
-      TGlobalSet(idx, value) =>
+    match rewritten.kind {
+      TInstrKind::TGlobalSet(idx, value) =>
         match sg_const_value_from_tinstr(value) {
           Some(constant) => curr_constants[idx] = constant
           None => ()
@@ -1245,8 +1255,26 @@ test "simplify_globals removes unread global.set writes and makes global immutab
     _ => fail("expected one rewritten global")
   }
   match out.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TDrop(TI32Const(I32(v)))], .. })])) =>
-      assert_eq(v, 9)
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                {
+                  kind: TInstrKind::TDrop(
+                    { kind: TInstrKind::TI32Const(I32(v)), .. }
+                  ),
+                  ..,
+                },
+              ],
+              ..,
+            }
+          ),
+        ]
+      )
+    ) => assert_eq(v, 9)
     _ => fail("expected global.set to be rewritten into drop(value)")
   }
 }
@@ -1280,8 +1308,26 @@ test "simplify_globals propagates immutable constant globals into code and copie
     _ => fail("expected copied immutable global to become i32.const 5")
   }
   match out.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TDrop(TI32Const(I32(v)))], .. })])) =>
-      assert_eq(v, 5)
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                {
+                  kind: TInstrKind::TDrop(
+                    { kind: TInstrKind::TI32Const(I32(v)), .. }
+                  ),
+                  ..,
+                },
+              ],
+              ..,
+            }
+          ),
+        ]
+      )
+    ) => assert_eq(v, 5)
     _ => fail("expected global.get of copied immutable global to become const")
   }
 }
@@ -1313,15 +1359,19 @@ test "simplify_globals propagates linear known value from preceding global.set" 
     Some(CodeSec([TFunc(_, rewritten)])) => {
       assert_eq(
         sg_count_tinstr(rewritten, fn(i) {
-          match i {
-            TGlobalGet(GlobalIdx(raw)) => raw == 0U
+          match i.kind {
+            TInstrKind::TGlobalGet(GlobalIdx(raw)) => raw == 0U
             _ => false
           }
         }),
         0,
       )
       assert_true(
-        sg_count_tinstr(rewritten, fn(i) { i is TDrop(TI32Const(I32(7))) }) > 0,
+        sg_count_tinstr(rewritten, fn(i) {
+          i.kind
+          is TInstrKind::TDrop({ kind: TInstrKind::TI32Const(I32(7)), .. })
+        }) >
+        0,
       )
     }
     _ => fail("expected rewritten body with propagated global value")
@@ -1353,7 +1403,12 @@ test "simplify_globals removes writes in read-only-to-write if pattern" {
   let out = sg_run_simplify_globals(mod, false)
   match out.code_sec {
     Some(CodeSec([TFunc(_, rewritten)])) =>
-      assert_eq(sg_count_tinstr(rewritten, fn(i) { i is TGlobalSet(_, _) }), 0)
+      assert_eq(
+        sg_count_tinstr(rewritten, fn(i) {
+          i.kind is TInstrKind::TGlobalSet(_, _)
+        }),
+        0,
+      )
     _ => fail("expected rewritten function body")
   }
 }

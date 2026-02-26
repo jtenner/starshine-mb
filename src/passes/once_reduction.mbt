@@ -90,9 +90,9 @@ fn or_is_integer_type(t : ValType) -> Bool {
 
 ///|
 fn or_is_nonzero_int_const(instr : TInstr) -> Bool {
-  match instr {
-    TI32Const(I32(v)) => v > 0
-    TI64Const(I64(v)) => v > 0L
+  match instr.kind {
+    TInstrKind::TI32Const(I32(v)) => v > 0
+    TInstrKind::TI64Const(I64(v)) => v > 0L
     _ => false
   }
 }
@@ -214,12 +214,17 @@ fn or_set_defined_func(mod : Module, def_idx : Int, func : Func) -> Module {
 ///|
 fn or_get_once_global(body : TExpr) -> GlobalIdx? {
   match body {
-    { instrs: [TBlock(_, { instrs: items, .. })], .. } if items.length() >= 2 =>
-      match items[0] {
-        TIf(_, TGlobalGet(g0), { instrs: [TReturn(ret_vals)], .. }, None) if ret_vals.length() ==
-          0 =>
-          match items[1] {
-            TGlobalSet(g1, value) =>
+    { instrs: [{ kind: TInstrKind::TBlock(_, { instrs: items, .. }), .. }], .. } if items.length() >=
+      2 =>
+      match items[0].kind {
+        TInstrKind::TIf(
+          _,
+          { kind: TInstrKind::TGlobalGet(g0), .. },
+          { instrs: [{ kind: TInstrKind::TReturn(ret_vals), .. }], .. },
+          None
+        ) if ret_vals.length() == 0 =>
+          match items[1].kind {
+            TInstrKind::TGlobalSet(g1, value) =>
               if g0 == g1 &&
                 !is_unreachable_instr(value) &&
                 or_is_nonzero_int_const(value) {
@@ -250,9 +255,9 @@ fn or_scan_instr(
   if !reachable {
     return
   }
-  match instr {
-    TGlobalGet(idx) => or_add_read(state.read_globals, idx)
-    TGlobalSet(idx, value) => {
+  match instr.kind {
+    TInstrKind::TGlobalGet(idx) => or_add_read(state.read_globals, idx)
+    TInstrKind::TGlobalSet(idx, value) => {
       if info.once_globals.get(idx).unwrap_or(false) &&
         !is_unreachable_instr(value) &&
         or_is_integer_tinstr(value, state.env) &&
@@ -263,9 +268,11 @@ fn or_scan_instr(
         or_scan_instr(child, true, state, info)
       }
     }
-    TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) =>
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) =>
       or_scan_texpr(body, true, state, info)
-    TIf(_, cond, then_body, else_body) => {
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
       or_scan_instr(cond, true, state, info)
       or_scan_texpr(then_body, true, state, info)
       match else_body {
@@ -415,14 +422,14 @@ fn or_record_side_effect_event(
   block : ORBlockId,
   instr : TInstr,
 ) -> Unit {
-  match instr {
-    TGlobalSet(idx, value) =>
+  match instr.kind {
+    TInstrKind::TGlobalSet(idx, value) =>
       or_add_event(
         state,
         block,
         OREventKind::GlobalSet(idx, or_is_nonzero_int_const(value)),
       )
-    TCall(target, args) =>
+    TInstrKind::TCall(target, args) =>
       or_add_event(state, block, OREventKind::Call(target, args.length()))
     _ => ()
   }
@@ -436,8 +443,8 @@ fn or_lower_texpr(
 ) -> ORBlockId {
   let mut current = start
   for instr in body.instrs {
-    match instr {
-      TIf(_, _, then_body, else_body) => {
+    match instr.kind {
+      TInstrKind::TIf(_, _, then_body, else_body) => {
         let then_block = or_make_block(state)
         let else_block = or_make_block(state)
         let merge_block = or_make_block(state)
@@ -454,7 +461,7 @@ fn or_lower_texpr(
         }
         current = merge_block
       }
-      TReturn(_) => return current
+      TInstrKind::TReturn(_) => return current
       _ => or_record_side_effect_event(state, current, instr)
     }
   }
@@ -584,8 +591,8 @@ fn or_compute_dominators(cfg : ORCFG) -> Map[ORBlockId, ORBlockId] {
 
 ///|
 fn or_rewrite_instr(state : ORRewriteState, instr : TInstr) -> TInstr {
-  match instr {
-    TGlobalSet(_, _) | TCall(_, _) => {
+  match instr.kind {
+    TInstrKind::TGlobalSet(_, _) | TInstrKind::TCall(_, _) => {
       let event_id = state.next_event
       state.next_event += 1
       if state.nops.contains(event_id) {
@@ -594,11 +601,13 @@ fn or_rewrite_instr(state : ORRewriteState, instr : TInstr) -> TInstr {
         instr
       }
     }
-    TBlock(bt, body) => TInstr::block(bt, or_rewrite_texpr(state, body))
-    TLoop(bt, body) => TInstr::loop_(bt, or_rewrite_texpr(state, body))
-    TTryTable(bt, catches, body) =>
+    TInstrKind::TBlock(bt, body) =>
+      TInstr::block(bt, or_rewrite_texpr(state, body))
+    TInstrKind::TLoop(bt, body) =>
+      TInstr::loop_(bt, or_rewrite_texpr(state, body))
+    TInstrKind::TTryTable(bt, catches, body) =>
       TInstr::try_table(bt, catches, or_rewrite_texpr(state, body))
-    TIf(bt, cond, then_body, else_body) =>
+    TInstrKind::TIf(bt, cond, then_body, else_body) =>
       TInstr::if_(
         bt,
         cond,
@@ -703,17 +712,21 @@ fn or_optimize_function(
 
 ///|
 fn or_match_guard_if(instr : TInstr) -> GlobalIdx? {
-  match instr {
-    TIf(_, TGlobalGet(g), { instrs: [TReturn(values)], .. }, None) if values.length() ==
-      0 => Some(g)
+  match instr.kind {
+    TInstrKind::TIf(
+      _,
+      { kind: TInstrKind::TGlobalGet(g), .. },
+      { instrs: [{ kind: TInstrKind::TReturn(values), .. }], .. },
+      None
+    ) if values.length() == 0 => Some(g)
     _ => None
   }
 }
 
 ///|
 fn or_match_once_set(instr : TInstr, g : GlobalIdx) -> Bool {
-  match instr {
-    TGlobalSet(g2, value) =>
+  match instr.kind {
+    TInstrKind::TGlobalSet(g2, value) =>
       g2 == g && !is_unreachable_instr(value) && or_is_nonzero_int_const(value)
     _ => false
   }
@@ -744,7 +757,13 @@ fn or_cleanup_once_bodies(mod : Module, info : OROptInfo) -> Module {
       None => continue
     }
     match func {
-      TFunc(locals, { instrs: [TBlock(bt, { instrs: items, .. })], .. }) =>
+      TFunc(
+        locals,
+        {
+          instrs: [{ kind: TInstrKind::TBlock(bt, { instrs: items, .. }), .. }],
+          ..,
+        }
+      ) =>
         if items.length() == 2 &&
           or_match_guard_if(items[0]) == Some(g) &&
           or_match_once_set(items[1], g) {
@@ -756,8 +775,8 @@ fn or_cleanup_once_bodies(mod : Module, info : OROptInfo) -> Module {
         } else if items.length() == 3 &&
           or_match_guard_if(items[0]) == Some(g) &&
           or_match_once_set(items[1], g) {
-          match items[2] {
-            TCall(callee, args) =>
+          match items[2].kind {
+            TInstrKind::TCall(callee, args) =>
               if args.length() == 0 &&
                 callee != curr_idx &&
                 info.once_funcs.get(callee).unwrap_or(None) is Some(_) &&
@@ -993,8 +1012,24 @@ test "once_reduction removes dominated redundant once call" {
     )
   let out = or_run(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TCall(_, _), TNop, TNop], .. }), _])) =>
-      ()
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                { kind: TInstrKind::TCall(_, _), .. },
+                { kind: TInstrKind::TNop, .. },
+                { kind: TInstrKind::TNop, .. },
+              ],
+              ..,
+            }
+          ),
+          _,
+        ]
+      )
+    ) => ()
     _ => fail("expected second dominated call to once func to be nopped")
   }
 }
@@ -1019,7 +1054,23 @@ test "once_reduction removes redundant once-global sets" {
     )
   let out = or_run(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TGlobalSet(_, _), TNop], .. }), _])) => ()
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                { kind: TInstrKind::TGlobalSet(_, _), .. },
+                { kind: TInstrKind::TNop, .. },
+              ],
+              ..,
+            }
+          ),
+          _,
+        ]
+      )
+    ) => ()
     _ => fail("expected second dominated once-global set to be nopped")
   }
 }
@@ -1052,8 +1103,24 @@ test "once_reduction disqualifies zero and non-const writes" {
     )
   let out_zero = or_run(zero_write)
   match out_zero.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TCall(_, _), TCall(_, _)], .. }), _, _])) =>
-      ()
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                { kind: TInstrKind::TCall(_, _), .. },
+                { kind: TInstrKind::TCall(_, _), .. },
+              ],
+              ..,
+            }
+          ),
+          _,
+          _,
+        ]
+      )
+    ) => ()
     _ => fail("expected no call removal when once global is written with zero")
   }
   let non_const_write = Module::new()
@@ -1091,8 +1158,24 @@ test "once_reduction disqualifies zero and non-const writes" {
     )
   let out_non_const = or_run(non_const_write)
   match out_non_const.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TCall(_, _), TCall(_, _)], .. }), _, _])) =>
-      ()
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                { kind: TInstrKind::TCall(_, _), .. },
+                { kind: TInstrKind::TCall(_, _), .. },
+              ],
+              ..,
+            }
+          ),
+          _,
+          _,
+        ]
+      )
+    ) => ()
     _ =>
       fail(
         "expected no call removal when once global has non-const integer write",
@@ -1128,8 +1211,24 @@ test "once_reduction disqualifies extra reads and exported/imported globals" {
     )
   let out_extra_read = or_run(extra_read)
   match out_extra_read.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TCall(_, _), TCall(_, _)], .. }), _, _])) =>
-      ()
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                { kind: TInstrKind::TCall(_, _), .. },
+                { kind: TInstrKind::TCall(_, _), .. },
+              ],
+              ..,
+            }
+          ),
+          _,
+          _,
+        ]
+      )
+    ) => ()
     _ => fail("expected no call removal when once global is read outside guard")
   }
   let exported_global = Module::new()
@@ -1155,8 +1254,23 @@ test "once_reduction disqualifies extra reads and exported/imported globals" {
     )
   let out_exported = or_run(exported_global)
   match out_exported.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TCall(_, _), TCall(_, _)], .. }), _])) =>
-      ()
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                { kind: TInstrKind::TCall(_, _), .. },
+                { kind: TInstrKind::TCall(_, _), .. },
+              ],
+              ..,
+            }
+          ),
+          _,
+        ]
+      )
+    ) => ()
     _ => fail("expected no call removal for exported once global")
   }
   let imported_global = Module::new()
@@ -1185,8 +1299,23 @@ test "once_reduction disqualifies extra reads and exported/imported globals" {
     )
   let out_imported = or_run(imported_global)
   match out_imported.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TCall(_, _), TCall(_, _)], .. }), _])) =>
-      ()
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                { kind: TInstrKind::TCall(_, _), .. },
+                { kind: TInstrKind::TCall(_, _), .. },
+              ],
+              ..,
+            }
+          ),
+          _,
+        ]
+      )
+    ) => ()
     _ => fail("expected no call removal for imported once global")
   }
 }
@@ -1227,8 +1356,23 @@ test "once_reduction disqualifies non-canonical guard pattern" {
     )
   let out = or_run(bad_once)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TCall(_, _), TCall(_, _)], .. }), _])) =>
-      ()
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                { kind: TInstrKind::TCall(_, _), .. },
+                { kind: TInstrKind::TCall(_, _), .. },
+              ],
+              ..,
+            }
+          ),
+          _,
+        ]
+      )
+    ) => ()
     _ => fail("expected no call removal when guard pattern is not canonical")
   }
 }
@@ -1258,7 +1402,24 @@ test "once_reduction propagates once summaries to fixed point" {
     )
   let out = or_run(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TCall(_, _), TNop], .. }), _, _])) => ()
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                { kind: TInstrKind::TCall(_, _), .. },
+                { kind: TInstrKind::TNop, .. },
+              ],
+              ..,
+            }
+          ),
+          _,
+          _,
+        ]
+      )
+    ) => ()
     _ =>
       fail(
         "expected fixed-point propagation to remove dominated call through callee summary",
@@ -1293,8 +1454,23 @@ test "once_reduction honors dominance across branches" {
     )
   let out = or_run(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TIf(_, _, _, _), TCall(_, _)], .. }), _])) =>
-      ()
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                { kind: TInstrKind::TIf(_, _, _, _), .. },
+                { kind: TInstrKind::TCall(_, _), .. },
+              ],
+              ..,
+            }
+          ),
+          _,
+        ]
+      )
+    ) => ()
     _ =>
       fail(
         "expected post-merge call to remain when prior call does not dominate",
@@ -1325,8 +1501,23 @@ test "once_reduction keeps block-nested call semantics aligned with canonical cf
     )
   let out = or_run(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TBlock(_, _), TCall(_, _)], .. }), _])) =>
-      ()
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                { kind: TInstrKind::TBlock(_, _), .. },
+                { kind: TInstrKind::TCall(_, _), .. },
+              ],
+              ..,
+            }
+          ),
+          _,
+        ]
+      )
+    ) => ()
     _ =>
       fail(
         "expected second call to remain; nested block call is not split in canonical cfg lowering",
@@ -1351,7 +1542,14 @@ test "once_reduction handles unreachable tails safely" {
     )
   let out = or_run(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TUnreachable, _], .. }), _])) => ()
+    Some(
+      CodeSec(
+        [
+          TFunc(_, { instrs: [{ kind: TInstrKind::TUnreachable, .. }, _], .. }),
+          _,
+        ]
+      )
+    ) => ()
     _ => fail("expected pass to ignore unreachable tail calls without crashing")
   }
 }
@@ -1365,7 +1563,8 @@ test "once_reduction cleanup removes no-payload boilerplate" {
     .with_code_sec(CodeSec::new([Func::t_func([], or_once_body(0, 1, []))]))
   let out = or_run(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TNop], .. })])) => ()
+    Some(CodeSec([TFunc(_, { instrs: [{ kind: TInstrKind::TNop, .. }], .. })])) =>
+      ()
     _ => fail("expected cleanup to turn guard+set-only once func into nop body")
   }
 }
@@ -1395,7 +1594,22 @@ test "once_reduction cleanup removes boilerplate for single once-call payload" {
           TFunc(
             _,
             {
-              instrs: [TBlock(_, { instrs: [TNop, TNop, TCall(_, _)], .. })],
+              instrs: [
+                {
+                  kind: TInstrKind::TBlock(
+                    _,
+                    {
+                      instrs: [
+                        { kind: TInstrKind::TNop, .. },
+                        { kind: TInstrKind::TNop, .. },
+                        { kind: TInstrKind::TCall(_, _), .. },
+                      ],
+                      ..,
+                    }
+                  ),
+                  ..,
+                },
+              ],
               ..,
             }
           ),
@@ -1435,17 +1649,33 @@ test "once_reduction cleanup is cycle-safe" {
     Some(
       CodeSec(
         [
-          TFunc(_, { instrs: [TBlock(_, { instrs: a_items, .. })], .. }),
-          TFunc(_, { instrs: [TBlock(_, { instrs: b_items, .. })], .. }),
+          TFunc(
+            _,
+            {
+              instrs: [
+                { kind: TInstrKind::TBlock(_, { instrs: a_items, .. }), .. },
+              ],
+              ..,
+            }
+          ),
+          TFunc(
+            _,
+            {
+              instrs: [
+                { kind: TInstrKind::TBlock(_, { instrs: b_items, .. }), .. },
+              ],
+              ..,
+            }
+          ),
         ]
       )
     ) => {
       let a_removed = a_items.length() >= 2 &&
-        a_items[0] is TNop &&
-        a_items[1] is TNop
+        a_items[0].kind is TInstrKind::TNop &&
+        a_items[1].kind is TInstrKind::TNop
       let b_removed = b_items.length() >= 2 &&
-        b_items[0] is TNop &&
-        b_items[1] is TNop
+        b_items[0].kind is TInstrKind::TNop &&
+        b_items[1].kind is TInstrKind::TNop
       assert_true(!(a_removed && b_removed))
     }
     _ => fail("expected two once funcs with block bodies")

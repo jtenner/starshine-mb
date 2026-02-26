@@ -113,65 +113,71 @@ fn oc_collect_shallow_effects_into(
   instr : TInstr,
   effects : OCCastEffects,
 ) -> Unit {
-  match instr {
-    TLocalGet(idx) => effects.locals_read.add(idx)
-    TLocalSet(idx, _) => effects.locals_written.add(idx)
-    TLocalTee(idx, _) => {
+  match instr.kind {
+    TInstrKind::TLocalGet(idx) => effects.locals_read.add(idx)
+    TInstrKind::TLocalSet(idx, _) => effects.locals_written.add(idx)
+    TInstrKind::TLocalTee(idx, _) => {
       effects.locals_read.add(idx)
       effects.locals_written.add(idx)
     }
-    TGlobalGet(_) => effects.reads_globals = true
-    TGlobalSet(_, _) => effects.writes_globals = true
-    TLoad(_, _, _) => {
+    TInstrKind::TGlobalGet(_) => effects.reads_globals = true
+    TInstrKind::TGlobalSet(_, _) => effects.writes_globals = true
+    TInstrKind::TLoad(_, _, _) => {
       effects.reads_memory = true
       effects.traps = true
     }
-    TStore(_, _, _, _) => {
+    TInstrKind::TStore(_, _, _, _) => {
       effects.writes_memory = true
       effects.traps = true
     }
-    TMemoryGrow(_, _) => effects.writes_memory = true
-    TMemorySize(_) => effects.reads_memory = true
-    TMemoryCopy(_, _, _, _, _) => {
+    TInstrKind::TMemoryGrow(_, _) => effects.writes_memory = true
+    TInstrKind::TMemorySize(_) => effects.reads_memory = true
+    TInstrKind::TMemoryCopy(_, _, _, _, _) => {
       effects.reads_memory = true
       effects.writes_memory = true
     }
-    TMemoryFill(_, _, _, _) => effects.writes_memory = true
-    TMemoryInit(_, _, _, _, _) => {
+    TInstrKind::TMemoryFill(_, _, _, _) => effects.writes_memory = true
+    TInstrKind::TMemoryInit(_, _, _, _, _) => {
       effects.reads_memory = true
       effects.writes_memory = true
     }
-    TDataDrop(_) => effects.writes_memory = true
-    TTableSet(_, _, _) | TTableGrow(_, _, _) | TTableFill(_, _, _, _) =>
-      effects.writes_memory = true
-    TTableGet(_, _) | TTableSize(_) => effects.reads_memory = true
-    TTableCopy(_, _, _, _, _) | TTableInit(_, _, _, _, _) | TElemDrop(_) => {
+    TInstrKind::TDataDrop(_) => effects.writes_memory = true
+    TInstrKind::TTableSet(_, _, _)
+    | TInstrKind::TTableGrow(_, _, _)
+    | TInstrKind::TTableFill(_, _, _, _) => effects.writes_memory = true
+    TInstrKind::TTableGet(_, _) | TInstrKind::TTableSize(_) =>
+      effects.reads_memory = true
+    TInstrKind::TTableCopy(_, _, _, _, _)
+    | TInstrKind::TTableInit(_, _, _, _, _)
+    | TInstrKind::TElemDrop(_) => {
       effects.reads_memory = true
       effects.writes_memory = true
     }
-    TCall(_, _) | TCallIndirect(_, _, _, _) | TCallRef(_, _, _) =>
-      effects.calls = true
-    TReturnCall(_, _)
-    | TReturnCallIndirect(_, _, _, _)
-    | TReturnCallRef(_, _, _) => {
+    TInstrKind::TCall(_, _)
+    | TInstrKind::TCallIndirect(_, _, _, _)
+    | TInstrKind::TCallRef(_, _, _) => effects.calls = true
+    TInstrKind::TReturnCall(_, _)
+    | TInstrKind::TReturnCallIndirect(_, _, _, _)
+    | TInstrKind::TReturnCallRef(_, _, _) => {
       effects.calls = true
       effects.branches = true
     }
-    TBr(_, _)
-    | TBrIf(_, _, _)
-    | TBrTable(_, _, _, _)
-    | TBrOnNull(_, _, _)
-    | TBrOnNonNull(_, _, _)
-    | TBrOnCast(_, _, _, _, _, _)
-    | TBrOnCastFail(_, _, _, _, _, _)
-    | TReturn(_) => effects.branches = true
-    TThrow(_, _) | TThrowRef(_) => {
+    TInstrKind::TBr(_, _)
+    | TInstrKind::TBrIf(_, _, _)
+    | TInstrKind::TBrTable(_, _, _, _)
+    | TInstrKind::TBrOnNull(_, _, _)
+    | TInstrKind::TBrOnNonNull(_, _, _)
+    | TInstrKind::TBrOnCast(_, _, _, _, _, _)
+    | TInstrKind::TBrOnCastFail(_, _, _, _, _, _)
+    | TInstrKind::TReturn(_) => effects.branches = true
+    TInstrKind::TThrow(_, _) | TInstrKind::TThrowRef(_) => {
       effects.throws = true
       effects.branches = true
     }
-    TUnreachable => effects.traps = true
-    TRefAsNonNull(_) | TRefCast(_, _, _) | TRefCastDescEq(_, _, _) =>
-      effects.traps = true
+    TInstrKind::TUnreachable => effects.traps = true
+    TInstrKind::TRefAsNonNull(_)
+    | TInstrKind::TRefCast(_, _, _)
+    | TInstrKind::TRefCastDescEq(_, _, _) => effects.traps = true
     _ => ()
   }
 }
@@ -185,24 +191,24 @@ fn oc_collect_shallow_effects(instr : TInstr) -> OCCastEffects {
 
 ///|
 fn oc_is_non_linear_boundary(instr : TInstr) -> Bool {
-  match instr {
-    TBlock(_, _)
-    | TLoop(_, _)
-    | TIf(_, _, _, _)
-    | TTryTable(_, _, _)
-    | TBr(_, _)
-    | TBrIf(_, _, _)
-    | TBrTable(_, _, _, _)
-    | TBrOnNull(_, _, _)
-    | TBrOnNonNull(_, _, _)
-    | TBrOnCast(_, _, _, _, _, _)
-    | TBrOnCastFail(_, _, _, _, _, _)
-    | TReturn(_)
-    | TThrow(_, _)
-    | TThrowRef(_)
-    | TReturnCall(_, _)
-    | TReturnCallIndirect(_, _, _, _)
-    | TReturnCallRef(_, _, _) => true
+  match instr.kind {
+    TInstrKind::TBlock(_, _)
+    | TInstrKind::TLoop(_, _)
+    | TInstrKind::TIf(_, _, _, _)
+    | TInstrKind::TTryTable(_, _, _)
+    | TInstrKind::TBr(_, _)
+    | TInstrKind::TBrIf(_, _, _)
+    | TInstrKind::TBrTable(_, _, _, _)
+    | TInstrKind::TBrOnNull(_, _, _)
+    | TInstrKind::TBrOnNonNull(_, _, _)
+    | TInstrKind::TBrOnCast(_, _, _, _, _, _)
+    | TInstrKind::TBrOnCastFail(_, _, _, _, _, _)
+    | TInstrKind::TReturn(_)
+    | TInstrKind::TThrow(_, _)
+    | TInstrKind::TThrowRef(_)
+    | TInstrKind::TReturnCall(_, _)
+    | TInstrKind::TReturnCallIndirect(_, _, _, _)
+    | TInstrKind::TReturnCallRef(_, _, _) => true
     _ => false
   }
 }
@@ -457,13 +463,13 @@ fn oc_walk_early_cast_finder_instr(
   instr : TInstr,
 ) -> (LocalIdx, Int)? {
   finder.note_non_linear(instr)
-  let fallthrough = match instr {
-    TLocalGet(idx) => {
+  let fallthrough = match instr.kind {
+    TInstrKind::TLocalGet(idx) => {
       finder.visit_expression(instr)
       let get_id = finder.visit_local_get(idx)
       Some((idx, get_id))
     }
-    TLocalSet(idx, value) => {
+    TInstrKind::TLocalSet(idx, value) => {
       ignore(oc_walk_early_cast_finder_instr(finder, value))
       finder.visit_expression(instr)
       let i = oc_local_index_int(idx)
@@ -471,7 +477,7 @@ fn oc_walk_early_cast_finder_instr(
       finder.flush_ref_as_result(i)
       None
     }
-    TLocalTee(idx, value) => {
+    TInstrKind::TLocalTee(idx, value) => {
       ignore(oc_walk_early_cast_finder_instr(finder, value))
       finder.visit_expression(instr)
       let i = oc_local_index_int(idx)
@@ -479,25 +485,27 @@ fn oc_walk_early_cast_finder_instr(
       finder.flush_ref_as_result(i)
       None
     }
-    TRefAsNonNull(value) => {
+    TInstrKind::TRefAsNonNull(value) => {
       let ft = oc_walk_early_cast_finder_instr(finder, value)
       finder.visit_expression(instr)
       finder.visit_ref_as(true, ft)
       ft
     }
-    TRefCast(nullable, ht, value) => {
+    TInstrKind::TRefCast(nullable, ht, value) => {
       let ft = oc_walk_early_cast_finder_instr(finder, value)
       finder.visit_expression(instr)
       finder.visit_ref_cast(nullable, ht, ft)
       ft
     }
-    TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) => {
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) => {
       oc_walk_early_cast_finder_expr(finder, body)
       finder.flush_all()
       finder.visit_expression(instr)
       None
     }
-    TIf(_, cond, then_, else_) => {
+    TInstrKind::TIf(_, cond, then_, else_) => {
       ignore(oc_walk_early_cast_finder_instr(finder, cond))
       finder.flush_all()
       oc_walk_early_cast_finder_expr(finder, then_)
@@ -546,8 +554,8 @@ fn EarlyCastFinder::has_casts_to_move(self : EarlyCastFinder) -> Bool {
 fn oc_apply_early_casts(body : TExpr, finder : EarlyCastFinder) -> TExpr {
   let get_id = Ref::new(0)
   let pass = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
-    match curr {
-      TLocalGet(_) => {
+    match curr.kind {
+      TInstrKind::TLocalGet(_) => {
         let this_id = get_id.val
         get_id.update(fn(i) { i + 1 })
         let casted : TInstr = match finder.ref_cast_to_apply.get(this_id) {
@@ -658,10 +666,11 @@ fn BestCastFinder::update_best_cast(
 
 ///|
 fn oc_refinement_target(instr : TInstr) -> LocalIdx? {
-  match instr {
-    TLocalGet(idx) => Some(idx)
-    TLocalTee(idx, _) => Some(idx)
-    TRefCast(_, _, child) | TRefAsNonNull(child) => oc_refinement_target(child)
+  match instr.kind {
+    TInstrKind::TLocalGet(idx) => Some(idx)
+    TInstrKind::TLocalTee(idx, _) => Some(idx)
+    TInstrKind::TRefCast(_, _, child) | TInstrKind::TRefAsNonNull(child) =>
+      oc_refinement_target(child)
     _ => None
   }
 }
@@ -686,12 +695,12 @@ fn oc_walk_best_cast_finder_instr(
   active_refinement_id : Int?,
 ) -> Unit {
   finder.note_non_linear(instr)
-  match instr {
-    TLocalSet(idx, value) => {
+  match instr.kind {
+    TInstrKind::TLocalSet(idx, value) => {
       oc_walk_best_cast_finder_instr(finder, value, active_refinement_id)
       finder.visit_local_set(idx)
     }
-    TLocalTee(idx, value) => {
+    TInstrKind::TLocalTee(idx, value) => {
       oc_walk_best_cast_finder_instr(finder, value, active_refinement_id)
       finder.visit_local_set(idx)
       let get_id = finder.visit_local_get(idx)
@@ -704,7 +713,7 @@ fn oc_walk_best_cast_finder_instr(
         None => ()
       }
     }
-    TLocalGet(idx) => {
+    TInstrKind::TLocalGet(idx) => {
       let get_id = finder.visit_local_get(idx)
       match active_refinement_id {
         Some(rid) => {
@@ -716,13 +725,13 @@ fn oc_walk_best_cast_finder_instr(
       }
       ignore(get_id)
     }
-    TRefCast(nullable, ht, value) => {
+    TInstrKind::TRefCast(nullable, ht, value) => {
       let rid = finder.next_refinement_id
       finder.next_refinement_id = rid + 1
       oc_walk_best_cast_finder_instr(finder, value, Some(rid))
       finder.visit_refinement(rid, Some(RefType::new(nullable, ht)), instr)
     }
-    TRefAsNonNull(value) => {
+    TInstrKind::TRefAsNonNull(value) => {
       let rid = finder.next_refinement_id
       finder.next_refinement_id = rid + 1
       oc_walk_best_cast_finder_instr(finder, value, Some(rid))
@@ -737,9 +746,11 @@ fn oc_walk_best_cast_finder_instr(
       }
       finder.visit_refinement(rid, ty, instr)
     }
-    TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) =>
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) =>
       oc_walk_best_cast_finder_expr(finder, body)
-    TIf(_, cond, then_, else_) => {
+    TInstrKind::TIf(_, cond, then_, else_) => {
       oc_walk_best_cast_finder_instr(finder, cond, None)
       finder.most_casted_gets.clear()
       oc_walk_best_cast_finder_expr(finder, then_)
@@ -797,8 +808,8 @@ fn oc_apply_best_casts(
     _,
     curr,
   ) {
-    match curr {
-      TRefCast(nullable, ht, _) => {
+    match curr.kind {
+      TInstrKind::TRefCast(nullable, ht, _) => {
         let rid = next_refinement_id.val
         next_refinement_id.update(fn(i) { i + 1 })
         let walked = match self.walk_tinstruction_default((), curr) {
@@ -816,7 +827,7 @@ fn oc_apply_best_casts(
           _ => change((), walked)
         }
       }
-      TRefAsNonNull(_) => {
+      TInstrKind::TRefAsNonNull(_) => {
         let rid = next_refinement_id.val
         next_refinement_id.update(fn(i) { i + 1 })
         let walked = match self.walk_tinstruction_default((), curr) {
@@ -828,8 +839,8 @@ fn oc_apply_best_casts(
             let temp = LocalIdx::new(next_local.val.reinterpret_as_uint())
             next_local.update(fn(i) { i + 1 })
             // Non-nullable by construction of ref.as_non_null.
-            let temp_ty = match walked {
-              TRefAsNonNull(inner) =>
+            let temp_ty = match walked.kind {
+              TInstrKind::TRefAsNonNull(inner) =>
                 match oc_refinement_target(inner) {
                   Some(idx) =>
                     match finder.env.get_local_type(idx) {
@@ -863,8 +874,8 @@ fn oc_apply_best_casts(
     _,
     curr,
   ) {
-    match curr {
-      TLocalGet(_) => {
+    match curr.kind {
+      TInstrKind::TLocalGet(_) => {
         let id = get_id.val
         get_id.update(fn(i) { i + 1 })
         match match_get_to_refinement.get(id) {
@@ -1018,8 +1029,8 @@ test "optimize casts duplicates earlier cast and tees best cast" {
       assert_true(locals.length() >= 2)
       let mut saw_tee = false
       for instr in new_body.instrs {
-        match instr {
-          TLocalTee(_, _) => saw_tee = true
+        match instr.kind {
+          TInstrKind::TLocalTee(_, _) => saw_tee = true
           _ => ()
         }
       }
@@ -1057,9 +1068,9 @@ test "optimize casts uses most refined cast" {
         _,
         curr,
       ) {
-        match curr {
-          TRefCast(_, HeapType(TypeIdx(i)), _) if i.reinterpret_as_int() == 2 =>
-            saw_refined = true
+        match curr.kind {
+          TInstrKind::TRefCast(_, HeapType(TypeIdx(i)), _) if i.reinterpret_as_int() ==
+            2 => saw_refined = true
           _ => ()
         }
         self.walk_tinstruction_default((), curr)
@@ -1092,8 +1103,8 @@ test "optimize casts handles ref.as_non_null movement" {
         _,
         curr,
       ) {
-        match curr {
-          TRefAsNonNull(_) => count_non_null += 1
+        match curr.kind {
+          TInstrKind::TRefAsNonNull(_) => count_non_null += 1
           _ => ()
         }
         self.walk_tinstruction_default((), curr)
@@ -1126,10 +1137,10 @@ test "optimize casts resets at non linear boundaries" {
   let out = optimize_casts(mod_)
   match oc_get_func(out) {
     Some(TFunc(_, new_body)) =>
-      match new_body.instrs[2] {
-        TBlock(_, { instrs: [inner], .. }) =>
-          match inner {
-            TLocalGet(i) => assert_eq(i.0.reinterpret_as_int(), 0)
+      match new_body.instrs[2].kind {
+        TInstrKind::TBlock(_, { instrs: [inner], .. }) =>
+          match inner.kind {
+            TInstrKind::TLocalGet(i) => assert_eq(i.0.reinterpret_as_int(), 0)
             _ => ()
           }
         _ => fail("expected block")

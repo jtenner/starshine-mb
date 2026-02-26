@@ -63,8 +63,8 @@ fn ut_rewrite_tinstr(
   instr : TInstr,
   local_types : Array[ValType],
 ) -> (TInstr, Bool) {
-  match instr {
-    TLocalTee(idx, value) => {
+  match instr.kind {
+    TInstrKind::TLocalTee(idx, value) => {
       let (next_value, value_changed) = ut_rewrite_tinstr(value, local_types)
       if is_unreachable_instr(next_value) {
         (next_value, true)
@@ -92,7 +92,7 @@ fn ut_rewrite_tinstr(
         }
       }
     }
-    TBlock(bt, body) => {
+    TInstrKind::TBlock(bt, body) => {
       let (next_body, changed) = ut_rewrite_texpr(body, local_types)
       if changed {
         (TInstr::block(bt, next_body), true)
@@ -100,7 +100,7 @@ fn ut_rewrite_tinstr(
         (instr, false)
       }
     }
-    TLoop(bt, body) => {
+    TInstrKind::TLoop(bt, body) => {
       let (next_body, changed) = ut_rewrite_texpr(body, local_types)
       if changed {
         (TInstr::loop_(bt, next_body), true)
@@ -108,7 +108,7 @@ fn ut_rewrite_tinstr(
         (instr, false)
       }
     }
-    TIf(bt, cond, then_body, else_body) => {
+    TInstrKind::TIf(bt, cond, then_body, else_body) => {
       let (next_cond, cond_changed) = ut_rewrite_tinstr(cond, local_types)
       let (next_then, then_changed) = ut_rewrite_texpr(then_body, local_types)
       let (next_else, else_changed) = match else_body {
@@ -124,7 +124,7 @@ fn ut_rewrite_tinstr(
         (instr, false)
       }
     }
-    TTryTable(bt, catches, body) => {
+    TInstrKind::TTryTable(bt, catches, body) => {
       let (next_body, changed) = ut_rewrite_texpr(body, local_types)
       if changed {
         (TInstr::try_table(bt, catches, next_body), true)
@@ -219,7 +219,22 @@ test "untee rewrites local.tee into result-typed block with set/get" {
   match out.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [TDrop(TBlock(block_type, { instrs, .. }))], .. })]
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                {
+                  kind: TInstrKind::TDrop(
+                    { kind: TInstrKind::TBlock(block_type, { instrs, .. }), .. }
+                  ),
+                  ..,
+                },
+              ],
+              ..,
+            }
+          ),
+        ]
       )
     ) => {
       match block_type {
@@ -228,8 +243,14 @@ test "untee rewrites local.tee into result-typed block with set/get" {
       }
       match instrs {
         [
-          TLocalSet(LocalIdx(set_i), TI32Const(I32(v))),
-          TLocalGet(LocalIdx(get_i)),
+          {
+            kind: TInstrKind::TLocalSet(
+              LocalIdx(set_i),
+              { kind: TInstrKind::TI32Const(I32(v)), .. }
+            ),
+            ..,
+          },
+          { kind: TInstrKind::TLocalGet(LocalIdx(get_i)), .. },
         ] => {
           assert_eq(set_i, 0U)
           assert_eq(get_i, 0U)
@@ -258,7 +279,26 @@ test "untee drops unreachable local.tee to unreachable value" {
   )
   let out = run_untee(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TDrop(TUnreachable)], .. })])) => ()
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                {
+                  kind: TInstrKind::TDrop(
+                    { kind: TInstrKind::TUnreachable, .. }
+                  ),
+                  ..,
+                },
+              ],
+              ..,
+            }
+          ),
+        ]
+      )
+    ) => ()
     _ => fail("expected unreachable local.tee to become unreachable child")
   }
 }
@@ -285,7 +325,26 @@ test "untee uses parameter local type for block result" {
     )
   let out = run_untee(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TDrop(TBlock(block_type, _))], .. })])) =>
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                {
+                  kind: TInstrKind::TDrop(
+                    { kind: TInstrKind::TBlock(block_type, _), .. }
+                  ),
+                  ..,
+                },
+              ],
+              ..,
+            }
+          ),
+        ]
+      )
+    ) =>
       match block_type {
         ValTypeBlockType(vt) => assert_eq(vt, ValType::i32())
         _ => fail("expected i32 block type for param local.tee")

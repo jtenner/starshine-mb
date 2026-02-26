@@ -141,42 +141,47 @@ fn load_result_type(op : LoadOp) -> ValType? {
 
 ///|
 fn infer_tinstr_type(instr : TInstr, st : DeNaNState) -> ValType? {
-  match instr {
-    TI32Const(_) => Some(ValType::i32())
-    TI64Const(_) => Some(ValType::i64())
-    TF32Const(_) => Some(ValType::f32())
-    TF64Const(_) => Some(ValType::f64())
-    TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+  match instr.kind {
+    TInstrKind::TI32Const(_) => Some(ValType::i32())
+    TInstrKind::TI64Const(_) => Some(ValType::i64())
+    TInstrKind::TF32Const(_) => Some(ValType::f32())
+    TInstrKind::TF64Const(_) => Some(ValType::f64())
+    TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
       Some(ValType::v128())
-    TUnary(op, _) => unary_result_type(op)
-    TBinary(op, _, _) => binary_result_type(op)
-    TLoad(op, _, _) => load_result_type(op)
-    TLocalGet(idx) => st.env.get_local_type(idx)
-    TGlobalGet(idx) =>
+    TInstrKind::TUnary(op, _) => unary_result_type(op)
+    TInstrKind::TBinary(op, _, _) => binary_result_type(op)
+    TInstrKind::TLoad(op, _, _) => load_result_type(op)
+    TInstrKind::TLocalGet(idx) => st.env.get_local_type(idx)
+    TInstrKind::TGlobalGet(idx) =>
       match st.env.get_global_type(idx) {
         Some(GlobalType(vt, _)) => Some(vt)
         None => None
       }
-    TLocalTee(_, value) => infer_tinstr_type(value, st)
-    TSelect(Some(types), _, _, _) if types.length() == 1 => Some(types[0])
-    TCall(target, _) =>
+    TInstrKind::TLocalTee(_, value) => infer_tinstr_type(value, st)
+    TInstrKind::TSelect(Some(types), _, _, _) if types.length() == 1 =>
+      Some(types[0])
+    TInstrKind::TCall(target, _) =>
       match st.env.get_functype_by_funcidx(target) {
         Some(FuncType(_, [r])) => Some(r)
         _ => None
       }
-    TCallIndirect(type_idx, _, _, _) | TCallRef(type_idx, _, _) =>
+    TInstrKind::TCallIndirect(type_idx, _, _, _)
+    | TInstrKind::TCallRef(type_idx, _, _) =>
       match st.env.resolve_functype(type_idx) {
         Some(FuncType(_, [r])) => Some(r)
         _ => None
       }
-    TBlock(bt, _) | TLoop(bt, _) | TIf(bt, _, _, _) | TTryTable(bt, _, _) =>
+    TInstrKind::TBlock(bt, _)
+    | TInstrKind::TLoop(bt, _)
+    | TInstrKind::TIf(bt, _, _, _)
+    | TInstrKind::TTryTable(bt, _, _) =>
       match st.env.expand_blocktype(bt) {
         Ok((_, [vt])) => Some(vt)
         _ => None
       }
-    TStructGet(type_idx, field_idx, _)
-    | TStructGetS(type_idx, field_idx, _)
-    | TStructGetU(type_idx, field_idx, _) =>
+    TInstrKind::TStructGet(type_idx, field_idx, _)
+    | TInstrKind::TStructGetS(type_idx, field_idx, _)
+    | TInstrKind::TStructGetU(type_idx, field_idx, _) =>
       match st.env.resolve_struct_fields(type_idx) {
         Ok(fields) => {
           let U32(raw_idx) = field_idx
@@ -187,9 +192,9 @@ fn infer_tinstr_type(instr : TInstr, st : DeNaNState) -> ValType? {
         }
         Err(_) => None
       }
-    TArrayGet(type_idx, _, _)
-    | TArrayGetS(type_idx, _, _)
-    | TArrayGetU(type_idx, _, _) =>
+    TInstrKind::TArrayGet(type_idx, _, _)
+    | TInstrKind::TArrayGetS(type_idx, _, _)
+    | TInstrKind::TArrayGetU(type_idx, _, _) =>
       match st.env.resolve_array_field(type_idx) {
         Ok(field) => Some(field.unpack())
         Err(_) => None
@@ -220,12 +225,24 @@ fn is_denam32_func(f : Func) -> Bool {
       [NumTypeValType(F32NumType)],
       {
         instrs: [
-          TIf(
-            ValTypeBlockType(NumTypeValType(F32NumType)),
-            TBinary(F32EqOp, TLocalGet(LocalIdx(0)), TLocalGet(LocalIdx(0))),
-            { instrs: [TLocalGet(LocalIdx(0))], .. },
-            Some({ instrs: [TF32Const(F32(v))], .. })
-          ),
+          {
+            kind: TInstrKind::TIf(
+              ValTypeBlockType(NumTypeValType(F32NumType)),
+              {
+                kind: TInstrKind::TBinary(
+                  F32EqOp,
+                  { kind: TInstrKind::TLocalGet(LocalIdx(0)), .. },
+                  { kind: TInstrKind::TLocalGet(LocalIdx(0)), .. }
+                ),
+                ..,
+              },
+              { instrs: [{ kind: TInstrKind::TLocalGet(LocalIdx(0)), .. }], .. },
+              Some(
+                { instrs: [{ kind: TInstrKind::TF32Const(F32(v)), .. }], .. }
+              )
+            ),
+            ..,
+          },
         ],
         ..,
       }
@@ -241,12 +258,24 @@ fn is_denam64_func(f : Func) -> Bool {
       [NumTypeValType(F64NumType)],
       {
         instrs: [
-          TIf(
-            ValTypeBlockType(NumTypeValType(F64NumType)),
-            TBinary(F64EqOp, TLocalGet(LocalIdx(0)), TLocalGet(LocalIdx(0))),
-            { instrs: [TLocalGet(LocalIdx(0))], .. },
-            Some({ instrs: [TF64Const(F64(v))], .. })
-          ),
+          {
+            kind: TInstrKind::TIf(
+              ValTypeBlockType(NumTypeValType(F64NumType)),
+              {
+                kind: TInstrKind::TBinary(
+                  F64EqOp,
+                  { kind: TInstrKind::TLocalGet(LocalIdx(0)), .. },
+                  { kind: TInstrKind::TLocalGet(LocalIdx(0)), .. }
+                ),
+                ..,
+              },
+              { instrs: [{ kind: TInstrKind::TLocalGet(LocalIdx(0)), .. }], .. },
+              Some(
+                { instrs: [{ kind: TInstrKind::TF64Const(F64(v)), .. }], .. }
+              )
+            ),
+            ..,
+          },
         ],
         ..,
       }
@@ -477,20 +506,20 @@ fn make_denam_transformer() -> ModuleTransformer[DeNaNState] {
     }
   })
   .on_tinstruction_evt(fn(self, st, instr) {
-    match instr {
-      TF32Const(f) =>
+    match instr.kind {
+      TInstrKind::TF32Const(f) =>
         if is_f32_nan(f) {
           Ok(Some((st, TInstr::f32_const(F32(0.0)))))
         } else {
           Ok(None)
         }
-      TF64Const(f) =>
+      TInstrKind::TF64Const(f) =>
         if is_f64_nan(f) {
           Ok(Some((st, TInstr::f64_const(F64(0.0)))))
         } else {
           Ok(None)
         }
-      TCall(idx, _) if st.wrap_enabled &&
+      TInstrKind::TCall(idx, _) if st.wrap_enabled &&
         (st.deNan32 == Some(idx) || st.deNan64 == Some(idx)) =>
         change(st, instr)
       _ =>
@@ -746,10 +775,10 @@ test "f32 NaN constant is replaced with 0.0" {
     Ok({ code_sec: Some(CodeSec(funcs)), .. }) =>
       match funcs[0] {
         TFunc(_, { instrs, .. }) =>
-          match instrs[0] {
-            TF32Const(F32(v)) =>
+          match instrs[0].kind {
+            TInstrKind::TF32Const(F32(v)) =>
               assert_eq(v, 0.0, msg="NaN should be replaced with 0.0")
-            _ => fail("Expected TF32Const")
+            _ => fail("Expected TInstrKind::TF32Const")
           }
         _ => fail("Expected TFunc")
       }
@@ -768,10 +797,10 @@ test "f64 NaN constant is replaced with 0.0" {
     Ok({ code_sec: Some(CodeSec(funcs)), .. }) =>
       match funcs[0] {
         TFunc(_, { instrs, .. }) =>
-          match instrs[0] {
-            TF64Const(F64(v)) =>
+          match instrs[0].kind {
+            TInstrKind::TF64Const(F64(v)) =>
               assert_eq(v, 0.0, msg="NaN should be replaced with 0.0")
-            _ => fail("Expected TF64Const")
+            _ => fail("Expected TInstrKind::TF64Const")
           }
         _ => fail("Expected TFunc")
       }
@@ -788,10 +817,10 @@ test "non-NaN f32 constant is unchanged" {
     Ok({ code_sec: Some(CodeSec(funcs)), .. }) =>
       match funcs[0] {
         TFunc(_, { instrs, .. }) =>
-          match instrs[0] {
-            TF32Const(F32(v)) =>
+          match instrs[0].kind {
+            TInstrKind::TF32Const(F32(v)) =>
               assert_eq(v, 3.14, msg="Non-NaN should be unchanged")
-            _ => fail("Expected TF32Const")
+            _ => fail("Expected TInstrKind::TF32Const")
           }
         _ => fail("Expected TFunc")
       }
@@ -810,8 +839,8 @@ test "negative zero is not replaced" {
     Ok({ code_sec: Some(CodeSec(funcs)), .. }) =>
       match funcs[0] {
         TFunc(_, { instrs, .. }) =>
-          match instrs[0] {
-            TF32Const(F32(v)) => {
+          match instrs[0].kind {
+            TInstrKind::TF32Const(F32(v)) => {
               // Check it's still negative zero (bit pattern preserved)
               let bits = v.reinterpret_as_uint()
               assert_eq(
@@ -820,7 +849,7 @@ test "negative zero is not replaced" {
                 msg="Negative zero should be unchanged",
               )
             }
-            _ => fail("Expected TF32Const")
+            _ => fail("Expected TInstrKind::TF32Const")
           }
         _ => fail("Expected TFunc")
       }
@@ -839,12 +868,12 @@ test "infinity is not replaced" {
     Ok({ code_sec: Some(CodeSec(funcs)), .. }) =>
       match funcs[0] {
         TFunc(_, { instrs, .. }) =>
-          match instrs[0] {
-            TF32Const(F32(v)) => {
+          match instrs[0].kind {
+            TInstrKind::TF32Const(F32(v)) => {
               let bits = v.reinterpret_as_uint()
               assert_eq(bits, 0x7F800000U, msg="Infinity should be unchanged")
             }
-            _ => fail("Expected TF32Const")
+            _ => fail("Expected TInstrKind::TF32Const")
           }
         _ => fail("Expected TFunc")
       }
@@ -984,17 +1013,17 @@ test "f32.add is wrapped with deNan call" {
     Ok({ code_sec: Some(CodeSec(funcs)), .. }) =>
       match funcs[0] {
         TFunc(_, { instrs, .. }) =>
-          match instrs[0] {
-            TCall(FuncIdx(idx), args) => {
+          match instrs[0].kind {
+            TInstrKind::TCall(FuncIdx(idx), args) => {
               // Should be calling the helper function (index 1)
               assert_eq(idx, 1U, msg="Should call deNan32 helper at index 1")
               assert_eq(args.length(), 1, msg="Call should have 1 argument")
-              match args[0] {
-                TBinary(F32AddOp, _, _) => () // Good, the add is the argument
+              match args[0].kind {
+                TInstrKind::TBinary(F32AddOp, _, _) => () // Good, the add is the argument
                 _ => fail("Expected f32.add as argument to deNan call")
               }
             }
-            _ => fail("Expected TCall wrapping the f32.add")
+            _ => fail("Expected TInstrKind::TCall wrapping the f32.add")
           }
         _ => fail("Expected TFunc")
       }
@@ -1014,13 +1043,13 @@ test "f32.sqrt is wrapped with deNan call" {
     Ok({ code_sec: Some(CodeSec(funcs)), .. }) =>
       match funcs[0] {
         @lib.TFunc(_, { instrs, .. }) =>
-          match instrs[0] {
-            TCall(_, args) =>
-              match args[0] {
-                TUnary(F32SqrtOp, _) => () // Good
+          match instrs[0].kind {
+            TInstrKind::TCall(_, args) =>
+              match args[0].kind {
+                TInstrKind::TUnary(F32SqrtOp, _) => () // Good
                 _ => fail("Expected f32.sqrt as argument to deNan call")
               }
-            _ => fail("Expected TCall wrapping the f32.sqrt")
+            _ => fail("Expected TInstrKind::TCall wrapping the f32.sqrt")
           }
         _ => fail("Expected TFunc")
       }
@@ -1046,13 +1075,13 @@ test "f64.div is wrapped with deNan call" {
     Ok({ code_sec: Some(CodeSec(funcs)), .. }) =>
       match funcs[0] {
         @lib.TFunc(_, { instrs, .. }) =>
-          match instrs[0] {
-            TCall(_, args) =>
-              match args[0] {
-                TBinary(F64DivOp, _, _) => ()
+          match instrs[0].kind {
+            TInstrKind::TCall(_, args) =>
+              match args[0].kind {
+                TInstrKind::TBinary(F64DivOp, _, _) => ()
                 _ => fail("Expected f64.div as argument to deNan call")
               }
-            _ => fail("Expected TCall wrapping the f64.div")
+            _ => fail("Expected TInstrKind::TCall wrapping the f64.div")
           }
         _ => fail("Expected TFunc")
       }
@@ -1078,13 +1107,13 @@ test "f32.load is wrapped with deNan call" {
     Ok({ code_sec: Some(CodeSec(funcs)), .. }) =>
       match funcs[0] {
         TFunc(_, { instrs, .. }) =>
-          match instrs[0] {
-            TCall(_, args) =>
-              match args[0] {
-                TLoad(F32LoadOp, _, _) => ()
+          match instrs[0].kind {
+            TInstrKind::TCall(_, args) =>
+              match args[0].kind {
+                TInstrKind::TLoad(F32LoadOp, _, _) => ()
                 _ => fail("Expected f32.load as argument to deNan call")
               }
-            _ => fail("Expected TCall wrapping f32.load")
+            _ => fail("Expected TInstrKind::TCall wrapping f32.load")
           }
         _ => fail("Expected TFunc")
       }
@@ -1111,13 +1140,14 @@ test "typed f32.select is wrapped with deNan call" {
     Ok({ code_sec: Some(CodeSec(funcs)), .. }) =>
       match funcs[0] {
         TFunc(_, { instrs, .. }) =>
-          match instrs[0] {
-            TCall(_, args) =>
-              match args[0] {
-                TSelect(Some([NumTypeValType(F32NumType)]), _, _, _) => ()
+          match instrs[0].kind {
+            TInstrKind::TCall(_, args) =>
+              match args[0].kind {
+                TInstrKind::TSelect(Some([NumTypeValType(F32NumType)]), _, _, _) =>
+                  ()
                 _ => fail("Expected typed f32 select as deNan argument")
               }
-            _ => fail("Expected TCall wrapping typed select")
+            _ => fail("Expected TInstrKind::TCall wrapping typed select")
           }
         _ => fail("Expected TFunc")
       }
@@ -1138,8 +1168,11 @@ test "f32 call result is wrapped with deNan call" {
     Ok({ code_sec: Some(CodeSec(funcs)), .. }) =>
       match funcs[1] {
         TFunc(_, { instrs, .. }) =>
-          match instrs[0] {
-            TCall(FuncIdx(helper_idx), [TCall(FuncIdx(target), [])]) => {
+          match instrs[0].kind {
+            TInstrKind::TCall(
+              FuncIdx(helper_idx),
+              [{ kind: TInstrKind::TCall(FuncIdx(target), []), .. }]
+            ) => {
               assert_eq(
                 helper_idx,
                 2U,
@@ -1172,8 +1205,11 @@ test "f32 local.get flow is wrapped with deNan call" {
     Ok({ code_sec: Some(CodeSec(funcs)), .. }) =>
       match funcs[0] {
         TFunc(_, { instrs, .. }) =>
-          match instrs[0] {
-            TCall(_, [TLocalGet(LocalIdx(0))]) => ()
+          match instrs[0].kind {
+            TInstrKind::TCall(
+              _,
+              [{ kind: TInstrKind::TLocalGet(LocalIdx(0)), .. }]
+            ) => ()
             _ => fail("Expected wrapped local.get result")
           }
         _ => fail("Expected TFunc")
@@ -1206,8 +1242,11 @@ test "f64 global.get flow is wrapped with deNan call" {
     Ok({ code_sec: Some(CodeSec(funcs)), .. }) =>
       match funcs[0] {
         TFunc(_, { instrs, .. }) =>
-          match instrs[0] {
-            TCall(_, [TGlobalGet(GlobalIdx(0))]) => ()
+          match instrs[0].kind {
+            TInstrKind::TCall(
+              _,
+              [{ kind: TInstrKind::TGlobalGet(GlobalIdx(0)), .. }]
+            ) => ()
             _ => fail("Expected wrapped global.get result")
           }
         _ => fail("Expected TFunc")
@@ -1233,10 +1272,13 @@ test "f32 parameter is sanitized at function entry" {
       match funcs[0] {
         TFunc(_, { instrs, .. }) =>
           // First instruction should be local.set that sanitizes the param
-          match instrs[0] {
-            TLocalSet(LocalIdx(0), TCall(_, args)) =>
-              match args[0] {
-                TLocalGet(LocalIdx(0)) => () // Good
+          match instrs[0].kind {
+            TInstrKind::TLocalSet(
+              LocalIdx(0),
+              { kind: TInstrKind::TCall(_, args), .. }
+            ) =>
+              match args[0].kind {
+                TInstrKind::TLocalGet(LocalIdx(0)) => () // Good
                 _ => fail("Expected local.get(0) as argument to deNan call")
               }
             _ => fail("Expected local.set with deNan call at function entry")
@@ -1259,8 +1301,11 @@ test "f64 parameter is sanitized at function entry" {
     Ok({ code_sec: Some(CodeSec(funcs)), .. }) =>
       match funcs[0] {
         TFunc(_, { instrs, .. }) =>
-          match instrs[0] {
-            TLocalSet(LocalIdx(0), TCall(_, _)) => ()
+          match instrs[0].kind {
+            TInstrKind::TLocalSet(
+              LocalIdx(0),
+              { kind: TInstrKind::TCall(_, _), .. }
+            ) => ()
             _ => fail("Expected local.set with deNan call at function entry")
           }
         _ => fail("Expected TFunc")
@@ -1291,8 +1336,9 @@ test "mixed parameters - only floats sanitized" {
           let sanitize_count = instrs
             .iter()
             .take_while(fn(i) {
-              match i {
-                TLocalSet(_, TCall(_, _)) => true
+              match i.kind {
+                TInstrKind::TLocalSet(_, { kind: TInstrKind::TCall(_, _), .. }) =>
+                  true
                 _ => false
               }
             })
@@ -1323,8 +1369,8 @@ test "i32 parameter is not sanitized" {
         TFunc(_, { instrs, .. }) => {
           // Body should be unchanged (just local.get)
           assert_eq(instrs.length(), 1, msg="Body should be unchanged")
-          match instrs[0] {
-            TLocalGet(LocalIdx(0)) => ()
+          match instrs[0].kind {
+            TInstrKind::TLocalGet(LocalIdx(0)) => ()
             _ => fail("Expected unchanged local.get")
           }
         }
@@ -1365,30 +1411,36 @@ test "deNan32 helper has correct structure" {
           }
 
           // Body should be: if (local.get 0 == local.get 0) local.get 0 else 0.0
-          match body[0] {
-            TIf(
+          match body[0].kind {
+            TInstrKind::TIf(
               ValTypeBlockType(NumTypeValType(F32NumType)),
               cond,
               then_branch,
               Some(else_branch)
             ) => {
               // Condition: f32.eq (local.get 0) (local.get 0)
-              match cond {
-                TBinary(F32EqOp, TLocalGet(LocalIdx(0)), TLocalGet(LocalIdx(0))) =>
-                  ()
+              match cond.kind {
+                TInstrKind::TBinary(
+                  F32EqOp,
+                  { kind: TInstrKind::TLocalGet(LocalIdx(0)), .. },
+                  { kind: TInstrKind::TLocalGet(LocalIdx(0)), .. }
+                ) => ()
                 _ =>
                   fail("Condition should be f32.eq comparing param to itself")
               }
 
               // Then: return parameter
               match then_branch {
-                { instrs: [TLocalGet(LocalIdx(0))], .. } => ()
+                {
+                  instrs: [{ kind: TInstrKind::TLocalGet(LocalIdx(0)), .. }],
+                  ..,
+                } => ()
                 _ => fail("Then branch should return parameter")
               }
 
               // Else: return 0.0
               match else_branch {
-                { instrs: [TF32Const(F32(v))], .. } =>
+                { instrs: [{ kind: TInstrKind::TF32Const(F32(v)), .. }], .. } =>
                   assert_eq(v, 0.0, msg="Else should return 0.0")
                 _ => fail("Else branch should return 0.0")
               }
@@ -1470,11 +1522,11 @@ test "nested expressions are properly wrapped" {
 
   // Count the number of deNan calls (should be 3: mul, div, add)
   fn count_calls(i : TInstr) -> Int {
-    match i {
-      TCall(_, args) =>
+    match i.kind {
+      TInstrKind::TCall(_, args) =>
         1 + args.iter().map(count_calls).fold(init=0, fn(a, b) { a + b })
-      TBinary(_, l, r) => count_calls(l) + count_calls(r)
-      TUnary(_, x) => count_calls(x)
+      TInstrKind::TBinary(_, l, r) => count_calls(l) + count_calls(r)
+      TInstrKind::TUnary(_, x) => count_calls(x)
       _ => 0
     }
   }
@@ -1521,8 +1573,9 @@ test "multiple functions are all processed" {
       for i in [0, 1] {
         match funcs[i] {
           @lib.TFunc(_, { instrs, .. }) =>
-            match instrs[0] {
-              TLocalSet(_, TCall(_, _)) => () // Has sanitization
+            match instrs[0].kind {
+              TInstrKind::TLocalSet(_, { kind: TInstrKind::TCall(_, _), .. }) =>
+                () // Has sanitization
               _ => fail("Function \{i} should have parameter sanitization")
             }
           _ => fail("Expected TFunc")
@@ -1605,8 +1658,11 @@ test "running pass twice produces same result" {
       assert_eq(funcs1.length(), 2, msg="second run should not add new helpers")
       match funcs1[0] {
         TFunc(_, { instrs, .. }) =>
-          match instrs[0] {
-            TLocalSet(LocalIdx(0), TCall(FuncIdx(helper_idx), _)) =>
+          match instrs[0].kind {
+            TInstrKind::TLocalSet(
+              LocalIdx(0),
+              { kind: TInstrKind::TCall(FuncIdx(helper_idx), _), .. }
+            ) =>
               assert_eq(
                 helper_idx,
                 2U,
@@ -1721,8 +1777,16 @@ test "de_nan_ir_pass rewrites module through IRContext wrapper" {
   match de_nan_ir_pass(mod).walk_module(ctx, mod) {
     Ok(Some((_, out))) =>
       match out.code_sec {
-        Some(CodeSec([TFunc(_, { instrs: [TF32Const(F32(v))], .. })])) =>
-          assert_eq(v, 0.0)
+        Some(
+          CodeSec(
+            [
+              TFunc(
+                _,
+                { instrs: [{ kind: TInstrKind::TF32Const(F32(v)), .. }], .. }
+              ),
+            ]
+          )
+        ) => assert_eq(v, 0.0)
         _ => fail("expected rewritten f32 NaN constant")
       }
     Ok(None) => fail("expected de_nan_ir_pass to report rewritten module")

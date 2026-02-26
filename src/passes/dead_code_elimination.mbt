@@ -104,12 +104,13 @@ fn dce_tinstr(
   let mut rewritten = walked
 
   // Control-flow-structure rewrites that need explicit handling.
-  rewritten = match rewritten {
-    TBlock(_, body) if is_single_unreachable_texpr(body) =>
+  rewritten = match rewritten.kind {
+    TInstrKind::TBlock(_, body) if is_single_unreachable_texpr(body) =>
       TInstr::unreachable_()
-    TIf(_, cond, _, _) if dce_is_unreachable_instr(cond, break_scan_budget) =>
-      cond
-    TLoop(_, body) if is_single_unreachable_texpr(body) =>
+    TInstrKind::TIf(_, cond, _, _) if dce_is_unreachable_instr(
+        cond, break_scan_budget,
+      ) => cond
+    TInstrKind::TLoop(_, body) if is_single_unreachable_texpr(body) =>
       TInstr::unreachable_()
     _ => rewritten
   }
@@ -134,8 +135,11 @@ fn dce_tinstr(
 
 ///|
 fn is_control_flow_structure(instr : TInstr) -> Bool {
-  match instr {
-    TBlock(_, _) | TLoop(_, _) | TIf(_, _, _, _) | TTryTable(_, _, _) => true
+  match instr.kind {
+    TInstrKind::TBlock(_, _)
+    | TInstrKind::TLoop(_, _)
+    | TInstrKind::TIf(_, _, _, _)
+    | TInstrKind::TTryTable(_, _, _) => true
     _ => false
   }
 }
@@ -144,7 +148,7 @@ fn is_control_flow_structure(instr : TInstr) -> Bool {
 fn is_single_unreachable_texpr(expr : TExpr) -> Bool {
   let { instrs, .. } = expr
   match instrs {
-    [TUnreachable] => true
+    [{ kind: TInstrKind::TUnreachable, .. }] => true
     _ => false
   }
 }
@@ -215,10 +219,10 @@ fn dce_has_break_to_depth(
   if dce_take_break_budget(break_scan_budget) {
     return true
   }
-  match instr {
-    TBr(label, _) => label_matches_depth(label, depth)
-    TBrIf(label, _, _) => label_matches_depth(label, depth)
-    TBrTable(labels, default, _, _) => {
+  match instr.kind {
+    TInstrKind::TBr(label, _) => label_matches_depth(label, depth)
+    TInstrKind::TBrIf(label, _, _) => label_matches_depth(label, depth)
+    TInstrKind::TBrTable(labels, default, _, _) => {
       if label_matches_depth(default, depth) {
         return true
       }
@@ -229,13 +233,14 @@ fn dce_has_break_to_depth(
       }
       false
     }
-    TBrOnNull(label, _, _)
-    | TBrOnNonNull(label, _, _)
-    | TBrOnCast(label, _, _, _, _, _)
-    | TBrOnCastFail(label, _, _, _, _, _) => label_matches_depth(label, depth)
-    TBlock(_, body) | TLoop(_, body) =>
+    TInstrKind::TBrOnNull(label, _, _)
+    | TInstrKind::TBrOnNonNull(label, _, _)
+    | TInstrKind::TBrOnCast(label, _, _, _, _, _)
+    | TInstrKind::TBrOnCastFail(label, _, _, _, _, _) =>
+      label_matches_depth(label, depth)
+    TInstrKind::TBlock(_, body) | TInstrKind::TLoop(_, body) =>
       dce_has_break_to_depth_in_texpr(body, depth + 1, break_scan_budget)
-    TIf(_, cond, then_body, else_body) => {
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
       if dce_has_break_to_depth(cond, depth, break_scan_budget) {
         return true
       }
@@ -252,7 +257,7 @@ fn dce_has_break_to_depth(
         None => false
       }
     }
-    TTryTable(_, catches, body) => {
+    TInstrKind::TTryTable(_, catches, body) => {
       for catch_ in catches {
         if catch_targets_depth(catch_, depth + 1) {
           return true
@@ -293,27 +298,27 @@ fn dce_is_unreachable_instr(
   if dce_take_break_budget(break_scan_budget) {
     return false
   }
-  match instr {
-    TUnreachable => true
+  match instr.kind {
+    TInstrKind::TUnreachable => true
 
     // Always transfer control away from the current continuation.
-    TBr(_, _)
-    | TBrTable(_, _, _, _)
-    | TReturn(_)
-    | TReturnCall(_, _)
-    | TReturnCallIndirect(_, _, _, _)
-    | TReturnCallRef(_, _, _)
-    | TThrow(_, _)
-    | TThrowRef(_) => true
+    TInstrKind::TBr(_, _)
+    | TInstrKind::TBrTable(_, _, _, _)
+    | TInstrKind::TReturn(_)
+    | TInstrKind::TReturnCall(_, _)
+    | TInstrKind::TReturnCallIndirect(_, _, _, _)
+    | TInstrKind::TReturnCallRef(_, _, _)
+    | TInstrKind::TThrow(_, _)
+    | TInstrKind::TThrowRef(_) => true
 
     // Block is unreachable only when its body is unreachable and there are
     // no breaks to the block itself.
-    TBlock(_, body) =>
+    TInstrKind::TBlock(_, body) =>
       dce_texpr_is_unreachable(body, break_scan_budget) &&
       !dce_has_break_to_depth_in_texpr(body, 0, break_scan_budget)
 
     // If is unreachable when condition is unreachable or both branches are.
-    TIf(_, cond, then_body, else_body) => {
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
       if dce_is_unreachable_instr(cond, break_scan_budget) {
         return true
       }
@@ -326,10 +331,12 @@ fn dce_is_unreachable_instr(
     }
 
     // Loop can only fall through if the body can fall through.
-    TLoop(_, body) => dce_texpr_is_unreachable(body, break_scan_budget)
+    TInstrKind::TLoop(_, body) =>
+      dce_texpr_is_unreachable(body, break_scan_budget)
 
     // try_table can finish normally only when its body can finish normally.
-    TTryTable(_, _, body) => dce_texpr_is_unreachable(body, break_scan_budget)
+    TInstrKind::TTryTable(_, _, body) =>
+      dce_texpr_is_unreachable(body, break_scan_budget)
 
     // For non-control ops, any unreachable child makes the parent unreachable.
     _ => dce_has_unreachable_child(instr, break_scan_budget)
@@ -373,142 +380,165 @@ fn is_unreachable_instr(instr : TInstr) -> Bool {
 
 ///|
 fn eval_children(instr : TInstr) -> Array[TInstr] {
-  match instr {
+  match instr.kind {
     // Zero-operand instructions.
-    TI32Const(_)
-    | TI64Const(_)
-    | TF32Const(_)
-    | TF64Const(_)
-    | TRefNull(_)
-    | TRefFunc(_)
-    | TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
-    | TUnreachable
-    | TNop
-    | TLocalGet(_)
-    | TGlobalGet(_)
-    | TMemorySize(_)
-    | TAtomicFence
-    | TTableSize(_)
-    | TDataDrop(_)
-    | TElemDrop(_)
-    | TStructNewDefault(_) => []
+    TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_)
+    | TInstrKind::TRefNull(_)
+    | TInstrKind::TRefFunc(_)
+    | TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    | TInstrKind::TUnreachable
+    | TInstrKind::TNop
+    | TInstrKind::TLocalGet(_)
+    | TInstrKind::TGlobalGet(_)
+    | TInstrKind::TMemorySize(_)
+    | TInstrKind::TAtomicFence
+    | TInstrKind::TTableSize(_)
+    | TInstrKind::TDataDrop(_)
+    | TInstrKind::TElemDrop(_)
+    | TInstrKind::TStructNewDefault(_) => []
 
     // Unary operands.
-    TUnary(_, child)
-    | TDrop(child)
-    | TLocalSet(_, child)
-    | TLocalTee(_, child)
-    | TGlobalSet(_, child)
-    | TRefIsNull(child)
-    | TRefAsNonNull(child)
-    | TI31GetS(child)
-    | TI31GetU(child)
-    | TRefI31(child)
-    | TArrayLen(child)
-    | TAnyConvertExtern(child)
-    | TExternConvertAny(child)
-    | TThrowRef(child)
-    | TMemoryGrow(_, child)
-    | TTableGet(_, child)
-    | TLoad(_, _, child)
-    | TArrayNewDefault(_, child)
-    | TStructGet(_, _, child)
-    | TStructGetS(_, _, child)
-    | TStructGetU(_, _, child)
-    | TI8x16Splat(child)
-    | TI16x8Splat(child)
-    | TI32x4Splat(child)
-    | TI64x2Splat(child)
-    | TF32x4Splat(child)
-    | TF64x2Splat(child)
-    | TExtractLane(_, _, child)
-    | TRefTest(_, _, child)
-    | TRefCast(_, _, child)
-    | TRefGetDesc(child)
-    | TRefTestDesc(_, _, child)
-    | TRefCastDescEq(_, _, child) => [child]
+    TInstrKind::TUnary(_, child)
+    | TInstrKind::TDrop(child)
+    | TInstrKind::TLocalSet(_, child)
+    | TInstrKind::TLocalTee(_, child)
+    | TInstrKind::TGlobalSet(_, child)
+    | TInstrKind::TRefIsNull(child)
+    | TInstrKind::TRefAsNonNull(child)
+    | TInstrKind::TI31GetS(child)
+    | TInstrKind::TI31GetU(child)
+    | TInstrKind::TRefI31(child)
+    | TInstrKind::TArrayLen(child)
+    | TInstrKind::TAnyConvertExtern(child)
+    | TInstrKind::TExternConvertAny(child)
+    | TInstrKind::TThrowRef(child)
+    | TInstrKind::TMemoryGrow(_, child)
+    | TInstrKind::TTableGet(_, child)
+    | TInstrKind::TLoad(_, _, child)
+    | TInstrKind::TArrayNewDefault(_, child)
+    | TInstrKind::TStructGet(_, _, child)
+    | TInstrKind::TStructGetS(_, _, child)
+    | TInstrKind::TStructGetU(_, _, child)
+    | TInstrKind::TI8x16Splat(child)
+    | TInstrKind::TI16x8Splat(child)
+    | TInstrKind::TI32x4Splat(child)
+    | TInstrKind::TI64x2Splat(child)
+    | TInstrKind::TF32x4Splat(child)
+    | TInstrKind::TF64x2Splat(child)
+    | TInstrKind::TExtractLane(_, _, child)
+    | TInstrKind::TRefTest(_, _, child)
+    | TInstrKind::TRefCast(_, _, child)
+    | TInstrKind::TRefGetDesc(child)
+    | TInstrKind::TRefTestDesc(_, _, child)
+    | TInstrKind::TRefCastDescEq(_, _, child) => [child]
 
     // Two operands.
-    TBinary(_, left, right)
-    | TRefEq(left, right)
-    | TStore(_, _, left, right)
-    | TMemoryAtomicNotify(_, left, right)
-    | TAtomicRmw(_, _, left, right)
-    | TTableSet(_, left, right)
-    | TTableGrow(_, left, right)
-    | TStructSet(_, _, left, right)
-    | TArrayNew(_, left, right)
-    | TArrayNewData(_, _, left, right)
-    | TArrayNewElem(_, _, left, right)
-    | TArrayGet(_, left, right)
-    | TArrayGetS(_, left, right)
-    | TArrayGetU(_, left, right)
-    | TReplaceLane(_, _, left, right)
-    | TI8x16Swizzle(left, right)
-    | TI8x16RelaxedSwizzle(left, right)
-    | TV128Shift(_, left, right)
-    | TV128LoadLane(_, _, _, left, right)
-    | TV128StoreLane(_, _, _, left, right) => [left, right]
+    TInstrKind::TBinary(_, left, right)
+    | TInstrKind::TRefEq(left, right)
+    | TInstrKind::TStore(_, _, left, right)
+    | TInstrKind::TMemoryAtomicNotify(_, left, right)
+    | TInstrKind::TAtomicRmw(_, _, left, right)
+    | TInstrKind::TTableSet(_, left, right)
+    | TInstrKind::TTableGrow(_, left, right)
+    | TInstrKind::TStructSet(_, _, left, right)
+    | TInstrKind::TArrayNew(_, left, right)
+    | TInstrKind::TArrayNewData(_, _, left, right)
+    | TInstrKind::TArrayNewElem(_, _, left, right)
+    | TInstrKind::TArrayGet(_, left, right)
+    | TInstrKind::TArrayGetS(_, left, right)
+    | TInstrKind::TArrayGetU(_, left, right)
+    | TInstrKind::TReplaceLane(_, _, left, right)
+    | TInstrKind::TI8x16Swizzle(left, right)
+    | TInstrKind::TI8x16RelaxedSwizzle(left, right)
+    | TInstrKind::TV128Shift(_, left, right)
+    | TInstrKind::TV128LoadLane(_, _, _, left, right)
+    | TInstrKind::TV128StoreLane(_, _, _, left, right) => [left, right]
 
     // Three operands.
-    TMemoryFill(_, a, b, c)
-    | TMemoryCopy(_, _, a, b, c)
-    | TMemoryInit(_, _, a, b, c)
-    | TMemoryAtomicWait32(_, a, b, c)
-    | TMemoryAtomicWait64(_, a, b, c)
-    | TAtomicCmpxchg(_, _, a, b, c)
-    | TTableFill(_, a, b, c)
-    | TTableCopy(_, _, a, b, c)
-    | TTableInit(_, _, a, b, c)
-    | TSelect(_, c, a, b)
-    | TV128Ternary(_, a, b, c) => [a, b, c]
+    TInstrKind::TMemoryFill(_, a, b, c)
+    | TInstrKind::TMemoryCopy(_, _, a, b, c)
+    | TInstrKind::TMemoryInit(_, _, a, b, c)
+    | TInstrKind::TMemoryAtomicWait32(_, a, b, c)
+    | TInstrKind::TMemoryAtomicWait64(_, a, b, c)
+    | TInstrKind::TAtomicCmpxchg(_, _, a, b, c)
+    | TInstrKind::TTableFill(_, a, b, c)
+    | TInstrKind::TTableCopy(_, _, a, b, c)
+    | TInstrKind::TTableInit(_, _, a, b, c)
+    | TInstrKind::TSelect(_, c, a, b)
+    | TInstrKind::TV128Ternary(_, a, b, c) => [a, b, c]
 
     // Variable-length operands.
-    TCall(_, args)
-    | TReturnCall(_, args)
-    | TThrow(_, args)
-    | TBr(_, args)
-    | TReturn(args)
-    | TStructNew(_, args)
-    | TArrayNewFixed(_, args) => args.copy()
-    TCallIndirect(_, _, args, index) | TReturnCallIndirect(_, _, args, index) => {
+    TInstrKind::TCall(_, args)
+    | TInstrKind::TReturnCall(_, args)
+    | TInstrKind::TThrow(_, args)
+    | TInstrKind::TBr(_, args)
+    | TInstrKind::TReturn(args)
+    | TInstrKind::TStructNew(_, args)
+    | TInstrKind::TArrayNewFixed(_, args) => args.copy()
+    TInstrKind::TCallIndirect(_, _, args, index)
+    | TInstrKind::TReturnCallIndirect(_, _, args, index) => {
       let out = args.copy()
       out.push(index)
       out
     }
-    TCallRef(_, args, ref_) | TReturnCallRef(_, args, ref_) => {
+    TInstrKind::TCallRef(_, args, ref_)
+    | TInstrKind::TReturnCallRef(_, args, ref_) => {
       let out = args.copy()
       out.push(ref_)
       out
     }
-    TBrIf(_, cond, values) => {
+    TInstrKind::TBrIf(_, cond, values) => {
       let out = values.copy()
       out.push(cond)
       out
     }
-    TBrTable(_, _, index, values) => {
+    TInstrKind::TBrTable(_, _, index, values) => {
       let out = values.copy()
       out.push(index)
       out
     }
-    TBrOnNull(_, ref_, values)
-    | TBrOnNonNull(_, ref_, values)
-    | TBrOnCast(_, _, _, _, ref_, values)
-    | TBrOnCastFail(_, _, _, _, ref_, values) => {
+    TInstrKind::TBrOnNull(_, ref_, values)
+    | TInstrKind::TBrOnNonNull(_, ref_, values)
+    | TInstrKind::TBrOnCast(_, _, _, _, ref_, values)
+    | TInstrKind::TBrOnCastFail(_, _, _, _, ref_, values) => {
       let out = values.copy()
       out.push(ref_)
       out
     }
-    TArraySet(_, a, b, c) => [a, b, c]
-    TArrayFill(_, a, b, c, d) => [a, b, c, d]
-    TArrayCopy(_, _, a, b, c, d, e) => [a, b, c, d, e]
-    TArrayInitData(_, _, a, b, c, d) => [a, b, c, d]
-    TArrayInitElem(_, _, a, b, c, d) => [a, b, c, d]
-    TI8x16Shuffle(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, left, right) =>
-      [left, right]
+    TInstrKind::TArraySet(_, a, b, c) => [a, b, c]
+    TInstrKind::TArrayFill(_, a, b, c, d) => [a, b, c, d]
+    TInstrKind::TArrayCopy(_, _, a, b, c, d, e) => [a, b, c, d, e]
+    TInstrKind::TArrayInitData(_, _, a, b, c, d) => [a, b, c, d]
+    TInstrKind::TArrayInitElem(_, _, a, b, c, d) => [a, b, c, d]
+    TInstrKind::TI8x16Shuffle(
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      left,
+      right
+    ) => [left, right]
 
     // Control-flow structures are handled directly by control-flow logic.
-    TBlock(_, _) | TLoop(_, _) | TIf(_, _, _, _) | TTryTable(_, _, _) => []
+    TInstrKind::TBlock(_, _)
+    | TInstrKind::TLoop(_, _)
+    | TInstrKind::TIf(_, _, _, _)
+    | TInstrKind::TTryTable(_, _, _) => []
   }
 }
 
@@ -533,10 +563,24 @@ test "dead code elim rewrites non-control unreachable operands" {
   let out = run_dce_on_texpr(input)
   match out.instrs {
     [
-      TBlock(
-        VoidBlockType,
-        { instrs: [TDrop(TI32Const(I32(1))), TUnreachable], .. }
-      ),
+      {
+        kind: TInstrKind::TBlock(
+          VoidBlockType,
+          {
+            instrs: [
+              {
+                kind: TInstrKind::TDrop(
+                  { kind: TInstrKind::TI32Const(I32(1)), .. }
+                ),
+                ..,
+              },
+              { kind: TInstrKind::TUnreachable, .. },
+            ],
+            ..,
+          }
+        ),
+        ..,
+      },
     ] => ()
     _ => fail("expected add to rewrite to block(drop(const), unreachable)")
   }
@@ -556,7 +600,21 @@ test "dead code elim truncates block tails after unreachable" {
   ])
   let out = run_dce_on_texpr(input)
   match out.instrs {
-    [TBlock(_, { instrs: [TI32Const(I32(0)), TUnreachable], .. })] => ()
+    [
+      {
+        kind: TInstrKind::TBlock(
+          _,
+          {
+            instrs: [
+              { kind: TInstrKind::TI32Const(I32(0)), .. },
+              { kind: TInstrKind::TUnreachable, .. },
+            ],
+            ..,
+          }
+        ),
+        ..,
+      },
+    ] => ()
     _ => fail("expected block tail after unreachable to be removed")
   }
 }
@@ -574,7 +632,7 @@ test "dead code elim simplifies if when condition is unreachable" {
   ])
   let out = run_dce_on_texpr(input)
   match out.instrs {
-    [TUnreachable] => ()
+    [{ kind: TInstrKind::TUnreachable, .. }] => ()
     _ => fail("expected if(cond=unreachable) to become unreachable")
   }
 }
@@ -590,7 +648,7 @@ test "dead code elim simplifies loop with unreachable body" {
   ])
   let out = run_dce_on_texpr(input)
   match out.instrs {
-    [TUnreachable] => ()
+    [{ kind: TInstrKind::TUnreachable, .. }] => ()
     _ => fail("expected loop(unreachable) to become unreachable")
   }
 }
@@ -606,7 +664,16 @@ test "dead code elim keeps outer continuation when block has break" {
   ])
   let out = run_dce_on_texpr(input)
   match out.instrs {
-    [TBlock(_, { instrs: [TBr(_, _)], .. }), TI32Const(I32(2))] => ()
+    [
+      {
+        kind: TInstrKind::TBlock(
+          _,
+          { instrs: [{ kind: TInstrKind::TBr(_, _), .. }], .. }
+        ),
+        ..,
+      },
+      { kind: TInstrKind::TI32Const(I32(2)), .. },
+    ] => ()
     _ => fail("expected block with br 0 to preserve outer continuation")
   }
 }
@@ -623,7 +690,16 @@ test "dead code elim propagates unreachable through try_table" {
   ])
   let out = run_dce_on_texpr(input)
   match out.instrs {
-    [TTryTable(_, _, { instrs: [TUnreachable], .. })] => ()
+    [
+      {
+        kind: TInstrKind::TTryTable(
+          _,
+          _,
+          { instrs: [{ kind: TInstrKind::TUnreachable, .. }], .. }
+        ),
+        ..,
+      },
+    ] => ()
     _ => fail("expected try_table(unreachable body) to make continuation dead")
   }
 }
@@ -647,11 +723,26 @@ test "dead code elim keeps outer continuation for try_table catch escape" {
   let out = run_dce_on_texpr(input)
   match out.instrs {
     [
-      TBlock(
-        _,
-        { instrs: [TTryTable(_, _, { instrs: [TUnreachable], .. })], .. }
-      ),
-      TI32Const(I32(2)),
+      {
+        kind: TInstrKind::TBlock(
+          _,
+          {
+            instrs: [
+              {
+                kind: TInstrKind::TTryTable(
+                  _,
+                  _,
+                  { instrs: [{ kind: TInstrKind::TUnreachable, .. }], .. }
+                ),
+                ..,
+              },
+            ],
+            ..,
+          }
+        ),
+        ..,
+      },
+      { kind: TInstrKind::TI32Const(I32(2)), .. },
     ] => ()
     _ =>
       fail(
@@ -681,8 +772,25 @@ test "dead code elim keeps enclosing block reachable for loop branch escape" {
   let out = run_dce_on_texpr(input)
   match out.instrs {
     [
-      TBlock(_, { instrs: [TLoop(_, { instrs: [TBr(_, _)], .. })], .. }),
-      TI32Const(I32(2)),
+      {
+        kind: TInstrKind::TBlock(
+          _,
+          {
+            instrs: [
+              {
+                kind: TInstrKind::TLoop(
+                  _,
+                  { instrs: [{ kind: TInstrKind::TBr(_, _), .. }], .. }
+                ),
+                ..,
+              },
+            ],
+            ..,
+          }
+        ),
+        ..,
+      },
+      { kind: TInstrKind::TI32Const(I32(2)), .. },
     ] => ()
     _ =>
       fail(

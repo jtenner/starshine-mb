@@ -216,9 +216,9 @@ fn mp_const_offset_expr(expr : Expr) -> MPConstOffset? {
 
 ///|
 fn mp_const_u64(instr : TInstr) -> UInt64? {
-  match instr {
-    TI32Const(I32(v)) => Some(v.reinterpret_as_uint().to_uint64())
-    TI64Const(I64(v)) => Some(v.reinterpret_as_uint64())
+  match instr.kind {
+    TInstrKind::TI32Const(I32(v)) => Some(v.reinterpret_as_uint().to_uint64())
+    TInstrKind::TI64Const(I64(v)) => Some(v.reinterpret_as_uint64())
     _ => None
   }
 }
@@ -787,8 +787,8 @@ fn collect_segment_referrers(mod : Module) -> Map[Int, MPSegmentReferrers] {
       out[idx] = f(curr)
     }
 
-    match instr {
-      TMemoryInit(di, _, _, src, len) => {
+    match instr.kind {
+      TInstrKind::TMemoryInit(di, _, _, src, len) => {
         let idx = mp_data_idx_to_int(di)
         update_ref(out, idx, fn(r) {
           {
@@ -802,7 +802,7 @@ fn collect_segment_referrers(mod : Module) -> Map[Int, MPSegmentReferrers] {
           }
         })
       }
-      TDataDrop(di) => {
+      TInstrKind::TDataDrop(di) => {
         let idx = mp_data_idx_to_int(di)
         update_ref(out, idx, fn(r) {
           {
@@ -814,7 +814,8 @@ fn collect_segment_referrers(mod : Module) -> Map[Int, MPSegmentReferrers] {
           }
         })
       }
-      TArrayNewData(_, di, _, _) | TArrayInitData(_, di, _, _, _, _) => {
+      TInstrKind::TArrayNewData(_, di, _, _)
+      | TInstrKind::TArrayInitData(_, di, _, _, _, _) => {
         let idx = mp_data_idx_to_int(di)
         update_ref(out, idx, fn(r) {
           {
@@ -937,14 +938,14 @@ fn optimize_segment_ops(
       Ok(None) => instr
       Err(e) => return Err(e)
     }
-    match walked {
-      TDataDrop(di) =>
+    match walked.kind {
+      TInstrKind::TDataDrop(di) =>
         if active.contains(mp_data_idx_to_int(di)) {
           change((), TInstr::nop())
         } else {
           unchanged()
         }
-      TMemoryInit(di, mi, dest, src, len) => {
+      TInstrKind::TMemoryInit(di, mi, dest, src, len) => {
         let idx = mp_data_idx_to_int(di)
         if idx < 0 || idx >= data_segments.length() {
           return unchanged()
@@ -1143,8 +1144,8 @@ fn mp_needs_drop_state_global(
     instr,
   ) {
     let mut needed = state
-    match instr {
-      TMemoryInit(di, _, _, src, len) => {
+    match instr.kind {
+      TInstrKind::TMemoryInit(di, _, _, src, len) => {
         let idx = mp_data_idx_to_int(di)
         match transforms.get(idx) {
           Some(transform) if transform.transformed =>
@@ -1455,8 +1456,8 @@ fn apply_replacements(
                 Err(e) => return Err(e)
               }
               let (state, curr) = walked
-              match curr {
-                TDataDrop(di) => {
+              match curr.kind {
+                TInstrKind::TDataDrop(di) => {
                   let idx = mp_data_idx_to_int(di)
                   if plan.removed_passive.contains(idx) {
                     return change(state, TInstr::nop())
@@ -1500,7 +1501,7 @@ fn apply_replacements(
                     None => unchanged()
                   }
                 }
-                TMemoryInit(di, mi, dest, src, len) => {
+                TInstrKind::TMemoryInit(di, mi, dest, src, len) => {
                   let idx = mp_data_idx_to_int(di)
                   if plan.removed_passive.contains(idx) {
                     return change(state, TInstr::nop())
@@ -1526,7 +1527,7 @@ fn apply_replacements(
                     None => unchanged()
                   }
                 }
-                TArrayNewData(ti, di, off, len) => {
+                TInstrKind::TArrayNewData(ti, di, off, len) => {
                   let idx = mp_data_idx_to_int(di)
                   if plan.removed_passive.contains(idx) {
                     return unchanged()
@@ -1544,7 +1545,7 @@ fn apply_replacements(
                     None => unchanged()
                   }
                 }
-                TArrayInitData(ti, di, d, o, s, sz) => {
+                TInstrKind::TArrayInitData(ti, di, d, o, s, sz) => {
                   let idx = mp_data_idx_to_int(di)
                   if plan.removed_passive.contains(idx) {
                     return unchanged()
@@ -2176,10 +2177,10 @@ test "memory packing rewrites memory.init with zero/non-zero ranges" {
   let out = mp_run(mod)
   let new_body = mp_first_body(out)
   let init_count = mp_count_instr(new_body, fn(i) {
-    i is TMemoryInit(_, _, _, _, _)
+    i.kind is TInstrKind::TMemoryInit(_, _, _, _, _)
   })
   let fill_count = mp_count_instr(new_body, fn(i) {
-    i is TMemoryFill(_, _, _, _)
+    i.kind is TInstrKind::TMemoryFill(_, _, _, _)
   })
   assert_true(init_count >= 1)
   assert_true(fill_count >= 1)
@@ -2205,10 +2206,10 @@ test "memory packing keeps non-zero-only memory.init without fill" {
   let out = mp_run(mod)
   let new_body = mp_first_body(out)
   let init_count = mp_count_instr(new_body, fn(i) {
-    i is TMemoryInit(_, _, _, _, _)
+    i.kind is TInstrKind::TMemoryInit(_, _, _, _, _)
   })
   let fill_count = mp_count_instr(new_body, fn(i) {
-    i is TMemoryFill(_, _, _, _)
+    i.kind is TInstrKind::TMemoryFill(_, _, _, _)
   })
   assert_true(init_count >= 1)
   assert_eq(fill_count, 0)
@@ -2245,7 +2246,9 @@ test "memory packing introduces temp local for non-const memory.init dest" {
   match out.code_sec {
     Some(CodeSec([TFunc(locals, body)])) => {
       assert_true(locals.length() >= 1)
-      let set_count = mp_count_instr(body, fn(i) { i is TLocalSet(_, _) })
+      let set_count = mp_count_instr(body, fn(i) {
+        i.kind is TInstrKind::TLocalSet(_, _)
+      })
       assert_true(set_count >= 1)
     }
     _ => fail("expected tfunc")
@@ -2271,7 +2274,9 @@ test "memory packing zero-length memory.init emits explicit trap check" {
   )
   let out = mp_run(mod)
   let body = mp_first_body(out)
-  let if_count = mp_count_instr(body, fn(i) { i is TIf(_, _, _, _) })
+  let if_count = mp_count_instr(body, fn(i) {
+    i.kind is TInstrKind::TIf(_, _, _, _)
+  })
   assert_true(if_count >= 1)
 }
 
@@ -2299,9 +2304,15 @@ test "memory packing creates drop-state global for fill-first rewrite and rewrit
   let out = mp_run(mod)
   assert_eq(mp_global_count(out), 1)
   let rewritten = mp_first_body(out)
-  let global_gets = mp_count_instr(rewritten, fn(i) { i is TGlobalGet(_) })
-  let global_sets = mp_count_instr(rewritten, fn(i) { i is TGlobalSet(_, _) })
-  let drop_count = mp_count_instr(rewritten, fn(i) { i is TDataDrop(_) })
+  let global_gets = mp_count_instr(rewritten, fn(i) {
+    i.kind is TInstrKind::TGlobalGet(_)
+  })
+  let global_sets = mp_count_instr(rewritten, fn(i) {
+    i.kind is TInstrKind::TGlobalSet(_, _)
+  })
+  let drop_count = mp_count_instr(rewritten, fn(i) {
+    i.kind is TInstrKind::TDataDrop(_)
+  })
   assert_true(global_gets >= 1)
   assert_true(global_sets >= 1)
   assert_eq(drop_count, 2)
@@ -2346,7 +2357,9 @@ test "memory packing drops passive segment only used by data.drop" {
     _ => fail("expected data section")
   }
   let body = mp_first_body(out)
-  let drop_count = mp_count_instr(body, fn(i) { i is TDataDrop(_) })
+  let drop_count = mp_count_instr(body, fn(i) {
+    i.kind is TInstrKind::TDataDrop(_)
+  })
   assert_eq(drop_count, 0)
 }
 

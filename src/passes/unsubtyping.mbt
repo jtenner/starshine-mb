@@ -663,18 +663,22 @@ fn uf_note_args_subtype(
 
 ///|
 fn uf_infer_tinstr_result_types(instr : TInstr, env : Env) -> Array[ValType]? {
-  match instr {
-    TCall(target, _) =>
+  match instr.kind {
+    TInstrKind::TCall(target, _) =>
       match env.get_functype_by_funcidx(target) {
         Some(FuncType(_, results)) => Some(results)
         None => None
       }
-    TCallIndirect(type_idx, _, _, _) | TCallRef(type_idx, _, _) =>
+    TInstrKind::TCallIndirect(type_idx, _, _, _)
+    | TInstrKind::TCallRef(type_idx, _, _) =>
       match env.resolve_functype(type_idx) {
         Some(FuncType(_, results)) => Some(results)
         None => None
       }
-    TBlock(bt, _) | TLoop(bt, _) | TIf(bt, _, _, _) | TTryTable(bt, _, _) =>
+    TInstrKind::TBlock(bt, _)
+    | TInstrKind::TLoop(bt, _)
+    | TInstrKind::TIf(bt, _, _, _)
+    | TInstrKind::TTryTable(bt, _, _) =>
       match env.expand_blocktype(bt) {
         Ok((_, results)) => Some(results)
         Err(_) => None
@@ -851,21 +855,22 @@ fn uf_collect_from_tinstr(
   casts : Map[Int, Array[Int]],
   traps_never_happen : Bool,
 ) -> Unit {
-  match instr {
-    TLocalSet(local_idx, value) | TLocalTee(local_idx, value) =>
+  match instr.kind {
+    TInstrKind::TLocalSet(local_idx, value)
+    | TInstrKind::TLocalTee(local_idx, value) =>
       match (lcs_infer_tinstr_type(value, env), env.get_local_type(local_idx)) {
         (Some(sub), Some(supertype)) =>
           uf_note_valtype_subtype(work, seen, sub, supertype, total_types)
         _ => ()
       }
-    TGlobalSet(global_idx, value) =>
+    TInstrKind::TGlobalSet(global_idx, value) =>
       match
         (lcs_infer_tinstr_type(value, env), env.get_global_type(global_idx)) {
         (Some(sub), Some(GlobalType(supertype, _))) =>
           uf_note_valtype_subtype(work, seen, sub, supertype, total_types)
         _ => ()
       }
-    TCall(target, args) | TReturnCall(target, args) =>
+    TInstrKind::TCall(target, args) | TInstrKind::TReturnCall(target, args) =>
       match env.get_functype_by_funcidx(target) {
         Some(FuncType(params, _)) =>
           for i = 0; i < args.length(); i = i + 1 {
@@ -885,7 +890,8 @@ fn uf_collect_from_tinstr(
           }
         None => ()
       }
-    TCallIndirect(type_idx, _, args, _) | TCallRef(type_idx, args, _) =>
+    TInstrKind::TCallIndirect(type_idx, _, args, _)
+    | TInstrKind::TCallRef(type_idx, args, _) =>
       match env.resolve_functype(type_idx) {
         Some(FuncType(params, _)) =>
           for i = 0; i < args.length(); i = i + 1 {
@@ -905,8 +911,8 @@ fn uf_collect_from_tinstr(
           }
         None => ()
       }
-    TReturnCallIndirect(type_idx, _, args, _)
-    | TReturnCallRef(type_idx, args, _) =>
+    TInstrKind::TReturnCallIndirect(type_idx, _, args, _)
+    | TInstrKind::TReturnCallRef(type_idx, args, _) =>
       match env.resolve_functype(type_idx) {
         Some(FuncType(params, _)) =>
           for i = 0; i < args.length(); i = i + 1 {
@@ -926,7 +932,7 @@ fn uf_collect_from_tinstr(
           }
         None => ()
       }
-    TReturn(values) =>
+    TInstrKind::TReturn(values) =>
       for i = 0; i < values.length(); i = i + 1 {
         if i < func_results.length() {
           match lcs_infer_tinstr_type(values[i], env) {
@@ -942,7 +948,7 @@ fn uf_collect_from_tinstr(
           }
         }
       }
-    TThrow(tag_idx, values) =>
+    TInstrKind::TThrow(tag_idx, values) =>
       match env.resolve_tag_functype(tag_idx) {
         Some(FuncType(params, _)) =>
           for i = 0; i < values.length(); i = i + 1 {
@@ -962,7 +968,7 @@ fn uf_collect_from_tinstr(
           }
         None => ()
       }
-    TBr(label, args) =>
+    TInstrKind::TBr(label, args) =>
       uf_note_args_subtype(
         work,
         seen,
@@ -971,7 +977,7 @@ fn uf_collect_from_tinstr(
         env,
         total_types,
       )
-    TBrIf(label, _, args) =>
+    TInstrKind::TBrIf(label, _, args) =>
       uf_note_args_subtype(
         work,
         seen,
@@ -980,7 +986,7 @@ fn uf_collect_from_tinstr(
         env,
         total_types,
       )
-    TBrTable(labels, default_label, _, args) => {
+    TInstrKind::TBrTable(labels, default_label, _, args) => {
       uf_note_args_subtype(
         work,
         seen,
@@ -1000,7 +1006,7 @@ fn uf_collect_from_tinstr(
         )
       }
     }
-    TStructSet(type_idx, field_idx, _, value) =>
+    TInstrKind::TStructSet(type_idx, field_idx, _, value) =>
       match env.resolve_struct_fields(type_idx) {
         Ok(fields) => {
           let U32(raw) = field_idx
@@ -1016,7 +1022,8 @@ fn uf_collect_from_tinstr(
         }
         Err(_) => ()
       }
-    TArraySet(type_idx, _, _, value) | TArrayFill(type_idx, _, _, value, _) =>
+    TInstrKind::TArraySet(type_idx, _, _, value)
+    | TInstrKind::TArrayFill(type_idx, _, _, value, _) =>
       match
         (env.resolve_array_field(type_idx), lcs_infer_tinstr_type(value, env)) {
         (Ok(FieldType(super_storage, _)), Some(sub)) =>
@@ -1027,7 +1034,8 @@ fn uf_collect_from_tinstr(
           }
         _ => ()
       }
-    TRefCast(_, dst_heap, value) | TRefTest(_, dst_heap, value) =>
+    TInstrKind::TRefCast(_, dst_heap, value)
+    | TInstrKind::TRefTest(_, dst_heap, value) =>
       match lcs_infer_tinstr_type(value, env) {
         Some(RefTypeValType(src_rt)) =>
           uf_note_instr_cast(
@@ -1042,7 +1050,8 @@ fn uf_collect_from_tinstr(
           )
         _ => ()
       }
-    TRefCastDescEq(_, dst_heap, value) | TRefTestDesc(_, dst_heap, value) =>
+    TInstrKind::TRefCastDescEq(_, dst_heap, value)
+    | TInstrKind::TRefTestDesc(_, dst_heap, value) =>
       match lcs_infer_tinstr_type(value, env) {
         Some(RefTypeValType(src_rt)) =>
           uf_note_instr_cast(
@@ -1057,8 +1066,8 @@ fn uf_collect_from_tinstr(
           )
         _ => ()
       }
-    TBrOnCast(_, _, src_heap, dst_heap, _, _)
-    | TBrOnCastFail(_, _, src_heap, dst_heap, _, _) =>
+    TInstrKind::TBrOnCast(_, _, src_heap, dst_heap, _, _)
+    | TInstrKind::TBrOnCastFail(_, _, src_heap, dst_heap, _, _) =>
       uf_note_instr_cast(
         work,
         seen,
@@ -1069,7 +1078,7 @@ fn uf_collect_from_tinstr(
         total_types,
         src_heap == dst_heap,
       )
-    TBlock(bt, body) =>
+    TInstrKind::TBlock(bt, body) =>
       match env.expand_blocktype(bt) {
         Ok((_, results)) => {
           let nested_env = env.with_label(results)
@@ -1087,7 +1096,7 @@ fn uf_collect_from_tinstr(
             traps_never_happen,
           )
       }
-    TLoop(bt, body) =>
+    TInstrKind::TLoop(bt, body) =>
       match env.expand_blocktype(bt) {
         Ok((params, results)) => {
           let nested_env = env.with_label(params)
@@ -1105,7 +1114,7 @@ fn uf_collect_from_tinstr(
             traps_never_happen,
           )
       }
-    TIf(bt, cond, then_body, else_body) => {
+    TInstrKind::TIf(bt, cond, then_body, else_body) => {
       uf_collect_from_tinstr(
         cond, env, func_results, total_types, original_env, work, seen, casts, traps_never_happen,
       )
@@ -1148,7 +1157,7 @@ fn uf_collect_from_tinstr(
         }
       }
     }
-    TTryTable(bt, catches, body) =>
+    TInstrKind::TTryTable(bt, catches, body) =>
       match env.expand_blocktype(bt) {
         Ok((_, results)) => {
           let nested_env = env.with_label(results)
@@ -1173,9 +1182,9 @@ fn uf_collect_from_tinstr(
   }
 
   if !traps_never_happen {
-    match instr {
-      TCallIndirect(type_idx, _, _, _)
-      | TReturnCallIndirect(type_idx, _, _, _) =>
+    match instr.kind {
+      TInstrKind::TCallIndirect(type_idx, _, _, _)
+      | TInstrKind::TReturnCallIndirect(type_idx, _, _, _) =>
         uf_note_indirect_call_barrier(
           work, seen, original_env, type_idx, total_types,
         )

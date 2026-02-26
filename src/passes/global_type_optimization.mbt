@@ -296,12 +296,12 @@ fn gto_note_read(
 ///|
 fn gto_scan_texpr(texpr : TExpr, infos : Array[Array[GTOFieldInfo]]) -> Unit {
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TStructSet(type_idx, field_idx, _, _) =>
+    match instr.kind {
+      TInstrKind::TStructSet(type_idx, field_idx, _, _) =>
         gto_note_write(infos, type_idx, field_idx)
-      TStructGet(type_idx, field_idx, _)
-      | TStructGetS(type_idx, field_idx, _)
-      | TStructGetU(type_idx, field_idx, _) =>
+      TInstrKind::TStructGet(type_idx, field_idx, _)
+      | TInstrKind::TStructGetS(type_idx, field_idx, _)
+      | TInstrKind::TStructGetU(type_idx, field_idx, _) =>
         gto_note_read(infos, type_idx, field_idx)
       _ => ()
     }
@@ -986,24 +986,33 @@ fn gto_get_new_field_index(
 
 ///|
 fn gto_is_reorder_safe_operand(instr : TInstr) -> Bool {
-  match instr {
-    TI32Const(_) | TI64Const(_) | TF32Const(_) | TF64Const(_) => true
-    TRefNull(_)
-    | TRefFunc(_)
-    | TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => true
-    TLocalGet(_) | TGlobalGet(_) => true
+  match instr.kind {
+    TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_) => true
+    TInstrKind::TRefNull(_)
+    | TInstrKind::TRefFunc(_)
+    | TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      true
+    TInstrKind::TLocalGet(_) | TInstrKind::TGlobalGet(_) => true
     _ => false
   }
 }
 
 ///|
 fn gto_may_trap(instr : TInstr) -> Bool {
-  match instr {
-    TI32Const(_) | TI64Const(_) | TF32Const(_) | TF64Const(_) => false
-    TRefNull(_)
-    | TRefFunc(_)
-    | TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => false
-    TLocalGet(_) | TGlobalGet(_) | TNop => false
+  match instr.kind {
+    TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_) => false
+    TInstrKind::TRefNull(_)
+    | TInstrKind::TRefFunc(_)
+    | TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      false
+    TInstrKind::TLocalGet(_) | TInstrKind::TGlobalGet(_) | TInstrKind::TNop =>
+      false
     _ => true
   }
 }
@@ -1079,8 +1088,8 @@ fn gto_rewrite_function_texpr(
       Ok(None) => instr
       Ok(Some((_, next))) => next
     }
-    match rewritten {
-      TStructNew(type_idx, operands) => {
+    match rewritten.kind {
+      TInstrKind::TStructNew(type_idx, operands) => {
         let type_i = gto_typeidx_raw_int(type_idx)
         match indexes_after_removals.get(type_i) {
           None => change((), rewritten)
@@ -1140,7 +1149,7 @@ fn gto_rewrite_function_texpr(
           }
         }
       }
-      TStructSet(type_idx, field_idx, ref_, value) => {
+      TInstrKind::TStructSet(type_idx, field_idx, ref_, value) => {
         let old_idx = gto_u32_to_int(field_idx)
         let new_idx = gto_get_new_field_index(
           indexes_after_removals, type_idx, old_idx,
@@ -1172,7 +1181,7 @@ fn gto_rewrite_function_texpr(
           change((), replacement)
         }
       }
-      TStructGet(type_idx, field_idx, ref_) => {
+      TInstrKind::TStructGet(type_idx, field_idx, ref_) => {
         let old_idx = gto_u32_to_int(field_idx)
         let new_idx = gto_get_new_field_index(
           indexes_after_removals, type_idx, old_idx,
@@ -1190,7 +1199,7 @@ fn gto_rewrite_function_texpr(
           )
         }
       }
-      TStructGetS(type_idx, field_idx, ref_) => {
+      TInstrKind::TStructGetS(type_idx, field_idx, ref_) => {
         let old_idx = gto_u32_to_int(field_idx)
         let new_idx = gto_get_new_field_index(
           indexes_after_removals, type_idx, old_idx,
@@ -1208,7 +1217,7 @@ fn gto_rewrite_function_texpr(
           )
         }
       }
-      TStructGetU(type_idx, field_idx, ref_) => {
+      TInstrKind::TStructGetU(type_idx, field_idx, ref_) => {
         let old_idx = gto_u32_to_int(field_idx)
         let new_idx = gto_get_new_field_index(
           indexes_after_removals, type_idx, old_idx,
@@ -1249,8 +1258,8 @@ fn gto_rewrite_module_texpr(
       Ok(None) => instr
       Ok(Some((_, next))) => next
     }
-    match rewritten {
-      TStructNew(type_idx, operands) => {
+    match rewritten.kind {
+      TInstrKind::TStructNew(type_idx, operands) => {
         let type_i = gto_typeidx_raw_int(type_idx)
         match indexes_after_removals.get(type_i) {
           None => change((), rewritten)
@@ -1283,7 +1292,7 @@ fn gto_rewrite_module_texpr(
           }
         }
       }
-      TStructSet(type_idx, field_idx, ref_, value) => {
+      TInstrKind::TStructSet(type_idx, field_idx, ref_, value) => {
         let old_idx = gto_u32_to_int(field_idx)
         let new_idx = gto_get_new_field_index(
           indexes_after_removals, type_idx, old_idx,
@@ -1311,7 +1320,7 @@ fn gto_rewrite_module_texpr(
           )
         }
       }
-      TStructGet(type_idx, field_idx, ref_) => {
+      TInstrKind::TStructGet(type_idx, field_idx, ref_) => {
         let old_idx = gto_u32_to_int(field_idx)
         let new_idx = gto_get_new_field_index(
           indexes_after_removals, type_idx, old_idx,
@@ -1329,7 +1338,7 @@ fn gto_rewrite_module_texpr(
           )
         }
       }
-      TStructGetS(type_idx, field_idx, ref_) => {
+      TInstrKind::TStructGetS(type_idx, field_idx, ref_) => {
         let old_idx = gto_u32_to_int(field_idx)
         let new_idx = gto_get_new_field_index(
           indexes_after_removals, type_idx, old_idx,
@@ -1347,7 +1356,7 @@ fn gto_rewrite_module_texpr(
           )
         }
       }
-      TStructGetU(type_idx, field_idx, ref_) => {
+      TInstrKind::TStructGetU(type_idx, field_idx, ref_) => {
         let old_idx = gto_u32_to_int(field_idx)
         let new_idx = gto_get_new_field_index(
           indexes_after_removals, type_idx, old_idx,
@@ -1749,7 +1758,21 @@ test "global type optimization removes unread field and remaps struct indexes" {
           TFunc(
             _,
             {
-              instrs: [TDrop(TStructGet(_, @lib.U32(idx), TStructNew(_, ops)))],
+              instrs: [
+                {
+                  kind: TInstrKind::TDrop(
+                    {
+                      kind: TInstrKind::TStructGet(
+                        _,
+                        @lib.U32(idx),
+                        { kind: TInstrKind::TStructNew(_, ops), .. }
+                      ),
+                      ..,
+                    }
+                  ),
+                  ..,
+                },
+              ],
               ..,
             }
           ),
@@ -1758,8 +1781,8 @@ test "global type optimization removes unread field and remaps struct indexes" {
     ) => {
       assert_eq(idx, 0U)
       assert_eq(ops.length(), 1)
-      match ops[0] {
-        TI32Const(I32(v)) => assert_eq(v, 22)
+      match ops[0].kind {
+        TInstrKind::TI32Const(I32(v)) => assert_eq(v, 22)
         _ => fail("expected remaining operand to be i32.const 22")
       }
     }

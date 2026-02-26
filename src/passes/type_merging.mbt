@@ -471,22 +471,24 @@ fn tm_collect_cast_types(
   let exact_cast_types : Set[Int] = Set::new()
   let walker = ModuleTransformer::new()
     .on_tinstruction_evt(fn(_, _, instr : TInstr) {
-      match instr {
-        TRefCast(_, heap_type, _) | TRefTest(_, heap_type, _) =>
+      match instr.kind {
+        TInstrKind::TRefCast(_, heap_type, _)
+        | TInstrKind::TRefTest(_, heap_type, _) =>
           tm_mark_cast_heaptype(cast_types, heap_type, total)
-        TRefTestDesc(_, heap_type, _) | TRefCastDescEq(_, heap_type, _) => {
+        TInstrKind::TRefTestDesc(_, heap_type, _)
+        | TInstrKind::TRefCastDescEq(_, heap_type, _) => {
           tm_mark_cast_heaptype(cast_types, heap_type, total)
           tm_mark_exact_cast_heaptype(exact_cast_types, heap_type, total)
         }
-        TBrOnCast(_, _, source_ht, target_ht, _, _)
-        | TBrOnCastFail(_, _, source_ht, target_ht, _, _) => {
+        TInstrKind::TBrOnCast(_, _, source_ht, target_ht, _, _)
+        | TInstrKind::TBrOnCastFail(_, _, source_ht, target_ht, _, _) => {
           tm_mark_cast_heaptype(cast_types, target_ht, total)
           if tm_br_on_cast_is_exact(source_ht, target_ht) {
             tm_mark_exact_cast_heaptype(exact_cast_types, target_ht, total)
           }
         }
-        TCallIndirect(type_idx, _, _, _)
-        | TReturnCallIndirect(type_idx, _, _, _) =>
+        TInstrKind::TCallIndirect(type_idx, _, _, _)
+        | TInstrKind::TReturnCallIndirect(type_idx, _, _, _) =>
           if !traps_never_happen {
             tm_mark_cast_typeidx(cast_types, type_idx, 0, total)
           }
@@ -1673,7 +1675,24 @@ test "type_merging merges private subtype into identical supertype" {
   let out = run_type_merging(mod)
   match out.code_sec {
     Some(
-      CodeSec([TFunc(_, { instrs: [TDrop(TStructNew(TypeIdx(0), []))], .. })])
+      CodeSec(
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                {
+                  kind: TInstrKind::TDrop(
+                    { kind: TInstrKind::TStructNew(TypeIdx(0), []), .. }
+                  ),
+                  ..,
+                },
+              ],
+              ..,
+            }
+          ),
+        ]
+      )
     ) => ()
     _ => fail("expected identical subtype use-sites to merge to the supertype")
   }
@@ -1715,7 +1734,23 @@ test "type_merging does not merge cast-target type" {
   match out.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [TDrop(TStructNew(TypeIdx(1), [])), ..], .. })]
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                {
+                  kind: TInstrKind::TDrop(
+                    { kind: TInstrKind::TStructNew(TypeIdx(1), []), .. }
+                  ),
+                  ..,
+                },
+                ..,
+              ],
+              ..,
+            }
+          ),
+        ]
       )
     ) => ()
     _ => fail("expected cast-target subtype to remain distinct")
@@ -1762,8 +1797,30 @@ test "type_merging merges identical siblings" {
             _,
             {
               instrs: [
-                TDrop(TStructNew(TypeIdx(lhs), [TI32Const(I32(1))])),
-                TDrop(TStructNew(TypeIdx(rhs), [TI32Const(I32(2))])),
+                {
+                  kind: TInstrKind::TDrop(
+                    {
+                      kind: TInstrKind::TStructNew(
+                        TypeIdx(lhs),
+                        [{ kind: TInstrKind::TI32Const(I32(1)), .. }]
+                      ),
+                      ..,
+                    }
+                  ),
+                  ..,
+                },
+                {
+                  kind: TInstrKind::TDrop(
+                    {
+                      kind: TInstrKind::TStructNew(
+                        TypeIdx(rhs),
+                        [{ kind: TInstrKind::TI32Const(I32(2)), .. }]
+                      ),
+                      ..,
+                    }
+                  ),
+                  ..,
+                },
               ],
               ..,
             }
@@ -1814,8 +1871,19 @@ test "type_merging does not merge public type" {
     None => fail("expected type section")
   }
   match out.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TRefNull(HeapType(TypeIdx(1)))], .. })])) =>
-      ()
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            {
+              instrs: [{ kind: TInstrKind::TRefNull(HeapType(TypeIdx(1))), .. }],
+              ..,
+            }
+          ),
+        ]
+      )
+    ) => ()
     _ => fail("expected public type references to remain unchanged")
   }
 }
@@ -1852,7 +1920,18 @@ test "type_merging treats call_indirect cast barrier as trap-mode sensitive" {
   match out_default.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [TCallIndirect(TypeIdx(2), _, _, _)], .. }), ..]
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                { kind: TInstrKind::TCallIndirect(TypeIdx(2), _, _, _), .. },
+              ],
+              ..,
+            }
+          ),
+          ..,
+        ]
       )
     ) => ()
     _ => fail("expected call_indirect type to remain when traps may happen")
@@ -1863,7 +1942,18 @@ test "type_merging treats call_indirect cast barrier as trap-mode sensitive" {
   match out_tnh.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [TCallIndirect(TypeIdx(i), _, _, _)], .. }), ..]
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                { kind: TInstrKind::TCallIndirect(TypeIdx(i), _, _, _), .. },
+              ],
+              ..,
+            }
+          ),
+          ..,
+        ]
       )
     ) => merged_type_idx = Some(i)
     _ => fail("expected call_indirect to remain present after type_merging")
@@ -1913,7 +2003,23 @@ test "type_merging exact descriptor casts on supertype block subtype merge" {
   match out.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [TDrop(TStructNew(TypeIdx(1), [])), ..], .. })]
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                {
+                  kind: TInstrKind::TDrop(
+                    { kind: TInstrKind::TStructNew(TypeIdx(1), []), .. }
+                  ),
+                  ..,
+                },
+                ..,
+              ],
+              ..,
+            }
+          ),
+        ]
       )
     ) => ()
     _ =>
@@ -1930,7 +2036,23 @@ test "type_merging treats identical br_on_cast source-target as exact cast barri
   match out.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [TDrop(TStructNew(TypeIdx(1), [])), ..], .. })]
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                {
+                  kind: TInstrKind::TDrop(
+                    { kind: TInstrKind::TStructNew(TypeIdx(1), []), .. }
+                  ),
+                  ..,
+                },
+                ..,
+              ],
+              ..,
+            }
+          ),
+        ]
       )
     ) => ()
     _ =>
@@ -1949,7 +2071,23 @@ test "type_merging merges non-exact br_on_cast source-target pairs" {
   match out.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [TDrop(TStructNew(TypeIdx(0), [])), ..], .. })]
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                {
+                  kind: TInstrKind::TDrop(
+                    { kind: TInstrKind::TStructNew(TypeIdx(0), []), .. }
+                  ),
+                  ..,
+                },
+                ..,
+              ],
+              ..,
+            }
+          ),
+        ]
       )
     ) => ()
     _ =>
@@ -1972,7 +2110,23 @@ test "type_merging does not treat nullable br_on_cast targets as exact barriers"
   match out.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [TDrop(TStructNew(TypeIdx(0), [])), ..], .. })]
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                {
+                  kind: TInstrKind::TDrop(
+                    { kind: TInstrKind::TStructNew(TypeIdx(0), []), .. }
+                  ),
+                  ..,
+                },
+                ..,
+              ],
+              ..,
+            }
+          ),
+        ]
       )
     ) => ()
     _ =>
@@ -1994,7 +2148,23 @@ test "type_merging treats identical br_on_cast heap types as exact regardless of
   match out.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [TDrop(TStructNew(TypeIdx(1), [])), ..], .. })]
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                {
+                  kind: TInstrKind::TDrop(
+                    { kind: TInstrKind::TStructNew(TypeIdx(1), []), .. }
+                  ),
+                  ..,
+                },
+                ..,
+              ],
+              ..,
+            }
+          ),
+        ]
       )
     ) => ()
     _ =>

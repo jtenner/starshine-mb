@@ -39,8 +39,9 @@ fn ml_single_func_body(mod : Module) -> TExpr {
 fn ml_trivial_tee_count(body : TExpr) -> Int {
   let mut count = 0
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TLocalTee(idx, TLocalGet(src)) if idx == src => count += 1
+    match instr.kind {
+      TInstrKind::TLocalTee(idx, { kind: TInstrKind::TLocalGet(src), .. }) if idx ==
+        src => count += 1
       _ => ()
     }
     self.walk_tinstruction_default((), instr)
@@ -53,8 +54,8 @@ fn ml_trivial_tee_count(body : TExpr) -> Int {
 fn ml_drop_get_indices(body : TExpr) -> Array[Int] {
   let out = Array::new()
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TDrop(TLocalGet(idx)) => {
+    match instr.kind {
+      TInstrKind::TDrop({ kind: TInstrKind::TLocalGet(idx), .. }) => {
         let LocalIdx(raw) = idx
         out.push(raw.reinterpret_as_int())
       }

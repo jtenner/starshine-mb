@@ -232,42 +232,42 @@ fn ls_infer_tinstr_type(
     }
   }
 
-  match instr {
-    TI32Const(_) => Some(ValType::i32())
-    TI64Const(_) => Some(ValType::i64())
-    TF32Const(_) => Some(ValType::f32())
-    TF64Const(_) => Some(ValType::f64())
-    TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+  match instr.kind {
+    TInstrKind::TI32Const(_) => Some(ValType::i32())
+    TInstrKind::TI64Const(_) => Some(ValType::i64())
+    TInstrKind::TF32Const(_) => Some(ValType::f32())
+    TInstrKind::TF64Const(_) => Some(ValType::f64())
+    TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
       Some(ValType::v128())
-    TRefNull(ht) => Some(ValType::ref_type(RefType::new(true, ht)))
-    TRefFunc(_) => Some(ValType::funcref())
-    TLocalGet(idx) => env.get_local_type(idx)
-    TGlobalGet(idx) =>
+    TInstrKind::TRefNull(ht) => Some(ValType::ref_type(RefType::new(true, ht)))
+    TInstrKind::TRefFunc(_) => Some(ValType::funcref())
+    TInstrKind::TLocalGet(idx) => env.get_local_type(idx)
+    TInstrKind::TGlobalGet(idx) =>
       match env.get_global_type(idx) {
         Some(GlobalType(vt, _)) => Some(vt)
         None => None
       }
-    TLocalTee(_, value) =>
+    TInstrKind::TLocalTee(_, value) =>
       ls_infer_tinstr_type(value, env, func_type_idx_by_func)
-    TRefAsNonNull(value) =>
+    TInstrKind::TRefAsNonNull(value) =>
       match ls_infer_tinstr_type(value, env, func_type_idx_by_func) {
         Some(RefTypeValType(rt)) =>
           Some(ValType::ref_type(RefType::new(false, rt.get_heap_type())))
         _ => None
       }
-    TRefCast(nullable, ht, _) =>
+    TInstrKind::TRefCast(nullable, ht, _) =>
       Some(ValType::ref_type(RefType::new(nullable, ht)))
-    TStructNew(type_idx, _)
-    | TStructNewDefault(type_idx)
-    | TArrayNew(type_idx, _, _)
-    | TArrayNewDefault(type_idx, _)
-    | TArrayNewFixed(type_idx, _)
-    | TArrayNewData(type_idx, _, _, _)
-    | TArrayNewElem(type_idx, _, _, _) =>
+    TInstrKind::TStructNew(type_idx, _)
+    | TInstrKind::TStructNewDefault(type_idx)
+    | TInstrKind::TArrayNew(type_idx, _, _)
+    | TInstrKind::TArrayNewDefault(type_idx, _)
+    | TInstrKind::TArrayNewFixed(type_idx, _)
+    | TInstrKind::TArrayNewData(type_idx, _, _, _)
+    | TInstrKind::TArrayNewElem(type_idx, _, _, _) =>
       Some(ValType::ref_type(RefType::new(false, HeapType::new(type_idx))))
-    TStructGet(type_idx, field_idx, _)
-    | TStructGetS(type_idx, field_idx, _)
-    | TStructGetU(type_idx, field_idx, _) =>
+    TInstrKind::TStructGet(type_idx, field_idx, _)
+    | TInstrKind::TStructGetS(type_idx, field_idx, _)
+    | TInstrKind::TStructGetU(type_idx, field_idx, _) =>
       match env.resolve_struct_fields(type_idx) {
         Ok(fields) =>
           match field_idx {
@@ -279,14 +279,14 @@ fn ls_infer_tinstr_type(
           }
         Err(_) => None
       }
-    TArrayGet(type_idx, _, _)
-    | TArrayGetS(type_idx, _, _)
-    | TArrayGetU(type_idx, _, _) =>
+    TInstrKind::TArrayGet(type_idx, _, _)
+    | TInstrKind::TArrayGetS(type_idx, _, _)
+    | TInstrKind::TArrayGetU(type_idx, _, _) =>
       match env.resolve_array_field(type_idx) {
         Ok(field_ty) => Some(field_ty.unpack())
         Err(_) => None
       }
-    TSelect(types, _, if_true, if_false) => {
+    TInstrKind::TSelect(types, _, if_true, if_false) => {
       let from_decl = match types {
         Some(vts) if vts.length() == 1 => Some(vts[0])
         _ => None
@@ -311,17 +311,20 @@ fn ls_infer_tinstr_type(
         _ => None
       }
     }
-    TCall(target, _) =>
+    TInstrKind::TCall(target, _) =>
       match env.get_functype_by_funcidx(target) {
         Some(FuncType(_, [r])) => Some(r)
         _ => None
       }
-    TCallIndirect(type_idx, _, _, _) | TCallRef(type_idx, _, _) =>
+    TInstrKind::TCallIndirect(type_idx, _, _, _)
+    | TInstrKind::TCallRef(type_idx, _, _) =>
       match env.resolve_functype(type_idx) {
         Some(FuncType(_, [r])) => Some(r)
         _ => None
       }
-    TBlock(bt, body) | TLoop(bt, body) | TTryTable(bt, _, body) => {
+    TInstrKind::TBlock(bt, body)
+    | TInstrKind::TLoop(bt, body)
+    | TInstrKind::TTryTable(bt, _, body) => {
       let from_body = infer_texpr_type(body)
       let from_bt = single_result_of_blocktype(bt)
       match (from_body, from_bt) {
@@ -336,7 +339,7 @@ fn ls_infer_tinstr_type(
         _ => None
       }
     }
-    TIf(bt, _, then_, else_) => {
+    TInstrKind::TIf(bt, _, then_, else_) => {
       let from_bt = single_result_of_blocktype(bt)
       let from_branches = match else_ {
         Some(else_expr) =>
@@ -367,21 +370,21 @@ fn ls_scan_body(body : TExpr, relevant_locals : Set[Int]) -> LocalSubtypingScan 
   let scan = LocalSubtypingScan::new()
   let mut get_id = 0
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr {
-      TLocalGet(idx) => {
+    match instr.kind {
+      TInstrKind::TLocalGet(idx) => {
         let local_idx = ls_local_idx_to_int(idx)
         if relevant_locals.contains(local_idx) {
           ls_push_int(scan.gets_for_local, local_idx, get_id)
         }
         get_id += 1
       }
-      TLocalSet(idx, value) => {
+      TInstrKind::TLocalSet(idx, value) => {
         let local_idx = ls_local_idx_to_int(idx)
         if relevant_locals.contains(local_idx) {
           ls_push_tinstr(scan.sets_for_local, local_idx, value)
         }
       }
-      TLocalTee(idx, value) => {
+      TInstrKind::TLocalTee(idx, value) => {
         let local_idx = ls_local_idx_to_int(idx)
         if relevant_locals.contains(local_idx) {
           ls_push_tinstr(scan.sets_for_local, local_idx, value)
@@ -397,131 +400,154 @@ fn ls_scan_body(body : TExpr, relevant_locals : Set[Int]) -> LocalSubtypingScan 
 
 ///|
 fn ls_eval_children(instr : TInstr) -> Array[TInstr] {
-  match instr {
-    TI32Const(_)
-    | TI64Const(_)
-    | TF32Const(_)
-    | TF64Const(_)
-    | TRefNull(_)
-    | TRefFunc(_)
-    | TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
-    | TUnreachable
-    | TNop
-    | TLocalGet(_)
-    | TGlobalGet(_)
-    | TMemorySize(_)
-    | TAtomicFence
-    | TTableSize(_)
-    | TDataDrop(_)
-    | TElemDrop(_)
-    | TStructNewDefault(_) => []
-    TUnary(_, child)
-    | TDrop(child)
-    | TLocalSet(_, child)
-    | TLocalTee(_, child)
-    | TGlobalSet(_, child)
-    | TRefIsNull(child)
-    | TRefAsNonNull(child)
-    | TI31GetS(child)
-    | TI31GetU(child)
-    | TRefI31(child)
-    | TArrayLen(child)
-    | TAnyConvertExtern(child)
-    | TExternConvertAny(child)
-    | TThrowRef(child)
-    | TMemoryGrow(_, child)
-    | TTableGet(_, child)
-    | TLoad(_, _, child)
-    | TArrayNewDefault(_, child)
-    | TStructGet(_, _, child)
-    | TStructGetS(_, _, child)
-    | TStructGetU(_, _, child)
-    | TI8x16Splat(child)
-    | TI16x8Splat(child)
-    | TI32x4Splat(child)
-    | TI64x2Splat(child)
-    | TF32x4Splat(child)
-    | TF64x2Splat(child)
-    | TExtractLane(_, _, child)
-    | TRefTest(_, _, child)
-    | TRefCast(_, _, child)
-    | TRefGetDesc(child)
-    | TRefTestDesc(_, _, child)
-    | TRefCastDescEq(_, _, child) => [child]
-    TBinary(_, left, right)
-    | TRefEq(left, right)
-    | TStore(_, _, left, right)
-    | TMemoryAtomicNotify(_, left, right)
-    | TAtomicRmw(_, _, left, right)
-    | TTableSet(_, left, right)
-    | TTableGrow(_, left, right)
-    | TStructSet(_, _, left, right)
-    | TArrayNew(_, left, right)
-    | TArrayNewData(_, _, left, right)
-    | TArrayNewElem(_, _, left, right)
-    | TArrayGet(_, left, right)
-    | TArrayGetS(_, left, right)
-    | TArrayGetU(_, left, right)
-    | TReplaceLane(_, _, left, right)
-    | TI8x16Swizzle(left, right)
-    | TI8x16RelaxedSwizzle(left, right)
-    | TV128Shift(_, left, right)
-    | TV128LoadLane(_, _, _, left, right)
-    | TV128StoreLane(_, _, _, left, right) => [left, right]
-    TMemoryFill(_, a, b, c)
-    | TMemoryCopy(_, _, a, b, c)
-    | TMemoryInit(_, _, a, b, c)
-    | TMemoryAtomicWait32(_, a, b, c)
-    | TMemoryAtomicWait64(_, a, b, c)
-    | TAtomicCmpxchg(_, _, a, b, c)
-    | TTableFill(_, a, b, c)
-    | TTableCopy(_, _, a, b, c)
-    | TTableInit(_, _, a, b, c)
-    | TSelect(_, c, a, b)
-    | TV128Ternary(_, a, b, c) => [a, b, c]
-    TCall(_, args)
-    | TReturnCall(_, args)
-    | TThrow(_, args)
-    | TBr(_, args)
-    | TReturn(args)
-    | TStructNew(_, args)
-    | TArrayNewFixed(_, args) => args.copy()
-    TCallIndirect(_, _, args, index) | TReturnCallIndirect(_, _, args, index) => {
+  match instr.kind {
+    TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_)
+    | TInstrKind::TRefNull(_)
+    | TInstrKind::TRefFunc(_)
+    | TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    | TInstrKind::TUnreachable
+    | TInstrKind::TNop
+    | TInstrKind::TLocalGet(_)
+    | TInstrKind::TGlobalGet(_)
+    | TInstrKind::TMemorySize(_)
+    | TInstrKind::TAtomicFence
+    | TInstrKind::TTableSize(_)
+    | TInstrKind::TDataDrop(_)
+    | TInstrKind::TElemDrop(_)
+    | TInstrKind::TStructNewDefault(_) => []
+    TInstrKind::TUnary(_, child)
+    | TInstrKind::TDrop(child)
+    | TInstrKind::TLocalSet(_, child)
+    | TInstrKind::TLocalTee(_, child)
+    | TInstrKind::TGlobalSet(_, child)
+    | TInstrKind::TRefIsNull(child)
+    | TInstrKind::TRefAsNonNull(child)
+    | TInstrKind::TI31GetS(child)
+    | TInstrKind::TI31GetU(child)
+    | TInstrKind::TRefI31(child)
+    | TInstrKind::TArrayLen(child)
+    | TInstrKind::TAnyConvertExtern(child)
+    | TInstrKind::TExternConvertAny(child)
+    | TInstrKind::TThrowRef(child)
+    | TInstrKind::TMemoryGrow(_, child)
+    | TInstrKind::TTableGet(_, child)
+    | TInstrKind::TLoad(_, _, child)
+    | TInstrKind::TArrayNewDefault(_, child)
+    | TInstrKind::TStructGet(_, _, child)
+    | TInstrKind::TStructGetS(_, _, child)
+    | TInstrKind::TStructGetU(_, _, child)
+    | TInstrKind::TI8x16Splat(child)
+    | TInstrKind::TI16x8Splat(child)
+    | TInstrKind::TI32x4Splat(child)
+    | TInstrKind::TI64x2Splat(child)
+    | TInstrKind::TF32x4Splat(child)
+    | TInstrKind::TF64x2Splat(child)
+    | TInstrKind::TExtractLane(_, _, child)
+    | TInstrKind::TRefTest(_, _, child)
+    | TInstrKind::TRefCast(_, _, child)
+    | TInstrKind::TRefGetDesc(child)
+    | TInstrKind::TRefTestDesc(_, _, child)
+    | TInstrKind::TRefCastDescEq(_, _, child) => [child]
+    TInstrKind::TBinary(_, left, right)
+    | TInstrKind::TRefEq(left, right)
+    | TInstrKind::TStore(_, _, left, right)
+    | TInstrKind::TMemoryAtomicNotify(_, left, right)
+    | TInstrKind::TAtomicRmw(_, _, left, right)
+    | TInstrKind::TTableSet(_, left, right)
+    | TInstrKind::TTableGrow(_, left, right)
+    | TInstrKind::TStructSet(_, _, left, right)
+    | TInstrKind::TArrayNew(_, left, right)
+    | TInstrKind::TArrayNewData(_, _, left, right)
+    | TInstrKind::TArrayNewElem(_, _, left, right)
+    | TInstrKind::TArrayGet(_, left, right)
+    | TInstrKind::TArrayGetS(_, left, right)
+    | TInstrKind::TArrayGetU(_, left, right)
+    | TInstrKind::TReplaceLane(_, _, left, right)
+    | TInstrKind::TI8x16Swizzle(left, right)
+    | TInstrKind::TI8x16RelaxedSwizzle(left, right)
+    | TInstrKind::TV128Shift(_, left, right)
+    | TInstrKind::TV128LoadLane(_, _, _, left, right)
+    | TInstrKind::TV128StoreLane(_, _, _, left, right) => [left, right]
+    TInstrKind::TMemoryFill(_, a, b, c)
+    | TInstrKind::TMemoryCopy(_, _, a, b, c)
+    | TInstrKind::TMemoryInit(_, _, a, b, c)
+    | TInstrKind::TMemoryAtomicWait32(_, a, b, c)
+    | TInstrKind::TMemoryAtomicWait64(_, a, b, c)
+    | TInstrKind::TAtomicCmpxchg(_, _, a, b, c)
+    | TInstrKind::TTableFill(_, a, b, c)
+    | TInstrKind::TTableCopy(_, _, a, b, c)
+    | TInstrKind::TTableInit(_, _, a, b, c)
+    | TInstrKind::TSelect(_, c, a, b)
+    | TInstrKind::TV128Ternary(_, a, b, c) => [a, b, c]
+    TInstrKind::TCall(_, args)
+    | TInstrKind::TReturnCall(_, args)
+    | TInstrKind::TThrow(_, args)
+    | TInstrKind::TBr(_, args)
+    | TInstrKind::TReturn(args)
+    | TInstrKind::TStructNew(_, args)
+    | TInstrKind::TArrayNewFixed(_, args) => args.copy()
+    TInstrKind::TCallIndirect(_, _, args, index)
+    | TInstrKind::TReturnCallIndirect(_, _, args, index) => {
       let out = args.copy()
       out.push(index)
       out
     }
-    TCallRef(_, args, ref_) | TReturnCallRef(_, args, ref_) => {
+    TInstrKind::TCallRef(_, args, ref_)
+    | TInstrKind::TReturnCallRef(_, args, ref_) => {
       let out = args.copy()
       out.push(ref_)
       out
     }
-    TBrIf(_, cond, values) => {
+    TInstrKind::TBrIf(_, cond, values) => {
       let out = values.copy()
       out.push(cond)
       out
     }
-    TBrTable(_, _, index, values) => {
+    TInstrKind::TBrTable(_, _, index, values) => {
       let out = values.copy()
       out.push(index)
       out
     }
-    TBrOnNull(_, ref_, values)
-    | TBrOnNonNull(_, ref_, values)
-    | TBrOnCast(_, _, _, _, ref_, values)
-    | TBrOnCastFail(_, _, _, _, ref_, values) => {
+    TInstrKind::TBrOnNull(_, ref_, values)
+    | TInstrKind::TBrOnNonNull(_, ref_, values)
+    | TInstrKind::TBrOnCast(_, _, _, _, ref_, values)
+    | TInstrKind::TBrOnCastFail(_, _, _, _, ref_, values) => {
       let out = values.copy()
       out.push(ref_)
       out
     }
-    TArraySet(_, a, b, c) => [a, b, c]
-    TArrayFill(_, a, b, c, d) => [a, b, c, d]
-    TArrayCopy(_, _, a, b, c, d, e) => [a, b, c, d, e]
-    TArrayInitData(_, _, a, b, c, d) => [a, b, c, d]
-    TArrayInitElem(_, _, a, b, c, d) => [a, b, c, d]
-    TI8x16Shuffle(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, left, right) =>
-      [left, right]
-    TBlock(_, _) | TLoop(_, _) | TIf(_, _, _, _) | TTryTable(_, _, _) => []
+    TInstrKind::TArraySet(_, a, b, c) => [a, b, c]
+    TInstrKind::TArrayFill(_, a, b, c, d) => [a, b, c, d]
+    TInstrKind::TArrayCopy(_, _, a, b, c, d, e) => [a, b, c, d, e]
+    TInstrKind::TArrayInitData(_, _, a, b, c, d) => [a, b, c, d]
+    TInstrKind::TArrayInitElem(_, _, a, b, c, d) => [a, b, c, d]
+    TInstrKind::TI8x16Shuffle(
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      left,
+      right
+    ) => [left, right]
+    TInstrKind::TBlock(_, _)
+    | TInstrKind::TLoop(_, _)
+    | TInstrKind::TIf(_, _, _, _)
+    | TInstrKind::TTryTable(_, _, _) => []
   }
 }
 
@@ -532,8 +558,8 @@ fn ls_structural_dominance_instr(
   relevant_locals : Set[Int],
   cannot_be_non_nullable : Set[Int],
 ) -> Set[Int] {
-  match instr {
-    TLocalGet(idx) => {
+  match instr.kind {
+    TInstrKind::TLocalGet(idx) => {
       let local_idx = ls_local_idx_to_int(idx)
       if relevant_locals.contains(local_idx) &&
         !definitely_set.contains(local_idx) {
@@ -541,7 +567,7 @@ fn ls_structural_dominance_instr(
       }
       definitely_set
     }
-    TLocalSet(idx, value) | TLocalTee(idx, value) => {
+    TInstrKind::TLocalSet(idx, value) | TInstrKind::TLocalTee(idx, value) => {
       let after_value = ls_structural_dominance_instr(
         value, definitely_set, relevant_locals, cannot_be_non_nullable,
       )
@@ -552,11 +578,13 @@ fn ls_structural_dominance_instr(
       }
       out
     }
-    TBlock(_, body) | TLoop(_, body) | TTryTable(_, _, body) =>
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) =>
       ls_structural_dominance_texpr(
         body, definitely_set, relevant_locals, cannot_be_non_nullable,
       )
-    TIf(_, cond, then_, else_) => {
+    TInstrKind::TIf(_, cond, then_, else_) => {
       let after_cond = ls_structural_dominance_instr(
         cond, definitely_set, relevant_locals, cannot_be_non_nullable,
       )
@@ -941,7 +969,22 @@ test "local subtyping includes local tee assignments in refinement" {
   match out.code_sec {
     Some(
       CodeSec(
-        [TFunc([RefTypeValType(rt)], { instrs: [TDrop(TLocalTee(_, _))], .. })]
+        [
+          TFunc(
+            [RefTypeValType(rt)],
+            {
+              instrs: [
+                {
+                  kind: TInstrKind::TDrop(
+                    { kind: TInstrKind::TLocalTee(_, _), .. }
+                  ),
+                  ..,
+                },
+              ],
+              ..,
+            }
+          ),
+        ]
       )
     ) => assert_false(rt.is_nullable())
     _ => fail("expected tee-driven refinement")

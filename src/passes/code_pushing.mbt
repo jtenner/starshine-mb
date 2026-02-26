@@ -122,8 +122,8 @@ fn analyze_instr(
   analyzer : LocalAnalyzer,
   before_first_set : Bool,
 ) -> Unit {
-  match instr {
-    TLocalGet(idx) => {
+  match instr.kind {
+    TInstrKind::TLocalGet(idx) => {
       let i = idx.0.reinterpret_as_int()
       if i >= 0 && i < analyzer.num_gets.length() {
         // If we see a get before any set, not SFA
@@ -133,7 +133,7 @@ fn analyze_instr(
         analyzer.num_gets[i] += 1
       }
     }
-    TLocalSet(idx, value) => {
+    TInstrKind::TLocalSet(idx, value) => {
       let i = idx.0.reinterpret_as_int()
       if i >= 0 && i < analyzer.num_sets.length() {
         analyzer.num_sets[i] += 1
@@ -145,7 +145,7 @@ fn analyze_instr(
       // Recurse into the value
       analyze_instr(value, analyzer, before_first_set)
     }
-    TLocalTee(idx, value) => {
+    TInstrKind::TLocalTee(idx, value) => {
       let i = idx.0.reinterpret_as_int()
       if i >= 0 && i < analyzer.num_sets.length() {
         analyzer.num_sets[i] += 1
@@ -156,9 +156,10 @@ fn analyze_instr(
       analyze_instr(value, analyzer, before_first_set)
     }
     // Recurse into nested structures
-    TBlock(_, body) => analyze_expr(body, analyzer, before_first_set)
-    TLoop(_, body) => analyze_expr(body, analyzer, before_first_set)
-    TIf(_, cond, then_body, else_body) => {
+    TInstrKind::TBlock(_, body) =>
+      analyze_expr(body, analyzer, before_first_set)
+    TInstrKind::TLoop(_, body) => analyze_expr(body, analyzer, before_first_set)
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
       analyze_instr(cond, analyzer, before_first_set)
       analyze_expr(then_body, analyzer, before_first_set)
       match else_body {
@@ -272,49 +273,49 @@ fn analyze_effects(instr : TInstr) -> Effects {
 
 ///|
 fn analyze_effects_into(instr : TInstr, effects : Effects) -> Unit {
-  match instr {
+  match instr.kind {
     // Local operations
-    TLocalGet(idx) => effects.reads_locals.add(idx)
-    TLocalSet(idx, value) => {
+    TInstrKind::TLocalGet(idx) => effects.reads_locals.add(idx)
+    TInstrKind::TLocalSet(idx, value) => {
       effects.writes_locals.add(idx)
       analyze_effects_into(value, effects)
     }
-    TLocalTee(idx, value) => {
+    TInstrKind::TLocalTee(idx, value) => {
       effects.reads_locals.add(idx)
       effects.writes_locals.add(idx)
       analyze_effects_into(value, effects)
     }
 
     // Global operations
-    TGlobalGet(_) => effects.reads_globals = true
-    TGlobalSet(_, value) => {
+    TInstrKind::TGlobalGet(_) => effects.reads_globals = true
+    TInstrKind::TGlobalSet(_, value) => {
       effects.writes_globals = true
       analyze_effects_into(value, effects)
     }
 
     // Memory operations
-    TLoad(_, _, ptr) => {
+    TInstrKind::TLoad(_, _, ptr) => {
       effects.reads_memory = true
       analyze_effects_into(ptr, effects)
     }
-    TStore(_, _, ptr, value) => {
+    TInstrKind::TStore(_, _, ptr, value) => {
       effects.writes_memory = true
       analyze_effects_into(ptr, effects)
       analyze_effects_into(value, effects)
     }
-    TMemoryGrow(_, value) => {
+    TInstrKind::TMemoryGrow(_, value) => {
       effects.writes_memory = true
       analyze_effects_into(value, effects)
     }
-    TMemorySize(_) => effects.reads_memory = true
-    TMemoryCopy(_, _, dst, src, len) => {
+    TInstrKind::TMemorySize(_) => effects.reads_memory = true
+    TInstrKind::TMemoryCopy(_, _, dst, src, len) => {
       effects.reads_memory = true
       effects.writes_memory = true
       analyze_effects_into(dst, effects)
       analyze_effects_into(src, effects)
       analyze_effects_into(len, effects)
     }
-    TMemoryFill(_, dst, val, len) => {
+    TInstrKind::TMemoryFill(_, dst, val, len) => {
       effects.writes_memory = true
       analyze_effects_into(dst, effects)
       analyze_effects_into(val, effects)
@@ -322,34 +323,34 @@ fn analyze_effects_into(instr : TInstr, effects : Effects) -> Unit {
     }
 
     // Calls - have arbitrary side effects
-    TCall(_, args) => {
+    TInstrKind::TCall(_, args) => {
       effects.calls = true
       for i = 0; i < args.length(); i = i + 1 {
         analyze_effects_into(args[i], effects)
       }
     }
-    TCallIndirect(_, _, args, table_idx) => {
+    TInstrKind::TCallIndirect(_, _, args, table_idx) => {
       effects.calls = true
       for i = 0; i < args.length(); i = i + 1 {
         analyze_effects_into(args[i], effects)
       }
       analyze_effects_into(table_idx, effects)
     }
-    TCallRef(_, args, funcref) => {
+    TInstrKind::TCallRef(_, args, funcref) => {
       effects.calls = true
       for i = 0; i < args.length(); i = i + 1 {
         analyze_effects_into(args[i], effects)
       }
       analyze_effects_into(funcref, effects)
     }
-    TReturnCall(_, args) => {
+    TInstrKind::TReturnCall(_, args) => {
       effects.calls = true
       effects.branches = true
       for i = 0; i < args.length(); i = i + 1 {
         analyze_effects_into(args[i], effects)
       }
     }
-    TReturnCallIndirect(_, _, args, table_idx) => {
+    TInstrKind::TReturnCallIndirect(_, _, args, table_idx) => {
       effects.calls = true
       effects.branches = true
       for i = 0; i < args.length(); i = i + 1 {
@@ -357,7 +358,7 @@ fn analyze_effects_into(instr : TInstr, effects : Effects) -> Unit {
       }
       analyze_effects_into(table_idx, effects)
     }
-    TReturnCallRef(_, args, funcref) => {
+    TInstrKind::TReturnCallRef(_, args, funcref) => {
       effects.calls = true
       effects.branches = true
       for i = 0; i < args.length(); i = i + 1 {
@@ -367,27 +368,27 @@ fn analyze_effects_into(instr : TInstr, effects : Effects) -> Unit {
     }
 
     // Control flow
-    TBr(_, args) => {
+    TInstrKind::TBr(_, args) => {
       effects.branches = true
       for arg in args {
         analyze_effects_into(arg, effects)
       }
     }
-    TBrIf(_, cond, args) => {
+    TInstrKind::TBrIf(_, cond, args) => {
       effects.branches = true
       analyze_effects_into(cond, effects)
       for arg in args {
         analyze_effects_into(arg, effects)
       }
     }
-    TBrTable(_, _, index, args) => {
+    TInstrKind::TBrTable(_, _, index, args) => {
       effects.branches = true
       analyze_effects_into(index, effects)
       for arg in args {
         analyze_effects_into(arg, effects)
       }
     }
-    TReturn(args) => {
+    TInstrKind::TReturn(args) => {
       effects.branches = true
       for arg in args {
         analyze_effects_into(arg, effects)
@@ -395,24 +396,24 @@ fn analyze_effects_into(instr : TInstr, effects : Effects) -> Unit {
     }
 
     // Trapping operations
-    TUnreachable => effects.traps = true
+    TInstrKind::TUnreachable => effects.traps = true
 
     // Exception handling
-    TThrow(_, args) => {
+    TInstrKind::TThrow(_, args) => {
       effects.throws = true
       for arg in args {
         analyze_effects_into(arg, effects)
       }
     }
-    TThrowRef(value) => {
+    TInstrKind::TThrowRef(value) => {
       effects.throws = true
       analyze_effects_into(value, effects)
     }
 
     // Nested structures - analyze their contents
-    TBlock(_, body) => analyze_effects_expr(body, effects)
-    TLoop(_, body) => analyze_effects_expr(body, effects)
-    TIf(_, cond, then_body, else_body) => {
+    TInstrKind::TBlock(_, body) => analyze_effects_expr(body, effects)
+    TInstrKind::TLoop(_, body) => analyze_effects_expr(body, effects)
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
       analyze_effects_into(cond, effects)
       analyze_effects_expr(then_body, effects)
       match else_body {
@@ -420,10 +421,10 @@ fn analyze_effects_into(instr : TInstr, effects : Effects) -> Unit {
         None => ()
       }
     }
-    TTryTable(_, _, body) => analyze_effects_expr(body, effects)
+    TInstrKind::TTryTable(_, _, body) => analyze_effects_expr(body, effects)
 
     // Binary operations - check for trapping
-    TBinary(op, lhs, rhs) => {
+    TInstrKind::TBinary(op, lhs, rhs) => {
       // Division and remainder can trap
       match op {
         I32DivSOp
@@ -441,7 +442,7 @@ fn analyze_effects_into(instr : TInstr, effects : Effects) -> Unit {
     }
 
     // Unary operations - check for trapping conversions
-    TUnary(op, operand) => {
+    TInstrKind::TUnary(op, operand) => {
       match op {
         I32TruncF32SOp
         | I32TruncF32UOp
@@ -457,24 +458,24 @@ fn analyze_effects_into(instr : TInstr, effects : Effects) -> Unit {
     }
 
     // Select
-    TSelect(_, cond, if_true, if_false) => {
+    TInstrKind::TSelect(_, cond, if_true, if_false) => {
       analyze_effects_into(cond, effects)
       analyze_effects_into(if_true, effects)
       analyze_effects_into(if_false, effects)
     }
 
     // Drop
-    TDrop(value) => analyze_effects_into(value, effects)
+    TInstrKind::TDrop(value) => analyze_effects_into(value, effects)
 
     // Pure instructions (no side effects beyond their children)
-    TNop
-    | TI32Const(_)
-    | TI64Const(_)
-    | TF32Const(_)
-    | TF64Const(_)
-    | TV128Const(_)
-    | TRefNull(_)
-    | TRefFunc(_) => ()
+    TInstrKind::TNop
+    | TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_)
+    | TInstrKind::TV128Const(_)
+    | TInstrKind::TRefNull(_)
+    | TInstrKind::TRefFunc(_) => ()
 
     // Default: assume no additional effects beyond children
     _ => ()
@@ -492,17 +493,17 @@ fn analyze_effects_expr(expr : TExpr, effects : Effects) -> Unit {
 /// Check if an instruction is a push point (conditional control flow)
 fn is_push_point(instr : TInstr) -> Bool {
   // Look through drops
-  let target = match instr {
-    TDrop(value) => value
+  let target = match instr.kind {
+    TInstrKind::TDrop(value) => value
     _ => instr
   }
-  match target {
-    TIf(_, _, _, _) => true
-    TBrIf(_, _, _) => true
-    TBrOnNull(_, _, _) => true
-    TBrOnNonNull(_, _, _) => true
-    TBrOnCast(_, _, _, _, _, _) => true
-    TBrOnCastFail(_, _, _, _, _, _) => true
+  match target.kind {
+    TInstrKind::TIf(_, _, _, _) => true
+    TInstrKind::TBrIf(_, _, _) => true
+    TInstrKind::TBrOnNull(_, _, _) => true
+    TInstrKind::TBrOnNonNull(_, _, _) => true
+    TInstrKind::TBrOnCast(_, _, _, _, _, _) => true
+    TInstrKind::TBrOnCastFail(_, _, _, _, _, _) => true
     _ => false
   }
 }
@@ -515,8 +516,8 @@ fn is_pushable(
   analyzer : LocalAnalyzer,
   num_gets_so_far : Array[Int],
 ) -> (LocalIdx, TInstr)? {
-  match instr {
-    TLocalSet(idx, value) => {
+  match instr.kind {
+    TInstrKind::TLocalSet(idx, value) => {
       let i = idx.0.reinterpret_as_int()
       // Must be SFA and no gets have been seen yet (all gets are after this point)
       if i >= 0 &&
@@ -560,16 +561,16 @@ fn count_local_get(state : PushingState, idx : LocalIdx) -> Unit {
 ///|
 /// Count local.gets in an instruction (recursively)
 fn count_gets_in_instr(state : PushingState, instr : TInstr) -> Unit {
-  match instr {
-    TLocalGet(idx) => count_local_get(state, idx)
-    TLocalSet(_, value) => count_gets_in_instr(state, value)
-    TLocalTee(idx, value) => {
+  match instr.kind {
+    TInstrKind::TLocalGet(idx) => count_local_get(state, idx)
+    TInstrKind::TLocalSet(_, value) => count_gets_in_instr(state, value)
+    TInstrKind::TLocalTee(idx, value) => {
       count_local_get(state, idx)
       count_gets_in_instr(state, value)
     }
-    TBlock(_, body) => count_gets_in_expr(state, body)
-    TLoop(_, body) => count_gets_in_expr(state, body)
-    TIf(_, cond, then_body, else_body) => {
+    TInstrKind::TBlock(_, body) => count_gets_in_expr(state, body)
+    TInstrKind::TLoop(_, body) => count_gets_in_expr(state, body)
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
       count_gets_in_instr(state, cond)
       count_gets_in_expr(state, then_body)
       match else_body {
@@ -580,8 +581,8 @@ fn count_gets_in_instr(state : PushingState, instr : TInstr) -> Unit {
     _ => {
       // Use a walker to find all local.gets
       let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, i) {
-        match i {
-          TLocalGet(idx) => count_local_get(state, idx)
+        match i.kind {
+          TInstrKind::TLocalGet(idx) => count_local_get(state, idx)
           _ => ()
         }
         self.walk_tinstruction_default((), i)
@@ -681,12 +682,12 @@ fn optimize_segment(
 }
 
 ///|
-/// Remove TNop instructions from a list
+/// Remove TInstrKind::TNop instructions from a list
 fn compact_nops(list : Array[TInstr]) -> Unit {
   let new_list : Array[TInstr] = []
   for instr in list {
-    match instr {
-      TNop => continue
+    match instr.kind {
+      TInstrKind::TNop => continue
       _ => new_list.push(instr)
     }
   }
@@ -705,8 +706,9 @@ fn optimize_into_if(
   state : PushingState,
 ) -> Unit {
   // Check if push point is an if
-  let iff = match list[push_point] {
-    TIf(bt, cond, then_body, else_body) => (bt, cond, then_body, else_body)
+  let iff = match list[push_point].kind {
+    TInstrKind::TIf(bt, cond, then_body, else_body) =>
+      (bt, cond, then_body, else_body)
     _ => return
   }
   let (bt, cond, then_body, else_body_opt) = iff
@@ -832,8 +834,10 @@ fn try_push_into_arm(
           return false
         }
         let last = other_instrs[other_instrs.length() - 1]
-        match last {
-          TUnreachable | TReturn(_) | TBr(_, _) => ()
+        match last.kind {
+          TInstrKind::TUnreachable
+          | TInstrKind::TReturn(_)
+          | TInstrKind::TBr(_, _) => ()
           _ => return false
         }
       }
@@ -857,8 +861,8 @@ fn try_push_into_arm(
   let (new_then, new_else) = if is_then {
     (new_arm, other_arm)
   } else {
-    let orig_then = match list[push_point] {
-      TIf(_, _, t, _) => t
+    let orig_then = match list[push_point].kind {
+      TInstrKind::TIf(_, _, t, _) => t
       _ => arm // fallback
     }
     (orig_then, Some(new_arm))
@@ -953,8 +957,8 @@ fn code_pushing_ir_pass(_mod : Module) -> ModuleTransformer[IRContext] {
 /// Recursively process nested blocks
 fn process_nested_blocks(instrs : Array[TInstr], state : PushingState) -> Unit {
   for i = 0; i < instrs.length(); i = i + 1 {
-    match instrs[i] {
-      TBlock(bt, body) => {
+    match instrs[i].kind {
+      TInstrKind::TBlock(bt, body) => {
         let body_instrs = body.instrs.copy()
         push_code_in_block(body_instrs, state)
         process_nested_blocks(body_instrs, state)
@@ -962,7 +966,7 @@ fn process_nested_blocks(instrs : Array[TInstr], state : PushingState) -> Unit {
           instrs[i] = TInstr::block(bt, TExpr::new(body_instrs))
         }
       }
-      TLoop(bt, body) => {
+      TInstrKind::TLoop(bt, body) => {
         let body_instrs = body.instrs.copy()
         push_code_in_block(body_instrs, state)
         process_nested_blocks(body_instrs, state)
@@ -970,7 +974,7 @@ fn process_nested_blocks(instrs : Array[TInstr], state : PushingState) -> Unit {
           instrs[i] = TInstr::loop_(bt, TExpr::new(body_instrs))
         }
       }
-      TIf(bt, cond, then_body, else_body) => {
+      TInstrKind::TIf(bt, cond, then_body, else_body) => {
         let then_instrs = then_body.instrs.copy()
         push_code_in_block(then_instrs, state)
         process_nested_blocks(then_instrs, state)

@@ -94,8 +94,9 @@ fn gsi_collect_struct_types_in_tinstr(
   out : Set[TypeIdx],
 ) -> Unit {
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
-    match curr {
-      TStructNew(type_idx, _) | TStructNewDefault(type_idx) => out.add(type_idx)
+    match curr.kind {
+      TInstrKind::TStructNew(type_idx, _)
+      | TInstrKind::TStructNewDefault(type_idx) => out.add(type_idx)
       _ => ()
     }
     self.walk_tinstruction_default((), curr)
@@ -106,8 +107,9 @@ fn gsi_collect_struct_types_in_tinstr(
 ///|
 fn gsi_collect_struct_types_in_texpr(expr : TExpr, out : Set[TypeIdx]) -> Unit {
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
-    match curr {
-      TStructNew(type_idx, _) | TStructNewDefault(type_idx) => out.add(type_idx)
+    match curr.kind {
+      TInstrKind::TStructNew(type_idx, _)
+      | TInstrKind::TStructNewDefault(type_idx) => out.add(type_idx)
       _ => ()
     }
     self.walk_tinstruction_default((), curr)
@@ -125,17 +127,18 @@ fn gsi_single_root_init(init : Expr, env : Env) -> TInstr? {
 
 ///|
 fn gsi_global_root_type(root : TInstr) -> TypeIdx? {
-  match root {
-    TStructNew(type_idx, _) | TStructNewDefault(type_idx) => Some(type_idx)
+  match root.kind {
+    TInstrKind::TStructNew(type_idx, _)
+    | TInstrKind::TStructNewDefault(type_idx) => Some(type_idx)
     _ => None
   }
 }
 
 ///|
 fn gsi_global_root_init_info(root : TInstr) -> GSIGlobalInit? {
-  match root {
-    TStructNew(_, operands) => Some(GSIInitNew(operands))
-    TStructNewDefault(_) => Some(GSIInitDefault)
+  match root.kind {
+    TInstrKind::TStructNew(_, operands) => Some(GSIInitNew(operands))
+    TInstrKind::TStructNewDefault(_) => Some(GSIInitDefault)
     _ => None
   }
 }
@@ -271,10 +274,14 @@ fn gsi_is_global_immutable(env : Env, idx : GlobalIdx) -> Bool {
 
 ///|
 fn gsi_is_literal_const(instr : TInstr) -> Bool {
-  match instr {
-    TI32Const(_) | TI64Const(_) | TF32Const(_) | TF64Const(_) => true
-    TRefNull(_) | TRefFunc(_) => true
-    TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => true
+  match instr.kind {
+    TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_) => true
+    TInstrKind::TRefNull(_) | TInstrKind::TRefFunc(_) => true
+    TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      true
     _ => false
   }
 }
@@ -385,8 +392,9 @@ fn gsi_normalize_global_field_value(
   kind : GSIGetKind,
   env : Env,
 ) -> TInstr? {
-  let normalized_raw = match raw {
-    TGlobalGet(idx) if gsi_is_global_immutable(env, idx) => Some(raw)
+  let normalized_raw = match raw.kind {
+    TInstrKind::TGlobalGet(idx) if gsi_is_global_immutable(env, idx) =>
+      Some(raw)
     _ if gsi_is_literal_const(raw) => Some(raw)
     _ => None
   }
@@ -514,35 +522,41 @@ fn gsi_collect_values_for_globals(
 
 ///|
 fn gsi_ref_nullability(instr : TInstr, env : Env) -> Bool? {
-  match instr {
-    TLocalGet(idx) =>
+  match instr.kind {
+    TInstrKind::TLocalGet(idx) =>
       match env.get_local_type(idx) {
         Some(RefTypeValType(rt)) => Some(rt.is_nullable())
         _ => None
       }
-    TGlobalGet(idx) =>
+    TInstrKind::TGlobalGet(idx) =>
       match env.get_global_type(idx) {
         Some(GlobalType(RefTypeValType(rt), _)) => Some(rt.is_nullable())
         _ => None
       }
-    TRefNull(_) => Some(true)
-    TRefFunc(_) => Some(false)
-    TRefAsNonNull(_) => Some(false)
-    TRefCast(nullable, _, _) => Some(nullable)
-    TRefCastDescEq(nullable, _, _) => Some(nullable)
-    TStructNew(_, _) | TStructNewDefault(_) => Some(false)
-    TSelect(Some([RefTypeValType(rt)]), _, _, _) => Some(rt.is_nullable())
-    TBlock(bt, _) | TLoop(bt, _) | TIf(bt, _, _, _) | TTryTable(bt, _, _) =>
+    TInstrKind::TRefNull(_) => Some(true)
+    TInstrKind::TRefFunc(_) => Some(false)
+    TInstrKind::TRefAsNonNull(_) => Some(false)
+    TInstrKind::TRefCast(nullable, _, _) => Some(nullable)
+    TInstrKind::TRefCastDescEq(nullable, _, _) => Some(nullable)
+    TInstrKind::TStructNew(_, _) | TInstrKind::TStructNewDefault(_) =>
+      Some(false)
+    TInstrKind::TSelect(Some([RefTypeValType(rt)]), _, _, _) =>
+      Some(rt.is_nullable())
+    TInstrKind::TBlock(bt, _)
+    | TInstrKind::TLoop(bt, _)
+    | TInstrKind::TIf(bt, _, _, _)
+    | TInstrKind::TTryTable(bt, _, _) =>
       match env.expand_blocktype(bt) {
         Ok((_, [RefTypeValType(rt)])) => Some(rt.is_nullable())
         _ => None
       }
-    TCall(func_idx, _) =>
+    TInstrKind::TCall(func_idx, _) =>
       match env.get_functype_by_funcidx(func_idx) {
         Some(FuncType(_, [RefTypeValType(rt)])) => Some(rt.is_nullable())
         _ => None
       }
-    TCallIndirect(type_idx, _, _, _) | TCallRef(type_idx, _, _) =>
+    TInstrKind::TCallIndirect(type_idx, _, _, _)
+    | TInstrKind::TCallRef(type_idx, _, _) =>
       match env.resolve_functype(type_idx) {
         Some(FuncType(_, [RefTypeValType(rt)])) => Some(rt.is_nullable())
         _ => None
@@ -553,39 +567,45 @@ fn gsi_ref_nullability(instr : TInstr, env : Env) -> Bool? {
 
 ///|
 fn gsi_ref_heap_type(instr : TInstr, env : Env) -> HeapType? {
-  match instr {
-    TLocalGet(idx) =>
+  match instr.kind {
+    TInstrKind::TLocalGet(idx) =>
       match env.get_local_type(idx) {
         Some(RefTypeValType(rt)) => Some(rt.get_heap_type())
         _ => None
       }
-    TGlobalGet(idx) =>
+    TInstrKind::TGlobalGet(idx) =>
       match env.get_global_type(idx) {
         Some(GlobalType(RefTypeValType(rt), _)) => Some(rt.get_heap_type())
         _ => None
       }
-    TRefNull(ht) => Some(ht)
-    TRefFunc(_) => Some(HeapType::abs(AbsHeapType::func()))
-    TRefAsNonNull(value) =>
+    TInstrKind::TRefNull(ht) => Some(ht)
+    TInstrKind::TRefFunc(_) => Some(HeapType::abs(AbsHeapType::func()))
+    TInstrKind::TRefAsNonNull(value) =>
       match gsi_ref_heap_type(value, env) {
         Some(ht) => Some(ht)
         None => None
       }
-    TRefCast(_, ht, _) | TRefCastDescEq(_, ht, _) => Some(ht)
-    TStructNew(type_idx, _) | TStructNewDefault(type_idx) =>
-      Some(HeapType::new(type_idx))
-    TSelect(Some([RefTypeValType(rt)]), _, _, _) => Some(rt.get_heap_type())
-    TBlock(bt, _) | TLoop(bt, _) | TIf(bt, _, _, _) | TTryTable(bt, _, _) =>
+    TInstrKind::TRefCast(_, ht, _) | TInstrKind::TRefCastDescEq(_, ht, _) =>
+      Some(ht)
+    TInstrKind::TStructNew(type_idx, _)
+    | TInstrKind::TStructNewDefault(type_idx) => Some(HeapType::new(type_idx))
+    TInstrKind::TSelect(Some([RefTypeValType(rt)]), _, _, _) =>
+      Some(rt.get_heap_type())
+    TInstrKind::TBlock(bt, _)
+    | TInstrKind::TLoop(bt, _)
+    | TInstrKind::TIf(bt, _, _, _)
+    | TInstrKind::TTryTable(bt, _, _) =>
       match env.expand_blocktype(bt) {
         Ok((_, [RefTypeValType(rt)])) => Some(rt.get_heap_type())
         _ => None
       }
-    TCall(func_idx, _) =>
+    TInstrKind::TCall(func_idx, _) =>
       match env.get_functype_by_funcidx(func_idx) {
         Some(FuncType(_, [RefTypeValType(rt)])) => Some(rt.get_heap_type())
         _ => None
       }
-    TCallIndirect(type_idx, _, _, _) | TCallRef(type_idx, _, _) =>
+    TInstrKind::TCallIndirect(type_idx, _, _, _)
+    | TInstrKind::TCallRef(type_idx, _, _) =>
       match env.resolve_functype(type_idx) {
         Some(FuncType(_, [RefTypeValType(rt)])) => Some(rt.get_heap_type())
         _ => None
@@ -692,8 +712,8 @@ fn gsi_candidate_globals_for_ref(
   ref_ : TInstr,
   state : GSIRewriteState,
 ) -> Array[GlobalIdx]? {
-  match ref_ {
-    TGlobalGet(global_idx) =>
+  match ref_.kind {
+    TInstrKind::TGlobalGet(global_idx) =>
       if gsi_is_global_immutable(state.env, global_idx) &&
         state.analysis.global_root_types.get(global_idx) is Some(_) {
         Some([global_idx])
@@ -747,8 +767,11 @@ fn gsi_optimize_struct_get(
   }
 
   // Trivial direct-global case.
-  match ref_ {
-    TGlobalGet(global_idx) if gsi_is_global_immutable(state.env, global_idx) =>
+  match ref_.kind {
+    TInstrKind::TGlobalGet(global_idx) if gsi_is_global_immutable(
+        state.env,
+        global_idx,
+      ) =>
       match
         gsi_read_const_value_from_global(
           global_idx,
@@ -780,8 +803,8 @@ fn gsi_optimize_struct_get(
       Some(value) => value
       None => return None
     }
-    match ref_ {
-      TGlobalGet(ref_global) =>
+    match ref_.kind {
+      TInstrKind::TGlobalGet(ref_global) =>
         match value {
           GSIValueFromGlobal(value_global) =>
             if ref_global == value_global {
@@ -864,8 +887,8 @@ fn gsi_optimize_ref_get_desc(ref_ : TInstr, state : GSIRewriteState) -> TInstr? 
     _ => return None
   }
   if globals.length() == 1 {
-    match ref_ {
-      TGlobalGet(curr) if curr == globals[0] => return None
+    match ref_.kind {
+      TInstrKind::TGlobalGet(curr) if curr == globals[0] => return None
       _ => ()
     }
   }
@@ -888,31 +911,31 @@ fn gsi_optimize_ref_get_desc(ref_ : TInstr, state : GSIRewriteState) -> TInstr? 
 
 ///|
 fn gsi_optimize_tinstruction(instr : TInstr, state : GSIRewriteState) -> TInstr {
-  match instr {
-    TStructGet(type_idx, field_idx, ref_) =>
+  match instr.kind {
+    TInstrKind::TStructGet(type_idx, field_idx, ref_) =>
       match
         gsi_optimize_struct_get(type_idx, field_idx, ref_, NormalGet, state) {
         Some(new_instr) => new_instr
         None => instr
       }
-    TStructGetS(type_idx, field_idx, ref_) =>
+    TInstrKind::TStructGetS(type_idx, field_idx, ref_) =>
       match
         gsi_optimize_struct_get(type_idx, field_idx, ref_, SignedGet, state) {
         Some(new_instr) => new_instr
         None => instr
       }
-    TStructGetU(type_idx, field_idx, ref_) =>
+    TInstrKind::TStructGetU(type_idx, field_idx, ref_) =>
       match
         gsi_optimize_struct_get(type_idx, field_idx, ref_, UnsignedGet, state) {
         Some(new_instr) => new_instr
         None => instr
       }
-    TRefCast(nullable, target_ht, ref_) =>
+    TInstrKind::TRefCast(nullable, target_ht, ref_) =>
       match gsi_optimize_ref_cast_desc_mode(nullable, target_ht, ref_, state) {
         Some(new_instr) => new_instr
         None => instr
       }
-    TRefGetDesc(ref_) =>
+    TInstrKind::TRefGetDesc(ref_) =>
       match gsi_optimize_ref_get_desc(ref_, state) {
         Some(new_instr) => new_instr
         None => instr
@@ -1010,12 +1033,12 @@ fn analyze_global_struct_inference(mod : Module) -> Result[GSIAnalysis, String] 
         }
 
         // Nested struct.new/default types in global init are unoptimizable.
-        match root {
-          TStructNew(_, operands) =>
+        match root.kind {
+          TInstrKind::TStructNew(_, operands) =>
             for operand in operands {
               gsi_collect_struct_types_in_tinstr(operand, unoptimizable)
             }
-          TStructNewDefault(_) => ()
+          TInstrKind::TStructNewDefault(_) => ()
           _ => gsi_collect_struct_types_in_tinstr(root, unoptimizable)
         }
         let root_type = match gsi_global_root_type(root) {
@@ -1125,12 +1148,29 @@ test "global struct inference rewrites struct.get from singleton inferred global
             _,
             {
               instrs: [
-                TDrop(
-                  TBlock(
-                    _,
-                    { instrs: [TDrop(TRefAsNonNull(_)), TI32Const(I32(v))], .. }
-                  )
-                ),
+                {
+                  kind: TInstrKind::TDrop(
+                    {
+                      kind: TInstrKind::TBlock(
+                        _,
+                        {
+                          instrs: [
+                            {
+                              kind: TInstrKind::TDrop(
+                                { kind: TInstrKind::TRefAsNonNull(_), .. }
+                              ),
+                              ..,
+                            },
+                            { kind: TInstrKind::TI32Const(I32(v)), .. },
+                          ],
+                          ..,
+                        }
+                      ),
+                      ..,
+                    }
+                  ),
+                  ..,
+                },
               ],
               ..,
             }
@@ -1200,7 +1240,26 @@ test "global struct inference rewrites two-value struct.get to select with ref.e
             _,
             {
               instrs: [
-                TDrop(TSelect(_, TRefEq(TRefAsNonNull(_), TGlobalGet(_)), _, _)),
+                {
+                  kind: TInstrKind::TDrop(
+                    {
+                      kind: TInstrKind::TSelect(
+                        _,
+                        {
+                          kind: TInstrKind::TRefEq(
+                            { kind: TInstrKind::TRefAsNonNull(_), .. },
+                            { kind: TInstrKind::TGlobalGet(_), .. }
+                          ),
+                          ..,
+                        },
+                        _,
+                        _
+                      ),
+                      ..,
+                    }
+                  ),
+                  ..,
+                },
               ],
               ..,
             }
@@ -1272,7 +1331,31 @@ test "global struct inference groups >2 globals into two values" {
         [
           TFunc(
             _,
-            { instrs: [TDrop(TSelect(_, TRefEq(_, TGlobalGet(_)), _, _))], .. }
+            {
+              instrs: [
+                {
+                  kind: TInstrKind::TDrop(
+                    {
+                      kind: TInstrKind::TSelect(
+                        _,
+                        {
+                          kind: TInstrKind::TRefEq(
+                            _,
+                            { kind: TInstrKind::TGlobalGet(_), .. }
+                          ),
+                          ..,
+                        },
+                        _,
+                        _
+                      ),
+                      ..,
+                    }
+                  ),
+                  ..,
+                },
+              ],
+              ..,
+            }
           ),
         ]
       )
@@ -1332,12 +1415,29 @@ test "global struct inference handles non-null struct.get operands without ref.a
             _,
             {
               instrs: [
-                TDrop(
-                  TBlock(
-                    _,
-                    { instrs: [TDrop(TLocalGet(_)), TI32Const(I32(v))], .. }
-                  )
-                ),
+                {
+                  kind: TInstrKind::TDrop(
+                    {
+                      kind: TInstrKind::TBlock(
+                        _,
+                        {
+                          instrs: [
+                            {
+                              kind: TInstrKind::TDrop(
+                                { kind: TInstrKind::TLocalGet(_), .. }
+                              ),
+                              ..,
+                            },
+                            { kind: TInstrKind::TI32Const(I32(v)), .. },
+                          ],
+                          ..,
+                        }
+                      ),
+                      ..,
+                    }
+                  ),
+                  ..,
+                },
               ],
               ..,
             }
@@ -1408,12 +1508,29 @@ test "global struct inference propagates globals through supertypes" {
             _,
             {
               instrs: [
-                TDrop(
-                  TBlock(
-                    _,
-                    { instrs: [TDrop(TRefAsNonNull(_)), TI32Const(I32(v))], .. }
-                  )
-                ),
+                {
+                  kind: TInstrKind::TDrop(
+                    {
+                      kind: TInstrKind::TBlock(
+                        _,
+                        {
+                          instrs: [
+                            {
+                              kind: TInstrKind::TDrop(
+                                { kind: TInstrKind::TRefAsNonNull(_), .. }
+                              ),
+                              ..,
+                            },
+                            { kind: TInstrKind::TI32Const(I32(v)), .. },
+                          ],
+                          ..,
+                        }
+                      ),
+                      ..,
+                    }
+                  ),
+                  ..,
+                },
               ],
               ..,
             }
@@ -1647,8 +1764,16 @@ test "global struct inference folds direct immutable global struct.get to consta
     Err(e) => fail("unexpected global_struct_inference error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TI32Const(I32(v))], .. })])) =>
-      assert_eq(v, 99)
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            { instrs: [{ kind: TInstrKind::TI32Const(I32(v)), .. }], .. }
+          ),
+        ]
+      )
+    ) => assert_eq(v, 99)
     _ => fail("expected direct global struct.get to fold to constant")
   }
 }
@@ -1713,18 +1838,36 @@ test "global struct inference rewrites singleton non-constant values via known g
             _,
             {
               instrs: [
-                TDrop(
-                  TBlock(
-                    _,
+                {
+                  kind: TInstrKind::TDrop(
                     {
-                      instrs: [
-                        TDrop(TRefAsNonNull(_)),
-                        TStructGet(_, _, TGlobalGet(_)),
-                      ],
+                      kind: TInstrKind::TBlock(
+                        _,
+                        {
+                          instrs: [
+                            {
+                              kind: TInstrKind::TDrop(
+                                { kind: TInstrKind::TRefAsNonNull(_), .. }
+                              ),
+                              ..,
+                            },
+                            {
+                              kind: TInstrKind::TStructGet(
+                                _,
+                                _,
+                                { kind: TInstrKind::TGlobalGet(_), .. }
+                              ),
+                              ..,
+                            },
+                          ],
+                          ..,
+                        }
+                      ),
                       ..,
                     }
-                  )
-                ),
+                  ),
+                  ..,
+                },
               ],
               ..,
             }
@@ -1807,14 +1950,40 @@ test "global struct inference rewrites non-constant two-value case to select" {
             _,
             {
               instrs: [
-                TDrop(
-                  TSelect(
-                    _,
-                    TRefEq(TRefAsNonNull(_), TGlobalGet(_)),
-                    TStructGet(_, _, TGlobalGet(_)),
-                    TStructGet(_, _, TGlobalGet(_))
-                  )
-                ),
+                {
+                  kind: TInstrKind::TDrop(
+                    {
+                      kind: TInstrKind::TSelect(
+                        _,
+                        {
+                          kind: TInstrKind::TRefEq(
+                            { kind: TInstrKind::TRefAsNonNull(_), .. },
+                            { kind: TInstrKind::TGlobalGet(_), .. }
+                          ),
+                          ..,
+                        },
+                        {
+                          kind: TInstrKind::TStructGet(
+                            _,
+                            _,
+                            { kind: TInstrKind::TGlobalGet(_), .. }
+                          ),
+                          ..,
+                        },
+                        {
+                          kind: TInstrKind::TStructGet(
+                            _,
+                            _,
+                            { kind: TInstrKind::TGlobalGet(_), .. }
+                          ),
+                          ..,
+                        }
+                      ),
+                      ..,
+                    }
+                  ),
+                  ..,
+                },
               ],
               ..,
             }
@@ -1931,12 +2100,29 @@ test "global struct inference handles struct.get_u defaults for packed fields" {
             _,
             {
               instrs: [
-                TDrop(
-                  TBlock(
-                    _,
-                    { instrs: [TDrop(TRefAsNonNull(_)), read_value], .. }
-                  )
-                ),
+                {
+                  kind: TInstrKind::TDrop(
+                    {
+                      kind: TInstrKind::TBlock(
+                        _,
+                        {
+                          instrs: [
+                            {
+                              kind: TInstrKind::TDrop(
+                                { kind: TInstrKind::TRefAsNonNull(_), .. }
+                              ),
+                              ..,
+                            },
+                            read_value,
+                          ],
+                          ..,
+                        }
+                      ),
+                      ..,
+                    }
+                  ),
+                  ..,
+                },
               ],
               ..,
             }
@@ -2091,7 +2277,21 @@ test "global struct inference descriptor mode rewrites singleton non-null ref.ca
           TFunc(
             _,
             {
-              instrs: [TDrop(TRefCastDescEq(false, HeapType(TypeIdx(i)), _))],
+              instrs: [
+                {
+                  kind: TInstrKind::TDrop(
+                    {
+                      kind: TInstrKind::TRefCastDescEq(
+                        false,
+                        HeapType(TypeIdx(i)),
+                        _
+                      ),
+                      ..,
+                    }
+                  ),
+                  ..,
+                },
+              ],
               ..,
             }
           ),
@@ -2146,7 +2346,21 @@ test "global struct inference descriptor mode rewrites singleton nullable ref.ca
           TFunc(
             _,
             {
-              instrs: [TDrop(TRefCastDescEq(true, HeapType(TypeIdx(i)), _))],
+              instrs: [
+                {
+                  kind: TInstrKind::TDrop(
+                    {
+                      kind: TInstrKind::TRefCastDescEq(
+                        true,
+                        HeapType(TypeIdx(i)),
+                        _
+                      ),
+                      ..,
+                    }
+                  ),
+                  ..,
+                },
+              ],
               ..,
             }
           ),
@@ -2200,8 +2414,11 @@ test "global struct inference descriptor mode requires no strict subtypes" {
     Err(e) => fail("unexpected global_struct_inference error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [TDrop(instr)], .. })])) =>
-      assert_eq(instr, cast_instr)
+    Some(
+      CodeSec(
+        [TFunc(_, { instrs: [{ kind: TInstrKind::TDrop(instr), .. }], .. })]
+      )
+    ) => assert_eq(instr, cast_instr)
     _ =>
       fail("expected ref.cast unchanged when target type has strict subtypes")
   }
@@ -2245,18 +2462,34 @@ test "global struct inference descriptor mode rewrites ref.get_desc with singlet
             _,
             {
               instrs: [
-                TDrop(
-                  TBlock(
-                    _,
+                {
+                  kind: TInstrKind::TDrop(
                     {
-                      instrs: [
-                        TDrop(_),
-                        TRefGetDesc(TRefAsNonNull(TGlobalGet(_))),
-                      ],
+                      kind: TInstrKind::TBlock(
+                        _,
+                        {
+                          instrs: [
+                            { kind: TInstrKind::TDrop(_), .. },
+                            {
+                              kind: TInstrKind::TRefGetDesc(
+                                {
+                                  kind: TInstrKind::TRefAsNonNull(
+                                    { kind: TInstrKind::TGlobalGet(_), .. }
+                                  ),
+                                  ..,
+                                }
+                              ),
+                              ..,
+                            },
+                          ],
+                          ..,
+                        }
+                      ),
                       ..,
                     }
-                  )
-                ),
+                  ),
+                  ..,
+                },
               ],
               ..,
             }
@@ -2323,14 +2556,20 @@ test "global struct inference descriptor mode rewrites ref.get_desc with select 
             _,
             {
               instrs: [
-                TDrop(
-                  TSelect(
-                    Some([NumTypeValType(I32NumType)]),
-                    TRefEq(_, _),
-                    TRefGetDesc(_),
-                    TRefGetDesc(_)
-                  )
-                ),
+                {
+                  kind: TInstrKind::TDrop(
+                    {
+                      kind: TInstrKind::TSelect(
+                        Some([NumTypeValType(I32NumType)]),
+                        { kind: TInstrKind::TRefEq(_, _), .. },
+                        { kind: TInstrKind::TRefGetDesc(_), .. },
+                        { kind: TInstrKind::TRefGetDesc(_), .. }
+                      ),
+                      ..,
+                    }
+                  ),
+                  ..,
+                },
               ],
               ..,
             }

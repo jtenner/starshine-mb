@@ -190,8 +190,8 @@ fn ConstHoistingState::uses(self : Self, literal : Literal) -> Unit {
 ///|
 fn replace_literal_pass() -> ModuleTransformer[Map[Literal, LocalIdx]] {
   ModuleTransformer::new().on_tinstruction_evt(fn(self, t, i) {
-    match i {
-      TI32Const(I32(val)) => {
+    match i.kind {
+      TInstrKind::TI32Const(I32(val)) => {
         let lit = Literal::i32(val)
         if t.get(lit) is Some(idx) {
           change(t, TInstr::local_get(idx))
@@ -199,7 +199,7 @@ fn replace_literal_pass() -> ModuleTransformer[Map[Literal, LocalIdx]] {
           unchanged()
         }
       }
-      TI64Const(I64(val)) => {
+      TInstrKind::TI64Const(I64(val)) => {
         let lit = Literal::i64(val)
         if t.get(lit) is Some(idx) {
           change(t, TInstr::local_get(idx))
@@ -207,7 +207,7 @@ fn replace_literal_pass() -> ModuleTransformer[Map[Literal, LocalIdx]] {
           unchanged()
         }
       }
-      TF32Const(F32(val)) => {
+      TInstrKind::TF32Const(F32(val)) => {
         let lit = Literal::f32(val)
         if t.get(lit) is Some(idx) {
           change(t, TInstr::local_get(idx))
@@ -215,7 +215,7 @@ fn replace_literal_pass() -> ModuleTransformer[Map[Literal, LocalIdx]] {
           unchanged()
         }
       }
-      TF64Const(F64(val)) => {
+      TInstrKind::TF64Const(F64(val)) => {
         let lit = Literal::f64(val)
         if t.get(lit) is Some(idx) {
           change(t, TInstr::local_get(idx))
@@ -225,7 +225,7 @@ fn replace_literal_pass() -> ModuleTransformer[Map[Literal, LocalIdx]] {
       }
 
       // this is likely not to be used because v128 consts are hardly worth hoisting
-      TV128Const(
+      TInstrKind::TV128Const(
         b0,
         b1,
         b2,
@@ -305,13 +305,13 @@ fn const_hoisting_pass() -> ModuleTransformer[ConstHoistingState] {
     change(t, Func::t_func(locals, body))
   })
   .on_tinstruction_evt(fn(self, t, i) {
-    match i {
-      TI32Const(I32(val)) => t.uses(Literal::i32(val))
-      TI64Const(I64(val)) => t.uses(Literal::i64(val))
-      TF32Const(F32(val)) => t.uses(Literal::f32(val))
-      TF64Const(F64(val)) => t.uses(Literal::f64(val))
+    match i.kind {
+      TInstrKind::TI32Const(I32(val)) => t.uses(Literal::i32(val))
+      TInstrKind::TI64Const(I64(val)) => t.uses(Literal::i64(val))
+      TInstrKind::TF32Const(F32(val)) => t.uses(Literal::f32(val))
+      TInstrKind::TF64Const(F64(val)) => t.uses(Literal::f64(val))
       // In the case of v128 constants, simd locals are expensive and encoding is tricky
-      // TV128Const(b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15) => 
+      // TInstrKind::TV128Const(b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15) => 
       //   t.uses(v128_lit(b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15))
       _ => ()
     }
@@ -375,12 +375,12 @@ test "const hoisting: large constant is hoisted" {
       assert_eq(locals.length(), 1)
 
       // First instruction is local.set
-      assert_true(instrs[0] is TLocalSet(_))
+      assert_true(instrs[0].kind is TInstrKind::TLocalSet(_))
 
       // Remaining are local.get
-      assert_true(instrs[1] is TLocalGet(_))
-      assert_true(instrs[2] is TLocalGet(_))
-      assert_true(instrs[3] is TLocalGet(_))
+      assert_true(instrs[1].kind is TInstrKind::TLocalGet(_))
+      assert_true(instrs[2].kind is TInstrKind::TLocalGet(_))
+      assert_true(instrs[3].kind is TInstrKind::TLocalGet(_))
     }
     _ => fail("expected TFunc")
   }
@@ -402,7 +402,7 @@ test "const hoisting: small constants are not hoisted" {
       assert_eq(locals.length(), 0)
       assert_eq(instrs.length(), 3)
       for i in instrs {
-        assert_true(i is TInstr::TI32Const(_))
+        assert_true(i.kind is TInstrKind::TI32Const(_))
       }
     }
     _ => fail("expected TFunc")
@@ -424,9 +424,9 @@ test "const hoisting: different literals are not merged" {
     TFunc(locals, { instrs, .. }) => {
       // 10 is small → not hoisted
       assert_eq(locals.length(), 0)
-      assert_true(instrs[0] is TI32Const(_))
-      assert_true(instrs[1] is TI32Const(_))
-      assert_true(instrs[2] is TI32Const(_))
+      assert_true(instrs[0].kind is TInstrKind::TI32Const(_))
+      assert_true(instrs[1].kind is TInstrKind::TI32Const(_))
+      assert_true(instrs[2].kind is TInstrKind::TI32Const(_))
     }
     _ => fail("expected TFunc")
   }
@@ -447,10 +447,10 @@ test "const hoisting: f64 hoisted when repeated" {
   match f2 {
     TFunc(locals, { instrs, .. }) => {
       assert_eq(locals.length(), 1)
-      assert_true(instrs[0] is TLocalSet(_))
-      assert_true(instrs[1] is TLocalGet(_))
-      assert_true(instrs[2] is TLocalGet(_))
-      assert_true(instrs[3] is TLocalGet(_))
+      assert_true(instrs[0].kind is TInstrKind::TLocalSet(_))
+      assert_true(instrs[1].kind is TInstrKind::TLocalGet(_))
+      assert_true(instrs[2].kind is TInstrKind::TLocalGet(_))
+      assert_true(instrs[3].kind is TInstrKind::TLocalGet(_))
     }
     _ => fail("expected TFunc")
   }

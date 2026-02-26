@@ -110,10 +110,10 @@ fn lower_expr(
 ) -> BlockContext {
   let mut ctx = ctx
   for instr in expr.instrs {
-    match instr {
-      TIf(_, cond, then_e, else_e) =>
+    match instr.kind {
+      TInstrKind::TIf(_, cond, then_e, else_e) =>
         ctx = lower_if(cond, then_e, else_e, ctx, builder)
-      TReturn(args) => {
+      TInstrKind::TReturn(args) => {
         builder.emit_block(ctx.id, ctx.instrs, Return(args))
         return ctx
       }

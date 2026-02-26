@@ -181,21 +181,29 @@ fn sp_callsite(args : Array[TInstr]) -> SPCallSite {
 
 ///|
 fn sp_is_literal_const(instr : TInstr) -> Bool {
-  match instr {
-    TI32Const(_) | TI64Const(_) | TF32Const(_) | TF64Const(_) => true
-    TRefNull(_) | TRefFunc(_) => true
-    TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => true
+  match instr.kind {
+    TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_) => true
+    TInstrKind::TRefNull(_) | TInstrKind::TRefFunc(_) => true
+    TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      true
     _ => false
   }
 }
 
 ///|
 fn sp_is_trivially_pure_arg(instr : TInstr) -> Bool {
-  match instr {
-    TI32Const(_) | TI64Const(_) | TF32Const(_) | TF64Const(_) => true
-    TRefNull(_) | TRefFunc(_) => true
-    TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => true
-    TLocalGet(_) | TGlobalGet(_) => true
+  match instr.kind {
+    TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_) => true
+    TInstrKind::TRefNull(_) | TInstrKind::TRefFunc(_) => true
+    TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      true
+    TInstrKind::TLocalGet(_) | TInstrKind::TGlobalGet(_) => true
     _ => false
   }
 }
@@ -244,8 +252,8 @@ fn sp_rewrite_calls(
       Ok(None) => instr
       Err(e) => return Err(e)
     }
-    match processed {
-      TCall(target, args) => {
+    match processed.kind {
+      TInstrKind::TCall(target, args) => {
         let FuncIdx(raw) = target
         let abs_idx = raw.reinterpret_as_int()
         if abs_idx < 0 || abs_idx >= func_type_idxs.length() {
@@ -280,7 +288,7 @@ fn sp_rewrite_calls(
             }
         }
       }
-      TReturnCall(target, args) => {
+      TInstrKind::TReturnCall(target, args) => {
         let FuncIdx(raw) = target
         let abs_idx = raw.reinterpret_as_int()
         if abs_idx < 0 || abs_idx >= func_type_idxs.length() {
@@ -315,7 +323,7 @@ fn sp_rewrite_calls(
             }
         }
       }
-      TCallRef(type_idx, args, ref_) => {
+      TInstrKind::TCallRef(type_idx, args, ref_) => {
         let old_type_abs = sp_typeidx_raw(type_idx)
         let removed = match removed_by_type_abs.get(old_type_abs) {
           Some(v) => v
@@ -337,7 +345,7 @@ fn sp_rewrite_calls(
           unchanged()
         }
       }
-      TReturnCallRef(type_idx, args, ref_) => {
+      TInstrKind::TReturnCallRef(type_idx, args, ref_) => {
         let old_type_abs = sp_typeidx_raw(type_idx)
         let removed = match removed_by_type_abs.get(old_type_abs) {
           Some(v) => v
@@ -487,14 +495,15 @@ fn sp_run_iteration(mod : Module) -> (Module, Bool) {
           _,
           instr,
         ) {
-          match instr {
-            TLocalGet(LocalIdx(raw)) => {
+          match instr.kind {
+            TInstrKind::TLocalGet(LocalIdx(raw)) => {
               let idx = raw.reinterpret_as_int()
               if idx >= 0 && idx < param_count {
                 used.add(idx)
               }
             }
-            TCall(target, args) | TReturnCall(target, args) => {
+            TInstrKind::TCall(target, args)
+            | TInstrKind::TReturnCall(target, args) => {
               let FuncIdx(raw) = target
               let target_abs = raw.reinterpret_as_int()
               if target_abs >= 0 && target_abs < total_func_count {
@@ -504,7 +513,8 @@ fn sp_run_iteration(mod : Module) -> (Module, Bool) {
                 }
               }
             }
-            TCallRef(type_idx, args, _) | TReturnCallRef(type_idx, args, _) => {
+            TInstrKind::TCallRef(type_idx, args, _)
+            | TInstrKind::TReturnCallRef(type_idx, args, _) => {
               let called_type_abs = sp_typeidx_raw(type_idx)
               if called_type_abs >= 0 && called_type_abs < total_types {
                 calls_by_type[called_type_abs].push(sp_callsite(args.copy()))
@@ -804,8 +814,8 @@ test "signature pruning removes unused params across same signature group" {
     Some(CodeSec([TFunc(_, { instrs, .. }), _, _])) => {
       let call_args : Array[Int] = []
       for instr in instrs {
-        match instr {
-          TDrop(TCall(FuncIdx(raw), args)) => {
+        match instr.kind {
+          TInstrKind::TDrop({ kind: TInstrKind::TCall(FuncIdx(raw), args), .. }) => {
             let i = raw.reinterpret_as_int()
             if i == 1 || i == 2 {
               call_args.push(args.length())
@@ -860,8 +870,8 @@ test "signature pruning updates call_ref type and arguments" {
   match optimized.code_sec {
     Some(CodeSec([TFunc(_, { instrs, .. }), _])) =>
       for instr in instrs {
-        match instr {
-          TCallRef(type_idx, args, _) => {
+        match instr.kind {
+          TInstrKind::TCallRef(type_idx, args, _) => {
             seen = true
             assert_eq(args.length(), 0)
             assert_true(type_idx != TypeIdx::new(0))

@@ -787,18 +787,18 @@ fn scan_texpr(ctx : AnalysisContext, texpr : TExpr) -> Unit {
 
 ///|
 fn scan_tinstr(ctx : AnalysisContext, instr : TInstr) -> Unit {
-  match instr {
+  match instr.kind {
     // Function references
-    TCall(idx, args) | TReturnCall(idx, args) => {
+    TInstrKind::TCall(idx, args) | TInstrKind::TReturnCall(idx, args) => {
       mark_func(ctx, idx)
       for a in args {
         scan_tinstr(ctx, a)
       }
     }
-    TRefFunc(idx) => note_ref_func(ctx, idx)
+    TInstrKind::TRefFunc(idx) => note_ref_func(ctx, idx)
 
     // Type references
-    TCallIndirect(type_idx, table_idx, args, idx_instr) => {
+    TInstrKind::TCallIndirect(type_idx, table_idx, args, idx_instr) => {
       mark_type(ctx, type_idx)
       mark_table(ctx, table_idx)
       mark_called_signature(ctx, type_idx)
@@ -807,7 +807,7 @@ fn scan_tinstr(ctx : AnalysisContext, instr : TInstr) -> Unit {
       }
       scan_tinstr(ctx, idx_instr)
     }
-    TReturnCallIndirect(type_idx, table_idx, args, idx_instr) => {
+    TInstrKind::TReturnCallIndirect(type_idx, table_idx, args, idx_instr) => {
       mark_type(ctx, type_idx)
       mark_table(ctx, table_idx)
       mark_called_signature(ctx, type_idx)
@@ -816,7 +816,7 @@ fn scan_tinstr(ctx : AnalysisContext, instr : TInstr) -> Unit {
       }
       scan_tinstr(ctx, idx_instr)
     }
-    TCallRef(type_idx, args, rf) => {
+    TInstrKind::TCallRef(type_idx, args, rf) => {
       mark_type(ctx, type_idx)
       mark_called_signature(ctx, type_idx)
       for a in args {
@@ -824,7 +824,7 @@ fn scan_tinstr(ctx : AnalysisContext, instr : TInstr) -> Unit {
       }
       scan_tinstr(ctx, rf)
     }
-    TReturnCallRef(type_idx, args, rf) => {
+    TInstrKind::TReturnCallRef(type_idx, args, rf) => {
       mark_type(ctx, type_idx)
       mark_called_signature(ctx, type_idx)
       for a in args {
@@ -834,15 +834,15 @@ fn scan_tinstr(ctx : AnalysisContext, instr : TInstr) -> Unit {
     }
 
     // Control flow
-    TBlock(bt, expr) => {
+    TInstrKind::TBlock(bt, expr) => {
       mark_blocktype(ctx, bt)
       scan_texpr(ctx, expr)
     }
-    TLoop(bt, expr) => {
+    TInstrKind::TLoop(bt, expr) => {
       mark_blocktype(ctx, bt)
       scan_texpr(ctx, expr)
     }
-    TIf(bt, cond, then_branch, else_branch) => {
+    TInstrKind::TIf(bt, cond, then_branch, else_branch) => {
       mark_blocktype(ctx, bt)
       scan_tinstr(ctx, cond)
       scan_texpr(ctx, then_branch)
@@ -851,7 +851,7 @@ fn scan_tinstr(ctx : AnalysisContext, instr : TInstr) -> Unit {
         None => ()
       }
     }
-    TTryTable(bt, catches, expr) => {
+    TInstrKind::TTryTable(bt, catches, expr) => {
       mark_blocktype(ctx, bt)
       for c in catches {
         match c {
@@ -863,89 +863,89 @@ fn scan_tinstr(ctx : AnalysisContext, instr : TInstr) -> Unit {
     }
 
     // Tags
-    TThrow(tag_idx, args) => {
+    TInstrKind::TThrow(tag_idx, args) => {
       mark_tag(ctx, tag_idx)
       for a in args {
         scan_tinstr(ctx, a)
       }
     }
-    TThrowRef(arg) => scan_tinstr(ctx, arg)
+    TInstrKind::TThrowRef(arg) => scan_tinstr(ctx, arg)
 
     // Globals
-    TGlobalGet(idx) => mark_global(ctx, idx)
-    TGlobalSet(idx, arg) => {
+    TInstrKind::TGlobalGet(idx) => mark_global(ctx, idx)
+    TInstrKind::TGlobalSet(idx, arg) => {
       mark_global(ctx, idx)
       scan_tinstr(ctx, arg)
     }
 
     // Tables
-    TTableGet(idx, arg) => {
+    TInstrKind::TTableGet(idx, arg) => {
       mark_table(ctx, idx)
       scan_tinstr(ctx, arg)
     }
-    TTableSet(idx, a, b) => {
+    TInstrKind::TTableSet(idx, a, b) => {
       mark_table(ctx, idx)
       scan_tinstr(ctx, a)
       scan_tinstr(ctx, b)
     }
-    TTableGrow(idx, a, b) => {
+    TInstrKind::TTableGrow(idx, a, b) => {
       mark_table(ctx, idx)
       scan_tinstr(ctx, a)
       scan_tinstr(ctx, b)
     }
-    TTableSize(idx) => mark_table(ctx, idx)
-    TTableFill(idx, a, b, c) => {
+    TInstrKind::TTableSize(idx) => mark_table(ctx, idx)
+    TInstrKind::TTableFill(idx, a, b, c) => {
       mark_table(ctx, idx)
       scan_tinstr(ctx, a)
       scan_tinstr(ctx, b)
       scan_tinstr(ctx, c)
     }
-    TTableCopy(idx1, idx2, a, b, c) => {
+    TInstrKind::TTableCopy(idx1, idx2, a, b, c) => {
       mark_table(ctx, idx1)
       mark_table(ctx, idx2)
       scan_tinstr(ctx, a)
       scan_tinstr(ctx, b)
       scan_tinstr(ctx, c)
     }
-    TTableInit(elem_idx, table_idx, a, b, c) => {
+    TInstrKind::TTableInit(elem_idx, table_idx, a, b, c) => {
       mark_elem(ctx, elem_idx)
       mark_table(ctx, table_idx)
       scan_tinstr(ctx, a)
       scan_tinstr(ctx, b)
       scan_tinstr(ctx, c)
     }
-    TElemDrop(idx) => mark_elem(ctx, idx)
+    TInstrKind::TElemDrop(idx) => mark_elem(ctx, idx)
 
     // Memory
-    TMemorySize(idx) => mark_mem(ctx, idx)
-    TMemoryGrow(idx, arg) => {
+    TInstrKind::TMemorySize(idx) => mark_mem(ctx, idx)
+    TInstrKind::TMemoryGrow(idx, arg) => {
       mark_mem(ctx, idx)
       scan_tinstr(ctx, arg)
     }
-    TMemoryFill(idx, dst, val, len) => {
+    TInstrKind::TMemoryFill(idx, dst, val, len) => {
       mark_mem(ctx, idx)
       scan_tinstr(ctx, dst)
       scan_tinstr(ctx, val)
       scan_tinstr(ctx, len)
     }
-    TMemoryCopy(idx1, idx2, dst, src, len) => {
+    TInstrKind::TMemoryCopy(idx1, idx2, dst, src, len) => {
       mark_mem(ctx, idx1)
       mark_mem(ctx, idx2)
       scan_tinstr(ctx, dst)
       scan_tinstr(ctx, src)
       scan_tinstr(ctx, len)
     }
-    TMemoryInit(data_idx, mem_idx, dst, src, len) => {
+    TInstrKind::TMemoryInit(data_idx, mem_idx, dst, src, len) => {
       mark_data(ctx, data_idx)
       mark_mem(ctx, mem_idx)
       scan_tinstr(ctx, dst)
       scan_tinstr(ctx, src)
       scan_tinstr(ctx, len)
     }
-    TDataDrop(idx) => mark_data(ctx, idx)
+    TInstrKind::TDataDrop(idx) => mark_data(ctx, idx)
 
     // Load/Store (use memory 0 implicitly via memarg)
-    TLoad(_, memarg, idx) => {
+    TInstrKind::TLoad(_, memarg, idx) => {
       if memarg.1 is Some(idx) {
         mark_mem(ctx, idx)
       } else {
@@ -953,7 +953,7 @@ fn scan_tinstr(ctx : AnalysisContext, instr : TInstr) -> Unit {
       }
       scan_tinstr(ctx, idx)
     }
-    TStore(_, memarg, idx, val) => {
+    TInstrKind::TStore(_, memarg, idx, val) => {
       if memarg.1 is Some(idx) {
         mark_mem(ctx, idx)
       } else {
@@ -964,73 +964,73 @@ fn scan_tinstr(ctx : AnalysisContext, instr : TInstr) -> Unit {
     }
 
     // GC types
-    TStructNew(type_idx, args) => {
+    TInstrKind::TStructNew(type_idx, args) => {
       mark_type(ctx, type_idx)
       for a in args {
         scan_tinstr(ctx, a)
       }
     }
-    TStructNewDefault(type_idx) => mark_type(ctx, type_idx)
-    TStructGet(type_idx, _, arg)
-    | TStructGetS(type_idx, _, arg)
-    | TStructGetU(type_idx, _, arg) => {
+    TInstrKind::TStructNewDefault(type_idx) => mark_type(ctx, type_idx)
+    TInstrKind::TStructGet(type_idx, _, arg)
+    | TInstrKind::TStructGetS(type_idx, _, arg)
+    | TInstrKind::TStructGetU(type_idx, _, arg) => {
       mark_type(ctx, type_idx)
       scan_tinstr(ctx, arg)
     }
-    TStructSet(type_idx, _, a, b) => {
+    TInstrKind::TStructSet(type_idx, _, a, b) => {
       mark_type(ctx, type_idx)
       scan_tinstr(ctx, a)
       scan_tinstr(ctx, b)
     }
-    TArrayNew(type_idx, len, init) => {
+    TInstrKind::TArrayNew(type_idx, len, init) => {
       mark_type(ctx, type_idx)
       scan_tinstr(ctx, len)
       scan_tinstr(ctx, init)
     }
-    TArrayNewDefault(type_idx, len) => {
+    TInstrKind::TArrayNewDefault(type_idx, len) => {
       mark_type(ctx, type_idx)
       scan_tinstr(ctx, len)
     }
-    TArrayNewFixed(type_idx, args) => {
+    TInstrKind::TArrayNewFixed(type_idx, args) => {
       mark_type(ctx, type_idx)
       for a in args {
         scan_tinstr(ctx, a)
       }
     }
-    TArrayNewData(type_idx, data_idx, a, b) => {
+    TInstrKind::TArrayNewData(type_idx, data_idx, a, b) => {
       mark_type(ctx, type_idx)
       mark_data(ctx, data_idx)
       scan_tinstr(ctx, a)
       scan_tinstr(ctx, b)
     }
-    TArrayNewElem(type_idx, elem_idx, a, b) => {
+    TInstrKind::TArrayNewElem(type_idx, elem_idx, a, b) => {
       mark_type(ctx, type_idx)
       mark_elem(ctx, elem_idx)
       scan_tinstr(ctx, a)
       scan_tinstr(ctx, b)
     }
-    TArrayGet(type_idx, arr, idx)
-    | TArrayGetS(type_idx, arr, idx)
-    | TArrayGetU(type_idx, arr, idx) => {
+    TInstrKind::TArrayGet(type_idx, arr, idx)
+    | TInstrKind::TArrayGetS(type_idx, arr, idx)
+    | TInstrKind::TArrayGetU(type_idx, arr, idx) => {
       mark_type(ctx, type_idx)
       scan_tinstr(ctx, arr)
       scan_tinstr(ctx, idx)
     }
-    TArraySet(type_idx, arr, idx, val) => {
+    TInstrKind::TArraySet(type_idx, arr, idx, val) => {
       mark_type(ctx, type_idx)
       scan_tinstr(ctx, arr)
       scan_tinstr(ctx, idx)
       scan_tinstr(ctx, val)
     }
-    TArrayLen(arr) => scan_tinstr(ctx, arr)
-    TArrayFill(type_idx, a, b, c, d) => {
+    TInstrKind::TArrayLen(arr) => scan_tinstr(ctx, arr)
+    TInstrKind::TArrayFill(type_idx, a, b, c, d) => {
       mark_type(ctx, type_idx)
       scan_tinstr(ctx, a)
       scan_tinstr(ctx, b)
       scan_tinstr(ctx, c)
       scan_tinstr(ctx, d)
     }
-    TArrayCopy(type_idx1, type_idx2, a, b, c, d, e) => {
+    TInstrKind::TArrayCopy(type_idx1, type_idx2, a, b, c, d, e) => {
       mark_type(ctx, type_idx1)
       mark_type(ctx, type_idx2)
       scan_tinstr(ctx, a)
@@ -1039,7 +1039,7 @@ fn scan_tinstr(ctx : AnalysisContext, instr : TInstr) -> Unit {
       scan_tinstr(ctx, d)
       scan_tinstr(ctx, e)
     }
-    TArrayInitData(type_idx, data_idx, a, b, c, d) => {
+    TInstrKind::TArrayInitData(type_idx, data_idx, a, b, c, d) => {
       mark_type(ctx, type_idx)
       mark_data(ctx, data_idx)
       scan_tinstr(ctx, a)
@@ -1047,7 +1047,7 @@ fn scan_tinstr(ctx : AnalysisContext, instr : TInstr) -> Unit {
       scan_tinstr(ctx, c)
       scan_tinstr(ctx, d)
     }
-    TArrayInitElem(type_idx, elem_idx, a, b, c, d) => {
+    TInstrKind::TArrayInitElem(type_idx, elem_idx, a, b, c, d) => {
       mark_type(ctx, type_idx)
       mark_elem(ctx, elem_idx)
       scan_tinstr(ctx, a)
@@ -1057,17 +1057,17 @@ fn scan_tinstr(ctx : AnalysisContext, instr : TInstr) -> Unit {
     }
 
     // Ref types
-    TRefNull(ht) => mark_heaptype(ctx, ht)
-    TRefGetDesc(arg) => scan_tinstr(ctx, arg)
-    TRefCast(_, ht, arg)
-    | TRefTest(_, ht, arg)
-    | TRefTestDesc(_, ht, arg)
-    | TRefCastDescEq(_, ht, arg) => {
+    TInstrKind::TRefNull(ht) => mark_heaptype(ctx, ht)
+    TInstrKind::TRefGetDesc(arg) => scan_tinstr(ctx, arg)
+    TInstrKind::TRefCast(_, ht, arg)
+    | TInstrKind::TRefTest(_, ht, arg)
+    | TInstrKind::TRefTestDesc(_, ht, arg)
+    | TInstrKind::TRefCastDescEq(_, ht, arg) => {
       mark_heaptype(ctx, ht)
       scan_tinstr(ctx, arg)
     }
-    TBrOnCast(_, _, ht1, ht2, arg, args)
-    | TBrOnCastFail(_, _, ht1, ht2, arg, args) => {
+    TInstrKind::TBrOnCast(_, _, ht1, ht2, arg, args)
+    | TInstrKind::TBrOnCastFail(_, _, ht1, ht2, arg, args) => {
       mark_heaptype(ctx, ht1)
       mark_heaptype(ctx, ht2)
       scan_tinstr(ctx, arg)
@@ -1077,7 +1077,7 @@ fn scan_tinstr(ctx : AnalysisContext, instr : TInstr) -> Unit {
     }
 
     // Select with types
-    TSelect(types, cond, a, b) => {
+    TInstrKind::TSelect(types, cond, a, b) => {
       match types {
         Some(vts) =>
           for vt in vts {
@@ -1097,70 +1097,92 @@ fn scan_tinstr(ctx : AnalysisContext, instr : TInstr) -> Unit {
 
 ///|
 fn scan_tinstr_children(ctx : AnalysisContext, instr : TInstr) -> Unit {
-  match instr {
-    TLocalSet(_, arg) | TLocalTee(_, arg) => scan_tinstr(ctx, arg)
-    TUnary(_, arg)
-    | TDrop(arg)
-    | TRefIsNull(arg)
-    | TRefAsNonNull(arg)
-    | TAnyConvertExtern(arg)
-    | TExternConvertAny(arg)
-    | TI31GetS(arg)
-    | TI31GetU(arg)
-    | TRefI31(arg) => scan_tinstr(ctx, arg)
-    TBinary(_, a, b) | TRefEq(a, b) => {
+  match instr.kind {
+    TInstrKind::TLocalSet(_, arg) | TInstrKind::TLocalTee(_, arg) =>
+      scan_tinstr(ctx, arg)
+    TInstrKind::TUnary(_, arg)
+    | TInstrKind::TDrop(arg)
+    | TInstrKind::TRefIsNull(arg)
+    | TInstrKind::TRefAsNonNull(arg)
+    | TInstrKind::TAnyConvertExtern(arg)
+    | TInstrKind::TExternConvertAny(arg)
+    | TInstrKind::TI31GetS(arg)
+    | TInstrKind::TI31GetU(arg)
+    | TInstrKind::TRefI31(arg) => scan_tinstr(ctx, arg)
+    TInstrKind::TBinary(_, a, b) | TInstrKind::TRefEq(a, b) => {
       scan_tinstr(ctx, a)
       scan_tinstr(ctx, b)
     }
-    TBr(_, args) | TReturn(args) =>
+    TInstrKind::TBr(_, args) | TInstrKind::TReturn(args) =>
       for a in args {
         scan_tinstr(ctx, a)
       }
-    TBrIf(_, cond, args) => {
+    TInstrKind::TBrIf(_, cond, args) => {
       scan_tinstr(ctx, cond)
       for a in args {
         scan_tinstr(ctx, a)
       }
     }
-    TBrTable(_, _, cond, args) => {
+    TInstrKind::TBrTable(_, _, cond, args) => {
       scan_tinstr(ctx, cond)
       for a in args {
         scan_tinstr(ctx, a)
       }
     }
-    TBrOnNull(_, arg, args) | TBrOnNonNull(_, arg, args) => {
+    TInstrKind::TBrOnNull(_, arg, args)
+    | TInstrKind::TBrOnNonNull(_, arg, args) => {
       scan_tinstr(ctx, arg)
       for a in args {
         scan_tinstr(ctx, a)
       }
     }
-    TV128LoadLane(_, _, _, vec, addr) | TV128StoreLane(_, _, _, vec, addr) => {
+    TInstrKind::TV128LoadLane(_, _, _, vec, addr)
+    | TInstrKind::TV128StoreLane(_, _, _, vec, addr) => {
       scan_tinstr(ctx, vec)
       scan_tinstr(ctx, addr)
     }
-    TV128Shift(_, a, b) => {
+    TInstrKind::TV128Shift(_, a, b) => {
       scan_tinstr(ctx, a)
       scan_tinstr(ctx, b)
     }
-    TV128Ternary(_, a, b, c) => {
+    TInstrKind::TV128Ternary(_, a, b, c) => {
       scan_tinstr(ctx, a)
       scan_tinstr(ctx, b)
       scan_tinstr(ctx, c)
     }
-    TI8x16Shuffle(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, a, b)
-    | TI8x16Swizzle(a, b)
-    | TI8x16RelaxedSwizzle(a, b) => {
+    TInstrKind::TI8x16Shuffle(
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      a,
+      b
+    )
+    | TInstrKind::TI8x16Swizzle(a, b)
+    | TInstrKind::TI8x16RelaxedSwizzle(a, b) => {
       scan_tinstr(ctx, a)
       scan_tinstr(ctx, b)
     }
-    TI8x16Splat(a)
-    | TI16x8Splat(a)
-    | TI32x4Splat(a)
-    | TI64x2Splat(a)
-    | TF32x4Splat(a)
-    | TF64x2Splat(a) => scan_tinstr(ctx, a)
-    TExtractLane(_, _, a) => scan_tinstr(ctx, a)
-    TReplaceLane(_, _, vec, val) => {
+    TInstrKind::TI8x16Splat(a)
+    | TInstrKind::TI16x8Splat(a)
+    | TInstrKind::TI32x4Splat(a)
+    | TInstrKind::TI64x2Splat(a)
+    | TInstrKind::TF32x4Splat(a)
+    | TInstrKind::TF64x2Splat(a) => scan_tinstr(ctx, a)
+    TInstrKind::TExtractLane(_, _, a) => scan_tinstr(ctx, a)
+    TInstrKind::TReplaceLane(_, _, vec, val) => {
       scan_tinstr(ctx, vec)
       scan_tinstr(ctx, val)
     }
@@ -2143,7 +2165,7 @@ fn make_empty_func_body() -> Func {
 fn func_body_is_unreachable(func : Func) -> Bool {
   match func {
     TFunc(_, { instrs, .. }) =>
-      instrs.length() == 1 && instrs[0] is TUnreachable
+      instrs.length() == 1 && instrs[0].kind is TInstrKind::TUnreachable
     Func(_, Expr(instrs)) => instrs.length() == 1 && instrs[0] is Unreachable
   }
 }
@@ -2153,8 +2175,9 @@ fn func_body_has_direct_call_to(func : Func, target : FuncIdx) -> Bool {
   match func {
     TFunc(_, { instrs, .. }) =>
       for instr in instrs {
-        match instr {
-          TCall(idx, _) | TReturnCall(idx, _) if idx == target => return true
+        match instr.kind {
+          TInstrKind::TCall(idx, _) | TInstrKind::TReturnCall(idx, _) if idx ==
+            target => return true
           _ => ()
         }
       }
