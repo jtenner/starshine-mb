@@ -1918,8 +1918,8 @@ pub fn run_cmd_with_adapter(
 
   let env = parse_env_overlay(io)
   let merged = merge_parse_results(config, env, cli)
-  let trace_optimize = cmd_trace_optimize_enabled(io)
   let trace_optimize_verbose = cmd_trace_optimize_verbose(io)
+  let trace_optimize = cmd_trace_optimize_enabled(io) || trace_optimize_verbose
   let input_files = resolve_input_files(merged.input_globs, io)
   if input_files.length() == 0 {
     return Err(CmdError::NoInputFiles)
@@ -2643,6 +2643,7 @@ fn main {
   }
 }
 
+///|
 #cfg(target="js")
 fn main {
   ()

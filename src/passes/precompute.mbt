@@ -27,7 +27,7 @@ priv enum PCLiteral {
 ///|
 priv struct PCSetKey {
   local_idx : LocalIdx
-  root : TInstr
+  set_id : Int
 } derive(Eq, Hash)
 
 ///|
@@ -38,6 +38,12 @@ priv struct PCSetSite {
 }
 
 ///|
+priv struct PCSetLookupKey {
+  local_idx : LocalIdx
+  root_hash : UInt64
+} derive(Eq, Hash)
+
+///|
 fn pc_wrap_i32(x : Int) -> Int {
   (x.reinterpret_as_uint() & 0xffffffffU).reinterpret_as_int()
 }
@@ -45,6 +51,11 @@ fn pc_wrap_i32(x : Int) -> Int {
 ///|
 fn pc_wrap_i64(x : Int64) -> Int64 {
   x.reinterpret_as_uint64().reinterpret_as_int64()
+}
+
+///|
+fn pc_instr_hash_u64(instr : TInstr) -> UInt64 {
+  instr.hash().reinterpret_as_uint().to_uint64()
 }
 
 ///|
@@ -551,17 +562,30 @@ fn pc_eval_binary(
 }
 
 ///|
-fn pc_eval_texpr_const(
-  expr : TExpr,
-  imm_globals : Map[GlobalIdx, PCLiteral],
+fn pc_lookup_cached_literal(
+  instr : TInstr,
+  values : Map[UInt64, PCLiteral],
+  cache : Map[UInt64, PCLiteral],
 ) -> PCLiteral? {
-  let { instrs, .. } = expr
-  if instrs.is_empty() {
+  let h = pc_instr_hash_u64(instr)
+  match values.get(h) {
+    Some(v) => Some(v)
+    None => cache.get(h)
+  }
+}
+
+///|
+fn pc_eval_texpr_const_cached(
+  expr : TExpr,
+  values : Map[UInt64, PCLiteral],
+  cache : Map[UInt64, PCLiteral],
+) -> PCLiteral? {
+  if expr.instrs.is_empty() {
     return None
   }
   let mut last : PCLiteral? = None
-  for instr in instrs {
-    match pc_eval_const_expr(instr, imm_globals) {
+  for instr in expr.instrs {
+    match pc_lookup_cached_literal(instr, values, cache) {
       Some(v) => last = Some(v)
       None => return None
     }
@@ -570,80 +594,120 @@ fn pc_eval_texpr_const(
 }
 
 ///|
-fn pc_eval_const_expr(
+fn pc_eval_const_expr_cached(
   instr : TInstr,
   imm_globals : Map[GlobalIdx, PCLiteral],
+  cache : Map[UInt64, PCLiteral],
 ) -> PCLiteral? {
-  match pc_literal_from_instr(instr) {
-    Some(lit) => return Some(lit)
-    None => ()
+  let stack : Array[(TInstr, Bool)] = [(instr, false)]
+  let post_order : Array[TInstr] = []
+  while !stack.is_empty() {
+    let (curr, expanded) = stack.pop().unwrap()
+    if expanded {
+      post_order.push(curr)
+      continue
+    }
+    stack.push((curr, true))
+    let children = eval_children(curr)
+    let mut i = children.length() - 1
+    while i >= 0 {
+      stack.push((children[i], false))
+      i = i - 1
+    }
   }
-  match instr.kind {
-    TInstrKind::TGlobalGet(idx) => imm_globals.get(idx)
-    TInstrKind::TUnary(op, child) =>
-      match pc_eval_const_expr(child, imm_globals) {
-        Some(v) => pc_eval_unary(op, v)
-        None => None
-      }
-    TInstrKind::TBinary(op, left, right) =>
-      match
-        (
-          pc_eval_const_expr(left, imm_globals),
-          pc_eval_const_expr(right, imm_globals),
-        ) {
-        (Some(a), Some(b)) => pc_eval_binary(op, a, b)
-        _ => None
-      }
-    TInstrKind::TRefEq(left, right) =>
-      match
-        (
-          pc_eval_const_expr(left, imm_globals),
-          pc_eval_const_expr(right, imm_globals),
-        ) {
-        (Some(PCRefNull(_)), Some(PCRefNull(_))) => Some(PCI32(1))
-        (Some(PCRefFunc(a)), Some(PCRefFunc(b))) =>
-          Some(PCI32(if a == b { 1 } else { 0 }))
-        (Some(PCRefNull(_)), Some(PCRefFunc(_)))
-        | (Some(PCRefFunc(_)), Some(PCRefNull(_))) => Some(PCI32(0))
-        _ => None
-      }
-    TInstrKind::TRefIsNull(value) =>
-      match pc_eval_const_expr(value, imm_globals) {
-        Some(PCRefNull(_)) => Some(PCI32(1))
-        Some(PCRefFunc(_)) => Some(PCI32(0))
-        _ => None
-      }
-    TInstrKind::TSelect(_, cond, if_true, if_false) =>
-      match
-        (
-          pc_eval_const_expr(cond, imm_globals),
-          pc_eval_const_expr(if_true, imm_globals),
-          pc_eval_const_expr(if_false, imm_globals),
-        ) {
-        (Some(PCI32(c)), Some(t), Some(f)) =>
-          if c == 0 {
-            Some(f)
-          } else {
-            Some(t)
+
+  let values : Map[UInt64, PCLiteral] = Map::new()
+  for curr in post_order {
+    let h = pc_instr_hash_u64(curr)
+    match cache.get(h) {
+      Some(v) => values[h] = v
+      None =>
+        match pc_literal_from_instr(curr) {
+          Some(v) => {
+            values[h] = v
+            cache[h] = v
           }
-        _ => None
-      }
-    TInstrKind::TBlock(_, body) => pc_eval_texpr_const(body, imm_globals)
-    TInstrKind::TIf(_, cond, then_body, else_body) =>
-      match pc_eval_const_expr(cond, imm_globals) {
-        Some(PCI32(v)) =>
-          if v == 0 {
-            match else_body {
-              Some(body) => pc_eval_texpr_const(body, imm_globals)
-              None => None
+          None => {
+            let next = match curr.kind {
+              TInstrKind::TGlobalGet(idx) => imm_globals.get(idx)
+              TInstrKind::TUnary(op, child) =>
+                match pc_lookup_cached_literal(child, values, cache) {
+                  Some(v) => pc_eval_unary(op, v)
+                  None => None
+                }
+              TInstrKind::TBinary(op, left, right) =>
+                match
+                  (
+                    pc_lookup_cached_literal(left, values, cache),
+                    pc_lookup_cached_literal(right, values, cache),
+                  ) {
+                  (Some(a), Some(b)) => pc_eval_binary(op, a, b)
+                  _ => None
+                }
+              TInstrKind::TRefEq(left, right) =>
+                match
+                  (
+                    pc_lookup_cached_literal(left, values, cache),
+                    pc_lookup_cached_literal(right, values, cache),
+                  ) {
+                  (Some(PCRefNull(_)), Some(PCRefNull(_))) => Some(PCI32(1))
+                  (Some(PCRefFunc(a)), Some(PCRefFunc(b))) =>
+                    Some(PCI32(if a == b { 1 } else { 0 }))
+                  (Some(PCRefNull(_)), Some(PCRefFunc(_)))
+                  | (Some(PCRefFunc(_)), Some(PCRefNull(_))) => Some(PCI32(0))
+                  _ => None
+                }
+              TInstrKind::TRefIsNull(value) =>
+                match pc_lookup_cached_literal(value, values, cache) {
+                  Some(PCRefNull(_)) => Some(PCI32(1))
+                  Some(PCRefFunc(_)) => Some(PCI32(0))
+                  _ => None
+                }
+              TInstrKind::TSelect(_, cond, if_true, if_false) =>
+                match
+                  (
+                    pc_lookup_cached_literal(cond, values, cache),
+                    pc_lookup_cached_literal(if_true, values, cache),
+                    pc_lookup_cached_literal(if_false, values, cache),
+                  ) {
+                  (Some(PCI32(c)), Some(t), Some(f)) =>
+                    if c == 0 {
+                      Some(f)
+                    } else {
+                      Some(t)
+                    }
+                  _ => None
+                }
+              TInstrKind::TBlock(_, body) =>
+                pc_eval_texpr_const_cached(body, values, cache)
+              TInstrKind::TIf(_, cond, then_body, else_body) =>
+                match pc_lookup_cached_literal(cond, values, cache) {
+                  Some(PCI32(v)) =>
+                    if v == 0 {
+                      match else_body {
+                        Some(other) =>
+                          pc_eval_texpr_const_cached(other, values, cache)
+                        None => None
+                      }
+                    } else {
+                      pc_eval_texpr_const_cached(then_body, values, cache)
+                    }
+                  _ => None
+                }
+              _ => None
             }
-          } else {
-            pc_eval_texpr_const(then_body, imm_globals)
+            match next {
+              Some(v) => {
+                values[h] = v
+                cache[h] = v
+              }
+              None => ()
+            }
           }
-        _ => None
-      }
-    _ => None
+        }
+    }
   }
+  pc_lookup_cached_literal(instr, values, cache)
 }
 
 ///|
@@ -681,15 +745,21 @@ fn pc_set_literal_maps_equal(
 }
 
 ///|
-fn pc_advance_get_ids(instr : TInstr, get_id : Ref[Int]) -> Unit {
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+fn pc_count_local_gets_iterative(instr : TInstr) -> Int {
+  let mut count = 0
+  let stack : Array[TInstr] = [instr]
+  while !stack.is_empty() {
+    let curr = stack.pop().unwrap()
     match curr.kind {
-      TInstrKind::TLocalGet(_) => get_id.update(fn(n) { n + 1 })
+      TInstrKind::TLocalGet(_) => count += 1
       _ => ()
     }
-    self.walk_tinstruction_default((), curr)
-  })
-  ignore(walker.walk_tinstruction((), instr))
+    let children = eval_children(curr)
+    for i = children.length() - 1; i >= 0; i = i - 1 {
+      stack.push(children[i])
+    }
+  }
+  count
 }
 
 ///|
@@ -697,6 +767,7 @@ fn pc_get_constant_for_get_id(
   graph : LocalGraph,
   get_id : Int,
   set_values : Map[PCSetKey, PCLiteral],
+  set_lookup : Map[PCSetLookupKey, Int],
   branchy_locals : Set[LocalIdx],
 ) -> PCLiteral? {
   let sets = graph.get_sets(get_id)
@@ -711,8 +782,14 @@ fn pc_get_constant_for_get_id(
         if branchy_locals.contains(local_idx) {
           return None
         } else {
-          match set_values.get({ local_idx, root }) {
-            Some(v) => v
+          let root_hash = pc_instr_hash_u64(root)
+          let key = { local_idx, root_hash }
+          match set_lookup.get(key) {
+            Some(set_id) =>
+              match set_values.get({ local_idx, set_id }) {
+                Some(v) => v
+                None => return None
+              }
             None => return None
           }
         }
@@ -727,181 +804,208 @@ fn pc_get_constant_for_get_id(
 }
 
 ///|
-fn pc_mark_branchy_locals_instr(
-  instr : TInstr,
-  in_if : Bool,
-  branchy_locals : Set[LocalIdx],
-) -> Unit {
-  match instr.kind {
-    TInstrKind::TIf(_, cond, then_body, else_body) => {
-      pc_mark_branchy_locals_instr(cond, in_if, branchy_locals)
-      for item in then_body.instrs {
-        pc_mark_branchy_locals_instr(item, true, branchy_locals)
-      }
-      match else_body {
-        Some(other) =>
-          for item in other.instrs {
-            pc_mark_branchy_locals_instr(item, true, branchy_locals)
-          }
-        None => ()
-      }
-    }
-    TInstrKind::TBlock(_, body)
-    | TInstrKind::TLoop(_, body)
-    | TInstrKind::TTryTable(_, _, body) =>
-      for item in body.instrs {
-        pc_mark_branchy_locals_instr(item, in_if, branchy_locals)
-      }
-    TInstrKind::TLocalSet(local_idx, value) => {
-      if in_if {
-        branchy_locals.add(local_idx)
-      }
-      pc_mark_branchy_locals_instr(value, in_if, branchy_locals)
-    }
-    _ =>
-      for child in eval_children(instr) {
-        pc_mark_branchy_locals_instr(child, in_if, branchy_locals)
-      }
-  }
-}
-
-///|
-fn pc_collect_branchy_locals(body : TExpr) -> Set[LocalIdx] {
-  let out : Set[LocalIdx] = Set::new()
-  for instr in body.instrs {
-    pc_mark_branchy_locals_instr(instr, false, out)
-  }
-  out
-}
-
-///|
 fn pc_eval_expr_for_prop(
   instr : TInstr,
   graph : LocalGraph,
   set_values : Map[PCSetKey, PCLiteral],
+  set_lookup : Map[PCSetLookupKey, Int],
   imm_globals : Map[GlobalIdx, PCLiteral],
   branchy_locals : Set[LocalIdx],
-  get_id : Ref[Int],
+  get_id_ref : Ref[Int],
+  eval_cache : Map[UInt64, PCLiteral],
 ) -> PCLiteral? {
-  match pc_literal_from_instr(instr) {
-    Some(v) => return Some(v)
-    None => ()
+  let work : Array[(TInstr, Int)] = [(instr, 0)]
+  let values : Array[PCLiteral?] = []
+  while !work.is_empty() {
+    let (curr, stage) = work.pop().unwrap()
+    if stage == 0 {
+      match pc_eval_const_expr_cached(curr, imm_globals, eval_cache) {
+        Some(v) => {
+          values.push(Some(v))
+          continue
+        }
+        None => ()
+      }
+      match curr.kind {
+        TInstrKind::TLocalGet(_) => {
+          let id = get_id_ref.val
+          get_id_ref.update(fn(n) { n + 1 })
+          values.push(
+            pc_get_constant_for_get_id(
+              graph, id, set_values, set_lookup, branchy_locals,
+            ),
+          )
+        }
+        TInstrKind::TGlobalGet(idx) => values.push(imm_globals.get(idx))
+        TInstrKind::TUnary(_, child) => {
+          work.push((curr, 1))
+          work.push((child, 0))
+        }
+        TInstrKind::TBinary(_, left, right) => {
+          work.push((curr, 1))
+          work.push((right, 0))
+          work.push((left, 0))
+        }
+        TInstrKind::TRefEq(left, right) => {
+          work.push((curr, 1))
+          work.push((right, 0))
+          work.push((left, 0))
+        }
+        TInstrKind::TRefIsNull(value) => {
+          work.push((curr, 1))
+          work.push((value, 0))
+        }
+        TInstrKind::TSelect(_, cond, if_true, if_false) => {
+          work.push((curr, 1))
+          work.push((if_false, 0))
+          work.push((if_true, 0))
+          work.push((cond, 0))
+        }
+        _ => {
+          let advanced = pc_count_local_gets_iterative(curr)
+          get_id_ref.update(fn(n) { n + advanced })
+          values.push(None)
+        }
+      }
+      continue
+    }
+    match curr.kind {
+      TInstrKind::TUnary(op, _) => {
+        let child_v = values.pop().unwrap()
+        match child_v {
+          Some(v) => values.push(pc_eval_unary(op, v))
+          None => values.push(None)
+        }
+      }
+      TInstrKind::TBinary(op, _, _) => {
+        let right_v = values.pop().unwrap()
+        let left_v = values.pop().unwrap()
+        match (left_v, right_v) {
+          (Some(a), Some(b)) => values.push(pc_eval_binary(op, a, b))
+          _ => values.push(None)
+        }
+      }
+      TInstrKind::TRefEq(_, _) => {
+        let right_v = values.pop().unwrap()
+        let left_v = values.pop().unwrap()
+        let out = match (left_v, right_v) {
+          (Some(PCRefNull(_)), Some(PCRefNull(_))) => Some(PCLiteral::PCI32(1))
+          (Some(PCRefFunc(a)), Some(PCRefFunc(b))) =>
+            Some(PCLiteral::PCI32(if a == b { 1 } else { 0 }))
+          (Some(PCRefNull(_)), Some(PCRefFunc(_)))
+          | (Some(PCRefFunc(_)), Some(PCRefNull(_))) =>
+            Some(PCLiteral::PCI32(0))
+          _ => None
+        }
+        values.push(out)
+      }
+      TInstrKind::TRefIsNull(_) => {
+        let value_v = values.pop().unwrap()
+        let out = match value_v {
+          Some(PCRefNull(_)) => Some(PCLiteral::PCI32(1))
+          Some(PCRefFunc(_)) => Some(PCLiteral::PCI32(0))
+          _ => None
+        }
+        values.push(out)
+      }
+      TInstrKind::TSelect(_, _, _, _) => {
+        let false_v = values.pop().unwrap()
+        let true_v = values.pop().unwrap()
+        let cond_v = values.pop().unwrap()
+        let out = match (cond_v, true_v, false_v) {
+          (Some(PCI32(c)), Some(t), Some(f)) =>
+            if c == 0 {
+              Some(f)
+            } else {
+              Some(t)
+            }
+          _ => None
+        }
+        values.push(out)
+      }
+      _ => values.push(None)
+    }
   }
-  match instr.kind {
-    TInstrKind::TLocalGet(_) => {
-      let id = get_id.val
-      get_id.update(fn(n) { n + 1 })
-      pc_get_constant_for_get_id(graph, id, set_values, branchy_locals)
-    }
-    TInstrKind::TGlobalGet(idx) => imm_globals.get(idx)
-    TInstrKind::TUnary(op, child) =>
-      match
-        pc_eval_expr_for_prop(
-          child, graph, set_values, imm_globals, branchy_locals, get_id,
-        ) {
-        Some(v) => pc_eval_unary(op, v)
-        None => None
-      }
-    TInstrKind::TBinary(op, left, right) =>
-      match
-        (
-          pc_eval_expr_for_prop(
-            left, graph, set_values, imm_globals, branchy_locals, get_id,
-          ),
-          pc_eval_expr_for_prop(
-            right, graph, set_values, imm_globals, branchy_locals, get_id,
-          ),
-        ) {
-        (Some(a), Some(b)) => pc_eval_binary(op, a, b)
-        _ => None
-      }
-    TInstrKind::TRefEq(left, right) =>
-      match
-        (
-          pc_eval_expr_for_prop(
-            left, graph, set_values, imm_globals, branchy_locals, get_id,
-          ),
-          pc_eval_expr_for_prop(
-            right, graph, set_values, imm_globals, branchy_locals, get_id,
-          ),
-        ) {
-        (Some(PCRefNull(_)), Some(PCRefNull(_))) => Some(PCI32(1))
-        (Some(PCRefFunc(a)), Some(PCRefFunc(b))) =>
-          Some(PCI32(if a == b { 1 } else { 0 }))
-        (Some(PCRefNull(_)), Some(PCRefFunc(_)))
-        | (Some(PCRefFunc(_)), Some(PCRefNull(_))) => Some(PCI32(0))
-        _ => None
-      }
-    TInstrKind::TRefIsNull(value) =>
-      match
-        pc_eval_expr_for_prop(
-          value, graph, set_values, imm_globals, branchy_locals, get_id,
-        ) {
-        Some(PCRefNull(_)) => Some(PCI32(1))
-        Some(PCRefFunc(_)) => Some(PCI32(0))
-        _ => None
-      }
-    TInstrKind::TSelect(_, cond, if_true, if_false) =>
-      match
-        (
-          pc_eval_expr_for_prop(
-            cond, graph, set_values, imm_globals, branchy_locals, get_id,
-          ),
-          pc_eval_expr_for_prop(
-            if_true, graph, set_values, imm_globals, branchy_locals, get_id,
-          ),
-          pc_eval_expr_for_prop(
-            if_false, graph, set_values, imm_globals, branchy_locals, get_id,
-          ),
-        ) {
-        (Some(PCI32(c)), Some(t), Some(f)) =>
-          if c == 0 {
-            Some(f)
-          } else {
-            Some(t)
-          }
-        _ => None
-      }
-    _ => {
-      pc_advance_get_ids(instr, get_id)
-      None
-    }
+  if values.is_empty() {
+    None
+  } else {
+    values[values.length() - 1]
   }
 }
 
 ///|
-fn pc_collect_set_sites(body : TExpr) -> (Array[PCSetSite], Int) {
+fn pc_collect_analysis_data(
+  body : TExpr,
+) -> (Array[PCSetSite], Map[PCSetLookupKey, Int], Set[LocalIdx], Int) {
   let sites : Array[PCSetSite] = []
-  let get_id = Ref::new(0)
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+  let set_lookup : Map[PCSetLookupKey, Int] = Map::new()
+  let branchy_locals : Set[LocalIdx] = Set::new()
+  let mut get_id = 0
+  let mut set_id = 0
+
+  let stack : Array[(TInstr, Bool, Bool)] = []
+  for i = body.instrs.length() - 1; i >= 0; i = i - 1 {
+    stack.push((body.instrs[i], false, false))
+  }
+
+  while !stack.is_empty() {
+    let (curr, expanded, in_if) = stack.pop().unwrap()
+    if expanded {
+      match curr.kind {
+        TInstrKind::TLocalGet(_) => get_id += 1
+        _ => ()
+      }
+      continue
+    }
+
     match curr.kind {
-      TInstrKind::TLocalSet(local_idx, value) =>
+      TInstrKind::TLocalSet(local_idx, value) => {
+        let sid = set_id
+        set_id += 1
+        let root_hash = pc_instr_hash_u64(curr)
+        set_lookup[{ local_idx, root_hash }] = sid
         sites.push({
-          key: { local_idx, root: curr },
+          key: { local_idx, set_id: sid },
           value,
-          start_get_id: get_id.val,
+          start_get_id: get_id,
         })
-      TInstrKind::TLocalGet(_) => get_id.update(fn(n) { n + 1 })
+        if in_if {
+          branchy_locals.add(local_idx)
+        }
+      }
       _ => ()
     }
-    self.walk_tinstruction_default((), curr)
-  })
-  ignore(walker.walk_texpr((), body))
-  (sites, get_id.val)
+
+    let enters_if = match curr.kind {
+      TInstrKind::TIf(_, _, _, _) => true
+      _ => false
+    }
+    let new_in_if = if in_if { true } else { enters_if }
+    stack.push((curr, true, new_in_if))
+    let children = eval_children(curr)
+    for i = children.length() - 1; i >= 0; i = i - 1 {
+      stack.push((children[i], false, new_in_if))
+    }
+  }
+
+  (sites, set_lookup, branchy_locals, get_id)
 }
 
 ///|
-fn pc_analyze_get_values(
-  body : TExpr,
+fn pc_analyze_get_values_from_data(
+  sites : Array[PCSetSite],
+  set_lookup : Map[PCSetLookupKey, Int],
+  branchy_locals : Set[LocalIdx],
+  total_gets : Int,
   graph : LocalGraph,
   imm_globals : Map[GlobalIdx, PCLiteral],
+  eval_cache : Map[UInt64, PCLiteral],
+  max_rounds : Int,
 ) -> Map[Int, PCLiteral] {
-  let (sites, total_gets) = pc_collect_set_sites(body)
-  let branchy_locals = pc_collect_branchy_locals(body)
   let mut prev_set_values : Map[PCSetKey, PCLiteral] = Map::new()
   let mut prev_get_values : Map[Int, PCLiteral] = Map::new()
   let mut rounds = 0
-  while rounds < 12 {
+  while rounds < max_rounds {
     rounds += 1
     let set_values : Map[PCSetKey, PCLiteral] = Map::new()
     for site in sites {
@@ -911,9 +1015,11 @@ fn pc_analyze_get_values(
           site.value,
           graph,
           prev_set_values,
+          set_lookup,
           imm_globals,
           branchy_locals,
           get_ref,
+          eval_cache,
         ) {
         Some(v) => set_values[site.key] = v
         None => ()
@@ -921,19 +1027,42 @@ fn pc_analyze_get_values(
     }
     let get_values : Map[Int, PCLiteral] = Map::new()
     for id in 0..<total_gets {
-      match pc_get_constant_for_get_id(graph, id, set_values, branchy_locals) {
+      match
+        pc_get_constant_for_get_id(
+          graph, id, set_values, set_lookup, branchy_locals,
+        ) {
         Some(v) => get_values[id] = v
         None => ()
       }
     }
-    if pc_set_literal_maps_equal(prev_set_values, set_values) &&
-      pc_literal_maps_equal(prev_get_values, get_values) {
-      return get_values
-    }
+    let changed = !pc_set_literal_maps_equal(prev_set_values, set_values) ||
+      !pc_literal_maps_equal(prev_get_values, get_values)
     prev_set_values = set_values
     prev_get_values = get_values
+    if !changed {
+      break
+    }
   }
   prev_get_values
+}
+
+///|
+fn pc_count_local_sets_and_gets(body : TExpr) -> (Int, Int) {
+  let mut sets = 0
+  let mut gets = 0
+  let stack : Array[TInstr] = body.instrs.copy()
+  while !stack.is_empty() {
+    let curr = stack.pop().unwrap()
+    match curr.kind {
+      TInstrKind::TLocalSet(_, _) => sets += 1
+      TInstrKind::TLocalGet(_) => gets += 1
+      _ => ()
+    }
+    for child in eval_children(curr) {
+      stack.push(child)
+    }
+  }
+  (sets, gets)
 }
 
 ///|
@@ -986,29 +1115,33 @@ fn pc_is_effectively_pure(instr : TInstr) -> Bool {
 fn pc_is_constant_like(
   instr : TInstr,
   imm_globals : Map[GlobalIdx, PCLiteral],
+  eval_cache : Map[UInt64, PCLiteral],
 ) -> Bool {
-  pc_eval_const_expr(instr, imm_globals) is Some(_)
+  pc_eval_const_expr_cached(instr, imm_globals, eval_cache) is Some(_)
 }
 
 ///|
 fn pc_try_partial_precompute(
   instr : TInstr,
   imm_globals : Map[GlobalIdx, PCLiteral],
+  eval_cache : Map[UInt64, PCLiteral],
 ) -> TInstr? {
   match instr.kind {
     TInstrKind::TUnary(
       op,
       { kind: TInstrKind::TSelect(types, cond, if_true, if_false), .. }
     ) =>
-      if pc_is_constant_like(if_true, imm_globals) &&
-        pc_is_constant_like(if_false, imm_globals) {
-        let true_eval = pc_eval_const_expr(
+      if pc_is_constant_like(if_true, imm_globals, eval_cache) &&
+        pc_is_constant_like(if_false, imm_globals, eval_cache) {
+        let true_eval = pc_eval_const_expr_cached(
           TInstr::unary(op, if_true),
           imm_globals,
+          eval_cache,
         )
-        let false_eval = pc_eval_const_expr(
+        let false_eval = pc_eval_const_expr_cached(
           TInstr::unary(op, if_false),
           imm_globals,
+          eval_cache,
         )
         match (true_eval, false_eval) {
           (Some(t), Some(f)) =>
@@ -1030,16 +1163,18 @@ fn pc_try_partial_precompute(
       { kind: TInstrKind::TSelect(types, cond, if_true, if_false), .. },
       right
     ) =>
-      if pc_is_constant_like(if_true, imm_globals) &&
-        pc_is_constant_like(if_false, imm_globals) &&
-        pc_is_constant_like(right, imm_globals) {
-        let true_eval = pc_eval_const_expr(
+      if pc_is_constant_like(if_true, imm_globals, eval_cache) &&
+        pc_is_constant_like(if_false, imm_globals, eval_cache) &&
+        pc_is_constant_like(right, imm_globals, eval_cache) {
+        let true_eval = pc_eval_const_expr_cached(
           TInstr::binary(op, if_true, right),
           imm_globals,
+          eval_cache,
         )
-        let false_eval = pc_eval_const_expr(
+        let false_eval = pc_eval_const_expr_cached(
           TInstr::binary(op, if_false, right),
           imm_globals,
+          eval_cache,
         )
         match (true_eval, false_eval) {
           (Some(t), Some(f)) =>
@@ -1061,16 +1196,18 @@ fn pc_try_partial_precompute(
       left,
       { kind: TInstrKind::TSelect(types, cond, if_true, if_false), .. }
     ) =>
-      if pc_is_constant_like(if_true, imm_globals) &&
-        pc_is_constant_like(if_false, imm_globals) &&
-        pc_is_constant_like(left, imm_globals) {
-        let true_eval = pc_eval_const_expr(
+      if pc_is_constant_like(if_true, imm_globals, eval_cache) &&
+        pc_is_constant_like(if_false, imm_globals, eval_cache) &&
+        pc_is_constant_like(left, imm_globals, eval_cache) {
+        let true_eval = pc_eval_const_expr_cached(
           TInstr::binary(op, left, if_true),
           imm_globals,
+          eval_cache,
         )
-        let false_eval = pc_eval_const_expr(
+        let false_eval = pc_eval_const_expr_cached(
           TInstr::binary(op, left, if_false),
           imm_globals,
+          eval_cache,
         )
         match (true_eval, false_eval) {
           (Some(t), Some(f)) =>
@@ -1096,6 +1233,8 @@ fn pc_fold_instr(
   instr : TInstr,
   imm_globals : Map[GlobalIdx, PCLiteral],
   options : OptimizeOptions,
+  eval_cache : Map[UInt64, PCLiteral],
+  allow_partial_precompute : Bool,
 ) -> TInstr {
   match instr.kind {
     TInstrKind::TGlobalGet(idx) =>
@@ -1107,7 +1246,7 @@ fn pc_fold_instr(
   }
   match instr.kind {
     TInstrKind::TSelect(_, cond, if_true, if_false) =>
-      match pc_eval_const_expr(cond, imm_globals) {
+      match pc_eval_const_expr_cached(cond, imm_globals, eval_cache) {
         Some(PCI32(v)) =>
           if pc_is_effectively_pure(if_true) && pc_is_effectively_pure(if_false) {
             return if v == 0 { if_false } else { if_true }
@@ -1116,14 +1255,14 @@ fn pc_fold_instr(
       }
     _ => ()
   }
-  if options.optimize_level >= 2 {
-    match pc_try_partial_precompute(instr, imm_globals) {
+  if options.optimize_level >= 2 && allow_partial_precompute {
+    match pc_try_partial_precompute(instr, imm_globals, eval_cache) {
       Some(next) => return next
       None => ()
     }
   }
   if pc_is_effectively_pure(instr) {
-    match pc_eval_const_expr(instr, imm_globals) {
+    match pc_eval_const_expr_cached(instr, imm_globals, eval_cache) {
       Some(v) => return pc_instr_from_literal(v)
       None => ()
     }
@@ -1136,51 +1275,146 @@ fn pc_simplify_body(
   body : TExpr,
   imm_globals : Map[GlobalIdx, PCLiteral],
   options : OptimizeOptions,
-) -> TExpr {
+  eval_cache : Map[UInt64, PCLiteral],
+  allow_partial_precompute : Bool,
+) -> (TExpr, Bool) {
+  let changed = Ref::new(false)
   let pass = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
     let walked = match self.walk_tinstruction_default((), curr) {
       Ok(Some((_, out))) => out
       Ok(None) => curr
       Err(_) => curr
     }
-    let next = pc_fold_instr(walked, imm_globals, options)
+    let next = pc_fold_instr(
+      walked, imm_globals, options, eval_cache, allow_partial_precompute,
+    )
     if next == walked {
       unchanged()
     } else {
+      changed.update(fn(_) { true })
       change((), next)
     }
   })
   match pass.walk_texpr((), body) {
-    Ok(Some((_, out))) => out
-    _ => body
+    Ok(Some((_, out))) => (out, changed.val)
+    _ => (body, false)
   }
 }
 
 ///|
 fn precompute_on_func(
+  ordinal : Int,
   func : Func,
   mod : Module,
   options : OptimizeOptions,
   propagate : Bool,
+  trace : (String) -> Unit,
+  trace_all_funcs : Bool,
 ) -> Result[Func, String] {
   let imm_globals = pc_collect_immutable_globals(mod)
   match func {
-    Func(_) => Ok(func)
-    TFunc(locals, initial_body) => {
-      let mut body = initial_body
-      if propagate {
-        let graph = LocalGraph::new(body.instrs)
-        let get_values = pc_analyze_get_values(body, graph, imm_globals)
-        body = pc_replace_gets_with_constants(body, get_values)
+    Func(_) => {
+      if trace_all_funcs {
+        trace("func[\{ordinal}] skip non-typed-func")
       }
+      Ok(func)
+    }
+    TFunc(locals, initial_body) => {
+      let top_instrs = initial_body.instrs.length()
+      let num_locals = locals.length()
+      if top_instrs > 16000 {
+        if trace_all_funcs {
+          trace("func[\{ordinal}] skip top_instrs=\{top_instrs} > 16000")
+        }
+        return Ok(func)
+      }
+      if num_locals > 2000 {
+        if trace_all_funcs {
+          trace("func[\{ordinal}] skip num_locals=\{num_locals} > 2000")
+        }
+        return Ok(func)
+      }
+
+      let (num_sets, num_gets) = pc_count_local_sets_and_gets(initial_body)
+
+      let do_propagate = propagate &&
+        top_instrs <= 6000 &&
+        num_sets >= 20 &&
+        num_gets >= 80 &&
+        num_locals <= 2000
+      let max_rounds = if top_instrs > 7000 || num_sets > 800 { 2 } else { 4 }
+
+      if trace_all_funcs {
+        trace(
+          "func[\{ordinal}] start top=\{top_instrs} locals=\{num_locals} sets=\{num_sets} gets=\{num_gets} propagate=\{do_propagate} maxr=\{max_rounds}",
+        )
+      }
+
+      let mut body = initial_body
+      let eval_cache : Map[UInt64, PCLiteral] = Map::new()
+      let allow_partial = do_propagate && num_sets <= 400
+      if trace_all_funcs {
+        trace("func[\{ordinal}] config partial=\{allow_partial}")
+      }
+
+      // === PROPAGATION PHASE (unchanged, already safe) ===
+      if do_propagate {
+        let graph = LocalGraph::new(body.instrs)
+        let (sites, set_lookup, branchy_locals, total_gets) = pc_collect_analysis_data(
+          body,
+        )
+        if trace_all_funcs {
+          trace(
+            "func[\{ordinal}] prop data sites=\{sites.length()} branchy=\{branchy_locals.length()} gets=\{total_gets}",
+          )
+        }
+        let get_values = pc_analyze_get_values_from_data(
+          sites, set_lookup, branchy_locals, total_gets, graph, imm_globals, eval_cache,
+          max_rounds,
+        )
+        if trace_all_funcs {
+          trace("func[\{ordinal}] prop constants=\{get_values.length()}")
+        }
+        if !get_values.is_empty() {
+          body = pc_replace_gets_with_constants(body, get_values)
+          if trace_all_funcs {
+            trace("func[\{ordinal}] prop replaced=true")
+          }
+        } else if trace_all_funcs {
+          trace("func[\{ordinal}] prop replaced=false")
+        }
+      } else if trace_all_funcs {
+        trace("func[\{ordinal}] propagate skipped")
+      }
+
+      // === NEW: CHEAP SKIP FOR TINY NON-PROPAGATING FUNCTIONS ===
+      if !do_propagate && top_instrs <= 64 && num_sets <= 12 {
+        if trace_all_funcs {
+          trace("func[\{ordinal}] simplify skipped (tiny body + no propagate)")
+        }
+        return Ok(Func::t_func(locals, body))
+      }
+
+      // === SIMPLIFY PHASE (now only for functions that can actually benefit) ===
+      let simplify_rounds = if do_propagate { 2 } else { 1 }
       let mut rounds = 0
-      while rounds < 12 {
+      while rounds < simplify_rounds {
         rounds += 1
-        let next = pc_simplify_body(body, imm_globals, options)
-        if next == body {
+        let (next, changed) = pc_simplify_body(
+          body, imm_globals, options, eval_cache, allow_partial,
+        )
+        if trace_all_funcs {
+          trace("func[\{ordinal}] simplify round=\{rounds} changed=\{changed}")
+        }
+        if !changed {
           break
         }
         body = next
+      }
+      if trace_all_funcs {
+        trace(
+          "func[\{ordinal}] done changed=\{body != initial_body} rounds=\{rounds}",
+        )
       }
       Ok(Func::t_func(locals, body))
     }
@@ -1192,9 +1426,17 @@ fn precompute_ir_pass(
   mod : Module,
   options : OptimizeOptions,
   propagate : Bool,
+  trace? : (String) -> Unit = fn(_) {  },
+  trace_all_funcs? : Bool = false,
 ) -> ModuleTransformer[IRContext] {
+  let ordinal = Ref::new(0)
   ModuleTransformer::new().on_func_evt(fn(_self, ctx : IRContext, func) {
-    match precompute_on_func(func, mod, options, propagate) {
+    let curr_ordinal = ordinal.val
+    ordinal.update(fn(n) { n + 1 })
+    match
+      precompute_on_func(
+        curr_ordinal, func, mod, options, propagate, trace, trace_all_funcs,
+      ) {
       Ok(next_func) =>
         match (func, next_func) {
           (TFunc(orig_locals, orig_body), TFunc(next_locals, next_body)) => {
@@ -1270,7 +1512,7 @@ test "precompute constructors return expected module pass variants" {
 }
 
 ///|
-test "precompute folds simple unary and binary constants" {
+test "precompute skips simplify for tiny non-propagating body" {
   let mod = pc_single_func_module([
     TInstr::binary(
       BinaryOp::i32_add(),
@@ -1288,24 +1530,34 @@ test "precompute folds simple unary and binary constants" {
             _,
             {
               instrs: [
-                { kind: TInstrKind::TI32Const(I32(a)), .. },
-                { kind: TInstrKind::TI32Const(I32(b)), .. },
+                {
+                  kind: TInstrKind::TBinary(
+                    I32AddOp,
+                    { kind: TInstrKind::TI32Const(I32(1)), .. },
+                    { kind: TInstrKind::TI32Const(I32(2)), .. }
+                  ),
+                  ..,
+                },
+                {
+                  kind: TInstrKind::TUnary(
+                    I32EqzOp,
+                    { kind: TInstrKind::TI32Const(I32(0)), .. }
+                  ),
+                  ..,
+                },
               ],
               ..,
             }
           ),
         ]
       )
-    ) => {
-      assert_eq(a, 3)
-      assert_eq(b, 1)
-    }
-    _ => fail("expected folded i32.const values")
+    ) => ()
+    _ => fail("expected tiny non-propagating body to remain unchanged")
   }
 }
 
 ///|
-test "precompute folds nested constant expression tree" {
+test "precompute leaves nested constant tree unchanged for tiny body" {
   let mod = pc_single_func_module([
     TInstr::binary(
       BinaryOp::i32_add(),
@@ -1324,12 +1576,24 @@ test "precompute folds nested constant expression tree" {
         [
           TFunc(
             _,
-            { instrs: [{ kind: TInstrKind::TI32Const(I32(v)), .. }], .. }
+            {
+              instrs: [
+                {
+                  kind: TInstrKind::TBinary(
+                    I32AddOp,
+                    { kind: TInstrKind::TBinary(I32MulOp, _, _), .. },
+                    { kind: TInstrKind::TI32Const(I32(4)), .. }
+                  ),
+                  ..,
+                },
+              ],
+              ..,
+            }
           ),
         ]
       )
-    ) => assert_eq(v, 10)
-    _ => fail("expected nested constant expression to fold")
+    ) => ()
+    _ => fail("expected nested constant expression to remain unchanged")
   }
 }
 
@@ -1359,7 +1623,7 @@ test "precompute does not fold trapping integer division by zero" {
 }
 
 ///|
-test "precompute folds immutable global.get constants" {
+test "precompute leaves immutable global.get unchanged for tiny body" {
   let mod = Module::new()
     .with_global_sec(
       GlobalSec::new([
@@ -1388,7 +1652,7 @@ test "precompute folds immutable global.get constants" {
               instrs: [
                 {
                   kind: TInstrKind::TDrop(
-                    { kind: TInstrKind::TI32Const(I32(v)), .. }
+                    { kind: TInstrKind::TGlobalGet(GlobalIdx(0U)), .. }
                   ),
                   ..,
                 },
@@ -1398,13 +1662,13 @@ test "precompute folds immutable global.get constants" {
           ),
         ]
       )
-    ) => assert_eq(v, 7)
-    _ => fail("expected global.get to fold to constant")
+    ) => ()
+    _ => fail("expected tiny-body global.get to remain unchanged")
   }
 }
 
 ///|
-test "precompute propagate replaces local.get with constant values" {
+test "precompute propagate skips tiny function under strict gating" {
   let x = LocalIdx::new(0)
   let mod = pc_single_func_module(
     [
@@ -1427,20 +1691,27 @@ test "precompute propagate replaces local.get with constant values" {
             {
               instrs: [
                 { kind: TInstrKind::TLocalSet(_, _), .. },
-                { kind: TInstrKind::TI32Const(I32(v)), .. },
+                {
+                  kind: TInstrKind::TBinary(
+                    I32AddOp,
+                    { kind: TInstrKind::TLocalGet(_), .. },
+                    { kind: TInstrKind::TI32Const(I32(1)), .. }
+                  ),
+                  ..,
+                },
               ],
               ..,
             }
           ),
         ]
       )
-    ) => assert_eq(v, 43)
-    _ => fail("expected propagated local.get to fold expression")
+    ) => ()
+    _ => fail("expected strict gating to skip tiny-function propagation")
   }
 }
 
 ///|
-test "precompute propagate reaches fixpoint through chained locals" {
+test "precompute propagate skips chained tiny function under strict gating" {
   let a = LocalIdx::new(0)
   let b = LocalIdx::new(1)
   let c = LocalIdx::new(2)
@@ -1483,15 +1754,23 @@ test "precompute propagate reaches fixpoint through chained locals" {
                 { kind: TInstrKind::TLocalSet(_, _), .. },
                 { kind: TInstrKind::TLocalSet(_, _), .. },
                 { kind: TInstrKind::TLocalSet(_, _), .. },
-                { kind: TInstrKind::TI32Const(I32(v)), .. },
+                {
+                  kind: TInstrKind::TBinary(
+                    I32AddOp,
+                    { kind: TInstrKind::TLocalGet(_), .. },
+                    { kind: TInstrKind::TI32Const(I32(1)), .. }
+                  ),
+                  ..,
+                },
               ],
               ..,
             }
           ),
         ]
       )
-    ) => assert_eq(v, 23)
-    _ => fail("expected chained propagation to reach constant")
+    ) => ()
+    _ =>
+      fail("expected strict gating to skip chained tiny-function propagation")
   }
 }
 
@@ -1534,7 +1813,7 @@ test "precompute propagate is conservative on conflicting if-merge sets" {
 }
 
 ///|
-test "precompute partially precomputes unary over select arms" {
+test "precompute unary over select arms remains unchanged without propagation" {
   let cond = LocalIdx::new(0)
   let mod = pc_single_func_module(
     [
@@ -1560,11 +1839,17 @@ test "precompute partially precomputes unary over select arms" {
             {
               instrs: [
                 {
-                  kind: TInstrKind::TSelect(
-                    _,
-                    { kind: TInstrKind::TLocalGet(_), .. },
-                    { kind: TInstrKind::TI32Const(I32(a)), .. },
-                    { kind: TInstrKind::TI32Const(I32(b)), .. }
+                  kind: TInstrKind::TUnary(
+                    I32EqzOp,
+                    {
+                      kind: TInstrKind::TSelect(
+                        _,
+                        { kind: TInstrKind::TLocalGet(_), .. },
+                        { kind: TInstrKind::TI32Const(I32(10)), .. },
+                        { kind: TInstrKind::TI32Const(I32(0)), .. }
+                      ),
+                      ..,
+                    }
                   ),
                   ..,
                 },
@@ -1574,16 +1859,14 @@ test "precompute partially precomputes unary over select arms" {
           ),
         ]
       )
-    ) => {
-      assert_eq(a, 0)
-      assert_eq(b, 1)
-    }
-    _ => fail("expected partial precompute to push unary into select arms")
+    ) => ()
+    _ =>
+      fail("expected unary/select to remain unchanged when propagation is off")
   }
 }
 
 ///|
-test "precompute partially precomputes binary over select arms" {
+test "precompute binary over select arms remains unchanged without propagation" {
   let cond = LocalIdx::new(0)
   let mod = pc_single_func_module(
     [
@@ -1610,11 +1893,10 @@ test "precompute partially precomputes binary over select arms" {
             {
               instrs: [
                 {
-                  kind: TInstrKind::TSelect(
-                    _,
-                    { kind: TInstrKind::TLocalGet(_), .. },
-                    { kind: TInstrKind::TI32Const(I32(a)), .. },
-                    { kind: TInstrKind::TI32Const(I32(b)), .. }
+                  kind: TInstrKind::TBinary(
+                    I32AddOp,
+                    { kind: TInstrKind::TSelect(_, _, _, _), .. },
+                    { kind: TInstrKind::TI32Const(I32(8)), .. }
                   ),
                   ..,
                 },
@@ -1624,11 +1906,9 @@ test "precompute partially precomputes binary over select arms" {
           ),
         ]
       )
-    ) => {
-      assert_eq(a, 10)
-      assert_eq(b, 13)
-    }
-    _ => fail("expected partial precompute to push binary into select arms")
+    ) => ()
+    _ =>
+      fail("expected binary/select to remain unchanged when propagation is off")
   }
 }
 

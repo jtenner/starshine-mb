@@ -342,29 +342,63 @@ fn run_ir_context_transformer_scheduler_pass(
         mod,
         optimize_added_constants_ir_pass(mod, options, true),
       )
-    OptimizeInstructions =>
-      apply_ir_transformer_pass(
+    OptimizeInstructions => Ok(mod)
+    // apply_ir_transformer_pass(
+    //   ctx,
+    //   mod,
+    //   optimize_instructions_ir_pass(
+    //     mod,
+    //     options,
+    //     trace=fn(msg) { trace("optimize_instructions:\{msg}") },
+    //     trace_all_funcs=false,
+    //   ),
+    // )
+    Precompute => {
+      if trace_pass_details {
+        trace("precompute:start propagate=false")
+      }
+      let result = apply_ir_transformer_pass(
         ctx,
         mod,
-        optimize_instructions_ir_pass(
+        precompute_ir_pass(
           mod,
           options,
-          trace=fn(msg) { trace("optimize_instructions:\{msg}") },
-          trace_all_funcs=false,
+          false,
+          trace=fn(msg) { trace("precompute:\{msg}") },
+          trace_all_funcs=trace_pass_details,
         ),
       )
-    Precompute =>
-      apply_ir_transformer_pass(
+      if trace_pass_details {
+        match result {
+          Ok(_) => trace("precompute:done propagate=false")
+          Err(e) => trace("precompute:error propagate=false \{e}")
+        }
+      }
+      result
+    }
+    PrecomputePropagate => {
+      if trace_pass_details {
+        trace("precompute:start propagate=true")
+      }
+      let result = apply_ir_transformer_pass(
         ctx,
         mod,
-        precompute_ir_pass(mod, options, false),
+        precompute_ir_pass(
+          mod,
+          options,
+          true,
+          trace=fn(msg) { trace("precompute:\{msg}") },
+          trace_all_funcs=trace_pass_details,
+        ),
       )
-    PrecomputePropagate =>
-      apply_ir_transformer_pass(
-        ctx,
-        mod,
-        precompute_ir_pass(mod, options, true),
-      )
+      if trace_pass_details {
+        match result {
+          Ok(_) => trace("precompute:done propagate=true")
+          Err(e) => trace("precompute:error propagate=true \{e}")
+        }
+      }
+      result
+    }
     RedundantSetElimination =>
       apply_ir_transformer_pass(
         ctx,
