@@ -10,4 +10,5 @@ import {
   "moonbitlang/core/cmp",
   "moonbitlang/core/set",
   "moonbitlang/core/float",
+  "moonbitlang/core/env",
 }

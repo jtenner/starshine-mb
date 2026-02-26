@@ -32,7 +32,7 @@ pub(all) struct AsyncifyPassProps {
   in_secondary_memory : Bool
   secondary_memory_size : UInt64
   auto_lower_tail_calls : Bool
-}
+} derive(Show, Eq)
 
 ///|
 fn AsyncifyPassProps::new(

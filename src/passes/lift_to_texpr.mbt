@@ -94,8 +94,8 @@ test "lift_to_texpr_pass keeps original Func when conversion fails" {
   let result = pass.walk_module((), mod)
   match result {
     Ok(None) => ()
-    Ok(Some(_)) =>
-      fail("expected no module change when lift_to_texpr conversion fails")
-    Err(e) => fail("expected graceful fallback on conversion failure, got: \{e}")
+    Ok(Some((_, new_mod))) => assert_eq(new_mod, mod)
+    Err(e) =>
+      fail("expected graceful fallback on conversion failure, got: \{e}")
   }
 }

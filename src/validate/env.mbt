@@ -336,7 +336,7 @@ pub fn Env::push_func_with_typeidx(
   let func_type_idxs = env.func_type_idxs.copy()
   funcs.push(ft)
   func_type_idxs.push(type_idx)
-  Env::{ ..env, funcs, func_type_idxs, }
+  Env::{ ..env, funcs, func_type_idxs }
 }
 
 ///|
@@ -364,7 +364,7 @@ pub fn Env::with_funcs(env : Env, funcs : Array[FuncType]) -> Env {
   for _ in funcs {
     func_type_idxs.push(None)
   }
-  Env::{ ..env, funcs, func_type_idxs, }
+  Env::{ ..env, funcs, func_type_idxs }
 }
 
 ///|
@@ -439,8 +439,7 @@ pub fn Env::with_module(self : Env, m : Module) -> Env {
               FuncExternType(type_idx) =>
                 match e.resolve_functype(type_idx) {
                   None => ()
-                  Some(ft) =>
-                    e = e.push_func_with_typeidx(ft, Some(type_idx))
+                  Some(ft) => e = e.push_func_with_typeidx(ft, Some(type_idx))
                 }
               TableExternType(table_ty) => e = e.push_table(table_ty)
               MemExternType(mem_ty) => e = e.push_mem(mem_ty)
@@ -2958,7 +2957,10 @@ fn instr_to_tinstr(
         Ok(t) => t
         Err(t) => return Err(t)
       }
-      push_terminating_instr(stack, TInstr::return_call_ref(type_idx, args, ref_))
+      push_terminating_instr(
+        stack,
+        TInstr::return_call_ref(type_idx, args, ref_),
+      )
     }
 
     // === GC: Structs ===

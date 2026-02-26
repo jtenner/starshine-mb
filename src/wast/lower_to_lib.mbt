@@ -313,7 +313,9 @@ fn wt_resolve_functype_sig_by_index(
       }
       SingleRecType(_) => {
         if flat == type_idx {
-          return Err("type index does not reference a function type: \{type_idx}")
+          return Err(
+            "type index does not reference a function type: \{type_idx}",
+          )
         }
         flat += 1
       }
@@ -411,22 +413,7 @@ fn wt_default_value_instrs_for_valtype(
     @lib.VecTypeValType =>
       Ok([
         @lib.Instruction::v128_const(
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ),
       ])
     @lib.RefTypeValType(rt) => {
@@ -1818,15 +1805,7 @@ fn wt_instr_to_lib(
       }
       let checks = match
         wt_legacy_synthetic_check_instrs(
-          ctx,
-          lib_bt,
-          bt,
-          bt_results,
-          body,
-          catches,
-          local_ids,
-          labels,
-          legacy,
+          ctx, lib_bt, bt, bt_results, body, catches, local_ids, labels, legacy,
         ) {
         Ok(v) => v
         Err(e) => return Err(e)
@@ -5537,20 +5516,23 @@ test "wast_to_binary_module preserves try_table param-only blocktype as typeidx"
   }
   match lowered.code_sec {
     Some(
-      @lib.CodeSec([
-        @lib.Func(_, @lib.Expr([@lib.I32Const(_), @lib.TryTable(bt, _, _)])),
-      ])
+      @lib.CodeSec(
+        [@lib.Func(_, @lib.Expr([@lib.I32Const(_), @lib.TryTable(bt, _, _)]))]
+      )
     ) =>
       match bt {
         @lib.TypeIdxBlockType(@lib.TypeIdx(_)) => ()
-        _ => fail("expected param-only try_table blocktype to lower as type_idx")
+        _ =>
+          fail("expected param-only try_table blocktype to lower as type_idx")
       }
     _ => fail("expected lowered function containing param-only try_table")
   }
   match @validate.validate_module(lowered) {
     Ok(_) => ()
     Err(e) =>
-      fail("expected param-only try_table fixture to validate after lowering: \{e}")
+      fail(
+        "expected param-only try_table fixture to validate after lowering: \{e}",
+      )
   }
 }
 

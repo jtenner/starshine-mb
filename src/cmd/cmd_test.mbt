@@ -236,6 +236,68 @@ fn has_string(values : Array[String], needle : String) -> Bool {
 }
 
 ///|
+test "run_cmd_with_adapter infers optimize preset from -O level flags" {
+  let wasm = encode_module_bytes(fixture_i32_const_module(31))
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["a.wasm"] },
+    file_exists=fn(path) { path == "a.wasm" },
+    read_file=fn(path) {
+      if path == "a.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(["-O3", "--out", "out.wasm", "a.wasm"], io) {
+    Ok(v) => v
+    Err(e) => fail("expected -O3 success, got \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["optimize"])
+  assert_eq(summary.optimize_level, 3)
+  assert_eq(summary.shrink_level, 0)
+  assert_eq(summary.output_files, ["out.wasm"])
+  assert_eq(writes.length(), 1)
+}
+
+///|
+test "run_cmd_with_adapter infers shrink preset from -O level with z bias" {
+  let wasm = encode_module_bytes(fixture_i32_const_module(32))
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["a.wasm"] },
+    file_exists=fn(path) { path == "a.wasm" },
+    read_file=fn(path) {
+      if path == "a.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(["-O3z", "--out", "out.wasm", "a.wasm"], io) {
+    Ok(v) => v
+    Err(e) => fail("expected -O3z success, got \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["shrink"])
+  assert_eq(summary.optimize_level, 3)
+  assert_eq(summary.shrink_level, 3)
+  assert_eq(summary.output_files, ["out.wasm"])
+  assert_eq(writes.length(), 1)
+}
+
+///|
 test "run_cmd_with_adapter rejects unknown pass flags with strict diagnostics" {
   let wasm = encode_module_bytes(fixture_i32_const_module(1))
   let io = CmdIO::new(
@@ -900,6 +962,7 @@ test "env optimize and trap overlays take precedence over config values when cli
     Ok(v) => v
     Err(e) => fail("unexpected run failure: \{e}")
   }
+  assert_eq(summary.resolved_passes, ["optimize"])
   assert_eq(summary.optimize_level, 3)
   assert_true(summary.traps_never_happen)
 }

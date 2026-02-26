@@ -71,6 +71,7 @@ pub(all) struct Env {
   global_types : Array[@lib.SubType]
   rec_stack : Array[Array[@lib.SubType]]
   funcs : Array[@lib.FuncType]
+  func_type_idxs : Array[@lib.TypeIdx?]
   tables : Array[@lib.TableType]
   mems : Array[@lib.MemType]
   globals : Array[@lib.GlobalType]
@@ -87,6 +88,7 @@ pub fn Env::expand_blocktype(Self, @lib.BlockType) -> Result[(Array[@lib.ValType
 pub fn Env::get_catch_label_types(Self, @lib.LabelIdx) -> Array[@lib.ValType]?
 pub fn Env::get_elem(Self, @lib.ElemIdx) -> @lib.Elem?
 pub fn Env::get_functype_by_funcidx(Self, @lib.FuncIdx) -> @lib.FuncType?
+pub fn Env::get_functypeidx_by_funcidx(Self, @lib.FuncIdx) -> @lib.TypeIdx?
 pub fn Env::get_global_type(Self, @lib.GlobalIdx) -> @lib.GlobalType?
 pub fn Env::get_label(Self, @lib.LabelIdx) -> Array[@lib.ValType]?
 pub fn Env::get_label_types(Self, @lib.LabelIdx) -> Array[@lib.ValType]?
@@ -100,6 +102,7 @@ pub fn Env::new() -> Self
 pub fn Env::push_data(Self, @lib.Data) -> Self
 pub fn Env::push_elem(Self, @lib.Elem) -> Self
 pub fn Env::push_func(Self, @lib.FuncType) -> Self
+pub fn Env::push_func_with_typeidx(Self, @lib.FuncType, @lib.TypeIdx?) -> Self
 pub fn Env::push_global(Self, @lib.GlobalType) -> Self
 pub fn Env::push_mem(Self, @lib.MemType) -> Self
 pub fn Env::push_table(Self, @lib.TableType) -> Self

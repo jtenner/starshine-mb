@@ -2,6 +2,10 @@
 
 ## Blockers
 - [ ] `cmd.exe --optimize` still exits with non-zero status (`status=1`) on both `node_wasm/dist/starshine.release.wasm` and `node_wasm/dist/starshine.debug.wasm`; current root error is `OptimizeFailed(...: Stack underflow during tree conversion)` during lift-to-texpr conversion.
+- [ ] Large-module optimize runtime is now mostly dominated by `DuplicateFunctionElimination` (~9s on `node_wasm/dist/starshine.debug.wasm`); add a scalable algorithm or a size-aware sampling mode to cut this further without skipping as much of the pipeline.
+- [ ] Add a CLI/env override to force the full optimize pipeline on large modules (bypass new size-based fast-path heuristics) for quality-sensitive runs.
+- [ ] Add a no-op wasm copy fast-path in `src/cmd` for empty scheduled pass lists (skip decode+optimize+encode when input format is already wasm) to cut large-module startup latency.
+- [ ] Re-enable full Binaryen post-pass parity in default optimize scheduling by implementing `dae-optimizing` parity (or safe equivalent) and fixing high-opt inlining argument-mismatch failures; current scheduler intentionally skips those two passes to keep `--optimize` stable.
 - [ ] Full wasm-target spec sweep (`node_wasm/scripts/run-wasm-spec-suite.mjs`) still reports 3 hard failures: `tests/spec/legacy/try_catch.wast`, `tests/spec/local_tee.wast`, `tests/spec/try_table.wast`.
 - [ ] `moon test --target wasm` still cannot run directly in this environment (missing default WASI host wiring); only the custom Node/WASI runner path is currently available.
 - [ ] Native decode still uses deep recursive control-instruction parsing; `main` now raises stack soft-limit to avoid Linux SIGSEGV, but a recursion-free decoder path is still needed for robust cross-platform behavior.

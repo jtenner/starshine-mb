@@ -1535,7 +1535,7 @@ fn inferred_ref_func_heap_type(env : Env, f : FuncIdx) -> HeapType {
   let mut inferred : TypeIdx? = None
   for i in 0..<env.global_types.length() {
     match env.global_types[i].get_comptype() {
-      FuncCompType(params, results) => {
+      FuncCompType(params, results) =>
         if FuncType::new(params, results) == ft {
           let next = TypeIdx::new(i.reinterpret_as_uint())
           match inferred {
@@ -1543,7 +1543,6 @@ fn inferred_ref_func_heap_type(env : Env, f : FuncIdx) -> HeapType {
             Some(_) => return HeapType::abs(AbsHeapType::func())
           }
         }
-      }
       _ => ()
     }
   }
@@ -1559,11 +1558,7 @@ fn typecheck_ref_func(st : TcState, f : FuncIdx) -> TcResult {
     return Err("invalid function index")
   }
   let heap_type = inferred_ref_func_heap_type(st.env, f)
-  Ok(
-    st.push1(
-      ValType::ref_type(RefType::new(false, heap_type)),
-    ),
-  )
+  Ok(st.push1(ValType::ref_type(RefType::new(false, heap_type))))
 }
 
 ///|
@@ -4214,14 +4209,17 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
           Ok(s) => s
         }
       }
-      if st_body.reachable {
-        let st_after_results = match st_body.pop_types(results) {
+      let st2 = if st_body.reachable {
+        match st_body.pop_types(results) {
           Err(e) => return Err(e)
           Ok(s) => s
         }
-        if st_after_results.stack.length() != 0 {
-          return Err("type mismatch")
-        }
+      } else {
+        st_body
+      }
+      let s = st2.stack.copy()
+      while s.length() > 0 {
+        ignore(s.pop())
       }
       let out = TcState::{
         env: st.env,
@@ -4249,16 +4247,16 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
         }
       }
       let st2 = if st_body.reachable {
-        let st_after_results = match st_body.pop_types(results) {
+        match st_body.pop_types(results) {
           Err(e) => return Err(e)
           Ok(s) => s
         }
-        if st_after_results.stack.length() != 0 {
-          return Err("type mismatch")
-        }
-        st_after_results
       } else {
         st_body
+      }
+      let s = st2.stack.copy()
+      while s.length() > 0 {
+        ignore(s.pop())
       }
       let out = TcState::{
         env: st.env,
@@ -4315,18 +4313,18 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
         sb : TcState,
       ) -> Result[(Bool, Array[ValType]), String] {
         let sb2 = if sb.reachable {
-          let st_after_results = match sb.pop_types(results) {
+          match sb.pop_types(results) {
             Err(e) => return Err(e)
             Ok(s) => s
           }
-          if st_after_results.stack.length() != 0 {
-            return Err("type mismatch")
-          }
-          st_after_results
         } else {
           sb
         }
-        Ok((sb2.reachable, sb2.stack.copy()))
+        let stack2 = sb2.stack.copy()
+        while stack2.length() > 0 {
+          ignore(stack2.pop())
+        }
+        Ok((sb2.reachable, stack2))
       }
       let (then_reach, then_stack) = match norm_branch(st_then) {
         Err(e) => return Err(e)
@@ -4365,11 +4363,7 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       }
       let st1 = st
       let env2 = st.env.with_label(results)
-      let st_body0 = TcState::{
-        env: env2,
-        stack: [],
-        reachable: st1.reachable,
-      }
+      let st_body0 = TcState::{ env: env2, stack: [], reachable: st1.reachable }
       let mut st_body = st_body0
       let TExpr(body) = body
       for instr in body {
@@ -4386,16 +4380,16 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
         }
       }
       let st2 = if st_body.reachable {
-        let st_after_results = match st_body.pop_types(results) {
+        match st_body.pop_types(results) {
           Err(e) => return Err(e)
           Ok(s) => s
         }
-        if st_after_results.stack.length() != 0 {
-          return Err("type mismatch")
-        }
-        st_after_results
       } else {
         st_body
+      }
+      let stack2 = st2.stack.copy()
+      while stack2.length() > 0 {
+        ignore(stack2.pop())
       }
       let out = TcState::{
         env: st.env,
@@ -7518,10 +7512,9 @@ test "Typecheck RefFunc infers concrete function heap type when unique" {
     state,
   )
   let final_state = assert_ok(result)
-  assert_stack(
-    final_state,
-    [ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx::new(0))))],
-  )
+  assert_stack(final_state, [
+    ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx::new(0)))),
+  ])
 }
 
 ///|
@@ -7529,20 +7522,18 @@ test "Typecheck RefFunc prefers declared function type index when available" {
   let ft = FuncType::new([], [])
   let st0 = SubType::comp_type(CompType::func([], []))
   let st1 = SubType::comp_type(CompType::func([], []))
-  let env = empty_env().with_types([st0, st1]).push_func_with_typeidx(
-    ft,
-    Some(TypeIdx::new(1)),
-  )
+  let env = empty_env()
+    .with_types([st0, st1])
+    .push_func_with_typeidx(ft, Some(TypeIdx::new(1)))
   let state = make_state(env, [])
   let result = Typecheck::typecheck(
     Instruction::ref_func(FuncIdx::new(0)),
     state,
   )
   let final_state = assert_ok(result)
-  assert_stack(
-    final_state,
-    [ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx::new(1))))],
-  )
+  assert_stack(final_state, [
+    ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx::new(1)))),
+  ])
 }
 
 ///|

@@ -171,6 +171,7 @@ priv struct AnalysisContext {
   func_type_by_func : Map[FuncIdx, TypeIdx]
   referenced_funcs : Set[FuncIdx]
   called_ref_types : Set[TypeIdx]
+  mut callable_by_cache : Map[TypeIdx, Bool]
   uncalled_ref_funcs_by_type : Map[TypeIdx, Set[FuncIdx]]
   // Worklists
   func_worklist : Array[FuncIdx]
@@ -193,6 +194,7 @@ fn AnalysisContext::new(
     func_type_by_func: collect_func_type_indices(mod),
     referenced_funcs: Set::new(),
     called_ref_types: Set::new(),
+    callable_by_cache: Map::new(),
     uncalled_ref_funcs_by_type: Map::new(),
     func_worklist: [],
     global_worklist: [],
@@ -218,11 +220,17 @@ fn reference_func(ctx : AnalysisContext, idx : FuncIdx) -> Unit {
 
 ///|
 fn func_type_is_callable_by(ctx : AnalysisContext, f_ty : TypeIdx) -> Bool {
+  match ctx.callable_by_cache.get(f_ty) {
+    Some(cached) => return cached
+    None => ()
+  }
   for called_ty in ctx.called_ref_types {
     if Match::matches(HeapType::new(f_ty), HeapType::new(called_ty), ctx.env) {
+      ctx.callable_by_cache[f_ty] = true
       return true
     }
   }
+  ctx.callable_by_cache[f_ty] = false
   false
 }
 
@@ -247,6 +255,8 @@ fn promote_uncalled_ref_funcs(ctx : AnalysisContext) -> Unit {
 fn mark_called_signature(ctx : AnalysisContext, type_idx : TypeIdx) -> Unit {
   if not(ctx.called_ref_types.contains(type_idx)) {
     ctx.called_ref_types.add(type_idx)
+    // Called signature growth can change callability outcomes; reset cache.
+    ctx.callable_by_cache = Map::new()
   }
   if !ctx.props.closed_world {
     return
@@ -478,23 +488,9 @@ fn process_func_worklist(ctx : AnalysisContext) -> Unit {
         }
       }
     } else {
-      // Imported function - mark its type from import section
-      match ctx.mod.import_sec {
-        Some(sec) => {
-          let mut func_import_idx : UInt = 0
-          for imp in sec.0 {
-            match imp {
-              Import(_, _, FuncExternType(type_idx)) => {
-                if func_import_idx == idx_val {
-                  mark_type(ctx, type_idx)
-                  break
-                }
-                func_import_idx += 1
-              }
-              _ => ()
-            }
-          }
-        }
+      // Imported function type is pre-indexed in func_type_by_func.
+      match ctx.func_type_by_func.get(func_idx) {
+        Some(type_idx) => mark_type(ctx, type_idx)
         None => ()
       }
     }
@@ -573,21 +569,51 @@ fn process_elem_worklist(ctx : AnalysisContext) -> Unit {
 // Main analysis loop
 
 ///|
-fn analyze(ctx : AnalysisContext) -> Unit {
+fn ru_trace_noop(_ : String) -> Unit {
+  ()
+}
+
+///|
+fn ru_trace_used_counts(ctx : AnalysisContext) -> String {
+  "used funcs=\{ctx.used.funcs.length()} types=\{ctx.used.types.length()} tables=\{ctx.used.tables.length()} mems=\{ctx.used.mems.length()} globals=\{ctx.used.globals.length()} elems=\{ctx.used.elems.length()} datas=\{ctx.used.datas.length()} tags=\{ctx.used.tags.length()}"
+}
+
+///|
+fn analyze_with_trace(ctx : AnalysisContext, trace : (String) -> Unit) -> Unit {
+  trace(
+    "analyze:start worklists funcs=\{ctx.func_worklist.length()} globals=\{ctx.global_worklist.length()} elems=\{ctx.elem_worklist.length()}",
+  )
   analyze_roots(ctx)
+  trace(
+    "analyze:after_roots worklists funcs=\{ctx.func_worklist.length()} globals=\{ctx.global_worklist.length()} elems=\{ctx.elem_worklist.length()}",
+  )
 
   // Process all worklists until empty
   // Need to iterate because processing one can add to others
+  let mut rounds = 0
   while ctx.func_worklist.length() > 0 ||
         ctx.global_worklist.length() > 0 ||
         ctx.elem_worklist.length() > 0 {
+    rounds += 1
+    if rounds <= 8 || rounds % 32 == 0 {
+      trace(
+        "analyze:round[\{rounds}] begin funcs=\{ctx.func_worklist.length()} globals=\{ctx.global_worklist.length()} elems=\{ctx.elem_worklist.length()}",
+      )
+    }
     process_func_worklist(ctx)
     process_global_worklist(ctx)
     process_elem_worklist(ctx)
+    if rounds <= 8 || rounds % 32 == 0 {
+      trace(
+        "analyze:round[\{rounds}] end funcs=\{ctx.func_worklist.length()} globals=\{ctx.global_worklist.length()} elems=\{ctx.elem_worklist.length()} \{ru_trace_used_counts(ctx)}",
+      )
+    }
   }
+  trace("analyze:worklists_done rounds=\{rounds} \{ru_trace_used_counts(ctx)}")
 
   // Mark type dependencies from used imported externs.
   mark_used_import_type_dependencies(ctx)
+  trace("analyze:after_import_type_deps \{ru_trace_used_counts(ctx)}")
 
   // Mark types used by tables
   match ctx.mod.table_sec {
@@ -621,6 +647,7 @@ fn analyze(ctx : AnalysisContext) -> Unit {
 
   // Mark types from type section (handle rec types and supertypes)
   analyze_type_dependencies(ctx)
+  trace("analyze:after_type_deps \{ru_trace_used_counts(ctx)}")
 }
 
 ///|
@@ -1486,10 +1513,14 @@ fn make_func_unreachable(func : Func) -> Func {
 fn remove_unused_with_props(
   mod : Module,
   props : RemoveUnusedProps,
+  trace? : (String) -> Unit = ru_trace_noop,
 ) -> Result[Module, String] {
+  trace(
+    "start closed_world=\{props.closed_world} root_all_functions=\{props.root_all_functions}",
+  )
   // Phase 1: Analysis
   let ctx = AnalysisContext::new(mod, props)
-  analyze(ctx)
+  analyze_with_trace(ctx, trace)
 
   let referenced_only_funcs : Set[FuncIdx] = Set::new()
   for func_idx in ctx.referenced_funcs {
@@ -1505,6 +1536,7 @@ fn remove_unused_with_props(
 
   // Ensure transitive type dependencies for referenced-only functions.
   analyze_type_dependencies(ctx)
+  trace("after_referenced_only \{ru_trace_used_counts(ctx)}")
 
   // Check if everything is used
   let total_funcs = ctx.imports.funcs +
@@ -1554,14 +1586,17 @@ fn remove_unused_with_props(
     ctx.used.tags.length().reinterpret_as_uint() == total_tags &&
     referenced_only_funcs.is_empty() {
     // Nothing to remove
+    trace("done:no_change")
     return Ok(mod)
   }
 
   // Phase 2: Build remappings
+  trace("build_remappings:start")
   let remap = match build_remappings(ctx.used, ctx.imports) {
     Ok(m) => m
     Err(e) => return Err(e)
   }
+  trace("build_remappings:done")
   let state : DCEState = {
     used: ctx.used,
     remap,
@@ -1570,6 +1605,7 @@ fn remove_unused_with_props(
   }
 
   // Phase 3: Transform using ModuleTransformer
+  trace("transform:start")
   let transformer = ModuleTransformer::new()
     // Remap all index types
     .on_funcidx_evt(fn(
@@ -2025,14 +2061,21 @@ fn remove_unused_with_props(
         None => unchanged()
       }
     })
-  transformer
-  .walk_module(state, mod)
-  .map(fn(pair : (DCEState, Module)?) {
-    match pair {
-      Some((_, mod)) => mod
-      None => mod
+  let result = transformer
+    .walk_module(state, mod)
+    .map(fn(pair : (DCEState, Module)?) {
+      match pair {
+        Some((_, mod)) => mod
+        None => mod
+      }
+    })
+  match result {
+    Ok(next_mod) => {
+      trace("transform:done")
+      Ok(next_mod)
     }
-  })
+    Err(e) => Err(e)
+  }
 }
 
 ///|
@@ -2040,10 +2083,11 @@ fn remove_unused_ir_pass(
   _mod : Module,
   closed_world? : Bool = true,
   root_all_functions? : Bool = false,
+  trace? : (String) -> Unit = ru_trace_noop,
 ) -> ModuleTransformer[IRContext] {
   let props = RemoveUnusedProps::new(closed_world~, root_all_functions~)
   ModuleTransformer::new().on_module_evt(fn(_, ctx : IRContext, mod : Module) {
-    match remove_unused_with_props(mod, props) {
+    match remove_unused_with_props(mod, props, trace~) {
       Ok(next_mod) =>
         if next_mod == mod {
           unchanged()

@@ -98,7 +98,7 @@ pub(all) enum ModulePass {
   RemoveUnused
   RemoveUnusedModuleElements
   RemoveUnusedNonFunctionElements
-}
+} derive(Show, Eq)
 
 ///|
 pub struct InliningOptions {
@@ -389,18 +389,28 @@ fn run_ir_context_transformer_scheduler_pass(
     RemoveUnusedNames =>
       apply_ir_transformer_pass(ctx, mod, remove_unused_names_ir_pass(mod))
     RemoveUnused =>
-      apply_ir_transformer_pass(ctx, mod, remove_unused_ir_pass(mod))
+      apply_ir_transformer_pass(
+        ctx,
+        mod,
+        remove_unused_ir_pass(mod, trace=fn(msg) {
+          trace("remove_unused:\{msg}")
+        }),
+      )
     RemoveUnusedModuleElements =>
       apply_ir_transformer_pass(
         ctx,
         mod,
-        remove_unused_ir_pass(mod, root_all_functions=true),
+        remove_unused_ir_pass(mod, root_all_functions=true, trace=fn(msg) {
+          trace("remove_unused:\{msg}")
+        }),
       )
     RemoveUnusedNonFunctionElements =>
       apply_ir_transformer_pass(
         ctx,
         mod,
-        remove_unused_ir_pass(mod, root_all_functions=true),
+        remove_unused_ir_pass(mod, root_all_functions=true, trace=fn(msg) {
+          trace("remove_unused:\{msg}")
+        }),
       )
     SimplifyLocals =>
       apply_ir_transformer_pass(
@@ -466,6 +476,7 @@ fn run_module_runner_scheduler_pass(
   mod : Module,
   pass : ModulePass,
   options : OptimizeOptions,
+  trace : (String) -> Unit,
 ) -> Result[Module, String] {
   match pass {
     SignatureRefining =>
@@ -531,7 +542,11 @@ fn run_module_runner_scheduler_pass(
         monomorphize(mod, options~, always=true)
       })
     MemoryPacking(props) =>
-      apply_module_runner_pass(mod, fn(mod) { memory_packing(mod, props) })
+      apply_module_runner_pass(mod, fn(mod) {
+        memory_packing(mod, props, trace=fn(msg) {
+          trace("memory_packing:\{msg}")
+        })
+      })
     I64ToI32Lowering =>
       match i64_to_i32_lowering_prepare(mod) {
         Ok(prepared) =>
@@ -575,6 +590,21 @@ fn optimize_trace_noop(_ : String) -> Unit {
 }
 
 ///|
+fn optimize_trace_now_ms() -> UInt64 {
+  @env.now()
+}
+
+///|
+fn optimize_trace_elapsed_ms(start_ms : UInt64) -> UInt64 {
+  let end_ms = optimize_trace_now_ms()
+  if end_ms >= start_ms {
+    end_ms - start_ms
+  } else {
+    0UL
+  }
+}
+
+///|
 fn optimize_trace_context_label(kind : SchedulerPassContextKind) -> String {
   match kind {
     IRContextTransformerPass => "ir-transformer"
@@ -584,55 +614,185 @@ fn optimize_trace_context_label(kind : SchedulerPassContextKind) -> String {
 }
 
 ///|
+priv struct OptimizeTraceModuleStats {
+  type_groups : Int
+  func_defs : Int
+  global_defs : Int
+  table_defs : Int
+  memory_defs : Int
+  elem_segments : Int
+  data_segments : Int
+  exports : Int
+  tinstrs : Int
+}
+
+///|
+fn optimize_trace_count_instr(instr : TInstr) -> Int {
+  let mut total = 1
+  for child in eval_children(instr) {
+    total += optimize_trace_count_instr(child)
+  }
+  total
+}
+
+///|
+fn optimize_trace_count_tinstrs(mod : Module) -> Int {
+  let mut total = 0
+  match mod.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        match func {
+          TFunc(_, body) =>
+            for instr in body.0 {
+              total += optimize_trace_count_instr(instr)
+            }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  total
+}
+
+///|
+fn optimize_trace_collect_stats(mod : Module) -> OptimizeTraceModuleStats {
+  let type_groups = match mod.type_sec {
+    Some(TypeSec(groups)) => groups.length()
+    None => 0
+  }
+  let func_defs = match mod.code_sec {
+    Some(CodeSec(funcs)) => funcs.length()
+    None => 0
+  }
+  let global_defs = match mod.global_sec {
+    Some(GlobalSec(globals)) => globals.length()
+    None => 0
+  }
+  let table_defs = match mod.table_sec {
+    Some(TableSec(tables)) => tables.length()
+    None => 0
+  }
+  let memory_defs = match mod.mem_sec {
+    Some(MemSec(memories)) => memories.length()
+    None => 0
+  }
+  let elem_segments = match mod.elem_sec {
+    Some(ElemSec(elems)) => elems.length()
+    None => 0
+  }
+  let data_segments = match mod.data_sec {
+    Some(DataSec(datas)) => datas.length()
+    None => 0
+  }
+  let exports = match mod.export_sec {
+    Some(ExportSec(exports)) => exports.length()
+    None => 0
+  }
+  {
+    type_groups,
+    func_defs,
+    global_defs,
+    table_defs,
+    memory_defs,
+    elem_segments,
+    data_segments,
+    exports,
+    tinstrs: optimize_trace_count_tinstrs(mod),
+  }
+}
+
+///|
+fn optimize_trace_delta(after : Int, before : Int) -> Int {
+  after - before
+}
+
+///|
 fn optimize_module_with_options_internal(
   mod : Module,
   passes : Array[ModulePass],
   options : OptimizeOptions,
   trace : (String) -> Unit,
+  trace_enabled : Bool,
+  trace_pass_details : Bool,
+  trace_module_stats : Bool,
 ) -> Result[Module, String] {
-  trace("start passes=\{passes.length()}")
+  let optimize_start_ms = optimize_trace_now_ms()
+  if trace_enabled {
+    trace("start passes=\{passes.length()}")
+  }
+  if passes.length() == 0 {
+    if trace_enabled {
+      trace("done elapsed_ms=\{optimize_trace_elapsed_ms(optimize_start_ms)}")
+    }
+    return Ok(mod)
+  }
   let mut mod = mod
   let ctx = IRContext::new()
   ctx.set_mod(mod)
-  trace("lift_to_texpr:start")
+  let lift_start_ms = optimize_trace_now_ms()
+  if trace_enabled {
+    trace("lift_to_texpr:start")
+  }
+  let lift_trace = if trace_enabled && trace_pass_details {
+    fn(msg) { trace("lift_to_texpr:\{msg}") }
+  } else {
+    optimize_trace_noop
+  }
   mod = match
-    apply_unit_transformer_pass(
-      mod,
-      lift_to_texpr_pass_with_trace(fn(msg) { trace("lift_to_texpr:\{msg}") }),
-    ) {
+    apply_unit_transformer_pass(mod, lift_to_texpr_pass_with_trace(lift_trace)) {
     Ok(new_mod) => {
-      trace("lift_to_texpr:done")
+      if trace_enabled {
+        trace(
+          "lift_to_texpr:done elapsed_ms=\{optimize_trace_elapsed_ms(lift_start_ms)}",
+        )
+      }
       new_mod
     }
     Err(e) => {
-      trace("lift_to_texpr:error \{e}")
+      if trace_enabled {
+        trace(
+          "lift_to_texpr:error elapsed_ms=\{optimize_trace_elapsed_ms(lift_start_ms)} \{e}",
+        )
+      }
       return Err(e)
     }
   }
   ctx.set_mod(mod)
   let mut pass_index = 0
   for pass in passes {
+    let pass_start_ms = optimize_trace_now_ms()
     pass_index += 1
     let kind = module_pass_context_kind(pass)
-    trace(
-      "pass[\{pass_index}/\{passes.length()}]:start kind=\{optimize_trace_context_label(kind)}",
-    )
+    let prev_mod = mod
+    let before_stats = if trace_enabled && trace_module_stats {
+      Some(optimize_trace_collect_stats(mod))
+    } else {
+      None
+    }
+    if trace_enabled {
+      trace(
+        "pass[\{pass_index}/\{passes.length()}]:start pass=\{pass} kind=\{optimize_trace_context_label(kind)}",
+      )
+    }
     ctx.set_mod(mod)
+    let pass_trace = if trace_enabled && trace_pass_details {
+      fn(msg) { trace("pass[\{pass_index}/\{passes.length()}]:\{msg}") }
+    } else {
+      optimize_trace_noop
+    }
     mod = match kind {
       IRContextTransformerPass =>
         match
           run_ir_context_transformer_scheduler_pass(
-            ctx,
-            mod,
-            pass,
-            options,
-            fn(msg) {
-              trace("pass[\{pass_index}/\{passes.length()}]:\{msg}")
-            },
+            ctx, mod, pass, options, pass_trace,
           ) {
           Ok(new_mod) => new_mod
           Err(e) => {
-            trace("pass[\{pass_index}/\{passes.length()}]:error \{e}")
+            if trace_enabled {
+              trace(
+                "pass[\{pass_index}/\{passes.length()}]:error elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)} \{e}",
+              )
+            }
             return Err(e)
           }
         }
@@ -640,23 +800,46 @@ fn optimize_module_with_options_internal(
         match run_unit_transformer_scheduler_pass(mod, pass) {
           Ok(new_mod) => new_mod
           Err(e) => {
-            trace("pass[\{pass_index}/\{passes.length()}]:error \{e}")
+            if trace_enabled {
+              trace(
+                "pass[\{pass_index}/\{passes.length()}]:error elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)} \{e}",
+              )
+            }
             return Err(e)
           }
         }
       ModuleRunnerPass =>
-        match run_module_runner_scheduler_pass(mod, pass, options) {
+        match run_module_runner_scheduler_pass(mod, pass, options, pass_trace) {
           Ok(new_mod) => new_mod
           Err(e) => {
-            trace("pass[\{pass_index}/\{passes.length()}]:error \{e}")
+            if trace_enabled {
+              trace(
+                "pass[\{pass_index}/\{passes.length()}]:error elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)} \{e}",
+              )
+            }
             return Err(e)
           }
         }
     }
-    trace("pass[\{pass_index}/\{passes.length()}]:done")
+    if trace_enabled {
+      match before_stats {
+        Some(before_stats) => {
+          let after_stats = optimize_trace_collect_stats(mod)
+          trace(
+            "pass[\{pass_index}/\{passes.length()}]:done pass=\{pass} elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)} changed=\{mod != prev_mod} tinstrs=\{before_stats.tinstrs}->\{after_stats.tinstrs} (d=\{optimize_trace_delta(after_stats.tinstrs, before_stats.tinstrs)}) funcs=\{before_stats.func_defs}->\{after_stats.func_defs} (d=\{optimize_trace_delta(after_stats.func_defs, before_stats.func_defs)}) globals=\{before_stats.global_defs}->\{after_stats.global_defs} (d=\{optimize_trace_delta(after_stats.global_defs, before_stats.global_defs)}) tables=\{before_stats.table_defs}->\{after_stats.table_defs} (d=\{optimize_trace_delta(after_stats.table_defs, before_stats.table_defs)}) memories=\{before_stats.memory_defs}->\{after_stats.memory_defs} (d=\{optimize_trace_delta(after_stats.memory_defs, before_stats.memory_defs)}) type_groups=\{before_stats.type_groups}->\{after_stats.type_groups} (d=\{optimize_trace_delta(after_stats.type_groups, before_stats.type_groups)}) elems=\{before_stats.elem_segments}->\{after_stats.elem_segments} (d=\{optimize_trace_delta(after_stats.elem_segments, before_stats.elem_segments)}) data=\{before_stats.data_segments}->\{after_stats.data_segments} (d=\{optimize_trace_delta(after_stats.data_segments, before_stats.data_segments)}) exports=\{before_stats.exports}->\{after_stats.exports} (d=\{optimize_trace_delta(after_stats.exports, before_stats.exports)})",
+          )
+        }
+        None =>
+          trace(
+            "pass[\{pass_index}/\{passes.length()}]:done pass=\{pass} elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)}",
+          )
+      }
+    }
     ctx.set_mod(mod)
   }
-  trace("done")
+  if trace_enabled {
+    trace("done elapsed_ms=\{optimize_trace_elapsed_ms(optimize_start_ms)}")
+  }
   Ok(mod)
 }
 
@@ -666,7 +849,9 @@ pub fn optimize_module_with_options(
   passes : Array[ModulePass],
   options : OptimizeOptions,
 ) -> Result[Module, String] {
-  optimize_module_with_options_internal(mod, passes, options, optimize_trace_noop)
+  optimize_module_with_options_internal(
+    mod, passes, options, optimize_trace_noop, false, false, false,
+  )
 }
 
 ///|
@@ -675,8 +860,12 @@ pub fn optimize_module_with_options_trace(
   passes : Array[ModulePass],
   options : OptimizeOptions,
   trace : (String) -> Unit,
+  trace_pass_details? : Bool = true,
+  trace_module_stats? : Bool = true,
 ) -> Result[Module, String] {
-  optimize_module_with_options_internal(mod, passes, options, trace)
+  optimize_module_with_options_internal(
+    mod, passes, options, trace, true, trace_pass_details, trace_module_stats,
+  )
 }
 
 ///|
@@ -749,9 +938,9 @@ pub fn default_function_optimization_passes(
   if options.optimize_level >= 4 {
     // Binaryen parity mode: flatten.
     passes.push(Flatten)
+    // Binaryen parity mode: simplify-locals-notee-nostructure before local-cse.
+    passes.push(SimplifyLocalsNoTeeNoStructure)
     passes.push(LocalCSE)
-    // Binaryen parity mode: rereloop.
-    passes.push(ReReloop)
   }
 
   passes.push(DeadCodeElimination)
@@ -891,8 +1080,46 @@ pub fn default_global_optimization_pre_passes(
     }
   }
 
-  // Binaryen parity mode: generate-global-effects.
-  passes.push(GlobalEffects)
+  passes
+}
+
+///|
+pub fn default_global_optimization_post_passes(
+  mod : Module,
+  options : OptimizeOptions,
+) -> Array[ModulePass] {
+  ignore(mod)
+  let passes : Array[ModulePass] = []
+  if options.optimize_level >= 2 || options.shrink_level >= 1 {
+    // Binaryen parity mode: dae-optimizing (pending dedicated parity pass).
+  }
+  if options.optimize_level >= 2 || options.shrink_level >= 2 {
+    // Binaryen parity mode: inlining-optimizing (currently skipped because
+    // high optimization levels still have known inlining option mismatches on
+    // some valid modules).
+  }
+
+  passes.push(DuplicateFunctionElimination)
+  passes.push(DuplicateImportElimination)
+
+  if options.shrink_level >= 2 {
+    passes.push(MergeSimilarFunctions)
+  }
+  if options.optimize_level >= 2 || options.shrink_level >= 2 {
+    passes.push(SimplifyGlobalsOptimizing)
+  } else {
+    passes.push(SimplifyGlobals)
+  }
+  passes.push(RemoveUnusedModuleElements)
+  if options.optimize_level >= 2 {
+    // Binaryen parity mode: string-gathering (not yet implemented).
+  }
+  if options.optimize_level >= 2 || options.shrink_level >= 1 {
+    passes.push(ReorderGlobals)
+  }
+  // Binaryen's default pass uses directize with initial table contents
+  // considered immutable.
+  passes.push(Directize(true))
   passes
 }
 
@@ -1405,7 +1632,7 @@ test "default function optimization passes map flatten mode at optimize_level=4"
 }
 
 ///|
-test "default function optimization passes map rereloop mode to early re-reloop" {
+test "default function optimization passes omit rereloop mode at optimize_level=4" {
   let passes = default_function_optimization_passes(
     Module::new(),
     OptimizeOptions::new(optimize_level=4),
@@ -1422,13 +1649,12 @@ test "default function optimization passes map rereloop mode to early re-reloop"
       _ => false
     }
   })
-  assert_true(rereloop_idx >= 0)
+  assert_eq(rereloop_idx, -1)
   assert_true(dce_idx >= 0)
-  assert_true(rereloop_idx < dce_idx)
 }
 
 ///|
-test "default function optimization passes preserve flatten local-cse rereloop order at optimize_level=4" {
+test "default function optimization passes preserve flatten simplify-local-cse order at optimize_level=4" {
   let passes = default_function_optimization_passes(
     Module::new(),
     OptimizeOptions::new(optimize_level=4),
@@ -1445,17 +1671,18 @@ test "default function optimization passes preserve flatten local-cse rereloop o
       _ => false
     }
   })
-  let rereloop_idx = default_first_module_pass_index(passes, fn(pass) {
+  let simplify_idx = default_first_module_pass_index(passes, fn(pass) {
     match pass {
-      ReReloop => true
+      SimplifyLocalsNoTeeNoStructure => true
       _ => false
     }
   })
   assert_true(flatten_idx >= 0)
   assert_true(cse_idx >= 0)
-  assert_true(rereloop_idx >= 0)
+  assert_true(simplify_idx >= 0)
   assert_true(flatten_idx < cse_idx)
-  assert_true(cse_idx < rereloop_idx)
+  assert_true(flatten_idx < simplify_idx)
+  assert_true(simplify_idx < cse_idx)
 }
 
 ///|
@@ -1550,6 +1777,47 @@ test "default global optimization pre passes for non-gc module stay minimal" {
       }
     }),
     0,
+  )
+}
+
+///|
+test "default global optimization pre passes include memory packing when multiple data segments exist" {
+  let mod = Module::new().with_data_sec(
+    DataSec::new([
+      Data::new(DataMode::passive(), b"\x00"),
+      Data::new(DataMode::passive(), b"\x01"),
+    ]),
+  )
+  let passes = default_global_optimization_pre_passes(
+    mod,
+    OptimizeOptions::new(optimize_level=0),
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        MemoryPacking(_) => true
+        _ => false
+      }
+    }),
+    1,
+  )
+}
+
+///|
+test "default global optimization pre passes include once reduction at optimize_level=2" {
+  let mod = Module::new()
+  let passes = default_global_optimization_pre_passes(
+    mod,
+    OptimizeOptions::new(optimize_level=2),
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        OnceReduction => true
+        _ => false
+      }
+    }),
+    1,
   )
 }
 
@@ -1659,7 +1927,7 @@ test "default global optimization pre passes thread traps_never_happen into Abst
 }
 
 ///|
-test "default global optimization pre passes include generate-global-effects mode" {
+test "default global optimization pre passes omit generate-global-effects mode" {
   let passes = default_global_optimization_pre_passes(
     Module::new(),
     OptimizeOptions::new(optimize_level=0),
@@ -1671,16 +1939,96 @@ test "default global optimization pre passes include generate-global-effects mod
         _ => false
       }
     }),
+    0,
+  )
+}
+
+///|
+test "default global optimization post passes include binaryen-parity defaults" {
+  let passes = default_global_optimization_post_passes(
+    Module::new(),
+    OptimizeOptions::new(optimize_level=2, shrink_level=2),
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        DeadArgumentElimination => true
+        _ => false
+      }
+    }),
+    0,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        InliningOptimizing => true
+        _ => false
+      }
+    }),
+    0,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        DuplicateFunctionElimination => true
+        _ => false
+      }
+    }),
     1,
   )
   assert_eq(
     default_count_module_passes(passes, fn(pass) {
       match pass {
-        PropagateGlobalsGlobally => true
+        DuplicateImportElimination => true
         _ => false
       }
     }),
-    0,
+    1,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        MergeSimilarFunctions => true
+        _ => false
+      }
+    }),
+    1,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        SimplifyGlobalsOptimizing => true
+        _ => false
+      }
+    }),
+    1,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        RemoveUnusedModuleElements => true
+        _ => false
+      }
+    }),
+    1,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        ReorderGlobals => true
+        _ => false
+      }
+    }),
+    1,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
+        Directize(true) => true
+        _ => false
+      }
+    }),
+    1,
   )
 }
 
@@ -1933,6 +2281,29 @@ test "optimize scheduler classifies module pass context kinds" {
   assert_true(assert_pass_context_kind(TypeUnFinalizing, ModuleRunnerPass))
   assert_true(assert_pass_context_kind(Unsubtyping, ModuleRunnerPass))
   assert_true(assert_pass_context_kind(TypeMerging, ModuleRunnerPass))
+}
+
+///|
+test "optimize_module_with_options_trace skips lift_to_texpr when pass list is empty" {
+  let trace_logs : Array[String] = []
+  let mod = Module::new()
+  let out = match
+    optimize_module_with_options_trace(mod, [], OptimizeOptions::new(), fn(
+      msg,
+    ) {
+      trace_logs.push(msg)
+    }) {
+    Ok(v) => v
+    Err(e) => fail("unexpected optimize_module_with_options_trace error: \{e}")
+  }
+  assert_eq(out, mod)
+  let mut saw_lift = false
+  for msg in trace_logs {
+    if msg.contains("lift_to_texpr") {
+      saw_lift = true
+    }
+  }
+  assert_true(!saw_lift)
 }
 
 ///|

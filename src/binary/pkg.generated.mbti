@@ -67,6 +67,7 @@ pub suberror BinaryDecodeError {
   InvalidInstruction
   InvalidAtomicFenceImmediate
   InvalidAtomicInstruction
+  InstructionNestingLimitExceeded
 }
 pub impl Eq for BinaryDecodeError
 pub impl Show for BinaryDecodeError

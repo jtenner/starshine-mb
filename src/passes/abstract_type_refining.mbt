@@ -23,7 +23,7 @@ type HeapTypeMap = Map[HeapType, HeapType]
 ///|
 pub(all) struct AbstractTypeRefiningPassProps {
   traps_never_happen : Bool
-}
+} derive(Show, Eq)
 
 ///|
 priv struct ATRState {

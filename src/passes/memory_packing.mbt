@@ -19,7 +19,7 @@ pub(all) struct MemoryPackingPassProps {
   zero_filled_memory : Bool
   traps_never_happen : Bool
   max_data_segments : Int
-}
+} derive(Show, Eq)
 
 ///|
 fn MemoryPackingPassProps::new(
@@ -872,6 +872,42 @@ fn mp_active_segment_indices(mod : Module) -> Set[Int] {
 }
 
 ///|
+fn mp_referrers_have_memory_init(
+  referrers : Map[Int, MPSegmentReferrers],
+) -> Bool {
+  for idx in referrers.keys() {
+    let refs = referrers.get(idx).unwrap_or(mp_empty_referrers())
+    if refs.memory_init_refs > 0 {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn mp_active_segments_have_data_drop_refs(
+  active : Set[Int],
+  referrers : Map[Int, MPSegmentReferrers],
+) -> Bool {
+  for idx in active {
+    let refs = referrers.get(idx).unwrap_or(mp_empty_referrers())
+    if refs.data_drop_refs > 0 {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn mp_has_segment_ops_candidates(
+  active : Set[Int],
+  referrers : Map[Int, MPSegmentReferrers],
+) -> Bool {
+  mp_referrers_have_memory_init(referrers) ||
+  mp_active_segments_have_data_drop_refs(active, referrers)
+}
+
+///|
 fn mp_drop_and_unreachable(dest : TInstr, src : TInstr, len : TInstr) -> TInstr {
   TInstr::block(
     BlockType::void_(),
@@ -887,15 +923,11 @@ fn mp_drop_and_unreachable(dest : TInstr, src : TInstr, len : TInstr) -> TInstr 
 ///|
 fn optimize_segment_ops(
   mod : Module,
-  _options : MemoryPackingPassProps,
-) -> Module {
-  let active = mp_active_segment_indices(mod)
-  let referrers = collect_segment_referrers(mod)
-  let memories = mp_collect_memory_limits(mod)
-  let data_segments = match mod.data_sec {
-    Some(DataSec(datas)) => datas
-    None => return mod
-  }
+  active : Set[Int],
+  referrers : Map[Int, MPSegmentReferrers],
+  memories : Array[Limits],
+  data_segments : Array[Data],
+) -> (Module, Bool) {
   let rewriter = ModuleTransformer::new().on_tinstruction_evt(fn(
     self,
     _,
@@ -989,8 +1021,8 @@ fn optimize_segment_ops(
     }
   })
   match rewriter.walk_module((), mod) {
-    Ok(Some((_, out))) => out
-    _ => mod
+    Ok(Some((_, out))) => (out, true)
+    _ => (mod, false)
   }
 }
 
@@ -1595,28 +1627,72 @@ fn mp_build_transforms_and_segments(
 fn run_memory_packing_on_module(
   mod : Module,
   options : MemoryPackingPassProps,
+  trace? : (String) -> Unit = fn(_) { () },
 ) -> Result[Module, String] {
+  let mut mod = mod
+  let data_count = match mod.data_sec {
+    Some(DataSec(datas)) => datas.length()
+    None => 0
+  }
+  trace(
+    "start data_segments=\{data_count} zero_filled_memory=\{options.zero_filled_memory} traps_never_happen=\{options.traps_never_happen} max_data_segments=\{options.max_data_segments}",
+  )
   if !can_optimize(mod, options) {
+    trace("skip:cannot_optimize")
     return Ok(mod)
   }
-  let mod = optimize_segment_ops(mod, options)
-  let referrers = collect_segment_referrers(mod)
+  trace("collect_segment_referrers:start")
+  let mut referrers = collect_segment_referrers(mod)
+  trace("collect_segment_referrers:done refs=\{referrers.length()}")
+  let active = mp_active_segment_indices(mod)
+  let memories = mp_collect_memory_limits(mod)
+  let data_segments = match mod.data_sec {
+    Some(DataSec(datas)) => datas
+    None => []
+  }
+  if mp_has_segment_ops_candidates(active, referrers) {
+    trace("optimize_segment_ops:start")
+    let (next_mod, changed) = optimize_segment_ops(
+      mod, active, referrers, memories, data_segments,
+    )
+    mod = next_mod
+    trace("optimize_segment_ops:done changed=\{changed}")
+    if changed {
+      trace("collect_segment_referrers:start post_segment_ops")
+      referrers = collect_segment_referrers(mod)
+      trace("collect_segment_referrers:done refs=\{referrers.length()}")
+    }
+  } else {
+    trace("optimize_segment_ops:skip:no_candidates")
+  }
   let removed_passive = drop_unused_segments(mod, referrers)
+  trace("drop_unused_segments:done removed=\{removed_passive.length()}")
+  trace("build_transforms:start")
   let (mod, transforms) = mp_build_transforms_and_segments(
     mod, referrers, removed_passive, options,
   )
+  trace("build_transforms:done transforms=\{transforms.length()}")
+  trace("create_replacements:start")
   let (mod, replacements) = create_replacements(
     mod, transforms, removed_passive,
   )
-  apply_replacements(mod, replacements)
+  trace("create_replacements:done")
+  trace("apply_replacements:start")
+  let out = apply_replacements(mod, replacements)
+  match out {
+    Ok(_) => trace("apply_replacements:done")
+    Err(_) => ()
+  }
+  out
 }
 
 ///|
 fn memory_packing(
   mod : Module,
   options : MemoryPackingPassProps,
+  trace? : (String) -> Unit = fn(_) { () },
 ) -> Result[Module, String] {
-  run_memory_packing_on_module(mod, options)
+  run_memory_packing_on_module(mod, options, trace~)
 }
 
 // ============================================================

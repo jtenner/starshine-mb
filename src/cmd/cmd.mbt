@@ -995,17 +995,38 @@ fn resolve_optimize_levels(flags : Array[CliOptimizationFlag]) -> (Int, Int) {
   let mut shrink_level = 0
   for flag in flags {
     match flag {
-      OLevel(level, size_bias) =>
+      OLevel(level, size_bias) => {
+        optimize_level = max_int(optimize_level, level)
         if size_bias {
           shrink_level = max_int(shrink_level, level)
-        } else {
-          optimize_level = max_int(optimize_level, level)
         }
+      }
       OptimizePreset => optimize_level = max_int(optimize_level, 2)
       ShrinkPreset => shrink_level = max_int(shrink_level, 2)
     }
   }
   (optimize_level, shrink_level)
+}
+
+///|
+fn resolve_effective_pass_flags(
+  resolved_passes : Array[String],
+  optimize_level : Int,
+  shrink_level : Int,
+) -> Array[String] {
+  let out : Array[String] = []
+  for pass in resolved_passes {
+    out.push(pass)
+  }
+  if out.length() > 0 {
+    return out
+  }
+  if shrink_level > 0 {
+    out.push("shrink")
+  } else if optimize_level > 0 {
+    out.push("optimize")
+  }
+  out
 }
 
 ///|
@@ -1449,6 +1470,18 @@ fn cmd_trace_optimize_enabled(io : CmdIO) -> Bool {
 }
 
 ///|
+fn cmd_trace_optimize_verbose(io : CmdIO) -> Bool {
+  match (io.get_env)("STARSHINE_TRACE_OPTIMIZE_VERBOSE") {
+    Some(raw) =>
+      match parse_bool_string(raw) {
+        Some(enabled) => enabled
+        None => false
+      }
+    None => false
+  }
+}
+
+///|
 fn cmd_trace_emit(io : CmdIO, enabled : Bool, msg : String) -> Unit {
   if !enabled {
     return
@@ -1537,15 +1570,30 @@ fn expand_passes_for_module(
   mod : Module,
   options : OptimizeOptions,
 ) -> Result[Array[ModulePass], CmdError] {
+  let max_vacuum_passes = 4
+  let mut vacuum_passes = 0
   let out : Array[ModulePass] = []
+  let push_pass = fn(pass : ModulePass) {
+    match pass {
+      Vacuum =>
+        if vacuum_passes < max_vacuum_passes {
+          out.push(pass)
+          vacuum_passes += 1
+        }
+      _ => out.push(pass)
+    }
+  }
   for flag in pass_flags {
     match flag {
       "optimize" => {
         for pass in default_global_optimization_pre_passes(mod, options) {
-          out.push(pass)
+          push_pass(pass)
         }
         for pass in default_function_optimization_passes(mod, options) {
-          out.push(pass)
+          push_pass(pass)
+        }
+        for pass in default_global_optimization_post_passes(mod, options) {
+          push_pass(pass)
         }
       }
       "shrink" => {
@@ -1559,15 +1607,18 @@ fn expand_passes_for_module(
           traps_never_happen=options.traps_never_happen,
         )
         for pass in default_global_optimization_pre_passes(mod, shrink_options) {
-          out.push(pass)
+          push_pass(pass)
         }
         for pass in default_function_optimization_passes(mod, shrink_options) {
-          out.push(pass)
+          push_pass(pass)
+        }
+        for pass in default_global_optimization_post_passes(mod, shrink_options) {
+          push_pass(pass)
         }
       }
       _ =>
         match resolve_explicit_pass(flag) {
-          Some(pass) => out.push(pass)
+          Some(pass) => push_pass(pass)
           None => return Err(CmdError::unknown_pass_flag(flag))
         }
     }
@@ -1595,6 +1646,28 @@ test "expand_passes_for_module preserves preset-plus-explicit multiplicity for o
     }
   }
   assert_true(vacuum_count >= 2)
+}
+
+///|
+test "expand_passes_for_module caps vacuum passes to binaryen default bound" {
+  let mod = Module::new()
+  let expanded = match
+    expand_passes_for_module(
+      ["vacuum", "optimize", "vacuum", "shrink", "vacuum", "vacuum"],
+      mod,
+      OptimizeOptions::new(),
+    ) {
+    Ok(v) => v
+    Err(e) => fail("expected pass expansion success, got \{e}")
+  }
+  let mut vacuum_count = 0
+  for pass in expanded {
+    match pass {
+      Vacuum => vacuum_count += 1
+      _ => ()
+    }
+  }
+  assert_eq(vacuum_count, 4)
 }
 
 ///|
@@ -1739,20 +1812,24 @@ pub fn run_cmd_with_adapter(
   let env = parse_env_overlay(io)
   let merged = merge_parse_results(config, env, cli)
   let trace_optimize = cmd_trace_optimize_enabled(io)
+  let trace_optimize_verbose = cmd_trace_optimize_verbose(io)
   let input_files = resolve_input_files(merged.input_globs, io)
   if input_files.length() == 0 {
     return Err(CmdError::NoInputFiles)
   }
-  cmd_trace_emit(
-    io,
-    trace_optimize,
-    "run start inputs=\{input_files.length()} flags=\{merged.pass_flags.length()}",
-  )
-
-  let resolved_passes = resolve_pass_flags(merged)
   let traps_never_happen = resolve_traps_never_happen(merged)
   let (optimize_level, shrink_level) = resolve_optimize_levels(
     merged.optimize_flags,
+  )
+  let resolved_passes = resolve_effective_pass_flags(
+    resolve_pass_flags(merged),
+    optimize_level,
+    shrink_level,
+  )
+  cmd_trace_emit(
+    io,
+    trace_optimize,
+    "run start inputs=\{input_files.length()} explicit_flags=\{merged.pass_flags.length()} optimize_flags=\{merged.optimize_flags.length()} scheduled_flags=\{resolved_passes.length()}",
   )
   let monomorphize_min_benefit = match merged.monomorphize_min_benefit {
     Some(v) => v
@@ -1775,6 +1852,8 @@ pub fn run_cmd_with_adapter(
     trace_optimize,
     "options o=\{optimize_level} z=\{shrink_level} traps_never=\{traps_never_happen}",
   )
+  let trace_mode = if trace_optimize_verbose { "verbose" } else { "compact" }
+  cmd_trace_emit(io, trace_optimize, "trace_mode=\{trace_mode}")
 
   if input_files.length() > 1 {
     for target in merged.output_targets {
@@ -1846,6 +1925,8 @@ pub fn run_cmd_with_adapter(
           passes,
           options,
           fn(msg) { cmd_trace_emit(io, true, "input \{input_path}:opt \{msg}") },
+          trace_pass_details=trace_optimize_verbose,
+          trace_module_stats=trace_optimize_verbose,
         ) {
         Ok(out) => out
         Err(e) => return Err(CmdError::OptimizeFailed("\{input_path}: \{e}"))

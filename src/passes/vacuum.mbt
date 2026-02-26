@@ -165,12 +165,27 @@ fn vq_get_dropped_children_and_append(
 }
 
 ///|
+fn vq_take_budget(budget : Ref[Int]) -> Bool {
+  let remaining = budget.val
+  if remaining <= 0 {
+    false
+  } else {
+    budget.update(fn(i) { i - 1 })
+    true
+  }
+}
+
+///|
 fn vq_optimize(
   instr : TInstr,
   result_used : Bool,
   type_matters : Bool,
   env : Env,
+  budget : Ref[Int],
 ) -> TInstr? {
+  if !vq_take_budget(budget) {
+    return Some(instr)
+  }
   let initial_type = vq_type_of(instr, env)
   let mut type_matters = type_matters
   if initial_type is None {
@@ -246,6 +261,7 @@ fn vq_optimize_sequence(
   env : Env,
   result_type : ValType?,
   result_used : Bool,
+  budget : Ref[Int],
 ) -> VQSequenceResult {
   let out : Array[TInstr] = []
   let mut changed = false
@@ -253,7 +269,7 @@ fn vq_optimize_sequence(
   for i = 0; i < size; i = i + 1 {
     let child = items[i]
     let used = i == size - 1 && result_type is Some(_) && result_used
-    let mut optimized = vq_process_instr(child, env, used, true)
+    let mut optimized = vq_process_instr(child, env, used, true, budget)
     if optimized is None {
       match vq_type_of(child, env) {
         Some(vt) =>
@@ -265,9 +281,7 @@ fn vq_optimize_sequence(
       }
     }
     match optimized {
-      None => {
-        changed = true
-      }
+      None => changed = true
       Some(next) => {
         if next != child {
           changed = true
@@ -291,9 +305,12 @@ fn vq_optimize_texpr(
   env : Env,
   result_type : ValType?,
   result_used : Bool,
+  budget : Ref[Int],
 ) -> TExpr {
   let TExpr(items) = expr
-  let sequence = vq_optimize_sequence(items, env, result_type, result_used)
+  let sequence = vq_optimize_sequence(
+    items, env, result_type, result_used, budget,
+  )
   TExpr::new(sequence.items)
 }
 
@@ -368,15 +385,22 @@ fn vq_process_instr(
   env : Env,
   result_used : Bool,
   type_matters : Bool,
+  budget : Ref[Int],
 ) -> TInstr? {
+  if !vq_take_budget(budget) {
+    return Some(instr)
+  }
   match instr {
     TBlock(bt, body) => {
       let result_type = vq_block_result_type(bt, env)
-      let next_body = vq_optimize_texpr(body, env, result_type, result_used)
+      let next_body = vq_optimize_texpr(
+        body, env, result_type, result_used, budget,
+      )
       Some(vq_simplify_block_to_contents(bt, next_body, env))
     }
     TIf(bt, condition, then_body, else_body) => {
-      let next_condition = match vq_process_instr(condition, env, true, true) {
+      let next_condition = match
+        vq_process_instr(condition, env, true, true, budget) {
         Some(v) => v
         None => condition
       }
@@ -386,6 +410,7 @@ fn vq_process_instr(
         env,
         arm_result_type,
         arm_result_type is Some(_),
+        budget,
       )
       let next_else = match else_body {
         Some(other) =>
@@ -395,6 +420,7 @@ fn vq_process_instr(
               env,
               arm_result_type,
               arm_result_type is Some(_),
+              budget,
             ),
           )
         None => None
@@ -480,6 +506,7 @@ fn vq_process_instr(
         env,
         result_type,
         result_type is Some(_),
+        budget,
       )
       if vq_is_nop_texpr(next_body) {
         Some(TInstr::nop())
@@ -488,7 +515,8 @@ fn vq_process_instr(
       }
     }
     TDrop(value) => {
-      let next_value = match vq_process_instr(value, env, false, false) {
+      let next_value = match
+        vq_process_instr(value, env, false, false, budget) {
         Some(v) => v
         None => return Some(TInstr::nop())
       }
@@ -510,7 +538,7 @@ fn vq_process_instr(
             let last = items[items.length() - 1]
             match (vq_block_result_type(bt, env), vq_type_of(last, env)) {
               (Some(block_vt), Some(last_vt)) if block_vt == last_vt =>
-                match vq_optimize(last, false, false, env) {
+                match vq_optimize(last, false, false, env, budget) {
                   None =>
                     if !has_break_to_depth_in_texpr(body, 0) {
                       let next_items = items.copy()
@@ -577,6 +605,7 @@ fn vq_process_instr(
         env,
         result_type,
         result_type is Some(_),
+        budget,
       )
       if !vq_texpr_throws(next_body) {
         Some(vq_wrap_texpr(next_body, env))
@@ -587,17 +616,17 @@ fn vq_process_instr(
     _ => {
       let children = eval_children(instr)
       if children.is_empty() {
-        return vq_optimize(instr, result_used, type_matters, env)
+        return vq_optimize(instr, result_used, type_matters, env, budget)
       }
       let next_children : Array[TInstr] = []
       for child in children {
-        match vq_process_instr(child, env, true, true) {
+        match vq_process_instr(child, env, true, true, budget) {
           Some(next_child) => next_children.push(next_child)
           None => next_children.push(child)
         }
       }
       let rebuilt = mb_rebuild_non_control(instr, next_children)
-      vq_optimize(rebuilt, result_used, type_matters, env)
+      vq_optimize(rebuilt, result_used, type_matters, env, budget)
     }
   }
 }
@@ -619,24 +648,24 @@ fn vq_optimize_function(
         [vt] => Some(vt)
         _ => None
       }
-      let seq = vq_optimize_sequence(
+      let budget = Ref::new(250000)
+      let sequence = vq_optimize_sequence(
         body.0,
         env,
         result_type,
         sig.results.length() > 0,
+        budget,
       )
-      let next_items = seq.items
+      let next_items = sequence.items
       if next_items.is_empty() {
         next_items.push(TInstr::nop())
       }
       let next_body = TExpr::new(next_items)
-      let mut changed = seq.changed
+      let mut changed = sequence.changed
       if sig.results.length() == 0 &&
         !vq_texpr_has_unremovable_side_effects(next_body) {
         let nopped = Func::t_func(locals, TExpr::new([TInstr::nop()]))
-        if next_body != TExpr::new([TInstr::nop()]) {
-          changed = true
-        }
+        changed = TExpr::new([TInstr::nop()]) != body
         (nopped, changed)
       } else {
         let next_func = Func::t_func(locals, next_body)
@@ -1016,4 +1045,14 @@ test "vacuum nops side-effect-free none-returning function body" {
     [TNop] => ()
     _ => fail("expected side-effect-free function body to become nop")
   }
+}
+
+///|
+test "vacuum is stable on nop-only function body across repeated runs" {
+  let mod = Module::new().with_code_sec(
+    CodeSec::new([Func::t_func([], TExpr::new([TInstr::nop()]))]),
+  )
+  let once = run_vacuum(mod)
+  let twice = run_vacuum(once)
+  assert_eq(once, twice)
 }
