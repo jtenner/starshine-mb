@@ -1315,13 +1315,14 @@ fn precompute_on_func(
   match func {
     Func(_) => {
       if trace_all_funcs {
-        trace("func[\{ordinal}] skip non-typed-func")
+        trace("func[{ordinal}] skip non-typed-func")
       }
       Ok(func)
     }
     TFunc(locals, initial_body) => {
       let top_instrs = initial_body.instrs.length()
       let num_locals = locals.length()
+
       if top_instrs > 16000 {
         if trace_all_funcs {
           trace("func[\{ordinal}] skip top_instrs=\{top_instrs} > 16000")
@@ -1337,27 +1338,37 @@ fn precompute_on_func(
 
       let (num_sets, num_gets) = pc_count_local_sets_and_gets(initial_body)
 
+      // FINAL STRICT GATING — tuned on your real traces
+      let density = if top_instrs == 0 {
+        0.0
+      } else {
+        num_sets.to_double() / top_instrs.to_double()
+      }
+
       let do_propagate = propagate &&
         top_instrs <= 6000 &&
         num_sets >= 20 &&
         num_gets >= 80 &&
-        num_locals <= 2000
-      let max_rounds = if top_instrs > 7000 || num_sets > 800 { 2 } else { 4 }
+        num_locals <= 2000 &&
+        num_sets <= 120 &&
+        density <= 0.50
+
+      let max_rounds = if num_sets > 60 { 2 } else { 4 }
 
       if trace_all_funcs {
         trace(
-          "func[\{ordinal}] start top=\{top_instrs} locals=\{num_locals} sets=\{num_sets} gets=\{num_gets} propagate=\{do_propagate} maxr=\{max_rounds}",
+          "func[\{ordinal}] start top=\{top_instrs} locals=\{num_locals} sets=\{num_sets} gets=\{num_gets} density=\{density} propagate=\{do_propagate} maxr=\{max_rounds}",
         )
       }
 
       let mut body = initial_body
       let eval_cache : Map[UInt64, PCLiteral] = Map::new()
-      let allow_partial = do_propagate && num_sets <= 400
+      let allow_partial = do_propagate && num_sets <= 80
+
       if trace_all_funcs {
         trace("func[\{ordinal}] config partial=\{allow_partial}")
       }
 
-      // === PROPAGATION PHASE (unchanged, already safe) ===
       if do_propagate {
         let graph = LocalGraph::new(body.instrs)
         let (sites, set_lookup, branchy_locals, total_gets) = pc_collect_analysis_data(
@@ -1373,7 +1384,7 @@ fn precompute_on_func(
           max_rounds,
         )
         if trace_all_funcs {
-          trace("func[\{ordinal}] prop constants=\{get_values.length()}")
+          trace("func[\{ordinal}] prop constants found=\{get_values.length()}")
         }
         if !get_values.is_empty() {
           body = pc_replace_gets_with_constants(body, get_values)
@@ -1387,15 +1398,14 @@ fn precompute_on_func(
         trace("func[\{ordinal}] propagate skipped")
       }
 
-      // === NEW: CHEAP SKIP FOR TINY NON-PROPAGATING FUNCTIONS ===
-      if !do_propagate && top_instrs <= 64 && num_sets <= 12 {
+      // BROADER CHEAP SKIP — covers the remaining medium tail
+      if !do_propagate && top_instrs <= 512 && num_sets <= 40 {
         if trace_all_funcs {
-          trace("func[\{ordinal}] simplify skipped (tiny body + no propagate)")
+          trace("func[{ordinal}] simplify skipped (medium body + moderate sets)")
         }
         return Ok(Func::t_func(locals, body))
       }
 
-      // === SIMPLIFY PHASE (now only for functions that can actually benefit) ===
       let simplify_rounds = if do_propagate { 2 } else { 1 }
       let mut rounds = 0
       while rounds < simplify_rounds {
