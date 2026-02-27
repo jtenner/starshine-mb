@@ -96,6 +96,8 @@ fn oi_seq(stmts : Array[TInstr], result : TInstr, env : Env) -> TInstr {
 priv struct OIEffectsSummary {
   locals_read : Array[UInt64]
   locals_written : Array[UInt64]
+  unknown_locals_read : Bool
+  unknown_locals_written : Bool
   reads_memory : Bool
   writes_memory : Bool
   reads_globals : Bool
@@ -113,10 +115,37 @@ fn OIEffectsSummary::transfers_control_flow(self : OIEffectsSummary) -> Bool {
 }
 
 ///|
+fn OIEffectsSummary::has_local_reads(self : OIEffectsSummary) -> Bool {
+  self.unknown_locals_read || oi_local_bits_any(self.locals_read)
+}
+
+///|
+fn OIEffectsSummary::has_local_writes(self : OIEffectsSummary) -> Bool {
+  self.unknown_locals_written || oi_local_bits_any(self.locals_written)
+}
+
+///|
+fn OIEffectsSummary::has_local_access(self : OIEffectsSummary) -> Bool {
+  self.has_local_reads() || self.has_local_writes()
+}
+
+///|
 fn OIEffectsSummary::invalidates(
   self : OIEffectsSummary,
   other : OIEffectsSummary,
 ) -> Bool {
+  if self.unknown_locals_written && other.has_local_access() {
+    return true
+  }
+  if other.unknown_locals_written && self.has_local_access() {
+    return true
+  }
+  if self.unknown_locals_read && other.has_local_writes() {
+    return true
+  }
+  if other.unknown_locals_read && self.has_local_writes() {
+    return true
+  }
   if oi_local_bits_intersects(self.locals_written, other.locals_read) ||
     oi_local_bits_intersects(self.locals_written, other.locals_written) ||
     oi_local_bits_intersects(self.locals_read, other.locals_written) {
@@ -156,16 +185,16 @@ fn OIEffectsSummary::invalidates(
 
 ///|
 priv struct OIPairCacheEntry {
-  low_hash : UInt64
-  high_hash : UInt64
+  left_instr : TInstr
+  right_instr : TInstr
   value : Bool
   valid : Bool
 }
 
 ///|
 priv struct OIRewriteCache {
-  effects_by_hash : Map[UInt64, OIEffectsSummary]
-  size_by_hash : Map[UInt64, Int]
+  effects_by_instr : Map[TInstr, OIEffectsSummary]
+  size_by_instr : Map[TInstr, Int]
   reorder_by_pair : Array[OIPairCacheEntry]
   eq_by_pair : Array[OIPairCacheEntry]
   local_bit_words : Int
@@ -178,28 +207,27 @@ fn oi_instr_hash_u64(instr : TInstr) -> UInt64 {
 }
 
 ///|
-fn oi_pair_hashes(
-  left_hash : UInt64,
-  right_hash : UInt64,
-) -> (UInt64, UInt64) {
-  let low_hash = if left_hash <= right_hash { left_hash } else { right_hash }
-  let high_hash = if left_hash <= right_hash { right_hash } else { left_hash }
-  (low_hash, high_hash)
-}
-
-///|
 fn oi_pair_cache_init(size : Int) -> Array[OIPairCacheEntry] {
   let out : Array[OIPairCacheEntry] = Array::new(capacity=size)
   let mut i = 0
   while i < size {
-    out.push(OIPairCacheEntry::{ low_hash: 0UL, high_hash: 0UL, value: false, valid: false })
+    out.push(OIPairCacheEntry::{
+      left_instr: TInstr::nop(),
+      right_instr: TInstr::nop(),
+      value: false,
+      valid: false,
+    })
     i += 1
   }
   out
 }
 
 ///|
-fn oi_pair_cache_index(low_hash : UInt64, high_hash : UInt64, size : Int) -> Int {
+fn oi_pair_cache_index(
+  low_hash : UInt64,
+  high_hash : UInt64,
+  size : Int,
+) -> Int {
   let mixed = low_hash ^ (high_hash << 1) ^ (high_hash >> 1)
   let folded = (mixed ^ (mixed >> 32)) & 0x7fffffffUL
   folded.to_int() % size
@@ -215,6 +243,16 @@ fn oi_local_bit_words(local_count : Int) -> Int {
 }
 
 ///|
+fn oi_local_bit_words_tracked(local_count : Int) -> Int {
+  let words = oi_local_bit_words(local_count)
+  if words <= 16 {
+    words
+  } else {
+    16
+  }
+}
+
+///|
 fn oi_local_idx_to_int(local_idx : LocalIdx) -> Int {
   let LocalIdx(raw) = local_idx
   raw.reinterpret_as_int()
@@ -226,25 +264,30 @@ fn oi_local_bits_new(word_count : Int) -> Array[UInt64] {
 }
 
 ///|
-fn oi_local_bits_set(bits : Array[UInt64], local_idx : LocalIdx) -> Unit {
+fn oi_local_bits_set(bits : Array[UInt64], local_idx : LocalIdx) -> Bool {
   if bits.length() == 0 {
-    return
+    return false
   }
   let idx = oi_local_idx_to_int(local_idx)
   if idx < 0 {
-    return
+    return false
   }
   let word = idx / 64
   if word >= bits.length() {
-    return
+    return false
   }
   let bit = idx % 64
   bits[word] = bits[word] | (1UL << bit)
+  true
 }
 
 ///|
 fn oi_local_bits_or_inplace(dst : Array[UInt64], src : Array[UInt64]) -> Unit {
-  let limit = if dst.length() < src.length() { dst.length() } else { src.length() }
+  let limit = if dst.length() < src.length() {
+    dst.length()
+  } else {
+    src.length()
+  }
   for i = 0; i < limit; i = i + 1 {
     dst[i] = dst[i] | src[i]
   }
@@ -295,7 +338,10 @@ fn oi_local_bits_eq(a : Array[UInt64], b : Array[UInt64]) -> Bool {
 }
 
 ///|
-fn oi_local_bits_intern(bits : Array[UInt64], cache : OIRewriteCache) -> Array[UInt64] {
+fn oi_local_bits_intern(
+  bits : Array[UInt64],
+  cache : OIRewriteCache,
+) -> Array[UInt64] {
   if bits.length() == 0 {
     return bits
   }
@@ -317,28 +363,27 @@ fn oi_local_bits_intern(bits : Array[UInt64], cache : OIRewriteCache) -> Array[U
 ///|
 fn oi_rewrite_cache_new(local_count? : Int = 0) -> OIRewriteCache {
   let pair_cache_size = 256
-  let words = oi_local_bit_words(local_count)
+  let words = oi_local_bit_words_tracked(local_count)
   OIRewriteCache::{
-    effects_by_hash: Map::new(),
-    size_by_hash: Map::new(),
+    effects_by_instr: Map::new(),
+    size_by_instr: Map::new(),
     reorder_by_pair: oi_pair_cache_init(pair_cache_size),
     eq_by_pair: oi_pair_cache_init(pair_cache_size),
-    local_bit_words: if words <= 16 { words } else { 0 },
+    local_bit_words: words,
     local_bits_pool: Map::new(),
   }
 }
 
 ///|
 fn oi_instr_size_compute_cached(instr : TInstr, cache : OIRewriteCache) -> Int {
-  let h = oi_instr_hash_u64(instr)
-  match cache.size_by_hash.get(h) {
+  match cache.size_by_instr.get(instr) {
     Some(size) => size
     None => {
       let mut size = 1
       for child in eval_children(instr) {
         size += oi_instr_size_compute_cached(child, cache)
       }
-      cache.size_by_hash[h] = size
+      cache.size_by_instr[instr] = size
       size
     }
   }
@@ -357,6 +402,7 @@ fn oi_effects_has_side_effects(summary : OIEffectsSummary) -> Bool {
   summary.branches ||
   summary.throws ||
   summary.traps ||
+  summary.unknown_locals_written ||
   oi_local_bits_any(summary.locals_written) ||
   summary.reads_memory ||
   summary.reads_globals
@@ -367,18 +413,23 @@ fn oi_effects_summary_compute_cached(
   instr : TInstr,
   cache : OIRewriteCache,
 ) -> OIEffectsSummary {
-  let h = oi_instr_hash_u64(instr)
-  match cache.effects_by_hash.get(h) {
+  match cache.effects_by_instr.get(instr) {
     Some(summary) => summary
     None => {
       let shallow = lcs_collect_shallow_effects(instr)
       let locals_read = oi_local_bits_new(cache.local_bit_words)
       let locals_written = oi_local_bits_new(cache.local_bit_words)
+      let mut unknown_locals_read = false
+      let mut unknown_locals_written = false
       for idx in shallow.locals_read {
-        oi_local_bits_set(locals_read, idx)
+        if !oi_local_bits_set(locals_read, idx) {
+          unknown_locals_read = true
+        }
       }
       for idx in shallow.locals_written {
-        oi_local_bits_set(locals_written, idx)
+        if !oi_local_bits_set(locals_written, idx) {
+          unknown_locals_written = true
+        }
       }
       let mut reads_memory = shallow.reads_memory
       let mut writes_memory = shallow.writes_memory
@@ -392,6 +443,10 @@ fn oi_effects_summary_compute_cached(
         let child_summary = oi_effects_summary_compute_cached(child, cache)
         oi_local_bits_or_inplace(locals_read, child_summary.locals_read)
         oi_local_bits_or_inplace(locals_written, child_summary.locals_written)
+        unknown_locals_read = unknown_locals_read ||
+          child_summary.unknown_locals_read
+        unknown_locals_written = unknown_locals_written ||
+          child_summary.unknown_locals_written
         reads_memory = reads_memory || child_summary.reads_memory
         writes_memory = writes_memory || child_summary.writes_memory
         reads_globals = reads_globals || child_summary.reads_globals
@@ -404,6 +459,8 @@ fn oi_effects_summary_compute_cached(
       let summary = OIEffectsSummary::{
         locals_read: oi_local_bits_intern(locals_read, cache),
         locals_written: oi_local_bits_intern(locals_written, cache),
+        unknown_locals_read,
+        unknown_locals_written,
         reads_memory,
         writes_memory,
         reads_globals,
@@ -418,7 +475,7 @@ fn oi_effects_summary_compute_cached(
         ..summary,
         has_side_effects: oi_effects_has_side_effects(summary),
       }
-      cache.effects_by_hash[h] = with_side_effects
+      cache.effects_by_instr[instr] = with_side_effects
       with_side_effects
     }
   }
@@ -442,18 +499,33 @@ fn oi_can_reorder_cached(
     oi_instr_size_cached(b, cache) > 256 {
     return false
   }
-  let (low_hash, high_hash) = oi_pair_hashes(oi_instr_hash_u64(a), oi_instr_hash_u64(b))
-  let index = oi_pair_cache_index(low_hash, high_hash, cache.reorder_by_pair.length())
+  let left_hash = oi_instr_hash_u64(a)
+  let right_hash = oi_instr_hash_u64(b)
+  let index = oi_pair_cache_index(
+    left_hash,
+    right_hash,
+    cache.reorder_by_pair.length(),
+  )
   let entry = cache.reorder_by_pair[index]
-  if entry.valid && entry.low_hash == low_hash && entry.high_hash == high_hash {
+  if entry.valid &&
+    (
+      (
+        physical_equal(entry.left_instr, a) &&
+        physical_equal(entry.right_instr, b)
+      ) ||
+      (
+        physical_equal(entry.left_instr, b) &&
+        physical_equal(entry.right_instr, a)
+      )
+    ) {
     return entry.value
   }
   let ea = oi_effects_summary_cached(a, cache)
   let eb = oi_effects_summary_cached(b, cache)
   let value = !ea.invalidates(eb) && !eb.invalidates(ea)
   cache.reorder_by_pair[index] = OIPairCacheEntry::{
-    low_hash,
-    high_hash,
+    left_instr: a,
+    right_instr: b,
     value,
     valid: true,
   }
@@ -480,19 +552,31 @@ fn oi_instr_eq_cached(
   if left.hash() != right.hash() {
     return false
   }
-  let (low_hash, high_hash) = oi_pair_hashes(
-    oi_instr_hash_u64(left),
-    oi_instr_hash_u64(right),
+  let left_hash = oi_instr_hash_u64(left)
+  let right_hash = oi_instr_hash_u64(right)
+  let index = oi_pair_cache_index(
+    left_hash,
+    right_hash,
+    cache.eq_by_pair.length(),
   )
-  let index = oi_pair_cache_index(low_hash, high_hash, cache.eq_by_pair.length())
   let entry = cache.eq_by_pair[index]
-  if entry.valid && entry.low_hash == low_hash && entry.high_hash == high_hash {
+  if entry.valid &&
+    (
+      (
+        physical_equal(entry.left_instr, left) &&
+        physical_equal(entry.right_instr, right)
+      ) ||
+      (
+        physical_equal(entry.left_instr, right) &&
+        physical_equal(entry.right_instr, left)
+      )
+    ) {
     return entry.value
   }
   let value = left == right
   cache.eq_by_pair[index] = OIPairCacheEntry::{
-    low_hash,
-    high_hash,
+    left_instr: left,
+    right_instr: right,
     value,
     valid: true,
   }
@@ -715,6 +799,12 @@ fn oi_has_side_effects_cached(instr : TInstr, cache : OIRewriteCache) -> Bool {
 }
 
 ///|
+priv struct OIPostOrderNode {
+  instr : TInstr
+  children : Array[TInstr]
+}
+
+///|
 fn oi_precompute_cached_summaries(body : TExpr, cache : OIRewriteCache) -> Unit {
   oi_precompute_cached_summaries_bounded(body, cache, -1)
 }
@@ -726,7 +816,7 @@ fn oi_precompute_cached_summaries_bounded(
   node_budget : Int,
 ) -> Unit {
   let stack : Array[TInstr] = body.instrs.copy()
-  let post_order : Array[TInstr] = []
+  let post_order : Array[OIPostOrderNode] = []
   let mut seen = 0
   while !stack.is_empty() {
     if node_budget >= 0 && seen >= node_budget {
@@ -734,23 +824,85 @@ fn oi_precompute_cached_summaries_bounded(
     }
     let curr = stack.pop().unwrap()
     seen += 1
-    post_order.push(curr)
-    for child in eval_children(curr) {
+    let children = eval_children(curr)
+    post_order.push(OIPostOrderNode::{ instr: curr, children })
+    for child in children {
       stack.push(child)
     }
   }
   let mut i = post_order.length() - 1
   while i >= 0 {
-    let instr = post_order[i]
-    let h = oi_instr_hash_u64(instr)
-
-    let mut size = 1
-    for child in eval_children(instr) {
-      size += oi_instr_size_cached(child, cache)
+    let node = post_order[i]
+    let instr = node.instr
+    let shallow = lcs_collect_shallow_effects(instr)
+    let locals_read = oi_local_bits_new(cache.local_bit_words)
+    let locals_written = oi_local_bits_new(cache.local_bit_words)
+    let mut unknown_locals_read = false
+    let mut unknown_locals_written = false
+    for idx in shallow.locals_read {
+      if !oi_local_bits_set(locals_read, idx) {
+        unknown_locals_read = true
+      }
     }
-    cache.size_by_hash[h] = size
-
-    ignore(oi_effects_summary_cached(instr, cache))
+    for idx in shallow.locals_written {
+      if !oi_local_bits_set(locals_written, idx) {
+        unknown_locals_written = true
+      }
+    }
+    let mut size = 1
+    let mut reads_memory = shallow.reads_memory
+    let mut writes_memory = shallow.writes_memory
+    let mut reads_globals = shallow.reads_globals
+    let mut writes_globals = shallow.writes_globals
+    let mut calls = shallow.calls
+    let mut branches = shallow.branches
+    let mut traps = shallow.traps
+    let mut throws = shallow.throws
+    for child in node.children {
+      size += match cache.size_by_instr.get(child) {
+        Some(child_size) => child_size
+        None => oi_instr_size_cached(child, cache)
+      }
+      let child_summary = match cache.effects_by_instr.get(child) {
+        Some(summary) => summary
+        None => oi_effects_summary_cached(child, cache)
+      }
+      oi_local_bits_or_inplace(locals_read, child_summary.locals_read)
+      oi_local_bits_or_inplace(locals_written, child_summary.locals_written)
+      unknown_locals_read = unknown_locals_read ||
+        child_summary.unknown_locals_read
+      unknown_locals_written = unknown_locals_written ||
+        child_summary.unknown_locals_written
+      reads_memory = reads_memory || child_summary.reads_memory
+      writes_memory = writes_memory || child_summary.writes_memory
+      reads_globals = reads_globals || child_summary.reads_globals
+      writes_globals = writes_globals || child_summary.writes_globals
+      calls = calls || child_summary.calls
+      branches = branches || child_summary.branches
+      traps = traps || child_summary.traps
+      throws = throws || child_summary.throws
+    }
+    cache.size_by_instr[instr] = size
+    let summary = OIEffectsSummary::{
+      locals_read: oi_local_bits_intern(locals_read, cache),
+      locals_written: oi_local_bits_intern(locals_written, cache),
+      unknown_locals_read,
+      unknown_locals_written,
+      reads_memory,
+      writes_memory,
+      reads_globals,
+      writes_globals,
+      calls,
+      branches,
+      traps,
+      throws,
+      has_side_effects: false,
+    }
+    let with_side_effects = OIEffectsSummary::{
+      ..summary,
+      has_side_effects: oi_effects_has_side_effects(summary),
+    }
+    cache.effects_by_instr[instr] = with_side_effects
     i = i - 1
   }
 }
@@ -1046,16 +1198,9 @@ fn oi_instr_is_rewrite_candidate(instr : TInstr) -> Bool {
 ///|
 fn oi_binary_has_masked_shift_rhs(rhs : TInstr) -> Bool {
   match rhs.kind {
-    TInstrKind::TBinary(
-      I32AndOp,
-      _,
-      { kind: TInstrKind::TI32Const(_), .. }
-    )
-    | TInstrKind::TBinary(
-      I64AndOp,
-      _,
-      { kind: TInstrKind::TI64Const(_), .. }
-    ) => true
+    TInstrKind::TBinary(I32AndOp, _, { kind: TInstrKind::TI32Const(_), .. })
+    | TInstrKind::TBinary(I64AndOp, _, { kind: TInstrKind::TI64Const(_), .. }) =>
+      true
     _ => false
   }
 }
@@ -1089,20 +1234,109 @@ fn oi_rewrite_candidate_scan_budget(top_instrs : Int) -> Int {
 }
 
 ///|
-fn oi_texpr_has_rewrite_candidate(body : TExpr, scan_budget : Int) -> Bool {
+let oi_rewrite_need_has_candidate = 1
+
+///|
+let oi_rewrite_need_expensive_eq = 2
+
+///|
+let oi_rewrite_need_reorder = 4
+
+///|
+let oi_rewrite_need_fold_equal_operands = 8
+
+///|
+let oi_rewrite_need_all_flags = 15
+
+///|
+fn oi_rewrite_needs_has(flags : Int, flag : Int) -> Bool {
+  (flags & flag) != 0
+}
+
+///|
+fn oi_instr_needs_expensive_eq(instr : TInstr) -> Bool {
+  match instr.kind {
+    TInstrKind::TBinary(op, _, _) => oi_binary_can_fold_equal_operands(op)
+    TInstrKind::TUnary(
+      F32AbsOp,
+      { kind: TInstrKind::TBinary(F32MulOp, _, _), .. }
+    )
+    | TInstrKind::TUnary(
+      F32AbsOp,
+      { kind: TInstrKind::TBinary(F32DivOp, _, _), .. }
+    )
+    | TInstrKind::TUnary(
+      F64AbsOp,
+      { kind: TInstrKind::TBinary(F64MulOp, _, _), .. }
+    )
+    | TInstrKind::TUnary(
+      F64AbsOp,
+      { kind: TInstrKind::TBinary(F64DivOp, _, _), .. }
+    )
+    | TInstrKind::TSelect(_, _, _, _)
+    | TInstrKind::TIf(_, _, _, Some(_)) => true
+    _ => false
+  }
+}
+
+///|
+fn oi_instr_needs_reorder(instr : TInstr) -> Bool {
+  match instr.kind {
+    TInstrKind::TBinary(
+      F32AddOp,
+      { kind: TInstrKind::TUnary(F32NegOp, _), .. },
+      _
+    )
+    | TInstrKind::TBinary(
+      F64AddOp,
+      { kind: TInstrKind::TUnary(F64NegOp, _), .. },
+      _
+    ) => true
+    _ => false
+  }
+}
+
+///|
+fn oi_instr_needs_fold_equal_operands(instr : TInstr) -> Bool {
+  match instr.kind {
+    TInstrKind::TBinary(op, _, _) => oi_binary_can_fold_equal_operands(op)
+    TInstrKind::TSelect(_, _, _, _) => true
+    _ => false
+  }
+}
+
+///|
+fn oi_texpr_scan_rewrite_needs(
+  body : TExpr,
+  scan_budget : Int,
+) -> Int {
   let stack = body.instrs.copy()
   let mut scanned = 0
+  let mut flags = 0
   while !stack.is_empty() && scanned < scan_budget {
     scanned += 1
     let curr = stack.pop().unwrap()
     if oi_should_attempt_fixpoint(curr) {
-      return true
+      flags = flags | oi_rewrite_need_has_candidate
+    }
+    if oi_instr_needs_expensive_eq(curr) {
+      flags = flags | oi_rewrite_need_expensive_eq
+    }
+    if oi_instr_needs_reorder(curr) {
+      flags = flags | oi_rewrite_need_reorder
+      flags = flags | oi_rewrite_need_expensive_eq
+    }
+    if oi_instr_needs_fold_equal_operands(curr) {
+      flags = flags | oi_rewrite_need_fold_equal_operands
+    }
+    if (flags & oi_rewrite_need_all_flags) == oi_rewrite_need_all_flags {
+      break
     }
     for child in eval_children(curr) {
       stack.push(child)
     }
   }
-  false
+  flags
 }
 
 ///|
@@ -2616,8 +2850,7 @@ fn oi_trace_delta_to_ms(delta_raw : UInt64) -> UInt64 {
 ///|
 #cfg(target="native")
 #borrow(tv)
-extern "c" fn oi_native_gettimeofday(tv : Bytes, tz : UInt64) -> Int =
-  "gettimeofday"
+extern "c" fn oi_native_gettimeofday(tv : Bytes, tz : UInt64) -> Int = "gettimeofday"
 
 ///|
 #cfg(target="native")
@@ -2668,6 +2901,7 @@ fn oi_trace_now_ms() -> UInt64 {
   @env.now()
 }
 
+///|
 fn optimize_instructions_on_func(
   func : Func,
   mod : Module,
@@ -2690,12 +2924,13 @@ fn optimize_instructions_on_func(
           },
         )
       }
-      let allow_expensive_eq = top_instrs <= 2000
-      let allow_reorder = top_instrs <= 3000
-      let allow_fold_equal_operands = top_instrs <= 5000
       let max_fixpoint_rounds = if top_instrs > 3000 { 1 } else { 2 }
       let scan_budget = oi_rewrite_candidate_scan_budget(top_instrs)
-      if !oi_texpr_has_rewrite_candidate(body, scan_budget) {
+      let rewrite_needs_flags = oi_texpr_scan_rewrite_needs(body, scan_budget)
+      if !oi_rewrite_needs_has(
+        rewrite_needs_flags,
+        oi_rewrite_need_has_candidate,
+      ) {
         return (
           func,
           OITransformStats::{
@@ -2709,6 +2944,19 @@ fn optimize_instructions_on_func(
           },
         )
       }
+      let allow_expensive_eq = top_instrs <= 2000 &&
+        oi_rewrite_needs_has(
+          rewrite_needs_flags,
+          oi_rewrite_need_expensive_eq,
+        )
+      let allow_reorder = top_instrs <= 3000 &&
+        oi_rewrite_needs_has(rewrite_needs_flags, oi_rewrite_need_reorder) &&
+        allow_expensive_eq
+      let allow_fold_equal_operands = top_instrs <= 5000 &&
+        oi_rewrite_needs_has(
+          rewrite_needs_flags,
+          oi_rewrite_need_fold_equal_operands,
+        )
       let env = Env::new().with_module(mod).with_locals(locals)
       let cache = oi_rewrite_cache_new(local_count=locals.length())
       let mut visited_instrs = 0
@@ -2730,14 +2978,15 @@ fn optimize_instructions_on_func(
       } else {
         128
       }
-      let should_precompute = allow_reorder ||
-        allow_expensive_eq ||
-        allow_fold_equal_operands
+      let should_precompute = top_instrs >= 3500 &&
+        (allow_reorder || allow_expensive_eq || allow_fold_equal_operands)
       if should_precompute {
         if top_instrs <= 12000 {
           oi_precompute_cached_summaries(body, cache)
         } else {
-          oi_precompute_cached_summaries_bounded(body, cache, visited_instr_budget)
+          oi_precompute_cached_summaries_bounded(
+            body, cache, visited_instr_budget,
+          )
         }
       }
       let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
@@ -2750,7 +2999,8 @@ fn optimize_instructions_on_func(
           // unchanged and skip descending further.
           return change((), curr)
         }
-        if eval_children(curr).is_empty() {
+        let curr_children = eval_children(curr)
+        if curr_children.is_empty() {
           visited_instrs += 1
           if !oi_should_attempt_fixpoint(curr) {
             // Returning `unchanged()` here would trigger
@@ -2850,8 +3100,7 @@ fn optimize_instructions_ir_pass(
       TFunc(locals, _) => locals.length()
       _ => 0
     }
-    let words = oi_local_bit_words(locals_count)
-    let tracked_words = if words <= 16 { words } else { 0 }
+    let tracked_words = oi_local_bit_words_tracked(locals_count)
     if log_func {
       trace(
         "func[\{ordinal}] start top_instrs=\{top_instrs} locals=\{locals_count} local_bit_words=\{tracked_words}",
@@ -2860,7 +3109,11 @@ fn optimize_instructions_ir_pass(
     let start_raw = oi_trace_now_ms()
     let (next, stats) = optimize_instructions_on_func(func, mod, options)
     let end_raw = oi_trace_now_ms()
-    let elapsed_raw = if end_raw >= start_raw { end_raw - start_raw } else { 0UL }
+    let elapsed_raw = if end_raw >= start_raw {
+      end_raw - start_raw
+    } else {
+      0UL
+    }
     let elapsed = oi_trace_delta_to_ms(elapsed_raw)
     let log_heavy_func = stats.visited_instrs >= 20000 ||
       stats.candidate_instrs >= 5000
@@ -4003,4 +4256,25 @@ test "optimize instructions candidate pre-scan reaches deeper nested candidates"
     _ =>
       fail("expected nested i32.add with const zero to simplify to local.get")
   }
+}
+
+///|
+test "optimize instructions keeps local effects conservative above tracking cap" {
+  let cache = oi_rewrite_cache_new(local_count=1100)
+  let high_tee = TInstr::local_tee(
+    LocalIdx::new(1050),
+    TInstr::i32_const(I32(1)),
+  )
+  let high_get = TInstr::local_get(LocalIdx::new(1050))
+  let low_set = TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(0)))
+
+  let write_summary = oi_effects_summary_cached(high_tee, cache)
+  assert_true(write_summary.unknown_locals_written)
+  assert_true(write_summary.has_side_effects)
+
+  let read_summary = oi_effects_summary_cached(high_get, cache)
+  assert_true(read_summary.unknown_locals_read)
+
+  assert_false(oi_can_reorder_cached(high_tee, high_get, cache))
+  assert_false(oi_can_reorder_cached(high_get, low_set, cache))
 }

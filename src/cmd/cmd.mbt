@@ -2421,8 +2421,7 @@ fn cmd_native_shell_quote(text : String) -> String {
 ///|
 #cfg(target="native")
 #borrow(tv)
-extern "c" fn cmd_native_gettimeofday(tv : Bytes, tz : UInt64) -> Int =
-  "gettimeofday"
+extern "c" fn cmd_native_gettimeofday(tv : Bytes, tz : UInt64) -> Int = "gettimeofday"
 
 ///|
 #cfg(target="native")

@@ -660,8 +660,7 @@ fn optimize_trace_normalize_env_now_ms(raw : UInt64) -> UInt64 {
 ///|
 #cfg(target="native")
 #borrow(tv)
-extern "c" fn optimize_native_gettimeofday(tv : Bytes, tz : UInt64) -> Int =
-  "gettimeofday"
+extern "c" fn optimize_native_gettimeofday(tv : Bytes, tz : UInt64) -> Int = "gettimeofday"
 
 ///|
 #cfg(target="native")
@@ -1069,8 +1068,9 @@ pub fn default_function_optimization_passes(
   // Intentionally mirrors Binaryen's no-DWARF path.
   let has_gc = default_opts_has_gc_aggregates(mod)
   let has_multivalue = default_opts_has_multivalue(mod)
-  let skip_second_optimize_instructions =
-    default_opts_skip_second_optimize_instructions(mod)
+  let skip_second_optimize_instructions = default_opts_skip_second_optimize_instructions(
+    mod,
+  )
   let passes : Array[ModulePass] = []
 
   if options.optimize_level >= 3 || options.shrink_level >= 1 {

@@ -43,8 +43,7 @@ fn dataflow_normalize_env_now_ms(raw : UInt64) -> UInt64 {
 ///|
 #cfg(target="native")
 #borrow(tv)
-extern "c" fn dataflow_native_gettimeofday(tv : Bytes, tz : UInt64) -> Int =
-  "gettimeofday"
+extern "c" fn dataflow_native_gettimeofday(tv : Bytes, tz : UInt64) -> Int = "gettimeofday"
 
 ///|
 #cfg(target="native")
