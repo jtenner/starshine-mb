@@ -27,8 +27,71 @@ fn optimize_tfunc_with_ssa(
 }
 
 ///|
+fn dataflow_normalize_env_now_ms(raw : UInt64) -> UInt64 {
+  if raw >= 100000000000000000UL {
+    // Likely nanoseconds.
+    raw / 1000000UL
+  } else if raw >= 100000000000000UL {
+    // Likely microseconds.
+    raw / 1000UL
+  } else {
+    // Already milliseconds.
+    raw
+  }
+}
+
+///|
+#cfg(target="native")
+#borrow(tv)
+extern "c" fn dataflow_native_gettimeofday(tv : Bytes, tz : UInt64) -> Int =
+  "gettimeofday"
+
+///|
+#cfg(target="native")
+fn dataflow_read_u64_le(bytes : Bytes, start : Int) -> UInt64 {
+  let mut out = 0UL
+  let mut i = 0
+  while i < 8 {
+    out = out | (bytes[start + i].to_uint64() << (i * 8))
+    i += 1
+  }
+  out
+}
+
+///|
+#cfg(target="native")
 fn dataflow_now_ms() -> UInt64 {
-  @env.now()
+  let tv = Bytes::new(16)
+  if dataflow_native_gettimeofday(tv, 0UL) != 0 {
+    return dataflow_normalize_env_now_ms(@env.now())
+  }
+  let sec = dataflow_read_u64_le(tv, 0)
+  let usec = dataflow_read_u64_le(tv, 8)
+  sec * 1000UL + usec / 1000UL
+}
+
+///|
+#cfg(target="wasm-gc")
+fn dataflow_now_ms() -> UInt64 {
+  dataflow_normalize_env_now_ms(@env.now())
+}
+
+///|
+#cfg(target="wasm")
+fn dataflow_now_ms() -> UInt64 {
+  dataflow_normalize_env_now_ms(@env.now())
+}
+
+///|
+#cfg(target="js")
+fn dataflow_now_ms() -> UInt64 {
+  dataflow_normalize_env_now_ms(@env.now())
+}
+
+///|
+#cfg(target="llvm")
+fn dataflow_now_ms() -> UInt64 {
+  dataflow_normalize_env_now_ms(@env.now())
 }
 
 ///|

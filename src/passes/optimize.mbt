@@ -644,8 +644,72 @@ fn optimize_trace_noop(_ : String) -> Unit {
 }
 
 ///|
+fn optimize_trace_normalize_env_now_ms(raw : UInt64) -> UInt64 {
+  if raw >= 100000000000000000UL {
+    // Likely nanoseconds.
+    raw / 1000000UL
+  } else if raw >= 100000000000000UL {
+    // Likely microseconds.
+    raw / 1000UL
+  } else {
+    // Already milliseconds.
+    raw
+  }
+}
+
+///|
+#cfg(target="native")
+#borrow(tv)
+extern "c" fn optimize_native_gettimeofday(tv : Bytes, tz : UInt64) -> Int =
+  "gettimeofday"
+
+///|
+#cfg(target="native")
+fn optimize_trace_read_u64_le(bytes : Bytes, start : Int) -> UInt64 {
+  let mut out = 0UL
+  let mut i = 0
+  while i < 8 {
+    out = out | (bytes[start + i].to_uint64() << (i * 8))
+    i += 1
+  }
+  out
+}
+
+///|
+#cfg(target="native")
 fn optimize_trace_now_ms() -> UInt64 {
-  @env.now()
+  // struct timeval { long tv_sec; long tv_usec; } on current native targets.
+  let tv = Bytes::new(16)
+  if optimize_native_gettimeofday(tv, 0UL) != 0 {
+    return optimize_trace_normalize_env_now_ms(@env.now())
+  }
+  let sec = optimize_trace_read_u64_le(tv, 0)
+  let usec = optimize_trace_read_u64_le(tv, 8)
+  sec * 1000UL + usec / 1000UL
+}
+
+///|
+#cfg(target="wasm-gc")
+fn optimize_trace_now_ms() -> UInt64 {
+  optimize_trace_normalize_env_now_ms(@env.now())
+}
+
+///|
+#cfg(target="wasm")
+fn optimize_trace_now_ms() -> UInt64 {
+  optimize_trace_normalize_env_now_ms(@env.now())
+}
+
+///|
+#cfg(target="js")
+fn optimize_trace_now_ms() -> UInt64 {
+  optimize_trace_normalize_env_now_ms(@env.now())
+}
+
+///|
+#cfg(target="llvm")
+fn optimize_trace_now_ms() -> UInt64 {
+  optimize_trace_normalize_env_now_ms(@env.now())
 }
 
 ///|
@@ -979,6 +1043,25 @@ fn default_opts_has_multivalue(mod : Module) -> Bool {
 }
 
 ///|
+fn default_opts_skip_second_optimize_instructions(mod : Module) -> Bool {
+  let mut func_count = 0
+  let mut top_instr_sum = 0
+  match mod.code_sec {
+    Some(CodeSec(funcs)) => {
+      func_count = funcs.length()
+      for func in funcs {
+        match func {
+          TFunc(_, body) => top_instr_sum += body.instrs.length()
+          _ => ()
+        }
+      }
+    }
+    None => ()
+  }
+  func_count >= 1200 || (func_count >= 300 && top_instr_sum >= 120000)
+}
+
+///|
 pub fn default_function_optimization_passes(
   mod : Module,
   options : OptimizeOptions,
@@ -986,6 +1069,8 @@ pub fn default_function_optimization_passes(
   // Intentionally mirrors Binaryen's no-DWARF path.
   let has_gc = default_opts_has_gc_aggregates(mod)
   let has_multivalue = default_opts_has_multivalue(mod)
+  let skip_second_optimize_instructions =
+    default_opts_skip_second_optimize_instructions(mod)
   let passes : Array[ModulePass] = []
 
   if options.optimize_level >= 3 || options.shrink_level >= 1 {
@@ -1067,7 +1152,9 @@ pub fn default_function_optimization_passes(
   } else {
     passes.push(Precompute)
   }
-  passes.push(OptimizeInstructions)
+  if !skip_second_optimize_instructions {
+    passes.push(OptimizeInstructions)
+  }
   if has_gc {
     passes.push(HeapStoreOptimization)
   }

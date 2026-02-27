@@ -1326,6 +1326,35 @@ extern "c" fn native_exit(code : Int) -> Unit = "exit"
 
 ///|
 #cfg(target="native")
+#borrow(tv)
+extern "c" fn native_gettimeofday(tv : Bytes, tz : UInt64) -> Int = "gettimeofday"
+
+///|
+#cfg(target="native")
+fn native_read_u64_timeval(bytes : Bytes, start : Int) -> UInt64 {
+  let mut out = 0UL
+  let mut i = 0
+  while i < 8 {
+    out = out | (bytes[start + i].to_uint64() << (i * 8))
+    i += 1
+  }
+  out
+}
+
+///|
+#cfg(target="native")
+fn native_now_ms() -> UInt64 {
+  let tv = Bytes::new(16)
+  if native_gettimeofday(tv, 0UL) != 0 {
+    return @env.now()
+  }
+  let sec = native_read_u64_timeval(tv, 0)
+  let usec = native_read_u64_timeval(tv, 8)
+  sec * 1000UL + usec / 1000UL
+}
+
+///|
+#cfg(target="native")
 fn native_remove_if_exists(path : String) -> Unit {
   let c_path = native_c_string(path)
   ignore(native_remove(c_path))
@@ -1334,7 +1363,7 @@ fn native_remove_if_exists(path : String) -> Unit {
 ///|
 #cfg(target="native")
 fn native_tmp_file(name : String) -> String {
-  "/tmp/starshine-cmd-\{name}-\{@env.now()}.wasm"
+  "/tmp/starshine-cmd-\{name}-\{native_now_ms()}.wasm"
 }
 
 ///|
@@ -1608,7 +1637,7 @@ test "run_cmd uses native stdout wiring and surfaces write failures" {
 ///|
 #cfg(target="native")
 test "run_cmd uses native default candidate enumeration for wildcard input globs" {
-  let prefix = "tmp-starshine-cmd-glob-\{@env.now()}"
+  let prefix = "tmp-starshine-cmd-glob-\{native_now_ms()}"
   let input_path = "\{prefix}.wasm"
   native_remove_if_exists(input_path)
 
@@ -1632,7 +1661,7 @@ test "run_cmd uses native default candidate enumeration for wildcard input globs
 ///|
 #cfg(target="native")
 test "run_cmd wires native default text-lowering hook for wat inputs" {
-  let base = "tmp-starshine-cmd-wat-\{@env.now()}"
+  let base = "tmp-starshine-cmd-wat-\{native_now_ms()}"
   let wat_path = "\{base}.wat"
   let out_path = "\{base}.wasm"
   native_remove_if_exists(wat_path)

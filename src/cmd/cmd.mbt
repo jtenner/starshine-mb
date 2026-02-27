@@ -2420,8 +2420,38 @@ fn cmd_native_shell_quote(text : String) -> String {
 
 ///|
 #cfg(target="native")
+#borrow(tv)
+extern "c" fn cmd_native_gettimeofday(tv : Bytes, tz : UInt64) -> Int =
+  "gettimeofday"
+
+///|
+#cfg(target="native")
+fn cmd_native_read_u64_timeval(bytes : Bytes, start : Int) -> UInt64 {
+  let mut out = 0UL
+  let mut i = 0
+  while i < 8 {
+    out = out | (bytes[start + i].to_uint64() << (i * 8))
+    i += 1
+  }
+  out
+}
+
+///|
+#cfg(target="native")
+fn cmd_native_now_ms() -> UInt64 {
+  let tv = Bytes::new(16)
+  if cmd_native_gettimeofday(tv, 0UL) != 0 {
+    return @env.now()
+  }
+  let sec = cmd_native_read_u64_timeval(tv, 0)
+  let usec = cmd_native_read_u64_timeval(tv, 8)
+  sec * 1000UL + usec / 1000UL
+}
+
+///|
+#cfg(target="native")
 fn cmd_native_tmp_path(prefix : String, suffix : String) -> String {
-  "/tmp/starshine-cmd-\{prefix}-\{cmd_native_getpid()}-\{@env.now()}\{suffix}"
+  "/tmp/starshine-cmd-\{prefix}-\{cmd_native_getpid()}-\{cmd_native_now_ms()}\{suffix}"
 }
 
 ///|
