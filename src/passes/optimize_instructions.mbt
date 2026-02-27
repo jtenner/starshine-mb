@@ -185,25 +185,512 @@ fn OIEffectsSummary::invalidates(
 
 ///|
 priv struct OIPairCacheEntry {
-  left_instr : TInstr
-  right_instr : TInstr
+  low_id : Int
+  high_id : Int
   value : Bool
   valid : Bool
 }
 
 ///|
-priv struct OIRewriteCache {
-  effects_by_instr : Map[TInstr, OIEffectsSummary]
-  size_by_instr : Map[TInstr, Int]
-  reorder_by_pair : Array[OIPairCacheEntry]
-  eq_by_pair : Array[OIPairCacheEntry]
-  local_bit_words : Int
-  local_bits_pool : Map[UInt64, Array[UInt64]]
+priv struct OINodeIdEntry {
+  instr : TInstr
+  node_id : Int
+  fingerprint : UInt64
 }
 
 ///|
-fn oi_instr_hash_u64(instr : TInstr) -> UInt64 {
-  instr.hash().reinterpret_as_uint().to_uint64()
+priv struct OIRewriteCache {
+  node_ids_by_hash : Map[UInt64, Array[OINodeIdEntry]]
+  size_by_id : Array[Int]
+  effects_by_id : Array[OIEffectsSummary]
+  fingerprint_by_id : Array[UInt64]
+  reorder_by_pair : Array[OIPairCacheEntry]
+  eq_by_pair : Array[OIPairCacheEntry]
+  local_bit_words : Int
+  local_bits_pool : Map[UInt64, Array[Array[UInt64]]]
+  mut node_id_get_calls : Int
+  mut node_id_put_calls : Int
+  mut eq_calls : Int
+  mut reorder_calls : Int
+  mut node_id_lookup_us : UInt64
+  mut fingerprint_us : UInt64
+  mut register_us : UInt64
+  mut eq_us : UInt64
+  mut reorder_us : UInt64
+  mut max_body_len : Int
+}
+
+///|
+let oi_hash_seed = 1469598103934665603UL
+
+///|
+let oi_hash_prime = 1099511628211UL
+
+///|
+fn oi_hash_mix(seed : UInt64, value : UInt64) -> UInt64 {
+  (seed ^ value) * oi_hash_prime
+}
+
+///|
+fn oi_trace_elapsed_us_since(start_us : UInt64) -> UInt64 {
+  let end_us = oi_trace_now_us()
+  if end_us >= start_us {
+    end_us - start_us
+  } else {
+    0UL
+  }
+}
+
+///|
+fn oi_hash_bool(value : Bool) -> UInt64 {
+  if value {
+    1UL
+  } else {
+    0UL
+  }
+}
+
+///|
+fn oi_hash_int(value : Int) -> UInt64 {
+  value.reinterpret_as_uint().to_uint64()
+}
+
+///|
+fn oi_instr_shallow_tag_hash(instr : TInstr) -> UInt64 {
+  let tag : UInt64 = match instr.kind {
+    TInstrKind::TI32Const(_) => 1UL
+    TInstrKind::TI64Const(_) => 2UL
+    TInstrKind::TF32Const(_) => 3UL
+    TInstrKind::TF64Const(_) => 4UL
+    TInstrKind::TRefNull(_) => 5UL
+    TInstrKind::TRefFunc(_) => 6UL
+    TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      7UL
+    TInstrKind::TUnreachable => 8UL
+    TInstrKind::TNop => 9UL
+    TInstrKind::TLocalGet(_) => 10UL
+    TInstrKind::TGlobalGet(_) => 11UL
+    TInstrKind::TMemorySize(_) => 12UL
+    TInstrKind::TTableSize(_) => 13UL
+    TInstrKind::TUnary(_, _) => 14UL
+    TInstrKind::TDrop(_) => 15UL
+    TInstrKind::TLocalSet(_, _) => 16UL
+    TInstrKind::TLocalTee(_, _) => 17UL
+    TInstrKind::TGlobalSet(_, _) => 18UL
+    TInstrKind::TRefIsNull(_) => 19UL
+    TInstrKind::TRefAsNonNull(_) => 20UL
+    TInstrKind::TI31GetS(_) => 21UL
+    TInstrKind::TI31GetU(_) => 22UL
+    TInstrKind::TRefI31(_) => 23UL
+    TInstrKind::TArrayLen(_) => 24UL
+    TInstrKind::TAnyConvertExtern(_) => 25UL
+    TInstrKind::TExternConvertAny(_) => 26UL
+    TInstrKind::TThrowRef(_) => 27UL
+    TInstrKind::TBinary(_, _, _) => 28UL
+    TInstrKind::TRefEq(_, _) => 29UL
+    TInstrKind::TStore(_, _, _, _) => 30UL
+    TInstrKind::TLoad(_, _, _) => 31UL
+    TInstrKind::TMemoryGrow(_, _) => 32UL
+    TInstrKind::TMemoryAtomicNotify(_, _, _) => 33UL
+    TInstrKind::TMemoryAtomicWait32(_, _, _, _) => 34UL
+    TInstrKind::TMemoryAtomicWait64(_, _, _, _) => 35UL
+    TInstrKind::TAtomicFence => 36UL
+    TInstrKind::TAtomicRmw(_, _, _, _) => 37UL
+    TInstrKind::TAtomicCmpxchg(_, _, _, _, _) => 38UL
+    TInstrKind::TMemoryFill(_, _, _, _) => 39UL
+    TInstrKind::TMemoryCopy(_, _, _, _, _) => 40UL
+    TInstrKind::TMemoryInit(_, _, _, _, _) => 41UL
+    TInstrKind::TDataDrop(_) => 42UL
+    TInstrKind::TTableGet(_, _) => 43UL
+    TInstrKind::TTableSet(_, _, _) => 44UL
+    TInstrKind::TTableGrow(_, _, _) => 45UL
+    TInstrKind::TTableFill(_, _, _, _) => 46UL
+    TInstrKind::TTableCopy(_, _, _, _, _) => 47UL
+    TInstrKind::TTableInit(_, _, _, _, _) => 48UL
+    TInstrKind::TElemDrop(_) => 49UL
+    TInstrKind::TCall(_, _) => 50UL
+    TInstrKind::TCallIndirect(_, _, _, _) => 51UL
+    TInstrKind::TCallRef(_, _, _) => 52UL
+    TInstrKind::TReturnCall(_, _) => 53UL
+    TInstrKind::TReturnCallIndirect(_, _, _, _) => 54UL
+    TInstrKind::TReturnCallRef(_, _, _) => 55UL
+    TInstrKind::TBlock(_, _) => 56UL
+    TInstrKind::TLoop(_, _) => 57UL
+    TInstrKind::TIf(_, _, _, _) => 58UL
+    TInstrKind::TTryTable(_, _, _) => 59UL
+    TInstrKind::TThrow(_, _) => 60UL
+    TInstrKind::TBr(_, _) => 61UL
+    TInstrKind::TBrIf(_, _, _) => 62UL
+    TInstrKind::TBrTable(_, _, _, _) => 63UL
+    TInstrKind::TBrOnNull(_, _, _) => 64UL
+    TInstrKind::TBrOnNonNull(_, _, _) => 65UL
+    TInstrKind::TBrOnCast(_, _, _, _, _, _) => 66UL
+    TInstrKind::TBrOnCastFail(_, _, _, _, _, _) => 67UL
+    TInstrKind::TReturn(_) => 68UL
+    TInstrKind::TSelect(_, _, _, _) => 69UL
+    TInstrKind::TStructNew(_, _) => 70UL
+    TInstrKind::TStructNewDefault(_) => 71UL
+    TInstrKind::TStructGet(_, _, _) => 72UL
+    TInstrKind::TStructGetS(_, _, _) => 73UL
+    TInstrKind::TStructGetU(_, _, _) => 74UL
+    TInstrKind::TStructSet(_, _, _, _) => 75UL
+    TInstrKind::TArrayNew(_, _, _) => 76UL
+    TInstrKind::TArrayNewDefault(_, _) => 77UL
+    TInstrKind::TArrayNewFixed(_, _) => 78UL
+    TInstrKind::TArrayNewData(_, _, _, _) => 79UL
+    TInstrKind::TArrayNewElem(_, _, _, _) => 80UL
+    TInstrKind::TArrayGet(_, _, _) => 81UL
+    TInstrKind::TArrayGetS(_, _, _) => 82UL
+    TInstrKind::TArrayGetU(_, _, _) => 83UL
+    TInstrKind::TArraySet(_, _, _, _) => 84UL
+    TInstrKind::TArrayFill(_, _, _, _, _) => 85UL
+    TInstrKind::TArrayCopy(_, _, _, _, _, _, _) => 86UL
+    TInstrKind::TArrayInitData(_, _, _, _, _, _) => 87UL
+    TInstrKind::TArrayInitElem(_, _, _, _, _, _) => 88UL
+    TInstrKind::TRefTest(_, _, _) => 89UL
+    TInstrKind::TRefCast(_, _, _) => 90UL
+    TInstrKind::TRefGetDesc(_) => 91UL
+    TInstrKind::TRefTestDesc(_, _, _) => 92UL
+    TInstrKind::TRefCastDescEq(_, _, _) => 93UL
+    TInstrKind::TI8x16Splat(_) => 94UL
+    TInstrKind::TI16x8Splat(_) => 95UL
+    TInstrKind::TI32x4Splat(_) => 96UL
+    TInstrKind::TI64x2Splat(_) => 97UL
+    TInstrKind::TF32x4Splat(_) => 98UL
+    TInstrKind::TF64x2Splat(_) => 99UL
+    TInstrKind::TExtractLane(_, _, _) => 100UL
+    TInstrKind::TReplaceLane(_, _, _, _) => 101UL
+    TInstrKind::TI8x16Shuffle(
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _
+    ) => 102UL
+    TInstrKind::TI8x16Swizzle(_, _) => 103UL
+    TInstrKind::TI8x16RelaxedSwizzle(_, _) => 104UL
+    TInstrKind::TV128Shift(_, _, _) => 105UL
+    TInstrKind::TV128Ternary(_, _, _, _) => 106UL
+    TInstrKind::TV128LoadLane(_, _, _, _, _) => 107UL
+    TInstrKind::TV128StoreLane(_, _, _, _, _) => 108UL
+  }
+  tag * 11400714819323198485UL
+}
+
+///|
+fn oi_instr_shallow_hash(instr : TInstr) -> UInt64 {
+  let mut digest = oi_instr_shallow_tag_hash(instr)
+  match instr.kind {
+    TInstrKind::TI32Const(v) =>
+      digest = oi_hash_mix(digest, oi_hash_int(v.hash()))
+    TInstrKind::TI64Const(v) =>
+      digest = oi_hash_mix(digest, oi_hash_int(v.hash()))
+    TInstrKind::TF32Const(v) =>
+      digest = oi_hash_mix(digest, oi_hash_int(v.hash()))
+    TInstrKind::TF64Const(v) =>
+      digest = oi_hash_mix(digest, oi_hash_int(v.hash()))
+    TInstrKind::TRefNull(ht) =>
+      digest = oi_hash_mix(digest, oi_hash_int(ht.hash()))
+    TInstrKind::TRefFunc(idx) =>
+      digest = oi_hash_mix(digest, oi_hash_int(idx.hash()))
+    TInstrKind::TV128Const(
+      l0,
+      l1,
+      l2,
+      l3,
+      l4,
+      l5,
+      l6,
+      l7,
+      l8,
+      l9,
+      l10,
+      l11,
+      l12,
+      l13,
+      l14,
+      l15
+    ) => {
+      digest = oi_hash_mix(digest, oi_hash_int(l0.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(l1.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(l2.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(l3.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(l4.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(l5.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(l6.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(l7.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(l8.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(l9.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(l10.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(l11.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(l12.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(l13.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(l14.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(l15.hash()))
+    }
+    TInstrKind::TLocalGet(idx) =>
+      digest = oi_hash_mix(digest, oi_hash_int(idx.hash()))
+    TInstrKind::TMemorySize(idx) =>
+      digest = oi_hash_mix(digest, oi_hash_int(idx.hash()))
+    TInstrKind::TTableSize(idx) =>
+      digest = oi_hash_mix(digest, oi_hash_int(idx.hash()))
+    TInstrKind::TMemoryGrow(idx, _) =>
+      digest = oi_hash_mix(digest, oi_hash_int(idx.hash()))
+    TInstrKind::TTableGet(idx, _) =>
+      digest = oi_hash_mix(digest, oi_hash_int(idx.hash()))
+    TInstrKind::TTableSet(idx, _, _) =>
+      digest = oi_hash_mix(digest, oi_hash_int(idx.hash()))
+    TInstrKind::TTableGrow(idx, _, _) =>
+      digest = oi_hash_mix(digest, oi_hash_int(idx.hash()))
+    TInstrKind::TTableFill(idx, _, _, _) =>
+      digest = oi_hash_mix(digest, oi_hash_int(idx.hash()))
+    TInstrKind::TStructNewDefault(idx) =>
+      digest = oi_hash_mix(digest, oi_hash_int(idx.hash()))
+    TInstrKind::TStructNew(idx, _) =>
+      digest = oi_hash_mix(digest, oi_hash_int(idx.hash()))
+    TInstrKind::TArrayNewDefault(idx, _) =>
+      digest = oi_hash_mix(digest, oi_hash_int(idx.hash()))
+    TInstrKind::TArrayNewFixed(idx, _) =>
+      digest = oi_hash_mix(digest, oi_hash_int(idx.hash()))
+    TInstrKind::TArrayNew(idx, _, _) =>
+      digest = oi_hash_mix(digest, oi_hash_int(idx.hash()))
+    TInstrKind::TArrayGet(idx, _, _) =>
+      digest = oi_hash_mix(digest, oi_hash_int(idx.hash()))
+    TInstrKind::TArrayGetS(idx, _, _) =>
+      digest = oi_hash_mix(digest, oi_hash_int(idx.hash()))
+    TInstrKind::TArrayGetU(idx, _, _) =>
+      digest = oi_hash_mix(digest, oi_hash_int(idx.hash()))
+    TInstrKind::TArraySet(idx, _, _, _) =>
+      digest = oi_hash_mix(digest, oi_hash_int(idx.hash()))
+    TInstrKind::TArrayFill(idx, _, _, _, _) =>
+      digest = oi_hash_mix(digest, oi_hash_int(idx.hash()))
+    TInstrKind::TGlobalGet(idx) | TInstrKind::TGlobalSet(idx, _) =>
+      digest = oi_hash_mix(digest, oi_hash_int(idx.hash()))
+    TInstrKind::TDataDrop(idx) =>
+      digest = oi_hash_mix(digest, oi_hash_int(idx.hash()))
+    TInstrKind::TElemDrop(idx) =>
+      digest = oi_hash_mix(digest, oi_hash_int(idx.hash()))
+    TInstrKind::TUnary(op, _) =>
+      digest = oi_hash_mix(digest, oi_hash_int(op.hash()))
+    TInstrKind::TBinary(op, _, _) =>
+      digest = oi_hash_mix(digest, oi_hash_int(op.hash()))
+    TInstrKind::TV128Shift(op, _, _) =>
+      digest = oi_hash_mix(digest, oi_hash_int(op.hash()))
+    TInstrKind::TV128Ternary(op, _, _, _) =>
+      digest = oi_hash_mix(digest, oi_hash_int(op.hash()))
+    TInstrKind::TLocalSet(idx, _) | TInstrKind::TLocalTee(idx, _) =>
+      digest = oi_hash_mix(digest, oi_hash_int(idx.hash()))
+    TInstrKind::TStore(op, memarg, _, _) => {
+      digest = oi_hash_mix(digest, oi_hash_int(op.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(memarg.hash()))
+    }
+    TInstrKind::TLoad(op, memarg, _) => {
+      digest = oi_hash_mix(digest, oi_hash_int(op.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(memarg.hash()))
+    }
+    TInstrKind::TMemoryAtomicNotify(memarg, _, _) =>
+      digest = oi_hash_mix(digest, oi_hash_int(memarg.hash()))
+    TInstrKind::TMemoryAtomicWait32(memarg, _, _, _) =>
+      digest = oi_hash_mix(digest, oi_hash_int(memarg.hash()))
+    TInstrKind::TMemoryAtomicWait64(memarg, _, _, _) =>
+      digest = oi_hash_mix(digest, oi_hash_int(memarg.hash()))
+    TInstrKind::TAtomicRmw(op, memarg, _, _) => {
+      digest = oi_hash_mix(digest, oi_hash_int(op.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(memarg.hash()))
+    }
+    TInstrKind::TAtomicCmpxchg(op, memarg, _, _, _) => {
+      digest = oi_hash_mix(digest, oi_hash_int(op.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(memarg.hash()))
+    }
+    TInstrKind::TMemoryFill(mem_idx, _, _, _) =>
+      digest = oi_hash_mix(digest, oi_hash_int(mem_idx.hash()))
+    TInstrKind::TMemoryCopy(dst_mem, src_mem, _, _, _) => {
+      digest = oi_hash_mix(digest, oi_hash_int(dst_mem.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(src_mem.hash()))
+    }
+    TInstrKind::TMemoryInit(data_idx, mem_idx, _, _, _) => {
+      digest = oi_hash_mix(digest, oi_hash_int(data_idx.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(mem_idx.hash()))
+    }
+    TInstrKind::TTableCopy(dst, src, _, _, _) => {
+      digest = oi_hash_mix(digest, oi_hash_int(dst.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(src.hash()))
+    }
+    TInstrKind::TTableInit(elem_idx, table_idx, _, _, _) => {
+      digest = oi_hash_mix(digest, oi_hash_int(elem_idx.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(table_idx.hash()))
+    }
+    TInstrKind::TCall(func_idx, args)
+    | TInstrKind::TReturnCall(func_idx, args) => {
+      digest = oi_hash_mix(digest, oi_hash_int(func_idx.hash()))
+      digest = oi_hash_mix(digest, args.length().to_uint64())
+    }
+    TInstrKind::TCallIndirect(type_idx, table_idx, args, _)
+    | TInstrKind::TReturnCallIndirect(type_idx, table_idx, args, _) => {
+      digest = oi_hash_mix(digest, oi_hash_int(type_idx.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(table_idx.hash()))
+      digest = oi_hash_mix(digest, args.length().to_uint64())
+    }
+    TInstrKind::TCallRef(type_idx, args, _)
+    | TInstrKind::TReturnCallRef(type_idx, args, _) => {
+      digest = oi_hash_mix(digest, oi_hash_int(type_idx.hash()))
+      digest = oi_hash_mix(digest, args.length().to_uint64())
+    }
+    TInstrKind::TBlock(bt, body) | TInstrKind::TLoop(bt, body) => {
+      digest = oi_hash_mix(digest, oi_hash_int(bt.hash()))
+      digest = oi_hash_mix(digest, body.instrs.length().to_uint64())
+    }
+    TInstrKind::TIf(bt, _, then_, else_) => {
+      digest = oi_hash_mix(digest, oi_hash_int(bt.hash()))
+      digest = oi_hash_mix(digest, then_.instrs.length().to_uint64())
+      digest = oi_hash_mix(digest, oi_hash_bool(else_ is Some(_)))
+      match else_ {
+        Some(other) =>
+          digest = oi_hash_mix(digest, other.instrs.length().to_uint64())
+        None => ()
+      }
+    }
+    TInstrKind::TTryTable(bt, catches, body) => {
+      digest = oi_hash_mix(digest, oi_hash_int(bt.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(catches.hash()))
+      digest = oi_hash_mix(digest, body.instrs.length().to_uint64())
+    }
+    TInstrKind::TThrow(tag_idx, args) => {
+      digest = oi_hash_mix(digest, oi_hash_int(tag_idx.hash()))
+      digest = oi_hash_mix(digest, args.length().to_uint64())
+    }
+    TInstrKind::TBr(label_idx, args) => {
+      digest = oi_hash_mix(digest, oi_hash_int(label_idx.hash()))
+      digest = oi_hash_mix(digest, args.length().to_uint64())
+    }
+    TInstrKind::TBrIf(label_idx, _, values)
+    | TInstrKind::TBrOnNull(label_idx, _, values)
+    | TInstrKind::TBrOnNonNull(label_idx, _, values) => {
+      digest = oi_hash_mix(digest, oi_hash_int(label_idx.hash()))
+      digest = oi_hash_mix(digest, values.length().to_uint64())
+    }
+    TInstrKind::TBrTable(labels, default_, _, values) => {
+      digest = oi_hash_mix(digest, oi_hash_int(labels.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(default_.hash()))
+      digest = oi_hash_mix(digest, values.length().to_uint64())
+    }
+    TInstrKind::TBrOnCast(label_idx, castop, ht1, ht2, _, values)
+    | TInstrKind::TBrOnCastFail(label_idx, castop, ht1, ht2, _, values) => {
+      digest = oi_hash_mix(digest, oi_hash_int(label_idx.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(castop.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(ht1.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(ht2.hash()))
+      digest = oi_hash_mix(digest, values.length().to_uint64())
+    }
+    TInstrKind::TReturn(values) =>
+      digest = oi_hash_mix(digest, values.length().to_uint64())
+    TInstrKind::TSelect(types, _, _, _) =>
+      match types {
+        Some(values) => {
+          digest = oi_hash_mix(digest, 1UL)
+          digest = oi_hash_mix(digest, oi_hash_int(values.hash()))
+        }
+        None => digest = oi_hash_mix(digest, 0UL)
+      }
+    TInstrKind::TStructGet(type_idx, field_idx, _)
+    | TInstrKind::TStructGetS(type_idx, field_idx, _)
+    | TInstrKind::TStructGetU(type_idx, field_idx, _)
+    | TInstrKind::TStructSet(type_idx, field_idx, _, _) => {
+      digest = oi_hash_mix(digest, oi_hash_int(type_idx.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(field_idx.hash()))
+    }
+    TInstrKind::TArrayNewData(type_idx, data_idx, _, _)
+    | TInstrKind::TArrayInitData(type_idx, data_idx, _, _, _, _) => {
+      digest = oi_hash_mix(digest, oi_hash_int(type_idx.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(data_idx.hash()))
+    }
+    TInstrKind::TArrayNewElem(type_idx, elem_idx, _, _)
+    | TInstrKind::TArrayInitElem(type_idx, elem_idx, _, _, _, _) => {
+      digest = oi_hash_mix(digest, oi_hash_int(type_idx.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(elem_idx.hash()))
+    }
+    TInstrKind::TArrayCopy(dst_type, src_type, _, _, _, _, _) => {
+      digest = oi_hash_mix(digest, oi_hash_int(dst_type.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(src_type.hash()))
+    }
+    TInstrKind::TRefTest(nullable, ht, _)
+    | TInstrKind::TRefCast(nullable, ht, _)
+    | TInstrKind::TRefTestDesc(nullable, ht, _)
+    | TInstrKind::TRefCastDescEq(nullable, ht, _) => {
+      digest = oi_hash_mix(digest, oi_hash_bool(nullable))
+      digest = oi_hash_mix(digest, oi_hash_int(ht.hash()))
+    }
+    TInstrKind::TExtractLane(op, lane, _) => {
+      digest = oi_hash_mix(digest, oi_hash_int(op.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(lane.hash()))
+    }
+    TInstrKind::TReplaceLane(op, lane, _, _) => {
+      digest = oi_hash_mix(digest, oi_hash_int(op.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(lane.hash()))
+    }
+    TInstrKind::TI8x16Shuffle(
+      l0,
+      l1,
+      l2,
+      l3,
+      l4,
+      l5,
+      l6,
+      l7,
+      l8,
+      l9,
+      l10,
+      l11,
+      l12,
+      l13,
+      l14,
+      l15,
+      _,
+      _
+    ) => {
+      digest = oi_hash_mix(digest, oi_hash_int(l0.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(l1.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(l2.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(l3.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(l4.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(l5.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(l6.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(l7.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(l8.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(l9.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(l10.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(l11.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(l12.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(l13.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(l14.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(l15.hash()))
+    }
+    TInstrKind::TV128LoadLane(op, memarg, lane, _, _) => {
+      digest = oi_hash_mix(digest, oi_hash_int(op.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(memarg.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(lane.hash()))
+    }
+    TInstrKind::TV128StoreLane(op, memarg, lane, _, _) => {
+      digest = oi_hash_mix(digest, oi_hash_int(op.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(memarg.hash()))
+      digest = oi_hash_mix(digest, oi_hash_int(lane.hash()))
+    }
+    _ => ()
+  }
+  digest
 }
 
 ///|
@@ -212,8 +699,8 @@ fn oi_pair_cache_init(size : Int) -> Array[OIPairCacheEntry] {
   let mut i = 0
   while i < size {
     out.push(OIPairCacheEntry::{
-      left_instr: TInstr::nop(),
-      right_instr: TInstr::nop(),
+      low_id: 0,
+      high_id: 0,
       value: false,
       valid: false,
     })
@@ -223,11 +710,18 @@ fn oi_pair_cache_init(size : Int) -> Array[OIPairCacheEntry] {
 }
 
 ///|
-fn oi_pair_cache_index(
-  low_hash : UInt64,
-  high_hash : UInt64,
-  size : Int,
-) -> Int {
+fn oi_pair_cache_key(left_id : Int, right_id : Int) -> (Int, Int) {
+  if left_id <= right_id {
+    (left_id, right_id)
+  } else {
+    (right_id, left_id)
+  }
+}
+
+///|
+fn oi_pair_cache_index(low_id : Int, high_id : Int, size : Int) -> Int {
+  let low_hash = low_id.to_uint64()
+  let high_hash = high_id.to_uint64()
   let mixed = low_hash ^ (high_hash << 1) ^ (high_hash >> 1)
   let folded = (mixed ^ (mixed >> 32)) & 0x7fffffffUL
   folded.to_int() % size
@@ -316,10 +810,10 @@ fn oi_local_bits_any(bits : Array[UInt64]) -> Bool {
 
 ///|
 fn oi_local_bits_hash(bits : Array[UInt64]) -> UInt64 {
-  let mut h = 1469598103934665603UL
+  let mut h = oi_hash_seed
   for word in bits {
     h = h ^ word
-    h = h * 1099511628211UL
+    h = h * oi_hash_prime
   }
   h ^ bits.length().to_uint64()
 }
@@ -347,51 +841,870 @@ fn oi_local_bits_intern(
   }
   let h = oi_local_bits_hash(bits)
   match cache.local_bits_pool.get(h) {
-    Some(existing) =>
-      if oi_local_bits_eq(existing, bits) {
-        existing
-      } else {
-        bits
+    Some(existing) => {
+      for candidate in existing {
+        if oi_local_bits_eq(candidate, bits) {
+          return candidate
+        }
       }
+      existing.push(bits)
+      bits
+    }
     None => {
-      cache.local_bits_pool[h] = bits
+      cache.local_bits_pool[h] = [bits]
       bits
     }
   }
 }
 
 ///|
-fn oi_rewrite_cache_new(local_count? : Int = 0) -> OIRewriteCache {
-  let pair_cache_size = 256
-  let words = oi_local_bit_words_tracked(local_count)
-  OIRewriteCache::{
-    effects_by_instr: Map::new(),
-    size_by_instr: Map::new(),
-    reorder_by_pair: oi_pair_cache_init(pair_cache_size),
-    eq_by_pair: oi_pair_cache_init(pair_cache_size),
-    local_bit_words: words,
-    local_bits_pool: Map::new(),
+fn oi_for_each_non_control_child(instr : TInstr, f : (TInstr) -> Unit) -> Unit {
+  match instr.kind {
+    // Zero-operand instructions.
+    TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_)
+    | TInstrKind::TRefNull(_)
+    | TInstrKind::TRefFunc(_)
+    | TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    | TInstrKind::TUnreachable
+    | TInstrKind::TNop
+    | TInstrKind::TLocalGet(_)
+    | TInstrKind::TGlobalGet(_)
+    | TInstrKind::TMemorySize(_)
+    | TInstrKind::TAtomicFence
+    | TInstrKind::TTableSize(_)
+    | TInstrKind::TDataDrop(_)
+    | TInstrKind::TElemDrop(_)
+    | TInstrKind::TStructNewDefault(_) => ()
+
+    // Unary operands.
+    TInstrKind::TUnary(_, child)
+    | TInstrKind::TDrop(child)
+    | TInstrKind::TLocalSet(_, child)
+    | TInstrKind::TLocalTee(_, child)
+    | TInstrKind::TGlobalSet(_, child)
+    | TInstrKind::TRefIsNull(child)
+    | TInstrKind::TRefAsNonNull(child)
+    | TInstrKind::TI31GetS(child)
+    | TInstrKind::TI31GetU(child)
+    | TInstrKind::TRefI31(child)
+    | TInstrKind::TArrayLen(child)
+    | TInstrKind::TAnyConvertExtern(child)
+    | TInstrKind::TExternConvertAny(child)
+    | TInstrKind::TThrowRef(child)
+    | TInstrKind::TMemoryGrow(_, child)
+    | TInstrKind::TTableGet(_, child)
+    | TInstrKind::TLoad(_, _, child)
+    | TInstrKind::TArrayNewDefault(_, child)
+    | TInstrKind::TStructGet(_, _, child)
+    | TInstrKind::TStructGetS(_, _, child)
+    | TInstrKind::TStructGetU(_, _, child)
+    | TInstrKind::TI8x16Splat(child)
+    | TInstrKind::TI16x8Splat(child)
+    | TInstrKind::TI32x4Splat(child)
+    | TInstrKind::TI64x2Splat(child)
+    | TInstrKind::TF32x4Splat(child)
+    | TInstrKind::TF64x2Splat(child)
+    | TInstrKind::TExtractLane(_, _, child)
+    | TInstrKind::TRefTest(_, _, child)
+    | TInstrKind::TRefCast(_, _, child)
+    | TInstrKind::TRefGetDesc(child)
+    | TInstrKind::TRefTestDesc(_, _, child)
+    | TInstrKind::TRefCastDescEq(_, _, child) => f(child)
+
+    // Two operands.
+    TInstrKind::TBinary(_, left, right)
+    | TInstrKind::TRefEq(left, right)
+    | TInstrKind::TStore(_, _, left, right)
+    | TInstrKind::TMemoryAtomicNotify(_, left, right)
+    | TInstrKind::TAtomicRmw(_, _, left, right)
+    | TInstrKind::TTableSet(_, left, right)
+    | TInstrKind::TTableGrow(_, left, right)
+    | TInstrKind::TStructSet(_, _, left, right)
+    | TInstrKind::TArrayNew(_, left, right)
+    | TInstrKind::TArrayNewData(_, _, left, right)
+    | TInstrKind::TArrayNewElem(_, _, left, right)
+    | TInstrKind::TArrayGet(_, left, right)
+    | TInstrKind::TArrayGetS(_, left, right)
+    | TInstrKind::TArrayGetU(_, left, right)
+    | TInstrKind::TReplaceLane(_, _, left, right)
+    | TInstrKind::TI8x16Swizzle(left, right)
+    | TInstrKind::TI8x16RelaxedSwizzle(left, right)
+    | TInstrKind::TV128Shift(_, left, right)
+    | TInstrKind::TV128LoadLane(_, _, _, left, right)
+    | TInstrKind::TV128StoreLane(_, _, _, left, right) => {
+      f(left)
+      f(right)
+    }
+
+    // Three operands.
+    TInstrKind::TMemoryFill(_, a, b, c)
+    | TInstrKind::TMemoryCopy(_, _, a, b, c)
+    | TInstrKind::TMemoryInit(_, _, a, b, c)
+    | TInstrKind::TMemoryAtomicWait32(_, a, b, c)
+    | TInstrKind::TMemoryAtomicWait64(_, a, b, c)
+    | TInstrKind::TAtomicCmpxchg(_, _, a, b, c)
+    | TInstrKind::TTableFill(_, a, b, c)
+    | TInstrKind::TTableCopy(_, _, a, b, c)
+    | TInstrKind::TTableInit(_, _, a, b, c)
+    | TInstrKind::TV128Ternary(_, a, b, c) => {
+      f(a)
+      f(b)
+      f(c)
+    }
+    TInstrKind::TSelect(_, cond, if_true, if_false) => {
+      f(if_true)
+      f(if_false)
+      f(cond)
+    }
+
+    // Variable-length operands.
+    TInstrKind::TCall(_, args)
+    | TInstrKind::TReturnCall(_, args)
+    | TInstrKind::TThrow(_, args)
+    | TInstrKind::TBr(_, args)
+    | TInstrKind::TReturn(args)
+    | TInstrKind::TStructNew(_, args)
+    | TInstrKind::TArrayNewFixed(_, args) =>
+      for arg in args {
+        f(arg)
+      }
+    TInstrKind::TCallIndirect(_, _, args, index)
+    | TInstrKind::TReturnCallIndirect(_, _, args, index) => {
+      for arg in args {
+        f(arg)
+      }
+      f(index)
+    }
+    TInstrKind::TCallRef(_, args, ref_)
+    | TInstrKind::TReturnCallRef(_, args, ref_) => {
+      for arg in args {
+        f(arg)
+      }
+      f(ref_)
+    }
+    TInstrKind::TBrIf(_, cond, values) => {
+      for value in values {
+        f(value)
+      }
+      f(cond)
+    }
+    TInstrKind::TBrTable(_, _, index, values) => {
+      for value in values {
+        f(value)
+      }
+      f(index)
+    }
+    TInstrKind::TBrOnNull(_, ref_, values)
+    | TInstrKind::TBrOnNonNull(_, ref_, values)
+    | TInstrKind::TBrOnCast(_, _, _, _, ref_, values)
+    | TInstrKind::TBrOnCastFail(_, _, _, _, ref_, values) => {
+      for value in values {
+        f(value)
+      }
+      f(ref_)
+    }
+    TInstrKind::TArraySet(_, a, b, c) => {
+      f(a)
+      f(b)
+      f(c)
+    }
+    TInstrKind::TArrayFill(_, a, b, c, d)
+    | TInstrKind::TArrayInitData(_, _, a, b, c, d)
+    | TInstrKind::TArrayInitElem(_, _, a, b, c, d) => {
+      f(a)
+      f(b)
+      f(c)
+      f(d)
+    }
+    TInstrKind::TArrayCopy(_, _, a, b, c, d, e) => {
+      f(a)
+      f(b)
+      f(c)
+      f(d)
+      f(e)
+    }
+    TInstrKind::TI8x16Shuffle(
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      left,
+      right
+    ) => {
+      f(left)
+      f(right)
+    }
+
+    // Control-flow structures are handled directly by the dedicated walker.
+    TInstrKind::TBlock(_, _)
+    | TInstrKind::TLoop(_, _)
+    | TInstrKind::TIf(_, _, _, _)
+    | TInstrKind::TTryTable(_, _, _) => ()
   }
 }
 
 ///|
-fn oi_instr_size_compute_cached(instr : TInstr, cache : OIRewriteCache) -> Int {
-  match cache.size_by_instr.get(instr) {
-    Some(size) => size
-    None => {
-      let mut size = 1
-      for child in eval_children(instr) {
-        size += oi_instr_size_compute_cached(child, cache)
+fn oi_rebuild_non_control(instr : TInstr, children : Array[TInstr]) -> TInstr {
+  match instr.kind {
+    // Zero-operand instructions.
+    TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_)
+    | TInstrKind::TRefNull(_)
+    | TInstrKind::TRefFunc(_)
+    | TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    | TInstrKind::TUnreachable
+    | TInstrKind::TNop
+    | TInstrKind::TLocalGet(_)
+    | TInstrKind::TGlobalGet(_)
+    | TInstrKind::TMemorySize(_)
+    | TInstrKind::TAtomicFence
+    | TInstrKind::TTableSize(_)
+    | TInstrKind::TDataDrop(_)
+    | TInstrKind::TElemDrop(_)
+    | TInstrKind::TStructNewDefault(_) => instr
+
+    // Unary operands.
+    TInstrKind::TUnary(op, _) => TInstr::unary(op, children[0])
+    TInstrKind::TDrop(_) => TInstr::drop(children[0])
+    TInstrKind::TLocalSet(idx, _) => TInstr::local_set(idx, children[0])
+    TInstrKind::TLocalTee(idx, _) => TInstr::local_tee(idx, children[0])
+    TInstrKind::TGlobalSet(idx, _) => TInstr::global_set(idx, children[0])
+    TInstrKind::TRefIsNull(_) => TInstr::ref_is_null(children[0])
+    TInstrKind::TRefAsNonNull(_) => TInstr::ref_as_non_null(children[0])
+    TInstrKind::TI31GetS(_) => TInstr::i31_get_s(children[0])
+    TInstrKind::TI31GetU(_) => TInstr::i31_get_u(children[0])
+    TInstrKind::TRefI31(_) => TInstr::ref_i31(children[0])
+    TInstrKind::TArrayLen(_) => TInstr::array_len(children[0])
+    TInstrKind::TAnyConvertExtern(_) => TInstr::any_convert_extern(children[0])
+    TInstrKind::TExternConvertAny(_) => TInstr::extern_convert_any(children[0])
+    TInstrKind::TThrowRef(_) => TInstr::throw_ref(children[0])
+    TInstrKind::TMemoryGrow(idx, _) => TInstr::memory_grow(idx, children[0])
+    TInstrKind::TTableGet(idx, _) => TInstr::table_get(idx, children[0])
+    TInstrKind::TLoad(op, memarg, _) => TInstr::load(op, memarg, children[0])
+    TInstrKind::TArrayNewDefault(type_idx, _) =>
+      TInstr::array_new_default(type_idx, children[0])
+    TInstrKind::TStructGet(type_idx, field_idx, _) =>
+      TInstr::struct_get(type_idx, field_idx, children[0])
+    TInstrKind::TStructGetS(type_idx, field_idx, _) =>
+      TInstr::struct_get_s(type_idx, field_idx, children[0])
+    TInstrKind::TStructGetU(type_idx, field_idx, _) =>
+      TInstr::struct_get_u(type_idx, field_idx, children[0])
+    TInstrKind::TI8x16Splat(_) => TInstr::i8x16_splat(children[0])
+    TInstrKind::TI16x8Splat(_) => TInstr::i16x8_splat(children[0])
+    TInstrKind::TI32x4Splat(_) => TInstr::i32x4_splat(children[0])
+    TInstrKind::TI64x2Splat(_) => TInstr::i64x2_splat(children[0])
+    TInstrKind::TF32x4Splat(_) => TInstr::f32x4_splat(children[0])
+    TInstrKind::TF64x2Splat(_) => TInstr::f64x2_splat(children[0])
+    TInstrKind::TExtractLane(op, lane, _) =>
+      TInstr::extract_lane(op, lane, children[0])
+    TInstrKind::TRefTest(nullable, ht, _) =>
+      TInstr::ref_test(nullable, ht, children[0])
+    TInstrKind::TRefCast(nullable, ht, _) =>
+      TInstr::ref_cast(nullable, ht, children[0])
+    TInstrKind::TRefGetDesc(_) => TInstr::ref_get_desc(children[0])
+    TInstrKind::TRefTestDesc(nullable, ht, _) =>
+      TInstr::ref_test_desc(nullable, ht, children[0])
+    TInstrKind::TRefCastDescEq(nullable, ht, _) =>
+      TInstr::ref_cast_desc_eq(nullable, ht, children[0])
+
+    // Two operands.
+    TInstrKind::TBinary(op, _, _) =>
+      TInstr::binary(op, children[0], children[1])
+    TInstrKind::TRefEq(_, _) => TInstr::ref_eq(children[0], children[1])
+    TInstrKind::TStore(op, memarg, _, _) =>
+      TInstr::store(op, memarg, children[0], children[1])
+    TInstrKind::TMemoryAtomicNotify(memarg, _, _) =>
+      TInstr::memory_atomic_notify(memarg, children[0], children[1])
+    TInstrKind::TAtomicRmw(op, memarg, _, _) =>
+      TInstr::atomic_rmw(op, memarg, children[0], children[1])
+    TInstrKind::TTableSet(table_idx, _, _) =>
+      TInstr::table_set(table_idx, children[0], children[1])
+    TInstrKind::TTableGrow(table_idx, _, _) =>
+      TInstr::table_grow(table_idx, children[0], children[1])
+    TInstrKind::TStructSet(type_idx, field_idx, _, _) =>
+      TInstr::struct_set(type_idx, field_idx, children[0], children[1])
+    TInstrKind::TArrayNew(type_idx, _, _) =>
+      TInstr::array_new(type_idx, children[0], children[1])
+    TInstrKind::TArrayNewData(type_idx, data_idx, _, _) =>
+      TInstr::array_new_data(type_idx, data_idx, children[0], children[1])
+    TInstrKind::TArrayNewElem(type_idx, elem_idx, _, _) =>
+      TInstr::array_new_elem(type_idx, elem_idx, children[0], children[1])
+    TInstrKind::TArrayGet(type_idx, _, _) =>
+      TInstr::array_get(type_idx, children[0], children[1])
+    TInstrKind::TArrayGetS(type_idx, _, _) =>
+      TInstr::array_get_s(type_idx, children[0], children[1])
+    TInstrKind::TArrayGetU(type_idx, _, _) =>
+      TInstr::array_get_u(type_idx, children[0], children[1])
+    TInstrKind::TReplaceLane(op, lane, _, _) =>
+      TInstr::replace_lane(op, lane, children[0], children[1])
+    TInstrKind::TI8x16Swizzle(_, _) =>
+      TInstr::i8x16_swizzle(children[0], children[1])
+    TInstrKind::TI8x16RelaxedSwizzle(_, _) =>
+      TInstr::i8x16_relaxed_swizzle(children[0], children[1])
+    TInstrKind::TV128Shift(op, _, _) =>
+      TInstr::v128_shift(op, children[0], children[1])
+    TInstrKind::TV128LoadLane(op, memarg, lane, _, _) =>
+      TInstr::v128_load_lane(op, memarg, lane, children[0], children[1])
+    TInstrKind::TV128StoreLane(op, memarg, lane, _, _) =>
+      TInstr::v128_store_lane(op, memarg, lane, children[0], children[1])
+
+    // Three operands.
+    TInstrKind::TMemoryFill(mem_idx, _, _, _) =>
+      TInstr::memory_fill(mem_idx, children[0], children[1], children[2])
+    TInstrKind::TMemoryCopy(dst, src, _, _, _) =>
+      TInstr::memory_copy(dst, src, children[0], children[1], children[2])
+    TInstrKind::TMemoryInit(data_idx, mem_idx, _, _, _) =>
+      TInstr::memory_init(
+        data_idx,
+        mem_idx,
+        children[0],
+        children[1],
+        children[2],
+      )
+    TInstrKind::TMemoryAtomicWait32(memarg, _, _, _) =>
+      TInstr::memory_atomic_wait32(
+        memarg,
+        children[0],
+        children[1],
+        children[2],
+      )
+    TInstrKind::TMemoryAtomicWait64(memarg, _, _, _) =>
+      TInstr::memory_atomic_wait64(
+        memarg,
+        children[0],
+        children[1],
+        children[2],
+      )
+    TInstrKind::TAtomicCmpxchg(op, memarg, _, _, _) =>
+      TInstr::atomic_cmpxchg(op, memarg, children[0], children[1], children[2])
+    TInstrKind::TTableFill(table_idx, _, _, _) =>
+      TInstr::table_fill(table_idx, children[0], children[1], children[2])
+    TInstrKind::TTableCopy(dst, src, _, _, _) =>
+      TInstr::table_copy(dst, src, children[0], children[1], children[2])
+    TInstrKind::TTableInit(elem_idx, table_idx, _, _, _) =>
+      TInstr::table_init(
+        elem_idx,
+        table_idx,
+        children[0],
+        children[1],
+        children[2],
+      )
+    TInstrKind::TSelect(types, _, _, _) =>
+      TInstr::select(types, children[2], children[0], children[1])
+    TInstrKind::TV128Ternary(op, _, _, _) =>
+      TInstr::v128_ternary(op, children[0], children[1], children[2])
+
+    // Variable-length operands.
+    TInstrKind::TCall(func_idx, args) => {
+      let rebuilt = []
+      for i = 0; i < args.length(); i = i + 1 {
+        rebuilt.push(children[i])
       }
-      cache.size_by_instr[instr] = size
-      size
+      TInstr::call(func_idx, rebuilt)
+    }
+    TInstrKind::TReturnCall(func_idx, args) => {
+      let rebuilt = []
+      for i = 0; i < args.length(); i = i + 1 {
+        rebuilt.push(children[i])
+      }
+      TInstr::return_call(func_idx, rebuilt)
+    }
+    TInstrKind::TThrow(tag_idx, args) => {
+      let rebuilt = []
+      for i = 0; i < args.length(); i = i + 1 {
+        rebuilt.push(children[i])
+      }
+      TInstr::throw_(tag_idx, rebuilt)
+    }
+    TInstrKind::TBr(label_idx, args) => {
+      let rebuilt = []
+      for i = 0; i < args.length(); i = i + 1 {
+        rebuilt.push(children[i])
+      }
+      TInstr::br(label_idx, rebuilt)
+    }
+    TInstrKind::TReturn(args) => {
+      let rebuilt = []
+      for i = 0; i < args.length(); i = i + 1 {
+        rebuilt.push(children[i])
+      }
+      TInstr::return_(rebuilt)
+    }
+    TInstrKind::TStructNew(type_idx, args) => {
+      let rebuilt = []
+      for i = 0; i < args.length(); i = i + 1 {
+        rebuilt.push(children[i])
+      }
+      TInstr::struct_new(type_idx, rebuilt)
+    }
+    TInstrKind::TArrayNewFixed(type_idx, args) => {
+      let rebuilt = []
+      for i = 0; i < args.length(); i = i + 1 {
+        rebuilt.push(children[i])
+      }
+      TInstr::array_new_fixed(type_idx, rebuilt)
+    }
+    TInstrKind::TCallIndirect(type_idx, table_idx, args, _) => {
+      let rebuilt_args = []
+      for i = 0; i < args.length(); i = i + 1 {
+        rebuilt_args.push(children[i])
+      }
+      TInstr::call_indirect(
+        type_idx,
+        table_idx,
+        rebuilt_args,
+        children[args.length()],
+      )
+    }
+    TInstrKind::TReturnCallIndirect(type_idx, table_idx, args, _) => {
+      let rebuilt_args = []
+      for i = 0; i < args.length(); i = i + 1 {
+        rebuilt_args.push(children[i])
+      }
+      TInstr::return_call_indirect(
+        type_idx,
+        table_idx,
+        rebuilt_args,
+        children[args.length()],
+      )
+    }
+    TInstrKind::TCallRef(type_idx, args, _) => {
+      let rebuilt_args = []
+      for i = 0; i < args.length(); i = i + 1 {
+        rebuilt_args.push(children[i])
+      }
+      TInstr::call_ref(type_idx, rebuilt_args, children[args.length()])
+    }
+    TInstrKind::TReturnCallRef(type_idx, args, _) => {
+      let rebuilt_args = []
+      for i = 0; i < args.length(); i = i + 1 {
+        rebuilt_args.push(children[i])
+      }
+      TInstr::return_call_ref(type_idx, rebuilt_args, children[args.length()])
+    }
+    TInstrKind::TBrIf(label_idx, _, values) => {
+      let rebuilt_values = []
+      for i = 0; i < values.length(); i = i + 1 {
+        rebuilt_values.push(children[i])
+      }
+      TInstr::br_if(label_idx, children[values.length()], rebuilt_values)
+    }
+    TInstrKind::TBrTable(labels, default, _, values) => {
+      let rebuilt_values = []
+      for i = 0; i < values.length(); i = i + 1 {
+        rebuilt_values.push(children[i])
+      }
+      TInstr::br_table(
+        labels,
+        default,
+        children[values.length()],
+        rebuilt_values,
+      )
+    }
+    TInstrKind::TBrOnNull(label_idx, _, values) => {
+      let rebuilt_values = []
+      for i = 0; i < values.length(); i = i + 1 {
+        rebuilt_values.push(children[i])
+      }
+      TInstr::br_on_null(label_idx, children[values.length()], rebuilt_values)
+    }
+    TInstrKind::TBrOnNonNull(label_idx, _, values) => {
+      let rebuilt_values = []
+      for i = 0; i < values.length(); i = i + 1 {
+        rebuilt_values.push(children[i])
+      }
+      TInstr::br_on_non_null(
+        label_idx,
+        children[values.length()],
+        rebuilt_values,
+      )
+    }
+    TInstrKind::TBrOnCast(label_idx, castop, ht1, ht2, _, values) => {
+      let rebuilt_values = []
+      for i = 0; i < values.length(); i = i + 1 {
+        rebuilt_values.push(children[i])
+      }
+      TInstr::br_on_cast(
+        label_idx,
+        castop.0,
+        ht1,
+        castop.1,
+        ht2,
+        children[values.length()],
+        rebuilt_values,
+      )
+    }
+    TInstrKind::TBrOnCastFail(label_idx, castop, ht1, ht2, _, values) => {
+      let rebuilt_values = []
+      for i = 0; i < values.length(); i = i + 1 {
+        rebuilt_values.push(children[i])
+      }
+      TInstr::br_on_cast_fail(
+        label_idx,
+        castop.0,
+        ht1,
+        castop.1,
+        ht2,
+        children[values.length()],
+        rebuilt_values,
+      )
+    }
+    TInstrKind::TArraySet(type_idx, _, _, _) =>
+      TInstr::array_set(type_idx, children[0], children[1], children[2])
+    TInstrKind::TArrayFill(type_idx, _, _, _, _) =>
+      TInstr::array_fill(
+        type_idx,
+        children[0],
+        children[1],
+        children[2],
+        children[3],
+      )
+    TInstrKind::TArrayCopy(dst_type, src_type, _, _, _, _, _) =>
+      TInstr::array_copy(
+        dst_type,
+        src_type,
+        children[0],
+        children[1],
+        children[2],
+        children[3],
+        children[4],
+      )
+    TInstrKind::TArrayInitData(type_idx, data_idx, _, _, _, _) =>
+      TInstr::array_init_data(
+        type_idx,
+        data_idx,
+        children[0],
+        children[1],
+        children[2],
+        children[3],
+      )
+    TInstrKind::TArrayInitElem(type_idx, elem_idx, _, _, _, _) =>
+      TInstr::array_init_elem(
+        type_idx,
+        elem_idx,
+        children[0],
+        children[1],
+        children[2],
+        children[3],
+      )
+    TInstrKind::TI8x16Shuffle(
+      l0,
+      l1,
+      l2,
+      l3,
+      l4,
+      l5,
+      l6,
+      l7,
+      l8,
+      l9,
+      l10,
+      l11,
+      l12,
+      l13,
+      l14,
+      l15,
+      _,
+      _
+    ) =>
+      TInstr::i8x16_shuffle(
+        l0,
+        l1,
+        l2,
+        l3,
+        l4,
+        l5,
+        l6,
+        l7,
+        l8,
+        l9,
+        l10,
+        l11,
+        l12,
+        l13,
+        l14,
+        l15,
+        children[0],
+        children[1],
+      )
+
+    // Control-flow structures are rebuilt in dedicated handlers.
+    TInstrKind::TBlock(_, _)
+    | TInstrKind::TLoop(_, _)
+    | TInstrKind::TIf(_, _, _, _)
+    | TInstrKind::TTryTable(_, _, _) => instr
+  }
+}
+
+///|
+fn oi_rewrite_cache_new(
+  local_count? : Int = 0,
+  pair_cache_size? : Int = 2048,
+) -> OIRewriteCache {
+  let words = oi_local_bit_words_tracked(local_count)
+  OIRewriteCache::{
+    node_ids_by_hash: Map::new(),
+    size_by_id: [],
+    effects_by_id: [],
+    fingerprint_by_id: [],
+    reorder_by_pair: oi_pair_cache_init(pair_cache_size),
+    eq_by_pair: oi_pair_cache_init(pair_cache_size),
+    local_bit_words: words,
+    local_bits_pool: Map::new(),
+    node_id_get_calls: 0,
+    node_id_put_calls: 0,
+    eq_calls: 0,
+    reorder_calls: 0,
+    node_id_lookup_us: 0UL,
+    fingerprint_us: 0UL,
+    register_us: 0UL,
+    eq_us: 0UL,
+    reorder_us: 0UL,
+    max_body_len: 0,
+  }
+}
+
+///|
+priv struct OINodeAggregate {
+  mut size : Int
+  locals_read : Array[UInt64]
+  locals_written : Array[UInt64]
+  mut unknown_locals_read : Bool
+  mut unknown_locals_written : Bool
+  mut reads_memory : Bool
+  mut writes_memory : Bool
+  mut reads_globals : Bool
+  mut writes_globals : Bool
+  mut calls : Bool
+  mut branches : Bool
+  mut traps : Bool
+  mut throws : Bool
+}
+
+///|
+fn oi_node_aggregate_new(
+  shallow : LCSEffects,
+  cache : OIRewriteCache,
+) -> OINodeAggregate {
+  let locals_read = oi_local_bits_new(cache.local_bit_words)
+  let locals_written = oi_local_bits_new(cache.local_bit_words)
+  let mut unknown_locals_read = false
+  let mut unknown_locals_written = false
+  for idx in shallow.locals_read {
+    if !oi_local_bits_set(locals_read, idx) {
+      unknown_locals_read = true
+    }
+  }
+  for idx in shallow.locals_written {
+    if !oi_local_bits_set(locals_written, idx) {
+      unknown_locals_written = true
+    }
+  }
+  OINodeAggregate::{
+    size: 1,
+    locals_read,
+    locals_written,
+    unknown_locals_read,
+    unknown_locals_written,
+    reads_memory: shallow.reads_memory,
+    writes_memory: shallow.writes_memory,
+    reads_globals: shallow.reads_globals,
+    writes_globals: shallow.writes_globals,
+    calls: shallow.calls,
+    branches: shallow.branches,
+    traps: shallow.traps,
+    throws: shallow.throws,
+  }
+}
+
+///|
+fn OINodeAggregate::merge_child(
+  self : OINodeAggregate,
+  child_id : Int,
+  cache : OIRewriteCache,
+) -> Unit {
+  self.size = self.size + cache.size_by_id[child_id]
+  let child_summary = cache.effects_by_id[child_id]
+  oi_local_bits_or_inplace(self.locals_read, child_summary.locals_read)
+  oi_local_bits_or_inplace(self.locals_written, child_summary.locals_written)
+  self.unknown_locals_read = self.unknown_locals_read ||
+    child_summary.unknown_locals_read
+  self.unknown_locals_written = self.unknown_locals_written ||
+    child_summary.unknown_locals_written
+  self.reads_memory = self.reads_memory || child_summary.reads_memory
+  self.writes_memory = self.writes_memory || child_summary.writes_memory
+  self.reads_globals = self.reads_globals || child_summary.reads_globals
+  self.writes_globals = self.writes_globals || child_summary.writes_globals
+  self.calls = self.calls || child_summary.calls
+  self.branches = self.branches || child_summary.branches
+  self.traps = self.traps || child_summary.traps
+  self.throws = self.throws || child_summary.throws
+}
+
+///|
+fn OINodeAggregate::finish(
+  self : OINodeAggregate,
+  cache : OIRewriteCache,
+) -> (Int, OIEffectsSummary) {
+  let summary = OIEffectsSummary::{
+    locals_read: oi_local_bits_intern(self.locals_read, cache),
+    locals_written: oi_local_bits_intern(self.locals_written, cache),
+    unknown_locals_read: self.unknown_locals_read,
+    unknown_locals_written: self.unknown_locals_written,
+    reads_memory: self.reads_memory,
+    writes_memory: self.writes_memory,
+    reads_globals: self.reads_globals,
+    writes_globals: self.writes_globals,
+    calls: self.calls,
+    branches: self.branches,
+    traps: self.traps,
+    throws: self.throws,
+    has_side_effects: false,
+  }
+  let with_side_effects = OIEffectsSummary::{
+    ..summary,
+    has_side_effects: oi_effects_has_side_effects(summary),
+  }
+  (self.size, with_side_effects)
+}
+
+///|
+fn oi_fingerprint_merge_child(
+  fingerprint : UInt64,
+  child : TInstr,
+  aggregate : OINodeAggregate,
+  cache : OIRewriteCache,
+) -> UInt64 {
+  let child_id = oi_instr_node_id(child, cache)
+  aggregate.merge_child(child_id, cache)
+  oi_hash_mix(fingerprint, cache.fingerprint_by_id[child_id])
+}
+
+///|
+fn oi_fingerprint_merge_texpr(
+  fingerprint : UInt64,
+  body : TExpr,
+  aggregate : OINodeAggregate,
+  cache : OIRewriteCache,
+) -> UInt64 {
+  if body.instrs.length() > cache.max_body_len {
+    cache.max_body_len = body.instrs.length()
+  }
+  let mut fingerprint = oi_hash_mix(
+    fingerprint,
+    body.instrs.length().to_uint64(),
+  )
+  for instr in body.instrs {
+    fingerprint = oi_fingerprint_merge_child(
+      fingerprint, instr, aggregate, cache,
+    )
+  }
+  fingerprint
+}
+
+///|
+fn oi_instr_fingerprint(
+  instr : TInstr,
+  aggregate : OINodeAggregate,
+  cache : OIRewriteCache,
+) -> UInt64 {
+  let mut fingerprint = oi_instr_shallow_hash(instr)
+  match instr.kind {
+    TInstrKind::TBlock(_, body) | TInstrKind::TLoop(_, body) =>
+      oi_fingerprint_merge_texpr(fingerprint, body, aggregate, cache)
+    TInstrKind::TIf(_, cond, then_, else_) => {
+      fingerprint = oi_fingerprint_merge_child(
+        fingerprint, cond, aggregate, cache,
+      )
+      fingerprint = oi_hash_mix(fingerprint, 0x7468656eUL)
+      fingerprint = oi_fingerprint_merge_texpr(
+        fingerprint, then_, aggregate, cache,
+      )
+      match else_ {
+        Some(other) => {
+          fingerprint = oi_hash_mix(fingerprint, 0x656c7365UL)
+          oi_fingerprint_merge_texpr(fingerprint, other, aggregate, cache)
+        }
+        None => oi_hash_mix(fingerprint, 0x6e6f656c7365UL)
+      }
+    }
+    TInstrKind::TTryTable(_, _, body) =>
+      oi_fingerprint_merge_texpr(fingerprint, body, aggregate, cache)
+    _ => {
+      oi_for_each_non_control_child(instr, fn(child) {
+        fingerprint = oi_fingerprint_merge_child(
+          fingerprint, child, aggregate, cache,
+        )
+      })
+      fingerprint
     }
   }
 }
 
 ///|
-fn oi_instr_size_cached(instr : TInstr, cache : OIRewriteCache) -> Int {
-  oi_instr_size_compute_cached(instr, cache)
+fn oi_node_id_get(
+  instr : TInstr,
+  fingerprint : UInt64,
+  cache : OIRewriteCache,
+) -> Int? {
+  cache.node_id_get_calls = cache.node_id_get_calls + 1
+  let start_us = oi_trace_now_us()
+  let h = oi_instr_shallow_hash(instr)
+  let out = match cache.node_ids_by_hash.get(h) {
+    Some(entries) => {
+      for entry in entries {
+        if physical_equal(entry.instr, instr) {
+          return Some(entry.node_id)
+        }
+      }
+      for entry in entries {
+        if entry.fingerprint == fingerprint && entry.instr == instr {
+          return Some(entry.node_id)
+        }
+      }
+      None
+    }
+    None => None
+  }
+  cache.node_id_lookup_us = cache.node_id_lookup_us +
+    oi_trace_elapsed_us_since(start_us)
+  out
+}
+
+///|
+fn oi_node_id_put(
+  instr : TInstr,
+  node_id : Int,
+  fingerprint : UInt64,
+  cache : OIRewriteCache,
+) -> Unit {
+  cache.node_id_put_calls = cache.node_id_put_calls + 1
+  let h = oi_instr_shallow_hash(instr)
+  match cache.node_ids_by_hash.get(h) {
+    Some(entries) =>
+      entries.push(OINodeIdEntry::{ instr, node_id, fingerprint })
+    None =>
+      cache.node_ids_by_hash[h] = [
+        OINodeIdEntry::{ instr, node_id, fingerprint },
+      ]
+  }
 }
 
 ///|
@@ -409,76 +1722,43 @@ fn oi_effects_has_side_effects(summary : OIEffectsSummary) -> Bool {
 }
 
 ///|
-fn oi_effects_summary_compute_cached(
-  instr : TInstr,
-  cache : OIRewriteCache,
-) -> OIEffectsSummary {
-  match cache.effects_by_instr.get(instr) {
-    Some(summary) => summary
+fn oi_register_instr(instr : TInstr, cache : OIRewriteCache) -> Int {
+  let start_us = oi_trace_now_us()
+  let shallow = lcs_collect_shallow_effects(instr)
+  let aggregate = oi_node_aggregate_new(shallow, cache)
+  let fingerprint_start_us = oi_trace_now_us()
+  let fingerprint = oi_instr_fingerprint(instr, aggregate, cache)
+  cache.fingerprint_us = cache.fingerprint_us +
+    oi_trace_elapsed_us_since(fingerprint_start_us)
+  match oi_node_id_get(instr, fingerprint, cache) {
+    Some(node_id) => {
+      cache.register_us = cache.register_us +
+        oi_trace_elapsed_us_since(start_us)
+      node_id
+    }
     None => {
-      let shallow = lcs_collect_shallow_effects(instr)
-      let locals_read = oi_local_bits_new(cache.local_bit_words)
-      let locals_written = oi_local_bits_new(cache.local_bit_words)
-      let mut unknown_locals_read = false
-      let mut unknown_locals_written = false
-      for idx in shallow.locals_read {
-        if !oi_local_bits_set(locals_read, idx) {
-          unknown_locals_read = true
-        }
-      }
-      for idx in shallow.locals_written {
-        if !oi_local_bits_set(locals_written, idx) {
-          unknown_locals_written = true
-        }
-      }
-      let mut reads_memory = shallow.reads_memory
-      let mut writes_memory = shallow.writes_memory
-      let mut reads_globals = shallow.reads_globals
-      let mut writes_globals = shallow.writes_globals
-      let mut calls = shallow.calls
-      let mut branches = shallow.branches
-      let mut traps = shallow.traps
-      let mut throws = shallow.throws
-      for child in eval_children(instr) {
-        let child_summary = oi_effects_summary_compute_cached(child, cache)
-        oi_local_bits_or_inplace(locals_read, child_summary.locals_read)
-        oi_local_bits_or_inplace(locals_written, child_summary.locals_written)
-        unknown_locals_read = unknown_locals_read ||
-          child_summary.unknown_locals_read
-        unknown_locals_written = unknown_locals_written ||
-          child_summary.unknown_locals_written
-        reads_memory = reads_memory || child_summary.reads_memory
-        writes_memory = writes_memory || child_summary.writes_memory
-        reads_globals = reads_globals || child_summary.reads_globals
-        writes_globals = writes_globals || child_summary.writes_globals
-        calls = calls || child_summary.calls
-        branches = branches || child_summary.branches
-        traps = traps || child_summary.traps
-        throws = throws || child_summary.throws
-      }
-      let summary = OIEffectsSummary::{
-        locals_read: oi_local_bits_intern(locals_read, cache),
-        locals_written: oi_local_bits_intern(locals_written, cache),
-        unknown_locals_read,
-        unknown_locals_written,
-        reads_memory,
-        writes_memory,
-        reads_globals,
-        writes_globals,
-        calls,
-        branches,
-        traps,
-        throws,
-        has_side_effects: false,
-      }
-      let with_side_effects = OIEffectsSummary::{
-        ..summary,
-        has_side_effects: oi_effects_has_side_effects(summary),
-      }
-      cache.effects_by_instr[instr] = with_side_effects
-      with_side_effects
+      let (size, summary) = aggregate.finish(cache)
+      let node_id = cache.size_by_id.length()
+      cache.size_by_id.push(size)
+      cache.effects_by_id.push(summary)
+      cache.fingerprint_by_id.push(fingerprint)
+      oi_node_id_put(instr, node_id, fingerprint, cache)
+      cache.register_us = cache.register_us +
+        oi_trace_elapsed_us_since(start_us)
+      node_id
     }
   }
+}
+
+///|
+fn oi_instr_node_id(instr : TInstr, cache : OIRewriteCache) -> Int {
+  oi_register_instr(instr, cache)
+}
+
+///|
+fn oi_instr_size_cached(instr : TInstr, cache : OIRewriteCache) -> Int {
+  let node_id = oi_instr_node_id(instr, cache)
+  cache.size_by_id[node_id]
 }
 
 ///|
@@ -486,7 +1766,8 @@ fn oi_effects_summary_cached(
   instr : TInstr,
   cache : OIRewriteCache,
 ) -> OIEffectsSummary {
-  oi_effects_summary_compute_cached(instr, cache)
+  let node_id = oi_instr_node_id(instr, cache)
+  cache.effects_by_id[node_id]
 }
 
 ///|
@@ -495,40 +1776,39 @@ fn oi_can_reorder_cached(
   b : TInstr,
   cache : OIRewriteCache,
 ) -> Bool {
-  if oi_instr_size_cached(a, cache) > 256 ||
-    oi_instr_size_cached(b, cache) > 256 {
+  cache.reorder_calls = cache.reorder_calls + 1
+  let start_us = oi_trace_now_us()
+  let left_id = oi_instr_node_id(a, cache)
+  if cache.size_by_id[left_id] > 256 {
+    cache.reorder_us = cache.reorder_us + oi_trace_elapsed_us_since(start_us)
     return false
   }
-  let left_hash = oi_instr_hash_u64(a)
-  let right_hash = oi_instr_hash_u64(b)
+  let right_id = oi_instr_node_id(b, cache)
+  if cache.size_by_id[right_id] > 256 {
+    cache.reorder_us = cache.reorder_us + oi_trace_elapsed_us_since(start_us)
+    return false
+  }
+  let (low_id, high_id) = oi_pair_cache_key(left_id, right_id)
   let index = oi_pair_cache_index(
-    left_hash,
-    right_hash,
+    low_id,
+    high_id,
     cache.reorder_by_pair.length(),
   )
   let entry = cache.reorder_by_pair[index]
-  if entry.valid &&
-    (
-      (
-        physical_equal(entry.left_instr, a) &&
-        physical_equal(entry.right_instr, b)
-      ) ||
-      (
-        physical_equal(entry.left_instr, b) &&
-        physical_equal(entry.right_instr, a)
-      )
-    ) {
+  if entry.valid && entry.low_id == low_id && entry.high_id == high_id {
+    cache.reorder_us = cache.reorder_us + oi_trace_elapsed_us_since(start_us)
     return entry.value
   }
-  let ea = oi_effects_summary_cached(a, cache)
-  let eb = oi_effects_summary_cached(b, cache)
+  let ea = cache.effects_by_id[left_id]
+  let eb = cache.effects_by_id[right_id]
   let value = !ea.invalidates(eb) && !eb.invalidates(ea)
   cache.reorder_by_pair[index] = OIPairCacheEntry::{
-    left_instr: a,
-    right_instr: b,
+    low_id,
+    high_id,
     value,
     valid: true,
   }
+  cache.reorder_us = cache.reorder_us + oi_trace_elapsed_us_since(start_us)
   value
 }
 
@@ -538,48 +1818,54 @@ fn oi_instr_eq_cached(
   right : TInstr,
   cache : OIRewriteCache,
 ) -> Bool {
+  cache.eq_calls = cache.eq_calls + 1
+  let start_us = oi_trace_now_us()
   match oi_instr_quick_eq_or_mismatch(left, right) {
-    Some(value) => return value
+    Some(value) => {
+      cache.eq_us = cache.eq_us + oi_trace_elapsed_us_since(start_us)
+      return value
+    }
     None => ()
   }
-  if oi_instr_size_cached(left, cache) > 256 ||
-    oi_instr_size_cached(right, cache) > 256 {
-    return false
-  }
   if physical_equal(left, right) {
+    cache.eq_us = cache.eq_us + oi_trace_elapsed_us_since(start_us)
     return true
   }
-  if left.hash() != right.hash() {
+  let left_hash = oi_instr_shallow_hash(left)
+  let right_hash = oi_instr_shallow_hash(right)
+  if left_hash != right_hash {
+    cache.eq_us = cache.eq_us + oi_trace_elapsed_us_since(start_us)
     return false
   }
-  let left_hash = oi_instr_hash_u64(left)
-  let right_hash = oi_instr_hash_u64(right)
-  let index = oi_pair_cache_index(
-    left_hash,
-    right_hash,
-    cache.eq_by_pair.length(),
-  )
+  let left_id = oi_instr_node_id(left, cache)
+  if cache.size_by_id[left_id] > 256 {
+    cache.eq_us = cache.eq_us + oi_trace_elapsed_us_since(start_us)
+    return false
+  }
+  let right_id = oi_instr_node_id(right, cache)
+  if cache.size_by_id[right_id] > 256 {
+    cache.eq_us = cache.eq_us + oi_trace_elapsed_us_since(start_us)
+    return false
+  }
+  if left_id == right_id {
+    cache.eq_us = cache.eq_us + oi_trace_elapsed_us_since(start_us)
+    return true
+  }
+  let (low_id, high_id) = oi_pair_cache_key(left_id, right_id)
+  let index = oi_pair_cache_index(low_id, high_id, cache.eq_by_pair.length())
   let entry = cache.eq_by_pair[index]
-  if entry.valid &&
-    (
-      (
-        physical_equal(entry.left_instr, left) &&
-        physical_equal(entry.right_instr, right)
-      ) ||
-      (
-        physical_equal(entry.left_instr, right) &&
-        physical_equal(entry.right_instr, left)
-      )
-    ) {
+  if entry.valid && entry.low_id == low_id && entry.high_id == high_id {
+    cache.eq_us = cache.eq_us + oi_trace_elapsed_us_since(start_us)
     return entry.value
   }
   let value = left == right
   cache.eq_by_pair[index] = OIPairCacheEntry::{
-    left_instr: left,
-    right_instr: right,
+    low_id,
+    high_id,
     value,
     valid: true,
   }
+  cache.eq_us = cache.eq_us + oi_trace_elapsed_us_since(start_us)
   value
 }
 
@@ -796,115 +2082,6 @@ fn oi_can_reorder(a : TInstr, b : TInstr) -> Bool {
 ///|
 fn oi_has_side_effects_cached(instr : TInstr, cache : OIRewriteCache) -> Bool {
   oi_effects_summary_cached(instr, cache).has_side_effects
-}
-
-///|
-priv struct OIPostOrderNode {
-  instr : TInstr
-  children : Array[TInstr]
-}
-
-///|
-fn oi_precompute_cached_summaries(body : TExpr, cache : OIRewriteCache) -> Unit {
-  oi_precompute_cached_summaries_bounded(body, cache, -1)
-}
-
-///|
-fn oi_precompute_cached_summaries_bounded(
-  body : TExpr,
-  cache : OIRewriteCache,
-  node_budget : Int,
-) -> Unit {
-  let stack : Array[TInstr] = body.instrs.copy()
-  let post_order : Array[OIPostOrderNode] = []
-  let mut seen = 0
-  while !stack.is_empty() {
-    if node_budget >= 0 && seen >= node_budget {
-      break
-    }
-    let curr = stack.pop().unwrap()
-    seen += 1
-    let children = eval_children(curr)
-    post_order.push(OIPostOrderNode::{ instr: curr, children })
-    for child in children {
-      stack.push(child)
-    }
-  }
-  let mut i = post_order.length() - 1
-  while i >= 0 {
-    let node = post_order[i]
-    let instr = node.instr
-    let shallow = lcs_collect_shallow_effects(instr)
-    let locals_read = oi_local_bits_new(cache.local_bit_words)
-    let locals_written = oi_local_bits_new(cache.local_bit_words)
-    let mut unknown_locals_read = false
-    let mut unknown_locals_written = false
-    for idx in shallow.locals_read {
-      if !oi_local_bits_set(locals_read, idx) {
-        unknown_locals_read = true
-      }
-    }
-    for idx in shallow.locals_written {
-      if !oi_local_bits_set(locals_written, idx) {
-        unknown_locals_written = true
-      }
-    }
-    let mut size = 1
-    let mut reads_memory = shallow.reads_memory
-    let mut writes_memory = shallow.writes_memory
-    let mut reads_globals = shallow.reads_globals
-    let mut writes_globals = shallow.writes_globals
-    let mut calls = shallow.calls
-    let mut branches = shallow.branches
-    let mut traps = shallow.traps
-    let mut throws = shallow.throws
-    for child in node.children {
-      size += match cache.size_by_instr.get(child) {
-        Some(child_size) => child_size
-        None => oi_instr_size_cached(child, cache)
-      }
-      let child_summary = match cache.effects_by_instr.get(child) {
-        Some(summary) => summary
-        None => oi_effects_summary_cached(child, cache)
-      }
-      oi_local_bits_or_inplace(locals_read, child_summary.locals_read)
-      oi_local_bits_or_inplace(locals_written, child_summary.locals_written)
-      unknown_locals_read = unknown_locals_read ||
-        child_summary.unknown_locals_read
-      unknown_locals_written = unknown_locals_written ||
-        child_summary.unknown_locals_written
-      reads_memory = reads_memory || child_summary.reads_memory
-      writes_memory = writes_memory || child_summary.writes_memory
-      reads_globals = reads_globals || child_summary.reads_globals
-      writes_globals = writes_globals || child_summary.writes_globals
-      calls = calls || child_summary.calls
-      branches = branches || child_summary.branches
-      traps = traps || child_summary.traps
-      throws = throws || child_summary.throws
-    }
-    cache.size_by_instr[instr] = size
-    let summary = OIEffectsSummary::{
-      locals_read: oi_local_bits_intern(locals_read, cache),
-      locals_written: oi_local_bits_intern(locals_written, cache),
-      unknown_locals_read,
-      unknown_locals_written,
-      reads_memory,
-      writes_memory,
-      reads_globals,
-      writes_globals,
-      calls,
-      branches,
-      traps,
-      throws,
-      has_side_effects: false,
-    }
-    let with_side_effects = OIEffectsSummary::{
-      ..summary,
-      has_side_effects: oi_effects_has_side_effects(summary),
-    }
-    cache.effects_by_instr[instr] = with_side_effects
-    i = i - 1
-  }
 }
 
 ///|
@@ -1306,10 +2483,7 @@ fn oi_instr_needs_fold_equal_operands(instr : TInstr) -> Bool {
 }
 
 ///|
-fn oi_texpr_scan_rewrite_needs(
-  body : TExpr,
-  scan_budget : Int,
-) -> Int {
+fn oi_texpr_scan_rewrite_needs(body : TExpr, scan_budget : Int) -> Int {
   let stack = body.instrs.copy()
   let mut scanned = 0
   let mut flags = 0
@@ -1332,9 +2506,7 @@ fn oi_texpr_scan_rewrite_needs(
     if (flags & oi_rewrite_need_all_flags) == oi_rewrite_need_all_flags {
       break
     }
-    for child in eval_children(curr) {
-      stack.push(child)
-    }
+    oi_for_each_non_control_child(curr, fn(child) { stack.push(child) })
   }
   flags
 }
@@ -2805,6 +3977,193 @@ fn oi_optimize_fixpoint(
 }
 
 ///|
+priv struct OIRewriteState {
+  env : Env
+  options : OptimizeOptions
+  module_ : Module
+  cache : OIRewriteCache
+  allow_expensive_eq : Bool
+  allow_reorder : Bool
+  allow_fold_equal_operands : Bool
+  max_fixpoint_rounds : Int
+  visited_instr_budget : Int
+  candidate_size_budget : Int
+  mut visited_instrs : Int
+  mut candidate_instrs : Int
+  mut rewritten_instrs : Int
+  mut max_rounds : Int
+  mut did_change : Bool
+}
+
+///|
+fn oi_rewrite_state_new(
+  env : Env,
+  options : OptimizeOptions,
+  module_ : Module,
+  cache : OIRewriteCache,
+  allow_expensive_eq : Bool,
+  allow_reorder : Bool,
+  allow_fold_equal_operands : Bool,
+  max_fixpoint_rounds : Int,
+  visited_instr_budget : Int,
+  candidate_size_budget : Int,
+) -> OIRewriteState {
+  OIRewriteState::{
+    env,
+    options,
+    module_,
+    cache,
+    allow_expensive_eq,
+    allow_reorder,
+    allow_fold_equal_operands,
+    max_fixpoint_rounds,
+    visited_instr_budget,
+    candidate_size_budget,
+    visited_instrs: 0,
+    candidate_instrs: 0,
+    rewritten_instrs: 0,
+    max_rounds: 0,
+    did_change: false,
+  }
+}
+
+///|
+fn oi_rewrite_non_control_children(
+  instr : TInstr,
+  state : OIRewriteState,
+) -> (TInstr, Bool) {
+  let children : Array[TInstr] = []
+  let mut changed = false
+  oi_for_each_non_control_child(instr, fn(child) {
+    let (next_child, child_changed) = oi_rewrite_instr_bottom_up(child, state)
+    if child_changed {
+      changed = true
+    }
+    children.push(next_child)
+  })
+  if changed {
+    (oi_rebuild_non_control(instr, children), true)
+  } else {
+    (instr, false)
+  }
+}
+
+///|
+fn oi_rewrite_texpr_bottom_up(
+  body : TExpr,
+  state : OIRewriteState,
+) -> (TExpr, Bool) {
+  if body.instrs.is_empty() {
+    return (body, false)
+  }
+  let out : Array[TInstr] = Array::new(capacity=body.instrs.length())
+  let mut changed = false
+  for instr in body.instrs {
+    if state.visited_instrs >= state.visited_instr_budget {
+      out.push(instr)
+      continue
+    }
+    let (next_instr, instr_changed) = oi_rewrite_instr_bottom_up(instr, state)
+    if instr_changed {
+      changed = true
+    }
+    out.push(next_instr)
+  }
+  if changed {
+    (TExpr::new(out), true)
+  } else {
+    (body, false)
+  }
+}
+
+///|
+fn oi_rewrite_instr_bottom_up(
+  instr : TInstr,
+  state : OIRewriteState,
+) -> (TInstr, Bool) {
+  if state.visited_instrs >= state.visited_instr_budget {
+    return (instr, false)
+  }
+  let (walked, child_changed) = match instr.kind {
+    TInstrKind::TBlock(bt, body) => {
+      let (next_body, body_changed) = oi_rewrite_texpr_bottom_up(body, state)
+      if body_changed {
+        (TInstr::block(bt, next_body), true)
+      } else {
+        (instr, false)
+      }
+    }
+    TInstrKind::TLoop(bt, body) => {
+      let (next_body, body_changed) = oi_rewrite_texpr_bottom_up(body, state)
+      if body_changed {
+        (TInstr::loop_(bt, next_body), true)
+      } else {
+        (instr, false)
+      }
+    }
+    TInstrKind::TIf(bt, cond, then_, else_) => {
+      let (next_cond, cond_changed) = oi_rewrite_instr_bottom_up(cond, state)
+      let (next_then, then_changed) = oi_rewrite_texpr_bottom_up(then_, state)
+      let mut else_changed = false
+      let next_else = match else_ {
+        Some(other) => {
+          let (next_other, other_changed) = oi_rewrite_texpr_bottom_up(
+            other, state,
+          )
+          else_changed = other_changed
+          Some(next_other)
+        }
+        None => None
+      }
+      if cond_changed || then_changed || else_changed {
+        (TInstr::if_(bt, next_cond, next_then, next_else), true)
+      } else {
+        (instr, false)
+      }
+    }
+    TInstrKind::TTryTable(bt, catches, body) => {
+      let (next_body, body_changed) = oi_rewrite_texpr_bottom_up(body, state)
+      if body_changed {
+        (TInstr::try_table(bt, catches, next_body), true)
+      } else {
+        (instr, false)
+      }
+    }
+    _ => oi_rewrite_non_control_children(instr, state)
+  }
+  state.visited_instrs = state.visited_instrs + 1
+  if !oi_should_attempt_fixpoint(walked) {
+    return (walked, child_changed)
+  }
+  if state.allow_expensive_eq &&
+    oi_instr_size_cached(walked, state.cache) > state.candidate_size_budget {
+    return (walked, child_changed)
+  }
+  state.candidate_instrs = state.candidate_instrs + 1
+  let (rewritten, rounds, rewritten_here) = oi_optimize_fixpoint(
+    walked,
+    state.env,
+    state.options,
+    state.module_,
+    state.cache,
+    state.allow_expensive_eq,
+    state.allow_reorder,
+    state.allow_fold_equal_operands,
+    state.max_fixpoint_rounds,
+  )
+  if rounds > state.max_rounds {
+    state.max_rounds = rounds
+  }
+  if rewritten_here {
+    state.rewritten_instrs = state.rewritten_instrs + 1
+    state.did_change = true
+    (rewritten, true)
+  } else {
+    (walked, child_changed)
+  }
+}
+
+///|
 priv struct OITransformStats {
   top_instrs : Int
   skipped_no_candidates : Bool
@@ -2813,6 +4172,19 @@ priv struct OITransformStats {
   candidate_instrs : Int
   rewritten_instrs : Int
   max_rounds : Int
+  node_id_get_calls : Int
+  node_id_put_calls : Int
+  eq_calls : Int
+  reorder_calls : Int
+  node_id_lookup_us : UInt64
+  fingerprint_us : UInt64
+  register_us : UInt64
+  eq_us : UInt64
+  reorder_us : UInt64
+  max_body_len : Int
+  prescan_us : UInt64
+  env_us : UInt64
+  rewrite_us : UInt64
 }
 
 ///|
@@ -2825,6 +4197,19 @@ fn oi_transform_stats_new(top_instrs : Int) -> OITransformStats {
     candidate_instrs: 0,
     rewritten_instrs: 0,
     max_rounds: 0,
+    node_id_get_calls: 0,
+    node_id_put_calls: 0,
+    eq_calls: 0,
+    reorder_calls: 0,
+    node_id_lookup_us: 0UL,
+    fingerprint_us: 0UL,
+    register_us: 0UL,
+    eq_us: 0UL,
+    reorder_us: 0UL,
+    max_body_len: 0,
+    prescan_us: 0UL,
+    env_us: 0UL,
+    rewrite_us: 0UL,
   }
 }
 
@@ -2834,17 +4219,8 @@ fn oi_trace_noop(_ : String) -> Unit {
 }
 
 ///|
-fn oi_trace_delta_to_ms(delta_raw : UInt64) -> UInt64 {
-  if delta_raw >= 1000000000UL {
-    // Likely nanoseconds.
-    delta_raw / 1000000UL
-  } else if delta_raw >= 1000000UL {
-    // Likely microseconds.
-    delta_raw / 1000UL
-  } else {
-    // Likely milliseconds (or very small us/ns delta that will be visible via raw fields).
-    delta_raw
-  }
+fn oi_trace_delta_us_to_ms(delta_us : UInt64) -> UInt64 {
+  delta_us / 1000UL
 }
 
 ///|
@@ -2866,39 +4242,38 @@ fn oi_trace_read_u64_le(bytes : Bytes, start : Int) -> UInt64 {
 
 ///|
 #cfg(target="native")
-fn oi_trace_now_ms() -> UInt64 {
+fn oi_trace_now_us() -> UInt64 {
   let tv = Bytes::new(16)
   if oi_native_gettimeofday(tv, 0UL) != 0 {
-    return @env.now()
+    return @env.now() * 1000UL
   }
   let sec = oi_trace_read_u64_le(tv, 0)
   let usec = oi_trace_read_u64_le(tv, 8)
-  // Keep raw unit as microseconds for delta-based normalization.
   sec * 1000000UL + usec
 }
 
 ///|
 #cfg(target="wasm-gc")
-fn oi_trace_now_ms() -> UInt64 {
-  @env.now()
+fn oi_trace_now_us() -> UInt64 {
+  @env.now() * 1000UL
 }
 
 ///|
 #cfg(target="wasm")
-fn oi_trace_now_ms() -> UInt64 {
-  @env.now()
+fn oi_trace_now_us() -> UInt64 {
+  @env.now() * 1000UL
 }
 
 ///|
 #cfg(target="js")
-fn oi_trace_now_ms() -> UInt64 {
-  @env.now()
+fn oi_trace_now_us() -> UInt64 {
+  @env.now() * 1000UL
 }
 
 ///|
 #cfg(target="llvm")
-fn oi_trace_now_ms() -> UInt64 {
-  @env.now()
+fn oi_trace_now_us() -> UInt64 {
+  @env.now() * 1000UL
 }
 
 ///|
@@ -2906,6 +4281,7 @@ fn optimize_instructions_on_func(
   func : Func,
   mod : Module,
   options : OptimizeOptions,
+  base_env : Env,
 ) -> (Func, OITransformStats) {
   match func {
     TFunc(locals, body) => {
@@ -2921,16 +4297,30 @@ fn optimize_instructions_on_func(
             candidate_instrs: 0,
             rewritten_instrs: 0,
             max_rounds: 0,
+            node_id_get_calls: 0,
+            node_id_put_calls: 0,
+            eq_calls: 0,
+            reorder_calls: 0,
+            node_id_lookup_us: 0UL,
+            fingerprint_us: 0UL,
+            register_us: 0UL,
+            eq_us: 0UL,
+            reorder_us: 0UL,
+            max_body_len: 0,
+            prescan_us: 0UL,
+            env_us: 0UL,
+            rewrite_us: 0UL,
           },
         )
       }
       let max_fixpoint_rounds = if top_instrs > 3000 { 1 } else { 2 }
+      let prescan_start_us = oi_trace_now_us()
       let scan_budget = oi_rewrite_candidate_scan_budget(top_instrs)
       let rewrite_needs_flags = oi_texpr_scan_rewrite_needs(body, scan_budget)
+      let prescan_us = oi_trace_elapsed_us_since(prescan_start_us)
       if !oi_rewrite_needs_has(
-        rewrite_needs_flags,
-        oi_rewrite_need_has_candidate,
-      ) {
+          rewrite_needs_flags, oi_rewrite_need_has_candidate,
+        ) {
         return (
           func,
           OITransformStats::{
@@ -2941,29 +4331,34 @@ fn optimize_instructions_on_func(
             candidate_instrs: 0,
             rewritten_instrs: 0,
             max_rounds: 0,
+            node_id_get_calls: 0,
+            node_id_put_calls: 0,
+            eq_calls: 0,
+            reorder_calls: 0,
+            node_id_lookup_us: 0UL,
+            fingerprint_us: 0UL,
+            register_us: 0UL,
+            eq_us: 0UL,
+            reorder_us: 0UL,
+            max_body_len: 0,
+            prescan_us,
+            env_us: 0UL,
+            rewrite_us: 0UL,
           },
         )
       }
       let allow_expensive_eq = top_instrs <= 2000 &&
-        oi_rewrite_needs_has(
-          rewrite_needs_flags,
-          oi_rewrite_need_expensive_eq,
-        )
+        oi_rewrite_needs_has(rewrite_needs_flags, oi_rewrite_need_expensive_eq)
       let allow_reorder = top_instrs <= 3000 &&
         oi_rewrite_needs_has(rewrite_needs_flags, oi_rewrite_need_reorder) &&
         allow_expensive_eq
       let allow_fold_equal_operands = top_instrs <= 5000 &&
         oi_rewrite_needs_has(
-          rewrite_needs_flags,
-          oi_rewrite_need_fold_equal_operands,
+          rewrite_needs_flags, oi_rewrite_need_fold_equal_operands,
         )
-      let env = Env::new().with_module(mod).with_locals(locals)
-      let cache = oi_rewrite_cache_new(local_count=locals.length())
-      let mut visited_instrs = 0
-      let mut candidate_instrs = 0
-      let mut rewritten_instrs = 0
-      let mut max_rounds = 0
-      let mut did_change = false
+      let env_start_us = oi_trace_now_us()
+      let env = base_env.with_locals(locals)
+      let env_us = oi_trace_elapsed_us_since(env_start_us)
       let visited_instr_budget = if top_instrs > 12000 {
         top_instrs / 6
       } else if top_instrs > 6000 {
@@ -2978,87 +4373,25 @@ fn optimize_instructions_on_func(
       } else {
         128
       }
-      let should_precompute = top_instrs >= 3500 &&
-        (allow_reorder || allow_expensive_eq || allow_fold_equal_operands)
-      if should_precompute {
-        if top_instrs <= 12000 {
-          oi_precompute_cached_summaries(body, cache)
-        } else {
-          oi_precompute_cached_summaries_bounded(
-            body, cache, visited_instr_budget,
-          )
-        }
+      let pair_cache_size = if top_instrs > 12000 {
+        8192
+      } else if top_instrs > 4000 {
+        4096
+      } else {
+        2048
       }
-      let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
-        self,
-        _,
-        curr,
-      ) {
-        if visited_instrs >= visited_instr_budget {
-          // Cap work on very large functions: leave the remaining subtree
-          // unchanged and skip descending further.
-          return change((), curr)
-        }
-        let curr_children = eval_children(curr)
-        if curr_children.is_empty() {
-          visited_instrs += 1
-          if !oi_should_attempt_fixpoint(curr) {
-            // Returning `unchanged()` here would trigger
-            // `walk_tinstruction_default` and traverse this subtree again.
-            return change((), curr)
-          }
-          if allow_expensive_eq &&
-            !oi_instr_within_eq_budget(curr, candidate_size_budget, cache) {
-            return change((), curr)
-          }
-          candidate_instrs += 1
-          let (rewritten, rounds, rewritten_here) = oi_optimize_fixpoint(
-            curr, env, options, mod, cache, allow_expensive_eq, allow_reorder, allow_fold_equal_operands,
-            max_fixpoint_rounds,
-          )
-          if rounds > max_rounds {
-            max_rounds = rounds
-          }
-          if rewritten_here {
-            rewritten_instrs += 1
-            did_change = true
-          }
-          return change((), rewritten)
-        }
-        let walked = match self.walk_tinstruction_default((), curr) {
-          Ok(Some((_, updated))) => updated
-          Ok(None) => curr
-          Err(e) => return Err(e)
-        }
-        visited_instrs += 1
-        if !oi_should_attempt_fixpoint(walked) {
-          // Returning `unchanged()` here would trigger
-          // `walk_tinstruction_default` and traverse this subtree again.
-          return change((), walked)
-        }
-        if allow_expensive_eq &&
-          !oi_instr_within_eq_budget(walked, candidate_size_budget, cache) {
-          return change((), walked)
-        }
-        candidate_instrs += 1
-        let (rewritten, rounds, rewritten_here) = oi_optimize_fixpoint(
-          walked, env, options, mod, cache, allow_expensive_eq, allow_reorder, allow_fold_equal_operands,
-          max_fixpoint_rounds,
-        )
-        if rounds > max_rounds {
-          max_rounds = rounds
-        }
-        if rewritten_here {
-          rewritten_instrs += 1
-          did_change = true
-        }
-        change((), rewritten)
-      })
-      let new_body = match walker.walk_texpr((), body) {
-        Ok(Some((_, out))) => out
-        Ok(None) => body
-        Err(_) => body
-      }
+      let cache = oi_rewrite_cache_new(
+        local_count=locals.length(),
+        pair_cache_size~,
+      )
+      let state = oi_rewrite_state_new(
+        env, options, mod, cache, allow_expensive_eq, allow_reorder, allow_fold_equal_operands,
+        max_fixpoint_rounds, visited_instr_budget, candidate_size_budget,
+      )
+      let rewrite_start_us = oi_trace_now_us()
+      let (new_body, body_changed) = oi_rewrite_texpr_bottom_up(body, state)
+      let rewrite_us = oi_trace_elapsed_us_since(rewrite_start_us)
+      let did_change = state.did_change || body_changed
       (
         if did_change {
           Func::t_func(locals, new_body)
@@ -3069,10 +4402,23 @@ fn optimize_instructions_on_func(
           top_instrs,
           skipped_no_candidates: false,
           did_change,
-          visited_instrs,
-          candidate_instrs,
-          rewritten_instrs,
-          max_rounds,
+          visited_instrs: state.visited_instrs,
+          candidate_instrs: state.candidate_instrs,
+          rewritten_instrs: state.rewritten_instrs,
+          max_rounds: state.max_rounds,
+          node_id_get_calls: cache.node_id_get_calls,
+          node_id_put_calls: cache.node_id_put_calls,
+          eq_calls: cache.eq_calls,
+          reorder_calls: cache.reorder_calls,
+          node_id_lookup_us: cache.node_id_lookup_us,
+          fingerprint_us: cache.fingerprint_us,
+          register_us: cache.register_us,
+          eq_us: cache.eq_us,
+          reorder_us: cache.reorder_us,
+          max_body_len: cache.max_body_len,
+          prescan_us,
+          env_us,
+          rewrite_us,
         },
       )
     }
@@ -3088,6 +4434,7 @@ fn optimize_instructions_ir_pass(
   trace_all_funcs? : Bool = true,
 ) -> ModuleTransformer[IRContext] {
   let mut seen_funcs = 0
+  let base_env = Env::new().with_module(mod)
   ModuleTransformer::new().on_func_evt(fn(_, ctx, func) {
     seen_funcs += 1
     let ordinal = seen_funcs
@@ -3106,21 +4453,41 @@ fn optimize_instructions_ir_pass(
         "func[\{ordinal}] start top_instrs=\{top_instrs} locals=\{locals_count} local_bit_words=\{tracked_words}",
       )
     }
-    let start_raw = oi_trace_now_ms()
-    let (next, stats) = optimize_instructions_on_func(func, mod, options)
-    let end_raw = oi_trace_now_ms()
-    let elapsed_raw = if end_raw >= start_raw {
-      end_raw - start_raw
-    } else {
-      0UL
-    }
-    let elapsed = oi_trace_delta_to_ms(elapsed_raw)
+    let start_us = oi_trace_now_us()
+    let (next, stats) = optimize_instructions_on_func(
+      func, mod, options, base_env,
+    )
+    let end_us = oi_trace_now_us()
+    let elapsed_us = if end_us >= start_us { end_us - start_us } else { 0UL }
+    let elapsed_ms = oi_trace_delta_us_to_ms(elapsed_us)
     let log_heavy_func = stats.visited_instrs >= 20000 ||
       stats.candidate_instrs >= 5000
-    if log_func || log_heavy_func || elapsed >= 1000 {
+    let lookup_ms = oi_trace_delta_us_to_ms(stats.node_id_lookup_us)
+    let fingerprint_ms = oi_trace_delta_us_to_ms(stats.fingerprint_us)
+    let register_ms = oi_trace_delta_us_to_ms(stats.register_us)
+    let eq_ms = oi_trace_delta_us_to_ms(stats.eq_us)
+    let reorder_ms = oi_trace_delta_us_to_ms(stats.reorder_us)
+    let prescan_ms = oi_trace_delta_us_to_ms(stats.prescan_us)
+    let env_ms = oi_trace_delta_us_to_ms(stats.env_us)
+    let rewrite_ms = oi_trace_delta_us_to_ms(stats.rewrite_us)
+    let log_slow_measurement = elapsed_ms >= 250 ||
+      prescan_ms >= 50 ||
+      env_ms >= 50 ||
+      rewrite_ms >= 50 ||
+      lookup_ms >= 50 ||
+      fingerprint_ms >= 50 ||
+      register_ms >= 50 ||
+      eq_ms >= 50 ||
+      reorder_ms >= 50
+    if log_func || log_heavy_func || log_slow_measurement {
       trace(
-        "func[\{ordinal}] done elapsed_ms=\{elapsed} elapsed_raw=\{elapsed_raw} start_raw=\{start_raw} end_raw=\{end_raw} changed=\{stats.did_change} skipped=\{stats.skipped_no_candidates} top_instrs=\{stats.top_instrs} visited=\{stats.visited_instrs} candidates=\{stats.candidate_instrs} rewritten=\{stats.rewritten_instrs} max_rounds=\{stats.max_rounds}",
+        "func[\{ordinal}] done elapsed_ms=\{elapsed_ms} elapsed_us=\{elapsed_us} start_us=\{start_us} end_us=\{end_us} changed=\{stats.did_change} skipped=\{stats.skipped_no_candidates} top_instrs=\{stats.top_instrs} visited=\{stats.visited_instrs} candidates=\{stats.candidate_instrs} rewritten=\{stats.rewritten_instrs} max_rounds=\{stats.max_rounds}",
       )
+      if log_slow_measurement {
+        trace(
+          "func[\{ordinal}] slow-path max_body_len=\{stats.max_body_len} prescan_ms=\{prescan_ms} env_ms=\{env_ms} rewrite_ms=\{rewrite_ms} node_id_get_calls=\{stats.node_id_get_calls} node_id_put_calls=\{stats.node_id_put_calls} eq_calls=\{stats.eq_calls} reorder_calls=\{stats.reorder_calls} lookup_ms=\{lookup_ms} fingerprint_ms=\{fingerprint_ms} register_ms=\{register_ms} eq_ms=\{eq_ms} reorder_ms=\{reorder_ms}",
+        )
+      }
     }
     // Returning `unchanged()` here would trigger `walk_func_default`,
     // causing a second traversal of this function.

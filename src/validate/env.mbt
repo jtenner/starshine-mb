@@ -412,128 +412,214 @@ pub fn Env::with_elems(env : Env, elems : Array[Elem]) -> Env {
 }
 
 ///|
-pub fn Env::with_module(self : Env, m : Module) -> Env {
-  let env = self
-
-  // --- Types ---------------------------------------------------------------
-  let env = match m.type_sec {
-    None => env
-    Some(TypeSec(recs)) => {
-      let mut e = env
+fn env_collect_module_types(
+  base_global_types : Array[SubType],
+  base_rec_stack : Stack[Array[SubType]],
+  m : Module,
+) -> (Array[SubType], Stack[Array[SubType]]) {
+  let global_types = base_global_types.copy()
+  let rec_stack = base_rec_stack.copy()
+  match m.type_sec {
+    None => ()
+    Some(TypeSec(recs)) =>
       for rec in recs {
-        e = e.with_rectype(rec)
+        match rec {
+          SingleRecType(st) => {
+            rec_stack.push([st])
+            global_types.push(st)
+          }
+          GroupRecType(sts) => {
+            rec_stack.push(sts)
+            for st in sts {
+              global_types.push(st)
+            }
+          }
+        }
       }
-      e
-    }
   }
+  (global_types, rec_stack)
+}
 
-  // --- Imports -------------------------------------------------------------
-  let env = match m.import_sec {
-    None => env
-    Some(ImportSec(imps)) => {
-      let mut e = env
+///|
+fn env_collect_module_imported_members(
+  env : Env,
+  m : Module,
+  funcs : Array[FuncType],
+  func_type_idxs : Array[TypeIdx?],
+  tables : Array[TableType],
+  mems : Array[MemType],
+  globals : Array[GlobalType],
+  tags : Array[TagType],
+) -> Unit {
+  match m.import_sec {
+    None => ()
+    Some(ImportSec(imps)) =>
       for imp in imps {
         match imp {
           Import(_, _, exttype) =>
             match exttype {
               FuncExternType(type_idx) =>
-                match e.resolve_functype(type_idx) {
+                match env.resolve_functype(type_idx) {
                   None => ()
-                  Some(ft) => e = e.push_func_with_typeidx(ft, Some(type_idx))
+                  Some(ft) => {
+                    funcs.push(ft)
+                    func_type_idxs.push(Some(type_idx))
+                  }
                 }
-              TableExternType(table_ty) => e = e.push_table(table_ty)
-              MemExternType(mem_ty) => e = e.push_mem(mem_ty)
-              GlobalExternType(global_ty) => e = e.push_global(global_ty)
-              TagExternType(tag_ty) => e = e.push_tag(tag_ty)
+              TableExternType(table_ty) => tables.push(table_ty)
+              MemExternType(mem_ty) => mems.push(mem_ty)
+              GlobalExternType(global_ty) => globals.push(global_ty)
+              TagExternType(tag_ty) => tags.push(tag_ty)
             }
         }
       }
-      e
-    }
   }
+}
 
-  // --- Function section ----------------------------------------------------
-  let env = match m.func_sec {
-    None => env
-    Some(FuncSec(type_idxs)) => {
-      let mut e = env
-      for i in 0..<type_idxs.length() {
-        let tidx = type_idxs[i]
-        match e.resolve_functype(tidx) {
+///|
+fn env_collect_module_defined_funcs(
+  env : Env,
+  m : Module,
+  funcs : Array[FuncType],
+  func_type_idxs : Array[TypeIdx?],
+) -> Unit {
+  match m.func_sec {
+    None => ()
+    Some(FuncSec(type_idxs)) =>
+      for tidx in type_idxs {
+        match env.resolve_functype(tidx) {
           None => ()
-          Some(ft) => e = e.push_func_with_typeidx(ft, Some(tidx))
+          Some(ft) => {
+            funcs.push(ft)
+            func_type_idxs.push(Some(tidx))
+          }
         }
       }
-      e
-    }
   }
+}
 
-  // --- Tables --------------------------------------------------------------
-  let env = match m.table_sec {
-    None => env
-    Some(TableSec(tables)) => {
-      let mut e = env
-      for table in tables {
-        e = e.push_table(table.0)
+///|
+fn env_collect_module_tables(
+  base_tables : Array[TableType],
+  m : Module,
+) -> Array[TableType] {
+  let tables = base_tables.copy()
+  match m.table_sec {
+    None => ()
+    Some(TableSec(entries)) =>
+      for table in entries {
+        tables.push(table.0)
       }
-      e
-    }
   }
+  tables
+}
 
-  // --- Memories ------------------------------------------------------------
-  let env = match m.mem_sec {
-    None => env
-    Some(MemSec(mems)) => {
-      let mut e = env
-      for mem in mems {
-        e = e.push_mem(mem)
+///|
+fn env_collect_module_mems(
+  base_mems : Array[MemType],
+  m : Module,
+) -> Array[MemType] {
+  let mems = base_mems.copy()
+  match m.mem_sec {
+    None => ()
+    Some(MemSec(entries)) =>
+      for mem in entries {
+        mems.push(mem)
       }
-      e
-    }
   }
+  mems
+}
 
-  // --- Globals -------------------------------------------------------------
-  let env = match m.global_sec {
-    None => env
-    Some(GlobalSec(globals)) => {
-      let mut e = env
-      for global in globals {
-        e = e.push_global(global.0)
+///|
+fn env_collect_module_globals(
+  base_globals : Array[GlobalType],
+  m : Module,
+) -> Array[GlobalType] {
+  let globals = base_globals.copy()
+  match m.global_sec {
+    None => ()
+    Some(GlobalSec(entries)) =>
+      for global in entries {
+        globals.push(global.0)
       }
-      e
-    }
   }
+  globals
+}
 
-  // --- Tags ---------------------------------------------------------------
-  let env = match m.tag_sec {
-    None => env
-    Some(TagSec(tags)) => {
-      let mut e = env
-      for tag in tags {
-        e = e.push_tag(tag)
+///|
+fn env_collect_module_tags(
+  base_tags : Array[TagType],
+  m : Module,
+) -> Array[TagType] {
+  let tags = base_tags.copy()
+  match m.tag_sec {
+    None => ()
+    Some(TagSec(entries)) =>
+      for tag in entries {
+        tags.push(tag)
       }
-      e
-    }
   }
+  tags
+}
 
-  // --- Elems ---------------------------------------------------------------
-  let env = match m.elem_sec {
-    None => env
-    Some(ElemSec(elems)) => env.with_elems(elems)
-  }
-
-  // --- Data ---------------------------------------------------------------
-  let env = match m.data_sec {
-    None => env
-    Some(DataSec(datas)) => {
-      let mut e = env
-      for d in datas {
-        e = e.push_data(d)
+///|
+fn env_collect_module_datas(
+  base_datas : Array[Data],
+  m : Module,
+) -> Array[Data] {
+  let datas = base_datas.copy()
+  match m.data_sec {
+    None => ()
+    Some(DataSec(entries)) =>
+      for data in entries {
+        datas.push(data)
       }
-      e
-    }
   }
-  env
+  datas
+}
+
+///|
+pub fn Env::with_module(self : Env, m : Module) -> Env {
+  let (global_types, rec_stack) = env_collect_module_types(
+    self.global_types,
+    self.rec_stack,
+    m,
+  )
+  let type_env = Env::{ ..self, global_types, rec_stack }
+
+  let funcs = self.funcs.copy()
+  let func_type_idxs = self.func_type_idxs.copy()
+  let tables = self.tables.copy()
+  let mems = self.mems.copy()
+  let globals = self.globals.copy()
+  let tags = self.tags.copy()
+
+  env_collect_module_imported_members(
+    type_env, m, funcs, func_type_idxs, tables, mems, globals, tags,
+  )
+  env_collect_module_defined_funcs(type_env, m, funcs, func_type_idxs)
+
+  let tables = env_collect_module_tables(tables, m)
+  let mems = env_collect_module_mems(mems, m)
+  let globals = env_collect_module_globals(globals, m)
+  let tags = env_collect_module_tags(tags, m)
+  let elems = match m.elem_sec {
+    None => self.elems
+    Some(ElemSec(elems)) => elems
+  }
+  let datas = env_collect_module_datas(self.datas, m)
+
+  Env::{
+    ..type_env,
+    funcs,
+    func_type_idxs,
+    tables,
+    mems,
+    globals,
+    elems,
+    datas,
+    tags,
+  }
 }
 
 ///|
