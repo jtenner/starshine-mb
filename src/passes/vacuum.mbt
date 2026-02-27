@@ -52,6 +52,60 @@ fn vq_type_of(instr : TInstr, env : Env) -> ValType? {
 }
 
 ///|
+fn vq_instr_hash_u64(instr : TInstr) -> UInt64 {
+  instr.hash().reinterpret_as_uint().to_uint64()
+}
+
+///|
+fn vq_type_of_cached(
+  instr : TInstr,
+  env : Env,
+  type_cache : Map[UInt64, ValType?],
+) -> ValType? {
+  let h = vq_instr_hash_u64(instr)
+  match type_cache.get(h) {
+    Some(v) => v
+    None => {
+      let v = vq_type_of(instr, env)
+      type_cache[h] = v
+      v
+    }
+  }
+}
+
+///|
+fn vq_has_unremovable_effects_cached(
+  instr : TInstr,
+  effect_cache : Map[UInt64, Bool],
+) -> Bool {
+  let h = vq_instr_hash_u64(instr)
+  match effect_cache.get(h) {
+    Some(v) => v
+    None => {
+      let v = lcs_collect_effects(instr).has_unremovable_side_effects()
+      effect_cache[h] = v
+      v
+    }
+  }
+}
+
+///|
+fn vq_has_unremovable_shallow_effects_cached(
+  instr : TInstr,
+  shallow_effect_cache : Map[UInt64, Bool],
+) -> Bool {
+  let h = vq_instr_hash_u64(instr)
+  match shallow_effect_cache.get(h) {
+    Some(v) => v
+    None => {
+      let v = lcs_collect_shallow_effects(instr).has_unremovable_side_effects()
+      shallow_effect_cache[h] = v
+      v
+    }
+  }
+}
+
+///|
 fn vq_same_type(a : ValType?, b : ValType?) -> Bool {
   match (a, b) {
     (Some(x), Some(y)) => x == y
@@ -69,12 +123,16 @@ fn vq_block_result_type(bt : BlockType, env : Env) -> ValType? {
 }
 
 ///|
-fn vq_texpr_result_type(expr : TExpr, env : Env) -> ValType? {
+fn vq_texpr_result_type(
+  expr : TExpr,
+  env : Env,
+  type_cache : Map[UInt64, ValType?],
+) -> ValType? {
   let { instrs: items, .. } = expr
   if items.is_empty() {
     None
   } else {
-    vq_type_of(items[items.length() - 1], env)
+    vq_type_of_cached(items[items.length() - 1], env, type_cache)
   }
 }
 
@@ -105,7 +163,11 @@ fn vq_texpr_is_unreachable(expr : TExpr) -> Bool {
 }
 
 ///|
-fn vq_wrap_texpr(expr : TExpr, env : Env) -> TInstr {
+fn vq_wrap_texpr(
+  expr : TExpr,
+  env : Env,
+  type_cache : Map[UInt64, ValType?],
+) -> TInstr {
   let { instrs: items, .. } = expr
   if items.length() == 0 {
     return TInstr::nop()
@@ -113,31 +175,41 @@ fn vq_wrap_texpr(expr : TExpr, env : Env) -> TInstr {
   if items.length() == 1 {
     return items[0]
   }
-  match vq_texpr_result_type(expr, env) {
+  match vq_texpr_result_type(expr, env, type_cache) {
     Some(vt) => TInstr::block(BlockType::val_type(vt), expr)
     None => TInstr::block(BlockType::void_(), expr)
   }
 }
 
 ///|
-fn vq_drop_texpr_value(expr : TExpr, env : Env) -> TExpr {
-  let wrapped = vq_wrap_texpr(expr, env)
-  match vq_type_of(wrapped, env) {
+fn vq_drop_texpr_value(
+  expr : TExpr,
+  env : Env,
+  type_cache : Map[UInt64, ValType?],
+) -> TExpr {
+  let wrapped = vq_wrap_texpr(expr, env, type_cache)
+  match vq_type_of_cached(wrapped, env, type_cache) {
     Some(_) => TExpr::new([TInstr::drop(wrapped)])
     None => TExpr::new([wrapped])
   }
 }
 
 ///|
-fn vq_must_keep_unused_parent(curr : TInstr) -> Bool {
-  lcs_collect_shallow_effects(curr).has_unremovable_side_effects()
+fn vq_must_keep_unused_parent(
+  curr : TInstr,
+  shallow_effect_cache : Map[UInt64, Bool],
+) -> Bool {
+  vq_has_unremovable_shallow_effects_cached(curr, shallow_effect_cache)
 }
 
 ///|
-fn vq_children_with_effects(curr : TInstr) -> Array[TInstr] {
+fn vq_children_with_effects(
+  curr : TInstr,
+  effect_cache : Map[UInt64, Bool],
+) -> Array[TInstr] {
   let out : Array[TInstr] = []
   for child in eval_children(curr) {
-    if lcs_collect_effects(child).has_unremovable_side_effects() {
+    if vq_has_unremovable_effects_cached(child, effect_cache) {
       out.push(child)
     }
   }
@@ -149,16 +221,18 @@ fn vq_get_dropped_children_and_append(
   curr : TInstr,
   env : Env,
   dummy : TInstr,
+  type_cache : Map[UInt64, ValType?],
+  effect_cache : Map[UInt64, Bool],
 ) -> TInstr {
   let items : Array[TInstr] = []
-  for child in vq_children_with_effects(curr) {
-    match vq_type_of(child, env) {
+  for child in vq_children_with_effects(curr, effect_cache) {
+    match vq_type_of_cached(child, env, type_cache) {
       Some(_) => items.push(TInstr::drop(child))
       None => items.push(child)
     }
   }
   items.push(dummy)
-  match vq_type_of(dummy, env) {
+  match vq_type_of_cached(dummy, env, type_cache) {
     Some(vt) => TInstr::block(BlockType::val_type(vt), TExpr::new(items))
     None => TInstr::block(BlockType::void_(), TExpr::new(items))
   }
@@ -182,11 +256,14 @@ fn vq_optimize(
   type_matters : Bool,
   env : Env,
   budget : Ref[Int],
+  type_cache : Map[UInt64, ValType?],
+  effect_cache : Map[UInt64, Bool],
+  shallow_effect_cache : Map[UInt64, Bool],
 ) -> TInstr? {
   if !vq_take_budget(budget) {
     return Some(instr)
   }
-  let initial_type = vq_type_of(instr, env)
+  let initial_type = vq_type_of_cached(instr, env, type_cache)
   let mut type_matters = type_matters
   if initial_type is None {
     type_matters = true
@@ -201,7 +278,7 @@ fn vq_optimize(
   let mut prev = instr
   let mut curr = instr
   for _ in 0..<64 {
-    let curr_type = vq_type_of(curr, env)
+    let curr_type = vq_type_of_cached(curr, env, type_cache)
     if type_matters && !vq_same_type(curr_type, initial_type) {
       return Some(prev)
     }
@@ -214,10 +291,10 @@ fn vq_optimize(
       | TInstrKind::TTryTable(_, _, _) => return Some(curr)
       _ => ()
     }
-    if vq_must_keep_unused_parent(curr) {
+    if vq_must_keep_unused_parent(curr, shallow_effect_cache) {
       return Some(curr)
     }
-    let children = vq_children_with_effects(curr)
+    let children = vq_children_with_effects(curr, effect_cache)
     if children.is_empty() {
       return None
     }
@@ -232,7 +309,11 @@ fn vq_optimize(
       Some(vt) =>
         match af_make_zero(vt) {
           Some(dummy) =>
-            return Some(vq_get_dropped_children_and_append(curr, env, dummy))
+            return Some(
+              vq_get_dropped_children_and_append(
+                curr, env, dummy, type_cache, effect_cache,
+              ),
+            )
           None => return Some(curr)
         }
       None => return Some(curr)
@@ -262,6 +343,9 @@ fn vq_optimize_sequence(
   result_type : ValType?,
   result_used : Bool,
   budget : Ref[Int],
+  type_cache : Map[UInt64, ValType?],
+  effect_cache : Map[UInt64, Bool],
+  shallow_effect_cache : Map[UInt64, Bool],
 ) -> VQSequenceResult {
   let out : Array[TInstr] = []
   let mut changed = false
@@ -269,9 +353,11 @@ fn vq_optimize_sequence(
   for i = 0; i < size; i = i + 1 {
     let child = items[i]
     let used = i == size - 1 && result_type is Some(_) && result_used
-    let mut optimized = vq_process_instr(child, env, used, true, budget)
+    let mut optimized = vq_process_instr(
+      child, env, used, true, budget, type_cache, effect_cache, shallow_effect_cache,
+    )
     if optimized is None {
-      match vq_type_of(child, env) {
+      match vq_type_of_cached(child, env, type_cache) {
         Some(vt) =>
           match af_make_zero(vt) {
             Some(zero) => optimized = Some(zero)
@@ -306,10 +392,13 @@ fn vq_optimize_texpr(
   result_type : ValType?,
   result_used : Bool,
   budget : Ref[Int],
+  type_cache : Map[UInt64, ValType?],
+  effect_cache : Map[UInt64, Bool],
+  shallow_effect_cache : Map[UInt64, Bool],
 ) -> TExpr {
   let { instrs: items, .. } = expr
   let sequence = vq_optimize_sequence(
-    items, env, result_type, result_used, budget,
+    items, env, result_type, result_used, budget, type_cache, effect_cache, shallow_effect_cache,
   )
   TExpr::new(sequence.items)
 }
@@ -319,6 +408,7 @@ fn vq_simplify_block_to_contents(
   bt : BlockType,
   body : TExpr,
   env : Env,
+  type_cache : Map[UInt64, ValType?],
 ) -> TInstr {
   if has_break_to_depth_in_texpr(body, 0) {
     return TInstr::block(bt, body)
@@ -334,12 +424,13 @@ fn vq_simplify_block_to_contents(
     let only = items[0]
     match vq_block_result_type(bt, env) {
       Some(vt) =>
-        match vq_type_of(only, env) {
+        match vq_type_of_cached(only, env, type_cache) {
           Some(t) if t == vt => return only
           _ => ()
         }
       None =>
-        if vq_type_of(only, env) is None || is_unreachable_instr(only) {
+        if vq_type_of_cached(only, env, type_cache) is None ||
+          is_unreachable_instr(only) {
           return only
         }
     }
@@ -369,10 +460,13 @@ fn vq_texpr_throws(expr : TExpr) -> Bool {
 }
 
 ///|
-fn vq_texpr_has_unremovable_side_effects(expr : TExpr) -> Bool {
+fn vq_texpr_has_unremovable_side_effects(
+  expr : TExpr,
+  effect_cache : Map[UInt64, Bool],
+) -> Bool {
   let { instrs: items, .. } = expr
   for item in items {
-    if lcs_collect_effects(item).has_unremovable_side_effects() {
+    if vq_has_unremovable_effects_cached(item, effect_cache) {
       return true
     }
   }
@@ -386,6 +480,9 @@ fn vq_process_instr(
   result_used : Bool,
   type_matters : Bool,
   budget : Ref[Int],
+  type_cache : Map[UInt64, ValType?],
+  effect_cache : Map[UInt64, Bool],
+  shallow_effect_cache : Map[UInt64, Bool],
 ) -> TInstr? {
   if !vq_take_budget(budget) {
     return Some(instr)
@@ -394,13 +491,15 @@ fn vq_process_instr(
     TInstrKind::TBlock(bt, body) => {
       let result_type = vq_block_result_type(bt, env)
       let next_body = vq_optimize_texpr(
-        body, env, result_type, result_used, budget,
+        body, env, result_type, result_used, budget, type_cache, effect_cache, shallow_effect_cache,
       )
-      Some(vq_simplify_block_to_contents(bt, next_body, env))
+      Some(vq_simplify_block_to_contents(bt, next_body, env, type_cache))
     }
     TInstrKind::TIf(bt, condition, then_body, else_body) => {
       let next_condition = match
-        vq_process_instr(condition, env, true, true, budget) {
+        vq_process_instr(
+          condition, env, true, true, budget, type_cache, effect_cache, shallow_effect_cache,
+        ) {
         Some(v) => v
         None => condition
       }
@@ -411,6 +510,9 @@ fn vq_process_instr(
         arm_result_type,
         arm_result_type is Some(_),
         budget,
+        type_cache,
+        effect_cache,
+        shallow_effect_cache,
       )
       let next_else = match else_body {
         Some(other) =>
@@ -421,6 +523,9 @@ fn vq_process_instr(
               arm_result_type,
               arm_result_type is Some(_),
               budget,
+              type_cache,
+              effect_cache,
+              shallow_effect_cache,
             ),
           )
         None => None
@@ -429,22 +534,22 @@ fn vq_process_instr(
       match next_condition.kind {
         TInstrKind::TI32Const(I32(v)) =>
           if v != 0 {
-            return Some(vq_wrap_texpr(next_then, env))
+            return Some(vq_wrap_texpr(next_then, env, type_cache))
           } else {
             return Some(
               match next_else {
-                Some(other) => vq_wrap_texpr(other, env)
+                Some(other) => vq_wrap_texpr(other, env, type_cache)
                 None => TInstr::nop()
               },
             )
           }
         TInstrKind::TI64Const(I64(v)) =>
           if v != 0L {
-            return Some(vq_wrap_texpr(next_then, env))
+            return Some(vq_wrap_texpr(next_then, env, type_cache))
           } else {
             return Some(
               match next_else {
-                Some(other) => vq_wrap_texpr(other, env)
+                Some(other) => vq_wrap_texpr(other, env, type_cache)
                 None => TInstr::nop()
               },
             )
@@ -476,7 +581,11 @@ fn vq_process_instr(
               [{ kind: TInstrKind::TDrop(left), .. }],
               [{ kind: TInstrKind::TDrop(right), .. }],
             ) =>
-              match (vq_type_of(left, env), vq_type_of(right, env)) {
+              match
+                (
+                  vq_type_of_cached(left, env, type_cache),
+                  vq_type_of_cached(right, env, type_cache),
+                ) {
                 (Some(lt), Some(rt)) if lt == rt =>
                   Some(
                     TInstr::drop(
@@ -510,6 +619,9 @@ fn vq_process_instr(
         result_type,
         result_type is Some(_),
         budget,
+        type_cache,
+        effect_cache,
+        shallow_effect_cache,
       )
       if vq_is_nop_texpr(next_body) {
         Some(TInstr::nop())
@@ -519,7 +631,9 @@ fn vq_process_instr(
     }
     TInstrKind::TDrop(value) => {
       let next_value = match
-        vq_process_instr(value, env, false, false, budget) {
+        vq_process_instr(
+          value, env, false, false, budget, type_cache, effect_cache, shallow_effect_cache,
+        ) {
         Some(v) => v
         None => return Some(TInstr::nop())
       }
@@ -531,7 +645,7 @@ fn vq_process_instr(
       }
 
       let dropped = TInstr::drop(next_value)
-      if !lcs_collect_effects(dropped).has_unremovable_side_effects() {
+      if !vq_has_unremovable_effects_cached(dropped, effect_cache) {
         return Some(TInstr::nop())
       }
 
@@ -540,9 +654,16 @@ fn vq_process_instr(
           let { instrs: items, .. } = body
           if items.length() > 0 {
             let last = items[items.length() - 1]
-            match (vq_block_result_type(bt, env), vq_type_of(last, env)) {
+            match
+              (
+                vq_block_result_type(bt, env),
+                vq_type_of_cached(last, env, type_cache),
+              ) {
               (Some(block_vt), Some(last_vt)) if block_vt == last_vt =>
-                match vq_optimize(last, false, false, env, budget) {
+                match
+                  vq_optimize(
+                    last, false, false, env, budget, type_cache, effect_cache, shallow_effect_cache,
+                  ) {
                   None =>
                     if !has_break_to_depth_in_texpr(body, 0) {
                       let next_items = items.copy()
@@ -575,22 +696,22 @@ fn vq_process_instr(
           match if_type {
             Some(_) =>
               if vq_texpr_is_unreachable(then_body) &&
-                vq_texpr_result_type(other_body, env) is Some(_) {
+                vq_texpr_result_type(other_body, env, type_cache) is Some(_) {
                 return Some(
                   TInstr::if_(
                     BlockType::void_(),
                     cond,
                     then_body,
-                    Some(vq_drop_texpr_value(other_body, env)),
+                    Some(vq_drop_texpr_value(other_body, env, type_cache)),
                   ),
                 )
               } else if vq_texpr_is_unreachable(other_body) &&
-                vq_texpr_result_type(then_body, env) is Some(_) {
+                vq_texpr_result_type(then_body, env, type_cache) is Some(_) {
                 return Some(
                   TInstr::if_(
                     BlockType::void_(),
                     cond,
-                    vq_drop_texpr_value(then_body, env),
+                    vq_drop_texpr_value(then_body, env, type_cache),
                     Some(other_body),
                   ),
                 )
@@ -610,9 +731,12 @@ fn vq_process_instr(
         result_type,
         result_type is Some(_),
         budget,
+        type_cache,
+        effect_cache,
+        shallow_effect_cache,
       )
       if !vq_texpr_throws(next_body) {
-        Some(vq_wrap_texpr(next_body, env))
+        Some(vq_wrap_texpr(next_body, env, type_cache))
       } else {
         Some(TInstr::try_table(bt, catches, next_body))
       }
@@ -620,17 +744,26 @@ fn vq_process_instr(
     _ => {
       let children = eval_children(instr)
       if children.is_empty() {
-        return vq_optimize(instr, result_used, type_matters, env, budget)
+        return vq_optimize(
+          instr, result_used, type_matters, env, budget, type_cache, effect_cache,
+          shallow_effect_cache,
+        )
       }
       let next_children : Array[TInstr] = []
       for child in children {
-        match vq_process_instr(child, env, true, true, budget) {
+        match
+          vq_process_instr(
+            child, env, true, true, budget, type_cache, effect_cache, shallow_effect_cache,
+          ) {
           Some(next_child) => next_children.push(next_child)
           None => next_children.push(child)
         }
       }
       let rebuilt = mb_rebuild_non_control(instr, next_children)
-      vq_optimize(rebuilt, result_used, type_matters, env, budget)
+      vq_optimize(
+        rebuilt, result_used, type_matters, env, budget, type_cache, effect_cache,
+        shallow_effect_cache,
+      )
     }
   }
 }
@@ -640,43 +773,81 @@ fn vq_optimize_function(
   mod : Module,
   func : Func,
   sig : VQFuncSig,
+  ordinal : Int,
+  trace : (String) -> Unit,
+  trace_all_funcs : Bool,
 ) -> (Func, Bool) {
   match func {
+    Func(_) => {
+      if trace_all_funcs {
+        trace("func[\{ordinal}] vacuum skip non-typed-func")
+      }
+      (func, false)
+    }
     TFunc(locals, body) => {
+      let top_instrs = body.instrs.length()
+      let num_locals = locals.length()
+
+      if trace_all_funcs || ordinal <= 100 || ordinal % 300 == 0 {
+        trace(
+          "func[\{ordinal}] vacuum start instrs=\{top_instrs} locals=\{num_locals}",
+        )
+      }
+
       let all_locals = sig.params.copy()
       for local_ in locals {
         all_locals.push(local_)
       }
       let env = Env::new().with_module(mod).with_locals(all_locals)
+
+      let type_cache : Map[UInt64, ValType?] = Map::new()
+      let effect_cache : Map[UInt64, Bool] = Map::new()
+      let shallow_effect_cache : Map[UInt64, Bool] = Map::new()
+
       let result_type = match sig.results {
         [vt] => Some(vt)
         _ => None
       }
-      let budget = Ref::new(250000)
+
+      // Size-dependent budget — tiny functions get almost no budget
+      let budget = Ref::new(if top_instrs > 200 { 80000 } else { 12000 })
+
       let sequence = vq_optimize_sequence(
         body.instrs,
         env,
         result_type,
         sig.results.length() > 0,
         budget,
+        type_cache,
+        effect_cache,
+        shallow_effect_cache,
       )
+
       let next_items = sequence.items
       if next_items.is_empty() {
         next_items.push(TInstr::nop())
       }
       let next_body = TExpr::new(next_items)
+
       let mut changed = sequence.changed
       if sig.results.length() == 0 &&
-        !vq_texpr_has_unremovable_side_effects(next_body) {
+        !vq_texpr_has_unremovable_side_effects(next_body, effect_cache) {
         let nopped = Func::t_func(locals, TExpr::new([TInstr::nop()]))
-        changed = TExpr::new([TInstr::nop()]) != body
+        changed = true
+        if trace_all_funcs || ordinal <= 100 || ordinal % 300 == 0 {
+          trace("func[\{ordinal}] vacuum nopped=true budget_left=\{budget.val}")
+        }
         (nopped, changed)
       } else {
         let next_func = Func::t_func(locals, next_body)
+        if trace_all_funcs || ordinal <= 100 || ordinal % 300 == 0 {
+          trace(
+            "func[\{ordinal}] vacuum done changed=\{changed} budget_left=\{budget.val}",
+          )
+        }
         (next_func, changed)
       }
     }
-    _ => (func, false)
   }
 }
 
@@ -689,6 +860,7 @@ fn vacuum_trace_noop(_ : String) -> Unit {
 fn vacuum_ir_pass_with_trace(
   mod : Module,
   trace : (String) -> Unit,
+  trace_all_funcs? : Bool = false,
 ) -> ModuleTransformer[IRContext] {
   let sigs = vq_collect_func_sigs(mod)
   let next_def_idx = Ref::new(0)
@@ -696,20 +868,23 @@ fn vacuum_ir_pass_with_trace(
     let def_idx = next_def_idx.val
     next_def_idx.update(fn(i) { i + 1 })
     let ordinal = def_idx + 1
+    let log_func = trace_all_funcs || ordinal <= 50 || ordinal % 500 == 0
     let start_instrs = match func {
       TFunc(_, body) => body.instrs.length()
       _ => 0
     }
-    if ordinal <= 50 || ordinal % 500 == 0 {
+    if log_func {
       trace("func[\{ordinal}] start instrs=\{start_instrs}")
     }
     let sig = sigs.get(def_idx).unwrap_or(VQFuncSig::new([], []))
-    let (next_func, changed) = vq_optimize_function(mod, func, sig)
+    let (next_func, changed) = vq_optimize_function(
+      mod, func, sig, ordinal, trace, trace_all_funcs,
+    )
     let end_instrs = match next_func {
       TFunc(_, body) => body.instrs.length()
       _ => 0
     }
-    if ordinal <= 50 || ordinal % 500 == 0 {
+    if log_func {
       trace(
         "func[\{ordinal}] done changed=\{changed} instrs=\{start_instrs}->\{end_instrs}",
       )

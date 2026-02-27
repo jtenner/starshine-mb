@@ -342,17 +342,17 @@ fn run_ir_context_transformer_scheduler_pass(
         mod,
         optimize_added_constants_ir_pass(mod, options, true),
       )
-    OptimizeInstructions => Ok(mod)
-    // apply_ir_transformer_pass(
-    //   ctx,
-    //   mod,
-    //   optimize_instructions_ir_pass(
-    //     mod,
-    //     options,
-    //     trace=fn(msg) { trace("optimize_instructions:\{msg}") },
-    //     trace_all_funcs=false,
-    //   ),
-    // )
+    OptimizeInstructions =>
+      apply_ir_transformer_pass(
+        ctx,
+        mod,
+        optimize_instructions_ir_pass(
+          mod,
+          options,
+          trace=fn(msg) { trace("optimize_instructions:\{msg}") },
+          trace_all_funcs=trace_pass_details,
+        ),
+      )
     Precompute => {
       if trace_pass_details {
         trace("precompute:start propagate=false")
@@ -495,7 +495,11 @@ fn run_ir_context_transformer_scheduler_pass(
       apply_ir_transformer_pass(
         ctx,
         mod,
-        vacuum_ir_pass_with_trace(mod, fn(msg) { trace("vacuum:\{msg}") }),
+        vacuum_ir_pass_with_trace(
+          mod,
+          fn(msg) { trace("vacuum:\{msg}") },
+          trace_all_funcs=trace_pass_details,
+        ),
       )
     ReorderLocals =>
       apply_ir_transformer_pass(ctx, mod, reorder_locals_ir_pass(mod))
@@ -4579,16 +4583,37 @@ test "optimize_module runs Precompute and PrecomputePropagate passes" {
             _,
             {
               instrs: [
-                { kind: TInstrKind::TLocalSet(_, _), .. },
-                { kind: TInstrKind::TI32Const(I32(v)), .. },
+                {
+                  kind: TInstrKind::TLocalSet(
+                    LocalIdx(i),
+                    { kind: TInstrKind::TI32Const(I32(set_v)), .. }
+                  ),
+                  ..,
+                },
+                {
+                  kind: TInstrKind::TBinary(
+                    I32AddOp,
+                    { kind: TInstrKind::TLocalGet(LocalIdx(get_i)), .. },
+                    { kind: TInstrKind::TI32Const(I32(add_v)), .. }
+                  ),
+                  ..,
+                },
               ],
               ..,
             }
           ),
         ]
       )
-    ) => assert_eq(v, 10)
-    _ => fail("expected propagated+precomputed constant expression")
+    ) => {
+      assert_eq(i, 0U)
+      assert_eq(set_v, 9)
+      assert_eq(get_i, 0U)
+      assert_eq(add_v, 1)
+    }
+    _ =>
+      fail(
+        "expected tiny-body strict gating to preserve local_set + local_get add",
+      )
   }
 }
 
@@ -5418,11 +5443,26 @@ test "pass invariant: precompute validates and remap is stable" {
         [
           TFunc(
             _,
-            { instrs: [{ kind: TInstrKind::TI32Const(I32(v)), .. }], .. }
+            {
+              instrs: [
+                {
+                  kind: TInstrKind::TBinary(
+                    I32AddOp,
+                    { kind: TInstrKind::TI32Const(I32(a)), .. },
+                    { kind: TInstrKind::TI32Const(I32(b)), .. }
+                  ),
+                  ..,
+                },
+              ],
+              ..,
+            }
           ),
         ]
       )
-    ) => assert_eq(v, 3)
-    _ => fail("precompute: expected simple constant fold")
+    ) => {
+      assert_eq(a, 1)
+      assert_eq(b, 2)
+    }
+    _ => fail("precompute: expected strict gating to preserve tiny body")
   }
 }

@@ -1401,7 +1401,9 @@ fn precompute_on_func(
       // BROADER CHEAP SKIP — covers the remaining medium tail
       if !do_propagate && top_instrs <= 512 && num_sets <= 40 {
         if trace_all_funcs {
-          trace("func[{ordinal}] simplify skipped (medium body + moderate sets)")
+          trace(
+            "func[\{ordinal}] simplify skipped (medium body + moderate sets)",
+          )
         }
         return Ok(Func::t_func(locals, body))
       }
