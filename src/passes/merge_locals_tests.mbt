@@ -68,6 +68,33 @@ fn ml_drop_get_indices(body : TExpr) -> Array[Int] {
 }
 
 ///|
+fn ml_many_copy_func(pair_count : Int) -> Func {
+  let y = LocalIdx::new(0)
+  let x = LocalIdx::new(1)
+  let instrs = Array::new()
+  for i in 0..<pair_count {
+    instrs.push(TInstr::local_set(y, TInstr::i32_const(I32(i))))
+    instrs.push(TInstr::local_set(x, TInstr::local_get(y)))
+    instrs.push(TInstr::drop(TInstr::local_get(y)))
+  }
+  Func::t_func([ValType::i32(), ValType::i32()], TExpr::new(instrs))
+}
+
+///|
+fn ml_simple_copy_func() -> Func {
+  let y = LocalIdx::new(0)
+  let x = LocalIdx::new(1)
+  Func::t_func(
+    [ValType::i32(), ValType::i32()],
+    TExpr::new([
+      TInstr::local_set(y, TInstr::i32_const(I32(1))),
+      TInstr::local_set(x, TInstr::local_get(y)),
+      TInstr::drop(TInstr::local_get(y)),
+    ]),
+  )
+}
+
+///|
 test "merge locals instrumentation is cleaned up" {
   let y = LocalIdx::new(0)
   let x = LocalIdx::new(1)
@@ -351,4 +378,23 @@ test "merge locals is idempotent" {
   let once = ml_run_merge_locals(mod)
   let twice = ml_run_merge_locals(once)
   assert_eq(twice, once)
+}
+
+///|
+test "merge locals skips oversized copy-heavy function" {
+  let func = ml_many_copy_func(5000)
+  let mod = Module::new().with_code_sec(CodeSec::new([func]))
+  let out = ml_run_merge_locals(mod)
+  assert_eq(out, mod)
+}
+
+///|
+test "merge locals skips oversized module before per-function analysis" {
+  let funcs = Array::new()
+  for _ in 0..<401 {
+    funcs.push(ml_simple_copy_func())
+  }
+  let mod = Module::new().with_code_sec(CodeSec::new(funcs))
+  let out = ml_run_merge_locals(mod)
+  assert_eq(out, mod)
 }

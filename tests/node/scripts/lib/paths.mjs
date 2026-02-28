@@ -17,6 +17,26 @@ export function repoRootFromScript(importMetaUrl) {
   }
 }
 
+export function resolveMoonBin() {
+  if (process.env.MOON_BIN) {
+    return process.env.MOON_BIN;
+  }
+
+  const homeCandidate = process.env.HOME
+    ? path.join(process.env.HOME, '.moon', 'bin', 'moon')
+    : null;
+  if (homeCandidate && fs.existsSync(homeCandidate)) {
+    return homeCandidate;
+  }
+
+  const workspaceCandidate = '/home/jtenner/.moon/bin/moon';
+  if (fs.existsSync(workspaceCandidate)) {
+    return workspaceCandidate;
+  }
+
+  return 'moon';
+}
+
 export function wasmBuildArtifactPaths(repoRoot) {
   return {
     debug: path.join(repoRoot, '_build', 'wasm', 'debug', 'build', 'cmd', 'cmd.wasm'),
@@ -25,12 +45,12 @@ export function wasmBuildArtifactPaths(repoRoot) {
 }
 
 export function distArtifactPaths(repoRoot) {
-  const distDir = path.join(repoRoot, 'node_wasm', 'dist');
+  const distDir = path.join(repoRoot, 'tests', 'node', 'dist');
   return {
     distDir,
-    debug: path.join(distDir, 'starshine.debug.wasm'),
-    release: path.join(distDir, 'starshine.release.wasm'),
-    selfOptimized: path.join(distDir, 'starshine.self-optimized.wasm'),
+    debug: path.join(distDir, 'starshine-debug-wasi.wasm'),
+    optimized: path.join(distDir, 'starshine-optimized-wasi.wasm'),
+    selfOptimized: path.join(distDir, 'starshine-self-optimized-wasi.wasm'),
     optimizeError: path.join(distDir, 'optimize.error.txt'),
     compareReport: path.join(distDir, 'compare.report.json'),
   };

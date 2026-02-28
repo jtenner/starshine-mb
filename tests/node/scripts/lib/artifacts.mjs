@@ -17,16 +17,16 @@ export function copyWasmArtifacts({ repoRoot }) {
 
   fs.mkdirSync(target.distDir, { recursive: true });
   fs.copyFileSync(source.debug, target.debug);
-  fs.copyFileSync(source.release, target.release);
+  fs.copyFileSync(source.release, target.optimized);
 
   return {
     debug: {
       path: target.debug,
       size: fs.statSync(target.debug).size,
     },
-    release: {
-      path: target.release,
-      size: fs.statSync(target.release).size,
+    optimized: {
+      path: target.optimized,
+      size: fs.statSync(target.optimized).size,
     },
   };
 }

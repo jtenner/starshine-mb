@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
 import { runWasmStart } from './lib/moonbit-wasi-runner.mjs';
-import { repoRootFromScript } from './lib/paths.mjs';
+import { repoRootFromScript, resolveMoonBin } from './lib/paths.mjs';
 
 export function parseCliArgs(argv) {
   let limit = null;
@@ -67,7 +67,7 @@ function toPosixRelativePath(repoRoot, filePath) {
 
 export async function runWasmSpecSuite({
   repoRoot,
-  moonBin = '/home/jtenner/.moon/bin/moon',
+  moonBin = resolveMoonBin(),
   limit = null,
   onlyFiles = [],
 } = {}) {

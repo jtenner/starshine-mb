@@ -1,12 +1,12 @@
 # Agent Tasks
 
 ## Blockers
-- [ ] `cmd.exe --optimize` still exits with non-zero status (`status=1`) on both `node_wasm/dist/starshine.release.wasm` and `node_wasm/dist/starshine.debug.wasm`; current root error is `OptimizeFailed(...: Stack underflow during tree conversion)` during lift-to-texpr conversion.
-- [ ] Large-module optimize runtime is now mostly dominated by `DuplicateFunctionElimination` (~9s on `node_wasm/dist/starshine.debug.wasm`); add a scalable algorithm or a size-aware sampling mode to cut this further without skipping as much of the pipeline.
-- [ ] Add a CLI/env override to force the full optimize pipeline on large modules (bypass new size-based fast-path heuristics) for quality-sensitive runs.
-- [ ] Add a no-op wasm copy fast-path in `src/cmd` for empty scheduled pass lists (skip decode+optimize+encode when input format is already wasm) to cut large-module startup latency.
 - [ ] Re-enable full Binaryen post-pass parity in default optimize scheduling by implementing `dae-optimizing` parity (or safe equivalent) and fixing high-opt inlining argument-mismatch failures; current scheduler intentionally skips those two passes to keep `--optimize` stable.
-- [ ] Full wasm-target spec sweep (`node_wasm/scripts/run-wasm-spec-suite.mjs`) still reports 3 hard failures: `tests/spec/legacy/try_catch.wast`, `tests/spec/local_tee.wast`, `tests/spec/try_table.wast`.
+- [ ] Investage performance issues with `CodeFolding` on large modules
+- [ ] Investage performance issues with `PrecomputePropagate` on large modules
+- [ ] `RedundantSetElimination` pass aborts
+- [ ] Add a no-op wasm copy fast-path in `src/cmd` for empty scheduled pass lists (skip decode+optimize+encode when input format is already wasm) to cut large-module startup latency.
+- [ ] Full wasm-target spec sweep (`tests/node/scripts/run-wasm-spec-suite.mjs`) still reports 3 hard failures: `tests/spec/legacy/try_catch.wast`, `tests/spec/local_tee.wast`, `tests/spec/try_table.wast`.
 - [ ] `moon test --target wasm` still cannot run directly in this environment (missing default WASI host wiring); only the custom Node/WASI runner path is currently available.
 - [ ] Native decode still uses deep recursive control-instruction parsing; `main` now raises stack soft-limit to avoid Linux SIGSEGV, but a recursion-free decoder path is still needed for robust cross-platform behavior.
 
@@ -21,13 +21,13 @@ Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full
 - [ ] Publish first release + MoonBit registry package (`moon publish` + GitHub Release binaries).
 - [ ] Wire `moon test --target wasm` to a reproducible WASI host path (Node/Wasmtime) so wasm tests can run in CI without custom manual runners.
 - [x] Remove `src/cmd/moon.pkg` unused-package warnings for non-WASI targets (split target-specific package wiring or conditional package structure).
-- [x] Scaffold `node_wasm/` npm package with scripts that bootstrap `moon build --target wasm --release` and stage the release wasm artifact.
+- [x] Scaffold `tests/node/` npm package with scripts that bootstrap `moon build --target wasm --release` and stage the optimized wasm artifact.
 - [x] Ignore `wasm-gc` in npm wasm packaging flow (package scripts use `--target wasm --release` only).
-- [x] Stage both wasm artifacts in `node_wasm/dist` (`starshine.debug.wasm`, `starshine.release.wasm`) and generate `starshine.self-optimized.wasm` via Starshine with failure diagnostics.
-- [x] Add Node/Bun bootstrap runner for wasm artifacts (`node_wasm/scripts/bootstrap-optimized.mjs`) with WASI + `__moonbit_fs_unstable` host shims.
-- [x] Add wasm-target spec-suite launcher (`node_wasm/scripts/run-wasm-spec-suite.mjs`) backed by `src/spec_runner` wasm package.
-- [x] Add release-vs-optimized artifact comparison pipeline/report (`node_wasm/dist/compare.report.json`) with blocker diagnostics when optimizer fails.
-- [x] Fix optimizer crash (`SIGSEGV`) so `node_wasm` no longer fails with signal 11 when optimizing release wasm modules.
+- [x] Stage both wasm artifacts in `tests/node/dist` (`starshine-debug-wasi.wasm`, `starshine-optimized-wasi.wasm`) and generate `starshine-self-optimized-wasi.wasm` via Starshine with failure diagnostics.
+- [x] Add Node/Bun bootstrap runner for wasm artifacts (`tests/node/scripts/bootstrap-optimized.mjs`) with WASI + `__moonbit_fs_unstable` host shims.
+- [x] Add wasm-target spec-suite launcher (`tests/node/scripts/run-wasm-spec-suite.mjs`) backed by `src/spec_runner` wasm package.
+- [x] Add optimized-vs-self-optimized artifact comparison pipeline/report (`tests/node/dist/compare.report.json`) with blocker diagnostics when optimizer fails.
+- [x] Fix optimizer crash (`SIGSEGV`) so `tests/node` no longer fails with signal 11 when optimizing release wasm modules.
 - [x] Make native release CLI buildable again (target-specific dependency split for WASI imports in cmd package) so npm packaging can rebuild optimizer binary deterministically.
 - [x] Print `CmdError` diagnostics to stderr on non-zero CLI exits to make optimizer failures actionable in CI scripts.
 - [x] Decode/encode elem segment header `6` with explicit reftype payloads so self-hosted wasm artifacts no longer fail early with `DecodeAt(InvalidInstruction, ...)`.
@@ -56,5 +56,5 @@ Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full
 - [ ] `DuplicateFunctionElimination` still re-hashes nearly every active body each iteration after the single-remap rewrite; add incremental/cached body fingerprints keyed by canonical callee roots to reduce fixed-point hashing cost on large wasm modules.
 - [ ] Profile and optimize `DeadCodeElimination`
 - [ ] Profile and optimize `SimplifyLocals`
-
+- [ ] Profile and optimize `MergeBlocks`
 

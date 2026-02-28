@@ -159,6 +159,31 @@ fn body_ends_with_explicit_return_or_unreachable(body : TExpr) -> Bool {
 }
 
 ///|
+fn body_has_explicit_return(body : TExpr) -> Bool {
+  let mut found = false
+  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+    match instr.kind {
+      TInstrKind::TReturn(_) => found = true
+      _ => ()
+    }
+    self.walk_tinstruction_default((), instr)
+  })
+  ignore(walker.walk_texpr((), body))
+  found
+}
+
+///|
+fn body_can_drop_result(body : TExpr, result_arity : Int) -> Bool {
+  if result_arity == 0 {
+    return true
+  }
+  if body_ends_with_explicit_return_or_unreachable(body) {
+    return true
+  }
+  result_arity == 1 && not(body_has_explicit_return(body))
+}
+
+///|
 fn mark_exports_unseen(mod : Module, has_unseen : Array[Bool]) -> Unit {
   match mod.export_sec {
     Some(ExportSec(exports)) =>
@@ -265,7 +290,6 @@ fn analyze_function_body(
   has_unseen_calls : Array[Bool],
   has_tail_calls : Array[Bool],
   tail_callee : Array[Bool],
-  return_callers : Array[Bool],
   used_params : Set[Int],
 ) -> Unit {
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
@@ -291,7 +315,6 @@ fn analyze_function_body(
         let idx = raw.reinterpret_as_int()
         if idx >= 0 && idx < tail_callee.length() {
           tail_callee[idx] = true
-          return_callers[idx] = true
         }
         if abs_func_idx >= 0 && abs_func_idx < has_tail_calls.length() {
           has_tail_calls[abs_func_idx] = true
@@ -727,6 +750,22 @@ fn build_local_plan(
 }
 
 ///|
+fn drop_implicit_result(body : TExpr) -> TExpr {
+  if body.instrs.is_empty() {
+    return body
+  }
+  let instrs = body.instrs.copy()
+  let last = instrs[instrs.length() - 1]
+  match last.kind {
+    TInstrKind::TReturn(_) | TInstrKind::TUnreachable => body
+    _ => {
+      instrs[instrs.length() - 1] = TInstr::drop(last)
+      TExpr::new(instrs)
+    }
+  }
+}
+
+///|
 fn rewrite_locals_and_returns(
   body : TExpr,
   old_param_count : Int,
@@ -824,8 +863,13 @@ fn rewrite_locals_and_returns(
     }
   })
   match walker.walk_texpr((), body) {
-    Ok(Some((_, new_body))) => new_body
-    _ => body
+    Ok(Some((_, new_body))) =>
+      if remove_result {
+        drop_implicit_result(new_body)
+      } else {
+        new_body
+      }
+    _ => if remove_result { drop_implicit_result(body) } else { body }
   }
 }
 
@@ -967,7 +1011,7 @@ fn make_adapter_thunk(
 }
 
 ///|
-fn run_dead_argument_elim(mod : Module) -> Module {
+fn run_dead_argument_elim_once(mod : Module) -> Module {
   let funcs = match mod.code_sec {
     Some(CodeSec(funcs)) => funcs
     None => return mod
@@ -1000,7 +1044,6 @@ fn run_dead_argument_elim(mod : Module) -> Module {
   let has_unseen_calls : Array[Bool] = Array::make(total_func_count, false)
   let has_tail_calls : Array[Bool] = Array::make(total_func_count, false)
   let tail_callee : Array[Bool] = Array::make(total_func_count, false)
-  let return_callers : Array[Bool] = Array::make(total_func_count, false)
   mark_exports_unseen(mod, has_unseen_calls)
   mark_start_unseen(mod, has_unseen_calls)
   mark_elem_unseen(mod, has_unseen_calls)
@@ -1012,11 +1055,16 @@ fn run_dead_argument_elim(mod : Module) -> Module {
     used_params_by_defined.push(used_params)
     match funcs[i] {
       TFunc(_, body) => {
+        let FuncType(params, results) = if abs_idx >= 0 &&
+          abs_idx < total_func_count {
+          func_types[abs_idx]
+        } else {
+          FuncType::new([], [])
+        }
         body_can_remove_result.push(
-          body_ends_with_explicit_return_or_unreachable(body),
+          body_can_drop_result(body, results.length()),
         )
         if abs_idx >= 0 && abs_idx < total_func_count {
-          let FuncType(params, _) = func_types[abs_idx]
           analyze_function_body(
             abs_idx,
             params.length(),
@@ -1027,7 +1075,6 @@ fn run_dead_argument_elim(mod : Module) -> Module {
             has_unseen_calls,
             has_tail_calls,
             tail_callee,
-            return_callers,
             used_params,
           )
         }
@@ -1075,7 +1122,7 @@ fn run_dead_argument_elim(mod : Module) -> Module {
           _ => results.copy()
         }
       }
-      if not(return_callers[abs_idx]) && not(calls.is_empty()) {
+      if not(calls.is_empty()) {
         let constants = if has_unseen_calls[abs_idx] {
           Map::new()
         } else {
@@ -1103,7 +1150,6 @@ fn run_dead_argument_elim(mod : Module) -> Module {
       }
       removed_params_by_target[abs_idx] = removed_all
       if not(has_unseen_calls[abs_idx]) &&
-        not(return_callers[abs_idx]) &&
         not(has_tail_calls[abs_idx]) &&
         not(tail_callee[abs_idx]) &&
         results.length() > 0 &&
@@ -1291,6 +1337,21 @@ fn run_dead_argument_elim(mod : Module) -> Module {
     return mod
   }
   out_mod.with_code_sec(CodeSec::new(new_funcs))
+}
+
+///|
+fn run_dead_argument_elim(mod : Module) -> Module {
+  let mut curr = mod
+  let max_iters = 1024
+  for iter = 0; iter < max_iters; iter = iter + 1 {
+    ignore(iter)
+    let next = run_dead_argument_elim_once(curr)
+    if next == curr {
+      return curr
+    }
+    curr = next
+  }
+  curr
 }
 
 ///|
@@ -1650,4 +1711,149 @@ test "dead argument elimination refines return reference types" {
     callee_results[0],
     ValType::ref_type(RefType::new(false, HeapType::abs(AbsHeapType::func()))),
   )
+}
+
+///|
+test "dead argument elimination iterates to convergence through call chains" {
+  let caller = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::call(FuncIdx::new(1), [TInstr::global_get(GlobalIdx::new(0))]),
+    ]),
+  )
+  let middle = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::call(FuncIdx::new(2), [TInstr::local_get(LocalIdx::new(0))]),
+    ]),
+  )
+  let callee = Func::t_func([], TExpr::new([TInstr::i32_const(I32(7))]))
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        make_func_type([ValType::i32()], [ValType::i32()]),
+        make_func_type([ValType::i32()], [ValType::i32()]),
+        make_func_type([], [ValType::i32()]),
+      ]),
+    )
+    .with_func_sec(
+      FuncSec::new([TypeIdx::new(0), TypeIdx::new(1), TypeIdx::new(0)]),
+    )
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(ValType::i32(), false),
+          TExpr::new([TInstr::i32_const(I32(9))]).to_expr(),
+        ),
+      ]),
+    )
+    .with_code_sec(CodeSec::new([caller, middle, callee]))
+  let optimized = run_dead_argument_elim(mod)
+  match optimized.code_sec {
+    Some(
+      CodeSec(
+        [
+          TFunc(_, { instrs: caller_instrs, .. }),
+          TFunc(_, { instrs: middle_instrs, .. }),
+          _,
+        ]
+      )
+    ) => {
+      let mut saw_caller_call = false
+      for instr in caller_instrs {
+        match instr.kind {
+          TInstrKind::TCall(_, args) => {
+            saw_caller_call = true
+            assert_eq(args.length(), 0)
+          }
+          _ => ()
+        }
+      }
+      let mut saw_middle_call = false
+      for instr in middle_instrs {
+        match instr.kind {
+          TInstrKind::TCall(_, args) => {
+            saw_middle_call = true
+            assert_eq(args.length(), 0)
+          }
+          _ => ()
+        }
+      }
+      assert_true(saw_caller_call)
+      assert_true(saw_middle_call)
+    }
+    _ => fail("expected both call sites to be rewritten after convergence")
+  }
+}
+
+///|
+test "dead argument elimination removes params from tail-called callees" {
+  let caller = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::return_call(FuncIdx::new(1), [TInstr::i32_const(I32(9))]),
+    ]),
+  )
+  let callee = Func::t_func([], TExpr::new([TInstr::i32_const(I32(7))]))
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        make_func_type([], [ValType::i32()]),
+        make_func_type([ValType::i32()], [ValType::i32()]),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
+    .with_code_sec(CodeSec::new([caller, callee]))
+  let optimized = run_dead_argument_elim(mod)
+  match optimized.code_sec {
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            { instrs: [{ kind: TInstrKind::TReturnCall(_, args), .. }], .. }
+          ),
+          _,
+        ]
+      )
+    ) => assert_eq(args.length(), 0)
+    _ => fail("expected return_call arguments to be pruned")
+  }
+}
+
+///|
+test "dead argument elimination removes dropped implicit return values" {
+  let caller = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::drop(TInstr::call(FuncIdx::new(1), [])),
+      TInstr::return_([]),
+    ]),
+  )
+  let callee = Func::t_func([], TExpr::new([TInstr::i32_const(I32(7))]))
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        make_func_type([], []),
+        make_func_type([], [ValType::i32()]),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
+    .with_code_sec(CodeSec::new([caller, callee]))
+  let optimized = run_dead_argument_elim(mod)
+  match optimized.code_sec {
+    Some(
+      CodeSec(
+        [
+          TFunc(_, { instrs: caller_instrs, .. }),
+          TFunc(_, { instrs: callee_instrs, .. }),
+        ]
+      )
+    ) => {
+      assert_true(caller_instrs[0].kind is TInstrKind::TCall(_, []))
+      assert_eq(callee_instrs.length(), 1)
+      assert_eq(callee_instrs[0], TInstr::drop(TInstr::i32_const(I32(7))))
+    }
+    _ => fail("expected implicit result to be dropped in callee body")
+  }
 }

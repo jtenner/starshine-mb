@@ -1,12 +1,11 @@
-import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 
 import { copyWasmArtifacts } from './lib/artifacts.mjs';
 import { optimizeDebugWasm } from './lib/optimize.mjs';
-import { nativeStarshineBinaryPaths, repoRootFromScript } from './lib/paths.mjs';
+import { nativeStarshineBinaryPaths, repoRootFromScript, resolveMoonBin } from './lib/paths.mjs';
 
 const repoRoot = repoRootFromScript(import.meta.url);
-const moonBin = process.env.MOON_BIN ?? '/home/jtenner/.moon/bin/moon';
+const moonBin = resolveMoonBin();
 const [nativeReleaseBinary] = nativeStarshineBinaryPaths(repoRoot);
 
 function run(command, args) {
@@ -16,16 +15,16 @@ function run(command, args) {
   });
 }
 
+console.log('Building debug wasm target...');
 run(moonBin, ['build', '--target', 'wasm']);
+console.log('Building optimized wasm target...');
 run(moonBin, ['build', '--target', 'wasm', '--release']);
-
-if (!fs.existsSync(nativeReleaseBinary)) {
-  run(moonBin, ['build', '--target', 'native', '--release', '--package', 'jtenner/starshine/cmd']);
-}
+console.log('Building native optimizer target...');
+run(moonBin, ['build', '--target', 'native', '--release', '--package', 'jtenner/starshine/cmd']);
 
 const copyResult = copyWasmArtifacts({ repoRoot });
 console.log(`Copied debug wasm: ${copyResult.debug.path} (${copyResult.debug.size} bytes)`);
-console.log(`Copied release wasm: ${copyResult.release.path} (${copyResult.release.size} bytes)`);
+console.log(`Copied optimized wasm: ${copyResult.optimized.path} (${copyResult.optimized.size} bytes)`);
 
 const optimizeResult = optimizeDebugWasm({
   repoRoot,
@@ -34,5 +33,5 @@ const optimizeResult = optimizeDebugWasm({
 });
 console.log(`Wrote self-optimized wasm: ${optimizeResult.outputPath} (${optimizeResult.size} bytes)`);
 if (optimizeResult.fallback) {
-  console.warn('warning: optimizer failed; self-optimized artifact is a debug-copy fallback. See dist/optimize.error.txt');
+  console.warn(`warning: optimizer failed; self-optimized artifact is a debug-copy fallback. See ${optimizeResult.errorPath}`);
 }

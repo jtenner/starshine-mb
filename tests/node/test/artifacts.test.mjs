@@ -20,7 +20,7 @@ function writeFile(filePath, content) {
   fs.writeFileSync(filePath, content);
 }
 
-test('copyWasmArtifacts copies debug and release artifacts to dist with expected names', () => {
+test('copyWasmArtifacts copies debug and optimized artifacts to dist with expected names', () => {
   withTempDir((repoRoot) => {
     const debugSource = path.join(repoRoot, '_build', 'wasm', 'debug', 'build', 'cmd', 'cmd.wasm');
     const releaseSource = path.join(repoRoot, '_build', 'wasm', 'release', 'build', 'cmd', 'cmd.wasm');
@@ -29,10 +29,10 @@ test('copyWasmArtifacts copies debug and release artifacts to dist with expected
 
     const result = copyWasmArtifacts({ repoRoot });
 
-    assert.equal(result.debug.path, path.join(repoRoot, 'node_wasm', 'dist', 'starshine.debug.wasm'));
-    assert.equal(result.release.path, path.join(repoRoot, 'node_wasm', 'dist', 'starshine.release.wasm'));
+    assert.equal(result.debug.path, path.join(repoRoot, 'tests', 'node', 'dist', 'starshine-debug-wasi.wasm'));
+    assert.equal(result.optimized.path, path.join(repoRoot, 'tests', 'node', 'dist', 'starshine-optimized-wasi.wasm'));
     assert.deepEqual(fs.readFileSync(result.debug.path), Buffer.from([0, 97, 115, 109]));
-    assert.deepEqual(fs.readFileSync(result.release.path), Buffer.from([0, 97, 115, 109, 1]));
+    assert.deepEqual(fs.readFileSync(result.optimized.path), Buffer.from([0, 97, 115, 109, 1]));
   });
 });
 

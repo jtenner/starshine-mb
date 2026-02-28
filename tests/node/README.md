@@ -1,42 +1,55 @@
-# starshine node_wasm scaffold
+# Node/WASI Tests
 
-This package is a local scaffold for shipping and consuming Starshine's `wasm` target artifact in Node.
+This directory contains the Node-based WASI harness for Starshine's `wasm` target.
 
-## Goals implemented
+## What it does
 
-- Builds both wasm profiles (`debug` + `release`) from MoonBit.
-- Copies artifacts to `dist/starshine.debug.wasm` and `dist/starshine.release.wasm`.
-- Produces `dist/starshine.self-optimized.wasm` by running native Starshine (`--optimize`) over the debug wasm artifact.
-- Records optimizer failures in `dist/optimize.error.txt` and falls back to copying debug wasm to `self-optimized` during `build:all` so downstream scripts can still run.
-- Writes a comparison report to `dist/compare.report.json`.
-- Includes a Node/Bun bootstrap script that runs `_start` with WASI + MoonBit host shims.
+- Builds both `wasm` profiles from MoonBit.
+- Stages the artifacts in `tests/node/dist` as:
+  - `starshine-debug-wasi.wasm`
+  - `starshine-optimized-wasi.wasm`
+  - `starshine-self-optimized-wasi.wasm`
+- Builds the native Starshine CLI and runs `--optimize` against the debug wasm artifact to produce the self-optimized artifact.
+- Compares `starshine-optimized-wasi.wasm` and `starshine-self-optimized-wasi.wasm`.
+- Logs per-file size and hash stats to the console and writes a JSON report to `tests/node/dist/compare.report.json`.
 
-## Commands
+## Run from the repository root
 
-From the repository root:
-
-```bash
-cd node_wasm
-npm run build:all
-```
-
-Individual steps:
+Run the full Node test flow:
 
 ```bash
-npm run build:wasm:debug
-npm run build:wasm:release
-npm run copy:wasm
-npm run optimize:wasm
-npm run compare
-npm run bootstrap:optimized -- --help
-npm run test:spec:wasm -- --limit 5
+npm --prefix tests/node test
 ```
 
-## Optimizer binary note
-
-`build:wasm:artifacts` and `optimize:wasm` use `_build/native/release/build/cmd/cmd.exe`.
-If it is missing, the build script compiles it automatically via:
+Run just the Node unit tests:
 
 ```bash
-/home/jtenner/.moon/bin/moon build --target native --release --package jtenner/starshine/cmd
+npm --prefix tests/node run test:unit
 ```
+
+Run just the artifact build + comparison flow:
+
+```bash
+npm --prefix tests/node run build:all
+```
+
+Run the wasm spec runner manually:
+
+```bash
+npm --prefix tests/node run test:spec:wasm -- --limit 5
+```
+
+Bootstrap the staged self-optimized wasm with the Node WASI host:
+
+```bash
+npm --prefix tests/node run bootstrap:optimized -- --help
+```
+
+## Notes
+
+- `build:all` always builds:
+  - debug wasm: `_build/wasm/debug/build/cmd/cmd.wasm`
+  - optimized wasm: `_build/wasm/release/build/cmd/cmd.wasm`
+  - native optimizer: `_build/native/release/build/cmd/cmd.exe`
+- If `starshine --optimize` fails, `build:all` records the failure in `tests/node/dist/optimize.error.txt` and falls back to copying the debug wasm to `starshine-self-optimized-wasi.wasm` so the comparison step still runs.
+- Override the MoonBit binary by setting `MOON_BIN` before invoking the scripts.

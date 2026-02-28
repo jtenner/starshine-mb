@@ -74,6 +74,7 @@ export function optimizeDebugWasm({
         size: fs.statSync(dist.selfOptimized).size,
         fallback: true,
         error: message,
+        errorPath: dist.optimizeError,
       };
     }
     throw new Error(message);
@@ -83,5 +84,6 @@ export function optimizeDebugWasm({
     outputPath: dist.selfOptimized,
     size: fs.statSync(dist.selfOptimized).size,
     fallback: false,
+    errorPath: dist.optimizeError,
   };
 }

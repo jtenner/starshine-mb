@@ -27,6 +27,7 @@ pub(all) enum ModulePass {
   DataflowOptimization
   DeadCodeElimination
   DeadArgumentElimination
+  DeadArgumentEliminationOptimizing
   SignaturePruning
   SignatureRefining
   DuplicateImportElimination
@@ -297,6 +298,37 @@ fn run_ir_context_transformer_scheduler_pass(
       )
     DeadArgumentElimination =>
       apply_ir_transformer_pass(ctx, mod, dead_argument_elim_pass(mod))
+    DeadArgumentEliminationOptimizing =>
+      match apply_ir_transformer_pass(ctx, mod, dead_argument_elim_pass(mod)) {
+        Ok(dae_mod) => {
+          let after_dce = match
+            apply_unit_transformer_pass(dae_mod, dead_code_elimination_pass()) {
+            Ok(new_mod) => new_mod
+            Err(e) => return Err(e)
+          }
+          ctx.set_mod(after_dce)
+          let after_vacuum = match
+            apply_ir_transformer_pass(
+              ctx,
+              after_dce,
+              vacuum_ir_pass_with_trace(
+                after_dce,
+                fn(msg) { trace("vacuum:\{msg}") },
+                trace_all_funcs=trace_pass_details,
+              ),
+            ) {
+            Ok(new_mod) => new_mod
+            Err(e) => return Err(e)
+          }
+          ctx.set_mod(after_vacuum)
+          apply_ir_transformer_pass(
+            ctx,
+            after_vacuum,
+            code_folding_ir_pass(after_vacuum),
+          )
+        }
+        Err(e) => Err(e)
+      }
     SignaturePruning =>
       apply_ir_transformer_pass(ctx, mod, signature_pruning_ir_pass(mod))
     SimplifyGlobals =>
@@ -1238,7 +1270,7 @@ pub fn default_global_optimization_post_passes(
   ignore(mod)
   let passes : Array[ModulePass] = []
   if options.optimize_level >= 2 || options.shrink_level >= 1 {
-    // Binaryen parity mode: dae-optimizing (pending dedicated parity pass).
+    passes.push(DeadArgumentEliminationOptimizing)
   }
   if options.optimize_level >= 2 || options.shrink_level >= 2 {
     // Binaryen parity mode: inlining-optimizing (currently skipped because
@@ -2108,6 +2140,15 @@ test "default global optimization post passes include binaryen-parity defaults" 
   assert_eq(
     default_count_module_passes(passes, fn(pass) {
       match pass {
+        DeadArgumentEliminationOptimizing => true
+        _ => false
+      }
+    }),
+    1,
+  )
+  assert_eq(
+    default_count_module_passes(passes, fn(pass) {
+      match pass {
         InliningOptimizing => true
         _ => false
       }
@@ -2917,6 +2958,42 @@ test "optimize_module runs DeadArgumentElimination pass" {
       assert_true(found)
     }
     _ => fail("expected rewritten call")
+  }
+}
+
+///|
+test "optimize_module runs DeadArgumentEliminationOptimizing cleanup" {
+  let caller = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::drop(TInstr::call(FuncIdx::new(1), [])),
+      TInstr::return_([]),
+    ]),
+  )
+  let callee = Func::t_func([], TExpr::new([TInstr::i32_const(I32(7))]))
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        single_rec_type(comp_type_sub_type(func_comp_type([], []))),
+        single_rec_type(
+          comp_type_sub_type(func_comp_type([], [ValType::i32()])),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
+    .with_code_sec(CodeSec::new([caller, callee]))
+  let optimized = match
+    optimize_module(mod, [DeadArgumentEliminationOptimizing]) {
+    Ok(m) => m
+    Err(e) => fail("unexpected optimize_module error: \{e}")
+  }
+  match optimized.code_sec {
+    Some(CodeSec([_, TFunc(_, { instrs, .. })])) =>
+      match instrs {
+        [{ kind: TInstrKind::TNop, .. }] => ()
+        _ => fail("expected optimizing DAE to clean up pure dropped result")
+      }
+    _ => fail("expected transformed callee body")
   }
 }
 

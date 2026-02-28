@@ -25,10 +25,10 @@ function writeExecutable(filePath, content) {
   fs.chmodSync(filePath, 0o755);
 }
 
-test('optimizeDebugWasm writes starshine.self-optimized.wasm from debug input', () => {
+test('optimizeDebugWasm writes starshine-self-optimized-wasi.wasm from debug input', () => {
   withTempDir((repoRoot) => {
-    const distDir = path.join(repoRoot, 'node_wasm', 'dist');
-    const debugPath = path.join(distDir, 'starshine.debug.wasm');
+    const distDir = path.join(repoRoot, 'tests', 'node', 'dist');
+    const debugPath = path.join(distDir, 'starshine-debug-wasi.wasm');
     writeFile(debugPath, Buffer.from([0, 97, 115, 109, 7]));
 
     const fakeStarshine = path.join(repoRoot, 'fake-starshine.sh');
@@ -46,15 +46,15 @@ test('optimizeDebugWasm writes starshine.self-optimized.wasm from debug input', 
       starshinePath: fakeStarshine,
     });
 
-    assert.equal(result.outputPath, path.join(distDir, 'starshine.self-optimized.wasm'));
+    assert.equal(result.outputPath, path.join(distDir, 'starshine-self-optimized-wasi.wasm'));
     assert.deepEqual(fs.readFileSync(result.outputPath), fs.readFileSync(debugPath));
   });
 });
 
 test('optimizeDebugWasm writes optimize.error.txt and throws on non-zero optimizer status', () => {
   withTempDir((repoRoot) => {
-    const distDir = path.join(repoRoot, 'node_wasm', 'dist');
-    const debugPath = path.join(distDir, 'starshine.debug.wasm');
+    const distDir = path.join(repoRoot, 'tests', 'node', 'dist');
+    const debugPath = path.join(distDir, 'starshine-debug-wasi.wasm');
     writeFile(debugPath, Buffer.from([0, 97, 115, 109, 9]));
 
     const fakeStarshine = path.join(repoRoot, 'fake-starshine.sh');
@@ -86,8 +86,8 @@ test('optimizeDebugWasm writes optimize.error.txt and throws on non-zero optimiz
 
 test('optimizeDebugWasm can fall back to copying debug wasm when optimizer fails', () => {
   withTempDir((repoRoot) => {
-    const distDir = path.join(repoRoot, 'node_wasm', 'dist');
-    const debugPath = path.join(distDir, 'starshine.debug.wasm');
+    const distDir = path.join(repoRoot, 'tests', 'node', 'dist');
+    const debugPath = path.join(distDir, 'starshine-debug-wasi.wasm');
     writeFile(debugPath, Buffer.from([0, 97, 115, 109, 11]));
 
     const fakeStarshine = path.join(repoRoot, 'fake-starshine.sh');
@@ -108,7 +108,7 @@ test('optimizeDebugWasm can fall back to copying debug wasm when optimizer fails
 
     assert.equal(result.fallback, true);
     assert.deepEqual(
-      fs.readFileSync(path.join(distDir, 'starshine.self-optimized.wasm')),
+      fs.readFileSync(path.join(distDir, 'starshine-self-optimized-wasi.wasm')),
       fs.readFileSync(debugPath),
     );
     assert.match(fs.readFileSync(path.join(distDir, 'optimize.error.txt'), 'utf8'), /status=9/);

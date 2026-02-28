@@ -1109,6 +1109,11 @@ fn explicit_pass_entries() -> Array[(String, String, ModulePass)] {
       ModulePass::DeadArgumentElimination,
     ),
     (
+      "dead-argument-elimination-optimizing",
+      "Run dead argument elimination with cleanup followup passes.",
+      ModulePass::DeadArgumentEliminationOptimizing,
+    ),
+    (
       "signature-pruning",
       "Remove unneeded type signature details.",
       ModulePass::SignaturePruning,

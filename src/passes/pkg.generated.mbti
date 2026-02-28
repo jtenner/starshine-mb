@@ -166,6 +166,7 @@ pub(all) enum ModulePass {
   DataflowOptimization
   DeadCodeElimination
   DeadArgumentElimination
+  DeadArgumentEliminationOptimizing
   SignaturePruning
   SignatureRefining
   DuplicateImportElimination

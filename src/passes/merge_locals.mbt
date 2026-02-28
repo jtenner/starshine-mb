@@ -40,6 +40,7 @@ type MLFlowState = Map[LocalIdx, Set[MLSSetRef]]
 priv struct MLAnalyzeState {
   mut next_get_id : Int
   mut next_set_id : Int
+  mut over_budget : Bool
   get_sets : Map[Int, Set[MLSSetRef]]
   get_nodes : Map[Int, MLGetNode]
   copies : Array[MLCopySite]
@@ -54,11 +55,59 @@ priv struct MLRewriteRecord {
 
 ///|
 priv struct MLLocalGraphSnapshot {
+  aborted : Bool
   get_sets : Map[Int, Set[MLSSetRef]]
   mut set_influences : Map[Int, Array[Int]]
   get_nodes : Map[Int, MLGetNode]
   copies : Array[MLCopySite]
   get_count : Int
+}
+
+///|
+fn ml_analysis_budget_limit() -> Int {
+  16000
+}
+
+///|
+fn ml_module_func_limit() -> Int {
+  400
+}
+
+///|
+fn ml_module_top_instr_limit() -> Int {
+  50000
+}
+
+///|
+fn ml_mark_over_budget_if_needed(state : MLAnalyzeState) -> Unit {
+  if state.next_get_id + state.next_set_id > ml_analysis_budget_limit() {
+    state.over_budget = true
+  }
+}
+
+///|
+fn ml_should_skip_module(mod : Module) -> Bool {
+  match mod.code_sec {
+    Some(CodeSec(funcs)) => {
+      if funcs.length() > ml_module_func_limit() {
+        return true
+      }
+      let mut top_instrs = 0
+      for func in funcs {
+        match func {
+          TFunc(_, body) => {
+            top_instrs += body.instrs.length()
+            if top_instrs > ml_module_top_instr_limit() {
+              return true
+            }
+          }
+          _ => ()
+        }
+      }
+      false
+    }
+    None => false
+  }
 }
 
 ///|
@@ -317,6 +366,9 @@ fn ml_analyze_texpr(
 ) -> MLFlowState {
   let mut flow = in_flow
   for instr in expr.instrs {
+    if state.over_budget {
+      return flow
+    }
     flow = ml_analyze_tinstruction(instr, flow, state)
   }
   flow
@@ -328,10 +380,14 @@ fn ml_analyze_tinstruction(
   in_flow : MLFlowState,
   state : MLAnalyzeState,
 ) -> MLFlowState {
+  if state.over_budget {
+    return in_flow
+  }
   match instr.kind {
     TInstrKind::TLocalGet(idx) => {
       let get_id = state.next_get_id
       state.next_get_id = get_id + 1
+      ml_mark_over_budget_if_needed(state)
       state.get_nodes[get_id] = MLGetNode::{ idx, }
       state.get_sets[get_id] = ml_get_reaching(in_flow, idx)
       in_flow
@@ -340,6 +396,7 @@ fn ml_analyze_tinstruction(
       let out_flow = ml_analyze_tinstruction(value, in_flow, state)
       let set_id = state.next_set_id
       state.next_set_id = set_id + 1
+      ml_mark_over_budget_if_needed(state)
       let reaching = Set::new()
       reaching.add(MLSSetRef::Set(set_id))
       out_flow[idx] = reaching
@@ -360,6 +417,7 @@ fn ml_analyze_tinstruction(
       }
       let set_id = state.next_set_id
       state.next_set_id = set_id + 1
+      ml_mark_over_budget_if_needed(state)
       let reaching = Set::new()
       reaching.add(MLSSetRef::Set(set_id))
       out_flow[idx] = reaching
@@ -411,24 +469,20 @@ fn ml_analyze_tinstruction(
 }
 
 ///|
-fn build_local_graph_snapshot(
-  func : Func,
-  mod_ : Module,
-) -> MLLocalGraphSnapshot {
-  ignore(mod_)
+fn build_local_graph_snapshot(func : Func) -> MLLocalGraphSnapshot {
   match func {
     TFunc(_, body) => {
-      // Build eagerly to avoid IR mutation races with later rewrites.
-      ignore(LocalGraph::new(body.instrs))
       let state = MLAnalyzeState::{
         next_get_id: 0,
         next_set_id: 0,
+        over_budget: false,
         get_sets: Map::new(),
         get_nodes: Map::new(),
         copies: [],
       }
       ignore(ml_analyze_texpr(body, Map::new(), state))
       {
+        aborted: state.over_budget,
         get_sets: state.get_sets,
         set_influences: Map::new(),
         get_nodes: state.get_nodes,
@@ -438,6 +492,7 @@ fn build_local_graph_snapshot(
     }
     _ =>
       {
+        aborted: false,
         get_sets: Map::new(),
         set_influences: Map::new(),
         get_nodes: Map::new(),
@@ -610,12 +665,18 @@ fn ml_verify_direction(
 }
 
 ///|
-fn optimize_copies(func : Func, mod_ : Module) -> (Func, Bool) {
+fn optimize_copies(func : Func) -> (Func, Bool) {
   match func {
     TFunc(locals, body) => {
-      let (instrumented_body, _) = ml_instrument_copies(body)
+      let (instrumented_body, instrumented) = ml_instrument_copies(body)
+      if !instrumented {
+        return (func, false)
+      }
       let instrumented_func = Func::t_func(locals, instrumented_body)
-      let pre_graph = build_local_graph_snapshot(instrumented_func, mod_)
+      let pre_graph = build_local_graph_snapshot(instrumented_func)
+      if pre_graph.aborted {
+        return (func, false)
+      }
       compute_set_influences(pre_graph)
       let rewrites : Map[Int, LocalIdx] = Map::new()
       let optimized_to_copy : Array[MLRewriteRecord] = []
@@ -676,7 +737,10 @@ fn optimize_copies(func : Func, mod_ : Module) -> (Func, Bool) {
           instrumented_body, rewrites,
         )
         let post_func = Func::t_func(locals, tentative_body)
-        let post_graph = build_local_graph_snapshot(post_func, mod_)
+        let post_graph = build_local_graph_snapshot(post_func)
+        if post_graph.aborted {
+          return (func, false)
+        }
         compute_set_influences(post_graph)
         let verified_rewrites : Map[Int, LocalIdx] = Map::new()
         for entry in rewrites {
@@ -728,8 +792,9 @@ fn merge_locals_run_on_function(
   mod_ : Module,
   options : OptimizeOptions,
 ) -> (Func, Bool) {
+  ignore(mod_)
   ignore(options)
-  optimize_copies(func, mod_)
+  optimize_copies(func)
 }
 
 ///|
@@ -737,6 +802,9 @@ fn merge_locals_ir_pass(
   mod : Module,
   options? : OptimizeOptions = OptimizeOptions::new(),
 ) -> ModuleTransformer[IRContext] {
+  if ml_should_skip_module(mod) {
+    return ModuleTransformer::new()
+  }
   ModuleTransformer::new().on_func_evt(fn(_, ctx, func) {
     let (next_func, changed) = merge_locals_run_on_function(func, mod, options)
     if changed {
