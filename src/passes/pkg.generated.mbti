@@ -69,10 +69,6 @@ type ConstKey
 pub impl Eq for ConstKey
 pub impl Hash for ConstKey
 
-type DFEKey
-pub impl Eq for DFEKey
-pub impl Hash for DFEKey
-
 type EquivalentClass
 pub impl Eq for EquivalentClass
 pub impl Show for EquivalentClass

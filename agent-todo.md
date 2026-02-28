@@ -3,6 +3,7 @@
 ## Blockers
 - [ ] `cmd.exe --optimize` still exits with non-zero status (`status=1`) on both `node_wasm/dist/starshine.release.wasm` and `node_wasm/dist/starshine.debug.wasm`; current root error is `OptimizeFailed(...: Stack underflow during tree conversion)` during lift-to-texpr conversion.
 - [ ] Large-module optimize runtime is now mostly dominated by `DuplicateFunctionElimination` (~9s on `node_wasm/dist/starshine.debug.wasm`); add a scalable algorithm or a size-aware sampling mode to cut this further without skipping as much of the pipeline.
+- [ ] `DuplicateFunctionElimination` still re-hashes nearly every active body each iteration after the single-remap rewrite; add incremental/cached body fingerprints keyed by canonical callee roots to reduce fixed-point hashing cost on large wasm modules.
 - [ ] Add a CLI/env override to force the full optimize pipeline on large modules (bypass new size-based fast-path heuristics) for quality-sensitive runs.
 - [ ] Add a no-op wasm copy fast-path in `src/cmd` for empty scheduled pass lists (skip decode+optimize+encode when input format is already wasm) to cut large-module startup latency.
 - [ ] Re-enable full Binaryen post-pass parity in default optimize scheduling by implementing `dae-optimizing` parity (or safe equivalent) and fixing high-opt inlining argument-mismatch failures; current scheduler intentionally skips those two passes to keep `--optimize` stable.
@@ -37,9 +38,8 @@ Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full
 - [ ] Add a focused `to_texpr` regression fixture for `Stack underflow during tree conversion` on valid large modules and fix stack-polymorphic control-flow handling in `validate/env.mbt`.
 - [ ] Add a native regression test for deep nested-control decode (or equivalent non-recursive decoder benchmark fixture) to prevent stack-overflow regressions when `setrlimit` is unavailable.
 - [ ] Replace wasm wildcard stub (`wasi_list_candidates`) with directory enumeration via WASI readdir to enable glob expansion under default WASI IO.
-- [ ] Decide whether `wasm-gc` should share WASI default IO with `wasm` or remain an explicit non-WASI fallback, then codify with target-specific tests.
-- [ ] Add CI coverage for `npm --prefix node_wasm run build:all` and `npm --prefix node_wasm run test:spec:wasm -- --limit <smoke>` to prevent packaging regressions.
 - [ ] Audit native FFI wrappers in other packages (for example `src/wast/spec_harness.mbt`) for pointer-width-safe signatures (`FILE*`/`char*`/`size_t`) to prevent similar 32-bit truncation crashes.
+- [ ] Profile and optimize `MergeLocals`
 
 ## Deferred After v0.1
 - [ ] Make `module_to_wast` output reliably parser-consumable in roundtrip tests.
@@ -54,3 +54,7 @@ Reach v0.1.0 “production-ready for MoonBit users” by end of March 2026: full
 - [ ] Add `re_reloop` end-to-end coverage for internal loop-target `br_table` cases carrying branch values (non-empty `values`) to lock in typed value-flow behavior.
 - [ ] Audit asyncify-generated `MemArg` alignments across all rewritten instruction paths (including non-tail-call entrypoints) and add validator-backed tests per pointer width (`i32`/`i64` memory).
 - [ ] Add a shared memarg-alignment helper (`byte width -> alignment exponent`) and migrate pass code that still emits byte-count alignments directly.
+- [ ] Profile and optimize `DeadCodeElimination`
+- [ ] Profile and optimize `SimplifyLocals`
+
+

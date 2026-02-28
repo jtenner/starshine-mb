@@ -614,7 +614,9 @@ fn run_module_runner_scheduler_pass(
       }
     DuplicateFunctionElimination =>
       apply_module_runner_pass(mod, fn(mod) {
-        duplicate_function_elimination(mod, options)
+        duplicate_function_elimination(mod, options, trace=fn(msg) {
+          trace("duplicate_function_elimination:\{msg}")
+        })
       })
     RemoveUnusedBrs =>
       apply_module_runner_pass(mod, fn(mod) { remove_unused_brs(mod, options~) })
