@@ -180,6 +180,18 @@ fn dce_trace_start_func(
   trace_state.unreachable_checks.val = 0
   trace_state.budget_hits.val = 0
   trace_state.rewrites.val = 0
+
+  // Reset analysis budget per function. If we skip, budget is 0.
+  // NOTE: You should tune these numbers empirically.
+  if skip {
+    break_scan_budget.val = 0
+  } else {
+    let base = 100_000
+    let scaled = base + (top_instrs * 2) // top_instrs is "nested count" now
+    let capped = if scaled > 3_000_000 { 3_000_000 } else { scaled }
+    break_scan_budget.val = capped
+  }
+
   if dce_trace_should_log_func(trace_state) {
     (trace_state.trace)(
       "func[\{trace_state.func_ordinal.val}]:start locals=\{locals} top_instrs=\{top_instrs} skip=\{skip} budget=\{break_scan_budget.val}",
@@ -259,19 +271,29 @@ fn dead_code_elimination_pass_with_trace(
   trace? : (String) -> Unit = dead_code_elimination_trace_noop,
   trace_all_funcs? : Bool = false,
 ) -> ModuleTransformer[Unit] {
-  let break_scan_budget = Ref::new(20_000)
+  // Shared per-function budget ref (reset at func start).
+  let break_scan_budget = Ref::new(0)
   let skip_current_func = Ref::new(false)
   let trace_state = dce_trace_state_new(trace, trace_all_funcs)
+
   ModuleTransformer::new()
   .on_func_evt(fn(_, ctx, func) {
     match func {
       TFunc(locals, body) => {
-        skip_current_func.val = locals.length() > 64 ||
-          body.instrs.length() > 256
+        // Compute a capped nested-size estimate once.
+        let nested = dce_count_instrs_capped(body, 250_000)
+
+        // Skip giant functions early: DCE is not worth it and will thrash.
+        // Tune thresholds to your workload.
+        skip_current_func.val =
+          locals.length() > 256 ||
+          nested > 250_000
+
+        // Pass "nested" as top_instrs for budgeting/logging (not body.instrs.length()).
         dce_trace_start_func(
           trace_state,
           locals.length(),
-          body.instrs.length(),
+          nested,
           skip_current_func.val,
           break_scan_budget,
         )
@@ -281,6 +303,7 @@ fn dead_code_elimination_pass_with_trace(
         dce_trace_start_func(trace_state, 0, 0, false, break_scan_budget)
       }
     }
+
     if skip_current_func.val {
       change(ctx, func)
     } else {
@@ -312,7 +335,6 @@ fn dead_code_elimination_pass() -> ModuleTransformer[Unit] {
 fn dead_code_elimination_ir_pass(_mod : Module) -> ModuleTransformer[IRContext] {
   wrap_unit_func_pass(dead_code_elimination_pass())
 }
-
 ///|
 fn dce_texpr(
   transformer : ModuleTransformer[Unit],
@@ -323,28 +345,48 @@ fn dce_texpr(
 ) -> TransformerResult[Unit, TExpr] {
   trace_state.expr_visits.val += 1
   dce_trace_maybe_emit_progress(trace_state, "texpr", break_scan_budget)
+
+  // HARD BAIL: once the per-function analysis budget is exhausted,
+  // do not traverse any deeper. Continuing to walk is exactly what
+  // causes pathological “making progress” with rewrites=0.
+  if break_scan_budget.val <= 0 {
+    return unchanged()
+  }
+
   let { instrs, .. } = expr
   let out : Array[TInstr] = []
   let mut changed = false
   let mut after_unreachable = false
+
   for instr in instrs {
     if after_unreachable {
       changed = true
       continue
     }
+
     let new_instr = match transformer.walk_tinstruction((), instr) {
       Err(e) => return Err(e)
       Ok(None) => instr
       Ok(Some((_, updated))) => updated
     }
+
     if new_instr != instr {
       changed = true
     }
     out.push(new_instr)
-    if dce_is_unreachable_instr(new_instr, break_scan_budget, trace_state) {
+
+    let local_budget = dce_alloc_break_budget(break_scan_budget, 512)
+    if dce_is_unreachable_instr(new_instr, local_budget, trace_state) {
       after_unreachable = true
     }
+
+    // If we just exhausted budget during processing, bail immediately.
+    // This prevents finishing a massive remaining tail walk.
+    if break_scan_budget.val <= 0 {
+      return if changed { change((), TExpr::new(out)) } else { unchanged() }
+    }
   }
+
   if !changed {
     unchanged()
   } else {
@@ -362,36 +404,54 @@ fn dce_tinstr(
 ) -> TransformerResult[Unit, TInstr] {
   trace_state.instr_visits.val += 1
   dce_trace_maybe_emit_progress(trace_state, "instr", break_scan_budget)
+
+  // HARD BAIL: once budget is exhausted, do not recurse.
+  // This is the key fix: if we call walk_tinstruction_default here,
+  // we keep descending forever with rewrites=0.
+  if break_scan_budget.val <= 0 {
+    return unchanged()
+  }
+
   let walked = match transformer.walk_tinstruction_default((), instr) {
     Err(e) => return Err(e)
     Ok(None) => instr
     Ok(Some((_, updated))) => updated
   }
+
   let mut rewritten = walked
 
   // Control-flow-structure rewrites that need explicit handling.
   rewritten = match rewritten.kind {
     TInstrKind::TBlock(_, body) if is_single_unreachable_texpr(body) =>
       TInstr::unreachable_()
-    TInstrKind::TIf(_, cond, _, _) if dce_is_unreachable_instr(
-        cond, break_scan_budget, trace_state,
-      ) => cond
+
+    TInstrKind::TIf(_, cond, _, _) => {
+      let cond_budget = dce_alloc_break_budget(break_scan_budget, 512)
+      if dce_is_unreachable_instr(cond, cond_budget, trace_state) {
+        cond
+      } else {
+        rewritten
+      }
+    }
+
     TInstrKind::TLoop(_, body) if is_single_unreachable_texpr(body) =>
       TInstr::unreachable_()
+
     _ => rewritten
   }
 
-  // Non-control rewrite:
-  // If an unreachable child makes this expression unreachable,
-  // keep effects before the first unreachable as drops, keep the first
-  // unreachable child, and remove everything after.
-  if !is_control_flow_structure(rewritten) &&
-    dce_is_unreachable_instr(rewritten, break_scan_budget, trace_state) &&
-    dce_has_unreachable_child(rewritten, break_scan_budget, trace_state) {
-    rewritten = dce_rewrite_non_control_unreachable(
-      rewritten, break_scan_budget, trace_state,
-    )
+  // Non-control unreachable operand rewrite (budgeted).
+  if !is_control_flow_structure(rewritten) {
+    let reach_budget = dce_alloc_break_budget(break_scan_budget, 512)
+    let child_budget = dce_alloc_break_budget(break_scan_budget, 512)
+    if dce_is_unreachable_instr(rewritten, reach_budget, trace_state) &&
+      dce_has_unreachable_child(rewritten, child_budget, trace_state) {
+      let rewrite_budget = dce_alloc_break_budget(break_scan_budget, 1024)
+      rewritten =
+        dce_rewrite_non_control_unreachable(rewritten, rewrite_budget, trace_state)
+    }
   }
+
   if rewritten == instr {
     unchanged()
   } else {
@@ -419,7 +479,6 @@ fn is_single_unreachable_texpr(expr : TExpr) -> Bool {
     _ => false
   }
 }
-
 ///|
 fn dce_texpr_is_unreachable(
   expr : TExpr,
@@ -427,19 +486,25 @@ fn dce_texpr_is_unreachable(
   trace_state : DCEPassTraceState,
 ) -> Bool {
   let { instrs, .. } = expr
-  if instrs.length() > 0 &&
-    dce_is_unreachable_instr(
-      instrs[instrs.length() - 1],
-      break_scan_budget,
-      trace_state,
-    ) {
-    return true
-  }
-  for instr in instrs {
-    if dce_is_unreachable_instr(instr, break_scan_budget, trace_state) {
+
+  if instrs.length() > 0 {
+    let last_budget = dce_alloc_break_budget(break_scan_budget, 512)
+    if dce_is_unreachable_instr(
+        instrs[instrs.length() - 1],
+        last_budget,
+        trace_state,
+      ) {
       return true
     }
   }
+
+  for instr in instrs {
+    let local_budget = dce_alloc_break_budget(break_scan_budget, 512)
+    if dce_is_unreachable_instr(instr, local_budget, trace_state) {
+      return true
+    }
+  }
+
   false
 }
 
@@ -468,26 +533,37 @@ fn dce_has_break_to_depth_in_texpr(
 ) -> Bool {
   let { instrs, .. } = expr
   for instr in instrs {
-    if dce_has_break_to_depth(instr, depth, break_scan_budget, trace_state) {
+    let local_budget = dce_alloc_break_budget(break_scan_budget, 1024)
+    if dce_has_break_to_depth(instr, depth, local_budget, trace_state) {
       return true
     }
   }
   false
 }
-
 ///|
 fn dce_take_break_budget(
   break_scan_budget : Ref[Int],
   trace_state : DCEPassTraceState,
 ) -> Bool {
   trace_state.break_checks.val += 1
+
   if break_scan_budget.val <= 0 {
     trace_state.budget_hits.val += 1
-    dce_trace_maybe_emit_progress(trace_state, "budget_exhausted", break_scan_budget)
+
+    // Avoid spending time logging on every single exhausted check.
+    // Emit on first hit and then occasionally.
+    if trace_state.budget_hits.val == 1 ||
+      trace_state.budget_hits.val % 4096 == 0 {
+      dce_trace_maybe_emit_progress(
+        trace_state,
+        "budget_exhausted",
+        break_scan_budget,
+      )
+    }
+
     true
   } else {
     break_scan_budget.val = break_scan_budget.val - 1
-    dce_trace_maybe_emit_progress(trace_state, "break_scan", break_scan_budget)
     false
   }
 }
@@ -582,11 +658,27 @@ fn dce_has_unreachable_child(
   trace_state : DCEPassTraceState,
 ) -> Bool {
   for child in eval_children(instr) {
-    if dce_is_unreachable_instr(child, break_scan_budget, trace_state) {
+    let local_budget = dce_alloc_break_budget(break_scan_budget, 512)
+    if dce_is_unreachable_instr(child, local_budget, trace_state) {
       return true
     }
   }
   false
+}
+
+///|
+/// Allocate a small local budget from a shared parent budget.
+/// This bounds the work per query while still preventing infinite work overall.
+fn dce_alloc_break_budget(parent : Ref[Int], slice : Int) -> Ref[Int] {
+  if slice <= 0 {
+    return Ref::new(0)
+  }
+  if parent.val <= 0 {
+    return Ref::new(0)
+  }
+  let taken = if parent.val >= slice { slice } else { parent.val }
+  parent.val = parent.val - taken
+  Ref::new(taken)
 }
 
 ///|
@@ -646,6 +738,58 @@ fn dce_is_unreachable_instr(
 }
 
 ///|
+/// Fast(ish) nested instruction counter with a hard cap.
+/// Returns a count >= limit+1 when it exceeds the limit.
+///
+/// NOTE: This does allocate via eval_children for non-control instructions,
+/// but runs only once per function, and is massively cheaper than 20M+ visits.
+fn dce_count_instrs_capped(body : TExpr, limit : Int) -> Int {
+  let mut count = 0
+  let stack : Array[TInstr] = body.instrs.copy()
+
+  while !stack.is_empty() {
+    let instr = stack.pop().unwrap()
+
+    count += 1
+    if count > limit {
+      return count
+    }
+
+    match instr.kind {
+      TInstrKind::TBlock(_, b)
+      | TInstrKind::TLoop(_, b)
+      | TInstrKind::TTryTable(_, _, b) => {
+        // push body instrs
+        for item in b.instrs {
+          stack.push(item)
+        }
+      }
+      TInstrKind::TIf(_, cond, then_body, else_body) => {
+        stack.push(cond)
+        for item in then_body.instrs {
+          stack.push(item)
+        }
+        match else_body {
+          Some(other) =>
+            for item in other.instrs {
+              stack.push(item)
+            }
+          None => ()
+        }
+      }
+      _ => {
+        // non-control children
+        for child in eval_children(instr) {
+          stack.push(child)
+        }
+      }
+    }
+  }
+
+  count
+}
+
+///|
 fn dce_rewrite_non_control_unreachable(
   instr : TInstr,
   break_scan_budget : Ref[Int],
@@ -654,17 +798,21 @@ fn dce_rewrite_non_control_unreachable(
   let children = eval_children(instr)
   let remaining : Array[TInstr] = []
   let mut after_unreachable = false
+
   for child in children {
     if after_unreachable {
       continue
     }
-    if dce_is_unreachable_instr(child, break_scan_budget, trace_state) {
+
+    let local_budget = dce_alloc_break_budget(break_scan_budget, 512)
+    if dce_is_unreachable_instr(child, local_budget, trace_state) {
       remaining.push(child)
       after_unreachable = true
     } else {
       remaining.push(TInstr::drop(child))
     }
   }
+
   match remaining {
     [single] => single
     _ => TInstr::block(BlockType::void_(), TExpr::new(remaining))

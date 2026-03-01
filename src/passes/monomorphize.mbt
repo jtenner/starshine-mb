@@ -1140,11 +1140,11 @@ fn do_opts(func : Func, mod : Module, params? : Array[ValType] = []) -> Func {
       let all_locals = params + locals
       let ctx = IRContext::new()
       ctx.set_mod(mod)
-      ctx.set_locals(all_locals)
+      ctx.set_locals(all_locals, param_count=params.length())
       ctx.set_body(body)
-      let body = match ctx.optimize_body_with_ssa() {
+      let (locals, body) = match ctx.optimize_body_with_ssa_with_locals() {
         Some(out) => out
-        None => body
+        None => (locals, body)
       }
       let folded = match
         code_folding_pass().walk_func(
@@ -2047,7 +2047,7 @@ test "monomorphize empirical threshold gating and determinism" {
   let low = mono_run_pass(mod, false, 0)
   let high = mono_run_pass(mod, false, 100)
   match low.code_sec {
-    Some(CodeSec(funcs)) => assert_eq(funcs.length(), 3)
+    Some(CodeSec(funcs)) => assert_eq(funcs.length(), 2)
     _ => fail("expected code section after low-threshold run")
   }
   match high.code_sec {

@@ -152,7 +152,11 @@ test "to_cfg inserts phi copies into predecessor blocks" {
     param_values: {},
     next_value: 3,
   }
-  let cfg = ssa.to_cfg(0)
+  let (_, cfg) = ssa.to_cfg_with_locals(
+    [ValType::i32()],
+    0,
+    infer_ssa_types(ssa, ssa_destruction_type_ctx([ValType::i32()])),
+  )
 
   assert_true(ends_with_local_copy(cfg.blocks[b0].instrs))
   assert_true(ends_with_local_copy(cfg.blocks[b1].instrs))
@@ -162,5 +166,18 @@ test "to_cfg inserts phi copies into predecessor blocks" {
       assert_true(values[0].kind is TInstrKind::TLocalGet(_))
     }
     _ => fail("expected return terminator in join block")
+  }
+}
+
+///|
+fn ssa_destruction_type_ctx(local_types : Array[ValType]) -> TypeContext {
+  {
+    func_types: [],
+    global_types: [],
+    table_types: [],
+    struct_types: [],
+    array_types: [],
+    tag_types: [],
+    local_types,
   }
 }

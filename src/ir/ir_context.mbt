@@ -3,6 +3,7 @@ pub fn IRContext::new() -> Self {
   {
     mod_: None,
     body: TExpr::new([]),
+    param_count: 0,
     locals: [],
     type_ctx: None,
     cfg: None,
@@ -29,6 +30,7 @@ pub fn IRContext::set_body(self : Self, body : TExpr) -> Unit {
 ///|
 pub fn IRContext::set_mod(self : Self, mod_ : @lib.Module) -> Unit {
   self.mod_ = Some(mod_)
+  self.type_ctx = None
   // Module change invalidates everything
   self.cfg_dirty()
 }
@@ -67,7 +69,7 @@ pub fn IRContext::get_ssa(self : Self) -> SSACFG {
       let cfg = self.get_cfg()
       let doms = cfg.dominators()
       let df = cfg.dominance_frontier()
-      let ssa = cfg.to_ssa(doms, df, self.locals.length())
+      let ssa = cfg.to_ssa(doms, df, self.param_count)
       let ssa = ssa.split_critical_edges()
       self.ssa = Some(ssa)
       ssa
@@ -182,9 +184,22 @@ pub fn IRContext::local_graph_dirty(self : Self) -> Unit {
 
 ///|
 /// Lowers the (possibly GVN-optimized) SSA back to a CFG.
+pub fn IRContext::lower_to_cfg_with_locals(
+  self : Self,
+) -> (Array[ValType], CFG)? {
+  let ssa = self.get_gvn()
+  match self.get_types() {
+    Some(types) =>
+      Some(ssa.to_cfg_with_locals(self.locals, self.param_count, types))
+    None => None
+  }
+}
+
+///|
+/// Lowers the (possibly GVN-optimized) SSA back to a CFG.
 pub fn IRContext::lower_to_cfg(self : Self) -> CFG {
   let ssa = self.get_gvn()
-  ssa.to_cfg(self.locals.length())
+  ssa.to_cfg(self.param_count)
 }
 
 ///|
@@ -739,27 +754,81 @@ fn cfg_to_texpr(cfg : CFG) -> TExpr? {
 }
 
 ///|
+fn ir_non_param_locals(
+  all_locals : Array[ValType],
+  param_count : Int,
+) -> Array[ValType] {
+  if param_count <= 0 {
+    return all_locals.copy()
+  }
+  let locals : Array[ValType] = []
+  for i = param_count; i < all_locals.length(); i = i + 1 {
+    locals.push(all_locals[i])
+  }
+  locals
+}
+
+///|
+/// Runs SSA optimization and materializes a TExpr when the optimized CFG can be
+/// represented by the supported structured CFG subset.
+pub fn IRContext::optimize_body_with_ssa_with_locals(
+  self : Self,
+) -> (Array[ValType], TExpr)? {
+  self.apply_ssa_optimize()
+  let ssa = self.get_ssa()
+  match self.get_types() {
+    Some(types) => {
+      let (all_locals, cfg) = ssa.to_cfg_with_locals(
+        self.locals,
+        self.param_count,
+        types,
+      )
+      match cfg_to_texpr(cfg) {
+        Some(lowered) => {
+          self.locals = all_locals
+          self.type_ctx = None
+          Some((ir_non_param_locals(all_locals, self.param_count), lowered))
+        }
+        None => None
+      }
+    }
+    None => None
+  }
+}
+
+///|
 /// Runs SSA optimization and materializes a TExpr when the optimized CFG can be
 /// represented by the supported structured CFG subset.
 pub fn IRContext::optimize_body_with_ssa(self : Self) -> TExpr? {
-  self.apply_ssa_optimize()
-  let ssa = self.get_ssa()
-  let cfg = ssa.to_cfg(self.locals.length())
-  cfg_to_texpr(cfg)
+  match self.optimize_body_with_ssa_with_locals() {
+    Some((_, body)) => Some(body)
+    None => None
+  }
 }
 
 ///|
 /// Same as optimize_body_with_ssa, with phase-level tracing hooks.
-pub fn IRContext::optimize_body_with_ssa_trace(
+pub fn IRContext::optimize_body_with_ssa_trace_with_locals(
   self : Self,
   trace : (String) -> Unit,
-) -> TExpr? {
+) -> (Array[ValType], TExpr)? {
   trace("phase=apply_ssa_optimize:start")
   self.apply_ssa_optimize()
   trace("phase=apply_ssa_optimize:done")
   trace("phase=ssa_to_cfg:start")
   let ssa = self.get_ssa()
-  let cfg = ssa.to_cfg(self.locals.length())
+  let types = match self.get_types() {
+    Some(types) => types
+    None => {
+      trace("phase=ssa_to_cfg:skip missing_types")
+      return None
+    }
+  }
+  let (all_locals, cfg) = ssa.to_cfg_with_locals(
+    self.locals,
+    self.param_count,
+    types,
+  )
   trace("phase=ssa_to_cfg:done blocks=\{cfg.blocks.length()}")
   let block_limit = cfg_to_texpr_block_limit()
   if cfg.blocks.length() > block_limit {
@@ -779,7 +848,26 @@ pub fn IRContext::optimize_body_with_ssa_trace(
   trace(
     "phase=cfg_to_texpr:done success=\{lowered is Some(_)} budget_spent=\{budget_spent} limit=\{budget_limit}",
   )
-  lowered
+  match lowered {
+    Some(body) => {
+      self.locals = all_locals
+      self.type_ctx = None
+      Some((ir_non_param_locals(all_locals, self.param_count), body))
+    }
+    None => None
+  }
+}
+
+///|
+/// Same as optimize_body_with_ssa, with phase-level tracing hooks.
+pub fn IRContext::optimize_body_with_ssa_trace(
+  self : Self,
+  trace : (String) -> Unit,
+) -> TExpr? {
+  match self.optimize_body_with_ssa_trace_with_locals(trace) {
+    Some((_, body)) => Some(body)
+    None => None
+  }
 }
 
 ///|
@@ -789,8 +877,14 @@ pub fn IRContext::validate(self : Self) -> Result[Unit, String] {
 }
 
 ///|
-pub fn IRContext::set_locals(self : Self, locals : Array[ValType]) -> Unit {
+pub fn IRContext::set_locals(
+  self : Self,
+  locals : Array[ValType],
+  param_count? : Int = 0,
+) -> Unit {
   self.locals = locals
+  self.param_count = param_count
+  self.type_ctx = None
   self.ssa_dirty()
 }
 

@@ -69,7 +69,8 @@ fn Checker::new(request_infos : Array[RequestInfo?]) -> Checker {
 
 ///|
 priv struct Applier {
-  env : Env
+  mut env : Env
+  param_types : Array[ValType]
   node_instrs : Array[TInstr]
   request_infos : Array[RequestInfo?]
   mut next_id : Int
@@ -81,12 +82,14 @@ priv struct Applier {
 ///|
 fn Applier::new(
   env : Env,
+  param_types : Array[ValType],
   node_instrs : Array[TInstr],
   request_infos : Array[RequestInfo?],
   locals : Array[ValType],
 ) -> Applier {
   {
     env,
+    param_types,
     node_instrs,
     request_infos,
     next_id: 0,
@@ -1695,9 +1698,12 @@ fn lcs_applier_finalize_node(
         match lcs_infer_tinstr_type(applier.node_instrs[id], applier.env) {
           Some(vt) => {
             let local_idx = LocalIdx::new(
-              applier.locals.length().reinterpret_as_uint(),
+              (applier.param_types.length() + applier.locals.length()).reinterpret_as_uint(),
             )
             applier.locals.push(vt)
+            applier.env = applier.env.with_locals(
+              applier.param_types + applier.locals,
+            )
             applier.original_to_local[id] = local_idx
             out = TInstr::local_tee(local_idx, out)
             applier.changed = true
@@ -1813,6 +1819,7 @@ fn lcs_has_live_requests(request_infos : Array[RequestInfo?]) -> Bool {
 ///|
 fn run_local_cse_on_func(
   env : Env,
+  param_types : Array[ValType],
   locals : Array[ValType],
   body : TExpr,
   shrink_level : Int,
@@ -1829,6 +1836,7 @@ fn run_local_cse_on_func(
   }
   let applier = Applier::new(
     env,
+    param_types,
     scanner.node_instrs,
     checker.request_infos,
     locals.copy(),
@@ -1838,17 +1846,45 @@ fn run_local_cse_on_func(
 }
 
 ///|
+fn local_cse_count_imported_funcs(mod : Module) -> Int {
+  let mut n = 0
+  match mod.import_sec {
+    Some(ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          Import(_, _, FuncExternType(_)) => n += 1
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  n
+}
+
+///|
 fn local_cse_ir_pass(
   mod : Module,
   options : OptimizeOptions,
 ) -> ModuleTransformer[IRContext] {
   let base_env = Env::new().with_module(mod)
+  let imported_funcs = local_cse_count_imported_funcs(mod)
+  let mut seen_funcs = 0
   ModuleTransformer::new().on_func_evt(fn(_, ctx, func) {
+    seen_funcs += 1
     match func {
       TFunc(locals, body) => {
-        let env = base_env.with_locals(locals)
+        let abs_idx = imported_funcs + seen_funcs - 1
+        let params = match
+          base_env.get_functype_by_funcidx(
+            FuncIdx::new(abs_idx.reinterpret_as_uint()),
+          ) {
+          Some(FuncType(params, _)) => params
+          None => []
+        }
+        let env = base_env.with_locals(params + locals)
         let (new_locals, new_body, changed) = run_local_cse_on_func(
           env,
+          params,
           locals,
           body,
           options.shrink_level,
@@ -2091,6 +2127,38 @@ test "local cse is idempotent" {
   let once = run_local_cse(mod)
   let twice = run_local_cse(once)
   assert_eq(once, twice)
+}
+
+///|
+test "local cse helper locals account for parameter indices" {
+  let func_type = single_rec_type(
+    comp_type_sub_type(func_comp_type([ValType::i32()], [])),
+  )
+  let repeated = TInstr::binary(
+    BinaryOp::i32_add(),
+    TInstr::local_get(LocalIdx::new(0)),
+    TInstr::i32_const(I32(1)),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([func_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([TInstr::drop(repeated), TInstr::drop(repeated)]),
+        ),
+      ]),
+    )
+  let out = run_local_cse(mod)
+  assert_eq(validate_module(out), Ok(()))
+  match out.code_sec {
+    Some(CodeSec([TFunc(locals, body)])) => {
+      assert_true(locals.length() >= 1)
+      assert_true(count_local_tees(body) >= 1)
+    }
+    _ => fail("expected transformed function")
+  }
 }
 
 ///|

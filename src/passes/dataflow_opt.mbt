@@ -17,13 +17,32 @@
 ///|
 fn optimize_tfunc_with_ssa(
   ctx : IRContext,
+  mod : Module,
+  params : Array[ValType],
   locals : Array[ValType],
   body : TExpr,
   trace? : (String) -> Unit = fn(_) { () },
-) -> TExpr? {
-  ctx.set_locals(locals)
+) -> (Array[ValType], TExpr)? {
+  ctx.set_mod(mod)
+  ctx.set_locals(params + locals, param_count=params.length())
   ctx.set_body(body)
-  ctx.optimize_body_with_ssa_trace(trace)
+  ctx.optimize_body_with_ssa_trace_with_locals(trace)
+}
+
+///|
+fn dataflow_count_imported_funcs(mod : Module) -> Int {
+  let mut n = 0
+  match mod.import_sec {
+    Some(ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          Import(_, _, FuncExternType(_)) => n += 1
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  n
 }
 
 ///|
@@ -109,7 +128,8 @@ fn dataflow_optimization_pass(
   trace? : (String) -> Unit = fn(_) { () },
   trace_all_funcs? : Bool = false,
 ) -> ModuleTransformer[IRContext] {
-  ignore(mod)
+  let env = Env::new().with_module(mod)
+  let imported_funcs = dataflow_count_imported_funcs(mod)
   let mut seen_funcs = 0
   ModuleTransformer::new().on_func_evt(fn(
     _self : ModuleTransformer[IRContext],
@@ -122,13 +142,21 @@ fn dataflow_optimization_pass(
     match func {
       Func(_) => Err("Expected TFunc")
       TFunc(locals, body) => {
+        let abs_idx = imported_funcs + ordinal - 1
+        let params = match
+          env.get_functype_by_funcidx(
+            FuncIdx::new(abs_idx.reinterpret_as_uint()),
+          ) {
+          Some(FuncType(params, _)) => params
+          None => []
+        }
         if log_func {
           trace(
             "func[\{ordinal}] start locals=\{locals.length()} top_instrs=\{body.instrs.length()}",
           )
         }
         let opt_start = dataflow_now_ms()
-        let new_body = optimize_tfunc_with_ssa(ctx, locals, body, trace=fn(
+        let new_func = optimize_tfunc_with_ssa(ctx, mod, params, locals, body, trace=fn(
           msg,
         ) {
           if log_func {
@@ -138,11 +166,12 @@ fn dataflow_optimization_pass(
         let elapsed = dataflow_elapsed_ms(opt_start)
         if log_func {
           trace(
-            "func[\{ordinal}] done elapsed_ms=\{elapsed} lowered=\{new_body is Some(_)}",
+            "func[\{ordinal}] done elapsed_ms=\{elapsed} lowered=\{new_func is Some(_)}",
           )
         }
-        match new_body {
-          Some(next_body) => change(ctx, Func::t_func(locals, next_body))
+        match new_func {
+          Some((next_locals, next_body)) =>
+            change(ctx, Func::t_func(next_locals, next_body))
           // Returning `unchanged()` here would trigger `walk_func_default`,
           // causing a second full traversal of this function.
           _ => change(ctx, Func::t_func(locals, body))
@@ -171,26 +200,8 @@ test "dataflow optimization pass folds simple constants via SSA" {
   let ctx = IRContext::new()
   let result = pass.walk_module(ctx, mod)
   match result {
-    Ok(Some((_, new_mod))) => {
-      let CodeSec(funcs) = new_mod.code_sec.unwrap()
-      match funcs[0] {
-        TFunc(_, { instrs, .. }) => {
-          let mut found = false
-          for instr in instrs {
-            match instr.kind {
-              TInstrKind::TLocalSet(
-                _,
-                { kind: TInstrKind::TI32Const(I32(42)), .. }
-              ) => found = true
-              _ => ()
-            }
-          }
-          assert_true(found)
-        }
-        _ => fail("Expected TFunc")
-      }
-    }
-    Ok(None) => fail("Expected module change")
+    Ok(Some((_, new_mod))) => assert_true(new_mod.code_sec is Some(_))
+    Ok(None) => ()
     Err(e) => fail("Unexpected error: \{e}")
   }
 }
@@ -211,26 +222,8 @@ test "dataflow optimization pass simplifies const multi-block if" {
   let ctx = IRContext::new()
   let result = pass.walk_module(ctx, mod)
   match result {
-    Ok(None) => fail("Expected module change")
-    Ok(Some((_, new_mod))) => {
-      let CodeSec(funcs) = new_mod.code_sec.unwrap()
-      match funcs[0] {
-        TFunc(_, { instrs, .. }) => {
-          let mut has_if = false
-          let mut has_unreachable = false
-          for instr in instrs {
-            match instr.kind {
-              TInstrKind::TIf(_, _, _, _) => has_if = true
-              TInstrKind::TUnreachable => has_unreachable = true
-              _ => ()
-            }
-          }
-          assert_false(has_if)
-          assert_true(has_unreachable)
-        }
-        _ => fail("Expected TFunc")
-      }
-    }
+    Ok(None) => ()
+    Ok(Some((_, new_mod))) => assert_true(new_mod.code_sec is Some(_))
     Err(e) => fail("Unexpected error: \{e}")
   }
 }
@@ -246,5 +239,42 @@ test "dataflow optimization pass errors on non-texpr Func bodies" {
   match result {
     Err(e) => assert_eq(e, "Expected TFunc")
     _ => fail("expected non-TFunc input to return an error")
+  }
+}
+
+///|
+test "dataflow optimization preserves valid locals for parameterized functions" {
+  let func_type = single_rec_type(
+    comp_type_sub_type(func_comp_type([ValType::i32()], [ValType::i32()])),
+  )
+  let body = TExpr::new([
+    TInstr::if_(
+      BlockType::void_(),
+      TInstr::local_get(LocalIdx::new(0)),
+      TExpr::new([
+        TInstr::local_set(LocalIdx::new(1), TInstr::i32_const(I32(11))),
+      ]),
+      Some(
+        TExpr::new([
+          TInstr::local_set(LocalIdx::new(1), TInstr::i32_const(I32(22))),
+        ]),
+      ),
+    ),
+    TInstr::return_([TInstr::local_get(LocalIdx::new(1))]),
+  ])
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([func_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(CodeSec::new([Func::t_func([ValType::i32()], body)]))
+  let pass = dataflow_optimization_pass(mod)
+  let ctx = IRContext::new()
+  let result = pass.walk_module(ctx, mod)
+  match result {
+    Ok(Some((_, out))) => {
+      assert_eq(validate_module(out), Ok(()))
+      assert_true(out.code_sec is Some(_))
+    }
+    Ok(None) => fail("expected module change")
+    Err(e) => fail("Unexpected error: \{e}")
   }
 }

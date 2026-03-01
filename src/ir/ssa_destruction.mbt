@@ -1,8 +1,8 @@
 ///|
-fn SSADestructor::new(param_count : Int) -> SSADestructor {
+fn SSADestructor::new(next_local_start : Int) -> SSADestructor {
   SSADestructor::{
     value_to_local: Map::new(),
-    next_local: param_count.reinterpret_as_uint(),
+    next_local: next_local_start.reinterpret_as_uint(),
   }
 }
 
@@ -170,10 +170,17 @@ pub fn SSACFG::split_critical_edges(self : SSACFG) -> SSACFG {
 }
 
 ///|
-/// Convert SSA back to CFG with explicit locals
-pub fn SSACFG::to_cfg(self : SSACFG, param_count : Int) -> CFG {
-  let destructor = SSADestructor::new(param_count)
+/// Convert SSA back to CFG with explicit locals and return any synthesized locals.
+pub fn SSACFG::to_cfg_with_locals(
+  self : SSACFG,
+  original_locals : Array[ValType],
+  param_count : Int,
+  types : SSATypeInfo,
+) -> (Array[ValType], CFG) {
+  ignore(param_count)
+  let destructor = SSADestructor::new(original_locals.length())
   let blocks : Map[BlockId, BasicBlock] = Map::new()
+  let expanded_locals = original_locals.copy()
 
   // First pass: assign locals to all SSA values
   for entry in self.param_values {
@@ -186,10 +193,24 @@ pub fn SSACFG::to_cfg(self : SSACFG, param_count : Int) -> CFG {
     let (_, block) = entry
     for phi in block.phis {
       let _ = destructor.get_local(phi.result)
+      let phi_ty = if phi.local_idx.0.reinterpret_as_int() <
+        original_locals.length() {
+        original_locals[phi.local_idx.0.reinterpret_as_int()]
+      } else {
+        match types.get(phi.result) {
+          Some(vt) => vt
+          None => abort("missing SSA type for phi result during CFG lowering")
+        }
+      }
+      expanded_locals.push(phi_ty)
     }
     for instr in block.instrs {
       if instr is SSAInstr::Assign(result, _) {
         ignore(destructor.get_local(result))
+        match types.get(result) {
+          Some(vt) => expanded_locals.push(vt)
+          None => abort("missing SSA type for SSA value during CFG lowering")
+        }
       }
     }
   }
@@ -235,6 +256,68 @@ pub fn SSACFG::to_cfg(self : SSACFG, param_count : Int) -> CFG {
           TInstr::local_get(src_local),
         )
         // Insert before terminator
+        blocks[pred_id].instrs.push(copy_instr)
+      }
+    }
+  }
+  let preds = compute_predecessors(blocks)
+  (expanded_locals, CFG::{ entry: self.entry, blocks, preds })
+}
+
+///|
+/// Convert SSA back to CFG with explicit locals.
+pub fn SSACFG::to_cfg(self : SSACFG, param_count : Int) -> CFG {
+  let destructor = SSADestructor::new(param_count)
+  let blocks : Map[BlockId, BasicBlock] = Map::new()
+
+  for entry in self.param_values {
+    let (local_idx, val) = entry
+    destructor.value_to_local[val] = local_idx
+  }
+
+  for entry in self.blocks {
+    let (_, block) = entry
+    for phi in block.phis {
+      let _ = destructor.get_local(phi.result)
+    }
+    for instr in block.instrs {
+      if instr is SSAInstr::Assign(result, _) {
+        ignore(destructor.get_local(result))
+      }
+    }
+  }
+
+  for entry in self.blocks {
+    let (block_id, block) = entry
+    let instrs : Array[TInstr] = []
+    for instr in block.instrs {
+      match instr {
+        SSAInstr::Assign(result, op) => {
+          let l = destructor.get_local(result)
+          let tinstr = convert_ssa_op_to_tinstr(op, destructor)
+          instrs.push(TInstr::local_set(l, tinstr))
+        }
+        SSAInstr::Effect(op) => {
+          let tinstr = convert_ssa_op_to_tinstr(op, destructor)
+          instrs.push(tinstr)
+        }
+      }
+    }
+    let terminator = convert_ssa_terminator(block.terminator, destructor)
+    blocks[block_id] = BasicBlock::{ id: block_id, instrs, terminator }
+  }
+
+  for entry in self.blocks {
+    let (_, block) = entry
+    for phi in block.phis {
+      let dest_local = destructor.get_local(phi.result)
+      for arg_entry in phi.args {
+        let (pred_id, val) = arg_entry
+        let src_local = destructor.get_local(val)
+        let copy_instr = TInstr::local_set(
+          dest_local,
+          TInstr::local_get(src_local),
+        )
         blocks[pred_id].instrs.push(copy_instr)
       }
     }

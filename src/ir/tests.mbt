@@ -1,4 +1,17 @@
 ///|
+fn ir_test_type_ctx(local_types : Array[ValType]) -> TypeContext {
+  {
+    func_types: [],
+    global_types: [],
+    table_types: [],
+    struct_types: [],
+    array_types: [],
+    tag_types: [],
+    local_types,
+  }
+}
+
+///|
 test "CFG::build from simple expression" {
   // Simple constant return
   let expr = TExpr::new([TInstr::return_([TInstr::i32_const(42)])])
@@ -98,7 +111,12 @@ test "ssa_to_cfg roundtrip" {
   let doms = cfg.dominators()
   let df = cfg.dominance_frontier()
   let ssa_cfg = cfg.to_ssa(doms, df, 1)
-  let cfg2 = ssa_cfg.to_cfg(1)
+  let (locals, cfg2) = ssa_cfg.to_cfg_with_locals(
+    [ValType::i32()],
+    1,
+    infer_ssa_types(ssa_cfg, ir_test_type_ctx([ValType::i32()])),
+  )
+  assert_true(locals.length() >= 1)
   assert_eq(cfg2.validate(), Ok(()))
 }
 
@@ -166,7 +184,11 @@ test "split_critical_edges" {
   let split_cfg = ssa_cfg.split_critical_edges()
 
   // Should still be valid
-  let back_to_cfg = split_cfg.to_cfg(1)
+  let (_, back_to_cfg) = split_cfg.to_cfg_with_locals(
+    [ValType::i32()],
+    1,
+    infer_ssa_types(split_cfg, ir_test_type_ctx([ValType::i32()])),
+  )
   assert_eq(back_to_cfg.validate(), Ok(()))
 }
 
@@ -191,7 +213,14 @@ test "run_gvn optimization" {
   let optimized = run_gvn(ssa_cfg, doms)
 
   // Should still produce valid CFG
-  let back_to_cfg = optimized.to_cfg(2)
+  let (_, back_to_cfg) = optimized.to_cfg_with_locals(
+    [ValType::i32(), ValType::i32()],
+    2,
+    infer_ssa_types(
+      optimized,
+      ir_test_type_ctx([ValType::i32(), ValType::i32()]),
+    ),
+  )
   assert_eq(back_to_cfg.validate(), Ok(()))
 }
 

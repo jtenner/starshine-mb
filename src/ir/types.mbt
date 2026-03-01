@@ -326,6 +326,7 @@ priv enum Action {
 pub struct IRContext {
   mut mod_ : Module?
   mut body : TExpr
+  mut param_count : Int
   mut locals : Array[ValType]
   mut type_ctx : TypeContext?
   mut cfg : CFG?
