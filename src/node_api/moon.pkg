@@ -537,7 +537,6 @@ options(
         "__js_show_passes_AbstractTypeRefiningPassProps",
         "__js_show_passes_AsyncifyPassProps",
         "__js_show_passes_BlockLiveness",
-        "__js_show_passes_CallSite",
         "__js_show_passes_EquivalentClass",
         "__js_show_passes_Literal",
         "__js_show_passes_LiteralKind",

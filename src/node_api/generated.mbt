@@ -3362,11 +3362,6 @@ pub fn __js_show_passes_BlockLiveness(value : @passes.BlockLiveness) -> String {
 }
 
 ///|
-pub fn __js_show_passes_CallSite(value : @passes.CallSite) -> String {
-  value.to_string()
-}
-
-///|
 pub fn __js_show_passes_EquivalentClass(
   value : @passes.EquivalentClass,
 ) -> String {
@@ -4763,7 +4758,7 @@ pub fn ir__run_gvn(
 
 ///|
 pub fn ir__BlockId__inner(arg0 : @ir.BlockId) -> Int {
-  @ir.BlockId::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -5056,7 +5051,7 @@ pub fn ir__SSATypeInfo__get(
 
 ///|
 pub fn ir__SSAValue__inner(arg0 : @ir.SSAValue) -> Int {
-  @ir.SSAValue::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -6636,7 +6631,7 @@ pub fn lib__Catch__ref_(arg0 : @lib.TagIdx, arg1 : @lib.LabelIdx) -> @lib.Catch 
 
 ///|
 pub fn lib__CodeSec__inner(arg0 : @lib.CodeSec) -> Array[@lib.Func] {
-  @lib.CodeSec::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -6674,7 +6669,7 @@ pub fn lib__Data__new(arg0 : @lib.DataMode, arg1 : Bytes) -> @lib.Data {
 
 ///|
 pub fn lib__DataCntSec__inner(arg0 : @lib.DataCntSec) -> @lib.U32 {
-  @lib.DataCntSec::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -6684,7 +6679,7 @@ pub fn lib__DataCntSec__new(arg0 : @lib.U32) -> @lib.DataCntSec {
 
 ///|
 pub fn lib__DataIdx__inner(arg0 : @lib.DataIdx) -> UInt {
-  @lib.DataIdx::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -6707,7 +6702,7 @@ pub fn lib__DataMode__passive() -> @lib.DataMode {
 
 ///|
 pub fn lib__DataSec__inner(arg0 : @lib.DataSec) -> Array[@lib.Data] {
-  @lib.DataSec::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -6737,7 +6732,7 @@ pub fn lib__Elem__reftype(arg0 : @lib.Elem) -> @lib.RefType {
 
 ///|
 pub fn lib__ElemIdx__inner(arg0 : @lib.ElemIdx) -> UInt {
-  @lib.ElemIdx::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -6783,7 +6778,7 @@ pub fn lib__ElemMode__passive() -> @lib.ElemMode {
 
 ///|
 pub fn lib__ElemSec__inner(arg0 : @lib.ElemSec) -> Array[@lib.Elem] {
-  @lib.ElemSec::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -6798,7 +6793,7 @@ pub fn lib__Export__new(arg0 : @lib.Name, arg1 : @lib.ExternIdx) -> @lib.Export 
 
 ///|
 pub fn lib__ExportSec__inner(arg0 : @lib.ExportSec) -> Array[@lib.Export] {
-  @lib.ExportSec::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -6808,7 +6803,7 @@ pub fn lib__ExportSec__new(arg0 : Array[@lib.Export]) -> @lib.ExportSec {
 
 ///|
 pub fn lib__Expr__inner(arg0 : @lib.Expr) -> Array[@lib.Instruction] {
-  @lib.Expr::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -6908,7 +6903,7 @@ pub fn lib__ExtractLaneOp__i8x16_extract_lane_u() -> @lib.ExtractLaneOp {
 
 ///|
 pub fn lib__F32__inner(arg0 : @lib.F32) -> Float {
-  @lib.F32::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -6918,7 +6913,7 @@ pub fn lib__F32__new(arg0 : Float) -> @lib.F32 {
 
 ///|
 pub fn lib__F64__inner(arg0 : @lib.F64) -> Double {
-  @lib.F64::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -6966,7 +6961,7 @@ pub fn lib__Func__t_func(
 
 ///|
 pub fn lib__FuncIdx__inner(arg0 : @lib.FuncIdx) -> UInt {
-  @lib.FuncIdx::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -6976,7 +6971,7 @@ pub fn lib__FuncIdx__new(arg0 : UInt) -> @lib.FuncIdx {
 
 ///|
 pub fn lib__FuncSec__inner(arg0 : @lib.FuncSec) -> Array[@lib.TypeIdx] {
-  @lib.FuncSec::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -7002,7 +6997,7 @@ pub fn lib__Global__new(
 
 ///|
 pub fn lib__GlobalIdx__inner(arg0 : @lib.GlobalIdx) -> UInt {
-  @lib.GlobalIdx::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -7012,7 +7007,7 @@ pub fn lib__GlobalIdx__new(arg0 : UInt) -> @lib.GlobalIdx {
 
 ///|
 pub fn lib__GlobalSec__inner(arg0 : @lib.GlobalSec) -> Array[@lib.Global] {
-  @lib.GlobalSec::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -7065,7 +7060,7 @@ pub fn lib__HeapType__new(arg0 : @lib.TypeIdx) -> @lib.HeapType {
 
 ///|
 pub fn lib__I32__inner(arg0 : @lib.I32) -> Int {
-  @lib.I32::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -7075,7 +7070,7 @@ pub fn lib__I32__new(arg0 : Int) -> @lib.I32 {
 
 ///|
 pub fn lib__I64__inner(arg0 : @lib.I64) -> Int64 {
-  @lib.I64::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -7094,7 +7089,7 @@ pub fn lib__Import__new(
 
 ///|
 pub fn lib__ImportSec__inner(arg0 : @lib.ImportSec) -> Array[@lib.Import] {
-  @lib.ImportSec::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -9937,7 +9932,7 @@ pub fn lib__Instruction__v128_xor() -> @lib.Instruction {
 
 ///|
 pub fn lib__LabelIdx__inner(arg0 : @lib.LabelIdx) -> UInt {
-  @lib.LabelIdx::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -9947,7 +9942,7 @@ pub fn lib__LabelIdx__new(arg0 : UInt) -> @lib.LabelIdx {
 
 ///|
 pub fn lib__LaneIdx__inner(arg0 : @lib.LaneIdx) -> Byte {
-  @lib.LaneIdx::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -10147,7 +10142,7 @@ pub fn lib__LoadOp__v128_load8x8u() -> @lib.LoadOp {
 
 ///|
 pub fn lib__LocalIdx__inner(arg0 : @lib.LocalIdx) -> UInt {
-  @lib.LocalIdx::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -10171,7 +10166,7 @@ pub fn lib__MemArg__new(
 
 ///|
 pub fn lib__MemIdx__inner(arg0 : @lib.MemIdx) -> UInt {
-  @lib.MemIdx::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -10181,7 +10176,7 @@ pub fn lib__MemIdx__new(arg0 : UInt) -> @lib.MemIdx {
 
 ///|
 pub fn lib__MemSec__inner(arg0 : @lib.MemSec) -> Array[@lib.MemType] {
-  @lib.MemSec::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -10191,7 +10186,7 @@ pub fn lib__MemSec__new(arg0 : Array[@lib.MemType]) -> @lib.MemSec {
 
 ///|
 pub fn lib__MemType__inner(arg0 : @lib.MemType) -> @lib.Limits {
-  @lib.MemType::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -10630,7 +10625,7 @@ pub fn lib__Name__from_string(arg0 : String) -> @lib.Name {
 
 ///|
 pub fn lib__Name__inner(arg0 : @lib.Name) -> StringView {
-  @lib.Name::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -10833,7 +10828,7 @@ pub fn lib__ReplaceLaneOp__i8x16_replace_lane() -> @lib.ReplaceLaneOp {
 
 ///|
 pub fn lib__S33__inner(arg0 : @lib.S33) -> UInt {
-  @lib.S33::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -10843,7 +10838,7 @@ pub fn lib__S33__new(arg0 : UInt) -> @lib.S33 {
 
 ///|
 pub fn lib__StartSec__inner(arg0 : @lib.StartSec) -> @lib.FuncIdx {
-  @lib.StartSec::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -11905,7 +11900,7 @@ pub fn lib__Table__new(arg0 : @lib.TableType, arg1 : @lib.Expr?) -> @lib.Table {
 
 ///|
 pub fn lib__TableIdx__inner(arg0 : @lib.TableIdx) -> UInt {
-  @lib.TableIdx::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -11915,7 +11910,7 @@ pub fn lib__TableIdx__new(arg0 : UInt) -> @lib.TableIdx {
 
 ///|
 pub fn lib__TableSec__inner(arg0 : @lib.TableSec) -> Array[@lib.Table] {
-  @lib.TableSec::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -11943,7 +11938,7 @@ pub fn lib__TabsOrSpaces__tabs() -> @lib.TabsOrSpaces {
 
 ///|
 pub fn lib__TagIdx__inner(arg0 : @lib.TagIdx) -> UInt {
-  @lib.TagIdx::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -11953,7 +11948,7 @@ pub fn lib__TagIdx__new(arg0 : UInt) -> @lib.TagIdx {
 
 ///|
 pub fn lib__TagSec__inner(arg0 : @lib.TagSec) -> Array[@lib.TagType] {
-  @lib.TagSec::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -11963,7 +11958,7 @@ pub fn lib__TagSec__new(arg0 : Array[@lib.TagType]) -> @lib.TagSec {
 
 ///|
 pub fn lib__TagType__inner(arg0 : @lib.TagType) -> @lib.TypeIdx {
-  @lib.TagType::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -11983,7 +11978,7 @@ pub fn lib__TypeIdx__rec(arg0 : UInt) -> @lib.TypeIdx {
 
 ///|
 pub fn lib__TypeSec__inner(arg0 : @lib.TypeSec) -> Array[@lib.RecType] {
-  @lib.TypeSec::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -11993,7 +11988,7 @@ pub fn lib__TypeSec__new(arg0 : Array[@lib.RecType]) -> @lib.TypeSec {
 
 ///|
 pub fn lib__U32__inner(arg0 : @lib.U32) -> UInt {
-  @lib.U32::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -12003,7 +11998,7 @@ pub fn lib__U32__new(arg0 : UInt) -> @lib.U32 {
 
 ///|
 pub fn lib__U64__inner(arg0 : @lib.U64) -> UInt64 {
-  @lib.U64::inner(arg0)
+  arg0.0
 }
 
 ///|
@@ -13819,7 +13814,7 @@ pub fn wast__KeywordTable__lookup(
 
 ///|
 pub fn wast__MemoryType__inner(arg0 : @wast.MemoryType) -> @wast.Limits {
-  @wast.MemoryType::inner(arg0)
+  arg0.0
 }
 
 ///|

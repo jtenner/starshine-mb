@@ -57,10 +57,6 @@ pub struct CFPState {
   type_sec : @lib.TypeSec?
 }
 
-type CallSite
-pub impl Eq for CallSite
-pub impl Show for CallSite
-
 pub struct ConstHoistingState {
   usage : Map[Literal, Int]
 }

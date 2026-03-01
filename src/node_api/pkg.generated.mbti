@@ -1013,8 +1013,6 @@ pub fn __js_show_passes_AsyncifyPassProps(@passes.AsyncifyPassProps) -> String
 
 pub fn __js_show_passes_BlockLiveness(@passes.BlockLiveness) -> String
 
-pub fn __js_show_passes_CallSite(@passes.CallSite) -> String
-
 pub fn __js_show_passes_EquivalentClass(@passes.EquivalentClass) -> String
 
 pub fn __js_show_passes_Literal(@passes.Literal) -> String

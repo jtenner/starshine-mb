@@ -358,14 +358,6 @@ fn mark_elem_unseen(mod : Module, has_unseen : Array[Bool]) -> Unit {
 }
 
 ///|
-
-///|
-struct CallSite {
-  caller_abs_idx : Int
-  args : Array[TInstr]
-} derive(Eq, Show)
-
-///|
 priv struct DAECallSummary {
   param_types : Array[ValType]
   all_pure : Array[Bool]
