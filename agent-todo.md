@@ -9,7 +9,6 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - Recent completed items are retained at the bottom until the next audit pass.
 
 ## Publishing blockers
-- [ ] Diagnose and fix the remaining `--optimize` non-zero failure on Starshine's own wasm artifacts so true self-optimized output can replace the fallback copy.
 - [ ] Resolve the 3 failing wasm spec fixtures in the Node/WASI runner path (`tests/spec/legacy/try_catch.wast`, `tests/spec/local_tee.wast`, `tests/spec/try_table.wast`).
 - [ ] Add a focused `to_texpr` regression fixture for `Stack underflow during tree conversion` on valid large modules and fix stack-polymorphic control-flow handling in `validate/env.mbt`.
 - [ ] Wire `moon test --target wasm` to a reproducible WASI host path (Node/Wasmtime) so wasm tests can run in CI without custom manual runners.
