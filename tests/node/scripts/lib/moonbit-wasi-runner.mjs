@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import process from 'node:process';
 import { WASI } from 'node:wasi';
+import path from 'node:path';
 
 const ARRAY_SENTINEL = 'ffi_end_of_/string_array';
 
@@ -35,9 +36,54 @@ export function createMoonbitFsHost({ args = [], cwd = process.cwd() } = {}) {
     return alloc({ type: 'extern-string', value });
   }
 
+  function collectCandidates(rootDir) {
+    const out = [];
+
+    function walk(currentRelative) {
+      const currentAbsolute = currentRelative === '.'
+        ? rootDir
+        : path.join(rootDir, currentRelative);
+      const entries = fs.readdirSync(currentAbsolute, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.name === '.' || entry.name === '..') {
+          continue;
+        }
+        const nextRelative = currentRelative === '.'
+          ? entry.name
+          : path.posix.join(currentRelative, entry.name);
+        const nextAbsolute = path.join(currentAbsolute, entry.name);
+        if (entry.isDirectory()) {
+          walk(nextRelative);
+        } else if (entry.isFile()) {
+          out.push(nextRelative);
+        } else {
+          try {
+            if (fs.statSync(nextAbsolute).isDirectory()) {
+              walk(nextRelative);
+            } else if (fs.statSync(nextAbsolute).isFile()) {
+              out.push(nextRelative);
+            }
+          } catch {
+            // Ignore entries that disappear or cannot be stat'ed mid-walk.
+          }
+        }
+      }
+    }
+
+    walk('.');
+    out.sort();
+    return out;
+  }
+
   return {
     args_get() {
       return alloc({ type: 'extern-string-array', values: [...args] });
+    },
+    list_candidates() {
+      return alloc({
+        type: 'extern-string-array',
+        values: collectCandidates(cwd),
+      });
     },
     current_dir() {
       return allocExternString(cwd);

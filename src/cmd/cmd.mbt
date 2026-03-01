@@ -830,6 +830,7 @@ fn merge_parse_results(
   for glob in cli.input_globs {
     append_unique_string(input_globs, glob)
   }
+  let glob_enabled = cli.glob_enabled
 
   let read_stdin = config.read_stdin || env.read_stdin || cli.read_stdin
 
@@ -921,6 +922,7 @@ fn merge_parse_results(
   CliParseResult::new(
     config_path~,
     input_globs~,
+    glob_enabled~,
     read_stdin~,
     input_format~,
     output_targets~,
@@ -955,7 +957,11 @@ fn resolve_config_path(cli : CliParseResult, io : CmdIO) -> (String?, Bool) {
 }
 
 ///|
-fn resolve_input_files(globs : Array[String], io : CmdIO) -> Array[String] {
+fn resolve_input_files_with_glob(
+  globs : Array[String],
+  io : CmdIO,
+  glob_enabled : Bool,
+) -> Array[String] {
   let literal = Array::new()
   let patterns = Array::new()
   for raw in globs {
@@ -963,7 +969,7 @@ fn resolve_input_files(globs : Array[String], io : CmdIO) -> Array[String] {
     if normalized.length() == 0 {
       continue
     }
-    if has_glob_wildcard(normalized) {
+    if glob_enabled && has_glob_wildcard(normalized) {
       append_unique_string(patterns, normalized)
     } else {
       append_unique_string(literal, normalized)
@@ -1525,6 +1531,9 @@ pub fn cmd_help_text() -> String {
   append_help_line(
     out, "-c, --config[=PATH]", "Load config JSON, defaulting to starshine.config.json when no PATH is given.",
   )
+  append_help_line(
+    out, "-g, --glob", "Expand wildcard inputs via filesystem enumeration.",
+  )
   append_help_line(out, "--stdin", "Read one module from stdin.")
   append_help_line(
     out, "--format <wasm|wat|wast>", "Set input format, required with --stdin.",
@@ -1575,7 +1584,60 @@ pub fn cmd_help_text() -> String {
 
 ///|
 fn spec_cmd_help_text() -> String {
-  "Usage:\n  starshine spec <tests/spec/*.wast ...>\n\nOptions:\n  -h, --help\n      Show spec subcommand help.\n"
+  "Usage:\n  starshine spec [-g|--glob] <tests/spec/*.wast ...>\n\nOptions:\n  -g, --glob\n      Expand wildcard inputs via filesystem enumeration.\n  -h, --help\n      Show spec subcommand help.\n"
+}
+
+///|
+fn parse_spec_cmd_args(
+  args : Array[String],
+) -> Result[(Bool, Array[String], Bool), CmdError] {
+  let mut glob_enabled = false
+  let mut help_requested = false
+  let mut positional_only = false
+  let globs : Array[String] = []
+  let mut index = 0
+  while index < args.length() {
+    let arg = args[index]
+    if positional_only {
+      let normalized = normalize_cli_path(arg.trim().to_string())
+      if normalized.length() > 0 {
+        append_unique_string(globs, normalized)
+      }
+      index += 1
+      continue
+    }
+    match arg {
+      "--" => {
+        positional_only = true
+        index += 1
+      }
+      "-h" | "--help" => {
+        help_requested = true
+        index += 1
+      }
+      "-g" | "--glob" => {
+        glob_enabled = true
+        index += 1
+      }
+      _ => {
+        if arg.length() > 0 && arg[0] == '-' {
+          return Err(
+            CmdError::CliParse(
+              CliParseError::invalid_long_flag(
+                arg.sub(start=1).to_string() catch { _ => arg },
+              ),
+            ),
+          )
+        }
+        let normalized = normalize_cli_path(arg.trim().to_string())
+        if normalized.length() > 0 {
+          append_unique_string(globs, normalized)
+        }
+        index += 1
+      }
+    }
+  }
+  Ok((glob_enabled, globs, help_requested))
 }
 
 ///|
@@ -1608,8 +1670,11 @@ fn run_spec_cmd_with_adapter(
   args : Array[String],
   io : CmdIO,
 ) -> Result[CmdRunSummary, CmdError] {
-  if args.length() == 0 ||
-    (args.length() == 1 && (args[0] == "-h" || args[0] == "--help")) {
+  let (glob_enabled, globs, help_requested) = match parse_spec_cmd_args(args) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  if globs.length() == 0 || help_requested {
     match (io.write_stdout)(string_to_bytes(spec_cmd_help_text())) {
       Ok(_) => return Ok(CmdRunSummary::new())
       Err(e) =>
@@ -1619,14 +1684,7 @@ fn run_spec_cmd_with_adapter(
     }
   }
 
-  let globs : Array[String] = []
-  for arg in args {
-    let normalized = normalize_cli_path(arg.trim().to_string())
-    if normalized.length() > 0 {
-      append_unique_string(globs, normalized)
-    }
-  }
-  let input_files = resolve_input_files(globs, io)
+  let input_files = resolve_input_files_with_glob(globs, io, glob_enabled)
   if input_files.length() == 0 {
     return Err(CmdError::NoInputFiles)
   }
@@ -1925,7 +1983,11 @@ pub fn run_cmd_with_adapter(
   let merged = merge_parse_results(config, env, cli)
   let trace_optimize_verbose = cmd_trace_optimize_verbose(io)
   let trace_optimize = cmd_trace_optimize_enabled(io) || trace_optimize_verbose
-  let input_files = resolve_input_files(merged.input_globs, io)
+  let input_files = resolve_input_files_with_glob(
+    merged.input_globs,
+    io,
+    merged.glob_enabled,
+  )
   if input_files.length() == 0 {
     return Err(CmdError::NoInputFiles)
   }
@@ -2684,9 +2746,95 @@ fn main {
 }
 
 ///|
+///|
+#cfg(target="wasm")
+#external
+priv type CmdExternString
+
+///|
+#cfg(target="wasm")
+#external
+priv type CmdStringReadHandle
+
+///|
+#cfg(target="wasm")
+#external
+priv type CmdExternStringArray
+
+///|
+#cfg(target="wasm")
+#external
+priv type CmdStringArrayReadHandle
+
+///|
+#cfg(target="wasm")
+fn cmd_wasm_begin_read_string(s : CmdExternString) -> CmdStringReadHandle = "__moonbit_fs_unstable" "begin_read_string"
+
+///|
+#cfg(target="wasm")
+fn cmd_wasm_string_read_char(handle : CmdStringReadHandle) -> Int = "__moonbit_fs_unstable" "string_read_char"
+
+///|
+#cfg(target="wasm")
+fn cmd_wasm_finish_read_string(handle : CmdStringReadHandle) = "__moonbit_fs_unstable" "finish_read_string"
+
+///|
+#cfg(target="wasm")
+fn cmd_wasm_begin_read_string_array(
+  sa : CmdExternStringArray,
+) -> CmdStringArrayReadHandle = "__moonbit_fs_unstable" "begin_read_string_array"
+
+///|
+#cfg(target="wasm")
+fn cmd_wasm_string_array_read_string(
+  handle : CmdStringArrayReadHandle,
+) -> CmdExternString = "__moonbit_fs_unstable" "string_array_read_string"
+
+///|
+#cfg(target="wasm")
+fn cmd_wasm_finish_read_string_array(handle : CmdStringArrayReadHandle) = "__moonbit_fs_unstable" "finish_read_string_array"
+
+///|
+#cfg(target="wasm")
+fn cmd_wasm_list_candidates_ffi() -> CmdExternStringArray = "__moonbit_fs_unstable" "list_candidates"
+
+///|
+#cfg(target="wasm")
+fn cmd_wasm_string_from_extern(extern_str : CmdExternString) -> String {
+  let out = StringBuilder::new()
+  let handle = cmd_wasm_begin_read_string(extern_str)
+  while true {
+    let ch = cmd_wasm_string_read_char(handle)
+    if ch == -1 {
+      break
+    }
+    out.write_char(ch.unsafe_to_char())
+  }
+  cmd_wasm_finish_read_string(handle)
+  out.to_string()
+}
+
+///|
+#cfg(target="wasm")
+fn cmd_wasm_list_candidates() -> Array[String] {
+  let out : Array[String] = []
+  let handle = cmd_wasm_begin_read_string_array(cmd_wasm_list_candidates_ffi())
+  while true {
+    let item = cmd_wasm_string_from_extern(
+      cmd_wasm_string_array_read_string(handle),
+    )
+    if item == "ffi_end_of_/string_array" {
+      break
+    }
+    append_unique_string(out, normalize_cli_path(item))
+  }
+  cmd_wasm_finish_read_string_array(handle)
+  out.sort()
+  out
+}
+
+///|
 #cfg(target="wasm")
 fn default_cmd_io() -> CmdIO {
-  // Keep wasm target wiring dependency-free so native targets build cleanly.
-  // File/env IO can be injected via run_cmd_with_adapter when needed.
-  CmdIO::new()
+  CmdIO::new(list_candidates=cmd_wasm_list_candidates)
 }

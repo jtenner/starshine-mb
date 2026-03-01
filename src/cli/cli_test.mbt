@@ -21,12 +21,23 @@ fn parse_err(
 }
 
 ///|
-test "parse_cli_args collects positional globs and pass flags in order" {
+test "parse_cli_args collects positional inputs and pass flags in order" {
   let parsed = parse_ok([
     "inputs/**/*.wat", "--validate", "--souperfy", "extra/*.wasm",
   ])
   assert_eq(parsed.input_globs, ["inputs/**/*.wat", "extra/*.wasm"])
   assert_eq(parsed.pass_flags, ["validate", "souperfy"])
+}
+
+///|
+test "parse_cli_args enables glob expansion for --glob and -g" {
+  let long_flag = parse_ok(["--glob", "inputs/**/*.wat"])
+  assert_true(long_flag.glob_enabled)
+  assert_eq(long_flag.input_globs, ["inputs/**/*.wat"])
+
+  let short_flag = parse_ok(["-g", "inputs/**/*.wat"])
+  assert_true(short_flag.glob_enabled)
+  assert_eq(short_flag.input_globs, ["inputs/**/*.wat"])
 }
 
 ///|

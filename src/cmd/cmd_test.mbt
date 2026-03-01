@@ -1025,6 +1025,7 @@ test "run_cmd_with_adapter prints help text and exits successfully for --help" {
   assert_true(help.contains("Usage:"))
   assert_true(help.contains("--help"))
   assert_true(help.contains("--version"))
+  assert_true(help.contains("--glob"))
   assert_true(help.contains("--global-effects"))
   assert_true(help.contains("--remove-unused"))
 }
@@ -1089,6 +1090,34 @@ test "run_cmd_with_adapter spec subcommand runs wast spec suite" {
   assert_eq(summary.resolved_passes, ["spec"])
   assert_eq(stdout_writes.length(), 1)
   assert_true(bytes_to_ascii_string(stdout_writes[0]).contains("failed=0"))
+}
+
+///|
+test "run_cmd_with_adapter spec subcommand only expands wildcard inputs with --glob" {
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == "ok.wast" },
+    list_candidates=fn() { ["ok.wast"] },
+    read_file=fn(path) {
+      if path == "ok.wast" {
+        Ok(bytes_from_string("(module)"))
+      } else {
+        Err("missing fixture")
+      }
+    },
+  )
+
+  match run_cmd_with_adapter(["spec", "ok*.wast"], io) {
+    Ok(summary) => fail("expected literal wildcard path failure, got \{summary}")
+    Err(CmdError::InputReadFailed(msg)) =>
+      assert_true(msg.contains("ok*.wast"))
+    Err(err) => fail("expected InputReadFailed, got \{err}")
+  }
+
+  let summary = match run_cmd_with_adapter(["spec", "--glob", "ok*.wast"], io) {
+    Ok(v) => v
+    Err(e) => fail("expected glob-enabled spec success, got \{e}")
+  }
+  assert_eq(summary.input_files, ["ok.wast"])
 }
 
 ///|
@@ -1644,12 +1673,25 @@ test "run_cmd uses native default candidate enumeration for wildcard input globs
   let wasm = encode_module_bytes(fixture_i32_const_module(16))
   assert_true(native_write_bytes(input_path, wasm))
 
-  let summary = match run_cmd(["--vacuum", "\{prefix}*.wasm"]) {
+  match run_cmd(["--vacuum", "\{prefix}*.wasm"]) {
+    Ok(summary) =>
+      fail(
+        "expected literal wildcard path to stay literal without --glob, got \{summary}",
+      )
+    Err(CmdError::InputReadFailed(msg)) =>
+      assert_true(msg.contains("\{prefix}*.wasm"))
+    Err(e) => {
+      native_remove_if_exists(input_path)
+      fail("expected InputReadFailed without --glob, got \{e}")
+    }
+  }
+
+  let summary = match run_cmd(["--glob", "--vacuum", "\{prefix}*.wasm"]) {
     Ok(v) => v
     Err(e) => {
       native_remove_if_exists(input_path)
       fail(
-        "expected wildcard input to resolve via native list_candidates, got \{e}",
+        "expected wildcard input to resolve via native list_candidates with --glob, got \{e}",
       )
     }
   }

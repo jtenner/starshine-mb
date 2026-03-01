@@ -11,8 +11,6 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 ## Publishing blockers
 - [ ] Add a focused `to_texpr` regression fixture for `Stack underflow during tree conversion` on valid large modules and fix stack-polymorphic control-flow handling in `validate/env.mbt`.
 - [ ] Replace the wasm wildcard stub (`wasi_list_candidates`) with directory enumeration via WASI readdir so glob expansion works under default WASI I/O.
-- [ ] Re-enable full Binaryen post-pass parity in default optimize scheduling by implementing `dae-optimizing` parity (or a safe equivalent) and fixing high-opt inlining argument-mismatch failures; the current scheduler intentionally skips those two passes to keep `--optimize` stable.
-- [ ] Fix the `RedundantSetElimination` pass abort.
 - [ ] Replace deep-recursive native decode with a recursion-free control-instruction path for robust cross-platform behavior when `setrlimit` is unavailable.
 - [ ] Add a native regression test for deep nested-control decode (or an equivalent non-recursive decoder benchmark fixture) to prevent stack-overflow regressions.
 - [ ] Audit native FFI wrappers in other packages (for example `src/wast/spec_harness.mbt`) for pointer-width-safe signatures (`FILE*`/`char*`/`size_t`) to prevent similar 32-bit truncation crashes.

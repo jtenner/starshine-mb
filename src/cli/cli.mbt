@@ -142,6 +142,7 @@ pub fn CliParseError::invalid_trap_mode(mode : String) -> CliParseError {
 pub struct CliParseResult {
   mut config_path : String?
   input_globs : Array[String]
+  mut glob_enabled : Bool
   mut help_requested : Bool
   mut version_requested : Bool
   mut read_stdin : Bool
@@ -159,6 +160,7 @@ pub struct CliParseResult {
 pub fn CliParseResult::new(
   config_path? : String? = None,
   input_globs? : Array[String] = [],
+  glob_enabled? : Bool = false,
   help_requested? : Bool = false,
   version_requested? : Bool = false,
   read_stdin? : Bool = false,
@@ -174,6 +176,7 @@ pub fn CliParseResult::new(
   {
     config_path,
     input_globs,
+    glob_enabled,
     help_requested,
     version_requested,
     read_stdin,
@@ -365,6 +368,10 @@ fn parse_short_option_cluster(
         parsed.version_requested = true
         i += 1
       }
+      'g' => {
+        parsed.glob_enabled = true
+        i += 1
+      }
       's' => {
         push_unique_output_target(
           parsed.output_targets,
@@ -539,6 +546,13 @@ pub fn parse_cli_args(
               return Err(CliParseError::unexpected_flag_value("--version"))
             }
             parsed.version_requested = true
+            index += 1
+          }
+          "glob" => {
+            if inline_value is Some(_) {
+              return Err(CliParseError::unexpected_flag_value("--glob"))
+            }
+            parsed.glob_enabled = true
             index += 1
           }
           "stdin" => {
