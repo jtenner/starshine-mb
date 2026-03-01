@@ -847,7 +847,7 @@ pub fn[T, E] ModuleTransformer::walk_array(
 ) -> TransformerResult[T, Array[E]] {
   let mut t = t
   let mut changed = false
-  let a = a.copy()
+  let mut out : Array[E]? = None
   let end = a.length()
   loop 0 {
     n if n == end => break
@@ -857,8 +857,13 @@ pub fn[T, E] ModuleTransformer::walk_array(
         Ok(None) => continue n + 1 // No change
         Ok(Some((next_t, next_item))) => {
           t = next_t
-          a[n] = next_item
           changed = true
+          let items = match out {
+            Some(items) => items
+            None => a.copy()
+          }
+          items[n] = next_item
+          out = Some(items)
           continue n + 1
         }
         Err(e) => return Err(e)
@@ -866,7 +871,10 @@ pub fn[T, E] ModuleTransformer::walk_array(
     }
   }
   if changed {
-    Ok(Some((t, a)))
+    match out {
+      Some(items) => Ok(Some((t, items)))
+      None => Ok(None)
+    }
   } else {
     Ok(None)
   }

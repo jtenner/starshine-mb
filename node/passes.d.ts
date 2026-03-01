@@ -1,7 +1,17 @@
 export * from './internal/generated/passes.generated.js';
-import type { ModulePass } from './internal/generated/passes.generated.js';
+import type { ModulePass, OptimizeOptions } from './internal/generated/passes.generated.js';
+import type { StarshineResult } from './internal/shared.js';
+import type { Module } from './lib.js';
 
 export function modulePass(name: string): ModulePass;
+export function optimizeModuleWithOptionsTrace(
+  arg0: Module,
+  arg1: Array<ModulePass>,
+  arg2: OptimizeOptions,
+  trace?: (msg: string) => void,
+  tracePassDetails?: boolean,
+  traceModuleStats?: boolean,
+): StarshineResult<Module, string>;
 export function alignmentLowering(): ModulePass;
 export function avoidReinterprets(): ModulePass;
 export function coalesceLocals(): ModulePass;

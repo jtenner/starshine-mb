@@ -1,8 +1,74 @@
-import { getWasmGcExports } from './internal/runtime.js';
+import { getWasmGcExports, lowerValue } from './internal/runtime.js';
 
 export * from './internal/generated/passes.generated.js';
 
 const wasm = await getWasmGcExports();
+
+const moduleDescriptor = {
+  kind: 'named',
+  brand: 'lib.Module',
+  showExport: '__js_show_lib_Module',
+};
+
+const modulePassArrayDescriptor = {
+  kind: 'array',
+  helper: {
+    new: '__js_array_29_new',
+    push: '__js_array_29_push',
+    length: '__js_array_29_length',
+    get: '__js_array_29_get',
+  },
+  item: {
+    kind: 'named',
+    brand: 'passes.ModulePass',
+    showExport: '__js_show_passes_ModulePass',
+  },
+};
+
+const optimizeOptionsDescriptor = {
+  kind: 'named',
+  brand: 'passes.OptimizeOptions',
+  showExport: null,
+};
+
+export function optimizeModuleWithOptionsTrace(
+  mod,
+  passes,
+  options,
+  trace = () => {},
+  tracePassDetails = true,
+  traceModuleStats = true,
+) {
+  const emit = trace ?? (() => {});
+  if (typeof emit !== 'function') {
+    throw new TypeError('Expected trace to be a function.');
+  }
+
+  const run = wasm.__node_passes_optimize_module_with_options_trace_run(
+    lowerValue(moduleDescriptor, mod, wasm),
+    lowerValue(modulePassArrayDescriptor, passes, wasm),
+    lowerValue(optimizeOptionsDescriptor, options, wasm),
+    Boolean(tracePassDetails),
+    Boolean(traceModuleStats),
+  );
+
+  const logLength = wasm.__node_passes_optimize_trace_run_logs_length(run);
+  for (let index = 0; index < logLength; index += 1) {
+    emit(wasm.__node_passes_optimize_trace_run_logs_get(run, index));
+  }
+
+  if (wasm.__node_passes_optimize_trace_run_result_is_ok(run)) {
+    return {
+      ok: true,
+      value: wasm.__node_passes_optimize_trace_run_result_value(run),
+    };
+  }
+
+  return {
+    ok: false,
+    error: wasm.__node_passes_optimize_trace_run_result_error(run),
+  };
+}
 
 function resolveModulePass(name) {
   if (!wasm.__node_passes_can_resolve_module_pass(name)) {

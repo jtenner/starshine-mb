@@ -918,6 +918,36 @@ test "walk_expr_default forwards instruction walker errors" {
 }
 
 ///|
+test "walk_array rewrites only changed typed items" {
+  let transformer = ModuleTransformer::new().on_localidx_evt(fn(_, _, idx) {
+    match idx {
+      LocalIdx(i) if i == 1U => change((), LocalIdx::new(9))
+      _ => unchanged()
+    }
+  })
+  let items = [
+    TInstr::local_get(LocalIdx::new(0)),
+    TInstr::local_get(LocalIdx::new(1)),
+  ]
+  match
+    transformer.walk_array((), ModuleTransformer::walk_tinstruction, items) {
+    Ok(Some((_, out))) =>
+      match out {
+        [
+          { kind: TInstrKind::TLocalGet(LocalIdx(i0)), .. },
+          { kind: TInstrKind::TLocalGet(LocalIdx(i1)), .. },
+        ] => {
+          assert_eq(i0, 0U)
+          assert_eq(i1, 9U)
+        }
+        _ => fail("expected only the rewritten slot to change")
+      }
+    Ok(None) => fail("expected walk_array to report the rewritten item")
+    Err(e) => fail("unexpected walk_array error: \{e}")
+  }
+}
+
+///|
 test "walk_tinstruction_default forwards index child and heaptype errors" {
   let heap_error = ModuleTransformer::new().on_heaptype_evt(fn(_, _, _) {
     error("heap boom")

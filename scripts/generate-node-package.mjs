@@ -67,6 +67,12 @@ const CUSTOM_MOON_EXPORTS = [
   '__node_passes_resolve_module_pass_error',
   '__node_passes_resolve_module_pass',
   '__node_passes_directize',
+  '__node_passes_optimize_module_with_options_trace_run',
+  '__node_passes_optimize_trace_run_logs_length',
+  '__node_passes_optimize_trace_run_logs_get',
+  '__node_passes_optimize_trace_run_result_is_ok',
+  '__node_passes_optimize_trace_run_result_value',
+  '__node_passes_optimize_trace_run_result_error',
   '__node_wast_spec_run_summary_total_files',
   '__node_wast_spec_run_summary_passed_files',
   '__node_wast_spec_run_summary_skipped_files',
@@ -1676,11 +1682,77 @@ function passFlagToJsName(flag) {
 
 function renderPassesOverlayJs() {
   const lines = [];
-  lines.push("import { getWasmGcExports } from './internal/runtime.js';");
+  lines.push("import { getWasmGcExports, lowerValue } from './internal/runtime.js';");
   lines.push('');
   lines.push("export * from './internal/generated/passes.generated.js';");
   lines.push('');
   lines.push('const wasm = await getWasmGcExports();');
+  lines.push('');
+  lines.push('const moduleDescriptor = {');
+  lines.push("  kind: 'named',");
+  lines.push("  brand: 'lib.Module',");
+  lines.push("  showExport: '__js_show_lib_Module',");
+  lines.push('};');
+  lines.push('');
+  lines.push('const modulePassArrayDescriptor = {');
+  lines.push("  kind: 'array',");
+  lines.push('  helper: {');
+  lines.push("    new: '__js_array_29_new',");
+  lines.push("    push: '__js_array_29_push',");
+  lines.push("    length: '__js_array_29_length',");
+  lines.push("    get: '__js_array_29_get',");
+  lines.push('  },');
+  lines.push('  item: {');
+  lines.push("    kind: 'named',");
+  lines.push("    brand: 'passes.ModulePass',");
+  lines.push("    showExport: '__js_show_passes_ModulePass',");
+  lines.push('  },');
+  lines.push('};');
+  lines.push('');
+  lines.push('const optimizeOptionsDescriptor = {');
+  lines.push("  kind: 'named',");
+  lines.push("  brand: 'passes.OptimizeOptions',");
+  lines.push('  showExport: null,');
+  lines.push('};');
+  lines.push('');
+  lines.push('export function optimizeModuleWithOptionsTrace(');
+  lines.push('  mod,');
+  lines.push('  passes,');
+  lines.push('  options,');
+  lines.push('  trace = () => {},');
+  lines.push('  tracePassDetails = true,');
+  lines.push('  traceModuleStats = true,');
+  lines.push(') {');
+  lines.push('  const emit = trace ?? (() => {});');
+  lines.push("  if (typeof emit !== 'function') {");
+  lines.push("    throw new TypeError('Expected trace to be a function.');");
+  lines.push('  }');
+  lines.push('');
+  lines.push('  const run = wasm.__node_passes_optimize_module_with_options_trace_run(');
+  lines.push('    lowerValue(moduleDescriptor, mod, wasm),');
+  lines.push('    lowerValue(modulePassArrayDescriptor, passes, wasm),');
+  lines.push('    lowerValue(optimizeOptionsDescriptor, options, wasm),');
+  lines.push('    Boolean(tracePassDetails),');
+  lines.push('    Boolean(traceModuleStats),');
+  lines.push('  );');
+  lines.push('');
+  lines.push('  const logLength = wasm.__node_passes_optimize_trace_run_logs_length(run);');
+  lines.push('  for (let index = 0; index < logLength; index += 1) {');
+  lines.push('    emit(wasm.__node_passes_optimize_trace_run_logs_get(run, index));');
+  lines.push('  }');
+  lines.push('');
+  lines.push('  if (wasm.__node_passes_optimize_trace_run_result_is_ok(run)) {');
+  lines.push('    return {');
+  lines.push('      ok: true,');
+  lines.push('      value: wasm.__node_passes_optimize_trace_run_result_value(run),');
+  lines.push('    };');
+  lines.push('  }');
+  lines.push('');
+  lines.push('  return {');
+  lines.push('    ok: false,');
+  lines.push('    error: wasm.__node_passes_optimize_trace_run_result_error(run),');
+  lines.push('  };');
+  lines.push('}');
   lines.push('');
   lines.push('function resolveModulePass(name) {');
   lines.push('  if (!wasm.__node_passes_can_resolve_module_pass(name)) {');
@@ -1708,9 +1780,19 @@ function renderPassesOverlayJs() {
 function renderPassesOverlayDts() {
   const lines = [];
   lines.push("export * from './internal/generated/passes.generated.js';");
-  lines.push("import type { ModulePass } from './internal/generated/passes.generated.js';");
+  lines.push("import type { ModulePass, OptimizeOptions } from './internal/generated/passes.generated.js';");
+  lines.push("import type { StarshineResult } from './internal/shared.js';");
+  lines.push("import type { Module } from './lib.js';");
   lines.push('');
   lines.push('export function modulePass(name: string): ModulePass;');
+  lines.push('export function optimizeModuleWithOptionsTrace(');
+  lines.push('  arg0: Module,');
+  lines.push('  arg1: Array<ModulePass>,');
+  lines.push('  arg2: OptimizeOptions,');
+  lines.push('  trace?: (msg: string) => void,');
+  lines.push('  tracePassDetails?: boolean,');
+  lines.push('  traceModuleStats?: boolean,');
+  lines.push('): StarshineResult<Module, string>;');
   for (const flag of NO_ARG_MODULE_PASS_FLAGS) {
     lines.push(`export function ${passFlagToJsName(flag)}(): ModulePass;`);
   }
@@ -1732,11 +1814,19 @@ function renderPassesReadmeSection(lines, pkg) {
   lines.push('```');
   lines.push('');
   pushReadmeEntry(lines, 'modulePass(name: string): ModulePass', 'Resolve one of the canonical explicit pass names into a `ModulePass` value.');
+  pushReadmeEntry(
+    lines,
+    'optimizeModuleWithOptionsTrace(arg0: Module, arg1: Array<ModulePass>, arg2: OptimizeOptions, trace?: (msg: string) => void, tracePassDetails?: boolean, traceModuleStats?: boolean): StarshineResult<Module, string>',
+    'Call `optimizeModuleWithOptionsTrace`, replaying trace lines through the provided JS callback.',
+  );
   pushReadmeEntry(lines, 'deadArgumentElimination(): ModulePass', 'Create `ModulePass::DeadArgumentElimination` for manual ordered pipelines.');
   pushReadmeEntry(lines, 'vacuum(): ModulePass', 'Create `ModulePass::Vacuum` for manual cleanup placement.');
   pushReadmeEntry(lines, 'directize(always?: boolean): ModulePass', 'Create `ModulePass::Directize`, defaulting `always` to `false`.');
   lines.push('');
   for (const entry of pkg.values) {
+    if (pkg.id === 'passes' && entryJsName(entry) === 'optimizeModuleWithOptionsTrace') {
+      continue;
+    }
     const tsImports = { shared: false, byModule: new Map() };
     const signature = renderTsSignature(entry, pkg.id, tsImports, Boolean(entry.unsupportedReason ?? entryUnsupportedReason(entry)));
     lines.push(`- \`${entryJsName(entry)}${signature}\``);

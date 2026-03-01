@@ -44,6 +44,26 @@ priv struct PCSetLookupKey {
 } derive(Eq, Hash)
 
 ///|
+priv enum PCSlowPhase {
+  Walk
+  Fold
+} derive(Eq, Hash)
+
+///|
+priv struct PCSlowKey {
+  phase : PCSlowPhase
+  tag : String
+  hash : UInt64
+} derive(Eq, Hash)
+
+///|
+priv struct PCSlowStat {
+  count : Int
+  total_ms : UInt64
+  max_ms : UInt64
+}
+
+///|
 fn pc_wrap_i32(x : Int) -> Int {
   (x.reinterpret_as_uint() & 0xffffffffU).reinterpret_as_int()
 }
@@ -54,8 +74,241 @@ fn pc_wrap_i64(x : Int64) -> Int64 {
 }
 
 ///|
+fn pc_trace_normalize_env_now_ms(raw : UInt64) -> UInt64 {
+  if raw >= 100000000000000000UL {
+    raw / 1000000UL
+  } else if raw >= 100000000000000UL {
+    raw / 1000UL
+  } else {
+    raw
+  }
+}
+
+///|
+#cfg(target="native")
+#borrow(tv)
+extern "c" fn pc_trace_native_gettimeofday(tv : Bytes, tz : UInt64) -> Int = "gettimeofday"
+
+///|
+#cfg(target="native")
+fn pc_trace_read_u64_le(bytes : Bytes, start : Int) -> UInt64 {
+  let mut out = 0UL
+  let mut i = 0
+  while i < 8 {
+    out = out | (bytes[start + i].to_uint64() << (i * 8))
+    i += 1
+  }
+  out
+}
+
+///|
+#cfg(target="native")
+fn pc_trace_now_ms() -> UInt64 {
+  let tv = Bytes::new(16)
+  if pc_trace_native_gettimeofday(tv, 0UL) != 0 {
+    return pc_trace_normalize_env_now_ms(@env.now())
+  }
+  let sec = pc_trace_read_u64_le(tv, 0)
+  let usec = pc_trace_read_u64_le(tv, 8)
+  sec * 1000UL + usec / 1000UL
+}
+
+///|
+#cfg(target="wasm-gc")
+fn pc_trace_now_ms() -> UInt64 {
+  pc_trace_normalize_env_now_ms(@env.now())
+}
+
+///|
+#cfg(target="wasm")
+fn pc_trace_now_ms() -> UInt64 {
+  pc_trace_normalize_env_now_ms(@env.now())
+}
+
+///|
+#cfg(target="js")
+fn pc_trace_now_ms() -> UInt64 {
+  pc_trace_normalize_env_now_ms(@env.now())
+}
+
+///|
+#cfg(target="llvm")
+fn pc_trace_now_ms() -> UInt64 {
+  pc_trace_normalize_env_now_ms(@env.now())
+}
+
+///|
+fn pc_trace_elapsed_ms(start_ms : UInt64) -> UInt64 {
+  let end_ms = pc_trace_now_ms()
+  if end_ms >= start_ms {
+    end_ms - start_ms
+  } else {
+    0UL
+  }
+}
+
+///|
+fn pc_trace_instr_tag(instr : TInstr) -> String {
+  match instr.kind {
+    TInstrKind::TI32Const(_) => "i32.const"
+    TInstrKind::TI64Const(_) => "i64.const"
+    TInstrKind::TF32Const(_) => "f32.const"
+    TInstrKind::TF64Const(_) => "f64.const"
+    TInstrKind::TUnreachable => "unreachable"
+    TInstrKind::TNop => "nop"
+    TInstrKind::TLocalGet(_) => "local.get"
+    TInstrKind::TGlobalGet(_) => "global.get"
+    TInstrKind::TUnary(_, _) => "unary"
+    TInstrKind::TBinary(_, _, _) => "binary"
+    TInstrKind::TDrop(_) => "drop"
+    TInstrKind::TLocalSet(_, _) => "local.set"
+    TInstrKind::TLocalTee(_, _) => "local.tee"
+    TInstrKind::TGlobalSet(_, _) => "global.set"
+    TInstrKind::TLoad(_, _, _) => "load"
+    TInstrKind::TStore(_, _, _, _) => "store"
+    TInstrKind::TCall(_, _) => "call"
+    TInstrKind::TCallIndirect(_, _, _, _) => "call_indirect"
+    TInstrKind::TReturnCall(_, _) => "return_call"
+    TInstrKind::TBlock(_, _) => "block"
+    TInstrKind::TLoop(_, _) => "loop"
+    TInstrKind::TIf(_, _, _, _) => "if"
+    TInstrKind::TBr(_, _) => "br"
+    TInstrKind::TBrIf(_, _, _) => "br_if"
+    TInstrKind::TBrTable(_, _, _, _) => "br_table"
+    TInstrKind::TReturn(_) => "return"
+    TInstrKind::TSelect(_, _, _, _) => "select"
+    _ => "other"
+  }
+}
+
+///|
 fn pc_instr_hash_u64(instr : TInstr) -> UInt64 {
   instr.hash().reinterpret_as_uint().to_uint64()
+}
+
+///|
+fn pc_slow_phase_label(phase : PCSlowPhase) -> String {
+  match phase {
+    Walk => "walk_slow"
+    Fold => "fold_slow"
+  }
+}
+
+///|
+fn pc_record_slow_trace(
+  stats : Map[PCSlowKey, PCSlowStat],
+  order : Array[PCSlowKey],
+  phase : PCSlowPhase,
+  instr : TInstr,
+  elapsed_ms : UInt64,
+) -> Unit {
+  let key = {
+    phase,
+    tag: pc_trace_instr_tag(instr),
+    hash: pc_instr_hash_u64(instr),
+  }
+  match stats.get(key) {
+    Some(existing) =>
+      stats[key] = {
+        count: existing.count + 1,
+        total_ms: existing.total_ms + elapsed_ms,
+        max_ms: if existing.max_ms >= elapsed_ms {
+          existing.max_ms
+        } else {
+          elapsed_ms
+        },
+      }
+    None => {
+      order.push(key)
+      stats[key] = { count: 1, total_ms: elapsed_ms, max_ms: elapsed_ms }
+    }
+  }
+}
+
+///|
+fn pc_slow_summary_lines(
+  stats : Map[PCSlowKey, PCSlowStat],
+  order : Array[PCSlowKey],
+  limit? : Int = 6,
+) -> Array[String] {
+  let out : Array[String] = []
+  let picked : Map[PCSlowKey, Unit] = Map::new()
+  let mut emitted = 0
+  while emitted < limit {
+    let mut best : PCSlowKey? = None
+    let mut best_total_ms = 0UL
+    let mut best_count = 0
+    for key in order {
+      if picked.contains(key) {
+        continue
+      }
+      let stat = match stats.get(key) {
+        Some(stat) => stat
+        None => continue
+      }
+      if stat.count <= 1 {
+        continue
+      }
+      if best is None ||
+        stat.total_ms > best_total_ms ||
+        (stat.total_ms == best_total_ms && stat.count > best_count) {
+        best = Some(key)
+        best_total_ms = stat.total_ms
+        best_count = stat.count
+      }
+    }
+    match best {
+      Some(key) =>
+        match stats.get(key) {
+          Some(stat) => {
+            picked[key] = ()
+            out.push(
+              "\{pc_slow_phase_label(key.phase)} count=\{stat.count} total_ms=\{stat.total_ms} max_ms=\{stat.max_ms} tag=\{key.tag} hash=\{key.hash}",
+            )
+            emitted += 1
+          }
+          None => break
+        }
+      None => break
+    }
+  }
+  if stats.length() > out.length() {
+    out.push("slow_summary_omitted entries=\{stats.length() - out.length()}")
+  }
+  out
+}
+
+///|
+fn pc_push_texpr_instrs_reversed(stack : Array[TInstr], expr : TExpr) -> Unit {
+  for i = expr.instrs.length() - 1; i >= 0; i = i - 1 {
+    stack.push(expr.instrs[i])
+  }
+}
+
+///|
+fn pc_push_full_children_reversed(
+  stack : Array[TInstr],
+  instr : TInstr,
+) -> Unit {
+  match instr.kind {
+    TInstrKind::TBlock(_, expr) | TInstrKind::TLoop(_, expr) =>
+      pc_push_texpr_instrs_reversed(stack, expr)
+    TInstrKind::TIf(_, cond, then_expr, else_expr) => {
+      if else_expr is Some(else_body) {
+        pc_push_texpr_instrs_reversed(stack, else_body)
+      }
+      pc_push_texpr_instrs_reversed(stack, then_expr)
+      stack.push(cond)
+    }
+    TInstrKind::TTryTable(_, _, expr) =>
+      pc_push_texpr_instrs_reversed(stack, expr)
+    _ => {
+      let children = eval_children(instr)
+      for i = children.length() - 1; i >= 0; i = i - 1 {
+        stack.push(children[i])
+      }
+    }
+  }
 }
 
 ///|
@@ -754,10 +1007,7 @@ fn pc_count_local_gets_iterative(instr : TInstr) -> Int {
       TInstrKind::TLocalGet(_) => count += 1
       _ => ()
     }
-    let children = eval_children(curr)
-    for i = children.length() - 1; i >= 0; i = i - 1 {
-      stack.push(children[i])
-    }
+    pc_push_full_children_reversed(stack, curr)
   }
   count
 }
@@ -982,9 +1232,32 @@ fn pc_collect_analysis_data(
     }
     let new_in_if = if in_if { true } else { enters_if }
     stack.push((curr, true, new_in_if))
-    let children = eval_children(curr)
-    for i = children.length() - 1; i >= 0; i = i - 1 {
-      stack.push((children[i], false, new_in_if))
+    match curr.kind {
+      TInstrKind::TBlock(_, expr) | TInstrKind::TLoop(_, expr) =>
+        for i = expr.instrs.length() - 1; i >= 0; i = i - 1 {
+          stack.push((expr.instrs[i], false, new_in_if))
+        }
+      TInstrKind::TIf(_, cond, then_expr, else_expr) => {
+        if else_expr is Some(else_body) {
+          for i = else_body.instrs.length() - 1; i >= 0; i = i - 1 {
+            stack.push((else_body.instrs[i], false, new_in_if))
+          }
+        }
+        for i = then_expr.instrs.length() - 1; i >= 0; i = i - 1 {
+          stack.push((then_expr.instrs[i], false, new_in_if))
+        }
+        stack.push((cond, false, new_in_if))
+      }
+      TInstrKind::TTryTable(_, _, expr) =>
+        for i = expr.instrs.length() - 1; i >= 0; i = i - 1 {
+          stack.push((expr.instrs[i], false, new_in_if))
+        }
+      _ => {
+        let children = eval_children(curr)
+        for i = children.length() - 1; i >= 0; i = i - 1 {
+          stack.push((children[i], false, new_in_if))
+        }
+      }
     }
   }
 
@@ -1001,13 +1274,16 @@ fn pc_analyze_get_values_from_data(
   imm_globals : Map[GlobalIdx, PCLiteral],
   eval_cache : Map[UInt64, PCLiteral],
   max_rounds : Int,
+  trace? : (String) -> Unit = fn(_) {  },
 ) -> Map[Int, PCLiteral] {
   let mut prev_set_values : Map[PCSetKey, PCLiteral] = Map::new()
   let mut prev_get_values : Map[Int, PCLiteral] = Map::new()
   let mut rounds = 0
   while rounds < max_rounds {
     rounds += 1
+    let round_start_ms = pc_trace_now_ms()
     let set_values : Map[PCSetKey, PCLiteral] = Map::new()
+    let set_eval_start_ms = round_start_ms
     for site in sites {
       let get_ref = Ref::new(site.start_get_id)
       match
@@ -1025,7 +1301,9 @@ fn pc_analyze_get_values_from_data(
         None => ()
       }
     }
+    let set_eval_elapsed_ms = pc_trace_elapsed_ms(set_eval_start_ms)
     let get_values : Map[Int, PCLiteral] = Map::new()
+    let get_scan_start_ms = pc_trace_now_ms()
     for id in 0..<total_gets {
       match
         pc_get_constant_for_get_id(
@@ -1035,8 +1313,12 @@ fn pc_analyze_get_values_from_data(
         None => ()
       }
     }
+    let get_scan_elapsed_ms = pc_trace_elapsed_ms(get_scan_start_ms)
     let changed = !pc_set_literal_maps_equal(prev_set_values, set_values) ||
       !pc_literal_maps_equal(prev_get_values, get_values)
+    trace(
+      "prop round[\{rounds}/\{max_rounds}] elapsed_ms=\{pc_trace_elapsed_ms(round_start_ms)} set_eval_ms=\{set_eval_elapsed_ms} get_scan_ms=\{get_scan_elapsed_ms} set_constants=\{set_values.length()} get_constants=\{get_values.length()} changed=\{changed}",
+    )
     prev_set_values = set_values
     prev_get_values = get_values
     if !changed {
@@ -1058,11 +1340,24 @@ fn pc_count_local_sets_and_gets(body : TExpr) -> (Int, Int) {
       TInstrKind::TLocalGet(_) => gets += 1
       _ => ()
     }
-    for child in eval_children(curr) {
-      stack.push(child)
-    }
+    pc_push_full_children_reversed(stack, curr)
   }
   (sets, gets)
+}
+
+///|
+fn pc_count_body_nodes_up_to_limit(body : TExpr, limit : Int) -> (Int, Bool) {
+  let stack : Array[TInstr] = body.instrs.copy()
+  let mut count = 0
+  while !stack.is_empty() {
+    let curr = stack.pop().unwrap()
+    count += 1
+    if count > limit {
+      return (count, true)
+    }
+    pc_push_full_children_reversed(stack, curr)
+  }
+  (count, false)
 }
 
 ///|
@@ -1277,27 +1572,138 @@ fn pc_simplify_body(
   options : OptimizeOptions,
   eval_cache : Map[UInt64, PCLiteral],
   allow_partial_precompute : Bool,
+  trace? : (String) -> Unit = fn(_) {  },
 ) -> (TExpr, Bool) {
+  let body_start_ms = pc_trace_now_ms()
   let changed = Ref::new(false)
+  let visited = Ref::new(0)
+  let rewritten = Ref::new(0)
+  let cache_hits = Ref::new(0)
+  let last_progress_ms = Ref::new(body_start_ms)
+  let simplify_cache : Map[TInstr, TInstr] = Map::new()
+  let slow_stats : Map[PCSlowKey, PCSlowStat] = Map::new()
+  let slow_order : Array[PCSlowKey] = []
+  trace(
+    "start top=\{body.instrs.length()} allow_partial=\{allow_partial_precompute}",
+  )
   let pass = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
-    let walked = match self.walk_tinstruction_default((), curr) {
-      Ok(Some((_, out))) => out
-      Ok(None) => curr
-      Err(_) => curr
-    }
-    let next = pc_fold_instr(
-      walked, imm_globals, options, eval_cache, allow_partial_precompute,
-    )
-    if next == walked {
-      unchanged()
-    } else {
-      changed.update(fn(_) { true })
-      change((), next)
+    visited.update(fn(n) { n + 1 })
+    let visit_id = visited.val
+    match simplify_cache.get(curr) {
+      Some(cached) => {
+        cache_hits.update(fn(n) { n + 1 })
+        let now_ms = pc_trace_now_ms()
+        let total_elapsed_ms = pc_trace_elapsed_ms(body_start_ms)
+        let progress_elapsed_ms = if now_ms >= last_progress_ms.val {
+          now_ms - last_progress_ms.val
+        } else {
+          0UL
+        }
+        let should_trace_progress = (visit_id <= 1024 && visit_id % 64 == 0) ||
+          visit_id % 4096 == 0 ||
+          progress_elapsed_ms >= 1000UL
+        if should_trace_progress {
+          trace(
+            "progress visited=\{visit_id} rewritten=\{rewritten.val} cache_hits=\{cache_hits.val} elapsed_ms=\{total_elapsed_ms} tag=\{pc_trace_instr_tag(curr)} hash=\{pc_instr_hash_u64(curr)}",
+          )
+          last_progress_ms.val = now_ms
+        }
+        if cached == curr {
+          unchanged()
+        } else {
+          changed.update(fn(_) { true })
+          rewritten.update(fn(n) { n + 1 })
+          change((), cached)
+        }
+      }
+      None => {
+        let walk_start_ms = pc_trace_now_ms()
+        let walked = match self.walk_tinstruction_default((), curr) {
+          Ok(Some((_, out))) => out
+          Ok(None) => curr
+          Err(_) => curr
+        }
+        let walk_elapsed_ms = pc_trace_elapsed_ms(walk_start_ms)
+        if walk_elapsed_ms >= 25UL {
+          pc_record_slow_trace(
+            slow_stats,
+            slow_order,
+            Walk,
+            curr,
+            walk_elapsed_ms,
+          )
+        }
+        let fold_start_ms = pc_trace_now_ms()
+        let next = pc_fold_instr(
+          walked, imm_globals, options, eval_cache, allow_partial_precompute,
+        )
+        let fold_elapsed_ms = pc_trace_elapsed_ms(fold_start_ms)
+        if fold_elapsed_ms >= 25UL {
+          pc_record_slow_trace(
+            slow_stats,
+            slow_order,
+            Fold,
+            walked,
+            fold_elapsed_ms,
+          )
+        }
+        simplify_cache[curr] = next
+        let now_ms = pc_trace_now_ms()
+        let total_elapsed_ms = pc_trace_elapsed_ms(body_start_ms)
+        let progress_elapsed_ms = if now_ms >= last_progress_ms.val {
+          now_ms - last_progress_ms.val
+        } else {
+          0UL
+        }
+        let should_trace_progress = (visit_id <= 1024 && visit_id % 64 == 0) ||
+          visit_id % 4096 == 0 ||
+          progress_elapsed_ms >= 1000UL
+        if should_trace_progress {
+          trace(
+            "progress visited=\{visit_id} rewritten=\{rewritten.val} cache_hits=\{cache_hits.val} elapsed_ms=\{total_elapsed_ms} tag=\{pc_trace_instr_tag(curr)} hash=\{pc_instr_hash_u64(curr)}",
+          )
+          last_progress_ms.val = now_ms
+        }
+        if next != walked {
+          rewritten.update(fn(n) { n + 1 })
+        }
+        if next == curr {
+          unchanged()
+        } else {
+          changed.update(fn(_) { true })
+          change((), next)
+        }
+      }
     }
   })
   match pass.walk_texpr((), body) {
-    Ok(Some((_, out))) => (out, changed.val)
-    _ => (body, false)
+    Ok(Some((_, out))) => {
+      for line in pc_slow_summary_lines(slow_stats, slow_order) {
+        trace(line)
+      }
+      trace(
+        "done elapsed_ms=\{pc_trace_elapsed_ms(body_start_ms)} visited=\{visited.val} rewritten=\{rewritten.val} cache_hits=\{cache_hits.val} cache_entries=\{simplify_cache.length()} changed=\{changed.val} top=\{body.instrs.length()}->\{out.instrs.length()}",
+      )
+      (out, changed.val)
+    }
+    Ok(None) => {
+      for line in pc_slow_summary_lines(slow_stats, slow_order) {
+        trace(line)
+      }
+      trace(
+        "done elapsed_ms=\{pc_trace_elapsed_ms(body_start_ms)} visited=\{visited.val} rewritten=\{rewritten.val} cache_hits=\{cache_hits.val} cache_entries=\{simplify_cache.length()} changed=false top=\{body.instrs.length()}->\{body.instrs.length()}",
+      )
+      (body, false)
+    }
+    Err(_) => {
+      for line in pc_slow_summary_lines(slow_stats, slow_order) {
+        trace(line)
+      }
+      trace(
+        "error elapsed_ms=\{pc_trace_elapsed_ms(body_start_ms)} visited=\{visited.val} rewritten=\{rewritten.val} cache_hits=\{cache_hits.val} cache_entries=\{simplify_cache.length()}",
+      )
+      (body, false)
+    }
   }
 }
 
@@ -1311,32 +1717,49 @@ fn precompute_on_func(
   trace : (String) -> Unit,
   trace_all_funcs : Bool,
 ) -> Result[Func, String] {
-  let imm_globals = pc_collect_immutable_globals(mod)
+  let func_start_ms = pc_trace_now_ms()
   match func {
     Func(_) => {
       if trace_all_funcs {
-        trace("func[{ordinal}] skip non-typed-func")
+        trace(
+          "func[\{ordinal}] skip non-typed-func elapsed_ms=\{pc_trace_elapsed_ms(func_start_ms)}",
+        )
       }
       Ok(func)
     }
     TFunc(locals, initial_body) => {
+      let imm_globals_start_ms = pc_trace_now_ms()
+      let imm_globals = pc_collect_immutable_globals(mod)
+      let imm_globals_elapsed_ms = pc_trace_elapsed_ms(imm_globals_start_ms)
       let top_instrs = initial_body.instrs.length()
       let num_locals = locals.length()
 
       if top_instrs > 16000 {
         if trace_all_funcs {
-          trace("func[\{ordinal}] skip top_instrs=\{top_instrs} > 16000")
+          trace(
+            "func[\{ordinal}] skip top_instrs=\{top_instrs} > 16000 imm_globals_ms=\{imm_globals_elapsed_ms} elapsed_ms=\{pc_trace_elapsed_ms(func_start_ms)}",
+          )
         }
         return Ok(func)
       }
       if num_locals > 2000 {
         if trace_all_funcs {
-          trace("func[\{ordinal}] skip num_locals=\{num_locals} > 2000")
+          trace(
+            "func[\{ordinal}] skip num_locals=\{num_locals} > 2000 imm_globals_ms=\{imm_globals_elapsed_ms} elapsed_ms=\{pc_trace_elapsed_ms(func_start_ms)}",
+          )
         }
         return Ok(func)
       }
 
+      let count_start_ms = pc_trace_now_ms()
       let (num_sets, num_gets) = pc_count_local_sets_and_gets(initial_body)
+      let count_elapsed_ms = pc_trace_elapsed_ms(count_start_ms)
+      let total_node_limit = if propagate { 50000 } else { 20000 }
+      let node_count_start_ms = pc_trace_now_ms()
+      let (total_nodes, total_nodes_over_limit) = pc_count_body_nodes_up_to_limit(
+        initial_body, total_node_limit,
+      )
+      let node_count_elapsed_ms = pc_trace_elapsed_ms(node_count_start_ms)
 
       // FINAL STRICT GATING — tuned on your real traces
       let density = if top_instrs == 0 {
@@ -1357,8 +1780,17 @@ fn precompute_on_func(
 
       if trace_all_funcs {
         trace(
-          "func[\{ordinal}] start top=\{top_instrs} locals=\{num_locals} sets=\{num_sets} gets=\{num_gets} density=\{density} propagate=\{do_propagate} maxr=\{max_rounds}",
+          "func[\{ordinal}] start top=\{top_instrs} locals=\{num_locals} sets=\{num_sets} gets=\{num_gets} total_nodes=\{total_nodes} total_nodes_over_limit=\{total_nodes_over_limit} total_node_limit=\{total_node_limit} density=\{density} propagate=\{do_propagate} maxr=\{max_rounds} imm_globals=\{imm_globals.length()} imm_globals_ms=\{imm_globals_elapsed_ms} count_ms=\{count_elapsed_ms} node_count_ms=\{node_count_elapsed_ms}",
         )
+      }
+
+      if total_nodes_over_limit {
+        if trace_all_funcs {
+          trace(
+            "func[\{ordinal}] skip total_nodes=\{total_nodes} > \{total_node_limit} elapsed_ms=\{pc_trace_elapsed_ms(func_start_ms)}",
+          )
+        }
+        return Ok(func)
       }
 
       let mut body = initial_body
@@ -1370,29 +1802,52 @@ fn precompute_on_func(
       }
 
       if do_propagate {
+        let graph_start_ms = pc_trace_now_ms()
         let graph = LocalGraph::new(body.instrs)
+        let graph_elapsed_ms = pc_trace_elapsed_ms(graph_start_ms)
+        let analysis_start_ms = pc_trace_now_ms()
         let (sites, set_lookup, branchy_locals, total_gets) = pc_collect_analysis_data(
           body,
         )
+        let analysis_elapsed_ms = pc_trace_elapsed_ms(analysis_start_ms)
         if trace_all_funcs {
           trace(
-            "func[\{ordinal}] prop data sites=\{sites.length()} branchy=\{branchy_locals.length()} gets=\{total_gets}",
+            "func[\{ordinal}] prop setup graph_ms=\{graph_elapsed_ms} analysis_ms=\{analysis_elapsed_ms} sites=\{sites.length()} set_lookup=\{set_lookup.length()} branchy=\{branchy_locals.length()} gets=\{total_gets}",
           )
         }
+        let analyze_start_ms = pc_trace_now_ms()
         let get_values = pc_analyze_get_values_from_data(
-          sites, set_lookup, branchy_locals, total_gets, graph, imm_globals, eval_cache,
+          sites,
+          set_lookup,
+          branchy_locals,
+          total_gets,
+          graph,
+          imm_globals,
+          eval_cache,
           max_rounds,
+          trace=if trace_all_funcs {
+            fn(msg) { trace("func[\{ordinal}] \{msg}") }
+          } else {
+            fn(_) {  }
+          },
         )
+        let analyze_elapsed_ms = pc_trace_elapsed_ms(analyze_start_ms)
         if trace_all_funcs {
-          trace("func[\{ordinal}] prop constants found=\{get_values.length()}")
+          trace(
+            "func[\{ordinal}] prop analyze elapsed_ms=\{analyze_elapsed_ms} constants_found=\{get_values.length()}",
+          )
         }
         if !get_values.is_empty() {
+          let replace_start_ms = pc_trace_now_ms()
           body = pc_replace_gets_with_constants(body, get_values)
+          let replace_elapsed_ms = pc_trace_elapsed_ms(replace_start_ms)
           if trace_all_funcs {
-            trace("func[\{ordinal}] prop replaced=true")
+            trace(
+              "func[\{ordinal}] prop replace elapsed_ms=\{replace_elapsed_ms} replaced=true",
+            )
           }
         } else if trace_all_funcs {
-          trace("func[\{ordinal}] prop replaced=false")
+          trace("func[\{ordinal}] prop replace elapsed_ms=0 replaced=false")
         }
       } else if trace_all_funcs {
         trace("func[\{ordinal}] propagate skipped")
@@ -1412,11 +1867,27 @@ fn precompute_on_func(
       let mut rounds = 0
       while rounds < simplify_rounds {
         rounds += 1
+        let simplify_round_start_ms = pc_trace_now_ms()
         let (next, changed) = pc_simplify_body(
-          body, imm_globals, options, eval_cache, allow_partial,
+          body,
+          imm_globals,
+          options,
+          eval_cache,
+          allow_partial,
+          trace=if trace_all_funcs {
+            fn(msg) {
+              trace(
+                "func[\{ordinal}] simplify round[\{rounds}/\{simplify_rounds}] \{msg}",
+              )
+            }
+          } else {
+            fn(_) {  }
+          },
         )
         if trace_all_funcs {
-          trace("func[\{ordinal}] simplify round=\{rounds} changed=\{changed}")
+          trace(
+            "func[\{ordinal}] simplify round[\{rounds}/\{simplify_rounds}] summary elapsed_ms=\{pc_trace_elapsed_ms(simplify_round_start_ms)} changed=\{changed} top=\{body.instrs.length()}->\{next.instrs.length()}",
+          )
         }
         if !changed {
           break
@@ -1425,7 +1896,7 @@ fn precompute_on_func(
       }
       if trace_all_funcs {
         trace(
-          "func[\{ordinal}] done changed=\{body != initial_body} rounds=\{rounds}",
+          "func[\{ordinal}] done changed=\{body != initial_body} rounds=\{rounds} final_top=\{body.instrs.length()} elapsed_ms=\{pc_trace_elapsed_ms(func_start_ms)}",
         )
       }
       Ok(Func::t_func(locals, body))
@@ -1521,6 +1992,179 @@ test "precompute constructors return expected module pass variants" {
         "expected createPrecomputePropagatePass to return ModulePass::PrecomputePropagate",
       )
   }
+}
+
+///|
+test "precompute counts body nodes up to a limit" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(1))),
+        TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+      ]),
+    ),
+  ])
+  let (full_count, full_over_limit) = pc_count_body_nodes_up_to_limit(body, 10)
+  assert_eq(full_count, 5)
+  assert_false(full_over_limit)
+
+  let (limited_count, limited_over_limit) = pc_count_body_nodes_up_to_limit(
+    body, 3,
+  )
+  assert_eq(limited_count, 4)
+  assert_true(limited_over_limit)
+}
+
+///|
+test "precompute counters descend into nested control flow" {
+  let body = TExpr::new([
+    TInstr::if_(
+      BlockType::void_(),
+      TInstr::local_get(LocalIdx::new(0)),
+      TExpr::new([
+        TInstr::local_set(LocalIdx::new(1), TInstr::local_get(LocalIdx::new(2))),
+      ]),
+      Some(TExpr::new([TInstr::drop(TInstr::local_get(LocalIdx::new(3)))])),
+    ),
+  ])
+
+  let (sets, gets) = pc_count_local_sets_and_gets(body)
+  assert_eq(sets, 1)
+  assert_eq(gets, 3)
+
+  let (count, over_limit) = pc_count_body_nodes_up_to_limit(body, 16)
+  assert_eq(count, 6)
+  assert_false(over_limit)
+}
+
+///|
+test "precompute trace covers function lifecycle timings" {
+  let body : Array[TInstr] = []
+  let locals : Array[ValType] = []
+  for i in 0..<20 {
+    locals.push(ValType::i32())
+    body.push(
+      TInstr::local_set(
+        LocalIdx::new(i.reinterpret_as_uint()),
+        TInstr::i32_const(I32(i + 1)),
+      ),
+    )
+  }
+  for _ in 0..<80 {
+    body.push(TInstr::drop(TInstr::local_get(LocalIdx::new(0))))
+  }
+
+  let mod = pc_single_func_module(body, locals~)
+  let trace_logs : Array[String] = []
+  match
+    optimize_module_with_options_trace(
+      mod,
+      [ModulePass::PrecomputePropagate],
+      OptimizeOptions::new(optimize_level=2),
+      fn(msg) { trace_logs.push(msg) },
+    ) {
+    Ok(_) => ()
+    Err(e) => fail("unexpected precompute trace error: \{e}")
+  }
+
+  let mut saw_setup = false
+  let mut saw_round = false
+  let mut saw_replace = false
+  let mut saw_simplify = false
+  let mut saw_done = false
+  for msg in trace_logs {
+    if msg.contains("precompute:func[0] prop setup") {
+      saw_setup = true
+    }
+    if msg.contains("precompute:func[0] prop round[") {
+      saw_round = true
+    }
+    if msg.contains("precompute:func[0] prop replace elapsed_ms=") {
+      saw_replace = true
+    }
+    if msg.contains("precompute:func[0] simplify round[") {
+      saw_simplify = true
+    }
+    if msg.contains("precompute:func[0] done changed=") &&
+      msg.contains("elapsed_ms=") {
+      saw_done = true
+    }
+  }
+  assert_true(saw_setup)
+  assert_true(saw_round)
+  assert_true(saw_replace)
+  assert_true(saw_simplify)
+  assert_true(saw_done)
+}
+
+///|
+test "precompute simplify propagates child rewrite without rewalking parent" {
+  let (out, changed) = pc_simplify_body(
+    TExpr::new([
+      TInstr::drop(
+        TInstr::binary(
+          BinaryOp::i32_add(),
+          TInstr::i32_const(I32(1)),
+          TInstr::i32_const(I32(2)),
+        ),
+      ),
+    ]),
+    Map::new(),
+    OptimizeOptions::new(optimize_level=2),
+    Map::new(),
+    false,
+  )
+  assert_true(changed)
+  match out.instrs {
+    [
+      {
+        kind: TInstrKind::TDrop({ kind: TInstrKind::TI32Const(I32(3)), .. }),
+        ..,
+      },
+    ] => ()
+    _ => fail("expected folded child rewrite to be preserved at parent")
+  }
+}
+
+///|
+test "precompute simplify trace reports cache hits for repeated identical subtrees" {
+  let repeated = TInstr::drop(
+    TInstr::binary(
+      BinaryOp::i32_add(),
+      TInstr::i32_const(I32(1)),
+      TInstr::i32_const(I32(2)),
+    ),
+  )
+  let logs : Array[String] = []
+  let (_, changed) = pc_simplify_body(
+    TExpr::new([repeated, repeated]),
+    Map::new(),
+    OptimizeOptions::new(optimize_level=2),
+    Map::new(),
+    false,
+    trace=fn(msg) { logs.push(msg) },
+  )
+  assert_true(changed)
+  let done = logs.last().unwrap_or("")
+  assert_true(done.contains("cache_hits="))
+  assert_true(done.contains("cache_entries="))
+}
+
+///|
+test "precompute slow summary lines aggregate repeated hashes" {
+  let stats : Map[PCSlowKey, PCSlowStat] = Map::new()
+  let order : Array[PCSlowKey] = []
+  let repeated = TInstr::block(
+    BlockType::void_(),
+    TExpr::new([TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(1)))]),
+  )
+  pc_record_slow_trace(stats, order, Walk, repeated, 30UL)
+  pc_record_slow_trace(stats, order, Walk, repeated, 45UL)
+  let lines = pc_slow_summary_lines(stats, order, limit=4)
+  assert_eq(lines.length(), 1)
+  assert_true(lines[0].contains("walk_slow count=2"))
+  assert_true(lines[0].contains("tag=block"))
 }
 
 ///|

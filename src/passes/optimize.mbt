@@ -275,7 +275,15 @@ fn run_ir_context_transformer_scheduler_pass(
     CoalesceLocals =>
       apply_ir_transformer_pass(ctx, mod, coalesce_locals_pass(mod))
     CodeFolding =>
-      apply_ir_transformer_pass(ctx, mod, code_folding_ir_pass(mod))
+      apply_ir_transformer_pass(
+        ctx,
+        mod,
+        code_folding_ir_pass_with_trace(
+          mod,
+          trace=fn(msg) { trace("code_folding:\{msg}") },
+          trace_all_funcs=trace_pass_details,
+        ),
+      )
     CodePushing =>
       apply_ir_transformer_pass(ctx, mod, code_pushing_ir_pass(mod))
     ConstHoisting =>
@@ -324,7 +332,11 @@ fn run_ir_context_transformer_scheduler_pass(
           apply_ir_transformer_pass(
             ctx,
             after_vacuum,
-            code_folding_ir_pass(after_vacuum),
+            code_folding_ir_pass_with_trace(
+              after_vacuum,
+              trace=fn(msg) { trace("code_folding:\{msg}") },
+              trace_all_funcs=trace_pass_details,
+            ),
           )
         }
         Err(e) => Err(e)
@@ -452,7 +464,11 @@ fn run_ir_context_transformer_scheduler_pass(
           apply_ir_transformer_pass(
             ctx,
             after_dce,
-            code_folding_ir_pass(after_dce),
+            code_folding_ir_pass_with_trace(
+              after_dce,
+              trace=fn(msg) { trace("code_folding:\{msg}") },
+              trace_all_funcs=trace_pass_details,
+            ),
           )
         }
         Err(e) => Err(e)

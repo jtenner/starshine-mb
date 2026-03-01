@@ -21,13 +21,13 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - [ ] Audit native FFI wrappers in other packages (for example `src/wast/spec_harness.mbt`) for pointer-width-safe signatures (`FILE*`/`char*`/`size_t`) to prevent similar 32-bit truncation crashes.
 - [ ] Add a no-op wasm copy fast-path in `src/cmd` for empty scheduled pass lists so wasm input can skip decode+optimize+encode when no optimization work is requested.
 - [ ] Publish the first release and MoonBit registry package (`moon publish` plus GitHub Release binaries).
-
-## Post 0.1.0 Features
 - [ ] Add a JS-friendly `Name` construction path in the Node API (for example `Name.fromString(...)` or an equivalent `StringView` bridge) so exports/custom sections can be authored from scratch without opaque handle hacks.
 - [ ] Add JS-facing constructors/helpers for immediate wrapper types that are currently read-only in the Node API (`I32`, `I64`, `U32`, `U64`, and any other literal/index wrappers needed by instruction/module builders).
 - [ ] Add any missing JS-facing constructors/helpers for typed block/result wrappers used by the structural builders (for example `ResultType` if it remains required by nontrivial block construction).
 - [ ] Add a published Node example that constructs a nontrivial WebAssembly module from scratch via `lib` builders, including at least one exported function, then validates and encodes it.
 - [ ] Add Node smoke/example coverage for the from-scratch module-construction path so the builder surface stays usable after future generator/runtime changes.
+
+## Post 0.1.0 Features
 - [ ] Make `moduleToWast` output reliably parser-consumable in roundtrip tests.
 - [ ] Reach `>=75%` line coverage on hot paths (decoder, IR lift, top passes).
 - [ ] Investigate performance issues with `CodeFolding` on large modules.

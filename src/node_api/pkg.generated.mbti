@@ -1,0 +1,4579 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "jtenner/starshine/node_api"
+
+import {
+  "jtenner/starshine/binary",
+  "jtenner/starshine/cli",
+  "jtenner/starshine/cmd",
+  "jtenner/starshine/ir",
+  "jtenner/starshine/lib",
+  "jtenner/starshine/passes",
+  "jtenner/starshine/validate",
+  "jtenner/starshine/wast",
+  "moonbitlang/core/quickcheck/splitmix",
+  "moonbitlang/core/set",
+}
+
+// Values
+pub fn __js_array_10_get(Array[@lib.FieldType], Int) -> @lib.FieldType
+
+pub fn __js_array_10_length(Array[@lib.FieldType]) -> Int
+
+pub fn __js_array_10_new() -> Array[@lib.FieldType]
+
+pub fn __js_array_10_push(Array[@lib.FieldType], @lib.FieldType) -> Unit
+
+pub fn __js_array_11_get(Array[@lib.SubType], Int) -> @lib.SubType
+
+pub fn __js_array_11_length(Array[@lib.SubType]) -> Int
+
+pub fn __js_array_11_new() -> Array[@lib.SubType]
+
+pub fn __js_array_11_push(Array[@lib.SubType], @lib.SubType) -> Unit
+
+pub fn __js_array_12_get(Array[@lib.TypeIdx], Int) -> @lib.TypeIdx
+
+pub fn __js_array_12_length(Array[@lib.TypeIdx]) -> Int
+
+pub fn __js_array_12_new() -> Array[@lib.TypeIdx]
+
+pub fn __js_array_12_push(Array[@lib.TypeIdx], @lib.TypeIdx) -> Unit
+
+pub fn __js_array_13_get(Array[@lib.Func], Int) -> @lib.Func
+
+pub fn __js_array_13_length(Array[@lib.Func]) -> Int
+
+pub fn __js_array_13_new() -> Array[@lib.Func]
+
+pub fn __js_array_13_push(Array[@lib.Func], @lib.Func) -> Unit
+
+pub fn __js_array_14_get(Array[@lib.Data], Int) -> @lib.Data
+
+pub fn __js_array_14_length(Array[@lib.Data]) -> Int
+
+pub fn __js_array_14_new() -> Array[@lib.Data]
+
+pub fn __js_array_14_push(Array[@lib.Data], @lib.Data) -> Unit
+
+pub fn __js_array_15_get(Array[@lib.Expr], Int) -> @lib.Expr
+
+pub fn __js_array_15_length(Array[@lib.Expr]) -> Int
+
+pub fn __js_array_15_new() -> Array[@lib.Expr]
+
+pub fn __js_array_15_push(Array[@lib.Expr], @lib.Expr) -> Unit
+
+pub fn __js_array_16_get(Array[@lib.FuncIdx], Int) -> @lib.FuncIdx
+
+pub fn __js_array_16_length(Array[@lib.FuncIdx]) -> Int
+
+pub fn __js_array_16_new() -> Array[@lib.FuncIdx]
+
+pub fn __js_array_16_push(Array[@lib.FuncIdx], @lib.FuncIdx) -> Unit
+
+pub fn __js_array_17_get(Array[@lib.Elem], Int) -> @lib.Elem
+
+pub fn __js_array_17_length(Array[@lib.Elem]) -> Int
+
+pub fn __js_array_17_new() -> Array[@lib.Elem]
+
+pub fn __js_array_17_push(Array[@lib.Elem], @lib.Elem) -> Unit
+
+pub fn __js_array_18_get(Array[@lib.Export], Int) -> @lib.Export
+
+pub fn __js_array_18_length(Array[@lib.Export]) -> Int
+
+pub fn __js_array_18_new() -> Array[@lib.Export]
+
+pub fn __js_array_18_push(Array[@lib.Export], @lib.Export) -> Unit
+
+pub fn __js_array_19_get(Array[@lib.Instruction], Int) -> @lib.Instruction
+
+pub fn __js_array_19_length(Array[@lib.Instruction]) -> Int
+
+pub fn __js_array_19_new() -> Array[@lib.Instruction]
+
+pub fn __js_array_19_push(Array[@lib.Instruction], @lib.Instruction) -> Unit
+
+pub fn __js_array_1_get(Array[String], Int) -> String
+
+pub fn __js_array_1_length(Array[String]) -> Int
+
+pub fn __js_array_1_new() -> Array[String]
+
+pub fn __js_array_1_push(Array[String], String) -> Unit
+
+pub fn __js_array_20_get(Array[@lib.Global], Int) -> @lib.Global
+
+pub fn __js_array_20_length(Array[@lib.Global]) -> Int
+
+pub fn __js_array_20_new() -> Array[@lib.Global]
+
+pub fn __js_array_20_push(Array[@lib.Global], @lib.Global) -> Unit
+
+pub fn __js_array_21_get(Array[@lib.Import], Int) -> @lib.Import
+
+pub fn __js_array_21_length(Array[@lib.Import]) -> Int
+
+pub fn __js_array_21_new() -> Array[@lib.Import]
+
+pub fn __js_array_21_push(Array[@lib.Import], @lib.Import) -> Unit
+
+pub fn __js_array_22_get(Array[@lib.LabelIdx], Int) -> @lib.LabelIdx
+
+pub fn __js_array_22_length(Array[@lib.LabelIdx]) -> Int
+
+pub fn __js_array_22_new() -> Array[@lib.LabelIdx]
+
+pub fn __js_array_22_push(Array[@lib.LabelIdx], @lib.LabelIdx) -> Unit
+
+pub fn __js_array_23_get(Array[@lib.Catch], Int) -> @lib.Catch
+
+pub fn __js_array_23_length(Array[@lib.Catch]) -> Int
+
+pub fn __js_array_23_new() -> Array[@lib.Catch]
+
+pub fn __js_array_23_push(Array[@lib.Catch], @lib.Catch) -> Unit
+
+pub fn __js_array_24_get(Array[@lib.MemType], Int) -> @lib.MemType
+
+pub fn __js_array_24_length(Array[@lib.MemType]) -> Int
+
+pub fn __js_array_24_new() -> Array[@lib.MemType]
+
+pub fn __js_array_24_push(Array[@lib.MemType], @lib.MemType) -> Unit
+
+pub fn __js_array_25_get(Array[@lib.CustomSec], Int) -> @lib.CustomSec
+
+pub fn __js_array_25_length(Array[@lib.CustomSec]) -> Int
+
+pub fn __js_array_25_new() -> Array[@lib.CustomSec]
+
+pub fn __js_array_25_push(Array[@lib.CustomSec], @lib.CustomSec) -> Unit
+
+pub fn __js_array_26_get(Array[@lib.Table], Int) -> @lib.Table
+
+pub fn __js_array_26_length(Array[@lib.Table]) -> Int
+
+pub fn __js_array_26_new() -> Array[@lib.Table]
+
+pub fn __js_array_26_push(Array[@lib.Table], @lib.Table) -> Unit
+
+pub fn __js_array_27_get(Array[@lib.TagType], Int) -> @lib.TagType
+
+pub fn __js_array_27_length(Array[@lib.TagType]) -> Int
+
+pub fn __js_array_27_new() -> Array[@lib.TagType]
+
+pub fn __js_array_27_push(Array[@lib.TagType], @lib.TagType) -> Unit
+
+pub fn __js_array_28_get(Array[@lib.RecType], Int) -> @lib.RecType
+
+pub fn __js_array_28_length(Array[@lib.RecType]) -> Int
+
+pub fn __js_array_28_new() -> Array[@lib.RecType]
+
+pub fn __js_array_28_push(Array[@lib.RecType], @lib.RecType) -> Unit
+
+pub fn __js_array_29_get(Array[@passes.ModulePass], Int) -> @passes.ModulePass
+
+pub fn __js_array_29_length(Array[@passes.ModulePass]) -> Int
+
+pub fn __js_array_29_new() -> Array[@passes.ModulePass]
+
+pub fn __js_array_29_push(Array[@passes.ModulePass], @passes.ModulePass) -> Unit
+
+pub fn __js_array_2_get(Array[@cli.CliOutputTarget], Int) -> @cli.CliOutputTarget
+
+pub fn __js_array_2_length(Array[@cli.CliOutputTarget]) -> Int
+
+pub fn __js_array_2_new() -> Array[@cli.CliOutputTarget]
+
+pub fn __js_array_2_push(Array[@cli.CliOutputTarget], @cli.CliOutputTarget) -> Unit
+
+pub fn __js_array_30_get(Array[@lib.FuncType], Int) -> @lib.FuncType
+
+pub fn __js_array_30_length(Array[@lib.FuncType]) -> Int
+
+pub fn __js_array_30_new() -> Array[@lib.FuncType]
+
+pub fn __js_array_30_push(Array[@lib.FuncType], @lib.FuncType) -> Unit
+
+pub fn __js_array_31_get(Array[@lib.GlobalType], Int) -> @lib.GlobalType
+
+pub fn __js_array_31_length(Array[@lib.GlobalType]) -> Int
+
+pub fn __js_array_31_new() -> Array[@lib.GlobalType]
+
+pub fn __js_array_31_push(Array[@lib.GlobalType], @lib.GlobalType) -> Unit
+
+pub fn __js_array_32_get(Array[Array[@lib.ValType]], Int) -> Array[@lib.ValType]
+
+pub fn __js_array_32_length(Array[Array[@lib.ValType]]) -> Int
+
+pub fn __js_array_32_new() -> Array[Array[@lib.ValType]]
+
+pub fn __js_array_32_push(Array[Array[@lib.ValType]], Array[@lib.ValType]) -> Unit
+
+pub fn __js_array_33_get(Array[@lib.TableType], Int) -> @lib.TableType
+
+pub fn __js_array_33_length(Array[@lib.TableType]) -> Int
+
+pub fn __js_array_33_new() -> Array[@lib.TableType]
+
+pub fn __js_array_33_push(Array[@lib.TableType], @lib.TableType) -> Unit
+
+pub fn __js_array_34_get(Array[@wast.LexerError], Int) -> @wast.LexerError
+
+pub fn __js_array_34_length(Array[@wast.LexerError]) -> Int
+
+pub fn __js_array_34_new() -> Array[@wast.LexerError]
+
+pub fn __js_array_34_push(Array[@wast.LexerError], @wast.LexerError) -> Unit
+
+pub fn __js_array_35_get(Array[@wast.ParseError], Int) -> @wast.ParseError
+
+pub fn __js_array_35_length(Array[@wast.ParseError]) -> Int
+
+pub fn __js_array_35_new() -> Array[@wast.ParseError]
+
+pub fn __js_array_35_push(Array[@wast.ParseError], @wast.ParseError) -> Unit
+
+pub fn __js_array_36_get(Array[Byte], Int) -> Byte
+
+pub fn __js_array_36_length(Array[Byte]) -> Int
+
+pub fn __js_array_36_new() -> Array[Byte]
+
+pub fn __js_array_36_push(Array[Byte], Byte) -> Unit
+
+pub fn __js_array_3_get(Array[@cli.CliOptimizationFlag], Int) -> @cli.CliOptimizationFlag
+
+pub fn __js_array_3_length(Array[@cli.CliOptimizationFlag]) -> Int
+
+pub fn __js_array_3_new() -> Array[@cli.CliOptimizationFlag]
+
+pub fn __js_array_3_push(Array[@cli.CliOptimizationFlag], @cli.CliOptimizationFlag) -> Unit
+
+pub fn __js_array_4_get(Array[(String, String)], Int) -> (String, String)
+
+pub fn __js_array_4_length(Array[(String, String)]) -> Int
+
+pub fn __js_array_4_new() -> Array[(String, String)]
+
+pub fn __js_array_4_push(Array[(String, String)], (String, String)) -> Unit
+
+pub fn __js_array_5_get(Array[@ir.BlockId], Int) -> @ir.BlockId
+
+pub fn __js_array_5_length(Array[@ir.BlockId]) -> Int
+
+pub fn __js_array_5_new() -> Array[@ir.BlockId]
+
+pub fn __js_array_5_push(Array[@ir.BlockId], @ir.BlockId) -> Unit
+
+pub fn __js_array_6_get(Array[@lib.ValType], Int) -> @lib.ValType
+
+pub fn __js_array_6_length(Array[@lib.ValType]) -> Int
+
+pub fn __js_array_6_new() -> Array[@lib.ValType]
+
+pub fn __js_array_6_push(Array[@lib.ValType], @lib.ValType) -> Unit
+
+pub fn __js_array_7_get(Array[@lib.TInstr], Int) -> @lib.TInstr
+
+pub fn __js_array_7_length(Array[@lib.TInstr]) -> Int
+
+pub fn __js_array_7_new() -> Array[@lib.TInstr]
+
+pub fn __js_array_7_push(Array[@lib.TInstr], @lib.TInstr) -> Unit
+
+pub fn __js_array_8_get(Array[@ir.SSAUse], Int) -> @ir.SSAUse
+
+pub fn __js_array_8_length(Array[@ir.SSAUse]) -> Int
+
+pub fn __js_array_8_new() -> Array[@ir.SSAUse]
+
+pub fn __js_array_8_push(Array[@ir.SSAUse], @ir.SSAUse) -> Unit
+
+pub fn __js_array_9_get(Array[@lib.Locals], Int) -> @lib.Locals
+
+pub fn __js_array_9_length(Array[@lib.Locals]) -> Int
+
+pub fn __js_array_9_new() -> Array[@lib.Locals]
+
+pub fn __js_array_9_push(Array[@lib.Locals], @lib.Locals) -> Unit
+
+pub fn __js_bytes_from_array(Array[Byte]) -> Bytes
+
+pub fn __js_bytes_get(Bytes, Int) -> Byte
+
+pub fn __js_bytes_length(Bytes) -> Int
+
+pub fn __js_option_10_is_some(@ir.SSATypeInfo?) -> Bool
+
+pub fn __js_option_10_none() -> @ir.SSATypeInfo?
+
+pub fn __js_option_10_some(@ir.SSATypeInfo) -> @ir.SSATypeInfo?
+
+pub fn __js_option_10_unwrap(@ir.SSATypeInfo?) -> @ir.SSATypeInfo
+
+pub fn __js_option_11_is_some(@lib.TExpr?) -> Bool
+
+pub fn __js_option_11_none() -> @lib.TExpr?
+
+pub fn __js_option_11_some(@lib.TExpr) -> @lib.TExpr?
+
+pub fn __js_option_11_unwrap(@lib.TExpr?) -> @lib.TExpr
+
+pub fn __js_option_12_is_some(@lib.ValType?) -> Bool
+
+pub fn __js_option_12_none() -> @lib.ValType?
+
+pub fn __js_option_12_some(@lib.ValType) -> @lib.ValType?
+
+pub fn __js_option_12_unwrap(@lib.ValType?) -> @lib.ValType
+
+pub fn __js_option_13_is_some((@ir.BlockId, @ir.SSADef)?) -> Bool
+
+pub fn __js_option_13_none() -> (@ir.BlockId, @ir.SSADef)?
+
+pub fn __js_option_13_some((@ir.BlockId, @ir.SSADef)) -> (@ir.BlockId, @ir.SSADef)?
+
+pub fn __js_option_13_unwrap((@ir.BlockId, @ir.SSADef)?) -> (@ir.BlockId, @ir.SSADef)
+
+pub fn __js_option_14_is_some(@lib.SubType?) -> Bool
+
+pub fn __js_option_14_none() -> @lib.SubType?
+
+pub fn __js_option_14_some(@lib.SubType) -> @lib.SubType?
+
+pub fn __js_option_14_unwrap(@lib.SubType?) -> @lib.SubType
+
+pub fn __js_option_15_is_some(Array[@lib.Instruction]?) -> Bool
+
+pub fn __js_option_15_none() -> Array[@lib.Instruction]?
+
+pub fn __js_option_15_some(Array[@lib.Instruction]) -> Array[@lib.Instruction]?
+
+pub fn __js_option_15_unwrap(Array[@lib.Instruction]?) -> Array[@lib.Instruction]
+
+pub fn __js_option_16_is_some(Array[@lib.ValType]?) -> Bool
+
+pub fn __js_option_16_none() -> Array[@lib.ValType]?
+
+pub fn __js_option_16_some(Array[@lib.ValType]) -> Array[@lib.ValType]?
+
+pub fn __js_option_16_unwrap(Array[@lib.ValType]?) -> Array[@lib.ValType]
+
+pub fn __js_option_17_is_some(@lib.MemIdx?) -> Bool
+
+pub fn __js_option_17_none() -> @lib.MemIdx?
+
+pub fn __js_option_17_some(@lib.MemIdx) -> @lib.MemIdx?
+
+pub fn __js_option_17_unwrap(@lib.MemIdx?) -> @lib.MemIdx
+
+pub fn __js_option_18_is_some(@lib.TypeSec?) -> Bool
+
+pub fn __js_option_18_none() -> @lib.TypeSec?
+
+pub fn __js_option_18_some(@lib.TypeSec) -> @lib.TypeSec?
+
+pub fn __js_option_18_unwrap(@lib.TypeSec?) -> @lib.TypeSec
+
+pub fn __js_option_19_is_some(@lib.ImportSec?) -> Bool
+
+pub fn __js_option_19_none() -> @lib.ImportSec?
+
+pub fn __js_option_19_some(@lib.ImportSec) -> @lib.ImportSec?
+
+pub fn __js_option_19_unwrap(@lib.ImportSec?) -> @lib.ImportSec
+
+pub fn __js_option_1_is_some(@cli.CliInputFormat?) -> Bool
+
+pub fn __js_option_1_none() -> @cli.CliInputFormat?
+
+pub fn __js_option_1_some(@cli.CliInputFormat) -> @cli.CliInputFormat?
+
+pub fn __js_option_1_unwrap(@cli.CliInputFormat?) -> @cli.CliInputFormat
+
+pub fn __js_option_20_is_some(@lib.FuncSec?) -> Bool
+
+pub fn __js_option_20_none() -> @lib.FuncSec?
+
+pub fn __js_option_20_some(@lib.FuncSec) -> @lib.FuncSec?
+
+pub fn __js_option_20_unwrap(@lib.FuncSec?) -> @lib.FuncSec
+
+pub fn __js_option_21_is_some(@lib.TableSec?) -> Bool
+
+pub fn __js_option_21_none() -> @lib.TableSec?
+
+pub fn __js_option_21_some(@lib.TableSec) -> @lib.TableSec?
+
+pub fn __js_option_21_unwrap(@lib.TableSec?) -> @lib.TableSec
+
+pub fn __js_option_22_is_some(@lib.MemSec?) -> Bool
+
+pub fn __js_option_22_none() -> @lib.MemSec?
+
+pub fn __js_option_22_some(@lib.MemSec) -> @lib.MemSec?
+
+pub fn __js_option_22_unwrap(@lib.MemSec?) -> @lib.MemSec
+
+pub fn __js_option_23_is_some(@lib.TagSec?) -> Bool
+
+pub fn __js_option_23_none() -> @lib.TagSec?
+
+pub fn __js_option_23_some(@lib.TagSec) -> @lib.TagSec?
+
+pub fn __js_option_23_unwrap(@lib.TagSec?) -> @lib.TagSec
+
+pub fn __js_option_24_is_some(@lib.GlobalSec?) -> Bool
+
+pub fn __js_option_24_none() -> @lib.GlobalSec?
+
+pub fn __js_option_24_some(@lib.GlobalSec) -> @lib.GlobalSec?
+
+pub fn __js_option_24_unwrap(@lib.GlobalSec?) -> @lib.GlobalSec
+
+pub fn __js_option_25_is_some(@lib.ExportSec?) -> Bool
+
+pub fn __js_option_25_none() -> @lib.ExportSec?
+
+pub fn __js_option_25_some(@lib.ExportSec) -> @lib.ExportSec?
+
+pub fn __js_option_25_unwrap(@lib.ExportSec?) -> @lib.ExportSec
+
+pub fn __js_option_26_is_some(@lib.StartSec?) -> Bool
+
+pub fn __js_option_26_none() -> @lib.StartSec?
+
+pub fn __js_option_26_some(@lib.StartSec) -> @lib.StartSec?
+
+pub fn __js_option_26_unwrap(@lib.StartSec?) -> @lib.StartSec
+
+pub fn __js_option_27_is_some(@lib.ElemSec?) -> Bool
+
+pub fn __js_option_27_none() -> @lib.ElemSec?
+
+pub fn __js_option_27_some(@lib.ElemSec) -> @lib.ElemSec?
+
+pub fn __js_option_27_unwrap(@lib.ElemSec?) -> @lib.ElemSec
+
+pub fn __js_option_28_is_some(@lib.DataCntSec?) -> Bool
+
+pub fn __js_option_28_none() -> @lib.DataCntSec?
+
+pub fn __js_option_28_some(@lib.DataCntSec) -> @lib.DataCntSec?
+
+pub fn __js_option_28_unwrap(@lib.DataCntSec?) -> @lib.DataCntSec
+
+pub fn __js_option_29_is_some(@lib.CodeSec?) -> Bool
+
+pub fn __js_option_29_none() -> @lib.CodeSec?
+
+pub fn __js_option_29_some(@lib.CodeSec) -> @lib.CodeSec?
+
+pub fn __js_option_29_unwrap(@lib.CodeSec?) -> @lib.CodeSec
+
+pub fn __js_option_2_is_some(String?) -> Bool
+
+pub fn __js_option_2_none() -> String?
+
+pub fn __js_option_2_some(String) -> String?
+
+pub fn __js_option_2_unwrap(String?) -> String
+
+pub fn __js_option_30_is_some(@lib.DataSec?) -> Bool
+
+pub fn __js_option_30_none() -> @lib.DataSec?
+
+pub fn __js_option_30_some(@lib.DataSec) -> @lib.DataSec?
+
+pub fn __js_option_30_unwrap(@lib.DataSec?) -> @lib.DataSec
+
+pub fn __js_option_31_is_some(@lib.Expr?) -> Bool
+
+pub fn __js_option_31_none() -> @lib.Expr?
+
+pub fn __js_option_31_some(@lib.Expr) -> @lib.Expr?
+
+pub fn __js_option_31_unwrap(@lib.Expr?) -> @lib.Expr
+
+pub fn __js_option_32_is_some(@lib.Elem?) -> Bool
+
+pub fn __js_option_32_none() -> @lib.Elem?
+
+pub fn __js_option_32_some(@lib.Elem) -> @lib.Elem?
+
+pub fn __js_option_32_unwrap(@lib.Elem?) -> @lib.Elem
+
+pub fn __js_option_33_is_some(@lib.FuncType?) -> Bool
+
+pub fn __js_option_33_none() -> @lib.FuncType?
+
+pub fn __js_option_33_some(@lib.FuncType) -> @lib.FuncType?
+
+pub fn __js_option_33_unwrap(@lib.FuncType?) -> @lib.FuncType
+
+pub fn __js_option_34_is_some(@lib.TypeIdx?) -> Bool
+
+pub fn __js_option_34_none() -> @lib.TypeIdx?
+
+pub fn __js_option_34_some(@lib.TypeIdx) -> @lib.TypeIdx?
+
+pub fn __js_option_34_unwrap(@lib.TypeIdx?) -> @lib.TypeIdx
+
+pub fn __js_option_35_is_some(@lib.GlobalType?) -> Bool
+
+pub fn __js_option_35_none() -> @lib.GlobalType?
+
+pub fn __js_option_35_some(@lib.GlobalType) -> @lib.GlobalType?
+
+pub fn __js_option_35_unwrap(@lib.GlobalType?) -> @lib.GlobalType
+
+pub fn __js_option_36_is_some(@lib.MemType?) -> Bool
+
+pub fn __js_option_36_none() -> @lib.MemType?
+
+pub fn __js_option_36_some(@lib.MemType) -> @lib.MemType?
+
+pub fn __js_option_36_unwrap(@lib.MemType?) -> @lib.MemType
+
+pub fn __js_option_37_is_some(@lib.TableType?) -> Bool
+
+pub fn __js_option_37_none() -> @lib.TableType?
+
+pub fn __js_option_37_some(@lib.TableType) -> @lib.TableType?
+
+pub fn __js_option_37_unwrap(@lib.TableType?) -> @lib.TableType
+
+pub fn __js_option_38_is_some(@lib.TagType?) -> Bool
+
+pub fn __js_option_38_none() -> @lib.TagType?
+
+pub fn __js_option_38_some(@lib.TagType) -> @lib.TagType?
+
+pub fn __js_option_38_unwrap(@lib.TagType?) -> @lib.TagType
+
+pub fn __js_option_39_is_some(@lib.CompType?) -> Bool
+
+pub fn __js_option_39_none() -> @lib.CompType?
+
+pub fn __js_option_39_some(@lib.CompType) -> @lib.CompType?
+
+pub fn __js_option_39_unwrap(@lib.CompType?) -> @lib.CompType
+
+pub fn __js_option_3_is_some(@cli.TrapMode?) -> Bool
+
+pub fn __js_option_3_none() -> @cli.TrapMode?
+
+pub fn __js_option_3_some(@cli.TrapMode) -> @cli.TrapMode?
+
+pub fn __js_option_3_unwrap(@cli.TrapMode?) -> @cli.TrapMode
+
+pub fn __js_option_40_is_some(@wast.TokenType?) -> Bool
+
+pub fn __js_option_40_none() -> @wast.TokenType?
+
+pub fn __js_option_40_some(@wast.TokenType) -> @wast.TokenType?
+
+pub fn __js_option_40_unwrap(@wast.TokenType?) -> @wast.TokenType
+
+pub fn __js_option_4_is_some(Int?) -> Bool
+
+pub fn __js_option_4_none() -> Int?
+
+pub fn __js_option_4_some(Int) -> Int?
+
+pub fn __js_option_4_unwrap(Int?) -> Int
+
+pub fn __js_option_5_is_some(Bool?) -> Bool
+
+pub fn __js_option_5_none() -> Bool?
+
+pub fn __js_option_5_some(Bool) -> Bool?
+
+pub fn __js_option_5_unwrap(Bool?) -> Bool
+
+pub fn __js_option_6_is_some(UInt64?) -> Bool
+
+pub fn __js_option_6_none() -> UInt64?
+
+pub fn __js_option_6_some(UInt64) -> UInt64?
+
+pub fn __js_option_6_unwrap(UInt64?) -> UInt64
+
+pub fn __js_option_7_is_some(Bytes?) -> Bool
+
+pub fn __js_option_7_none() -> Bytes?
+
+pub fn __js_option_7_some(Bytes) -> Bytes?
+
+pub fn __js_option_7_unwrap(Bytes?) -> Bytes
+
+pub fn __js_option_8_is_some(@ir.BasicBlock?) -> Bool
+
+pub fn __js_option_8_none() -> @ir.BasicBlock?
+
+pub fn __js_option_8_some(@ir.BasicBlock) -> @ir.BasicBlock?
+
+pub fn __js_option_8_unwrap(@ir.BasicBlock?) -> @ir.BasicBlock
+
+pub fn __js_option_9_is_some(@lib.Module?) -> Bool
+
+pub fn __js_option_9_none() -> @lib.Module?
+
+pub fn __js_option_9_some(@lib.Module) -> @lib.Module?
+
+pub fn __js_option_9_unwrap(@lib.Module?) -> @lib.Module
+
+pub fn __js_result_10_is_ok(Result[@ir.TypeContext, String]) -> Bool
+
+pub fn __js_result_10_unwrap_err(Result[@ir.TypeContext, String]) -> String
+
+pub fn __js_result_10_unwrap_ok(Result[@ir.TypeContext, String]) -> @ir.TypeContext
+
+pub fn __js_result_11_is_ok(Result[Array[@lib.ValType], String]) -> Bool
+
+pub fn __js_result_11_unwrap_err(Result[Array[@lib.ValType], String]) -> String
+
+pub fn __js_result_11_unwrap_ok(Result[Array[@lib.ValType], String]) -> Array[@lib.ValType]
+
+pub fn __js_result_12_is_ok(Result[@lib.FieldType, String]) -> Bool
+
+pub fn __js_result_12_unwrap_err(Result[@lib.FieldType, String]) -> String
+
+pub fn __js_result_12_unwrap_ok(Result[@lib.FieldType, String]) -> @lib.FieldType
+
+pub fn __js_result_13_is_ok(Result[@lib.Module, String]) -> Bool
+
+pub fn __js_result_13_unwrap_err(Result[@lib.Module, String]) -> String
+
+pub fn __js_result_13_unwrap_ok(Result[@lib.Module, String]) -> @lib.Module
+
+pub fn __js_result_14_is_ok(Result[@lib.RefType, String]) -> Bool
+
+pub fn __js_result_14_unwrap_err(Result[@lib.RefType, String]) -> String
+
+pub fn __js_result_14_unwrap_ok(Result[@lib.RefType, String]) -> @lib.RefType
+
+pub fn __js_result_15_is_ok(Result[@lib.TExpr, String]) -> Bool
+
+pub fn __js_result_15_unwrap_err(Result[@lib.TExpr, String]) -> String
+
+pub fn __js_result_15_unwrap_ok(Result[@lib.TExpr, String]) -> @lib.TExpr
+
+pub fn __js_result_16_is_ok(Result[@validate.Env, String]) -> Bool
+
+pub fn __js_result_16_unwrap_err(Result[@validate.Env, String]) -> String
+
+pub fn __js_result_16_unwrap_ok(Result[@validate.Env, String]) -> @validate.Env
+
+pub fn __js_result_17_is_ok(Result[Unit, @validate.ValidationError]) -> Bool
+
+pub fn __js_result_17_unwrap_err(Result[Unit, @validate.ValidationError]) -> @validate.ValidationError
+
+pub fn __js_result_17_unwrap_ok(Result[Unit, @validate.ValidationError]) -> Unit
+
+pub fn __js_result_18_is_ok(Result[(Array[@lib.ValType], Array[@lib.ValType]), String]) -> Bool
+
+pub fn __js_result_18_unwrap_err(Result[(Array[@lib.ValType], Array[@lib.ValType]), String]) -> String
+
+pub fn __js_result_18_unwrap_ok(Result[(Array[@lib.ValType], Array[@lib.ValType]), String]) -> (Array[@lib.ValType], Array[@lib.ValType])
+
+pub fn __js_result_19_is_ok(Result[Array[@lib.FieldType], String]) -> Bool
+
+pub fn __js_result_19_unwrap_err(Result[Array[@lib.FieldType], String]) -> String
+
+pub fn __js_result_19_unwrap_ok(Result[Array[@lib.FieldType], String]) -> Array[@lib.FieldType]
+
+pub fn __js_result_1_is_ok(Result[@lib.Module, @binary.DecodeError]) -> Bool
+
+pub fn __js_result_1_unwrap_err(Result[@lib.Module, @binary.DecodeError]) -> @binary.DecodeError
+
+pub fn __js_result_1_unwrap_ok(Result[@lib.Module, @binary.DecodeError]) -> @lib.Module
+
+pub fn __js_result_20_is_ok(Result[String, String]) -> Bool
+
+pub fn __js_result_20_unwrap_err(Result[String, String]) -> String
+
+pub fn __js_result_20_unwrap_ok(Result[String, String]) -> String
+
+pub fn __js_result_21_is_ok(Result[(String, @lib.Module), String]) -> Bool
+
+pub fn __js_result_21_unwrap_err(Result[(String, @lib.Module), String]) -> String
+
+pub fn __js_result_21_unwrap_ok(Result[(String, @lib.Module), String]) -> (String, @lib.Module)
+
+pub fn __js_result_22_is_ok(Result[@wast.Module, String]) -> Bool
+
+pub fn __js_result_22_unwrap_err(Result[@wast.Module, String]) -> String
+
+pub fn __js_result_22_unwrap_ok(Result[@wast.Module, String]) -> @wast.Module
+
+pub fn __js_result_23_is_ok(Result[@wast.WastScript, String]) -> Bool
+
+pub fn __js_result_23_unwrap_err(Result[@wast.WastScript, String]) -> String
+
+pub fn __js_result_23_unwrap_ok(Result[@wast.WastScript, String]) -> @wast.WastScript
+
+pub fn __js_result_2_is_ok(Result[(@lib.Module, Int), @binary.ModuleDecodeErrorDetail]) -> Bool
+
+pub fn __js_result_2_unwrap_err(Result[(@lib.Module, Int), @binary.ModuleDecodeErrorDetail]) -> @binary.ModuleDecodeErrorDetail
+
+pub fn __js_result_2_unwrap_ok(Result[(@lib.Module, Int), @binary.ModuleDecodeErrorDetail]) -> (@lib.Module, Int)
+
+pub fn __js_result_3_is_ok(Result[Bytes, @binary.EncodeError]) -> Bool
+
+pub fn __js_result_3_unwrap_err(Result[Bytes, @binary.EncodeError]) -> @binary.EncodeError
+
+pub fn __js_result_3_unwrap_ok(Result[Bytes, @binary.EncodeError]) -> Bytes
+
+pub fn __js_result_4_is_ok(Result[Int, @binary.BinaryEncodeError]) -> Bool
+
+pub fn __js_result_4_unwrap_err(Result[Int, @binary.BinaryEncodeError]) -> @binary.BinaryEncodeError
+
+pub fn __js_result_4_unwrap_ok(Result[Int, @binary.BinaryEncodeError]) -> Int
+
+pub fn __js_result_5_is_ok(Result[@cli.CliParseResult, @cli.CliParseError]) -> Bool
+
+pub fn __js_result_5_unwrap_err(Result[@cli.CliParseResult, @cli.CliParseError]) -> @cli.CliParseError
+
+pub fn __js_result_5_unwrap_ok(Result[@cli.CliParseResult, @cli.CliParseError]) -> @cli.CliParseResult
+
+pub fn __js_result_6_is_ok(Result[@cmd.DifferentialValidationReport, String]) -> Bool
+
+pub fn __js_result_6_unwrap_err(Result[@cmd.DifferentialValidationReport, String]) -> String
+
+pub fn __js_result_6_unwrap_ok(Result[@cmd.DifferentialValidationReport, String]) -> @cmd.DifferentialValidationReport
+
+pub fn __js_result_7_is_ok(Result[(String, String?), String]) -> Bool
+
+pub fn __js_result_7_unwrap_err(Result[(String, String?), String]) -> String
+
+pub fn __js_result_7_unwrap_ok(Result[(String, String?), String]) -> (String, String?)
+
+pub fn __js_result_8_is_ok(Result[@cmd.CmdRunSummary, @cmd.CmdError]) -> Bool
+
+pub fn __js_result_8_unwrap_err(Result[@cmd.CmdRunSummary, @cmd.CmdError]) -> @cmd.CmdError
+
+pub fn __js_result_8_unwrap_ok(Result[@cmd.CmdRunSummary, @cmd.CmdError]) -> @cmd.CmdRunSummary
+
+pub fn __js_result_9_is_ok(Result[Unit, String]) -> Bool
+
+pub fn __js_result_9_unwrap_err(Result[Unit, String]) -> String
+
+pub fn __js_result_9_unwrap_ok(Result[Unit, String]) -> Unit
+
+pub fn __js_show_binary_BinaryDecodeError(@binary.BinaryDecodeError) -> String
+
+pub fn __js_show_binary_BinaryEncodeError(@binary.BinaryEncodeError) -> String
+
+pub fn __js_show_binary_DecodeError(@binary.DecodeError) -> String
+
+pub fn __js_show_binary_EncodeError(@binary.EncodeError) -> String
+
+pub fn __js_show_binary_ModuleDecodeErrorDetail(@binary.ModuleDecodeErrorDetail) -> String
+
+pub fn __js_show_cli_CliInputFormat(@cli.CliInputFormat) -> String
+
+pub fn __js_show_cli_CliOptimizationFlag(@cli.CliOptimizationFlag) -> String
+
+pub fn __js_show_cli_CliOutputTarget(@cli.CliOutputTarget) -> String
+
+pub fn __js_show_cli_CliParseError(@cli.CliParseError) -> String
+
+pub fn __js_show_cli_CliParseResult(@cli.CliParseResult) -> String
+
+pub fn __js_show_cli_TrapMode(@cli.TrapMode) -> String
+
+pub fn __js_show_cmd_CmdEncodeError(@cmd.CmdEncodeError) -> String
+
+pub fn __js_show_cmd_CmdError(@cmd.CmdError) -> String
+
+pub fn __js_show_cmd_CmdRunSummary(@cmd.CmdRunSummary) -> String
+
+pub fn __js_show_cmd_DifferentialValidationReport(@cmd.DifferentialValidationReport) -> String
+
+pub fn __js_show_cmd_FuzzFailureReport(@cmd.FuzzFailureReport) -> String
+
+pub fn __js_show_cmd_ReadmeApiVerifyBlock(@cmd.ReadmeApiVerifyBlock) -> String
+
+pub fn __js_show_cmd_WasmSmithFuzzStats(@cmd.WasmSmithFuzzStats) -> String
+
+pub fn __js_show_ir_BasicBlock(@ir.BasicBlock) -> String
+
+pub fn __js_show_ir_BlockId(@ir.BlockId) -> String
+
+pub fn __js_show_ir_CFG(@ir.CFG) -> String
+
+pub fn __js_show_ir_PhiNode(@ir.PhiNode) -> String
+
+pub fn __js_show_ir_SSABlock(@ir.SSABlock) -> String
+
+pub fn __js_show_ir_SSACFG(@ir.SSACFG) -> String
+
+pub fn __js_show_ir_SSAInstr(@ir.SSAInstr) -> String
+
+pub fn __js_show_ir_SSALiteral(@ir.SSALiteral) -> String
+
+pub fn __js_show_ir_SSAOp(@ir.SSAOp) -> String
+
+pub fn __js_show_ir_SSATerminator(@ir.SSATerminator) -> String
+
+pub fn __js_show_ir_SSAValue(@ir.SSAValue) -> String
+
+pub fn __js_show_ir_SplatOp(@ir.SplatOp) -> String
+
+pub fn __js_show_ir_Terminator(@ir.Terminator) -> String
+
+pub fn __js_show_lib_AbsHeapType(@lib.AbsHeapType) -> String
+
+pub fn __js_show_lib_AtomicCmpxchgOp(@lib.AtomicCmpxchgOp) -> String
+
+pub fn __js_show_lib_AtomicRmwOp(@lib.AtomicRmwOp) -> String
+
+pub fn __js_show_lib_BinaryOp(@lib.BinaryOp) -> String
+
+pub fn __js_show_lib_BlockType(@lib.BlockType) -> String
+
+pub fn __js_show_lib_CastOp(@lib.CastOp) -> String
+
+pub fn __js_show_lib_Catch(@lib.Catch) -> String
+
+pub fn __js_show_lib_CodeSec(@lib.CodeSec) -> String
+
+pub fn __js_show_lib_CompType(@lib.CompType) -> String
+
+pub fn __js_show_lib_CustomSec(@lib.CustomSec) -> String
+
+pub fn __js_show_lib_Data(@lib.Data) -> String
+
+pub fn __js_show_lib_DataCntSec(@lib.DataCntSec) -> String
+
+pub fn __js_show_lib_DataIdx(@lib.DataIdx) -> String
+
+pub fn __js_show_lib_DataMode(@lib.DataMode) -> String
+
+pub fn __js_show_lib_DataSec(@lib.DataSec) -> String
+
+pub fn __js_show_lib_DefType(@lib.DefType) -> String
+
+pub fn __js_show_lib_Elem(@lib.Elem) -> String
+
+pub fn __js_show_lib_ElemIdx(@lib.ElemIdx) -> String
+
+pub fn __js_show_lib_ElemKind(@lib.ElemKind) -> String
+
+pub fn __js_show_lib_ElemMode(@lib.ElemMode) -> String
+
+pub fn __js_show_lib_ElemSec(@lib.ElemSec) -> String
+
+pub fn __js_show_lib_Export(@lib.Export) -> String
+
+pub fn __js_show_lib_ExportSec(@lib.ExportSec) -> String
+
+pub fn __js_show_lib_Expr(@lib.Expr) -> String
+
+pub fn __js_show_lib_ExternIdx(@lib.ExternIdx) -> String
+
+pub fn __js_show_lib_ExternType(@lib.ExternType) -> String
+
+pub fn __js_show_lib_ExtractLaneOp(@lib.ExtractLaneOp) -> String
+
+pub fn __js_show_lib_F32(@lib.F32) -> String
+
+pub fn __js_show_lib_F64(@lib.F64) -> String
+
+pub fn __js_show_lib_FieldType(@lib.FieldType) -> String
+
+pub fn __js_show_lib_Func(@lib.Func) -> String
+
+pub fn __js_show_lib_FuncIdx(@lib.FuncIdx) -> String
+
+pub fn __js_show_lib_FuncSec(@lib.FuncSec) -> String
+
+pub fn __js_show_lib_FuncType(@lib.FuncType) -> String
+
+pub fn __js_show_lib_Global(@lib.Global) -> String
+
+pub fn __js_show_lib_GlobalIdx(@lib.GlobalIdx) -> String
+
+pub fn __js_show_lib_GlobalSec(@lib.GlobalSec) -> String
+
+pub fn __js_show_lib_GlobalType(@lib.GlobalType) -> String
+
+pub fn __js_show_lib_HeapType(@lib.HeapType) -> String
+
+pub fn __js_show_lib_I32(@lib.I32) -> String
+
+pub fn __js_show_lib_I64(@lib.I64) -> String
+
+pub fn __js_show_lib_Import(@lib.Import) -> String
+
+pub fn __js_show_lib_ImportSec(@lib.ImportSec) -> String
+
+pub fn __js_show_lib_Instruction(@lib.Instruction) -> String
+
+pub fn __js_show_lib_LabelIdx(@lib.LabelIdx) -> String
+
+pub fn __js_show_lib_LaneIdx(@lib.LaneIdx) -> String
+
+pub fn __js_show_lib_Limits(@lib.Limits) -> String
+
+pub fn __js_show_lib_LoadOp(@lib.LoadOp) -> String
+
+pub fn __js_show_lib_LocalIdx(@lib.LocalIdx) -> String
+
+pub fn __js_show_lib_Locals(@lib.Locals) -> String
+
+pub fn __js_show_lib_MemArg(@lib.MemArg) -> String
+
+pub fn __js_show_lib_MemIdx(@lib.MemIdx) -> String
+
+pub fn __js_show_lib_MemSec(@lib.MemSec) -> String
+
+pub fn __js_show_lib_MemType(@lib.MemType) -> String
+
+pub fn __js_show_lib_Module(@lib.Module) -> String
+
+pub fn __js_show_lib_Mut(@lib.Mut) -> String
+
+pub fn __js_show_lib_Name(@lib.Name) -> String
+
+pub fn __js_show_lib_NumType(@lib.NumType) -> String
+
+pub fn __js_show_lib_PackType(@lib.PackType) -> String
+
+pub fn __js_show_lib_PrettyPrintContext(@lib.PrettyPrintContext) -> String
+
+pub fn __js_show_lib_RecType(@lib.RecType) -> String
+
+pub fn __js_show_lib_RefType(@lib.RefType) -> String
+
+pub fn __js_show_lib_ReplaceLaneOp(@lib.ReplaceLaneOp) -> String
+
+pub fn __js_show_lib_S33(@lib.S33) -> String
+
+pub fn __js_show_lib_StartSec(@lib.StartSec) -> String
+
+pub fn __js_show_lib_StorageType(@lib.StorageType) -> String
+
+pub fn __js_show_lib_StoreOp(@lib.StoreOp) -> String
+
+pub fn __js_show_lib_SubType(@lib.SubType) -> String
+
+pub fn __js_show_lib_TExpr(@lib.TExpr) -> String
+
+pub fn __js_show_lib_TInstr(@lib.TInstr) -> String
+
+pub fn __js_show_lib_TInstrKind(@lib.TInstrKind) -> String
+
+pub fn __js_show_lib_Table(@lib.Table) -> String
+
+pub fn __js_show_lib_TableIdx(@lib.TableIdx) -> String
+
+pub fn __js_show_lib_TableSec(@lib.TableSec) -> String
+
+pub fn __js_show_lib_TableType(@lib.TableType) -> String
+
+pub fn __js_show_lib_TabsOrSpaces(@lib.TabsOrSpaces) -> String
+
+pub fn __js_show_lib_TagIdx(@lib.TagIdx) -> String
+
+pub fn __js_show_lib_TagSec(@lib.TagSec) -> String
+
+pub fn __js_show_lib_TagType(@lib.TagType) -> String
+
+pub fn __js_show_lib_TypeIdx(@lib.TypeIdx) -> String
+
+pub fn __js_show_lib_TypeSec(@lib.TypeSec) -> String
+
+pub fn __js_show_lib_U32(@lib.U32) -> String
+
+pub fn __js_show_lib_U64(@lib.U64) -> String
+
+pub fn __js_show_lib_UnaryOp(@lib.UnaryOp) -> String
+
+pub fn __js_show_lib_V128LoadLaneOp(@lib.V128LoadLaneOp) -> String
+
+pub fn __js_show_lib_V128ShiftOp(@lib.V128ShiftOp) -> String
+
+pub fn __js_show_lib_V128StoreLaneOp(@lib.V128StoreLaneOp) -> String
+
+pub fn __js_show_lib_V128TernaryOp(@lib.V128TernaryOp) -> String
+
+pub fn __js_show_lib_ValType(@lib.ValType) -> String
+
+pub fn __js_show_passes_AbstractTypeRefiningPassProps(@passes.AbstractTypeRefiningPassProps) -> String
+
+pub fn __js_show_passes_AsyncifyPassProps(@passes.AsyncifyPassProps) -> String
+
+pub fn __js_show_passes_BlockLiveness(@passes.BlockLiveness) -> String
+
+pub fn __js_show_passes_CallSite(@passes.CallSite) -> String
+
+pub fn __js_show_passes_EquivalentClass(@passes.EquivalentClass) -> String
+
+pub fn __js_show_passes_Literal(@passes.Literal) -> String
+
+pub fn __js_show_passes_LiteralKind(@passes.LiteralKind) -> String
+
+pub fn __js_show_passes_MSFCallSite(@passes.MSFCallSite) -> String
+
+pub fn __js_show_passes_MSFDefinedFunc(@passes.MSFDefinedFunc) -> String
+
+pub fn __js_show_passes_MSFHashState(@passes.MSFHashState) -> String
+
+pub fn __js_show_passes_MSFParamKind(@passes.MSFParamKind) -> String
+
+pub fn __js_show_passes_MSFSiteValue(@passes.MSFSiteValue) -> String
+
+pub fn __js_show_passes_MemoryPackingPassProps(@passes.MemoryPackingPassProps) -> String
+
+pub fn __js_show_passes_ModulePass(@passes.ModulePass) -> String
+
+pub fn __js_show_passes_ParamInfo(@passes.ParamInfo) -> String
+
+pub fn __js_show_validate_Env(@validate.Env) -> String
+
+pub fn __js_show_validate_TcState(@validate.TcState) -> String
+
+pub fn __js_show_validate_ValidationError(@validate.ValidationError) -> String
+
+pub fn __js_show_wast_BlockType(@wast.BlockType) -> String
+
+pub fn __js_show_wast_CatchClause(@wast.CatchClause) -> String
+
+pub fn __js_show_wast_DataSegment(@wast.DataSegment) -> String
+
+pub fn __js_show_wast_ElemInitExpr(@wast.ElemInitExpr) -> String
+
+pub fn __js_show_wast_ElemSegment(@wast.ElemSegment) -> String
+
+pub fn __js_show_wast_ErrorLevel(@wast.ErrorLevel) -> String
+
+pub fn __js_show_wast_Export(@wast.Export) -> String
+
+pub fn __js_show_wast_ExportDesc(@wast.ExportDesc) -> String
+
+pub fn __js_show_wast_Func(@wast.Func) -> String
+
+pub fn __js_show_wast_FuncType(@wast.FuncType) -> String
+
+pub fn __js_show_wast_Global(@wast.Global) -> String
+
+pub fn __js_show_wast_GlobalType(@wast.GlobalType) -> String
+
+pub fn __js_show_wast_HeapTypeRef(@wast.HeapTypeRef) -> String
+
+pub fn __js_show_wast_Import(@wast.Import) -> String
+
+pub fn __js_show_wast_ImportDesc(@wast.ImportDesc) -> String
+
+pub fn __js_show_wast_Index(@wast.Index) -> String
+
+pub fn __js_show_wast_InlineExport(@wast.InlineExport) -> String
+
+pub fn __js_show_wast_Instruction(@wast.Instruction) -> String
+
+pub fn __js_show_wast_LegacyCatchClause(@wast.LegacyCatchClause) -> String
+
+pub fn __js_show_wast_LexerError(@wast.LexerError) -> String
+
+pub fn __js_show_wast_Limits(@wast.Limits) -> String
+
+pub fn __js_show_wast_Literal(@wast.Literal) -> String
+
+pub fn __js_show_wast_LiteralType(@wast.LiteralType) -> String
+
+pub fn __js_show_wast_Local(@wast.Local) -> String
+
+pub fn __js_show_wast_Location(@wast.Location) -> String
+
+pub fn __js_show_wast_MemArg(@wast.MemArg) -> String
+
+pub fn __js_show_wast_Memory(@wast.Memory) -> String
+
+pub fn __js_show_wast_MemoryType(@wast.MemoryType) -> String
+
+pub fn __js_show_wast_Module(@wast.Module) -> String
+
+pub fn __js_show_wast_ModuleField(@wast.ModuleField) -> String
+
+pub fn __js_show_wast_Opcode(@wast.Opcode) -> String
+
+pub fn __js_show_wast_ParseError(@wast.ParseError) -> String
+
+pub fn __js_show_wast_ParserError(@wast.ParserError) -> String
+
+pub fn __js_show_wast_ShuffleLanes(@wast.ShuffleLanes) -> String
+
+pub fn __js_show_wast_SimdShape(@wast.SimdShape) -> String
+
+pub fn __js_show_wast_Start(@wast.Start) -> String
+
+pub fn __js_show_wast_Table(@wast.Table) -> String
+
+pub fn __js_show_wast_TableType(@wast.TableType) -> String
+
+pub fn __js_show_wast_Tag(@wast.Tag) -> String
+
+pub fn __js_show_wast_Token(@wast.Token) -> String
+
+pub fn __js_show_wast_TokenType(@wast.TokenType) -> String
+
+pub fn __js_show_wast_TokenValue(@wast.TokenValue) -> String
+
+pub fn __js_show_wast_TypeDef(@wast.TypeDef) -> String
+
+pub fn __js_show_wast_TypeUse(@wast.TypeUse) -> String
+
+pub fn __js_show_wast_V128Const(@wast.V128Const) -> String
+
+pub fn __js_show_wast_ValueType(@wast.ValueType) -> String
+
+pub fn __js_show_wast_WastAction(@wast.WastAction) -> String
+
+pub fn __js_show_wast_WastActionType(@wast.WastActionType) -> String
+
+pub fn __js_show_wast_WastCommand(@wast.WastCommand) -> String
+
+pub fn __js_show_wast_WastModuleDef(@wast.WastModuleDef) -> String
+
+pub fn __js_show_wast_WastResult(@wast.WastResult) -> String
+
+pub fn __js_show_wast_WastScript(@wast.WastScript) -> String
+
+pub fn __js_show_wast_WastSpecFileReport(@wast.WastSpecFileReport) -> String
+
+pub fn __js_show_wast_WastSpecFileStatus(@wast.WastSpecFileStatus) -> String
+
+pub fn __js_show_wast_WastSpecRunSummary(@wast.WastSpecRunSummary) -> String
+
+pub fn __js_show_wast_WastValue(@wast.WastValue) -> String
+
+pub fn __js_tuple_1_get_0((@lib.Module, Int)) -> @lib.Module
+
+pub fn __js_tuple_1_get_1((@lib.Module, Int)) -> Int
+
+pub fn __js_tuple_1_new(@lib.Module, Int) -> (@lib.Module, Int)
+
+pub fn __js_tuple_2_get_0((Bool, Bool)) -> Bool
+
+pub fn __js_tuple_2_get_1((Bool, Bool)) -> Bool
+
+pub fn __js_tuple_2_new(Bool, Bool) -> (Bool, Bool)
+
+pub fn __js_tuple_3_get_0((String, String?)) -> String
+
+pub fn __js_tuple_3_get_1((String, String?)) -> String?
+
+pub fn __js_tuple_3_new(String, String?) -> (String, String?)
+
+pub fn __js_tuple_4_get_0((String, String)) -> String
+
+pub fn __js_tuple_4_get_1((String, String)) -> String
+
+pub fn __js_tuple_4_new(String, String) -> (String, String)
+
+pub fn __js_tuple_5_get_0((@ir.BlockId, @ir.SSADef)) -> @ir.BlockId
+
+pub fn __js_tuple_5_get_1((@ir.BlockId, @ir.SSADef)) -> @ir.SSADef
+
+pub fn __js_tuple_5_new(@ir.BlockId, @ir.SSADef) -> (@ir.BlockId, @ir.SSADef)
+
+pub fn __js_tuple_6_get_0((Array[@lib.ValType], Array[@lib.ValType])) -> Array[@lib.ValType]
+
+pub fn __js_tuple_6_get_1((Array[@lib.ValType], Array[@lib.ValType])) -> Array[@lib.ValType]
+
+pub fn __js_tuple_6_new(Array[@lib.ValType], Array[@lib.ValType]) -> (Array[@lib.ValType], Array[@lib.ValType])
+
+pub fn __js_tuple_7_get_0((String, @lib.Module)) -> String
+
+pub fn __js_tuple_7_get_1((String, @lib.Module)) -> @lib.Module
+
+pub fn __js_tuple_7_new(String, @lib.Module) -> (String, @lib.Module)
+
+pub fn __node_cli_input_format_name(@cli.CliInputFormat) -> String
+
+pub fn __node_cli_optimization_flag_kind(@cli.CliOptimizationFlag) -> String
+
+pub fn __node_cli_optimization_flag_level(@cli.CliOptimizationFlag) -> Int
+
+pub fn __node_cli_optimization_flag_size_bias(@cli.CliOptimizationFlag) -> Bool
+
+pub fn __node_cli_output_target_kind(@cli.CliOutputTarget) -> String
+
+pub fn __node_cli_output_target_path(@cli.CliOutputTarget) -> String
+
+pub fn __node_cli_parse_result_get_config_path(@cli.CliParseResult) -> String
+
+pub fn __node_cli_parse_result_get_input_format(@cli.CliParseResult) -> @cli.CliInputFormat
+
+pub fn __node_cli_parse_result_get_low_memory_bound(@cli.CliParseResult) -> UInt64
+
+pub fn __node_cli_parse_result_get_low_memory_unused(@cli.CliParseResult) -> Bool
+
+pub fn __node_cli_parse_result_get_monomorphize_min_benefit(@cli.CliParseResult) -> Int
+
+pub fn __node_cli_parse_result_get_trap_mode(@cli.CliParseResult) -> @cli.TrapMode
+
+pub fn __node_cli_parse_result_has_config_path(@cli.CliParseResult) -> Bool
+
+pub fn __node_cli_parse_result_has_input_format(@cli.CliParseResult) -> Bool
+
+pub fn __node_cli_parse_result_has_low_memory_bound(@cli.CliParseResult) -> Bool
+
+pub fn __node_cli_parse_result_has_low_memory_unused(@cli.CliParseResult) -> Bool
+
+pub fn __node_cli_parse_result_has_monomorphize_min_benefit(@cli.CliParseResult) -> Bool
+
+pub fn __node_cli_parse_result_has_trap_mode(@cli.CliParseResult) -> Bool
+
+pub fn __node_cli_parse_result_help_requested(@cli.CliParseResult) -> Bool
+
+pub fn __node_cli_parse_result_input_globs_get(@cli.CliParseResult, Int) -> String
+
+pub fn __node_cli_parse_result_input_globs_length(@cli.CliParseResult) -> Int
+
+pub fn __node_cli_parse_result_optimize_flags_get(@cli.CliParseResult, Int) -> @cli.CliOptimizationFlag
+
+pub fn __node_cli_parse_result_optimize_flags_length(@cli.CliParseResult) -> Int
+
+pub fn __node_cli_parse_result_output_targets_get(@cli.CliParseResult, Int) -> @cli.CliOutputTarget
+
+pub fn __node_cli_parse_result_output_targets_length(@cli.CliParseResult) -> Int
+
+pub fn __node_cli_parse_result_pass_flags_get(@cli.CliParseResult, Int) -> String
+
+pub fn __node_cli_parse_result_pass_flags_length(@cli.CliParseResult) -> Int
+
+pub fn __node_cli_parse_result_read_stdin(@cli.CliParseResult) -> Bool
+
+pub fn __node_cli_parse_result_version_requested(@cli.CliParseResult) -> Bool
+
+pub fn __node_cli_trap_mode_name(@cli.TrapMode) -> String
+
+pub fn __node_cmd_can_expand_passes_for_cli(@cli.CliParseResult, @lib.Module, @passes.OptimizeOptions) -> Bool
+
+pub fn __node_cmd_expand_passes_for_cli_error(@cli.CliParseResult, @lib.Module, @passes.OptimizeOptions) -> String
+
+pub fn __node_cmd_expand_passes_for_cli_get(@cli.CliParseResult, @lib.Module, @passes.OptimizeOptions, Int) -> @passes.ModulePass
+
+pub fn __node_cmd_expand_passes_for_cli_length(@cli.CliParseResult, @lib.Module, @passes.OptimizeOptions) -> Int
+
+pub fn __node_passes_can_resolve_module_pass(String) -> Bool
+
+pub fn __node_passes_directize(Bool) -> @passes.ModulePass
+
+pub fn __node_passes_optimize_module_with_options_trace_run(@lib.Module, Array[@passes.ModulePass], @passes.OptimizeOptions, trace_pass_details? : Bool, trace_module_stats? : Bool) -> (Result[@lib.Module, String], Array[String])
+
+pub fn __node_passes_optimize_trace_run_logs_get((Result[@lib.Module, String], Array[String]), Int) -> String
+
+pub fn __node_passes_optimize_trace_run_logs_length((Result[@lib.Module, String], Array[String])) -> Int
+
+pub fn __node_passes_optimize_trace_run_result_error((Result[@lib.Module, String], Array[String])) -> String
+
+pub fn __node_passes_optimize_trace_run_result_is_ok((Result[@lib.Module, String], Array[String])) -> Bool
+
+pub fn __node_passes_optimize_trace_run_result_value((Result[@lib.Module, String], Array[String])) -> @lib.Module
+
+pub fn __node_passes_resolve_module_pass(String) -> @passes.ModulePass
+
+pub fn __node_passes_resolve_module_pass_error(String) -> String
+
+pub fn __node_splitmix_new(UInt64) -> @splitmix.RandomState
+
+pub fn __node_wast_spec_file_report_path(@wast.WastSpecFileReport) -> String
+
+pub fn __node_wast_spec_file_report_status(@wast.WastSpecFileReport) -> @wast.WastSpecFileStatus
+
+pub fn __node_wast_spec_file_status_kind(@wast.WastSpecFileStatus) -> String
+
+pub fn __node_wast_spec_file_status_message(@wast.WastSpecFileStatus) -> String
+
+pub fn __node_wast_spec_run_summary_failed_files(@wast.WastSpecRunSummary) -> Int
+
+pub fn __node_wast_spec_run_summary_files_get(@wast.WastSpecRunSummary, Int) -> @wast.WastSpecFileReport
+
+pub fn __node_wast_spec_run_summary_files_length(@wast.WastSpecRunSummary) -> Int
+
+pub fn __node_wast_spec_run_summary_passed_files(@wast.WastSpecRunSummary) -> Int
+
+pub fn __node_wast_spec_run_summary_skipped_files(@wast.WastSpecRunSummary) -> Int
+
+pub fn __node_wast_spec_run_summary_total_files(@wast.WastSpecRunSummary) -> Int
+
+pub fn binary__decode_module(Bytes) -> Result[@lib.Module, @binary.DecodeError]
+
+pub fn binary__decode_module_with_detail(Bytes, Int) -> Result[(@lib.Module, Int), @binary.ModuleDecodeErrorDetail]
+
+pub fn binary__encode_module(@lib.Module) -> Result[Bytes, @binary.EncodeError]
+
+pub fn binary__size_signed(Int64, Int) -> Result[Int, @binary.BinaryEncodeError]
+
+pub fn binary__size_unsigned(UInt64, Int) -> Result[Int, @binary.BinaryEncodeError]
+
+pub fn cli__CliInputFormat__wasm() -> @cli.CliInputFormat
+
+pub fn cli__CliInputFormat__wast() -> @cli.CliInputFormat
+
+pub fn cli__CliInputFormat__wat() -> @cli.CliInputFormat
+
+pub fn cli__CliOptimizationFlag__olevel(Int, Bool) -> @cli.CliOptimizationFlag
+
+pub fn cli__CliOptimizationFlag__optimize() -> @cli.CliOptimizationFlag
+
+pub fn cli__CliOptimizationFlag__shrink() -> @cli.CliOptimizationFlag
+
+pub fn cli__CliOutputTarget__dir(String) -> @cli.CliOutputTarget
+
+pub fn cli__CliOutputTarget__file(String) -> @cli.CliOutputTarget
+
+pub fn cli__CliOutputTarget__stdout() -> @cli.CliOutputTarget
+
+pub fn cli__CliParseError__invalid_input_format(String) -> @cli.CliParseError
+
+pub fn cli__CliParseError__invalid_long_flag(String) -> @cli.CliParseError
+
+pub fn cli__CliParseError__invalid_optimization_flag(String) -> @cli.CliParseError
+
+pub fn cli__CliParseError__invalid_trap_mode(String) -> @cli.CliParseError
+
+pub fn cli__CliParseError__missing_flag_value(String) -> @cli.CliParseError
+
+pub fn cli__CliParseError__stdin_needs_format() -> @cli.CliParseError
+
+pub fn cli__CliParseError__unexpected_flag_value(String) -> @cli.CliParseError
+
+pub fn cli__CliParseError__unknown_short_flag(Char) -> @cli.CliParseError
+
+pub fn cli__CliParseResult__new(String?, Array[String], Bool, Bool, Bool, @cli.CliInputFormat?, Array[@cli.CliOutputTarget], Array[String], Array[@cli.CliOptimizationFlag], @cli.TrapMode?, Int?, Bool?, UInt64?) -> @cli.CliParseResult
+
+pub fn cli__CliParseResult__new__arity_0() -> @cli.CliParseResult
+
+pub fn cli__CliParseResult__new__arity_1(String?) -> @cli.CliParseResult
+
+pub fn cli__CliParseResult__new__arity_10(String?, Array[String], Bool, Bool, Bool, @cli.CliInputFormat?, Array[@cli.CliOutputTarget], Array[String], Array[@cli.CliOptimizationFlag], @cli.TrapMode?) -> @cli.CliParseResult
+
+pub fn cli__CliParseResult__new__arity_11(String?, Array[String], Bool, Bool, Bool, @cli.CliInputFormat?, Array[@cli.CliOutputTarget], Array[String], Array[@cli.CliOptimizationFlag], @cli.TrapMode?, Int?) -> @cli.CliParseResult
+
+pub fn cli__CliParseResult__new__arity_12(String?, Array[String], Bool, Bool, Bool, @cli.CliInputFormat?, Array[@cli.CliOutputTarget], Array[String], Array[@cli.CliOptimizationFlag], @cli.TrapMode?, Int?, Bool?) -> @cli.CliParseResult
+
+pub fn cli__CliParseResult__new__arity_2(String?, Array[String]) -> @cli.CliParseResult
+
+pub fn cli__CliParseResult__new__arity_3(String?, Array[String], Bool) -> @cli.CliParseResult
+
+pub fn cli__CliParseResult__new__arity_4(String?, Array[String], Bool, Bool) -> @cli.CliParseResult
+
+pub fn cli__CliParseResult__new__arity_5(String?, Array[String], Bool, Bool, Bool) -> @cli.CliParseResult
+
+pub fn cli__CliParseResult__new__arity_6(String?, Array[String], Bool, Bool, Bool, @cli.CliInputFormat?) -> @cli.CliParseResult
+
+pub fn cli__CliParseResult__new__arity_7(String?, Array[String], Bool, Bool, Bool, @cli.CliInputFormat?, Array[@cli.CliOutputTarget]) -> @cli.CliParseResult
+
+pub fn cli__CliParseResult__new__arity_8(String?, Array[String], Bool, Bool, Bool, @cli.CliInputFormat?, Array[@cli.CliOutputTarget], Array[String]) -> @cli.CliParseResult
+
+pub fn cli__CliParseResult__new__arity_9(String?, Array[String], Bool, Bool, Bool, @cli.CliInputFormat?, Array[@cli.CliOutputTarget], Array[String], Array[@cli.CliOptimizationFlag]) -> @cli.CliParseResult
+
+pub fn cli__TrapMode__allow() -> @cli.TrapMode
+
+pub fn cli__TrapMode__never() -> @cli.TrapMode
+
+pub fn cli__cli_config_schema_json() -> String
+
+pub fn cli__expand_globs(Array[String], Array[String]) -> Array[String]
+
+pub fn cli__glob_match(String, String) -> Bool
+
+pub fn cli__infer_input_format(String) -> @cli.CliInputFormat?
+
+pub fn cli__normalize_cli_path(String) -> String
+
+pub fn cli__parse_cli_args(Array[String], String?) -> Result[@cli.CliParseResult, @cli.CliParseError]
+
+pub fn cli__parse_cli_args__arity_1(Array[String]) -> Result[@cli.CliParseResult, @cli.CliParseError]
+
+pub fn cli__parse_starshine_input_env(String?) -> Array[String]
+
+pub fn cli__resolve_pass_flags(@cli.CliParseResult) -> Array[String]
+
+pub fn cli__resolve_traps_never_happen(@cli.CliParseResult, Bool) -> Bool
+
+pub fn cli__resolve_traps_never_happen__arity_1(@cli.CliParseResult) -> Bool
+
+pub fn cmd__CmdEncodeError__adapter(String) -> @cmd.CmdEncodeError
+
+pub fn cmd__CmdEncodeError__encode(@binary.EncodeError) -> @cmd.CmdEncodeError
+
+pub fn cmd__CmdError__ambiguous_output_file(String) -> @cmd.CmdError
+
+pub fn cmd__CmdError__unknown_pass_flag(String) -> @cmd.CmdError
+
+pub fn cmd__CmdRunSummary__new(Array[String], Array[String], Array[String], Int, Int, Bool, Int, Bool, UInt64) -> @cmd.CmdRunSummary
+
+pub fn cmd__CmdRunSummary__new__arity_0() -> @cmd.CmdRunSummary
+
+pub fn cmd__CmdRunSummary__new__arity_1(Array[String]) -> @cmd.CmdRunSummary
+
+pub fn cmd__CmdRunSummary__new__arity_2(Array[String], Array[String]) -> @cmd.CmdRunSummary
+
+pub fn cmd__CmdRunSummary__new__arity_3(Array[String], Array[String], Array[String]) -> @cmd.CmdRunSummary
+
+pub fn cmd__CmdRunSummary__new__arity_4(Array[String], Array[String], Array[String], Int) -> @cmd.CmdRunSummary
+
+pub fn cmd__CmdRunSummary__new__arity_5(Array[String], Array[String], Array[String], Int, Int) -> @cmd.CmdRunSummary
+
+pub fn cmd__CmdRunSummary__new__arity_6(Array[String], Array[String], Array[String], Int, Int, Bool) -> @cmd.CmdRunSummary
+
+pub fn cmd__CmdRunSummary__new__arity_7(Array[String], Array[String], Array[String], Int, Int, Bool, Int) -> @cmd.CmdRunSummary
+
+pub fn cmd__CmdRunSummary__new__arity_8(Array[String], Array[String], Array[String], Int, Int, Bool, Int, Bool) -> @cmd.CmdRunSummary
+
+pub fn cmd__FuzzFailureReport__new(UInt64, Int, Int, String, String, Array[String], Array[String], Bytes?) -> @cmd.FuzzFailureReport
+
+pub fn cmd__FuzzFailureReport__new__arity_5(UInt64, Int, Int, String, String) -> @cmd.FuzzFailureReport
+
+pub fn cmd__FuzzFailureReport__new__arity_6(UInt64, Int, Int, String, String, Array[String]) -> @cmd.FuzzFailureReport
+
+pub fn cmd__FuzzFailureReport__new__arity_7(UInt64, Int, Int, String, String, Array[String], Array[String]) -> @cmd.FuzzFailureReport
+
+pub fn cmd__WasmSmithFuzzStats__new(Int, Int, Int, Int, Int, Int, Int) -> @cmd.WasmSmithFuzzStats
+
+pub fn cmd__WasmSmithFuzzStats__new__arity_0() -> @cmd.WasmSmithFuzzStats
+
+pub fn cmd__WasmSmithFuzzStats__new__arity_1(Int) -> @cmd.WasmSmithFuzzStats
+
+pub fn cmd__WasmSmithFuzzStats__new__arity_2(Int, Int) -> @cmd.WasmSmithFuzzStats
+
+pub fn cmd__WasmSmithFuzzStats__new__arity_3(Int, Int, Int) -> @cmd.WasmSmithFuzzStats
+
+pub fn cmd__WasmSmithFuzzStats__new__arity_4(Int, Int, Int, Int) -> @cmd.WasmSmithFuzzStats
+
+pub fn cmd__WasmSmithFuzzStats__new__arity_5(Int, Int, Int, Int, Int) -> @cmd.WasmSmithFuzzStats
+
+pub fn cmd__WasmSmithFuzzStats__new__arity_6(Int, Int, Int, Int, Int, Int) -> @cmd.WasmSmithFuzzStats
+
+pub fn cmd__cmd_help_text() -> String
+
+pub fn cmd__cmd_version_text() -> String
+
+pub fn cmd__differential_validate_wasm(Bytes, @cmd.DifferentialAdapters) -> Result[@cmd.DifferentialValidationReport, String]
+
+pub fn cmd__differential_validate_wasm__arity_1(Bytes) -> Result[@cmd.DifferentialValidationReport, String]
+
+pub fn cmd__native_differential_tools_available() -> (Bool, Bool)
+
+pub fn cmd__persist_fuzz_failure_report(@cmd.FuzzFailureReport, @cmd.FuzzFailurePersistIO, String) -> Result[(String, String?), String]
+
+pub fn cmd__persist_fuzz_failure_report__arity_2(@cmd.FuzzFailureReport, @cmd.FuzzFailurePersistIO) -> Result[(String, String?), String]
+
+pub fn cmd__run_cmd(Array[String]) -> Result[@cmd.CmdRunSummary, @cmd.CmdError]
+
+pub fn cmd__run_cmd_exit_code(Array[String]) -> Int
+
+pub fn cmd__run_cmd_exit_code_with_adapter(Array[String], @cmd.CmdIO, String?) -> Int
+
+pub fn cmd__run_cmd_exit_code_with_adapter__arity_2(Array[String], @cmd.CmdIO) -> Int
+
+pub fn cmd__run_cmd_with_adapter(Array[String], @cmd.CmdIO, String?) -> Result[@cmd.CmdRunSummary, @cmd.CmdError]
+
+pub fn cmd__run_cmd_with_adapter__arity_2(Array[String], @cmd.CmdIO) -> Result[@cmd.CmdRunSummary, @cmd.CmdError]
+
+pub fn cmd__verify_readme_api_signatures(String, Array[(String, String)]) -> Result[Unit, String]
+
+pub fn cmd__verify_readme_api_signatures_with_required_blocks(String, Array[(String, String)], Array[String]) -> Result[Unit, String]
+
+pub fn ir__BlockId__inner(@ir.BlockId) -> Int
+
+pub fn ir__CFG__block(@ir.CFG, @ir.BlockId) -> @ir.BasicBlock?
+
+pub fn ir__CFG__build(@lib.TExpr) -> @ir.CFG
+
+pub fn ir__CFG__dominance_frontier(@ir.CFG) -> Map[@ir.BlockId, @set.Set[@ir.BlockId]]
+
+pub fn ir__CFG__dominates(@ir.CFG, @ir.BlockId, @ir.BlockId) -> Bool
+
+pub fn ir__CFG__dominators(@ir.CFG) -> Map[@ir.BlockId, @ir.BlockId]
+
+pub fn ir__CFG__entry(@ir.CFG) -> @ir.BlockId
+
+pub fn ir__CFG__predecessors(@ir.CFG, @ir.BlockId) -> Array[@ir.BlockId]
+
+pub fn ir__CFG__strict_dominates(@ir.CFG, @ir.BlockId, @ir.BlockId) -> Bool
+
+pub fn ir__CFG__successors(@ir.CFG, @ir.BlockId) -> Array[@ir.BlockId]
+
+pub fn ir__CFG__to_ssa(@ir.CFG, Map[@ir.BlockId, @ir.BlockId], Map[@ir.BlockId, @set.Set[@ir.BlockId]], Int) -> @ir.SSACFG
+
+pub fn ir__CFG__validate(@ir.CFG) -> Result[Unit, String]
+
+pub fn ir__IRContext__apply_gvn(@ir.IRContext) -> Unit
+
+pub fn ir__IRContext__apply_ssa_optimize(@ir.IRContext) -> Unit
+
+pub fn ir__IRContext__cfg_dirty(@ir.IRContext) -> Unit
+
+pub fn ir__IRContext__get_cfg(@ir.IRContext) -> @ir.CFG
+
+pub fn ir__IRContext__get_gvn(@ir.IRContext) -> @ir.SSACFG
+
+pub fn ir__IRContext__get_liveness(@ir.IRContext) -> @ir.LivenessInfo
+
+pub fn ir__IRContext__get_local_graph(@ir.IRContext) -> @ir.LocalGraph
+
+pub fn ir__IRContext__get_mod(@ir.IRContext) -> @lib.Module?
+
+pub fn ir__IRContext__get_ssa(@ir.IRContext) -> @ir.SSACFG
+
+pub fn ir__IRContext__get_type_ctx(@ir.IRContext) -> Result[@ir.TypeContext, String]
+
+pub fn ir__IRContext__get_types(@ir.IRContext) -> @ir.SSATypeInfo?
+
+pub fn ir__IRContext__get_usedef(@ir.IRContext) -> @ir.UseDefInfo
+
+pub fn ir__IRContext__gvn_dirty(@ir.IRContext) -> Unit
+
+pub fn ir__IRContext__liveness_dirty(@ir.IRContext) -> Unit
+
+pub fn ir__IRContext__local_graph_dirty(@ir.IRContext) -> Unit
+
+pub fn ir__IRContext__lower_to_cfg(@ir.IRContext) -> @ir.CFG
+
+pub fn ir__IRContext__new() -> @ir.IRContext
+
+pub fn ir__IRContext__optimize_body_with_ssa(@ir.IRContext) -> @lib.TExpr?
+
+pub fn ir__IRContext__set_body(@ir.IRContext, @lib.TExpr) -> Unit
+
+pub fn ir__IRContext__set_locals(@ir.IRContext, Array[@lib.ValType]) -> Unit
+
+pub fn ir__IRContext__set_mod(@ir.IRContext, @lib.Module) -> Unit
+
+pub fn ir__IRContext__ssa_dirty(@ir.IRContext) -> Unit
+
+pub fn ir__IRContext__types_dirty(@ir.IRContext) -> Unit
+
+pub fn ir__IRContext__usedef_dirty(@ir.IRContext) -> Unit
+
+pub fn ir__IRContext__validate(@ir.IRContext) -> Result[Unit, String]
+
+pub fn ir__LivenessInfo__get_live_in(@ir.LivenessInfo, @ir.BlockId) -> @set.Set[@ir.SSAValue]
+
+pub fn ir__LivenessInfo__get_live_out(@ir.LivenessInfo, @ir.BlockId) -> @set.Set[@ir.SSAValue]
+
+pub fn ir__LivenessInfo__is_live_in(@ir.LivenessInfo, @ir.BlockId, @ir.SSAValue) -> Bool
+
+pub fn ir__LivenessInfo__is_live_out(@ir.LivenessInfo, @ir.BlockId, @ir.SSAValue) -> Bool
+
+pub fn ir__LocalGraph__get_sets(@ir.LocalGraph, Int) -> @set.Set[@ir.LocalSet]
+
+pub fn ir__LocalGraph__new(Array[@lib.TInstr]) -> @ir.LocalGraph
+
+pub fn ir__SSACFG__build_use_def(@ir.SSACFG) -> @ir.UseDefInfo
+
+pub fn ir__SSACFG__compute_liveness(@ir.SSACFG) -> @ir.LivenessInfo
+
+pub fn ir__SSACFG__optimize(@ir.SSACFG) -> @ir.SSACFG
+
+pub fn ir__SSACFG__split_critical_edges(@ir.SSACFG) -> @ir.SSACFG
+
+pub fn ir__SSACFG__to_cfg(@ir.SSACFG, Int) -> @ir.CFG
+
+pub fn ir__SSATypeInfo__get(@ir.SSATypeInfo, @ir.SSAValue) -> @lib.ValType?
+
+pub fn ir__SSAValue__inner(@ir.SSAValue) -> Int
+
+pub fn ir__TypeContext__empty() -> @ir.TypeContext
+
+pub fn ir__TypeContext__from_module(@lib.Module, Array[@lib.ValType]) -> @ir.TypeContext
+
+pub fn ir__UseDefInfo__get_def(@ir.UseDefInfo, @ir.SSAValue) -> (@ir.BlockId, @ir.SSADef)?
+
+pub fn ir__UseDefInfo__get_uses(@ir.UseDefInfo, @ir.SSAValue) -> Array[@ir.SSAUse]
+
+pub fn ir__UseDefInfo__is_dead(@ir.UseDefInfo, @ir.SSAValue) -> Bool
+
+pub fn ir__compat_is_f32_nan(Float) -> Bool
+
+pub fn ir__compat_is_f64_nan(Double) -> Bool
+
+pub fn ir__compat_is_f64_non_finite(Double) -> Bool
+
+pub fn ir__compat_trunc_f64_to_i64_s(Double) -> Int64?
+
+pub fn ir__compat_trunc_f64_to_i64_u(Double) -> Int64?
+
+pub fn ir__infer_ssa_types(@ir.SSACFG, @ir.TypeContext) -> @ir.SSATypeInfo
+
+pub fn ir__run_gvn(@ir.SSACFG, Map[@ir.BlockId, @ir.BlockId]) -> @ir.SSACFG
+
+pub fn lib__AbsHeapType__any() -> @lib.AbsHeapType
+
+pub fn lib__AbsHeapType__array() -> @lib.AbsHeapType
+
+pub fn lib__AbsHeapType__eq() -> @lib.AbsHeapType
+
+pub fn lib__AbsHeapType__exn() -> @lib.AbsHeapType
+
+pub fn lib__AbsHeapType__extern_() -> @lib.AbsHeapType
+
+pub fn lib__AbsHeapType__func() -> @lib.AbsHeapType
+
+pub fn lib__AbsHeapType__i31() -> @lib.AbsHeapType
+
+pub fn lib__AbsHeapType__no_exn() -> @lib.AbsHeapType
+
+pub fn lib__AbsHeapType__no_extern() -> @lib.AbsHeapType
+
+pub fn lib__AbsHeapType__no_func() -> @lib.AbsHeapType
+
+pub fn lib__AbsHeapType__none() -> @lib.AbsHeapType
+
+pub fn lib__AbsHeapType__struct_() -> @lib.AbsHeapType
+
+pub fn lib__AtomicCmpxchgOp__i32() -> @lib.AtomicCmpxchgOp
+
+pub fn lib__AtomicCmpxchgOp__i32_16_u() -> @lib.AtomicCmpxchgOp
+
+pub fn lib__AtomicCmpxchgOp__i32_8_u() -> @lib.AtomicCmpxchgOp
+
+pub fn lib__AtomicCmpxchgOp__i64() -> @lib.AtomicCmpxchgOp
+
+pub fn lib__AtomicCmpxchgOp__i64_16_u() -> @lib.AtomicCmpxchgOp
+
+pub fn lib__AtomicCmpxchgOp__i64_32_u() -> @lib.AtomicCmpxchgOp
+
+pub fn lib__AtomicCmpxchgOp__i64_8_u() -> @lib.AtomicCmpxchgOp
+
+pub fn lib__AtomicRmwOp__i32_16_add_u() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i32_16_and_u() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i32_16_or_u() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i32_16_sub_u() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i32_16_xchg_u() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i32_16_xor_u() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i32_8_add_u() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i32_8_and_u() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i32_8_or_u() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i32_8_sub_u() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i32_8_xchg_u() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i32_8_xor_u() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i32_add() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i32_and() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i32_or() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i32_sub() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i32_xchg() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i32_xor() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i64_16_add_u() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i64_16_and_u() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i64_16_or_u() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i64_16_sub_u() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i64_16_xchg_u() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i64_16_xor_u() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i64_32_add_u() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i64_32_and_u() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i64_32_or_u() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i64_32_sub_u() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i64_32_xchg_u() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i64_32_xor_u() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i64_8_add_u() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i64_8_and_u() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i64_8_or_u() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i64_8_sub_u() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i64_8_xchg_u() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i64_8_xor_u() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i64_add() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i64_and() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i64_or() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i64_sub() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i64_xchg() -> @lib.AtomicRmwOp
+
+pub fn lib__AtomicRmwOp__i64_xor() -> @lib.AtomicRmwOp
+
+pub fn lib__BinaryOp__f32_add() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f32_copysign() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f32_div() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f32_eq() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f32_ge() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f32_gt() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f32_le() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f32_lt() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f32_max() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f32_min() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f32_mul() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f32_ne() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f32_sub() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f32x4_add() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f32x4_div() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f32x4_eq() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f32x4_ge() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f32x4_gt() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f32x4_le() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f32x4_lt() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f32x4_max() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f32x4_min() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f32x4_mul() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f32x4_ne() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f32x4_pmax() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f32x4_pmin() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f32x4_relaxed_max() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f32x4_relaxed_min() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f32x4_sub() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f64_add() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f64_copysign() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f64_div() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f64_eq() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f64_ge() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f64_gt() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f64_le() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f64_lt() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f64_max() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f64_min() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f64_mul() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f64_ne() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f64_sub() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f64x2_add() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f64x2_div() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f64x2_eq() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f64x2_ge() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f64x2_gt() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f64x2_le() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f64x2_lt() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f64x2_max() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f64x2_min() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f64x2_mul() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f64x2_ne() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f64x2_pmax() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f64x2_pmin() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f64x2_relaxed_max() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f64x2_relaxed_min() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__f64x2_sub() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i16x8_add() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i16x8_add_sat_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i16x8_add_sat_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i16x8_avgr_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i16x8_eq() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i16x8_extmul_high_i8x16s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i16x8_extmul_high_i8x16u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i16x8_extmul_low_i8x16s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i16x8_extmul_low_i8x16u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i16x8_ge_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i16x8_ge_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i16x8_gt_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i16x8_gt_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i16x8_le_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i16x8_le_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i16x8_lt_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i16x8_lt_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i16x8_max_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i16x8_max_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i16x8_min_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i16x8_min_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i16x8_mul() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i16x8_narrow_i32x4s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i16x8_narrow_i32x4u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i16x8_ne() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i16x8_relaxed_dot_i8x16i7x16s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i16x8_relaxed_q15mulr_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i16x8_sub() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i16x8_sub_sat_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i16x8_sub_sat_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i16x8q15mulr_sat_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32_add() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32_and() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32_div_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32_div_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32_eq() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32_ge_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32_ge_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32_gt_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32_gt_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32_le_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32_le_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32_lt_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32_lt_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32_mul() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32_ne() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32_or() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32_rem_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32_rem_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32_rotl() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32_rotr() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32_shl() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32_shr_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32_shr_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32_sub() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32_xor() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32x4_add() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32x4_dot_i16x8s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32x4_eq() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32x4_extmul_high_i16x8s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32x4_extmul_high_i16x8u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32x4_extmul_low_i16x8s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32x4_extmul_low_i16x8u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32x4_ge_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32x4_ge_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32x4_gt_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32x4_gt_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32x4_le_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32x4_le_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32x4_lt_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32x4_lt_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32x4_max_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32x4_max_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32x4_min_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32x4_min_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32x4_mul() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32x4_ne() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i32x4_sub() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64_add() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64_and() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64_div_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64_div_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64_eq() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64_ge_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64_ge_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64_gt_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64_gt_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64_le_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64_le_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64_lt_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64_lt_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64_mul() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64_ne() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64_or() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64_rem_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64_rem_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64_rotl() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64_rotr() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64_shl() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64_shr_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64_shr_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64_sub() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64_xor() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64x2_add() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64x2_eq() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64x2_extmul_high_i32x4s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64x2_extmul_high_i32x4u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64x2_extmul_low_i32x4s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64x2_extmul_low_i32x4u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64x2_ge_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64x2_gt_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64x2_le_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64x2_lt_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64x2_mul() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64x2_ne() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i64x2_sub() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i8x16_add() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i8x16_add_sat_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i8x16_add_sat_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i8x16_avgr_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i8x16_eq() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i8x16_ge_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i8x16_ge_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i8x16_gt_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i8x16_gt_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i8x16_le_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i8x16_le_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i8x16_lt_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i8x16_lt_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i8x16_max_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i8x16_max_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i8x16_min_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i8x16_min_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i8x16_narrow_i16x8s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i8x16_narrow_i16x8u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i8x16_ne() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i8x16_sub() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i8x16_sub_sat_s() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__i8x16_sub_sat_u() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__v128_and() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__v128_andnot() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__v128_or() -> @lib.BinaryOp
+
+pub fn lib__BinaryOp__v128_xor() -> @lib.BinaryOp
+
+pub fn lib__BlockType__type_idx(@lib.TypeIdx) -> @lib.BlockType
+
+pub fn lib__BlockType__val_type(@lib.ValType) -> @lib.BlockType
+
+pub fn lib__BlockType__void_() -> @lib.BlockType
+
+pub fn lib__CastOp__new(Bool, Bool) -> @lib.CastOp
+
+pub fn lib__CastOp__source_nullable(@lib.CastOp) -> Bool
+
+pub fn lib__CastOp__target_nullable(@lib.CastOp) -> Bool
+
+pub fn lib__Catch__all(@lib.LabelIdx) -> @lib.Catch
+
+pub fn lib__Catch__all_ref(@lib.LabelIdx) -> @lib.Catch
+
+pub fn lib__Catch__new(@lib.TagIdx, @lib.LabelIdx) -> @lib.Catch
+
+pub fn lib__Catch__ref_(@lib.TagIdx, @lib.LabelIdx) -> @lib.Catch
+
+pub fn lib__CodeSec__inner(@lib.CodeSec) -> Array[@lib.Func]
+
+pub fn lib__CodeSec__new(Array[@lib.Func]) -> @lib.CodeSec
+
+pub fn lib__CompType__array(@lib.FieldType) -> @lib.CompType
+
+pub fn lib__CompType__func(Array[@lib.ValType], Array[@lib.ValType]) -> @lib.CompType
+
+pub fn lib__CompType__struct_(Array[@lib.FieldType]) -> @lib.CompType
+
+pub fn lib__CustomSec__new(@lib.Name, Bytes) -> @lib.CustomSec
+
+pub fn lib__DataCntSec__inner(@lib.DataCntSec) -> @lib.U32
+
+pub fn lib__DataCntSec__new(@lib.U32) -> @lib.DataCntSec
+
+pub fn lib__DataIdx__inner(@lib.DataIdx) -> UInt
+
+pub fn lib__DataIdx__new(UInt) -> @lib.DataIdx
+
+pub fn lib__DataMode__active(@lib.MemIdx, @lib.Expr) -> @lib.DataMode
+
+pub fn lib__DataMode__passive() -> @lib.DataMode
+
+pub fn lib__DataSec__inner(@lib.DataSec) -> Array[@lib.Data]
+
+pub fn lib__DataSec__new(Array[@lib.Data]) -> @lib.DataSec
+
+pub fn lib__Data__new(@lib.DataMode, Bytes) -> @lib.Data
+
+pub fn lib__DefType__new(@lib.RecType, UInt) -> @lib.DefType
+
+pub fn lib__DefType__project(@lib.DefType) -> @lib.SubType?
+
+pub fn lib__ElemIdx__inner(@lib.ElemIdx) -> UInt
+
+pub fn lib__ElemIdx__new(UInt) -> @lib.ElemIdx
+
+pub fn lib__ElemKind__func_exprs(Array[@lib.Expr]) -> @lib.ElemKind
+
+pub fn lib__ElemKind__funcs(Array[@lib.FuncIdx]) -> @lib.ElemKind
+
+pub fn lib__ElemKind__typed_exprs(@lib.RefType, Array[@lib.Expr]) -> @lib.ElemKind
+
+pub fn lib__ElemMode__active(@lib.TableIdx, @lib.Expr) -> @lib.ElemMode
+
+pub fn lib__ElemMode__declarative() -> @lib.ElemMode
+
+pub fn lib__ElemMode__passive() -> @lib.ElemMode
+
+pub fn lib__ElemSec__inner(@lib.ElemSec) -> Array[@lib.Elem]
+
+pub fn lib__ElemSec__new(Array[@lib.Elem]) -> @lib.ElemSec
+
+pub fn lib__Elem__new(@lib.ElemMode, @lib.ElemKind) -> @lib.Elem
+
+pub fn lib__Elem__reftype(@lib.Elem) -> @lib.RefType
+
+pub fn lib__ExportSec__inner(@lib.ExportSec) -> Array[@lib.Export]
+
+pub fn lib__ExportSec__new(Array[@lib.Export]) -> @lib.ExportSec
+
+pub fn lib__Export__new(@lib.Name, @lib.ExternIdx) -> @lib.Export
+
+pub fn lib__Expr__inner(@lib.Expr) -> Array[@lib.Instruction]
+
+pub fn lib__Expr__new(Array[@lib.Instruction]) -> @lib.Expr
+
+pub fn lib__ExternIdx__func(@lib.FuncIdx) -> @lib.ExternIdx
+
+pub fn lib__ExternIdx__global(@lib.GlobalIdx) -> @lib.ExternIdx
+
+pub fn lib__ExternIdx__mem(@lib.MemIdx) -> @lib.ExternIdx
+
+pub fn lib__ExternIdx__table(@lib.TableIdx) -> @lib.ExternIdx
+
+pub fn lib__ExternIdx__tag(@lib.TagIdx) -> @lib.ExternIdx
+
+pub fn lib__ExternType__func(@lib.TypeIdx) -> @lib.ExternType
+
+pub fn lib__ExternType__global(@lib.GlobalType) -> @lib.ExternType
+
+pub fn lib__ExternType__mem(@lib.MemType) -> @lib.ExternType
+
+pub fn lib__ExternType__table(@lib.TableType) -> @lib.ExternType
+
+pub fn lib__ExternType__tag(@lib.TagType) -> @lib.ExternType
+
+pub fn lib__ExtractLaneOp__f32x4_extract_lane() -> @lib.ExtractLaneOp
+
+pub fn lib__ExtractLaneOp__f64x2_extract_lane() -> @lib.ExtractLaneOp
+
+pub fn lib__ExtractLaneOp__i16x8_extract_lane_s() -> @lib.ExtractLaneOp
+
+pub fn lib__ExtractLaneOp__i16x8_extract_lane_u() -> @lib.ExtractLaneOp
+
+pub fn lib__ExtractLaneOp__i32x4_extract_lane() -> @lib.ExtractLaneOp
+
+pub fn lib__ExtractLaneOp__i64x2_extract_lane() -> @lib.ExtractLaneOp
+
+pub fn lib__ExtractLaneOp__i8x16_extract_lane_s() -> @lib.ExtractLaneOp
+
+pub fn lib__ExtractLaneOp__i8x16_extract_lane_u() -> @lib.ExtractLaneOp
+
+pub fn lib__F32__inner(@lib.F32) -> Float
+
+pub fn lib__F64__inner(@lib.F64) -> Double
+
+pub fn lib__FieldType__get_storage_type(@lib.FieldType) -> @lib.StorageType
+
+pub fn lib__FieldType__is_mutable(@lib.FieldType) -> Bool
+
+pub fn lib__FieldType__new(@lib.StorageType, @lib.Mut) -> @lib.FieldType
+
+pub fn lib__FieldType__unpack(@lib.FieldType) -> @lib.ValType
+
+pub fn lib__FuncIdx__inner(@lib.FuncIdx) -> UInt
+
+pub fn lib__FuncIdx__new(UInt) -> @lib.FuncIdx
+
+pub fn lib__FuncSec__inner(@lib.FuncSec) -> Array[@lib.TypeIdx]
+
+pub fn lib__FuncSec__new(Array[@lib.TypeIdx]) -> @lib.FuncSec
+
+pub fn lib__FuncType__new(Array[@lib.ValType], Array[@lib.ValType]) -> @lib.FuncType
+
+pub fn lib__Func__new(Array[@lib.Locals], @lib.Expr) -> @lib.Func
+
+pub fn lib__Func__t_func(Array[@lib.ValType], @lib.TExpr) -> @lib.Func
+
+pub fn lib__GlobalIdx__inner(@lib.GlobalIdx) -> UInt
+
+pub fn lib__GlobalIdx__new(UInt) -> @lib.GlobalIdx
+
+pub fn lib__GlobalSec__inner(@lib.GlobalSec) -> Array[@lib.Global]
+
+pub fn lib__GlobalSec__new(Array[@lib.Global]) -> @lib.GlobalSec
+
+pub fn lib__GlobalType__new(@lib.ValType, Bool) -> @lib.GlobalType
+
+pub fn lib__Global__new(@lib.GlobalType, @lib.Expr) -> @lib.Global
+
+pub fn lib__HeapType__abs(@lib.AbsHeapType) -> @lib.HeapType
+
+pub fn lib__HeapType__bottom() -> @lib.HeapType
+
+pub fn lib__HeapType__def_type(@lib.DefType) -> @lib.HeapType
+
+pub fn lib__HeapType__is_array(@lib.HeapType) -> Bool
+
+pub fn lib__HeapType__is_gc_aggregate(@lib.HeapType) -> Bool
+
+pub fn lib__HeapType__is_struct(@lib.HeapType) -> Bool
+
+pub fn lib__HeapType__new(@lib.TypeIdx) -> @lib.HeapType
+
+pub fn lib__I32__inner(@lib.I32) -> Int
+
+pub fn lib__I64__inner(@lib.I64) -> Int64
+
+pub fn lib__ImportSec__inner(@lib.ImportSec) -> Array[@lib.Import]
+
+pub fn lib__ImportSec__new(Array[@lib.Import]) -> @lib.ImportSec
+
+pub fn lib__Import__new(@lib.Name, @lib.Name, @lib.ExternType) -> @lib.Import
+
+pub fn lib__Instruction__any_convert_extern() -> @lib.Instruction
+
+pub fn lib__Instruction__array_copy(@lib.TypeIdx, @lib.TypeIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__array_fill(@lib.TypeIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__array_get(@lib.TypeIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__array_get_s(@lib.TypeIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__array_get_u(@lib.TypeIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__array_init_data(@lib.TypeIdx, @lib.DataIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__array_init_elem(@lib.TypeIdx, @lib.ElemIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__array_len() -> @lib.Instruction
+
+pub fn lib__Instruction__array_new(@lib.TypeIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__array_new_data(@lib.TypeIdx, @lib.DataIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__array_new_default(@lib.TypeIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__array_new_elem(@lib.TypeIdx, @lib.ElemIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__array_new_fixed(@lib.TypeIdx, @lib.U32) -> @lib.Instruction
+
+pub fn lib__Instruction__array_set(@lib.TypeIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__atomic_cmpxchg(@lib.AtomicCmpxchgOp, @lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__atomic_fence() -> @lib.Instruction
+
+pub fn lib__Instruction__atomic_rmw(@lib.AtomicRmwOp, @lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__block(@lib.BlockType, @lib.Expr) -> @lib.Instruction
+
+pub fn lib__Instruction__br(@lib.LabelIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__br_if(@lib.LabelIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__br_on_cast(@lib.LabelIdx, Bool, @lib.HeapType, Bool, @lib.HeapType) -> @lib.Instruction
+
+pub fn lib__Instruction__br_on_cast_fail(@lib.LabelIdx, Bool, @lib.HeapType, Bool, @lib.HeapType) -> @lib.Instruction
+
+pub fn lib__Instruction__br_on_non_null(@lib.LabelIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__br_on_null(@lib.LabelIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__br_table(Array[@lib.LabelIdx], @lib.LabelIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__call(@lib.FuncIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__call_indirect(@lib.TypeIdx, @lib.TableIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__call_ref(@lib.TypeIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__data_drop(@lib.DataIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__drop() -> @lib.Instruction
+
+pub fn lib__Instruction__elem_drop(@lib.ElemIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__extern_convert_any() -> @lib.Instruction
+
+pub fn lib__Instruction__f32_abs() -> @lib.Instruction
+
+pub fn lib__Instruction__f32_add() -> @lib.Instruction
+
+pub fn lib__Instruction__f32_ceil() -> @lib.Instruction
+
+pub fn lib__Instruction__f32_const(@lib.F32) -> @lib.Instruction
+
+pub fn lib__Instruction__f32_convert_i32s() -> @lib.Instruction
+
+pub fn lib__Instruction__f32_convert_i32u() -> @lib.Instruction
+
+pub fn lib__Instruction__f32_convert_i64s() -> @lib.Instruction
+
+pub fn lib__Instruction__f32_convert_i64u() -> @lib.Instruction
+
+pub fn lib__Instruction__f32_copysign() -> @lib.Instruction
+
+pub fn lib__Instruction__f32_demote_f64() -> @lib.Instruction
+
+pub fn lib__Instruction__f32_div() -> @lib.Instruction
+
+pub fn lib__Instruction__f32_eq() -> @lib.Instruction
+
+pub fn lib__Instruction__f32_floor() -> @lib.Instruction
+
+pub fn lib__Instruction__f32_ge() -> @lib.Instruction
+
+pub fn lib__Instruction__f32_gt() -> @lib.Instruction
+
+pub fn lib__Instruction__f32_le() -> @lib.Instruction
+
+pub fn lib__Instruction__f32_load(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__f32_lt() -> @lib.Instruction
+
+pub fn lib__Instruction__f32_max() -> @lib.Instruction
+
+pub fn lib__Instruction__f32_min() -> @lib.Instruction
+
+pub fn lib__Instruction__f32_mul() -> @lib.Instruction
+
+pub fn lib__Instruction__f32_ne() -> @lib.Instruction
+
+pub fn lib__Instruction__f32_nearest() -> @lib.Instruction
+
+pub fn lib__Instruction__f32_neg() -> @lib.Instruction
+
+pub fn lib__Instruction__f32_reinterpret_i32() -> @lib.Instruction
+
+pub fn lib__Instruction__f32_sqrt() -> @lib.Instruction
+
+pub fn lib__Instruction__f32_store(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__f32_sub() -> @lib.Instruction
+
+pub fn lib__Instruction__f32_trunc() -> @lib.Instruction
+
+pub fn lib__Instruction__f32x4_abs() -> @lib.Instruction
+
+pub fn lib__Instruction__f32x4_add() -> @lib.Instruction
+
+pub fn lib__Instruction__f32x4_ceil() -> @lib.Instruction
+
+pub fn lib__Instruction__f32x4_convert_i32x4s() -> @lib.Instruction
+
+pub fn lib__Instruction__f32x4_convert_i32x4u() -> @lib.Instruction
+
+pub fn lib__Instruction__f32x4_demote_f64x2_zero() -> @lib.Instruction
+
+pub fn lib__Instruction__f32x4_div() -> @lib.Instruction
+
+pub fn lib__Instruction__f32x4_eq() -> @lib.Instruction
+
+pub fn lib__Instruction__f32x4_extract_lane(@lib.LaneIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__f32x4_floor() -> @lib.Instruction
+
+pub fn lib__Instruction__f32x4_ge() -> @lib.Instruction
+
+pub fn lib__Instruction__f32x4_gt() -> @lib.Instruction
+
+pub fn lib__Instruction__f32x4_le() -> @lib.Instruction
+
+pub fn lib__Instruction__f32x4_lt() -> @lib.Instruction
+
+pub fn lib__Instruction__f32x4_max() -> @lib.Instruction
+
+pub fn lib__Instruction__f32x4_min() -> @lib.Instruction
+
+pub fn lib__Instruction__f32x4_mul() -> @lib.Instruction
+
+pub fn lib__Instruction__f32x4_ne() -> @lib.Instruction
+
+pub fn lib__Instruction__f32x4_nearest() -> @lib.Instruction
+
+pub fn lib__Instruction__f32x4_neg() -> @lib.Instruction
+
+pub fn lib__Instruction__f32x4_pmax() -> @lib.Instruction
+
+pub fn lib__Instruction__f32x4_pmin() -> @lib.Instruction
+
+pub fn lib__Instruction__f32x4_relaxed_madd() -> @lib.Instruction
+
+pub fn lib__Instruction__f32x4_relaxed_max() -> @lib.Instruction
+
+pub fn lib__Instruction__f32x4_relaxed_min() -> @lib.Instruction
+
+pub fn lib__Instruction__f32x4_relaxed_nmadd() -> @lib.Instruction
+
+pub fn lib__Instruction__f32x4_replace_lane(@lib.LaneIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__f32x4_splat() -> @lib.Instruction
+
+pub fn lib__Instruction__f32x4_sqrt() -> @lib.Instruction
+
+pub fn lib__Instruction__f32x4_sub() -> @lib.Instruction
+
+pub fn lib__Instruction__f32x4_trunc() -> @lib.Instruction
+
+pub fn lib__Instruction__f64_abs() -> @lib.Instruction
+
+pub fn lib__Instruction__f64_add() -> @lib.Instruction
+
+pub fn lib__Instruction__f64_ceil() -> @lib.Instruction
+
+pub fn lib__Instruction__f64_const(@lib.F64) -> @lib.Instruction
+
+pub fn lib__Instruction__f64_convert_i32s() -> @lib.Instruction
+
+pub fn lib__Instruction__f64_convert_i32u() -> @lib.Instruction
+
+pub fn lib__Instruction__f64_convert_i64s() -> @lib.Instruction
+
+pub fn lib__Instruction__f64_convert_i64u() -> @lib.Instruction
+
+pub fn lib__Instruction__f64_copysign() -> @lib.Instruction
+
+pub fn lib__Instruction__f64_div() -> @lib.Instruction
+
+pub fn lib__Instruction__f64_eq() -> @lib.Instruction
+
+pub fn lib__Instruction__f64_floor() -> @lib.Instruction
+
+pub fn lib__Instruction__f64_ge() -> @lib.Instruction
+
+pub fn lib__Instruction__f64_gt() -> @lib.Instruction
+
+pub fn lib__Instruction__f64_le() -> @lib.Instruction
+
+pub fn lib__Instruction__f64_load(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__f64_lt() -> @lib.Instruction
+
+pub fn lib__Instruction__f64_max() -> @lib.Instruction
+
+pub fn lib__Instruction__f64_min() -> @lib.Instruction
+
+pub fn lib__Instruction__f64_mul() -> @lib.Instruction
+
+pub fn lib__Instruction__f64_ne() -> @lib.Instruction
+
+pub fn lib__Instruction__f64_nearest() -> @lib.Instruction
+
+pub fn lib__Instruction__f64_neg() -> @lib.Instruction
+
+pub fn lib__Instruction__f64_promote_f32() -> @lib.Instruction
+
+pub fn lib__Instruction__f64_reinterpret_i64() -> @lib.Instruction
+
+pub fn lib__Instruction__f64_sqrt() -> @lib.Instruction
+
+pub fn lib__Instruction__f64_store(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__f64_sub() -> @lib.Instruction
+
+pub fn lib__Instruction__f64_trunc() -> @lib.Instruction
+
+pub fn lib__Instruction__f64x2_abs() -> @lib.Instruction
+
+pub fn lib__Instruction__f64x2_add() -> @lib.Instruction
+
+pub fn lib__Instruction__f64x2_ceil() -> @lib.Instruction
+
+pub fn lib__Instruction__f64x2_convert_low_i32x4s() -> @lib.Instruction
+
+pub fn lib__Instruction__f64x2_convert_low_i32x4u() -> @lib.Instruction
+
+pub fn lib__Instruction__f64x2_div() -> @lib.Instruction
+
+pub fn lib__Instruction__f64x2_eq() -> @lib.Instruction
+
+pub fn lib__Instruction__f64x2_extract_lane(@lib.LaneIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__f64x2_floor() -> @lib.Instruction
+
+pub fn lib__Instruction__f64x2_ge() -> @lib.Instruction
+
+pub fn lib__Instruction__f64x2_gt() -> @lib.Instruction
+
+pub fn lib__Instruction__f64x2_le() -> @lib.Instruction
+
+pub fn lib__Instruction__f64x2_lt() -> @lib.Instruction
+
+pub fn lib__Instruction__f64x2_max() -> @lib.Instruction
+
+pub fn lib__Instruction__f64x2_min() -> @lib.Instruction
+
+pub fn lib__Instruction__f64x2_mul() -> @lib.Instruction
+
+pub fn lib__Instruction__f64x2_ne() -> @lib.Instruction
+
+pub fn lib__Instruction__f64x2_nearest() -> @lib.Instruction
+
+pub fn lib__Instruction__f64x2_neg() -> @lib.Instruction
+
+pub fn lib__Instruction__f64x2_pmax() -> @lib.Instruction
+
+pub fn lib__Instruction__f64x2_pmin() -> @lib.Instruction
+
+pub fn lib__Instruction__f64x2_promote_low_f32x4() -> @lib.Instruction
+
+pub fn lib__Instruction__f64x2_relaxed_madd() -> @lib.Instruction
+
+pub fn lib__Instruction__f64x2_relaxed_max() -> @lib.Instruction
+
+pub fn lib__Instruction__f64x2_relaxed_min() -> @lib.Instruction
+
+pub fn lib__Instruction__f64x2_relaxed_nmadd() -> @lib.Instruction
+
+pub fn lib__Instruction__f64x2_replace_lane(@lib.LaneIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__f64x2_splat() -> @lib.Instruction
+
+pub fn lib__Instruction__f64x2_sqrt() -> @lib.Instruction
+
+pub fn lib__Instruction__f64x2_sub() -> @lib.Instruction
+
+pub fn lib__Instruction__f64x2_trunc() -> @lib.Instruction
+
+pub fn lib__Instruction__global_get(@lib.GlobalIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__global_set(@lib.GlobalIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_abs() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_add() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_add_sat_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_add_sat_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_all_true() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_avgr_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_bitmask() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_eq() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_extadd_pairwise_i8x16s() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_extadd_pairwise_i8x16u() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_extend_high_i8x16s() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_extend_high_i8x16u() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_extend_low_i8x16s() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_extend_low_i8x16u() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_extmul_high_i8x16s() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_extmul_high_i8x16u() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_extmul_low_i8x16s() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_extmul_low_i8x16u() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_extract_lane_s(@lib.LaneIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_extract_lane_u(@lib.LaneIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_ge_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_ge_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_gt_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_gt_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_le_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_le_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_lt_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_lt_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_max_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_max_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_min_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_min_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_mul() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_narrow_i32x4s() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_narrow_i32x4u() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_ne() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_neg() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_relaxed_dot_i8x16i7x16s() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_relaxed_laneselect() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_relaxed_q15mulr_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_replace_lane(@lib.LaneIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_shl() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_shr_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_shr_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_splat() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_sub() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_sub_sat_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8_sub_sat_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i16x8q15mulr_sat_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i31_get_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i31_get_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_add() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_and() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_atomic_load(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__i32_atomic_load16_u(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__i32_atomic_load8_u(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__i32_atomic_store(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__i32_atomic_store16(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__i32_atomic_store8(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__i32_clz() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_const(@lib.I32) -> @lib.Instruction
+
+pub fn lib__Instruction__i32_ctz() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_div_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_div_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_eq() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_eqz() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_extend16s() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_extend8s() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_ge_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_ge_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_gt_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_gt_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_le_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_le_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_load(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__i32_load16s(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__i32_load16u(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__i32_load8s(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__i32_load8u(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__i32_lt_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_lt_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_mul() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_ne() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_or() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_popcnt() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_reinterpret_f32() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_rem_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_rem_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_rotl() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_rotr() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_shl() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_shr_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_shr_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_store(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__i32_store16(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__i32_store8(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__i32_sub() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_trunc_f32s() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_trunc_f32u() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_trunc_f64s() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_trunc_f64u() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_trunc_sat_f32s() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_trunc_sat_f32u() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_trunc_sat_f64s() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_trunc_sat_f64u() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_wrap_i64() -> @lib.Instruction
+
+pub fn lib__Instruction__i32_xor() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_abs() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_add() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_all_true() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_bitmask() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_dot_i16x8s() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_eq() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_extadd_pairwise_i16x8s() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_extadd_pairwise_i16x8u() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_extend_high_i16x8s() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_extend_high_i16x8u() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_extend_low_i16x8s() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_extend_low_i16x8u() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_extmul_high_i16x8s() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_extmul_high_i16x8u() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_extmul_low_i16x8s() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_extmul_low_i16x8u() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_extract_lane(@lib.LaneIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_ge_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_ge_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_gt_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_gt_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_le_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_le_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_lt_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_lt_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_max_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_max_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_min_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_min_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_mul() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_ne() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_neg() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_relaxed_dot_i8x16i7x16_add_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_relaxed_laneselect() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_relaxed_trunc_f32x4s() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_relaxed_trunc_f32x4u() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_relaxed_trunc_zero_f64x2s() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_relaxed_trunc_zero_f64x2u() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_replace_lane(@lib.LaneIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_shl() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_shr_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_shr_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_splat() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_sub() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_trunc_sat_f32x4s() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_trunc_sat_f32x4u() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_trunc_sat_f64x2s_zero() -> @lib.Instruction
+
+pub fn lib__Instruction__i32x4_trunc_sat_f64x2u_zero() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_add() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_and() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_atomic_load(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__i64_atomic_load16_u(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__i64_atomic_load32_u(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__i64_atomic_load8_u(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__i64_atomic_store(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__i64_atomic_store16(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__i64_atomic_store32(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__i64_atomic_store8(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__i64_clz() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_const(@lib.I64) -> @lib.Instruction
+
+pub fn lib__Instruction__i64_ctz() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_div_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_div_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_eq() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_eqz() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_extend16s() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_extend32s() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_extend8s() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_extend_i32s() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_extend_i32u() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_ge_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_ge_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_gt_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_gt_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_le_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_le_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_load(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__i64_load16s(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__i64_load16u(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__i64_load32s(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__i64_load32u(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__i64_load8s(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__i64_load8u(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__i64_lt_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_lt_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_mul() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_ne() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_or() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_popcnt() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_reinterpret_f64() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_rem_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_rem_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_rotl() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_rotr() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_shl() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_shr_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_shr_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_store(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__i64_store16(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__i64_store32(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__i64_store8(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__i64_sub() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_trunc_f32s() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_trunc_f32u() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_trunc_f64s() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_trunc_f64u() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_trunc_sat_f32s() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_trunc_sat_f32u() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_trunc_sat_f64s() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_trunc_sat_f64u() -> @lib.Instruction
+
+pub fn lib__Instruction__i64_xor() -> @lib.Instruction
+
+pub fn lib__Instruction__i64x2_abs() -> @lib.Instruction
+
+pub fn lib__Instruction__i64x2_add() -> @lib.Instruction
+
+pub fn lib__Instruction__i64x2_all_true() -> @lib.Instruction
+
+pub fn lib__Instruction__i64x2_bitmask() -> @lib.Instruction
+
+pub fn lib__Instruction__i64x2_eq() -> @lib.Instruction
+
+pub fn lib__Instruction__i64x2_extend_high_i32x4s() -> @lib.Instruction
+
+pub fn lib__Instruction__i64x2_extend_high_i32x4u() -> @lib.Instruction
+
+pub fn lib__Instruction__i64x2_extend_low_i32x4s() -> @lib.Instruction
+
+pub fn lib__Instruction__i64x2_extend_low_i32x4u() -> @lib.Instruction
+
+pub fn lib__Instruction__i64x2_extmul_high_i32x4s() -> @lib.Instruction
+
+pub fn lib__Instruction__i64x2_extmul_high_i32x4u() -> @lib.Instruction
+
+pub fn lib__Instruction__i64x2_extmul_low_i32x4s() -> @lib.Instruction
+
+pub fn lib__Instruction__i64x2_extmul_low_i32x4u() -> @lib.Instruction
+
+pub fn lib__Instruction__i64x2_extract_lane(@lib.LaneIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__i64x2_ge_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i64x2_gt_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i64x2_le_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i64x2_lt_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i64x2_mul() -> @lib.Instruction
+
+pub fn lib__Instruction__i64x2_ne() -> @lib.Instruction
+
+pub fn lib__Instruction__i64x2_neg() -> @lib.Instruction
+
+pub fn lib__Instruction__i64x2_relaxed_laneselect() -> @lib.Instruction
+
+pub fn lib__Instruction__i64x2_replace_lane(@lib.LaneIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__i64x2_shl() -> @lib.Instruction
+
+pub fn lib__Instruction__i64x2_shr_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i64x2_shr_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i64x2_splat() -> @lib.Instruction
+
+pub fn lib__Instruction__i64x2_sub() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_abs() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_add() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_add_sat_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_add_sat_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_all_true() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_avgr_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_bitmask() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_eq() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_extract_lane_s(@lib.LaneIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_extract_lane_u(@lib.LaneIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_ge_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_ge_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_gt_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_gt_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_le_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_le_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_lt_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_lt_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_max_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_max_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_min_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_min_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_narrow_i16x8s() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_narrow_i16x8u() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_ne() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_neg() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_popcnt() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_relaxed_laneselect() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_relaxed_swizzle() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_replace_lane(@lib.LaneIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_shl() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_shr_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_shr_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_shuffle(@lib.LaneIdx, @lib.LaneIdx, @lib.LaneIdx, @lib.LaneIdx, @lib.LaneIdx, @lib.LaneIdx, @lib.LaneIdx, @lib.LaneIdx, @lib.LaneIdx, @lib.LaneIdx, @lib.LaneIdx, @lib.LaneIdx, @lib.LaneIdx, @lib.LaneIdx, @lib.LaneIdx, @lib.LaneIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_splat() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_sub() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_sub_sat_s() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_sub_sat_u() -> @lib.Instruction
+
+pub fn lib__Instruction__i8x16_swizzle() -> @lib.Instruction
+
+pub fn lib__Instruction__if_(@lib.BlockType, Array[@lib.Instruction], Array[@lib.Instruction]?) -> @lib.Instruction
+
+pub fn lib__Instruction__local_get(@lib.LocalIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__local_set(@lib.LocalIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__local_tee(@lib.LocalIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__loop_(@lib.BlockType, @lib.Expr) -> @lib.Instruction
+
+pub fn lib__Instruction__memory_atomic_notify(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__memory_atomic_wait32(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__memory_atomic_wait64(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__memory_copy(@lib.MemIdx, @lib.MemIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__memory_fill(@lib.MemIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__memory_grow(@lib.MemIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__memory_init(@lib.DataIdx, @lib.MemIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__memory_size(@lib.MemIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__nop() -> @lib.Instruction
+
+pub fn lib__Instruction__ref_as_non_null() -> @lib.Instruction
+
+pub fn lib__Instruction__ref_cast(Bool, @lib.HeapType) -> @lib.Instruction
+
+pub fn lib__Instruction__ref_cast_desc_eq(Bool, @lib.HeapType) -> @lib.Instruction
+
+pub fn lib__Instruction__ref_eq() -> @lib.Instruction
+
+pub fn lib__Instruction__ref_func(@lib.FuncIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__ref_get_desc() -> @lib.Instruction
+
+pub fn lib__Instruction__ref_i31() -> @lib.Instruction
+
+pub fn lib__Instruction__ref_is_null() -> @lib.Instruction
+
+pub fn lib__Instruction__ref_null(@lib.HeapType) -> @lib.Instruction
+
+pub fn lib__Instruction__ref_test(Bool, @lib.HeapType) -> @lib.Instruction
+
+pub fn lib__Instruction__ref_test_desc(Bool, @lib.HeapType) -> @lib.Instruction
+
+pub fn lib__Instruction__return_() -> @lib.Instruction
+
+pub fn lib__Instruction__return_call(@lib.FuncIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__return_call_indirect(@lib.TypeIdx, @lib.TableIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__return_call_ref(@lib.TypeIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__select(Array[@lib.ValType]?) -> @lib.Instruction
+
+pub fn lib__Instruction__select__arity_0() -> @lib.Instruction
+
+pub fn lib__Instruction__struct_get(@lib.TypeIdx, @lib.U32) -> @lib.Instruction
+
+pub fn lib__Instruction__struct_get_s(@lib.TypeIdx, @lib.U32) -> @lib.Instruction
+
+pub fn lib__Instruction__struct_get_u(@lib.TypeIdx, @lib.U32) -> @lib.Instruction
+
+pub fn lib__Instruction__struct_new(@lib.TypeIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__struct_new_default(@lib.TypeIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__struct_set(@lib.TypeIdx, @lib.U32) -> @lib.Instruction
+
+pub fn lib__Instruction__table_copy(@lib.TableIdx, @lib.TableIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__table_fill(@lib.TableIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__table_get(@lib.TableIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__table_grow(@lib.TableIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__table_init(@lib.ElemIdx, @lib.TableIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__table_set(@lib.TableIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__table_size(@lib.TableIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__throw_(@lib.TagIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__throw_ref() -> @lib.Instruction
+
+pub fn lib__Instruction__try_table(@lib.BlockType, Array[@lib.Catch], @lib.Expr) -> @lib.Instruction
+
+pub fn lib__Instruction__unreachable_() -> @lib.Instruction
+
+pub fn lib__Instruction__v128_and() -> @lib.Instruction
+
+pub fn lib__Instruction__v128_andnot() -> @lib.Instruction
+
+pub fn lib__Instruction__v128_any_true() -> @lib.Instruction
+
+pub fn lib__Instruction__v128_bitselect() -> @lib.Instruction
+
+pub fn lib__Instruction__v128_const(Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte) -> @lib.Instruction
+
+pub fn lib__Instruction__v128_load(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__v128_load16_lane(@lib.MemArg, @lib.LaneIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__v128_load16_splat(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__v128_load16x4s(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__v128_load16x4u(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__v128_load32_lane(@lib.MemArg, @lib.LaneIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__v128_load32_splat(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__v128_load32_zero(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__v128_load32x2s(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__v128_load32x2u(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__v128_load64_lane(@lib.MemArg, @lib.LaneIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__v128_load64_splat(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__v128_load64_zero(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__v128_load8_lane(@lib.MemArg, @lib.LaneIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__v128_load8_splat(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__v128_load8x8s(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__v128_load8x8u(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__v128_not() -> @lib.Instruction
+
+pub fn lib__Instruction__v128_or() -> @lib.Instruction
+
+pub fn lib__Instruction__v128_store(@lib.MemArg) -> @lib.Instruction
+
+pub fn lib__Instruction__v128_store16_lane(@lib.MemArg, @lib.LaneIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__v128_store32_lane(@lib.MemArg, @lib.LaneIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__v128_store64_lane(@lib.MemArg, @lib.LaneIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__v128_store8_lane(@lib.MemArg, @lib.LaneIdx) -> @lib.Instruction
+
+pub fn lib__Instruction__v128_xor() -> @lib.Instruction
+
+pub fn lib__LabelIdx__inner(@lib.LabelIdx) -> UInt
+
+pub fn lib__LabelIdx__new(UInt) -> @lib.LabelIdx
+
+pub fn lib__LaneIdx__inner(@lib.LaneIdx) -> Byte
+
+pub fn lib__LaneIdx__new(Byte) -> @lib.LaneIdx
+
+pub fn lib__Limits__addr_valtype(@lib.Limits) -> @lib.ValType
+
+pub fn lib__Limits__i32(UInt, UInt?) -> @lib.Limits
+
+pub fn lib__Limits__i64(UInt64, UInt64?) -> @lib.Limits
+
+pub fn lib__Limits__mem_addr_bits(@lib.Limits) -> Int
+
+pub fn lib__LoadOp__f32_load() -> @lib.LoadOp
+
+pub fn lib__LoadOp__f64_load() -> @lib.LoadOp
+
+pub fn lib__LoadOp__i32_atomic_load() -> @lib.LoadOp
+
+pub fn lib__LoadOp__i32_atomic_load16_u() -> @lib.LoadOp
+
+pub fn lib__LoadOp__i32_atomic_load8_u() -> @lib.LoadOp
+
+pub fn lib__LoadOp__i32_load() -> @lib.LoadOp
+
+pub fn lib__LoadOp__i32_load16s() -> @lib.LoadOp
+
+pub fn lib__LoadOp__i32_load16u() -> @lib.LoadOp
+
+pub fn lib__LoadOp__i32_load8s() -> @lib.LoadOp
+
+pub fn lib__LoadOp__i32_load8u() -> @lib.LoadOp
+
+pub fn lib__LoadOp__i64_atomic_load() -> @lib.LoadOp
+
+pub fn lib__LoadOp__i64_atomic_load16_u() -> @lib.LoadOp
+
+pub fn lib__LoadOp__i64_atomic_load32_u() -> @lib.LoadOp
+
+pub fn lib__LoadOp__i64_atomic_load8_u() -> @lib.LoadOp
+
+pub fn lib__LoadOp__i64_load() -> @lib.LoadOp
+
+pub fn lib__LoadOp__i64_load16s() -> @lib.LoadOp
+
+pub fn lib__LoadOp__i64_load16u() -> @lib.LoadOp
+
+pub fn lib__LoadOp__i64_load32s() -> @lib.LoadOp
+
+pub fn lib__LoadOp__i64_load32u() -> @lib.LoadOp
+
+pub fn lib__LoadOp__i64_load8s() -> @lib.LoadOp
+
+pub fn lib__LoadOp__i64_load8u() -> @lib.LoadOp
+
+pub fn lib__LoadOp__v128_load() -> @lib.LoadOp
+
+pub fn lib__LoadOp__v128_load16_splat() -> @lib.LoadOp
+
+pub fn lib__LoadOp__v128_load16x4s() -> @lib.LoadOp
+
+pub fn lib__LoadOp__v128_load16x4u() -> @lib.LoadOp
+
+pub fn lib__LoadOp__v128_load32_splat() -> @lib.LoadOp
+
+pub fn lib__LoadOp__v128_load32_zero() -> @lib.LoadOp
+
+pub fn lib__LoadOp__v128_load32x2s() -> @lib.LoadOp
+
+pub fn lib__LoadOp__v128_load32x2u() -> @lib.LoadOp
+
+pub fn lib__LoadOp__v128_load64_splat() -> @lib.LoadOp
+
+pub fn lib__LoadOp__v128_load64_zero() -> @lib.LoadOp
+
+pub fn lib__LoadOp__v128_load8_splat() -> @lib.LoadOp
+
+pub fn lib__LoadOp__v128_load8x8s() -> @lib.LoadOp
+
+pub fn lib__LoadOp__v128_load8x8u() -> @lib.LoadOp
+
+pub fn lib__LocalIdx__inner(@lib.LocalIdx) -> UInt
+
+pub fn lib__LocalIdx__new(UInt) -> @lib.LocalIdx
+
+pub fn lib__Locals__new(UInt, @lib.ValType) -> @lib.Locals
+
+pub fn lib__MemArg__new(@lib.U32, @lib.MemIdx?, @lib.U64) -> @lib.MemArg
+
+pub fn lib__MemIdx__inner(@lib.MemIdx) -> UInt
+
+pub fn lib__MemIdx__new(UInt) -> @lib.MemIdx
+
+pub fn lib__MemSec__inner(@lib.MemSec) -> Array[@lib.MemType]
+
+pub fn lib__MemSec__new(Array[@lib.MemType]) -> @lib.MemSec
+
+pub fn lib__MemType__inner(@lib.MemType) -> @lib.Limits
+
+pub fn lib__MemType__new(@lib.Limits) -> @lib.MemType
+
+pub fn lib__Module__new(Array[@lib.CustomSec], @lib.TypeSec?, @lib.ImportSec?, @lib.FuncSec?, @lib.TableSec?, @lib.MemSec?, @lib.TagSec?, @lib.GlobalSec?, @lib.ExportSec?, @lib.StartSec?, @lib.ElemSec?, @lib.DataCntSec?, @lib.CodeSec?, @lib.DataSec?) -> @lib.Module
+
+pub fn lib__Module__new__arity_0() -> @lib.Module
+
+pub fn lib__Module__new__arity_1(Array[@lib.CustomSec]) -> @lib.Module
+
+pub fn lib__Module__new__arity_10(Array[@lib.CustomSec], @lib.TypeSec?, @lib.ImportSec?, @lib.FuncSec?, @lib.TableSec?, @lib.MemSec?, @lib.TagSec?, @lib.GlobalSec?, @lib.ExportSec?, @lib.StartSec?) -> @lib.Module
+
+pub fn lib__Module__new__arity_11(Array[@lib.CustomSec], @lib.TypeSec?, @lib.ImportSec?, @lib.FuncSec?, @lib.TableSec?, @lib.MemSec?, @lib.TagSec?, @lib.GlobalSec?, @lib.ExportSec?, @lib.StartSec?, @lib.ElemSec?) -> @lib.Module
+
+pub fn lib__Module__new__arity_12(Array[@lib.CustomSec], @lib.TypeSec?, @lib.ImportSec?, @lib.FuncSec?, @lib.TableSec?, @lib.MemSec?, @lib.TagSec?, @lib.GlobalSec?, @lib.ExportSec?, @lib.StartSec?, @lib.ElemSec?, @lib.DataCntSec?) -> @lib.Module
+
+pub fn lib__Module__new__arity_13(Array[@lib.CustomSec], @lib.TypeSec?, @lib.ImportSec?, @lib.FuncSec?, @lib.TableSec?, @lib.MemSec?, @lib.TagSec?, @lib.GlobalSec?, @lib.ExportSec?, @lib.StartSec?, @lib.ElemSec?, @lib.DataCntSec?, @lib.CodeSec?) -> @lib.Module
+
+pub fn lib__Module__new__arity_2(Array[@lib.CustomSec], @lib.TypeSec?) -> @lib.Module
+
+pub fn lib__Module__new__arity_3(Array[@lib.CustomSec], @lib.TypeSec?, @lib.ImportSec?) -> @lib.Module
+
+pub fn lib__Module__new__arity_4(Array[@lib.CustomSec], @lib.TypeSec?, @lib.ImportSec?, @lib.FuncSec?) -> @lib.Module
+
+pub fn lib__Module__new__arity_5(Array[@lib.CustomSec], @lib.TypeSec?, @lib.ImportSec?, @lib.FuncSec?, @lib.TableSec?) -> @lib.Module
+
+pub fn lib__Module__new__arity_6(Array[@lib.CustomSec], @lib.TypeSec?, @lib.ImportSec?, @lib.FuncSec?, @lib.TableSec?, @lib.MemSec?) -> @lib.Module
+
+pub fn lib__Module__new__arity_7(Array[@lib.CustomSec], @lib.TypeSec?, @lib.ImportSec?, @lib.FuncSec?, @lib.TableSec?, @lib.MemSec?, @lib.TagSec?) -> @lib.Module
+
+pub fn lib__Module__new__arity_8(Array[@lib.CustomSec], @lib.TypeSec?, @lib.ImportSec?, @lib.FuncSec?, @lib.TableSec?, @lib.MemSec?, @lib.TagSec?, @lib.GlobalSec?) -> @lib.Module
+
+pub fn lib__Module__new__arity_9(Array[@lib.CustomSec], @lib.TypeSec?, @lib.ImportSec?, @lib.FuncSec?, @lib.TableSec?, @lib.MemSec?, @lib.TagSec?, @lib.GlobalSec?, @lib.ExportSec?) -> @lib.Module
+
+pub fn lib__Module__with_code_sec(@lib.Module, @lib.CodeSec) -> @lib.Module
+
+pub fn lib__Module__with_custom_secs(@lib.Module, Array[@lib.CustomSec]) -> @lib.Module
+
+pub fn lib__Module__with_data_cnt_sec(@lib.Module, @lib.DataCntSec) -> @lib.Module
+
+pub fn lib__Module__with_data_sec(@lib.Module, @lib.DataSec) -> @lib.Module
+
+pub fn lib__Module__with_elem_sec(@lib.Module, @lib.ElemSec) -> @lib.Module
+
+pub fn lib__Module__with_export_sec(@lib.Module, @lib.ExportSec) -> @lib.Module
+
+pub fn lib__Module__with_func_sec(@lib.Module, @lib.FuncSec) -> @lib.Module
+
+pub fn lib__Module__with_global_sec(@lib.Module, @lib.GlobalSec) -> @lib.Module
+
+pub fn lib__Module__with_import_sec(@lib.Module, @lib.ImportSec) -> @lib.Module
+
+pub fn lib__Module__with_mem_sec(@lib.Module, @lib.MemSec) -> @lib.Module
+
+pub fn lib__Module__with_start_sec(@lib.Module, @lib.StartSec) -> @lib.Module
+
+pub fn lib__Module__with_table_sec(@lib.Module, @lib.TableSec) -> @lib.Module
+
+pub fn lib__Module__with_tag_sec(@lib.Module, @lib.TagSec) -> @lib.Module
+
+pub fn lib__Module__with_type_sec(@lib.Module, @lib.TypeSec) -> @lib.Module
+
+pub fn lib__Mut__const_() -> @lib.Mut
+
+pub fn lib__Mut__var_() -> @lib.Mut
+
+pub fn lib__Name__inner(@lib.Name) -> StringView
+
+pub fn lib__Name__new(StringView) -> @lib.Name
+
+pub fn lib__NumType__f32() -> @lib.NumType
+
+pub fn lib__NumType__f64() -> @lib.NumType
+
+pub fn lib__NumType__i32() -> @lib.NumType
+
+pub fn lib__NumType__i64() -> @lib.NumType
+
+pub fn lib__PackType__i16() -> @lib.PackType
+
+pub fn lib__PackType__i8() -> @lib.PackType
+
+pub fn lib__PrettyPrintContext__indent(@lib.PrettyPrintContext, UInt) -> String
+
+pub fn lib__PrettyPrintContext__indent_unit(@lib.PrettyPrintContext) -> String
+
+pub fn lib__PrettyPrintContext__new(UInt, @lib.TabsOrSpaces, UInt, UInt, UInt) -> @lib.PrettyPrintContext
+
+pub fn lib__PrettyPrintContext__new__arity_0() -> @lib.PrettyPrintContext
+
+pub fn lib__PrettyPrintContext__new__arity_1(UInt) -> @lib.PrettyPrintContext
+
+pub fn lib__PrettyPrintContext__new__arity_2(UInt, @lib.TabsOrSpaces) -> @lib.PrettyPrintContext
+
+pub fn lib__PrettyPrintContext__new__arity_3(UInt, @lib.TabsOrSpaces, UInt) -> @lib.PrettyPrintContext
+
+pub fn lib__PrettyPrintContext__new__arity_4(UInt, @lib.TabsOrSpaces, UInt, UInt) -> @lib.PrettyPrintContext
+
+pub fn lib__RecType__get_subtype(@lib.RecType, UInt) -> @lib.SubType?
+
+pub fn lib__RecType__group(Array[@lib.SubType]) -> @lib.RecType
+
+pub fn lib__RecType__new(@lib.SubType) -> @lib.RecType
+
+pub fn lib__RefType__abs(@lib.AbsHeapType) -> @lib.RefType
+
+pub fn lib__RefType__get_heap_type(@lib.RefType) -> @lib.HeapType
+
+pub fn lib__RefType__is_defaultable(@lib.RefType) -> Bool
+
+pub fn lib__RefType__is_non_nullable(@lib.RefType) -> Bool
+
+pub fn lib__RefType__is_nullable(@lib.RefType) -> Bool
+
+pub fn lib__RefType__make_nullable(@lib.RefType) -> @lib.RefType
+
+pub fn lib__RefType__new(Bool, @lib.HeapType) -> @lib.RefType
+
+pub fn lib__ReplaceLaneOp__f32x4_replace_lane() -> @lib.ReplaceLaneOp
+
+pub fn lib__ReplaceLaneOp__f64x2_replace_lane() -> @lib.ReplaceLaneOp
+
+pub fn lib__ReplaceLaneOp__i16x8_replace_lane() -> @lib.ReplaceLaneOp
+
+pub fn lib__ReplaceLaneOp__i32x4_replace_lane() -> @lib.ReplaceLaneOp
+
+pub fn lib__ReplaceLaneOp__i64x2_replace_lane() -> @lib.ReplaceLaneOp
+
+pub fn lib__ReplaceLaneOp__i8x16_replace_lane() -> @lib.ReplaceLaneOp
+
+pub fn lib__S33__inner(@lib.S33) -> UInt
+
+pub fn lib__StartSec__inner(@lib.StartSec) -> @lib.FuncIdx
+
+pub fn lib__StartSec__new(@lib.FuncIdx) -> @lib.StartSec
+
+pub fn lib__StorageType__is_packed(@lib.StorageType) -> Bool
+
+pub fn lib__StorageType__pack_type(@lib.PackType) -> @lib.StorageType
+
+pub fn lib__StorageType__unpack(@lib.StorageType) -> @lib.ValType
+
+pub fn lib__StorageType__val_type(@lib.ValType) -> @lib.StorageType
+
+pub fn lib__StoreOp__f32_store() -> @lib.StoreOp
+
+pub fn lib__StoreOp__f64_store() -> @lib.StoreOp
+
+pub fn lib__StoreOp__i32_atomic_store() -> @lib.StoreOp
+
+pub fn lib__StoreOp__i32_atomic_store16() -> @lib.StoreOp
+
+pub fn lib__StoreOp__i32_atomic_store8() -> @lib.StoreOp
+
+pub fn lib__StoreOp__i32_store() -> @lib.StoreOp
+
+pub fn lib__StoreOp__i32_store16() -> @lib.StoreOp
+
+pub fn lib__StoreOp__i32_store8() -> @lib.StoreOp
+
+pub fn lib__StoreOp__i64_atomic_store() -> @lib.StoreOp
+
+pub fn lib__StoreOp__i64_atomic_store16() -> @lib.StoreOp
+
+pub fn lib__StoreOp__i64_atomic_store32() -> @lib.StoreOp
+
+pub fn lib__StoreOp__i64_atomic_store8() -> @lib.StoreOp
+
+pub fn lib__StoreOp__i64_store() -> @lib.StoreOp
+
+pub fn lib__StoreOp__i64_store16() -> @lib.StoreOp
+
+pub fn lib__StoreOp__i64_store32() -> @lib.StoreOp
+
+pub fn lib__StoreOp__i64_store8() -> @lib.StoreOp
+
+pub fn lib__StoreOp__v128_store() -> @lib.StoreOp
+
+pub fn lib__SubType__comp_type(@lib.CompType) -> @lib.SubType
+
+pub fn lib__SubType__get_comptype(@lib.SubType) -> @lib.CompType
+
+pub fn lib__SubType__new(Bool, Array[@lib.TypeIdx], @lib.CompType) -> @lib.SubType
+
+pub fn lib__SubType__super_types(@lib.SubType) -> Array[@lib.TypeIdx]
+
+pub fn lib__TExpr__inner(@lib.TExpr) -> Array[@lib.TInstr]
+
+pub fn lib__TExpr__new(Array[@lib.TInstr]) -> @lib.TExpr
+
+pub fn lib__TExpr__to_expr(@lib.TExpr) -> @lib.Expr
+
+pub fn lib__TInstr__any_convert_extern(@lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__array_copy(@lib.TypeIdx, @lib.TypeIdx, @lib.TInstr, @lib.TInstr, @lib.TInstr, @lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__array_fill(@lib.TypeIdx, @lib.TInstr, @lib.TInstr, @lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__array_get(@lib.TypeIdx, @lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__array_get_s(@lib.TypeIdx, @lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__array_get_u(@lib.TypeIdx, @lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__array_init_data(@lib.TypeIdx, @lib.DataIdx, @lib.TInstr, @lib.TInstr, @lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__array_init_elem(@lib.TypeIdx, @lib.ElemIdx, @lib.TInstr, @lib.TInstr, @lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__array_len(@lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__array_new(@lib.TypeIdx, @lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__array_new_data(@lib.TypeIdx, @lib.DataIdx, @lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__array_new_default(@lib.TypeIdx, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__array_new_elem(@lib.TypeIdx, @lib.ElemIdx, @lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__array_new_fixed(@lib.TypeIdx, Array[@lib.TInstr]) -> @lib.TInstr
+
+pub fn lib__TInstr__array_set(@lib.TypeIdx, @lib.TInstr, @lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__atomic_cmpxchg(@lib.AtomicCmpxchgOp, @lib.MemArg, @lib.TInstr, @lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__atomic_fence() -> @lib.TInstr
+
+pub fn lib__TInstr__atomic_rmw(@lib.AtomicRmwOp, @lib.MemArg, @lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__binary(@lib.BinaryOp, @lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__block(@lib.BlockType, @lib.TExpr) -> @lib.TInstr
+
+pub fn lib__TInstr__br(@lib.LabelIdx, Array[@lib.TInstr]) -> @lib.TInstr
+
+pub fn lib__TInstr__br_if(@lib.LabelIdx, @lib.TInstr, Array[@lib.TInstr]) -> @lib.TInstr
+
+pub fn lib__TInstr__br_on_cast(@lib.LabelIdx, Bool, @lib.HeapType, Bool, @lib.HeapType, @lib.TInstr, Array[@lib.TInstr]) -> @lib.TInstr
+
+pub fn lib__TInstr__br_on_cast_fail(@lib.LabelIdx, Bool, @lib.HeapType, Bool, @lib.HeapType, @lib.TInstr, Array[@lib.TInstr]) -> @lib.TInstr
+
+pub fn lib__TInstr__br_on_non_null(@lib.LabelIdx, @lib.TInstr, Array[@lib.TInstr]) -> @lib.TInstr
+
+pub fn lib__TInstr__br_on_null(@lib.LabelIdx, @lib.TInstr, Array[@lib.TInstr]) -> @lib.TInstr
+
+pub fn lib__TInstr__br_table(Array[@lib.LabelIdx], @lib.LabelIdx, @lib.TInstr, Array[@lib.TInstr]) -> @lib.TInstr
+
+pub fn lib__TInstr__call(@lib.FuncIdx, Array[@lib.TInstr]) -> @lib.TInstr
+
+pub fn lib__TInstr__call_indirect(@lib.TypeIdx, @lib.TableIdx, Array[@lib.TInstr], @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__call_ref(@lib.TypeIdx, Array[@lib.TInstr], @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__data_drop(@lib.DataIdx) -> @lib.TInstr
+
+pub fn lib__TInstr__drop(@lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__elem_drop(@lib.ElemIdx) -> @lib.TInstr
+
+pub fn lib__TInstr__extern_convert_any(@lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__extract_lane(@lib.ExtractLaneOp, @lib.LaneIdx, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__f32_const(@lib.F32) -> @lib.TInstr
+
+pub fn lib__TInstr__f32x4_splat(@lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__f64_const(@lib.F64) -> @lib.TInstr
+
+pub fn lib__TInstr__f64x2_splat(@lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__global_get(@lib.GlobalIdx) -> @lib.TInstr
+
+pub fn lib__TInstr__global_set(@lib.GlobalIdx, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__i16x8_splat(@lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__i31_get_s(@lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__i31_get_u(@lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__i32_const(@lib.I32) -> @lib.TInstr
+
+pub fn lib__TInstr__i32x4_splat(@lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__i64_const(@lib.I64) -> @lib.TInstr
+
+pub fn lib__TInstr__i64x2_splat(@lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__i8x16_relaxed_swizzle(@lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__i8x16_shuffle(@lib.LaneIdx, @lib.LaneIdx, @lib.LaneIdx, @lib.LaneIdx, @lib.LaneIdx, @lib.LaneIdx, @lib.LaneIdx, @lib.LaneIdx, @lib.LaneIdx, @lib.LaneIdx, @lib.LaneIdx, @lib.LaneIdx, @lib.LaneIdx, @lib.LaneIdx, @lib.LaneIdx, @lib.LaneIdx, @lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__i8x16_splat(@lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__i8x16_swizzle(@lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__if_(@lib.BlockType, @lib.TInstr, @lib.TExpr, @lib.TExpr?) -> @lib.TInstr
+
+pub fn lib__TInstr__load(@lib.LoadOp, @lib.MemArg, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__local_get(@lib.LocalIdx) -> @lib.TInstr
+
+pub fn lib__TInstr__local_set(@lib.LocalIdx, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__local_tee(@lib.LocalIdx, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__loop_(@lib.BlockType, @lib.TExpr) -> @lib.TInstr
+
+pub fn lib__TInstr__memory_atomic_notify(@lib.MemArg, @lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__memory_atomic_wait32(@lib.MemArg, @lib.TInstr, @lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__memory_atomic_wait64(@lib.MemArg, @lib.TInstr, @lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__memory_copy(@lib.MemIdx, @lib.MemIdx, @lib.TInstr, @lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__memory_fill(@lib.MemIdx, @lib.TInstr, @lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__memory_grow(@lib.MemIdx, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__memory_init(@lib.DataIdx, @lib.MemIdx, @lib.TInstr, @lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__memory_size(@lib.MemIdx) -> @lib.TInstr
+
+pub fn lib__TInstr__nop() -> @lib.TInstr
+
+pub fn lib__TInstr__ref_as_non_null(@lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__ref_cast(Bool, @lib.HeapType, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__ref_cast_desc_eq(Bool, @lib.HeapType, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__ref_eq(@lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__ref_func(@lib.FuncIdx) -> @lib.TInstr
+
+pub fn lib__TInstr__ref_get_desc(@lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__ref_i31(@lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__ref_is_null(@lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__ref_null(@lib.HeapType) -> @lib.TInstr
+
+pub fn lib__TInstr__ref_test(Bool, @lib.HeapType, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__ref_test_desc(Bool, @lib.HeapType, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__replace_lane(@lib.ReplaceLaneOp, @lib.LaneIdx, @lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__return_(Array[@lib.TInstr]) -> @lib.TInstr
+
+pub fn lib__TInstr__return_call(@lib.FuncIdx, Array[@lib.TInstr]) -> @lib.TInstr
+
+pub fn lib__TInstr__return_call_indirect(@lib.TypeIdx, @lib.TableIdx, Array[@lib.TInstr], @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__return_call_ref(@lib.TypeIdx, Array[@lib.TInstr], @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__select(Array[@lib.ValType]?, @lib.TInstr, @lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__store(@lib.StoreOp, @lib.MemArg, @lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__struct_get(@lib.TypeIdx, @lib.U32, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__struct_get_s(@lib.TypeIdx, @lib.U32, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__struct_get_u(@lib.TypeIdx, @lib.U32, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__struct_new(@lib.TypeIdx, Array[@lib.TInstr]) -> @lib.TInstr
+
+pub fn lib__TInstr__struct_new_default(@lib.TypeIdx) -> @lib.TInstr
+
+pub fn lib__TInstr__struct_set(@lib.TypeIdx, @lib.U32, @lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__table_copy(@lib.TableIdx, @lib.TableIdx, @lib.TInstr, @lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__table_fill(@lib.TableIdx, @lib.TInstr, @lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__table_get(@lib.TableIdx, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__table_grow(@lib.TableIdx, @lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__table_init(@lib.ElemIdx, @lib.TableIdx, @lib.TInstr, @lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__table_set(@lib.TableIdx, @lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__table_size(@lib.TableIdx) -> @lib.TInstr
+
+pub fn lib__TInstr__throw_(@lib.TagIdx, Array[@lib.TInstr]) -> @lib.TInstr
+
+pub fn lib__TInstr__throw_ref(@lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__try_table(@lib.BlockType, Array[@lib.Catch], @lib.TExpr) -> @lib.TInstr
+
+pub fn lib__TInstr__unary(@lib.UnaryOp, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__unreachable_() -> @lib.TInstr
+
+pub fn lib__TInstr__v128_const(Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte) -> @lib.TInstr
+
+pub fn lib__TInstr__v128_load_lane(@lib.V128LoadLaneOp, @lib.MemArg, @lib.LaneIdx, @lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__v128_shift(@lib.V128ShiftOp, @lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__v128_store_lane(@lib.V128StoreLaneOp, @lib.MemArg, @lib.LaneIdx, @lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TInstr__v128_ternary(@lib.V128TernaryOp, @lib.TInstr, @lib.TInstr, @lib.TInstr) -> @lib.TInstr
+
+pub fn lib__TableIdx__inner(@lib.TableIdx) -> UInt
+
+pub fn lib__TableIdx__new(UInt) -> @lib.TableIdx
+
+pub fn lib__TableSec__inner(@lib.TableSec) -> Array[@lib.Table]
+
+pub fn lib__TableSec__new(Array[@lib.Table]) -> @lib.TableSec
+
+pub fn lib__TableType__new(@lib.RefType, @lib.Limits) -> @lib.TableType
+
+pub fn lib__Table__new(@lib.TableType, @lib.Expr?) -> @lib.Table
+
+pub fn lib__TabsOrSpaces__spaces() -> @lib.TabsOrSpaces
+
+pub fn lib__TabsOrSpaces__tabs() -> @lib.TabsOrSpaces
+
+pub fn lib__TagIdx__inner(@lib.TagIdx) -> UInt
+
+pub fn lib__TagIdx__new(UInt) -> @lib.TagIdx
+
+pub fn lib__TagSec__inner(@lib.TagSec) -> Array[@lib.TagType]
+
+pub fn lib__TagSec__new(Array[@lib.TagType]) -> @lib.TagSec
+
+pub fn lib__TagType__inner(@lib.TagType) -> @lib.TypeIdx
+
+pub fn lib__TagType__new(@lib.TypeIdx) -> @lib.TagType
+
+pub fn lib__TypeIdx__new(UInt) -> @lib.TypeIdx
+
+pub fn lib__TypeIdx__rec(UInt) -> @lib.TypeIdx
+
+pub fn lib__TypeSec__inner(@lib.TypeSec) -> Array[@lib.RecType]
+
+pub fn lib__TypeSec__new(Array[@lib.RecType]) -> @lib.TypeSec
+
+pub fn lib__U32__inner(@lib.U32) -> UInt
+
+pub fn lib__U64__inner(@lib.U64) -> UInt64
+
+pub fn lib__UnaryOp__f32_abs() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f32_ceil() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f32_convert_i32s() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f32_convert_i32u() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f32_convert_i64s() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f32_convert_i64u() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f32_demote_f64() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f32_floor() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f32_nearest() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f32_neg() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f32_reinterpret_i32() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f32_sqrt() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f32_trunc() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f32x4_abs() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f32x4_ceil() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f32x4_convert_i32x4s() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f32x4_convert_i32x4u() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f32x4_demote_f64x2_zero() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f32x4_floor() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f32x4_nearest() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f32x4_neg() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f32x4_sqrt() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f32x4_trunc() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f64_abs() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f64_ceil() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f64_convert_i32s() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f64_convert_i32u() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f64_convert_i64s() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f64_convert_i64u() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f64_floor() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f64_nearest() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f64_neg() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f64_promote_f32() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f64_reinterpret_i64() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f64_sqrt() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f64_trunc() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f64x2_abs() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f64x2_ceil() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f64x2_convert_low_i32x4s() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f64x2_convert_low_i32x4u() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f64x2_floor() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f64x2_nearest() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f64x2_neg() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f64x2_promote_low_f32x4() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f64x2_sqrt() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__f64x2_trunc() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i16x8_abs() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i16x8_all_true() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i16x8_bitmask() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i16x8_extadd_pairwise_i8x16s() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i16x8_extadd_pairwise_i8x16u() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i16x8_extend_high_i8x16s() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i16x8_extend_high_i8x16u() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i16x8_extend_low_i8x16s() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i16x8_extend_low_i8x16u() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i16x8_neg() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i32_clz() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i32_ctz() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i32_eqz() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i32_extend16s() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i32_extend8s() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i32_popcnt() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i32_reinterpret_f32() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i32_trunc_f32s() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i32_trunc_f32u() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i32_trunc_f64s() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i32_trunc_f64u() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i32_trunc_sat_f32s() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i32_trunc_sat_f32u() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i32_trunc_sat_f64s() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i32_trunc_sat_f64u() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i32_wrap_i64() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i32x4_abs() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i32x4_all_true() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i32x4_bitmask() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i32x4_extadd_pairwise_i16x8s() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i32x4_extadd_pairwise_i16x8u() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i32x4_extend_high_i16x8s() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i32x4_extend_high_i16x8u() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i32x4_extend_low_i16x8s() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i32x4_extend_low_i16x8u() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i32x4_neg() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i32x4_relaxed_trunc_f32x4s() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i32x4_relaxed_trunc_f32x4u() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i32x4_relaxed_trunc_zero_f64x2s() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i32x4_relaxed_trunc_zero_f64x2u() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i32x4_trunc_sat_f32x4s() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i32x4_trunc_sat_f32x4u() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i32x4_trunc_sat_f64x2s_zero() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i32x4_trunc_sat_f64x2u_zero() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i64_clz() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i64_ctz() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i64_eqz() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i64_extend16s() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i64_extend32s() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i64_extend8s() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i64_extend_i32s() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i64_extend_i32u() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i64_popcnt() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i64_reinterpret_f64() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i64_trunc_f32s() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i64_trunc_f32u() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i64_trunc_f64s() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i64_trunc_f64u() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i64_trunc_sat_f32s() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i64_trunc_sat_f32u() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i64_trunc_sat_f64s() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i64_trunc_sat_f64u() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i64x2_abs() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i64x2_all_true() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i64x2_bitmask() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i64x2_extend_high_i32x4s() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i64x2_extend_high_i32x4u() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i64x2_extend_low_i32x4s() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i64x2_extend_low_i32x4u() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i64x2_neg() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i8x16_abs() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i8x16_all_true() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i8x16_bitmask() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i8x16_neg() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__i8x16_popcnt() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__v128_any_true() -> @lib.UnaryOp
+
+pub fn lib__UnaryOp__v128_not() -> @lib.UnaryOp
+
+pub fn lib__V128LoadLaneOp__v128_load16_lane() -> @lib.V128LoadLaneOp
+
+pub fn lib__V128LoadLaneOp__v128_load32_lane() -> @lib.V128LoadLaneOp
+
+pub fn lib__V128LoadLaneOp__v128_load64_lane() -> @lib.V128LoadLaneOp
+
+pub fn lib__V128LoadLaneOp__v128_load8_lane() -> @lib.V128LoadLaneOp
+
+pub fn lib__V128ShiftOp__i16x8_shl() -> @lib.V128ShiftOp
+
+pub fn lib__V128ShiftOp__i16x8_shr_s() -> @lib.V128ShiftOp
+
+pub fn lib__V128ShiftOp__i16x8_shr_u() -> @lib.V128ShiftOp
+
+pub fn lib__V128ShiftOp__i32x4_shl() -> @lib.V128ShiftOp
+
+pub fn lib__V128ShiftOp__i32x4_shr_s() -> @lib.V128ShiftOp
+
+pub fn lib__V128ShiftOp__i32x4_shr_u() -> @lib.V128ShiftOp
+
+pub fn lib__V128ShiftOp__i64x2_shl() -> @lib.V128ShiftOp
+
+pub fn lib__V128ShiftOp__i64x2_shr_s() -> @lib.V128ShiftOp
+
+pub fn lib__V128ShiftOp__i64x2_shr_u() -> @lib.V128ShiftOp
+
+pub fn lib__V128ShiftOp__i8x16_shl() -> @lib.V128ShiftOp
+
+pub fn lib__V128ShiftOp__i8x16_shr_s() -> @lib.V128ShiftOp
+
+pub fn lib__V128ShiftOp__i8x16_shr_u() -> @lib.V128ShiftOp
+
+pub fn lib__V128StoreLaneOp__v128_store16_lane() -> @lib.V128StoreLaneOp
+
+pub fn lib__V128StoreLaneOp__v128_store32_lane() -> @lib.V128StoreLaneOp
+
+pub fn lib__V128StoreLaneOp__v128_store64_lane() -> @lib.V128StoreLaneOp
+
+pub fn lib__V128StoreLaneOp__v128_store8_lane() -> @lib.V128StoreLaneOp
+
+pub fn lib__V128TernaryOp__f32x4_relaxed_madd() -> @lib.V128TernaryOp
+
+pub fn lib__V128TernaryOp__f32x4_relaxed_nmadd() -> @lib.V128TernaryOp
+
+pub fn lib__V128TernaryOp__f64x2_relaxed_madd() -> @lib.V128TernaryOp
+
+pub fn lib__V128TernaryOp__f64x2_relaxed_nmadd() -> @lib.V128TernaryOp
+
+pub fn lib__V128TernaryOp__i16x8_relaxed_laneselect() -> @lib.V128TernaryOp
+
+pub fn lib__V128TernaryOp__i32x4_relaxed_dot_i8x16i7x16_add_s() -> @lib.V128TernaryOp
+
+pub fn lib__V128TernaryOp__i32x4_relaxed_laneselect() -> @lib.V128TernaryOp
+
+pub fn lib__V128TernaryOp__i64x2_relaxed_laneselect() -> @lib.V128TernaryOp
+
+pub fn lib__V128TernaryOp__i8x16_relaxed_laneselect() -> @lib.V128TernaryOp
+
+pub fn lib__V128TernaryOp__v128_bitselect() -> @lib.V128TernaryOp
+
+pub fn lib__ValType__anyref() -> @lib.ValType
+
+pub fn lib__ValType__bottom() -> @lib.ValType
+
+pub fn lib__ValType__eqref_null() -> @lib.ValType
+
+pub fn lib__ValType__externref() -> @lib.ValType
+
+pub fn lib__ValType__f32() -> @lib.ValType
+
+pub fn lib__ValType__f64() -> @lib.ValType
+
+pub fn lib__ValType__funcref() -> @lib.ValType
+
+pub fn lib__ValType__i31ref() -> @lib.ValType
+
+pub fn lib__ValType__i31ref_nullable() -> @lib.ValType
+
+pub fn lib__ValType__i32() -> @lib.ValType
+
+pub fn lib__ValType__i64() -> @lib.ValType
+
+pub fn lib__ValType__is_ref_type(@lib.ValType) -> Bool
+
+pub fn lib__ValType__num_type(@lib.NumType) -> @lib.ValType
+
+pub fn lib__ValType__ref_array_nonnull(@lib.TypeIdx) -> @lib.ValType
+
+pub fn lib__ValType__ref_array_nullable(@lib.TypeIdx) -> @lib.ValType
+
+pub fn lib__ValType__ref_null(@lib.HeapType) -> @lib.ValType
+
+pub fn lib__ValType__ref_null_array_of(@lib.TypeIdx) -> @lib.ValType
+
+pub fn lib__ValType__ref_null_exn() -> @lib.ValType
+
+pub fn lib__ValType__ref_type(@lib.RefType) -> @lib.ValType
+
+pub fn lib__ValType__v128() -> @lib.ValType
+
+pub fn lib__apply_pretty_context(String, @lib.PrettyPrintContext) -> String
+
+pub fn lib__array_comp_type(@lib.FieldType) -> @lib.CompType
+
+pub fn lib__comp_type_sub_type(@lib.CompType) -> @lib.SubType
+
+pub fn lib__expand_locals(Array[@lib.Locals]) -> Result[Array[@lib.ValType], String]
+
+pub fn lib__func_comp_type(Array[@lib.ValType], Array[@lib.ValType]) -> @lib.CompType
+
+pub fn lib__func_extern_idx(@lib.FuncIdx) -> @lib.ExternIdx
+
+pub fn lib__func_extern_type(@lib.TypeIdx) -> @lib.ExternType
+
+pub fn lib__func_idx(UInt) -> @lib.FuncIdx
+
+pub fn lib__get_struct_field(Array[@lib.FieldType], @lib.U32) -> Result[@lib.FieldType, String]
+
+pub fn lib__global_extern_idx(@lib.GlobalIdx) -> @lib.ExternIdx
+
+pub fn lib__global_extern_type(@lib.GlobalType) -> @lib.ExternType
+
+pub fn lib__global_idx(UInt) -> @lib.GlobalIdx
+
+pub fn lib__global_type(@lib.ValType, Bool) -> @lib.GlobalType
+
+pub fn lib__group_rec_type(Array[@lib.SubType]) -> @lib.RecType
+
+pub fn lib__has_default(@lib.ValType) -> Bool
+
+pub fn lib__mem_extern_idx(@lib.MemIdx) -> @lib.ExternIdx
+
+pub fn lib__mem_extern_type(@lib.MemType) -> @lib.ExternType
+
+pub fn lib__mem_type(@lib.Limits) -> @lib.MemType
+
+pub fn lib__min_addr(@lib.Limits, @lib.Limits) -> @lib.Limits
+
+pub fn lib__min_addr_valtype(@lib.Limits, @lib.Limits) -> @lib.ValType
+
+pub fn lib__rec_idx(UInt) -> @lib.TypeIdx
+
+pub fn lib__single_rec_type(@lib.SubType) -> @lib.RecType
+
+pub fn lib__struct_comp_type(Array[@lib.FieldType]) -> @lib.CompType
+
+pub fn lib__sub_type(Bool, Array[@lib.TypeIdx], @lib.CompType) -> @lib.SubType
+
+pub fn lib__table_extern_idx(@lib.TableIdx) -> @lib.ExternIdx
+
+pub fn lib__table_extern_type(@lib.TableType) -> @lib.ExternType
+
+pub fn lib__table_idx(UInt) -> @lib.TableIdx
+
+pub fn lib__tag_extern_idx(@lib.TagIdx) -> @lib.ExternIdx
+
+pub fn lib__tag_extern_type(@lib.TagType) -> @lib.ExternType
+
+pub fn lib__tag_type(@lib.TypeIdx) -> @lib.TagType
+
+pub fn lib__tlocals_to_locals(Array[@lib.ValType]) -> Array[@lib.Locals]
+
+pub fn passes__InliningOptions__new(Int, Int, Int, Int, Bool, Int) -> @passes.InliningOptions
+
+pub fn passes__InliningOptions__new__arity_0() -> @passes.InliningOptions
+
+pub fn passes__InliningOptions__new__arity_1(Int) -> @passes.InliningOptions
+
+pub fn passes__InliningOptions__new__arity_2(Int, Int) -> @passes.InliningOptions
+
+pub fn passes__InliningOptions__new__arity_3(Int, Int, Int) -> @passes.InliningOptions
+
+pub fn passes__InliningOptions__new__arity_4(Int, Int, Int, Int) -> @passes.InliningOptions
+
+pub fn passes__InliningOptions__new__arity_5(Int, Int, Int, Int, Bool) -> @passes.InliningOptions
+
+pub fn passes__OptimizeOptions__new(Int, Int, @passes.InliningOptions, Int, Bool, UInt64, Bool) -> @passes.OptimizeOptions
+
+pub fn passes__OptimizeOptions__new__arity_0() -> @passes.OptimizeOptions
+
+pub fn passes__OptimizeOptions__new__arity_1(Int) -> @passes.OptimizeOptions
+
+pub fn passes__OptimizeOptions__new__arity_2(Int, Int) -> @passes.OptimizeOptions
+
+pub fn passes__OptimizeOptions__new__arity_3(Int, Int, @passes.InliningOptions) -> @passes.OptimizeOptions
+
+pub fn passes__OptimizeOptions__new__arity_4(Int, Int, @passes.InliningOptions, Int) -> @passes.OptimizeOptions
+
+pub fn passes__OptimizeOptions__new__arity_5(Int, Int, @passes.InliningOptions, Int, Bool) -> @passes.OptimizeOptions
+
+pub fn passes__OptimizeOptions__new__arity_6(Int, Int, @passes.InliningOptions, Int, Bool, UInt64) -> @passes.OptimizeOptions
+
+pub fn passes__default_function_optimization_passes(@lib.Module, @passes.OptimizeOptions) -> Array[@passes.ModulePass]
+
+pub fn passes__default_global_optimization_post_passes(@lib.Module, @passes.OptimizeOptions) -> Array[@passes.ModulePass]
+
+pub fn passes__default_global_optimization_pre_passes(@lib.Module, @passes.OptimizeOptions, Bool) -> Array[@passes.ModulePass]
+
+pub fn passes__default_global_optimization_pre_passes__arity_2(@lib.Module, @passes.OptimizeOptions) -> Array[@passes.ModulePass]
+
+pub fn passes__optimize_module(@lib.Module, Array[@passes.ModulePass]) -> Result[@lib.Module, String]
+
+pub fn passes__optimize_module_with_options(@lib.Module, Array[@passes.ModulePass], @passes.OptimizeOptions) -> Result[@lib.Module, String]
+
+pub fn validate__Env__append_rectype_types(@validate.Env, @lib.RecType) -> @validate.Env
+
+pub fn validate__Env__descriptor_result_type(@validate.Env) -> @lib.ValType
+
+pub fn validate__Env__expand_blocktype(@validate.Env, @lib.BlockType) -> Result[(Array[@lib.ValType], Array[@lib.ValType]), String]
+
+pub fn validate__Env__get_catch_label_types(@validate.Env, @lib.LabelIdx) -> Array[@lib.ValType]?
+
+pub fn validate__Env__get_elem(@validate.Env, @lib.ElemIdx) -> @lib.Elem?
+
+pub fn validate__Env__get_functype_by_funcidx(@validate.Env, @lib.FuncIdx) -> @lib.FuncType?
+
+pub fn validate__Env__get_functypeidx_by_funcidx(@validate.Env, @lib.FuncIdx) -> @lib.TypeIdx?
+
+pub fn validate__Env__get_global_type(@validate.Env, @lib.GlobalIdx) -> @lib.GlobalType?
+
+pub fn validate__Env__get_label(@validate.Env, @lib.LabelIdx) -> Array[@lib.ValType]?
+
+pub fn validate__Env__get_label_types(@validate.Env, @lib.LabelIdx) -> Array[@lib.ValType]?
+
+pub fn validate__Env__get_local_type(@validate.Env, @lib.LocalIdx) -> @lib.ValType?
+
+pub fn validate__Env__get_memtype(@validate.Env, @lib.MemIdx) -> @lib.MemType?
+
+pub fn validate__Env__get_table_type(@validate.Env, @lib.TableIdx) -> @lib.TableType?
+
+pub fn validate__Env__get_tag(@validate.Env, @lib.TagIdx) -> @lib.TagType?
+
+pub fn validate__Env__has_data(@validate.Env, @lib.DataIdx) -> Bool
+
+pub fn validate__Env__has_func(@validate.Env, @lib.FuncIdx) -> Bool
+
+pub fn validate__Env__new() -> @validate.Env
+
+pub fn validate__Env__push_data(@validate.Env, @lib.Data) -> @validate.Env
+
+pub fn validate__Env__push_elem(@validate.Env, @lib.Elem) -> @validate.Env
+
+pub fn validate__Env__push_func(@validate.Env, @lib.FuncType) -> @validate.Env
+
+pub fn validate__Env__push_func_with_typeidx(@validate.Env, @lib.FuncType, @lib.TypeIdx?) -> @validate.Env
+
+pub fn validate__Env__push_global(@validate.Env, @lib.GlobalType) -> @validate.Env
+
+pub fn validate__Env__push_mem(@validate.Env, @lib.MemType) -> @validate.Env
+
+pub fn validate__Env__push_table(@validate.Env, @lib.TableType) -> @validate.Env
+
+pub fn validate__Env__push_tag(@validate.Env, @lib.TagType) -> @validate.Env
+
+pub fn validate__Env__resolve_array_field(@validate.Env, @lib.TypeIdx) -> Result[@lib.FieldType, String]
+
+pub fn validate__Env__resolve_comptype(@validate.Env, @lib.TypeIdx) -> @lib.CompType?
+
+pub fn validate__Env__resolve_descriptor_target_ref_type(@validate.Env, Bool, @lib.HeapType) -> Result[@lib.RefType, String]
+
+pub fn validate__Env__resolve_functype(@validate.Env, @lib.TypeIdx) -> @lib.FuncType?
+
+pub fn validate__Env__resolve_heaptype_subtype(@validate.Env, @lib.HeapType) -> @lib.SubType?
+
+pub fn validate__Env__resolve_struct_fields(@validate.Env, @lib.TypeIdx) -> Result[Array[@lib.FieldType], String]
+
+pub fn validate__Env__resolve_subtype(@validate.Env, @lib.TypeIdx) -> @lib.SubType?
+
+pub fn validate__Env__resolve_tag_functype(@validate.Env, @lib.TagIdx) -> @lib.FuncType?
+
+pub fn validate__Env__resolve_typeidx_subtype(@validate.Env, @lib.TypeIdx) -> @lib.SubType?
+
+pub fn validate__Env__with_elems(@validate.Env, Array[@lib.Elem]) -> @validate.Env
+
+pub fn validate__Env__with_funcs(@validate.Env, Array[@lib.FuncType]) -> @validate.Env
+
+pub fn validate__Env__with_globals(@validate.Env, Array[@lib.GlobalType]) -> @validate.Env
+
+pub fn validate__Env__with_label(@validate.Env, Array[@lib.ValType]) -> @validate.Env
+
+pub fn validate__Env__with_labels(@validate.Env, Array[Array[@lib.ValType]]) -> @validate.Env
+
+pub fn validate__Env__with_locals(@validate.Env, Array[@lib.ValType]) -> @validate.Env
+
+pub fn validate__Env__with_mems(@validate.Env, Array[@lib.MemType]) -> @validate.Env
+
+pub fn validate__Env__with_module(@validate.Env, @lib.Module) -> @validate.Env
+
+pub fn validate__Env__with_rectype(@validate.Env, @lib.RecType) -> @validate.Env
+
+pub fn validate__Env__with_return_type(@validate.Env, Array[@lib.ValType]?) -> @validate.Env
+
+pub fn validate__Env__with_tables(@validate.Env, Array[@lib.TableType]) -> @validate.Env
+
+pub fn validate__Env__with_tags(@validate.Env, Array[@lib.TagType]) -> @validate.Env
+
+pub fn validate__Env__with_types(@validate.Env, Array[@lib.SubType]) -> @validate.Env
+
+pub fn validate__descriptor_compatible(@lib.RefType, @lib.RefType, @validate.Env) -> Bool
+
+pub fn validate__diff(@lib.RefType, @lib.RefType) -> Result[@lib.RefType, String]
+
+pub fn validate__empty_env() -> @validate.Env
+
+pub fn validate__gen_side_effect_tinstr(@validate.GenValidContext, Int, Int) -> @lib.TInstr
+
+pub fn validate__gen_side_effect_tinstr__arity_2(@validate.GenValidContext, Int) -> @lib.TInstr
+
+pub fn validate__gen_tinstr_of_type(@validate.GenValidContext, @lib.ValType) -> @lib.TInstr
+
+pub fn validate__gen_valid_module(@splitmix.RandomState) -> @lib.Module
+
+pub fn validate__gen_valid_numtype(@validate.GenValidContext) -> @lib.NumType
+
+pub fn validate__gen_valid_result_type(@validate.GenValidContext, Array[@lib.ValType], @validate.TypeGenerationStrategy) -> Array[@lib.ValType]
+
+pub fn validate__gen_valid_tfunc(@validate.GenValidContext, Array[@lib.ValType], Array[@lib.ValType]) -> @lib.Func
+
+pub fn validate__gen_valid_valtype(@validate.GenValidContext) -> @lib.ValType
+
+pub fn validate__to_texpr(@lib.Expr, @validate.Env) -> Result[@lib.TExpr, String]
+
+pub fn validate__validate_codesec(@lib.CodeSec?, @lib.FuncSec?, @validate.Env) -> Result[Unit, String]
+
+pub fn validate__validate_datacnt(@lib.DataCntSec?, @lib.DataSec?) -> Result[Unit, String]
+
+pub fn validate__validate_datasec(@lib.DataSec?, @validate.Env) -> Result[@validate.Env, String]
+
+pub fn validate__validate_elemsec(@lib.ElemSec?, @validate.Env) -> Result[@validate.Env, String]
+
+pub fn validate__validate_exportsec(@lib.ExportSec?, @validate.Env) -> Result[Unit, String]
+
+pub fn validate__validate_funcsec(@lib.FuncSec?, @validate.Env) -> Result[@validate.Env, String]
+
+pub fn validate__validate_globalsec(@lib.GlobalSec?, @validate.Env) -> Result[@validate.Env, String]
+
+pub fn validate__validate_importsec(@lib.ImportSec?, @validate.Env) -> Result[@validate.Env, String]
+
+pub fn validate__validate_memsec(@lib.MemSec?, @validate.Env) -> Result[@validate.Env, String]
+
+pub fn validate__validate_module(@lib.Module) -> Result[Unit, @validate.ValidationError]
+
+pub fn validate__validate_startsec(@lib.StartSec?, @validate.Env) -> Result[Unit, String]
+
+pub fn validate__validate_tablesec(@lib.TableSec?, @validate.Env) -> Result[@validate.Env, String]
+
+pub fn validate__validate_tagsec(@lib.TagSec?, @validate.Env) -> Result[@validate.Env, String]
+
+pub fn validate__validate_typesec(@lib.TypeSec?, @validate.Env) -> Result[@validate.Env, String]
+
+pub fn wast__KeywordTable__lookup(@wast.KeywordTable, String) -> @wast.TokenType?
+
+pub fn wast__MemoryType__inner(@wast.MemoryType) -> @wast.Limits
+
+pub fn wast__WastLexer__get_errors(@wast.WastLexer) -> Array[@wast.LexerError]
+
+pub fn wast__WastLexer__get_token(@wast.WastLexer) -> @wast.Token
+
+pub fn wast__WastLexer__has_errors(@wast.WastLexer) -> Bool
+
+pub fn wast__WastLexer__new(Bytes, String) -> @wast.WastLexer
+
+pub fn wast__WastParser__get_errors(@wast.WastParser) -> Array[@wast.ParseError]
+
+pub fn wast__WastParser__has_errors(@wast.WastParser) -> Bool
+
+pub fn wast__WastParser__new(@wast.WastLexer) -> @wast.WastParser
+
+pub fn wast__lookup_keyword(String) -> @wast.TokenType?
+
+pub fn wast__module_to_wast(@wast.Module) -> Result[String, String]
+
+pub fn wast__module_to_wast_with_context(@wast.Module, @lib.PrettyPrintContext) -> Result[String, String]
+
+pub fn wast__run_wast_spec_file(String, String) -> @wast.WastSpecFileReport
+
+pub fn wast__run_wast_spec_suite(Array[(String, String)]) -> @wast.WastSpecRunSummary
+
+pub fn wast__script_to_wast(@wast.WastScript) -> Result[String, String]
+
+pub fn wast__script_to_wast_with_context(@wast.WastScript, @lib.PrettyPrintContext) -> Result[String, String]
+
+pub fn wast__wast_ast_to_binary_module(@wast.Module) -> Result[@lib.Module, String]
+
+pub fn wast__wast_text_binary_roundtrip(String, String) -> Result[(String, @lib.Module), String]
+
+pub fn wast__wast_text_binary_roundtrip__arity_1(String) -> Result[(String, @lib.Module), String]
+
+pub fn wast__wast_to_binary_module(String, String) -> Result[@lib.Module, String]
+
+pub fn wast__wast_to_binary_module__arity_1(String) -> Result[@lib.Module, String]
+
+pub fn wast__wast_to_module(String, String) -> Result[@wast.Module, String]
+
+pub fn wast__wast_to_module__arity_1(String) -> Result[@wast.Module, String]
+
+pub fn wast__wast_to_script(String, String) -> Result[@wast.WastScript, String]
+
+pub fn wast__wast_to_script__arity_1(String) -> Result[@wast.WastScript, String]
+
+pub fn wat__lookup_keyword(String) -> @wast.TokenType?
+
+pub fn wat__module_to_wat(@wast.Module) -> Result[String, String]
+
+pub fn wat__module_to_wat_with_context(@wast.Module, @lib.PrettyPrintContext) -> Result[String, String]
+
+pub fn wat__script_to_wat(@wast.WastScript) -> Result[String, String]
+
+pub fn wat__script_to_wat_with_context(@wast.WastScript, @lib.PrettyPrintContext) -> Result[String, String]
+
+pub fn wat__wat_to_module(String, String) -> Result[@wast.Module, String]
+
+pub fn wat__wat_to_module__arity_1(String) -> Result[@wast.Module, String]
+
+pub fn wat__wat_to_script(String, String) -> Result[@wast.WastScript, String]
+
+pub fn wat__wat_to_script__arity_1(String) -> Result[@wast.WastScript, String]
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

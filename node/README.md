@@ -3530,6 +3530,8 @@ pipeline.push(passes.vacuum());
 
 - `modulePass(name: string): ModulePass`
   Resolve one of the canonical explicit pass names into a `ModulePass` value.
+- `optimizeModuleWithOptionsTrace(arg0: Module, arg1: Array<ModulePass>, arg2: OptimizeOptions, trace?: (msg: string) => void, tracePassDetails?: boolean, traceModuleStats?: boolean): StarshineResult<Module, string>`
+  Call `optimizeModuleWithOptionsTrace`, replaying trace lines through the provided JS callback.
 - `deadArgumentElimination(): ModulePass`
   Create `ModulePass::DeadArgumentElimination` for manual ordered pipelines.
 - `vacuum(): ModulePass`
@@ -3547,8 +3549,6 @@ pipeline.push(passes.vacuum());
   Call optimizeModule.
 - `optimizeModuleWithOptions(arg0: Module, arg1: Array<ModulePass>, arg2: OptimizeOptions): StarshineResult<Module, string>`
   Call optimizeModuleWithOptions.
-- `optimizeModuleWithOptionsTrace(...args: never[]): never`
-  Higher-order function parameters are not available through the wasm-gc adapter.
 
 Type namespace `AbstractTypeRefiningPassProps`
 - `AbstractTypeRefiningPassProps.show(value: AbstractTypeRefiningPassProps): string`
