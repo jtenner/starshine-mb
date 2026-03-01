@@ -2306,8 +2306,8 @@ options(
         "__node_wast_spec_file_status_message",
         "__node_splitmix_new",
       ],
-      "use-js-builtin-string": true,
       "imported-string-constants": "_",
+      "use-js-builtin-string": true,
     },
   },
 )
