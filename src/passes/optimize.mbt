@@ -309,9 +309,27 @@ fn run_ir_context_transformer_scheduler_pass(
     SignaturePruning =>
       apply_ir_transformer_pass(ctx, mod, signature_pruning_ir_pass(mod))
     SimplifyGlobals =>
-      apply_ir_transformer_pass(ctx, mod, simplify_globals_ir_pass(mod, false))
+      apply_ir_transformer_pass(
+        ctx,
+        mod,
+        simplify_globals_ir_pass(
+          mod,
+          false,
+          trace=fn(msg) { trace("simplify_globals:\{msg}") },
+          trace_all_funcs=trace_pass_details,
+        ),
+      )
     SimplifyGlobalsOptimizing =>
-      apply_ir_transformer_pass(ctx, mod, simplify_globals_ir_pass(mod, true))
+      apply_ir_transformer_pass(
+        ctx,
+        mod,
+        simplify_globals_ir_pass(
+          mod,
+          true,
+          trace=fn(msg) { trace("simplify_globals:\{msg}") },
+          trace_all_funcs=trace_pass_details,
+        ),
+      )
     PropagateGlobalsGlobally =>
       apply_ir_transformer_pass(
         ctx,

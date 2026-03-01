@@ -47,28 +47,218 @@ fn SGInfo::new(total_globals : Int) -> SGInfo {
 }
 
 ///|
-priv struct SGEffects {
-  globals_read : Set[GlobalIdx]
-  globals_written : Set[GlobalIdx]
-  mut has_non_global_side_effects : Bool
-  mut calls : Bool
+priv struct SGConstSlots {
+  values : Array[SGConstValue?]
+  epochs : Array[Int]
+  mut current_epoch : Int
 }
 
 ///|
-fn SGEffects::new() -> SGEffects {
+fn SGConstSlots::new(total_globals : Int) -> SGConstSlots {
   {
-    globals_read: Set::new(),
-    globals_written: Set::new(),
-    has_non_global_side_effects: false,
-    calls: false,
+    values: Array::make(total_globals, None),
+    epochs: Array::make(total_globals, 0),
+    current_epoch: 1,
   }
 }
 
 ///|
-fn SGEffects::has_unremovable_side_effects(self : SGEffects) -> Bool {
-  self.has_non_global_side_effects ||
-  self.calls ||
-  self.globals_written.length() > 0
+fn SGConstSlots::index(self : SGConstSlots, idx : GlobalIdx) -> Int? {
+  let raw = sg_globalidx_to_int(idx)
+  if raw < 0 || raw >= self.values.length() {
+    None
+  } else {
+    Some(raw)
+  }
+}
+
+///|
+fn SGConstSlots::get(self : SGConstSlots, idx : GlobalIdx) -> SGConstValue? {
+  match self.index(idx) {
+    Some(raw) =>
+      if self.epochs[raw] == self.current_epoch {
+        self.values[raw]
+      } else {
+        None
+      }
+    None => None
+  }
+}
+
+///|
+fn SGConstSlots::set(
+  self : SGConstSlots,
+  idx : GlobalIdx,
+  value : SGConstValue,
+) -> Unit {
+  match self.index(idx) {
+    Some(raw) => {
+      self.values[raw] = Some(value)
+      self.epochs[raw] = self.current_epoch
+    }
+    None => ()
+  }
+}
+
+///|
+fn SGConstSlots::remove(self : SGConstSlots, idx : GlobalIdx) -> Bool {
+  match self.index(idx) {
+    Some(raw) =>
+      if self.epochs[raw] == self.current_epoch {
+        self.values[raw] = None
+        self.epochs[raw] = 0
+        true
+      } else {
+        false
+      }
+    None => false
+  }
+}
+
+///|
+fn SGConstSlots::clear(self : SGConstSlots) -> Unit {
+  self.current_epoch += 1
+  if self.current_epoch > 0 {
+    return
+  }
+  self.current_epoch = 1
+  for i = 0; i < self.epochs.length(); i = i + 1 {
+    self.epochs[i] = 0
+    self.values[i] = None
+  }
+}
+
+///|
+priv struct SGRewriteSummary {
+  changed : Bool
+  has_call : Bool
+  writes_global : Bool
+}
+
+///|
+fn sg_rewrite_summary(
+  changed? : Bool = false,
+  has_call? : Bool = false,
+  writes_global? : Bool = false,
+) -> SGRewriteSummary {
+  { changed, has_call, writes_global }
+}
+
+///|
+fn sg_merge_rewrite_summary(
+  left : SGRewriteSummary,
+  right : SGRewriteSummary,
+) -> SGRewriteSummary {
+  {
+    changed: left.changed || right.changed,
+    has_call: left.has_call || right.has_call,
+    writes_global: left.writes_global || right.writes_global,
+  }
+}
+
+///|
+priv struct SGFunctionTraceStats {
+  top_instrs : Int
+  mut visited_instrs : Int
+  mut replaced_gets : Int
+  mut boundary_resets : Int
+  mut call_resets : Int
+  mut global_kills : Int
+  mut const_sets : Int
+  mut nested_write_resets : Int
+}
+
+///|
+fn SGFunctionTraceStats::new(top_instrs : Int) -> SGFunctionTraceStats {
+  {
+    top_instrs,
+    visited_instrs: 0,
+    replaced_gets: 0,
+    boundary_resets: 0,
+    call_resets: 0,
+    global_kills: 0,
+    const_sets: 0,
+    nested_write_resets: 0,
+  }
+}
+
+///|
+fn sg_trace_noop(_ : String) -> Unit {
+  ()
+}
+
+///|
+fn sg_trace_normalize_env_now_ms(raw : UInt64) -> UInt64 {
+  if raw >= 100000000000000000UL {
+    raw / 1000000UL
+  } else if raw >= 100000000000000UL {
+    raw / 1000UL
+  } else {
+    raw
+  }
+}
+
+///|
+#cfg(target="native")
+#borrow(tv)
+extern "c" fn sg_trace_native_gettimeofday(tv : Bytes, tz : UInt64) -> Int = "gettimeofday"
+
+///|
+#cfg(target="native")
+fn sg_trace_read_u64_le(bytes : Bytes, start : Int) -> UInt64 {
+  let mut out = 0UL
+  let mut i = 0
+  while i < 8 {
+    out = out | (bytes[start + i].to_uint64() << (i * 8))
+    i += 1
+  }
+  out
+}
+
+///|
+#cfg(target="native")
+fn sg_trace_now_ms() -> UInt64 {
+  let tv = Bytes::new(16)
+  if sg_trace_native_gettimeofday(tv, 0UL) != 0 {
+    return sg_trace_normalize_env_now_ms(@env.now())
+  }
+  let sec = sg_trace_read_u64_le(tv, 0)
+  let usec = sg_trace_read_u64_le(tv, 8)
+  sec * 1000UL + usec / 1000UL
+}
+
+///|
+#cfg(target="wasm-gc")
+fn sg_trace_now_ms() -> UInt64 {
+  sg_trace_normalize_env_now_ms(@env.now())
+}
+
+///|
+#cfg(target="wasm")
+fn sg_trace_now_ms() -> UInt64 {
+  sg_trace_normalize_env_now_ms(@env.now())
+}
+
+///|
+#cfg(target="js")
+fn sg_trace_now_ms() -> UInt64 {
+  sg_trace_normalize_env_now_ms(@env.now())
+}
+
+///|
+#cfg(target="llvm")
+fn sg_trace_now_ms() -> UInt64 {
+  sg_trace_normalize_env_now_ms(@env.now())
+}
+
+///|
+fn sg_trace_elapsed_ms(start_ms : UInt64) -> UInt64 {
+  let end_ms = sg_trace_now_ms()
+  if end_ms >= start_ms {
+    end_ms - start_ms
+  } else {
+    0UL
+  }
 }
 
 ///|
@@ -196,14 +386,23 @@ fn sg_const_value_to_tinstr(value : SGConstValue) -> TInstr {
 }
 
 ///|
-fn sg_mark_shallow_effects(instr : TInstr, effects : SGEffects) -> Unit {
+fn sg_instr_is_call(instr : TInstr) -> Bool {
   match instr.kind {
-    TInstrKind::TGlobalGet(idx) => effects.globals_read.add(idx)
-    TInstrKind::TGlobalSet(idx, _) => effects.globals_written.add(idx)
-    TInstrKind::TLocalSet(_, _) | TInstrKind::TLocalTee(_, _) =>
-      effects.has_non_global_side_effects = true
-    TInstrKind::TLoad(_, _, _) | TInstrKind::TStore(_, _, _, _) =>
-      effects.has_non_global_side_effects = true
+    TInstrKind::TCall(_, _)
+    | TInstrKind::TCallIndirect(_, _, _, _)
+    | TInstrKind::TCallRef(_, _, _)
+    | TInstrKind::TReturnCall(_, _)
+    | TInstrKind::TReturnCallIndirect(_, _, _, _)
+    | TInstrKind::TReturnCallRef(_, _, _) => true
+    _ => false
+  }
+}
+
+///|
+fn sg_instr_has_non_global_unremovable_side_effects(instr : TInstr) -> Bool {
+  match instr.kind {
+    TInstrKind::TLocalSet(_, _) | TInstrKind::TLocalTee(_, _) => true
+    TInstrKind::TLoad(_, _, _) | TInstrKind::TStore(_, _, _, _) => true
     TInstrKind::TMemoryGrow(_, _)
     | TInstrKind::TMemorySize(_)
     | TInstrKind::TMemoryCopy(_, _, _, _, _)
@@ -217,17 +416,8 @@ fn sg_mark_shallow_effects(instr : TInstr, effects : SGEffects) -> Unit {
     | TInstrKind::TTableFill(_, _, _, _)
     | TInstrKind::TTableCopy(_, _, _, _, _)
     | TInstrKind::TTableInit(_, _, _, _, _)
-    | TInstrKind::TElemDrop(_) => effects.has_non_global_side_effects = true
-    TInstrKind::TCall(_, _)
-    | TInstrKind::TCallIndirect(_, _, _, _)
-    | TInstrKind::TCallRef(_, _, _) => {
-      effects.calls = true
-      effects.has_non_global_side_effects = true
-    }
-    TInstrKind::TReturnCall(_, _)
-    | TInstrKind::TReturnCallIndirect(_, _, _, _)
-    | TInstrKind::TReturnCallRef(_, _, _)
-    | TInstrKind::TBr(_, _)
+    | TInstrKind::TElemDrop(_) => true
+    TInstrKind::TBr(_, _)
     | TInstrKind::TBrIf(_, _, _)
     | TInstrKind::TBrTable(_, _, _, _)
     | TInstrKind::TBrOnNull(_, _, _)
@@ -236,11 +426,10 @@ fn sg_mark_shallow_effects(instr : TInstr, effects : SGEffects) -> Unit {
     | TInstrKind::TBrOnCastFail(_, _, _, _, _, _)
     | TInstrKind::TReturn(_)
     | TInstrKind::TThrow(_, _)
-    | TInstrKind::TThrowRef(_) => effects.has_non_global_side_effects = true
+    | TInstrKind::TThrowRef(_) => true
     TInstrKind::TUnreachable
     | TInstrKind::TRefAsNonNull(_)
-    | TInstrKind::TRefCast(_, _, _) =>
-      effects.has_non_global_side_effects = true
+    | TInstrKind::TRefCast(_, _, _) => true
     TInstrKind::TStructGet(_, _, _)
     | TInstrKind::TStructGetS(_, _, _)
     | TInstrKind::TStructGetU(_, _, _)
@@ -263,7 +452,7 @@ fn sg_mark_shallow_effects(instr : TInstr, effects : SGEffects) -> Unit {
     | TInstrKind::TArrayInitElem(_, _, _, _, _, _)
     | TInstrKind::TI31GetS(_)
     | TInstrKind::TI31GetU(_)
-    | TInstrKind::TRefI31(_) => effects.has_non_global_side_effects = true
+    | TInstrKind::TRefI31(_) => true
     TInstrKind::TBinary(op, _, _) =>
       match op {
         I32DivSOp
@@ -273,8 +462,8 @@ fn sg_mark_shallow_effects(instr : TInstr, effects : SGEffects) -> Unit {
         | I64DivSOp
         | I64DivUOp
         | I64RemSOp
-        | I64RemUOp => effects.has_non_global_side_effects = true
-        _ => ()
+        | I64RemUOp => true
+        _ => false
       }
     TInstrKind::TUnary(op, _) =>
       match op {
@@ -285,50 +474,160 @@ fn sg_mark_shallow_effects(instr : TInstr, effects : SGEffects) -> Unit {
         | I64TruncF32SOp
         | I64TruncF32UOp
         | I64TruncF64SOp
-        | I64TruncF64UOp => effects.has_non_global_side_effects = true
-        _ => ()
+        | I64TruncF64UOp => true
+        _ => false
       }
+    _ => false
+  }
+}
+
+///|
+priv struct SGWriteOnlyBodyScan {
+  mut failed : Bool
+  mut written : GlobalIdx?
+}
+
+///|
+fn SGWriteOnlyBodyScan::new() -> SGWriteOnlyBodyScan {
+  { failed: false, written: None }
+}
+
+///|
+fn SGWriteOnlyBodyScan::note_write(
+  self : SGWriteOnlyBodyScan,
+  idx : GlobalIdx,
+) -> Unit {
+  match self.written {
+    Some(prev) if prev != idx => self.failed = true
+    None => self.written = Some(idx)
     _ => ()
   }
 }
 
 ///|
-fn sg_collect_effects_instr(instr : TInstr, effects : SGEffects) -> Unit {
-  sg_mark_shallow_effects(instr, effects)
+priv struct SGConditionScan {
+  target : GlobalIdx
+  mut reads_target : Bool
+  mut failed : Bool
+}
+
+///|
+fn SGConditionScan::new(target : GlobalIdx) -> SGConditionScan {
+  { target, reads_target: false, failed: false }
+}
+
+///|
+fn sg_scan_write_only_body(body : TExpr, scan : SGWriteOnlyBodyScan) -> Unit {
+  for instr in body.instrs {
+    if scan.failed {
+      break
+    }
+    sg_scan_write_only_body_instr(instr, scan)
+  }
+}
+
+///|
+fn sg_scan_write_only_body_instr(
+  instr : TInstr,
+  scan : SGWriteOnlyBodyScan,
+) -> Unit {
+  if scan.failed {
+    return
+  }
   match instr.kind {
+    TInstrKind::TGlobalGet(_) => scan.failed = true
+    TInstrKind::TGlobalSet(idx, value) => {
+      scan.note_write(idx)
+      if !scan.failed {
+        sg_scan_write_only_body_instr(value, scan)
+      }
+    }
     TInstrKind::TBlock(_, body)
     | TInstrKind::TLoop(_, body)
-    | TInstrKind::TTryTable(_, _, body) =>
-      for item in body.instrs {
-        sg_collect_effects_instr(item, effects)
-      }
+    | TInstrKind::TTryTable(_, _, body) => sg_scan_write_only_body(body, scan)
     TInstrKind::TIf(_, cond, then_body, else_body) => {
-      sg_collect_effects_instr(cond, effects)
-      for item in then_body.instrs {
-        sg_collect_effects_instr(item, effects)
+      sg_scan_write_only_body_instr(cond, scan)
+      if scan.failed {
+        return
       }
+      sg_scan_write_only_body(then_body, scan)
       match else_body {
-        Some(other) =>
-          for item in other.instrs {
-            sg_collect_effects_instr(item, effects)
-          }
+        Some(other) => sg_scan_write_only_body(other, scan)
         None => ()
       }
     }
     _ =>
-      for child in eval_children(instr) {
-        sg_collect_effects_instr(child, effects)
+      if sg_instr_is_call(instr) ||
+        sg_instr_has_non_global_unremovable_side_effects(instr) {
+        scan.failed = true
+      } else {
+        for child in eval_children(instr) {
+          sg_scan_write_only_body_instr(child, scan)
+          if scan.failed {
+            break
+          }
+        }
       }
   }
 }
 
 ///|
-fn sg_collect_effects_texpr(body : TExpr) -> SGEffects {
-  let out = SGEffects::new()
-  for instr in body.instrs {
-    sg_collect_effects_instr(instr, out)
+fn sg_scan_condition_instr(instr : TInstr, scan : SGConditionScan) -> Unit {
+  if scan.failed {
+    return
   }
-  out
+  match instr.kind {
+    TInstrKind::TGlobalGet(idx) =>
+      if idx == scan.target {
+        scan.reads_target = true
+      }
+    TInstrKind::TGlobalSet(_, _) => scan.failed = true
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) =>
+      for item in body.instrs {
+        sg_scan_condition_instr(item, scan)
+        if scan.failed {
+          break
+        }
+      }
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
+      sg_scan_condition_instr(cond, scan)
+      if scan.failed {
+        return
+      }
+      for item in then_body.instrs {
+        sg_scan_condition_instr(item, scan)
+        if scan.failed {
+          break
+        }
+      }
+      match else_body {
+        Some(other) =>
+          if !scan.failed {
+            for item in other.instrs {
+              sg_scan_condition_instr(item, scan)
+              if scan.failed {
+                break
+              }
+            }
+          }
+        None => ()
+      }
+    }
+    _ =>
+      if sg_instr_is_call(instr) ||
+        sg_instr_has_non_global_unremovable_side_effects(instr) {
+        scan.failed = true
+      } else {
+        for child in eval_children(instr) {
+          sg_scan_condition_instr(child, scan)
+          if scan.failed {
+            break
+          }
+        }
+      }
+  }
 }
 
 ///|
@@ -336,27 +635,16 @@ fn sg_reads_global_only_to_write_it(
   condition : TInstr,
   code : TExpr,
 ) -> GlobalIdx? {
-  let code_effects = sg_collect_effects_texpr(code)
-  if code_effects.globals_written.length() != 1 {
-    return None
+  let body_scan = SGWriteOnlyBodyScan::new()
+  sg_scan_write_only_body(code, body_scan)
+  let written = match body_scan.written {
+    Some(idx) if !body_scan.failed => idx
+    _ => return None
   }
-  if code_effects.has_non_global_side_effects || code_effects.calls {
-    return None
-  }
-  let mut written : GlobalIdx? = None
-  for idx in code_effects.globals_written {
-    written = Some(idx)
-  }
-  let written = match written {
-    Some(idx) => idx
-    None => return None
-  }
-  let cond_effects = SGEffects::new()
-  sg_collect_effects_instr(condition, cond_effects)
-  if !cond_effects.globals_read.contains(written) {
-    return None
-  }
-  if cond_effects.has_unremovable_side_effects() {
+
+  let cond_scan = SGConditionScan::new(written)
+  sg_scan_condition_instr(condition, cond_scan)
+  if cond_scan.failed || !cond_scan.reads_target {
     return None
   }
   Some(written)
@@ -779,7 +1067,7 @@ fn sg_prefer_earlier_imports(mod : Module) -> Result[(Module, Bool), String] {
 ///|
 fn sg_apply_const_globals_in_expr(
   expr : Expr,
-  constants : Map[GlobalIdx, SGConstValue],
+  constants : SGConstSlots,
 ) -> (Expr, Bool) {
   let Expr(instrs) = expr
   let out : Array[Instruction] = []
@@ -803,9 +1091,13 @@ fn sg_apply_const_globals_in_expr(
 ///|
 fn sg_propagate_constants_to_globals(mod : Module) -> (Module, Bool) {
   let imported_globals = sg_count_imported_globals(mod)
-  let constants : Map[GlobalIdx, SGConstValue] = Map::new()
+  let defined_globals = match mod.global_sec {
+    Some(GlobalSec(globals)) => globals.length()
+    None => 0
+  }
   let mut changed = false
   let mut out_mod = mod
+  let constants = SGConstSlots::new(imported_globals + defined_globals)
 
   match out_mod.global_sec {
     Some(GlobalSec(globals)) => {
@@ -821,7 +1113,7 @@ fn sg_propagate_constants_to_globals(mod : Module) -> (Module, Bool) {
         }
         rewritten[i] = Global::new(gt, next_init)
         match sg_const_value_from_expr(next_init) {
-          Some(value) => constants[idx] = value
+          Some(value) => constants.set(idx, value)
           None => ()
         }
       }
@@ -892,78 +1184,116 @@ fn sg_propagate_constants_to_globals(mod : Module) -> (Module, Bool) {
 ///|
 fn sg_replace_gets_in_tinstr(
   instr : TInstr,
-  trace_constants : Map[GlobalIdx, SGConstValue],
-  constant_globals : Map[GlobalIdx, SGConstValue],
-) -> (TInstr, Bool) {
+  trace_constants : SGConstSlots,
+  constant_globals : SGConstSlots,
+  stats : SGFunctionTraceStats,
+) -> (TInstr, SGRewriteSummary) {
+  stats.visited_instrs += 1
   match instr.kind {
     TInstrKind::TGlobalGet(idx) =>
       match constant_globals.get(idx) {
-        Some(value) => (sg_const_value_to_tinstr(value), true)
+        Some(value) => {
+          stats.replaced_gets += 1
+          (sg_const_value_to_tinstr(value), sg_rewrite_summary(changed=true))
+        }
         None =>
           match trace_constants.get(idx) {
-            Some(value) => (sg_const_value_to_tinstr(value), true)
-            None => (instr, false)
+            Some(value) => {
+              stats.replaced_gets += 1
+              (
+                sg_const_value_to_tinstr(value),
+                sg_rewrite_summary(changed=true),
+              )
+            }
+            None => (instr, sg_rewrite_summary())
           }
       }
     TInstrKind::TBlock(bt, body) => {
-      let (next_body, changed) = sg_replace_gets_in_texpr(
-        body, trace_constants, constant_globals,
+      let (next_body, summary) = sg_replace_gets_in_texpr(
+        body, trace_constants, constant_globals, stats,
       )
-      (TInstr::block(bt, next_body), changed)
+      if summary.changed {
+        (TInstr::block(bt, next_body), summary)
+      } else {
+        (instr, summary)
+      }
     }
     TInstrKind::TLoop(bt, body) => {
-      let (next_body, changed) = sg_replace_gets_in_texpr(
-        body, trace_constants, constant_globals,
+      let (next_body, summary) = sg_replace_gets_in_texpr(
+        body, trace_constants, constant_globals, stats,
       )
-      (TInstr::loop_(bt, next_body), changed)
+      if summary.changed {
+        (TInstr::loop_(bt, next_body), summary)
+      } else {
+        (instr, summary)
+      }
     }
     TInstrKind::TIf(bt, cond, then_body, else_body) => {
-      let (next_cond, cond_changed) = sg_replace_gets_in_tinstr(
-        cond, trace_constants, constant_globals,
+      let (next_cond, cond_summary) = sg_replace_gets_in_tinstr(
+        cond, trace_constants, constant_globals, stats,
       )
-      let (next_then, then_changed) = sg_replace_gets_in_texpr(
-        then_body, trace_constants, constant_globals,
+      let (next_then, then_summary) = sg_replace_gets_in_texpr(
+        then_body, trace_constants, constant_globals, stats,
       )
-      let (next_else, else_changed) = match else_body {
+      let (next_else, else_summary) = match else_body {
         Some(other) => {
-          let (rewritten, changed) = sg_replace_gets_in_texpr(
-            other, trace_constants, constant_globals,
+          let (rewritten, summary) = sg_replace_gets_in_texpr(
+            other, trace_constants, constant_globals, stats,
           )
-          (Some(rewritten), changed)
+          (Some(rewritten), summary)
         }
-        None => (None, false)
+        None => (None, sg_rewrite_summary())
       }
+      let summary = sg_merge_rewrite_summary(
+        cond_summary,
+        sg_merge_rewrite_summary(then_summary, else_summary),
+      )
       (
-        TInstr::if_(bt, next_cond, next_then, next_else),
-        cond_changed || then_changed || else_changed,
+        if summary.changed {
+          TInstr::if_(bt, next_cond, next_then, next_else)
+        } else {
+          instr
+        },
+        summary,
       )
     }
     TInstrKind::TTryTable(bt, catches, body) => {
-      let (next_body, changed) = sg_replace_gets_in_texpr(
-        body, trace_constants, constant_globals,
+      let (next_body, summary) = sg_replace_gets_in_texpr(
+        body, trace_constants, constant_globals, stats,
       )
-      (TInstr::try_table(bt, catches, next_body), changed)
+      if summary.changed {
+        (TInstr::try_table(bt, catches, next_body), summary)
+      } else {
+        (instr, summary)
+      }
     }
     _ => {
       let children = eval_children(instr)
       if children.is_empty() {
-        (instr, false)
+        (
+          instr,
+          sg_rewrite_summary(
+            has_call=sg_instr_is_call(instr),
+            writes_global=instr.kind is TInstrKind::TGlobalSet(_, _),
+          ),
+        )
       } else {
         let rewritten_children : Array[TInstr] = []
-        let mut changed = false
+        let mut summary = sg_rewrite_summary(
+          has_call=sg_instr_is_call(instr),
+          writes_global=instr.kind is TInstrKind::TGlobalSet(_, _),
+        )
         for child in children {
-          let (next_child, child_changed) = sg_replace_gets_in_tinstr(
-            child, trace_constants, constant_globals,
+          let (next_child, child_summary) = sg_replace_gets_in_tinstr(
+            child, trace_constants, constant_globals, stats,
           )
           rewritten_children.push(next_child)
-          if child_changed {
-            changed = true
-          }
+          summary = sg_merge_rewrite_summary(summary, child_summary)
         }
-        if changed {
-          (lcs_rebuild_non_control(instr, rewritten_children), true)
+        if summary.changed {
+          (lcs_rebuild_non_control(instr, rewritten_children), summary)
         } else {
-          (instr, false)
+          (instr, summary)
         }
       }
     }
@@ -973,64 +1303,77 @@ fn sg_replace_gets_in_tinstr(
 ///|
 fn sg_replace_gets_in_texpr(
   body : TExpr,
-  trace_constants : Map[GlobalIdx, SGConstValue],
-  constant_globals : Map[GlobalIdx, SGConstValue],
-) -> (TExpr, Bool) {
+  trace_constants : SGConstSlots,
+  constant_globals : SGConstSlots,
+  stats : SGFunctionTraceStats,
+) -> (TExpr, SGRewriteSummary) {
   let out : Array[TInstr] = []
-  let mut changed = false
+  let mut summary = sg_rewrite_summary()
   for instr in body.instrs {
-    let (next_instr, instr_changed) = sg_replace_gets_in_tinstr(
-      instr, trace_constants, constant_globals,
+    let (next_instr, instr_summary) = sg_replace_gets_in_tinstr(
+      instr, trace_constants, constant_globals, stats,
     )
     out.push(next_instr)
-    if instr_changed {
-      changed = true
-    }
+    summary = sg_merge_rewrite_summary(summary, instr_summary)
   }
-  (TExpr::new(out), changed)
+  if summary.changed {
+    (TExpr::new(out), summary)
+  } else {
+    (body, summary)
+  }
 }
 
 ///|
 fn sg_apply_constants_in_body(
   body : TExpr,
-  constant_globals : Map[GlobalIdx, SGConstValue],
+  constant_globals : SGConstSlots,
+  stats : SGFunctionTraceStats,
 ) -> (TExpr, Bool) {
-  let curr_constants : Map[GlobalIdx, SGConstValue] = Map::new()
+  let curr_constants = SGConstSlots::new(constant_globals.values.length())
   let out : Array[TInstr] = []
   let mut changed = false
   for instr in body.instrs {
     if lcs_is_non_linear_boundary(instr) {
       curr_constants.clear()
+      stats.boundary_resets += 1
     }
-    let (rewritten, replaced) = sg_replace_gets_in_tinstr(
-      instr, curr_constants, constant_globals,
+    let (rewritten, summary) = sg_replace_gets_in_tinstr(
+      instr, curr_constants, constant_globals, stats,
     )
     out.push(rewritten)
-    if replaced {
+    if summary.changed {
       changed = true
     }
 
     if lcs_is_non_linear_boundary(rewritten) {
       curr_constants.clear()
+      stats.boundary_resets += 1
       continue
     }
 
-    let effects = SGEffects::new()
-    sg_collect_effects_instr(rewritten, effects)
-    if effects.calls {
+    if summary.has_call {
       curr_constants.clear()
+      stats.call_resets += 1
       continue
     }
-    for idx in effects.globals_written {
-      curr_constants.remove(idx)
-    }
     match rewritten.kind {
-      TInstrKind::TGlobalSet(idx, value) =>
+      TInstrKind::TGlobalSet(idx, value) => {
+        if curr_constants.remove(idx) {
+          stats.global_kills += 1
+        }
         match sg_const_value_from_tinstr(value) {
-          Some(constant) => curr_constants[idx] = constant
+          Some(constant) => {
+            curr_constants.set(idx, constant)
+            stats.const_sets += 1
+          }
           None => ()
         }
-      _ => ()
+      }
+      _ =>
+        if summary.writes_global {
+          curr_constants.clear()
+          stats.nested_write_resets += 1
+        }
     }
   }
   (TExpr::new(out), changed)
@@ -1039,20 +1382,21 @@ fn sg_apply_constants_in_body(
 ///|
 fn sg_propagate_constants_to_code(
   mod : Module,
-  optimize : Bool,
-) -> Result[(Module, Bool), String] {
+  trace? : (String) -> Unit = sg_trace_noop,
+  trace_all_funcs? : Bool = false,
+) -> (Module, Bool) {
   let imported_globals = sg_count_imported_globals(mod)
   let globals = match mod.global_sec {
     Some(GlobalSec(globals)) => globals
     None => []
   }
-  let constant_globals : Map[GlobalIdx, SGConstValue] = Map::new()
+  let constant_globals = SGConstSlots::new(imported_globals + globals.length())
   for i = 0; i < globals.length(); i = i + 1 {
     let idx = sg_globalidx_from_int(imported_globals + i)
     let Global(GlobalType(_, is_mut), init) = globals[i]
     if !is_mut {
       match sg_const_value_from_expr(init) {
-        Some(value) => constant_globals[idx] = value
+        Some(value) => constant_globals.set(idx, value)
         None => ()
       }
     }
@@ -1061,19 +1405,44 @@ fn sg_propagate_constants_to_code(
   let mut out_mod = mod
   match out_mod.code_sec {
     Some(CodeSec(funcs)) => {
+      let mut seen_funcs = 0
       let rewritten : Array[Func] = []
       for func in funcs {
+        seen_funcs += 1
+        let ordinal = seen_funcs
+        let log_func = trace_all_funcs || ordinal <= 5 || ordinal % 500 == 0
         match func {
           TFunc(locals, body) => {
+            if log_func {
+              trace(
+                "func[\{ordinal}] start locals=\{locals.length()} top_instrs=\{body.instrs.length()}",
+              )
+            }
+            let func_start_ms = sg_trace_now_ms()
+            let stats = SGFunctionTraceStats::new(body.instrs.length())
             let (next_body, body_changed) = sg_apply_constants_in_body(
-              body, constant_globals,
+              body, constant_globals, stats,
             )
             if body_changed {
               changed = true
             }
+            let elapsed_ms = sg_trace_elapsed_ms(func_start_ms)
+            let log_hot_func = elapsed_ms >= 50UL ||
+              stats.visited_instrs >= 10000 ||
+              stats.replaced_gets >= 500
+            if log_func || log_hot_func {
+              trace(
+                "func[\{ordinal}] done elapsed_ms=\{elapsed_ms} changed=\{body_changed} top_instrs=\{stats.top_instrs}->\{next_body.instrs.length()} visited=\{stats.visited_instrs} replaced_gets=\{stats.replaced_gets} boundary_resets=\{stats.boundary_resets} call_resets=\{stats.call_resets} global_kills=\{stats.global_kills} const_sets=\{stats.const_sets} nested_write_resets=\{stats.nested_write_resets}",
+              )
+            }
             rewritten.push(Func::t_func(locals, next_body))
           }
-          _ => rewritten.push(func)
+          _ => {
+            if log_func {
+              trace("func[\{ordinal}] skip non-typed-func")
+            }
+            rewritten.push(func)
+          }
         }
       }
       if changed {
@@ -1082,19 +1451,86 @@ fn sg_propagate_constants_to_code(
     }
     None => ()
   }
+  (out_mod, changed)
+}
 
-  if optimize && changed {
-    match
-      optimize_module(out_mod, [
-        OptimizeInstructions,
-        DeadCodeElimination,
-        CodeFolding,
-      ]) {
-      Ok(next) => Ok((next, true))
-      Err(e) => Err(e)
+///|
+fn sg_run_cleanup(
+  mod : Module,
+  trace? : (String) -> Unit = sg_trace_noop,
+  trace_all_funcs? : Bool = false,
+) -> Result[(Module, Bool), String] {
+  let start_profile = optimize_cleanup_cost_profile(mod)
+  if optimize_should_skip_expensive_cleanup(start_profile) {
+    trace(
+      "cleanup:skip reason=module_size funcs=\{start_profile.func_count} top_instrs=\{start_profile.top_instr_sum}",
+    )
+    return Ok((mod, false))
+  }
+
+  let options = OptimizeOptions::new()
+  let cleanup_ctx = IRContext::new()
+  cleanup_ctx.set_mod(mod)
+  trace(
+    "cleanup:optimize_instructions:start funcs=\{start_profile.func_count} top_instrs=\{start_profile.top_instr_sum}",
+  )
+  let after_oi = match
+    apply_ir_transformer_pass(
+      cleanup_ctx,
+      mod,
+      optimize_instructions_ir_pass(
+        mod,
+        options,
+        trace=fn(msg) { trace("cleanup:optimize_instructions:\{msg}") },
+        trace_all_funcs~,
+      ),
+    ) {
+    Ok(new_mod) => {
+      let profile = optimize_cleanup_cost_profile(new_mod)
+      trace(
+        "cleanup:optimize_instructions:done funcs=\{profile.func_count} top_instrs=\{profile.top_instr_sum}",
+      )
+      new_mod
     }
-  } else {
-    Ok((out_mod, changed))
+    Err(e) => return Err(e)
+  }
+
+  trace("cleanup:dead_code_elimination:start")
+  let after_dce = match
+    apply_unit_transformer_pass(after_oi, dead_code_elimination_pass()) {
+    Ok(new_mod) => {
+      let profile = optimize_cleanup_cost_profile(new_mod)
+      trace(
+        "cleanup:dead_code_elimination:done funcs=\{profile.func_count} top_instrs=\{profile.top_instr_sum}",
+      )
+      new_mod
+    }
+    Err(e) => return Err(e)
+  }
+
+  cleanup_ctx.set_mod(after_dce)
+  let code_folding_profile = optimize_cleanup_cost_profile(after_dce)
+  trace(
+    "cleanup:code_folding:start funcs=\{code_folding_profile.func_count} top_instrs=\{code_folding_profile.top_instr_sum}",
+  )
+  match
+    apply_ir_transformer_pass(
+      cleanup_ctx,
+      after_dce,
+      code_folding_ir_pass_with_trace(
+        after_dce,
+        trace=fn(msg) { trace("cleanup:code_folding:\{msg}") },
+        trace_all_funcs~,
+      ),
+    ) {
+    Ok(new_mod) => {
+      let profile = optimize_cleanup_cost_profile(new_mod)
+      trace(
+        "cleanup:code_folding:done funcs=\{profile.func_count} top_instrs=\{profile.top_instr_sum}",
+      )
+      Ok((new_mod, new_mod != mod))
+    }
+    Err(e) => Err(e)
   }
 }
 
@@ -1102,12 +1538,18 @@ fn sg_propagate_constants_to_code(
 fn sg_simplify_globals_impl(
   mod : Module,
   optimize : Bool,
+  trace? : (String) -> Unit = sg_trace_noop,
+  trace_all_funcs? : Bool = false,
 ) -> Result[(Module, Bool), String] {
   let mut curr = mod
   let mut changed = false
   let mut rerun = true
+  let mut cleanup_needed = false
+  let mut rounds = 0
   while rerun {
+    rounds += 1
     rerun = false
+    let round_start_ms = sg_trace_now_ms()
 
     let (info0, analyzed0, analyze_changed0) = match sg_analyze(curr) {
       Ok(res) => res
@@ -1120,12 +1562,20 @@ fn sg_simplify_globals_impl(
     curr = folded
     changed = changed || fold_changed
 
-    let (info1, analyzed1, analyze_changed1) = match sg_analyze(curr) {
-      Ok(res) => res
-      Err(e) => return Err(e)
+    let mut info1 = info0
+    let mut analyze_changed1 = false
+    let mut reanalyzed = false
+    if fold_changed {
+      let (next_info, analyzed1, changed1) = match sg_analyze(curr) {
+        Ok(res) => res
+        Err(e) => return Err(e)
+      }
+      info1 = next_info
+      curr = analyzed1
+      analyze_changed1 = changed1
+      changed = changed || analyze_changed1
+      reanalyzed = true
     }
-    curr = analyzed1
-    changed = changed || analyze_changed1
 
     let (removed, remove_changed, need_more) = match
       sg_remove_unneeded_writes(curr, info1) {
@@ -1151,13 +1601,37 @@ fn sg_simplify_globals_impl(
     curr = globals_propagated
     changed = changed || globals_changed
 
-    let (code_propagated, code_changed) = match
-      sg_propagate_constants_to_code(curr, optimize) {
-      Ok(res) => res
-      Err(e) => return Err(e)
-    }
+    let (code_propagated, code_changed) = sg_propagate_constants_to_code(
+      curr,
+      trace=fn(msg) { trace("propagate_code:\{msg}") },
+      trace_all_funcs~,
+    )
     curr = code_propagated
     changed = changed || code_changed
+    cleanup_needed = cleanup_needed || code_changed
+    trace(
+      "round[\{rounds}] done elapsed_ms=\{sg_trace_elapsed_ms(round_start_ms)} analyze_changed=\{analyze_changed0} fold_changed=\{fold_changed} reanalyzed=\{reanalyzed} reanalyze_changed=\{analyze_changed1} remove_changed=\{remove_changed} need_more=\{need_more} prefer_changed=\{prefer_changed} globals_changed=\{globals_changed} code_changed=\{code_changed}",
+    )
+  }
+
+  if optimize && cleanup_needed {
+    let cleanup_start_ms = sg_trace_now_ms()
+    trace("cleanup:start")
+    match sg_run_cleanup(curr, trace~, trace_all_funcs~) {
+      Ok((next, cleanup_changed)) => {
+        curr = next
+        changed = changed || cleanup_changed
+        trace(
+          "cleanup:done elapsed_ms=\{sg_trace_elapsed_ms(cleanup_start_ms)} changed=\{cleanup_changed}",
+        )
+      }
+      Err(e) => {
+        trace(
+          "cleanup:error elapsed_ms=\{sg_trace_elapsed_ms(cleanup_start_ms)} \{e}",
+        )
+        return Err(e)
+      }
+    }
   }
 
   Ok((curr, changed))
@@ -1167,9 +1641,11 @@ fn sg_simplify_globals_impl(
 fn simplify_globals_ir_pass(
   _mod : Module,
   optimize : Bool,
+  trace? : (String) -> Unit = sg_trace_noop,
+  trace_all_funcs? : Bool = false,
 ) -> ModuleTransformer[IRContext] {
   ModuleTransformer::new().on_module_evt(fn(_, ctx, curr) {
-    match sg_simplify_globals_impl(curr, optimize) {
+    match sg_simplify_globals_impl(curr, optimize, trace~, trace_all_funcs~) {
       Ok((next, _)) =>
         if next == curr {
           unchanged()
@@ -1226,6 +1702,150 @@ fn sg_count_tinstr(body : TExpr, pred : (TInstr) -> Bool) -> Int {
   })
   ignore(walker.walk_texpr((), body))
   count
+}
+
+///|
+test "simplify_globals trace reports per-function propagation lifecycle" {
+  let trace_logs : Array[String] = []
+  let mod = Module::new()
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(ValType::i32(), false),
+          Expr::new([Instruction::i32_const(I32(5))]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([TInstr::drop(TInstr::global_get(GlobalIdx::new(0)))]),
+        ),
+      ]),
+    )
+  let pass = simplify_globals_ir_pass(
+    mod,
+    false,
+    trace=fn(msg) { trace_logs.push(msg) },
+    trace_all_funcs=true,
+  )
+  match pass.walk_module(IRContext::new(), mod) {
+    Ok(_) => ()
+    Err(e) => fail("unexpected simplify_globals trace error: \{e}")
+  }
+  let mut saw_func_start = false
+  let mut saw_func_done = false
+  let mut saw_round_done = false
+  for msg in trace_logs {
+    if msg.contains("propagate_code:func[1] start") {
+      saw_func_start = true
+    }
+    if msg.contains("propagate_code:func[1] done") {
+      saw_func_done = true
+    }
+    if msg.contains("round[1] done") {
+      saw_round_done = true
+    }
+  }
+  assert_true(saw_func_start)
+  assert_true(saw_func_done)
+  assert_true(saw_round_done)
+}
+
+///|
+test "simplify_globals optimizing cleanup traces direct cleanup stages" {
+  let trace_logs : Array[String] = []
+  let mod = Module::new()
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(ValType::i32(), true),
+          Expr::new([Instruction::i32_const(I32(0))]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::global_set(GlobalIdx::new(0), TInstr::i32_const(I32(7))),
+            TInstr::drop(TInstr::global_get(GlobalIdx::new(0))),
+          ]),
+        ),
+      ]),
+    )
+  let pass = simplify_globals_ir_pass(
+    mod,
+    true,
+    trace=fn(msg) { trace_logs.push(msg) },
+    trace_all_funcs=true,
+  )
+  match pass.walk_module(IRContext::new(), mod) {
+    Ok(_) => ()
+    Err(e) => fail("unexpected simplify_globals optimizing trace error: \{e}")
+  }
+  let mut saw_cleanup_start = false
+  let mut saw_optimize_instructions = false
+  let mut saw_cleanup_done = false
+  for msg in trace_logs {
+    if msg.contains("cleanup:start") {
+      saw_cleanup_start = true
+    }
+    if msg.contains("cleanup:optimize_instructions:start") {
+      saw_optimize_instructions = true
+    }
+    if msg.contains("cleanup:done") {
+      saw_cleanup_done = true
+    }
+  }
+  assert_true(saw_cleanup_start)
+  assert_true(saw_optimize_instructions)
+  assert_true(saw_cleanup_done)
+}
+
+///|
+test "simplify_globals optimizing cleanup skips expensive modules" {
+  let funcs : Array[Func] = []
+  for i = 0; i < 1200; i = i + 1 {
+    funcs.push(
+      Func::t_func(
+        [],
+        TExpr::new([TInstr::drop(TInstr::global_get(GlobalIdx::new(0)))]),
+      ),
+    )
+  }
+  let trace_logs : Array[String] = []
+  let mod = Module::new()
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(ValType::i32(), false),
+          Expr::new([Instruction::i32_const(I32(5))]),
+        ),
+      ]),
+    )
+    .with_code_sec(CodeSec::new(funcs))
+  let pass = simplify_globals_ir_pass(mod, true, trace=fn(msg) {
+    trace_logs.push(msg)
+  })
+  match pass.walk_module(IRContext::new(), mod) {
+    Ok(_) => ()
+    Err(e) => fail("unexpected simplify_globals cleanup skip trace error: \{e}")
+  }
+  let mut saw_skip = false
+  let mut saw_done = false
+  for msg in trace_logs {
+    if msg.contains("cleanup:skip reason=module_size") {
+      saw_skip = true
+    }
+    if msg.contains("cleanup:done") {
+      saw_done = true
+    }
+  }
+  assert_true(saw_skip)
+  assert_true(saw_done)
 }
 
 ///|
