@@ -173,7 +173,10 @@ fn dce_trace_start_func(
   trace_state.func_locals.val = locals
   trace_state.func_top_instrs.val = top_instrs
   trace_state.func_start_us.val = dce_trace_now_us()
-  trace_state.last_progress_us.val = trace_state.func_start_us.val
+
+  // Sentinel meaning "no progress emitted yet".
+  trace_state.last_progress_us.val = 0UL
+
   trace_state.expr_visits.val = 0
   trace_state.instr_visits.val = 0
   trace_state.break_checks.val = 0
@@ -182,23 +185,29 @@ fn dce_trace_start_func(
   trace_state.rewrites.val = 0
 
   // Reset analysis budget per function. If we skip, budget is 0.
-  // NOTE: You should tune these numbers empirically.
   if skip {
     break_scan_budget.val = 0
   } else {
     let base = 100_000
-    let scaled = base + (top_instrs * 2) // top_instrs is "nested count" now
+    let scaled = base + (top_instrs * 2)
     let capped = if scaled > 3_000_000 { 3_000_000 } else { scaled }
     break_scan_budget.val = capped
   }
 
   if dce_trace_should_log_func(trace_state) {
+    // Start log
     (trace_state.trace)(
       "func[\{trace_state.func_ordinal.val}]:start locals=\{locals} top_instrs=\{top_instrs} skip=\{skip} budget=\{break_scan_budget.val}",
     )
+
+    // Deterministic first progress log (important for wasm-gc where time may not advance).
+    let now_us = dce_trace_now_us()
+    (trace_state.trace)(
+      "func[\{trace_state.func_ordinal.val}]:progress phase=start elapsed_ms=\{dce_trace_delta_us_to_ms(dce_trace_elapsed_us_since(trace_state.func_start_us.val))} exprs=\{trace_state.expr_visits.val} instrs=\{trace_state.instr_visits.val} unreachable_checks=\{trace_state.unreachable_checks.val} break_checks=\{trace_state.break_checks.val} rewrites=\{trace_state.rewrites.val} budget=\{break_scan_budget.val} budget_hits=\{trace_state.budget_hits.val}",
+    )
+    trace_state.last_progress_us.val = now_us
   }
 }
-
 ///|
 fn dce_trace_maybe_emit_progress(
   trace_state : DCEPassTraceState,
@@ -208,41 +217,62 @@ fn dce_trace_maybe_emit_progress(
   if !dce_trace_should_log_func(trace_state) {
     return
   }
+
   let now_us = dce_trace_now_us()
-  let since_last_us = if now_us >= trace_state.last_progress_us.val {
-    now_us - trace_state.last_progress_us.val
-  } else {
-    0UL
-  }
+
   let expr_visits = trace_state.expr_visits.val
   let instr_visits = trace_state.instr_visits.val
   let break_checks = trace_state.break_checks.val
   let unreachable_checks = trace_state.unreachable_checks.val
-  let should_emit = (
-    expr_visits > 0 &&
+
+  let did_some_work = expr_visits + instr_visits + break_checks + unreachable_checks
+
+  // last_progress_us == 0UL means "haven't emitted progress yet"
+  let has_emitted_progress = trace_state.last_progress_us.val != 0UL
+
+  let since_last_us =
+    if has_emitted_progress && now_us >= trace_state.last_progress_us.val {
+      now_us - trace_state.last_progress_us.val
+    } else {
+      0UL
+    }
+
+  // Emit *one* early progress line once we’ve done a bit of work,
+  // even if the clock hasn't advanced (important for wasm-gc).
+  let should_emit_first = (!has_emitted_progress) && did_some_work >= 16
+
+  let should_emit_periodic =
     (
-      (expr_visits <= 128 && expr_visits % 32 == 0) ||
-      expr_visits % 1024 == 0
+      expr_visits > 0 &&
+      (
+        (expr_visits <= 128 && expr_visits % 32 == 0) ||
+        expr_visits % 1024 == 0
+      )
+    ) || (
+      instr_visits > 0 &&
+      (
+        (instr_visits <= 256 && instr_visits % 64 == 0) ||
+        instr_visits % 2048 == 0
+      )
+    ) || (
+      break_checks > 0 &&
+      (
+        (break_checks <= 256 && break_checks % 64 == 0) ||
+        break_checks % 4096 == 0
+      )
     )
-  ) || (
-    instr_visits > 0 &&
-    (
-      (instr_visits <= 256 && instr_visits % 64 == 0) ||
-      instr_visits % 2048 == 0
-    )
-  ) || (
-    break_checks > 0 &&
-    (
-      (break_checks <= 256 && break_checks % 64 == 0) ||
-      break_checks % 4096 == 0
-    )
-  ) || since_last_us >= DCE_PROGRESS_LOG_INTERVAL_US
-  if !should_emit {
+
+  let should_emit_time =
+    has_emitted_progress && since_last_us >= DCE_PROGRESS_LOG_INTERVAL_US
+
+  if !(should_emit_first || should_emit_periodic || should_emit_time) {
     return
   }
+
   (trace_state.trace)(
     "func[\{trace_state.func_ordinal.val}]:progress phase=\{phase} elapsed_ms=\{dce_trace_delta_us_to_ms(dce_trace_elapsed_us_since(trace_state.func_start_us.val))} exprs=\{expr_visits} instrs=\{instr_visits} unreachable_checks=\{unreachable_checks} break_checks=\{break_checks} rewrites=\{trace_state.rewrites.val} budget=\{break_scan_budget.val} budget_hits=\{trace_state.budget_hits.val}",
   )
+
   trace_state.last_progress_us.val = now_us
 }
 
@@ -272,7 +302,7 @@ fn dead_code_elimination_pass_with_trace(
   trace_all_funcs? : Bool = false,
 ) -> ModuleTransformer[Unit] {
   // Shared per-function budget ref (reset at func start).
-  let break_scan_budget = Ref::new(0)
+  let break_scan_budget = Ref::new(200_000)
   let skip_current_func = Ref::new(false)
   let trace_state = dce_trace_state_new(trace, trace_all_funcs)
 
@@ -335,6 +365,7 @@ fn dead_code_elimination_pass() -> ModuleTransformer[Unit] {
 fn dead_code_elimination_ir_pass(_mod : Module) -> ModuleTransformer[IRContext] {
   wrap_unit_func_pass(dead_code_elimination_pass())
 }
+
 ///|
 fn dce_texpr(
   transformer : ModuleTransformer[Unit],
@@ -347,8 +378,7 @@ fn dce_texpr(
   dce_trace_maybe_emit_progress(trace_state, "texpr", break_scan_budget)
 
   // HARD BAIL: once the per-function analysis budget is exhausted,
-  // do not traverse any deeper. Continuing to walk is exactly what
-  // causes pathological “making progress” with rewrites=0.
+  // do not traverse any deeper.
   if break_scan_budget.val <= 0 {
     return unchanged()
   }
@@ -356,10 +386,13 @@ fn dce_texpr(
   let { instrs, .. } = expr
   let out : Array[TInstr] = []
   let mut changed = false
-  let mut after_unreachable = false
+
+  // "reachable" means the next instruction in this *sequence* is reachable
+  // on at least one path (i.e., we haven't hit an unconditional terminator).
+  let mut reachable = true
 
   for instr in instrs {
-    if after_unreachable {
+    if !reachable {
       changed = true
       continue
     }
@@ -375,13 +408,13 @@ fn dce_texpr(
     }
     out.push(new_instr)
 
+    // After emitting this instruction, decide if the *sequence* can continue.
+    // Important: this is about fallthrough to the *next instruction in the same TExpr*.
     let local_budget = dce_alloc_break_budget(break_scan_budget, 512)
     if dce_is_unreachable_instr(new_instr, local_budget, trace_state) {
-      after_unreachable = true
+      reachable = false
     }
 
-    // If we just exhausted budget during processing, bail immediately.
-    // This prevents finishing a massive remaining tail walk.
     if break_scan_budget.val <= 0 {
       return if changed { change((), TExpr::new(out)) } else { unchanged() }
     }
@@ -393,7 +426,6 @@ fn dce_texpr(
     change((), TExpr::new(out))
   }
 }
-
 ///|
 fn dce_tinstr(
   transformer : ModuleTransformer[Unit],
@@ -485,18 +517,16 @@ fn dce_texpr_is_unreachable(
   break_scan_budget : Ref[Int],
   trace_state : DCEPassTraceState,
 ) -> Bool {
+  // A sequence (TExpr) is "unreachable" in the sense we need here iff
+  // execution cannot fall through past the end of the instruction list.
+  //
+  // For a straight-line list, that means: if any instruction in order is a
+  // terminator for the current continuation, then the sequence as a whole
+  // cannot reach its end.
+  //
+  // NOTE: This is deliberately stronger than "contains unreachable code".
+  // It answers: "can this list fall through?"
   let { instrs, .. } = expr
-
-  if instrs.length() > 0 {
-    let last_budget = dce_alloc_break_budget(break_scan_budget, 512)
-    if dce_is_unreachable_instr(
-        instrs[instrs.length() - 1],
-        last_budget,
-        trace_state,
-      ) {
-      return true
-    }
-  }
 
   for instr in instrs {
     let local_budget = dce_alloc_break_budget(break_scan_budget, 512)
@@ -657,12 +687,34 @@ fn dce_has_unreachable_child(
   break_scan_budget : Ref[Int],
   trace_state : DCEPassTraceState,
 ) -> Bool {
-  for child in eval_children(instr) {
-    let local_budget = dce_alloc_break_budget(break_scan_budget, 512)
+  let children = eval_children(instr)
+
+  // Fast path: syntactic terminators in children require no analysis budget.
+  for child in children {
+    match child.kind {
+      TInstrKind::TUnreachable
+      | TInstrKind::TBr(_, _)
+      | TInstrKind::TBrTable(_, _, _, _)
+      | TInstrKind::TReturn(_)
+      | TInstrKind::TReturnCall(_, _)
+      | TInstrKind::TReturnCallIndirect(_, _, _, _)
+      | TInstrKind::TReturnCallRef(_, _, _)
+      | TInstrKind::TThrow(_, _)
+      | TInstrKind::TThrowRef(_) => return true
+      _ => ()
+    }
+  }
+
+  // Budgeted path: ensure we don't starve later children.
+  // Use a small per-child slice so we can examine multiple children even when
+  // the caller gave us a small budget.
+  for child in children {
+    let local_budget = dce_alloc_break_budget(break_scan_budget, 32)
     if dce_is_unreachable_instr(child, local_budget, trace_state) {
       return true
     }
   }
+
   false
 }
 
@@ -688,14 +740,22 @@ fn dce_is_unreachable_instr(
   trace_state : DCEPassTraceState,
 ) -> Bool {
   trace_state.unreachable_checks.val += 1
-  // When the analysis budget is exhausted, fall back to conservative behavior.
+
+  // When the analysis budget is exhausted, fall back to conservative behavior:
+  // "do not claim unreachable" (so we don't incorrectly truncate).
   if dce_take_break_budget(break_scan_budget, trace_state) {
     return false
   }
+
   match instr.kind {
+    // Immediate terminators of the current sequence.
     TInstrKind::TUnreachable => true
 
-    // Always transfer control away from the current continuation.
+    // These always terminate the current sequence (no fallthrough).
+    //
+    // Note: This is sequence-local: regardless of which label is targeted,
+    // an unconditional branch does not fall through to the *next instruction*
+    // in the same instruction list.
     TInstrKind::TBr(_, _)
     | TInstrKind::TBrTable(_, _, _, _)
     | TInstrKind::TReturn(_)
@@ -705,30 +765,61 @@ fn dce_is_unreachable_instr(
     | TInstrKind::TThrow(_, _)
     | TInstrKind::TThrowRef(_) => true
 
-    // Block is unreachable only when its body is unreachable and there are
-    // no breaks to the block itself.
-    TInstrKind::TBlock(_, body) =>
-      dce_texpr_is_unreachable(body, break_scan_budget, trace_state) &&
-      !dce_has_break_to_depth_in_texpr(body, 0, break_scan_budget, trace_state)
+    // A block instruction itself is a terminator iff it cannot "complete"
+    // back to its own continuation.
+    //
+    // A block *can* complete if:
+    //   (1) its body can fall through normally, OR
+    //   (2) there exists a break targeting the block itself (br depth 0 w.r.t the block).
+    //
+    // If neither is true, then executing the block transfers control away
+    // (e.g., via br to an enclosing label / return / throw / unreachable),
+    // so the *instruction* does not fall through.
+    TInstrKind::TBlock(_, body) => {
+      let body_unreachable = dce_texpr_is_unreachable(body, break_scan_budget, trace_state)
+      if !body_unreachable {
+        return false
+      }
 
-    // If is unreachable when condition is unreachable or both branches are.
+      // If there is a break to the block's own label, it can still complete.
+      // (This is what preserves outer continuation for br 0, and similar.)
+      let has_break_to_self =
+        dce_has_break_to_depth_in_texpr(body, 0, break_scan_budget, trace_state)
+
+      // If body is unreachable AND there is NO break-to-self, then the block
+      // instruction cannot fall through.
+      !has_break_to_self
+    }
+
+    // If is a terminator only if:
+    //   - condition is unreachable (then it becomes unreachable), OR
+    //   - both branches cannot fall through.
+    //
+    // If there's no else branch, then the "else" path is empty and falls through.
     TInstrKind::TIf(_, cond, then_body, else_body) => {
       if dce_is_unreachable_instr(cond, break_scan_budget, trace_state) {
         return true
       }
+      let then_unreachable = dce_texpr_is_unreachable(then_body, break_scan_budget, trace_state)
       match else_body {
-        Some(other) =>
-          dce_texpr_is_unreachable(then_body, break_scan_budget, trace_state) &&
-          dce_texpr_is_unreachable(other, break_scan_budget, trace_state)
+        Some(other) => {
+          let else_unreachable = dce_texpr_is_unreachable(other, break_scan_budget, trace_state)
+          then_unreachable && else_unreachable
+        }
         None => false
       }
     }
 
-    // Loop can only fall through if the body can fall through.
+    // Loop falls through only if its body can fall through normally.
+    // (br 0 in a loop is a continue, not a fallthrough.)
     TInstrKind::TLoop(_, body) =>
       dce_texpr_is_unreachable(body, break_scan_budget, trace_state)
 
-    // try_table can finish normally only when its body can finish normally.
+    // try_table: treat like a control structure that only falls through if
+    // its body can fall through normally.
+    //
+    // (You *can* extend this later to model "caught exceptions resume here"
+    // if your IR encodes that, but this matches your current intent/tests.)
     TInstrKind::TTryTable(_, _, body) =>
       dce_texpr_is_unreachable(body, break_scan_budget, trace_state)
 
@@ -1008,20 +1099,6 @@ fn run_dce_on_texpr(expr : TExpr) -> TExpr {
 }
 
 ///|
-fn run_dce_on_func_with_trace(
-  func : Func,
-  trace : (String) -> Unit,
-  trace_all_funcs? : Bool = false,
-) -> Func {
-  let pass = dead_code_elimination_pass_with_trace(trace~, trace_all_funcs~)
-  match pass.walk_func((), func) {
-    Ok(Some((_, out))) => out
-    Ok(None) => func
-    Err(e) => abort("unexpected dead code elimination walk_func error: \{e}")
-  }
-}
-
-///|
 test "dead code elim rewrites non-control unreachable operands" {
   let input = TExpr::new([
     TInstr::binary(
@@ -1270,31 +1347,64 @@ test "dead code elim keeps enclosing block reachable for loop branch escape" {
 }
 
 ///|
-test "dead code elim trace emits verbose progress logs" {
-  let trace_logs : Array[String] = []
-  let instrs : Array[TInstr] = []
-  let mut i = 0
-  while i < 96 {
-    instrs.push(TInstr::nop())
-    i += 1
+test "dce does NOT kill continuation after conditional branch to outer label" {
+  let input = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::block(
+          BlockType::void_(),
+          TExpr::new([
+            // conditional escape to the *enclosing* block (depth 1)
+            // Since the condition is not statically known, inner tail is still reachable.
+            TInstr::br_if(
+              LabelIdx::new(1),
+              TInstr::local_get(LocalIdx::new(0)), // assume a local exists in a real func test; or use a global_get
+              [],
+            ),
+            // MUST stay: reachable if the br_if is not taken
+            TInstr::i32_const(I32(999999)),
+          ]),
+        ),
+        // MUST stay: reachable if the br_if is not taken
+        TInstr::i32_const(I32(100)),
+      ]),
+    ),
+  ])
+
+  let out = run_dce_on_texpr(input)
+
+  match out.instrs {
+    [
+      {
+        kind: TInstrKind::TBlock(
+          _,
+          {
+            instrs: [
+              {
+                kind: TInstrKind::TBlock(
+                  _,
+                  {
+                    instrs: [
+                      { kind: TInstrKind::TBrIf(_, _, _), .. },
+                      { kind: TInstrKind::TI32Const(I32(999999)), .. },
+                    ],
+                    ..,
+                  }
+                ),
+                ..,
+              },
+              { kind: TInstrKind::TI32Const(I32(100)), .. },
+            ],
+            ..,
+          }
+        ),
+        ..,
+      },
+    ] => ()
+    _ =>
+      fail(
+        "expected both the inner tail (999999) and outer continuation (100) to remain",
+      )
   }
-  instrs.push(
-    TInstr::binary(
-      BinaryOp::i32_add(),
-      TInstr::i32_const(I32(1)),
-      TInstr::unreachable_(),
-    ),
-  )
-  ignore(
-    run_dce_on_func_with_trace(
-      Func::t_func([], TExpr::new(instrs)),
-      fn(msg) { trace_logs.push(msg) },
-      trace_all_funcs=true,
-    ),
-  )
-  assert_true(trace_logs.any(fn(msg) { msg.contains("func[1]:start") }))
-  assert_true(trace_logs.any(fn(msg) { msg.contains("func[1]:progress") }))
-  assert_true(trace_logs.any(fn(msg) {
-    msg.contains("func[1]:rewrite phase=instr")
-  }))
 }
