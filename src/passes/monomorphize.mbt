@@ -583,14 +583,17 @@ fn mn_copy_operand_with_context(
 fn MonoCallContext::build_from_call(
   call_info : MonoCallInfo,
   caller_env : Env,
+  callee_params : Array[ValType],
   allow_dropped : Bool,
 ) -> MonoContextBuild? {
   let collect_state = MonoCollectState::new(caller_env)
   for arg in call_info.args {
     ignore(mn_collect_operand_node(collect_state, arg))
   }
+
   let immovable : Set[Int] = Set::new()
   let non_moving_effects = MonoEffects::new()
+
   for i = collect_state.post_order.length() - 1; i >= 0; i = i - 1 {
     let id = collect_state.post_order[i]
     match collect_state.node_infos.get(id) {
@@ -606,14 +609,53 @@ fn MonoCallContext::build_from_call(
         }
     }
   }
+
   let copy_state = MonoCopyState::new(caller_env, immovable)
+
   let operands : Array[TInstr] = []
   for arg in call_info.args {
     operands.push(mn_copy_operand_with_context(copy_state, arg))
   }
+
   if copy_state.type_failed {
     return None
   }
+
+  // Prologue type safety:
+  // We'll later do local.set(new_param_count + i, operands[i]) where that local
+  // is an "old param" slot (now a local) typed callee_params[i].
+  //
+  // If operands[i] is a synthetic local.get(k) introduced for an immovable,
+  // its type is copy_state.new_operand_types[k] (not caller_env locals).
+  //
+  // Conservative rule for now: require exact equality to callee_params[i].
+  if operands.length() != callee_params.length() {
+    return None
+  }
+
+  let new_param_count = copy_state.new_operand_types.length()
+  for i = 0; i < operands.length(); i = i + 1 {
+    let op_ty : ValType? = match operands[i].kind {
+      TInstrKind::TLocalGet(LocalIdx(raw)) => {
+        let idx = raw.reinterpret_as_int()
+        if idx >= 0 && idx < new_param_count {
+          Some(copy_state.new_operand_types[idx])
+        } else {
+          lcs_infer_tinstr_type(operands[i], caller_env)
+        }
+      }
+      _ => lcs_infer_tinstr_type(operands[i], caller_env)
+    }
+
+    match op_ty {
+      Some(vt) =>
+        if vt != callee_params[i] {
+          return None
+        }
+      None => return None
+    }
+  }
+
   let context = { operands, dropped: call_info.dropped && allow_dropped }
   Some({
     context,
@@ -945,13 +987,21 @@ fn make_mono_function_with_context(
       if context.operands.length() != old_params.length() {
         return None
       }
+
       let new_param_count = new_operand_types.length()
+
+      // Shift all references up by the number of *new* params.
+      // Old params (original indices 0..old_params-1) will now live at
+      // indices new_param_count..new_param_count+old_params-1.
       let shifted_body = mn_shift_local_indices(body, new_param_count)
+
       let rewritten_body = if context.dropped {
         mn_remove_returns_for_dropped(shifted_body)
       } else {
         shifted_body
       }
+
+      // Prologue: assign the "old param locals" from baked operands.
       let prologue : Array[TInstr] = []
       for i = 0; i < old_params.length(); i = i + 1 {
         let mapped = new_param_count + i
@@ -962,6 +1012,7 @@ fn make_mono_function_with_context(
           ),
         )
       }
+
       let combined : Array[TInstr] = []
       for instr in prologue {
         combined.push(instr)
@@ -969,10 +1020,16 @@ fn make_mono_function_with_context(
       for instr in rewritten_body.instrs {
         combined.push(instr)
       }
-      let locals = old_params.copy()
+
+      // IMPORTANT:
+      // The specialized function signature only contains the new params.
+      // The *old params* must be represented as locals so the shifted body
+      // can access them after the prologue local.sets.
+      let locals : Array[ValType] = old_params.copy()
       for local_ in extra_locals {
         locals.push(local_)
       }
+
       Some(Func::t_func(locals, TExpr::new(combined)))
     }
     _ => None
@@ -1306,6 +1363,7 @@ fn monomorphize_run(
   let return_callers = find_return_callers(mod)
   let memo : Map[MonoMemoKey, FuncIdx] = Map::new()
   let optimized_original : Set[Int] = Set::new()
+
   for def_idx = 0; def_idx < original_defined_count; def_idx = def_idx + 1 {
     let caller_abs_idx = imported + def_idx
     let env = Env::new().with_module(mod)
@@ -1319,6 +1377,7 @@ fn monomorphize_run(
     }
     let caller_env = mn_build_caller_env(mod, caller_abs_idx)
     let actions : Map[Int, MonoRewriteAction] = Map::new()
+
     for call_info in calls {
       if mn_has_unreachable_operand(call_info.args) {
         continue
@@ -1344,27 +1403,39 @@ fn monomorphize_run(
       if callee_params.length() != call_info.args.length() {
         continue
       }
+
       let allow_dropped = call_info.dropped &&
         !(target_abs_idx >= 0 &&
         target_abs_idx < return_callers.length() &&
         return_callers[target_abs_idx])
+
+      // UPDATED: pass callee_params so we can type-check prologue assignments.
       let ctx_build = match
-        MonoCallContext::build_from_call(call_info, caller_env, allow_dropped) {
+        MonoCallContext::build_from_call(
+          call_info,
+          caller_env,
+          callee_params,
+          allow_dropped,
+        ) {
         Some(build) => build
         None => continue
       }
+
       if ctx_build.new_operand_types.length() > MONO_MAX_PARAMS {
         continue
       }
       if ctx_build.context.dropped && callee_results.length() != 1 {
         continue
       }
+
       let key = { target: call_info.target, context: ctx_build.context }
+
       let context_hash = hash_call_context(ctx_build.context)
       if context_hash == 0UL &&
         !eq_call_context(ctx_build.context, ctx_build.context) {
         continue
       }
+
       if MonoCallContext::is_trivial(
           ctx_build.context,
           call_info,
@@ -1375,6 +1446,7 @@ fn monomorphize_run(
         memo[key] = call_info.target
         continue
       }
+
       match memo.get(key) {
         Some(chosen_target) => {
           if chosen_target != call_info.target {
@@ -1388,11 +1460,13 @@ fn monomorphize_run(
         }
         None => ()
       }
+
       if !always && !optimized_original.contains(target_abs_idx) {
         let optimized = do_opts(callee_func, mod, params=callee_params)
         mod = mn_set_defined_func(mod, target_def_idx, optimized)
         optimized_original.add(target_abs_idx)
       }
+
       let env_after_opt = Env::new().with_module(mod)
       let callee_after_opt = match mn_get_func(mod, target_abs_idx) {
         Some(func) => func
@@ -1403,6 +1477,7 @@ fn monomorphize_run(
         Some(ft) => ft
         None => continue
       }
+
       let mono_func = match
         make_mono_function_with_context(
           callee_after_opt,
@@ -1416,11 +1491,13 @@ fn monomorphize_run(
           continue
         }
       }
+
       let optimized_mono = if always {
         mono_func
       } else {
         do_opts(mono_func, mod, params=ctx_build.new_operand_types)
       }
+
       let should_accept = if always {
         true
       } else {
@@ -1445,16 +1522,19 @@ fn monomorphize_run(
           benefit > options.monomorphize_min_benefit
         }
       }
+
       if !should_accept {
         memo[key] = call_info.target
         continue
       }
+
       let FuncType(_, callee_results_after_opt) = callee_type_after_opt
       let mono_results = if ctx_build.context.dropped {
         []
       } else {
         callee_results_after_opt
       }
+
       let (next_mod, mono_target) = mn_append_specialized_function(
         mod,
         ctx_build.new_operand_types,
@@ -1469,11 +1549,13 @@ fn monomorphize_run(
         dropped: ctx_build.context.dropped,
       }
     }
+
     if !actions.is_empty() {
       let updated = update_call(caller_func, actions)
       mod = mn_set_defined_func(mod, def_idx, updated)
     }
   }
+
   Ok(mod)
 }
 
@@ -2101,4 +2183,251 @@ test "monomorphize pass arg parser applies monomorphize-min-benefit" {
     "monomorphize-min-benefit@42",
   ])
   assert_eq(updated.monomorphize_min_benefit, 42)
+}
+
+///|
+test "monomorphize is robust in presence of multi-result functions (no invalid dropped rewrite)" {
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        mono_type([], []), // caller
+        mono_type([ValType::i32()], [ValType::i32(), ValType::i32()]), // multi-result callee
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
+    .with_code_sec(
+      CodeSec::new([
+        // Caller does NOT call the multi-result callee (avoids invalid drop(call)).
+        Func::t_func([], TExpr::new([])),
+        // Multi-result callee exists in module.
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::return_([
+              TInstr::local_get(LocalIdx::new(0)),
+              TInstr::binary(
+                BinaryOp::i32_add(),
+                TInstr::local_get(LocalIdx::new(0)),
+                TInstr::i32_const(I32(1)),
+              ),
+            ]),
+          ]),
+        ),
+      ]),
+    )
+
+  let out = mono_run_pass(mod, true, 0)
+
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(@validate.ValidationError::Validation(msg)) =>
+      fail("expected module to validate: \{msg}")
+  }
+
+  // Determinism smoke check.
+  let out2 = mono_run_pass(mod, true, 0)
+  assert_eq(out, out2)
+}
+
+///|
+test "monomorphize does not move if-expression operand into context" {
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        mono_type([ValType::i32()], [ValType::i32()]), // caller type
+        mono_type([ValType::i32()], [ValType::i32()]), // callee type
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::return_([
+              TInstr::call(FuncIdx::new(1), [
+                TInstr::if_(
+                  BlockType::val_type(ValType::i32()),
+                  TInstr::local_get(LocalIdx::new(0)),
+                  TExpr::new([TInstr::i32_const(I32(1))]),
+                  Some(TExpr::new([TInstr::i32_const(I32(2))])),
+                ),
+              ]),
+            ]),
+          ]),
+        ),
+        Func::t_func(
+          [],
+          TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
+        ),
+      ]),
+    )
+
+  let out = mono_run_pass(mod, true, 0)
+
+  // Caller should be rewritten to call a new target, but the operand should still be an if.
+  match out.code_sec {
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                {
+                  kind: TInstrKind::TReturn(
+                    [{ kind: TInstrKind::TCall(new_target, [arg]), .. }]
+                  ),
+                  ..,
+                },
+              ],
+              ..,
+            }
+          ),
+          _,
+          _,
+        ]
+      )
+    ) => {
+      ignore(new_target)
+      match arg.kind {
+        TInstrKind::TIf(_, _, _, _) => ()
+        _ => fail("expected if operand to remain as call argument")
+      }
+    }
+    _ => fail("expected rewritten caller")
+  }
+}
+
+///|
+test "monomorphize preserves memory effect ordering by not moving memory.size across memory.grow" {
+  // Uses only TMemoryGrow and TMemorySize, which your effects model handles.
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        mono_type([], [ValType::i32()]),
+        mono_type([ValType::i32()], [ValType::i32()]),
+      ]),
+    )
+    .with_mem_sec(
+      MemSec::new([
+        // Common shape A:
+        // MemoryType::new(min_pages=1, max_pages=None, shared=false)
+        MemType::new(Limits::i32(1, None)),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            // write memory
+            TInstr::memory_grow(MemIdx::new(0), TInstr::i32_const(I32(1))),
+            // then call f(memory.size)
+            TInstr::return_([
+              TInstr::call(FuncIdx::new(1), [
+                TInstr::memory_size(MemIdx::new(0)),
+              ]),
+            ]),
+          ]),
+        ),
+        Func::t_func(
+          [],
+          TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
+        ),
+      ]),
+    )
+
+  let out = mono_run_pass(mod, true, 0)
+
+  // memory.size must remain as the call argument (not hoisted into context),
+  // because it is a memory read and there's a preceding memory write.
+  match out.code_sec {
+    Some(
+      CodeSec(
+        [
+          TFunc(
+            _,
+            {
+              instrs: [
+                _,
+                {
+                  kind: TInstrKind::TReturn(
+                    [{ kind: TInstrKind::TCall(_, [arg]), .. }]
+                  ),
+                  ..,
+                },
+              ],
+              ..,
+            }
+          ),
+          _,
+          _,
+        ]
+      )
+    ) =>
+      match arg.kind {
+        TInstrKind::TMemorySize(_) => ()
+        _ =>
+          fail(
+            "expected memory.size to remain as call argument to preserve ordering",
+          )
+      }
+    _ => fail("expected rewritten caller with memory.grow then call")
+  }
+
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(@validate.ValidationError::Validation(msg)) =>
+      fail("expected validated module: \{msg}")
+  }
+}
+
+///|
+test "monomorphize specialization preserves extra local indices after inserting old-params locals" {
+  // callee has an extra local (index old_params + 0) that is used.
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        mono_type([], [ValType::i32()]),
+        mono_type([ValType::i32()], [ValType::i32()]),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
+    .with_code_sec(
+      CodeSec::new([
+        // caller: call f(7)
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::return_([
+              TInstr::call(FuncIdx::new(1), [TInstr::i32_const(I32(7))]),
+            ]),
+          ]),
+        ),
+        // callee: uses an extra local 0 (overall local index 1)
+        Func::t_func(
+          [ValType::i32()], // one extra local
+          TExpr::new([
+            TInstr::local_set(LocalIdx::new(1), TInstr::i32_const(I32(9))),
+            TInstr::return_([
+              TInstr::binary(
+                BinaryOp::i32_add(),
+                TInstr::local_get(LocalIdx::new(0)), // param
+                TInstr::local_get(LocalIdx::new(1)), // extra local
+              ),
+            ]),
+          ]),
+        ),
+      ]),
+    )
+
+  let out = mono_run_pass(mod, true, 0)
+
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(@validate.ValidationError::Validation(msg)) =>
+      fail("expected validated module: \{msg}")
+  }
 }
