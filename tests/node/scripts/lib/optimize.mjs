@@ -30,6 +30,22 @@ function streamToUtf8(value) {
   return '';
 }
 
+function envFlagEnabled(name) {
+  const raw = process.env[name];
+  if (typeof raw !== 'string') {
+    return false;
+  }
+  switch (raw.trim().toLowerCase()) {
+    case '1':
+    case 'true':
+    case 'yes':
+    case 'on':
+      return true;
+    default:
+      return false;
+  }
+}
+
 export function optimizeDebugWasm({
   repoRoot,
   starshinePath,
@@ -50,10 +66,12 @@ export function optimizeDebugWasm({
     fs.rmSync(dist.optimizeError);
   }
 
+  const verboseTrace = envFlagEnabled('STARSHINE_TRACE_OPTIMIZE_VERBOSE');
+
   try {
     execFileSyncImpl(binary, ['--optimize', '--out', dist.selfOptimized, dist.debug], {
       cwd: repoRoot,
-      stdio: ['ignore', 'inherit', 'pipe'],
+      stdio: ['ignore', 'inherit', verboseTrace ? 'inherit' : 'pipe'],
     });
   } catch (error) {
     const status = error?.status ?? 'unknown';

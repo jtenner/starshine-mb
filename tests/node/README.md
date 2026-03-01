@@ -33,6 +33,20 @@ Run just the artifact build + comparison flow:
 npm --prefix tests/node run build:all
 ```
 
+Run just the self-optimization step:
+
+```bash
+npm --prefix tests/node run optimize:wasm
+```
+
+`optimize:wasm` rebuilds the native release CLI before invoking `--optimize` so pass changes do not accidentally reuse a stale optimizer binary.
+
+To surface verbose optimizer tracing, including `DeadArgumentElimination` hotspot output, set:
+
+```bash
+STARSHINE_TRACE_OPTIMIZE_VERBOSE=1 npm --prefix tests/node run optimize:wasm
+```
+
 Run the wasm spec runner manually:
 
 ```bash

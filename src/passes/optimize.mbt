@@ -237,6 +237,8 @@ fn module_pass_context_kind(pass : ModulePass) -> SchedulerPassContextKind {
     | TypeFinalizing
     | TypeUnFinalizing
     | Unsubtyping
+    | DeadArgumentElimination
+    | DeadArgumentEliminationOptimizing
     | TypeMerging
     | Monomorphize
     | MonomorphizeAlways
@@ -304,43 +306,6 @@ fn run_ir_context_transformer_scheduler_pass(
           trace_all_funcs=trace_pass_details,
         ),
       )
-    DeadArgumentElimination =>
-      apply_ir_transformer_pass(ctx, mod, dead_argument_elim_pass(mod))
-    DeadArgumentEliminationOptimizing =>
-      match apply_ir_transformer_pass(ctx, mod, dead_argument_elim_pass(mod)) {
-        Ok(dae_mod) => {
-          let after_dce = match
-            apply_unit_transformer_pass(dae_mod, dead_code_elimination_pass()) {
-            Ok(new_mod) => new_mod
-            Err(e) => return Err(e)
-          }
-          ctx.set_mod(after_dce)
-          let after_vacuum = match
-            apply_ir_transformer_pass(
-              ctx,
-              after_dce,
-              vacuum_ir_pass_with_trace(
-                after_dce,
-                fn(msg) { trace("vacuum:\{msg}") },
-                trace_all_funcs=trace_pass_details,
-              ),
-            ) {
-            Ok(new_mod) => new_mod
-            Err(e) => return Err(e)
-          }
-          ctx.set_mod(after_vacuum)
-          apply_ir_transformer_pass(
-            ctx,
-            after_vacuum,
-            code_folding_ir_pass_with_trace(
-              after_vacuum,
-              trace=fn(msg) { trace("code_folding:\{msg}") },
-              trace_all_funcs=trace_pass_details,
-            ),
-          )
-        }
-        Err(e) => Err(e)
-      }
     SignaturePruning =>
       apply_ir_transformer_pass(ctx, mod, signature_pruning_ir_pass(mod))
     SimplifyGlobals =>
@@ -577,6 +542,7 @@ fn run_module_runner_scheduler_pass(
   pass : ModulePass,
   options : OptimizeOptions,
   trace : (String) -> Unit,
+  trace_pass_details : Bool,
 ) -> Result[Module, String] {
   match pass {
     SignatureRefining =>
@@ -628,6 +594,96 @@ fn run_module_runner_scheduler_pass(
     Asyncify(props) =>
       apply_module_runner_pass(mod, fn(mod) {
         asyncify(mod, props~, optimize_level=options.optimize_level)
+      })
+    DeadArgumentElimination =>
+      apply_module_runner_pass(mod, fn(mod) {
+        Ok(
+          run_dead_argument_elim_with_trace(
+            mod,
+            fn(msg) { trace("dead_argument_elim:\{msg}") },
+            trace_all_funcs=trace_pass_details,
+          ),
+        )
+      })
+    DeadArgumentEliminationOptimizing =>
+      apply_module_runner_pass(mod, fn(mod) {
+        let dae_mod = run_dead_argument_elim_with_trace(
+          mod,
+          fn(msg) { trace("dead_argument_elim:\{msg}") },
+          trace_all_funcs=trace_pass_details,
+        )
+        let cleanup_profile = optimize_cleanup_cost_profile(dae_mod)
+        if optimize_should_skip_expensive_cleanup(cleanup_profile) {
+          trace(
+            "dead_argument_elim_cleanup:skip reason=module_size funcs=\{cleanup_profile.func_count} top_instrs=\{cleanup_profile.top_instr_sum}",
+          )
+          return Ok(dae_mod)
+        }
+        trace(
+          "dead_argument_elim_cleanup:dce:start funcs=\{cleanup_profile.func_count} top_instrs=\{cleanup_profile.top_instr_sum}",
+        )
+        let after_dce = match
+          apply_unit_transformer_pass(dae_mod, dead_code_elimination_pass()) {
+          Ok(new_mod) => {
+            let dce_profile = optimize_cleanup_cost_profile(new_mod)
+            trace(
+              "dead_argument_elim_cleanup:dce:done funcs=\{dce_profile.func_count} top_instrs=\{dce_profile.top_instr_sum}",
+            )
+            new_mod
+          }
+          Err(e) => return Err(e)
+        }
+        let vacuum_profile = optimize_cleanup_cost_profile(after_dce)
+        trace(
+          "dead_argument_elim_cleanup:vacuum:start funcs=\{vacuum_profile.func_count} top_instrs=\{vacuum_profile.top_instr_sum}",
+        )
+        let cleanup_ctx = IRContext::new()
+        cleanup_ctx.set_mod(after_dce)
+        let after_vacuum = match
+          apply_ir_transformer_pass(
+            cleanup_ctx,
+            after_dce,
+            vacuum_ir_pass_with_trace(
+              after_dce,
+              fn(msg) { trace("vacuum:\{msg}") },
+              trace_all_funcs=trace_pass_details,
+            ),
+          ) {
+          Ok(new_mod) => {
+            let vacuum_done_profile = optimize_cleanup_cost_profile(new_mod)
+            trace(
+              "dead_argument_elim_cleanup:vacuum:done funcs=\{vacuum_done_profile.func_count} top_instrs=\{vacuum_done_profile.top_instr_sum}",
+            )
+            new_mod
+          }
+          Err(e) => return Err(e)
+        }
+        cleanup_ctx.set_mod(after_vacuum)
+        let code_folding_profile = optimize_cleanup_cost_profile(after_vacuum)
+        trace(
+          "dead_argument_elim_cleanup:code_folding:start funcs=\{code_folding_profile.func_count} top_instrs=\{code_folding_profile.top_instr_sum}",
+        )
+        match
+          apply_ir_transformer_pass(
+            cleanup_ctx,
+            after_vacuum,
+            code_folding_ir_pass_with_trace(
+              after_vacuum,
+              trace=fn(msg) { trace("code_folding:\{msg}") },
+              trace_all_funcs=trace_pass_details,
+            ),
+          ) {
+          Ok(new_mod) => {
+            let code_folding_done_profile = optimize_cleanup_cost_profile(
+              new_mod,
+            )
+            trace(
+              "dead_argument_elim_cleanup:code_folding:done funcs=\{code_folding_done_profile.func_count} top_instrs=\{code_folding_done_profile.top_instr_sum}",
+            )
+            Ok(new_mod)
+          }
+          Err(e) => Err(e)
+        }
       })
     MinimizeRecGroups =>
       apply_module_runner_pass(mod, fn(mod) { minimize_rec_groups(mod) })
@@ -781,99 +837,6 @@ fn optimize_trace_context_label(kind : SchedulerPassContextKind) -> String {
 }
 
 ///|
-priv struct OptimizeTraceModuleStats {
-  type_groups : Int
-  func_defs : Int
-  global_defs : Int
-  table_defs : Int
-  memory_defs : Int
-  elem_segments : Int
-  data_segments : Int
-  exports : Int
-  tinstrs : Int
-}
-
-///|
-fn optimize_trace_count_instr(instr : TInstr) -> Int {
-  let mut total = 1
-  for child in eval_children(instr) {
-    total += optimize_trace_count_instr(child)
-  }
-  total
-}
-
-///|
-fn optimize_trace_count_tinstrs(mod : Module) -> Int {
-  let mut total = 0
-  match mod.code_sec {
-    Some(CodeSec(funcs)) =>
-      for func in funcs {
-        match func {
-          TFunc(_, body) =>
-            for instr in body.instrs {
-              total += optimize_trace_count_instr(instr)
-            }
-          _ => ()
-        }
-      }
-    None => ()
-  }
-  total
-}
-
-///|
-fn optimize_trace_collect_stats(mod : Module) -> OptimizeTraceModuleStats {
-  let type_groups = match mod.type_sec {
-    Some(TypeSec(groups)) => groups.length()
-    None => 0
-  }
-  let func_defs = match mod.code_sec {
-    Some(CodeSec(funcs)) => funcs.length()
-    None => 0
-  }
-  let global_defs = match mod.global_sec {
-    Some(GlobalSec(globals)) => globals.length()
-    None => 0
-  }
-  let table_defs = match mod.table_sec {
-    Some(TableSec(tables)) => tables.length()
-    None => 0
-  }
-  let memory_defs = match mod.mem_sec {
-    Some(MemSec(memories)) => memories.length()
-    None => 0
-  }
-  let elem_segments = match mod.elem_sec {
-    Some(ElemSec(elems)) => elems.length()
-    None => 0
-  }
-  let data_segments = match mod.data_sec {
-    Some(DataSec(datas)) => datas.length()
-    None => 0
-  }
-  let exports = match mod.export_sec {
-    Some(ExportSec(exports)) => exports.length()
-    None => 0
-  }
-  {
-    type_groups,
-    func_defs,
-    global_defs,
-    table_defs,
-    memory_defs,
-    elem_segments,
-    data_segments,
-    exports,
-    tinstrs: optimize_trace_count_tinstrs(mod),
-  }
-}
-
-///|
-fn optimize_trace_delta(after : Int, before : Int) -> Int {
-  after - before
-}
-
-///|
 fn optimize_module_with_options_internal(
   mod : Module,
   passes : Array[ModulePass],
@@ -881,7 +844,7 @@ fn optimize_module_with_options_internal(
   trace : (String) -> Unit,
   trace_enabled : Bool,
   trace_pass_details : Bool,
-  trace_module_stats : Bool,
+  _trace_module_stats : Bool,
 ) -> Result[Module, String] {
   let optimize_start_ms = optimize_trace_now_ms()
   if trace_enabled {
@@ -929,12 +892,6 @@ fn optimize_module_with_options_internal(
     let pass_start_ms = optimize_trace_now_ms()
     pass_index += 1
     let kind = module_pass_context_kind(pass)
-    let prev_mod = mod
-    let before_stats = if trace_enabled && trace_module_stats {
-      Some(optimize_trace_collect_stats(mod))
-    } else {
-      None
-    }
     if trace_enabled {
       trace(
         "pass[\{pass_index}/\{passes.length()}]:start pass=\{pass} kind=\{optimize_trace_context_label(kind)}",
@@ -980,7 +937,14 @@ fn optimize_module_with_options_internal(
           }
         }
       ModuleRunnerPass =>
-        match run_module_runner_scheduler_pass(mod, pass, options, pass_trace) {
+        match
+          run_module_runner_scheduler_pass(
+            mod,
+            pass,
+            options,
+            pass_trace,
+            trace_enabled && trace_pass_details,
+          ) {
           Ok(new_mod) => new_mod
           Err(e) => {
             if trace_enabled {
@@ -993,20 +957,18 @@ fn optimize_module_with_options_internal(
         }
     }
     if trace_enabled {
-      match before_stats {
-        Some(before_stats) => {
-          let after_stats = optimize_trace_collect_stats(mod)
-          trace(
-            "pass[\{pass_index}/\{passes.length()}]:done pass=\{pass} elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)} changed=\{mod != prev_mod} tinstrs=\{before_stats.tinstrs}->\{after_stats.tinstrs} (d=\{optimize_trace_delta(after_stats.tinstrs, before_stats.tinstrs)}) funcs=\{before_stats.func_defs}->\{after_stats.func_defs} (d=\{optimize_trace_delta(after_stats.func_defs, before_stats.func_defs)}) globals=\{before_stats.global_defs}->\{after_stats.global_defs} (d=\{optimize_trace_delta(after_stats.global_defs, before_stats.global_defs)}) tables=\{before_stats.table_defs}->\{after_stats.table_defs} (d=\{optimize_trace_delta(after_stats.table_defs, before_stats.table_defs)}) memories=\{before_stats.memory_defs}->\{after_stats.memory_defs} (d=\{optimize_trace_delta(after_stats.memory_defs, before_stats.memory_defs)}) type_groups=\{before_stats.type_groups}->\{after_stats.type_groups} (d=\{optimize_trace_delta(after_stats.type_groups, before_stats.type_groups)}) elems=\{before_stats.elem_segments}->\{after_stats.elem_segments} (d=\{optimize_trace_delta(after_stats.elem_segments, before_stats.elem_segments)}) data=\{before_stats.data_segments}->\{after_stats.data_segments} (d=\{optimize_trace_delta(after_stats.data_segments, before_stats.data_segments)}) exports=\{before_stats.exports}->\{after_stats.exports} (d=\{optimize_trace_delta(after_stats.exports, before_stats.exports)})",
-          )
-        }
-        None =>
-          trace(
-            "pass[\{pass_index}/\{passes.length()}]:done pass=\{pass} elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)}",
-          )
-      }
+      trace(
+        "pass[\{pass_index}/\{passes.length()}]:returned pass=\{pass} elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)}",
+      )
+      trace("pass[\{pass_index}/\{passes.length()}]:commit:start pass=\{pass}")
     }
     ctx.set_mod(mod)
+    if trace_enabled {
+      trace("pass[\{pass_index}/\{passes.length()}]:commit:done pass=\{pass}")
+      trace(
+        "pass[\{pass_index}/\{passes.length()}]:done pass=\{pass} elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)}",
+      )
+    }
   }
   if trace_enabled {
     trace("done elapsed_ms=\{optimize_trace_elapsed_ms(optimize_start_ms)}")
@@ -1032,11 +994,45 @@ pub fn optimize_module_with_options_trace(
   options : OptimizeOptions,
   trace : (String) -> Unit,
   trace_pass_details? : Bool = true,
-  trace_module_stats? : Bool = true,
+  trace_module_stats? : Bool = false,
 ) -> Result[Module, String] {
+  ignore(trace_module_stats)
   optimize_module_with_options_internal(
     mod, passes, options, trace, true, trace_pass_details, trace_module_stats,
   )
+}
+
+///|
+priv struct OptimizeCleanupCostProfile {
+  func_count : Int
+  top_instr_sum : Int
+}
+
+///|
+fn optimize_cleanup_cost_profile(mod : Module) -> OptimizeCleanupCostProfile {
+  let mut func_count = 0
+  let mut top_instr_sum = 0
+  match mod.code_sec {
+    Some(CodeSec(funcs)) => {
+      func_count = funcs.length()
+      for func in funcs {
+        match func {
+          TFunc(_, body) => top_instr_sum += body.instrs.length()
+          _ => ()
+        }
+      }
+    }
+    None => ()
+  }
+  { func_count, top_instr_sum }
+}
+
+///|
+fn optimize_should_skip_expensive_cleanup(
+  profile : OptimizeCleanupCostProfile,
+) -> Bool {
+  profile.func_count >= 1200 ||
+  (profile.func_count >= 300 && profile.top_instr_sum >= 120000)
 }
 
 ///|
@@ -1093,21 +1089,7 @@ fn default_opts_has_multivalue(mod : Module) -> Bool {
 
 ///|
 fn default_opts_skip_second_optimize_instructions(mod : Module) -> Bool {
-  let mut func_count = 0
-  let mut top_instr_sum = 0
-  match mod.code_sec {
-    Some(CodeSec(funcs)) => {
-      func_count = funcs.length()
-      for func in funcs {
-        match func {
-          TFunc(_, body) => top_instr_sum += body.instrs.length()
-          _ => ()
-        }
-      }
-    }
-    None => ()
-  }
-  func_count >= 1200 || (func_count >= 300 && top_instr_sum >= 120000)
+  optimize_should_skip_expensive_cleanup(optimize_cleanup_cost_profile(mod))
 }
 
 ///|
@@ -2511,6 +2493,68 @@ test "optimize_module_with_options_trace skips lift_to_texpr when pass list is e
 }
 
 ///|
+test "optimize_module_with_options_trace emits dead argument elimination details" {
+  let caller = Func::t_func(
+    [],
+    TExpr::new([TInstr::call(FuncIdx::new(1), [TInstr::i32_const(I32(9))])]),
+  )
+  let callee = Func::t_func([], TExpr::new([TInstr::i32_const(I32(7))]))
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        single_rec_type(
+          comp_type_sub_type(func_comp_type([ValType::i32()], [ValType::i32()])),
+        ),
+        single_rec_type(
+          comp_type_sub_type(func_comp_type([], [ValType::i32()])),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(1), TypeIdx::new(0)]))
+    .with_code_sec(CodeSec::new([caller, callee]))
+  let trace_logs : Array[String] = []
+  ignore(
+    match
+      optimize_module_with_options_trace(
+        mod,
+        [DeadArgumentElimination],
+        OptimizeOptions::new(),
+        fn(msg) { trace_logs.push(msg) },
+        trace_pass_details=true,
+        trace_module_stats=false,
+      ) {
+      Ok(v) => v
+      Err(e) =>
+        fail(
+          "unexpected optimize_module_with_options_trace dead argument elimination error: \{e}",
+        )
+    },
+  )
+  let mut saw_iter = false
+  let mut saw_hotspots = false
+  let mut saw_analysis_phase = false
+  let mut saw_rewrite_phase = false
+  for msg in trace_logs {
+    if msg.contains("dead_argument_elim:iter=0") {
+      saw_iter = true
+    }
+    if msg.contains("dead_argument_elim:iter=0 slow_analysis_funcs=") {
+      saw_hotspots = true
+    }
+    if msg.contains("dead_argument_elim:iter=0 phase=analysis:start") {
+      saw_analysis_phase = true
+    }
+    if msg.contains("dead_argument_elim:iter=0 phase=rewrite:done") {
+      saw_rewrite_phase = true
+    }
+  }
+  assert_true(saw_iter)
+  assert_true(saw_hotspots)
+  assert_true(saw_analysis_phase)
+  assert_true(saw_rewrite_phase)
+}
+
+///|
 test "optimize_module dispatches IRContext and Unit transformer pass kinds" {
   assert_true(
     assert_pass_context_kind(RemoveUnusedNames, IRContextTransformerPass),
@@ -3011,6 +3055,56 @@ test "optimize_module runs DeadArgumentEliminationOptimizing cleanup" {
       }
     _ => fail("expected transformed callee body")
   }
+}
+
+///|
+test "optimize_module_with_options_trace skips DAE optimizing cleanup on large modules" {
+  let void_type = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let func_types : Array[TypeIdx] = []
+  let funcs : Array[Func] = []
+  for _ in 0..<1200 {
+    func_types.push(TypeIdx::new(0))
+    funcs.push(Func::t_func([], TExpr::new([TInstr::nop()])))
+  }
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([void_type]))
+    .with_func_sec(FuncSec::new(func_types))
+    .with_code_sec(CodeSec::new(funcs))
+  let trace_logs : Array[String] = []
+  ignore(
+    match
+      optimize_module_with_options_trace(
+        mod,
+        [DeadArgumentEliminationOptimizing],
+        OptimizeOptions::new(),
+        fn(msg) { trace_logs.push(msg) },
+        trace_pass_details=true,
+        trace_module_stats=false,
+      ) {
+      Ok(v) => v
+      Err(e) =>
+        fail(
+          "unexpected optimize_module_with_options_trace DAE optimizing error: \{e}",
+        )
+    },
+  )
+  let mut saw_skip = false
+  let mut saw_dce_start = false
+  let mut saw_vacuum = false
+  for msg in trace_logs {
+    if msg.contains("dead_argument_elim_cleanup:skip reason=module_size") {
+      saw_skip = true
+    }
+    if msg.contains("dead_argument_elim_cleanup:dce:start") {
+      saw_dce_start = true
+    }
+    if msg.contains("vacuum:") {
+      saw_vacuum = true
+    }
+  }
+  assert_true(saw_skip)
+  assert_true(!saw_dce_start)
+  assert_true(!saw_vacuum)
 }
 
 ///|

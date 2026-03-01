@@ -686,15 +686,13 @@ fn sp_run_iteration(mod : Module) -> (Module, Bool) {
               Some(v) => v
               None => Map::new()
             }
-            let (new_locals, prologue, removed_total, const_local_slots) = build_local_plan(
+            let (new_locals, prologue, removed_total, param_remap) = build_local_plan(
               locals, old_params, removed_unused, removed_const,
             )
             let body1 = rewrite_locals_and_returns(
               body,
               old_params.length(),
-              removed_unused,
-              removed_const,
-              const_local_slots,
+              param_remap,
               removed_total,
               false,
             )

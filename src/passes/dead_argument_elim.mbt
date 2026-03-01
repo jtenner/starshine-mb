@@ -119,6 +119,122 @@ fn flattened_type_count(rec_types : Array[RecType]) -> Int {
 }
 
 ///|
+fn dead_argument_elim_trace_noop(_ : String) -> Unit {
+  ()
+}
+
+///|
+fn dae_trace_delta_us_to_ms(delta_us : UInt64) -> UInt64 {
+  delta_us / 1000UL
+}
+
+///|
+fn dae_hash_mix(seed : UInt64, value : UInt64) -> UInt64 {
+  seed ^ (value + 0x9E3779B97F4A7C15UL + (seed << 6) + (seed >> 2))
+}
+
+///|
+fn dae_hash_int(value : Int) -> UInt64 {
+  value.reinterpret_as_uint().to_uint64()
+}
+
+///|
+#cfg(target="native")
+#borrow(tv)
+extern "c" fn dae_native_gettimeofday(tv : Bytes, tz : UInt64) -> Int = "gettimeofday"
+
+///|
+#cfg(target="native")
+fn dae_trace_read_u64_le(bytes : Bytes, start : Int) -> UInt64 {
+  let mut out = 0UL
+  let mut i = 0
+  while i < 8 {
+    out = out | (bytes[start + i].to_uint64() << (i * 8))
+    i += 1
+  }
+  out
+}
+
+///|
+#cfg(target="native")
+fn dae_trace_now_us() -> UInt64 {
+  let tv = Bytes::new(16)
+  if dae_native_gettimeofday(tv, 0UL) != 0 {
+    return @env.now() * 1000UL
+  }
+  let sec = dae_trace_read_u64_le(tv, 0)
+  let usec = dae_trace_read_u64_le(tv, 8)
+  sec * 1000000UL + usec
+}
+
+///|
+#cfg(target="wasm-gc")
+fn dae_trace_now_us() -> UInt64 {
+  @env.now() * 1000UL
+}
+
+///|
+#cfg(target="wasm")
+fn dae_trace_now_us() -> UInt64 {
+  @env.now() * 1000UL
+}
+
+///|
+#cfg(target="js")
+fn dae_trace_now_us() -> UInt64 {
+  @env.now() * 1000UL
+}
+
+///|
+#cfg(target="llvm")
+fn dae_trace_now_us() -> UInt64 {
+  @env.now() * 1000UL
+}
+
+///|
+fn dae_trace_elapsed_us_since(start_us : UInt64) -> UInt64 {
+  let end_us = dae_trace_now_us()
+  if end_us >= start_us {
+    end_us - start_us
+  } else {
+    0UL
+  }
+}
+
+///|
+fn dae_count_instr(instr : TInstr) -> Int {
+  let mut total = 1
+  for child in eval_children(instr) {
+    total += dae_count_instr(child)
+  }
+  total
+}
+
+///|
+fn dae_count_texpr_instrs(expr : TExpr) -> Int {
+  let mut total = 0
+  for instr in expr.instrs {
+    total += dae_count_instr(instr)
+  }
+  total
+}
+
+///|
+fn dae_body_fingerprint(body : TExpr) -> UInt64 {
+  let mut digest = dae_hash_mix(
+    0xA9B4C9D27F31E6D5UL,
+    dae_hash_int(body.instrs.length()),
+  )
+  for instr in body.instrs {
+    digest = dae_hash_mix(
+      digest,
+      instr.hash().reinterpret_as_uint().to_uint64(),
+    )
+  }
+  digest
+}
+
+///|
 fn is_literal_const(instr : TInstr) -> Bool {
   match instr.kind {
     TInstrKind::TI32Const(_)
@@ -159,28 +275,18 @@ fn body_ends_with_explicit_return_or_unreachable(body : TExpr) -> Bool {
 }
 
 ///|
-fn body_has_explicit_return(body : TExpr) -> Bool {
-  let mut found = false
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr.kind {
-      TInstrKind::TReturn(_) => found = true
-      _ => ()
-    }
-    self.walk_tinstruction_default((), instr)
-  })
-  ignore(walker.walk_texpr((), body))
-  found
-}
-
-///|
-fn body_can_drop_result(body : TExpr, result_arity : Int) -> Bool {
+fn body_can_drop_result(
+  body : TExpr,
+  result_arity : Int,
+  has_explicit_return : Bool,
+) -> Bool {
   if result_arity == 0 {
     return true
   }
   if body_ends_with_explicit_return_or_unreachable(body) {
     return true
   }
-  result_arity == 1 && not(body_has_explicit_return(body))
+  result_arity == 1 && not(has_explicit_return)
 }
 
 ///|
@@ -252,49 +358,560 @@ fn mark_elem_unseen(mod : Module, has_unseen : Array[Bool]) -> Unit {
 }
 
 ///|
+
+///|
 struct CallSite {
   caller_abs_idx : Int
   args : Array[TInstr]
 } derive(Eq, Show)
 
 ///|
-fn callsite(caller_abs_idx : Int, args : Array[TInstr]) -> CallSite {
-  { caller_abs_idx, args }
+priv struct DAECallSummary {
+  param_types : Array[ValType]
+  all_pure : Array[Bool]
+  const_candidate : Array[TInstr?]
+  const_valid : Array[Bool]
+  type_candidate : Array[ValType?]
+  type_valid : Array[Bool]
 }
 
 ///|
-fn record_call(
-  caller_abs_idx : Int,
-  target : FuncIdx,
-  args : Array[TInstr],
-  calls_by_target : Array[Array[CallSite]],
-  call_counts : Array[Int],
+fn DAECallSummary::new(param_types : Array[ValType]) -> DAECallSummary {
+  let param_count = param_types.length()
+  let const_candidate : Array[TInstr?] = Array::make(param_count, None)
+  let type_candidate : Array[ValType?] = Array::make(param_count, None)
+  let type_valid : Array[Bool] = Array::make(param_count, false)
+  for i = 0; i < param_count; i = i + 1 {
+    match param_types[i] {
+      RefTypeValType(_) => type_valid[i] = true
+      _ => ()
+    }
+  }
+  {
+    param_types,
+    all_pure: Array::make(param_count, true),
+    const_candidate,
+    const_valid: Array::make(param_count, true),
+    type_candidate,
+    type_valid,
+  }
+}
+
+///|
+priv struct DAEReturnSummary {
+  mut has_explicit_return : Bool
+  mut failed : Bool
+  tracked : Array[Bool]
+  candidate : Array[ValType?]
+}
+
+///|
+fn DAEReturnSummary::new(result_types : Array[ValType]) -> DAEReturnSummary {
+  let tracked : Array[Bool] = Array::make(result_types.length(), false)
+  for i = 0; i < result_types.length(); i = i + 1 {
+    match result_types[i] {
+      RefTypeValType(_) => tracked[i] = true
+      _ => ()
+    }
+  }
+  {
+    has_explicit_return: false,
+    failed: false,
+    tracked,
+    candidate: Array::make(result_types.length(), None),
+  }
+}
+
+///|
+priv struct DAEHotspotEntry {
+  idx : Int
+  elapsed_us : UInt64
+}
+
+///|
+fn DAEHotspotEntry::new(idx : Int, elapsed_us : UInt64) -> DAEHotspotEntry {
+  { idx, elapsed_us }
+}
+
+///|
+priv struct DAERewriteTrace {
+  mut instrs_visited : Int
+  mut calls_rewritten : Int
+  mut local_indices_rewritten : Int
+  mut drops_removed : Int
+  mut call_args_removed : Int
+}
+
+///|
+fn DAERewriteTrace::new() -> DAERewriteTrace {
+  {
+    instrs_visited: 0,
+    calls_rewritten: 0,
+    local_indices_rewritten: 0,
+    drops_removed: 0,
+    call_args_removed: 0,
+  }
+}
+
+///|
+priv struct DAETraceStats {
+  detail_timing_enabled : Bool
+  mut setup_collect_func_types_us : UInt64
+  mut setup_build_local_types_us : UInt64
+  mut setup_collect_global_types_us : UInt64
+  mut setup_collect_direct_results_us : UInt64
+  mut setup_init_arrays_us : UInt64
+  mut setup_us : UInt64
+  mut analysis_us : UInt64
+  mut decide_us : UInt64
+  mut sig_us : UInt64
+  mut rewrite_us : UInt64
+  mut analysis_instrs_visited : Int
+  mut rewrite_instrs_visited : Int
+  mut analysis_calls_seen : Int
+  mut analysis_localgets_seen : Int
+  mut returns_seen : Int
+  mut known_type_calls_total : Int
+  mut known_type_local_get_calls : Int
+  mut known_type_global_get_calls : Int
+  mut known_type_call_direct_calls : Int
+  mut known_type_call_indirect_calls : Int
+  mut known_type_ref_cast_calls : Int
+  mut known_type_select_calls : Int
+  mut known_type_other_calls : Int
+  mut known_type_elapsed_us : UInt64
+  mut resolve_functype_calls : Int
+  mut match_calls_total : Int
+  mut match_elapsed_us : UInt64
+  mut common_supertype_calls_total : Int
+  mut common_supertype_elapsed_us : UInt64
+  mut removed_params_total : Int
+  mut removed_const_params_total : Int
+  mut removed_unused_params_total : Int
+  mut result_removals_total : Int
+  mut params_refined_total : Int
+  mut results_refined_total : Int
+  mut functions_rewritten : Int
+  mut calls_rewritten : Int
+  mut local_indices_rewritten : Int
+  mut drops_removed_due_to_result : Int
+  mut filtered_call_args_total : Int
+  mut filtered_call_args_removed_total : Int
+  mut prologue_inserted_funcs : Int
+  mut oscillation_suspects : Int
+  analysis_hotspots : Array[DAEHotspotEntry]
+  rewrite_hotspots : Array[DAEHotspotEntry]
+  oscillation_samples : Array[String]
+}
+
+///|
+fn DAETraceStats::new(detail_timing_enabled? : Bool = false) -> DAETraceStats {
+  {
+    detail_timing_enabled,
+    setup_collect_func_types_us: 0UL,
+    setup_build_local_types_us: 0UL,
+    setup_collect_global_types_us: 0UL,
+    setup_collect_direct_results_us: 0UL,
+    setup_init_arrays_us: 0UL,
+    setup_us: 0UL,
+    analysis_us: 0UL,
+    decide_us: 0UL,
+    sig_us: 0UL,
+    rewrite_us: 0UL,
+    analysis_instrs_visited: 0,
+    rewrite_instrs_visited: 0,
+    analysis_calls_seen: 0,
+    analysis_localgets_seen: 0,
+    returns_seen: 0,
+    known_type_calls_total: 0,
+    known_type_local_get_calls: 0,
+    known_type_global_get_calls: 0,
+    known_type_call_direct_calls: 0,
+    known_type_call_indirect_calls: 0,
+    known_type_ref_cast_calls: 0,
+    known_type_select_calls: 0,
+    known_type_other_calls: 0,
+    known_type_elapsed_us: 0UL,
+    resolve_functype_calls: 0,
+    match_calls_total: 0,
+    match_elapsed_us: 0UL,
+    common_supertype_calls_total: 0,
+    common_supertype_elapsed_us: 0UL,
+    removed_params_total: 0,
+    removed_const_params_total: 0,
+    removed_unused_params_total: 0,
+    result_removals_total: 0,
+    params_refined_total: 0,
+    results_refined_total: 0,
+    functions_rewritten: 0,
+    calls_rewritten: 0,
+    local_indices_rewritten: 0,
+    drops_removed_due_to_result: 0,
+    filtered_call_args_total: 0,
+    filtered_call_args_removed_total: 0,
+    prologue_inserted_funcs: 0,
+    oscillation_suspects: 0,
+    analysis_hotspots: [],
+    rewrite_hotspots: [],
+    oscillation_samples: [],
+  }
+}
+
+///|
+fn dae_trace_detail_timing_enabled(stats : DAETraceStats) -> Bool {
+  stats.detail_timing_enabled
+}
+
+///|
+fn dae_trace_rewrite_progress_check_interval() -> Int {
+  16384
+}
+
+///|
+priv struct DAEOnceResult {
+  mod : Module
+  changed : Bool
+  signature_changed : Bool
+  body_changed : Bool
+  appended_clones : Int
+  defined_funcs : Int
+  abs_funcs : Int
+  flat_type_count_after : Int
+  stats : DAETraceStats
+}
+
+///|
+fn dae_trace_record_hotspot(
+  entries : Array[DAEHotspotEntry],
+  idx : Int,
+  elapsed_us : UInt64,
 ) -> Unit {
-  let FuncIdx(raw) = target
-  let idx = raw.reinterpret_as_int()
-  if idx < 0 || idx >= calls_by_target.length() {
+  entries.push(DAEHotspotEntry::new(idx, elapsed_us))
+}
+
+///|
+fn dae_trace_emit_hotspots(
+  trace : (String) -> Unit,
+  label : String,
+  entries : Array[DAEHotspotEntry],
+  limit : Int,
+) -> Unit {
+  if entries.is_empty() || limit <= 0 {
     return
   }
-  call_counts[idx] += 1
-  calls_by_target[idx].push(callsite(caller_abs_idx, args.copy()))
+  let used : Array[Bool] = Array::make(entries.length(), false)
+  let out : Array[String] = []
+  let mut emitted = 0
+  while emitted < limit && emitted < entries.length() {
+    let mut best_idx = -1
+    let mut best_elapsed = 0UL
+    let mut i = 0
+    while i < entries.length() {
+      let entry = entries[i]
+      if not(used[i]) && (best_idx < 0 || entry.elapsed_us > best_elapsed) {
+        best_idx = i
+        best_elapsed = entry.elapsed_us
+      }
+      i += 1
+    }
+    if best_idx < 0 {
+      break
+    }
+    used[best_idx] = true
+    let entry = entries[best_idx]
+    out.push("\{entry.idx}:\{dae_trace_delta_us_to_ms(entry.elapsed_us)}ms")
+    emitted += 1
+  }
+  if not(out.is_empty()) {
+    trace("\{label}=\{out}")
+  }
+}
+
+///|
+fn single_result_type(func_type : FuncType) -> ValType? {
+  match func_type {
+    FuncType(_, [result]) => Some(result)
+    _ => None
+  }
+}
+
+///|
+fn collect_direct_result_types(func_types : Array[FuncType]) -> Array[ValType?] {
+  let out : Array[ValType?] = []
+  for func_type in func_types {
+    out.push(single_result_type(func_type))
+  }
+  out
+}
+
+///|
+fn known_instr_type(
+  instr : TInstr,
+  caller_abs_idx : Int,
+  local_types_by_abs : Array[Array[ValType]],
+  global_types : Array[ValType],
+  direct_result_types : Array[ValType?],
+  env : Env,
+  trace_stats : DAETraceStats,
+) -> ValType? {
+  trace_stats.known_type_calls_total += 1
+  let track_detail_timing = dae_trace_detail_timing_enabled(trace_stats)
+  let start_us = if track_detail_timing { dae_trace_now_us() } else { 0UL }
+  let out = match instr.kind {
+    TInstrKind::TI32Const(_) => Some(ValType::i32())
+    TInstrKind::TI64Const(_) => Some(ValType::i64())
+    TInstrKind::TF32Const(_) => Some(ValType::f32())
+    TInstrKind::TF64Const(_) => Some(ValType::f64())
+    TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      Some(ValType::v128())
+    TInstrKind::TRefNull(ht) => Some(ValType::ref_type(RefType::new(true, ht)))
+    TInstrKind::TRefFunc(_) =>
+      Some(
+        ValType::ref_type(
+          RefType::new(false, HeapType::abs(AbsHeapType::func())),
+        ),
+      )
+    TInstrKind::TLocalGet(LocalIdx(raw)) => {
+      trace_stats.known_type_local_get_calls += 1
+      let idx = raw.reinterpret_as_int()
+      if caller_abs_idx < 0 || caller_abs_idx >= local_types_by_abs.length() {
+        None
+      } else {
+        let locals = local_types_by_abs[caller_abs_idx]
+        if idx < 0 || idx >= locals.length() {
+          None
+        } else {
+          Some(locals[idx])
+        }
+      }
+    }
+    TInstrKind::TGlobalGet(GlobalIdx(raw)) => {
+      trace_stats.known_type_global_get_calls += 1
+      let idx = raw.reinterpret_as_int()
+      if idx < 0 || idx >= global_types.length() {
+        None
+      } else {
+        Some(global_types[idx])
+      }
+    }
+    TInstrKind::TLocalTee(_, value) => {
+      trace_stats.known_type_other_calls += 1
+      known_instr_type(
+        value, caller_abs_idx, local_types_by_abs, global_types, direct_result_types,
+        env, trace_stats,
+      )
+    }
+    TInstrKind::TRefAsNonNull(value) => {
+      trace_stats.known_type_other_calls += 1
+      match
+        known_instr_type(
+          value, caller_abs_idx, local_types_by_abs, global_types, direct_result_types,
+          env, trace_stats,
+        ) {
+        Some(RefTypeValType(rt)) =>
+          Some(ValType::ref_type(RefType::new(false, rt.get_heap_type())))
+        _ => None
+      }
+    }
+    TInstrKind::TRefCast(nullable, ht, _) => {
+      trace_stats.known_type_ref_cast_calls += 1
+      Some(ValType::ref_type(RefType::new(nullable, ht)))
+    }
+    TInstrKind::TSelect(Some(types), _, _, _) if types.length() == 1 => {
+      trace_stats.known_type_select_calls += 1
+      Some(types[0])
+    }
+    TInstrKind::TCall(FuncIdx(raw), _)
+    | TInstrKind::TReturnCall(FuncIdx(raw), _) => {
+      trace_stats.known_type_call_direct_calls += 1
+      let idx = raw.reinterpret_as_int()
+      if idx < 0 || idx >= direct_result_types.length() {
+        None
+      } else {
+        direct_result_types[idx]
+      }
+    }
+    TInstrKind::TCallIndirect(type_idx, _, _, _)
+    | TInstrKind::TCallRef(type_idx, _, _)
+    | TInstrKind::TReturnCallIndirect(type_idx, _, _, _)
+    | TInstrKind::TReturnCallRef(type_idx, _, _) => {
+      trace_stats.known_type_call_indirect_calls += 1
+      trace_stats.resolve_functype_calls += 1
+      match env.resolve_functype(type_idx) {
+        Some(func_type) => single_result_type(func_type)
+        None => None
+      }
+    }
+    _ => {
+      trace_stats.known_type_other_calls += 1
+      None
+    }
+  }
+  if track_detail_timing {
+    trace_stats.known_type_elapsed_us += dae_trace_elapsed_us_since(start_us)
+  }
+  out
+}
+
+///|
+fn dae_match_types(
+  value : ValType,
+  expected : ValType,
+  env : Env,
+  trace_stats : DAETraceStats,
+) -> Bool {
+  trace_stats.match_calls_total += 1
+  let track_detail_timing = dae_trace_detail_timing_enabled(trace_stats)
+  let start_us = if track_detail_timing { dae_trace_now_us() } else { 0UL }
+  let out = Match::matches(value, expected, env)
+  if track_detail_timing {
+    trace_stats.match_elapsed_us += dae_trace_elapsed_us_since(start_us)
+  }
+  out
+}
+
+///|
+fn note_call_summary(
+  summary : DAECallSummary,
+  caller_abs_idx : Int,
+  args : Array[TInstr],
+  local_types_by_abs : Array[Array[ValType]],
+  global_types : Array[ValType],
+  direct_result_types : Array[ValType?],
+  env : Env,
+  trace_stats : DAETraceStats,
+) -> Unit {
+  for p = 0; p < summary.param_types.length(); p = p + 1 {
+    if p >= args.length() {
+      summary.all_pure[p] = false
+      summary.const_valid[p] = false
+      summary.const_candidate[p] = None
+      summary.type_valid[p] = false
+      summary.type_candidate[p] = None
+      continue
+    }
+    let arg = args[p]
+    if summary.all_pure[p] && not(is_trivially_pure_arg(arg)) {
+      summary.all_pure[p] = false
+    }
+    if summary.const_valid[p] {
+      if is_literal_const(arg) {
+        match summary.const_candidate[p] {
+          None => summary.const_candidate[p] = Some(arg)
+          Some(prev) =>
+            if prev != arg {
+              summary.const_valid[p] = false
+              summary.const_candidate[p] = None
+            }
+        }
+      } else {
+        summary.const_valid[p] = false
+        summary.const_candidate[p] = None
+      }
+    }
+    if summary.type_valid[p] {
+      match
+        known_instr_type(
+          arg, caller_abs_idx, local_types_by_abs, global_types, direct_result_types,
+          env, trace_stats,
+        ) {
+        Some(arg_ty) if dae_match_types(
+            arg_ty,
+            summary.param_types[p],
+            env,
+            trace_stats,
+          ) =>
+          summary.type_candidate[p] = match summary.type_candidate[p] {
+            None => Some(arg_ty)
+            Some(prev) => common_supertype(prev, arg_ty, env, trace_stats)
+          }
+        _ => {
+          summary.type_valid[p] = false
+          summary.type_candidate[p] = None
+        }
+      }
+    }
+  }
+}
+
+///|
+fn note_return_summary(
+  summary : DAEReturnSummary,
+  values : Array[TInstr],
+  abs_func_idx : Int,
+  result_types : Array[ValType],
+  local_types_by_abs : Array[Array[ValType]],
+  global_types : Array[ValType],
+  direct_result_types : Array[ValType?],
+  env : Env,
+  trace_stats : DAETraceStats,
+) -> Unit {
+  trace_stats.returns_seen += 1
+  summary.has_explicit_return = true
+  if summary.failed {
+    return
+  }
+  if values.length() != result_types.length() {
+    summary.failed = true
+    return
+  }
+  for i = 0; i < result_types.length(); i = i + 1 {
+    if not(summary.tracked[i]) {
+      continue
+    }
+    match
+      known_instr_type(
+        values[i],
+        abs_func_idx,
+        local_types_by_abs,
+        global_types,
+        direct_result_types,
+        env,
+        trace_stats,
+      ) {
+      Some(vt) if dae_match_types(vt, result_types[i], env, trace_stats) =>
+        summary.candidate[i] = match summary.candidate[i] {
+          None => Some(vt)
+          Some(prev) => common_supertype(prev, vt, env, trace_stats)
+        }
+      _ => {
+        summary.failed = true
+        return
+      }
+    }
+    if summary.candidate[i] is None {
+      summary.failed = true
+      return
+    }
+  }
 }
 
 ///|
 fn analyze_function_body(
   abs_func_idx : Int,
   param_count : Int,
+  result_types : Array[ValType],
   body : TExpr,
-  calls_by_target : Array[Array[CallSite]],
+  call_summaries : Array[DAECallSummary],
   call_counts : Array[Int],
   dropped_call_counts : Array[Int],
   has_unseen_calls : Array[Bool],
   has_tail_calls : Array[Bool],
   tail_callee : Array[Bool],
   used_params : Set[Int],
+  direct_callees : Set[Int],
+  return_summary : DAEReturnSummary,
+  local_types_by_abs : Array[Array[ValType]],
+  global_types : Array[ValType],
+  direct_result_types : Array[ValType?],
+  env : Env,
+  trace_stats : DAETraceStats,
 ) -> Unit {
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+    trace_stats.analysis_instrs_visited += 1
     match instr.kind {
       TInstrKind::TLocalGet(LocalIdx(raw)) => {
+        trace_stats.analysis_localgets_seen += 1
         let idx = raw.reinterpret_as_int()
         if idx >= 0 && idx < param_count {
           used_params.add(idx)
@@ -307,12 +924,43 @@ fn analyze_function_body(
           dropped_call_counts[idx] += 1
         }
       }
-      TInstrKind::TCall(target, args) =>
-        record_call(abs_func_idx, target, args, calls_by_target, call_counts)
-      TInstrKind::TReturnCall(target, args) => {
-        record_call(abs_func_idx, target, args, calls_by_target, call_counts)
+      TInstrKind::TCall(target, args) => {
+        trace_stats.analysis_calls_seen += 1
         let FuncIdx(raw) = target
         let idx = raw.reinterpret_as_int()
+        if idx >= 0 && idx < call_summaries.length() {
+          direct_callees.add(idx)
+          call_counts[idx] += 1
+          note_call_summary(
+            call_summaries[idx],
+            abs_func_idx,
+            args,
+            local_types_by_abs,
+            global_types,
+            direct_result_types,
+            env,
+            trace_stats,
+          )
+        }
+      }
+      TInstrKind::TReturnCall(target, args) => {
+        trace_stats.analysis_calls_seen += 1
+        let FuncIdx(raw) = target
+        let idx = raw.reinterpret_as_int()
+        if idx >= 0 && idx < call_summaries.length() {
+          direct_callees.add(idx)
+          call_counts[idx] += 1
+          note_call_summary(
+            call_summaries[idx],
+            abs_func_idx,
+            args,
+            local_types_by_abs,
+            global_types,
+            direct_result_types,
+            env,
+            trace_stats,
+          )
+        }
         if idx >= 0 && idx < tail_callee.length() {
           tail_callee[idx] = true
         }
@@ -331,67 +979,16 @@ fn analyze_function_body(
           has_unseen_calls[idx] = true
         }
       }
+      TInstrKind::TReturn(values) =>
+        note_return_summary(
+          return_summary, values, abs_func_idx, result_types, local_types_by_abs,
+          global_types, direct_result_types, env, trace_stats,
+        )
       _ => ()
     }
     self.walk_tinstruction_default((), instr)
   })
   ignore(walker.walk_texpr((), body))
-}
-
-///|
-fn compute_constant_params(
-  param_types : Array[ValType],
-  calls : Array[CallSite],
-) -> Map[Int, TInstr] {
-  let constants : Map[Int, TInstr] = Map::new()
-  if calls.is_empty() {
-    return constants
-  }
-  for p = 0; p < param_types.length(); p = p + 1 {
-    let mut candidate : TInstr? = None
-    let mut all_const = true
-    for callsite in calls {
-      let args = callsite.args
-      if p >= args.length() {
-        all_const = false
-        break
-      }
-      let arg = args[p]
-      if not(is_literal_const(arg)) {
-        all_const = false
-        break
-      }
-      match candidate {
-        None => candidate = Some(arg)
-        Some(prev) =>
-          if prev != arg {
-            all_const = false
-            break
-          }
-      }
-    }
-    if all_const {
-      match candidate {
-        Some(c) => constants.set(p, c)
-        None => ()
-      }
-    }
-  }
-  constants
-}
-
-///|
-fn all_calls_arg_pure(calls : Array[CallSite], param_idx : Int) -> Bool {
-  for callsite in calls {
-    let args = callsite.args
-    if param_idx >= args.length() {
-      return false
-    }
-    if not(is_trivially_pure_arg(args[param_idx])) {
-      return false
-    }
-  }
-  true
 }
 
 ///|
@@ -434,145 +1031,47 @@ fn build_local_types_by_abs(
 }
 
 ///|
-fn known_instr_type(
-  instr : TInstr,
-  caller_abs_idx : Int,
-  local_types_by_abs : Array[Array[ValType]],
-  global_types : Array[ValType],
+fn common_supertype(
+  a : ValType,
+  b : ValType,
   env : Env,
+  trace_stats : DAETraceStats,
 ) -> ValType? {
-  match instr.kind {
-    TInstrKind::TI32Const(_) => Some(ValType::i32())
-    TInstrKind::TI64Const(_) => Some(ValType::i64())
-    TInstrKind::TF32Const(_) => Some(ValType::f32())
-    TInstrKind::TF64Const(_) => Some(ValType::f64())
-    TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-      Some(ValType::v128())
-    TInstrKind::TRefNull(ht) => Some(ValType::ref_type(RefType::new(true, ht)))
-    TInstrKind::TRefFunc(_) =>
-      Some(
-        ValType::ref_type(
-          RefType::new(false, HeapType::abs(AbsHeapType::func())),
-        ),
-      )
-    TInstrKind::TLocalGet(LocalIdx(raw)) => {
-      let idx = raw.reinterpret_as_int()
-      if caller_abs_idx < 0 || caller_abs_idx >= local_types_by_abs.length() {
-        return None
-      }
-      let locals = local_types_by_abs[caller_abs_idx]
-      if idx < 0 || idx >= locals.length() {
-        return None
-      }
-      Some(locals[idx])
-    }
-    TInstrKind::TGlobalGet(GlobalIdx(raw)) => {
-      let idx = raw.reinterpret_as_int()
-      if idx < 0 || idx >= global_types.length() {
-        return None
-      }
-      Some(global_types[idx])
-    }
-    TInstrKind::TRefAsNonNull(value) =>
-      match
-        known_instr_type(
-          value, caller_abs_idx, local_types_by_abs, global_types, env,
-        ) {
-        Some(RefTypeValType(rt)) =>
-          Some(ValType::ref_type(RefType::new(false, rt.get_heap_type())))
-        _ => None
-      }
-    TInstrKind::TRefCast(nullable, ht, _) =>
-      Some(ValType::ref_type(RefType::new(nullable, ht)))
-    TInstrKind::TSelect(Some(types), _, _, _) if types.length() == 1 =>
-      Some(types[0])
-    TInstrKind::TCall(target, _) =>
-      match env.get_functype_by_funcidx(target) {
-        Some(FuncType(_, [r])) => Some(r)
-        _ => None
-      }
-    TInstrKind::TCallIndirect(type_idx, _, _, _)
-    | TInstrKind::TCallRef(type_idx, _, _) =>
-      match env.resolve_functype(type_idx) {
-        Some(FuncType(_, [r])) => Some(r)
-        _ => None
-      }
-    _ => None
+  trace_stats.common_supertype_calls_total += 1
+  let track_detail_timing = dae_trace_detail_timing_enabled(trace_stats)
+  let start_us = if track_detail_timing { dae_trace_now_us() } else { 0UL }
+  let out = if dae_match_types(a, b, env, trace_stats) {
+    Some(b)
+  } else if dae_match_types(b, a, env, trace_stats) {
+    Some(a)
+  } else {
+    None
   }
-}
-
-///|
-fn common_supertype(a : ValType, b : ValType, env : Env) -> ValType? {
-  if Match::matches(a, b, env) {
-    return Some(b)
+  if track_detail_timing {
+    trace_stats.common_supertype_elapsed_us += dae_trace_elapsed_us_since(
+      start_us,
+    )
   }
-  if Match::matches(b, a, env) {
-    return Some(a)
-  }
-  None
+  out
 }
 
 ///|
 fn refine_param_types(
   old_params : Array[ValType],
-  calls : Array[CallSite],
-  local_types_by_abs : Array[Array[ValType]],
-  global_types : Array[ValType],
+  summary : DAECallSummary,
   env : Env,
+  trace_stats : DAETraceStats,
 ) -> Array[ValType] {
   let new_params = old_params.copy()
-  if calls.is_empty() {
-    return new_params
-  }
   for p = 0; p < old_params.length(); p = p + 1 {
-    let old_param = old_params[p]
-    match old_param {
-      RefTypeValType(_) => ()
-      _ => continue
-    }
-    let mut candidate : ValType? = None
-    let mut can_refine = true
-    for callsite in calls {
-      let args = callsite.args
-      if p >= args.length() {
-        can_refine = false
-        break
-      }
-      let arg = args[p]
-      match
-        known_instr_type(
-          arg,
-          callsite.caller_abs_idx,
-          local_types_by_abs,
-          global_types,
-          env,
-        ) {
-        Some(arg_ty) => {
-          if not(Match::matches(arg_ty, old_param, env)) {
-            can_refine = false
-            break
-          }
-          candidate = match candidate {
-            None => Some(arg_ty)
-            Some(prev) => common_supertype(prev, arg_ty, env)
-          }
-          if candidate is None {
-            can_refine = false
-            break
-          }
+    match old_params[p] {
+      RefTypeValType(_) if summary.type_valid[p] =>
+        match summary.type_candidate[p] {
+          Some(new_ty) if new_ty != old_params[p] &&
+            dae_match_types(new_ty, old_params[p], env, trace_stats) =>
+            new_params[p] = new_ty
+          _ => ()
         }
-        None => {
-          can_refine = false
-          break
-        }
-      }
-    }
-    if not(can_refine) {
-      continue
-    }
-    match candidate {
-      Some(new_ty) if new_ty != old_param &&
-        Match::matches(new_ty, old_param, env) => new_params[p] = new_ty
       _ => ()
     }
   }
@@ -580,138 +1079,31 @@ fn refine_param_types(
 }
 
 ///|
-fn collect_explicit_return_types(
-  body : TExpr,
-  result_arity : Int,
-  abs_func_idx : Int,
-  local_types_by_abs : Array[Array[ValType]],
-  global_types : Array[ValType],
-  env : Env,
-) -> Array[Array[ValType]]? {
-  let rows : Array[Array[ValType]] = []
-  let mut failed = false
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    match instr.kind {
-      TInstrKind::TReturn(values) =>
-        if values.length() != result_arity {
-          failed = true
-        } else {
-          let row : Array[ValType] = []
-          for value in values {
-            match
-              known_instr_type(
-                value, abs_func_idx, local_types_by_abs, global_types, env,
-              ) {
-              Some(vt) => row.push(vt)
-              None => {
-                failed = true
-                break
-              }
-            }
-          }
-          if row.length() == result_arity {
-            rows.push(row)
-          }
-        }
-      _ => ()
-    }
-    self.walk_tinstruction_default((), instr)
-  })
-  ignore(walker.walk_texpr((), body))
-  if failed {
-    None
-  } else {
-    Some(rows)
-  }
-}
-
-///|
 fn refine_return_types(
   old_results : Array[ValType],
-  body : TExpr,
-  abs_func_idx : Int,
-  local_types_by_abs : Array[Array[ValType]],
-  global_types : Array[ValType],
+  summary : DAEReturnSummary,
   env : Env,
+  trace_stats : DAETraceStats,
 ) -> Array[ValType] {
-  if old_results.is_empty() {
-    return old_results
-  }
-  let rows = match
-    collect_explicit_return_types(
-      body,
-      old_results.length(),
-      abs_func_idx,
-      local_types_by_abs,
-      global_types,
-      env,
-    ) {
-    Some(r) => r
-    None => return old_results
-  }
-  if rows.is_empty() {
+  if old_results.is_empty() ||
+    not(summary.has_explicit_return) ||
+    summary.failed {
     return old_results
   }
   let new_results = old_results.copy()
   for i = 0; i < old_results.length(); i = i + 1 {
-    let mut candidate = rows[0][i]
-    for row_i = 1; row_i < rows.length(); row_i = row_i + 1 {
-      match common_supertype(candidate, rows[row_i][i], env) {
-        Some(c) => candidate = c
-        None => return old_results
-      }
+    match old_results[i] {
+      RefTypeValType(_) =>
+        match summary.candidate[i] {
+          Some(candidate) if candidate != old_results[i] &&
+            dae_match_types(candidate, old_results[i], env, trace_stats) =>
+            new_results[i] = candidate
+          _ => ()
+        }
+      _ => ()
     }
-    if not(Match::matches(candidate, old_results[i], env)) {
-      return old_results
-    }
-    new_results[i] = candidate
   }
   new_results
-}
-
-///|
-fn count_removed_params(
-  param_count : Int,
-  removed_unused : Set[Int],
-  removed_const : Map[Int, TInstr],
-) -> Int {
-  let mut n = 0
-  for p = 0; p < param_count; p = p + 1 {
-    if removed_unused.contains(p) || removed_const.contains(p) {
-      n += 1
-    }
-  }
-  n
-}
-
-///|
-fn rewrite_local_index(
-  idx : Int,
-  old_param_count : Int,
-  removed_unused : Set[Int],
-  removed_const : Map[Int, TInstr],
-  const_local_slots : Map[Int, Int],
-  removed_total : Int,
-) -> Int? {
-  if idx < 0 {
-    return Some(idx)
-  }
-  if idx < old_param_count {
-    if removed_unused.contains(idx) {
-      return None
-    }
-    if removed_const.contains(idx) {
-      return const_local_slots.get(idx)
-    }
-    let mut removed_before = 0
-    for p = 0; p < idx; p = p + 1 {
-      if removed_unused.contains(p) || removed_const.contains(p) {
-        removed_before += 1
-      }
-    }
-    return Some(idx - removed_before)
-  }
-  Some(idx - removed_total)
 }
 
 ///|
@@ -720,22 +1112,27 @@ fn build_local_plan(
   old_param_types : Array[ValType],
   removed_unused : Set[Int],
   removed_const : Map[Int, TInstr],
-) -> (Array[ValType], Array[TInstr], Int, Map[Int, Int]) {
+) -> (Array[ValType], Array[TInstr], Int, Array[Int?]) {
   let old_param_count = old_param_types.length()
-  let removed_total = count_removed_params(
-    old_param_count, removed_unused, removed_const,
-  )
-  let new_param_count = old_param_count - removed_total
+  let param_remap : Array[Int?] = Array::make(old_param_count, None)
+  let mut new_param_count = 0
+  for p = 0; p < old_param_count; p = p + 1 {
+    if removed_unused.contains(p) || removed_const.contains(p) {
+      continue
+    }
+    param_remap[p] = Some(new_param_count)
+    new_param_count += 1
+  }
+  let removed_total = old_param_count - new_param_count
   let new_locals = old_locals.copy()
   let prologue : Array[TInstr] = []
-  let const_local_slots : Map[Int, Int] = Map::new()
   for p = 0; p < old_param_count; p = p + 1 {
     match removed_const.get(p) {
       Some(const_val) => {
         let local_offset = new_locals.length()
         new_locals.push(old_param_types[p])
         let local_idx = new_param_count + local_offset
-        const_local_slots.set(p, local_idx)
+        param_remap[p] = Some(local_idx)
         prologue.push(
           TInstr::local_set(
             LocalIdx::new(local_idx.reinterpret_as_uint()),
@@ -746,7 +1143,37 @@ fn build_local_plan(
       None => ()
     }
   }
-  (new_locals, prologue, removed_total, const_local_slots)
+  (new_locals, prologue, removed_total, param_remap)
+}
+
+///|
+fn rewrite_local_index(
+  idx : Int,
+  old_param_count : Int,
+  param_remap : Array[Int?],
+  removed_total : Int,
+) -> Int? {
+  if idx < 0 {
+    return Some(idx)
+  }
+  if idx < old_param_count {
+    return param_remap[idx]
+  }
+  Some(idx - removed_total)
+}
+
+///|
+fn filter_call_args(args : Array[TInstr], removed : Set[Int]) -> Array[TInstr] {
+  if removed.is_empty() {
+    return args
+  }
+  let out : Array[TInstr] = []
+  for i = 0; i < args.length(); i = i + 1 {
+    if not(removed.contains(i)) {
+      out.push(args[i])
+    }
+  }
+  out
 }
 
 ///|
@@ -766,60 +1193,99 @@ fn drop_implicit_result(body : TExpr) -> TExpr {
 }
 
 ///|
-fn rewrite_locals_and_returns(
+fn rewrite_body(
   body : TExpr,
   old_param_count : Int,
-  removed_unused : Set[Int],
-  removed_const : Map[Int, TInstr],
-  const_local_slots : Map[Int, Int],
+  param_remap : Array[Int?],
   removed_total : Int,
   remove_result : Bool,
+  removed_params_by_target : Array[Set[Int]],
+  result_removed_by_target : Array[Bool],
+  target_remap : Array[Int],
+  trace_stats : DAETraceStats,
+  rewrite_trace : DAERewriteTrace,
+  trace : (String) -> Unit,
+  trace_progress : Bool,
+  iter : Int,
+  abs_func_idx : Int,
 ) -> TExpr {
+  let rewrite_locals_enabled = old_param_count > 0 || removed_total != 0
+  let rewrite_calls_enabled = removed_params_by_target.length() > 0 &&
+    target_remap.length() > 0
+  let rewrite_removed_results_enabled = result_removed_by_target.length() > 0
+  let func_start_us = if trace_progress { dae_trace_now_us() } else { 0UL }
+  let mut func_last_emit_us = func_start_us
+  let mut func_next_progress_instr = dae_trace_rewrite_progress_check_interval()
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    let processed = match self.walk_tinstruction_default((), instr) {
-      Ok(Some((_, i))) => i
-      Ok(None) => instr
+    trace_stats.rewrite_instrs_visited += 1
+    rewrite_trace.instrs_visited += 1
+    if trace_progress &&
+      rewrite_trace.instrs_visited >= func_next_progress_instr {
+      func_last_emit_us = dae_trace_maybe_emit_rewrite_func_progress(
+        trace, trace_progress, iter, abs_func_idx, func_start_us, func_last_emit_us,
+        rewrite_trace, trace_stats,
+      )
+      func_next_progress_instr = rewrite_trace.instrs_visited +
+        dae_trace_rewrite_progress_check_interval()
+    }
+    let dropped_call_target = match instr.kind {
+      TInstrKind::TDrop({ kind: TInstrKind::TCall(target, _), .. }) =>
+        Some(target)
+      _ => None
+    }
+    let (processed, child_changed) = match
+      self.walk_tinstruction_default((), instr) {
+      Ok(Some((_, i))) => (i, true)
+      Ok(None) => (instr, false)
       Err(e) => return Err(e)
     }
     match processed.kind {
       TInstrKind::TLocalGet(LocalIdx(raw)) => {
+        if not(rewrite_locals_enabled) {
+          return if child_changed { change((), processed) } else { unchanged() }
+        }
         let idx = raw.reinterpret_as_int()
         match
-          rewrite_local_index(
-            idx, old_param_count, removed_unused, removed_const, const_local_slots,
-            removed_total,
-          ) {
+          rewrite_local_index(idx, old_param_count, param_remap, removed_total) {
           Some(new_idx) =>
             if new_idx == idx {
-              if processed != instr {
+              if child_changed {
                 change((), processed)
               } else {
                 unchanged()
               }
             } else {
+              trace_stats.local_indices_rewritten += 1
+              rewrite_trace.local_indices_rewritten += 1
               change(
                 (),
                 TInstr::local_get(LocalIdx::new(new_idx.reinterpret_as_uint())),
               )
             }
-          None => change((), TInstr::unreachable_())
+          None => {
+            trace_stats.local_indices_rewritten += 1
+            rewrite_trace.local_indices_rewritten += 1
+            change((), TInstr::unreachable_())
+          }
         }
       }
       TInstrKind::TLocalSet(LocalIdx(raw), value) => {
+        if not(rewrite_locals_enabled) {
+          return if child_changed { change((), processed) } else { unchanged() }
+        }
         let idx = raw.reinterpret_as_int()
         match
-          rewrite_local_index(
-            idx, old_param_count, removed_unused, removed_const, const_local_slots,
-            removed_total,
-          ) {
+          rewrite_local_index(idx, old_param_count, param_remap, removed_total) {
           Some(new_idx) =>
             if new_idx == idx {
-              if processed != instr {
+              if child_changed {
                 change((), processed)
               } else {
                 unchanged()
               }
             } else {
+              trace_stats.local_indices_rewritten += 1
+              rewrite_trace.local_indices_rewritten += 1
               change(
                 (),
                 TInstr::local_set(
@@ -828,24 +1294,30 @@ fn rewrite_locals_and_returns(
                 ),
               )
             }
-          None => change((), TInstr::drop(value))
+          None => {
+            trace_stats.local_indices_rewritten += 1
+            rewrite_trace.local_indices_rewritten += 1
+            change((), TInstr::drop(value))
+          }
         }
       }
       TInstrKind::TLocalTee(LocalIdx(raw), value) => {
+        if not(rewrite_locals_enabled) {
+          return if child_changed { change((), processed) } else { unchanged() }
+        }
         let idx = raw.reinterpret_as_int()
         match
-          rewrite_local_index(
-            idx, old_param_count, removed_unused, removed_const, const_local_slots,
-            removed_total,
-          ) {
+          rewrite_local_index(idx, old_param_count, param_remap, removed_total) {
           Some(new_idx) =>
             if new_idx == idx {
-              if processed != instr {
+              if child_changed {
                 change((), processed)
               } else {
                 unchanged()
               }
             } else {
+              trace_stats.local_indices_rewritten += 1
+              rewrite_trace.local_indices_rewritten += 1
               change(
                 (),
                 TInstr::local_tee(
@@ -854,12 +1326,102 @@ fn rewrite_locals_and_returns(
                 ),
               )
             }
-          None => change((), value)
+          None => {
+            trace_stats.local_indices_rewritten += 1
+            rewrite_trace.local_indices_rewritten += 1
+            change((), value)
+          }
         }
       }
+      TInstrKind::TCall(target, args) => {
+        if not(rewrite_calls_enabled) {
+          return if child_changed { change((), processed) } else { unchanged() }
+        }
+        let FuncIdx(raw) = target
+        let idx = raw.reinterpret_as_int()
+        if idx < 0 || idx >= removed_params_by_target.length() {
+          return if child_changed { change((), processed) } else { unchanged() }
+        }
+        let remapped = target_remap[idx]
+        let new_target = FuncIdx::new(remapped.reinterpret_as_uint())
+        let new_args = filter_call_args(args, removed_params_by_target[idx])
+        let removed_arg_count = args.length() - new_args.length()
+        if new_args != args || remapped != idx {
+          trace_stats.calls_rewritten += 1
+          rewrite_trace.calls_rewritten += 1
+          if removed_arg_count > 0 {
+            trace_stats.filtered_call_args_total += 1
+            trace_stats.filtered_call_args_removed_total += removed_arg_count
+            rewrite_trace.call_args_removed += removed_arg_count
+          }
+          change((), TInstr::call(new_target, new_args))
+        } else if child_changed {
+          change((), processed)
+        } else {
+          unchanged()
+        }
+      }
+      TInstrKind::TReturnCall(target, args) => {
+        if not(rewrite_calls_enabled) {
+          return if child_changed { change((), processed) } else { unchanged() }
+        }
+        let FuncIdx(raw) = target
+        let idx = raw.reinterpret_as_int()
+        if idx < 0 || idx >= removed_params_by_target.length() {
+          return if child_changed { change((), processed) } else { unchanged() }
+        }
+        let remapped = target_remap[idx]
+        let new_target = FuncIdx::new(remapped.reinterpret_as_uint())
+        let new_args = filter_call_args(args, removed_params_by_target[idx])
+        let removed_arg_count = args.length() - new_args.length()
+        if new_args != args || remapped != idx {
+          trace_stats.calls_rewritten += 1
+          rewrite_trace.calls_rewritten += 1
+          if removed_arg_count > 0 {
+            trace_stats.filtered_call_args_total += 1
+            trace_stats.filtered_call_args_removed_total += removed_arg_count
+            rewrite_trace.call_args_removed += removed_arg_count
+          }
+          change((), TInstr::return_call(new_target, new_args))
+        } else if child_changed {
+          change((), processed)
+        } else {
+          unchanged()
+        }
+      }
+      TInstrKind::TDrop(value) =>
+        match dropped_call_target {
+          Some(FuncIdx(raw)) => {
+            if not(rewrite_removed_results_enabled) {
+              return if child_changed {
+                change((), processed)
+              } else {
+                unchanged()
+              }
+            }
+            let idx = raw.reinterpret_as_int()
+            if idx >= 0 &&
+              idx < result_removed_by_target.length() &&
+              result_removed_by_target[idx] {
+              trace_stats.drops_removed_due_to_result += 1
+              rewrite_trace.drops_removed += 1
+              change((), value)
+            } else if child_changed {
+              change((), processed)
+            } else {
+              unchanged()
+            }
+          }
+          None =>
+            if child_changed {
+              change((), processed)
+            } else {
+              unchanged()
+            }
+        }
       TInstrKind::TReturn(values) if remove_result && values.length() > 0 =>
         change((), TInstr::return_([]))
-      _ => if processed != instr { change((), processed) } else { unchanged() }
+      _ => if child_changed { change((), processed) } else { unchanged() }
     }
   })
   match walker.walk_texpr((), body) {
@@ -874,107 +1436,32 @@ fn rewrite_locals_and_returns(
 }
 
 ///|
-fn filter_call_args(args : Array[TInstr], removed : Set[Int]) -> Array[TInstr] {
-  if removed.is_empty() {
-    return args
-  }
-  let out : Array[TInstr] = []
-  for i = 0; i < args.length(); i = i + 1 {
-    if not(removed.contains(i)) {
-      out.push(args[i])
-    }
-  }
-  out
-}
-
-///|
-fn rewrite_calls(
+fn rewrite_locals_and_returns(
   body : TExpr,
-  removed_params_by_target : Array[Set[Int]],
-  result_removed_by_target : Array[Bool],
-  target_remap : Array[Int],
+  old_param_count : Int,
+  param_remap : Array[Int?],
+  removed_total : Int,
+  remove_result : Bool,
 ) -> TExpr {
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    let processed = match self.walk_tinstruction_default((), instr) {
-      Ok(Some((_, i))) => i
-      Ok(None) => instr
-      Err(e) => return Err(e)
-    }
-    match processed.kind {
-      TInstrKind::TDrop({ kind: TInstrKind::TCall(target, args), .. }) => {
-        let FuncIdx(raw) = target
-        let idx = raw.reinterpret_as_int()
-        if idx < 0 || idx >= removed_params_by_target.length() {
-          return if processed != instr {
-            change((), processed)
-          } else {
-            unchanged()
-          }
-        }
-        let remapped = target_remap[idx]
-        let new_target = FuncIdx::new(remapped.reinterpret_as_uint())
-        let new_args = filter_call_args(args, removed_params_by_target[idx])
-        if result_removed_by_target[idx] {
-          change((), TInstr::call(new_target, new_args))
-        } else if new_args != args {
-          change((), TInstr::drop(TInstr::call(new_target, new_args)))
-        } else if remapped != idx {
-          change((), TInstr::drop(TInstr::call(new_target, new_args)))
-        } else if processed != instr {
-          change((), processed)
-        } else {
-          unchanged()
-        }
-      }
-      TInstrKind::TCall(target, args) => {
-        let FuncIdx(raw) = target
-        let idx = raw.reinterpret_as_int()
-        if idx < 0 || idx >= removed_params_by_target.length() {
-          return if processed != instr {
-            change((), processed)
-          } else {
-            unchanged()
-          }
-        }
-        let remapped = target_remap[idx]
-        let new_target = FuncIdx::new(remapped.reinterpret_as_uint())
-        let new_args = filter_call_args(args, removed_params_by_target[idx])
-        if new_args != args || remapped != idx {
-          change((), TInstr::call(new_target, new_args))
-        } else if processed != instr {
-          change((), processed)
-        } else {
-          unchanged()
-        }
-      }
-      TInstrKind::TReturnCall(target, args) => {
-        let FuncIdx(raw) = target
-        let idx = raw.reinterpret_as_int()
-        if idx < 0 || idx >= removed_params_by_target.length() {
-          return if processed != instr {
-            change((), processed)
-          } else {
-            unchanged()
-          }
-        }
-        let remapped = target_remap[idx]
-        let new_target = FuncIdx::new(remapped.reinterpret_as_uint())
-        let new_args = filter_call_args(args, removed_params_by_target[idx])
-        if new_args != args || remapped != idx {
-          change((), TInstr::return_call(new_target, new_args))
-        } else if processed != instr {
-          change((), processed)
-        } else {
-          unchanged()
-        }
-      }
-      _ => if processed != instr { change((), processed) } else { unchanged() }
-    }
-  })
-  match walker.walk_texpr((), body) {
-    Ok(Some((_, new_body))) => new_body
-    _ => body
-  }
+  let no_removed_params : Array[Set[Int]] = []
+  let no_removed_results : Array[Bool] = []
+  let no_target_remap : Array[Int] = []
+  rewrite_body(
+    body,
+    old_param_count,
+    param_remap,
+    removed_total,
+    remove_result,
+    no_removed_params,
+    no_removed_results,
+    no_target_remap,
+    DAETraceStats::new(),
+    DAERewriteTrace::new(),
+    dead_argument_elim_trace_noop,
+    false,
+    -1,
+    -1,
+  )
 }
 
 ///|
@@ -1011,34 +1498,276 @@ fn make_adapter_thunk(
 }
 
 ///|
-fn run_dead_argument_elim_once(mod : Module) -> Module {
+fn dae_trace_emit_iteration(
+  trace : (String) -> Unit,
+  iter : Int,
+  elapsed_us : UInt64,
+  result : DAEOnceResult,
+) -> Unit {
+  let stats = result.stats
+  trace(
+    "iter=\{iter} changed=\{result.changed} elapsed_ms=\{dae_trace_delta_us_to_ms(elapsed_us)} setup_ms=\{dae_trace_delta_us_to_ms(stats.setup_us)} analysis_ms=\{dae_trace_delta_us_to_ms(stats.analysis_us)} decide_ms=\{dae_trace_delta_us_to_ms(stats.decide_us)} sig_ms=\{dae_trace_delta_us_to_ms(stats.sig_us)} rewrite_ms=\{dae_trace_delta_us_to_ms(stats.rewrite_us)} signature_changed=\{result.signature_changed} body_changed=\{result.body_changed}",
+  )
+  trace(
+    "iter=\{iter} funcs=\{result.defined_funcs} abs_funcs=\{result.abs_funcs} flat_types=\{result.flat_type_count_after} clones=\{result.appended_clones} removed_params=\{stats.removed_params_total} const=\{stats.removed_const_params_total} unused=\{stats.removed_unused_params_total} result_removed=\{stats.result_removals_total} param_refined=\{stats.params_refined_total} result_refined=\{stats.results_refined_total}",
+  )
+  trace(
+    "iter=\{iter} analysis_instrs=\{stats.analysis_instrs_visited} rewrite_instrs=\{stats.rewrite_instrs_visited} analysis_calls=\{stats.analysis_calls_seen} analysis_localgets=\{stats.analysis_localgets_seen} returns=\{stats.returns_seen} known_type_calls=\{stats.known_type_calls_total} resolve_functype_calls=\{stats.resolve_functype_calls} match_calls=\{stats.match_calls_total} common_supertype_calls=\{stats.common_supertype_calls_total}",
+  )
+  trace(
+    "iter=\{iter} rewrite_funcs=\{stats.functions_rewritten} calls_rewritten=\{stats.calls_rewritten} locals_rewritten=\{stats.local_indices_rewritten} drops_removed=\{stats.drops_removed_due_to_result} filtered_calls=\{stats.filtered_call_args_total} filtered_args_removed=\{stats.filtered_call_args_removed_total} prologues=\{stats.prologue_inserted_funcs} oscillation_suspects=\{stats.oscillation_suspects}",
+  )
+}
+
+///|
+fn dae_trace_emit_iteration_details(
+  trace : (String) -> Unit,
+  iter : Int,
+  result : DAEOnceResult,
+) -> Unit {
+  let stats = result.stats
+  trace(
+    "iter=\{iter} setup_detail_ms collect_func_types=\{dae_trace_delta_us_to_ms(stats.setup_collect_func_types_us)} build_local_types=\{dae_trace_delta_us_to_ms(stats.setup_build_local_types_us)} collect_globals=\{dae_trace_delta_us_to_ms(stats.setup_collect_global_types_us)} collect_direct_results=\{dae_trace_delta_us_to_ms(stats.setup_collect_direct_results_us)} init_arrays=\{dae_trace_delta_us_to_ms(stats.setup_init_arrays_us)} known_type_ms=\{dae_trace_delta_us_to_ms(stats.known_type_elapsed_us)} match_ms=\{dae_trace_delta_us_to_ms(stats.match_elapsed_us)} common_supertype_ms=\{dae_trace_delta_us_to_ms(stats.common_supertype_elapsed_us)} known_type_local_get=\{stats.known_type_local_get_calls} known_type_global_get=\{stats.known_type_global_get_calls} known_type_call_direct=\{stats.known_type_call_direct_calls} known_type_call_indirect=\{stats.known_type_call_indirect_calls} known_type_ref_cast=\{stats.known_type_ref_cast_calls} known_type_select=\{stats.known_type_select_calls} known_type_other=\{stats.known_type_other_calls}",
+  )
+  dae_trace_emit_hotspots(
+    trace,
+    "iter=\{iter} slow_analysis_funcs",
+    stats.analysis_hotspots,
+    10,
+  )
+  dae_trace_emit_hotspots(
+    trace,
+    "iter=\{iter} slow_rewrite_funcs",
+    stats.rewrite_hotspots,
+    10,
+  )
+  for sample in stats.oscillation_samples {
+    trace("iter=\{iter} oscillation=\{sample}")
+  }
+}
+
+///|
+fn dae_trace_emit_phase_start(
+  trace : (String) -> Unit,
+  enabled : Bool,
+  iter : Int,
+  phase : String,
+  total : Int,
+) -> UInt64 {
+  if not(enabled) {
+    return 0UL
+  }
+  let start_us = dae_trace_now_us()
+  trace("iter=\{iter} phase=\{phase}:start total=\{total}")
+  start_us
+}
+
+///|
+fn dae_trace_maybe_emit_phase_progress(
+  trace : (String) -> Unit,
+  enabled : Bool,
+  iter : Int,
+  phase : String,
+  phase_start_us : UInt64,
+  last_emit_us : UInt64,
+  current : Int,
+  total : Int,
+  stats : DAETraceStats,
+) -> UInt64 {
+  if not(enabled) {
+    return last_emit_us
+  }
+  let now_us = dae_trace_now_us()
+  let since_last_emit_us = if now_us >= last_emit_us {
+    now_us - last_emit_us
+  } else {
+    0UL
+  }
+  let phase_elapsed_us = if now_us >= phase_start_us {
+    now_us - phase_start_us
+  } else {
+    0UL
+  }
+  if current < total && since_last_emit_us < 1000000UL {
+    return last_emit_us
+  }
+  trace(
+    "iter=\{iter} phase=\{phase} progress=\{current}/\{total} phase_ms=\{dae_trace_delta_us_to_ms(phase_elapsed_us)} analysis_instrs=\{stats.analysis_instrs_visited} rewrite_instrs=\{stats.rewrite_instrs_visited} known_type_calls=\{stats.known_type_calls_total} match_calls=\{stats.match_calls_total}",
+  )
+  now_us
+}
+
+///|
+fn dae_trace_emit_phase_done(
+  trace : (String) -> Unit,
+  enabled : Bool,
+  iter : Int,
+  phase : String,
+  phase_start_us : UInt64,
+  total : Int,
+  stats : DAETraceStats,
+) -> Unit {
+  if not(enabled) {
+    return
+  }
+  trace(
+    "iter=\{iter} phase=\{phase}:done total=\{total} elapsed_ms=\{dae_trace_delta_us_to_ms(dae_trace_elapsed_us_since(phase_start_us))} analysis_instrs=\{stats.analysis_instrs_visited} rewrite_instrs=\{stats.rewrite_instrs_visited} known_type_calls=\{stats.known_type_calls_total} match_calls=\{stats.match_calls_total}",
+  )
+}
+
+///|
+fn dae_trace_maybe_emit_rewrite_func_progress(
+  trace : (String) -> Unit,
+  enabled : Bool,
+  iter : Int,
+  abs_func_idx : Int,
+  func_start_us : UInt64,
+  last_emit_us : UInt64,
+  rewrite_trace : DAERewriteTrace,
+  stats : DAETraceStats,
+) -> UInt64 {
+  if not(enabled) {
+    return last_emit_us
+  }
+  let now_us = dae_trace_now_us()
+  let since_last_emit_us = if now_us >= last_emit_us {
+    now_us - last_emit_us
+  } else {
+    0UL
+  }
+  if since_last_emit_us < 1000000UL {
+    return last_emit_us
+  }
+  let func_elapsed_us = if now_us >= func_start_us {
+    now_us - func_start_us
+  } else {
+    0UL
+  }
+  trace(
+    "iter=\{iter} phase=rewrite func=\{abs_func_idx} func_ms=\{dae_trace_delta_us_to_ms(func_elapsed_us)} func_instrs=\{rewrite_trace.instrs_visited} func_calls_rewritten=\{rewrite_trace.calls_rewritten} func_locals_rewritten=\{rewrite_trace.local_indices_rewritten} func_drops_removed=\{rewrite_trace.drops_removed} total_rewrite_instrs=\{stats.rewrite_instrs_visited}",
+  )
+  now_us
+}
+
+///|
+fn function_needs_call_rewrite(
+  direct_callees : Set[Int],
+  removed_params_by_target : Array[Set[Int]],
+  result_removed_by_target : Array[Bool],
+  target_remap : Array[Int],
+) -> Bool {
+  for callee in direct_callees.iter() {
+    if not(removed_params_by_target[callee].is_empty()) {
+      return true
+    }
+    if callee < result_removed_by_target.length() &&
+      result_removed_by_target[callee] {
+      return true
+    }
+    if callee < target_remap.length() && target_remap[callee] != callee {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn run_dead_argument_elim_once(
+  mod : Module,
+  trace : (String) -> Unit,
+  iter : Int,
+  trace_progress : Bool,
+) -> DAEOnceResult {
+  let stats = DAETraceStats::new(detail_timing_enabled=trace_progress)
   let funcs = match mod.code_sec {
     Some(CodeSec(funcs)) => funcs
-    None => return mod
+    None =>
+      return {
+        mod,
+        changed: false,
+        signature_changed: false,
+        body_changed: false,
+        appended_clones: 0,
+        defined_funcs: 0,
+        abs_funcs: 0,
+        flat_type_count_after: 0,
+        stats,
+      }
   }
   let func_sec = match mod.func_sec {
     Some(FuncSec(type_idxs)) => type_idxs
-    None => return mod
+    None =>
+      return {
+        mod,
+        changed: false,
+        signature_changed: false,
+        body_changed: false,
+        appended_clones: 0,
+        defined_funcs: funcs.length(),
+        abs_funcs: 0,
+        flat_type_count_after: 0,
+        stats,
+      }
   }
   if funcs.is_empty() {
-    return mod
+    return {
+      mod,
+      changed: false,
+      signature_changed: false,
+      body_changed: false,
+      appended_clones: 0,
+      defined_funcs: 0,
+      abs_funcs: 0,
+      flat_type_count_after: 0,
+      stats,
+    }
   }
+  let setup_start_us = dae_trace_now_us()
+  let collect_func_types_start_us = dae_trace_now_us()
   let func_types = collect_func_types(mod)
+  stats.setup_collect_func_types_us += dae_trace_elapsed_us_since(
+    collect_func_types_start_us,
+  )
   let total_func_count = func_types.length()
   if total_func_count == 0 {
-    return mod
+    stats.setup_us += dae_trace_elapsed_us_since(setup_start_us)
+    return {
+      mod,
+      changed: false,
+      signature_changed: false,
+      body_changed: false,
+      appended_clones: 0,
+      defined_funcs: funcs.length(),
+      abs_funcs: 0,
+      flat_type_count_after: 0,
+      stats,
+    }
   }
   let import_func_count = count_imported_funcs(mod)
-  let calls_by_target : Array[Array[CallSite]] = []
-  for i = 0; i < total_func_count; i = i + 1 {
-    ignore(i)
-    calls_by_target.push([])
-  }
   let env = Env::new().with_module(mod)
+  let build_local_types_start_us = dae_trace_now_us()
   let local_types_by_abs = build_local_types_by_abs(
     func_types, funcs, import_func_count,
   )
+  stats.setup_build_local_types_us += dae_trace_elapsed_us_since(
+    build_local_types_start_us,
+  )
+  let collect_globals_start_us = dae_trace_now_us()
   let global_types = collect_global_types(mod)
+  stats.setup_collect_global_types_us += dae_trace_elapsed_us_since(
+    collect_globals_start_us,
+  )
+  let collect_direct_results_start_us = dae_trace_now_us()
+  let direct_result_types = collect_direct_result_types(func_types)
+  stats.setup_collect_direct_results_us += dae_trace_elapsed_us_since(
+    collect_direct_results_start_us,
+  )
+  let init_arrays_start_us = dae_trace_now_us()
+  let call_summaries : Array[DAECallSummary] = []
+  for abs_idx = 0; abs_idx < total_func_count; abs_idx = abs_idx + 1 {
+    let FuncType(params, _) = func_types[abs_idx]
+    call_summaries.push(DAECallSummary::new(params))
+  }
   let call_counts : Array[Int] = Array::make(total_func_count, 0)
   let dropped_call_counts : Array[Int] = Array::make(total_func_count, 0)
   let has_unseen_calls : Array[Bool] = Array::make(total_func_count, false)
@@ -1047,12 +1776,32 @@ fn run_dead_argument_elim_once(mod : Module) -> Module {
   mark_exports_unseen(mod, has_unseen_calls)
   mark_start_unseen(mod, has_unseen_calls)
   mark_elem_unseen(mod, has_unseen_calls)
+  stats.setup_init_arrays_us += dae_trace_elapsed_us_since(init_arrays_start_us)
+  stats.setup_us += dae_trace_elapsed_us_since(setup_start_us)
   let used_params_by_defined : Array[Set[Int]] = []
+  let direct_callees_by_defined : Array[Set[Int]] = []
+  let return_summaries : Array[DAEReturnSummary] = []
   let body_can_remove_result : Array[Bool] = []
+  let analysis_start_us = dae_trace_now_us()
+  let analysis_phase_start_us = dae_trace_emit_phase_start(
+    trace,
+    trace_progress,
+    iter,
+    "analysis",
+    funcs.length(),
+  )
+  let mut analysis_last_emit_us = analysis_phase_start_us
   for i = 0; i < funcs.length(); i = i + 1 {
+    let func_analysis_start_us = if trace_progress {
+      dae_trace_now_us()
+    } else {
+      0UL
+    }
     let abs_idx = import_func_count + i
     let used_params : Set[Int] = Set::new()
+    let direct_callees : Set[Int] = Set::new()
     used_params_by_defined.push(used_params)
+    direct_callees_by_defined.push(direct_callees)
     match funcs[i] {
       TFunc(_, body) => {
         let FuncType(params, results) = if abs_idx >= 0 &&
@@ -1061,27 +1810,72 @@ fn run_dead_argument_elim_once(mod : Module) -> Module {
         } else {
           FuncType::new([], [])
         }
-        body_can_remove_result.push(
-          body_can_drop_result(body, results.length()),
-        )
+        let return_summary = DAEReturnSummary::new(results)
+        return_summaries.push(return_summary)
         if abs_idx >= 0 && abs_idx < total_func_count {
           analyze_function_body(
             abs_idx,
             params.length(),
+            results,
             body,
-            calls_by_target,
+            call_summaries,
             call_counts,
             dropped_call_counts,
             has_unseen_calls,
             has_tail_calls,
             tail_callee,
             used_params,
+            direct_callees,
+            return_summary,
+            local_types_by_abs,
+            global_types,
+            direct_result_types,
+            env,
+            stats,
           )
         }
+        body_can_remove_result.push(
+          body_can_drop_result(
+            body,
+            results.length(),
+            return_summary.has_explicit_return,
+          ),
+        )
       }
-      _ => body_can_remove_result.push(false)
+      _ => {
+        return_summaries.push(DAEReturnSummary::new([]))
+        body_can_remove_result.push(false)
+      }
     }
+    if trace_progress {
+      dae_trace_record_hotspot(
+        stats.analysis_hotspots,
+        abs_idx,
+        dae_trace_elapsed_us_since(func_analysis_start_us),
+      )
+    }
+    analysis_last_emit_us = dae_trace_maybe_emit_phase_progress(
+      trace,
+      trace_progress,
+      iter,
+      "analysis",
+      analysis_phase_start_us,
+      analysis_last_emit_us,
+      i + 1,
+      funcs.length(),
+      stats,
+    )
   }
+  stats.analysis_us += dae_trace_elapsed_us_since(analysis_start_us)
+  dae_trace_emit_phase_done(
+    trace,
+    trace_progress,
+    iter,
+    "analysis",
+    analysis_phase_start_us,
+    funcs.length(),
+    stats,
+  )
   let removed_unused_by_defined : Array[Set[Int]] = []
   let removed_const_by_defined : Array[Map[Int, TInstr]] = []
   let result_removed_by_defined : Array[Bool] = []
@@ -1095,6 +1889,15 @@ fn run_dead_argument_elim_once(mod : Module) -> Module {
   let result_removed_by_target : Array[Bool] = Array::make(
     total_func_count, false,
   )
+  let decide_start_us = dae_trace_now_us()
+  let decide_phase_start_us = dae_trace_emit_phase_start(
+    trace,
+    trace_progress,
+    iter,
+    "decide",
+    funcs.length(),
+  )
+  let mut decide_last_emit_us = decide_phase_start_us
   for i = 0; i < funcs.length(); i = i + 1 {
     let abs_idx = import_func_count + i
     let removed_unused : Set[Int] = Set::new()
@@ -1104,41 +1907,48 @@ fn run_dead_argument_elim_once(mod : Module) -> Module {
     let mut refined_results : Array[ValType] = []
     if abs_idx >= 0 && abs_idx < total_func_count {
       let FuncType(params, results) = func_types[abs_idx]
-      let calls = calls_by_target[abs_idx]
+      let call_summary = call_summaries[abs_idx]
       let used_params = used_params_by_defined[i]
       refined_params = if has_unseen_calls[abs_idx] {
         params.copy()
       } else {
-        refine_param_types(params, calls, local_types_by_abs, global_types, env)
+        refine_param_types(params, call_summary, env, stats)
       }
       refined_results = if has_tail_calls[abs_idx] {
         results.copy()
       } else {
-        match funcs[i] {
-          TFunc(_, body) =>
-            refine_return_types(
-              results, body, abs_idx, local_types_by_abs, global_types, env,
-            )
-          _ => results.copy()
+        refine_return_types(results, return_summaries[i], env, stats)
+      }
+      for p = 0; p < params.length(); p = p + 1 {
+        if p < refined_params.length() && refined_params[p] != params[p] {
+          stats.params_refined_total += 1
         }
       }
-      if not(calls.is_empty()) {
-        let constants = if has_unseen_calls[abs_idx] {
-          Map::new()
-        } else {
-          compute_constant_params(refined_params, calls)
+      for r = 0; r < results.length(); r = r + 1 {
+        if r < refined_results.length() && refined_results[r] != results[r] {
+          stats.results_refined_total += 1
         }
+      }
+      if call_counts[abs_idx] > 0 {
         for p = 0; p < refined_params.length(); p = p + 1 {
-          if not(all_calls_arg_pure(calls, p)) {
+          if not(call_summary.all_pure[p]) {
             continue
           }
           if not(has_unseen_calls[abs_idx]) {
-            match constants.get(p) {
-              Some(c) => removed_const.set(p, c)
-              None => if not(used_params.contains(p)) { removed_unused.add(p) }
+            match call_summary.const_candidate[p] {
+              Some(c) if call_summary.const_valid[p] => {
+                removed_const.set(p, c)
+                stats.removed_const_params_total += 1
+              }
+              _ =>
+                if not(used_params.contains(p)) {
+                  removed_unused.add(p)
+                  stats.removed_unused_params_total += 1
+                }
             }
           } else if not(used_params.contains(p)) {
             removed_unused.add(p)
+            stats.removed_unused_params_total += 1
           }
         }
       }
@@ -1146,6 +1956,7 @@ fn run_dead_argument_elim_once(mod : Module) -> Module {
       for p = 0; p < refined_params.length(); p = p + 1 {
         if removed_unused.contains(p) || removed_const.contains(p) {
           removed_all.add(p)
+          stats.removed_params_total += 1
         }
       }
       removed_params_by_target[abs_idx] = removed_all
@@ -1158,6 +1969,7 @@ fn run_dead_argument_elim_once(mod : Module) -> Module {
         body_can_remove_result[i] {
         remove_result = true
         result_removed_by_target[abs_idx] = true
+        stats.result_removals_total += 1
       }
     } else {
       refined_params = []
@@ -1168,7 +1980,28 @@ fn run_dead_argument_elim_once(mod : Module) -> Module {
     result_removed_by_defined.push(remove_result)
     refined_params_by_defined.push(refined_params)
     refined_results_by_defined.push(refined_results)
+    decide_last_emit_us = dae_trace_maybe_emit_phase_progress(
+      trace,
+      trace_progress,
+      iter,
+      "decide",
+      decide_phase_start_us,
+      decide_last_emit_us,
+      i + 1,
+      funcs.length(),
+      stats,
+    )
   }
+  stats.decide_us += dae_trace_elapsed_us_since(decide_start_us)
+  dae_trace_emit_phase_done(
+    trace,
+    trace_progress,
+    iter,
+    "decide",
+    decide_phase_start_us,
+    funcs.length(),
+    stats,
+  )
   let type_recs = match mod.type_sec {
     Some(TypeSec(rs)) => rs.copy()
     None => []
@@ -1191,9 +2024,29 @@ fn run_dead_argument_elim_once(mod : Module) -> Module {
   }
   let old_total_func_count = total_func_count
   let mut appended_clones = 0
+  let sig_start_us = dae_trace_now_us()
+  let sig_phase_start_us = dae_trace_emit_phase_start(
+    trace,
+    trace_progress,
+    iter,
+    "signature",
+    funcs.length(),
+  )
+  let mut sig_last_emit_us = sig_phase_start_us
   for i = 0; i < funcs.length() && i < func_type_idxs.length(); i = i + 1 {
     let abs_idx = import_func_count + i
     if abs_idx < 0 || abs_idx >= total_func_count {
+      sig_last_emit_us = dae_trace_maybe_emit_phase_progress(
+        trace,
+        trace_progress,
+        iter,
+        "signature",
+        sig_phase_start_us,
+        sig_last_emit_us,
+        i + 1,
+        funcs.length(),
+        stats,
+      )
       continue
     }
     let removed = removed_params_by_target[abs_idx]
@@ -1203,15 +2056,39 @@ fn run_dead_argument_elim_once(mod : Module) -> Module {
     let refined_results = refined_results_by_defined[i]
     let params_refined = refined_params != old_params
     let results_refined = refined_results != old_results
+    let has_elimination = not(removed.is_empty()) || remove_result
     if removed.is_empty() &&
       not(remove_result) &&
       not(params_refined) &&
       not(results_refined) {
+      sig_last_emit_us = dae_trace_maybe_emit_phase_progress(
+        trace,
+        trace_progress,
+        iter,
+        "signature",
+        sig_phase_start_us,
+        sig_last_emit_us,
+        i + 1,
+        funcs.length(),
+        stats,
+      )
       continue
     }
-    has_signature_change_by_defined[i] = true
+    if has_unseen_calls[abs_idx] && not(has_elimination) {
+      sig_last_emit_us = dae_trace_maybe_emit_phase_progress(
+        trace,
+        trace_progress,
+        iter,
+        "signature",
+        sig_phase_start_us,
+        sig_last_emit_us,
+        i + 1,
+        funcs.length(),
+        stats,
+      )
+      continue
+    }
     if has_unseen_calls[abs_idx] && old_results.length() > 1 {
-      has_signature_change_by_defined[i] = false
       removed_params_by_target[abs_idx].clear()
       result_removed_by_target[abs_idx] = false
       removed_unused_by_defined[i].clear()
@@ -1219,8 +2096,20 @@ fn run_dead_argument_elim_once(mod : Module) -> Module {
       result_removed_by_defined[i] = false
       refined_params_by_defined[i] = old_params.copy()
       refined_results_by_defined[i] = old_results.copy()
+      sig_last_emit_us = dae_trace_maybe_emit_phase_progress(
+        trace,
+        trace_progress,
+        iter,
+        "signature",
+        sig_phase_start_us,
+        sig_last_emit_us,
+        i + 1,
+        funcs.length(),
+        stats,
+      )
       continue
     }
+    has_signature_change_by_defined[i] = true
     let new_params : Array[ValType] = []
     for p = 0; p < refined_params.length(); p = p + 1 {
       if not(removed.contains(p)) {
@@ -1241,6 +2130,17 @@ fn run_dead_argument_elim_once(mod : Module) -> Module {
       func_type_idxs[i] = new_type_idx
     }
     signature_changed = true
+    sig_last_emit_us = dae_trace_maybe_emit_phase_progress(
+      trace,
+      trace_progress,
+      iter,
+      "signature",
+      sig_phase_start_us,
+      sig_last_emit_us,
+      i + 1,
+      funcs.length(),
+      stats,
+    )
   }
   if appended_clones > 0 {
     for i = 0; i < funcs.length(); i = i + 1 {
@@ -1253,6 +2153,16 @@ fn run_dead_argument_elim_once(mod : Module) -> Module {
       }
     }
   }
+  stats.sig_us += dae_trace_elapsed_us_since(sig_start_us)
+  dae_trace_emit_phase_done(
+    trace,
+    trace_progress,
+    iter,
+    "signature",
+    sig_phase_start_us,
+    funcs.length(),
+    stats,
+  )
   let mut out_mod = mod
   if signature_changed {
     out_mod = out_mod
@@ -1262,7 +2172,21 @@ fn run_dead_argument_elim_once(mod : Module) -> Module {
   let new_funcs : Array[Func] = []
   let appended_clones_funcs : Array[Func] = []
   let mut body_changed = false
+  let rewrite_start_us = dae_trace_now_us()
+  let rewrite_phase_start_us = dae_trace_emit_phase_start(
+    trace,
+    trace_progress,
+    iter,
+    "rewrite",
+    funcs.length(),
+  )
+  let mut rewrite_last_emit_us = rewrite_phase_start_us
   for i = 0; i < funcs.length(); i = i + 1 {
+    let func_rewrite_start_us = if trace_progress {
+      dae_trace_now_us()
+    } else {
+      0UL
+    }
     let abs_idx = import_func_count + i
     match funcs[i] {
       TFunc(locals, body) if abs_idx >= 0 && abs_idx < total_func_count => {
@@ -1270,27 +2194,47 @@ fn run_dead_argument_elim_once(mod : Module) -> Module {
         let removed_unused = removed_unused_by_defined[i]
         let removed_const = removed_const_by_defined[i]
         let remove_result = result_removed_by_defined[i]
-        let (new_locals, prologue, removed_total, const_local_slots) = build_local_plan(
+        let rewrite_trace = DAERewriteTrace::new()
+        let (new_locals, prologue, removed_total, param_remap) = build_local_plan(
           locals, old_params, removed_unused, removed_const,
         )
-        let body1 = rewrite_locals_and_returns(
-          body,
-          old_params.length(),
-          removed_unused,
-          removed_const,
-          const_local_slots,
-          removed_total,
-          remove_result,
+        let needs_local_rewrite = removed_total != 0 || remove_result
+        let needs_call_rewrite = function_needs_call_rewrite(
+          direct_callees_by_defined[i],
+          removed_params_by_target,
+          result_removed_by_target,
+          target_remap,
         )
-        let body2 = rewrite_calls(
-          body1, removed_params_by_target, result_removed_by_target, target_remap,
-        )
-        let final_body = if prologue.is_empty() {
-          body2
+        if not(prologue.is_empty()) {
+          stats.prologue_inserted_funcs += 1
+        }
+        let body1 = if needs_local_rewrite || needs_call_rewrite {
+          rewrite_body(
+            body,
+            old_params.length(),
+            param_remap,
+            removed_total,
+            remove_result,
+            removed_params_by_target,
+            result_removed_by_target,
+            target_remap,
+            stats,
+            rewrite_trace,
+            trace,
+            trace_progress,
+            iter,
+            abs_idx,
+          )
         } else {
-          TExpr::new([..prologue, ..body2.instrs])
+          body
+        }
+        let final_body = if prologue.is_empty() {
+          body1
+        } else {
+          TExpr::new([..prologue, ..body1.instrs])
         }
         let new_func = Func::t_func(new_locals, final_body)
+        let mut emitted_func_changed = false
         if adapted_by_defined[i] {
           let FuncType(old_params, old_results) = func_types[abs_idx]
           let thunk = make_adapter_thunk(
@@ -1303,22 +2247,81 @@ fn run_dead_argument_elim_once(mod : Module) -> Module {
           )
           if thunk != funcs[i] {
             body_changed = true
+            emitted_func_changed = true
           }
           new_funcs.push(thunk)
           appended_clones_funcs.push(new_func)
         } else {
           new_funcs.push(new_func)
+          emitted_func_changed = new_func != funcs[i]
+        }
+        if emitted_func_changed {
+          stats.functions_rewritten += 1
+        }
+        let old_instr_count = dae_count_texpr_instrs(body)
+        let new_instr_count = dae_count_texpr_instrs(final_body)
+        if not(adapted_by_defined[i]) &&
+          new_func != funcs[i] &&
+          dae_body_fingerprint(body) == dae_body_fingerprint(final_body) {
+          stats.oscillation_suspects += 1
+          if stats.oscillation_samples.length() < 5 {
+            stats.oscillation_samples.push(
+              "func=\{abs_idx} old_instrs=\{old_instr_count} new_instrs=\{new_instr_count} old_locals=\{locals.length()} new_locals=\{new_locals.length()} prologue=\{not(prologue.is_empty())} removed_unused=\{removed_unused_by_defined[i].is_empty() == false} removed_const=\{removed_const_by_defined[i].is_empty() == false} rewrite_instrs=\{rewrite_trace.instrs_visited} calls_rewritten=\{rewrite_trace.calls_rewritten} locals_rewritten=\{rewrite_trace.local_indices_rewritten} drops_removed=\{rewrite_trace.drops_removed} call_args_removed=\{rewrite_trace.call_args_removed}",
+            )
+          }
         }
         if new_func != funcs[i] || has_signature_change_by_defined[i] {
           body_changed = true
         }
+        if trace_progress {
+          dae_trace_record_hotspot(
+            stats.rewrite_hotspots,
+            abs_idx,
+            dae_trace_elapsed_us_since(func_rewrite_start_us),
+          )
+        }
+        rewrite_last_emit_us = dae_trace_maybe_emit_phase_progress(
+          trace,
+          trace_progress,
+          iter,
+          "rewrite",
+          rewrite_phase_start_us,
+          rewrite_last_emit_us,
+          i + 1,
+          funcs.length(),
+          stats,
+        )
       }
       TFunc(_, body) => {
-        let rewritten = rewrite_calls(
-          body, removed_params_by_target, result_removed_by_target, target_remap,
-        )
+        let rewrite_trace = DAERewriteTrace::new()
+        let rewritten = if function_needs_call_rewrite(
+            direct_callees_by_defined[i],
+            removed_params_by_target,
+            result_removed_by_target,
+            target_remap,
+          ) {
+          rewrite_body(
+            body,
+            0,
+            [],
+            0,
+            false,
+            removed_params_by_target,
+            result_removed_by_target,
+            target_remap,
+            stats,
+            rewrite_trace,
+            trace,
+            trace_progress,
+            iter,
+            abs_idx,
+          )
+        } else {
+          body
+        }
         if rewritten != body {
           body_changed = true
+          stats.functions_rewritten += 1
           match funcs[i] {
             TFunc(ls, _) => new_funcs.push(Func::t_func(ls, rewritten))
             _ => new_funcs.push(funcs[i])
@@ -1326,74 +2329,126 @@ fn run_dead_argument_elim_once(mod : Module) -> Module {
         } else {
           new_funcs.push(funcs[i])
         }
+        if trace_progress {
+          dae_trace_record_hotspot(
+            stats.rewrite_hotspots,
+            abs_idx,
+            dae_trace_elapsed_us_since(func_rewrite_start_us),
+          )
+        }
+        rewrite_last_emit_us = dae_trace_maybe_emit_phase_progress(
+          trace,
+          trace_progress,
+          iter,
+          "rewrite",
+          rewrite_phase_start_us,
+          rewrite_last_emit_us,
+          i + 1,
+          funcs.length(),
+          stats,
+        )
       }
-      _ => new_funcs.push(funcs[i])
+      _ => {
+        new_funcs.push(funcs[i])
+        if trace_progress {
+          dae_trace_record_hotspot(
+            stats.rewrite_hotspots,
+            abs_idx,
+            dae_trace_elapsed_us_since(func_rewrite_start_us),
+          )
+        }
+        rewrite_last_emit_us = dae_trace_maybe_emit_phase_progress(
+          trace,
+          trace_progress,
+          iter,
+          "rewrite",
+          rewrite_phase_start_us,
+          rewrite_last_emit_us,
+          i + 1,
+          funcs.length(),
+          stats,
+        )
+      }
     }
   }
   for clone in appended_clones_funcs {
     new_funcs.push(clone)
   }
+  stats.rewrite_us += dae_trace_elapsed_us_since(rewrite_start_us)
+  dae_trace_emit_phase_done(
+    trace,
+    trace_progress,
+    iter,
+    "rewrite",
+    rewrite_phase_start_us,
+    funcs.length(),
+    stats,
+  )
   if not(signature_changed) && not(body_changed) {
-    return mod
+    return {
+      mod,
+      changed: false,
+      signature_changed,
+      body_changed,
+      appended_clones,
+      defined_funcs: funcs.length(),
+      abs_funcs: total_func_count,
+      flat_type_count_after: flat_type_count,
+      stats,
+    }
   }
-  out_mod.with_code_sec(CodeSec::new(new_funcs))
+  {
+    mod: out_mod.with_code_sec(CodeSec::new(new_funcs)),
+    changed: true,
+    signature_changed,
+    body_changed,
+    appended_clones,
+    defined_funcs: funcs.length(),
+    abs_funcs: total_func_count,
+    flat_type_count_after: flat_type_count,
+    stats,
+  }
 }
 
 ///|
-fn run_dead_argument_elim(mod : Module) -> Module {
+fn run_dead_argument_elim_with_trace(
+  mod : Module,
+  trace : (String) -> Unit,
+  trace_all_funcs? : Bool = false,
+) -> Module {
   let mut curr = mod
-  let max_iters = 1024
-  for iter = 0; iter < max_iters; iter = iter + 1 {
-    ignore(iter)
-    let next = run_dead_argument_elim_once(curr)
-    if next == curr {
-      return curr
-    }
-    curr = next
+  let max_iters = match mod.code_sec {
+    Some(CodeSec(funcs)) => funcs.length() + 8
+    None => 1
   }
+  let run_start_us = dae_trace_now_us()
+  let mut iter_count = 0
+  for iter = 0; iter < max_iters; iter = iter + 1 {
+    iter_count = iter + 1
+    let iter_start_us = dae_trace_now_us()
+    let result = run_dead_argument_elim_once(curr, trace, iter, trace_all_funcs)
+    let iter_elapsed_us = dae_trace_elapsed_us_since(iter_start_us)
+    dae_trace_emit_iteration(trace, iter, iter_elapsed_us, result)
+    if trace_all_funcs {
+      dae_trace_emit_iteration_details(trace, iter, result)
+    }
+    if not(result.changed) {
+      trace(
+        "done converged=true iterations=\{iter_count} elapsed_ms=\{dae_trace_delta_us_to_ms(dae_trace_elapsed_us_since(run_start_us))}",
+      )
+      return result.mod
+    }
+    curr = result.mod
+  }
+  trace(
+    "done converged=false iterations=\{iter_count} elapsed_ms=\{dae_trace_delta_us_to_ms(dae_trace_elapsed_us_since(run_start_us))}",
+  )
   curr
 }
 
 ///|
-fn dead_argument_elim_pass(mod : Module) -> ModuleTransformer[IRContext] {
-  let rewritten = run_dead_argument_elim(mod)
-  let rewritten_code = rewritten.code_sec
-  let rewritten_types = rewritten.type_sec
-  let rewritten_funcs = rewritten.func_sec
-  ModuleTransformer::new()
-  .on_typesec_evt(fn(_, ctx : IRContext, type_sec : TypeSec) {
-    match rewritten_types {
-      Some(new_type_sec) =>
-        if new_type_sec == type_sec {
-          unchanged()
-        } else {
-          change(ctx, new_type_sec)
-        }
-      None => unchanged()
-    }
-  })
-  .on_funcsec_evt(fn(_, ctx : IRContext, func_sec : FuncSec) {
-    match rewritten_funcs {
-      Some(new_func_sec) =>
-        if new_func_sec == func_sec {
-          unchanged()
-        } else {
-          change(ctx, new_func_sec)
-        }
-      None => unchanged()
-    }
-  })
-  .on_codesec_evt(fn(_, ctx : IRContext, code_sec : CodeSec) {
-    match rewritten_code {
-      Some(new_code) =>
-        if new_code == code_sec {
-          unchanged()
-        } else {
-          change(ctx, new_code)
-        }
-      None => unchanged()
-    }
-  })
+fn run_dead_argument_elim(mod : Module) -> Module {
+  run_dead_argument_elim_with_trace(mod, dead_argument_elim_trace_noop)
 }
 
 ///|
@@ -1856,4 +2911,83 @@ test "dead argument elimination removes dropped implicit return values" {
     }
     _ => fail("expected implicit result to be dropped in callee body")
   }
+}
+
+///|
+test "dead argument elimination skips rewrite walk for unaffected large functions" {
+  let huge_instrs : Array[TInstr] = []
+  for i = 0; i < 256; i = i + 1 {
+    huge_instrs.push(TInstr::drop(TInstr::i32_const(I32(7))))
+  }
+  let huge = Func::t_func([], TExpr::new(huge_instrs))
+  let caller = Func::t_func(
+    [],
+    TExpr::new([TInstr::call(FuncIdx::new(2), [TInstr::i32_const(I32(9))])]),
+  )
+  let callee = Func::t_func([], TExpr::new([TInstr::i32_const(I32(7))]))
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        make_func_type([], []),
+        make_func_type([ValType::i32()], [ValType::i32()]),
+        make_func_type([], [ValType::i32()]),
+      ]),
+    )
+    .with_func_sec(
+      FuncSec::new([TypeIdx::new(0), TypeIdx::new(2), TypeIdx::new(1)]),
+    )
+    .with_code_sec(CodeSec::new([huge, caller, callee]))
+  let result = run_dead_argument_elim_once(
+    mod, dead_argument_elim_trace_noop, 0, false,
+  )
+  assert_true(result.changed)
+  assert_true(result.stats.rewrite_instrs_visited < 32)
+}
+
+///|
+test "dead argument elimination skips detailed timers when trace is disabled" {
+  let caller = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
+    ]),
+  )
+  let callee = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+      TInstr::i32_const(I32(7)),
+    ]),
+  )
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        make_func_type(
+          [
+            ValType::ref_type(
+              RefType::new(false, HeapType::abs(AbsHeapType::func())),
+            ),
+          ],
+          [ValType::i32()],
+        ),
+        make_func_type(
+          [
+            ValType::ref_type(
+              RefType::new(true, HeapType::abs(AbsHeapType::func())),
+            ),
+          ],
+          [ValType::i32()],
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
+    .with_code_sec(CodeSec::new([caller, callee]))
+  let result = run_dead_argument_elim_once(
+    mod, dead_argument_elim_trace_noop, 0, false,
+  )
+  assert_true(result.stats.known_type_calls_total > 0)
+  assert_true(result.stats.match_calls_total > 0)
+  assert_eq(result.stats.known_type_elapsed_us, 0UL)
+  assert_eq(result.stats.match_elapsed_us, 0UL)
+  assert_eq(result.stats.common_supertype_elapsed_us, 0UL)
 }

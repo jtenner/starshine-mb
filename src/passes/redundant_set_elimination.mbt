@@ -247,6 +247,22 @@ fn rse_build_cfg(body : TExpr) -> RSECFG {
 }
 
 ///|
+fn rse_local_indices_in_range(cfg : RSECFG, local_count : Int) -> Bool {
+  for entry in cfg.events {
+    let (_, event) = entry
+    match event {
+      LocalGet(idx) | LocalSet(idx, _) => {
+        let local_i = rse_local_idx_to_int(idx)
+        if local_i < 0 || local_i >= local_count {
+          return false
+        }
+      }
+    }
+  }
+  true
+}
+
+///|
 fn rse_compute_rpo(cfg : RSECFG) -> Array[RSEBlockId] {
   let visited : Set[RSEBlockId] = Set::new()
   let order : Array[RSEBlockId] = []
@@ -721,15 +737,15 @@ fn rse_rewrite_texpr(state : RSERewriteState, body : TExpr) -> TExpr {
 }
 
 ///|
-fn rse_collect_param_counts(mod : Module) -> Array[Int] {
-  let out : Array[Int] = []
+fn rse_collect_param_types(mod : Module) -> Array[Array[ValType]] {
+  let out : Array[Array[ValType]] = []
   let env = Env::new().with_module(mod)
   match mod.func_sec {
     Some(FuncSec(type_idxs)) =>
       for tidx in type_idxs {
         match env.resolve_functype(tidx) {
-          Some(FuncType(params, _)) => out.push(params.length())
-          None => out.push(0)
+          Some(FuncType(params, _)) => out.push(params)
+          None => out.push([])
         }
       }
     None => ()
@@ -741,11 +757,15 @@ fn rse_collect_param_counts(mod : Module) -> Array[Int] {
 fn rse_optimize_function(
   func : Func,
   env_base : Env,
-  param_count : Int,
+  param_types : Array[ValType],
 ) -> (Func, Bool) {
   match func {
     TFunc(locals, body) => {
-      if locals.length() == 0 {
+      let all_locals = param_types.copy()
+      for local_ in locals {
+        all_locals.push(local_)
+      }
+      if all_locals.is_empty() {
         return (func, false)
       }
 
@@ -753,16 +773,19 @@ fn rse_optimize_function(
       if cfg.events.length() == 0 {
         return (func, false)
       }
+      if !rse_local_indices_in_range(cfg, all_locals.length()) {
+        return (func, false)
+      }
 
       let analyzer = RSEValueNumbering::new()
-      let bounded_param_count = if param_count < locals.length() {
-        param_count
-      } else {
-        locals.length()
-      }
-      let flow = rse_flow_values(cfg, locals, bounded_param_count, analyzer)
-      let env = env_base.with_locals(locals)
-      let actions = rse_collect_actions(cfg, locals, env, flow, analyzer)
+      let flow = rse_flow_values(
+        cfg,
+        all_locals,
+        param_types.length(),
+        analyzer,
+      )
+      let env = env_base.with_locals(all_locals)
+      let actions = rse_collect_actions(cfg, all_locals, env, flow, analyzer)
       if actions.remove_sets.is_empty() && actions.replace_gets.is_empty() {
         return (func, false)
       }
@@ -786,15 +809,13 @@ fn redundant_set_elimination_ir_pass(
   mod : Module,
 ) -> ModuleTransformer[IRContext] {
   let env_base = Env::new().with_module(mod)
-  let param_counts = rse_collect_param_counts(mod)
+  let param_types = rse_collect_param_types(mod)
   let next_def_idx = Ref::new(0)
   ModuleTransformer::new().on_func_evt(fn(_, ctx, func) {
     let def_idx = next_def_idx.val
     next_def_idx.update(fn(i) { i + 1 })
-    let param_count = param_counts.get(def_idx).unwrap_or(0)
-    let (next_func, changed) = rse_optimize_function(
-      func, env_base, param_count,
-    )
+    let params = param_types.get(def_idx).unwrap_or([])
+    let (next_func, changed) = rse_optimize_function(func, env_base, params)
     if changed {
       change(ctx, next_func)
     } else {
@@ -979,7 +1000,7 @@ test "redundant_set_elimination treats params as unknown initial values" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
-          [ValType::i32()],
+          [],
           TExpr::new([
             TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(0))),
           ]),
@@ -999,6 +1020,62 @@ test "redundant_set_elimination treats params as unknown initial values" {
     ] => ()
     _ => fail("expected set to param-backed local to remain")
   }
+}
+
+///|
+test "redundant_set_elimination handles params and declared locals in one index space" {
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([rse_type([ValType::i32(), ValType::i32()], [])]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32()],
+          TExpr::new([
+            TInstr::local_set(
+              LocalIdx::new(2),
+              TInstr::local_get(LocalIdx::new(0)),
+            ),
+            TInstr::local_set(
+              LocalIdx::new(1),
+              TInstr::local_get(LocalIdx::new(2)),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let out = rse_run(mod)
+  assert_eq(
+    rse_count_instr(rse_first_body(out), fn(instr) {
+      match instr.kind {
+        TInstrKind::TLocalSet(_, _) => true
+        _ => false
+      }
+    }),
+    2,
+  )
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) => fail("expected params+locals output to validate: \{e}")
+  }
+}
+
+///|
+test "redundant_set_elimination skips inconsistent local indices instead of aborting" {
+  let mod = Module::new()
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32()],
+          TExpr::new([TInstr::drop(TInstr::local_get(LocalIdx::new(1)))]),
+        ),
+      ]),
+    )
+  let out = rse_run(mod)
+  assert_eq(out, mod)
 }
 
 ///|
