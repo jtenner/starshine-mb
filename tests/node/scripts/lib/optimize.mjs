@@ -69,7 +69,7 @@ export function optimizeDebugWasm({
   const verboseTrace = envFlagEnabled('STARSHINE_TRACE_OPTIMIZE_VERBOSE');
 
   try {
-    execFileSyncImpl(binary, ['--optimize', '--out', dist.selfOptimized, dist.debug], {
+    execFileSyncImpl(binary, ['--optimize', '-O4z', '--out', dist.selfOptimized, dist.debug], {
       cwd: repoRoot,
       stdio: ['ignore', 'inherit', verboseTrace ? 'inherit' : 'pipe'],
     });

@@ -67,8 +67,15 @@ jobs:
           npm --prefix tests/node run test:unit
 
       - name: Run wasm artifact build and comparison flow
+        env:
+          STARSHINE_TRACE_OPTIMIZE: "1"
+          STARSHINE_TRACE_OPTIMIZE_VERBOSE: "1"
         run: |
           npm --prefix tests/node run build:all
+
+      - name: Run official spec suite against self-optimized wasm
+        run: |
+          npm --prefix tests/node run test:spec:self-optimized:wasm
 
       - name: Run Node package smoke tests
         run: |

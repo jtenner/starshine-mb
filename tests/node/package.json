@@ -21,6 +21,7 @@
     "optimize:wasm": "node scripts/optimize-with-starshine.mjs",
     "bootstrap:optimized": "node scripts/bootstrap-optimized.mjs",
     "test:spec:wasm": "node scripts/run-wasm-spec-suite.mjs",
+    "test:spec:self-optimized:wasm": "node scripts/run-wasm-spec-suite.mjs --wasm tests/node/dist/starshine-self-optimized-wasi.wasm",
     "compare:wasm": "node scripts/compare-wasm.mjs",
     "build:all": "npm run clean && npm run build:wasm:artifacts && npm run compare:wasm",
     "test": "npm run test:unit && npm run build:all"

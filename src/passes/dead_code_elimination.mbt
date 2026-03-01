@@ -15,16 +15,271 @@
 ///
 
 ///|
-fn dead_code_elimination_pass() -> ModuleTransformer[Unit] {
+const DCE_PROGRESS_LOG_INTERVAL_US : UInt64 = 250000UL
+
+///|
+priv struct DCEPassTraceState {
+  enabled : Bool
+  trace : (String) -> Unit
+  trace_all_funcs : Bool
+  func_ordinal : Ref[Int]
+  func_locals : Ref[Int]
+  func_top_instrs : Ref[Int]
+  func_start_us : Ref[UInt64]
+  last_progress_us : Ref[UInt64]
+  expr_visits : Ref[Int]
+  instr_visits : Ref[Int]
+  break_checks : Ref[Int]
+  unreachable_checks : Ref[Int]
+  budget_hits : Ref[Int]
+  rewrites : Ref[Int]
+}
+
+///|
+fn dead_code_elimination_trace_noop(_ : String) -> Unit {
+  ()
+}
+
+///|
+fn dce_trace_state_new(
+  trace : (String) -> Unit,
+  trace_all_funcs : Bool,
+) -> DCEPassTraceState {
+  {
+    enabled: true,
+    trace,
+    trace_all_funcs,
+    func_ordinal: Ref::new(0),
+    func_locals: Ref::new(0),
+    func_top_instrs: Ref::new(0),
+    func_start_us: Ref::new(0UL),
+    last_progress_us: Ref::new(0UL),
+    expr_visits: Ref::new(0),
+    instr_visits: Ref::new(0),
+    break_checks: Ref::new(0),
+    unreachable_checks: Ref::new(0),
+    budget_hits: Ref::new(0),
+    rewrites: Ref::new(0),
+  }
+}
+
+///|
+fn dce_trace_state_noop() -> DCEPassTraceState {
+  {
+    enabled: false,
+    trace: dead_code_elimination_trace_noop,
+    trace_all_funcs: false,
+    func_ordinal: Ref::new(0),
+    func_locals: Ref::new(0),
+    func_top_instrs: Ref::new(0),
+    func_start_us: Ref::new(0UL),
+    last_progress_us: Ref::new(0UL),
+    expr_visits: Ref::new(0),
+    instr_visits: Ref::new(0),
+    break_checks: Ref::new(0),
+    unreachable_checks: Ref::new(0),
+    budget_hits: Ref::new(0),
+    rewrites: Ref::new(0),
+  }
+}
+
+///|
+fn dce_trace_delta_us_to_ms(delta_us : UInt64) -> UInt64 {
+  delta_us / 1000UL
+}
+
+///|
+#cfg(target="native")
+#borrow(tv)
+extern "c" fn dce_native_gettimeofday(tv : Bytes, tz : UInt64) -> Int = "gettimeofday"
+
+///|
+#cfg(target="native")
+fn dce_trace_read_u64_le(bytes : Bytes, start : Int) -> UInt64 {
+  let mut out = 0UL
+  let mut i = 0
+  while i < 8 {
+    out = out | (bytes[start + i].to_uint64() << (i * 8))
+    i += 1
+  }
+  out
+}
+
+///|
+#cfg(target="native")
+fn dce_trace_now_us() -> UInt64 {
+  let tv = Bytes::new(16)
+  if dce_native_gettimeofday(tv, 0UL) != 0 {
+    return @env.now() * 1000UL
+  }
+  let sec = dce_trace_read_u64_le(tv, 0)
+  let usec = dce_trace_read_u64_le(tv, 8)
+  sec * 1000000UL + usec
+}
+
+///|
+#cfg(target="wasm-gc")
+fn dce_trace_now_us() -> UInt64 {
+  @env.now() * 1000UL
+}
+
+///|
+#cfg(target="wasm")
+fn dce_trace_now_us() -> UInt64 {
+  @env.now() * 1000UL
+}
+
+///|
+#cfg(target="js")
+fn dce_trace_now_us() -> UInt64 {
+  @env.now() * 1000UL
+}
+
+///|
+#cfg(target="llvm")
+fn dce_trace_now_us() -> UInt64 {
+  @env.now() * 1000UL
+}
+
+///|
+fn dce_trace_elapsed_us_since(start_us : UInt64) -> UInt64 {
+  let end_us = dce_trace_now_us()
+  if end_us >= start_us {
+    end_us - start_us
+  } else {
+    0UL
+  }
+}
+
+///|
+fn dce_trace_should_log_func(trace_state : DCEPassTraceState) -> Bool {
+  trace_state.enabled &&
+  (
+    trace_state.trace_all_funcs ||
+    trace_state.func_ordinal.val <= 5 ||
+    trace_state.func_ordinal.val % 250 == 0
+  )
+}
+
+///|
+fn dce_trace_start_func(
+  trace_state : DCEPassTraceState,
+  locals : Int,
+  top_instrs : Int,
+  skip : Bool,
+  break_scan_budget : Ref[Int],
+) -> Unit {
+  trace_state.func_ordinal.val += 1
+  trace_state.func_locals.val = locals
+  trace_state.func_top_instrs.val = top_instrs
+  trace_state.func_start_us.val = dce_trace_now_us()
+  trace_state.last_progress_us.val = trace_state.func_start_us.val
+  trace_state.expr_visits.val = 0
+  trace_state.instr_visits.val = 0
+  trace_state.break_checks.val = 0
+  trace_state.unreachable_checks.val = 0
+  trace_state.budget_hits.val = 0
+  trace_state.rewrites.val = 0
+  if dce_trace_should_log_func(trace_state) {
+    (trace_state.trace)(
+      "func[\{trace_state.func_ordinal.val}]:start locals=\{locals} top_instrs=\{top_instrs} skip=\{skip} budget=\{break_scan_budget.val}",
+    )
+  }
+}
+
+///|
+fn dce_trace_maybe_emit_progress(
+  trace_state : DCEPassTraceState,
+  phase : String,
+  break_scan_budget : Ref[Int],
+) -> Unit {
+  if !dce_trace_should_log_func(trace_state) {
+    return
+  }
+  let now_us = dce_trace_now_us()
+  let since_last_us = if now_us >= trace_state.last_progress_us.val {
+    now_us - trace_state.last_progress_us.val
+  } else {
+    0UL
+  }
+  let expr_visits = trace_state.expr_visits.val
+  let instr_visits = trace_state.instr_visits.val
+  let break_checks = trace_state.break_checks.val
+  let unreachable_checks = trace_state.unreachable_checks.val
+  let should_emit = (
+    expr_visits > 0 &&
+    (
+      (expr_visits <= 128 && expr_visits % 32 == 0) ||
+      expr_visits % 1024 == 0
+    )
+  ) || (
+    instr_visits > 0 &&
+    (
+      (instr_visits <= 256 && instr_visits % 64 == 0) ||
+      instr_visits % 2048 == 0
+    )
+  ) || (
+    break_checks > 0 &&
+    (
+      (break_checks <= 256 && break_checks % 64 == 0) ||
+      break_checks % 4096 == 0
+    )
+  ) || since_last_us >= DCE_PROGRESS_LOG_INTERVAL_US
+  if !should_emit {
+    return
+  }
+  (trace_state.trace)(
+    "func[\{trace_state.func_ordinal.val}]:progress phase=\{phase} elapsed_ms=\{dce_trace_delta_us_to_ms(dce_trace_elapsed_us_since(trace_state.func_start_us.val))} exprs=\{expr_visits} instrs=\{instr_visits} unreachable_checks=\{unreachable_checks} break_checks=\{break_checks} rewrites=\{trace_state.rewrites.val} budget=\{break_scan_budget.val} budget_hits=\{trace_state.budget_hits.val}",
+  )
+  trace_state.last_progress_us.val = now_us
+}
+
+///|
+fn dce_trace_record_rewrite(
+  trace_state : DCEPassTraceState,
+  phase : String,
+  break_scan_budget : Ref[Int],
+) -> Unit {
+  if !dce_trace_should_log_func(trace_state) {
+    return
+  }
+  trace_state.rewrites.val += 1
+  if trace_state.trace_all_funcs ||
+    trace_state.rewrites.val <= 5 ||
+    trace_state.rewrites.val % 32 == 0 {
+    (trace_state.trace)(
+      "func[\{trace_state.func_ordinal.val}]:rewrite phase=\{phase} count=\{trace_state.rewrites.val} instrs=\{trace_state.instr_visits.val} break_checks=\{trace_state.break_checks.val} budget=\{break_scan_budget.val}",
+    )
+    trace_state.last_progress_us.val = dce_trace_now_us()
+  }
+}
+
+///|
+fn dead_code_elimination_pass_with_trace(
+  trace? : (String) -> Unit = dead_code_elimination_trace_noop,
+  trace_all_funcs? : Bool = false,
+) -> ModuleTransformer[Unit] {
   let break_scan_budget = Ref::new(20_000)
   let skip_current_func = Ref::new(false)
+  let trace_state = dce_trace_state_new(trace, trace_all_funcs)
   ModuleTransformer::new()
   .on_func_evt(fn(_, ctx, func) {
     match func {
-      TFunc(locals, body) =>
+      TFunc(locals, body) => {
         skip_current_func.val = locals.length() > 64 ||
           body.instrs.length() > 256
-      _ => skip_current_func.val = false
+        dce_trace_start_func(
+          trace_state,
+          locals.length(),
+          body.instrs.length(),
+          skip_current_func.val,
+          break_scan_budget,
+        )
+      }
+      _ => {
+        skip_current_func.val = false
+        dce_trace_start_func(trace_state, 0, 0, false, break_scan_budget)
+      }
     }
     if skip_current_func.val {
       change(ctx, func)
@@ -36,16 +291,21 @@ fn dead_code_elimination_pass() -> ModuleTransformer[Unit] {
     if skip_current_func.val {
       unchanged()
     } else {
-      dce_texpr(transformer, ctx, expr, break_scan_budget)
+      dce_texpr(transformer, ctx, expr, break_scan_budget, trace_state)
     }
   })
   .on_tinstruction_evt(fn(transformer, ctx, instr) {
     if skip_current_func.val {
       unchanged()
     } else {
-      dce_tinstr(transformer, ctx, instr, break_scan_budget)
+      dce_tinstr(transformer, ctx, instr, break_scan_budget, trace_state)
     }
   })
+}
+
+///|
+fn dead_code_elimination_pass() -> ModuleTransformer[Unit] {
+  dead_code_elimination_pass_with_trace()
 }
 
 ///|
@@ -59,7 +319,10 @@ fn dce_texpr(
   _ctx : Unit,
   expr : TExpr,
   break_scan_budget : Ref[Int],
+  trace_state : DCEPassTraceState,
 ) -> TransformerResult[Unit, TExpr] {
+  trace_state.expr_visits.val += 1
+  dce_trace_maybe_emit_progress(trace_state, "texpr", break_scan_budget)
   let { instrs, .. } = expr
   let out : Array[TInstr] = []
   let mut changed = false
@@ -78,7 +341,7 @@ fn dce_texpr(
       changed = true
     }
     out.push(new_instr)
-    if dce_is_unreachable_instr(new_instr, break_scan_budget) {
+    if dce_is_unreachable_instr(new_instr, break_scan_budget, trace_state) {
       after_unreachable = true
     }
   }
@@ -95,7 +358,10 @@ fn dce_tinstr(
   _ctx : Unit,
   instr : TInstr,
   break_scan_budget : Ref[Int],
+  trace_state : DCEPassTraceState,
 ) -> TransformerResult[Unit, TInstr] {
+  trace_state.instr_visits.val += 1
+  dce_trace_maybe_emit_progress(trace_state, "instr", break_scan_budget)
   let walked = match transformer.walk_tinstruction_default((), instr) {
     Err(e) => return Err(e)
     Ok(None) => instr
@@ -108,7 +374,7 @@ fn dce_tinstr(
     TInstrKind::TBlock(_, body) if is_single_unreachable_texpr(body) =>
       TInstr::unreachable_()
     TInstrKind::TIf(_, cond, _, _) if dce_is_unreachable_instr(
-        cond, break_scan_budget,
+        cond, break_scan_budget, trace_state,
       ) => cond
     TInstrKind::TLoop(_, body) if is_single_unreachable_texpr(body) =>
       TInstr::unreachable_()
@@ -120,15 +386,16 @@ fn dce_tinstr(
   // keep effects before the first unreachable as drops, keep the first
   // unreachable child, and remove everything after.
   if !is_control_flow_structure(rewritten) &&
-    dce_is_unreachable_instr(rewritten, break_scan_budget) &&
-    dce_has_unreachable_child(rewritten, break_scan_budget) {
+    dce_is_unreachable_instr(rewritten, break_scan_budget, trace_state) &&
+    dce_has_unreachable_child(rewritten, break_scan_budget, trace_state) {
     rewritten = dce_rewrite_non_control_unreachable(
-      rewritten, break_scan_budget,
+      rewritten, break_scan_budget, trace_state,
     )
   }
   if rewritten == instr {
     unchanged()
   } else {
+    dce_trace_record_rewrite(trace_state, "instr", break_scan_budget)
     change((), rewritten)
   }
 }
@@ -154,14 +421,22 @@ fn is_single_unreachable_texpr(expr : TExpr) -> Bool {
 }
 
 ///|
-fn dce_texpr_is_unreachable(expr : TExpr, break_scan_budget : Ref[Int]) -> Bool {
+fn dce_texpr_is_unreachable(
+  expr : TExpr,
+  break_scan_budget : Ref[Int],
+  trace_state : DCEPassTraceState,
+) -> Bool {
   let { instrs, .. } = expr
   if instrs.length() > 0 &&
-    dce_is_unreachable_instr(instrs[instrs.length() - 1], break_scan_budget) {
+    dce_is_unreachable_instr(
+      instrs[instrs.length() - 1],
+      break_scan_budget,
+      trace_state,
+    ) {
     return true
   }
   for instr in instrs {
-    if dce_is_unreachable_instr(instr, break_scan_budget) {
+    if dce_is_unreachable_instr(instr, break_scan_budget, trace_state) {
       return true
     }
   }
@@ -189,10 +464,11 @@ fn dce_has_break_to_depth_in_texpr(
   expr : TExpr,
   depth : Int,
   break_scan_budget : Ref[Int],
+  trace_state : DCEPassTraceState,
 ) -> Bool {
   let { instrs, .. } = expr
   for instr in instrs {
-    if dce_has_break_to_depth(instr, depth, break_scan_budget) {
+    if dce_has_break_to_depth(instr, depth, break_scan_budget, trace_state) {
       return true
     }
   }
@@ -200,11 +476,18 @@ fn dce_has_break_to_depth_in_texpr(
 }
 
 ///|
-fn dce_take_break_budget(break_scan_budget : Ref[Int]) -> Bool {
+fn dce_take_break_budget(
+  break_scan_budget : Ref[Int],
+  trace_state : DCEPassTraceState,
+) -> Bool {
+  trace_state.break_checks.val += 1
   if break_scan_budget.val <= 0 {
+    trace_state.budget_hits.val += 1
+    dce_trace_maybe_emit_progress(trace_state, "budget_exhausted", break_scan_budget)
     true
   } else {
     break_scan_budget.val = break_scan_budget.val - 1
+    dce_trace_maybe_emit_progress(trace_state, "break_scan", break_scan_budget)
     false
   }
 }
@@ -214,9 +497,10 @@ fn dce_has_break_to_depth(
   instr : TInstr,
   depth : Int,
   break_scan_budget : Ref[Int],
+  trace_state : DCEPassTraceState,
 ) -> Bool {
   // Conservatively assume a matching break when analysis budget is exhausted.
-  if dce_take_break_budget(break_scan_budget) {
+  if dce_take_break_budget(break_scan_budget, trace_state) {
     return true
   }
   match instr.kind {
@@ -239,21 +523,31 @@ fn dce_has_break_to_depth(
     | TInstrKind::TBrOnCastFail(label, _, _, _, _, _) =>
       label_matches_depth(label, depth)
     TInstrKind::TBlock(_, body) | TInstrKind::TLoop(_, body) =>
-      dce_has_break_to_depth_in_texpr(body, depth + 1, break_scan_budget)
+      dce_has_break_to_depth_in_texpr(
+        body,
+        depth + 1,
+        break_scan_budget,
+        trace_state,
+      )
     TInstrKind::TIf(_, cond, then_body, else_body) => {
-      if dce_has_break_to_depth(cond, depth, break_scan_budget) {
+      if dce_has_break_to_depth(cond, depth, break_scan_budget, trace_state) {
         return true
       }
       if dce_has_break_to_depth_in_texpr(
           then_body,
           depth + 1,
           break_scan_budget,
+          trace_state,
         ) {
         return true
       }
       match else_body {
-        Some(body) =>
-          dce_has_break_to_depth_in_texpr(body, depth + 1, break_scan_budget)
+        Some(body) => dce_has_break_to_depth_in_texpr(
+          body,
+          depth + 1,
+          break_scan_budget,
+          trace_state,
+        )
         None => false
       }
     }
@@ -263,11 +557,16 @@ fn dce_has_break_to_depth(
           return true
         }
       }
-      dce_has_break_to_depth_in_texpr(body, depth + 1, break_scan_budget)
+      dce_has_break_to_depth_in_texpr(
+        body,
+        depth + 1,
+        break_scan_budget,
+        trace_state,
+      )
     }
     _ => {
       for child in eval_children(instr) {
-        if dce_has_break_to_depth(child, depth, break_scan_budget) {
+        if dce_has_break_to_depth(child, depth, break_scan_budget, trace_state) {
           return true
         }
       }
@@ -280,9 +579,10 @@ fn dce_has_break_to_depth(
 fn dce_has_unreachable_child(
   instr : TInstr,
   break_scan_budget : Ref[Int],
+  trace_state : DCEPassTraceState,
 ) -> Bool {
   for child in eval_children(instr) {
-    if dce_is_unreachable_instr(child, break_scan_budget) {
+    if dce_is_unreachable_instr(child, break_scan_budget, trace_state) {
       return true
     }
   }
@@ -293,9 +593,11 @@ fn dce_has_unreachable_child(
 fn dce_is_unreachable_instr(
   instr : TInstr,
   break_scan_budget : Ref[Int],
+  trace_state : DCEPassTraceState,
 ) -> Bool {
+  trace_state.unreachable_checks.val += 1
   // When the analysis budget is exhausted, fall back to conservative behavior.
-  if dce_take_break_budget(break_scan_budget) {
+  if dce_take_break_budget(break_scan_budget, trace_state) {
     return false
   }
   match instr.kind {
@@ -314,32 +616,32 @@ fn dce_is_unreachable_instr(
     // Block is unreachable only when its body is unreachable and there are
     // no breaks to the block itself.
     TInstrKind::TBlock(_, body) =>
-      dce_texpr_is_unreachable(body, break_scan_budget) &&
-      !dce_has_break_to_depth_in_texpr(body, 0, break_scan_budget)
+      dce_texpr_is_unreachable(body, break_scan_budget, trace_state) &&
+      !dce_has_break_to_depth_in_texpr(body, 0, break_scan_budget, trace_state)
 
     // If is unreachable when condition is unreachable or both branches are.
     TInstrKind::TIf(_, cond, then_body, else_body) => {
-      if dce_is_unreachable_instr(cond, break_scan_budget) {
+      if dce_is_unreachable_instr(cond, break_scan_budget, trace_state) {
         return true
       }
       match else_body {
         Some(other) =>
-          dce_texpr_is_unreachable(then_body, break_scan_budget) &&
-          dce_texpr_is_unreachable(other, break_scan_budget)
+          dce_texpr_is_unreachable(then_body, break_scan_budget, trace_state) &&
+          dce_texpr_is_unreachable(other, break_scan_budget, trace_state)
         None => false
       }
     }
 
     // Loop can only fall through if the body can fall through.
     TInstrKind::TLoop(_, body) =>
-      dce_texpr_is_unreachable(body, break_scan_budget)
+      dce_texpr_is_unreachable(body, break_scan_budget, trace_state)
 
     // try_table can finish normally only when its body can finish normally.
     TInstrKind::TTryTable(_, _, body) =>
-      dce_texpr_is_unreachable(body, break_scan_budget)
+      dce_texpr_is_unreachable(body, break_scan_budget, trace_state)
 
     // For non-control ops, any unreachable child makes the parent unreachable.
-    _ => dce_has_unreachable_child(instr, break_scan_budget)
+    _ => dce_has_unreachable_child(instr, break_scan_budget, trace_state)
   }
 }
 
@@ -347,6 +649,7 @@ fn dce_is_unreachable_instr(
 fn dce_rewrite_non_control_unreachable(
   instr : TInstr,
   break_scan_budget : Ref[Int],
+  trace_state : DCEPassTraceState,
 ) -> TInstr {
   let children = eval_children(instr)
   let remaining : Array[TInstr] = []
@@ -355,7 +658,7 @@ fn dce_rewrite_non_control_unreachable(
     if after_unreachable {
       continue
     }
-    if dce_is_unreachable_instr(child, break_scan_budget) {
+    if dce_is_unreachable_instr(child, break_scan_budget, trace_state) {
       remaining.push(child)
       after_unreachable = true
     } else {
@@ -370,12 +673,17 @@ fn dce_rewrite_non_control_unreachable(
 
 ///|
 fn has_break_to_depth_in_texpr(expr : TExpr, depth : Int) -> Bool {
-  dce_has_break_to_depth_in_texpr(expr, depth, Ref::new(200_000))
+  dce_has_break_to_depth_in_texpr(
+    expr,
+    depth,
+    Ref::new(200_000),
+    dce_trace_state_noop(),
+  )
 }
 
 ///|
 fn is_unreachable_instr(instr : TInstr) -> Bool {
-  dce_is_unreachable_instr(instr, Ref::new(200_000))
+  dce_is_unreachable_instr(instr, Ref::new(200_000), dce_trace_state_noop())
 }
 
 ///|
@@ -548,6 +856,20 @@ fn run_dce_on_texpr(expr : TExpr) -> TExpr {
   match pass.walk_texpr((), expr) {
     Ok(Some((_, out))) => out
     _ => expr
+  }
+}
+
+///|
+fn run_dce_on_func_with_trace(
+  func : Func,
+  trace : (String) -> Unit,
+  trace_all_funcs? : Bool = false,
+) -> Func {
+  let pass = dead_code_elimination_pass_with_trace(trace~, trace_all_funcs~)
+  match pass.walk_func((), func) {
+    Ok(Some((_, out))) => out
+    Ok(None) => func
+    Err(e) => abort("unexpected dead code elimination walk_func error: \{e}")
   }
 }
 
@@ -797,4 +1119,34 @@ test "dead code elim keeps enclosing block reachable for loop branch escape" {
         "expected loop branch to enclosing block to keep continuation after block reachable",
       )
   }
+}
+
+///|
+test "dead code elim trace emits verbose progress logs" {
+  let trace_logs : Array[String] = []
+  let instrs : Array[TInstr] = []
+  let mut i = 0
+  while i < 96 {
+    instrs.push(TInstr::nop())
+    i += 1
+  }
+  instrs.push(
+    TInstr::binary(
+      BinaryOp::i32_add(),
+      TInstr::i32_const(I32(1)),
+      TInstr::unreachable_(),
+    ),
+  )
+  ignore(
+    run_dce_on_func_with_trace(
+      Func::t_func([], TExpr::new(instrs)),
+      fn(msg) { trace_logs.push(msg) },
+      trace_all_funcs=true,
+    ),
+  )
+  assert_true(trace_logs.any(fn(msg) { msg.contains("func[1]:start") }))
+  assert_true(trace_logs.any(fn(msg) { msg.contains("func[1]:progress") }))
+  assert_true(trace_logs.any(fn(msg) {
+    msg.contains("func[1]:rewrite phase=instr")
+  }))
 }

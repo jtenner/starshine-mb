@@ -53,6 +53,12 @@ Run the wasm `spec` subcommand manually against the staged optimized CLI artifac
 npm --prefix tests/node run test:spec:wasm -- --limit 5
 ```
 
+Run the official spec suite against the staged self-optimized CLI artifact:
+
+```bash
+npm --prefix tests/node run test:spec:self-optimized:wasm
+```
+
 Override the staged artifact explicitly when needed:
 
 ```bash

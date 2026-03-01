@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 
-import { collectSpecFiles, parseCliArgs } from '../scripts/run-wasm-spec-suite.mjs';
+import { collectSpecFiles, parseCliArgs, resolveRepoPath } from '../scripts/run-wasm-spec-suite.mjs';
 
 function withTempDir(fn) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'starshine-node-wasm-spec-suite-'));
@@ -51,4 +51,16 @@ test('parseCliArgs parses --limit, --wasm, and --file overrides', () => {
   assert.equal(parsed.limit, 5);
   assert.equal(parsed.wasmPath, 'tests/node/dist/starshine-optimized-wasi.wasm');
   assert.deepEqual(parsed.onlyFiles, ['tests/spec/a.wast', 'tests/spec/b.wast']);
+});
+
+test('resolveRepoPath resolves repo-relative wasm paths', () => {
+  const repoRoot = '/tmp/starshine-repo';
+  assert.equal(
+    resolveRepoPath(repoRoot, 'tests/node/dist/starshine-self-optimized-wasi.wasm'),
+    path.join(repoRoot, 'tests', 'node', 'dist', 'starshine-self-optimized-wasi.wasm'),
+  );
+  assert.equal(
+    resolveRepoPath(repoRoot, '/tmp/already-absolute.wasm'),
+    '/tmp/already-absolute.wasm',
+  );
 });

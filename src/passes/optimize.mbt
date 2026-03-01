@@ -435,14 +435,20 @@ fn run_ir_context_transformer_scheduler_pass(
     PickLoadSigns =>
       apply_ir_transformer_pass(ctx, mod, pick_load_signs_ir_pass(mod))
     GUFA => apply_ir_transformer_pass(ctx, mod, gufa_ir_pass(mod, false))
-    GUFAOptimizing =>
-      match apply_ir_transformer_pass(ctx, mod, gufa_ir_pass(mod, false)) {
-        Ok(gufa_mod) => {
-          let after_dce = match
-            apply_unit_transformer_pass(gufa_mod, dead_code_elimination_pass()) {
-            Ok(new_mod) => new_mod
-            Err(e) => return Err(e)
-          }
+	    GUFAOptimizing =>
+	      match apply_ir_transformer_pass(ctx, mod, gufa_ir_pass(mod, false)) {
+	        Ok(gufa_mod) => {
+	          let after_dce = match
+	            apply_unit_transformer_pass(
+	              gufa_mod,
+	              dead_code_elimination_pass_with_trace(
+	                trace=fn(msg) { trace("dead_code_elimination:\{msg}") },
+	                trace_all_funcs=trace_pass_details,
+	              ),
+	            ) {
+	            Ok(new_mod) => new_mod
+	            Err(e) => return Err(e)
+	          }
           ctx.set_mod(after_dce)
           apply_ir_transformer_pass(
             ctx,
@@ -546,10 +552,18 @@ fn run_ir_context_transformer_scheduler_pass(
 fn run_unit_transformer_scheduler_pass(
   mod : Module,
   pass : ModulePass,
+  trace : (String) -> Unit,
+  trace_pass_details : Bool,
 ) -> Result[Module, String] {
   match pass {
     DeadCodeElimination =>
-      apply_unit_transformer_pass(mod, dead_code_elimination_pass())
+      apply_unit_transformer_pass(
+        mod,
+        dead_code_elimination_pass_with_trace(
+          trace=fn(msg) { trace("dead_code_elimination:\{msg}") },
+          trace_all_funcs=trace_pass_details,
+        ),
+      )
     _ => Err("optimize scheduler bug: expected Unit transformer pass")
   }
 }
@@ -641,7 +655,13 @@ fn run_module_runner_scheduler_pass(
           "dead_argument_elim_cleanup:dce:start funcs=\{cleanup_profile.func_count} top_instrs=\{cleanup_profile.top_instr_sum}",
         )
         let after_dce = match
-          apply_unit_transformer_pass(dae_mod, dead_code_elimination_pass()) {
+          apply_unit_transformer_pass(
+            dae_mod,
+            dead_code_elimination_pass_with_trace(
+              trace=fn(msg) { trace("dead_code_elimination:\{msg}") },
+              trace_all_funcs=trace_pass_details,
+            ),
+          ) {
           Ok(new_mod) => {
             let dce_profile = optimize_cleanup_cost_profile(new_mod)
             trace(
@@ -943,7 +963,13 @@ fn optimize_module_with_options_internal(
           }
         }
       UnitTransformerPass =>
-        match run_unit_transformer_scheduler_pass(mod, pass) {
+        match
+          run_unit_transformer_scheduler_pass(
+            mod,
+            pass,
+            pass_trace,
+            trace_enabled && trace_pass_details,
+          ) {
           Ok(new_mod) => new_mod
           Err(e) => {
             if trace_enabled {

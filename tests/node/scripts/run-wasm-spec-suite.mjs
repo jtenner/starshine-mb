@@ -73,6 +73,10 @@ function toPosixRelativePath(repoRoot, filePath) {
   return relative.split(path.sep).join('/');
 }
 
+export function resolveRepoPath(repoRoot, filePath) {
+  return path.isAbsolute(filePath) ? filePath : path.join(repoRoot, filePath);
+}
+
 export async function runWasmSpecSuite({
   repoRoot,
   wasmPath = null,
@@ -81,9 +85,9 @@ export async function runWasmSpecSuite({
 } = {}) {
   const specRoot = path.join(repoRoot, 'tests', 'spec');
   const dist = distArtifactPaths(repoRoot);
-  const runnerWasm = wasmPath ?? dist.optimized;
+  const runnerWasm = wasmPath === null ? dist.optimized : resolveRepoPath(repoRoot, wasmPath);
   let files = onlyFiles.length > 0
-    ? onlyFiles.map((filePath) => path.isAbsolute(filePath) ? filePath : path.join(repoRoot, filePath))
+    ? onlyFiles.map((filePath) => resolveRepoPath(repoRoot, filePath))
     : collectSpecFiles(specRoot);
 
   if (limit !== null) {
