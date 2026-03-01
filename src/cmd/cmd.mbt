@@ -1624,7 +1624,9 @@ fn parse_spec_cmd_args(
           return Err(
             CmdError::CliParse(
               CliParseError::invalid_long_flag(
-                arg.sub(start=1).to_string() catch { _ => arg },
+                arg.sub(start=1).to_string() catch {
+                  _ => arg
+                },
               ),
             ),
           )
@@ -2746,6 +2748,7 @@ fn main {
 }
 
 ///|
+
 ///|
 #cfg(target="wasm")
 #external

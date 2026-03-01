@@ -68,6 +68,11 @@ pub enum ValType {
 pub type ResultType = Array[ValType]
 
 ///|
+pub fn result_type(values : Array[ValType]) -> ResultType {
+  values
+}
+
+///|
 pub enum PackType {
   I16PackType
   I8PackType
@@ -2067,6 +2072,41 @@ pub fn TypeIdx::new(idx : UInt) -> TypeIdx {
 ///|
 pub fn TypeIdx::rec(idx : UInt) -> TypeIdx {
   RecIdx(idx)
+}
+
+///|
+pub fn S33::new(value : UInt) -> S33 {
+  S33(value)
+}
+
+///|
+pub fn I32::new(value : Int) -> I32 {
+  I32(value)
+}
+
+///|
+pub fn I64::new(value : Int64) -> I64 {
+  I64(value)
+}
+
+///|
+pub fn F32::new(value : Float) -> F32 {
+  F32(value)
+}
+
+///|
+pub fn F64::new(value : Double) -> F64 {
+  F64(value)
+}
+
+///|
+pub fn U32::new(value : UInt) -> U32 {
+  U32(value)
+}
+
+///|
+pub fn U64::new(value : UInt64) -> U64 {
+  U64(value)
 }
 
 ///|
@@ -8561,6 +8601,11 @@ pub fn Data::new(dm : DataMode, b : Bytes) -> Data {
 ///|
 pub fn Name::new(sv : StringView) -> Name {
   Name(sv)
+}
+
+///|
+pub fn Name::from_string(s : String) -> Name {
+  Name::new(s.to_string_view())
 }
 
 ///|

@@ -33,6 +33,7 @@ const CUSTOM_MOON_EXPORTS = [
   '__node_cli_parse_result_get_config_path',
   '__node_cli_parse_result_input_globs_length',
   '__node_cli_parse_result_input_globs_get',
+  '__node_cli_parse_result_glob_enabled',
   '__node_cli_parse_result_help_requested',
   '__node_cli_parse_result_version_requested',
   '__node_cli_parse_result_read_stdin',
@@ -142,6 +143,18 @@ const PUBLISHED_EXAMPLES = [
   {
     file: 'examples/14-wast-spec-suite.mjs',
     description: 'Run the in-memory WAST spec harness and print the summary report.',
+  },
+  {
+    file: 'examples/15-lib-module-from-scratch-add.mjs',
+    description: 'Construct an exported arithmetic module from scratch with lib builders, validate it, and encode it.',
+  },
+  {
+    file: 'examples/16-lib-module-from-scratch-memory.mjs',
+    description: 'Construct a memory-and-data module from scratch, use literal wrapper builders for memargs, then validate and encode it.',
+  },
+  {
+    file: 'examples/17-lib-module-from-scratch-control-flow.mjs',
+    description: 'Construct a control-flow-heavy module from scratch with typed block builders, then validate and encode it.',
   },
 ];
 

@@ -94,6 +94,10 @@ export function recIdx(arg0) {
   return liftValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, wasm["lib__rec_idx"](lowerValue({ kind: "number" }, arg0, wasm)), wasm);
 }
 
+export function resultType(arg0) {
+  return liftValue({ kind: "array", helper: {"new":"__js_array_6_new","push":"__js_array_6_push","length":"__js_array_6_length","get":"__js_array_6_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, wasm["lib__result_type"](lowerValue({ kind: "array", helper: {"new":"__js_array_6_new","push":"__js_array_6_push","length":"__js_array_6_length","get":"__js_array_6_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, arg0, wasm)), wasm);
+}
+
 export function singleRecType(arg0) {
   return liftValue({ kind: "named", brand: "lib.RecType", showExport: "__js_show_lib_RecType" }, wasm["lib__single_rec_type"](lowerValue({ kind: "named", brand: "lib.SubType", showExport: "__js_show_lib_SubType" }, arg0, wasm)), wasm);
 }
@@ -1272,6 +1276,9 @@ export const F32 = Object.freeze({
   inner(arg0) {
     return liftValue({ kind: "number" }, wasm["lib__F32__inner"](lowerValue({ kind: "named", brand: "lib.F32", showExport: "__js_show_lib_F32" }, arg0, wasm)), wasm);
   },
+  new(arg0) {
+    return liftValue({ kind: "named", brand: "lib.F32", showExport: "__js_show_lib_F32" }, wasm["lib__F32__new"](lowerValue({ kind: "number" }, arg0, wasm)), wasm);
+  },
   show(value) {
     return wasm["__js_show_lib_F32"](value);
   },
@@ -1280,6 +1287,9 @@ export const F32 = Object.freeze({
 export const F64 = Object.freeze({
   inner(arg0) {
     return liftValue({ kind: "number" }, wasm["lib__F64__inner"](lowerValue({ kind: "named", brand: "lib.F64", showExport: "__js_show_lib_F64" }, arg0, wasm)), wasm);
+  },
+  new(arg0) {
+    return liftValue({ kind: "named", brand: "lib.F64", showExport: "__js_show_lib_F64" }, wasm["lib__F64__new"](lowerValue({ kind: "number" }, arg0, wasm)), wasm);
   },
   show(value) {
     return wasm["__js_show_lib_F64"](value);
@@ -1425,6 +1435,9 @@ export const I32 = Object.freeze({
   inner(arg0) {
     return liftValue({ kind: "number" }, wasm["lib__I32__inner"](lowerValue({ kind: "named", brand: "lib.I32", showExport: "__js_show_lib_I32" }, arg0, wasm)), wasm);
   },
+  new(arg0) {
+    return liftValue({ kind: "named", brand: "lib.I32", showExport: "__js_show_lib_I32" }, wasm["lib__I32__new"](lowerValue({ kind: "number" }, arg0, wasm)), wasm);
+  },
   show(value) {
     return wasm["__js_show_lib_I32"](value);
   },
@@ -1433,6 +1446,9 @@ export const I32 = Object.freeze({
 export const I64 = Object.freeze({
   inner(arg0) {
     return liftValue({ kind: "bigint" }, wasm["lib__I64__inner"](lowerValue({ kind: "named", brand: "lib.I64", showExport: "__js_show_lib_I64" }, arg0, wasm)), wasm);
+  },
+  new(arg0) {
+    return liftValue({ kind: "named", brand: "lib.I64", showExport: "__js_show_lib_I64" }, wasm["lib__I64__new"](lowerValue({ kind: "bigint" }, arg0, wasm)), wasm);
   },
   show(value) {
     return wasm["__js_show_lib_I64"](value);
@@ -3339,6 +3355,9 @@ export const Mut = Object.freeze({
 });
 
 export const Name = Object.freeze({
+  fromString(arg0) {
+    return liftValue({ kind: "named", brand: "lib.Name", showExport: "__js_show_lib_Name" }, wasm["lib__Name__from_string"](lowerValue({ kind: "string" }, arg0, wasm)), wasm);
+  },
   inner(arg0) {
     return liftValue({ kind: "opaque", brand: "StringView" }, wasm["lib__Name__inner"](lowerValue({ kind: "named", brand: "lib.Name", showExport: "__js_show_lib_Name" }, arg0, wasm)), wasm);
   },
@@ -3483,6 +3502,9 @@ export const ResultType = Object.freeze({
 export const S33 = Object.freeze({
   inner(arg0) {
     return liftValue({ kind: "number" }, wasm["lib__S33__inner"](lowerValue({ kind: "named", brand: "lib.S33", showExport: "__js_show_lib_S33" }, arg0, wasm)), wasm);
+  },
+  new(arg0) {
+    return liftValue({ kind: "named", brand: "lib.S33", showExport: "__js_show_lib_S33" }, wasm["lib__S33__new"](lowerValue({ kind: "number" }, arg0, wasm)), wasm);
   },
   show(value) {
     return wasm["__js_show_lib_S33"](value);
@@ -4063,6 +4085,9 @@ export const U32 = Object.freeze({
   inner(arg0) {
     return liftValue({ kind: "number" }, wasm["lib__U32__inner"](lowerValue({ kind: "named", brand: "lib.U32", showExport: "__js_show_lib_U32" }, arg0, wasm)), wasm);
   },
+  new(arg0) {
+    return liftValue({ kind: "named", brand: "lib.U32", showExport: "__js_show_lib_U32" }, wasm["lib__U32__new"](lowerValue({ kind: "number" }, arg0, wasm)), wasm);
+  },
   show(value) {
     return wasm["__js_show_lib_U32"](value);
   },
@@ -4071,6 +4096,9 @@ export const U32 = Object.freeze({
 export const U64 = Object.freeze({
   inner(arg0) {
     return liftValue({ kind: "bigint" }, wasm["lib__U64__inner"](lowerValue({ kind: "named", brand: "lib.U64", showExport: "__js_show_lib_U64" }, arg0, wasm)), wasm);
+  },
+  new(arg0) {
+    return liftValue({ kind: "named", brand: "lib.U64", showExport: "__js_show_lib_U64" }, wasm["lib__U64__new"](lowerValue({ kind: "bigint" }, arg0, wasm)), wasm);
   },
   show(value) {
     return wasm["__js_show_lib_U64"](value);

@@ -34,6 +34,13 @@ pub fn __node_cli_parse_result_input_globs_get(
 }
 
 ///|
+pub fn __node_cli_parse_result_glob_enabled(
+  value : @cli.CliParseResult,
+) -> Bool {
+  value.glob_enabled
+}
+
+///|
 pub fn __node_cli_parse_result_help_requested(
   value : @cli.CliParseResult,
 ) -> Bool {

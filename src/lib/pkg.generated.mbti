@@ -60,6 +60,8 @@ pub fn min_addr_valtype(Limits, Limits) -> ValType
 
 pub fn rec_idx(UInt) -> TypeIdx
 
+pub fn result_type(Array[ValType]) -> Array[ValType]
+
 pub fn single_rec_type(SubType) -> RecType
 
 pub fn struct_comp_type(Array[FieldType]) -> CompType
@@ -951,6 +953,7 @@ pub impl @debug.Debug for ExtractLaneOp
 pub(all) struct F32(Float)
 #deprecated
 pub fn F32::inner(Self) -> Float
+pub fn F32::new(Float) -> Self
 pub impl PrettyPrint for F32
 pub impl Eq for F32
 pub impl Hash for F32
@@ -961,6 +964,7 @@ pub impl @quickcheck.Arbitrary for F32
 pub(all) struct F64(Double)
 #deprecated
 pub fn F64::inner(Self) -> Double
+pub fn F64::new(Double) -> Self
 pub impl PrettyPrint for F64
 pub impl Eq for F64
 pub impl Hash for F64
@@ -1093,6 +1097,7 @@ pub impl @quickcheck.Arbitrary for HeapType
 pub(all) struct I32(Int)
 #deprecated
 pub fn I32::inner(Self) -> Int
+pub fn I32::new(Int) -> Self
 pub impl PrettyPrint for I32
 pub impl Eq for I32
 pub impl Hash for I32
@@ -1103,6 +1108,7 @@ pub impl @quickcheck.Arbitrary for I32
 pub(all) struct I64(Int64)
 #deprecated
 pub fn I64::inner(Self) -> Int64
+pub fn I64::new(Int64) -> Self
 pub impl PrettyPrint for I64
 pub impl Eq for I64
 pub impl Hash for I64
@@ -2406,6 +2412,7 @@ pub impl @debug.Debug for Mut
 pub impl @quickcheck.Arbitrary for Mut
 
 pub struct Name(StringView)
+pub fn Name::from_string(String) -> Self
 #deprecated
 pub fn Name::inner(Self) -> StringView
 pub fn Name::new(StringView) -> Self
@@ -2515,6 +2522,7 @@ pub impl @debug.Debug for ReplaceLaneOp
 pub(all) struct S33(UInt)
 #deprecated
 pub fn S33::inner(Self) -> UInt
+pub fn S33::new(UInt) -> Self
 pub impl PrettyPrint for S33
 pub impl Eq for S33
 pub impl Hash for S33
@@ -2964,6 +2972,7 @@ pub impl @quickcheck.Arbitrary for TypeSec
 pub(all) struct U32(UInt)
 #deprecated
 pub fn U32::inner(Self) -> UInt
+pub fn U32::new(UInt) -> Self
 pub impl PrettyPrint for U32
 pub impl Eq for U32
 pub impl Hash for U32
@@ -2974,6 +2983,7 @@ pub impl @quickcheck.Arbitrary for U32
 pub(all) struct U64(UInt64)
 #deprecated
 pub fn U64::inner(Self) -> UInt64
+pub fn U64::new(UInt64) -> Self
 pub impl PrettyPrint for U64
 pub impl Eq for U64
 pub impl Hash for U64

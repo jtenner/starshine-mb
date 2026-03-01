@@ -60,6 +60,9 @@ All examples are executed by the package test suite.
 - `examples/12-wast-module-roundtrip.mjs`: Parse a WAST module AST and print it back to canonical WAST text.
 - `examples/13-wast-script-roundtrip.mjs`: Parse a WAST script and print the normalized script text.
 - `examples/14-wast-spec-suite.mjs`: Run the in-memory WAST spec harness and print the summary report.
+- `examples/15-lib-module-from-scratch-add.mjs`: Construct an exported arithmetic module from scratch with lib builders, validate it, and encode it.
+- `examples/16-lib-module-from-scratch-memory.mjs`: Construct a memory-and-data module from scratch, use literal wrapper builders for memargs, then validate and encode it.
+- `examples/17-lib-module-from-scratch-control-flow.mjs`: Construct a control-flow-heavy module from scratch with typed block builders, then validate and encode it.
 
 ## Modules
 
@@ -190,7 +193,7 @@ Type namespace `CliParseError`
   Format the value with its MoonBit `Show` implementation.
 
 Type namespace `CliParseResult`
-- `CliParseResult.new(configPath?: string | null, inputGlobs?: Array<string>, helpRequested?: boolean, versionRequested?: boolean, readStdin?: boolean, inputFormat?: CliInputFormat | null, outputTargets?: Array<CliOutputTarget>, passFlags?: Array<string>, optimizeFlags?: Array<CliOptimizationFlag>, trapMode?: TrapMode | null, monomorphizeMinBenefit?: number | null, lowMemoryUnused?: boolean | null, lowMemoryBound?: bigint | null): CliParseResult`
+- `CliParseResult.new(configPath?: string | null, inputGlobs?: Array<string>, globEnabled?: boolean, helpRequested?: boolean, versionRequested?: boolean, readStdin?: boolean, inputFormat?: CliInputFormat | null, outputTargets?: Array<CliOutputTarget>, passFlags?: Array<string>, optimizeFlags?: Array<CliOptimizationFlag>, trapMode?: TrapMode | null, monomorphizeMinBenefit?: number | null, lowMemoryUnused?: boolean | null, lowMemoryBound?: bigint | null): CliParseResult`
   Create a CliParseResult value.
 - `CliParseResult.show(value: CliParseResult): string`
   Format the value with its MoonBit `Show` implementation.
@@ -539,6 +542,8 @@ Import directly with `import * as lib from '@jtenner/starshine/lib';` or from th
   Call minAddrValtype.
 - `recIdx(arg0: number): TypeIdx`
   Call recIdx.
+- `resultType(arg0: Array<ValType>): Array<ValType>`
+  Call resultType.
 - `singleRecType(arg0: SubType): RecType`
   Call singleRecType.
 - `structCompType(arg0: Array<FieldType>): CompType`
@@ -1319,12 +1324,16 @@ Type namespace `ExtractLaneOp`
 Type namespace `F32`
 - `F32.inner(arg0: F32): number`
   Return the wrapped inner value from F32.
+- `F32.new(arg0: number): F32`
+  Create a F32 value.
 - `F32.show(value: F32): string`
   Format the value with its MoonBit `Show` implementation.
 
 Type namespace `F64`
 - `F64.inner(arg0: F64): number`
   Return the wrapped inner value from F64.
+- `F64.new(arg0: number): F64`
+  Create a F64 value.
 - `F64.show(value: F64): string`
   Format the value with its MoonBit `Show` implementation.
 
@@ -1419,12 +1428,16 @@ Type namespace `HeapType`
 Type namespace `I32`
 - `I32.inner(arg0: I32): number`
   Return the wrapped inner value from I32.
+- `I32.new(arg0: number): I32`
+  Create a I32 value.
 - `I32.show(value: I32): string`
   Format the value with its MoonBit `Show` implementation.
 
 Type namespace `I64`
 - `I64.inner(arg0: I64): bigint`
   Return the wrapped inner value from I64.
+- `I64.new(arg0: bigint): I64`
+  Create a I64 value.
 - `I64.show(value: I64): string`
   Format the value with its MoonBit `Show` implementation.
 
@@ -2667,6 +2680,8 @@ Type namespace `Mut`
   Format the value with its MoonBit `Show` implementation.
 
 Type namespace `Name`
+- `Name.fromString(arg0: string): Name`
+  Call Name.fromString.
 - `Name.inner(arg0: Name): OpaqueHandle<"StringView">`
   Return the wrapped inner value from Name.
 - `Name.new(arg0: OpaqueHandle<"StringView">): Name`
@@ -2751,6 +2766,8 @@ Type namespace `ReplaceLaneOp`
 Type namespace `S33`
 - `S33.inner(arg0: S33): number`
   Return the wrapped inner value from S33.
+- `S33.new(arg0: number): S33`
+  Create a S33 value.
 - `S33.show(value: S33): string`
   Format the value with its MoonBit `Show` implementation.
 
@@ -3137,12 +3154,16 @@ Type namespace `TypeSec`
 Type namespace `U32`
 - `U32.inner(arg0: U32): number`
   Return the wrapped inner value from U32.
+- `U32.new(arg0: number): U32`
+  Create a U32 value.
 - `U32.show(value: U32): string`
   Format the value with its MoonBit `Show` implementation.
 
 Type namespace `U64`
 - `U64.inner(arg0: U64): bigint`
   Return the wrapped inner value from U64.
+- `U64.new(arg0: bigint): U64`
+  Create a U64 value.
 - `U64.show(value: U64): string`
   Format the value with its MoonBit `Show` implementation.
 

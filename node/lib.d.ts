@@ -117,6 +117,7 @@ export function memType(arg0: Limits): MemType;
 export function minAddr(arg0: Limits, arg1: Limits): Limits;
 export function minAddrValtype(arg0: Limits, arg1: Limits): ValType;
 export function recIdx(arg0: number): TypeIdx;
+export function resultType(arg0: Array<ValType>): Array<ValType>;
 export function singleRecType(arg0: SubType): RecType;
 export function structCompType(arg0: Array<FieldType>): CompType;
 export function subType(arg0: boolean, arg1: Array<TypeIdx>, arg2: CompType): SubType;
@@ -562,11 +563,13 @@ export const ExtractLaneOp: {
 
 export const F32: {
   inner(arg0: F32): number;
+  new(arg0: number): F32;
   show(value: F32): string;
 };
 
 export const F64: {
   inner(arg0: F64): number;
+  new(arg0: number): F64;
   show(value: F64): string;
 };
 
@@ -639,11 +642,13 @@ export const HeapType: {
 
 export const I32: {
   inner(arg0: I32): number;
+  new(arg0: number): I32;
   show(value: I32): string;
 };
 
 export const I64: {
   inner(arg0: I64): bigint;
+  new(arg0: bigint): I64;
   show(value: I64): string;
 };
 
@@ -1297,6 +1302,7 @@ export const Mut: {
 };
 
 export const Name: {
+  fromString(arg0: string): Name;
   inner(arg0: Name): OpaqueHandle<"StringView">;
   new(arg0: OpaqueHandle<"StringView">): Name;
   show(value: Name): string;
@@ -1356,6 +1362,7 @@ export const ResultType: {
 
 export const S33: {
   inner(arg0: S33): number;
+  new(arg0: number): S33;
   show(value: S33): string;
 };
 
@@ -1585,11 +1592,13 @@ export const TypeSec: {
 
 export const U32: {
   inner(arg0: U32): number;
+  new(arg0: number): U32;
   show(value: U32): string;
 };
 
 export const U64: {
   inner(arg0: U64): bigint;
+  new(arg0: bigint): U64;
   show(value: U64): string;
 };
 

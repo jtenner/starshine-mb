@@ -1221,6 +1221,8 @@ pub fn __node_cli_parse_result_get_monomorphize_min_benefit(@cli.CliParseResult)
 
 pub fn __node_cli_parse_result_get_trap_mode(@cli.CliParseResult) -> @cli.TrapMode
 
+pub fn __node_cli_parse_result_glob_enabled(@cli.CliParseResult) -> Bool
+
 pub fn __node_cli_parse_result_has_config_path(@cli.CliParseResult) -> Bool
 
 pub fn __node_cli_parse_result_has_input_format(@cli.CliParseResult) -> Bool
@@ -1351,17 +1353,19 @@ pub fn cli__CliParseError__unexpected_flag_value(String) -> @cli.CliParseError
 
 pub fn cli__CliParseError__unknown_short_flag(Char) -> @cli.CliParseError
 
-pub fn cli__CliParseResult__new(String?, Array[String], Bool, Bool, Bool, @cli.CliInputFormat?, Array[@cli.CliOutputTarget], Array[String], Array[@cli.CliOptimizationFlag], @cli.TrapMode?, Int?, Bool?, UInt64?) -> @cli.CliParseResult
+pub fn cli__CliParseResult__new(String?, Array[String], Bool, Bool, Bool, Bool, @cli.CliInputFormat?, Array[@cli.CliOutputTarget], Array[String], Array[@cli.CliOptimizationFlag], @cli.TrapMode?, Int?, Bool?, UInt64?) -> @cli.CliParseResult
 
 pub fn cli__CliParseResult__new__arity_0() -> @cli.CliParseResult
 
 pub fn cli__CliParseResult__new__arity_1(String?) -> @cli.CliParseResult
 
-pub fn cli__CliParseResult__new__arity_10(String?, Array[String], Bool, Bool, Bool, @cli.CliInputFormat?, Array[@cli.CliOutputTarget], Array[String], Array[@cli.CliOptimizationFlag], @cli.TrapMode?) -> @cli.CliParseResult
+pub fn cli__CliParseResult__new__arity_10(String?, Array[String], Bool, Bool, Bool, Bool, @cli.CliInputFormat?, Array[@cli.CliOutputTarget], Array[String], Array[@cli.CliOptimizationFlag]) -> @cli.CliParseResult
 
-pub fn cli__CliParseResult__new__arity_11(String?, Array[String], Bool, Bool, Bool, @cli.CliInputFormat?, Array[@cli.CliOutputTarget], Array[String], Array[@cli.CliOptimizationFlag], @cli.TrapMode?, Int?) -> @cli.CliParseResult
+pub fn cli__CliParseResult__new__arity_11(String?, Array[String], Bool, Bool, Bool, Bool, @cli.CliInputFormat?, Array[@cli.CliOutputTarget], Array[String], Array[@cli.CliOptimizationFlag], @cli.TrapMode?) -> @cli.CliParseResult
 
-pub fn cli__CliParseResult__new__arity_12(String?, Array[String], Bool, Bool, Bool, @cli.CliInputFormat?, Array[@cli.CliOutputTarget], Array[String], Array[@cli.CliOptimizationFlag], @cli.TrapMode?, Int?, Bool?) -> @cli.CliParseResult
+pub fn cli__CliParseResult__new__arity_12(String?, Array[String], Bool, Bool, Bool, Bool, @cli.CliInputFormat?, Array[@cli.CliOutputTarget], Array[String], Array[@cli.CliOptimizationFlag], @cli.TrapMode?, Int?) -> @cli.CliParseResult
+
+pub fn cli__CliParseResult__new__arity_13(String?, Array[String], Bool, Bool, Bool, Bool, @cli.CliInputFormat?, Array[@cli.CliOutputTarget], Array[String], Array[@cli.CliOptimizationFlag], @cli.TrapMode?, Int?, Bool?) -> @cli.CliParseResult
 
 pub fn cli__CliParseResult__new__arity_2(String?, Array[String]) -> @cli.CliParseResult
 
@@ -1371,13 +1375,13 @@ pub fn cli__CliParseResult__new__arity_4(String?, Array[String], Bool, Bool) -> 
 
 pub fn cli__CliParseResult__new__arity_5(String?, Array[String], Bool, Bool, Bool) -> @cli.CliParseResult
 
-pub fn cli__CliParseResult__new__arity_6(String?, Array[String], Bool, Bool, Bool, @cli.CliInputFormat?) -> @cli.CliParseResult
+pub fn cli__CliParseResult__new__arity_6(String?, Array[String], Bool, Bool, Bool, Bool) -> @cli.CliParseResult
 
-pub fn cli__CliParseResult__new__arity_7(String?, Array[String], Bool, Bool, Bool, @cli.CliInputFormat?, Array[@cli.CliOutputTarget]) -> @cli.CliParseResult
+pub fn cli__CliParseResult__new__arity_7(String?, Array[String], Bool, Bool, Bool, Bool, @cli.CliInputFormat?) -> @cli.CliParseResult
 
-pub fn cli__CliParseResult__new__arity_8(String?, Array[String], Bool, Bool, Bool, @cli.CliInputFormat?, Array[@cli.CliOutputTarget], Array[String]) -> @cli.CliParseResult
+pub fn cli__CliParseResult__new__arity_8(String?, Array[String], Bool, Bool, Bool, Bool, @cli.CliInputFormat?, Array[@cli.CliOutputTarget]) -> @cli.CliParseResult
 
-pub fn cli__CliParseResult__new__arity_9(String?, Array[String], Bool, Bool, Bool, @cli.CliInputFormat?, Array[@cli.CliOutputTarget], Array[String], Array[@cli.CliOptimizationFlag]) -> @cli.CliParseResult
+pub fn cli__CliParseResult__new__arity_9(String?, Array[String], Bool, Bool, Bool, Bool, @cli.CliInputFormat?, Array[@cli.CliOutputTarget], Array[String]) -> @cli.CliParseResult
 
 pub fn cli__TrapMode__allow() -> @cli.TrapMode
 
@@ -2261,7 +2265,11 @@ pub fn lib__ExtractLaneOp__i8x16_extract_lane_u() -> @lib.ExtractLaneOp
 
 pub fn lib__F32__inner(@lib.F32) -> Float
 
+pub fn lib__F32__new(Float) -> @lib.F32
+
 pub fn lib__F64__inner(@lib.F64) -> Double
+
+pub fn lib__F64__new(Double) -> @lib.F64
 
 pub fn lib__FieldType__get_storage_type(@lib.FieldType) -> @lib.StorageType
 
@@ -2313,7 +2321,11 @@ pub fn lib__HeapType__new(@lib.TypeIdx) -> @lib.HeapType
 
 pub fn lib__I32__inner(@lib.I32) -> Int
 
+pub fn lib__I32__new(Int) -> @lib.I32
+
 pub fn lib__I64__inner(@lib.I64) -> Int64
+
+pub fn lib__I64__new(Int64) -> @lib.I64
 
 pub fn lib__ImportSec__inner(@lib.ImportSec) -> Array[@lib.Import]
 
@@ -3523,6 +3535,8 @@ pub fn lib__Mut__const_() -> @lib.Mut
 
 pub fn lib__Mut__var_() -> @lib.Mut
 
+pub fn lib__Name__from_string(String) -> @lib.Name
+
 pub fn lib__Name__inner(@lib.Name) -> StringView
 
 pub fn lib__Name__new(StringView) -> @lib.Name
@@ -3588,6 +3602,8 @@ pub fn lib__ReplaceLaneOp__i64x2_replace_lane() -> @lib.ReplaceLaneOp
 pub fn lib__ReplaceLaneOp__i8x16_replace_lane() -> @lib.ReplaceLaneOp
 
 pub fn lib__S33__inner(@lib.S33) -> UInt
+
+pub fn lib__S33__new(UInt) -> @lib.S33
 
 pub fn lib__StartSec__inner(@lib.StartSec) -> @lib.FuncIdx
 
@@ -3903,7 +3919,11 @@ pub fn lib__TypeSec__new(Array[@lib.RecType]) -> @lib.TypeSec
 
 pub fn lib__U32__inner(@lib.U32) -> UInt
 
+pub fn lib__U32__new(UInt) -> @lib.U32
+
 pub fn lib__U64__inner(@lib.U64) -> UInt64
+
+pub fn lib__U64__new(UInt64) -> @lib.U64
 
 pub fn lib__UnaryOp__f32_abs() -> @lib.UnaryOp
 
@@ -4292,6 +4312,8 @@ pub fn lib__min_addr(@lib.Limits, @lib.Limits) -> @lib.Limits
 pub fn lib__min_addr_valtype(@lib.Limits, @lib.Limits) -> @lib.ValType
 
 pub fn lib__rec_idx(UInt) -> @lib.TypeIdx
+
+pub fn lib__result_type(Array[@lib.ValType]) -> Array[@lib.ValType]
 
 pub fn lib__single_rec_type(@lib.SubType) -> @lib.RecType
 

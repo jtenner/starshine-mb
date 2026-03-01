@@ -195,6 +195,7 @@ function cliParseResultToHost(value) {
       ? wasm.__node_cli_parse_result_get_config_path(value)
       : null,
     input_globs: inputGlobs,
+    glob_enabled: wasm.__node_cli_parse_result_glob_enabled(value),
     help_requested: wasm.__node_cli_parse_result_help_requested(value),
     version_requested: wasm.__node_cli_parse_result_version_requested(value),
     read_stdin: wasm.__node_cli_parse_result_read_stdin(value),
@@ -223,6 +224,7 @@ function createParseState() {
   return {
     config_path: null,
     input_globs: [],
+    glob_enabled: false,
     help_requested: false,
     version_requested: false,
     read_stdin: false,
@@ -623,6 +625,7 @@ function mergeParseResults(config, env, parsedCli) {
     }
   }
 
+  out.glob_enabled = Boolean(config.glob_enabled || env.glob_enabled || parsedCli.glob_enabled);
   out.read_stdin = config.read_stdin || env.read_stdin || parsedCli.read_stdin;
   out.input_format = parsedCli.input_format ?? env.input_format ?? config.input_format;
   out.output_targets = parsedCli.output_targets.length > 0
@@ -657,6 +660,7 @@ function buildCliParseResult(state) {
   return cli.CliParseResult.new(
     state.config_path ?? null,
     state.input_globs ?? [],
+    Boolean(state.glob_enabled),
     Boolean(state.help_requested),
     Boolean(state.version_requested),
     Boolean(state.read_stdin),

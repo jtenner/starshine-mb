@@ -1107,9 +1107,9 @@ test "run_cmd_with_adapter spec subcommand only expands wildcard inputs with --g
   )
 
   match run_cmd_with_adapter(["spec", "ok*.wast"], io) {
-    Ok(summary) => fail("expected literal wildcard path failure, got \{summary}")
-    Err(CmdError::InputReadFailed(msg)) =>
-      assert_true(msg.contains("ok*.wast"))
+    Ok(summary) =>
+      fail("expected literal wildcard path failure, got \{summary}")
+    Err(CmdError::InputReadFailed(msg)) => assert_true(msg.contains("ok*.wast"))
     Err(err) => fail("expected InputReadFailed, got \{err}")
   }
 

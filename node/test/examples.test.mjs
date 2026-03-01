@@ -11,9 +11,14 @@ const examplesDir = path.join(packageRoot, 'examples');
 const exampleFiles = fs.readdirSync(examplesDir)
   .filter((entry) => entry.endsWith('.mjs') && !entry.startsWith('_'))
   .sort();
+const fromScratchExampleFiles = exampleFiles.filter((entry) => entry.includes('module-from-scratch'));
 
 test('published examples execute successfully', async (t) => {
   assert(exampleFiles.length >= 10, `expected at least 10 examples, found ${exampleFiles.length}`);
+  assert(
+    fromScratchExampleFiles.length >= 3,
+    `expected at least 3 module-from-scratch examples, found ${fromScratchExampleFiles.length}`,
+  );
 
   for (const exampleFile of exampleFiles) {
     await t.test(exampleFile, async () => {
