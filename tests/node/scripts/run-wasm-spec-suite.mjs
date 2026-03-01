@@ -1,14 +1,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
-import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
 import { runWasmStart } from './lib/moonbit-wasi-runner.mjs';
-import { repoRootFromScript, resolveMoonBin } from './lib/paths.mjs';
+import { distArtifactPaths, repoRootFromScript } from './lib/paths.mjs';
 
 export function parseCliArgs(argv) {
   let limit = null;
+  let wasmPath = null;
   const onlyFiles = [];
 
   let i = 0;
@@ -34,10 +34,18 @@ export function parseCliArgs(argv) {
       i += 2;
       continue;
     }
+    if (token === '--wasm') {
+      if (i + 1 >= argv.length) {
+        throw new Error('Missing value for --wasm');
+      }
+      wasmPath = argv[i + 1];
+      i += 2;
+      continue;
+    }
     throw new Error(`Unknown option: ${token}`);
   }
 
-  return { limit, onlyFiles };
+  return { limit, onlyFiles, wasmPath };
 }
 
 export function collectSpecFiles(specRoot) {
@@ -67,11 +75,13 @@ function toPosixRelativePath(repoRoot, filePath) {
 
 export async function runWasmSpecSuite({
   repoRoot,
-  moonBin = resolveMoonBin(),
+  wasmPath = null,
   limit = null,
   onlyFiles = [],
 } = {}) {
   const specRoot = path.join(repoRoot, 'tests', 'spec');
+  const dist = distArtifactPaths(repoRoot);
+  const runnerWasm = wasmPath ?? dist.optimized;
   let files = onlyFiles.length > 0
     ? onlyFiles.map((filePath) => path.isAbsolute(filePath) ? filePath : path.join(repoRoot, filePath))
     : collectSpecFiles(specRoot);
@@ -82,18 +92,11 @@ export async function runWasmSpecSuite({
   if (files.length === 0) {
     throw new Error('No spec files selected');
   }
-
-  execFileSync(moonBin, ['build', '--target', 'wasm', '--package', 'jtenner/starshine/spec_runner'], {
-    cwd: repoRoot,
-    stdio: 'inherit',
-  });
-
-  const runnerWasm = path.join(repoRoot, '_build', 'wasm', 'debug', 'build', 'spec_runner', 'spec_runner.wasm');
   if (!fs.existsSync(runnerWasm)) {
-    throw new Error(`Missing wasm spec runner artifact: ${runnerWasm}`);
+    throw new Error(`Missing wasm CLI artifact: ${runnerWasm}`);
   }
 
-  const runnerArgs = ['spec_runner.wasm', ...files.map((filePath) => toPosixRelativePath(repoRoot, filePath))];
+  const runnerArgs = ['spec', ...files.map((filePath) => toPosixRelativePath(repoRoot, filePath))];
   const exitCode = await runWasmStart({
     wasmPath: runnerWasm,
     args: runnerArgs,
@@ -113,10 +116,11 @@ async function main() {
   const options = parseCliArgs(process.argv.slice(2));
   const result = await runWasmSpecSuite({
     repoRoot,
+    wasmPath: options.wasmPath,
     limit: options.limit,
     onlyFiles: options.onlyFiles,
   });
-  console.log(`Executed wasm spec runner for ${result.selectedFileCount} file(s).`);
+  console.log(`Executed wasm CLI spec command for ${result.selectedFileCount} file(s).`);
   process.exitCode = result.exitCode;
 }
 

@@ -47,10 +47,16 @@ To surface verbose optimizer tracing, including `DeadArgumentElimination` hotspo
 STARSHINE_TRACE_OPTIMIZE_VERBOSE=1 npm --prefix tests/node run optimize:wasm
 ```
 
-Run the wasm spec runner manually:
+Run the wasm `spec` subcommand manually against the staged optimized CLI artifact:
 
 ```bash
 npm --prefix tests/node run test:spec:wasm -- --limit 5
+```
+
+Override the staged artifact explicitly when needed:
+
+```bash
+npm --prefix tests/node run test:spec:wasm -- --wasm tests/node/dist/starshine-optimized-wasi.wasm --file tests/spec/address.wast
 ```
 
 Bootstrap the staged self-optimized wasm with the Node WASI host:

@@ -37,8 +37,18 @@ test('collectSpecFiles returns sorted *.wast files recursively', () => {
   });
 });
 
-test('parseCliArgs parses --limit and --file overrides', () => {
-  const parsed = parseCliArgs(['--limit', '5', '--file', 'tests/spec/a.wast', '--file', 'tests/spec/b.wast']);
+test('parseCliArgs parses --limit, --wasm, and --file overrides', () => {
+  const parsed = parseCliArgs([
+    '--limit',
+    '5',
+    '--wasm',
+    'tests/node/dist/starshine-optimized-wasi.wasm',
+    '--file',
+    'tests/spec/a.wast',
+    '--file',
+    'tests/spec/b.wast',
+  ]);
   assert.equal(parsed.limit, 5);
+  assert.equal(parsed.wasmPath, 'tests/node/dist/starshine-optimized-wasi.wasm');
   assert.deepEqual(parsed.onlyFiles, ['tests/spec/a.wast', 'tests/spec/b.wast']);
 });

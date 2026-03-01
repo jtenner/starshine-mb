@@ -128,6 +128,16 @@ export async function runWasmStart({
       },
     },
     __moonbit_fs_unstable: moonbitFs,
+    __moonbit_time_unstable: {
+      now() {
+        return BigInt(Date.now());
+      },
+    },
+    console: {
+      log(...args) {
+        console.log(...args);
+      },
+    },
   };
 
   for (const entry of moduleImports) {

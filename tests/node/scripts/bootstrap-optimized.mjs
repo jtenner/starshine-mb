@@ -1,4 +1,5 @@
 import process from 'node:process';
+import fs from 'node:fs';
 
 import { runWasmStart } from './lib/moonbit-wasi-runner.mjs';
 import { distArtifactPaths, repoRootFromScript } from './lib/paths.mjs';
@@ -28,7 +29,8 @@ function parseArgs(argv, defaultWasmPath) {
 
 const repoRoot = repoRootFromScript(import.meta.url);
 const dist = distArtifactPaths(repoRoot);
-const { wasmPath, passthrough } = parseArgs(process.argv.slice(2), dist.selfOptimized);
+const defaultWasmPath = fs.existsSync(dist.selfOptimized) ? dist.selfOptimized : dist.optimized;
+const { wasmPath, passthrough } = parseArgs(process.argv.slice(2), defaultWasmPath);
 const exitCode = await runWasmStart({
   wasmPath,
   args: passthrough,
