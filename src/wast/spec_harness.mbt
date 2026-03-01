@@ -468,42 +468,42 @@ fn spec_native_c_string(text : String) -> Bytes {
 ///|
 #cfg(target="native")
 #borrow(command, mode)
-extern "c" fn spec_native_popen(command : Bytes, mode : Bytes) -> Int = "popen"
+extern "c" fn spec_native_popen(command : Bytes, mode : Bytes) -> UInt64 = "popen"
 
 ///|
 #cfg(target="native")
-extern "c" fn spec_native_pclose(pipe : Int) -> Int = "pclose"
+extern "c" fn spec_native_pclose(pipe : UInt64) -> Int = "pclose"
 
 ///|
 #cfg(target="native")
 #borrow(ptr)
 extern "c" fn spec_native_fread(
   ptr : Bytes,
-  size : Int,
-  count : Int,
-  stream : Int,
-) -> Int = "fread"
+  size : UInt64,
+  count : UInt64,
+  stream : UInt64,
+) -> UInt64 = "fread"
 
 ///|
 #cfg(target="native")
 #borrow(path, mode)
-extern "c" fn spec_native_fopen(path : Bytes, mode : Bytes) -> Int = "fopen"
+extern "c" fn spec_native_fopen(path : Bytes, mode : Bytes) -> UInt64 = "fopen"
 
 ///|
 #cfg(target="native")
-extern "c" fn spec_native_fclose(stream : Int) -> Int = "fclose"
+extern "c" fn spec_native_fclose(stream : UInt64) -> Int = "fclose"
 
 ///|
 #cfg(target="native")
 extern "c" fn spec_native_fseek(
-  stream : Int,
+  stream : UInt64,
   offset : Int,
   whence : Int,
 ) -> Int = "fseek"
 
 ///|
 #cfg(target="native")
-extern "c" fn spec_native_ftell(stream : Int) -> Int = "ftell"
+extern "c" fn spec_native_ftell(stream : UInt64) -> Int64 = "ftell"
 
 ///|
 #cfg(target="native")
@@ -512,19 +512,19 @@ fn spec_native_list_wast_files() -> Array[String] {
     spec_native_c_string("find tests/spec -type f -name '*.wast' -print"),
     spec_native_c_string("r"),
   )
-  if pipe == 0 {
+  if pipe == 0UL {
     return []
   }
 
   let buf = Bytes::new(4096)
   let output = StringBuilder::new()
   while true {
-    let read = spec_native_fread(buf, 1, buf.length(), pipe)
-    if read <= 0 {
+    let read = spec_native_fread(buf, 1UL, buf.length().to_uint64(), pipe)
+    if read == 0UL {
       break
     }
     let mut i = 0
-    while i < read {
+    while i < read.to_int() {
       let b = buf[i].to_int()
       if b >= 0 && b <= 127 {
         output.write_char(b.unsafe_to_char())
@@ -554,26 +554,32 @@ fn spec_native_read_bytes(path : String) -> Bytes? {
     spec_native_c_string(path),
     spec_native_c_string("rb"),
   )
-  if file == 0 {
+  if file == 0UL {
     return None
   }
   if spec_native_fseek(file, 0, 2) != 0 {
     ignore(spec_native_fclose(file))
     return None
   }
-  let size = spec_native_ftell(file)
-  if size < 0 {
+  let size_i64 = spec_native_ftell(file)
+  if size_i64 < 0L {
     ignore(spec_native_fclose(file))
     return None
   }
+  let size_u = size_i64.reinterpret_as_uint64()
+  if size_u > 2147483647UL {
+    ignore(spec_native_fclose(file))
+    return None
+  }
+  let size = size_i64.to_int()
   if spec_native_fseek(file, 0, 0) != 0 {
     ignore(spec_native_fclose(file))
     return None
   }
   let out = Bytes::new(size)
   if size > 0 {
-    let read = spec_native_fread(out, 1, size, file)
-    if read != size {
+    let read = spec_native_fread(out, 1UL, size_u, file)
+    if read != size_u {
       ignore(spec_native_fclose(file))
       return None
     }

@@ -1338,7 +1338,7 @@ extern "c" fn native_close(fd : Int) -> Int = "close"
 
 ///|
 #cfg(target="native")
-extern "c" fn native_fflush(stream : Int) -> Int = "fflush"
+extern "c" fn native_fflush(stream : UInt64) -> Int = "fflush"
 
 ///|
 #cfg(target="native")
@@ -1647,7 +1647,7 @@ test "run_cmd uses native stdout wiring and surfaces write failures" {
   let result = run_cmd(["--stdout", "--vacuum", input_path])
   ignore(native_dup2(saved_stdout, 1))
   ignore(native_close(saved_stdout))
-  ignore(native_fflush(0))
+  ignore(native_fflush(0UL))
 
   native_remove_if_exists(input_path)
 

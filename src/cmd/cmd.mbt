@@ -2302,7 +2302,7 @@ extern "c" fn cmd_native_memcpy(
 ///|
 #cfg(target="native")
 #borrow(ptr)
-extern "c" fn cmd_native_write(fd : Int, ptr : Bytes, count : Int) -> Int = "write"
+extern "c" fn cmd_native_write(fd : Int, ptr : Bytes, count : UInt64) -> Int = "write"
 
 ///|
 #cfg(target="native")
@@ -2393,7 +2393,7 @@ fn cmd_native_write_stdout(bytes : Bytes) -> Result[Unit, String] {
   if bytes.length() == 0 {
     return Ok(())
   }
-  let wrote = cmd_native_write(1, bytes, bytes.length())
+  let wrote = cmd_native_write(1, bytes, bytes.length().to_uint64())
   if wrote < 0 {
     return Err("write failed")
   }
@@ -2409,7 +2409,7 @@ fn cmd_native_write_stderr(bytes : Bytes) -> Result[Unit, String] {
   if bytes.length() == 0 {
     return Ok(())
   }
-  let wrote = cmd_native_write(2, bytes, bytes.length())
+  let wrote = cmd_native_write(2, bytes, bytes.length().to_uint64())
   if wrote < 0 {
     return Err("write failed")
   }
