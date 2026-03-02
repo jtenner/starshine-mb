@@ -1000,6 +1000,16 @@ fn optimize_module_with_options_internal(
           }
         }
     }
+    // validate after each pass
+    if validate_module(mod) is Err(e) {
+      if trace_enabled {
+        trace(
+          "pass[\{pass_index}/\{passes.length()}]:\{pass}:validation_error elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)} \{e}",
+        )
+      }
+      return Err("\{e}")
+    }
+
     if trace_enabled {
       trace(
         "pass[\{pass_index}/\{passes.length()}]:returned pass=\{pass} elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)}",
