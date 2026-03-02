@@ -28,6 +28,8 @@ pub fn gen_valid_tfunc(GenValidContext, Array[@lib.ValType], Array[@lib.ValType]
 
 pub fn gen_valid_valtype(GenValidContext) -> @lib.ValType
 
+pub fn make_state(Env, Array[@lib.ValType]) -> TcState
+
 pub fn to_texpr(@lib.Expr, Env) -> Result[@lib.TExpr, String]
 
 pub fn validate_codesec(@lib.CodeSec?, @lib.FuncSec?, Env) -> Result[Unit, String]

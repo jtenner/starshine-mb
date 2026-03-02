@@ -5079,7 +5079,7 @@ fn non_nullable_externref() -> ValType {
 }
 
 ///|
-fn make_state(env : Env, stack : Array[ValType]) -> TcState {
+pub fn make_state(env : Env, stack : Array[ValType]) -> TcState {
   { env, stack, reachable: true }
 }
 

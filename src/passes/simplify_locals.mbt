@@ -484,6 +484,34 @@ fn sl_loop_body_env(env : Env, bt : BlockType) -> Env {
 }
 
 ///|
+fn sl_typecheck_instr_empty_stack(
+  instr : TInstr,
+  env : Env,
+) -> Result[TcState, String] {
+  Typecheck::typecheck(instr, make_state(env, []))
+}
+
+///|
+fn sl_can_emit_rewritten_instr(instr : TInstr, env : Env) -> Bool {
+  match sl_typecheck_instr_empty_stack(instr, env) {
+    Ok(state) => state.stack.is_empty()
+    Err(_) => false
+  }
+}
+
+///|
+fn sl_sink_value_preserves_local_get_type(
+  value : TInstr,
+  env : Env,
+  local_type : ValType,
+) -> Bool {
+  match lcs_infer_tinstr_type(value, env) {
+    Some(vt) => vt == local_type
+    None => false
+  }
+}
+
+///|
 fn sl_collect_get_counts_instr(instr : TInstr, counts : Array[Int]) -> Unit {
   match instr.kind {
     TInstrKind::TLocalGet(idx) => {
@@ -586,6 +614,7 @@ fn sl_collect_get_counts_and_late_candidate_texpr(
 ///|
 fn sl_try_sink_local_get(
   idx : LocalIdx,
+  env : Env,
   sinkables : Map[Int, SLSinkableInfo],
   out : Array[TInstr],
   get_counts : Array[Int],
@@ -629,6 +658,13 @@ fn sl_try_sink_local_get(
           _ => TInstr::local_get(idx)
         }
       } else if one_use {
+        if !sl_sink_value_preserves_local_get_type(
+            sink_value,
+            env,
+            local_types[key],
+          ) {
+          return TInstr::local_get(idx)
+        }
         if info.out_index >= 0 && info.out_index < out.length() {
           out[info.out_index] = TInstr::nop()
         }
@@ -1121,7 +1157,6 @@ fn sl_try_structure_block(
   if !options.allow_structure {
     return instr
   }
-  ignore(env)
   match instr.kind {
     TInstrKind::TBlock(VoidBlockType, body) =>
       match sl_take_terminal_local_set(body) {
@@ -1168,10 +1203,14 @@ fn sl_try_structure_block(
                     TExpr::new(body_result),
                   ),
                 )
-                changed.val = changed.val ||
-                  block_changed.val ||
-                  candidate != instr
-                candidate
+                if sl_can_emit_rewritten_instr(candidate, env) {
+                  changed.val = changed.val ||
+                    block_changed.val ||
+                    candidate != instr
+                  candidate
+                } else {
+                  instr
+                }
               } else {
                 instr
               }
@@ -1213,15 +1252,10 @@ fn sl_try_structure_if(
   if !options.allow_structure {
     return instr
   }
-  ignore(env)
   match instr.kind {
     TInstrKind::TIf(VoidBlockType, cond, then_body, else_body) =>
       match else_body {
         Some(other) => {
-          if sl_has_branch_to_depth_texpr(then_body, 0) ||
-            sl_has_branch_to_depth_texpr(other, 0) {
-            return instr
-          }
           let then_set = sl_take_terminal_local_set(then_body)
           let else_set = sl_take_terminal_local_set(other)
           match (then_set, else_set) {
@@ -1246,8 +1280,12 @@ fn sl_try_structure_if(
                         Some(TExpr::new(next_else)),
                       ),
                     )
-                    changed.val = true
-                    candidate
+                    if sl_can_emit_rewritten_instr(candidate, env) {
+                      changed.val = true
+                      candidate
+                    } else {
+                      instr
+                    }
                   }
                   None => instr
                 }
@@ -1260,9 +1298,6 @@ fn sl_try_structure_if(
         None =>
           match sl_take_terminal_local_set(then_body) {
             Some((then_prefix, then_idx, then_value)) => {
-              if sl_has_branch_to_depth_texpr(then_body, 0) {
-                return instr
-              }
               let idx_i = sl_localidx_to_int(then_idx)
               match local_types.get(idx_i) {
                 Some(local_type) =>
@@ -1278,8 +1313,12 @@ fn sl_try_structure_if(
                         Some(TExpr::new([TInstr::local_get(then_idx)])),
                       ),
                     )
-                    changed.val = true
-                    candidate
+                    if sl_can_emit_rewritten_instr(candidate, env) {
+                      changed.val = true
+                      candidate
+                    } else {
+                      instr
+                    }
                   } else {
                     instr
                   }
@@ -1308,7 +1347,7 @@ fn sl_rewrite_instr_main(
   match instr.kind {
     TInstrKind::TLocalGet(idx) =>
       sl_try_sink_local_get(
-        idx, sinkables, out, get_counts, local_types, options, parent_is_set_value,
+        idx, env, sinkables, out, get_counts, local_types, options, parent_is_set_value,
         changed,
       )
     TInstrKind::TBlock(bt, body) => {
@@ -3039,6 +3078,10 @@ test "simplify_locals sink helper keeps multi-use local.get when local types dif
   }
   let rewritten = sl_try_sink_local_get(
     LocalIdx::new(0),
+    sl_test_env([
+      ValType::ref_type(RefType::new(false, HeapType::abs(AbsHeapType::func()))),
+      ValType::funcref(),
+    ]),
     sinkables,
     out,
     [2, 1],
@@ -3047,6 +3090,31 @@ test "simplify_locals sink helper keeps multi-use local.get when local types dif
       ValType::funcref(),
     ],
     { allow_tee: false, allow_structure: false, allow_nesting: false },
+    false,
+    changed,
+  )
+  assert_eq(rewritten, TInstr::local_get(LocalIdx::new(0)))
+  assert_false(changed.val)
+}
+
+///|
+test "simplify_locals sink helper keeps single-use local.get when sink narrows exact ref type" {
+  let sinkables : Map[Int, SLSinkableInfo] = Map::new()
+  let out : Array[TInstr] = []
+  let changed = Ref::new(false)
+  sinkables[0] = {
+    out_index: -1,
+    value: TInstr::ref_func(FuncIdx::new(0)),
+    effects: lcs_collect_effects(TInstr::ref_func(FuncIdx::new(0))),
+  }
+  let rewritten = sl_try_sink_local_get(
+    LocalIdx::new(0),
+    sl_test_env([ValType::funcref()]),
+    sinkables,
+    out,
+    [1],
+    [ValType::funcref()],
+    { allow_tee: false, allow_structure: false, allow_nesting: true },
     false,
     changed,
   )
@@ -3075,32 +3143,123 @@ test "simplify_locals late canonicalization does not rewrite non-null refs to nu
 }
 
 ///|
+test "simplify_locals no-tee-no-structure preserves exact local type for untyped select" {
+  let narrow = LocalIdx::new(0)
+  let wide = LocalIdx::new(1)
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([single_rec_type(comp_type_sub_type(func_comp_type([], [])))]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [
+            ValType::ref_type(
+              RefType::new(false, HeapType::abs(AbsHeapType::func())),
+            ),
+            ValType::funcref(),
+          ],
+          TExpr::new([
+            TInstr::local_set(narrow, TInstr::ref_func(FuncIdx::new(0))),
+            TInstr::local_set(wide, TInstr::local_get(narrow)),
+            TInstr::drop(
+              TInstr::select(
+                None,
+                TInstr::i32_const(I32(0)),
+                TInstr::local_get(wide),
+                TInstr::ref_null(HeapType::abs(AbsHeapType::func())),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let out = sl_run_simplify_locals(
+    mod,
+    allow_tee=false,
+    allow_structure=false,
+    allow_nesting=true,
+  )
+  assert_eq(validate_module(out), Ok(()))
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, body)])) =>
+      assert_eq(sl_count_local_gets_for_idx_texpr(body, 1), 1)
+    _ => fail("expected one typed function")
+  }
+}
+
+///|
 test "simplify_locals skips result-if rewrite when branch exits would invalidate result typing" {
   let x = LocalIdx::new(0)
   let cond = LocalIdx::new(1)
-  let mod = Module::new().with_code_sec(
-    CodeSec::new([
-      Func::t_func(
-        [ValType::i32(), ValType::i32()],
-        TExpr::new([
-          TInstr::if_(
-            BlockType::void_(),
-            TInstr::local_get(cond),
-            TExpr::new([
-              TInstr::br(LabelIdx::new(0), []),
-              TInstr::local_set(x, TInstr::i32_const(I32(1))),
-            ]),
-            Some(TExpr::new([TInstr::local_set(x, TInstr::i32_const(I32(2)))])),
-          ),
-          TInstr::drop(TInstr::local_get(x)),
-        ]),
-      ),
-    ]),
-  )
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([single_rec_type(comp_type_sub_type(func_comp_type([], [])))]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32(), ValType::i32()],
+          TExpr::new([
+            TInstr::if_(
+              BlockType::void_(),
+              TInstr::local_get(cond),
+              TExpr::new([
+                TInstr::br(LabelIdx::new(0), []),
+                TInstr::local_set(x, TInstr::i32_const(I32(1))),
+              ]),
+              Some(
+                TExpr::new([TInstr::local_set(x, TInstr::i32_const(I32(2)))]),
+              ),
+            ),
+            TInstr::drop(TInstr::local_get(x)),
+          ]),
+        ),
+      ]),
+    )
   let out = sl_run_simplify_locals(mod, allow_tee=false, allow_structure=true)
+  assert_eq(validate_module(out), Ok(()))
   match out.code_sec {
     Some(CodeSec([TFunc(_, body)])) =>
       assert_false(sl_has_result_if_texpr(body))
     _ => fail("expected one typed function")
   }
+}
+
+///|
+test "simplify_locals local checker rejects result-if candidate with void branch break" {
+  let x = LocalIdx::new(0)
+  let cond = LocalIdx::new(1)
+  let candidate = TInstr::local_set(
+    x,
+    TInstr::if_(
+      BlockType::val_type(ValType::i32()),
+      TInstr::local_get(cond),
+      TExpr::new([TInstr::br(LabelIdx::new(0), []), TInstr::i32_const(I32(1))]),
+      Some(TExpr::new([TInstr::i32_const(I32(2))])),
+    ),
+  )
+  assert_false(
+    sl_can_emit_rewritten_instr(
+      candidate,
+      sl_test_env([ValType::i32(), ValType::i32()]),
+    ),
+  )
+}
+
+///|
+test "simplify_locals local checker rejects result-block candidate with void branch break" {
+  let x = LocalIdx::new(0)
+  let candidate = TInstr::local_set(
+    x,
+    TInstr::block(
+      BlockType::val_type(ValType::i32()),
+      TExpr::new([TInstr::br(LabelIdx::new(0), []), TInstr::i32_const(I32(1))]),
+    ),
+  )
+  assert_false(
+    sl_can_emit_rewritten_instr(candidate, sl_test_env([ValType::i32()])),
+  )
 }

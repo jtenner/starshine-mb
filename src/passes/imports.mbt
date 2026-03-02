@@ -115,7 +115,15 @@ using @transformer {
 }
 
 ///|
-using @validate {type Env, to_texpr, validate_module, trait Match}
+using @validate {
+  type Env,
+  type TcState,
+  make_state,
+  to_texpr,
+  validate_module,
+  trait Match,
+  trait Typecheck,
+}
 
 ///|
 using @ir {
