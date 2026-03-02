@@ -132,6 +132,9 @@ const RUN_BRANCH_TO_SCOPE_FOUND : String = "__remove_unused_names_branch_to_scop
 const RUN_TRACE_HEARTBEAT_INTERVAL : Int = 1000
 
 ///|
+const RUN_TRACE_SLOW_WALK_MS : UInt64 = 10UL
+
+///|
 const RUN_ANALYSIS_VISIT_LIMIT_PER_FUNC : Int = 50000
 
 ///|
@@ -166,6 +169,36 @@ fn run_instr_kind_name(instr : TInstr) -> String {
     TInstrKind::TLocalSet(_, _) => "local.set"
     TInstrKind::TLocalTee(_, _) => "local.tee"
     _ => "other"
+  }
+}
+
+///|
+fn run_measure_instr(instr : TInstr) -> Int {
+  lcs_measure_texpr(TExpr::new([instr]))
+}
+
+///|
+fn run_measure_texpr(body : TExpr) -> Int {
+  lcs_measure_texpr(body)
+}
+
+///|
+fn run_slow_walk_detail(instr : TInstr) -> String {
+  let instr_m = run_measure_instr(instr)
+  match instr.kind {
+    TInstrKind::TIf(_, _, then_body, else_body) => {
+      let then_m = run_measure_texpr(then_body)
+      let else_m = match else_body {
+        Some(other) => run_measure_texpr(other)
+        None => 0
+      }
+      " instr_m=\{instr_m} then_m=\{then_m} else_m=\{else_m}"
+    }
+    TInstrKind::TBlock(_, body) | TInstrKind::TLoop(_, body) =>
+      " instr_m=\{instr_m} body_m=\{run_measure_texpr(body)}"
+    TInstrKind::TTryTable(_, _, body) =>
+      " instr_m=\{instr_m} body_m=\{run_measure_texpr(body)}"
+    _ => " instr_m=\{instr_m}"
   }
 }
 
@@ -553,31 +586,16 @@ fn run_remove_unused_names_once(
     }
 
     let walk_start_ms = sl_trace_now_ms()
-    if trace_budget {
-      trace(
-        "func[\{ordinal}] visit=\{visit} kind=\{run_instr_kind_name(seed)} walk_default:start remaining_budget=\{remaining_budget()}",
-      )
-    }
     let walked = match self.walk_tinstruction_default((), seed) {
-      Ok(Some((_, out))) => {
-        if trace_budget {
-          let elapsed_ms = sl_trace_elapsed_ms(walk_start_ms)
-          trace(
-            "func[\{ordinal}] visit=\{visit} kind=\{run_instr_kind_name(seed)} walk_default:done changed=\{out != seed} elapsed_ms=\{elapsed_ms} remaining_budget=\{remaining_budget()}",
-          )
-        }
-        out
-      }
-      Ok(None) => {
-        if trace_budget {
-          let elapsed_ms = sl_trace_elapsed_ms(walk_start_ms)
-          trace(
-            "func[\{ordinal}] visit=\{visit} kind=\{run_instr_kind_name(seed)} walk_default:done changed=false elapsed_ms=\{elapsed_ms} remaining_budget=\{remaining_budget()}",
-          )
-        }
-        seed
-      }
+      Ok(Some((_, out))) => out
+      Ok(None) => seed
       Err(e) => return Err(e)
+    }
+    let elapsed_ms = sl_trace_elapsed_ms(walk_start_ms)
+    if trace_budget && elapsed_ms >= RUN_TRACE_SLOW_WALK_MS {
+      trace(
+        "func[\{ordinal}] visit=\{visit} kind=\{run_instr_kind_name(seed)} walk_default:slow elapsed_ms=\{elapsed_ms} remaining_budget=\{remaining_budget()}\{run_slow_walk_detail(seed)}",
+      )
     }
     let rewritten = match walked.kind {
       TInstrKind::TBlock(bt, body) => {
