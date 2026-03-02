@@ -4523,7 +4523,7 @@ fn oi_run_func(
   if with_memory {
     mod_ = mod_.with_mem_sec(MemSec::new([MemType::new(Limits::i32(1, None))]))
   }
-  let out = oi_run_module(mod_, options=options)
+  let out = oi_run_module(mod_, options~)
   match out.code_sec {
     Some(CodeSec([TFunc(_, out_body)])) => out_body
     _ => abort("expected one transformed function")

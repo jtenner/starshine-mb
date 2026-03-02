@@ -124,6 +124,14 @@ fn fl_instr_type(instr : TInstr, env : Env) -> ValType? {
 }
 
 ///|
+fn fl_lowerable_single_result_blocktype(bt : BlockType, env : Env) -> ValType? {
+  match env.expand_blocktype(bt) {
+    Ok((params, [vt])) if params.is_empty() => Some(vt)
+    _ => None
+  }
+}
+
+///|
 /// Atomic leaves for flattening/idempotence.
 /// These should not be wrapped into temp locals repeatedly.
 
@@ -229,29 +237,35 @@ fn fl_flatten_instr(
         VoidBlockType => curr = TInstr::block(bt, next_body)
         _ =>
           // block has a result type (possibly val_type or type index); we only support single ValType here
-          match fl_instr_type(TInstr::block(bt, next_body), state.env) {
-            Some(vt) => {
-              let temp = fl_add_temp_local(state, vt)
+          if fl_has_unsupported_targeting_branch_in_texpr(
+              next_body, state, my_uid,
+            ) {
+            curr = TInstr::block(bt, next_body)
+          } else {
+            match fl_lowerable_single_result_blocktype(bt, state.env) {
+              Some(vt) => {
+                let temp = fl_add_temp_local(state, vt)
 
-              // IMPORTANT: rewrite branch value flow targeting this block
-              let rewritten1 = fl_rewrite_label_value_flow_in_texpr(
-                next_body, state, my_uid, temp,
-              )
+                // IMPORTANT: rewrite branch value flow targeting this block
+                let rewritten1 = fl_rewrite_label_value_flow_in_texpr(
+                  next_body, state, my_uid, temp,
+                )
 
-              // Handle fallthrough result
-              let rewritten2 = fl_rewrite_fallthrough_value_to_set(
-                rewritten1,
-                temp,
-                state.env,
-              )
+                // Handle fallthrough result
+                let rewritten2 = fl_rewrite_fallthrough_value_to_set(
+                  rewritten1,
+                  temp,
+                  state.env,
+                )
 
-              preludes.push(TInstr::block(BlockType::void_(), rewritten2))
-              curr = TInstr::local_get(temp)
-              state.changed = true
+                preludes.push(TInstr::block(BlockType::void_(), rewritten2))
+                curr = TInstr::local_get(temp)
+                state.changed = true
+              }
+              None =>
+                // unexpected, but keep structure
+                curr = TInstr::block(bt, next_body)
             }
-            None =>
-              // unexpected, but keep structure
-              curr = TInstr::block(bt, next_body)
           }
       }
 
@@ -272,23 +286,29 @@ fn fl_flatten_instr(
       match bt {
         VoidBlockType => curr = TInstr::loop_(bt, next_body)
         _ =>
-          match fl_instr_type(TInstr::loop_(bt, next_body), state.env) {
-            Some(vt) => {
-              let temp = fl_add_temp_local(state, vt)
-              let rewritten1 = fl_rewrite_label_value_flow_in_texpr(
-                next_body, state, my_uid, temp,
-              )
-              let rewritten2 = fl_rewrite_fallthrough_value_to_set(
-                rewritten1,
-                temp,
-                state.env,
-              )
+          if fl_has_unsupported_targeting_branch_in_texpr(
+              next_body, state, my_uid,
+            ) {
+            curr = TInstr::loop_(bt, next_body)
+          } else {
+            match fl_lowerable_single_result_blocktype(bt, state.env) {
+              Some(vt) => {
+                let temp = fl_add_temp_local(state, vt)
+                let rewritten1 = fl_rewrite_label_value_flow_in_texpr(
+                  next_body, state, my_uid, temp,
+                )
+                let rewritten2 = fl_rewrite_fallthrough_value_to_set(
+                  rewritten1,
+                  temp,
+                  state.env,
+                )
 
-              preludes.push(TInstr::loop_(BlockType::void_(), rewritten2))
-              curr = TInstr::local_get(temp)
-              state.changed = true
+                preludes.push(TInstr::loop_(BlockType::void_(), rewritten2))
+                curr = TInstr::local_get(temp)
+                state.changed = true
+              }
+              None => curr = TInstr::loop_(bt, next_body)
             }
-            None => curr = TInstr::loop_(bt, next_body)
           }
       }
 
@@ -308,26 +328,31 @@ fn fl_flatten_instr(
       match bt {
         VoidBlockType => curr = TInstr::try_table(bt, catches, next_body)
         _ =>
-          match
-            fl_instr_type(TInstr::try_table(bt, catches, next_body), state.env) {
-            Some(vt) => {
-              let temp = fl_add_temp_local(state, vt)
-              let rewritten1 = fl_rewrite_label_value_flow_in_texpr(
-                next_body, state, my_uid, temp,
-              )
-              let rewritten2 = fl_rewrite_fallthrough_value_to_set(
-                rewritten1,
-                temp,
-                state.env,
-              )
+          if fl_has_unsupported_targeting_branch_in_texpr(
+              next_body, state, my_uid,
+            ) {
+            curr = TInstr::try_table(bt, catches, next_body)
+          } else {
+            match fl_lowerable_single_result_blocktype(bt, state.env) {
+              Some(vt) => {
+                let temp = fl_add_temp_local(state, vt)
+                let rewritten1 = fl_rewrite_label_value_flow_in_texpr(
+                  next_body, state, my_uid, temp,
+                )
+                let rewritten2 = fl_rewrite_fallthrough_value_to_set(
+                  rewritten1,
+                  temp,
+                  state.env,
+                )
 
-              preludes.push(
-                TInstr::try_table(BlockType::void_(), catches, rewritten2),
-              )
-              curr = TInstr::local_get(temp)
-              state.changed = true
+                preludes.push(
+                  TInstr::try_table(BlockType::void_(), catches, rewritten2),
+                )
+                curr = TInstr::local_get(temp)
+                state.changed = true
+              }
+              None => curr = TInstr::try_table(bt, catches, next_body)
             }
-            None => curr = TInstr::try_table(bt, catches, next_body)
           }
       }
 
@@ -368,42 +393,55 @@ fn fl_flatten_instr(
       let mut rewritten_if = TInstr::if_(bt, next_cond, next_then, next_else)
 
       // Lower if result properly if it has a value:
-      match fl_instr_type(rewritten_if, state.env) {
-        Some(vt) => {
-          let temp = fl_add_temp_local(state, vt)
-          let then1 = fl_rewrite_label_value_flow_in_texpr(
-            next_then, state, my_uid, temp,
-          )
-          let then2 = fl_rewrite_fallthrough_value_to_set(
-            then1,
-            temp,
-            state.env,
-          )
+      let else_has_unsupported_if_target = match next_else {
+        Some(body) =>
+          fl_has_unsupported_targeting_branch_in_texpr(body, state, my_uid)
+        None => false
+      }
+      let has_unsupported_if_target = fl_has_unsupported_targeting_branch_in_texpr(
+          next_then, state, my_uid,
+        ) ||
+        else_has_unsupported_if_target
+      if has_unsupported_if_target {
+        curr = rewritten_if
+      } else {
+        match fl_lowerable_single_result_blocktype(bt, state.env) {
+          Some(vt) => {
+            let temp = fl_add_temp_local(state, vt)
+            let then1 = fl_rewrite_label_value_flow_in_texpr(
+              next_then, state, my_uid, temp,
+            )
+            let then2 = fl_rewrite_fallthrough_value_to_set(
+              then1,
+              temp,
+              state.env,
+            )
 
-          let else2 = match next_else {
-            Some(b) => {
-              let else1 = fl_rewrite_label_value_flow_in_texpr(
-                b, state, my_uid, temp,
-              )
-              fl_rewrite_fallthrough_value_to_set(else1, temp, state.env)
+            let else2 = match next_else {
+              Some(b) => {
+                let else1 = fl_rewrite_label_value_flow_in_texpr(
+                  b, state, my_uid, temp,
+                )
+                fl_rewrite_fallthrough_value_to_set(else1, temp, state.env)
+              }
+              None =>
+                return Err(
+                  "flatten: if with concrete result requires an else branch",
+                )
             }
-            None =>
-              return Err(
-                "flatten: if with concrete result requires an else branch",
-              )
-          }
 
-          rewritten_if = TInstr::if_(
-            BlockType::void_(),
-            next_cond,
-            then2,
-            Some(else2),
-          )
-          preludes.push(rewritten_if)
-          curr = TInstr::local_get(temp)
-          state.changed = true
+            rewritten_if = TInstr::if_(
+              BlockType::void_(),
+              next_cond,
+              then2,
+              Some(else2),
+            )
+            preludes.push(rewritten_if)
+            curr = TInstr::local_get(temp)
+            state.changed = true
+          }
+          None => curr = rewritten_if
         }
-        None => curr = rewritten_if
       }
 
       fl_pop_label(state)
@@ -851,6 +889,116 @@ fn fl_rewrite_label_value_flow_in_texpr(
 }
 
 ///|
+fn fl_has_unsupported_targeting_branch_in_instr(
+  instr : TInstr,
+  state : FLFuncState,
+  target_uid : Int,
+) -> Bool {
+  match instr.kind {
+    TInstrKind::TBlock(_, body) => {
+      let _uid = fl_push_label(state)
+      let blocked = fl_has_unsupported_targeting_branch_in_texpr(
+        body, state, target_uid,
+      )
+      fl_pop_label(state)
+      blocked
+    }
+    TInstrKind::TLoop(_, body) => {
+      let _uid = fl_push_label(state)
+      let blocked = fl_has_unsupported_targeting_branch_in_texpr(
+        body, state, target_uid,
+      )
+      fl_pop_label(state)
+      blocked
+    }
+    TInstrKind::TTryTable(_, _, body) => {
+      let _uid = fl_push_label(state)
+      let blocked = fl_has_unsupported_targeting_branch_in_texpr(
+        body, state, target_uid,
+      )
+      fl_pop_label(state)
+      blocked
+    }
+    TInstrKind::TIf(_, _, then_body, else_body) => {
+      let _uid = fl_push_label(state)
+      let then_blocked = fl_has_unsupported_targeting_branch_in_texpr(
+        then_body, state, target_uid,
+      )
+      let else_blocked = match else_body {
+        Some(body) =>
+          fl_has_unsupported_targeting_branch_in_texpr(body, state, target_uid)
+        None => false
+      }
+      fl_pop_label(state)
+      then_blocked || else_blocked
+    }
+    TInstrKind::TBrOnNonNull(label, _, values)
+    | TInstrKind::TBrOnCast(label, _, _, _, _, values)
+    | TInstrKind::TBrOnCastFail(label, _, _, _, _, values) => {
+      let targets_uid = match fl_resolve_label_uid(state, label) {
+        Some(uid) => uid == target_uid
+        None => false
+      }
+      values.length() == 0 && targets_uid
+    }
+    _ => {
+      let children = eval_children(instr)
+      for child in children {
+        if fl_has_unsupported_targeting_branch_in_instr(
+            child, state, target_uid,
+          ) {
+          return true
+        }
+      }
+      false
+    }
+  }
+}
+
+///|
+fn fl_has_unsupported_targeting_branch_in_texpr(
+  body : TExpr,
+  state : FLFuncState,
+  target_uid : Int,
+) -> Bool {
+  for instr in body.instrs {
+    if fl_has_unsupported_targeting_branch_in_instr(instr, state, target_uid) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn fl_branch_fallthrough_type(instr : TInstr, env : Env) -> ValType? {
+  match instr.kind {
+    TInstrKind::TBrIf(_, _, [value]) => fl_instr_type(value, env)
+    TInstrKind::TBrOnNull(_, ref_, _) =>
+      match fl_instr_type(ref_, env) {
+        Some(RefTypeValType(rt)) =>
+          Some(ValType::ref_type(RefType::new(false, rt.get_heap_type())))
+        _ => None
+      }
+    TInstrKind::TBrOnCast(_, castop, ht1, ht2, _, _) => {
+      let CastOp(nullable1, nullable2) = castop
+      match
+        @validate.diff(
+          RefType::new(nullable1, ht1),
+          RefType::new(nullable2, ht2),
+        ) {
+        Ok(rt) => Some(ValType::ref_type(rt))
+        Err(_) => None
+      }
+    }
+    TInstrKind::TBrOnCastFail(_, castop, _, ht2, _, _) => {
+      let CastOp(_, nullable2) = castop
+      Some(ValType::ref_type(RefType::new(nullable2, ht2)))
+    }
+    _ => None
+  }
+}
+
+///|
 /// Rewrite a single branch-like node if it targets `target_uid` and has exactly one value.
 ///
 /// IMPORTANT: the sequencing wrapper introduces a new innermost label, so rewritten
@@ -887,13 +1035,18 @@ fn fl_rewrite_branch_node(
         match fl_resolve_label_uid(state, label) {
           Some(uid) if uid == target_uid => {
             let bumped = fl_bump_label(label, 1)
-            TInstr::block(
-              BlockType::void_(),
-              TExpr::new([
-                TInstr::local_set(temp, values[0]),
-                TInstr::br_if(bumped, cond, []),
-              ]),
-            )
+            match fl_instr_type(values[0], state.env) {
+              Some(vt) =>
+                TInstr::block(
+                  BlockType::val_type(vt),
+                  TExpr::new([
+                    TInstr::local_set(temp, values[0]),
+                    TInstr::br_if(bumped, cond, []),
+                    TInstr::local_get(temp),
+                  ]),
+                )
+              None => instr
+            }
           }
           _ => instr
         }
@@ -905,8 +1058,13 @@ fn fl_rewrite_branch_node(
         match fl_resolve_label_uid(state, label) {
           Some(uid) if uid == target_uid => {
             let bumped = fl_bump_label(label, 1)
+            let wrapper_bt = match
+              fl_branch_fallthrough_type(instr, state.env) {
+              Some(vt) => BlockType::val_type(vt)
+              None => BlockType::void_()
+            }
             TInstr::block(
-              BlockType::void_(),
+              wrapper_bt,
               TExpr::new([
                 TInstr::local_set(temp, values[0]),
                 TInstr::br_on_null(bumped, ref_, []),
@@ -941,8 +1099,13 @@ fn fl_rewrite_branch_node(
         match fl_resolve_label_uid(state, label) {
           Some(uid) if uid == target_uid => {
             let bumped = fl_bump_label(label, 1)
+            let wrapper_bt = match
+              fl_branch_fallthrough_type(instr, state.env) {
+              Some(vt) => BlockType::val_type(vt)
+              None => BlockType::void_()
+            }
             TInstr::block(
-              BlockType::void_(),
+              wrapper_bt,
               TExpr::new([
                 TInstr::local_set(temp, values[0]),
                 TInstr::br_on_cast(bumped, castop.0, ht1, castop.1, ht2, ref_, []),
@@ -959,8 +1122,13 @@ fn fl_rewrite_branch_node(
         match fl_resolve_label_uid(state, label) {
           Some(uid) if uid == target_uid => {
             let bumped = fl_bump_label(label, 1)
+            let wrapper_bt = match
+              fl_branch_fallthrough_type(instr, state.env) {
+              Some(vt) => BlockType::val_type(vt)
+              None => BlockType::void_()
+            }
             TInstr::block(
-              BlockType::void_(),
+              wrapper_bt,
               TExpr::new([
                 TInstr::local_set(temp, values[0]),
                 TInstr::br_on_cast_fail(
@@ -1244,7 +1412,7 @@ test "flatten output with br_on_null and try_table remains valid and idempotent"
       ]),
     )
   let once = run_flatten(mod).unwrap()
-  let twice = run_flatten(mod).unwrap()
+  let twice = run_flatten(once).unwrap()
   assert_eq(once, twice)
   match validate_module(once) {
     Ok(_) => ()
@@ -1384,6 +1552,167 @@ test "flatten: result block with br inside if remains valid" {
     Err(e) =>
       fail(
         "expected flatten to preserve validity for br-with-value inside if to outer result block; got: \{e}",
+      )
+  }
+}
+
+///|
+test "flatten: dropped br_if targeting result block remains valid" {
+  let mod = fl_mk_valid_one_func_module(
+    [ValType::i32()],
+    [],
+    [],
+    TExpr::new([
+      TInstr::drop(
+        TInstr::block(
+          BlockType::val_type(ValType::i32()),
+          TExpr::new([
+            TInstr::drop(
+              TInstr::br_if(
+                LabelIdx::new(0),
+                TInstr::local_get(LocalIdx::new(0)),
+                [TInstr::i32_const(I32(7))],
+              ),
+            ),
+            TInstr::i32_const(I32(0)),
+          ]),
+        ),
+      ),
+    ]),
+  )
+
+  let out = run_flatten(mod).unwrap()
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected flatten to preserve validity for dropped br_if targeting a result block; got: \{e}",
+      )
+  }
+}
+
+///|
+test "flatten: dropped br_on_null targeting result block remains valid" {
+  let target_sig = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let nullable_target_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let main_sig = single_rec_type(
+    comp_type_sub_type(func_comp_type([nullable_target_ref], [])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([target_sig, main_sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::drop(
+              TInstr::block(
+                BlockType::val_type(ValType::i32()),
+                TExpr::new([
+                  TInstr::drop(
+                    TInstr::br_on_null(
+                      LabelIdx::new(0),
+                      TInstr::local_get(LocalIdx::new(0)),
+                      [TInstr::i32_const(I32(7))],
+                    ),
+                  ),
+                  TInstr::i32_const(I32(0)),
+                ]),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    )
+
+  let out = run_flatten(mod).unwrap()
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected flatten to preserve validity for dropped br_on_null targeting a result block; got: \{e}",
+      )
+  }
+}
+
+///|
+test "flatten: br_table value targeting result block remains valid" {
+  let mod = fl_mk_valid_one_func_module(
+    [],
+    [],
+    [],
+    TExpr::new([
+      TInstr::drop(
+        TInstr::block(
+          BlockType::val_type(ValType::i32()),
+          TExpr::new([
+            TInstr::br_table([], LabelIdx::new(0), TInstr::i32_const(I32(0)), [
+              TInstr::i32_const(I32(7)),
+            ]),
+            TInstr::i32_const(I32(0)),
+          ]),
+        ),
+      ),
+    ]),
+  )
+
+  let out = run_flatten(mod).unwrap()
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected flatten to preserve validity for br_table targeting a result block; got: \{e}",
+      )
+  }
+}
+
+///|
+test "flatten: br_on_non_null targeting ref result block remains valid" {
+  let target_sig = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let nullable_target_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  )
+  let non_null_target_ref = ValType::ref_type(
+    RefType::new(false, HeapType::new(TypeIdx::new(0))),
+  )
+  let main_sig = single_rec_type(
+    comp_type_sub_type(func_comp_type([nullable_target_ref], [])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([target_sig, main_sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::drop(
+              TInstr::block(
+                BlockType::val_type(non_null_target_ref),
+                TExpr::new([
+                  TInstr::br_on_non_null(
+                    LabelIdx::new(0),
+                    TInstr::local_get(LocalIdx::new(0)),
+                    [],
+                  ),
+                  TInstr::unreachable_(),
+                ]),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    )
+
+  let out = run_flatten(mod).unwrap()
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected flatten to preserve validity for br_on_non_null targeting a ref result block; got: \{e}",
       )
   }
 }

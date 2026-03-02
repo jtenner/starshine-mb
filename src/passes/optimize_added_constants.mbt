@@ -960,11 +960,7 @@ fn oac_run_func(
   let mod_ = Module::new()
     .with_mem_sec(MemSec::new([memory]))
     .with_code_sec(CodeSec::new([Func::t_func(locals, TExpr::new(body))]))
-  let passes = if propagate {
-    true
-  } else {
-    false
-  }
+  let passes = if propagate { true } else { false }
   match oac_run_module(mod_, options, passes) {
     Ok(out) =>
       match out.code_sec {

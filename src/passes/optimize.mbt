@@ -501,31 +501,41 @@ fn run_ir_context_transformer_scheduler_pass(
       apply_ir_transformer_pass(
         ctx,
         mod,
-        simplify_locals_ir_pass(mod, true, true, true),
+        simplify_locals_ir_pass(mod, true, true, true, trace=fn(msg) {
+          trace("simplify_locals:\{msg}")
+        }),
       )
     SimplifyLocalsNoTee =>
       apply_ir_transformer_pass(
         ctx,
         mod,
-        simplify_locals_ir_pass(mod, false, true, true),
+        simplify_locals_ir_pass(mod, false, true, true, trace=fn(msg) {
+          trace("simplify_locals:\{msg}")
+        }),
       )
     SimplifyLocalsNoStructure =>
       apply_ir_transformer_pass(
         ctx,
         mod,
-        simplify_locals_ir_pass(mod, true, false, true),
+        simplify_locals_ir_pass(mod, true, false, true, trace=fn(msg) {
+          trace("simplify_locals:\{msg}")
+        }),
       )
     SimplifyLocalsNoTeeNoStructure =>
       apply_ir_transformer_pass(
         ctx,
         mod,
-        simplify_locals_ir_pass(mod, false, false, true),
+        simplify_locals_ir_pass(mod, false, false, true, trace=fn(msg) {
+          trace("simplify_locals:\{msg}")
+        }),
       )
     SimplifyLocalsNoNesting =>
       apply_ir_transformer_pass(
         ctx,
         mod,
-        simplify_locals_ir_pass(mod, false, false, false),
+        simplify_locals_ir_pass(mod, false, false, false, trace=fn(msg) {
+          trace("simplify_locals:\{msg}")
+        }),
       )
     Untee => apply_ir_transformer_pass(ctx, mod, untee_ir_pass(mod))
     Vacuum =>
@@ -1156,12 +1166,7 @@ fn opt_scheduler_flattened_type_count(recs : Array[RecType]) -> UInt {
 ///|
 fn opt_scheduler_with_default_void_func_type(mod : Module) -> Module {
   match mod {
-    {
-      code_sec: Some(CodeSec(funcs)),
-      func_sec: None,
-      type_sec: type_sec,
-      ..
-    } => {
+    { code_sec: Some(CodeSec(funcs)), func_sec: None, type_sec, .. } => {
       let next_type_idx = match type_sec {
         Some(TypeSec(recs)) => opt_scheduler_flattened_type_count(recs)
         None => 0U
@@ -1578,7 +1583,10 @@ fn opt_scheduler_type_finalizing_dispatch_module() -> Module {
   .with_func_sec(FuncSec::new([TypeIdx::new(2)]))
   .with_code_sec(
     CodeSec::new([
-      Func::t_func([], TExpr::new([TInstr::drop(TInstr::struct_new(TypeIdx::new(1), []))])),
+      Func::t_func(
+        [],
+        TExpr::new([TInstr::drop(TInstr::struct_new(TypeIdx::new(1), []))]),
+      ),
     ]),
   )
 }
@@ -3092,7 +3100,9 @@ test "optimize_module runs AvoidReinterprets pass" {
     .with_mem_sec(MemSec::new([MemType::new(Limits::i32(1, None))]))
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(comp_type_sub_type(func_comp_type([], [ValType::i32()]))),
+        single_rec_type(
+          comp_type_sub_type(func_comp_type([], [ValType::i32()])),
+        ),
       ]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
@@ -3530,9 +3540,7 @@ test "optimize_module runs GlobalRefining pass" {
 
 ///|
 test "optimize_module runs GlobalStructInference pass" {
-  assert_true(
-    assert_pass_context_kind(GlobalStructInference, ModuleRunnerPass),
-  )
+  assert_true(assert_pass_context_kind(GlobalStructInference, ModuleRunnerPass))
   let mod = opt_scheduler_with_default_void_func_type(
     Module::new().with_code_sec(
       CodeSec::new([Func::t_func([], TExpr::new([TInstr::nop()]))]),
@@ -3548,10 +3556,7 @@ test "optimize_module runs GlobalStructInference pass" {
 ///|
 test "optimize_module runs GlobalStructInferenceDescCast pass" {
   assert_true(
-    assert_pass_context_kind(
-      GlobalStructInferenceDescCast,
-      ModuleRunnerPass,
-    ),
+    assert_pass_context_kind(GlobalStructInferenceDescCast, ModuleRunnerPass),
   )
   let mod = opt_scheduler_with_default_void_func_type(
     Module::new().with_code_sec(
@@ -3563,8 +3568,7 @@ test "optimize_module runs GlobalStructInferenceDescCast pass" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   opt_assert_valid_module(
-    optimized,
-    "GlobalStructInferenceDescCast scheduler smoke",
+    optimized, "GlobalStructInferenceDescCast scheduler smoke",
   )
 }
 
@@ -3580,8 +3584,7 @@ test "optimize_module schedules GlobalStructInferenceDescCast on valid modules" 
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   opt_assert_valid_module(
-    optimized,
-    "GlobalStructInferenceDescCast scheduler dispatch",
+    optimized, "GlobalStructInferenceDescCast scheduler dispatch",
   )
 }
 
@@ -3597,8 +3600,7 @@ test "optimize_module schedules GlobalStructInferenceDescCast without invalid GC
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   opt_assert_valid_module(
-    optimized,
-    "GlobalStructInferenceDescCast valid scheduler smoke",
+    optimized, "GlobalStructInferenceDescCast valid scheduler smoke",
   )
 }
 
@@ -4739,7 +4741,9 @@ test "optimize_module runs Precompute and PrecomputePropagate passes" {
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(comp_type_sub_type(func_comp_type([], [ValType::i32()]))),
+        single_rec_type(
+          comp_type_sub_type(func_comp_type([], [ValType::i32()])),
+        ),
       ]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
