@@ -604,7 +604,9 @@ fn validate_func_body_against_functype(
       }
       if st1.reachable {
         if st1.stack.length() != results.length() {
-          return Err("typed function body leaves extra values on stack")
+          return Err(
+            "typed function body has wrong result arity: stack=\{st1.stack} results=\{results}",
+          )
         }
         for i in 0..<results.length() {
           if !Match::matches(st1.stack[i], results[i], env1) {
@@ -653,7 +655,7 @@ pub fn validate_codesec(
           None => return Err("internal: missing functype for code body")
         }
         if validate_func_body_against_functype(env, ft, bodies[i]) is Err(e) {
-          return Err(e)
+          return Err("code[\{i}]: \{e}")
         }
       }
       Ok(())

@@ -390,12 +390,17 @@ fn dce_texpr(
   // "reachable" means the next instruction in this *sequence* is reachable
   // on at least one path (i.e., we haven't hit an unconditional terminator).
   let mut reachable = true
+  let mut preserve_next_unreachable = false
 
-  for instr in instrs {
+  for i = 0; i < instrs.length(); i = i + 1 {
+    let instr = instrs[i]
     if !reachable {
       changed = true
       continue
     }
+
+    let preserving_sentinel = preserve_next_unreachable
+    preserve_next_unreachable = false
 
     let new_instr = match transformer.walk_tinstruction((), instr) {
       Err(e) => return Err(e)
@@ -410,9 +415,21 @@ fn dce_texpr(
 
     // After emitting this instruction, decide if the *sequence* can continue.
     // Important: this is about fallthrough to the *next instruction in the same TExpr*.
-    let local_budget = dce_alloc_break_budget(break_scan_budget, 512)
-    if dce_is_unreachable_instr(new_instr, local_budget, trace_state) {
+    if preserving_sentinel {
       reachable = false
+    } else {
+      let local_budget = dce_alloc_break_budget(break_scan_budget, 512)
+      if dce_is_unreachable_instr(new_instr, local_budget, trace_state) {
+        // In this typed IR, an explicit trailing `unreachable` sentinel can be
+        // semantically significant for keeping the surrounding sequence bottomed
+        // out, even when the preceding instruction is already a terminator.
+        if i + 1 < instrs.length() &&
+          is_explicit_unreachable_instr(instrs[i + 1]) {
+          preserve_next_unreachable = true
+        } else {
+          reachable = false
+        }
+      }
     }
 
     if break_scan_budget.val <= 0 {
@@ -454,9 +471,10 @@ fn dce_tinstr(
   let mut rewritten = walked
 
   // Control-flow-structure rewrites that need explicit handling.
+  // Typed blocks are intentionally excluded here: in this IR a block with a
+  // bottomed-out body can still remain as a reachable producer of its declared
+  // result type, so rewriting it to bare `unreachable` corrupts stack shape.
   rewritten = match rewritten.kind {
-    TInstrKind::TBlock(_, body) if is_single_unreachable_texpr(body) =>
-      TInstr::unreachable_()
     TInstrKind::TIf(_, cond, _, _) => {
       let cond_budget = dce_alloc_break_budget(break_scan_budget, 512)
       if dce_is_unreachable_instr(cond, cond_budget, trace_state) {
@@ -507,6 +525,14 @@ fn is_single_unreachable_texpr(expr : TExpr) -> Bool {
   let { instrs, .. } = expr
   match instrs {
     [{ kind: TInstrKind::TUnreachable, .. }] => true
+    _ => false
+  }
+}
+
+///|
+fn is_explicit_unreachable_instr(instr : TInstr) -> Bool {
+  match instr.kind {
+    TInstrKind::TUnreachable => true
     _ => false
   }
 }
@@ -765,34 +791,12 @@ fn dce_is_unreachable_instr(
     | TInstrKind::TThrow(_, _)
     | TInstrKind::TThrowRef(_) => true
 
-    // A block instruction itself is a terminator iff it cannot "complete"
-    // back to its own continuation.
-    //
-    // A block *can* complete if:
-    //   (1) its body can fall through normally, OR
-    //   (2) there exists a break targeting the block itself (br depth 0 w.r.t the block).
-    //
-    // If neither is true, then executing the block transfers control away
-    // (e.g., via br to an enclosing label / return / throw / unreachable),
-    // so the *instruction* does not fall through.
-    TInstrKind::TBlock(_, body) => {
-      let body_unreachable = dce_texpr_is_unreachable(
-        body, break_scan_budget, trace_state,
-      )
-      if !body_unreachable {
-        return false
-      }
-
-      // If there is a break to the block's own label, it can still complete.
-      // (This is what preserves outer continuation for br 0, and similar.)
-      let has_break_to_self = dce_has_break_to_depth_in_texpr(
-        body, 0, break_scan_budget, trace_state,
-      )
-
-      // If body is unreachable AND there is NO break-to-self, then the block
-      // instruction cannot fall through.
-      !has_break_to_self
-    }
+    // Typed blocks are always treated as continuation-preserving roots in this
+    // IR. Their bodies may bottom out, but the block still carries its declared
+    // result type at the current stack height, and later validation relies on
+    // that typed shape. Be conservative and let block-local DCE happen only
+    // inside the body itself.
+    TInstrKind::TBlock(_, _) => false
 
     // If is a terminator only if:
     //   - condition is unreachable (then it becomes unreachable), OR
@@ -1104,6 +1108,72 @@ fn run_dce_on_texpr(expr : TExpr) -> TExpr {
 }
 
 ///|
+fn run_dce_on_module(mod : Module) -> Module {
+  let pass = dead_code_elimination_pass()
+  match pass.walk_module((), mod) {
+    Ok(Some((_, out))) => out
+    Ok(None) => mod
+    Err(e) => abort("unexpected DCE module error: \{e}")
+  }
+}
+
+///|
+fn dce_test_void_module(body : TExpr) -> Module {
+  let sig = RecType::new(SubType::comp_type(CompType::func([], [])))
+  Module::new()
+  .with_type_sec(TypeSec::new([sig]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+  .with_code_sec(CodeSec::new([Func::t_func([], body)]))
+}
+
+///|
+test "typed block with terminating body is not a DCE terminator" {
+  let block = TInstr::block(
+    BlockType::val_type(ValType::i32()),
+    TExpr::new([TInstr::return_([])]),
+  )
+  assert_false(is_unreachable_instr(block))
+}
+
+///|
+test "dead code elim preserves continuation after typed block root" {
+  let input = TExpr::new([
+    TInstr::block(
+      BlockType::val_type(ValType::i32()),
+      TExpr::new([TInstr::return_([])]),
+    ),
+    TInstr::unreachable_(),
+  ])
+  let out = run_dce_on_texpr(input)
+  match out.instrs {
+    [
+      { kind: TInstrKind::TBlock(ValTypeBlockType(_), _), .. },
+      { kind: TInstrKind::TUnreachable, .. },
+    ] => ()
+    _ =>
+      fail(
+        "expected typed block root to keep following instructions reachable for DCE purposes",
+      )
+  }
+}
+
+///|
+test "dead code elim keeps typed block validation shape" {
+  let mod = dce_test_void_module(
+    TExpr::new([
+      TInstr::block(
+        BlockType::val_type(ValType::i32()),
+        TExpr::new([TInstr::return_([])]),
+      ),
+      TInstr::unreachable_(),
+    ]),
+  )
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_dce_on_module(mod)
+  assert_eq(validate_module(out), Ok(()))
+}
+
+///|
 test "dead code elim rewrites non-control unreachable operands" {
   let input = TExpr::new([
     TInstr::binary(
@@ -1135,6 +1205,48 @@ test "dead code elim rewrites non-control unreachable operands" {
       },
     ] => ()
     _ => fail("expected add to rewrite to block(drop(const), unreachable)")
+  }
+}
+
+///|
+test "dead code elim preserves explicit unreachable sentinel after br tail" {
+  let input = TExpr::new([
+    TInstr::br(LabelIdx::new(0), []),
+    TInstr::unreachable_(),
+    TInstr::i32_const(I32(1)),
+  ])
+  let out = run_dce_on_texpr(input)
+  match out.instrs {
+    [
+      { kind: TInstrKind::TBr(_, _), .. },
+      { kind: TInstrKind::TUnreachable, .. },
+    ] => ()
+    _ => fail("expected explicit unreachable sentinel after br to be preserved")
+  }
+}
+
+///|
+test "dead code elim preserves explicit unreachable sentinel after br_table tail" {
+  let input = TExpr::new([
+    TInstr::br_table(
+      [LabelIdx::new(0)],
+      LabelIdx::new(0),
+      TInstr::i32_const(I32(0)),
+      [],
+    ),
+    TInstr::unreachable_(),
+    TInstr::i32_const(I32(1)),
+  ])
+  let out = run_dce_on_texpr(input)
+  match out.instrs {
+    [
+      { kind: TInstrKind::TBrTable(_, _, _, _), .. },
+      { kind: TInstrKind::TUnreachable, .. },
+    ] => ()
+    _ =>
+      fail(
+        "expected explicit unreachable sentinel after br_table to be preserved",
+      )
   }
 }
 
