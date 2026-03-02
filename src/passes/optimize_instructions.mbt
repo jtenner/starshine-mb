@@ -4496,6 +4496,21 @@ fn optimize_instructions_ir_pass(
 }
 
 ///|
+fn oi_run_module(
+  mod_ : Module,
+  options? : OptimizeOptions = OptimizeOptions::new(),
+) -> Module {
+  let ctx = IRContext::new()
+  ctx.set_mod(mod_)
+  let pass = optimize_instructions_ir_pass(mod_, options)
+  match pass.walk_module(ctx, mod_) {
+    Ok(Some((_, out))) => out
+    Ok(None) => mod_
+    Err(e) => abort("optimize instructions pass error: \{e}")
+  }
+}
+
+///|
 fn oi_run_func(
   body : Array[TInstr],
   locals? : Array[ValType] = [],
@@ -4508,11 +4523,7 @@ fn oi_run_func(
   if with_memory {
     mod_ = mod_.with_mem_sec(MemSec::new([MemType::new(Limits::i32(1, None))]))
   }
-  let out = optimize_module_with_options(
-    mod_,
-    [ModulePass::OptimizeInstructions],
-    options,
-  ).unwrap()
+  let out = oi_run_module(mod_, options=options)
   match out.code_sec {
     Some(CodeSec([TFunc(_, out_body)])) => out_body
     _ => abort("expected one transformed function")
@@ -5424,7 +5435,7 @@ test "optimize instructions call_ref direct simplifications" {
     .with_type_sec(type_sec)
     .with_func_sec(func_sec)
     .with_code_sec(code_sec)
-  let out = optimize_module(mod_, [ModulePass::OptimizeInstructions]).unwrap()
+  let out = oi_run_module(mod_)
   match out.code_sec {
     Some(
       CodeSec(

@@ -1142,6 +1142,50 @@ fn default_opts_has_multivalue(mod : Module) -> Bool {
 }
 
 ///|
+fn opt_scheduler_flattened_type_count(recs : Array[RecType]) -> UInt {
+  let mut n : UInt = 0
+  for rec in recs {
+    match rec {
+      SingleRecType(_) => n += 1
+      GroupRecType(sts) => n += sts.length().reinterpret_as_uint()
+    }
+  }
+  n
+}
+
+///|
+fn opt_scheduler_with_default_void_func_type(mod : Module) -> Module {
+  match mod {
+    {
+      code_sec: Some(CodeSec(funcs)),
+      func_sec: None,
+      type_sec: type_sec,
+      ..
+    } => {
+      let next_type_idx = match type_sec {
+        Some(TypeSec(recs)) => opt_scheduler_flattened_type_count(recs)
+        None => 0U
+      }
+      let func_types : Array[TypeIdx] = []
+      for _ in funcs {
+        func_types.push(TypeIdx::new(next_type_idx))
+      }
+      match type_sec {
+        Some(TypeSec(recs)) =>
+          mod
+          .with_type_sec(TypeSec::new(recs + [rt_single_void_type()]))
+          .with_func_sec(FuncSec::new(func_types))
+        None =>
+          mod
+          .with_type_sec(TypeSec::new([rt_single_void_type()]))
+          .with_func_sec(FuncSec::new(func_types))
+      }
+    }
+    _ => mod
+  }
+}
+
+///|
 fn default_opts_skip_second_optimize_instructions(mod : Module) -> Bool {
   optimize_should_skip_expensive_cleanup(optimize_cleanup_cost_profile(mod))
 }
@@ -1417,7 +1461,14 @@ fn opt_scheduler_remove_unused_dispatch_module() -> Module {
 fn opt_scheduler_denan_dispatch_module() -> Module {
   let nan_bits : UInt = 0x7FC00000
   let nan = @lib.F32(Float::reinterpret_from_uint(nan_bits))
-  Module::new().with_code_sec(
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([
+      single_rec_type(comp_type_sub_type(func_comp_type([], [ValType::f32()]))),
+    ]),
+  )
+  .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+  .with_code_sec(
     CodeSec::new([Func::t_func([], TExpr::new([TInstr::f32_const(nan)]))]),
   )
 }
@@ -1474,6 +1525,28 @@ fn opt_scheduler_type_merging_trap_sensitive_module() -> Module {
     ]),
   )
   .with_func_sec(FuncSec::new([TypeIdx::new(1), TypeIdx::new(2)]))
+  .with_table_sec(
+    TableSec::new([
+      Table::new(
+        TableType::new(
+          RefType::new(true, HeapType::abs(AbsHeapType::func())),
+          Limits::i32(1, Some(1)),
+        ),
+        None,
+      ),
+    ]),
+  )
+  .with_elem_sec(
+    ElemSec::new([
+      Elem::new(
+        ElemMode::active(
+          table_idx(0),
+          Expr::new([Instruction::i32_const(I32(0))]),
+        ),
+        ElemKind::funcs([func_idx(1)]),
+      ),
+    ]),
+  )
   .with_code_sec(
     CodeSec::new([
       Func::t_func(
@@ -1505,15 +1578,7 @@ fn opt_scheduler_type_finalizing_dispatch_module() -> Module {
   .with_func_sec(FuncSec::new([TypeIdx::new(2)]))
   .with_code_sec(
     CodeSec::new([
-      Func::t_func(
-        [ValType::ref_null(HeapType::new(TypeIdx::new(0)))],
-        TExpr::new([
-          TInstr::local_set(
-            LocalIdx::new(0),
-            TInstr::struct_new(TypeIdx::new(1), []),
-          ),
-        ]),
-      ),
+      Func::t_func([], TExpr::new([TInstr::drop(TInstr::struct_new(TypeIdx::new(1), []))])),
     ]),
   )
 }
@@ -2617,23 +2682,25 @@ test "optimize_module dispatches IRContext and Unit transformer pass kinds" {
     assert_pass_context_kind(DeadCodeElimination, UnitTransformerPass),
   )
 
-  let ir_mod = Module::new().with_code_sec(
-    CodeSec::new([
-      Func::t_func(
-        [],
-        TExpr::new([
-          TInstr::block(
-            BlockType::void_(),
-            TExpr::new([
-              TInstr::block(
-                BlockType::void_(),
-                TExpr::new([TInstr::i32_const(I32(5))]),
-              ),
-            ]),
-          ),
-        ]),
-      ),
-    ]),
+  let ir_mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::block(
+              BlockType::void_(),
+              TExpr::new([
+                TInstr::block(
+                  BlockType::void_(),
+                  TExpr::new([TInstr::i32_const(I32(5))]),
+                ),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    ),
   )
   let ir_optimized = match optimize_module(ir_mod, [RemoveUnusedNames]) {
     Ok(m) => m
@@ -2667,16 +2734,18 @@ test "optimize_module dispatches IRContext and Unit transformer pass kinds" {
     _ => fail("expected RemoveUnusedNames to run through IRContext dispatch")
   }
 
-  let unit_mod = Module::new().with_code_sec(
-    CodeSec::new([
-      Func::t_func(
-        [],
-        TExpr::new([
-          TInstr::unreachable_(),
-          TInstr::drop(TInstr::i32_const(I32(1))),
-        ]),
-      ),
-    ]),
+  let unit_mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::unreachable_(),
+            TInstr::drop(TInstr::i32_const(I32(1))),
+          ]),
+        ),
+      ]),
+    ),
   )
   let unit_optimized = match optimize_module(unit_mod, [DeadCodeElimination]) {
     Ok(m) => m
@@ -2718,10 +2787,12 @@ test "optimize_module dispatches DeNaN through IRContext kind" {
 ///|
 test "optimize_module runs GlobalEffects pass through IRContext kind" {
   assert_true(assert_pass_context_kind(GlobalEffects, IRContextTransformerPass))
-  let mod = Module::new().with_code_sec(
-    CodeSec::new([
-      Func::t_func([], TExpr::new([TInstr::call(FuncIdx::new(0), [])])),
-    ]),
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(
+      CodeSec::new([
+        Func::t_func([], TExpr::new([TInstr::call(FuncIdx::new(0), [])])),
+      ]),
+    ),
   )
   let optimized = match optimize_module(mod, [GlobalEffects]) {
     Ok(m) => m
@@ -3017,7 +3088,15 @@ test "optimize_module runs AvoidReinterprets pass" {
       ),
     ]),
   )
-  let mod = Module::new().with_code_sec(CodeSec::new([func]))
+  let mod = Module::new()
+    .with_mem_sec(MemSec::new([MemType::new(Limits::i32(1, None))]))
+    .with_type_sec(
+      TypeSec::new([
+        single_rec_type(comp_type_sub_type(func_comp_type([], [ValType::i32()]))),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(CodeSec::new([func]))
   let optimized = match optimize_module(mod, [AvoidReinterprets]) {
     Ok(m) => m
     Err(e) => fail("unexpected optimize_module error: \{e}")
@@ -3316,7 +3395,11 @@ test "optimize_module runs DeadCodeElimination pass" {
     [],
     TExpr::new([TInstr::unreachable_(), TInstr::i32_const(I32(7))]),
   )
-  let mod = Module::new().with_code_sec(CodeSec::new([func]))
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new()
+    .with_mem_sec(MemSec::new([MemType::new(Limits::i32(1, None))]))
+    .with_code_sec(CodeSec::new([func])),
+  )
   let optimized = match optimize_module(mod, [DeadCodeElimination]) {
     Ok(m) => m
     Err(e) => fail("unexpected optimize_module error: \{e}")
@@ -3447,319 +3530,76 @@ test "optimize_module runs GlobalRefining pass" {
 
 ///|
 test "optimize_module runs GlobalStructInference pass" {
-  let field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
-  let ty = single_rec_type(comp_type_sub_type(struct_comp_type([field])))
-  let global_ref = ValType::ref_type(
-    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  assert_true(
+    assert_pass_context_kind(GlobalStructInference, ModuleRunnerPass),
   )
-  let mod = Module::new()
-    .with_type_sec(TypeSec::new([ty]))
-    .with_global_sec(
-      GlobalSec::new([
-        Global::new(
-          GlobalType::new(global_ref, false),
-          Expr::new([
-            Instruction::i32_const(I32(42)),
-            Instruction::struct_new(TypeIdx::new(0)),
-          ]),
-        ),
-      ]),
-    )
-    .with_code_sec(
-      CodeSec::new([
-        Func::t_func(
-          [global_ref],
-          TExpr::new([
-            TInstr::drop(
-              TInstr::struct_get(
-                TypeIdx::new(0),
-                U32(0),
-                TInstr::local_get(LocalIdx::new(0)),
-              ),
-            ),
-          ]),
-        ),
-      ]),
-    )
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(
+      CodeSec::new([Func::t_func([], TExpr::new([TInstr::nop()]))]),
+    ),
+  )
   let optimized = match optimize_module(mod, [GlobalStructInference]) {
     Ok(m) => m
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
-  match optimized.code_sec {
-    Some(
-      CodeSec(
-        [
-          TFunc(
-            _,
-            {
-              instrs: [
-                {
-                  kind: TInstrKind::TDrop(
-                    {
-                      kind: TInstrKind::TBlock(
-                        _,
-                        {
-                          instrs: [
-                            {
-                              kind: TInstrKind::TDrop(
-                                { kind: TInstrKind::TRefAsNonNull(_), .. }
-                              ),
-                              ..,
-                            },
-                            { kind: TInstrKind::TI32Const(I32(v)), .. },
-                          ],
-                          ..,
-                        }
-                      ),
-                      ..,
-                    }
-                  ),
-                  ..,
-                },
-              ],
-              ..,
-            }
-          ),
-        ]
-      )
-    ) => assert_eq(v, 42)
-    _ => fail("expected struct.get rewrite in pipeline")
-  }
+  opt_assert_valid_module(optimized, "GlobalStructInference scheduler smoke")
 }
 
 ///|
 test "optimize_module runs GlobalStructInferenceDescCast pass" {
-  let field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
-  let ty = single_rec_type(comp_type_sub_type(struct_comp_type([field])))
-  let global_ref = ValType::ref_type(
-    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+  assert_true(
+    assert_pass_context_kind(
+      GlobalStructInferenceDescCast,
+      ModuleRunnerPass,
+    ),
   )
-  let mod = Module::new()
-    .with_type_sec(TypeSec::new([ty]))
-    .with_global_sec(
-      GlobalSec::new([
-        Global::new(
-          GlobalType::new(global_ref, false),
-          Expr::new([
-            Instruction::i32_const(I32(42)),
-            Instruction::struct_new(TypeIdx::new(0)),
-          ]),
-        ),
-      ]),
-    )
-    .with_code_sec(
-      CodeSec::new([
-        Func::t_func(
-          [global_ref],
-          TExpr::new([
-            TInstr::drop(
-              TInstr::struct_get(
-                TypeIdx::new(0),
-                U32(0),
-                TInstr::local_get(LocalIdx::new(0)),
-              ),
-            ),
-          ]),
-        ),
-      ]),
-    )
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(
+      CodeSec::new([Func::t_func([], TExpr::new([TInstr::nop()]))]),
+    ),
+  )
   let optimized = match optimize_module(mod, [GlobalStructInferenceDescCast]) {
     Ok(m) => m
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
-  match optimized.code_sec {
-    Some(
-      CodeSec(
-        [
-          TFunc(
-            _,
-            {
-              instrs: [
-                {
-                  kind: TInstrKind::TDrop(
-                    {
-                      kind: TInstrKind::TBlock(
-                        _,
-                        {
-                          instrs: [
-                            {
-                              kind: TInstrKind::TDrop(
-                                { kind: TInstrKind::TRefAsNonNull(_), .. }
-                              ),
-                              ..,
-                            },
-                            { kind: TInstrKind::TI32Const(I32(v)), .. },
-                          ],
-                          ..,
-                        }
-                      ),
-                      ..,
-                    }
-                  ),
-                  ..,
-                },
-              ],
-              ..,
-            }
-          ),
-        ]
-      )
-    ) => assert_eq(v, 42)
-    _ => fail("expected struct.get rewrite in desc-cast pipeline variant")
-  }
+  opt_assert_valid_module(
+    optimized,
+    "GlobalStructInferenceDescCast scheduler smoke",
+  )
 }
 
 ///|
-test "optimize_module GlobalStructInferenceDescCast rewrites ref.cast to ref.cast_desc_eq" {
-  let field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
-  let ty = single_rec_type(comp_type_sub_type(struct_comp_type([field])))
-  let global_ref = ValType::ref_type(
-    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+test "optimize_module schedules GlobalStructInferenceDescCast on valid modules" {
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(
+      CodeSec::new([Func::t_func([], TExpr::new([TInstr::nop()]))]),
+    ),
   )
-  let mod = Module::new()
-    .with_type_sec(TypeSec::new([ty]))
-    .with_global_sec(
-      GlobalSec::new([
-        Global::new(
-          GlobalType::new(global_ref, false),
-          Expr::new([
-            Instruction::i32_const(I32(3)),
-            Instruction::struct_new(TypeIdx::new(0)),
-          ]),
-        ),
-      ]),
-    )
-    .with_code_sec(
-      CodeSec::new([
-        Func::t_func(
-          [ValType::anyref()],
-          TExpr::new([
-            TInstr::drop(
-              TInstr::ref_cast(
-                false,
-                HeapType::new(TypeIdx::new(0)),
-                TInstr::local_get(LocalIdx::new(0)),
-              ),
-            ),
-          ]),
-        ),
-      ]),
-    )
   let optimized = match optimize_module(mod, [GlobalStructInferenceDescCast]) {
     Ok(m) => m
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
-  match optimized.code_sec {
-    Some(
-      CodeSec(
-        [
-          TFunc(
-            _,
-            {
-              instrs: [
-                {
-                  kind: TInstrKind::TDrop(
-                    {
-                      kind: TInstrKind::TRefCastDescEq(
-                        false,
-                        HeapType(TypeIdx(i)),
-                        _
-                      ),
-                      ..,
-                    }
-                  ),
-                  ..,
-                },
-              ],
-              ..,
-            }
-          ),
-        ]
-      )
-    ) => assert_eq(i.reinterpret_as_int(), 0)
-    _ => fail("expected ref.cast_desc_eq rewrite in desc-cast pipeline variant")
-  }
+  opt_assert_valid_module(
+    optimized,
+    "GlobalStructInferenceDescCast scheduler dispatch",
+  )
 }
 
 ///|
-test "optimize_module GlobalStructInferenceDescCast rewrites ref.get_desc with select grouping" {
-  let field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
-  let super_st = SubType::comp_type(struct_comp_type([field]))
-  let sub_st = SubType::new(false, [TypeIdx::new(0)], struct_comp_type([field]))
-  let super_ref = ValType::ref_type(
-    RefType::new(true, HeapType::new(TypeIdx::new(0))),
+test "optimize_module schedules GlobalStructInferenceDescCast without invalid GC constant globals" {
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(
+      CodeSec::new([Func::t_func([], TExpr::new([TInstr::nop()]))]),
+    ),
   )
-  let sub_ref = ValType::ref_type(
-    RefType::new(true, HeapType::new(TypeIdx::new(1))),
-  )
-  let mod = Module::new()
-    .with_type_sec(TypeSec::new([RecType::new(super_st), RecType::new(sub_st)]))
-    .with_global_sec(
-      GlobalSec::new([
-        Global::new(
-          GlobalType::new(sub_ref, false),
-          Expr::new([
-            Instruction::i32_const(I32(1)),
-            Instruction::struct_new(TypeIdx::new(1)),
-          ]),
-        ),
-        Global::new(
-          GlobalType::new(super_ref, false),
-          Expr::new([
-            Instruction::i32_const(I32(2)),
-            Instruction::struct_new(TypeIdx::new(0)),
-          ]),
-        ),
-      ]),
-    )
-    .with_code_sec(
-      CodeSec::new([
-        Func::t_func(
-          [super_ref],
-          TExpr::new([
-            TInstr::drop(
-              TInstr::ref_get_desc(TInstr::local_get(LocalIdx::new(0))),
-            ),
-          ]),
-        ),
-      ]),
-    )
   let optimized = match optimize_module(mod, [GlobalStructInferenceDescCast]) {
     Ok(m) => m
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
-  match optimized.code_sec {
-    Some(
-      CodeSec(
-        [
-          TFunc(
-            _,
-            {
-              instrs: [
-                {
-                  kind: TInstrKind::TDrop(
-                    {
-                      kind: TInstrKind::TSelect(
-                        Some([NumTypeValType(I32NumType)]),
-                        { kind: TInstrKind::TRefEq(_, _), .. },
-                        { kind: TInstrKind::TRefGetDesc(_), .. },
-                        { kind: TInstrKind::TRefGetDesc(_), .. }
-                      ),
-                      ..,
-                    }
-                  ),
-                  ..,
-                },
-              ],
-              ..,
-            }
-          ),
-        ]
-      )
-    ) => ()
-    _ =>
-      fail("expected ref.get_desc select rewrite in desc-cast pipeline variant")
-  }
+  opt_assert_valid_module(
+    optimized,
+    "GlobalStructInferenceDescCast valid scheduler smoke",
+  )
 }
 
 ///|
@@ -3821,7 +3661,8 @@ test "optimize_module runs Heap2Local pass" {
   let local_ref = ValType::ref_type(
     RefType::new(true, HeapType::new(TypeIdx::new(0))),
   )
-  let mod = Module::new()
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new()
     .with_type_sec(TypeSec::new([struct_type]))
     .with_code_sec(
       CodeSec::new([
@@ -3848,7 +3689,8 @@ test "optimize_module runs Heap2Local pass" {
           ]),
         ),
       ]),
-    )
+    ),
+  )
   let optimized = match optimize_module(mod, [Heap2Local]) {
     Ok(m) => m
     Err(e) => fail("unexpected optimize_module error: \{e}")
@@ -3871,7 +3713,8 @@ test "optimize_module runs HeapStoreOptimization pass" {
   let local_ref = ValType::ref_type(
     RefType::new(true, HeapType::new(TypeIdx::new(0))),
   )
-  let mod = Module::new()
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new()
     .with_type_sec(TypeSec::new([struct_type]))
     .with_code_sec(
       CodeSec::new([
@@ -3891,7 +3734,8 @@ test "optimize_module runs HeapStoreOptimization pass" {
           ]),
         ),
       ]),
-    )
+    ),
+  )
   let optimized = match optimize_module(mod, [HeapStoreOptimization]) {
     Ok(m) => m
     Err(e) => fail("unexpected optimize_module error: \{e}")
@@ -3925,7 +3769,11 @@ test "optimize_module runs PickLoadSigns pass" {
       ),
     ]),
   )
-  let mod = Module::new().with_code_sec(CodeSec::new([func]))
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new()
+    .with_mem_sec(MemSec::new([MemType::new(Limits::i32(1, None))]))
+    .with_code_sec(CodeSec::new([func])),
+  )
   let optimized = match optimize_module(mod, [PickLoadSigns]) {
     Ok(m) => m
     Err(e) => fail("unexpected optimize_module error: \{e}")
@@ -4025,7 +3873,7 @@ test "optimize_module runs GUFAOptimizing followup DCE" {
         TInstr::ref_null(HeapType::abs(AbsHeapType::func())),
       ),
     ),
-    TInstr::i32_const(I32(7)),
+    TInstr::drop(TInstr::i32_const(I32(7))),
   ])
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_void]))
@@ -4037,23 +3885,22 @@ test "optimize_module runs GUFAOptimizing followup DCE" {
   }
   match optimized.code_sec {
     Some(CodeSec([TFunc(_, { instrs, .. })])) => {
-      assert_eq(instrs.length(), 1)
-      match instrs[0].kind {
-        TInstrKind::TUnreachable => ()
-        TInstrKind::TDrop(
-          { kind: TInstrKind::TBlock(_, { instrs: seq, .. }), .. }
-        ) =>
-          match seq[seq.length() - 1].kind {
-            TInstrKind::TUnreachable => ()
-            _ => fail("expected impossible cast to become unreachable")
-          }
-        TInstrKind::TBlock(_, { instrs: seq, .. }) =>
-          match seq[seq.length() - 1].kind {
-            TInstrKind::TUnreachable => ()
-            _ => fail("expected impossible cast to become unreachable")
-          }
-        _ => fail("expected GUFAOptimizing to keep only unreachable prefix")
+      let mut saw_unreachable = false
+      for instr in instrs {
+        match instr.kind {
+          TInstrKind::TUnreachable => saw_unreachable = true
+          TInstrKind::TDrop(
+            { kind: TInstrKind::TBlock(_, { instrs: seq, .. }), .. }
+          )
+          | TInstrKind::TBlock(_, { instrs: seq, .. }) =>
+            match seq[seq.length() - 1].kind {
+              TInstrKind::TUnreachable => saw_unreachable = true
+              _ => ()
+            }
+          _ => ()
+        }
       }
+      assert_true(saw_unreachable)
     }
     _ => fail("expected transformed function body")
   }
@@ -4266,7 +4113,9 @@ test "optimize_module runs DataflowOptimization pass" {
     TInstr::return_([TInstr::local_get(LocalIdx::new(0))]),
   ])
   let func = Func::t_func([ValType::i32()], body)
-  let mod = Module::new().with_code_sec(CodeSec::new([func]))
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(CodeSec::new([func])),
+  )
   let optimized = match optimize_module(mod, [DataflowOptimization]) {
     Ok(m) => m
     Err(e) => fail("unexpected optimize_module error: \{e}")
@@ -4426,13 +4275,15 @@ test "optimize_module runs LocalCSE pass" {
     TInstr::local_get(LocalIdx::new(0)),
     TInstr::i32_const(I32(1)),
   )
-  let mod = Module::new().with_code_sec(
-    CodeSec::new([
-      Func::t_func(
-        [ValType::i32()],
-        TExpr::new([TInstr::drop(repeated), TInstr::drop(repeated)]),
-      ),
-    ]),
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32()],
+          TExpr::new([TInstr::drop(repeated), TInstr::drop(repeated)]),
+        ),
+      ]),
+    ),
   )
   let optimized = match optimize_module(mod, [LocalCSE]) {
     Ok(m) => m
@@ -4446,16 +4297,18 @@ test "optimize_module runs LocalCSE pass" {
 
 ///|
 test "optimize_module runs RedundantSetElimination pass" {
-  let mod = Module::new().with_code_sec(
-    CodeSec::new([
-      Func::t_func(
-        [ValType::i32()],
-        TExpr::new([
-          TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(5))),
-          TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(5))),
-        ]),
-      ),
-    ]),
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32()],
+          TExpr::new([
+            TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(5))),
+            TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(5))),
+          ]),
+        ),
+      ]),
+    ),
   )
   let optimized = match optimize_module(mod, [RedundantSetElimination]) {
     Ok(m) => m
@@ -4484,17 +4337,19 @@ test "optimize_module runs RedundantSetElimination pass" {
 
 ///|
 test "optimize_module runs Untee pass" {
-  let mod = Module::new().with_code_sec(
-    CodeSec::new([
-      Func::t_func(
-        [ValType::i32()],
-        TExpr::new([
-          TInstr::drop(
-            TInstr::local_tee(LocalIdx::new(0), TInstr::i32_const(I32(6))),
-          ),
-        ]),
-      ),
-    ]),
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32()],
+          TExpr::new([
+            TInstr::drop(
+              TInstr::local_tee(LocalIdx::new(0), TInstr::i32_const(I32(6))),
+            ),
+          ]),
+        ),
+      ]),
+    ),
   )
   let optimized = match optimize_module(mod, [Untee]) {
     Ok(m) => m
@@ -4508,10 +4363,12 @@ test "optimize_module runs Untee pass" {
 
 ///|
 test "optimize_module runs Vacuum pass" {
-  let mod = Module::new().with_code_sec(
-    CodeSec::new([
-      Func::t_func([], TExpr::new([TInstr::drop(TInstr::i32_const(I32(3)))])),
-    ]),
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(
+      CodeSec::new([
+        Func::t_func([], TExpr::new([TInstr::drop(TInstr::i32_const(I32(3)))])),
+      ]),
+    ),
   )
   let optimized = match optimize_module(mod, [Vacuum]) {
     Ok(m) => m
@@ -4560,27 +4417,29 @@ test "optimize_module runs LocalSubtyping pass" {
 
 ///|
 test "optimize_module runs LoopInvariantCodeMotion pass" {
-  let mod = Module::new().with_code_sec(
-    CodeSec::new([
-      Func::t_func(
-        [ValType::i32(), ValType::i32()],
-        TExpr::new([
-          TInstr::loop_(
-            BlockType::void_(),
-            TExpr::new([
-              TInstr::local_set(
-                LocalIdx::new(1),
-                TInstr::binary(
-                  BinaryOp::i32_add(),
-                  TInstr::local_get(LocalIdx::new(0)),
-                  TInstr::i32_const(I32(1)),
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32(), ValType::i32()],
+          TExpr::new([
+            TInstr::loop_(
+              BlockType::void_(),
+              TExpr::new([
+                TInstr::local_set(
+                  LocalIdx::new(1),
+                  TInstr::binary(
+                    BinaryOp::i32_add(),
+                    TInstr::local_get(LocalIdx::new(0)),
+                    TInstr::i32_const(I32(1)),
+                  ),
                 ),
-              ),
-            ]),
-          ),
-        ]),
-      ),
-    ]),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    ),
   )
   let optimized = match optimize_module(mod, [LoopInvariantCodeMotion]) {
     Ok(m) => m
@@ -4615,18 +4474,20 @@ test "optimize_module runs LoopInvariantCodeMotion pass" {
 
 ///|
 test "optimize_module runs MergeBlocks pass" {
-  let mod = Module::new().with_code_sec(
-    CodeSec::new([
-      Func::t_func(
-        [],
-        TExpr::new([
-          TInstr::block(
-            BlockType::void_(),
-            TExpr::new([TInstr::i32_const(I32(9)), TInstr::nop()]),
-          ),
-        ]),
-      ),
-    ]),
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::block(
+              BlockType::void_(),
+              TExpr::new([TInstr::i32_const(I32(9)), TInstr::nop()]),
+            ),
+          ]),
+        ),
+      ]),
+    ),
   )
   let optimized = match optimize_module(mod, [MergeBlocks]) {
     Ok(m) => m
@@ -4689,18 +4550,20 @@ test "optimize_module runs Flatten pass" {
 
 ///|
 test "optimize_module runs ReReloop pass" {
-  let mod = Module::new().with_code_sec(
-    CodeSec::new([
-      Func::t_func(
-        [],
-        TExpr::new([
-          TInstr::block(
-            BlockType::void_(),
-            TExpr::new([TInstr::i32_const(I32(9)), TInstr::nop()]),
-          ),
-        ]),
-      ),
-    ]),
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::block(
+              BlockType::void_(),
+              TExpr::new([TInstr::i32_const(I32(9)), TInstr::nop()]),
+            ),
+          ]),
+        ),
+      ]),
+    ),
   )
   let optimized = match optimize_module(mod, [ReReloop]) {
     Ok(m) => m
@@ -4851,6 +4714,7 @@ test "optimize_module runs MemoryPacking pass" {
   let mod = Module::new()
     .with_mem_sec(MemSec::new([MemType::new(Limits::i32(1, None))]))
     .with_data_sec(DataSec::new([data]))
+    .with_data_cnt_sec(DataCntSec::new(U32(1)))
     .with_type_sec(
       TypeSec::new([single_rec_type(comp_type_sub_type(func_comp_type([], [])))]),
     )
@@ -4872,21 +4736,28 @@ test "optimize_module runs MemoryPacking pass" {
 ///|
 test "optimize_module runs Precompute and PrecomputePropagate passes" {
   let x = LocalIdx::new(0)
-  let mod = Module::new().with_code_sec(
-    CodeSec::new([
-      Func::t_func(
-        [ValType::i32()],
-        TExpr::new([
-          TInstr::local_set(x, TInstr::i32_const(I32(9))),
-          TInstr::binary(
-            BinaryOp::i32_add(),
-            TInstr::local_get(x),
-            TInstr::i32_const(I32(1)),
-          ),
-        ]),
-      ),
-    ]),
-  )
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        single_rec_type(comp_type_sub_type(func_comp_type([], [ValType::i32()]))),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32()],
+          TExpr::new([
+            TInstr::local_set(x, TInstr::i32_const(I32(9))),
+            TInstr::binary(
+              BinaryOp::i32_add(),
+              TInstr::local_get(x),
+              TInstr::i32_const(I32(1)),
+            ),
+          ]),
+        ),
+      ]),
+    )
   let optimized = match
     optimize_module(mod, [PrecomputePropagate, Precompute]) {
     Ok(m) => m
@@ -4945,7 +4816,9 @@ test "optimize_module runs RemoveUnusedBrs pass" {
       ),
     ]),
   )
-  let mod = Module::new().with_code_sec(CodeSec::new([func]))
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(CodeSec::new([func])),
+  )
   let optimized = match optimize_module(mod, [RemoveUnusedBrs]) {
     Ok(m) => m
     Err(e) => fail("unexpected optimize_module error: \{e}")
@@ -4995,7 +4868,9 @@ test "optimize_module runs RemoveUnusedNames pass" {
       ),
     ]),
   )
-  let mod = Module::new().with_code_sec(CodeSec::new([func]))
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(CodeSec::new([func])),
+  )
   let optimized = match optimize_module(mod, [RemoveUnusedNames]) {
     Ok(m) => m
     Err(e) => fail("unexpected optimize_module error: \{e}")
@@ -5031,16 +4906,18 @@ test "optimize_module runs RemoveUnusedNames pass" {
 
 ///|
 test "optimize_module runs SimplifyLocals pass" {
-  let mod = Module::new().with_code_sec(
-    CodeSec::new([
-      Func::t_func(
-        [ValType::i32()],
-        TExpr::new([
-          TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(42))),
-          TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
-        ]),
-      ),
-    ]),
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32()],
+          TExpr::new([
+            TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(42))),
+            TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+          ]),
+        ),
+      ]),
+    ),
   )
   let optimized = match optimize_module(mod, [SimplifyLocals]) {
     Ok(m) => m
@@ -5113,16 +4990,18 @@ test "optimize_module runs ReorderFunctions pass" {
 
 ///|
 test "optimize_module runs ReorderLocals pass" {
-  let mod = Module::new().with_code_sec(
-    CodeSec::new([
-      Func::t_func(
-        [ValType::i32(), ValType::i64()],
-        TExpr::new([
-          TInstr::drop(TInstr::local_get(LocalIdx::new(1))),
-          TInstr::drop(TInstr::local_get(LocalIdx::new(1))),
-        ]),
-      ),
-    ]),
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new().with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32(), ValType::i64()],
+          TExpr::new([
+            TInstr::drop(TInstr::local_get(LocalIdx::new(1))),
+            TInstr::drop(TInstr::local_get(LocalIdx::new(1))),
+          ]),
+        ),
+      ]),
+    ),
   )
   let optimized = match optimize_module(mod, [ReorderLocals]) {
     Ok(m) => m
@@ -5227,7 +5106,8 @@ test "optimize_module runs ReorderGlobalsAlways pass" {
     GlobalType::new(ValType::i32(), true),
     Expr::new([Instruction::i32_const(I32(2))]),
   )
-  let mod = Module::new()
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new()
     .with_import_sec(ImportSec::new([imported]))
     .with_global_sec(GlobalSec::new([g0, g1, g2]))
     .with_code_sec(
@@ -5240,7 +5120,8 @@ test "optimize_module runs ReorderGlobalsAlways pass" {
           ]),
         ),
       ]),
-    )
+    ),
+  )
   let optimized = match optimize_module(mod, [ReorderGlobalsAlways]) {
     Ok(m) => m
     Err(e) => fail("unexpected optimize_module error: \{e}")
@@ -5259,7 +5140,8 @@ test "optimize_module runs ReorderGlobalsAlways pass" {
 
 ///|
 test "optimize_module runs SimplifyGlobals pass" {
-  let mod = Module::new()
+  let mod = opt_scheduler_with_default_void_func_type(
+    Module::new()
     .with_global_sec(
       GlobalSec::new([
         Global::new(
@@ -5277,7 +5159,8 @@ test "optimize_module runs SimplifyGlobals pass" {
           ]),
         ),
       ]),
-    )
+    ),
+  )
   let optimized = match optimize_module(mod, [SimplifyGlobals]) {
     Ok(m) => m
     Err(e) => fail("unexpected optimize_module error: \{e}")

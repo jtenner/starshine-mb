@@ -16,7 +16,12 @@
 
 ///|
 fn ml_run_merge_locals(mod : Module) -> Module {
-  optimize_module(mod, [ModulePass::MergeLocals]).unwrap()
+  let pass = merge_locals_ir_pass(mod)
+  match pass.walk_module(IRContext::new(), mod) {
+    Ok(Some((_, out))) => out
+    Ok(None) => mod
+    Err(e) => abort("merge locals pass error: \{e}")
+  }
 }
 
 ///|

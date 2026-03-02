@@ -926,6 +926,22 @@ fn optimize_added_constants_ir_pass(
 }
 
 ///|
+fn oac_run_module(
+  mod_ : Module,
+  options : OptimizeOptions,
+  propagate : Bool,
+) -> Result[Module, String] {
+  let ctx = IRContext::new()
+  ctx.set_mod(mod_)
+  let pass = optimize_added_constants_ir_pass(mod_, options, propagate)
+  match pass.walk_module(ctx, mod_) {
+    Ok(Some((_, out))) => Ok(out)
+    Ok(None) => Ok(mod_)
+    Err(e) => Err(e)
+  }
+}
+
+///|
 fn oac_run_func(
   body : Array[TInstr],
   locals? : Array[ValType] = [],
@@ -945,11 +961,11 @@ fn oac_run_func(
     .with_mem_sec(MemSec::new([memory]))
     .with_code_sec(CodeSec::new([Func::t_func(locals, TExpr::new(body))]))
   let passes = if propagate {
-    [ModulePass::OptimizeAddedConstantsPropagate]
+    true
   } else {
-    [ModulePass::OptimizeAddedConstants]
+    false
   }
-  match optimize_module_with_options(mod_, passes, options) {
+  match oac_run_module(mod_, options, passes) {
     Ok(out) =>
       match out.code_sec {
         Some(CodeSec([TFunc(new_locals, new_body)])) =>
@@ -1344,7 +1360,7 @@ test "optimize added constants requires low-memory-unused option" {
   let mod_ = Module::new()
     .with_mem_sec(MemSec::new([memory]))
     .with_code_sec(CodeSec::new([Func::t_func([], TExpr::new(body))]))
-  match optimize_module(mod_, [ModulePass::OptimizeAddedConstants]) {
+  match oac_run_module(mod_, OptimizeOptions::new(), false) {
     Ok(_) => fail("expected optimize added constants to fail without option")
     Err(e) => assert_eq(e, oac_fatal_message)
   }

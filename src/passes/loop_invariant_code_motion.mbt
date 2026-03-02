@@ -691,12 +691,21 @@ fn loop_invariant_code_motion_ir_pass(
 
 ///|
 fn licm_optimize(mod : Module) -> Module {
-  optimize_module(mod, [ModulePass::LoopInvariantCodeMotion]).unwrap()
+  let pass = loop_invariant_code_motion_ir_pass(mod)
+  match pass.walk_module(IRContext::new(), mod) {
+    Ok(Some((_, out))) => out
+    Ok(None) => mod
+    Err(e) => abort("licm pass error: \{e}")
+  }
 }
 
 ///|
 fn licm_single_func_mod(locals : Array[ValType], body : TExpr) -> Module {
-  Module::new().with_code_sec(CodeSec::new([Func::t_func(locals, body)]))
+  let sig = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  Module::new()
+  .with_type_sec(TypeSec::new([sig]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+  .with_code_sec(CodeSec::new([Func::t_func(locals, body)]))
 }
 
 ///|
