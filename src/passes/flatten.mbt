@@ -16,7 +16,7 @@
 
 ///|
 priv struct FLBreakTempKey {
-  label_depth : Int
+  label_uid : Int
   val_type : ValType
 } derive(Eq, Hash)
 
@@ -51,6 +51,11 @@ fn fl_label_depth(label : LabelIdx) -> Int {
 }
 
 ///|
+fn fl_bump_label(label : LabelIdx, delta : Int) -> LabelIdx {
+  LabelIdx::new((fl_label_depth(label) + delta).reinterpret_as_uint())
+}
+
+///|
 fn fl_push_label(state : FLFuncState) -> Int {
   let uid = state.next_label_uid.val
   state.next_label_uid.update(fn(i) { i + 1 })
@@ -78,7 +83,6 @@ fn fl_resolve_label_uid(state : FLFuncState, label : LabelIdx) -> Int? {
   }
 }
 
-
 ///|
 fn fl_add_temp_local(state : FLFuncState, ty : ValType) -> LocalIdx {
   let idx = LocalIdx::new(state.locals.length().reinterpret_as_uint())
@@ -97,14 +101,13 @@ fn fl_get_break_temp(
   // IMPORTANT: resolve to stable label uid, not raw LabelIdx depth
   let uid = match fl_resolve_label_uid(state, label) {
     Some(u) => u
-    None => {
+    None =>
       // Fallback: if something is malformed, still avoid crashing.
       // Use an impossible uid derived from depth (still better than conflating everything).
       // You may prefer to return an Err instead, but this keeps the signature.
       -1000000 - fl_label_depth(label)
-    }
   }
-  let key = { label_depth: uid, val_type: ty }
+  let key = { label_uid: uid, val_type: ty }
   match state.break_temps.get(key) {
     Some(idx) => idx
     None => {
@@ -123,6 +126,7 @@ fn fl_instr_type(instr : TInstr, env : Env) -> ValType? {
 ///|
 /// Atomic leaves for flattening/idempotence.
 /// These should not be wrapped into temp locals repeatedly.
+
 ///|
 fn fl_is_leaf_constant_or_nop(instr : TInstr) -> Bool {
   match instr.kind {
@@ -222,38 +226,38 @@ fn fl_flatten_instr(
       // - rewrite fallthrough value to store
       // - emit void block as a prelude, return local.get(temp)
       match bt {
-        VoidBlockType => {
-          curr = TInstr::block(bt, next_body)
-        }
-        _ => {
+        VoidBlockType => curr = TInstr::block(bt, next_body)
+        _ =>
           // block has a result type (possibly val_type or type index); we only support single ValType here
           match fl_instr_type(TInstr::block(bt, next_body), state.env) {
             Some(vt) => {
               let temp = fl_add_temp_local(state, vt)
 
               // IMPORTANT: rewrite branch value flow targeting this block
-              let rewritten1 =
-                fl_rewrite_label_value_flow_in_texpr(next_body, state, my_uid, temp)
+              let rewritten1 = fl_rewrite_label_value_flow_in_texpr(
+                next_body, state, my_uid, temp,
+              )
 
               // Handle fallthrough result
-              let rewritten2 = fl_rewrite_fallthrough_value_to_set(rewritten1, temp, state.env)
+              let rewritten2 = fl_rewrite_fallthrough_value_to_set(
+                rewritten1,
+                temp,
+                state.env,
+              )
 
               preludes.push(TInstr::block(BlockType::void_(), rewritten2))
               curr = TInstr::local_get(temp)
               state.changed = true
             }
-            None => {
+            None =>
               // unexpected, but keep structure
               curr = TInstr::block(bt, next_body)
-            }
           }
-        }
       }
 
       // Leave label scope
       fl_pop_label(state)
     }
-
     TInstrKind::TLoop(bt, body) => {
       let my_uid = fl_push_label(state)
 
@@ -266,16 +270,19 @@ fn fl_flatten_instr(
       }
 
       match bt {
-        VoidBlockType => {
-          curr = TInstr::loop_(bt, next_body)
-        }
-        _ => {
+        VoidBlockType => curr = TInstr::loop_(bt, next_body)
+        _ =>
           match fl_instr_type(TInstr::loop_(bt, next_body), state.env) {
             Some(vt) => {
               let temp = fl_add_temp_local(state, vt)
-              let rewritten1 =
-                fl_rewrite_label_value_flow_in_texpr(next_body, state, my_uid, temp)
-              let rewritten2 = fl_rewrite_fallthrough_value_to_set(rewritten1, temp, state.env)
+              let rewritten1 = fl_rewrite_label_value_flow_in_texpr(
+                next_body, state, my_uid, temp,
+              )
+              let rewritten2 = fl_rewrite_fallthrough_value_to_set(
+                rewritten1,
+                temp,
+                state.env,
+              )
 
               preludes.push(TInstr::loop_(BlockType::void_(), rewritten2))
               curr = TInstr::local_get(temp)
@@ -283,12 +290,10 @@ fn fl_flatten_instr(
             }
             None => curr = TInstr::loop_(bt, next_body)
           }
-        }
       }
 
       fl_pop_label(state)
     }
-
     TInstrKind::TTryTable(bt, catches, body) => {
       let my_uid = fl_push_label(state)
 
@@ -301,29 +306,33 @@ fn fl_flatten_instr(
       }
 
       match bt {
-        VoidBlockType => {
-          curr = TInstr::try_table(bt, catches, next_body)
-        }
-        _ => {
-          match fl_instr_type(TInstr::try_table(bt, catches, next_body), state.env) {
+        VoidBlockType => curr = TInstr::try_table(bt, catches, next_body)
+        _ =>
+          match
+            fl_instr_type(TInstr::try_table(bt, catches, next_body), state.env) {
             Some(vt) => {
               let temp = fl_add_temp_local(state, vt)
-              let rewritten1 =
-                fl_rewrite_label_value_flow_in_texpr(next_body, state, my_uid, temp)
-              let rewritten2 = fl_rewrite_fallthrough_value_to_set(rewritten1, temp, state.env)
+              let rewritten1 = fl_rewrite_label_value_flow_in_texpr(
+                next_body, state, my_uid, temp,
+              )
+              let rewritten2 = fl_rewrite_fallthrough_value_to_set(
+                rewritten1,
+                temp,
+                state.env,
+              )
 
-              preludes.push(TInstr::try_table(BlockType::void_(), catches, rewritten2))
+              preludes.push(
+                TInstr::try_table(BlockType::void_(), catches, rewritten2),
+              )
               curr = TInstr::local_get(temp)
               state.changed = true
             }
             None => curr = TInstr::try_table(bt, catches, next_body)
           }
-        }
       }
 
       fl_pop_label(state)
     }
-
     TInstrKind::TIf(bt, cond, then_body, else_body) => {
       // Flatten condition first
       let (next_cond, cond_preludes) = match fl_flatten_instr(cond, state) {
@@ -362,21 +371,34 @@ fn fl_flatten_instr(
       match fl_instr_type(rewritten_if, state.env) {
         Some(vt) => {
           let temp = fl_add_temp_local(state, vt)
-          let then1 =
-            fl_rewrite_label_value_flow_in_texpr(next_then, state, my_uid, temp)
-          let then2 = fl_rewrite_fallthrough_value_to_set(then1, temp, state.env)
+          let then1 = fl_rewrite_label_value_flow_in_texpr(
+            next_then, state, my_uid, temp,
+          )
+          let then2 = fl_rewrite_fallthrough_value_to_set(
+            then1,
+            temp,
+            state.env,
+          )
 
           let else2 = match next_else {
             Some(b) => {
-              let else1 =
-                fl_rewrite_label_value_flow_in_texpr(b, state, my_uid, temp)
+              let else1 = fl_rewrite_label_value_flow_in_texpr(
+                b, state, my_uid, temp,
+              )
               fl_rewrite_fallthrough_value_to_set(else1, temp, state.env)
             }
             None =>
-              return Err("flatten: if with concrete result requires an else branch")
+              return Err(
+                "flatten: if with concrete result requires an else branch",
+              )
           }
 
-          rewritten_if = TInstr::if_(BlockType::void_(), next_cond, then2, Some(else2))
+          rewritten_if = TInstr::if_(
+            BlockType::void_(),
+            next_cond,
+            then2,
+            Some(else2),
+          )
           preludes.push(rewritten_if)
           curr = TInstr::local_get(temp)
           state.changed = true
@@ -386,10 +408,10 @@ fn fl_flatten_instr(
 
       fl_pop_label(state)
     }
-
     _ => {
       // Non-control: flatten children
-      let (rebuilt, child_preludes) = match fl_flatten_non_control_children(curr, state) {
+      let (rebuilt, child_preludes) = match
+        fl_flatten_non_control_children(curr, state) {
         Ok(v) => v
         Err(e) => return Err(e)
       }
@@ -426,7 +448,6 @@ fn fl_flatten_instr(
               None => ()
             }
           }
-
         TInstrKind::TBrIf(label, cond, values) =>
           if values.length() == 1 {
             match fl_instr_type(values[0], state.env) {
@@ -439,7 +460,6 @@ fn fl_flatten_instr(
               None => ()
             }
           }
-
         TInstrKind::TBrOnNull(label, ref_, values) =>
           if values.length() == 1 {
             match fl_instr_type(values[0], state.env) {
@@ -452,48 +472,60 @@ fn fl_flatten_instr(
               None => ()
             }
           }
-
         TInstrKind::TBrOnNonNull(label, ref_, values) =>
           if values.length() == 1 {
             match fl_instr_type(values[0], state.env) {
               Some(vt) => {
                 let temp = fl_get_break_temp(state, label, vt)
                 preludes.push(TInstr::local_set(temp, values[0]))
-                curr = TInstr::br_on_non_null(label, ref_, [TInstr::local_get(temp)])
+                curr = TInstr::br_on_non_null(label, ref_, [
+                  TInstr::local_get(temp),
+                ])
                 state.changed = true
               }
               None => ()
             }
           }
-
         TInstrKind::TBrOnCast(label, castop, ht1, ht2, ref_, values) =>
           if values.length() == 1 {
             match fl_instr_type(values[0], state.env) {
               Some(vt) => {
                 let temp = fl_get_break_temp(state, label, vt)
                 preludes.push(TInstr::local_set(temp, values[0]))
-                curr =
-                  TInstr::br_on_cast(label, castop.0, ht1, castop.1, ht2, ref_, [TInstr::local_get(temp)])
+                curr = TInstr::br_on_cast(
+                  label,
+                  castop.0,
+                  ht1,
+                  castop.1,
+                  ht2,
+                  ref_,
+                  [TInstr::local_get(temp)],
+                )
                 state.changed = true
               }
               None => ()
             }
           }
-
         TInstrKind::TBrOnCastFail(label, castop, ht1, ht2, ref_, values) =>
           if values.length() == 1 {
             match fl_instr_type(values[0], state.env) {
               Some(vt) => {
                 let temp = fl_get_break_temp(state, label, vt)
                 preludes.push(TInstr::local_set(temp, values[0]))
-                curr =
-                  TInstr::br_on_cast_fail(label, castop.0, ht1, castop.1, ht2, ref_, [TInstr::local_get(temp)])
+                curr = TInstr::br_on_cast_fail(
+                  label,
+                  castop.0,
+                  ht1,
+                  castop.1,
+                  ht2,
+                  ref_,
+                  [TInstr::local_get(temp)],
+                )
                 state.changed = true
               }
               None => ()
             }
           }
-
         _ => ()
       }
     }
@@ -520,6 +552,7 @@ fn fl_flatten_instr(
     None => Ok((curr, preludes))
   }
 }
+
 ///|
 fn fl_collect_param_types(mod : Module) -> Array[Array[ValType]] {
   let out : Array[Array[ValType]] = []
@@ -700,6 +733,7 @@ fn fl_find_try_table_result_blocktype(body : TExpr) -> BlockType? {
 /// Helper: rewrite fallthrough value (if the last instr produces a value) into
 /// `local.set(temp, last)` so the surrounding construct can become void.
 /// This is *necessary but not sufficient* for correctness; branch rewrites handle the rest.
+
 ///|
 fn fl_rewrite_fallthrough_value_to_set(
   body : TExpr,
@@ -727,6 +761,7 @@ fn fl_rewrite_fallthrough_value_to_set(
 ///
 /// NOTE: This rewrite is structural and uses the *current* label stack to resolve LabelIdx.
 /// That’s why it’s a separate walk that pushes/pops label uids as it descends.
+
 ///|
 fn fl_rewrite_label_value_flow_in_instr(
   instr : TInstr,
@@ -739,28 +774,39 @@ fn fl_rewrite_label_value_flow_in_instr(
   match instr.kind {
     TInstrKind::TBlock(bt, body) => {
       let _uid = fl_push_label(state)
-      let next_body = fl_rewrite_label_value_flow_in_texpr(body, state, target_uid, temp)
+      let next_body = fl_rewrite_label_value_flow_in_texpr(
+        body, state, target_uid, temp,
+      )
       fl_pop_label(state)
       TInstr::block(bt, next_body)
     }
     TInstrKind::TLoop(bt, body) => {
       let _uid = fl_push_label(state)
-      let next_body = fl_rewrite_label_value_flow_in_texpr(body, state, target_uid, temp)
+      let next_body = fl_rewrite_label_value_flow_in_texpr(
+        body, state, target_uid, temp,
+      )
       fl_pop_label(state)
       TInstr::loop_(bt, next_body)
     }
     TInstrKind::TTryTable(bt, catches, body) => {
       let _uid = fl_push_label(state)
-      let next_body = fl_rewrite_label_value_flow_in_texpr(body, state, target_uid, temp)
+      let next_body = fl_rewrite_label_value_flow_in_texpr(
+        body, state, target_uid, temp,
+      )
       fl_pop_label(state)
       TInstr::try_table(bt, catches, next_body)
     }
     TInstrKind::TIf(bt, cond, then_body, else_body) => {
-      let next_cond = fl_rewrite_label_value_flow_in_instr(cond, state, target_uid, temp)
+      let next_cond = fl_rewrite_label_value_flow_in_instr(
+        cond, state, target_uid, temp,
+      )
       let _uid = fl_push_label(state)
-      let next_then = fl_rewrite_label_value_flow_in_texpr(then_body, state, target_uid, temp)
+      let next_then = fl_rewrite_label_value_flow_in_texpr(
+        then_body, state, target_uid, temp,
+      )
       let next_else = match else_body {
-        Some(b) => Some(fl_rewrite_label_value_flow_in_texpr(b, state, target_uid, temp))
+        Some(b) =>
+          Some(fl_rewrite_label_value_flow_in_texpr(b, state, target_uid, temp))
         None => None
       }
       fl_pop_label(state)
@@ -773,7 +819,9 @@ fn fl_rewrite_label_value_flow_in_instr(
       if !children.is_empty() {
         let rebuilt : Array[TInstr] = []
         for child in children {
-          rebuilt.push(fl_rewrite_label_value_flow_in_instr(child, state, target_uid, temp))
+          rebuilt.push(
+            fl_rewrite_label_value_flow_in_instr(child, state, target_uid, temp),
+          )
         }
         let instr2 = mb_rebuild_non_control(instr, rebuilt)
 
@@ -795,13 +843,19 @@ fn fl_rewrite_label_value_flow_in_texpr(
 ) -> TExpr {
   let out : Array[TInstr] = []
   for instr in body.instrs {
-    out.push(fl_rewrite_label_value_flow_in_instr(instr, state, target_uid, temp))
+    out.push(
+      fl_rewrite_label_value_flow_in_instr(instr, state, target_uid, temp),
+    )
   }
   TExpr::new(out)
 }
 
 ///|
 /// Rewrite a single branch-like node if it targets `target_uid` and has exactly one value.
+///
+/// IMPORTANT: the sequencing wrapper introduces a new innermost label, so rewritten
+/// branches must target `label + 1` to preserve the original control destination.
+
 ///|
 fn fl_rewrite_branch_node(
   instr : TInstr,
@@ -814,13 +868,12 @@ fn fl_rewrite_branch_node(
       if values.length() == 1 {
         match fl_resolve_label_uid(state, label) {
           Some(uid) if uid == target_uid => {
-            // store the value, then branch with no values
-            // We sequence using a void block to keep this as an expression node.
+            let bumped = fl_bump_label(label, 1)
             TInstr::block(
               BlockType::void_(),
               TExpr::new([
                 TInstr::local_set(temp, values[0]),
-                TInstr::br(label, []),
+                TInstr::br(bumped, []),
               ]),
             )
           }
@@ -829,19 +882,16 @@ fn fl_rewrite_branch_node(
       } else {
         instr
       }
-
     TInstrKind::TBrIf(label, cond, values) =>
       if values.length() == 1 {
         match fl_resolve_label_uid(state, label) {
           Some(uid) if uid == target_uid => {
-            // Preserve evaluation order (cond then value) by keeping children as-is.
-            // NOTE: This stores even if the branch isn't taken if your IR evaluates eagerly;
-            // the control-correct/validity goal here is removing label value flow.
+            let bumped = fl_bump_label(label, 1)
             TInstr::block(
               BlockType::void_(),
               TExpr::new([
                 TInstr::local_set(temp, values[0]),
-                TInstr::br_if(label, cond, []),
+                TInstr::br_if(bumped, cond, []),
               ]),
             )
           }
@@ -850,79 +900,89 @@ fn fl_rewrite_branch_node(
       } else {
         instr
       }
-
     TInstrKind::TBrOnNull(label, ref_, values) =>
       if values.length() == 1 {
         match fl_resolve_label_uid(state, label) {
-          Some(uid) if uid == target_uid =>
+          Some(uid) if uid == target_uid => {
+            let bumped = fl_bump_label(label, 1)
             TInstr::block(
               BlockType::void_(),
               TExpr::new([
                 TInstr::local_set(temp, values[0]),
-                TInstr::br_on_null(label, ref_, []),
+                TInstr::br_on_null(bumped, ref_, []),
               ]),
             )
+          }
           _ => instr
         }
       } else {
         instr
       }
-
     TInstrKind::TBrOnNonNull(label, ref_, values) =>
       if values.length() == 1 {
         match fl_resolve_label_uid(state, label) {
-          Some(uid) if uid == target_uid =>
+          Some(uid) if uid == target_uid => {
+            let bumped = fl_bump_label(label, 1)
             TInstr::block(
               BlockType::void_(),
               TExpr::new([
                 TInstr::local_set(temp, values[0]),
-                TInstr::br_on_non_null(label, ref_, []),
+                TInstr::br_on_non_null(bumped, ref_, []),
               ]),
             )
+          }
           _ => instr
         }
       } else {
         instr
       }
-
     TInstrKind::TBrOnCast(label, castop, ht1, ht2, ref_, values) =>
       if values.length() == 1 {
         match fl_resolve_label_uid(state, label) {
-          Some(uid) if uid == target_uid =>
+          Some(uid) if uid == target_uid => {
+            let bumped = fl_bump_label(label, 1)
             TInstr::block(
               BlockType::void_(),
               TExpr::new([
                 TInstr::local_set(temp, values[0]),
-                TInstr::br_on_cast(label, castop.0, ht1, castop.1, ht2, ref_, []),
+                TInstr::br_on_cast(bumped, castop.0, ht1, castop.1, ht2, ref_, []),
               ]),
             )
+          }
           _ => instr
         }
       } else {
         instr
       }
-
     TInstrKind::TBrOnCastFail(label, castop, ht1, ht2, ref_, values) =>
       if values.length() == 1 {
         match fl_resolve_label_uid(state, label) {
-          Some(uid) if uid == target_uid =>
+          Some(uid) if uid == target_uid => {
+            let bumped = fl_bump_label(label, 1)
             TInstr::block(
               BlockType::void_(),
               TExpr::new([
                 TInstr::local_set(temp, values[0]),
-                TInstr::br_on_cast_fail(label, castop.0, ht1, castop.1, ht2, ref_, []),
+                TInstr::br_on_cast_fail(
+                  bumped,
+                  castop.0,
+                  ht1,
+                  castop.1,
+                  ht2,
+                  ref_,
+                  [],
+                ),
               ]),
             )
+          }
           _ => instr
         }
       } else {
         instr
       }
-
     _ => instr
   }
 }
-
 
 ///|
 test "flatten supports br_on family instructions and keeps them present" {
@@ -1205,17 +1265,17 @@ fn fl_mk_valid_one_func_module(
   let sig = single_rec_type(comp_type_sub_type(func_comp_type(params, results)))
 
   Module::new()
-    .with_type_sec(TypeSec::new([sig]))
-    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-    .with_code_sec(CodeSec::new([Func::t_func(locals, body)]))
+  .with_type_sec(TypeSec::new([sig]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+  .with_code_sec(CodeSec::new([Func::t_func(locals, body)]))
 }
 
 ///|
 test "flatten: block result produced by br value remains valid" {
   let mod = fl_mk_valid_one_func_module(
-    [],  // params
-    [],  // results
-    [],  // locals
+    [], // params
+    [], // results
+    [], // locals
     TExpr::new([
       TInstr::drop(
         TInstr::block(
@@ -1277,11 +1337,9 @@ test "flatten: nested block br value remains valid" {
 test "flatten: idempotent on atomic local.get" {
   let mod = fl_mk_valid_one_func_module(
     [ValType::i32()], // params
-    [],               // results
-    [],               // locals
-    TExpr::new([
-      TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
-    ]),
+    [], // results
+    [], // locals
+    TExpr::new([TInstr::drop(TInstr::local_get(LocalIdx::new(0)))]),
   )
 
   let once = run_flatten(mod).unwrap()

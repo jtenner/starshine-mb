@@ -189,7 +189,7 @@ fn dce_trace_start_func(
     break_scan_budget.val = 0
   } else {
     let base = 100_000
-    let scaled = base + (top_instrs * 2)
+    let scaled = base + top_instrs * 2
     let capped = if scaled > 3_000_000 { 3_000_000 } else { scaled }
     break_scan_budget.val = capped
   }
@@ -208,6 +208,7 @@ fn dce_trace_start_func(
     trace_state.last_progress_us.val = now_us
   }
 }
+
 ///|
 fn dce_trace_maybe_emit_progress(
   trace_state : DCEPassTraceState,
@@ -225,36 +226,37 @@ fn dce_trace_maybe_emit_progress(
   let break_checks = trace_state.break_checks.val
   let unreachable_checks = trace_state.unreachable_checks.val
 
-  let did_some_work = expr_visits + instr_visits + break_checks + unreachable_checks
+  let did_some_work = expr_visits +
+    instr_visits +
+    break_checks +
+    unreachable_checks
 
   // last_progress_us == 0UL means "haven't emitted progress yet"
   let has_emitted_progress = trace_state.last_progress_us.val != 0UL
 
-  let since_last_us =
-    if has_emitted_progress && now_us >= trace_state.last_progress_us.val {
-      now_us - trace_state.last_progress_us.val
-    } else {
-      0UL
-    }
+  let since_last_us = if has_emitted_progress &&
+    now_us >= trace_state.last_progress_us.val {
+    now_us - trace_state.last_progress_us.val
+  } else {
+    0UL
+  }
 
   // Emit *one* early progress line once we’ve done a bit of work,
   // even if the clock hasn't advanced (important for wasm-gc).
-  let should_emit_first = (!has_emitted_progress) && did_some_work >= 16
+  let should_emit_first = !has_emitted_progress && did_some_work >= 16
 
-  let should_emit_periodic =
-    (
+  let should_emit_periodic = (
       expr_visits > 0 &&
-      (
-        (expr_visits <= 128 && expr_visits % 32 == 0) ||
-        expr_visits % 1024 == 0
-      )
-    ) || (
+      ((expr_visits <= 128 && expr_visits % 32 == 0) || expr_visits % 1024 == 0)
+    ) ||
+    (
       instr_visits > 0 &&
       (
         (instr_visits <= 256 && instr_visits % 64 == 0) ||
         instr_visits % 2048 == 0
       )
-    ) || (
+    ) ||
+    (
       break_checks > 0 &&
       (
         (break_checks <= 256 && break_checks % 64 == 0) ||
@@ -262,8 +264,8 @@ fn dce_trace_maybe_emit_progress(
       )
     )
 
-  let should_emit_time =
-    has_emitted_progress && since_last_us >= DCE_PROGRESS_LOG_INTERVAL_US
+  let should_emit_time = has_emitted_progress &&
+    since_last_us >= DCE_PROGRESS_LOG_INTERVAL_US
 
   if !(should_emit_first || should_emit_periodic || should_emit_time) {
     return
@@ -315,9 +317,7 @@ fn dead_code_elimination_pass_with_trace(
 
         // Skip giant functions early: DCE is not worth it and will thrash.
         // Tune thresholds to your workload.
-        skip_current_func.val =
-          locals.length() > 256 ||
-          nested > 250_000
+        skip_current_func.val = locals.length() > 256 || nested > 250_000
 
         // Pass "nested" as top_instrs for budgeting/logging (not body.instrs.length()).
         dce_trace_start_func(
@@ -426,6 +426,7 @@ fn dce_texpr(
     change((), TExpr::new(out))
   }
 }
+
 ///|
 fn dce_tinstr(
   transformer : ModuleTransformer[Unit],
@@ -456,7 +457,6 @@ fn dce_tinstr(
   rewritten = match rewritten.kind {
     TInstrKind::TBlock(_, body) if is_single_unreachable_texpr(body) =>
       TInstr::unreachable_()
-
     TInstrKind::TIf(_, cond, _, _) => {
       let cond_budget = dce_alloc_break_budget(break_scan_budget, 512)
       if dce_is_unreachable_instr(cond, cond_budget, trace_state) {
@@ -465,10 +465,8 @@ fn dce_tinstr(
         rewritten
       }
     }
-
     TInstrKind::TLoop(_, body) if is_single_unreachable_texpr(body) =>
       TInstr::unreachable_()
-
     _ => rewritten
   }
 
@@ -479,8 +477,9 @@ fn dce_tinstr(
     if dce_is_unreachable_instr(rewritten, reach_budget, trace_state) &&
       dce_has_unreachable_child(rewritten, child_budget, trace_state) {
       let rewrite_budget = dce_alloc_break_budget(break_scan_budget, 1024)
-      rewritten =
-        dce_rewrite_non_control_unreachable(rewritten, rewrite_budget, trace_state)
+      rewritten = dce_rewrite_non_control_unreachable(
+        rewritten, rewrite_budget, trace_state,
+      )
     }
   }
 
@@ -511,6 +510,7 @@ fn is_single_unreachable_texpr(expr : TExpr) -> Bool {
     _ => false
   }
 }
+
 ///|
 fn dce_texpr_is_unreachable(
   expr : TExpr,
@@ -570,6 +570,7 @@ fn dce_has_break_to_depth_in_texpr(
   }
   false
 }
+
 ///|
 fn dce_take_break_budget(
   break_scan_budget : Ref[Int],
@@ -585,9 +586,7 @@ fn dce_take_break_budget(
     if trace_state.budget_hits.val == 1 ||
       trace_state.budget_hits.val % 4096 == 0 {
       dce_trace_maybe_emit_progress(
-        trace_state,
-        "budget_exhausted",
-        break_scan_budget,
+        trace_state, "budget_exhausted", break_scan_budget,
       )
     }
 
@@ -648,12 +647,13 @@ fn dce_has_break_to_depth(
         return true
       }
       match else_body {
-        Some(body) => dce_has_break_to_depth_in_texpr(
-          body,
-          depth + 1,
-          break_scan_budget,
-          trace_state,
-        )
+        Some(body) =>
+          dce_has_break_to_depth_in_texpr(
+            body,
+            depth + 1,
+            break_scan_budget,
+            trace_state,
+          )
         None => false
       }
     }
@@ -776,15 +776,18 @@ fn dce_is_unreachable_instr(
     // (e.g., via br to an enclosing label / return / throw / unreachable),
     // so the *instruction* does not fall through.
     TInstrKind::TBlock(_, body) => {
-      let body_unreachable = dce_texpr_is_unreachable(body, break_scan_budget, trace_state)
+      let body_unreachable = dce_texpr_is_unreachable(
+        body, break_scan_budget, trace_state,
+      )
       if !body_unreachable {
         return false
       }
 
       // If there is a break to the block's own label, it can still complete.
       // (This is what preserves outer continuation for br 0, and similar.)
-      let has_break_to_self =
-        dce_has_break_to_depth_in_texpr(body, 0, break_scan_budget, trace_state)
+      let has_break_to_self = dce_has_break_to_depth_in_texpr(
+        body, 0, break_scan_budget, trace_state,
+      )
 
       // If body is unreachable AND there is NO break-to-self, then the block
       // instruction cannot fall through.
@@ -800,10 +803,14 @@ fn dce_is_unreachable_instr(
       if dce_is_unreachable_instr(cond, break_scan_budget, trace_state) {
         return true
       }
-      let then_unreachable = dce_texpr_is_unreachable(then_body, break_scan_budget, trace_state)
+      let then_unreachable = dce_texpr_is_unreachable(
+        then_body, break_scan_budget, trace_state,
+      )
       match else_body {
         Some(other) => {
-          let else_unreachable = dce_texpr_is_unreachable(other, break_scan_budget, trace_state)
+          let else_unreachable = dce_texpr_is_unreachable(
+            other, break_scan_budget, trace_state,
+          )
           then_unreachable && else_unreachable
         }
         None => false
@@ -849,12 +856,11 @@ fn dce_count_instrs_capped(body : TExpr, limit : Int) -> Int {
     match instr.kind {
       TInstrKind::TBlock(_, b)
       | TInstrKind::TLoop(_, b)
-      | TInstrKind::TTryTable(_, _, b) => {
+      | TInstrKind::TTryTable(_, _, b) =>
         // push body instrs
         for item in b.instrs {
           stack.push(item)
         }
-      }
       TInstrKind::TIf(_, cond, then_body, else_body) => {
         stack.push(cond)
         for item in then_body.instrs {
@@ -868,12 +874,11 @@ fn dce_count_instrs_capped(body : TExpr, limit : Int) -> Int {
           None => ()
         }
       }
-      _ => {
+      _ =>
         // non-control children
         for child in eval_children(instr) {
           stack.push(child)
         }
-      }
     }
   }
 

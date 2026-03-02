@@ -1962,13 +1962,34 @@ fn pc_run_module(
 }
 
 ///|
+fn pc_top_level_result_types(
+  body : Array[TInstr],
+  locals : Array[ValType],
+  mod : Module,
+) -> Array[ValType] {
+  let out : Array[ValType] = []
+  let env = Env::new().with_module(mod).with_locals(locals)
+  for instr in body {
+    match lcs_infer_tinstr_type(instr, env) {
+      Some(vt) => out.push(vt)
+      None => ()
+    }
+  }
+  out
+}
+
+///|
 fn pc_single_func_module(
   body : Array[TInstr],
   locals? : Array[ValType] = [],
+  base_mod? : Module = Module::new(),
 ) -> Module {
-  Module::new().with_code_sec(
-    CodeSec::new([Func::t_func(locals, TExpr::new(body))]),
-  )
+  let results = pc_top_level_result_types(body, locals, base_mod)
+  let sig = single_rec_type(comp_type_sub_type(func_comp_type([], results)))
+  base_mod
+  .with_type_sec(TypeSec::new([sig]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+  .with_code_sec(CodeSec::new([Func::t_func(locals, TExpr::new(body))]))
 }
 
 ///|
@@ -2280,23 +2301,17 @@ test "precompute does not fold trapping integer division by zero" {
 
 ///|
 test "precompute leaves immutable global.get unchanged for tiny body" {
-  let mod = Module::new()
-    .with_global_sec(
+  let mod = pc_single_func_module(
+    [TInstr::drop(TInstr::global_get(GlobalIdx::new(0)))],
+    base_mod=Module::new().with_global_sec(
       GlobalSec::new([
         Global::new(
           GlobalType::new(ValType::i32(), false),
           Expr::new([Instruction::i32_const(I32(7))]),
         ),
       ]),
-    )
-    .with_code_sec(
-      CodeSec::new([
-        Func::t_func(
-          [],
-          TExpr::new([TInstr::drop(TInstr::global_get(GlobalIdx::new(0)))]),
-        ),
-      ]),
-    )
+    ),
+  )
   let out = pc_run_module(mod).unwrap()
   match out.code_sec {
     Some(

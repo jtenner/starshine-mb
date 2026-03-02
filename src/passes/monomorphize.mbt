@@ -648,10 +648,7 @@ fn MonoCallContext::build_from_call(
     }
 
     match op_ty {
-      Some(vt) =>
-        if vt != callee_params[i] {
-          return None
-        }
+      Some(vt) => if vt != callee_params[i] { return None }
       None => return None
     }
   }
@@ -1412,10 +1409,7 @@ fn monomorphize_run(
       // UPDATED: pass callee_params so we can type-check prologue assignments.
       let ctx_build = match
         MonoCallContext::build_from_call(
-          call_info,
-          caller_env,
-          callee_params,
-          allow_dropped,
+          call_info, caller_env, callee_params, allow_dropped,
         ) {
         Some(build) => build
         None => continue
