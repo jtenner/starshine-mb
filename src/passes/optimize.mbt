@@ -472,7 +472,15 @@ fn run_ir_context_transformer_scheduler_pass(
       apply_ir_transformer_pass(ctx, mod, optimize_casts_ir_pass(mod))
     DeNaN => apply_ir_transformer_pass(ctx, mod, de_nan_ir_pass(mod))
     RemoveUnusedNames =>
-      apply_ir_transformer_pass(ctx, mod, remove_unused_names_ir_pass(mod))
+      apply_ir_transformer_pass(
+        ctx,
+        mod,
+        remove_unused_names_ir_pass(
+          mod,
+          trace=fn(msg) { trace("remove_unused_names:\{msg}") },
+          trace_all_funcs=trace_pass_details,
+        ),
+      )
     RemoveUnused =>
       apply_ir_transformer_pass(
         ctx,
