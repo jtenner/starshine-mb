@@ -524,8 +524,8 @@ fn run_ir_context_transformer_scheduler_pass(
     SimplifyLocals => {
       let n = 3821
       let func_n_before = match mod.code_sec {
-        Some(CodeSec(funcs)) => funcs[n]
-        None => abort("expected code section")
+        Some(CodeSec(funcs)) if n >= 0 && n < funcs.length() => Some(funcs[n])
+        _ => None
       }
       let result = apply_ir_transformer_pass(
         ctx,
@@ -535,12 +535,22 @@ fn run_ir_context_transformer_scheduler_pass(
         }),
       )
 
-      let func_n_after = match result.unwrap().code_sec {
-        Some(CodeSec(funcs)) => funcs[n]
-        None => abort("expected code section")
+      let func_n_after = match result {
+        Ok(next_mod) =>
+          match next_mod.code_sec {
+            Some(CodeSec(funcs)) if n >= 0 && n < funcs.length() =>
+              Some(funcs[n])
+            _ => None
+          }
+        Err(_) => None
       }
-      println("func[\{n}] before:\n\{func_n_before}")
-      println("func[\{n}] after:\n\{func_n_after}")
+      match (func_n_before, func_n_after) {
+        (Some(before), Some(after)) => {
+          println("func[\{n}] before:\n\{before}")
+          println("func[\{n}] after:\n\{after}")
+        }
+        _ => ()
+      }
       result
     }
     SimplifyLocalsNoTee =>
