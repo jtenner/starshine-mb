@@ -352,18 +352,23 @@ fn vq_optimize_sequence(
   let size = items.length()
   for i = 0; i < size; i = i + 1 {
     let child = items[i]
+    let keeps_sequence_result = i == size - 1 && result_type is Some(_)
     let used = i == size - 1 && result_type is Some(_) && result_used
     let mut optimized = vq_process_instr(
       child, env, used, true, budget, type_cache, effect_cache, shallow_effect_cache,
     )
     if optimized is None {
-      match vq_type_of_cached(child, env, type_cache) {
-        Some(vt) =>
-          match af_make_zero(vt) {
-            Some(zero) => optimized = Some(zero)
-            None => optimized = Some(child)
-          }
-        None => if is_unreachable_instr(child) { optimized = Some(child) }
+      if keeps_sequence_result {
+        match result_type {
+          Some(vt) =>
+            match af_make_zero(vt) {
+              Some(zero) => optimized = Some(zero)
+              None => optimized = Some(child)
+            }
+          None => ()
+        }
+      } else if is_unreachable_instr(child) {
+        optimized = Some(child)
       }
     }
     match optimized {
@@ -1274,6 +1279,110 @@ test "vacuum nops side-effect-free none-returning function body" {
   match vq_first_func_body(out).instrs {
     [{ kind: TInstrKind::TNop, .. }] => ()
     _ => fail("expected side-effect-free function body to become nop")
+  }
+}
+
+///|
+test "vacuum removes dead leading value from result-returning function body and validates" {
+  let t_i32 = single_rec_type(
+    comp_type_sub_type(func_comp_type([], [ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_i32]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([TInstr::i32_const(I32(1)), TInstr::i32_const(I32(2))]),
+        ),
+      ]),
+    )
+  let out = run_vacuum(mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) => fail("expected vacuum output to validate: \{e}")
+  }
+  match vq_first_func_body(out).instrs {
+    [{ kind: TInstrKind::TI32Const(I32(v)), .. }] => assert_eq(v, 2)
+    _ => fail("expected dead leading value to be removed")
+  }
+}
+
+///|
+test "vacuum removes dead leading arm values in result if and validates" {
+  let t_i32 = single_rec_type(
+    comp_type_sub_type(func_comp_type([], [ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_i32]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::if_(
+              BlockType::val_type(ValType::i32()),
+              TInstr::i32_const(I32(1)),
+              TExpr::new([
+                TInstr::i32_const(I32(11)),
+                TInstr::i32_const(I32(22)),
+              ]),
+              Some(
+                TExpr::new([
+                  TInstr::i32_const(I32(33)),
+                  TInstr::i32_const(I32(44)),
+                ]),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let out = run_vacuum(mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) => fail("expected vacuum result-if output to validate: \{e}")
+  }
+  match vq_first_func_body(out).instrs {
+    [{ kind: TInstrKind::TI32Const(I32(v)), .. }] => assert_eq(v, 22)
+    _ => fail("expected constant-folded if to keep only live arm result")
+  }
+}
+
+///|
+test "vacuum preserves only final value inside dropped result block and validates" {
+  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_void]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::drop(
+              TInstr::block(
+                BlockType::val_type(ValType::i32()),
+                TExpr::new([
+                  TInstr::i32_const(I32(5)),
+                  TInstr::i32_const(I32(6)),
+                ]),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let out = run_vacuum(mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) => fail("expected dropped result block output to validate: \{e}")
+  }
+  match vq_first_func_body(out).instrs {
+    [{ kind: TInstrKind::TNop, .. }] => ()
+    _ => fail("expected dropped pure result block to become nop")
   }
 }
 
