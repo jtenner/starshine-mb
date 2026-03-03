@@ -522,7 +522,7 @@ fn run_ir_context_transformer_scheduler_pass(
         }),
       )
     SimplifyLocals => {
-      let n = 0
+      let n = 3821
       let func_n_before = match mod.code_sec {
         Some(CodeSec(funcs)) => funcs[n]
         None => abort("expected code section")
