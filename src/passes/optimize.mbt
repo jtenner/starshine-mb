@@ -524,7 +524,8 @@ fn run_ir_context_transformer_scheduler_pass(
     SimplifyLocals => {
       let n = 3821
       let func_n_before = match mod.code_sec {
-        Some(CodeSec(funcs)) if n >= 0 && n < funcs.length() => Some(funcs[n])
+        Some(CodeSec(funcs)) if n >= 0 && n < funcs.length() =>
+          Some(mod.pretty_print_defined_func(n.reinterpret_as_uint()))
         _ => None
       }
       let result = apply_ir_transformer_pass(
@@ -539,7 +540,7 @@ fn run_ir_context_transformer_scheduler_pass(
         Ok(next_mod) =>
           match next_mod.code_sec {
             Some(CodeSec(funcs)) if n >= 0 && n < funcs.length() =>
-              Some(funcs[n])
+              Some(next_mod.pretty_print_defined_func(n.reinterpret_as_uint()))
             _ => None
           }
         Err(_) => None
