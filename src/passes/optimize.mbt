@@ -521,20 +521,34 @@ fn run_ir_context_transformer_scheduler_pass(
           trace("remove_unused:\{msg}")
         }),
       )
-    SimplifyLocals =>
-      apply_ir_transformer_pass(
+    SimplifyLocals => {
+      let n = 0
+      let func_n_before = match mod.code_sec {
+        Some(CodeSec(funcs)) => funcs[n]
+        None => abort("expected code section")
+      }
+      let result = apply_ir_transformer_pass(
         ctx,
         mod,
         simplify_locals_ir_pass(mod, true, true, true, trace=fn(msg) {
           trace("simplify_locals:\{msg}")
         }),
       )
+
+      let func_n_after = match result.unwrap().code_sec {
+        Some(CodeSec(funcs)) => funcs[n]
+        None => abort("expected code section")
+      }
+      println("func[\{n}] before:\n\{func_n_before}")
+      println("func[\{n}] after:\n\{func_n_after}")
+      result
+    }
     SimplifyLocalsNoTee =>
       apply_ir_transformer_pass(
         ctx,
         mod,
         simplify_locals_ir_pass(mod, false, true, true, trace=fn(msg) {
-          trace("simplify_locals:\{msg}")
+          trace("simplify_locals (no-tee):\{msg}")
         }),
       )
     SimplifyLocalsNoStructure =>
@@ -542,7 +556,7 @@ fn run_ir_context_transformer_scheduler_pass(
         ctx,
         mod,
         simplify_locals_ir_pass(mod, true, false, true, trace=fn(msg) {
-          trace("simplify_locals:\{msg}")
+          trace("simplify_locals (no-structure):\{msg}")
         }),
       )
     SimplifyLocalsNoTeeNoStructure =>
@@ -550,7 +564,7 @@ fn run_ir_context_transformer_scheduler_pass(
         ctx,
         mod,
         simplify_locals_ir_pass(mod, false, false, true, trace=fn(msg) {
-          trace("simplify_locals:\{msg}")
+          trace("simplify_locals (no-tee, no-structure):\{msg}")
         }),
       )
     SimplifyLocalsNoNesting =>
@@ -558,7 +572,7 @@ fn run_ir_context_transformer_scheduler_pass(
         ctx,
         mod,
         simplify_locals_ir_pass(mod, false, false, false, trace=fn(msg) {
-          trace("simplify_locals:\{msg}")
+          trace("simplify_locals (no-nesting):\{msg}")
         }),
       )
     Untee => apply_ir_transformer_pass(ctx, mod, untee_ir_pass(mod))

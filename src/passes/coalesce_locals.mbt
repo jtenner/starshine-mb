@@ -815,18 +815,73 @@ fn cl_collect_param_types(mod : Module) -> Array[Array[ValType]] {
 }
 
 ///|
+fn cl_localidx_to_int(idx : LocalIdx) -> Int {
+  let LocalIdx(raw) = idx
+  raw.reinterpret_as_int()
+}
+
+///|
+fn cl_invalid_local_map_entries(mapping : LocalMap, limit : Int) -> String {
+  let mut out = ""
+  let mut shown = 0
+  for entry in mapping {
+    let (old_idx, new_idx) = entry
+    let old_raw = cl_localidx_to_int(old_idx)
+    let new_raw = cl_localidx_to_int(new_idx)
+    if new_raw < limit {
+      continue
+    }
+    shown += 1
+    out = out + "\n  \{old_raw} -> \{new_raw}"
+    if shown >= 8 {
+      break
+    }
+  }
+  if shown == 0 {
+    "\n  <none>"
+  } else {
+    out
+  }
+}
+
+///|
+fn rewrite_body_locals(
+  body : TExpr,
+  mapping : LocalMap,
+) -> Result[(TExpr, Int), String] {
+  let max_local_used = Ref::new(-1)
+  let rewriter = ModuleTransformer::new().on_localidx_evt(fn(_, _, idx) {
+    let mapped = mapping.get(idx).unwrap_or(idx)
+    let mapped_raw = cl_localidx_to_int(mapped)
+    if mapped_raw > max_local_used.val {
+      max_local_used.val = mapped_raw
+    }
+    if mapped == idx {
+      unchanged()
+    } else {
+      change((), mapped)
+    }
+  })
+  match rewriter.walk_texpr((), body) {
+    Ok(Some((_, out))) => Ok((out, max_local_used.val))
+    Ok(None) => Ok((body, max_local_used.val))
+    Err(e) => Err(e)
+  }
+}
+
+///|
 fn coalesce_locals(
   param_types? : Array[Array[ValType]] = [],
 ) -> ModuleTransformer[Unit] {
   let next_def_idx = Ref::new(0)
   ModuleTransformer::new().on_func_evt(fn(_, _, func) {
-    let def_idx = next_def_idx.val
-    next_def_idx.update(fn(i) { i + 1 })
-    let params = param_types.get(def_idx).unwrap_or([])
-    let param_count = params.length()
     match func {
       Func(_) => unchanged()
       TFunc(locals, body) => {
+        let def_idx = next_def_idx.val
+        next_def_idx.update(fn(i) { i + 1 })
+        let params = param_types.get(def_idx).unwrap_or([])
+        let param_count = params.length()
         let all_locals = params.copy()
         all_locals.append(locals)
         if all_locals.length() == 0 {
@@ -837,7 +892,7 @@ fn coalesce_locals(
         let (inter, _, values_out) = compute_interferences_cfg(
           blocks, all_locals,
         )
-        let liveness = compute_cfg_liveness(build_cfg(instrs))
+        let liveness = compute_cfg_liveness(blocks)
         let copies = find_copies(instrs)
         let freq = copy_frequency(copies)
         let order = compute_coalesce_order(all_locals, freq)
@@ -848,7 +903,16 @@ fn coalesce_locals(
           locals, mapping, param_count,
         )
         let final_map = compose_maps(mapping, rep_to_new)
-        let new_body = rewrite_body_locals(body, final_map)
+        let (new_body, max_local_used) = match
+          rewrite_body_locals(body, final_map) {
+          Ok(result) => result
+          Err(e) => return Err(e)
+        }
+        let local_limit = param_count + new_locals.length()
+        if max_local_used >= local_limit {
+          let err = "CoalesceLocals produced an invalid local index: def_idx=\{def_idx} param_count=\{param_count} old_locals=\{locals.length()} new_locals=\{new_locals.length()} max_local_used=\{max_local_used} local_limit=\{local_limit} invalid_final_map_entries=\{cl_invalid_local_map_entries(final_map, local_limit)}"
+          return Err(err)
+        }
         change((), Func::t_func(new_locals, new_body))
       }
     }
@@ -858,42 +922,6 @@ fn coalesce_locals(
 ///|
 fn coalesce_locals_pass(mod : Module) -> ModuleTransformer[IRContext] {
   wrap_unit_func_pass(coalesce_locals(param_types=cl_collect_param_types(mod)))
-}
-
-///|
-fn rewrite_instr_locals(instr : TInstr, mapping : LocalMap) -> TInstr {
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(_, _, i) {
-    match i.kind {
-      TInstrKind::TLocalGet(idx) =>
-        change((), TInstr::local_get(mapping.get(idx).unwrap_or(idx)))
-      TInstrKind::TLocalSet(idx, value) =>
-        change((), TInstr::local_set(mapping.get(idx).unwrap_or(idx), value))
-      TInstrKind::TLocalTee(idx, value) =>
-        change((), TInstr::local_tee(mapping.get(idx).unwrap_or(idx), value))
-      _ => unchanged()
-    }
-  })
-  let (_, expr) = walker
-    .walk_texpr_default((), TExpr::new([instr]))
-    .unwrap()
-    .unwrap()
-  let { instrs, .. } = expr
-  if instrs.length() == 1 {
-    instrs[0]
-  } else {
-    // conservative fallback
-    instr
-  }
-}
-
-///|
-fn rewrite_body_locals(body : TExpr, mapping : LocalMap) -> TExpr {
-  let { instrs, .. } = body
-  let new_instrs = Array::new()
-  for instr in instrs {
-    new_instrs.push(rewrite_instr_locals(instr, mapping))
-  }
-  TExpr::new(new_instrs)
 }
 
 ///|
@@ -943,6 +971,20 @@ fn compose_maps(
     fin[old] = rep_to_new.get(rep).unwrap_or(rep)
   }
   fin
+}
+
+///|
+fn cl_max_local_used(body : TExpr) -> Int {
+  let max_local_used = Ref::new(-1)
+  let walker = ModuleTransformer::new().on_localidx_evt(fn(_, _, idx) {
+    let raw = cl_localidx_to_int(idx)
+    if raw > max_local_used.val {
+      max_local_used.val = raw
+    }
+    unchanged()
+  })
+  ignore(walker.walk_texpr((), body))
+  max_local_used.val
 }
 
 ///|
@@ -1532,5 +1574,70 @@ test "Value numbering: equal values across branches coalesce" {
   assert_true(
     new_mod.code_sec is Some(CodeSec([TFunc(locals, _)])) &&
     locals.length() == 1,
+  )
+}
+
+///|
+test "CoalesceLocals: nested local use is rewritten when locals coalesce" {
+  let x = LocalIdx::new(0)
+  let y = LocalIdx::new(1)
+  let instrs = [
+    TInstr::local_set(y, TInstr::i32_const(I32(1))),
+    TInstr::local_set(
+      x,
+      TInstr::binary(
+        BinaryOp::i32_add(),
+        TInstr::local_get(y),
+        TInstr::i32_const(I32(1)),
+      ),
+    ),
+    TInstr::local_get(x),
+  ]
+  let func = Func::t_func([ValType::i32(), ValType::i32()], TExpr::new(instrs))
+  let mod = Module::new().with_code_sec(CodeSec::new([func]))
+  let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
+  assert_true(
+    new_mod.code_sec is Some(CodeSec([TFunc(locals, body)])) &&
+    locals.length() == 1 &&
+    cl_max_local_used(body) == 0,
+  )
+}
+
+///|
+test "CoalesceLocals: imported functions do not shift param boundaries" {
+  let imported_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let defined_type = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
+  )
+  let p = LocalIdx::new(0)
+  let x = LocalIdx::new(1)
+  let y = LocalIdx::new(2)
+  let body = TExpr::new([
+    TInstr::local_set(x, TInstr::i32_const(I32(1))),
+    TInstr::local_get(x),
+    TInstr::local_set(y, TInstr::i32_const(I32(2))),
+    TInstr::local_get(y),
+    TInstr::drop(TInstr::local_get(p)),
+  ])
+  let func = Func::t_func([ValType::i32(), ValType::i32()], body)
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([imported_type, defined_type]))
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("env"),
+          Name::new("imp"),
+          ExternType::func(TypeIdx::new(0)),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
+    .with_code_sec(CodeSec::new([func]))
+  let pass = coalesce_locals(param_types=cl_collect_param_types(mod))
+  let (_, new_mod) = pass.walk_module((), mod).unwrap().unwrap()
+  assert_true(
+    new_mod.code_sec is Some(CodeSec([TFunc(locals, new_body)])) &&
+    locals.length() == 1 &&
+    cl_max_local_used(new_body) == 1,
   )
 }

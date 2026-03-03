@@ -15,6 +15,9 @@
 ///
 
 ///|
+const VQ_TARGET_CODE_INDEX : Int = 254
+
+///|
 priv struct VQFuncSig {
   params : Array[ValType]
   results : Array[ValType]
@@ -258,6 +261,313 @@ fn vq_take_budget(budget : Ref[Int]) -> Bool {
 }
 
 ///|
+fn vq_target_func_label(def_idx : Int) -> String {
+  "code[\{def_idx}]/func[\{def_idx + 1}]"
+}
+
+///|
+fn vq_is_target_func(def_idx : Int) -> Bool {
+  def_idx == VQ_TARGET_CODE_INDEX
+}
+
+///|
+fn vq_optional_texpr_len(expr : TExpr?) -> Int {
+  match expr {
+    Some(other) => other.instrs.length()
+    None => 0
+  }
+}
+
+///|
+fn vq_optional_valtype_len(types : Array[ValType]?) -> Int {
+  match types {
+    Some(vts) => vts.length()
+    None => 0
+  }
+}
+
+///|
+fn vq_instr_kind_name(instr : TInstr) -> String {
+  match instr.kind {
+    TInstrKind::TBlock(_, _) => "block"
+    TInstrKind::TLoop(_, _) => "loop"
+    TInstrKind::TIf(_, _, _, _) => "if"
+    TInstrKind::TTryTable(_, _, _) => "try_table"
+    TInstrKind::TDrop(_) => "drop"
+    TInstrKind::TLocalSet(_, _) => "local.set"
+    TInstrKind::TLocalTee(_, _) => "local.tee"
+    TInstrKind::TLocalGet(_) => "local.get"
+    TInstrKind::TGlobalSet(_, _) => "global.set"
+    TInstrKind::TGlobalGet(_) => "global.get"
+    TInstrKind::TCall(_, _) => "call"
+    TInstrKind::TCallIndirect(_, _, _, _) => "call_indirect"
+    TInstrKind::TReturn(_) => "return"
+    TInstrKind::TReturnCall(_, _) => "return_call"
+    TInstrKind::TReturnCallIndirect(_, _, _, _) => "return_call_indirect"
+    TInstrKind::TReturnCallRef(_, _, _) => "return_call_ref"
+    TInstrKind::TBr(_, _) => "br"
+    TInstrKind::TBrIf(_, _, _) => "br_if"
+    TInstrKind::TBrTable(_, _, _, _) => "br_table"
+    TInstrKind::TBinary(_, _, _) => "binary"
+    TInstrKind::TUnary(_, _) => "unary"
+    TInstrKind::TLoad(_, _, _) => "load"
+    TInstrKind::TStore(_, _, _, _) => "store"
+    TInstrKind::TSelect(_, _, _, _) => "select"
+    TInstrKind::TUnreachable => "unreachable"
+    TInstrKind::TNop => "nop"
+    TInstrKind::TI32Const(_) => "i32.const"
+    TInstrKind::TI64Const(_) => "i64.const"
+    TInstrKind::TF32Const(_) => "f32.const"
+    TInstrKind::TF64Const(_) => "f64.const"
+    _ => "other"
+  }
+}
+
+///|
+fn vq_instr_summary(instr : TInstr) -> String {
+  match instr.kind {
+    TInstrKind::TBlock(bt, body) =>
+      "block bt=\{bt} items=\{body.instrs.length()}"
+    TInstrKind::TLoop(bt, body) => "loop bt=\{bt} items=\{body.instrs.length()}"
+    TInstrKind::TIf(bt, cond, then_body, else_body) =>
+      "if bt=\{bt} cond=\{vq_instr_kind_name(cond)} then=\{then_body.instrs.length()} else=\{vq_optional_texpr_len(else_body)}"
+    TInstrKind::TTryTable(bt, catches, body) =>
+      "try_table bt=\{bt} catches=\{catches.length()} items=\{body.instrs.length()}"
+    TInstrKind::TDrop(value) => "drop value=\{vq_instr_kind_name(value)}"
+    TInstrKind::TLocalSet(LocalIdx(i), value) =>
+      "local.set \{i} value=\{vq_instr_kind_name(value)}"
+    TInstrKind::TLocalTee(LocalIdx(i), value) =>
+      "local.tee \{i} value=\{vq_instr_kind_name(value)}"
+    TInstrKind::TLocalGet(LocalIdx(i)) => "local.get \{i}"
+    TInstrKind::TGlobalSet(GlobalIdx(i), value) =>
+      "global.set \{i} value=\{vq_instr_kind_name(value)}"
+    TInstrKind::TGlobalGet(GlobalIdx(i)) => "global.get \{i}"
+    TInstrKind::TCall(FuncIdx(i), args) => "call \{i} args=\{args.length()}"
+    TInstrKind::TCallIndirect(TypeIdx(t), TableIdx(tab), args, callee) =>
+      "call_indirect type=\{t} table=\{tab} args=\{args.length()} callee=\{vq_instr_kind_name(callee)}"
+    TInstrKind::TReturn(args) => "return values=\{args.length()}"
+    TInstrKind::TReturnCall(FuncIdx(i), args) =>
+      "return_call \{i} args=\{args.length()}"
+    TInstrKind::TReturnCallIndirect(TypeIdx(t), TableIdx(tab), args, callee) =>
+      "return_call_indirect type=\{t} table=\{tab} args=\{args.length()} callee=\{vq_instr_kind_name(callee)}"
+    TInstrKind::TReturnCallRef(TypeIdx(t), args, ref_) =>
+      "return_call_ref type=\{t} args=\{args.length()} ref=\{vq_instr_kind_name(ref_)}"
+    TInstrKind::TBr(LabelIdx(i), values) => "br \{i} values=\{values.length()}"
+    TInstrKind::TBrIf(LabelIdx(i), cond, values) =>
+      "br_if \{i} cond=\{vq_instr_kind_name(cond)} values=\{values.length()}"
+    TInstrKind::TBrTable(labels, LabelIdx(default_), index, values) =>
+      "br_table labels=\{labels.length()} default=\{default_} index=\{vq_instr_kind_name(index)} values=\{values.length()}"
+    TInstrKind::TBinary(op, _, _) => "binary \{op}"
+    TInstrKind::TUnary(op, _) => "unary \{op}"
+    TInstrKind::TLoad(op, _, _) => "load \{op}"
+    TInstrKind::TStore(op, _, _, _) => "store \{op}"
+    TInstrKind::TSelect(types, cond, if_true, if_false) =>
+      "select types=\{vq_optional_valtype_len(types)} cond=\{vq_instr_kind_name(cond)} if_true=\{vq_instr_kind_name(if_true)} if_false=\{vq_instr_kind_name(if_false)}"
+    TInstrKind::TI32Const(I32(v)) => "i32.const \{v}"
+    TInstrKind::TI64Const(I64(v)) => "i64.const \{v}"
+    TInstrKind::TF32Const(_) => "f32.const"
+    TInstrKind::TF64Const(_) => "f64.const"
+    TInstrKind::TUnreachable => "unreachable"
+    TInstrKind::TNop => "nop"
+    _ => vq_instr_kind_name(instr)
+  }
+}
+
+///|
+fn vq_append_instr_shape(
+  out : StringBuilder,
+  instr : TInstr,
+  indent : Int,
+  remaining_depth : Int,
+) -> Unit {
+  let pad = " ".repeat(indent)
+  out.write_string("\{pad}\{vq_instr_summary(instr)}\n")
+  if remaining_depth <= 0 {
+    return
+  }
+  match instr.kind {
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) =>
+      vq_append_texpr_shape(out, body, indent + 2, remaining_depth - 1)
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
+      out.write_string("\{pad}  cond:\n")
+      vq_append_instr_shape(out, cond, indent + 4, remaining_depth - 1)
+      out.write_string("\{pad}  then:\n")
+      vq_append_texpr_shape(out, then_body, indent + 4, remaining_depth - 1)
+      match else_body {
+        Some(other) => {
+          out.write_string("\{pad}  else:\n")
+          vq_append_texpr_shape(out, other, indent + 4, remaining_depth - 1)
+        }
+        None => ()
+      }
+    }
+    TInstrKind::TDrop(value)
+    | TInstrKind::TLocalSet(_, value)
+    | TInstrKind::TLocalTee(_, value)
+    | TInstrKind::TGlobalSet(_, value)
+    | TInstrKind::TUnary(_, value)
+    | TInstrKind::TLoad(_, _, value) =>
+      vq_append_instr_shape(out, value, indent + 2, remaining_depth - 1)
+    TInstrKind::TBinary(_, left, right) => {
+      vq_append_instr_shape(out, left, indent + 2, remaining_depth - 1)
+      vq_append_instr_shape(out, right, indent + 2, remaining_depth - 1)
+    }
+    TInstrKind::TBr(_, values) | TInstrKind::TReturn(values) =>
+      for value in values {
+        vq_append_instr_shape(out, value, indent + 2, remaining_depth - 1)
+      }
+    TInstrKind::TBrIf(_, cond, values) => {
+      vq_append_instr_shape(out, cond, indent + 2, remaining_depth - 1)
+      for value in values {
+        vq_append_instr_shape(out, value, indent + 2, remaining_depth - 1)
+      }
+    }
+    TInstrKind::TBrTable(_, _, index, values) => {
+      vq_append_instr_shape(out, index, indent + 2, remaining_depth - 1)
+      for value in values {
+        vq_append_instr_shape(out, value, indent + 2, remaining_depth - 1)
+      }
+    }
+    TInstrKind::TCall(_, args) | TInstrKind::TReturnCall(_, args) =>
+      for arg in args {
+        vq_append_instr_shape(out, arg, indent + 2, remaining_depth - 1)
+      }
+    TInstrKind::TCallIndirect(_, _, args, callee)
+    | TInstrKind::TReturnCallIndirect(_, _, args, callee) => {
+      for arg in args {
+        vq_append_instr_shape(out, arg, indent + 2, remaining_depth - 1)
+      }
+      vq_append_instr_shape(out, callee, indent + 2, remaining_depth - 1)
+    }
+    TInstrKind::TReturnCallRef(_, args, ref_) => {
+      for arg in args {
+        vq_append_instr_shape(out, arg, indent + 2, remaining_depth - 1)
+      }
+      vq_append_instr_shape(out, ref_, indent + 2, remaining_depth - 1)
+    }
+    TInstrKind::TStore(_, _, addr, value) => {
+      vq_append_instr_shape(out, addr, indent + 2, remaining_depth - 1)
+      vq_append_instr_shape(out, value, indent + 2, remaining_depth - 1)
+    }
+    TInstrKind::TSelect(_, cond, if_true, if_false) => {
+      vq_append_instr_shape(out, cond, indent + 2, remaining_depth - 1)
+      vq_append_instr_shape(out, if_true, indent + 2, remaining_depth - 1)
+      vq_append_instr_shape(out, if_false, indent + 2, remaining_depth - 1)
+    }
+    _ => ()
+  }
+}
+
+///|
+fn vq_append_texpr_shape(
+  out : StringBuilder,
+  expr : TExpr,
+  indent : Int,
+  remaining_depth : Int,
+) -> Unit {
+  let items = expr.instrs
+  let pad = " ".repeat(indent)
+  out.write_string("\{pad}expr items=\{items.length()}\n")
+  let limit = if indent == 0 || items.length() <= 16 {
+    items.length()
+  } else {
+    16
+  }
+  for i = 0; i < limit; i = i + 1 {
+    out.write_string("\{pad}[\{i}]\n")
+    vq_append_instr_shape(out, items[i], indent + 2, remaining_depth)
+  }
+  if limit < items.length() {
+    out.write_string("\{pad}... \{items.length() - limit} more items\n")
+  }
+}
+
+///|
+fn vq_function_shape_text(func : Func, sig : VQFuncSig) -> String {
+  let out = StringBuilder::new()
+  match func {
+    Func(_) => out.write_string("non-typed-func\n")
+    TFunc(locals, body) => {
+      out.write_string(
+        "params=\{sig.params.length()} results=\{sig.results.length()} locals=\{locals.length()} top_instrs=\{body.instrs.length()}\n",
+      )
+      vq_append_texpr_shape(out, body, 0, 3)
+    }
+  }
+  out.to_string()
+}
+
+///|
+fn vq_emit_function_shape_trace(
+  trace : (String) -> Unit,
+  def_idx : Int,
+  stage : String,
+  func : Func,
+  sig : VQFuncSig,
+) -> Unit {
+  let label = vq_target_func_label(def_idx)
+  for line in vq_function_shape_text(func, sig).split("\n") {
+    let text = line.to_string()
+    if text != "" {
+      trace("\{label} \{stage} \{text}")
+    }
+  }
+}
+
+///|
+fn vq_emit_top_level_diff_trace(
+  trace : (String) -> Unit,
+  def_idx : Int,
+  before : Func,
+  after : Func,
+) -> Unit {
+  let label = vq_target_func_label(def_idx)
+  match (before, after) {
+    (TFunc(_, before_body), TFunc(_, after_body)) => {
+      if before_body.instrs.length() != after_body.instrs.length() {
+        trace(
+          "\{label} top-level-len before=\{before_body.instrs.length()} after=\{after_body.instrs.length()}",
+        )
+      }
+      let limit = if before_body.instrs.length() < after_body.instrs.length() {
+        before_body.instrs.length()
+      } else {
+        after_body.instrs.length()
+      }
+      for i = 0; i < limit; i = i + 1 {
+        if before_body.instrs[i] != after_body.instrs[i] {
+          trace(
+            "\{label} diff[\{i}] before=\{vq_instr_summary(before_body.instrs[i])}",
+          )
+          trace(
+            "\{label} diff[\{i}] after=\{vq_instr_summary(after_body.instrs[i])}",
+          )
+          let before_shape = StringBuilder::new()
+          vq_append_instr_shape(before_shape, before_body.instrs[i], 0, 6)
+          for line in before_shape.to_string().split("\n") {
+            let text = line.to_string()
+            if text != "" {
+              trace("\{label} diff[\{i}] before-shape \{text}")
+            }
+          }
+          let after_shape = StringBuilder::new()
+          vq_append_instr_shape(after_shape, after_body.instrs[i], 0, 6)
+          for line in after_shape.to_string().split("\n") {
+            let text = line.to_string()
+            if text != "" {
+              trace("\{label} diff[\{i}] after-shape \{text}")
+            }
+          }
+        }
+      }
+    }
+    _ => ()
+  }
+}
+
+///|
 fn vq_optimize(
   instr : TInstr,
   result_used : Bool,
@@ -345,6 +655,333 @@ fn VQSequenceResult::new(
 }
 
 ///|
+priv struct VQStackSig {
+  required : Int
+  produced : Int
+  reachable : Bool
+}
+
+///|
+fn VQStackSig::new(
+  required : Int,
+  produced : Int,
+  reachable : Bool,
+) -> VQStackSig {
+  { required, produced, reachable }
+}
+
+///|
+fn vq_same_stack_sig(a : VQStackSig, b : VQStackSig) -> Bool {
+  a.required == b.required &&
+  a.produced == b.produced &&
+  a.reachable == b.reachable
+}
+
+///|
+fn vq_max_int(a : Int, b : Int) -> Int {
+  if a > b {
+    a
+  } else {
+    b
+  }
+}
+
+///|
+fn vq_nonneg_int(i : Int) -> Int {
+  if i > 0 {
+    i
+  } else {
+    0
+  }
+}
+
+///|
+fn vq_stack_need_before(effect : VQStackSig, need_after : Int) -> Int {
+  if !effect.reachable {
+    effect.required
+  } else {
+    vq_max_int(effect.required, vq_nonneg_int(need_after - effect.produced))
+  }
+}
+
+///|
+fn vq_stack_seq(a : VQStackSig, b : VQStackSig) -> VQStackSig {
+  if !a.reachable {
+    a
+  } else {
+    let required = vq_max_int(
+      a.required,
+      vq_nonneg_int(b.required - a.produced),
+    )
+    if !b.reachable {
+      VQStackSig::new(required, 0, false)
+    } else {
+      VQStackSig::new(required, a.produced + b.produced, true)
+    }
+  }
+}
+
+///|
+fn vq_stack_sig_pop_push(
+  child_sig : VQStackSig,
+  pop_count : Int,
+  push_count : Int,
+) -> VQStackSig {
+  if !child_sig.reachable {
+    child_sig
+  } else {
+    VQStackSig::new(
+      vq_max_int(
+        child_sig.required,
+        vq_nonneg_int(pop_count - child_sig.produced),
+      ),
+      child_sig.produced - pop_count + push_count,
+      true,
+    )
+  }
+}
+
+///|
+fn vq_stack_sig_terminate(
+  child_sig : VQStackSig,
+  pop_count : Int,
+) -> VQStackSig {
+  if !child_sig.reachable {
+    child_sig
+  } else {
+    VQStackSig::new(
+      vq_max_int(
+        child_sig.required,
+        vq_nonneg_int(pop_count - child_sig.produced),
+      ),
+      0,
+      false,
+    )
+  }
+}
+
+///|
+fn vq_stack_sig_list(items : Array[TInstr], env : Env) -> VQStackSig? {
+  let mut acc = VQStackSig::new(0, 0, true)
+  for item in items {
+    match vq_stack_sig_instr(item, env) {
+      Some(sig) => {
+        acc = vq_stack_seq(acc, sig)
+        if !acc.reachable {
+          break
+        }
+      }
+      None => return None
+    }
+  }
+  Some(acc)
+}
+
+///|
+fn vq_stack_sig_if(
+  cond_sig : VQStackSig,
+  then_sig : VQStackSig,
+  else_sig : VQStackSig,
+) -> VQStackSig {
+  if !cond_sig.reachable {
+    return cond_sig
+  }
+  let branch_required = vq_max_int(then_sig.required, else_sig.required)
+  let branch_reachable = then_sig.reachable || else_sig.reachable
+  let branch_produced = if then_sig.reachable && else_sig.reachable {
+    if then_sig.produced < else_sig.produced {
+      then_sig.produced
+    } else {
+      else_sig.produced
+    }
+  } else if then_sig.reachable {
+    then_sig.produced
+  } else if else_sig.reachable {
+    else_sig.produced
+  } else {
+    0
+  }
+  let need_after_cond = 1 + branch_required
+  VQStackSig::new(
+    vq_max_int(
+      cond_sig.required,
+      vq_nonneg_int(need_after_cond - cond_sig.produced),
+    ),
+    branch_produced,
+    branch_reachable,
+  )
+}
+
+///|
+fn vq_stack_sig_instr(instr : TInstr, env : Env) -> VQStackSig? {
+  match instr.kind {
+    TInstrKind::TNop => Some(VQStackSig::new(0, 0, true))
+    TInstrKind::TUnreachable => Some(VQStackSig::new(0, 0, false))
+    TInstrKind::TLocalGet(_)
+    | TInstrKind::TGlobalGet(_)
+    | TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_)
+    | TInstrKind::TRefNull(_)
+    | TInstrKind::TRefFunc(_) => Some(VQStackSig::new(0, 1, true))
+    TInstrKind::TDrop(value)
+    | TInstrKind::TLocalSet(_, value)
+    | TInstrKind::TGlobalSet(_, value) =>
+      vq_stack_sig_instr(value, env).map(fn(sig) {
+        vq_stack_sig_pop_push(sig, 1, 0)
+      })
+    TInstrKind::TLocalTee(_, value) =>
+      vq_stack_sig_instr(value, env).map(fn(sig) {
+        vq_stack_sig_pop_push(sig, 1, 1)
+      })
+    TInstrKind::TUnary(_, value)
+    | TInstrKind::TLoad(_, _, value)
+    | TInstrKind::TRefIsNull(value)
+    | TInstrKind::TRefAsNonNull(value)
+    | TInstrKind::TAnyConvertExtern(value)
+    | TInstrKind::TExternConvertAny(value)
+    | TInstrKind::TI31GetS(value)
+    | TInstrKind::TI31GetU(value)
+    | TInstrKind::TArrayLen(value) =>
+      vq_stack_sig_instr(value, env).map(fn(sig) {
+        vq_stack_sig_pop_push(sig, 1, 1)
+      })
+    TInstrKind::TBinary(_, left, right) | TInstrKind::TRefEq(left, right) =>
+      vq_stack_sig_list([left, right], env).map(fn(sig) {
+        vq_stack_sig_pop_push(sig, 2, 1)
+      })
+    TInstrKind::TStore(_, _, addr, value) =>
+      vq_stack_sig_list([addr, value], env).map(fn(sig) {
+        vq_stack_sig_pop_push(sig, 2, 0)
+      })
+    TInstrKind::TSelect(_, cond, if_true, if_false) =>
+      vq_stack_sig_list([if_true, if_false, cond], env).map(fn(sig) {
+        vq_stack_sig_pop_push(sig, 3, 1)
+      })
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) => vq_stack_sig_list(body.instrs, env)
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
+      let else_sig = match else_body {
+        Some(other) => vq_stack_sig_list(other.instrs, env)
+        None => Some(VQStackSig::new(0, 0, true))
+      }
+      match
+        (
+          vq_stack_sig_instr(cond, env),
+          vq_stack_sig_list(then_body.instrs, env),
+          else_sig,
+        ) {
+        (Some(cond_sig), Some(then_sig), Some(other_sig)) =>
+          Some(vq_stack_sig_if(cond_sig, then_sig, other_sig))
+        _ => None
+      }
+    }
+    TInstrKind::TCall(func_idx, args) =>
+      match
+        (vq_stack_sig_list(args, env), env.get_functype_by_funcidx(func_idx)) {
+        (Some(sig), Some(FuncType(params, results))) =>
+          Some(vq_stack_sig_pop_push(sig, params.length(), results.length()))
+        _ => None
+      }
+    TInstrKind::TCallIndirect(type_idx, _, args, callee)
+    | TInstrKind::TCallRef(type_idx, args, callee) =>
+      match
+        (
+          vq_stack_sig_list(args + [callee], env),
+          env.resolve_functype(type_idx),
+        ) {
+        (Some(sig), Some(FuncType(params, results))) =>
+          Some(
+            vq_stack_sig_pop_push(sig, params.length() + 1, results.length()),
+          )
+        _ => None
+      }
+    TInstrKind::TReturn(values) | TInstrKind::TThrow(_, values) =>
+      vq_stack_sig_list(values, env).map(fn(sig) {
+        vq_stack_sig_terminate(sig, 0)
+      })
+    TInstrKind::TThrowRef(value) =>
+      vq_stack_sig_instr(value, env).map(fn(sig) {
+        vq_stack_sig_terminate(sig, 1)
+      })
+    TInstrKind::TBr(_, values) =>
+      vq_stack_sig_list(values, env).map(fn(sig) {
+        vq_stack_sig_terminate(sig, 0)
+      })
+    TInstrKind::TBrIf(_, cond, values) =>
+      vq_stack_sig_list(values + [cond], env).map(fn(sig) {
+        vq_stack_sig_pop_push(sig, 1, 0)
+      })
+    TInstrKind::TBrTable(_, _, index, values) =>
+      vq_stack_sig_list(values + [index], env).map(fn(sig) {
+        vq_stack_sig_terminate(sig, 1)
+      })
+    TInstrKind::TReturnCall(func_idx, args) =>
+      match
+        (vq_stack_sig_list(args, env), env.get_functype_by_funcidx(func_idx)) {
+        (Some(sig), Some(FuncType(params, _))) =>
+          Some(vq_stack_sig_terminate(sig, params.length()))
+        _ => None
+      }
+    TInstrKind::TReturnCallIndirect(type_idx, _, args, callee)
+    | TInstrKind::TReturnCallRef(type_idx, args, callee) =>
+      match
+        (
+          vq_stack_sig_list(args + [callee], env),
+          env.resolve_functype(type_idx),
+        ) {
+        (Some(sig), Some(FuncType(params, _))) =>
+          Some(vq_stack_sig_terminate(sig, params.length() + 1))
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn vq_required_prefixes(
+  items : Array[TInstr],
+  env : Env,
+  terminal_need : Int,
+) -> Array[Int?] {
+  let size = items.length()
+  let needs : Array[Int?] = []
+  for _ in 0..<=size {
+    needs.push(None)
+  }
+  needs[size] = Some(terminal_need)
+  if size == 0 {
+    return needs
+  }
+  for i = size - 1; i >= 0; i = i - 1 {
+    match (vq_stack_sig_instr(items[i], env), needs[i + 1]) {
+      (Some(sig), Some(need_after)) =>
+        needs[i] = Some(vq_stack_need_before(sig, need_after))
+      _ => needs[i] = None
+    }
+  }
+  needs
+}
+
+///|
+fn vq_has_ambient_stack_terminator(items : Array[TInstr]) -> Bool {
+  for item in items {
+    match item.kind {
+      TInstrKind::TBr(_, _)
+      | TInstrKind::TBrIf(_, _, _)
+      | TInstrKind::TBrTable(_, _, _, _)
+      | TInstrKind::TReturn(_)
+      | TInstrKind::TThrow(_, _)
+      | TInstrKind::TThrowRef(_) => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn vq_optimize_sequence(
   items : Array[TInstr],
   env : Env,
@@ -359,6 +996,16 @@ fn vq_optimize_sequence(
   let mut changed = false
   let size = items.length()
   let multi_value_results = result_types.length() > 1
+  let has_ambient_stack_terminator = vq_has_ambient_stack_terminator(items)
+  let prefix_needs = vq_required_prefixes(
+    items,
+    env,
+    if result_used {
+      result_types.length()
+    } else {
+      0
+    },
+  )
   for i = 0; i < size; i = i + 1 {
     let child = items[i]
     let keeps_sequence_result = i == size - 1 && result_types.length() > 0
@@ -387,7 +1034,33 @@ fn vq_optimize_sequence(
       }
     }
     match optimized {
-      None => changed = true
+      None =>
+        if has_ambient_stack_terminator {
+          match
+            (
+              vq_type_of_cached(child, env, type_cache),
+              vq_stack_sig_instr(child, env),
+            ) {
+            (Some(_), _) => out.push(child)
+            (_, Some(sig)) if !sig.reachable => out.push(child)
+            _ => changed = true
+          }
+        } else {
+          match
+            (
+              vq_stack_sig_instr(child, env),
+              prefix_needs[i],
+              prefix_needs[i + 1],
+            ) {
+            (Some(sig), Some(need_before), Some(need_after)) =>
+              if !sig.reachable || need_before < need_after {
+                out.push(child)
+              } else {
+                changed = true
+              }
+            _ => changed = true
+          }
+        }
       Some(next) => {
         if next != child {
           changed = true
@@ -496,6 +1169,32 @@ fn vq_texpr_has_unremovable_side_effects(
 }
 
 ///|
+fn vq_process_child_preserving_stack_sig(
+  child : TInstr,
+  env : Env,
+  budget : Ref[Int],
+  type_cache : Map[UInt64, ValType?],
+  effect_cache : Map[UInt64, Bool],
+  shallow_effect_cache : Map[UInt64, Bool],
+) -> TInstr {
+  let next_child = match
+    vq_process_instr(
+      child, env, true, true, budget, type_cache, effect_cache, shallow_effect_cache,
+    ) {
+    Some(next) => next
+    None => return child
+  }
+  if next_child == child {
+    return child
+  }
+  match (vq_stack_sig_instr(child, env), vq_stack_sig_instr(next_child, env)) {
+    (Some(before), Some(after)) if vq_same_stack_sig(before, after) =>
+      next_child
+    _ => child
+  }
+}
+
+///|
 fn vq_process_instr(
   instr : TInstr,
   env : Env,
@@ -513,18 +1212,21 @@ fn vq_process_instr(
     TInstrKind::TBlock(bt, body) => {
       let result_types = vq_block_result_types(bt, env)
       let next_body = vq_optimize_texpr(
-        body, env, result_types, result_used, budget, type_cache, effect_cache, shallow_effect_cache,
+        body,
+        env,
+        result_types,
+        !result_types.is_empty(),
+        budget,
+        type_cache,
+        effect_cache,
+        shallow_effect_cache,
       )
       Some(vq_simplify_block_to_contents(bt, next_body, env, type_cache))
     }
     TInstrKind::TIf(bt, condition, then_body, else_body) => {
-      let next_condition = match
-        vq_process_instr(
-          condition, env, true, true, budget, type_cache, effect_cache, shallow_effect_cache,
-        ) {
-        Some(v) => v
-        None => condition
-      }
+      let next_condition = vq_process_child_preserving_stack_sig(
+        condition, env, budget, type_cache, effect_cache, shallow_effect_cache,
+      )
       let arm_result_types = vq_block_result_types(bt, env)
       let next_then = vq_optimize_texpr(
         then_body,
@@ -779,13 +1481,11 @@ fn vq_process_instr(
       }
       let next_children : Array[TInstr] = []
       for child in children {
-        match
-          vq_process_instr(
-            child, env, true, true, budget, type_cache, effect_cache, shallow_effect_cache,
-          ) {
-          Some(next_child) => next_children.push(next_child)
-          None => next_children.push(child)
-        }
+        next_children.push(
+          vq_process_child_preserving_stack_sig(
+            child, env, budget, type_cache, effect_cache, shallow_effect_cache,
+          ),
+        )
       }
       let rebuilt = mb_rebuild_non_control(instr, next_children)
       vq_optimize(
@@ -891,7 +1591,11 @@ fn vacuum_ir_pass_with_trace(
     let def_idx = next_def_idx.val
     next_def_idx.update(fn(i) { i + 1 })
     let ordinal = def_idx + 1
-    let log_func = trace_all_funcs || ordinal <= 50 || ordinal % 500 == 0
+    let trace_target = vq_is_target_func(def_idx)
+    let log_func = trace_all_funcs ||
+      ordinal <= 50 ||
+      ordinal % 500 == 0 ||
+      trace_target
     let start_instrs = match func {
       TFunc(_, body) => body.instrs.length()
       _ => 0
@@ -900,9 +1604,16 @@ fn vacuum_ir_pass_with_trace(
       trace("func[\{ordinal}] start instrs=\{start_instrs}")
     }
     let sig = sigs.get(def_idx).unwrap_or(VQFuncSig::new([], []))
+    if trace_target {
+      vq_emit_function_shape_trace(trace, def_idx, "before", func, sig)
+    }
     let (next_func, changed) = vq_optimize_function(
       mod, func, sig, ordinal, trace, trace_all_funcs,
     )
+    if trace_target {
+      vq_emit_top_level_diff_trace(trace, def_idx, func, next_func)
+      vq_emit_function_shape_trace(trace, def_idx, "after", next_func, sig)
+    }
     let end_instrs = match next_func {
       TFunc(_, body) => body.instrs.length()
       _ => 0
@@ -1545,6 +2256,78 @@ test "vacuum preserves multi-value block results and validates" {
       assert_eq(b, 12L)
     }
     _ => fail("expected multi-value block results to be preserved")
+  }
+}
+
+///|
+test "vacuum keeps stack-feeding sibling values in block bodies" {
+  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_void]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32(), ValType::i32(), ValType::i32(), ValType::i32()],
+          TExpr::new([
+            TInstr::block(
+              BlockType::void_(),
+              TExpr::new([
+                TInstr::local_get(LocalIdx::new(0)),
+                TInstr::local_set(
+                  LocalIdx::new(1),
+                  TInstr::local_set(
+                    LocalIdx::new(2),
+                    TInstr::local_get(LocalIdx::new(3)),
+                  ),
+                ),
+                TInstr::br(LabelIdx::new(0), []),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_vacuum(mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected stack-feeding sibling value to survive vacuum validation: \{e}",
+      )
+  }
+}
+
+///|
+test "vacuum preserves child stack signatures under local.set" {
+  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_void]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32(), ValType::i32()],
+          TExpr::new([
+            TInstr::local_get(LocalIdx::new(0)),
+            TInstr::local_get(LocalIdx::new(1)),
+            TInstr::local_set(
+              LocalIdx::new(0),
+              TInstr::drop(TInstr::drop(TInstr::i32_const(I32(7)))),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_vacuum(mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected local.set child stack signature to be preserved after vacuum: \{e}",
+      )
   }
 }
 
