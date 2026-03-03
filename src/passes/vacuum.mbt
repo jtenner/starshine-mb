@@ -115,9 +115,17 @@ fn vq_same_type(a : ValType?, b : ValType?) -> Bool {
 }
 
 ///|
-fn vq_block_result_type(bt : BlockType, env : Env) -> ValType? {
+fn vq_block_result_types(bt : BlockType, env : Env) -> Array[ValType] {
   match env.expand_blocktype(bt) {
-    Ok((_, [vt])) => Some(vt)
+    Ok((_, results)) => results
+    Err(_) => []
+  }
+}
+
+///|
+fn vq_block_result_type(bt : BlockType, env : Env) -> ValType? {
+  match vq_block_result_types(bt, env) {
+    [vt] => Some(vt)
     _ => None
   }
 }
@@ -340,7 +348,7 @@ fn VQSequenceResult::new(
 fn vq_optimize_sequence(
   items : Array[TInstr],
   env : Env,
-  result_type : ValType?,
+  result_types : Array[ValType],
   result_used : Bool,
   budget : Ref[Int],
   type_cache : Map[UInt64, ValType?],
@@ -350,22 +358,29 @@ fn vq_optimize_sequence(
   let out : Array[TInstr] = []
   let mut changed = false
   let size = items.length()
+  let multi_value_results = result_types.length() > 1
   for i = 0; i < size; i = i + 1 {
     let child = items[i]
-    let keeps_sequence_result = i == size - 1 && result_type is Some(_)
-    let used = i == size - 1 && result_type is Some(_) && result_used
+    let keeps_sequence_result = i == size - 1 && result_types.length() > 0
+    let used = if multi_value_results {
+      true
+    } else {
+      i == size - 1 && result_used
+    }
     let mut optimized = vq_process_instr(
       child, env, used, true, budget, type_cache, effect_cache, shallow_effect_cache,
     )
     if optimized is None {
-      if keeps_sequence_result {
-        match result_type {
-          Some(vt) =>
+      if multi_value_results {
+        optimized = Some(child)
+      } else if keeps_sequence_result {
+        match result_types {
+          [vt] =>
             match af_make_zero(vt) {
               Some(zero) => optimized = Some(zero)
               None => optimized = Some(child)
             }
-          None => ()
+          _ => ()
         }
       } else if is_unreachable_instr(child) {
         optimized = Some(child)
@@ -394,7 +409,7 @@ fn vq_optimize_sequence(
 fn vq_optimize_texpr(
   expr : TExpr,
   env : Env,
-  result_type : ValType?,
+  result_types : Array[ValType],
   result_used : Bool,
   budget : Ref[Int],
   type_cache : Map[UInt64, ValType?],
@@ -403,7 +418,7 @@ fn vq_optimize_texpr(
 ) -> TExpr {
   let { instrs: items, .. } = expr
   let sequence = vq_optimize_sequence(
-    items, env, result_type, result_used, budget, type_cache, effect_cache, shallow_effect_cache,
+    items, env, result_types, result_used, budget, type_cache, effect_cache, shallow_effect_cache,
   )
   TExpr::new(sequence.items)
 }
@@ -415,29 +430,31 @@ fn vq_simplify_block_to_contents(
   env : Env,
   type_cache : Map[UInt64, ValType?],
 ) -> TInstr {
+  let result_types = vq_block_result_types(bt, env)
   if has_break_to_depth_in_texpr(body, 0) {
     return TInstr::block(bt, body)
   }
   let { instrs: items, .. } = body
   if items.length() == 0 {
-    if vq_block_result_type(bt, env) is Some(_) {
+    if !result_types.is_empty() {
       return TInstr::block(bt, body)
     }
     return TInstr::nop()
   }
   if items.length() == 1 {
     let only = items[0]
-    match vq_block_result_type(bt, env) {
-      Some(vt) =>
+    match result_types {
+      [vt] =>
         match vq_type_of_cached(only, env, type_cache) {
           Some(t) if t == vt => return only
           _ => ()
         }
-      None =>
+      [] =>
         if vq_type_of_cached(only, env, type_cache) is None ||
           is_unreachable_instr(only) {
           return only
         }
+      _ => if is_unreachable_instr(only) { return only }
     }
   }
   TInstr::block(bt, body)
@@ -494,9 +511,9 @@ fn vq_process_instr(
   }
   match instr.kind {
     TInstrKind::TBlock(bt, body) => {
-      let result_type = vq_block_result_type(bt, env)
+      let result_types = vq_block_result_types(bt, env)
       let next_body = vq_optimize_texpr(
-        body, env, result_type, result_used, budget, type_cache, effect_cache, shallow_effect_cache,
+        body, env, result_types, result_used, budget, type_cache, effect_cache, shallow_effect_cache,
       )
       Some(vq_simplify_block_to_contents(bt, next_body, env, type_cache))
     }
@@ -508,12 +525,12 @@ fn vq_process_instr(
         Some(v) => v
         None => condition
       }
-      let arm_result_type = vq_block_result_type(bt, env)
+      let arm_result_types = vq_block_result_types(bt, env)
       let next_then = vq_optimize_texpr(
         then_body,
         env,
-        arm_result_type,
-        arm_result_type is Some(_),
+        arm_result_types,
+        !arm_result_types.is_empty(),
         budget,
         type_cache,
         effect_cache,
@@ -525,8 +542,8 @@ fn vq_process_instr(
             vq_optimize_texpr(
               other,
               env,
-              arm_result_type,
-              arm_result_type is Some(_),
+              arm_result_types,
+              !arm_result_types.is_empty(),
               budget,
               type_cache,
               effect_cache,
@@ -539,22 +556,28 @@ fn vq_process_instr(
       match next_condition.kind {
         TInstrKind::TI32Const(I32(v)) =>
           if v != 0 {
-            return Some(vq_wrap_texpr(next_then, env, type_cache))
+            return Some(
+              vq_simplify_block_to_contents(bt, next_then, env, type_cache),
+            )
           } else {
             return Some(
               match next_else {
-                Some(other) => vq_wrap_texpr(other, env, type_cache)
+                Some(other) =>
+                  vq_simplify_block_to_contents(bt, other, env, type_cache)
                 None => TInstr::nop()
               },
             )
           }
         TInstrKind::TI64Const(I64(v)) =>
           if v != 0L {
-            return Some(vq_wrap_texpr(next_then, env, type_cache))
+            return Some(
+              vq_simplify_block_to_contents(bt, next_then, env, type_cache),
+            )
           } else {
             return Some(
               match next_else {
-                Some(other) => vq_wrap_texpr(other, env, type_cache)
+                Some(other) =>
+                  vq_simplify_block_to_contents(bt, other, env, type_cache)
                 None => TInstr::nop()
               },
             )
@@ -568,10 +591,10 @@ fn vq_process_instr(
 
       match next_else {
         Some(other) => {
-          if vq_is_nop_texpr(other) {
+          if arm_result_types.is_empty() && vq_is_nop_texpr(other) {
             return Some(TInstr::if_(bt, next_condition, next_then, None))
           }
-          if vq_is_nop_texpr(next_then) {
+          if arm_result_types.is_empty() && vq_is_nop_texpr(next_then) {
             return Some(
               TInstr::if_(
                 bt,
@@ -617,18 +640,18 @@ fn vq_process_instr(
       }
     }
     TInstrKind::TLoop(bt, body) => {
-      let result_type = vq_block_result_type(bt, env)
+      let result_types = vq_block_result_types(bt, env)
       let next_body = vq_optimize_texpr(
         body,
         env,
-        result_type,
-        result_type is Some(_),
+        result_types,
+        !result_types.is_empty(),
         budget,
         type_cache,
         effect_cache,
         shallow_effect_cache,
       )
-      if vq_is_nop_texpr(next_body) {
+      if result_types.is_empty() && vq_is_nop_texpr(next_body) {
         Some(TInstr::nop())
       } else {
         Some(TInstr::loop_(bt, next_body))
@@ -729,19 +752,19 @@ fn vq_process_instr(
       Some(dropped)
     }
     TInstrKind::TTryTable(bt, catches, body) => {
-      let result_type = vq_block_result_type(bt, env)
+      let result_types = vq_block_result_types(bt, env)
       let next_body = vq_optimize_texpr(
         body,
         env,
-        result_type,
-        result_type is Some(_),
+        result_types,
+        !result_types.is_empty(),
         budget,
         type_cache,
         effect_cache,
         shallow_effect_cache,
       )
       if !vq_texpr_throws(next_body) {
-        Some(vq_wrap_texpr(next_body, env, type_cache))
+        Some(vq_simplify_block_to_contents(bt, next_body, env, type_cache))
       } else {
         Some(TInstr::try_table(bt, catches, next_body))
       }
@@ -809,18 +832,13 @@ fn vq_optimize_function(
       let effect_cache : Map[UInt64, Bool] = Map::new()
       let shallow_effect_cache : Map[UInt64, Bool] = Map::new()
 
-      let result_type = match sig.results {
-        [vt] => Some(vt)
-        _ => None
-      }
-
       // Size-dependent budget — tiny functions get almost no budget
       let budget = Ref::new(if top_instrs > 200 { 80000 } else { 12000 })
 
       let sequence = vq_optimize_sequence(
         body.instrs,
         env,
-        result_type,
+        sig.results,
         sig.results.length() > 0,
         budget,
         type_cache,
@@ -1383,6 +1401,150 @@ test "vacuum preserves only final value inside dropped result block and validate
   match vq_first_func_body(out).instrs {
     [{ kind: TInstrKind::TNop, .. }] => ()
     _ => fail("expected dropped pure result block to become nop")
+  }
+}
+
+///|
+test "vacuum preserves multi-value function body results and validates" {
+  let t_pair = single_rec_type(
+    comp_type_sub_type(func_comp_type([], [ValType::i32(), ValType::i64()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_pair]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([TInstr::i32_const(I32(1)), TInstr::i64_const(I64(2L))]),
+        ),
+      ]),
+    )
+  let out = run_vacuum(mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) => fail("expected multi-value vacuum output to validate: \{e}")
+  }
+  match vq_first_func_body(out).instrs {
+    [
+      { kind: TInstrKind::TI32Const(I32(a)), .. },
+      { kind: TInstrKind::TI64Const(I64(b)), .. },
+    ] => {
+      assert_eq(a, 1)
+      assert_eq(b, 2L)
+    }
+    _ => fail("expected multi-value function results to be preserved")
+  }
+}
+
+///|
+test "vacuum preserves constant-folded multi-value if results and validates" {
+  let t_pair = single_rec_type(
+    comp_type_sub_type(func_comp_type([], [ValType::i32(), ValType::i64()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_pair]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::if_(
+              BlockType::type_idx(TypeIdx::new(0)),
+              TInstr::i32_const(I32(1)),
+              TExpr::new([TInstr::i32_const(I32(7)), TInstr::i64_const(I64(8L))]),
+              Some(
+                TExpr::new([
+                  TInstr::i32_const(I32(9)),
+                  TInstr::i64_const(I64(10L)),
+                ]),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let out = run_vacuum(mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) => fail("expected multi-value if vacuum output to validate: \{e}")
+  }
+  match vq_first_func_body(out).instrs {
+    [
+      {
+        kind: TInstrKind::TBlock(
+          TypeIdxBlockType(TypeIdx(idx)),
+          {
+            instrs: [
+              { kind: TInstrKind::TI32Const(I32(a)), .. },
+              { kind: TInstrKind::TI64Const(I64(b)), .. },
+            ],
+            ..,
+          }
+        ),
+        ..,
+      },
+    ] => {
+      assert_eq(idx, 0U)
+      assert_eq(a, 7)
+      assert_eq(b, 8L)
+    }
+    _ =>
+      fail("expected constant-folded multi-value if to preserve both results")
+  }
+}
+
+///|
+test "vacuum preserves multi-value block results and validates" {
+  let t_pair = single_rec_type(
+    comp_type_sub_type(func_comp_type([], [ValType::i32(), ValType::i64()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_pair]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::block(
+              BlockType::type_idx(TypeIdx::new(0)),
+              TExpr::new([
+                TInstr::i32_const(I32(11)),
+                TInstr::i64_const(I64(12L)),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let out = run_vacuum(mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) => fail("expected multi-value block vacuum output to validate: \{e}")
+  }
+  match vq_first_func_body(out).instrs {
+    [
+      {
+        kind: TInstrKind::TBlock(
+          TypeIdxBlockType(TypeIdx(idx)),
+          {
+            instrs: [
+              { kind: TInstrKind::TI32Const(I32(a)), .. },
+              { kind: TInstrKind::TI64Const(I64(b)), .. },
+            ],
+            ..,
+          }
+        ),
+        ..,
+      },
+    ] => {
+      assert_eq(idx, 0U)
+      assert_eq(a, 11)
+      assert_eq(b, 12L)
+    }
+    _ => fail("expected multi-value block results to be preserved")
   }
 }
 
