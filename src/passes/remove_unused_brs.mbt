@@ -24,6 +24,316 @@ const RUB_HAS_CANDIDATE_FOUND : String = "__remove_unused_brs_has_candidate_foun
 const RUB_LABEL_REBASE_CROSSES_REMOVED_SCOPE : String = "__remove_unused_brs_label_rebase_crosses_removed_scope__"
 
 ///|
+const RUB_TRACE_PROGRESS_INTERVAL : Int = 4096
+
+///|
+const RUB_TRACE_PROGRESS_INTERVAL_MS : UInt64 = 250UL
+
+///|
+const RUB_TRACE_SLOW_CALL_MS : UInt64 = 50UL
+
+///|
+const RUB_TRACE_NO_PROGRESS_TIMEOUT_MS : UInt64 = 2000UL
+
+///|
+const RUB_NO_PROGRESS_TIMEOUT : String = "__remove_unused_brs_no_progress_timeout__"
+
+///|
+fn rub_trace_noop(_ : String) -> Unit {
+  ()
+}
+
+///|
+fn rub_trace_should_log_func(ordinal : Int, trace_all_funcs : Bool) -> Bool {
+  trace_all_funcs || ordinal <= 5 || ordinal % 250 == 0
+}
+
+///|
+fn rub_instr_kind_name(instr : TInstr) -> String {
+  match instr.kind {
+    TInstrKind::TBlock(_, _) => "block"
+    TInstrKind::TLoop(_, _) => "loop"
+    TInstrKind::TIf(_, _, _, _) => "if"
+    TInstrKind::TTryTable(_, _, _) => "try_table"
+    TInstrKind::TBr(_, _) => "br"
+    TInstrKind::TBrIf(_, _, _) => "br_if"
+    TInstrKind::TBrTable(_, _, _, _) => "br_table"
+    TInstrKind::TReturn(_) => "return"
+    TInstrKind::TDrop(_) => "drop"
+    TInstrKind::TSelect(_, _, _, _) => "select"
+    TInstrKind::TCall(_, _) => "call"
+    TInstrKind::TCallIndirect(_, _, _, _) => "call_indirect"
+    TInstrKind::TLocalGet(_) => "local.get"
+    TInstrKind::TLocalSet(_, _) => "local.set"
+    TInstrKind::TLocalTee(_, _) => "local.tee"
+    _ => "other"
+  }
+}
+
+///|
+priv struct RUBRoundTraceState {
+  log_func : Bool
+  trace : (String) -> Unit
+  ordinal : Int
+  round : Int
+  func_start_ms : UInt64
+  round_start_ms : UInt64
+  last_progress_ms : Ref[UInt64]
+  no_progress_deadline_ms : Ref[UInt64]
+  expr_visits : Ref[Int]
+  instr_visits : Ref[Int]
+  rewrites : Ref[Int]
+}
+
+///|
+fn rub_round_trace_state(
+  log_func : Bool,
+  trace : (String) -> Unit,
+  ordinal : Int,
+  round : Int,
+  func_start_ms : UInt64,
+) -> RUBRoundTraceState {
+  let round_start_ms = sl_trace_now_ms()
+  {
+    log_func,
+    trace,
+    ordinal,
+    round,
+    func_start_ms,
+    round_start_ms,
+    last_progress_ms: Ref::new(0UL),
+    no_progress_deadline_ms: Ref::new(
+      round_start_ms + RUB_TRACE_NO_PROGRESS_TIMEOUT_MS,
+    ),
+    expr_visits: Ref::new(0),
+    instr_visits: Ref::new(0),
+    rewrites: Ref::new(0),
+  }
+}
+
+///|
+fn rub_trace_emit_round_start(
+  trace_state : RUBRoundTraceState,
+  top_instrs : Int,
+) -> Unit {
+  if !trace_state.log_func {
+    return
+  }
+  (trace_state.trace)(
+    "func[\{trace_state.ordinal}] round[\{trace_state.round}] walk:start top_instrs=\{top_instrs}",
+  )
+  (trace_state.trace)(
+    "func[\{trace_state.ordinal}] round[\{trace_state.round}] progress phase=walk:start elapsed_ms=\{sl_trace_elapsed_ms(trace_state.func_start_ms)} round_ms=\{sl_trace_elapsed_ms(trace_state.round_start_ms)} exprs=0 instrs=0 rewrites=0",
+  )
+  let now_ms = sl_trace_now_ms()
+  trace_state.last_progress_ms.val = now_ms
+  trace_state.no_progress_deadline_ms.val = now_ms +
+    RUB_TRACE_NO_PROGRESS_TIMEOUT_MS
+}
+
+///|
+fn rub_trace_maybe_emit_progress(
+  trace_state : RUBRoundTraceState,
+  phase : String,
+) -> Unit {
+  if !trace_state.log_func {
+    return
+  }
+
+  let now_ms = sl_trace_now_ms()
+  let expr_visits = trace_state.expr_visits.val
+  let instr_visits = trace_state.instr_visits.val
+  let rewrites = trace_state.rewrites.val
+  let work_done = expr_visits + instr_visits + rewrites
+  let has_emitted_progress = trace_state.last_progress_ms.val != 0UL
+  let since_last_ms = if has_emitted_progress &&
+    now_ms >= trace_state.last_progress_ms.val {
+    now_ms - trace_state.last_progress_ms.val
+  } else {
+    0UL
+  }
+  let should_emit_first = !has_emitted_progress && work_done >= 32
+  let should_emit_periodic = (
+      expr_visits > 0 &&
+      (
+        (expr_visits <= 256 && expr_visits % 64 == 0) ||
+        expr_visits % RUB_TRACE_PROGRESS_INTERVAL == 0
+      )
+    ) ||
+    (
+      instr_visits > 0 &&
+      (
+        (instr_visits <= 512 && instr_visits % 128 == 0) ||
+        instr_visits % RUB_TRACE_PROGRESS_INTERVAL == 0
+      )
+    ) ||
+    (rewrites > 0 && rewrites % 32 == 0)
+  let should_emit_timed = since_last_ms >= RUB_TRACE_PROGRESS_INTERVAL_MS
+
+  if !(should_emit_first || should_emit_periodic || should_emit_timed) {
+    return
+  }
+
+  (trace_state.trace)(
+    "func[\{trace_state.ordinal}] round[\{trace_state.round}] progress phase=\{phase} elapsed_ms=\{sl_trace_elapsed_ms(trace_state.func_start_ms)} round_ms=\{sl_trace_elapsed_ms(trace_state.round_start_ms)} exprs=\{expr_visits} instrs=\{instr_visits} rewrites=\{rewrites}",
+  )
+  trace_state.last_progress_ms.val = now_ms
+  trace_state.no_progress_deadline_ms.val = now_ms +
+    RUB_TRACE_NO_PROGRESS_TIMEOUT_MS
+}
+
+///|
+fn rub_trace_check_no_progress(
+  trace_state : RUBRoundTraceState?,
+  phase : String,
+) -> Result[Unit, String] {
+  match trace_state {
+    Some(trace_state) => {
+      let now_ms = sl_trace_now_ms()
+      if now_ms <= trace_state.no_progress_deadline_ms.val {
+        return Ok(())
+      }
+      (trace_state.trace)(
+        "func[\{trace_state.ordinal}] round[\{trace_state.round}] abort reason=no_progress_timeout phase=\{phase} elapsed_ms=\{sl_trace_elapsed_ms(trace_state.func_start_ms)} round_ms=\{sl_trace_elapsed_ms(trace_state.round_start_ms)} exprs=\{trace_state.expr_visits.val} instrs=\{trace_state.instr_visits.val} rewrites=\{trace_state.rewrites.val}",
+      )
+      Err(RUB_NO_PROGRESS_TIMEOUT)
+    }
+    None => Ok(())
+  }
+}
+
+///|
+fn rub_trace_log_slow_instr(
+  trace_state : RUBRoundTraceState?,
+  phase : String,
+  instr : TInstr,
+  elapsed_ms : UInt64,
+) -> Unit {
+  if elapsed_ms < RUB_TRACE_SLOW_CALL_MS {
+    return
+  }
+  match trace_state {
+    Some(trace_state) =>
+      (trace_state.trace)(
+        "func[\{trace_state.ordinal}] round[\{trace_state.round}] slow phase=\{phase} kind=\{rub_instr_kind_name(instr)} elapsed_ms=\{elapsed_ms} children=\{eval_children(instr).length()}",
+      )
+    None => ()
+  }
+}
+
+///|
+fn rub_trace_log_slow_helper(
+  trace_state : RUBRoundTraceState?,
+  helper : String,
+  elapsed_ms : UInt64,
+  instrs_len : Int,
+) -> Unit {
+  if elapsed_ms < RUB_TRACE_SLOW_CALL_MS {
+    return
+  }
+  match trace_state {
+    Some(trace_state) =>
+      (trace_state.trace)(
+        "func[\{trace_state.ordinal}] round[\{trace_state.round}] slow phase=helper helper=\{helper} elapsed_ms=\{elapsed_ms} instrs=\{instrs_len}",
+      )
+    None => ()
+  }
+}
+
+///|
+fn rub_trace_log_helper_event(
+  trace_state : RUBRoundTraceState?,
+  helper : String,
+  step : String,
+  detail : String,
+) -> Unit {
+  match trace_state {
+    Some(trace_state) =>
+      (trace_state.trace)(
+        "func[\{trace_state.ordinal}] round[\{trace_state.round}] helper=\{helper} step=\{step} \{detail}",
+      )
+    None => ()
+  }
+}
+
+///|
+fn rub_trace_log_helper_step_done(
+  trace_state : RUBRoundTraceState?,
+  helper : String,
+  step : String,
+  elapsed_ms : UInt64,
+  detail : String,
+) -> Unit {
+  if elapsed_ms < RUB_TRACE_SLOW_CALL_MS {
+    return
+  }
+  match trace_state {
+    Some(trace_state) =>
+      (trace_state.trace)(
+        "func[\{trace_state.ordinal}] round[\{trace_state.round}] helper=\{helper} step=\{step}:done elapsed_ms=\{elapsed_ms} \{detail}",
+      )
+    None => ()
+  }
+}
+
+///|
+fn rub_trace_note_expr(
+  trace_state : RUBRoundTraceState?,
+  phase : String,
+) -> Result[Unit, String] {
+  match rub_trace_check_no_progress(trace_state, phase) {
+    Ok(_) => ()
+    Err(e) => return Err(e)
+  }
+  match trace_state {
+    Some(trace_state) => {
+      trace_state.expr_visits.val += 1
+      rub_trace_maybe_emit_progress(trace_state, phase)
+      Ok(())
+    }
+    None => Ok(())
+  }
+}
+
+///|
+fn rub_trace_note_instr(
+  trace_state : RUBRoundTraceState?,
+  phase : String,
+) -> Result[Unit, String] {
+  match rub_trace_check_no_progress(trace_state, phase) {
+    Ok(_) => ()
+    Err(e) => return Err(e)
+  }
+  match trace_state {
+    Some(trace_state) => {
+      trace_state.instr_visits.val += 1
+      rub_trace_maybe_emit_progress(trace_state, phase)
+      Ok(())
+    }
+    None => Ok(())
+  }
+}
+
+///|
+fn rub_trace_note_rewrite(
+  trace_state : RUBRoundTraceState?,
+  phase : String,
+) -> Result[Unit, String] {
+  match rub_trace_check_no_progress(trace_state, phase) {
+    Ok(_) => ()
+    Err(e) => return Err(e)
+  }
+  match trace_state {
+    Some(trace_state) => {
+      trace_state.rewrites.val += 1
+      rub_trace_maybe_emit_progress(trace_state, phase)
+      Ok(())
+    }
+    None => Ok(())
+  }
+}
+
+///|
 priv struct RUBWalkState {
   in_function_body : Bool
   allow_list_splicing : Bool
@@ -839,6 +1149,7 @@ fn rub_optimize_if_else_block_tail(
   instrs : Array[TInstr],
   options : OptimizeOptions,
   allow_list_splicing : Bool,
+  trace_state? : RUBRoundTraceState? = None,
 ) -> Bool {
   if !allow_list_splicing {
     return false
@@ -848,78 +1159,226 @@ fn rub_optimize_if_else_block_tail(
   while i < instrs.length() {
     match instrs[i].kind {
       TInstrKind::TIf(VoidBlockType, cond, then_body, Some(else_body)) => {
+        rub_trace_log_helper_event(
+          trace_state,
+          "if_else_tail",
+          "candidate",
+          "site=\{i} then_instrs=\{then_body.instrs.length()} else_instrs=\{else_body.instrs.length()} cond_kind=\{rub_instr_kind_name(cond)}",
+        )
         let mut applied = false
         match rub_is_single_tinstr(then_body) {
-          Some(single_then) =>
-            match
-              (
-                rub_try_rebase_labels_in_tinstruction(single_then, -1),
-                rub_try_rebase_labels_in_texpr(else_body, -1),
-              ) {
-              (
-                Some({ kind: TInstrKind::TBr(label, values), .. }),
-                Some(next_else_body),
-              ) if !rub_texpr_has_branch(else_body) &&
-                rub_can_turn_if_into_br_if(cond, values, options) => {
-                instrs[i] = TInstr::br_if(label, cond, values)
-                let next : Array[TInstr] = []
-                for j in 0..<instrs.length() {
-                  next.push(instrs[j])
-                  if j == i {
-                    for item in next_else_body.instrs {
-                      next.push(item)
+          Some(single_then) => {
+            rub_trace_log_helper_event(
+              trace_state,
+              "if_else_tail",
+              "then_path:start",
+              "site=\{i} kind=\{rub_instr_kind_name(single_then)}",
+            )
+            match single_then.kind {
+              TInstrKind::TBr(_, values) => {
+                rub_trace_log_helper_event(
+                  trace_state,
+                  "if_else_tail",
+                  "then_branch_scan:start",
+                  "site=\{i}",
+                )
+                let then_branch_scan_start_ms = sl_trace_now_ms()
+                let else_has_branch = rub_texpr_has_branch(else_body)
+                rub_trace_log_helper_step_done(
+                  trace_state,
+                  "if_else_tail",
+                  "then_branch_scan",
+                  sl_trace_elapsed_ms(then_branch_scan_start_ms),
+                  "site=\{i} has_branch=\{else_has_branch}",
+                )
+                if !else_has_branch {
+                  rub_trace_log_helper_event(
+                    trace_state,
+                    "if_else_tail",
+                    "then_hoist_check:start",
+                    "site=\{i} values=\{values.length()}",
+                  )
+                  let then_hoist_check_start_ms = sl_trace_now_ms()
+                  let can_hoist = rub_can_turn_if_into_br_if(
+                    cond, values, options,
+                  )
+                  rub_trace_log_helper_step_done(
+                    trace_state,
+                    "if_else_tail",
+                    "then_hoist_check",
+                    sl_trace_elapsed_ms(then_hoist_check_start_ms),
+                    "site=\{i} can_hoist=\{can_hoist}",
+                  )
+                  if can_hoist {
+                    let then_rebase_instr_start_ms = sl_trace_now_ms()
+                    let next_single_then = rub_try_rebase_labels_in_tinstruction(
+                      single_then, -1,
+                    )
+                    rub_trace_log_helper_step_done(
+                      trace_state,
+                      "if_else_tail",
+                      "then_rebase_instr",
+                      sl_trace_elapsed_ms(then_rebase_instr_start_ms),
+                      "site=\{i} success=\{next_single_then is Some(_)}",
+                    )
+                    let then_rebase_else_start_ms = sl_trace_now_ms()
+                    let next_else_body = rub_try_rebase_labels_in_texpr(
+                      else_body, -1,
+                    )
+                    rub_trace_log_helper_step_done(
+                      trace_state,
+                      "if_else_tail",
+                      "then_rebase_else",
+                      sl_trace_elapsed_ms(then_rebase_else_start_ms),
+                      "site=\{i} success=\{next_else_body is Some(_)}",
+                    )
+                    match (next_single_then, next_else_body) {
+                      (
+                        Some({ kind: TInstrKind::TBr(label, values), .. }),
+                        Some(next_else_body),
+                      ) => {
+                        instrs[i] = TInstr::br_if(label, cond, values)
+                        let next : Array[TInstr] = []
+                        for j in 0..<instrs.length() {
+                          next.push(instrs[j])
+                          if j == i {
+                            for item in next_else_body.instrs {
+                              next.push(item)
+                            }
+                          }
+                        }
+                        instrs.clear()
+                        for item in next {
+                          instrs.push(item)
+                        }
+                        changed = true
+                        i += next_else_body.instrs.length()
+                        applied = true
+                        rub_trace_log_helper_event(
+                          trace_state,
+                          "if_else_tail",
+                          "then_rewrite",
+                          "site=\{i} splice_instrs=\{next_else_body.instrs.length()}",
+                        )
+                      }
+                      _ => ()
                     }
                   }
                 }
-                instrs.clear()
-                for item in next {
-                  instrs.push(item)
-                }
-                changed = true
-                i += next_else_body.instrs.length()
-                applied = true
               }
               _ => ()
             }
+          }
           None => ()
         }
         if !applied {
           match rub_is_single_tinstr(else_body) {
-            Some(single_else) =>
-              match
-                (
-                  rub_try_rebase_labels_in_tinstruction(single_else, -1),
-                  rub_try_rebase_labels_in_texpr(then_body, -1),
-                ) {
-                (
-                  Some({ kind: TInstrKind::TBr(label, values), .. }),
-                  Some(next_then_body),
-                ) if !rub_texpr_has_branch(then_body) &&
-                  rub_can_turn_if_into_br_if(cond, values, options) => {
-                  instrs[i] = TInstr::br_if(
-                    label,
-                    TInstr::unary(UnaryOp::i32_eqz(), cond),
-                    values,
+            Some(single_else) => {
+              rub_trace_log_helper_event(
+                trace_state,
+                "if_else_tail",
+                "else_path:start",
+                "site=\{i} kind=\{rub_instr_kind_name(single_else)}",
+              )
+              match single_else.kind {
+                TInstrKind::TBr(_, values) => {
+                  rub_trace_log_helper_event(
+                    trace_state,
+                    "if_else_tail",
+                    "else_branch_scan:start",
+                    "site=\{i}",
                   )
-                  let next : Array[TInstr] = []
-                  for j in 0..<instrs.length() {
-                    next.push(instrs[j])
-                    if j == i {
-                      for item in next_then_body.instrs {
-                        next.push(item)
+                  let else_branch_scan_start_ms = sl_trace_now_ms()
+                  let then_has_branch = rub_texpr_has_branch(then_body)
+                  rub_trace_log_helper_step_done(
+                    trace_state,
+                    "if_else_tail",
+                    "else_branch_scan",
+                    sl_trace_elapsed_ms(else_branch_scan_start_ms),
+                    "site=\{i} has_branch=\{then_has_branch}",
+                  )
+                  if !then_has_branch {
+                    rub_trace_log_helper_event(
+                      trace_state,
+                      "if_else_tail",
+                      "else_hoist_check:start",
+                      "site=\{i} values=\{values.length()}",
+                    )
+                    let else_hoist_check_start_ms = sl_trace_now_ms()
+                    let can_hoist = rub_can_turn_if_into_br_if(
+                      cond, values, options,
+                    )
+                    rub_trace_log_helper_step_done(
+                      trace_state,
+                      "if_else_tail",
+                      "else_hoist_check",
+                      sl_trace_elapsed_ms(else_hoist_check_start_ms),
+                      "site=\{i} can_hoist=\{can_hoist}",
+                    )
+                    if can_hoist {
+                      let else_rebase_instr_start_ms = sl_trace_now_ms()
+                      let next_single_else = rub_try_rebase_labels_in_tinstruction(
+                        single_else, -1,
+                      )
+                      rub_trace_log_helper_step_done(
+                        trace_state,
+                        "if_else_tail",
+                        "else_rebase_instr",
+                        sl_trace_elapsed_ms(else_rebase_instr_start_ms),
+                        "site=\{i} success=\{next_single_else is Some(_)}",
+                      )
+                      let else_rebase_then_start_ms = sl_trace_now_ms()
+                      let next_then_body = rub_try_rebase_labels_in_texpr(
+                        then_body, -1,
+                      )
+                      rub_trace_log_helper_step_done(
+                        trace_state,
+                        "if_else_tail",
+                        "else_rebase_then",
+                        sl_trace_elapsed_ms(else_rebase_then_start_ms),
+                        "site=\{i} success=\{next_then_body is Some(_)}",
+                      )
+                      match (next_single_else, next_then_body) {
+                        (
+                          Some({ kind: TInstrKind::TBr(label, values), .. }),
+                          Some(next_then_body),
+                        ) => {
+                          instrs[i] = TInstr::br_if(
+                            label,
+                            TInstr::unary(UnaryOp::i32_eqz(), cond),
+                            values,
+                          )
+                          let next : Array[TInstr] = []
+                          for j in 0..<instrs.length() {
+                            next.push(instrs[j])
+                            if j == i {
+                              for item in next_then_body.instrs {
+                                next.push(item)
+                              }
+                            }
+                          }
+                          instrs.clear()
+                          for item in next {
+                            instrs.push(item)
+                          }
+                          changed = true
+                          i += next_then_body.instrs.length()
+                          applied = true
+                          rub_trace_log_helper_event(
+                            trace_state,
+                            "if_else_tail",
+                            "else_rewrite",
+                            "site=\{i} splice_instrs=\{next_then_body.instrs.length()}",
+                          )
+                        }
+                        _ => ()
                       }
                     }
                   }
-                  instrs.clear()
-                  for item in next {
-                    instrs.push(item)
-                  }
-                  changed = true
-                  i += next_then_body.instrs.length()
-                  applied = true
                 }
                 _ => ()
               }
+            }
             None => ()
           }
         }
@@ -1005,6 +1464,7 @@ fn rub_optimize_instr_list(
   in_function_body : Bool,
   allow_list_splicing : Bool,
   zero_break_is_fallthrough : Bool,
+  trace_state? : RUBRoundTraceState? = None,
 ) -> Bool {
   let mut changed = false
   if rub_remove_trailing_nops(instrs) {
@@ -1016,19 +1476,54 @@ fn rub_optimize_instr_list(
   if in_function_body && rub_remove_trailing_return(instrs) {
     changed = true
   }
-  if rub_optimize_if_else_block_tail(instrs, options, allow_list_splicing) {
+  let if_else_tail_start_ms = sl_trace_now_ms()
+  if rub_optimize_if_else_block_tail(
+      instrs,
+      options,
+      allow_list_splicing,
+      trace_state~,
+    ) {
     changed = true
   }
+  rub_trace_log_slow_helper(
+    trace_state,
+    "if_else_tail",
+    sl_trace_elapsed_ms(if_else_tail_start_ms),
+    instrs.length(),
+  )
+  let adjacent_breaks_start_ms = sl_trace_now_ms()
   if rub_optimize_adjacent_breaks(instrs, options) {
     changed = true
   }
-  if zero_break_is_fallthrough &&
-    rub_optimize_redundant_dropped_br_if_tail(instrs) {
-    changed = true
+  rub_trace_log_slow_helper(
+    trace_state,
+    "adjacent_breaks",
+    sl_trace_elapsed_ms(adjacent_breaks_start_ms),
+    instrs.length(),
+  )
+  if zero_break_is_fallthrough {
+    let dropped_tail_start_ms = sl_trace_now_ms()
+    if rub_optimize_redundant_dropped_br_if_tail(instrs) {
+      changed = true
+    }
+    rub_trace_log_slow_helper(
+      trace_state,
+      "dropped_br_if_tail",
+      sl_trace_elapsed_ms(dropped_tail_start_ms),
+      instrs.length(),
+    )
   }
-  if zero_break_is_fallthrough &&
-    rub_optimize_entry_restructure_if(instrs, allow_list_splicing) {
-    changed = true
+  if zero_break_is_fallthrough {
+    let entry_restructure_start_ms = sl_trace_now_ms()
+    if rub_optimize_entry_restructure_if(instrs, allow_list_splicing) {
+      changed = true
+    }
+    rub_trace_log_slow_helper(
+      trace_state,
+      "entry_restructure_if",
+      sl_trace_elapsed_ms(entry_restructure_start_ms),
+      instrs.length(),
+    )
   }
   if rub_remove_trailing_nops(instrs) {
     changed = true
@@ -1073,6 +1568,7 @@ fn rub_has_candidate_in_body(body : TExpr) -> Result[Bool, String] {
 ///|
 fn remove_unused_brs_pass(
   options : OptimizeOptions,
+  trace_state? : RUBRoundTraceState? = None,
 ) -> ModuleTransformer[RUBWalkState] {
   ModuleTransformer::new()
   .on_func_evt(fn(self, state, func) {
@@ -1094,6 +1590,10 @@ fn remove_unused_brs_pass(
     }
   })
   .on_texpr_evt(fn(self, state, expr) {
+    match rub_trace_note_expr(trace_state, "walk:expr") {
+      Ok(_) => ()
+      Err(e) => return Err(e)
+    }
     let out : Array[TInstr] = []
     let mut changed = false
     for instr in expr.instrs {
@@ -1113,8 +1613,13 @@ fn remove_unused_brs_pass(
         state.in_function_body,
         state.allow_list_splicing,
         state.zero_break_is_fallthrough,
+        trace_state~,
       ) {
       changed = true
+      match rub_trace_note_rewrite(trace_state, "rewrite:expr") {
+        Ok(_) => ()
+        Err(e) => return Err(e)
+      }
     }
     if changed {
       change(state, TExpr::new(out))
@@ -1124,6 +1629,11 @@ fn remove_unused_brs_pass(
     }
   })
   .on_tinstruction_evt(fn(self, state, instr) {
+    match rub_trace_note_instr(trace_state, "walk:instr") {
+      Ok(_) => ()
+      Err(e) => return Err(e)
+    }
+    let walked_start_ms = sl_trace_now_ms()
     let walked = match instr.kind {
       TInstrKind::TBlock(bt, body) => {
         let next_bt = match self.rub_walk_blocktype_result(state, bt) {
@@ -1218,16 +1728,37 @@ fn remove_unused_brs_pass(
           TInstr::try_table(next_bt, next_catches, next_body)
         }
       }
-      _ =>
-        match self.walk_tinstruction_default(state, instr) {
+      _ => {
+        let default_walk_start_ms = sl_trace_now_ms()
+        let out = match self.walk_tinstruction_default(state, instr) {
           Ok(Some((_, updated))) => updated
           Ok(None) => instr
           Err(e) => return Err(e)
         }
+        rub_trace_log_slow_instr(
+          trace_state,
+          "walk:default",
+          instr,
+          sl_trace_elapsed_ms(default_walk_start_ms),
+        )
+        out
+      }
     }
+    rub_trace_log_slow_instr(
+      trace_state,
+      "walk:instr",
+      instr,
+      sl_trace_elapsed_ms(walked_start_ms),
+    )
     let (after_if, changed_if) = rub_optimize_if(walked, options)
     let (after_br_table, changed_switch) = rub_optimize_br_table(after_if)
     let (after_br_if, changed_br_if) = rub_optimize_br_if(after_br_table)
+    if changed_if || changed_switch || changed_br_if {
+      match rub_trace_note_rewrite(trace_state, "rewrite:instr") {
+        Ok(_) => ()
+        Err(e) => return Err(e)
+      }
+    }
     if changed_if || changed_switch || changed_br_if || after_br_if != instr {
       change(state, after_br_if)
     } else {
@@ -1241,33 +1772,145 @@ fn remove_unused_brs_pass(
 fn rub_optimize_func_fixpoint(
   func : Func,
   options : OptimizeOptions,
+  trace? : (String) -> Unit = rub_trace_noop,
+  ordinal? : Int = 0,
+  trace_all_funcs? : Bool = false,
 ) -> Result[Func, String] {
+  let log_func = rub_trace_should_log_func(ordinal, trace_all_funcs)
   match func {
-    TFunc(_, body) =>
+    TFunc(locals, body) => {
+      let start_top_instrs = body.instrs.length()
+      let func_start_ms = sl_trace_now_ms()
+      if log_func {
+        trace(
+          "func[\{ordinal}] start locals=\{locals.length()} top_instrs=\{start_top_instrs}",
+        )
+        trace(
+          "func[\{ordinal}] phase=candidate_scan start top_instrs=\{start_top_instrs}",
+        )
+      }
       match rub_has_candidate_in_body(body) {
-        Ok(false) => Ok(func)
+        Ok(false) => {
+          if log_func {
+            trace(
+              "func[\{ordinal}] phase=candidate_scan done elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)} candidate_found=false top_instrs=\{start_top_instrs}",
+            )
+            trace(
+              "func[\{ordinal}] done elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)} changed=false rounds=0 top_instrs=\{start_top_instrs}->\{start_top_instrs} locals=\{locals.length()} round_limit_hit=false reason=no_candidates",
+            )
+          }
+          Ok(func)
+        }
         Ok(true) => {
+          if log_func {
+            trace(
+              "func[\{ordinal}] phase=candidate_scan done elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)} candidate_found=true top_instrs=\{start_top_instrs}",
+            )
+          }
           let mut curr = func
           let mut rounds = 0
+          let mut hit_round_limit = true
+          let mut stalled_reason : String? = None
           while rounds < 16 {
             rounds += 1
-            let pass = remove_unused_brs_pass(options)
+            let round_start_top_instrs = match curr {
+              TFunc(_, curr_body) => curr_body.instrs.length()
+              _ => 0
+            }
+            let round_trace = rub_round_trace_state(
+              log_func, trace, ordinal, rounds, func_start_ms,
+            )
+            rub_trace_emit_round_start(round_trace, round_start_top_instrs)
+            let pass = remove_unused_brs_pass(
+              options,
+              trace_state=Some(round_trace),
+            )
             match pass.walk_func(rub_walk_state(false, false, true), curr) {
               Ok(Some((_, next_func))) => {
+                let next_top_instrs = match next_func {
+                  TFunc(_, next_body) => next_body.instrs.length()
+                  _ => round_start_top_instrs
+                }
+                if log_func {
+                  trace(
+                    "func[\{ordinal}] round[\{rounds}] walk:done elapsed_ms=\{sl_trace_elapsed_ms(round_trace.round_start_ms)} changed=\{next_func != curr} top_instrs=\{round_start_top_instrs}->\{next_top_instrs} exprs=\{round_trace.expr_visits.val} instrs=\{round_trace.instr_visits.val} rewrites=\{round_trace.rewrites.val}",
+                  )
+                }
+                if round_trace.rewrites.val == 0 {
+                  curr = next_func
+                  hit_round_limit = false
+                  stalled_reason = Some("no_rewrites")
+                  break
+                }
                 if next_func == curr {
+                  hit_round_limit = false
                   break
                 }
                 curr = next_func
               }
-              Ok(None) => break
-              Err(e) => return Err(e)
+              Ok(None) => {
+                if log_func {
+                  trace(
+                    "func[\{ordinal}] round[\{rounds}] walk:done elapsed_ms=\{sl_trace_elapsed_ms(round_trace.round_start_ms)} changed=false top_instrs=\{round_start_top_instrs}->\{round_start_top_instrs} exprs=\{round_trace.expr_visits.val} instrs=\{round_trace.instr_visits.val} rewrites=\{round_trace.rewrites.val}",
+                  )
+                }
+                hit_round_limit = false
+                break
+              }
+              Err(e) => {
+                if e == RUB_NO_PROGRESS_TIMEOUT {
+                  hit_round_limit = false
+                  stalled_reason = Some("no_progress_timeout")
+                  break
+                }
+                if log_func {
+                  trace(
+                    "func[\{ordinal}] round[\{rounds}] walk:error elapsed_ms=\{sl_trace_elapsed_ms(round_trace.round_start_ms)} exprs=\{round_trace.expr_visits.val} instrs=\{round_trace.instr_visits.val} rewrites=\{round_trace.rewrites.val} \{e}",
+                  )
+                }
+                return Err(e)
+              }
+            }
+          }
+          if log_func {
+            let end_top_instrs = match curr {
+              TFunc(_, curr_body) => curr_body.instrs.length()
+              _ => start_top_instrs
+            }
+            trace(
+              "func[\{ordinal}] done elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)} changed=\{curr != func} rounds=\{rounds} top_instrs=\{start_top_instrs}->\{end_top_instrs} locals=\{locals.length()} round_limit_hit=\{hit_round_limit}",
+            )
+            match stalled_reason {
+              Some(reason) =>
+                trace(
+                  "func[\{ordinal}] stalled reason=\{reason} rounds=\{rounds} top_instrs=\{end_top_instrs}",
+                )
+              None =>
+                if hit_round_limit {
+                  trace(
+                    "func[\{ordinal}] stalled reason=round_limit rounds=\{rounds} top_instrs=\{end_top_instrs}",
+                  )
+                }
             }
           }
           Ok(curr)
         }
-        Err(e) => Err(e)
+        Err(e) => {
+          if log_func {
+            trace(
+              "func[\{ordinal}] phase=candidate_scan error elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)} \{e}",
+            )
+          }
+          Err(e)
+        }
       }
-    _ => Ok(func)
+    }
+    _ => {
+      if log_func {
+        trace("func[\{ordinal}] skip non-typed-func")
+      }
+      Ok(func)
+    }
   }
 }
 
@@ -1275,9 +1918,21 @@ fn rub_optimize_func_fixpoint(
 fn remove_unused_brs(
   mod : Module,
   options? : OptimizeOptions = OptimizeOptions::new(),
+  trace? : (String) -> Unit = rub_trace_noop,
+  trace_all_funcs? : Bool = false,
 ) -> Result[Module, String] {
+  let next_ordinal = Ref::new(0)
   let pass = ModuleTransformer::new().on_func_evt(fn(_, state, func) {
-    match rub_optimize_func_fixpoint(func, options) {
+    next_ordinal.val += 1
+    let ordinal = next_ordinal.val
+    match
+      rub_optimize_func_fixpoint(
+        func,
+        options,
+        trace~,
+        ordinal~,
+        trace_all_funcs~,
+      ) {
       Ok(next_func) =>
         if next_func == func {
           unchanged()
@@ -1345,6 +2000,60 @@ fn rub_assert_valid_module(mod : Module) -> Unit {
     Ok(_) => ()
     Err(e) => abort("expected module to validate: \{e}")
   }
+}
+
+///|
+test "remove_unused_brs traces function phases and rounds" {
+  let trace_logs : Array[String] = []
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([TInstr::br(LabelIdx::new(0), [])]),
+    ),
+  ])
+  let mod = rub_single_void_func_module([], body)
+  match
+    remove_unused_brs(
+      mod,
+      trace=fn(msg) { trace_logs.push(msg) },
+      trace_all_funcs=true,
+    ) {
+    Ok(_) => ()
+    Err(e) => fail("unexpected remove_unused_brs trace error: \{e}")
+  }
+
+  let mut saw_func_start = false
+  let mut saw_candidate_scan = false
+  let mut saw_round_start = false
+  let mut saw_round_progress = false
+  let mut saw_round_done = false
+  let mut saw_func_done = false
+  for msg in trace_logs {
+    if msg.contains("func[1] start") {
+      saw_func_start = true
+    }
+    if msg.contains("func[1] phase=candidate_scan done") {
+      saw_candidate_scan = true
+    }
+    if msg.contains("func[1] round[1] walk:start") {
+      saw_round_start = true
+    }
+    if msg.contains("func[1] round[1] progress phase=walk:start") {
+      saw_round_progress = true
+    }
+    if msg.contains("func[1] round[1] walk:done") {
+      saw_round_done = true
+    }
+    if msg.contains("func[1] done") {
+      saw_func_done = true
+    }
+  }
+  assert_true(saw_func_start)
+  assert_true(saw_candidate_scan)
+  assert_true(saw_round_start)
+  assert_true(saw_round_progress)
+  assert_true(saw_round_done)
+  assert_true(saw_func_done)
 }
 
 ///|

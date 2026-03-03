@@ -433,7 +433,15 @@ fn run_ir_context_transformer_scheduler_pass(
         redundant_set_elimination_ir_pass(mod),
       )
     PickLoadSigns =>
-      apply_ir_transformer_pass(ctx, mod, pick_load_signs_ir_pass(mod))
+      apply_ir_transformer_pass(
+        ctx,
+        mod,
+        pick_load_signs_ir_pass_with_trace(
+          mod,
+          trace=fn(msg) { trace("pick_load_signs:\{msg}") },
+          trace_all_funcs=trace_pass_details,
+        ),
+      )
     GUFA => apply_ir_transformer_pass(ctx, mod, gufa_ir_pass(mod, false))
     GUFAOptimizing =>
       match apply_ir_transformer_pass(ctx, mod, gufa_ir_pass(mod, false)) {
@@ -780,31 +788,12 @@ fn run_module_runner_scheduler_pass(
       })
     RemoveUnusedBrs =>
       apply_module_runner_pass(mod, fn(mod) {
-        let before_func_318 = optimize_debug_render_func(
+        remove_unused_brs(
           mod,
-          OPTIMIZE_DEBUG_FUNC_INDEX,
+          options~,
+          trace=fn(msg) { trace("remove_unused_brs:\{msg}") },
+          trace_all_funcs=trace_pass_details,
         )
-        println(
-          "RemoveUnusedBrs func[\{OPTIMIZE_DEBUG_FUNC_INDEX}] before:\n\{before_func_318}",
-        )
-        match remove_unused_brs(mod, options~) {
-          Ok(next_mod) => {
-            let after_func_318 = optimize_debug_render_func(
-              next_mod,
-              OPTIMIZE_DEBUG_FUNC_INDEX,
-            )
-            println(
-              "RemoveUnusedBrs func[\{OPTIMIZE_DEBUG_FUNC_INDEX}] after:\n\{after_func_318}",
-            )
-            Ok(next_mod)
-          }
-          Err(e) => {
-            println(
-              "RemoveUnusedBrs func[\{OPTIMIZE_DEBUG_FUNC_INDEX}] error: \{e}",
-            )
-            Err(e)
-          }
-        }
       })
     ReorderTypes =>
       apply_module_runner_pass(mod, fn(mod) { reorder_types(mod) })
@@ -1123,35 +1112,6 @@ fn optimize_cleanup_cost_profile(mod : Module) -> OptimizeCleanupCostProfile {
     None => ()
   }
   { func_count, top_instr_sum }
-}
-
-///|
-const OPTIMIZE_DEBUG_FUNC_INDEX : Int = 398
-
-///|
-fn optimize_debug_pretty_func(func : Func) -> String {
-  let normalized = match func {
-    TFunc(tlocals, body) =>
-      Func::new(tlocals_to_locals(tlocals), body.to_expr())
-    _ => func
-  }
-  apply_pretty_context(
-    normalized.to_string(),
-    PrettyPrintContext::new(max_line_width=100U),
-  )
-}
-
-///|
-fn optimize_debug_render_func(mod : Module, func_index : Int) -> String {
-  match mod.code_sec {
-    Some(CodeSec(funcs)) =>
-      if func_index < funcs.length() {
-        optimize_debug_pretty_func(funcs[func_index])
-      } else {
-        "<missing function \{func_index}; code_sec length=\{funcs.length()}>"
-      }
-    None => "<missing code section>"
-  }
 }
 
 ///|

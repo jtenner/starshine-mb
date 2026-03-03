@@ -16,7 +16,6 @@
 
 ///|
 using @lib {
-  apply_pretty_context,
   expand_locals,
   sub_type,
   single_rec_type,
@@ -102,7 +101,6 @@ using @lib {
   type PackType,
   type StorageType,
   type TagType,
-  type PrettyPrintContext,
 }
 
 ///|

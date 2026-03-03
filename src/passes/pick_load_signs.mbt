@@ -15,6 +15,12 @@
 ///
 
 ///|
+const PLS_TRACE_PROGRESS_INTERVAL : Int = 4096
+
+///|
+const PLS_TRACE_PROGRESS_INTERVAL_MS : UInt64 = 250UL
+
+///|
 priv struct PLSUsage {
   mut signed_usages : Int
   mut signed_bits : Int
@@ -45,6 +51,63 @@ priv struct PLSCandidateLoad {
 priv struct PLSAnalysis {
   usage_by_local : Map[Int, PLSUsage]
   candidates : Array[PLSCandidateLoad]
+}
+
+///|
+fn pls_trace_noop(_ : String) -> Unit {
+  ()
+}
+
+///|
+fn pls_trace_should_log_func(ordinal : Int, trace_all_funcs : Bool) -> Bool {
+  trace_all_funcs || ordinal <= 5 || ordinal % 250 == 0
+}
+
+///|
+fn pls_instr_kind_name(instr : TInstr) -> String {
+  match instr.kind {
+    TInstrKind::TLoad(_, _, _) => "load"
+    TInstrKind::TLocalGet(_) => "local.get"
+    TInstrKind::TLocalSet(_, _) => "local.set"
+    TInstrKind::TLocalTee(_, _) => "local.tee"
+    TInstrKind::TUnary(_, _) => "unary"
+    TInstrKind::TBinary(_, _, _) => "binary"
+    TInstrKind::TBlock(_, _) => "block"
+    TInstrKind::TLoop(_, _) => "loop"
+    TInstrKind::TIf(_, _, _, _) => "if"
+    TInstrKind::TDrop(_) => "drop"
+    _ => "other"
+  }
+}
+
+///|
+fn pls_trace_maybe_progress(
+  log_func : Bool,
+  trace : (String) -> Unit,
+  ordinal : Int,
+  phase : String,
+  func_start_ms : UInt64,
+  phase_start_ms : UInt64,
+  last_progress_ms : Ref[UInt64],
+  instr_visits : Int,
+  local_gets : Int,
+  candidates : Int,
+  rewrites : Int,
+  curr : TInstr,
+) -> Unit {
+  if !log_func {
+    return
+  }
+  let now_ms = sl_trace_now_ms()
+  let should_trace_progress = (instr_visits <= 1024 && instr_visits % 256 == 0) ||
+    instr_visits % PLS_TRACE_PROGRESS_INTERVAL == 0 ||
+    now_ms >= last_progress_ms.val + PLS_TRACE_PROGRESS_INTERVAL_MS
+  if should_trace_progress {
+    last_progress_ms.val = now_ms
+    trace(
+      "func[\{ordinal}] phase=\{phase} progress elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)} phase_ms=\{sl_trace_elapsed_ms(phase_start_ms)} instrs=\{instr_visits} local_gets=\{local_gets} candidates=\{candidates} rewrites=\{rewrites} current=\{pls_instr_kind_name(curr)}",
+    )
+  }
 }
 
 ///|
@@ -333,16 +396,42 @@ fn pls_candidate_load(
 
 ///|
 fn pls_analyze_body(body : TExpr) -> Result[PLSAnalysis, String] {
+  pls_analyze_body_with_trace(body, pls_trace_noop, 0, false, 0UL)
+}
+
+///|
+fn pls_analyze_body_with_trace(
+  body : TExpr,
+  trace : (String) -> Unit,
+  ordinal : Int,
+  log_func : Bool,
+  func_start_ms : UInt64,
+) -> Result[PLSAnalysis, String] {
+  let phase_start_ms = sl_trace_now_ms()
   let usage_by_local : Map[Int, PLSUsage] = Map::new()
   let candidates : Array[PLSCandidateLoad] = []
   let parent_stack : Array[TInstr] = []
+  let last_progress_ms = Ref::new(phase_start_ms)
+  let instr_visits = Ref::new(0)
+  let local_gets = Ref::new(0)
+  let candidate_count = Ref::new(0)
+  if log_func {
+    trace(
+      "func[\{ordinal}] phase=analyze start top_instrs=\{body.instrs.length()}",
+    )
+  }
   let scanner = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+    instr_visits.update(fn(n) { n + 1 })
     match pls_candidate_load(curr, parent_stack) {
-      Some(candidate) => candidates.push(candidate)
+      Some(candidate) => {
+        candidates.push(candidate)
+        candidate_count.update(fn(n) { n + 1 })
+      }
       None => ()
     }
     match curr.kind {
       TInstrKind::TLocalGet(local_idx) => {
+        local_gets.update(fn(n) { n + 1 })
         let local_int = pls_local_idx_to_int(local_idx)
         let usage = pls_get_usage(usage_by_local, local_int)
         usage.total_usages += 1
@@ -366,14 +455,42 @@ fn pls_analyze_body(body : TExpr) -> Result[PLSAnalysis, String] {
       }
       _ => ()
     }
+    pls_trace_maybe_progress(
+      log_func,
+      trace,
+      ordinal,
+      "analyze",
+      func_start_ms,
+      phase_start_ms,
+      last_progress_ms,
+      instr_visits.val,
+      local_gets.val,
+      candidate_count.val,
+      0,
+      curr,
+    )
     parent_stack.push(curr)
     let out = self.walk_tinstruction_default((), curr)
     ignore(parent_stack.pop())
     out
   })
   match scanner.walk_texpr((), body) {
-    Ok(_) => Ok({ usage_by_local, candidates })
-    Err(e) => Err(e)
+    Ok(_) => {
+      if log_func {
+        trace(
+          "func[\{ordinal}] phase=analyze done elapsed_ms=\{sl_trace_elapsed_ms(phase_start_ms)} instrs=\{instr_visits.val} local_gets=\{local_gets.val} candidates=\{candidate_count.val} usage_locals=\{usage_by_local.length()}",
+        )
+      }
+      Ok({ usage_by_local, candidates })
+    }
+    Err(e) => {
+      if log_func {
+        trace(
+          "func[\{ordinal}] phase=analyze error elapsed_ms=\{sl_trace_elapsed_ms(phase_start_ms)} instrs=\{instr_visits.val} local_gets=\{local_gets.val} candidates=\{candidate_count.val} \{e}",
+        )
+      }
+      Err(e)
+    }
   }
 }
 
@@ -394,19 +511,38 @@ fn pls_target_signedness(
 }
 
 ///|
-fn pls_rewrite_body(
+fn pls_rewrite_body_with_trace(
   body : TExpr,
   analysis : PLSAnalysis,
+  trace : (String) -> Unit,
+  ordinal : Int,
+  log_func : Bool,
+  func_start_ms : UInt64,
 ) -> Result[TExpr, String] {
+  let phase_start_ms = sl_trace_now_ms()
   if analysis.candidates.is_empty() {
+    if log_func {
+      trace(
+        "func[\{ordinal}] phase=rewrite skip elapsed_ms=\{sl_trace_elapsed_ms(phase_start_ms)} reason=no_candidates",
+      )
+    }
     return Ok(body)
   }
   let parent_stack : Array[TInstr] = []
+  let last_progress_ms = Ref::new(phase_start_ms)
+  let instr_visits = Ref::new(0)
+  let rewrite_count = Ref::new(0)
+  if log_func {
+    trace(
+      "func[\{ordinal}] phase=rewrite start top_instrs=\{body.instrs.length()} candidates=\{analysis.candidates.length()}",
+    )
+  }
   let rewriter = ModuleTransformer::new().on_tinstruction_evt(fn(
     self,
     _,
     curr,
   ) {
+    instr_visits.update(fn(n) { n + 1 })
     let candidate = pls_candidate_load(curr, parent_stack)
     parent_stack.push(curr)
     let walked = match self.walk_tinstruction_default((), curr) {
@@ -432,31 +568,101 @@ fn pls_rewrite_body(
       }
       None => walked
     }
+    if output != curr {
+      rewrite_count.update(fn(n) { n + 1 })
+    }
+    pls_trace_maybe_progress(
+      log_func,
+      trace,
+      ordinal,
+      "rewrite",
+      func_start_ms,
+      phase_start_ms,
+      last_progress_ms,
+      instr_visits.val,
+      0,
+      analysis.candidates.length(),
+      rewrite_count.val,
+      curr,
+    )
     if output == curr {
-      unchanged()
+      change((), walked)
     } else {
       change((), output)
     }
   })
   match rewriter.walk_texpr((), body) {
-    Ok(Some((_, rewritten))) => Ok(rewritten)
-    Ok(None) => Ok(body)
-    Err(e) => Err(e)
+    Ok(Some((_, rewritten))) => {
+      if log_func {
+        trace(
+          "func[\{ordinal}] phase=rewrite done elapsed_ms=\{sl_trace_elapsed_ms(phase_start_ms)} instrs=\{instr_visits.val} rewrites=\{rewrite_count.val} changed=\{rewritten != body} top_instrs=\{body.instrs.length()}->\{rewritten.instrs.length()}",
+        )
+      }
+      Ok(rewritten)
+    }
+    Ok(None) => {
+      if log_func {
+        trace(
+          "func[\{ordinal}] phase=rewrite done elapsed_ms=\{sl_trace_elapsed_ms(phase_start_ms)} instrs=\{instr_visits.val} rewrites=\{rewrite_count.val} changed=false top_instrs=\{body.instrs.length()}->\{body.instrs.length()}",
+        )
+      }
+      Ok(body)
+    }
+    Err(e) => {
+      if log_func {
+        trace(
+          "func[\{ordinal}] phase=rewrite error elapsed_ms=\{sl_trace_elapsed_ms(phase_start_ms)} instrs=\{instr_visits.val} rewrites=\{rewrite_count.val} \{e}",
+        )
+      }
+      Err(e)
+    }
   }
 }
 
 ///|
-fn pick_load_signs_on_func(func : Func) -> Result[Func, String] {
+fn pick_load_signs_on_func(
+  ordinal : Int,
+  func : Func,
+  trace : (String) -> Unit,
+  trace_all_funcs : Bool,
+) -> Result[Func, String] {
+  let log_func = pls_trace_should_log_func(ordinal, trace_all_funcs)
+  let func_start_ms = sl_trace_now_ms()
   match func {
-    Func(_) => Ok(func)
+    Func(_) => {
+      if log_func {
+        trace(
+          "func[\{ordinal}] skip non-typed-func elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)}",
+        )
+      }
+      Ok(func)
+    }
     TFunc(locals, body) => {
-      let analysis = match pls_analyze_body(body) {
+      let candidate_count = Ref::new(0)
+      if log_func {
+        trace(
+          "func[\{ordinal}] start locals=\{locals.length()} top_instrs=\{body.instrs.length()}",
+        )
+      }
+      let analysis = match
+        pls_analyze_body_with_trace(
+          body, trace, ordinal, log_func, func_start_ms,
+        ) {
         Ok(a) => a
         Err(e) => return Err(e)
       }
-      let rewritten = match pls_rewrite_body(body, analysis) {
+      candidate_count.val = analysis.candidates.length()
+      let rewritten = match
+        pls_rewrite_body_with_trace(
+          body, analysis, trace, ordinal, log_func, func_start_ms,
+        ) {
         Ok(out) => out
         Err(e) => return Err(e)
+      }
+      if log_func {
+        trace(
+          "func[\{ordinal}] done elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)} changed=\{rewritten != body} top_instrs=\{body.instrs.length()}->\{rewritten.instrs.length()} locals=\{locals.length()} candidates=\{candidate_count.val}",
+        )
       }
       Ok(Func::t_func(locals, rewritten))
     }
@@ -464,9 +670,17 @@ fn pick_load_signs_on_func(func : Func) -> Result[Func, String] {
 }
 
 ///|
-fn pick_load_signs_ir_pass(_mod : Module) -> ModuleTransformer[IRContext] {
+fn pick_load_signs_ir_pass_with_trace(
+  _mod : Module,
+  trace? : (String) -> Unit = pls_trace_noop,
+  trace_all_funcs? : Bool = false,
+) -> ModuleTransformer[IRContext] {
+  let next_def_idx = Ref::new(0)
   ModuleTransformer::new().on_func_evt(fn(_, state, func) {
-    match pick_load_signs_on_func(func) {
+    let def_idx = next_def_idx.val
+    next_def_idx.update(fn(i) { i + 1 })
+    let ordinal = def_idx + 1
+    match pick_load_signs_on_func(ordinal, func, trace, trace_all_funcs) {
       Ok(updated) =>
         if updated == func {
           unchanged()
@@ -476,6 +690,11 @@ fn pick_load_signs_ir_pass(_mod : Module) -> ModuleTransformer[IRContext] {
       Err(e) => Err(e)
     }
   })
+}
+
+///|
+fn pick_load_signs_ir_pass(mod : Module) -> ModuleTransformer[IRContext] {
+  pick_load_signs_ir_pass_with_trace(mod)
 }
 
 ///|
@@ -1024,6 +1243,77 @@ test "pick_load_signs rewrites all candidate loads mapped to the same loc" {
     }
     _ => fail("expected transformed function")
   }
+}
+
+///|
+test "pick_load_signs trace covers function phases" {
+  let logs : Array[String] = []
+  let loc = LocalIdx::new(0)
+  ignore(
+    match
+      pick_load_signs_ir_pass_with_trace(
+        Module::new(),
+        trace=fn(msg) { logs.push(msg) },
+        trace_all_funcs=true,
+      ).walk_func(
+        IRContext::new(),
+        Func::t_func(
+          [ValType::i32()],
+          TExpr::new([
+            TInstr::local_set(
+              loc,
+              TInstr::load(
+                LoadOp::i32_load8s(),
+                MemArg::new(0, None, 0),
+                pls_i32_const_instr(0),
+              ),
+            ),
+            TInstr::drop(
+              TInstr::binary(
+                BinaryOp::i32_and(),
+                TInstr::local_get(loc),
+                pls_i32_const_instr(255),
+              ),
+            ),
+          ]),
+        ),
+      ) {
+      Ok(_) => ()
+      Err(e) => fail("unexpected pick_load_signs trace error: \{e}")
+    },
+  )
+  let mut saw_start = false
+  let mut saw_analyze_start = false
+  let mut saw_analyze_done = false
+  let mut saw_rewrite_start = false
+  let mut saw_rewrite_done = false
+  let mut saw_done = false
+  for msg in logs {
+    if msg.contains("func[1] start") {
+      saw_start = true
+    }
+    if msg.contains("func[1] phase=analyze start") {
+      saw_analyze_start = true
+    }
+    if msg.contains("func[1] phase=analyze done") {
+      saw_analyze_done = true
+    }
+    if msg.contains("func[1] phase=rewrite start") {
+      saw_rewrite_start = true
+    }
+    if msg.contains("func[1] phase=rewrite done") {
+      saw_rewrite_done = true
+    }
+    if msg.contains("func[1] done") {
+      saw_done = true
+    }
+  }
+  assert_true(saw_start)
+  assert_true(saw_analyze_start)
+  assert_true(saw_analyze_done)
+  assert_true(saw_rewrite_start)
+  assert_true(saw_rewrite_done)
+  assert_true(saw_done)
 }
 
 ///|
