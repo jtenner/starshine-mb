@@ -1566,6 +1566,631 @@ fn pc_fold_instr(
 }
 
 ///|
+fn pc_rebuild_non_control(instr : TInstr, children : Array[TInstr]) -> TInstr {
+  match instr.kind {
+    // Zero-operand instructions.
+    TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_)
+    | TInstrKind::TRefNull(_)
+    | TInstrKind::TRefFunc(_)
+    | TInstrKind::TV128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    | TInstrKind::TUnreachable
+    | TInstrKind::TNop
+    | TInstrKind::TLocalGet(_)
+    | TInstrKind::TGlobalGet(_)
+    | TInstrKind::TMemorySize(_)
+    | TInstrKind::TAtomicFence
+    | TInstrKind::TTableSize(_)
+    | TInstrKind::TDataDrop(_)
+    | TInstrKind::TElemDrop(_)
+    | TInstrKind::TStructNewDefault(_) => instr
+
+    // Unary operands.
+    TInstrKind::TUnary(op, _) => TInstr::unary(op, children[0])
+    TInstrKind::TDrop(_) => TInstr::drop(children[0])
+    TInstrKind::TLocalSet(idx, _) => TInstr::local_set(idx, children[0])
+    TInstrKind::TLocalTee(idx, _) => TInstr::local_tee(idx, children[0])
+    TInstrKind::TGlobalSet(idx, _) => TInstr::global_set(idx, children[0])
+    TInstrKind::TRefIsNull(_) => TInstr::ref_is_null(children[0])
+    TInstrKind::TRefAsNonNull(_) => TInstr::ref_as_non_null(children[0])
+    TInstrKind::TI31GetS(_) => TInstr::i31_get_s(children[0])
+    TInstrKind::TI31GetU(_) => TInstr::i31_get_u(children[0])
+    TInstrKind::TRefI31(_) => TInstr::ref_i31(children[0])
+    TInstrKind::TArrayLen(_) => TInstr::array_len(children[0])
+    TInstrKind::TAnyConvertExtern(_) => TInstr::any_convert_extern(children[0])
+    TInstrKind::TExternConvertAny(_) => TInstr::extern_convert_any(children[0])
+    TInstrKind::TThrowRef(_) => TInstr::throw_ref(children[0])
+    TInstrKind::TMemoryGrow(idx, _) => TInstr::memory_grow(idx, children[0])
+    TInstrKind::TTableGet(idx, _) => TInstr::table_get(idx, children[0])
+    TInstrKind::TLoad(op, memarg, _) => TInstr::load(op, memarg, children[0])
+    TInstrKind::TArrayNewDefault(type_idx, _) =>
+      TInstr::array_new_default(type_idx, children[0])
+    TInstrKind::TStructGet(type_idx, field_idx, _) =>
+      TInstr::struct_get(type_idx, field_idx, children[0])
+    TInstrKind::TStructGetS(type_idx, field_idx, _) =>
+      TInstr::struct_get_s(type_idx, field_idx, children[0])
+    TInstrKind::TStructGetU(type_idx, field_idx, _) =>
+      TInstr::struct_get_u(type_idx, field_idx, children[0])
+    TInstrKind::TI8x16Splat(_) => TInstr::i8x16_splat(children[0])
+    TInstrKind::TI16x8Splat(_) => TInstr::i16x8_splat(children[0])
+    TInstrKind::TI32x4Splat(_) => TInstr::i32x4_splat(children[0])
+    TInstrKind::TI64x2Splat(_) => TInstr::i64x2_splat(children[0])
+    TInstrKind::TF32x4Splat(_) => TInstr::f32x4_splat(children[0])
+    TInstrKind::TF64x2Splat(_) => TInstr::f64x2_splat(children[0])
+    TInstrKind::TExtractLane(op, lane, _) =>
+      TInstr::extract_lane(op, lane, children[0])
+    TInstrKind::TRefTest(nullable, ht, _) =>
+      TInstr::ref_test(nullable, ht, children[0])
+    TInstrKind::TRefCast(nullable, ht, _) =>
+      TInstr::ref_cast(nullable, ht, children[0])
+    TInstrKind::TRefGetDesc(_) => TInstr::ref_get_desc(children[0])
+    TInstrKind::TRefTestDesc(nullable, ht, _) =>
+      TInstr::ref_test_desc(nullable, ht, children[0])
+    TInstrKind::TRefCastDescEq(nullable, ht, _) =>
+      TInstr::ref_cast_desc_eq(nullable, ht, children[0])
+
+    // Two operands.
+    TInstrKind::TBinary(op, _, _) =>
+      TInstr::binary(op, children[0], children[1])
+    TInstrKind::TRefEq(_, _) => TInstr::ref_eq(children[0], children[1])
+    TInstrKind::TStore(op, memarg, _, _) =>
+      TInstr::store(op, memarg, children[0], children[1])
+    TInstrKind::TMemoryAtomicNotify(memarg, _, _) =>
+      TInstr::memory_atomic_notify(memarg, children[0], children[1])
+    TInstrKind::TAtomicRmw(op, memarg, _, _) =>
+      TInstr::atomic_rmw(op, memarg, children[0], children[1])
+    TInstrKind::TTableSet(table_idx, _, _) =>
+      TInstr::table_set(table_idx, children[0], children[1])
+    TInstrKind::TTableGrow(table_idx, _, _) =>
+      TInstr::table_grow(table_idx, children[0], children[1])
+    TInstrKind::TStructSet(type_idx, field_idx, _, _) =>
+      TInstr::struct_set(type_idx, field_idx, children[0], children[1])
+    TInstrKind::TArrayNew(type_idx, _, _) =>
+      TInstr::array_new(type_idx, children[0], children[1])
+    TInstrKind::TArrayNewData(type_idx, data_idx, _, _) =>
+      TInstr::array_new_data(type_idx, data_idx, children[0], children[1])
+    TInstrKind::TArrayNewElem(type_idx, elem_idx, _, _) =>
+      TInstr::array_new_elem(type_idx, elem_idx, children[0], children[1])
+    TInstrKind::TArrayGet(type_idx, _, _) =>
+      TInstr::array_get(type_idx, children[0], children[1])
+    TInstrKind::TArrayGetS(type_idx, _, _) =>
+      TInstr::array_get_s(type_idx, children[0], children[1])
+    TInstrKind::TArrayGetU(type_idx, _, _) =>
+      TInstr::array_get_u(type_idx, children[0], children[1])
+    TInstrKind::TReplaceLane(op, lane, _, _) =>
+      TInstr::replace_lane(op, lane, children[0], children[1])
+    TInstrKind::TI8x16Swizzle(_, _) =>
+      TInstr::i8x16_swizzle(children[0], children[1])
+    TInstrKind::TI8x16RelaxedSwizzle(_, _) =>
+      TInstr::i8x16_relaxed_swizzle(children[0], children[1])
+    TInstrKind::TV128Shift(op, _, _) =>
+      TInstr::v128_shift(op, children[0], children[1])
+    TInstrKind::TV128LoadLane(op, memarg, lane, _, _) =>
+      TInstr::v128_load_lane(op, memarg, lane, children[0], children[1])
+    TInstrKind::TV128StoreLane(op, memarg, lane, _, _) =>
+      TInstr::v128_store_lane(op, memarg, lane, children[0], children[1])
+
+    // Three operands.
+    TInstrKind::TMemoryFill(mem_idx, _, _, _) =>
+      TInstr::memory_fill(mem_idx, children[0], children[1], children[2])
+    TInstrKind::TMemoryCopy(dst, src, _, _, _) =>
+      TInstr::memory_copy(dst, src, children[0], children[1], children[2])
+    TInstrKind::TMemoryInit(data_idx, mem_idx, _, _, _) =>
+      TInstr::memory_init(
+        data_idx,
+        mem_idx,
+        children[0],
+        children[1],
+        children[2],
+      )
+    TInstrKind::TMemoryAtomicWait32(memarg, _, _, _) =>
+      TInstr::memory_atomic_wait32(
+        memarg,
+        children[0],
+        children[1],
+        children[2],
+      )
+    TInstrKind::TMemoryAtomicWait64(memarg, _, _, _) =>
+      TInstr::memory_atomic_wait64(
+        memarg,
+        children[0],
+        children[1],
+        children[2],
+      )
+    TInstrKind::TAtomicCmpxchg(op, memarg, _, _, _) =>
+      TInstr::atomic_cmpxchg(op, memarg, children[0], children[1], children[2])
+    TInstrKind::TTableFill(table_idx, _, _, _) =>
+      TInstr::table_fill(table_idx, children[0], children[1], children[2])
+    TInstrKind::TTableCopy(dst, src, _, _, _) =>
+      TInstr::table_copy(dst, src, children[0], children[1], children[2])
+    TInstrKind::TTableInit(elem_idx, table_idx, _, _, _) =>
+      TInstr::table_init(
+        elem_idx,
+        table_idx,
+        children[0],
+        children[1],
+        children[2],
+      )
+    TInstrKind::TSelect(types, _, _, _) =>
+      TInstr::select(types, children[2], children[0], children[1])
+    TInstrKind::TV128Ternary(op, _, _, _) =>
+      TInstr::v128_ternary(op, children[0], children[1], children[2])
+
+    // Variable-length operands.
+    TInstrKind::TCall(func_idx, args) => {
+      let rebuilt = []
+      for i = 0; i < args.length(); i = i + 1 {
+        rebuilt.push(children[i])
+      }
+      TInstr::call(func_idx, rebuilt)
+    }
+    TInstrKind::TReturnCall(func_idx, args) => {
+      let rebuilt = []
+      for i = 0; i < args.length(); i = i + 1 {
+        rebuilt.push(children[i])
+      }
+      TInstr::return_call(func_idx, rebuilt)
+    }
+    TInstrKind::TThrow(tag_idx, args) => {
+      let rebuilt = []
+      for i = 0; i < args.length(); i = i + 1 {
+        rebuilt.push(children[i])
+      }
+      TInstr::throw_(tag_idx, rebuilt)
+    }
+    TInstrKind::TBr(label_idx, args) => {
+      let rebuilt = []
+      for i = 0; i < args.length(); i = i + 1 {
+        rebuilt.push(children[i])
+      }
+      TInstr::br(label_idx, rebuilt)
+    }
+    TInstrKind::TReturn(args) => {
+      let rebuilt = []
+      for i = 0; i < args.length(); i = i + 1 {
+        rebuilt.push(children[i])
+      }
+      TInstr::return_(rebuilt)
+    }
+    TInstrKind::TStructNew(type_idx, args) => {
+      let rebuilt = []
+      for i = 0; i < args.length(); i = i + 1 {
+        rebuilt.push(children[i])
+      }
+      TInstr::struct_new(type_idx, rebuilt)
+    }
+    TInstrKind::TArrayNewFixed(type_idx, args) => {
+      let rebuilt = []
+      for i = 0; i < args.length(); i = i + 1 {
+        rebuilt.push(children[i])
+      }
+      TInstr::array_new_fixed(type_idx, rebuilt)
+    }
+    TInstrKind::TCallIndirect(type_idx, table_idx, args, _) => {
+      let rebuilt_args = []
+      for i = 0; i < args.length(); i = i + 1 {
+        rebuilt_args.push(children[i])
+      }
+      TInstr::call_indirect(
+        type_idx,
+        table_idx,
+        rebuilt_args,
+        children[args.length()],
+      )
+    }
+    TInstrKind::TReturnCallIndirect(type_idx, table_idx, args, _) => {
+      let rebuilt_args = []
+      for i = 0; i < args.length(); i = i + 1 {
+        rebuilt_args.push(children[i])
+      }
+      TInstr::return_call_indirect(
+        type_idx,
+        table_idx,
+        rebuilt_args,
+        children[args.length()],
+      )
+    }
+    TInstrKind::TCallRef(type_idx, args, _) => {
+      let rebuilt_args = []
+      for i = 0; i < args.length(); i = i + 1 {
+        rebuilt_args.push(children[i])
+      }
+      TInstr::call_ref(type_idx, rebuilt_args, children[args.length()])
+    }
+    TInstrKind::TReturnCallRef(type_idx, args, _) => {
+      let rebuilt_args = []
+      for i = 0; i < args.length(); i = i + 1 {
+        rebuilt_args.push(children[i])
+      }
+      TInstr::return_call_ref(type_idx, rebuilt_args, children[args.length()])
+    }
+    TInstrKind::TBrIf(label_idx, _, values) => {
+      let rebuilt_values = []
+      for i = 0; i < values.length(); i = i + 1 {
+        rebuilt_values.push(children[i])
+      }
+      TInstr::br_if(label_idx, children[values.length()], rebuilt_values)
+    }
+    TInstrKind::TBrTable(labels, default, _, values) => {
+      let rebuilt_values = []
+      for i = 0; i < values.length(); i = i + 1 {
+        rebuilt_values.push(children[i])
+      }
+      TInstr::br_table(
+        labels,
+        default,
+        children[values.length()],
+        rebuilt_values,
+      )
+    }
+    TInstrKind::TBrOnNull(label_idx, _, values) => {
+      let rebuilt_values = []
+      for i = 0; i < values.length(); i = i + 1 {
+        rebuilt_values.push(children[i])
+      }
+      TInstr::br_on_null(label_idx, children[values.length()], rebuilt_values)
+    }
+    TInstrKind::TBrOnNonNull(label_idx, _, values) => {
+      let rebuilt_values = []
+      for i = 0; i < values.length(); i = i + 1 {
+        rebuilt_values.push(children[i])
+      }
+      TInstr::br_on_non_null(
+        label_idx,
+        children[values.length()],
+        rebuilt_values,
+      )
+    }
+    TInstrKind::TBrOnCast(label_idx, castop, ht1, ht2, _, values) => {
+      let rebuilt_values = []
+      for i = 0; i < values.length(); i = i + 1 {
+        rebuilt_values.push(children[i])
+      }
+      TInstr::br_on_cast(
+        label_idx,
+        castop.0,
+        ht1,
+        castop.1,
+        ht2,
+        children[values.length()],
+        rebuilt_values,
+      )
+    }
+    TInstrKind::TBrOnCastFail(label_idx, castop, ht1, ht2, _, values) => {
+      let rebuilt_values = []
+      for i = 0; i < values.length(); i = i + 1 {
+        rebuilt_values.push(children[i])
+      }
+      TInstr::br_on_cast_fail(
+        label_idx,
+        castop.0,
+        ht1,
+        castop.1,
+        ht2,
+        children[values.length()],
+        rebuilt_values,
+      )
+    }
+    TInstrKind::TArraySet(type_idx, _, _, _) =>
+      TInstr::array_set(type_idx, children[0], children[1], children[2])
+    TInstrKind::TArrayFill(type_idx, _, _, _, _) =>
+      TInstr::array_fill(
+        type_idx,
+        children[0],
+        children[1],
+        children[2],
+        children[3],
+      )
+    TInstrKind::TArrayCopy(dst_type, src_type, _, _, _, _, _) =>
+      TInstr::array_copy(
+        dst_type,
+        src_type,
+        children[0],
+        children[1],
+        children[2],
+        children[3],
+        children[4],
+      )
+    TInstrKind::TArrayInitData(type_idx, data_idx, _, _, _, _) =>
+      TInstr::array_init_data(
+        type_idx,
+        data_idx,
+        children[0],
+        children[1],
+        children[2],
+        children[3],
+      )
+    TInstrKind::TArrayInitElem(type_idx, elem_idx, _, _, _, _) =>
+      TInstr::array_init_elem(
+        type_idx,
+        elem_idx,
+        children[0],
+        children[1],
+        children[2],
+        children[3],
+      )
+    TInstrKind::TI8x16Shuffle(
+      l0,
+      l1,
+      l2,
+      l3,
+      l4,
+      l5,
+      l6,
+      l7,
+      l8,
+      l9,
+      l10,
+      l11,
+      l12,
+      l13,
+      l14,
+      l15,
+      _,
+      _
+    ) =>
+      TInstr::i8x16_shuffle(
+        l0,
+        l1,
+        l2,
+        l3,
+        l4,
+        l5,
+        l6,
+        l7,
+        l8,
+        l9,
+        l10,
+        l11,
+        l12,
+        l13,
+        l14,
+        l15,
+        children[0],
+        children[1],
+      )
+
+    // Control-flow structures are rebuilt in dedicated handlers.
+    TInstrKind::TBlock(_, _)
+    | TInstrKind::TLoop(_, _)
+    | TInstrKind::TIf(_, _, _, _)
+    | TInstrKind::TTryTable(_, _, _) => instr
+  }
+}
+
+///|
+fn pc_trace_simplify_progress(
+  visit_id : Int,
+  curr : TInstr,
+  rewritten : Ref[Int],
+  cache_hits : Ref[Int],
+  body_start_ms : UInt64,
+  last_progress_ms : Ref[UInt64],
+  trace : (String) -> Unit,
+) -> Unit {
+  let now_ms = pc_trace_now_ms()
+  let total_elapsed_ms = pc_trace_elapsed_ms(body_start_ms)
+  let progress_elapsed_ms = if now_ms >= last_progress_ms.val {
+    now_ms - last_progress_ms.val
+  } else {
+    0UL
+  }
+  let should_trace_progress = (visit_id <= 1024 && visit_id % 64 == 0) ||
+    visit_id % 4096 == 0 ||
+    progress_elapsed_ms >= 1000UL
+  if should_trace_progress {
+    trace(
+      "progress visited=\{visit_id} rewritten=\{rewritten.val} cache_hits=\{cache_hits.val} elapsed_ms=\{total_elapsed_ms} tag=\{pc_trace_instr_tag(curr)} hash=\{pc_instr_hash_u64(curr)}",
+    )
+    last_progress_ms.val = now_ms
+  }
+}
+
+///|
+fn pc_simplify_instr(
+  curr : TInstr,
+  imm_globals : Map[GlobalIdx, PCLiteral],
+  options : OptimizeOptions,
+  eval_cache : Map[UInt64, PCLiteral],
+  allow_partial_precompute : Bool,
+  simplify_cache : Map[TInstr, TInstr],
+  changed : Ref[Bool],
+  visited : Ref[Int],
+  rewritten : Ref[Int],
+  cache_hits : Ref[Int],
+  body_start_ms : UInt64,
+  last_progress_ms : Ref[UInt64],
+  slow_stats : Map[PCSlowKey, PCSlowStat],
+  slow_order : Array[PCSlowKey],
+  trace : (String) -> Unit,
+) -> TInstr {
+  visited.update(fn(n) { n + 1 })
+  let visit_id = visited.val
+  match simplify_cache.get(curr) {
+    Some(cached) => {
+      cache_hits.update(fn(n) { n + 1 })
+      pc_trace_simplify_progress(
+        visit_id, curr, rewritten, cache_hits, body_start_ms, last_progress_ms, trace,
+      )
+      if cached != curr {
+        changed.val = true
+        rewritten.update(fn(n) { n + 1 })
+      }
+      cached
+    }
+    None => {
+      let walk_start_ms = pc_trace_now_ms()
+      let walked = match curr.kind {
+        TInstrKind::TBlock(bt, body) => {
+          let next_body = pc_simplify_texpr(
+            body, imm_globals, options, eval_cache, allow_partial_precompute, simplify_cache,
+            changed, visited, rewritten, cache_hits, body_start_ms, last_progress_ms,
+            slow_stats, slow_order, trace,
+          )
+          if next_body == body {
+            curr
+          } else {
+            TInstr::block(bt, next_body)
+          }
+        }
+        TInstrKind::TLoop(bt, body) => {
+          let next_body = pc_simplify_texpr(
+            body, imm_globals, options, eval_cache, allow_partial_precompute, simplify_cache,
+            changed, visited, rewritten, cache_hits, body_start_ms, last_progress_ms,
+            slow_stats, slow_order, trace,
+          )
+          if next_body == body {
+            curr
+          } else {
+            TInstr::loop_(bt, next_body)
+          }
+        }
+        TInstrKind::TTryTable(bt, catches, body) => {
+          let next_body = pc_simplify_texpr(
+            body, imm_globals, options, eval_cache, allow_partial_precompute, simplify_cache,
+            changed, visited, rewritten, cache_hits, body_start_ms, last_progress_ms,
+            slow_stats, slow_order, trace,
+          )
+          if next_body == body {
+            curr
+          } else {
+            TInstr::try_table(bt, catches, next_body)
+          }
+        }
+        TInstrKind::TIf(bt, cond, then_expr, else_expr) => {
+          let next_cond = pc_simplify_instr(
+            cond, imm_globals, options, eval_cache, allow_partial_precompute, simplify_cache,
+            changed, visited, rewritten, cache_hits, body_start_ms, last_progress_ms,
+            slow_stats, slow_order, trace,
+          )
+          let next_then = pc_simplify_texpr(
+            then_expr, imm_globals, options, eval_cache, allow_partial_precompute,
+            simplify_cache, changed, visited, rewritten, cache_hits, body_start_ms,
+            last_progress_ms, slow_stats, slow_order, trace,
+          )
+          let next_else = match else_expr {
+            Some(other) =>
+              Some(
+                pc_simplify_texpr(
+                  other, imm_globals, options, eval_cache, allow_partial_precompute,
+                  simplify_cache, changed, visited, rewritten, cache_hits, body_start_ms,
+                  last_progress_ms, slow_stats, slow_order, trace,
+                ),
+              )
+            None => None
+          }
+          if next_cond == cond &&
+            next_then == then_expr &&
+            next_else == else_expr {
+            curr
+          } else {
+            TInstr::if_(bt, next_cond, next_then, next_else)
+          }
+        }
+        _ => {
+          let children = eval_children(curr)
+          if children.is_empty() {
+            curr
+          } else {
+            let next_children : Array[TInstr] = []
+            let mut child_changed = false
+            for child in children {
+              let next_child = pc_simplify_instr(
+                child, imm_globals, options, eval_cache, allow_partial_precompute,
+                simplify_cache, changed, visited, rewritten, cache_hits, body_start_ms,
+                last_progress_ms, slow_stats, slow_order, trace,
+              )
+              if next_child != child {
+                child_changed = true
+              }
+              next_children.push(next_child)
+            }
+            if child_changed {
+              pc_rebuild_non_control(curr, next_children)
+            } else {
+              curr
+            }
+          }
+        }
+      }
+      let walk_elapsed_ms = pc_trace_elapsed_ms(walk_start_ms)
+      if walk_elapsed_ms >= 25UL {
+        pc_record_slow_trace(
+          slow_stats,
+          slow_order,
+          Walk,
+          curr,
+          walk_elapsed_ms,
+        )
+      }
+      let fold_start_ms = pc_trace_now_ms()
+      let next = pc_fold_instr(
+        walked, imm_globals, options, eval_cache, allow_partial_precompute,
+      )
+      let fold_elapsed_ms = pc_trace_elapsed_ms(fold_start_ms)
+      if fold_elapsed_ms >= 25UL {
+        pc_record_slow_trace(
+          slow_stats,
+          slow_order,
+          Fold,
+          walked,
+          fold_elapsed_ms,
+        )
+      }
+      simplify_cache[curr] = next
+      pc_trace_simplify_progress(
+        visit_id, curr, rewritten, cache_hits, body_start_ms, last_progress_ms, trace,
+      )
+      if next != curr {
+        changed.val = true
+        rewritten.update(fn(n) { n + 1 })
+      }
+      next
+    }
+  }
+}
+
+///|
+fn pc_simplify_texpr(
+  body : TExpr,
+  imm_globals : Map[GlobalIdx, PCLiteral],
+  options : OptimizeOptions,
+  eval_cache : Map[UInt64, PCLiteral],
+  allow_partial_precompute : Bool,
+  simplify_cache : Map[TInstr, TInstr],
+  changed : Ref[Bool],
+  visited : Ref[Int],
+  rewritten : Ref[Int],
+  cache_hits : Ref[Int],
+  body_start_ms : UInt64,
+  last_progress_ms : Ref[UInt64],
+  slow_stats : Map[PCSlowKey, PCSlowStat],
+  slow_order : Array[PCSlowKey],
+  trace : (String) -> Unit,
+) -> TExpr {
+  let next_instrs : Array[TInstr] = []
+  let mut body_changed = false
+  for instr in body.instrs {
+    let next_instr = pc_simplify_instr(
+      instr, imm_globals, options, eval_cache, allow_partial_precompute, simplify_cache,
+      changed, visited, rewritten, cache_hits, body_start_ms, last_progress_ms, slow_stats,
+      slow_order, trace,
+    )
+    if next_instr != instr {
+      body_changed = true
+    }
+    next_instrs.push(next_instr)
+  }
+  if body_changed {
+    TExpr::new(next_instrs)
+  } else {
+    body
+  }
+}
+
+///|
 fn pc_simplify_body(
   body : TExpr,
   imm_globals : Map[GlobalIdx, PCLiteral],
@@ -1586,125 +2211,18 @@ fn pc_simplify_body(
   trace(
     "start top=\{body.instrs.length()} allow_partial=\{allow_partial_precompute}",
   )
-  let pass = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
-    visited.update(fn(n) { n + 1 })
-    let visit_id = visited.val
-    match simplify_cache.get(curr) {
-      Some(cached) => {
-        cache_hits.update(fn(n) { n + 1 })
-        let now_ms = pc_trace_now_ms()
-        let total_elapsed_ms = pc_trace_elapsed_ms(body_start_ms)
-        let progress_elapsed_ms = if now_ms >= last_progress_ms.val {
-          now_ms - last_progress_ms.val
-        } else {
-          0UL
-        }
-        let should_trace_progress = (visit_id <= 1024 && visit_id % 64 == 0) ||
-          visit_id % 4096 == 0 ||
-          progress_elapsed_ms >= 1000UL
-        if should_trace_progress {
-          trace(
-            "progress visited=\{visit_id} rewritten=\{rewritten.val} cache_hits=\{cache_hits.val} elapsed_ms=\{total_elapsed_ms} tag=\{pc_trace_instr_tag(curr)} hash=\{pc_instr_hash_u64(curr)}",
-          )
-          last_progress_ms.val = now_ms
-        }
-        if cached == curr {
-          unchanged()
-        } else {
-          changed.update(fn(_) { true })
-          rewritten.update(fn(n) { n + 1 })
-          change((), cached)
-        }
-      }
-      None => {
-        let walk_start_ms = pc_trace_now_ms()
-        let walked = match self.walk_tinstruction_default((), curr) {
-          Ok(Some((_, out))) => out
-          Ok(None) => curr
-          Err(_) => curr
-        }
-        let walk_elapsed_ms = pc_trace_elapsed_ms(walk_start_ms)
-        if walk_elapsed_ms >= 25UL {
-          pc_record_slow_trace(
-            slow_stats,
-            slow_order,
-            Walk,
-            curr,
-            walk_elapsed_ms,
-          )
-        }
-        let fold_start_ms = pc_trace_now_ms()
-        let next = pc_fold_instr(
-          walked, imm_globals, options, eval_cache, allow_partial_precompute,
-        )
-        let fold_elapsed_ms = pc_trace_elapsed_ms(fold_start_ms)
-        if fold_elapsed_ms >= 25UL {
-          pc_record_slow_trace(
-            slow_stats,
-            slow_order,
-            Fold,
-            walked,
-            fold_elapsed_ms,
-          )
-        }
-        simplify_cache[curr] = next
-        let now_ms = pc_trace_now_ms()
-        let total_elapsed_ms = pc_trace_elapsed_ms(body_start_ms)
-        let progress_elapsed_ms = if now_ms >= last_progress_ms.val {
-          now_ms - last_progress_ms.val
-        } else {
-          0UL
-        }
-        let should_trace_progress = (visit_id <= 1024 && visit_id % 64 == 0) ||
-          visit_id % 4096 == 0 ||
-          progress_elapsed_ms >= 1000UL
-        if should_trace_progress {
-          trace(
-            "progress visited=\{visit_id} rewritten=\{rewritten.val} cache_hits=\{cache_hits.val} elapsed_ms=\{total_elapsed_ms} tag=\{pc_trace_instr_tag(curr)} hash=\{pc_instr_hash_u64(curr)}",
-          )
-          last_progress_ms.val = now_ms
-        }
-        if next != walked {
-          rewritten.update(fn(n) { n + 1 })
-        }
-        if next == curr {
-          unchanged()
-        } else {
-          changed.update(fn(_) { true })
-          change((), next)
-        }
-      }
-    }
-  })
-  match pass.walk_texpr((), body) {
-    Ok(Some((_, out))) => {
-      for line in pc_slow_summary_lines(slow_stats, slow_order) {
-        trace(line)
-      }
-      trace(
-        "done elapsed_ms=\{pc_trace_elapsed_ms(body_start_ms)} visited=\{visited.val} rewritten=\{rewritten.val} cache_hits=\{cache_hits.val} cache_entries=\{simplify_cache.length()} changed=\{changed.val} top=\{body.instrs.length()}->\{out.instrs.length()}",
-      )
-      (out, changed.val)
-    }
-    Ok(None) => {
-      for line in pc_slow_summary_lines(slow_stats, slow_order) {
-        trace(line)
-      }
-      trace(
-        "done elapsed_ms=\{pc_trace_elapsed_ms(body_start_ms)} visited=\{visited.val} rewritten=\{rewritten.val} cache_hits=\{cache_hits.val} cache_entries=\{simplify_cache.length()} changed=false top=\{body.instrs.length()}->\{body.instrs.length()}",
-      )
-      (body, false)
-    }
-    Err(_) => {
-      for line in pc_slow_summary_lines(slow_stats, slow_order) {
-        trace(line)
-      }
-      trace(
-        "error elapsed_ms=\{pc_trace_elapsed_ms(body_start_ms)} visited=\{visited.val} rewritten=\{rewritten.val} cache_hits=\{cache_hits.val} cache_entries=\{simplify_cache.length()}",
-      )
-      (body, false)
-    }
+  let out = pc_simplify_texpr(
+    body, imm_globals, options, eval_cache, allow_partial_precompute, simplify_cache,
+    changed, visited, rewritten, cache_hits, body_start_ms, last_progress_ms, slow_stats,
+    slow_order, trace,
+  )
+  for line in pc_slow_summary_lines(slow_stats, slow_order) {
+    trace(line)
   }
+  trace(
+    "done elapsed_ms=\{pc_trace_elapsed_ms(body_start_ms)} visited=\{visited.val} rewritten=\{rewritten.val} cache_hits=\{cache_hits.val} cache_entries=\{simplify_cache.length()} changed=\{changed.val} top=\{body.instrs.length()}->\{out.instrs.length()}",
+  )
+  (out, changed.val)
 }
 
 ///|
@@ -2170,6 +2688,28 @@ test "precompute simplify trace reports cache hits for repeated identical subtre
   let done = logs.last().unwrap_or("")
   assert_true(done.contains("cache_hits="))
   assert_true(done.contains("cache_entries="))
+}
+
+///|
+test "precompute simplify visits deep unchanged chain linearly" {
+  let logs : Array[String] = []
+  let mut nested = TInstr::local_get(LocalIdx::new(0))
+  for _ in 0..<96 {
+    nested = TInstr::unary(UnaryOp::i32_eqz(), nested)
+  }
+  let (out, changed) = pc_simplify_body(
+    TExpr::new([TInstr::drop(nested)]),
+    Map::new(),
+    OptimizeOptions::new(optimize_level=2),
+    Map::new(),
+    false,
+    trace=fn(msg) { logs.push(msg) },
+  )
+  assert_false(changed)
+  assert_eq(out.instrs.length(), 1)
+  let done = logs.last().unwrap_or("")
+  assert_true(done.contains("visited=98 "))
+  assert_true(done.contains("rewritten=0 "))
 }
 
 ///|

@@ -287,7 +287,15 @@ fn run_ir_context_transformer_scheduler_pass(
         ),
       )
     CodePushing =>
-      apply_ir_transformer_pass(ctx, mod, code_pushing_ir_pass(mod))
+      apply_ir_transformer_pass(
+        ctx,
+        mod,
+        code_pushing_ir_pass_with_trace(
+          mod,
+          trace=fn(msg) { trace("code_pushing:\{msg}") },
+          trace_all_funcs=trace_pass_details,
+        ),
+      )
     ConstHoisting =>
       apply_ir_transformer_pass(ctx, mod, const_hoisting_ir_pass(mod))
     ConstantFieldPropagation =>

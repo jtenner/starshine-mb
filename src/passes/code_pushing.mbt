@@ -35,6 +35,121 @@
 ///   }
 
 ///|
+const CP_TRACE_PROGRESS_INTERVAL : Int = 4096
+
+///|
+const CP_TRACE_PROGRESS_INTERVAL_MS : UInt64 = 250UL
+
+///|
+fn cp_trace_noop(_ : String) -> Unit {
+  ()
+}
+
+///|
+fn cp_trace_should_log_func(ordinal : Int, trace_all_funcs : Bool) -> Bool {
+  trace_all_funcs || ordinal <= 5 || ordinal % 250 == 0
+}
+
+///|
+fn cp_instr_kind_name(instr : TInstr) -> String {
+  match instr.kind {
+    TInstrKind::TLocalGet(_) => "local.get"
+    TInstrKind::TLocalSet(_, _) => "local.set"
+    TInstrKind::TLocalTee(_, _) => "local.tee"
+    TInstrKind::TBlock(_, _) => "block"
+    TInstrKind::TLoop(_, _) => "loop"
+    TInstrKind::TIf(_, _, _, _) => "if"
+    TInstrKind::TBrIf(_, _, _) => "br_if"
+    TInstrKind::TBrOnNull(_, _, _) => "br_on_null"
+    TInstrKind::TBrOnNonNull(_, _, _) => "br_on_non_null"
+    TInstrKind::TBrOnCast(_, _, _, _, _, _) => "br_on_cast"
+    TInstrKind::TBrOnCastFail(_, _, _, _, _, _) => "br_on_cast_fail"
+    TInstrKind::TDrop(_) => "drop"
+    _ => "other"
+  }
+}
+
+///|
+fn cp_count_true(items : Array[Bool]) -> Int {
+  let mut total = 0
+  for item in items {
+    if item {
+      total += 1
+    }
+  }
+  total
+}
+
+///|
+fn cp_sum_ints(items : Array[Int]) -> Int {
+  let mut total = 0
+  for item in items {
+    total += item
+  }
+  total
+}
+
+///|
+priv struct CodePushingTraceCtx {
+  trace : (String) -> Unit
+  ordinal : Int
+  log_func : Bool
+  func_start_ms : UInt64
+  mut next_block_id : Int
+}
+
+///|
+fn CodePushingTraceCtx::new(
+  trace : (String) -> Unit,
+  ordinal : Int,
+  log_func : Bool,
+  func_start_ms : UInt64,
+) -> CodePushingTraceCtx {
+  { trace, ordinal, log_func, func_start_ms, next_block_id: 1 }
+}
+
+///|
+priv struct CPBlockTraceStats {
+  mut push_points : Int
+  mut if_arm_pushes : Int
+  mut segment_pushes : Int
+  mut pushed_instrs : Int
+}
+
+///|
+fn CPBlockTraceStats::new() -> CPBlockTraceStats {
+  { push_points: 0, if_arm_pushes: 0, segment_pushes: 0, pushed_instrs: 0 }
+}
+
+///|
+fn cp_trace_maybe_progress(
+  trace_ctx : CodePushingTraceCtx,
+  phase : String,
+  phase_start_ms : UInt64,
+  last_progress_ms : Ref[UInt64],
+  depth : Int,
+  block_id : Int,
+  idx : Int,
+  total : Int,
+  first_pushable : Int,
+  curr : TInstr,
+) -> Unit {
+  if !trace_ctx.log_func {
+    return
+  }
+  let now_ms = sl_trace_now_ms()
+  let should_trace_progress = (idx <= 1024 && idx % 256 == 0) ||
+    idx % CP_TRACE_PROGRESS_INTERVAL == 0 ||
+    now_ms >= last_progress_ms.val + CP_TRACE_PROGRESS_INTERVAL_MS
+  if should_trace_progress {
+    last_progress_ms.val = now_ms
+    (trace_ctx.trace)(
+      "func[\{trace_ctx.ordinal}] phase=\{phase} progress elapsed_ms=\{sl_trace_elapsed_ms(trace_ctx.func_start_ms)} phase_ms=\{sl_trace_elapsed_ms(phase_start_ms)} depth=\{depth} block=\{block_id} idx=\{idx}/\{total} first_pushable=\{first_pushable} current=\{cp_instr_kind_name(curr)}",
+    )
+  }
+}
+
+///|
 /// Local variable analysis for Single First Assignment (SFA) form
 /// SFA: the local has a single local.set, is not a parameter, and has no
 /// local.gets before the local.set in postorder.
@@ -607,7 +722,7 @@ fn optimize_segment(
   first_pushable : Int,
   push_point : Int,
   state : PushingState,
-) -> Int {
+) -> (Int, Int) {
   // Collect effects of the push point
   let cumulative_effects = analyze_effects(list[push_point])
 
@@ -633,7 +748,7 @@ fn optimize_segment(
     i -= 1
   }
   if to_push.is_empty() {
-    return push_point + 1
+    return (push_point + 1, 0)
   }
 
   // Perform the push: remove items and reinsert after push point
@@ -678,7 +793,7 @@ fn optimize_segment(
   compact_nops(list)
 
   // Return position after push point minus the number we pushed
-  push_point - to_push.length() + 1
+  (push_point - to_push.length() + 1, to_push.length())
 }
 
 ///|
@@ -704,14 +819,15 @@ fn optimize_into_if(
   first_pushable : Int,
   push_point : Int,
   state : PushingState,
-) -> Unit {
+) -> Int {
   // Check if push point is an if
   let iff = match list[push_point].kind {
     TInstrKind::TIf(bt, cond, then_body, else_body) =>
       (bt, cond, then_body, else_body)
-    _ => return
+    _ => return 0
   }
   let (bt, cond, then_body, else_body_opt) = iff
+  let pushed_count = Ref::new(0)
 
   // Effects of the condition (must push past this)
   let cumulative_effects = analyze_effects(cond)
@@ -748,6 +864,7 @@ fn optimize_into_if(
           post_if_effects, state, bt, cond, push_point, true,
         )
         if pushed {
+          pushed_count.update(fn(n) { n + 1 })
           // Update cumulative effects with what we just pushed
           if_true_effects.merge(effects)
           i -= 1
@@ -774,6 +891,7 @@ fn optimize_into_if(
               false,
             )
             if pushed2 {
+              pushed_count.update(fn(n) { n + 1 })
               if_false_effects.merge(effects)
               i -= 1
               continue
@@ -789,6 +907,7 @@ fn optimize_into_if(
     }
     i -= 1
   }
+  pushed_count.val
 }
 
 ///|
@@ -874,9 +993,31 @@ fn try_push_into_arm(
 
 ///|
 /// Process a block of instructions for code pushing
-fn push_code_in_block(list : Array[TInstr], state : PushingState) -> Unit {
+fn push_code_in_block(
+  list : Array[TInstr],
+  state : PushingState,
+  trace_ctx : CodePushingTraceCtx,
+  phase : String,
+  depth : Int,
+) -> CPBlockTraceStats {
+  let stats = CPBlockTraceStats::new()
+  let phase_start_ms = sl_trace_now_ms()
+  let last_progress_ms = Ref::new(phase_start_ms)
+  let block_id = trace_ctx.next_block_id
+  trace_ctx.next_block_id = trace_ctx.next_block_id + 1
+  let start_instrs = list.length()
+  if trace_ctx.log_func {
+    (trace_ctx.trace)(
+      "func[\{trace_ctx.ordinal}] phase=\{phase} start depth=\{depth} block=\{block_id} top_instrs=\{start_instrs}",
+    )
+  }
   if list.length() < 2 {
-    return
+    if trace_ctx.log_func {
+      (trace_ctx.trace)(
+        "func[\{trace_ctx.ordinal}] phase=\{phase} done elapsed_ms=\{sl_trace_elapsed_ms(phase_start_ms)} depth=\{depth} block=\{block_id} top_instrs=\{start_instrs}->\{list.length()} push_points=0 if_arm_pushes=0 segment_pushes=0 pushed_instrs=0 changed=false",
+      )
+    }
+    return stats
   }
 
   // Find optimization segments
@@ -884,6 +1025,18 @@ fn push_code_in_block(list : Array[TInstr], state : PushingState) -> Unit {
   let mut i = 0
   let mut first_pushable = nothing
   while i < list.length() {
+    cp_trace_maybe_progress(
+      trace_ctx,
+      phase,
+      phase_start_ms,
+      last_progress_ms,
+      depth,
+      block_id,
+      i,
+      list.length(),
+      first_pushable,
+      list[i],
+    )
     // Check if this is pushable
     if first_pushable == nothing {
       match is_pushable(list[i], state.analyzer, state.num_gets_so_far) {
@@ -894,11 +1047,41 @@ fn push_code_in_block(list : Array[TInstr], state : PushingState) -> Unit {
 
     // Check if this is a push point
     if first_pushable != nothing && is_push_point(list[i]) {
+      stats.push_points += 1
+      if trace_ctx.log_func {
+        (trace_ctx.trace)(
+          "func[\{trace_ctx.ordinal}] phase=\{phase} push_point depth=\{depth} block=\{block_id} idx=\{i} first_pushable=\{first_pushable} kind=\{cp_instr_kind_name(list[i])}",
+        )
+      }
       // Optimize into if first (doesn't move push point)
-      optimize_into_if(list, first_pushable, i, state)
+      let if_start_ms = sl_trace_now_ms()
+      let if_pushes = optimize_into_if(list, first_pushable, i, state)
+      stats.if_arm_pushes += if_pushes
+      if trace_ctx.log_func {
+        (trace_ctx.trace)(
+          "func[\{trace_ctx.ordinal}] phase=\{phase} into_if done elapsed_ms=\{sl_trace_elapsed_ms(if_start_ms)} depth=\{depth} block=\{block_id} idx=\{i} pushed=\{if_pushes}",
+        )
+      }
       // Then optimize segment (may move things past push point)
       if i < list.length() - 1 {
-        i = optimize_segment(list, first_pushable, i, state)
+        let segment_start_ms = sl_trace_now_ms()
+        let (next_i, pushed_instrs) = optimize_segment(
+          list, first_pushable, i, state,
+        )
+        if pushed_instrs > 0 {
+          stats.segment_pushes += 1
+          stats.pushed_instrs += pushed_instrs
+        }
+        if trace_ctx.log_func {
+          (trace_ctx.trace)(
+            "func[\{trace_ctx.ordinal}] phase=\{phase} segment done elapsed_ms=\{sl_trace_elapsed_ms(segment_start_ms)} depth=\{depth} block=\{block_id} idx=\{i} pushed=\{pushed_instrs} next_idx=\{next_i}",
+          )
+        }
+        i = next_i
+      } else if trace_ctx.log_func {
+        (trace_ctx.trace)(
+          "func[\{trace_ctx.ordinal}] phase=\{phase} segment skipped depth=\{depth} block=\{block_id} idx=\{i} reason=push_point_at_end",
+        )
       }
       first_pushable = nothing
       continue
@@ -908,22 +1091,65 @@ fn push_code_in_block(list : Array[TInstr], state : PushingState) -> Unit {
     count_gets_in_instr(state, list[i])
     i += 1
   }
+  if trace_ctx.log_func {
+    (trace_ctx.trace)(
+      "func[\{trace_ctx.ordinal}] phase=\{phase} done elapsed_ms=\{sl_trace_elapsed_ms(phase_start_ms)} depth=\{depth} block=\{block_id} top_instrs=\{start_instrs}->\{list.length()} push_points=\{stats.push_points} if_arm_pushes=\{stats.if_arm_pushes} segment_pushes=\{stats.segment_pushes} pushed_instrs=\{stats.pushed_instrs} changed=\{stats.if_arm_pushes != 0 || stats.segment_pushes != 0}",
+    )
+  }
+  stats
 }
 
 ///|
 /// Main code pushing pass
-fn code_pushing_pass() -> ModuleTransformer[Unit] {
+fn code_pushing_pass_with_trace(
+  trace? : (String) -> Unit = cp_trace_noop,
+  trace_all_funcs? : Bool = false,
+) -> ModuleTransformer[Unit] {
+  let next_def_idx = Ref::new(0)
   ModuleTransformer::new().on_func_evt(fn(_self, _state, func) {
+    let def_idx = next_def_idx.val
+    next_def_idx.update(fn(i) { i + 1 })
+    let ordinal = def_idx + 1
+    let log_func = cp_trace_should_log_func(ordinal, trace_all_funcs)
+    let func_start_ms = sl_trace_now_ms()
     match func {
-      Func(_, _) => unchanged()
+      Func(_, _) => {
+        if log_func {
+          trace(
+            "func[\{ordinal}] skip non-typed-func elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)}",
+          )
+        }
+        unchanged()
+      }
       TFunc(params, body) => {
         let num_locals = params.length()
+        if log_func {
+          trace(
+            "func[\{ordinal}] start locals=\{num_locals} top_instrs=\{body.instrs.length()}",
+          )
+        }
         if num_locals == 0 {
+          if log_func {
+            trace(
+              "func[\{ordinal}] skip no-locals elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)} top_instrs=\{body.instrs.length()}",
+            )
+          }
           return unchanged()
         }
 
         // Analyze the function
+        let analyze_start_ms = sl_trace_now_ms()
+        if log_func {
+          trace(
+            "func[\{ordinal}] phase=analyze start locals=\{num_locals} top_instrs=\{body.instrs.length()}",
+          )
+        }
         let analyzer = analyze_function(func)
+        if log_func {
+          trace(
+            "func[\{ordinal}] phase=analyze done elapsed_ms=\{sl_trace_elapsed_ms(analyze_start_ms)} sfa_locals=\{cp_count_true(analyzer.sfa)} total_sets=\{cp_sum_ints(analyzer.num_sets)} total_gets=\{cp_sum_ints(analyzer.num_gets)}",
+          )
+        }
 
         // Create pushing state
         let push_state = PushingState::{
@@ -931,16 +1157,31 @@ fn code_pushing_pass() -> ModuleTransformer[Unit] {
           num_gets_so_far: Array::make(num_locals, 0),
           changed: false,
         }
+        let trace_ctx = CodePushingTraceCtx::new(
+          trace, ordinal, log_func, func_start_ms,
+        )
 
         // Process the function body
         let body_instrs = body.instrs.copy()
-        push_code_in_block(body_instrs, push_state)
+        ignore(
+          push_code_in_block(body_instrs, push_state, trace_ctx, "top_block", 0),
+        )
 
         // Also process nested blocks
-        process_nested_blocks(body_instrs, push_state)
+        process_nested_blocks(body_instrs, push_state, trace_ctx, 0)
         if push_state.changed {
+          if log_func {
+            trace(
+              "func[\{ordinal}] done elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)} changed=true top_instrs=\{body.instrs.length()}->\{body_instrs.length()} locals=\{num_locals}",
+            )
+          }
           Ok(Some(((), Func::t_func(params, TExpr::new(body_instrs)))))
         } else {
+          if log_func {
+            trace(
+              "func[\{ordinal}] done elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)} changed=false top_instrs=\{body.instrs.length()}->\{body.instrs.length()} locals=\{num_locals}",
+            )
+          }
           unchanged()
         }
       }
@@ -949,50 +1190,139 @@ fn code_pushing_pass() -> ModuleTransformer[Unit] {
 }
 
 ///|
-fn code_pushing_ir_pass(_mod : Module) -> ModuleTransformer[IRContext] {
-  wrap_unit_func_pass(code_pushing_pass())
+fn code_pushing_pass() -> ModuleTransformer[Unit] {
+  code_pushing_pass_with_trace()
+}
+
+///|
+fn code_pushing_ir_pass_with_trace(
+  _mod : Module,
+  trace? : (String) -> Unit = cp_trace_noop,
+  trace_all_funcs? : Bool = false,
+) -> ModuleTransformer[IRContext] {
+  wrap_unit_func_pass(code_pushing_pass_with_trace(trace~, trace_all_funcs~))
 }
 
 ///|
 /// Recursively process nested blocks
-fn process_nested_blocks(instrs : Array[TInstr], state : PushingState) -> Unit {
+fn cp_process_child_expr(
+  body : TExpr,
+  state : PushingState,
+  trace_ctx : CodePushingTraceCtx,
+  depth : Int,
+  site_kind : String,
+  parent_idx : Int,
+) -> TExpr {
+  let site_start_ms = sl_trace_now_ms()
+  let body_instrs = body.instrs.copy()
+  if trace_ctx.log_func {
+    (trace_ctx.trace)(
+      "func[\{trace_ctx.ordinal}] phase=nested_visit start kind=\{site_kind} depth=\{depth} parent_idx=\{parent_idx} top_instrs=\{body.instrs.length()}",
+    )
+  }
+  let block_stats = push_code_in_block(
+    body_instrs, state, trace_ctx, "nested_block", depth,
+  )
+  process_nested_blocks(body_instrs, state, trace_ctx, depth)
+  let rewritten = TExpr::new(body_instrs)
+  if trace_ctx.log_func {
+    (trace_ctx.trace)(
+      "func[\{trace_ctx.ordinal}] phase=nested_visit done elapsed_ms=\{sl_trace_elapsed_ms(site_start_ms)} kind=\{site_kind} depth=\{depth} parent_idx=\{parent_idx} top_instrs=\{body.instrs.length()}->\{rewritten.instrs.length()} push_points=\{block_stats.push_points} if_arm_pushes=\{block_stats.if_arm_pushes} segment_pushes=\{block_stats.segment_pushes} pushed_instrs=\{block_stats.pushed_instrs} changed=\{rewritten != body}",
+    )
+  }
+  rewritten
+}
+
+///|
+fn process_nested_blocks(
+  instrs : Array[TInstr],
+  state : PushingState,
+  trace_ctx : CodePushingTraceCtx,
+  depth : Int,
+) -> Unit {
+  let phase_start_ms = sl_trace_now_ms()
+  let last_progress_ms = Ref::new(phase_start_ms)
+  let block_id = trace_ctx.next_block_id
+  trace_ctx.next_block_id = trace_ctx.next_block_id + 1
+  if trace_ctx.log_func {
+    (trace_ctx.trace)(
+      "func[\{trace_ctx.ordinal}] phase=nested_walk start depth=\{depth} block=\{block_id} instrs=\{instrs.length()}",
+    )
+  }
   for i = 0; i < instrs.length(); i = i + 1 {
+    cp_trace_maybe_progress(
+      trace_ctx,
+      "nested_walk",
+      phase_start_ms,
+      last_progress_ms,
+      depth,
+      block_id,
+      i,
+      instrs.length(),
+      -1,
+      instrs[i],
+    )
     match instrs[i].kind {
       TInstrKind::TBlock(bt, body) => {
-        let body_instrs = body.instrs.copy()
-        push_code_in_block(body_instrs, state)
-        process_nested_blocks(body_instrs, state)
-        if state.changed {
-          instrs[i] = TInstr::block(bt, TExpr::new(body_instrs))
+        let rewritten = cp_process_child_expr(
+          body,
+          state,
+          trace_ctx,
+          depth + 1,
+          "block",
+          i,
+        )
+        if rewritten != body {
+          instrs[i] = TInstr::block(bt, rewritten)
         }
       }
       TInstrKind::TLoop(bt, body) => {
-        let body_instrs = body.instrs.copy()
-        push_code_in_block(body_instrs, state)
-        process_nested_blocks(body_instrs, state)
-        if state.changed {
-          instrs[i] = TInstr::loop_(bt, TExpr::new(body_instrs))
+        let rewritten = cp_process_child_expr(
+          body,
+          state,
+          trace_ctx,
+          depth + 1,
+          "loop",
+          i,
+        )
+        if rewritten != body {
+          instrs[i] = TInstr::loop_(bt, rewritten)
         }
       }
       TInstrKind::TIf(bt, cond, then_body, else_body) => {
-        let then_instrs = then_body.instrs.copy()
-        push_code_in_block(then_instrs, state)
-        process_nested_blocks(then_instrs, state)
+        let rewritten_then = cp_process_child_expr(
+          then_body,
+          state,
+          trace_ctx,
+          depth + 1,
+          "if.then",
+          i,
+        )
         let new_else = match else_body {
-          Some(eb) => {
-            let else_instrs = eb.instrs.copy()
-            push_code_in_block(else_instrs, state)
-            process_nested_blocks(else_instrs, state)
-            Some(TExpr::new(else_instrs))
-          }
+          Some(eb) =>
+            Some(
+              cp_process_child_expr(
+                eb,
+                state,
+                trace_ctx,
+                depth + 1,
+                "if.else",
+                i,
+              ),
+            )
           None => None
         }
-        if state.changed {
-          instrs[i] = TInstr::if_(bt, cond, TExpr::new(then_instrs), new_else)
+        if rewritten_then != then_body || new_else != else_body {
+          instrs[i] = TInstr::if_(bt, cond, rewritten_then, new_else)
         }
       }
       _ => ()
     }
+  }
+  if trace_ctx.log_func {
+    (trace_ctx.trace)(
+      "func[\{trace_ctx.ordinal}] phase=nested_walk done elapsed_ms=\{sl_trace_elapsed_ms(phase_start_ms)} depth=\{depth} block=\{block_id} instrs=\{instrs.length()}",
+    )
   }
 }
 
@@ -1152,6 +1482,87 @@ test "code_pushing_pass leaves empty function unchanged" {
       }
     None => fail("expected handler")
   }
+}
+
+///|
+test "code_pushing trace covers function phases" {
+  let logs : Array[String] = []
+  let loc = LocalIdx::new(0)
+  ignore(
+    match
+      code_pushing_ir_pass_with_trace(
+        Module::new(),
+        trace=fn(msg) { logs.push(msg) },
+        trace_all_funcs=true,
+      ).walk_func(
+        IRContext::new(),
+        Func::t_func(
+          [ValType::i32()],
+          TExpr::new([
+            TInstr::local_set(loc, TInstr::i32_const(I32(7))),
+            TInstr::if_(
+              BlockType::void_(),
+              TInstr::i32_const(I32(1)),
+              TExpr::new([
+                TInstr::drop(TInstr::local_get(loc)),
+                TInstr::block(BlockType::void_(), TExpr::new([])),
+              ]),
+              None,
+            ),
+          ]),
+        ),
+      ) {
+      Ok(_) => ()
+      Err(e) => fail("unexpected code_pushing trace error: \{e}")
+    },
+  )
+  let mut saw_start = false
+  let mut saw_analyze_start = false
+  let mut saw_analyze_done = false
+  let mut saw_top_start = false
+  let mut saw_top_done = false
+  let mut saw_nested_start = false
+  let mut saw_nested_visit_start = false
+  let mut saw_nested_visit_done = false
+  let mut saw_done = false
+  for msg in logs {
+    if msg.contains("func[1] start") {
+      saw_start = true
+    }
+    if msg.contains("func[1] phase=analyze start") {
+      saw_analyze_start = true
+    }
+    if msg.contains("func[1] phase=analyze done") {
+      saw_analyze_done = true
+    }
+    if msg.contains("func[1] phase=top_block start") {
+      saw_top_start = true
+    }
+    if msg.contains("func[1] phase=top_block done") {
+      saw_top_done = true
+    }
+    if msg.contains("func[1] phase=nested_walk start") {
+      saw_nested_start = true
+    }
+    if msg.contains("func[1] phase=nested_visit start") {
+      saw_nested_visit_start = true
+    }
+    if msg.contains("func[1] phase=nested_visit done") {
+      saw_nested_visit_done = true
+    }
+    if msg.contains("func[1] done") {
+      saw_done = true
+    }
+  }
+  assert_true(saw_start)
+  assert_true(saw_analyze_start)
+  assert_true(saw_analyze_done)
+  assert_true(saw_top_start)
+  assert_true(saw_top_done)
+  assert_true(saw_nested_start)
+  assert_true(saw_nested_visit_start)
+  assert_true(saw_nested_visit_done)
+  assert_true(saw_done)
 }
 
 // ============================================================

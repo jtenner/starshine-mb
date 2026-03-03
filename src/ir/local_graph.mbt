@@ -211,7 +211,12 @@ fn flow_back_from_block(
     result.add(LocalSet::InitValue)
     return result
   }
+  let seen_preds = Set::new()
   for pred in block.preds {
+    if seen_preds.contains(pred) {
+      continue
+    }
+    seen_preds.add(pred)
     let pred_sets = flow_back_from_block(
       pred, local_idx, blocks, infos, instrs, visited,
     )
@@ -351,6 +356,24 @@ test "extract_block_info: collects actions and last_sets" {
   assert_eq(info.actions.length(), 3)
   assert_eq(info.last_sets.length(), 1)
   assert_eq(info.last_sets.get(x).unwrap(), 2)
+}
+
+///|
+test "LocalGraph: duplicate if predecessors do not change result" {
+  let x = LocalIdx::new(0)
+  let instrs = [
+    TInstr::if_(
+      BlockType::void_(),
+      TInstr::local_get(x),
+      TExpr::new([TInstr::nop()]),
+      Some(TExpr::new([TInstr::nop()])),
+    ),
+    TInstr::local_get(x),
+  ]
+  let graph = LocalGraph::new(instrs)
+  let sets = graph.get_sets(1)
+  assert_eq(sets.length(), 1)
+  assert_true(sets.contains(LocalSet::InitValue))
 }
 
 ///|
