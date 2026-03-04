@@ -512,6 +512,22 @@ fn sl_sink_value_preserves_local_get_type(
 }
 
 ///|
+fn sl_can_emit_typed_local_set(
+  idx : LocalIdx,
+  local_type : ValType,
+  value : TInstr,
+  env : Env,
+) -> Bool {
+  match (env.get_local_type(idx), lcs_infer_tinstr_type(value, env)) {
+    (Some(dest_type), Some(value_type)) =>
+      dest_type == local_type &&
+      value_type == local_type &&
+      sl_can_emit_rewritten_instr(TInstr::local_set(idx, value), env)
+    _ => false
+  }
+}
+
+///|
 fn sl_collect_get_counts_instr(instr : TInstr, counts : Array[Int]) -> Unit {
   match instr.kind {
     TInstrKind::TLocalGet(idx) => {
@@ -1207,14 +1223,14 @@ fn sl_try_structure_block(
               if sl_localidx_to_int(shared_idx) == shared_raw {
                 let body_result = prefix.copy()
                 body_result.push(value)
-                let candidate = TInstr::local_set(
-                  shared_idx,
-                  TInstr::block(
-                    BlockType::val_type(local_type),
-                    TExpr::new(body_result),
-                  ),
+                let result_value = TInstr::block(
+                  BlockType::val_type(local_type),
+                  TExpr::new(body_result),
                 )
-                if sl_can_emit_rewritten_instr(candidate, env) {
+                if sl_can_emit_typed_local_set(
+                    shared_idx, local_type, result_value, env,
+                  ) {
+                  let candidate = TInstr::local_set(shared_idx, result_value)
                   changed.val = changed.val ||
                     block_changed.val ||
                     candidate != instr
@@ -1283,16 +1299,16 @@ fn sl_try_structure_if(
                     next_then.push(then_value)
                     let next_else = else_prefix.copy()
                     next_else.push(else_value)
-                    let candidate = TInstr::local_set(
-                      then_idx,
-                      TInstr::if_(
-                        BlockType::val_type(local_type),
-                        cond,
-                        TExpr::new(next_then),
-                        Some(TExpr::new(next_else)),
-                      ),
+                    let result_value = TInstr::if_(
+                      BlockType::val_type(local_type),
+                      cond,
+                      TExpr::new(next_then),
+                      Some(TExpr::new(next_else)),
                     )
-                    if sl_can_emit_rewritten_instr(candidate, env) {
+                    if sl_can_emit_typed_local_set(
+                        then_idx, local_type, result_value, env,
+                      ) {
+                      let candidate = TInstr::local_set(then_idx, result_value)
                       changed.val = true
                       candidate
                     } else {
@@ -1316,16 +1332,16 @@ fn sl_try_structure_if(
                   if sl_is_defaultable(local_type) {
                     let next_then = then_prefix.copy()
                     next_then.push(then_value)
-                    let candidate = TInstr::local_set(
-                      then_idx,
-                      TInstr::if_(
-                        BlockType::val_type(local_type),
-                        cond,
-                        TExpr::new(next_then),
-                        Some(TExpr::new([TInstr::local_get(then_idx)])),
-                      ),
+                    let result_value = TInstr::if_(
+                      BlockType::val_type(local_type),
+                      cond,
+                      TExpr::new(next_then),
+                      Some(TExpr::new([TInstr::local_get(then_idx)])),
                     )
-                    if sl_can_emit_rewritten_instr(candidate, env) {
+                    if sl_can_emit_typed_local_set(
+                        then_idx, local_type, result_value, env,
+                      ) {
+                      let candidate = TInstr::local_set(then_idx, result_value)
                       changed.val = true
                       candidate
                     } else {
@@ -3393,6 +3409,26 @@ test "simplify_locals local checker rejects result-if candidate with void branch
   assert_false(
     sl_can_emit_rewritten_instr(
       candidate,
+      sl_test_env([ValType::i32(), ValType::i32()]),
+    ),
+  )
+}
+
+///|
+test "simplify_locals typed local-set guard rejects env/local mismatch for result if" {
+  let x = LocalIdx::new(0)
+  let cond = LocalIdx::new(1)
+  let result_value = TInstr::if_(
+    BlockType::val_type(ValType::i64()),
+    TInstr::local_get(cond),
+    TExpr::new([TInstr::i64_const(I64(1))]),
+    Some(TExpr::new([TInstr::i64_const(I64(2))])),
+  )
+  assert_false(
+    sl_can_emit_typed_local_set(
+      x,
+      ValType::i64(),
+      result_value,
       sl_test_env([ValType::i32(), ValType::i32()]),
     ),
   )
