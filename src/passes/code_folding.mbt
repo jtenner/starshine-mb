@@ -311,7 +311,7 @@ fn cf_trace_elapsed_us_since(start_us : UInt64) -> UInt64 {
 /// Information about a "tail" - code that reaches a point that we can merge
 struct Tail {
   instr : TInstr? // None if this is a fallthrough
-  block_instrs : Array[TInstr] // the enclosing block of code we hope to merge at its tail
+  block_instrs : Array[TInstr] // immutable snapshot of the enclosing block body
 } derive(Eq)
 
 ///|
@@ -336,13 +336,28 @@ priv struct ScopedTail {
 }
 
 ///|
+priv struct CodeFoldingTempLocal {
+  local_idx : LocalIdx
+  value_instr : TInstr
+}
+
+///|
+fn cf_copy_instrs(instrs : Array[TInstr]) -> Array[TInstr] {
+  let out : Array[TInstr] = []
+  for instr in instrs {
+    out.push(instr)
+  }
+  out
+}
+
+///|
 fn Tail::fallthrough(block_instrs : Array[TInstr]) -> Tail {
-  Tail::{ instr: None, block_instrs }
+  Tail::{ instr: None, block_instrs: cf_copy_instrs(block_instrs) }
 }
 
 ///|
 fn Tail::branch(instr : TInstr, block_instrs : Array[TInstr]) -> Tail {
-  Tail::{ instr: Some(instr), block_instrs }
+  Tail::{ instr: Some(instr), block_instrs: cf_copy_instrs(block_instrs) }
 }
 
 ///|
@@ -354,10 +369,12 @@ fn Tail::is_fallthrough(self : Tail) -> Bool {
 /// State for the code folding pass
 priv struct CodeFoldingState {
   mut another_pass : Bool
-  env : Env
+  mut env : Env
+  param_types : Array[ValType]
+  mut func_locals : Array[ValType]
   break_tails : Map[LabelIdx, Array[Tail]]
-  unreachable_tails : Array[Tail]
-  return_tails : Array[Tail]
+  unreachable_tails : Array[ScopedTail]
+  return_tails : Array[ScopedTail]
   unoptimizables : Set[LabelIdx]
   modifieds : Set[TInstr]
   mut block_sites : Int
@@ -365,10 +382,16 @@ priv struct CodeFoldingState {
 }
 
 ///|
-fn CodeFoldingState::new(env? : Env = Env::new()) -> CodeFoldingState {
+fn CodeFoldingState::new(
+  env? : Env = Env::new(),
+  param_types? : Array[ValType] = [],
+  func_locals? : Array[ValType] = [],
+) -> CodeFoldingState {
   CodeFoldingState::{
     another_pass: true,
-    env,
+    env: env.with_locals(param_types + func_locals),
+    param_types,
+    func_locals,
     break_tails: Map::new(),
     unreachable_tails: [],
     return_tails: [],
@@ -388,6 +411,39 @@ fn CodeFoldingState::clear(self : CodeFoldingState) -> Unit {
   self.modifieds.clear()
   self.block_sites = 0
   self.if_else_sites = 0
+}
+
+///|
+fn CodeFoldingState::prepare_func(
+  self : CodeFoldingState,
+  locals : Array[ValType],
+) -> Unit {
+  self.func_locals = locals.copy()
+  self.env = self.env.with_locals(self.param_types + self.func_locals)
+}
+
+///|
+fn CodeFoldingState::preview_appended_local(
+  self : CodeFoldingState,
+  ty : ValType,
+) -> (LocalIdx, Array[ValType], Env) {
+  let next_locals = self.func_locals.copy()
+  next_locals.push(ty)
+  let idx = LocalIdx::new(
+    (self.param_types.length() + self.func_locals.length()).reinterpret_as_uint(),
+  )
+  (idx, next_locals, self.env.with_locals(self.param_types + next_locals))
+}
+
+///|
+fn CodeFoldingState::append_local(
+  self : CodeFoldingState,
+  ty : ValType,
+) -> LocalIdx {
+  let (idx, next_locals, next_env) = self.preview_appended_local(ty)
+  self.func_locals = next_locals
+  self.env = next_env
+  idx
 }
 
 ///|
@@ -740,10 +796,13 @@ fn cf_find_scoped_tail(
 }
 
 ///|
+/// When a folded tail carries a branch result, stash it in a temp local so
+/// the merged suffix can re-materialize the value after the join.
 fn cf_rewrite_branch_tail_instrs(
   instrs : Array[TInstr],
   branch : TInstr,
   merge_count : Int,
+  temp_local? : CodeFoldingTempLocal? = None,
 ) -> Array[TInstr]? {
   match branch.kind {
     TInstrKind::TBr(label, values) => {
@@ -751,12 +810,19 @@ fn cf_rewrite_branch_tail_instrs(
         return None
       }
       let mut remaining = merge_count
+      let mut temp_set_instr : TInstr? = None
       let new_values = if !values.is_empty() {
         if remaining == 0 {
           values
         } else {
           remaining -= 1
-          []
+          match temp_local {
+            Some({ local_idx, value_instr }) => {
+              temp_set_instr = Some(TInstr::local_set(local_idx, value_instr))
+              []
+            }
+            None => []
+          }
         }
       } else {
         []
@@ -765,7 +831,14 @@ fn cf_rewrite_branch_tail_instrs(
       if keep_len < 0 {
         return None
       }
-      let out = cf_take_instr_prefix(instrs, keep_len)
+      let out : Array[TInstr] = []
+      for instr in cf_take_instr_prefix(instrs, keep_len) {
+        out.push(instr)
+      }
+      match temp_set_instr {
+        Some(set_instr) => out.push(set_instr)
+        None => ()
+      }
       out.push(TInstr::br(label, new_values))
       Some(out)
     }
@@ -797,6 +870,7 @@ fn cf_rewrite_block_fold_instr(
   index : Int,
   tails : Array[ScopedTail],
   merge_count : Int,
+  temp_local? : CodeFoldingTempLocal? = None,
 ) -> TInstr {
   match instr.kind {
     TInstrKind::TBlock(bt, body) =>
@@ -808,6 +882,7 @@ fn cf_rewrite_block_fold_instr(
             cf_path_append(path, BlockBody(index)),
             tails,
             merge_count,
+            temp_local~,
           ),
         ),
       )
@@ -820,6 +895,7 @@ fn cf_rewrite_block_fold_instr(
             cf_path_append(path, LoopBody(index)),
             tails,
             merge_count,
+            temp_local~,
           ),
         ),
       )
@@ -833,6 +909,7 @@ fn cf_rewrite_block_fold_instr(
             cf_path_append(path, IfThen(index)),
             tails,
             merge_count,
+            temp_local~,
           ),
         ),
         match else_body {
@@ -844,6 +921,7 @@ fn cf_rewrite_block_fold_instr(
                   cf_path_append(path, IfElse(index)),
                   tails,
                   merge_count,
+                  temp_local~,
                 ),
               ),
             )
@@ -860,6 +938,7 @@ fn cf_rewrite_block_fold_instr(
             cf_path_append(path, TryBody(index)),
             tails,
             merge_count,
+            temp_local~,
           ),
         ),
       )
@@ -873,18 +952,33 @@ fn cf_rewrite_block_fold_instrs(
   path : Array[BlockTailPathStep],
   tails : Array[ScopedTail],
   merge_count : Int,
+  temp_local? : CodeFoldingTempLocal? = None,
 ) -> Array[TInstr] {
   let exact_tail = cf_find_scoped_tail(tails, path)
+  let mut iter_instrs = instrs
   let mut iter_len = instrs.length()
   let mut rewritten_branch : TInstr? = None
+  let mut fallthrough_temp_instr : TInstr? = None
   match exact_tail {
-    Some({ tail: { instr: None, .. }, .. }) => iter_len -= merge_count
+    Some({ tail: { instr: None, .. }, .. }) => {
+      iter_len -= merge_count
+      match temp_local {
+        Some({ local_idx, value_instr }) =>
+          fallthrough_temp_instr = Some(
+            TInstr::local_set(local_idx, value_instr),
+          )
+        None => ()
+      }
+    }
     Some({ tail: { instr: Some(branch), .. }, .. }) =>
-      match cf_rewrite_branch_tail_instrs(instrs, branch, merge_count) {
+      match
+        cf_rewrite_branch_tail_instrs(instrs, branch, merge_count, temp_local~) {
         Some(rewritten) =>
           if rewritten.is_empty() {
+            iter_instrs = rewritten
             iter_len = 0
           } else {
+            iter_instrs = rewritten
             iter_len = rewritten.length() - 1
             rewritten_branch = Some(rewritten[rewritten.length() - 1])
           }
@@ -896,13 +990,124 @@ fn cf_rewrite_block_fold_instrs(
   let mut i = 0
   while i < iter_len {
     out.push(
-      cf_rewrite_block_fold_instr(instrs[i], path, i, tails, merge_count),
+      cf_rewrite_block_fold_instr(
+        iter_instrs[i],
+        path,
+        i,
+        tails,
+        merge_count,
+        temp_local~,
+      ),
     )
     i += 1
+  }
+  match fallthrough_temp_instr {
+    Some(instr) => out.push(instr)
+    None => ()
   }
   match rewritten_branch {
     Some(branch) => out.push(branch)
     None => ()
+  }
+  out
+}
+
+///|
+fn cf_rewrite_terminating_tail_instr(
+  instr : TInstr,
+  path : Array[BlockTailPathStep],
+  index : Int,
+  tails : Array[ScopedTail],
+  merge_count : Int,
+) -> TInstr {
+  match instr.kind {
+    TInstrKind::TBlock(bt, body) =>
+      TInstr::block(
+        bt,
+        TExpr::new(
+          cf_rewrite_terminating_tail_instrs(
+            body.instrs,
+            cf_path_append(path, BlockBody(index)),
+            tails,
+            merge_count,
+          ),
+        ),
+      )
+    TInstrKind::TLoop(bt, body) =>
+      TInstr::loop_(
+        bt,
+        TExpr::new(
+          cf_rewrite_terminating_tail_instrs(
+            body.instrs,
+            cf_path_append(path, LoopBody(index)),
+            tails,
+            merge_count,
+          ),
+        ),
+      )
+    TInstrKind::TIf(bt, cond, then_body, else_body) =>
+      TInstr::if_(
+        bt,
+        cond,
+        TExpr::new(
+          cf_rewrite_terminating_tail_instrs(
+            then_body.instrs,
+            cf_path_append(path, IfThen(index)),
+            tails,
+            merge_count,
+          ),
+        ),
+        match else_body {
+          Some(body) =>
+            Some(
+              TExpr::new(
+                cf_rewrite_terminating_tail_instrs(
+                  body.instrs,
+                  cf_path_append(path, IfElse(index)),
+                  tails,
+                  merge_count,
+                ),
+              ),
+            )
+          None => None
+        },
+      )
+    TInstrKind::TTryTable(bt, catches, body) =>
+      TInstr::try_table(
+        bt,
+        catches,
+        TExpr::new(
+          cf_rewrite_terminating_tail_instrs(
+            body.instrs,
+            cf_path_append(path, TryBody(index)),
+            tails,
+            merge_count,
+          ),
+        ),
+      )
+    _ => instr
+  }
+}
+
+///|
+fn cf_rewrite_terminating_tail_instrs(
+  instrs : Array[TInstr],
+  path : Array[BlockTailPathStep],
+  tails : Array[ScopedTail],
+  merge_count : Int,
+) -> Array[TInstr] {
+  let exact_tail = cf_find_scoped_tail(tails, path)
+  let trim_len = match exact_tail {
+    Some(_) => instrs.length() - merge_count
+    None => instrs.length()
+  }
+  let out : Array[TInstr] = []
+  let mut i = 0
+  while i < trim_len {
+    out.push(
+      cf_rewrite_terminating_tail_instr(instrs[i], path, i, tails, merge_count),
+    )
+    i += 1
   }
   out
 }
@@ -1398,7 +1603,7 @@ fn find_expression_fold_plan(
 /// This moves common code before return/unreachable instructions to the end of function
 fn optimize_terminating_tails(
   state : CodeFoldingState,
-  tails : Array[Tail],
+  tails : Array[ScopedTail],
   func_body : Array[TInstr],
   trace_stats : CodeFoldingRoundTraceStats,
 ) -> Array[TInstr]? {
@@ -1408,7 +1613,7 @@ fn optimize_terminating_tails(
 
   // Check if anything is modified
   for tail in tails {
-    match tail.instr {
+    match tail.tail.instr {
       Some(i) if state.modifieds.contains(i) => return None
       _ => ()
     }
@@ -1419,13 +1624,13 @@ fn optimize_terminating_tails(
   let mut saved = 0
   let mut num = 0
   while true {
-    match get_mergeable(tails[0], num) {
+    match get_mergeable(tails[0].tail, num) {
       None => break
       Some(item) => {
         // Check if all tails have matching items
         let mut all_match = true
         for i = 1; i < tails.length(); i = i + 1 {
-          match get_mergeable(tails[i], num) {
+          match get_mergeable(tails[i].tail, num) {
             None => {
               all_match = false
               break
@@ -1455,16 +1660,16 @@ fn optimize_terminating_tails(
   // Do the optimization
   state.another_pass = true
   let merge_count = mergeable.length()
-
-  // Remove merged items from each tail
+  // Rebuild the original containers structurally from recorded paths; mutating
+  // shared AST arrays here can corrupt sibling tails in later rewrites.
+  let rewritten_body = cf_rewrite_terminating_tail_instrs(
+    func_body,
+    [],
+    tails,
+    merge_count,
+  )
   for tail in tails {
-    let block = tail.block_instrs
-    let mut removed = 0
-    while removed < merge_count && block.length() > 0 {
-      ignore(block.pop())
-      removed += 1
-    }
-    match tail.instr {
+    match tail.tail.instr {
       Some(i) => state.modifieds.add(i)
       None => ()
     }
@@ -1473,7 +1678,7 @@ fn optimize_terminating_tails(
   // Build new function body with merged items at the end
   // The merged items should go before a final return/unreachable
   let result : Array[TInstr] = []
-  for instr in func_body {
+  for instr in rewritten_body {
     result.push(instr)
   }
   // Add merged items in reverse order (they were collected from end to start)
@@ -1491,6 +1696,7 @@ fn collect_block_tails(
   state : CodeFoldingState,
   instrs : Array[TInstr],
   trace_stats : CodeFoldingRoundTraceStats,
+  path? : Array[BlockTailPathStep] = [],
 ) -> Unit {
   trace_stats.collect_calls += 1
   trace_stats.collect_instrs += instrs.length()
@@ -1521,42 +1727,119 @@ fn collect_block_tails(
 
       // Unreachable at end of block
       TInstrKind::TUnreachable if i == instrs.length() - 1 =>
-        state.unreachable_tails.push(Tail::branch(instr, instrs))
+        state.unreachable_tails.push({ tail: Tail::branch(instr, instrs), path })
 
       // Return at end of block
       TInstrKind::TReturn(_) if i == instrs.length() - 1 =>
-        state.return_tails.push(Tail::branch(instr, instrs))
+        state.return_tails.push({ tail: Tail::branch(instr, instrs), path })
 
       // Return calls
       TInstrKind::TReturnCall(_, _) if i == instrs.length() - 1 =>
-        state.return_tails.push(Tail::branch(instr, instrs))
+        state.return_tails.push({ tail: Tail::branch(instr, instrs), path })
       TInstrKind::TReturnCallIndirect(_, _, _, _) if i == instrs.length() - 1 =>
-        state.return_tails.push(Tail::branch(instr, instrs))
+        state.return_tails.push({ tail: Tail::branch(instr, instrs), path })
       TInstrKind::TReturnCallRef(_, _, _) if i == instrs.length() - 1 =>
-        state.return_tails.push(Tail::branch(instr, instrs))
+        state.return_tails.push({ tail: Tail::branch(instr, instrs), path })
 
       // Recursively process nested blocks
       TInstrKind::TBlock(_, body) => {
         state.block_sites += 1
-        collect_block_tails(state, body.instrs, trace_stats)
+        collect_block_tails(
+          state,
+          body.instrs,
+          trace_stats,
+          path=cf_path_append(path, BlockBody(i)),
+        )
       }
       TInstrKind::TLoop(_, body) =>
-        collect_block_tails(state, body.instrs, trace_stats)
+        collect_block_tails(
+          state,
+          body.instrs,
+          trace_stats,
+          path=cf_path_append(path, LoopBody(i)),
+        )
       TInstrKind::TIf(_, _, then_body, else_body) => {
         if else_body is Some(_) {
           state.if_else_sites += 1
         }
-        collect_block_tails(state, then_body.instrs, trace_stats)
+        collect_block_tails(
+          state,
+          then_body.instrs,
+          trace_stats,
+          path=cf_path_append(path, IfThen(i)),
+        )
         match else_body {
-          Some(body) => collect_block_tails(state, body.instrs, trace_stats)
+          Some(body) =>
+            collect_block_tails(
+              state,
+              body.instrs,
+              trace_stats,
+              path=cf_path_append(path, IfElse(i)),
+            )
           None => ()
         }
       }
       TInstrKind::TTryTable(_, _, body) =>
-        collect_block_tails(state, body.instrs, trace_stats)
+        collect_block_tails(
+          state,
+          body.instrs,
+          trace_stats,
+          path=cf_path_append(path, TryBody(i)),
+        )
       _ => ()
     }
   }
+}
+
+///|
+fn cf_find_block_tail_value(tails : Array[ScopedTail]) -> TInstr? {
+  for scoped_tail in tails {
+    match scoped_tail.tail.instr {
+      Some({ kind: TInstrKind::TBr(_, values), .. }) if !values.is_empty() =>
+        return Some(values[0])
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
+fn cf_rewrite_merged_instrs_with_temp_local(
+  merged_instrs : Array[TInstr],
+  temp_local? : CodeFoldingTempLocal? = None,
+) -> Array[TInstr] {
+  let out : Array[TInstr] = []
+  let mut i = 0
+  while i < merged_instrs.length() {
+    match temp_local {
+      Some({ local_idx, .. }) if i == merged_instrs.length() - 1 =>
+        out.push(TInstr::local_get(local_idx))
+      _ => out.push(merged_instrs[i])
+    }
+    i += 1
+  }
+  out
+}
+
+///|
+fn cf_preview_block_temp_local(
+  state : CodeFoldingState,
+  tails : Array[ScopedTail],
+  merged_instrs : Array[TInstr],
+  results : Array[ValType],
+) -> (CodeFoldingTempLocal, Env)? {
+  let value_instr = match cf_find_block_tail_value(tails) {
+    Some(value_instr) => value_instr
+    None => return None
+  }
+  if merged_instrs.is_empty() || results.length() != 1 {
+    return None
+  }
+  if merged_instrs[merged_instrs.length() - 1] != value_instr {
+    return None
+  }
+  let (local_idx, _, preview_env) = state.preview_appended_local(results[0])
+  Some(({ local_idx, value_instr }, preview_env))
 }
 
 ///|
@@ -1578,7 +1861,6 @@ fn process_block(
     Some(results) => results
     None => return None
   }
-  let wrapper_env = state.env.with_label(results)
   let (scoped_tails, blocked) = cf_collect_local_block_tails(instrs)
   if blocked {
     return None
@@ -1611,9 +1893,24 @@ fn process_block(
     ) {
     Some(plan) => {
       let empty_stack : Array[ValType] = []
-      let merged_expr = TExpr::new(plan.merged_instrs)
+      let (temp_local, local_env) = match
+        cf_preview_block_temp_local(
+          state,
+          rewrite_tails,
+          plan.merged_instrs,
+          results,
+        ) {
+        Some((temp_local, local_env)) => (Some(temp_local), local_env)
+        None => (None, state.env)
+      }
+      let wrapper_env = local_env.with_label(results)
+      let merged_instrs = cf_rewrite_merged_instrs_with_temp_local(
+        plan.merged_instrs,
+        temp_local~,
+      )
+      let merged_expr = TExpr::new(merged_instrs)
       let merged_stack = match
-        cf_typecheck_texpr_stack(merged_expr, state.env, empty_stack) {
+        cf_typecheck_texpr_stack(merged_expr, local_env, empty_stack) {
         Some(stack) => stack
         None => return None
       }
@@ -1625,6 +1922,7 @@ fn process_block(
         [],
         rewrite_tails,
         plan.merged_instrs.length(),
+        temp_local~,
       )
       let rewritten_body = cf_shift_outer_labels_instrs(rewritten_body)
       let inner_block = TInstr::block(
@@ -1641,15 +1939,19 @@ fn process_block(
       }
       let wrapper = TInstr::block(
         bt,
-        TExpr::new(cf_concat_instrs([inner_block], plan.merged_instrs)),
+        TExpr::new(cf_concat_instrs([inner_block], merged_instrs)),
       )
       let wrapper_stack = match
-        cf_typecheck_tinstr_stack(wrapper, state.env, empty_stack) {
+        cf_typecheck_tinstr_stack(wrapper, local_env, empty_stack) {
         Some(stack) => stack
         None => return None
       }
       if wrapper_stack != results {
         return None
+      }
+      match temp_local {
+        Some(_) => ignore(state.append_local(results[0]))
+        None => ()
       }
       state.another_pass = true
       trace_stats.expr_successes += 1
@@ -1787,7 +2089,10 @@ fn cf_restore_state_env(
   state : CodeFoldingState,
   env : Env,
 ) -> CodeFoldingState {
-  CodeFoldingState::{ ..state, env, }
+  CodeFoldingState::{
+    ..state,
+    env: env.with_locals(state.param_types + state.func_locals),
+  }
 }
 
 ///|
@@ -1964,6 +2269,7 @@ fn code_folding_pass_with_trace(
         unchanged()
       }
       TFunc(locals, body) => {
+        state.prepare_func(locals)
         let func_start_us = cf_trace_now_us()
         let start_top_instrs = body.instrs.length()
         if log_func {
@@ -2123,12 +2429,15 @@ fn code_folding_pass_with_trace(
               let walk_changed = match
                 self.walk_func_default(state, current_func) {
                 Ok(Some((new_state, new_func))) => {
+                  state.func_locals = new_state.func_locals
+                  state.env = new_state.env
                   state.another_pass = new_state.another_pass
                   current_func = new_func
                   match current_func {
-                    TFunc(l, b) => {
-                      current_locals = l
+                    TFunc(_, b) => {
+                      current_locals = state.func_locals
                       current_body = b
+                      current_func = Func::t_func(current_locals, current_body)
                     }
                     _ => ()
                   }
@@ -2201,19 +2510,25 @@ fn code_folding_ir_pass_with_trace(
   let pass = code_folding_pass_with_trace(trace~, trace_all_funcs~)
   let base_env = Env::new().with_module(_mod)
   let func_envs : Array[Env] = []
+  let func_param_types : Array[Array[ValType]] = []
   match (_mod.func_sec, _mod.code_sec) {
     (Some(FuncSec(type_idxs)), Some(CodeSec(funcs))) => {
       let mut i = 0
       while i < type_idxs.length() && i < funcs.length() {
         let type_idx = type_idxs[i]
-        let func_env = match (base_env.resolve_functype(type_idx), funcs[i]) {
+        let (func_env, params) = match
+          (base_env.resolve_functype(type_idx), funcs[i]) {
           (Some(FuncType(params, results)), TFunc(locals, _)) =>
-            base_env
-            .with_locals(params + locals)
-            .with_return_type(Some(results))
-          _ => base_env
+            (
+              base_env
+              .with_locals(params + locals)
+              .with_return_type(Some(results)),
+              params,
+            )
+          _ => (base_env, [])
         }
         func_envs.push(func_env)
+        func_param_types.push(params)
         i += 1
       }
     }
@@ -2221,15 +2536,19 @@ fn code_folding_ir_pass_with_trace(
   }
   let mut defined_func_ordinal = 0
   ModuleTransformer::new().on_func_evt(fn(_, ctx : IRContext, func : Func) {
-    let func_env = match func {
+    let (func_env, param_types) = match func {
       TFunc(_, _) => {
         let next_env = func_envs.get(defined_func_ordinal).unwrap_or(base_env)
+        let next_params = func_param_types
+          .get(defined_func_ordinal)
+          .unwrap_or([])
         defined_func_ordinal += 1
-        next_env
+        (next_env, next_params)
       }
-      _ => base_env
+      _ => (base_env, [])
     }
-    match pass.walk_func(CodeFoldingState::new(env=func_env), func) {
+    match
+      pass.walk_func(CodeFoldingState::new(env=func_env, param_types~), func) {
       Ok(Some((_, new_func))) => change(ctx, new_func)
       Ok(None) => unchanged()
       Err(e) => Err(e)
@@ -2384,6 +2703,109 @@ fn run_fold_with_env(f : Func, env? : Env = Env::new()) -> Func raise {
 ///|
 fn run_fold(f : Func) -> Func raise {
   run_fold_with_env(f)
+}
+
+///|
+fn cf_test_instr_any(instr : TInstr, pred : (TInstr) -> Bool) -> Bool {
+  if pred(instr) {
+    return true
+  }
+  match instr.kind {
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) =>
+      for child in body.instrs {
+        if cf_test_instr_any(child, pred) {
+          return true
+        }
+      }
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
+      if cf_test_instr_any(cond, pred) {
+        return true
+      }
+      for child in then_body.instrs {
+        if cf_test_instr_any(child, pred) {
+          return true
+        }
+      }
+      match else_body {
+        Some(else_body) =>
+          for child in else_body.instrs {
+            if cf_test_instr_any(child, pred) {
+              return true
+            }
+          }
+        None => ()
+      }
+    }
+    _ =>
+      for child in eval_children(instr) {
+        if cf_test_instr_any(child, pred) {
+          return true
+        }
+      }
+  }
+  false
+}
+
+///|
+fn cf_test_func_any_instr(f : Func, pred : (TInstr) -> Bool) -> Bool {
+  match f {
+    TFunc(_, body) => {
+      for instr in body.instrs {
+        if cf_test_instr_any(instr, pred) {
+          return true
+        }
+      }
+      false
+    }
+    _ => false
+  }
+}
+
+///|
+fn cf_test_func_has_local_set(f : Func, local_idx : LocalIdx) -> Bool {
+  cf_test_func_any_instr(f, fn(instr) {
+    match instr.kind {
+      TInstrKind::TLocalSet(idx, _) => idx == local_idx
+      _ => false
+    }
+  })
+}
+
+///|
+fn cf_test_func_has_local_get(f : Func, local_idx : LocalIdx) -> Bool {
+  cf_test_func_any_instr(f, fn(instr) {
+    match instr.kind {
+      TInstrKind::TLocalGet(idx) => idx == local_idx
+      _ => false
+    }
+  })
+}
+
+///|
+fn cf_test_func_has_branch_value(f : Func) -> Bool {
+  cf_test_func_any_instr(f, fn(instr) {
+    match instr.kind {
+      TInstrKind::TBr(_, values) => !values.is_empty()
+      _ => false
+    }
+  })
+}
+
+///|
+fn cf_test_func_has_branch_target(
+  f : Func,
+  label : LabelIdx,
+  value_count : Int,
+) -> Bool {
+  cf_test_func_any_instr(f, fn(instr) {
+    match instr.kind {
+      TInstrKind::TBr(curr_label, values) =>
+        curr_label == label && values.length() == value_count
+      _ => false
+    }
+  })
 }
 
 ///|
@@ -2880,29 +3302,15 @@ test "code folding hoists block tail targeted by nested br" {
     ]),
   )
   let f2 = run_fold(f)
-  let expected = Func::t_func(
-    [],
-    TExpr::new([
-      TInstr::block(
-        BlockType::val_type(ValType::i32()),
-        TExpr::new([
-          TInstr::block(
-            BlockType::void_(),
-            TExpr::new([
-              TInstr::if_(
-                BlockType::void_(),
-                TInstr::i32_const(I32(1)),
-                TExpr::new([TInstr::nop(), TInstr::br(LabelIdx::new(1), [])]),
-                Some(TExpr::new([])),
-              ),
-            ]),
-          ),
-          common,
-        ]),
-      ),
-    ]),
-  )
-  assert_eq(f2, expected)
+  match f2 {
+    TFunc(locals, _) => {
+      assert_eq(locals.length(), 1)
+      assert_true(cf_test_func_has_local_set(f2, LocalIdx::new(0)))
+      assert_true(cf_test_func_has_local_get(f2, LocalIdx::new(0)))
+      assert_false(cf_test_func_has_branch_value(f2))
+    }
+    _ => fail("expected TFunc")
+  }
 }
 
 ///|
@@ -3008,34 +3416,16 @@ test "code folding block hoist rebases nested cond outer branches" {
       ),
     ]),
   )
-  let expected = Func::t_func(
-    [],
-    TExpr::new([
-      TInstr::block(
-        BlockType::val_type(ValType::i32()),
-        TExpr::new([
-          TInstr::block(
-            BlockType::void_(),
-            TExpr::new([
-              TInstr::if_(
-                BlockType::void_(),
-                TInstr::block(
-                  BlockType::val_type(ValType::i32()),
-                  TExpr::new([
-                    TInstr::br(LabelIdx::new(2), [TInstr::i32_const(I32(1))]),
-                  ]),
-                ),
-                TExpr::new([TInstr::nop(), TInstr::br(LabelIdx::new(1), [])]),
-                Some(TExpr::new([])),
-              ),
-            ]),
-          ),
-          common,
-        ]),
-      ),
-    ]),
-  )
-  assert_eq(run_fold(original), expected)
+  let folded = run_fold(original)
+  match folded {
+    TFunc(locals, _) => {
+      assert_eq(locals.length(), 1)
+      assert_true(cf_test_func_has_local_set(folded, LocalIdx::new(0)))
+      assert_true(cf_test_func_has_local_get(folded, LocalIdx::new(0)))
+      assert_true(cf_test_func_has_branch_target(folded, LabelIdx::new(3), 1))
+    }
+    _ => fail("expected TFunc")
+  }
 }
 
 ///|
@@ -3128,6 +3518,131 @@ test "code folding nested if hoist remains module-valid with outer labels" {
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(CodeSec::new([folded]))
+  assert_eq(validate_module(mod), Ok(()))
+}
+
+///|
+test "code folding terminating tails do not mutate shared unreachable arrays" {
+  let shared_tail = [
+    TInstr::drop(TInstr::i32_const(I32(1))),
+    TInstr::unreachable_(),
+  ]
+  let func_body = [
+    TInstr::block(BlockType::void_(), TExpr::new(shared_tail)),
+    TInstr::block(BlockType::void_(), TExpr::new(shared_tail)),
+  ]
+  let tails = [
+    {
+      tail: Tail::branch(shared_tail[shared_tail.length() - 1], shared_tail),
+      path: [BlockBody(0)],
+    },
+    {
+      tail: Tail::branch(shared_tail[shared_tail.length() - 1], shared_tail),
+      path: [BlockBody(1)],
+    },
+  ]
+  let result = optimize_terminating_tails(
+    CodeFoldingState::new(),
+    tails,
+    func_body,
+    cf_round_trace_stats_new(),
+  )
+  assert_eq(shared_tail.length(), 2)
+  let folded_body = match result {
+    Some(body) => body
+    None => fail("expected unreachable tails to fold")
+  }
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([single_rec_type(comp_type_sub_type(func_comp_type([], [])))]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], TExpr::new(folded_body))]))
+  assert_eq(validate_module(mod), Ok(()))
+}
+
+///|
+test "code folding hoists branch-value block tails via temp local" {
+  let common = TInstr::i32_const(I32(999))
+  let folded = run_fold(
+    Func::t_func(
+      [],
+      TExpr::new([
+        TInstr::block(
+          BlockType::val_type(ValType::i32()),
+          TExpr::new([
+            TInstr::if_(
+              BlockType::void_(),
+              TInstr::i32_const(I32(1)),
+              TExpr::new([TInstr::nop(), TInstr::br(LabelIdx::new(1), [common])]),
+              Some(TExpr::new([])),
+            ),
+            common,
+          ]),
+        ),
+      ]),
+    ),
+  )
+  match folded {
+    TFunc(locals, _) => {
+      assert_eq(locals.length(), 1)
+      assert_true(cf_test_func_has_local_set(folded, LocalIdx::new(0)))
+      assert_true(cf_test_func_has_local_get(folded, LocalIdx::new(0)))
+      assert_false(cf_test_func_has_branch_value(folded))
+    }
+    _ => fail("expected TFunc")
+  }
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        single_rec_type(
+          comp_type_sub_type(func_comp_type([], [ValType::i32()])),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(CodeSec::new([folded]))
+  assert_eq(validate_module(mod), Ok(()))
+}
+
+///|
+test "code folding terminating return tails do not mutate shared value arrays" {
+  let shared_tail = [TInstr::i32_const(I32(7)), TInstr::return_([])]
+  let func_body = [
+    TInstr::block(BlockType::void_(), TExpr::new(shared_tail)),
+    TInstr::block(BlockType::void_(), TExpr::new(shared_tail)),
+  ]
+  let tails = [
+    {
+      tail: Tail::branch(shared_tail[shared_tail.length() - 1], shared_tail),
+      path: [BlockBody(0)],
+    },
+    {
+      tail: Tail::branch(shared_tail[shared_tail.length() - 1], shared_tail),
+      path: [BlockBody(1)],
+    },
+  ]
+  let result = optimize_terminating_tails(
+    CodeFoldingState::new(),
+    tails,
+    func_body,
+    cf_round_trace_stats_new(),
+  )
+  assert_eq(shared_tail.length(), 2)
+  let folded_body = match result {
+    Some(body) => body
+    None => fail("expected return tails to fold")
+  }
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        single_rec_type(
+          comp_type_sub_type(func_comp_type([], [ValType::i32()])),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], TExpr::new(folded_body))]))
   assert_eq(validate_module(mod), Ok(()))
 }
 

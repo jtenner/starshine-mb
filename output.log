@@ -1,23 +1,23 @@
-/home/jtenner/Projects/starshine-mb/_build/native/release/build/cmd/cmd.c:136971:10: warning: conflicting types for built-in function ‘memcpy’; expected ‘void *(void *, const void *, long unsigned int)’ [-Wbuiltin-declaration-mismatch]
-136971 | uint64_t memcpy(moonbit_bytes_t $0, uint64_t $1, uint64_t $2);
+/home/jtenner/Projects/starshine-mb/_build/native/release/build/cmd/cmd.c:140014:10: warning: conflicting types for built-in function ‘memcpy’; expected ‘void *(void *, const void *, long unsigned int)’ [-Wbuiltin-declaration-mismatch]
+140014 | uint64_t memcpy(moonbit_bytes_t $0, uint64_t $1, uint64_t $2);
        |          ^~~~~~
 /home/jtenner/Projects/starshine-mb/_build/native/release/build/cmd/cmd.c:6:1: note: ‘memcpy’ is declared in header ‘<string.h>’
     5 | #include "moonbit.h"
   +++ |+#include <string.h>
     6 | 
-/home/jtenner/Projects/starshine-mb/_build/native/release/build/cmd/cmd.c:136977:10: warning: conflicting types for built-in function ‘strlen’; expected ‘long unsigned int(const char *)’ [-Wbuiltin-declaration-mismatch]
-136977 | uint64_t strlen(uint64_t $0);
+/home/jtenner/Projects/starshine-mb/_build/native/release/build/cmd/cmd.c:140020:10: warning: conflicting types for built-in function ‘strlen’; expected ‘long unsigned int(const char *)’ [-Wbuiltin-declaration-mismatch]
+140020 | uint64_t strlen(uint64_t $0);
        |          ^~~~~~
-/home/jtenner/Projects/starshine-mb/_build/native/release/build/cmd/cmd.c:136977:10: note: ‘strlen’ is declared in header ‘<string.h>’
-/home/jtenner/Projects/starshine-mb/_build/native/release/build/cmd/cmd.c:136987:10: warning: conflicting types for built-in function ‘fwrite’; expected ‘long unsigned int(const void *, long unsigned int,  long unsigned int,  void *)’ [-Wbuiltin-declaration-mismatch]
-136987 | uint64_t fwrite(moonbit_bytes_t $0, uint64_t $1, uint64_t $2, uint64_t $3);
+/home/jtenner/Projects/starshine-mb/_build/native/release/build/cmd/cmd.c:140020:10: note: ‘strlen’ is declared in header ‘<string.h>’
+/home/jtenner/Projects/starshine-mb/_build/native/release/build/cmd/cmd.c:140030:10: warning: conflicting types for built-in function ‘fwrite’; expected ‘long unsigned int(const void *, long unsigned int,  long unsigned int,  void *)’ [-Wbuiltin-declaration-mismatch]
+140030 | uint64_t fwrite(moonbit_bytes_t $0, uint64_t $1, uint64_t $2, uint64_t $3);
        |          ^~~~~~
 /home/jtenner/Projects/starshine-mb/_build/native/release/build/cmd/cmd.c:6:1: note: ‘fwrite’ is declared in header ‘<stdio.h>’
     5 | #include "moonbit.h"
   +++ |+#include <stdio.h>
     6 | 
-/home/jtenner/Projects/starshine-mb/_build/native/release/build/cmd/cmd.c:136997:9: warning: conflicting types for built-in function ‘exit’; expected ‘void(int)’ [-Wbuiltin-declaration-mismatch]
-136997 | int32_t exit(int32_t $0);
+/home/jtenner/Projects/starshine-mb/_build/native/release/build/cmd/cmd.c:140040:9: warning: conflicting types for built-in function ‘exit’; expected ‘void(int)’ [-Wbuiltin-declaration-mismatch]
+140040 | int32_t exit(int32_t $0);
        |         ^~~~
 /home/jtenner/Projects/starshine-mb/_build/native/release/build/cmd/cmd.c:6:1: note: ‘exit’ is declared in header ‘<stdlib.h>’
     5 | #include "moonbit.h"
@@ -33,159 +33,159 @@
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:pass_count=46 optimize:start
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt start passes=46
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt lift_to_texpr:start
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt lift_to_texpr:done elapsed_ms=388
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt lift_to_texpr:done elapsed_ms=408
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[1/46]:start pass=DuplicateFunctionElimination kind=module-runner
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[1/46]:returned pass=DuplicateFunctionElimination elapsed_ms=5155
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[1/46]:returned pass=DuplicateFunctionElimination elapsed_ms=5309
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[1/46]:commit:start pass=DuplicateFunctionElimination
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[1/46]:commit:done pass=DuplicateFunctionElimination
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[1/46]:done pass=DuplicateFunctionElimination elapsed_ms=5220
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[1/46]:done pass=DuplicateFunctionElimination elapsed_ms=5375
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[2/46]:start pass=RemoveUnused kind=ir-transformer
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[2/46]:returned pass=RemoveUnused elapsed_ms=1268
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[2/46]:returned pass=RemoveUnused elapsed_ms=1298
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[2/46]:commit:start pass=RemoveUnused
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[2/46]:commit:done pass=RemoveUnused
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[2/46]:done pass=RemoveUnused elapsed_ms=1415
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[2/46]:done pass=RemoveUnused elapsed_ms=1450
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[3/46]:start pass=MemoryPacking({zero_filled_memory: false, traps_never_happen: false, max_data_segments: 100000}) kind=module-runner
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[3/46]:returned pass=MemoryPacking({zero_filled_memory: false, traps_never_happen: false, max_data_segments: 100000}) elapsed_ms=1215
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[3/46]:returned pass=MemoryPacking({zero_filled_memory: false, traps_never_happen: false, max_data_segments: 100000}) elapsed_ms=1230
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[3/46]:commit:start pass=MemoryPacking({zero_filled_memory: false, traps_never_happen: false, max_data_segments: 100000})
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[3/46]:commit:done pass=MemoryPacking({zero_filled_memory: false, traps_never_happen: false, max_data_segments: 100000})
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[3/46]:done pass=MemoryPacking({zero_filled_memory: false, traps_never_happen: false, max_data_segments: 100000}) elapsed_ms=1215
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[3/46]:done pass=MemoryPacking({zero_filled_memory: false, traps_never_happen: false, max_data_segments: 100000}) elapsed_ms=1230
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[4/46]:start pass=OnceReduction kind=module-runner
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[4/46]:returned pass=OnceReduction elapsed_ms=899
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[4/46]:returned pass=OnceReduction elapsed_ms=888
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[4/46]:commit:start pass=OnceReduction
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[4/46]:commit:done pass=OnceReduction
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[4/46]:done pass=OnceReduction elapsed_ms=899
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[4/46]:done pass=OnceReduction elapsed_ms=888
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[5/46]:start pass=DataflowOptimization kind=ir-transformer
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[5/46]:returned pass=DataflowOptimization elapsed_ms=2663
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[5/46]:returned pass=DataflowOptimization elapsed_ms=2440
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[5/46]:commit:start pass=DataflowOptimization
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[5/46]:commit:done pass=DataflowOptimization
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[5/46]:done pass=DataflowOptimization elapsed_ms=2664
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[5/46]:done pass=DataflowOptimization elapsed_ms=2440
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[6/46]:start pass=Flatten kind=ir-transformer
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[6/46]:returned pass=Flatten elapsed_ms=14506
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[6/46]:returned pass=Flatten elapsed_ms=12893
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[6/46]:commit:start pass=Flatten
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[6/46]:commit:done pass=Flatten
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[6/46]:done pass=Flatten elapsed_ms=14558
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[6/46]:done pass=Flatten elapsed_ms=12945
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[7/46]:start pass=SimplifyLocalsNoTeeNoStructure kind=ir-transformer
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[7/46]:returned pass=SimplifyLocalsNoTeeNoStructure elapsed_ms=49438
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[7/46]:returned pass=SimplifyLocalsNoTeeNoStructure elapsed_ms=48012
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[7/46]:commit:start pass=SimplifyLocalsNoTeeNoStructure
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[7/46]:commit:done pass=SimplifyLocalsNoTeeNoStructure
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[7/46]:done pass=SimplifyLocalsNoTeeNoStructure elapsed_ms=49517
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[7/46]:done pass=SimplifyLocalsNoTeeNoStructure elapsed_ms=48088
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[8/46]:start pass=LocalCSE kind=ir-transformer
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[8/46]:returned pass=LocalCSE elapsed_ms=1961
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[8/46]:returned pass=LocalCSE elapsed_ms=1880
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[8/46]:commit:start pass=LocalCSE
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[8/46]:commit:done pass=LocalCSE
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[8/46]:done pass=LocalCSE elapsed_ms=2095
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[8/46]:done pass=LocalCSE elapsed_ms=2003
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[9/46]:start pass=DeadCodeElimination kind=unit-transformer
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[9/46]:returned pass=DeadCodeElimination elapsed_ms=2264
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[9/46]:returned pass=DeadCodeElimination elapsed_ms=2184
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[9/46]:commit:start pass=DeadCodeElimination
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[9/46]:commit:done pass=DeadCodeElimination
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[9/46]:done pass=DeadCodeElimination elapsed_ms=2308
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[9/46]:done pass=DeadCodeElimination elapsed_ms=2228
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[10/46]:start pass=RemoveUnusedNames kind=ir-transformer
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[10/46]:returned pass=RemoveUnusedNames elapsed_ms=9155
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[10/46]:returned pass=RemoveUnusedNames elapsed_ms=9016
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[10/46]:commit:start pass=RemoveUnusedNames
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[10/46]:commit:done pass=RemoveUnusedNames
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[10/46]:done pass=RemoveUnusedNames elapsed_ms=9256
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[10/46]:done pass=RemoveUnusedNames elapsed_ms=9112
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[11/46]:start pass=RemoveUnusedBrs kind=module-runner
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[11/46]:returned pass=RemoveUnusedBrs elapsed_ms=3056
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[11/46]:returned pass=RemoveUnusedBrs elapsed_ms=2680
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[11/46]:commit:start pass=RemoveUnusedBrs
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[11/46]:commit:done pass=RemoveUnusedBrs
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[11/46]:done pass=RemoveUnusedBrs elapsed_ms=3109
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[11/46]:done pass=RemoveUnusedBrs elapsed_ms=2728
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[12/46]:start pass=RemoveUnusedNames kind=ir-transformer
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[12/46]:returned pass=RemoveUnusedNames elapsed_ms=9494
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[12/46]:returned pass=RemoveUnusedNames elapsed_ms=8937
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[12/46]:commit:start pass=RemoveUnusedNames
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[12/46]:commit:done pass=RemoveUnusedNames
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[12/46]:done pass=RemoveUnusedNames elapsed_ms=9606
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[12/46]:done pass=RemoveUnusedNames elapsed_ms=9031
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[13/46]:start pass=OptimizeInstructions kind=ir-transformer
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[13/46]:returned pass=OptimizeInstructions elapsed_ms=4543
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[13/46]:returned pass=OptimizeInstructions elapsed_ms=3971
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[13/46]:commit:start pass=OptimizeInstructions
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[13/46]:commit:done pass=OptimizeInstructions
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[13/46]:done pass=OptimizeInstructions elapsed_ms=4572
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[13/46]:done pass=OptimizeInstructions elapsed_ms=3988
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[14/46]:start pass=PickLoadSigns kind=ir-transformer
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[14/46]:returned pass=PickLoadSigns elapsed_ms=24717
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[14/46]:returned pass=PickLoadSigns elapsed_ms=13905
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[14/46]:commit:start pass=PickLoadSigns
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[14/46]:commit:done pass=PickLoadSigns
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[14/46]:done pass=PickLoadSigns elapsed_ms=24843
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[14/46]:done pass=PickLoadSigns elapsed_ms=14000
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[15/46]:start pass=PrecomputePropagate kind=ir-transformer
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[15/46]:returned pass=PrecomputePropagate elapsed_ms=5498
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[15/46]:returned pass=PrecomputePropagate elapsed_ms=4347
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[15/46]:commit:start pass=PrecomputePropagate
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[15/46]:commit:done pass=PrecomputePropagate
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[15/46]:done pass=PrecomputePropagate elapsed_ms=5607
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[15/46]:done pass=PrecomputePropagate elapsed_ms=4443
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[16/46]:start pass=CodePushing kind=ir-transformer
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[16/46]:returned pass=CodePushing elapsed_ms=19675
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[16/46]:returned pass=CodePushing elapsed_ms=15287
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[16/46]:commit:start pass=CodePushing
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[16/46]:commit:done pass=CodePushing
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[16/46]:done pass=CodePushing elapsed_ms=19800
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[16/46]:done pass=CodePushing elapsed_ms=15377
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[17/46]:start pass=TupleOptimization kind=ir-transformer
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[17/46]:returned pass=TupleOptimization elapsed_ms=4425
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[17/46]:returned pass=TupleOptimization elapsed_ms=3700
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[17/46]:commit:start pass=TupleOptimization
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[17/46]:commit:done pass=TupleOptimization
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[17/46]:done pass=TupleOptimization elapsed_ms=4425
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[17/46]:done pass=TupleOptimization elapsed_ms=3700
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[18/46]:start pass=SimplifyLocalsNoStructure kind=ir-transformer
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[18/46]:returned pass=SimplifyLocalsNoStructure elapsed_ms=102314
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[18/46]:returned pass=SimplifyLocalsNoStructure elapsed_ms=82536
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[18/46]:commit:start pass=SimplifyLocalsNoStructure
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[18/46]:commit:done pass=SimplifyLocalsNoStructure
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[18/46]:done pass=SimplifyLocalsNoStructure elapsed_ms=102365
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[18/46]:done pass=SimplifyLocalsNoStructure elapsed_ms=82585
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[19/46]:start pass=Vacuum kind=ir-transformer
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[19/46]:returned pass=Vacuum elapsed_ms=8615
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[19/46]:returned pass=Vacuum elapsed_ms=7703
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[19/46]:commit:start pass=Vacuum
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[19/46]:commit:done pass=Vacuum
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[19/46]:done pass=Vacuum elapsed_ms=8707
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[19/46]:done pass=Vacuum elapsed_ms=7787
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[20/46]:start pass=ReorderLocals kind=ir-transformer
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[20/46]:returned pass=ReorderLocals elapsed_ms=1926
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[20/46]:returned pass=ReorderLocals elapsed_ms=1701
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[20/46]:commit:start pass=ReorderLocals
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[20/46]:commit:done pass=ReorderLocals
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[20/46]:done pass=ReorderLocals elapsed_ms=2059
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[20/46]:done pass=ReorderLocals elapsed_ms=1825
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[21/46]:start pass=RemoveUnusedBrs kind=module-runner
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[21/46]:returned pass=RemoveUnusedBrs elapsed_ms=2789
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[21/46]:returned pass=RemoveUnusedBrs elapsed_ms=2490
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[21/46]:commit:start pass=RemoveUnusedBrs
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[21/46]:commit:done pass=RemoveUnusedBrs
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[21/46]:done pass=RemoveUnusedBrs elapsed_ms=2867
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[21/46]:done pass=RemoveUnusedBrs elapsed_ms=2563
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[22/46]:start pass=MergeLocals kind=ir-transformer
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[22/46]:returned pass=MergeLocals elapsed_ms=1267
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[22/46]:returned pass=MergeLocals elapsed_ms=1178
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[22/46]:commit:start pass=MergeLocals
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[22/46]:commit:done pass=MergeLocals
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[22/46]:done pass=MergeLocals elapsed_ms=1369
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[22/46]:done pass=MergeLocals elapsed_ms=1271
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[23/46]:start pass=CoalesceLocals kind=ir-transformer
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[23/46]:returned pass=CoalesceLocals elapsed_ms=66632
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[23/46]:returned pass=CoalesceLocals elapsed_ms=62111
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[23/46]:commit:start pass=CoalesceLocals
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[23/46]:commit:done pass=CoalesceLocals
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[23/46]:done pass=CoalesceLocals elapsed_ms=66722
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[23/46]:done pass=CoalesceLocals elapsed_ms=62197
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[24/46]:start pass=LocalCSE kind=ir-transformer
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[24/46]:returned pass=LocalCSE elapsed_ms=1867
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[24/46]:returned pass=LocalCSE elapsed_ms=1713
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[24/46]:commit:start pass=LocalCSE
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[24/46]:commit:done pass=LocalCSE
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[24/46]:done pass=LocalCSE elapsed_ms=1971
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[24/46]:done pass=LocalCSE elapsed_ms=1806
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[25/46]:start pass=SimplifyLocals kind=ir-transformer
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[25/46]:returned pass=SimplifyLocals elapsed_ms=85536
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[25/46]:returned pass=SimplifyLocals elapsed_ms=73382
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[25/46]:commit:start pass=SimplifyLocals
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[25/46]:commit:done pass=SimplifyLocals
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[25/46]:done pass=SimplifyLocals elapsed_ms=85591
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[25/46]:done pass=SimplifyLocals elapsed_ms=73432
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[26/46]:start pass=Vacuum kind=ir-transformer
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[26/46]:returned pass=Vacuum elapsed_ms=7180
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[26/46]:returned pass=Vacuum elapsed_ms=6736
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[26/46]:commit:start pass=Vacuum
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[26/46]:commit:done pass=Vacuum
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[26/46]:done pass=Vacuum elapsed_ms=7244
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[26/46]:done pass=Vacuum elapsed_ms=6794
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[27/46]:start pass=ReorderLocals kind=ir-transformer
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[27/46]:returned pass=ReorderLocals elapsed_ms=1828
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[27/46]:returned pass=ReorderLocals elapsed_ms=1652
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[27/46]:commit:start pass=ReorderLocals
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[27/46]:commit:done pass=ReorderLocals
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[27/46]:done pass=ReorderLocals elapsed_ms=1957
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[27/46]:done pass=ReorderLocals elapsed_ms=1771
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[28/46]:start pass=CoalesceLocals kind=ir-transformer
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[28/46]:returned pass=CoalesceLocals elapsed_ms=62398
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[28/46]:returned pass=CoalesceLocals elapsed_ms=58180
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[28/46]:commit:start pass=CoalesceLocals
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[28/46]:commit:done pass=CoalesceLocals
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[28/46]:done pass=CoalesceLocals elapsed_ms=62510
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[28/46]:done pass=CoalesceLocals elapsed_ms=58273
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[29/46]:start pass=ReorderLocals kind=ir-transformer
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[29/46]:returned pass=ReorderLocals elapsed_ms=1793
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[29/46]:returned pass=ReorderLocals elapsed_ms=1730
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[29/46]:commit:start pass=ReorderLocals
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[29/46]:commit:done pass=ReorderLocals
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[29/46]:done pass=ReorderLocals elapsed_ms=1908
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[29/46]:done pass=ReorderLocals elapsed_ms=1833
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[30/46]:start pass=Vacuum kind=ir-transformer
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[30/46]:returned pass=Vacuum elapsed_ms=7295
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[30/46]:returned pass=Vacuum elapsed_ms=6718
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[30/46]:commit:start pass=Vacuum
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[30/46]:commit:done pass=Vacuum
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[30/46]:done pass=Vacuum elapsed_ms=7348
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[30/46]:done pass=Vacuum elapsed_ms=6770
 [trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[31/46]:start pass=CodeFolding kind=ir-transformer
-[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[31/46]:CodeFolding:validation_error elapsed_ms=27823 stack underflow
+[trace] input tests/node/dist/starshine-debug-wasi.wasm:opt pass[31/46]:CodeFolding:validation_error elapsed_ms=26761 stack underflow
 error: OptimizeFailed("tests/node/dist/starshine-debug-wasi.wasm: validation error after pass CodeFolding:
 stack underflow
 
