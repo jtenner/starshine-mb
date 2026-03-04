@@ -2281,6 +2281,69 @@ fn sl_can_validate_rewritten_functions(mod : Module) -> Bool {
 }
 
 ///|
+fn sl_validate_typed_function_candidate(
+  env : Env,
+  abs_func_idx : FuncIdx,
+  func : Func,
+) -> Result[Unit, String] {
+  let FuncType(params, results) = match
+    env.get_functype_by_funcidx(abs_func_idx) {
+    Some(ft) => ft
+    None => return Ok(())
+  }
+  match func {
+    TFunc(local_vals, body) => {
+      let all_locals = params.copy()
+      for vt in local_vals {
+        all_locals.push(vt)
+      }
+      let env1 = env
+        .with_locals(all_locals)
+        .with_label(results)
+        .with_return_type(Some(results))
+      let st1 = match Typecheck::typecheck(body, make_state(env1, [])) {
+        Ok(st) => st
+        Err(e) => return Err(e)
+      }
+      if !st1.reachable {
+        return Ok(())
+      }
+      if st1.stack.length() != results.length() {
+        return Err(
+          "typed function body has wrong result arity: stack=\{st1.stack} results=\{results}",
+        )
+      }
+      for i in 0..<results.length() {
+        if !Match::matches(st1.stack[i], results[i], env1) {
+          return Err("typed function body result type mismatch")
+        }
+      }
+      Ok(())
+    }
+    _ => Ok(())
+  }
+}
+
+///|
+fn sl_keep_validated_rewrite(
+  env : Env,
+  abs_func_idx : FuncIdx,
+  original : Func,
+  candidate : Func,
+  trace : (String) -> Unit,
+) -> (Func, Bool) {
+  match sl_validate_typed_function_candidate(env, abs_func_idx, candidate) {
+    Ok(_) => (candidate, true)
+    Err(err) => {
+      trace(
+        "func_idx=\{abs_func_idx.to_string()} rewrite rejected after local validation: \{err}",
+      )
+      (original, false)
+    }
+  }
+}
+
+///|
 fn sl_simplify_function(
   func : Func,
   env : Env,
@@ -2372,6 +2435,9 @@ fn simplify_locals_ir_pass(
     let log_func = trace_all_funcs || ordinal <= 5 || ordinal % 500 == 0
     let func_start_ms = sl_trace_now_ms()
     let params = param_types.get(def_idx).unwrap_or([])
+    let abs_func_idx = FuncIdx::new(
+      (imported_func_count + def_idx).reinterpret_as_uint(),
+    )
     let func_env = match func {
       TFunc(locals, _) => base_env.with_locals(params + locals)
       _ => base_env
@@ -2385,9 +2451,16 @@ fn simplify_locals_ir_pass(
         _ => trace("func[\{ordinal}] skip non-typed-func")
       }
     }
-    let (next_func, changed) = sl_simplify_function(
+    let (raw_next_func, raw_changed) = sl_simplify_function(
       func, func_env, params, options,
     )
+    let (next_func, changed) = if raw_changed {
+      sl_keep_validated_rewrite(
+        base_env, abs_func_idx, func, raw_next_func, trace,
+      )
+    } else {
+      (raw_next_func, false)
+    }
     if changed {
       if validate_each_rewrite &&
         can_validate_rewrites &&
@@ -3447,4 +3520,118 @@ test "simplify_locals local checker rejects result-block candidate with void bra
   assert_false(
     sl_can_emit_rewritten_instr(candidate, sl_test_env([ValType::i32()])),
   )
+}
+
+///|
+test "simplify_locals typed function validator rejects local.set result type mismatch" {
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([single_rec_type(comp_type_sub_type(func_comp_type([], [])))]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+  let env = Env::new().with_module(mod)
+  let candidate = Func::t_func(
+    [ValType::i64()],
+    TExpr::new([
+      TInstr::local_set(
+        LocalIdx::new(0),
+        TInstr::if_(
+          BlockType::val_type(ValType::i32()),
+          TInstr::i32_const(I32(1)),
+          TExpr::new([TInstr::i32_const(I32(2))]),
+          Some(TExpr::new([TInstr::i32_const(I32(3))])),
+        ),
+      ),
+    ]),
+  )
+  match sl_validate_typed_function_candidate(env, FuncIdx::new(0), candidate) {
+    Ok(_) => fail("expected validator to reject mismatched local.set candidate")
+    Err(_) => ()
+  }
+}
+
+///|
+test "simplify_locals rewrite finalizer keeps original invalid candidate out" {
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([single_rec_type(comp_type_sub_type(func_comp_type([], [])))]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+  let env = Env::new().with_module(mod)
+  let original = Func::t_func([ValType::i64()], TExpr::new([]))
+  let invalid_candidate = Func::t_func(
+    [ValType::i64()],
+    TExpr::new([
+      TInstr::local_set(
+        LocalIdx::new(0),
+        TInstr::if_(
+          BlockType::val_type(ValType::i32()),
+          TInstr::i32_const(I32(1)),
+          TExpr::new([TInstr::i32_const(I32(2))]),
+          Some(TExpr::new([TInstr::i32_const(I32(3))])),
+        ),
+      ),
+    ]),
+  )
+  let (kept, changed) = sl_keep_validated_rewrite(
+    env,
+    FuncIdx::new(0),
+    original,
+    invalid_candidate,
+    fn(_) { () },
+  )
+  assert_false(changed)
+  assert_eq(kept, original)
+}
+
+///|
+test "simplify_locals keeps nested branchy result-if pattern valid" {
+  let x = LocalIdx::new(0)
+  let cond0 = LocalIdx::new(1)
+  let cond1 = LocalIdx::new(2)
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([single_rec_type(comp_type_sub_type(func_comp_type([], [])))]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32(), ValType::i32(), ValType::i32()],
+          TExpr::new([
+            TInstr::block(
+              BlockType::void_(),
+              TExpr::new([
+                TInstr::if_(
+                  BlockType::void_(),
+                  TInstr::local_get(cond0),
+                  TExpr::new([
+                    TInstr::if_(
+                      BlockType::void_(),
+                      TInstr::local_get(cond1),
+                      TExpr::new([
+                        TInstr::local_set(x, TInstr::i32_const(I32(1))),
+                      ]),
+                      Some(
+                        TExpr::new([
+                          TInstr::br(LabelIdx::new(1), []),
+                          TInstr::local_set(x, TInstr::i32_const(I32(9))),
+                        ]),
+                      ),
+                    ),
+                    TInstr::local_set(x, TInstr::local_get(x)),
+                  ]),
+                  Some(
+                    TExpr::new([TInstr::local_set(x, TInstr::i32_const(I32(2)))]),
+                  ),
+                ),
+                TInstr::drop(TInstr::local_get(x)),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let out = sl_run_simplify_locals(mod, allow_tee=true, allow_structure=true)
+  assert_eq(validate_module(out), Ok(()))
 }

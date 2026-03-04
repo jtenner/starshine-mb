@@ -521,39 +521,13 @@ fn run_ir_context_transformer_scheduler_pass(
           trace("remove_unused:\{msg}")
         }),
       )
-    SimplifyLocals => {
-      let n = 3821
-      let func_n_before = match mod.code_sec {
-        Some(CodeSec(funcs)) if n >= 0 && n < funcs.length() =>
-          Some(mod.pretty_print_defined_func(n.reinterpret_as_uint()))
-        _ => None
-      }
-      let result = apply_ir_transformer_pass(
+    SimplifyLocals => apply_ir_transformer_pass(
         ctx,
         mod,
         simplify_locals_ir_pass(mod, true, true, true, trace=fn(msg) {
           trace("simplify_locals:\{msg}")
         }),
       )
-
-      let func_n_after = match result {
-        Ok(next_mod) =>
-          match next_mod.code_sec {
-            Some(CodeSec(funcs)) if n >= 0 && n < funcs.length() =>
-              Some(next_mod.pretty_print_defined_func(n.reinterpret_as_uint()))
-            _ => None
-          }
-        Err(_) => None
-      }
-      match (func_n_before, func_n_after) {
-        (Some(before), Some(after)) => {
-          println("func[\{n}] before:\n\{before}")
-          println("func[\{n}] after:\n\{after}")
-        }
-        _ => ()
-      }
-      result
-    }
     SimplifyLocalsNoTee =>
       apply_ir_transformer_pass(
         ctx,

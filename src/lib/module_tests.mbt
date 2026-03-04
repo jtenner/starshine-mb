@@ -25,11 +25,13 @@ test "pretty_print_defined_func resolves signatures locals and typed calls" {
 
   let printed = mod.pretty_print_defined_func(0U)
   assert_true(printed.contains("func code[0] abs[0]"))
-  assert_true(printed.contains("type_idx: (Type 0) => FuncType"))
+  assert_true(printed.contains("type_idx: (Type 0 (Func [I32] -> [I32]))"))
   assert_true(printed.contains("[0] I32 (param)"))
   assert_true(printed.contains("[1] I32 (local)"))
-  assert_true(printed.contains("- if bt=(Type 1) => FuncType"))
-  assert_true(printed.contains("- call (Func 1) => (Type 1) => FuncType"))
+  assert_true(printed.contains("- if bt=(Type 1 (Func [] -> [I32]))"))
+  assert_true(
+    printed.contains("- call (Func 1) => (Type 1 (Func [] -> [I32]))"),
+  )
   assert_true(printed.contains("- local.get (Local 0) : I32 (param)"))
 }
 
@@ -55,5 +57,8 @@ test "pretty_print_func reports imported function signatures" {
   assert_true(printed.contains("func abs[0] import"), msg=printed)
   assert_true(printed.contains("module: \"env\""), msg=printed)
   assert_true(printed.contains("field: \"callee\""), msg=printed)
-  assert_true(printed.contains("type_idx: (Type 0) => FuncType"), msg=printed)
+  assert_true(
+    printed.contains("type_idx: (Type 0 (Func [I64] -> []))"),
+    msg=printed,
+  )
 }

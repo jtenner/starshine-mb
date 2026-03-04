@@ -189,15 +189,7 @@ fn md_resolve_functype(ctx : ModuleDebugContext, idx : TypeIdx) -> FuncType? {
 
 ///|
 fn md_format_type_idx(ctx : ModuleDebugContext, idx : TypeIdx) -> String {
-  let raw = idx.to_string()
-  match md_resolve_functype(ctx, idx) {
-    Some(func_type) => raw + " => " + func_type.to_string()
-    None =>
-      match md_resolve_subtype(ctx, idx) {
-        Some(subtype) => raw + " => " + subtype.to_string()
-        None => raw + " => <unresolved>"
-      }
-  }
+  pretty_resolved_type_idx(ctx.subtypes, idx)
 }
 
 ///|
@@ -205,10 +197,9 @@ fn md_format_heap_type(
   ctx : ModuleDebugContext,
   heap_type : HeapType,
 ) -> String {
-  let raw = heap_type.to_string()
   match heap_type {
-    HeapType(type_idx) => raw + " => " + md_format_type_idx(ctx, type_idx)
-    _ => raw
+    HeapType(type_idx) => md_format_type_idx(ctx, type_idx)
+    _ => pretty_heap_type(heap_type)
   }
 }
 
@@ -282,7 +273,7 @@ fn md_format_local_idx(
       } else {
         "local"
       }
-      raw + " : " + val_type.to_string() + " (" + role + ")"
+      raw + " : " + pretty_val_type(val_type) + " (" + role + ")"
     }
     None => raw + " : <unknown local>"
   }
@@ -1322,7 +1313,7 @@ fn md_format_block_type(
 ) -> String {
   match block_type {
     VoidBlockType => "(Void)"
-    ValTypeBlockType(val_type) => val_type.to_string()
+    ValTypeBlockType(val_type) => pretty_val_type(val_type)
     TypeIdxBlockType(type_idx) => md_format_type_idx(ctx, type_idx)
   }
 }
@@ -1380,8 +1371,8 @@ pub fn Module::pretty_print_defined_func(
         Some(func_type) => func_type
         None => FuncType::new([], [])
       }
-      md_write_line(out, 2, "params: " + params.to_string())
-      md_write_line(out, 2, "results: " + results.to_string())
+      md_write_line(out, 2, "params: " + pretty_result_type(params))
+      md_write_line(out, 2, "results: " + pretty_result_type(results))
       match func {
         Func(grouped_locals, body) => {
           let full_locals = params.copy()
@@ -1401,7 +1392,7 @@ pub fn Module::pretty_print_defined_func(
               md_write_line(
                 out,
                 4,
-                "[\{i}] " + full_locals[i].to_string() + " (" + role + ")",
+                "[\{i}] " + pretty_val_type(full_locals[i]) + " (" + role + ")",
               )
             }
           }
@@ -1418,7 +1409,7 @@ pub fn Module::pretty_print_defined_func(
               md_write_line(
                 out,
                 4,
-                "[\{i}] " + local_vals[i].to_string() + " (" + role + ")",
+                "[\{i}] " + pretty_val_type(local_vals[i]) + " (" + role + ")",
               )
             }
           }
