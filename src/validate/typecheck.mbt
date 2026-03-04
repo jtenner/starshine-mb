@@ -5466,6 +5466,30 @@ test "Typecheck LocalTee" {
 }
 
 ///|
+test "Typecheck TLocalSet consumes child value without re-pushing it" {
+  let env : Env = { ..empty_env(), locals: [ValType::i32(), ValType::i32()] }
+  let state = make_state(env, [])
+  let t = TInstr::local_set(
+    LocalIdx::new(0),
+    TInstr::local_tee(LocalIdx::new(1), TInstr::i32_const(I32(7))),
+  )
+  let new_state = assert_ok(Typecheck::typecheck(t, state))
+  assert_stack(new_state, [])
+}
+
+///|
+test "Typecheck TLocalTee preserves the child value on the stack" {
+  let env : Env = { ..empty_env(), locals: [ValType::i32(), ValType::i32()] }
+  let state = make_state(env, [])
+  let t = TInstr::local_tee(
+    LocalIdx::new(0),
+    TInstr::local_tee(LocalIdx::new(1), TInstr::i32_const(I32(7))),
+  )
+  let new_state = assert_ok(Typecheck::typecheck(t, state))
+  assert_stack(new_state, [ValType::i32()])
+}
+
+///|
 test "Typecheck GlobalGet" {
   let env : Env = {
     ..empty_env(),
