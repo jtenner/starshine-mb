@@ -1844,8 +1844,10 @@ test "monomorphize always handles dropped calls and removes drop wrapper" {
   }
   match validate_module(out) {
     Ok(_) => ()
-    Err(@validate.ValidationError::Validation(msg)) =>
-      fail("expected monomorphized module to validate: \{msg}")
+    Err(err) =>
+      fail(
+        "expected monomorphized module to validate: \{@validate.validation_error_message(err)}",
+      )
   }
 }
 
@@ -2214,8 +2216,10 @@ test "monomorphize is robust in presence of multi-result functions (no invalid d
 
   match validate_module(out) {
     Ok(_) => ()
-    Err(@validate.ValidationError::Validation(msg)) =>
-      fail("expected module to validate: \{msg}")
+    Err(err) =>
+      fail(
+        "expected module to validate: \{@validate.validation_error_message(err)}",
+      )
   }
 
   // Determinism smoke check.
@@ -2373,8 +2377,10 @@ test "monomorphize preserves memory effect ordering by not moving memory.size ac
 
   match validate_module(out) {
     Ok(_) => ()
-    Err(@validate.ValidationError::Validation(msg)) =>
-      fail("expected validated module: \{msg}")
+    Err(err) =>
+      fail(
+        "expected validated module: \{@validate.validation_error_message(err)}",
+      )
   }
 }
 
@@ -2421,7 +2427,9 @@ test "monomorphize specialization preserves extra local indices after inserting 
 
   match validate_module(out) {
     Ok(_) => ()
-    Err(@validate.ValidationError::Validation(msg)) =>
-      fail("expected validated module: \{msg}")
+    Err(err) =>
+      fail(
+        "expected validated module: \{@validate.validation_error_message(err)}",
+      )
   }
 }

@@ -118,9 +118,12 @@ using @transformer {
 using @validate {
   type Env,
   type TcState,
+  type ValidationError,
   make_state,
   to_texpr,
   validate_module,
+  validation_error_func_idx,
+  validation_error_message,
   trait Match,
   trait Typecheck,
 }

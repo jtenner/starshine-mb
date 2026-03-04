@@ -773,7 +773,7 @@ fn fuzz_invalid_module_with_coverage(
   }
   match validate_module(invalid_module) {
     Ok(_) => (strategy_name, true, false)
-    Err(ValidationError::Validation(_)) => (strategy_name, true, true)
+    Err(_) => (strategy_name, true, true)
   }
 }
 
@@ -829,7 +829,7 @@ test "invalidation fuzzing with coverage" {
   }
   for _ in 0..<200 {
     let valid_module = gen_valid_module(rnd)
-    if validate_module(valid_module) is Err(ValidationError::Validation(_)) {
+    if validate_module(valid_module) is Err(_) {
       continue
     }
     let results = fuzz_all_strategies_with_coverage(valid_module)
@@ -954,7 +954,7 @@ test "TagIdxOOB rejects a module with throw/catch tag uses" {
   assert_not_eq(invalid_mod, mod)
   match validate_module(invalid_mod) {
     Ok(_) => fail("expected invalid module to be rejected")
-    Err(ValidationError::Validation(_)) => ()
+    Err(_) => ()
   }
 }
 
@@ -973,7 +973,7 @@ test "StartIdxOOB strategy rejects module with valid start function" {
   assert_true(modified)
   match validate_module(invalid_mod) {
     Ok(_) => fail("expected StartIdxOOB strategy to produce invalid module")
-    Err(ValidationError::Validation(_)) => ()
+    Err(_) => ()
   }
 }
 
@@ -997,7 +997,9 @@ test "DuplicateExportName strategy rejects module with a single export" {
   match validate_module(invalid_mod) {
     Ok(_) =>
       fail("expected DuplicateExportName strategy to produce invalid module")
-    Err(ValidationError::Validation(msg)) =>
-      assert_true(msg.contains("duplicate export name"))
+    Err(err) =>
+      assert_true(
+        validation_error_message(err).contains("duplicate export name"),
+      )
   }
 }

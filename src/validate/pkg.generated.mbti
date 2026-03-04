@@ -60,9 +60,17 @@ pub fn validate_tagsec(@lib.TagSec?, Env) -> Result[Env, String]
 
 pub fn validate_typesec(@lib.TypeSec?, Env) -> Result[Env, String]
 
+pub fn validation_error_diagnostic(ValidationError) -> ValidationDiagnostic
+
+pub fn validation_error_func_idx(ValidationError) -> @lib.FuncIdx?
+
+pub fn validation_error_message(ValidationError) -> String
+
+pub fn validation_issue_message(ValidationIssue) -> String
+
 // Errors
 pub suberror ValidationError {
-  Validation(String)
+  Validation(ValidationDiagnostic)
 }
 pub impl Eq for ValidationError
 pub impl Show for ValidationError
@@ -144,6 +152,35 @@ pub struct TcState {
 pub impl Show for TcState
 
 type TypeGenerationStrategy
+
+pub struct ValidationDiagnostic {
+  issue : ValidationIssue
+  func_idx : @lib.FuncIdx?
+}
+pub fn ValidationDiagnostic::new(ValidationIssue, func_idx? : @lib.FuncIdx?) -> Self
+pub impl Eq for ValidationDiagnostic
+pub impl Show for ValidationDiagnostic
+pub impl @debug.Debug for ValidationDiagnostic
+
+pub enum ValidationIssue {
+  TypeSection(String)
+  ImportSection(String)
+  FunctionSection(String)
+  TableSection(String)
+  MemorySection(String)
+  TagSection(String)
+  GlobalSection(String)
+  ElementSection(String)
+  DataSection(String)
+  DataCountSection(String)
+  StartSection(String)
+  ExportSection(String)
+  CodeSection(String)
+  FunctionBody(String)
+}
+pub impl Eq for ValidationIssue
+pub impl Show for ValidationIssue
+pub impl @debug.Debug for ValidationIssue
 
 // Type aliases
 pub type TcResult = Result[TcState, String]

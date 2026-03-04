@@ -10,9 +10,107 @@ pub fn diff(rt1 : RefType, rt2 : RefType) -> Result[RefType, String] {
 }
 
 ///|
+pub enum ValidationIssue {
+  TypeSection(String)
+  ImportSection(String)
+  FunctionSection(String)
+  TableSection(String)
+  MemorySection(String)
+  TagSection(String)
+  GlobalSection(String)
+  ElementSection(String)
+  DataSection(String)
+  DataCountSection(String)
+  StartSection(String)
+  ExportSection(String)
+  CodeSection(String)
+  FunctionBody(String)
+} derive(Eq, Debug)
+
+///|
+pub struct ValidationDiagnostic {
+  issue : ValidationIssue
+  func_idx : FuncIdx?
+} derive(Eq, Debug)
+
+///|
+pub fn ValidationDiagnostic::new(
+  issue : ValidationIssue,
+  func_idx? : FuncIdx? = None,
+) -> ValidationDiagnostic {
+  ValidationDiagnostic::{ issue, func_idx }
+}
+
+///|
+pub fn validation_issue_message(issue : ValidationIssue) -> String {
+  match issue {
+    TypeSection(msg)
+    | ImportSection(msg)
+    | FunctionSection(msg)
+    | TableSection(msg)
+    | MemorySection(msg)
+    | TagSection(msg)
+    | GlobalSection(msg)
+    | ElementSection(msg)
+    | DataSection(msg)
+    | DataCountSection(msg)
+    | StartSection(msg)
+    | ExportSection(msg)
+    | CodeSection(msg)
+    | FunctionBody(msg) => msg
+  }
+}
+
+///|
+pub impl Show for ValidationIssue with output(self, logger) {
+  logger.write_string(validation_issue_message(self))
+}
+
+///|
+pub impl Show for ValidationDiagnostic with output(self, logger) {
+  match self.func_idx {
+    Some(FuncIdx(i)) => {
+      logger.write_string("func[")
+      i.output(logger)
+      logger.write_string("]: ")
+    }
+    None => ()
+  }
+  logger.write_string(validation_issue_message(self.issue))
+}
+
+///|
 pub suberror ValidationError {
-  Validation(String)
-} derive(Eq, Show, Debug)
+  Validation(ValidationDiagnostic)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for ValidationError with output(self, logger) {
+  match self {
+    Validation(diag) => diag.output(logger)
+  }
+}
+
+///|
+pub fn validation_error_diagnostic(
+  err : ValidationError,
+) -> ValidationDiagnostic {
+  match err {
+    Validation(diag) => diag
+  }
+}
+
+///|
+pub fn validation_error_message(err : ValidationError) -> String {
+  let diag = validation_error_diagnostic(err)
+  validation_issue_message(diag.issue)
+}
+
+///|
+pub fn validation_error_func_idx(err : ValidationError) -> FuncIdx? {
+  let diag = validation_error_diagnostic(err)
+  diag.func_idx
+}
 
 ///|
 pub trait Validate {
@@ -620,46 +718,92 @@ fn validate_func_body_against_functype(
 }
 
 ///|
-pub fn validate_codesec(
+fn validate_codesec_diag(
   codesec : CodeSec?,
   funcsec : FuncSec?,
   env : Env,
-) -> Result[Unit, String] {
+) -> Result[Unit, ValidationDiagnostic] {
   match (codesec, funcsec) {
     (None, None) => Ok(())
     (Some(CodeSec(bodies)), None) =>
       if bodies.length() == 0 {
         Ok(())
       } else {
-        Err("codesec present without funcsec")
+        Err(
+          ValidationDiagnostic::new(
+            ValidationIssue::CodeSection("codesec present without funcsec"),
+          ),
+        )
       }
     (None, Some(FuncSec(ts))) =>
       if ts.length() == 0 {
         Ok(())
       } else {
-        Err("funcsec present without codesec")
+        Err(
+          ValidationDiagnostic::new(
+            ValidationIssue::CodeSection("funcsec present without codesec"),
+          ),
+        )
       }
     (Some(CodeSec(bodies)), Some(FuncSec(type_idxs))) => {
       if bodies.length() != type_idxs.length() {
-        return Err("codesec length does not match funcsec length")
+        return Err(
+          ValidationDiagnostic::new(
+            ValidationIssue::CodeSection(
+              "codesec length does not match funcsec length",
+            ),
+          ),
+        )
       }
       let n_defined = bodies.length()
       let n_total = env.funcs.length()
       let n_imported = n_total - n_defined
       if n_imported < 0 {
-        return Err("internal: negative imported func count")
+        return Err(
+          ValidationDiagnostic::new(
+            ValidationIssue::CodeSection(
+              "internal: negative imported func count",
+            ),
+          ),
+        )
       }
       for i in 0..<bodies.length() {
+        let func_idx = FuncIdx::new((n_imported + i).reinterpret_as_uint())
         let ft = match env.funcs.get(n_imported + i) {
           Some(x) => x
-          None => return Err("internal: missing functype for code body")
+          None =>
+            return Err(
+              ValidationDiagnostic::new(
+                ValidationIssue::CodeSection(
+                  "internal: missing functype for code body",
+                ),
+                func_idx=Some(func_idx),
+              ),
+            )
         }
         if validate_func_body_against_functype(env, ft, bodies[i]) is Err(e) {
-          return Err("code[\{i}]: \{e}")
+          return Err(
+            ValidationDiagnostic::new(
+              ValidationIssue::FunctionBody(e),
+              func_idx=Some(func_idx),
+            ),
+          )
         }
       }
       Ok(())
     }
+  }
+}
+
+///|
+pub fn validate_codesec(
+  codesec : CodeSec?,
+  funcsec : FuncSec?,
+  env : Env,
+) -> Result[Unit, String] {
+  match validate_codesec_diag(codesec, funcsec, env) {
+    Ok(_) => Ok(())
+    Err(diag) => Err(validation_issue_message(diag.issue))
   }
 }
 
@@ -1086,16 +1230,25 @@ fn func_uses_bulk_memory_data_count(func : Func) -> Bool {
 fn validate_bulk_memory_data_count_requirement(
   codesec_opt : CodeSec?,
   datacnt_opt : DataCntSec?,
-) -> Result[Unit, String] {
+  imported_func_count : Int,
+) -> Result[Unit, ValidationDiagnostic] {
   if datacnt_opt is Some(_) {
     return Ok(())
   }
   match codesec_opt {
     None => Ok(())
     Some(CodeSec(funcs)) => {
-      for func in funcs {
+      for i in 0..<funcs.length() {
+        let func = funcs[i]
         if func_uses_bulk_memory_data_count(func) {
-          return Err("data count section required")
+          return Err(
+            ValidationDiagnostic::new(
+              ValidationIssue::FunctionBody("data count section required"),
+              func_idx=Some(
+                FuncIdx::new((imported_func_count + i).reinterpret_as_uint()),
+              ),
+            ),
+          )
         }
       }
       Ok(())
@@ -1134,7 +1287,7 @@ fn validate_exportsec_unique(
 
 ///|
 /// Validates a whole module from an empty context, building its Env incrementally.
-fn validate_module_impl(m : Module) -> Result[Unit, String] {
+fn validate_module_impl(m : Module) -> Result[Unit, ValidationDiagnostic] {
   let {
     type_sec: typesec_opt,
     import_sec: importsec_opt,
@@ -1158,74 +1311,100 @@ fn validate_module_impl(m : Module) -> Result[Unit, String] {
   // (1) Types: defines global type index space
   env = match validate_typesec(typesec_opt, env) {
     Ok(e) => e
-    Err(t) => return Err(t)
+    Err(t) =>
+      return Err(ValidationDiagnostic::new(ValidationIssue::TypeSection(t)))
   }
 
   // (2) Imports: extend funcs/tables/mems/globals/tags index spaces
   env = match validate_importsec(importsec_opt, env) {
     Ok(e) => e
-    Err(t) => return Err(t)
+    Err(t) =>
+      return Err(ValidationDiagnostic::new(ValidationIssue::ImportSection(t)))
   }
+  let imported_func_count = env.funcs.length()
 
   // (3) Function declarations (defined funcs): extend env.funcs
   env = match validate_funcsec(funcsec_opt, env) {
     Ok(e) => e
-    Err(t) => return Err(t)
+    Err(t) =>
+      return Err(ValidationDiagnostic::new(ValidationIssue::FunctionSection(t)))
   }
 
   // (4) Tables / Memories / Tags / Globals: extend their index spaces
   env = match validate_tablesec(tablesec_opt, env) {
     Ok(e) => e
-    Err(t) => return Err(t)
+    Err(t) =>
+      return Err(ValidationDiagnostic::new(ValidationIssue::TableSection(t)))
   }
   env = match validate_memsec(memsec_opt, env) {
     Ok(e) => e
-    Err(t) => return Err(t)
+    Err(t) =>
+      return Err(ValidationDiagnostic::new(ValidationIssue::MemorySection(t)))
   }
   env = match validate_tagsec(tagsec_opt, env) {
     Ok(e) => e
-    Err(t) => return Err(t)
+    Err(t) =>
+      return Err(ValidationDiagnostic::new(ValidationIssue::TagSection(t)))
   }
   env = match validate_globalsec(globalsec_opt, env) {
     Ok(e) => e
-    Err(t) => return Err(t)
+    Err(t) =>
+      return Err(ValidationDiagnostic::new(ValidationIssue::GlobalSection(t)))
   }
 
   // (5) Elements / Data: extend elems/datas (needed by instructions)
   env = match validate_elemsec(elemsec_opt, env) {
     Ok(e) => e
-    Err(t) => return Err(t)
+    Err(t) =>
+      return Err(ValidationDiagnostic::new(ValidationIssue::ElementSection(t)))
   }
   env = match validate_datasec(datasec_opt, env) {
     Ok(e) => e
-    Err(t) => return Err(t)
+    Err(t) =>
+      return Err(ValidationDiagnostic::new(ValidationIssue::DataSection(t)))
   }
 
   // (6) DataCount section cross-check
   match validate_datacnt(datacntsec_opt, datasec_opt) {
     Ok(_) => ()
-    Err(t) => return Err(t)
+    Err(t) =>
+      return Err(
+        ValidationDiagnostic::new(ValidationIssue::DataCountSection(t)),
+      )
   }
   match
-    validate_bulk_memory_data_count_requirement(codesec_opt, datacntsec_opt) {
+    validate_bulk_memory_data_count_requirement(
+      codesec_opt, datacntsec_opt, imported_func_count,
+    ) {
     Ok(_) => ()
     Err(t) => return Err(t)
   }
 
   // (7) Start function validation
+  let start_func_idx = match startsec_opt {
+    Some(StartSec(fidx)) => Some(fidx)
+    None => None
+  }
   match validate_startsec(startsec_opt, env) {
     Ok(_) => ()
-    Err(t) => return Err(t)
+    Err(t) =>
+      return Err(
+        ValidationDiagnostic::new(
+          ValidationIssue::StartSection(t),
+          func_idx=start_func_idx,
+        ),
+      )
   }
 
   // (8) Exports: validate indices and check name uniqueness
   match validate_exportsec_unique(exportsec_opt, env) {
     Ok(_) => ()
-    Err(t) => return Err(t)
+    Err(t) =>
+      return Err(ValidationDiagnostic::new(ValidationIssue::ExportSection(t)))
   }
 
   // (9) Code: typecheck each function body against env.funcs
-  match validate_codesec(codesec_opt, funcsec_opt, env) {
+  match validate_codesec_diag(codesec_opt, funcsec_opt, env) {
     Ok(_) => ()
     Err(t) => return Err(t)
   }
@@ -1236,7 +1415,7 @@ fn validate_module_impl(m : Module) -> Result[Unit, String] {
 pub fn validate_module(m : Module) -> Result[Unit, ValidationError] {
   match validate_module_impl(m) {
     Ok(_) => Ok(())
-    Err(msg) => Err(ValidationError::Validation(msg))
+    Err(diag) => Err(ValidationError::Validation(diag))
   }
 }
 
@@ -1248,7 +1427,8 @@ test "Fuzz Modules" {
     n => {
       let mod = gen_valid_module(rnd)
       let result = validate_module(mod)
-      if result is Err(ValidationError::Validation(msg)) {
+      if result is Err(err) {
+        let msg = validation_error_message(err)
         assert_true(false, msg~)
       }
       continue n - 1
@@ -1271,8 +1451,13 @@ test "validate_module reports typed ValidationError variant" {
     )
   match validate_module(mod) {
     Ok(_) => fail("expected duplicate export validation failure")
-    Err(ValidationError::Validation(msg)) =>
-      assert_true(msg.contains("duplicate export name"))
+    Err(err) => {
+      let diag = validation_error_diagnostic(err)
+      assert_eq(diag.func_idx, None)
+      assert_true(
+        validation_error_message(err).contains("duplicate export name"),
+      )
+    }
   }
 }
 
@@ -1302,8 +1487,12 @@ test "validate_module requires data count section for memory.init and data.drop"
     .with_data_sec(DataSec::new([data]))
   match validate_module(mem_init_mod) {
     Ok(_) => fail("expected memory.init without datacount to fail")
-    Err(ValidationError::Validation(msg)) =>
-      assert_true(msg.contains("data count section required"))
+    Err(err) => {
+      assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
+      assert_true(
+        validation_error_message(err).contains("data count section required"),
+      )
+    }
   }
 
   let data_drop_mod = Module::new()
@@ -1317,8 +1506,12 @@ test "validate_module requires data count section for memory.init and data.drop"
     .with_data_sec(DataSec::new([data]))
   match validate_module(data_drop_mod) {
     Ok(_) => fail("expected data.drop without datacount to fail")
-    Err(ValidationError::Validation(msg)) =>
-      assert_true(msg.contains("data count section required"))
+    Err(err) => {
+      assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
+      assert_true(
+        validation_error_message(err).contains("data count section required"),
+      )
+    }
   }
 }
 

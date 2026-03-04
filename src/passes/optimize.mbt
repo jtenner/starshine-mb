@@ -15,6 +15,9 @@
 ///
 
 ///|
+using @lib {type PrettyPrintContext}
+
+///|
 pub(all) enum ModulePass {
   AbstractTypeRefining(AbstractTypeRefiningPassProps)
   AlignmentLowering
@@ -212,6 +215,22 @@ fn apply_module_runner_pass(
   runner : (Module) -> Result[Module, String],
 ) -> Result[Module, String] {
   runner(mod)
+}
+
+///|
+fn opt_format_validation_error(mod : Module, err : ValidationError) -> String {
+  let out = StringBuilder::new()
+  out.write_string(validation_error_message(err))
+  match validation_error_func_idx(err) {
+    Some(func_idx) => {
+      out.write_string("\n\nOffending function:\n")
+      out.write_string(mod.pretty_print_func(func_idx))
+    }
+    None => ()
+  }
+  out.write_string("\n\nOffending module:\n")
+  out.write_string(mod.pretty_print(PrettyPrintContext::new()))
+  out.to_string()
 }
 
 ///|
@@ -521,7 +540,8 @@ fn run_ir_context_transformer_scheduler_pass(
           trace("remove_unused:\{msg}")
         }),
       )
-    SimplifyLocals => apply_ir_transformer_pass(
+    SimplifyLocals =>
+      apply_ir_transformer_pass(
         ctx,
         mod,
         simplify_locals_ir_pass(mod, true, true, true, trace=fn(msg) {
@@ -1041,13 +1061,20 @@ fn optimize_module_with_options_internal(
         }
     }
     // validate after each pass
-    if validate_module(mod) is Err(e) {
-      if trace_enabled {
-        trace(
-          "pass[\{pass_index}/\{passes.length()}]:\{pass}:validation_error elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)} \{e}",
+    match validate_module(mod) {
+      Ok(_) => ()
+      Err(e) => {
+        let summary = validation_error_message(e)
+        if trace_enabled {
+          trace(
+            "pass[\{pass_index}/\{passes.length()}]:\{pass}:validation_error elapsed_ms=\{optimize_trace_elapsed_ms(pass_start_ms)} \{summary}",
+          )
+        }
+        return Err(
+          "validation error after pass \{pass}:\n" +
+          opt_format_validation_error(mod, e),
         )
       }
-      return Err("\{e}")
     }
 
     if trace_enabled {

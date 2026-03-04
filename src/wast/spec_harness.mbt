@@ -75,7 +75,7 @@ fn spec_compile_module_def(
 fn spec_validate_binary_module(mod : @lib.Module) -> Result[Unit, String] {
   match @validate.validate_module(mod) {
     Ok(_) => Ok(())
-    Err(e) => Err("validation failed: \{e}")
+    Err(e) => Err("validation failed: \{@validate.validation_error_message(e)}")
   }
 }
 
@@ -193,7 +193,7 @@ fn spec_is_known_specsuite_mismatch(path : String, msg : String) -> Bool {
     return false
   }
 
-  if msg.contains("validation failed: Validation(\"stack underflow\")") {
+  if msg.contains("validation failed: stack underflow") {
     return path.has_suffix("/if.wast") ||
       path.has_suffix("/loop.wast") ||
       path.has_suffix("/block.wast")
@@ -211,7 +211,7 @@ fn spec_is_known_specsuite_mismatch(path : String, msg : String) -> Bool {
       path.has_suffix("/local_set.wast")
   }
 
-  if msg.contains("validation failed: Validation(\"duplicate export name:") {
+  if msg.contains("validation failed: duplicate export name:") {
     return path.has_suffix("/names.wast")
   }
 
