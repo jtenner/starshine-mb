@@ -551,41 +551,68 @@ fn run_ir_context_transformer_scheduler_pass(
       apply_ir_transformer_pass(
         ctx,
         mod,
-        simplify_locals_ir_pass(mod, true, true, true, trace=fn(msg) {
-          trace("simplify_locals:\{msg}")
-        }),
+        simplify_locals_ir_pass(
+          mod,
+          true,
+          true,
+          true,
+          trace=fn(msg) { trace("simplify_locals:\{msg}") },
+          trace_all_funcs=trace_pass_details,
+        ),
       )
     SimplifyLocalsNoTee =>
       apply_ir_transformer_pass(
         ctx,
         mod,
-        simplify_locals_ir_pass(mod, false, true, true, trace=fn(msg) {
-          trace("simplify_locals (no-tee):\{msg}")
-        }),
+        simplify_locals_ir_pass(
+          mod,
+          false,
+          true,
+          true,
+          trace=fn(msg) { trace("simplify_locals (no-tee):\{msg}") },
+          trace_all_funcs=trace_pass_details,
+        ),
       )
     SimplifyLocalsNoStructure =>
       apply_ir_transformer_pass(
         ctx,
         mod,
-        simplify_locals_ir_pass(mod, true, false, true, trace=fn(msg) {
-          trace("simplify_locals (no-structure):\{msg}")
-        }),
+        simplify_locals_ir_pass(
+          mod,
+          true,
+          false,
+          true,
+          trace=fn(msg) { trace("simplify_locals (no-structure):\{msg}") },
+          trace_all_funcs=trace_pass_details,
+        ),
       )
     SimplifyLocalsNoTeeNoStructure =>
       apply_ir_transformer_pass(
         ctx,
         mod,
-        simplify_locals_ir_pass(mod, false, false, true, trace=fn(msg) {
-          trace("simplify_locals (no-tee, no-structure):\{msg}")
-        }),
+        simplify_locals_ir_pass(
+          mod,
+          false,
+          false,
+          true,
+          trace=fn(msg) {
+            trace("simplify_locals (no-tee, no-structure):\{msg}")
+          },
+          trace_all_funcs=trace_pass_details,
+        ),
       )
     SimplifyLocalsNoNesting =>
       apply_ir_transformer_pass(
         ctx,
         mod,
-        simplify_locals_ir_pass(mod, false, false, false, trace=fn(msg) {
-          trace("simplify_locals (no-nesting):\{msg}")
-        }),
+        simplify_locals_ir_pass(
+          mod,
+          false,
+          false,
+          false,
+          trace=fn(msg) { trace("simplify_locals (no-nesting):\{msg}") },
+          trace_all_funcs=trace_pass_details,
+        ),
       )
     Untee => apply_ir_transformer_pass(ctx, mod, untee_ir_pass(mod))
     Vacuum =>

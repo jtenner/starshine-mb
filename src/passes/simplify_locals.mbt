@@ -27,6 +27,65 @@ fn SLLocalStats::new() -> SLLocalStats {
 }
 
 ///|
+priv struct SLPerfSnapshot {
+  effect_collect_calls : Int
+  invalidation_entry_checks : Int
+  get_count_scans : Int
+  late_state_clones : Int
+}
+
+///|
+let sl_perf_effect_collect_calls : Ref[Int] = Ref::new(0)
+
+///|
+let sl_perf_invalidation_entry_checks : Ref[Int] = Ref::new(0)
+
+///|
+let sl_perf_get_count_scans : Ref[Int] = Ref::new(0)
+
+///|
+let sl_perf_late_state_clones : Ref[Int] = Ref::new(0)
+
+///|
+fn sl_perf_reset() -> Unit {
+  sl_perf_effect_collect_calls.val = 0
+  sl_perf_invalidation_entry_checks.val = 0
+  sl_perf_get_count_scans.val = 0
+  sl_perf_late_state_clones.val = 0
+}
+
+///|
+fn sl_perf_snapshot() -> SLPerfSnapshot {
+  {
+    effect_collect_calls: sl_perf_effect_collect_calls.val,
+    invalidation_entry_checks: sl_perf_invalidation_entry_checks.val,
+    get_count_scans: sl_perf_get_count_scans.val,
+    late_state_clones: sl_perf_late_state_clones.val,
+  }
+}
+
+///|
+fn sl_collect_effects_counted(instr : TInstr) -> LCSEffects {
+  sl_perf_effect_collect_calls.val = sl_perf_effect_collect_calls.val + 1
+  lcs_collect_effects(instr)
+}
+
+///|
+fn sl_collect_effects_cached(
+  instr : TInstr,
+  effects_cache : Map[TInstr, LCSEffects],
+) -> LCSEffects {
+  match effects_cache.get(instr) {
+    Some(cached) => cached
+    None => {
+      let effects = sl_collect_effects_counted(instr)
+      effects_cache[instr] = effects
+      effects
+    }
+  }
+}
+
+///|
 fn sl_trace_noop(_ : String) -> Unit {
   ()
 }
@@ -118,6 +177,24 @@ fn sl_collect_local_stats_texpr(expr : TExpr, stats : SLLocalStats) -> Unit {
   for instr in expr.instrs {
     sl_collect_local_stats_instr(instr, stats)
   }
+}
+
+///|
+fn sl_count_all_instrs_instr(instr : TInstr) -> Int {
+  let mut total = 1
+  for child in eval_children(instr) {
+    total += sl_count_all_instrs_instr(child)
+  }
+  total
+}
+
+///|
+fn sl_count_all_instrs_texpr(expr : TExpr) -> Int {
+  let mut total = 0
+  for instr in expr.instrs {
+    total += sl_count_all_instrs_instr(instr)
+  }
+  total
 }
 
 ///|
@@ -408,6 +485,113 @@ priv struct SLSinkableInfo {
 }
 
 ///|
+priv struct SLSinkableIndexes {
+  reads_by_local : Map[Int, Set[Int]]
+  writes_by_local : Map[Int, Set[Int]]
+}
+
+///|
+fn sl_sinkable_indexes_new() -> SLSinkableIndexes {
+  { reads_by_local: Map::new(), writes_by_local: Map::new() }
+}
+
+///|
+fn sl_sinkable_index_add(
+  index : Map[Int, Set[Int]],
+  local_i : Int,
+  sinkable_i : Int,
+) -> Unit {
+  if local_i < 0 {
+    return
+  }
+  match index.get(local_i) {
+    Some(existing) => {
+      existing.add(sinkable_i)
+      index[local_i] = existing
+    }
+    None => {
+      let created = Set::new()
+      created.add(sinkable_i)
+      index[local_i] = created
+    }
+  }
+}
+
+///|
+fn sl_sinkable_index_remove(
+  index : Map[Int, Set[Int]],
+  local_i : Int,
+  sinkable_i : Int,
+) -> Unit {
+  if local_i < 0 {
+    return
+  }
+  match index.get(local_i) {
+    Some(existing) => {
+      existing.remove(sinkable_i)
+      if existing.length() == 0 {
+        index.remove(local_i)
+      } else {
+        index[local_i] = existing
+      }
+    }
+    None => ()
+  }
+}
+
+///|
+fn sl_sinkables_add(
+  sinkables : Map[Int, SLSinkableInfo],
+  indexes : SLSinkableIndexes,
+  sinkable_i : Int,
+  info : SLSinkableInfo,
+) -> Unit {
+  sinkables[sinkable_i] = info
+  for local_idx in info.effects.locals_read {
+    sl_sinkable_index_add(
+      indexes.reads_by_local,
+      sl_localidx_to_int(local_idx),
+      sinkable_i,
+    )
+  }
+  for local_idx in info.effects.locals_written {
+    sl_sinkable_index_add(
+      indexes.writes_by_local,
+      sl_localidx_to_int(local_idx),
+      sinkable_i,
+    )
+  }
+}
+
+///|
+fn sl_sinkables_remove(
+  sinkables : Map[Int, SLSinkableInfo],
+  indexes : SLSinkableIndexes,
+  sinkable_i : Int,
+) -> Unit {
+  match sinkables.get(sinkable_i) {
+    Some(info) => {
+      for local_idx in info.effects.locals_read {
+        sl_sinkable_index_remove(
+          indexes.reads_by_local,
+          sl_localidx_to_int(local_idx),
+          sinkable_i,
+        )
+      }
+      for local_idx in info.effects.locals_written {
+        sl_sinkable_index_remove(
+          indexes.writes_by_local,
+          sl_localidx_to_int(local_idx),
+          sinkable_i,
+        )
+      }
+      sinkables.remove(sinkable_i)
+    }
+    None => ()
+  }
+}
+
+///|
 fn sl_localidx_to_int(idx : LocalIdx) -> Int {
   let LocalIdx(raw) = idx
   raw.reinterpret_as_int()
@@ -506,7 +690,7 @@ fn sl_sink_value_preserves_local_get_type(
   local_type : ValType,
 ) -> Bool {
   match lcs_infer_tinstr_type(value, env) {
-    Some(vt) => vt == local_type
+    Some(vt) => vt == local_type || Match::matches(vt, local_type, env)
     None => false
   }
 }
@@ -524,6 +708,64 @@ fn sl_can_emit_typed_local_set(
       value_type == local_type &&
       sl_can_emit_rewritten_instr(TInstr::local_set(idx, value), env)
     _ => false
+  }
+}
+
+///|
+fn sl_collect_sinkable_effects(idx : LocalIdx, value : TInstr) -> LCSEffects {
+  sl_collect_effects_counted(TInstr::local_set(idx, value))
+}
+
+///|
+fn sl_adjust_get_count_for_idx(
+  counts : Array[Int],
+  idx : LocalIdx,
+  delta : Int,
+) -> Unit {
+  let i = sl_localidx_to_int(idx)
+  if i < 0 || i >= counts.length() {
+    return
+  }
+  let next = counts[i] + delta
+  counts[i] = if next < 0 { 0 } else { next }
+}
+
+///|
+fn sl_adjust_get_counts_instr(
+  instr : TInstr,
+  counts : Array[Int],
+  delta : Int,
+) -> Unit {
+  match instr.kind {
+    TInstrKind::TLocalGet(idx) =>
+      sl_adjust_get_count_for_idx(counts, idx, delta)
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) =>
+      sl_adjust_get_counts_texpr(body, counts, delta)
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
+      sl_adjust_get_counts_instr(cond, counts, delta)
+      sl_adjust_get_counts_texpr(then_body, counts, delta)
+      match else_body {
+        Some(other) => sl_adjust_get_counts_texpr(other, counts, delta)
+        None => ()
+      }
+    }
+    _ =>
+      for child in eval_children(instr) {
+        sl_adjust_get_counts_instr(child, counts, delta)
+      }
+  }
+}
+
+///|
+fn sl_adjust_get_counts_texpr(
+  expr : TExpr,
+  counts : Array[Int],
+  delta : Int,
+) -> Unit {
+  for instr in expr.instrs {
+    sl_adjust_get_counts_instr(instr, counts, delta)
   }
 }
 
@@ -557,6 +799,7 @@ fn sl_collect_get_counts_instr(instr : TInstr, counts : Array[Int]) -> Unit {
 
 ///|
 fn sl_collect_get_counts_texpr(expr : TExpr, counts : Array[Int]) -> Unit {
+  sl_perf_get_count_scans.val = sl_perf_get_count_scans.val + 1
   for instr in expr.instrs {
     sl_collect_get_counts_instr(instr, counts)
   }
@@ -620,6 +863,7 @@ fn sl_collect_get_counts_and_late_candidate_texpr(
   counts : Array[Int],
   saw_late_candidate : Ref[Bool],
 ) -> Unit {
+  sl_perf_get_count_scans.val = sl_perf_get_count_scans.val + 1
   for instr in expr.instrs {
     sl_collect_get_counts_and_late_candidate_instr(
       instr, counts, saw_late_candidate,
@@ -632,6 +876,7 @@ fn sl_try_sink_local_get(
   idx : LocalIdx,
   env : Env,
   sinkables : Map[Int, SLSinkableInfo],
+  sinkable_indexes : SLSinkableIndexes,
   out : Array[TInstr],
   get_counts : Array[Int],
   local_types : Array[ValType],
@@ -674,7 +919,9 @@ fn sl_try_sink_local_get(
               let other_i = sl_localidx_to_int(other)
               if other_i >= 0 &&
                 other_i < local_types.length() &&
-                local_types[other_i] == local_types[key] {
+                Match::matches(local_types[other_i], local_types[key], env) {
+                sl_adjust_get_count_for_idx(get_counts, idx, -1)
+                sl_adjust_get_count_for_idx(get_counts, other, 1)
                 changed.val = true
                 TInstr::local_get(other)
               } else {
@@ -694,14 +941,16 @@ fn sl_try_sink_local_get(
         if info.out_index >= 0 && info.out_index < out.length() {
           out[info.out_index] = TInstr::nop()
         }
-        sinkables.remove(key)
+        sl_sinkables_remove(sinkables, sinkable_indexes, key)
+        sl_adjust_get_count_for_idx(get_counts, idx, -1)
         changed.val = true
         sink_value
       } else {
         if info.out_index >= 0 && info.out_index < out.length() {
           out[info.out_index] = TInstr::nop()
         }
-        sinkables.remove(key)
+        sl_sinkables_remove(sinkables, sinkable_indexes, key)
+        sl_adjust_get_count_for_idx(get_counts, idx, -1)
         changed.val = true
         TInstr::local_tee(idx, sink_value)
       }
@@ -712,17 +961,70 @@ fn sl_try_sink_local_get(
 ///|
 fn sl_invalidate_sinkables(
   sinkables : Map[Int, SLSinkableInfo],
+  sinkable_indexes : SLSinkableIndexes,
   effects : LCSEffects,
 ) -> Unit {
   let to_remove : Array[Int] = []
-  for entry in sinkables {
-    let (idx, info) = entry
-    if effects.invalidates(info.effects) {
-      to_remove.push(idx)
+  let full_scan = effects.reads_memory ||
+    effects.writes_memory ||
+    effects.reads_globals ||
+    effects.writes_globals ||
+    effects.calls ||
+    effects.branches ||
+    effects.traps ||
+    effects.throws
+  if full_scan {
+    for entry in sinkables {
+      sl_perf_invalidation_entry_checks.val = sl_perf_invalidation_entry_checks.val +
+        1
+      let (idx, info) = entry
+      if effects.invalidates(info.effects) {
+        to_remove.push(idx)
+      }
+    }
+  } else {
+    let candidates = Set::new()
+    for local_idx in effects.locals_written {
+      let local_i = sl_localidx_to_int(local_idx)
+      match sinkable_indexes.reads_by_local.get(local_i) {
+        Some(bucket) =>
+          for idx in bucket {
+            candidates.add(idx)
+          }
+        None => ()
+      }
+      match sinkable_indexes.writes_by_local.get(local_i) {
+        Some(bucket) =>
+          for idx in bucket {
+            candidates.add(idx)
+          }
+        None => ()
+      }
+    }
+    for local_idx in effects.locals_read {
+      let local_i = sl_localidx_to_int(local_idx)
+      match sinkable_indexes.writes_by_local.get(local_i) {
+        Some(bucket) =>
+          for idx in bucket {
+            candidates.add(idx)
+          }
+        None => ()
+      }
+    }
+    for idx in candidates {
+      sl_perf_invalidation_entry_checks.val = sl_perf_invalidation_entry_checks.val +
+        1
+      match sinkables.get(idx) {
+        Some(info) =>
+          if effects.invalidates(info.effects) {
+            to_remove.push(idx)
+          }
+        None => ()
+      }
     }
   }
   for idx in to_remove {
-    sinkables.remove(idx)
+    sl_sinkables_remove(sinkables, sinkable_indexes, idx)
   }
 }
 
@@ -816,6 +1118,14 @@ fn sl_has_branch_to_depth_texpr(expr : TExpr, depth : Int) -> Bool {
     }
   }
   false
+}
+
+///|
+fn sl_texpr_is_unreachable(body : TExpr) -> Bool {
+  if body.instrs.is_empty() {
+    return false
+  }
+  is_unreachable_instr(body.instrs[body.instrs.length() - 1])
 }
 
 ///|
@@ -1253,19 +1563,71 @@ fn sl_try_structure_block(
 ///|
 fn sl_try_structure_loop_sink(
   instr : TInstr,
+  env : Env,
   sinkables : Map[Int, SLSinkableInfo],
+  sinkable_indexes : SLSinkableIndexes,
   out : Array[TInstr],
   local_types : Array[ValType],
   options : SLSimplifyOptions,
   changed : Ref[Bool],
 ) -> TInstr {
-  ignore(sinkables)
-  ignore(out)
-  ignore(local_types)
-  ignore(options)
-  ignore(changed)
-  // Disabled until loop result conversion proves every exit and continue path.
-  instr
+  if !options.allow_structure {
+    return instr
+  }
+  match instr.kind {
+    TInstrKind::TLoop(VoidBlockType, body) =>
+      if sinkables.is_empty() || sl_has_branch_to_depth_texpr(body, 0) {
+        instr
+      } else {
+        let mut good_idx = -1
+        for entry in sinkables {
+          let (idx, _) = entry
+          good_idx = idx
+          break
+        }
+        if good_idx < 0 {
+          return instr
+        }
+        let good_local = sl_localidx_from_int(good_idx)
+        let local_type = match local_types.get(good_idx) {
+          Some(vt) => vt
+          None => return instr
+        }
+        match sinkables.get(good_idx) {
+          Some(info) => {
+            let body_with_slot = if body.instrs.is_empty() ||
+              body.instrs[body.instrs.length() - 1] != TInstr::nop() {
+              let grown = body.instrs.copy()
+              grown.push(TInstr::nop())
+              TExpr::new(grown)
+            } else {
+              body
+            }
+            let next_instrs = body_with_slot.instrs.copy()
+            next_instrs[next_instrs.length() - 1] = info.value
+            let next_loop = TInstr::loop_(
+              BlockType::val_type(local_type),
+              TExpr::new(next_instrs),
+            )
+            let candidate = TInstr::local_set(good_local, next_loop)
+            if !sl_can_emit_typed_local_set(
+                good_local, local_type, next_loop, env,
+              ) {
+              instr
+            } else {
+              if info.out_index >= 0 && info.out_index < out.length() {
+                out[info.out_index] = TInstr::nop()
+              }
+              sl_sinkables_remove(sinkables, sinkable_indexes, good_idx)
+              changed.val = true
+              candidate
+            }
+          }
+          None => instr
+        }
+      }
+    _ => instr
+  }
 }
 
 ///|
@@ -1273,6 +1635,7 @@ fn sl_try_structure_if(
   instr : TInstr,
   env : Env,
   local_types : Array[ValType],
+  get_counts : Array[Int],
   options : SLSimplifyOptions,
   in_value_position : Bool,
   changed : Ref[Bool],
@@ -1286,6 +1649,8 @@ fn sl_try_structure_if(
         Some(other) => {
           let then_set = sl_take_terminal_local_set(then_body)
           let else_set = sl_take_terminal_local_set(other)
+          let then_unreachable = sl_texpr_is_unreachable(then_body)
+          let else_unreachable = sl_texpr_is_unreachable(other)
           match (then_set, else_set) {
             (
               Some((then_prefix, then_idx, then_value)),
@@ -1320,7 +1685,72 @@ fn sl_try_structure_if(
               } else {
                 instr
               }
-            _ => instr
+            _ =>
+              if else_unreachable {
+                match then_set {
+                  Some((then_prefix, then_idx, then_value)) => {
+                    let idx_i = sl_localidx_to_int(then_idx)
+                    match local_types.get(idx_i) {
+                      Some(local_type) => {
+                        let next_then = then_prefix.copy()
+                        next_then.push(then_value)
+                        let result_value = TInstr::if_(
+                          BlockType::val_type(local_type),
+                          cond,
+                          TExpr::new(next_then),
+                          Some(other),
+                        )
+                        if sl_can_emit_typed_local_set(
+                            then_idx, local_type, result_value, env,
+                          ) {
+                          let candidate = TInstr::local_set(
+                            then_idx, result_value,
+                          )
+                          changed.val = true
+                          candidate
+                        } else {
+                          instr
+                        }
+                      }
+                      None => instr
+                    }
+                  }
+                  None => instr
+                }
+              } else if then_unreachable {
+                match else_set {
+                  Some((else_prefix, else_idx, else_value)) => {
+                    let idx_i = sl_localidx_to_int(else_idx)
+                    match local_types.get(idx_i) {
+                      Some(local_type) => {
+                        let next_else = else_prefix.copy()
+                        next_else.push(else_value)
+                        let result_value = TInstr::if_(
+                          BlockType::val_type(local_type),
+                          cond,
+                          then_body,
+                          Some(TExpr::new(next_else)),
+                        )
+                        if sl_can_emit_typed_local_set(
+                            else_idx, local_type, result_value, env,
+                          ) {
+                          let candidate = TInstr::local_set(
+                            else_idx, result_value,
+                          )
+                          changed.val = true
+                          candidate
+                        } else {
+                          instr
+                        }
+                      }
+                      None => instr
+                    }
+                  }
+                  None => instr
+                }
+              } else {
+                instr
+              }
           }
         }
         None =>
@@ -1342,6 +1772,7 @@ fn sl_try_structure_if(
                         then_idx, local_type, result_value, env,
                       ) {
                       let candidate = TInstr::local_set(then_idx, result_value)
+                      sl_adjust_get_count_for_idx(get_counts, then_idx, 1)
                       changed.val = true
                       candidate
                     } else {
@@ -1365,6 +1796,8 @@ fn sl_rewrite_instr_main(
   instr : TInstr,
   env : Env,
   sinkables : Map[Int, SLSinkableInfo],
+  sinkable_indexes : SLSinkableIndexes,
+  effects_cache : Map[TInstr, LCSEffects],
   out : Array[TInstr],
   local_types : Array[ValType],
   get_counts : Array[Int],
@@ -1375,8 +1808,8 @@ fn sl_rewrite_instr_main(
   match instr.kind {
     TInstrKind::TLocalGet(idx) =>
       sl_try_sink_local_get(
-        idx, env, sinkables, out, get_counts, local_types, options, in_value_position,
-        changed,
+        idx, env, sinkables, sinkable_indexes, out, get_counts, local_types, options,
+        in_value_position, changed,
       )
     TInstrKind::TBlock(bt, body) => {
       let body_env = sl_block_body_env(env, bt)
@@ -1418,7 +1851,8 @@ fn sl_rewrite_instr_main(
     TInstrKind::TIf(bt, cond, then_body, else_body) => {
       let branch_env = sl_block_body_env(env, bt)
       let next_cond = sl_rewrite_instr_main(
-        cond, env, sinkables, out, local_types, get_counts, options, true, changed,
+        cond, env, sinkables, sinkable_indexes, effects_cache, out, local_types,
+        get_counts, options, true, changed,
       )
       let (next_then, then_changed) = sl_simplify_texpr_main(
         then_body, branch_env, local_types, get_counts, options,
@@ -1439,7 +1873,7 @@ fn sl_rewrite_instr_main(
         changed.val = true
       }
       sl_try_structure_if(
-        rebuilt, env, local_types, options, in_value_position, changed,
+        rebuilt, env, local_types, get_counts, options, in_value_position, changed,
       )
     }
     _ => {
@@ -1452,13 +1886,20 @@ fn sl_rewrite_instr_main(
       for i = 0; i < children.length(); i = i + 1 {
         let child = children[i]
         let next_child = sl_rewrite_instr_main(
-          child, env, sinkables, out, local_types, get_counts, options, true, changed,
+          child, env, sinkables, sinkable_indexes, effects_cache, out, local_types,
+          get_counts, options, true, changed,
         )
         next_children.push(next_child)
         if next_child != child {
           any = true
         }
-        sl_invalidate_sinkables(sinkables, lcs_collect_effects(next_child))
+        if !sinkables.is_empty() {
+          sl_invalidate_sinkables(
+            sinkables,
+            sinkable_indexes,
+            sl_collect_effects_cached(next_child, effects_cache),
+          )
+        }
       }
       if any {
         changed.val = true
@@ -1480,11 +1921,14 @@ fn sl_simplify_texpr_main(
 ) -> (TExpr, Bool) {
   let out : Array[TInstr] = []
   let sinkables : Map[Int, SLSinkableInfo] = Map::new()
+  let sinkable_indexes = sl_sinkable_indexes_new()
+  let effects_cache : Map[TInstr, LCSEffects] = Map::new()
   let changed = Ref::new(false)
 
   for instr in expr.instrs {
     let rewritten = sl_rewrite_instr_main(
-      instr, env, sinkables, out, local_types, get_counts, options, false, changed,
+      instr, env, sinkables, sinkable_indexes, effects_cache, out, local_types, get_counts,
+      options, false, changed,
     )
     let curr = match rewritten.kind {
       TInstrKind::TDrop({ kind: TInstrKind::TLocalTee(idx, value), .. }) => {
@@ -1494,10 +1938,12 @@ fn sl_simplify_texpr_main(
       _ => rewritten
     }
     let curr = sl_try_structure_loop_sink(
-      curr, sinkables, out, local_types, options, changed,
+      curr, env, sinkables, sinkable_indexes, out, local_types, options, changed,
     )
-    let curr_effects = lcs_collect_effects(curr)
-    sl_invalidate_sinkables(sinkables, curr_effects)
+    if !sinkables.is_empty() {
+      let curr_effects = sl_collect_effects_cached(curr, effects_cache)
+      sl_invalidate_sinkables(sinkables, sinkable_indexes, curr_effects)
+    }
     match curr.kind {
       TInstrKind::TLocalSet(idx, value) => {
         let key = sl_localidx_to_int(idx)
@@ -1507,18 +1953,21 @@ fn sl_simplify_texpr_main(
               if previous.out_index >= 0 && previous.out_index < out.length() {
                 out[previous.out_index] = TInstr::drop(previous.value)
               }
-              sinkables.remove(key)
+              sl_sinkables_remove(sinkables, sinkable_indexes, key)
               changed.val = true
             }
             None => ()
           }
           let uses = get_counts[key]
           if uses > 0 && (options.allow_tee || uses == 1) {
-            sinkables[key] = {
+            sl_sinkables_add(sinkables, sinkable_indexes, key, {
               out_index: out.length(),
               value,
-              effects: lcs_collect_effects(value),
-            }
+              effects: sl_collect_effects_cached(
+                TInstr::local_set(idx, value),
+                effects_cache,
+              ),
+            })
           }
         }
       }
@@ -1527,6 +1976,8 @@ fn sl_simplify_texpr_main(
     out.push(curr)
     if lcs_is_non_linear_boundary(curr) || is_unreachable_instr(curr) {
       sinkables.clear()
+      sinkable_indexes.reads_by_local.clear()
+      sinkable_indexes.writes_by_local.clear()
     }
     if is_unreachable_instr(curr) {
       break
@@ -1747,8 +2198,13 @@ fn sl_strip_nops_texpr(expr : TExpr, changed : Ref[Bool]) -> TExpr {
 priv struct SLLateState {
   rep_of : Array[Int]
   members : Array[Array[Int]]
+  rep_dirty_flags : Array[Bool]
+  members_dirty_flags : Array[Bool]
+  dirty_rep_idxs : Array[Int]
+  dirty_member_idxs : Array[Int]
   local_types : Array[ValType]
   get_counts : Array[Int]
+  env : Env
   remove_equivalent_sets : Bool
   changed : Ref[Bool]
 }
@@ -1757,25 +2213,85 @@ priv struct SLLateState {
 fn sl_late_state_new(
   local_types : Array[ValType],
   get_counts : Array[Int],
+  env : Env,
   remove_equivalent_sets : Bool,
   changed : Ref[Bool],
 ) -> SLLateState {
+  sl_perf_late_state_clones.val = sl_perf_late_state_clones.val + 1
   let local_count = local_types.length()
   let rep_of : Array[Int] = []
   let members : Array[Array[Int]] = []
+  let rep_dirty_flags : Array[Bool] = []
+  let members_dirty_flags : Array[Bool] = []
   for i = 0; i < local_count; i = i + 1 {
     rep_of.push(i)
-    members.push([i])
+    // Singletons are implicit: class rep contains itself plus `members[rep]`.
+    members.push([])
+    rep_dirty_flags.push(false)
+    members_dirty_flags.push(false)
   }
-  { rep_of, members, local_types, get_counts, remove_equivalent_sets, changed }
+  {
+    rep_of,
+    members,
+    rep_dirty_flags,
+    members_dirty_flags,
+    dirty_rep_idxs: [],
+    dirty_member_idxs: [],
+    local_types,
+    get_counts,
+    env,
+    remove_equivalent_sets,
+    changed,
+  }
+}
+
+///|
+fn sl_late_mark_rep_dirty(state : SLLateState, idx : Int) -> Unit {
+  if idx < 0 || idx >= state.rep_dirty_flags.length() {
+    return
+  }
+  if !state.rep_dirty_flags[idx] {
+    state.rep_dirty_flags[idx] = true
+    state.dirty_rep_idxs.push(idx)
+  }
+}
+
+///|
+fn sl_late_mark_members_dirty(state : SLLateState, idx : Int) -> Unit {
+  if idx < 0 || idx >= state.members_dirty_flags.length() {
+    return
+  }
+  if !state.members_dirty_flags[idx] {
+    state.members_dirty_flags[idx] = true
+    state.dirty_member_idxs.push(idx)
+  }
 }
 
 ///|
 fn sl_late_clear(state : SLLateState) -> Unit {
-  for i = 0; i < state.rep_of.length(); i = i + 1 {
-    state.rep_of[i] = i
-    state.members[i] = [i]
+  for idx in state.dirty_rep_idxs {
+    state.rep_of[idx] = idx
+    state.rep_dirty_flags[idx] = false
   }
+  state.dirty_rep_idxs.clear()
+  for idx in state.dirty_member_idxs {
+    if state.members[idx].length() > 0 {
+      state.members[idx] = []
+    }
+    state.members_dirty_flags[idx] = false
+  }
+  state.dirty_member_idxs.clear()
+}
+
+///|
+fn sl_late_is_subtype(state : SLLateState, a : Int, b : Int) -> Bool {
+  if a < 0 ||
+    b < 0 ||
+    a >= state.local_types.length() ||
+    b >= state.local_types.length() {
+    return false
+  }
+  Match::matches(state.local_types[a], state.local_types[b], state.env)
 }
 
 ///|
@@ -1797,22 +2313,19 @@ fn sl_late_reset_local(state : SLLateState, idx : Int) -> Unit {
   let rep = state.rep_of[idx]
   if rep == idx {
     let class_members = state.members[rep]
-    if class_members.length() > 1 {
-      let next_rep = if class_members[0] == idx {
-        class_members[1]
-      } else {
-        class_members[0]
-      }
+    // members[rep] excludes `rep`; when non-empty we must pick a new rep.
+    if class_members.length() > 0 {
+      let next_rep = class_members[0]
       let next_members : Array[Int] = []
-      for class_idx in class_members {
-        if class_idx != idx {
-          next_members.push(class_idx)
-        }
-      }
-      for class_idx in next_members {
+      state.rep_of[next_rep] = next_rep
+      for i = 1; i < class_members.length(); i = i + 1 {
+        let class_idx = class_members[i]
+        next_members.push(class_idx)
         state.rep_of[class_idx] = next_rep
+        sl_late_mark_rep_dirty(state, class_idx)
       }
       state.members[next_rep] = next_members
+      sl_late_mark_members_dirty(state, next_rep)
     }
   } else {
     let next_members : Array[Int] = []
@@ -1822,9 +2335,11 @@ fn sl_late_reset_local(state : SLLateState, idx : Int) -> Unit {
       }
     }
     state.members[rep] = next_members
+    sl_late_mark_members_dirty(state, rep)
   }
   state.rep_of[idx] = idx
-  state.members[idx] = [idx]
+  state.members[idx] = []
+  sl_late_mark_members_dirty(state, idx)
 }
 
 ///|
@@ -1832,7 +2347,7 @@ fn sl_late_add_equivalence(state : SLLateState, a : Int, b : Int) -> Unit {
   if a < 0 || b < 0 || a >= state.rep_of.length() || b >= state.rep_of.length() {
     return
   }
-  if state.local_types[a] != state.local_types[b] {
+  if !sl_late_is_subtype(state, a, b) && !sl_late_is_subtype(state, b, a) {
     return
   }
   let mut rep_a = state.rep_of[a]
@@ -1840,18 +2355,27 @@ fn sl_late_add_equivalence(state : SLLateState, a : Int, b : Int) -> Unit {
   if rep_a == rep_b {
     return
   }
-  if state.members[rep_a].length() < state.members[rep_b].length() {
+  let size_a = 1 + state.members[rep_a].length()
+  let size_b = 1 + state.members[rep_b].length()
+  if size_a < size_b {
     let tmp = rep_a
     rep_a = rep_b
     rep_b = tmp
   }
   let merged = state.members[rep_a].copy()
+  // rep_b itself is a class member now that rep_a remains the representative.
+  merged.push(rep_b)
+  state.rep_of[rep_b] = rep_a
+  sl_late_mark_rep_dirty(state, rep_b)
   for idx in state.members[rep_b] {
     merged.push(idx)
     state.rep_of[idx] = rep_a
+    sl_late_mark_rep_dirty(state, idx)
   }
   state.members[rep_a] = merged
   state.members[rep_b] = []
+  sl_late_mark_members_dirty(state, rep_a)
+  sl_late_mark_members_dirty(state, rep_b)
 }
 
 ///|
@@ -1978,39 +2502,50 @@ fn sl_late_rewrite_instr(
       }
       let rep = state.rep_of[idx_i]
       let mut best = idx_i
-      for candidate in state.members[rep] {
+      let consider_candidate = fn(candidate : Int) -> Unit {
         if candidate == best {
-          continue
+          return
+        }
+        if !sl_late_is_subtype(state, candidate, best) {
+          return
         }
         let cand_count = sl_late_get_count_ignoring_curr(
           state, candidate, idx_i,
         )
         let best_count = sl_late_get_count_ignoring_curr(state, best, idx_i)
-        if cand_count > best_count {
+        if state.local_types[candidate] != state.local_types[best] ||
+          cand_count > best_count {
           best = candidate
         }
       }
-      if best != idx_i &&
-        sl_late_get_count_ignoring_curr(state, best, idx_i) >
-        sl_late_get_count_ignoring_curr(state, idx_i, idx_i) {
-        state.get_counts[best] = state.get_counts[best] + 1
-        if state.get_counts[idx_i] > 0 {
-          state.get_counts[idx_i] = state.get_counts[idx_i] - 1
+      // Include the representative, which is not stored in members[rep].
+      consider_candidate(rep)
+      for candidate in state.members[rep] {
+        consider_candidate(candidate)
+      }
+      if best != idx_i && sl_late_is_subtype(state, best, idx_i) {
+        let has_more_gets = sl_late_get_count_ignoring_curr(state, best, idx_i) >
+          sl_late_get_count_ignoring_curr(state, idx_i, idx_i)
+        let best_type = state.local_types[best]
+        let old_type = state.local_types[idx_i]
+        if has_more_gets || best_type != old_type {
+          state.get_counts[best] = state.get_counts[best] + 1
+          if state.get_counts[idx_i] > 0 {
+            state.get_counts[idx_i] = state.get_counts[idx_i] - 1
+          }
+          state.changed.val = true
+          TInstr::local_get(sl_localidx_from_int(best))
+        } else {
+          instr
         }
-        state.changed.val = true
-        TInstr::local_get(sl_localidx_from_int(best))
       } else {
         instr
       }
     }
     TInstrKind::TBlock(bt, body) => {
-      let child = sl_late_state_new(
-        state.local_types,
-        state.get_counts,
-        state.remove_equivalent_sets,
-        state.changed,
-      )
-      let next_body = sl_late_rewrite_texpr(body, child)
+      sl_late_clear(state)
+      let next_body = sl_late_rewrite_texpr(body, state)
+      sl_late_clear(state)
       if next_body != body {
         state.changed.val = true
         TInstr::block(bt, next_body)
@@ -2019,13 +2554,9 @@ fn sl_late_rewrite_instr(
       }
     }
     TInstrKind::TLoop(bt, body) => {
-      let child = sl_late_state_new(
-        state.local_types,
-        state.get_counts,
-        state.remove_equivalent_sets,
-        state.changed,
-      )
-      let next_body = sl_late_rewrite_texpr(body, child)
+      sl_late_clear(state)
+      let next_body = sl_late_rewrite_texpr(body, state)
+      sl_late_clear(state)
       if next_body != body {
         state.changed.val = true
         TInstr::loop_(bt, next_body)
@@ -2034,13 +2565,9 @@ fn sl_late_rewrite_instr(
       }
     }
     TInstrKind::TTryTable(bt, catches, body) => {
-      let child = sl_late_state_new(
-        state.local_types,
-        state.get_counts,
-        state.remove_equivalent_sets,
-        state.changed,
-      )
-      let next_body = sl_late_rewrite_texpr(body, child)
+      sl_late_clear(state)
+      let next_body = sl_late_rewrite_texpr(body, state)
+      sl_late_clear(state)
       if next_body != body {
         state.changed.val = true
         TInstr::try_table(bt, catches, next_body)
@@ -2050,21 +2577,13 @@ fn sl_late_rewrite_instr(
     }
     TInstrKind::TIf(bt, cond, then_body, else_body) => {
       let next_cond = sl_late_rewrite_instr(cond, state, true)
-      let then_state = sl_late_state_new(
-        state.local_types,
-        state.get_counts,
-        state.remove_equivalent_sets,
-        state.changed,
-      )
-      let next_then = sl_late_rewrite_texpr(then_body, then_state)
+      sl_late_clear(state)
+      let next_then = sl_late_rewrite_texpr(then_body, state)
+      sl_late_clear(state)
       let next_else = else_body.map(fn(other) {
-        let else_state = sl_late_state_new(
-          state.local_types,
-          state.get_counts,
-          state.remove_equivalent_sets,
-          state.changed,
-        )
-        sl_late_rewrite_texpr(other, else_state)
+        let rewritten = sl_late_rewrite_texpr(other, state)
+        sl_late_clear(state)
+        rewritten
       })
       if next_cond != cond || next_then != then_body || next_else != else_body {
         state.changed.val = true
@@ -2159,10 +2678,6 @@ fn sl_run_late_optimizations(
   remove_equivalent_sets : Bool,
 ) -> (TExpr, Bool) {
   let local_count = local_types.length()
-  let late_local_limit = if remove_equivalent_sets { 256 } else { 128 }
-  if local_count > late_local_limit {
-    return (body, false)
-  }
   let get_counts = Array::make(local_count, 0)
   let saw_late_candidate = Ref::new(false)
   sl_collect_get_counts_and_late_candidate_texpr(
@@ -2173,20 +2688,37 @@ fn sl_run_late_optimizations(
   }
   let changed = Ref::new(false)
   let state = sl_late_state_new(
-    local_types, get_counts, remove_equivalent_sets, changed,
+    local_types,
+    get_counts,
+    sl_test_env(local_types),
+    remove_equivalent_sets,
+    changed,
   )
   let next = sl_late_rewrite_texpr(body, state)
   (next, changed.val)
 }
 
 ///|
-fn sl_has_multi_use_locals(get_counts : Array[Int]) -> Bool {
-  for count in get_counts {
-    if count > 1 {
-      return true
-    }
+fn sl_run_late_optimizations_with_counts(
+  body : TExpr,
+  local_types : Array[ValType],
+  get_counts : Array[Int],
+  saw_late_candidate : Bool,
+  remove_equivalent_sets : Bool,
+) -> (TExpr, Bool) {
+  if !saw_late_candidate {
+    return (body, false)
   }
-  false
+  let changed = Ref::new(false)
+  let state = sl_late_state_new(
+    local_types,
+    get_counts,
+    sl_test_env(local_types),
+    remove_equivalent_sets,
+    changed,
+  )
+  let next = sl_late_rewrite_texpr(body, state)
+  (next, changed.val)
 }
 
 ///|
@@ -2196,12 +2728,61 @@ fn sl_run_main_phase(
   local_types : Array[ValType],
   options : SLSimplifyOptions,
   measure_for_tee : Bool,
+  initial_get_counts? : Array[Int]? = None,
+  trace? : (String) -> Unit = sl_trace_noop,
+  trace_verbose? : Bool = false,
 ) -> (TExpr, Bool, Bool, Array[Int]) {
-  let get_counts = Array::make(local_types.length(), 0)
-  sl_collect_get_counts_texpr(body, get_counts)
+  let count_start_ms = sl_trace_now_ms()
+  let get_counts = match initial_get_counts {
+    Some(existing) => {
+      if trace_verbose {
+        trace(
+          "phase=main:count:reuse locals=\{local_types.length()} elapsed_ms=\{sl_trace_elapsed_ms(count_start_ms)}",
+        )
+      }
+      existing
+    }
+    None => {
+      if trace_verbose {
+        trace("phase=main:count:start locals=\{local_types.length()}")
+      }
+      let fresh = Array::make(local_types.length(), 0)
+      sl_collect_get_counts_texpr(body, fresh)
+      if trace_verbose {
+        trace(
+          "phase=main:count:done locals=\{local_types.length()} elapsed_ms=\{sl_trace_elapsed_ms(count_start_ms)}",
+        )
+      }
+      fresh
+    }
+  }
+  let rewrite_start_ms = sl_trace_now_ms()
+  if !options.allow_structure {
+    let mut has_any_get = false
+    for n in get_counts {
+      if n > 0 {
+        has_any_get = true
+        break
+      }
+    }
+    if !has_any_get {
+      if trace_verbose {
+        trace("phase=main:rewrite:skip reason=no_local_gets")
+      }
+      return (body, false, false, get_counts)
+    }
+  }
+  if trace_verbose {
+    trace("phase=main:rewrite:start top_instrs=\{body.instrs.length()}")
+  }
   let (next_body, changed) = sl_simplify_texpr_main(
     body, env, local_types, get_counts, options,
   )
+  if trace_verbose {
+    trace(
+      "phase=main:rewrite:done changed=\{changed} top_instrs=\{next_body.instrs.length()} elapsed_ms=\{sl_trace_elapsed_ms(rewrite_start_ms)}",
+    )
+  }
   let shrank = if measure_for_tee && changed {
     lcs_measure_texpr(next_body) < lcs_measure_texpr(body)
   } else {
@@ -2216,22 +2797,55 @@ fn sl_run_cleanup_phase(
   local_types : Array[ValType],
   remove_equivalent_sets : Bool,
   had_prior_changes : Bool,
+  trace? : (String) -> Unit = sl_trace_noop,
+  trace_verbose? : Bool = false,
 ) -> (TExpr, Bool) {
   let removed_changed = Ref::new(false)
   let strip_changed = Ref::new(false)
+  let pre_counts = Array::make(local_types.length(), 0)
+  let pre_saw_late_candidate = Ref::new(false)
+  let cleanup_main_start_ms = sl_trace_now_ms()
+  if trace_verbose {
+    trace(
+      "phase=cleanup:remove_strip:start top_instrs=\{body.instrs.length()} locals=\{local_types.length()}",
+    )
+  }
   let after_strip = if had_prior_changes {
-    let get_counts = Array::make(local_types.length(), 0)
-    sl_collect_get_counts_texpr(body, get_counts)
+    sl_collect_get_counts_and_late_candidate_texpr(
+      body, pre_counts, pre_saw_late_candidate,
+    )
     let after_removed = sl_remove_unneeded_sets_texpr(
-      body, get_counts, removed_changed,
+      body, pre_counts, removed_changed,
     )
     sl_strip_nops_texpr(after_removed, strip_changed)
   } else {
     body
   }
-  let (after_late, late_changed) = sl_run_late_optimizations(
-    after_strip, local_types, remove_equivalent_sets,
-  )
+  if trace_verbose {
+    trace(
+      "phase=cleanup:remove_strip:done changed=\{removed_changed.val || strip_changed.val} top_instrs=\{after_strip.instrs.length()} elapsed_ms=\{sl_trace_elapsed_ms(cleanup_main_start_ms)}",
+    )
+  }
+  let late_start_ms = sl_trace_now_ms()
+  if trace_verbose {
+    trace("phase=cleanup:late:start top_instrs=\{after_strip.instrs.length()}")
+  }
+  let (after_late, late_changed) = if had_prior_changes && after_strip == body {
+    sl_run_late_optimizations_with_counts(
+      after_strip,
+      local_types,
+      pre_counts,
+      pre_saw_late_candidate.val,
+      remove_equivalent_sets,
+    )
+  } else {
+    sl_run_late_optimizations(after_strip, local_types, remove_equivalent_sets)
+  }
+  if trace_verbose {
+    trace(
+      "phase=cleanup:late:done changed=\{late_changed} top_instrs=\{after_late.instrs.length()} elapsed_ms=\{sl_trace_elapsed_ms(late_start_ms)}",
+    )
+  }
   let next = if late_changed { after_late } else { after_strip }
   (next, removed_changed.val || strip_changed.val || late_changed)
 }
@@ -2349,6 +2963,8 @@ fn sl_simplify_function(
   env : Env,
   param_types : Array[ValType],
   options : SLSimplifyOptions,
+  trace? : (String) -> Unit = sl_trace_noop,
+  trace_verbose? : Bool = false,
 ) -> (Func, Bool) {
   match func {
     TFunc(locals, body) => {
@@ -2361,42 +2977,121 @@ fn sl_simplify_function(
       }
       let mut body = body
       let mut changed_any = false
-      let (after_no_tee, changed_no_tee, shrank_no_tee, get_counts) = sl_run_main_phase(
-        body,
-        env,
-        local_types,
-        {
-          allow_tee: false,
-          allow_structure: options.allow_structure,
-          allow_nesting: options.allow_nesting,
-        },
-        options.allow_tee,
-      )
-      body = after_no_tee
-      if changed_no_tee {
-        changed_any = true
-      }
-
-      if options.allow_tee &&
-        (sl_has_multi_use_locals(get_counts) || shrank_no_tee) {
-        let (after_tee, changed_tee, _, _) = sl_run_main_phase(
-          body, env, local_types, options, false,
+      let mut first_cycle = true
+      let mut continue_cycles = true
+      let mut reusable_get_counts : Array[Int]? = None
+      let mut cycle = 0
+      while continue_cycles {
+        cycle += 1
+        if trace_verbose {
+          trace(
+            "cycle=\{cycle} phase=main:start first_cycle=\{first_cycle} top_instrs=\{body.instrs.length()}",
+          )
+        }
+        let cycle_options = if first_cycle {
+          {
+            allow_tee: false,
+            allow_structure: options.allow_structure,
+            allow_nesting: options.allow_nesting,
+          }
+        } else {
+          options
+        }
+        let (after_main, main_changed, _, next_get_counts) = sl_run_main_phase(
+          body,
+          env,
+          local_types,
+          cycle_options,
+          false,
+          initial_get_counts=reusable_get_counts,
+          trace~,
+          trace_verbose~,
         )
-        body = after_tee
-        if changed_tee {
+        if trace_verbose {
+          trace(
+            "cycle=\{cycle} phase=main:done changed=\{main_changed} top_instrs=\{after_main.instrs.length()}",
+          )
+        }
+        body = after_main
+        reusable_get_counts = Some(next_get_counts)
+        if main_changed {
           changed_any = true
         }
+        if first_cycle {
+          if trace_verbose {
+            trace("cycle=\{cycle} phase=first_cycle:advance")
+          }
+          first_cycle = false
+          continue
+        }
+        if main_changed {
+          if trace_verbose {
+            trace("cycle=\{cycle} phase=main:repeat reason=changed")
+          }
+          continue
+        }
+        if trace_verbose {
+          trace(
+            "cycle=\{cycle} phase=cleanup:start top_instrs=\{body.instrs.length()}",
+          )
+        }
+        let (after_cleanup, cleanup_changed) = sl_run_cleanup_phase(
+          body,
+          local_types,
+          options.allow_structure,
+          true,
+          trace~,
+          trace_verbose~,
+        )
+        if trace_verbose {
+          trace(
+            "cycle=\{cycle} phase=cleanup:done changed=\{cleanup_changed} top_instrs=\{after_cleanup.instrs.length()}",
+          )
+        }
+        body = after_cleanup
+        if cleanup_changed {
+          changed_any = true
+          reusable_get_counts = None
+          if trace_verbose {
+            trace(
+              "cycle=\{cycle} phase=late_main:start top_instrs=\{body.instrs.length()}",
+            )
+          }
+          let (after_late_main, late_main_changed, _, late_get_counts) = sl_run_main_phase(
+            body,
+            env,
+            local_types,
+            options,
+            false,
+            trace~,
+            trace_verbose~,
+          )
+          if trace_verbose {
+            trace(
+              "cycle=\{cycle} phase=late_main:done changed=\{late_main_changed} top_instrs=\{after_late_main.instrs.length()}",
+            )
+          }
+          body = after_late_main
+          reusable_get_counts = Some(late_get_counts)
+          if late_main_changed {
+            changed_any = true
+          } else {
+            if trace_verbose {
+              trace("cycle=\{cycle} phase=done reason=late_main_stable")
+            }
+            continue_cycles = false
+          }
+        } else {
+          if trace_verbose {
+            trace("cycle=\{cycle} phase=done reason=cleanup_stable")
+          }
+          continue_cycles = false
+        }
       }
-
-      let (after_cleanup, cleanup_changed) = sl_run_cleanup_phase(
-        body,
-        local_types,
-        options.allow_structure,
-        changed_any,
-      )
-      body = after_cleanup
-      if cleanup_changed {
-        changed_any = true
+      if trace_verbose {
+        trace(
+          "summary cycles=\{cycle} changed_any=\{changed_any} final_top_instrs=\{body.instrs.length()}",
+        )
       }
       if changed_any {
         (Func::t_func(locals, body), true)
@@ -2432,7 +3127,7 @@ fn simplify_locals_ir_pass(
     let def_idx = next_def_idx.val
     next_def_idx.update(fn(i) { i + 1 })
     let ordinal = def_idx + 1
-    let log_func = trace_all_funcs || ordinal <= 5 || ordinal % 500 == 0
+    let log_func = trace_all_funcs
     let func_start_ms = sl_trace_now_ms()
     let params = param_types.get(def_idx).unwrap_or([])
     let abs_func_idx = FuncIdx::new(
@@ -2442,17 +3137,27 @@ fn simplify_locals_ir_pass(
       TFunc(locals, _) => base_env.with_locals(params + locals)
       _ => base_env
     }
+    let func_trace = if log_func {
+      fn(msg) { trace("func[\{ordinal}] \{msg}") }
+    } else {
+      sl_trace_noop
+    }
     if log_func {
       match func {
         TFunc(locals, body) =>
           trace(
-            "func[\{ordinal}] start locals=\{locals.length()} top_instrs=\{body.instrs.length()} allow_tee=\{allow_tee} allow_structure=\{allow_structure} allow_nesting=\{allow_nesting} validate=\{validate_each_rewrite && can_validate_rewrites}",
+            "func[\{ordinal}] start locals=\{locals.length()} top_instrs=\{body.instrs.length()} instrs=\{sl_count_all_instrs_texpr(body)} allow_tee=\{allow_tee} allow_structure=\{allow_structure} allow_nesting=\{allow_nesting} validate=\{validate_each_rewrite && can_validate_rewrites}",
           )
         _ => trace("func[\{ordinal}] skip non-typed-func")
       }
     }
     let (raw_next_func, raw_changed) = sl_simplify_function(
-      func, func_env, params, options,
+      func,
+      func_env,
+      params,
+      options,
+      trace=func_trace,
+      trace_verbose=log_func,
     )
     let (next_func, changed) = if raw_changed {
       sl_keep_validated_rewrite(
@@ -2678,7 +3383,7 @@ test "simplify_locals no-nesting mode avoids sinking non-get values into get sit
   )
   let out = sl_run_simplify_locals(
     mod,
-    allow_tee=false,
+    allow_tee=true,
     allow_structure=false,
     allow_nesting=false,
   )
@@ -3017,12 +3722,16 @@ test "simplify_locals instruction-level rewrite applies block coalescing pattern
     ]),
   )
   let sinkables : Map[Int, SLSinkableInfo] = Map::new()
+  let sinkable_indexes = sl_sinkable_indexes_new()
+  let effects_cache : Map[TInstr, LCSEffects] = Map::new()
   let out : Array[TInstr] = []
   let changed = Ref::new(false)
   let next = sl_rewrite_instr_main(
     block,
     sl_test_env([ValType::i32(), ValType::i32()]),
     sinkables,
+    sinkable_indexes,
+    effects_cache,
     out,
     [ValType::i32(), ValType::i32()],
     [2, 1],
@@ -3105,7 +3814,7 @@ test "simplify_locals coalesces sinkable set into loop return value" {
   let out = sl_run_simplify_locals(mod, allow_tee=true, allow_structure=true)
   match out.code_sec {
     Some(CodeSec([TFunc(_, body)])) =>
-      assert_false(sl_has_result_loop_texpr(body))
+      assert_true(sl_has_result_loop_texpr(body))
     _ => fail("expected one typed function")
   }
 }
@@ -3306,6 +4015,7 @@ test "simplify_locals keeps structured control values out of nested value positi
 ///|
 test "simplify_locals sink helper keeps multi-use local.get when local types differ" {
   let sinkables : Map[Int, SLSinkableInfo] = Map::new()
+  let sinkable_indexes = sl_sinkable_indexes_new()
   let out : Array[TInstr] = []
   let changed = Ref::new(false)
   let other = LocalIdx::new(1)
@@ -3321,6 +4031,7 @@ test "simplify_locals sink helper keeps multi-use local.get when local types dif
       ValType::funcref(),
     ]),
     sinkables,
+    sinkable_indexes,
     out,
     [2, 1],
     [
@@ -3336,8 +4047,9 @@ test "simplify_locals sink helper keeps multi-use local.get when local types dif
 }
 
 ///|
-test "simplify_locals sink helper keeps single-use local.get when sink narrows exact ref type" {
+test "simplify_locals sink helper allows single-use local.get to sink narrowing ref value" {
   let sinkables : Map[Int, SLSinkableInfo] = Map::new()
+  let sinkable_indexes = sl_sinkable_indexes_new()
   let out : Array[TInstr] = []
   let changed = Ref::new(false)
   sinkables[0] = {
@@ -3349,6 +4061,7 @@ test "simplify_locals sink helper keeps single-use local.get when sink narrows e
     LocalIdx::new(0),
     sl_test_env([ValType::funcref()]),
     sinkables,
+    sinkable_indexes,
     out,
     [1],
     [ValType::funcref()],
@@ -3356,12 +4069,12 @@ test "simplify_locals sink helper keeps single-use local.get when sink narrows e
     false,
     changed,
   )
-  assert_eq(rewritten, TInstr::local_get(LocalIdx::new(0)))
-  assert_false(changed.val)
+  assert_eq(rewritten, TInstr::ref_func(FuncIdx::new(0)))
+  assert_true(changed.val)
 }
 
 ///|
-test "simplify_locals late canonicalization does not rewrite non-null refs to nullable equivalents" {
+test "simplify_locals late canonicalization prefers non-null equivalents over nullable copies" {
   let narrow = LocalIdx::new(0)
   let wide = LocalIdx::new(1)
   let body = TExpr::new([
@@ -3375,9 +4088,9 @@ test "simplify_locals late canonicalization does not rewrite non-null refs to nu
     ValType::funcref(),
   ]
   let (rewritten, changed) = sl_run_late_optimizations(body, local_types, false)
-  assert_false(changed)
-  assert_eq(sl_count_local_gets_for_idx_texpr(rewritten, 0), 2)
-  assert_eq(sl_count_local_gets_for_idx_texpr(rewritten, 1), 2)
+  assert_true(changed)
+  assert_true(sl_count_local_gets_for_idx_texpr(rewritten, 0) >= 3)
+  assert_true(sl_count_local_gets_for_idx_texpr(rewritten, 1) <= 1)
 }
 
 ///|
@@ -3634,4 +4347,425 @@ test "simplify_locals keeps nested branchy result-if pattern valid" {
     )
   let out = sl_run_simplify_locals(mod, allow_tee=true, allow_structure=true)
   assert_eq(validate_module(out), Ok(()))
+}
+
+///|
+test "simplify_locals ID-C1 keeps prior local.set when intermediate local.get reads it" {
+  let x = LocalIdx::new(0)
+  let y = LocalIdx::new(1)
+  let mod = Module::new().with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [ValType::i32(), ValType::i32()],
+        TExpr::new([
+          TInstr::local_set(x, TInstr::i32_const(I32(7))),
+          TInstr::local_set(y, TInstr::local_get(x)),
+          TInstr::local_set(x, TInstr::i32_const(I32(9))),
+          TInstr::drop(TInstr::local_get(x)),
+          TInstr::drop(TInstr::local_get(y)),
+        ]),
+      ),
+    ]),
+  )
+  let out = sl_run_simplify_locals(
+    mod,
+    allow_tee=false,
+    allow_structure=false,
+    allow_nesting=false,
+  )
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, body)])) => {
+      let sets_x = sl_count_local_sets_for_idx_texpr(body, 0)
+      assert_eq(sets_x, 2)
+    }
+    _ => fail("expected one typed function")
+  }
+}
+
+///|
+test "simplify_locals ID-C1 sinkable effects include destination local write" {
+  let idx = LocalIdx::new(0)
+  let effects = sl_collect_sinkable_effects(idx, TInstr::i32_const(I32(7)))
+  assert_true(effects.locals_written.contains(idx))
+}
+
+///|
+test "simplify_locals ID-C2 updates get counts after one-sided if introduces new local.get" {
+  let x = LocalIdx::new(0)
+  let body = TExpr::new([
+    TInstr::if_(
+      BlockType::void_(),
+      TInstr::i32_const(I32(1)),
+      TExpr::new([TInstr::local_set(x, TInstr::i32_const(I32(2)))]),
+      None,
+    ),
+    TInstr::drop(TInstr::local_get(x)),
+  ])
+  let counts = Array::make(1, 0)
+  sl_collect_get_counts_texpr(body, counts)
+  let (next_body, changed) = sl_simplify_texpr_main(
+    body,
+    sl_test_env([ValType::i32()]),
+    [ValType::i32()],
+    counts,
+    { allow_tee: false, allow_structure: true, allow_nesting: false },
+  )
+  assert_true(changed)
+  let actual = Array::make(1, 0)
+  sl_collect_get_counts_texpr(next_body, actual)
+  assert_eq(counts[0], actual[0])
+  assert_eq(actual[0], 2)
+}
+
+///|
+test "simplify_locals ID-P1 structures if-else when one arm is unreachable" {
+  let x = LocalIdx::new(0)
+  let instr = TInstr::if_(
+    BlockType::void_(),
+    TInstr::i32_const(I32(0)),
+    TExpr::new([TInstr::unreachable_()]),
+    Some(TExpr::new([TInstr::local_set(x, TInstr::i32_const(I32(9)))])),
+  )
+  let changed = Ref::new(false)
+  let out = sl_try_structure_if(
+    instr,
+    sl_test_env([ValType::i32()]),
+    [ValType::i32()],
+    [0],
+    { allow_tee: false, allow_structure: true, allow_nesting: true },
+    false,
+    changed,
+  )
+  assert_true(changed.val)
+  match out.kind {
+    TInstrKind::TLocalSet(
+      _,
+      { kind: TInstrKind::TIf(ValTypeBlockType(_), _, _, _), .. }
+    ) => ()
+    _ => fail("expected local.set(if(result ...)) from unreachable-arm rewrite")
+  }
+}
+
+///|
+test "simplify_locals ID-P2 uses fixpoint cycles to unlock second sinking opportunity" {
+  let x = LocalIdx::new(0)
+  let y = LocalIdx::new(1)
+  let z = LocalIdx::new(2)
+  let func = Func::t_func(
+    [ValType::i32(), ValType::i32(), ValType::i32()],
+    TExpr::new([
+      TInstr::local_set(x, TInstr::local_get(z)),
+      TInstr::local_set(y, TInstr::local_tee(z, TInstr::i32_const(I32(5)))),
+      TInstr::drop(TInstr::local_get(x)),
+      TInstr::drop(TInstr::local_get(y)),
+    ]),
+  )
+  let (next_func, changed) = sl_simplify_function(
+    func,
+    sl_test_env([ValType::i32(), ValType::i32(), ValType::i32()]),
+    [],
+    { allow_tee: false, allow_structure: false, allow_nesting: true },
+  )
+  assert_true(changed)
+  match next_func {
+    TFunc(_, body) => assert_eq(sl_count_local_sets_for_idx_texpr(body, 0), 0)
+    _ => fail("expected typed function")
+  }
+}
+
+///|
+test "simplify_locals ID-P3 structures loop into loop result local.set" {
+  let x = LocalIdx::new(0)
+  let out : Array[TInstr] = [TInstr::local_set(x, TInstr::i32_const(I32(13)))]
+  let sinkables : Map[Int, SLSinkableInfo] = Map::new()
+  let sinkable_indexes = sl_sinkable_indexes_new()
+  let info : SLSinkableInfo = {
+    out_index: 0,
+    value: TInstr::i32_const(I32(13)),
+    effects: lcs_collect_effects(TInstr::i32_const(I32(13))),
+  }
+  sl_sinkables_add(sinkables, sinkable_indexes, 0, info)
+  let changed = Ref::new(false)
+  let rewritten = sl_try_structure_loop_sink(
+    TInstr::loop_(BlockType::void_(), TExpr::new([TInstr::nop()])),
+    sl_test_env([ValType::i32()]),
+    sinkables,
+    sinkable_indexes,
+    out,
+    [ValType::i32()],
+    { allow_tee: true, allow_structure: true, allow_nesting: true },
+    changed,
+  )
+  assert_true(changed.val)
+  assert_eq(out[0], TInstr::nop())
+  match rewritten.kind {
+    TInstrKind::TLocalSet(
+      _,
+      { kind: TInstrKind::TLoop(ValTypeBlockType(_), _), .. }
+    ) => ()
+    _ => fail("expected local.set(loop(result ...)) after loop structuring")
+  }
+}
+
+///|
+test "simplify_locals ID-P4 allows single-use sink from subtype value into supertype local.get" {
+  let x = LocalIdx::new(0)
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([single_rec_type(comp_type_sub_type(func_comp_type([], [])))]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::funcref()],
+          TExpr::new([
+            TInstr::local_set(x, TInstr::ref_func(FuncIdx::new(0))),
+            TInstr::drop(TInstr::local_get(x)),
+          ]),
+        ),
+      ]),
+    )
+  let out = sl_run_simplify_locals(
+    mod,
+    allow_tee=false,
+    allow_structure=false,
+    allow_nesting=true,
+  )
+  assert_eq(validate_module(out), Ok(()))
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, body)])) => {
+      let stats = SLLocalStats::new()
+      sl_collect_local_stats_texpr(body, stats)
+      assert_eq(stats.sets, 0)
+      assert_eq(stats.gets, 0)
+    }
+    _ => fail("expected one typed function")
+  }
+}
+
+///|
+test "simplify_locals ID-P5 late canonicalization picks subtype-equivalent local" {
+  let narrow = LocalIdx::new(0)
+  let wide = LocalIdx::new(1)
+  let body = TExpr::new([
+    TInstr::local_set(wide, TInstr::local_get(narrow)),
+    TInstr::drop(TInstr::local_get(wide)),
+    TInstr::drop(TInstr::local_get(wide)),
+    TInstr::drop(TInstr::local_get(narrow)),
+  ])
+  let local_types = [
+    ValType::ref_type(RefType::new(false, HeapType::abs(AbsHeapType::func()))),
+    ValType::funcref(),
+  ]
+  let (rewritten, changed) = sl_run_late_optimizations(body, local_types, false)
+  assert_true(changed)
+  let narrow_gets = sl_count_local_gets_for_idx_texpr(rewritten, 0)
+  let wide_gets = sl_count_local_gets_for_idx_texpr(rewritten, 1)
+  assert_true(narrow_gets >= 3)
+  assert_true(wide_gets <= 1)
+}
+
+///|
+test "simplify_locals ID-P5 late canonicalization runs for large local arrays" {
+  let local_types : Array[ValType] = []
+  for _ in 0..<129 {
+    local_types.push(ValType::i32())
+  }
+  let x = LocalIdx::new(0)
+  let y = LocalIdx::new(1)
+  let body = TExpr::new([
+    TInstr::local_set(x, TInstr::i32_const(I32(1))),
+    TInstr::local_set(y, TInstr::local_get(x)),
+    TInstr::drop(TInstr::local_get(y)),
+    TInstr::drop(TInstr::local_get(y)),
+    TInstr::drop(TInstr::local_get(x)),
+    TInstr::drop(TInstr::local_get(x)),
+  ])
+  let (_, changed) = sl_run_late_optimizations(body, local_types, false)
+  assert_true(changed)
+}
+
+///|
+test "simplify_locals ID-F1 avoids excessive effect recomputation in main phase" {
+  let locals : Array[ValType] = []
+  let body_instrs : Array[TInstr] = []
+  for i in 0..<40 {
+    locals.push(ValType::i32())
+    let idx = LocalIdx::new(i.reinterpret_as_uint())
+    body_instrs.push(TInstr::local_set(idx, TInstr::i32_const(I32(i))))
+  }
+  for i in 0..<40 {
+    let idx = LocalIdx::new(i.reinterpret_as_uint())
+    body_instrs.push(TInstr::drop(TInstr::local_get(idx)))
+  }
+  sl_perf_reset()
+  ignore(
+    sl_simplify_function(
+      Func::t_func(locals, TExpr::new(body_instrs)),
+      sl_test_env(locals),
+      [],
+      { allow_tee: false, allow_structure: false, allow_nesting: true },
+    ),
+  )
+  let perf = sl_perf_snapshot()
+  if perf.effect_collect_calls > 300 {
+    fail("expected <=300 effect collections, got \{perf.effect_collect_calls}")
+  }
+}
+
+///|
+test "simplify_locals skips no-structure main rewrite when function has no local.get" {
+  let locals : Array[ValType] = []
+  let body_instrs : Array[TInstr] = []
+  for i in 0..<200 {
+    locals.push(ValType::i32())
+    let idx = LocalIdx::new(i.reinterpret_as_uint())
+    body_instrs.push(TInstr::local_set(idx, TInstr::i32_const(I32(i))))
+  }
+  sl_perf_reset()
+  ignore(
+    sl_simplify_function(
+      Func::t_func(locals, TExpr::new(body_instrs)),
+      sl_test_env(locals),
+      [],
+      { allow_tee: false, allow_structure: false, allow_nesting: true },
+    ),
+  )
+  let perf = sl_perf_snapshot()
+  if perf.effect_collect_calls > 0 {
+    fail(
+      "expected no effect collection when no-structure main rewrite is skipped; got \{perf.effect_collect_calls}",
+    )
+  }
+}
+
+///|
+test "simplify_locals ID-F2 avoids O(active_sinkables) invalidation scans per instruction" {
+  let locals : Array[ValType] = []
+  let body_instrs : Array[TInstr] = []
+  for i in 0..<50 {
+    locals.push(ValType::i32())
+    let idx = LocalIdx::new(i.reinterpret_as_uint())
+    body_instrs.push(TInstr::local_set(idx, TInstr::i32_const(I32(i))))
+  }
+  for i in 0..<50 {
+    let idx = LocalIdx::new(i.reinterpret_as_uint())
+    body_instrs.push(TInstr::drop(TInstr::local_get(idx)))
+  }
+  sl_perf_reset()
+  ignore(
+    sl_simplify_function(
+      Func::t_func(locals, TExpr::new(body_instrs)),
+      sl_test_env(locals),
+      [],
+      { allow_tee: false, allow_structure: false, allow_nesting: true },
+    ),
+  )
+  let perf = sl_perf_snapshot()
+  if perf.invalidation_entry_checks > 700 {
+    fail(
+      "expected <=700 invalidation entry checks, got \{perf.invalidation_entry_checks}",
+    )
+  }
+}
+
+///|
+test "simplify_locals ID-F3 reuses get counts across fixpoint cycles" {
+  let x = LocalIdx::new(0)
+  let y = LocalIdx::new(1)
+  let z = LocalIdx::new(2)
+  let func = Func::t_func(
+    [ValType::i32(), ValType::i32(), ValType::i32()],
+    TExpr::new([
+      TInstr::local_set(x, TInstr::local_get(z)),
+      TInstr::local_set(y, TInstr::local_tee(z, TInstr::i32_const(I32(5)))),
+      TInstr::drop(TInstr::local_get(x)),
+      TInstr::drop(TInstr::local_get(y)),
+    ]),
+  )
+  sl_perf_reset()
+  ignore(
+    sl_simplify_function(
+      func,
+      sl_test_env([ValType::i32(), ValType::i32(), ValType::i32()]),
+      [],
+      { allow_tee: false, allow_structure: false, allow_nesting: true },
+    ),
+  )
+  let perf = sl_perf_snapshot()
+  if perf.get_count_scans > 4 {
+    fail("expected <=4 full get-count scans, got \{perf.get_count_scans}")
+  }
+}
+
+///|
+test "simplify_locals ID-F4 avoids cloning late-phase state for every nested branch" {
+  let body = TExpr::new([
+    TInstr::if_(
+      BlockType::void_(),
+      TInstr::i32_const(I32(1)),
+      TExpr::new([
+        TInstr::block(
+          BlockType::void_(),
+          TExpr::new([
+            TInstr::if_(
+              BlockType::void_(),
+              TInstr::i32_const(I32(0)),
+              TExpr::new([
+                TInstr::local_set(
+                  LocalIdx::new(1),
+                  TInstr::local_get(LocalIdx::new(0)),
+                ),
+              ]),
+              Some(
+                TExpr::new([
+                  TInstr::local_set(
+                    LocalIdx::new(1),
+                    TInstr::local_get(LocalIdx::new(0)),
+                  ),
+                ]),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+      Some(
+        TExpr::new([
+          TInstr::block(
+            BlockType::void_(),
+            TExpr::new([
+              TInstr::if_(
+                BlockType::void_(),
+                TInstr::i32_const(I32(1)),
+                TExpr::new([
+                  TInstr::local_set(
+                    LocalIdx::new(1),
+                    TInstr::local_get(LocalIdx::new(0)),
+                  ),
+                ]),
+                Some(
+                  TExpr::new([
+                    TInstr::local_set(
+                      LocalIdx::new(1),
+                      TInstr::local_get(LocalIdx::new(0)),
+                    ),
+                  ]),
+                ),
+              ),
+            ]),
+          ),
+        ]),
+      ),
+    ),
+    TInstr::drop(TInstr::local_get(LocalIdx::new(1))),
+  ])
+  sl_perf_reset()
+  ignore(
+    sl_run_late_optimizations(body, [ValType::i32(), ValType::i32()], false),
+  )
+  let perf = sl_perf_snapshot()
+  if perf.late_state_clones > 3 {
+    fail("expected <=3 late-state clones, got \{perf.late_state_clones}")
+  }
 }
