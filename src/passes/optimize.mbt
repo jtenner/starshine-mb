@@ -228,8 +228,15 @@ fn opt_format_validation_error(mod : Module, err : ValidationError) -> String {
     }
     None => ()
   }
-  out.write_string("\n\nOffending module:\n")
-  out.write_string(mod.pretty_print(PrettyPrintContext::new()))
+  match mod.type_sec {
+    Some(type_sec) => {
+      out.write_string("\n\nType section:\n")
+      out.write_string(type_sec.pretty_print(PrettyPrintContext::new()))
+    }
+    None => ()
+  }
+  // out.write_string("\n\nOffending module:\n")
+  // out.write_string(mod.pretty_print(PrettyPrintContext::new()))
   out.to_string()
 }
 

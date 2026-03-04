@@ -1026,6 +1026,158 @@ fn cf_collect_local_block_tails(
 }
 
 ///|
+priv struct CfLabelShiftCtx {
+  control_depth : Int
+  in_cond : Bool
+}
+
+///|
+fn cf_shift_outer_label(label : LabelIdx, control_depth : Int) -> LabelIdx {
+  let LabelIdx(label_depth) = label
+  if label_depth.reinterpret_as_int() <= control_depth {
+    label
+  } else {
+    LabelIdx::new(label_depth + 1U)
+  }
+}
+
+///|
+fn cf_shift_cond_outer_label(label : LabelIdx, control_depth : Int) -> LabelIdx {
+  let LabelIdx(label_depth) = label
+  if label_depth.reinterpret_as_int() < control_depth {
+    label
+  } else {
+    LabelIdx::new(label_depth + 1U)
+  }
+}
+
+///|
+/// Rebase labels when a folded block body is wrapped in an additional block.
+fn cf_shift_outer_labels_with(
+  instr : TInstr,
+  shift_label : (LabelIdx, Int) -> LabelIdx,
+  shift_cond_label : (LabelIdx, Int) -> LabelIdx,
+  root_in_cond? : Bool = false,
+) -> TInstr {
+  let walker = ModuleTransformer::new()
+    .on_labelidx_evt(fn(_, ctx : CfLabelShiftCtx, label) {
+      let shifted = if ctx.in_cond {
+        shift_cond_label(label, ctx.control_depth)
+      } else {
+        shift_label(label, ctx.control_depth)
+      }
+      if shifted == label {
+        unchanged()
+      } else {
+        change(ctx, shifted)
+      }
+    })
+    .on_tinstruction_evt(fn(self, ctx : CfLabelShiftCtx, instr) {
+      match instr.kind {
+        TInstrKind::TBlock(bt, body) => {
+          let body_ctx = { ..ctx, control_depth: ctx.control_depth + 1 }
+          let body = match self.walk_texpr(body_ctx, body) {
+            Ok(None) => body
+            Ok(Some((_, body))) => body
+            Err(_) => return Ok(None)
+          }
+          change(ctx, TInstr::block(bt, body))
+        }
+        TInstrKind::TLoop(bt, body) => {
+          let body_ctx = { ..ctx, control_depth: ctx.control_depth + 1 }
+          let body = match self.walk_texpr(body_ctx, body) {
+            Ok(None) => body
+            Ok(Some((_, body))) => body
+            Err(_) => return Ok(None)
+          }
+          change(ctx, TInstr::loop_(bt, body))
+        }
+        TInstrKind::TIf(bt, cond, then_body, else_body) => {
+          let cond = match
+            self.walk_tinstruction(
+              CfLabelShiftCtx::{ ..ctx, in_cond: true },
+              cond,
+            ) {
+            Ok(None) => cond
+            Ok(Some((_, cond))) => cond
+            Err(_) => return Ok(None)
+          }
+          let branch_ctx = CfLabelShiftCtx::{
+            control_depth: ctx.control_depth + 1,
+            in_cond: ctx.in_cond,
+          }
+          let then_body = match self.walk_texpr(branch_ctx, then_body) {
+            Ok(None) => then_body
+            Ok(Some((_, then_body))) => then_body
+            Err(_) => return Ok(None)
+          }
+          let else_body = match else_body {
+            Some(else_body) =>
+              match self.walk_texpr(branch_ctx, else_body) {
+                Ok(None) => Some(else_body)
+                Ok(Some((_, else_body))) => Some(else_body)
+                Err(_) => return Ok(None)
+              }
+            None => None
+          }
+          change(ctx, TInstr::if_(bt, cond, then_body, else_body))
+        }
+        TInstrKind::TTryTable(bt, catches, body) => {
+          let catches = match
+            self.walk_array(ctx, ModuleTransformer::walk_catch, catches) {
+            Ok(None) => catches
+            Ok(Some((_, catches))) => catches
+            Err(_) => return Ok(None)
+          }
+          let body_ctx = { ..ctx, control_depth: ctx.control_depth + 1 }
+          let body = match self.walk_texpr(body_ctx, body) {
+            Ok(None) => body
+            Ok(Some((_, body))) => body
+            Err(_) => return Ok(None)
+          }
+          change(ctx, TInstr::try_table(bt, catches, body))
+        }
+        _ => self.walk_tinstruction_default(ctx, instr)
+      }
+    })
+  match
+    walker.walk_tinstruction(
+      CfLabelShiftCtx::{ control_depth: 0, in_cond: root_in_cond },
+      instr,
+    ) {
+    Ok(Some((_, rewritten))) => rewritten
+    Ok(None) => instr
+    Err(_) => instr
+  }
+}
+
+///|
+fn cf_shift_outer_labels(instr : TInstr) -> TInstr {
+  cf_shift_outer_labels_with(
+    instr, cf_shift_outer_label, cf_shift_cond_outer_label,
+  )
+}
+
+///|
+fn cf_shift_cond_outer_labels(instr : TInstr) -> TInstr {
+  cf_shift_outer_labels_with(
+    instr,
+    cf_shift_outer_label,
+    cf_shift_cond_outer_label,
+    root_in_cond=true,
+  )
+}
+
+///|
+fn cf_shift_outer_labels_instrs(instrs : Array[TInstr]) -> Array[TInstr] {
+  let shifted : Array[TInstr] = []
+  for instr in instrs {
+    shifted.push(cf_shift_outer_labels(instr))
+  }
+  shifted
+}
+
+///|
 /// Get the mergeable item from a tail at a given depth
 fn get_mergeable(tail : Tail, num : Int) -> TInstr? {
   if not(tail.is_fallthrough()) {
@@ -1426,6 +1578,7 @@ fn process_block(
     Some(results) => results
     None => return None
   }
+  let wrapper_env = state.env.with_label(results)
   let (scoped_tails, blocked) = cf_collect_local_block_tails(instrs)
   if blocked {
     return None
@@ -1473,12 +1626,13 @@ fn process_block(
         rewrite_tails,
         plan.merged_instrs.length(),
       )
+      let rewritten_body = cf_shift_outer_labels_instrs(rewritten_body)
       let inner_block = TInstr::block(
         BlockType::void_(),
         TExpr::new(rewritten_body),
       )
       let inner_stack = match
-        cf_typecheck_tinstr_stack(inner_block, state.env, empty_stack) {
+        cf_typecheck_tinstr_stack(inner_block, wrapper_env, empty_stack) {
         Some(stack) => stack
         None => return None
       }
@@ -1527,6 +1681,7 @@ fn process_if(
         Some(results) => results
         None => return None
       }
+      let wrapper_env = state.env.with_label(results)
       let empty_stack : Array[ValType] = []
       let tails = [
         Tail::fallthrough(then_body.instrs),
@@ -1556,25 +1711,30 @@ fn process_if(
             return None
           }
           let new_then = TExpr::new(
-            cf_take_instr_prefix(
-              then_body.instrs,
-              then_body.instrs.length() - merge_count,
+            cf_shift_outer_labels_instrs(
+              cf_take_instr_prefix(
+                then_body.instrs,
+                then_body.instrs.length() - merge_count,
+              ),
             ),
           )
           let new_else = TExpr::new(
-            cf_take_instr_prefix(
-              else_expr.instrs,
-              else_expr.instrs.length() - merge_count,
+            cf_shift_outer_labels_instrs(
+              cf_take_instr_prefix(
+                else_expr.instrs,
+                else_expr.instrs.length() - merge_count,
+              ),
             ),
           )
+          let new_cond = cf_shift_cond_outer_labels(cond)
           let inner_if = TInstr::if_(
             BlockType::void_(),
-            cond,
+            new_cond,
             new_then,
             Some(new_else),
           )
           let inner_stack = match
-            cf_typecheck_tinstr_stack(inner_if, state.env, empty_stack) {
+            cf_typecheck_tinstr_stack(inner_if, wrapper_env, empty_stack) {
             Some(stack) => stack
             None => return None
           }
@@ -1607,6 +1767,30 @@ fn process_if(
 }
 
 ///|
+fn cf_block_body_env(env : Env, bt : BlockType) -> Env {
+  match env.expand_blocktype(bt) {
+    Ok((_, results)) => env.with_label(results)
+    Err(_) => env
+  }
+}
+
+///|
+fn cf_loop_body_env(env : Env, bt : BlockType) -> Env {
+  match env.expand_blocktype(bt) {
+    Ok((params, _)) => env.with_label(params)
+    Err(_) => env
+  }
+}
+
+///|
+fn cf_restore_state_env(
+  state : CodeFoldingState,
+  env : Env,
+) -> CodeFoldingState {
+  CodeFoldingState::{ ..state, env, }
+}
+
+///|
 /// Main code folding pass
 fn code_folding_pass_with_trace(
   trace? : (String) -> Unit = cf_trace_noop,
@@ -1623,73 +1807,148 @@ fn code_folding_pass_with_trace(
     site_kind: "",
   }
   ModuleTransformer::new()
-  .on_tinstruction_evt(fn(self, state, instr) {
-    // Process blocks and ifs for tail merging
+  .on_tinstruction_evt(fn(self, state : CodeFoldingState, instr) {
     match instr.kind {
-      TInstrKind::TBlock(bt, body) =>
-        // First recurse into children
-        match self.walk_tinstruction_default(state, instr) {
-          Ok(Some((new_state, new_instr))) =>
-            match new_instr.kind {
-              TInstrKind::TBlock(_, new_body) =>
-                // Try to optimize the block's tails
-                match
-                  process_block(
-                    new_state,
-                    bt,
-                    LabelIdx::new(0),
-                    new_body.instrs,
-                    round_stats,
-                    expr_trace_ctx,
-                  ) {
-                  Some(changed_instr) => change(new_state, changed_instr)
-                  None => change(new_state, new_instr)
-                }
-              _ => change(new_state, new_instr)
-            }
-          Ok(None) =>
-            // Try to optimize unchanged block
-            match
-              process_block(
-                state,
-                bt,
-                LabelIdx::new(0),
-                body.instrs,
-                round_stats,
-                expr_trace_ctx,
-              ) {
-              Some(changed_instr) => change(state, changed_instr)
-              None => unchanged()
-            }
-          Err(e) => Err(e)
+      TInstrKind::TBlock(bt, body) => {
+        let original_env = state.env
+        let (state1, bt1, bt_changed) = match self.walk_blocktype(state, bt) {
+          Ok(None) => (state, bt, false)
+          Ok(Some((state1, bt1))) => (state1, bt1, true)
+          Err(e) => return Err(e)
         }
-      TInstrKind::TIf(bt, cond, then_body, else_body) =>
-        // First recurse into children
-        match self.walk_tinstruction_default(state, instr) {
-          Ok(Some((new_state, new_instr))) =>
-            match new_instr.kind {
-              TInstrKind::TIf(_, new_cond, new_then, new_else) =>
-                // Try to optimize the if's tails
-                match
-                  process_if(
-                    new_state, bt, new_cond, new_then, new_else, round_stats, expr_trace_ctx,
-                  ) {
-                  Some(changed_instr) => change(new_state, changed_instr)
-                  None => change(new_state, new_instr)
-                }
-              _ => change(new_state, new_instr)
-            }
-          Ok(None) =>
-            // Try to optimize unchanged if
-            match
-              process_if(
-                state, bt, cond, then_body, else_body, round_stats, expr_trace_ctx,
-              ) {
-              Some(changed_instr) => change(state, changed_instr)
-              None => unchanged()
-            }
-          Err(e) => Err(e)
+        let nested_state = cf_restore_state_env(
+          state1,
+          cf_block_body_env(state1.env, bt1),
+        )
+        let (state2, body1, body_changed) = match
+          self.walk_texpr(nested_state, body) {
+          Ok(None) => (nested_state, body, false)
+          Ok(Some((state2, body1))) => (state2, body1, true)
+          Err(e) => return Err(e)
         }
+        let restored_state = cf_restore_state_env(state2, original_env)
+        let rewritten = TInstr::block(bt1, body1)
+        match
+          process_block(
+            restored_state,
+            bt1,
+            LabelIdx::new(0),
+            body1.instrs,
+            round_stats,
+            expr_trace_ctx,
+          ) {
+          Some(changed_instr) => change(restored_state, changed_instr)
+          None =>
+            if bt_changed || body_changed {
+              change(restored_state, rewritten)
+            } else {
+              unchanged()
+            }
+        }
+      }
+      TInstrKind::TLoop(bt, body) => {
+        let original_env = state.env
+        let (state1, bt1, bt_changed) = match self.walk_blocktype(state, bt) {
+          Ok(None) => (state, bt, false)
+          Ok(Some((state1, bt1))) => (state1, bt1, true)
+          Err(e) => return Err(e)
+        }
+        let nested_state = cf_restore_state_env(
+          state1,
+          cf_loop_body_env(state1.env, bt1),
+        )
+        let (state2, body1, body_changed) = match
+          self.walk_texpr(nested_state, body) {
+          Ok(None) => (nested_state, body, false)
+          Ok(Some((state2, body1))) => (state2, body1, true)
+          Err(e) => return Err(e)
+        }
+        let restored_state = cf_restore_state_env(state2, original_env)
+        let rewritten = TInstr::loop_(bt1, body1)
+        if bt_changed || body_changed {
+          change(restored_state, rewritten)
+        } else {
+          unchanged()
+        }
+      }
+      TInstrKind::TIf(bt, cond, then_body, else_body) => {
+        let original_env = state.env
+        let (state1, bt1, bt_changed) = match self.walk_blocktype(state, bt) {
+          Ok(None) => (state, bt, false)
+          Ok(Some((state1, bt1))) => (state1, bt1, true)
+          Err(e) => return Err(e)
+        }
+        let (state2, cond1, cond_changed) = match
+          self.walk_tinstruction(state1, cond) {
+          Ok(None) => (state1, cond, false)
+          Ok(Some((state2, cond1))) => (state2, cond1, true)
+          Err(e) => return Err(e)
+        }
+        let branch_state = cf_restore_state_env(
+          state2,
+          cf_block_body_env(state2.env, bt1),
+        )
+        let (state3, then1, then_changed) = match
+          self.walk_texpr(branch_state, then_body) {
+          Ok(None) => (branch_state, then_body, false)
+          Ok(Some((state3, then1))) => (state3, then1, true)
+          Err(e) => return Err(e)
+        }
+        let (state4, else1, else_changed) = match else_body {
+          Some(else_expr) =>
+            match self.walk_texpr(state3, else_expr) {
+              Ok(None) => (state3, else_body, false)
+              Ok(Some((state4, else1))) => (state4, Some(else1), true)
+              Err(e) => return Err(e)
+            }
+          None => (state3, else_body, false)
+        }
+        let restored_state = cf_restore_state_env(state4, original_env)
+        let rewritten = TInstr::if_(bt1, cond1, then1, else1)
+        match
+          process_if(
+            restored_state, bt1, cond1, then1, else1, round_stats, expr_trace_ctx,
+          ) {
+          Some(changed_instr) => change(restored_state, changed_instr)
+          None =>
+            if bt_changed || cond_changed || then_changed || else_changed {
+              change(restored_state, rewritten)
+            } else {
+              unchanged()
+            }
+        }
+      }
+      TInstrKind::TTryTable(bt, catches, body) => {
+        let original_env = state.env
+        let (state1, bt1, bt_changed) = match self.walk_blocktype(state, bt) {
+          Ok(None) => (state, bt, false)
+          Ok(Some((state1, bt1))) => (state1, bt1, true)
+          Err(e) => return Err(e)
+        }
+        let (state2, catches1, catches_changed) = match
+          self.walk_array(state1, ModuleTransformer::walk_catch, catches) {
+          Ok(None) => (state1, catches, false)
+          Ok(Some((state2, catches1))) => (state2, catches1, true)
+          Err(e) => return Err(e)
+        }
+        let nested_state = cf_restore_state_env(
+          state2,
+          cf_block_body_env(state2.env, bt1),
+        )
+        let (state3, body1, body_changed) = match
+          self.walk_texpr(nested_state, body) {
+          Ok(None) => (nested_state, body, false)
+          Ok(Some((state3, body1))) => (state3, body1, true)
+          Err(e) => return Err(e)
+        }
+        let restored_state = cf_restore_state_env(state3, original_env)
+        let rewritten = TInstr::try_table(bt1, catches1, body1)
+        if bt_changed || catches_changed || body_changed {
+          change(restored_state, rewritten)
+        } else {
+          unchanged()
+        }
+      }
       _ => self.walk_tinstruction_default(state, instr)
     }
   })
@@ -2263,6 +2522,66 @@ test "can_move allows simple instructions" {
   assert_true(can_move(items, container))
 }
 
+///|
+test "cf_shift_outer_labels keeps folded-block targets and shifts outer targets" {
+  let original = TInstr::if_(
+    BlockType::void_(),
+    TInstr::i32_const(I32(1)),
+    TExpr::new([
+      TInstr::br(LabelIdx::new(0), []),
+      TInstr::br(LabelIdx::new(1), []),
+      TInstr::br(LabelIdx::new(2), []),
+      TInstr::br_table(
+        [LabelIdx::new(0), LabelIdx::new(1), LabelIdx::new(2)],
+        LabelIdx::new(3),
+        TInstr::i32_const(I32(0)),
+        [],
+      ),
+    ]),
+    Some(
+      TExpr::new([
+        TInstr::try_table(
+          BlockType::void_(),
+          [Catch::all(LabelIdx::new(1)), Catch::all(LabelIdx::new(2))],
+          TExpr::new([
+            TInstr::br(LabelIdx::new(2), []),
+            TInstr::br(LabelIdx::new(3), []),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let shifted = cf_shift_outer_labels(original)
+  let expected = TInstr::if_(
+    BlockType::void_(),
+    TInstr::i32_const(I32(1)),
+    TExpr::new([
+      TInstr::br(LabelIdx::new(0), []),
+      TInstr::br(LabelIdx::new(1), []),
+      TInstr::br(LabelIdx::new(3), []),
+      TInstr::br_table(
+        [LabelIdx::new(0), LabelIdx::new(1), LabelIdx::new(3)],
+        LabelIdx::new(4),
+        TInstr::i32_const(I32(0)),
+        [],
+      ),
+    ]),
+    Some(
+      TExpr::new([
+        TInstr::try_table(
+          BlockType::void_(),
+          [Catch::all(LabelIdx::new(1)), Catch::all(LabelIdx::new(3))],
+          TExpr::new([
+            TInstr::br(LabelIdx::new(2), []),
+            TInstr::br(LabelIdx::new(4), []),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  assert_eq(shifted, expected)
+}
+
 // ============================================================
 // Advanced Code Folding Tests
 // ============================================================
@@ -2364,6 +2683,183 @@ test "code folding hoisted if tail remains module-valid" {
 }
 
 ///|
+test "code folding hoisted void if tail rebases nested outer branches" {
+  let common0 = TInstr::nop()
+  let common1 = TInstr::drop(TInstr::i32_const(I32(11)))
+  let common2 = TInstr::drop(TInstr::i32_const(I32(12)))
+  let state = CodeFoldingState::{
+    ..CodeFoldingState::new(env=Env::new().with_label([ValType::i32()])),
+    another_pass: false,
+  }
+  let trace_ctx : CodeFoldingExprTraceCtx = {
+    enabled: false,
+    trace: cf_trace_noop,
+    func_ordinal: 0,
+    round: 0,
+    site_kind: "",
+  }
+  let rewritten = process_if(
+    state,
+    BlockType::void_(),
+    TInstr::i32_const(I32(1)),
+    TExpr::new([
+      TInstr::if_(
+        BlockType::void_(),
+        TInstr::i32_const(I32(1)),
+        TExpr::new([TInstr::br(LabelIdx::new(2), [TInstr::i32_const(I32(7))])]),
+        Some(TExpr::new([])),
+      ),
+      common0,
+      common1,
+      common2,
+    ]),
+    Some(
+      TExpr::new([
+        TInstr::drop(TInstr::i32_const(I32(1))),
+        common0,
+        common1,
+        common2,
+      ]),
+    ),
+    cf_round_trace_stats_new(),
+    trace_ctx,
+  )
+  let expected = TInstr::block(
+    BlockType::void_(),
+    TExpr::new([
+      TInstr::if_(
+        BlockType::void_(),
+        TInstr::i32_const(I32(1)),
+        TExpr::new([
+          TInstr::if_(
+            BlockType::void_(),
+            TInstr::i32_const(I32(1)),
+            TExpr::new([
+              TInstr::br(LabelIdx::new(3), [TInstr::i32_const(I32(7))]),
+            ]),
+            Some(TExpr::new([])),
+          ),
+        ]),
+        Some(TExpr::new([TInstr::drop(TInstr::i32_const(I32(1)))])),
+      ),
+      common0,
+      common1,
+      common2,
+    ]),
+  )
+  assert_eq(rewritten, Some(expected))
+}
+
+///|
+test "code folding hoisted void if tail remains module-valid with nested outer branches" {
+  let state = CodeFoldingState::{
+    ..CodeFoldingState::new(env=Env::new().with_label([ValType::i32()])),
+    another_pass: false,
+  }
+  let trace_ctx : CodeFoldingExprTraceCtx = {
+    enabled: false,
+    trace: cf_trace_noop,
+    func_ordinal: 0,
+    round: 0,
+    site_kind: "",
+  }
+  let rewritten = match
+    process_if(
+      state,
+      BlockType::void_(),
+      TInstr::i32_const(I32(1)),
+      TExpr::new([
+        TInstr::if_(
+          BlockType::void_(),
+          TInstr::i32_const(I32(1)),
+          TExpr::new([TInstr::br(LabelIdx::new(2), [TInstr::i32_const(I32(7))])]),
+          Some(TExpr::new([])),
+        ),
+        TInstr::nop(),
+        TInstr::drop(TInstr::i32_const(I32(11))),
+        TInstr::drop(TInstr::i32_const(I32(12))),
+      ]),
+      Some(
+        TExpr::new([
+          TInstr::drop(TInstr::i32_const(I32(1))),
+          TInstr::nop(),
+          TInstr::drop(TInstr::i32_const(I32(11))),
+          TInstr::drop(TInstr::i32_const(I32(12))),
+        ]),
+      ),
+      cf_round_trace_stats_new(),
+      trace_ctx,
+    ) {
+    Some(rewritten) => rewritten
+    None => fail("expected if tail fold")
+  }
+  let folded = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::block(
+        BlockType::val_type(ValType::i32()),
+        TExpr::new([rewritten, TInstr::i32_const(I32(9))]),
+      ),
+    ]),
+  )
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        single_rec_type(
+          comp_type_sub_type(func_comp_type([], [ValType::i32()])),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(CodeSec::new([folded]))
+  assert_eq(validate_module(mod), Ok(()))
+}
+
+///|
+test "code folding hoisted if tail rebases cond outer branches" {
+  let common = TInstr::i32_const(I32(9))
+  let state = CodeFoldingState::{
+    ..CodeFoldingState::new(env=Env::new().with_label([ValType::i32()])),
+    another_pass: false,
+  }
+  let trace_ctx : CodeFoldingExprTraceCtx = {
+    enabled: false,
+    trace: cf_trace_noop,
+    func_ordinal: 0,
+    round: 0,
+    site_kind: "",
+  }
+  let rewritten = process_if(
+    state,
+    BlockType::val_type(ValType::i32()),
+    TInstr::block(
+      BlockType::val_type(ValType::i32()),
+      TExpr::new([TInstr::br(LabelIdx::new(1), [TInstr::i32_const(I32(1))])]),
+    ),
+    TExpr::new([TInstr::nop(), common]),
+    Some(TExpr::new([TInstr::drop(TInstr::i32_const(I32(2))), common])),
+    cf_round_trace_stats_new(),
+    trace_ctx,
+  )
+  let expected = TInstr::block(
+    BlockType::val_type(ValType::i32()),
+    TExpr::new([
+      TInstr::if_(
+        BlockType::void_(),
+        TInstr::block(
+          BlockType::val_type(ValType::i32()),
+          TExpr::new([TInstr::br(LabelIdx::new(2), [TInstr::i32_const(I32(1))])]),
+        ),
+        TExpr::new([TInstr::nop()]),
+        Some(TExpr::new([TInstr::drop(TInstr::i32_const(I32(2)))])),
+      ),
+      common,
+    ]),
+  )
+  assert_eq(rewritten, Some(expected))
+}
+
+///|
 test "code folding hoists block tail targeted by nested br" {
   let common = TInstr::i32_const(I32(999))
   let f = Func::t_func(
@@ -2442,6 +2938,272 @@ test "code folding block hoist remains module-valid" {
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(CodeSec::new([folded]))
   assert_eq(validate_module(mod), Ok(()))
+}
+
+///|
+test "code folding nested block hoist remains module-valid with outer labels" {
+  let common = TInstr::i32_const(I32(999))
+  let folded = run_fold(
+    Func::t_func(
+      [],
+      TExpr::new([
+        TInstr::block(
+          BlockType::val_type(ValType::i32()),
+          TExpr::new([
+            TInstr::block(
+              BlockType::val_type(ValType::i32()),
+              TExpr::new([
+                TInstr::if_(
+                  BlockType::void_(),
+                  TInstr::i32_const(I32(1)),
+                  TExpr::new([
+                    TInstr::nop(),
+                    TInstr::br(LabelIdx::new(2), [common]),
+                  ]),
+                  Some(TExpr::new([])),
+                ),
+                common,
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        single_rec_type(
+          comp_type_sub_type(func_comp_type([], [ValType::i32()])),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(CodeSec::new([folded]))
+  assert_eq(validate_module(mod), Ok(()))
+}
+
+///|
+test "code folding block hoist rebases nested cond outer branches" {
+  let common = TInstr::i32_const(I32(999))
+  let original = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::block(
+        BlockType::val_type(ValType::i32()),
+        TExpr::new([
+          TInstr::if_(
+            BlockType::void_(),
+            TInstr::block(
+              BlockType::val_type(ValType::i32()),
+              TExpr::new([
+                TInstr::br(LabelIdx::new(1), [TInstr::i32_const(I32(1))]),
+              ]),
+            ),
+            TExpr::new([TInstr::nop(), TInstr::br(LabelIdx::new(1), [common])]),
+            Some(TExpr::new([])),
+          ),
+          common,
+        ]),
+      ),
+    ]),
+  )
+  let expected = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::block(
+        BlockType::val_type(ValType::i32()),
+        TExpr::new([
+          TInstr::block(
+            BlockType::void_(),
+            TExpr::new([
+              TInstr::if_(
+                BlockType::void_(),
+                TInstr::block(
+                  BlockType::val_type(ValType::i32()),
+                  TExpr::new([
+                    TInstr::br(LabelIdx::new(2), [TInstr::i32_const(I32(1))]),
+                  ]),
+                ),
+                TExpr::new([TInstr::nop(), TInstr::br(LabelIdx::new(1), [])]),
+                Some(TExpr::new([])),
+              ),
+            ]),
+          ),
+          common,
+        ]),
+      ),
+    ]),
+  )
+  assert_eq(run_fold(original), expected)
+}
+
+///|
+test "code folding block hoist with nested cond remains module-valid" {
+  let common = TInstr::i32_const(I32(999))
+  let folded = run_fold(
+    Func::t_func(
+      [],
+      TExpr::new([
+        TInstr::block(
+          BlockType::val_type(ValType::i32()),
+          TExpr::new([
+            TInstr::if_(
+              BlockType::void_(),
+              TInstr::block(
+                BlockType::val_type(ValType::i32()),
+                TExpr::new([
+                  TInstr::br(LabelIdx::new(1), [TInstr::i32_const(I32(1))]),
+                ]),
+              ),
+              TExpr::new([TInstr::nop(), TInstr::br(LabelIdx::new(1), [common])]),
+              Some(TExpr::new([])),
+            ),
+            common,
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        single_rec_type(
+          comp_type_sub_type(func_comp_type([], [ValType::i32()])),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(CodeSec::new([folded]))
+  assert_eq(validate_module(mod), Ok(()))
+}
+
+///|
+test "code folding nested if hoist remains module-valid with outer labels" {
+  let folded = run_fold(
+    Func::t_func(
+      [],
+      TExpr::new([
+        TInstr::block(
+          BlockType::val_type(ValType::i32()),
+          TExpr::new([
+            TInstr::if_(
+              BlockType::void_(),
+              TInstr::i32_const(I32(1)),
+              TExpr::new([
+                TInstr::if_(
+                  BlockType::void_(),
+                  TInstr::i32_const(I32(1)),
+                  TExpr::new([
+                    TInstr::br(LabelIdx::new(2), [TInstr::i32_const(I32(7))]),
+                  ]),
+                  Some(TExpr::new([])),
+                ),
+                TInstr::nop(),
+                TInstr::drop(TInstr::i32_const(I32(11))),
+                TInstr::drop(TInstr::i32_const(I32(12))),
+              ]),
+              Some(
+                TExpr::new([
+                  TInstr::drop(TInstr::i32_const(I32(1))),
+                  TInstr::nop(),
+                  TInstr::drop(TInstr::i32_const(I32(11))),
+                  TInstr::drop(TInstr::i32_const(I32(12))),
+                ]),
+              ),
+            ),
+            TInstr::i32_const(I32(9)),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        single_rec_type(
+          comp_type_sub_type(func_comp_type([], [ValType::i32()])),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(CodeSec::new([folded]))
+  assert_eq(validate_module(mod), Ok(()))
+}
+
+///|
+test "code folding folds nested if tail with outer labels" {
+  let original = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::block(
+        BlockType::val_type(ValType::i32()),
+        TExpr::new([
+          TInstr::if_(
+            BlockType::void_(),
+            TInstr::i32_const(I32(1)),
+            TExpr::new([
+              TInstr::if_(
+                BlockType::void_(),
+                TInstr::i32_const(I32(1)),
+                TExpr::new([
+                  TInstr::br(LabelIdx::new(2), [TInstr::i32_const(I32(7))]),
+                ]),
+                Some(TExpr::new([])),
+              ),
+              TInstr::nop(),
+              TInstr::drop(TInstr::i32_const(I32(11))),
+              TInstr::drop(TInstr::i32_const(I32(12))),
+            ]),
+            Some(
+              TExpr::new([
+                TInstr::drop(TInstr::i32_const(I32(1))),
+                TInstr::nop(),
+                TInstr::drop(TInstr::i32_const(I32(11))),
+                TInstr::drop(TInstr::i32_const(I32(12))),
+              ]),
+            ),
+          ),
+          TInstr::i32_const(I32(9)),
+        ]),
+      ),
+    ]),
+  )
+  let expected = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::block(
+        BlockType::val_type(ValType::i32()),
+        TExpr::new([
+          TInstr::block(
+            BlockType::void_(),
+            TExpr::new([
+              TInstr::if_(
+                BlockType::void_(),
+                TInstr::i32_const(I32(1)),
+                TExpr::new([
+                  TInstr::if_(
+                    BlockType::void_(),
+                    TInstr::i32_const(I32(1)),
+                    TExpr::new([
+                      TInstr::br(LabelIdx::new(3), [TInstr::i32_const(I32(7))]),
+                    ]),
+                    Some(TExpr::new([])),
+                  ),
+                ]),
+                Some(TExpr::new([TInstr::drop(TInstr::i32_const(I32(1)))])),
+              ),
+              TInstr::nop(),
+              TInstr::drop(TInstr::i32_const(I32(11))),
+              TInstr::drop(TInstr::i32_const(I32(12))),
+            ]),
+          ),
+          TInstr::i32_const(I32(9)),
+        ]),
+      ),
+    ]),
+  )
+  assert_eq(run_fold(original), expected)
 }
 
 ///|
