@@ -634,6 +634,34 @@ fn sl_collect_param_types(mod : Module) -> Array[Array[ValType]] {
 }
 
 ///|
+fn sl_locals_have_param_prefix(
+  locals : Array[ValType],
+  params : Array[ValType],
+) -> Bool {
+  if params.length() > locals.length() {
+    return false
+  }
+  for i = 0; i < params.length(); i = i + 1 {
+    if locals[i] != params[i] {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn sl_canonical_tfunc_locals(
+  params : Array[ValType],
+  locals : Array[ValType],
+) -> Array[ValType] {
+  if sl_locals_have_param_prefix(locals, params) {
+    locals.copy()
+  } else {
+    params + locals
+  }
+}
+
+///|
 fn sl_is_defaultable(vt : ValType) -> Bool {
   match vt {
     RefTypeValType(rt) => rt.is_defaultable()
@@ -2907,10 +2935,7 @@ fn sl_validate_typed_function_candidate(
   }
   match func {
     TFunc(local_vals, body) => {
-      let all_locals = params.copy()
-      for vt in local_vals {
-        all_locals.push(vt)
-      }
+      let all_locals = sl_canonical_tfunc_locals(params, local_vals)
       let env1 = env
         .with_locals(all_locals)
         .with_label(results)
@@ -2968,10 +2993,7 @@ fn sl_simplify_function(
 ) -> (Func, Bool) {
   match func {
     TFunc(locals, body) => {
-      let local_types = param_types.copy()
-      for local_ in locals {
-        local_types.push(local_)
-      }
+      let local_types = sl_canonical_tfunc_locals(param_types, locals)
       if local_types.length() == 0 {
         return (func, false)
       }
@@ -3134,7 +3156,8 @@ fn simplify_locals_ir_pass(
       (imported_func_count + def_idx).reinterpret_as_uint(),
     )
     let func_env = match func {
-      TFunc(locals, _) => base_env.with_locals(params + locals)
+      TFunc(locals, _) =>
+        base_env.with_locals(sl_canonical_tfunc_locals(params, locals))
       _ => base_env
     }
     let func_trace = if log_func {
@@ -4260,6 +4283,28 @@ test "simplify_locals typed function validator rejects local.set result type mis
   match sl_validate_typed_function_candidate(env, FuncIdx::new(0), candidate) {
     Ok(_) => fail("expected validator to reject mismatched local.set candidate")
     Err(_) => ()
+  }
+}
+
+///|
+test "simplify_locals typed function validator accepts canonical locals including params" {
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        single_rec_type(comp_type_sub_type(func_comp_type([ValType::i32()], []))),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+  let env = Env::new().with_module(mod)
+  let candidate = Func::t_func(
+    [ValType::i32(), ValType::i64()],
+    TExpr::new([
+      TInstr::local_set(LocalIdx::new(1), TInstr::i64_const(I64(7))),
+    ]),
+  )
+  match sl_validate_typed_function_candidate(env, FuncIdx::new(0), candidate) {
+    Ok(_) => ()
+    Err(e) => fail("expected canonical locals to validate, got: " + e)
   }
 }
 
