@@ -18,6 +18,9 @@
 type LocalMap = Map[LocalIdx, LocalIdx]
 
 ///|
+const CL_MAX_EXACT_LOCALS : Int = 4096
+
+///|
 enum ConstKey {
   I32Key(Int)
   I64Key(Int64)
@@ -438,7 +441,12 @@ fn compute_cfg_liveness(blocks : Array[Block]) -> Map[Int, BlockLiveness] {
 fn compute_interferences_cfg(
   blocks : Array[Block],
   locals : Array[ValType],
-) -> (Set[(LocalIdx, LocalIdx)], Map[Int, ValueEnv], Map[Int, ValueEnv]) {
+) -> (
+  Set[(LocalIdx, LocalIdx)],
+  Map[Int, ValueEnv],
+  Map[Int, ValueEnv],
+  Map[Int, BlockLiveness],
+) {
   let liveness = compute_cfg_liveness(blocks)
   let inter = Set::new()
 
@@ -479,7 +487,7 @@ fn compute_interferences_cfg(
       }
     }
   }
-  (inter, values_in, values_out)
+  (inter, values_in, values_out, liveness)
 }
 
 ///|
@@ -732,9 +740,6 @@ fn compute_coalescing(
   locals : Array[ValType],
   inter : Set[(LocalIdx, LocalIdx)],
   order : Array[LocalIdx],
-  blocks : Array[Block],
-  values_out : Map[Int, ValueEnv],
-  liveness : Map[Int, BlockLiveness],
   param_count : Int,
 ) -> LocalMap {
   let mapping : LocalMap = Map::new()
@@ -763,8 +768,7 @@ fn compute_coalescing(
       // TRUST the interference graph.
       // If they are in the set, they overlap with different values
       // or they are a copy where the source remained live.
-      if !interferes(inter, li, r) ||
-        must_be_same_value(li, r, blocks, values_out, liveness) {
+      if !interferes(inter, li, r) {
         mapping[li] = r
         assigned = true
         break
@@ -845,6 +849,45 @@ fn cl_invalid_local_map_entries(mapping : LocalMap, limit : Int) -> String {
 }
 
 ///|
+fn cl_trace_noop(_ : String) -> Unit {
+  ()
+}
+
+///|
+fn cl_trace_should_log_func(ordinal : Int, trace_all_funcs : Bool) -> Bool {
+  trace_all_funcs || ordinal <= 5 || ordinal % 500 == 0
+}
+
+///|
+fn cl_trim_trailing_unused_locals(
+  locals : Array[ValType],
+  param_count : Int,
+  max_local_used : Int,
+) -> (Array[ValType], Int) {
+  let needed_locals = if max_local_used < param_count {
+    0
+  } else {
+    max_local_used - param_count + 1
+  }
+  let bounded_needed_locals = if needed_locals < 0 {
+    0
+  } else if needed_locals < locals.length() {
+    needed_locals
+  } else {
+    locals.length()
+  }
+  if bounded_needed_locals >= locals.length() {
+    (locals, 0)
+  } else {
+    let trimmed : Array[ValType] = []
+    for i in 0..<bounded_needed_locals {
+      trimmed.push(locals[i])
+    }
+    (trimmed, locals.length() - bounded_needed_locals)
+  }
+}
+
+///|
 fn rewrite_body_locals(
   body : TExpr,
   mapping : LocalMap,
@@ -872,6 +915,8 @@ fn rewrite_body_locals(
 ///|
 fn coalesce_locals(
   param_types? : Array[Array[ValType]] = [],
+  trace? : (String) -> Unit = cl_trace_noop,
+  trace_all_funcs? : Bool = false,
 ) -> ModuleTransformer[Unit] {
   let next_def_idx = Ref::new(0)
   ModuleTransformer::new().on_func_evt(fn(_, _, func) {
@@ -880,38 +925,164 @@ fn coalesce_locals(
       TFunc(locals, body) => {
         let def_idx = next_def_idx.val
         next_def_idx.update(fn(i) { i + 1 })
+        let ordinal = def_idx + 1
+        let log_func = cl_trace_should_log_func(ordinal, trace_all_funcs)
+        let func_start_ms = if log_func { sl_trace_now_ms() } else { 0UL }
         let params = param_types.get(def_idx).unwrap_or([])
         let param_count = params.length()
         let all_locals = params.copy()
         all_locals.append(locals)
+        if log_func {
+          trace(
+            "func[\{ordinal}] start params=\{param_count} locals=\{locals.length()} all_locals=\{all_locals.length()} top_instrs=\{body.instrs.length()}",
+          )
+        }
         if all_locals.length() == 0 {
+          if log_func {
+            trace(
+              "func[\{ordinal}] skip no-locals elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)} top_instrs=\{body.instrs.length()}",
+            )
+          }
           return unchanged()
         }
+        if all_locals.length() > CL_MAX_EXACT_LOCALS {
+          let fast_start_ms = if log_func { sl_trace_now_ms() } else { 0UL }
+          if log_func {
+            trace(
+              "func[\{ordinal}] phase=fast_path_large_locals start all_locals=\{all_locals.length()} threshold=\{CL_MAX_EXACT_LOCALS}",
+            )
+          }
+          let max_local_used = cl_max_local_used(body)
+          let (trimmed_locals, dropped_trailing) = cl_trim_trailing_unused_locals(
+            locals,
+            param_count,
+            max_local_used,
+          )
+          if log_func {
+            trace(
+              "func[\{ordinal}] phase=fast_path_large_locals done elapsed_ms=\{sl_trace_elapsed_ms(fast_start_ms)} max_local_used=\{max_local_used} dropped_trailing=\{dropped_trailing} locals=\{locals.length()}->\{trimmed_locals.length()}",
+            )
+          }
+          if dropped_trailing == 0 {
+            if log_func {
+              trace(
+                "func[\{ordinal}] done elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)} changed=false reason=skip_large_locals all_locals=\{all_locals.length()} threshold=\{CL_MAX_EXACT_LOCALS}",
+              )
+            }
+            return unchanged()
+          }
+          if log_func {
+            trace(
+              "func[\{ordinal}] done elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)} changed=true reason=trim_trailing_unused_for_large_locals locals=\{locals.length()}->\{trimmed_locals.length()} top_instrs=\{body.instrs.length()}->\{body.instrs.length()}",
+            )
+          }
+          return change((), Func::t_func(trimmed_locals, body))
+        }
         let instrs = body.instrs
+        let build_cfg_start_ms = if log_func { sl_trace_now_ms() } else { 0UL }
+        if log_func {
+          trace(
+            "func[\{ordinal}] phase=build_cfg start top_instrs=\{instrs.length()}",
+          )
+        }
         let blocks = build_cfg(instrs)
-        let (inter, _, values_out) = compute_interferences_cfg(
+        if log_func {
+          trace(
+            "func[\{ordinal}] phase=build_cfg done elapsed_ms=\{sl_trace_elapsed_ms(build_cfg_start_ms)} blocks=\{blocks.length()}",
+          )
+        }
+        let inter_start_ms = if log_func { sl_trace_now_ms() } else { 0UL }
+        if log_func {
+          trace(
+            "func[\{ordinal}] phase=compute_interferences start blocks=\{blocks.length()} all_locals=\{all_locals.length()}",
+          )
+        }
+        let (inter, _, _, liveness) = compute_interferences_cfg(
           blocks, all_locals,
         )
-        let liveness = compute_cfg_liveness(blocks)
+        if log_func {
+          trace(
+            "func[\{ordinal}] phase=compute_interferences done elapsed_ms=\{sl_trace_elapsed_ms(inter_start_ms)} interferences=\{inter.length()}",
+          )
+        }
+        if log_func {
+          trace(
+            "func[\{ordinal}] phase=compute_liveness done elapsed_ms=0 blocks=\{liveness.length()} reused=true",
+          )
+        }
+        let order_start_ms = if log_func { sl_trace_now_ms() } else { 0UL }
+        if log_func {
+          trace("func[\{ordinal}] phase=compute_order start")
+        }
         let copies = find_copies(instrs)
         let freq = copy_frequency(copies)
         let order = compute_coalesce_order(all_locals, freq)
+        if log_func {
+          trace(
+            "func[\{ordinal}] phase=compute_order done elapsed_ms=\{sl_trace_elapsed_ms(order_start_ms)} copies=\{copies.length()} freq_entries=\{freq.length()} order=\{order.length()}",
+          )
+        }
+        let coalesce_start_ms = if log_func { sl_trace_now_ms() } else { 0UL }
+        if log_func {
+          trace("func[\{ordinal}] phase=compute_mapping start")
+        }
         let mapping = compute_coalescing(
-          all_locals, inter, order, blocks, values_out, liveness, param_count,
+          all_locals, inter, order, param_count,
         )
+        if log_func {
+          trace(
+            "func[\{ordinal}] phase=compute_mapping done elapsed_ms=\{sl_trace_elapsed_ms(coalesce_start_ms)} mapping=\{mapping.length()}",
+          )
+        }
+        let remap_start_ms = if log_func { sl_trace_now_ms() } else { 0UL }
+        if log_func {
+          trace("func[\{ordinal}] phase=remap_locals start")
+        }
         let (new_locals, rep_to_new) = compute_new_locals(
           locals, mapping, param_count,
         )
         let final_map = compose_maps(mapping, rep_to_new)
+        if log_func {
+          trace(
+            "func[\{ordinal}] phase=remap_locals done elapsed_ms=\{sl_trace_elapsed_ms(remap_start_ms)} old_locals=\{locals.length()} new_locals=\{new_locals.length()} final_map=\{final_map.length()}",
+          )
+        }
+        let rewrite_start_ms = if log_func { sl_trace_now_ms() } else { 0UL }
+        if log_func {
+          trace("func[\{ordinal}] phase=rewrite_body start")
+        }
         let (new_body, max_local_used) = match
           rewrite_body_locals(body, final_map) {
           Ok(result) => result
-          Err(e) => return Err(e)
+          Err(e) => {
+            if log_func {
+              trace(
+                "func[\{ordinal}] phase=rewrite_body error elapsed_ms=\{sl_trace_elapsed_ms(rewrite_start_ms)} \{e}",
+              )
+            }
+            return Err(e)
+          }
+        }
+        if log_func {
+          trace(
+            "func[\{ordinal}] phase=rewrite_body done elapsed_ms=\{sl_trace_elapsed_ms(rewrite_start_ms)} max_local_used=\{max_local_used} top_instrs=\{body.instrs.length()}->\{new_body.instrs.length()}",
+          )
         }
         let local_limit = param_count + new_locals.length()
         if max_local_used >= local_limit {
           let err = "CoalesceLocals produced an invalid local index: def_idx=\{def_idx} param_count=\{param_count} old_locals=\{locals.length()} new_locals=\{new_locals.length()} max_local_used=\{max_local_used} local_limit=\{local_limit} invalid_final_map_entries=\{cl_invalid_local_map_entries(final_map, local_limit)}"
+          if log_func {
+            trace(
+              "func[\{ordinal}] phase=validate error elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)} \{err}",
+            )
+          }
           return Err(err)
+        }
+        if log_func {
+          let changed = new_locals != locals || new_body != body
+          trace(
+            "func[\{ordinal}] done elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)} changed=\{changed} locals=\{locals.length()}->\{new_locals.length()} top_instrs=\{body.instrs.length()}->\{new_body.instrs.length()} interferences=\{inter.length()} copies=\{copies.length()}",
+          )
         }
         change((), Func::t_func(new_locals, new_body))
       }
@@ -920,8 +1091,23 @@ fn coalesce_locals(
 }
 
 ///|
+fn coalesce_locals_ir_pass_with_trace(
+  mod : Module,
+  trace? : (String) -> Unit = cl_trace_noop,
+  trace_all_funcs? : Bool = false,
+) -> ModuleTransformer[IRContext] {
+  wrap_unit_func_pass(
+    coalesce_locals(
+      param_types=cl_collect_param_types(mod),
+      trace~,
+      trace_all_funcs~,
+    ),
+  )
+}
+
+///|
 fn coalesce_locals_pass(mod : Module) -> ModuleTransformer[IRContext] {
-  wrap_unit_func_pass(coalesce_locals(param_types=cl_collect_param_types(mod)))
+  coalesce_locals_ir_pass_with_trace(mod)
 }
 
 ///|
@@ -1178,6 +1364,131 @@ test "CoalesceLocals: trivial coalescing rewrites locals" {
 }
 
 ///|
+test "CoalesceLocals trace covers function phases" {
+  let logs : Array[String] = []
+  ignore(
+    match
+      coalesce_locals_ir_pass_with_trace(
+        Module::new(),
+        trace=fn(msg) { logs.push(msg) },
+        trace_all_funcs=true,
+      ).walk_func(
+        IRContext::new(),
+        Func::t_func(
+          [ValType::i32(), ValType::i32()],
+          TExpr::new([
+            TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(1))),
+            TInstr::local_get(LocalIdx::new(0)),
+            TInstr::local_set(LocalIdx::new(1), TInstr::local_get(LocalIdx::new(0))),
+            TInstr::local_get(LocalIdx::new(1)),
+          ]),
+        ),
+      ) {
+      Ok(_) => ()
+      Err(e) => fail("unexpected coalesce_locals trace error: \{e}")
+    },
+  )
+  let mut saw_start = false
+  let mut saw_cfg = false
+  let mut saw_inter = false
+  let mut saw_liveness = false
+  let mut saw_order = false
+  let mut saw_mapping = false
+  let mut saw_remap = false
+  let mut saw_rewrite = false
+  let mut saw_done = false
+  for msg in logs {
+    if msg.contains("func[1] start") {
+      saw_start = true
+    }
+    if msg.contains("func[1] phase=build_cfg done") {
+      saw_cfg = true
+    }
+    if msg.contains("func[1] phase=compute_interferences done") {
+      saw_inter = true
+    }
+    if msg.contains("func[1] phase=compute_liveness done") {
+      saw_liveness = true
+    }
+    if msg.contains("func[1] phase=compute_order done") {
+      saw_order = true
+    }
+    if msg.contains("func[1] phase=compute_mapping done") {
+      saw_mapping = true
+    }
+    if msg.contains("func[1] phase=remap_locals done") {
+      saw_remap = true
+    }
+    if msg.contains("func[1] phase=rewrite_body done") {
+      saw_rewrite = true
+    }
+    if msg.contains("func[1] done") {
+      saw_done = true
+    }
+  }
+  assert_true(saw_start)
+  assert_true(saw_cfg)
+  assert_true(saw_inter)
+  assert_true(saw_liveness)
+  assert_true(saw_order)
+  assert_true(saw_mapping)
+  assert_true(saw_remap)
+  assert_true(saw_rewrite)
+  assert_true(saw_done)
+}
+
+///|
+test "CoalesceLocals large-local fast path trims trailing unused locals" {
+  let logs : Array[String] = []
+  let locals : Array[ValType] = []
+  for _ in 0..<(CL_MAX_EXACT_LOCALS + 8) {
+    locals.push(ValType::i32())
+  }
+  ignore(
+    match
+      coalesce_locals_ir_pass_with_trace(
+        Module::new(),
+        trace=fn(msg) { logs.push(msg) },
+        trace_all_funcs=true,
+      ).walk_func(
+        IRContext::new(),
+        Func::t_func(
+          locals,
+          TExpr::new([
+            TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(9))),
+            TInstr::local_get(LocalIdx::new(0)),
+          ]),
+        ),
+      ) {
+      Ok(_) => ()
+      Err(e) => fail("unexpected coalesce_locals large-local trace error: \{e}")
+    },
+  )
+  let mut saw_fast_start = false
+  let mut saw_fast_done = false
+  let mut saw_inter_start = false
+  let mut saw_trim_done = false
+  for msg in logs {
+    if msg.contains("func[1] phase=fast_path_large_locals start") {
+      saw_fast_start = true
+    }
+    if msg.contains("func[1] phase=fast_path_large_locals done") {
+      saw_fast_done = true
+    }
+    if msg.contains("func[1] phase=compute_interferences start") {
+      saw_inter_start = true
+    }
+    if msg.contains("func[1] done") && msg.contains("reason=trim_trailing_unused_for_large_locals") {
+      saw_trim_done = true
+    }
+  }
+  assert_true(saw_fast_start)
+  assert_true(saw_fast_done)
+  assert_true(!saw_inter_start)
+  assert_true(saw_trim_done)
+}
+
+///|
 test "CoalesceLocals: locals of different types do not coalesce" {
   let x = LocalIdx::new(0)
   let y = LocalIdx::new(1)
@@ -1235,7 +1546,7 @@ test "CFG liveness: merge causes interference" {
   ]
   let locals = [ValType::i32(), ValType::i32()]
   let blocks = build_cfg(instrs)
-  let (inter, _, _) = compute_interferences_cfg(blocks, locals)
+  let (inter, _, _, _) = compute_interferences_cfg(blocks, locals)
   assert_true(inter.contains(ordered_pair(x, y)))
 }
 
@@ -1258,7 +1569,7 @@ test "CFG liveness: diamond merge creates interference" {
   ]
   let locals = [ValType::i32(), ValType::i32()]
   let blocks = build_cfg(instrs)
-  let (inter, _, _) = compute_interferences_cfg(blocks, locals)
+  let (inter, _, _, _) = compute_interferences_cfg(blocks, locals)
   assert_true(inter.contains(ordered_pair(x, y)))
 }
 
@@ -1285,7 +1596,7 @@ test "CFG liveness: disjoint branch locals do not interfere" {
   ]
   let locals = [ValType::i32(), ValType::i32()]
   let blocks = build_cfg(instrs)
-  let (inter, _, _) = compute_interferences_cfg(blocks, locals)
+  let (inter, _, _, _) = compute_interferences_cfg(blocks, locals)
   assert_true(!inter.contains(ordered_pair(x, y)))
 }
 
@@ -1371,7 +1682,7 @@ test "CFG liveness: nested ifs propagate interference correctly" {
   ]
   let locals = [ValType::i32(), ValType::i32()]
   let blocks = build_cfg(instrs)
-  let (inter, _, _) = compute_interferences_cfg(blocks, locals)
+  let (inter, _, _, _) = compute_interferences_cfg(blocks, locals)
   assert_true(inter.contains(ordered_pair(x, y)))
 }
 
@@ -1393,7 +1704,7 @@ test "CFG liveness: local live across loop interferes" {
   ]
   let locals = [ValType::i32(), ValType::i32()]
   let blocks = build_cfg(instrs)
-  let (inter, _, _) = compute_interferences_cfg(blocks, locals)
+  let (inter, _, _, _) = compute_interferences_cfg(blocks, locals)
   assert_true(inter.contains(ordered_pair(x, y)))
 }
 
@@ -1414,7 +1725,7 @@ test "CFG liveness: dead locals inside loop do not interfere" {
   ]
   let locals = [ValType::i32(), ValType::i32()]
   let blocks = build_cfg(instrs)
-  let (inter, _, _) = compute_interferences_cfg(blocks, locals)
+  let (inter, _, _, _) = compute_interferences_cfg(blocks, locals)
   assert_true(!inter.contains(ordered_pair(x, y)))
 }
 

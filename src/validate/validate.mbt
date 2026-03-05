@@ -621,6 +621,44 @@ fn validate_func_body_against_functype(
   ft : FuncType,
   f : Func,
 ) -> Result[Unit, String] {
+  fn max_local_idx_used(texpr : TExpr) -> Int {
+    let max_idx = Ref::new(-1)
+    let walker = ModuleTransformer::new().on_localidx_evt(fn(_, _, idx) {
+      let raw = idx.0.reinterpret_as_int()
+      if raw > max_idx.val {
+        max_idx.val = raw
+      }
+      Ok(None)
+    })
+    ignore(walker.walk_texpr((), texpr))
+    max_idx.val
+  }
+
+  fn canonical_tfunc_locals(
+    params : Array[ValType],
+    local_vals : Array[ValType],
+    texpr : TExpr,
+  ) -> Array[ValType] {
+    if local_vals.length() >= params.length() {
+      let mut has_prefix = true
+      for i in 0..<params.length() {
+        if local_vals[i] != params[i] {
+          has_prefix = false
+          break
+        }
+      }
+      if has_prefix {
+        let max_idx = max_local_idx_used(texpr)
+        if max_idx < local_vals.length() {
+          return local_vals.copy()
+        }
+      }
+    }
+    // Backward compatibility for legacy typed-func shape where
+    // `local_vals` omits parameters.
+    params + local_vals
+  }
+
   let FuncType(params, results) = ft
   match f {
     Func(local_decls, body) => {
@@ -674,17 +712,7 @@ fn validate_func_body_against_functype(
       Ok(())
     }
     TFunc(local_vals, texpr) => {
-      // TFunc(Array[ValType], TExpr) - local_vals contains the full local signature (params + extra locals)
-      // Wait, does it contain params?
-      // Given FuncType has params, and TFunc is the definition.
-      // If TFunc matches the structure of Func (replacing Array[Locals] with Array[ValType]),
-      // then local_vals are the EXTRA locals.
-      // But TFunc is usually "fully typed". Let's assume local_vals = extra_locals flattened.
-
-      let all_locals = params.copy()
-      for vt in local_vals {
-        all_locals.push(vt)
-      }
+      let all_locals = canonical_tfunc_locals(params, local_vals, texpr)
       let env1 = env
         .with_locals(all_locals)
         .with_labels(

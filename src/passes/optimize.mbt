@@ -438,7 +438,15 @@ fn run_ir_context_transformer_scheduler_pass(
     AvoidReinterprets =>
       apply_ir_transformer_pass(ctx, mod, avoid_reinterprets_pass(mod))
     CoalesceLocals =>
-      apply_ir_transformer_pass(ctx, mod, coalesce_locals_pass(mod))
+      apply_ir_transformer_pass(
+        ctx,
+        mod,
+        coalesce_locals_ir_pass_with_trace(
+          mod,
+          trace=fn(msg) { trace("coalesce_locals:\{msg}") },
+          trace_all_funcs=trace_pass_details,
+        ),
+      )
     CodeFolding =>
       apply_ir_transformer_pass(
         ctx,

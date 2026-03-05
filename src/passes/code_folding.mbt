@@ -52,6 +52,10 @@ const MIN_TERMINATING_TAIL_SAVINGS : Int = 2
 const CF_EXPR_SITE_LIMIT : Int = 1024
 
 ///|
+/// Skip expression folding walk when the tail-collection traversal is already too large.
+const CF_COLLECT_BODY_LIMIT : Int = 512
+
+///|
 /// Expression tail folding is enabled for self-contained suffixes that can be
 /// rebuilt as wrapper blocks without changing stack requirements.
 const CF_ENABLE_EXPRESSION_FOLDING : Bool = true
@@ -493,13 +497,12 @@ fn cf_canonical_tfunc_locals_from_type(
   params : Array[ValType],
   locals : Array[ValType],
 ) -> Result[Array[ValType], String] {
-  if locals.length() < params.length() {
-    return Ok(params + locals)
-  }
   if cf_locals_have_param_prefix(locals, params) {
     return Ok(locals.copy())
   }
-  Err("TFunc locals prefix does not match typed params")
+  // Accept legacy typed-func shape where `locals` only contains
+  // non-parameter locals and canonicalize to full local index space.
+  Ok(params + locals)
 }
 
 ///|
@@ -2910,7 +2913,6 @@ fn cf_optimize_terminating_tails_at_depth(
     return None
   }
 
-  state.another_pass = true
   let rewritten_body = match
     cf_rewrite_terminating_tail_instrs(
       func_body,
@@ -2948,6 +2950,7 @@ fn cf_optimize_terminating_tails_at_depth(
       None => ()
     }
   }
+  state.another_pass = true
   Some(result)
 }
 
@@ -3793,10 +3796,13 @@ fn code_folding_pass_with_trace(
             let has_expr_candidates = state.if_else_sites > 0 ||
               (state.block_sites > 0 && label_zero_breaks > 0)
             let over_expr_budget = expr_site_count > CF_EXPR_SITE_LIMIT
+            let over_collect_budget = round_stats.collect_calls >
+              CF_COLLECT_BODY_LIMIT
             let over_block_budget = block_fanout > CF_BLOCK_FANOUT_LIMIT
             if CF_ENABLE_EXPRESSION_FOLDING &&
               has_expr_candidates &&
               !over_expr_budget &&
+              !over_collect_budget &&
               !over_block_budget {
               let walk_start_us = cf_trace_now_us()
               let walk_changed = match
@@ -3842,11 +3848,13 @@ fn code_folding_pass_with_trace(
                 "expression_folding_disabled"
               } else if over_expr_budget {
                 "expr_site_budget"
+              } else if over_collect_budget {
+                "collect_body_budget"
               } else {
                 "block_fanout_budget"
               }
               trace(
-                "func[\{ordinal}] round[\{rounds}] walk skipped reason=\{skip_reason} continue=\{state.another_pass} block_sites=\{state.block_sites} if_elses=\{state.if_else_sites} expr_sites=\{expr_site_count} label0_breaks=\{label_zero_breaks} block_fanout=\{block_fanout}",
+                "func[\{ordinal}] round[\{rounds}] walk skipped reason=\{skip_reason} continue=\{state.another_pass} collect_bodies=\{round_stats.collect_calls} block_sites=\{state.block_sites} if_elses=\{state.if_else_sites} expr_sites=\{expr_site_count} label0_breaks=\{label_zero_breaks} block_fanout=\{block_fanout}",
               )
             }
             total_stats.merge_from(round_stats)
@@ -4034,6 +4042,41 @@ test "code_folding_pass_with_trace fast skips trivial leaf function" {
   }
   assert_true(saw_skip)
   assert_true(saw_done)
+}
+
+///|
+test "code_folding_pass_with_trace skips walk when collect-body budget is exceeded" {
+  let trace_logs : Array[String] = []
+  let pass = code_folding_pass_with_trace(trace=fn(msg) { trace_logs.push(msg) })
+  let state = CodeFoldingState::{
+    ..CodeFoldingState::new(),
+    another_pass: false,
+  }
+  let if_sites = CF_COLLECT_BODY_LIMIT + 1
+  let body_instrs : Array[TInstr] = []
+  let mut i = 0
+  while i < if_sites {
+    body_instrs.push(
+      TInstr::if_(
+        BlockType::void_(),
+        TInstr::i32_const(I32(0)),
+        TExpr::new([TInstr::i32_const(I32(1))]),
+        Some(TExpr::new([TInstr::i32_const(I32(2))])),
+      ),
+    )
+    i += 1
+  }
+  let func = Func::t_func([], TExpr::new(body_instrs))
+  match pass.walk_func(state, func) {
+    Ok(_) => ()
+    Err(e) => fail("Unexpected error: " + e)
+  }
+  assert_true(
+    trace_logs.any(fn(msg) {
+      msg.contains("walk skipped reason=collect_body_budget")
+    }),
+    msg="expected collect-body budget guard to skip expression walk",
+  )
 }
 
 ///|
@@ -6366,17 +6409,17 @@ test "canonical TFunc locals prepends typed params for extra-only local arrays" 
 }
 
 ///|
-test "canonical TFunc locals rejects invalid typed-param prefix" {
+test "canonical TFunc locals prepends typed params for extra-only locals when local count meets param arity" {
   let params = [ValType::i32()]
   let locals = [ValType::i64()]
-  match cf_canonical_tfunc_locals_from_type(params, locals) {
-    Err(_) => ()
-    _ => fail("expected canonical local derivation to reject mismatched prefix")
-  }
+  assert_eq(
+    cf_canonical_tfunc_locals_from_type(params, locals),
+    Ok([ValType::i32(), ValType::i64()]),
+  )
 }
 
 ///|
-test "code folding module pass rejects TFunc locals with invalid typed param prefix" {
+test "code folding module pass canonicalizes TFunc locals with omitted typed param prefix" {
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
@@ -6390,14 +6433,15 @@ test "code folding module pass rejects TFunc locals with invalid typed param pre
       CodeSec::new([
         Func::t_func(
           [ValType::i64()],
-          TExpr::new([TInstr::return_([TInstr::i32_const(I32(1))])]),
+          TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
         ),
       ]),
     )
-  let pass = code_folding_ir_pass_with_trace(mod)
-  match pass.walk_module(IRContext::new(), mod) {
-    Err(_) => ()
-    _ => fail("expected code folding to reject mismatched TFunc locals")
+  let folded = cf_run_fold_module(mod)
+  match folded.code_sec {
+    Some(CodeSec([TFunc(locals, _)])) =>
+      assert_eq(locals, [ValType::i32(), ValType::i64()])
+    _ => fail("expected folded module to contain one typed function")
   }
 }
 
