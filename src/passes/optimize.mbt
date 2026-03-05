@@ -218,13 +218,150 @@ fn apply_module_runner_pass(
 }
 
 ///|
+fn opt_validation_resolve_defined_func(
+  mod : Module,
+  func_idx : FuncIdx,
+) -> (Func, FuncType, Env)? {
+  match (mod.func_sec, mod.code_sec) {
+    (Some(FuncSec(type_idxs)), Some(CodeSec(funcs))) => {
+      let base_env = Env::new().with_module(mod)
+      let imported_count = base_env.funcs.length() - funcs.length()
+      let FuncIdx(abs_u) = func_idx
+      let abs = abs_u.reinterpret_as_int()
+      let code_idx = abs - imported_count
+      if code_idx < 0 ||
+        code_idx >= funcs.length() ||
+        code_idx >= type_idxs.length() {
+        return None
+      }
+      match base_env.resolve_functype(type_idxs[code_idx]) {
+        Some(ft) => Some((funcs[code_idx], ft, base_env))
+        None => None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn opt_validation_prepare_texpr_context(
+  func : Func,
+  ft : FuncType,
+  base_env : Env,
+) -> (TExpr, Env)? {
+  let FuncType(params, results) = ft
+  match func {
+    TFunc(local_vals, body) => {
+      let all_locals = params.copy()
+      for vt in local_vals {
+        all_locals.push(vt)
+      }
+      Some(
+        (
+          body,
+          base_env
+          .with_locals(all_locals)
+          .with_labels([results])
+          .with_return_type(Some(results)),
+        ),
+      )
+    }
+    Func(local_decls, body) => {
+      let locals_extra = match expand_locals(local_decls) {
+        Ok(xs) => xs
+        Err(_) => return None
+      }
+      let all_locals = params.copy()
+      for vt in locals_extra {
+        all_locals.push(vt)
+      }
+      let func_env = base_env
+        .with_locals(all_locals)
+        .with_labels([results])
+        .with_return_type(Some(results))
+      match to_texpr(body, func_env) {
+        Ok(texpr) => Some((texpr, func_env))
+        Err(_) => None
+      }
+    }
+  }
+}
+
+///|
+fn opt_validation_find_failing_root_instr(
+  body : TExpr,
+  func_env : Env,
+) -> (Int, String)? {
+  let mut state = make_state(func_env, [])
+  for i in 0..<body.instrs.length() {
+    match Typecheck::typecheck(body.instrs[i], state) {
+      Ok(next_state) => state = next_state
+      Err(e) => return Some((i, e))
+    }
+  }
+  None
+}
+
+///|
+fn opt_validation_stack_underflow_context(
+  mod : Module,
+  func_idx : FuncIdx,
+  summary : String,
+) -> String? {
+  if !summary.contains("stack underflow") {
+    return None
+  }
+  let (func, ft, base_env) = match
+    opt_validation_resolve_defined_func(mod, func_idx) {
+    Some(parts) => parts
+    None => return None
+  }
+  let (body, func_env) = match
+    opt_validation_prepare_texpr_context(func, ft, base_env) {
+    Some(parts) => parts
+    None => return None
+  }
+  let (failing_idx, failing_reason) = match
+    opt_validation_find_failing_root_instr(body, func_env) {
+    Some(found) => found
+    None => return None
+  }
+  let out = StringBuilder::new()
+  out.write_string("\n\nRoot-level TInstr context (best effort):\n")
+  out.write_string(
+    "failing_root_instr=\{failing_idx} reason=\{failing_reason}\n",
+  )
+  let mut start = failing_idx - 2
+  if start < 0 {
+    start = 0
+  }
+  let mut end = failing_idx + 2
+  if end >= body.instrs.length() {
+    end = body.instrs.length() - 1
+  }
+  let mut i = start
+  while i <= end {
+    let marker = if i == failing_idx { " <-- likely failure" } else { "" }
+    out.write_string("root_instr[\{i}]\{marker}\n")
+    out.write_string("kind=\{body.instrs[i].kind}\n")
+    i += 1
+  }
+  Some(out.to_string())
+}
+
+///|
 fn opt_format_validation_error(mod : Module, err : ValidationError) -> String {
   let out = StringBuilder::new()
-  out.write_string(validation_error_message(err))
+  let summary = validation_error_message(err)
+  out.write_string(summary)
   match validation_error_func_idx(err) {
     Some(func_idx) => {
       out.write_string("\n\nOffending function:\n")
       out.write_string(mod.pretty_print_func(func_idx))
+      match opt_validation_stack_underflow_context(mod, func_idx, summary) {
+        Some(ctx) => out.write_string(ctx)
+        None => ()
+      }
     }
     None => ()
   }
@@ -5760,4 +5897,35 @@ test "pass invariant: precompute validates and remap is stable" {
     }
     _ => fail("precompute: expected strict gating to preserve tiny body")
   }
+}
+
+///|
+test "opt_format_validation_error reports root-level underflow context" {
+  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_void]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::drop(TInstr::i32_const(I32(1))),
+            TInstr::drop(TInstr::nop()),
+            TInstr::nop(),
+          ]),
+        ),
+      ]),
+    )
+  let err = match validate_module(mod) {
+    Ok(_) => fail("expected validation failure for stack underflow body")
+    Err(e) => e
+  }
+  let rendered = opt_format_validation_error(mod, err)
+  assert_true(rendered.contains("stack underflow"))
+  assert_true(rendered.contains("Root-level TInstr context"))
+  assert_true(rendered.contains("failing_root_instr=1"))
+  assert_true(rendered.contains("root_instr[0]"))
+  assert_true(rendered.contains("root_instr[1]"))
+  assert_true(rendered.contains("root_instr[2]"))
 }

@@ -82,6 +82,7 @@ priv struct CodeFoldingRoundTraceStats {
   mut unreachable_phase_successes : Int
   mut unreachable_phase_tails : Int
   mut unreachable_phase_us : UInt64
+  mut terminating_group_pair_checks : Int
   mut block_visits : Int
   mut block_successes : Int
   mut if_visits : Int
@@ -136,6 +137,7 @@ fn cf_round_trace_stats_new() -> CodeFoldingRoundTraceStats {
     unreachable_phase_successes: 0,
     unreachable_phase_tails: 0,
     unreachable_phase_us: 0UL,
+    terminating_group_pair_checks: 0,
     block_visits: 0,
     block_successes: 0,
     if_visits: 0,
@@ -173,6 +175,7 @@ fn CodeFoldingRoundTraceStats::clear(self : CodeFoldingRoundTraceStats) -> Unit 
   self.unreachable_phase_successes = 0
   self.unreachable_phase_tails = 0
   self.unreachable_phase_us = 0UL
+  self.terminating_group_pair_checks = 0
   self.block_visits = 0
   self.block_successes = 0
   self.if_visits = 0
@@ -213,6 +216,7 @@ fn CodeFoldingRoundTraceStats::merge_from(
   self.unreachable_phase_tails += other.unreachable_phase_tails
   self.unreachable_phase_us = self.unreachable_phase_us +
     other.unreachable_phase_us
+  self.terminating_group_pair_checks += other.terminating_group_pair_checks
   self.block_visits += other.block_visits
   self.block_successes += other.block_successes
   self.if_visits += other.if_visits
@@ -427,9 +431,14 @@ fn CodeFoldingState::new(
   param_types? : Array[ValType] = [],
   func_locals? : Array[ValType] = [],
 ) -> CodeFoldingState {
+  let initial_env = if func_locals.is_empty() {
+    env
+  } else {
+    env.with_locals(func_locals)
+  }
   CodeFoldingState::{
     another_pass: true,
-    env: env.with_locals(param_types + func_locals),
+    env: initial_env,
     param_types,
     func_locals,
     break_tails: Map::new(),
@@ -460,7 +469,37 @@ fn CodeFoldingState::prepare_func(
   locals : Array[ValType],
 ) -> Unit {
   self.func_locals = locals.copy()
-  self.env = self.env.with_locals(self.param_types + self.func_locals)
+  self.env = self.env.with_locals(self.func_locals)
+}
+
+///|
+fn cf_locals_have_param_prefix(
+  locals : Array[ValType],
+  params : Array[ValType],
+) -> Bool {
+  if locals.length() < params.length() {
+    return false
+  }
+  for i = 0; i < params.length(); i = i + 1 {
+    if locals[i] != params[i] {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn cf_canonical_tfunc_locals_from_type(
+  params : Array[ValType],
+  locals : Array[ValType],
+) -> Result[Array[ValType], String] {
+  if locals.length() < params.length() {
+    return Ok(params + locals)
+  }
+  if cf_locals_have_param_prefix(locals, params) {
+    return Ok(locals.copy())
+  }
+  Err("TFunc locals prefix does not match typed params")
 }
 
 ///|
@@ -470,10 +509,8 @@ fn CodeFoldingState::preview_appended_local(
 ) -> (LocalIdx, Array[ValType], Env) {
   let next_locals = self.func_locals.copy()
   next_locals.push(ty)
-  let idx = LocalIdx::new(
-    (self.param_types.length() + self.func_locals.length()).reinterpret_as_uint(),
-  )
-  (idx, next_locals, self.env.with_locals(self.param_types + next_locals))
+  let idx = LocalIdx::new(self.func_locals.length().reinterpret_as_uint())
+  (idx, next_locals, self.env.with_locals(next_locals))
 }
 
 ///|
@@ -1022,14 +1059,26 @@ fn cf_instr_may_throw(instr : TInstr) -> Bool {
 }
 
 ///|
+fn cf_items_may_throw(items : Array[TInstr]) -> Bool {
+  for item in items {
+    if cf_instr_may_throw(item) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn can_move_with_trace(
   items : Array[TInstr],
   container : TInstr,
   trace_stats : CodeFoldingRoundTraceStats,
+  allow_throw_across_try_table? : Bool = false,
 ) -> Bool {
   let (all_targets, focus_targets, focus_labels) = cf_collect_move_target_uids(
     items, container, trace_stats,
   )
+  let has_try_table = cf_instr_has_try_table(container)
   let mut i = 0
   while i < items.length() {
     for target_uid in focus_targets[i] {
@@ -1038,7 +1087,9 @@ fn can_move_with_trace(
         return false
       }
     }
-    if cf_instr_may_throw(items[i]) && cf_instr_has_try_table(container) {
+    if has_try_table &&
+      !allow_throw_across_try_table &&
+      cf_instr_may_throw(items[i]) {
       return false
     }
     i += 1
@@ -1529,6 +1580,30 @@ fn cf_rewrite_exact_terminating_tail(
       out.push(TInstr::br(LabelIdx::new(depth.reinterpret_as_uint()), []))
       Some(out)
     }
+    Some({ kind: TInstrKind::TThrow(_, values), .. }) => {
+      if values.length() != temp_locals.length() && !temp_locals.is_empty() {
+        return None
+      }
+      let out : Array[TInstr] = []
+      let mut j = 0
+      while j < temp_locals.length() {
+        out.push(TInstr::local_set(temp_locals[j], values[j]))
+        j += 1
+      }
+      out.push(TInstr::br(LabelIdx::new(depth.reinterpret_as_uint()), []))
+      Some(out)
+    }
+    Some({ kind: TInstrKind::TThrowRef(value), .. }) => {
+      if temp_locals.length() > 1 {
+        return None
+      }
+      let out : Array[TInstr] = []
+      if temp_locals.length() == 1 {
+        out.push(TInstr::local_set(temp_locals[0], value))
+      }
+      out.push(TInstr::br(LabelIdx::new(depth.reinterpret_as_uint()), []))
+      Some(out)
+    }
     Some(_) => {
       if !temp_locals.is_empty() {
         return None
@@ -1545,7 +1620,7 @@ fn cf_preview_temp_locals(
   tys : Array[ValType],
 ) -> Array[LocalIdx] {
   let out : Array[LocalIdx] = []
-  let base = state.param_types.length() + state.func_locals.length()
+  let base = state.func_locals.length()
   let mut i = 0
   while i < tys.length() {
     out.push(LocalIdx::new((base + i).reinterpret_as_uint()))
@@ -1604,6 +1679,15 @@ fn cf_terminators_compatible(tails : Array[ScopedTail]) -> Bool {
         if !(terminator.kind is TInstrKind::TReturn(_)) {
           return false
         }
+      TInstrKind::TThrow(first_tag, _) =>
+        match terminator.kind {
+          TInstrKind::TThrow(tag, _) if tag == first_tag => ()
+          _ => return false
+        }
+      TInstrKind::TThrowRef(_) =>
+        if !(terminator.kind is TInstrKind::TThrowRef(_)) {
+          return false
+        }
       TInstrKind::TUnreachable =>
         if !(terminator.kind is TInstrKind::TUnreachable) {
           return false
@@ -1632,24 +1716,82 @@ fn cf_return_tails_can_spill(
 }
 
 ///|
+fn cf_throw_tails_can_spill(
+  tails : Array[ScopedTail],
+  tag : TagIdx,
+  payload_tys : Array[ValType],
+) -> Bool {
+  for scoped_tail in tails {
+    match scoped_tail.tail.instr {
+      Some({ kind: TInstrKind::TThrow(curr_tag, values), .. }) =>
+        if curr_tag != tag || values.length() != payload_tys.length() {
+          return false
+        }
+      _ => return false
+    }
+  }
+  true
+}
+
+///|
+fn cf_throw_ref_tails_can_spill(tails : Array[ScopedTail]) -> Bool {
+  for scoped_tail in tails {
+    match scoped_tail.tail.instr {
+      Some({ kind: TInstrKind::TThrowRef(_), .. }) => ()
+      _ => return false
+    }
+  }
+  true
+}
+
+///|
+fn cf_infer_value_type(env : Env, value : TInstr) -> ValType? {
+  match cf_typecheck_tinstr_stack(value, env, []) {
+    Some(stack) => if stack.length() == 1 { Some(stack[0]) } else { None }
+    None => None
+  }
+}
+
+///|
+fn cf_infer_throw_payload_types(
+  env : Env,
+  values : Array[TInstr],
+) -> Array[ValType]? {
+  let payload_tys : Array[ValType] = []
+  for value in values {
+    match cf_infer_value_type(env, value) {
+      Some(ty) => payload_tys.push(ty)
+      None => return None
+    }
+  }
+  Some(payload_tys)
+}
+
+///|
 priv struct CfTerminatingTailPlan {
   merge_count : Int
   shared_tail_instrs : Array[TInstr]
   temp_locals : Array[LocalIdx]
+  temp_local_types : Array[ValType]
 }
 
 ///|
 priv enum CfTerminatingTailGroupKey {
   Return_
   Unreachable_
+  Throw_(TagIdx, Int)
+  ThrowRef_
   Exact(TInstr)
-} derive(Eq)
+} derive(Eq, Hash)
 
 ///|
 fn cf_terminating_tail_group_key(instr : TInstr) -> CfTerminatingTailGroupKey {
   match instr.kind {
     TInstrKind::TReturn(_) => CfTerminatingTailGroupKey::Return_
     TInstrKind::TUnreachable => CfTerminatingTailGroupKey::Unreachable_
+    TInstrKind::TThrow(tag, values) =>
+      CfTerminatingTailGroupKey::Throw_(tag, values.length())
+    TInstrKind::TThrowRef(_) => CfTerminatingTailGroupKey::ThrowRef_
     _ => CfTerminatingTailGroupKey::Exact(instr)
   }
 }
@@ -1667,57 +1809,63 @@ fn cf_terminating_tail_item(tail : ScopedTail, depth : Int) -> TInstr? {
 fn cf_group_terminating_tails(
   tails : Array[ScopedTail],
   depth : Int,
+  trace_stats : CodeFoldingRoundTraceStats,
 ) -> Array[Array[ScopedTail]] {
   let groups : Array[Array[ScopedTail]] = []
-  let used : Array[Bool] = []
-  let mut init_i = 0
-  while init_i < tails.length() {
-    used.push(false)
-    init_i += 1
-  }
-  let mut i = 0
-  while i < tails.length() {
-    if used[i] {
-      i += 1
-      continue
-    }
-    let item = match cf_terminating_tail_item(tails[i], depth) {
-      Some(item) => item
-      None => {
-        used[i] = true
-        i += 1
-        continue
-      }
-    }
-    used[i] = true
-    let group : Array[ScopedTail] = [tails[i]]
-    let key = cf_terminating_tail_group_key(item)
-    let mut j = i + 1
-    while j < tails.length() {
-      if used[j] {
-        j += 1
-        continue
-      }
-      match cf_terminating_tail_item(tails[j], depth) {
-        Some(other) => {
-          let same_group = if depth == 0 {
-            cf_terminating_tail_group_key(other) == key
-          } else {
-            other == item
-          }
-          if same_group {
-            used[j] = true
-            group.push(tails[j])
+  if depth == 0 {
+    let key_order : Array[CfTerminatingTailGroupKey] = []
+    let keyed : Map[CfTerminatingTailGroupKey, Array[ScopedTail]] = Map::new()
+    for tail in tails {
+      trace_stats.terminating_group_pair_checks += 1
+      match cf_terminating_tail_item(tail, depth) {
+        Some(item) => {
+          let key = cf_terminating_tail_group_key(item)
+          match keyed.get(key) {
+            Some(group) => {
+              group.push(tail)
+              keyed.set(key, group)
+            }
+            None => {
+              key_order.push(key)
+              keyed.set(key, [tail])
+            }
           }
         }
         None => ()
       }
-      j += 1
     }
+    for key in key_order {
+      let group = keyed.get(key).unwrap_or([])
+      if group.length() >= 2 {
+        groups.push(group)
+      }
+    }
+    return groups
+  }
+  let item_order : Array[TInstr] = []
+  let keyed : Map[TInstr, Array[ScopedTail]] = Map::new()
+  for tail in tails {
+    trace_stats.terminating_group_pair_checks += 1
+    match cf_terminating_tail_item(tail, depth) {
+      Some(item) =>
+        match keyed.get(item) {
+          Some(group) => {
+            group.push(tail)
+            keyed.set(item, group)
+          }
+          None => {
+            item_order.push(item)
+            keyed.set(item, [tail])
+          }
+        }
+      None => ()
+    }
+  }
+  for item in item_order {
+    let group = keyed.get(item).unwrap_or([])
     if group.length() >= 2 {
       groups.push(group)
     }
-    i += 1
   }
   groups
 }
@@ -1769,6 +1917,7 @@ fn cf_build_terminating_tail_plan(
   }
 
   let mut temp_locals : Array[LocalIdx] = []
+  let mut temp_local_types : Array[ValType] = []
   let shared_terminator = match first_terminator.kind {
     TInstrKind::TReturn(_) => {
       let mut all_equal = true
@@ -1791,12 +1940,69 @@ fn cf_build_terminating_tail_plan(
         if !cf_return_tails_can_spill(tails, results) {
           return None
         }
+        temp_local_types = results.copy()
         temp_locals = cf_preview_temp_locals(state, results)
         let temp_values : Array[TInstr] = []
         for local_idx in temp_locals {
           temp_values.push(TInstr::local_get(local_idx))
         }
         TInstr::return_(temp_values)
+      }
+    }
+    TInstrKind::TThrow(tag, first_values) => {
+      let mut all_equal = true
+      for scoped_tail in tails {
+        match scoped_tail.tail.instr {
+          Some(instr) if instr == first_terminator => ()
+          _ => {
+            all_equal = false
+            break
+          }
+        }
+      }
+      if all_equal {
+        first_terminator
+      } else {
+        let payload_tys = match state.env.resolve_tag_functype(tag) {
+          Some(FuncType(params, _)) => params
+          _ =>
+            match cf_infer_throw_payload_types(state.env, first_values) {
+              Some(inferred) => inferred
+              None => return None
+            }
+        }
+        if !cf_throw_tails_can_spill(tails, tag, payload_tys) {
+          return None
+        }
+        temp_local_types = payload_tys.copy()
+        temp_locals = cf_preview_temp_locals(state, payload_tys)
+        let temp_values : Array[TInstr] = []
+        for local_idx in temp_locals {
+          temp_values.push(TInstr::local_get(local_idx))
+        }
+        TInstr::throw_(tag, temp_values)
+      }
+    }
+    TInstrKind::TThrowRef(_) => {
+      let mut all_equal = true
+      for scoped_tail in tails {
+        match scoped_tail.tail.instr {
+          Some(instr) if instr == first_terminator => ()
+          _ => {
+            all_equal = false
+            break
+          }
+        }
+      }
+      if all_equal {
+        first_terminator
+      } else {
+        if !cf_throw_ref_tails_can_spill(tails) {
+          return None
+        }
+        temp_local_types = [ValType::ref_null_exn()]
+        temp_locals = cf_preview_temp_locals(state, temp_local_types)
+        TInstr::throw_ref(TInstr::local_get(temp_locals[0]))
       }
     }
     _ => first_terminator
@@ -1823,7 +2029,12 @@ fn cf_build_terminating_tail_plan(
   if saved < cost || saved < MIN_TERMINATING_TAIL_SAVINGS {
     return None
   }
-  Some({ merge_count: mergeable.length(), shared_tail_instrs, temp_locals })
+  Some({
+    merge_count: mergeable.length(),
+    shared_tail_instrs,
+    temp_locals,
+    temp_local_types,
+  })
 }
 
 ///|
@@ -2457,6 +2668,189 @@ fn optimize_terminating_tails(
 }
 
 ///|
+fn cf_step_path_instrs(
+  instrs : Array[TInstr],
+  step : BlockTailPathStep,
+) -> Array[TInstr]? {
+  match step {
+    BlockBody(idx) =>
+      if idx < 0 || idx >= instrs.length() {
+        None
+      } else {
+        match instrs[idx].kind {
+          TInstrKind::TBlock(_, body) => Some(body.instrs)
+          _ => None
+        }
+      }
+    LoopBody(idx) =>
+      if idx < 0 || idx >= instrs.length() {
+        None
+      } else {
+        match instrs[idx].kind {
+          TInstrKind::TLoop(_, body) => Some(body.instrs)
+          _ => None
+        }
+      }
+    IfThen(idx) =>
+      if idx < 0 || idx >= instrs.length() {
+        None
+      } else {
+        match instrs[idx].kind {
+          TInstrKind::TIf(_, _, then_body, _) => Some(then_body.instrs)
+          _ => None
+        }
+      }
+    IfElse(idx) =>
+      if idx < 0 || idx >= instrs.length() {
+        None
+      } else {
+        match instrs[idx].kind {
+          TInstrKind::TIf(_, _, _, Some(else_body)) => Some(else_body.instrs)
+          _ => None
+        }
+      }
+    TryBody(idx) =>
+      if idx < 0 || idx >= instrs.length() {
+        None
+      } else {
+        match instrs[idx].kind {
+          TInstrKind::TTryTable(_, _, body) => Some(body.instrs)
+          _ => None
+        }
+      }
+  }
+}
+
+///|
+fn cf_tail_try_paths_allow_throw_move(
+  func_body : Array[TInstr],
+  tail : ScopedTail,
+  uncaught_throw_tag? : TagIdx? = None,
+) -> Bool {
+  let mut current_instrs = func_body
+  for step in tail.path {
+    match step {
+      TryBody(idx) =>
+        if idx < 0 || idx >= current_instrs.length() {
+          return false
+        } else {
+          match current_instrs[idx].kind {
+            TInstrKind::TTryTable(_, catches, body) =>
+              if catches.is_empty() {
+                current_instrs = body.instrs
+              } else {
+                let tag = match uncaught_throw_tag {
+                  Some(tag) => tag
+                  None => return false
+                }
+                if cf_try_table_catches_throw_tag(catches, tag) {
+                  return false
+                }
+                current_instrs = body.instrs
+              }
+            _ => return false
+          }
+        }
+      _ =>
+        match cf_step_path_instrs(current_instrs, step) {
+          Some(next_instrs) => current_instrs = next_instrs
+          None => return false
+        }
+    }
+  }
+  true
+}
+
+///|
+fn cf_try_table_catches_throw_tag(catches : Array[Catch], tag : TagIdx) -> Bool {
+  for catch_ in catches {
+    match catch_ {
+      Catch(curr_tag, _) | CatchRef(curr_tag, _) =>
+        if curr_tag == tag {
+          return true
+        }
+      CatchAll(_) | CatchAllRef(_) => return true
+    }
+  }
+  false
+}
+
+///|
+fn cf_shared_tail_uncaught_throw_tag(
+  shared_tail_instrs : Array[TInstr],
+) -> TagIdx? {
+  if shared_tail_instrs.is_empty() {
+    return None
+  }
+  let last = shared_tail_instrs[shared_tail_instrs.length() - 1]
+  let tag = match last.kind {
+    TInstrKind::TThrow(tag, values) => {
+      for value in values {
+        if cf_instr_may_throw(value) {
+          return None
+        }
+      }
+      tag
+    }
+    _ => return None
+  }
+  let mut i = 0
+  while i < shared_tail_instrs.length() - 1 {
+    if cf_instr_may_throw(shared_tail_instrs[i]) {
+      return None
+    }
+    i += 1
+  }
+  Some(tag)
+}
+
+///|
+fn cf_try_table_throw_move_safe(
+  func_body : Array[TInstr],
+  tails : Array[ScopedTail],
+  uncaught_throw_tag? : TagIdx? = None,
+) -> Bool {
+  for tail in tails {
+    if !cf_tail_try_paths_allow_throw_move(func_body, tail, uncaught_throw_tag~) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn cf_scoped_tail_is_live_in_body(
+  func_body : Array[TInstr],
+  tail : ScopedTail,
+) -> Bool {
+  let mut current_instrs = func_body
+  for step in tail.path {
+    match cf_step_path_instrs(current_instrs, step) {
+      Some(next_instrs) => current_instrs = next_instrs
+      None => return false
+    }
+  }
+  match tail.exact_index {
+    Some(index) => {
+      if index < 0 || index >= current_instrs.length() {
+        return false
+      }
+      match tail.tail.instr {
+        Some(instr) => current_instrs[index] == instr
+        None => false
+      }
+    }
+    None =>
+      match tail.tail.instr {
+        Some(instr) =>
+          !current_instrs.is_empty() &&
+          current_instrs[current_instrs.length() - 1] == instr
+        None => false
+      }
+  }
+}
+
+///|
 fn cf_optimize_terminating_tails_at_depth(
   state : CodeFoldingState,
   tails : Array[ScopedTail],
@@ -2464,11 +2858,17 @@ fn cf_optimize_terminating_tails_at_depth(
   trace_stats : CodeFoldingRoundTraceStats,
   depth : Int,
 ) -> Array[TInstr]? {
-  if tails.length() < 2 {
+  let live_tails : Array[ScopedTail] = []
+  for tail in tails {
+    if cf_scoped_tail_is_live_in_body(func_body, tail) {
+      live_tails.push(tail)
+    }
+  }
+  if live_tails.length() < 2 {
     return None
   }
 
-  for group in cf_group_terminating_tails(tails, depth) {
+  for group in cf_group_terminating_tails(live_tails, depth, trace_stats) {
     match
       cf_optimize_terminating_tails_at_depth(
         state,
@@ -2486,14 +2886,26 @@ fn cf_optimize_terminating_tails_at_depth(
     return None
   }
 
-  let plan = match cf_build_terminating_tail_plan(state, tails, trace_stats) {
+  let plan = match
+    cf_build_terminating_tail_plan(state, live_tails, trace_stats) {
     Some(plan) => plan
     None => return None
   }
+  let move_container = TInstr::block(
+    BlockType::void_(),
+    TExpr::new(cf_copy_instrs(func_body)),
+  )
+  let uncaught_throw_tag = cf_shared_tail_uncaught_throw_tag(
+    plan.shared_tail_instrs,
+  )
+  let allow_throw_across_try_table = cf_items_may_throw(plan.shared_tail_instrs) &&
+    cf_instr_has_try_table(move_container) &&
+    cf_try_table_throw_move_safe(func_body, live_tails, uncaught_throw_tag~)
   if !can_move_with_trace(
       plan.shared_tail_instrs,
-      TInstr::block(BlockType::void_(), TExpr::new(cf_copy_instrs(func_body))),
+      move_container,
       trace_stats,
+      allow_throw_across_try_table~,
     ) {
     return None
   }
@@ -2503,7 +2915,7 @@ fn cf_optimize_terminating_tails_at_depth(
     cf_rewrite_terminating_tail_instrs(
       func_body,
       [],
-      tails,
+      live_tails,
       plan.merge_count,
       plan.temp_locals,
     ) {
@@ -2518,27 +2930,19 @@ fn cf_optimize_terminating_tails_at_depth(
   }
 
   let next_locals = state.func_locals.copy()
-  let mut temp_local_types : Array[ValType] = []
-  if !plan.temp_locals.is_empty() {
-    let results = match state.env.return_type {
-      Some(results) => results
-      None => return None
-    }
-    temp_local_types = results.copy()
-  }
-  for ty in temp_local_types {
+  for ty in plan.temp_local_types {
     next_locals.push(ty)
   }
-  let check_env = state.env.with_locals(state.param_types + next_locals)
+  let check_env = state.env.with_locals(next_locals)
   match Typecheck::typecheck(TExpr::new(result), make_state(check_env, [])) {
     Ok(_) => ()
     Err(_) => return None
   }
 
-  for ty in temp_local_types {
+  for ty in plan.temp_local_types {
     ignore(state.append_local(ty))
   }
-  for tail in tails {
+  for tail in live_tails {
     match tail.tail.instr {
       Some(i) => state.modifieds.add(i)
       None => ()
@@ -2611,6 +3015,22 @@ fn collect_block_tails(
       | TInstrKind::TReturnCallIndirect(_, _, _, _)
       | TInstrKind::TReturnCallRef(_, _, _) =>
         state.return_tails.push({
+          tail: if i == instrs.length() - 1 {
+            Tail::branch(instr, instrs)
+          } else {
+            Tail::exact(instr, instrs)
+          },
+          path,
+          exact_index: if i == instrs.length() - 1 {
+            None
+          } else {
+            Some(i)
+          },
+        })
+
+      // Throw instructions terminate control flow similarly to unreachable.
+      TInstrKind::TThrow(_, _) | TInstrKind::TThrowRef(_) =>
+        state.unreachable_tails.push({
           tail: if i == instrs.length() - 1 {
             Tail::branch(instr, instrs)
           } else {
@@ -2988,7 +3408,7 @@ fn cf_restore_state_env(
 ) -> CodeFoldingState {
   CodeFoldingState::{
     ..state,
-    env: env.with_locals(state.param_types + state.func_locals),
+    env: env.with_locals(state.func_locals),
     parent_is_block,
   }
 }
@@ -3187,6 +3607,11 @@ fn code_folding_pass_with_trace(
         unchanged()
       }
       TFunc(locals, body) => {
+        if !cf_locals_have_param_prefix(locals, state.param_types) {
+          return Err(
+            "code_folding: expected TFunc locals to start with typed params; func_ordinal=\{ordinal} param_count=\{state.param_types.length()} local_count=\{locals.length()}",
+          )
+        }
         state.prepare_func(locals)
         let func_start_us = cf_trace_now_us()
         let start_top_instrs = body.instrs.length()
@@ -3288,6 +3713,27 @@ fn code_folding_pass_with_trace(
                 current_body = TExpr::new(new_body_instrs)
                 current_locals = state.func_locals
                 current_func = Func::t_func(current_locals, current_body)
+                // Unreachable folding may wrap/rebase paths; refresh tail
+                // collections so return folding cannot operate on stale paths.
+                state.break_tails.clear()
+                state.unreachable_tails.clear()
+                state.return_tails.clear()
+                state.unoptimizables.clear()
+                state.block_sites = 0
+                state.if_else_sites = 0
+                let recollect_start_us = cf_trace_now_us()
+                collect_block_tails(state, current_body.instrs, round_stats)
+                let recollect_elapsed_us = cf_trace_elapsed_us_since(
+                  recollect_start_us,
+                )
+                round_stats.collect_us = round_stats.collect_us +
+                  recollect_elapsed_us
+                if log_func {
+                  let break_stats = cf_break_tail_trace_stats(state)
+                  trace(
+                    "func[\{ordinal}] round[\{rounds}] recollect_tails elapsed_ms=\{cf_trace_delta_us_to_ms(recollect_elapsed_us)} elapsed_us=\{recollect_elapsed_us} bodies=\{round_stats.collect_calls} instrs=\{round_stats.collect_instrs} blocks=\{state.block_sites} if_elses=\{state.if_else_sites} break_labels=\{break_stats.label_count} break_tails=\{break_stats.tail_count} max_break_fanout=\{break_stats.max_label_tails} returns=\{state.return_tails.length()} unreachables=\{state.unreachable_tails.length()} unoptimizable=\{state.unoptimizables.length()}",
+                  )
+                }
               }
               None => ()
             }
@@ -3386,7 +3832,7 @@ fn code_folding_pass_with_trace(
               round_stats.walk_us = round_stats.walk_us + walk_elapsed_us
               if log_func {
                 trace(
-                  "func[\{ordinal}] round[\{rounds}] walk elapsed_ms=\{cf_trace_delta_us_to_ms(walk_elapsed_us)} elapsed_us=\{walk_elapsed_us} changed=\{walk_changed} continue=\{state.another_pass} blocks=\{round_stats.block_visits} block_changed=\{round_stats.block_successes} ifs=\{round_stats.if_visits} if_changed=\{round_stats.if_successes} expr_calls=\{round_stats.expr_calls} expr_changed=\{round_stats.expr_successes} expr_tails=\{round_stats.expr_tail_count} expr_merged=\{round_stats.expr_merged_instrs} expr_saved=\{round_stats.expr_saved} expr_ms=\{cf_trace_delta_us_to_ms(round_stats.expr_us)} expr_match_ms=\{cf_trace_delta_us_to_ms(round_stats.expr_match_us)} expr_can_move_ms=\{cf_trace_delta_us_to_ms(round_stats.expr_can_move_us)} expr_measure_ms=\{cf_trace_delta_us_to_ms(round_stats.expr_measure_us)} measure_calls=\{round_stats.measure_calls} measure_nodes=\{round_stats.measure_nodes} measure_ms=\{cf_trace_delta_us_to_ms(round_stats.measure_us)} branch_calls=\{round_stats.branch_target_calls} branch_ms=\{cf_trace_delta_us_to_ms(round_stats.branch_target_us)} can_move_calls=\{round_stats.can_move_calls} can_move_ms=\{cf_trace_delta_us_to_ms(round_stats.can_move_us)}",
+                  "func[\{ordinal}] round[\{rounds}] walk elapsed_ms=\{cf_trace_delta_us_to_ms(walk_elapsed_us)} elapsed_us=\{walk_elapsed_us} changed=\{walk_changed} continue=\{state.another_pass} blocks=\{round_stats.block_visits} block_changed=\{round_stats.block_successes} ifs=\{round_stats.if_visits} if_changed=\{round_stats.if_successes} expr_calls=\{round_stats.expr_calls} expr_changed=\{round_stats.expr_successes} expr_tails=\{round_stats.expr_tail_count} expr_merged=\{round_stats.expr_merged_instrs} expr_saved=\{round_stats.expr_saved} expr_ms=\{cf_trace_delta_us_to_ms(round_stats.expr_us)} expr_match_ms=\{cf_trace_delta_us_to_ms(round_stats.expr_match_us)} expr_can_move_ms=\{cf_trace_delta_us_to_ms(round_stats.expr_can_move_us)} expr_measure_ms=\{cf_trace_delta_us_to_ms(round_stats.expr_measure_us)} term_group_checks=\{round_stats.terminating_group_pair_checks} measure_calls=\{round_stats.measure_calls} measure_nodes=\{round_stats.measure_nodes} measure_ms=\{cf_trace_delta_us_to_ms(round_stats.measure_us)} branch_calls=\{round_stats.branch_target_calls} branch_ms=\{cf_trace_delta_us_to_ms(round_stats.branch_target_us)} can_move_calls=\{round_stats.can_move_calls} can_move_ms=\{cf_trace_delta_us_to_ms(round_stats.can_move_us)}",
                 )
               }
             } else if log_func {
@@ -3409,7 +3855,7 @@ fn code_folding_pass_with_trace(
           let changed = current_func != func
           if log_func {
             trace(
-              "func[\{ordinal}] done elapsed_ms=\{cf_trace_delta_us_to_ms(elapsed_us)} elapsed_us=\{elapsed_us} rounds=\{rounds} changed=\{changed} top_instrs=\{start_top_instrs}->\{current_body.instrs.length()} collect_ms=\{cf_trace_delta_us_to_ms(total_stats.collect_us)} return_ms=\{cf_trace_delta_us_to_ms(total_stats.return_phase_us)} unreachable_ms=\{cf_trace_delta_us_to_ms(total_stats.unreachable_phase_us)} walk_ms=\{cf_trace_delta_us_to_ms(total_stats.walk_us)} return_changed=\{total_stats.return_phase_successes} unreachable_changed=\{total_stats.unreachable_phase_successes} blocks=\{total_stats.block_visits} ifs=\{total_stats.if_visits} expr_calls=\{total_stats.expr_calls} expr_changed=\{total_stats.expr_successes} expr_saved=\{total_stats.expr_saved} expr_match_ms=\{cf_trace_delta_us_to_ms(total_stats.expr_match_us)} expr_can_move_ms=\{cf_trace_delta_us_to_ms(total_stats.expr_can_move_us)} expr_measure_ms=\{cf_trace_delta_us_to_ms(total_stats.expr_measure_us)} measure_ms=\{cf_trace_delta_us_to_ms(total_stats.measure_us)} branch_ms=\{cf_trace_delta_us_to_ms(total_stats.branch_target_us)} can_move_ms=\{cf_trace_delta_us_to_ms(total_stats.can_move_us)}",
+              "func[\{ordinal}] done elapsed_ms=\{cf_trace_delta_us_to_ms(elapsed_us)} elapsed_us=\{elapsed_us} rounds=\{rounds} changed=\{changed} top_instrs=\{start_top_instrs}->\{current_body.instrs.length()} collect_ms=\{cf_trace_delta_us_to_ms(total_stats.collect_us)} return_ms=\{cf_trace_delta_us_to_ms(total_stats.return_phase_us)} unreachable_ms=\{cf_trace_delta_us_to_ms(total_stats.unreachable_phase_us)} walk_ms=\{cf_trace_delta_us_to_ms(total_stats.walk_us)} return_changed=\{total_stats.return_phase_successes} unreachable_changed=\{total_stats.unreachable_phase_successes} blocks=\{total_stats.block_visits} ifs=\{total_stats.if_visits} expr_calls=\{total_stats.expr_calls} expr_changed=\{total_stats.expr_successes} expr_saved=\{total_stats.expr_saved} expr_match_ms=\{cf_trace_delta_us_to_ms(total_stats.expr_match_us)} expr_can_move_ms=\{cf_trace_delta_us_to_ms(total_stats.expr_can_move_us)} expr_measure_ms=\{cf_trace_delta_us_to_ms(total_stats.expr_measure_us)} term_group_checks=\{total_stats.terminating_group_pair_checks} measure_ms=\{cf_trace_delta_us_to_ms(total_stats.measure_us)} branch_ms=\{cf_trace_delta_us_to_ms(total_stats.branch_target_us)} can_move_ms=\{cf_trace_delta_us_to_ms(total_stats.can_move_us)}",
             )
           }
           if current_func == func {
@@ -3436,46 +3882,47 @@ fn code_folding_ir_pass_with_trace(
 ) -> ModuleTransformer[IRContext] {
   let pass = code_folding_pass_with_trace(trace~, trace_all_funcs~)
   let base_env = Env::new().with_module(_mod)
-  let func_envs : Array[Env] = []
   let func_param_types : Array[Array[ValType]] = []
-  match (_mod.func_sec, _mod.code_sec) {
-    (Some(FuncSec(type_idxs)), Some(CodeSec(funcs))) => {
-      let mut i = 0
-      while i < type_idxs.length() && i < funcs.length() {
-        let type_idx = type_idxs[i]
-        let (func_env, params) = match
-          (base_env.resolve_functype(type_idx), funcs[i]) {
-          (Some(FuncType(params, results)), TFunc(locals, _)) =>
-            (
-              base_env
-              .with_locals(params + locals)
-              .with_return_type(Some(results)),
-              params,
-            )
-          _ => (base_env, [])
+  let func_result_types : Array[Array[ValType]] = []
+  match _mod.func_sec {
+    Some(FuncSec(type_idxs)) =>
+      for type_idx in type_idxs {
+        let (params, results) = match base_env.resolve_functype(type_idx) {
+          Some(FuncType(params, results)) => (params, results)
+          None => ([], [])
         }
-        func_envs.push(func_env)
         func_param_types.push(params)
-        i += 1
+        func_result_types.push(results)
       }
-    }
     _ => ()
   }
   let mut defined_func_ordinal = 0
   ModuleTransformer::new().on_func_evt(fn(_, ctx : IRContext, func : Func) {
-    let (func_env, param_types) = match func {
-      TFunc(_, _) => {
-        let next_env = func_envs.get(defined_func_ordinal).unwrap_or(base_env)
-        let next_params = func_param_types
-          .get(defined_func_ordinal)
-          .unwrap_or([])
-        defined_func_ordinal += 1
-        (next_env, next_params)
-      }
-      _ => (base_env, [])
+    let next_params = func_param_types.get(defined_func_ordinal).unwrap_or([])
+    let next_results = func_result_types.get(defined_func_ordinal).unwrap_or([])
+    defined_func_ordinal += 1
+    let param_types = next_params
+    let result_types = next_results
+    let (func_locals, normalized_func) = match func {
+      TFunc(locals, body) =>
+        match cf_canonical_tfunc_locals_from_type(param_types, locals) {
+          Ok(func_locals) =>
+            (func_locals, Func::t_func(func_locals.copy(), body))
+          Err(e) =>
+            return Err(
+              "code_folding: \{e}; func_ordinal=\{defined_func_ordinal} param_count=\{param_types.length()} local_count=\{locals.length()}",
+            )
+        }
+      _ => ([], func)
     }
+    let func_env = base_env
+      .with_locals(func_locals)
+      .with_return_type(Some(result_types))
     match
-      pass.walk_func(CodeFoldingState::new(env=func_env, param_types~), func) {
+      pass.walk_func(
+        CodeFoldingState::new(env=func_env, param_types~, func_locals~),
+        normalized_func,
+      ) {
       Ok(Some((_, new_func))) => change(ctx, new_func)
       Ok(None) => unchanged()
       Err(e) => Err(e)
@@ -3590,6 +4037,64 @@ test "code_folding_pass_with_trace fast skips trivial leaf function" {
 }
 
 ///|
+test "code_folding_pass_with_trace refreshes tails between terminating phases in same round" {
+  let trace_logs : Array[String] = []
+  let pass = code_folding_pass_with_trace(trace=fn(msg) { trace_logs.push(msg) })
+  let state = CodeFoldingState::{
+    ..CodeFoldingState::new(
+      env=Env::new().with_return_type(Some([ValType::i32()])),
+    ),
+    another_pass: false,
+  }
+  let func = Func::t_func(
+    [],
+    TExpr::new([
+      TInstr::if_(
+        BlockType::void_(),
+        TInstr::i32_const(I32(0)),
+        TExpr::new([
+          TInstr::drop(TInstr::i32_const(I32(9))),
+          TInstr::unreachable_(),
+        ]),
+        Some(
+          TExpr::new([
+            TInstr::drop(TInstr::i32_const(I32(9))),
+            TInstr::unreachable_(),
+          ]),
+        ),
+      ),
+      TInstr::if_(
+        BlockType::void_(),
+        TInstr::i32_const(I32(0)),
+        TExpr::new([
+          TInstr::drop(TInstr::i32_const(I32(7))),
+          TInstr::return_([TInstr::i32_const(I32(1))]),
+        ]),
+        Some(
+          TExpr::new([
+            TInstr::drop(TInstr::i32_const(I32(7))),
+            TInstr::return_([TInstr::i32_const(I32(2))]),
+          ]),
+        ),
+      ),
+    ]),
+  )
+  ignore(pass.walk_func(state, func))
+  assert_true(
+    trace_logs.any(fn(msg) {
+      msg.contains("round[1] terminating_unreachable") &&
+      msg.contains("changed=true")
+    }),
+  )
+  assert_true(
+    trace_logs.any(fn(msg) {
+      msg.contains("round[1] terminating_returns") &&
+      msg.contains("changed=true")
+    }),
+  )
+}
+
+///|
 test "measure counts instructions" {
   let simple = TInstr::i32_const(I32(42))
   assert_true(measure(simple) >= 1)
@@ -3630,6 +4135,16 @@ fn run_fold_with_env(f : Func, env? : Env = Env::new()) -> Func raise {
 ///|
 fn run_fold(f : Func) -> Func raise {
   run_fold_with_env(f)
+}
+
+///|
+fn cf_run_fold_module(mod : Module) -> Module raise {
+  let pass = code_folding_ir_pass_with_trace(mod)
+  match pass.walk_module(IRContext::new(), mod) {
+    Ok(Some((_, next_mod))) => next_mod
+    Ok(None) => mod
+    Err(e) => fail("code folding module pass failed: " + e)
+  }
 }
 
 ///|
@@ -3898,6 +4413,20 @@ test "collect_block_tails finds unreachable tails" {
     another_pass: false,
   }
   let instrs = [TInstr::i32_const(I32(1)), TInstr::unreachable_()]
+  collect_block_tails(state, instrs, cf_round_trace_stats_new())
+  assert_eq(state.unreachable_tails.length(), 1)
+}
+
+///|
+test "collect_block_tails finds throw tails" {
+  let state = CodeFoldingState::{
+    ..CodeFoldingState::new(),
+    another_pass: false,
+  }
+  let instrs = [
+    TInstr::drop(TInstr::i32_const(I32(1))),
+    TInstr::throw_(TagIdx::new(0), []),
+  ]
   collect_block_tails(state, instrs, cf_round_trace_stats_new())
   assert_eq(state.unreachable_tails.length(), 1)
 }
@@ -4869,6 +5398,590 @@ test "code folding terminating return tails spill differing values via temps" {
 }
 
 ///|
+test "code folding terminating throw tails spill differing payloads for same tag" {
+  let tag_payload_ty = single_rec_type(
+    comp_type_sub_type(func_comp_type([ValType::i32()], [])),
+  )
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        single_rec_type(comp_type_sub_type(func_comp_type([], []))),
+        tag_payload_ty,
+      ]),
+    )
+    .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(1))]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::if_(
+              BlockType::void_(),
+              TInstr::i32_const(I32(0)),
+              TExpr::new([
+                TInstr::drop(TInstr::i32_const(I32(9))),
+                TInstr::throw_(TagIdx::new(0), [TInstr::i32_const(I32(1))]),
+              ]),
+              Some(
+                TExpr::new([
+                  TInstr::drop(TInstr::i32_const(I32(9))),
+                  TInstr::throw_(TagIdx::new(0), [TInstr::i32_const(I32(2))]),
+                ]),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let folded = cf_run_fold_module(mod)
+  let folded_func = folded.code_sec.unwrap().0[0]
+  assert_true(
+    cf_test_func_has_local_set(folded_func, LocalIdx::new(0)),
+    msg="expected thrown payload to be spilled into temp local",
+  )
+  assert_true(
+    cf_test_func_has_local_get(folded_func, LocalIdx::new(0)),
+    msg="expected shared throw tail to reload spilled payload",
+  )
+  assert_eq(validate_module(folded), Ok(()))
+}
+
+///|
+test "code folding terminating throw_ref tails spill differing refs via temp" {
+  let exn_ht = HeapType::abs(AbsHeapType::exn())
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([single_rec_type(comp_type_sub_type(func_comp_type([], [])))]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::ref_null_exn()],
+          TExpr::new([
+            TInstr::if_(
+              BlockType::void_(),
+              TInstr::i32_const(I32(0)),
+              TExpr::new([
+                TInstr::drop(TInstr::i32_const(I32(9))),
+                TInstr::throw_ref(TInstr::ref_null(exn_ht)),
+              ]),
+              Some(
+                TExpr::new([
+                  TInstr::drop(TInstr::i32_const(I32(9))),
+                  TInstr::throw_ref(TInstr::local_get(LocalIdx::new(0))),
+                ]),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let folded = cf_run_fold_module(mod)
+  let folded_func = folded.code_sec.unwrap().0[0]
+  assert_true(
+    cf_test_func_has_local_set(folded_func, LocalIdx::new(1)),
+    msg="expected throw_ref payload to spill into temp local",
+  )
+  assert_true(
+    cf_test_func_has_local_get(folded_func, LocalIdx::new(1)),
+    msg="expected shared throw_ref tail to reload temp payload",
+  )
+  assert_eq(validate_module(folded), Ok(()))
+}
+
+///|
+test "code folding module pass can fold throw then return tails in same round" {
+  let tag_payload_ty = single_rec_type(
+    comp_type_sub_type(func_comp_type([ValType::i32()], [])),
+  )
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        single_rec_type(
+          comp_type_sub_type(func_comp_type([], [ValType::i32()])),
+        ),
+        tag_payload_ty,
+      ]),
+    )
+    .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(1))]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::if_(
+              BlockType::void_(),
+              TInstr::i32_const(I32(0)),
+              TExpr::new([
+                TInstr::drop(TInstr::i32_const(I32(9))),
+                TInstr::drop(TInstr::i32_const(I32(10))),
+                TInstr::throw_(TagIdx::new(0), [TInstr::i32_const(I32(1))]),
+              ]),
+              Some(
+                TExpr::new([
+                  TInstr::drop(TInstr::i32_const(I32(9))),
+                  TInstr::drop(TInstr::i32_const(I32(10))),
+                  TInstr::throw_(TagIdx::new(0), [TInstr::i32_const(I32(2))]),
+                ]),
+              ),
+            ),
+            TInstr::if_(
+              BlockType::void_(),
+              TInstr::i32_const(I32(1)),
+              TExpr::new([
+                TInstr::drop(TInstr::i32_const(I32(3))),
+                TInstr::drop(TInstr::i32_const(I32(4))),
+                TInstr::return_([TInstr::i32_const(I32(11))]),
+              ]),
+              Some(
+                TExpr::new([
+                  TInstr::drop(TInstr::i32_const(I32(3))),
+                  TInstr::drop(TInstr::i32_const(I32(4))),
+                  TInstr::return_([TInstr::i32_const(I32(12))]),
+                ]),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let trace_lines = []
+  let folded = match
+    code_folding_ir_pass_with_trace(mod, trace=fn(msg) { trace_lines.push(msg) }).walk_module(
+      IRContext::new(),
+      mod,
+    ) {
+    Ok(Some((_, next_mod))) => next_mod
+    Ok(None) => mod
+    Err(e) => fail("code folding module pass failed: " + e)
+  }
+  assert_true(
+    trace_lines.any(fn(msg) {
+      msg.contains("round[1] terminating_unreachable") &&
+      msg.contains("changed=true")
+    }),
+    msg="expected unreachable phase change in round 1",
+  )
+  assert_true(
+    trace_lines.any(fn(msg) {
+      msg.contains("round[1] terminating_returns") &&
+      msg.contains("changed=true")
+    }),
+    msg="expected return phase change in round 1",
+  )
+  assert_eq(validate_module(folded), Ok(()))
+}
+
+///|
+test "code folding terminating throw tails preserve nested branch depths" {
+  let tag_payload_ty = single_rec_type(
+    comp_type_sub_type(func_comp_type([ValType::i32()], [])),
+  )
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        single_rec_type(comp_type_sub_type(func_comp_type([], []))),
+        tag_payload_ty,
+      ]),
+    )
+    .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(1))]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::block(
+              BlockType::void_(),
+              TExpr::new([
+                TInstr::if_(
+                  BlockType::void_(),
+                  TInstr::i32_const(I32(0)),
+                  TExpr::new([
+                    TInstr::drop(TInstr::i32_const(I32(9))),
+                    TInstr::block(
+                      BlockType::void_(),
+                      TExpr::new([TInstr::br(LabelIdx::new(0), [])]),
+                    ),
+                    TInstr::throw_(TagIdx::new(0), [TInstr::i32_const(I32(1))]),
+                  ]),
+                  Some(
+                    TExpr::new([
+                      TInstr::drop(TInstr::i32_const(I32(9))),
+                      TInstr::block(
+                        BlockType::void_(),
+                        TExpr::new([TInstr::br(LabelIdx::new(0), [])]),
+                      ),
+                      TInstr::throw_(TagIdx::new(0), [TInstr::i32_const(I32(2))]),
+                    ]),
+                  ),
+                ),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let folded = cf_run_fold_module(mod)
+  let folded_func = folded.code_sec.unwrap().0[0]
+  assert_true(
+    cf_test_func_count_instrs(folded_func, fn(instr) {
+      match instr.kind {
+        TInstrKind::TBr(_, values) => values.is_empty()
+        _ => false
+      }
+    }) >
+    0,
+  )
+  assert_eq(validate_module(folded), Ok(()))
+}
+
+///|
+test "code folding keeps throw-tail spilling conservative for TryBody tails" {
+  let tag_payload_ty = single_rec_type(
+    comp_type_sub_type(func_comp_type([ValType::i32()], [])),
+  )
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        single_rec_type(comp_type_sub_type(func_comp_type([], []))),
+        tag_payload_ty,
+      ]),
+    )
+    .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(1))]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::try_table(
+              BlockType::void_(),
+              [Catch::all(LabelIdx::new(0))],
+              TExpr::new([
+                TInstr::if_(
+                  BlockType::void_(),
+                  TInstr::i32_const(I32(0)),
+                  TExpr::new([
+                    TInstr::drop(TInstr::i32_const(I32(9))),
+                    TInstr::throw_(TagIdx::new(0), [TInstr::i32_const(I32(1))]),
+                  ]),
+                  Some(
+                    TExpr::new([
+                      TInstr::drop(TInstr::i32_const(I32(9))),
+                      TInstr::throw_(TagIdx::new(0), [TInstr::i32_const(I32(2))]),
+                    ]),
+                  ),
+                ),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let folded = cf_run_fold_module(mod)
+  let folded_func = folded.code_sec.unwrap().0[0]
+  assert_eq(
+    cf_test_func_count_instrs(folded_func, fn(instr) {
+      instr.kind is TInstrKind::TThrow(_, _)
+    }),
+    2,
+  )
+  assert_true(not(cf_test_func_has_local_set(folded_func, LocalIdx::new(0))))
+  assert_true(not(cf_test_func_has_local_get(folded_func, LocalIdx::new(0))))
+  assert_eq(validate_module(folded), Ok(()))
+}
+
+///|
+test "code folding allows throw-tail spill for TryBody tails with empty catches" {
+  let tag_payload_ty = single_rec_type(
+    comp_type_sub_type(func_comp_type([ValType::i32()], [])),
+  )
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        single_rec_type(comp_type_sub_type(func_comp_type([], []))),
+        tag_payload_ty,
+      ]),
+    )
+    .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(1))]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::try_table(
+              BlockType::void_(),
+              [],
+              TExpr::new([
+                TInstr::if_(
+                  BlockType::void_(),
+                  TInstr::i32_const(I32(0)),
+                  TExpr::new([
+                    TInstr::drop(TInstr::i32_const(I32(9))),
+                    TInstr::throw_(TagIdx::new(0), [TInstr::i32_const(I32(1))]),
+                  ]),
+                  Some(
+                    TExpr::new([
+                      TInstr::drop(TInstr::i32_const(I32(9))),
+                      TInstr::throw_(TagIdx::new(0), [TInstr::i32_const(I32(2))]),
+                    ]),
+                  ),
+                ),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let folded = cf_run_fold_module(mod)
+  let folded_func = folded.code_sec.unwrap().0[0]
+  assert_true(cf_test_func_has_local_set(folded_func, LocalIdx::new(0)))
+  assert_true(cf_test_func_has_local_get(folded_func, LocalIdx::new(0)))
+  assert_eq(validate_module(folded), Ok(()))
+}
+
+///|
+test "code folding allows TryBody throw folding when catches do not match throw tag" {
+  let void_sig = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([void_sig]))
+    .with_tag_sec(
+      TagSec::new([TagType::new(TypeIdx::new(0)), TagType::new(TypeIdx::new(0))]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::try_table(
+              BlockType::void_(),
+              [Catch::new(TagIdx::new(0), LabelIdx::new(0))],
+              TExpr::new([
+                TInstr::if_(
+                  BlockType::void_(),
+                  TInstr::i32_const(I32(0)),
+                  TExpr::new([
+                    TInstr::drop(TInstr::i32_const(I32(9))),
+                    TInstr::drop(TInstr::i32_const(I32(10))),
+                    TInstr::drop(TInstr::i32_const(I32(11))),
+                    TInstr::throw_(TagIdx::new(1), []),
+                  ]),
+                  Some(
+                    TExpr::new([
+                      TInstr::drop(TInstr::i32_const(I32(9))),
+                      TInstr::drop(TInstr::i32_const(I32(10))),
+                      TInstr::drop(TInstr::i32_const(I32(11))),
+                      TInstr::throw_(TagIdx::new(1), []),
+                    ]),
+                  ),
+                ),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let folded = cf_run_fold_module(mod)
+  let folded_func = folded.code_sec.unwrap().0[0]
+  assert_eq(
+    cf_test_func_count_instrs(folded_func, fn(instr) {
+      instr.kind is TInstrKind::TThrow(_, _)
+    }),
+    1,
+  )
+  assert_true(
+    cf_test_func_count_instrs(folded_func, fn(instr) {
+      match instr.kind {
+        TInstrKind::TBr(_, values) => values.is_empty()
+        _ => false
+      }
+    }) >
+    0,
+  )
+  assert_eq(validate_module(folded), Ok(()))
+}
+
+///|
+test "code folding allows throw-tail spill when try_table follows throw sites" {
+  let tag_payload_ty = single_rec_type(
+    comp_type_sub_type(func_comp_type([ValType::i32()], [])),
+  )
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        single_rec_type(comp_type_sub_type(func_comp_type([], []))),
+        tag_payload_ty,
+      ]),
+    )
+    .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(1))]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::if_(
+              BlockType::void_(),
+              TInstr::i32_const(I32(0)),
+              TExpr::new([
+                TInstr::drop(TInstr::i32_const(I32(9))),
+                TInstr::throw_(TagIdx::new(0), [TInstr::i32_const(I32(1))]),
+              ]),
+              Some(
+                TExpr::new([
+                  TInstr::drop(TInstr::i32_const(I32(9))),
+                  TInstr::throw_(TagIdx::new(0), [TInstr::i32_const(I32(2))]),
+                ]),
+              ),
+            ),
+            TInstr::try_table(
+              BlockType::void_(),
+              [],
+              TExpr::new([TInstr::nop()]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let folded = cf_run_fold_module(mod)
+  let folded_func = folded.code_sec.unwrap().0[0]
+  assert_true(cf_test_func_has_local_set(folded_func, LocalIdx::new(0)))
+  assert_true(cf_test_func_has_local_get(folded_func, LocalIdx::new(0)))
+  assert_eq(validate_module(folded), Ok(()))
+}
+
+///|
+test "code folding allows throw-tail spill when try_table is before throw sites" {
+  let tag_payload_ty = single_rec_type(
+    comp_type_sub_type(func_comp_type([ValType::i32()], [])),
+  )
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        single_rec_type(comp_type_sub_type(func_comp_type([], []))),
+        tag_payload_ty,
+      ]),
+    )
+    .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(1))]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::try_table(
+              BlockType::void_(),
+              [],
+              TExpr::new([TInstr::nop()]),
+            ),
+            TInstr::if_(
+              BlockType::void_(),
+              TInstr::i32_const(I32(0)),
+              TExpr::new([
+                TInstr::drop(TInstr::i32_const(I32(9))),
+                TInstr::throw_(TagIdx::new(0), [TInstr::i32_const(I32(1))]),
+              ]),
+              Some(
+                TExpr::new([
+                  TInstr::drop(TInstr::i32_const(I32(9))),
+                  TInstr::throw_(TagIdx::new(0), [TInstr::i32_const(I32(2))]),
+                ]),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let folded = cf_run_fold_module(mod)
+  let folded_func = folded.code_sec.unwrap().0[0]
+  assert_true(cf_test_func_has_local_set(folded_func, LocalIdx::new(0)))
+  assert_true(cf_test_func_has_local_get(folded_func, LocalIdx::new(0)))
+  assert_eq(validate_module(folded), Ok(()))
+}
+
+///|
+test "code folding throw spill planning can infer payload types without tag signature lookup" {
+  let body1 = [
+    TInstr::drop(TInstr::i32_const(I32(9))),
+    TInstr::drop(TInstr::i32_const(I32(10))),
+    TInstr::throw_(TagIdx::new(0), [TInstr::i32_const(I32(1))]),
+  ]
+  let body2 = [
+    TInstr::drop(TInstr::i32_const(I32(9))),
+    TInstr::drop(TInstr::i32_const(I32(10))),
+    TInstr::throw_(TagIdx::new(0), [TInstr::i32_const(I32(2))]),
+  ]
+  let tails : Array[ScopedTail] = [
+    {
+      tail: Tail::branch(body1[body1.length() - 1], body1),
+      path: [BlockBody(0)],
+      exact_index: None,
+    },
+    {
+      tail: Tail::branch(body2[body2.length() - 1], body2),
+      path: [BlockBody(1)],
+      exact_index: None,
+    },
+  ]
+  let plan = cf_build_terminating_tail_plan(
+    CodeFoldingState::new(env=Env::new()),
+    tails,
+    cf_round_trace_stats_new(),
+  )
+  match plan {
+    Some(plan) => {
+      assert_eq(plan.temp_local_types, [ValType::i32()])
+      assert_eq(plan.temp_locals.length(), 1)
+      assert_true(
+        cf_instr_may_throw(
+          plan.shared_tail_instrs[plan.shared_tail_instrs.length() - 1],
+        ),
+      )
+    }
+    None => fail("expected throw spill plan via inferred payload types")
+  }
+}
+
+///|
+test "code folding groups terminating throw tails by tag and payload arity" {
+  let mk_tail = fn(value_count : Int, seed : Int, path_idx : Int) {
+    let values : Array[TInstr] = []
+    let mut i = 0
+    while i < value_count {
+      values.push(TInstr::i32_const(I32(seed + i)))
+      i += 1
+    }
+    let body = [
+      TInstr::drop(TInstr::i32_const(I32(9))),
+      TInstr::throw_(TagIdx::new(0), values),
+    ]
+    {
+      tail: Tail::branch(body[body.length() - 1], body),
+      path: [BlockBody(path_idx)],
+      exact_index: None,
+    }
+  }
+  let tails : Array[ScopedTail] = [
+    mk_tail(1, 1, 0),
+    mk_tail(1, 2, 1),
+    mk_tail(2, 3, 2),
+  ]
+  let groups = cf_group_terminating_tails(tails, 0, cf_round_trace_stats_new())
+  assert_eq(groups.length(), 1)
+  assert_eq(groups[0].length(), 2)
+}
+
+///|
 test "code folding folds non-tail returns in same body" {
   let shared_value = TInstr::block(
     BlockType::val_type(ValType::i32()),
@@ -4990,6 +6103,37 @@ test "code folding terminating tails finds profitable subsets" {
   assert_eq(
     validate_module(cf_test_module_for_func(folded, [ValType::i32()])),
     Ok(()),
+  )
+}
+
+///|
+test "code folding terminating-tail grouping keeps pathological scans bounded" {
+  let tail_count = 64
+  let func_body : Array[TInstr] = []
+  let tails : Array[ScopedTail] = []
+  let mut i = 0
+  while i < tail_count {
+    let branch_body = [TInstr::i32_const(I32(i)), TInstr::return_([])]
+    func_body.push(TInstr::block(BlockType::void_(), TExpr::new(branch_body)))
+    tails.push({
+      tail: Tail::branch(branch_body[branch_body.length() - 1], branch_body),
+      path: [BlockBody(i)],
+      exact_index: None,
+    })
+    i += 1
+  }
+  let trace_stats = cf_round_trace_stats_new()
+  ignore(
+    optimize_terminating_tails(
+      CodeFoldingState::new(env=Env::new().with_return_type(Some([]))),
+      tails,
+      func_body,
+      trace_stats,
+    ),
+  )
+  assert_true(
+    trace_stats.terminating_group_pair_checks <= tail_count * 6,
+    msg="expected terminating-tail grouping guard to bound pair checks, got \{trace_stats.terminating_group_pair_checks}",
   )
 }
 
@@ -5155,6 +6299,296 @@ test "code folding terminating return tails do not mutate shared value arrays" {
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(CodeSec::new([Func::t_func([], TExpr::new(folded_body))]))
   assert_eq(validate_module(mod), Ok(()))
+}
+
+///|
+test "optimize_terminating_tails rejects stale scoped return tails after body rewrite" {
+  let state = CodeFoldingState::new(
+    env=Env::new().with_return_type(Some([ValType::i32()])),
+  )
+  let original_body = [
+    TInstr::if_(
+      BlockType::void_(),
+      TInstr::i32_const(I32(0)),
+      TExpr::new([
+        TInstr::drop(TInstr::i32_const(I32(10))),
+        TInstr::return_([TInstr::i32_const(I32(1))]),
+      ]),
+      Some(
+        TExpr::new([
+          TInstr::drop(TInstr::i32_const(I32(10))),
+          TInstr::return_([TInstr::i32_const(I32(2))]),
+        ]),
+      ),
+    ),
+  ]
+  collect_block_tails(state, original_body, cf_round_trace_stats_new())
+  let stale_return_tails = state.return_tails.copy()
+  let shifted_body = [
+    TInstr::block(BlockType::void_(), TExpr::new(original_body)),
+    TInstr::unreachable_(),
+  ]
+  let result = optimize_terminating_tails(
+    state,
+    stale_return_tails,
+    shifted_body,
+    cf_round_trace_stats_new(),
+  )
+  assert_eq(result, None)
+}
+
+///|
+test "preview_appended_local uses TFunc full-local index space" {
+  let params = [ValType::i32(), ValType::i32(), ValType::i32()]
+  let func_locals = params + [ValType::i32()]
+  let state = CodeFoldingState::new(
+    env=Env::new().with_locals(func_locals),
+    param_types=params,
+    func_locals~,
+  )
+  let (idx, next_locals, next_env) = state.preview_appended_local(
+    ValType::i32(),
+  )
+  assert_eq(idx, LocalIdx::new(4))
+  assert_eq(next_locals.length(), 5)
+  assert_eq(next_env.get_local_type(LocalIdx::new(4)), Some(ValType::i32()))
+  assert_eq(next_env.get_local_type(LocalIdx::new(5)), None)
+}
+
+///|
+test "canonical TFunc locals prepends typed params for extra-only local arrays" {
+  let params = [ValType::i32(), ValType::i32()]
+  let locals = [ValType::i64()]
+  assert_eq(
+    cf_canonical_tfunc_locals_from_type(params, locals),
+    Ok([ValType::i32(), ValType::i32(), ValType::i64()]),
+  )
+}
+
+///|
+test "canonical TFunc locals rejects invalid typed-param prefix" {
+  let params = [ValType::i32()]
+  let locals = [ValType::i64()]
+  match cf_canonical_tfunc_locals_from_type(params, locals) {
+    Err(_) => ()
+    _ => fail("expected canonical local derivation to reject mismatched prefix")
+  }
+}
+
+///|
+test "code folding module pass rejects TFunc locals with invalid typed param prefix" {
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        single_rec_type(
+          comp_type_sub_type(func_comp_type([ValType::i32()], [ValType::i32()])),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i64()],
+          TExpr::new([TInstr::return_([TInstr::i32_const(I32(1))])]),
+        ),
+      ]),
+    )
+  let pass = code_folding_ir_pass_with_trace(mod)
+  match pass.walk_module(IRContext::new(), mod) {
+    Err(_) => ()
+    _ => fail("expected code folding to reject mismatched TFunc locals")
+  }
+}
+
+///|
+test "code folding module pass keeps params-local indexing valid across terminating phases" {
+  let body = TExpr::new([
+    TInstr::if_(
+      BlockType::void_(),
+      TInstr::local_get(LocalIdx::new(0)),
+      TExpr::new([
+        TInstr::drop(TInstr::i32_const(I32(10))),
+        TInstr::return_([TInstr::local_get(LocalIdx::new(0))]),
+      ]),
+      Some(
+        TExpr::new([
+          TInstr::drop(TInstr::i32_const(I32(10))),
+          TInstr::return_([TInstr::local_get(LocalIdx::new(1))]),
+        ]),
+      ),
+    ),
+    TInstr::if_(
+      BlockType::void_(),
+      TInstr::local_get(LocalIdx::new(2)),
+      TExpr::new([
+        TInstr::drop(TInstr::i32_const(I32(3))),
+        TInstr::unreachable_(),
+      ]),
+      Some(
+        TExpr::new([
+          TInstr::drop(TInstr::i32_const(I32(3))),
+          TInstr::unreachable_(),
+        ]),
+      ),
+    ),
+  ])
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        single_rec_type(
+          comp_type_sub_type(
+            func_comp_type([ValType::i32(), ValType::i32(), ValType::i32()], [
+              ValType::i32(),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func([ValType::i32(), ValType::i32(), ValType::i32()], body),
+      ]),
+    )
+  let folded = cf_run_fold_module(mod)
+  assert_eq(validate_module(folded), Ok(()))
+}
+
+///|
+test "code folding module pass tracks param arity per function when creating temp locals" {
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        single_rec_type(
+          comp_type_sub_type(
+            func_comp_type(
+              [
+                ValType::i32(),
+                ValType::i32(),
+                ValType::i32(),
+                ValType::i32(),
+                ValType::i32(),
+              ],
+              [ValType::i32()],
+            ),
+          ),
+        ),
+        single_rec_type(
+          comp_type_sub_type(
+            func_comp_type([ValType::i32(), ValType::i32(), ValType::i32()], [
+              ValType::i32(),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+          ],
+          TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
+        ),
+        Func::t_func(
+          [ValType::i32(), ValType::i32(), ValType::i32()],
+          TExpr::new([
+            TInstr::if_(
+              BlockType::void_(),
+              TInstr::local_get(LocalIdx::new(0)),
+              TExpr::new([
+                TInstr::drop(TInstr::i32_const(I32(10))),
+                TInstr::return_([TInstr::local_get(LocalIdx::new(0))]),
+              ]),
+              Some(
+                TExpr::new([
+                  TInstr::drop(TInstr::i32_const(I32(10))),
+                  TInstr::return_([TInstr::local_get(LocalIdx::new(1))]),
+                ]),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let folded = cf_run_fold_module(mod)
+  assert_eq(validate_module(folded), Ok(()))
+}
+
+///|
+test "code folding module pass keeps temp local indices stable with mixed typed and untyped funcs" {
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        single_rec_type(comp_type_sub_type(func_comp_type([], []))),
+        single_rec_type(
+          comp_type_sub_type(
+            func_comp_type(
+              [
+                ValType::i32(),
+                ValType::i32(),
+                ValType::i32(),
+                ValType::i32(),
+                ValType::i32(),
+              ],
+              [ValType::i32()],
+            ),
+          ),
+        ),
+        single_rec_type(
+          comp_type_sub_type(
+            func_comp_type([ValType::i32(), ValType::i32(), ValType::i32()], [
+              ValType::i32(),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      FuncSec::new([TypeIdx::new(0), TypeIdx::new(1), TypeIdx::new(2)]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::new([], Expr::new([])),
+        Func::t_func(
+          [
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+            ValType::i32(),
+          ],
+          TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
+        ),
+        Func::t_func(
+          [ValType::i32(), ValType::i32(), ValType::i32()],
+          TExpr::new([
+            TInstr::if_(
+              BlockType::void_(),
+              TInstr::local_get(LocalIdx::new(2)),
+              TExpr::new([
+                TInstr::drop(TInstr::i32_const(I32(10))),
+                TInstr::return_([TInstr::local_get(LocalIdx::new(0))]),
+              ]),
+              Some(
+                TExpr::new([
+                  TInstr::drop(TInstr::i32_const(I32(10))),
+                  TInstr::return_([TInstr::local_get(LocalIdx::new(1))]),
+                ]),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let folded = cf_run_fold_module(mod)
+  assert_eq(validate_module(folded), Ok(()))
 }
 
 ///|
