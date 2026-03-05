@@ -22,7 +22,7 @@ fn lower_to_expr_pass() -> ModuleTransformer[Unit] {
     f : Func,
   ) -> TransformerResult[Unit, Func] {
     match f {
-      TFunc(l, t) => {
+      TFunc(_, l, t) => {
         let locals = tlocals_to_locals(l)
         let expr = t.to_expr()
         change((), Func::new(locals, expr))

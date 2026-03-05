@@ -332,7 +332,7 @@ fn or_discover_once_global(
   let func_idx = FuncIdx::new(abs_func_idx.reinterpret_as_uint())
   let func_type = mod_env.get_functype_by_funcidx(func_idx)
   match or_get_defined_func(mod, abs_func_idx) {
-    Some(TFunc(_, body)) =>
+    Some(TFunc(_, _, body)) =>
       match func_type {
         Some(FuncType(params, results)) if params.length() == 0 &&
           results.length() == 0 => or_get_once_global(body)
@@ -352,7 +352,7 @@ fn or_scan_function(
   let func_idx = FuncIdx::new(abs_func_idx.reinterpret_as_uint())
   let once_global = info.once_funcs.get(func_idx).unwrap_or(None)
   match or_get_defined_func(mod, abs_func_idx) {
-    Some(TFunc(extra_locals, body)) => {
+    Some(TFunc(_, extra_locals, body)) => {
       let state = {
         env: or_build_func_env(mod_env, func_idx, extra_locals),
         read_globals: Map::new(),
@@ -637,7 +637,7 @@ fn or_optimize_function(
     info.once_globals_set_in_funcs.get(func_idx).unwrap_or(Set::new()),
   )
   match func {
-    TFunc(locals, body) => {
+    TFunc(_, locals, body) => {
       let cfg = or_build_cfg(body)
       let idom = or_compute_dominators(cfg)
       let rpo = or_compute_rpo(cfg)
@@ -758,6 +758,7 @@ fn or_cleanup_once_bodies(mod : Module, info : OROptInfo) -> Module {
     }
     match func {
       TFunc(
+        [],
         locals,
         {
           instrs: [{ kind: TInstrKind::TBlock(bt, { instrs: items, .. }), .. }],
@@ -1016,6 +1017,7 @@ test "once_reduction removes dominated redundant once call" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1058,6 +1060,7 @@ test "once_reduction removes redundant once-global sets" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1107,6 +1110,7 @@ test "once_reduction disqualifies zero and non-const writes" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1162,6 +1166,7 @@ test "once_reduction disqualifies zero and non-const writes" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1215,6 +1220,7 @@ test "once_reduction disqualifies extra reads and exported/imported globals" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1258,6 +1264,7 @@ test "once_reduction disqualifies extra reads and exported/imported globals" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1303,6 +1310,7 @@ test "once_reduction disqualifies extra reads and exported/imported globals" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1360,6 +1368,7 @@ test "once_reduction disqualifies non-canonical guard pattern" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1406,6 +1415,7 @@ test "once_reduction propagates once summaries to fixed point" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1458,6 +1468,7 @@ test "once_reduction honors dominance across branches" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1505,6 +1516,7 @@ test "once_reduction keeps block-nested call semantics aligned with canonical cf
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1545,7 +1557,11 @@ test "once_reduction handles unreachable tails safely" {
     Some(
       CodeSec(
         [
-          TFunc(_, { instrs: [{ kind: TInstrKind::TUnreachable, .. }, _], .. }),
+          TFunc(
+            [],
+            _,
+            { instrs: [{ kind: TInstrKind::TUnreachable, .. }, _], .. }
+          ),
           _,
         ]
       )
@@ -1563,8 +1579,9 @@ test "once_reduction cleanup removes no-payload boilerplate" {
     .with_code_sec(CodeSec::new([Func::t_func([], or_once_body(0, 1, []))]))
   let out = or_run(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [{ kind: TInstrKind::TNop, .. }], .. })])) =>
-      ()
+    Some(
+      CodeSec([TFunc(_, _, { instrs: [{ kind: TInstrKind::TNop, .. }], .. })])
+    ) => ()
     _ => fail("expected cleanup to turn guard+set-only once func into nop body")
   }
 }
@@ -1592,6 +1609,7 @@ test "once_reduction cleanup removes boilerplate for single once-call payload" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1650,6 +1668,7 @@ test "once_reduction cleanup is cycle-safe" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1659,6 +1678,7 @@ test "once_reduction cleanup is cycle-safe" {
             }
           ),
           TFunc(
+            [],
             _,
             {
               instrs: [

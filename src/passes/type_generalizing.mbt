@@ -903,7 +903,7 @@ fn type_generalizing(mod : Module) -> Result[Module, String] {
           None => ([], [])
         }
         match funcs[i] {
-          TFunc(locals, body) => {
+          TFunc(_, locals, body) => {
             let (new_locals, new_body, func_changed) = tg_generalize_function(
               params, results, locals, body, env,
             )
@@ -971,7 +971,7 @@ test "type generalizing lifts unused typed function-ref local to top funcref" {
   )
   let out = run_type_generalizing(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc([vt], _)])) => assert_eq(vt, ValType::funcref())
+    Some(CodeSec([TFunc(_, [vt], _)])) => assert_eq(vt, ValType::funcref())
     _ => fail("expected one transformed function")
   }
   match validate_module(out) {
@@ -992,7 +992,7 @@ test "type generalizing keeps call_ref target local at typed function reference"
   )
   let out = run_type_generalizing(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc([vt], _)])) =>
+    Some(CodeSec([TFunc(_, [vt], _)])) =>
       assert_eq(vt, tg_funcref_to_type0_nullable())
     _ => fail("expected one transformed function")
   }
@@ -1011,7 +1011,7 @@ test "type generalizing propagates requirements through local.set chains" {
   )
   let out = run_type_generalizing(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc([vt0, vt1], _)])) => {
+    Some(CodeSec([TFunc(_, [vt0, vt1], _)])) => {
       assert_eq(vt0, tg_funcref_to_type0_nullable())
       assert_eq(vt1, tg_funcref_to_type0_nullable())
     }
@@ -1031,7 +1031,7 @@ test "type generalizing allows ref.is_null users to generalize to top funcref" {
   )
   let out = run_type_generalizing(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc([vt], _)])) => assert_eq(vt, ValType::funcref())
+    Some(CodeSec([TFunc(_, [vt], _)])) => assert_eq(vt, ValType::funcref())
     _ => fail("expected one transformed function")
   }
 }
@@ -1056,7 +1056,7 @@ test "type generalizing preserves branch value requirements from block labels" {
   )
   let out = run_type_generalizing(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc([vt], _)])) =>
+    Some(CodeSec([TFunc(_, [vt], _)])) =>
       assert_eq(vt, tg_funcref_to_type0_nullable())
     _ => fail("expected one transformed function")
   }
@@ -1093,7 +1093,7 @@ test "type generalizing generalizes concrete struct local when only anyref is re
     )
   let out = run_type_generalizing(mod)
   match out.code_sec {
-    Some(CodeSec([_, TFunc([vt], _)])) => assert_eq(vt, ValType::anyref())
+    Some(CodeSec([_, TFunc(_, [vt], _)])) => assert_eq(vt, ValType::anyref())
     _ => fail("expected transformed second function")
   }
   match validate_module(out) {

@@ -1010,7 +1010,7 @@ fn build_local_types_by_abs(
     let def_idx = abs_idx - import_func_count
     if def_idx >= 0 && def_idx < funcs.length() {
       match funcs[def_idx] {
-        TFunc(extra_locals, _) =>
+        TFunc(_, extra_locals, _) =>
           for vt in extra_locals {
             locals.push(vt)
           }
@@ -1795,7 +1795,7 @@ fn run_dead_argument_elim_once(
     used_params_by_defined.push(used_params)
     direct_callees_by_defined.push(direct_callees)
     match funcs[i] {
-      TFunc(_, body) => {
+      TFunc(_, _, body) => {
         let FuncType(params, results) = if abs_idx >= 0 &&
           abs_idx < total_func_count {
           func_types[abs_idx]
@@ -2181,7 +2181,7 @@ fn run_dead_argument_elim_once(
     }
     let abs_idx = import_func_count + i
     match funcs[i] {
-      TFunc(locals, body) if abs_idx >= 0 && abs_idx < total_func_count => {
+      TFunc(_, locals, body) if abs_idx >= 0 && abs_idx < total_func_count => {
         let FuncType(old_params, _) = func_types[abs_idx]
         let removed_unused = removed_unused_by_defined[i]
         let removed_const = removed_const_by_defined[i]
@@ -2284,7 +2284,7 @@ fn run_dead_argument_elim_once(
           stats,
         )
       }
-      TFunc(_, body) => {
+      TFunc(_, _, body) => {
         let rewrite_trace = DAERewriteTrace::new()
         let rewritten = if function_needs_call_rewrite(
             direct_callees_by_defined[i],
@@ -2315,7 +2315,7 @@ fn run_dead_argument_elim_once(
           body_changed = true
           stats.functions_rewritten += 1
           match funcs[i] {
-            TFunc(ls, _) => new_funcs.push(Func::t_func(ls, rewritten))
+            TFunc(_, ls, _) => new_funcs.push(Func::t_func(ls, rewritten))
             _ => new_funcs.push(funcs[i])
           }
         } else {
@@ -2466,7 +2466,11 @@ test "dead argument elimination removes unused params from signatures" {
     Some(
       CodeSec(
         [
-          TFunc(_, { instrs: [{ kind: TInstrKind::TCall(_, args), .. }], .. }),
+          TFunc(
+            [],
+            _,
+            { instrs: [{ kind: TInstrKind::TCall(_, args), .. }], .. }
+          ),
           _,
         ]
       )
@@ -2504,7 +2508,7 @@ test "dead argument elimination removes constant params and seeds entry local" {
     .with_code_sec(CodeSec::new([caller, callee]))
   let optimized = run_dead_argument_elim(mod)
   match optimized.code_sec {
-    Some(CodeSec([_, TFunc(_, { instrs, .. })])) => {
+    Some(CodeSec([_, TFunc(_, _, { instrs, .. })])) => {
       assert_true(instrs.length() >= 2)
       assert_eq(
         instrs[0],
@@ -2517,7 +2521,11 @@ test "dead argument elimination removes constant params and seeds entry local" {
     Some(
       CodeSec(
         [
-          TFunc(_, { instrs: [{ kind: TInstrKind::TCall(_, args), .. }], .. }),
+          TFunc(
+            [],
+            _,
+            { instrs: [{ kind: TInstrKind::TCall(_, args), .. }], .. }
+          ),
           _,
         ]
       )
@@ -2554,7 +2562,10 @@ test "dead argument elimination removes dropped return values from signatures" {
   match optimized.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: instrs0, .. }), TFunc(_, { instrs: instrs1, .. })]
+        [
+          TFunc([], _, { instrs: instrs0, .. }),
+          TFunc([], _, { instrs: instrs1, .. }),
+        ]
       )
     ) => {
       assert_true(instrs0[0].kind is TInstrKind::TCall(_, []))
@@ -2597,7 +2608,7 @@ test "dead argument elimination handles exported callee via adapter thunk" {
     )
   let optimized = run_dead_argument_elim(mod)
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: instrs0, .. }), _, _])) => {
+    Some(CodeSec([TFunc(_, _, { instrs: instrs0, .. }), _, _])) => {
       let mut found = false
       for instr in instrs0 {
         match instr.kind {
@@ -2655,7 +2666,7 @@ test "dead argument elimination handles table-reachable callee via adapter thunk
     .with_code_sec(CodeSec::new([caller, table_callee]))
   let optimized = run_dead_argument_elim(mod)
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: instrs0, .. }), _, _])) => {
+    Some(CodeSec([TFunc(_, _, { instrs: instrs0, .. }), _, _])) => {
       let mut found = false
       for instr in instrs0 {
         match instr.kind {
@@ -2800,8 +2811,8 @@ test "dead argument elimination iterates to convergence through call chains" {
     Some(
       CodeSec(
         [
-          TFunc(_, { instrs: caller_instrs, .. }),
-          TFunc(_, { instrs: middle_instrs, .. }),
+          TFunc([], _, { instrs: caller_instrs, .. }),
+          TFunc([], _, { instrs: middle_instrs, .. }),
           _,
         ]
       )
@@ -2857,6 +2868,7 @@ test "dead argument elimination removes params from tail-called callees" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             { instrs: [{ kind: TInstrKind::TReturnCall(_, args), .. }], .. }
           ),
@@ -2892,8 +2904,8 @@ test "dead argument elimination removes dropped implicit return values" {
     Some(
       CodeSec(
         [
-          TFunc(_, { instrs: caller_instrs, .. }),
-          TFunc(_, { instrs: callee_instrs, .. }),
+          TFunc([], _, { instrs: caller_instrs, .. }),
+          TFunc([], _, { instrs: callee_instrs, .. }),
         ]
       )
     ) => {

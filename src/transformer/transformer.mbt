@@ -4387,7 +4387,13 @@ pub fn[T] ModuleTransformer::walk_func_default(
         Ok(Some((t, body))) => Ok(Some((t, Func::new(locals, body))))
       }
     }
-    TFunc(locals, tbody) => {
+    TFunc(params, locals, tbody) => {
+      let (t, params) = match
+        self.walk_array(t, ModuleTransformer::walk_valtype, params) {
+        Ok(None) => (t, params)
+        Ok(Some((t, params))) => (t, params)
+        Err(t) => return Err(t)
+      }
       let (t, locals) = match
         self.walk_array(t, ModuleTransformer::walk_valtype, locals) {
         Ok(None) => (t, locals)
@@ -4399,7 +4405,7 @@ pub fn[T] ModuleTransformer::walk_func_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, Func::t_func(locals, tbody))))
+      Ok(Some((t, Func::t_func_with_params(params, locals, tbody))))
     }
   }
 }

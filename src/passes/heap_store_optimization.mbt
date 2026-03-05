@@ -724,7 +724,7 @@ fn heap_store_optimization_ir_pass(
     .on_tinstruction_evt(hso_rewrite_tinstruction)
   ModuleTransformer::new().on_func_evt(fn(_, ctx, func) {
     match func {
-      TFunc(locals, body) => {
+      TFunc(_, locals, body) => {
         let state = { env: env.with_locals(locals) }
         match pass.walk_texpr(state, body) {
           Ok(Some((_, new_body))) => change(ctx, Func::t_func(locals, new_body))
@@ -799,6 +799,7 @@ test "heap store optimization rewrites nested tee+struct.set" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -870,6 +871,7 @@ test "heap store optimization folds following struct.set in block list" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -943,6 +945,7 @@ test "heap store optimization folds multiple struct.sets after local.set" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1006,7 +1009,8 @@ test "heap store optimization can swap down local.set of struct.new" {
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap_store_optimization(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_eq(hso_count_struct_sets(body), 0)
+    Some(CodeSec([TFunc(_, _, body)])) =>
+      assert_eq(hso_count_struct_sets(body), 0)
     _ => fail("expected swapped+folded list")
   }
 }
@@ -1044,7 +1048,8 @@ test "heap store optimization does not swap when effects conflict" {
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap_store_optimization(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_eq(hso_count_struct_sets(body), 1)
+    Some(CodeSec([TFunc(_, _, body)])) =>
+      assert_eq(hso_count_struct_sets(body), 1)
     _ => fail("expected no fold when swap cannot happen")
   }
 }
@@ -1081,7 +1086,8 @@ test "heap store optimization rejects set value that reads ref local" {
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap_store_optimization(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_eq(hso_count_struct_sets(body), 1)
+    Some(CodeSec([TFunc(_, _, body)])) =>
+      assert_eq(hso_count_struct_sets(body), 1)
     _ => fail("expected no fold when value reads ref local")
   }
 }
@@ -1122,7 +1128,8 @@ test "heap store optimization rejects when later new operand invalidates value" 
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap_store_optimization(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_eq(hso_count_struct_sets(body), 1)
+    Some(CodeSec([TFunc(_, _, body)])) =>
+      assert_eq(hso_count_struct_sets(body), 1)
     _ => fail("expected no fold when later operands conflict")
   }
 }
@@ -1163,6 +1170,7 @@ test "heap store optimization keeps old operand effects via drop sequence" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1239,6 +1247,7 @@ test "heap store optimization folds into struct.new_default" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1302,7 +1311,8 @@ test "heap store optimization avoids branchy set value when local may be read la
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap_store_optimization(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_eq(hso_count_struct_sets(body), 1)
+    Some(CodeSec([TFunc(_, _, body)])) =>
+      assert_eq(hso_count_struct_sets(body), 1)
     _ => fail("expected branchy set to remain")
   }
 }
@@ -1344,7 +1354,8 @@ test "heap store optimization can skip local.set when later gets read only overw
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap_store_optimization(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_eq(hso_count_struct_sets(body), 0)
+    Some(CodeSec([TFunc(_, _, body)])) =>
+      assert_eq(hso_count_struct_sets(body), 0)
     _ =>
       fail(
         "expected branchy set fold when later gets only observe overwritten local value",
@@ -1390,7 +1401,7 @@ test "heap store optimization rejects call set value due struct.new invalidation
     .with_code_sec(CodeSec::new([root, callee]))
   let out = run_heap_store_optimization(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body), _])) =>
+    Some(CodeSec([TFunc(_, _, body), _])) =>
       assert_eq(hso_count_struct_sets(body), 1)
     _ => fail("expected call-valued set to remain due invalidation")
   }
@@ -1447,7 +1458,8 @@ test "heap store optimization rejects global side effects in set value due inval
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap_store_optimization(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_eq(hso_count_struct_sets(body), 1)
+    Some(CodeSec([TFunc(_, _, body)])) =>
+      assert_eq(hso_count_struct_sets(body), 1)
     _ => fail("expected global-side-effect set to remain due invalidation")
   }
 }
@@ -1490,7 +1502,8 @@ test "heap store optimization rejects atomic.rmw set value due invalidation" {
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap_store_optimization(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_eq(hso_count_struct_sets(body), 1)
+    Some(CodeSec([TFunc(_, _, body)])) =>
+      assert_eq(hso_count_struct_sets(body), 1)
     _ => fail("expected atomic.rmw set to remain due invalidation")
   }
 }
@@ -1534,7 +1547,8 @@ test "heap store optimization rejects atomic.cmpxchg set value due invalidation"
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap_store_optimization(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_eq(hso_count_struct_sets(body), 1)
+    Some(CodeSec([TFunc(_, _, body)])) =>
+      assert_eq(hso_count_struct_sets(body), 1)
     _ => fail("expected atomic.cmpxchg set to remain due invalidation")
   }
 }
@@ -1577,7 +1591,8 @@ test "heap store optimization rejects memory.atomic.wait32 set value due invalid
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap_store_optimization(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_eq(hso_count_struct_sets(body), 1)
+    Some(CodeSec([TFunc(_, _, body)])) =>
+      assert_eq(hso_count_struct_sets(body), 1)
     _ => fail("expected memory.atomic.wait32 set to remain due invalidation")
   }
 }
@@ -1617,7 +1632,8 @@ test "heap store optimization rejects fence-valued block due synchronization eff
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap_store_optimization(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_eq(hso_count_struct_sets(body), 1)
+    Some(CodeSec([TFunc(_, _, body)])) =>
+      assert_eq(hso_count_struct_sets(body), 1)
     _ => fail("expected fence-valued set to remain due synchronization effects")
   }
 }
@@ -1662,7 +1678,8 @@ test "heap store optimization does not swap struct.new past atomic notify" {
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap_store_optimization(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_eq(hso_count_struct_sets(body), 1)
+    Some(CodeSec([TFunc(_, _, body)])) =>
+      assert_eq(hso_count_struct_sets(body), 1)
     _ => fail("expected no swap/fold across atomic notify")
   }
 }

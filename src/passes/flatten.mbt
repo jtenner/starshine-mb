@@ -617,7 +617,7 @@ fn flatten_ir_pass(mod : Module) -> ModuleTransformer[IRContext] {
     let def_idx = next_def_idx.val
     next_def_idx.update(fn(i) { i + 1 })
     match func {
-      TFunc(locals, body) => {
+      TFunc(_, locals, body) => {
         let params = param_types.get(def_idx).unwrap_or([])
         let all_locals = params.copy()
         for local_ in locals {
@@ -686,7 +686,8 @@ test "flatten rewrites local.tee into set/get flat form" {
   )
   let out = run_flatten(mod).unwrap()
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_eq(fl_count_local_tees(body), 0)
+    Some(CodeSec([TFunc(_, _, body)])) =>
+      assert_eq(fl_count_local_tees(body), 0)
     _ => fail("expected flattened typed function")
   }
 }
@@ -716,7 +717,7 @@ test "flatten hoists if condition preludes and removes if value" {
   )
   let out = run_flatten(mod).unwrap()
   match out.code_sec {
-    Some(CodeSec([TFunc(locals, { instrs, .. })])) => {
+    Some(CodeSec([TFunc(_, locals, { instrs, .. })])) => {
       assert_true(locals.length() >= 2)
       let mut saw_if_void = false
       for instr in instrs {
@@ -1201,7 +1202,8 @@ test "flatten supports br_on family instructions and keeps them present" {
   )
   let out = run_flatten(mod).unwrap()
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_eq(fl_count_br_on_family(body), 4)
+    Some(CodeSec([TFunc(_, _, body)])) =>
+      assert_eq(fl_count_br_on_family(body), 4)
     _ => fail("expected flattened function with br_on family instructions")
   }
 }
@@ -1226,7 +1228,7 @@ test "flatten rewrites br_on value flow through local temp when needed" {
   )
   let out = run_flatten(mod).unwrap()
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => {
+    Some(CodeSec([TFunc(_, _, body)])) => {
       let saw_localized_value = Ref::new(false)
       let saw_set_of_const = Ref::new(false)
       let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
@@ -1300,7 +1302,7 @@ test "flatten rewrites br_on value flow for all br_on variants" {
   )
   let out = run_flatten(mod).unwrap()
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => {
+    Some(CodeSec([TFunc(_, _, body)])) => {
       let localized_count = Ref::new(0)
       let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
         self,
@@ -1361,7 +1363,7 @@ test "flatten supports try_table and removes try_table value result" {
   )
   let out = run_flatten(mod).unwrap()
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) =>
+    Some(CodeSec([TFunc(_, _, body)])) =>
       match fl_find_try_table_result_blocktype(body) {
         Some(VoidBlockType) => ()
         Some(_) => fail("expected flattened try_table to have void blocktype")

@@ -669,7 +669,7 @@ fn licm_run_on_body(body : TExpr) -> (TExpr, Bool) {
 fn loop_invariant_code_motion_pass() -> ModuleTransformer[Unit] {
   ModuleTransformer::new().on_func_evt(fn(_, _, func) {
     match func {
-      TFunc(locals, body) => {
+      TFunc(_, locals, body) => {
         let (next_body, changed) = licm_run_on_body(body)
         if changed {
           change((), Func::t_func(locals, next_body))
@@ -733,6 +733,7 @@ test "licm hoists basic none-typed local.set from loop entrance" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -803,6 +804,7 @@ test "licm stops scanning after control-transfer instruction" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1001,6 +1003,7 @@ test "licm hoists nested-loop invariant outward in one run" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [

@@ -97,7 +97,7 @@ fn avoid_reinterprets() -> ModuleTransformer[IRContext] {
   .on_func_evt(fn(self, state : IRContext, func) {
     match func {
       Func(_) => Err("Expected TFunc")
-      TFunc(_, body) => {
+      TFunc(_, _, body) => {
         state.set_body(body)
         self.walk_func_default(state, func)
       }
@@ -155,7 +155,7 @@ test "AvoidReinterprets: rewrite reinterpret(load)" {
   let state = IRContext::new()
   let (_, new_func) = pass.walk_func(state, func).unwrap().unwrap()
   match new_func {
-    TFunc(_, { instrs, .. }) =>
+    TFunc(_, _, { instrs, .. }) =>
       match instrs[0].kind {
         TInstrKind::TLoad(LoadOp::I32LoadOp, _, _) => ()
         _ => fail("expected i32.load")
@@ -187,7 +187,7 @@ test "AvoidReinterprets: rewrite reinterpret(local.get) with single load" {
   let CodeSec(funcs) = new_module.code_sec.unwrap()
   let new_func = funcs[0]
   match new_func {
-    TFunc(_, { instrs: new_instrs, .. }) =>
+    TFunc(_, _, { instrs: new_instrs, .. }) =>
       match new_instrs[1].kind {
         TInstrKind::TLoad(LoadOp::I32LoadOp, _, _) => ()
         _ => fail("expected i32.load")
@@ -224,7 +224,7 @@ test "AvoidReinterprets: do not rewrite when multiple defining loads exist" {
   let state = IRContext::new()
   let (_, new_func) = pass.walk_func(state, func).unwrap().unwrap()
   match new_func {
-    TFunc(_, { instrs: new_instrs, .. }) =>
+    TFunc(_, _, { instrs: new_instrs, .. }) =>
       match new_instrs[2].kind {
         TInstrKind::TLoad(LoadOp::I32LoadOp, _, _) => ()
         _ => fail("expected i32.load")
@@ -300,7 +300,7 @@ test "AvoidReinterprets: reinterpret(local.get) inside expression" {
   let state = IRContext::new()
   let (_, new_func) = pass.walk_func(state, func).unwrap().unwrap()
   match new_func {
-    TFunc(_, { instrs: new_instrs, .. }) =>
+    TFunc(_, _, { instrs: new_instrs, .. }) =>
       match new_instrs[1].kind {
         TInstrKind::TBinary(
           _,

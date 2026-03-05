@@ -1399,17 +1399,42 @@ pub fn Module::pretty_print_defined_func(
           md_write_line(out, 2, "body_raw:")
           md_write_line(out, 4, body.to_string())
         }
-        TFunc(local_vals, body) => {
+        TFunc(func_params, local_vals, body) => {
+          let effective_params = if func_params.is_empty() {
+            params
+          } else {
+            func_params
+          }
+          let full_locals = if local_vals.length() >= effective_params.length() {
+            let mut has_prefix = true
+            for i in 0..<effective_params.length() {
+              if local_vals[i] != effective_params[i] {
+                has_prefix = false
+                break
+              }
+            }
+            if has_prefix {
+              local_vals.copy()
+            } else {
+              effective_params + local_vals
+            }
+          } else {
+            effective_params + local_vals
+          }
           md_write_line(out, 2, "locals:")
-          if local_vals.is_empty() {
+          if full_locals.is_empty() {
             md_write_line(out, 4, "<none>")
           } else {
-            for i in 0..<local_vals.length() {
-              let role = if i < params.length() { "param" } else { "local" }
+            for i in 0..<full_locals.length() {
+              let role = if i < effective_params.length() {
+                "param"
+              } else {
+                "local"
+              }
               md_write_line(
                 out,
                 4,
-                "[\{i}] " + pretty_val_type(local_vals[i]) + " (" + role + ")",
+                "[\{i}] " + pretty_val_type(full_locals[i]) + " (" + role + ")",
               )
             }
           }

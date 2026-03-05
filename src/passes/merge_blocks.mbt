@@ -1900,7 +1900,7 @@ fn run_on_function(
   options : OptimizeOptions,
 ) -> (Func, Bool) {
   match func {
-    TFunc(locals, body) => {
+    TFunc(_, locals, body) => {
       let env = Env::new().with_module(mod).with_locals(locals)
       let ctx = MBContext::new(env)
       let root = TInstr::block(BlockType::void_(), body)
@@ -2547,7 +2547,7 @@ fn mb_run_on_body(body : TExpr, locals? : Array[ValType] = []) -> TExpr {
   let mod = mb_make_test_module_with_body(locals, body)
   let out = run_merge_blocks(mod)
   match mb_extract_only_tfunc(out) {
-    Some(TFunc(_, new_body)) => new_body
+    Some(TFunc(_, _, new_body)) => new_body
     _ => body
   }
 }
@@ -2700,6 +2700,7 @@ test "merge blocks: loop tail merge moves non-branching suffix outward" {
   match mb_extract_only_tfunc(out) {
     Some(
       TFunc(
+        [],
         _,
         {
           instrs: [
@@ -2815,6 +2816,7 @@ test "merge blocks: dropped block pushes drop inward" {
   match mb_extract_only_tfunc(out) {
     Some(
       TFunc(
+        [],
         _,
         {
           instrs: [
@@ -3058,7 +3060,7 @@ test "merge blocks: transformed output stays typable and pass is idempotent" {
   let mod = mb_make_test_module_with_body([], body)
   let out = run_merge_blocks(mod)
   match mb_extract_only_tfunc(out) {
-    Some(TFunc(locals, texpr)) => {
+    Some(TFunc(_, locals, texpr)) => {
       let env = Env::new().with_module(out).with_locals(locals)
       let lowered = texpr.to_expr()
       match to_texpr(lowered, env) {

@@ -605,7 +605,7 @@ fn sr_build_local_types_by_abs(
     let def_idx = abs_idx - import_func_count
     if def_idx >= 0 && def_idx < funcs.length() {
       match funcs[def_idx] {
-        TFunc(extra_locals, _) =>
+        TFunc(_, extra_locals, _) =>
           for vt in extra_locals {
             locals.push(vt)
           }
@@ -1157,7 +1157,7 @@ fn sr_refinalize_changed_functions(
       continue
     }
     match next_funcs[def_idx] {
-      TFunc(locals, body) => {
+      TFunc(_, locals, body) => {
         let params = match
           env.get_functype_by_funcidx(
             FuncIdx::new(abs_idx.reinterpret_as_uint()),
@@ -1278,7 +1278,7 @@ fn signature_refining(mod : Module) -> Result[Module, String] {
 
     let FuncType(_, old_results) = func_types[abs_idx]
     match funcs[def_idx] {
-      TFunc(_, body) => {
+      TFunc(_, _, body) => {
         let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
           self,
           _,
@@ -1551,7 +1551,7 @@ fn signature_refining(mod : Module) -> Result[Module, String] {
     }
 
     match funcs[def_idx] {
-      TFunc(locals, body) => {
+      TFunc(_, locals, body) => {
         let (new_locals, new_body) = sr_update_param_types(
           body, old_params, new_params, locals, local_types_by_abs, global_types,
           env, abs_idx, func_type_idxs,
@@ -2215,7 +2215,7 @@ test "signature refining inserts parameter fixup locals for incompatible param s
   }
 
   match out.code_sec {
-    Some(CodeSec([_, TFunc(locals, { instrs, .. })])) => {
+    Some(CodeSec([_, TFunc(_, locals, { instrs, .. })])) => {
       assert_eq(locals.length(), 1)
       assert_eq(locals[0], nullable_funcref)
       assert_eq(

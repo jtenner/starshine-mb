@@ -2399,7 +2399,7 @@ fn af_instrument_flow_for_function(
   runtime : AFApi,
 ) -> Result[Func, String] {
   match func {
-    TFunc(locals, body) => {
+    TFunc(_, locals, body) => {
       let ctx : AFRewriterCtx = {
         analyzer,
         builder,
@@ -2493,7 +2493,7 @@ fn af_lower_intrinsics_and_locals(
   fake_globals : FakeGlobalHelper,
 ) -> Result[Func, String] {
   match func {
-    TFunc(locals, body) => {
+    TFunc(_, locals, body) => {
       let relevant = af_collect_live_like_locals(body)
       let stack_ptr_local = LocalIdx::new(locals.length().reinterpret_as_uint())
       let unwind_idx_local = LocalIdx::new(
@@ -2757,7 +2757,7 @@ fn af_assert_non_instrumented(
       continue
     }
     match funcs[i] {
-      TFunc(locals, body) => {
+      TFunc(_, locals, body) => {
         let state_local = LocalIdx::new(locals.length().reinterpret_as_uint())
         let next_locals = locals.copy()
         next_locals.push(ValType::i32())
@@ -3109,7 +3109,7 @@ fn af_assert_unwind_catch(mod : Module, runtime : AFApi) -> Module {
   for i = 0; i < funcs.length(); i = i + 1 {
     let abs_idx = FuncIdx::new((imported + i).reinterpret_as_uint())
     match funcs[i] {
-      TFunc(locals, body) => {
+      TFunc(_, locals, body) => {
         let func_locals = locals.copy()
         let mut full_env = Env::new().with_module(mod)
         let params = match full_env.get_functype_by_funcidx(abs_idx) {
@@ -3258,7 +3258,7 @@ fn af_lower_tail_calls_prepass(mod : Module) -> Result[Module, String] {
   let rewritten : Array[Func] = []
   for func in funcs {
     match func {
-      TFunc(locals, body) => {
+      TFunc(_, locals, body) => {
         let pass = ModuleTransformer::new().on_tinstruction_evt(fn(
           self,
           env,
@@ -3305,7 +3305,7 @@ fn af_has_any_tail_calls(mod : Module) -> Bool {
     Some(CodeSec(funcs)) =>
       for i = 0; i < funcs.length(); i = i + 1 {
         match funcs[i] {
-          TFunc(_, body) =>
+          TFunc(_, _, body) =>
             if af_instr_has_tail_call_in_expr(body) { // rename your existing walker if needed
               return true
             }
@@ -3805,7 +3805,7 @@ test "asyncify optional tail-call lowering flag rewrites return_call" {
     Err(e) => fail("unexpected asyncify tail-call-lowering error: \{e}")
   }
   match out.code_sec {
-    Some(CodeSec([_, TFunc(_, body), ..])) =>
+    Some(CodeSec([_, TFunc(_, _, body), ..])) =>
       assert_false(af_has_tail_call(body))
     _ => fail("expected rewritten caller body")
   }
@@ -3844,7 +3844,7 @@ test "asyncify optional tail-call lowering flag rewrites return_call_ref" {
     Err(e) => fail("unexpected asyncify tail-call-lowering error: \{e}")
   }
   match out.code_sec {
-    Some(CodeSec([_, TFunc(_, body), ..])) =>
+    Some(CodeSec([_, TFunc(_, _, body), ..])) =>
       assert_false(af_has_tail_call(body))
     _ => fail("expected rewritten caller body")
   }
@@ -3878,7 +3878,7 @@ test "asyncify optional tail-call lowering rewrites multi-value return_call" {
   }
   assert_eq(validate_module(out), Ok(()))
   match out.code_sec {
-    Some(CodeSec([_, TFunc(locals, body), ..])) => {
+    Some(CodeSec([_, TFunc(_, locals, body), ..])) => {
       assert_false(af_has_tail_call(body))
       let env = Env::new()
         .with_module(out)
@@ -3956,7 +3956,7 @@ test "asyncify optional tail-call lowering rewrites multi-value return_call_indi
   }
   assert_eq(validate_module(out), Ok(()))
   match out.code_sec {
-    Some(CodeSec([_, TFunc(locals, body), ..])) => {
+    Some(CodeSec([_, TFunc(_, locals, body), ..])) => {
       assert_false(af_has_tail_call(body))
       let env = Env::new()
         .with_module(out)
@@ -4014,7 +4014,7 @@ test "asyncify optional tail-call lowering rewrites multi-value return_call_ref"
   }
   assert_eq(validate_module(out), Ok(()))
   match out.code_sec {
-    Some(CodeSec([_, TFunc(locals, body), ..])) => {
+    Some(CodeSec([_, TFunc(_, locals, body), ..])) => {
       assert_false(af_has_tail_call(body))
       let env = Env::new()
         .with_module(out)
@@ -4151,7 +4151,7 @@ test "asyncify instruments direct calls with unwind indices" {
     Err(e) => fail("unexpected asyncify error: \{e}")
   }
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body), ..])) => {
+    Some(CodeSec([TFunc(_, _, body), ..])) => {
       let indices = af_collect_br_indices(body)
       assert_true(indices.contains(0))
       assert_true(indices.contains(1))
@@ -4195,7 +4195,7 @@ test "asyncify lowers call result local.set through locals temp" {
     Err(e) => fail("unexpected asyncify error: \{e}")
   }
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body), ..])) => {
+    Some(CodeSec([TFunc(_, _, body), ..])) => {
       let seen = Ref::new(false)
       for instr in body.instrs {
         af_walk_instr(instr, fn(curr) {
@@ -4280,7 +4280,7 @@ test "asyncify ignore-imports keeps function non-instrumented" {
     Err(e) => fail("unexpected asyncify error: \{e}")
   }
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body), ..])) => {
+    Some(CodeSec([TFunc(_, _, body), ..])) => {
       assert_eq(af_count_calls(body, FuncIdx::new(0)), 1)
       let indices = af_collect_br_indices(body)
       assert_false(indices.contains(0))
@@ -4315,7 +4315,7 @@ test "asyncify import allowlist controls state-changing imports" {
     Err(e) => fail("unexpected asyncify error: \{e}")
   }
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body), ..])) => {
+    Some(CodeSec([TFunc(_, _, body), ..])) => {
       let indices = af_collect_br_indices(body)
       assert_false(indices.contains(0))
     }
@@ -4362,7 +4362,7 @@ test "asyncify ignore-indirect leaves indirect call unwrapped unless addlist" {
     Err(e) => fail("unexpected asyncify error: \{e}")
   }
   match out_ignored.code_sec {
-    Some(CodeSec([TFunc(_, body), ..])) =>
+    Some(CodeSec([TFunc(_, _, body), ..])) =>
       assert_true(af_contains_call_indirect(body))
     _ => fail("expected code section")
   }
@@ -4375,7 +4375,7 @@ test "asyncify ignore-indirect leaves indirect call unwrapped unless addlist" {
     Err(e) => fail("unexpected asyncify error: \{e}")
   }
   match out_add.code_sec {
-    Some(CodeSec([TFunc(_, body), ..])) => {
+    Some(CodeSec([TFunc(_, _, body), ..])) => {
       let indices = af_collect_br_indices(body)
       assert_true(indices.contains(1))
     }
@@ -4413,7 +4413,7 @@ test "asyncify lists onlylist/removelist/addlist propagation" {
     Err(e) => fail("unexpected asyncify error: \{e}")
   }
   match out_only.code_sec {
-    Some(CodeSec([TFunc(_, caller_body), TFunc(_, callee_body), ..])) => {
+    Some(CodeSec([TFunc(_, _, caller_body), TFunc(_, _, callee_body), ..])) => {
       assert_false(af_collect_br_indices(caller_body).contains(0))
       assert_true(af_collect_br_indices(callee_body).contains(0))
     }
@@ -4425,7 +4425,7 @@ test "asyncify lists onlylist/removelist/addlist propagation" {
     Err(e) => fail("unexpected asyncify error: \{e}")
   }
   match out_remove.code_sec {
-    Some(CodeSec([_, TFunc(_, callee_body), ..])) =>
+    Some(CodeSec([_, TFunc(_, _, callee_body), ..])) =>
       assert_false(af_collect_br_indices(callee_body).contains(0))
     _ => fail("expected code section")
   }
@@ -4438,7 +4438,7 @@ test "asyncify lists onlylist/removelist/addlist propagation" {
     Err(e) => fail("unexpected asyncify error: \{e}")
   }
   match out_propagate.code_sec {
-    Some(CodeSec([TFunc(_, caller_body), TFunc(_, callee_body), ..])) => {
+    Some(CodeSec([TFunc(_, _, caller_body), TFunc(_, _, callee_body), ..])) => {
       assert_true(af_collect_br_indices(callee_body).contains(0))
       assert_true(af_collect_br_indices(caller_body).contains(0))
     }
@@ -4478,7 +4478,7 @@ test "asyncify local save/restore tracks relevant locals" {
     Err(e) => fail("unexpected asyncify error: \{e}")
   }
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body), ..])) => {
+    Some(CodeSec([TFunc(_, _, body), ..])) => {
       assert_true(af_has_local_set_load(body, LocalIdx::new(0)))
       assert_false(af_has_local_set_load(body, LocalIdx::new(1)))
     }
@@ -4518,7 +4518,7 @@ test "asyncify local save/restore keeps local used after zero-arg call" {
     Err(e) => fail("unexpected asyncify error: \{e}")
   }
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body), ..])) =>
+    Some(CodeSec([TFunc(_, _, body), ..])) =>
       assert_true(af_has_local_set_load(body, LocalIdx::new(0)))
     _ => fail("expected transformed body")
   }
@@ -4584,7 +4584,7 @@ test "asyncify rewrites asyncify imports to runtime calls and removes imports" {
     None => fail("expected asyncify_start_unwind export")
   }
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body), ..])) =>
+    Some(CodeSec([TFunc(_, _, body), ..])) =>
       assert_true(af_count_calls(body, runtime_start_unwind) > 0)
     _ => fail("expected code section")
   }
@@ -4621,7 +4621,7 @@ test "asyncify stores unwind call index instead of constant zero" {
     Err(e) => fail("unexpected asyncify error: \{e}")
   }
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body), ..])) => {
+    Some(CodeSec([TFunc(_, _, body), ..])) => {
       assert_true(af_has_i32_store_local(body))
       assert_false(af_has_i32_store_const_zero(body))
     }
@@ -4654,7 +4654,7 @@ test "asyncify adds stack-end guard before unwind call-index push" {
     Err(e) => fail("unexpected asyncify error: \{e}")
   }
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body), ..])) =>
+    Some(CodeSec([TFunc(_, _, body), ..])) =>
       assert_true(af_has_unwind_push_stack_end_guard(body))
     _ => fail("expected transformed body")
   }
@@ -4689,7 +4689,7 @@ test "asyncify asserts add non-instrumented state guard" {
     Err(e) => fail("unexpected asyncify error: \{e}")
   }
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body), ..])) =>
+    Some(CodeSec([TFunc(_, _, body), ..])) =>
       assert_true(af_has_state_assert_guard(body))
     _ => fail("expected code section")
   }
@@ -4730,7 +4730,7 @@ test "asyncify asserts guard calls in try_table catch continuation when enabled"
     Err(e) => fail("unexpected asyncify error: \{e}")
   }
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body), ..])) => {
+    Some(CodeSec([TFunc(_, _, body), ..])) => {
       let saw_guard = Ref::new(false)
       for instr in body.instrs {
         af_walk_instr(instr, fn(curr) {
@@ -4792,7 +4792,7 @@ test "asyncify asserts do not guard try_table body calls by default" {
     Err(e) => fail("unexpected asyncify error: \{e}")
   }
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body), ..])) => {
+    Some(CodeSec([TFunc(_, _, body), ..])) => {
       let saw_guard = Ref::new(false)
       for instr in body.instrs {
         af_walk_instr(instr, fn(curr) {
@@ -4864,7 +4864,7 @@ test "asyncify catch continuation precision handles try_table embedded in local.
     Err(e) => fail("unexpected asyncify error: \{e}")
   }
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body), ..])) =>
+    Some(CodeSec([TFunc(_, _, body), ..])) =>
       assert_eq(af_count_catch_state_guards(body), 1)
     _ => fail("expected code section")
   }
@@ -4909,7 +4909,7 @@ test "asyncify ignore-unwind-from-catch disables try_table call guard" {
     Err(e) => fail("unexpected asyncify error: \{e}")
   }
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body), ..])) => {
+    Some(CodeSec([TFunc(_, _, body), ..])) => {
       let saw_guard = Ref::new(false)
       for instr in body.instrs {
         af_walk_instr(instr, fn(curr) {
@@ -4955,7 +4955,7 @@ test "asyncify supports tail calls by default (no explicit flag)" {
   }
   assert_eq(validate_module(out), Ok(()))
   match out.code_sec {
-    Some(CodeSec([_, TFunc(_, body), ..])) =>
+    Some(CodeSec([_, TFunc(_, _, body), ..])) =>
       assert_false(af_has_tail_call(body))
     _ => fail("expected rewritten body")
   }
@@ -4980,7 +4980,7 @@ test "asyncify supports tail calls by default in memory64 modules" {
   }
   assert_eq(validate_module(out), Ok(()))
   match out.code_sec {
-    Some(CodeSec([_, TFunc(_, body), ..])) =>
+    Some(CodeSec([_, TFunc(_, _, body), ..])) =>
       assert_false(af_has_tail_call(body))
     _ => fail("expected rewritten body")
   }

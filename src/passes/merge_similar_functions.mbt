@@ -411,7 +411,7 @@ fn msf_hash_tinstr(state : MSFHashState, instr : TInstr) -> Unit {
 ///|
 fn msf_hash_function_ignoring_consts(func : Func) -> UInt64 {
   match func {
-    TFunc(_, body) => {
+    TFunc(_, _, body) => {
       let normalized = match msf_normalize_body(body) {
         Ok(x) => x
         Err(_) => body
@@ -562,7 +562,7 @@ fn msf_collect_defined_funcs(
       continue
     }
     match funcs[def_idx] {
-      TFunc(locals, body) =>
+      TFunc(_, locals, body) =>
         out.push({
           def_idx,
           abs_idx,
@@ -787,7 +787,7 @@ fn derive_params(clazz : EquivalentClass, mod : Module) -> Array[ParamInfo]? {
       return None
     }
     match funcs[def_idx] {
-      TFunc(_, body) =>
+      TFunc(_, _, body) =>
         if def_idx == clazz.primary_def_idx {
           primary_body = Some(body)
           let FuncType(params, _) = match
@@ -807,7 +807,8 @@ fn derive_params(clazz : EquivalentClass, mod : Module) -> Array[ParamInfo]? {
   let site_maps : Array[Map[Int, MSFSiteValue]] = []
   for def_idx in clazz.member_def_idxs {
     match funcs[def_idx] {
-      TFunc(_, body) => site_maps.push(msf_collect_sites(body, func_type_idxs))
+      TFunc(_, _, body) =>
+        site_maps.push(msf_collect_sites(body, func_type_idxs))
       _ => return None
     }
   }
@@ -934,7 +935,7 @@ fn has_merge_benefit(
   }
   let FuncType(primary_params, _) = func_types[primary_abs]
   let primary_body = match funcs[primary_def] {
-    TFunc(_, body) => body
+    TFunc(_, _, body) => body
     _ => return false
   }
   let removed = (clazz.member_def_idxs.length() - 1) *
@@ -1130,7 +1131,7 @@ fn create_shared(
     return Err("merge_similar_functions: primary abs function out of range")
   }
   let (primary_locals, primary_body) = match funcs[primary_def] {
-    TFunc(locals, body) => (locals.copy(), body)
+    TFunc(_, locals, body) => (locals.copy(), body)
     _ => return Err("merge_similar_functions: primary function is not TFunc")
   }
   let FuncType(primary_params, primary_results) = func_types[primary_abs]
@@ -1179,7 +1180,7 @@ fn replace_with_thunk(
   values_for_target : Array[TInstr],
 ) -> Func {
   match target {
-    TFunc(_, _) => {
+    TFunc(_, _, _) => {
       let param_count = values_for_target.length() - params.length()
       let args : Array[TInstr] = []
       for i = 0; i < param_count; i = i + 1 {
@@ -1353,6 +1354,7 @@ fn msf_shared_abs_index(mod : Module) -> Int {
 fn msf_is_forwarder(func : Func, target_abs : Int, arg_count : Int) -> Bool {
   match func {
     TFunc(
+      [],
       locals,
       {
         instrs: [{ kind: TInstrKind::TReturnCall(FuncIdx(raw), args), .. }],
@@ -1383,7 +1385,7 @@ test "merge similar functions basic const merging creates shared + thunks" {
       assert_true(msf_is_forwarder(funcs[0], shared_abs, 2))
       assert_true(msf_is_forwarder(funcs[1], shared_abs, 2))
       match funcs[2] {
-        TFunc(_, body) => {
+        TFunc(_, _, body) => {
           let mut saw_param_get = false
           let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
             self,
@@ -1454,7 +1456,7 @@ test "merge similar functions reuses parameter across repeated diff vector" {
       assert_true(msf_is_forwarder(funcs[0], shared_abs, 2))
       assert_true(msf_is_forwarder(funcs[1], shared_abs, 2))
       match funcs[2] {
-        TFunc(_, { instrs: body, .. }) => {
+        TFunc(_, _, { instrs: body, .. }) => {
           let mut local_get_count = 0
           for instr in body {
             let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
@@ -1570,7 +1572,7 @@ test "merge similar functions parameterizes call target using call_ref" {
       assert_true(msf_is_forwarder(funcs[2], shared_abs, 2))
       assert_true(msf_is_forwarder(funcs[3], shared_abs, 2))
       match funcs[shared_abs - msf_count_imported_funcs(out)] {
-        TFunc(_, { instrs: body, .. }) => {
+        TFunc(_, _, { instrs: body, .. }) => {
           let mut saw_call_ref = false
           let mut seen_type_idx = -1
           let mut saw_casted_local = false
@@ -1802,7 +1804,7 @@ test "merge similar functions shifts var local indices in shared function" {
   match out.code_sec {
     Some(CodeSec(funcs)) =>
       match funcs[shared_abs - msf_count_imported_funcs(out)] {
-        TFunc(_, body) => {
+        TFunc(_, _, body) => {
           let mut saw_shifted_set = false
           let mut saw_shifted_get = false
           let walker = ModuleTransformer::new().on_tinstruction_evt(fn(

@@ -293,7 +293,7 @@ pub struct FuncType(Array[ValType], Array[ValType]) derive(Hash, Eq, Debug)
 ///|
 pub enum Func {
   Func(Array[Locals], Expr)
-  TFunc(Array[ValType], TExpr)
+  TFunc(Array[ValType], Array[ValType], TExpr)
 } derive(Eq, Hash, Debug)
 
 ///|
@@ -8340,8 +8340,17 @@ pub fn Func::new(locals : Array[Locals], expr : Expr) -> Func {
 }
 
 ///|
-pub fn Func::t_func(args : Array[ValType], expr : TExpr) -> Func {
-  TFunc(args, expr)
+pub fn Func::t_func(locals : Array[ValType], expr : TExpr) -> Func {
+  TFunc([], locals, expr)
+}
+
+///|
+pub fn Func::t_func_with_params(
+  params : Array[ValType],
+  locals : Array[ValType],
+  expr : TExpr,
+) -> Func {
+  TFunc(params, locals, expr)
 }
 
 ///|

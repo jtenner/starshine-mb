@@ -196,7 +196,7 @@ fn il_compute_used_globally(mod : Module, total_funcs : Int) -> Array[Bool] {
     Some(CodeSec(funcs)) =>
       for func in funcs {
         match func {
-          TFunc(_, body) => ignore(walker.walk_texpr((), body))
+          TFunc(_, _, body) => ignore(walker.walk_texpr((), body))
           _ => ()
         }
       }
@@ -343,7 +343,7 @@ fn il_analyze_func(
         trivial_kind: ILNotTrivial,
         tail_wrapper: false,
       }
-    Some(TFunc(locals, body)) => {
+    Some(TFunc(_, locals, body)) => {
       let mut has_loops = false
       let mut has_calls = false
       let mut has_try_delegate = false
@@ -574,7 +574,7 @@ fn il_collect_callsites(
       for def_idx = 0; def_idx < funcs.length(); def_idx = def_idx + 1 {
         let abs_idx = imported + def_idx
         match funcs[def_idx] {
-          TFunc(_, body) =>
+          TFunc(_, _, body) =>
             out[abs_idx] = il_collect_callsites_for_body(abs_idx, body)
           _ => ()
         }
@@ -998,6 +998,7 @@ fn il_inline_tail_wrapper_call(
 ) -> Result[TInstr?, String] {
   match callee_func {
     TFunc(
+      [],
       locals,
       { instrs: [{ kind: TInstrKind::TReturnCall(target, tail_args), .. }], .. }
     ) =>
@@ -1014,6 +1015,7 @@ fn il_inline_tail_wrapper_call(
         Ok(None)
       }
     TFunc(
+      [],
       locals,
       {
         instrs: [
@@ -1043,6 +1045,7 @@ fn il_inline_tail_wrapper_call(
         Ok(None)
       }
     TFunc(
+      [],
       locals,
       {
         instrs: [
@@ -1088,7 +1091,7 @@ fn il_inline_normal_call(
     return Err("inlining: call argument count mismatch")
   }
   match callee_func {
-    TFunc(callee_locals, callee_body) => {
+    TFunc(_, callee_locals, callee_body) => {
       let mapped_params : Array[LocalIdx] = []
       let mapped_locals : Array[LocalIdx] = []
       for param_ty in callee_params {
@@ -1345,7 +1348,7 @@ fn il_apply_actions_to_func(
   }
   let FuncType(caller_params, _) = caller_type
   match caller_func {
-    TFunc(locals, body) => {
+    TFunc(_, locals, body) => {
       let caller_locals = locals.copy()
       let FuncType(_, caller_results) = caller_type
       let hoist_wrapper_type = il_make_hoist_wrapper_block_type(
@@ -1604,7 +1607,7 @@ fn il_run_partial_splitting(
     }
     let curr = funcs[def_idx]
     match curr {
-      TFunc(locals, body) => {
+      TFunc(_, locals, body) => {
         // Pattern A: top-level if (cond) return; then remainder.
         if body.instrs.length() >= 2 {
           match body.instrs[0].kind {
@@ -2098,7 +2101,7 @@ fn inline_main(
     return Ok(mod)
   }
   let sites = match funcs[main_def] {
-    TFunc(_, body) => il_collect_callsites_for_body(main_abs, body)
+    TFunc(_, _, body) => il_collect_callsites_for_body(main_abs, body)
     _ => return Ok(mod)
   }
   let target_sites : Array[ILCallSite] = []
@@ -2288,7 +2291,7 @@ test "inlining always-inlines tiny callee by default" {
     Err(e) => fail("unexpected inlining error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, body), _])) =>
+    Some(CodeSec([TFunc(_, _, body), _])) =>
       assert_eq(il_count_direct_calls(body, FuncIdx::new(1)), 0)
     _ => fail("expected caller body")
   }
@@ -2327,7 +2330,7 @@ test "inlining honors one-caller-inline-max-size threshold" {
     Err(e) => fail("unexpected inlining error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, body), _])) =>
+    Some(CodeSec([TFunc(_, _, body), _])) =>
       assert_eq(il_count_direct_calls(body, FuncIdx::new(1)), 1)
     _ => fail("expected caller body")
   }
@@ -2369,7 +2372,7 @@ test "inlining can inline multi-use callee at higher optimize levels" {
     Err(e) => fail("unexpected inlining error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, body0), TFunc(_, body1), _])) => {
+    Some(CodeSec([TFunc(_, _, body0), TFunc(_, _, body1), _])) => {
       assert_eq(il_count_direct_calls(body0, FuncIdx::new(2)), 0)
       assert_eq(il_count_direct_calls(body1, FuncIdx::new(2)), 0)
     }
@@ -2394,7 +2397,7 @@ test "inlining enforces maxCombinedBinarySize growth cap" {
     Err(e) => fail("unexpected inlining error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, body), _])) =>
+    Some(CodeSec([TFunc(_, _, body), _])) =>
       assert_eq(il_count_direct_calls(body, FuncIdx::new(1)), 1)
     _ => fail("expected caller body")
   }
@@ -2414,7 +2417,7 @@ test "inlining only plans callsites in reachable code" {
     Err(e) => fail("unexpected inlining error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, body), _])) =>
+    Some(CodeSec([TFunc(_, _, body), _])) =>
       // Unreachable tail call must not be considered for inlining.
       assert_eq(il_count_direct_calls(body, FuncIdx::new(1)), 1)
     _ => fail("expected caller body")
@@ -2440,7 +2443,7 @@ test "inlining shifts callee branch labels when wrapping callsite" {
     Err(e) => fail("unexpected inlining error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, body), _])) =>
+    Some(CodeSec([TFunc(_, _, body), _])) =>
       assert_true(il_count_br_to(body, LabelIdx::new(1)) > 0)
     _ => fail("expected caller body")
   }
@@ -2462,7 +2465,7 @@ test "inlining maps locals and only zero-inits defaultable callee locals" {
     Err(e) => fail("unexpected inlining error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(locals, body), _])) => {
+    Some(CodeSec([TFunc(_, locals, body), _])) => {
       assert_true(locals.length() >= 2)
       let mut has_i32_zero = false
       let mut has_ref_null_init = false
@@ -2502,7 +2505,7 @@ test "inlining rewrites returns in callee body into breaks from wrapper" {
     Err(e) => fail("unexpected inlining error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, body), _])) => {
+    Some(CodeSec([TFunc(_, _, body), _])) => {
       assert_false(il_has_return(body))
       assert_true(il_count_br_to(body, LabelIdx::new(0)) > 0)
     }
@@ -2530,7 +2533,7 @@ test "inlining rewrites return_call in normal context to call plus break" {
     Err(e) => fail("unexpected inlining error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, body), _, _])) => {
+    Some(CodeSec([TFunc(_, _, body), _, _])) => {
       assert_eq(il_count_return_calls(body, FuncIdx::new(2)), 0)
       assert_eq(il_count_direct_calls(body, FuncIdx::new(1)), 0)
       assert_true(il_count_br_to(body, LabelIdx::new(0)) > 0)
@@ -2559,7 +2562,7 @@ test "inlining preserves return_call chaining for tail-call callsites" {
     Err(e) => fail("unexpected inlining error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, body), _, _])) =>
+    Some(CodeSec([TFunc(_, _, body), _, _])) =>
       assert_true(il_count_return_calls(body, FuncIdx::new(2)) > 0)
     _ => fail("expected caller body")
   }
@@ -2594,7 +2597,7 @@ test "inlining rewrites return_call under try_table context" {
     Err(e) => fail("unexpected inlining error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, body), _, _])) =>
+    Some(CodeSec([TFunc(_, _, body), _, _])) =>
       assert_eq(il_count_calls(body, FuncIdx::new(1)), 0)
     _ => fail("expected caller body")
   }
@@ -2629,7 +2632,7 @@ test "inlining hoists tail-call inlining out of try_table context" {
     Err(e) => fail("unexpected inlining error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, body), _, _])) => {
+    Some(CodeSec([TFunc(_, _, body), _, _])) => {
       // Wrapper return_call should be gone and target return_call must remain.
       assert_eq(il_count_return_calls(body, FuncIdx::new(1)), 0)
       assert_true(il_count_return_calls(body, FuncIdx::new(2)) > 0)
@@ -2706,7 +2709,7 @@ test "inlining hoists tail-call-indirect inlining out of try_table context" {
     Err(e) => fail("unexpected inlining error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, body), _, _])) => {
+    Some(CodeSec([TFunc(_, _, body), _, _])) => {
       assert_eq(il_count_return_calls(body, FuncIdx::new(1)), 0)
       assert_true(il_count_return_call_indirects(body) > 0)
       match body.instrs {
@@ -2760,7 +2763,7 @@ test "inlining hoists tail-call-ref inlining out of try_table context" {
     Err(e) => fail("unexpected inlining error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, body), _, _])) => {
+    Some(CodeSec([TFunc(_, _, body), _, _])) => {
       assert_eq(il_count_return_calls(body, FuncIdx::new(1)), 0)
       assert_true(il_count_return_call_refs(body) > 0)
       match body.instrs {
@@ -2813,7 +2816,7 @@ test "inlining hoists multi-value tail-call wrapper out of try_table context" {
   }
   assert_eq(validate_module(optimized), Ok(()))
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, body), _, _])) => {
+    Some(CodeSec([TFunc(_, _, body), _, _])) => {
       assert_eq(il_count_return_calls(body, FuncIdx::new(1)), 0)
       assert_true(il_count_return_calls(body, FuncIdx::new(2)) > 0)
       match body.instrs {
@@ -2882,7 +2885,7 @@ test "inlining hoists multi-value tail-call-indirect wrapper out of try_table co
     Err(e) => fail("unexpected inlining error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, body), _, _])) => {
+    Some(CodeSec([TFunc(_, _, body), _, _])) => {
       assert_eq(il_count_return_calls(body, FuncIdx::new(1)), 0)
       assert_true(il_count_return_call_indirects(body) > 0)
       match body.instrs {
@@ -2950,7 +2953,7 @@ test "inlining hoists multi-value tail-call-ref wrapper out of try_table context
     Err(e) => fail("unexpected inlining error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, body), _, _])) => {
+    Some(CodeSec([TFunc(_, _, body), _, _])) => {
       assert_eq(il_count_return_calls(body, FuncIdx::new(1)), 0)
       assert_true(il_count_return_call_refs(body) > 0)
       match body.instrs {
@@ -3039,7 +3042,7 @@ test "inlining hoists multi-value try-tail wrapper when caller has parameters" {
   }
   assert_eq(validate_module(optimized), Ok(()))
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, body), _, _, _])) => {
+    Some(CodeSec([TFunc(_, _, body), _, _, _])) => {
       assert_eq(il_count_return_calls(body, FuncIdx::new(1)), 0)
       assert_true(il_count_return_calls(body, FuncIdx::new(2)) > 0)
       match body.instrs {
@@ -3127,7 +3130,7 @@ test "inlining synthesizes private zero-param wrapper signature for multi-value 
     None => fail("expected synthesized multi-value wrapper signature")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, body), _, _])) => {
+    Some(CodeSec([TFunc(_, _, body), _, _])) => {
       assert_eq(il_count_return_calls(body, FuncIdx::new(1)), 0)
       assert_true(il_count_return_calls(body, FuncIdx::new(2)) > 0)
       match body.instrs {
@@ -3305,7 +3308,7 @@ test "inlining synthesizes sequential wrapper types for multiple callers" {
     None => fail("expected synthesized i64 wrapper signature")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, body0), TFunc(_, body1), _, _, _, _])) => {
+    Some(CodeSec([TFunc(_, _, body0), TFunc(_, _, body1), _, _, _, _])) => {
       assert_eq(il_count_return_calls(body0, FuncIdx::new(2)), 0)
       assert_true(il_count_return_calls(body0, FuncIdx::new(4)) > 0)
       assert_eq(il_count_return_calls(body1, FuncIdx::new(3)), 0)
@@ -3466,7 +3469,7 @@ test "inlining reuses synthesized wrapper for later callers in same iteration" {
   }
   assert_eq(env.resolve_functype(TypeIdx::new(2)), None)
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, body0), TFunc(_, body1), _, _, _, _])) => {
+    Some(CodeSec([TFunc(_, _, body0), TFunc(_, _, body1), _, _, _, _])) => {
       assert_eq(il_count_return_calls(body0, FuncIdx::new(2)), 0)
       assert_true(il_count_return_calls(body0, FuncIdx::new(4)) > 0)
       assert_eq(il_count_return_calls(body1, FuncIdx::new(3)), 0)
@@ -3680,7 +3683,9 @@ test "inlining mixed reuse does not over-reuse incompatible wrapper signatures" 
     None => fail("expected synthesized i64-only wrapper signature")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, body0), TFunc(_, body1), TFunc(_, body2), ..])) => {
+    Some(
+      CodeSec([TFunc(_, _, body0), TFunc(_, _, body1), TFunc(_, _, body2), ..])
+    ) => {
       match body0.instrs {
         [
           { kind: TInstrKind::TBlock(bt0, _), .. },
@@ -3749,7 +3754,7 @@ test "inlining keeps non-defaultable multi-value results on non-hoist fallback p
   }
   assert_eq(validate_module(optimized), Ok(()))
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, body), _, _])) => {
+    Some(CodeSec([TFunc(_, _, body), _, _])) => {
       assert_eq(il_count_return_calls(body, FuncIdx::new(1)), 0)
       assert_true(il_count_return_calls(body, FuncIdx::new(2)) > 0)
       match body.instrs {
@@ -3866,7 +3871,7 @@ test "inline_main inlines __original_main into main on a single callsite" {
     Err(e) => fail("unexpected inline_main error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, body), _])) =>
+    Some(CodeSec([TFunc(_, _, body), _])) =>
       assert_eq(il_count_direct_calls(body, FuncIdx::new(1)), 0)
     _ => fail("expected main body")
   }
@@ -3898,7 +3903,7 @@ test "inline_main skips when main has zero __original_main callsites" {
     Err(e) => fail("unexpected inline_main error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, body), _])) =>
+    Some(CodeSec([TFunc(_, _, body), _])) =>
       assert_eq(il_count_direct_calls(body, FuncIdx::new(1)), 0)
     _ => fail("expected main body")
   }
@@ -3936,7 +3941,7 @@ test "inline_main skips when main has multiple __original_main callsites" {
     Err(e) => fail("unexpected inline_main error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, body), _])) =>
+    Some(CodeSec([TFunc(_, _, body), _])) =>
       assert_eq(il_count_direct_calls(body, FuncIdx::new(1)), 2)
     _ => fail("expected main body")
   }

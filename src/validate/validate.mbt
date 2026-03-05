@@ -636,13 +636,19 @@ fn validate_func_body_against_functype(
 
   fn canonical_tfunc_locals(
     params : Array[ValType],
+    tfunc_params : Array[ValType],
     local_vals : Array[ValType],
     texpr : TExpr,
   ) -> Array[ValType] {
-    if local_vals.length() >= params.length() {
+    let effective_params = if tfunc_params.is_empty() {
+      params
+    } else {
+      tfunc_params
+    }
+    if local_vals.length() >= effective_params.length() {
       let mut has_prefix = true
-      for i in 0..<params.length() {
-        if local_vals[i] != params[i] {
+      for i in 0..<effective_params.length() {
+        if local_vals[i] != effective_params[i] {
           has_prefix = false
           break
         }
@@ -656,7 +662,7 @@ fn validate_func_body_against_functype(
     }
     // Backward compatibility for legacy typed-func shape where
     // `local_vals` omits parameters.
-    params + local_vals
+    effective_params + local_vals
   }
 
   let FuncType(params, results) = ft
@@ -711,8 +717,10 @@ fn validate_func_body_against_functype(
       }
       Ok(())
     }
-    TFunc(local_vals, texpr) => {
-      let all_locals = canonical_tfunc_locals(params, local_vals, texpr)
+    TFunc(tfunc_params, local_vals, texpr) => {
+      let all_locals = canonical_tfunc_locals(
+        params, tfunc_params, local_vals, texpr,
+      )
       let env1 = env
         .with_locals(all_locals)
         .with_labels(
@@ -1250,7 +1258,8 @@ fn instr_uses_bulk_memory_data_count(ins : Instruction) -> Bool {
 fn func_uses_bulk_memory_data_count(func : Func) -> Bool {
   match func {
     Func(_, expr) => expr_uses_bulk_memory_data_count(expr)
-    TFunc(_, texpr) => expr_uses_bulk_memory_data_count(TExpr::to_expr(texpr))
+    TFunc(_, _, texpr) =>
+      expr_uses_bulk_memory_data_count(TExpr::to_expr(texpr))
   }
 }
 

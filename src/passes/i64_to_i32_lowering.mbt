@@ -2572,7 +2572,7 @@ fn i64l_rewrite_one_func(
     i64l_is_i64(old_results[0])
   match func {
     Func(_, _) => Ok(func)
-    TFunc(locals, body) => {
+    TFunc(_, locals, body) => {
       let low_map : Array[LocalIdx] = []
       let high_map : Array[LocalIdx?] = []
       let mut next_abs = 0
@@ -2943,6 +2943,7 @@ test "i64_to_i32_lowering lowers i64 globals and global.get/global.set" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [{ kind: TInstrKind::TBlock(_, { instrs, .. }), .. }],
@@ -3008,7 +3009,7 @@ test "i64_to_i32_lowering lowers local i64 get/set and i64.add" {
     _ => fail("expected lowered function type")
   }
   match lowered.code_sec {
-    Some(CodeSec([TFunc(locals, _)])) => {
+    Some(CodeSec([TFunc(_, locals, _)])) => {
       // original local i64 split + stash + temps
       assert_true(locals.length() >= 3)
       assert_eq(locals[0], ValType::i32())
@@ -3098,6 +3099,7 @@ test "i64_to_i32_lowering lowers call i64 args and results" {
         [
           _,
           TFunc(
+            [],
             _,
             {
               instrs: [{ kind: TInstrKind::TBlock(_, { instrs, .. }), .. }],
@@ -3148,7 +3150,7 @@ test "i64_to_i32_lowering lowers i64 load and store" {
     Err(e) => fail("unexpected i64_to_i32_lowering error: \{e}")
   }
   match lowered.code_sec {
-    Some(CodeSec([TFunc(_, { instrs, .. })])) => {
+    Some(CodeSec([TFunc(_, _, { instrs, .. })])) => {
       assert_true(instrs.length() == 2)
       match instrs[0].kind {
         TInstrKind::TBlock(_, { instrs: seq, .. }) => {
@@ -3192,6 +3194,7 @@ test "i64_to_i32_lowering lowers typed i64 select" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [{ kind: TInstrKind::TBlock(_, { instrs: seq, .. }), .. }],
@@ -3239,7 +3242,7 @@ test "i64_to_i32_lowering lowers untyped i64 select" {
   match lowered.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [{ kind: TInstrKind::TBlock(_, _), .. }], .. })]
+        [TFunc([], _, { instrs: [{ kind: TInstrKind::TBlock(_, _), .. }], .. })]
       )
     ) => ()
     _ => fail("expected untyped i64 select to lower to block form")
@@ -3336,6 +3339,7 @@ test "i64_to_i32_lowering lowers call_ref i64 args and results" {
         [
           _,
           TFunc(
+            [],
             _,
             {
               instrs: [{ kind: TInstrKind::TBlock(_, { instrs, .. }), .. }],
@@ -3477,7 +3481,8 @@ test "i64_to_i32_lowering preserves explicit i64 return without extra tail wrap"
     Err(e) => fail("unexpected i64_to_i32_lowering error: \{e}")
   }
   match lowered.code_sec {
-    Some(CodeSec([TFunc(_, { instrs, .. })])) => assert_eq(instrs.length(), 1)
+    Some(CodeSec([TFunc(_, _, { instrs, .. })])) =>
+      assert_eq(instrs.length(), 1)
     _ => fail("expected lowered function")
   }
 }
@@ -3508,7 +3513,7 @@ test "i64_to_i32_lowering handles implicit i64 return from typeidx block" {
     Err(e) => fail("unexpected i64_to_i32_lowering error: \{e}")
   }
   match lowered.code_sec {
-    Some(CodeSec([TFunc(_, { instrs, .. })])) => {
+    Some(CodeSec([TFunc(_, _, { instrs, .. })])) => {
       let mut saw_high_set = false
       let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, i) {
         if i.kind is TInstrKind::TGlobalSet(GlobalIdx(0), _) {

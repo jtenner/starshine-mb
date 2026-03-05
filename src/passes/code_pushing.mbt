@@ -41,6 +41,9 @@ const CP_TRACE_PROGRESS_INTERVAL : Int = 4096
 const CP_TRACE_PROGRESS_INTERVAL_MS : UInt64 = 250UL
 
 ///|
+const CP_MAX_NESTED_WALK_DEPTH : Int = 256
+
+///|
 fn cp_trace_noop(_ : String) -> Unit {
   ()
 }
@@ -195,7 +198,7 @@ fn analyze_function(func : Func) -> LocalAnalyzer {
     Func(_, _) =>
       // For non-TFunc, we can't analyze
       LocalAnalyzer::new(0)
-    TFunc(params, body) => {
+    TFunc(_, params, body) => {
       let num_locals = params.length()
       let analyzer = LocalAnalyzer::new(num_locals)
 
@@ -723,6 +726,10 @@ fn optimize_segment(
   push_point : Int,
   state : PushingState,
 ) -> (Int, Int) {
+  if push_point < 0 || push_point >= list.length() {
+    return (list.length(), 0)
+  }
+
   // Collect effects of the push point
   let cumulative_effects = analyze_effects(list[push_point])
 
@@ -819,15 +826,20 @@ fn optimize_into_if(
   first_pushable : Int,
   push_point : Int,
   state : PushingState,
-) -> Int {
+) -> (Int, Int) {
+  if push_point < 0 || push_point >= list.length() {
+    return (0, list.length())
+  }
+
   // Check if push point is an if
   let iff = match list[push_point].kind {
     TInstrKind::TIf(bt, cond, then_body, else_body) =>
       (bt, cond, then_body, else_body)
-    _ => return 0
+    _ => return (0, push_point)
   }
   let (bt, cond, then_body, else_body_opt) = iff
   let pushed_count = Ref::new(0)
+  let current_push_point = Ref::new(push_point)
 
   // Effects of the condition (must push past this)
   let cumulative_effects = analyze_effects(cond)
@@ -860,11 +872,26 @@ fn optimize_into_if(
 
         // Try to push into if-true arm
         let pushed = try_push_into_arm(
-          list, i, idx, value, then_body, else_body_opt, if_true_effects, if_false_effects,
-          post_if_effects, state, bt, cond, push_point, true,
+          list,
+          i,
+          idx,
+          value,
+          then_body,
+          else_body_opt,
+          if_true_effects,
+          if_false_effects,
+          post_if_effects,
+          state,
+          bt,
+          cond,
+          current_push_point.val,
+          true,
         )
         if pushed {
           pushed_count.update(fn(n) { n + 1 })
+          if i < current_push_point.val {
+            current_push_point.val -= 1
+          }
           // Update cumulative effects with what we just pushed
           if_true_effects.merge(effects)
           i -= 1
@@ -887,11 +914,14 @@ fn optimize_into_if(
               state,
               bt,
               cond,
-              push_point,
+              current_push_point.val,
               false,
             )
             if pushed2 {
               pushed_count.update(fn(n) { n + 1 })
+              if i < current_push_point.val {
+                current_push_point.val -= 1
+              }
               if_false_effects.merge(effects)
               i -= 1
               continue
@@ -907,7 +937,7 @@ fn optimize_into_if(
     }
     i -= 1
   }
-  pushed_count.val
+  (pushed_count.val, current_push_point.val)
 }
 
 ///|
@@ -935,6 +965,13 @@ fn try_push_into_arm(
   push_point : Int,
   is_then : Bool,
 ) -> Bool {
+  if set_idx < 0 ||
+    set_idx >= list.length() ||
+    push_point < 0 ||
+    push_point >= list.length() {
+    return false
+  }
+
   // The arm must read this local
   if not(arm_effects.reads_locals.contains(local_idx)) {
     return false
@@ -1055,7 +1092,9 @@ fn push_code_in_block(
       }
       // Optimize into if first (doesn't move push point)
       let if_start_ms = sl_trace_now_ms()
-      let if_pushes = optimize_into_if(list, first_pushable, i, state)
+      let (if_pushes, current_push_point) = optimize_into_if(
+        list, first_pushable, i, state,
+      )
       stats.if_arm_pushes += if_pushes
       if trace_ctx.log_func {
         (trace_ctx.trace)(
@@ -1063,10 +1102,10 @@ fn push_code_in_block(
         )
       }
       // Then optimize segment (may move things past push point)
-      if i < list.length() - 1 {
+      if current_push_point < list.length() - 1 {
         let segment_start_ms = sl_trace_now_ms()
         let (next_i, pushed_instrs) = optimize_segment(
-          list, first_pushable, i, state,
+          list, first_pushable, current_push_point, state,
         )
         if pushed_instrs > 0 {
           stats.segment_pushes += 1
@@ -1080,7 +1119,7 @@ fn push_code_in_block(
         i = next_i
       } else if trace_ctx.log_func {
         (trace_ctx.trace)(
-          "func[\{trace_ctx.ordinal}] phase=\{phase} segment skipped depth=\{depth} block=\{block_id} idx=\{i} reason=push_point_at_end",
+          "func[\{trace_ctx.ordinal}] phase=\{phase} segment skipped depth=\{depth} block=\{block_id} idx=\{current_push_point} reason=push_point_at_end",
         )
       }
       first_pushable = nothing
@@ -1121,7 +1160,7 @@ fn code_pushing_pass_with_trace(
         }
         unchanged()
       }
-      TFunc(params, body) => {
+      TFunc(_, params, body) => {
         let num_locals = params.length()
         if log_func {
           trace(
@@ -1213,6 +1252,15 @@ fn cp_process_child_expr(
   site_kind : String,
   parent_idx : Int,
 ) -> TExpr {
+  if depth >= CP_MAX_NESTED_WALK_DEPTH {
+    if trace_ctx.log_func {
+      (trace_ctx.trace)(
+        "func[\{trace_ctx.ordinal}] phase=nested_visit skip kind=\{site_kind} depth=\{depth} parent_idx=\{parent_idx} reason=max_depth_reached limit=\{CP_MAX_NESTED_WALK_DEPTH}",
+      )
+    }
+    return body
+  }
+
   let site_start_ms = sl_trace_now_ms()
   let body_instrs = body.instrs.copy()
   if trace_ctx.log_func {
@@ -1240,6 +1288,15 @@ fn process_nested_blocks(
   trace_ctx : CodePushingTraceCtx,
   depth : Int,
 ) -> Unit {
+  if depth >= CP_MAX_NESTED_WALK_DEPTH {
+    if trace_ctx.log_func {
+      (trace_ctx.trace)(
+        "func[\{trace_ctx.ordinal}] phase=nested_walk skip depth=\{depth} reason=max_depth_reached limit=\{CP_MAX_NESTED_WALK_DEPTH}",
+      )
+    }
+    return
+  }
+
   let phase_start_ms = sl_trace_now_ms()
   let last_progress_ms = Ref::new(phase_start_ms)
   let block_id = trace_ctx.next_block_id
@@ -1479,6 +1536,70 @@ test "code_pushing_pass leaves empty function unchanged" {
       match handler(pass, (), f) {
         Ok(None) => ()
         _ => fail("expected unchanged (Ok(None))")
+      }
+    None => fail("expected handler")
+  }
+}
+
+///|
+test "code_pushing handles multiple sets before terminal if" {
+  let pass = code_pushing_pass()
+  let x = LocalIdx::new(0)
+  let y = LocalIdx::new(1)
+  let body = TExpr::new([
+    TInstr::local_set(x, TInstr::i32_const(I32(1))),
+    TInstr::local_set(y, TInstr::i32_const(I32(2))),
+    TInstr::if_(
+      BlockType::void_(),
+      TInstr::i32_const(I32(1)),
+      TExpr::new([
+        TInstr::drop(TInstr::local_get(x)),
+        TInstr::drop(TInstr::local_get(y)),
+      ]),
+      None,
+    ),
+  ])
+  let f = Func::t_func([ValType::i32(), ValType::i32()], body)
+  match pass.on_func {
+    Some(handler) =>
+      match handler(pass, (), f) {
+        Ok(Some((_, TFunc(_, _, out_body)))) => {
+          let mut saw_if = false
+          for instr in out_body.instrs {
+            match instr.kind {
+              TInstrKind::TNop => fail("unexpected nop after code pushing")
+              TInstrKind::TIf(_, _, then_body, _) => {
+                saw_if = true
+                assert_true(then_body.instrs.length() >= 2)
+              }
+              _ => ()
+            }
+          }
+          assert_true(saw_if)
+        }
+        Ok(Some(_)) => fail("expected typed function result")
+        Ok(None) => fail("expected code pushing to rewrite function")
+        Err(e) => fail("unexpected code_pushing error: \{e}")
+      }
+    None => fail("expected handler")
+  }
+}
+
+///|
+test "code_pushing handles very deep nested blocks" {
+  let nested = TExpr::new([TInstr::drop(TInstr::local_get(LocalIdx::new(0)))])
+  let mut deep = nested
+  for _ in 0..<(CP_MAX_NESTED_WALK_DEPTH + 32) {
+    deep = TExpr::new([TInstr::block(BlockType::void_(), deep)])
+  }
+
+  let pass = code_pushing_pass()
+  let f = Func::t_func([ValType::i32()], deep)
+  match pass.on_func {
+    Some(handler) =>
+      match handler(pass, (), f) {
+        Ok(_) => ()
+        Err(e) => fail("unexpected code_pushing deep-nesting error: \{e}")
       }
     None => fail("expected handler")
   }

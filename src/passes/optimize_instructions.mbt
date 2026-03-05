@@ -4284,7 +4284,7 @@ fn optimize_instructions_on_func(
   base_env : Env,
 ) -> (Func, OITransformStats) {
   match func {
-    TFunc(locals, body) => {
+    TFunc(_, locals, body) => {
       let top_instrs = body.instrs.length()
       if top_instrs > 25000 {
         return (
@@ -4440,11 +4440,11 @@ fn optimize_instructions_ir_pass(
     let ordinal = seen_funcs
     let log_func = trace_all_funcs || ordinal <= 5 || ordinal % 50 == 0
     let top_instrs = match func {
-      TFunc(_, body) => body.instrs.length()
+      TFunc(_, _, body) => body.instrs.length()
       _ => 0
     }
     let locals_count = match func {
-      TFunc(locals, _) => locals.length()
+      TFunc(_, locals, _) => locals.length()
       _ => 0
     }
     let tracked_words = oi_local_bit_words_tracked(locals_count)
@@ -4525,7 +4525,7 @@ fn oi_run_func(
   }
   let out = oi_run_module(mod_, options~)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, out_body)])) => out_body
+    Some(CodeSec([TFunc(_, _, out_body)])) => out_body
     _ => abort("expected one transformed function")
   }
 }
@@ -5441,6 +5441,7 @@ test "optimize instructions call_ref direct simplifications" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             { instrs: [{ kind: TInstrKind::TCall(FuncIdx(raw), _), .. }], .. }
           ),

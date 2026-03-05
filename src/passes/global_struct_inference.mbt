@@ -952,7 +952,7 @@ fn gsi_rewrite_func(
 ) -> TransformerResult[GSIRewriteState, Func] {
   match func {
     Func(_, _) => unchanged()
-    TFunc(locals, body) => {
+    TFunc(_, locals, body) => {
       let local_state = GSIRewriteState::{
         ..state,
         env: state.env.with_locals(locals),
@@ -1008,7 +1008,7 @@ fn analyze_global_struct_inference(mod : Module) -> Result[GSIAnalysis, String] 
     Some(CodeSec(funcs)) =>
       for func in funcs {
         match func {
-          TFunc(_, body) =>
+          TFunc(_, _, body) =>
             gsi_collect_struct_types_in_texpr(body, created_in_funcs)
           Func(_, _) => return Err("global_struct_inference: expected TFunc")
         }
@@ -1145,6 +1145,7 @@ test "global struct inference rewrites struct.get from singleton inferred global
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1237,6 +1238,7 @@ test "global struct inference rewrites two-value struct.get to select with ref.e
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1330,6 +1332,7 @@ test "global struct inference groups >2 globals into two values" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1412,6 +1415,7 @@ test "global struct inference handles non-null struct.get operands without ref.a
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1505,6 +1509,7 @@ test "global struct inference propagates globals through supertypes" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1575,7 +1580,7 @@ test "global struct inference does not optimize mutable struct fields" {
     Err(e) => fail("unexpected global_struct_inference error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [instr], .. })])) =>
+    Some(CodeSec([TFunc(_, _, { instrs: [instr], .. })])) =>
       assert_eq(instr, get_instr)
     _ => fail("expected unoptimized mutable-field struct.get")
   }
@@ -1624,7 +1629,7 @@ test "global struct inference does not optimize when struct type is created in c
     Err(e) => fail("unexpected global_struct_inference error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([_, TFunc(_, { instrs: [instr], .. })])) =>
+    Some(CodeSec([_, TFunc(_, _, { instrs: [instr], .. })])) =>
       assert_eq(instr, get_instr)
     _ =>
       fail(
@@ -1666,7 +1671,7 @@ test "global struct inference does not optimize when source global is mutable" {
     Err(e) => fail("unexpected global_struct_inference error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [instr], .. })])) =>
+    Some(CodeSec([TFunc(_, _, { instrs: [instr], .. })])) =>
       assert_eq(instr, get_instr)
     _ => fail("expected unoptimized struct.get for mutable source global")
   }
@@ -1719,7 +1724,7 @@ test "global struct inference does not optimize with more than two unique values
     Err(e) => fail("unexpected global_struct_inference error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [instr], .. })])) =>
+    Some(CodeSec([TFunc(_, _, { instrs: [instr], .. })])) =>
       assert_eq(instr, get_instr)
     _ => fail("expected unoptimized struct.get with >2 distinct values")
   }
@@ -1768,6 +1773,7 @@ test "global struct inference folds direct immutable global struct.get to consta
       CodeSec(
         [
           TFunc(
+            [],
             _,
             { instrs: [{ kind: TInstrKind::TI32Const(I32(v)), .. }], .. }
           ),
@@ -1835,6 +1841,7 @@ test "global struct inference rewrites singleton non-constant values via known g
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1947,6 +1954,7 @@ test "global struct inference rewrites non-constant two-value case to select" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -2041,7 +2049,7 @@ test "global struct inference avoids direct-global non-constant pessimization" {
     Err(e) => fail("unexpected global_struct_inference error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [instr], .. })])) =>
+    Some(CodeSec([TFunc(_, _, { instrs: [instr], .. })])) =>
       assert_eq(instr, get_instr)
     _ => fail("expected direct-global non-constant read to stay unchanged")
   }
@@ -2097,6 +2105,7 @@ test "global struct inference handles struct.get_u defaults for packed fields" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -2167,7 +2176,7 @@ test "global struct inference does not optimize non-eqref declared globals" {
     Err(e) => fail("unexpected global_struct_inference error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [instr], .. })])) =>
+    Some(CodeSec([TFunc(_, _, { instrs: [instr], .. })])) =>
       assert_eq(instr, get_instr)
     _ => fail("expected no rewrite for non-eqref declared source global")
   }
@@ -2224,7 +2233,7 @@ test "global struct inference propagates unoptimizable subtypes to supertypes" {
     Err(e) => fail("unexpected global_struct_inference error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([_, TFunc(_, { instrs: [instr], .. })])) =>
+    Some(CodeSec([_, TFunc(_, _, { instrs: [instr], .. })])) =>
       assert_eq(instr, get_instr)
     _ =>
       fail(
@@ -2275,6 +2284,7 @@ test "global struct inference descriptor mode rewrites singleton non-null ref.ca
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -2344,6 +2354,7 @@ test "global struct inference descriptor mode rewrites singleton nullable ref.ca
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -2416,7 +2427,7 @@ test "global struct inference descriptor mode requires no strict subtypes" {
   match optimized.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [{ kind: TInstrKind::TDrop(instr), .. }], .. })]
+        [TFunc([], _, { instrs: [{ kind: TInstrKind::TDrop(instr), .. }], .. })]
       )
     ) => assert_eq(instr, cast_instr)
     _ =>
@@ -2459,6 +2470,7 @@ test "global struct inference descriptor mode rewrites ref.get_desc with singlet
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -2553,6 +2565,7 @@ test "global struct inference descriptor mode rewrites ref.get_desc with select 
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [

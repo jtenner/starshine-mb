@@ -760,7 +760,7 @@ fn rse_optimize_function(
   param_types : Array[ValType],
 ) -> (Func, Bool) {
   match func {
-    TFunc(locals, body) => {
+    TFunc(_, locals, body) => {
       let all_locals = param_types.copy()
       for local_ in locals {
         all_locals.push(local_)
@@ -843,7 +843,7 @@ fn rse_first_body(mod : Module) -> TExpr raise {
   match mod.code_sec {
     Some(CodeSec(funcs)) =>
       match funcs.get(0) {
-        Some(TFunc(_, body)) => body
+        Some(TFunc(_, _, body)) => body
         _ => fail("expected first function body")
       }
     _ => fail("expected code section")

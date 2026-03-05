@@ -1114,6 +1114,7 @@ test "reorder_types reorders private rec-group members and remaps TypeIdx uses" 
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [

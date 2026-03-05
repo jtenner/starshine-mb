@@ -637,7 +637,7 @@ fn pick_load_signs_on_func(
       }
       Ok(func)
     }
-    TFunc(locals, body) => {
+    TFunc(_, locals, body) => {
       let candidate_count = Ref::new(0)
       if log_func {
         trace(
@@ -751,6 +751,7 @@ test "pick_load_signs picks unsigned for i32.load8 when unsigned dominates" {
   let out = pls_run_func(func)
   match out {
     TFunc(
+      [],
       _,
       {
         instrs: [
@@ -800,6 +801,7 @@ test "pick_load_signs picks signed when signed uses are weighted higher" {
   let out = pls_run_func(func)
   match out {
     TFunc(
+      [],
       _,
       {
         instrs: [
@@ -847,6 +849,7 @@ test "pick_load_signs requires all loc.get uses to be sign-or-zero extensions" {
   let out = pls_run_func(func)
   match out {
     TFunc(
+      [],
       _,
       {
         instrs: [
@@ -889,6 +892,7 @@ test "pick_load_signs requires extension bits to match load bits" {
   let out = pls_run_func(func)
   match out {
     TFunc(
+      [],
       _,
       {
         instrs: [
@@ -933,6 +937,7 @@ test "pick_load_signs rejects inconsistent signed extension widths" {
   let out = pls_run_func(func)
   match out {
     TFunc(
+      [],
       _,
       {
         instrs: [
@@ -983,6 +988,7 @@ test "pick_load_signs recognizes nested shift-based zero extension on grandparen
   let out = pls_run_func(func)
   match out {
     TFunc(
+      [],
       _,
       {
         instrs: [
@@ -1030,6 +1036,7 @@ test "pick_load_signs ignores loc.tee load producers" {
   let out = pls_run_func(func)
   match out {
     TFunc(
+      [],
       _,
       {
         instrs: [
@@ -1074,6 +1081,7 @@ test "pick_load_signs skips loads with no loc.get usages" {
   let out = pls_run_func(func)
   match out {
     TFunc(
+      [],
       _,
       {
         instrs: [
@@ -1115,6 +1123,7 @@ test "pick_load_signs rewrites i64.load32 based on i64.extend32_s usage" {
   let out = pls_run_func(func)
   match out {
     TFunc(
+      [],
       _,
       {
         instrs: [
@@ -1160,6 +1169,7 @@ test "pick_load_signs rewrites i64.load32 to unsigned for i64.and mask usage" {
   let out = pls_run_func(func)
   match out {
     TFunc(
+      [],
       _,
       {
         instrs: [
@@ -1222,7 +1232,7 @@ test "pick_load_signs rewrites all candidate loads mapped to the same loc" {
   let func = Func::t_func([ValType::i32()], body)
   let out = pls_run_func(func)
   match out {
-    TFunc(_, { instrs, .. }) => {
+    TFunc(_, _, { instrs, .. }) => {
       let mut signed_count = 0
       let mut unsigned_count = 0
       for instr in instrs {

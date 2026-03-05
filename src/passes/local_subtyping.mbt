@@ -797,7 +797,7 @@ fn local_subtyping(mod : Module) -> Result[Module, String] {
           imported_funcs + i.reinterpret_as_uint(),
         )
         match funcs[i] {
-          TFunc(locals, body) => {
+          TFunc(_, locals, body) => {
             let params = match env.get_functype_by_funcidx(func_abs_idx) {
               Some(FuncType(ps, _)) => ps
               None => []
@@ -864,7 +864,7 @@ test "local subtyping basic lub refinement and module validation" {
   )
   let out = run_local_subtyping(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc([vt], _)])) =>
+    Some(CodeSec([TFunc(_, [vt], _)])) =>
       assert_eq(
         vt,
         ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(0)))),
@@ -888,7 +888,7 @@ test "local subtyping allows non-nullable refinement when safely dominated" {
   )
   let out = run_local_subtyping(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc([RefTypeValType(rt)], _)])) =>
+    Some(CodeSec([TFunc(_, [RefTypeValType(rt)], _)])) =>
       assert_false(rt.is_nullable())
     _ => fail("expected refined ref local")
   }
@@ -906,7 +906,7 @@ test "local subtyping rejects non-nullable refinement when default can be observ
   )
   let out = run_local_subtyping(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc([RefTypeValType(rt)], _)])) =>
+    Some(CodeSec([TFunc(_, [RefTypeValType(rt)], _)])) =>
       assert_true(rt.is_nullable())
     _ => fail("expected transformed function")
   }
@@ -930,7 +930,7 @@ test "local subtyping rejects non-nullable refinement when dominance fails acros
   )
   let out = run_local_subtyping(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc([RefTypeValType(rt)], _)])) =>
+    Some(CodeSec([TFunc(_, [RefTypeValType(rt)], _)])) =>
       assert_true(rt.is_nullable())
     _ => fail("expected transformed function")
   }
@@ -950,7 +950,7 @@ test "local subtyping defaultability guard keeps incompatible non-defaultable ty
   )
   let out = run_local_subtyping(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc([vt], _)])) => assert_eq(vt, non_null_funcref)
+    Some(CodeSec([TFunc(_, [vt], _)])) => assert_eq(vt, non_null_funcref)
     _ => fail("expected transformed function")
   }
 }
@@ -971,6 +971,7 @@ test "local subtyping includes local tee assignments in refinement" {
       CodeSec(
         [
           TFunc(
+            [],
             [RefTypeValType(rt)],
             {
               instrs: [
@@ -1004,7 +1005,7 @@ test "local subtyping iterates to convergence across local-get dependency chain"
   )
   let out = run_local_subtyping(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc([vt0, vt1, vt2], _)])) =>
+    Some(CodeSec([TFunc(_, [vt0, vt1, vt2], _)])) =>
       match (vt0, vt1, vt2) {
         (RefTypeValType(r0), RefTypeValType(r1), RefTypeValType(r2)) => {
           assert_false(r0.is_nullable())
@@ -1038,7 +1039,7 @@ test "local subtyping ignores locals without sets" {
   )
   let out = run_local_subtyping(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc([vt], _)])) => assert_eq(vt, ValType::anyref())
+    Some(CodeSec([TFunc(_, [vt], _)])) => assert_eq(vt, ValType::anyref())
     _ => fail("expected one function")
   }
 }

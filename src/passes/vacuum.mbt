@@ -50,6 +50,50 @@ fn vq_collect_func_sigs(mod : Module) -> Array[VQFuncSig] {
 }
 
 ///|
+fn vq_max_local_idx_used(texpr : TExpr) -> Int {
+  let max_idx = Ref::new(-1)
+  let walker = ModuleTransformer::new().on_localidx_evt(fn(_, _, idx) {
+    let raw = idx.0.reinterpret_as_int()
+    if raw > max_idx.val {
+      max_idx.val = raw
+    }
+    Ok(None)
+  })
+  ignore(walker.walk_texpr((), texpr))
+  max_idx.val
+}
+
+///|
+fn vq_canonical_tfunc_locals(
+  sig_params : Array[ValType],
+  tfunc_params : Array[ValType],
+  locals : Array[ValType],
+  body : TExpr,
+) -> Array[ValType] {
+  let effective_params = if tfunc_params.is_empty() {
+    sig_params
+  } else {
+    tfunc_params
+  }
+  if locals.length() >= effective_params.length() {
+    let mut has_prefix = true
+    for i in 0..<effective_params.length() {
+      if locals[i] != effective_params[i] {
+        has_prefix = false
+        break
+      }
+    }
+    if has_prefix {
+      let max_idx = vq_max_local_idx_used(body)
+      if max_idx < locals.length() {
+        return locals.copy()
+      }
+    }
+  }
+  effective_params + locals
+}
+
+///|
 fn vq_type_of(instr : TInstr, env : Env) -> ValType? {
   lcs_infer_tinstr_type(instr, env)
 }
@@ -489,7 +533,7 @@ fn vq_function_shape_text(func : Func, sig : VQFuncSig) -> String {
   let out = StringBuilder::new()
   match func {
     Func(_) => out.write_string("non-typed-func\n")
-    TFunc(locals, body) => {
+    TFunc(_, locals, body) => {
       out.write_string(
         "params=\{sig.params.length()} results=\{sig.results.length()} locals=\{locals.length()} top_instrs=\{body.instrs.length()}\n",
       )
@@ -525,7 +569,7 @@ fn vq_emit_top_level_diff_trace(
 ) -> Unit {
   let label = vq_target_func_label(def_idx)
   match (before, after) {
-    (TFunc(_, before_body), TFunc(_, after_body)) => {
+    (TFunc(_, _, before_body), TFunc(_, _, after_body)) => {
       if before_body.instrs.length() != after_body.instrs.length() {
         trace(
           "\{label} top-level-len before=\{before_body.instrs.length()} after=\{after_body.instrs.length()}",
@@ -1058,7 +1102,16 @@ fn vq_optimize_sequence(
               } else {
                 changed = true
               }
-            _ => changed = true
+            _ =>
+              match
+                (
+                  vq_type_of_cached(child, env, type_cache),
+                  vq_stack_sig_instr(child, env),
+                ) {
+                (Some(_), _) => out.push(child)
+                (_, Some(sig)) if !sig.reachable => out.push(child)
+                _ => changed = true
+              }
           }
         }
       Some(next) => {
@@ -1512,9 +1565,15 @@ fn vq_optimize_function(
       }
       (func, false)
     }
-    TFunc(locals, body) => {
+    TFunc(tfunc_params, locals, body) => {
+      let canonical_locals = vq_canonical_tfunc_locals(
+        sig.params,
+        tfunc_params,
+        locals,
+        body,
+      )
       let top_instrs = body.instrs.length()
-      let num_locals = locals.length()
+      let num_locals = canonical_locals.length()
 
       if trace_all_funcs || ordinal <= 100 || ordinal % 300 == 0 {
         trace(
@@ -1522,11 +1581,7 @@ fn vq_optimize_function(
         )
       }
 
-      let all_locals = sig.params.copy()
-      for local_ in locals {
-        all_locals.push(local_)
-      }
-      let env = Env::new().with_module(mod).with_locals(all_locals)
+      let env = Env::new().with_module(mod).with_locals(canonical_locals)
 
       let type_cache : Map[UInt64, ValType?] = Map::new()
       let effect_cache : Map[UInt64, Bool] = Map::new()
@@ -1552,17 +1607,17 @@ fn vq_optimize_function(
       }
       let next_body = TExpr::new(next_items)
 
-      let mut changed = sequence.changed
+      let mut changed = sequence.changed || canonical_locals != locals
       if sig.results.length() == 0 &&
         !vq_texpr_has_unremovable_side_effects(next_body, effect_cache) {
-        let nopped = Func::t_func(locals, TExpr::new([TInstr::nop()]))
+        let nopped = Func::t_func(canonical_locals, TExpr::new([TInstr::nop()]))
         changed = true
         if trace_all_funcs || ordinal <= 100 || ordinal % 300 == 0 {
           trace("func[\{ordinal}] vacuum nopped=true budget_left=\{budget.val}")
         }
         (nopped, changed)
       } else {
-        let next_func = Func::t_func(locals, next_body)
+        let next_func = Func::t_func(canonical_locals, next_body)
         if trace_all_funcs || ordinal <= 100 || ordinal % 300 == 0 {
           trace(
             "func[\{ordinal}] vacuum done changed=\{changed} budget_left=\{budget.val}",
@@ -1597,7 +1652,7 @@ fn vacuum_ir_pass_with_trace(
       ordinal % 500 == 0 ||
       trace_target
     let start_instrs = match func {
-      TFunc(_, body) => body.instrs.length()
+      TFunc(_, _, body) => body.instrs.length()
       _ => 0
     }
     if log_func {
@@ -1615,7 +1670,7 @@ fn vacuum_ir_pass_with_trace(
       vq_emit_function_shape_trace(trace, def_idx, "after", next_func, sig)
     }
     let end_instrs = match next_func {
-      TFunc(_, body) => body.instrs.length()
+      TFunc(_, _, body) => body.instrs.length()
       _ => 0
     }
     if log_func {
@@ -1649,7 +1704,7 @@ fn run_vacuum(mod : Module) -> Module {
 ///|
 fn vq_first_func_body(mod : Module) -> TExpr {
   match mod.code_sec {
-    Some(CodeSec([TFunc(_, body), ..])) => body
+    Some(CodeSec([TFunc(_, _, body), ..])) => body
     _ => abort("expected first typed function body")
   }
 }
@@ -2328,6 +2383,77 @@ test "vacuum preserves child stack signatures under local.set" {
       fail(
         "expected local.set child stack signature to be preserved after vacuum: \{e}",
       )
+  }
+}
+
+///|
+test "vacuum keeps stack-feeding sibling values with unknown stack signatures" {
+  let t_result = single_rec_type(
+    comp_type_sub_type(func_comp_type([ValType::i32()], [ValType::i32()])),
+  )
+  let t_void = single_rec_type(
+    comp_type_sub_type(func_comp_type([ValType::i32()], [])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_result, t_void]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
+    .with_mem_sec(MemSec::new([MemType::new(Limits::i32(1, None))]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32()],
+          TExpr::new([
+            TInstr::memory_size(MemIdx::new(0)),
+            TInstr::local_set(LocalIdx::new(1), TInstr::i32_const(I32(7))),
+            TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
+          ]),
+        ),
+        Func::t_func([], TExpr::new([TInstr::nop()])),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_vacuum(mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected unknown-signature stack feeder to survive vacuum validation: \{e}",
+      )
+  }
+}
+
+///|
+test "vacuum emits canonical full locals after rewriting typed legacy locals" {
+  let t_result = single_rec_type(
+    comp_type_sub_type(func_comp_type([ValType::i32()], [ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_result]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32()],
+          TExpr::new([
+            TInstr::drop(TInstr::i32_const(I32(1))),
+            TInstr::local_get(LocalIdx::new(1)),
+          ]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_vacuum(mod)
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, locals, _)])) => {
+      assert_eq(locals.length(), 2)
+      assert_eq(locals[0], ValType::i32())
+      assert_eq(locals[1], ValType::i32())
+    }
+    _ => fail("expected single typed function in output module")
+  }
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) => fail("expected canonicalized vacuum output to validate: \{e}")
   }
 }
 

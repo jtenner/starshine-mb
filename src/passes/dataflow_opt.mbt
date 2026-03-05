@@ -141,7 +141,7 @@ fn dataflow_optimization_pass(
     let log_func = trace_all_funcs || ordinal <= 5 || ordinal % 500 == 0
     match func {
       Func(_) => Err("Expected TFunc")
-      TFunc(locals, body) => {
+      TFunc(_, locals, body) => {
         let abs_idx = imported_funcs + ordinal - 1
         let params = match
           env.get_functype_by_funcidx(

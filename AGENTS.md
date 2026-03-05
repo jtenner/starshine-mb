@@ -17,7 +17,7 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
 - Prefer constructor methods over open-struct literals.
 - Put deprecated code in `deprecated.mbt` with `#deprecated` markers.
 - If optimization state is reusable, put it in `IRContext` instead of threading extra parameters.
-- Pass constructor parameters should be immutable and captured in `ModuleTransformer` event closures.
+- Pass constructor parameters should be immutable and captured in `ModuleTransformer` event closures.s
 
 ## Tooling
 - Format: `moon fmt`

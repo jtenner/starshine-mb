@@ -101,7 +101,7 @@ fn rl_remap_local_indices(
 ///|
 fn rl_reorder_function(func : Func, param_count : Int) -> (Func, Bool) {
   match func {
-    TFunc(locals, body) => {
+    TFunc(_, locals, body) => {
       if locals.is_empty() {
         return (func, false)
       }
@@ -226,7 +226,7 @@ test "reorder_locals reorders vars by use count then first use and drops unused 
   )
   let out = run_reorder_locals(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(locals, { instrs, .. })])) => {
+    Some(CodeSec([TFunc(_, locals, { instrs, .. })])) => {
       assert_eq(locals.length(), 3)
       assert_eq(locals[0], ValType::f32())
       assert_eq(locals[1], ValType::i32())
@@ -300,7 +300,7 @@ test "reorder_locals keeps params fixed and only reorders declared locals" {
     )
   let out = run_reorder_locals(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(locals, { instrs, .. })])) => {
+    Some(CodeSec([TFunc(_, locals, { instrs, .. })])) => {
       assert_eq(locals, [ValType::f64()])
       match instrs {
         [

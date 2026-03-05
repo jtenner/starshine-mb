@@ -2245,7 +2245,7 @@ fn precompute_on_func(
       }
       Ok(func)
     }
-    TFunc(locals, initial_body) => {
+    TFunc(_, locals, initial_body) => {
       let imm_globals_start_ms = pc_trace_now_ms()
       let imm_globals = pc_collect_immutable_globals(mod)
       let imm_globals_elapsed_ms = pc_trace_elapsed_ms(imm_globals_start_ms)
@@ -2440,7 +2440,7 @@ fn precompute_ir_pass(
       ) {
       Ok(next_func) =>
         match (func, next_func) {
-          (TFunc(orig_locals, orig_body), TFunc(next_locals, next_body)) => {
+          (TFunc(_, orig_locals, orig_body), TFunc(_, next_locals, next_body)) => {
             ctx.set_body(next_body)
             if orig_locals == next_locals && orig_body == next_body {
               unchanged()
@@ -2744,6 +2744,7 @@ test "precompute skips simplify for tiny non-propagating body" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -2792,6 +2793,7 @@ test "precompute leaves nested constant tree unchanged for tiny body" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -2829,6 +2831,7 @@ test "precompute does not fold trapping integer division by zero" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             { instrs: [{ kind: TInstrKind::TBinary(I32DivSOp, _, _), .. }], .. }
           ),
@@ -2858,6 +2861,7 @@ test "precompute leaves immutable global.get unchanged for tiny body" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -2898,6 +2902,7 @@ test "precompute propagate skips tiny function under strict gating" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -2959,6 +2964,7 @@ test "precompute propagate skips chained tiny function under strict gating" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -3007,6 +3013,7 @@ test "precompute propagate is conservative on conflicting if-merge sets" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -3046,6 +3053,7 @@ test "precompute unary over select arms remains unchanged without propagation" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -3100,6 +3108,7 @@ test "precompute binary over select arms remains unchanged without propagation" 
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -3148,6 +3157,7 @@ test "precompute partial precompute keeps non-constant sibling case unchanged" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [

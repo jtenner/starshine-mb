@@ -158,7 +158,7 @@ fn ut_rewrite_tinstr(
 ///|
 fn untee_pass(func : Func, params : Array[ValType]) -> (Func, Bool) {
   match func {
-    TFunc(locals, body) => {
+    TFunc(_, locals, body) => {
       let local_types = params.copy()
       for local_ in locals {
         local_types.push(local_)
@@ -221,6 +221,7 @@ test "untee rewrites local.tee into result-typed block with set/get" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -283,6 +284,7 @@ test "untee drops unreachable local.tee to unreachable value" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -329,6 +331,7 @@ test "untee uses parameter local type for block result" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [

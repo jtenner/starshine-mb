@@ -1258,7 +1258,7 @@ fn uf_collect_initial_requirements(
           None => ([], [])
         }
         match funcs[i] {
-          TFunc(locals, body) => {
+          TFunc(_, locals, body) => {
             let all_locals = params.copy()
             for local_ty in locals {
               all_locals.push(local_ty)

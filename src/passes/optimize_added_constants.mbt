@@ -848,7 +848,7 @@ fn optimize_added_constants_on_func(
   }
   match func {
     Func(_) => Err("Expected TFunc")
-    TFunc(initial_locals, initial_body) => {
+    TFunc(_, initial_locals, initial_body) => {
       let mut locals = initial_locals
       let mut body = initial_body
       while true {
@@ -910,7 +910,7 @@ fn optimize_added_constants_ir_pass(
     match optimize_added_constants_on_func(func, mod, options, propagate) {
       Ok(next_func) =>
         match (func, next_func) {
-          (TFunc(orig_locals, orig_body), TFunc(next_locals, next_body)) => {
+          (TFunc(_, orig_locals, orig_body), TFunc(_, next_locals, next_body)) => {
             t.set_body(next_body)
             if orig_locals == next_locals && orig_body == next_body {
               unchanged()
@@ -964,7 +964,7 @@ fn oac_run_func(
   match oac_run_module(mod_, options, passes) {
     Ok(out) =>
       match out.code_sec {
-        Some(CodeSec([TFunc(new_locals, new_body)])) =>
+        Some(CodeSec([TFunc(_, new_locals, new_body)])) =>
           Ok((new_locals, new_body))
         _ => Err("expected one transformed TFunc")
       }

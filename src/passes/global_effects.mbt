@@ -256,7 +256,7 @@ fn ge_collect_effects_texpr(body : TExpr) -> GEEffects {
 fn ge_scan_defined_func(func : Func, total_funcs : Int) -> GEFuncInfo {
   let info = GEFuncInfo::new()
   match func {
-    TFunc(_, body) => {
+    TFunc(_, _, body) => {
       let full_effects = ge_collect_effects_texpr(body)
       let mut effects_opt : GEEffects? = Some(full_effects)
       if full_effects.calls {

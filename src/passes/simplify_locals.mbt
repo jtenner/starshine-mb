@@ -2934,7 +2934,7 @@ fn sl_validate_typed_function_candidate(
     None => return Ok(())
   }
   match func {
-    TFunc(local_vals, body) => {
+    TFunc(_, local_vals, body) => {
       let all_locals = sl_canonical_tfunc_locals(params, local_vals)
       let env1 = env
         .with_locals(all_locals)
@@ -2992,7 +2992,7 @@ fn sl_simplify_function(
   trace_verbose? : Bool = false,
 ) -> (Func, Bool) {
   match func {
-    TFunc(locals, body) => {
+    TFunc(_, locals, body) => {
       let local_types = sl_canonical_tfunc_locals(param_types, locals)
       if local_types.length() == 0 {
         return (func, false)
@@ -3156,7 +3156,7 @@ fn simplify_locals_ir_pass(
       (imported_func_count + def_idx).reinterpret_as_uint(),
     )
     let func_env = match func {
-      TFunc(locals, _) =>
+      TFunc(_, locals, _) =>
         base_env.with_locals(sl_canonical_tfunc_locals(params, locals))
       _ => base_env
     }
@@ -3167,7 +3167,7 @@ fn simplify_locals_ir_pass(
     }
     if log_func {
       match func {
-        TFunc(locals, body) =>
+        TFunc(_, locals, body) =>
           trace(
             "func[\{ordinal}] start locals=\{locals.length()} top_instrs=\{body.instrs.length()} instrs=\{sl_count_all_instrs_texpr(body)} allow_tee=\{allow_tee} allow_structure=\{allow_structure} allow_nesting=\{allow_nesting} validate=\{validate_each_rewrite && can_validate_rewrites}",
           )
@@ -3212,7 +3212,7 @@ fn simplify_locals_ir_pass(
       if log_func {
         let elapsed_ms = sl_trace_elapsed_ms(func_start_ms)
         match (func, next_func) {
-          (TFunc(locals, body), TFunc(_, next_body)) =>
+          (TFunc(_, locals, body), TFunc(_, _, next_body)) =>
             trace(
               "func[\{ordinal}] done elapsed_ms=\{elapsed_ms} changed=true top_instrs=\{body.instrs.length()}->\{next_body.instrs.length()} locals=\{locals.length()}",
             )
@@ -3225,7 +3225,7 @@ fn simplify_locals_ir_pass(
       if log_func {
         let elapsed_ms = sl_trace_elapsed_ms(func_start_ms)
         match func {
-          TFunc(locals, body) =>
+          TFunc(_, locals, body) =>
             trace(
               "func[\{ordinal}] done elapsed_ms=\{elapsed_ms} changed=false top_instrs=\{body.instrs.length()}->\{body.instrs.length()} locals=\{locals.length()}",
             )
@@ -3282,7 +3282,7 @@ test "simplify_locals sinks a single-use local.set into local.get" {
   )
   let out = sl_run_simplify_locals(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => {
+    Some(CodeSec([TFunc(_, _, body)])) => {
       let stats = SLLocalStats::new()
       sl_collect_local_stats_texpr(body, stats)
       assert_eq(stats.sets, 0)
@@ -3317,7 +3317,7 @@ test "simplify_locals tee mode can eliminate multi-use local chain" {
   )
   let out = sl_run_simplify_locals(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => {
+    Some(CodeSec([TFunc(_, _, body)])) => {
       let stats = SLLocalStats::new()
       sl_collect_local_stats_texpr(body, stats)
       assert_eq(stats.sets, 0)
@@ -3343,7 +3343,7 @@ test "simplify_locals no-tee mode keeps original set for multi-use local" {
   )
   let out = sl_run_simplify_locals(mod, allow_tee=false)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => {
+    Some(CodeSec([TFunc(_, _, body)])) => {
       let stats = SLLocalStats::new()
       sl_collect_local_stats_texpr(body, stats)
       assert_true(stats.sets >= 1)
@@ -3379,7 +3379,8 @@ test "simplify_locals structure mode creates result if from branch-local sets" {
   )
   let out = sl_run_simplify_locals(mod, allow_tee=false, allow_structure=true)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_true(sl_has_result_if_texpr(body))
+    Some(CodeSec([TFunc(_, _, body)])) =>
+      assert_true(sl_has_result_if_texpr(body))
     _ => fail("expected one typed function")
   }
 }
@@ -3411,7 +3412,7 @@ test "simplify_locals no-nesting mode avoids sinking non-get values into get sit
     allow_nesting=false,
   )
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => {
+    Some(CodeSec([TFunc(_, _, body)])) => {
       let stats = SLLocalStats::new()
       sl_collect_local_stats_texpr(body, stats)
       assert_true(stats.sets >= 1)
@@ -3453,7 +3454,7 @@ test "simplify_locals coalesces block break sets into block result set" {
   )
   let out = sl_run_simplify_locals(mod, allow_tee=false, allow_structure=true)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => {
+    Some(CodeSec([TFunc(_, _, body)])) => {
       let has_result_block = sl_has_result_block_texpr(body)
       if !has_result_block {
         let stats = SLLocalStats::new()
@@ -3496,7 +3497,7 @@ test "simplify_locals coalesces conditional break sets using br_if tee value" {
   )
   let out = sl_run_simplify_locals(mod, allow_tee=true, allow_structure=true)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => {
+    Some(CodeSec([TFunc(_, _, body)])) => {
       let has_result_block = sl_has_result_block_texpr(body)
       if !has_result_block {
         let stats = SLLocalStats::new()
@@ -3684,7 +3685,7 @@ test "simplify_locals function-level simplifier applies block coalescing pattern
   )
   assert_true(changed)
   match next_func {
-    TFunc(_, body) => assert_true(sl_has_result_block_texpr(body))
+    TFunc(_, _, body) => assert_true(sl_has_result_block_texpr(body))
     _ => fail("expected typed function")
   }
 }
@@ -3812,7 +3813,7 @@ test "simplify_locals does not coalesce block returns when branch locals differ"
   )
   let out = sl_run_simplify_locals(mod, allow_tee=false, allow_structure=true)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) =>
+    Some(CodeSec([TFunc(_, _, body)])) =>
       assert_false(sl_has_result_block_texpr(body))
     _ => fail("expected one typed function")
   }
@@ -3836,7 +3837,7 @@ test "simplify_locals coalesces sinkable set into loop return value" {
   )
   let out = sl_run_simplify_locals(mod, allow_tee=true, allow_structure=true)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) =>
+    Some(CodeSec([TFunc(_, _, body)])) =>
       assert_true(sl_has_result_loop_texpr(body))
     _ => fail("expected one typed function")
   }
@@ -3862,7 +3863,7 @@ test "simplify_locals does not make loop result when loop has br 0" {
   )
   let out = sl_run_simplify_locals(mod, allow_tee=true, allow_structure=true)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) =>
+    Some(CodeSec([TFunc(_, _, body)])) =>
       assert_false(sl_has_result_loop_texpr(body))
     _ => fail("expected one typed function")
   }
@@ -3893,7 +3894,7 @@ test "simplify_locals late canonicalization rewrites equivalent gets to dominant
     allow_nesting=true,
   )
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => {
+    Some(CodeSec([TFunc(_, _, body)])) => {
       let x_gets = sl_count_local_gets_for_idx_texpr(body, 0)
       let y_gets = sl_count_local_gets_for_idx_texpr(body, 1)
       assert_true(x_gets >= 2)
@@ -4013,7 +4014,13 @@ test "simplify_locals keeps structured control values out of nested value positi
   match out.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [{ kind: TInstrKind::TBlock(_, body), .. }], .. })]
+        [
+          TFunc(
+            [],
+            _,
+            { instrs: [{ kind: TInstrKind::TBlock(_, body), .. }], .. }
+          ),
+        ]
       )
     ) =>
       match body.instrs[body.instrs.length() - 1].kind {
@@ -4157,7 +4164,7 @@ test "simplify_locals no-tee-no-structure preserves exact local type for untyped
   )
   assert_eq(validate_module(out), Ok(()))
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) =>
+    Some(CodeSec([TFunc(_, _, body)])) =>
       assert_eq(sl_count_local_gets_for_idx_texpr(body, 1), 1)
     _ => fail("expected one typed function")
   }
@@ -4196,7 +4203,7 @@ test "simplify_locals skips result-if rewrite when branch exits would invalidate
   let out = sl_run_simplify_locals(mod, allow_tee=false, allow_structure=true)
   assert_eq(validate_module(out), Ok(()))
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) =>
+    Some(CodeSec([TFunc(_, _, body)])) =>
       assert_false(sl_has_result_if_texpr(body))
     _ => fail("expected one typed function")
   }
@@ -4291,16 +4298,16 @@ test "simplify_locals typed function validator accepts canonical locals includin
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(comp_type_sub_type(func_comp_type([ValType::i32()], []))),
+        single_rec_type(
+          comp_type_sub_type(func_comp_type([ValType::i32()], [])),
+        ),
       ]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
   let env = Env::new().with_module(mod)
   let candidate = Func::t_func(
     [ValType::i32(), ValType::i64()],
-    TExpr::new([
-      TInstr::local_set(LocalIdx::new(1), TInstr::i64_const(I64(7))),
-    ]),
+    TExpr::new([TInstr::local_set(LocalIdx::new(1), TInstr::i64_const(I64(7)))]),
   )
   match sl_validate_typed_function_candidate(env, FuncIdx::new(0), candidate) {
     Ok(_) => ()
@@ -4419,7 +4426,7 @@ test "simplify_locals ID-C1 keeps prior local.set when intermediate local.get re
     allow_nesting=false,
   )
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => {
+    Some(CodeSec([TFunc(_, _, body)])) => {
       let sets_x = sl_count_local_sets_for_idx_texpr(body, 0)
       assert_eq(sets_x, 2)
     }
@@ -4513,7 +4520,8 @@ test "simplify_locals ID-P2 uses fixpoint cycles to unlock second sinking opport
   )
   assert_true(changed)
   match next_func {
-    TFunc(_, body) => assert_eq(sl_count_local_sets_for_idx_texpr(body, 0), 0)
+    TFunc(_, _, body) =>
+      assert_eq(sl_count_local_sets_for_idx_texpr(body, 0), 0)
     _ => fail("expected typed function")
   }
 }
@@ -4579,7 +4587,7 @@ test "simplify_locals ID-P4 allows single-use sink from subtype value into super
   )
   assert_eq(validate_module(out), Ok(()))
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => {
+    Some(CodeSec([TFunc(_, _, body)])) => {
       let stats = SLLocalStats::new()
       sl_collect_local_stats_texpr(body, stats)
       assert_eq(stats.sets, 0)

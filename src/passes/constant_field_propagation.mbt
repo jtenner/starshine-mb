@@ -294,7 +294,7 @@ fn constant_field_propagation_pass() -> ModuleTransformer[CFPState] {
   ModuleTransformer::new().on_func_evt(fn(_self, state, func) {
     match func {
       Func(_, _) => unchanged()
-      TFunc(_, body) => {
+      TFunc(_, _, body) => {
         // Scan the function for struct.new operations
         scan_for_struct_news(state, body)
         unchanged()
@@ -374,7 +374,7 @@ fn constant_field_propagation_ir_pass(
       for func in funcs {
         match func {
           Func(_, _) => ()
-          TFunc(_, body) => scan_for_struct_news(state, body)
+          TFunc(_, _, body) => scan_for_struct_news(state, body)
         }
       }
   }

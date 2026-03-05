@@ -471,7 +471,7 @@ fn process_func_worklist(ctx : AnalysisContext) -> Unit {
 
         // Scan the function body
         match code_sec[def_idx] {
-          TFunc(locals, texpr) => {
+          TFunc(_, locals, texpr) => {
             for vt in locals {
               mark_valtype(ctx, vt)
             }
@@ -1526,7 +1526,7 @@ fn build_remappings(
 ///|
 fn make_func_unreachable(func : Func) -> Func {
   match func {
-    TFunc(_, _) => Func::t_func([], TExpr::new([TInstr::unreachable_()]))
+    TFunc(_, _, _) => Func::t_func([], TExpr::new([TInstr::unreachable_()]))
     Func(_, _) => Func::new([], Expr::new([Instruction::unreachable_()]))
   }
 }
@@ -2164,7 +2164,7 @@ fn make_empty_func_body() -> Func {
 ///|
 fn func_body_is_unreachable(func : Func) -> Bool {
   match func {
-    TFunc(_, { instrs, .. }) =>
+    TFunc(_, _, { instrs, .. }) =>
       instrs.length() == 1 && instrs[0].kind is TInstrKind::TUnreachable
     Func(_, Expr(instrs)) => instrs.length() == 1 && instrs[0] is Unreachable
   }
@@ -2173,7 +2173,7 @@ fn func_body_is_unreachable(func : Func) -> Bool {
 ///|
 fn func_body_has_direct_call_to(func : Func, target : FuncIdx) -> Bool {
   match func {
-    TFunc(_, { instrs, .. }) =>
+    TFunc(_, _, { instrs, .. }) =>
       for instr in instrs {
         match instr.kind {
           TInstrKind::TCall(idx, _) | TInstrKind::TReturnCall(idx, _) if idx ==

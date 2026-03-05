@@ -798,7 +798,7 @@ fn oc_apply_best_casts(
   }
   let refinement_temps : Map[Int, LocalIdx] = Map::new()
   let new_locals = match func {
-    TFunc(locals, _) => locals.copy()
+    TFunc(_, locals, _) => locals.copy()
     _ => []
   }
   let next_local = Ref::new(new_locals.length())
@@ -895,12 +895,12 @@ fn oc_apply_best_casts(
     _ => body_with_tees
   }
   let original_local_count = match func {
-    TFunc(locals, _) => locals.length()
+    TFunc(_, locals, _) => locals.length()
     _ => 0
   }
   let changed = final_body != body || next_local.val != original_local_count
   let next_func = match func {
-    TFunc(_, _) => Func::t_func(new_locals, final_body)
+    TFunc(_, _, _) => Func::t_func(new_locals, final_body)
     _ => func
   }
   (next_func, changed)
@@ -910,7 +910,7 @@ fn oc_apply_best_casts(
 fn optimize_casts_on_func(func : Func, mod : Module) -> Result[Func, String] {
   match func {
     Func(_, _) => Ok(func)
-    TFunc(locals, body) => {
+    TFunc(_, locals, body) => {
       let env = Env::new().with_module(mod).with_locals(locals)
       let early_finder = EarlyCastFinder::new(env, locals.length())
       early_finder.run(body)
@@ -937,7 +937,7 @@ fn optimize_casts_ir_pass(mod : Module) -> ModuleTransformer[IRContext] {
     match optimize_casts_on_func(func, mod) {
       Ok(next_func) =>
         match (func, next_func) {
-          (TFunc(orig_locals, orig_body), TFunc(next_locals, next_body)) => {
+          (TFunc(_, orig_locals, orig_body), TFunc(_, next_locals, next_body)) => {
             t.set_body(next_body)
             if orig_locals == next_locals && orig_body == next_body {
               unchanged()
@@ -1025,7 +1025,7 @@ test "optimize casts duplicates earlier cast and tees best cast" {
   let mod_ = oc_add_func(oc_test_module(), Func::t_func([local_ty], body))
   let out = optimize_casts(mod_)
   match oc_get_func(out) {
-    Some(TFunc(locals, new_body)) => {
+    Some(TFunc(_, locals, new_body)) => {
       assert_true(locals.length() >= 2)
       let mut saw_tee = false
       for instr in new_body.instrs {
@@ -1061,7 +1061,7 @@ test "optimize casts uses most refined cast" {
   let mod_ = oc_add_func(oc_test_module(), Func::t_func([local_ty], body))
   let out = optimize_casts(mod_)
   match oc_get_func(out) {
-    Some(TFunc(_, new_body)) => {
+    Some(TFunc(_, _, new_body)) => {
       let mut saw_refined = false
       let walk = ModuleTransformer::new().on_tinstruction_evt(fn(
         self,
@@ -1096,7 +1096,7 @@ test "optimize casts handles ref.as_non_null movement" {
   let mod_ = oc_add_func(oc_test_module(), Func::t_func([local_ty], body))
   let out = optimize_casts(mod_)
   match oc_get_func(out) {
-    Some(TFunc(_, new_body)) => {
+    Some(TFunc(_, _, new_body)) => {
       let mut count_non_null = 0
       let walk = ModuleTransformer::new().on_tinstruction_evt(fn(
         self,
@@ -1136,7 +1136,7 @@ test "optimize casts resets at non linear boundaries" {
   let mod_ = oc_add_func(oc_test_module(), Func::t_func([local_ty], body))
   let out = optimize_casts(mod_)
   match oc_get_func(out) {
-    Some(TFunc(_, new_body)) =>
+    Some(TFunc(_, _, new_body)) =>
       match new_body.instrs[2].kind {
         TInstrKind::TBlock(_, { instrs: [inner], .. }) =>
           match inner.kind {

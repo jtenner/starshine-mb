@@ -1678,6 +1678,7 @@ test "type_merging merges private subtype into identical supertype" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1736,6 +1737,7 @@ test "type_merging does not merge cast-target type" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1794,6 +1796,7 @@ test "type_merging merges identical siblings" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1875,6 +1878,7 @@ test "type_merging does not merge public type" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [{ kind: TInstrKind::TRefNull(HeapType(TypeIdx(1))), .. }],
@@ -1922,6 +1926,7 @@ test "type_merging treats call_indirect cast barrier as trap-mode sensitive" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1944,6 +1949,7 @@ test "type_merging treats call_indirect cast barrier as trap-mode sensitive" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -2005,6 +2011,7 @@ test "type_merging exact descriptor casts on supertype block subtype merge" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -2038,6 +2045,7 @@ test "type_merging treats identical br_on_cast source-target as exact cast barri
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -2073,6 +2081,7 @@ test "type_merging merges non-exact br_on_cast source-target pairs" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -2112,6 +2121,7 @@ test "type_merging does not treat nullable br_on_cast targets as exact barriers"
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -2150,6 +2160,7 @@ test "type_merging treats identical br_on_cast heap types as exact regardless of
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [

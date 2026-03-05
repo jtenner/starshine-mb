@@ -496,7 +496,7 @@ fn dfe_hash_func_under_map(
   func : Func,
 ) -> DFEFuncSummary {
   match func {
-    TFunc(locals, body) => {
+    TFunc(_, locals, body) => {
       let instrs = body.instrs
       let top_level_instr_count = instrs.length()
       let local_types_fp = dfe_hash_valtypes(locals)
@@ -687,7 +687,7 @@ fn dfe_func_equal_under_map(
   right : Func,
 ) -> Bool {
   match (left, right) {
-    (TFunc(left_locals, left_body), TFunc(right_locals, right_body)) =>
+    (TFunc(_, left_locals, left_body), TFunc(_, right_locals, right_body)) =>
       left_locals == right_locals &&
       dfe_texpr_equal_under_map(canonical_abs_of_abs, left_body, right_body)
     _ => left == right
@@ -1106,7 +1106,7 @@ test "duplicate function elimination removes duplicate function bodies" {
     None => fail("expected func section")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, { instrs, .. }), _])) => {
+    Some(CodeSec([TFunc(_, _, { instrs, .. }), _])) => {
       let mut seen = 0
       for instr in instrs {
         match instr.kind {
@@ -1251,7 +1251,7 @@ test "duplicate function elimination merges duplicates across equivalent type de
     None => fail("expected code section")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, { instrs, .. }), _])) => {
+    Some(CodeSec([TFunc(_, _, { instrs, .. }), _])) => {
       let mut seen = 0
       for instr in instrs {
         match instr.kind {
@@ -1302,7 +1302,7 @@ test "duplicate function elimination remaps start export and ref.func uses" {
     None => fail("expected code section")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, { instrs, .. }), _])) => {
+    Some(CodeSec([TFunc(_, _, { instrs, .. }), _])) => {
       assert_eq(instrs.length(), 2)
       match instrs[0].kind {
         TInstrKind::TDrop({ kind: TInstrKind::TRefFunc(FuncIdx(i)), .. }) =>

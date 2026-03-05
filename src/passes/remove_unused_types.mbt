@@ -732,6 +732,7 @@ test "remove_unused_types remaps references after deletion" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [

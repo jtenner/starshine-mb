@@ -2715,7 +2715,7 @@ fn h2l_optimize_func_once(
 ) -> Func? {
   match func {
     Func(_) => None
-    TFunc(locals, body) => {
+    TFunc(_, locals, body) => {
       let analysis = h2l_scan_body(env.with_locals(locals), body)
       let candidates = h2l_collect_candidates(analysis)
       let candidates = h2l_filter_nonuniform_if_sets(body, candidates)
@@ -2759,7 +2759,7 @@ fn h2l_optimize_func(func : Func, env : Env, mod : Module) -> Func? {
   let mut changed = false
   for _ in 0..<4 {
     let graph = match curr {
-      TFunc(_, body) => Some(LocalGraph::new(body.instrs))
+      TFunc(_, _, body) => Some(LocalGraph::new(body.instrs))
       _ => None
     }
     match h2l_optimize_func_once(curr, env, mod, graph) {
@@ -2951,7 +2951,7 @@ test "heap2local rewrites struct loc allocation/get/set" {
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap2local(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(locals, body)])) => {
+    Some(CodeSec([TFunc(_, locals, body)])) => {
       assert_true(locals.length() >= 2)
       assert_eq(h2l_count_gc_ops(body), 0)
     }
@@ -2988,7 +2988,8 @@ test "heap2local does not optimize escaping struct reference in call" {
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap2local(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_true(h2l_count_gc_ops(body) > 0)
+    Some(CodeSec([TFunc(_, _, body)])) =>
+      assert_true(h2l_count_gc_ops(body) > 0)
     _ => fail("expected function")
   }
 }
@@ -3030,7 +3031,8 @@ test "heap2local rejects mixed loc sets for candidate loc" {
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap2local(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_true(h2l_count_gc_ops(body) > 0)
+    Some(CodeSec([TFunc(_, _, body)])) =>
+      assert_true(h2l_count_gc_ops(body) > 0)
     _ => fail("expected function")
   }
 }
@@ -3079,7 +3081,7 @@ test "heap2local rewrites fixed-size array to locals" {
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap2local(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(locals, body)])) => {
+    Some(CodeSec([TFunc(_, locals, body)])) => {
       assert_true(locals.length() >= 4)
       assert_eq(h2l_count_gc_ops(body), 0)
     }
@@ -3121,7 +3123,8 @@ test "heap2local does not optimize array with non-constant index" {
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap2local(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_true(h2l_count_gc_ops(body) > 0)
+    Some(CodeSec([TFunc(_, _, body)])) =>
+      assert_true(h2l_count_gc_ops(body) > 0)
     _ => fail("expected function")
   }
 }
@@ -3153,7 +3156,7 @@ test "heap2local rewrites dropped loc.get of optimized allocation" {
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap2local(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, { instrs, .. })])) =>
+    Some(CodeSec([TFunc(_, _, { instrs, .. })])) =>
       match instrs[1].kind {
         TInstrKind::TNop => ()
         _ => fail("expected drop(loc.get) to become nop")
@@ -3208,7 +3211,7 @@ test "heap2local supports packed struct get_s/get_u semantics" {
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap2local(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => {
+    Some(CodeSec([TFunc(_, _, body)])) => {
       assert_eq(h2l_count_gc_ops(body), 0)
       assert_true(h2l_has_unary(body, UnaryOp::i32_extend8s()))
     }
@@ -3259,7 +3262,7 @@ test "heap2local supports packed array get_s/get_u semantics" {
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap2local(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => {
+    Some(CodeSec([TFunc(_, _, body)])) => {
       assert_eq(h2l_count_gc_ops(body), 0)
       assert_true(h2l_has_unary(body, UnaryOp::i32_extend16s()))
     }
@@ -3300,7 +3303,7 @@ test "heap2local rewrites ref.is_null/ref.eq over optimized allocation" {
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap2local(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, { instrs, .. })])) => {
+    Some(CodeSec([TFunc(_, _, { instrs, .. })])) => {
       assert_eq(h2l_count_gc_ops(TExpr::new(instrs)), 0)
       match instrs[1].kind {
         TInstrKind::TDrop({ kind: TInstrKind::TI32Const(I32(v)), .. }) =>
@@ -3357,7 +3360,8 @@ test "heap2local rejects candidate when get can read init value through branch" 
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap2local(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_true(h2l_count_gc_ops(body) > 0)
+    Some(CodeSec([TFunc(_, _, body)])) =>
+      assert_true(h2l_count_gc_ops(body) > 0)
     _ => fail("expected function")
   }
 }
@@ -3395,7 +3399,7 @@ test "heap2local optimizes array get OOB into trap" {
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap2local(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => {
+    Some(CodeSec([TFunc(_, _, body)])) => {
       assert_eq(h2l_count_gc_ops(body), 0)
       assert_true(h2l_has_unreachable(body))
     }
@@ -3435,7 +3439,7 @@ test "heap2local masks packed writes" {
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap2local(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) =>
+    Some(CodeSec([TFunc(_, _, body)])) =>
       assert_true(h2l_has_binary(body, BinaryOp::i32_and()))
     _ => fail("expected transformed function")
   }
@@ -3481,7 +3485,7 @@ test "heap2local rewrites ref.test and ref.as_non_null wrapped accesses" {
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap2local(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => {
+    Some(CodeSec([TFunc(_, _, body)])) => {
       assert_eq(h2l_count_gc_ops(body), 0)
       assert_true(h2l_has_i32_const(body, 1))
     }
@@ -3522,7 +3526,7 @@ test "heap2local rewrites ref.test false case to i32.const 0" {
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap2local(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => {
+    Some(CodeSec([TFunc(_, _, body)])) => {
       assert_eq(h2l_count_gc_ops(body), 0)
       assert_true(h2l_has_i32_const(body, 0))
     }
@@ -3564,7 +3568,7 @@ test "heap2local preserves optimization with ref.get_desc uses" {
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap2local(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => {
+    Some(CodeSec([TFunc(_, _, body)])) => {
       assert_true(h2l_has_ref_get_desc(body))
       assert_false(h2l_has_local_get(body, 0U))
     }
@@ -3612,7 +3616,7 @@ test "heap2local rewrites ref.test_desc with known allocation type" {
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap2local(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => {
+    Some(CodeSec([TFunc(_, _, body)])) => {
       assert_eq(h2l_count_gc_ops(body), 0)
       assert_true(h2l_has_i32_const(body, 1))
       assert_true(h2l_has_i32_const(body, 0))
@@ -3671,7 +3675,7 @@ test "heap2local rewrites ref.cast_desc_eq outcomes for known allocation type" {
     .with_code_sec(CodeSec::new([impossible, compatible]))
   let out = run_heap2local(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, impossible_body), TFunc(_, compatible_body)])) => {
+    Some(CodeSec([TFunc(_, _, impossible_body), TFunc(_, _, compatible_body)])) => {
       assert_true(h2l_has_unreachable(impossible_body))
       assert_false(h2l_has_local_get(impossible_body, 0U))
       assert_true(h2l_count_gc_ops(compatible_body) > 0)
@@ -3711,7 +3715,7 @@ test "heap2local treats ref.test_desc as exact and rejects strict-subtype alloca
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap2local(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => {
+    Some(CodeSec([TFunc(_, _, body)])) => {
       assert_eq(h2l_count_gc_ops(body), 0)
       assert_true(h2l_has_i32_const(body, 0))
       assert_false(h2l_has_local_get(body, 0U))
@@ -3750,7 +3754,7 @@ test "heap2local treats ref.cast_desc_eq as exact and traps on strict-subtype al
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap2local(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => {
+    Some(CodeSec([TFunc(_, _, body)])) => {
       assert_eq(h2l_count_gc_ops(body), 0)
       assert_true(h2l_has_unreachable(body))
       assert_false(h2l_has_local_get(body, 0U))
@@ -3811,7 +3815,7 @@ test "heap2local rewrites array.new_data for fixed-size nonescaping arrays" {
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap2local(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => {
+    Some(CodeSec([TFunc(_, _, body)])) => {
       assert_eq(h2l_count_gc_ops(body), 0)
       assert_true(h2l_has_i32_const(body, 20))
       assert_true(h2l_has_i32_const(body, 30))
@@ -3853,7 +3857,7 @@ test "heap2local rewrites OOB array.new_data to trap" {
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap2local(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => {
+    Some(CodeSec([TFunc(_, _, body)])) => {
       assert_eq(h2l_count_gc_ops(body), 0)
       assert_true(h2l_has_unreachable(body))
     }
@@ -3904,7 +3908,7 @@ test "heap2local rewrites array.new_elem for fixed-size nonescaping arrays" {
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap2local(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_eq(h2l_count_gc_ops(body), 0)
+    Some(CodeSec([TFunc(_, _, body)])) => assert_eq(h2l_count_gc_ops(body), 0)
     _ => fail("expected transformed function")
   }
 }
@@ -3949,7 +3953,8 @@ test "heap2local rejects branchy allocation sets with later gets" {
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap2local(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_true(h2l_count_gc_ops(body) > 0)
+    Some(CodeSec([TFunc(_, _, body)])) =>
+      assert_true(h2l_count_gc_ops(body) > 0)
     _ => fail("expected function")
   }
 }
@@ -3988,7 +3993,8 @@ test "heap2local skips optimization in synchronization-sensitive atomic contexts
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap2local(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_true(h2l_count_gc_ops(body) > 0)
+    Some(CodeSec([TFunc(_, _, body)])) =>
+      assert_true(h2l_count_gc_ops(body) > 0)
     _ => fail("expected function")
   }
 }
@@ -4035,7 +4041,8 @@ test "heap2local skips optimization when atomic.rmw appears in function" {
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap2local(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_true(h2l_count_gc_ops(body) > 0)
+    Some(CodeSec([TFunc(_, _, body)])) =>
+      assert_true(h2l_count_gc_ops(body) > 0)
     _ => fail("expected function")
   }
 }
@@ -4084,7 +4091,8 @@ test "heap2local skips optimization when atomic load/store appears in function" 
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap2local(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_true(h2l_count_gc_ops(body) > 0)
+    Some(CodeSec([TFunc(_, _, body)])) =>
+      assert_true(h2l_count_gc_ops(body) > 0)
     _ => fail("expected function")
   }
 }
@@ -4125,7 +4133,8 @@ test "heap2local rejects candidate local when local.tee is used" {
     .with_code_sec(CodeSec::new([func]))
   let out = run_heap2local(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_true(h2l_count_gc_ops(body) > 0)
+    Some(CodeSec([TFunc(_, _, body)])) =>
+      assert_true(h2l_count_gc_ops(body) > 0)
     _ => fail("expected function")
   }
 }

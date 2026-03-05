@@ -489,7 +489,7 @@ fn sp_run_iteration(mod : Module) -> (Module, Bool) {
     let param_count = params.length()
     let used = used_params_by_type[type_abs]
     match funcs[def_idx] {
-      TFunc(_, body) => {
+      TFunc(_, _, body) => {
         let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
           self,
           _,
@@ -672,7 +672,7 @@ fn sp_run_iteration(mod : Module) -> (Module, Bool) {
     }
     let old_type_abs = sp_typeidx_raw(func_type_idxs[abs_idx])
     let rewritten_func = match funcs[i] {
-      TFunc(locals, body) => {
+      TFunc(_, locals, body) => {
         let body_after_sig = match removed_by_type_abs.get(old_type_abs) {
           Some(_) => {
             let FuncType(old_params, _) = func_types[abs_idx]
@@ -809,7 +809,7 @@ test "signature pruning removes unused params across same signature group" {
     Err(e) => fail("signature_pruning_ir_pass failed: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, { instrs, .. }), _, _])) => {
+    Some(CodeSec([TFunc(_, _, { instrs, .. }), _, _])) => {
       let call_args : Array[Int] = []
       for instr in instrs {
         match instr.kind {
@@ -866,7 +866,7 @@ test "signature pruning updates call_ref type and arguments" {
   }
   let mut seen = false
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, { instrs, .. }), _])) =>
+    Some(CodeSec([TFunc(_, _, { instrs, .. }), _])) =>
       for instr in instrs {
         match instr.kind {
           TInstrKind::TCallRef(type_idx, args, _) => {

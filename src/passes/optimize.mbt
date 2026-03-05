@@ -251,7 +251,7 @@ fn opt_validation_prepare_texpr_context(
 ) -> (TExpr, Env)? {
   let FuncType(params, results) = ft
   match func {
-    TFunc(local_vals, body) => {
+    TFunc(_, local_vals, body) => {
       let all_locals = params.copy()
       for vt in local_vals {
         all_locals.push(vt)
@@ -1317,7 +1317,7 @@ fn optimize_cleanup_cost_profile(mod : Module) -> OptimizeCleanupCostProfile {
       func_count = funcs.length()
       for func in funcs {
         match func {
-          TFunc(_, body) => top_instr_sum += body.instrs.length()
+          TFunc(_, _, body) => top_instr_sum += body.instrs.length()
           _ => ()
         }
       }
@@ -2955,6 +2955,7 @@ test "optimize_module dispatches IRContext and Unit transformer pass kinds" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -2998,7 +2999,7 @@ test "optimize_module dispatches IRContext and Unit transformer pass kinds" {
   match unit_optimized.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [{ kind: TInstrKind::TUnreachable, .. }], .. })]
+        [TFunc([], _, { instrs: [{ kind: TInstrKind::TUnreachable, .. }], .. })]
       )
     ) => ()
     _ => fail("expected DeadCodeElimination to run through Unit dispatch")
@@ -3018,6 +3019,7 @@ test "optimize_module dispatches DeNaN through IRContext kind" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             { instrs: [{ kind: TInstrKind::TF32Const(F32(v)), .. }], .. }
           ),
@@ -3047,6 +3049,7 @@ test "optimize_module runs GlobalEffects pass through IRContext kind" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             { instrs: [{ kind: TInstrKind::TCall(FuncIdx(i), []), .. }], .. }
           ),
@@ -3066,7 +3069,7 @@ test "optimize_module dispatches TypeGeneralizing through module-runner kind" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc([vt], _)])) => assert_eq(vt, ValType::funcref())
+    Some(CodeSec([TFunc(_, [vt], _)])) => assert_eq(vt, ValType::funcref())
     _ => fail("expected TypeGeneralizing to run through module-runner dispatch")
   }
 }
@@ -3139,6 +3142,7 @@ test "optimize_module dispatches TypeMerging through module-runner kind" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -3170,6 +3174,7 @@ test "optimize_module_with_options threads traps_never_happen into TypeMerging" 
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -3194,6 +3199,7 @@ test "optimize_module_with_options threads traps_never_happen into TypeMerging" 
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -3349,7 +3355,7 @@ test "optimize_module runs AvoidReinterprets pass" {
   }
   let CodeSec(funcs) = optimized.code_sec.unwrap()
   match funcs[0] {
-    TFunc(_, { instrs, .. }) =>
+    TFunc(_, _, { instrs, .. }) =>
       match instrs[0].kind {
         TInstrKind::TLoad(LoadOp::I32LoadOp, _, _) => ()
         _ => fail("expected reinterpret(load) to become i32.load")
@@ -3383,7 +3389,7 @@ test "optimize_module runs DeadArgumentElimination pass" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, { instrs, .. }), _])) => {
+    Some(CodeSec([TFunc(_, _, { instrs, .. }), _])) => {
       let mut found = false
       for instr in instrs {
         match instr.kind {
@@ -3427,7 +3433,7 @@ test "optimize_module runs DeadArgumentEliminationOptimizing cleanup" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([_, TFunc(_, { instrs, .. })])) =>
+    Some(CodeSec([_, TFunc(_, _, { instrs, .. })])) =>
       match instrs {
         [{ kind: TInstrKind::TNop, .. }] => ()
         _ => fail("expected optimizing DAE to clean up pure dropped result")
@@ -3511,7 +3517,7 @@ test "optimize_module runs SignaturePruning pass" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, { instrs, .. }), _])) => {
+    Some(CodeSec([TFunc(_, _, { instrs, .. }), _])) => {
       let mut found = false
       for instr in instrs {
         match instr.kind {
@@ -3653,7 +3659,7 @@ test "optimize_module runs DeadCodeElimination pass" {
   match optimized.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [{ kind: TInstrKind::TUnreachable, .. }], .. })]
+        [TFunc([], _, { instrs: [{ kind: TInstrKind::TUnreachable, .. }], .. })]
       )
     ) => ()
     _ => fail("expected dead tail after unreachable to be removed")
@@ -3726,6 +3732,7 @@ test "optimize_module runs DuplicateImportElimination pass" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             { instrs: [{ kind: TInstrKind::TCall(FuncIdx(i), []), .. }], .. }
           ),
@@ -3934,7 +3941,7 @@ test "optimize_module runs Heap2Local pass" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_eq(h2l_count_gc_ops(body), 0)
+    Some(CodeSec([TFunc(_, _, body)])) => assert_eq(h2l_count_gc_ops(body), 0)
     _ => fail("expected optimized function")
   }
 }
@@ -3979,7 +3986,8 @@ test "optimize_module runs HeapStoreOptimization pass" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_eq(hso_count_struct_sets(body), 0)
+    Some(CodeSec([TFunc(_, _, body)])) =>
+      assert_eq(hso_count_struct_sets(body), 0)
     _ => fail("expected optimized function")
   }
 }
@@ -4021,6 +4029,7 @@ test "optimize_module runs PickLoadSigns pass" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -4074,6 +4083,7 @@ test "optimize_module runs GUFA pass" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -4122,7 +4132,7 @@ test "optimize_module runs GUFAOptimizing followup DCE" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, { instrs, .. })])) => {
+    Some(CodeSec([TFunc(_, _, { instrs, .. })])) => {
       let mut saw_unreachable = false
       for instr in instrs {
         match instr.kind {
@@ -4167,7 +4177,7 @@ test "optimize_module runs GUFACastAll pass" {
   match optimized.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [{ kind: TInstrKind::TDrop(instr), .. }], .. })]
+        [TFunc([], _, { instrs: [{ kind: TInstrKind::TDrop(instr), .. }], .. })]
       )
     ) =>
       match instr.kind {
@@ -4434,7 +4444,7 @@ test "optimize_module runs Inlining pass" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, body), _])) => {
+    Some(CodeSec([TFunc(_, _, body), _])) => {
       let mut direct_calls = 0
       let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
         self,
@@ -4483,7 +4493,7 @@ test "optimize_module runs InlineMain pass" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, body), _])) => {
+    Some(CodeSec([TFunc(_, _, body), _])) => {
       let mut direct_calls = 0
       let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
         self,
@@ -4528,7 +4538,8 @@ test "optimize_module runs LocalCSE pass" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_true(count_local_tees(body) >= 1)
+    Some(CodeSec([TFunc(_, _, body)])) =>
+      assert_true(count_local_tees(body) >= 1)
     _ => fail("expected transformed function body")
   }
 }
@@ -4557,6 +4568,7 @@ test "optimize_module runs RedundantSetElimination pass" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -4594,7 +4606,7 @@ test "optimize_module runs Untee pass" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_eq(count_local_tees(body), 0)
+    Some(CodeSec([TFunc(_, _, body)])) => assert_eq(count_local_tees(body), 0)
     _ => fail("expected transformed function body")
   }
 }
@@ -4613,8 +4625,9 @@ test "optimize_module runs Vacuum pass" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [{ kind: TInstrKind::TNop, .. }], .. })])) =>
-      ()
+    Some(
+      CodeSec([TFunc(_, _, { instrs: [{ kind: TInstrKind::TNop, .. }], .. })])
+    ) => ()
     _ => fail("expected vacuum to remove pure dropped const")
   }
 }
@@ -4647,7 +4660,7 @@ test "optimize_module runs LocalSubtyping pass" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc([RefTypeValType(rt)], _)])) =>
+    Some(CodeSec([TFunc(_, [RefTypeValType(rt)], _)])) =>
       assert_false(rt.is_nullable())
     _ => fail("expected refined local type")
   }
@@ -4688,6 +4701,7 @@ test "optimize_module runs LoopInvariantCodeMotion pass" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -4736,6 +4750,7 @@ test "optimize_module runs MergeBlocks pass" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -4781,7 +4796,8 @@ test "optimize_module runs Flatten pass" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_eq(fl_count_local_tees(body), 0)
+    Some(CodeSec([TFunc(_, _, body)])) =>
+      assert_eq(fl_count_local_tees(body), 0)
     _ => fail("expected flattened typed function")
   }
 }
@@ -4812,6 +4828,7 @@ test "optimize_module runs ReReloop pass" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -5008,6 +5025,7 @@ test "optimize_module runs Precompute and PrecomputePropagate passes" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -5068,6 +5086,7 @@ test "optimize_module runs RemoveUnusedBrs pass" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -5120,6 +5139,7 @@ test "optimize_module runs RemoveUnusedNames pass" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -5164,7 +5184,7 @@ test "optimize_module runs SimplifyLocals pass" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(_, { instrs, .. })])) =>
+    Some(CodeSec([TFunc(_, _, { instrs, .. })])) =>
       match instrs {
         [
           {
@@ -5217,7 +5237,7 @@ test "optimize_module runs ReorderFunctions pass" {
   match optimized.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [{ kind: TInstrKind::TNop, .. }], .. }), _, _]
+        [TFunc([], _, { instrs: [{ kind: TInstrKind::TNop, .. }], .. }), _, _]
       )
     ) => ()
     _ => fail("expected ReorderFunctions to move highest-used function first")
@@ -5248,7 +5268,7 @@ test "optimize_module runs ReorderLocals pass" {
     Err(e) => fail("unexpected optimize_module error: \{e}")
   }
   match optimized.code_sec {
-    Some(CodeSec([TFunc(locals, { instrs, .. })])) => {
+    Some(CodeSec([TFunc(_, locals, { instrs, .. })])) => {
       assert_eq(locals, [ValType::i64()])
       match instrs {
         [
@@ -5306,6 +5326,7 @@ test "optimize_module runs ReorderTypes pass" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -5410,6 +5431,7 @@ test "optimize_module runs SimplifyGlobals pass" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -5511,7 +5533,7 @@ test "pass invariant: heap2local validates and remap is stable" {
     )
   let out = opt_assert_pass_invariant(mod, Heap2Local, "heap2local")
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_eq(h2l_count_gc_ops(body), 0)
+    Some(CodeSec([TFunc(_, _, body)])) => assert_eq(h2l_count_gc_ops(body), 0)
     _ => fail("heap2local: expected transformed typed function")
   }
 }
@@ -5541,6 +5563,7 @@ test "pass invariant: merge_blocks validates and remap is stable" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -5587,6 +5610,7 @@ test "pass invariant: re_reloop validates and remap is stable" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -5807,7 +5831,8 @@ test "pass invariant: local_cse validates and remap is stable" {
     )
   let out = opt_assert_pass_invariant(mod, LocalCSE, "local_cse")
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_true(count_local_tees(body) >= 1)
+    Some(CodeSec([TFunc(_, _, body)])) =>
+      assert_true(count_local_tees(body) >= 1)
     _ => fail("local_cse: expected repeated expression reuse")
   }
 }
@@ -5845,8 +5870,9 @@ test "pass invariant: optimize_instructions validates and remap is stable" {
     "optimize_instructions",
   )
   match out.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [{ kind: TInstrKind::TNop, .. }], .. })])) =>
-      ()
+    Some(
+      CodeSec([TFunc(_, _, { instrs: [{ kind: TInstrKind::TNop, .. }], .. })])
+    ) => ()
     _ =>
       fail(
         "optimize_instructions: expected global.set(global.get same idx) to fold",
@@ -5882,6 +5908,7 @@ test "pass invariant: precompute validates and remap is stable" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [

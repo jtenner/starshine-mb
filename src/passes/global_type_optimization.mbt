@@ -340,7 +340,7 @@ fn gto_scan_module_uses(
     Some(CodeSec(funcs)) =>
       for func in funcs {
         match func {
-          TFunc(_, body) => gto_scan_texpr(body, infos)
+          TFunc(_, _, body) => gto_scan_texpr(body, infos)
           Func(locals, body) =>
             match gto_expand_locals(locals) {
               Some(expanded) => {
@@ -1425,7 +1425,7 @@ fn gto_update_instructions(
           None => 0
         }
         match funcs[def_idx] {
-          TFunc(locals, body) => {
+          TFunc(_, locals, body) => {
             let next_local = [param_count + locals.length()]
             let extra_locals : Array[ValType] = []
             let new_body = match
@@ -1756,6 +1756,7 @@ test "global type optimization removes unread field and remaps struct indexes" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [

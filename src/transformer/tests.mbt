@@ -41,6 +41,7 @@ test "walk_module applies on_tinstruction rewrite" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             { instrs: [{ kind: TInstrKind::TLocalGet(LocalIdx(i)), .. }], .. }
           ),
@@ -122,6 +123,7 @@ test "walk_module falls through on_module Ok(None) to default traversal" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             { instrs: [{ kind: TInstrKind::TLocalGet(LocalIdx(i)), .. }], .. }
           ),
@@ -149,8 +151,9 @@ test "walk_module invokes on_module event hook" {
     Err(e) => fail("unexpected walk_module error: \{e}")
   }
   match rewritten.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [{ kind: TInstrKind::TNop, .. }], .. })])) =>
-      ()
+    Some(
+      CodeSec([TFunc(_, _, { instrs: [{ kind: TInstrKind::TNop, .. }], .. })])
+    ) => ()
     _ => fail("expected on_module to inject rewritten code section")
   }
 }

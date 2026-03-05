@@ -466,7 +466,7 @@ fn global_refining(mod : Module) -> Result[Module, String] {
       for i, func in funcs {
         let func_idx = FuncIdx::new(imported_funcs + i.reinterpret_as_uint())
         match func {
-          TFunc(locals, body) => {
+          TFunc(_, locals, body) => {
             let func_params = match env.get_functype_by_funcidx(func_idx) {
               Some(FuncType(params, _)) => params
               None => []

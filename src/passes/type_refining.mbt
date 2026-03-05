@@ -269,7 +269,7 @@ fn tr_build_local_types_by_abs(
     let def_idx = abs_idx - import_func_count
     if def_idx >= 0 && def_idx < funcs.length() {
       match funcs[def_idx] {
-        TFunc(extra_locals, _) =>
+        TFunc(_, extra_locals, _) =>
           for vt in extra_locals {
             locals.push(vt)
           }
@@ -582,7 +582,7 @@ fn type_refining(mod : Module) -> Result[Module, String] {
   for i = 0; i < funcs.length(); i = i + 1 {
     let abs_idx = import_func_count + i
     match funcs[i] {
-      TFunc(_, body) =>
+      TFunc(_, _, body) =>
         tr_analyze_function_body(
           abs_idx, body, calls_by_target, has_unseen_calls,
         )
@@ -651,7 +651,7 @@ fn type_refining(mod : Module) -> Result[Module, String] {
   let next_funcs = funcs.copy()
   for i = 0; i < funcs.length(); i = i + 1 {
     match (funcs[i], refined_params_by_defined[i]) {
-      (TFunc(locals, body), Some(new_params)) => {
+      (TFunc(_, locals, body), Some(new_params)) => {
         let abs_idx = import_func_count + i
         if abs_idx < 0 || abs_idx >= func_types.length() {
           continue
@@ -748,7 +748,7 @@ test "type refining inserts param fixup local for incompatible param.set" {
     .with_code_sec(CodeSec::new([caller, callee]))
   let out = run_type_refining(mod)
   match out.code_sec {
-    Some(CodeSec([_, TFunc(locals, { instrs, .. })])) => {
+    Some(CodeSec([_, TFunc(_, locals, { instrs, .. })])) => {
       assert_eq(locals.length(), 1)
       assert_eq(locals[0], nullable_funcref)
       assert_eq(

@@ -257,6 +257,7 @@ fn module_first_f32_const(mod : Module) -> Float? {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             { instrs: [{ kind: TInstrKind::TF32Const(F32(v)), .. }], .. }
           ),

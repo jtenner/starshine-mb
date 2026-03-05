@@ -1872,7 +1872,7 @@ fn local_cse_ir_pass(
   ModuleTransformer::new().on_func_evt(fn(_, ctx, func) {
     seen_funcs += 1
     match func {
-      TFunc(locals, body) => {
+      TFunc(_, locals, body) => {
         let abs_idx = imported_funcs + seen_funcs - 1
         let params = match
           base_env.get_functype_by_funcidx(
@@ -1965,7 +1965,7 @@ test "local cse rewrites repeated whole trees inside block" {
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let out = run_local_cse(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => {
+    Some(CodeSec([TFunc(_, _, body)])) => {
       assert_true(count_local_tees(body) >= 1)
       assert_true(count_local_gets(body) >= 1)
     }
@@ -1996,7 +1996,7 @@ test "local cse does not connect across non-linear boundaries" {
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let out = run_local_cse(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_eq(count_local_tees(body), 0)
+    Some(CodeSec([TFunc(_, _, body)])) => assert_eq(count_local_tees(body), 0)
     _ => fail("expected transformed function")
   }
 }
@@ -2016,7 +2016,7 @@ test "local cse suppresses direct-child reuse when parent is repeated" {
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let out = run_local_cse(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(locals, body)])) => {
+    Some(CodeSec([TFunc(_, locals, body)])) => {
       // Parent should CSE and child-direct requests in the repeated parent are suppressed.
       // A first-parent child repeat may still remain CSE-eligible.
       assert_true(locals.length() >= 2)
@@ -2050,7 +2050,7 @@ test "local cse checker invalidates across memory interference" {
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let out = run_local_cse(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_eq(count_local_tees(body), 0)
+    Some(CodeSec([TFunc(_, _, body)])) => assert_eq(count_local_tees(body), 0)
     _ => fail("expected transformed function")
   }
 }
@@ -2070,7 +2070,8 @@ test "local cse allows trap-only operations as candidates" {
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let out = run_local_cse(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_true(count_local_tees(body) >= 1)
+    Some(CodeSec([TFunc(_, _, body)])) =>
+      assert_true(count_local_tees(body) >= 1)
     _ => fail("expected transformed function")
   }
 }
@@ -2089,7 +2090,7 @@ test "local cse ignores trivial constants and local.get" {
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let out = run_local_cse(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_eq(count_local_tees(body), 0)
+    Some(CodeSec([TFunc(_, _, body)])) => assert_eq(count_local_tees(body), 0)
     _ => fail("expected transformed function")
   }
 }
@@ -2107,7 +2108,7 @@ test "local cse shrink mode requires larger nodes" {
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let out = run_local_cse(mod, options=OptimizeOptions::new(shrink_level=1))
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => assert_eq(count_local_tees(body), 0)
+    Some(CodeSec([TFunc(_, _, body)])) => assert_eq(count_local_tees(body), 0)
     _ => fail("expected transformed function")
   }
 }
@@ -2153,7 +2154,7 @@ test "local cse helper locals account for parameter indices" {
   let out = run_local_cse(mod)
   assert_eq(validate_module(out), Ok(()))
   match out.code_sec {
-    Some(CodeSec([TFunc(locals, body)])) => {
+    Some(CodeSec([TFunc(_, locals, body)])) => {
       assert_true(locals.length() >= 1)
       assert_true(count_local_tees(body) >= 1)
     }

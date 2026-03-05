@@ -755,7 +755,7 @@ fn sg_analyze(mod : Module) -> Result[(SGInfo, Module, Bool), String] {
     })
     .on_func_evt(fn(self, _, func) {
       match func {
-        TFunc(_, { instrs, .. }) if instrs.length() == 2 =>
+        TFunc(_, _, { instrs, .. }) if instrs.length() == 2 =>
           match instrs[0].kind {
             TInstrKind::TIf(
               _,
@@ -1412,7 +1412,7 @@ fn sg_propagate_constants_to_code(
         let ordinal = seen_funcs
         let log_func = trace_all_funcs || ordinal <= 5 || ordinal % 500 == 0
         match func {
-          TFunc(locals, body) => {
+          TFunc(_, locals, body) => {
             if log_func {
               trace(
                 "func[\{ordinal}] start locals=\{locals.length()} top_instrs=\{body.instrs.length()}",
@@ -1879,6 +1879,7 @@ test "simplify_globals removes unread global.set writes and makes global immutab
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1932,6 +1933,7 @@ test "simplify_globals propagates immutable constant globals into code and copie
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1976,7 +1978,7 @@ test "simplify_globals propagates linear known value from preceding global.set" 
     )
   let out = sg_run_simplify_globals(mod, false)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, rewritten)])) => {
+    Some(CodeSec([TFunc(_, _, rewritten)])) => {
       assert_eq(
         sg_count_tinstr(rewritten, fn(i) {
           match i.kind {
@@ -2022,7 +2024,7 @@ test "simplify_globals removes writes in read-only-to-write if pattern" {
     .with_code_sec(CodeSec::new([Func::t_func([], body)]))
   let out = sg_run_simplify_globals(mod, false)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, rewritten)])) =>
+    Some(CodeSec([TFunc(_, _, rewritten)])) =>
       assert_eq(
         sg_count_tinstr(rewritten, fn(i) {
           i.kind is TInstrKind::TGlobalSet(_, _)

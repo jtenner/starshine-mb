@@ -383,7 +383,7 @@ test "abstract struct usage becomes bottom" {
   let CodeSec(funcs) = new_mod.unwrap().code_sec.unwrap()
   let instrs = match funcs[0] {
     Func(_) => fail("Expected tfunc")
-    TFunc(_, { instrs, .. }) => instrs
+    TFunc(_, _, { instrs, .. }) => instrs
   }
   match instrs[0].kind {
     TInstrKind::TBlock(_, _) => ()
@@ -537,7 +537,7 @@ test "abstract struct does not trap when traps may happen" {
   let CodeSec(funcs) = new_mod.unwrap().code_sec.unwrap()
   let instrs = match funcs[0] {
     Func(_) => fail("Expected tfunc")
-    TFunc(_, { instrs, .. }) => instrs
+    TFunc(_, _, { instrs, .. }) => instrs
   }
   match instrs[0].kind {
     // Must stay a cast, not a trap
@@ -764,7 +764,7 @@ test "full pass mixed branch parity under traps_never_happen" {
   let CodeSec(funcs) = out.unwrap().code_sec.unwrap()
   let instrs = match funcs[0] {
     Func(_) => fail("expected typed function")
-    TFunc(_, { instrs: items, .. }) => items
+    TFunc(_, _, { instrs: items, .. }) => items
   }
   let exact_ht = HeapType::new(TypeIdx::new(0))
   let any_ht = HeapType::abs(AbsHeapType::any())
@@ -858,7 +858,7 @@ test "full pass mixed branch parity when traps may happen" {
   let CodeSec(funcs) = out.unwrap().code_sec.unwrap()
   let instrs = match funcs[0] {
     Func(_) => fail("expected typed function")
-    TFunc(_, { instrs: items, .. }) => items
+    TFunc(_, _, { instrs: items, .. }) => items
   }
   let exact_ht = HeapType::new(TypeIdx::new(0))
   let any_ht = HeapType::abs(AbsHeapType::any())
@@ -1003,7 +1003,7 @@ test "full pass rewrites nested branch casts in value trees under traps_never_ha
   let CodeSec(funcs) = out.unwrap().code_sec.unwrap()
   let instrs = match funcs[0] {
     Func(_) => fail("expected typed function")
-    TFunc(_, { instrs: items, .. }) => items
+    TFunc(_, _, { instrs: items, .. }) => items
   }
   let any_ht = HeapType::abs(AbsHeapType::any())
   match instrs {
@@ -1075,7 +1075,7 @@ test "full pass preserves nested branch casts in value trees when traps may happ
   let CodeSec(funcs) = out.unwrap().code_sec.unwrap()
   let instrs = match funcs[0] {
     Func(_) => fail("expected typed function")
-    TFunc(_, { instrs: items, .. }) => items
+    TFunc(_, _, { instrs: items, .. }) => items
   }
   let exact_ht = HeapType::new(TypeIdx::new(0))
   let any_ht = HeapType::abs(AbsHeapType::any())
@@ -1226,7 +1226,7 @@ test "full pass rewrites deep if/block/try_table value trees under traps_never_h
   let CodeSec(funcs) = out.unwrap().code_sec.unwrap()
   let instrs = match funcs[0] {
     Func(_) => fail("expected typed function")
-    TFunc(_, { instrs: items, .. }) => items
+    TFunc(_, _, { instrs: items, .. }) => items
   }
   let any_ht = HeapType::abs(AbsHeapType::any())
   match instrs {
@@ -1357,7 +1357,7 @@ test "full pass preserves deep if/block/try_table value trees when traps may hap
   let CodeSec(funcs) = out.unwrap().code_sec.unwrap()
   let instrs = match funcs[0] {
     Func(_) => fail("expected typed function")
-    TFunc(_, { instrs: items, .. }) => items
+    TFunc(_, _, { instrs: items, .. }) => items
   }
   let exact_ht = HeapType::new(TypeIdx::new(0))
   let any_ht = HeapType::abs(AbsHeapType::any())
@@ -1572,7 +1572,7 @@ test "full pass rewrites deep handler-bearing nested casts under traps_never_hap
   let CodeSec(funcs) = optimized.code_sec.unwrap()
   let instrs = match funcs[0] {
     Func(_) => fail("expected typed function")
-    TFunc(_, { instrs: items, .. }) => items
+    TFunc(_, _, { instrs: items, .. }) => items
   }
   let any_ht = HeapType::abs(AbsHeapType::any())
   match instrs {
@@ -1712,7 +1712,7 @@ test "full pass preserves deep handler-bearing nested casts when traps may happe
   let CodeSec(funcs) = optimized.code_sec.unwrap()
   let instrs = match funcs[0] {
     Func(_) => fail("expected typed function")
-    TFunc(_, { instrs: items, .. }) => items
+    TFunc(_, _, { instrs: items, .. }) => items
   }
   let exact_ht = HeapType::new(TypeIdx::new(0))
   let any_ht = HeapType::abs(AbsHeapType::any())
@@ -2149,11 +2149,11 @@ test "full pass handler-bearing throw paths preserve catches and stable cast rew
     { traps_never_happen: false },
   )
   let tnh_body = match tnh.unwrap().code_sec.unwrap() {
-    CodeSec([TFunc(_, body)]) => body
+    CodeSec([TFunc(_, _, body)]) => body
     _ => fail("expected transformed typed function body for traps_never_happen")
   }
   let default_body = match default_mode.unwrap().code_sec.unwrap() {
-    CodeSec([TFunc(_, body)]) => body
+    CodeSec([TFunc(_, _, body)]) => body
     _ => fail("expected transformed typed function body for default trap mode")
   }
   assert_eq(atr_count_handler_try_tables(tnh_body), 2)
@@ -2178,7 +2178,7 @@ test "full pass typed payload catches validate and keep catch signatures stable"
   assert_eq(validate_module(tnh_mod), Ok(()))
   assert_eq(validate_module(default_mod), Ok(()))
   match tnh_mod.code_sec {
-    Some(CodeSec([TFunc(_, body0), TFunc(_, body1)])) => {
+    Some(CodeSec([TFunc(_, _, body0), TFunc(_, _, body1)])) => {
       assert_eq(atr_count_catch_new(body0), 1)
       assert_eq(atr_count_catch_ref(body0), 0)
       assert_eq(atr_collect_throw_arg_counts(body0), [1])
@@ -2192,7 +2192,7 @@ test "full pass typed payload catches validate and keep catch signatures stable"
       fail("expected typed payload catch fixture bodies in traps-never-happen")
   }
   match default_mod.code_sec {
-    Some(CodeSec([TFunc(_, body0), TFunc(_, body1)])) => {
+    Some(CodeSec([TFunc(_, _, body0), TFunc(_, _, body1)])) => {
       assert_eq(atr_count_catch_new(body0), 1)
       assert_eq(atr_count_catch_ref(body0), 0)
       assert_eq(atr_collect_throw_arg_counts(body0), [1])
@@ -2215,7 +2215,7 @@ test "full pass exact ref_cast under drop remains validator-clean in traps_never
   let tnh_mod = tnh.unwrap()
   assert_eq(validate_module(tnh_mod), Ok(()))
   match tnh_mod.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => {
+    Some(CodeSec([TFunc(_, _, body)])) => {
       assert_eq(atr_count_ref_cast_instrs(body), 0)
       assert_eq(atr_count_drop_void_block(body), 0)
     }

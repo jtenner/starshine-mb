@@ -481,6 +481,7 @@ test "reorder_globals_always reorders globals by use count while preserving depe
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [

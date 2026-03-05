@@ -3609,7 +3609,7 @@ fn code_folding_pass_with_trace(
         }
         unchanged()
       }
-      TFunc(locals, body) => {
+      TFunc(_, locals, body) => {
         if !cf_locals_have_param_prefix(locals, state.param_types) {
           return Err(
             "code_folding: expected TFunc locals to start with typed params; func_ordinal=\{ordinal} param_count=\{state.param_types.length()} local_count=\{locals.length()}",
@@ -3813,7 +3813,7 @@ fn code_folding_pass_with_trace(
                   state.another_pass = new_state.another_pass
                   current_func = new_func
                   match current_func {
-                    TFunc(_, b) => {
+                    TFunc(_, _, b) => {
                       current_locals = state.func_locals
                       current_body = b
                       current_func = Func::t_func(current_locals, current_body)
@@ -3912,7 +3912,7 @@ fn code_folding_ir_pass_with_trace(
     let param_types = next_params
     let result_types = next_results
     let (func_locals, normalized_func) = match func {
-      TFunc(locals, body) =>
+      TFunc(_, locals, body) =>
         match cf_canonical_tfunc_locals_from_type(param_types, locals) {
           Ok(func_locals) =>
             (func_locals, Func::t_func(func_locals.copy(), body))
@@ -4236,7 +4236,7 @@ fn cf_test_instr_any(instr : TInstr, pred : (TInstr) -> Bool) -> Bool {
 ///|
 fn cf_test_func_any_instr(f : Func, pred : (TInstr) -> Bool) -> Bool {
   match f {
-    TFunc(_, body) => {
+    TFunc(_, _, body) => {
       for instr in body.instrs {
         if cf_test_instr_any(instr, pred) {
           return true
@@ -4410,7 +4410,7 @@ fn cf_assert_func_body_typechecks(
   results : Array[ValType],
 ) -> Unit raise {
   match f {
-    TFunc(locals, body) => {
+    TFunc(_, locals, body) => {
       let env = Env::new().with_locals(locals).with_return_type(Some(results))
       match Typecheck::typecheck(body, make_state(env, [])) {
         Ok(st) =>
@@ -4429,7 +4429,7 @@ test "simple function unchanged" {
   let f = Func::t_func([], TExpr::new([TInstr::i32_const(I32(42))]))
   let f2 = run_fold(f)
   match f2 {
-    TFunc(_, { instrs, .. }) => assert_eq(instrs.length(), 1)
+    TFunc(_, _, { instrs, .. }) => assert_eq(instrs.length(), 1)
     _ => fail("expected TFunc")
   }
 }
@@ -4698,7 +4698,7 @@ test "code folding: if-else with identical tails" {
   let f2 = run_fold(f)
   // The pass should run without error
   match f2 {
-    TFunc(_, { instrs: _, .. }) => ()
+    TFunc(_, _, { instrs: _, .. }) => ()
     _ => fail("expected TFunc")
   }
 }
@@ -4895,7 +4895,7 @@ test "code folding folded operand positions remain value-producing" {
     ),
   )
   match folded {
-    TFunc(locals, body) => {
+    TFunc(_, locals, body) => {
       let env = Env::new()
         .with_locals(locals)
         .with_return_type(Some([ValType::i32()]))
@@ -5108,7 +5108,7 @@ test "code folding hoists block tail targeted by nested br" {
   )
   let f2 = run_fold(f)
   match f2 {
-    TFunc(locals, _) => {
+    TFunc(_, locals, _) => {
       assert_eq(locals.length(), 1)
       assert_true(cf_test_func_has_local_set(f2, LocalIdx::new(0)))
       assert_true(cf_test_func_has_local_get(f2, LocalIdx::new(0)))
@@ -5223,7 +5223,7 @@ test "code folding block hoist rebases nested cond outer branches" {
   )
   let folded = run_fold(original)
   match folded {
-    TFunc(locals, _) => {
+    TFunc(_, locals, _) => {
       assert_eq(locals.length(), 1)
       assert_true(cf_test_func_has_local_set(folded, LocalIdx::new(0)))
       assert_true(cf_test_func_has_local_get(folded, LocalIdx::new(0)))
@@ -5426,7 +5426,7 @@ test "code folding terminating return tails spill differing values via temps" {
     env=Env::new().with_return_type(Some([ValType::i32()])),
   )
   match folded {
-    TFunc(locals, _) => {
+    TFunc(_, locals, _) => {
       assert_eq(locals.length(), 1)
       assert_true(cf_test_func_has_local_set(folded, LocalIdx::new(0)))
       assert_true(cf_test_func_has_local_get(folded, LocalIdx::new(0)))
@@ -6085,7 +6085,7 @@ test "code folding keeps temp locals when return folding skips expr walk" {
     env=Env::new().with_return_type(Some([ValType::i32(), ValType::i32()])),
   )
   match folded {
-    TFunc(locals, _) => assert_eq(locals.length(), 2)
+    TFunc(_, locals, _) => assert_eq(locals.length(), 2)
     _ => fail("expected TFunc")
   }
   cf_assert_func_body_typechecks(folded, [ValType::i32(), ValType::i32()])
@@ -6135,7 +6135,7 @@ test "code folding terminating tails finds profitable subsets" {
     env=Env::new().with_return_type(Some([ValType::i32()])),
   )
   match folded {
-    TFunc(locals, _) => {
+    TFunc(_, locals, _) => {
       assert_eq(locals.length(), 1)
       assert_true(cf_test_func_has_local_set(folded, LocalIdx::new(0)))
       assert_true(cf_test_func_has_local_get(folded, LocalIdx::new(0)))
@@ -6240,7 +6240,7 @@ test "code folding hoists branch-value block tails via temp local" {
     ),
   )
   match folded {
-    TFunc(locals, _) => {
+    TFunc(_, locals, _) => {
       assert_eq(locals.length(), 1)
       assert_true(cf_test_func_has_local_set(folded, LocalIdx::new(0)))
       assert_true(cf_test_func_has_local_get(folded, LocalIdx::new(0)))
@@ -6439,7 +6439,7 @@ test "code folding module pass canonicalizes TFunc locals with omitted typed par
     )
   let folded = cf_run_fold_module(mod)
   match folded.code_sec {
-    Some(CodeSec([TFunc(locals, _)])) =>
+    Some(CodeSec([TFunc(_, locals, _)])) =>
       assert_eq(locals, [ValType::i32(), ValType::i64()])
     _ => fail("expected folded module to contain one typed function")
   }
@@ -6739,7 +6739,7 @@ test "code folding: nested blocks" {
   let f = Func::t_func([], outer)
   let f2 = run_fold(f)
   match f2 {
-    TFunc(_, _) => ()
+    TFunc(_, _, _) => ()
     _ => fail("expected TFunc")
   }
 }
@@ -6754,7 +6754,7 @@ test "code folding: loop body" {
   let f = Func::t_func([], TExpr::new([loop_instr]))
   let f2 = run_fold(f)
   match f2 {
-    TFunc(_, _) => ()
+    TFunc(_, _, _) => ()
     _ => fail("expected TFunc")
   }
 }
@@ -6771,7 +6771,7 @@ test "code folding: multiple returns" {
   let f = Func::t_func([], TExpr::new([if_instr]))
   let f2 = run_fold(f)
   match f2 {
-    TFunc(_, _) => ()
+    TFunc(_, _, _) => ()
     _ => fail("expected TFunc")
   }
 }
@@ -6781,7 +6781,7 @@ test "code folding: empty function unchanged" {
   let f = Func::t_func([], TExpr::new([]))
   let f2 = run_fold(f)
   match f2 {
-    TFunc(_, { instrs, .. }) => assert_eq(instrs.length(), 0)
+    TFunc(_, _, { instrs, .. }) => assert_eq(instrs.length(), 0)
     _ => fail("expected TFunc")
   }
 }
@@ -6791,7 +6791,7 @@ test "code folding: single instruction unchanged" {
   let f = Func::t_func([], TExpr::new([TInstr::nop()]))
   let f2 = run_fold(f)
   match f2 {
-    TFunc(_, { instrs, .. }) => {
+    TFunc(_, _, { instrs, .. }) => {
       assert_eq(instrs.length(), 1)
       assert_true(instrs[0].kind is TInstrKind::TNop)
     }
@@ -6837,7 +6837,7 @@ test "code folding: complex nested structure" {
   let f = Func::t_func([ValType::i32(), ValType::i32()], TExpr::new([outer_if]))
   let f2 = run_fold(f)
   match f2 {
-    TFunc(locals, _) => assert_eq(locals.length(), 2)
+    TFunc(_, locals, _) => assert_eq(locals.length(), 2)
     _ => fail("expected TFunc")
   }
 }

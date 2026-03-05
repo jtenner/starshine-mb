@@ -311,7 +311,7 @@ fn dead_code_elimination_pass_with_trace(
   ModuleTransformer::new()
   .on_func_evt(fn(_, ctx, func) {
     match func {
-      TFunc(locals, body) => {
+      TFunc(_, locals, body) => {
         // Compute a capped nested-size estimate once.
         let nested = dce_count_instrs_capped(body, 250_000)
 

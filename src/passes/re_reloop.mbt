@@ -597,6 +597,7 @@ test "re_reloop rewrites mergeable block shells" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -649,7 +650,7 @@ test "re_reloop reconstructs flattened branch shells via cfg relayout" {
   }
   assert_false(rerelooped == merged)
   match rerelooped.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => {
+    Some(CodeSec([TFunc(_, _, body)])) => {
       assert_true(
         rr_texpr_contains(body, fn(instr) {
           match instr.kind {
@@ -683,7 +684,7 @@ test "re_reloop reconstructs flattened br_on_null shell via cfg relayout" {
     Err(e) => fail("re_reloop should succeed on br_on fixture: \{e}")
   }
   match rerelooped.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => {
+    Some(CodeSec([TFunc(_, _, body)])) => {
       assert_true(
         rr_texpr_contains(body, fn(instr) {
           match instr.kind {
@@ -723,7 +724,7 @@ test "re_reloop reconstructs flattened br_on family shells via cfg relayout" {
       let if_count = Ref::new(0)
       for func in funcs {
         match func {
-          TFunc(_, body) =>
+          TFunc(_, _, body) =>
             if_count.update(fn(v) {
               v +
               rr_texpr_count(body, fn(instr) {
@@ -740,7 +741,7 @@ test "re_reloop reconstructs flattened br_on family shells via cfg relayout" {
       let bron_count = Ref::new(0)
       for func in funcs {
         match func {
-          TFunc(_, body) =>
+          TFunc(_, _, body) =>
             bron_count.update(fn(v) {
               v +
               rr_texpr_count(body, fn(instr) {
@@ -775,7 +776,7 @@ test "re_reloop reconstructs flattened br_table shell via cfg relayout" {
     Err(e) => fail("re_reloop should succeed on br_table fixture: \{e}")
   }
   match rerelooped.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => {
+    Some(CodeSec([TFunc(_, _, body)])) => {
       assert_true(
         rr_texpr_contains(body, fn(instr) {
           match instr.kind {
@@ -812,7 +813,7 @@ test "re_reloop preserves single-evaluation semantics for side-effectful br_tabl
       fail("re_reloop should succeed on side-effectful br_table fixture: \{e}")
   }
   match rerelooped.code_sec {
-    Some(CodeSec([_, TFunc(_, body)])) =>
+    Some(CodeSec([_, TFunc(_, _, body)])) =>
       assert_eq(
         rr_texpr_count(body, fn(instr) {
           match instr.kind {
@@ -903,7 +904,7 @@ test "re_reloop reconstructs mixed-depth br_table targets end-to-end" {
       fail("re_reloop should succeed on non-direct br_table fixture: \{e}")
   }
   match rerelooped.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => {
+    Some(CodeSec([TFunc(_, _, body)])) => {
       assert_true(
         rr_texpr_count(body, fn(instr) {
           match instr.kind {
@@ -943,7 +944,7 @@ test "re_reloop preserves direct br_table for internal loop targets end-to-end" 
       fail("re_reloop should succeed on internal loop br_table fixture: \{e}")
   }
   match rerelooped.code_sec {
-    Some(CodeSec([_, TFunc(_, body)])) => {
+    Some(CodeSec([_, TFunc(_, _, body)])) => {
       assert_eq(
         rr_texpr_count(body, fn(instr) {
           match instr.kind {
@@ -992,7 +993,7 @@ test "re_reloop reconstructs flattened shells with non-special outer-target bran
       fail("re_reloop should succeed on non-special target fixture: \{e}")
   }
   match rerelooped.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => {
+    Some(CodeSec([TFunc(_, _, body)])) => {
       assert_true(
         rr_texpr_contains(body, fn(instr) {
           match instr.kind {
@@ -1030,7 +1031,7 @@ test "re_reloop preserves branch-value flows while reconstructing if form" {
     Err(e) => fail("re_reloop should succeed on branch-value fixture: \{e}")
   }
   match rerelooped.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => {
+    Some(CodeSec([TFunc(_, _, body)])) => {
       assert_eq(
         rr_texpr_count(body, fn(instr) {
           match instr.kind {
@@ -1069,7 +1070,7 @@ test "re_reloop reconstructs flattened loop backedge branch shells" {
     Err(e) => fail("re_reloop should succeed on loop fixture: \{e}")
   }
   match rerelooped.code_sec {
-    Some(CodeSec([TFunc(_, body)])) => {
+    Some(CodeSec([TFunc(_, _, body)])) => {
       assert_true(
         rr_texpr_contains(body, fn(instr) {
           match instr.kind {
@@ -1399,7 +1400,7 @@ fn rr_validate_module_preconditions(mod : Module) -> Result[Unit, String] {
     Some(CodeSec(funcs)) =>
       for func in funcs {
         match func {
-          TFunc(_, body) =>
+          TFunc(_, _, body) =>
             match rr_validate_function_body_flat_and_supported(body) {
               Ok(_) => ()
               Err(e) => return Err(e)
@@ -2154,7 +2155,7 @@ fn rr_reconstruct_module_cfg(mod : Module) -> Result[Module, String] {
         let param_count = param_counts.get(def_idx).unwrap_or(0)
         def_idx = def_idx + 1
         match func {
-          TFunc(locals, body) => {
+          TFunc(_, locals, body) => {
             let scratch_idx = LocalIdx::new(
               (param_count + locals.length()).reinterpret_as_uint(),
             )

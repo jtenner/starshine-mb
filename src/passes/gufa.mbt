@@ -1113,7 +1113,7 @@ fn gufa_transform_func(
 ) -> TransformerResult[GUFAState, Func] {
   match func {
     Func(_, _) => unchanged()
-    TFunc(locals, body) => {
+    TFunc(_, locals, body) => {
       let local_state = GUFAState::{
         ..state,
         env: state.env.with_locals(locals),
@@ -1236,6 +1236,7 @@ test "gufa ref.eq of distinct ref.func values becomes const false" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1287,6 +1288,7 @@ test "gufa ref.test of null against non-null target becomes const false" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1336,6 +1338,7 @@ test "gufa impossible ref.cast becomes unreachable" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1385,6 +1388,7 @@ test "gufa ref.test_desc of null against non-null target becomes const false" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1434,6 +1438,7 @@ test "gufa impossible ref.cast_desc_eq becomes unreachable" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1468,7 +1473,10 @@ test "gufa keeps exact ref.test_desc when source is a strict subtype" {
   match optimized.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [{ kind: TInstrKind::TDrop(instr), .. }], .. }), _]
+        [
+          TFunc([], _, { instrs: [{ kind: TInstrKind::TDrop(instr), .. }], .. }),
+          _,
+        ]
       )
     ) =>
       match instr.kind {
@@ -1499,7 +1507,10 @@ test "gufa keeps exact ref.cast_desc_eq when source is a strict subtype" {
   match optimized.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [{ kind: TInstrKind::TDrop(instr), .. }], .. }), _]
+        [
+          TFunc([], _, { instrs: [{ kind: TInstrKind::TDrop(instr), .. }], .. }),
+          _,
+        ]
       )
     ) =>
       match instr.kind {
@@ -1543,7 +1554,7 @@ test "gufa cast_all inserts cast for known immutable global ref.func" {
   match optimized.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [{ kind: TInstrKind::TDrop(instr), .. }], .. })]
+        [TFunc([], _, { instrs: [{ kind: TInstrKind::TDrop(instr), .. }], .. })]
       )
     ) =>
       match instr.kind {
@@ -1588,7 +1599,13 @@ test "gufa cast_all propagates known local ref.func and inserts cast" {
   match optimized.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [_, { kind: TInstrKind::TDrop(instr), .. }], .. })]
+        [
+          TFunc(
+            [],
+            _,
+            { instrs: [_, { kind: TInstrKind::TDrop(instr), .. }], .. }
+          ),
+        ]
       )
     ) =>
       match instr.kind {
@@ -1649,7 +1666,7 @@ test "gufa ref.cast refines target type when inferred type is stricter" {
   match optimized.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [{ kind: TInstrKind::TDrop(instr), .. }], .. })]
+        [TFunc([], _, { instrs: [{ kind: TInstrKind::TDrop(instr), .. }], .. })]
       )
     ) =>
       match instr.kind {
@@ -1698,6 +1715,7 @@ test "gufa oracle propagates local i32 constant into i32.eqz" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1743,6 +1761,7 @@ test "gufa oracle propagates local ref.func into ref.is_null" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1790,6 +1809,7 @@ test "gufa oracle propagates local i64 constant into i64.eqz" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1838,7 +1858,7 @@ test "gufa replaces immutable i64 global.get with constant" {
   match optimized.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [{ kind: TInstrKind::TDrop(instr), .. }], .. })]
+        [TFunc([], _, { instrs: [{ kind: TInstrKind::TDrop(instr), .. }], .. })]
       )
     ) =>
       match instr.kind {
@@ -1883,6 +1903,7 @@ test "gufa merges identical local knowledge across if branches" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1937,6 +1958,7 @@ test "gufa keeps local knowledge across if without else via pre-state merge" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1999,7 +2021,13 @@ test "gufa does not fold when if branches produce conflicting local constants" {
   match optimized.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [_, { kind: TInstrKind::TDrop(instr), .. }], .. })]
+        [
+          TFunc(
+            [],
+            _,
+            { instrs: [_, { kind: TInstrKind::TDrop(instr), .. }], .. }
+          ),
+        ]
       )
     ) =>
       match instr.kind {

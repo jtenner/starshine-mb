@@ -95,7 +95,7 @@ fn ml_should_skip_module(mod : Module) -> Bool {
       let mut top_instrs = 0
       for func in funcs {
         match func {
-          TFunc(_, body) => {
+          TFunc(_, _, body) => {
             top_instrs += body.instrs.length()
             if top_instrs > ml_module_top_instr_limit() {
               return true
@@ -471,7 +471,7 @@ fn ml_analyze_tinstruction(
 ///|
 fn build_local_graph_snapshot(func : Func) -> MLLocalGraphSnapshot {
   match func {
-    TFunc(_, body) => {
+    TFunc(_, _, body) => {
       let state = MLAnalyzeState::{
         next_get_id: 0,
         next_set_id: 0,
@@ -667,7 +667,7 @@ fn ml_verify_direction(
 ///|
 fn optimize_copies(func : Func) -> (Func, Bool) {
   match func {
-    TFunc(locals, body) => {
+    TFunc(_, locals, body) => {
       let (instrumented_body, instrumented) = ml_instrument_copies(body)
       if !instrumented {
         return (func, false)

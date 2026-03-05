@@ -30,7 +30,7 @@ fn ml_single_func_body(mod : Module) -> TExpr {
     Some(CodeSec(funcs)) =>
       if funcs.length() == 1 {
         match funcs[0] {
-          TFunc(_, body) => body
+          TFunc(_, _, body) => body
           _ => TExpr::new([])
         }
       } else {

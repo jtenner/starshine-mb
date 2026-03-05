@@ -471,7 +471,7 @@ test "directize: constant index resolves to known function" {
   assert_true(result is Ok(_))
   let new_m = result.unwrap()
   match new_m.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [instr], .. })])) =>
+    Some(CodeSec([TFunc(_, _, { instrs: [instr], .. })])) =>
       match instr.kind {
         TInstrKind::TCall(FuncIdx(0), []) => () // Expected: transformed to direct call
         other => fail("Expected TInstrKind::TCall(FuncIdx(0)), got \{other}")
@@ -529,10 +529,10 @@ test "directize: out-of-bounds constant index becomes unreachable" {
   match new_m.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [{ kind: TInstrKind::TUnreachable, .. }], .. })]
+        [TFunc([], _, { instrs: [{ kind: TInstrKind::TUnreachable, .. }], .. })]
       )
     ) => () // Expected
-    Some(CodeSec([TFunc(_, { instrs: [instr], .. })])) =>
+    Some(CodeSec([TFunc(_, _, { instrs: [instr], .. })])) =>
       fail("Expected TInstrKind::TUnreachable, got \{instr}")
     _ => fail("Unexpected code section structure")
   }
@@ -588,7 +588,7 @@ test "directize: null entry in table becomes unreachable" {
   match new_m.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [{ kind: TInstrKind::TUnreachable, .. }], .. })]
+        [TFunc([], _, { instrs: [{ kind: TInstrKind::TUnreachable, .. }], .. })]
       )
     ) => ()
     _ => fail("Expected unreachable for null table entry")
@@ -645,6 +645,7 @@ test "directize: non-constant index is not transformed" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -723,7 +724,7 @@ test "directize: type mismatch becomes unreachable" {
   match new_m.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [{ kind: TInstrKind::TUnreachable, .. }], .. })]
+        [TFunc([], _, { instrs: [{ kind: TInstrKind::TUnreachable, .. }], .. })]
       )
     ) => ()
     _ => fail("Expected unreachable for type mismatch")
@@ -789,6 +790,7 @@ test "directize: table.set prevents optimization" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [_, { kind: TInstrKind::TCallIndirect(_, _, _, _), .. }],
@@ -858,6 +860,7 @@ test "directize: table.fill prevents optimization" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [_, { kind: TInstrKind::TCallIndirect(_, _, _, _), .. }],
@@ -942,6 +945,7 @@ test "directize: table.copy prevents optimization on dest table" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [_, { kind: TInstrKind::TCallIndirect(_, _, _, _), .. }],
@@ -1009,6 +1013,7 @@ test "directize: table.init prevents optimization" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [_, { kind: TInstrKind::TCallIndirect(_, _, _, _), .. }],
@@ -1080,6 +1085,7 @@ test "directize: table.grow marks table as growable" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [_, { kind: TInstrKind::TCallIndirect(_, _, _, _), .. }],
@@ -1143,6 +1149,7 @@ test "directize: initial_immutable=false prevents optimization" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [{ kind: TInstrKind::TCallIndirect(_, _, _, _), .. }],
@@ -1211,6 +1218,7 @@ test "directize: return_call_indirect with constant index" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [{ kind: TInstrKind::TReturnCall(FuncIdx(0), []), .. }],
@@ -1272,7 +1280,7 @@ test "directize: return_call_indirect out of bounds becomes unreachable" {
   match new_m.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [{ kind: TInstrKind::TUnreachable, .. }], .. })]
+        [TFunc([], _, { instrs: [{ kind: TInstrKind::TUnreachable, .. }], .. })]
       )
     ) => ()
     _ => fail("Expected unreachable for out of bounds return_call_indirect")
@@ -1338,6 +1346,7 @@ test "directize: select-based call_indirect with both branches known" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             { instrs: [{ kind: TInstrKind::TIf(_, _, _, Some(_)), .. }], .. }
           ),
@@ -1403,6 +1412,7 @@ test "directize: select-based call_indirect with one branch trapping" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1491,6 +1501,7 @@ test "directize: select-based call_indirect with unknown branch not transformed"
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1574,7 +1585,7 @@ test "directize: br_table-based call_indirect with all branches known" {
   match new_m.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [{ kind: TInstrKind::TBlock(_, _), .. }], .. })]
+        [TFunc([], _, { instrs: [{ kind: TInstrKind::TBlock(_, _), .. }], .. })]
       )
     ) => ()
     _ => fail("Expected br_table-based call to become nested blocks")
@@ -1627,7 +1638,7 @@ test "directize: passive element segment doesn't initialize table" {
   match new_m.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [{ kind: TInstrKind::TUnreachable, .. }], .. })]
+        [TFunc([], _, { instrs: [{ kind: TInstrKind::TUnreachable, .. }], .. })]
       )
     ) => () // Entry is null
     _ => fail("Expected unreachable when element segment is passive")
@@ -1676,7 +1687,7 @@ test "directize: declarative element segment doesn't initialize table" {
   match new_m.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [{ kind: TInstrKind::TUnreachable, .. }], .. })]
+        [TFunc([], _, { instrs: [{ kind: TInstrKind::TUnreachable, .. }], .. })]
       )
     ) => ()
     _ => fail("Expected unreachable when element segment is declarative")
@@ -1741,6 +1752,7 @@ test "directize: element segment with non-constant offset marks table mutable" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [{ kind: TInstrKind::TCallIndirect(_, _, _, _), .. }],
@@ -1807,6 +1819,7 @@ test "directize: element segment with expression kind marks table mutable" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [{ kind: TInstrKind::TCallIndirect(_, _, _, _), .. }],
@@ -1899,6 +1912,7 @@ test "directize: multiple tables, only one modified" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1973,6 +1987,7 @@ test "directize: arguments are propagated to direct call" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -2047,7 +2062,7 @@ test "directize: negative index (interpreted as large unsigned) becomes unreacha
   match new_m.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [{ kind: TInstrKind::TUnreachable, .. }], .. })]
+        [TFunc([], _, { instrs: [{ kind: TInstrKind::TUnreachable, .. }], .. })]
       )
     ) => ()
     _ => fail("Expected unreachable for negative index")
@@ -2095,7 +2110,7 @@ test "directize: empty table always traps" {
   match new_m.code_sec {
     Some(
       CodeSec(
-        [TFunc(_, { instrs: [{ kind: TInstrKind::TUnreachable, .. }], .. })]
+        [TFunc([], _, { instrs: [{ kind: TInstrKind::TUnreachable, .. }], .. })]
       )
     ) => ()
     _ => fail("Expected unreachable for empty table access")
@@ -2118,8 +2133,9 @@ test "directize: module without tables" {
   assert_true(result is Ok(_))
   let new_m = result.unwrap()
   match new_m.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [{ kind: TInstrKind::TNop, .. }], .. })])) =>
-      ()
+    Some(
+      CodeSec([TFunc(_, _, { instrs: [{ kind: TInstrKind::TNop, .. }], .. })])
+    ) => ()
     _ => fail("Expected no changes for module without tables")
   }
 }
@@ -2191,6 +2207,7 @@ test "directize: element segment at offset beyond initial table entries" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -2262,6 +2279,7 @@ test "directize: table with i64 limits" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             { instrs: [{ kind: TInstrKind::TCall(FuncIdx(0), []), .. }], .. }
           ),

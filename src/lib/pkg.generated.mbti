@@ -988,10 +988,11 @@ pub impl @quickcheck.Arbitrary for FieldType
 
 pub enum Func {
   Func(Array[Locals], Expr)
-  TFunc(Array[ValType], TExpr)
+  TFunc(Array[ValType], Array[ValType], TExpr)
 }
 pub fn Func::new(Array[Locals], Expr) -> Self
 pub fn Func::t_func(Array[ValType], TExpr) -> Self
+pub fn Func::t_func_with_params(Array[ValType], Array[ValType], TExpr) -> Self
 pub impl PrettyPrint for Func
 pub impl Eq for Func
 pub impl Hash for Func

@@ -83,7 +83,7 @@ fn lift_to_texpr_module_with_trace(
                 return Err(err)
               }
             }
-          TFunc(_, _) => {
+          TFunc(_, _, _) => {
             if seen_funcs <= 5 || seen_funcs % 500 == 0 {
               trace("func[\{seen_funcs}] already-tfunc")
             }
@@ -134,7 +134,7 @@ fn lift_to_texpr_pass_with_trace(
             unchanged()
           }
         }
-      TFunc(_, _) => {
+      TFunc(_, _, _) => {
         if seen_funcs <= 5 || seen_funcs % 500 == 0 {
           trace("func[\{seen_funcs}] already-tfunc")
         }
@@ -161,7 +161,7 @@ test "lift_to_texpr_pass expands grouped locals when lifting Func" {
   match result {
     Ok(Some((_, new_mod))) =>
       match new_mod.code_sec {
-        Some(CodeSec([TFunc(locals, _)])) => assert_eq(locals.length(), 2)
+        Some(CodeSec([TFunc(_, locals, _)])) => assert_eq(locals.length(), 2)
         _ => fail("expected lifted TFunc with expanded locals")
       }
     Ok(None) => fail("expected module change")

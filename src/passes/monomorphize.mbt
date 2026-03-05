@@ -764,7 +764,7 @@ fn find_return_callers(mod : Module) -> Array[Bool] {
           continue
         }
         match funcs[i] {
-          TFunc(_, body) => {
+          TFunc(_, _, body) => {
             let mut has_return_call = false
             let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
               self,
@@ -882,7 +882,7 @@ fn find_calls_and_drops(
 ) -> Array[MonoCallInfo] {
   ignore(caller_abs_idx)
   match func {
-    TFunc(_, body) => {
+    TFunc(_, _, body) => {
       let collector = MonoCallCollector::new(env)
       mn_collect_calls_in_texpr(collector, body, true)
       collector.calls
@@ -979,7 +979,7 @@ fn make_mono_function_with_context(
   new_operand_types : Array[ValType],
 ) -> Func? {
   match func {
-    TFunc(extra_locals, body) => {
+    TFunc(_, extra_locals, body) => {
       let FuncType(old_params, _) = func_type
       if context.operands.length() != old_params.length() {
         return None
@@ -1190,7 +1190,7 @@ fn mn_cleanup_body(body : TExpr) -> TExpr {
 ///|
 fn do_opts(func : Func, mod : Module, params? : Array[ValType] = []) -> Func {
   match func {
-    TFunc(locals, body) => {
+    TFunc(_, locals, body) => {
       let all_locals = params + locals
       let ctx = IRContext::new()
       ctx.set_mod(mod)
@@ -1209,7 +1209,7 @@ fn do_opts(func : Func, mod : Module, params? : Array[ValType] = []) -> Func {
         _ => Func::t_func(locals, body)
       }
       match folded {
-        TFunc(next_locals, next_body) =>
+        TFunc(_, next_locals, next_body) =>
           Func::t_func(
             next_locals,
             mn_cleanup_body(mn_cleanup_body(run_dce_on_texpr(next_body))),
@@ -1313,7 +1313,7 @@ fn update_call(func : Func, actions : Map[Int, MonoRewriteAction]) -> Func {
     return func
   }
   match func {
-    TFunc(locals, body) => {
+    TFunc(_, locals, body) => {
       let state = MonoRewriteState::new(actions)
       Func::t_func(locals, mn_rewrite_texpr(state, body))
     }
@@ -1333,7 +1333,7 @@ fn mn_build_caller_env(mod : Module, caller_abs_idx : Int) -> Env {
   }
   let locals = params.copy()
   match mn_get_func(mod, caller_abs_idx) {
-    Some(TFunc(extra, _)) =>
+    Some(TFunc(_, extra, _)) =>
       for vt in extra {
         locals.push(vt)
       }
@@ -1497,7 +1497,7 @@ fn monomorphize_run(
       } else {
         let before_body_cost = match
           do_opts(callee_after_opt, mod, params=callee_params) {
-          TFunc(_, body) => cost(body)
+          TFunc(_, _, body) => cost(body)
           _ => 0
         }
         let mut context_cost = 0
@@ -1506,7 +1506,7 @@ fn monomorphize_run(
         }
         let cost_before = before_body_cost + context_cost
         let cost_after = match optimized_mono {
-          TFunc(_, body) => cost(body)
+          TFunc(_, _, body) => cost(body)
           _ => cost_before
         }
         if cost_before == 0 {
@@ -1641,7 +1641,7 @@ test "monomorphize always specializes constant argument and reduces params" {
     _ => fail("expected code section")
   }
   match out.code_sec {
-    Some(CodeSec([TFunc(_, caller_body), _, _])) => {
+    Some(CodeSec([TFunc(_, _, caller_body), _, _])) => {
       let targets = mono_call_targets_in_body(caller_body)
       assert_eq(targets.length(), 1)
       assert_true(targets[0] != FuncIdx::new(1))
@@ -1688,6 +1688,7 @@ test "monomorphize always keeps immovable operand as call argument for partial m
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1702,7 +1703,7 @@ test "monomorphize always keeps immovable operand as call argument for partial m
             }
           ),
           _,
-          TFunc(_, mono_body),
+          TFunc([], _, mono_body),
         ]
       )
     ) => {
@@ -1774,6 +1775,7 @@ test "monomorphize always preserves effect ordering by keeping trapping operand 
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1831,9 +1833,9 @@ test "monomorphize always handles dropped calls and removes drop wrapper" {
     Some(
       CodeSec(
         [
-          TFunc(_, { instrs: [{ kind: TInstrKind::TCall(_, _), .. }], .. }),
+          TFunc([], _, { instrs: [{ kind: TInstrKind::TCall(_, _), .. }], .. }),
           _,
-          TFunc(_, _),
+          TFunc([], _, _),
         ]
       )
     ) => ()
@@ -1894,6 +1896,7 @@ test "monomorphize disables dropped context for return-calling callee" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -1986,7 +1989,7 @@ test "monomorphize reuses memoized specialization across identical callsites" {
     _ => fail("expected one memoized specialization clone")
   }
   match out.code_sec {
-    Some(CodeSec([TFunc(_, body), _, _])) => {
+    Some(CodeSec([TFunc(_, _, body), _, _])) => {
       let targets = mono_call_targets_in_body(body)
       assert_eq(targets.length(), 2)
       assert_eq(targets[0], targets[1])
@@ -2269,6 +2272,7 @@ test "monomorphize does not move if-expression operand into context" {
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -2346,6 +2350,7 @@ test "monomorphize preserves memory effect ordering by not moving memory.size ac
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [

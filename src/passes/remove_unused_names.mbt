@@ -59,7 +59,7 @@ fn remove_unused_names_ir_pass(
     let ordinal = def_idx + 1
     let log_func = trace_all_funcs || ordinal <= 5 || ordinal % 500 == 0
     match func {
-      TFunc(locals, body) => {
+      TFunc(_, locals, body) => {
         let func_start_ms = sl_trace_now_ms()
         if log_func {
           trace(
@@ -774,6 +774,7 @@ test "remove_unused_names merges single-child same-typed nested blocks" {
   let out = run_remove_unused_names(mod)
   match run_single_func(out) {
     TFunc(
+      [],
       _,
       {
         instrs: [
@@ -814,6 +815,7 @@ test "remove_unused_names retargets branch depth when merging nested blocks" {
   let out = run_remove_unused_names(mod)
   match run_single_func(out) {
     TFunc(
+      [],
       _,
       {
         instrs: [
@@ -844,6 +846,7 @@ test "remove_unused_names rewrites loop to block when no continue branch remains
   let out = run_remove_unused_names(mod)
   match run_single_func(out) {
     TFunc(
+      [],
       _,
       {
         instrs: [
@@ -873,7 +876,7 @@ test "remove_unused_names keeps loop when body branches to loop label" {
   let mod = Module::new().with_code_sec(CodeSec::new([Func::t_func([], body)]))
   let out = run_remove_unused_names(mod)
   match run_single_func(out) {
-    TFunc(_, { instrs: [{ kind: TInstrKind::TLoop(_, _), .. }], .. }) => ()
+    TFunc(_, _, { instrs: [{ kind: TInstrKind::TLoop(_, _), .. }], .. }) => ()
     _ => fail("expected loop with br 0 to remain a loop")
   }
 }

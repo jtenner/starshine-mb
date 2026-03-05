@@ -1440,7 +1440,7 @@ fn apply_replacements(
           None => 0
         }
         match funcs[i] {
-          TFunc(locals, body) => {
+          TFunc(_, locals, body) => {
             let init_state = {
               next_local: param_count + locals.length(),
               new_locals: [],
@@ -1821,7 +1821,7 @@ fn mp_run(
 ///|
 fn mp_first_body(mod : Module) -> TExpr {
   match mod.code_sec {
-    Some(CodeSec([TFunc(_, body), ..])) => body
+    Some(CodeSec([TFunc(_, _, body), ..])) => body
     _ => TExpr::new([])
   }
 }
@@ -2244,7 +2244,7 @@ test "memory packing introduces temp local for non-const memory.init dest" {
     .with_data_sec(DataSec::new([data]))
   let out = mp_run(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(locals, body)])) => {
+    Some(CodeSec([TFunc(_, locals, body)])) => {
       assert_true(locals.length() >= 1)
       let set_count = mp_count_instr(body, fn(i) {
         i.kind is TInstrKind::TLocalSet(_, _)

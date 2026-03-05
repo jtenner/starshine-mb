@@ -91,7 +91,7 @@ fn rf_scan_call_counts(
   })
   for func in funcs {
     match func {
-      TFunc(_, body) =>
+      TFunc(_, _, body) =>
         match tscanner.walk_texpr((), body) {
           Ok(_) => ()
           Err(e) => return Err(e)
@@ -296,6 +296,7 @@ test "reorder_functions reorders defined functions by static use counts and rewr
       CodeSec(
         [
           TFunc(
+            [],
             _,
             {
               instrs: [
@@ -347,8 +348,9 @@ test "reorder_functions_by_name currently preserves order when symbolic names ar
     Some(
       CodeSec(
         [
-          TFunc(_, { instrs: [{ kind: TInstrKind::TNop, .. }], .. }),
+          TFunc([], _, { instrs: [{ kind: TInstrKind::TNop, .. }], .. }),
           TFunc(
+            [],
             _,
             {
               instrs: [

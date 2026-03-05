@@ -70,7 +70,7 @@ test "lift_to_texpr_pass lifts Func body and expands locals" {
     Err(e) => fail("unexpected lift_to_texpr_pass error: \{e}")
   }
   match lifted.code_sec {
-    Some(CodeSec([TFunc(locals, { instrs, .. })])) => {
+    Some(CodeSec([TFunc(_, locals, { instrs, .. })])) => {
       assert_eq(locals, [ValType::i32(), ValType::i32()])
       assert_eq(instrs.length(), 1)
       match instrs[0].kind {
@@ -99,8 +99,9 @@ test "lift_to_texpr_pass leaves existing TFunc unchanged" {
     Err(e) => fail("unexpected lift_to_texpr_pass error: \{e}")
   }
   match lifted.code_sec {
-    Some(CodeSec([TFunc(_, { instrs: [{ kind: TInstrKind::TNop, .. }], .. })])) =>
-      ()
+    Some(
+      CodeSec([TFunc(_, _, { instrs: [{ kind: TInstrKind::TNop, .. }], .. })])
+    ) => ()
     _ => fail("expected existing TFunc to remain unchanged")
   }
 }

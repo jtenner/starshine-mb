@@ -922,7 +922,7 @@ fn coalesce_locals(
   ModuleTransformer::new().on_func_evt(fn(_, _, func) {
     match func {
       Func(_) => unchanged()
-      TFunc(locals, body) => {
+      TFunc(_, locals, body) => {
         let def_idx = next_def_idx.val
         next_def_idx.update(fn(i) { i + 1 })
         let ordinal = def_idx + 1
@@ -954,9 +954,7 @@ fn coalesce_locals(
           }
           let max_local_used = cl_max_local_used(body)
           let (trimmed_locals, dropped_trailing) = cl_trim_trailing_unused_locals(
-            locals,
-            param_count,
-            max_local_used,
+            locals, param_count, max_local_used,
           )
           if log_func {
             trace(
@@ -1026,9 +1024,7 @@ fn coalesce_locals(
         if log_func {
           trace("func[\{ordinal}] phase=compute_mapping start")
         }
-        let mapping = compute_coalescing(
-          all_locals, inter, order, param_count,
-        )
+        let mapping = compute_coalescing(all_locals, inter, order, param_count)
         if log_func {
           trace(
             "func[\{ordinal}] phase=compute_mapping done elapsed_ms=\{sl_trace_elapsed_ms(coalesce_start_ms)} mapping=\{mapping.length()}",
@@ -1358,7 +1354,7 @@ test "CoalesceLocals: trivial coalescing rewrites locals" {
   // After coalescing, only one local remains
   assert_true(
     new_module.code_sec is Some(CodeSec([new_func])) &&
-    new_func is TFunc(locals, _) &&
+    new_func is TFunc(_, locals, _) &&
     locals.length() == 1,
   )
 }
@@ -1379,7 +1375,10 @@ test "CoalesceLocals trace covers function phases" {
           TExpr::new([
             TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(1))),
             TInstr::local_get(LocalIdx::new(0)),
-            TInstr::local_set(LocalIdx::new(1), TInstr::local_get(LocalIdx::new(0))),
+            TInstr::local_set(
+              LocalIdx::new(1),
+              TInstr::local_get(LocalIdx::new(0)),
+            ),
             TInstr::local_get(LocalIdx::new(1)),
           ]),
         ),
@@ -1478,7 +1477,8 @@ test "CoalesceLocals large-local fast path trims trailing unused locals" {
     if msg.contains("func[1] phase=compute_interferences start") {
       saw_inter_start = true
     }
-    if msg.contains("func[1] done") && msg.contains("reason=trim_trailing_unused_for_large_locals") {
+    if msg.contains("func[1] done") &&
+      msg.contains("reason=trim_trailing_unused_for_large_locals") {
       saw_trim_done = true
     }
   }
@@ -1502,7 +1502,7 @@ test "CoalesceLocals: locals of different types do not coalesce" {
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
   assert_true(
-    new_mod.code_sec is Some(CodeSec([TFunc(locals, _)])) &&
+    new_mod.code_sec is Some(CodeSec([TFunc(_, locals, _)])) &&
     locals.length() == 2,
   )
 }
@@ -1525,7 +1525,7 @@ test "CoalesceLocals: nested expressions still allow coalescing" {
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
   assert_true(
-    new_mod.code_sec is Some(CodeSec([TFunc(locals, _)])) &&
+    new_mod.code_sec is Some(CodeSec([TFunc(_, locals, _)])) &&
     locals.length() == 1,
   )
 }
@@ -1621,7 +1621,7 @@ test "CoalesceLocals: merge interference prevents coalescing" {
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
   assert_true(
-    new_mod.code_sec is Some(CodeSec([TFunc(locals, _)])) &&
+    new_mod.code_sec is Some(CodeSec([TFunc(_, locals, _)])) &&
     locals.length() == 2,
   )
 }
@@ -1651,7 +1651,7 @@ test "CoalesceLocals: branch-local lifetimes can be coalesced" {
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
   assert_true(
-    new_mod.code_sec is Some(CodeSec([TFunc(locals, _)])) &&
+    new_mod.code_sec is Some(CodeSec([TFunc(_, locals, _)])) &&
     locals.length() == 1,
   )
 }
@@ -1742,7 +1742,7 @@ test "Copy-based coalescing eliminates local copy" {
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
   assert_true(
-    new_mod.code_sec is Some(CodeSec([TFunc(locals, _)])) &&
+    new_mod.code_sec is Some(CodeSec([TFunc(_, locals, _)])) &&
     locals.length() == 1,
   )
 }
@@ -1761,7 +1761,7 @@ test "Copy-based coalescing respects interference" {
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
   assert_true(
-    new_mod.code_sec is Some(CodeSec([TFunc(locals, _)])) &&
+    new_mod.code_sec is Some(CodeSec([TFunc(_, locals, _)])) &&
     locals.length() == 2,
   )
 }
@@ -1785,7 +1785,7 @@ test "Value numbering: identical constant assignments coalesce" {
 
   // With value numbering, x and y can be coalesced
   assert_true(
-    new_mod.code_sec is Some(CodeSec([TFunc(locals, _)])) &&
+    new_mod.code_sec is Some(CodeSec([TFunc(_, locals, _)])) &&
     locals.length() == 1,
   )
 }
@@ -1809,7 +1809,7 @@ test "Value numbering: different constants do not coalesce" {
 
   // Must not coalesce
   assert_true(
-    new_mod.code_sec is Some(CodeSec([TFunc(locals, _)])) &&
+    new_mod.code_sec is Some(CodeSec([TFunc(_, locals, _)])) &&
     locals.length() == 2,
   )
 }
@@ -1832,7 +1832,7 @@ test "Value numbering: copy propagation enables coalescing" {
   let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
   // x and y hold same value → coalesce
   assert_true(
-    new_mod.code_sec is Some(CodeSec([TFunc(locals, _)])) &&
+    new_mod.code_sec is Some(CodeSec([TFunc(_, locals, _)])) &&
     locals.length() == 1,
   )
 }
@@ -1857,13 +1857,13 @@ test "Value numbering: reassignment breaks equality" {
 
   // x and y no longer equal
   assert_true(
-    new_mod.code_sec is Some(CodeSec([TFunc(locals, _)])) &&
+    new_mod.code_sec is Some(CodeSec([TFunc(_, locals, _)])) &&
     locals.length() == 2,
   )
 }
 
 ///|
-test "Value numbering: equal values across branches coalesce" {
+test "Value numbering: equal values across branches do not coalesce" {
   let x = LocalIdx::new(0)
   let y = LocalIdx::new(1)
   let instrs = [
@@ -1883,8 +1883,8 @@ test "Value numbering: equal values across branches coalesce" {
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
   assert_true(
-    new_mod.code_sec is Some(CodeSec([TFunc(locals, _)])) &&
-    locals.length() == 1,
+    new_mod.code_sec is Some(CodeSec([TFunc(_, locals, _)])) &&
+    locals.length() == 2,
   )
 }
 
@@ -1908,7 +1908,7 @@ test "CoalesceLocals: nested local use is rewritten when locals coalesce" {
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
   assert_true(
-    new_mod.code_sec is Some(CodeSec([TFunc(locals, body)])) &&
+    new_mod.code_sec is Some(CodeSec([TFunc(_, locals, body)])) &&
     locals.length() == 1 &&
     cl_max_local_used(body) == 0,
   )
@@ -1947,7 +1947,7 @@ test "CoalesceLocals: imported functions do not shift param boundaries" {
   let pass = coalesce_locals(param_types=cl_collect_param_types(mod))
   let (_, new_mod) = pass.walk_module((), mod).unwrap().unwrap()
   assert_true(
-    new_mod.code_sec is Some(CodeSec([TFunc(locals, new_body)])) &&
+    new_mod.code_sec is Some(CodeSec([TFunc(_, locals, new_body)])) &&
     locals.length() == 1 &&
     cl_max_local_used(new_body) == 1,
   )
