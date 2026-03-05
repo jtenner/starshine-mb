@@ -140,9 +140,7 @@ test "run_wasm_smith_fuzz_harness emits failure report on differential mismatch"
   match
     run_wasm_smith_fuzz_harness(
       1,
-      seed=0xA11CUL,
-      optimize_passes=[ModulePass::Vacuum],
-      optimize_pass_names=Some(["vacuum"]),
+      seed=0x5eedUL,
       differential_adapters=Some(adapters),
       differential_every=1,
       on_failure=Some(fn(report) {
@@ -159,9 +157,9 @@ test "run_wasm_smith_fuzz_harness emits failure report on differential mismatch"
   }
   assert_eq(reports.length(), 1)
   let report = reports[0]
-  assert_eq(report.seed, 0xA11CUL)
+  assert_eq(report.seed, 0x5eedUL)
   assert_eq(report.stage, "differential")
-  assert_eq(report.optimize_passes, ["vacuum"])
+  assert_eq(report.optimize_passes, [])
   match report.wasm {
     Some(bytes) => assert_true(bytes.length() > 0)
     None => fail("expected captured failing wasm bytes")

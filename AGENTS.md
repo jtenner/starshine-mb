@@ -35,28 +35,21 @@ In this workspace, use absolute moon path when needed:
 - `/home/jtenner/.moon/bin/moon info && /home/jtenner/.moon/bin/moon fmt`
 
 ## Repository Layout
-- `src/lib/*.mbt`: core wasm model/types (`types.mbt`), traits/helpers (`arbitrary.mbt`, `eq.mbt`, `show.mbt`, `texpr.mbt`)
-- `src/ir/*.mbt`: IR analyses/utilities (`ir_context.mbt`, `liveness.mbt`, `gvn.mbt`, etc.)
-- `src/passes/*.mbt`: optimization and lowering passes
-- `src/transformer/*.mbt`: `ModuleTransformer` framework
-- `src/validate/*.mbt`: wasm validation/typechecking
-- `src/binary/*.mbt`: wasm binary encoding/decoding
-- `src/wast/*.mbt`: s-expression text parsing/printing
-
-## Pass Pipeline (Compressed)
-- Canonical scheduler: `src/passes/optimize.mbt`.
-- `optimize_module(...)` always runs `lift_to_texpr_pass()` first.
-- Preferred integration shape:
-  - pass constructor returns `ModuleTransformer[IRContext]` (or `Result[...]` if setup can fail)
-  - scheduler dispatches `ModulePass` variants to constructors.
-- `src/passes/util.mbt` has `wrap_unit_func_pass` for adapting `ModuleTransformer[Unit]` function passes.
-
-## Current Gaps / Ongoing Work
-- Migrate remaining non-IRContext-shaped passes (`de_nan`, `remove_unused`).
-- Keep `IRContext`/SSA/CFG as the canonical optimization context for IR-driven passes.
-- `GlobalStructInferenceDescCast` now includes a conservative singleton-global `ref.cast` lowering path; full opcode-level descriptor parity (`ref.get_desc` / descriptor-eq casts) still depends on descriptor IR support.
-- Atomics/threading core instruction support is complete; remaining parity work is pass-specific atomics optimization behavior in heap passes.
-- `Asyncify` parity follow-up remaining gaps are now mostly around wider Binaryen feature surface beyond current staged implementation (for example additional optimizer-stage parity and advanced unsupported value categories).
+- `src/lib/`: wasm core model types plus shared traits and utilities.
+- `src/ir/`: IR data structures and compiler analyses/utilities.
+- `src/passes/`: optimization/lowering pass implementations and pass helpers.
+- `src/transformer/`: `ModuleTransformer` framework and related tests.
+- `src/validate/`: wasm validation and typechecking logic.
+- `src/binary/`: binary wasm encoding/decoding.
+- `src/wast/`: WAST s-expression parsing and printing.
+- `src/wat/`: text-format wasm (`.wat`) support.
+- `src/cmd/` and `src/cli/`: command entrypoints and CLI plumbing.
+- `src/node_api/`: Node-facing API integration layer.
+- `src/spec_runner/`: spec test execution helpers.
+- `tests/spec/`: upstream-style spec test corpus and proposal fixtures.
+- `tests/node/`: Node integration tests and scripts.
+- `examples/`: runnable usage examples and sample config/module inputs.
+- `scripts/`: project automation and maintenance scripts.
 
 ## Test/Validation Expectations for Pass Changes
 - Update inline/dispatch tests in the pass file and/or `src/passes/optimize.mbt`.
@@ -68,3 +61,6 @@ In this workspace, use absolute moon path when needed:
 
 ## Agent Task File
 - `./agent-todo.md` contains AI-friendly backlog items.
+
+## Surprises
+Whenever something surprises you about the project, please report these surprises in a file called `./agent-surprises.md`. This will help the user understand the project better and help developers modify the codebase so that things are less surprising in the future.
