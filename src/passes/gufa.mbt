@@ -1176,11 +1176,11 @@ fn run_gufa_module(
 
 ///|
 fn gufa_descriptor_exact_subtype_fixture(use_cast_desc_eq : Bool) -> Module {
-  let top_ft = single_rec_type(sub_type(false, [], func_comp_type([], [])))
-  let sub_ft = single_rec_type(
-    sub_type(false, [TypeIdx::new(0)], func_comp_type([], [])),
+  let top_ft = RecType::new(SubType::new(false, [], CompType::func([], [])))
+  let sub_ft = RecType::new(
+    SubType::new(false, [TypeIdx::new(0)], CompType::func([], [])),
   )
-  let main_ft = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let main_ft = RecType::new(SubType::comp_type(CompType::func([], [])))
   let probe = if use_cast_desc_eq {
     TInstr::ref_cast_desc_eq(
       false,
@@ -1207,7 +1207,7 @@ fn gufa_descriptor_exact_subtype_fixture(use_cast_desc_eq : Bool) -> Module {
 
 ///|
 test "gufa ref.eq of distinct ref.func values becomes const false" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let root = Func::t_func(
     [],
     TExpr::new([
@@ -1265,7 +1265,7 @@ test "gufa ref.eq of distinct ref.func values becomes const false" {
 
 ///|
 test "gufa ref.test of null against non-null target becomes const false" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let body = TExpr::new([
     TInstr::drop(
       TInstr::ref_test(
@@ -1315,7 +1315,7 @@ test "gufa ref.test of null against non-null target becomes const false" {
 
 ///|
 test "gufa impossible ref.cast becomes unreachable" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let body = TExpr::new([
     TInstr::drop(
       TInstr::ref_cast(
@@ -1365,7 +1365,7 @@ test "gufa impossible ref.cast becomes unreachable" {
 
 ///|
 test "gufa ref.test_desc of null against non-null target becomes const false" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let body = TExpr::new([
     TInstr::drop(
       TInstr::ref_test_desc(
@@ -1415,7 +1415,7 @@ test "gufa ref.test_desc of null against non-null target becomes const false" {
 
 ///|
 test "gufa impossible ref.cast_desc_eq becomes unreachable" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let body = TExpr::new([
     TInstr::drop(
       TInstr::ref_cast_desc_eq(
@@ -1533,7 +1533,7 @@ test "gufa keeps exact ref.cast_desc_eq when source is a strict subtype" {
 
 ///|
 test "gufa cast_all inserts cast for known immutable global ref.func" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let body = TExpr::new([TInstr::drop(TInstr::global_get(GlobalIdx::new(0)))])
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_void]))
@@ -1583,7 +1583,7 @@ test "gufa cast_all inserts cast for known immutable global ref.func" {
 
 ///|
 test "gufa cast_all propagates known local ref.func and inserts cast" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let body = TExpr::new([
     TInstr::local_set(LocalIdx::new(0), TInstr::ref_func(FuncIdx::new(0))),
     TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
@@ -1637,7 +1637,7 @@ test "gufa cast_all propagates known local ref.func and inserts cast" {
 
 ///|
 test "gufa ref.cast refines target type when inferred type is stricter" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let body = TExpr::new([
     TInstr::drop(
       TInstr::ref_cast(
@@ -1695,7 +1695,7 @@ test "gufa ref.cast refines target type when inferred type is stricter" {
 
 ///|
 test "gufa oracle propagates local i32 constant into i32.eqz" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let body = TExpr::new([
     TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(0))),
     TInstr::drop(
@@ -1743,7 +1743,7 @@ test "gufa oracle propagates local i32 constant into i32.eqz" {
 
 ///|
 test "gufa oracle propagates local ref.func into ref.is_null" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let body = TExpr::new([
     TInstr::local_set(LocalIdx::new(0), TInstr::ref_func(FuncIdx::new(0))),
     TInstr::drop(TInstr::ref_is_null(TInstr::local_get(LocalIdx::new(0)))),
@@ -1789,7 +1789,7 @@ test "gufa oracle propagates local ref.func into ref.is_null" {
 
 ///|
 test "gufa oracle propagates local i64 constant into i64.eqz" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let body = TExpr::new([
     TInstr::local_set(LocalIdx::new(0), TInstr::i64_const(I64(0L))),
     TInstr::drop(
@@ -1837,7 +1837,7 @@ test "gufa oracle propagates local i64 constant into i64.eqz" {
 
 ///|
 test "gufa replaces immutable i64 global.get with constant" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let body = TExpr::new([TInstr::drop(TInstr::global_get(GlobalIdx::new(0)))])
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_void]))
@@ -1871,7 +1871,7 @@ test "gufa replaces immutable i64 global.get with constant" {
 
 ///|
 test "gufa merges identical local knowledge across if branches" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let body = TExpr::new([
     TInstr::local_set(LocalIdx::new(0), TInstr::ref_func(FuncIdx::new(0))),
     TInstr::if_(
@@ -1932,7 +1932,7 @@ test "gufa merges identical local knowledge across if branches" {
 
 ///|
 test "gufa keeps local knowledge across if without else via pre-state merge" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let body = TExpr::new([
     TInstr::local_set(LocalIdx::new(0), TInstr::ref_func(FuncIdx::new(0))),
     TInstr::if_(
@@ -1990,7 +1990,7 @@ test "gufa keeps local knowledge across if without else via pre-state merge" {
 
 ///|
 test "gufa does not fold when if branches produce conflicting local constants" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let body = TExpr::new([
     TInstr::if_(
       BlockType::void_(),

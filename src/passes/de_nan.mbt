@@ -352,7 +352,7 @@ fn ensure_func_type(
       let TypeSec(rec_types) = type_sec
       let idx = rec_types.length().reinterpret_as_uint()
       rec_types.push(
-        single_rec_type(comp_type_sub_type(func_comp_type(params, results))),
+        RecType::new(SubType::comp_type(CompType::func(params, results))),
       )
       (TypeSec::new(rec_types), TypeIdx::new(idx))
     }
@@ -746,7 +746,7 @@ fn make_func_type_rec(
   params : Array[ValType],
   results : Array[ValType],
 ) -> RecType {
-  single_rec_type(comp_type_sub_type(func_comp_type(params, results)))
+  RecType::new(SubType::comp_type(CompType::func(params, results)))
 }
 
 ///|

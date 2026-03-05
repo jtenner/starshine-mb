@@ -102,12 +102,10 @@ test "tuple optimization matches dataflow fallback when multivalue signatures ex
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(
-          comp_type_sub_type(func_comp_type([], [ValType::i32()])),
-        ),
-        single_rec_type(
-          comp_type_sub_type(
-            func_comp_type([], [ValType::i32(), ValType::i32()]),
+        RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
+        RecType::new(
+          SubType::comp_type(
+            CompType::func([], [ValType::i32(), ValType::i32()]),
           ),
         ),
       ]),
@@ -130,9 +128,9 @@ test "tuple optimization propagates dataflow non-texpr error for multivalue modu
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(
-          comp_type_sub_type(
-            func_comp_type([], [ValType::i32(), ValType::i32()]),
+        RecType::new(
+          SubType::comp_type(
+            CompType::func([], [ValType::i32(), ValType::i32()]),
           ),
         ),
       ]),

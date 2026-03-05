@@ -833,7 +833,7 @@ fn run_local_subtyping(mod : Module) -> Module {
 
 ///|
 fn ls_single_void_type() -> RecType {
-  single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  RecType::new(SubType::comp_type(CompType::func([], [])))
 }
 
 ///|

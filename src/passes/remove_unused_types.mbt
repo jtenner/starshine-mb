@@ -635,7 +635,7 @@ fn run_remove_unused_types(mod : Module) -> Module {
 
 ///|
 fn rut_single_void_type() -> RecType {
-  single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  RecType::new(SubType::comp_type(CompType::func([], [])))
 }
 
 ///|
@@ -644,7 +644,7 @@ test "remove_unused_types drops unreachable GC type" {
     .with_type_sec(
       TypeSec::new([
         rut_single_void_type(),
-        single_rec_type(comp_type_sub_type(struct_comp_type([]))),
+        RecType::new(SubType::comp_type(CompType::struct_([]))),
       ]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
@@ -660,9 +660,9 @@ test "remove_unused_types drops unreachable GC type" {
 
 ///|
 test "remove_unused_types keeps transitive type dependencies" {
-  let ty0 = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let ty0 = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(
           StorageType::val_type(
             ValType::ref_type(
@@ -674,7 +674,7 @@ test "remove_unused_types keeps transitive type dependencies" {
       ]),
     ),
   )
-  let ty1 = single_rec_type(comp_type_sub_type(struct_comp_type([])))
+  let ty1 = RecType::new(SubType::comp_type(CompType::struct_([])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([ty0, ty1, rut_single_void_type()]))
     .with_func_sec(FuncSec::new([TypeIdx::new(2)]))
@@ -704,8 +704,8 @@ test "remove_unused_types remaps references after deletion" {
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(comp_type_sub_type(struct_comp_type([]))),
-        single_rec_type(comp_type_sub_type(struct_comp_type([]))),
+        RecType::new(SubType::comp_type(CompType::struct_([]))),
+        RecType::new(SubType::comp_type(CompType::struct_([]))),
         rut_single_void_type(),
       ]),
     )

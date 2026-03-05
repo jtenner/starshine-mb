@@ -459,7 +459,7 @@ test "global effects marks indirect-call functions as unknown" {
 
 ///|
 test "global effects treats imported calls as unknown and propagates to callers" {
-  let void_ty = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let void_ty = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([void_ty]))
     .with_import_sec(

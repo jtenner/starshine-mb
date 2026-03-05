@@ -281,8 +281,8 @@ test "reorder_locals reorders vars by use count then first use and drops unused 
 
 ///|
 test "reorder_locals keeps params fixed and only reorders declared locals" {
-  let sig = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i32(), ValType::i64()], [])),
+  let sig = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32(), ValType::i64()], [])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([sig]))

@@ -1103,7 +1103,7 @@ fn run_global_struct_inference(
 ///|
 test "global struct inference rewrites struct.get from singleton inferred globals" {
   let field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
-  let ty = single_rec_type(comp_type_sub_type(struct_comp_type([field])))
+  let ty = RecType::new(SubType::comp_type(CompType::struct_([field])))
   let global_ref = ValType::ref_type(
     RefType::new(true, HeapType::new(TypeIdx::new(0))),
   )
@@ -1189,7 +1189,7 @@ test "global struct inference rewrites struct.get from singleton inferred global
 ///|
 test "global struct inference rewrites two-value struct.get to select with ref.eq" {
   let field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
-  let ty = single_rec_type(comp_type_sub_type(struct_comp_type([field])))
+  let ty = RecType::new(SubType::comp_type(CompType::struct_([field])))
   let global_ref = ValType::ref_type(
     RefType::new(true, HeapType::new(TypeIdx::new(0))),
   )
@@ -1276,7 +1276,7 @@ test "global struct inference rewrites two-value struct.get to select with ref.e
 ///|
 test "global struct inference groups >2 globals into two values" {
   let field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
-  let ty = single_rec_type(comp_type_sub_type(struct_comp_type([field])))
+  let ty = RecType::new(SubType::comp_type(CompType::struct_([field])))
   let global_ref = ValType::ref_type(
     RefType::new(true, HeapType::new(TypeIdx::new(0))),
   )
@@ -1370,7 +1370,7 @@ test "global struct inference groups >2 globals into two values" {
 ///|
 test "global struct inference handles non-null struct.get operands without ref.as_non_null" {
   let field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
-  let ty = single_rec_type(comp_type_sub_type(struct_comp_type([field])))
+  let ty = RecType::new(SubType::comp_type(CompType::struct_([field])))
   let non_null_ref = ValType::ref_type(
     RefType::new(false, HeapType::new(TypeIdx::new(0))),
   )
@@ -1459,11 +1459,11 @@ test "global struct inference handles non-null struct.get operands without ref.a
 ///|
 test "global struct inference propagates globals through supertypes" {
   let super_field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
-  let super_st = SubType::comp_type(struct_comp_type([super_field]))
+  let super_st = SubType::comp_type(CompType::struct_([super_field]))
   let sub_st = SubType::new(
     false,
     [TypeIdx::new(0)],
-    struct_comp_type([super_field]),
+    CompType::struct_([super_field]),
   )
   let super_ref = ValType::ref_type(
     RefType::new(true, HeapType::new(TypeIdx::new(0))),
@@ -1550,7 +1550,7 @@ test "global struct inference propagates globals through supertypes" {
 ///|
 test "global struct inference does not optimize mutable struct fields" {
   let field = FieldType::new(StorageType::val_type(ValType::i32()), Var)
-  let ty = single_rec_type(comp_type_sub_type(struct_comp_type([field])))
+  let ty = RecType::new(SubType::comp_type(CompType::struct_([field])))
   let global_ref = ValType::ref_type(
     RefType::new(true, HeapType::new(TypeIdx::new(0))),
   )
@@ -1589,7 +1589,7 @@ test "global struct inference does not optimize mutable struct fields" {
 ///|
 test "global struct inference does not optimize when struct type is created in code" {
   let field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
-  let ty = single_rec_type(comp_type_sub_type(struct_comp_type([field])))
+  let ty = RecType::new(SubType::comp_type(CompType::struct_([field])))
   let global_ref = ValType::ref_type(
     RefType::new(true, HeapType::new(TypeIdx::new(0))),
   )
@@ -1641,7 +1641,7 @@ test "global struct inference does not optimize when struct type is created in c
 ///|
 test "global struct inference does not optimize when source global is mutable" {
   let field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
-  let ty = single_rec_type(comp_type_sub_type(struct_comp_type([field])))
+  let ty = RecType::new(SubType::comp_type(CompType::struct_([field])))
   let global_ref = ValType::ref_type(
     RefType::new(true, HeapType::new(TypeIdx::new(0))),
   )
@@ -1680,7 +1680,7 @@ test "global struct inference does not optimize when source global is mutable" {
 ///|
 test "global struct inference does not optimize with more than two unique values" {
   let field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
-  let ty = single_rec_type(comp_type_sub_type(struct_comp_type([field])))
+  let ty = RecType::new(SubType::comp_type(CompType::struct_([field])))
   let global_ref = ValType::ref_type(
     RefType::new(true, HeapType::new(TypeIdx::new(0))),
   )
@@ -1733,7 +1733,7 @@ test "global struct inference does not optimize with more than two unique values
 ///|
 test "global struct inference folds direct immutable global struct.get to constant" {
   let field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
-  let ty = single_rec_type(comp_type_sub_type(struct_comp_type([field])))
+  let ty = RecType::new(SubType::comp_type(CompType::struct_([field])))
   let global_ref = ValType::ref_type(
     RefType::new(true, HeapType::new(TypeIdx::new(0))),
   )
@@ -1793,11 +1793,11 @@ test "global struct inference rewrites singleton non-constant values via known g
     Const,
   )
   let inner_field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
-  let outer_ty = single_rec_type(
-    comp_type_sub_type(struct_comp_type([outer_field])),
+  let outer_ty = RecType::new(
+    SubType::comp_type(CompType::struct_([outer_field])),
   )
-  let inner_ty = single_rec_type(
-    comp_type_sub_type(struct_comp_type([inner_field])),
+  let inner_ty = RecType::new(
+    SubType::comp_type(CompType::struct_([inner_field])),
   )
   let outer_ref = ValType::ref_type(
     RefType::new(true, HeapType::new(TypeIdx::new(0))),
@@ -1898,11 +1898,11 @@ test "global struct inference rewrites non-constant two-value case to select" {
     Const,
   )
   let inner_field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
-  let outer_ty = single_rec_type(
-    comp_type_sub_type(struct_comp_type([outer_field])),
+  let outer_ty = RecType::new(
+    SubType::comp_type(CompType::struct_([outer_field])),
   )
-  let inner_ty = single_rec_type(
-    comp_type_sub_type(struct_comp_type([inner_field])),
+  let inner_ty = RecType::new(
+    SubType::comp_type(CompType::struct_([inner_field])),
   )
   let outer_ref = ValType::ref_type(
     RefType::new(true, HeapType::new(TypeIdx::new(0))),
@@ -2015,11 +2015,11 @@ test "global struct inference avoids direct-global non-constant pessimization" {
     Const,
   )
   let inner_field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
-  let outer_ty = single_rec_type(
-    comp_type_sub_type(struct_comp_type([outer_field])),
+  let outer_ty = RecType::new(
+    SubType::comp_type(CompType::struct_([outer_field])),
   )
-  let inner_ty = single_rec_type(
-    comp_type_sub_type(struct_comp_type([inner_field])),
+  let inner_ty = RecType::new(
+    SubType::comp_type(CompType::struct_([inner_field])),
   )
   let outer_ref = ValType::ref_type(
     RefType::new(true, HeapType::new(TypeIdx::new(0))),
@@ -2061,7 +2061,7 @@ test "global struct inference handles struct.get_u defaults for packed fields" {
     StorageType::pack_type(PackType::i8()),
     Const,
   )
-  let ty = single_rec_type(comp_type_sub_type(struct_comp_type([packed_field])))
+  let ty = RecType::new(SubType::comp_type(CompType::struct_([packed_field])))
   let global_ref = ValType::ref_type(
     RefType::new(true, HeapType::new(TypeIdx::new(0))),
   )
@@ -2146,7 +2146,7 @@ test "global struct inference handles struct.get_u defaults for packed fields" {
 ///|
 test "global struct inference does not optimize non-eqref declared globals" {
   let field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
-  let ty = single_rec_type(comp_type_sub_type(struct_comp_type([field])))
+  let ty = RecType::new(SubType::comp_type(CompType::struct_([field])))
   let struct_ref = ValType::ref_type(
     RefType::new(true, HeapType::new(TypeIdx::new(0))),
   )
@@ -2185,11 +2185,11 @@ test "global struct inference does not optimize non-eqref declared globals" {
 ///|
 test "global struct inference propagates unoptimizable subtypes to supertypes" {
   let super_field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
-  let super_st = SubType::comp_type(struct_comp_type([super_field]))
+  let super_st = SubType::comp_type(CompType::struct_([super_field]))
   let sub_st = SubType::new(
     false,
     [TypeIdx::new(0)],
-    struct_comp_type([super_field]),
+    CompType::struct_([super_field]),
   )
   let super_ref = ValType::ref_type(
     RefType::new(true, HeapType::new(TypeIdx::new(0))),
@@ -2245,7 +2245,7 @@ test "global struct inference propagates unoptimizable subtypes to supertypes" {
 ///|
 test "global struct inference descriptor mode rewrites singleton non-null ref.cast to ref.cast_desc_eq" {
   let field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
-  let ty = single_rec_type(comp_type_sub_type(struct_comp_type([field])))
+  let ty = RecType::new(SubType::comp_type(CompType::struct_([field])))
   let global_ref = ValType::ref_type(
     RefType::new(true, HeapType::new(TypeIdx::new(0))),
   )
@@ -2315,7 +2315,7 @@ test "global struct inference descriptor mode rewrites singleton non-null ref.ca
 ///|
 test "global struct inference descriptor mode rewrites singleton nullable ref.cast" {
   let field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
-  let ty = single_rec_type(comp_type_sub_type(struct_comp_type([field])))
+  let ty = RecType::new(SubType::comp_type(CompType::struct_([field])))
   let cast_instr = TInstr::ref_cast(
     true,
     HeapType::new(TypeIdx::new(0)),
@@ -2385,11 +2385,11 @@ test "global struct inference descriptor mode rewrites singleton nullable ref.ca
 ///|
 test "global struct inference descriptor mode requires no strict subtypes" {
   let super_field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
-  let super_st = SubType::comp_type(struct_comp_type([super_field]))
+  let super_st = SubType::comp_type(CompType::struct_([super_field]))
   let sub_st = SubType::new(
     false,
     [TypeIdx::new(0)],
-    struct_comp_type([super_field]),
+    CompType::struct_([super_field]),
   )
   let cast_instr = TInstr::ref_cast(
     false,
@@ -2438,7 +2438,7 @@ test "global struct inference descriptor mode requires no strict subtypes" {
 ///|
 test "global struct inference descriptor mode rewrites ref.get_desc with singleton type" {
   let field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
-  let ty = single_rec_type(comp_type_sub_type(struct_comp_type([field])))
+  let ty = RecType::new(SubType::comp_type(CompType::struct_([field])))
   let global_ref = ValType::ref_type(
     RefType::new(true, HeapType::new(TypeIdx::new(0))),
   )
@@ -2516,8 +2516,12 @@ test "global struct inference descriptor mode rewrites ref.get_desc with singlet
 ///|
 test "global struct inference descriptor mode rewrites ref.get_desc with select grouping" {
   let field = FieldType::new(StorageType::val_type(ValType::i32()), Const)
-  let super_st = SubType::comp_type(struct_comp_type([field]))
-  let sub_st = SubType::new(false, [TypeIdx::new(0)], struct_comp_type([field]))
+  let super_st = SubType::comp_type(CompType::struct_([field]))
+  let sub_st = SubType::new(
+    false,
+    [TypeIdx::new(0)],
+    CompType::struct_([field]),
+  )
   let super_ref = ValType::ref_type(
     RefType::new(true, HeapType::new(TypeIdx::new(0))),
   )

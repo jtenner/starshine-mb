@@ -512,15 +512,15 @@ fn tf_test_is_final(st : SubType) -> Bool {
 
 ///|
 fn tf_test_finalize_private_leaf_module() -> Module {
-  let root = single_rec_type(sub_type(false, [], struct_comp_type([])))
-  let child_a = single_rec_type(
-    sub_type(false, [TypeIdx::new(0)], struct_comp_type([])),
+  let root = RecType::new(SubType::new(false, [], CompType::struct_([])))
+  let child_a = RecType::new(
+    SubType::new(false, [TypeIdx::new(0)], CompType::struct_([])),
   )
-  let child_b = single_rec_type(
-    sub_type(false, [TypeIdx::new(0)], struct_comp_type([])),
+  let child_b = RecType::new(
+    SubType::new(false, [TypeIdx::new(0)], CompType::struct_([])),
   )
-  let public_leaf = single_rec_type(sub_type(false, [], struct_comp_type([])))
-  let func_ty = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let public_leaf = RecType::new(SubType::new(false, [], CompType::struct_([])))
+  let func_ty = RecType::new(SubType::comp_type(CompType::func([], [])))
   Module::new()
   .with_type_sec(TypeSec::new([root, child_a, child_b, public_leaf, func_ty]))
   .with_func_sec(FuncSec::new([TypeIdx::new(4)]))
@@ -545,14 +545,12 @@ fn tf_test_finalize_private_leaf_module() -> Module {
 
 ///|
 fn tf_test_unfinalize_private_module() -> Module {
-  let public_final = single_rec_type(comp_type_sub_type(struct_comp_type([])))
-  let private_final_a = single_rec_type(
-    comp_type_sub_type(struct_comp_type([])),
+  let public_final = RecType::new(SubType::comp_type(CompType::struct_([])))
+  let private_final_a = RecType::new(SubType::comp_type(CompType::struct_([])))
+  let private_final_b = RecType::new(
+    SubType::new(true, [], CompType::struct_([])),
   )
-  let private_final_b = single_rec_type(
-    sub_type(true, [], struct_comp_type([])),
-  )
-  let func_ty = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let func_ty = RecType::new(SubType::comp_type(CompType::func([], [])))
   Module::new()
   .with_type_sec(
     TypeSec::new([public_final, private_final_a, private_final_b, func_ty]),

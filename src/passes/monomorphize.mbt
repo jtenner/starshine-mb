@@ -376,7 +376,7 @@ fn mn_make_func_type(
   params : Array[ValType],
   results : Array[ValType],
 ) -> RecType {
-  single_rec_type(comp_type_sub_type(func_comp_type(params, results)))
+  RecType::new(SubType::comp_type(CompType::func(params, results)))
 }
 
 ///|
@@ -1564,7 +1564,7 @@ fn monomorphize(
 
 ///|
 fn mono_type(params : Array[ValType], results : Array[ValType]) -> RecType {
-  single_rec_type(comp_type_sub_type(func_comp_type(params, results)))
+  RecType::new(SubType::comp_type(CompType::func(params, results)))
 }
 
 ///|

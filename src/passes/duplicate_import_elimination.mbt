@@ -172,7 +172,7 @@ fn duplicate_import_elimination(mod : Module) -> Result[Module, String] {
 
 ///|
 test "duplicate import elimination merges duplicate function imports" {
-  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t0 = RecType::new(SubType::comp_type(CompType::func([], [])))
   let imports = ImportSec::new([
     Import::new(
       Name::new("env"),
@@ -237,9 +237,9 @@ test "duplicate import elimination merges duplicate function imports" {
 
 ///|
 test "duplicate import elimination keeps imports when function types differ" {
-  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
-  let t1 = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i32()], [])),
+  let t0 = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let t1 = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t0, t1]))
@@ -269,7 +269,7 @@ test "duplicate import elimination keeps imports when function types differ" {
 
 ///|
 test "duplicate import elimination ignores non-function imports" {
-  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t0 = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t0]))
     .with_import_sec(
@@ -298,7 +298,7 @@ test "duplicate import elimination ignores non-function imports" {
 
 ///|
 test "duplicate import elimination handles mixed extern kinds and remaps exports" {
-  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t0 = RecType::new(SubType::comp_type(CompType::func([], [])))
   let imports = ImportSec::new([
     Import::new(
       Name::new("env"),

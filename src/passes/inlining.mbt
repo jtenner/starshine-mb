@@ -2154,7 +2154,7 @@ fn inline_main(
 
 ///|
 fn il_make_type(params : Array[ValType], results : Array[ValType]) -> RecType {
-  single_rec_type(comp_type_sub_type(func_comp_type(params, results)))
+  RecType::new(SubType::comp_type(CompType::func(params, results)))
 }
 
 ///|
@@ -3714,7 +3714,7 @@ test "inlining mixed reuse does not over-reuse incompatible wrapper signatures" 
 
 ///|
 test "inlining keeps non-defaultable multi-value results on non-hoist fallback path" {
-  let struct_type = single_rec_type(comp_type_sub_type(struct_comp_type([])))
+  let struct_type = RecType::new(SubType::comp_type(CompType::struct_([])))
   let t_ref_multi = il_make_type([], [
     ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx::new(0)))),
     ValType::i32(),

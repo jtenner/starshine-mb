@@ -244,8 +244,8 @@ test "dataflow optimization pass errors on non-texpr Func bodies" {
 
 ///|
 test "dataflow optimization preserves valid locals for parameterized functions" {
-  let func_type = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i32()], [ValType::i32()])),
+  let func_type = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
   )
   let body = TExpr::new([
     TInstr::if_(

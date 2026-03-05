@@ -1584,14 +1584,14 @@ fn uf_test_direct_super(mod : Module, idx : Int) -> TypeIdx? {
 
 ///|
 fn uf_test_chain_module(with_cast : Bool) -> Module {
-  let top = single_rec_type(sub_type(false, [], struct_comp_type([])))
-  let mid = single_rec_type(
-    sub_type(false, [TypeIdx::new(0)], struct_comp_type([])),
+  let top = RecType::new(SubType::new(false, [], CompType::struct_([])))
+  let mid = RecType::new(
+    SubType::new(false, [TypeIdx::new(0)], CompType::struct_([])),
   )
-  let bot = single_rec_type(
-    sub_type(false, [TypeIdx::new(1)], struct_comp_type([])),
+  let bot = RecType::new(
+    SubType::new(false, [TypeIdx::new(1)], CompType::struct_([])),
   )
-  let func_ty = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let func_ty = RecType::new(SubType::comp_type(CompType::func([], [])))
   let body : Array[TInstr] = [
     TInstr::local_set(LocalIdx::new(0), TInstr::struct_new(TypeIdx::new(2), [])),
   ]
@@ -1624,14 +1624,14 @@ fn uf_test_descriptor_exact_chain_module(
   use_cast_desc_eq : Bool,
   typed_body : Bool,
 ) -> Module {
-  let top = single_rec_type(sub_type(false, [], struct_comp_type([])))
-  let mid = single_rec_type(
-    sub_type(false, [TypeIdx::new(0)], struct_comp_type([])),
+  let top = RecType::new(SubType::new(false, [], CompType::struct_([])))
+  let mid = RecType::new(
+    SubType::new(false, [TypeIdx::new(0)], CompType::struct_([])),
   )
-  let bot = single_rec_type(
-    sub_type(false, [TypeIdx::new(1)], struct_comp_type([])),
+  let bot = RecType::new(
+    SubType::new(false, [TypeIdx::new(1)], CompType::struct_([])),
   )
-  let func_ty = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let func_ty = RecType::new(SubType::comp_type(CompType::func([], [])))
   let local_top = ValType::ref_null(HeapType::new(TypeIdx::new(0)))
   let func = if typed_body {
     let body : Array[TInstr] = [
@@ -1688,11 +1688,11 @@ fn uf_test_descriptor_exact_chain_module(
 
 ///|
 fn uf_test_public_super_module() -> Module {
-  let top = single_rec_type(sub_type(false, [], struct_comp_type([])))
-  let sub = single_rec_type(
-    sub_type(false, [TypeIdx::new(0)], struct_comp_type([])),
+  let top = RecType::new(SubType::new(false, [], CompType::struct_([])))
+  let sub = RecType::new(
+    SubType::new(false, [TypeIdx::new(0)], CompType::struct_([])),
   )
-  let func_ty = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let func_ty = RecType::new(SubType::comp_type(CompType::func([], [])))
   Module::new()
   .with_type_sec(TypeSec::new([top, sub, func_ty]))
   .with_func_sec(FuncSec::new([TypeIdx::new(2)]))
@@ -1734,14 +1734,14 @@ fn uf_test_mid_ref_block_type() -> BlockType {
 
 ///|
 fn uf_test_control_flow_constraint_module(body : Array[TInstr]) -> Module {
-  let top = single_rec_type(sub_type(false, [], struct_comp_type([])))
-  let mid = single_rec_type(
-    sub_type(false, [TypeIdx::new(0)], struct_comp_type([])),
+  let top = RecType::new(SubType::new(false, [], CompType::struct_([])))
+  let mid = RecType::new(
+    SubType::new(false, [TypeIdx::new(0)], CompType::struct_([])),
   )
-  let bot = single_rec_type(
-    sub_type(false, [TypeIdx::new(1)], struct_comp_type([])),
+  let bot = RecType::new(
+    SubType::new(false, [TypeIdx::new(1)], CompType::struct_([])),
   )
-  let main_type = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let main_type = RecType::new(SubType::comp_type(CompType::func([], [])))
   Module::new()
   .with_type_sec(TypeSec::new([top, mid, bot, main_type]))
   .with_func_sec(FuncSec::new([TypeIdx::new(3)]))
@@ -1768,19 +1768,19 @@ fn uf_assert_unsubtyping_preserves_mid_edge(mod : Module) -> Unit {
 
 ///|
 fn uf_test_try_table_catch_label_constraint_module() -> Module {
-  let top = single_rec_type(sub_type(false, [], struct_comp_type([])))
-  let mid = single_rec_type(
-    sub_type(false, [TypeIdx::new(0)], struct_comp_type([])),
+  let top = RecType::new(SubType::new(false, [], CompType::struct_([])))
+  let mid = RecType::new(
+    SubType::new(false, [TypeIdx::new(0)], CompType::struct_([])),
   )
-  let bot = single_rec_type(
-    sub_type(false, [TypeIdx::new(1)], struct_comp_type([])),
+  let bot = RecType::new(
+    SubType::new(false, [TypeIdx::new(1)], CompType::struct_([])),
   )
-  let tag_type = single_rec_type(
-    comp_type_sub_type(
-      func_comp_type([ValType::ref_null(HeapType::new(TypeIdx::new(1)))], []),
+  let tag_type = RecType::new(
+    SubType::comp_type(
+      CompType::func([ValType::ref_null(HeapType::new(TypeIdx::new(1)))], []),
     ),
   )
-  let main_type = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let main_type = RecType::new(SubType::comp_type(CompType::func([], [])))
   Module::new()
   .with_type_sec(TypeSec::new([top, mid, bot, tag_type, main_type]))
   .with_func_sec(FuncSec::new([TypeIdx::new(4)]))
@@ -1811,19 +1811,19 @@ fn uf_test_try_table_catch_label_constraint_module() -> Module {
 
 ///|
 fn uf_test_try_table_outer_catch_target_constraint_module() -> Module {
-  let top = single_rec_type(sub_type(false, [], struct_comp_type([])))
-  let mid = single_rec_type(
-    sub_type(false, [TypeIdx::new(0)], struct_comp_type([])),
+  let top = RecType::new(SubType::new(false, [], CompType::struct_([])))
+  let mid = RecType::new(
+    SubType::new(false, [TypeIdx::new(0)], CompType::struct_([])),
   )
-  let bot = single_rec_type(
-    sub_type(false, [TypeIdx::new(1)], struct_comp_type([])),
+  let bot = RecType::new(
+    SubType::new(false, [TypeIdx::new(1)], CompType::struct_([])),
   )
-  let tag_type = single_rec_type(
-    comp_type_sub_type(
-      func_comp_type([ValType::ref_null(HeapType::new(TypeIdx::new(2)))], []),
+  let tag_type = RecType::new(
+    SubType::comp_type(
+      CompType::func([ValType::ref_null(HeapType::new(TypeIdx::new(2)))], []),
     ),
   )
-  let main_type = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let main_type = RecType::new(SubType::comp_type(CompType::func([], [])))
   Module::new()
   .with_type_sec(TypeSec::new([top, mid, bot, tag_type, main_type]))
   .with_func_sec(FuncSec::new([TypeIdx::new(4)]))
@@ -1860,14 +1860,14 @@ fn uf_test_try_table_outer_catch_target_constraint_module() -> Module {
 
 ///|
 fn uf_test_try_table_catch_ref_payload_constraint_module() -> Module {
-  let tag_type = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i64()], [])),
+  let tag_type = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i64()], [])),
   )
   let exnref = ValType::ref_type(
     RefType::new(false, HeapType::abs(AbsHeapType::exn())),
   )
-  let main_type = single_rec_type(
-    comp_type_sub_type(func_comp_type([], [ValType::i64(), exnref])),
+  let main_type = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i64(), exnref])),
   )
   Module::new()
   .with_type_sec(TypeSec::new([tag_type, main_type]))
@@ -1898,14 +1898,14 @@ fn uf_test_try_table_catch_ref_payload_constraint_module() -> Module {
 
 ///|
 fn uf_test_try_table_catch_ref_to_try_label_module() -> Module {
-  let tag_type = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i64()], [])),
+  let tag_type = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i64()], [])),
   )
   let exnref = ValType::ref_type(
     RefType::new(false, HeapType::abs(AbsHeapType::exn())),
   )
-  let main_type = single_rec_type(
-    comp_type_sub_type(func_comp_type([], [ValType::i64(), exnref])),
+  let main_type = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i64(), exnref])),
   )
   Module::new()
   .with_type_sec(TypeSec::new([tag_type, main_type]))
@@ -1936,13 +1936,11 @@ fn uf_test_try_table_catch_ref_to_try_label_module() -> Module {
 
 ///|
 fn uf_test_try_table_catch_all_ref_module() -> Module {
-  let tag_type = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let tag_type = RecType::new(SubType::comp_type(CompType::func([], [])))
   let exnref = ValType::ref_type(
     RefType::new(false, HeapType::abs(AbsHeapType::exn())),
   )
-  let main_type = single_rec_type(
-    comp_type_sub_type(func_comp_type([], [exnref])),
-  )
+  let main_type = RecType::new(SubType::comp_type(CompType::func([], [exnref])))
   Module::new()
   .with_type_sec(TypeSec::new([tag_type, main_type]))
   .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
@@ -1970,16 +1968,16 @@ fn uf_test_try_table_catch_all_ref_module() -> Module {
 
 ///|
 fn uf_test_function_label_branch_constraint_module(use_br_if : Bool) -> Module {
-  let top = single_rec_type(sub_type(false, [], struct_comp_type([])))
-  let mid = single_rec_type(
-    sub_type(false, [TypeIdx::new(0)], struct_comp_type([])),
+  let top = RecType::new(SubType::new(false, [], CompType::struct_([])))
+  let mid = RecType::new(
+    SubType::new(false, [TypeIdx::new(0)], CompType::struct_([])),
   )
-  let bot = single_rec_type(
-    sub_type(false, [TypeIdx::new(1)], struct_comp_type([])),
+  let bot = RecType::new(
+    SubType::new(false, [TypeIdx::new(1)], CompType::struct_([])),
   )
-  let main_type = single_rec_type(
-    comp_type_sub_type(
-      func_comp_type([], [ValType::ref_null(HeapType::new(TypeIdx::new(1)))]),
+  let main_type = RecType::new(
+    SubType::comp_type(
+      CompType::func([], [ValType::ref_null(HeapType::new(TypeIdx::new(1)))]),
     ),
   )
   let body = if use_br_if {
@@ -2015,24 +2013,24 @@ fn uf_test_function_label_branch_constraint_module(use_br_if : Bool) -> Module {
 
 ///|
 fn uf_test_multivalue_join_constraint_module(join_instr : TInstr) -> Module {
-  let top = single_rec_type(sub_type(false, [], struct_comp_type([])))
-  let mid = single_rec_type(
-    sub_type(false, [TypeIdx::new(0)], struct_comp_type([])),
+  let top = RecType::new(SubType::new(false, [], CompType::struct_([])))
+  let mid = RecType::new(
+    SubType::new(false, [TypeIdx::new(0)], CompType::struct_([])),
   )
-  let bot = single_rec_type(
-    sub_type(false, [TypeIdx::new(1)], struct_comp_type([])),
+  let bot = RecType::new(
+    SubType::new(false, [TypeIdx::new(1)], CompType::struct_([])),
   )
-  let pair_type = single_rec_type(
-    comp_type_sub_type(
-      func_comp_type([], [
+  let pair_type = RecType::new(
+    SubType::comp_type(
+      CompType::func([], [
         ValType::ref_null(HeapType::new(TypeIdx::new(1))),
         ValType::i32(),
       ]),
     ),
   )
-  let main_type = single_rec_type(
-    comp_type_sub_type(
-      func_comp_type([], [
+  let main_type = RecType::new(
+    SubType::comp_type(
+      CompType::func([], [
         ValType::ref_null(HeapType::new(TypeIdx::new(1))),
         ValType::i32(),
       ]),
@@ -2050,14 +2048,14 @@ fn uf_test_multivalue_join_constraint_module(join_instr : TInstr) -> Module {
 fn uf_test_indirect_call_barrier_module(
   use_return_call_indirect : Bool,
 ) -> Module {
-  let top = single_rec_type(sub_type(false, [], func_comp_type([], [])))
-  let mid = single_rec_type(
-    sub_type(false, [TypeIdx::new(0)], func_comp_type([], [])),
+  let top = RecType::new(SubType::new(false, [], CompType::func([], [])))
+  let mid = RecType::new(
+    SubType::new(false, [TypeIdx::new(0)], CompType::func([], [])),
   )
-  let bot = single_rec_type(
-    sub_type(false, [TypeIdx::new(1)], func_comp_type([], [])),
+  let bot = RecType::new(
+    SubType::new(false, [TypeIdx::new(1)], CompType::func([], [])),
   )
-  let main_type = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let main_type = RecType::new(SubType::comp_type(CompType::func([], [])))
   let body : Array[TInstr] = [
     TInstr::local_set(
       LocalIdx::new(0),

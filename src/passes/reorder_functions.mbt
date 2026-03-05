@@ -252,7 +252,7 @@ fn rf_run_reorder_functions_by_name(mod : Module) -> Module {
 
 ///|
 test "reorder_functions reorders defined functions by static use counts and rewrites indices" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let import_sec = ImportSec::new([
     Import::new(
       Name::new("env"),
@@ -333,7 +333,7 @@ test "reorder_functions reorders defined functions by static use counts and rewr
 
 ///|
 test "reorder_functions_by_name currently preserves order when symbolic names are absent" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let f0 = Func::t_func([], TExpr::new([TInstr::nop()]))
   let f1 = Func::t_func(
     [],

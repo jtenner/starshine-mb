@@ -34,7 +34,7 @@ fn rr_run_re_reloop(mod : Module) -> Result[Module, String] {
 
 ///|
 fn rr_fixture_mergeable_block_module() -> Module {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   Module::new()
   .with_type_sec(TypeSec::new([t_void]))
   .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
@@ -55,8 +55,8 @@ fn rr_fixture_mergeable_block_module() -> Module {
 
 ///|
 fn rr_fixture_flattened_branch_shell_module() -> Module {
-  let t_with_param = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i32()], [])),
+  let t_with_param = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
   )
   Module::new()
   .with_type_sec(TypeSec::new([t_with_param]))
@@ -86,8 +86,8 @@ fn rr_fixture_flattened_branch_shell_module() -> Module {
 
 ///|
 fn rr_fixture_flattened_bron_block_module() -> Module {
-  let t_with_ref = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::funcref()], [])),
+  let t_with_ref = RecType::new(
+    SubType::comp_type(CompType::func([ValType::funcref()], [])),
   )
   Module::new()
   .with_type_sec(TypeSec::new([t_with_ref]))
@@ -117,8 +117,8 @@ fn rr_fixture_flattened_bron_block_module() -> Module {
 
 ///|
 fn rr_fixture_flattened_bron_family_module() -> Module {
-  let t_with_ref = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::funcref()], [])),
+  let t_with_ref = RecType::new(
+    SubType::comp_type(CompType::func([ValType::funcref()], [])),
   )
   let src_ht = HeapType::abs(AbsHeapType::func())
   let dst_ht = HeapType::abs(AbsHeapType::func())
@@ -212,8 +212,8 @@ fn rr_fixture_flattened_bron_family_module() -> Module {
 
 ///|
 fn rr_fixture_flattened_brtable_block_module() -> Module {
-  let t_with_idx = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i32()], [])),
+  let t_with_idx = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
   )
   Module::new()
   .with_type_sec(TypeSec::new([t_with_idx]))
@@ -244,9 +244,9 @@ fn rr_fixture_flattened_brtable_block_module() -> Module {
 
 ///|
 fn rr_fixture_branch_value_flow_module() -> Module {
-  let t_with_i32s = single_rec_type(
-    comp_type_sub_type(
-      func_comp_type([ValType::i32(), ValType::i32()], [ValType::i32()]),
+  let t_with_i32s = RecType::new(
+    SubType::comp_type(
+      CompType::func([ValType::i32(), ValType::i32()], [ValType::i32()]),
     ),
   )
   Module::new()
@@ -276,10 +276,10 @@ fn rr_fixture_branch_value_flow_module() -> Module {
 
 ///|
 fn rr_fixture_brtable_side_effect_index_module() -> Module {
-  let t_i32 = single_rec_type(
-    comp_type_sub_type(func_comp_type([], [ValType::i32()])),
+  let t_i32 = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
   )
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   Module::new()
   .with_type_sec(TypeSec::new([t_i32, t_void]))
   .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
@@ -310,8 +310,8 @@ fn rr_fixture_brtable_side_effect_index_module() -> Module {
 
 ///|
 fn rr_fixture_brtable_non_direct_side_effect_module() -> Module {
-  let t_with_param = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i32()], [])),
+  let t_with_param = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
   )
   Module::new()
   .with_type_sec(TypeSec::new([t_with_param]))
@@ -348,10 +348,10 @@ fn rr_fixture_brtable_non_direct_side_effect_module() -> Module {
 
 ///|
 fn rr_fixture_loop_internal_brtable_side_effect_module() -> Module {
-  let t_i32 = single_rec_type(
-    comp_type_sub_type(func_comp_type([], [ValType::i32()])),
+  let t_i32 = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
   )
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   Module::new()
   .with_type_sec(TypeSec::new([t_i32, t_void]))
   .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
@@ -382,8 +382,8 @@ fn rr_fixture_loop_internal_brtable_side_effect_module() -> Module {
 
 ///|
 fn rr_fixture_non_special_target_merge_module() -> Module {
-  let t_with_conds = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i32(), ValType::i32()], [])),
+  let t_with_conds = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32(), ValType::i32()], [])),
   )
   Module::new()
   .with_type_sec(TypeSec::new([t_with_conds]))
@@ -424,8 +424,8 @@ fn rr_fixture_non_special_target_merge_module() -> Module {
 
 ///|
 fn rr_fixture_loop_backedge_module() -> Module {
-  let t_with_cond = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i32()], [])),
+  let t_with_cond = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
   )
   Module::new()
   .with_type_sec(TypeSec::new([t_with_cond]))
@@ -460,7 +460,7 @@ fn rr_fixture_loop_backedge_module() -> Module {
 
 ///|
 fn rr_fixture_non_flat_if_module() -> Module {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   Module::new()
   .with_type_sec(TypeSec::new([t_void]))
   .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
@@ -486,7 +486,7 @@ fn rr_fixture_non_flat_if_module() -> Module {
 
 ///|
 fn rr_fixture_try_table_module() -> Module {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   Module::new()
   .with_type_sec(TypeSec::new([t_void]))
   .with_func_sec(FuncSec::new([TypeIdx::new(0)]))

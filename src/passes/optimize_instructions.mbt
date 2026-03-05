@@ -5420,7 +5420,7 @@ test "optimize instructions select constant condition and equal arms" {
 ///|
 test "optimize instructions call_ref direct simplifications" {
   let type_sec = TypeSec::new([
-    single_rec_type(comp_type_sub_type(func_comp_type([], [ValType::i32()]))),
+    RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
   ])
   let func_sec = FuncSec::new([TypeIdx::new(0)])
   let code_sec = CodeSec::new([

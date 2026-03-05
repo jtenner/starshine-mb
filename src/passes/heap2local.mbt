@@ -2914,9 +2914,9 @@ fn h2l_has_ref_get_desc(body : TExpr) -> Bool {
 
 ///|
 test "heap2local rewrites struct loc allocation/get/set" {
-  let struct_ty = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_ty = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
@@ -2961,9 +2961,9 @@ test "heap2local rewrites struct loc allocation/get/set" {
 
 ///|
 test "heap2local does not optimize escaping struct reference in call" {
-  let struct_ty = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_ty = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
@@ -2996,9 +2996,9 @@ test "heap2local does not optimize escaping struct reference in call" {
 
 ///|
 test "heap2local rejects mixed loc sets for candidate loc" {
-  let struct_ty = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_ty = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
@@ -3039,9 +3039,9 @@ test "heap2local rejects mixed loc sets for candidate loc" {
 
 ///|
 test "heap2local rewrites fixed-size array to locals" {
-  let array_ty = single_rec_type(
-    comp_type_sub_type(
-      @lib.array_comp_type(
+  let array_ty = RecType::new(
+    SubType::comp_type(
+      @lib.CompType::array(
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ),
     ),
@@ -3091,9 +3091,9 @@ test "heap2local rewrites fixed-size array to locals" {
 
 ///|
 test "heap2local does not optimize array with non-constant index" {
-  let array_ty = single_rec_type(
-    comp_type_sub_type(
-      @lib.array_comp_type(
+  let array_ty = RecType::new(
+    SubType::comp_type(
+      @lib.CompType::array(
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ),
     ),
@@ -3131,9 +3131,9 @@ test "heap2local does not optimize array with non-constant index" {
 
 ///|
 test "heap2local rewrites dropped loc.get of optimized allocation" {
-  let struct_ty = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_ty = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
@@ -3167,9 +3167,9 @@ test "heap2local rewrites dropped loc.get of optimized allocation" {
 
 ///|
 test "heap2local supports packed struct get_s/get_u semantics" {
-  let struct_ty = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_ty = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::pack_type(PackType::i8()), Var),
       ]),
     ),
@@ -3221,9 +3221,9 @@ test "heap2local supports packed struct get_s/get_u semantics" {
 
 ///|
 test "heap2local supports packed array get_s/get_u semantics" {
-  let array_ty = single_rec_type(
-    comp_type_sub_type(
-      @lib.array_comp_type(
+  let array_ty = RecType::new(
+    SubType::comp_type(
+      @lib.CompType::array(
         FieldType::new(StorageType::pack_type(PackType::i16()), Var),
       ),
     ),
@@ -3272,9 +3272,9 @@ test "heap2local supports packed array get_s/get_u semantics" {
 
 ///|
 test "heap2local rewrites ref.is_null/ref.eq over optimized allocation" {
-  let struct_ty = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_ty = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
@@ -3322,9 +3322,9 @@ test "heap2local rewrites ref.is_null/ref.eq over optimized allocation" {
 
 ///|
 test "heap2local rejects candidate when get can read init value through branch" {
-  let struct_ty = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_ty = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
@@ -3368,9 +3368,9 @@ test "heap2local rejects candidate when get can read init value through branch" 
 
 ///|
 test "heap2local optimizes array get OOB into trap" {
-  let array_ty = single_rec_type(
-    comp_type_sub_type(
-      @lib.array_comp_type(
+  let array_ty = RecType::new(
+    SubType::comp_type(
+      @lib.CompType::array(
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ),
     ),
@@ -3409,9 +3409,9 @@ test "heap2local optimizes array get OOB into trap" {
 
 ///|
 test "heap2local masks packed writes" {
-  let struct_ty = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_ty = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::pack_type(PackType::i8()), Var),
       ]),
     ),
@@ -3447,9 +3447,9 @@ test "heap2local masks packed writes" {
 
 ///|
 test "heap2local rewrites ref.test and ref.as_non_null wrapped accesses" {
-  let struct_ty = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_ty = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
@@ -3495,9 +3495,9 @@ test "heap2local rewrites ref.test and ref.as_non_null wrapped accesses" {
 
 ///|
 test "heap2local rewrites ref.test false case to i32.const 0" {
-  let struct_ty = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_ty = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
@@ -3536,9 +3536,9 @@ test "heap2local rewrites ref.test false case to i32.const 0" {
 
 ///|
 test "heap2local preserves optimization with ref.get_desc uses" {
-  let struct_ty = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_ty = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
@@ -3578,9 +3578,9 @@ test "heap2local preserves optimization with ref.get_desc uses" {
 
 ///|
 test "heap2local rewrites ref.test_desc with known allocation type" {
-  let struct_ty = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_ty = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
@@ -3628,9 +3628,9 @@ test "heap2local rewrites ref.test_desc with known allocation type" {
 
 ///|
 test "heap2local rewrites ref.cast_desc_eq outcomes for known allocation type" {
-  let struct_ty = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_ty = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
@@ -3687,9 +3687,9 @@ test "heap2local rewrites ref.cast_desc_eq outcomes for known allocation type" {
 
 ///|
 test "heap2local treats ref.test_desc as exact and rejects strict-subtype allocations" {
-  let top_struct = single_rec_type(comp_type_sub_type(struct_comp_type([])))
-  let sub_struct = single_rec_type(
-    sub_type(false, [TypeIdx::new(0)], struct_comp_type([])),
+  let top_struct = RecType::new(SubType::comp_type(CompType::struct_([])))
+  let sub_struct = RecType::new(
+    SubType::new(false, [TypeIdx::new(0)], CompType::struct_([])),
   )
   let local_ref = ValType::ref_type(
     RefType::new(true, HeapType::new(TypeIdx::new(0))),
@@ -3726,9 +3726,9 @@ test "heap2local treats ref.test_desc as exact and rejects strict-subtype alloca
 
 ///|
 test "heap2local treats ref.cast_desc_eq as exact and traps on strict-subtype allocations" {
-  let top_struct = single_rec_type(comp_type_sub_type(struct_comp_type([])))
-  let sub_struct = single_rec_type(
-    sub_type(false, [TypeIdx::new(0)], struct_comp_type([])),
+  let top_struct = RecType::new(SubType::comp_type(CompType::struct_([])))
+  let sub_struct = RecType::new(
+    SubType::new(false, [TypeIdx::new(0)], CompType::struct_([])),
   )
   let local_ref = ValType::ref_type(
     RefType::new(true, HeapType::new(TypeIdx::new(0))),
@@ -3765,9 +3765,9 @@ test "heap2local treats ref.cast_desc_eq as exact and traps on strict-subtype al
 
 ///|
 test "heap2local rewrites array.new_data for fixed-size nonescaping arrays" {
-  let array_ty = single_rec_type(
-    comp_type_sub_type(
-      @lib.array_comp_type(
+  let array_ty = RecType::new(
+    SubType::comp_type(
+      @lib.CompType::array(
         FieldType::new(StorageType::pack_type(PackType::i8()), Var),
       ),
     ),
@@ -3826,9 +3826,9 @@ test "heap2local rewrites array.new_data for fixed-size nonescaping arrays" {
 
 ///|
 test "heap2local rewrites OOB array.new_data to trap" {
-  let array_ty = single_rec_type(
-    comp_type_sub_type(
-      @lib.array_comp_type(
+  let array_ty = RecType::new(
+    SubType::comp_type(
+      @lib.CompType::array(
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ),
     ),
@@ -3867,9 +3867,9 @@ test "heap2local rewrites OOB array.new_data to trap" {
 
 ///|
 test "heap2local rewrites array.new_elem for fixed-size nonescaping arrays" {
-  let array_ty = single_rec_type(
-    comp_type_sub_type(
-      @lib.array_comp_type(
+  let array_ty = RecType::new(
+    SubType::comp_type(
+      @lib.CompType::array(
         FieldType::new(StorageType::val_type(ValType::funcref()), Var),
       ),
     ),
@@ -3915,9 +3915,9 @@ test "heap2local rewrites array.new_elem for fixed-size nonescaping arrays" {
 
 ///|
 test "heap2local rejects branchy allocation sets with later gets" {
-  let struct_ty = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_ty = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
@@ -3961,9 +3961,9 @@ test "heap2local rejects branchy allocation sets with later gets" {
 
 ///|
 test "heap2local skips optimization in synchronization-sensitive atomic contexts" {
-  let struct_ty = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_ty = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
@@ -4001,9 +4001,9 @@ test "heap2local skips optimization in synchronization-sensitive atomic contexts
 
 ///|
 test "heap2local skips optimization when atomic.rmw appears in function" {
-  let struct_ty = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_ty = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
@@ -4049,9 +4049,9 @@ test "heap2local skips optimization when atomic.rmw appears in function" {
 
 ///|
 test "heap2local skips optimization when atomic load/store appears in function" {
-  let struct_ty = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_ty = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
@@ -4099,9 +4099,9 @@ test "heap2local skips optimization when atomic load/store appears in function" 
 
 ///|
 test "heap2local rejects candidate local when local.tee is used" {
-  let struct_ty = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_ty = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),

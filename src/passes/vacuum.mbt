@@ -1757,7 +1757,7 @@ test "vacuum removes side-effect-free dropped value" {
 
 ///|
 test "vacuum simplifies dropped unary wrapper around call to dropped call" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_void]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
@@ -1791,8 +1791,8 @@ test "vacuum simplifies dropped unary wrapper around call to dropped call" {
 
 ///|
 test "vacuum replaces constant if(true) with then arm" {
-  let t_i32 = single_rec_type(
-    comp_type_sub_type(func_comp_type([], [ValType::i32()])),
+  let t_i32 = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_i32]))
@@ -1845,10 +1845,10 @@ test "vacuum replaces if with unreachable condition by the condition" {
 
 ///|
 test "vacuum removes if without else when then arm is nop by dropping condition" {
-  let t_i32 = single_rec_type(
-    comp_type_sub_type(func_comp_type([], [ValType::i32()])),
+  let t_i32 = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
   )
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_i32, t_void]))
     .with_import_sec(
@@ -1949,10 +1949,10 @@ test "vacuum removes trailing dead code after unreachable in block body" {
 
 ///|
 test "vacuum turns drop(if drop(..) else drop(..)) into drop(if value else value)" {
-  let t_i32 = single_rec_type(
-    comp_type_sub_type(func_comp_type([], [ValType::i32()])),
+  let t_i32 = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
   )
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let dropped_if = TInstr::drop(
     TInstr::if_(
       BlockType::void_(),
@@ -2015,8 +2015,8 @@ test "vacuum turns drop(if drop(..) else drop(..)) into drop(if value else value
 
 ///|
 test "vacuum removes try_table when body cannot throw" {
-  let t_i32 = single_rec_type(
-    comp_type_sub_type(func_comp_type([], [ValType::i32()])),
+  let t_i32 = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
   )
   let instr = TInstr::try_table(
     BlockType::val_type(ValType::i32()),
@@ -2043,7 +2043,7 @@ test "vacuum keeps non-removable try_table body that may throw" {
   )
   let mod = Module::new()
     .with_type_sec(
-      TypeSec::new([single_rec_type(comp_type_sub_type(func_comp_type([], [])))]),
+      TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
     )
     .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(0))]))
     .with_code_sec(CodeSec::new([Func::t_func([], TExpr::new([instr]))]))
@@ -2068,8 +2068,8 @@ test "vacuum nops side-effect-free none-returning function body" {
 
 ///|
 test "vacuum removes dead leading value from result-returning function body and validates" {
-  let t_i32 = single_rec_type(
-    comp_type_sub_type(func_comp_type([], [ValType::i32()])),
+  let t_i32 = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_i32]))
@@ -2095,8 +2095,8 @@ test "vacuum removes dead leading value from result-returning function body and 
 
 ///|
 test "vacuum removes dead leading arm values in result if and validates" {
-  let t_i32 = single_rec_type(
-    comp_type_sub_type(func_comp_type([], [ValType::i32()])),
+  let t_i32 = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_i32]))
@@ -2137,7 +2137,7 @@ test "vacuum removes dead leading arm values in result if and validates" {
 
 ///|
 test "vacuum preserves only final value inside dropped result block and validates" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_void]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
@@ -2172,8 +2172,8 @@ test "vacuum preserves only final value inside dropped result block and validate
 
 ///|
 test "vacuum preserves multi-value function body results and validates" {
-  let t_pair = single_rec_type(
-    comp_type_sub_type(func_comp_type([], [ValType::i32(), ValType::i64()])),
+  let t_pair = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32(), ValType::i64()])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_pair]))
@@ -2205,8 +2205,8 @@ test "vacuum preserves multi-value function body results and validates" {
 
 ///|
 test "vacuum preserves constant-folded multi-value if results and validates" {
-  let t_pair = single_rec_type(
-    comp_type_sub_type(func_comp_type([], [ValType::i32(), ValType::i64()])),
+  let t_pair = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32(), ValType::i64()])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_pair]))
@@ -2263,8 +2263,8 @@ test "vacuum preserves constant-folded multi-value if results and validates" {
 
 ///|
 test "vacuum preserves multi-value block results and validates" {
-  let t_pair = single_rec_type(
-    comp_type_sub_type(func_comp_type([], [ValType::i32(), ValType::i64()])),
+  let t_pair = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32(), ValType::i64()])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_pair]))
@@ -2316,7 +2316,7 @@ test "vacuum preserves multi-value block results and validates" {
 
 ///|
 test "vacuum keeps stack-feeding sibling values in block bodies" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_void]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
@@ -2356,7 +2356,7 @@ test "vacuum keeps stack-feeding sibling values in block bodies" {
 
 ///|
 test "vacuum preserves child stack signatures under local.set" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_void]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
@@ -2388,11 +2388,11 @@ test "vacuum preserves child stack signatures under local.set" {
 
 ///|
 test "vacuum keeps stack-feeding sibling values with unknown stack signatures" {
-  let t_result = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i32()], [ValType::i32()])),
+  let t_result = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
   )
-  let t_void = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i32()], [])),
+  let t_void = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_result, t_void]))
@@ -2424,8 +2424,8 @@ test "vacuum keeps stack-feeding sibling values with unknown stack signatures" {
 
 ///|
 test "vacuum emits canonical full locals after rewriting typed legacy locals" {
-  let t_result = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i32()], [ValType::i32()])),
+  let t_result = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_result]))
@@ -2454,6 +2454,51 @@ test "vacuum emits canonical full locals after rewriting typed legacy locals" {
   match validate_module(out) {
     Ok(_) => ()
     Err(e) => fail("expected canonicalized vacuum output to validate: \{e}")
+  }
+}
+
+///|
+test "vacuum preserves stack-carried table.get result across trailing side effects" {
+  let t_extern_result = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [ValType::externref()])),
+  )
+  let t_void_with_i32 = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_extern_result, t_void_with_i32]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
+    .with_table_sec(
+      TableSec::new([
+        Table::new(
+          TableType::new(
+            RefType::new(true, HeapType::abs(AbsHeapType::extern_())),
+            Limits::i32(1, Some(1)),
+          ),
+          None,
+        ),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          TExpr::new([
+            TInstr::table_get(TableIdx::new(0), TInstr::i32_const(I32(0))),
+            TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
+          ]),
+        ),
+        Func::t_func([], TExpr::new([TInstr::nop()])),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_vacuum(mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected stack-carried table.get result to survive vacuum validation: \{e}",
+      )
   }
 }
 

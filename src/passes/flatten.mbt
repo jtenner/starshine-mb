@@ -1375,12 +1375,12 @@ test "flatten supports try_table and removes try_table value result" {
 
 ///|
 test "flatten output with br_on_null and try_table remains valid and idempotent" {
-  let target_sig = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let target_sig = RecType::new(SubType::comp_type(CompType::func([], [])))
   let nullable_target_ref = ValType::ref_type(
     RefType::new(true, HeapType::new(TypeIdx::new(0))),
   )
-  let main_sig = single_rec_type(
-    comp_type_sub_type(func_comp_type([nullable_target_ref], [])),
+  let main_sig = RecType::new(
+    SubType::comp_type(CompType::func([nullable_target_ref], [])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([target_sig, main_sig]))
@@ -1432,7 +1432,7 @@ fn fl_mk_valid_one_func_module(
 ) -> Module {
   // Create a single rec type containing a single func type.
   // This matches the style you already use in the last test.
-  let sig = single_rec_type(comp_type_sub_type(func_comp_type(params, results)))
+  let sig = RecType::new(SubType::comp_type(CompType::func(params, results)))
 
   Module::new()
   .with_type_sec(TypeSec::new([sig]))
@@ -1595,12 +1595,12 @@ test "flatten: dropped br_if targeting result block remains valid" {
 
 ///|
 test "flatten: dropped br_on_null targeting result block remains valid" {
-  let target_sig = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let target_sig = RecType::new(SubType::comp_type(CompType::func([], [])))
   let nullable_target_ref = ValType::ref_type(
     RefType::new(true, HeapType::new(TypeIdx::new(0))),
   )
-  let main_sig = single_rec_type(
-    comp_type_sub_type(func_comp_type([nullable_target_ref], [])),
+  let main_sig = RecType::new(
+    SubType::comp_type(CompType::func([nullable_target_ref], [])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([target_sig, main_sig]))
@@ -1673,15 +1673,15 @@ test "flatten: br_table value targeting result block remains valid" {
 
 ///|
 test "flatten: br_on_non_null targeting ref result block remains valid" {
-  let target_sig = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let target_sig = RecType::new(SubType::comp_type(CompType::func([], [])))
   let nullable_target_ref = ValType::ref_type(
     RefType::new(true, HeapType::new(TypeIdx::new(0))),
   )
   let non_null_target_ref = ValType::ref_type(
     RefType::new(false, HeapType::new(TypeIdx::new(0))),
   )
-  let main_sig = single_rec_type(
-    comp_type_sub_type(func_comp_type([nullable_target_ref], [])),
+  let main_sig = RecType::new(
+    SubType::comp_type(CompType::func([nullable_target_ref], [])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([target_sig, main_sig]))

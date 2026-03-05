@@ -1488,16 +1488,16 @@ fn run_type_merging(mod : Module) -> Module {
 
 ///|
 fn tm_open_empty_struct_type(super_types? : Array[TypeIdx] = []) -> RecType {
-  single_rec_type(sub_type(false, super_types, struct_comp_type([])))
+  RecType::new(SubType::new(false, super_types, CompType::struct_([])))
 }
 
 ///|
 fn tm_open_i32_struct_type(super_types? : Array[TypeIdx] = []) -> RecType {
-  single_rec_type(
-    sub_type(
+  RecType::new(
+    SubType::new(
       false,
       super_types,
-      struct_comp_type([
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
@@ -1506,7 +1506,7 @@ fn tm_open_i32_struct_type(super_types? : Array[TypeIdx] = []) -> RecType {
 
 ///|
 fn tm_void_func_type() -> RecType {
-  single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  RecType::new(SubType::comp_type(CompType::func([], [])))
 }
 
 ///|
@@ -1841,9 +1841,9 @@ test "type_merging merges identical siblings" {
 
 ///|
 test "type_merging does not merge public type" {
-  let exported_functype = single_rec_type(
-    comp_type_sub_type(
-      func_comp_type([], [ValType::ref_null(HeapType::new(TypeIdx::new(1)))]),
+  let exported_functype = RecType::new(
+    SubType::comp_type(
+      CompType::func([], [ValType::ref_null(HeapType::new(TypeIdx::new(1)))]),
     ),
   )
   let mod = Module::new()
@@ -1894,9 +1894,9 @@ test "type_merging does not merge public type" {
 
 ///|
 test "type_merging treats call_indirect cast barrier as trap-mode sensitive" {
-  let func_super = single_rec_type(sub_type(false, [], func_comp_type([], [])))
-  let func_sub = single_rec_type(
-    sub_type(false, [TypeIdx::new(1)], func_comp_type([], [])),
+  let func_super = RecType::new(SubType::new(false, [], CompType::func([], [])))
+  let func_sub = RecType::new(
+    SubType::new(false, [TypeIdx::new(1)], CompType::func([], [])),
   )
   let mod = Module::new()
     .with_type_sec(
@@ -2188,10 +2188,10 @@ test "type_merging treats identical br_on_cast heap types as exact regardless of
 ///|
 test "type_merging merges mutually-recursive sibling shapes via partition refinement" {
   let recursive_group = RecType::group([
-    sub_type(
+    SubType::new(
       false,
       [TypeIdx::new(0)],
-      struct_comp_type([
+      CompType::struct_([
         FieldType::new(
           StorageType::val_type(
             ValType::ref_type(
@@ -2202,10 +2202,10 @@ test "type_merging merges mutually-recursive sibling shapes via partition refine
         ),
       ]),
     ),
-    sub_type(
+    SubType::new(
       false,
       [TypeIdx::new(0)],
-      struct_comp_type([
+      CompType::struct_([
         FieldType::new(
           StorageType::val_type(
             ValType::ref_type(
@@ -2216,10 +2216,10 @@ test "type_merging merges mutually-recursive sibling shapes via partition refine
         ),
       ]),
     ),
-    sub_type(
+    SubType::new(
       false,
       [TypeIdx::new(0)],
-      struct_comp_type([
+      CompType::struct_([
         FieldType::new(
           StorageType::val_type(
             ValType::ref_type(
@@ -2231,10 +2231,10 @@ test "type_merging merges mutually-recursive sibling shapes via partition refine
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
-    sub_type(
+    SubType::new(
       false,
       [TypeIdx::new(0)],
-      struct_comp_type([
+      CompType::struct_([
         FieldType::new(
           StorageType::val_type(
             ValType::ref_type(

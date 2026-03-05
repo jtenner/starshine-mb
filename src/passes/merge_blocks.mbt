@@ -2526,9 +2526,7 @@ fn mb_make_test_module_with_body(
 ) -> Module {
   Module::new()
   .with_type_sec(
-    TypeSec::new([
-      single_rec_type(comp_type_sub_type(func_comp_type([], results))),
-    ]),
+    TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], results)))]),
   )
   .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
   .with_code_sec(CodeSec::new([Func::t_func(locals, body)]))
@@ -2977,10 +2975,8 @@ test "merge blocks: try_table catch_ref with params blocks optimization" {
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(
-          comp_type_sub_type(func_comp_type([ValType::i32()], [])),
-        ),
-        single_rec_type(comp_type_sub_type(func_comp_type([], []))),
+        RecType::new(SubType::comp_type(CompType::func([ValType::i32()], []))),
+        RecType::new(SubType::comp_type(CompType::func([], []))),
       ]),
     )
     .with_tag_sec(TagSec::new([tag_type]))

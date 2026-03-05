@@ -632,9 +632,7 @@ fn af_append_type_func(
     None => []
   }
   let idx = TypeIdx::new(af_flattened_type_count(recs).reinterpret_as_uint())
-  recs.push(
-    single_rec_type(comp_type_sub_type(func_comp_type(params, results))),
-  )
+  recs.push(RecType::new(SubType::comp_type(CompType::func(params, results))))
   (mod.with_type_sec(TypeSec::new(recs)), idx)
 }
 
@@ -3756,7 +3754,7 @@ test "asyncify_apply_arguments rejects onlylist combined with addlist or removel
 
 ///|
 test "asyncify rejects tail calls with required lowering prepass diagnostic" {
-  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t0 = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t0]))
     .with_import_sec(
@@ -3783,7 +3781,7 @@ test "asyncify rejects tail calls with required lowering prepass diagnostic" {
 
 ///|
 test "asyncify optional tail-call lowering flag rewrites return_call" {
-  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t0 = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t0]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
@@ -3813,7 +3811,7 @@ test "asyncify optional tail-call lowering flag rewrites return_call" {
 
 ///|
 test "asyncify optional tail-call lowering flag rewrites return_call_ref" {
-  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t0 = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t0]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
@@ -3852,8 +3850,8 @@ test "asyncify optional tail-call lowering flag rewrites return_call_ref" {
 
 ///|
 test "asyncify optional tail-call lowering rewrites multi-value return_call" {
-  let t_multi = single_rec_type(
-    comp_type_sub_type(func_comp_type([], [ValType::i32(), ValType::i32()])),
+  let t_multi = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32(), ValType::i32()])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_multi]))
@@ -3898,8 +3896,8 @@ test "asyncify optional tail-call lowering rewrites multi-value return_call" {
 
 ///|
 test "asyncify optional tail-call lowering rewrites multi-value return_call_indirect" {
-  let t_multi = single_rec_type(
-    comp_type_sub_type(func_comp_type([], [ValType::i32(), ValType::i32()])),
+  let t_multi = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32(), ValType::i32()])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_multi]))
@@ -3976,8 +3974,8 @@ test "asyncify optional tail-call lowering rewrites multi-value return_call_indi
 
 ///|
 test "asyncify optional tail-call lowering rewrites multi-value return_call_ref" {
-  let t_multi = single_rec_type(
-    comp_type_sub_type(func_comp_type([], [ValType::i32(), ValType::i32()])),
+  let t_multi = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32(), ValType::i32()])),
   )
   let typed_funcref = ValType::ref_type(
     RefType::new(true, HeapType::new(TypeIdx::new(0))),
@@ -4122,7 +4120,7 @@ test "asyncify import-globals imports internal asyncify globals" {
 
 ///|
 test "asyncify instruments direct calls with unwind indices" {
-  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t0 = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t0]))
     .with_import_sec(
@@ -4162,8 +4160,8 @@ test "asyncify instruments direct calls with unwind indices" {
 
 ///|
 test "asyncify lowers call result local.set through locals temp" {
-  let t_ret_i32 = single_rec_type(
-    comp_type_sub_type(func_comp_type([], [ValType::i32()])),
+  let t_ret_i32 = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_ret_i32]))
@@ -4216,8 +4214,8 @@ test "asyncify lowers call result local.set through locals temp" {
 
 ///|
 test "asyncify lowers fake call-result globals for i64 and removes temporary globals" {
-  let t_ret_i64 = single_rec_type(
-    comp_type_sub_type(func_comp_type([], [ValType::i64()])),
+  let t_ret_i64 = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i64()])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_ret_i64]))
@@ -4256,7 +4254,7 @@ test "asyncify lowers fake call-result globals for i64 and removes temporary glo
 
 ///|
 test "asyncify ignore-imports keeps function non-instrumented" {
-  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t0 = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t0]))
     .with_import_sec(
@@ -4291,7 +4289,7 @@ test "asyncify ignore-imports keeps function non-instrumented" {
 
 ///|
 test "asyncify import allowlist controls state-changing imports" {
-  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t0 = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t0]))
     .with_import_sec(
@@ -4325,7 +4323,7 @@ test "asyncify import allowlist controls state-changing imports" {
 
 ///|
 test "asyncify ignore-indirect leaves indirect call unwrapped unless addlist" {
-  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t0 = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t0]))
     .with_import_sec(
@@ -4385,7 +4383,7 @@ test "asyncify ignore-indirect leaves indirect call unwrapped unless addlist" {
 
 ///|
 test "asyncify lists onlylist/removelist/addlist propagation" {
-  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t0 = RecType::new(SubType::comp_type(CompType::func([], [])))
   let caller = Func::t_func([], TExpr::new([TInstr::call(FuncIdx::new(2), [])]))
   let callee = Func::t_func([], TExpr::new([TInstr::call(FuncIdx::new(0), [])]))
   let mod = Module::new()
@@ -4448,8 +4446,8 @@ test "asyncify lists onlylist/removelist/addlist propagation" {
 
 ///|
 test "asyncify local save/restore tracks relevant locals" {
-  let t1 = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i32()], [])),
+  let t1 = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t1]))
@@ -4488,7 +4486,7 @@ test "asyncify local save/restore tracks relevant locals" {
 
 ///|
 test "asyncify local save/restore keeps local used after zero-arg call" {
-  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t0 = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t0]))
     .with_import_sec(
@@ -4526,10 +4524,10 @@ test "asyncify local save/restore keeps local used after zero-arg call" {
 
 ///|
 test "asyncify rewrites asyncify imports to runtime calls and removes imports" {
-  let t_ptr = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i32()], [])),
+  let t_ptr = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
   )
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_ptr, t_void]))
     .with_import_sec(
@@ -4592,7 +4590,7 @@ test "asyncify rewrites asyncify imports to runtime calls and removes imports" {
 
 ///|
 test "asyncify stores unwind call index instead of constant zero" {
-  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t0 = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t0]))
     .with_import_sec(
@@ -4631,7 +4629,7 @@ test "asyncify stores unwind call index instead of constant zero" {
 
 ///|
 test "asyncify adds stack-end guard before unwind call-index push" {
-  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t0 = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t0]))
     .with_import_sec(
@@ -4662,7 +4660,7 @@ test "asyncify adds stack-end guard before unwind call-index push" {
 
 ///|
 test "asyncify asserts add non-instrumented state guard" {
-  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t0 = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t0]))
     .with_import_sec(
@@ -4697,7 +4695,7 @@ test "asyncify asserts add non-instrumented state guard" {
 
 ///|
 test "asyncify asserts guard calls in try_table catch continuation when enabled" {
-  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t0 = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t0]))
     .with_import_sec(
@@ -4760,7 +4758,7 @@ test "asyncify asserts guard calls in try_table catch continuation when enabled"
 
 ///|
 test "asyncify asserts do not guard try_table body calls by default" {
-  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t0 = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t0]))
     .with_import_sec(
@@ -4822,7 +4820,7 @@ test "asyncify asserts do not guard try_table body calls by default" {
 
 ///|
 test "asyncify catch continuation precision handles try_table embedded in local.set value" {
-  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t0 = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t0]))
     .with_import_sec(
@@ -4872,7 +4870,7 @@ test "asyncify catch continuation precision handles try_table embedded in local.
 
 ///|
 test "asyncify ignore-unwind-from-catch disables try_table call guard" {
-  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t0 = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t0]))
     .with_import_sec(
@@ -4939,7 +4937,7 @@ test "asyncify ignore-unwind-from-catch disables try_table call guard" {
 
 ///|
 test "asyncify supports tail calls by default (no explicit flag)" {
-  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t0 = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t0]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
@@ -4963,7 +4961,7 @@ test "asyncify supports tail calls by default (no explicit flag)" {
 
 ///|
 test "asyncify supports tail calls by default in memory64 modules" {
-  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t0 = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t0]))
     .with_mem_sec(MemSec::new([MemType::new(Limits::i64(1, None))]))

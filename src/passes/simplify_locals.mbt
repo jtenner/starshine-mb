@@ -3946,7 +3946,7 @@ test "simplify_locals late equivalent-set removal skips nested value-position se
   let (rewritten, _) = sl_run_late_optimizations(body, local_types, true)
   let mod = Module::new()
     .with_type_sec(
-      TypeSec::new([single_rec_type(comp_type_sub_type(func_comp_type([], [])))]),
+      TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(CodeSec::new([Func::t_func(local_types, rewritten)]))
@@ -3980,7 +3980,7 @@ test "simplify_locals keeps structured control values out of nested value positi
   let cond = LocalIdx::new(1)
   let mod = Module::new()
     .with_type_sec(
-      TypeSec::new([single_rec_type(comp_type_sub_type(func_comp_type([], [])))]),
+      TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
@@ -4129,7 +4129,7 @@ test "simplify_locals no-tee-no-structure preserves exact local type for untyped
   let wide = LocalIdx::new(1)
   let mod = Module::new()
     .with_type_sec(
-      TypeSec::new([single_rec_type(comp_type_sub_type(func_comp_type([], [])))]),
+      TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
@@ -4176,7 +4176,7 @@ test "simplify_locals skips result-if rewrite when branch exits would invalidate
   let cond = LocalIdx::new(1)
   let mod = Module::new()
     .with_type_sec(
-      TypeSec::new([single_rec_type(comp_type_sub_type(func_comp_type([], [])))]),
+      TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
@@ -4269,7 +4269,7 @@ test "simplify_locals local checker rejects result-block candidate with void bra
 test "simplify_locals typed function validator rejects local.set result type mismatch" {
   let mod = Module::new()
     .with_type_sec(
-      TypeSec::new([single_rec_type(comp_type_sub_type(func_comp_type([], [])))]),
+      TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
   let env = Env::new().with_module(mod)
@@ -4298,9 +4298,7 @@ test "simplify_locals typed function validator accepts canonical locals includin
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(
-          comp_type_sub_type(func_comp_type([ValType::i32()], [])),
-        ),
+        RecType::new(SubType::comp_type(CompType::func([ValType::i32()], []))),
       ]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
@@ -4319,7 +4317,7 @@ test "simplify_locals typed function validator accepts canonical locals includin
 test "simplify_locals rewrite finalizer keeps original invalid candidate out" {
   let mod = Module::new()
     .with_type_sec(
-      TypeSec::new([single_rec_type(comp_type_sub_type(func_comp_type([], [])))]),
+      TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
   let env = Env::new().with_module(mod)
@@ -4356,7 +4354,7 @@ test "simplify_locals keeps nested branchy result-if pattern valid" {
   let cond1 = LocalIdx::new(2)
   let mod = Module::new()
     .with_type_sec(
-      TypeSec::new([single_rec_type(comp_type_sub_type(func_comp_type([], [])))]),
+      TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
@@ -4565,7 +4563,7 @@ test "simplify_locals ID-P4 allows single-use sink from subtype value into super
   let x = LocalIdx::new(0)
   let mod = Module::new()
     .with_type_sec(
-      TypeSec::new([single_rec_type(comp_type_sub_type(func_comp_type([], [])))]),
+      TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(

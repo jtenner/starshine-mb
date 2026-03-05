@@ -1673,14 +1673,14 @@ fn gto_get_struct_fields(mod : Module, idx : Int) -> Array[FieldType]? {
 
 ///|
 test "global type optimization makes mutable field immutable when no struct.set exists" {
-  let struct_type = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
   )
-  let func_type = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let func_type = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([struct_type, func_type]))
     .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
@@ -1712,15 +1712,15 @@ test "global type optimization makes mutable field immutable when no struct.set 
 
 ///|
 test "global type optimization removes unread field and remaps struct indexes" {
-  let struct_type = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
   )
-  let func_type = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let func_type = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([struct_type, func_type]))
     .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
@@ -1793,14 +1793,14 @@ test "global type optimization removes unread field and remaps struct indexes" {
 
 ///|
 test "global type optimization keeps public struct types unchanged" {
-  let struct_type = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
   )
-  let func_type = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let func_type = RecType::new(SubType::comp_type(CompType::func([], [])))
   let global_ref = ValType::ref_type(
     RefType::new(true, HeapType::new(TypeIdx::new(0))),
   )
@@ -1839,17 +1839,17 @@ test "global type optimization keeps public struct types unchanged" {
 ///|
 test "global type optimization updates subtype layout to follow supertype removals" {
   let field = FieldType::new(StorageType::val_type(ValType::i32()), Var)
-  let super_type = single_rec_type(
-    comp_type_sub_type(struct_comp_type([field, field])),
+  let super_type = RecType::new(
+    SubType::comp_type(CompType::struct_([field, field])),
   )
-  let sub_type = single_rec_type(
+  let sub_type = RecType::new(
     SubType::new(
       false,
       [TypeIdx::new(0)],
-      struct_comp_type([field, field, field]),
+      CompType::struct_([field, field, field]),
     ),
   )
-  let func_type = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let func_type = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([super_type, sub_type, func_type]))
     .with_func_sec(FuncSec::new([TypeIdx::new(2)]))
@@ -1906,8 +1906,8 @@ test "global type optimization preserves removed trapping module-init operands" 
     Var,
   )
   let field_i32 = FieldType::new(StorageType::val_type(ValType::i32()), Var)
-  let struct_type = single_rec_type(
-    comp_type_sub_type(struct_comp_type([field_ref, field_i32])),
+  let struct_type = RecType::new(
+    SubType::comp_type(CompType::struct_([field_ref, field_i32])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([struct_type]))

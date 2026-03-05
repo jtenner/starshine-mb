@@ -4311,9 +4311,7 @@ fn cf_test_func_count_instrs(f : Func, pred : (TInstr) -> Bool) -> Int {
 fn cf_test_module_for_func(f : Func, results : Array[ValType]) -> Module {
   Module::new()
   .with_type_sec(
-    TypeSec::new([
-      single_rec_type(comp_type_sub_type(func_comp_type([], results))),
-    ]),
+    TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], results)))]),
   )
   .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
   .with_code_sec(CodeSec::new([f]))
@@ -4830,9 +4828,7 @@ test "code folding hoisted if tail remains module-valid" {
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(
-          comp_type_sub_type(func_comp_type([], [ValType::i32()])),
-        ),
+        RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
       ]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
@@ -5032,9 +5028,7 @@ test "code folding hoisted void if tail remains module-valid with nested outer b
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(
-          comp_type_sub_type(func_comp_type([], [ValType::i32()])),
-        ),
+        RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
       ]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
@@ -5143,9 +5137,7 @@ test "code folding block hoist remains module-valid" {
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(
-          comp_type_sub_type(func_comp_type([], [ValType::i32()])),
-        ),
+        RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
       ]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
@@ -5186,9 +5178,7 @@ test "code folding nested block hoist remains module-valid with outer labels" {
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(
-          comp_type_sub_type(func_comp_type([], [ValType::i32()])),
-        ),
+        RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
       ]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
@@ -5263,9 +5253,7 @@ test "code folding block hoist with nested cond remains module-valid" {
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(
-          comp_type_sub_type(func_comp_type([], [ValType::i32()])),
-        ),
+        RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
       ]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
@@ -5316,9 +5304,7 @@ test "code folding nested if hoist remains module-valid with outer labels" {
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(
-          comp_type_sub_type(func_comp_type([], [ValType::i32()])),
-        ),
+        RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
       ]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
@@ -5361,7 +5347,7 @@ test "code folding terminating tails do not mutate shared unreachable arrays" {
   }
   let mod = Module::new()
     .with_type_sec(
-      TypeSec::new([single_rec_type(comp_type_sub_type(func_comp_type([], [])))]),
+      TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(CodeSec::new([Func::t_func([], TExpr::new(folded_body))]))
@@ -5442,13 +5428,13 @@ test "code folding terminating return tails spill differing values via temps" {
 
 ///|
 test "code folding terminating throw tails spill differing payloads for same tag" {
-  let tag_payload_ty = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i32()], [])),
+  let tag_payload_ty = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
   )
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(comp_type_sub_type(func_comp_type([], []))),
+        RecType::new(SubType::comp_type(CompType::func([], []))),
         tag_payload_ty,
       ]),
     )
@@ -5496,7 +5482,7 @@ test "code folding terminating throw_ref tails spill differing refs via temp" {
   let exn_ht = HeapType::abs(AbsHeapType::exn())
   let mod = Module::new()
     .with_type_sec(
-      TypeSec::new([single_rec_type(comp_type_sub_type(func_comp_type([], [])))]),
+      TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
@@ -5538,15 +5524,13 @@ test "code folding terminating throw_ref tails spill differing refs via temp" {
 
 ///|
 test "code folding module pass can fold throw then return tails in same round" {
-  let tag_payload_ty = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i32()], [])),
+  let tag_payload_ty = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
   )
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(
-          comp_type_sub_type(func_comp_type([], [ValType::i32()])),
-        ),
+        RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
         tag_payload_ty,
       ]),
     )
@@ -5622,13 +5606,13 @@ test "code folding module pass can fold throw then return tails in same round" {
 
 ///|
 test "code folding terminating throw tails preserve nested branch depths" {
-  let tag_payload_ty = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i32()], [])),
+  let tag_payload_ty = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
   )
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(comp_type_sub_type(func_comp_type([], []))),
+        RecType::new(SubType::comp_type(CompType::func([], []))),
         tag_payload_ty,
       ]),
     )
@@ -5687,13 +5671,13 @@ test "code folding terminating throw tails preserve nested branch depths" {
 
 ///|
 test "code folding keeps throw-tail spilling conservative for TryBody tails" {
-  let tag_payload_ty = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i32()], [])),
+  let tag_payload_ty = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
   )
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(comp_type_sub_type(func_comp_type([], []))),
+        RecType::new(SubType::comp_type(CompType::func([], []))),
         tag_payload_ty,
       ]),
     )
@@ -5743,13 +5727,13 @@ test "code folding keeps throw-tail spilling conservative for TryBody tails" {
 
 ///|
 test "code folding allows throw-tail spill for TryBody tails with empty catches" {
-  let tag_payload_ty = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i32()], [])),
+  let tag_payload_ty = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
   )
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(comp_type_sub_type(func_comp_type([], []))),
+        RecType::new(SubType::comp_type(CompType::func([], []))),
         tag_payload_ty,
       ]),
     )
@@ -5793,7 +5777,7 @@ test "code folding allows throw-tail spill for TryBody tails with empty catches"
 
 ///|
 test "code folding allows TryBody throw folding when catches do not match throw tag" {
-  let void_sig = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let void_sig = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([void_sig]))
     .with_tag_sec(
@@ -5856,13 +5840,13 @@ test "code folding allows TryBody throw folding when catches do not match throw 
 
 ///|
 test "code folding allows throw-tail spill when try_table follows throw sites" {
-  let tag_payload_ty = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i32()], [])),
+  let tag_payload_ty = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
   )
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(comp_type_sub_type(func_comp_type([], []))),
+        RecType::new(SubType::comp_type(CompType::func([], []))),
         tag_payload_ty,
       ]),
     )
@@ -5905,13 +5889,13 @@ test "code folding allows throw-tail spill when try_table follows throw sites" {
 
 ///|
 test "code folding allows throw-tail spill when try_table is before throw sites" {
-  let tag_payload_ty = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i32()], [])),
+  let tag_payload_ty = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
   )
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(comp_type_sub_type(func_comp_type([], []))),
+        RecType::new(SubType::comp_type(CompType::func([], []))),
         tag_payload_ty,
       ]),
     )
@@ -6251,9 +6235,7 @@ test "code folding hoists branch-value block tails via temp local" {
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(
-          comp_type_sub_type(func_comp_type([], [ValType::i32()])),
-        ),
+        RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
       ]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
@@ -6334,9 +6316,7 @@ test "code folding terminating return tails do not mutate shared value arrays" {
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(
-          comp_type_sub_type(func_comp_type([], [ValType::i32()])),
-        ),
+        RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
       ]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
@@ -6423,8 +6403,8 @@ test "code folding module pass canonicalizes TFunc locals with omitted typed par
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(
-          comp_type_sub_type(func_comp_type([ValType::i32()], [ValType::i32()])),
+        RecType::new(
+          SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
         ),
       ]),
     )
@@ -6480,9 +6460,9 @@ test "code folding module pass keeps params-local indexing valid across terminat
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(
-          comp_type_sub_type(
-            func_comp_type([ValType::i32(), ValType::i32(), ValType::i32()], [
+        RecType::new(
+          SubType::comp_type(
+            CompType::func([ValType::i32(), ValType::i32(), ValType::i32()], [
               ValType::i32(),
             ]),
           ),
@@ -6504,9 +6484,9 @@ test "code folding module pass tracks param arity per function when creating tem
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(
-          comp_type_sub_type(
-            func_comp_type(
+        RecType::new(
+          SubType::comp_type(
+            CompType::func(
               [
                 ValType::i32(),
                 ValType::i32(),
@@ -6518,9 +6498,9 @@ test "code folding module pass tracks param arity per function when creating tem
             ),
           ),
         ),
-        single_rec_type(
-          comp_type_sub_type(
-            func_comp_type([ValType::i32(), ValType::i32(), ValType::i32()], [
+        RecType::new(
+          SubType::comp_type(
+            CompType::func([ValType::i32(), ValType::i32(), ValType::i32()], [
               ValType::i32(),
             ]),
           ),
@@ -6570,10 +6550,10 @@ test "code folding module pass keeps temp local indices stable with mixed typed 
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(comp_type_sub_type(func_comp_type([], []))),
-        single_rec_type(
-          comp_type_sub_type(
-            func_comp_type(
+        RecType::new(SubType::comp_type(CompType::func([], []))),
+        RecType::new(
+          SubType::comp_type(
+            CompType::func(
               [
                 ValType::i32(),
                 ValType::i32(),
@@ -6585,9 +6565,9 @@ test "code folding module pass keeps temp local indices stable with mixed typed 
             ),
           ),
         ),
-        single_rec_type(
-          comp_type_sub_type(
-            func_comp_type([ValType::i32(), ValType::i32(), ValType::i32()], [
+        RecType::new(
+          SubType::comp_type(
+            CompType::func([ValType::i32(), ValType::i32(), ValType::i32()], [
               ValType::i32(),
             ]),
           ),

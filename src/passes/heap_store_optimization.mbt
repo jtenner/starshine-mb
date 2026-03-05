@@ -762,9 +762,9 @@ fn hso_count_struct_sets(body : TExpr) -> Int {
 
 ///|
 test "heap store optimization rewrites nested tee+struct.set" {
-  let struct_type = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
@@ -833,9 +833,9 @@ test "heap store optimization rewrites nested tee+struct.set" {
 
 ///|
 test "heap store optimization folds following struct.set in block list" {
-  let struct_type = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
@@ -899,9 +899,9 @@ test "heap store optimization folds following struct.set in block list" {
 
 ///|
 test "heap store optimization folds multiple struct.sets after local.set" {
-  let struct_type = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
@@ -978,9 +978,9 @@ test "heap store optimization folds multiple struct.sets after local.set" {
 
 ///|
 test "heap store optimization can swap down local.set of struct.new" {
-  let struct_type = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
@@ -1017,9 +1017,9 @@ test "heap store optimization can swap down local.set of struct.new" {
 
 ///|
 test "heap store optimization does not swap when effects conflict" {
-  let struct_type = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
@@ -1056,9 +1056,9 @@ test "heap store optimization does not swap when effects conflict" {
 
 ///|
 test "heap store optimization rejects set value that reads ref local" {
-  let struct_type = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
@@ -1094,9 +1094,9 @@ test "heap store optimization rejects set value that reads ref local" {
 
 ///|
 test "heap store optimization rejects when later new operand invalidates value" {
-  let struct_type = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
@@ -1136,9 +1136,9 @@ test "heap store optimization rejects when later new operand invalidates value" 
 
 ///|
 test "heap store optimization keeps old operand effects via drop sequence" {
-  let struct_type = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
@@ -1212,9 +1212,9 @@ test "heap store optimization keeps old operand effects via drop sequence" {
 
 ///|
 test "heap store optimization folds into struct.new_default" {
-  let struct_type = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
@@ -1280,9 +1280,9 @@ test "heap store optimization folds into struct.new_default" {
 
 ///|
 test "heap store optimization avoids branchy set value when local may be read later" {
-  let struct_type = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
@@ -1319,9 +1319,9 @@ test "heap store optimization avoids branchy set value when local may be read la
 
 ///|
 test "heap store optimization can skip local.set when later gets read only overwritten values" {
-  let struct_type = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
@@ -1365,13 +1365,13 @@ test "heap store optimization can skip local.set when later gets read only overw
 
 ///|
 test "heap store optimization rejects call set value due struct.new invalidation" {
-  let t_i32 = single_rec_type(
-    comp_type_sub_type(func_comp_type([], [ValType::i32()])),
+  let t_i32 = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
   )
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
-  let struct_type = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
@@ -1409,13 +1409,13 @@ test "heap store optimization rejects call set value due struct.new invalidation
 
 ///|
 test "heap store optimization rejects global side effects in set value due invalidation" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
-  let t_i32 = single_rec_type(
-    comp_type_sub_type(func_comp_type([], [ValType::i32()])),
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let t_i32 = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
   )
-  let struct_type = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
@@ -1466,9 +1466,9 @@ test "heap store optimization rejects global side effects in set value due inval
 
 ///|
 test "heap store optimization rejects atomic.rmw set value due invalidation" {
-  let struct_type = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
@@ -1510,9 +1510,9 @@ test "heap store optimization rejects atomic.rmw set value due invalidation" {
 
 ///|
 test "heap store optimization rejects atomic.cmpxchg set value due invalidation" {
-  let struct_type = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
@@ -1555,9 +1555,9 @@ test "heap store optimization rejects atomic.cmpxchg set value due invalidation"
 
 ///|
 test "heap store optimization rejects memory.atomic.wait32 set value due invalidation" {
-  let struct_type = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
@@ -1599,9 +1599,9 @@ test "heap store optimization rejects memory.atomic.wait32 set value due invalid
 
 ///|
 test "heap store optimization rejects fence-valued block due synchronization effects" {
-  let struct_type = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
@@ -1640,9 +1640,9 @@ test "heap store optimization rejects fence-valued block due synchronization eff
 
 ///|
 test "heap store optimization does not swap struct.new past atomic notify" {
-  let struct_type = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),

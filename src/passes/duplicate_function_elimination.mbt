@@ -1076,7 +1076,7 @@ fn duplicate_function_elimination(
 
 ///|
 test "duplicate function elimination removes duplicate function bodies" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let root = Func::t_func(
     [],
     TExpr::new([
@@ -1125,7 +1125,7 @@ test "duplicate function elimination removes duplicate function bodies" {
 
 ///|
 test "duplicate function elimination limit respects optimize level" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let a1 = Func::t_func([], TExpr::new([TInstr::call(FuncIdx::new(2), [])]))
   let a2 = Func::t_func([], TExpr::new([TInstr::call(FuncIdx::new(3), [])]))
   let b1 = Func::t_func([], TExpr::new([TInstr::nop()]))
@@ -1163,7 +1163,7 @@ test "duplicate function elimination limit respects optimize level" {
 
 ///|
 test "duplicate function elimination uses shrink level for multi-iteration" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let a1 = Func::t_func([], TExpr::new([TInstr::call(FuncIdx::new(2), [])]))
   let a2 = Func::t_func([], TExpr::new([TInstr::call(FuncIdx::new(3), [])]))
   let b1 = Func::t_func([], TExpr::new([TInstr::nop()]))
@@ -1192,9 +1192,9 @@ test "duplicate function elimination uses shrink level for multi-iteration" {
 
 ///|
 test "duplicate function elimination does not merge equal bodies with different types" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
-  let t_i32_void = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i32()], [])),
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let t_i32_void = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
   )
   let root = Func::t_func(
     [],
@@ -1224,8 +1224,8 @@ test "duplicate function elimination does not merge equal bodies with different 
 
 ///|
 test "duplicate function elimination merges duplicates across equivalent type defs" {
-  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
-  let t1 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t0 = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let t1 = RecType::new(SubType::comp_type(CompType::func([], [])))
   let root = Func::t_func(
     [],
     TExpr::new([
@@ -1270,7 +1270,7 @@ test "duplicate function elimination merges duplicates across equivalent type de
 
 ///|
 test "duplicate function elimination remaps start export and ref.func uses" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let root = Func::t_func(
     [],
     TExpr::new([

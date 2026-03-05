@@ -104,7 +104,7 @@ test "has_default handles numeric vector and ref nullability cases" {
 
 ///|
 test "constructor shorthands map to expected variants" {
-  assert_eq(TypeIdx::rec(3U), rec_idx(3U))
+  assert_eq(TypeIdx::rec(3U), TypeIdx::rec(3U))
   assert_eq(
     HeapType::abs(AbsHeapType::extern_()),
     AbsHeapTypeHeapType(ExternAbsHeapType),

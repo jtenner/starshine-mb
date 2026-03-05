@@ -935,12 +935,12 @@ fn run_type_generalizing(mod : Module) -> Module {
 
 ///|
 fn tg_void_type() -> RecType {
-  single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  RecType::new(SubType::comp_type(CompType::func([], [])))
 }
 
 ///|
 fn tg_func_type(params : Array[ValType], results : Array[ValType]) -> RecType {
-  single_rec_type(comp_type_sub_type(func_comp_type(params, results)))
+  RecType::new(SubType::comp_type(CompType::func(params, results)))
 }
 
 ///|
@@ -1064,9 +1064,9 @@ test "type generalizing preserves branch value requirements from block labels" {
 
 ///|
 test "type generalizing generalizes concrete struct local when only anyref is required" {
-  let struct_type = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),

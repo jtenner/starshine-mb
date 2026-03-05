@@ -361,7 +361,7 @@ test "abstract struct usage becomes bottom" {
   let ht = HeapType::new(TypeIdx::new(0))
   let mod = Module::new()
     .with_type_sec(
-      TypeSec::new([RecType::new(comp_type_sub_type(struct_comp_type([])))]),
+      TypeSec::new([RecType::new(SubType::comp_type(CompType::struct_([])))]),
     )
     .with_code_sec(
       CodeSec::new([
@@ -515,7 +515,7 @@ test "abstract struct does not trap when traps may happen" {
   let ht = HeapType::new(TypeIdx::new(0))
   let mod = Module::new()
     .with_type_sec(
-      TypeSec::new([RecType::new(comp_type_sub_type(struct_comp_type([])))]),
+      TypeSec::new([RecType::new(SubType::comp_type(CompType::struct_([])))]),
     )
     .with_code_sec(
       CodeSec::new([
@@ -699,7 +699,7 @@ fn atr_mixed_branch_parity_module() -> Module {
   let any_ht = HeapType::abs(AbsHeapType::any())
   Module::new()
   .with_type_sec(
-    TypeSec::new([RecType::new(comp_type_sub_type(struct_comp_type([])))]),
+    TypeSec::new([RecType::new(SubType::comp_type(CompType::struct_([])))]),
   )
   .with_code_sec(
     CodeSec::new([
@@ -948,7 +948,7 @@ fn atr_nested_value_tree_module() -> Module {
   let any_ht = HeapType::abs(AbsHeapType::any())
   Module::new()
   .with_type_sec(
-    TypeSec::new([RecType::new(comp_type_sub_type(struct_comp_type([])))]),
+    TypeSec::new([RecType::new(SubType::comp_type(CompType::struct_([])))]),
   )
   .with_code_sec(
     CodeSec::new([
@@ -1146,7 +1146,7 @@ fn atr_deep_nested_control_value_module() -> Module {
   let any_ht = HeapType::abs(AbsHeapType::any())
   Module::new()
   .with_type_sec(
-    TypeSec::new([RecType::new(comp_type_sub_type(struct_comp_type([])))]),
+    TypeSec::new([RecType::new(SubType::comp_type(CompType::struct_([])))]),
   )
   .with_code_sec(
     CodeSec::new([
@@ -1484,11 +1484,11 @@ test "full pass preserves deep if/block/try_table value trees when traps may hap
 fn atr_handler_nested_control_module() -> Module {
   let exact_ht = HeapType::new(TypeIdx::new(0))
   let any_ht = HeapType::abs(AbsHeapType::any())
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   Module::new()
   .with_type_sec(
     TypeSec::new([
-      RecType::new(comp_type_sub_type(struct_comp_type([]))),
+      RecType::new(SubType::comp_type(CompType::struct_([]))),
       t_void,
     ]),
   )
@@ -1847,11 +1847,11 @@ test "full pass preserves deep handler-bearing nested casts when traps may happe
 fn atr_handler_throwing_validator_clean_module() -> Module {
   let exact_ht = HeapType::new(TypeIdx::new(0))
   let any_ht = HeapType::abs(AbsHeapType::any())
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   Module::new()
   .with_type_sec(
     TypeSec::new([
-      RecType::new(comp_type_sub_type(struct_comp_type([]))),
+      RecType::new(SubType::comp_type(CompType::struct_([]))),
       t_void,
     ]),
   )
@@ -2037,20 +2037,20 @@ fn atr_typed_payload_catch_module() -> Module {
   let exn_ref = ValType::ref_type(
     RefType::new(false, HeapType::abs(AbsHeapType::exn())),
   )
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
-  let t_tag_i32 = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i32()], [])),
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let t_tag_i32 = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
   )
-  let t_tag_i64 = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i64()], [])),
+  let t_tag_i64 = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i64()], [])),
   )
-  let t_i64_exn = single_rec_type(
-    comp_type_sub_type(func_comp_type([], [ValType::i64(), exn_ref])),
+  let t_i64_exn = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i64(), exn_ref])),
   )
   Module::new()
   .with_type_sec(
     TypeSec::new([
-      RecType::new(comp_type_sub_type(struct_comp_type([]))),
+      RecType::new(SubType::comp_type(CompType::struct_([]))),
       t_void,
       t_tag_i32,
       t_tag_i64,
@@ -2099,11 +2099,11 @@ fn atr_typed_payload_catch_module() -> Module {
 fn atr_drop_ref_cast_module() -> Module {
   let exact_ht = HeapType::new(TypeIdx::new(0))
   let any_ht = HeapType::abs(AbsHeapType::any())
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   Module::new()
   .with_type_sec(
     TypeSec::new([
-      RecType::new(comp_type_sub_type(struct_comp_type([]))),
+      RecType::new(SubType::comp_type(CompType::struct_([]))),
       t_void,
     ]),
   )

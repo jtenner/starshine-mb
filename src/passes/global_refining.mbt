@@ -524,7 +524,7 @@ fn global_refining(mod : Module) -> Result[Module, String] {
 
 ///|
 test "global refining narrows non-exported mutable global type from sets and init" {
-  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t0 = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t0]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
@@ -567,7 +567,7 @@ test "global refining narrows non-exported mutable global type from sets and ini
 
 ///|
 test "global refining does not refine exported mutable globals" {
-  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t0 = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t0]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
@@ -612,7 +612,7 @@ test "global refining does not refine exported mutable globals" {
 
 ///|
 test "global refining refines exported immutable globals when refined type is public" {
-  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t0 = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t0]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
@@ -650,7 +650,7 @@ test "global refining refines exported immutable globals when refined type is pu
 
 ///|
 test "global refining infers immutable global init from struct.new" {
-  let struct_type = single_rec_type(comp_type_sub_type(struct_comp_type([])))
+  let struct_type = RecType::new(SubType::comp_type(CompType::struct_([])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([struct_type]))
     .with_global_sec(
@@ -679,7 +679,7 @@ test "global refining infers immutable global init from struct.new" {
 
 ///|
 test "global refining narrows broad typed select using branch merge" {
-  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t0 = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t0]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
@@ -715,10 +715,10 @@ test "global refining narrows broad typed select using branch merge" {
 
 ///|
 test "global refining uses function param types for local.get global.set flows" {
-  let t_target = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
-  let t_setter = single_rec_type(
-    comp_type_sub_type(
-      func_comp_type(
+  let t_target = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let t_setter = RecType::new(
+    SubType::comp_type(
+      CompType::func(
         [ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx::new(0))))],
         [],
       ),

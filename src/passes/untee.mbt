@@ -307,8 +307,8 @@ test "untee drops unreachable local.tee to unreachable value" {
 
 ///|
 test "untee uses parameter local type for block result" {
-  let func_type = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i32()], [])),
+  let func_type = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([func_type]))

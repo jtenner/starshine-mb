@@ -70,8 +70,8 @@ fn decode_module_bytes(bytes : Bytes) -> Module {
 
 ///|
 fn fixture_i32_const_module(value : Int) -> Module {
-  let t_i32 = @lib.single_rec_type(
-    @lib.comp_type_sub_type(@lib.func_comp_type([], [@lib.ValType::i32()])),
+  let t_i32 = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
   )
   Module::new()
   .with_code_sec(
@@ -87,8 +87,8 @@ fn fixture_i32_const_module(value : Int) -> Module {
 fn fixture_f32_nan_module() -> Module {
   let nan_bits : UInt = 0x7FC00000
   let nan = @lib.F32(Float::reinterpret_from_uint(nan_bits))
-  let t_f32 = @lib.single_rec_type(
-    @lib.comp_type_sub_type(@lib.func_comp_type([], [@lib.ValType::f32()])),
+  let t_f32 = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::f32()])),
   )
   Module::new()
   .with_code_sec(
@@ -100,8 +100,8 @@ fn fixture_f32_nan_module() -> Module {
 
 ///|
 fn fixture_mergeable_block_module() -> Module {
-  let t_void = @lib.single_rec_type(
-    @lib.comp_type_sub_type(@lib.func_comp_type([], [])),
+  let t_void = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
   )
   Module::new()
   .with_code_sec(

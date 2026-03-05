@@ -1681,7 +1681,7 @@ fn default_extract_atr_traps_never_happen(passes : Array[ModulePass]) -> Bool? {
 
 ///|
 fn opt_scheduler_remove_unused_dispatch_module() -> Module {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let keep_a = Func::t_func([], TExpr::new([TInstr::nop()]))
   let keep_b = Func::t_func([], TExpr::new([TInstr::nop()]))
   Module::new()
@@ -1705,7 +1705,7 @@ fn opt_scheduler_denan_dispatch_module() -> Module {
   Module::new()
   .with_type_sec(
     TypeSec::new([
-      single_rec_type(comp_type_sub_type(func_comp_type([], [ValType::f32()]))),
+      RecType::new(SubType::comp_type(CompType::func([], [ValType::f32()]))),
     ]),
   )
   .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
@@ -1716,7 +1716,7 @@ fn opt_scheduler_denan_dispatch_module() -> Module {
 
 ///|
 fn opt_scheduler_type_generalizing_dispatch_module() -> Module {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   Module::new()
   .with_type_sec(TypeSec::new([t_void]))
   .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
@@ -1735,9 +1735,11 @@ fn opt_scheduler_type_merging_dispatch_module() -> Module {
   Module::new()
   .with_type_sec(
     TypeSec::new([
-      single_rec_type(sub_type(false, [], struct_comp_type([]))),
-      single_rec_type(sub_type(false, [TypeIdx::new(0)], struct_comp_type([]))),
-      single_rec_type(comp_type_sub_type(func_comp_type([], []))),
+      RecType::new(SubType::new(false, [], CompType::struct_([]))),
+      RecType::new(
+        SubType::new(false, [TypeIdx::new(0)], CompType::struct_([])),
+      ),
+      RecType::new(SubType::comp_type(CompType::func([], []))),
     ]),
   )
   .with_func_sec(FuncSec::new([TypeIdx::new(2)]))
@@ -1753,14 +1755,14 @@ fn opt_scheduler_type_merging_dispatch_module() -> Module {
 
 ///|
 fn opt_scheduler_type_merging_trap_sensitive_module() -> Module {
-  let func_super = single_rec_type(sub_type(false, [], func_comp_type([], [])))
-  let func_sub = single_rec_type(
-    sub_type(false, [TypeIdx::new(1)], func_comp_type([], [])),
+  let func_super = RecType::new(SubType::new(false, [], CompType::func([], [])))
+  let func_sub = RecType::new(
+    SubType::new(false, [TypeIdx::new(1)], CompType::func([], [])),
   )
   Module::new()
   .with_type_sec(
     TypeSec::new([
-      single_rec_type(sub_type(false, [], struct_comp_type([]))),
+      RecType::new(SubType::new(false, [], CompType::struct_([]))),
       func_super,
       func_sub,
     ]),
@@ -1811,9 +1813,11 @@ fn opt_scheduler_type_finalizing_dispatch_module() -> Module {
   Module::new()
   .with_type_sec(
     TypeSec::new([
-      single_rec_type(sub_type(false, [], struct_comp_type([]))),
-      single_rec_type(sub_type(false, [TypeIdx::new(0)], struct_comp_type([]))),
-      single_rec_type(comp_type_sub_type(func_comp_type([], []))),
+      RecType::new(SubType::new(false, [], CompType::struct_([]))),
+      RecType::new(
+        SubType::new(false, [TypeIdx::new(0)], CompType::struct_([])),
+      ),
+      RecType::new(SubType::comp_type(CompType::func([], []))),
     ]),
   )
   .with_func_sec(FuncSec::new([TypeIdx::new(2)]))
@@ -1829,11 +1833,11 @@ fn opt_scheduler_type_finalizing_dispatch_module() -> Module {
 
 ///|
 fn opt_scheduler_descriptor_target_retention_module() -> Module {
-  let unused_struct = single_rec_type(comp_type_sub_type(struct_comp_type([])))
-  let descriptor_target = single_rec_type(
-    comp_type_sub_type(struct_comp_type([])),
+  let unused_struct = RecType::new(SubType::comp_type(CompType::struct_([])))
+  let descriptor_target = RecType::new(
+    SubType::comp_type(CompType::struct_([])),
   )
-  let void_ft = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let void_ft = RecType::new(SubType::comp_type(CompType::func([], [])))
   let typed = Func::t_func(
     [ValType::anyref()],
     TExpr::new([
@@ -1871,8 +1875,8 @@ fn opt_scheduler_type_unfinalizing_dispatch_module() -> Module {
   Module::new()
   .with_type_sec(
     TypeSec::new([
-      single_rec_type(comp_type_sub_type(struct_comp_type([]))),
-      single_rec_type(comp_type_sub_type(func_comp_type([], []))),
+      RecType::new(SubType::comp_type(CompType::struct_([]))),
+      RecType::new(SubType::comp_type(CompType::func([], []))),
     ]),
   )
   .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
@@ -1884,10 +1888,14 @@ fn opt_scheduler_unsubtyping_dispatch_module() -> Module {
   Module::new()
   .with_type_sec(
     TypeSec::new([
-      single_rec_type(sub_type(false, [], struct_comp_type([]))),
-      single_rec_type(sub_type(false, [TypeIdx::new(0)], struct_comp_type([]))),
-      single_rec_type(sub_type(false, [TypeIdx::new(1)], struct_comp_type([]))),
-      single_rec_type(comp_type_sub_type(func_comp_type([], []))),
+      RecType::new(SubType::new(false, [], CompType::struct_([]))),
+      RecType::new(
+        SubType::new(false, [TypeIdx::new(0)], CompType::struct_([])),
+      ),
+      RecType::new(
+        SubType::new(false, [TypeIdx::new(1)], CompType::struct_([])),
+      ),
+      RecType::new(SubType::comp_type(CompType::func([], []))),
     ]),
   )
   .with_func_sec(FuncSec::new([TypeIdx::new(3)]))
@@ -2037,16 +2045,16 @@ test "default function optimization passes gate low-level and gc-only passes" {
 test "default function optimization passes include propagate and gc passes when enabled" {
   let gc_mod = Module::new().with_type_sec(
     TypeSec::new([
-      single_rec_type(
-        comp_type_sub_type(
-          struct_comp_type([
+      RecType::new(
+        SubType::comp_type(
+          CompType::struct_([
             FieldType::new(StorageType::val_type(ValType::i32()), Var),
           ]),
         ),
       ),
-      single_rec_type(comp_type_sub_type(func_comp_type([], [ValType::i32()]))),
-      single_rec_type(
-        comp_type_sub_type(func_comp_type([], [ValType::i32(), ValType::i32()])),
+      RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
+      RecType::new(
+        SubType::comp_type(CompType::func([], [ValType::i32(), ValType::i32()])),
       ),
     ]),
   )
@@ -2229,9 +2237,9 @@ test "default function optimization passes preserve flatten simplify-local-cse o
 test "default function optimization passes map tuple-optimization mode for multivalue modules" {
   let multivalue_mod = Module::new().with_type_sec(
     TypeSec::new([
-      single_rec_type(comp_type_sub_type(func_comp_type([], [ValType::i32()]))),
-      single_rec_type(
-        comp_type_sub_type(func_comp_type([], [ValType::i32(), ValType::i32()])),
+      RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
+      RecType::new(
+        SubType::comp_type(CompType::func([], [ValType::i32(), ValType::i32()])),
       ),
     ]),
   )
@@ -2365,9 +2373,9 @@ test "default global optimization pre passes include once reduction at optimize_
 test "default global optimization pre passes map cfp-reftest mode to constant field propagation" {
   let gc_mod = Module::new().with_type_sec(
     TypeSec::new([
-      single_rec_type(
-        comp_type_sub_type(
-          struct_comp_type([
+      RecType::new(
+        SubType::comp_type(
+          CompType::struct_([
             FieldType::new(StorageType::val_type(ValType::i32()), Var),
           ]),
         ),
@@ -2401,9 +2409,9 @@ test "default global optimization pre passes map cfp-reftest mode to constant fi
 test "default global optimization pre passes map unsubtyping mode to unsubtyping pass" {
   let gc_mod = Module::new().with_type_sec(
     TypeSec::new([
-      single_rec_type(
-        comp_type_sub_type(
-          struct_comp_type([
+      RecType::new(
+        SubType::comp_type(
+          CompType::struct_([
             FieldType::new(StorageType::val_type(ValType::i32()), Var),
           ]),
         ),
@@ -2444,9 +2452,9 @@ test "default global optimization pre passes map unsubtyping mode to unsubtyping
 test "default global optimization pre passes thread traps_never_happen into AbstractTypeRefining props" {
   let gc_mod = Module::new().with_type_sec(
     TypeSec::new([
-      single_rec_type(
-        comp_type_sub_type(
-          struct_comp_type([
+      RecType::new(
+        SubType::comp_type(
+          CompType::struct_([
             FieldType::new(StorageType::val_type(ValType::i32()), Var),
           ]),
         ),
@@ -2585,9 +2593,9 @@ test "default global optimization post passes include binaryen-parity defaults" 
 test "default global optimization pre passes include closed-world gc passes" {
   let gc_mod = Module::new().with_type_sec(
     TypeSec::new([
-      single_rec_type(
-        comp_type_sub_type(
-          struct_comp_type([
+      RecType::new(
+        SubType::comp_type(
+          CompType::struct_([
             FieldType::new(StorageType::val_type(ValType::i32()), Var),
           ]),
         ),
@@ -2676,9 +2684,9 @@ test "default global optimization pre passes include closed-world gc passes" {
 test "default global optimization pre passes honor closed_world=false gating" {
   let gc_mod = Module::new().with_type_sec(
     TypeSec::new([
-      single_rec_type(
-        comp_type_sub_type(
-          struct_comp_type([
+      RecType::new(
+        SubType::comp_type(
+          CompType::struct_([
             FieldType::new(StorageType::val_type(ValType::i32()), Var),
           ]),
         ),
@@ -2865,12 +2873,10 @@ test "optimize_module_with_options_trace emits dead argument elimination details
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(
-          comp_type_sub_type(func_comp_type([ValType::i32()], [ValType::i32()])),
+        RecType::new(
+          SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
         ),
-        single_rec_type(
-          comp_type_sub_type(func_comp_type([], [ValType::i32()])),
-        ),
+        RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
       ]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(1), TypeIdx::new(0)]))
@@ -3342,9 +3348,7 @@ test "optimize_module runs AvoidReinterprets pass" {
     .with_mem_sec(MemSec::new([MemType::new(Limits::i32(1, None))]))
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(
-          comp_type_sub_type(func_comp_type([], [ValType::i32()])),
-        ),
+        RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
       ]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
@@ -3374,12 +3378,10 @@ test "optimize_module runs DeadArgumentElimination pass" {
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(
-          comp_type_sub_type(func_comp_type([ValType::i32()], [ValType::i32()])),
+        RecType::new(
+          SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
         ),
-        single_rec_type(
-          comp_type_sub_type(func_comp_type([], [ValType::i32()])),
-        ),
+        RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
       ]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(1), TypeIdx::new(0)]))
@@ -3419,10 +3421,8 @@ test "optimize_module runs DeadArgumentEliminationOptimizing cleanup" {
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(comp_type_sub_type(func_comp_type([], []))),
-        single_rec_type(
-          comp_type_sub_type(func_comp_type([], [ValType::i32()])),
-        ),
+        RecType::new(SubType::comp_type(CompType::func([], []))),
+        RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
       ]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
@@ -3444,7 +3444,7 @@ test "optimize_module runs DeadArgumentEliminationOptimizing cleanup" {
 
 ///|
 test "optimize_module_with_options_trace skips DAE optimizing cleanup on large modules" {
-  let void_type = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let void_type = RecType::new(SubType::comp_type(CompType::func([], [])))
   let func_types : Array[TypeIdx] = []
   let funcs : Array[Func] = []
   for _ in 0..<1200 {
@@ -3502,12 +3502,10 @@ test "optimize_module runs SignaturePruning pass" {
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(
-          comp_type_sub_type(func_comp_type([ValType::i32()], [ValType::i32()])),
+        RecType::new(
+          SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
         ),
-        single_rec_type(
-          comp_type_sub_type(func_comp_type([], [ValType::i32()])),
-        ),
+        RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
       ]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(1), TypeIdx::new(0)]))
@@ -3552,12 +3550,8 @@ test "optimize_module runs SignatureRefining pass" {
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(
-          comp_type_sub_type(func_comp_type([non_null_funcref], [])),
-        ),
-        single_rec_type(
-          comp_type_sub_type(func_comp_type([nullable_funcref], [])),
-        ),
+        RecType::new(SubType::comp_type(CompType::func([non_null_funcref], []))),
+        RecType::new(SubType::comp_type(CompType::func([nullable_funcref], []))),
       ]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
@@ -3598,12 +3592,8 @@ test "optimize_module runs TypeRefining pass" {
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(
-          comp_type_sub_type(func_comp_type([non_null_funcref], [])),
-        ),
-        single_rec_type(
-          comp_type_sub_type(func_comp_type([nullable_funcref], [])),
-        ),
+        RecType::new(SubType::comp_type(CompType::func([non_null_funcref], []))),
+        RecType::new(SubType::comp_type(CompType::func([nullable_funcref], []))),
       ]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
@@ -3623,8 +3613,8 @@ test "optimize_module runs RemoveUnusedTypes pass" {
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(comp_type_sub_type(func_comp_type([], []))),
-        single_rec_type(comp_type_sub_type(struct_comp_type([]))),
+        RecType::new(SubType::comp_type(CompType::func([], []))),
+        RecType::new(SubType::comp_type(CompType::struct_([]))),
       ]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
@@ -3668,7 +3658,7 @@ test "optimize_module runs DeadCodeElimination pass" {
 
 ///|
 test "optimize_module runs DuplicateFunctionElimination pass" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let root = Func::t_func(
     [],
     TExpr::new([
@@ -3696,7 +3686,7 @@ test "optimize_module runs DuplicateFunctionElimination pass" {
 
 ///|
 test "optimize_module runs DuplicateImportElimination pass" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_void]))
     .with_import_sec(
@@ -3745,7 +3735,7 @@ test "optimize_module runs DuplicateImportElimination pass" {
 
 ///|
 test "optimize_module runs GlobalRefining pass" {
-  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t0 = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t0]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
@@ -3849,15 +3839,15 @@ test "optimize_module schedules GlobalStructInferenceDescCast without invalid GC
 
 ///|
 test "optimize_module runs GlobalTypeOptimization pass" {
-  let struct_type = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
   )
-  let func_type = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let func_type = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([struct_type, func_type]))
     .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
@@ -3896,9 +3886,9 @@ test "optimize_module runs GlobalTypeOptimization pass" {
 
 ///|
 test "optimize_module runs Heap2Local pass" {
-  let struct_type = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
@@ -3948,9 +3938,9 @@ test "optimize_module runs Heap2Local pass" {
 
 ///|
 test "optimize_module runs HeapStoreOptimization pass" {
-  let struct_type = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
@@ -4054,7 +4044,7 @@ test "optimize_module runs PickLoadSigns pass" {
 
 ///|
 test "optimize_module runs GUFA pass" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let root = Func::t_func(
     [],
     TExpr::new([
@@ -4112,7 +4102,7 @@ test "optimize_module runs GUFA pass" {
 
 ///|
 test "optimize_module runs GUFAOptimizing followup DCE" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let body = TExpr::new([
     TInstr::drop(
       TInstr::ref_cast(
@@ -4156,7 +4146,7 @@ test "optimize_module runs GUFAOptimizing followup DCE" {
 
 ///|
 test "optimize_module runs GUFACastAll pass" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let body = TExpr::new([TInstr::drop(TInstr::global_get(GlobalIdx::new(0)))])
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_void]))
@@ -4206,8 +4196,8 @@ test "optimize_module runs GUFACastAll pass" {
 
 ///|
 test "optimize_module runs I64ToI32Lowering pass" {
-  let ty = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i64()], [ValType::i64()])),
+  let ty = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i64()], [ValType::i64()])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([ty]))
@@ -4271,9 +4261,9 @@ test "optimize_module I64ToI32Lowering precondition gates imported i64 globals" 
 
 ///|
 test "optimize_module I64ToI32Lowering precondition gates multi-value i64 results" {
-  let ty = single_rec_type(
-    comp_type_sub_type(
-      func_comp_type([ValType::i32()], [ValType::i64(), ValType::i32()]),
+  let ty = RecType::new(
+    SubType::comp_type(
+      CompType::func([ValType::i32()], [ValType::i64(), ValType::i32()]),
     ),
   )
   let mod = Module::new().with_type_sec(TypeSec::new([ty]))
@@ -4319,8 +4309,8 @@ test "optimize_module I64ToI32Lowering precondition gates unsupported i64 global
 
 ///|
 test "optimize_module I64ToI32Lowering avoids duplicate global precondition rewrite scans" {
-  let ty = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i64()], [ValType::i64()])),
+  let ty = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i64()], [ValType::i64()])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([ty]))
@@ -4373,7 +4363,7 @@ test "optimize_module runs DataflowOptimization pass" {
 
 ///|
 test "optimize_module_with_options controls DuplicateFunctionElimination iterations" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let a1 = Func::t_func([], TExpr::new([TInstr::call(FuncIdx::new(2), [])]))
   let a2 = Func::t_func([], TExpr::new([TInstr::call(FuncIdx::new(3), [])]))
   let b1 = Func::t_func([], TExpr::new([TInstr::nop()]))
@@ -4419,11 +4409,11 @@ test "optimize_module_with_options controls DuplicateFunctionElimination iterati
 
 ///|
 test "optimize_module runs Inlining pass" {
-  let t0 = single_rec_type(
-    comp_type_sub_type(func_comp_type([], [ValType::i32()])),
+  let t0 = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
   )
-  let t1 = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i32()], [ValType::i32()])),
+  let t1 = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t0, t1]))
@@ -4469,7 +4459,7 @@ test "optimize_module runs Inlining pass" {
 
 ///|
 test "optimize_module runs InlineMain pass" {
-  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t0 = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t0]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
@@ -4636,7 +4626,7 @@ test "optimize_module runs Vacuum pass" {
 test "optimize_module runs LocalSubtyping pass" {
   let mod = Module::new()
     .with_type_sec(
-      TypeSec::new([single_rec_type(comp_type_sub_type(func_comp_type([], [])))]),
+      TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
@@ -4776,7 +4766,7 @@ test "optimize_module runs MergeBlocks pass" {
 test "optimize_module runs Flatten pass" {
   let mod = Module::new()
     .with_type_sec(
-      TypeSec::new([single_rec_type(comp_type_sub_type(func_comp_type([], [])))]),
+      TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
@@ -4894,8 +4884,8 @@ test "optimize_module runs MinimizeRecGroups pass" {
 
 ///|
 test "optimize_module runs MergeSimilarFunctions pass" {
-  let t = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i32()], [ValType::i32()])),
+  let t = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
   )
   let f0 = Func::t_func(
     [],
@@ -4971,7 +4961,7 @@ test "optimize_module runs MemoryPacking pass" {
     .with_data_sec(DataSec::new([data]))
     .with_data_cnt_sec(DataCntSec::new(U32(1)))
     .with_type_sec(
-      TypeSec::new([single_rec_type(comp_type_sub_type(func_comp_type([], [])))]),
+      TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(CodeSec::new([Func::t_func([], body)]))
@@ -4994,9 +4984,7 @@ test "optimize_module runs Precompute and PrecomputePropagate passes" {
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(
-          comp_type_sub_type(func_comp_type([], [ValType::i32()])),
-        ),
+        RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
       ]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
@@ -5201,7 +5189,7 @@ test "optimize_module runs SimplifyLocals pass" {
 
 ///|
 test "optimize_module runs ReorderFunctions pass" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let root = Func::t_func(
     [],
     TExpr::new([
@@ -5487,9 +5475,9 @@ fn opt_assert_pass_invariant(
 
 ///|
 test "pass invariant: heap2local validates and remap is stable" {
-  let struct_type = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
@@ -5501,7 +5489,7 @@ test "pass invariant: heap2local validates and remap is stable" {
     .with_type_sec(
       TypeSec::new([
         struct_type,
-        single_rec_type(comp_type_sub_type(func_comp_type([], []))),
+        RecType::new(SubType::comp_type(CompType::func([], []))),
       ]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
@@ -5540,7 +5528,7 @@ test "pass invariant: heap2local validates and remap is stable" {
 
 ///|
 test "pass invariant: merge_blocks validates and remap is stable" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::t_func(
@@ -5587,7 +5575,7 @@ test "pass invariant: merge_blocks validates and remap is stable" {
 
 ///|
 test "pass invariant: re_reloop validates and remap is stable" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::t_func(
@@ -5634,7 +5622,7 @@ test "pass invariant: re_reloop validates and remap is stable" {
 
 ///|
 test "pass invariant: asyncify validates and remap is stable" {
-  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t0 = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t0]))
     .with_import_sec(
@@ -5666,8 +5654,8 @@ test "pass invariant: asyncify validates and remap is stable" {
 
 ///|
 test "pass invariant: i64_to_i32_lowering validates and remap is stable" {
-  let ty = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i64()], [ValType::i64()])),
+  let ty = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i64()], [ValType::i64()])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([ty]))
@@ -5704,15 +5692,15 @@ test "pass invariant: i64_to_i32_lowering validates and remap is stable" {
 
 ///|
 test "pass invariant: global_type_optimization validates and remap is stable" {
-  let struct_type = single_rec_type(
-    comp_type_sub_type(
-      struct_comp_type([
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
         FieldType::new(StorageType::val_type(ValType::i32()), Var),
       ]),
     ),
   )
-  let func_type = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let func_type = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([struct_type, func_type]))
     .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
@@ -5786,7 +5774,7 @@ test "pass invariant: minimize_rec_groups validates and remap is stable" {
 
 ///|
 test "pass invariant: remove_unused validates and remap is stable" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_void]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
@@ -5810,8 +5798,8 @@ test "pass invariant: remove_unused validates and remap is stable" {
 
 ///|
 test "pass invariant: local_cse validates and remap is stable" {
-  let t_i32_void = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i32()], [])),
+  let t_i32_void = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
   )
   let repeated = TInstr::binary(
     BinaryOp::i32_add(),
@@ -5839,7 +5827,7 @@ test "pass invariant: local_cse validates and remap is stable" {
 
 ///|
 test "pass invariant: optimize_instructions validates and remap is stable" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_void]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
@@ -5882,8 +5870,8 @@ test "pass invariant: optimize_instructions validates and remap is stable" {
 
 ///|
 test "pass invariant: precompute validates and remap is stable" {
-  let t_ret_i32 = single_rec_type(
-    comp_type_sub_type(func_comp_type([], [ValType::i32()])),
+  let t_ret_i32 = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_ret_i32]))
@@ -5936,7 +5924,7 @@ test "pass invariant: precompute validates and remap is stable" {
 
 ///|
 test "opt_format_validation_error reports root-level underflow context" {
-  let t_void = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_void]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))

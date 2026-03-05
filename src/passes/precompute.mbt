@@ -2503,7 +2503,7 @@ fn pc_single_func_module(
   base_mod? : Module = Module::new(),
 ) -> Module {
   let results = pc_top_level_result_types(body, locals, base_mod)
-  let sig = single_rec_type(comp_type_sub_type(func_comp_type([], results)))
+  let sig = RecType::new(SubType::comp_type(CompType::func([], results)))
   base_mod
   .with_type_sec(TypeSec::new([sig]))
   .with_func_sec(FuncSec::new([TypeIdx::new(0)]))

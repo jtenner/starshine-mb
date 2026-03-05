@@ -17,12 +17,7 @@
 ///|
 using @lib {
   expand_locals,
-  sub_type,
-  single_rec_type,
-  comp_type_sub_type,
-  struct_comp_type,
   func_idx,
-  func_comp_type,
   table_idx,
   tlocals_to_locals,
   type AbsHeapType,

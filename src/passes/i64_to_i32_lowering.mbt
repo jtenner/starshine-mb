@@ -2837,8 +2837,8 @@ fn i64_to_i32_lowering(mod : Module) -> Result[Module, String] {
 
 ///|
 test "i64_to_i32_lowering prepare artifact path matches direct lowering" {
-  let ty = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i64()], [ValType::i64()])),
+  let ty = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i64()], [ValType::i64()])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([ty]))
@@ -2971,8 +2971,8 @@ test "i64_to_i32_lowering lowers i64 globals and global.get/global.set" {
 
 ///|
 test "i64_to_i32_lowering lowers local i64 get/set and i64.add" {
-  let ty = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i64()], [ValType::i64()])),
+  let ty = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i64()], [ValType::i64()])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([ty]))
@@ -3021,8 +3021,8 @@ test "i64_to_i32_lowering lowers local i64 get/set and i64.add" {
 
 ///|
 test "i64_to_i32_lowering lowers i64 return through high-bits global" {
-  let ty = single_rec_type(
-    comp_type_sub_type(func_comp_type([], [ValType::i64()])),
+  let ty = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i64()])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([ty]))
@@ -3055,11 +3055,11 @@ test "i64_to_i32_lowering lowers i64 return through high-bits global" {
 
 ///|
 test "i64_to_i32_lowering lowers call i64 args and results" {
-  let t_callee = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i64()], [ValType::i64()])),
+  let t_callee = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i64()], [ValType::i64()])),
   )
-  let t_caller = single_rec_type(
-    comp_type_sub_type(func_comp_type([], [ValType::i32()])),
+  let t_caller = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_callee, t_caller]))
@@ -3302,11 +3302,11 @@ test "i64_to_i32_lowering lowers reinterpret ops and adds memory if needed" {
 
 ///|
 test "i64_to_i32_lowering lowers call_ref i64 args and results" {
-  let t_callee = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i64()], [ValType::i64()])),
+  let t_callee = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i64()], [ValType::i64()])),
   )
-  let t_caller = single_rec_type(
-    comp_type_sub_type(func_comp_type([], [ValType::i32()])),
+  let t_caller = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_callee, t_caller]))
@@ -3371,11 +3371,11 @@ test "i64_to_i32_lowering lowers call_ref i64 args and results" {
 
 ///|
 test "i64_to_i32_lowering lowers call_indirect i64 args and results" {
-  let t_sig = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i64()], [ValType::i64()])),
+  let t_sig = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i64()], [ValType::i64()])),
   )
-  let t_caller = single_rec_type(
-    comp_type_sub_type(func_comp_type([], [ValType::i32()])),
+  let t_caller = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_sig, t_caller]))
@@ -3414,11 +3414,11 @@ test "i64_to_i32_lowering lowers call_indirect i64 args and results" {
 
 ///|
 test "i64_to_i32_lowering lowers return_call_indirect/ref with i64 result" {
-  let t_sig = single_rec_type(
-    comp_type_sub_type(func_comp_type([], [ValType::i64()])),
+  let t_sig = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i64()])),
   )
-  let t_caller = single_rec_type(
-    comp_type_sub_type(func_comp_type([], [ValType::i64()])),
+  let t_caller = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i64()])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_sig, t_caller]))
@@ -3462,8 +3462,8 @@ test "i64_to_i32_lowering lowers return_call_indirect/ref with i64 result" {
 
 ///|
 test "i64_to_i32_lowering preserves explicit i64 return without extra tail wrap" {
-  let ty = single_rec_type(
-    comp_type_sub_type(func_comp_type([], [ValType::i64()])),
+  let ty = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i64()])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([ty]))
@@ -3489,8 +3489,8 @@ test "i64_to_i32_lowering preserves explicit i64 return without extra tail wrap"
 
 ///|
 test "i64_to_i32_lowering handles implicit i64 return from typeidx block" {
-  let ret_i64 = single_rec_type(
-    comp_type_sub_type(func_comp_type([], [ValType::i64()])),
+  let ret_i64 = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i64()])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([ret_i64]))
@@ -3547,9 +3547,9 @@ test "i64_to_i32_lowering rejects imported i64 globals" {
 
 ///|
 test "i64_to_i32_lowering rejects multi-value i64 function results" {
-  let ty = single_rec_type(
-    comp_type_sub_type(
-      func_comp_type([ValType::i32()], [ValType::i64(), ValType::i32()]),
+  let ty = RecType::new(
+    SubType::comp_type(
+      CompType::func([ValType::i32()], [ValType::i64(), ValType::i32()]),
     ),
   )
   let mod = Module::new().with_type_sec(TypeSec::new([ty]))
@@ -3655,11 +3655,11 @@ test "i64_to_i32_lowering lowers i64 mul/div/rem/rot and ctz/popcnt" {
 
 ///|
 test "i64_to_i32_lowering lowers return_call with i64 result" {
-  let t_callee = single_rec_type(
-    comp_type_sub_type(func_comp_type([], [ValType::i64()])),
+  let t_callee = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i64()])),
   )
-  let t_caller = single_rec_type(
-    comp_type_sub_type(func_comp_type([], [ValType::i64()])),
+  let t_caller = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i64()])),
   )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_callee, t_caller]))
@@ -3743,7 +3743,7 @@ test "i64_to_i32_lowering preserves signed div/rem overflow edge semantics" {
 
 ///|
 test "i64_to_i32_lowering handles branch-value-heavy i64 cfg and validates" {
-  let t0 = single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  let t0 = RecType::new(SubType::comp_type(CompType::func([], [])))
   let body = TExpr::new([
     TInstr::drop(
       TInstr::block(

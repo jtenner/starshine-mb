@@ -1784,7 +1784,7 @@ fn memory_packing(
 
 ///|
 fn mp_type_void() -> RecType {
-  single_rec_type(comp_type_sub_type(func_comp_type([], [])))
+  RecType::new(SubType::comp_type(CompType::func([], [])))
 }
 
 ///|
@@ -2092,9 +2092,7 @@ test "memory packing keeps empty segments unsplit" {
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(
-          comp_type_sub_type(func_comp_type([ValType::i32()], [])),
-        ),
+        RecType::new(SubType::comp_type(CompType::func([ValType::i32()], []))),
       ]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
@@ -2233,9 +2231,7 @@ test "memory packing introduces temp local for non-const memory.init dest" {
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
-        single_rec_type(
-          comp_type_sub_type(func_comp_type([ValType::i32()], [])),
-        ),
+        RecType::new(SubType::comp_type(CompType::func([ValType::i32()], []))),
       ]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))

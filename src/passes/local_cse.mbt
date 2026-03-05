@@ -689,6 +689,11 @@ fn lcs_infer_tinstr_type(instr : TInstr, env : Env) -> ValType? {
         Some(GlobalType(vt, _)) => Some(vt)
         None => None
       }
+    TInstrKind::TTableGet(idx, _) =>
+      match env.get_table_type(idx) {
+        Some(TableType(ref_type, _)) => Some(ValType::ref_type(ref_type))
+        None => None
+      }
     TInstrKind::TLocalTee(_, value) => lcs_infer_tinstr_type(value, env)
     TInstrKind::TUnary(op, value) =>
       lcs_unary_result_type(op, lcs_infer_tinstr_type(value, env))
@@ -2132,8 +2137,8 @@ test "local cse is idempotent" {
 
 ///|
 test "local cse helper locals account for parameter indices" {
-  let func_type = single_rec_type(
-    comp_type_sub_type(func_comp_type([ValType::i32()], [])),
+  let func_type = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
   )
   let repeated = TInstr::binary(
     BinaryOp::i32_add(),

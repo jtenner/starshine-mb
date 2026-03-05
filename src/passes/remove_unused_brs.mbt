@@ -1978,7 +1978,7 @@ fn rub_single_typed_func_module(
   Module::new()
   .with_type_sec(
     TypeSec::new([
-      single_rec_type(comp_type_sub_type(func_comp_type(params, results))),
+      RecType::new(SubType::comp_type(CompType::func(params, results))),
     ]),
   )
   .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
