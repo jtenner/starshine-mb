@@ -29,6 +29,7 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
   - `moon info && moon fmt`
   - `moon check`
   - `moon test`
+- Running multiple `moon` commands in parallel contends on `_build/.moon-lock`; one process waits on the lock instead of progressing concurrently.
 
 In this workspace, use absolute moon path when needed:
 - `/home/jtenner/.moon/bin/moon test`
