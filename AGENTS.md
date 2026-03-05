@@ -64,4 +64,4 @@ In this workspace, use absolute moon path when needed:
 - `./agent-todo.md` contains AI-friendly backlog items.
 
 ## Surprises
-Whenever something surprises you about the project, please report these surprises in a file called `./agent-surprises.md`. This will help the user understand the project better and help developers modify the codebase so that things are less surprising in the future.
+Whenever something surprises you about the project, and can be fixed in another agent pass, please report these surprises in a file called `./agent-surprises.md`. This will help the user understand the project better and help developers modify the codebase so that things are less surprising in the future.

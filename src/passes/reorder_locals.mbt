@@ -99,11 +99,16 @@ fn rl_remap_local_indices(
 }
 
 ///|
-fn rl_reorder_function(func : Func, param_count : Int) -> (Func, Bool) {
+fn rl_reorder_function(func : Func, param_count_hint : Int) -> (Func, Bool) {
   match func {
-    TFunc(_, locals, body) => {
+    TFunc(params, locals, body) => {
       if locals.is_empty() {
         return (func, false)
+      }
+      let param_count = if params.length() > 0 {
+        params.length()
+      } else {
+        param_count_hint
       }
       let num = param_count + locals.length()
       let counts = Array::make(num, 0)
@@ -170,7 +175,7 @@ fn rl_reorder_function(func : Func, param_count : Int) -> (Func, Bool) {
         Ok(out) => out
         Err(_) => body
       }
-      let next_func = Func::t_func([], reordered_locals, next_body)
+      let next_func = Func::t_func(params, reordered_locals, next_body)
       if next_func == func {
         (func, false)
       } else {
@@ -323,6 +328,62 @@ test "reorder_locals keeps params fixed and only reorders declared locals" {
           assert_eq(i1, 0U)
         }
         _ => fail("expected local index rewrites with params preserved")
+      }
+    }
+    _ => fail("expected single typed function")
+  }
+}
+
+///|
+test "reorder_locals uses typed params when func metadata is missing" {
+  let mod = Module::new().with_code_sec(
+    CodeSec::new([
+      Func::t_func(
+        [ValType::i32(), ValType::i32(), ValType::i64()],
+        [ValType::i32(), ValType::i32(), ValType::i32()],
+        TExpr::new([
+          TInstr::local_set(LocalIdx::new(3), TInstr::i32_const(I32(7))),
+          TInstr::drop(TInstr::local_get(LocalIdx::new(3))),
+          TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+        ]),
+      ),
+    ]),
+  )
+  let out = run_reorder_locals(mod)
+  match out.code_sec {
+    Some(CodeSec([TFunc(params, locals, { instrs, .. })])) => {
+      assert_eq(params, [ValType::i32(), ValType::i32(), ValType::i64()])
+      assert_eq(locals, [ValType::i32()])
+      match instrs {
+        [
+          {
+            kind: TInstrKind::TLocalSet(
+              LocalIdx(set_idx),
+              { kind: TInstrKind::TI32Const(I32(7)), .. }
+            ),
+            ..,
+          },
+          {
+            kind: TInstrKind::TDrop(
+              { kind: TInstrKind::TLocalGet(LocalIdx(get_idx0)), .. }
+            ),
+            ..,
+          },
+          {
+            kind: TInstrKind::TDrop(
+              { kind: TInstrKind::TLocalGet(LocalIdx(get_idx1)), .. }
+            ),
+            ..,
+          },
+        ] => {
+          assert_eq(set_idx, 3U)
+          assert_eq(get_idx0, 3U)
+          assert_eq(get_idx1, 0U)
+        }
+        _ =>
+          fail(
+            "expected used local to remain after params and unused locals to drop",
+          )
       }
     }
     _ => fail("expected single typed function")
