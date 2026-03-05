@@ -375,13 +375,13 @@ fn alignment_lowering_pass(mod : Module) -> ModuleTransformer[IRContext] {
       Func(_) => Err("Expected TFunc")
       TFunc(_, locals, b) => {
         temp_locals = locals
-        match self.walk_func_default(t, Func::t_func(locals, b)) {
+        match self.walk_func_default(t, Func::t_func([], locals, b)) {
           Ok(Some((t, func))) =>
             match func {
               TFunc(_, _, b) => {
                 let result_locals = temp_locals
                 temp_locals = []
-                change(t, Func::t_func(result_locals, b))
+                change(t, Func::t_func([], result_locals, b))
               }
               _ => Err("Expected TFunc")
             }
@@ -704,7 +704,7 @@ fn run_func_pass(
   let ctx = IRContext::new()
   ctx.set_mod(mod)
   let pass = alignment_lowering_pass(mod)
-  let func = Func::t_func(locals, TExpr::new(body))
+  let func = Func::t_func([], locals, TExpr::new(body))
   match pass.walk_func(ctx, func) {
     Ok(Some((_, TFunc(_, new_locals, new_body)))) => Ok((new_locals, new_body))
     Ok(None) => Ok((locals, TExpr::new(body)))

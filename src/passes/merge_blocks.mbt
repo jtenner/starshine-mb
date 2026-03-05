@@ -1923,7 +1923,7 @@ fn run_on_function(
         final_body = mb_refinalize_texpr(final_body, env)
       }
       if changed || ctx.needs_refinalize {
-        (Func::t_func(locals, final_body), true)
+        (Func::t_func([], locals, final_body), true)
       } else {
         (func, false)
       }
@@ -2529,7 +2529,7 @@ fn mb_make_test_module_with_body(
     TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], results)))]),
   )
   .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-  .with_code_sec(CodeSec::new([Func::t_func(locals, body)]))
+  .with_code_sec(CodeSec::new([Func::t_func([], locals, body)]))
 }
 
 ///|
@@ -2981,7 +2981,7 @@ test "merge blocks: try_table catch_ref with params blocks optimization" {
     )
     .with_tag_sec(TagSec::new([tag_type]))
     .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
-    .with_code_sec(CodeSec::new([Func::t_func([], body)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], [], body)]))
   let out = run_merge_blocks(mod)
   assert_eq(out, mod)
 }

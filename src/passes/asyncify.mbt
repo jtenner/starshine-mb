@@ -657,7 +657,7 @@ fn af_append_function(
     None => []
   }
   let abs_idx = imported + funcs.length().reinterpret_as_uint()
-  funcs.push(Func::t_func(locals, body))
+  funcs.push(Func::t_func([], locals, body))
   (mod.with_code_sec(CodeSec::new(funcs)), FuncIdx::new(abs_idx))
 }
 
@@ -2435,6 +2435,7 @@ fn af_instrument_flow_for_function(
       }
       Ok(
         Func::t_func(
+          [],
           locals,
           TExpr::new([TInstr::block(BlockType::void_(), TExpr::new(wrapped))]),
         ),
@@ -2730,7 +2731,7 @@ fn af_lower_intrinsics_and_locals(
           None,
         ),
       )
-      Ok(Func::t_func(extended_locals, TExpr::new(final_instrs)))
+      Ok(Func::t_func([], extended_locals, TExpr::new(final_instrs)))
     }
     _ => Ok(func)
   }
@@ -2796,6 +2797,7 @@ fn af_assert_non_instrumented(
         }
         rewritten.push(
           Func::t_func(
+            [],
             next_locals,
             TExpr::new([
               TInstr::local_set(
@@ -3131,7 +3133,7 @@ fn af_assert_unwind_catch(mod : Module, runtime : AFApi) -> Module {
         for vt in ctx.extra_locals {
           next_locals.push(vt)
         }
-        rewritten.push(Func::t_func(next_locals, next_body))
+        rewritten.push(Func::t_func([], next_locals, next_body))
       }
       _ => rewritten.push(funcs[i])
     }
@@ -3283,7 +3285,7 @@ fn af_lower_tail_calls_prepass(mod : Module) -> Result[Module, String] {
           Ok(None) => body
           Err(e) => return Err(e)
         }
-        rewritten.push(Func::t_func(locals, next_body))
+        rewritten.push(Func::t_func([], locals, next_body))
       }
       _ => rewritten.push(func)
     }
@@ -3769,7 +3771,11 @@ test "asyncify rejects tail calls with required lowering prepass diagnostic" {
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], TExpr::new([TInstr::return_call(FuncIdx::new(0), [])])),
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([TInstr::return_call(FuncIdx::new(0), [])]),
+        ),
       ]),
     )
   let props = AsyncifyPassProps::new(auto_lower_tail_calls=false)
@@ -3787,8 +3793,12 @@ test "asyncify optional tail-call lowering flag rewrites return_call" {
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], TExpr::new([TInstr::nop()])),
-        Func::t_func([], TExpr::new([TInstr::return_call(FuncIdx::new(0), [])])),
+        Func::t_func([], [], TExpr::new([TInstr::nop()])),
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([TInstr::return_call(FuncIdx::new(0), [])]),
+        ),
       ]),
     )
   let props = match
@@ -3817,8 +3827,9 @@ test "asyncify optional tail-call lowering flag rewrites return_call_ref" {
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], TExpr::new([TInstr::nop()])),
+        Func::t_func([], [], TExpr::new([TInstr::nop()])),
         Func::t_func(
+          [],
           [],
           TExpr::new([
             TInstr::return_call_ref(
@@ -3860,6 +3871,7 @@ test "asyncify optional tail-call lowering rewrites multi-value return_call" {
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::return_([
               TInstr::i32_const(I32(1)),
@@ -3867,7 +3879,11 @@ test "asyncify optional tail-call lowering rewrites multi-value return_call" {
             ]),
           ]),
         ),
-        Func::t_func([], TExpr::new([TInstr::return_call(FuncIdx::new(0), [])])),
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([TInstr::return_call(FuncIdx::new(0), [])]),
+        ),
       ]),
     )
   let out = match af_lower_tail_calls_prepass(mod) {
@@ -3928,6 +3944,7 @@ test "asyncify optional tail-call lowering rewrites multi-value return_call_indi
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::return_([
               TInstr::i32_const(I32(5)),
@@ -3936,6 +3953,7 @@ test "asyncify optional tail-call lowering rewrites multi-value return_call_indi
           ]),
         ),
         Func::t_func(
+          [],
           [],
           TExpr::new([
             TInstr::return_call_indirect(
@@ -3987,6 +4005,7 @@ test "asyncify optional tail-call lowering rewrites multi-value return_call_ref"
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::return_([
               TInstr::i32_const(I32(9)),
@@ -3995,6 +4014,7 @@ test "asyncify optional tail-call lowering rewrites multi-value return_call_ref"
           ]),
         ),
         Func::t_func(
+          [],
           [typed_funcref],
           TExpr::new([
             TInstr::return_call_ref(
@@ -4033,7 +4053,7 @@ test "asyncify optional tail-call lowering rewrites multi-value return_call_ref"
 ///|
 test "asyncify creates runtime globals and exports" {
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([], TExpr::new([TInstr::nop()]))]),
+    CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
   )
   let out = match
     asyncify(mod, props=AsyncifyPassProps::new(export_globals=true)) {
@@ -4086,7 +4106,7 @@ test "asyncify creates runtime globals and exports" {
 ///|
 test "asyncify import-globals imports internal asyncify globals" {
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([], TExpr::new([TInstr::nop()]))]),
+    CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
   )
   let out = match
     asyncify(mod, props=AsyncifyPassProps::new(import_globals=true)) {
@@ -4136,6 +4156,7 @@ test "asyncify instruments direct calls with unwind indices" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [ValType::i32()],
           TExpr::new([
             TInstr::call(FuncIdx::new(0), []),
@@ -4178,6 +4199,7 @@ test "asyncify lowers call result local.set through locals temp" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [ValType::i32()],
           TExpr::new([
             TInstr::local_set(
@@ -4232,6 +4254,7 @@ test "asyncify lowers fake call-result globals for i64 and removes temporary glo
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [ValType::i64()],
           TExpr::new([
             TInstr::local_set(
@@ -4269,7 +4292,7 @@ test "asyncify ignore-imports keeps function non-instrumented" {
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], TExpr::new([TInstr::call(FuncIdx::new(0), [])])),
+        Func::t_func([], [], TExpr::new([TInstr::call(FuncIdx::new(0), [])])),
       ]),
     )
   let out = match
@@ -4304,7 +4327,7 @@ test "asyncify import allowlist controls state-changing imports" {
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], TExpr::new([TInstr::call(FuncIdx::new(0), [])])),
+        Func::t_func([], [], TExpr::new([TInstr::call(FuncIdx::new(0), [])])),
       ]),
     )
   let out = match
@@ -4339,6 +4362,7 @@ test "asyncify ignore-indirect leaves indirect call unwrapped unless addlist" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [],
           TExpr::new([
             TInstr::call(FuncIdx::new(0), []),
@@ -4384,8 +4408,16 @@ test "asyncify ignore-indirect leaves indirect call unwrapped unless addlist" {
 ///|
 test "asyncify lists onlylist/removelist/addlist propagation" {
   let t0 = RecType::new(SubType::comp_type(CompType::func([], [])))
-  let caller = Func::t_func([], TExpr::new([TInstr::call(FuncIdx::new(2), [])]))
-  let callee = Func::t_func([], TExpr::new([TInstr::call(FuncIdx::new(0), [])]))
+  let caller = Func::t_func(
+    [],
+    [],
+    TExpr::new([TInstr::call(FuncIdx::new(2), [])]),
+  )
+  let callee = Func::t_func(
+    [],
+    [],
+    TExpr::new([TInstr::call(FuncIdx::new(0), [])]),
+  )
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t0]))
     .with_import_sec(
@@ -4464,6 +4496,7 @@ test "asyncify local save/restore tracks relevant locals" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [ValType::i32(), ValType::i32()],
           TExpr::new([
             TInstr::call(FuncIdx::new(0), [TInstr::local_get(LocalIdx::new(0))]),
@@ -4502,6 +4535,7 @@ test "asyncify local save/restore keeps local used after zero-arg call" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [ValType::i32()],
           TExpr::new([
             TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(7))),
@@ -4548,6 +4582,7 @@ test "asyncify rewrites asyncify imports to runtime calls and removes imports" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [],
           TExpr::new([
             TInstr::call(FuncIdx::new(0), [TInstr::i32_const(I32(0))]),
@@ -4607,6 +4642,7 @@ test "asyncify stores unwind call index instead of constant zero" {
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::call(FuncIdx::new(0), []),
             TInstr::call(FuncIdx::new(0), []),
@@ -4644,7 +4680,7 @@ test "asyncify adds stack-end guard before unwind call-index push" {
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], TExpr::new([TInstr::call(FuncIdx::new(0), [])])),
+        Func::t_func([], [], TExpr::new([TInstr::call(FuncIdx::new(0), [])])),
       ]),
     )
   let out = match af_test_run(mod) {
@@ -4675,7 +4711,7 @@ test "asyncify asserts add non-instrumented state guard" {
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], TExpr::new([TInstr::call(FuncIdx::new(0), [])])),
+        Func::t_func([], [], TExpr::new([TInstr::call(FuncIdx::new(0), [])])),
       ]),
     )
   let out = match
@@ -4711,6 +4747,7 @@ test "asyncify asserts guard calls in try_table catch continuation when enabled"
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [],
           TExpr::new([
             TInstr::try_table(
@@ -4775,6 +4812,7 @@ test "asyncify asserts do not guard try_table body calls by default" {
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::try_table(
               BlockType::void_(),
@@ -4836,6 +4874,7 @@ test "asyncify catch continuation precision handles try_table embedded in local.
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [ValType::i32()],
           TExpr::new([
             TInstr::local_set(
@@ -4886,6 +4925,7 @@ test "asyncify ignore-unwind-from-catch disables try_table call guard" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [],
           TExpr::new([
             TInstr::try_table(
@@ -4943,8 +4983,12 @@ test "asyncify supports tail calls by default (no explicit flag)" {
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], TExpr::new([TInstr::nop()])),
-        Func::t_func([], TExpr::new([TInstr::return_call(FuncIdx::new(0), [])])),
+        Func::t_func([], [], TExpr::new([TInstr::nop()])),
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([TInstr::return_call(FuncIdx::new(0), [])]),
+        ),
       ]),
     )
   let out = match af_test_run(mod) { // default props → auto_lower = true
@@ -4968,8 +5012,12 @@ test "asyncify supports tail calls by default in memory64 modules" {
     .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], TExpr::new([TInstr::nop()])),
-        Func::t_func([], TExpr::new([TInstr::return_call(FuncIdx::new(0), [])])),
+        Func::t_func([], [], TExpr::new([TInstr::nop()])),
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([TInstr::return_call(FuncIdx::new(0), [])]),
+        ),
       ]),
     )
   let out = match af_test_run(mod) {

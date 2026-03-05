@@ -636,7 +636,7 @@ fn flatten_ir_pass(mod : Module) -> ModuleTransformer[IRContext] {
           next_non_param_locals.push(state.locals[i])
         }
         if state.changed || next_non_param_locals.length() != locals.length() {
-          change(ctx, Func::t_func(next_non_param_locals, next_body))
+          change(ctx, Func::t_func([], next_non_param_locals, next_body))
         } else {
           unchanged()
         }
@@ -675,6 +675,7 @@ test "flatten rewrites local.tee into set/get flat form" {
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [ValType::i32()],
         TExpr::new([
           TInstr::drop(
@@ -697,6 +698,7 @@ test "flatten hoists if condition preludes and removes if value" {
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [ValType::i32(), ValType::i32()],
         TExpr::new([
           TInstr::drop(
@@ -1158,6 +1160,7 @@ test "flatten supports br_on family instructions and keeps them present" {
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [ValType::funcref()],
         TExpr::new([
           TInstr::drop(
@@ -1213,6 +1216,7 @@ test "flatten rewrites br_on value flow through local temp when needed" {
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [ValType::funcref()],
         TExpr::new([
           TInstr::drop(
@@ -1258,6 +1262,7 @@ test "flatten rewrites br_on value flow for all br_on variants" {
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [ValType::funcref()],
         TExpr::new([
           TInstr::drop(
@@ -1349,6 +1354,7 @@ test "flatten supports try_table and removes try_table value result" {
     CodeSec::new([
       Func::t_func(
         [],
+        [],
         TExpr::new([
           TInstr::drop(
             TInstr::try_table(
@@ -1388,6 +1394,7 @@ test "flatten output with br_on_null and try_table remains valid and idempotent"
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [],
           TExpr::new([
             TInstr::block(
@@ -1437,7 +1444,7 @@ fn fl_mk_valid_one_func_module(
   Module::new()
   .with_type_sec(TypeSec::new([sig]))
   .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-  .with_code_sec(CodeSec::new([Func::t_func(locals, body)]))
+  .with_code_sec(CodeSec::new([Func::t_func([], locals, body)]))
 }
 
 ///|
@@ -1609,6 +1616,7 @@ test "flatten: dropped br_on_null targeting result block remains valid" {
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::drop(
               TInstr::block(
@@ -1689,6 +1697,7 @@ test "flatten: br_on_non_null targeting ref result block remains valid" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [],
           TExpr::new([
             TInstr::drop(

@@ -1172,7 +1172,7 @@ fn sr_refinalize_changed_functions(
         match to_texpr(lowered, local_env) {
           Ok(new_body) =>
             if new_body != body {
-              next_funcs[def_idx] = Func::t_func(locals, new_body)
+              next_funcs[def_idx] = Func::t_func([], locals, new_body)
               changed = true
             }
           Err(_) => ()
@@ -1557,7 +1557,7 @@ fn signature_refining(mod : Module) -> Result[Module, String] {
           env, abs_idx, func_type_idxs,
         )
         if new_locals != locals || new_body != body {
-          next_funcs[def_idx] = Func::t_func(new_locals, new_body)
+          next_funcs[def_idx] = Func::t_func([], new_locals, new_body)
           changed_code = true
         }
       }
@@ -1592,11 +1592,12 @@ test "signature refining does not modify publicly-observable function type via e
 
   let caller = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
     ]),
   )
-  let callee = Func::t_func([], TExpr::new([TInstr::nop()]))
+  let callee = Func::t_func([], [], TExpr::new([TInstr::nop()]))
 
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_caller, t_target]))
@@ -1643,11 +1644,12 @@ test "signature refining refines parameter types from imported global.get call a
 
   let caller = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::call(FuncIdx::new(1), [TInstr::global_get(GlobalIdx::new(0))]),
     ]),
   )
-  let callee = Func::t_func([], TExpr::new([TInstr::nop()]))
+  let callee = Func::t_func([], [], TExpr::new([TInstr::nop()]))
 
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_void, t_target]))
@@ -1694,11 +1696,12 @@ test "signature refining does not modify publicly-observable function type via i
 
   let caller = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
     ]),
   )
-  let callee = Func::t_func([], TExpr::new([TInstr::nop()]))
+  let callee = Func::t_func([], [], TExpr::new([TInstr::nop()]))
 
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_caller, t_target]))
@@ -1742,11 +1745,12 @@ test "signature refining does not modify publicly-observable function type via i
 
   let caller = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
     ]),
   )
-  let callee = Func::t_func([], TExpr::new([TInstr::nop()]))
+  let callee = Func::t_func([], [], TExpr::new([TInstr::nop()]))
 
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_caller, t_target]))
@@ -1795,11 +1799,12 @@ test "signature refining does not modify publicly-observable function type via i
 
   let caller = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
     ]),
   )
-  let callee = Func::t_func([], TExpr::new([TInstr::nop()]))
+  let callee = Func::t_func([], [], TExpr::new([TInstr::nop()]))
 
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_caller, t_target]))
@@ -1850,18 +1855,20 @@ test "signature refining refines parameter types from direct calls" {
 
   let caller_a = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::call(FuncIdx::new(2), [TInstr::local_get(LocalIdx::new(0))]),
     ]),
   )
   let caller_b = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::call(FuncIdx::new(3), [TInstr::local_get(LocalIdx::new(0))]),
     ]),
   )
-  let callee_a = Func::t_func([], TExpr::new([TInstr::nop()]))
-  let callee_b = Func::t_func([], TExpr::new([TInstr::nop()]))
+  let callee_a = Func::t_func([], [], TExpr::new([TInstr::nop()]))
+  let callee_b = Func::t_func([], [], TExpr::new([TInstr::nop()]))
 
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_caller, t_target]))
@@ -1904,6 +1911,7 @@ test "signature refining refines parameter types from call_ref sites" {
 
   let caller = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::drop(
         TInstr::call_ref(
@@ -1914,7 +1922,7 @@ test "signature refining refines parameter types from call_ref sites" {
       ),
     ]),
   )
-  let callee = Func::t_func([], TExpr::new([TInstr::i32_const(I32(7))]))
+  let callee = Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(7))]))
 
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_caller, t_target]))
@@ -1950,6 +1958,7 @@ test "signature refining keeps params when ref.func escapes but still refines re
 
   let caller = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::drop(
         TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
@@ -1957,6 +1966,7 @@ test "signature refining keeps params when ref.func escapes but still refines re
     ]),
   )
   let callee = Func::t_func(
+    [],
     [],
     TExpr::new([
       TInstr::ref_as_non_null(
@@ -2008,11 +2018,12 @@ test "signature refining does not run when tables are present" {
 
   let caller = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::call(FuncIdx::new(1), [TInstr::ref_func(FuncIdx::new(1))]),
     ]),
   )
-  let callee = Func::t_func([], TExpr::new([TInstr::nop()]))
+  let callee = Func::t_func([], [], TExpr::new([TInstr::nop()]))
 
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_void, t_target]))
@@ -2047,6 +2058,7 @@ test "signature refining does not modify imported function signatures" {
   let t_void = sr_make_func_type([], [])
 
   let caller = Func::t_func(
+    [],
     [],
     TExpr::new([
       TInstr::call(FuncIdx::new(0), [TInstr::ref_func(FuncIdx::new(0))]),
@@ -2091,11 +2103,12 @@ test "signature refining does not modify tag-used function signatures" {
 
   let caller = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::call(FuncIdx::new(1), [TInstr::ref_func(FuncIdx::new(1))]),
     ]),
   )
-  let callee = Func::t_func([], TExpr::new([TInstr::nop()]))
+  let callee = Func::t_func([], [], TExpr::new([TInstr::nop()]))
 
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_void, t_target]))
@@ -2136,12 +2149,13 @@ test "signature refining does not modify function types with subtypes" {
 
   let caller = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::call(FuncIdx::new(1), [TInstr::ref_func(FuncIdx::new(1))]),
     ]),
   )
-  let super_func = Func::t_func([], TExpr::new([TInstr::nop()]))
-  let sub_func = Func::t_func([], TExpr::new([TInstr::nop()]))
+  let super_func = Func::t_func([], [], TExpr::new([TInstr::nop()]))
+  let sub_func = Func::t_func([], [], TExpr::new([TInstr::nop()]))
 
   let mod = Module::new()
     .with_type_sec(TypeSec::new([super_ty, sub_ty, void_ty]))
@@ -2175,11 +2189,13 @@ test "signature refining inserts parameter fixup locals for incompatible param s
 
   let caller = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
     ]),
   )
   let callee = Func::t_func(
+    [],
     [],
     TExpr::new([
       TInstr::local_set(
@@ -2250,6 +2266,7 @@ test "signature refining uses call.without.effects intrinsic extra-call signatur
 
   let caller = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::call(FuncIdx::new(0), [
         TInstr::local_get(LocalIdx::new(0)),
@@ -2257,7 +2274,7 @@ test "signature refining uses call.without.effects intrinsic extra-call signatur
       ]),
     ]),
   )
-  let callee = Func::t_func([], TExpr::new([TInstr::nop()]))
+  let callee = Func::t_func([], [], TExpr::new([TInstr::nop()]))
 
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_intrinsic, t_caller, t_target]))
@@ -2297,6 +2314,7 @@ test "signature refining updates shared result type from function bodies" {
 
   let caller = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::drop(TInstr::call(FuncIdx::new(1), [])),
       TInstr::drop(TInstr::call(FuncIdx::new(2), [])),
@@ -2305,6 +2323,7 @@ test "signature refining updates shared result type from function bodies" {
   )
   let ret_a = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::ref_as_non_null(
         TInstr::ref_null(HeapType::abs(AbsHeapType::func())),
@@ -2312,6 +2331,7 @@ test "signature refining updates shared result type from function bodies" {
     ]),
   )
   let ret_b = Func::t_func(
+    [],
     [],
     TExpr::new([
       TInstr::ref_as_non_null(
@@ -2359,11 +2379,12 @@ test "signature refining does not refine start function parameter types" {
 
   let caller = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
     ]),
   )
-  let start_func = Func::t_func([], TExpr::new([TInstr::nop()]))
+  let start_func = Func::t_func([], [], TExpr::new([TInstr::nop()]))
 
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_caller, t_start]))
@@ -2398,11 +2419,12 @@ test "signature refining does not refine params when ref.func escapes in typed e
 
   let caller = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
     ]),
   )
-  let callee = Func::t_func([], TExpr::new([TInstr::nop()]))
+  let callee = Func::t_func([], [], TExpr::new([TInstr::nop()]))
 
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_caller, t_target]))
@@ -2450,6 +2472,7 @@ test "signature refining uses binaryen-intrinsics-optimized call.without.effects
 
   let caller = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::call(FuncIdx::new(0), [
         TInstr::local_get(LocalIdx::new(0)),
@@ -2457,7 +2480,7 @@ test "signature refining uses binaryen-intrinsics-optimized call.without.effects
       ]),
     ]),
   )
-  let callee = Func::t_func([], TExpr::new([TInstr::nop()]))
+  let callee = Func::t_func([], [], TExpr::new([TInstr::nop()]))
 
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_intrinsic, t_caller, t_target]))

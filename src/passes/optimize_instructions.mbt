@@ -4394,7 +4394,7 @@ fn optimize_instructions_on_func(
       let did_change = state.did_change || body_changed
       (
         if did_change {
-          Func::t_func(locals, new_body)
+          Func::t_func([], locals, new_body)
         } else {
           func
         },
@@ -4518,7 +4518,7 @@ fn oi_run_func(
   with_memory? : Bool = false,
 ) -> TExpr {
   let mut mod_ = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func(locals, TExpr::new(body))]),
+    CodeSec::new([Func::t_func([], locals, TExpr::new(body))]),
   )
   if with_memory {
     mod_ = mod_.with_mem_sec(MemSec::new([MemType::new(Limits::i32(1, None))]))
@@ -5425,6 +5425,7 @@ test "optimize instructions call_ref direct simplifications" {
   let func_sec = FuncSec::new([TypeIdx::new(0)])
   let code_sec = CodeSec::new([
     Func::t_func(
+      [],
       [],
       TExpr::new([
         TInstr::call_ref(TypeIdx::new(0), [], TInstr::ref_func(FuncIdx::new(0))),

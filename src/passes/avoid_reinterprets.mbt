@@ -150,7 +150,7 @@ test "AvoidReinterprets: rewrite reinterpret(load)" {
     ),
   )
   let expr = TExpr::new([instr])
-  let func = Func::t_func([], expr)
+  let func = Func::t_func([], [], expr)
   let pass = avoid_reinterprets()
   let state = IRContext::new()
   let (_, new_func) = pass.walk_func(state, func).unwrap().unwrap()
@@ -179,7 +179,7 @@ test "AvoidReinterprets: rewrite reinterpret(local.get) with single load" {
     TInstr::unary(UnaryOp::i32_reinterpret_f32(), TInstr::local_get(x)),
   ]
   let expr = TExpr::new(instrs)
-  let func = Func::t_func([], expr)
+  let func = Func::t_func([], [], expr)
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let pass = avoid_reinterprets()
   let initial_state = IRContext::new()
@@ -219,7 +219,7 @@ test "AvoidReinterprets: do not rewrite when multiple defining loads exist" {
     TInstr::unary(UnaryOp::i32_reinterpret_f32(), TInstr::local_get(x)),
   ]
   let expr = TExpr::new(instrs)
-  let func = Func::t_func([], expr)
+  let func = Func::t_func([], [], expr)
   let pass = avoid_reinterprets()
   let state = IRContext::new()
   let (_, new_func) = pass.walk_func(state, func).unwrap().unwrap()
@@ -237,7 +237,7 @@ test "AvoidReinterprets: do not rewrite when multiple defining loads exist" {
 test "AvoidReinterprets: unrelated instructions are unchanged" {
   let instr = TInstr::unary(UnaryOp::i32_eqz(), TInstr::i32_const(I32(0)))
   let expr = TExpr::new([instr])
-  let func = Func::t_func([], expr)
+  let func = Func::t_func([], [], expr)
   let pass = avoid_reinterprets()
   let state = IRContext::new()
   let (_, new_func) = pass.walk_func(state, func).unwrap().unwrap()
@@ -251,7 +251,7 @@ test "AvoidReinterprets: reinterpret of non-load is unchanged" {
     TInstr::i32_const(I32(42)),
   )
   let expr = TExpr::new([instr])
-  let func = Func::t_func([], expr)
+  let func = Func::t_func([], [], expr)
   let pass = avoid_reinterprets()
   let state = IRContext::new()
   let (_, new_func) = pass.walk_func(state, func).unwrap().unwrap()
@@ -269,7 +269,7 @@ test "AvoidReinterprets: reinterpret with mismatched load type is unchanged" {
     ),
   )
   let expr = TExpr::new([instr])
-  let func = Func::t_func([], expr)
+  let func = Func::t_func([], [], expr)
   let pass = avoid_reinterprets()
   let state = IRContext::new()
   let (_, new_func) = pass.walk_func(state, func).unwrap().unwrap()
@@ -295,7 +295,7 @@ test "AvoidReinterprets: reinterpret(local.get) inside expression" {
     ),
   ]
   let expr = TExpr::new(instrs)
-  let func = Func::t_func([], expr)
+  let func = Func::t_func([], [], expr)
   let pass = avoid_reinterprets()
   let state = IRContext::new()
   let (_, new_func) = pass.walk_func(state, func).unwrap().unwrap()

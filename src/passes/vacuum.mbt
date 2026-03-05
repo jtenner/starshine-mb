@@ -1610,14 +1610,18 @@ fn vq_optimize_function(
       let mut changed = sequence.changed || canonical_locals != locals
       if sig.results.length() == 0 &&
         !vq_texpr_has_unremovable_side_effects(next_body, effect_cache) {
-        let nopped = Func::t_func(canonical_locals, TExpr::new([TInstr::nop()]))
+        let nopped = Func::t_func(
+          [],
+          canonical_locals,
+          TExpr::new([TInstr::nop()]),
+        )
         changed = true
         if trace_all_funcs || ordinal <= 100 || ordinal % 300 == 0 {
           trace("func[\{ordinal}] vacuum nopped=true budget_left=\{budget.val}")
         }
         (nopped, changed)
       } else {
-        let next_func = Func::t_func(canonical_locals, next_body)
+        let next_func = Func::t_func([], canonical_locals, next_body)
         if trace_all_funcs || ordinal <= 100 || ordinal % 300 == 0 {
           trace(
             "func[\{ordinal}] vacuum done changed=\{changed} budget_left=\{budget.val}",
@@ -1714,6 +1718,7 @@ test "vacuum rewrites drop(local.tee(...)) to local.set(...)" {
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [ValType::i32()],
         TExpr::new([
           TInstr::drop(
@@ -1745,7 +1750,11 @@ test "vacuum rewrites drop(local.tee(...)) to local.set(...)" {
 test "vacuum removes side-effect-free dropped value" {
   let mod = Module::new().with_code_sec(
     CodeSec::new([
-      Func::t_func([], TExpr::new([TInstr::drop(TInstr::i32_const(I32(1)))])),
+      Func::t_func(
+        [],
+        [],
+        TExpr::new([TInstr::drop(TInstr::i32_const(I32(1)))]),
+      ),
     ]),
   )
   let out = run_vacuum(mod)
@@ -1765,6 +1774,7 @@ test "vacuum simplifies dropped unary wrapper around call to dropped call" {
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::drop(
               TInstr::unary(
@@ -1774,7 +1784,7 @@ test "vacuum simplifies dropped unary wrapper around call to dropped call" {
             ),
           ]),
         ),
-        Func::t_func([], TExpr::new([TInstr::nop()])),
+        Func::t_func([], [], TExpr::new([TInstr::nop()])),
       ]),
     )
   let out = run_vacuum(mod)
@@ -1801,6 +1811,7 @@ test "vacuum replaces constant if(true) with then arm" {
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::if_(
               BlockType::val_type(ValType::i32()),
@@ -1824,6 +1835,7 @@ test "vacuum replaces if with unreachable condition by the condition" {
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [],
         TExpr::new([
           TInstr::if_(
@@ -1865,6 +1877,7 @@ test "vacuum removes if without else when then arm is nop by dropping condition"
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::if_(
               BlockType::void_(),
@@ -1894,6 +1907,7 @@ test "vacuum removes loops with nop body" {
     CodeSec::new([
       Func::t_func(
         [],
+        [],
         TExpr::new([
           TInstr::loop_(BlockType::void_(), TExpr::new([TInstr::nop()])),
         ]),
@@ -1918,7 +1932,7 @@ test "vacuum removes trailing dead code after unreachable in block body" {
     ]),
   )
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([ValType::i32()], TExpr::new([block]))]),
+    CodeSec::new([Func::t_func([], [ValType::i32()], TExpr::new([block]))]),
   )
   let out = run_vacuum(mod)
   match vq_first_func_body(out).instrs {
@@ -1979,7 +1993,9 @@ test "vacuum turns drop(if drop(..) else drop(..)) into drop(if value else value
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
     .with_code_sec(
-      CodeSec::new([Func::t_func([ValType::i32()], TExpr::new([dropped_if]))]),
+      CodeSec::new([
+        Func::t_func([], [ValType::i32()], TExpr::new([dropped_if])),
+      ]),
     )
   let out = run_vacuum(mod)
   match vq_first_func_body(out).instrs {
@@ -2026,7 +2042,7 @@ test "vacuum removes try_table when body cannot throw" {
   let mod = Module::new()
     .with_type_sec(TypeSec::new([t_i32]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-    .with_code_sec(CodeSec::new([Func::t_func([], TExpr::new([instr]))]))
+    .with_code_sec(CodeSec::new([Func::t_func([], [], TExpr::new([instr]))]))
   let out = run_vacuum(mod)
   match vq_first_func_body(out).instrs {
     [{ kind: TInstrKind::TI32Const(I32(v)), .. }] => assert_eq(v, 77)
@@ -2046,7 +2062,7 @@ test "vacuum keeps non-removable try_table body that may throw" {
       TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
     )
     .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(0))]))
-    .with_code_sec(CodeSec::new([Func::t_func([], TExpr::new([instr]))]))
+    .with_code_sec(CodeSec::new([Func::t_func([], [], TExpr::new([instr]))]))
   let out = run_vacuum(mod)
   match vq_first_func_body(out).instrs {
     [{ kind: TInstrKind::TTryTable(_, _, _), .. }] => ()
@@ -2057,7 +2073,7 @@ test "vacuum keeps non-removable try_table body that may throw" {
 ///|
 test "vacuum nops side-effect-free none-returning function body" {
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([], TExpr::new([TInstr::i32_const(I32(1))]))]),
+    CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(1))]))]),
   )
   let out = run_vacuum(mod)
   match vq_first_func_body(out).instrs {
@@ -2077,6 +2093,7 @@ test "vacuum removes dead leading value from result-returning function body and 
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [],
           TExpr::new([TInstr::i32_const(I32(1)), TInstr::i32_const(I32(2))]),
         ),
@@ -2104,6 +2121,7 @@ test "vacuum removes dead leading arm values in result if and validates" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [],
           TExpr::new([
             TInstr::if_(
@@ -2145,6 +2163,7 @@ test "vacuum preserves only final value inside dropped result block and validate
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::drop(
               TInstr::block(
@@ -2182,6 +2201,7 @@ test "vacuum preserves multi-value function body results and validates" {
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([TInstr::i32_const(I32(1)), TInstr::i64_const(I64(2L))]),
         ),
       ]),
@@ -2214,6 +2234,7 @@ test "vacuum preserves constant-folded multi-value if results and validates" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [],
           TExpr::new([
             TInstr::if_(
@@ -2273,6 +2294,7 @@ test "vacuum preserves multi-value block results and validates" {
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::block(
               BlockType::type_idx(TypeIdx::new(0)),
@@ -2323,6 +2345,7 @@ test "vacuum keeps stack-feeding sibling values in block bodies" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [ValType::i32(), ValType::i32(), ValType::i32(), ValType::i32()],
           TExpr::new([
             TInstr::block(
@@ -2363,6 +2386,7 @@ test "vacuum preserves child stack signatures under local.set" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [ValType::i32(), ValType::i32()],
           TExpr::new([
             TInstr::local_get(LocalIdx::new(0)),
@@ -2401,6 +2425,7 @@ test "vacuum keeps stack-feeding sibling values with unknown stack signatures" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [ValType::i32()],
           TExpr::new([
             TInstr::memory_size(MemIdx::new(0)),
@@ -2408,7 +2433,7 @@ test "vacuum keeps stack-feeding sibling values with unknown stack signatures" {
             TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
           ]),
         ),
-        Func::t_func([], TExpr::new([TInstr::nop()])),
+        Func::t_func([], [], TExpr::new([TInstr::nop()])),
       ]),
     )
   assert_eq(validate_module(mod), Ok(()))
@@ -2433,6 +2458,7 @@ test "vacuum emits canonical full locals after rewriting typed legacy locals" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [ValType::i32()],
           TExpr::new([
             TInstr::drop(TInstr::i32_const(I32(1))),
@@ -2483,12 +2509,13 @@ test "vacuum preserves stack-carried table.get result across trailing side effec
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::table_get(TableIdx::new(0), TInstr::i32_const(I32(0))),
             TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
           ]),
         ),
-        Func::t_func([], TExpr::new([TInstr::nop()])),
+        Func::t_func([], [], TExpr::new([TInstr::nop()])),
       ]),
     )
   assert_eq(validate_module(mod), Ok(()))
@@ -2505,7 +2532,7 @@ test "vacuum preserves stack-carried table.get result across trailing side effec
 ///|
 test "vacuum is stable on nop-only function body across repeated runs" {
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([], TExpr::new([TInstr::nop()]))]),
+    CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
   )
   let once = run_vacuum(mod)
   let twice = run_vacuum(once)

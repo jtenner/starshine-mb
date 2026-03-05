@@ -42,6 +42,7 @@ fn run_lower_to_expr_pass(mod : Module) -> Module {
 ///|
 test "run_lower_to_expr_pass converts TFunc locals into grouped locals" {
   let func = Func::t_func(
+    [],
     [ValType::i32(), ValType::i32(), ValType::f64()],
     TExpr::new([TInstr::nop()]),
   )

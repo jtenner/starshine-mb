@@ -89,7 +89,7 @@ fn remove_unused_names_ir_pass(
                   "func[\{ordinal}] done elapsed_ms=\{elapsed_ms} changed=\{changed} top_instrs=\{body.instrs.length()}->\{next_body.instrs.length()} locals=\{locals.length()} budget_remaining=\{stats.final_budget_remaining} budget_exhausted=\{stats.budget_exhausted_count > 0} peeled=\{stats.peeled_candidates} shift_attempts=\{stats.label_shift_attempts} loop_rewrites=\{stats.loops_rewritten} visits=\{stats.final_visit_count} no_progress_abort=\{stats.walk_no_progress_aborted}",
                 )
               }
-              change(ctx, Func::t_func(locals, next_body))
+              change(ctx, Func::t_func([], locals, next_body))
             }
           Err(e) => Err(e)
         }
@@ -770,7 +770,9 @@ test "remove_unused_names merges single-child same-typed nested blocks" {
       ]),
     ),
   ])
-  let mod = Module::new().with_code_sec(CodeSec::new([Func::t_func([], body)]))
+  let mod = Module::new().with_code_sec(
+    CodeSec::new([Func::t_func([], [], body)]),
+  )
   let out = run_remove_unused_names(mod)
   match run_single_func(out) {
     TFunc(
@@ -811,7 +813,9 @@ test "remove_unused_names retargets branch depth when merging nested blocks" {
       ]),
     ),
   ])
-  let mod = Module::new().with_code_sec(CodeSec::new([Func::t_func([], body)]))
+  let mod = Module::new().with_code_sec(
+    CodeSec::new([Func::t_func([], [], body)]),
+  )
   let out = run_remove_unused_names(mod)
   match run_single_func(out) {
     TFunc(
@@ -842,7 +846,9 @@ test "remove_unused_names rewrites loop to block when no continue branch remains
   let body = TExpr::new([
     TInstr::loop_(BlockType::void_(), TExpr::new([TInstr::i32_const(I32(3))])),
   ])
-  let mod = Module::new().with_code_sec(CodeSec::new([Func::t_func([], body)]))
+  let mod = Module::new().with_code_sec(
+    CodeSec::new([Func::t_func([], [], body)]),
+  )
   let out = run_remove_unused_names(mod)
   match run_single_func(out) {
     TFunc(
@@ -873,7 +879,9 @@ test "remove_unused_names keeps loop when body branches to loop label" {
       TExpr::new([TInstr::br(LabelIdx::new(0), [])]),
     ),
   ])
-  let mod = Module::new().with_code_sec(CodeSec::new([Func::t_func([], body)]))
+  let mod = Module::new().with_code_sec(
+    CodeSec::new([Func::t_func([], [], body)]),
+  )
   let out = run_remove_unused_names(mod)
   match run_single_func(out) {
     TFunc(_, _, { instrs: [{ kind: TInstrKind::TLoop(_, _), .. }], .. }) => ()

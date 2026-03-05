@@ -302,7 +302,7 @@ fn const_hoisting_pass() -> ModuleTransformer[ConstHoistingState] {
       let con = lit.get_tinst()
       body.instrs.insert(0, TInstr::local_set(idx, con))
     }
-    change(t, Func::t_func(locals, body))
+    change(t, Func::t_func([], locals, body))
   })
   .on_tinstruction_evt(fn(self, t, i) {
     match i.kind {
@@ -345,7 +345,7 @@ fn run_hoist(f : Func) -> Func raise {
 
 ///|
 test "const hoisting: single use does nothing" {
-  let f = Func::t_func([], TExpr::new([TInstr::i32_const(I32(7))]))
+  let f = Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(7))]))
   let f2 = run_hoist(f)
   match f2 {
     TFunc(_, locals, { instrs, .. }) => {
@@ -361,6 +361,7 @@ test "const hoisting: single use does nothing" {
 test "const hoisting: large constant is hoisted" {
   let big = 100000
   let f = Func::t_func(
+    [],
     [],
     TExpr::new([
       TInstr::i32_const(I32(big)),
@@ -390,6 +391,7 @@ test "const hoisting: large constant is hoisted" {
 test "const hoisting: small constants are not hoisted" {
   let f = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::i32_const(I32(0)),
       TInstr::i32_const(I32(0)),
@@ -412,6 +414,7 @@ test "const hoisting: small constants are not hoisted" {
 ///|
 test "const hoisting: different literals are not merged" {
   let f = Func::t_func(
+    [],
     [],
     TExpr::new([
       TInstr::i32_const(I32(10)),
@@ -436,6 +439,7 @@ test "const hoisting: different literals are not merged" {
 test "const hoisting: f64 hoisted when repeated" {
   let pi = 3.141592653589793
   let f = Func::t_func(
+    [],
     [],
     TExpr::new([
       TInstr::f64_const(F64(pi)),

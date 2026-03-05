@@ -2289,7 +2289,7 @@ pub fn lib__FuncType__new(Array[@lib.ValType], Array[@lib.ValType]) -> @lib.Func
 
 pub fn lib__Func__new(Array[@lib.Locals], @lib.Expr) -> @lib.Func
 
-pub fn lib__Func__t_func(Array[@lib.ValType], @lib.TExpr) -> @lib.Func
+pub fn lib__Func__t_func(Array[@lib.ValType], Array[@lib.ValType], @lib.TExpr) -> @lib.Func
 
 pub fn lib__GlobalIdx__inner(@lib.GlobalIdx) -> UInt
 

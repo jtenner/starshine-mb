@@ -937,6 +937,7 @@ test "TagIdxOOB rejects a module with throw/catch tag uses" {
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::try_table(
               BlockType::void_(),
@@ -965,7 +966,7 @@ test "StartIdxOOB strategy rejects module with valid start function" {
     .with_type_sec(TypeSec::new([sig]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
-      CodeSec::new([Func::t_func([], TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
     )
     .with_start_sec(StartSec::new(FuncIdx::new(0)))
   assert_eq(validate_module(mod), Ok(()))
@@ -984,7 +985,7 @@ test "DuplicateExportName strategy rejects module with a single export" {
     .with_type_sec(TypeSec::new([sig]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
-      CodeSec::new([Func::t_func([], TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
     )
     .with_export_sec(
       ExportSec::new([

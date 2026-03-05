@@ -2378,7 +2378,7 @@ fn precompute_on_func(
             "func[\{ordinal}] simplify skipped (medium body + moderate sets)",
           )
         }
-        return Ok(Func::t_func(locals, body))
+        return Ok(Func::t_func([], locals, body))
       }
 
       let simplify_rounds = if do_propagate { 2 } else { 1 }
@@ -2417,7 +2417,7 @@ fn precompute_on_func(
           "func[\{ordinal}] done changed=\{body != initial_body} rounds=\{rounds} final_top=\{body.instrs.length()} elapsed_ms=\{pc_trace_elapsed_ms(func_start_ms)}",
         )
       }
-      Ok(Func::t_func(locals, body))
+      Ok(Func::t_func([], locals, body))
     }
   }
 }
@@ -2445,7 +2445,7 @@ fn precompute_ir_pass(
             if orig_locals == next_locals && orig_body == next_body {
               unchanged()
             } else {
-              change(ctx, Func::t_func(next_locals, next_body))
+              change(ctx, Func::t_func([], next_locals, next_body))
             }
           }
           _ => change(ctx, next_func)
@@ -2507,7 +2507,7 @@ fn pc_single_func_module(
   base_mod
   .with_type_sec(TypeSec::new([sig]))
   .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-  .with_code_sec(CodeSec::new([Func::t_func(locals, TExpr::new(body))]))
+  .with_code_sec(CodeSec::new([Func::t_func([], locals, TExpr::new(body))]))
 }
 
 ///|

@@ -142,7 +142,7 @@ test "wrap_unit_func_pass propagates wrapped pass errors" {
   })
   let wrapped = wrap_unit_func_pass(bad)
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([], TExpr::new([TInstr::nop()]))]),
+    CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
   )
   let ctx = IRContext::new()
   match wrapped.walk_module(ctx, mod) {

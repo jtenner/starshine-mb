@@ -1581,7 +1581,7 @@ fn remove_unused_brs_pass(
           Err(e) => return Err(e)
         }
         if new_body != body {
-          change(state, Func::t_func(locals, new_body))
+          change(state, Func::t_func([], locals, new_body))
         } else {
           unchanged()
         }
@@ -1982,7 +1982,7 @@ fn rub_single_typed_func_module(
     ]),
   )
   .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-  .with_code_sec(CodeSec::new([Func::t_func(locals, body)]))
+  .with_code_sec(CodeSec::new([Func::t_func([], locals, body)]))
 }
 
 ///|
@@ -3207,7 +3207,7 @@ test "remove_unused_brs is idempotent" {
     ),
   ])
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([ValType::i32()], body)]),
+    CodeSec::new([Func::t_func([], [ValType::i32()], body)]),
   )
   let once = rub_run(mod)
   let twice = rub_run(once)

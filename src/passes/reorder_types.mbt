@@ -1101,6 +1101,7 @@ test "reorder_types reorders private rec-group members and remaps TypeIdx uses" 
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::drop(TInstr::struct_new(TypeIdx::new(1), [])),
             TInstr::drop(TInstr::struct_new(TypeIdx::new(1), [])),
@@ -1169,6 +1170,7 @@ test "reorder_types does not reorder public rec groups" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [],
           TExpr::new([TInstr::drop(TInstr::struct_new(TypeIdx::new(1), []))]),
         ),

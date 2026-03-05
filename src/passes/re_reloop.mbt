@@ -42,6 +42,7 @@ fn rr_fixture_mergeable_block_module() -> Module {
     CodeSec::new([
       Func::t_func(
         [],
+        [],
         TExpr::new([
           TInstr::block(
             BlockType::void_(),
@@ -64,6 +65,7 @@ fn rr_fixture_flattened_branch_shell_module() -> Module {
   .with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [],
         TExpr::new([
           TInstr::block(
@@ -95,6 +97,7 @@ fn rr_fixture_flattened_bron_block_module() -> Module {
   .with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [],
         TExpr::new([
           TInstr::block(
@@ -136,6 +139,7 @@ fn rr_fixture_flattened_bron_family_module() -> Module {
     CodeSec::new([
       Func::t_func(
         [],
+        [],
         TExpr::new([
           TInstr::block(
             BlockType::void_(),
@@ -152,6 +156,7 @@ fn rr_fixture_flattened_bron_family_module() -> Module {
       ),
       Func::t_func(
         [],
+        [],
         TExpr::new([
           TInstr::block(
             BlockType::void_(),
@@ -167,6 +172,7 @@ fn rr_fixture_flattened_bron_family_module() -> Module {
         ]),
       ),
       Func::t_func(
+        [],
         [],
         TExpr::new([
           TInstr::block(
@@ -187,6 +193,7 @@ fn rr_fixture_flattened_bron_family_module() -> Module {
         ]),
       ),
       Func::t_func(
+        [],
         [],
         TExpr::new([
           TInstr::block(
@@ -222,6 +229,7 @@ fn rr_fixture_flattened_brtable_block_module() -> Module {
     CodeSec::new([
       Func::t_func(
         [],
+        [],
         TExpr::new([
           TInstr::block(
             BlockType::void_(),
@@ -256,6 +264,7 @@ fn rr_fixture_branch_value_flow_module() -> Module {
     CodeSec::new([
       Func::t_func(
         [],
+        [],
         TExpr::new([
           TInstr::block(
             BlockType::val_type(ValType::i32()),
@@ -285,8 +294,9 @@ fn rr_fixture_brtable_side_effect_index_module() -> Module {
   .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
   .with_code_sec(
     CodeSec::new([
-      Func::t_func([], TExpr::new([TInstr::i32_const(I32(1))])),
+      Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(1))])),
       Func::t_func(
+        [],
         [],
         TExpr::new([
           TInstr::block(
@@ -319,6 +329,7 @@ fn rr_fixture_brtable_non_direct_side_effect_module() -> Module {
   .with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [],
         TExpr::new([
           TInstr::block(
@@ -357,8 +368,9 @@ fn rr_fixture_loop_internal_brtable_side_effect_module() -> Module {
   .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
   .with_code_sec(
     CodeSec::new([
-      Func::t_func([], TExpr::new([TInstr::i32_const(I32(1))])),
+      Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(1))])),
       Func::t_func(
+        [],
         [],
         TExpr::new([
           TInstr::loop_(
@@ -391,6 +403,7 @@ fn rr_fixture_non_special_target_merge_module() -> Module {
   .with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [],
         TExpr::new([
           TInstr::block(
@@ -434,6 +447,7 @@ fn rr_fixture_loop_backedge_module() -> Module {
     CodeSec::new([
       Func::t_func(
         [],
+        [],
         TExpr::new([
           TInstr::block(
             BlockType::void_(),
@@ -468,6 +482,7 @@ fn rr_fixture_non_flat_if_module() -> Module {
     CodeSec::new([
       Func::t_func(
         [],
+        [],
         TExpr::new([
           TInstr::if_(
             BlockType::void_(),
@@ -493,6 +508,7 @@ fn rr_fixture_try_table_module() -> Module {
   .with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [],
         TExpr::new([
           TInstr::try_table(BlockType::void_(), [], TExpr::new([TInstr::nop()])),
@@ -2173,7 +2189,7 @@ fn rr_reconstruct_module_cfg(mod : Module) -> Result[Module, String] {
                 if next_body != body || scratch_used.val {
                   changed = true
                 }
-                next_funcs.push(Func::t_func(next_locals, next_body))
+                next_funcs.push(Func::t_func([], next_locals, next_body))
               }
               Err(e) => return Err(e)
             }

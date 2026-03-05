@@ -165,7 +165,7 @@ fn untee_pass(func : Func, params : Array[ValType]) -> (Func, Bool) {
       }
       let (next_body, changed) = ut_rewrite_texpr(body, local_types)
       if changed {
-        (Func::t_func(locals, next_body), true)
+        (Func::t_func([], locals, next_body), true)
       } else {
         (func, false)
       }
@@ -206,6 +206,7 @@ test "untee rewrites local.tee into result-typed block with set/get" {
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [ValType::i32()],
         TExpr::new([
           TInstr::drop(
@@ -269,6 +270,7 @@ test "untee drops unreachable local.tee to unreachable value" {
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [ValType::i32()],
         TExpr::new([
           TInstr::drop(
@@ -316,6 +318,7 @@ test "untee uses parameter local type for block result" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [],
           TExpr::new([
             TInstr::drop(

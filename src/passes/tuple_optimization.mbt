@@ -77,7 +77,7 @@ test "tuple optimization skips non-multivalue modules" {
     TInstr::return_([TInstr::local_get(LocalIdx::new(0))]),
   ])
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([ValType::i32()], body)]),
+    CodeSec::new([Func::t_func([], [ValType::i32()], body)]),
   )
   let out = match tu_apply_ir_pass(mod, tuple_optimization_ir_pass(mod)) {
     Ok(out) => out
@@ -110,7 +110,7 @@ test "tuple optimization matches dataflow fallback when multivalue signatures ex
         ),
       ]),
     )
-    .with_code_sec(CodeSec::new([Func::t_func([ValType::i32()], body)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], [ValType::i32()], body)]))
   let tuple_out = match tu_apply_ir_pass(mod, tuple_optimization_ir_pass(mod)) {
     Ok(out) => out
     Err(e) => fail("tuple_optimization_ir_pass should not fail: \{e}")

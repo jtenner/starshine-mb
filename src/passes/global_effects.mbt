@@ -411,13 +411,14 @@ test "global effects computes transitive direct-call effects and recursion traps
     )
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], TExpr::new([TInstr::call(FuncIdx::new(1), [])])),
-        Func::t_func([], TExpr::new([TInstr::call(FuncIdx::new(2), [])])),
+        Func::t_func([], [], TExpr::new([TInstr::call(FuncIdx::new(1), [])])),
+        Func::t_func([], [], TExpr::new([TInstr::call(FuncIdx::new(2), [])])),
         Func::t_func(
+          [],
           [],
           TExpr::new([TInstr::drop(TInstr::global_get(GlobalIdx::new(0)))]),
         ),
-        Func::t_func([], TExpr::new([TInstr::call(FuncIdx::new(3), [])])),
+        Func::t_func([], [], TExpr::new([TInstr::call(FuncIdx::new(3), [])])),
       ]),
     )
   let effects = global_effects_compute(mod)
@@ -439,6 +440,7 @@ test "global effects marks indirect-call functions as unknown" {
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [ValType::funcref()],
         TExpr::new([
           TInstr::call_ref(
@@ -473,7 +475,7 @@ test "global effects treats imported calls as unknown and propagates to callers"
     )
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], TExpr::new([TInstr::call(FuncIdx::new(0), [])])),
+        Func::t_func([], [], TExpr::new([TInstr::call(FuncIdx::new(0), [])])),
       ]),
     )
   let effects = global_effects_compute(mod)
@@ -494,12 +496,13 @@ test "global effects preserves non-call throw effects when direct calls exist" {
     CodeSec::new([
       Func::t_func(
         [],
+        [],
         TExpr::new([
           TInstr::call(FuncIdx::new(1), []),
           TInstr::throw_(TagIdx::new(0), []),
         ]),
       ),
-      Func::t_func([], TExpr::new([TInstr::nop()])),
+      Func::t_func([], [], TExpr::new([TInstr::nop()])),
     ]),
   )
   let effects = global_effects_compute(mod)
@@ -511,8 +514,8 @@ test "global effects preserves non-call throw effects when direct calls exist" {
 test "global effects propagates throws from direct callees" {
   let mod = Module::new().with_code_sec(
     CodeSec::new([
-      Func::t_func([], TExpr::new([TInstr::call(FuncIdx::new(1), [])])),
-      Func::t_func([], TExpr::new([TInstr::throw_(TagIdx::new(0), [])])),
+      Func::t_func([], [], TExpr::new([TInstr::call(FuncIdx::new(1), [])])),
+      Func::t_func([], [], TExpr::new([TInstr::throw_(TagIdx::new(0), [])])),
     ]),
   )
   let effects = global_effects_compute(mod)

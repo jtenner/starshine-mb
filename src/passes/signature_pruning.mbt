@@ -704,13 +704,13 @@ fn sp_run_iteration(mod : Module) -> (Module, Bool) {
             } else {
               TExpr::new([..prologue, ..body2.instrs])
             }
-            Func::t_func(new_locals, final_body)
+            Func::t_func([], new_locals, final_body)
           }
           None => {
             let body2 = sp_rewrite_calls(
               body, func_type_idxs, removed_by_type_abs, new_type_idx_by_old_abs,
             )
-            Func::t_func(locals, body2)
+            Func::t_func([], locals, body2)
           }
         }
         body_after_sig
@@ -783,14 +783,15 @@ fn signature_pruning_ir_pass(mod : Module) -> ModuleTransformer[IRContext] {
 test "signature pruning removes unused params across same signature group" {
   let caller = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::drop(TInstr::call(FuncIdx::new(1), [TInstr::i32_const(I32(9))])),
       TInstr::drop(TInstr::call(FuncIdx::new(2), [TInstr::i32_const(I32(11))])),
       TInstr::i32_const(I32(0)),
     ]),
   )
-  let callee1 = Func::t_func([], TExpr::new([TInstr::i32_const(I32(7))]))
-  let callee2 = Func::t_func([], TExpr::new([TInstr::i32_const(I32(8))]))
+  let callee1 = Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(7))]))
+  let callee2 = Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(8))]))
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
@@ -840,6 +841,7 @@ test "signature pruning removes unused params across same signature group" {
 test "signature pruning updates call_ref type and arguments" {
   let caller = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::call_ref(
         TypeIdx::new(0),
@@ -848,7 +850,7 @@ test "signature pruning updates call_ref type and arguments" {
       ),
     ]),
   )
-  let callee = Func::t_func([], TExpr::new([TInstr::i32_const(I32(7))]))
+  let callee = Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(7))]))
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
@@ -886,9 +888,10 @@ test "signature pruning updates call_ref type and arguments" {
 test "signature pruning is disabled when table section is present" {
   let caller = Func::t_func(
     [],
+    [],
     TExpr::new([TInstr::call(FuncIdx::new(1), [TInstr::i32_const(I32(9))])]),
   )
-  let callee = Func::t_func([], TExpr::new([TInstr::i32_const(I32(7))]))
+  let callee = Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(7))]))
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([

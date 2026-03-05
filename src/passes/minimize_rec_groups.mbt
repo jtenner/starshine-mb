@@ -2683,7 +2683,9 @@ fn mrg_simple_module_with_types(type_recs : Array[RecType]) -> Module {
   .with_func_sec(
     FuncSec::new([TypeIdx::new(func_type_idx.reinterpret_as_uint())]),
   )
-  .with_code_sec(CodeSec::new([Func::t_func([], TExpr::new([TInstr::nop()]))]))
+  .with_code_sec(
+    CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
+  )
 }
 
 ///|
@@ -2778,7 +2780,7 @@ test "minimize_rec_groups reserves public shapes and disambiguates private colli
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(2)]))
     .with_code_sec(
-      CodeSec::new([Func::t_func([], TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
     )
   let out = match minimize_rec_groups(mod) {
     Ok(m) => m
@@ -2852,7 +2854,7 @@ test "minimize_rec_groups singleton brand differs from singleton real type" {
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(2)]))
     .with_code_sec(
-      CodeSec::new([Func::t_func([], TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
     )
   let out = match minimize_rec_groups(mod) {
     Ok(m) => m
@@ -2888,6 +2890,7 @@ test "minimize_rec_groups preserves distinct identity via non-colliding group sh
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [],
           TExpr::new([
             TInstr::drop(
@@ -2966,7 +2969,7 @@ test "minimize_rec_groups mixed stress module validates and has no remaining col
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(6)]))
     .with_code_sec(
-      CodeSec::new([Func::t_func([], TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
     )
   let out = match minimize_rec_groups(mod) {
     Ok(m) => m

@@ -806,7 +806,7 @@ fn local_subtyping(mod : Module) -> Result[Module, String] {
               params, locals, body, env, func_type_idx_by_func,
             )
             if local_changed {
-              out_funcs[i] = Func::t_func(new_locals, body)
+              out_funcs[i] = Func::t_func([], new_locals, body)
               changed = true
             }
           }
@@ -841,7 +841,7 @@ fn ls_single_func_module(locals : Array[ValType], body : TExpr) -> Module {
   Module::new()
   .with_type_sec(TypeSec::new([ls_single_void_type()]))
   .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-  .with_code_sec(CodeSec::new([Func::t_func(locals, body)]))
+  .with_code_sec(CodeSec::new([Func::t_func([], locals, body)]))
 }
 
 ///|

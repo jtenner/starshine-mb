@@ -798,7 +798,7 @@ fn rse_optimize_function(
       if !rewrite_state.changed {
         return (func, false)
       }
-      (Func::t_func(locals, next_body), true)
+      (Func::t_func([], locals, next_body), true)
     }
     _ => (func, false)
   }
@@ -873,6 +873,7 @@ test "redundant_set_elimination removes redundant local.set in straight line" {
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [ValType::i32()],
         TExpr::new([
           TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(7))),
@@ -907,6 +908,7 @@ test "redundant_set_elimination rewrites redundant local.tee to plain value" {
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [ValType::i32()],
         TExpr::new([
           TInstr::drop(
@@ -948,6 +950,7 @@ test "redundant_set_elimination keeps non-redundant local.set" {
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [ValType::i32()],
         TExpr::new([
           TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(1))),
@@ -973,6 +976,7 @@ test "redundant_set_elimination removes zero-init redundant sets for vars" {
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [ValType::i32()],
         TExpr::new([
           TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(0))),
@@ -1000,6 +1004,7 @@ test "redundant_set_elimination treats params as unknown initial values" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [],
           TExpr::new([
             TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(0))),
@@ -1032,6 +1037,7 @@ test "redundant_set_elimination handles params and declared locals in one index 
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [ValType::i32()],
           TExpr::new([
             TInstr::local_set(
@@ -1069,6 +1075,7 @@ test "redundant_set_elimination skips inconsistent local indices instead of abor
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [ValType::i32()],
           TExpr::new([TInstr::drop(TInstr::local_get(LocalIdx::new(1)))]),
         ),
@@ -1083,6 +1090,7 @@ test "redundant_set_elimination removes redundant post-merge set on equal branch
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [ValType::i32(), ValType::i32()],
         TExpr::new([
           TInstr::if_(
@@ -1120,6 +1128,7 @@ test "redundant_set_elimination keeps post-merge set on differing branches" {
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [ValType::i32(), ValType::i32()],
         TExpr::new([
           TInstr::if_(
@@ -1163,6 +1172,7 @@ test "redundant_set_elimination refines local.get to more specific local" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [
             ValType::funcref(),
             ValType::ref_type(
@@ -1212,6 +1222,7 @@ test "redundant_set_elimination keeps nested block-local set behavior conservati
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [ValType::i32()],
         TExpr::new([
           TInstr::block(
@@ -1249,6 +1260,7 @@ test "redundant_set_elimination is idempotent" {
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [ValType::i32()],
         TExpr::new([
           TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(1))),

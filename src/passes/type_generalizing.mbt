@@ -908,7 +908,7 @@ fn type_generalizing(mod : Module) -> Result[Module, String] {
               params, results, locals, body, env,
             )
             if func_changed {
-              out_funcs[i] = Func::t_func(new_locals, new_body)
+              out_funcs[i] = Func::t_func([], new_locals, new_body)
               changed = true
             }
           }
@@ -958,7 +958,7 @@ fn tg_single_func_module(
   Module::new()
   .with_type_sec(TypeSec::new(types))
   .with_func_sec(FuncSec::new([func_type_idx]))
-  .with_code_sec(CodeSec::new([Func::t_func(locals, body)]))
+  .with_code_sec(CodeSec::new([Func::t_func([], locals, body)]))
 }
 
 ///|
@@ -1082,8 +1082,9 @@ test "type generalizing generalizes concrete struct local when only anyref is re
     .with_func_sec(FuncSec::new([TypeIdx::new(1), TypeIdx::new(2)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([], TExpr::new([TInstr::nop()])),
+        Func::t_func([], [], TExpr::new([TInstr::nop()])),
         Func::t_func(
+          [],
           [ValType::ref_null(HeapType::new(TypeIdx::new(0)))],
           TExpr::new([
             TInstr::call(FuncIdx::new(0), [TInstr::local_get(LocalIdx::new(0))]),

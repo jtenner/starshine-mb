@@ -7,6 +7,7 @@ test "pretty_print_defined_func resolves signatures locals and typed calls" {
     RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
   ])
   let main = Func::t_func(
+    [],
     [ValType::i32(), ValType::i32()],
     TExpr::new([
       TInstr::if_(
@@ -17,7 +18,7 @@ test "pretty_print_defined_func resolves signatures locals and typed calls" {
       ),
     ]),
   )
-  let callee = Func::t_func([], TExpr::new([TInstr::i32_const(I32(7))]))
+  let callee = Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(7))]))
   let mod = Module::new()
     .with_type_sec(type_sec)
     .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(1U)]))

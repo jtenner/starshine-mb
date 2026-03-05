@@ -974,7 +974,7 @@ fn coalesce_locals(
               "func[\{ordinal}] done elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)} changed=true reason=trim_trailing_unused_for_large_locals locals=\{locals.length()}->\{trimmed_locals.length()} top_instrs=\{body.instrs.length()}->\{body.instrs.length()}",
             )
           }
-          return change((), Func::t_func(trimmed_locals, body))
+          return change((), Func::t_func([], trimmed_locals, body))
         }
         let instrs = body.instrs
         let build_cfg_start_ms = if log_func { sl_trace_now_ms() } else { 0UL }
@@ -1080,7 +1080,7 @@ fn coalesce_locals(
             "func[\{ordinal}] done elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)} changed=\{changed} locals=\{locals.length()}->\{new_locals.length()} top_instrs=\{body.instrs.length()}->\{new_body.instrs.length()} interferences=\{inter.length()} copies=\{copies.length()}",
           )
         }
-        change((), Func::t_func(new_locals, new_body))
+        change((), Func::t_func([], new_locals, new_body))
       }
     }
   })
@@ -1346,7 +1346,11 @@ test "CoalesceLocals: trivial coalescing rewrites locals" {
     TInstr::local_set(y, TInstr::i32_const(I32(2))),
     TInstr::local_get(y),
   ]
-  let func = Func::t_func([ValType::i32(), ValType::i32()], TExpr::new(instrs))
+  let func = Func::t_func(
+    [],
+    [ValType::i32(), ValType::i32()],
+    TExpr::new(instrs),
+  )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let pass = coalesce_locals()
   let (_, new_module) = pass.walk_module((), mod).unwrap().unwrap()
@@ -1371,6 +1375,7 @@ test "CoalesceLocals trace covers function phases" {
       ).walk_func(
         IRContext::new(),
         Func::t_func(
+          [],
           [ValType::i32(), ValType::i32()],
           TExpr::new([
             TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(1))),
@@ -1452,6 +1457,7 @@ test "CoalesceLocals large-local fast path trims trailing unused locals" {
       ).walk_func(
         IRContext::new(),
         Func::t_func(
+          [],
           locals,
           TExpr::new([
             TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(9))),
@@ -1498,7 +1504,11 @@ test "CoalesceLocals: locals of different types do not coalesce" {
     TInstr::local_set(y, TInstr::f32_const(F32(1.0))),
     TInstr::local_get(y),
   ]
-  let func = Func::t_func([ValType::i32(), ValType::f32()], TExpr::new(instrs))
+  let func = Func::t_func(
+    [],
+    [ValType::i32(), ValType::f32()],
+    TExpr::new(instrs),
+  )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
   assert_true(
@@ -1521,7 +1531,11 @@ test "CoalesceLocals: nested expressions still allow coalescing" {
     TInstr::local_set(y, TInstr::i32_const(I32(2))),
     TInstr::local_get(y),
   ]
-  let func = Func::t_func([ValType::i32(), ValType::i32()], TExpr::new(instrs))
+  let func = Func::t_func(
+    [],
+    [ValType::i32(), ValType::i32()],
+    TExpr::new(instrs),
+  )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
   assert_true(
@@ -1617,7 +1631,11 @@ test "CoalesceLocals: merge interference prevents coalescing" {
       TInstr::local_get(y),
     ),
   ]
-  let func = Func::t_func([ValType::i32(), ValType::i32()], TExpr::new(instrs))
+  let func = Func::t_func(
+    [],
+    [ValType::i32(), ValType::i32()],
+    TExpr::new(instrs),
+  )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
   assert_true(
@@ -1647,7 +1665,11 @@ test "CoalesceLocals: branch-local lifetimes can be coalesced" {
     ),
     TInstr::i32_const(I32(0)),
   ]
-  let func = Func::t_func([ValType::i32(), ValType::i32()], TExpr::new(instrs))
+  let func = Func::t_func(
+    [],
+    [ValType::i32(), ValType::i32()],
+    TExpr::new(instrs),
+  )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
   assert_true(
@@ -1738,7 +1760,11 @@ test "Copy-based coalescing eliminates local copy" {
     TInstr::local_set(y, TInstr::local_get(x)),
     TInstr::local_get(y),
   ]
-  let func = Func::t_func([ValType::i32(), ValType::i32()], TExpr::new(instrs))
+  let func = Func::t_func(
+    [],
+    [ValType::i32(), ValType::i32()],
+    TExpr::new(instrs),
+  )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
   assert_true(
@@ -1757,7 +1783,11 @@ test "Copy-based coalescing respects interference" {
     TInstr::local_get(x),
     TInstr::local_get(y),
   ]
-  let func = Func::t_func([ValType::i32(), ValType::i32()], TExpr::new(instrs))
+  let func = Func::t_func(
+    [],
+    [ValType::i32(), ValType::i32()],
+    TExpr::new(instrs),
+  )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
   assert_true(
@@ -1779,7 +1809,11 @@ test "Value numbering: identical constant assignments coalesce" {
       TInstr::local_get(y),
     ),
   ]
-  let func = Func::t_func([ValType::i32(), ValType::i32()], TExpr::new(instrs))
+  let func = Func::t_func(
+    [],
+    [ValType::i32(), ValType::i32()],
+    TExpr::new(instrs),
+  )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
 
@@ -1803,7 +1837,11 @@ test "Value numbering: different constants do not coalesce" {
       TInstr::local_get(y),
     ),
   ]
-  let func = Func::t_func([ValType::i32(), ValType::i32()], TExpr::new(instrs))
+  let func = Func::t_func(
+    [],
+    [ValType::i32(), ValType::i32()],
+    TExpr::new(instrs),
+  )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
 
@@ -1827,7 +1865,11 @@ test "Value numbering: copy propagation enables coalescing" {
       TInstr::local_get(y),
     ),
   ]
-  let func = Func::t_func([ValType::i32(), ValType::i32()], TExpr::new(instrs))
+  let func = Func::t_func(
+    [],
+    [ValType::i32(), ValType::i32()],
+    TExpr::new(instrs),
+  )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
   // x and y hold same value → coalesce
@@ -1851,7 +1893,11 @@ test "Value numbering: reassignment breaks equality" {
       TInstr::local_get(y),
     ),
   ]
-  let func = Func::t_func([ValType::i32(), ValType::i32()], TExpr::new(instrs))
+  let func = Func::t_func(
+    [],
+    [ValType::i32(), ValType::i32()],
+    TExpr::new(instrs),
+  )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
 
@@ -1879,7 +1925,11 @@ test "Value numbering: equal values across branches do not coalesce" {
       TInstr::local_get(y),
     ),
   ]
-  let func = Func::t_func([ValType::i32(), ValType::i32()], TExpr::new(instrs))
+  let func = Func::t_func(
+    [],
+    [ValType::i32(), ValType::i32()],
+    TExpr::new(instrs),
+  )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
   assert_true(
@@ -1904,7 +1954,11 @@ test "CoalesceLocals: nested local use is rewritten when locals coalesce" {
     ),
     TInstr::local_get(x),
   ]
-  let func = Func::t_func([ValType::i32(), ValType::i32()], TExpr::new(instrs))
+  let func = Func::t_func(
+    [],
+    [ValType::i32(), ValType::i32()],
+    TExpr::new(instrs),
+  )
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let (_, new_mod) = coalesce_locals().walk_module((), mod).unwrap().unwrap()
   assert_true(
@@ -1930,7 +1984,7 @@ test "CoalesceLocals: imported functions do not shift param boundaries" {
     TInstr::local_get(y),
     TInstr::drop(TInstr::local_get(p)),
   ])
-  let func = Func::t_func([ValType::i32(), ValType::i32()], body)
+  let func = Func::t_func([], [ValType::i32(), ValType::i32()], body)
   let mod = Module::new()
     .with_type_sec(TypeSec::new([imported_type, defined_type]))
     .with_import_sec(

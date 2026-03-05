@@ -1612,6 +1612,7 @@ fn uf_test_chain_module(with_cast : Bool) -> Module {
   .with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [ValType::ref_null(HeapType::new(TypeIdx::new(0)))],
         TExpr::new(body),
       ),
@@ -1661,7 +1662,7 @@ fn uf_test_descriptor_exact_chain_module(
         ),
       )
     }
-    Func::t_func([local_top], TExpr::new(body))
+    Func::t_func([], [local_top], TExpr::new(body))
   } else {
     let body : Array[Instruction] = [
       Instruction::struct_new(TypeIdx::new(2)),
@@ -1699,6 +1700,7 @@ fn uf_test_public_super_module() -> Module {
   .with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [ValType::ref_null(HeapType::new(TypeIdx::new(0)))],
         TExpr::new([
           TInstr::local_set(
@@ -1745,7 +1747,7 @@ fn uf_test_control_flow_constraint_module(body : Array[TInstr]) -> Module {
   Module::new()
   .with_type_sec(TypeSec::new([top, mid, bot, main_type]))
   .with_func_sec(FuncSec::new([TypeIdx::new(3)]))
-  .with_code_sec(CodeSec::new([Func::t_func([], TExpr::new(body))]))
+  .with_code_sec(CodeSec::new([Func::t_func([], [], TExpr::new(body))]))
 }
 
 ///|
@@ -1789,6 +1791,7 @@ fn uf_test_try_table_catch_label_constraint_module() -> Module {
     CodeSec::new([
       Func::t_func(
         [],
+        [],
         TExpr::new([
           TInstr::drop(
             TInstr::try_table(
@@ -1831,6 +1834,7 @@ fn uf_test_try_table_outer_catch_target_constraint_module() -> Module {
   .with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [],
         TExpr::new([
           TInstr::drop(
@@ -1882,6 +1886,7 @@ fn uf_test_try_table_catch_ref_payload_constraint_module() -> Module {
     CodeSec::new([
       Func::t_func(
         [],
+        [],
         TExpr::new([
           TInstr::try_table(
             BlockType::type_idx(TypeIdx::new(1)),
@@ -1920,6 +1925,7 @@ fn uf_test_try_table_catch_ref_to_try_label_module() -> Module {
     CodeSec::new([
       Func::t_func(
         [],
+        [],
         TExpr::new([
           TInstr::try_table(
             BlockType::type_idx(TypeIdx::new(1)),
@@ -1953,6 +1959,7 @@ fn uf_test_try_table_catch_all_ref_module() -> Module {
   .with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [],
         TExpr::new([
           TInstr::try_table(
@@ -2008,7 +2015,7 @@ fn uf_test_function_label_branch_constraint_module(use_br_if : Bool) -> Module {
   Module::new()
   .with_type_sec(TypeSec::new([top, mid, bot, main_type]))
   .with_func_sec(FuncSec::new([TypeIdx::new(3)]))
-  .with_code_sec(CodeSec::new([Func::t_func([], body)]))
+  .with_code_sec(CodeSec::new([Func::t_func([], [], body)]))
 }
 
 ///|
@@ -2040,7 +2047,9 @@ fn uf_test_multivalue_join_constraint_module(join_instr : TInstr) -> Module {
   .with_type_sec(TypeSec::new([top, mid, bot, pair_type, main_type]))
   .with_func_sec(FuncSec::new([TypeIdx::new(4)]))
   .with_code_sec(
-    CodeSec::new([Func::t_func([], TExpr::new([TInstr::return_([join_instr])]))]),
+    CodeSec::new([
+      Func::t_func([], [], TExpr::new([TInstr::return_([join_instr])])),
+    ]),
   )
 }
 
@@ -2109,10 +2118,11 @@ fn uf_test_indirect_call_barrier_module(
   .with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [ValType::ref_null(HeapType::new(TypeIdx::new(0)))],
         TExpr::new(body),
       ),
-      Func::t_func([], TExpr::new([TInstr::nop()])),
+      Func::t_func([], [], TExpr::new([TInstr::nop()])),
     ]),
   )
 }

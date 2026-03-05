@@ -672,7 +672,7 @@ fn loop_invariant_code_motion_pass() -> ModuleTransformer[Unit] {
       TFunc(_, locals, body) => {
         let (next_body, changed) = licm_run_on_body(body)
         if changed {
-          change((), Func::t_func(locals, next_body))
+          change((), Func::t_func([], locals, next_body))
         } else {
           unchanged()
         }
@@ -705,7 +705,7 @@ fn licm_single_func_mod(locals : Array[ValType], body : TExpr) -> Module {
   Module::new()
   .with_type_sec(TypeSec::new([sig]))
   .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-  .with_code_sec(CodeSec::new([Func::t_func(locals, body)]))
+  .with_code_sec(CodeSec::new([Func::t_func([], locals, body)]))
 }
 
 ///|

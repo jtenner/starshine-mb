@@ -8340,12 +8340,7 @@ pub fn Func::new(locals : Array[Locals], expr : Expr) -> Func {
 }
 
 ///|
-pub fn Func::t_func(locals : Array[ValType], expr : TExpr) -> Func {
-  TFunc([], locals, expr)
-}
-
-///|
-pub fn Func::t_func_with_params(
+pub fn Func::t_func(
   params : Array[ValType],
   locals : Array[ValType],
   expr : TExpr,

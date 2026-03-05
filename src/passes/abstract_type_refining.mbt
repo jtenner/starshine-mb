@@ -367,6 +367,7 @@ test "abstract struct usage becomes bottom" {
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::ref_cast(
               true,
@@ -520,6 +521,7 @@ test "abstract struct does not trap when traps may happen" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [],
           TExpr::new([
             TInstr::ref_cast(
@@ -704,6 +706,7 @@ fn atr_mixed_branch_parity_module() -> Module {
   .with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [],
         TExpr::new([
           TInstr::drop(
@@ -953,6 +956,7 @@ fn atr_nested_value_tree_module() -> Module {
   .with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [ValType::ref_type(RefType::new(true, any_ht))],
         TExpr::new([
           TInstr::local_set(
@@ -1151,6 +1155,7 @@ fn atr_deep_nested_control_value_module() -> Module {
   .with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [],
         TExpr::new([
           TInstr::drop(
@@ -1496,6 +1501,7 @@ fn atr_handler_nested_control_module() -> Module {
   .with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [],
         TExpr::new([
           TInstr::drop(
@@ -1861,6 +1867,7 @@ fn atr_handler_throwing_validator_clean_module() -> Module {
     CodeSec::new([
       Func::t_func(
         [],
+        [],
         TExpr::new([
           TInstr::drop(
             TInstr::if_(
@@ -2065,6 +2072,7 @@ fn atr_typed_payload_catch_module() -> Module {
     CodeSec::new([
       Func::t_func(
         [],
+        [],
         TExpr::new([
           TInstr::drop(
             TInstr::try_table(
@@ -2079,6 +2087,7 @@ fn atr_typed_payload_catch_module() -> Module {
         ]),
       ),
       Func::t_func(
+        [],
         [],
         TExpr::new([
           TInstr::try_table(
@@ -2111,6 +2120,7 @@ fn atr_drop_ref_cast_module() -> Module {
   .with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [],
         TExpr::new([
           TInstr::drop(

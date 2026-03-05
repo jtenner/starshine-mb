@@ -524,7 +524,9 @@ fn tf_test_finalize_private_leaf_module() -> Module {
   Module::new()
   .with_type_sec(TypeSec::new([root, child_a, child_b, public_leaf, func_ty]))
   .with_func_sec(FuncSec::new([TypeIdx::new(4)]))
-  .with_code_sec(CodeSec::new([Func::t_func([], TExpr::new([TInstr::nop()]))]))
+  .with_code_sec(
+    CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
+  )
   .with_global_sec(
     GlobalSec::new([
       Global::new(
@@ -556,7 +558,9 @@ fn tf_test_unfinalize_private_module() -> Module {
     TypeSec::new([public_final, private_final_a, private_final_b, func_ty]),
   )
   .with_func_sec(FuncSec::new([TypeIdx::new(3)]))
-  .with_code_sec(CodeSec::new([Func::t_func([], TExpr::new([TInstr::nop()]))]))
+  .with_code_sec(
+    CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
+  )
   .with_global_sec(
     GlobalSec::new([
       Global::new(

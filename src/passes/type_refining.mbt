@@ -661,7 +661,7 @@ fn type_refining(mod : Module) -> Result[Module, String] {
           body, old_params, new_params, locals, local_types_by_abs, global_types,
           env, abs_idx,
         )
-        next_funcs[i] = Func::t_func(next_locals, next_body)
+        next_funcs[i] = Func::t_func([], next_locals, next_body)
       }
       _ => ()
     }
@@ -693,11 +693,12 @@ test "type refining refines parameter reference types" {
   )
   let caller = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
     ]),
   )
-  let callee = Func::t_func([], TExpr::new([TInstr::return_([])]))
+  let callee = Func::t_func([], [], TExpr::new([TInstr::return_([])]))
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
@@ -723,11 +724,13 @@ test "type refining inserts param fixup local for incompatible param.set" {
   )
   let caller = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
     ]),
   )
   let callee = Func::t_func(
+    [],
     [],
     TExpr::new([
       TInstr::local_set(

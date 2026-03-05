@@ -1435,7 +1435,7 @@ fn sg_propagate_constants_to_code(
                 "func[\{ordinal}] done elapsed_ms=\{elapsed_ms} changed=\{body_changed} top_instrs=\{stats.top_instrs}->\{next_body.instrs.length()} visited=\{stats.visited_instrs} replaced_gets=\{stats.replaced_gets} boundary_resets=\{stats.boundary_resets} call_resets=\{stats.call_resets} global_kills=\{stats.global_kills} const_sets=\{stats.const_sets} nested_write_resets=\{stats.nested_write_resets}",
               )
             }
-            rewritten.push(Func::t_func(locals, next_body))
+            rewritten.push(Func::t_func([], locals, next_body))
           }
           _ => {
             if log_func {
@@ -1720,6 +1720,7 @@ test "simplify_globals trace reports per-function propagation lifecycle" {
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([TInstr::drop(TInstr::global_get(GlobalIdx::new(0)))]),
         ),
       ]),
@@ -1769,6 +1770,7 @@ test "simplify_globals optimizing cleanup traces direct cleanup stages" {
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::global_set(GlobalIdx::new(0), TInstr::i32_const(I32(7))),
             TInstr::drop(TInstr::global_get(GlobalIdx::new(0))),
@@ -1811,6 +1813,7 @@ test "simplify_globals optimizing cleanup skips expensive modules" {
   for i = 0; i < 1200; i = i + 1 {
     funcs.push(
       Func::t_func(
+        [],
         [],
         TExpr::new([TInstr::drop(TInstr::global_get(GlobalIdx::new(0)))]),
       ),
@@ -1862,6 +1865,7 @@ test "simplify_globals removes unread global.set writes and makes global immutab
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [],
           TExpr::new([
             TInstr::global_set(GlobalIdx::new(0), TInstr::i32_const(I32(9))),
@@ -1919,6 +1923,7 @@ test "simplify_globals propagates immutable constant globals into code and copie
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([TInstr::drop(TInstr::global_get(GlobalIdx::new(1)))]),
         ),
       ]),
@@ -1968,6 +1973,7 @@ test "simplify_globals propagates linear known value from preceding global.set" 
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [],
           TExpr::new([
             TInstr::global_set(GlobalIdx::new(0), TInstr::i32_const(I32(7))),
@@ -2021,7 +2027,7 @@ test "simplify_globals removes writes in read-only-to-write if pattern" {
         ),
       ]),
     )
-    .with_code_sec(CodeSec::new([Func::t_func([], body)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], [], body)]))
   let out = sg_run_simplify_globals(mod, false)
   match out.code_sec {
     Some(CodeSec([TFunc(_, _, rewritten)])) =>

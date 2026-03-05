@@ -4405,7 +4405,7 @@ pub fn[T] ModuleTransformer::walk_func_default(
         Ok(Some(t)) => t
         Err(t) => return Err(t)
       }
-      Ok(Some((t, Func::t_func_with_params(params, locals, tbody))))
+      Ok(Some((t, Func::t_func(params, locals, tbody))))
     }
   }
 }

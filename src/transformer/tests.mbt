@@ -28,7 +28,7 @@ test "walk_module applies on_tinstruction rewrite" {
   })
   let mod = Module::new().with_code_sec(
     CodeSec::new([
-      Func::t_func([], TExpr::new([TInstr::local_get(LocalIdx::new(0))])),
+      Func::t_func([], [], TExpr::new([TInstr::local_get(LocalIdx::new(0))])),
     ]),
   )
   let rewritten = match transformer.walk_module((), mod) {
@@ -65,7 +65,7 @@ test "walk_module forwards event errors" {
     }
   })
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([], TExpr::new([TInstr::nop()]))]),
+    CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
   )
   match transformer.walk_module((), mod) {
     Ok(_) => fail("expected walk_module to return Err")
@@ -83,7 +83,7 @@ test "walk_module propagates on_module errors before traversal" {
       unchanged()
     })
   let mod = Module::new().with_code_sec(
-    CodeSec::new([Func::t_func([], TExpr::new([TInstr::nop()]))]),
+    CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
   )
   match transformer.walk_module((), mod) {
     Ok(_) => fail("expected walk_module to return Err")
@@ -109,7 +109,7 @@ test "walk_module falls through on_module Ok(None) to default traversal" {
     })
   let mod = Module::new().with_code_sec(
     CodeSec::new([
-      Func::t_func([], TExpr::new([TInstr::local_get(LocalIdx::new(0))])),
+      Func::t_func([], [], TExpr::new([TInstr::local_get(LocalIdx::new(0))])),
     ]),
   )
   let rewritten = match transformer.walk_module((), mod) {
@@ -140,7 +140,7 @@ test "walk_module invokes on_module event hook" {
     change(
       (),
       mod.with_code_sec(
-        CodeSec::new([Func::t_func([], TExpr::new([TInstr::nop()]))]),
+        CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
       ),
     )
   })
@@ -595,7 +595,7 @@ test "core walkers dispatch corresponding hooks" {
   )
   ignore(transformer.walk_locals((), [Locals::new(1, ValType::i32())]))
   ignore(
-    transformer.walk_func((), Func::t_func([], TExpr::new([TInstr::nop()]))),
+    transformer.walk_func((), Func::t_func([], [], TExpr::new([TInstr::nop()]))),
   )
   ignore(transformer.walk_instruction((), Instruction::nop()))
   ignore(transformer.walk_tinstruction((), TInstr::nop()))

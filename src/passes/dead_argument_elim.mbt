@@ -1486,7 +1486,7 @@ fn make_adapter_thunk(
   } else {
     TExpr::new([TInstr::return_([TInstr::call(target, call_args)])])
   }
-  Func::t_func([], body)
+  Func::t_func([], [], body)
 }
 
 ///|
@@ -2225,7 +2225,7 @@ fn run_dead_argument_elim_once(
         } else {
           TExpr::new([..prologue, ..body1.instrs])
         }
-        let new_func = Func::t_func(new_locals, final_body)
+        let new_func = Func::t_func([], new_locals, final_body)
         let mut emitted_func_changed = false
         if adapted_by_defined[i] {
           let FuncType(old_params, old_results) = func_types[abs_idx]
@@ -2315,7 +2315,7 @@ fn run_dead_argument_elim_once(
           body_changed = true
           stats.functions_rewritten += 1
           match funcs[i] {
-            TFunc(_, ls, _) => new_funcs.push(Func::t_func(ls, rewritten))
+            TFunc(_, ls, _) => new_funcs.push(Func::t_func([], ls, rewritten))
             _ => new_funcs.push(funcs[i])
           }
         } else {
@@ -2449,9 +2449,10 @@ test "dead argument elimination removes unused params from signatures" {
   // f1(i32) -> i32: parameter unused, returns const
   let caller = Func::t_func(
     [],
+    [],
     TExpr::new([TInstr::call(FuncIdx::new(1), [TInstr::i32_const(I32(9))])]),
   )
-  let callee = Func::t_func([], TExpr::new([TInstr::i32_const(I32(7))]))
+  let callee = Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(7))]))
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
@@ -2491,9 +2492,11 @@ test "dead argument elimination removes constant params and seeds entry local" {
   // f1(i32) -> i32: returns local.get 0
   let caller = Func::t_func(
     [],
+    [],
     TExpr::new([TInstr::call(FuncIdx::new(1), [TInstr::i32_const(I32(42))])]),
   )
   let callee = Func::t_func(
+    [],
     [],
     TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
   )
@@ -2540,12 +2543,14 @@ test "dead argument elimination removes dropped return values from signatures" {
   // f1() -> i32: return i32.const 7
   let caller = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::drop(TInstr::call(FuncIdx::new(1), [])),
       TInstr::return_([]),
     ]),
   )
   let callee = Func::t_func(
+    [],
     [],
     TExpr::new([TInstr::return_([TInstr::i32_const(I32(7))])]),
   )
@@ -2586,9 +2591,11 @@ test "dead argument elimination handles exported callee via adapter thunk" {
   // f0 directly calls exported f1(i32) where the parameter is unused.
   let caller = Func::t_func(
     [],
+    [],
     TExpr::new([TInstr::call(FuncIdx::new(1), [TInstr::i32_const(I32(9))])]),
   )
   let exported_callee = Func::t_func(
+    [],
     [],
     TExpr::new([TInstr::i32_const(I32(7))]),
   )
@@ -2630,9 +2637,14 @@ test "dead argument elimination handles table-reachable callee via adapter thunk
   // f1 appears in table elems, so it is unseen/indirectly reachable.
   let caller = Func::t_func(
     [],
+    [],
     TExpr::new([TInstr::call(FuncIdx::new(1), [TInstr::i32_const(I32(9))])]),
   )
-  let table_callee = Func::t_func([], TExpr::new([TInstr::i32_const(I32(7))]))
+  let table_callee = Func::t_func(
+    [],
+    [],
+    TExpr::new([TInstr::i32_const(I32(7))]),
+  )
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
@@ -2689,11 +2701,13 @@ test "dead argument elimination refines parameter reference types" {
   // f1((ref null func)) -> i32, and uses the param
   let caller = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
     ]),
   )
   let callee = Func::t_func(
+    [],
     [],
     TExpr::new([
       TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
@@ -2739,11 +2753,13 @@ test "dead argument elimination refines return reference types" {
   // f1((ref func)) -> (ref null func): returns local.get 0, so result can refine to non-null.
   let caller = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
     ]),
   )
   let callee = Func::t_func(
+    [],
     [],
     TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
   )
@@ -2775,17 +2791,19 @@ test "dead argument elimination refines return reference types" {
 test "dead argument elimination iterates to convergence through call chains" {
   let caller = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::call(FuncIdx::new(1), [TInstr::global_get(GlobalIdx::new(0))]),
     ]),
   )
   let middle = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::call(FuncIdx::new(2), [TInstr::local_get(LocalIdx::new(0))]),
     ]),
   )
-  let callee = Func::t_func([], TExpr::new([TInstr::i32_const(I32(7))]))
+  let callee = Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(7))]))
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
@@ -2848,11 +2866,12 @@ test "dead argument elimination iterates to convergence through call chains" {
 test "dead argument elimination removes params from tail-called callees" {
   let caller = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::return_call(FuncIdx::new(1), [TInstr::i32_const(I32(9))]),
     ]),
   )
-  let callee = Func::t_func([], TExpr::new([TInstr::i32_const(I32(7))]))
+  let callee = Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(7))]))
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
@@ -2884,12 +2903,13 @@ test "dead argument elimination removes params from tail-called callees" {
 test "dead argument elimination removes dropped implicit return values" {
   let caller = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::drop(TInstr::call(FuncIdx::new(1), [])),
       TInstr::return_([]),
     ]),
   )
-  let callee = Func::t_func([], TExpr::new([TInstr::i32_const(I32(7))]))
+  let callee = Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(7))]))
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
@@ -2923,12 +2943,13 @@ test "dead argument elimination skips rewrite walk for unaffected large function
   for i = 0; i < 256; i = i + 1 {
     huge_instrs.push(TInstr::drop(TInstr::i32_const(I32(7))))
   }
-  let huge = Func::t_func([], TExpr::new(huge_instrs))
+  let huge = Func::t_func([], [], TExpr::new(huge_instrs))
   let caller = Func::t_func(
+    [],
     [],
     TExpr::new([TInstr::call(FuncIdx::new(2), [TInstr::i32_const(I32(9))])]),
   )
-  let callee = Func::t_func([], TExpr::new([TInstr::i32_const(I32(7))]))
+  let callee = Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(7))]))
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
@@ -2952,11 +2973,13 @@ test "dead argument elimination skips rewrite walk for unaffected large function
 test "dead argument elimination skips detailed timers when trace is disabled" {
   let caller = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
     ]),
   )
   let callee = Func::t_func(
+    [],
     [],
     TExpr::new([
       TInstr::drop(TInstr::local_get(LocalIdx::new(0))),

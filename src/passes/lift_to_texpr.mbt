@@ -66,7 +66,7 @@ fn lift_to_texpr_module_with_trace(
                     if seen_funcs <= 5 || seen_funcs % 500 == 0 {
                       trace("func[\{seen_funcs}] lifted")
                     }
-                    new_funcs.push(Func::t_func(expanded_locals, texpr))
+                    new_funcs.push(Func::t_func([], expanded_locals, texpr))
                   }
                   Err(e) => {
                     if seen_funcs <= 20 || seen_funcs % 500 == 0 {
@@ -120,7 +120,7 @@ fn lift_to_texpr_pass_with_trace(
                 if seen_funcs <= 5 || seen_funcs % 500 == 0 {
                   trace("func[\{seen_funcs}] lifted")
                 }
-                change((), Func::t_func(l, t))
+                change((), Func::t_func([], l, t))
               }
               Err(err) => {
                 trace("func[\{seen_funcs}] expand_locals failed: \{err}")

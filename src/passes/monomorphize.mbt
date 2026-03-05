@@ -1027,7 +1027,7 @@ fn make_mono_function_with_context(
         locals.push(local_)
       }
 
-      Some(Func::t_func(locals, TExpr::new(combined)))
+      Some(Func::t_func([], locals, TExpr::new(combined)))
     }
     _ => None
   }
@@ -1203,14 +1203,15 @@ fn do_opts(func : Func, mod : Module, params? : Array[ValType] = []) -> Func {
       let folded = match
         code_folding_pass().walk_func(
           CodeFoldingState::new(),
-          Func::t_func(locals, body),
+          Func::t_func([], locals, body),
         ) {
         Ok(Some((_, out))) => out
-        _ => Func::t_func(locals, body)
+        _ => Func::t_func([], locals, body)
       }
       match folded {
         TFunc(_, next_locals, next_body) =>
           Func::t_func(
+            [],
             next_locals,
             mn_cleanup_body(mn_cleanup_body(run_dce_on_texpr(next_body))),
           )
@@ -1315,7 +1316,7 @@ fn update_call(func : Func, actions : Map[Int, MonoRewriteAction]) -> Func {
   match func {
     TFunc(_, locals, body) => {
       let state = MonoRewriteState::new(actions)
-      Func::t_func(locals, mn_rewrite_texpr(state, body))
+      Func::t_func([], locals, mn_rewrite_texpr(state, body))
     }
     _ => func
   }
@@ -1615,6 +1616,7 @@ test "monomorphize always specializes constant argument and reduces params" {
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::return_([
               TInstr::call(FuncIdx::new(1), [TInstr::i32_const(I32(7))]),
@@ -1622,6 +1624,7 @@ test "monomorphize always specializes constant argument and reduces params" {
           ]),
         ),
         Func::t_func(
+          [],
           [],
           TExpr::new([
             TInstr::return_([
@@ -1664,6 +1667,7 @@ test "monomorphize always keeps immovable operand as call argument for partial m
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::return_([
               TInstr::call(FuncIdx::new(1), [
@@ -1677,6 +1681,7 @@ test "monomorphize always keeps immovable operand as call argument for partial m
           ]),
         ),
         Func::t_func(
+          [],
           [],
           TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
         ),
@@ -1751,6 +1756,7 @@ test "monomorphize always preserves effect ordering by keeping trapping operand 
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::return_([
               TInstr::call(FuncIdx::new(1), [
@@ -1764,6 +1770,7 @@ test "monomorphize always preserves effect ordering by keeping trapping operand 
           ]),
         ),
         Func::t_func(
+          [],
           [],
           TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
         ),
@@ -1816,6 +1823,7 @@ test "monomorphize always handles dropped calls and removes drop wrapper" {
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::drop(
               TInstr::call(FuncIdx::new(1), [TInstr::i32_const(I32(9))]),
@@ -1823,6 +1831,7 @@ test "monomorphize always handles dropped calls and removes drop wrapper" {
           ]),
         ),
         Func::t_func(
+          [],
           [],
           TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
         ),
@@ -1870,6 +1879,7 @@ test "monomorphize disables dropped context for return-calling callee" {
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::drop(
               TInstr::call(FuncIdx::new(1), [TInstr::i32_const(I32(3))]),
@@ -1878,6 +1888,7 @@ test "monomorphize disables dropped context for return-calling callee" {
         ),
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::return_call(FuncIdx::new(2), [
               TInstr::local_get(LocalIdx::new(0)),
@@ -1885,6 +1896,7 @@ test "monomorphize disables dropped context for return-calling callee" {
           ]),
         ),
         Func::t_func(
+          [],
           [],
           TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
         ),
@@ -1933,6 +1945,7 @@ test "monomorphize suppresses trivial pass-through context" {
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::return_([
               TInstr::call(FuncIdx::new(1), [
@@ -1942,6 +1955,7 @@ test "monomorphize suppresses trivial pass-through context" {
           ]),
         ),
         Func::t_func(
+          [],
           [],
           TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
         ),
@@ -1968,6 +1982,7 @@ test "monomorphize reuses memoized specialization across identical callsites" {
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::drop(
               TInstr::call(FuncIdx::new(1), [TInstr::i32_const(I32(5))]),
@@ -1978,6 +1993,7 @@ test "monomorphize reuses memoized specialization across identical callsites" {
           ]),
         ),
         Func::t_func(
+          [],
           [],
           TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
         ),
@@ -2025,9 +2041,11 @@ test "monomorphize enforces max parameter bound" {
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([TInstr::return_([TInstr::call(FuncIdx::new(1), [arg])])]),
         ),
         Func::t_func(
+          [],
           [],
           TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
         ),
@@ -2060,6 +2078,7 @@ test "monomorphize skips imported and direct-recursive targets" {
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::return_([
               TInstr::call(FuncIdx::new(0), [TInstr::i32_const(I32(1))]),
@@ -2079,6 +2098,7 @@ test "monomorphize skips imported and direct-recursive targets" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [],
           TExpr::new([TInstr::return_([TInstr::call(FuncIdx::new(0), [])])]),
         ),
@@ -2105,6 +2125,7 @@ test "monomorphize empirical threshold gating and determinism" {
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::return_([
               TInstr::call(FuncIdx::new(1), [TInstr::i32_const(I32(4))]),
@@ -2112,6 +2133,7 @@ test "monomorphize empirical threshold gating and determinism" {
           ]),
         ),
         Func::t_func(
+          [],
           [],
           TExpr::new([
             TInstr::return_([
@@ -2147,6 +2169,7 @@ test "monomorphize empirical threshold gating and determinism" {
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::return_([
               TInstr::call(FuncIdx::new(1), [
@@ -2160,6 +2183,7 @@ test "monomorphize empirical threshold gating and determinism" {
           ]),
         ),
         Func::t_func(
+          [],
           [],
           TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
         ),
@@ -2197,9 +2221,10 @@ test "monomorphize is robust in presence of multi-result functions (no invalid d
     .with_code_sec(
       CodeSec::new([
         // Caller does NOT call the multi-result callee (avoids invalid drop(call)).
-        Func::t_func([], TExpr::new([])),
+        Func::t_func([], [], TExpr::new([])),
         // Multi-result callee exists in module.
         Func::t_func(
+          [],
           [],
           TExpr::new([
             TInstr::return_([
@@ -2244,6 +2269,7 @@ test "monomorphize does not move if-expression operand into context" {
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::return_([
               TInstr::call(FuncIdx::new(1), [
@@ -2258,6 +2284,7 @@ test "monomorphize does not move if-expression operand into context" {
           ]),
         ),
         Func::t_func(
+          [],
           [],
           TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
         ),
@@ -2323,6 +2350,7 @@ test "monomorphize preserves memory effect ordering by not moving memory.size ac
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([
             // write memory
             TInstr::memory_grow(MemIdx::new(0), TInstr::i32_const(I32(1))),
@@ -2335,6 +2363,7 @@ test "monomorphize preserves memory effect ordering by not moving memory.size ac
           ]),
         ),
         Func::t_func(
+          [],
           [],
           TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
         ),
@@ -2405,6 +2434,7 @@ test "monomorphize specialization preserves extra local indices after inserting 
         // caller: call f(7)
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::return_([
               TInstr::call(FuncIdx::new(1), [TInstr::i32_const(I32(7))]),
@@ -2413,6 +2443,7 @@ test "monomorphize specialization preserves extra local indices after inserting 
         ),
         // callee: uses an extra local 0 (overall local index 1)
         Func::t_func(
+          [],
           [ValType::i32()], // one extra local
           TExpr::new([
             TInstr::local_set(LocalIdx::new(1), TInstr::i32_const(I32(9))),

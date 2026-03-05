@@ -6954,9 +6954,10 @@ pub fn lib__Func__new(arg0 : Array[@lib.Locals], arg1 : @lib.Expr) -> @lib.Func 
 ///|
 pub fn lib__Func__t_func(
   arg0 : Array[@lib.ValType],
-  arg1 : @lib.TExpr,
+  arg1 : Array[@lib.ValType],
+  arg2 : @lib.TExpr,
 ) -> @lib.Func {
-  @lib.Func::t_func(arg0, arg1)
+  @lib.Func::t_func(arg0, arg1, arg2)
 }
 
 ///|

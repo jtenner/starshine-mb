@@ -170,7 +170,7 @@ fn rl_reorder_function(func : Func, param_count : Int) -> (Func, Bool) {
         Ok(out) => out
         Err(_) => body
       }
-      let next_func = Func::t_func(reordered_locals, next_body)
+      let next_func = Func::t_func([], reordered_locals, next_body)
       if next_func == func {
         (func, false)
       } else {
@@ -213,6 +213,7 @@ test "reorder_locals reorders vars by use count then first use and drops unused 
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [ValType::i32(), ValType::i64(), ValType::f32(), ValType::f64()],
         TExpr::new([
           TInstr::local_set(LocalIdx::new(2), TInstr::i32_const(I32(0))),
@@ -290,6 +291,7 @@ test "reorder_locals keeps params fixed and only reorders declared locals" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [ValType::f32(), ValType::f64()],
           TExpr::new([
             TInstr::drop(TInstr::local_get(LocalIdx::new(3))),

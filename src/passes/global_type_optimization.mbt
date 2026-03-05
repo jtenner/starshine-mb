@@ -1439,7 +1439,7 @@ fn gto_update_instructions(
             for local_ty in extra_locals {
               new_locals.push(local_ty)
             }
-            new_funcs.push(Func::t_func(new_locals, new_body))
+            new_funcs.push(Func::t_func([], new_locals, new_body))
           }
           Func(locals, body) =>
             match gto_expand_locals(locals) {
@@ -1688,6 +1688,7 @@ test "global type optimization makes mutable field immutable when no struct.set 
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::drop(
               TInstr::struct_get(
@@ -1727,6 +1728,7 @@ test "global type optimization removes unread field and remaps struct indexes" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [],
           TExpr::new([
             TInstr::drop(
@@ -1824,7 +1826,7 @@ test "global type optimization keeps public struct types unchanged" {
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(1)]))
     .with_code_sec(
-      CodeSec::new([Func::t_func([], TExpr::new([TInstr::nop()]))]),
+      CodeSec::new([Func::t_func([], [], TExpr::new([TInstr::nop()]))]),
     )
   let optimized = match global_type_optimization(mod) {
     Ok(next_mod) => next_mod
@@ -1856,6 +1858,7 @@ test "global type optimization updates subtype layout to follow supertype remova
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [],
           TExpr::new([
             TInstr::drop(

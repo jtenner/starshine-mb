@@ -3715,7 +3715,7 @@ fn code_folding_pass_with_trace(
                 round_stats.unreachable_phase_successes += 1
                 current_body = TExpr::new(new_body_instrs)
                 current_locals = state.func_locals
-                current_func = Func::t_func(current_locals, current_body)
+                current_func = Func::t_func([], current_locals, current_body)
                 // Unreachable folding may wrap/rebase paths; refresh tail
                 // collections so return folding cannot operate on stale paths.
                 state.break_tails.clear()
@@ -3780,7 +3780,7 @@ fn code_folding_pass_with_trace(
                 round_stats.return_phase_successes += 1
                 current_body = TExpr::new(new_body_instrs)
                 current_locals = state.func_locals
-                current_func = Func::t_func(current_locals, current_body)
+                current_func = Func::t_func([], current_locals, current_body)
               }
               None => ()
             }
@@ -3816,7 +3816,11 @@ fn code_folding_pass_with_trace(
                     TFunc(_, _, b) => {
                       current_locals = state.func_locals
                       current_body = b
-                      current_func = Func::t_func(current_locals, current_body)
+                      current_func = Func::t_func(
+                        [],
+                        current_locals,
+                        current_body,
+                      )
                     }
                     _ => ()
                   }
@@ -3915,7 +3919,7 @@ fn code_folding_ir_pass_with_trace(
       TFunc(_, locals, body) =>
         match cf_canonical_tfunc_locals_from_type(param_types, locals) {
           Ok(func_locals) =>
-            (func_locals, Func::t_func(func_locals.copy(), body))
+            (func_locals, Func::t_func([], func_locals.copy(), body))
           Err(e) =>
             return Err(
               "code_folding: \{e}; func_ordinal=\{defined_func_ordinal} param_count=\{param_types.length()} local_count=\{locals.length()}",
@@ -3952,7 +3956,7 @@ test "code_folding_pass can be created" {
   }
 
   // Simple test: pass through a function
-  let func = Func::t_func([], TExpr::new([TInstr::i32_const(I32(42))]))
+  let func = Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(42))]))
   match pass.walk_func(state, func) {
     Ok(_) => () // Pass completes without error
     Err(e) => fail("Unexpected error: " + e)
@@ -3969,6 +3973,7 @@ test "code_folding_pass_with_trace emits phase logs" {
   }
 
   let func = Func::t_func(
+    [],
     [],
     TExpr::new([
       TInstr::if_(
@@ -4024,7 +4029,7 @@ test "code_folding_pass_with_trace fast skips trivial leaf function" {
     another_pass: false,
   }
 
-  let func = Func::t_func([], TExpr::new([TInstr::i32_const(I32(42))]))
+  let func = Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(42))]))
   match pass.walk_func(state, func) {
     Ok(_) => ()
     Err(e) => fail("Unexpected error: " + e)
@@ -4066,7 +4071,7 @@ test "code_folding_pass_with_trace skips walk when collect-body budget is exceed
     )
     i += 1
   }
-  let func = Func::t_func([], TExpr::new(body_instrs))
+  let func = Func::t_func([], [], TExpr::new(body_instrs))
   match pass.walk_func(state, func) {
     Ok(_) => ()
     Err(e) => fail("Unexpected error: " + e)
@@ -4090,6 +4095,7 @@ test "code_folding_pass_with_trace refreshes tails between terminating phases in
     another_pass: false,
   }
   let func = Func::t_func(
+    [],
     [],
     TExpr::new([
       TInstr::if_(
@@ -4424,7 +4430,7 @@ fn cf_assert_func_body_typechecks(
 
 ///|
 test "simple function unchanged" {
-  let f = Func::t_func([], TExpr::new([TInstr::i32_const(I32(42))]))
+  let f = Func::t_func([], [], TExpr::new([TInstr::i32_const(I32(42))]))
   let f2 = run_fold(f)
   match f2 {
     TFunc(_, _, { instrs, .. }) => assert_eq(instrs.length(), 1)
@@ -4692,7 +4698,7 @@ test "code folding: if-else with identical tails" {
     then_body,
     Some(else_body),
   )
-  let f = Func::t_func([], TExpr::new([if_instr]))
+  let f = Func::t_func([], [], TExpr::new([if_instr]))
   let f2 = run_fold(f)
   // The pass should run without error
   match f2 {
@@ -4704,6 +4710,7 @@ test "code folding: if-else with identical tails" {
 ///|
 test "code folding folds small if tails when parent is block" {
   let original = Func::t_func(
+    [],
     [],
     TExpr::new([
       TInstr::block(
@@ -4744,6 +4751,7 @@ test "code folding folds small if tails when parent is block" {
 test "code folding keeps small if tails duplicated at top level" {
   let original = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::if_(
         BlockType::void_(),
@@ -4779,6 +4787,7 @@ test "code folding hoists self-contained value-producing if tail" {
   let common = TInstr::i32_const(I32(999))
   let f = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::if_(
         BlockType::val_type(ValType::i32()),
@@ -4790,6 +4799,7 @@ test "code folding hoists self-contained value-producing if tail" {
   )
   let f2 = run_fold(f)
   let expected = Func::t_func(
+    [],
     [],
     TExpr::new([
       TInstr::block(
@@ -4814,6 +4824,7 @@ test "code folding hoisted if tail remains module-valid" {
   let common = TInstr::i32_const(I32(999))
   let folded = run_fold(
     Func::t_func(
+      [],
       [],
       TExpr::new([
         TInstr::if_(
@@ -4840,6 +4851,7 @@ test "code folding hoisted if tail remains module-valid" {
 test "code folding collapses empty-arm if to drop of condition" {
   let folded = run_fold(
     Func::t_func(
+      [],
       [],
       TExpr::new([
         TInstr::if_(
@@ -4871,6 +4883,7 @@ test "code folding folded operand positions remain value-producing" {
   let common = TInstr::i32_const(I32(999))
   let folded = run_fold(
     Func::t_func(
+      [],
       [ValType::i32()],
       TExpr::new([
         TInstr::if_(
@@ -5018,6 +5031,7 @@ test "code folding hoisted void if tail remains module-valid with nested outer b
   }
   let folded = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::block(
         BlockType::val_type(ValType::i32()),
@@ -5085,6 +5099,7 @@ test "code folding hoists block tail targeted by nested br" {
   let common = TInstr::i32_const(I32(999))
   let f = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::block(
         BlockType::val_type(ValType::i32()),
@@ -5118,6 +5133,7 @@ test "code folding block hoist remains module-valid" {
   let folded = run_fold(
     Func::t_func(
       [],
+      [],
       TExpr::new([
         TInstr::block(
           BlockType::val_type(ValType::i32()),
@@ -5150,6 +5166,7 @@ test "code folding nested block hoist remains module-valid with outer labels" {
   let common = TInstr::i32_const(I32(999))
   let folded = run_fold(
     Func::t_func(
+      [],
       [],
       TExpr::new([
         TInstr::block(
@@ -5191,6 +5208,7 @@ test "code folding block hoist rebases nested cond outer branches" {
   let common = TInstr::i32_const(I32(999))
   let original = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::block(
         BlockType::val_type(ValType::i32()),
@@ -5229,6 +5247,7 @@ test "code folding block hoist with nested cond remains module-valid" {
   let folded = run_fold(
     Func::t_func(
       [],
+      [],
       TExpr::new([
         TInstr::block(
           BlockType::val_type(ValType::i32()),
@@ -5265,6 +5284,7 @@ test "code folding block hoist with nested cond remains module-valid" {
 test "code folding nested if hoist remains module-valid with outer labels" {
   let folded = run_fold(
     Func::t_func(
+      [],
       [],
       TExpr::new([
         TInstr::block(
@@ -5350,13 +5370,16 @@ test "code folding terminating tails do not mutate shared unreachable arrays" {
       TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-    .with_code_sec(CodeSec::new([Func::t_func([], TExpr::new(folded_body))]))
+    .with_code_sec(
+      CodeSec::new([Func::t_func([], [], TExpr::new(folded_body))]),
+    )
   assert_eq(validate_module(mod), Ok(()))
 }
 
 ///|
 test "code folding terminating return tails preserve typed if results" {
   let original = Func::t_func(
+    [],
     [],
     TExpr::new([
       TInstr::if_(
@@ -5385,6 +5408,7 @@ test "code folding terminating return tails preserve typed if results" {
 ///|
 test "code folding terminating return tails spill differing values via temps" {
   let original = Func::t_func(
+    [],
     [],
     TExpr::new([
       TInstr::if_(
@@ -5444,6 +5468,7 @@ test "code folding terminating throw tails spill differing payloads for same tag
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::if_(
               BlockType::void_(),
@@ -5488,6 +5513,7 @@ test "code folding terminating throw_ref tails spill differing refs via temp" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [ValType::ref_null_exn()],
           TExpr::new([
             TInstr::if_(
@@ -5539,6 +5565,7 @@ test "code folding module pass can fold throw then return tails in same round" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [],
           TExpr::new([
             TInstr::if_(
@@ -5622,6 +5649,7 @@ test "code folding terminating throw tails preserve nested branch depths" {
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::block(
               BlockType::void_(),
@@ -5687,6 +5715,7 @@ test "code folding keeps throw-tail spilling conservative for TryBody tails" {
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::try_table(
               BlockType::void_(),
@@ -5743,6 +5772,7 @@ test "code folding allows throw-tail spill for TryBody tails with empty catches"
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::try_table(
               BlockType::void_(),
@@ -5787,6 +5817,7 @@ test "code folding allows TryBody throw folding when catches do not match throw 
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [],
           TExpr::new([
             TInstr::try_table(
@@ -5856,6 +5887,7 @@ test "code folding allows throw-tail spill when try_table follows throw sites" {
       CodeSec::new([
         Func::t_func(
           [],
+          [],
           TExpr::new([
             TInstr::if_(
               BlockType::void_(),
@@ -5904,6 +5936,7 @@ test "code folding allows throw-tail spill when try_table is before throw sites"
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [],
           TExpr::new([
             TInstr::try_table(
@@ -6020,6 +6053,7 @@ test "code folding folds non-tail returns in same body" {
   )
   let original = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::return_([shared_value]),
       TInstr::drop(TInstr::i32_const(I32(3))),
@@ -6058,6 +6092,7 @@ test "code folding keeps temp locals when return folding skips expr walk" {
   }
   let original = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::return_([mk_value(10), mk_value(20)]),
       TInstr::drop(TInstr::i32_const(I32(3))),
@@ -6084,6 +6119,7 @@ test "code folding keeps temp locals when return folding skips expr walk" {
 ///|
 test "code folding terminating tails finds profitable subsets" {
   let original = Func::t_func(
+    [],
     [],
     TExpr::new([
       TInstr::if_(
@@ -6168,6 +6204,7 @@ test "code folding terminating-tail grouping keeps pathological scans bounded" {
 test "code folding terminating return tails preserve nested branch depths" {
   let original = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::block(
         BlockType::void_(),
@@ -6206,6 +6243,7 @@ test "code folding hoists branch-value block tails via temp local" {
   let common = TInstr::i32_const(I32(999))
   let folded = run_fold(
     Func::t_func(
+      [],
       [],
       TExpr::new([
         TInstr::block(
@@ -6246,6 +6284,7 @@ test "code folding hoists branch-value block tails via temp local" {
 ///|
 test "code folding terminating unreachable tails preserve typed if results" {
   let original = Func::t_func(
+    [],
     [],
     TExpr::new([
       TInstr::if_(
@@ -6320,7 +6359,9 @@ test "code folding terminating return tails do not mutate shared value arrays" {
       ]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-    .with_code_sec(CodeSec::new([Func::t_func([], TExpr::new(folded_body))]))
+    .with_code_sec(
+      CodeSec::new([Func::t_func([], [], TExpr::new(folded_body))]),
+    )
   assert_eq(validate_module(mod), Ok(()))
 }
 
@@ -6412,6 +6453,7 @@ test "code folding module pass canonicalizes TFunc locals with omitted typed par
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [ValType::i64()],
           TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
         ),
@@ -6472,7 +6514,7 @@ test "code folding module pass keeps params-local indexing valid across terminat
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
     .with_code_sec(
       CodeSec::new([
-        Func::t_func([ValType::i32(), ValType::i32(), ValType::i32()], body),
+        Func::t_func([], [ValType::i32(), ValType::i32(), ValType::i32()], body),
       ]),
     )
   let folded = cf_run_fold_module(mod)
@@ -6511,6 +6553,7 @@ test "code folding module pass tracks param arity per function when creating tem
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [
             ValType::i32(),
             ValType::i32(),
@@ -6521,6 +6564,7 @@ test "code folding module pass tracks param arity per function when creating tem
           TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
         ),
         Func::t_func(
+          [],
           [ValType::i32(), ValType::i32(), ValType::i32()],
           TExpr::new([
             TInstr::if_(
@@ -6581,6 +6625,7 @@ test "code folding module pass keeps temp local indices stable with mixed typed 
       CodeSec::new([
         Func::new([], Expr::new([])),
         Func::t_func(
+          [],
           [
             ValType::i32(),
             ValType::i32(),
@@ -6591,6 +6636,7 @@ test "code folding module pass keeps temp local indices stable with mixed typed 
           TExpr::new([TInstr::return_([TInstr::local_get(LocalIdx::new(0))])]),
         ),
         Func::t_func(
+          [],
           [ValType::i32(), ValType::i32(), ValType::i32()],
           TExpr::new([
             TInstr::if_(
@@ -6618,6 +6664,7 @@ test "code folding module pass keeps temp local indices stable with mixed typed 
 ///|
 test "code folding folds nested if tail with outer labels" {
   let original = Func::t_func(
+    [],
     [],
     TExpr::new([
       TInstr::block(
@@ -6654,6 +6701,7 @@ test "code folding folds nested if tail with outer labels" {
     ]),
   )
   let expected = Func::t_func(
+    [],
     [],
     TExpr::new([
       TInstr::block(
@@ -6694,6 +6742,7 @@ test "code folding folds nested if tail with outer labels" {
 test "code folding does not treat inner br0 as outer block tail" {
   let f = Func::t_func(
     [],
+    [],
     TExpr::new([
       TInstr::block(
         BlockType::void_(),
@@ -6716,7 +6765,7 @@ test "code folding: nested blocks" {
   // Nested block structure
   let inner = TExpr::new([TInstr::i32_const(I32(1)), TInstr::i32_const(I32(2))])
   let outer = TExpr::new([TInstr::block(BlockType::void_(), inner)])
-  let f = Func::t_func([], outer)
+  let f = Func::t_func([], [], outer)
   let f2 = run_fold(f)
   match f2 {
     TFunc(_, _, _) => ()
@@ -6731,7 +6780,7 @@ test "code folding: loop body" {
     TInstr::br(LabelIdx::new(0), []),
   ])
   let loop_instr = TInstr::loop_(BlockType::void_(), loop_body)
-  let f = Func::t_func([], TExpr::new([loop_instr]))
+  let f = Func::t_func([], [], TExpr::new([loop_instr]))
   let f2 = run_fold(f)
   match f2 {
     TFunc(_, _, _) => ()
@@ -6748,7 +6797,7 @@ test "code folding: multiple returns" {
     TExpr::new([TInstr::return_([TInstr::i32_const(I32(1))])]),
     Some(TExpr::new([TInstr::return_([TInstr::i32_const(I32(2))])])),
   )
-  let f = Func::t_func([], TExpr::new([if_instr]))
+  let f = Func::t_func([], [], TExpr::new([if_instr]))
   let f2 = run_fold(f)
   match f2 {
     TFunc(_, _, _) => ()
@@ -6758,7 +6807,7 @@ test "code folding: multiple returns" {
 
 ///|
 test "code folding: empty function unchanged" {
-  let f = Func::t_func([], TExpr::new([]))
+  let f = Func::t_func([], [], TExpr::new([]))
   let f2 = run_fold(f)
   match f2 {
     TFunc(_, _, { instrs, .. }) => assert_eq(instrs.length(), 0)
@@ -6768,7 +6817,7 @@ test "code folding: empty function unchanged" {
 
 ///|
 test "code folding: single instruction unchanged" {
-  let f = Func::t_func([], TExpr::new([TInstr::nop()]))
+  let f = Func::t_func([], [], TExpr::new([TInstr::nop()]))
   let f2 = run_fold(f)
   match f2 {
     TFunc(_, _, { instrs, .. }) => {
@@ -6814,7 +6863,11 @@ test "code folding: complex nested structure" {
     TExpr::new([block]),
     Some(TExpr::new([TInstr::i32_const(I32(3))])),
   )
-  let f = Func::t_func([ValType::i32(), ValType::i32()], TExpr::new([outer_if]))
+  let f = Func::t_func(
+    [],
+    [ValType::i32(), ValType::i32()],
+    TExpr::new([outer_if]),
+  )
   let f2 = run_fold(f)
   match f2 {
     TFunc(_, locals, _) => assert_eq(locals.length(), 2)

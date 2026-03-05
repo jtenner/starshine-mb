@@ -1214,7 +1214,7 @@ fn code_pushing_pass_with_trace(
               "func[\{ordinal}] done elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)} changed=true top_instrs=\{body.instrs.length()}->\{body_instrs.length()} locals=\{num_locals}",
             )
           }
-          Ok(Some(((), Func::t_func(params, TExpr::new(body_instrs)))))
+          Ok(Some(((), Func::t_func([], params, TExpr::new(body_instrs)))))
         } else {
           if log_func {
             trace(
@@ -1409,7 +1409,7 @@ test "LocalAnalyzer get_num_gets bounds check" {
 
 ///|
 test "analyze_function with empty TFunc" {
-  let f = Func::t_func([], TExpr::new([]))
+  let f = Func::t_func([], [], TExpr::new([]))
   let analyzer = analyze_function(f)
   assert_eq(analyzer.sfa.length(), 0)
 }
@@ -1420,7 +1420,7 @@ test "analyze_function with single local.set" {
   let body = TExpr::new([
     TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(42))),
   ])
-  let f = Func::t_func([ValType::i32()], body)
+  let f = Func::t_func([], [ValType::i32()], body)
   let analyzer = analyze_function(f)
   assert_eq(analyzer.num_sets[0], 1)
   assert_true(analyzer.sfa[0])
@@ -1434,7 +1434,7 @@ test "analyze_function with multiple sets not SFA" {
     TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(1))),
     TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(2))),
   ])
-  let f = Func::t_func([ValType::i32()], body)
+  let f = Func::t_func([], [ValType::i32()], body)
   let analyzer = analyze_function(f)
   assert_eq(analyzer.num_sets[0], 2)
   assert_false(analyzer.sfa[0])
@@ -1448,7 +1448,7 @@ test "analyze_function with get before set not SFA" {
     TInstr::local_get(LocalIdx::new(0)),
     TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(42))),
   ])
-  let f = Func::t_func([ValType::i32()], body)
+  let f = Func::t_func([], [ValType::i32()], body)
   let analyzer = analyze_function(f)
   assert_false(analyzer.sfa[0])
 }
@@ -1463,7 +1463,7 @@ test "analyze_function counts gets correctly" {
     TInstr::local_get(LocalIdx::new(0)),
     TInstr::local_get(LocalIdx::new(0)),
   ])
-  let f = Func::t_func([ValType::i32()], body)
+  let f = Func::t_func([], [ValType::i32()], body)
   let analyzer = analyze_function(f)
   assert_eq(analyzer.num_gets[0], 2)
   assert_true(analyzer.sfa[0])
@@ -1475,7 +1475,7 @@ test "analyze_function with local.tee" {
   let body = TExpr::new([
     TInstr::local_tee(LocalIdx::new(0), TInstr::i32_const(I32(42))),
   ])
-  let f = Func::t_func([ValType::i32()], body)
+  let f = Func::t_func([], [ValType::i32()], body)
   let analyzer = analyze_function(f)
   assert_eq(analyzer.num_sets[0], 1)
 }
@@ -1489,7 +1489,7 @@ test "analyze_function with nested block" {
     TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(42))),
   ])
   let body = TExpr::new([TInstr::block(BlockType::void_(), inner)])
-  let f = Func::t_func([ValType::i32()], body)
+  let f = Func::t_func([], [ValType::i32()], body)
   let analyzer = analyze_function(f)
   assert_eq(analyzer.num_sets[0], 1)
   assert_true(analyzer.sfa[0])
@@ -1515,7 +1515,7 @@ test "analyze_function with if-else" {
       Some(else_body),
     ),
   ])
-  let f = Func::t_func([ValType::i32()], body)
+  let f = Func::t_func([], [ValType::i32()], body)
   let analyzer = analyze_function(f)
   assert_eq(analyzer.num_sets[0], 2)
   assert_false(analyzer.sfa[0])
@@ -1530,7 +1530,7 @@ test "code_pushing_pass creates valid transformer" {
 ///|
 test "code_pushing_pass leaves empty function unchanged" {
   let pass = code_pushing_pass()
-  let f = Func::t_func([], TExpr::new([]))
+  let f = Func::t_func([], [], TExpr::new([]))
   match pass.on_func {
     Some(handler) =>
       match handler(pass, (), f) {
@@ -1559,7 +1559,7 @@ test "code_pushing handles multiple sets before terminal if" {
       None,
     ),
   ])
-  let f = Func::t_func([ValType::i32(), ValType::i32()], body)
+  let f = Func::t_func([], [ValType::i32(), ValType::i32()], body)
   match pass.on_func {
     Some(handler) =>
       match handler(pass, (), f) {
@@ -1594,7 +1594,7 @@ test "code_pushing handles very deep nested blocks" {
   }
 
   let pass = code_pushing_pass()
-  let f = Func::t_func([ValType::i32()], deep)
+  let f = Func::t_func([], [ValType::i32()], deep)
   match pass.on_func {
     Some(handler) =>
       match handler(pass, (), f) {
@@ -1618,6 +1618,7 @@ test "code_pushing trace covers function phases" {
       ).walk_func(
         IRContext::new(),
         Func::t_func(
+          [],
           [ValType::i32()],
           TExpr::new([
             TInstr::local_set(loc, TInstr::i32_const(I32(7))),
@@ -1858,7 +1859,7 @@ test "is_pushable identifies simple SFA local.set" {
     TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(42))),
     TInstr::local_get(LocalIdx::new(0)),
   ])
-  let f = Func::t_func([ValType::i32()], body)
+  let f = Func::t_func([], [ValType::i32()], body)
   let analyzer = analyze_function(f)
   let num_gets_so_far = Array::make(1, 0)
   let set_instr = TInstr::local_set(
@@ -1879,7 +1880,7 @@ test "is_pushable rejects non-SFA local.set" {
     TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(2))),
     TInstr::local_get(LocalIdx::new(0)),
   ])
-  let f = Func::t_func([ValType::i32()], body)
+  let f = Func::t_func([], [ValType::i32()], body)
   let analyzer = analyze_function(f)
   let num_gets_so_far = Array::make(1, 0)
   let set_instr = TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(1)))
@@ -1892,7 +1893,7 @@ test "is_pushable rejects local.set with call" {
     TInstr::local_set(LocalIdx::new(0), TInstr::call(FuncIdx::new(0), [])),
     TInstr::local_get(LocalIdx::new(0)),
   ])
-  let f = Func::t_func([ValType::i32()], body)
+  let f = Func::t_func([], [ValType::i32()], body)
   let analyzer = analyze_function(f)
   let num_gets_so_far = Array::make(1, 0)
   let set_instr = TInstr::local_set(

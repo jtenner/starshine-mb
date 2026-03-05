@@ -3116,7 +3116,7 @@ fn sl_simplify_function(
         )
       }
       if changed_any {
-        (Func::t_func(locals, body), true)
+        (Func::t_func([], locals, body), true)
       } else {
         (func, false)
       }
@@ -3272,6 +3272,7 @@ test "simplify_locals sinks a single-use local.set into local.get" {
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [ValType::i32()],
         TExpr::new([
           TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(7))),
@@ -3306,6 +3307,7 @@ test "simplify_locals tee mode can eliminate multi-use local chain" {
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [ValType::i32()],
         TExpr::new([
           TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(9))),
@@ -3332,6 +3334,7 @@ test "simplify_locals no-tee mode keeps original set for multi-use local" {
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [ValType::i32()],
         TExpr::new([
           TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(11))),
@@ -3358,6 +3361,7 @@ test "simplify_locals structure mode creates result if from branch-local sets" {
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [ValType::i32()],
         TExpr::new([
           TInstr::if_(
@@ -3390,6 +3394,7 @@ test "simplify_locals no-nesting mode avoids sinking non-get values into get sit
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [ValType::i32()],
         TExpr::new([
           TInstr::local_set(
@@ -3429,6 +3434,7 @@ test "simplify_locals coalesces block break sets into block result set" {
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [ValType::i32(), ValType::i32()],
         TExpr::new([
           TInstr::block(
@@ -3479,6 +3485,7 @@ test "simplify_locals coalesces conditional break sets using br_if tee value" {
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [ValType::i32(), ValType::i32()],
         TExpr::new([
           TInstr::block(
@@ -3655,6 +3662,7 @@ test "simplify_locals function-level simplifier applies block coalescing pattern
   let idx = LocalIdx::new(0)
   let cond = LocalIdx::new(1)
   let func = Func::t_func(
+    [],
     [ValType::i32(), ValType::i32()],
     TExpr::new([
       TInstr::block(
@@ -3783,6 +3791,7 @@ test "simplify_locals does not coalesce block returns when branch locals differ"
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [ValType::i32(), ValType::i32()],
         TExpr::new([
           TInstr::block(
@@ -3825,6 +3834,7 @@ test "simplify_locals coalesces sinkable set into loop return value" {
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [ValType::i32()],
         TExpr::new([
           TInstr::local_set(x, TInstr::i32_const(I32(13))),
@@ -3849,6 +3859,7 @@ test "simplify_locals does not make loop result when loop has br 0" {
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [ValType::i32()],
         TExpr::new([
           TInstr::local_set(x, TInstr::i32_const(I32(13))),
@@ -3876,6 +3887,7 @@ test "simplify_locals late canonicalization rewrites equivalent gets to dominant
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [ValType::i32(), ValType::i32()],
         TExpr::new([
           TInstr::local_set(x, TInstr::i32_const(I32(4))),
@@ -3949,7 +3961,7 @@ test "simplify_locals late equivalent-set removal skips nested value-position se
       TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-    .with_code_sec(CodeSec::new([Func::t_func(local_types, rewritten)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], local_types, rewritten)]))
   assert_eq(validate_module(mod), Ok(()))
   match rewritten.instrs[3].kind {
     TInstrKind::TDrop(
@@ -3986,6 +3998,7 @@ test "simplify_locals keeps structured control values out of nested value positi
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [ValType::i32(), ValType::i32()],
           TExpr::new([
             TInstr::block(
@@ -4135,6 +4148,7 @@ test "simplify_locals no-tee-no-structure preserves exact local type for untyped
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [
             ValType::ref_type(
               RefType::new(false, HeapType::abs(AbsHeapType::func())),
@@ -4182,6 +4196,7 @@ test "simplify_locals skips result-if rewrite when branch exits would invalidate
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [ValType::i32(), ValType::i32()],
           TExpr::new([
             TInstr::if_(
@@ -4274,6 +4289,7 @@ test "simplify_locals typed function validator rejects local.set result type mis
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
   let env = Env::new().with_module(mod)
   let candidate = Func::t_func(
+    [],
     [ValType::i64()],
     TExpr::new([
       TInstr::local_set(
@@ -4304,6 +4320,7 @@ test "simplify_locals typed function validator accepts canonical locals includin
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
   let env = Env::new().with_module(mod)
   let candidate = Func::t_func(
+    [],
     [ValType::i32(), ValType::i64()],
     TExpr::new([TInstr::local_set(LocalIdx::new(1), TInstr::i64_const(I64(7)))]),
   )
@@ -4321,8 +4338,9 @@ test "simplify_locals rewrite finalizer keeps original invalid candidate out" {
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
   let env = Env::new().with_module(mod)
-  let original = Func::t_func([ValType::i64()], TExpr::new([]))
+  let original = Func::t_func([], [ValType::i64()], TExpr::new([]))
   let invalid_candidate = Func::t_func(
+    [],
     [ValType::i64()],
     TExpr::new([
       TInstr::local_set(
@@ -4360,6 +4378,7 @@ test "simplify_locals keeps nested branchy result-if pattern valid" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [ValType::i32(), ValType::i32(), ValType::i32()],
           TExpr::new([
             TInstr::block(
@@ -4406,6 +4425,7 @@ test "simplify_locals ID-C1 keeps prior local.set when intermediate local.get re
   let mod = Module::new().with_code_sec(
     CodeSec::new([
       Func::t_func(
+        [],
         [ValType::i32(), ValType::i32()],
         TExpr::new([
           TInstr::local_set(x, TInstr::i32_const(I32(7))),
@@ -4502,6 +4522,7 @@ test "simplify_locals ID-P2 uses fixpoint cycles to unlock second sinking opport
   let y = LocalIdx::new(1)
   let z = LocalIdx::new(2)
   let func = Func::t_func(
+    [],
     [ValType::i32(), ValType::i32(), ValType::i32()],
     TExpr::new([
       TInstr::local_set(x, TInstr::local_get(z)),
@@ -4569,6 +4590,7 @@ test "simplify_locals ID-P4 allows single-use sink from subtype value into super
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
+          [],
           [ValType::funcref()],
           TExpr::new([
             TInstr::local_set(x, TInstr::ref_func(FuncIdx::new(0))),
@@ -4653,7 +4675,7 @@ test "simplify_locals ID-F1 avoids excessive effect recomputation in main phase"
   sl_perf_reset()
   ignore(
     sl_simplify_function(
-      Func::t_func(locals, TExpr::new(body_instrs)),
+      Func::t_func([], locals, TExpr::new(body_instrs)),
       sl_test_env(locals),
       [],
       { allow_tee: false, allow_structure: false, allow_nesting: true },
@@ -4677,7 +4699,7 @@ test "simplify_locals skips no-structure main rewrite when function has no local
   sl_perf_reset()
   ignore(
     sl_simplify_function(
-      Func::t_func(locals, TExpr::new(body_instrs)),
+      Func::t_func([], locals, TExpr::new(body_instrs)),
       sl_test_env(locals),
       [],
       { allow_tee: false, allow_structure: false, allow_nesting: true },
@@ -4707,7 +4729,7 @@ test "simplify_locals ID-F2 avoids O(active_sinkables) invalidation scans per in
   sl_perf_reset()
   ignore(
     sl_simplify_function(
-      Func::t_func(locals, TExpr::new(body_instrs)),
+      Func::t_func([], locals, TExpr::new(body_instrs)),
       sl_test_env(locals),
       [],
       { allow_tee: false, allow_structure: false, allow_nesting: true },
@@ -4727,6 +4749,7 @@ test "simplify_locals ID-F3 reuses get counts across fixpoint cycles" {
   let y = LocalIdx::new(1)
   let z = LocalIdx::new(2)
   let func = Func::t_func(
+    [],
     [ValType::i32(), ValType::i32(), ValType::i32()],
     TExpr::new([
       TInstr::local_set(x, TInstr::local_get(z)),

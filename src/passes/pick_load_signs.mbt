@@ -664,7 +664,7 @@ fn pick_load_signs_on_func(
           "func[\{ordinal}] done elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)} changed=\{rewritten != body} top_instrs=\{body.instrs.length()}->\{rewritten.instrs.length()} locals=\{locals.length()} candidates=\{candidate_count.val}",
         )
       }
-      Ok(Func::t_func(locals, rewritten))
+      Ok(Func::t_func([], locals, rewritten))
     }
   }
 }
@@ -722,6 +722,7 @@ fn pls_i64_const_instr(v : Int64) -> TInstr {
 test "pick_load_signs picks unsigned for i32.load8 when unsigned dominates" {
   let loc = LocalIdx::new(0)
   let func = Func::t_func(
+    [],
     [ValType::i32()],
     TExpr::new([
       TInstr::local_set(
@@ -776,6 +777,7 @@ test "pick_load_signs picks unsigned for i32.load8 when unsigned dominates" {
 test "pick_load_signs picks signed when signed uses are weighted higher" {
   let loc = LocalIdx::new(0)
   let func = Func::t_func(
+    [],
     [ValType::i32()],
     TExpr::new([
       TInstr::local_set(
@@ -826,6 +828,7 @@ test "pick_load_signs picks signed when signed uses are weighted higher" {
 test "pick_load_signs requires all loc.get uses to be sign-or-zero extensions" {
   let loc = LocalIdx::new(0)
   let func = Func::t_func(
+    [],
     [ValType::i32()],
     TExpr::new([
       TInstr::local_set(
@@ -874,6 +877,7 @@ test "pick_load_signs requires all loc.get uses to be sign-or-zero extensions" {
 test "pick_load_signs requires extension bits to match load bits" {
   let loc = LocalIdx::new(0)
   let func = Func::t_func(
+    [],
     [ValType::i32()],
     TExpr::new([
       TInstr::local_set(
@@ -916,6 +920,7 @@ test "pick_load_signs requires extension bits to match load bits" {
 test "pick_load_signs rejects inconsistent signed extension widths" {
   let loc = LocalIdx::new(0)
   let func = Func::t_func(
+    [],
     [ValType::i32()],
     TExpr::new([
       TInstr::local_set(
@@ -962,6 +967,7 @@ test "pick_load_signs rejects inconsistent signed extension widths" {
 test "pick_load_signs recognizes nested shift-based zero extension on grandparent" {
   let loc = LocalIdx::new(0)
   let func = Func::t_func(
+    [],
     [ValType::i32()],
     TExpr::new([
       TInstr::local_set(
@@ -1012,6 +1018,7 @@ test "pick_load_signs recognizes nested shift-based zero extension on grandparen
 test "pick_load_signs ignores loc.tee load producers" {
   let loc = LocalIdx::new(0)
   let func = Func::t_func(
+    [],
     [ValType::i32()],
     TExpr::new([
       TInstr::drop(
@@ -1065,6 +1072,7 @@ test "pick_load_signs ignores loc.tee load producers" {
 test "pick_load_signs skips loads with no loc.get usages" {
   let loc = LocalIdx::new(0)
   let func = Func::t_func(
+    [],
     [ValType::i32()],
     TExpr::new([
       TInstr::local_set(
@@ -1105,6 +1113,7 @@ test "pick_load_signs skips loads with no loc.get usages" {
 test "pick_load_signs rewrites i64.load32 based on i64.extend32_s usage" {
   let loc = LocalIdx::new(0)
   let func = Func::t_func(
+    [],
     [ValType::i64()],
     TExpr::new([
       TInstr::local_set(
@@ -1147,6 +1156,7 @@ test "pick_load_signs rewrites i64.load32 based on i64.extend32_s usage" {
 test "pick_load_signs rewrites i64.load32 to unsigned for i64.and mask usage" {
   let loc = LocalIdx::new(0)
   let func = Func::t_func(
+    [],
     [ValType::i64()],
     TExpr::new([
       TInstr::local_set(
@@ -1229,7 +1239,7 @@ test "pick_load_signs rewrites all candidate loads mapped to the same loc" {
     Err(e) => fail("unexpected analysis error: \{e}")
   }
   assert_eq(analysis.candidates.length(), 2)
-  let func = Func::t_func([ValType::i32()], body)
+  let func = Func::t_func([], [ValType::i32()], body)
   let out = pls_run_func(func)
   match out {
     TFunc(_, _, { instrs, .. }) => {
@@ -1268,6 +1278,7 @@ test "pick_load_signs trace covers function phases" {
       ).walk_func(
         IRContext::new(),
         Func::t_func(
+          [],
           [ValType::i32()],
           TExpr::new([
             TInstr::local_set(
@@ -1330,6 +1341,7 @@ test "pick_load_signs trace covers function phases" {
 test "pick_load_signs is idempotent" {
   let loc = LocalIdx::new(0)
   let func = Func::t_func(
+    [],
     [ValType::i32()],
     TExpr::new([
       TInstr::local_set(

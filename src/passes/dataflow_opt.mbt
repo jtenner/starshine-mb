@@ -171,10 +171,10 @@ fn dataflow_optimization_pass(
         }
         match new_func {
           Some((next_locals, next_body)) =>
-            change(ctx, Func::t_func(next_locals, next_body))
+            change(ctx, Func::t_func([], next_locals, next_body))
           // Returning `unchanged()` here would trigger `walk_func_default`,
           // causing a second full traversal of this function.
-          _ => change(ctx, Func::t_func(locals, body))
+          _ => change(ctx, Func::t_func([], locals, body))
         }
       }
     }
@@ -194,7 +194,7 @@ test "dataflow optimization pass folds simple constants via SSA" {
     ),
     TInstr::return_([TInstr::local_get(LocalIdx::new(0))]),
   ])
-  let func = Func::t_func([ValType::i32()], body)
+  let func = Func::t_func([], [ValType::i32()], body)
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let pass = dataflow_optimization_pass(mod)
   let ctx = IRContext::new()
@@ -216,7 +216,7 @@ test "dataflow optimization pass simplifies const multi-block if" {
       Some(TExpr::new([TInstr::return_([TInstr::i32_const(I32(9))])])),
     ),
   ])
-  let func = Func::t_func([], body)
+  let func = Func::t_func([], [], body)
   let mod = Module::new().with_code_sec(CodeSec::new([func]))
   let pass = dataflow_optimization_pass(mod)
   let ctx = IRContext::new()
@@ -265,7 +265,7 @@ test "dataflow optimization preserves valid locals for parameterized functions" 
   let mod = Module::new()
     .with_type_sec(TypeSec::new([func_type]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-    .with_code_sec(CodeSec::new([Func::t_func([ValType::i32()], body)]))
+    .with_code_sec(CodeSec::new([Func::t_func([], [ValType::i32()], body)]))
   let pass = dataflow_optimization_pass(mod)
   let ctx = IRContext::new()
   let result = pass.walk_module(ctx, mod)
