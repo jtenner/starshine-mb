@@ -1992,9 +1992,11 @@ fn uf_test_function_label_branch_constraint_module(use_br_if : Bool) -> Module {
       TInstr::block(
         BlockType::void_(),
         TExpr::new([
-          TInstr::br_if(LabelIdx::new(1), TInstr::i32_const(I32(1)), [
-            TInstr::struct_new(TypeIdx::new(2), []),
-          ]),
+          TInstr::drop(
+            TInstr::br_if(LabelIdx::new(1), TInstr::i32_const(I32(1)), [
+              TInstr::struct_new(TypeIdx::new(2), []),
+            ]),
+          ),
           TInstr::nop(),
         ]),
       ),
@@ -2250,9 +2252,11 @@ test "unsubtyping preserves subtype edge required by br_if label flow" {
       TInstr::block(
         bt,
         TExpr::new([
-          TInstr::br_if(LabelIdx::new(0), TInstr::i32_const(I32(1)), [
-            TInstr::struct_new(TypeIdx::new(2), []),
-          ]),
+          TInstr::drop(
+            TInstr::br_if(LabelIdx::new(0), TInstr::i32_const(I32(1)), [
+              TInstr::struct_new(TypeIdx::new(2), []),
+            ]),
+          ),
           TInstr::ref_null(HeapType::new(TypeIdx::new(1))),
         ]),
       ),
@@ -2407,12 +2411,26 @@ test "unsubtyping preserves subtype edge required by br_table label flow" {
               TInstr::ref_null(HeapType::new(TypeIdx::new(1))),
             ]),
           ),
-          TInstr::ref_null(HeapType::new(TypeIdx::new(1))),
         ]),
       ),
     ),
   ])
-  uf_assert_unsubtyping_preserves_mid_edge(mod)
+  assert_eq(validate_module(mod), Ok(()))
+  let out = match unsubtyping(mod) {
+    Ok(m) => m
+    Err(e) => fail("unexpected unsubtyping error: \{e}")
+  }
+  let direct_super = uf_test_direct_super(out, 2)
+  if direct_super != Some(TypeIdx::new(1)) {
+    fail(
+      "expected unsubtyping to preserve direct super edge 2 -> 1 for br_table flow, got \{direct_super}",
+    )
+  }
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail("expected br_table-constrained unsubtyping output to validate: \{e}")
+  }
 }
 
 ///|

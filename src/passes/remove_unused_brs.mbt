@@ -2061,7 +2061,10 @@ test "remove_unused_brs removes trailing br 0 in block" {
   let body = TExpr::new([
     TInstr::block(
       BlockType::void_(),
-      TExpr::new([TInstr::i32_const(I32(1)), TInstr::br(LabelIdx::new(0), [])]),
+      TExpr::new([
+        TInstr::drop(TInstr::i32_const(I32(1))),
+        TInstr::br(LabelIdx::new(0), []),
+      ]),
     ),
   ])
   let mod = rub_single_void_func_module([], body)
@@ -2076,7 +2079,17 @@ test "remove_unused_brs removes trailing br 0 in block" {
           {
             kind: TInstrKind::TBlock(
               _,
-              { instrs: [{ kind: TInstrKind::TI32Const(I32(1)), .. }], .. }
+              {
+                instrs: [
+                  {
+                    kind: TInstrKind::TDrop(
+                      { kind: TInstrKind::TI32Const(I32(1)), .. }
+                    ),
+                    ..,
+                  },
+                ],
+                ..,
+              }
             ),
             ..,
           },
@@ -2157,7 +2170,11 @@ test "remove_unused_brs trims trailing nops from block body" {
   let body = TExpr::new([
     TInstr::block(
       BlockType::void_(),
-      TExpr::new([TInstr::i32_const(I32(1)), TInstr::nop(), TInstr::nop()]),
+      TExpr::new([
+        TInstr::drop(TInstr::i32_const(I32(1))),
+        TInstr::nop(),
+        TInstr::nop(),
+      ]),
     ),
   ])
   let mod = rub_single_void_func_module([], body)
@@ -2172,7 +2189,17 @@ test "remove_unused_brs trims trailing nops from block body" {
           {
             kind: TInstrKind::TBlock(
               _,
-              { instrs: [{ kind: TInstrKind::TI32Const(I32(1)), .. }], .. }
+              {
+                instrs: [
+                  {
+                    kind: TInstrKind::TDrop(
+                      { kind: TInstrKind::TI32Const(I32(1)), .. }
+                    ),
+                    ..,
+                  },
+                ],
+                ..,
+              }
             ),
             ..,
           },
@@ -3281,7 +3308,7 @@ test "remove_unused_brs does not splice void if in value-typed block body" {
           TExpr::new([TInstr::nop()]),
           Some(
             TExpr::new([
-              TInstr::br(LabelIdx::new(0), [TInstr::i32_const(I32(2))]),
+              TInstr::br(LabelIdx::new(1), [TInstr::i32_const(I32(2))]),
             ]),
           ),
         ),

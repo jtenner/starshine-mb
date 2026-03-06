@@ -1406,15 +1406,19 @@ fn sl_rewrite_block_exits_texpr(
               match values[0].kind {
                 TInstrKind::TLocalSet(_, value) => {
                   changed.val = true
-                  TInstr::br_if(label, cond, [
-                    TInstr::local_tee(shared_local, value),
-                  ])
+                  TInstr::drop(
+                    TInstr::br_if(label, cond, [
+                      TInstr::local_tee(shared_local, value),
+                    ]),
+                  )
                 }
                 TInstrKind::TLocalTee(_, value) => {
                   changed.val = true
-                  TInstr::br_if(label, cond, [
-                    TInstr::local_tee(shared_local, value),
-                  ])
+                  TInstr::drop(
+                    TInstr::br_if(label, cond, [
+                      TInstr::local_tee(shared_local, value),
+                    ]),
+                  )
                 }
                 _ => curr
               }
@@ -1429,9 +1433,11 @@ fn sl_rewrite_block_exits_texpr(
                   TInstrKind::TLocalSet(_, value) => {
                     out[out.length() - 1] = TInstr::nop()
                     changed.val = true
-                    TInstr::br_if(label, cond, [
-                      TInstr::local_tee(shared_local, value),
-                    ])
+                    TInstr::drop(
+                      TInstr::br_if(label, cond, [
+                        TInstr::local_tee(shared_local, value),
+                      ]),
+                    )
                   }
                   _ => curr
                 }

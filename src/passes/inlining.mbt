@@ -1178,7 +1178,7 @@ fn il_prepare_hoisted_tail_call(
   caller_locals : Array[ValType],
   env : Env,
   func_types : Array[FuncType],
-  hoist_block_type : BlockType,
+  replacement_block_type : BlockType,
   hoist_placeholders : Array[TInstr],
 ) -> Result[(TInstr, TInstr, TInstr), String] {
   let inlined = match il_inline_tail_wrapper_call(callee_func, call_args) {
@@ -1216,7 +1216,10 @@ fn il_prepare_hoisted_tail_call(
       for placeholder in hoist_placeholders {
         stores.push(placeholder)
       }
-      let replacement = TInstr::block(hoist_block_type, TExpr::new(stores))
+      let replacement = TInstr::block(
+        replacement_block_type,
+        TExpr::new(stores),
+      )
       let followup = TInstr::if_(
         BlockType::void_(),
         TInstr::local_get(flag_local),
@@ -1260,7 +1263,10 @@ fn il_prepare_hoisted_tail_call(
       for placeholder in hoist_placeholders {
         stores.push(placeholder)
       }
-      let replacement = TInstr::block(hoist_block_type, TExpr::new(stores))
+      let replacement = TInstr::block(
+        replacement_block_type,
+        TExpr::new(stores),
+      )
       let followup = TInstr::if_(
         BlockType::void_(),
         TInstr::local_get(flag_local),
@@ -1309,7 +1315,10 @@ fn il_prepare_hoisted_tail_call(
       for placeholder in hoist_placeholders {
         stores.push(placeholder)
       }
-      let replacement = TInstr::block(hoist_block_type, TExpr::new(stores))
+      let replacement = TInstr::block(
+        replacement_block_type,
+        TExpr::new(stores),
+      )
       let followup = TInstr::if_(
         BlockType::void_(),
         TInstr::local_get(flag_local),
@@ -1360,6 +1369,7 @@ fn il_apply_actions_to_func(
       let mut changed = false
       let hoisted_inits : Array[TInstr] = []
       let hoisted_followups : Array[TInstr] = []
+      let try_block_type_stack : Array[BlockType] = []
       let rewriter = ModuleTransformer::new().on_tinstruction_evt(fn(
         self,
         _,
@@ -1367,11 +1377,16 @@ fn il_apply_actions_to_func(
       ) {
         match instr.kind {
           TInstrKind::TTryTable(bt, catches, try_body) => {
+            try_block_type_stack.push(bt)
             let walked_body = match self.walk_texpr((), try_body) {
               Ok(Some((_, next))) => next
               Ok(None) => try_body
-              Err(e) => return Err(e)
+              Err(e) => {
+                ignore(try_block_type_stack.pop())
+                return Err(e)
+              }
             }
+            ignore(try_block_type_stack.pop())
             if walked_body == try_body {
               unchanged()
             } else {
@@ -1432,27 +1447,78 @@ fn il_apply_actions_to_func(
                     Some(callee_func) =>
                       if action.kind == ILReturnCall && action.try_depth > 0 {
                         match (hoist_wrapper_type, hoist_placeholders) {
-                          (Some(wrapper_type), Some(placeholders)) =>
-                            match
-                              il_prepare_hoisted_tail_call(
-                                callee_func,
-                                call_args,
-                                caller_params.length(),
-                                caller_locals,
-                                env,
-                                func_types,
-                                wrapper_type,
-                                placeholders,
-                              ) {
-                              Ok((replacement, init, followup)) => {
-                                hoisted_inits.push(init)
-                                hoisted_followups.push(followup)
-                                changed = true
-                                applied += 1
-                                change((), replacement)
+                          (Some(wrapper_type), Some(placeholders)) => {
+                            let can_hoist_here = if try_block_type_stack.is_empty() {
+                              true
+                            } else {
+                              match
+                                env.expand_blocktype(
+                                  try_block_type_stack[try_block_type_stack.length() -
+                                  1],
+                                ) {
+                                Ok((params, _)) => params.is_empty()
+                                Err(_) => false
                               }
-                              Err(e) => Err(e)
                             }
+                            if can_hoist_here {
+                              let replacement_block_type = if try_block_type_stack.is_empty() {
+                                wrapper_type
+                              } else {
+                                try_block_type_stack[try_block_type_stack.length() -
+                                1]
+                              }
+                              match
+                                il_prepare_hoisted_tail_call(
+                                  callee_func,
+                                  call_args,
+                                  caller_params.length(),
+                                  caller_locals,
+                                  env,
+                                  func_types,
+                                  replacement_block_type,
+                                  placeholders,
+                                ) {
+                                Ok((replacement, init, followup)) => {
+                                  hoisted_inits.push(init)
+                                  hoisted_followups.push(followup)
+                                  changed = true
+                                  applied += 1
+                                  change((), replacement)
+                                }
+                                Err(e) => Err(e)
+                              }
+                            } else {
+                              match
+                                il_inline_at_callsite(
+                                  ILInlineAction::{
+                                    callsite_id: action.callsite_id,
+                                    caller_abs_idx: action.caller_abs_idx,
+                                    callee_abs_idx: action.callee_abs_idx,
+                                    kind: action.kind,
+                                    try_depth: action.try_depth,
+                                    force_unreachable: action.force_unreachable,
+                                  },
+                                  callee_func,
+                                  func_types[action.callee_abs_idx],
+                                  call_args,
+                                  caller_params.length(),
+                                  caller_locals,
+                                ) {
+                                Ok(Some(replacement)) => {
+                                  changed = true
+                                  applied += 1
+                                  change((), replacement)
+                                }
+                                Ok(None) =>
+                                  if walked == instr {
+                                    unchanged()
+                                  } else {
+                                    change((), walked)
+                                  }
+                                Err(e) => Err(e)
+                              }
+                            }
+                          }
                           _ =>
                             match
                               il_inline_at_callsite(
@@ -3125,7 +3191,7 @@ test "inlining hoists multi-value try-tail wrapper when caller has parameters" {
 }
 
 ///|
-test "inlining synthesizes private zero-param wrapper signature for multi-value hoists" {
+test "inlining skips synthesized wrapper type when try_table hoist needs params" {
   let t_param_multi = il_make_type([ValType::i32()], [
     ValType::i32(),
     ValType::i32(),
@@ -3174,6 +3240,7 @@ test "inlining synthesizes private zero-param wrapper signature for multi-value 
         ),
       ]),
     )
+  assert_eq(validate_module(mod), Ok(()))
   let optimized = match inlining(mod, OptimizeOptions::new(), false) {
     Ok(m) => m
     Err(e) => fail("unexpected inlining error: \{e}")
@@ -3185,31 +3252,15 @@ test "inlining synthesizes private zero-param wrapper signature for multi-value 
     None => fail("expected function section")
   }
   match optimized.type_sec {
-    Some(TypeSec(type_defs)) => assert_eq(type_defs.length(), 2)
-    None => fail("expected synthesized wrapper type in type section")
+    Some(TypeSec(type_defs)) => assert_eq(type_defs.length(), 1)
+    None => fail("expected original type section")
   }
   let env = Env::new().with_module(optimized)
-  match env.resolve_functype(TypeIdx::new(1)) {
-    Some(FuncType(params, results)) => {
-      assert_true(params.is_empty())
-      assert_eq(results, [ValType::i32(), ValType::i32()])
-    }
-    None => fail("expected synthesized multi-value wrapper signature")
-  }
+  assert_eq(env.resolve_functype(TypeIdx::new(1)), None)
   match optimized.code_sec {
     Some(CodeSec([TFunc(_, _, body), _, _])) => {
       assert_eq(il_count_return_calls(body, FuncIdx::new(1)), 0)
       assert_true(il_count_return_calls(body, FuncIdx::new(2)) > 0)
-      match body.instrs {
-        [
-          { kind: TInstrKind::TBlock(bt, _), .. },
-          { kind: TInstrKind::TIf(_, _, _, _), .. },
-        ] => assert_eq(bt, BlockType::type_idx(TypeIdx::new(1)))
-        _ =>
-          fail(
-            "expected hoisted control flow shape using synthesized wrapper type",
-          )
-      }
     }
     _ => fail("expected caller body")
   }
@@ -3261,7 +3312,7 @@ test "inlining does not synthesize wrapper type when no hoist rewrite applies" {
 }
 
 ///|
-test "inlining synthesizes sequential wrapper types for multiple callers" {
+test "inlining skips synthesized wrappers for multiple callers when try params are required" {
   let t_i32_multi = il_make_type([ValType::i32()], [
     ValType::i32(),
     ValType::i32(),
@@ -3362,51 +3413,25 @@ test "inlining synthesizes sequential wrapper types for multiple callers" {
   }
   assert_eq(validate_module(optimized), Ok(()))
   match optimized.type_sec {
-    Some(TypeSec(type_defs)) => assert_eq(type_defs.length(), 4)
-    None => fail("expected type section with synthesized wrapper signatures")
+    Some(TypeSec(type_defs)) => assert_eq(type_defs.length(), 2)
+    None => fail("expected original type section")
   }
   let env = Env::new().with_module(optimized)
-  match env.resolve_functype(TypeIdx::new(2)) {
-    Some(FuncType(params, results)) => {
-      assert_true(params.is_empty())
-      assert_eq(results, [ValType::i32(), ValType::i32()])
-    }
-    None => fail("expected synthesized i32 wrapper signature")
-  }
-  match env.resolve_functype(TypeIdx::new(3)) {
-    Some(FuncType(params, results)) => {
-      assert_true(params.is_empty())
-      assert_eq(results, [ValType::i64(), ValType::i64()])
-    }
-    None => fail("expected synthesized i64 wrapper signature")
-  }
+  assert_eq(env.resolve_functype(TypeIdx::new(2)), None)
+  assert_eq(env.resolve_functype(TypeIdx::new(3)), None)
   match optimized.code_sec {
     Some(CodeSec([TFunc(_, _, body0), TFunc(_, _, body1), _, _, _, _])) => {
       assert_eq(il_count_return_calls(body0, FuncIdx::new(2)), 0)
       assert_true(il_count_return_calls(body0, FuncIdx::new(4)) > 0)
       assert_eq(il_count_return_calls(body1, FuncIdx::new(3)), 0)
       assert_true(il_count_return_calls(body1, FuncIdx::new(5)) > 0)
-      match body0.instrs {
-        [
-          { kind: TInstrKind::TBlock(bt0, _), .. },
-          { kind: TInstrKind::TIf(_, _, _, _), .. },
-        ] => assert_eq(bt0, BlockType::type_idx(TypeIdx::new(2)))
-        _ => fail("expected hoisted control flow in first caller")
-      }
-      match body1.instrs {
-        [
-          { kind: TInstrKind::TBlock(bt1, _), .. },
-          { kind: TInstrKind::TIf(_, _, _, _), .. },
-        ] => assert_eq(bt1, BlockType::type_idx(TypeIdx::new(3)))
-        _ => fail("expected hoisted control flow in second caller")
-      }
     }
     _ => fail("expected caller bodies")
   }
 }
 
 ///|
-test "inlining reuses synthesized wrapper for later callers in same iteration" {
+test "inlining skips wrapper synthesis reuse when try params are required" {
   let t_param_multi = il_make_type([ValType::i32()], [
     ValType::i32(),
     ValType::i32(),
@@ -3535,17 +3560,11 @@ test "inlining reuses synthesized wrapper for later callers in same iteration" {
   }
   assert_eq(validate_module(optimized), Ok(()))
   match optimized.type_sec {
-    Some(TypeSec(type_defs)) => assert_eq(type_defs.length(), 2)
-    None => fail("expected one reused synthesized wrapper type")
+    Some(TypeSec(type_defs)) => assert_eq(type_defs.length(), 1)
+    None => fail("expected original type section")
   }
   let env = Env::new().with_module(optimized)
-  match env.resolve_functype(TypeIdx::new(1)) {
-    Some(FuncType(params, results)) => {
-      assert_true(params.is_empty())
-      assert_eq(results, [ValType::i32(), ValType::i32()])
-    }
-    None => fail("expected synthesized reusable wrapper signature")
-  }
+  assert_eq(env.resolve_functype(TypeIdx::new(1)), None)
   assert_eq(env.resolve_functype(TypeIdx::new(2)), None)
   match optimized.code_sec {
     Some(CodeSec([TFunc(_, _, body0), TFunc(_, _, body1), _, _, _, _])) => {
@@ -3553,27 +3572,13 @@ test "inlining reuses synthesized wrapper for later callers in same iteration" {
       assert_true(il_count_return_calls(body0, FuncIdx::new(4)) > 0)
       assert_eq(il_count_return_calls(body1, FuncIdx::new(3)), 0)
       assert_true(il_count_return_calls(body1, FuncIdx::new(5)) > 0)
-      match body0.instrs {
-        [
-          { kind: TInstrKind::TBlock(bt0, _), .. },
-          { kind: TInstrKind::TIf(_, _, _, _), .. },
-        ] => assert_eq(bt0, BlockType::type_idx(TypeIdx::new(1)))
-        _ => fail("expected first caller hoisted with shared wrapper type")
-      }
-      match body1.instrs {
-        [
-          { kind: TInstrKind::TBlock(bt1, _), .. },
-          { kind: TInstrKind::TIf(_, _, _, _), .. },
-        ] => assert_eq(bt1, BlockType::type_idx(TypeIdx::new(1)))
-        _ => fail("expected second caller hoisted with shared wrapper type")
-      }
     }
     _ => fail("expected optimized caller bodies")
   }
 }
 
 ///|
-test "inlining mixed reuse does not over-reuse incompatible wrapper signatures" {
+test "inlining mixed callers skip wrapper synthesis when try params are required" {
   let t_i32_multi = il_make_type([ValType::i32()], [
     ValType::i32(),
     ValType::i32(),
@@ -3752,49 +3757,22 @@ test "inlining mixed reuse does not over-reuse incompatible wrapper signatures" 
   }
   assert_eq(validate_module(optimized), Ok(()))
   match optimized.type_sec {
-    Some(TypeSec(type_defs)) => assert_eq(type_defs.length(), 4)
-    None => fail("expected two synthesized wrapper signatures")
+    Some(TypeSec(type_defs)) => assert_eq(type_defs.length(), 2)
+    None => fail("expected original type section")
   }
   let env = Env::new().with_module(optimized)
-  match env.resolve_functype(TypeIdx::new(2)) {
-    Some(FuncType(params, results)) => {
-      assert_true(params.is_empty())
-      assert_eq(results, [ValType::i32(), ValType::i32()])
-    }
-    None => fail("expected synthesized reusable i32 wrapper signature")
-  }
-  match env.resolve_functype(TypeIdx::new(3)) {
-    Some(FuncType(params, results)) => {
-      assert_true(params.is_empty())
-      assert_eq(results, [ValType::i64(), ValType::i64()])
-    }
-    None => fail("expected synthesized i64-only wrapper signature")
-  }
+  assert_eq(env.resolve_functype(TypeIdx::new(2)), None)
+  assert_eq(env.resolve_functype(TypeIdx::new(3)), None)
   match optimized.code_sec {
     Some(
       CodeSec([TFunc(_, _, body0), TFunc(_, _, body1), TFunc(_, _, body2), ..])
     ) => {
-      match body0.instrs {
-        [
-          { kind: TInstrKind::TBlock(bt0, _), .. },
-          { kind: TInstrKind::TIf(_, _, _, _), .. },
-        ] => assert_eq(bt0, BlockType::type_idx(TypeIdx::new(2)))
-        _ => fail("expected first caller to use shared i32 wrapper")
-      }
-      match body1.instrs {
-        [
-          { kind: TInstrKind::TBlock(bt1, _), .. },
-          { kind: TInstrKind::TIf(_, _, _, _), .. },
-        ] => assert_eq(bt1, BlockType::type_idx(TypeIdx::new(2)))
-        _ => fail("expected second caller to reuse shared i32 wrapper")
-      }
-      match body2.instrs {
-        [
-          { kind: TInstrKind::TBlock(bt2, _), .. },
-          { kind: TInstrKind::TIf(_, _, _, _), .. },
-        ] => assert_eq(bt2, BlockType::type_idx(TypeIdx::new(3)))
-        _ => fail("expected third caller to use distinct i64 wrapper")
-      }
+      assert_eq(il_count_return_calls(body0, FuncIdx::new(3)), 0)
+      assert_true(il_count_return_calls(body0, FuncIdx::new(6)) > 0)
+      assert_eq(il_count_return_calls(body1, FuncIdx::new(4)), 0)
+      assert_true(il_count_return_calls(body1, FuncIdx::new(7)) > 0)
+      assert_eq(il_count_return_calls(body2, FuncIdx::new(5)), 0)
+      assert_true(il_count_return_calls(body2, FuncIdx::new(8)) > 0)
     }
     _ => fail("expected optimized caller bodies")
   }

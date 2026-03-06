@@ -3067,7 +3067,7 @@ test "optimize_module dispatches IRContext and Unit transformer pass kinds" {
               TExpr::new([
                 TInstr::block(
                   BlockType::void_(),
-                  TExpr::new([TInstr::i32_const(I32(5))]),
+                  TExpr::new([TInstr::drop(TInstr::i32_const(I32(5)))]),
                 ),
               ]),
             ),
@@ -3093,7 +3093,14 @@ test "optimize_module dispatches IRContext and Unit transformer pass kinds" {
                   kind: TInstrKind::TBlock(
                     _,
                     {
-                      instrs: [{ kind: TInstrKind::TI32Const(I32(5)), .. }],
+                      instrs: [
+                        {
+                          kind: TInstrKind::TDrop(
+                            { kind: TInstrKind::TI32Const(I32(5)), .. }
+                          ),
+                          ..,
+                        },
+                      ],
                       ..,
                     }
                   ),
@@ -5215,7 +5222,10 @@ test "optimize_module runs RemoveUnusedBrs pass" {
     TExpr::new([
       TInstr::block(
         BlockType::void_(),
-        TExpr::new([TInstr::i32_const(I32(1)), TInstr::br(LabelIdx::new(0), [])]),
+        TExpr::new([
+          TInstr::drop(TInstr::i32_const(I32(1))),
+          TInstr::br(LabelIdx::new(0), []),
+        ]),
       ),
     ]),
   )
@@ -5239,7 +5249,14 @@ test "optimize_module runs RemoveUnusedBrs pass" {
                   kind: TInstrKind::TBlock(
                     _,
                     {
-                      instrs: [{ kind: TInstrKind::TI32Const(I32(1)), .. }],
+                      instrs: [
+                        {
+                          kind: TInstrKind::TDrop(
+                            { kind: TInstrKind::TI32Const(I32(1)), .. }
+                          ),
+                          ..,
+                        },
+                      ],
                       ..,
                     }
                   ),
@@ -5267,7 +5284,7 @@ test "optimize_module runs RemoveUnusedNames pass" {
         TExpr::new([
           TInstr::block(
             BlockType::void_(),
-            TExpr::new([TInstr::i32_const(I32(5))]),
+            TExpr::new([TInstr::drop(TInstr::i32_const(I32(5)))]),
           ),
         ]),
       ),
@@ -5293,7 +5310,14 @@ test "optimize_module runs RemoveUnusedNames pass" {
                   kind: TInstrKind::TBlock(
                     _,
                     {
-                      instrs: [{ kind: TInstrKind::TI32Const(I32(5)), .. }],
+                      instrs: [
+                        {
+                          kind: TInstrKind::TDrop(
+                            { kind: TInstrKind::TI32Const(I32(5)), .. }
+                          ),
+                          ..,
+                        },
+                      ],
                       ..,
                     }
                   ),
