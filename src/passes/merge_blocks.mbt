@@ -228,6 +228,57 @@ fn mb_stack_sig_terminate(
 }
 
 ///|
+fn mb_call_args_match_params(
+  args : Array[TInstr],
+  params : Array[ValType],
+  env : Env,
+) -> Bool {
+  if args.length() != params.length() {
+    false
+  } else {
+    let mut matches = true
+    for i = 0; i < params.length(); i = i + 1 {
+      match mb_infer_tinstr_type(args[i], env) {
+        Some(arg_ty) =>
+          if arg_ty != params[i] {
+            matches = false
+            break
+          }
+        None => {
+          matches = false
+          break
+        }
+      }
+    }
+    matches
+  }
+}
+
+///|
+fn mb_local_set_arg_matches(
+  local_idx : LocalIdx,
+  value : TInstr,
+  env : Env,
+) -> Bool {
+  match (env.get_local_type(local_idx), mb_infer_tinstr_type(value, env)) {
+    (Some(want), Some(got)) => want == got
+    _ => false
+  }
+}
+
+///|
+fn mb_global_set_arg_matches(
+  global_idx : GlobalIdx,
+  value : TInstr,
+  env : Env,
+) -> Bool {
+  match (env.get_global_type(global_idx), mb_infer_tinstr_type(value, env)) {
+    (Some(GlobalType(want, _)), Some(got)) => want == got
+    _ => false
+  }
+}
+
+///|
 fn mb_stack_sig_list(items : Array[TInstr], env : Env) -> MBStackSig? {
   let mut acc = MBStackSig::new(0, 0, true)
   for item in items {
@@ -292,16 +343,34 @@ fn mb_stack_sig_instr(instr : TInstr, env : Env) -> MBStackSig? {
     | TInstrKind::TF64Const(_)
     | TInstrKind::TRefNull(_)
     | TInstrKind::TRefFunc(_) => Some(MBStackSig::new(0, 1, true))
-    TInstrKind::TDrop(value)
-    | TInstrKind::TLocalSet(_, value)
-    | TInstrKind::TGlobalSet(_, value) =>
+    TInstrKind::TDrop(value) =>
       mb_stack_sig_instr(value, env).map(fn(sig) {
         mb_stack_sig_pop_push(sig, 1, 0)
       })
-    TInstrKind::TLocalTee(_, value) =>
-      mb_stack_sig_instr(value, env).map(fn(sig) {
-        mb_stack_sig_pop_push(sig, 1, 1)
-      })
+    TInstrKind::TLocalSet(local_idx, value) =>
+      if !mb_local_set_arg_matches(local_idx, value, env) {
+        None
+      } else {
+        mb_stack_sig_instr(value, env).map(fn(sig) {
+          mb_stack_sig_pop_push(sig, 1, 0)
+        })
+      }
+    TInstrKind::TGlobalSet(global_idx, value) =>
+      if !mb_global_set_arg_matches(global_idx, value, env) {
+        None
+      } else {
+        mb_stack_sig_instr(value, env).map(fn(sig) {
+          mb_stack_sig_pop_push(sig, 1, 0)
+        })
+      }
+    TInstrKind::TLocalTee(local_idx, value) =>
+      if !mb_local_set_arg_matches(local_idx, value, env) {
+        None
+      } else {
+        mb_stack_sig_instr(value, env).map(fn(sig) {
+          mb_stack_sig_pop_push(sig, 1, 1)
+        })
+      }
     TInstrKind::TUnary(_, value)
     | TInstrKind::TLoad(_, _, value)
     | TInstrKind::TRefIsNull(value)
@@ -346,23 +415,40 @@ fn mb_stack_sig_instr(instr : TInstr, env : Env) -> MBStackSig? {
       }
     }
     TInstrKind::TCall(func_idx, args) =>
-      match
-        (mb_stack_sig_list(args, env), env.get_functype_by_funcidx(func_idx)) {
-        (Some(sig), Some(FuncType(params, results))) =>
-          Some(mb_stack_sig_pop_push(sig, params.length(), results.length()))
+      match env.get_functype_by_funcidx(func_idx) {
+        Some(FuncType(params, results)) =>
+          if !mb_call_args_match_params(args, params, env) {
+            None
+          } else {
+            match mb_stack_sig_list(args, env) {
+              Some(sig) =>
+                Some(
+                  mb_stack_sig_pop_push(sig, params.length(), results.length()),
+                )
+              None => None
+            }
+          }
         _ => None
       }
     TInstrKind::TCallIndirect(type_idx, _, args, callee)
     | TInstrKind::TCallRef(type_idx, args, callee) =>
-      match
-        (
-          mb_stack_sig_list(args + [callee], env),
-          env.resolve_functype(type_idx),
-        ) {
-        (Some(sig), Some(FuncType(params, results))) =>
-          Some(
-            mb_stack_sig_pop_push(sig, params.length() + 1, results.length()),
-          )
+      match env.resolve_functype(type_idx) {
+        Some(FuncType(params, results)) =>
+          if !mb_call_args_match_params(args, params, env) {
+            None
+          } else {
+            match mb_stack_sig_list(args + [callee], env) {
+              Some(sig) =>
+                Some(
+                  mb_stack_sig_pop_push(
+                    sig,
+                    params.length() + 1,
+                    results.length(),
+                  ),
+                )
+              None => None
+            }
+          }
         _ => None
       }
     TInstrKind::TReturn(values) | TInstrKind::TThrow(_, values) =>
@@ -386,21 +472,31 @@ fn mb_stack_sig_instr(instr : TInstr, env : Env) -> MBStackSig? {
         mb_stack_sig_terminate(sig, 1)
       })
     TInstrKind::TReturnCall(func_idx, args) =>
-      match
-        (mb_stack_sig_list(args, env), env.get_functype_by_funcidx(func_idx)) {
-        (Some(sig), Some(FuncType(params, _))) =>
-          Some(mb_stack_sig_terminate(sig, params.length()))
+      match env.get_functype_by_funcidx(func_idx) {
+        Some(FuncType(params, _)) =>
+          if !mb_call_args_match_params(args, params, env) {
+            None
+          } else {
+            match mb_stack_sig_list(args, env) {
+              Some(sig) => Some(mb_stack_sig_terminate(sig, params.length()))
+              None => None
+            }
+          }
         _ => None
       }
     TInstrKind::TReturnCallIndirect(type_idx, _, args, callee)
     | TInstrKind::TReturnCallRef(type_idx, args, callee) =>
-      match
-        (
-          mb_stack_sig_list(args + [callee], env),
-          env.resolve_functype(type_idx),
-        ) {
-        (Some(sig), Some(FuncType(params, _))) =>
-          Some(mb_stack_sig_terminate(sig, params.length() + 1))
+      match env.resolve_functype(type_idx) {
+        Some(FuncType(params, _)) =>
+          if !mb_call_args_match_params(args, params, env) {
+            None
+          } else {
+            match mb_stack_sig_list(args + [callee], env) {
+              Some(sig) =>
+                Some(mb_stack_sig_terminate(sig, params.length() + 1))
+              None => None
+            }
+          }
         _ => None
       }
     _ => None
@@ -1185,7 +1281,12 @@ fn mb_finalize_block_type(bt : BlockType, body : TExpr, env : Env) -> BlockType 
     VoidBlockType => BlockType::void_()
     ValTypeBlockType(_) =>
       match mb_infer_texpr_type(body, env) {
-        Some(vt) => BlockType::val_type(vt)
+        Some(vt) =>
+          match bt {
+            ValTypeBlockType(orig_ty) if vt == orig_ty =>
+              BlockType::val_type(vt)
+            _ => bt
+          }
         None => BlockType::void_()
       }
     TypeIdxBlockType(_) => bt
@@ -1228,7 +1329,12 @@ fn mb_refinalize_instr(instr : TInstr, env : Env) -> TInstr {
         VoidBlockType => inferred_bt
         ValTypeBlockType(orig_ty) =>
           match inferred_bt {
-            ValTypeBlockType(inferred_ty) => BlockType::val_type(inferred_ty)
+            ValTypeBlockType(inferred_ty) =>
+              if inferred_ty == orig_ty {
+                BlockType::val_type(inferred_ty)
+              } else {
+                BlockType::val_type(orig_ty)
+              }
             _ => BlockType::val_type(orig_ty)
           }
       }
@@ -2878,6 +2984,41 @@ fn mb_run_on_body(body : TExpr, locals? : Array[ValType] = []) -> TExpr {
   match mb_extract_only_tfunc(out) {
     Some(TFunc(_, _, new_body)) => new_body
     _ => body
+  }
+}
+
+///|
+test "merge blocks: stack signature guard rejects call arg type mismatch" {
+  let before = TInstr::call(FuncIdx::new(0), [TInstr::i32_const(I32(1))])
+  let after_items = [TInstr::call(FuncIdx::new(0), [TInstr::i64_const(I64(2))])]
+  let env = Env::new().with_module(
+    Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(SubType::comp_type(CompType::func([ValType::i32()], []))),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)])),
+  )
+  assert_false(mb_rewrite_preserves_stack_sig(before, after_items, env))
+}
+
+///|
+test "merge blocks: finalize preserves explicit value block type on inference conflict" {
+  let if_instr = TInstr::if_(
+    BlockType::val_type(ValType::i32()),
+    TInstr::i32_const(I32(1)),
+    TExpr::new([TInstr::i64_const(I64(1))]),
+    Some(TExpr::new([TInstr::i64_const(I64(2))])),
+  )
+  let out = mb_refinalize_instr(if_instr, Env::new())
+  match out.kind {
+    TInstrKind::TIf(bt, _, _, _) =>
+      match bt {
+        ValTypeBlockType(out_ty) => assert_eq(out_ty, ValType::i32())
+        _ => fail("expected refinalized if block type")
+      }
+    _ => fail("expected refinalized if instruction")
   }
 }
 
