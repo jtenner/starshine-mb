@@ -3640,6 +3640,7 @@ fn code_folding_pass_with_trace(
           let mut current_locals = state.func_locals
           let mut current_body = body
           let mut rounds = 0
+          let mut disable_expr_walk_after_terminating = false
           state.another_pass = true
           while state.another_pass {
             rounds += 1
@@ -3710,6 +3711,7 @@ fn code_folding_pass_with_trace(
             match unreachable_result {
               Some(new_body_instrs) => {
                 round_stats.unreachable_phase_successes += 1
+                disable_expr_walk_after_terminating = true
                 current_body = TExpr::new(new_body_instrs)
                 current_locals = state.func_locals
                 current_func = cf_build_tfunc(
@@ -3780,6 +3782,7 @@ fn code_folding_pass_with_trace(
             match return_result {
               Some(new_body_instrs) => {
                 round_stats.return_phase_successes += 1
+                disable_expr_walk_after_terminating = true
                 current_body = TExpr::new(new_body_instrs)
                 current_locals = state.func_locals
                 current_func = cf_build_tfunc(
@@ -3840,7 +3843,8 @@ fn code_folding_pass_with_trace(
               has_expr_candidates &&
               !over_expr_budget &&
               !over_collect_budget &&
-              !over_block_budget {
+              !over_block_budget &&
+              !disable_expr_walk_after_terminating {
               let walk_start_us = cf_trace_now_us()
               let walk_changed = match
                 self.walk_func_default(state, current_func) {
@@ -3885,6 +3889,8 @@ fn code_folding_pass_with_trace(
             } else if log_func {
               let skip_reason = if !has_expr_candidates {
                 "no_expr_candidates"
+              } else if disable_expr_walk_after_terminating {
+                "terminating_rewrite_guard"
               } else if !CF_ENABLE_EXPRESSION_FOLDING {
                 "expression_folding_disabled"
               } else if over_expr_budget {
@@ -4215,6 +4221,69 @@ test "code_folding_pass_with_trace defers walk after terminating return rewrite"
   assert_true(
     trace_logs.any(fn(msg) {
       msg.contains("round[1] walk deferred reason=terminating_returns_changed")
+    }),
+  )
+}
+
+///|
+test "code_folding_pass_with_trace skips later walks after terminating rewrites" {
+  let trace_logs : Array[String] = []
+  let pass = code_folding_pass_with_trace(trace=fn(msg) { trace_logs.push(msg) })
+  let state = CodeFoldingState::{
+    ..CodeFoldingState::new(
+      env=Env::new().with_return_type(Some([ValType::i32()])),
+    ),
+    another_pass: false,
+  }
+  let func = Func::t_func(
+    [],
+    [],
+    TExpr::new([
+      TInstr::if_(
+        BlockType::void_(),
+        TInstr::i32_const(I32(0)),
+        TExpr::new([
+          TInstr::drop(TInstr::i32_const(I32(9))),
+          TInstr::return_([TInstr::i32_const(I32(1))]),
+        ]),
+        Some(
+          TExpr::new([
+            TInstr::drop(TInstr::i32_const(I32(9))),
+            TInstr::return_([TInstr::i32_const(I32(2))]),
+          ]),
+        ),
+      ),
+      TInstr::if_(
+        BlockType::void_(),
+        TInstr::i32_const(I32(0)),
+        TExpr::new([
+          TInstr::drop(TInstr::i32_const(I32(5))),
+          TInstr::drop(TInstr::i32_const(I32(6))),
+        ]),
+        Some(
+          TExpr::new([
+            TInstr::drop(TInstr::i32_const(I32(5))),
+            TInstr::drop(TInstr::i32_const(I32(6))),
+          ]),
+        ),
+      ),
+      TInstr::return_([TInstr::i32_const(I32(0))]),
+    ]),
+  )
+  ignore(pass.walk_func(state, func))
+  assert_true(
+    trace_logs.any(fn(msg) {
+      msg.contains("round[1] terminating_returns") &&
+      msg.contains("changed=true")
+    }),
+  )
+  assert_false(
+    trace_logs.any(fn(msg) { msg.contains("round[2] walk elapsed_ms=") }),
+    msg="expected expression walk to stay disabled after terminating rewrites",
+  )
+  assert_true(
+    trace_logs.any(fn(msg) {
+      msg.contains("round[2] walk skipped reason=terminating_rewrite_guard")
     }),
   )
 }

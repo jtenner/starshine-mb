@@ -2,876 +2,209 @@
 [trace] options o=4 z=4 traps_never=false
 [trace] trace_mode=compact
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:start
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:read bytes=21584718
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:lowered bytes=21584718
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:read bytes=21584959
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:lowered bytes=21584959
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:decode done
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:pass_count=46 optimize:start
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt start passes=46
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt lift_to_texpr:start
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt lift_to_texpr:done elapsed_ms=454
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt lift_to_texpr:done elapsed_ms=417
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[1/46]:start pass=DuplicateFunctionElimination kind=module-runner
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[1/46]:returned pass=DuplicateFunctionElimination elapsed_ms=6373
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[1/46]:returned pass=DuplicateFunctionElimination elapsed_ms=6369
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[1/46]:commit:start pass=DuplicateFunctionElimination
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[1/46]:commit:done pass=DuplicateFunctionElimination
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[1/46]:done pass=DuplicateFunctionElimination elapsed_ms=6446
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[1/46]:done pass=DuplicateFunctionElimination elapsed_ms=6442
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[2/46]:start pass=RemoveUnused kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[2/46]:returned pass=RemoveUnused elapsed_ms=1648
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[2/46]:returned pass=RemoveUnused elapsed_ms=1560
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[2/46]:commit:start pass=RemoveUnused
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[2/46]:commit:done pass=RemoveUnused
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[2/46]:done pass=RemoveUnused elapsed_ms=1821
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[2/46]:done pass=RemoveUnused elapsed_ms=1725
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[3/46]:start pass=MemoryPacking({zero_filled_memory: false, traps_never_happen: false, max_data_segments: 100000}) kind=module-runner
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[3/46]:returned pass=MemoryPacking({zero_filled_memory: false, traps_never_happen: false, max_data_segments: 100000}) elapsed_ms=1589
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[3/46]:returned pass=MemoryPacking({zero_filled_memory: false, traps_never_happen: false, max_data_segments: 100000}) elapsed_ms=1516
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[3/46]:commit:start pass=MemoryPacking({zero_filled_memory: false, traps_never_happen: false, max_data_segments: 100000})
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[3/46]:commit:done pass=MemoryPacking({zero_filled_memory: false, traps_never_happen: false, max_data_segments: 100000})
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[3/46]:done pass=MemoryPacking({zero_filled_memory: false, traps_never_happen: false, max_data_segments: 100000}) elapsed_ms=1589
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[3/46]:done pass=MemoryPacking({zero_filled_memory: false, traps_never_happen: false, max_data_segments: 100000}) elapsed_ms=1516
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[4/46]:start pass=OnceReduction kind=module-runner
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[4/46]:returned pass=OnceReduction elapsed_ms=1266
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[4/46]:returned pass=OnceReduction elapsed_ms=1141
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[4/46]:commit:start pass=OnceReduction
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[4/46]:commit:done pass=OnceReduction
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[4/46]:done pass=OnceReduction elapsed_ms=1266
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[4/46]:done pass=OnceReduction elapsed_ms=1141
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[5/46]:start pass=DataflowOptimization kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[5/46]:returned pass=DataflowOptimization elapsed_ms=2930
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[5/46]:returned pass=DataflowOptimization elapsed_ms=2762
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[5/46]:commit:start pass=DataflowOptimization
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[5/46]:commit:done pass=DataflowOptimization
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[5/46]:done pass=DataflowOptimization elapsed_ms=2931
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[5/46]:done pass=DataflowOptimization elapsed_ms=2763
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[6/46]:start pass=Flatten kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[6/46]:returned pass=Flatten elapsed_ms=14541
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[6/46]:returned pass=Flatten elapsed_ms=13474
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[6/46]:commit:start pass=Flatten
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[6/46]:commit:done pass=Flatten
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[6/46]:done pass=Flatten elapsed_ms=14599
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[6/46]:done pass=Flatten elapsed_ms=13530
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[7/46]:start pass=SimplifyLocalsNoTeeNoStructure kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[7/46]:returned pass=SimplifyLocalsNoTeeNoStructure elapsed_ms=7873
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[7/46]:returned pass=SimplifyLocalsNoTeeNoStructure elapsed_ms=7671
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[7/46]:commit:start pass=SimplifyLocalsNoTeeNoStructure
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[7/46]:commit:done pass=SimplifyLocalsNoTeeNoStructure
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[7/46]:done pass=SimplifyLocalsNoTeeNoStructure elapsed_ms=8013
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[7/46]:done pass=SimplifyLocalsNoTeeNoStructure elapsed_ms=7806
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[8/46]:start pass=LocalCSE kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[8/46]:returned pass=LocalCSE elapsed_ms=2666
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[8/46]:returned pass=LocalCSE elapsed_ms=2593
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[8/46]:commit:start pass=LocalCSE
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[8/46]:commit:done pass=LocalCSE
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[8/46]:done pass=LocalCSE elapsed_ms=2788
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[8/46]:done pass=LocalCSE elapsed_ms=2708
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[9/46]:start pass=DeadCodeElimination kind=unit-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[9/46]:returned pass=DeadCodeElimination elapsed_ms=3137
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[9/46]:returned pass=DeadCodeElimination elapsed_ms=3118
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[9/46]:commit:start pass=DeadCodeElimination
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[9/46]:commit:done pass=DeadCodeElimination
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[9/46]:done pass=DeadCodeElimination elapsed_ms=3192
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[9/46]:done pass=DeadCodeElimination elapsed_ms=3173
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[10/46]:start pass=RemoveUnusedNames kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[10/46]:returned pass=RemoveUnusedNames elapsed_ms=9582
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[10/46]:returned pass=RemoveUnusedNames elapsed_ms=9521
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[10/46]:commit:start pass=RemoveUnusedNames
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[10/46]:commit:done pass=RemoveUnusedNames
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[10/46]:done pass=RemoveUnusedNames elapsed_ms=9719
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[10/46]:done pass=RemoveUnusedNames elapsed_ms=9653
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[11/46]:start pass=RemoveUnusedBrs kind=module-runner
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[11/46]:returned pass=RemoveUnusedBrs elapsed_ms=3586
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[11/46]:returned pass=RemoveUnusedBrs elapsed_ms=3548
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[11/46]:commit:start pass=RemoveUnusedBrs
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[11/46]:commit:done pass=RemoveUnusedBrs
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[11/46]:done pass=RemoveUnusedBrs elapsed_ms=3701
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[11/46]:done pass=RemoveUnusedBrs elapsed_ms=3659
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[12/46]:start pass=RemoveUnusedNames kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[12/46]:returned pass=RemoveUnusedNames elapsed_ms=9499
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[12/46]:returned pass=RemoveUnusedNames elapsed_ms=9475
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[12/46]:commit:start pass=RemoveUnusedNames
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[12/46]:commit:done pass=RemoveUnusedNames
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[12/46]:done pass=RemoveUnusedNames elapsed_ms=9623
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[12/46]:done pass=RemoveUnusedNames elapsed_ms=9595
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[13/46]:start pass=OptimizeInstructions kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[13/46]:returned pass=OptimizeInstructions elapsed_ms=4975
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[13/46]:returned pass=OptimizeInstructions elapsed_ms=4877
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[13/46]:commit:start pass=OptimizeInstructions
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[13/46]:commit:done pass=OptimizeInstructions
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[13/46]:done pass=OptimizeInstructions elapsed_ms=4991
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[13/46]:done pass=OptimizeInstructions elapsed_ms=4893
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[14/46]:start pass=PickLoadSigns kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[14/46]:returned pass=PickLoadSigns elapsed_ms=22721
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[14/46]:returned pass=PickLoadSigns elapsed_ms=21500
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[14/46]:commit:start pass=PickLoadSigns
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[14/46]:commit:done pass=PickLoadSigns
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[14/46]:done pass=PickLoadSigns elapsed_ms=22837
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[14/46]:done pass=PickLoadSigns elapsed_ms=21614
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[15/46]:start pass=PrecomputePropagate kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[15/46]:returned pass=PrecomputePropagate elapsed_ms=7953
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[15/46]:returned pass=PrecomputePropagate elapsed_ms=7955
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[15/46]:commit:start pass=PrecomputePropagate
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[15/46]:commit:done pass=PrecomputePropagate
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[15/46]:done pass=PrecomputePropagate elapsed_ms=8089
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[15/46]:done pass=PrecomputePropagate elapsed_ms=8086
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[16/46]:start pass=CodePushing kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[16/46]:returned pass=CodePushing elapsed_ms=15536
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[16/46]:returned pass=CodePushing elapsed_ms=15023
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[16/46]:commit:start pass=CodePushing
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[16/46]:commit:done pass=CodePushing
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[16/46]:done pass=CodePushing elapsed_ms=15664
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[16/46]:done pass=CodePushing elapsed_ms=15145
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[17/46]:start pass=TupleOptimization kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[17/46]:returned pass=TupleOptimization elapsed_ms=7710
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[17/46]:returned pass=TupleOptimization elapsed_ms=7556
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[17/46]:commit:start pass=TupleOptimization
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[17/46]:commit:done pass=TupleOptimization
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[17/46]:done pass=TupleOptimization elapsed_ms=7710
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[17/46]:done pass=TupleOptimization elapsed_ms=7558
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[18/46]:start pass=SimplifyLocalsNoStructure kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[18/46]:returned pass=SimplifyLocalsNoStructure elapsed_ms=10285
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[18/46]:returned pass=SimplifyLocalsNoStructure elapsed_ms=10070
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[18/46]:commit:start pass=SimplifyLocalsNoStructure
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[18/46]:commit:done pass=SimplifyLocalsNoStructure
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[18/46]:done pass=SimplifyLocalsNoStructure elapsed_ms=10426
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[18/46]:done pass=SimplifyLocalsNoStructure elapsed_ms=10192
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[19/46]:start pass=Vacuum kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[19/46]:returned pass=Vacuum elapsed_ms=20857
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[19/46]:returned pass=Vacuum elapsed_ms=20363
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[19/46]:commit:start pass=Vacuum
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[19/46]:commit:done pass=Vacuum
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[19/46]:done pass=Vacuum elapsed_ms=20949
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[19/46]:done pass=Vacuum elapsed_ms=20449
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[20/46]:start pass=ReorderLocals kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[20/46]:returned pass=ReorderLocals elapsed_ms=2815
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[20/46]:returned pass=ReorderLocals elapsed_ms=2576
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[20/46]:commit:start pass=ReorderLocals
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[20/46]:commit:done pass=ReorderLocals
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[20/46]:done pass=ReorderLocals elapsed_ms=2985
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[20/46]:done pass=ReorderLocals elapsed_ms=2739
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[21/46]:start pass=RemoveUnusedBrs kind=module-runner
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[21/46]:returned pass=RemoveUnusedBrs elapsed_ms=3956
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[21/46]:returned pass=RemoveUnusedBrs elapsed_ms=3733
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[21/46]:commit:start pass=RemoveUnusedBrs
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[21/46]:commit:done pass=RemoveUnusedBrs
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[21/46]:done pass=RemoveUnusedBrs elapsed_ms=4073
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[21/46]:done pass=RemoveUnusedBrs elapsed_ms=3843
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[22/46]:start pass=MergeLocals kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[22/46]:returned pass=MergeLocals elapsed_ms=1853
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[22/46]:returned pass=MergeLocals elapsed_ms=1729
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[22/46]:commit:start pass=MergeLocals
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[22/46]:commit:done pass=MergeLocals
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[22/46]:done pass=MergeLocals elapsed_ms=2003
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[22/46]:done pass=MergeLocals elapsed_ms=1863
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[23/46]:start pass=CoalesceLocals kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[23/46]:returned pass=CoalesceLocals elapsed_ms=59066
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[23/46]:returned pass=CoalesceLocals elapsed_ms=58124
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[23/46]:commit:start pass=CoalesceLocals
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[23/46]:commit:done pass=CoalesceLocals
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[23/46]:done pass=CoalesceLocals elapsed_ms=59203
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[23/46]:done pass=CoalesceLocals elapsed_ms=58249
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[24/46]:start pass=LocalCSE kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[24/46]:returned pass=LocalCSE elapsed_ms=2765
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[24/46]:returned pass=LocalCSE elapsed_ms=2542
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[24/46]:commit:start pass=LocalCSE
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[24/46]:commit:done pass=LocalCSE
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[24/46]:done pass=LocalCSE elapsed_ms=2924
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[24/46]:done pass=LocalCSE elapsed_ms=2681
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[25/46]:start pass=SimplifyLocals kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[25/46]:returned pass=SimplifyLocals elapsed_ms=23919
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[25/46]:returned pass=SimplifyLocals elapsed_ms=22957
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[25/46]:commit:start pass=SimplifyLocals
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[25/46]:commit:done pass=SimplifyLocals
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[25/46]:done pass=SimplifyLocals elapsed_ms=24037
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[25/46]:done pass=SimplifyLocals elapsed_ms=23067
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[26/46]:start pass=Vacuum kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[26/46]:returned pass=Vacuum elapsed_ms=20980
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[26/46]:returned pass=Vacuum elapsed_ms=20247
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[26/46]:commit:start pass=Vacuum
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[26/46]:commit:done pass=Vacuum
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[26/46]:done pass=Vacuum elapsed_ms=21120
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[26/46]:done pass=Vacuum elapsed_ms=20376
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[27/46]:start pass=ReorderLocals kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[27/46]:returned pass=ReorderLocals elapsed_ms=2798
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[27/46]:returned pass=ReorderLocals elapsed_ms=2501
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[27/46]:commit:start pass=ReorderLocals
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[27/46]:commit:done pass=ReorderLocals
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[27/46]:done pass=ReorderLocals elapsed_ms=2958
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[27/46]:done pass=ReorderLocals elapsed_ms=2650
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[28/46]:start pass=CoalesceLocals kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[28/46]:returned pass=CoalesceLocals elapsed_ms=50806
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[28/46]:returned pass=CoalesceLocals elapsed_ms=50009
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[28/46]:commit:start pass=CoalesceLocals
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[28/46]:commit:done pass=CoalesceLocals
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[28/46]:done pass=CoalesceLocals elapsed_ms=50942
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[28/46]:done pass=CoalesceLocals elapsed_ms=50137
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[29/46]:start pass=ReorderLocals kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[29/46]:returned pass=ReorderLocals elapsed_ms=2652
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[29/46]:returned pass=ReorderLocals elapsed_ms=2494
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[29/46]:commit:start pass=ReorderLocals
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[29/46]:commit:done pass=ReorderLocals
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[29/46]:done pass=ReorderLocals elapsed_ms=2786
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[29/46]:done pass=ReorderLocals elapsed_ms=2624
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[30/46]:start pass=Vacuum kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[30/46]:returned pass=Vacuum elapsed_ms=20472
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[30/46]:returned pass=Vacuum elapsed_ms=20069
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[30/46]:commit:start pass=Vacuum
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[30/46]:commit:done pass=Vacuum
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[30/46]:done pass=Vacuum elapsed_ms=20594
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[30/46]:done pass=Vacuum elapsed_ms=20188
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[31/46]:start pass=CodeFolding kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[31/46]:CodeFolding:validation_error elapsed_ms=37621 stack underflow
-error: _build/wasm/debug/build/cmd/cmd.wasm: validation error after pass CodeFolding:
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[31/46]:returned pass=CodeFolding elapsed_ms=35670
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[31/46]:commit:start pass=CodeFolding
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[31/46]:commit:done pass=CodeFolding
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[31/46]:done pass=CodeFolding elapsed_ms=35749
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[32/46]:start pass=MergeBlocks kind=ir-transformer
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[32/46]:MergeBlocks:validation_error elapsed_ms=27893 stack underflow
+error: _build/wasm/debug/build/cmd/cmd.wasm: validation error after pass MergeBlocks:
 stack underflow
 
-Offending function diff CodeFolding (before -> after):
-@@ lhs[7,0] rhs[7,1] @@
-     [0] I32 (param)
-     [1] I32 (param)
-+    [2] I32 (local)
+Offending function diff MergeBlocks (before -> after):
+@@ lhs[9,0] rhs[9,4] @@
+     [2] I32 (param)
+   body:
++    - call (Func 35) => (Type 243 (Func [I32] -> []))
++      args:
++        [0]
++          - local.get (Local 1) : <unknown local>
+     - block bt=(Void)
+       - call (Func 35) => (Type 243 (Func [I32] -> []))
+@@ lhs[10,4] rhs[14,0] @@
    body:
      - block bt=(Void)
-@@ lhs[11,7] rhs[12,26] @@
-       - block bt=(Void)
-         - block bt=(Void)
--          - if bt=(Void)
--            cond:
--              - local.tee (Local 0) : <unknown local>
--                value:
--                  - binary I32EqOp
--                    lhs:
--                      - local.tee (Local 0) : <unknown local>
-+          - block bt=(Void)
-+            - if bt=(Void)
-+              cond:
-+                - local.tee (Local 0) : I32 (param)
-+                  value:
-+                    - binary I32EqOp
-+                      lhs:
-+                        - local.tee (Local 0) : I32 (param)
-+                          value:
-+                            - local.tee (Local 0) : I32 (param)
-+                              value:
-+                                - call (Func 17) => (Type 233 (Func [I32] -> [I32]))
-+                                  args:
-+                                    [0]
-+                                      - local.get (Local 0) : I32 (param)
-+                      rhs:
-+                        - i32.const I32(0)
-+              then:
-+                - call (Func 37) => (Type 243 (Func [I32] -> []))
-+                  args:
-+                    [0]
-+                      - local.get (Local 1) : <unknown local>
-+                - call (Func 37) => (Type 243 (Func [I32] -> []))
-+                  args:
-+                    [0]
-+                      - local.tee (Local 0) : I32 (param)
-                         value:
-                           - local.tee (Local 0) : <unknown local>
-@@ lhs[19,1] rhs[39,45] @@
-                       - local.tee (Local 0) : <unknown local>
-                         value:
--                          - local.tee (Local 0) : <unknown local>
-+                          - local.tee (Local 0) : I32 (param)
-+                            value:
-+                              - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
-+                                addr:
-+                                  - local.get (Local 0) : I32 (param)
-+                - drop
-+                  value:
-+                    - local.get (Local 0) : I32 (param)
-+                - br (Label 1)
-+              else:
-+                - if bt=(Void)
-+                  cond:
-+                    - local.tee (Local 0) : I32 (param)
-+                      value:
-+                        - binary I32EqOp
-+                          lhs:
-+                            - local.get (Local 0) : I32 (param)
-+                          rhs:
-+                            - i32.const I32(1)
-+                  then:
-+                    - call (Func 35) => (Type 243 (Func [I32] -> []))
-+                      args:
-+                        [0]
-+                          - local.tee (Local 0) : I32 (param)
-+                            value:
-+                              - local.tee (Local 0) : I32 (param)
-+                                value:
-+                                  - local.tee (Local 0) : I32 (param)
-+                                    value:
-+                                      - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
-+                                        addr:
-+                                          - local.get (Local 0) : I32 (param)
-+                    - drop
-+                      value:
-+                        - local.get (Local 0) : I32 (param)
-+                    - br (Label 3)
-+                  else:
-+                    - call (Func 37) => (Type 243 (Func [I32] -> []))
-+                      args:
-+                        [0]
-+                          - local.get (Local 1) : <unknown local>
-+                    - call (Func 35) => (Type 243 (Func [I32] -> []))
-+                      args:
-+                        [0]
-+                          - local.tee (Local 0) : I32 (param)
-                             value:
-                               - call (Func 17) => (Type 233 (Func [I32] -> [I32]))
-@@ lhs[21,15] rhs[85,8] @@
-                           - local.tee (Local 0) : <unknown local>
-                             value:
--                              - call (Func 17) => (Type 233 (Func [I32] -> [I32]))
--                                args:
--                                  [0]
--                                    - local.get (Local 0) : <unknown local>
--                    rhs:
--                      - i32.const I32(0)
--            then:
--              - call (Func 37) => (Type 243 (Func [I32] -> []))
--                args:
--                  [0]
--                    - local.get (Local 1) : <unknown local>
--              - call (Func 37) => (Type 243 (Func [I32] -> []))
--                args:
--                  [0]
--                    - local.tee (Local 0) : <unknown local>
-+                              - local.tee (Local 0) : I32 (param)
-+                                value:
-+                                  - local.tee (Local 0) : I32 (param)
-+                                    value:
-+                                      - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
-+                                        addr:
-+                                          - local.get (Local 0) : I32 (param)
-+                    - drop
-                       value:
-                         - local.tee (Local 0) : <unknown local>
-@@ lhs[37,1] rhs[94,14] @@
-                     - local.tee (Local 0) : <unknown local>
-                       value:
--                        - local.tee (Local 0) : <unknown local>
-+                        - local.get (Local 0) : I32 (param)
-+                    - br (Label 4)
-+            - local.set (Local 2) : <unknown local>
-+              value:
-+                - local.get (Local 0) : I32 (param)
-+            - br (Label 3)
-+          - local.set (Local 2) : <unknown local>
-+            value:
-+              - local.tee (Local 0) : I32 (param)
-+                value:
-+                  - call (Func 549) => (Type 233 (Func [I32] -> [I32]))
-+                    args:
-+                      [0]
-+                        - local.tee (Local 0) : I32 (param)
-                           value:
-                             - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
-@@ lhs[39,9] rhs[109,11] @@
-                         - local.tee (Local 0) : <unknown local>
-                           value:
--                            - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
--                              addr:
--                                - local.get (Local 0) : <unknown local>
--              - drop
--                value:
--                  - local.get (Local 0) : <unknown local>
--              - br (Label 1)
--            else:
--              - if bt=(Void)
-+                            - local.tee (Local 0) : I32 (param)
-+                              value:
-+                                - call (Func 1695) => (Type 233 (Func [I32] -> [I32]))
-+                                  args:
-+                                    [0]
-+                                      - local.get (Local 0) : I32 (param)
-+          - br (Label 2)
-+        - block bt=(Void)
-+          - local.set (Local 0) : I32 (param)
-+            value:
-+              - if bt=I32
-                 cond:
-                   - local.tee (Local 0) : <unknown local>
-@@ lhs[49,1] rhs[121,1] @@
-               - if bt=(Void)
-                 cond:
--                  - local.tee (Local 0) : <unknown local>
-+                  - local.tee (Local 0) : I32 (param)
-                     value:
-                       - binary I32EqOp
-@@ lhs[53,1] rhs[125,10] @@
-                       - binary I32EqOp
-                         lhs:
--                          - local.get (Local 0) : <unknown local>
-+                          - local.tee (Local 0) : I32 (param)
-+                            value:
-+                              - local.tee (Local 0) : I32 (param)
-+                                value:
-+                                  - call (Func 2100) => (Type 224 (Func [I32, I32] -> [I32]))
-+                                    args:
-+                                      [0]
-+                                        - local.get (Local 1) : <unknown local>
-+                                      [1]
-+                                        - local.get (Local 0) : I32 (param)
-                         rhs:
-                           - i32.const I32(1)
-@@ lhs[55,1] rhs[136,1] @@
-                           - local.get (Local 0) : <unknown local>
-                         rhs:
--                          - i32.const I32(1)
-+                          - i32.const I32(0)
-                 then:
-                   - call (Func 35) => (Type 243 (Func [I32] -> []))
-@@ lhs[57,16] rhs[138,9] @@
-                           - i32.const I32(1)
-                 then:
--                  - call (Func 35) => (Type 243 (Func [I32] -> []))
--                    args:
--                      [0]
--                        - local.tee (Local 0) : <unknown local>
--                          value:
--                            - local.tee (Local 0) : <unknown local>
--                              value:
--                                - local.tee (Local 0) : <unknown local>
--                                  value:
--                                    - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
--                                      addr:
--                                        - local.get (Local 0) : <unknown local>
--                  - drop
--                    value:
--                      - local.get (Local 0) : <unknown local>
--                  - br (Label 3)
-+                  - if bt=(Void)
-+                    cond:
-+                      - local.get (Local 0) : I32 (param)
-+                    then:
-+                      - call (Func 37) => (Type 243 (Func [I32] -> []))
-+                        args:
-+                          [0]
-+                            - local.get (Local 0) : I32 (param)
-+                  - local.get (Local 0) : I32 (param)
-                 else:
-                   - call (Func 37) => (Type 243 (Func [I32] -> []))
-@@ lhs[77,7] rhs[151,37] @@
-                     args:
-                       [0]
--                        - local.get (Local 1) : <unknown local>
--                  - call (Func 35) => (Type 243 (Func [I32] -> []))
--                    args:
--                      [0]
--                        - local.tee (Local 0) : <unknown local>
--                          value:
--                            - local.tee (Local 0) : <unknown local>
-+                        - local.get (Local 0) : I32 (param)
-+                  - local.tee (Local 0) : I32 (param)
-+                    value:
-+                      - if bt=I32
-+                        cond:
-+                          - local.tee (Local 0) : I32 (param)
-+                            value:
-+                              - binary I32EqOp
-+                                lhs:
-+                                  - local.tee (Local 0) : I32 (param)
-+                                    value:
-+                                      - local.tee (Local 0) : I32 (param)
-+                                        value:
-+                                          - call (Func 17) => (Type 233 (Func [I32] -> [I32]))
-+                                            args:
-+                                              [0]
-+                                                - local.get (Local 0) : I32 (param)
-+                                rhs:
-+                                  - i32.const I32(2)
-+                        then:
-+                          - call (Func 37) => (Type 243 (Func [I32] -> []))
-+                            args:
-+                              [0]
-+                                - local.get (Local 0) : I32 (param)
-+                          - local.tee (Local 0) : I32 (param)
-+                            value:
-+                              - call (Func 549) => (Type 233 (Func [I32] -> [I32]))
-+                                args:
-+                                  [0]
-+                                    - local.tee (Local 0) : I32 (param)
-+                                      value:
-+                                        - local.tee (Local 0) : I32 (param)
-+                                          value:
-+                                            - call (Func 2958) => (Type 255 (Func [] -> [I32]))
-+                        else:
-+                          - block bt=(Void)
-+                            - drop
-                               value:
-                                 - local.tee (Local 0) : <unknown local>
-@@ lhs[85,1] rhs[189,1] @@
-                             - local.tee (Local 0) : <unknown local>
-                               value:
--                                - local.tee (Local 0) : <unknown local>
-+                                - local.tee (Local 0) : I32 (param)
-                                   value:
-                                     - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
-@@ lhs[87,27] rhs[191,27] @@
-                                 - local.tee (Local 0) : <unknown local>
-                                   value:
--                                    - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
--                                      addr:
--                                        - local.get (Local 0) : <unknown local>
--                  - drop
--                    value:
--                      - local.get (Local 0) : <unknown local>
--                  - br (Label 4)
--          - return
--            values:
--              [0]
--                - local.get (Local 0) : <unknown local>
--        - return
--          values:
--            [0]
--              - local.tee (Local 0) : <unknown local>
--                value:
--                  - call (Func 549) => (Type 233 (Func [I32] -> [I32]))
--                    args:
--                      [0]
--                        - local.tee (Local 0) : <unknown local>
--                          value:
--                            - local.tee (Local 0) : <unknown local>
--                              value:
--                                - call (Func 1695) => (Type 233 (Func [I32] -> [I32]))
--                                  args:
--                                    [0]
--                                      - local.get (Local 0) : <unknown local>
-+                                    - binary I32EqOp
-+                                      lhs:
-+                                        - local.get (Local 0) : I32 (param)
-+                                      rhs:
-+                                        - i32.const I32(1)
-+                            - call (Func 37) => (Type 243 (Func [I32] -> []))
-+                              args:
-+                                [0]
-+                                  - local.get (Local 0) : I32 (param)
-+                            - br (Label 3)
-+          - local.set (Local 2) : <unknown local>
-+            value:
-+              - local.get (Local 0) : I32 (param)
-+          - br (Label 2)
-+        - local.set (Local 2) : <unknown local>
-+          value:
-+            - local.tee (Local 0) : I32 (param)
-+              value:
-+                - call (Func 549) => (Type 233 (Func [I32] -> [I32]))
-+                  args:
-+                    [0]
-+                      - local.tee (Local 0) : I32 (param)
-+                        value:
-+                          - local.tee (Local 0) : I32 (param)
-+                            value:
-+                              - call (Func 2960) => (Type 255 (Func [] -> [I32]))
-+        - br (Label 1)
-       - block bt=(Void)
-         - local.set (Local 0) : <unknown local>
-@@ lhs[115,1] rhs[219,1] @@
-                                       - local.get (Local 0) : <unknown local>
-       - block bt=(Void)
--        - local.set (Local 0) : <unknown local>
-+        - local.set (Local 0) : I32 (param)
-           value:
-             - if bt=I32
-@@ lhs[119,1] rhs[223,1] @@
-             - if bt=I32
-               cond:
--                - local.tee (Local 0) : <unknown local>
-+                - local.tee (Local 0) : I32 (param)
-                   value:
-                     - binary I32EqOp
-@@ lhs[123,1] rhs[227,1] @@
-                     - binary I32EqOp
-                       lhs:
--                        - local.tee (Local 0) : <unknown local>
-+                        - local.tee (Local 0) : I32 (param)
-                           value:
-                             - local.tee (Local 0) : <unknown local>
-@@ lhs[125,1] rhs[229,1] @@
-                         - local.tee (Local 0) : <unknown local>
-                           value:
--                            - local.tee (Local 0) : <unknown local>
-+                            - local.tee (Local 0) : I32 (param)
-                               value:
-                                 - call (Func 2100) => (Type 224 (Func [I32, I32] -> [I32]))
-@@ lhs[127,1] rhs[231,1] @@
-                             - local.tee (Local 0) : <unknown local>
-                               value:
--                                - call (Func 2100) => (Type 224 (Func [I32, I32] -> [I32]))
-+                                - call (Func 3796) => (Type 233 (Func [I32] -> [I32]))
-                                   args:
-                                     [0]
-@@ lhs[130,3] rhs[234,1] @@
-                                   args:
-                                     [0]
--                                      - local.get (Local 1) : <unknown local>
--                                    [1]
--                                      - local.get (Local 0) : <unknown local>
-+                                      - local.get (Local 0) : I32 (param)
-                       rhs:
-                         - i32.const I32(0)
-@@ lhs[138,1] rhs[240,1] @@
-                 - if bt=(Void)
-                   cond:
--                    - local.get (Local 0) : <unknown local>
-+                    - local.get (Local 0) : I32 (param)
-                   then:
-                     - call (Func 37) => (Type 243 (Func [I32] -> []))
-@@ lhs[143,2] rhs[245,2] @@
-                       args:
-                         [0]
--                          - local.get (Local 0) : <unknown local>
--                - local.get (Local 0) : <unknown local>
-+                          - local.get (Local 0) : I32 (param)
-+                - local.get (Local 0) : I32 (param)
-               else:
-                 - call (Func 37) => (Type 243 (Func [I32] -> []))
-@@ lhs[149,2] rhs[251,15] @@
-                   args:
-                     [0]
--                      - local.get (Local 0) : <unknown local>
--                - local.tee (Local 0) : <unknown local>
-+                      - local.get (Local 0) : I32 (param)
-+                - drop
-+                  value:
-+                    - local.get (Local 0) : I32 (param)
-+                - br (Label 1)
-+        - local.set (Local 2) : <unknown local>
-+          value:
-+            - local.get (Local 0) : I32 (param)
-+        - br (Label 1)
-+      - block bt=(Void)
-+        - local.set (Local 0) : I32 (param)
-+          value:
-+            - if bt=I32
-+              cond:
-+                - local.tee (Local 0) : I32 (param)
-                   value:
-                     - if bt=I32
-@@ lhs[152,3] rhs[267,3] @@
-                 - local.tee (Local 0) : <unknown local>
-                   value:
--                    - if bt=I32
--                      cond:
--                        - local.tee (Local 0) : <unknown local>
-+                    - binary I32EqOp
-+                      lhs:
-+                        - local.tee (Local 0) : I32 (param)
-                           value:
-                             - binary I32EqOp
-@@ lhs[156,25] rhs[271,6] @@
-                         - local.tee (Local 0) : <unknown local>
-                           value:
--                            - binary I32EqOp
--                              lhs:
--                                - local.tee (Local 0) : <unknown local>
--                                  value:
--                                    - local.tee (Local 0) : <unknown local>
--                                      value:
--                                        - call (Func 17) => (Type 233 (Func [I32] -> [I32]))
--                                          args:
--                                            [0]
--                                              - local.get (Local 0) : <unknown local>
--                              rhs:
--                                - i32.const I32(2)
--                      then:
--                        - call (Func 37) => (Type 243 (Func [I32] -> []))
--                          args:
--                            [0]
--                              - local.get (Local 0) : <unknown local>
--                        - local.tee (Local 0) : <unknown local>
--                          value:
--                            - call (Func 549) => (Type 233 (Func [I32] -> [I32]))
--                              args:
--                                [0]
--                                  - local.tee (Local 0) : <unknown local>
--                                    value:
--                                      - local.tee (Local 0) : <unknown local>
-+                            - local.tee (Local 0) : I32 (param)
-+                              value:
-+                                - call (Func 17) => (Type 233 (Func [I32] -> [I32]))
-+                                  args:
-+                                    [0]
-+                                      - local.tee (Local 0) : I32 (param)
-                                         value:
-                                           - call (Func 2958) => (Type 255 (Func [] -> [I32]))
-@@ lhs[182,33] rhs[278,10] @@
-                                       - local.tee (Local 0) : <unknown local>
-                                         value:
--                                          - call (Func 2958) => (Type 255 (Func [] -> [I32]))
--                      else:
--                        - if bt=(Void)
--                          cond:
--                            - local.tee (Local 0) : <unknown local>
--                              value:
--                                - binary I32EqOp
--                                  lhs:
--                                    - local.get (Local 0) : <unknown local>
--                                  rhs:
--                                    - i32.const I32(1)
--                          then:
--                            - call (Func 37) => (Type 243 (Func [I32] -> []))
--                              args:
--                                [0]
--                                  - local.get (Local 0) : <unknown local>
--                            - br (Label 3)
--                          else:
--                            - call (Func 37) => (Type 243 (Func [I32] -> []))
--                              args:
--                                [0]
--                                  - local.get (Local 0) : <unknown local>
--                            - br (Label 3)
--        - return
--          values:
--            [0]
--              - local.get (Local 0) : <unknown local>
--      - return
--        values:
+-      - call (Func 35) => (Type 243 (Func [I32] -> []))
+-        args:
 -          [0]
--            - local.tee (Local 0) : <unknown local>
--              value:
--                - call (Func 549) => (Type 233 (Func [I32] -> [I32]))
-+                                          - local.tee (Local 0) : I32 (param)
-+                                            value:
-+                                              - call (Func 639) => (Type 233 (Func [I32] -> [I32]))
-+                                                args:
-+                                                  [0]
-+                                                    - local.get (Local 0) : I32 (param)
-+                      rhs:
-+                        - i32.const I32(2)
-+              then:
-+                - call (Func 37) => (Type 243 (Func [I32] -> []))
-                   args:
-                     [0]
-@@ lhs[217,3] rhs[290,7] @@
-                   args:
-                     [0]
--                      - local.tee (Local 0) : <unknown local>
--                        value:
--                          - local.tee (Local 0) : <unknown local>
-+                      - local.get (Local 0) : I32 (param)
-+                - local.tee (Local 0) : I32 (param)
-+                  value:
-+                    - call (Func 549) => (Type 233 (Func [I32] -> [I32]))
-+                      args:
-+                        [0]
-+                          - local.tee (Local 0) : I32 (param)
-                             value:
-                               - call (Func 2960) => (Type 255 (Func [] -> [I32]))
-@@ lhs[221,11] rhs[298,8] @@
-                           - local.tee (Local 0) : <unknown local>
-                             value:
--                              - call (Func 2960) => (Type 255 (Func [] -> [I32]))
--    - block bt=(Void)
--      - local.set (Local 0) : <unknown local>
--        value:
--          - if bt=I32
--            cond:
--              - local.tee (Local 0) : <unknown local>
--                value:
--                  - binary I32EqOp
--                    lhs:
--                      - local.tee (Local 0) : <unknown local>
-+                              - local.tee (Local 0) : I32 (param)
-+                                value:
-+                                  - call (Func 2958) => (Type 255 (Func [] -> [I32]))
-+              else:
-+                - block bt=(Void)
-+                  - drop
-+                    value:
-+                      - local.tee (Local 0) : I32 (param)
-                         value:
-                           - local.tee (Local 0) : <unknown local>
-@@ lhs[233,13] rhs[307,5] @@
-                       - local.tee (Local 0) : <unknown local>
-                         value:
--                          - local.tee (Local 0) : <unknown local>
--                            value:
--                              - call (Func 3796) => (Type 233 (Func [I32] -> [I32]))
--                                args:
--                                  [0]
--                                    - local.get (Local 0) : <unknown local>
--                    rhs:
--                      - i32.const I32(0)
--            then:
--              - if bt=(Void)
--                cond:
--                  - local.get (Local 0) : <unknown local>
--                then:
-+                          - binary I32EqOp
-+                            lhs:
-+                              - local.get (Local 0) : I32 (param)
-+                            rhs:
-+                              - i32.const I32(1)
-                   - call (Func 37) => (Type 243 (Func [I32] -> []))
-                     args:
-@@ lhs[249,17] rhs[315,7] @@
-                     args:
-                       [0]
--                        - local.get (Local 0) : <unknown local>
--              - local.get (Local 0) : <unknown local>
--            else:
--              - call (Func 37) => (Type 243 (Func [I32] -> []))
--                args:
--                  [0]
--                    - local.get (Local 0) : <unknown local>
--              - drop
--                value:
--                  - local.get (Local 0) : <unknown local>
--              - br (Label 1)
--      - return
--        values:
--          [0]
--            - local.get (Local 0) : <unknown local>
--    - block bt=(Void)
--      - local.set (Local 0) : <unknown local>
-+                        - local.get (Local 0) : I32 (param)
-+                  - br (Label 2)
-+        - local.set (Local 2) : <unknown local>
-+          value:
-+            - local.get (Local 0) : I32 (param)
-+        - br (Label 1)
-+      - local.tee (Local 0) : I32 (param)
+-            - local.get (Local 1) : <unknown local>
+       - local.set (Local 0) : <unknown local>
          value:
-           - if bt=I32
-@@ lhs[267,74] rhs[323,12] @@
+@@ lhs[16,1] rhs[16,1] @@
        - local.set (Local 0) : <unknown local>
          value:
 -          - if bt=I32
--            cond:
--              - local.tee (Local 0) : <unknown local>
--                value:
--                  - binary I32EqOp
--                    lhs:
--                      - local.tee (Local 0) : <unknown local>
--                        value:
--                          - local.tee (Local 0) : <unknown local>
--                            value:
--                              - call (Func 17) => (Type 233 (Func [I32] -> [I32]))
--                                args:
--                                  [0]
--                                    - local.tee (Local 0) : <unknown local>
--                                      value:
--                                        - local.tee (Local 0) : <unknown local>
--                                          value:
--                                            - call (Func 639) => (Type 233 (Func [I32] -> [I32]))
--                                              args:
--                                                [0]
--                                                  - local.get (Local 0) : <unknown local>
--                    rhs:
--                      - i32.const I32(2)
--            then:
--              - call (Func 37) => (Type 243 (Func [I32] -> []))
--                args:
--                  [0]
--                    - local.get (Local 0) : <unknown local>
--              - local.tee (Local 0) : <unknown local>
--                value:
--                  - call (Func 549) => (Type 233 (Func [I32] -> [I32]))
--                    args:
--                      [0]
--                        - local.tee (Local 0) : <unknown local>
--                          value:
--                            - local.tee (Local 0) : <unknown local>
--                              value:
--                                - call (Func 2958) => (Type 255 (Func [] -> [I32]))
--            else:
--              - if bt=(Void)
--                cond:
--                  - local.tee (Local 0) : <unknown local>
--                    value:
--                      - binary I32EqOp
--                        lhs:
--                          - local.get (Local 0) : <unknown local>
--                        rhs:
--                          - i32.const I32(1)
--                then:
--                  - call (Func 37) => (Type 243 (Func [I32] -> []))
--                    args:
--                      [0]
--                        - local.get (Local 0) : <unknown local>
--                  - br (Label 2)
--                else:
--                  - call (Func 37) => (Type 243 (Func [I32] -> []))
--                    args:
--                      [0]
--                        - local.get (Local 0) : <unknown local>
--                  - br (Label 2)
--      - return
--        values:
--          [0]
--            - local.get (Local 0) : <unknown local>
--    - local.tee (Local 0) : <unknown local>
--      value:
--        - call (Func 549) => (Type 233 (Func [I32] -> [I32]))
--          args:
--            [0]
--              - local.tee (Local 0) : <unknown local>
--                value:
--                  - local.tee (Local 0) : <unknown local>
--                    value:
--                      - call (Func 2960) => (Type 255 (Func [] -> [I32]))
-+          - call (Func 549) => (Type 233 (Func [I32] -> [I32]))
-+            args:
-+              [0]
-+                - local.tee (Local 0) : I32 (param)
-+                  value:
-+                    - local.tee (Local 0) : I32 (param)
-+                      value:
-+                        - call (Func 2960) => (Type 255 (Func [] -> [I32]))
-+    - return
-+      values:
-+        [0]
-+          - local.get (Local 2) : <unknown local>
- 
++          - if bt=(Void)
+             cond:
+               - local.tee (Local 0) : <unknown local>
 
 
 Root-level TInstr context (best effort):
-failing_root_instr=0 reason=stack underflow
-root_instr[0] <-- likely failure
-kind=TBlock((Void), {instrs: [{kind: TBlock((Void), {instrs: [{kind: TBlock((Void), {instrs: [{kind: TBlock((Void), {instrs: [{kind: TIf((Void), {kind: TLocalTee((Local 0), {kind: TBinary(I32EqOp, {kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TCall((Func 17), [{kind: TLocalGet((Local 0)), hash: None}]), hash: None}), hash: None}), hash: None}, {kind: TI32Const(I32(0)), hash: Some(-813420232)}), hash: None}), hash: None}, {instrs: [{kind: TCall((Func 37), [{kind: TLocalGet((Local 1)), hash: None}]), hash: None}, {kind: TCall((Func 37), [{kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TLoad(I32LoadOp, align=U32(0) offset=U64(8), {kind: TLocalGet((Local 0)), hash: None}), hash: None}), hash: None}), hash: None}]), hash: None}, {kind: TDrop({kind: TLocalGet((Local 0)), hash: None}), hash: None}, {kind: TBr((Label 1), []), hash: Some(-383850327)}], hash: None}, Some({instrs: [{kind: TIf((Void), {kind: TLocalTee((Local 0), {kind: TBinary(I32EqOp, {kind: TLocalGet((Local 0)), hash: Some(-1919382637)}, {kind: TI32Const(I32(1)), hash: Some(1785916002)}), hash: Some(-1484074706)}), hash: Some(-434350831)}, {instrs: [{kind: TCall((Func 35), [{kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TLoad(I32LoadOp, align=U32(0) offset=U64(8), {kind: TLocalGet((Local 0)), hash: Some(-1919382637)}), hash: Some(121971855)}), hash: Some(1653182184)}), hash: Some(-1310839619)}), hash: Some(-918551487)}]), hash: Some(2091471270)}, {kind: TDrop({kind: TLocalGet((Local 0)), hash: Some(-1919382637)}), hash: Some(426238545)}, {kind: TBr((Label 3), []), hash: Some(744214688)}], hash: Some(1480056394)}, Some({instrs: [{kind: TCall((Func 37), [{kind: TLocalGet((Local 1)), hash: Some(-1186236016)}]), hash: Some(1360880154)}, {kind: TCall((Func 35), [{kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TLoad(I32LoadOp, align=U32(0) offset=U64(8), {kind: TLocalGet((Local 0)), hash: Some(-1919382637)}), hash: Some(121971855)}), hash: Some(1653182184)}), hash: Some(-1310839619)}), hash: Some(-918551487)}]), hash: Some(2091471270)}, {kind: TDrop({kind: TLocalGet((Local 0)), hash: Some(-1919382637)}), hash: Some(426238545)}, {kind: TBr((Label 4), []), hash: Some(-1339690323)}], hash: Some(-1087420891)})), hash: Some(1681720501)}], hash: None})), hash: None}, {kind: TLocalSet((Local 2), {kind: TLocalGet((Local 0)), hash: Some(-1919382637)}), hash: Some(6098673)}, {kind: TBr((Label 3), []), hash: Some(744214688)}], hash: None}), hash: None}, {kind: TLocalSet((Local 2), {kind: TLocalTee((Local 0), {kind: TCall((Func 549), [{kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TCall((Func 1695), [{kind: TLocalGet((Local 0)), hash: Some(-1919382637)}]), hash: Some(494754737)}), hash: Some(-722811527)}), hash: Some(-1412552393)}]), hash: Some(-132921681)}), hash: Some(-986018963)}), hash: Some(-533860761)}, {kind: TBr((Label 2), []), hash: Some(887395513)}], hash: None}), hash: None}, {kind: TBlock((Void), {instrs: [{kind: TLocalSet((Local 0), {kind: TIf(I32, {kind: TLocalTee((Local 0), {kind: TBinary(I32EqOp, {kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TCall((Func 2100), [{kind: TLocalGet((Local 1)), hash: None}, {kind: TLocalGet((Local 0)), hash: None}]), hash: None}), hash: None}), hash: None}, {kind: TI32Const(I32(0)), hash: Some(-813420232)}), hash: None}), hash: None}, {instrs: [{kind: TIf((Void), {kind: TLocalGet((Local 0)), hash: None}, {instrs: [{kind: TCall((Func 37), [{kind: TLocalGet((Local 0)), hash: None}]), hash: None}], hash: None}, None), hash: None}, {kind: TLocalGet((Local 0)), hash: Some(-1919382637)}], hash: None}, Some({instrs: [{kind: TCall((Func 37), [{kind: TLocalGet((Local 0)), hash: None}]), hash: None}, {kind: TLocalTee((Local 0), {kind: TIf(I32, {kind: TLocalTee((Local 0), {kind: TBinary(I32EqOp, {kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TCall((Func 17), [{kind: TLocalGet((Local 0)), hash: Some(-1919382637)}]), hash: Some(-769507015)}), hash: Some(-436691742)}), hash: Some(713056915)}, {kind: TI32Const(I32(2)), hash: Some(418961231)}), hash: Some(1223049492)}), hash: Some(1605650630)}, {instrs: [{kind: TCall((Func 37), [{kind: TLocalGet((Local 0)), hash: Some(-1919382637)}]), hash: Some(255393502)}, {kind: TLocalTee((Local 0), {kind: TCall((Func 549), [{kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TCall((Func 2958), []), hash: Some(166103559)}), hash: Some(-31385267)}), hash: Some(1445407217)}]), hash: Some(-1276114264)}), hash: Some(533225146)}], hash: Some(-1227357256)}, Some({instrs: [{kind: TBlock((Void), {instrs: [{kind: TDrop({kind: TLocalTee((Local 0), {kind: TBinary(I32EqOp, {kind: TLocalGet((Local 0)), hash: Some(-1919382637)}, {kind: TI32Const(I32(1)), hash: Some(1785916002)}), hash: Some(-1484074706)}), hash: Some(-434350831)}), hash: Some(-1267026603)}, {kind: TCall((Func 37), [{kind: TLocalGet((Local 0)), hash: Some(-1919382637)}]), hash: Some(255393502)}, {kind: TBr((Label 3), []), hash: Some(744214688)}], hash: Some(-2025417145)}), hash: Some(-1163302290)}], hash: Some(-20959067)})), hash: Some(507094992)}), hash: Some(1754378256)}], hash: None})), hash: None}), hash: None}, {kind: TLocalSet((Local 2), {kind: TLocalGet((Local 0)), hash: None}), hash: None}, {kind: TBr((Label 2), []), hash: Some(887395513)}], hash: None}), hash: None}, {kind: TLocalSet((Local 2), {kind: TLocalTee((Local 0), {kind: TCall((Func 549), [{kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TCall((Func 2960), []), hash: None}), hash: None}), hash: None}]), hash: None}), hash: None}), hash: None}, {kind: TBr((Label 1), []), hash: Some(-383850327)}], hash: None}), hash: None}, {kind: TBlock((Void), {instrs: [{kind: TLocalSet((Local 0), {kind: TIf(I32, {kind: TLocalTee((Local 0), {kind: TBinary(I32EqOp, {kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TCall((Func 3796), [{kind: TLocalGet((Local 0)), hash: None}]), hash: None}), hash: None}), hash: None}, {kind: TI32Const(I32(0)), hash: Some(-813420232)}), hash: None}), hash: None}, {instrs: [{kind: TIf((Void), {kind: TLocalGet((Local 0)), hash: None}, {instrs: [{kind: TCall((Func 37), [{kind: TLocalGet((Local 0)), hash: None}]), hash: None}], hash: None}, None), hash: None}, {kind: TLocalGet((Local 0)), hash: Some(-1919382637)}], hash: None}, Some({instrs: [{kind: TCall((Func 37), [{kind: TLocalGet((Local 0)), hash: None}]), hash: None}, {kind: TDrop({kind: TLocalGet((Local 0)), hash: None}), hash: None}, {kind: TBr((Label 1), []), hash: Some(-383850327)}], hash: None})), hash: None}), hash: None}, {kind: TLocalSet((Local 2), {kind: TLocalGet((Local 0)), hash: None}), hash: None}, {kind: TBr((Label 1), []), hash: Some(-383850327)}], hash: None}), hash: None}, {kind: TBlock((Void), {instrs: [{kind: TLocalSet((Local 0), {kind: TIf(I32, {kind: TLocalTee((Local 0), {kind: TBinary(I32EqOp, {kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TCall((Func 17), [{kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TCall((Func 639), [{kind: TLocalGet((Local 0)), hash: None}]), hash: None}), hash: None}), hash: None}]), hash: None}), hash: None}), hash: None}, {kind: TI32Const(I32(2)), hash: Some(418961231)}), hash: None}), hash: None}, {instrs: [{kind: TCall((Func 37), [{kind: TLocalGet((Local 0)), hash: None}]), hash: None}, {kind: TLocalTee((Local 0), {kind: TCall((Func 549), [{kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TCall((Func 2958), []), hash: Some(166103559)}), hash: Some(-31385267)}), hash: Some(1445407217)}]), hash: Some(-1276114264)}), hash: Some(533225146)}], hash: None}, Some({instrs: [{kind: TBlock((Void), {instrs: [{kind: TDrop({kind: TLocalTee((Local 0), {kind: TBinary(I32EqOp, {kind: TLocalGet((Local 0)), hash: Some(-1919382637)}, {kind: TI32Const(I32(1)), hash: Some(1785916002)}), hash: Some(-1484074706)}), hash: Some(-434350831)}), hash: Some(-1267026603)}, {kind: TCall((Func 37), [{kind: TLocalGet((Local 0)), hash: Some(-1919382637)}]), hash: Some(255393502)}, {kind: TBr((Label 2), []), hash: Some(887395513)}], hash: Some(-1716788331)}), hash: Some(201848665)}], hash: None})), hash: None}), hash: None}, {kind: TLocalSet((Local 2), {kind: TLocalGet((Local 0)), hash: None}), hash: None}, {kind: TBr((Label 1), []), hash: Some(-383850327)}], hash: None}), hash: None}, {kind: TLocalTee((Local 0), {kind: TCall((Func 549), [{kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TCall((Func 2960), []), hash: None}), hash: None}), hash: None}]), hash: None}), hash: None}], hash: None})
-root_instr[1]
-kind=TReturn([{kind: TLocalGet((Local 2)), hash: None}])
+failing_root_instr=1 reason=stack underflow
+root_instr[0]
+kind=TCall((Func 35), [{kind: TLocalGet((Local 1)), hash: Some(-1186236016)}])
+root_instr[1] <-- likely failure
+kind=TBlock((Void), {instrs: [{kind: TLocalSet((Local 0), {kind: TIf((Void), {kind: TLocalTee((Local 0), {kind: TBinary(I32EqOp, {kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TCall((Func 17), [{kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TCall((Func 278), [{kind: TLocalGet((Local 0)), hash: Some(-1919382637)}, {kind: TLocalGet((Local 1)), hash: Some(-1186236016)}, {kind: TLocalGet((Local 2)), hash: Some(-1313009008)}]), hash: None}), hash: None}), hash: None}]), hash: None}), hash: None}), hash: None}, {kind: TI32Const(I32(1)), hash: Some(1785916002)}), hash: None}), hash: None}, {instrs: [{kind: TCall((Func 37), [{kind: TLocalGet((Local 0)), hash: Some(-1919382637)}]), hash: None}, {kind: TCall((Func 37), [{kind: TLocalGet((Local 1)), hash: Some(-1186236016)}]), hash: None}, {kind: TI32Const(I32(0)), hash: Some(-813420232)}], hash: None}, Some({instrs: [{kind: TIf((Void), {kind: TLocalTee((Local 0), {kind: TBinary(I32GtSOp, {kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TLoad(I32LoadOp, align=U32(0) offset=U64(0), {kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TLoad(I32LoadOp, align=U32(0) offset=U64(8), {kind: TLocalGet((Local 0)), hash: Some(-1919382637)}), hash: None}), hash: None}), hash: None}), hash: None}), hash: None}), hash: None}, {kind: TI32Const(I32(1)), hash: Some(1785916002)}), hash: None}), hash: None}, {instrs: [{kind: TStore(I32StoreOp, align=U32(0) offset=U64(0), {kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TBinary(I32SubOp, {kind: TLocalGet((Local 0)), hash: Some(-1919382637)}, {kind: TI32Const(I32(1)), hash: Some(1785916002)}), hash: None}), hash: None}), hash: None}, {kind: TLocalGet((Local 0)), hash: Some(-1919382637)}), hash: None}, {kind: TCall((Func 35), [{kind: TLocalGet((Local 0)), hash: Some(-1919382637)}]), hash: None}], hash: None}, Some({instrs: [{kind: TIf((Void), {kind: TLocalTee((Local 0), {kind: TBinary(I32EqOp, {kind: TLocalGet((Local 0)), hash: Some(-1919382637)}, {kind: TI32Const(I32(1)), hash: Some(1785916002)}), hash: None}), hash: None}, {instrs: [{kind: TCall((Func 15), [{kind: TLocalGet((Local 0)), hash: Some(-1919382637)}]), hash: None}], hash: None}, None), hash: None}], hash: None})), hash: None}, {kind: TDrop({kind: TLocalGet((Local 0)), hash: Some(-1919382637)}), hash: None}, {kind: TBr((Label 1), []), hash: Some(-383850327)}], hash: None})), hash: None}), hash: None}, {kind: TReturn([{kind: TLocalGet((Local 0)), hash: None}]), hash: None}], hash: None})
+root_instr[2]
+kind=TLocalSet((Local 0), {kind: TLocalTee((Local 0), {kind: TLoad(I32LoadOp, align=U32(0) offset=U64(32), {kind: TLocalGet((Local 1)), hash: None}), hash: None}), hash: None})
+root_instr[3]
+kind=TIf((Void), {kind: TLocalTee((Local 0), {kind: TBinary(I32GtSOp, {kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TLoad(I32LoadOp, align=U32(0) offset=U64(0), {kind: TLocalGet((Local 1)), hash: None}), hash: None}), hash: None}), hash: None}, {kind: TI32Const(I32(1)), hash: Some(1785916002)}), hash: None}), hash: None}, {instrs: [{kind: TStore(I32StoreOp, align=U32(0) offset=U64(0), {kind: TLocalGet((Local 1)), hash: None}, {kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TBinary(I32SubOp, {kind: TLocalGet((Local 0)), hash: None}, {kind: TI32Const(I32(1)), hash: Some(1785916002)}), hash: None}), hash: None}), hash: None}), hash: None}, {kind: TCall((Func 35), [{kind: TLocalGet((Local 0)), hash: Some(-1919382637)}]), hash: None}], hash: None}, Some({instrs: [{kind: TIf((Void), {kind: TLocalTee((Local 0), {kind: TBinary(I32EqOp, {kind: TLocalGet((Local 0)), hash: Some(-1919382637)}, {kind: TI32Const(I32(1)), hash: Some(1785916002)}), hash: None}), hash: None}, {instrs: [{kind: TCall((Func 37), [{kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TLoad(I32LoadOp, align=U32(0) offset=U64(40), {kind: TLocalGet((Local 1)), hash: Some(-1186236016)}), hash: None}), hash: None}), hash: None}]), hash: None}, {kind: TCall((Func 37), [{kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TLoad(I32LoadOp, align=U32(0) offset=U64(36), {kind: TLocalGet((Local 1)), hash: Some(-1186236016)}), hash: None}), hash: None}), hash: None}]), hash: None}, {kind: TCall((Func 37), [{kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TLoad(I32LoadOp, align=U32(0) offset=U64(28), {kind: TLocalGet((Local 1)), hash: Some(-1186236016)}), hash: None}), hash: None}), hash: None}]), hash: None}, {kind: TCall((Func 37), [{kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TLoad(I32LoadOp, align=U32(0) offset=U64(24), {kind: TLocalGet((Local 1)), hash: Some(-1186236016)}), hash: None}), hash: None}), hash: None}]), hash: None}, {kind: TCall((Func 37), [{kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TLoad(I32LoadOp, align=U32(0) offset=U64(20), {kind: TLocalGet((Local 1)), hash: Some(-1186236016)}), hash: None}), hash: None}), hash: None}]), hash: None}, {kind: TCall((Func 37), [{kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TLoad(I32LoadOp, align=U32(0) offset=U64(16), {kind: TLocalGet((Local 1)), hash: Some(-1186236016)}), hash: None}), hash: None}), hash: None}]), hash: None}, {kind: TCall((Func 37), [{kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TLoad(I32LoadOp, align=U32(0) offset=U64(12), {kind: TLocalGet((Local 1)), hash: Some(-1186236016)}), hash: None}), hash: None}), hash: None}]), hash: None}, {kind: TCall((Func 37), [{kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TLoad(I32LoadOp, align=U32(0) offset=U64(8), {kind: TLocalGet((Local 1)), hash: Some(-1186236016)}), hash: None}), hash: None}), hash: None}]), hash: None}, {kind: TCall((Func 15), [{kind: TLocalGet((Local 1)), hash: Some(-1186236016)}]), hash: None}], hash: None}, None), hash: None}], hash: None}))
 
