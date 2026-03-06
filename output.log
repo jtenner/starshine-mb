@@ -1,245 +1,284 @@
-[trace] run start inputs=1 explicit_flags=1 optimize_flags=2 scheduled_flags=1
+[trace] run start inputs=1 explicit_flags=1 optimize_flags=2 scheduled_flags=1 effective_scheduled_flags=1
 [trace] options o=4 z=4 traps_never=false
 [trace] trace_mode=compact
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:start
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:read bytes=21695103
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:lowered bytes=21695103
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:read bytes=21700587
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:lowered bytes=21700587
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:decode done
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:pass_count=46 optimize:start
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt start passes=46
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt lift_to_texpr:start
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt lift_to_texpr:done elapsed_ms=473
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt lift_to_texpr:done elapsed_ms=464
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[1/46]:start pass=DuplicateFunctionElimination kind=module-runner
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[1/46]:returned pass=DuplicateFunctionElimination elapsed_ms=6528
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[1/46]:returned pass=DuplicateFunctionElimination elapsed_ms=6396
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[1/46]:commit:start pass=DuplicateFunctionElimination
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[1/46]:commit:done pass=DuplicateFunctionElimination
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[1/46]:done pass=DuplicateFunctionElimination elapsed_ms=6601
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[1/46]:done pass=DuplicateFunctionElimination elapsed_ms=6470
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[2/46]:start pass=RemoveUnused kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[2/46]:returned pass=RemoveUnused elapsed_ms=1016
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[2/46]:returned pass=RemoveUnused elapsed_ms=936
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[2/46]:commit:start pass=RemoveUnused
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[2/46]:commit:done pass=RemoveUnused
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[2/46]:done pass=RemoveUnused elapsed_ms=1206
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[2/46]:done pass=RemoveUnused elapsed_ms=1120
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[3/46]:start pass=MemoryPacking({zero_filled_memory: false, traps_never_happen: false, max_data_segments: 100000}) kind=module-runner
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[3/46]:returned pass=MemoryPacking({zero_filled_memory: false, traps_never_happen: false, max_data_segments: 100000}) elapsed_ms=952
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[3/46]:returned pass=MemoryPacking({zero_filled_memory: false, traps_never_happen: false, max_data_segments: 100000}) elapsed_ms=891
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[3/46]:commit:start pass=MemoryPacking({zero_filled_memory: false, traps_never_happen: false, max_data_segments: 100000})
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[3/46]:commit:done pass=MemoryPacking({zero_filled_memory: false, traps_never_happen: false, max_data_segments: 100000})
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[3/46]:done pass=MemoryPacking({zero_filled_memory: false, traps_never_happen: false, max_data_segments: 100000}) elapsed_ms=952
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[3/46]:done pass=MemoryPacking({zero_filled_memory: false, traps_never_happen: false, max_data_segments: 100000}) elapsed_ms=891
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[4/46]:start pass=OnceReduction kind=module-runner
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[4/46]:returned pass=OnceReduction elapsed_ms=714
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[4/46]:returned pass=OnceReduction elapsed_ms=682
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[4/46]:commit:start pass=OnceReduction
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[4/46]:commit:done pass=OnceReduction
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[4/46]:done pass=OnceReduction elapsed_ms=714
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[4/46]:done pass=OnceReduction elapsed_ms=682
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[5/46]:start pass=DataflowOptimization kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[5/46]:returned pass=DataflowOptimization elapsed_ms=1972
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[5/46]:returned pass=DataflowOptimization elapsed_ms=1920
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[5/46]:commit:start pass=DataflowOptimization
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[5/46]:commit:done pass=DataflowOptimization
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[5/46]:done pass=DataflowOptimization elapsed_ms=1972
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[5/46]:done pass=DataflowOptimization elapsed_ms=1921
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[6/46]:start pass=Flatten kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[6/46]:returned pass=Flatten elapsed_ms=10810
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[6/46]:returned pass=Flatten elapsed_ms=11726
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[6/46]:commit:start pass=Flatten
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[6/46]:commit:done pass=Flatten
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[6/46]:done pass=Flatten elapsed_ms=10840
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[6/46]:done pass=Flatten elapsed_ms=11757
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[7/46]:start pass=SimplifyLocalsNoTeeNoStructure kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[7/46]:returned pass=SimplifyLocalsNoTeeNoStructure elapsed_ms=4459
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[7/46]:returned pass=SimplifyLocalsNoTeeNoStructure elapsed_ms=4444
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[7/46]:commit:start pass=SimplifyLocalsNoTeeNoStructure
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[7/46]:commit:done pass=SimplifyLocalsNoTeeNoStructure
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[7/46]:done pass=SimplifyLocalsNoTeeNoStructure elapsed_ms=4529
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[7/46]:done pass=SimplifyLocalsNoTeeNoStructure elapsed_ms=4518
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[8/46]:start pass=LocalCSE kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[8/46]:returned pass=LocalCSE elapsed_ms=1588
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[8/46]:returned pass=LocalCSE elapsed_ms=1556
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[8/46]:commit:start pass=LocalCSE
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[8/46]:commit:done pass=LocalCSE
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[8/46]:done pass=LocalCSE elapsed_ms=1660
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[8/46]:done pass=LocalCSE elapsed_ms=1626
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[9/46]:start pass=DeadCodeElimination kind=unit-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[9/46]:returned pass=DeadCodeElimination elapsed_ms=1958
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[9/46]:returned pass=DeadCodeElimination elapsed_ms=1886
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[9/46]:commit:start pass=DeadCodeElimination
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[9/46]:commit:done pass=DeadCodeElimination
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[9/46]:done pass=DeadCodeElimination elapsed_ms=1987
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[9/46]:done pass=DeadCodeElimination elapsed_ms=1915
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[10/46]:start pass=RemoveUnusedNames kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[10/46]:returned pass=RemoveUnusedNames elapsed_ms=4344
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[10/46]:returned pass=RemoveUnusedNames elapsed_ms=4175
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[10/46]:commit:start pass=RemoveUnusedNames
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[10/46]:commit:done pass=RemoveUnusedNames
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[10/46]:done pass=RemoveUnusedNames elapsed_ms=4413
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[10/46]:done pass=RemoveUnusedNames elapsed_ms=4244
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[11/46]:start pass=RemoveUnusedBrs kind=module-runner
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[11/46]:returned pass=RemoveUnusedBrs elapsed_ms=2014
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[11/46]:returned pass=RemoveUnusedBrs elapsed_ms=1949
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[11/46]:commit:start pass=RemoveUnusedBrs
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[11/46]:commit:done pass=RemoveUnusedBrs
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[11/46]:done pass=RemoveUnusedBrs elapsed_ms=2080
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[11/46]:done pass=RemoveUnusedBrs elapsed_ms=2016
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[12/46]:start pass=RemoveUnusedNames kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[12/46]:returned pass=RemoveUnusedNames elapsed_ms=4335
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[12/46]:returned pass=RemoveUnusedNames elapsed_ms=4146
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[12/46]:commit:start pass=RemoveUnusedNames
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[12/46]:commit:done pass=RemoveUnusedNames
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[12/46]:done pass=RemoveUnusedNames elapsed_ms=4398
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[12/46]:done pass=RemoveUnusedNames elapsed_ms=4211
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[13/46]:start pass=OptimizeInstructions kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[13/46]:returned pass=OptimizeInstructions elapsed_ms=3979
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[13/46]:returned pass=OptimizeInstructions elapsed_ms=3785
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[13/46]:commit:start pass=OptimizeInstructions
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[13/46]:commit:done pass=OptimizeInstructions
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[13/46]:done pass=OptimizeInstructions elapsed_ms=3989
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[13/46]:done pass=OptimizeInstructions elapsed_ms=3795
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[14/46]:start pass=PickLoadSigns kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[14/46]:returned pass=PickLoadSigns elapsed_ms=16539
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[14/46]:returned pass=PickLoadSigns elapsed_ms=15646
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[14/46]:commit:start pass=PickLoadSigns
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[14/46]:commit:done pass=PickLoadSigns
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[14/46]:done pass=PickLoadSigns elapsed_ms=16606
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[14/46]:done pass=PickLoadSigns elapsed_ms=15713
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[15/46]:start pass=PrecomputePropagate kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[15/46]:returned pass=PrecomputePropagate elapsed_ms=3981
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[15/46]:returned pass=PrecomputePropagate elapsed_ms=3890
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[15/46]:commit:start pass=PrecomputePropagate
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[15/46]:commit:done pass=PrecomputePropagate
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[15/46]:done pass=PrecomputePropagate elapsed_ms=4052
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[15/46]:done pass=PrecomputePropagate elapsed_ms=3960
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[16/46]:start pass=CodePushing kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[16/46]:returned pass=CodePushing elapsed_ms=11158
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[16/46]:returned pass=CodePushing elapsed_ms=10644
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[16/46]:commit:start pass=CodePushing
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[16/46]:commit:done pass=CodePushing
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[16/46]:done pass=CodePushing elapsed_ms=11229
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[16/46]:done pass=CodePushing elapsed_ms=10711
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[17/46]:start pass=TupleOptimization kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[17/46]:returned pass=TupleOptimization elapsed_ms=6413
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[17/46]:returned pass=TupleOptimization elapsed_ms=6239
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[17/46]:commit:start pass=TupleOptimization
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[17/46]:commit:done pass=TupleOptimization
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[17/46]:done pass=TupleOptimization elapsed_ms=6414
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[17/46]:done pass=TupleOptimization elapsed_ms=6239
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[18/46]:start pass=SimplifyLocalsNoStructure kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[18/46]:returned pass=SimplifyLocalsNoStructure elapsed_ms=5743
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[18/46]:returned pass=SimplifyLocalsNoStructure elapsed_ms=5683
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[18/46]:commit:start pass=SimplifyLocalsNoStructure
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[18/46]:commit:done pass=SimplifyLocalsNoStructure
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[18/46]:done pass=SimplifyLocalsNoStructure elapsed_ms=5809
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[18/46]:done pass=SimplifyLocalsNoStructure elapsed_ms=5751
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[19/46]:start pass=Vacuum kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[19/46]:returned pass=Vacuum elapsed_ms=13005
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[19/46]:returned pass=Vacuum elapsed_ms=13180
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[19/46]:commit:start pass=Vacuum
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[19/46]:commit:done pass=Vacuum
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[19/46]:done pass=Vacuum elapsed_ms=13047
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[19/46]:done pass=Vacuum elapsed_ms=13221
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[20/46]:start pass=ReorderLocals kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[20/46]:returned pass=ReorderLocals elapsed_ms=1562
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[20/46]:returned pass=ReorderLocals elapsed_ms=1539
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[20/46]:commit:start pass=ReorderLocals
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[20/46]:commit:done pass=ReorderLocals
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[20/46]:done pass=ReorderLocals elapsed_ms=1648
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[20/46]:done pass=ReorderLocals elapsed_ms=1627
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[21/46]:start pass=RemoveUnusedBrs kind=module-runner
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[21/46]:returned pass=RemoveUnusedBrs elapsed_ms=2179
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[21/46]:returned pass=RemoveUnusedBrs elapsed_ms=2131
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[21/46]:commit:start pass=RemoveUnusedBrs
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[21/46]:commit:done pass=RemoveUnusedBrs
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[21/46]:done pass=RemoveUnusedBrs elapsed_ms=2244
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[21/46]:done pass=RemoveUnusedBrs elapsed_ms=2197
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[22/46]:start pass=MergeLocals kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[22/46]:returned pass=MergeLocals elapsed_ms=1041
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[22/46]:returned pass=MergeLocals elapsed_ms=1079
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[22/46]:commit:start pass=MergeLocals
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[22/46]:commit:done pass=MergeLocals
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[22/46]:done pass=MergeLocals elapsed_ms=1118
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[22/46]:done pass=MergeLocals elapsed_ms=1166
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[23/46]:start pass=CoalesceLocals kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[23/46]:returned pass=CoalesceLocals elapsed_ms=34321
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[23/46]:returned pass=CoalesceLocals elapsed_ms=34631
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[23/46]:commit:start pass=CoalesceLocals
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[23/46]:commit:done pass=CoalesceLocals
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[23/46]:done pass=CoalesceLocals elapsed_ms=34390
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[23/46]:done pass=CoalesceLocals elapsed_ms=34701
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[24/46]:start pass=LocalCSE kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[24/46]:returned pass=LocalCSE elapsed_ms=1639
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[24/46]:returned pass=LocalCSE elapsed_ms=1573
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[24/46]:commit:start pass=LocalCSE
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[24/46]:commit:done pass=LocalCSE
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[24/46]:done pass=LocalCSE elapsed_ms=1720
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[24/46]:done pass=LocalCSE elapsed_ms=1651
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[25/46]:start pass=SimplifyLocals kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[25/46]:returned pass=SimplifyLocals elapsed_ms=16614
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[25/46]:returned pass=SimplifyLocals elapsed_ms=16455
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[25/46]:commit:start pass=SimplifyLocals
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[25/46]:commit:done pass=SimplifyLocals
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[25/46]:done pass=SimplifyLocals elapsed_ms=16676
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[25/46]:done pass=SimplifyLocals elapsed_ms=16517
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[26/46]:start pass=Vacuum kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[26/46]:returned pass=Vacuum elapsed_ms=13584
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[26/46]:returned pass=Vacuum elapsed_ms=13220
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[26/46]:commit:start pass=Vacuum
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[26/46]:commit:done pass=Vacuum
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[26/46]:done pass=Vacuum elapsed_ms=13653
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[26/46]:done pass=Vacuum elapsed_ms=13289
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[27/46]:start pass=ReorderLocals kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[27/46]:returned pass=ReorderLocals elapsed_ms=1624
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[27/46]:returned pass=ReorderLocals elapsed_ms=1546
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[27/46]:commit:start pass=ReorderLocals
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[27/46]:commit:done pass=ReorderLocals
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[27/46]:done pass=ReorderLocals elapsed_ms=1716
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[27/46]:done pass=ReorderLocals elapsed_ms=1628
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[28/46]:start pass=CoalesceLocals kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[28/46]:returned pass=CoalesceLocals elapsed_ms=30994
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[28/46]:returned pass=CoalesceLocals elapsed_ms=32262
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[28/46]:commit:start pass=CoalesceLocals
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[28/46]:commit:done pass=CoalesceLocals
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[28/46]:done pass=CoalesceLocals elapsed_ms=31063
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[28/46]:done pass=CoalesceLocals elapsed_ms=32331
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[29/46]:start pass=ReorderLocals kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[29/46]:returned pass=ReorderLocals elapsed_ms=1495
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[29/46]:returned pass=ReorderLocals elapsed_ms=1423
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[29/46]:commit:start pass=ReorderLocals
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[29/46]:commit:done pass=ReorderLocals
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[29/46]:done pass=ReorderLocals elapsed_ms=1563
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[29/46]:done pass=ReorderLocals elapsed_ms=1494
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[30/46]:start pass=Vacuum kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[30/46]:returned pass=Vacuum elapsed_ms=12732
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[30/46]:returned pass=Vacuum elapsed_ms=12610
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[30/46]:commit:start pass=Vacuum
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[30/46]:commit:done pass=Vacuum
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[30/46]:done pass=Vacuum elapsed_ms=12796
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[30/46]:done pass=Vacuum elapsed_ms=12674
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[31/46]:start pass=CodeFolding kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[31/46]:returned pass=CodeFolding elapsed_ms=29250
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[31/46]:returned pass=CodeFolding elapsed_ms=65964
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[31/46]:commit:start pass=CodeFolding
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[31/46]:commit:done pass=CodeFolding
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[31/46]:done pass=CodeFolding elapsed_ms=29291
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[31/46]:done pass=CodeFolding elapsed_ms=66044
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[32/46]:start pass=MergeBlocks kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[32/46]:returned pass=MergeBlocks elapsed_ms=24358
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[32/46]:commit:start pass=MergeBlocks
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[32/46]:commit:done pass=MergeBlocks
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[32/46]:done pass=MergeBlocks elapsed_ms=24423
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[33/46]:start pass=RemoveUnusedBrs kind=module-runner
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[33/46]:returned pass=RemoveUnusedBrs elapsed_ms=2081
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[33/46]:commit:start pass=RemoveUnusedBrs
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[33/46]:commit:done pass=RemoveUnusedBrs
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[33/46]:done pass=RemoveUnusedBrs elapsed_ms=2106
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[34/46]:start pass=RemoveUnusedNames kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[34/46]:returned pass=RemoveUnusedNames elapsed_ms=7470
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[34/46]:commit:start pass=RemoveUnusedNames
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[34/46]:commit:done pass=RemoveUnusedNames
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[34/46]:done pass=RemoveUnusedNames elapsed_ms=7543
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[35/46]:start pass=MergeBlocks kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[35/46]:returned pass=MergeBlocks elapsed_ms=3050
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[35/46]:commit:start pass=MergeBlocks
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[35/46]:commit:done pass=MergeBlocks
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[35/46]:done pass=MergeBlocks elapsed_ms=3119
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[36/46]:start pass=PrecomputePropagate kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[36/46]:returned pass=PrecomputePropagate elapsed_ms=7154
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[36/46]:commit:start pass=PrecomputePropagate
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[36/46]:commit:done pass=PrecomputePropagate
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[36/46]:done pass=PrecomputePropagate elapsed_ms=7227
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[37/46]:start pass=RedundantSetElimination kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[37/46]:returned pass=RedundantSetElimination elapsed_ms=1035
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[37/46]:commit:start pass=RedundantSetElimination
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[37/46]:commit:done pass=RedundantSetElimination
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[37/46]:done pass=RedundantSetElimination elapsed_ms=1097
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[38/46]:start pass=Vacuum kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[38/46]:returned pass=Vacuum elapsed_ms=13509
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[38/46]:commit:start pass=Vacuum
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[38/46]:commit:done pass=Vacuum
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[38/46]:done pass=Vacuum elapsed_ms=13544
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[39/46]:start pass=DeadArgumentEliminationOptimizing kind=module-runner
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[39/46]:returned pass=DeadArgumentEliminationOptimizing elapsed_ms=2107
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[39/46]:commit:start pass=DeadArgumentEliminationOptimizing
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[39/46]:commit:done pass=DeadArgumentEliminationOptimizing
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[39/46]:done pass=DeadArgumentEliminationOptimizing elapsed_ms=2125
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[40/46]:start pass=DuplicateFunctionElimination kind=module-runner
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[40/46]:returned pass=DuplicateFunctionElimination elapsed_ms=1365
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[40/46]:commit:start pass=DuplicateFunctionElimination
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[40/46]:commit:done pass=DuplicateFunctionElimination
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[40/46]:done pass=DuplicateFunctionElimination elapsed_ms=1453
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[41/46]:start pass=DuplicateImportElimination kind=module-runner
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[41/46]:returned pass=DuplicateImportElimination elapsed_ms=664
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[41/46]:commit:start pass=DuplicateImportElimination
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[41/46]:commit:done pass=DuplicateImportElimination
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[41/46]:done pass=DuplicateImportElimination elapsed_ms=664
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[42/46]:start pass=MergeSimilarFunctions kind=module-runner
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[42/46]:returned pass=MergeSimilarFunctions elapsed_ms=1915
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[42/46]:commit:start pass=MergeSimilarFunctions
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[42/46]:commit:done pass=MergeSimilarFunctions
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[42/46]:done pass=MergeSimilarFunctions elapsed_ms=1919
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[43/46]:start pass=SimplifyGlobalsOptimizing kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[43/46]:returned pass=SimplifyGlobalsOptimizing elapsed_ms=1946
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[43/46]:commit:start pass=SimplifyGlobalsOptimizing
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[43/46]:commit:done pass=SimplifyGlobalsOptimizing
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[43/46]:done pass=SimplifyGlobalsOptimizing elapsed_ms=2014
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[44/46]:start pass=RemoveUnusedModuleElements kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[44/46]:returned pass=RemoveUnusedModuleElements elapsed_ms=1044
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[44/46]:commit:start pass=RemoveUnusedModuleElements
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[44/46]:commit:done pass=RemoveUnusedModuleElements
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[44/46]:done pass=RemoveUnusedModuleElements elapsed_ms=1108
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[45/46]:start pass=ReorderGlobals kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[45/46]:returned pass=ReorderGlobals elapsed_ms=1127
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[45/46]:commit:start pass=ReorderGlobals
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[45/46]:commit:done pass=ReorderGlobals
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[45/46]:done pass=ReorderGlobals elapsed_ms=1200
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[46/46]:start pass=Directize(true) kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[46/46]:returned pass=Directize(true) elapsed_ms=1259
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[46/46]:commit:start pass=Directize(true)
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[46/46]:commit:done pass=Directize(true)
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[46/46]:done pass=Directize(true) elapsed_ms=1325
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt done elapsed_ms=321749
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:optimize done
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:encode bytes=15262563
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:write file /tmp/starshine.self-optimize.example.wasm
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[32/46]:MergeBlocks:validation_error elapsed_ms=24231 type mismatch
+error: _build/wasm/debug/build/cmd/cmd.wasm: validation error after pass MergeBlocks:
+type mismatch
+
+Offending function diff MergeBlocks (before -> after):
+@@ lhs[14,0] rhs[14,12] @@
+         - block bt=(Void)
+           - block bt=(Void)
++            - call (Func 33) => (Type 85 (Func [I32] -> []))
++              args:
++                [0]
++                  - local.tee (Local 0) : <unknown local>
++                    value:
++                      - local.tee (Local 0) : <unknown local>
++                        value:
++                          - local.tee (Local 0) : <unknown local>
++                            value:
++                              - load I32LoadOp align=U32(0) offset=U64(12) [default (Lim I32 4)]
++                                addr:
++                                  - local.get (Local 0) : <unknown local>
+             - block bt=(Void)
+               - call (Func 33) => (Type 85 (Func [I32] -> []))
+@@ lhs[15,12] rhs[27,0] @@
+           - block bt=(Void)
+             - block bt=(Void)
+-              - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                args:
+-                  [0]
+-                    - local.tee (Local 0) : <unknown local>
+-                      value:
+-                        - local.tee (Local 0) : <unknown local>
+-                          value:
+-                            - local.tee (Local 0) : <unknown local>
+-                              value:
+-                                - load I32LoadOp align=U32(0) offset=U64(12) [default (Lim I32 4)]
+-                                  addr:
+-                                    - local.get (Local 0) : <unknown local>
+               - if bt=(Void)
+                 cond:
+@@ lhs[286,0] rhs[286,8] @@
+       - block bt=(Void)
+         - block bt=(Void)
++          - call (Func 33) => (Type 85 (Func [I32] -> []))
++            args:
++              [0]
++                - local.tee (Local 0) : <unknown local>
++                  value:
++                    - local.tee (Local 0) : <unknown local>
++                      value:
++                        - call (Func 2660) => (Type 96 (Func [] -> [I32]))
+           - block bt=(Void)
+             - call (Func 33) => (Type 85 (Func [I32] -> []))
+@@ lhs[287,8] rhs[295,0] @@
+         - block bt=(Void)
+           - block bt=(Void)
+-            - call (Func 33) => (Type 85 (Func [I32] -> []))
+-              args:
+-                [0]
+-                  - local.tee (Local 0) : <unknown local>
+-                    value:
+-                      - local.tee (Local 0) : <unknown local>
+-                        value:
+-                          - call (Func 2660) => (Type 96 (Func [] -> [I32]))
+             - if bt=(Void)
+               cond:
+@@ lhs[492,0] rhs[492,4] @@
+       - block bt=(Void)
+         - block bt=(Void)
++          - call (Func 33) => (Type 85 (Func [I32] -> []))
++            args:
++              [0]
++                - local.get (Local 0) : <unknown local>
+           - block bt=(Void)
+             - call (Func 33) => (Type 85 (Func [I32] -> []))
+@@ lhs[493,4] rhs[497,0] @@
+         - block bt=(Void)
+           - block bt=(Void)
+-            - call (Func 33) => (Type 85 (Func [I32] -> []))
+-              args:
+-                [0]
+-                  - local.get (Local 0) : <unknown local>
+             - if bt=(Void)
+               cond:
+@@ lhs[1281,0] rhs[1281,8] @@
+         - block bt=(Void)
+           - block bt=(Void)
++            - call (Func 33) => (Type 85 (Func [I32] -> []))
++              args:
++                [0]
++                  - local.get (Local 1) : <unknown local>
++            - call (Func 33) => (Type 85 (Func [I32] -> []))
++              args:
++                [0]
++                  - local.get (Local 1) : <unknown local>
+             - block bt=(Void)
+               - call (Func 33) => (Type 85 (Func [I32] -> []))
+@@ lhs[1282,8] rhs[1290,0] @@
+           - block bt=(Void)
+             - block bt=(Void)
+-              - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                args:
+-                  [0]
+-                    - local.get (Local 1) : <unknown local>
+-              - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                args:
+-                  [0]
+-                    - local.get (Local 1) : <unknown local>
+               - if bt=(Void)
+                 cond:
+@@ lhs[1890,1] rhs[1890,1] @@
+           - local.set (Local 0) : <unknown local>
+             value:
+-              - block bt=I32
++              - block bt=(Void)
+                 - if bt=(Void)
+                   cond:
+

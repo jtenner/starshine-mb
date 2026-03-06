@@ -39,7 +39,7 @@ using @passes {
 }
 
 ///|
-using @validate {gen_valid_module, validate_module}
+using @validate {gen_valid_module, validate_module, validation_error_message}
 
 ///|
 using @json {parse}

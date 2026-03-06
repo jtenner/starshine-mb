@@ -4217,9 +4217,8 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       } else {
         st_body
       }
-      let s = st2.stack.copy()
-      while s.length() > 0 {
-        ignore(s.pop())
+      if st_body.reachable && st2.stack.length() != 0 {
+        return Err("type mismatch")
       }
       let out = TcState::{
         env: st.env,
@@ -4254,9 +4253,8 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       } else {
         st_body
       }
-      let s = st2.stack.copy()
-      while s.length() > 0 {
-        ignore(s.pop())
+      if st_body.reachable && st2.stack.length() != 0 {
+        return Err("type mismatch")
       }
       let out = TcState::{
         env: st.env,
@@ -4313,18 +4311,18 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
         sb : TcState,
       ) -> Result[(Bool, Array[ValType]), String] {
         let sb2 = if sb.reachable {
-          match sb.pop_types(results) {
+          let st_after_results = match sb.pop_types(results) {
             Err(e) => return Err(e)
             Ok(s) => s
           }
+          if st_after_results.stack.length() != 0 {
+            return Err("type mismatch")
+          }
+          st_after_results
         } else {
           sb
         }
-        let stack2 = sb2.stack.copy()
-        while stack2.length() > 0 {
-          ignore(stack2.pop())
-        }
-        Ok((sb2.reachable, stack2))
+        Ok((sb2.reachable, sb2.stack.copy()))
       }
       let (then_reach, then_stack) = match norm_branch(st_then) {
         Err(e) => return Err(e)
@@ -4387,9 +4385,8 @@ pub impl Typecheck for TInstr with typecheck(self, st) {
       } else {
         st_body
       }
-      let stack2 = st2.stack.copy()
-      while stack2.length() > 0 {
-        ignore(stack2.pop())
+      if st_body.reachable && st2.stack.length() != 0 {
+        return Err("type mismatch")
       }
       let out = TcState::{
         env: st.env,
@@ -5122,6 +5119,20 @@ test "Typecheck Block with result" {
   )
   let new_state = assert_ok(Typecheck::typecheck(block, state))
   assert_stack(new_state, [ValType::i32()])
+}
+
+///|
+test "Typecheck TBlock rejects extra fallthrough stack values" {
+  let env = empty_env()
+  let state = make_state(env, [])
+  let block = TInstr::block(
+    BlockType::void_(),
+    TExpr::new([TInstr::i32_const(I32(7))]),
+  )
+  match Typecheck::typecheck(block, state) {
+    Ok(_) => fail("expected typed block extra-value fallthrough rejection")
+    Err(e) => assert_eq(e, "type mismatch")
+  }
 }
 
 ///|

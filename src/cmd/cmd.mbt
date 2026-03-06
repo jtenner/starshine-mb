@@ -1538,6 +1538,50 @@ fn cmd_trace_optimize_verbose(io : CmdIO) -> Bool {
 }
 
 ///|
+fn cmd_trace_optimize_max_passes(io : CmdIO) -> Int? {
+  match (io.get_env)("STARSHINE_OPTIMIZE_MAX_PASSES") {
+    Some(raw) => parse_non_negative_decimal(raw)
+    None => None
+  }
+}
+
+///|
+fn limit_pass_flags_by_max_passes(
+  pass_flags : Array[String],
+  max_passes : Int?,
+) -> (Array[String], Bool) {
+  match max_passes {
+    Some(limit) =>
+      if limit < pass_flags.length() {
+        let out : Array[String] = []
+        let mut i = 0
+        while i < limit {
+          out.push(pass_flags[i])
+          i += 1
+        }
+        (out, true)
+      } else {
+        (pass_flags, false)
+      }
+    None => (pass_flags, false)
+  }
+}
+
+///|
+fn cmd_trace_join_pass_flags(flags : Array[String]) -> String {
+  let out = StringBuilder::new()
+  let mut i = 0
+  while i < flags.length() {
+    if i > 0 {
+      out.write_string(",")
+    }
+    out.write_string(flags[i])
+    i += 1
+  }
+  out.to_string()
+}
+
+///|
 fn cmd_trace_emit(io : CmdIO, enabled : Bool, msg : String) -> Unit {
   if !enabled {
     return
@@ -1875,6 +1919,64 @@ test "expand_passes_for_module caps vacuum passes to binaryen default bound" {
 }
 
 ///|
+test "limit_pass_flags_by_max_passes keeps all flags when max is absent" {
+  let (limited, truncated) = limit_pass_flags_by_max_passes(
+    ["optimize", "vacuum"],
+    None,
+  )
+  assert_eq(limited.length(), 2)
+  assert_eq(limited[0], "optimize")
+  assert_eq(limited[1], "vacuum")
+  assert_false(truncated)
+}
+
+///|
+test "limit_pass_flags_by_max_passes supports zero as decode-encode baseline" {
+  let (limited, truncated) = limit_pass_flags_by_max_passes(
+    ["optimize", "vacuum"],
+    Some(0),
+  )
+  assert_eq(limited.length(), 0)
+  assert_true(truncated)
+}
+
+///|
+test "limit_pass_flags_by_max_passes truncates to requested prefix length" {
+  let (limited, truncated) = limit_pass_flags_by_max_passes(
+    ["a", "b", "c"],
+    Some(2),
+  )
+  assert_eq(limited.length(), 2)
+  assert_eq(limited[0], "a")
+  assert_eq(limited[1], "b")
+  assert_true(truncated)
+}
+
+///|
+test "cmd_trace_optimize_max_passes parses non-negative env value" {
+  let io = CmdIO::new(get_env=fn(name) {
+    if name == "STARSHINE_OPTIMIZE_MAX_PASSES" {
+      Some("17")
+    } else {
+      None
+    }
+  })
+  assert_eq(cmd_trace_optimize_max_passes(io), Some(17))
+}
+
+///|
+test "cmd_trace_optimize_max_passes ignores invalid env values" {
+  let io = CmdIO::new(get_env=fn(name) {
+    if name == "STARSHINE_OPTIMIZE_MAX_PASSES" {
+      Some("not-a-number")
+    } else {
+      None
+    }
+  })
+  assert_eq(cmd_trace_optimize_max_passes(io), None)
+}
+
+///|
 fn decode_module_for_pipeline(
   path : String,
   bytes : Bytes,
@@ -1894,6 +1996,35 @@ fn encode_module_for_pipeline(
   match (io.encode_module)(mod) {
     Ok(bytes) => Ok(bytes)
     Err(err) => Err(CmdError::EncodeFailed(path, err))
+  }
+}
+
+///|
+fn validate_encoded_module_for_pipeline(
+  path : String,
+  bytes : Bytes,
+) -> Result[Unit, CmdError] {
+  let encoded_mod = match decode_module(bytes) {
+    Ok(mod) => mod
+    Err(err) =>
+      return Err(
+        CmdError::EncodeFailed(
+          path,
+          CmdEncodeError::adapter("post-encode decode failed: \{err}"),
+        ),
+      )
+  }
+  match validate_module(encoded_mod) {
+    Ok(_) => Ok(())
+    Err(err) =>
+      Err(
+        CmdError::EncodeFailed(
+          path,
+          CmdEncodeError::adapter(
+            "post-encode validation failed: \{validation_error_message(err)}",
+          ),
+        ),
+      )
   }
 }
 
@@ -2041,16 +2172,29 @@ pub fn run_cmd_with_adapter(
   let (optimize_level, shrink_level) = resolve_optimize_levels(
     merged.optimize_flags,
   )
-  let resolved_passes = resolve_effective_pass_flags(
+  let scheduled_pass_flags = resolve_effective_pass_flags(
     resolve_pass_flags(merged),
     optimize_level,
     shrink_level,
   )
+  let max_passes = cmd_trace_optimize_max_passes(io)
+  let (resolved_passes, pass_flags_truncated) = limit_pass_flags_by_max_passes(
+    scheduled_pass_flags, max_passes,
+  )
   cmd_trace_emit(
     io,
     trace_optimize,
-    "run start inputs=\{input_files.length()} explicit_flags=\{merged.pass_flags.length()} optimize_flags=\{merged.optimize_flags.length()} scheduled_flags=\{resolved_passes.length()}",
+    "run start inputs=\{input_files.length()} explicit_flags=\{merged.pass_flags.length()} optimize_flags=\{merged.optimize_flags.length()} scheduled_flags=\{scheduled_pass_flags.length()} effective_scheduled_flags=\{resolved_passes.length()}",
   )
+  match max_passes {
+    Some(limit) =>
+      cmd_trace_emit(
+        io,
+        trace_optimize,
+        "pass_limit max_passes=\{limit} truncated=\{pass_flags_truncated}",
+      )
+    None => ()
+  }
   let monomorphize_min_benefit = match merged.monomorphize_min_benefit {
     Some(v) => v
     None => 5
@@ -2074,6 +2218,13 @@ pub fn run_cmd_with_adapter(
   )
   let trace_mode = if trace_optimize_verbose { "verbose" } else { "compact" }
   cmd_trace_emit(io, trace_optimize, "trace_mode=\{trace_mode}")
+  if trace_optimize_verbose {
+    cmd_trace_emit(
+      io,
+      true,
+      "effective_pass_flags=\{cmd_trace_join_pass_flags(resolved_passes)}",
+    )
+  }
 
   if input_files.length() > 1 {
     for target in merged.output_targets {
@@ -2168,6 +2319,20 @@ pub fn run_cmd_with_adapter(
       io,
       trace_optimize,
       "input \{input_path}:encode bytes=\{out_bytes.length()}",
+    )
+    cmd_trace_emit(
+      io,
+      trace_optimize,
+      "input \{input_path}:post-encode-validate:start",
+    )
+    match validate_encoded_module_for_pipeline(input_path, out_bytes) {
+      Ok(_) => ()
+      Err(e) => return Err(e)
+    }
+    cmd_trace_emit(
+      io,
+      trace_optimize,
+      "input \{input_path}:post-encode-validate:done",
     )
 
     if merged.output_targets.length() == 0 {

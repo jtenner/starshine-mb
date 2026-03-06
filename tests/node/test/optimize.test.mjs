@@ -37,7 +37,7 @@ test('optimizeDebugWasm writes starshine-self-optimized-wasi.wasm from debug inp
       [
         '#!/usr/bin/env bash',
         'set -eu',
-        'cp "$4" "$3"',
+        'cp "$5" "$4"',
       ].join('\n'),
     );
 

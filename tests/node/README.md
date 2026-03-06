@@ -47,6 +47,15 @@ To surface verbose optimizer tracing, including `DeadArgumentElimination` hotspo
 STARSHINE_TRACE_OPTIMIZE_VERBOSE=1 npm --prefix tests/node run optimize:wasm
 ```
 
+To bisect optimizer regressions by pass index, cap scheduled passes with `STARSHINE_OPTIMIZE_MAX_PASSES` and probe WebAssembly engine validity at each prefix:
+
+```bash
+STARSHINE_TRACE_OPTIMIZE=1 STARSHINE_OPTIMIZE_MAX_PASSES=120 _build/native/release/build/cmd/cmd.exe --optimize -O4z --out /tmp/prefix-120.wasm tests/node/dist/starshine-debug-wasi.wasm
+node -e "const fs=require('fs'); WebAssembly.compile(fs.readFileSync('/tmp/prefix-120.wasm')).then(()=>console.log('ok')).catch(e=>{console.error(e);process.exit(1);});"
+```
+
+`STARSHINE_OPTIMIZE_MAX_PASSES=0` is useful as a decode/encode baseline before any optimization pass runs.
+
 Run the wasm `spec` subcommand manually against the staged optimized CLI artifact:
 
 ```bash
