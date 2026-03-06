@@ -471,29 +471,40 @@ fn msf_mix_digest(seed : UInt64, x : UInt64) -> UInt64 {
 }
 
 ///|
-fn msf_hash_tinstr(state : MSFHashState, instr : TInstr) -> Unit {
-  state.digest = msf_mix_digest(state.digest, msf_tag_hash(instr))
+fn msf_hash_fallback(abs_idx : Int, body : TExpr) -> UInt64 {
+  if abs_idx >= 0 {
+    msf_mix_digest(
+      1469598103934665603UL,
+      abs_idx.reinterpret_as_uint().to_uint64(),
+    )
+  } else {
+    msf_mix_digest(
+      1469598103934665603UL,
+      body.instrs.length().reinterpret_as_uint().to_uint64(),
+    )
+  }
 }
 
 ///|
-fn msf_count_instrs_capped(body : TExpr, limit : Int) -> Result[Int, String] {
-  let mut visited = 0
-  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
-    visited += 1
-    if visited > limit {
-      return Err(MSF_HASH_BUDGET_EXCEEDED_ERR)
-    }
-    self.walk_tinstruction_default((), instr)
-  })
-  match walker.walk_texpr((), body) {
-    Ok(_) => Ok(visited)
-    Err(e) =>
-      if e == MSF_HASH_BUDGET_EXCEEDED_ERR {
-        Ok(visited)
-      } else {
-        Err(e)
-      }
+fn msf_hash_shallow_ignoring_consts(instr : TInstr) -> UInt64 {
+  let canonicalized = match instr.kind {
+    TInstrKind::TCall(_, args) => TInstr::call(FuncIdx::new(0), args)
+    TInstrKind::TReturnCall(_, args) =>
+      TInstr::return_call(FuncIdx::new(0), args)
+    _ => msf_zero_const_like(instr)
   }
+  msf_mix_digest(
+    msf_tag_hash(canonicalized),
+    oi_instr_shallow_hash(canonicalized),
+  )
+}
+
+///|
+fn msf_hash_tinstr(state : MSFHashState, instr : TInstr) -> Unit {
+  state.digest = msf_mix_digest(
+    state.digest,
+    msf_hash_shallow_ignoring_consts(instr),
+  )
 }
 
 ///|
@@ -507,75 +518,13 @@ fn msf_hash_function_ignoring_consts(
   let hash_start_ms = msf_trace_now_ms()
   match func {
     TFunc(_, _, body) => {
-      let budget_start_ms = msf_trace_now_ms()
-      if trace_all_funcs {
-        trace(
-          "func[\{ordinal}] phase=hash:budget:start abs_idx=\{abs_idx} limit=\{MSF_HASH_MAX_INSTRS}",
-        )
-      }
-      let visited = match msf_count_instrs_capped(body, MSF_HASH_MAX_INSTRS) {
-        Ok(n) => n
-        Err(e) => {
-          if trace_all_funcs {
-            trace(
-              "func[\{ordinal}] phase=hash:budget:error abs_idx=\{abs_idx} elapsed_ms=\{msf_trace_elapsed_ms(budget_start_ms)} \{e}",
-            )
-          }
-          return 0UL
-        }
-      }
-      let exceeded_budget = visited > MSF_HASH_MAX_INSTRS
-      if trace_all_funcs {
-        trace(
-          "func[\{ordinal}] phase=hash:budget:done abs_idx=\{abs_idx} elapsed_ms=\{msf_trace_elapsed_ms(budget_start_ms)} instrs=\{visited} exceeded=\{exceeded_budget}",
-        )
-      }
-      if exceeded_budget {
-        let fallback_hash = if abs_idx >= 0 {
-          msf_mix_digest(
-            1469598103934665603UL,
-            abs_idx.reinterpret_as_uint().to_uint64(),
-          )
-        } else {
-          msf_mix_digest(
-            1469598103934665603UL,
-            body.instrs.length().reinterpret_as_uint().to_uint64(),
-          )
-        }
-        if trace_all_funcs {
-          trace(
-            "func[\{ordinal}] phase=hash:done abs_idx=\{abs_idx} elapsed_ms=\{msf_trace_elapsed_ms(hash_start_ms)} skipped=true reason=instr_budget limit=\{MSF_HASH_MAX_INSTRS} instrs=\{visited} hash=\{fallback_hash}",
-          )
-        }
-        return fallback_hash
-      }
-      let normalize_start_ms = msf_trace_now_ms()
-      if trace_all_funcs {
-        trace(
-          "func[\{ordinal}] phase=hash:normalize:start abs_idx=\{abs_idx} top_instrs=\{body.instrs.length()}",
-        )
-      }
-      let normalized = match
-        msf_normalize_body(body, trace~, trace_all_funcs~, ordinal~) {
-        Ok(x) => x
-        Err(e) => {
-          if trace_all_funcs {
-            trace(
-              "func[\{ordinal}] phase=hash:normalize:error abs_idx=\{abs_idx} elapsed_ms=\{msf_trace_elapsed_ms(normalize_start_ms)} fallback=true \{e}",
-            )
-          }
-          body
-        }
-      }
-      if trace_all_funcs {
-        trace(
-          "func[\{ordinal}] phase=hash:normalize:done abs_idx=\{abs_idx} elapsed_ms=\{msf_trace_elapsed_ms(normalize_start_ms)}",
-        )
-      }
       let state = { digest: 1469598103934665603UL }
       let mut hashed_instrs = 0
       let walk_start_ms = msf_trace_now_ms()
       if trace_all_funcs {
+        trace(
+          "func[\{ordinal}] phase=hash:budget:start abs_idx=\{abs_idx} limit=\{MSF_HASH_MAX_INSTRS}",
+        )
         trace("func[\{ordinal}] phase=hash:walk:start abs_idx=\{abs_idx}")
       }
       let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
@@ -584,6 +533,9 @@ fn msf_hash_function_ignoring_consts(
         instr,
       ) {
         hashed_instrs += 1
+        if hashed_instrs > MSF_HASH_MAX_INSTRS {
+          return Err(MSF_HASH_BUDGET_EXCEEDED_ERR)
+        }
         if trace_all_funcs &&
           hashed_instrs % msf_trace_heartbeat_interval() == 0 {
           trace(
@@ -593,16 +545,42 @@ fn msf_hash_function_ignoring_consts(
         msf_hash_tinstr(state, instr)
         self.walk_tinstruction_default((), instr)
       })
-      ignore(walker.walk_texpr((), normalized))
-      if trace_all_funcs {
-        trace(
-          "func[\{ordinal}] phase=hash:walk:done abs_idx=\{abs_idx} elapsed_ms=\{msf_trace_elapsed_ms(walk_start_ms)} instrs=\{hashed_instrs}",
-        )
-        trace(
-          "func[\{ordinal}] phase=hash:done abs_idx=\{abs_idx} elapsed_ms=\{msf_trace_elapsed_ms(hash_start_ms)} hash=\{state.digest}",
-        )
+      match walker.walk_texpr((), body) {
+        Ok(_) => {
+          if trace_all_funcs {
+            trace(
+              "func[\{ordinal}] phase=hash:budget:done abs_idx=\{abs_idx} elapsed_ms=\{msf_trace_elapsed_ms(walk_start_ms)} instrs=\{hashed_instrs} exceeded=false",
+            )
+            trace(
+              "func[\{ordinal}] phase=hash:walk:done abs_idx=\{abs_idx} elapsed_ms=\{msf_trace_elapsed_ms(walk_start_ms)} instrs=\{hashed_instrs}",
+            )
+            trace(
+              "func[\{ordinal}] phase=hash:done abs_idx=\{abs_idx} elapsed_ms=\{msf_trace_elapsed_ms(hash_start_ms)} hash=\{state.digest}",
+            )
+          }
+          state.digest
+        }
+        Err(e) =>
+          if e == MSF_HASH_BUDGET_EXCEEDED_ERR {
+            let fallback_hash = msf_hash_fallback(abs_idx, body)
+            if trace_all_funcs {
+              trace(
+                "func[\{ordinal}] phase=hash:budget:done abs_idx=\{abs_idx} elapsed_ms=\{msf_trace_elapsed_ms(walk_start_ms)} instrs=\{hashed_instrs} exceeded=true",
+              )
+              trace(
+                "func[\{ordinal}] phase=hash:done abs_idx=\{abs_idx} elapsed_ms=\{msf_trace_elapsed_ms(hash_start_ms)} skipped=true reason=instr_budget limit=\{MSF_HASH_MAX_INSTRS} instrs=\{hashed_instrs} hash=\{fallback_hash}",
+              )
+            }
+            fallback_hash
+          } else {
+            if trace_all_funcs {
+              trace(
+                "func[\{ordinal}] phase=hash:budget:error abs_idx=\{abs_idx} elapsed_ms=\{msf_trace_elapsed_ms(walk_start_ms)} \{e}",
+              )
+            }
+            0UL
+          }
       }
-      state.digest
     }
     _ => {
       if trace_all_funcs {
@@ -2131,6 +2109,32 @@ fn msf_is_forwarder(func : Func, target_abs : Int, arg_count : Int) -> Bool {
       args.length() == arg_count
     _ => false
   }
+}
+
+///|
+test "merge similar functions hash trace avoids normalize internal walk" {
+  let func = Func::t_func(
+    [],
+    [],
+    TExpr::new([TInstr::drop(TInstr::i32_const(I32(7)))]),
+  )
+  let trace_logs : Array[String] = []
+  ignore(
+    hash_function_ignoring_consts(
+      func,
+      trace=fn(msg) { trace_logs.push(msg) },
+      trace_all_funcs=true,
+      ordinal=1,
+      abs_idx=0,
+    ),
+  )
+  let mut saw_normalize_internal = false
+  for msg in trace_logs {
+    if msg.contains("phase=hash:normalize_internal:start") {
+      saw_normalize_internal = true
+    }
+  }
+  assert_false(saw_normalize_internal)
 }
 
 ///|
