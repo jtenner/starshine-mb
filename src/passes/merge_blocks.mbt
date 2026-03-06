@@ -928,20 +928,22 @@ fn mb_refinalize_instr(instr : TInstr, env : Env) -> TInstr {
         Some(e) => Some(mb_refinalize_texpr(e, env))
         None => None
       }
+      let inferred_bt = match next_else {
+        Some(e) =>
+          match
+            (mb_infer_texpr_type(next_then, env), mb_infer_texpr_type(e, env)) {
+            (Some(t), Some(u)) if t == u => BlockType::val_type(t)
+            _ => BlockType::void_()
+          }
+        None => BlockType::void_()
+      }
       let next_bt = match bt {
         TypeIdxBlockType(_) => bt
-        _ =>
-          match next_else {
-            Some(e) =>
-              match
-                (
-                  mb_infer_texpr_type(next_then, env),
-                  mb_infer_texpr_type(e, env),
-                ) {
-                (Some(t), Some(u)) if t == u => BlockType::val_type(t)
-                _ => BlockType::void_()
-              }
-            None => BlockType::void_()
+        VoidBlockType => inferred_bt
+        ValTypeBlockType(orig_ty) =>
+          match inferred_bt {
+            ValTypeBlockType(inferred_ty) => BlockType::val_type(inferred_ty)
+            _ => BlockType::val_type(orig_ty)
           }
       }
       TInstr::if_(next_bt, next_cond, next_then, next_else)
@@ -3036,6 +3038,34 @@ test "merge blocks: second operand pull blocked by effect invalidation" {
   ])
   let out = mb_run_on_body(body)
   assert_eq(out, body)
+}
+
+///|
+test "merge blocks: preserves typed if result when branch inference is unknown" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::i32_const(I32(7)),
+        TInstr::local_set(
+          LocalIdx::new(0),
+          TInstr::if_(
+            BlockType::val_type(ValType::i32()),
+            TInstr::i32_const(I32(1)),
+            TExpr::new([TInstr::unreachable_()]),
+            Some(TExpr::new([TInstr::i32_const(I32(22))])),
+          ),
+        ),
+      ]),
+    ),
+  ])
+  let mod = mb_make_test_module_with_body([ValType::i32()], body)
+  let out = run_merge_blocks(mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail("expected typed-if result to stay valid after merge_blocks: \{e}")
+  }
 }
 
 ///|
