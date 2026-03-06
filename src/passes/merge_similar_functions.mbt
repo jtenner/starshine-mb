@@ -279,14 +279,6 @@ fn msf_func_idx_from_int(i : Int) -> FuncIdx {
 }
 
 ///|
-fn msf_type_idx_to_int(idx : TypeIdx) -> Int {
-  match idx {
-    TypeIdx(raw) => raw.reinterpret_as_int()
-    RecIdx(raw) => raw.reinterpret_as_int()
-  }
-}
-
-///|
 fn msf_resolve_callee_type_idx(
   target : FuncIdx,
   func_type_idxs : Array[TypeIdx],
@@ -301,18 +293,39 @@ fn msf_resolve_callee_type_idx(
 }
 
 ///|
+fn msf_resolve_func_type_for_type_idx(
+  type_idx : TypeIdx,
+  func_type_idxs : Array[TypeIdx],
+  func_types : Array[FuncType],
+) -> FuncType? {
+  let limit = if func_type_idxs.length() < func_types.length() {
+    func_type_idxs.length()
+  } else {
+    func_types.length()
+  }
+  for i = 0; i < limit; i = i + 1 {
+    if func_type_idxs[i] == type_idx {
+      return Some(func_types[i])
+    }
+  }
+  None
+}
+
+///|
 fn msf_verify_call_target_type(
   type_idx : TypeIdx,
   expected_arg_count : Int,
   func_types : Array[FuncType],
+  func_type_idxs : Array[TypeIdx],
 ) -> Result[Unit, String] {
-  let i = msf_type_idx_to_int(type_idx)
-  if i < 0 || i >= func_types.length() {
-    return Err(
-      "merge_similar_functions: missing function type for rewritten call target",
-    )
+  let FuncType(params, _) = match
+    msf_resolve_func_type_for_type_idx(type_idx, func_type_idxs, func_types) {
+    Some(ft) => ft
+    None =>
+      return Err(
+        "merge_similar_functions: missing function type for rewritten call target",
+      )
   }
-  let FuncType(params, _) = func_types[i]
   if params.length() != expected_arg_count {
     return Err(
       "merge_similar_functions: call target param arity mismatch for rewritten call site",
@@ -693,11 +706,9 @@ fn msf_normalize_body(
         TInstr::return_call(FuncIdx::new(0), args)
       _ => walked
     }
-    if rewritten == instr {
-      unchanged()
-    } else {
-      change((), rewritten)
-    }
+    // We already walked children manually; returning unchanged() would trigger a
+    // second default walk and skew node-id-based bookkeeping.
+    change((), rewritten)
   })
   match walker.walk_texpr((), body) {
     Ok(Some((_, out))) => {
@@ -1301,8 +1312,14 @@ fn derive_params(
         let values : Array[FuncIdx] = []
         for sites in site_maps {
           match sites.get(node_id) {
-            Some(CallTargetSite(target, site_type_idx, site_is_return, site_arg_count)) =>
-            {
+            Some(
+              CallTargetSite(
+                target,
+                site_type_idx,
+                site_is_return,
+                site_arg_count
+              )
+            ) => {
               if site_type_idx != type_idx {
                 if trace_all_funcs {
                   trace(
@@ -1604,7 +1621,10 @@ fn msf_rewrite_shared_body(
                 "merge_similar_functions: call_target rewrite arg count mismatch",
               )
             }
-            match msf_verify_call_target_type(type_idx, expected_arg_count, func_types) {
+            match
+              msf_verify_call_target_type(
+                type_idx, expected_arg_count, func_types, func_type_idxs,
+              ) {
               Ok(_) => ()
               Err(e) => return Err(e)
             }
@@ -1639,7 +1659,10 @@ fn msf_rewrite_shared_body(
                 "merge_similar_functions: call_target rewrite arg count mismatch",
               )
             }
-            match msf_verify_call_target_type(type_idx, expected_arg_count, func_types) {
+            match
+              msf_verify_call_target_type(
+                type_idx, expected_arg_count, func_types, func_type_idxs,
+              ) {
               Ok(_) => ()
               Err(e) => return Err(e)
             }
@@ -1660,18 +1683,17 @@ fn msf_rewrite_shared_body(
             )
             TInstr::return_call_ref(type_idx, args, casted)
           }
-          _ => return Err(
-            "merge_similar_functions: call_target rewrite kind mismatch",
-          )
+          _ =>
+            return Err(
+              "merge_similar_functions: call_target rewrite kind mismatch",
+            )
         }
       }
       None => shifted
     }
-    if replaced == instr {
-      unchanged()
-    } else {
-      change((), replaced)
-    }
+    // Keep this callback single-walk: children were already visited via the
+    // explicit walk above.
+    change((), replaced)
   })
   match walker.walk_texpr((), body) {
     Ok(Some((_, out))) => {
@@ -1732,6 +1754,50 @@ fn msf_append_func_type(
   recs.push(msf_make_func_type(params, results))
   let new_idx = TypeIdx::new((recs.length() - 1).reinterpret_as_uint())
   (mod.with_type_sec(TypeSec::new(recs)), new_idx)
+}
+
+///|
+fn msf_first_secondary_member(clazz : EquivalentClass) -> Int? {
+  for def_idx in clazz.member_def_idxs {
+    if def_idx != clazz.primary_def_idx {
+      return Some(def_idx)
+    }
+  }
+  None
+}
+
+///|
+fn msf_attach_rewrite_debug_dump(
+  mod : Module,
+  clazz : EquivalentClass,
+  params : Array[ParamInfo],
+  err : String,
+) -> String {
+  let import_count = msf_count_imported_funcs(mod)
+  let primary_abs = import_count + clazz.primary_def_idx
+  let primary_idx = msf_func_idx_from_int(primary_abs)
+  let primary_text = mod.pretty_print_func(primary_idx)
+  let details = "merge_similar_functions debug context:\n" +
+    "primary_def_idx=\{clazz.primary_def_idx} primary_abs_idx=\{primary_abs} member_count=\{clazz.member_def_idxs.length()} param_count=\{params.length()}\n" +
+    "params=\{params}\n"
+  match msf_first_secondary_member(clazz) {
+    Some(secondary_def) => {
+      let secondary_abs = import_count + secondary_def
+      let secondary_idx = msf_func_idx_from_int(secondary_abs)
+      let secondary_text = mod.pretty_print_func(secondary_idx)
+      err +
+      "\n\n" +
+      details +
+      "\nOffending function diff merge_similar_functions (primary -> secondary):\n" +
+      render_line_diff(primary_text, secondary_text)
+    }
+    None =>
+      err +
+      "\n\n" +
+      details +
+      "\nOffending function merge_similar_functions (primary):\n" +
+      primary_text
+  }
 }
 
 ///|
@@ -1804,9 +1870,9 @@ fn create_shared(
   }
   let FuncType(primary_params, primary_results) = func_types[primary_abs]
   if trace_all_funcs {
-      trace(
-        "func[\{ordinal}] phase=create_shared:rewrite_body:start top_instrs=\{primary_body.instrs.length()}",
-      )
+    trace(
+      "func[\{ordinal}] phase=create_shared:rewrite_body:start top_instrs=\{primary_body.instrs.length()}",
+    )
   }
   let func_type_idxs = msf_collect_func_type_indices(mod)
   let rewritten_body = match
@@ -1827,7 +1893,7 @@ fn create_shared(
           "func[\{ordinal}] phase=create_shared:rewrite_body:error elapsed_ms=\{msf_trace_elapsed_ms(create_start_ms)} \{e}",
         )
       }
-      return Err(e)
+      return Err(msf_attach_rewrite_debug_dump(mod, clazz, params, e))
     }
   }
   if trace_all_funcs {
@@ -2523,10 +2589,10 @@ test "merge similar functions parameterizes call target using call_ref" {
 ///|
 test "merge similar functions protects call target params with mismatched arity" {
   let body = TExpr::new([
-    TInstr::call(
-      FuncIdx::new(0),
-      [TInstr::i32_const(I32(2)), TInstr::i32_const(I32(3))],
-    ),
+    TInstr::call(FuncIdx::new(0), [
+      TInstr::i32_const(I32(2)),
+      TInstr::i32_const(I32(3)),
+    ]),
   ])
   let sites = msf_collect_sites(body, [TypeIdx::new(0)])
   let mut mismatch_call_node = -1
@@ -2538,29 +2604,255 @@ test "merge similar functions protects call target params with mismatched arity"
     }
   }
   assert_true(mismatch_call_node >= 0)
-  let params : Array[ParamInfo] = [{
-    kind: CallTargetParam(
-      TypeIdx::new(0),
-      1,
-      false,
-      [FuncIdx::new(0), FuncIdx::new(1)],
-    ),
-    uses: [mismatch_call_node],
-  }]
-  match msf_rewrite_shared_body(
-    body,
-    0,
-    params,
-    [FuncType::new([ValType::i32(), ValType::i32()], [ValType::i32()])],
-    [TypeIdx::new(0)],
-  ) {
-    Ok(_) => fail(
-      "expected msf_rewrite_shared_body to reject mismatched call-target arity",
-    )
+  let params : Array[ParamInfo] = [
+    {
+      kind: CallTargetParam(TypeIdx::new(0), 1, false, [
+        FuncIdx::new(0),
+        FuncIdx::new(1),
+      ]),
+      uses: [mismatch_call_node],
+    },
+  ]
+  match
+    msf_rewrite_shared_body(
+      body,
+      0,
+      params,
+      [FuncType::new([ValType::i32(), ValType::i32()], [ValType::i32()])],
+      [TypeIdx::new(0)],
+    ) {
+    Ok(_) =>
+      fail(
+        "expected msf_rewrite_shared_body to reject mismatched call-target arity",
+      )
     Err(e) => assert_true(e.contains("call_target rewrite arg count mismatch"))
   }
 }
 
+///|
+test "merge similar functions rewrite validation errors include function diff dump" {
+  let t = msf_make_func_type([ValType::i32()], [ValType::i32()])
+  let f0_body = TExpr::new([
+    TInstr::call(FuncIdx::new(0), [TInstr::local_get(LocalIdx::new(0))]),
+  ])
+  let f0 = Func::t_func([ValType::i32()], [ValType::i32()], f0_body)
+  let f1 = Func::t_func(
+    [ValType::i32()],
+    [ValType::i32()],
+    TExpr::new([
+      TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
+    ]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
+    .with_code_sec(CodeSec::new([f0, f1]))
+  let call_sites = msf_collect_sites(f0_body, [TypeIdx::new(0), TypeIdx::new(0)])
+  let mut call_node = -1
+  for entry in call_sites {
+    let (node_id, site) = entry
+    match site {
+      CallTargetSite(_, _, false, _) => call_node = node_id
+      _ => ()
+    }
+  }
+  assert_true(call_node >= 0)
+  let clazz = {
+    type_idx: TypeIdx::new(0),
+    member_def_idxs: [0, 1],
+    primary_def_idx: 0,
+  }
+  let params : Array[ParamInfo] = [
+    {
+      kind: CallTargetParam(TypeIdx::new(0), 2, false, [
+        FuncIdx::new(0),
+        FuncIdx::new(1),
+      ]),
+      uses: [call_node],
+    },
+  ]
+  match create_shared(clazz, mod, params) {
+    Ok(_) => fail("expected create_shared to fail rewrite validation")
+    Err(e) => {
+      assert_true(e.contains("call_target rewrite arg count mismatch"))
+      assert_true(
+        e.contains(
+          "Offending function diff merge_similar_functions (primary -> secondary)",
+        ),
+      )
+      assert_true(e.contains("merge_similar_functions debug context"))
+    }
+  }
+}
+
+///|
+test "merge similar functions rewrites call target params with unchanged ancestors" {
+  let body = TExpr::new([
+    TInstr::drop(
+      TInstr::binary(
+        BinaryOp::i32_add(),
+        TInstr::local_get(LocalIdx::new(0)),
+        TInstr::i32_const(I32(7)),
+      ),
+    ),
+    TInstr::call(FuncIdx::new(0), [TInstr::local_get(LocalIdx::new(0))]),
+    TInstr::return_call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
+  ])
+  let sites = msf_collect_sites(body, [TypeIdx::new(0), TypeIdx::new(0)])
+  let mut call_node = -1
+  let mut return_call_node = -1
+  for entry in sites {
+    let (node_id, site) = entry
+    match site {
+      CallTargetSite(_, _, is_return, _) =>
+        if is_return {
+          return_call_node = node_id
+        } else {
+          call_node = node_id
+        }
+      _ => ()
+    }
+  }
+  assert_true(call_node >= 0)
+  assert_true(return_call_node >= 0)
+  let params : Array[ParamInfo] = [
+    {
+      kind: CallTargetParam(TypeIdx::new(0), 1, false, [
+        FuncIdx::new(0),
+        FuncIdx::new(1),
+      ]),
+      uses: [call_node],
+    },
+    {
+      kind: CallTargetParam(TypeIdx::new(0), 1, true, [
+        FuncIdx::new(1),
+        FuncIdx::new(0),
+      ]),
+      uses: [return_call_node],
+    },
+  ]
+  let rewritten = match
+    msf_rewrite_shared_body(
+      body,
+      1,
+      params,
+      [FuncType::new([ValType::i32()], [ValType::i32()])],
+      [TypeIdx::new(0), TypeIdx::new(0)],
+    ) {
+    Ok(out) => out
+    Err(e) =>
+      fail(
+        "expected msf_rewrite_shared_body to rewrite call targets without kind mismatch: \{e}",
+      )
+  }
+  let mut saw_call_ref = false
+  let mut saw_return_call_ref = false
+  let mut saw_call_casted_local = false
+  let mut saw_return_call_casted_local = false
+  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+    match instr.kind {
+      TInstrKind::TCallRef(TypeIdx(raw), args, ref_) => {
+        if raw.reinterpret_as_int() == 0 && args.length() == 1 {
+          saw_call_ref = true
+        }
+        match ref_.kind {
+          TInstrKind::TRefCast(
+            true,
+            HeapType(TypeIdx(cast_raw)),
+            { kind: TInstrKind::TLocalGet(LocalIdx(local_raw)), .. }
+          ) =>
+            if cast_raw.reinterpret_as_int() == 0 &&
+              local_raw.reinterpret_as_int() == 1 {
+              saw_call_casted_local = true
+            }
+          _ => ()
+        }
+      }
+      TInstrKind::TReturnCallRef(TypeIdx(raw), args, ref_) => {
+        if raw.reinterpret_as_int() == 0 && args.length() == 1 {
+          saw_return_call_ref = true
+        }
+        match ref_.kind {
+          TInstrKind::TRefCast(
+            true,
+            HeapType(TypeIdx(cast_raw)),
+            { kind: TInstrKind::TLocalGet(LocalIdx(local_raw)), .. }
+          ) =>
+            if cast_raw.reinterpret_as_int() == 0 &&
+              local_raw.reinterpret_as_int() == 2 {
+              saw_return_call_casted_local = true
+            }
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+    self.walk_tinstruction_default((), instr)
+  })
+  ignore(walker.walk_texpr((), rewritten))
+  assert_true(saw_call_ref)
+  assert_true(saw_return_call_ref)
+  assert_true(saw_call_casted_local)
+  assert_true(saw_return_call_casted_local)
+}
+
+///|
+test "merge similar functions validates call-target arity by callee type idx" {
+  let body = TExpr::new([
+    TInstr::call(FuncIdx::new(0), [TInstr::local_get(LocalIdx::new(0))]),
+  ])
+  let sites = msf_collect_sites(body, [TypeIdx::new(1), TypeIdx::new(0)])
+  let mut call_node = -1
+  for entry in sites {
+    let (node_id, site) = entry
+    match site {
+      CallTargetSite(_, _, false, _) => call_node = node_id
+      _ => ()
+    }
+  }
+  assert_true(call_node >= 0)
+  let params : Array[ParamInfo] = [
+    {
+      kind: CallTargetParam(TypeIdx::new(1), 1, false, [
+        FuncIdx::new(0),
+        FuncIdx::new(1),
+      ]),
+      uses: [call_node],
+    },
+  ]
+  let rewritten = match
+    msf_rewrite_shared_body(
+      body,
+      1,
+      params,
+      [
+        FuncType::new([ValType::i32()], [ValType::i32()]),
+        FuncType::new([], [ValType::i32()]),
+      ],
+      [TypeIdx::new(1), TypeIdx::new(0)],
+    ) {
+    Ok(out) => out
+    Err(e) =>
+      fail(
+        "expected msf_rewrite_shared_body to accept arity based on the callee type idx: \{e}",
+      )
+  }
+  let mut saw_call_ref = false
+  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+    match instr.kind {
+      TInstrKind::TCallRef(TypeIdx(raw), args, _) =>
+        if raw.reinterpret_as_int() == 1 && args.length() == 1 {
+          saw_call_ref = true
+        }
+      _ => ()
+    }
+    self.walk_tinstruction_default((), instr)
+  })
+  ignore(walker.walk_texpr((), rewritten))
+  assert_true(saw_call_ref)
+}
+
+///|
 test "merge similar functions accepts safe call-target arity" {
   let t_callee = msf_make_func_type([ValType::i32()], [ValType::i32()])
   let t_wrap = msf_make_func_type([], [ValType::i32()])
