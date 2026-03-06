@@ -174,6 +174,14 @@ fn vq_texpr_is_unreachable(expr : TExpr) -> Bool {
 }
 
 ///|
+fn vq_is_explicit_unreachable_instr(instr : TInstr) -> Bool {
+  match instr.kind {
+    TInstrKind::TUnreachable => true
+    _ => false
+  }
+}
+
+///|
 fn vq_wrap_texpr(
   expr : TExpr,
   env : Env,
@@ -678,6 +686,22 @@ fn vq_same_stack_sig(a : VQStackSig, b : VQStackSig) -> Bool {
 }
 
 ///|
+fn vq_rewrite_preserves_type_and_stack_sig(
+  before : TInstr,
+  after : TInstr,
+  env : Env,
+) -> Bool {
+  if !vq_same_type(vq_type_of(before, env), vq_type_of(after, env)) {
+    return false
+  }
+  match (vq_stack_sig_instr(before, env), vq_stack_sig_instr(after, env)) {
+    (Some(before_sig), Some(after_sig)) =>
+      vq_same_stack_sig(before_sig, after_sig)
+    _ => false
+  }
+}
+
+///|
 fn vq_max_int(a : Int, b : Int) -> Int {
   if a > b {
     a
@@ -994,6 +1018,7 @@ fn vq_optimize_sequence(
 ) -> VQSequenceResult {
   let out : Array[TInstr] = []
   let mut changed = false
+  let mut preserve_next_unreachable = false
   let size = items.length()
   let multi_value_results = result_types.length() > 1
   let has_ambient_stack_terminator = vq_has_ambient_stack_terminator(items)
@@ -1008,6 +1033,16 @@ fn vq_optimize_sequence(
   )
   for i = 0; i < size; i = i + 1 {
     let child = items[i]
+    if preserve_next_unreachable {
+      preserve_next_unreachable = false
+      if vq_is_explicit_unreachable_instr(child) {
+        out.push(child)
+        if i + 1 < size {
+          changed = true
+        }
+        break
+      }
+    }
     let keeps_sequence_result = i == size - 1 && result_types.length() > 0
     let used = if multi_value_results {
       true
@@ -1095,6 +1130,10 @@ fn vq_optimize_sequence(
         }
         out.push(next)
         if is_unreachable_instr(next) {
+          if i + 1 < size && vq_is_explicit_unreachable_instr(items[i + 1]) {
+            preserve_next_unreachable = true
+            continue
+          }
           if i + 1 < size {
             changed = true
           }
@@ -1325,14 +1364,17 @@ fn vq_process_instr(
             return Some(TInstr::if_(bt, next_condition, next_then, None))
           }
           if arm_result_types.is_empty() && vq_is_nop_texpr(next_then) {
-            return Some(
-              TInstr::if_(
-                bt,
-                TInstr::unary(UnaryOp::i32_eqz(), next_condition),
-                other,
-                None,
-              ),
+            let before = TInstr::if_(bt, next_condition, next_then, Some(other))
+            let after = TInstr::if_(
+              bt,
+              TInstr::unary(UnaryOp::i32_eqz(), next_condition),
+              other,
+              None,
             )
+            if vq_rewrite_preserves_type_and_stack_sig(before, after, env) {
+              return Some(after)
+            }
+            return Some(before)
           }
           match (next_then.instrs, other.instrs) {
             (
@@ -2083,6 +2125,53 @@ test "vacuum removes trailing dead code after unreachable in block body" {
 }
 
 ///|
+test "vacuum keeps explicit unreachable sentinel after br tail" {
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_void]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([
+            TInstr::block(
+              BlockType::void_(),
+              TExpr::new([
+                TInstr::br(LabelIdx::new(0), []),
+                TInstr::unreachable_(),
+                TInstr::i32_const(I32(11)),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_vacuum(mod)
+  assert_eq(validate_module(out), Ok(()))
+  match vq_first_func_body(out).instrs {
+    [
+      {
+        kind: TInstrKind::TBlock(
+          VoidBlockType,
+          {
+            instrs: [
+              { kind: TInstrKind::TBr(LabelIdx(lbl), []), .. },
+              { kind: TInstrKind::TUnreachable, .. },
+            ],
+            ..,
+          }
+        ),
+        ..,
+      },
+    ] => assert_eq(lbl, 0U)
+    _ => fail("expected explicit unreachable sentinel after br to be preserved")
+  }
+}
+
+///|
 test "vacuum turns drop(if drop(..) else drop(..)) into drop(if value else value)" {
   let t_i32 = RecType::new(
     SubType::comp_type(CompType::func([], [ValType::i32()])),
@@ -2147,6 +2236,66 @@ test "vacuum turns drop(if drop(..) else drop(..)) into drop(if value else value
         _ => fail("expected value arms")
       }
     _ => fail("expected dropped arms rewrite")
+  }
+}
+
+///|
+test "vacuum safely inverts if with nop then arm" {
+  let t_void_with_param = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_void_with_param]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([
+            TInstr::if_(
+              BlockType::void_(),
+              TInstr::local_get(LocalIdx::new(0)),
+              TExpr::new([TInstr::nop()]),
+              Some(
+                TExpr::new([
+                  TInstr::local_set(LocalIdx::new(0), TInstr::i32_const(I32(1))),
+                ]),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_vacuum(mod)
+  assert_eq(validate_module(out), Ok(()))
+  match vq_first_func_body(out).instrs {
+    [
+      {
+        kind: TInstrKind::TIf(
+          VoidBlockType,
+          {
+            kind: TInstrKind::TUnary(
+              I32EqzOp,
+              { kind: TInstrKind::TLocalGet(LocalIdx(idx)), .. }
+            ),
+            ..,
+          },
+          then_body,
+          None
+        ),
+        ..,
+      },
+    ] => {
+      assert_eq(idx, 0U)
+      match then_body.instrs {
+        [{ kind: TInstrKind::TLocalSet(LocalIdx(set_idx), _), .. }] =>
+          assert_eq(set_idx, 0U)
+        _ => fail("expected inverted then body to keep local.set side effect")
+      }
+    }
+    _ => fail("expected if with nop then arm to invert into eqz form")
   }
 }
 

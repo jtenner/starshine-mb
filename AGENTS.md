@@ -17,7 +17,9 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
 - Prefer constructor methods over open-struct literals.
 - Put deprecated code in `deprecated.mbt` with `#deprecated` markers.
 - If optimization state is reusable, put it in `IRContext` instead of threading extra parameters.
-- Pass constructor parameters should be immutable and captured in `ModuleTransformer` event closures.s
+- Pass constructor parameters should be immutable and captured in `ModuleTransformer` event closures.
+- Please use strict TDD for both feature and regression tests. Write tests before code, and make sure they fail before writing the code.
+- Unless explicitly instructed, do not remove or disable existing features or tests to make tests pass. Changing test expectations to meet correctness standards is fine.
 
 ## Tooling
 - Format: `moon fmt`
@@ -64,4 +66,4 @@ In this workspace, use absolute moon path when needed:
 - `./agent-todo.md` contains AI-friendly backlog items.
 
 ## Surprises
-Whenever something surprises you about the project, and can be fixed in another agent pass, please report these surprises in a file called `./agent-surprises.md`. This will help the user understand the project better and help developers modify the codebase so that things are less surprising in the future.
+Please report any concerning surprises that are unrelated to your current task in `./agent-surprises.md`. This will help the user understand the project better and help developers modify the codebase so that things are less surprising in the future. Look for code smells, anti-patterns, potential improvements, or anything that deviates from common best practices.
