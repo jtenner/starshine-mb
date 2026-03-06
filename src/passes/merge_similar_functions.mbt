@@ -100,19 +100,19 @@ struct MSFCallSite {
 ///|
 enum MSFSiteValue {
   ConstSite(TInstr, ValType)
-  CallTargetSite(FuncIdx, TypeIdx, Bool)
+  CallTargetSite(FuncIdx, TypeIdx, Bool, Int)
 } derive(Eq, Hash, Show)
 
 ///|
 enum MSFParamKey {
   ConstParamKey(ValType, Array[TInstr])
-  CallParamKey(TypeIdx, Array[FuncIdx])
+  CallParamKey(TypeIdx, Int, Bool, Array[FuncIdx])
 } derive(Eq, Hash)
 
 ///|
 enum MSFParamKind {
   LiteralParam(ValType, Array[TInstr])
-  CallTargetParam(TypeIdx, Array[FuncIdx])
+  CallTargetParam(TypeIdx, Int, Bool, Array[FuncIdx])
 } derive(Eq, Hash, Show)
 
 ///|
@@ -276,6 +276,49 @@ fn msf_func_idx_to_int(idx : FuncIdx) -> Int {
 ///|
 fn msf_func_idx_from_int(i : Int) -> FuncIdx {
   FuncIdx::new(i.reinterpret_as_uint())
+}
+
+///|
+fn msf_type_idx_to_int(idx : TypeIdx) -> Int {
+  match idx {
+    TypeIdx(raw) => raw.reinterpret_as_int()
+    RecIdx(raw) => raw.reinterpret_as_int()
+  }
+}
+
+///|
+fn msf_resolve_callee_type_idx(
+  target : FuncIdx,
+  func_type_idxs : Array[TypeIdx],
+) -> Result[TypeIdx, String] {
+  let abs_idx = msf_func_idx_to_int(target)
+  if abs_idx < 0 || abs_idx >= func_type_idxs.length() {
+    return Err(
+      "merge_similar_functions: call target out of range for function type lookup",
+    )
+  }
+  Ok(func_type_idxs[abs_idx])
+}
+
+///|
+fn msf_verify_call_target_type(
+  type_idx : TypeIdx,
+  expected_arg_count : Int,
+  func_types : Array[FuncType],
+) -> Result[Unit, String] {
+  let i = msf_type_idx_to_int(type_idx)
+  if i < 0 || i >= func_types.length() {
+    return Err(
+      "merge_similar_functions: missing function type for rewritten call target",
+    )
+  }
+  let FuncType(params, _) = func_types[i]
+  if params.length() != expected_arg_count {
+    return Err(
+      "merge_similar_functions: call target param arity mismatch for rewritten call site",
+    )
+  }
+  Ok(())
 }
 
 ///|
@@ -743,7 +786,23 @@ fn msf_collect_sites(
         }
         let abs_idx = msf_func_idx_to_int(target)
         if abs_idx >= 0 && abs_idx < type_idxs.length() {
-          out[id] = CallTargetSite(target, type_idxs[abs_idx], is_return)
+          match instr.kind {
+            TInstrKind::TCall(_, args) =>
+              out[id] = CallTargetSite(
+                target,
+                type_idxs[abs_idx],
+                is_return,
+                args.length(),
+              )
+            TInstrKind::TReturnCall(_, args) =>
+              out[id] = CallTargetSite(
+                target,
+                type_idxs[abs_idx],
+                is_return,
+                args.length(),
+              )
+            _ => ()
+          }
         }
       }
       _ => ()
@@ -1238,16 +1297,32 @@ fn derive_params(
           }
         }
       }
-      CallTargetSite(_, type_idx, is_return) => {
-        ignore(is_return)
+      CallTargetSite(_, type_idx, is_return, arg_count) => {
         let values : Array[FuncIdx] = []
         for sites in site_maps {
           match sites.get(node_id) {
-            Some(CallTargetSite(target, site_type_idx, _)) => {
+            Some(CallTargetSite(target, site_type_idx, site_is_return, site_arg_count)) =>
+            {
               if site_type_idx != type_idx {
                 if trace_all_funcs {
                   trace(
                     "func[\{ordinal}] phase=derive_params_internal:build_params:error reason=call_type_mismatch node=\{node_id} elapsed_ms=\{msf_trace_elapsed_ms(build_params_start_ms)}",
+                  )
+                }
+                return None
+              }
+              if site_is_return != is_return {
+                if trace_all_funcs {
+                  trace(
+                    "func[\{ordinal}] phase=derive_params_internal:build_params:error reason=call_kind_mismatch node=\{node_id} elapsed_ms=\{msf_trace_elapsed_ms(build_params_start_ms)}",
+                  )
+                }
+                return None
+              }
+              if site_arg_count != arg_count {
+                if trace_all_funcs {
+                  trace(
+                    "func[\{ordinal}] phase=derive_params_internal:build_params:error reason=call_arg_count_mismatch node=\{node_id} elapsed_ms=\{msf_trace_elapsed_ms(build_params_start_ms)}",
                   )
                 }
                 return None
@@ -1267,14 +1342,14 @@ fn derive_params(
         if msf_same_all_targets(values) {
           continue
         }
-        let key = CallParamKey(type_idx, values)
+        let key = CallParamKey(type_idx, arg_count, is_return, values)
         match key_to_idx.get(key) {
           Some(idx) => params[idx].uses.push(node_id)
           None => {
             let idx = params.length()
             key_to_idx[key] = idx
             params.push({
-              kind: CallTargetParam(type_idx, values),
+              kind: CallTargetParam(type_idx, arg_count, is_return, values),
               uses: [node_id],
             })
           }
@@ -1414,6 +1489,8 @@ fn msf_rewrite_shared_body(
   body : TExpr,
   primary_param_count : Int,
   params : Array[ParamInfo],
+  func_types : Array[FuncType],
+  func_type_idxs : Array[TypeIdx],
   trace? : (String) -> Unit = msf_trace_noop,
   trace_all_funcs? : Bool = false,
   ordinal? : Int = 0,
@@ -1514,9 +1591,33 @@ fn msf_rewrite_shared_body(
             LiteralParam(_, _),
           ) => TInstr::local_get(replacement_local)
           (
-            { kind: TInstrKind::TCall(_, args), .. },
-            CallTargetParam(type_idx, _),
+            { kind: TInstrKind::TCall(target, args), .. },
+            CallTargetParam(type_idx, expected_arg_count, expects_return, _),
           ) => {
+            if expects_return {
+              return Err(
+                "merge_similar_functions: call_target rewrite expected return_call but saw call",
+              )
+            }
+            if args.length() != expected_arg_count {
+              return Err(
+                "merge_similar_functions: call_target rewrite arg count mismatch",
+              )
+            }
+            match msf_verify_call_target_type(type_idx, expected_arg_count, func_types) {
+              Ok(_) => ()
+              Err(e) => return Err(e)
+            }
+            let callee_type_idx = match
+              msf_resolve_callee_type_idx(target, func_type_idxs) {
+              Ok(v) => v
+              Err(e) => return Err(e)
+            }
+            if callee_type_idx != type_idx {
+              return Err(
+                "merge_similar_functions: call_target rewrite callee type mismatch",
+              )
+            }
             let casted = TInstr::ref_cast(
               true,
               HeapType::new(type_idx),
@@ -1525,9 +1626,33 @@ fn msf_rewrite_shared_body(
             TInstr::call_ref(type_idx, args, casted)
           }
           (
-            { kind: TInstrKind::TReturnCall(_, args), .. },
-            CallTargetParam(type_idx, _),
+            { kind: TInstrKind::TReturnCall(target, args), .. },
+            CallTargetParam(type_idx, expected_arg_count, expects_return, _),
           ) => {
+            if !expects_return {
+              return Err(
+                "merge_similar_functions: call_target rewrite expected call but saw return_call",
+              )
+            }
+            if args.length() != expected_arg_count {
+              return Err(
+                "merge_similar_functions: call_target rewrite arg count mismatch",
+              )
+            }
+            match msf_verify_call_target_type(type_idx, expected_arg_count, func_types) {
+              Ok(_) => ()
+              Err(e) => return Err(e)
+            }
+            let callee_type_idx = match
+              msf_resolve_callee_type_idx(target, func_type_idxs) {
+              Ok(v) => v
+              Err(e) => return Err(e)
+            }
+            if callee_type_idx != type_idx {
+              return Err(
+                "merge_similar_functions: call_target rewrite callee type mismatch",
+              )
+            }
             let casted = TInstr::ref_cast(
               true,
               HeapType::new(type_idx),
@@ -1535,7 +1660,9 @@ fn msf_rewrite_shared_body(
             )
             TInstr::return_call_ref(type_idx, args, casted)
           }
-          _ => shifted
+          _ => return Err(
+            "merge_similar_functions: call_target rewrite kind mismatch",
+          )
         }
       }
       None => shifted
@@ -1586,7 +1713,7 @@ fn msf_collect_param_types(params : Array[ParamInfo]) -> Array[ValType] {
   for param in params {
     match param.kind {
       LiteralParam(vt, _) => out.push(vt)
-      CallTargetParam(_, _) => out.push(ValType::funcref())
+      CallTargetParam(_, _, _, _) => out.push(ValType::funcref())
     }
   }
   out
@@ -1677,15 +1804,18 @@ fn create_shared(
   }
   let FuncType(primary_params, primary_results) = func_types[primary_abs]
   if trace_all_funcs {
-    trace(
-      "func[\{ordinal}] phase=create_shared:rewrite_body:start top_instrs=\{primary_body.instrs.length()}",
-    )
+      trace(
+        "func[\{ordinal}] phase=create_shared:rewrite_body:start top_instrs=\{primary_body.instrs.length()}",
+      )
   }
+  let func_type_idxs = msf_collect_func_type_indices(mod)
   let rewritten_body = match
     msf_rewrite_shared_body(
       primary_body,
       primary_params.length(),
       params,
+      func_types,
+      func_type_idxs,
       trace~,
       trace_all_funcs~,
       ordinal~,
@@ -1754,7 +1884,7 @@ fn create_shared(
 fn msf_param_value_for_member(param : ParamInfo, member_idx : Int) -> TInstr? {
   match param.kind {
     LiteralParam(_, values) => values.get(member_idx)
-    CallTargetParam(_, targets) =>
+    CallTargetParam(_, _, _, targets) =>
       match targets.get(member_idx) {
         Some(target) => Some(TInstr::ref_func(target))
         None => None
@@ -2387,6 +2517,95 @@ test "merge similar functions parameterizes call target using call_ref" {
     }
     _ => fail("expected code section")
   }
+  assert_eq(validate_module(out), Ok(()))
+}
+
+///|
+test "merge similar functions protects call target params with mismatched arity" {
+  let body = TExpr::new([
+    TInstr::call(
+      FuncIdx::new(0),
+      [TInstr::i32_const(I32(2)), TInstr::i32_const(I32(3))],
+    ),
+  ])
+  let sites = msf_collect_sites(body, [TypeIdx::new(0)])
+  let mut mismatch_call_node = -1
+  for entry in sites {
+    let (node_id, site) = entry
+    match site {
+      CallTargetSite(_) => mismatch_call_node = node_id
+      _ => ()
+    }
+  }
+  assert_true(mismatch_call_node >= 0)
+  let params : Array[ParamInfo] = [{
+    kind: CallTargetParam(
+      TypeIdx::new(0),
+      1,
+      false,
+      [FuncIdx::new(0), FuncIdx::new(1)],
+    ),
+    uses: [mismatch_call_node],
+  }]
+  match msf_rewrite_shared_body(
+    body,
+    0,
+    params,
+    [FuncType::new([ValType::i32(), ValType::i32()], [ValType::i32()])],
+    [TypeIdx::new(0)],
+  ) {
+    Ok(_) => fail(
+      "expected msf_rewrite_shared_body to reject mismatched call-target arity",
+    )
+    Err(e) => assert_true(e.contains("call_target rewrite arg count mismatch"))
+  }
+}
+
+test "merge similar functions accepts safe call-target arity" {
+  let t_callee = msf_make_func_type([ValType::i32()], [ValType::i32()])
+  let t_wrap = msf_make_func_type([], [ValType::i32()])
+  let callee_a = Func::t_func(
+    [ValType::i32()],
+    [ValType::i32()],
+    TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
+  )
+  let callee_b = Func::t_func(
+    [ValType::i32()],
+    [ValType::i32()],
+    TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
+  )
+  let wrap_a = Func::t_func(
+    [],
+    [ValType::i32()],
+    TExpr::new([
+      TInstr::drop(TInstr::i32_const(I32(0))),
+      TInstr::return_([
+        TInstr::call(FuncIdx::new(0), [TInstr::i32_const(I32(1))]),
+      ]),
+    ]),
+  )
+  let wrap_b = Func::t_func(
+    [],
+    [ValType::i32()],
+    TExpr::new([
+      TInstr::drop(TInstr::i32_const(I32(0))),
+      TInstr::return_([
+        TInstr::call(FuncIdx::new(1), [TInstr::i32_const(I32(1))]),
+      ]),
+    ]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_callee, t_wrap]))
+    .with_func_sec(
+      FuncSec::new([
+        TypeIdx::new(0),
+        TypeIdx::new(0),
+        TypeIdx::new(1),
+        TypeIdx::new(1),
+      ]),
+    )
+    .with_code_sec(CodeSec::new([callee_a, callee_b, wrap_a, wrap_b]))
+  let out = msf_run(mod)
   assert_eq(validate_module(out), Ok(()))
 }
 
