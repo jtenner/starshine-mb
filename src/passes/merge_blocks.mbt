@@ -172,18 +172,25 @@ fn mb_nonneg_int(i : Int) -> Int {
 }
 
 ///|
+fn mb_stack_sig_is_consistent(sig : MBStackSig) -> Bool {
+  sig.required >= 0 && (!sig.reachable || sig.produced >= 0)
+}
+
+///|
 fn mb_stack_sig_seq(a : MBStackSig, b : MBStackSig) -> MBStackSig {
   if !a.reachable {
     a
   } else {
-    let required = mb_max_int(
-      a.required,
-      mb_nonneg_int(b.required - a.produced),
-    )
+    let upstream_slack = mb_nonneg_int(b.required - a.produced)
+    let required = a.required + upstream_slack
     if !b.reachable {
       MBStackSig::new(required, 0, false)
     } else {
-      MBStackSig::new(required, a.produced + b.produced, true)
+      MBStackSig::new(
+        required,
+        mb_nonneg_int(upstream_slack + a.produced - b.required + b.produced),
+        true,
+      )
     }
   }
 }
@@ -197,12 +204,12 @@ fn mb_stack_sig_pop_push(
   if !child_sig.reachable {
     child_sig
   } else {
+    let upstream_slack = mb_nonneg_int(pop_count - child_sig.produced)
     MBStackSig::new(
-      mb_max_int(
-        child_sig.required,
-        mb_nonneg_int(pop_count - child_sig.produced),
+      child_sig.required + upstream_slack,
+      mb_nonneg_int(
+        upstream_slack + child_sig.produced - pop_count + push_count,
       ),
-      child_sig.produced - pop_count + push_count,
       true,
     )
   }
@@ -216,14 +223,8 @@ fn mb_stack_sig_terminate(
   if !child_sig.reachable {
     child_sig
   } else {
-    MBStackSig::new(
-      mb_max_int(
-        child_sig.required,
-        mb_nonneg_int(pop_count - child_sig.produced),
-      ),
-      0,
-      false,
-    )
+    let upstream_slack = mb_nonneg_int(pop_count - child_sig.produced)
+    MBStackSig::new(child_sig.required + upstream_slack, 0, false)
   }
 }
 
@@ -306,28 +307,55 @@ fn mb_stack_sig_if(
   }
   let branch_required = mb_max_int(then_sig.required, else_sig.required)
   let branch_reachable = then_sig.reachable || else_sig.reachable
+  let then_produced = branch_required - then_sig.required + then_sig.produced
+  let else_produced = branch_required - else_sig.required + else_sig.produced
   let branch_produced = if then_sig.reachable && else_sig.reachable {
-    if then_sig.produced < else_sig.produced {
-      then_sig.produced
+    if then_produced < else_produced {
+      then_produced
     } else {
-      else_sig.produced
+      else_produced
     }
   } else if then_sig.reachable {
-    then_sig.produced
+    then_produced
   } else if else_sig.reachable {
-    else_sig.produced
+    else_produced
   } else {
     0
   }
   let need_after_cond = 1 + branch_required
+  let upstream_slack = mb_nonneg_int(need_after_cond - cond_sig.produced)
   MBStackSig::new(
-    mb_max_int(
-      cond_sig.required,
-      mb_nonneg_int(need_after_cond - cond_sig.produced),
-    ),
-    branch_produced,
+    cond_sig.required + upstream_slack,
+    if branch_reachable {
+      mb_nonneg_int(
+        upstream_slack + cond_sig.produced - need_after_cond + branch_produced,
+      )
+    } else {
+      0
+    },
     branch_reachable,
   )
+}
+
+///|
+fn mb_block_result_count(bt : BlockType, env : Env) -> Int? {
+  match env.expand_blocktype(bt) {
+    Ok((_, results)) => Some(results.length())
+    Err(_) => None
+  }
+}
+
+///|
+fn mb_stack_sig_with_declared_results(
+  child_sig : MBStackSig,
+  result_count : Int,
+) -> MBStackSig {
+  if !child_sig.reachable {
+    child_sig
+  } else {
+    let upstream_slack = mb_nonneg_int(result_count - child_sig.produced)
+    MBStackSig::new(child_sig.required + upstream_slack, result_count, true)
+  }
 }
 
 ///|
@@ -395,9 +423,15 @@ fn mb_stack_sig_instr(instr : TInstr, env : Env) -> MBStackSig? {
       mb_stack_sig_list([if_true, if_false, cond], env).map(fn(sig) {
         mb_stack_sig_pop_push(sig, 3, 1)
       })
-    TInstrKind::TBlock(_, body)
-    | TInstrKind::TLoop(_, body)
-    | TInstrKind::TTryTable(_, _, body) => mb_stack_sig_list(body.instrs, env)
+    TInstrKind::TBlock(bt, body)
+    | TInstrKind::TLoop(bt, body)
+    | TInstrKind::TTryTable(bt, _, body) =>
+      match
+        (mb_stack_sig_list(body.instrs, env), mb_block_result_count(bt, env)) {
+        (Some(sig), Some(result_count)) =>
+          Some(mb_stack_sig_with_declared_results(sig, result_count))
+        _ => None
+      }
     TInstrKind::TIf(_, cond, then_body, else_body) => {
       let else_sig = match else_body {
         Some(other) => mb_stack_sig_list(other.instrs, env)
@@ -410,7 +444,20 @@ fn mb_stack_sig_instr(instr : TInstr, env : Env) -> MBStackSig? {
           else_sig,
         ) {
         (Some(cond_sig), Some(then_sig), Some(other_sig)) =>
-          Some(mb_stack_sig_if(cond_sig, then_sig, other_sig))
+          match instr.kind {
+            TInstrKind::TIf(bt, _, _, _) =>
+              match mb_block_result_count(bt, env) {
+                Some(result_count) =>
+                  Some(
+                    mb_stack_sig_with_declared_results(
+                      mb_stack_sig_if(cond_sig, then_sig, other_sig),
+                      result_count,
+                    ),
+                  )
+                None => None
+              }
+            _ => None
+          }
         _ => None
       }
     }
@@ -504,15 +551,111 @@ fn mb_stack_sig_instr(instr : TInstr, env : Env) -> MBStackSig? {
 }
 
 ///|
+fn mb_rewrite_critical_types_hold_expr(expr : TExpr, env : Env) -> Bool {
+  for instr in expr.instrs {
+    if !mb_rewrite_critical_types_hold_instr(instr, env) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn mb_rewrite_critical_types_hold_instr(instr : TInstr, env : Env) -> Bool {
+  match instr.kind {
+    TInstrKind::TCall(func_idx, args) =>
+      match env.get_functype_by_funcidx(func_idx) {
+        Some(FuncType(params, _)) =>
+          mb_rewrite_critical_types_hold_expr(TExpr::new(args), env) &&
+          mb_call_args_match_params(args, params, env)
+        _ => false
+      }
+    TInstrKind::TCallIndirect(type_idx, _, args, callee) =>
+      match env.resolve_functype(type_idx) {
+        Some(FuncType(params, _)) =>
+          mb_rewrite_critical_types_hold_expr(TExpr::new(args), env) &&
+          mb_rewrite_critical_types_hold_instr(callee, env) &&
+          mb_call_args_match_params(args, params, env) &&
+          mb_infer_tinstr_type(callee, env) == Some(ValType::i32())
+        _ => false
+      }
+    TInstrKind::TCallRef(type_idx, args, callee) =>
+      match env.resolve_functype(type_idx) {
+        Some(FuncType(params, _)) => {
+          let callee_ok = match mb_infer_tinstr_type(callee, env) {
+            Some(RefTypeValType(_)) => true
+            _ => false
+          }
+          mb_rewrite_critical_types_hold_expr(TExpr::new(args), env) &&
+          mb_rewrite_critical_types_hold_instr(callee, env) &&
+          mb_call_args_match_params(args, params, env) &&
+          callee_ok
+        }
+        _ => false
+      }
+    TInstrKind::TLocalSet(local_idx, value) =>
+      mb_rewrite_critical_types_hold_instr(value, env) &&
+      mb_local_set_arg_matches(local_idx, value, env)
+    TInstrKind::TLocalTee(local_idx, value) =>
+      mb_rewrite_critical_types_hold_instr(value, env) &&
+      mb_local_set_arg_matches(local_idx, value, env)
+    TInstrKind::TGlobalSet(global_idx, value) =>
+      mb_rewrite_critical_types_hold_instr(value, env) &&
+      mb_global_set_arg_matches(global_idx, value, env)
+    TInstrKind::TBlock(_, body) =>
+      mb_rewrite_critical_types_hold_expr(body, env)
+    TInstrKind::TLoop(_, body) => mb_rewrite_critical_types_hold_expr(body, env)
+    TInstrKind::TTryTable(_, _, body) =>
+      mb_rewrite_critical_types_hold_expr(body, env)
+    TInstrKind::TIf(_, cond, then_, else_) => {
+      let else_ok = match else_ {
+        Some(other) => mb_rewrite_critical_types_hold_expr(other, env)
+        None => true
+      }
+      mb_rewrite_critical_types_hold_instr(cond, env) &&
+      mb_rewrite_critical_types_hold_expr(then_, env) &&
+      else_ok
+    }
+    _ => {
+      for child in mb_eval_children(instr) {
+        if !mb_rewrite_critical_types_hold_instr(child, env) {
+          return false
+        }
+      }
+      true
+    }
+  }
+}
+
+///|
+fn mb_rewrite_critical_types_hold_items(
+  items : Array[TInstr],
+  env : Env,
+) -> Bool {
+  for item in items {
+    if !mb_rewrite_critical_types_hold_instr(item, env) {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn mb_rewrite_preserves_stack_sig(
   before : TInstr,
   after_items : Array[TInstr],
   env : Env,
 ) -> Bool {
+  if !mb_rewrite_critical_types_hold_items(after_items, env) {
+    return false
+  }
   match (mb_stack_sig_instr(before, env), mb_stack_sig_list(after_items, env)) {
     (Some(before_sig), Some(after_sig)) =>
+      mb_stack_sig_is_consistent(before_sig) &&
+      mb_stack_sig_is_consistent(after_sig) &&
       before_sig.reachable == after_sig.reachable &&
-      before_sig.required == after_sig.required
+      before_sig.required == after_sig.required &&
+      before_sig.produced == after_sig.produced
     _ => false
   }
 }
@@ -1938,7 +2081,10 @@ fn optimize_dropped_block(
   ctx : MBContext,
 ) -> (TInstr, Bool) {
   ignore(options)
-  ignore(block_instr)
+  match block_instr.kind {
+    TInstrKind::TBlock(TypeIdxBlockType(_), _) => return (drop_instr, false)
+    _ => ()
+  }
   let mut next_body = match drop_instr.kind {
     TInstrKind::TDrop({ kind: TInstrKind::TBlock(_, body), .. }) => body
     _ => return (drop_instr, false)
@@ -1977,7 +2123,13 @@ fn optimize_dropped_block(
   let (optimized, _) = optimize_block(
     rewritten, mod, options, branch_cache, ctx,
   )
-  (optimized, true)
+  if mb_rewrite_preserves_stack_sig(drop_instr, [optimized], ctx.env) {
+    (optimized, true)
+  } else if mb_rewrite_preserves_stack_sig(drop_instr, [rewritten], ctx.env) {
+    (rewritten, true)
+  } else {
+    (drop_instr, false)
+  }
 }
 
 ///|
@@ -2984,6 +3136,212 @@ fn mb_run_on_body(body : TExpr, locals? : Array[ValType] = []) -> TExpr {
   match mb_extract_only_tfunc(out) {
     Some(TFunc(_, _, new_body)) => new_body
     _ => body
+  }
+}
+
+///|
+fn mb_is_local_set_or_tee_chain(instr : TInstr) -> Bool {
+  match instr.kind {
+    TInstrKind::TLocalSet(_, _) | TInstrKind::TLocalTee(_, _) => true
+    _ => false
+  }
+}
+
+///|
+fn mb_local_chain_sig(instr : TInstr, env : Env) -> (Int, Int, ValType)? {
+  match instr.kind {
+    TInstrKind::TLocalGet(local_idx) =>
+      match env.get_local_type(local_idx) {
+        Some(local_ty) => Some((0, 1, local_ty))
+        None => None
+      }
+    TInstrKind::TLocalSet(local_idx, value) =>
+      match (env.get_local_type(local_idx), mb_local_chain_sig(value, env)) {
+        (Some(local_ty), Some((required, produced, value_ty))) =>
+          if local_ty == value_ty {
+            let upstream_slack = mb_nonneg_int(1 - produced)
+            Some(
+              (
+                required + upstream_slack,
+                mb_nonneg_int(upstream_slack + produced - 1),
+                local_ty,
+              ),
+            )
+          } else {
+            None
+          }
+        _ => None
+      }
+    TInstrKind::TLocalTee(local_idx, value) =>
+      match (env.get_local_type(local_idx), mb_local_chain_sig(value, env)) {
+        (Some(local_ty), Some((required, produced, value_ty))) =>
+          if local_ty == value_ty {
+            let upstream_slack = mb_nonneg_int(1 - produced)
+            Some(
+              (
+                required + upstream_slack,
+                mb_nonneg_int(upstream_slack + produced),
+                local_ty,
+              ),
+            )
+          } else {
+            None
+          }
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn mb_has_bad_single_arg_local_chain_call(body : TExpr, env : Env) -> Bool {
+  let mut bad = false
+  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+    match instr.kind {
+      TInstrKind::TCall(func_idx, [arg]) =>
+        match env.get_functype_by_funcidx(func_idx) {
+          Some(FuncType([param_ty], _)) =>
+            if mb_is_local_set_or_tee_chain(arg) {
+              match mb_local_chain_sig(arg, env) {
+                Some((_, produced, got_ty)) =>
+                  if produced != 1 || got_ty != param_ty {
+                    bad = true
+                  }
+                _ => bad = true
+              }
+            }
+          _ => ()
+        }
+      _ => ()
+    }
+    self.walk_tinstruction_default((), instr)
+  })
+  ignore(walker.walk_texpr((), body))
+  bad
+}
+
+///|
+test "merge blocks: stack sig pop_push carries child required depth" {
+  let child = MBStackSig::new(1, 0, true)
+  let out = mb_stack_sig_pop_push(child, 1, 1)
+  assert_eq(out.required, 2)
+  assert_eq(out.produced, 1)
+  assert_true(out.reachable)
+}
+
+///|
+test "merge blocks: stack sig sequence accumulates upstream requirement" {
+  let a = MBStackSig::new(2, 1, true)
+  let b = MBStackSig::new(2, 0, true)
+  let out = mb_stack_sig_seq(a, b)
+  assert_eq(out.required, 3)
+  assert_eq(out.produced, 0)
+  assert_true(out.reachable)
+}
+
+///|
+test "merge blocks: stack sig never reports negative produced for reachable expression" {
+  let child = MBStackSig::new(0, 0, true)
+  let out = mb_stack_sig_pop_push(child, 1, 0)
+  assert_eq(out.required, 1)
+  assert_eq(out.produced, 0)
+  assert_true(out.reachable)
+}
+
+///|
+test "merge blocks: does not produce underflowing call arg local-set chain" {
+  let locals = [ValType::i32(), ValType::i64(), ValType::i32(), ValType::i64()]
+  let inner_body = TExpr::new([
+    TInstr::drop(TInstr::local_get(LocalIdx::new(1))),
+    TInstr::local_set(
+      LocalIdx::new(3),
+      TInstr::unary(
+        UnaryOp::i64_extend_i32s(),
+        TInstr::local_tee(LocalIdx::new(0), TInstr::local_get(LocalIdx::new(2))),
+      ),
+    ),
+    TInstr::call(FuncIdx::new(1), [TInstr::local_get(LocalIdx::new(0))]),
+    TInstr::i32_const(I32(0)),
+    TInstr::local_tee(
+      LocalIdx::new(0),
+      TInstr::if_(
+        BlockType::val_type(ValType::i32()),
+        TInstr::local_set(LocalIdx::new(0), TInstr::local_get(LocalIdx::new(0))),
+        TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
+        Some(
+          TExpr::new([
+            TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+            TInstr::br(LabelIdx::new(1), []),
+          ]),
+        ),
+      ),
+    ),
+    TInstr::br_if(LabelIdx::new(0), TInstr::i32_const(I32(1)), []),
+    TInstr::br(LabelIdx::new(1), []),
+  ])
+  let ambient_arg = TInstr::local_tee(
+    LocalIdx::new(0),
+    TInstr::local_set(LocalIdx::new(0), TInstr::local_get(LocalIdx::new(0))),
+  )
+  let body = TExpr::new([
+    TInstr::drop(
+      TInstr::block(
+        BlockType::type_idx(TypeIdx::new(1)),
+        TExpr::new([
+          TInstr::block(
+            BlockType::void_(),
+            TExpr::new([TInstr::block(BlockType::void_(), inner_body)]),
+          ),
+          TInstr::local_get(LocalIdx::new(0)),
+          TInstr::local_get(LocalIdx::new(0)),
+          TInstr::local_get(LocalIdx::new(0)),
+          TInstr::local_get(LocalIdx::new(0)),
+        ]),
+      ),
+    ),
+    TInstr::call(FuncIdx::new(1), [ambient_arg]),
+    TInstr::call(FuncIdx::new(1), [ambient_arg]),
+    TInstr::call(FuncIdx::new(1), [ambient_arg]),
+  ])
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(SubType::comp_type(CompType::func([], []))),
+        RecType::new(
+          SubType::comp_type(
+            CompType::func([], [
+              ValType::i32(),
+              ValType::i32(),
+              ValType::i32(),
+              ValType::i32(),
+            ]),
+          ),
+        ),
+        RecType::new(SubType::comp_type(CompType::func([ValType::i32()], []))),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(2)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func([], locals, body),
+        Func::t_func([ValType::i32()], [], TExpr::new([])),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_merge_blocks(mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected merge_blocks to preserve dropped typed block stack validity: \{e}",
+      )
+  }
+  match out.code_sec {
+    Some(CodeSec([TFunc(_, next_locals, next_body), _])) => {
+      let env = Env::new().with_module(out).with_locals(next_locals)
+      assert_false(mb_has_bad_single_arg_local_chain_call(next_body, env))
+    }
+    _ => fail("expected transformed regression function")
   }
 }
 

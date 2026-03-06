@@ -18,6 +18,73 @@
 const MSF_MAX_SYNTHETIC_FUNCTION_PARAMS : Int = 16
 
 ///|
+const MSF_HASH_MAX_INSTRS : Int = 200000
+
+///|
+const MSF_HASH_BUDGET_EXCEEDED_ERR : String = "msf_hash_budget_exceeded"
+
+///|
+fn msf_trace_noop(_ : String) -> Unit {
+  ()
+}
+
+///|
+fn msf_trace_normalize_env_now_ms(raw : UInt64) -> UInt64 {
+  if raw >= 100000000000000000UL {
+    raw / 1000000UL
+  } else if raw >= 100000000000000UL {
+    raw / 1000UL
+  } else {
+    raw
+  }
+}
+
+///|
+#cfg(target="wasm-gc")
+fn msf_trace_now_ms() -> UInt64 {
+  msf_trace_normalize_env_now_ms(@env.now())
+}
+
+///|
+#cfg(target="wasm")
+fn msf_trace_now_ms() -> UInt64 {
+  msf_trace_normalize_env_now_ms(@env.now())
+}
+
+///|
+#cfg(target="js")
+fn msf_trace_now_ms() -> UInt64 {
+  msf_trace_normalize_env_now_ms(@env.now())
+}
+
+///|
+#cfg(target="llvm")
+fn msf_trace_now_ms() -> UInt64 {
+  msf_trace_normalize_env_now_ms(@env.now())
+}
+
+///|
+#cfg(target="native")
+fn msf_trace_now_ms() -> UInt64 {
+  msf_trace_normalize_env_now_ms(@env.now())
+}
+
+///|
+fn msf_trace_elapsed_ms(start_ms : UInt64) -> UInt64 {
+  let end_ms = msf_trace_now_ms()
+  if end_ms >= start_ms {
+    end_ms - start_ms
+  } else {
+    0UL
+  }
+}
+
+///|
+fn msf_trace_heartbeat_interval() -> Int {
+  65536
+}
+
+///|
 struct MSFHashState {
   mut digest : UInt64
 } derive(Show)
@@ -409,37 +476,183 @@ fn msf_hash_tinstr(state : MSFHashState, instr : TInstr) -> Unit {
 }
 
 ///|
-fn msf_hash_function_ignoring_consts(func : Func) -> UInt64 {
+fn msf_count_instrs_capped(body : TExpr, limit : Int) -> Result[Int, String] {
+  let mut visited = 0
+  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+    visited += 1
+    if visited > limit {
+      return Err(MSF_HASH_BUDGET_EXCEEDED_ERR)
+    }
+    self.walk_tinstruction_default((), instr)
+  })
+  match walker.walk_texpr((), body) {
+    Ok(_) => Ok(visited)
+    Err(e) =>
+      if e == MSF_HASH_BUDGET_EXCEEDED_ERR {
+        Ok(visited)
+      } else {
+        Err(e)
+      }
+  }
+}
+
+///|
+fn msf_hash_function_ignoring_consts(
+  func : Func,
+  trace? : (String) -> Unit = msf_trace_noop,
+  trace_all_funcs? : Bool = false,
+  ordinal? : Int = 0,
+  abs_idx? : Int = -1,
+) -> UInt64 {
+  let hash_start_ms = msf_trace_now_ms()
   match func {
     TFunc(_, _, body) => {
-      let normalized = match msf_normalize_body(body) {
+      let budget_start_ms = msf_trace_now_ms()
+      if trace_all_funcs {
+        trace(
+          "func[\{ordinal}] phase=hash:budget:start abs_idx=\{abs_idx} limit=\{MSF_HASH_MAX_INSTRS}",
+        )
+      }
+      let visited = match msf_count_instrs_capped(body, MSF_HASH_MAX_INSTRS) {
+        Ok(n) => n
+        Err(e) => {
+          if trace_all_funcs {
+            trace(
+              "func[\{ordinal}] phase=hash:budget:error abs_idx=\{abs_idx} elapsed_ms=\{msf_trace_elapsed_ms(budget_start_ms)} \{e}",
+            )
+          }
+          return 0UL
+        }
+      }
+      let exceeded_budget = visited > MSF_HASH_MAX_INSTRS
+      if trace_all_funcs {
+        trace(
+          "func[\{ordinal}] phase=hash:budget:done abs_idx=\{abs_idx} elapsed_ms=\{msf_trace_elapsed_ms(budget_start_ms)} instrs=\{visited} exceeded=\{exceeded_budget}",
+        )
+      }
+      if exceeded_budget {
+        let fallback_hash = if abs_idx >= 0 {
+          msf_mix_digest(
+            1469598103934665603UL,
+            abs_idx.reinterpret_as_uint().to_uint64(),
+          )
+        } else {
+          msf_mix_digest(
+            1469598103934665603UL,
+            body.instrs.length().reinterpret_as_uint().to_uint64(),
+          )
+        }
+        if trace_all_funcs {
+          trace(
+            "func[\{ordinal}] phase=hash:done abs_idx=\{abs_idx} elapsed_ms=\{msf_trace_elapsed_ms(hash_start_ms)} skipped=true reason=instr_budget limit=\{MSF_HASH_MAX_INSTRS} instrs=\{visited} hash=\{fallback_hash}",
+          )
+        }
+        return fallback_hash
+      }
+      let normalize_start_ms = msf_trace_now_ms()
+      if trace_all_funcs {
+        trace(
+          "func[\{ordinal}] phase=hash:normalize:start abs_idx=\{abs_idx} top_instrs=\{body.instrs.length()}",
+        )
+      }
+      let normalized = match
+        msf_normalize_body(body, trace~, trace_all_funcs~, ordinal~) {
         Ok(x) => x
-        Err(_) => body
+        Err(e) => {
+          if trace_all_funcs {
+            trace(
+              "func[\{ordinal}] phase=hash:normalize:error abs_idx=\{abs_idx} elapsed_ms=\{msf_trace_elapsed_ms(normalize_start_ms)} fallback=true \{e}",
+            )
+          }
+          body
+        }
+      }
+      if trace_all_funcs {
+        trace(
+          "func[\{ordinal}] phase=hash:normalize:done abs_idx=\{abs_idx} elapsed_ms=\{msf_trace_elapsed_ms(normalize_start_ms)}",
+        )
       }
       let state = { digest: 1469598103934665603UL }
+      let mut hashed_instrs = 0
+      let walk_start_ms = msf_trace_now_ms()
+      if trace_all_funcs {
+        trace("func[\{ordinal}] phase=hash:walk:start abs_idx=\{abs_idx}")
+      }
       let walker = ModuleTransformer::new().on_tinstruction_evt(fn(
         self,
         _,
         instr,
       ) {
+        hashed_instrs += 1
+        if trace_all_funcs &&
+          hashed_instrs % msf_trace_heartbeat_interval() == 0 {
+          trace(
+            "func[\{ordinal}] phase=hash:walk:progress abs_idx=\{abs_idx} instrs=\{hashed_instrs} elapsed_ms=\{msf_trace_elapsed_ms(walk_start_ms)}",
+          )
+        }
         msf_hash_tinstr(state, instr)
         self.walk_tinstruction_default((), instr)
       })
       ignore(walker.walk_texpr((), normalized))
+      if trace_all_funcs {
+        trace(
+          "func[\{ordinal}] phase=hash:walk:done abs_idx=\{abs_idx} elapsed_ms=\{msf_trace_elapsed_ms(walk_start_ms)} instrs=\{hashed_instrs}",
+        )
+        trace(
+          "func[\{ordinal}] phase=hash:done abs_idx=\{abs_idx} elapsed_ms=\{msf_trace_elapsed_ms(hash_start_ms)} hash=\{state.digest}",
+        )
+      }
       state.digest
     }
-    _ => 0UL
+    _ => {
+      if trace_all_funcs {
+        trace(
+          "func[\{ordinal}] phase=hash:skip abs_idx=\{abs_idx} reason=non_typed_func elapsed_ms=\{msf_trace_elapsed_ms(hash_start_ms)}",
+        )
+      }
+      0UL
+    }
   }
 }
 
 ///|
-fn hash_function_ignoring_consts(func : Func) -> UInt64 {
-  msf_hash_function_ignoring_consts(func)
+fn hash_function_ignoring_consts(
+  func : Func,
+  trace? : (String) -> Unit = msf_trace_noop,
+  trace_all_funcs? : Bool = false,
+  ordinal? : Int = 0,
+  abs_idx? : Int = -1,
+) -> UInt64 {
+  msf_hash_function_ignoring_consts(
+    func,
+    trace~,
+    trace_all_funcs~,
+    ordinal~,
+    abs_idx~,
+  )
 }
 
 ///|
-fn msf_normalize_body(body : TExpr) -> Result[TExpr, String] {
+fn msf_normalize_body(
+  body : TExpr,
+  trace? : (String) -> Unit = msf_trace_noop,
+  trace_all_funcs? : Bool = false,
+  ordinal? : Int = 0,
+) -> Result[TExpr, String] {
+  let normalize_start_ms = msf_trace_now_ms()
+  let mut visited_instrs = 0
+  if trace_all_funcs {
+    trace(
+      "func[\{ordinal}] phase=hash:normalize_internal:start top_instrs=\{body.instrs.length()}",
+    )
+  }
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
+    visited_instrs += 1
+    if trace_all_funcs && visited_instrs % msf_trace_heartbeat_interval() == 0 {
+      trace(
+        "func[\{ordinal}] phase=hash:normalize_internal:progress instrs=\{visited_instrs} elapsed_ms=\{msf_trace_elapsed_ms(normalize_start_ms)}",
+      )
+    }
     let walked = match self.walk_tinstruction_default((), instr) {
       Ok(Some((_, next))) => next
       Ok(None) => instr
@@ -466,9 +679,30 @@ fn msf_normalize_body(body : TExpr) -> Result[TExpr, String] {
     }
   })
   match walker.walk_texpr((), body) {
-    Ok(Some((_, out))) => Ok(out)
-    Ok(None) => Ok(body)
-    Err(e) => Err(e)
+    Ok(Some((_, out))) => {
+      if trace_all_funcs {
+        trace(
+          "func[\{ordinal}] phase=hash:normalize_internal:done elapsed_ms=\{msf_trace_elapsed_ms(normalize_start_ms)} instrs=\{visited_instrs} changed=\{out != body}",
+        )
+      }
+      Ok(out)
+    }
+    Ok(None) => {
+      if trace_all_funcs {
+        trace(
+          "func[\{ordinal}] phase=hash:normalize_internal:done elapsed_ms=\{msf_trace_elapsed_ms(normalize_start_ms)} instrs=\{visited_instrs} changed=false",
+        )
+      }
+      Ok(body)
+    }
+    Err(e) => {
+      if trace_all_funcs {
+        trace(
+          "func[\{ordinal}] phase=hash:normalize_internal:error elapsed_ms=\{msf_trace_elapsed_ms(normalize_start_ms)} instrs=\{visited_instrs} \{e}",
+        )
+      }
+      Err(e)
+    }
   }
 }
 
@@ -548,6 +782,8 @@ fn msf_collect_defined_funcs(
   func_types : Array[FuncType],
   func_type_idxs : Array[TypeIdx],
   import_count : Int,
+  trace? : (String) -> Unit = msf_trace_noop,
+  trace_all_funcs? : Bool = false,
 ) -> Array[MSFDefinedFunc] {
   let funcs = match mod.code_sec {
     Some(CodeSec(items)) => items
@@ -561,8 +797,27 @@ fn msf_collect_defined_funcs(
       abs_idx >= func_type_idxs.length() {
       continue
     }
+    let ordinal = def_idx + 1
     match funcs[def_idx] {
-      TFunc(_, locals, body) =>
+      TFunc(_, locals, body) => {
+        let hash_start_ms = msf_trace_now_ms()
+        if trace_all_funcs {
+          trace(
+            "func[\{ordinal}] phase=hash:start abs_idx=\{abs_idx} locals=\{locals.length()} top_instrs=\{body.instrs.length()}",
+          )
+        }
+        let hash = hash_function_ignoring_consts(
+          funcs[def_idx],
+          trace~,
+          trace_all_funcs~,
+          ordinal~,
+          abs_idx~,
+        )
+        if trace_all_funcs {
+          trace(
+            "func[\{ordinal}] phase=hash:done abs_idx=\{abs_idx} elapsed_ms=\{msf_trace_elapsed_ms(hash_start_ms)} hash=\{hash}",
+          )
+        }
         out.push({
           def_idx,
           abs_idx,
@@ -570,9 +825,15 @@ fn msf_collect_defined_funcs(
           func_type: func_types[abs_idx],
           locals: locals.copy(),
           body,
-          hash: hash_function_ignoring_consts(funcs[def_idx]),
+          hash,
         })
-      _ => ()
+      }
+      _ =>
+        if trace_all_funcs {
+          trace(
+            "func[\{ordinal}] phase=hash:skip abs_idx=\{abs_idx} reason=non_typed_func",
+          )
+        }
     }
   }
   out
@@ -666,13 +927,26 @@ fn msf_sort_class_members(
 }
 
 ///|
-fn collect_equivalent_classes(mod : Module) -> Array[EquivalentClass] {
+fn collect_equivalent_classes(
+  mod : Module,
+  trace? : (String) -> Unit = msf_trace_noop,
+  trace_all_funcs? : Bool = false,
+) -> Array[EquivalentClass] {
+  let collect_start_ms = msf_trace_now_ms()
   let import_count = msf_count_imported_funcs(mod)
   let func_types = msf_collect_func_types(mod)
   let func_type_idxs = msf_collect_func_type_indices(mod)
   let defined = msf_collect_defined_funcs(
-    mod, func_types, func_type_idxs, import_count,
+    mod,
+    func_types,
+    func_type_idxs,
+    import_count,
+    trace~,
+    trace_all_funcs~,
   )
+  if trace_all_funcs {
+    trace("phase=collect_classes:start defined=\{defined.length()}")
+  }
   let buckets : Map[MSFHashBucketKey, Array[Int]] = Map::new()
   for func in defined {
     let key = {
@@ -695,22 +969,46 @@ fn collect_equivalent_classes(mod : Module) -> Array[EquivalentClass] {
     if members.length() < 2 {
       continue
     }
+    let bucket_start_ms = msf_trace_now_ms()
+    if trace_all_funcs {
+      trace(
+        "phase=collect_classes:bucket:start size=\{members.length()} hash=\{key.hash} local_count=\{key.local_count}",
+      )
+    }
     let sorted_members = msf_sort_class_members(members, import_count)
     let partitions : Array[Array[Int]] = []
     for def_idx in sorted_members {
       let candidate = by_def_idx.get(def_idx).unwrap()
+      let ordinal = def_idx + 1
+      let partition_start_ms = msf_trace_now_ms()
+      let mut comparisons = 0
+      let mut compare_elapsed_ms = 0UL
+      if trace_all_funcs {
+        trace(
+          "func[\{ordinal}] phase=partition:start bucket_size=\{sorted_members.length()} partitions=\{partitions.length()}",
+        )
+      }
       let mut placed = false
       for part in partitions {
         let rep_idx = part[0]
         let rep = by_def_idx.get(rep_idx).unwrap()
+        comparisons += 1
+        let compare_start_ms = msf_trace_now_ms()
         if are_in_equivalent_class(candidate, rep, mod) {
+          compare_elapsed_ms += msf_trace_elapsed_ms(compare_start_ms)
           part.push(def_idx)
           placed = true
           break
         }
+        compare_elapsed_ms += msf_trace_elapsed_ms(compare_start_ms)
       }
       if !placed {
         partitions.push([def_idx])
+      }
+      if trace_all_funcs {
+        trace(
+          "func[\{ordinal}] phase=partition:done elapsed_ms=\{msf_trace_elapsed_ms(partition_start_ms)} placed=\{placed} comparisons=\{comparisons} compare_elapsed_ms=\{compare_elapsed_ms}",
+        )
       }
     }
     for part in partitions {
@@ -724,6 +1022,11 @@ fn collect_equivalent_classes(mod : Module) -> Array[EquivalentClass] {
         primary_def_idx: sorted_part[0],
       })
     }
+    if trace_all_funcs {
+      trace(
+        "phase=collect_classes:bucket:done size=\{members.length()} partitions=\{partitions.length()} elapsed_ms=\{msf_trace_elapsed_ms(bucket_start_ms)}",
+      )
+    }
   }
   classes.sort_by(fn(a, b) {
     let aa = a.primary_def_idx + import_count
@@ -736,6 +1039,11 @@ fn collect_equivalent_classes(mod : Module) -> Array[EquivalentClass] {
       0
     }
   })
+  if trace_all_funcs {
+    trace(
+      "phase=collect_classes:done classes=\{classes.length()} elapsed_ms=\{msf_trace_elapsed_ms(collect_start_ms)}",
+    )
+  }
   classes
 }
 
@@ -768,48 +1076,118 @@ fn msf_same_all_targets(values : Array[FuncIdx]) -> Bool {
 }
 
 ///|
-fn derive_params(clazz : EquivalentClass, mod : Module) -> Array[ParamInfo]? {
+fn derive_params(
+  clazz : EquivalentClass,
+  mod : Module,
+  trace? : (String) -> Unit = msf_trace_noop,
+  trace_all_funcs? : Bool = false,
+  ordinal? : Int = 0,
+) -> Array[ParamInfo]? {
+  let derive_start_ms = msf_trace_now_ms()
+  if trace_all_funcs {
+    trace(
+      "func[\{ordinal}] phase=derive_params_internal:start members=\{clazz.member_def_idxs.length()}",
+    )
+  }
   let CodeSec(funcs) = match mod.code_sec {
     Some(sec) => sec
-    None => return None
+    None => {
+      if trace_all_funcs {
+        trace(
+          "func[\{ordinal}] phase=derive_params_internal:error reason=missing_code_sec elapsed_ms=\{msf_trace_elapsed_ms(derive_start_ms)}",
+        )
+      }
+      return None
+    }
   }
   let import_count = msf_count_imported_funcs(mod)
   let func_type_idxs = msf_collect_func_type_indices(mod)
+  let func_types = msf_collect_func_types(mod)
+  let scan_members_start_ms = msf_trace_now_ms()
+  if trace_all_funcs {
+    trace("func[\{ordinal}] phase=derive_params_internal:scan_members:start")
+  }
   let mut primary_body : TExpr? = None
   let mut primary_param_count = 0
   for i = 0; i < clazz.member_def_idxs.length(); i = i + 1 {
     let def_idx = clazz.member_def_idxs[i]
     if def_idx < 0 || def_idx >= funcs.length() {
+      if trace_all_funcs {
+        trace(
+          "func[\{ordinal}] phase=derive_params_internal:scan_members:error reason=member_out_of_range def_idx=\{def_idx} elapsed_ms=\{msf_trace_elapsed_ms(scan_members_start_ms)}",
+        )
+      }
       return None
     }
     let abs_idx = import_count + def_idx
     if abs_idx < 0 || abs_idx >= func_type_idxs.length() {
+      if trace_all_funcs {
+        trace(
+          "func[\{ordinal}] phase=derive_params_internal:scan_members:error reason=abs_idx_out_of_range abs_idx=\{abs_idx} elapsed_ms=\{msf_trace_elapsed_ms(scan_members_start_ms)}",
+        )
+      }
       return None
     }
     match funcs[def_idx] {
       TFunc(_, _, body) =>
         if def_idx == clazz.primary_def_idx {
           primary_body = Some(body)
-          let FuncType(params, _) = match
-            msf_collect_func_types(mod).get(abs_idx) {
+          let FuncType(params, _) = match func_types.get(abs_idx) {
             Some(ft) => ft
-            None => return None
+            None => {
+              if trace_all_funcs {
+                trace(
+                  "func[\{ordinal}] phase=derive_params_internal:scan_members:error reason=missing_func_type abs_idx=\{abs_idx} elapsed_ms=\{msf_trace_elapsed_ms(scan_members_start_ms)}",
+                )
+              }
+              return None
+            }
           }
           primary_param_count = params.length()
         }
-      _ => return None
+      _ => {
+        if trace_all_funcs {
+          trace(
+            "func[\{ordinal}] phase=derive_params_internal:scan_members:error reason=non_typed_member def_idx=\{def_idx} elapsed_ms=\{msf_trace_elapsed_ms(scan_members_start_ms)}",
+          )
+        }
+        return None
+      }
     }
+  }
+  if trace_all_funcs {
+    trace(
+      "func[\{ordinal}] phase=derive_params_internal:scan_members:done elapsed_ms=\{msf_trace_elapsed_ms(scan_members_start_ms)}",
+    )
   }
   let primary_body = match primary_body {
     Some(x) => x
-    None => return None
+    None => {
+      if trace_all_funcs {
+        trace(
+          "func[\{ordinal}] phase=derive_params_internal:error reason=missing_primary elapsed_ms=\{msf_trace_elapsed_ms(derive_start_ms)}",
+        )
+      }
+      return None
+    }
+  }
+  let collect_sites_start_ms = msf_trace_now_ms()
+  if trace_all_funcs {
+    trace("func[\{ordinal}] phase=derive_params_internal:collect_sites:start")
   }
   let site_maps : Array[Map[Int, MSFSiteValue]] = []
   for def_idx in clazz.member_def_idxs {
     match funcs[def_idx] {
       TFunc(_, _, body) =>
         site_maps.push(msf_collect_sites(body, func_type_idxs))
-      _ => return None
+      _ => {
+        if trace_all_funcs {
+          trace(
+            "func[\{ordinal}] phase=derive_params_internal:collect_sites:error reason=non_typed_member def_idx=\{def_idx} elapsed_ms=\{msf_trace_elapsed_ms(collect_sites_start_ms)}",
+          )
+        }
+        return None
+      }
     }
   }
   let primary_sites = msf_collect_sites(primary_body, func_type_idxs)
@@ -827,6 +1205,15 @@ fn derive_params(clazz : EquivalentClass, mod : Module) -> Array[ParamInfo]? {
       0
     }
   })
+  if trace_all_funcs {
+    trace(
+      "func[\{ordinal}] phase=derive_params_internal:collect_sites:done elapsed_ms=\{msf_trace_elapsed_ms(collect_sites_start_ms)} primary_site_count=\{ordered_site_ids.length()}",
+    )
+  }
+  let build_params_start_ms = msf_trace_now_ms()
+  if trace_all_funcs {
+    trace("func[\{ordinal}] phase=derive_params_internal:build_params:start")
+  }
   let params : Array[ParamInfo] = []
   let key_to_idx : Map[MSFParamKey, Int] = Map::new()
   for node_id in ordered_site_ids {
@@ -841,11 +1228,23 @@ fn derive_params(clazz : EquivalentClass, mod : Module) -> Array[ParamInfo]? {
           match sites.get(node_id) {
             Some(ConstSite(v, site_vt)) => {
               if site_vt != vt {
+                if trace_all_funcs {
+                  trace(
+                    "func[\{ordinal}] phase=derive_params_internal:build_params:error reason=const_type_mismatch node=\{node_id} elapsed_ms=\{msf_trace_elapsed_ms(build_params_start_ms)}",
+                  )
+                }
                 return None
               }
               values.push(v)
             }
-            _ => return None
+            _ => {
+              if trace_all_funcs {
+                trace(
+                  "func[\{ordinal}] phase=derive_params_internal:build_params:error reason=const_site_mismatch node=\{node_id} elapsed_ms=\{msf_trace_elapsed_ms(build_params_start_ms)}",
+                )
+              }
+              return None
+            }
           }
         }
         if msf_same_all_consts(values) {
@@ -868,11 +1267,23 @@ fn derive_params(clazz : EquivalentClass, mod : Module) -> Array[ParamInfo]? {
           match sites.get(node_id) {
             Some(CallTargetSite(target, site_type_idx, _)) => {
               if site_type_idx != type_idx {
+                if trace_all_funcs {
+                  trace(
+                    "func[\{ordinal}] phase=derive_params_internal:build_params:error reason=call_type_mismatch node=\{node_id} elapsed_ms=\{msf_trace_elapsed_ms(build_params_start_ms)}",
+                  )
+                }
                 return None
               }
               values.push(target)
             }
-            _ => return None
+            _ => {
+              if trace_all_funcs {
+                trace(
+                  "func[\{ordinal}] phase=derive_params_internal:build_params:error reason=call_site_mismatch node=\{node_id} elapsed_ms=\{msf_trace_elapsed_ms(build_params_start_ms)}",
+                )
+              }
+              return None
+            }
           }
         }
         if msf_same_all_targets(values) {
@@ -894,7 +1305,20 @@ fn derive_params(clazz : EquivalentClass, mod : Module) -> Array[ParamInfo]? {
     }
   }
   if primary_param_count + params.length() > MSF_MAX_SYNTHETIC_FUNCTION_PARAMS {
+    if trace_all_funcs {
+      trace(
+        "func[\{ordinal}] phase=derive_params_internal:build_params:done elapsed_ms=\{msf_trace_elapsed_ms(build_params_start_ms)} params=\{params.length()} skipped=true reason=synthetic_param_limit total=\{primary_param_count + params.length()} limit=\{MSF_MAX_SYNTHETIC_FUNCTION_PARAMS}",
+      )
+    }
     return None
+  }
+  if trace_all_funcs {
+    trace(
+      "func[\{ordinal}] phase=derive_params_internal:build_params:done elapsed_ms=\{msf_trace_elapsed_ms(build_params_start_ms)} params=\{params.length()}",
+    )
+    trace(
+      "func[\{ordinal}] phase=derive_params_internal:done elapsed_ms=\{msf_trace_elapsed_ms(derive_start_ms)}",
+    )
   }
   Some(params)
 }
@@ -915,35 +1339,88 @@ fn has_merge_benefit(
   clazz : EquivalentClass,
   mod : Module,
   params : Array[ParamInfo],
+  trace? : (String) -> Unit = msf_trace_noop,
+  trace_all_funcs? : Bool = false,
+  ordinal? : Int = 0,
 ) -> Bool {
+  let benefit_start_ms = msf_trace_now_ms()
+  if trace_all_funcs {
+    trace(
+      "func[\{ordinal}] phase=benefit_internal:start members=\{clazz.member_def_idxs.length()} params=\{params.length()}",
+    )
+  }
   let CodeSec(funcs) = match mod.code_sec {
     Some(sec) => sec
-    None => return false
+    None => {
+      if trace_all_funcs {
+        trace(
+          "func[\{ordinal}] phase=benefit_internal:error reason=missing_code_sec elapsed_ms=\{msf_trace_elapsed_ms(benefit_start_ms)}",
+        )
+      }
+      return false
+    }
   }
   if clazz.member_def_idxs.length() < 2 {
+    if trace_all_funcs {
+      trace(
+        "func[\{ordinal}] phase=benefit_internal:done elapsed_ms=\{msf_trace_elapsed_ms(benefit_start_ms)} beneficial=false reason=single_member",
+      )
+    }
     return false
   }
   let import_count = msf_count_imported_funcs(mod)
   let func_types = msf_collect_func_types(mod)
   let primary_def = clazz.primary_def_idx
   if primary_def < 0 || primary_def >= funcs.length() {
+    if trace_all_funcs {
+      trace(
+        "func[\{ordinal}] phase=benefit_internal:error reason=primary_out_of_range def_idx=\{primary_def} elapsed_ms=\{msf_trace_elapsed_ms(benefit_start_ms)}",
+      )
+    }
     return false
   }
   let primary_abs = import_count + primary_def
   if primary_abs < 0 || primary_abs >= func_types.length() {
+    if trace_all_funcs {
+      trace(
+        "func[\{ordinal}] phase=benefit_internal:error reason=primary_abs_out_of_range abs_idx=\{primary_abs} elapsed_ms=\{msf_trace_elapsed_ms(benefit_start_ms)}",
+      )
+    }
     return false
   }
   let FuncType(primary_params, _) = func_types[primary_abs]
   let primary_body = match funcs[primary_def] {
     TFunc(_, _, body) => body
-    _ => return false
+    _ => {
+      if trace_all_funcs {
+        trace(
+          "func[\{ordinal}] phase=benefit_internal:error reason=primary_non_typed elapsed_ms=\{msf_trace_elapsed_ms(benefit_start_ms)}",
+        )
+      }
+      return false
+    }
   }
-  let removed = (clazz.member_def_idxs.length() - 1) *
-    msf_measure_body(primary_body)
+  let measure_start_ms = msf_trace_now_ms()
+  if trace_all_funcs {
+    trace("func[\{ordinal}] phase=benefit_internal:measure:start")
+  }
+  let primary_body_size = msf_measure_body(primary_body)
+  if trace_all_funcs {
+    trace(
+      "func[\{ordinal}] phase=benefit_internal:measure:done elapsed_ms=\{msf_trace_elapsed_ms(measure_start_ms)} body_instrs=\{primary_body_size}",
+    )
+  }
+  let removed = (clazz.member_def_idxs.length() - 1) * primary_body_size
   let added_per_thunk = 1 + primary_params.length() + params.length()
   let added = (clazz.member_def_idxs.length() - 1) * added_per_thunk +
     params.length()
-  removed > added
+  let beneficial = removed > added
+  if trace_all_funcs {
+    trace(
+      "func[\{ordinal}] phase=benefit_internal:done elapsed_ms=\{msf_trace_elapsed_ms(benefit_start_ms)} removed=\{removed} added=\{added} beneficial=\{beneficial}",
+    )
+  }
+  beneficial
 }
 
 ///|
@@ -959,15 +1436,34 @@ fn msf_rewrite_shared_body(
   body : TExpr,
   primary_param_count : Int,
   params : Array[ParamInfo],
+  trace? : (String) -> Unit = msf_trace_noop,
+  trace_all_funcs? : Bool = false,
+  ordinal? : Int = 0,
 ) -> Result[TExpr, String] {
+  let rewrite_start_ms = msf_trace_now_ms()
+  if trace_all_funcs {
+    trace(
+      "func[\{ordinal}] phase=shared_rewrite:start top_instrs=\{body.instrs.length()} params=\{params.length()}",
+    )
+  }
+  let map_start_ms = msf_trace_now_ms()
   let node_to_param : Map[Int, Int] = Map::new()
   for param_idx = 0; param_idx < params.length(); param_idx = param_idx + 1 {
     for use_id in params[param_idx].uses {
       node_to_param[use_id] = param_idx
     }
   }
+  if trace_all_funcs {
+    trace(
+      "func[\{ordinal}] phase=shared_rewrite:build_map:done elapsed_ms=\{msf_trace_elapsed_ms(map_start_ms)} mapped_nodes=\{node_to_param.length()}",
+    )
+  }
   let mut next_id = 0
   let shift = params.length()
+  if trace_all_funcs {
+    trace("func[\{ordinal}] phase=shared_rewrite:walk:start shift=\{shift}")
+  }
+  let walk_start_ms = msf_trace_now_ms()
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, instr) {
     let node_id = next_id
     next_id += 1
@@ -1073,9 +1569,36 @@ fn msf_rewrite_shared_body(
     }
   })
   match walker.walk_texpr((), body) {
-    Ok(Some((_, out))) => Ok(out)
-    Ok(None) => Ok(body)
-    Err(e) => Err(e)
+    Ok(Some((_, out))) => {
+      if trace_all_funcs {
+        trace(
+          "func[\{ordinal}] phase=shared_rewrite:walk:done elapsed_ms=\{msf_trace_elapsed_ms(walk_start_ms)} changed=\{out != body}",
+        )
+        trace(
+          "func[\{ordinal}] phase=shared_rewrite:done elapsed_ms=\{msf_trace_elapsed_ms(rewrite_start_ms)} changed=\{out != body}",
+        )
+      }
+      Ok(out)
+    }
+    Ok(None) => {
+      if trace_all_funcs {
+        trace(
+          "func[\{ordinal}] phase=shared_rewrite:walk:done elapsed_ms=\{msf_trace_elapsed_ms(walk_start_ms)} changed=false",
+        )
+        trace(
+          "func[\{ordinal}] phase=shared_rewrite:done elapsed_ms=\{msf_trace_elapsed_ms(rewrite_start_ms)} changed=false",
+        )
+      }
+      Ok(body)
+    }
+    Err(e) => {
+      if trace_all_funcs {
+        trace(
+          "func[\{ordinal}] phase=shared_rewrite:walk:error elapsed_ms=\{msf_trace_elapsed_ms(walk_start_ms)} \{e}",
+        )
+      }
+      Err(e)
+    }
   }
 }
 
@@ -1111,43 +1634,122 @@ fn create_shared(
   clazz : EquivalentClass,
   mod : Module,
   params : Array[ParamInfo],
+  trace? : (String) -> Unit = msf_trace_noop,
+  trace_all_funcs? : Bool = false,
+  ordinal? : Int = 0,
 ) -> Result[(Module, FuncIdx), String] {
+  let create_start_ms = msf_trace_now_ms()
+  if trace_all_funcs {
+    trace(
+      "func[\{ordinal}] phase=create_shared:start members=\{clazz.member_def_idxs.length()} params=\{params.length()}",
+    )
+  }
   let funcs = match mod.code_sec {
     Some(CodeSec(items)) => items.copy()
-    None => return Err("merge_similar_functions: missing code section")
+    None => {
+      if trace_all_funcs {
+        trace(
+          "func[\{ordinal}] phase=create_shared:error reason=missing_code_sec elapsed_ms=\{msf_trace_elapsed_ms(create_start_ms)}",
+        )
+      }
+      return Err("merge_similar_functions: missing code section")
+    }
   }
   let type_idxs = match mod.func_sec {
     Some(FuncSec(items)) => items.copy()
-    None => return Err("merge_similar_functions: missing func section")
+    None => {
+      if trace_all_funcs {
+        trace(
+          "func[\{ordinal}] phase=create_shared:error reason=missing_func_sec elapsed_ms=\{msf_trace_elapsed_ms(create_start_ms)}",
+        )
+      }
+      return Err("merge_similar_functions: missing func section")
+    }
   }
   let import_count = msf_count_imported_funcs(mod)
   let func_types = msf_collect_func_types(mod)
   let primary_def = clazz.primary_def_idx
   if primary_def < 0 || primary_def >= funcs.length() {
+    if trace_all_funcs {
+      trace(
+        "func[\{ordinal}] phase=create_shared:error reason=primary_out_of_range def_idx=\{primary_def} elapsed_ms=\{msf_trace_elapsed_ms(create_start_ms)}",
+      )
+    }
     return Err("merge_similar_functions: primary function out of range")
   }
   let primary_abs = import_count + primary_def
   if primary_abs < 0 || primary_abs >= func_types.length() {
+    if trace_all_funcs {
+      trace(
+        "func[\{ordinal}] phase=create_shared:error reason=primary_abs_out_of_range abs_idx=\{primary_abs} elapsed_ms=\{msf_trace_elapsed_ms(create_start_ms)}",
+      )
+    }
     return Err("merge_similar_functions: primary abs function out of range")
   }
   let (primary_locals, primary_body) = match funcs[primary_def] {
     TFunc(_, locals, body) => (locals.copy(), body)
-    _ => return Err("merge_similar_functions: primary function is not TFunc")
+    _ => {
+      if trace_all_funcs {
+        trace(
+          "func[\{ordinal}] phase=create_shared:error reason=primary_non_typed elapsed_ms=\{msf_trace_elapsed_ms(create_start_ms)}",
+        )
+      }
+      return Err("merge_similar_functions: primary function is not TFunc")
+    }
   }
   let FuncType(primary_params, primary_results) = func_types[primary_abs]
+  if trace_all_funcs {
+    trace(
+      "func[\{ordinal}] phase=create_shared:rewrite_body:start top_instrs=\{primary_body.instrs.length()}",
+    )
+  }
   let rewritten_body = match
-    msf_rewrite_shared_body(primary_body, primary_params.length(), params) {
+    msf_rewrite_shared_body(
+      primary_body,
+      primary_params.length(),
+      params,
+      trace~,
+      trace_all_funcs~,
+      ordinal~,
+    ) {
     Ok(x) => x
-    Err(e) => return Err(e)
+    Err(e) => {
+      if trace_all_funcs {
+        trace(
+          "func[\{ordinal}] phase=create_shared:rewrite_body:error elapsed_ms=\{msf_trace_elapsed_ms(create_start_ms)} \{e}",
+        )
+      }
+      return Err(e)
+    }
+  }
+  if trace_all_funcs {
+    trace(
+      "func[\{ordinal}] phase=create_shared:rewrite_body:done elapsed_ms=\{msf_trace_elapsed_ms(create_start_ms)}",
+    )
   }
   let added_param_types = msf_collect_param_types(params)
   let shared_param_types = primary_params.copy()
   for vt in added_param_types {
     shared_param_types.push(vt)
   }
+  let append_type_start_ms = msf_trace_now_ms()
+  if trace_all_funcs {
+    trace(
+      "func[\{ordinal}] phase=create_shared:append_type:start shared_params=\{shared_param_types.length()} results=\{primary_results.length()}",
+    )
+  }
   let (with_type, shared_type_idx) = msf_append_func_type(
     mod, shared_param_types, primary_results,
   )
+  if trace_all_funcs {
+    trace(
+      "func[\{ordinal}] phase=create_shared:append_type:done elapsed_ms=\{msf_trace_elapsed_ms(append_type_start_ms)} type_idx=\{shared_type_idx}",
+    )
+  }
+  let append_func_start_ms = msf_trace_now_ms()
+  if trace_all_funcs {
+    trace("func[\{ordinal}] phase=create_shared:append_func:start")
+  }
   let next_type_idxs = type_idxs
   let next_funcs = funcs
   next_type_idxs.push(shared_type_idx)
@@ -1159,6 +1761,14 @@ fn create_shared(
     .with_func_sec(FuncSec::new(next_type_idxs))
     .with_code_sec(CodeSec::new(next_funcs))
   let shared_abs = import_count + (next_funcs.length() - 1)
+  if trace_all_funcs {
+    trace(
+      "func[\{ordinal}] phase=create_shared:append_func:done elapsed_ms=\{msf_trace_elapsed_ms(append_func_start_ms)} shared_abs=\{shared_abs}",
+    )
+    trace(
+      "func[\{ordinal}] phase=create_shared:done elapsed_ms=\{msf_trace_elapsed_ms(create_start_ms)} shared_abs=\{shared_abs}",
+    )
+  }
   Ok((next_mod, msf_func_idx_from_int(shared_abs)))
 }
 
@@ -1222,7 +1832,10 @@ fn msf_apply_class(
   mod : Module,
   clazz : EquivalentClass,
   params : Array[ParamInfo],
+  trace? : (String) -> Unit = msf_trace_noop,
+  trace_all_funcs? : Bool = false,
 ) -> Result[Module, String] {
+  let primary_ordinal = clazz.primary_def_idx + 1
   let import_count = msf_count_imported_funcs(mod)
   let func_types = msf_collect_func_types(mod)
   let primary_abs = import_count + clazz.primary_def_idx
@@ -1230,9 +1843,35 @@ fn msf_apply_class(
     return Ok(mod)
   }
   let FuncType(primary_params, _) = func_types[primary_abs]
-  let (mod, shared_idx) = match create_shared(clazz, mod, params) {
+  let create_shared_start_ms = msf_trace_now_ms()
+  if trace_all_funcs {
+    trace(
+      "func[\{primary_ordinal}] phase=apply:create_shared:start params=\{params.length()}",
+    )
+  }
+  let (mod, shared_idx) = match
+    create_shared(
+      clazz,
+      mod,
+      params,
+      trace~,
+      trace_all_funcs~,
+      ordinal=primary_ordinal,
+    ) {
     Ok(v) => v
-    Err(e) => return Err(e)
+    Err(e) => {
+      if trace_all_funcs {
+        trace(
+          "func[\{primary_ordinal}] phase=apply:create_shared:error elapsed_ms=\{msf_trace_elapsed_ms(create_shared_start_ms)} \{e}",
+        )
+      }
+      return Err(e)
+    }
+  }
+  if trace_all_funcs {
+    trace(
+      "func[\{primary_ordinal}] phase=apply:create_shared:done elapsed_ms=\{msf_trace_elapsed_ms(create_shared_start_ms)} shared_idx=\{shared_idx}",
+    )
   }
   let next_funcs = match mod.code_sec {
     Some(CodeSec(items)) => items.copy()
@@ -1244,6 +1883,13 @@ fn msf_apply_class(
     let def_idx = clazz.member_def_idxs[member_idx]
     if def_idx < 0 || def_idx >= next_funcs.length() {
       return Err("merge_similar_functions: class member out of range")
+    }
+    let ordinal = def_idx + 1
+    let member_start_ms = msf_trace_now_ms()
+    if trace_all_funcs {
+      trace(
+        "func[\{ordinal}] phase=thunk_rewrite:start class_primary=\{clazz.primary_def_idx + 1} member=\{member_idx + 1}/\{clazz.member_def_idxs.length()}",
+      )
     }
     let values = match
       msf_build_thunk_values(primary_params.length(), params, member_idx) {
@@ -1257,45 +1903,162 @@ fn msf_apply_class(
       values,
     )
     next_funcs[def_idx] = thunk
+    if trace_all_funcs {
+      trace(
+        "func[\{ordinal}] phase=thunk_rewrite:done elapsed_ms=\{msf_trace_elapsed_ms(member_start_ms)} arg_count=\{values.length()}",
+      )
+    }
   }
   Ok(mod.with_code_sec(CodeSec::new(next_funcs)))
 }
 
 ///|
-fn run(mod : Module) -> Result[Module, String] {
-  let classes = collect_equivalent_classes(mod)
+fn run(
+  mod : Module,
+  trace? : (String) -> Unit = msf_trace_noop,
+  trace_all_funcs? : Bool = false,
+) -> Result[Module, String] {
+  let run_start_ms = msf_trace_now_ms()
+  let defined_funcs = match mod.code_sec {
+    Some(CodeSec(funcs)) => funcs.length()
+    None => 0
+  }
+  trace("start defined=\{defined_funcs}")
+  let classes = collect_equivalent_classes(mod, trace~, trace_all_funcs~)
+  trace(
+    "phase=collect_classes summary classes=\{classes.length()} elapsed_ms=\{msf_trace_elapsed_ms(run_start_ms)}",
+  )
   if classes.is_empty() {
+    trace(
+      "done classes=0 merged=0 elapsed_ms=\{msf_trace_elapsed_ms(run_start_ms)}",
+    )
     return Ok(mod)
   }
   let mut mod = mod
+  let mut merged_classes = 0
   for clazz in classes {
-    let params = match derive_params(clazz, mod) {
+    let ordinal = clazz.primary_def_idx + 1
+    let class_start_ms = msf_trace_now_ms()
+    if trace_all_funcs {
+      trace(
+        "func[\{ordinal}] start members=\{clazz.member_def_idxs.length()} primary=\{clazz.primary_def_idx + 1}",
+      )
+    }
+    let derive_start_ms = msf_trace_now_ms()
+    if trace_all_funcs {
+      trace(
+        "func[\{ordinal}] phase=derive_params:start members=\{clazz.member_def_idxs.length()}",
+      )
+    }
+    let params = match
+      derive_params(clazz, mod, trace~, trace_all_funcs~, ordinal~) {
       Some(p) => p
-      None => continue
+      None => {
+        if trace_all_funcs {
+          trace(
+            "func[\{ordinal}] phase=derive_params:done elapsed_ms=\{msf_trace_elapsed_ms(derive_start_ms)} params=0 skipped=true reason=derive_failed",
+          )
+          trace(
+            "func[\{ordinal}] done elapsed_ms=\{msf_trace_elapsed_ms(class_start_ms)} merged=false reason=derive_failed",
+          )
+        }
+        continue
+      }
+    }
+    if trace_all_funcs {
+      trace(
+        "func[\{ordinal}] phase=derive_params:done elapsed_ms=\{msf_trace_elapsed_ms(derive_start_ms)} params=\{params.length()}",
+      )
     }
     if params.is_empty() {
+      if trace_all_funcs {
+        trace(
+          "func[\{ordinal}] done elapsed_ms=\{msf_trace_elapsed_ms(class_start_ms)} merged=false reason=no_differences",
+        )
+      }
       continue
     }
     let func_types = msf_collect_func_types(mod)
     let import_count = msf_count_imported_funcs(mod)
     let primary_abs = import_count + clazz.primary_def_idx
     if primary_abs < 0 || primary_abs >= func_types.length() {
+      if trace_all_funcs {
+        trace(
+          "func[\{ordinal}] done elapsed_ms=\{msf_trace_elapsed_ms(class_start_ms)} merged=false reason=primary_out_of_range",
+        )
+      }
       continue
     }
     let FuncType(primary_params, _) = func_types[primary_abs]
     if primary_params.length() + params.length() >
       MSF_MAX_SYNTHETIC_FUNCTION_PARAMS {
+      if trace_all_funcs {
+        trace(
+          "func[\{ordinal}] done elapsed_ms=\{msf_trace_elapsed_ms(class_start_ms)} merged=false reason=synthetic_param_limit params=\{primary_params.length() + params.length()} limit=\{MSF_MAX_SYNTHETIC_FUNCTION_PARAMS}",
+        )
+      }
       continue
     }
-    if !has_merge_benefit(clazz, mod, params) {
+    let benefit_start_ms = msf_trace_now_ms()
+    if trace_all_funcs {
+      trace(
+        "func[\{ordinal}] phase=benefit:start params=\{params.length()} members=\{clazz.member_def_idxs.length()}",
+      )
+    }
+    let has_benefit = has_merge_benefit(
+      clazz,
+      mod,
+      params,
+      trace~,
+      trace_all_funcs~,
+      ordinal~,
+    )
+    if trace_all_funcs {
+      trace(
+        "func[\{ordinal}] phase=benefit:done elapsed_ms=\{msf_trace_elapsed_ms(benefit_start_ms)} beneficial=\{has_benefit}",
+      )
+    }
+    if !has_benefit {
+      if trace_all_funcs {
+        trace(
+          "func[\{ordinal}] done elapsed_ms=\{msf_trace_elapsed_ms(class_start_ms)} merged=false reason=no_benefit",
+        )
+      }
       continue
     }
-    mod = match msf_apply_class(mod, clazz, params) {
+    let apply_start_ms = msf_trace_now_ms()
+    if trace_all_funcs {
+      trace(
+        "func[\{ordinal}] phase=apply:start params=\{params.length()} members=\{clazz.member_def_idxs.length()}",
+      )
+    }
+    mod = match msf_apply_class(mod, clazz, params, trace~, trace_all_funcs~) {
       Ok(next) => next
       Err(e) => return Err(e)
     }
+    merged_classes += 1
+    if trace_all_funcs {
+      trace(
+        "func[\{ordinal}] phase=apply:done elapsed_ms=\{msf_trace_elapsed_ms(apply_start_ms)}",
+      )
+      trace(
+        "func[\{ordinal}] done elapsed_ms=\{msf_trace_elapsed_ms(class_start_ms)} merged=true",
+      )
+    }
   }
+  trace(
+    "done classes=\{classes.length()} merged=\{merged_classes} elapsed_ms=\{msf_trace_elapsed_ms(run_start_ms)}",
+  )
   Ok(mod)
+}
+
+///|
+fn merge_similar_functions_with_trace(
+  mod : Module,
+  trace : (String) -> Unit,
+  trace_all_funcs? : Bool = false,
+) -> Result[Module, String] {
+  run(mod, trace~, trace_all_funcs~)
 }
 
 ///|

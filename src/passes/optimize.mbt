@@ -859,7 +859,13 @@ fn run_module_runner_scheduler_pass(
     LocalSubtyping =>
       apply_module_runner_pass(mod, fn(mod) { local_subtyping(mod) })
     MergeSimilarFunctions =>
-      apply_module_runner_pass(mod, fn(mod) { merge_similar_functions(mod) })
+      apply_module_runner_pass(mod, fn(mod) {
+        merge_similar_functions_with_trace(
+          mod,
+          fn(msg) { trace("merge_similar_functions:\{msg}") },
+          trace_all_funcs=trace_pass_details,
+        )
+      })
     OnceReduction =>
       apply_module_runner_pass(mod, fn(mod) {
         once_reduction(mod, trace=fn(msg) { trace("once_reduction:\{msg}") })
@@ -2945,6 +2951,99 @@ test "optimize_module_with_options_trace emits dead argument elimination details
   assert_true(saw_hotspots)
   assert_true(saw_analysis_phase)
   assert_true(saw_rewrite_phase)
+}
+
+///|
+test "optimize_module_with_options_trace emits merge similar functions per-function phases" {
+  let t = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
+  )
+  let f0 = Func::t_func(
+    [],
+    [],
+    TExpr::new([
+      TInstr::return_([
+        TInstr::binary(
+          BinaryOp::i32_add(),
+          TInstr::binary(
+            BinaryOp::i32_mul(),
+            TInstr::local_get(LocalIdx::new(0)),
+            TInstr::i32_const(I32(42)),
+          ),
+          TInstr::binary(
+            BinaryOp::i32_add(),
+            TInstr::i32_const(I32(10)),
+            TInstr::i32_const(I32(7)),
+          ),
+        ),
+      ]),
+    ]),
+  )
+  let f1 = Func::t_func(
+    [],
+    [],
+    TExpr::new([
+      TInstr::return_([
+        TInstr::binary(
+          BinaryOp::i32_add(),
+          TInstr::binary(
+            BinaryOp::i32_mul(),
+            TInstr::local_get(LocalIdx::new(0)),
+            TInstr::i32_const(I32(43)),
+          ),
+          TInstr::binary(
+            BinaryOp::i32_add(),
+            TInstr::i32_const(I32(10)),
+            TInstr::i32_const(I32(7)),
+          ),
+        ),
+      ]),
+    ]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(0)]))
+    .with_code_sec(CodeSec::new([f0, f1]))
+  let trace_logs : Array[String] = []
+  ignore(
+    match
+      optimize_module_with_options_trace(
+        mod,
+        [MergeSimilarFunctions],
+        OptimizeOptions::new(),
+        fn(msg) { trace_logs.push(msg) },
+        trace_pass_details=true,
+        trace_module_stats=false,
+      ) {
+      Ok(v) => v
+      Err(e) =>
+        fail(
+          "unexpected optimize_module_with_options_trace merge similar functions error: \{e}",
+        )
+    },
+  )
+  let mut saw_hash_phase = false
+  let mut saw_partition_phase = false
+  let mut saw_derive_phase = false
+  let mut saw_apply_phase = false
+  for msg in trace_logs {
+    if msg.contains("merge_similar_functions:func[1] phase=hash:start") {
+      saw_hash_phase = true
+    }
+    if msg.contains("merge_similar_functions:func[1] phase=partition:start") {
+      saw_partition_phase = true
+    }
+    if msg.contains("merge_similar_functions:func[1] phase=derive_params:start") {
+      saw_derive_phase = true
+    }
+    if msg.contains("merge_similar_functions:func[1] phase=apply:start") {
+      saw_apply_phase = true
+    }
+  }
+  assert_true(saw_hash_phase)
+  assert_true(saw_partition_phase)
+  assert_true(saw_derive_phase)
+  assert_true(saw_apply_phase)
 }
 
 ///|
