@@ -1072,6 +1072,25 @@ fn vq_optimize_sequence(
         }
       Some(next) => {
         if next != child {
+          if has_ambient_stack_terminator {
+            let mut preserves_stack_shape = true
+            match
+              (vq_stack_sig_instr(child, env), vq_stack_sig_instr(next, env)) {
+              (Some(before), Some(after)) =>
+                if !vq_same_stack_sig(before, after) {
+                  preserves_stack_shape = false
+                }
+              _ => ()
+            }
+            let preserves_type = vq_same_type(
+              vq_type_of_cached(child, env, type_cache),
+              vq_type_of_cached(next, env, type_cache),
+            )
+            if !preserves_stack_shape || !preserves_type {
+              out.push(child)
+              continue
+            }
+          }
           changed = true
         }
         out.push(next)
@@ -1778,6 +1797,90 @@ test "vacuum keeps ambient-consuming branch value drop with mixed stack types" {
     Err(e) =>
       fail(
         "expected ambient-consuming branch value drop to survive vacuum validation: \{e}",
+      )
+  }
+}
+
+///|
+test "vacuum keeps ambient-consuming drop in br_if terminator sequences" {
+  let t_i32 = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_i32]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([
+            TInstr::block(
+              BlockType::void_(),
+              TExpr::new([
+                TInstr::i64_const(I64(1)),
+                TInstr::drop(TInstr::drop(TInstr::i32_const(I32(2)))),
+                TInstr::br_if(LabelIdx::new(0), TInstr::i32_const(I32(0)), []),
+              ]),
+            ),
+            TInstr::i32_const(I32(9)),
+          ]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_vacuum(mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected ambient-consuming drop in br_if sequence to survive vacuum validation: \{e}",
+      )
+  }
+  match vq_first_func_body(out).instrs {
+    [
+      {
+        kind: TInstrKind::TBlock(
+          VoidBlockType,
+          {
+            instrs: [
+              { kind: TInstrKind::TI64Const(I64(v0)), .. },
+              {
+                kind: TInstrKind::TDrop(
+                  {
+                    kind: TInstrKind::TDrop(
+                      { kind: TInstrKind::TI32Const(I32(v1)), .. }
+                    ),
+                    ..,
+                  }
+                ),
+                ..,
+              },
+              {
+                kind: TInstrKind::TBrIf(
+                  LabelIdx(label),
+                  { kind: TInstrKind::TI32Const(I32(cond)), .. },
+                  []
+                ),
+                ..,
+              },
+            ],
+            ..,
+          }
+        ),
+        ..,
+      },
+      { kind: TInstrKind::TI32Const(I32(v2)), .. },
+    ] => {
+      assert_eq(v0, 1L)
+      assert_eq(v1, 2)
+      assert_eq(label, 0U)
+      assert_eq(cond, 0)
+      assert_eq(v2, 9)
+    }
+    _ =>
+      fail(
+        "expected ambient-consuming dropped child to be preserved under br_if terminator sequence",
       )
   }
 }

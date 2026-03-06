@@ -15,7 +15,6 @@
 ///
 
 ///|
-using @lib {type PrettyPrintContext}
 
 ///|
 pub(all) enum ModulePass {
@@ -350,27 +349,23 @@ fn opt_validation_stack_underflow_context(
 }
 
 ///|
-fn opt_format_code_sec_snapshot(code_sec : CodeSec?) -> String {
-  match code_sec {
-    Some(code_sec) => code_sec.pretty_print(PrettyPrintContext::new())
-    None => "<none>"
-  }
-}
-
-///|
 fn opt_format_validation_error(
   mod : Module,
   err : ValidationError,
   pass? : ModulePass? = None,
   pre_pass_mod? : Module? = None,
-  pre_pass_code_sec? : CodeSec? = None,
 ) -> String {
   let out = StringBuilder::new()
   let summary = validation_error_message(err)
   out.write_string(summary)
   match validation_error_func_idx(err) {
     Some(func_idx) => {
-      out.write_string("\n\nOffending function:\n")
+      out.write_string("\n\nOffending function after pass")
+      match pass {
+        Some(pass) => out.write_string(" \{pass}")
+        None => ()
+      }
+      out.write_string(":\n")
       out.write_string(mod.pretty_print_func(func_idx))
       match pre_pass_mod {
         Some(before_mod) => {
@@ -388,22 +383,6 @@ fn opt_format_validation_error(
         Some(ctx) => out.write_string(ctx)
         None => ()
       }
-    }
-    None => ()
-  }
-  match mod.type_sec {
-    Some(type_sec) => {
-      out.write_string("\n\nType section:\n")
-      out.write_string(type_sec.pretty_print(PrettyPrintContext::new()))
-    }
-    None => ()
-  }
-  match pass {
-    Some(pass) => {
-      out.write_string("\n\nCode section before pass \{pass}:\n")
-      out.write_string(opt_format_code_sec_snapshot(pre_pass_code_sec))
-      out.write_string("\n\nCode section after pass \{pass}:\n")
-      out.write_string(opt_format_code_sec_snapshot(mod.code_sec))
     }
     None => ()
   }
@@ -1202,7 +1181,6 @@ fn optimize_module_with_options_internal(
   let mut pass_index = 0
   for pass in passes {
     let pre_pass_mod = mod
-    let pre_pass_code_sec = mod.code_sec
     let pass_start_ms = optimize_trace_now_ms()
     pass_index += 1
     let kind = module_pass_context_kind(pass)
@@ -1293,7 +1271,6 @@ fn optimize_module_with_options_internal(
             e,
             pass=Some(pass),
             pre_pass_mod=Some(pre_pass_mod),
-            pre_pass_code_sec~,
           ),
         )
       }
@@ -6080,7 +6057,6 @@ test "optimize_module validation errors include before and after snapshots" {
     Err(msg) => msg
   }
   assert_true(msg.contains("validation error after pass RemoveUnusedNames"))
+  assert_true(msg.contains("Offending function after pass RemoveUnusedNames"))
   assert_true(msg.contains("Offending function before pass RemoveUnusedNames"))
-  assert_true(msg.contains("Code section before pass RemoveUnusedNames"))
-  assert_true(msg.contains("Code section after pass RemoveUnusedNames"))
 }
