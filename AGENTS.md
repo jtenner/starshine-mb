@@ -32,6 +32,7 @@ This is a [MoonBit](https://docs.moonbitlang.com) project.
   - `moon check`
   - `moon test`
 - Running multiple `moon` commands in parallel contends on `_build/.moon-lock`; one process waits on the lock instead of progressing concurrently.
+- Running the full optimize pipeline on large inputs is currently very slow. Instead of running a self-optimize test, allow the user to run the command themselves and provide the output manually.
 
 In this workspace, use absolute moon path when needed:
 - `/home/jtenner/.moon/bin/moon test`

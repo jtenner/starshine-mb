@@ -2,209 +2,1155 @@
 [trace] options o=4 z=4 traps_never=false
 [trace] trace_mode=compact
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:start
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:read bytes=21584959
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:lowered bytes=21584959
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:read bytes=21608096
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:lowered bytes=21608096
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:decode done
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:pass_count=46 optimize:start
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt start passes=46
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt lift_to_texpr:start
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt lift_to_texpr:done elapsed_ms=417
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt lift_to_texpr:done elapsed_ms=490
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[1/46]:start pass=DuplicateFunctionElimination kind=module-runner
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[1/46]:returned pass=DuplicateFunctionElimination elapsed_ms=6369
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[1/46]:returned pass=DuplicateFunctionElimination elapsed_ms=6953
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[1/46]:commit:start pass=DuplicateFunctionElimination
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[1/46]:commit:done pass=DuplicateFunctionElimination
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[1/46]:done pass=DuplicateFunctionElimination elapsed_ms=6442
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[1/46]:done pass=DuplicateFunctionElimination elapsed_ms=7035
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[2/46]:start pass=RemoveUnused kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[2/46]:returned pass=RemoveUnused elapsed_ms=1560
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[2/46]:returned pass=RemoveUnused elapsed_ms=950
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[2/46]:commit:start pass=RemoveUnused
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[2/46]:commit:done pass=RemoveUnused
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[2/46]:done pass=RemoveUnused elapsed_ms=1725
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[2/46]:done pass=RemoveUnused elapsed_ms=1134
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[3/46]:start pass=MemoryPacking({zero_filled_memory: false, traps_never_happen: false, max_data_segments: 100000}) kind=module-runner
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[3/46]:returned pass=MemoryPacking({zero_filled_memory: false, traps_never_happen: false, max_data_segments: 100000}) elapsed_ms=1516
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[3/46]:returned pass=MemoryPacking({zero_filled_memory: false, traps_never_happen: false, max_data_segments: 100000}) elapsed_ms=918
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[3/46]:commit:start pass=MemoryPacking({zero_filled_memory: false, traps_never_happen: false, max_data_segments: 100000})
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[3/46]:commit:done pass=MemoryPacking({zero_filled_memory: false, traps_never_happen: false, max_data_segments: 100000})
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[3/46]:done pass=MemoryPacking({zero_filled_memory: false, traps_never_happen: false, max_data_segments: 100000}) elapsed_ms=1516
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[3/46]:done pass=MemoryPacking({zero_filled_memory: false, traps_never_happen: false, max_data_segments: 100000}) elapsed_ms=918
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[4/46]:start pass=OnceReduction kind=module-runner
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[4/46]:returned pass=OnceReduction elapsed_ms=1141
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[4/46]:returned pass=OnceReduction elapsed_ms=712
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[4/46]:commit:start pass=OnceReduction
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[4/46]:commit:done pass=OnceReduction
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[4/46]:done pass=OnceReduction elapsed_ms=1141
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[4/46]:done pass=OnceReduction elapsed_ms=712
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[5/46]:start pass=DataflowOptimization kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[5/46]:returned pass=DataflowOptimization elapsed_ms=2762
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[5/46]:returned pass=DataflowOptimization elapsed_ms=2114
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[5/46]:commit:start pass=DataflowOptimization
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[5/46]:commit:done pass=DataflowOptimization
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[5/46]:done pass=DataflowOptimization elapsed_ms=2763
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[5/46]:done pass=DataflowOptimization elapsed_ms=2115
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[6/46]:start pass=Flatten kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[6/46]:returned pass=Flatten elapsed_ms=13474
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[6/46]:returned pass=Flatten elapsed_ms=14633
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[6/46]:commit:start pass=Flatten
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[6/46]:commit:done pass=Flatten
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[6/46]:done pass=Flatten elapsed_ms=13530
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[6/46]:done pass=Flatten elapsed_ms=14664
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[7/46]:start pass=SimplifyLocalsNoTeeNoStructure kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[7/46]:returned pass=SimplifyLocalsNoTeeNoStructure elapsed_ms=7671
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[7/46]:returned pass=SimplifyLocalsNoTeeNoStructure elapsed_ms=4917
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[7/46]:commit:start pass=SimplifyLocalsNoTeeNoStructure
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[7/46]:commit:done pass=SimplifyLocalsNoTeeNoStructure
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[7/46]:done pass=SimplifyLocalsNoTeeNoStructure elapsed_ms=7806
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[7/46]:done pass=SimplifyLocalsNoTeeNoStructure elapsed_ms=5002
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[8/46]:start pass=LocalCSE kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[8/46]:returned pass=LocalCSE elapsed_ms=2593
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[8/46]:returned pass=LocalCSE elapsed_ms=1629
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[8/46]:commit:start pass=LocalCSE
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[8/46]:commit:done pass=LocalCSE
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[8/46]:done pass=LocalCSE elapsed_ms=2708
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[8/46]:done pass=LocalCSE elapsed_ms=1707
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[9/46]:start pass=DeadCodeElimination kind=unit-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[9/46]:returned pass=DeadCodeElimination elapsed_ms=3118
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[9/46]:returned pass=DeadCodeElimination elapsed_ms=1883
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[9/46]:commit:start pass=DeadCodeElimination
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[9/46]:commit:done pass=DeadCodeElimination
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[9/46]:done pass=DeadCodeElimination elapsed_ms=3173
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[9/46]:done pass=DeadCodeElimination elapsed_ms=1912
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[10/46]:start pass=RemoveUnusedNames kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[10/46]:returned pass=RemoveUnusedNames elapsed_ms=9521
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[10/46]:returned pass=RemoveUnusedNames elapsed_ms=4283
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[10/46]:commit:start pass=RemoveUnusedNames
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[10/46]:commit:done pass=RemoveUnusedNames
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[10/46]:done pass=RemoveUnusedNames elapsed_ms=9653
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[10/46]:done pass=RemoveUnusedNames elapsed_ms=4355
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[11/46]:start pass=RemoveUnusedBrs kind=module-runner
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[11/46]:returned pass=RemoveUnusedBrs elapsed_ms=3548
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[11/46]:returned pass=RemoveUnusedBrs elapsed_ms=1970
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[11/46]:commit:start pass=RemoveUnusedBrs
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[11/46]:commit:done pass=RemoveUnusedBrs
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[11/46]:done pass=RemoveUnusedBrs elapsed_ms=3659
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[11/46]:done pass=RemoveUnusedBrs elapsed_ms=2038
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[12/46]:start pass=RemoveUnusedNames kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[12/46]:returned pass=RemoveUnusedNames elapsed_ms=9475
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[12/46]:returned pass=RemoveUnusedNames elapsed_ms=4281
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[12/46]:commit:start pass=RemoveUnusedNames
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[12/46]:commit:done pass=RemoveUnusedNames
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[12/46]:done pass=RemoveUnusedNames elapsed_ms=9595
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[12/46]:done pass=RemoveUnusedNames elapsed_ms=4348
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[13/46]:start pass=OptimizeInstructions kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[13/46]:returned pass=OptimizeInstructions elapsed_ms=4877
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[13/46]:returned pass=OptimizeInstructions elapsed_ms=4199
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[13/46]:commit:start pass=OptimizeInstructions
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[13/46]:commit:done pass=OptimizeInstructions
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[13/46]:done pass=OptimizeInstructions elapsed_ms=4893
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[13/46]:done pass=OptimizeInstructions elapsed_ms=4209
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[14/46]:start pass=PickLoadSigns kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[14/46]:returned pass=PickLoadSigns elapsed_ms=21500
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[14/46]:returned pass=PickLoadSigns elapsed_ms=22676
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[14/46]:commit:start pass=PickLoadSigns
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[14/46]:commit:done pass=PickLoadSigns
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[14/46]:done pass=PickLoadSigns elapsed_ms=21614
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[14/46]:done pass=PickLoadSigns elapsed_ms=22752
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[15/46]:start pass=PrecomputePropagate kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[15/46]:returned pass=PrecomputePropagate elapsed_ms=7955
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[15/46]:returned pass=PrecomputePropagate elapsed_ms=4081
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[15/46]:commit:start pass=PrecomputePropagate
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[15/46]:commit:done pass=PrecomputePropagate
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[15/46]:done pass=PrecomputePropagate elapsed_ms=8086
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[15/46]:done pass=PrecomputePropagate elapsed_ms=4151
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[16/46]:start pass=CodePushing kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[16/46]:returned pass=CodePushing elapsed_ms=15023
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[16/46]:returned pass=CodePushing elapsed_ms=10891
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[16/46]:commit:start pass=CodePushing
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[16/46]:commit:done pass=CodePushing
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[16/46]:done pass=CodePushing elapsed_ms=15145
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[16/46]:done pass=CodePushing elapsed_ms=10966
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[17/46]:start pass=TupleOptimization kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[17/46]:returned pass=TupleOptimization elapsed_ms=7556
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[17/46]:returned pass=TupleOptimization elapsed_ms=6716
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[17/46]:commit:start pass=TupleOptimization
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[17/46]:commit:done pass=TupleOptimization
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[17/46]:done pass=TupleOptimization elapsed_ms=7558
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[17/46]:done pass=TupleOptimization elapsed_ms=6716
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[18/46]:start pass=SimplifyLocalsNoStructure kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[18/46]:returned pass=SimplifyLocalsNoStructure elapsed_ms=10070
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[18/46]:returned pass=SimplifyLocalsNoStructure elapsed_ms=6097
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[18/46]:commit:start pass=SimplifyLocalsNoStructure
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[18/46]:commit:done pass=SimplifyLocalsNoStructure
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[18/46]:done pass=SimplifyLocalsNoStructure elapsed_ms=10192
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[18/46]:done pass=SimplifyLocalsNoStructure elapsed_ms=6165
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[19/46]:start pass=Vacuum kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[19/46]:returned pass=Vacuum elapsed_ms=20363
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[19/46]:returned pass=Vacuum elapsed_ms=12705
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[19/46]:commit:start pass=Vacuum
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[19/46]:commit:done pass=Vacuum
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[19/46]:done pass=Vacuum elapsed_ms=20449
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[19/46]:done pass=Vacuum elapsed_ms=12747
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[20/46]:start pass=ReorderLocals kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[20/46]:returned pass=ReorderLocals elapsed_ms=2576
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[20/46]:returned pass=ReorderLocals elapsed_ms=1525
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[20/46]:commit:start pass=ReorderLocals
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[20/46]:commit:done pass=ReorderLocals
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[20/46]:done pass=ReorderLocals elapsed_ms=2739
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[20/46]:done pass=ReorderLocals elapsed_ms=1621
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[21/46]:start pass=RemoveUnusedBrs kind=module-runner
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[21/46]:returned pass=RemoveUnusedBrs elapsed_ms=3733
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[21/46]:returned pass=RemoveUnusedBrs elapsed_ms=2110
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[21/46]:commit:start pass=RemoveUnusedBrs
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[21/46]:commit:done pass=RemoveUnusedBrs
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[21/46]:done pass=RemoveUnusedBrs elapsed_ms=3843
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[21/46]:done pass=RemoveUnusedBrs elapsed_ms=2175
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[22/46]:start pass=MergeLocals kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[22/46]:returned pass=MergeLocals elapsed_ms=1729
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[22/46]:returned pass=MergeLocals elapsed_ms=1003
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[22/46]:commit:start pass=MergeLocals
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[22/46]:commit:done pass=MergeLocals
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[22/46]:done pass=MergeLocals elapsed_ms=1863
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[22/46]:done pass=MergeLocals elapsed_ms=1074
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[23/46]:start pass=CoalesceLocals kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[23/46]:returned pass=CoalesceLocals elapsed_ms=58124
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[23/46]:returned pass=CoalesceLocals elapsed_ms=33297
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[23/46]:commit:start pass=CoalesceLocals
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[23/46]:commit:done pass=CoalesceLocals
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[23/46]:done pass=CoalesceLocals elapsed_ms=58249
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[23/46]:done pass=CoalesceLocals elapsed_ms=33366
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[24/46]:start pass=LocalCSE kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[24/46]:returned pass=LocalCSE elapsed_ms=2542
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[24/46]:returned pass=LocalCSE elapsed_ms=1513
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[24/46]:commit:start pass=LocalCSE
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[24/46]:commit:done pass=LocalCSE
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[24/46]:done pass=LocalCSE elapsed_ms=2681
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[24/46]:done pass=LocalCSE elapsed_ms=1588
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[25/46]:start pass=SimplifyLocals kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[25/46]:returned pass=SimplifyLocals elapsed_ms=22957
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[25/46]:returned pass=SimplifyLocals elapsed_ms=16873
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[25/46]:commit:start pass=SimplifyLocals
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[25/46]:commit:done pass=SimplifyLocals
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[25/46]:done pass=SimplifyLocals elapsed_ms=23067
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[25/46]:done pass=SimplifyLocals elapsed_ms=16941
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[26/46]:start pass=Vacuum kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[26/46]:returned pass=Vacuum elapsed_ms=20247
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[26/46]:returned pass=Vacuum elapsed_ms=13173
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[26/46]:commit:start pass=Vacuum
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[26/46]:commit:done pass=Vacuum
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[26/46]:done pass=Vacuum elapsed_ms=20376
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[26/46]:done pass=Vacuum elapsed_ms=13242
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[27/46]:start pass=ReorderLocals kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[27/46]:returned pass=ReorderLocals elapsed_ms=2501
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[27/46]:returned pass=ReorderLocals elapsed_ms=1549
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[27/46]:commit:start pass=ReorderLocals
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[27/46]:commit:done pass=ReorderLocals
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[27/46]:done pass=ReorderLocals elapsed_ms=2650
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[27/46]:done pass=ReorderLocals elapsed_ms=1628
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[28/46]:start pass=CoalesceLocals kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[28/46]:returned pass=CoalesceLocals elapsed_ms=50009
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[28/46]:returned pass=CoalesceLocals elapsed_ms=33419
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[28/46]:commit:start pass=CoalesceLocals
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[28/46]:commit:done pass=CoalesceLocals
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[28/46]:done pass=CoalesceLocals elapsed_ms=50137
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[28/46]:done pass=CoalesceLocals elapsed_ms=33489
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[29/46]:start pass=ReorderLocals kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[29/46]:returned pass=ReorderLocals elapsed_ms=2494
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[29/46]:returned pass=ReorderLocals elapsed_ms=1595
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[29/46]:commit:start pass=ReorderLocals
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[29/46]:commit:done pass=ReorderLocals
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[29/46]:done pass=ReorderLocals elapsed_ms=2624
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[29/46]:done pass=ReorderLocals elapsed_ms=1669
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[30/46]:start pass=Vacuum kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[30/46]:returned pass=Vacuum elapsed_ms=20069
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[30/46]:returned pass=Vacuum elapsed_ms=14405
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[30/46]:commit:start pass=Vacuum
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[30/46]:commit:done pass=Vacuum
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[30/46]:done pass=Vacuum elapsed_ms=20188
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[30/46]:done pass=Vacuum elapsed_ms=14468
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[31/46]:start pass=CodeFolding kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[31/46]:returned pass=CodeFolding elapsed_ms=35670
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[31/46]:returned pass=CodeFolding elapsed_ms=28857
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[31/46]:commit:start pass=CodeFolding
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[31/46]:commit:done pass=CodeFolding
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[31/46]:done pass=CodeFolding elapsed_ms=35749
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[31/46]:done pass=CodeFolding elapsed_ms=28902
 [trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[32/46]:start pass=MergeBlocks kind=ir-transformer
-[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[32/46]:MergeBlocks:validation_error elapsed_ms=27893 stack underflow
+[trace] input _build/wasm/debug/build/cmd/cmd.wasm:opt pass[32/46]:MergeBlocks:validation_error elapsed_ms=24779 type mismatch
 error: _build/wasm/debug/build/cmd/cmd.wasm: validation error after pass MergeBlocks:
-stack underflow
+type mismatch
 
 Offending function diff MergeBlocks (before -> after):
-@@ lhs[9,0] rhs[9,4] @@
-     [2] I32 (param)
-   body:
-+    - call (Func 35) => (Type 243 (Func [I32] -> []))
-+      args:
-+        [0]
-+          - local.get (Local 1) : <unknown local>
-     - block bt=(Void)
-       - call (Func 35) => (Type 243 (Func [I32] -> []))
-@@ lhs[10,4] rhs[14,0] @@
-   body:
-     - block bt=(Void)
--      - call (Func 35) => (Type 243 (Func [I32] -> []))
--        args:
--          [0]
--            - local.get (Local 1) : <unknown local>
-       - local.set (Local 0) : <unknown local>
-         value:
-@@ lhs[16,1] rhs[16,1] @@
-       - local.set (Local 0) : <unknown local>
+@@ lhs[399,0] rhs[399,15] @@
+         - block bt=(Void)
+           - block bt=(Void)
++            - local.set (Local 1) : I64 (param)
++              value:
++                - local.tee (Local 1) : I64 (param)
++                  value:
++                    - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
++                      addr:
++                        - local.get (Local 1) : I64 (param)
++            - call (Func 33) => (Type 85 (Func [I32] -> []))
++              args:
++                [0]
++                  - local.get (Local 0) : I64 (param)
++            - call (Func 33) => (Type 85 (Func [I32] -> []))
++              args:
++                [0]
++                  - local.get (Local 1) : I64 (param)
+             - block bt=(Void)
+               - local.set (Local 1) : I64 (param)
+@@ lhs[400,15] rhs[415,0] @@
+           - block bt=(Void)
+             - block bt=(Void)
+-              - local.set (Local 1) : I64 (param)
+-                value:
+-                  - local.tee (Local 1) : I64 (param)
+-                    value:
+-                      - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
+-                        addr:
+-                          - local.get (Local 1) : I64 (param)
+-              - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                args:
+-                  [0]
+-                    - local.get (Local 0) : I64 (param)
+-              - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                args:
+-                  [0]
+-                    - local.get (Local 1) : I64 (param)
+               - if bt=(Void)
+                 cond:
+@@ lhs[550,0] rhs[550,11] @@
+           - block bt=(Void)
+             - block bt=(Void)
++              - local.set (Local 1) : I64 (param)
++                value:
++                  - local.tee (Local 1) : I64 (param)
++                    value:
++                      - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
++                        addr:
++                          - local.get (Local 1) : I64 (param)
++              - call (Func 33) => (Type 85 (Func [I32] -> []))
++                args:
++                  [0]
++                    - local.get (Local 0) : I64 (param)
+               - block bt=(Void)
+                 - local.set (Local 1) : I64 (param)
+@@ lhs[551,11] rhs[562,0] @@
+             - block bt=(Void)
+               - block bt=(Void)
+-                - local.set (Local 1) : I64 (param)
+-                  value:
+-                    - local.tee (Local 1) : I64 (param)
+-                      value:
+-                        - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
+-                          addr:
+-                            - local.get (Local 1) : I64 (param)
+-                - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                  args:
+-                    [0]
+-                      - local.get (Local 0) : I64 (param)
+                 - if bt=(Void)
+                   cond:
+@@ lhs[880,0] rhs[880,15] @@
+         - block bt=(Void)
+           - block bt=(Void)
++            - local.set (Local 1) : I64 (param)
++              value:
++                - local.tee (Local 1) : I64 (param)
++                  value:
++                    - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
++                      addr:
++                        - local.get (Local 1) : I64 (param)
++            - call (Func 33) => (Type 85 (Func [I32] -> []))
++              args:
++                [0]
++                  - local.get (Local 0) : I64 (param)
++            - call (Func 33) => (Type 85 (Func [I32] -> []))
++              args:
++                [0]
++                  - local.get (Local 1) : I64 (param)
+             - block bt=(Void)
+               - local.set (Local 1) : I64 (param)
+@@ lhs[881,15] rhs[896,0] @@
+           - block bt=(Void)
+             - block bt=(Void)
+-              - local.set (Local 1) : I64 (param)
+-                value:
+-                  - local.tee (Local 1) : I64 (param)
+-                    value:
+-                      - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
+-                        addr:
+-                          - local.get (Local 1) : I64 (param)
+-              - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                args:
+-                  [0]
+-                    - local.get (Local 0) : I64 (param)
+-              - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                args:
+-                  [0]
+-                    - local.get (Local 1) : I64 (param)
+               - if bt=(Void)
+                 cond:
+@@ lhs[1031,0] rhs[1031,11] @@
+           - block bt=(Void)
+             - block bt=(Void)
++              - local.set (Local 1) : I64 (param)
++                value:
++                  - local.tee (Local 1) : I64 (param)
++                    value:
++                      - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
++                        addr:
++                          - local.get (Local 1) : I64 (param)
++              - call (Func 33) => (Type 85 (Func [I32] -> []))
++                args:
++                  [0]
++                    - local.get (Local 0) : I64 (param)
+               - block bt=(Void)
+                 - local.set (Local 1) : I64 (param)
+@@ lhs[1032,11] rhs[1043,0] @@
+             - block bt=(Void)
+               - block bt=(Void)
+-                - local.set (Local 1) : I64 (param)
+-                  value:
+-                    - local.tee (Local 1) : I64 (param)
+-                      value:
+-                        - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
+-                          addr:
+-                            - local.get (Local 1) : I64 (param)
+-                - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                  args:
+-                    [0]
+-                      - local.get (Local 0) : I64 (param)
+                 - if bt=(Void)
+                   cond:
+@@ lhs[1361,0] rhs[1361,15] @@
+         - block bt=(Void)
+           - block bt=(Void)
++            - local.set (Local 1) : I64 (param)
++              value:
++                - local.tee (Local 1) : I64 (param)
++                  value:
++                    - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
++                      addr:
++                        - local.get (Local 1) : I64 (param)
++            - call (Func 33) => (Type 85 (Func [I32] -> []))
++              args:
++                [0]
++                  - local.get (Local 0) : I64 (param)
++            - call (Func 33) => (Type 85 (Func [I32] -> []))
++              args:
++                [0]
++                  - local.get (Local 1) : I64 (param)
+             - block bt=(Void)
+               - local.set (Local 1) : I64 (param)
+@@ lhs[1362,15] rhs[1377,0] @@
+           - block bt=(Void)
+             - block bt=(Void)
+-              - local.set (Local 1) : I64 (param)
+-                value:
+-                  - local.tee (Local 1) : I64 (param)
+-                    value:
+-                      - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
+-                        addr:
+-                          - local.get (Local 1) : I64 (param)
+-              - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                args:
+-                  [0]
+-                    - local.get (Local 0) : I64 (param)
+-              - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                args:
+-                  [0]
+-                    - local.get (Local 1) : I64 (param)
+               - if bt=(Void)
+                 cond:
+@@ lhs[1512,0] rhs[1512,11] @@
+           - block bt=(Void)
+             - block bt=(Void)
++              - local.set (Local 1) : I64 (param)
++                value:
++                  - local.tee (Local 1) : I64 (param)
++                    value:
++                      - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
++                        addr:
++                          - local.get (Local 1) : I64 (param)
++              - call (Func 33) => (Type 85 (Func [I32] -> []))
++                args:
++                  [0]
++                    - local.get (Local 0) : I64 (param)
+               - block bt=(Void)
+                 - local.set (Local 1) : I64 (param)
+@@ lhs[1513,11] rhs[1524,0] @@
+             - block bt=(Void)
+               - block bt=(Void)
+-                - local.set (Local 1) : I64 (param)
+-                  value:
+-                    - local.tee (Local 1) : I64 (param)
+-                      value:
+-                        - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
+-                          addr:
+-                            - local.get (Local 1) : I64 (param)
+-                - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                  args:
+-                    [0]
+-                      - local.get (Local 0) : I64 (param)
+                 - if bt=(Void)
+                   cond:
+@@ lhs[1842,0] rhs[1842,15] @@
+         - block bt=(Void)
+           - block bt=(Void)
++            - local.set (Local 1) : I64 (param)
++              value:
++                - local.tee (Local 1) : I64 (param)
++                  value:
++                    - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
++                      addr:
++                        - local.get (Local 1) : I64 (param)
++            - call (Func 33) => (Type 85 (Func [I32] -> []))
++              args:
++                [0]
++                  - local.get (Local 0) : I64 (param)
++            - call (Func 33) => (Type 85 (Func [I32] -> []))
++              args:
++                [0]
++                  - local.get (Local 1) : I64 (param)
+             - block bt=(Void)
+               - local.set (Local 1) : I64 (param)
+@@ lhs[1843,15] rhs[1858,0] @@
+           - block bt=(Void)
+             - block bt=(Void)
+-              - local.set (Local 1) : I64 (param)
+-                value:
+-                  - local.tee (Local 1) : I64 (param)
+-                    value:
+-                      - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
+-                        addr:
+-                          - local.get (Local 1) : I64 (param)
+-              - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                args:
+-                  [0]
+-                    - local.get (Local 0) : I64 (param)
+-              - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                args:
+-                  [0]
+-                    - local.get (Local 1) : I64 (param)
+               - if bt=(Void)
+                 cond:
+@@ lhs[1993,0] rhs[1993,11] @@
+           - block bt=(Void)
+             - block bt=(Void)
++              - local.set (Local 1) : I64 (param)
++                value:
++                  - local.tee (Local 1) : I64 (param)
++                    value:
++                      - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
++                        addr:
++                          - local.get (Local 1) : I64 (param)
++              - call (Func 33) => (Type 85 (Func [I32] -> []))
++                args:
++                  [0]
++                    - local.get (Local 0) : I64 (param)
+               - block bt=(Void)
+                 - local.set (Local 1) : I64 (param)
+@@ lhs[1994,11] rhs[2005,0] @@
+             - block bt=(Void)
+               - block bt=(Void)
+-                - local.set (Local 1) : I64 (param)
+-                  value:
+-                    - local.tee (Local 1) : I64 (param)
+-                      value:
+-                        - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
+-                          addr:
+-                            - local.get (Local 1) : I64 (param)
+-                - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                  args:
+-                    [0]
+-                      - local.get (Local 0) : I64 (param)
+                 - if bt=(Void)
+                   cond:
+@@ lhs[2323,0] rhs[2323,15] @@
+         - block bt=(Void)
+           - block bt=(Void)
++            - local.set (Local 1) : I64 (param)
++              value:
++                - local.tee (Local 1) : I64 (param)
++                  value:
++                    - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
++                      addr:
++                        - local.get (Local 1) : I64 (param)
++            - call (Func 33) => (Type 85 (Func [I32] -> []))
++              args:
++                [0]
++                  - local.get (Local 0) : I64 (param)
++            - call (Func 33) => (Type 85 (Func [I32] -> []))
++              args:
++                [0]
++                  - local.get (Local 1) : I64 (param)
+             - block bt=(Void)
+               - local.set (Local 1) : I64 (param)
+@@ lhs[2324,15] rhs[2339,0] @@
+           - block bt=(Void)
+             - block bt=(Void)
+-              - local.set (Local 1) : I64 (param)
+-                value:
+-                  - local.tee (Local 1) : I64 (param)
+-                    value:
+-                      - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
+-                        addr:
+-                          - local.get (Local 1) : I64 (param)
+-              - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                args:
+-                  [0]
+-                    - local.get (Local 0) : I64 (param)
+-              - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                args:
+-                  [0]
+-                    - local.get (Local 1) : I64 (param)
+               - if bt=(Void)
+                 cond:
+@@ lhs[2474,0] rhs[2474,11] @@
+           - block bt=(Void)
+             - block bt=(Void)
++              - local.set (Local 1) : I64 (param)
++                value:
++                  - local.tee (Local 1) : I64 (param)
++                    value:
++                      - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
++                        addr:
++                          - local.get (Local 1) : I64 (param)
++              - call (Func 33) => (Type 85 (Func [I32] -> []))
++                args:
++                  [0]
++                    - local.get (Local 0) : I64 (param)
+               - block bt=(Void)
+                 - local.set (Local 1) : I64 (param)
+@@ lhs[2475,11] rhs[2486,0] @@
+             - block bt=(Void)
+               - block bt=(Void)
+-                - local.set (Local 1) : I64 (param)
+-                  value:
+-                    - local.tee (Local 1) : I64 (param)
+-                      value:
+-                        - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
+-                          addr:
+-                            - local.get (Local 1) : I64 (param)
+-                - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                  args:
+-                    [0]
+-                      - local.get (Local 0) : I64 (param)
+                 - if bt=(Void)
+                   cond:
+@@ lhs[2804,0] rhs[2804,15] @@
+         - block bt=(Void)
+           - block bt=(Void)
++            - local.set (Local 1) : I64 (param)
++              value:
++                - local.tee (Local 1) : I64 (param)
++                  value:
++                    - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
++                      addr:
++                        - local.get (Local 1) : I64 (param)
++            - call (Func 33) => (Type 85 (Func [I32] -> []))
++              args:
++                [0]
++                  - local.get (Local 0) : I64 (param)
++            - call (Func 33) => (Type 85 (Func [I32] -> []))
++              args:
++                [0]
++                  - local.get (Local 1) : I64 (param)
+             - block bt=(Void)
+               - local.set (Local 1) : I64 (param)
+@@ lhs[2805,15] rhs[2820,0] @@
+           - block bt=(Void)
+             - block bt=(Void)
+-              - local.set (Local 1) : I64 (param)
+-                value:
+-                  - local.tee (Local 1) : I64 (param)
+-                    value:
+-                      - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
+-                        addr:
+-                          - local.get (Local 1) : I64 (param)
+-              - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                args:
+-                  [0]
+-                    - local.get (Local 0) : I64 (param)
+-              - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                args:
+-                  [0]
+-                    - local.get (Local 1) : I64 (param)
+               - if bt=(Void)
+                 cond:
+@@ lhs[2955,0] rhs[2955,11] @@
+           - block bt=(Void)
+             - block bt=(Void)
++              - local.set (Local 1) : I64 (param)
++                value:
++                  - local.tee (Local 1) : I64 (param)
++                    value:
++                      - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
++                        addr:
++                          - local.get (Local 1) : I64 (param)
++              - call (Func 33) => (Type 85 (Func [I32] -> []))
++                args:
++                  [0]
++                    - local.get (Local 0) : I64 (param)
+               - block bt=(Void)
+                 - local.set (Local 1) : I64 (param)
+@@ lhs[2956,11] rhs[2967,0] @@
+             - block bt=(Void)
+               - block bt=(Void)
+-                - local.set (Local 1) : I64 (param)
+-                  value:
+-                    - local.tee (Local 1) : I64 (param)
+-                      value:
+-                        - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
+-                          addr:
+-                            - local.get (Local 1) : I64 (param)
+-                - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                  args:
+-                    [0]
+-                      - local.get (Local 0) : I64 (param)
+                 - if bt=(Void)
+                   cond:
+@@ lhs[3285,0] rhs[3285,15] @@
+         - block bt=(Void)
+           - block bt=(Void)
++            - local.set (Local 1) : I64 (param)
++              value:
++                - local.tee (Local 1) : I64 (param)
++                  value:
++                    - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
++                      addr:
++                        - local.get (Local 1) : I64 (param)
++            - call (Func 33) => (Type 85 (Func [I32] -> []))
++              args:
++                [0]
++                  - local.get (Local 0) : I64 (param)
++            - call (Func 33) => (Type 85 (Func [I32] -> []))
++              args:
++                [0]
++                  - local.get (Local 1) : I64 (param)
+             - block bt=(Void)
+               - local.set (Local 1) : I64 (param)
+@@ lhs[3286,15] rhs[3301,0] @@
+           - block bt=(Void)
+             - block bt=(Void)
+-              - local.set (Local 1) : I64 (param)
+-                value:
+-                  - local.tee (Local 1) : I64 (param)
+-                    value:
+-                      - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
+-                        addr:
+-                          - local.get (Local 1) : I64 (param)
+-              - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                args:
+-                  [0]
+-                    - local.get (Local 0) : I64 (param)
+-              - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                args:
+-                  [0]
+-                    - local.get (Local 1) : I64 (param)
+               - if bt=(Void)
+                 cond:
+@@ lhs[3436,0] rhs[3436,11] @@
+           - block bt=(Void)
+             - block bt=(Void)
++              - local.set (Local 1) : I64 (param)
++                value:
++                  - local.tee (Local 1) : I64 (param)
++                    value:
++                      - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
++                        addr:
++                          - local.get (Local 1) : I64 (param)
++              - call (Func 33) => (Type 85 (Func [I32] -> []))
++                args:
++                  [0]
++                    - local.get (Local 0) : I64 (param)
+               - block bt=(Void)
+                 - local.set (Local 1) : I64 (param)
+@@ lhs[3437,11] rhs[3448,0] @@
+             - block bt=(Void)
+               - block bt=(Void)
+-                - local.set (Local 1) : I64 (param)
+-                  value:
+-                    - local.tee (Local 1) : I64 (param)
+-                      value:
+-                        - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
+-                          addr:
+-                            - local.get (Local 1) : I64 (param)
+-                - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                  args:
+-                    [0]
+-                      - local.get (Local 0) : I64 (param)
+                 - if bt=(Void)
+                   cond:
+@@ lhs[3766,0] rhs[3766,15] @@
+         - block bt=(Void)
+           - block bt=(Void)
++            - local.set (Local 1) : I64 (param)
++              value:
++                - local.tee (Local 1) : I64 (param)
++                  value:
++                    - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
++                      addr:
++                        - local.get (Local 1) : I64 (param)
++            - call (Func 33) => (Type 85 (Func [I32] -> []))
++              args:
++                [0]
++                  - local.get (Local 0) : I64 (param)
++            - call (Func 33) => (Type 85 (Func [I32] -> []))
++              args:
++                [0]
++                  - local.get (Local 1) : I64 (param)
+             - block bt=(Void)
+               - local.set (Local 1) : I64 (param)
+@@ lhs[3767,15] rhs[3782,0] @@
+           - block bt=(Void)
+             - block bt=(Void)
+-              - local.set (Local 1) : I64 (param)
+-                value:
+-                  - local.tee (Local 1) : I64 (param)
+-                    value:
+-                      - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
+-                        addr:
+-                          - local.get (Local 1) : I64 (param)
+-              - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                args:
+-                  [0]
+-                    - local.get (Local 0) : I64 (param)
+-              - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                args:
+-                  [0]
+-                    - local.get (Local 1) : I64 (param)
+               - if bt=(Void)
+                 cond:
+@@ lhs[3917,0] rhs[3917,11] @@
+           - block bt=(Void)
+             - block bt=(Void)
++              - local.set (Local 1) : I64 (param)
++                value:
++                  - local.tee (Local 1) : I64 (param)
++                    value:
++                      - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
++                        addr:
++                          - local.get (Local 1) : I64 (param)
++              - call (Func 33) => (Type 85 (Func [I32] -> []))
++                args:
++                  [0]
++                    - local.get (Local 0) : I64 (param)
+               - block bt=(Void)
+                 - local.set (Local 1) : I64 (param)
+@@ lhs[3918,11] rhs[3929,0] @@
+             - block bt=(Void)
+               - block bt=(Void)
+-                - local.set (Local 1) : I64 (param)
+-                  value:
+-                    - local.tee (Local 1) : I64 (param)
+-                      value:
+-                        - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
+-                          addr:
+-                            - local.get (Local 1) : I64 (param)
+-                - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                  args:
+-                    [0]
+-                      - local.get (Local 0) : I64 (param)
+                 - if bt=(Void)
+                   cond:
+@@ lhs[4247,0] rhs[4247,15] @@
+         - block bt=(Void)
+           - block bt=(Void)
++            - local.set (Local 1) : I64 (param)
++              value:
++                - local.tee (Local 1) : I64 (param)
++                  value:
++                    - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
++                      addr:
++                        - local.get (Local 1) : I64 (param)
++            - call (Func 33) => (Type 85 (Func [I32] -> []))
++              args:
++                [0]
++                  - local.get (Local 0) : I64 (param)
++            - call (Func 33) => (Type 85 (Func [I32] -> []))
++              args:
++                [0]
++                  - local.get (Local 1) : I64 (param)
+             - block bt=(Void)
+               - local.set (Local 1) : I64 (param)
+@@ lhs[4248,15] rhs[4263,0] @@
+           - block bt=(Void)
+             - block bt=(Void)
+-              - local.set (Local 1) : I64 (param)
+-                value:
+-                  - local.tee (Local 1) : I64 (param)
+-                    value:
+-                      - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
+-                        addr:
+-                          - local.get (Local 1) : I64 (param)
+-              - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                args:
+-                  [0]
+-                    - local.get (Local 0) : I64 (param)
+-              - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                args:
+-                  [0]
+-                    - local.get (Local 1) : I64 (param)
+               - if bt=(Void)
+                 cond:
+@@ lhs[4398,0] rhs[4398,11] @@
+           - block bt=(Void)
+             - block bt=(Void)
++              - local.set (Local 1) : I64 (param)
++                value:
++                  - local.tee (Local 1) : I64 (param)
++                    value:
++                      - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
++                        addr:
++                          - local.get (Local 1) : I64 (param)
++              - call (Func 33) => (Type 85 (Func [I32] -> []))
++                args:
++                  [0]
++                    - local.get (Local 0) : I64 (param)
+               - block bt=(Void)
+                 - local.set (Local 1) : I64 (param)
+@@ lhs[4399,11] rhs[4410,0] @@
+             - block bt=(Void)
+               - block bt=(Void)
+-                - local.set (Local 1) : I64 (param)
+-                  value:
+-                    - local.tee (Local 1) : I64 (param)
+-                      value:
+-                        - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
+-                          addr:
+-                            - local.get (Local 1) : I64 (param)
+-                - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                  args:
+-                    [0]
+-                      - local.get (Local 0) : I64 (param)
+                 - if bt=(Void)
+                   cond:
+@@ lhs[4678,0] rhs[4678,15] @@
+         - block bt=(Void)
+           - block bt=(Void)
++            - local.set (Local 1) : I64 (param)
++              value:
++                - local.tee (Local 1) : I64 (param)
++                  value:
++                    - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
++                      addr:
++                        - local.get (Local 1) : I64 (param)
++            - call (Func 33) => (Type 85 (Func [I32] -> []))
++              args:
++                [0]
++                  - local.get (Local 0) : I64 (param)
++            - call (Func 33) => (Type 85 (Func [I32] -> []))
++              args:
++                [0]
++                  - local.get (Local 1) : I64 (param)
+             - block bt=(Void)
+               - local.set (Local 1) : I64 (param)
+@@ lhs[4679,15] rhs[4694,0] @@
+           - block bt=(Void)
+             - block bt=(Void)
+-              - local.set (Local 1) : I64 (param)
+-                value:
+-                  - local.tee (Local 1) : I64 (param)
+-                    value:
+-                      - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
+-                        addr:
+-                          - local.get (Local 1) : I64 (param)
+-              - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                args:
+-                  [0]
+-                    - local.get (Local 0) : I64 (param)
+-              - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                args:
+-                  [0]
+-                    - local.get (Local 1) : I64 (param)
+               - if bt=(Void)
+                 cond:
+@@ lhs[4829,0] rhs[4829,11] @@
+           - block bt=(Void)
+             - block bt=(Void)
++              - local.set (Local 1) : I64 (param)
++                value:
++                  - local.tee (Local 1) : I64 (param)
++                    value:
++                      - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
++                        addr:
++                          - local.get (Local 1) : I64 (param)
++              - call (Func 33) => (Type 85 (Func [I32] -> []))
++                args:
++                  [0]
++                    - local.get (Local 0) : I64 (param)
+               - block bt=(Void)
+                 - local.set (Local 1) : I64 (param)
+@@ lhs[4830,11] rhs[4841,0] @@
+             - block bt=(Void)
+               - block bt=(Void)
+-                - local.set (Local 1) : I64 (param)
+-                  value:
+-                    - local.tee (Local 1) : I64 (param)
+-                      value:
+-                        - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
+-                          addr:
+-                            - local.get (Local 1) : I64 (param)
+-                - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                  args:
+-                    [0]
+-                      - local.get (Local 0) : I64 (param)
+                 - if bt=(Void)
+                   cond:
+@@ lhs[5159,0] rhs[5159,15] @@
+         - block bt=(Void)
+           - block bt=(Void)
++            - local.set (Local 1) : I64 (param)
++              value:
++                - local.tee (Local 1) : I64 (param)
++                  value:
++                    - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
++                      addr:
++                        - local.get (Local 1) : I64 (param)
++            - call (Func 33) => (Type 85 (Func [I32] -> []))
++              args:
++                [0]
++                  - local.get (Local 0) : I64 (param)
++            - call (Func 33) => (Type 85 (Func [I32] -> []))
++              args:
++                [0]
++                  - local.get (Local 1) : I64 (param)
+             - block bt=(Void)
+               - local.set (Local 1) : I64 (param)
+@@ lhs[5160,15] rhs[5175,0] @@
+           - block bt=(Void)
+             - block bt=(Void)
+-              - local.set (Local 1) : I64 (param)
+-                value:
+-                  - local.tee (Local 1) : I64 (param)
+-                    value:
+-                      - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
+-                        addr:
+-                          - local.get (Local 1) : I64 (param)
+-              - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                args:
+-                  [0]
+-                    - local.get (Local 0) : I64 (param)
+-              - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                args:
+-                  [0]
+-                    - local.get (Local 1) : I64 (param)
+               - if bt=(Void)
+                 cond:
+@@ lhs[5310,0] rhs[5310,11] @@
+           - block bt=(Void)
+             - block bt=(Void)
++              - local.set (Local 1) : I64 (param)
++                value:
++                  - local.tee (Local 1) : I64 (param)
++                    value:
++                      - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
++                        addr:
++                          - local.get (Local 1) : I64 (param)
++              - call (Func 33) => (Type 85 (Func [I32] -> []))
++                args:
++                  [0]
++                    - local.get (Local 0) : I64 (param)
+               - block bt=(Void)
+                 - local.set (Local 1) : I64 (param)
+@@ lhs[5311,11] rhs[5322,0] @@
+             - block bt=(Void)
+               - block bt=(Void)
+-                - local.set (Local 1) : I64 (param)
+-                  value:
+-                    - local.tee (Local 1) : I64 (param)
+-                      value:
+-                        - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
+-                          addr:
+-                            - local.get (Local 1) : I64 (param)
+-                - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                  args:
+-                    [0]
+-                      - local.get (Local 0) : I64 (param)
+                 - if bt=(Void)
+                   cond:
+@@ lhs[5590,0] rhs[5590,15] @@
+         - block bt=(Void)
+           - block bt=(Void)
++            - local.set (Local 1) : I64 (param)
++              value:
++                - local.tee (Local 1) : I64 (param)
++                  value:
++                    - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
++                      addr:
++                        - local.get (Local 1) : I64 (param)
++            - call (Func 33) => (Type 85 (Func [I32] -> []))
++              args:
++                [0]
++                  - local.get (Local 0) : I64 (param)
++            - call (Func 33) => (Type 85 (Func [I32] -> []))
++              args:
++                [0]
++                  - local.get (Local 1) : I64 (param)
+             - block bt=(Void)
+               - local.set (Local 1) : I64 (param)
+@@ lhs[5591,15] rhs[5606,0] @@
+           - block bt=(Void)
+             - block bt=(Void)
+-              - local.set (Local 1) : I64 (param)
+-                value:
+-                  - local.tee (Local 1) : I64 (param)
+-                    value:
+-                      - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
+-                        addr:
+-                          - local.get (Local 1) : I64 (param)
+-              - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                args:
+-                  [0]
+-                    - local.get (Local 0) : I64 (param)
+-              - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                args:
+-                  [0]
+-                    - local.get (Local 1) : I64 (param)
+               - if bt=(Void)
+                 cond:
+@@ lhs[5741,0] rhs[5741,11] @@
+           - block bt=(Void)
+             - block bt=(Void)
++              - local.set (Local 1) : I64 (param)
++                value:
++                  - local.tee (Local 1) : I64 (param)
++                    value:
++                      - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
++                        addr:
++                          - local.get (Local 1) : I64 (param)
++              - call (Func 33) => (Type 85 (Func [I32] -> []))
++                args:
++                  [0]
++                    - local.get (Local 0) : I64 (param)
+               - block bt=(Void)
+                 - local.set (Local 1) : I64 (param)
+@@ lhs[5742,11] rhs[5753,0] @@
+             - block bt=(Void)
+               - block bt=(Void)
+-                - local.set (Local 1) : I64 (param)
+-                  value:
+-                    - local.tee (Local 1) : I64 (param)
+-                      value:
+-                        - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
+-                          addr:
+-                            - local.get (Local 1) : I64 (param)
+-                - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                  args:
+-                    [0]
+-                      - local.get (Local 0) : I64 (param)
+                 - if bt=(Void)
+                   cond:
+@@ lhs[6071,0] rhs[6071,15] @@
+         - block bt=(Void)
+           - block bt=(Void)
++            - local.set (Local 1) : I64 (param)
++              value:
++                - local.tee (Local 1) : I64 (param)
++                  value:
++                    - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
++                      addr:
++                        - local.get (Local 1) : I64 (param)
++            - call (Func 33) => (Type 85 (Func [I32] -> []))
++              args:
++                [0]
++                  - local.get (Local 0) : I64 (param)
++            - call (Func 33) => (Type 85 (Func [I32] -> []))
++              args:
++                [0]
++                  - local.get (Local 1) : I64 (param)
+             - block bt=(Void)
+               - local.set (Local 1) : I64 (param)
+@@ lhs[6072,15] rhs[6087,0] @@
+           - block bt=(Void)
+             - block bt=(Void)
+-              - local.set (Local 1) : I64 (param)
+-                value:
+-                  - local.tee (Local 1) : I64 (param)
+-                    value:
+-                      - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
+-                        addr:
+-                          - local.get (Local 1) : I64 (param)
+-              - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                args:
+-                  [0]
+-                    - local.get (Local 0) : I64 (param)
+-              - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                args:
+-                  [0]
+-                    - local.get (Local 1) : I64 (param)
+               - if bt=(Void)
+                 cond:
+@@ lhs[6222,0] rhs[6222,11] @@
+           - block bt=(Void)
+             - block bt=(Void)
++              - local.set (Local 1) : I64 (param)
++                value:
++                  - local.tee (Local 1) : I64 (param)
++                    value:
++                      - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
++                        addr:
++                          - local.get (Local 1) : I64 (param)
++              - call (Func 33) => (Type 85 (Func [I32] -> []))
++                args:
++                  [0]
++                    - local.get (Local 0) : I64 (param)
+               - block bt=(Void)
+                 - local.set (Local 1) : I64 (param)
+@@ lhs[6223,11] rhs[6234,0] @@
+             - block bt=(Void)
+               - block bt=(Void)
+-                - local.set (Local 1) : I64 (param)
+-                  value:
+-                    - local.tee (Local 1) : I64 (param)
+-                      value:
+-                        - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
+-                          addr:
+-                            - local.get (Local 1) : I64 (param)
+-                - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                  args:
+-                    [0]
+-                      - local.get (Local 0) : I64 (param)
+                 - if bt=(Void)
+                   cond:
+@@ lhs[6552,0] rhs[6552,15] @@
+         - block bt=(Void)
+           - block bt=(Void)
++            - local.set (Local 1) : I64 (param)
++              value:
++                - local.tee (Local 1) : I64 (param)
++                  value:
++                    - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
++                      addr:
++                        - local.get (Local 1) : I64 (param)
++            - call (Func 33) => (Type 85 (Func [I32] -> []))
++              args:
++                [0]
++                  - local.get (Local 0) : I64 (param)
++            - call (Func 33) => (Type 85 (Func [I32] -> []))
++              args:
++                [0]
++                  - local.get (Local 1) : I64 (param)
+             - block bt=(Void)
+               - local.set (Local 1) : I64 (param)
+@@ lhs[6553,15] rhs[6568,0] @@
+           - block bt=(Void)
+             - block bt=(Void)
+-              - local.set (Local 1) : I64 (param)
+-                value:
+-                  - local.tee (Local 1) : I64 (param)
+-                    value:
+-                      - load I32LoadOp align=U32(0) offset=U64(8) [default (Lim I32 4)]
+-                        addr:
+-                          - local.get (Local 1) : I64 (param)
+-              - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                args:
+-                  [0]
+-                    - local.get (Local 0) : I64 (param)
+-              - call (Func 33) => (Type 85 (Func [I32] -> []))
+-                args:
+-                  [0]
+-                    - local.get (Local 1) : I64 (param)
+               - if bt=(Void)
+                 cond:
+@@ lhs[6761,1] rhs[6761,1] @@
+       - local.tee (Local 0) : I64 (param)
          value:
 -          - if bt=I32
-+          - if bt=(Void)
++          - if bt=I64
              cond:
-               - local.tee (Local 0) : <unknown local>
-
-
-Root-level TInstr context (best effort):
-failing_root_instr=1 reason=stack underflow
-root_instr[0]
-kind=TCall((Func 35), [{kind: TLocalGet((Local 1)), hash: Some(-1186236016)}])
-root_instr[1] <-- likely failure
-kind=TBlock((Void), {instrs: [{kind: TLocalSet((Local 0), {kind: TIf((Void), {kind: TLocalTee((Local 0), {kind: TBinary(I32EqOp, {kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TCall((Func 17), [{kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TCall((Func 278), [{kind: TLocalGet((Local 0)), hash: Some(-1919382637)}, {kind: TLocalGet((Local 1)), hash: Some(-1186236016)}, {kind: TLocalGet((Local 2)), hash: Some(-1313009008)}]), hash: None}), hash: None}), hash: None}]), hash: None}), hash: None}), hash: None}, {kind: TI32Const(I32(1)), hash: Some(1785916002)}), hash: None}), hash: None}, {instrs: [{kind: TCall((Func 37), [{kind: TLocalGet((Local 0)), hash: Some(-1919382637)}]), hash: None}, {kind: TCall((Func 37), [{kind: TLocalGet((Local 1)), hash: Some(-1186236016)}]), hash: None}, {kind: TI32Const(I32(0)), hash: Some(-813420232)}], hash: None}, Some({instrs: [{kind: TIf((Void), {kind: TLocalTee((Local 0), {kind: TBinary(I32GtSOp, {kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TLoad(I32LoadOp, align=U32(0) offset=U64(0), {kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TLoad(I32LoadOp, align=U32(0) offset=U64(8), {kind: TLocalGet((Local 0)), hash: Some(-1919382637)}), hash: None}), hash: None}), hash: None}), hash: None}), hash: None}), hash: None}, {kind: TI32Const(I32(1)), hash: Some(1785916002)}), hash: None}), hash: None}, {instrs: [{kind: TStore(I32StoreOp, align=U32(0) offset=U64(0), {kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TBinary(I32SubOp, {kind: TLocalGet((Local 0)), hash: Some(-1919382637)}, {kind: TI32Const(I32(1)), hash: Some(1785916002)}), hash: None}), hash: None}), hash: None}, {kind: TLocalGet((Local 0)), hash: Some(-1919382637)}), hash: None}, {kind: TCall((Func 35), [{kind: TLocalGet((Local 0)), hash: Some(-1919382637)}]), hash: None}], hash: None}, Some({instrs: [{kind: TIf((Void), {kind: TLocalTee((Local 0), {kind: TBinary(I32EqOp, {kind: TLocalGet((Local 0)), hash: Some(-1919382637)}, {kind: TI32Const(I32(1)), hash: Some(1785916002)}), hash: None}), hash: None}, {instrs: [{kind: TCall((Func 15), [{kind: TLocalGet((Local 0)), hash: Some(-1919382637)}]), hash: None}], hash: None}, None), hash: None}], hash: None})), hash: None}, {kind: TDrop({kind: TLocalGet((Local 0)), hash: Some(-1919382637)}), hash: None}, {kind: TBr((Label 1), []), hash: Some(-383850327)}], hash: None})), hash: None}), hash: None}, {kind: TReturn([{kind: TLocalGet((Local 0)), hash: None}]), hash: None}], hash: None})
-root_instr[2]
-kind=TLocalSet((Local 0), {kind: TLocalTee((Local 0), {kind: TLoad(I32LoadOp, align=U32(0) offset=U64(32), {kind: TLocalGet((Local 1)), hash: None}), hash: None}), hash: None})
-root_instr[3]
-kind=TIf((Void), {kind: TLocalTee((Local 0), {kind: TBinary(I32GtSOp, {kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TLoad(I32LoadOp, align=U32(0) offset=U64(0), {kind: TLocalGet((Local 1)), hash: None}), hash: None}), hash: None}), hash: None}, {kind: TI32Const(I32(1)), hash: Some(1785916002)}), hash: None}), hash: None}, {instrs: [{kind: TStore(I32StoreOp, align=U32(0) offset=U64(0), {kind: TLocalGet((Local 1)), hash: None}, {kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TBinary(I32SubOp, {kind: TLocalGet((Local 0)), hash: None}, {kind: TI32Const(I32(1)), hash: Some(1785916002)}), hash: None}), hash: None}), hash: None}), hash: None}, {kind: TCall((Func 35), [{kind: TLocalGet((Local 0)), hash: Some(-1919382637)}]), hash: None}], hash: None}, Some({instrs: [{kind: TIf((Void), {kind: TLocalTee((Local 0), {kind: TBinary(I32EqOp, {kind: TLocalGet((Local 0)), hash: Some(-1919382637)}, {kind: TI32Const(I32(1)), hash: Some(1785916002)}), hash: None}), hash: None}, {instrs: [{kind: TCall((Func 37), [{kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TLoad(I32LoadOp, align=U32(0) offset=U64(40), {kind: TLocalGet((Local 1)), hash: Some(-1186236016)}), hash: None}), hash: None}), hash: None}]), hash: None}, {kind: TCall((Func 37), [{kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TLoad(I32LoadOp, align=U32(0) offset=U64(36), {kind: TLocalGet((Local 1)), hash: Some(-1186236016)}), hash: None}), hash: None}), hash: None}]), hash: None}, {kind: TCall((Func 37), [{kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TLoad(I32LoadOp, align=U32(0) offset=U64(28), {kind: TLocalGet((Local 1)), hash: Some(-1186236016)}), hash: None}), hash: None}), hash: None}]), hash: None}, {kind: TCall((Func 37), [{kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TLoad(I32LoadOp, align=U32(0) offset=U64(24), {kind: TLocalGet((Local 1)), hash: Some(-1186236016)}), hash: None}), hash: None}), hash: None}]), hash: None}, {kind: TCall((Func 37), [{kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TLoad(I32LoadOp, align=U32(0) offset=U64(20), {kind: TLocalGet((Local 1)), hash: Some(-1186236016)}), hash: None}), hash: None}), hash: None}]), hash: None}, {kind: TCall((Func 37), [{kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TLoad(I32LoadOp, align=U32(0) offset=U64(16), {kind: TLocalGet((Local 1)), hash: Some(-1186236016)}), hash: None}), hash: None}), hash: None}]), hash: None}, {kind: TCall((Func 37), [{kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TLoad(I32LoadOp, align=U32(0) offset=U64(12), {kind: TLocalGet((Local 1)), hash: Some(-1186236016)}), hash: None}), hash: None}), hash: None}]), hash: None}, {kind: TCall((Func 37), [{kind: TLocalTee((Local 0), {kind: TLocalTee((Local 0), {kind: TLoad(I32LoadOp, align=U32(0) offset=U64(8), {kind: TLocalGet((Local 1)), hash: Some(-1186236016)}), hash: None}), hash: None}), hash: None}]), hash: None}, {kind: TCall((Func 15), [{kind: TLocalGet((Local 1)), hash: Some(-1186236016)}]), hash: None}], hash: None}, None), hash: None}], hash: None}))
+               - local.tee (Local 0) : I64 (param)
 

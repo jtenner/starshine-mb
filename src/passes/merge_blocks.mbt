@@ -136,6 +136,292 @@ fn MBEffects::has_side_effects(self : MBEffects) -> Bool {
 }
 
 ///|
+priv struct MBStackSig {
+  required : Int
+  produced : Int
+  reachable : Bool
+}
+
+///|
+fn MBStackSig::new(
+  required : Int,
+  produced : Int,
+  reachable : Bool,
+) -> MBStackSig {
+  { required, produced, reachable }
+}
+
+///|
+
+///|
+fn mb_max_int(a : Int, b : Int) -> Int {
+  if a > b {
+    a
+  } else {
+    b
+  }
+}
+
+///|
+fn mb_nonneg_int(i : Int) -> Int {
+  if i > 0 {
+    i
+  } else {
+    0
+  }
+}
+
+///|
+fn mb_stack_sig_seq(a : MBStackSig, b : MBStackSig) -> MBStackSig {
+  if !a.reachable {
+    a
+  } else {
+    let required = mb_max_int(
+      a.required,
+      mb_nonneg_int(b.required - a.produced),
+    )
+    if !b.reachable {
+      MBStackSig::new(required, 0, false)
+    } else {
+      MBStackSig::new(required, a.produced + b.produced, true)
+    }
+  }
+}
+
+///|
+fn mb_stack_sig_pop_push(
+  child_sig : MBStackSig,
+  pop_count : Int,
+  push_count : Int,
+) -> MBStackSig {
+  if !child_sig.reachable {
+    child_sig
+  } else {
+    MBStackSig::new(
+      mb_max_int(
+        child_sig.required,
+        mb_nonneg_int(pop_count - child_sig.produced),
+      ),
+      child_sig.produced - pop_count + push_count,
+      true,
+    )
+  }
+}
+
+///|
+fn mb_stack_sig_terminate(
+  child_sig : MBStackSig,
+  pop_count : Int,
+) -> MBStackSig {
+  if !child_sig.reachable {
+    child_sig
+  } else {
+    MBStackSig::new(
+      mb_max_int(
+        child_sig.required,
+        mb_nonneg_int(pop_count - child_sig.produced),
+      ),
+      0,
+      false,
+    )
+  }
+}
+
+///|
+fn mb_stack_sig_list(items : Array[TInstr], env : Env) -> MBStackSig? {
+  let mut acc = MBStackSig::new(0, 0, true)
+  for item in items {
+    match mb_stack_sig_instr(item, env) {
+      Some(sig) => {
+        acc = mb_stack_sig_seq(acc, sig)
+        if !acc.reachable {
+          break
+        }
+      }
+      None => return None
+    }
+  }
+  Some(acc)
+}
+
+///|
+fn mb_stack_sig_if(
+  cond_sig : MBStackSig,
+  then_sig : MBStackSig,
+  else_sig : MBStackSig,
+) -> MBStackSig {
+  if !cond_sig.reachable {
+    return cond_sig
+  }
+  let branch_required = mb_max_int(then_sig.required, else_sig.required)
+  let branch_reachable = then_sig.reachable || else_sig.reachable
+  let branch_produced = if then_sig.reachable && else_sig.reachable {
+    if then_sig.produced < else_sig.produced {
+      then_sig.produced
+    } else {
+      else_sig.produced
+    }
+  } else if then_sig.reachable {
+    then_sig.produced
+  } else if else_sig.reachable {
+    else_sig.produced
+  } else {
+    0
+  }
+  let need_after_cond = 1 + branch_required
+  MBStackSig::new(
+    mb_max_int(
+      cond_sig.required,
+      mb_nonneg_int(need_after_cond - cond_sig.produced),
+    ),
+    branch_produced,
+    branch_reachable,
+  )
+}
+
+///|
+fn mb_stack_sig_instr(instr : TInstr, env : Env) -> MBStackSig? {
+  match instr.kind {
+    TInstrKind::TNop => Some(MBStackSig::new(0, 0, true))
+    TInstrKind::TUnreachable => Some(MBStackSig::new(0, 0, false))
+    TInstrKind::TLocalGet(_)
+    | TInstrKind::TGlobalGet(_)
+    | TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_)
+    | TInstrKind::TRefNull(_)
+    | TInstrKind::TRefFunc(_) => Some(MBStackSig::new(0, 1, true))
+    TInstrKind::TDrop(value)
+    | TInstrKind::TLocalSet(_, value)
+    | TInstrKind::TGlobalSet(_, value) =>
+      mb_stack_sig_instr(value, env).map(fn(sig) {
+        mb_stack_sig_pop_push(sig, 1, 0)
+      })
+    TInstrKind::TLocalTee(_, value) =>
+      mb_stack_sig_instr(value, env).map(fn(sig) {
+        mb_stack_sig_pop_push(sig, 1, 1)
+      })
+    TInstrKind::TUnary(_, value)
+    | TInstrKind::TLoad(_, _, value)
+    | TInstrKind::TRefIsNull(value)
+    | TInstrKind::TRefAsNonNull(value)
+    | TInstrKind::TAnyConvertExtern(value)
+    | TInstrKind::TExternConvertAny(value)
+    | TInstrKind::TI31GetS(value)
+    | TInstrKind::TI31GetU(value)
+    | TInstrKind::TArrayLen(value) =>
+      mb_stack_sig_instr(value, env).map(fn(sig) {
+        mb_stack_sig_pop_push(sig, 1, 1)
+      })
+    TInstrKind::TBinary(_, left, right) | TInstrKind::TRefEq(left, right) =>
+      mb_stack_sig_list([left, right], env).map(fn(sig) {
+        mb_stack_sig_pop_push(sig, 2, 1)
+      })
+    TInstrKind::TStore(_, _, addr, value) =>
+      mb_stack_sig_list([addr, value], env).map(fn(sig) {
+        mb_stack_sig_pop_push(sig, 2, 0)
+      })
+    TInstrKind::TSelect(_, cond, if_true, if_false) =>
+      mb_stack_sig_list([if_true, if_false, cond], env).map(fn(sig) {
+        mb_stack_sig_pop_push(sig, 3, 1)
+      })
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) => mb_stack_sig_list(body.instrs, env)
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
+      let else_sig = match else_body {
+        Some(other) => mb_stack_sig_list(other.instrs, env)
+        None => Some(MBStackSig::new(0, 0, true))
+      }
+      match
+        (
+          mb_stack_sig_instr(cond, env),
+          mb_stack_sig_list(then_body.instrs, env),
+          else_sig,
+        ) {
+        (Some(cond_sig), Some(then_sig), Some(other_sig)) =>
+          Some(mb_stack_sig_if(cond_sig, then_sig, other_sig))
+        _ => None
+      }
+    }
+    TInstrKind::TCall(func_idx, args) =>
+      match
+        (mb_stack_sig_list(args, env), env.get_functype_by_funcidx(func_idx)) {
+        (Some(sig), Some(FuncType(params, results))) =>
+          Some(mb_stack_sig_pop_push(sig, params.length(), results.length()))
+        _ => None
+      }
+    TInstrKind::TCallIndirect(type_idx, _, args, callee)
+    | TInstrKind::TCallRef(type_idx, args, callee) =>
+      match
+        (
+          mb_stack_sig_list(args + [callee], env),
+          env.resolve_functype(type_idx),
+        ) {
+        (Some(sig), Some(FuncType(params, results))) =>
+          Some(
+            mb_stack_sig_pop_push(sig, params.length() + 1, results.length()),
+          )
+        _ => None
+      }
+    TInstrKind::TReturn(values) | TInstrKind::TThrow(_, values) =>
+      mb_stack_sig_list(values, env).map(fn(sig) {
+        mb_stack_sig_terminate(sig, 0)
+      })
+    TInstrKind::TThrowRef(value) =>
+      mb_stack_sig_instr(value, env).map(fn(sig) {
+        mb_stack_sig_terminate(sig, 1)
+      })
+    TInstrKind::TBr(_, values) =>
+      mb_stack_sig_list(values, env).map(fn(sig) {
+        mb_stack_sig_terminate(sig, 0)
+      })
+    TInstrKind::TBrIf(_, cond, values) =>
+      mb_stack_sig_list(values + [cond], env).map(fn(sig) {
+        mb_stack_sig_pop_push(sig, 1, 0)
+      })
+    TInstrKind::TBrTable(_, _, index, values) =>
+      mb_stack_sig_list(values + [index], env).map(fn(sig) {
+        mb_stack_sig_terminate(sig, 1)
+      })
+    TInstrKind::TReturnCall(func_idx, args) =>
+      match
+        (mb_stack_sig_list(args, env), env.get_functype_by_funcidx(func_idx)) {
+        (Some(sig), Some(FuncType(params, _))) =>
+          Some(mb_stack_sig_terminate(sig, params.length()))
+        _ => None
+      }
+    TInstrKind::TReturnCallIndirect(type_idx, _, args, callee)
+    | TInstrKind::TReturnCallRef(type_idx, args, callee) =>
+      match
+        (
+          mb_stack_sig_list(args + [callee], env),
+          env.resolve_functype(type_idx),
+        ) {
+        (Some(sig), Some(FuncType(params, _))) =>
+          Some(mb_stack_sig_terminate(sig, params.length() + 1))
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn mb_rewrite_preserves_stack_sig(
+  before : TInstr,
+  after_items : Array[TInstr],
+  env : Env,
+) -> Bool {
+  match (mb_stack_sig_instr(before, env), mb_stack_sig_list(after_items, env)) {
+    (Some(before_sig), Some(after_sig)) =>
+      before_sig.reachable == after_sig.reachable &&
+      before_sig.required == after_sig.required
+    _ => false
+  }
+}
+
+///|
 fn compute_effects(expr : TInstr) -> MBEffects {
   let effects = MBEffects::new()
   let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
@@ -1679,25 +1965,68 @@ fn optimize_block(
                 out.push(item1)
                 continue
               }
+              let mut split_item_has_parent_branch = false
+              for j = split; j < child_items.length(); j = j + 1 {
+                if mb_has_branch_to_depth(child_items[j], 1, branch_cache) {
+                  split_item_has_parent_branch = true
+                  break
+                }
+              }
+              if split_item_has_parent_branch {
+                out.push(item1)
+                continue
+              }
+              let moved_items_keep : Array[TInstr] = []
+              let moved_items_drop : Array[TInstr] = []
+              let mut drop_changed = false
               for j = 0; j < split; j = j + 1 {
                 let has_after = j + 1 < split ||
                   split < child_items.length() ||
                   i + 1 < n
-                out.push(
-                  mb_prepare_moved_item(child_items[j], has_after, ctx.env),
-                )
+                let item = child_items[j]
+                let kept = item
+                let dropped = mb_prepare_moved_item(item, has_after, ctx.env)
+                if has_after && mb_instr_is_concrete(item, ctx.env) {
+                  drop_changed = true
+                }
+                moved_items_keep.push(kept)
+                moved_items_drop.push(dropped)
               }
               if split < child_items.length() {
                 let rest : Array[TInstr] = []
                 for j = split; j < child_items.length(); j = j + 1 {
                   rest.push(child_items[j])
                 }
-                out.push(
-                  mb_finalize_block(
-                    TInstr::block(child_bt, TExpr::new(rest)),
-                    ctx.env,
-                  ),
+                let suffix = mb_finalize_block(
+                  TInstr::block(child_bt, TExpr::new(rest)),
+                  ctx.env,
                 )
+                moved_items_keep.push(suffix)
+                moved_items_drop.push(suffix)
+              }
+              let moved_items = if !drop_changed {
+                moved_items_keep
+              } else if mb_rewrite_preserves_stack_sig(
+                  item1,
+                  moved_items_drop,
+                  ctx.env,
+                ) {
+                moved_items_drop
+              } else if mb_rewrite_preserves_stack_sig(
+                  item1,
+                  moved_items_keep,
+                  ctx.env,
+                ) {
+                moved_items_keep
+              } else {
+                []
+              }
+              if moved_items.is_empty() && drop_changed {
+                out.push(item1)
+                continue
+              }
+              for moved in moved_items {
+                out.push(moved)
               }
               round_change = true
               continue
@@ -3065,6 +3394,89 @@ test "merge blocks: preserves typed if result when branch inference is unknown" 
     Ok(_) => ()
     Err(e) =>
       fail("expected typed-if result to stay valid after merge_blocks: \{e}")
+  }
+}
+
+///|
+test "merge blocks: keeps ambient-fed if condition stack valid after split merge" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::block(
+          BlockType::void_(),
+          TExpr::new([
+            TInstr::i32_const(I32(0)),
+            TInstr::local_tee(
+              LocalIdx::new(0),
+              TInstr::if_(
+                BlockType::val_type(ValType::i32()),
+                TInstr::local_set(
+                  LocalIdx::new(0),
+                  TInstr::local_get(LocalIdx::new(0)),
+                ),
+                TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
+                Some(
+                  TExpr::new([
+                    TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+                    TInstr::br(LabelIdx::new(1), []),
+                  ]),
+                ),
+              ),
+            ),
+            TInstr::br(LabelIdx::new(1), []),
+          ]),
+        ),
+      ]),
+    ),
+  ])
+  let mod = mb_make_test_module_with_body([ValType::i32()], body)
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_merge_blocks(mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail("expected merge_blocks to preserve ambient-fed stack validity: \{e}")
+  }
+}
+
+///|
+test "merge blocks: named split preserves ambient stack for nested local.set chain" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::block(
+          BlockType::void_(),
+          TExpr::new([
+            TInstr::local_get(LocalIdx::new(3)),
+            TInstr::i32_const(I32(0)),
+            TInstr::local_set(
+              LocalIdx::new(2),
+              TInstr::local_set(
+                LocalIdx::new(0),
+                TInstr::local_set(
+                  LocalIdx::new(0),
+                  TInstr::local_get(LocalIdx::new(2)),
+                ),
+              ),
+            ),
+            TInstr::br_if(LabelIdx::new(0), TInstr::i32_const(I32(1)), []),
+          ]),
+        ),
+      ]),
+    ),
+  ])
+  let mod = mb_make_test_module_with_body(
+    [ValType::i32(), ValType::i32(), ValType::i32(), ValType::i32()],
+    body,
+  )
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_merge_blocks(mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail("expected merge_blocks to preserve ambient stack consumers: \{e}")
   }
 }
 
