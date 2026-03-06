@@ -102,6 +102,9 @@ using @lib {
 using @binary {size_signed}
 
 ///|
+using @diff {render_line_diff}
+
+///|
 using @transformer {
   type ModuleTransformer,
   type TransformerResult,

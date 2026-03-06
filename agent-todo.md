@@ -22,8 +22,12 @@ Reach v0.1.0 "production-ready for MoonBit users" by end of March 2026: full nat
 - [ ] Investigate performance issues with `PrecomputePropagate` on large modules.
 - [ ] Profile and optimize `MergeLocals`.
 - [ ] Profile and optimize `DeadCodeElimination`.
-- [ ] Profile and optimize `SimplifyLocals`.
 - [ ] Profile and optimize `MergeBlocks`.
+- [ ] `PickLoadSigns` optimization
+- [ ] `Flatten` optimization
+- [ ] `CodePushing` optimizataion
+- [ ] `SimplifyLocals` optimization
+- [ ] `RemoveUnusedNames` optimization
 - [ ] Add incremental or cached body fingerprints to `DuplicateFunctionElimination` so it does not re-hash nearly every active body each iteration on large modules.
 - [ ] Add a shared memarg-alignment helper (`byte width -> alignment exponent`) and migrate pass code that still emits byte-count alignments directly.
 - [ ] Audit asyncify-generated `MemArg` alignments across all rewritten instruction paths (including non-tail-call entrypoints) and add validator-backed tests per pointer width (`i32`/`i64` memory).

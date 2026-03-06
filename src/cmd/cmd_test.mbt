@@ -1229,7 +1229,6 @@ test "run_cmd_exit_code_with_adapter writes CmdError details to stderr on failur
   assert_true(stderr_text.contains("not-a-real-pass"))
 }
 
-///|
 test "run_cmd_exit_code_with_adapter does not write stderr on success" {
   let wasm = encode_module_bytes(fixture_i32_const_module(123))
   let stderr_writes : Array[Bytes] = []

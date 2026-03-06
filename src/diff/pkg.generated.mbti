@@ -1,0 +1,53 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "jtenner/starshine/diff"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn myers_diff(String, String, options? : DiffOptions) -> Array[DiffChange]
+
+pub fn render_line_diff(String, String, options? : DiffOptions) -> String
+
+// Errors
+
+// Types and methods
+pub struct DiffChange {
+  lhs_at : Int
+  lhs_del : Int
+  rhs_at : Int
+  rhs_add : Int
+}
+pub fn DiffChange::new(Int, Int, Int, Int) -> Self
+pub impl Eq for DiffChange
+pub impl Show for DiffChange
+pub impl @debug.Debug for DiffChange
+
+pub enum DiffCompareMode {
+  CompareLines
+  CompareWords
+  CompareChars
+}
+pub fn DiffCompareMode::chars() -> Self
+pub fn DiffCompareMode::lines() -> Self
+pub fn DiffCompareMode::words() -> Self
+pub impl Eq for DiffCompareMode
+pub impl Show for DiffCompareMode
+pub impl @debug.Debug for DiffCompareMode
+
+pub struct DiffOptions {
+  compare : DiffCompareMode
+  ignore_whitespace : Bool
+  ignore_case : Bool
+  ignore_accents : Bool
+}
+pub fn DiffOptions::new(compare? : DiffCompareMode, ignore_whitespace? : Bool, ignore_case? : Bool, ignore_accents? : Bool) -> Self
+pub impl Eq for DiffOptions
+pub impl Show for DiffOptions
+pub impl @debug.Debug for DiffOptions
+
+// Type aliases
+
+// Traits
+

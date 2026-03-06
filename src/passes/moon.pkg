@@ -1,6 +1,7 @@
 import {
   "jtenner/starshine/lib",
   "jtenner/starshine/binary",
+  "jtenner/starshine/diff",
   "jtenner/starshine/ir",
   "jtenner/starshine/transformer",
   "jtenner/starshine/validate",

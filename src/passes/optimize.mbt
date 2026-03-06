@@ -360,22 +360,17 @@ fn opt_format_validation_error(
   out.write_string(summary)
   match validation_error_func_idx(err) {
     Some(func_idx) => {
-      out.write_string("\n\nOffending function after pass")
-      match pass {
-        Some(pass) => out.write_string(" \{pass}")
-        None => ()
-      }
-      out.write_string(":\n")
-      out.write_string(mod.pretty_print_func(func_idx))
+      let after_text = mod.pretty_print_func(func_idx)
       match pre_pass_mod {
         Some(before_mod) => {
-          out.write_string("\n\nOffending function before pass")
+          let before_text = before_mod.pretty_print_func(func_idx)
+          out.write_string("\n\nOffending function diff")
           match pass {
             Some(pass) => out.write_string(" \{pass}")
             None => ()
           }
-          out.write_string(":\n")
-          out.write_string(before_mod.pretty_print_func(func_idx))
+          out.write_string(" (before -> after):\n")
+          out.write_string(render_line_diff(before_text, after_text))
         }
         None => ()
       }
@@ -6057,6 +6052,7 @@ test "optimize_module validation errors include before and after snapshots" {
     Err(msg) => msg
   }
   assert_true(msg.contains("validation error after pass RemoveUnusedNames"))
-  assert_true(msg.contains("Offending function after pass RemoveUnusedNames"))
-  assert_true(msg.contains("Offending function before pass RemoveUnusedNames"))
+  assert_true(msg.contains("Offending function diff RemoveUnusedNames (before -> after)"))
+  assert_false(msg.contains("Offending function after pass RemoveUnusedNames"))
+  assert_false(msg.contains("Offending function before pass RemoveUnusedNames"))
 }

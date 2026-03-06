@@ -294,8 +294,52 @@ fn string_to_bytes_lossy(text : String) -> Bytes {
 }
 
 ///|
+fn cmd_cli_parse_error_message(err : CliParseError) -> String {
+  match err {
+    MissingFlagValue(flag) => "missing value for flag \{flag}"
+    InvalidInputFormat(format) => "invalid input format: \{format}"
+    StdinNeedsFormat => "stdin requires --input-format <wasm|wat|wast>"
+    UnknownShortFlag(flag) => "unknown short flag: -\{flag}"
+    InvalidLongFlag(flag) => "invalid long flag: --\{flag}"
+    UnexpectedFlagValue(flag) => "unexpected value for flag \{flag}"
+    InvalidOptimizationFlag(flag) => "invalid optimization flag: \{flag}"
+    InvalidTrapMode(mode) => "invalid trap mode: \{mode}"
+  }
+}
+
+///|
+fn cmd_error_message(err : CmdError) -> String {
+  match err {
+    CliParse(e) => cmd_cli_parse_error_message(e)
+    UnknownPassFlag(flag) => "unknown pass flag: \{flag}"
+    InvalidConfig(msg) => "invalid config: \{msg}"
+    ConfigNotFound(path) => "config not found: \{path}"
+    ConfigReadFailed(msg) => "config read failed: \{msg}"
+    InputReadFailed(msg) => "input read failed: \{msg}"
+    SpecFailed(msg) => "spec failed: \{msg}"
+    TextLoweringFailed(msg) => "text lowering failed: \{msg}"
+    DecodeFailed(path, err) => "decode failed for \{path}: \{err}"
+    OptimizeFailed(msg) => msg
+    EncodeFailed(path, err) => "encode failed for \{path}: \{err}"
+    OutputWriteFailed(msg) => "output write failed: \{msg}"
+    AmbiguousOutputFile(path) =>
+      "ambiguous output target for multiple inputs: \{path}"
+    NoInputFiles => "no input files"
+  }
+}
+
+///|
 fn cmd_error_stderr_bytes(err : CmdError) -> Bytes {
-  string_to_bytes_lossy("error: \{err}\n")
+  string_to_bytes_lossy("error: \{cmd_error_message(err)}\n")
+}
+
+///|
+test "cmd_error_stderr_bytes preserves literal newlines for optimize errors" {
+  let text = bytes_to_string_lossy(
+    cmd_error_stderr_bytes(OptimizeFailed("line one\nline two")),
+  )
+  assert_true(text.contains("line one\nline two"), msg=text)
+  assert_false(text.contains("\\n"), msg=text)
 }
 
 ///|
