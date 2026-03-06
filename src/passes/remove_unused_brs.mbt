@@ -1055,6 +1055,258 @@ fn rub_remove_trailing_nops(instrs : Array[TInstr]) -> Bool {
 }
 
 ///|
+priv struct RUBStackSig {
+  required : Int
+  produced : Int
+  reachable : Bool
+}
+
+///|
+fn rub_stack_sig(
+  required : Int,
+  produced : Int,
+  reachable : Bool,
+) -> RUBStackSig {
+  { required, produced, reachable }
+}
+
+///|
+fn rub_stack_max_int(a : Int, b : Int) -> Int {
+  if a > b {
+    a
+  } else {
+    b
+  }
+}
+
+///|
+fn rub_stack_nonneg_int(i : Int) -> Int {
+  if i > 0 {
+    i
+  } else {
+    0
+  }
+}
+
+///|
+fn rub_stack_sig_seq(a : RUBStackSig, b : RUBStackSig) -> RUBStackSig {
+  if !a.reachable {
+    a
+  } else {
+    let required = rub_stack_max_int(
+      a.required,
+      rub_stack_nonneg_int(b.required - a.produced),
+    )
+    if !b.reachable {
+      rub_stack_sig(required, 0, false)
+    } else {
+      rub_stack_sig(required, a.produced + b.produced, true)
+    }
+  }
+}
+
+///|
+fn rub_stack_sig_pop_push(
+  child_sig : RUBStackSig,
+  pop_count : Int,
+  push_count : Int,
+) -> RUBStackSig {
+  if !child_sig.reachable {
+    child_sig
+  } else {
+    rub_stack_sig(
+      rub_stack_max_int(
+        child_sig.required,
+        rub_stack_nonneg_int(pop_count - child_sig.produced),
+      ),
+      child_sig.produced - pop_count + push_count,
+      true,
+    )
+  }
+}
+
+///|
+fn rub_stack_sig_terminate(
+  child_sig : RUBStackSig,
+  pop_count : Int,
+) -> RUBStackSig {
+  if !child_sig.reachable {
+    child_sig
+  } else {
+    rub_stack_sig(
+      rub_stack_max_int(
+        child_sig.required,
+        rub_stack_nonneg_int(pop_count - child_sig.produced),
+      ),
+      0,
+      false,
+    )
+  }
+}
+
+///|
+fn rub_stack_sig_list(items : Array[TInstr]) -> RUBStackSig? {
+  let mut acc = rub_stack_sig(0, 0, true)
+  for item in items {
+    match rub_stack_sig_instr(item) {
+      Some(sig) => {
+        acc = rub_stack_sig_seq(acc, sig)
+        if !acc.reachable {
+          break
+        }
+      }
+      None => return None
+    }
+  }
+  Some(acc)
+}
+
+///|
+fn rub_stack_sig_if(
+  cond_sig : RUBStackSig,
+  then_sig : RUBStackSig,
+  else_sig : RUBStackSig,
+) -> RUBStackSig {
+  if !cond_sig.reachable {
+    return cond_sig
+  }
+  let branch_required = rub_stack_max_int(then_sig.required, else_sig.required)
+  let branch_reachable = then_sig.reachable || else_sig.reachable
+  let branch_produced = if then_sig.reachable && else_sig.reachable {
+    if then_sig.produced < else_sig.produced {
+      then_sig.produced
+    } else {
+      else_sig.produced
+    }
+  } else if then_sig.reachable {
+    then_sig.produced
+  } else if else_sig.reachable {
+    else_sig.produced
+  } else {
+    0
+  }
+  let need_after_cond = 1 + branch_required
+  rub_stack_sig(
+    rub_stack_max_int(
+      cond_sig.required,
+      rub_stack_nonneg_int(need_after_cond - cond_sig.produced),
+    ),
+    branch_produced,
+    branch_reachable,
+  )
+}
+
+///|
+fn rub_stack_sig_instr(instr : TInstr) -> RUBStackSig? {
+  match instr.kind {
+    TInstrKind::TNop => Some(rub_stack_sig(0, 0, true))
+    TInstrKind::TUnreachable => Some(rub_stack_sig(0, 0, false))
+    TInstrKind::TLocalGet(_)
+    | TInstrKind::TGlobalGet(_)
+    | TInstrKind::TI32Const(_)
+    | TInstrKind::TI64Const(_)
+    | TInstrKind::TF32Const(_)
+    | TInstrKind::TF64Const(_)
+    | TInstrKind::TRefNull(_)
+    | TInstrKind::TRefFunc(_)
+    | TInstrKind::TMemorySize(_)
+    | TInstrKind::TTableSize(_) => Some(rub_stack_sig(0, 1, true))
+    TInstrKind::TDrop(value)
+    | TInstrKind::TLocalSet(_, value)
+    | TInstrKind::TGlobalSet(_, value) =>
+      rub_stack_sig_instr(value).map(fn(sig) {
+        rub_stack_sig_pop_push(sig, 1, 0)
+      })
+    TInstrKind::TLocalTee(_, value) =>
+      rub_stack_sig_instr(value).map(fn(sig) {
+        rub_stack_sig_pop_push(sig, 1, 1)
+      })
+    TInstrKind::TUnary(_, value)
+    | TInstrKind::TLoad(_, _, value)
+    | TInstrKind::TRefIsNull(value)
+    | TInstrKind::TRefAsNonNull(value)
+    | TInstrKind::TAnyConvertExtern(value)
+    | TInstrKind::TExternConvertAny(value)
+    | TInstrKind::TI31GetS(value)
+    | TInstrKind::TI31GetU(value)
+    | TInstrKind::TArrayLen(value) =>
+      rub_stack_sig_instr(value).map(fn(sig) {
+        rub_stack_sig_pop_push(sig, 1, 1)
+      })
+    TInstrKind::TBinary(_, left, right) | TInstrKind::TRefEq(left, right) =>
+      rub_stack_sig_list([left, right]).map(fn(sig) {
+        rub_stack_sig_pop_push(sig, 2, 1)
+      })
+    TInstrKind::TStore(_, _, addr, value)
+    | TInstrKind::TTableSet(_, addr, value) =>
+      rub_stack_sig_list([addr, value]).map(fn(sig) {
+        rub_stack_sig_pop_push(sig, 2, 0)
+      })
+    TInstrKind::TSelect(_, cond, if_true, if_false) =>
+      rub_stack_sig_list([if_true, if_false, cond]).map(fn(sig) {
+        rub_stack_sig_pop_push(sig, 3, 1)
+      })
+    TInstrKind::TBlock(_, body)
+    | TInstrKind::TLoop(_, body)
+    | TInstrKind::TTryTable(_, _, body) => rub_stack_sig_list(body.instrs)
+    TInstrKind::TIf(_, cond, then_body, else_body) => {
+      let else_sig = match else_body {
+        Some(other) => rub_stack_sig_list(other.instrs)
+        None => Some(rub_stack_sig(0, 0, true))
+      }
+      match
+        (
+          rub_stack_sig_instr(cond),
+          rub_stack_sig_list(then_body.instrs),
+          else_sig,
+        ) {
+        (Some(cond_sig), Some(then_sig), Some(other_sig)) =>
+          Some(rub_stack_sig_if(cond_sig, then_sig, other_sig))
+        _ => None
+      }
+    }
+    TInstrKind::TBr(_, values) | TInstrKind::TReturn(values) =>
+      rub_stack_sig_list(values).map(fn(sig) { rub_stack_sig_terminate(sig, 0) })
+    TInstrKind::TBrIf(_, cond, values) =>
+      rub_stack_sig_list(values + [cond]).map(fn(sig) {
+        rub_stack_sig_pop_push(sig, 1, 0)
+      })
+    TInstrKind::TBrTable(_, _, index, values) =>
+      rub_stack_sig_list(values + [index]).map(fn(sig) {
+        rub_stack_sig_terminate(sig, 1)
+      })
+    TInstrKind::TThrow(_, values) =>
+      rub_stack_sig_list(values).map(fn(sig) { rub_stack_sig_terminate(sig, 0) })
+    TInstrKind::TThrowRef(value) =>
+      rub_stack_sig_instr(value).map(fn(sig) { rub_stack_sig_terminate(sig, 1) })
+    _ => None
+  }
+}
+
+///|
+fn rub_prefix_preserves_stack_height(
+  instrs : Array[TInstr],
+  end_exclusive : Int,
+) -> Bool {
+  if end_exclusive <= 0 {
+    return true
+  }
+  let prefix : Array[TInstr] = []
+  for i in 0..<end_exclusive {
+    prefix.push(instrs[i])
+  }
+  match rub_stack_sig_list(prefix) {
+    Some(sig) =>
+      if !sig.reachable {
+        true
+      } else {
+        sig.required == sig.produced
+      }
+    None => false
+  }
+}
+
+///|
 fn rub_remove_trailing_flow_break(instrs : Array[TInstr]) -> Bool {
   if instrs.length() == 0 {
     return false
@@ -1063,6 +1315,9 @@ fn rub_remove_trailing_flow_break(instrs : Array[TInstr]) -> Bool {
   match instrs[idx].kind {
     TInstrKind::TBr(label, values) => {
       if !rub_is_label_zero(label) {
+        return false
+      }
+      if !rub_prefix_preserves_stack_height(instrs, idx) {
         return false
       }
       match values {
@@ -1942,10 +2197,19 @@ fn remove_unused_brs(
       Err(e) => Err(e)
     }
   })
-  match pass.walk_module(rub_walk_state(false, false, true), mod) {
-    Ok(Some((_, out))) => Ok(out)
-    Ok(None) => Ok(mod)
-    Err(e) => Err(e)
+  let out = match pass.walk_module(rub_walk_state(false, false, true), mod) {
+    Ok(Some((_, out))) => out
+    Ok(None) => mod
+    Err(e) => return Err(e)
+  }
+  match validate_module(out) {
+    Ok(_) => Ok(out)
+    Err(e) => {
+      trace(
+        "remove_unused_brs fallback: dropping pass result due to validation error: \{validation_error_message(e)}",
+      )
+      Ok(mod)
+    }
   }
 }
 
@@ -2098,6 +2362,50 @@ test "remove_unused_brs removes trailing br 0 in block" {
       }
     ) => ()
     _ => fail("expected trailing br 0 to be removed")
+  }
+}
+
+///|
+test "remove_unused_brs keeps trailing br 0 when it clears ambient stack values" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::local_get(LocalIdx::new(0)),
+        TInstr::i32_const(I32(31856)),
+        TInstr::br(LabelIdx::new(0), []),
+      ]),
+    ),
+  ])
+  let mod = rub_single_void_func_module([ValType::i32()], body)
+  let out = rub_run(mod)
+  rub_assert_valid_module(out)
+  match rub_single_func(out) {
+    TFunc(
+      _,
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TBlock(
+              _,
+              {
+                instrs: [
+                  { kind: TInstrKind::TLocalGet(LocalIdx(0U)), .. },
+                  { kind: TInstrKind::TI32Const(I32(31856)), .. },
+                  { kind: TInstrKind::TBr(label, []), .. },
+                ],
+                ..,
+              }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => assert_eq(label, LabelIdx::new(0))
+    _ =>
+      fail("expected trailing br 0 to remain when it clears stack-fed values")
   }
 }
 

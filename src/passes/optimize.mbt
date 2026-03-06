@@ -360,6 +360,7 @@ fn opt_format_validation_error(
   out.write_string(summary)
   match validation_error_func_idx(err) {
     Some(func_idx) => {
+      out.write_string("\n\nOffending function idx=\{func_idx}")
       let after_text = mod.pretty_print_func(func_idx)
       match pre_pass_mod {
         Some(before_mod) => {
