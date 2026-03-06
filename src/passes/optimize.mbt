@@ -6052,7 +6052,9 @@ test "optimize_module validation errors include before and after snapshots" {
     Err(msg) => msg
   }
   assert_true(msg.contains("validation error after pass RemoveUnusedNames"))
-  assert_true(msg.contains("Offending function diff RemoveUnusedNames (before -> after)"))
+  assert_true(
+    msg.contains("Offending function diff RemoveUnusedNames (before -> after)"),
+  )
   assert_false(msg.contains("Offending function after pass RemoveUnusedNames"))
   assert_false(msg.contains("Offending function before pass RemoveUnusedNames"))
 }

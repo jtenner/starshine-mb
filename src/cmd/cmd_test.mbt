@@ -1229,6 +1229,7 @@ test "run_cmd_exit_code_with_adapter writes CmdError details to stderr on failur
   assert_true(stderr_text.contains("not-a-real-pass"))
 }
 
+///|
 test "run_cmd_exit_code_with_adapter does not write stderr on success" {
   let wasm = encode_module_bytes(fixture_i32_const_module(123))
   let stderr_writes : Array[Bytes] = []
@@ -1304,7 +1305,7 @@ extern "c" fn native_fwrite(
   size : UInt64,
   count : UInt64,
   stream : UInt64,
-) -> UInt64 = "fwrite"
+) -> UInt64 = "moonbit_fwrite_ffi"
 
 ///|
 #cfg(target="native")
@@ -1352,7 +1353,7 @@ extern "c" fn native_waitpid(pid : Int, status : Bytes, options : Int) -> Int = 
 
 ///|
 #cfg(target="native")
-extern "c" fn native_exit(code : Int) -> Unit = "exit"
+extern "c" fn native_exit(code : Int) -> Unit = "quick_exit"
 
 ///|
 #cfg(target="native")

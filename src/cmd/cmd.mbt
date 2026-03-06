@@ -2295,17 +2295,12 @@ extern "c" fn cmd_native_fwrite(
   size : UInt64,
   count : UInt64,
   stream : UInt64,
-) -> UInt64 = "fwrite"
+) -> UInt64 = "moonbit_fwrite_ffi"
 
 ///|
 #cfg(target="native")
 #borrow(path)
 extern "c" fn cmd_native_access(path : Bytes, mode : Int) -> Int = "access"
-
-///|
-#cfg(target="native")
-#borrow(path)
-extern "c" fn cmd_native_getenv(path : Bytes) -> UInt64 = "getenv"
 
 ///|
 #cfg(target="native")
@@ -2329,19 +2324,6 @@ extern "c" fn cmd_native_remove(path : Bytes) -> Int = "remove"
 ///|
 #cfg(target="native")
 extern "c" fn cmd_native_getpid() -> Int = "getpid"
-
-///|
-#cfg(target="native")
-extern "c" fn cmd_native_strlen(ptr : UInt64) -> UInt64 = "strlen"
-
-///|
-#cfg(target="native")
-#borrow(dst)
-extern "c" fn cmd_native_memcpy(
-  dst : Bytes,
-  src : UInt64,
-  size : UInt64,
-) -> UInt64 = "memcpy"
 
 ///|
 #cfg(target="native")
@@ -2507,21 +2489,51 @@ fn cmd_native_raise_stack_soft_limit() -> Unit {
 ///|
 #cfg(target="native")
 fn cmd_native_get_env(name : String) -> String? {
-  let c_name = cmd_native_c_string(name)
-  let ptr = cmd_native_getenv(c_name)
-  if ptr == 0UL {
+  let command = "printenv \{cmd_native_shell_quote(name)}"
+  let c_command = cmd_native_c_string(command)
+  let c_mode = cmd_native_c_string("r")
+  let pipe = cmd_native_popen(c_command, c_mode)
+  if pipe == 0UL {
     return None
   }
-  let len_u = cmd_native_strlen(ptr)
-  if len_u > 2147483647UL {
+
+  let read_buf = Bytes::new(256)
+  let out = @buffer.new()
+  while true {
+    let read = cmd_native_fread(
+      read_buf,
+      1UL,
+      read_buf.length().to_uint64(),
+      pipe,
+    )
+    if read == 0UL {
+      break
+    }
+    let read_i = read.to_int()
+    let mut i = 0
+    while i < read_i {
+      out.write_byte(read_buf[i])
+      i += 1
+    }
+  }
+  if cmd_native_pclose(pipe) != 0 {
     return None
   }
-  let len = len_u.to_int()
-  let out = Bytes::new(len)
-  if len_u > 0UL {
-    ignore(cmd_native_memcpy(out, ptr, len_u))
+
+  let bytes = out.to_bytes()
+  let trimmed = if bytes.length() > 0 &&
+    bytes[bytes.length() - 1] == '\n'.to_int().to_byte() {
+    let result = @buffer.new(size_hint=bytes.length() - 1)
+    let mut i = 0
+    while i < bytes.length() - 1 {
+      result.write_byte(bytes[i])
+      i += 1
+    }
+    result.to_bytes()
+  } else {
+    bytes
   }
-  Some(bytes_to_string_lossy(out))
+  Some(bytes_to_string_lossy(trimmed))
 }
 
 ///|
@@ -2772,7 +2784,7 @@ fn main {
 
 ///|
 #cfg(target="native")
-extern "c" fn cmd_native_exit(code : Int) -> Unit = "exit"
+extern "c" fn cmd_native_exit(code : Int) -> Unit = "quick_exit"
 
 ///|
 #cfg(target="native")

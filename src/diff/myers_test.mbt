@@ -32,3 +32,24 @@ test "render_line_diff includes minus and plus lines" {
   assert_true(rendered.contains("+  local.get 0"), msg=rendered)
   assert_true(rendered.contains("+  end"), msg=rendered)
 }
+
+///|
+test "render_line_diff includes unchanged context around replacements" {
+  let lhs = "line0\nline1\nline2\nline3\nline4"
+  let rhs = "line0\nline1\nchanged\nline3\nline4"
+  let rendered = render_line_diff(lhs, rhs)
+  assert_true(rendered.contains(" line1"), msg=rendered)
+  assert_true(rendered.contains("-line2"), msg=rendered)
+  assert_true(rendered.contains("+changed"), msg=rendered)
+  assert_true(rendered.contains(" line3"), msg=rendered)
+}
+
+///|
+test "render_line_diff includes unchanged context around insertions" {
+  let lhs = "top\nmiddle\nbottom"
+  let rhs = "top\nmiddle\nnew\nbottom"
+  let rendered = render_line_diff(lhs, rhs)
+  assert_true(rendered.contains(" middle"), msg=rendered)
+  assert_true(rendered.contains("+new"), msg=rendered)
+  assert_true(rendered.contains(" bottom"), msg=rendered)
+}

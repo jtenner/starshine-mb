@@ -3776,6 +3776,7 @@ fn code_folding_pass_with_trace(
                 "func[\{ordinal}] round[\{rounds}] terminating_returns elapsed_ms=0 elapsed_us=0 tails=\{return_tail_count} changed=false",
               )
             }
+            let mut defer_walk_after_return_rewrite = false
             match return_result {
               Some(new_body_instrs) => {
                 round_stats.return_phase_successes += 1
@@ -3786,8 +3787,39 @@ fn code_folding_pass_with_trace(
                   current_locals,
                   current_body,
                 )
+                // Return folding rewrites control paths aggressively; refresh
+                // collected tails before we consider expression folding again.
+                state.break_tails.clear()
+                state.unreachable_tails.clear()
+                state.return_tails.clear()
+                state.unoptimizables.clear()
+                state.block_sites = 0
+                state.if_else_sites = 0
+                let recollect_start_us = cf_trace_now_us()
+                collect_block_tails(state, current_body.instrs, round_stats)
+                let recollect_elapsed_us = cf_trace_elapsed_us_since(
+                  recollect_start_us,
+                )
+                round_stats.collect_us = round_stats.collect_us +
+                  recollect_elapsed_us
+                if log_func {
+                  let break_stats = cf_break_tail_trace_stats(state)
+                  trace(
+                    "func[\{ordinal}] round[\{rounds}] recollect_tails elapsed_ms=\{cf_trace_delta_us_to_ms(recollect_elapsed_us)} elapsed_us=\{recollect_elapsed_us} bodies=\{round_stats.collect_calls} instrs=\{round_stats.collect_instrs} blocks=\{state.block_sites} if_elses=\{state.if_else_sites} break_labels=\{break_stats.label_count} break_tails=\{break_stats.tail_count} max_break_fanout=\{break_stats.max_label_tails} returns=\{state.return_tails.length()} unreachables=\{state.unreachable_tails.length()} unoptimizable=\{state.unoptimizables.length()}",
+                  )
+                }
+                defer_walk_after_return_rewrite = true
               }
               None => ()
+            }
+            if defer_walk_after_return_rewrite {
+              if log_func {
+                trace(
+                  "func[\{ordinal}] round[\{rounds}] walk deferred reason=terminating_returns_changed continue=\{state.another_pass}",
+                )
+              }
+              total_stats.merge_from(round_stats)
+              continue
             }
 
             // Process the function with collected information
@@ -4139,6 +4171,50 @@ test "code_folding_pass_with_trace refreshes tails between terminating phases in
     trace_logs.any(fn(msg) {
       msg.contains("round[1] terminating_returns") &&
       msg.contains("changed=true")
+    }),
+  )
+}
+
+///|
+test "code_folding_pass_with_trace defers walk after terminating return rewrite" {
+  let trace_logs : Array[String] = []
+  let pass = code_folding_pass_with_trace(trace=fn(msg) { trace_logs.push(msg) })
+  let state = CodeFoldingState::{
+    ..CodeFoldingState::new(
+      env=Env::new().with_return_type(Some([ValType::i32()])),
+    ),
+    another_pass: false,
+  }
+  let func = Func::t_func(
+    [],
+    [],
+    TExpr::new([
+      TInstr::if_(
+        BlockType::void_(),
+        TInstr::i32_const(I32(0)),
+        TExpr::new([
+          TInstr::drop(TInstr::i32_const(I32(9))),
+          TInstr::return_([TInstr::i32_const(I32(1))]),
+        ]),
+        Some(
+          TExpr::new([
+            TInstr::drop(TInstr::i32_const(I32(9))),
+            TInstr::return_([TInstr::i32_const(I32(2))]),
+          ]),
+        ),
+      ),
+    ]),
+  )
+  ignore(pass.walk_func(state, func))
+  assert_true(
+    trace_logs.any(fn(msg) {
+      msg.contains("round[1] terminating_returns") &&
+      msg.contains("changed=true")
+    }),
+  )
+  assert_true(
+    trace_logs.any(fn(msg) {
+      msg.contains("round[1] walk deferred reason=terminating_returns_changed")
     }),
   )
 }

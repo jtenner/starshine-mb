@@ -1102,11 +1102,6 @@ fn coalesce_locals_ir_pass_with_trace(
 }
 
 ///|
-fn coalesce_locals_pass(mod : Module) -> ModuleTransformer[IRContext] {
-  coalesce_locals_ir_pass_with_trace(mod)
-}
-
-///|
 fn compute_new_locals(
   locals : Array[ValType],
   mapping : LocalMap,

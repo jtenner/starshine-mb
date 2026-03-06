@@ -467,20 +467,38 @@ pub fn render_line_diff(
   rhs : String,
   options? : DiffOptions = DiffOptions::new(),
 ) -> String {
+  let context_lines = 2
   let (changes, lhs_parts, rhs_parts) = myers_diff_internal(lhs, rhs, options)
   if changes.is_empty() {
     return "(no changes)\n"
   }
   let out = StringBuilder::new()
   for change in changes {
+    let lhs_context_start = if change.lhs_at > context_lines {
+      change.lhs_at - context_lines
+    } else {
+      0
+    }
+    let lhs_context_end_base = change.lhs_at + change.lhs_del + context_lines
+    let lhs_context_end = if lhs_context_end_base < lhs_parts.length() {
+      lhs_context_end_base
+    } else {
+      lhs_parts.length()
+    }
     out.write_string(
       "@@ lhs[\{change.lhs_at},\{change.lhs_del}] rhs[\{change.rhs_at},\{change.rhs_add}] @@\n",
     )
+    for i in lhs_context_start..<change.lhs_at {
+      out.write_string(" \{lhs_parts[i]}\n")
+    }
     for i in change.lhs_at..<(change.lhs_at + change.lhs_del) {
       out.write_string("-\{lhs_parts[i]}\n")
     }
     for i in change.rhs_at..<(change.rhs_at + change.rhs_add) {
       out.write_string("+\{rhs_parts[i]}\n")
+    }
+    for i in (change.lhs_at + change.lhs_del)..<lhs_context_end {
+      out.write_string(" \{lhs_parts[i]}\n")
     }
   }
   out.to_string()

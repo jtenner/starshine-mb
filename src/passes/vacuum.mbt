@@ -1022,6 +1022,8 @@ fn vq_optimize_sequence(
   let size = items.length()
   let multi_value_results = result_types.length() > 1
   let has_ambient_stack_terminator = vq_has_ambient_stack_terminator(items)
+  let has_sequence_control_transfer = has_ambient_stack_terminator ||
+    vq_texpr_has_control_transfer(TExpr::new(items))
   let prefix_needs = vq_required_prefixes(
     items,
     env,
@@ -1107,6 +1109,12 @@ fn vq_optimize_sequence(
         }
       Some(next) => {
         if next != child {
+          if has_sequence_control_transfer &&
+            child.kind is TInstrKind::TDrop(_) &&
+            next.kind is TInstrKind::TNop {
+            out.push(child)
+            continue
+          }
           if has_ambient_stack_terminator {
             let mut preserves_stack_shape = true
             match
@@ -1219,6 +1227,29 @@ fn vq_texpr_throws(expr : TExpr) -> Bool {
   })
   ignore(walker.walk_texpr((), expr))
   throws
+}
+
+///|
+fn vq_texpr_has_control_transfer(expr : TExpr) -> Bool {
+  let mut has_control_transfer = false
+  let walker = ModuleTransformer::new().on_tinstruction_evt(fn(self, _, curr) {
+    match curr.kind {
+      TInstrKind::TBr(_, _)
+      | TInstrKind::TBrIf(_, _, _)
+      | TInstrKind::TBrTable(_, _, _, _)
+      | TInstrKind::TReturn(_)
+      | TInstrKind::TReturnCall(_, _)
+      | TInstrKind::TReturnCallIndirect(_, _, _, _)
+      | TInstrKind::TReturnCallRef(_, _, _)
+      | TInstrKind::TThrow(_, _)
+      | TInstrKind::TThrowRef(_)
+      | TInstrKind::TUnreachable => has_control_transfer = true
+      _ => ()
+    }
+    self.walk_tinstruction_default((), curr)
+  })
+  ignore(walker.walk_texpr((), expr))
+  has_control_transfer
 }
 
 ///|
@@ -1363,7 +1394,9 @@ fn vq_process_instr(
           if arm_result_types.is_empty() && vq_is_nop_texpr(other) {
             return Some(TInstr::if_(bt, next_condition, next_then, None))
           }
-          if arm_result_types.is_empty() && vq_is_nop_texpr(next_then) {
+          if arm_result_types.is_empty() &&
+            vq_is_nop_texpr(next_then) &&
+            !vq_texpr_has_control_transfer(other) {
             let before = TInstr::if_(bt, next_condition, next_then, Some(other))
             let after = TInstr::if_(
               bt,
@@ -1928,6 +1961,52 @@ test "vacuum keeps ambient-consuming drop in br_if terminator sequences" {
 }
 
 ///|
+test "vacuum keeps pure drop when sibling contains nested control transfer" {
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_void]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [ValType::i32()],
+          TExpr::new([
+            TInstr::block(
+              BlockType::void_(),
+              TExpr::new([
+                TInstr::block(
+                  BlockType::void_(),
+                  TExpr::new([
+                    TInstr::br(LabelIdx::new(1), []),
+                    TInstr::unreachable_(),
+                  ]),
+                ),
+                TInstr::drop(TInstr::local_get(LocalIdx::new(0))),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_vacuum(mod)
+  assert_eq(validate_module(out), Ok(()))
+  match vq_first_func_body(out).instrs {
+    [
+      {
+        kind: TInstrKind::TBlock(
+          VoidBlockType,
+          { instrs: [_, { kind: TInstrKind::TDrop(_), .. }], .. }
+        ),
+        ..,
+      },
+    ] => ()
+    _ => fail("expected nested-control-transfer sibling to preserve pure drop")
+  }
+}
+
+///|
 test "vacuum simplifies dropped unary wrapper around call to dropped call" {
   let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
@@ -2296,6 +2375,136 @@ test "vacuum safely inverts if with nop then arm" {
       }
     }
     _ => fail("expected if with nop then arm to invert into eqz form")
+  }
+}
+
+///|
+test "vacuum regression: inverts dropped-then if when else arm is simple" {
+  // This is semantically safe and should still optimize.
+  let t_void_with_param = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_void_with_param]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [ValType::i32()],
+          TExpr::new([
+            TInstr::if_(
+              BlockType::void_(),
+              TInstr::local_get(LocalIdx::new(0)),
+              TExpr::new([TInstr::drop(TInstr::i32_const(I32(0)))]),
+              Some(
+                TExpr::new([
+                  TInstr::local_set(LocalIdx::new(1), TInstr::i32_const(I32(7))),
+                ]),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_vacuum(mod)
+  assert_eq(validate_module(out), Ok(()))
+  match vq_first_func_body(out).instrs {
+    [
+      {
+        kind: TInstrKind::TIf(
+          VoidBlockType,
+          {
+            kind: TInstrKind::TUnary(
+              I32EqzOp,
+              { kind: TInstrKind::TLocalGet(LocalIdx(cond_idx)), .. }
+            ),
+            ..,
+          },
+          then_body,
+          None
+        ),
+        ..,
+      },
+    ] => {
+      assert_eq(cond_idx, 0U)
+      match then_body.instrs {
+        [{ kind: TInstrKind::TLocalSet(LocalIdx(set_idx), _), .. }] =>
+          assert_eq(set_idx, 1U)
+        _ =>
+          fail("expected simple else side effects to become inverted then arm")
+      }
+    }
+    _ => fail("expected dropped-then if with simple else arm to invert")
+  }
+}
+
+///|
+test "vacuum regression: avoids inversion when moved else has control transfer" {
+  // Control-transfer heavy else arms are where local stack-signature checks can
+  // miss context-sensitive constraints; keep conservative shape there.
+  let t_i32_to_i32 = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_i32_to_i32]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([
+            TInstr::block(
+              BlockType::val_type(ValType::i32()),
+              TExpr::new([
+                TInstr::if_(
+                  BlockType::void_(),
+                  TInstr::local_get(LocalIdx::new(0)),
+                  TExpr::new([TInstr::drop(TInstr::i32_const(I32(0)))]),
+                  Some(
+                    TExpr::new([
+                      TInstr::br(LabelIdx::new(0), [TInstr::i32_const(I32(77))]),
+                    ]),
+                  ),
+                ),
+                TInstr::i32_const(I32(9)),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_vacuum(mod)
+  assert_eq(validate_module(out), Ok(()))
+  match vq_first_func_body(out).instrs {
+    [
+      {
+        kind: TInstrKind::TBlock(
+          ValTypeBlockType(NumTypeValType(I32NumType)),
+          body
+        ),
+        ..,
+      },
+    ] =>
+      match body.instrs {
+        [
+          {
+            kind: TInstrKind::TIf(
+              VoidBlockType,
+              { kind: TInstrKind::TLocalGet(LocalIdx(cond_idx)), .. },
+              _,
+              Some(_)
+            ),
+            ..,
+          },
+          _,
+        ] => assert_eq(cond_idx, 0U)
+        _ => fail("expected non-inverted if when else arm contains branch")
+      }
+    _ => fail("expected enclosing value block to stay intact")
   }
 }
 
