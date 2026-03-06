@@ -908,7 +908,7 @@ fn type_generalizing(mod : Module) -> Result[Module, String] {
               params, results, locals, body, env,
             )
             if func_changed {
-              out_funcs[i] = Func::t_func([], new_locals, new_body)
+              out_funcs[i] = Func::t_func(params, new_locals, new_body)
               changed = true
             }
           }
@@ -955,10 +955,15 @@ fn tg_single_func_module(
   locals : Array[ValType],
   body : TExpr,
 ) -> Module {
-  Module::new()
-  .with_type_sec(TypeSec::new(types))
-  .with_func_sec(FuncSec::new([func_type_idx]))
-  .with_code_sec(CodeSec::new([Func::t_func([], locals, body)]))
+  let base = Module::new()
+    .with_type_sec(TypeSec::new(types))
+    .with_func_sec(FuncSec::new([func_type_idx]))
+  let params = match
+    Env::new().with_module(base).resolve_functype(func_type_idx) {
+    Some(FuncType(ps, _)) => ps
+    None => []
+  }
+  base.with_code_sec(CodeSec::new([Func::t_func(params, locals, body)]))
 }
 
 ///|

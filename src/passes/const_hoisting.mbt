@@ -268,12 +268,12 @@ fn const_hoisting_pass() -> ModuleTransformer[ConstHoistingState] {
       Ok(None) => (t, func)
       Err(t) => return Err(t)
     }
-    let (locals, body) = match func {
+    let (params, locals, body) = match func {
       Func(_) =>
         return Err(
           "Invalid transformer state. Expected TFunc but received Func",
         )
-      TFunc(_, locals, body) => (locals, body)
+      TFunc(params, locals, body) => (params, locals, body)
     }
     let replacer_pass = replace_literal_pass()
     let replacers = Map::new()
@@ -302,7 +302,7 @@ fn const_hoisting_pass() -> ModuleTransformer[ConstHoistingState] {
       let con = lit.get_tinst()
       body.instrs.insert(0, TInstr::local_set(idx, con))
     }
-    change(t, Func::t_func([], locals, body))
+    change(t, Func::t_func(params, locals, body))
   })
   .on_tinstruction_evt(fn(self, t, i) {
     match i.kind {

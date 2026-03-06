@@ -368,20 +368,24 @@ fn alignment_lowering_pass(mod : Module) -> ModuleTransformer[IRContext] {
     Some(sec) => sec.0
     None => []
   }
+  let mut temp_params : Array[ValType] = []
   let mut temp_locals : Array[ValType] = []
   ModuleTransformer::new()
   .on_func_evt(fn(self, t : IRContext, i) {
     match i {
       Func(_) => Err("Expected TFunc")
-      TFunc(_, locals, b) => {
+      TFunc(params, locals, b) => {
+        temp_params = params
         temp_locals = locals
-        match self.walk_func_default(t, Func::t_func([], locals, b)) {
+        match self.walk_func_default(t, Func::t_func(params, locals, b)) {
           Ok(Some((t, func))) =>
             match func {
               TFunc(_, _, b) => {
+                let result_params = temp_params
                 let result_locals = temp_locals
+                temp_params = []
                 temp_locals = []
-                change(t, Func::t_func([], result_locals, b))
+                change(t, Func::t_func(result_params, result_locals, b))
               }
               _ => Err("Expected TFunc")
             }

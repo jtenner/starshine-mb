@@ -952,7 +952,7 @@ fn gsi_rewrite_func(
 ) -> TransformerResult[GSIRewriteState, Func] {
   match func {
     Func(_, _) => unchanged()
-    TFunc(_, locals, body) => {
+    TFunc(params, locals, body) => {
       let local_state = GSIRewriteState::{
         ..state,
         env: state.env.with_locals(locals),
@@ -960,7 +960,7 @@ fn gsi_rewrite_func(
       match transformer.walk_texpr(local_state, body) {
         Ok(Some((_, new_body))) =>
           if new_body != body {
-            change(state, Func::t_func([], locals, new_body))
+            change(state, Func::t_func(params, locals, new_body))
           } else {
             unchanged()
           }

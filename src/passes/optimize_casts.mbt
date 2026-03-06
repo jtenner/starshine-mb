@@ -900,7 +900,7 @@ fn oc_apply_best_casts(
   }
   let changed = final_body != body || next_local.val != original_local_count
   let next_func = match func {
-    TFunc(_, _, _) => Func::t_func([], new_locals, final_body)
+    TFunc(params, _, _) => Func::t_func(params, new_locals, final_body)
     _ => func
   }
   (next_func, changed)
@@ -910,7 +910,7 @@ fn oc_apply_best_casts(
 fn optimize_casts_on_func(func : Func, mod : Module) -> Result[Func, String] {
   match func {
     Func(_, _) => Ok(func)
-    TFunc(_, locals, body) => {
+    TFunc(params, locals, body) => {
       let env = Env::new().with_module(mod).with_locals(locals)
       let early_finder = EarlyCastFinder::new(env, locals.length())
       early_finder.run(body)
@@ -922,7 +922,7 @@ fn optimize_casts_on_func(func : Func, mod : Module) -> Result[Func, String] {
       let best_finder = BestCastFinder::new(env)
       best_finder.run(after_early)
       let (next_func, _) = oc_apply_best_casts(
-        Func::t_func([], locals, after_early),
+        Func::t_func(params, locals, after_early),
         after_early,
         best_finder,
       )
@@ -937,12 +937,17 @@ fn optimize_casts_ir_pass(mod : Module) -> ModuleTransformer[IRContext] {
     match optimize_casts_on_func(func, mod) {
       Ok(next_func) =>
         match (func, next_func) {
-          (TFunc(_, orig_locals, orig_body), TFunc(_, next_locals, next_body)) => {
+          (
+            TFunc(orig_params, orig_locals, orig_body),
+            TFunc(next_params, next_locals, next_body),
+          ) => {
             t.set_body(next_body)
-            if orig_locals == next_locals && orig_body == next_body {
+            if orig_params == next_params &&
+              orig_locals == next_locals &&
+              orig_body == next_body {
               unchanged()
             } else {
-              change(t, Func::t_func([], next_locals, next_body))
+              change(t, Func::t_func(next_params, next_locals, next_body))
             }
           }
           _ => unchanged()

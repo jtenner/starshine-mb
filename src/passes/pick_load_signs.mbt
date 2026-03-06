@@ -637,7 +637,7 @@ fn pick_load_signs_on_func(
       }
       Ok(func)
     }
-    TFunc(_, locals, body) => {
+    TFunc(params, locals, body) => {
       let candidate_count = Ref::new(0)
       if log_func {
         trace(
@@ -664,7 +664,7 @@ fn pick_load_signs_on_func(
           "func[\{ordinal}] done elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)} changed=\{rewritten != body} top_instrs=\{body.instrs.length()}->\{rewritten.instrs.length()} locals=\{locals.length()} candidates=\{candidate_count.val}",
         )
       }
-      Ok(Func::t_func([], locals, rewritten))
+      Ok(Func::t_func(params, locals, rewritten))
     }
   }
 }

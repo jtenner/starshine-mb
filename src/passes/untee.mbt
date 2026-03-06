@@ -158,14 +158,14 @@ fn ut_rewrite_tinstr(
 ///|
 fn untee_pass(func : Func, params : Array[ValType]) -> (Func, Bool) {
   match func {
-    TFunc(_, locals, body) => {
+    TFunc(func_params, locals, body) => {
       let local_types = params.copy()
       for local_ in locals {
         local_types.push(local_)
       }
       let (next_body, changed) = ut_rewrite_texpr(body, local_types)
       if changed {
-        (Func::t_func([], locals, next_body), true)
+        (Func::t_func(func_params, locals, next_body), true)
       } else {
         (func, false)
       }

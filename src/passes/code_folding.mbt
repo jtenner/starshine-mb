@@ -477,32 +477,34 @@ fn CodeFoldingState::prepare_func(
 }
 
 ///|
-fn cf_locals_have_param_prefix(
-  locals : Array[ValType],
+fn cf_full_locals(
   params : Array[ValType],
-) -> Bool {
-  if locals.length() < params.length() {
-    return false
-  }
-  for i = 0; i < params.length(); i = i + 1 {
-    if locals[i] != params[i] {
-      return false
-    }
-  }
-  true
+  locals : Array[ValType],
+) -> Array[ValType] {
+  params + locals
 }
 
 ///|
-fn cf_canonical_tfunc_locals_from_type(
-  params : Array[ValType],
-  locals : Array[ValType],
-) -> Result[Array[ValType], String] {
-  if cf_locals_have_param_prefix(locals, params) {
-    return Ok(locals.copy())
+fn cf_non_param_locals(
+  full_locals : Array[ValType],
+  param_count : Int,
+) -> Array[ValType] {
+  let out : Array[ValType] = []
+  let mut i = if param_count < 0 { 0 } else { param_count }
+  while i < full_locals.length() {
+    out.push(full_locals[i])
+    i += 1
   }
-  // Accept legacy typed-func shape where `locals` only contains
-  // non-parameter locals and canonicalize to full local index space.
-  Ok(params + locals)
+  out
+}
+
+///|
+fn cf_build_tfunc(
+  params : Array[ValType],
+  full_locals : Array[ValType],
+  body : TExpr,
+) -> Func {
+  Func::t_func(params, cf_non_param_locals(full_locals, params.length()), body)
 }
 
 ///|
@@ -3610,17 +3612,12 @@ fn code_folding_pass_with_trace(
         unchanged()
       }
       TFunc(_, locals, body) => {
-        if !cf_locals_have_param_prefix(locals, state.param_types) {
-          return Err(
-            "code_folding: expected TFunc locals to start with typed params; func_ordinal=\{ordinal} param_count=\{state.param_types.length()} local_count=\{locals.length()}",
-          )
-        }
-        state.prepare_func(locals)
+        state.prepare_func(cf_full_locals(state.param_types, locals))
         let func_start_us = cf_trace_now_us()
         let start_top_instrs = body.instrs.length()
         if log_func {
           trace(
-            "func[\{ordinal}] start top_instrs=\{start_top_instrs} locals=\{locals.length()}",
+            "func[\{ordinal}] start top_instrs=\{start_top_instrs} locals=\{state.func_locals.length()}",
           )
         }
         if cf_can_fast_skip_func_body(body) {
@@ -3639,8 +3636,8 @@ fn code_folding_pass_with_trace(
           total_stats.set_enabled(log_func)
 
           // Run multiple passes until no more changes
-          let mut current_func = func
-          let mut current_locals = locals
+          let mut current_func = Func::t_func(state.param_types, locals, body)
+          let mut current_locals = state.func_locals
           let mut current_body = body
           let mut rounds = 0
           state.another_pass = true
@@ -3715,7 +3712,11 @@ fn code_folding_pass_with_trace(
                 round_stats.unreachable_phase_successes += 1
                 current_body = TExpr::new(new_body_instrs)
                 current_locals = state.func_locals
-                current_func = Func::t_func([], current_locals, current_body)
+                current_func = cf_build_tfunc(
+                  state.param_types,
+                  current_locals,
+                  current_body,
+                )
                 // Unreachable folding may wrap/rebase paths; refresh tail
                 // collections so return folding cannot operate on stale paths.
                 state.break_tails.clear()
@@ -3780,7 +3781,11 @@ fn code_folding_pass_with_trace(
                 round_stats.return_phase_successes += 1
                 current_body = TExpr::new(new_body_instrs)
                 current_locals = state.func_locals
-                current_func = Func::t_func([], current_locals, current_body)
+                current_func = cf_build_tfunc(
+                  state.param_types,
+                  current_locals,
+                  current_body,
+                )
               }
               None => ()
             }
@@ -3816,8 +3821,8 @@ fn code_folding_pass_with_trace(
                     TFunc(_, _, b) => {
                       current_locals = state.func_locals
                       current_body = b
-                      current_func = Func::t_func(
-                        [],
+                      current_func = cf_build_tfunc(
+                        state.param_types,
                         current_locals,
                         current_body,
                       )
@@ -3916,15 +3921,10 @@ fn code_folding_ir_pass_with_trace(
     let param_types = next_params
     let result_types = next_results
     let (func_locals, normalized_func) = match func {
-      TFunc(_, locals, body) =>
-        match cf_canonical_tfunc_locals_from_type(param_types, locals) {
-          Ok(func_locals) =>
-            (func_locals, Func::t_func([], func_locals.copy(), body))
-          Err(e) =>
-            return Err(
-              "code_folding: \{e}; func_ordinal=\{defined_func_ordinal} param_count=\{param_types.length()} local_count=\{locals.length()}",
-            )
-        }
+      TFunc(_, locals, body) => {
+        let func_locals = cf_full_locals(param_types, locals)
+        (func_locals, Func::t_func(param_types, locals.copy(), body))
+      }
       _ => ([], func)
     }
     let func_env = base_env
@@ -6420,27 +6420,7 @@ test "preview_appended_local uses TFunc full-local index space" {
 }
 
 ///|
-test "canonical TFunc locals prepends typed params for extra-only local arrays" {
-  let params = [ValType::i32(), ValType::i32()]
-  let locals = [ValType::i64()]
-  assert_eq(
-    cf_canonical_tfunc_locals_from_type(params, locals),
-    Ok([ValType::i32(), ValType::i32(), ValType::i64()]),
-  )
-}
-
-///|
-test "canonical TFunc locals prepends typed params for extra-only locals when local count meets param arity" {
-  let params = [ValType::i32()]
-  let locals = [ValType::i64()]
-  assert_eq(
-    cf_canonical_tfunc_locals_from_type(params, locals),
-    Ok([ValType::i32(), ValType::i64()]),
-  )
-}
-
-///|
-test "code folding module pass canonicalizes TFunc locals with omitted typed param prefix" {
+test "code folding module pass keeps params and locals separated" {
   let mod = Module::new()
     .with_type_sec(
       TypeSec::new([
@@ -6461,8 +6441,10 @@ test "code folding module pass canonicalizes TFunc locals with omitted typed par
     )
   let folded = cf_run_fold_module(mod)
   match folded.code_sec {
-    Some(CodeSec([TFunc(_, locals, _)])) =>
-      assert_eq(locals, [ValType::i32(), ValType::i64()])
+    Some(CodeSec([TFunc(params, locals, _)])) => {
+      assert_eq(params, [ValType::i32()])
+      assert_eq(locals, [ValType::i64()])
+    }
     _ => fail("expected folded module to contain one typed function")
   }
 }

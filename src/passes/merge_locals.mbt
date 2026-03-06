@@ -667,12 +667,12 @@ fn ml_verify_direction(
 ///|
 fn optimize_copies(func : Func) -> (Func, Bool) {
   match func {
-    TFunc(_, locals, body) => {
+    TFunc(params, locals, body) => {
       let (instrumented_body, instrumented) = ml_instrument_copies(body)
       if !instrumented {
         return (func, false)
       }
-      let instrumented_func = Func::t_func([], locals, instrumented_body)
+      let instrumented_func = Func::t_func(params, locals, instrumented_body)
       let pre_graph = build_local_graph_snapshot(instrumented_func)
       if pre_graph.aborted {
         return (func, false)
@@ -736,7 +736,7 @@ fn optimize_copies(func : Func) -> (Func, Bool) {
         let (tentative_body, _) = ml_rewrite_get_indices(
           instrumented_body, rewrites,
         )
-        let post_func = Func::t_func([], locals, tentative_body)
+        let post_func = Func::t_func(params, locals, tentative_body)
         let post_graph = build_local_graph_snapshot(post_func)
         if post_graph.aborted {
           return (func, false)
@@ -780,7 +780,7 @@ fn optimize_copies(func : Func) -> (Func, Bool) {
       }
       let (cleaned_body, _) = ml_cleanup_instrumentation(optimized_body)
       let changed = cleaned_body != body
-      (Func::t_func([], locals, cleaned_body), changed)
+      (Func::t_func(params, locals, cleaned_body), changed)
     }
     _ => (func, false)
   }

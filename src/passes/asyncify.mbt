@@ -657,7 +657,7 @@ fn af_append_function(
     None => []
   }
   let abs_idx = imported + funcs.length().reinterpret_as_uint()
-  funcs.push(Func::t_func([], locals, body))
+  funcs.push(Func::t_func(params, locals, body))
   (mod.with_code_sec(CodeSec::new(funcs)), FuncIdx::new(abs_idx))
 }
 
@@ -2397,7 +2397,7 @@ fn af_instrument_flow_for_function(
   runtime : AFApi,
 ) -> Result[Func, String] {
   match func {
-    TFunc(_, locals, body) => {
+    TFunc(params, locals, body) => {
       let ctx : AFRewriterCtx = {
         analyzer,
         builder,
@@ -2435,7 +2435,7 @@ fn af_instrument_flow_for_function(
       }
       Ok(
         Func::t_func(
-          [],
+          params,
           locals,
           TExpr::new([TInstr::block(BlockType::void_(), TExpr::new(wrapped))]),
         ),
@@ -2492,7 +2492,7 @@ fn af_lower_intrinsics_and_locals(
   fake_globals : FakeGlobalHelper,
 ) -> Result[Func, String] {
   match func {
-    TFunc(_, locals, body) => {
+    TFunc(params, locals, body) => {
       let relevant = af_collect_live_like_locals(body)
       let stack_ptr_local = LocalIdx::new(locals.length().reinterpret_as_uint())
       let unwind_idx_local = LocalIdx::new(
@@ -2731,7 +2731,7 @@ fn af_lower_intrinsics_and_locals(
           None,
         ),
       )
-      Ok(Func::t_func([], extended_locals, TExpr::new(final_instrs)))
+      Ok(Func::t_func(params, extended_locals, TExpr::new(final_instrs)))
     }
     _ => Ok(func)
   }
@@ -2756,7 +2756,7 @@ fn af_assert_non_instrumented(
       continue
     }
     match funcs[i] {
-      TFunc(_, locals, body) => {
+      TFunc(params, locals, body) => {
         let state_local = LocalIdx::new(locals.length().reinterpret_as_uint())
         let next_locals = locals.copy()
         next_locals.push(ValType::i32())
@@ -2797,7 +2797,7 @@ fn af_assert_non_instrumented(
         }
         rewritten.push(
           Func::t_func(
-            [],
+            params,
             next_locals,
             TExpr::new([
               TInstr::local_set(
@@ -3133,7 +3133,7 @@ fn af_assert_unwind_catch(mod : Module, runtime : AFApi) -> Module {
         for vt in ctx.extra_locals {
           next_locals.push(vt)
         }
-        rewritten.push(Func::t_func([], next_locals, next_body))
+        rewritten.push(Func::t_func(params, next_locals, next_body))
       }
       _ => rewritten.push(funcs[i])
     }
@@ -3258,7 +3258,7 @@ fn af_lower_tail_calls_prepass(mod : Module) -> Result[Module, String] {
   let rewritten : Array[Func] = []
   for func in funcs {
     match func {
-      TFunc(_, locals, body) => {
+      TFunc(params, locals, body) => {
         let pass = ModuleTransformer::new().on_tinstruction_evt(fn(
           self,
           env,
@@ -3285,7 +3285,7 @@ fn af_lower_tail_calls_prepass(mod : Module) -> Result[Module, String] {
           Ok(None) => body
           Err(e) => return Err(e)
         }
-        rewritten.push(Func::t_func([], locals, next_body))
+        rewritten.push(Func::t_func(params, locals, next_body))
       }
       _ => rewritten.push(func)
     }

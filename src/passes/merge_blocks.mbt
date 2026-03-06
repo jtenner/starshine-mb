@@ -1900,7 +1900,7 @@ fn run_on_function(
   options : OptimizeOptions,
 ) -> (Func, Bool) {
   match func {
-    TFunc(_, locals, body) => {
+    TFunc(params, locals, body) => {
       let env = Env::new().with_module(mod).with_locals(locals)
       let ctx = MBContext::new(env)
       let root = TInstr::block(BlockType::void_(), body)
@@ -1923,7 +1923,7 @@ fn run_on_function(
         final_body = mb_refinalize_texpr(final_body, env)
       }
       if changed || ctx.needs_refinalize {
-        (Func::t_func([], locals, final_body), true)
+        (Func::t_func(params, locals, final_body), true)
       } else {
         (func, false)
       }

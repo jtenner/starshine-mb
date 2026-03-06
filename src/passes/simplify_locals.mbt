@@ -3116,7 +3116,7 @@ fn sl_simplify_function(
         )
       }
       if changed_any {
-        (Func::t_func([], locals, body), true)
+        (Func::t_func(param_types, locals, body), true)
       } else {
         (func, false)
       }

@@ -848,7 +848,7 @@ fn optimize_added_constants_on_func(
   }
   match func {
     Func(_) => Err("Expected TFunc")
-    TFunc(_, initial_locals, initial_body) => {
+    TFunc(params, initial_locals, initial_body) => {
       let mut locals = initial_locals
       let mut body = initial_body
       while true {
@@ -895,7 +895,7 @@ fn optimize_added_constants_on_func(
         }
         break
       }
-      Ok(Func::t_func([], locals, body))
+      Ok(Func::t_func(params, locals, body))
     }
   }
 }
@@ -910,12 +910,17 @@ fn optimize_added_constants_ir_pass(
     match optimize_added_constants_on_func(func, mod, options, propagate) {
       Ok(next_func) =>
         match (func, next_func) {
-          (TFunc(_, orig_locals, orig_body), TFunc(_, next_locals, next_body)) => {
+          (
+            TFunc(orig_params, orig_locals, orig_body),
+            TFunc(next_params, next_locals, next_body),
+          ) => {
             t.set_body(next_body)
-            if orig_locals == next_locals && orig_body == next_body {
+            if orig_params == next_params &&
+              orig_locals == next_locals &&
+              orig_body == next_body {
               unchanged()
             } else {
-              change(t, Func::t_func([], next_locals, next_body))
+              change(t, Func::t_func(next_params, next_locals, next_body))
             }
           }
           _ => change(t, next_func)

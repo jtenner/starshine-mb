@@ -974,7 +974,7 @@ fn coalesce_locals(
               "func[\{ordinal}] done elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)} changed=true reason=trim_trailing_unused_for_large_locals locals=\{locals.length()}->\{trimmed_locals.length()} top_instrs=\{body.instrs.length()}->\{body.instrs.length()}",
             )
           }
-          return change((), Func::t_func([], trimmed_locals, body))
+          return change((), Func::t_func(params, trimmed_locals, body))
         }
         let instrs = body.instrs
         let build_cfg_start_ms = if log_func { sl_trace_now_ms() } else { 0UL }
@@ -1080,7 +1080,7 @@ fn coalesce_locals(
             "func[\{ordinal}] done elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)} changed=\{changed} locals=\{locals.length()}->\{new_locals.length()} top_instrs=\{body.instrs.length()}->\{new_body.instrs.length()} interferences=\{inter.length()} copies=\{copies.length()}",
           )
         }
-        change((), Func::t_func([], new_locals, new_body))
+        change((), Func::t_func(params, new_locals, new_body))
       }
     }
   })

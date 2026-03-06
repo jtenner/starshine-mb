@@ -859,30 +859,8 @@ pub impl Encode for Func with encode(val, buf) {
   let fn_body = @buffer.new()
   let (locals, expr) = match val {
     Func(locals, expr) => (locals, expr)
-    TFunc(params, tlocals, texpr) => {
-      let encoded_tlocals = if params.is_empty() {
-        tlocals
-      } else if tlocals.length() >= params.length() {
-        let mut has_prefix = true
-        for i in 0..<params.length() {
-          if tlocals[i] != params[i] {
-            has_prefix = false
-            break
-          }
-        }
-        if has_prefix {
-          let extras : Array[ValType] = []
-          for i in params.length()..<tlocals.length() {
-            extras.push(tlocals[i])
-          }
-          extras
-        } else {
-          tlocals
-        }
-      } else {
-        tlocals
-      }
-      let locals = tlocals_to_locals(encoded_tlocals)
+    TFunc(_, tlocals, texpr) => {
+      let locals = tlocals_to_locals(tlocals)
       let expr = texpr.to_expr()
       (locals, expr)
     }

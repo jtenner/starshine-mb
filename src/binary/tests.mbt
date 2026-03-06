@@ -219,6 +219,61 @@ test "decode_module wraps decode failure variant" {
 }
 
 ///|
+test "encode_module keeps separated TFunc locals even when they share a param-prefix type pattern" {
+  let ty = RecType::new(
+    SubType::comp_type(
+      CompType::func([ValType::i32(), ValType::i64()], [ValType::f32()]),
+    ),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([ty]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [ValType::i32(), ValType::i64()],
+          [ValType::i32(), ValType::i64(), ValType::f32()],
+          TExpr::new([TInstr::local_get(LocalIdx::new(4))]),
+        ),
+      ]),
+    )
+  let wasm = match encode_module(mod) {
+    Ok(bytes) => bytes
+    Err(e) => fail("expected encode success, got \{e}")
+  }
+  let decoded = match decode_module(wasm) {
+    Ok(v) => v
+    Err(e) => fail("expected decode success, got \{e}")
+  }
+  match decoded.code_sec {
+    Some(
+      CodeSec(
+        [
+          Func(
+            [
+              Locals(1U, NumTypeValType(I32NumType)),
+              Locals(1U, NumTypeValType(I64NumType)),
+              Locals(1U, NumTypeValType(F32NumType)),
+            ],
+            _
+          ),
+        ]
+      )
+    ) => ()
+    Some(CodeSec([TFunc(_, locals, _)])) => {
+      assert_eq(locals.length(), 3)
+      assert_eq(locals[0], ValType::i32())
+      assert_eq(locals[1], ValType::i64())
+      assert_eq(locals[2], ValType::f32())
+    }
+    _ =>
+      fail(
+        "expected decoded module to preserve all three non-param locals with prefix-like types",
+      )
+  }
+}
+
+///|
 test "decode_module accepts elem header 6 with explicit reftype and roundtrips module semantics" {
   let wasm = b"\x00\x61\x73\x6d\x01\x00\x00\x00\x09\x0b\x01\x06\x00\x41\x00\x0b\x70\x01\xd2\x00\x0b"
   let mod = match decode_module(wasm) {

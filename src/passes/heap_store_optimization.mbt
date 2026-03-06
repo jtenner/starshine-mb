@@ -724,11 +724,11 @@ fn heap_store_optimization_ir_pass(
     .on_tinstruction_evt(hso_rewrite_tinstruction)
   ModuleTransformer::new().on_func_evt(fn(_, ctx, func) {
     match func {
-      TFunc(_, locals, body) => {
+      TFunc(params, locals, body) => {
         let state = { env: env.with_locals(locals) }
         match pass.walk_texpr(state, body) {
           Ok(Some((_, new_body))) =>
-            change(ctx, Func::t_func([], locals, new_body))
+            change(ctx, Func::t_func(params, locals, new_body))
           Ok(None) => unchanged()
           Err(e) => Err(e)
         }

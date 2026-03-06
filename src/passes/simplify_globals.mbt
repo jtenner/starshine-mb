@@ -1412,7 +1412,7 @@ fn sg_propagate_constants_to_code(
         let ordinal = seen_funcs
         let log_func = trace_all_funcs || ordinal <= 5 || ordinal % 500 == 0
         match func {
-          TFunc(_, locals, body) => {
+          TFunc(params, locals, body) => {
             if log_func {
               trace(
                 "func[\{ordinal}] start locals=\{locals.length()} top_instrs=\{body.instrs.length()}",
@@ -1435,7 +1435,7 @@ fn sg_propagate_constants_to_code(
                 "func[\{ordinal}] done elapsed_ms=\{elapsed_ms} changed=\{body_changed} top_instrs=\{stats.top_instrs}->\{next_body.instrs.length()} visited=\{stats.visited_instrs} replaced_gets=\{stats.replaced_gets} boundary_resets=\{stats.boundary_resets} call_resets=\{stats.call_resets} global_kills=\{stats.global_kills} const_sets=\{stats.const_sets} nested_write_resets=\{stats.nested_write_resets}",
               )
             }
-            rewritten.push(Func::t_func([], locals, next_body))
+            rewritten.push(Func::t_func(params, locals, next_body))
           }
           _ => {
             if log_func {

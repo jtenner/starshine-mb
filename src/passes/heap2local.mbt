@@ -2715,7 +2715,7 @@ fn h2l_optimize_func_once(
 ) -> Func? {
   match func {
     Func(_) => None
-    TFunc(_, locals, body) => {
+    TFunc(params, locals, body) => {
       let analysis = h2l_scan_body(env.with_locals(locals), body)
       let candidates = h2l_collect_candidates(analysis)
       let candidates = h2l_filter_nonuniform_if_sets(body, candidates)
@@ -2748,7 +2748,7 @@ fn h2l_optimize_func_once(
       for local_ty in final_state.new_locals {
         new_locals.push(local_ty)
       }
-      Some(Func::t_func([], new_locals, rewritten))
+      Some(Func::t_func(params, new_locals, rewritten))
     }
   }
 }

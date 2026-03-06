@@ -760,7 +760,7 @@ fn rse_optimize_function(
   param_types : Array[ValType],
 ) -> (Func, Bool) {
   match func {
-    TFunc(_, locals, body) => {
+    TFunc(params, locals, body) => {
       let all_locals = param_types.copy()
       for local_ in locals {
         all_locals.push(local_)
@@ -798,7 +798,7 @@ fn rse_optimize_function(
       if !rewrite_state.changed {
         return (func, false)
       }
-      (Func::t_func([], locals, next_body), true)
+      (Func::t_func(params, locals, next_body), true)
     }
     _ => (func, false)
   }

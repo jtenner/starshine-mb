@@ -673,9 +673,10 @@ fn sp_run_iteration(mod : Module) -> (Module, Bool) {
     let old_type_abs = sp_typeidx_raw(func_type_idxs[abs_idx])
     let rewritten_func = match funcs[i] {
       TFunc(_, locals, body) => {
+        let FuncType(current_params, _) = func_types[abs_idx]
         let body_after_sig = match removed_by_type_abs.get(old_type_abs) {
           Some(_) => {
-            let FuncType(old_params, _) = func_types[abs_idx]
+            let old_params = current_params
             let removed_unused = match
               removed_unused_by_type_abs.get(old_type_abs) {
               Some(v) => v
@@ -704,13 +705,25 @@ fn sp_run_iteration(mod : Module) -> (Module, Bool) {
             } else {
               TExpr::new([..prologue, ..body2.instrs])
             }
-            Func::t_func([], new_locals, final_body)
+            let new_params : Array[ValType] = []
+            for param_idx = 0
+                param_idx < old_params.length()
+                param_idx = param_idx + 1 {
+              if removed_unused.contains(param_idx) {
+                continue
+              }
+              if removed_const.get(param_idx) is Some(_) {
+                continue
+              }
+              new_params.push(old_params[param_idx])
+            }
+            Func::t_func(new_params, new_locals, final_body)
           }
           None => {
             let body2 = sp_rewrite_calls(
               body, func_type_idxs, removed_by_type_abs, new_type_idx_by_old_abs,
             )
-            Func::t_func([], locals, body2)
+            Func::t_func(current_params, locals, body2)
           }
         }
         body_after_sig

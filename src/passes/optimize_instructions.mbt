@@ -4284,7 +4284,7 @@ fn optimize_instructions_on_func(
   base_env : Env,
 ) -> (Func, OITransformStats) {
   match func {
-    TFunc(_, locals, body) => {
+    TFunc(params, locals, body) => {
       let top_instrs = body.instrs.length()
       if top_instrs > 25000 {
         return (
@@ -4357,7 +4357,9 @@ fn optimize_instructions_on_func(
           rewrite_needs_flags, oi_rewrite_need_fold_equal_operands,
         )
       let env_start_us = oi_trace_now_us()
-      let env = base_env.with_locals(locals)
+      let all_locals = params.copy()
+      all_locals.append(locals)
+      let env = base_env.with_locals(all_locals)
       let env_us = oi_trace_elapsed_us_since(env_start_us)
       let visited_instr_budget = if top_instrs > 12000 {
         top_instrs / 6
@@ -4381,7 +4383,7 @@ fn optimize_instructions_on_func(
         2048
       }
       let cache = oi_rewrite_cache_new(
-        local_count=locals.length(),
+        local_count=all_locals.length(),
         pair_cache_size~,
       )
       let state = oi_rewrite_state_new(
@@ -4394,7 +4396,7 @@ fn optimize_instructions_on_func(
       let did_change = state.did_change || body_changed
       (
         if did_change {
-          Func::t_func([], locals, new_body)
+          Func::t_func(params, locals, new_body)
         } else {
           func
         },

@@ -636,7 +636,7 @@ fn flatten_ir_pass(mod : Module) -> ModuleTransformer[IRContext] {
           next_non_param_locals.push(state.locals[i])
         }
         if state.changed || next_non_param_locals.length() != locals.length() {
-          change(ctx, Func::t_func([], next_non_param_locals, next_body))
+          change(ctx, Func::t_func(params, next_non_param_locals, next_body))
         } else {
           unchanged()
         }

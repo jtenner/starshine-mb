@@ -806,7 +806,7 @@ fn local_subtyping(mod : Module) -> Result[Module, String] {
               params, locals, body, env, func_type_idx_by_func,
             )
             if local_changed {
-              out_funcs[i] = Func::t_func([], new_locals, body)
+              out_funcs[i] = Func::t_func(params, new_locals, body)
               changed = true
             }
           }

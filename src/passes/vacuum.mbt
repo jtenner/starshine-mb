@@ -15,7 +15,7 @@
 ///
 
 ///|
-const VQ_TARGET_CODE_INDEX : Int = 254
+const VQ_TARGET_CODE_INDEX : Int = 656
 
 ///|
 priv struct VQFuncSig {
@@ -47,50 +47,6 @@ fn vq_collect_func_sigs(mod : Module) -> Array[VQFuncSig] {
     None => ()
   }
   out
-}
-
-///|
-fn vq_max_local_idx_used(texpr : TExpr) -> Int {
-  let max_idx = Ref::new(-1)
-  let walker = ModuleTransformer::new().on_localidx_evt(fn(_, _, idx) {
-    let raw = idx.0.reinterpret_as_int()
-    if raw > max_idx.val {
-      max_idx.val = raw
-    }
-    Ok(None)
-  })
-  ignore(walker.walk_texpr((), texpr))
-  max_idx.val
-}
-
-///|
-fn vq_canonical_tfunc_locals(
-  sig_params : Array[ValType],
-  tfunc_params : Array[ValType],
-  locals : Array[ValType],
-  body : TExpr,
-) -> Array[ValType] {
-  let effective_params = if tfunc_params.is_empty() {
-    sig_params
-  } else {
-    tfunc_params
-  }
-  if locals.length() >= effective_params.length() {
-    let mut has_prefix = true
-    for i in 0..<effective_params.length() {
-      if locals[i] != effective_params[i] {
-        has_prefix = false
-        break
-      }
-    }
-    if has_prefix {
-      let max_idx = vq_max_local_idx_used(body)
-      if max_idx < locals.length() {
-        return locals.copy()
-      }
-    }
-  }
-  effective_params + locals
 }
 
 ///|
@@ -1566,14 +1522,14 @@ fn vq_optimize_function(
       (func, false)
     }
     TFunc(tfunc_params, locals, body) => {
-      let canonical_locals = vq_canonical_tfunc_locals(
-        sig.params,
-        tfunc_params,
-        locals,
-        body,
-      )
+      let params = if tfunc_params.is_empty() {
+        sig.params
+      } else {
+        tfunc_params
+      }
+      let all_locals = params + locals
       let top_instrs = body.instrs.length()
-      let num_locals = canonical_locals.length()
+      let num_locals = all_locals.length()
 
       if trace_all_funcs || ordinal <= 100 || ordinal % 300 == 0 {
         trace(
@@ -1581,7 +1537,7 @@ fn vq_optimize_function(
         )
       }
 
-      let env = Env::new().with_module(mod).with_locals(canonical_locals)
+      let env = Env::new().with_module(mod).with_locals(all_locals)
 
       let type_cache : Map[UInt64, ValType?] = Map::new()
       let effect_cache : Map[UInt64, Bool] = Map::new()
@@ -1607,21 +1563,17 @@ fn vq_optimize_function(
       }
       let next_body = TExpr::new(next_items)
 
-      let mut changed = sequence.changed || canonical_locals != locals
+      let mut changed = sequence.changed
       if sig.results.length() == 0 &&
         !vq_texpr_has_unremovable_side_effects(next_body, effect_cache) {
-        let nopped = Func::t_func(
-          [],
-          canonical_locals,
-          TExpr::new([TInstr::nop()]),
-        )
+        let nopped = Func::t_func(params, locals, TExpr::new([TInstr::nop()]))
         changed = true
         if trace_all_funcs || ordinal <= 100 || ordinal % 300 == 0 {
           trace("func[\{ordinal}] vacuum nopped=true budget_left=\{budget.val}")
         }
         (nopped, changed)
       } else {
-        let next_func = Func::t_func([], canonical_locals, next_body)
+        let next_func = Func::t_func(params, locals, next_body)
         if trace_all_funcs || ordinal <= 100 || ordinal % 300 == 0 {
           trace(
             "func[\{ordinal}] vacuum done changed=\{changed} budget_left=\{budget.val}",
@@ -1761,6 +1713,72 @@ test "vacuum removes side-effect-free dropped value" {
   match vq_first_func_body(out).instrs {
     [{ kind: TInstrKind::TNop, .. }] => ()
     _ => fail("expected pure drop to be removed")
+  }
+}
+
+///|
+test "vacuum keeps ambient-consuming drop when child optimizes away" {
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_void]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([
+            TInstr::i64_const(I64(1)),
+            TInstr::drop(TInstr::drop(TInstr::i32_const(I32(2)))),
+          ]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_vacuum(mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail("expected ambient-consuming drop to survive vacuum validation: \{e}")
+  }
+}
+
+///|
+test "vacuum keeps ambient-consuming branch value drop with mixed stack types" {
+  let t_i64 = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i64()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_i64]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([
+            TInstr::block(
+              BlockType::val_type(ValType::i64()),
+              TExpr::new([
+                TInstr::i64_const(I64(1)),
+                TInstr::i32_const(I32(2)),
+                TInstr::br(LabelIdx::new(0), [
+                  TInstr::drop(TInstr::drop(TInstr::i32_const(I32(3)))),
+                ]),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_vacuum(mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected ambient-consuming branch value drop to survive vacuum validation: \{e}",
+      )
   }
 }
 
@@ -2378,6 +2396,47 @@ test "vacuum keeps stack-feeding sibling values in block bodies" {
 }
 
 ///|
+test "vacuum keeps mixed-type stack-feeding sibling values in block bodies" {
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_void]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [ValType::i64(), ValType::i64(), ValType::i32(), ValType::i32()],
+          TExpr::new([
+            TInstr::block(
+              BlockType::void_(),
+              TExpr::new([
+                TInstr::local_get(LocalIdx::new(0)),
+                TInstr::local_set(
+                  LocalIdx::new(1),
+                  TInstr::local_set(
+                    LocalIdx::new(2),
+                    TInstr::local_get(LocalIdx::new(3)),
+                  ),
+                ),
+                TInstr::br(LabelIdx::new(0), []),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_vacuum(mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "expected mixed-type stack-feeding sibling value to survive vacuum validation: \{e}",
+      )
+  }
+}
+
+///|
 test "vacuum preserves child stack signatures under local.set" {
   let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
@@ -2448,7 +2507,7 @@ test "vacuum keeps stack-feeding sibling values with unknown stack signatures" {
 }
 
 ///|
-test "vacuum emits canonical full locals after rewriting typed legacy locals" {
+test "vacuum keeps typed params and declared locals separated" {
   let t_result = RecType::new(
     SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
   )
@@ -2470,16 +2529,15 @@ test "vacuum emits canonical full locals after rewriting typed legacy locals" {
   assert_eq(validate_module(mod), Ok(()))
   let out = run_vacuum(mod)
   match out.code_sec {
-    Some(CodeSec([TFunc(_, locals, _)])) => {
-      assert_eq(locals.length(), 2)
-      assert_eq(locals[0], ValType::i32())
-      assert_eq(locals[1], ValType::i32())
+    Some(CodeSec([TFunc(params, locals, _)])) => {
+      assert_eq(params, [ValType::i32()])
+      assert_eq(locals, [ValType::i32()])
     }
     _ => fail("expected single typed function in output module")
   }
   match validate_module(out) {
     Ok(_) => ()
-    Err(e) => fail("expected canonicalized vacuum output to validate: \{e}")
+    Err(e) => fail("expected vacuum output to validate: \{e}")
   }
 }
 

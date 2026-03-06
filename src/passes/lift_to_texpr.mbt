@@ -51,8 +51,9 @@ fn lift_to_texpr_module_with_trace(
               Ok(expanded_locals) => {
                 let abs_idx = imported_funcs + def_idx
                 let func_idx = FuncIdx::new(abs_idx.reinterpret_as_uint())
-                let results = match base_env.get_functype_by_funcidx(func_idx) {
-                  Some(FuncType(_, rs)) => rs
+                let (params, results) = match
+                  base_env.get_functype_by_funcidx(func_idx) {
+                  Some(FuncType(ps, rs)) => (ps, rs)
                   None =>
                     return Err(
                       "lift_to_texpr missing function type for function index \{abs_idx}",
@@ -66,7 +67,7 @@ fn lift_to_texpr_module_with_trace(
                     if seen_funcs <= 5 || seen_funcs % 500 == 0 {
                       trace("func[\{seen_funcs}] lifted")
                     }
-                    new_funcs.push(Func::t_func([], expanded_locals, texpr))
+                    new_funcs.push(Func::t_func(params, expanded_locals, texpr))
                   }
                   Err(e) => {
                     if seen_funcs <= 20 || seen_funcs % 500 == 0 {

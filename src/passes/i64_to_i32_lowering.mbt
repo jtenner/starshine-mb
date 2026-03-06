@@ -2665,7 +2665,7 @@ fn i64l_rewrite_one_func(
       for ty in extra_locals {
         final_locals.push(ty)
       }
-      Ok(Func::t_func([], final_locals, final_body))
+      Ok(Func::t_func(i64l_lower_params(old_params), final_locals, final_body))
     }
   }
 }

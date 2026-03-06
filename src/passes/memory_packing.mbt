@@ -1434,11 +1434,11 @@ fn apply_replacements(
       let new_funcs : Array[Func] = []
       for i in 0..<funcs.length() {
         let abs_idx = imported_funcs + i.reinterpret_as_uint()
-        let param_count = match
-          env.get_functype_by_funcidx(FuncIdx::new(abs_idx)) {
-          Some(FuncType(params, _)) => params.length()
-          None => 0
+        let params = match env.get_functype_by_funcidx(FuncIdx::new(abs_idx)) {
+          Some(FuncType(params, _)) => params
+          None => []
         }
+        let param_count = params.length()
         match funcs[i] {
           TFunc(_, locals, body) => {
             let init_state = {
@@ -1576,7 +1576,7 @@ fn apply_replacements(
             for local_ty in final_state.new_locals {
               new_locals.push(local_ty)
             }
-            new_funcs.push(Func::t_func([], new_locals, new_body))
+            new_funcs.push(Func::t_func(params, new_locals, new_body))
           }
           _ => new_funcs.push(funcs[i])
         }

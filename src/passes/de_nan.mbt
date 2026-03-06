@@ -222,8 +222,8 @@ fn infer_float_kind(instr : TInstr, st : DeNaNState) -> FloatKind? {
 fn is_denam32_func(f : Func) -> Bool {
   match f {
     TFunc(
-      [],
       [NumTypeValType(F32NumType)],
+      [],
       {
         instrs: [
           {
@@ -256,8 +256,8 @@ fn is_denam32_func(f : Func) -> Bool {
 fn is_denam64_func(f : Func) -> Bool {
   match f {
     TFunc(
-      [],
       [NumTypeValType(F64NumType)],
+      [],
       {
         instrs: [
           {
@@ -445,6 +445,7 @@ fn function_param_types(
 fn function_local_types(
   env : Env,
   func_idx : FuncIdx,
+  tparams : Array[ValType],
   tlocals : Array[ValType],
 ) -> (Array[ValType], Array[ValType]) {
   match env.get_functype_by_funcidx(func_idx) {
@@ -453,7 +454,11 @@ fn function_local_types(
       locals.append(tlocals)
       (params, locals)
     }
-    None => (tlocals, tlocals)
+    None => {
+      let locals = tparams.copy()
+      locals.append(tlocals)
+      (tparams, locals)
+    }
   }
 }
 
@@ -469,10 +474,10 @@ fn make_denam_transformer() -> ModuleTransformer[DeNaNState] {
       return change(st, func)
     }
     match func {
-      TFunc(_, tlocals, _) => {
+      TFunc(tparams, tlocals, _) => {
         let base_env = st.env
         let (params, local_types) = function_local_types(
-          base_env, abs_idx, tlocals,
+          base_env, abs_idx, tparams, tlocals,
         )
         let mut st = DeNaNState::{
           ..st,
@@ -585,7 +590,7 @@ fn make_denam32_func() -> Func {
     TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
     Some(TExpr::new([TInstr::f32_const(F32(0.0))])),
   )
-  Func::t_func([], [ValType::f32()], TExpr::new([body]))
+  Func::t_func([ValType::f32()], [], TExpr::new([body]))
 }
 
 ///|
@@ -601,7 +606,7 @@ fn make_denam64_func() -> Func {
     TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
     Some(TExpr::new([TInstr::f64_const(F64(0.0))])),
   )
-  Func::t_func([], [ValType::f64()], TExpr::new([body]))
+  Func::t_func([ValType::f64()], [], TExpr::new([body]))
 }
 
 ///|
@@ -673,10 +678,10 @@ fn run_denam(m : @lib.Module) -> Result[@lib.Module, String] {
       return f
     }
     match f {
-      TFunc(_, tlocals, body) => {
-        let params = function_param_types(env2, func_idx, tlocals)
+      TFunc(tparams, tlocals, body) => {
+        let params = function_param_types(env2, func_idx, tparams)
         let new_body = sanitize_params(params, body, st2.deNan32, st2.deNan64)
-        Func::t_func([], tlocals, new_body)
+        Func::t_func(params, tlocals, new_body)
       }
       _ => f
     }
@@ -1279,8 +1284,8 @@ test "f64 global.get flow is wrapped with deNan call" {
 ///|
 test "f32 parameter is sanitized at function entry" {
   let func = Func::t_func(
-    [],
     [ValType::f32()], // One f32 parameter
+    [],
     TExpr::new([TInstr::local_get(LocalIdx::new(0))]), // Just return the parameter
   )
   let mod = make_module_with_code([func])
@@ -1310,8 +1315,8 @@ test "f32 parameter is sanitized at function entry" {
 ///|
 test "f64 parameter is sanitized at function entry" {
   let func = Func::t_func(
-    [],
     [ValType::f64()],
+    [],
     TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
   )
   let mod = make_module_with_code([func])
@@ -1336,13 +1341,13 @@ test "f64 parameter is sanitized at function entry" {
 ///|
 test "mixed parameters - only floats sanitized" {
   let func = Func::t_func(
-    [],
     [
       ValType::i32(), // param 0: i32 - not sanitized
       ValType::f32(), // param 1: f32 - sanitized
       ValType::i64(), // param 2: i64 - not sanitized
       ValType::f64(),
     ], // param 3: f64 - sanitized
+    [],
     TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
   )
   let mod = make_module_with_code([func])
@@ -1378,8 +1383,8 @@ test "mixed parameters - only floats sanitized" {
 ///|
 test "i32 parameter is not sanitized" {
   let func = Func::t_func(
-    [],
     [ValType::i32()],
+    [],
     TExpr::new([TInstr::local_get(LocalIdx::new(0))]),
   )
   let mod = make_module_with_code([func])
@@ -1424,9 +1429,14 @@ test "deNan32 helper has correct structure" {
     Ok({ code_sec: Some(CodeSec(funcs)), .. }) =>
       // Helper should be at index 1
       match funcs[1] {
-        TFunc(_, params, { instrs: body, .. }) => {
+        TFunc(params, locals, { instrs: body, .. }) => {
           // Should take one f32 parameter
           assert_eq(params.length(), 1, msg="Helper should have 1 parameter")
+          assert_eq(
+            locals.length(),
+            0,
+            msg="Helper should not declare extra locals",
+          )
           match params[0] {
             NumTypeValType(F32NumType) => ()
             _ => fail("Helper parameter should be f32")
@@ -1575,15 +1585,15 @@ test "nested expressions are properly wrapped" {
 ///|
 test "multiple functions are all processed" {
   let func1 = Func::t_func(
-    [],
     [ValType::f32()],
+    [],
     TExpr::new([
       TInstr::unary(UnaryOp::f32_sqrt(), TInstr::local_get(LocalIdx::new(0))),
     ]),
   )
   let func2 = Func::t_func(
-    [],
     [ValType::f64()],
+    [],
     TExpr::new([
       TInstr::unary(UnaryOp::f64_sqrt(), TInstr::local_get(LocalIdx::new(0))),
     ]),
@@ -1643,7 +1653,7 @@ test "running pass twice produces same result" {
     .with_code_sec(
       CodeSec::new([
         Func::t_func(
-          [],
+          [ValType::f32()],
           [],
           TExpr::new([
             TInstr::binary(

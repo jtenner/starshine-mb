@@ -1172,7 +1172,7 @@ fn sr_refinalize_changed_functions(
         match to_texpr(lowered, local_env) {
           Ok(new_body) =>
             if new_body != body {
-              next_funcs[def_idx] = Func::t_func([], locals, new_body)
+              next_funcs[def_idx] = Func::t_func(params, locals, new_body)
               changed = true
             }
           Err(_) => ()
@@ -1557,7 +1557,7 @@ fn signature_refining(mod : Module) -> Result[Module, String] {
           env, abs_idx, func_type_idxs,
         )
         if new_locals != locals || new_body != body {
-          next_funcs[def_idx] = Func::t_func([], new_locals, new_body)
+          next_funcs[def_idx] = Func::t_func(new_params, new_locals, new_body)
           changed_code = true
         }
       }

@@ -198,8 +198,8 @@ fn analyze_function(func : Func) -> LocalAnalyzer {
     Func(_, _) =>
       // For non-TFunc, we can't analyze
       LocalAnalyzer::new(0)
-    TFunc(_, params, body) => {
-      let num_locals = params.length()
+    TFunc(_, locals, body) => {
+      let num_locals = locals.length()
       let analyzer = LocalAnalyzer::new(num_locals)
 
       // Mark all non-parameters as potentially SFA
@@ -1160,8 +1160,8 @@ fn code_pushing_pass_with_trace(
         }
         unchanged()
       }
-      TFunc(_, params, body) => {
-        let num_locals = params.length()
+      TFunc(params, locals, body) => {
+        let num_locals = locals.length()
         if log_func {
           trace(
             "func[\{ordinal}] start locals=\{num_locals} top_instrs=\{body.instrs.length()}",
@@ -1214,7 +1214,7 @@ fn code_pushing_pass_with_trace(
               "func[\{ordinal}] done elapsed_ms=\{sl_trace_elapsed_ms(func_start_ms)} changed=true top_instrs=\{body.instrs.length()}->\{body_instrs.length()} locals=\{num_locals}",
             )
           }
-          Ok(Some(((), Func::t_func([], params, TExpr::new(body_instrs)))))
+          Ok(Some(((), Func::t_func(params, locals, TExpr::new(body_instrs)))))
         } else {
           if log_func {
             trace(

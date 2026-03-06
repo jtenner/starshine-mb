@@ -2245,7 +2245,7 @@ fn precompute_on_func(
       }
       Ok(func)
     }
-    TFunc(_, locals, initial_body) => {
+    TFunc(params, locals, initial_body) => {
       let imm_globals_start_ms = pc_trace_now_ms()
       let imm_globals = pc_collect_immutable_globals(mod)
       let imm_globals_elapsed_ms = pc_trace_elapsed_ms(imm_globals_start_ms)
@@ -2378,7 +2378,7 @@ fn precompute_on_func(
             "func[\{ordinal}] simplify skipped (medium body + moderate sets)",
           )
         }
-        return Ok(Func::t_func([], locals, body))
+        return Ok(Func::t_func(params, locals, body))
       }
 
       let simplify_rounds = if do_propagate { 2 } else { 1 }
@@ -2417,7 +2417,7 @@ fn precompute_on_func(
           "func[\{ordinal}] done changed=\{body != initial_body} rounds=\{rounds} final_top=\{body.instrs.length()} elapsed_ms=\{pc_trace_elapsed_ms(func_start_ms)}",
         )
       }
-      Ok(Func::t_func([], locals, body))
+      Ok(Func::t_func(params, locals, body))
     }
   }
 }
@@ -2440,12 +2440,17 @@ fn precompute_ir_pass(
       ) {
       Ok(next_func) =>
         match (func, next_func) {
-          (TFunc(_, orig_locals, orig_body), TFunc(_, next_locals, next_body)) => {
+          (
+            TFunc(orig_params, orig_locals, orig_body),
+            TFunc(next_params, next_locals, next_body),
+          ) => {
             ctx.set_body(next_body)
-            if orig_locals == next_locals && orig_body == next_body {
+            if orig_params == next_params &&
+              orig_locals == next_locals &&
+              orig_body == next_body {
               unchanged()
             } else {
-              change(ctx, Func::t_func([], next_locals, next_body))
+              change(ctx, Func::t_func(next_params, next_locals, next_body))
             }
           }
           _ => change(ctx, next_func)

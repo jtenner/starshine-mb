@@ -1573,7 +1573,7 @@ fn remove_unused_brs_pass(
   ModuleTransformer::new()
   .on_func_evt(fn(self, state, func) {
     match func {
-      TFunc(_, locals, body) => {
+      TFunc(params, locals, body) => {
         let new_body = match
           self.walk_texpr(rub_walk_state(true, false, true), body) {
           Ok(Some((_, walked))) => walked
@@ -1581,7 +1581,7 @@ fn remove_unused_brs_pass(
           Err(e) => return Err(e)
         }
         if new_body != body {
-          change(state, Func::t_func([], locals, new_body))
+          change(state, Func::t_func(params, locals, new_body))
         } else {
           unchanged()
         }
@@ -1982,7 +1982,7 @@ fn rub_single_typed_func_module(
     ]),
   )
   .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
-  .with_code_sec(CodeSec::new([Func::t_func([], locals, body)]))
+  .with_code_sec(CodeSec::new([Func::t_func(params, locals, body)]))
 }
 
 ///|
@@ -2069,7 +2069,7 @@ test "remove_unused_brs removes trailing br 0 in block" {
   rub_assert_valid_module(out)
   match rub_single_func(out) {
     TFunc(
-      [],
+      _,
       _,
       {
         instrs: [
@@ -2101,7 +2101,7 @@ test "remove_unused_brs keeps trailing br 0 in loop bodies" {
   rub_assert_valid_module(out)
   match rub_single_func(out) {
     TFunc(
-      [],
+      _,
       _,
       {
         instrs: [
@@ -2133,7 +2133,7 @@ test "remove_unused_brs forwards trailing br value in block" {
   rub_assert_valid_module(out)
   match rub_single_func(out) {
     TFunc(
-      [],
+      _,
       _,
       {
         instrs: [
@@ -2165,7 +2165,7 @@ test "remove_unused_brs trims trailing nops from block body" {
   rub_assert_valid_module(out)
   match rub_single_func(out) {
     TFunc(
-      [],
+      _,
       _,
       {
         instrs: [
@@ -2204,7 +2204,7 @@ test "remove_unused_brs turns one-armed if with break into br_if" {
   rub_assert_valid_module(out)
   match rub_single_func(out) {
     TFunc(
-      [],
+      _,
       _,
       {
         instrs: [
@@ -2255,7 +2255,7 @@ test "remove_unused_brs rejects one-armed if rewrite when break targets removed 
   rub_assert_valid_module(out)
   match rub_single_func(out) {
     TFunc(
-      [],
+      _,
       _,
       {
         instrs: [
@@ -2301,7 +2301,7 @@ test "remove_unused_brs combines nested one-armed if conditions" {
   rub_assert_valid_module(out)
   match rub_single_func(out) {
     TFunc(
-      [],
+      _,
       _,
       {
         instrs: [
@@ -2375,7 +2375,7 @@ test "remove_unused_brs rebases nested if body branches when hoisting" {
   rub_assert_valid_module(out)
   match rub_single_func(out) {
     TFunc(
-      [],
+      _,
       _,
       {
         instrs: [
@@ -2434,7 +2434,7 @@ test "remove_unused_brs trims trailing br_table defaults and simplifies" {
   rub_assert_valid_module(out)
   match rub_single_func(out) {
     TFunc(
-      [],
+      _,
       _,
       {
         instrs: [
@@ -2507,7 +2507,7 @@ test "remove_unused_brs rebases default-only br_table wrapper labels" {
   rub_assert_valid_module(out)
   match rub_single_func(out) {
     TFunc(
-      [],
+      _,
       _,
       {
         instrs: [
@@ -2577,7 +2577,7 @@ test "remove_unused_brs rewrites default-only br_table to drop+br" {
   rub_assert_valid_module(out)
   match rub_single_func(out) {
     TFunc(
-      [],
+      _,
       _,
       {
         instrs: [
@@ -2640,7 +2640,7 @@ test "remove_unused_brs rebases single-target br_table branch labels" {
   rub_assert_valid_module(out)
   match rub_single_func(out) {
     TFunc(
-      [],
+      _,
       _,
       {
         instrs: [
@@ -2724,7 +2724,7 @@ test "remove_unused_brs rewrites single-target br_table to if+brs" {
   rub_assert_valid_module(out)
   match rub_single_func(out) {
     TFunc(
-      [],
+      _,
       _,
       {
         instrs: [{ kind: TInstrKind::TBlock(_, { instrs: items, .. }), .. }],
@@ -2757,7 +2757,7 @@ test "remove_unused_brs merges br_if followed by br to same target" {
   rub_assert_valid_module(out)
   match rub_single_func(out) {
     TFunc(
-      [],
+      _,
       _,
       {
         instrs: [
@@ -2800,7 +2800,7 @@ test "remove_unused_brs merges adjacent br_ifs in shrink mode" {
   rub_assert_valid_module(out)
   match rub_single_func(out) {
     TFunc(
-      [],
+      _,
       _,
       {
         instrs: [
@@ -2836,7 +2836,7 @@ test "remove_unused_brs folds br_if with constant true condition" {
   rub_assert_valid_module(out)
   match rub_single_func(out) {
     TFunc(
-      [],
+      _,
       _,
       {
         instrs: [
@@ -2869,7 +2869,7 @@ test "remove_unused_brs folds br_if with constant false condition" {
   rub_assert_valid_module(out)
   match rub_single_func(out) {
     TFunc(
-      [],
+      _,
       _,
       {
         instrs: [
@@ -2902,7 +2902,7 @@ test "remove_unused_brs folds br_if false with value into drops" {
   rub_assert_valid_module(out)
   match rub_single_func(out) {
     TFunc(
-      [],
+      _,
       _,
       {
         instrs: [
@@ -2971,7 +2971,7 @@ test "remove_unused_brs rebases branch labels inside folded br_if false values" 
   rub_assert_valid_module(out)
   match rub_single_func(out) {
     TFunc(
-      [],
+      _,
       _,
       {
         instrs: [
@@ -3065,7 +3065,7 @@ test "remove_unused_brs removes redundant dropped br_if tail value copy" {
   rub_assert_valid_module(out)
   match rub_single_func(out) {
     TFunc(
-      [],
+      _,
       _,
       {
         instrs: [
@@ -3120,7 +3120,7 @@ test "remove_unused_brs keeps redundant dropped br_if tail pattern in loops" {
   rub_assert_valid_module(out)
   match rub_single_func(out) {
     TFunc(
-      [],
+      _,
       _,
       {
         instrs: [
@@ -3161,7 +3161,7 @@ test "remove_unused_brs removes trailing return with no value in function body" 
   rub_assert_valid_module(out)
   match rub_single_func(out) {
     TFunc(
-      [],
+      _,
       _,
       {
         instrs: [
@@ -3242,7 +3242,7 @@ test "remove_unused_brs does not splice value-typed if with else br" {
   rub_assert_valid_module(out)
   match rub_single_func(out) {
     TFunc(
-      [],
+      _,
       _,
       {
         instrs: [
@@ -3298,7 +3298,7 @@ test "remove_unused_brs does not splice void if in value-typed block body" {
   rub_assert_valid_module(out)
   match rub_single_func(out) {
     TFunc(
-      [],
+      _,
       _,
       {
         instrs: [
@@ -3347,7 +3347,7 @@ test "remove_unused_brs does not splice value-typed if with then br" {
   rub_assert_valid_module(out)
   match rub_single_func(out) {
     TFunc(
-      [],
+      _,
       _,
       {
         instrs: [

@@ -1027,7 +1027,7 @@ fn make_mono_function_with_context(
         locals.push(local_)
       }
 
-      Some(Func::t_func([], locals, TExpr::new(combined)))
+      Some(Func::t_func(new_operand_types, locals, TExpr::new(combined)))
     }
     _ => None
   }
@@ -1203,15 +1203,15 @@ fn do_opts(func : Func, mod : Module, params? : Array[ValType] = []) -> Func {
       let folded = match
         code_folding_pass().walk_func(
           CodeFoldingState::new(),
-          Func::t_func([], locals, body),
+          Func::t_func(params, locals, body),
         ) {
         Ok(Some((_, out))) => out
-        _ => Func::t_func([], locals, body)
+        _ => Func::t_func(params, locals, body)
       }
       match folded {
-        TFunc(_, next_locals, next_body) =>
+        TFunc(next_params, next_locals, next_body) =>
           Func::t_func(
-            [],
+            next_params,
             next_locals,
             mn_cleanup_body(mn_cleanup_body(run_dce_on_texpr(next_body))),
           )
@@ -1314,9 +1314,9 @@ fn update_call(func : Func, actions : Map[Int, MonoRewriteAction]) -> Func {
     return func
   }
   match func {
-    TFunc(_, locals, body) => {
+    TFunc(params, locals, body) => {
       let state = MonoRewriteState::new(actions)
-      Func::t_func([], locals, mn_rewrite_texpr(state, body))
+      Func::t_func(params, locals, mn_rewrite_texpr(state, body))
     }
     _ => func
   }
@@ -1693,7 +1693,7 @@ test "monomorphize always keeps immovable operand as call argument for partial m
       CodeSec(
         [
           TFunc(
-            [],
+            _,
             _,
             {
               instrs: [
@@ -1708,7 +1708,7 @@ test "monomorphize always keeps immovable operand as call argument for partial m
             }
           ),
           _,
-          TFunc([], _, mono_body),
+          TFunc(_, _, mono_body),
         ]
       )
     ) => {

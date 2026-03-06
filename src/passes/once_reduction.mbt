@@ -637,7 +637,7 @@ fn or_optimize_function(
     info.once_globals_set_in_funcs.get(func_idx).unwrap_or(Set::new()),
   )
   match func {
-    TFunc(_, locals, body) => {
+    TFunc(params, locals, body) => {
       let cfg = or_build_cfg(body)
       let idom = or_compute_dominators(cfg)
       let rpo = or_compute_rpo(cfg)
@@ -700,10 +700,10 @@ fn or_optimize_function(
         merged_summary.add(g)
       }
       let rewritten = if nops.is_empty() {
-        Func::t_func([], locals, body)
+        Func::t_func(params, locals, body)
       } else {
         Func::t_func(
-          [],
+          params,
           locals,
           or_rewrite_texpr(ORRewriteState::new(nops), body),
         )
@@ -762,20 +762,20 @@ fn or_cleanup_once_bodies(mod : Module, info : OROptInfo) -> Module {
     }
     match func {
       TFunc(
-        [],
+        params,
         locals,
         {
           instrs: [{ kind: TInstrKind::TBlock(bt, { instrs: items, .. }), .. }],
           ..,
         }
-      ) =>
+      ) if params.is_empty() =>
         if items.length() == 2 &&
           or_match_guard_if(items[0]) == Some(g) &&
           or_match_once_set(items[1], g) {
           mod = or_set_defined_func(
             mod,
             def_idx,
-            Func::t_func([], locals, TExpr::new([TInstr::nop()])),
+            Func::t_func(params, locals, TExpr::new([TInstr::nop()])),
           )
         } else if items.length() == 3 &&
           or_match_guard_if(items[0]) == Some(g) &&
@@ -793,7 +793,7 @@ fn or_cleanup_once_bodies(mod : Module, info : OROptInfo) -> Module {
                   mod,
                   def_idx,
                   Func::t_func(
-                    [],
+                    params,
                     locals,
                     TExpr::new([TInstr::block(bt, TExpr::new(next_items))]),
                   ),

@@ -1563,7 +1563,7 @@ fn il_apply_actions_to_func(
       if changed || caller_locals != locals {
         Ok(
           (
-            Func::t_func([], caller_locals, final_body),
+            Func::t_func(caller_params, caller_locals, final_body),
             applied,
             used_hoist_wrapper,
           ),
@@ -1611,7 +1611,7 @@ fn il_run_partial_splitting(
     }
     let curr = funcs[def_idx]
     match curr {
-      TFunc(_, locals, body) => {
+      TFunc(curr_params, locals, body) => {
         // Pattern A: top-level if (cond) return; then remainder.
         if body.instrs.length() >= 2 {
           match body.instrs[0].kind {
@@ -1636,11 +1636,11 @@ fn il_run_partial_splitting(
                   outlined_instrs.push(body.instrs[i])
                 }
                 funcs.push(
-                  Func::t_func([], locals, TExpr::new(outlined_instrs)),
+                  Func::t_func(curr_params, locals, TExpr::new(outlined_instrs)),
                 )
                 type_idxs.push(type_idxs[def_idx])
                 funcs[def_idx] = Func::t_func(
-                  [],
+                  curr_params,
                   locals,
                   TExpr::new([
                     TInstr::if_(BlockType::void_(), cond, then_body, None),
@@ -1753,7 +1753,7 @@ fn il_run_partial_splitting(
           match body.instrs[i].kind {
             TInstrKind::TIf(_, cond, then_body, None) => {
               let outlined_abs = import_count + funcs.length()
-              funcs.push(Func::t_func([], locals, then_body))
+              funcs.push(Func::t_func(curr_params, locals, then_body))
               type_idxs.push(type_idxs[def_idx])
               replaced.push(
                 TInstr::if_(
@@ -1778,7 +1778,11 @@ fn il_run_partial_splitting(
           None => ()
         }
         if !replaced.is_empty() {
-          funcs[def_idx] = Func::t_func([], locals, TExpr::new(replaced))
+          funcs[def_idx] = Func::t_func(
+            curr_params,
+            locals,
+            TExpr::new(replaced),
+          )
         }
       }
       _ => ()
@@ -2273,13 +2277,22 @@ fn il_make_simple_two_func_module(
   callee_locals : Array[ValType],
   callee_body : TExpr,
 ) -> Module {
-  Module::new()
-  .with_type_sec(TypeSec::new([caller_type, callee_type]))
-  .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
-  .with_code_sec(
+  let base = Module::new()
+    .with_type_sec(TypeSec::new([caller_type, callee_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0), TypeIdx::new(1)]))
+  let env = Env::new().with_module(base)
+  let caller_params = match env.get_functype_by_funcidx(FuncIdx::new(0)) {
+    Some(FuncType(params, _)) => params
+    None => []
+  }
+  let callee_params = match env.get_functype_by_funcidx(FuncIdx::new(1)) {
+    Some(FuncType(params, _)) => params
+    None => []
+  }
+  base.with_code_sec(
     CodeSec::new([
-      Func::t_func([], [], caller_body),
-      Func::t_func([], callee_locals, callee_body),
+      Func::t_func(caller_params, [], caller_body),
+      Func::t_func(callee_params, callee_locals, callee_body),
     ]),
   )
 }

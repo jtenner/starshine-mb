@@ -669,10 +669,10 @@ fn licm_run_on_body(body : TExpr) -> (TExpr, Bool) {
 fn loop_invariant_code_motion_pass() -> ModuleTransformer[Unit] {
   ModuleTransformer::new().on_func_evt(fn(_, _, func) {
     match func {
-      TFunc(_, locals, body) => {
+      TFunc(params, locals, body) => {
         let (next_body, changed) = licm_run_on_body(body)
         if changed {
-          change((), Func::t_func([], locals, next_body))
+          change((), Func::t_func(params, locals, next_body))
         } else {
           unchanged()
         }

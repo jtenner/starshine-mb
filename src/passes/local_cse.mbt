@@ -1895,7 +1895,7 @@ fn local_cse_ir_pass(
           options.shrink_level,
         )
         if changed {
-          change(ctx, Func::t_func([], new_locals, new_body))
+          change(ctx, Func::t_func(params, new_locals, new_body))
         } else {
           unchanged()
         }

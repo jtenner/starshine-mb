@@ -59,7 +59,7 @@ fn remove_unused_names_ir_pass(
     let ordinal = def_idx + 1
     let log_func = trace_all_funcs || ordinal <= 5 || ordinal % 500 == 0
     match func {
-      TFunc(_, locals, body) => {
+      TFunc(params, locals, body) => {
         let func_start_ms = sl_trace_now_ms()
         if log_func {
           trace(
@@ -89,7 +89,7 @@ fn remove_unused_names_ir_pass(
                   "func[\{ordinal}] done elapsed_ms=\{elapsed_ms} changed=\{changed} top_instrs=\{body.instrs.length()}->\{next_body.instrs.length()} locals=\{locals.length()} budget_remaining=\{stats.final_budget_remaining} budget_exhausted=\{stats.budget_exhausted_count > 0} peeled=\{stats.peeled_candidates} shift_attempts=\{stats.label_shift_attempts} loop_rewrites=\{stats.loops_rewritten} visits=\{stats.final_visit_count} no_progress_abort=\{stats.walk_no_progress_aborted}",
                 )
               }
-              change(ctx, Func::t_func([], locals, next_body))
+              change(ctx, Func::t_func(params, locals, next_body))
             }
           Err(e) => Err(e)
         }

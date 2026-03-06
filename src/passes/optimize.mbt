@@ -350,7 +350,21 @@ fn opt_validation_stack_underflow_context(
 }
 
 ///|
-fn opt_format_validation_error(mod : Module, err : ValidationError) -> String {
+fn opt_format_code_sec_snapshot(code_sec : CodeSec?) -> String {
+  match code_sec {
+    Some(code_sec) => code_sec.pretty_print(PrettyPrintContext::new())
+    None => "<none>"
+  }
+}
+
+///|
+fn opt_format_validation_error(
+  mod : Module,
+  err : ValidationError,
+  pass? : ModulePass? = None,
+  pre_pass_mod? : Module? = None,
+  pre_pass_code_sec? : CodeSec? = None,
+) -> String {
   let out = StringBuilder::new()
   let summary = validation_error_message(err)
   out.write_string(summary)
@@ -358,6 +372,18 @@ fn opt_format_validation_error(mod : Module, err : ValidationError) -> String {
     Some(func_idx) => {
       out.write_string("\n\nOffending function:\n")
       out.write_string(mod.pretty_print_func(func_idx))
+      match pre_pass_mod {
+        Some(before_mod) => {
+          out.write_string("\n\nOffending function before pass")
+          match pass {
+            Some(pass) => out.write_string(" \{pass}")
+            None => ()
+          }
+          out.write_string(":\n")
+          out.write_string(before_mod.pretty_print_func(func_idx))
+        }
+        None => ()
+      }
       match opt_validation_stack_underflow_context(mod, func_idx, summary) {
         Some(ctx) => out.write_string(ctx)
         None => ()
@@ -369,6 +395,15 @@ fn opt_format_validation_error(mod : Module, err : ValidationError) -> String {
     Some(type_sec) => {
       out.write_string("\n\nType section:\n")
       out.write_string(type_sec.pretty_print(PrettyPrintContext::new()))
+    }
+    None => ()
+  }
+  match pass {
+    Some(pass) => {
+      out.write_string("\n\nCode section before pass \{pass}:\n")
+      out.write_string(opt_format_code_sec_snapshot(pre_pass_code_sec))
+      out.write_string("\n\nCode section after pass \{pass}:\n")
+      out.write_string(opt_format_code_sec_snapshot(mod.code_sec))
     }
     None => ()
   }
@@ -1166,6 +1201,8 @@ fn optimize_module_with_options_internal(
   ctx.set_mod(mod)
   let mut pass_index = 0
   for pass in passes {
+    let pre_pass_mod = mod
+    let pre_pass_code_sec = mod.code_sec
     let pass_start_ms = optimize_trace_now_ms()
     pass_index += 1
     let kind = module_pass_context_kind(pass)
@@ -1251,7 +1288,13 @@ fn optimize_module_with_options_internal(
         }
         return Err(
           "validation error after pass \{pass}:\n" +
-          opt_format_validation_error(mod, e),
+          opt_format_validation_error(
+            mod,
+            e,
+            pass=Some(pass),
+            pre_pass_mod=Some(pre_pass_mod),
+            pre_pass_code_sec~,
+          ),
         )
       }
     }
@@ -6011,4 +6054,33 @@ test "opt_format_validation_error reports root-level underflow context" {
   assert_true(rendered.contains("root_instr[0]"))
   assert_true(rendered.contains("root_instr[1]"))
   assert_true(rendered.contains("root_instr[2]"))
+}
+
+///|
+test "optimize_module validation errors include before and after snapshots" {
+  let t_void = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([t_void]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::t_func(
+          [],
+          [],
+          TExpr::new([
+            TInstr::drop(TInstr::i32_const(I32(1))),
+            TInstr::drop(TInstr::nop()),
+            TInstr::nop(),
+          ]),
+        ),
+      ]),
+    )
+  let msg = match optimize_module(mod, [RemoveUnusedNames]) {
+    Ok(_) => fail("expected validation failure after scheduling pass")
+    Err(msg) => msg
+  }
+  assert_true(msg.contains("validation error after pass RemoveUnusedNames"))
+  assert_true(msg.contains("Offending function before pass RemoveUnusedNames"))
+  assert_true(msg.contains("Code section before pass RemoveUnusedNames"))
+  assert_true(msg.contains("Code section after pass RemoveUnusedNames"))
 }

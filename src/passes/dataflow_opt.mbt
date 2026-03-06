@@ -171,10 +171,10 @@ fn dataflow_optimization_pass(
         }
         match new_func {
           Some((next_locals, next_body)) =>
-            change(ctx, Func::t_func([], next_locals, next_body))
+            change(ctx, Func::t_func(params, next_locals, next_body))
           // Returning `unchanged()` here would trigger `walk_func_default`,
           // causing a second full traversal of this function.
-          _ => change(ctx, Func::t_func([], locals, body))
+          _ => change(ctx, Func::t_func(params, locals, body))
         }
       }
     }

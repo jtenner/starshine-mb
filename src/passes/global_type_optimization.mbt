@@ -1420,10 +1420,11 @@ fn gto_update_instructions(
       for def_idx in 0..<funcs.length() {
         let abs_idx = imported_funcs + def_idx
         let abs_func_idx = FuncIdx::new(abs_idx.reinterpret_as_uint())
-        let param_count = match env.get_functype_by_funcidx(abs_func_idx) {
-          Some(FuncType(params, _)) => params.length()
-          None => 0
+        let params = match env.get_functype_by_funcidx(abs_func_idx) {
+          Some(FuncType(params, _)) => params
+          None => []
         }
+        let param_count = params.length()
         match funcs[def_idx] {
           TFunc(_, locals, body) => {
             let next_local = [param_count + locals.length()]
@@ -1439,7 +1440,7 @@ fn gto_update_instructions(
             for local_ty in extra_locals {
               new_locals.push(local_ty)
             }
-            new_funcs.push(Func::t_func([], new_locals, new_body))
+            new_funcs.push(Func::t_func(params, new_locals, new_body))
           }
           Func(locals, body) =>
             match gto_expand_locals(locals) {

@@ -1151,7 +1151,9 @@ fn create_shared(
   let next_type_idxs = type_idxs
   let next_funcs = funcs
   next_type_idxs.push(shared_type_idx)
-  let shared_func = Func::t_func([], primary_locals, rewritten_body)
+  let shared_func = Func::t_func(
+    shared_param_types, primary_locals, rewritten_body,
+  )
   next_funcs.push(shared_func)
   let next_mod = with_type
     .with_func_sec(FuncSec::new(next_type_idxs))

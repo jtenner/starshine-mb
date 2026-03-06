@@ -2225,7 +2225,19 @@ fn run_dead_argument_elim_once(
         } else {
           TExpr::new([..prologue, ..body1.instrs])
         }
-        let new_func = Func::t_func([], new_locals, final_body)
+        let new_params : Array[ValType] = []
+        for param_idx = 0
+            param_idx < old_params.length()
+            param_idx = param_idx + 1 {
+          if removed_unused.contains(param_idx) {
+            continue
+          }
+          if removed_const.get(param_idx) is Some(_) {
+            continue
+          }
+          new_params.push(old_params[param_idx])
+        }
+        let new_func = Func::t_func(new_params, new_locals, final_body)
         let mut emitted_func_changed = false
         if adapted_by_defined[i] {
           let FuncType(old_params, old_results) = func_types[abs_idx]
@@ -2315,7 +2327,7 @@ fn run_dead_argument_elim_once(
           body_changed = true
           stats.functions_rewritten += 1
           match funcs[i] {
-            TFunc(_, ls, _) => new_funcs.push(Func::t_func([], ls, rewritten))
+            TFunc(ps, ls, _) => new_funcs.push(Func::t_func(ps, ls, rewritten))
             _ => new_funcs.push(funcs[i])
           }
         } else {
@@ -2829,8 +2841,8 @@ test "dead argument elimination iterates to convergence through call chains" {
     Some(
       CodeSec(
         [
-          TFunc([], _, { instrs: caller_instrs, .. }),
-          TFunc([], _, { instrs: middle_instrs, .. }),
+          TFunc(_, _, { instrs: caller_instrs, .. }),
+          TFunc(_, _, { instrs: middle_instrs, .. }),
           _,
         ]
       )
