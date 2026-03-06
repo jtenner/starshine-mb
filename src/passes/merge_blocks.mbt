@@ -1422,15 +1422,15 @@ fn mb_finalize_block(block : TInstr, env : Env) -> TInstr {
 fn mb_finalize_block_type(bt : BlockType, body : TExpr, env : Env) -> BlockType {
   match bt {
     VoidBlockType => BlockType::void_()
-    ValTypeBlockType(_) =>
+    ValTypeBlockType(orig_ty) =>
       match mb_infer_texpr_type(body, env) {
         Some(vt) =>
-          match bt {
-            ValTypeBlockType(orig_ty) if vt == orig_ty =>
-              BlockType::val_type(vt)
-            _ => bt
+          if vt == orig_ty {
+            BlockType::val_type(vt)
+          } else {
+            BlockType::val_type(orig_ty)
           }
-        None => BlockType::void_()
+        None => BlockType::val_type(orig_ty)
       }
     TypeIdxBlockType(_) => bt
   }
@@ -3893,6 +3893,35 @@ test "merge blocks: preserves typed if result when branch inference is unknown" 
     Ok(_) => ()
     Err(e) =>
       fail("expected typed-if result to stay valid after merge_blocks: \{e}")
+  }
+}
+
+///|
+test "merge blocks: preserves explicit typed block with branch-produced value" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::local_set(
+          LocalIdx::new(0),
+          TInstr::block(
+            BlockType::val_type(ValType::i32()),
+            TExpr::new([
+              TInstr::block(BlockType::void_(), TExpr::new([TInstr::nop()])),
+              TInstr::br(LabelIdx::new(0), [TInstr::i32_const(I32(9))]),
+            ]),
+          ),
+        ),
+      ]),
+    ),
+  ])
+  let mod = mb_make_test_module_with_body([ValType::i32()], body)
+  assert_eq(validate_module(mod), Ok(()))
+  let out = run_merge_blocks(mod)
+  match validate_module(out) {
+    Ok(_) => ()
+    Err(e) =>
+      fail("expected typed block result to stay valid after merge_blocks: \{e}")
   }
 }
 
