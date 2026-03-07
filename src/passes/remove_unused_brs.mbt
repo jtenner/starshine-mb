@@ -610,6 +610,15 @@ fn rub_rebase_labels_in_texpr_result(
   expr : TExpr,
   delta : Int,
 ) -> Result[TExpr, String] {
+  rub_rebase_labels_in_texpr_from_depth_result(expr, 0, delta)
+}
+
+///|
+fn rub_rebase_labels_in_texpr_from_depth_result(
+  expr : TExpr,
+  start_depth : Int,
+  delta : Int,
+) -> Result[TExpr, String] {
   if delta == 0 {
     return Ok(expr)
   }
@@ -628,7 +637,7 @@ fn rub_rebase_labels_in_texpr_result(
     .on_tinstruction_evt(fn(self, depth, instr) {
       rub_walk_tinstruction_with_depth(self, depth, instr)
     })
-  match pass.walk_texpr(0, expr) {
+  match pass.walk_texpr(start_depth, expr) {
     Ok(Some((_, out))) => Ok(out)
     Ok(None) => Ok(expr)
     Err(e) => Err(e)
@@ -679,6 +688,19 @@ fn rub_try_rebase_labels_in_texpr(expr : TExpr, delta : Int) -> TExpr? {
 }
 
 ///|
+fn rub_try_rebase_labels_in_if_arm(expr : TExpr, delta : Int) -> TExpr? {
+  match rub_rebase_labels_in_texpr_from_depth_result(expr, 1, delta) {
+    Ok(out) => Some(out)
+    Err(e) =>
+      if e == RUB_LABEL_REBASE_CROSSES_REMOVED_SCOPE {
+        None
+      } else {
+        abort("unexpected remove_unused_brs if-arm label rebase failure: \{e}")
+      }
+  }
+}
+
+///|
 fn rub_try_rebase_labels_in_tinstruction(
   instr : TInstr,
   delta : Int,
@@ -701,6 +723,34 @@ fn rub_rebase_labels_in_tinstruction(instr : TInstr, delta : Int) -> TInstr {
   match rub_rebase_labels_in_tinstruction_result(instr, delta) {
     Ok(out) => out
     Err(e) => abort("remove_unused_brs label rebase failed: \{e}")
+  }
+}
+
+///|
+fn rub_retarget_labels_for_sinked_if_arm(expr : TExpr) -> TExpr {
+  let pass = ModuleTransformer::new()
+    .on_labelidx_evt(fn(_, depth, label) {
+      let curr = rub_label_to_int(label)
+      let next = if curr == depth {
+        rub_label_from_int(curr + 1)
+      } else if curr == depth + 1 {
+        rub_label_from_int(curr - 1)
+      } else {
+        label
+      }
+      if next == label {
+        unchanged()
+      } else {
+        change(depth, next)
+      }
+    })
+    .on_tinstruction_evt(fn(self, depth, instr) {
+      rub_walk_tinstruction_with_depth(self, depth, instr)
+    })
+  match pass.walk_texpr(0, expr) {
+    Ok(Some((_, out))) => out
+    Ok(None) => expr
+    Err(e) => abort("remove_unused_brs sunk-if arm label retarget failed: \{e}")
   }
 }
 
@@ -1305,6 +1355,51 @@ fn rub_optimize_loop_tail_branches(
           instrs[last_i] = TInstr::br(exit_label, [])
           return true
         }
+      (
+        TInstrKind::TIf(VoidBlockType, cond, then_body, Some(else_body)),
+        TInstrKind::TBr(loop_label, []),
+      ) =>
+        if rub_is_label_zero(loop_label) {
+          match
+            (rub_is_single_tinstr(then_body), rub_is_single_tinstr(else_body)) {
+            (
+              Some({ kind: TInstrKind::TBr(then_label, then_values), .. }),
+              Some({ kind: TInstrKind::TBr(else_label, else_values), .. }),
+            ) =>
+              if then_values.length() == 0 && else_values.length() == 0 {
+                let rebased_then = match
+                  rub_shift_label_at_depth(then_label, 0, -1) {
+                  Ok(label) => label
+                  Err(_) => return false
+                }
+                let rebased_else = match
+                  rub_shift_label_at_depth(else_label, 0, -1) {
+                  Ok(label) => label
+                  Err(_) => return false
+                }
+                if rub_is_label_zero(rebased_else) &&
+                  !rub_is_label_zero(rebased_then) {
+                  instrs[second_last_i] = TInstr::br_if(
+                    LabelIdx::new(0),
+                    TInstr::unary(UnaryOp::i32_eqz(), cond),
+                    [],
+                  )
+                  instrs[last_i] = TInstr::br(rebased_then, [])
+                  return true
+                } else if rub_is_label_zero(rebased_then) &&
+                  !rub_is_label_zero(rebased_else) {
+                  instrs[second_last_i] = TInstr::br_if(
+                    LabelIdx::new(0),
+                    cond,
+                    [],
+                  )
+                  instrs[last_i] = TInstr::br(rebased_else, [])
+                  return true
+                }
+              }
+            _ => ()
+          }
+        }
       _ => ()
     }
   }
@@ -1403,8 +1498,35 @@ fn rub_optimize_single_if_void_block_wrapper(instr : TInstr) -> (TInstr, Bool) {
   match instr.kind {
     TInstrKind::TBlock(VoidBlockType, { instrs: [single], .. }) =>
       match single.kind {
-        TInstrKind::TIf(VoidBlockType, _, _, Some(_))
-        | TInstrKind::TLoop(VoidBlockType, _) =>
+        TInstrKind::TIf(VoidBlockType, _, _, Some(_)) =>
+          match rub_try_rebase_labels_in_tinstruction(single, -1) {
+            Some(next_single) => (next_single, true)
+            None => (instr, false)
+          }
+        TInstrKind::TIf(VoidBlockType, cond, then_body, None) =>
+          match rub_try_rebase_labels_in_tinstruction(cond, -1) {
+            Some(next_cond) =>
+              match rub_try_rebase_labels_in_if_arm(then_body, -1) {
+                None =>
+                  (
+                    TInstr::if_(
+                      BlockType::void_(),
+                      next_cond,
+                      TExpr::new([
+                        TInstr::block(
+                          BlockType::void_(),
+                          rub_retarget_labels_for_sinked_if_arm(then_body),
+                        ),
+                      ]),
+                      None,
+                    ),
+                    true,
+                  )
+                Some(_) => (instr, false)
+              }
+            None => (instr, false)
+          }
+        TInstrKind::TLoop(VoidBlockType, _) =>
           match rub_try_rebase_labels_in_tinstruction(single, -1) {
             Some(next_single) => (next_single, true)
             None => (instr, false)
@@ -4263,6 +4385,368 @@ test "remove_unused_brs loop optimization lowers tail if-else branch pair" {
 }
 
 ///|
+test "remove_unused_brs loop optimization drops redundant continue arm after tail if-else" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::loop_(
+          BlockType::void_(),
+          TExpr::new([
+            TInstr::if_(
+              BlockType::void_(),
+              TInstr::local_get(LocalIdx::new(0)),
+              TExpr::new([TInstr::br(LabelIdx::new(2), [])]),
+              Some(TExpr::new([TInstr::br(LabelIdx::new(1), [])])),
+            ),
+            TInstr::br(LabelIdx::new(0), []),
+          ]),
+        ),
+      ]),
+    ),
+  ])
+  let mod = rub_single_void_func_module([ValType::i32()], body)
+  let out = rub_run(mod)
+  rub_assert_valid_module(out)
+  match rub_single_func(out) {
+    TFunc(
+      _,
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TBlock(
+              _,
+              {
+                instrs: [
+                  {
+                    kind: TInstrKind::TLoop(
+                      _,
+                      {
+                        instrs: [
+                          {
+                            kind: TInstrKind::TBrIf(
+                              LabelIdx(0U),
+                              {
+                                kind: TInstrKind::TUnary(
+                                  I32EqzOp,
+                                  {
+                                    kind: TInstrKind::TLocalGet(LocalIdx(0U)),
+                                    ..,
+                                  }
+                                ),
+                                ..,
+                              },
+                              []
+                            ),
+                            ..,
+                          },
+                          { kind: TInstrKind::TBr(LabelIdx(1U), []), .. },
+                        ],
+                        ..,
+                      }
+                    ),
+                    ..,
+                  },
+                ],
+                ..,
+              }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => ()
+    _ =>
+      fail(
+        "expected loop-tail if(br exit, br loop); br loop to reach canonical inverted br_if + exit br form",
+      )
+  }
+}
+
+///|
+test "remove_unused_brs loop optimization inverts redundant continue arm after tail if-else" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::loop_(
+          BlockType::void_(),
+          TExpr::new([
+            TInstr::if_(
+              BlockType::void_(),
+              TInstr::local_get(LocalIdx::new(0)),
+              TExpr::new([TInstr::br(LabelIdx::new(1), [])]),
+              Some(TExpr::new([TInstr::br(LabelIdx::new(2), [])])),
+            ),
+            TInstr::br(LabelIdx::new(0), []),
+          ]),
+        ),
+      ]),
+    ),
+  ])
+  let mod = rub_single_void_func_module([ValType::i32()], body)
+  let out = rub_run(mod)
+  rub_assert_valid_module(out)
+  match rub_single_func(out) {
+    TFunc(
+      _,
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TBlock(
+              _,
+              {
+                instrs: [
+                  {
+                    kind: TInstrKind::TLoop(
+                      _,
+                      {
+                        instrs: [
+                          {
+                            kind: TInstrKind::TBrIf(
+                              LabelIdx(0U),
+                              { kind: TInstrKind::TLocalGet(LocalIdx(0U)), .. },
+                              []
+                            ),
+                            ..,
+                          },
+                          { kind: TInstrKind::TBr(LabelIdx(1U), []), .. },
+                        ],
+                        ..,
+                      }
+                    ),
+                    ..,
+                  },
+                ],
+                ..,
+              }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => ()
+    _ =>
+      fail(
+        "expected loop-tail if(br loop, br exit); br loop to reach canonical br_if + exit br form",
+      )
+  }
+}
+
+///|
+test "remove_unused_brs loop optimization lowers one-armed tail if dead end into if-else" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::loop_(
+          BlockType::void_(),
+          TExpr::new([
+            TInstr::if_(
+              BlockType::void_(),
+              TInstr::local_get(LocalIdx::new(0)),
+              TExpr::new([TInstr::br(LabelIdx::new(2), [])]),
+              None,
+            ),
+            TInstr::drop(TInstr::i32_const(I32(1))),
+            TInstr::br(LabelIdx::new(0), []),
+          ]),
+        ),
+      ]),
+    ),
+  ])
+  let mod = rub_single_void_func_module([ValType::i32()], body)
+  let out = rub_run(mod)
+  rub_assert_valid_module(out)
+  match rub_single_func(out) {
+    TFunc(
+      _,
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TBlock(
+              _,
+              {
+                instrs: [
+                  {
+                    kind: TInstrKind::TLoop(
+                      _,
+                      {
+                        instrs: [
+                          {
+                            kind: TInstrKind::TIf(
+                              _,
+                              { kind: TInstrKind::TLocalGet(LocalIdx(0U)), .. },
+                              {
+                                instrs: [
+                                  {
+                                    kind: TInstrKind::TBr(LabelIdx(2U), []),
+                                    ..,
+                                  },
+                                ],
+                                ..,
+                              },
+                              Some(
+                                {
+                                  instrs: [
+                                    {
+                                      kind: TInstrKind::TDrop(
+                                        {
+                                          kind: TInstrKind::TI32Const(I32(1)),
+                                          ..,
+                                        }
+                                      ),
+                                      ..,
+                                    },
+                                    {
+                                      kind: TInstrKind::TBr(LabelIdx(1U), []),
+                                      ..,
+                                    },
+                                  ],
+                                  ..,
+                                }
+                              )
+                            ),
+                            ..,
+                          },
+                        ],
+                        ..,
+                      }
+                    ),
+                    ..,
+                  },
+                ],
+                ..,
+              }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => ()
+    _ =>
+      fail(
+        "expected one-armed loop-tail if dead end to become if(cond, br exit, tail+br loop)",
+      )
+  }
+}
+
+///|
+test "remove_unused_brs loop optimization sinks trailing loop tail into reachable if-else arm" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::loop_(
+          BlockType::void_(),
+          TExpr::new([
+            TInstr::if_(
+              BlockType::void_(),
+              TInstr::local_get(LocalIdx::new(0)),
+              TExpr::new([TInstr::br(LabelIdx::new(2), [])]),
+              Some(TExpr::new([TInstr::drop(TInstr::i32_const(I32(1)))])),
+            ),
+            TInstr::drop(TInstr::i32_const(I32(2))),
+            TInstr::br(LabelIdx::new(0), []),
+          ]),
+        ),
+      ]),
+    ),
+  ])
+  let mod = rub_single_void_func_module([ValType::i32()], body)
+  let out = rub_run(mod)
+  rub_assert_valid_module(out)
+  match rub_single_func(out) {
+    TFunc(
+      _,
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TBlock(
+              _,
+              {
+                instrs: [
+                  {
+                    kind: TInstrKind::TLoop(
+                      _,
+                      {
+                        instrs: [
+                          {
+                            kind: TInstrKind::TIf(
+                              _,
+                              { kind: TInstrKind::TLocalGet(LocalIdx(0U)), .. },
+                              {
+                                instrs: [
+                                  {
+                                    kind: TInstrKind::TBr(LabelIdx(2U), []),
+                                    ..,
+                                  },
+                                ],
+                                ..,
+                              },
+                              Some(
+                                {
+                                  instrs: [
+                                    {
+                                      kind: TInstrKind::TDrop(
+                                        {
+                                          kind: TInstrKind::TI32Const(I32(1)),
+                                          ..,
+                                        }
+                                      ),
+                                      ..,
+                                    },
+                                    {
+                                      kind: TInstrKind::TDrop(
+                                        {
+                                          kind: TInstrKind::TI32Const(I32(2)),
+                                          ..,
+                                        }
+                                      ),
+                                      ..,
+                                    },
+                                    {
+                                      kind: TInstrKind::TBr(LabelIdx(1U), []),
+                                      ..,
+                                    },
+                                  ],
+                                  ..,
+                                }
+                              )
+                            ),
+                            ..,
+                          },
+                        ],
+                        ..,
+                      }
+                    ),
+                    ..,
+                  },
+                ],
+                ..,
+              }
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => ()
+    _ =>
+      fail(
+        "expected reachable if-else arm to absorb trailing loop tail and rebased br 0",
+      )
+  }
+}
+
+///|
 test "remove_unused_brs loop optimization lowers non-adjacent tail br_if into if-else" {
   let body = TExpr::new([
     TInstr::block(
@@ -5155,6 +5639,86 @@ test "remove_unused_brs keeps single-if block wrapper when removed scope is targ
     ) => ()
     _ =>
       fail("expected single-if block wrapper to remain when targeted by branch")
+  }
+}
+
+///|
+test "remove_unused_brs sinks single-if block wrapper into targeted then arm" {
+  let body = TExpr::new([
+    TInstr::block(
+      BlockType::void_(),
+      TExpr::new([
+        TInstr::if_(
+          BlockType::void_(),
+          TInstr::local_get(LocalIdx::new(0)),
+          TExpr::new([
+            TInstr::br_if(
+              LabelIdx::new(1),
+              TInstr::local_get(LocalIdx::new(1)),
+              [],
+            ),
+            TInstr::drop(TInstr::i32_const(I32(9))),
+          ]),
+          None,
+        ),
+      ]),
+    ),
+  ])
+  let mod = rub_single_void_func_module([ValType::i32(), ValType::i32()], body)
+  let out = rub_run(mod)
+  rub_assert_valid_module(out)
+  match rub_single_func(out) {
+    TFunc(
+      _,
+      _,
+      {
+        instrs: [
+          {
+            kind: TInstrKind::TIf(
+              _,
+              { kind: TInstrKind::TLocalGet(LocalIdx(0U)), .. },
+              {
+                instrs: [
+                  {
+                    kind: TInstrKind::TBlock(
+                      _,
+                      {
+                        instrs: [
+                          {
+                            kind: TInstrKind::TBrIf(
+                              LabelIdx(0U),
+                              { kind: TInstrKind::TLocalGet(LocalIdx(1U)), .. },
+                              []
+                            ),
+                            ..,
+                          },
+                          {
+                            kind: TInstrKind::TDrop(
+                              { kind: TInstrKind::TI32Const(I32(9)), .. }
+                            ),
+                            ..,
+                          },
+                        ],
+                        ..,
+                      }
+                    ),
+                    ..,
+                  },
+                ],
+                ..,
+              },
+              None
+            ),
+            ..,
+          },
+        ],
+        ..,
+      }
+    ) => ()
+    _ =>
+      fail(
+        "expected single-if block wrapper to sink into the then arm with rebased branch labels",
+      )
   }
 }
 
